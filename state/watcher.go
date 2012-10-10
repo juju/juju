@@ -487,7 +487,7 @@ func (w *ServiceUnitsWatcher) loop() (err error) {
 // the set of ids of all relations that the service is part of, irrespective
 // of their life state. Subsequent events return batches of newly added
 // relations and relations which have changed their lifecycle. After a
-// relation is found to be Dead, no further event will include it.
+// relation is reported to be Dead, no further event will include it.
 type ServiceRelationsWatcher struct {
 	commonWatcher
 	service *Service
@@ -526,17 +526,14 @@ func (w *ServiceRelationsWatcher) Changes() <-chan []int {
 }
 
 func (w *ServiceRelationsWatcher) initial() (new []int, err error) {
-	docs := []relationDoc{}
-	err = w.st.relations.Find(D{{"endpoints.servicename", w.service.doc.Name}}).Select(D{{"_id", 1}, {"id", 1}, {"life", 1}}).All(&docs)
-	if err == mgo.ErrNotFound {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	for _, doc := range docs {
+	doc := relationDoc{}
+	iter := w.st.relations.Find(D{{"endpoints.servicename", w.service.doc.Name}}).Select(append(D{{"id", 1}}, lifeFields...)).Iter()
+	for iter.Next(&doc) {
 		w.known[doc.Key] = doc
 		new = append(new, doc.Id)
+	}
+	if iter.Err() != nil {
+		return nil, err
 	}
 	return new, nil
 }
@@ -549,7 +546,7 @@ func (w *ServiceRelationsWatcher) merge(pending []int, key string) (new []int, e
 	}
 	old, known := w.known[key]
 	if err == mgo.ErrNotFound {
-		if known && old.Life != Dead {
+		if known && old.Life != Dead && !hasInt(pending, old.Id) {
 			delete(w.known, key)
 			return append(pending, old.Id), nil
 		}
@@ -559,15 +556,10 @@ func (w *ServiceRelationsWatcher) merge(pending []int, key string) (new []int, e
 	if !known {
 		return append(pending, doc.Id), nil
 	}
-	if old.Life != doc.Life {
-		for _, v := range pending {
-			if v == doc.Id {
-				return pending, nil
-			}
-		}
-		pending = append(pending, doc.Id)
+	if old.Life == doc.Life || hasInt(pending, old.Id) {
+		return pending, nil
 	}
-	return pending, nil
+	return append(pending, doc.Id), nil
 }
 
 func (w *ServiceRelationsWatcher) loop() (err error) {
