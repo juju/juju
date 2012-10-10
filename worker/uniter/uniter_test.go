@@ -540,6 +540,7 @@ var uniterTests = []uniterTest{
 			status: state.UnitStarted,
 			charm:  2,
 		},
+		waitHooks{"upgrade-charm", "config-changed"},
 		verifyCharm{revision: 2},
 		custom{func(c *C, ctx *context) {
 			// otherdata should exist (in v2)
@@ -944,34 +945,18 @@ func (s verifyCharm) step(c *C, ctx *context) {
 		c.Assert(ch.URL(), DeepEquals, curl(s.revision))
 	}
 
-	// Even if the charm itself has been updated correctly, it is possible that
-	// a hook has run and is being committed by git; which will cause all manner
-	// of bad stuff to happen when we try to get the status below. So we retry
-	// until we're sure it's not working.
-	output := ""
-	timeout := time.After(500 * time.Millisecond)
-loop:
-	for {
-		select {
-		case <-timeout:
-			c.Fatalf("failed to get sane git status")
-		case <-time.After(50 * time.Millisecond):
-			cmd := exec.Command("git", "status")
-			cmd.Dir = filepath.Join(ctx.path, "charm")
-			out, err := cmd.CombinedOutput()
-			if err == nil {
-				output = string(out)
-				break loop
-			} else {
-				c.Logf("(transitory?) git problem: %#v", err)
-			}
-		}
-	}
+	// Before we try to check the git status, make sure expected hooks are all
+	// complete, to prevent the test and the uniter interfering with each other.
+	step(c, ctx, waitHooks{})
+	cmd := exec.Command("git", "status")
+	cmd.Dir = filepath.Join(ctx.path, "charm")
+	out, err := cmd.CombinedOutput()
+	c.Assert(err, IsNil)
 	cmp := Equals
 	if s.dirty {
 		cmp = Not(Equals)
 	}
-	c.Assert(output, cmp, "# On branch master\nnothing to commit (working directory clean)\n")
+	c.Assert(string(out), cmp, "# On branch master\nnothing to commit (working directory clean)\n")
 }
 
 type startUpgradeError struct{}
