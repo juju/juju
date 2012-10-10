@@ -17,9 +17,10 @@ import (
 
 // HookContext is the implementation of jujuc.Context.
 type HookContext struct {
-	unit *state.Unit
+	service *state.Service
+	unit    *state.Unit
 
-	// config holds the service's config.
+	// config holds the service configuration.
 	config map[string]interface{}
 
 	// id identifies the context.
@@ -40,8 +41,9 @@ type HookContext struct {
 	relations map[int]*ContextRelation
 }
 
-func NewHookContext(unit *state.Unit, id string, relationId int, remoteUnitName string, relations map[int]*ContextRelation) *HookContext {
+func NewHookContext(service *state.Service, unit *state.Unit, id string, relationId int, remoteUnitName string, relations map[int]*ContextRelation) *HookContext {
 	return &HookContext{
+		service:        service,
 		unit:           unit,
 		id:             id,
 		relationId:     relationId,
@@ -72,15 +74,11 @@ func (ctx *HookContext) ClosePort(protocol string, port int) error {
 
 func (ctx *HookContext) Config() (map[string]interface{}, error) {
 	if ctx.config == nil {
-		service, err := ctx.unit.Service()
+		settings, err := ctx.service.Config()
 		if err != nil {
 			return nil, err
 		}
-		settings, err := service.Config()
-		if err != nil {
-			return nil, err
-		}
-		charm, _, err := service.Charm()
+		charm, _, err := ctx.service.Charm()
 		if err != nil {
 			return nil, err
 		}
