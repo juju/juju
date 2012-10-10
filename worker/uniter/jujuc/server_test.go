@@ -164,3 +164,41 @@ func (s *ServerSuite) TestBrokenCommand(c *C) {
 	c.Assert(string(resp.Stdout), Equals, "")
 	c.Assert(string(resp.Stderr), Equals, "error: blam\n")
 }
+
+type NewCommandSuite struct {
+	ContextSuite
+}
+
+var _ = Suite(&NewCommandSuite{})
+
+var newCommandTests = []struct {
+	name string
+	err  string
+}{
+	{"close-port", ""},
+	{"config-get", ""},
+	{"juju-log", ""},
+	{"open-port", ""},
+	{"relation-get", ""},
+	{"relation-ids", ""},
+	{"relation-list", ""},
+	{"relation-set", ""},
+	{"unit-get", ""},
+	{"random", "unknown command: random"},
+}
+
+func (s *NewCommandSuite) TestNewCommand(c *C) {
+	ctx := s.GetHookContext(c, 0, "")
+	for _, t := range newCommandTests {
+		com, err := jujuc.NewCommand(ctx, t.name)
+		if t.err == "" {
+			// At this level, just check basic sanity; commands are tested in
+			// more detail elsewhere.
+			c.Assert(err, IsNil)
+			c.Assert(com.Info().Name, Equals, t.name)
+		} else {
+			c.Assert(com, IsNil)
+			c.Assert(err, ErrorMatches, t.err)
+		}
+	}
+}

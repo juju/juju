@@ -3,8 +3,6 @@ package jujuc_test
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
-	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/log"
@@ -13,7 +11,7 @@ import (
 )
 
 type JujuLogSuite struct {
-	HookContextSuite
+	ContextSuite
 }
 
 var _ = Suite(&JujuLogSuite{})
@@ -27,12 +25,6 @@ func pushLog(debug bool) (buf *bytes.Buffer, pop func()) {
 	}
 }
 
-func dummyFlagSet() *gnuflag.FlagSet {
-	f := gnuflag.NewFlagSet("", gnuflag.ContinueOnError)
-	f.SetOutput(ioutil.Discard)
-	return f
-}
-
 var commonLogTests = []struct {
 	debugEnabled bool
 	debugFlag    bool
@@ -44,10 +36,10 @@ var commonLogTests = []struct {
 	{true, true, "JUJU:DEBUG"},
 }
 
-func assertLogs(c *C, ctx *jujuc.HookContext, badge string) {
+func assertLogs(c *C, ctx jujuc.Context, badge string) {
 	msg1 := "the chickens"
 	msg2 := "are 110% AWESOME"
-	com, err := ctx.NewCommand("juju-log")
+	com, err := jujuc.NewCommand(ctx, "juju-log")
 	c.Assert(err, IsNil)
 	for _, t := range commonLogTests {
 		buf, pop := pushLog(t.debugEnabled)
@@ -79,21 +71,21 @@ func (s *JujuLogSuite) TestBadges(c *C) {
 }
 
 func (s *JujuLogSuite) TestRequiresMessage(c *C) {
-	ctx := &jujuc.HookContext{}
-	com, err := ctx.NewCommand("juju-log")
+	ctx := &Context{}
+	com, err := jujuc.NewCommand(ctx, "juju-log")
 	c.Assert(err, IsNil)
 	err = com.Init(dummyFlagSet(), nil)
 	c.Assert(err, ErrorMatches, "no message specified")
 }
 
 func (s *JujuLogSuite) TestLogLevel(c *C) {
-	ctx := &jujuc.HookContext{}
-	com, err := ctx.NewCommand("juju-log")
+	ctx := &Context{}
+	com, err := jujuc.NewCommand(ctx, "juju-log")
 	c.Assert(err, IsNil)
 	// missing log level argument
 	err = com.Init(dummyFlagSet(), []string{"-l"})
 	c.Assert(err, ErrorMatches, "flag needs an argument.*")
-	com, err = ctx.NewCommand("juju-log")
+	com, err = jujuc.NewCommand(ctx, "juju-log")
 	c.Assert(err, IsNil)
 	// valid log level
 	err = com.Init(dummyFlagSet(), []string{"-l", "FATAL"})

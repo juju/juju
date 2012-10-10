@@ -10,14 +10,14 @@ import (
 
 // JujuLogCommand implements the juju-log command.
 type JujuLogCommand struct {
-	*HookContext
+	ctx     Context
 	Message string
 	Debug   bool
 	Level   string // unused
 }
 
-func NewJujuLogCommand(ctx *HookContext) (cmd.Command, error) {
-	return &JujuLogCommand{HookContext: ctx}, nil
+func NewJujuLogCommand(ctx Context) cmd.Command {
+	return &JujuLogCommand{ctx: ctx}
 }
 
 func (c *JujuLogCommand) Info() *cmd.Info {
@@ -39,11 +39,11 @@ func (c *JujuLogCommand) Init(f *gnuflag.FlagSet, args []string) error {
 }
 
 func (c *JujuLogCommand) Run(_ *cmd.Context) error {
-	s := []string{c.Unit.Name()}
-	if c.RelationId != -1 {
-		s = append(s, c.envRelationId())
+	badge := c.ctx.UnitName()
+	if r, found := c.ctx.HookRelation(); found {
+		badge = badge + " " + r.FakeId()
 	}
-	msg := strings.Join(s, " ") + ": " + c.Message
+	msg := badge + ": " + c.Message
 	if c.Debug {
 		log.Debugf("%s", msg)
 	} else {

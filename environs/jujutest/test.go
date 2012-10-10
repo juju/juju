@@ -3,16 +3,9 @@ package jujutest
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"time"
 )
-
-// InvalidStateInfo holds information about no state - it will always give
-// an error when connected to.
-var InvalidStateInfo = &state.Info{
-	Addrs: []string{"0.1.2.3:1234"},
-}
 
 // Tests is a gocheck suite containing tests verifying juju functionality
 // against the environment with Name that must exist within Environs. The

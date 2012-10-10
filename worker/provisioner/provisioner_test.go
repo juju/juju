@@ -47,7 +47,7 @@ func (s *ProvisionerSuite) SetUpTest(c *C) {
 }
 
 // invalidateEnvironment alters the environment configuration
-// so the ConfigNode returned from the watcher will not pass
+// so the Settings returned from the watcher will not pass
 // validation.
 func (s *ProvisionerSuite) invalidateEnvironment() error {
 	settings := s.Session.DB("juju").C("settings")
@@ -73,7 +73,9 @@ func (s *ProvisionerSuite) checkStartInstance(c *C, m *state.Machine, secret str
 		case o := <-s.op:
 			switch o := o.(type) {
 			case dummy.OpStartInstance:
-				c.Assert(o.Info, DeepEquals, s.StateInfo(c))
+				info := s.StateInfo(c)
+				info.EntityName = m.EntityName()
+				c.Assert(o.Info, DeepEquals, info)
 				c.Assert(o.MachineId, Equals, m.Id())
 				c.Assert(o.Instance, NotNil)
 				s.checkInstanceId(c, m, o.Instance)

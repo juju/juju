@@ -10,10 +10,17 @@ import (
 )
 
 type RelationGetSuite struct {
-	HookContextSuite
+	ContextSuite
 }
 
 var _ = Suite(&RelationGetSuite{})
+
+func (s *RelationGetSuite) SetUpTest(c *C) {
+	s.ContextSuite.SetUpTest(c)
+	s.rels[0].units["u/0"]["private-address"] = "foo: bar\n"
+	s.rels[1].units["m/0"] = map[string]interface{}{"pew": "pew\npew\n"}
+	s.rels[1].units["u/1"] = map[string]interface{}{"value": "12345"}
+}
 
 var relationGetTests = []struct {
 	summary  string
@@ -56,7 +63,7 @@ var relationGetTests = []struct {
 		relid:   1,
 		unit:    "bad/0",
 		code:    1,
-		out:     `cannot read settings for unit "bad/0" in relation "u:peer1": .*`,
+		out:     `unknown unit bad/0`,
 	}, {
 		summary: "all keys with implicit member",
 		relid:   1,
@@ -152,31 +159,11 @@ var relationGetTests = []struct {
 	},
 }
 
-func (s *RelationGetSuite) SetUpTest(c *C) {
-	s.HookContextSuite.SetUpTest(c)
-	// Perturb local settings for relation 0.
-	node, err := s.relctxs[0].Settings()
-	c.Assert(err, IsNil)
-	node.Set("private-address", "foo: bar\n")
-
-	// Add some member settings for a "member" in relation 1.
-	s.relctxs[1].UpdateMembers(jujuc.SettingsMap{
-		"m/0": map[string]interface{}{"pew": "pew\npew\n"},
-	})
-
-	// Add some faked-up settings for a non-member in relation 1.
-	unit := s.AddUnit(c)
-	rel := s.relunits[1].Relation()
-	ru, err := rel.Unit(unit)
-	c.Assert(err, IsNil)
-	setSettings(c, ru, map[string]interface{}{"value": "12345"})
-}
-
 func (s *RelationGetSuite) TestRelationGet(c *C) {
 	for i, t := range relationGetTests {
 		c.Logf("test %d: %s", i, t.summary)
 		hctx := s.GetHookContext(c, t.relid, t.unit)
-		com, err := hctx.NewCommand("relation-get")
+		com, err := jujuc.NewCommand(hctx, "relation-get")
 		c.Assert(err, IsNil)
 		ctx := dummyContext(c)
 		code := cmd.Main(com, ctx, t.args)
@@ -241,7 +228,7 @@ func (s *RelationGetSuite) TestHelp(c *C) {
 	for i, t := range relationGetHelpTests {
 		c.Logf("test %d", i)
 		hctx := s.GetHookContext(c, t.relid, t.unit)
-		com, err := hctx.NewCommand("relation-get")
+		com, err := jujuc.NewCommand(hctx, "relation-get")
 		c.Assert(err, IsNil)
 		ctx := dummyContext(c)
 		code := cmd.Main(com, ctx, []string{"--help"})
@@ -258,7 +245,7 @@ func (s *RelationGetSuite) TestHelp(c *C) {
 
 func (s *RelationGetSuite) TestOutputPath(c *C) {
 	hctx := s.GetHookContext(c, 1, "m/0")
-	com, err := hctx.NewCommand("relation-get")
+	com, err := jujuc.NewCommand(hctx, "relation-get")
 	c.Assert(err, IsNil)
 	ctx := dummyContext(c)
 	code := cmd.Main(com, ctx, []string{"--output", "some-file", "pew"})

@@ -9,21 +9,21 @@ import (
 
 // RelationIdsCommand implements the relation-ids command.
 type RelationIdsCommand struct {
-	*HookContext
+	ctx  Context
 	Name string
 	out  cmd.Output
 }
 
-func NewRelationIdsCommand(ctx *HookContext) (cmd.Command, error) {
-	return &RelationIdsCommand{HookContext: ctx}, nil
+func NewRelationIdsCommand(ctx Context) cmd.Command {
+	return &RelationIdsCommand{ctx: ctx}
 }
 
 func (c *RelationIdsCommand) Info() *cmd.Info {
 	args := "<name>"
 	doc := ""
-	if name := c.envRelation(); name != "" {
+	if r, found := c.ctx.HookRelation(); found {
 		args = "[<name>]"
-		doc = fmt.Sprintf("Current default relation name is %q.", name)
+		doc = fmt.Sprintf("Current default relation name is %q.", r.Name())
 	}
 	return &cmd.Info{
 		"relation-ids", args, "list all relation ids with the given relation name", doc,
@@ -36,7 +36,9 @@ func (c *RelationIdsCommand) Init(f *gnuflag.FlagSet, args []string) error {
 		return err
 	}
 	args = f.Args()
-	c.Name = c.envRelation()
+	if r, found := c.ctx.HookRelation(); found {
+		c.Name = r.Name()
+	}
 	if len(args) > 0 {
 		c.Name = args[0]
 		args = args[1:]
@@ -48,9 +50,9 @@ func (c *RelationIdsCommand) Init(f *gnuflag.FlagSet, args []string) error {
 
 func (c *RelationIdsCommand) Run(ctx *cmd.Context) error {
 	result := []string{}
-	for id, rctx := range c.Relations {
-		if rctx.ru.Endpoint().RelationName == c.Name {
-			result = append(result, fmt.Sprintf("%s:%d", c.Name, id))
+	for _, id := range c.ctx.RelationIds() {
+		if r, found := c.ctx.Relation(id); found && r.Name() == c.Name {
+			result = append(result, r.FakeId())
 		}
 	}
 	sort.Strings(result)
