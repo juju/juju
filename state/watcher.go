@@ -89,6 +89,24 @@ type MachinePrincipalUnitsChange struct {
 	Removed []*Unit
 }
 
+func hasString(changes []string, name string) bool {
+	for _, v := range changes {
+		if v == name {
+			return true
+		}
+	}
+	return false
+}
+
+func hasInt(changes []int, id int) bool {
+	for _, v := range changes {
+		if v == id {
+			return true
+		}
+	}
+	return false
+}
+
 // MachineWatcher observes changes to the properties of a machine.
 type MachineWatcher struct {
 	commonWatcher
@@ -372,8 +390,8 @@ func (w *ServicesWatcher) loop() (err error) {
 // belonging to the service. The first event returned by the watcher is the
 // set of names of all units that are part of the service, irrespective of
 // their life state. Subsequent events return batches of newly added units
-// and units which have changed their lifecycle.  After a unit is found to
-// be Dead, no further event will include it.
+// and units which have changed their lifecycle.  After a unit is reported
+// to be Dead, no further event will include it.
 type ServiceUnitsWatcher struct {
 	commonWatcher
 	service *Service
@@ -415,36 +433,30 @@ func (w *ServiceUnitsWatcher) merge(pending []string, name string) (changes []st
 	life, known := w.known[name]
 	if err == mgo.ErrNotFound {
 		delete(w.known, name)
-		if known && life != Dead {
+		if known && life != Dead && !hasString(pending, name) {
 			return append(pending, name), nil
 		}
 		return pending, nil
 	}
+	w.known[name] = doc.Life
 	if !known {
-		w.known[name] = doc.Life
 		return append(pending, name), nil
 	}
-	if life == doc.Life {
+	if life == doc.Life || hasString(pending, name) {
 		return pending, nil
-	}
-	w.known[name] = doc.Life
-	for _, v := range pending {
-		if name == v {
-			return pending, nil
-		}
 	}
 	return append(pending, name), nil
 }
 
 func (w *ServiceUnitsWatcher) initial() (changes []string, err error) {
-	docs := []unitDoc{}
-	err = w.st.units.Find(D{{"service", w.service.doc.Name}}).Select(D{{"_id", 1}, {"Life", 1}}).All(&docs)
-	if err != nil {
-		return nil, err
-	}
-	for _, doc := range docs {
+	doc := &unitDoc{}
+	iter := w.st.units.Find(D{{"service", w.service.doc.Name}}).Select(lifeFields).Iter()
+	for iter.Next(doc) {
 		w.known[doc.Name] = doc.Life
 		changes = append(changes, doc.Name)
+	}
+	if iter.Err() != nil {
+		return nil, err
 	}
 	return changes, nil
 }
