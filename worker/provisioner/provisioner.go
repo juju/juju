@@ -1,10 +1,12 @@
 package provisioner
 
 import (
+	"fmt"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
+	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/tomb"
 )
@@ -72,7 +74,7 @@ func (p *Provisioner) loop() error {
 				return watcher.MustErr(environWatcher)
 			}
 			if err := p.environ.SetConfig(cfg); err != nil {
-				log.Printf("provisioner loaded invalid environment configuration: %v", err)
+				log.Printf("provisioner: loaded invalid environment configuration: %v", err)
 			}
 		case ids, ok := <-machinesWatcher.Changes():
 			if !ok {
@@ -204,7 +206,7 @@ func (p *Provisioner) pendingOrDead(ids []int) (pending, dead []*state.Machine, 
 		if err != nil {
 			return nil, nil, err
 		}
-		log.Printf("machine %v already started as instance %q", m, instId)
+		log.Printf("provisioner: machine %v already started as instance %q", m, instId)
 	}
 	return
 }
@@ -221,16 +223,22 @@ func (p *Provisioner) startMachines(machines []*state.Machine) error {
 func (p *Provisioner) startMachine(m *state.Machine) error {
 	// TODO(dfc) the state.Info passed to environ.StartInstance remains contentious
 	// however as the PA only knows one state.Info, and that info is used by MAs and 
+	password, err := trivial.RandomPassword()
+	if err != nil {
+		return fmt.Errorf("cannot make password for new machine: %v", err)
+	}
+	if err := m.SetPassword(password); err != nil {
+		return fmt.Errorf("cannot set password for new machine: %v", err)
+	}
 	// UAs to locate the ZK for this environment, it is logical to use the same 
 	// state.Info as the PA. 
 	info := *p.info
 	info.EntityName = m.EntityName()
+	info.Password = password
 	inst, err := p.environ.StartInstance(m.Id(), &info, nil)
 	if err != nil {
-		log.Printf("provisioner cannot start machine %s: %v", m, err)
-		return err
+		return fmt.Errorf("cannot start instance for new machine: %v", err)
 	}
-
 	// assign the instance id to the machine
 	if err := m.SetInstanceId(inst.Id()); err != nil {
 		return err
@@ -239,7 +247,7 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 	// populate the local cache
 	p.instances[m.Id()] = inst
 	p.machines[inst.Id()] = m.Id()
-	log.Printf("provisioner started machine %s as instance %s", m, inst.Id())
+	log.Printf("provisioner: started machine %s as instance %s", m, inst.Id())
 	return nil
 }
 

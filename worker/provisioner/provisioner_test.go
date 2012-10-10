@@ -75,7 +75,16 @@ func (s *ProvisionerSuite) checkStartInstance(c *C, m *state.Machine, secret str
 			case dummy.OpStartInstance:
 				info := s.StateInfo(c)
 				info.EntityName = m.EntityName()
+				c.Assert(o.Info.Password, Not(HasLen), 0)
+				info.Password = o.Info.Password
 				c.Assert(o.Info, DeepEquals, info)
+
+				// Check we can connect to the state with
+				// the machine's entity name and password.
+				st, err := state.Open(o.Info)
+				c.Assert(err, IsNil)
+				st.Close()
+				
 				c.Assert(o.MachineId, Equals, m.Id())
 				c.Assert(o.Instance, NotNil)
 				s.checkInstanceId(c, m, o.Instance)
