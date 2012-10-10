@@ -68,11 +68,11 @@ func (c *Simple) Deploy(unit *state.Unit, info *state.Info, tools *state.Tools) 
 		return fmt.Errorf("cannot make password for unit: %v", err)
 	}
 	cmd := fmt.Sprintf(
-		"%s unit" +
-		" --state-servers '%s'" +
-		" --log-file %s" +
-		" --unit-name %s" +
-		" --initial-password %s",
+		"%s unit"+
+			" --state-servers '%s'"+
+			" --log-file %s"+
+			" --unit-name %s"+
+			" --initial-password %s",
 		filepath.Join(toolsDir, "jujud"),
 		strings.Join(info.Addrs, ","),
 		filepath.Join("/var/log/juju", unit.EntityName()+".log"),
