@@ -607,11 +607,11 @@ func (s *InterfaceSuite) TestConfigCaching(c *C) {
 	_, err = node.Write()
 	c.Assert(err, IsNil)
 
-	// Local view is updated immediately. TODO lp:1063619
+	// Local view is not changed.
 	cfg, err = ctx.Config()
 	c.Assert(err, IsNil)
 	c.Assert(cfg, DeepEquals, map[string]interface{}{
-		"title":    "Something Else",
+		"title":    "My Title",
 		"username": "admin001",
 	})
 }
@@ -666,5 +666,5 @@ func (s *HookContextSuite) GetHookContext(c *C, relid int, remote string) *unite
 		_, found := s.relctxs[relid]
 		c.Assert(found, Equals, true)
 	}
-	return uniter.NewHookContext(s.service, s.unit, "TestCtx", relid, remote, s.relctxs)
+	return uniter.NewHookContext(s.unit, "TestCtx", relid, remote, s.relctxs)
 }
