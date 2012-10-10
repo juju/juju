@@ -149,3 +149,14 @@ func isUpgraded(err error) bool {
 	_, ok := err.(*UpgradeReadyError)
 	return ok
 }
+
+// openState tries to open the state with the given entity name
+// and configuration information.
+func openState(entityName string, conf *AgentConf) (*state.State, error) {
+	// TODO read password from file and try to use that
+	info := conf.StateInfo
+	info.EntityName = entityName
+	info.Password = conf.InitialPassword
+	return state.Open(&info)
+}
+
