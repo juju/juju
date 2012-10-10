@@ -984,7 +984,7 @@ func testSetPassword(c *C, getEntity func(st *state.State) (entity, error)) {
 	err = tryOpenState(info)
 	c.Assert(err, IsNil)
 
-	// Remove the admin password so that the test harness can reset.
+	// Remove the admin password so that the test harness can reset the state.
 	err = st.SetAdminPassword("")
 	c.Assert(err, IsNil)
 }
