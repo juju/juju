@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/log"
 	"net"
 	"os"
 	"os/exec"
@@ -13,9 +14,17 @@ import (
 	"time"
 )
 
-// MgoAddr holds the address of the shared MongoDB server set up by
-// StartMgoServer.
-var MgoAddr string
+var (
+	// MgoAddr holds the address of the shared MongoDB server set up by
+	// MgoTestPackage.
+	MgoAddr string
+
+	// mgoServer holds the running MongoDB command.
+	mgoServer *exec.Cmd
+
+	// mgoDir holds the directory that MongoDB is running in.
+	mgoDir string
+)
 
 // MgoSuite is a suite that deletes all content from the shared MongoDB
 // server at the end of every test and supplies a connection to the shared
@@ -24,12 +33,12 @@ type MgoSuite struct {
 	Session *mgo.Session
 }
 
-// StartMgoServer starts a MongoDB server in a temporary directory.
+// startMgoServer starts a MongoDB server in a temporary directory.
 // It panics if it encounters an error.
-func StartMgoServer() (server *exec.Cmd, dbdir string, err error) {
-	dbdir, err = ioutil.TempDir("", "test-mgo")
+func startMgoServer() error {
+	dbdir, err := ioutil.TempDir("", "test-mgo")
 	if err != nil {
-		return
+		return err
 	}
 	mgoport := strconv.Itoa(FindTCPPort())
 	mgoargs := []string{
@@ -42,30 +51,33 @@ func StartMgoServer() (server *exec.Cmd, dbdir string, err error) {
 		"--smallfiles",
 		"--nojournal",
 	}
-	server = exec.Command("mongod", mgoargs...)
-	err = server.Start()
-	if err != nil {
+	server := exec.Command("mongod", mgoargs...)
+	if err := server.Start(); err != nil {
 		os.RemoveAll(dbdir)
-		return
+		return err
 	}
 	MgoAddr = "localhost:" + mgoport
-	return
+	mgoServer = server
+	mgoDir = dbdir
+	return nil
 }
 
-func MgoDestroy(server *exec.Cmd, dbdir string) {
-	server.Process.Kill()
-	server.Process.Wait()
-	os.RemoveAll(dbdir)
+func destroyMgoServer() {
+	if mgoServer != nil {
+		mgoServer.Process.Kill()
+		mgoServer.Process.Wait()
+		os.RemoveAll(mgoDir)
+		MgoAddr, mgoServer, mgoDir = "", nil, ""
+	}
 }
 
 // MgoTestPackage should be called to register the tests for any package that
 // requires a MongoDB server.
 func MgoTestPackage(t *stdtesting.T) {
-	server, dbdir, err := StartMgoServer()
-	if err != nil {
+	if err := startMgoServer(); err != nil {
 		t.Fatal(err)
 	}
-	defer MgoDestroy(server, dbdir)
+	defer destroyMgoServer()
 	TestingT(t)
 }
 
@@ -97,6 +109,17 @@ func MgoReset() {
 	session := MgoDial()
 	defer session.Close()
 	dbnames, err := session.DatabaseNames()
+	if isUnauthorized(err) {
+		// If we've got an unauthorized access error, we're
+		// locked out of the database.  We restart it to regain
+		// access.  This should only happen when tests fail.
+		destroyMgoServer()
+		log.Printf("testing: restarting MongoDB server after unauthorized access")
+		if err := startMgoServer(); err != nil {
+			panic(err)
+		}
+		return
+	}
 	if err != nil {
 		panic(err)
 	}
@@ -110,6 +133,15 @@ func MgoReset() {
 			}
 		}
 	}
+}
+
+func isUnauthorized(err error) bool {
+	if err, ok := err.(*mgo.QueryError); ok {
+		if err.Code == 10057 || err.Message == "need to login" {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *MgoSuite) TearDownTest(c *C) {
