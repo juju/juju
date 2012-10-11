@@ -269,15 +269,15 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	_, err = node.Write()
 	c.Assert(err, IsNil)
 	s.State.Sync()
-	f.ResetConfigEvent()
+	f.DiscardConfigEvent()
 	assertNoChange()
 
-	// Check that a filter's initial event works with ResetConfigEvent
+	// Check that a filter's initial event works with DiscardConfigEvent
 	// as expected.
 	f, err = newFilter(s.State, s.unit.Name())
 	c.Assert(err, IsNil)
 	defer f.Stop()
-	f.ResetConfigEvent()
+	f.DiscardConfigEvent()
 	s.State.Sync()
 	assertNoChange()
 

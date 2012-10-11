@@ -1,13 +1,13 @@
 package main
 
 import (
-	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
+	"os"
 	"time"
 )
 
@@ -104,6 +104,9 @@ func (s *UnitSuite) newAgent(c *C) (*UnitAgent, *state.Unit, *state.Tools) {
 	c.Assert(err, IsNil)
 	c.Assert(tools1, DeepEquals, tools)
 
+	err = os.MkdirAll(environs.AgentDir(dataDir, unit.EntityName()), 0777)
+	c.Assert(err, IsNil)
+
 	return &UnitAgent{
 		Conf: AgentConf{
 			DataDir:         dataDir,
@@ -129,18 +132,12 @@ func (s *UnitSuite) TestUpgrade(c *C) {
 }
 
 func (s *UnitSuite) TestWithDeadUnit(c *C) {
-	ch := s.AddTestingCharm(c, "dummy")
-	svc, err := s.Conn.AddService("dummy", ch)
-	c.Assert(err, IsNil)
-	unit, err := svc.AddUnit()
-	c.Assert(err, IsNil)
-	err = unit.SetPassword("unit-password")
-	c.Assert(err, IsNil)
-	err = unit.EnsureDead()
+	a, unit, _ := s.newAgent(c)
+	err := unit.EnsureDead()
 	c.Assert(err, IsNil)
 
-	dataDir := c.MkDir()
-	a := &UnitAgent{
+	dataDir := a.Conf.DataDir
+	a = &UnitAgent{
 		Conf: AgentConf{
 			DataDir:         dataDir,
 			StateInfo:       *s.StateInfo(c),
@@ -149,6 +146,9 @@ func (s *UnitSuite) TestWithDeadUnit(c *C) {
 		UnitName: unit.Name(),
 	}
 	err = runWithTimeout(a)
+	c.Assert(err, IsNil)
+
+	svc, err := s.State.Service(unit.ServiceName())
 	c.Assert(err, IsNil)
 
 	// try again when the unit has been removed.
@@ -166,21 +166,18 @@ func (s *UnitSuite) TestWithDeadUnit(c *C) {
 	c.Assert(err, IsNil)
 }
 
-type runner interface {
-	Run(*cmd.Context) error
-	Stop() error
-}
-
-func runWithTimeout(runner runner) error {
-	done := make(chan error)
-	go func() {
-		done <- runner.Run(nil)
-	}()
-	select {
-	case err := <-done:
-		return err
-	case <-time.After(5 * time.Second):
+func (s *UnitSuite) TestChangePasswordChanging(c *C) {
+	a, unit, _ := s.newAgent(c)
+	dataDir := a.Conf.DataDir
+	newAgent := func(initialPassword string) runner {
+		return &UnitAgent{
+			Conf: AgentConf{
+				DataDir:         dataDir,
+				StateInfo:       *s.StateInfo(c),
+				InitialPassword: initialPassword,
+			},
+			UnitName: unit.Name(),
+		}
 	}
-	err := runner.Stop()
-	return fmt.Errorf("timed out waiting for agent to finish; stop error: %v", err)
+	testAgentPasswordChanging(&s.JujuConnSuite, c, unit, dataDir, newAgent)
 }

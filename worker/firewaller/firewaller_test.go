@@ -72,16 +72,9 @@ func (s *FirewallerSuite) addUnit(c *C, svc *state.Service) (*state.Unit, *state
 	return u, m
 }
 
-func (s *FirewallerSuite) StateInfo(c *C, m *state.Machine) *state.Info {
-	info := s.JujuConnSuite.StateInfo(c)
-	info.EntityName = m.EntityName()
-	info.Password = "irrelevant"
-	return info
-}
-
 // startInstance starts a new instance for the given machine.
 func (s *FirewallerSuite) startInstance(c *C, m *state.Machine) environs.Instance {
-	inst, err := s.Conn.Environ.StartInstance(m.Id(), s.StateInfo(c, m), nil)
+	inst, err := s.Conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), nil)
 	c.Assert(err, IsNil)
 	err = m.SetInstanceId(inst.Id())
 	c.Assert(err, IsNil)
@@ -258,7 +251,7 @@ func (s *FirewallerSuite) TestFirewallerStartWithState(c *C) {
 func (s *FirewallerSuite) TestFirewallerStartWithPartialState(c *C) {
 	m, err := s.State.AddMachine(state.MachinerWorker)
 	c.Assert(err, IsNil)
-	inst, err := s.Conn.Environ.StartInstance(m.Id(), s.StateInfo(c, m), nil)
+	inst, err := s.Conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), nil)
 	c.Assert(err, IsNil)
 	err = m.SetInstanceId(inst.Id())
 	c.Assert(err, IsNil)

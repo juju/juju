@@ -28,6 +28,7 @@ import (
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
 	"net"
 	"net/http"
@@ -396,11 +397,16 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 		info := stateInfo()
 		cfg, err := environs.BootstrapConfig(&providerInstance, e.ecfg().Config, tools)
 		if err != nil {
-			return err
+			return fmt.Errorf("cannot make bootstrap config: %v", err)
 		}
 		st, err := state.Initialize(info, cfg)
 		if err != nil {
 			panic(err)
+		}
+		if password := e.Config().AdminSecret(); password != "" {
+			if err := st.SetAdminPassword(trivial.PasswordHash(password)); err != nil {
+				return err
+			}
 		}
 		if err := st.Close(); err != nil {
 			panic(err)

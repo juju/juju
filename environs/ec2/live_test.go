@@ -29,6 +29,7 @@ environments:
     type: ec2
     control-bucket: 'juju-test-%s'
     public-bucket: 'juju-public-test-%s'
+    admin-secret: 'for real'
 `, uniqueName, uniqueName, uniqueName)
 
 // uniqueName is generated afresh for every test, so that
