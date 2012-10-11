@@ -358,25 +358,30 @@ func ChangeAgentTools(dataDir string, agentName string, vers version.Binary) (*s
 	return tools, nil
 }
 
-// ToolsStoragePath returns the slash-separated path that is used to store and
+// ToolsStoragePath returns the path that is used to store and
 // retrieve the given version of the juju tools in a Storage.
 func ToolsStoragePath(vers version.Binary) string {
 	return toolPrefix + vers.String() + ".tgz"
 }
 
-// ToolsDir returns the slash-separated directory name that is used to
+// ToolsDir returns the directory that is used to
 // store binaries for the given version of the juju tools
 // within the dataDir directory.
 func ToolsDir(dataDir string, vers version.Binary) string {
 	return path.Join(dataDir, "tools", vers.String())
 }
 
-// AgentToolsDir returns the slash-separated directory name that is used
+// AgentToolsDir returns the directory that is used
 // to store binaries for the tools used by the given agent
 // within the given dataDir directory.
 // Conventionally it is a symbolic link to the actual tools directory.
 func AgentToolsDir(dataDir, agentName string) string {
 	return path.Join(dataDir, "tools", agentName)
+}
+
+// AgentDir returns the agent-specific data directory.
+func AgentDir(dataDir, agentName string) string {
+	return path.Join(dataDir, "agents", agentName)
 }
 
 // ToolsSearchFlags gives options when searching

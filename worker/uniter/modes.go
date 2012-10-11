@@ -60,11 +60,13 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 
 	// Filter out states not related to charm deployment.
 	switch s.Op {
-	case Abide:
+	case Continue:
 		log.Printf("continuing after %q hook", s.Hook.Kind)
 		switch s.Hook.Kind {
 		case hook.Install:
 			return ModeStarting, nil
+		case hook.Start, hook.UpgradeCharm:
+			return ModeConfigChanged, nil
 		case hook.Stop:
 			return ModeTerminating, nil
 		}
@@ -143,6 +145,19 @@ func ModeStarting(u *Uniter) (next Mode, err error) {
 	return ModeContinue, nil
 }
 
+// ModeConfigChanged runs the "config-changed" hook that is guaranteed to
+// run after a "start" or "upgrade-charm" hook.
+func ModeConfigChanged(u *Uniter) (next Mode, err error) {
+	defer modeContext("ModeConfigChanged", &err)()
+	u.f.DiscardConfigEvent()
+	if err := u.runHook(hook.Info{Kind: hook.ConfigChanged}); err == errHookFailed {
+		return ModeHookError, nil
+	} else if err != nil {
+		return nil, err
+	}
+	return ModeContinue, nil
+}
+
 // ModeStopping runs the "stop" hook.
 func ModeStopping(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeStopping", &err)()
@@ -173,35 +188,19 @@ func ModeTerminating(u *Uniter) (next Mode, err error) {
 // * unit death
 func ModeAbide(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeAbide", &err)()
+	if !u.ranConfigChanged {
+		return ModeConfigChanged, nil
+	}
 	s, err := u.sf.Read()
 	if err != nil {
 		return nil, err
 	}
-	if s.Op != Abide {
+	if s.Op != Continue {
 		return nil, fmt.Errorf("insane uniter state: %#v", s)
 	}
 	if err = u.unit.SetStatus(state.UnitStarted, ""); err != nil {
 		return nil, err
 	}
-
-	// Prime the filter by requesting a config event, then handling it. This
-	// has two purposes: (1) run a config-change hook before doing anything
-	// else and (2) ensure that subsequent config events received actually
-	// correspond to changes relative to the state at the time we first ran
-	// the hook.
-	cc := hook.Info{Kind: hook.ConfigChanged}
-	u.f.WantConfigEvent()
-	select {
-	case <-u.Dying():
-		return nil, tomb.ErrDying
-	case <-u.f.ConfigEvents():
-		if err = u.runHook(cc); err == errHookFailed {
-			return ModeHookError, nil
-		} else if err != nil {
-			return nil, err
-		}
-	}
-
 	url, err := charm.ReadCharmURL(u.charm)
 	if err != nil {
 		return nil, err
@@ -215,7 +214,7 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 			// TODO don't stop until all relations broken.
 			return ModeStopping, nil
 		case <-u.f.ConfigEvents():
-			if err = u.runHook(cc); err == errHookFailed {
+			if err = u.runHook(hook.Info{Kind: hook.ConfigChanged}); err == errHookFailed {
 				return ModeHookError, nil
 			} else if err != nil {
 				return nil, err

@@ -3,9 +3,11 @@ package main
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"os"
 	"reflect"
 	"time"
 )
@@ -41,17 +43,23 @@ func (s *MachineSuite) TestParseUnknown(c *C) {
 	c.Assert(err, ErrorMatches, `unrecognized args: \["blistering barnacles"\]`)
 }
 
-func (s *MachineSuite) TestRunInvalidMachineId(c *C) {
-	c.Skip("agents don't yet distinguish between temporary and permanent errors")
+func (s *MachineSuite) newAgent(c *C, mid int) *MachineAgent {
 	a := &MachineAgent{
 		Conf: AgentConf{
 			DataDir:         c.MkDir(),
 			StateInfo:       *s.StateInfo(c),
 			InitialPassword: "machine-password",
 		},
-		MachineId: 2,
+		MachineId: mid,
 	}
-	err := a.Run(nil)
+	err := os.MkdirAll(environs.AgentDir(a.Conf.DataDir, state.MachineEntityName(mid)), 0777)
+	c.Assert(err, IsNil)
+	return a
+}
+
+func (s *MachineSuite) TestRunInvalidMachineId(c *C) {
+	c.Skip("agents don't yet distinguish between temporary and permanent errors")
+	err := s.newAgent(c, 2).Run(nil)
 	c.Assert(err, ErrorMatches, "some error")
 }
 
@@ -69,14 +77,7 @@ func addMachine(st *state.State, workers ...state.WorkerKind) *state.Machine {
 
 func (s *MachineSuite) TestRunStop(c *C) {
 	m := addMachine(s.State, state.MachinerWorker)
-	a := &MachineAgent{
-		Conf: AgentConf{
-			DataDir:         c.MkDir(),
-			StateInfo:       *s.StateInfo(c),
-			InitialPassword: "machine-password",
-		},
-		MachineId: m.Id(),
-	}
+	a := s.newAgent(c, m.Id())
 	done := make(chan error)
 	go func() {
 		done <- a.Run(nil)
@@ -90,28 +91,14 @@ func (s *MachineSuite) TestWithDeadMachine(c *C) {
 	m := addMachine(s.State, state.MachinerWorker)
 	err := m.EnsureDead()
 	c.Assert(err, IsNil)
-	a := &MachineAgent{
-		Conf: AgentConf{
-			DataDir:         c.MkDir(),
-			StateInfo:       *s.StateInfo(c),
-			InitialPassword: "machine-password",
-		},
-		MachineId: m.Id(),
-	}
+	a := s.newAgent(c, m.Id())
 	err = runWithTimeout(a)
 	c.Assert(err, IsNil)
 
 	// try again with the machine removed.
 	err = s.State.RemoveMachine(m.Id())
 	c.Assert(err, IsNil)
-	a = &MachineAgent{
-		Conf: AgentConf{
-			DataDir:         c.MkDir(),
-			StateInfo:       *s.StateInfo(c),
-			InitialPassword: "machine-password",
-		},
-		MachineId: m.Id(),
-	}
+	a = s.newAgent(c, m.Id())
 	err = runWithTimeout(a)
 	c.Assert(err, IsNil)
 }
@@ -125,14 +112,7 @@ func (s *MachineSuite) TestProvisionerFirewaller(c *C) {
 	op := make(chan dummy.Operation, 200)
 	dummy.Listen(op)
 
-	a := &MachineAgent{
-		Conf: AgentConf{
-			DataDir:         c.MkDir(),
-			StateInfo:       *s.StateInfo(c),
-			InitialPassword: "machine-password",
-		},
-		MachineId: m.Id(),
-	}
+	a := s.newAgent(c, m.Id())
 	done := make(chan error)
 	go func() {
 		done <- a.Run(nil)
@@ -203,4 +183,21 @@ func opRecvTimeout(c *C, st *state.State, opc <-chan dummy.Operation, kinds ...d
 		}
 	}
 	panic("not reached")
+}
+
+func (s *MachineSuite) TestChangePasswordChanging(c *C) {
+	m := addMachine(s.State, state.MachinerWorker)
+	a := s.newAgent(c, m.Id())
+	dataDir := a.Conf.DataDir
+	newAgent := func(initialPassword string) runner {
+		return &MachineAgent{
+			Conf: AgentConf{
+				DataDir:         dataDir,
+				StateInfo:       *s.StateInfo(c),
+				InitialPassword: initialPassword,
+			},
+			MachineId: m.Id(),
+		}
+	}
+	testAgentPasswordChanging(&s.JujuConnSuite, c, m, dataDir, newAgent)
 }
