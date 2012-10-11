@@ -259,19 +259,21 @@ func testAgentPasswordChanging(s *testing.JujuConnSuite, c *C, ent entity, dataD
 	err := ent.SetPassword("initial")
 	c.Assert(err, IsNil)
 
-	err = runStop(newAgent("wrong"))
-	c.Assert(err, Equals, state.ErrUnauthorized)
-
 	err = runStop(newAgent("initial"))
 	c.Assert(err, IsNil)
 
+	// Check that we can no longer gain access with the initial password.
+	info := s.StateInfo(c)
+	info.EntityName = ent.EntityName()
+	info.Password = "initial"
+	testOpenState(c, info, state.ErrUnauthorized)
+
+	// Read the password file and check that we can connect it.
 	pwfile := filepath.Join(environs.AgentDir(dataDir, ent.EntityName()), "password")
 	data, err := ioutil.ReadFile(pwfile)
 	c.Assert(err, IsNil)
 	newPassword := string(data)
 
-	info := s.StateInfo(c)
-	info.EntityName = ent.EntityName()
 	info.Password = newPassword
 	testOpenState(c, info, nil)
 
