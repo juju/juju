@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/trivial"
 )
 
 // Conn holds a connection to a juju environment and its
@@ -21,8 +22,22 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 	if err != nil {
 		return nil, err
 	}
+	password := environ.Config().AdminSecret()
+	info.Password = password
 	st, err := state.Open(info)
-	if err != nil {
+	if err == state.ErrUnauthorized {
+		// We can't connect with the administrator password,;
+		// perhaps this was the first connection and the
+		// password has not been changed yet.
+		info.Password = trivial.PasswordHash(password)
+		st, err = state.Open(info)
+		if err != nil {
+			return nil, err
+		}
+		if err := st.SetAdminPassword(password); err != nil {
+			return nil, err
+		}
+	} else if err != nil {
 		return nil, err
 	}
 	conn := &Conn{
