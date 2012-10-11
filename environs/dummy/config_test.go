@@ -28,3 +28,17 @@ func (*ConfigSuite) TestSecretAttrs(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(expected, DeepEquals, actual)
 }
+
+func (*ConfigSuite) TestFirewallMode(c *C) {
+	cfg, err := config.New(map[string]interface{}{
+		"name":            "only", // must match the name in environs_test.go
+		"type":            "dummy",
+		"state-server":    true,
+		"authorized-keys": "i-am-a-key",
+	})
+	c.Assert(err, IsNil)
+	env, err := environs.New(cfg)
+	c.Assert(err, IsNil)
+	firewallMode := env.Config().FirewallMode()
+	c.Assert(firewallMode, Equals, config.FwInstance)
+}

@@ -85,5 +85,11 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 			return nil, fmt.Errorf("cannot change control-bucket from %q to %q", bucket, ecfg.controlBucket())
 		}
 	}
+
+	if ecfg.FirewallMode() == config.FwDefault {
+		// Default mode for EC2 is instance.
+		ecfg.attrs["firewall-mode"] = config.FwInstance
+	}
+
 	return cfg.Apply(ecfg.attrs)
 }
