@@ -90,8 +90,8 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	c.AddPackage("git")
 
 	addScripts(c,
-		fmt.Sprintf("sudo mkdir -p %s", cfg.DataDir),
-		"sudo mkdir -p /var/log/juju")
+		fmt.Sprintf("mkdir -p %s", cfg.DataDir),
+		"mkdir -p /var/log/juju")
 
 	// Make a directory for the tools to live in, then fetch the
 	// tools and unarchive them into it.
@@ -148,7 +148,10 @@ func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, name, args st
 	// the upstart script.
 	toolsDir := environs.AgentToolsDir(cfg.DataDir, name)
 	// TODO(dfc) ln -nfs, so it doesn't fail if for some reason that the target already exists
-	addScripts(c, fmt.Sprintf("ln -s %v %s", cfg.Tools.Binary, toolsDir))
+	addScripts(c, fmt.Sprintf("ln -s %v %s", cfg.Tools.Binary, shquote(toolsDir)))
+
+	agentDir := environs.AgentDir(cfg.DataDir, name)
+	addScripts(c, fmt.Sprintf("mkdir -p %s", shquote(agentDir)))
 	svc := upstart.NewService("jujud-" + name)
 	cmd := fmt.Sprintf(
 		"%s/jujud %s"+
