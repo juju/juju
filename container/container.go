@@ -63,13 +63,19 @@ func (c *Simple) Deploy(unit *state.Unit, info *state.Info, tools *state.Tools) 
 	if err != nil {
 		return fmt.Errorf("cannot make password for unit: %v", err)
 	}
+	debugFlag := ""
+	// TODO: disable debug mode by default when the system is stable.
+	if true || log.Debug {
+		debugFlag = " --debug"
+	}
 	cmd := fmt.Sprintf(
 		"%s unit"+
-			" --state-servers '%s'"+
+			"%s --state-servers '%s'"+
 			" --log-file %s"+
 			" --unit-name %s"+
 			" --initial-password %s",
 		filepath.Join(toolsDir, "jujud"),
+		debugFlag,
 		strings.Join(info.Addrs, ","),
 		filepath.Join("/var/log/juju", unit.EntityName()+".log"),
 		unit.Name(),

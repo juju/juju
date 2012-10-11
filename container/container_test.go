@@ -70,6 +70,7 @@ func (s *suite) TestDeploy(c *C) {
 
 	c.Assert(script, Matches, `(.|\n)+`+
 		`.*/unit-dummy-0/jujud unit`+
+		`( --debug)?`+
 		` --state-servers 'a,b'`+
 		` --log-file /var/log/juju/unit-dummy-0\.log`+
 		` --unit-name dummy/0`+
@@ -79,7 +80,7 @@ func (s *suite) TestDeploy(c *C) {
 	// We can't check that the unit directory is created, because
 	// it is removed when the call to Deploy fails, but
 	// we can check that it is removed.
-	unitDir := filepath.Join(cont.DataDir, "agents", "unit-dummy-0")
+	unitDir := environs.AgentDir(cont.DataDir, "unit-dummy-0")
 	err = os.MkdirAll(filepath.Join(unitDir, "foo"), 0777)
 	c.Assert(err, IsNil)
 
