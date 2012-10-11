@@ -401,7 +401,7 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 		}
 		st, err := state.Initialize(info, cfg)
 		if err != nil {
-			return fmt.Errorf("cannot initialize state: %v", err)
+			panic(err)
 		}
 		if password := e.Config().AdminSecret(); password != "" {
 			if err := st.SetAdminPassword(trivial.PasswordHash(password)); err != nil {
