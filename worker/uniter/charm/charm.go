@@ -50,19 +50,19 @@ func (d *BundlesDir) download(sch *state.Charm, abort <-chan struct{}) (err erro
 		return err
 	}
 	burl := sch.BundleURL().String()
-	log.Printf("downloading %s from %s", sch.URL(), burl)
+	log.Printf("worker/uniter/charm: downloading %s from %s", sch.URL(), burl)
 	dl := downloader.New(burl, dir)
 	defer dl.Stop()
 	for {
 		select {
 		case <-abort:
-			log.Printf("download aborted")
+			log.Printf("worker/uniter/charm: download aborted")
 			return fmt.Errorf("aborted")
 		case st := <-dl.Done():
 			if st.Err != nil {
 				return st.Err
 			}
-			log.Printf("download complete")
+			log.Printf("worker/uniter/charm: download complete")
 			defer st.File.Close()
 			hash := sha256.New()
 			if _, err = io.Copy(hash, st.File); err != nil {
@@ -74,7 +74,7 @@ func (d *BundlesDir) download(sch *state.Charm, abort <-chan struct{}) (err erro
 					"expected sha256 %q, got %q", sch.BundleSha256(), actualSha256,
 				)
 			}
-			log.Printf("download verified")
+			log.Printf("worker/uniter/charm: download verified")
 			if err := trivial.EnsureDir(d.path); err != nil {
 				return err
 			}

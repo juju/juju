@@ -63,7 +63,7 @@ func (fw *Firewaller) loop() error {
 				return watcher.MustErr(fw.environWatcher)
 			}
 			if err := fw.environ.SetConfig(change); err != nil {
-				log.Printf("firewaller loaded invalid environment configuration: %v", err)
+				log.Printf("worker/firewaller: loaded invalid environment configuration: %v", err)
 			}
 		case change, ok := <-fw.machinesWatcher.Changes():
 			if !ok {
@@ -192,7 +192,7 @@ func (fw *Firewaller) flushMachine(machined *machineData) error {
 			return err
 		}
 		state.SortPorts(toOpen)
-		log.Printf("firewaller: opened ports %v on machine %d", toOpen, machined.id)
+		log.Printf("worker/firewaller: opened ports %v on machine %d", toOpen, machined.id)
 	}
 	if len(toClose) > 0 {
 		err = instances[0].ClosePorts(machined.id, toClose)
@@ -201,7 +201,7 @@ func (fw *Firewaller) flushMachine(machined *machineData) error {
 			return err
 		}
 		state.SortPorts(toClose)
-		log.Printf("firewaller: closed ports %v on machine %d", toClose, machined.id)
+		log.Printf("worker/firewaller: closed ports %v on machine %d", toClose, machined.id)
 	}
 	return nil
 }
@@ -251,7 +251,7 @@ func (fw *Firewaller) forgetUnit(unitd *unitData) {
 	serviced := unitd.serviced
 	machined := unitd.machined
 	if err := unitd.Stop(); err != nil {
-		log.Printf("unit watcher %q returned error when stopping: %v", name, err)
+		log.Printf("worker/firewaller: unit watcher %q returned error when stopping: %v", name, err)
 	}
 	// Clean up after stopping.
 	delete(fw.unitds, name)
@@ -260,7 +260,7 @@ func (fw *Firewaller) forgetUnit(unitd *unitData) {
 	if len(serviced.unitds) == 0 {
 		// Stop service data after all units are removed.
 		if err := serviced.Stop(); err != nil {
-			log.Printf("service watcher %q returned error when stopping: %v", serviced.service, err)
+			log.Printf("worker/firewaller: service watcher %q returned error when stopping: %v", serviced.service, err)
 		}
 		delete(fw.serviceds, serviced.service.Name())
 	}

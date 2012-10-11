@@ -58,7 +58,7 @@ func (u *Uniter) loop(name string) (err error) {
 	if err = u.init(name); err != nil {
 		return err
 	}
-	log.Printf("unit %q started", u.unit)
+	log.Printf("worker/uniter: unit %q started", u.unit)
 
 	// Start filtering state change events for consumption by modes.
 	u.f, err = newFilter(u.st, name)
@@ -87,7 +87,7 @@ func (u *Uniter) loop(name string) (err error) {
 			mode, err = mode(u)
 		}
 	}
-	log.Printf("unit %q shutting down: %s", u.unit, err)
+	log.Printf("worker/uniter: unit %q shutting down: %s", u.unit, err)
 	return err
 }
 
@@ -156,7 +156,7 @@ func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
 	}
 	url := sch.URL()
 	if s == nil || s.OpStep != Done {
-		log.Printf("fetching charm %q", url)
+		log.Printf("worker/uniter: fetching charm %q", url)
 		bun, err := u.bundles.Read(sch, u.tomb.Dying())
 		if err != nil {
 			return err
@@ -164,7 +164,7 @@ func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
 		if err = u.deployer.Stage(bun, url); err != nil {
 			return err
 		}
-		log.Printf("deploying charm %q", url)
+		log.Printf("worker/uniter: deploying charm %q", url)
 		if err = u.sf.Write(reason, Pending, hi, url); err != nil {
 			return err
 		}
@@ -175,7 +175,7 @@ func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
 			return err
 		}
 	}
-	log.Printf("charm %q is deployed", url)
+	log.Printf("worker/uniter: charm %q is deployed", url)
 	if err := u.unit.SetCharm(sch); err != nil {
 		return err
 	}
@@ -237,22 +237,22 @@ func (u *Uniter) runHook(hi hook.Info) error {
 	if err := u.sf.Write(RunHook, Pending, &hi, nil); err != nil {
 		return err
 	}
-	log.Printf("running %q hook", hookName)
+	log.Printf("worker/uniter: running %q hook", hookName)
 	if err := hctx.RunHook(hookName, u.charm.Path(), u.toolsDir, socketPath); err != nil {
-		log.Printf("hook failed: %s", err)
+		log.Printf("worker/uniter: hook failed: %s", err)
 		return errHookFailed
 	}
 	if err := u.sf.Write(RunHook, Done, &hi, nil); err != nil {
 		return err
 	}
-	log.Printf("ran %q hook", hookName)
+	log.Printf("worker/uniter: ran %q hook", hookName)
 	return u.commitHook(hi)
 }
 
 // commitHook ensures that state is consistent with the supplied hook, and
 // that the fact of the hook's completion is persisted.
 func (u *Uniter) commitHook(hi hook.Info) error {
-	log.Printf("committing %q hook", hi.Kind)
+	log.Printf("worker/uniter: committing %q hook", hi.Kind)
 	if hi.Kind.IsRelation() {
 		panic("relation hooks are not yet supported")
 		// TODO: commit relation state changes.
@@ -263,6 +263,6 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 	if err := u.sf.Write(Abide, Pending, &hi, nil); err != nil {
 		return err
 	}
-	log.Printf("committed %q hook", hi.Kind)
+	log.Printf("worker/uniter: committed %q hook", hi.Kind)
 	return nil
 }
