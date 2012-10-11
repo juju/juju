@@ -77,9 +77,7 @@ func (*ConfigSuite) TestFirewallMode(c *C) {
 	})
 	c.Assert(err, IsNil)
 	env, err = environs.New(cfg)
-	c.Assert(err, IsNil)
-	firewallMode = env.Config().FirewallMode()
-	c.Assert(firewallMode, Equals, config.FwGlobal)
+	c.Assert(err, ErrorMatches, `provider does not support global firewall mode`)
 
 	cfg, err = config.New(map[string]interface{}{
 		"name":            "only",

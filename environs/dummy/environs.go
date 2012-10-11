@@ -291,9 +291,13 @@ func (p *environProvider) Validate(cfg, old *config.Config) (valid *config.Confi
 		return nil, err
 	}
 	attrs := v.(map[string]interface{})
-	if cfg.FirewallMode() == config.FwDefault {
+	switch cfg.FirewallMode() {
+	case config.FwDefault:
 		// Default mode for dummy is instance.
 		attrs["firewall-mode"] = config.FwInstance
+	case config.FwGlobal:
+		// Global mode is not supported.
+		return nil, environs.ErrGlobalFirewallNotSupported
 	}
 	return cfg.Apply(attrs)
 }
@@ -551,6 +555,21 @@ func (e *environ) AllInstances() ([]environs.Instance, error) {
 		insts = append(insts, v)
 	}
 	return insts, nil
+}
+
+func (e *environ) OpenPorts(ports []state.Port) error {
+	// Dummy only supports instance mode.
+	return environs.ErrGlobalFirewallNotSupported
+}
+
+func (e *environ) ClosePorts(ports []state.Port) error {
+	// Dummy only supports instance mode.
+	return environs.ErrGlobalFirewallNotSupported
+}
+
+func (e *environ) Ports() ([]state.Port, error) {
+	// Dummy only supports instance mode.
+	return nil, environs.ErrGlobalFirewallNotSupported
 }
 
 func (*environ) Provider() environs.EnvironProvider {

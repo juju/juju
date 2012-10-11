@@ -62,6 +62,8 @@ type Instance interface {
 
 var ErrNoInstances = errors.New("no instances found")
 var ErrPartialInstances = errors.New("only some instances were found")
+var ErrInstanceFirewallNotSupported = errors.New("provider does not support instance firewall mode")
+var ErrGlobalFirewallNotSupported = errors.New("provider does not support global firewall mode")
 
 // NotFoundError records an error when something has not been found.
 type NotFoundError struct {
@@ -185,6 +187,16 @@ type Environ interface {
 
 	// AssignmentPolicy returns the environment's unit assignment policy.
 	AssignmentPolicy() state.AssignmentPolicy
+
+	// OpenPorts opens the given ports global for the environment.
+	OpenPorts(ports []state.Port) error
+
+	// ClosePorts closes the given ports global on the environment.
+	ClosePorts(ports []state.Port) error
+
+	// Ports returns the set of ports open on the environment.
+	// The ports are returned as sorted by state.SortPorts.
+	Ports() ([]state.Port, error)
 
 	// Provider returns the EnvironProvider that created this Environ.
 	Provider() EnvironProvider
