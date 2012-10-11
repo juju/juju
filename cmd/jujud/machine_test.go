@@ -43,7 +43,7 @@ func (s *MachineSuite) TestParseUnknown(c *C) {
 	c.Assert(err, ErrorMatches, `unrecognized args: \["blistering barnacles"\]`)
 }
 
-func (s *MachineSuite) newAgent(c *C, mid int) *MachineAgent{
+func (s *MachineSuite) newAgent(c *C, mid int) *MachineAgent {
 	a := &MachineAgent{
 		Conf: AgentConf{
 			DataDir:         c.MkDir(),
