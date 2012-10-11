@@ -205,7 +205,7 @@ func (s *RunHookSuite) TestRunHook(c *C) {
 	defer func() {
 		log.Target = oldLogger
 	}()
-	logger := &logRecorder{c: c, prefix: "JUJU HOOK "}
+	logger := &logRecorder{c: c, prefix: "JUJU worker/uniter: HOOK "}
 	log.Target = logger
 	for i, t := range runHookTests {
 		c.Logf("test %d: %s; perm %v", i, t.summary, t.spec.perm)

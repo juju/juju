@@ -82,7 +82,7 @@ func Initialize(info *Info, cfg *config.Config) (*State, error) {
 	if _, err = st.EnvironConfig(); !IsNotFound(err) {
 		return st, nil
 	}
-	log.Printf("storing no-secrets environment configuration")
+	log.Printf("state: storing no-secrets environment configuration")
 	if _, err = createSettings(st, "e", nil); err != nil {
 		st.Close()
 		return nil, err

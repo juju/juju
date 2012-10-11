@@ -158,7 +158,7 @@ func init() {
 // operation listener.  All opened environments after Reset will share
 // the same underlying state.
 func Reset() {
-	log.Printf("dummy: reset environment")
+	log.Printf("environs/dummy: reset environment")
 	p := &providerInstance
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -194,7 +194,7 @@ func newState(name string, ops chan<- Operation, fwmode config.FirewallMode) *en
 // that looks like a tools archive so Bootstrap can
 // find some tools and initialise the state correctly.
 func putFakeTools(s environs.StorageWriter) {
-	log.Printf("putting fake tools")
+	log.Printf("environs/dummy: putting fake tools")
 	path := environs.ToolsStoragePath(version.Current)
 	toolsContents := "tools archive, honest guv"
 	err := s.Put(path, strings.NewReader(toolsContents), int64(len(toolsContents)))
@@ -470,7 +470,7 @@ func (e *environ) Destroy([]environs.Instance) error {
 
 func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.Tools) (environs.Instance, error) {
 	defer delay()
-	log.Printf("dummy startinstance, machine %d", machineId)
+	log.Printf("environs/dummy: dummy startinstance, machine %d", machineId)
 	if err := e.checkBroken("StartInstance"); err != nil {
 		return nil, err
 	}
@@ -582,7 +582,7 @@ func (inst *instance) WaitDNSName() (string, error) {
 
 func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
 	defer delay()
-	log.Printf("openPorts %d, %#v", machineId, ports)
+	log.Printf("environs/dummy: openPorts %d, %#v", machineId, ports)
 	if inst.machineId != machineId {
 		panic(fmt.Errorf("OpenPorts with mismatched machine id, expected %d got %d", inst.machineId, machineId))
 	}
@@ -657,7 +657,7 @@ var providerDelay time.Duration
 // pause execution to simulate the latency of a real provider
 func delay() {
 	if providerDelay > 0 {
-		log.Printf("dummy: pausing for %v", providerDelay)
+		log.Printf("environs/dummy: pausing for %v", providerDelay)
 		<-time.After(providerDelay)
 	}
 }

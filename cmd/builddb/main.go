@@ -53,7 +53,7 @@ func build() error {
 		return err
 	}
 
-	log.Printf("Waiting for unit to reach %q status...", state.UnitStarted)
+	log.Printf("builddb: Waiting for unit to reach %q status...", state.UnitStarted)
 	unit := units[0]
 	last, info, err := unit.Status()
 	if err != nil {
@@ -78,15 +78,15 @@ func build() error {
 	if err != nil {
 		return err
 	}
-	log.Printf("Built files published at http://%s", addr)
-	log.Printf("Remember to destroy the environment when you're done...")
+	log.Printf("builddb: Built files published at http://%s", addr)
+	log.Printf("builddb: Remember to destroy the environment when you're done...")
 	return nil
 }
 
 func logStatus(status state.UnitStatus, info string) {
 	if info == "" {
-		log.Printf("Unit status is %q", status)
+		log.Printf("builddb: Unit status is %q", status)
 	} else {
-		log.Printf("Unit status is %q: %s", status, info)
+		log.Printf("builddb: Unit status is %q: %s", status, info)
 	}
 }

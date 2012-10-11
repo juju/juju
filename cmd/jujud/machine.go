@@ -50,10 +50,10 @@ func (a *MachineAgent) Stop() error {
 
 // Run runs a machine agent.
 func (a *MachineAgent) Run(_ *cmd.Context) error {
-	defer log.Printf("machiner: machine agent exiting")
+	defer log.Printf("cmd/jujud: machine agent exiting")
 	defer a.tomb.Done()
 	for a.tomb.Err() == tomb.ErrStillAlive {
-		log.Printf("machiner: machine agent starting")
+		log.Printf("cmd/jujud: machine agent starting")
 		err := a.runOnce()
 		if ug, ok := err.(*UpgradeReadyError); ok {
 			if err = ug.ChangeAgentTools(); err == nil {
@@ -62,19 +62,19 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 			}
 		}
 		if err == worker.ErrDead {
-			log.Printf("machiner: machine is dead")
+			log.Printf("cmd/jujud: machine is dead")
 			return nil
 		}
 		if err == nil {
-			log.Printf("machiner: workers died with no error")
+			log.Printf("cmd/jujud: workers died with no error")
 		} else {
-			log.Printf("machiner: %v", err)
+			log.Printf("cmd/jujud: %v", err)
 		}
 		select {
 		case <-a.tomb.Dying():
 			a.tomb.Kill(err)
 		case <-time.After(retryDelay):
-			log.Printf("machiner: rerunning machiner")
+			log.Printf("cmd/jujud: rerunning machiner")
 		}
 	}
 	return a.tomb.Err()
@@ -93,7 +93,7 @@ func (a *MachineAgent) runOnce() error {
 	if err != nil {
 		return err
 	}
-	log.Printf("machiner: requested workers for machine agent: ", m.Workers())
+	log.Printf("cmd/jujud: requested workers for machine agent: ", m.Workers())
 	tasks := []task{NewUpgrader(st, m, a.Conf.DataDir)}
 	for _, w := range m.Workers() {
 		var t task
@@ -106,7 +106,7 @@ func (a *MachineAgent) runOnce() error {
 			t = firewaller.NewFirewaller(st)
 		}
 		if t == nil {
-			log.Printf("machiner: ignoring unknown worker %q", w)
+			log.Printf("cmd/jujud: ignoring unknown worker %q", w)
 			continue
 		}
 		tasks = append(tasks, t)

@@ -139,7 +139,7 @@ waiting:
 			continue
 		}
 		if err := t.Wait(); err != nil {
-			log.Printf("%s: %v", tasks[i], err)
+			log.Printf("cmd/jujud: %s: %v", tasks[i], err)
 		}
 	}
 	return chosen.err

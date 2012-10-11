@@ -81,7 +81,7 @@ func (fw *Firewaller) loop() error {
 				}
 				fw.forgetUnit(unitd)
 				changed = append(changed, unitd)
-				log.Debugf("firewaller: stopped watching unit %s", unit.Name())
+				log.Debugf("worker/firewaller: stopped watching unit %s", unit.Name())
 			}
 			for _, unit := range change.Added {
 				unitd := newUnitData(unit, fw)
@@ -105,7 +105,7 @@ func (fw *Firewaller) loop() error {
 				unitd.serviced = fw.serviceds[unit.ServiceName()]
 				unitd.serviced.unitds[unit.Name()] = unitd
 				changed = append(changed, unitd)
-				log.Debugf("firewaller: started watching unit %s", unit.Name())
+				log.Debugf("worker/firewaller: started watching unit %s", unit.Name())
 			}
 			if err := fw.flushUnits(changed); err != nil {
 				return fmt.Errorf("cannot change firewall ports: %v", err)
@@ -222,7 +222,7 @@ func (fw *Firewaller) machineLifeChanged(id int) error {
 	}
 	if !known && !dead {
 		fw.machineds[id] = newMachineData(id, fw)
-		log.Debugf("firewaller: started watching machine %d", id)
+		log.Debugf("worker/firewaller: started watching machine %d", id)
 	}
 	return nil
 }
@@ -241,7 +241,7 @@ func (fw *Firewaller) forgetMachine(machined *machineData) error {
 	if err := machined.Stop(); err != nil {
 		return err
 	}
-	log.Debugf("firewaller: stopped watching machine %d", machined.id)
+	log.Debugf("worker/firewaller: stopped watching machine %d", machined.id)
 	return nil
 }
 

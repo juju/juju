@@ -175,7 +175,7 @@ func (d *Deployer) collectOrphans() {
 	filepath.Walk(d.path, func(path string, fi os.FileInfo, err error) error {
 		if err != nil && path != d.path && path != current {
 			if err = os.RemoveAll(path); err != nil {
-				log.Debugf("failed to remove orphan repo at %s: %s", path, err)
+				log.Printf("worker/uniter/charm: failed to remove orphan repo at %s: %s", path, err)
 			}
 		}
 		return err

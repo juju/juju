@@ -48,7 +48,7 @@ func (a *UnitAgent) Stop() error {
 
 // Run runs a unit agent.
 func (a *UnitAgent) Run(ctx *cmd.Context) error {
-	defer log.Printf("uniter: unit agent exiting")
+	defer log.Printf("cmd/jujud: unit agent exiting")
 	defer a.tomb.Done()
 	for a.tomb.Err() == tomb.ErrStillAlive {
 		err := a.runOnce()
@@ -59,19 +59,19 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 			}
 		}
 		if err == worker.ErrDead {
-			log.Printf("uniter: unit is dead")
+			log.Printf("cmd/jujud: unit is dead")
 			return nil
 		}
 		if err == nil {
-			log.Printf("uniter: workers died with no error")
+			log.Printf("cmd/jujud: workers died with no error")
 		} else {
-			log.Printf("uniter: %v", err)
+			log.Printf("cmd/jujud: %v", err)
 		}
 		select {
 		case <-a.tomb.Dying():
 			a.tomb.Kill(err)
 		case <-time.After(retryDelay):
-			log.Printf("uniter: rerunning uniter")
+			log.Printf("cmd/jujud: rerunning uniter")
 		}
 	}
 	return a.tomb.Err()

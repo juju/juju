@@ -476,7 +476,7 @@ func (s *Store) CharmInfo(url *charm.URL) (info *CharmInfo, err error) {
 	session := s.session.Copy()
 	defer session.Close()
 
-	log.Debugf("Retrieving charm info for %s", url)
+	log.Debugf("store: Retrieving charm info for %s", url)
 	rev := url.Revision
 	url = url.WithRevision(-1)
 
@@ -508,7 +508,7 @@ func (s *Store) CharmInfo(url *charm.URL) (info *CharmInfo, err error) {
 // OpenCharm opens for reading via rc the charm currently available at url.
 // rc must be closed after dealing with it or resources will leak.
 func (s *Store) OpenCharm(url *charm.URL) (info *CharmInfo, rc io.ReadCloser, err error) {
-	log.Debugf("Opening charm %s", url)
+	log.Debugf("store: Opening charm %s", url)
 	info, err = s.CharmInfo(url)
 	if err != nil {
 		return nil, nil, err
@@ -585,7 +585,7 @@ type UpdateLock struct {
 // Unlock removes the previously acquired server-side lock that prevents
 // other processes from attempting to update a set of charm URLs.
 func (l *UpdateLock) Unlock() {
-	log.Debugf("Unlocking charms for future updates: %v", l.keys)
+	log.Debugf("store: Unlocking charms for future updates: %v", l.keys)
 	defer l.locks.Database.Session.Close()
 	for i := len(l.keys) - 1; i >= 0; i-- {
 		// Using time below ensures only the proper lock is removed.
@@ -601,19 +601,19 @@ func (l *UpdateLock) Unlock() {
 // locks and aborts with an error.
 func (l *UpdateLock) tryLock() error {
 	for i, key := range l.keys {
-		log.Debugf("Trying to lock charm %s for updates...", key)
+		log.Debugf("store: Trying to lock charm %s for updates...", key)
 		doc := bson.D{{"_id", key}, {"time", l.time}}
 		err := l.locks.Insert(doc)
 		if err == nil {
-			log.Debugf("Charm %s is now locked for updates.", key)
+			log.Debugf("store: Charm %s is now locked for updates.", key)
 			continue
 		}
 		if lerr, ok := err.(*mgo.LastError); ok && lerr.Code == 11000 {
-			log.Debugf("Charm %s is locked. Trying to expire lock.", key)
+			log.Debugf("store: Charm %s is locked. Trying to expire lock.", key)
 			l.tryExpire(key)
 			err = l.locks.Insert(doc)
 			if err == nil {
-				log.Debugf("Charm %s is now locked for updates.", key)
+				log.Debugf("store: Charm %s is now locked for updates.", key)
 				continue
 			}
 		}
