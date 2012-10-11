@@ -258,10 +258,14 @@ func testAgentPasswordChanging(s *testing.JujuConnSuite, c *C, ent entity, dataD
 	// Check that it starts initially and changes the password
 	err := ent.SetPassword("initial")
 	c.Assert(err, IsNil)
+
+	err = runStop(newAgent("wrong"))
+	c.Assert(err, Equals, state.ErrUnauthorized)
+
 	err = runStop(newAgent("initial"))
 	c.Assert(err, IsNil)
 
-	pwfile := filepath.Join(environs.AgentDir(dataDir, ent.EntityName()), "secrets", "password")
+	pwfile := filepath.Join(environs.AgentDir(dataDir, ent.EntityName()), "password")
 	data, err := ioutil.ReadFile(pwfile)
 	c.Assert(err, IsNil)
 	newPassword := string(data)

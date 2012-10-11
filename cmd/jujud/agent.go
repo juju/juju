@@ -159,9 +159,8 @@ func isUpgraded(err error) bool {
 // and configuration information. If the returned password
 // is non-empty, the caller should set the entity's password
 // accordingly.
-func openState(entityName string, conf *AgentConf) (_ *state.State, newPassword string, err error) {
-	secretDir := filepath.Join(environs.AgentDir(conf.DataDir, entityName), "secrets")
-	pwfile := filepath.Join(secretDir, "password")
+func openState(entityName string, conf *AgentConf) (st *state.State, password string, err error) {
+	pwfile := filepath.Join(environs.AgentDir(conf.DataDir, entityName), "password")
 	data, err := ioutil.ReadFile(pwfile)
 	if err != nil && !os.IsNotExist(err) {
 		return nil, "", err
@@ -183,25 +182,19 @@ func openState(entityName string, conf *AgentConf) (_ *state.State, newPassword 
 		// try again with the initial password.
 	}
 	info.Password = conf.InitialPassword
-	st, err := state.Open(&info)
+	st, err = state.Open(&info)
 	if err != nil {
 		return nil, "", err
 	}
-	defer func() {
-		if st != nil && err != nil {
-			st.Close()
-		}
-	}()
 	// We've succeeded in connecting with the initial password, so
 	// we can now change it to something more private.
-	password, err := trivial.RandomPassword()
+	password, err = trivial.RandomPassword()
 	if err != nil {
-		return nil, "", err
-	}
-	if err := os.MkdirAll(secretDir, 0700); err != nil {
+		st.Close()
 		return nil, "", err
 	}
 	if err := ioutil.WriteFile(pwfile, []byte(password), 0600); err != nil {
+		st.Close()
 		return nil, "", fmt.Errorf("cannot save password: %v", err)
 	}
 	return st, password, nil

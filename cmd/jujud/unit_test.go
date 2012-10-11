@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
+	"os"
 	"time"
 )
 
@@ -103,6 +104,9 @@ func (s *UnitSuite) newAgent(c *C) (*UnitAgent, *state.Unit, *state.Tools) {
 	c.Assert(err, IsNil)
 	c.Assert(tools1, DeepEquals, tools)
 
+	err = os.MkdirAll(environs.AgentDir(dataDir, unit.EntityName()), 0777)
+	c.Assert(err, IsNil)
+
 	return &UnitAgent{
 		Conf: AgentConf{
 			DataDir:         dataDir,
@@ -128,18 +132,12 @@ func (s *UnitSuite) TestUpgrade(c *C) {
 }
 
 func (s *UnitSuite) TestWithDeadUnit(c *C) {
-	ch := s.AddTestingCharm(c, "dummy")
-	svc, err := s.Conn.AddService("dummy", ch)
-	c.Assert(err, IsNil)
-	unit, err := svc.AddUnit()
-	c.Assert(err, IsNil)
-	err = unit.SetPassword("unit-password")
-	c.Assert(err, IsNil)
-	err = unit.EnsureDead()
+	a, unit, _ := s.newAgent(c)
+	err := unit.EnsureDead()
 	c.Assert(err, IsNil)
 
-	dataDir := c.MkDir()
-	a := &UnitAgent{
+	dataDir := a.Conf.DataDir
+	a = &UnitAgent{
 		Conf: AgentConf{
 			DataDir:         dataDir,
 			StateInfo:       *s.StateInfo(c),
@@ -148,6 +146,9 @@ func (s *UnitSuite) TestWithDeadUnit(c *C) {
 		UnitName: unit.Name(),
 	}
 	err = runWithTimeout(a)
+	c.Assert(err, IsNil)
+
+	svc, err := s.State.Service(unit.ServiceName())
 	c.Assert(err, IsNil)
 
 	// try again when the unit has been removed.
