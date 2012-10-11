@@ -7,7 +7,6 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 )
 
