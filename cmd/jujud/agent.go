@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
@@ -10,7 +11,6 @@ import (
 	"launchpad.net/juju-core/trivial"
 	"os"
 	"path/filepath"
-	"io/ioutil"
 	"regexp"
 	"strings"
 )

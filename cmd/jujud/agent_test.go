@@ -6,14 +6,14 @@ import (
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/tomb"
-	"time"
 	"path/filepath"
+	"time"
 )
 
 var _ = Suite(&agentSuite{})
@@ -283,7 +283,7 @@ func testAgentPasswordChanging(s *testing.JujuConnSuite, c *C, ent entity, dataD
 	c.Assert(err, IsNil)
 
 	// Check that it's changed the password again
-	data, err= ioutil.ReadFile(pwfile)
+	data, err = ioutil.ReadFile(pwfile)
 	c.Assert(err, IsNil)
 	c.Assert(string(data), Not(Equals), "spurious")
 	c.Assert(string(data), Not(Equals), newPassword)
