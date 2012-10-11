@@ -131,10 +131,6 @@ func (conn *Conn) AddUnits(svc *state.Service, n int) ([]*state.Unit, error) {
 // RemoveUnits removes the units specified from the state.
 func (conn *Conn) RemoveUnits(units ...*state.Unit) error {
 	for _, unit := range units {
-		svc, err := unit.Service()
-		if err != nil {
-			return err
-		}
 		if err := unit.EnsureDying(); err != nil {
 			return err
 		}

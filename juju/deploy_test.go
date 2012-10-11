@@ -214,8 +214,7 @@ func (s *DeploySuite) TestRemoveUnits(c *C) {
 	err = s.conn.RemoveUnits(units...)
 	c.Assert(err, IsNil)
 	for _, u := range units {
-		c.Assert(u.Life(), Equals, state.Dead)
-		_, err := u.AssignedMachineId()
-		c.Assert(err, ErrorMatches, `cannot get machine id of unit ".*": unit not assigned to machine`)
+		// UA will action the transition from Dying to Dead in the future
+		c.Assert(u.Life(), Equals, state.Dying)
 	}
 }
