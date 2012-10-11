@@ -167,8 +167,8 @@ func (f *filter) loop(unitName string) (err error) {
 	configw := f.service.WatchConfig()
 	defer watcher.Stop(configw, &f.tomb)
 
-	// Config events cannot be meaningfully reset until one is available;
-	// once we receive the initial change, we unblock reset requests by
+	// Config events cannot be meaningfully discarded until one is available;
+	// once we receive the initial change, we unblock discard requests by
 	// setting this channel to its namesake on f.
 	var discardConfig chan struct{}
 	for {
@@ -228,7 +228,7 @@ func (f *filter) loop(unitName string) (err error) {
 				f.outResolved = f.outResolvedOn
 			}
 		case <-discardConfig:
-			log.Debugf("filter: reset config event")
+			log.Debugf("filter: discarded config event")
 			f.outConfig = nil
 		}
 	}
