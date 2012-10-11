@@ -281,10 +281,7 @@ var uniterTests = []uniterTest{
 		waitUnit{
 			status: state.UnitStarted,
 		},
-		// Note: the second config-changed hook is automatically run as we
-		// re-enter ModeAbide. IMO the simplicity and clarity of that approach
-		// outweigh this slight inelegance.
-		waitHooks{"config-changed", "config-changed"},
+		waitHooks{"config-changed"},
 		verifyRunning{},
 	),
 

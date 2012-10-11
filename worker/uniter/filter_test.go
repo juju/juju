@@ -251,11 +251,6 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	}
 	assertNoChange()
 
-	// Request an event; it matches the previous one.
-	f.WantConfigEvent()
-	assertChange()
-	assertNoChange()
-
 	// Change the config; new event received.
 	node, err := s.svc.Config()
 	c.Assert(err, IsNil)
@@ -265,17 +260,33 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	assertChange()
 	assertNoChange()
 
-	// Request a few events, and change the config a few times; when
-	// we finally receive, only a single event is sent.
-	f.WantConfigEvent()
+	// Change the config a couple of times, then reset the events.
 	node.Set("title", "20,000 leagues in the cloud")
 	_, err = node.Write()
 	c.Assert(err, IsNil)
-	f.WantConfigEvent()
 	node.Set("outlook", "precipitous")
 	_, err = node.Write()
 	c.Assert(err, IsNil)
-	f.WantConfigEvent()
+	s.State.Sync()
+	f.DiscardConfigEvent()
+	assertNoChange()
+
+	// Check that a filter's initial event works with DiscardConfigEvent
+	// as expected.
+	f, err = newFilter(s.State, s.unit.Name())
+	c.Assert(err, IsNil)
+	defer f.Stop()
+	f.DiscardConfigEvent()
+	s.State.Sync()
+	assertNoChange()
+
+	// Further changes are still collapsed as appropriate.
+	node.Set("skill-level", 123)
+	_, err = node.Write()
+	c.Assert(err, IsNil)
+	node.Set("outlook", "expressive")
+	_, err = node.Write()
+	c.Assert(err, IsNil)
 	assertChange()
 	assertNoChange()
 }
