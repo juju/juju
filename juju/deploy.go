@@ -135,10 +135,7 @@ func (conn *Conn) RemoveUnits(units ...*state.Unit) error {
 		if err != nil {
 			return err
 		}
-		if err := unit.EnsureDead(); err != nil {
-			return err
-		}
-		if err := svc.RemoveUnit(unit); err != nil {
+		if err := unit.EnsureDying(); err != nil {
 			return err
 		}
 	}
