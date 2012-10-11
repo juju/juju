@@ -210,12 +210,6 @@ func (u *Uniter) runHook(hi hook.Info) error {
 	if hi.Kind.IsRelation() {
 		panic("relation hooks are not yet supported")
 		// TODO: update relation context; get hook name.
-	} else if hi.Kind == hook.ConfigChanged {
-		// We are about to run the hook against a version of the config that
-		// is necessarily at least as recent as any referred to by a pending
-		// config event; therefore, we don't need to handle it. Future config
-		// changes will, of course, be detected and sent as usual.
-		u.f.ResetConfigEvent()
 	}
 	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
 	hctx := &HookContext{
@@ -268,19 +262,11 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 	if err := u.charm.Snapshotf("Completed %q hook.", hi.Kind); err != nil {
 		return err
 	}
-	switch hi.Kind {
-	case hook.Start, hook.UpgradeCharm:
-		queued := &hook.Info{Kind: hook.ConfigChanged}
-		if err := u.sf.Write(RunHook, Queued, queued, nil); err != nil {
-			return err
-		}
-	case hook.ConfigChanged:
+	if hi.Kind == hook.ConfigChanged {
 		u.ranConfigChanged = true
-		fallthrough
-	default:
-		if err := u.sf.Write(Abide, Pending, &hi, nil); err != nil {
-			return err
-		}
+	}
+	if err := u.sf.Write(Continue, Pending, &hi, nil); err != nil {
+		return err
 	}
 	log.Printf("committed %q hook", hi.Kind)
 	return nil

@@ -36,9 +36,9 @@ type filter struct {
 	wantUpgrade  chan serviceCharm
 	wantResolved chan struct{}
 
-	// resetConfig is used to indicate that any pending config event
+	// discardConfig is used to indicate that any pending config event
 	// should be discarded.
-	resetConfig chan struct{}
+	discardConfig chan struct{}
 
 	// The following fields hold state that is collected while running,
 	// and used to detect interesting changes to express as events.
@@ -65,7 +65,7 @@ func newFilter(st *state.State, unitName string) (*filter, error) {
 		outResolvedOn: make(chan state.ResolvedMode),
 		wantResolved:  make(chan struct{}),
 		wantUpgrade:   make(chan serviceCharm),
-		resetConfig:   make(chan struct{}),
+		discardConfig: make(chan struct{}),
 	}
 	go func() {
 		defer f.tomb.Done()
@@ -135,12 +135,12 @@ func (f *filter) WantResolvedEvent() {
 	}
 }
 
-// ResetConfigEvent indicates that the filter should discard any pending
+// DiscardConfigEvent indicates that the filter should discard any pending
 // config event.
-func (f *filter) ResetConfigEvent() {
+func (f *filter) DiscardConfigEvent() {
 	select {
 	case <-f.tomb.Dying():
-	case f.resetConfig <- nothing:
+	case f.discardConfig <- nothing:
 	}
 }
 
@@ -170,7 +170,7 @@ func (f *filter) loop(unitName string) (err error) {
 	// Config events cannot be meaningfully reset until one is available;
 	// once we receive the initial change, we unblock reset requests by
 	// setting this channel to its namesake on f.
-	var resetConfig chan struct{}
+	var discardConfig chan struct{}
 	for {
 		var ok bool
 		select {
@@ -201,7 +201,7 @@ func (f *filter) loop(unitName string) (err error) {
 			}
 			log.Debugf("filter: preparing new config event")
 			f.outConfig = f.outConfigOn
-			resetConfig = f.resetConfig
+			discardConfig = f.discardConfig
 
 		// Send events on active out chans.
 		case f.outUpgrade <- f.upgrade:
@@ -227,7 +227,7 @@ func (f *filter) loop(unitName string) (err error) {
 			if f.resolved != state.ResolvedNone {
 				f.outResolved = f.outResolvedOn
 			}
-		case <-resetConfig:
+		case <-discardConfig:
 			log.Debugf("filter: reset config event")
 			f.outConfig = nil
 		}
