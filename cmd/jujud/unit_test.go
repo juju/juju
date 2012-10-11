@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
@@ -166,21 +165,18 @@ func (s *UnitSuite) TestWithDeadUnit(c *C) {
 	c.Assert(err, IsNil)
 }
 
-type runner interface {
-	Run(*cmd.Context) error
-	Stop() error
-}
-
-func runWithTimeout(runner runner) error {
-	done := make(chan error)
-	go func() {
-		done <- runner.Run(nil)
-	}()
-	select {
-	case err := <-done:
-		return err
-	case <-time.After(5 * time.Second):
+func (s *UnitSuite) TestChangePasswordChanging(c *C) {
+	a, unit, _ := s.newAgent(c)
+	dataDir := a.Conf.DataDir
+	newAgent := func(initialPassword string) runner {
+		return &UnitAgent{
+			Conf: AgentConf{
+				DataDir:         dataDir,
+				StateInfo:       *s.StateInfo(c),
+				InitialPassword: initialPassword,
+			},
+			UnitName: unit.Name(),
+		}
 	}
-	err := runner.Stop()
-	return fmt.Errorf("timed out waiting for agent to finish; stop error: %v", err)
+	testAgentPasswordChanging(&s.JujuConnSuite, c, unit, dataDir, newAgent)
 }

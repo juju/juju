@@ -204,3 +204,19 @@ func opRecvTimeout(c *C, st *state.State, opc <-chan dummy.Operation, kinds ...d
 	}
 	panic("not reached")
 }
+
+func (s *MachineSuite) TestChangePasswordChanging(c *C) {
+	m := addMachine(s.State, state.MachinerWorker)
+	dataDir := c.MkDir()
+	newAgent := func(initialPassword string) runner {
+		return &MachineAgent{
+			Conf: AgentConf{
+				DataDir:         dataDir,
+				StateInfo:       *s.StateInfo(c),
+				InitialPassword: initialPassword,
+			},
+			MachineId: m.Id(),
+		}
+	}
+	testAgentPasswordChanging(&s.JujuConnSuite, c, m, dataDir, newAgent)
+}
