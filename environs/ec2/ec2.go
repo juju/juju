@@ -502,7 +502,6 @@ func (e *environ) Destroy(insts []environs.Instance) error {
 			found[id] = true
 		}
 	}
-	log.Printf("destroy: terminating instances: %v", ids)
 	err = e.terminateInstances(ids)
 	if err != nil {
 		return err
