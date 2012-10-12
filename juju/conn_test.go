@@ -36,7 +36,7 @@ func (*ConnSuite) TestNewConnWithoutAdminSecret(c *C) {
 		"state-server":    true,
 		"authorized-keys": "i-am-a-key",
 		"secret":          "pork",
-		"admin-secret": "really",
+		"admin-secret":    "really",
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
