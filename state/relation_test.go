@@ -65,11 +65,37 @@ func (s *RelationSuite) TestRelationErrors(c *C) {
 	c.Assert(err, ErrorMatches, `cannot add relation "peer:baz pro:foo req:bar": cannot relate 3 endpoints`)
 }
 
-func (s *RelationSuite) TestRelationNotFound(c *C) {
+func (s *RelationSuite) TestRetrieveSuccess(c *C) {
+	_, err := s.State.AddService("subway", s.charm)
+	c.Assert(err, IsNil)
+	_, err = s.State.AddService("mongo", s.charm)
+	c.Assert(err, IsNil)
 	subway := state.RelationEndpoint{"subway", "mongodb", "db", state.RoleRequirer, charm.ScopeGlobal}
 	mongo := state.RelationEndpoint{"mongo", "mongodb", "server", state.RoleProvider, charm.ScopeGlobal}
-	_, err := s.State.Relation(subway, mongo)
+	expect, err := s.State.AddRelation(subway, mongo)
+	c.Assert(err, IsNil)
+	rel, err := s.State.EndpointsRelation(subway, mongo)
+	check := func() {
+		c.Assert(err, IsNil)
+		c.Assert(rel.Id(), Equals, expect.Id())
+		c.Assert(rel.String(), Equals, expect.String())
+	}
+	check()
+	rel, err = s.State.EndpointsRelation(mongo, subway)
+	check()
+	rel, err = s.State.Relation(expect.Id())
+	check()
+}
+
+func (s *RelationSuite) TestRetrieveNotFound(c *C) {
+	subway := state.RelationEndpoint{"subway", "mongodb", "db", state.RoleRequirer, charm.ScopeGlobal}
+	mongo := state.RelationEndpoint{"mongo", "mongodb", "server", state.RoleProvider, charm.ScopeGlobal}
+	_, err := s.State.EndpointsRelation(subway, mongo)
 	c.Assert(err, ErrorMatches, `relation "mongo:server subway:db" not found`)
+	c.Assert(state.IsNotFound(err), Equals, true)
+
+	_, err = s.State.Relation(999)
+	c.Assert(err, ErrorMatches, `relation 999 not found`)
 	c.Assert(state.IsNotFound(err), Equals, true)
 }
 
@@ -180,7 +206,7 @@ func (s *RelationSuite) TestRemoveServiceRemovesRelations(c *C) {
 	c.Assert(err, IsNil)
 	_, err = s.State.Service("peer")
 	c.Assert(err, ErrorMatches, `service "peer" not found`)
-	_, err = s.State.Relation(peerep)
+	_, err = s.State.EndpointsRelation(peerep)
 	c.Assert(err, ErrorMatches, `relation "peer:baz" not found`)
 }
 
