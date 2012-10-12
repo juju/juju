@@ -48,6 +48,8 @@ func InvalidStateInfo(machineId int) *state.Info {
 	}
 }
 
+const AdminSecret = "dummy-secret"
+
 var config = []byte(`
 environments:
     dummyenv:
@@ -55,7 +57,7 @@ environments:
         state-server: true
         authorized-keys: 'i-am-a-key'
         default-series: decrepit
-        admin-secret: dummy-secret
+        admin-secret: `+AdminSecret+`
 `)
 
 func (s *JujuConnSuite) SetUpSuite(c *C) {
@@ -129,6 +131,12 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 }
 
 func (s *JujuConnSuite) tearDownConn(c *C) {
+	// Don't fail if we cannot reset the admin password
+	// because the state might have been reset
+	// by the test independently of JujuConnSuite.
+	if err := s.State.SetAdminPassword(""); err != nil {
+		c.Logf("cannot reset admin password: %v", err)
+	}
 	c.Assert(s.Conn.Close(), IsNil)
 	dummy.Reset()
 	s.Conn = nil

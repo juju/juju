@@ -403,10 +403,12 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 		if err != nil {
 			panic(err)
 		}
-		if password := e.Config().AdminSecret(); password != "" {
-			if err := st.SetAdminPassword(trivial.PasswordHash(password)); err != nil {
-				return err
-			}
+		password := e.Config().AdminSecret()
+		if password == "" {
+			return fmt.Errorf("bootstrap must have admin-secret")
+		}
+		if err := st.SetAdminPassword(trivial.PasswordHash(password)); err != nil {
+			return err
 		}
 		if err := st.Close(); err != nil {
 			panic(err)
