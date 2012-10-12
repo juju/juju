@@ -65,7 +65,7 @@ func (t *LiveTests) TearDownSuite(c *C) {
 		err := t.Env.Destroy(nil)
 		c.Check(err, IsNil)
 		t.Env = nil
-	}else {
+	} else {
 		c.Logf("TearDownSuite not destroying environment")
 	}
 	t.LoggingSuite.TearDownSuite(c)
