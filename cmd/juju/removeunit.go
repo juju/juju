@@ -13,7 +13,7 @@ import (
 type RemoveUnitCommand struct {
 	EnvName     string
 	ServiceName string
-	UnitNames	[]string
+	UnitNames   []string
 }
 
 func (c *RemoveUnitCommand) Info() *cmd.Info {
@@ -44,7 +44,9 @@ func (c *RemoveUnitCommand) Run(_ *cmd.Context) error {
 	var units []*state.Unit
 	for _, name := range c.UnitNames {
 		unit, err := conn.State.Unit(name)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		units = append(units, unit)
 	}
 	return conn.RemoveUnits(units...)
