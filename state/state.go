@@ -449,8 +449,8 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err err
 	return newRelation(s, &doc), nil
 }
 
-// Relation returns the existing relation with the given endpoints.
-func (s *State) Relation(endpoints ...RelationEndpoint) (*Relation, error) {
+// EndpointsRelation returns the existing relation with the given endpoints.
+func (s *State) EndpointsRelation(endpoints ...RelationEndpoint) (*Relation, error) {
 	doc := relationDoc{}
 	key := relationKey(endpoints)
 	err := s.relations.Find(D{{"_id", key}}).One(&doc)
@@ -459,6 +459,19 @@ func (s *State) Relation(endpoints ...RelationEndpoint) (*Relation, error) {
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get relation %q: %v", key, err)
+	}
+	return newRelation(s, &doc), nil
+}
+
+// Relation returns the existing relation with the given id.
+func (s *State) Relation(id int) (*Relation, error) {
+	doc := relationDoc{}
+	err := s.relations.Find(D{{"id", id}}).One(&doc)
+	if err == mgo.ErrNotFound {
+		return nil, notFound("relation %d", id)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("cannot get relation %d: %v", id, err)
 	}
 	return newRelation(s, &doc), nil
 }
@@ -567,7 +580,7 @@ func (s *State) SetAdminPassword(password string) error {
 		}
 	} else {
 		if err := admin.RemoveUser("admin"); err != nil && err != mgo.ErrNotFound {
-			return fmt.Errorf("cannot remove admin user: %v", err)
+			return fmt.Errorf("cannot disable admin password: %v", err)
 		}
 	}
 	return nil

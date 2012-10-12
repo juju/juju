@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/trivial"
 	"os"
 	"path/filepath"
 	stdtesting "testing"
@@ -129,4 +130,49 @@ func (cs *ConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *C) {
 	cfg, err := conn.State.EnvironConfig()
 	c.Assert(err, IsNil)
 	c.Assert(cfg.UnknownAttrs()["secret"], Equals, "pork")
+}
+
+func (cs *ConnSuite) TestConnWithPassword(c *C) {
+	env, err := environs.NewFromAttrs(map[string]interface{}{
+		"name":            "erewhemos",
+		"type":            "dummy",
+		"state-server":    true,
+		"authorized-keys": "i-am-a-key",
+		"secret":          "squirrel",
+		"admin-secret":    "nutkin",
+	})
+	c.Assert(err, IsNil)
+	err = env.Bootstrap(false)
+	c.Assert(err, IsNil)
+
+	// Check that Bootstrap has correctly used a hash
+	// of the admin password.
+	info, err := env.StateInfo()
+	c.Assert(err, IsNil)
+	info.Password = trivial.PasswordHash("nutkin")
+	st, err := state.Open(info)
+	c.Assert(err, IsNil)
+	st.Close()
+
+	// Check that we can connect with the original environment.
+	conn, err := juju.NewConn(env)
+	c.Assert(err, IsNil)
+	conn.Close()
+
+	// Check that the password has now been changed to the original
+	// admin password.
+	info.Password = "nutkin"
+	st1, err := state.Open(info)
+	c.Assert(err, IsNil)
+	st1.Close()
+
+	// Check that we can still connect with the original
+	// environment.
+	conn, err = juju.NewConn(env)
+	c.Assert(err, IsNil)
+	defer conn.Close()
+
+	// Finally remove admin password so tests can reset.
+	err = conn.State.SetAdminPassword("")
+	c.Assert(err, IsNil)
 }

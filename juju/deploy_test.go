@@ -194,3 +194,27 @@ func (s *DeploySuite) TestAddUnits(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(id0, Not(Equals), id1)
 }
+
+func (s *DeploySuite) TestRemoveUnits(c *C) {
+	curl := testing.Charms.ClonedURL(s.repo.Path, "series", "riak")
+	sch, err := s.conn.PutCharm(curl, s.repo, false)
+	c.Assert(err, IsNil)
+	svc, err := s.conn.AddService("testriak", sch)
+	c.Assert(err, IsNil)
+	u1, err := s.conn.AddUnits(svc, 2)
+	c.Assert(err, IsNil)
+	c.Assert(u1, HasLen, 2)
+	svc, err = s.conn.AddService("anotherriak", sch)
+	c.Assert(err, IsNil)
+	u2, err := s.conn.AddUnits(svc, 1)
+	c.Assert(err, IsNil)
+	c.Assert(u2, HasLen, 1)
+
+	units := append(u1, u2...)
+	err = s.conn.RemoveUnits(units...)
+	c.Assert(err, IsNil)
+	for _, u := range units {
+		// UA will action the transition from Dying to Dead in the future
+		c.Assert(u.Life(), Equals, state.Dying)
+	}
+}

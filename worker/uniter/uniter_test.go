@@ -162,7 +162,7 @@ var uniterTests = []uniterTest{
 		createCharm{},
 		createServiceAndUnit{},
 		startUniter{},
-		waitUniterDead{`failed to initialize uniter for unit "u/0": .*state must be a directory`},
+		waitUniterDead{`failed to initialize uniter for unit "u/0": .*not a directory`},
 	), ut(
 		"unknown unit",
 		startUniter{},
@@ -281,10 +281,7 @@ var uniterTests = []uniterTest{
 		waitUnit{
 			status: state.UnitStarted,
 		},
-		// Note: the second config-changed hook is automatically run as we
-		// re-enter ModeAbide. IMO the simplicity and clarity of that approach
-		// outweigh this slight inelegance.
-		waitHooks{"config-changed", "config-changed"},
+		waitHooks{"config-changed"},
 		verifyRunning{},
 	),
 
