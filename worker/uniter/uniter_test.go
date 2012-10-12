@@ -162,7 +162,7 @@ var uniterTests = []uniterTest{
 		createCharm{},
 		createServiceAndUnit{},
 		startUniter{},
-		waitUniterDead{`failed to initialize uniter for unit "u/0": .*state must be a directory`},
+		waitUniterDead{`failed to initialize uniter for unit "u/0": .*not a directory`},
 	), ut(
 		"unknown unit",
 		startUniter{},
