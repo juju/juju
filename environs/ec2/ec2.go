@@ -482,24 +482,18 @@ func (e *environ) AllInstances() ([]environs.Instance, error) {
 
 func (e *environ) Destroy(insts []environs.Instance) error {
 	log.Printf("environs/ec2: destroying environment %q", e.name)
-	// Try to find all the instances in the environ's group.
-	filter := ec2.NewFilter()
-	filter.Add("instance-state-name", "pending", "running")
-	filter.Add("group-name", e.groupName())
-	resp, err := e.ec2().Instances(nil, filter)
+	insts, err := e.AllInstances()
 	if err != nil {
 		return fmt.Errorf("cannot get instances: %v", err)
 	}
-	var ids []string
 	found := make(map[string]bool)
-	for _, r := range resp.Reservations {
-		for _, inst := range r.Instances {
-			ids = append(ids, inst.InstanceId)
-			found[inst.InstanceId] = true
-		}
+	var ids []string
+	for _, inst := range insts {
+		ids = append(ids, inst.Id())
+		found[inst.Id()] = true
 	}
 
-	// Then add any instances we've been told about but haven't yet shown
+	// Add any instances we've been told about but haven't yet shown
 	// up in the instance list.
 	for _, inst := range insts {
 		id := inst.(*instance).InstanceId
@@ -508,6 +502,7 @@ func (e *environ) Destroy(insts []environs.Instance) error {
 			found[id] = true
 		}
 	}
+	log.Printf("destroy: terminating instances: %v", ids)
 	err = e.terminateInstances(ids)
 	if err != nil {
 		return err
