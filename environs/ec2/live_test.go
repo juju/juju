@@ -88,6 +88,7 @@ func (t *LiveTests) TearDownSuite(c *C) {
 	}
 	err := ec2.DeleteStorageContent(t.Env.PublicStorage().(environs.Storage))
 	c.Assert(err, IsNil)
+	t.LiveTests.TearDownSuite(c)
 	t.LoggingSuite.TearDownSuite(c)
 }
 
