@@ -79,7 +79,7 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 
 // runOnce runs a uniter once.
 func (a *UnitAgent) runOnce() error {
-	st, err := openState(state.UnitEntityName(a.UnitName), &a.Conf)
+	st, password, err := openState(state.UnitEntityName(a.UnitName), &a.Conf)
 	if err != nil {
 		return err
 	}
@@ -90,6 +90,11 @@ func (a *UnitAgent) runOnce() error {
 	}
 	if err != nil {
 		return err
+	}
+	if password != "" {
+		if err := unit.SetPassword(password); err != nil {
+			return err
+		}
 	}
 	return runTasks(a.tomb.Dying(),
 		uniter.NewUniter(st, unit.Name(), a.Conf.DataDir),

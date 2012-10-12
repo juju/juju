@@ -37,6 +37,8 @@ type Uniter struct {
 	deployer *charm.Deployer
 	sf       *StateFile
 	rand     *rand.Rand
+
+	ranConfigChanged bool
 }
 
 // NewUniter creates a new Uniter which will install, run, and upgrade a
@@ -260,7 +262,10 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 	if err := u.charm.Snapshotf("Completed %q hook.", hi.Kind); err != nil {
 		return err
 	}
-	if err := u.sf.Write(Abide, Pending, &hi, nil); err != nil {
+	if hi.Kind == hook.ConfigChanged {
+		u.ranConfigChanged = true
+	}
+	if err := u.sf.Write(Continue, Pending, &hi, nil); err != nil {
 		return err
 	}
 	log.Printf("worker/uniter: committed %q hook", hi.Kind)
