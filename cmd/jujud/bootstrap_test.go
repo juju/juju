@@ -38,7 +38,6 @@ func (s *BootstrapSuite) TearDownTest(c *C) {
 	s.LoggingSuite.TearDownTest(c)
 }
 
-
 func initBootstrapCommand(args []string) (*BootstrapCommand, error) {
 	c := &BootstrapCommand{}
 	return c, initCmd(c, args)
