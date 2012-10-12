@@ -233,8 +233,11 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 	if err != nil {
 		return fmt.Errorf("unable to determine inital configuration: %v", err)
 	}
-	// TODO add initial password argument to Bootstrap.
-	info := &state.Info{}
+	password := e.Config().AdminSecret()
+	if password != "" {
+		password = trivial.PasswordHash(password)
+	}
+	info := &state.Info{Password: password}
 	inst, err := e.startInstance(0, info, tools, true, config)
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
@@ -400,7 +403,7 @@ func (e *environ) gatherInstances(ids []string, insts []environs.Instance) error
 	}
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "pending", "running")
-	filter.Add("group-name", e.groupName())
+	filter.Add("group-name", e.jujuGroupName())
 	filter.Add("instance-id", need...)
 	resp, err := e.ec2().Instances(nil, filter)
 	if err != nil {
@@ -462,7 +465,7 @@ func (e *environ) Instances(ids []string) ([]environs.Instance, error) {
 func (e *environ) AllInstances() ([]environs.Instance, error) {
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "pending", "running")
-	filter.Add("group-name", e.groupName())
+	filter.Add("group-name", e.jujuGroupName())
 	resp, err := e.ec2().Instances(nil, filter)
 	if err != nil {
 		return nil, err
@@ -482,7 +485,7 @@ func (e *environ) Destroy(insts []environs.Instance) error {
 	// Try to find all the instances in the environ's group.
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "pending", "running")
-	filter.Add("group-name", e.groupName())
+	filter.Add("group-name", e.jujuGroupName())
 	resp, err := e.ec2().Instances(nil, filter)
 	if err != nil {
 		return fmt.Errorf("cannot get instances: %v", err)
@@ -660,14 +663,14 @@ func (e *environ) terminateInstances(ids []string) error {
 }
 
 func (e *environ) globalGroupName() string {
-	return fmt.Sprintf("%s-global", e.groupName())
+	return fmt.Sprintf("%s-global", e.jujuGroupName())
 }
 
 func (e *environ) machineGroupName(machineId int) string {
-	return fmt.Sprintf("%s-%d", e.groupName(), machineId)
+	return fmt.Sprintf("%s-%d", e.jujuGroupName(), machineId)
 }
 
-func (e *environ) groupName() string {
+func (e *environ) jujuGroupName() string {
 	return "juju-" + e.name
 }
 
@@ -702,8 +705,8 @@ func (inst *instance) Ports(machineId int) ([]state.Port, error) {
 // addition, a specific machine security group is created for each
 // machine, so that its firewall rules can be configured per machine.
 func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
-	sourceGroups := []ec2.UserSecurityGroup{{Name: e.groupName()}}
-	jujuGroup, err := e.ensureGroup(e.groupName(),
+	sourceGroups := []ec2.UserSecurityGroup{{Name: e.jujuGroupName()}}
+	jujuGroup, err := e.ensureGroup(e.jujuGroupName(),
 		[]ec2.IPPerm{
 			{
 				Protocol:  "tcp",
@@ -733,17 +736,17 @@ func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 	if err != nil {
 		return nil, err
 	}
-	var addJujuGroup ec2.SecurityGroup
+	var machineGroup ec2.SecurityGroup
 	switch e.Config().FirewallMode() {
 	case config.FwInstance:
-		addJujuGroup, err = e.ensureGroup(e.machineGroupName(machineId), nil)
+		machineGroup, err = e.ensureGroup(e.machineGroupName(machineId), nil)
 	case config.FwGlobal:
-		addJujuGroup, err = e.ensureGroup(e.globalGroupName(), nil)
+		machineGroup, err = e.ensureGroup(e.globalGroupName(), nil)
 	}
 	if err != nil {
 		return nil, err
 	}
-	return []ec2.SecurityGroup{jujuGroup, addJujuGroup}, nil
+	return []ec2.SecurityGroup{jujuGroup, machineGroup}, nil
 }
 
 // zeroGroup holds the zero security group.
@@ -805,14 +808,14 @@ func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGr
 }
 
 // permKey represents a permission for a group or an ip address range
-// to access the given range of ports. Only one of groupName or ipAddr
+// to access the given range of ports. Only one of jujuGroupName or ipAddr
 // should be non-empty.
 type permKey struct {
-	protocol  string
-	fromPort  int
-	toPort    int
-	groupName string
-	ipAddr    string
+	protocol      string
+	fromPort      int
+	toPort        int
+	jujuGroupName string
+	ipAddr        string
 }
 
 type permSet map[permKey]bool
@@ -829,10 +832,10 @@ func newPermSet(ps []ec2.IPPerm) permSet {
 			toPort:   p.ToPort,
 		}
 		for _, g := range p.SourceGroups {
-			k.groupName = g.Name
+			k.jujuGroupName = g.Name
 			m[k] = true
 		}
-		k.groupName = ""
+		k.jujuGroupName = ""
 		for _, ip := range p.SourceIPs {
 			k.ipAddr = ip
 			m[k] = true
@@ -855,7 +858,7 @@ func (m permSet) ipPerms() (ps []ec2.IPPerm) {
 		if p.ipAddr != "" {
 			ipp.SourceIPs = []string{p.ipAddr}
 		} else {
-			ipp.SourceGroups = []ec2.UserSecurityGroup{{Name: p.groupName}}
+			ipp.SourceGroups = []ec2.UserSecurityGroup{{Name: p.jujuGroupName}}
 		}
 		ps = append(ps, ipp)
 	}

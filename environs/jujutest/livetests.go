@@ -145,8 +145,6 @@ func (t *LiveTests) TestPorts(c *C) {
 }
 
 func (t *LiveTests) TestGlobalPorts(c *C) {
-	// c.Skip("Global firewall mode is unfinished")
-
 	// Change configuration.
 	oldConfig := t.Env.Config()
 	defer func() {
@@ -159,10 +157,6 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 	newConfig, err := t.Env.Config().Apply(attrs)
 	c.Assert(err, IsNil)
 	err = t.Env.SetConfig(newConfig)
-
-	if err == environs.ErrGlobalFirewallNotSupported {
-		c.Skip("Tested provider does not support global mode")
-	}
 	c.Assert(err, IsNil)
 
 	// Create instances and check open ports on both instances.

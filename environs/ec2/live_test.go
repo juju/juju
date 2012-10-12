@@ -29,6 +29,7 @@ environments:
     type: ec2
     control-bucket: 'juju-test-%s'
     public-bucket: 'juju-public-test-%s'
+    admin-secret: 'for real'
 `, uniqueName, uniqueName, uniqueName)
 
 // uniqueName is generated afresh for every test, so that
@@ -123,7 +124,7 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	ec2conn := ec2.EnvironEC2(t.Env)
 
 	groups := amzec2.SecurityGroupNames(
-		ec2.GroupName(t.Env),
+		ec2.JujuGroupName(t.Env),
 		ec2.MachineGroupName(t.Env, 98),
 		ec2.MachineGroupName(t.Env, 99),
 	)

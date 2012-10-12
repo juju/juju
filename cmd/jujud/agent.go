@@ -2,10 +2,15 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/trivial"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -151,15 +156,46 @@ func isUpgraded(err error) bool {
 }
 
 // openState tries to open the state with the given entity name
-// and configuration information.
-func openState(entityName string, conf *AgentConf) (*state.State, error) {
-	// TODO read password from file and try to use that
-	info := conf.StateInfo
-	// TODO remove this test when passwords are correctly set
-	// up before starting agents.
-	if conf.InitialPassword != "" {
-		info.EntityName = entityName
-		info.Password = conf.InitialPassword
+// and configuration information. If the returned password
+// is non-empty, the caller should set the entity's password
+// accordingly.
+func openState(entityName string, conf *AgentConf) (st *state.State, password string, err error) {
+	pwfile := filepath.Join(environs.AgentDir(conf.DataDir, entityName), "password")
+	data, err := ioutil.ReadFile(pwfile)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, "", err
 	}
-	return state.Open(&info)
+	info := conf.StateInfo
+	info.EntityName = entityName
+	if err == nil {
+		info.Password = string(data)
+		st, err := state.Open(&info)
+		if err == nil {
+			return st, "", nil
+		}
+		if err != state.ErrUnauthorized {
+			return nil, "", err
+		}
+		// Access isn't authorized even though the password was
+		// saved.  This can happen if we crash after saving the
+		// password but before changing the password, so we'll
+		// try again with the initial password.
+	}
+	info.Password = conf.InitialPassword
+	st, err = state.Open(&info)
+	if err != nil {
+		return nil, "", err
+	}
+	// We've succeeded in connecting with the initial password, so
+	// we can now change it to something more private.
+	password, err = trivial.RandomPassword()
+	if err != nil {
+		st.Close()
+		return nil, "", err
+	}
+	if err := ioutil.WriteFile(pwfile, []byte(password), 0600); err != nil {
+		st.Close()
+		return nil, "", fmt.Errorf("cannot save password: %v", err)
+	}
+	return st, password, nil
 }

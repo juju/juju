@@ -62,8 +62,6 @@ type Instance interface {
 
 var ErrNoInstances = errors.New("no instances found")
 var ErrPartialInstances = errors.New("only some instances were found")
-var ErrInstanceFirewallNotSupported = errors.New("provider does not support instance firewall mode")
-var ErrGlobalFirewallNotSupported = errors.New("provider does not support global firewall mode")
 
 // NotFoundError records an error when something has not been found.
 type NotFoundError struct {
@@ -123,11 +121,15 @@ type Environ interface {
 	// Name returns the Environ's name.
 	Name() string
 
-	// Bootstrap initializes the state for the environment,
-	// possibly starting one or more instances.
-	// If uploadTools is true, the current version of
-	// the juju tools will be uploaded and used
-	// on the environment's instances.
+	// Bootstrap initializes the state for the environment, possibly
+	// starting one or more instances.  If uploadTools is true, the
+	// current version of the juju tools will be uploaded and used
+	// on the environment's instances.  If the configuration's
+	// AdminSecret is non-empty, the adminstrator password on the
+	// newly bootstrapped state will be set to a hash of it (see
+	// trivial.PasswordHash), When first connecting to the
+	// environment via the juju package, the password hash will be
+	// automatically replaced by the real password.
 	Bootstrap(uploadTools bool) error
 
 	// StateInfo returns information on the state initialized
@@ -188,14 +190,19 @@ type Environ interface {
 	// AssignmentPolicy returns the environment's unit assignment policy.
 	AssignmentPolicy() state.AssignmentPolicy
 
-	// OpenPorts opens the given ports global for the environment.
+	// OpenPorts opens the given ports for the whole environment.
+	// Must only be used if the environment was setup with the
+	// FwGlobal firewall mode.
 	OpenPorts(ports []state.Port) error
 
-	// ClosePorts closes the given ports global on the environment.
+	// ClosePorts closes the given ports for the whole environment.
+	// Must only be used if the environment was setup with the
+	// FwGlobal firewall mode.
 	ClosePorts(ports []state.Port) error
 
-	// Ports returns the set of ports open on the environment.
-	// The ports are returned as sorted by state.SortPorts.
+	// Ports returns the ports opened for the whole environment.
+	// Must only be used if the environment was setup with the
+	// FwGlobal firewall mode.
 	Ports() ([]state.Port, error)
 
 	// Provider returns the EnvironProvider that created this Environ.

@@ -29,62 +29,57 @@ func (*ConfigSuite) TestSecretAttrs(c *C) {
 	c.Assert(expected, DeepEquals, actual)
 }
 
+var firewallModeTests = []struct {
+	configFirewallMode string
+	firewallMode       config.FirewallMode
+	errorMsg           string
+}{
+	{
+		// Empty value leads to default value.
+		firewallMode: config.FwInstance,
+	}, {
+		// Explicit default value.
+		configFirewallMode: "default",
+		firewallMode:       config.FwInstance,
+	}, {
+		// Instance mode.
+		configFirewallMode: "instance",
+		firewallMode:       config.FwInstance,
+	}, {
+		// Global mode.
+		configFirewallMode: "global",
+		firewallMode:       config.FwGlobal,
+	}, {
+		// Invalid mode.
+		configFirewallMode: "invalid",
+		errorMsg:           "invalid firewall mode in environment configuration: .*",
+	},
+}
+
 func (*ConfigSuite) TestFirewallMode(c *C) {
-	cfg, err := config.New(map[string]interface{}{
-		"name":            "only",
-		"type":            "dummy",
-		"state-server":    true,
-		"authorized-keys": "i-am-a-key",
-	})
-	c.Assert(err, IsNil)
-	env, err := environs.New(cfg)
-	c.Assert(err, IsNil)
-	firewallMode := env.Config().FirewallMode()
-	c.Assert(firewallMode, Equals, config.FwInstance)
+	for _, test := range firewallModeTests {
+		c.Logf("test firewall mode %q", test.configFirewallMode)
+		cfgMap := map[string]interface{}{
+			"name":         "only",
+			"type":         "dummy",
+			"state-server": true,
+		}
+		if test.configFirewallMode != "" {
+			cfgMap["firewall-mode"] = test.configFirewallMode
+		}
+		cfg, err := config.New(cfgMap)
+		if err != nil {
+			c.Assert(err, ErrorMatches, test.errorMsg)
+			continue
+		}
 
-	cfg, err = config.New(map[string]interface{}{
-		"name":            "only",
-		"type":            "dummy",
-		"state-server":    true,
-		"authorized-keys": "i-am-a-key",
-		"firewall-mode":   "default",
-	})
-	c.Assert(err, IsNil)
-	env, err = environs.New(cfg)
-	c.Assert(err, IsNil)
-	firewallMode = env.Config().FirewallMode()
-	c.Assert(firewallMode, Equals, config.FwInstance)
+		env, err := environs.New(cfg)
+		if err != nil {
+			c.Assert(err, ErrorMatches, test.errorMsg)
+			continue
+		}
 
-	cfg, err = config.New(map[string]interface{}{
-		"name":            "only",
-		"type":            "dummy",
-		"state-server":    true,
-		"authorized-keys": "i-am-a-key",
-		"firewall-mode":   "instance",
-	})
-	c.Assert(err, IsNil)
-	env, err = environs.New(cfg)
-	c.Assert(err, IsNil)
-	firewallMode = env.Config().FirewallMode()
-	c.Assert(firewallMode, Equals, config.FwInstance)
-
-	cfg, err = config.New(map[string]interface{}{
-		"name":            "only",
-		"type":            "dummy",
-		"state-server":    true,
-		"authorized-keys": "i-am-a-key",
-		"firewall-mode":   "global",
-	})
-	c.Assert(err, IsNil)
-	env, err = environs.New(cfg)
-	c.Assert(err, ErrorMatches, `provider does not support global firewall mode`)
-
-	cfg, err = config.New(map[string]interface{}{
-		"name":            "only",
-		"type":            "dummy",
-		"state-server":    true,
-		"authorized-keys": "i-am-a-key",
-		"firewall-mode":   "invalid",
-	})
-	c.Assert(err, ErrorMatches, `invalid firewall mode in environment configuration: .*`)
+		firewallMode := env.Config().FirewallMode()
+		c.Assert(firewallMode, Equals, test.firewallMode)
+	}
 }

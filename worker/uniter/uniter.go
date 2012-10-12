@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"launchpad.net/tomb"
 	"math/rand"
+	"os"
 	"path/filepath"
 	"time"
 )
@@ -37,6 +38,8 @@ type Uniter struct {
 	deployer *charm.Deployer
 	sf       *StateFile
 	rand     *rand.Rand
+
+	ranConfigChanged bool
 }
 
 // NewUniter creates a new Uniter which will install, run, and upgrade a
@@ -103,7 +106,7 @@ func (u *Uniter) init(name string) (err error) {
 		return err
 	}
 	u.baseDir = filepath.Join(u.dataDir, "agents", ename)
-	if err := trivial.EnsureDir(filepath.Join(u.baseDir, "state")); err != nil {
+	if err := os.MkdirAll(filepath.Join(u.baseDir, "state"), 0755); err != nil {
 		return err
 	}
 	u.service, err = u.st.Service(u.unit.ServiceName())
@@ -260,7 +263,10 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 	if err := u.charm.Snapshotf("Completed %q hook.", hi.Kind); err != nil {
 		return err
 	}
-	if err := u.sf.Write(Abide, Pending, &hi, nil); err != nil {
+	if hi.Kind == hook.ConfigChanged {
+		u.ranConfigChanged = true
+	}
+	if err := u.sf.Write(Continue, Pending, &hi, nil); err != nil {
 		return err
 	}
 	log.Printf("committed %q hook", hi.Kind)
