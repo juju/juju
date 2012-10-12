@@ -29,6 +29,28 @@ func (cs *ConnSuite) TearDownTest(c *C) {
 	cs.LoggingSuite.TearDownTest(c)
 }
 
+func (*ConnSuite) TestNewConnWithoutAdminSecret(c *C) {
+	attrs := map[string]interface{}{
+		"name":            "erewhemos",
+		"type":            "dummy",
+		"state-server":    true,
+		"authorized-keys": "i-am-a-key",
+		"secret":          "pork",
+		"admin-secret": "really",
+	}
+	env, err := environs.NewFromAttrs(attrs)
+	c.Assert(err, IsNil)
+	err = env.Bootstrap(false)
+	c.Assert(err, IsNil)
+
+	delete(attrs, "admin-secret")
+	env1, err := environs.NewFromAttrs(attrs)
+	c.Assert(err, IsNil)
+	conn, err := juju.NewConn(env1)
+	c.Check(conn, IsNil)
+	c.Assert(err, ErrorMatches, "cannot connect without admin-secret")
+}
+
 func (*ConnSuite) TestNewConnFromName(c *C) {
 	home := c.MkDir()
 	defer os.Setenv("HOME", os.Getenv("HOME"))
