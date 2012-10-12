@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/tomb"
+	"sort"
 )
 
 // filter collects unit, service, and service config information from separate
@@ -24,12 +25,14 @@ type filter struct {
 	// The out* chans, when set to the corresponding out*On chan (rather than
 	// nil) indicate that an event of the appropriate type is ready to send
 	// to the client.
-	outConfig     chan struct{}
-	outConfigOn   chan struct{}
-	outUpgrade    chan *state.Charm
-	outUpgradeOn  chan *state.Charm
-	outResolved   chan state.ResolvedMode
-	outResolvedOn chan state.ResolvedMode
+	outConfig      chan struct{}
+	outConfigOn    chan struct{}
+	outUpgrade     chan *state.Charm
+	outUpgradeOn   chan *state.Charm
+	outResolved    chan state.ResolvedMode
+	outResolvedOn  chan state.ResolvedMode
+	outRelations   chan []int
+	outRelationsOn chan []int
 
 	// The want* chans are used to indicate that the filter should send
 	// events if it has them available.
@@ -49,23 +52,26 @@ type filter struct {
 	upgradeRequested serviceCharm
 	upgradeAvailable serviceCharm
 	upgrade          *state.Charm
+	relations        []int
 }
 
 // newFilter returns a filter that handles state changes pertaining to the
 // supplied unit.
 func newFilter(st *state.State, unitName string) (*filter, error) {
 	f := &filter{
-		st:            st,
-		outUnitDying:  make(chan struct{}),
-		outConfig:     make(chan struct{}),
-		outConfigOn:   make(chan struct{}),
-		outUpgrade:    make(chan *state.Charm),
-		outUpgradeOn:  make(chan *state.Charm),
-		outResolved:   make(chan state.ResolvedMode),
-		outResolvedOn: make(chan state.ResolvedMode),
-		wantResolved:  make(chan struct{}),
-		wantUpgrade:   make(chan serviceCharm),
-		discardConfig: make(chan struct{}),
+		st:             st,
+		outUnitDying:   make(chan struct{}),
+		outConfig:      make(chan struct{}),
+		outConfigOn:    make(chan struct{}),
+		outUpgrade:     make(chan *state.Charm),
+		outUpgradeOn:   make(chan *state.Charm),
+		outResolved:    make(chan state.ResolvedMode),
+		outResolvedOn:  make(chan state.ResolvedMode),
+		outRelations:   make(chan []int),
+		outRelationsOn: make(chan []int),
+		wantResolved:   make(chan struct{}),
+		wantUpgrade:    make(chan serviceCharm),
+		discardConfig:  make(chan struct{}),
 	}
 	go func() {
 		defer f.tomb.Done()
@@ -113,6 +119,12 @@ func (f *filter) ResolvedEvents() <-chan state.ResolvedMode {
 // configuration changes, or when an event is explicitly requested.
 func (f *filter) ConfigEvents() <-chan struct{} {
 	return f.outConfigOn
+}
+
+// RelationsEvents returns a channel that will receive the ids of all the service's
+// relations whose Life status has changed.
+func (f *filter) RelationsEvents() <-chan []int {
+	return f.outRelationsOn
 }
 
 // WantUpgradeEvent sets the baseline from which service charm changes will
@@ -166,6 +178,8 @@ func (f *filter) loop(unitName string) (err error) {
 	defer watcher.Stop(servicew, &f.tomb)
 	configw := f.service.WatchConfig()
 	defer watcher.Stop(configw, &f.tomb)
+	relationsw := f.service.WatchRelations()
+	defer watcher.Stop(relationsw, &f.tomb)
 
 	// Config events cannot be meaningfully discarded until one is available;
 	// once we receive the initial change, we unblock discard requests by
@@ -195,13 +209,19 @@ func (f *filter) loop(unitName string) (err error) {
 				return err
 			}
 		case _, ok := <-configw.Changes():
-			log.Debugf("filter got config change")
+			log.Debugf("filter: got config change")
 			if !ok {
 				return watcher.MustErr(configw)
 			}
 			log.Debugf("filter: preparing new config event")
 			f.outConfig = f.outConfigOn
 			discardConfig = f.discardConfig
+		case ids, ok := <-relationsw.Changes():
+			log.Debugf("filter: got relations change")
+			if !ok {
+				return watcher.MustErr(relationsw)
+			}
+			f.relationsChanged(ids)
 
 		// Send events on active out chans.
 		case f.outUpgrade <- f.upgrade:
@@ -214,6 +234,10 @@ func (f *filter) loop(unitName string) (err error) {
 		case f.outConfig <- nothing:
 			log.Debugf("filter: sent config event")
 			f.outConfig = nil
+		case f.outRelations <- f.relations:
+			log.Debugf("filter: sent relations event")
+			f.outRelations = nil
+			f.relations = nil
 
 		// Handle explicit requests.
 		case req := <-f.wantUpgrade:
@@ -295,6 +319,23 @@ func (f *filter) upgradeChanged() (err error) {
 	}
 	log.Debugf("filter: no new charm event")
 	return nil
+}
+
+// relationsChanged responds to service relation changes.
+func (f *filter) relationsChanged(ids []int) {
+outer:
+	for _, id := range ids {
+		for _, existing := range f.relations {
+			if id == existing {
+				continue outer
+			}
+		}
+		f.relations = append(f.relations, id)
+	}
+	if len(f.relations) != 0 {
+		sort.Ints(f.relations)
+		f.outRelations = f.outRelationsOn
+	}
 }
 
 // serviceCharm holds information about a charm.
