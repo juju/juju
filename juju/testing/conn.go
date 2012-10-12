@@ -57,7 +57,7 @@ environments:
         state-server: true
         authorized-keys: 'i-am-a-key'
         default-series: decrepit
-        admin-secret: `+AdminSecret+`
+        admin-secret: ` + AdminSecret + `
 `)
 
 func (s *JujuConnSuite) SetUpSuite(c *C) {
@@ -91,7 +91,7 @@ func (s *JujuConnSuite) Reset(c *C) {
 
 func (s *JujuConnSuite) StateInfo(c *C) *state.Info {
 	return &state.Info{
-		Addrs: []string{testing.MgoAddr},
+		Addrs:    []string{testing.MgoAddr},
 		Password: "dummy-secret",
 	}
 }

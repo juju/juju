@@ -30,7 +30,7 @@ func (s *DeploySuite) SetUpTest(c *C) {
 		"type":            "dummy",
 		"state-server":    true,
 		"authorized-keys": "i-am-a-key",
-		"admin-secret": "deploy-test-secret",
+		"admin-secret":    "deploy-test-secret",
 	}
 	environ, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)

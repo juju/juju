@@ -6,14 +6,14 @@ import (
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/log"
+	"local/runtime/debug"
 	stdlog "log"
 	"net"
 	"os"
 	"os/exec"
 	"strconv"
 	stdtesting "testing"
-	"time"	
-	"local/runtime/debug"
+	"time"
 )
 
 var (

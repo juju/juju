@@ -92,7 +92,7 @@ func (cs *ConnSuite) TestConnStateSecretsSideEffect(c *C) {
 		"state-server":    true,
 		"authorized-keys": "i-am-a-key",
 		"secret":          "pork",
-		"admin-secret": "side-effect secret",
+		"admin-secret":    "side-effect secret",
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
@@ -130,7 +130,7 @@ func (cs *ConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *C) {
 		"state-server":    true,
 		"authorized-keys": "i-am-a-key",
 		"secret":          "pork",
-		"admin-secret": "some secret",
+		"admin-secret":    "some secret",
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
@@ -146,7 +146,7 @@ func (cs *ConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *C) {
 	attrs["secret"] = "squirrel"
 	env1, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
-	
+
 	// Connect with the new env and check that the secret has not changed
 	conn, err = juju.NewConn(env1)
 	c.Assert(err, IsNil)
