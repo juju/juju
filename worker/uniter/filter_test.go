@@ -1,6 +1,7 @@
 package uniter
 
 import (
+	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju/testing"
@@ -251,11 +252,6 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	}
 	assertNoChange()
 
-	// Request an event; it matches the previous one.
-	f.WantConfigEvent()
-	assertChange()
-	assertNoChange()
-
 	// Change the config; new event received.
 	node, err := s.svc.Config()
 	c.Assert(err, IsNil)
@@ -265,17 +261,96 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	assertChange()
 	assertNoChange()
 
-	// Request a few events, and change the config a few times; when
-	// we finally receive, only a single event is sent.
-	f.WantConfigEvent()
+	// Change the config a couple of times, then reset the events.
 	node.Set("title", "20,000 leagues in the cloud")
 	_, err = node.Write()
 	c.Assert(err, IsNil)
-	f.WantConfigEvent()
 	node.Set("outlook", "precipitous")
 	_, err = node.Write()
 	c.Assert(err, IsNil)
-	f.WantConfigEvent()
+	s.State.Sync()
+	f.DiscardConfigEvent()
+	assertNoChange()
+
+	// Check that a filter's initial event works with DiscardConfigEvent
+	// as expected.
+	f, err = newFilter(s.State, s.unit.Name())
+	c.Assert(err, IsNil)
+	defer f.Stop()
+	f.DiscardConfigEvent()
+	s.State.Sync()
+	assertNoChange()
+
+	// Further changes are still collapsed as appropriate.
+	node.Set("skill-level", 123)
+	_, err = node.Write()
+	c.Assert(err, IsNil)
+	node.Set("outlook", "expressive")
+	_, err = node.Write()
+	c.Assert(err, IsNil)
 	assertChange()
 	assertNoChange()
+}
+
+func (s *FilterSuite) TestRelationsEvents(c *C) {
+	f, err := newFilter(s.State, s.unit.Name())
+	c.Assert(err, IsNil)
+	defer f.Stop()
+
+	assertNoChange := func() {
+		s.State.Sync()
+		select {
+		case ids := <-f.RelationsEvents():
+			c.Fatalf("unexpected relations event %#v", ids)
+		case <-time.After(50 * time.Millisecond):
+		}
+	}
+	assertNoChange()
+
+	// Add a couple of relations; check the event.
+	rel0 := s.addRelation(c)
+	rel1 := s.addRelation(c)
+	assertChange := func(expect []int) {
+		s.State.Sync()
+		select {
+		case got := <-f.RelationsEvents():
+			c.Assert(got, DeepEquals, expect)
+		case <-time.After(50 * time.Millisecond):
+			c.Fatalf("timed out")
+		}
+	}
+	assertChange([]int{0, 1})
+	assertNoChange()
+
+	// Add another relation, and change another's Life; check event.
+	s.addRelation(c)
+	err = rel0.EnsureDying()
+	c.Assert(err, IsNil)
+	assertChange([]int{0, 2})
+	assertNoChange()
+
+	// Remove a relation completely; check event.
+	err = rel1.EnsureDead()
+	c.Assert(err, IsNil)
+	err = s.State.RemoveRelation(rel1)
+	c.Assert(err, IsNil)
+	assertChange([]int{1})
+	assertNoChange()
+
+	// Start a new filter, check initial event.
+	f, err = newFilter(s.State, s.unit.Name())
+	c.Assert(err, IsNil)
+	defer f.Stop()
+	assertChange([]int{0, 2})
+	assertNoChange()
+}
+
+func (s *FilterSuite) addRelation(c *C) *state.Relation {
+	rels, err := s.svc.Relations()
+	c.Assert(err, IsNil)
+	rel, err := s.State.AddRelation(state.RelationEndpoint{
+		"dummy", "ifce", fmt.Sprintf("rel%d", len(rels)), state.RolePeer, charm.ScopeGlobal,
+	})
+	c.Assert(err, IsNil)
+	return rel
 }
