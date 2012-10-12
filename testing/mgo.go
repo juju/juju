@@ -6,7 +6,6 @@ import (
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/log"
-	"local/runtime/debug"
 	"net"
 	"os"
 	"os/exec"
