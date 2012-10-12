@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"launchpad.net/tomb"
 	"math/rand"
+	"os"
 	"path/filepath"
 	"time"
 )
@@ -105,7 +106,7 @@ func (u *Uniter) init(name string) (err error) {
 		return err
 	}
 	u.baseDir = filepath.Join(u.dataDir, "agents", ename)
-	if err := trivial.EnsureDir(filepath.Join(u.baseDir, "state")); err != nil {
+	if err := os.MkdirAll(filepath.Join(u.baseDir, "state"), 0755); err != nil {
 		return err
 	}
 	u.service, err = u.st.Service(u.unit.ServiceName())
@@ -213,6 +214,7 @@ func (u *Uniter) runHook(hi hook.Info) error {
 	}
 	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
 	hctx := &HookContext{
+		service:    u.service,
 		unit:       u.unit,
 		id:         hctxId,
 		relationId: -1,

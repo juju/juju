@@ -140,6 +140,14 @@ var configTests = []struct {
 		},
 		"",
 	}, {
+		// Instance firewall mode.
+		attrs{
+			"type":          "my-type",
+			"name":          "my-name",
+			"firewall-mode": config.FwInstance,
+		},
+		"",
+	}, {
 		// Global firewall mode.
 		attrs{
 			"type":          "my-type",

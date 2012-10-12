@@ -38,17 +38,6 @@ func ReadYaml(path string, obj interface{}) error {
 	return goyaml.Unmarshal(data, obj)
 }
 
-// EnsureDir creates the directory at path if it doesn't already exist.
-func EnsureDir(path string) error {
-	fi, err := os.Stat(path)
-	if os.IsNotExist(err) {
-		return os.MkdirAll(path, 0755)
-	} else if !fi.IsDir() {
-		return fmt.Errorf("%s must be a directory", path)
-	}
-	return nil
-}
-
 // ErrorContextf prefixes any error stored in err with text formatted
 // according to the format specifier. If err does not contain an error,
 // ErrorContextf does nothing.
