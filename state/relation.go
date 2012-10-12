@@ -1,6 +1,7 @@
 package state
 
 import (
+	"errors"
 	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
@@ -226,38 +227,60 @@ func (ru *RelationUnit) Endpoint() RelationEndpoint {
 	return ru.endpoint
 }
 
+// ErrRelationDying indicates that an operation failed because a relation
+// is Dying.
+var ErrRelationDying = errors.New("relation is dying")
+
 // EnterScope ensures that the unit has entered its scope in the relation.
-// A unit is a member of a relation when it has both entered its respective
-// scope and its pinger is signaling presence in the environment.
-func (ru *RelationUnit) EnterScope() (err error) {
-	defer trivial.ErrorContextf(&err, "cannot initialize state for unit %q in relation %q", ru.unit, ru.relation)
+// It returns ErrCannotEnterScope if the unit is already in the scope, or if
+// the scope cannot be entered due to the relation not being Alive. A unit
+// is a member of a relation when it has entered its respective scope.
+func (ru *RelationUnit) EnterScope() error {
 	address, err := ru.unit.PrivateAddress()
 	if err != nil {
-		return err
+		return fmt.Errorf("cannot initialize state for unit %q in relation %q: %v", ru.unit, ru.relation, err)
 	}
 	key, err := ru.key(ru.unit.Name())
 	if err != nil {
 		return err
 	}
-	_, err = createSettings(ru.st, key, map[string]interface{}{"private-address": address})
-	if err == errSettingsExist {
-		node, err := readSettings(ru.st, key)
+	content := map[string]interface{}{"private-address": address}
+	ops := []txn.Op{{
+		C:      ru.st.settings.Name,
+		Id:     key,
+		Assert: txn.DocMissing,
+		Insert: content,
+	}, {
+		C:      ru.st.relationScopes.Name,
+		Id:     key,
+		Assert: txn.DocMissing,
+		Insert: relationScopeDoc{key},
+	}, {
+		C:      ru.st.relations.Name,
+		Id:     ru.relation.doc.Key,
+		Assert: isAlive,
+		Update: D{{"$inc", D{{"unitcount", 1}}}},
+	}}
+	if err = ru.st.runner.Run(ops, "", nil); err == txn.ErrAborted {
+		// We either aborted because we're already in the scope, or because
+		// the relation is dying. If the former, don't treat this as an error;
+		// just update private-address. If the latter, attempting to read the
+		// settings will fail predictably, and the root cause can be reported.
+		settings, err := readSettings(ru.st, key)
 		if err != nil {
+			if IsNotFound(err) {
+				return ErrRelationDying
+			}
 			return err
 		}
-		node.Set("private-address", address)
-		if _, err := node.Write(); err != nil {
+		settings.Update(content)
+		if _, err = settings.Write(); err != nil {
 			return err
 		}
 	} else if err != nil {
 		return err
 	}
-	ops := []txn.Op{{
-		C:      ru.st.relationScopes.Name,
-		Id:     key,
-		Insert: relationScopeDoc{key},
-	}}
-	return ru.st.runner.Run(ops, "", nil)
+	return nil
 }
 
 // LeaveScope signals that the unit has left its scope in the relation.
@@ -267,11 +290,21 @@ func (ru *RelationUnit) LeaveScope() error {
 		return err
 	}
 	ops := []txn.Op{{
+		C:      ru.st.relations.Name,
+		Id:     ru.relation.doc.Key,
+		Assert: append(notDead, D{{"unitcount", D{{"$gt", 0}}}}...),
+		Update: D{{"$inc", D{{"unitcount", -1}}}},
+	}, {
 		C:      ru.st.relationScopes.Name,
 		Id:     key,
+		Assert: txn.DocExists,
 		Remove: true,
 	}}
-	return ru.st.runner.Run(ops, "", nil)
+	err = ru.st.runner.Run(ops, "", nil)
+	if err == txn.ErrAborted {
+		return nil
+	}
+	return err
 }
 
 // WatchScope returns a watcher which notifies of counterpart units
