@@ -55,6 +55,7 @@ environments:
         state-server: true
         authorized-keys: 'i-am-a-key'
         default-series: decrepit
+        admin-secret: dummy-secret
 `)
 
 func (s *JujuConnSuite) SetUpSuite(c *C) {
@@ -87,7 +88,10 @@ func (s *JujuConnSuite) Reset(c *C) {
 }
 
 func (s *JujuConnSuite) StateInfo(c *C) *state.Info {
-	return &state.Info{Addrs: []string{testing.MgoAddr}}
+	return &state.Info{
+		Addrs: []string{testing.MgoAddr},
+		Password: "dummy-secret",
+	}
 }
 
 func (s *JujuConnSuite) setUpConn(c *C) {
@@ -125,8 +129,8 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 }
 
 func (s *JujuConnSuite) tearDownConn(c *C) {
-	dummy.Reset()
 	c.Assert(s.Conn.Close(), IsNil)
+	dummy.Reset()
 	s.Conn = nil
 	s.State = nil
 	os.Setenv("HOME", s.oldHome)

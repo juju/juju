@@ -6,6 +6,7 @@ import (
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/log"
+	stdlog "log"
 	"net"
 	"os"
 	"os/exec"
@@ -114,6 +115,7 @@ func MgoReset() {
 		// locked out of the database.  We restart it to regain
 		// access.  This should only happen when tests fail.
 		destroyMgoServer()
+		stdlog.Printf("testing: restarting MongoDB server after unauthorized access")
 		log.Printf("testing: restarting MongoDB server after unauthorized access")
 		if err := startMgoServer(); err != nil {
 			panic(err)

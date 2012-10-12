@@ -234,10 +234,10 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 		return fmt.Errorf("unable to determine inital configuration: %v", err)
 	}
 	password := e.Config().AdminSecret()
-	if password != "" {
-		password = trivial.PasswordHash(password)
+	if password == "" {
+		return fmt.Errorf("admin-secret is required for bootstrap")
 	}
-	info := &state.Info{Password: password}
+	info := &state.Info{Password: trivial.PasswordHash(password)}
 	inst, err := e.startInstance(0, info, tools, true, config)
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
