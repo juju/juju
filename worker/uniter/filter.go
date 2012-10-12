@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/tomb"
+	"sort"
 )
 
 // filter collects unit, service, and service config information from separate
@@ -30,8 +31,8 @@ type filter struct {
 	outUpgradeOn   chan *state.Charm
 	outResolved    chan state.ResolvedMode
 	outResolvedOn  chan state.ResolvedMode
-	outRelations   chan map[int]struct{}
-	outRelationsOn chan map[int]struct{}
+	outRelations   chan []int
+	outRelationsOn chan []int
 
 	// The want* chans are used to indicate that the filter should send
 	// events if it has them available.
@@ -51,7 +52,7 @@ type filter struct {
 	upgradeRequested serviceCharm
 	upgradeAvailable serviceCharm
 	upgrade          *state.Charm
-	relations        map[int]struct{}
+	relations        []int
 }
 
 // newFilter returns a filter that handles state changes pertaining to the
@@ -66,8 +67,8 @@ func newFilter(st *state.State, unitName string) (*filter, error) {
 		outUpgradeOn:   make(chan *state.Charm),
 		outResolved:    make(chan state.ResolvedMode),
 		outResolvedOn:  make(chan state.ResolvedMode),
-		outRelations:   make(chan map[int]struct{}),
-		outRelationsOn: make(chan map[int]struct{}),
+		outRelations:   make(chan []int),
+		outRelationsOn: make(chan []int),
 		wantResolved:   make(chan struct{}),
 		wantUpgrade:    make(chan serviceCharm),
 		discardConfig:  make(chan struct{}),
@@ -122,7 +123,7 @@ func (f *filter) ConfigEvents() <-chan struct{} {
 
 // RelationsEvents returns a channel that will receive the ids of all the service's
 // relations whose Life status has changed.
-func (f *filter) RelationsEvents() <-chan map[int]struct{} {
+func (f *filter) RelationsEvents() <-chan []int {
 	return f.outRelationsOn
 }
 
@@ -322,13 +323,17 @@ func (f *filter) upgradeChanged() (err error) {
 
 // relationsChanged responds to service relation changes.
 func (f *filter) relationsChanged(ids []int) {
-	if f.relations == nil {
-		f.relations = map[int]struct{}{}
-	}
+outer:
 	for _, id := range ids {
-		f.relations[id] = nothing
+		for _, existing := range f.relations {
+			if id == existing {
+				continue outer
+			}
+		}
+		f.relations = append(f.relations, id)
 	}
 	if len(f.relations) != 0 {
+		sort.Ints(f.relations)
 		f.outRelations = f.outRelationsOn
 	}
 }

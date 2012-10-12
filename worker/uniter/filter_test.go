@@ -310,14 +310,10 @@ func (s *FilterSuite) TestRelationsEvents(c *C) {
 	// Add a couple of relations; check the event.
 	rel0 := s.addRelation(c)
 	rel1 := s.addRelation(c)
-	assertChange := func(ids []int) {
+	assertChange := func(expect []int) {
 		s.State.Sync()
 		select {
 		case got := <-f.RelationsEvents():
-			expect := map[int]struct{}{}
-			for _, id := range ids {
-				expect[id] = struct{}{}
-			}
 			c.Assert(got, DeepEquals, expect)
 		case <-time.After(50 * time.Millisecond):
 			c.Fatalf("timed out")
