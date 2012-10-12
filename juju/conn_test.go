@@ -50,6 +50,7 @@ environments:
         type: dummy
         state-server: true
         authorized-keys: i-am-a-key
+        admin-secret: conn-from-name-secret
 `), 0644)
 	if err != nil {
 		c.Log("Could not create environments.yaml")
@@ -73,6 +74,9 @@ environments:
 	c.Assert(conn.Environ.Name(), Equals, "erewhemos")
 	c.Assert(conn.State, NotNil)
 
+	// Reset the admin password so the state db can be reused.
+	err = conn.State.SetAdminPassword("")
+	c.Assert(err, IsNil)
 	// Close the conn (thereby closing its state) a couple of times to
 	// verify that multiple closes will not panic. We ignore the error,
 	// as the underlying State will return an error the second
@@ -88,6 +92,7 @@ func (cs *ConnSuite) TestConnStateSecretsSideEffect(c *C) {
 		"state-server":    true,
 		"authorized-keys": "i-am-a-key",
 		"secret":          "pork",
+		"admin-secret": "side-effect secret",
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
@@ -95,6 +100,7 @@ func (cs *ConnSuite) TestConnStateSecretsSideEffect(c *C) {
 	c.Assert(err, IsNil)
 	info, err := env.StateInfo()
 	c.Assert(err, IsNil)
+	info.Password = trivial.PasswordHash("side-effect secret")
 	st, err := state.Open(info)
 	c.Assert(err, IsNil)
 
@@ -103,33 +109,55 @@ func (cs *ConnSuite) TestConnStateSecretsSideEffect(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(cfg.UnknownAttrs()["secret"], IsNil)
 
+	// Make a new Conn, which will push the secrets.
 	conn, err := juju.NewConn(env)
 	c.Assert(err, IsNil)
 	defer conn.Close()
-	// fetch a state connection via the conn, which will 
-	// push the secrets.
+
 	cfg, err = conn.State.EnvironConfig()
 	c.Assert(err, IsNil)
 	c.Assert(cfg.UnknownAttrs()["secret"], Equals, "pork")
+
+	// Reset the admin password so the state db can be reused.
+	err = conn.State.SetAdminPassword("")
+	c.Assert(err, IsNil)
 }
 
 func (cs *ConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *C) {
-	cs.TestConnStateSecretsSideEffect(c)
-	env, err := environs.NewFromAttrs(map[string]interface{}{
+	attrs := map[string]interface{}{
 		"name":            "erewhemos",
 		"type":            "dummy",
 		"state-server":    true,
 		"authorized-keys": "i-am-a-key",
-		"secret":          "squirrel",
-	})
+		"secret":          "pork",
+		"admin-secret": "some secret",
+	}
+	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
+	err = env.Bootstrap(false)
+	c.Assert(err, IsNil)
+
+	// Make a new Conn, which will push the secrets.
 	conn, err := juju.NewConn(env)
 	c.Assert(err, IsNil)
 	defer conn.Close()
-	// check that the secret has not changed
+
+	// Make another env with a different secret.
+	attrs["secret"] = "squirrel"
+	env1, err := environs.NewFromAttrs(attrs)
+	c.Assert(err, IsNil)
+	
+	// Connect with the new env and check that the secret has not changed
+	conn, err = juju.NewConn(env1)
+	c.Assert(err, IsNil)
+	defer conn.Close()
 	cfg, err := conn.State.EnvironConfig()
 	c.Assert(err, IsNil)
 	c.Assert(cfg.UnknownAttrs()["secret"], Equals, "pork")
+
+	// Reset the admin password so the state db can be reused.
+	err = conn.State.SetAdminPassword("")
+	c.Assert(err, IsNil)
 }
 
 func (cs *ConnSuite) TestConnWithPassword(c *C) {
@@ -172,7 +200,7 @@ func (cs *ConnSuite) TestConnWithPassword(c *C) {
 	c.Assert(err, IsNil)
 	defer conn.Close()
 
-	// Finally remove admin password so tests can reset.
+	// Reset the admin password so the state db can be reused.
 	err = conn.State.SetAdminPassword("")
 	c.Assert(err, IsNil)
 }

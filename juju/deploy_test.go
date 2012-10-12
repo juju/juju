@@ -30,6 +30,7 @@ func (s *DeploySuite) SetUpTest(c *C) {
 		"type":            "dummy",
 		"state-server":    true,
 		"authorized-keys": "i-am-a-key",
+		"admin-secret": "deploy-test-secret",
 	}
 	environ, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
@@ -44,11 +45,12 @@ func (s *DeploySuite) TearDownTest(c *C) {
 	if s.conn == nil {
 		return
 	}
-	err := s.conn.Environ.Destroy(nil)
+	err := s.conn.State.SetAdminPassword("")
+	c.Assert(err, IsNil)
+	err = s.conn.Environ.Destroy(nil)
 	c.Check(err, IsNil)
 	s.conn.Close()
 	s.conn = nil
-	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }
