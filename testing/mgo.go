@@ -7,7 +7,6 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/log"
 	"local/runtime/debug"
-	stdlog "log"
 	"net"
 	"os"
 	"os/exec"
@@ -116,7 +115,6 @@ func MgoReset() {
 		// locked out of the database.  We restart it to regain
 		// access.  This should only happen when tests fail.
 		destroyMgoServer()
-		stdlog.Printf("testing: restarting MongoDB server after unauthorized access; callers %s", debug.Callers(0, 10))
 		log.Printf("testing: restarting MongoDB server after unauthorized access")
 		if err := startMgoServer(); err != nil {
 			panic(err)
