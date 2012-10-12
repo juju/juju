@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
+	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -287,14 +288,30 @@ var uniterTests = []uniterTest{
 
 	// Steady state changes.
 	ut(
-		"steady state config change",
-		quickStart{},
-		changeConfig{},
+		"steady state config change with config-get verification",
+		createCharm{
+			customize: func(c *C, path string) {
+				appendHook(c, path, "config-changed", "config-get --format yaml --output config.out")
+			},
+		},
+		serveCharm{},
+		createUniter{},
 		waitUnit{
 			status: state.UnitStarted,
 		},
+		waitHooks{"install", "start", "config-changed"},
+		assertYaml{"charm/config.out", map[string]interface{}{
+			"title":    "My Title",
+			"username": "admin001",
+		}},
+		changeConfig{"skill-level": 9001, "title": "Goodness Gracious Me"},
 		waitHooks{"config-changed"},
 		verifyRunning{},
+		assertYaml{"charm/config.out", map[string]interface{}{
+			"skill-level": 9001,
+			"title":       "Goodness Gracious Me",
+			"username":    "admin001",
+		}},
 	),
 
 	// Reaction to entity deaths.
@@ -314,8 +331,8 @@ var uniterTests = []uniterTest{
 		"steady state unit dead",
 		quickStart{},
 		unitDead,
-		waitHooks{},
 		waitUniterDead{},
+		waitHooks{},
 	), ut(
 		"hook error service dying",
 		startupError{"start"},
@@ -338,8 +355,8 @@ var uniterTests = []uniterTest{
 		"hook error unit dead",
 		startupError{"start"},
 		unitDead,
-		waitHooks{},
 		waitUniterDead{},
+		waitHooks{},
 	),
 
 	// Upgrade scenarios.
@@ -480,12 +497,7 @@ var uniterTests = []uniterTest{
 			customize: func(c *C, path string) {
 				err := os.Mkdir(filepath.Join(path, "data"), 0755)
 				c.Assert(err, IsNil)
-				start := filepath.Join(path, "hooks", "start")
-				f, err := os.OpenFile(start, os.O_WRONLY|os.O_APPEND, 0755)
-				c.Assert(err, IsNil)
-				defer f.Close()
-				_, err = f.Write([]byte("echo DATA > data/newfile"))
-				c.Assert(err, IsNil)
+				appendHook(c, path, "start", "echo DATA > data/newfile")
 			},
 		},
 		serveCharm{},
@@ -574,8 +586,8 @@ var uniterTests = []uniterTest{
 		"upgrade conflict unit dead",
 		startUpgradeError{},
 		unitDead,
-		waitHooks{},
 		waitUniterDead{},
+		waitHooks{},
 	),
 }
 
@@ -897,16 +909,12 @@ func (s fixHook) step(c *C, ctx *context) {
 	ctx.writeHook(c, path, true)
 }
 
-type changeConfig struct{}
+type changeConfig map[string]interface{}
 
 func (s changeConfig) step(c *C, ctx *context) {
 	node, err := ctx.svc.Config()
 	c.Assert(err, IsNil)
-	prev, found := node.Get("skill-level")
-	if !found {
-		prev = 0
-	}
-	node.Set("skill-level", prev.(int)+1)
+	node.Update(s)
 	_, err = node.Write()
 	c.Assert(err, IsNil)
 }
@@ -962,12 +970,7 @@ func (s startUpgradeError) step(c *C, ctx *context) {
 	steps := []stepper{
 		createCharm{
 			customize: func(c *C, path string) {
-				start := filepath.Join(path, "hooks", "start")
-				f, err := os.OpenFile(start, os.O_WRONLY|os.O_APPEND, 0755)
-				c.Assert(err, IsNil)
-				defer f.Close()
-				_, err = f.Write([]byte("echo STARTDATA > data"))
-				c.Assert(err, IsNil)
+				appendHook(c, path, "start", "echo STARTDATA > data")
 			},
 		},
 		serveCharm{},
@@ -1001,6 +1004,20 @@ func (s startUpgradeError) step(c *C, ctx *context) {
 	for _, s_ := range steps {
 		step(c, ctx, s_)
 	}
+}
+
+type assertYaml struct {
+	path   string
+	expect map[string]interface{}
+}
+
+func (s assertYaml) step(c *C, ctx *context) {
+	data, err := ioutil.ReadFile(filepath.Join(ctx.path, s.path))
+	c.Assert(err, IsNil)
+	actual := make(map[string]interface{})
+	err = goyaml.Unmarshal(data, &actual)
+	c.Assert(err, IsNil)
+	c.Assert(actual, DeepEquals, s.expect)
 }
 
 type writeFile struct {
@@ -1050,4 +1067,13 @@ var unitDead = custom{func(c *C, ctx *context) {
 
 func curl(revision int) *charm.URL {
 	return charm.MustParseURL("cs:series/dummy").WithRevision(revision)
+}
+
+func appendHook(c *C, charm, name, data string) {
+	path := filepath.Join(charm, "hooks", name)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND, 0755)
+	c.Assert(err, IsNil)
+	defer f.Close()
+	_, err = f.Write([]byte(data))
+	c.Assert(err, IsNil)
 }
