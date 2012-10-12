@@ -6,17 +6,20 @@ import (
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/tomb"
+	"path/filepath"
 	"time"
 )
 
 var _ = Suite(&agentSuite{})
 
 type agentSuite struct {
-	testing.LoggingSuite
+	coretesting.LoggingSuite
 }
 
 func assertDead(c *C, tasks []*testTask) {
@@ -205,4 +208,92 @@ func ParseAgentCommand(ac cmd.Command, args []string) error {
 		"--data-dir", "jd",
 	}
 	return initCmd(ac, append(common, args...))
+}
+
+type runner interface {
+	Run(*cmd.Context) error
+	Stop() error
+}
+
+// runWithTimeout runs an agent and waits
+// for it to complete within a reasonable time. 
+func runWithTimeout(r runner) error {
+	done := make(chan error)
+	go func() {
+		done <- r.Run(nil)
+	}()
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(5 * time.Second):
+	}
+	err := r.Stop()
+	return fmt.Errorf("timed out waiting for agent to finish; stop error: %v", err)
+}
+
+// runStop runs an agent, immediately stops it,
+// and returns the resulting error status.
+func runStop(r runner) error {
+	done := make(chan error, 1)
+	go func() {
+		done <- r.Run(nil)
+	}()
+	go func() {
+		done <- r.Stop()
+	}()
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(5 * time.Second):
+	}
+	return fmt.Errorf("timed out waiting for agent to finish")
+}
+
+type entity interface {
+	EntityName() string
+	SetPassword(string) error
+}
+
+func testAgentPasswordChanging(s *testing.JujuConnSuite, c *C, ent entity, dataDir string, newAgent func(initialPassword string) runner) {
+	// Check that it starts initially and changes the password
+	err := ent.SetPassword("initial")
+	c.Assert(err, IsNil)
+
+	err = runStop(newAgent("initial"))
+	c.Assert(err, IsNil)
+
+	// Check that we can no longer gain access with the initial password.
+	info := s.StateInfo(c)
+	info.EntityName = ent.EntityName()
+	info.Password = "initial"
+	testOpenState(c, info, state.ErrUnauthorized)
+
+	// Read the password file and check that we can connect it.
+	pwfile := filepath.Join(environs.AgentDir(dataDir, ent.EntityName()), "password")
+	data, err := ioutil.ReadFile(pwfile)
+	c.Assert(err, IsNil)
+	newPassword := string(data)
+
+	info.Password = newPassword
+	testOpenState(c, info, nil)
+
+	// Check that it starts again ok
+	err = runStop(newAgent("initial"))
+	c.Assert(err, IsNil)
+
+	// Change the password file and check
+	// that it falls back to using the initial password
+	err = ioutil.WriteFile(pwfile, []byte("spurious"), 0700)
+	c.Assert(err, IsNil)
+	err = runStop(newAgent(newPassword))
+	c.Assert(err, IsNil)
+
+	// Check that it's changed the password again
+	data, err = ioutil.ReadFile(pwfile)
+	c.Assert(err, IsNil)
+	c.Assert(string(data), Not(Equals), "spurious")
+	c.Assert(string(data), Not(Equals), newPassword)
+
+	info.Password = string(data)
+	testOpenState(c, info, nil)
 }

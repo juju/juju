@@ -81,7 +81,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 }
 
 func (a *MachineAgent) runOnce() error {
-	st, err := openState(state.MachineEntityName(a.MachineId), &a.Conf)
+	st, password, err := openState(state.MachineEntityName(a.MachineId), &a.Conf)
 	if err != nil {
 		return err
 	}
@@ -92,6 +92,11 @@ func (a *MachineAgent) runOnce() error {
 	}
 	if err != nil {
 		return err
+	}
+	if password != "" {
+		if err := m.SetPassword(password); err != nil {
+			return err
+		}
 	}
 	log.Printf("machiner: requested workers for machine agent: ", m.Workers())
 	tasks := []task{NewUpgrader(st, m, a.Conf.DataDir)}

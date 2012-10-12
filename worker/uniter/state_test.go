@@ -32,7 +32,7 @@ var stateTests = []struct {
 		err: `unknown operation "bloviate"`,
 	}, {
 		st: uniter.State{
-			Op:     uniter.Abide,
+			Op:     uniter.Continue,
 			OpStep: uniter.OpStep("dudelike"),
 			Hook:   &hook.Info{Kind: hook.ConfigChanged},
 		},
@@ -116,16 +116,16 @@ var stateTests = []struct {
 			CharmURL: stcurl,
 		},
 	},
-	// Abide operation.
+	// Continue operation.
 	{
 		st: uniter.State{
-			Op:     uniter.Abide,
+			Op:     uniter.Continue,
 			OpStep: uniter.Pending,
 		},
 		err: `missing hook info`,
 	}, {
 		st: uniter.State{
-			Op:       uniter.Abide,
+			Op:       uniter.Continue,
 			OpStep:   uniter.Pending,
 			Hook:     relhook,
 			CharmURL: stcurl,
@@ -133,7 +133,7 @@ var stateTests = []struct {
 		err: `unexpected charm URL`,
 	}, {
 		st: uniter.State{
-			Op:     uniter.Abide,
+			Op:     uniter.Continue,
 			OpStep: uniter.Pending,
 			Hook:   relhook,
 		},

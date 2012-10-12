@@ -41,10 +41,6 @@ func (c *Simple) service(unit *state.Unit) *upstart.Service {
 	return svc
 }
 
-func (c *Simple) dirName(unit *state.Unit) string {
-	return filepath.Join(c.DataDir, "agents", unit.EntityName())
-}
-
 // Deploy deploys a unit running the given tools unit into a new container.
 // The unit will use the given info to connect to the state.
 func (c *Simple) Deploy(unit *state.Unit, info *state.Info, tools *state.Tools) (err error) {
@@ -67,13 +63,19 @@ func (c *Simple) Deploy(unit *state.Unit, info *state.Info, tools *state.Tools) 
 	if err != nil {
 		return fmt.Errorf("cannot make password for unit: %v", err)
 	}
+	debugFlag := ""
+	// TODO: disable debug mode by default when the system is stable.
+	if true || log.Debug {
+		debugFlag = " --debug"
+	}
 	cmd := fmt.Sprintf(
 		"%s unit"+
-			" --state-servers '%s'"+
+			"%s --state-servers '%s'"+
 			" --log-file %s"+
 			" --unit-name %s"+
 			" --initial-password %s",
 		filepath.Join(toolsDir, "jujud"),
+		debugFlag,
 		strings.Join(info.Addrs, ","),
 		filepath.Join("/var/log/juju", unit.EntityName()+".log"),
 		unit.Name(),
@@ -84,7 +86,7 @@ func (c *Simple) Deploy(unit *state.Unit, info *state.Info, tools *state.Tools) 
 		Desc:    "juju unit agent for " + unit.Name(),
 		Cmd:     cmd,
 	}
-	dir := c.dirName(unit)
+	dir := environs.AgentDir(c.DataDir, unit.EntityName())
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
@@ -107,5 +109,5 @@ func (c *Simple) Destroy(unit *state.Unit) error {
 	if err := c.service(unit).Remove(); err != nil {
 		return err
 	}
-	return os.RemoveAll(c.dirName(unit))
+	return os.RemoveAll(environs.AgentDir(c.DataDir, unit.EntityName()))
 }

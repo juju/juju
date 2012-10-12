@@ -28,6 +28,7 @@ import (
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
 	"net"
 	"net/http"
@@ -106,7 +107,6 @@ type environState struct {
 	mu            sync.Mutex
 	maxId         int // maximum instance id allocated so far.
 	insts         map[string]*instance
-	ports         map[int]map[state.Port]bool
 	bootstrapped  bool
 	storageDelay  time.Duration
 	storage       *storage
@@ -178,7 +178,6 @@ func newState(name string, ops chan<- Operation) *environState {
 		name:  name,
 		ops:   ops,
 		insts: make(map[string]*instance),
-		ports: make(map[int]map[state.Port]bool),
 	}
 	s.storage = newStorage(s, "/"+name+"/private")
 	s.publicStorage = newStorage(s, "/"+name+"/public")
@@ -399,11 +398,16 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 		info := stateInfo()
 		cfg, err := environs.BootstrapConfig(&providerInstance, e.ecfg().Config, tools)
 		if err != nil {
-			return err
+			return fmt.Errorf("cannot make bootstrap config: %v", err)
 		}
 		st, err := state.Initialize(info, cfg)
 		if err != nil {
 			panic(err)
+		}
+		if password := e.Config().AdminSecret(); password != "" {
+			if err := st.SetAdminPassword(trivial.PasswordHash(password)); err != nil {
+				return err
+			}
 		}
 		if err := st.Close(); err != nil {
 			panic(err)

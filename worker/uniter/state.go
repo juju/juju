@@ -22,9 +22,9 @@ const (
 	// Upgrade indicates that the uniter is upgrading the charm.
 	Upgrade Op = "upgrade"
 
-	// Abide indicates that the uniter is not currently executing
-	// any other operation.
-	Abide Op = "abide"
+	// Continue indicates that the uniter should run ModeContinue
+	// to determine the next operation.
+	Continue Op = "continue"
 )
 
 // OpStep describes the recorded progression of an operation.
@@ -54,7 +54,7 @@ type State struct {
 	OpStep OpStep
 
 	// Hook holds hook information relevant to the current operation. If Op
-	// is Abide, it holds the last hook that was executed; if Op is RunHook,
+	// is Continue, it holds the last hook that was executed; if Op is RunHook,
 	// it holds the running hook; if Op is Upgrade, a non-nil hook indicates
 	// that the uniter should return to that hook's Pending state after the
 	// upgrade is complete (instead of running an upgrade-charm hook).
@@ -80,7 +80,7 @@ func (st State) validate() (err error) {
 		if !hasCharm {
 			return fmt.Errorf("missing charm URL")
 		}
-	case Abide, RunHook:
+	case Continue, RunHook:
 		if !hasHook {
 			return fmt.Errorf("missing hook info")
 		} else if hasCharm {

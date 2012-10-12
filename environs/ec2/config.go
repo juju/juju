@@ -86,9 +86,15 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 		}
 	}
 
-	if ecfg.FirewallMode() == config.FwDefault {
-		// Default mode for EC2 is instance.
+	switch cfg.FirewallMode() {
+	case config.FwDefault:
+		// Default mode for dummy is instance.
 		ecfg.attrs["firewall-mode"] = config.FwInstance
+	case config.FwInstance, config.FwGlobal:
+		// Instance and global mode are supported.
+	default:
+		// Unsupported mode.
+		return nil, fmt.Errorf("firewall mode %q not supported", cfg.FirewallMode())
 	}
 
 	return cfg.Apply(ecfg.attrs)
