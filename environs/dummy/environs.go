@@ -405,7 +405,7 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 		}
 		password := e.Config().AdminSecret()
 		if password == "" {
-			return fmt.Errorf("bootstrap must have admin-secret")
+			return fmt.Errorf("admin-secret is required for bootstrap")
 		}
 		if err := st.SetAdminPassword(trivial.PasswordHash(password)); err != nil {
 			return err
