@@ -174,7 +174,7 @@ func ReadAllStateDirs(dirPath string) (dirs map[int]*StateDir, err error) {
 
 // Ensure creates the directory if it does not already exist.
 func (d *StateDir) Ensure() error {
-	return trivial.EnsureDir(d.path)
+	return os.MkdirAll(d.path, 0755)
 }
 
 // Write atomically writes to disk the relation state change in hi.

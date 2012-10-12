@@ -46,7 +46,7 @@ func (d *BundlesDir) Read(sch *state.Charm, abort <-chan struct{}) (*charm.Bundl
 func (d *BundlesDir) download(sch *state.Charm, abort <-chan struct{}) (err error) {
 	defer trivial.ErrorContextf(&err, "failed to download charm %q from %q", sch.URL(), sch.BundleURL())
 	dir := d.downloadsPath()
-	if err := trivial.EnsureDir(dir); err != nil {
+	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
 	burl := sch.BundleURL().String()
@@ -75,7 +75,7 @@ func (d *BundlesDir) download(sch *state.Charm, abort <-chan struct{}) (err erro
 				)
 			}
 			log.Printf("download verified")
-			if err := trivial.EnsureDir(d.path); err != nil {
+			if err := os.MkdirAll(d.path, 0755); err != nil {
 				return err
 			}
 			return os.Rename(st.File.Name(), d.bundlePath(sch))
