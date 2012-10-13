@@ -346,7 +346,7 @@ func (s *RelationUnitSuite) TestScopeWithRelationLifecycle(c *C) {
 
 	// Check that we can't add a new unit now.
 	err = pr.ru1.EnterScope()
-	c.Assert(err, Equals, state.ErrRelationDying)
+	c.Assert(err, Equals, state.ErrScopeDying)
 
 	// Check that we created no settings for the unit we failed to add.
 	_, err = pr.ru0.ReadSettings("peer/1")
@@ -713,7 +713,7 @@ func (s *OriginalRelationUnitSuite) TestRelationUnitEnterScopeError(c *C) {
 	err = rel.EnsureDying()
 	c.Assert(err, IsNil)
 	err = ru1.EnterScope()
-	c.Assert(err, Equals, state.ErrRelationDying)
+	c.Assert(err, Equals, state.ErrScopeDying)
 }
 
 func (s *OriginalRelationUnitSuite) TestRelationUnitReadSettings(c *C) {

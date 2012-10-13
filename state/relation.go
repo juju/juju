@@ -234,14 +234,15 @@ func (ru *RelationUnit) Endpoint() RelationEndpoint {
 	return ru.endpoint
 }
 
-// ErrRelationDying indicates that an operation failed because a relation
-// is Dying.
-var ErrRelationDying = errors.New("relation is dying")
+// ErrScopeDying indicates that a relation scope cannot accept new members
+// because the relation is not Alive.
+var ErrScopeDying = errors.New("scope is closed to new member units")
 
 // EnterScope ensures that the unit has entered its scope in the relation and
 // that its relation settings contain its private address. If the scope cannot
-// be entered because the relation is dying, it returns ErrRelationDying. Once
-// a unit has entered its scope, it is considered a member of the relation.
+// be entered because the relation is dying, or worse, it returns ErrScopeDying.
+// Once a unit has entered its scope, it is considered a member of the relation;
+// the relation will not become Dead until all members have left the scope.
 func (ru *RelationUnit) EnterScope() error {
 	address, err := ru.unit.PrivateAddress()
 	if err != nil {
@@ -270,13 +271,14 @@ func (ru *RelationUnit) EnterScope() error {
 	}}
 	if err = ru.st.runner.Run(ops, "", nil); err == txn.ErrAborted {
 		// We either aborted because we're already in the scope, or because
-		// the relation is dying. If the former, don't treat this as an error;
-		// just update private-address. If the latter, attempting to read the
-		// settings will fail predictably, and the root cause can be reported.
+		// the relation is dying (or worse). If the former, don't treat this
+		// as an error; just update private-address. If the latter, attempting
+		// to read the settings will fail predictably, and the root cause can
+		// be reported.
 		settings, err := readSettings(ru.st, key)
 		if err != nil {
 			if IsNotFound(err) {
-				return ErrRelationDying
+				return ErrScopeDying
 			}
 			return err
 		}
@@ -290,9 +292,10 @@ func (ru *RelationUnit) EnterScope() error {
 	return nil
 }
 
-// LeaveScope signals that the unit has left its scope in the relation. After
-// the unit has left its relation scope, it is no longer a member of the
-// relation.
+// LeaveScope signals that the unit has left its scope in the relation.
+// After the unit has left its relation scope, it is no longer a member
+// of the relation. It is not an error to leave a scope that the unit is
+// not, or never was, a member of.
 func (ru *RelationUnit) LeaveScope() error {
 	key, err := ru.key(ru.unit.Name())
 	if err != nil {
@@ -301,7 +304,7 @@ func (ru *RelationUnit) LeaveScope() error {
 	ops := []txn.Op{{
 		C:      ru.st.relations.Name,
 		Id:     ru.relation.doc.Key,
-		Assert: append(notDead, D{{"unitcount", D{{"$gt", 0}}}}...),
+		Assert: D{{"unitcount", D{{"$gt", 0}}}},
 		Update: D{{"$inc", D{{"unitcount", -1}}}},
 	}, {
 		C:      ru.st.relationScopes.Name,
