@@ -476,7 +476,7 @@ func (s *State) Relation(id int) (*Relation, error) {
 	return newRelation(s, &doc), nil
 }
 
-// RemoveRelation removes the supplied relation.
+// RemoveRelation removes the supplied relation and all its unit settings.
 func (s *State) RemoveRelation(r *Relation) (err error) {
 	defer trivial.ErrorContextf(&err, "cannot remove relation %q", r.doc.Key)
 	if r.doc.Life != Dead {
@@ -488,6 +488,20 @@ func (s *State) RemoveRelation(r *Relation) (err error) {
 		Assert: D{{"life", Dead}},
 		Remove: true,
 	}}
+	docs := []struct {
+		Key string `bson:"_id"`
+	}{}
+	sel := D{{"_id", D{{"$regex", fmt.Sprintf("^r#%d#", r.Id())}}}}
+	if err := r.st.settings.Find(sel).All(&docs); err != nil {
+		return err
+	}
+	for _, doc := range docs {
+		ops = append(ops, txn.Op{
+			C:      r.st.settings.Name,
+			Id:     doc.Key,
+			Remove: true,
+		})
+	}
 	if err := s.runner.Run(ops, "", nil); err != nil {
 		// If aborted, the relation is either dead or recreated.
 		return onAbort(err, nil)
