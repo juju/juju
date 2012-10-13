@@ -56,7 +56,7 @@ func (s *Service) EnsureDying() error {
 	// to collect a consistent relation state on which to apply it; and if the
 	// transaction is aborted, we need to re-collect, and retry, until we succeed.
 	for {
-		log.Printf("state: preparing to set service %q to dying", s)
+		log.Debugf("state: preparing to set service %q to dying", s)
 		current := struct {
 			Life          Life
 			RelationCount int
@@ -67,16 +67,16 @@ func (s *Service) EnsureDying() error {
 			return err
 		}
 		if current.Life != Alive {
-			log.Printf("state: service %q was already dying", s)
+			log.Debugf("state: service %q was already dying", s)
 			return nil
 		}
-		log.Printf("state: found %d relations for service %q", current.RelationCount, s)
+		log.Debugf("state: found %d relations for service %q", current.RelationCount, s)
 		rels, err := s.Relations()
 		if err != nil {
 			return err
 		}
 		if len(rels) != current.RelationCount {
-			log.Printf("state: service %q relations changed; retrying", s)
+			log.Debugf("state: service %q relations changed; retrying", s)
 			continue
 		}
 		ops := []txn.Op{{
@@ -99,12 +99,12 @@ func (s *Service) EnsureDying() error {
 			}
 		}
 		if err := s.st.runner.Run(ops, "", nil); err == txn.ErrAborted {
-			log.Printf("state: service %q changed, retrying", s)
+			log.Debugf("state: service %q changed, retrying", s)
 			continue
 		} else if err != nil {
 			return err
 		}
-		log.Printf("state: service %q is now dying", s)
+		log.Debugf("state: service %q is now dying", s)
 		s.doc.Life = Dying
 		return nil
 	}
