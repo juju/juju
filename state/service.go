@@ -6,6 +6,7 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/trivial"
 	"strconv"
 )
@@ -18,14 +19,15 @@ type Service struct {
 
 // serviceDoc represents the internal state of a service in MongoDB.
 type serviceDoc struct {
-	Name       string `bson:"_id"`
-	CharmURL   *charm.URL
-	ForceCharm bool
-	Life       Life
-	UnitSeq    int
-	UnitCount  int
-	Exposed    bool
-	TxnRevno   int64 `bson:"txn-revno"`
+	Name          string `bson:"_id"`
+	CharmURL      *charm.URL
+	ForceCharm    bool
+	Life          Life
+	UnitSeq       int
+	UnitCount     int
+	RelationCount int
+	Exposed       bool
+	TxnRevno      int64 `bson:"txn-revno"`
 }
 
 func newService(st *State, doc *serviceDoc) *Service {
@@ -47,27 +49,78 @@ func (s *Service) Life() Life {
 	return s.doc.Life
 }
 
-// EnsureDying sets the service lifecycle to Dying if it is Alive.
-// It does nothing otherwise.
+// EnsureDying sets the service lifecycle, and those of all its relations,
+// to Dying if the service is Alive. It does nothing otherwise.
 func (s *Service) EnsureDying() error {
-	err := ensureDying(s.st, s.st.services, s.doc.Name, "service")
-	if err != nil {
-		return err
+	// To kill the relations in the same transaction as the service, we need
+	// to collect a consistent relation state on which to apply it; and if the
+	// transaction is aborted, we need to re-collect, and retry, until we succeed.
+	for {
+		log.Printf("state: preparing to set service %q to dying", s)
+		current := struct {
+			Life          Life
+			RelationCount int
+			TxnRevno      int64 `bson:"txn-revno"`
+		}{}
+		err := s.st.services.FindId(s.doc.Name).One(&current)
+		if err != nil {
+			return err
+		}
+		if current.Life != Alive {
+			log.Printf("state: service %q was already dying", s)
+			return nil
+		}
+		log.Printf("state: found %d relations for service %q", current.RelationCount, s)
+		rels, err := s.Relations()
+		if err != nil {
+			return err
+		}
+		if len(rels) != current.RelationCount {
+			log.Printf("state: service %q relations changed; retrying", s)
+			continue
+		}
+		ops := []txn.Op{{
+			C:  s.st.services.Name,
+			Id: s.doc.Name,
+			Assert: append(isAlive, D{
+				{"relationcount", current.RelationCount},
+				{"txn-revno", current.TxnRevno},
+			}...),
+			Update: D{{"$set", D{{"life", Dying}}}},
+		}}
+		for _, rel := range rels {
+			if rel.Life() == Alive {
+				ops = append(ops, txn.Op{
+					C:      s.st.relations.Name,
+					Id:     rel.doc.Key,
+					Assert: isAlive,
+					Update: D{{"$set", D{{"life", Dying}}}},
+				})
+			}
+		}
+		if err := s.st.runner.Run(ops, "", nil); err == txn.ErrAborted {
+			log.Printf("state: service %q changed, retrying", s)
+			continue
+		} else if err != nil {
+			return err
+		}
+		log.Printf("state: service %q is now dying", s)
+		s.doc.Life = Dying
+		return nil
 	}
-	s.doc.Life = Dying
-	return nil
+	panic("unreachable")
 }
 
 // EnsureDead sets the service lifecycle to Dead if it is Alive or Dying.
 // It does nothing otherwise. It will return an error if the service still
-// has units.
+// has units, or is still participating in relations.
 func (s *Service) EnsureDead() error {
 	assertOps := []txn.Op{{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
-		Assert: D{{"unitcount", 0}},
+		Assert: D{{"unitcount", 0}, {"relationcount", 0}},
 	}}
-	err := ensureDead(s.st, s.st.services, s.doc.Name, "service", assertOps, "service still has units")
+	err := ensureDead(s.st, s.st.services, s.doc.Name, "service", assertOps, "service still has units and/or relations")
 	if err != nil {
 		return err
 	}

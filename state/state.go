@@ -307,43 +307,11 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 	return svc, nil
 }
 
-// RemoveService removes a service from the state. It will also remove all
-// its units and break any of its existing relations.
+// RemoveService removes a service from the state.
 func (s *State) RemoveService(svc *Service) (err error) {
-	// TODO Do lifecycle properly.
-	// Removing relations and units here is wrong. They need to monitor
-	// their own parent and set themselves to dying.
 	defer trivial.ErrorContextf(&err, "cannot remove service %q", svc)
-
 	if svc.doc.Life != Dead {
 		return fmt.Errorf("service is not dead")
-	}
-	rels, err := svc.Relations()
-	if err != nil {
-		return err
-	}
-	for _, rel := range rels {
-		err = rel.EnsureDead()
-		if err != nil {
-			return err
-		}
-		err = s.RemoveRelation(rel)
-		if err != nil {
-			return err
-		}
-	}
-	units, err := svc.AllUnits()
-	if err != nil {
-		return err
-	}
-	for _, unit := range units {
-		err = unit.EnsureDead()
-		if err != nil {
-			return err
-		}
-		if err = svc.RemoveUnit(unit); err != nil {
-			return err
-		}
 	}
 	ops := []txn.Op{{
 		C:      s.services.Name,
@@ -408,18 +376,18 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err err
 		return nil, fmt.Errorf("cannot relate %d endpoints", len(endpoints))
 	}
 
+	ops := []txn.Op{}
 	var scope charm.RelationScope
 	for _, v := range endpoints {
 		if v.RelationScope == charm.ScopeContainer {
 			scope = charm.ScopeContainer
 		}
-		// BUG(aram): potential race in the time between getting the service
-		// to validate the endpoint and actually writting the relation
-		// into MongoDB; the service might have disappeared.
-		_, err = s.Service(v.ServiceName)
-		if err != nil {
-			return nil, err
-		}
+		ops = append(ops, txn.Op{
+			C:      s.services.Name,
+			Id:     v.ServiceName,
+			Assert: isAlive,
+			Update: D{{"$inc", D{{"relationcount", 1}}}},
+		})
 	}
 	if scope == charm.ScopeContainer {
 		for i := range endpoints {
@@ -436,14 +404,25 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err err
 		Endpoints: endpoints,
 		Life:      Alive,
 	}
-	ops := []txn.Op{{
+	ops = append(ops, txn.Op{
 		C:      s.relations.Name,
 		Id:     doc.Key,
 		Assert: txn.DocMissing,
 		Insert: doc,
-	}}
+	})
 	err = s.runner.Run(ops, "", nil)
-	if err != nil {
+	if err == txn.ErrAborted {
+		for _, ep := range endpoints {
+			svc, err := s.Service(ep.ServiceName)
+			if err != nil {
+				return nil, err
+			}
+			if svc.Life() != Alive {
+				return nil, fmt.Errorf("service %q is not alive", ep.ServiceName)
+			}
+		}
+		return nil, fmt.Errorf("relation already exists")
+	} else if err != nil {
 		return nil, err
 	}
 	return newRelation(s, &doc), nil
@@ -485,19 +464,28 @@ func (s *State) RemoveRelation(r *Relation) (err error) {
 	ops := []txn.Op{{
 		C:      s.relations.Name,
 		Id:     r.doc.Key,
-		Assert: D{{"life", Dead}},
+		Assert: D{{"life", Dead}, {"id", r.Id()}},
 		Remove: true,
 	}}
+	for _, ep := range r.doc.Endpoints {
+		ops = append(ops, txn.Op{
+			C:      s.services.Name,
+			Id:     ep.ServiceName,
+			Assert: D{{"relationcount", D{{"$gt", 0}}}},
+			Update: D{{"$inc", D{{"relationcount", -1}}}},
+		})
+	}
+	// Collect all unit settings keys for the relation.
 	docs := []struct {
 		Key string `bson:"_id"`
 	}{}
 	sel := D{{"_id", D{{"$regex", fmt.Sprintf("^r#%d#", r.Id())}}}}
-	if err := r.st.settings.Find(sel).All(&docs); err != nil {
+	if err := s.settings.Find(sel).All(&docs); err != nil {
 		return err
 	}
 	for _, doc := range docs {
 		ops = append(ops, txn.Op{
-			C:      r.st.settings.Name,
+			C:      s.settings.Name,
 			Id:     doc.Key,
 			Remove: true,
 		})

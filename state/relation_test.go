@@ -194,22 +194,6 @@ func (s *RelationSuite) TestPeerRelation(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *RelationSuite) TestRemoveServiceRemovesRelations(c *C) {
-	peer, err := s.State.AddService("peer", s.charm)
-	c.Assert(err, IsNil)
-	peerep := state.RelationEndpoint{"peer", "ifce", "baz", state.RolePeer, charm.ScopeGlobal}
-	_, err = s.State.AddRelation(peerep)
-	c.Assert(err, IsNil)
-	err = peer.EnsureDead()
-	c.Assert(err, IsNil)
-	err = s.State.RemoveService(peer)
-	c.Assert(err, IsNil)
-	_, err = s.State.Service("peer")
-	c.Assert(err, ErrorMatches, `service "peer" not found`)
-	_, err = s.State.EndpointsRelation(peerep)
-	c.Assert(err, ErrorMatches, `relation "peer:baz" not found`)
-}
-
 func assertNoRelations(c *C, srv *state.Service) {
 	rels, err := srv.Relations()
 	c.Assert(err, IsNil)
