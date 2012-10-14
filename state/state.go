@@ -491,8 +491,9 @@ func (s *State) RemoveRelation(r *Relation) (err error) {
 		})
 	}
 	if err := s.runner.Run(ops, "", nil); err != nil {
-		// If aborted, a new relation with the same key, but a different id,
-		// has been created; the original was therefore indeed removed.
+		// If aborted, either we're deleted... or a new relation, with
+		// the same key, but a different id, has been created; this means
+		// that the original must in fact have been removed.
 		return onAbort(err, nil)
 	}
 	return nil

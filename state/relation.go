@@ -313,10 +313,23 @@ func (ru *RelationUnit) LeaveScope() error {
 		Remove: true,
 	}}
 	err = ru.st.runner.Run(ops, "", nil)
-	if err == txn.ErrAborted {
+	if err != nil && err != txn.ErrAborted {
+		return err
+	}
+	rel := ru.Relation()
+	if rel.Life() == Alive {
+		// Even if we're the last unit, there's no reason to kill the relation.
 		return nil
 	}
-	return err
+	if err = rel.EnsureDead(); err != nil {
+		if _, ok := err.(*cannotKillError); ok {
+			// We're not the last unit, so we didn't manage to kill the
+			// relation; this is not a problem.
+			return nil
+		}
+		return err
+	}
+	return ru.st.RemoveRelation(rel)
 }
 
 // WatchScope returns a watcher which notifies of counterpart units
