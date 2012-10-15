@@ -35,7 +35,7 @@ func (s *RemoveUnitSuite) TestRemoveUnit(c *C) {
 	err = runRemoveUnit(c, "dummy1/5")
 	c.Assert(err, ErrorMatches, "unit \"dummy1/5\" not found")
 
-	// TODO(dfc) removing a removed unit (EnsureDying) is not an error.
+	// Removing a unit that is dying is not an error.
 	err = runRemoveUnit(c, "dummy1/1")
 	c.Assert(err, IsNil)
 }

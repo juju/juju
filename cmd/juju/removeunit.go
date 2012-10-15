@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
@@ -9,14 +10,14 @@ import (
 	"launchpad.net/juju-core/state"
 )
 
-// RemoveUnitCommand is responsible adding additional units to a service.
+// RemoveUnitCommand is responsible removing service units.
 type RemoveUnitCommand struct {
 	EnvName   string
 	UnitNames []string
 }
 
 func (c *RemoveUnitCommand) Info() *cmd.Info {
-	return &cmd.Info{"remove-unit", "", "removes service units (service/0, service/1, etc)", ""}
+	return &cmd.Info{"remove-unit", "<unit> [...]", "remove service units", ""}
 }
 
 func (c *RemoveUnitCommand) Init(f *gnuflag.FlagSet, args []string) error {
@@ -24,11 +25,15 @@ func (c *RemoveUnitCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}
-	args = f.Args()
-	if len(args) == 0 {
+	c.UnitNames = f.Args()
+	if len(c.UnitNames) == 0 {
 		return errors.New("no service units specified")
 	}
-	c.UnitNames = f.Args()
+	for _, name := range c.UnitNames {
+		if !state.IsUnitName(name) {
+			return fmt.Errorf("invalid service unit name: %q", name)
+		}
+	}
 	return nil
 }
 
