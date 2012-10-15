@@ -11,13 +11,12 @@ import (
 
 // RemoveUnitCommand is responsible adding additional units to a service.
 type RemoveUnitCommand struct {
-	EnvName     string
-	ServiceName string
-	UnitNames   []string
+	EnvName   string
+	UnitNames []string
 }
 
 func (c *RemoveUnitCommand) Info() *cmd.Info {
-	return &cmd.Info{"remove-unit", "", "remvoes service units", ""}
+	return &cmd.Info{"remove-unit", "", "removes service units (service/0, service/1, etc)", ""}
 }
 
 func (c *RemoveUnitCommand) Init(f *gnuflag.FlagSet, args []string) error {
