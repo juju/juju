@@ -480,7 +480,7 @@ func (e *environ) AllInstances() ([]environs.Instance, error) {
 	return insts, nil
 }
 
-func (e *environ) Destroy(insts []environs.Instance) error {
+func (e *environ) Destroy(ensureInsts []environs.Instance) error {
 	log.Printf("environs/ec2: destroying environment %q", e.name)
 	insts, err := e.AllInstances()
 	if err != nil {
@@ -495,7 +495,7 @@ func (e *environ) Destroy(insts []environs.Instance) error {
 
 	// Add any instances we've been told about but haven't yet shown
 	// up in the instance list.
-	for _, inst := range insts {
+	for _, inst := range ensureInsts {
 		id := inst.(*instance).InstanceId
 		if !found[id] {
 			ids = append(ids, id)
