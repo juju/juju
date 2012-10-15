@@ -98,6 +98,7 @@ type State struct {
 	settings       *mgo.Collection
 	units          *mgo.Collection
 	presence       *mgo.Collection
+	cleanups       *mgo.Collection
 	runner         *txn.Runner
 	watcher        *watcher.Watcher
 	pwatcher       *presence.Watcher
@@ -482,26 +483,22 @@ func (s *State) RemoveRelation(r *Relation) (err error) {
 	if r.doc.Life != Dead {
 		return fmt.Errorf("relation is not dead")
 	}
+	cDoc := &cleanupDoc{
+		Id:     bson.NewObjectId(),
+		Kind:   "settings",
+		Prefix: fmt.Sprintf("r#%d#", r.Id()),
+	}
 	ops := []txn.Op{{
+		C:      s.cleanups.Name,
+		Id:     cDoc.Id,
+		Assert: txn.DocMissing,
+		Insert: cDoc,
+	}, {
 		C:      s.relations.Name,
 		Id:     r.doc.Key,
 		Assert: D{{"life", Dead}},
 		Remove: true,
 	}}
-	docs := []struct {
-		Key string `bson:"_id"`
-	}{}
-	sel := D{{"_id", D{{"$regex", fmt.Sprintf("^r#%d#", r.Id())}}}}
-	if err := r.st.settings.Find(sel).All(&docs); err != nil {
-		return err
-	}
-	for _, doc := range docs {
-		ops = append(ops, txn.Op{
-			C:      r.st.settings.Name,
-			Id:     doc.Key,
-			Remove: true,
-		})
-	}
 	if err := s.runner.Run(ops, "", nil); err != nil {
 		// If aborted, the relation is either dead or recreated.
 		return onAbort(err, nil)
@@ -608,4 +605,81 @@ func (s *State) setPassword(name, password string) error {
 		return fmt.Errorf("cannot set password in presence db for %q: %v", name, err)
 	}
 	return nil
+}
+
+// cleanupDoc represents a potentially large set of documents that should be
+// removed.
+type cleanupDoc struct {
+	Id     bson.ObjectId `bson:"_id"`
+	Kind   string
+	Prefix string
+}
+
+// ErrNotClean indicates that garbage documents exist.
+var ErrNotClean = errors.New("documents remain to be cleaned up")
+
+// Cleanup removes several documents that were previously marked for removal,
+// if any such exist. A result of ErrNotClean indicates that documents remain
+// to be processed; a nil error indicates that no garbage documents exist.
+func (s *State) Cleanup() error {
+	cq := s.cleanups.Find(nil)
+	ccount, err := cq.Count()
+	if err != nil {
+		return err
+	} else if ccount == 0 {
+		return nil
+	}
+	doc := cleanupDoc{}
+	if err := q.One(&doc); err != nil {
+		if err == mgo.ErrNotFound {
+			return nil
+		}
+		return err
+	}
+	var c *mgo.Collection
+	var sel interface{}
+	switch doc.Kind {
+	case "settings":
+		c = s.settings
+		sel = D{{"_id", D{{"$regex", "^" + doc.Prefix}}}}
+	default:
+		panic(fmt.Errorf("unknown cleanup kind %q", doc.Kind))
+	}
+	q := c.Find(sel)
+	ops := []txn.Op{}
+	last := false
+	if count, err := q.Count(); err != nil {
+		return err
+	} else if count == 0 {
+		ops = append(ops, txn.Op{
+			C:      s.cleanups.Name,
+			Id:     doc.Id,
+			Remove: true,
+		})
+		if ccount == 1 {
+			last = true
+		}
+	} else {
+		docs := []struct {
+			Id string `bson:"_id"`
+		}{}
+		if err := q.Limit(100).All(&docs); err != nil {
+			return err
+		}
+		for _, doc := range docs {
+			ops = append(ops, txn.Op{
+				C:      c.Name,
+				Id:     doc.Id,
+				Remove: true,
+			})
+		}
+	}
+	err = s.runner.Run(ops, "", nil)
+	if err != nil {
+		return err
+	}
+	if last {
+		return nil
+	}
+	return ErrNotClean
 }

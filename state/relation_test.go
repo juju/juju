@@ -367,18 +367,31 @@ func (s *RelationUnitSuite) TestScopeWithRelationLifecycle(c *C) {
 	c.Assert(err, IsNil)
 
 	// Check that unit settings for the original unit still exist.
-	settings, err := pr.ru1.ReadSettings("peer/0")
-	c.Assert(err, IsNil)
-	c.Assert(settings, DeepEquals, map[string]interface{}{
-		"private-address": "peer-0.example.com",
-	})
+	assertSettings := func() {
+		settings, err := pr.ru1.ReadSettings("peer/0")
+		c.Assert(err, IsNil)
+		c.Assert(settings, DeepEquals, map[string]interface{}{
+			"private-address": "peer-0.example.com",
+		})
+	}
+	assertSettings()
 
-	// Check the relation can be removed, and that unit settings are deleted.
+	// Check the relation can be removed, and that unit settings are
+	// still not deleted...
 	err = s.State.RemoveRelation(rel)
 	c.Assert(err, IsNil)
+	assertSettings()
+
+	// ...but that they were scheduled for deletion.
+	err = s.State.Cleanup()
+	c.Assert(err, Equals, state.ErrNotClean)
 	_, err = pr.ru1.ReadSettings("peer/0")
 	c.Assert(err, ErrorMatches, `cannot read settings for unit "peer/0" in relation "peer:name": settings not found`)
 
+	// Because this is the only sensible place, check that subsequent cleanups
+	// don't error out.
+	err = s.State.Cleanup()
+	c.Assert(err, IsNil)
 }
 
 func (s *RelationUnitSuite) TestPeerWatchScope(c *C) {
