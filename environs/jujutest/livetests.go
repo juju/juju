@@ -15,6 +15,75 @@ import (
 	"time"
 )
 
+// LiveTests contains tests that are designed to run against a live server
+// (e.g. Amazon EC2).  The Environ is opened once only for all the tests
+// in the suite, stored in Env, and Destroyed after the suite has completed.
+type LiveTests struct {
+	coretesting.LoggingSuite
+	Environs *environs.Environs
+	Name     string
+	Env      environs.Environ
+	// ConsistencyDelay gives the length of time to wait before
+	// environ becomes logically consistent.
+	ConsistencyDelay time.Duration
+
+	// CanOpenState should be true if the testing environment allows
+	// the state to be opened after bootstrapping.
+	CanOpenState bool
+
+	// HasProvisioner should be true if the environment has
+	// a provisioning agent.
+	HasProvisioner bool
+
+	bootstrapped bool
+}
+
+func (t *LiveTests) SetUpSuite(c *C) {
+	t.LoggingSuite.SetUpSuite(c)
+	e, err := t.Environs.Open(t.Name)
+	c.Assert(err, IsNil, Commentf("opening environ %q", t.Name))
+	c.Assert(e, NotNil)
+	t.Env = e
+	c.Logf("environment configuration: %#v", publicAttrs(e))
+}
+
+func publicAttrs(e environs.Environ) map[string]interface{} {
+	cfg := e.Config()
+	secrets, err := e.Provider().SecretAttrs(cfg)
+	if err != nil {
+		panic(err)
+	}
+	attrs := cfg.AllAttrs()
+	for attr := range secrets {
+		delete(attrs, attr)
+	}
+	return attrs
+}
+
+func (t *LiveTests) TearDownSuite(c *C) {
+	if t.Env != nil {
+		err := t.Env.Destroy(nil)
+		c.Check(err, IsNil)
+		t.Env = nil
+	}
+	t.LoggingSuite.TearDownSuite(c)
+}
+
+func (t *LiveTests) BootstrapOnce(c *C) {
+	if t.bootstrapped {
+		return
+	}
+	err := t.Env.Bootstrap(true)
+	c.Assert(err, IsNil)
+	t.bootstrapped = true
+}
+
+func (t *LiveTests) Destroy(c *C) {
+	err := t.Env.Destroy(nil)
+	c.Assert(err, IsNil)
+	t.bootstrapped = false
+}
+
 // TestStartStop is similar to Tests.TestStartStop except
 // that it does not assume a pristine environment.
 func (t *LiveTests) TestStartStop(c *C) {

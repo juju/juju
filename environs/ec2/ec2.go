@@ -808,14 +808,14 @@ func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGr
 }
 
 // permKey represents a permission for a group or an ip address range
-// to access the given range of ports. Only one of jujuGroupName or ipAddr
+// to access the given range of ports. Only one of groupName or ipAddr
 // should be non-empty.
 type permKey struct {
-	protocol      string
-	fromPort      int
-	toPort        int
-	jujuGroupName string
-	ipAddr        string
+	protocol  string
+	fromPort  int
+	toPort    int
+	groupName string
+	ipAddr    string
 }
 
 type permSet map[permKey]bool
@@ -832,10 +832,10 @@ func newPermSet(ps []ec2.IPPerm) permSet {
 			toPort:   p.ToPort,
 		}
 		for _, g := range p.SourceGroups {
-			k.jujuGroupName = g.Name
+			k.groupName = g.Name
 			m[k] = true
 		}
-		k.jujuGroupName = ""
+		k.groupName = ""
 		for _, ip := range p.SourceIPs {
 			k.ipAddr = ip
 			m[k] = true
@@ -858,7 +858,7 @@ func (m permSet) ipPerms() (ps []ec2.IPPerm) {
 		if p.ipAddr != "" {
 			ipp.SourceIPs = []string{p.ipAddr}
 		} else {
-			ipp.SourceGroups = []ec2.UserSecurityGroup{{Name: p.jujuGroupName}}
+			ipp.SourceGroups = []ec2.UserSecurityGroup{{Name: p.groupName}}
 		}
 		ps = append(ps, ipp)
 	}

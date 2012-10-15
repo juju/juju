@@ -205,7 +205,7 @@ var configTests = []configTest{
 		firewallMode: config.FwInstance,
 	}, {
 		config: attrs{
-			"firewall-mode": "default",
+			"firewall-mode": "",
 		},
 		firewallMode: config.FwInstance,
 	}, {

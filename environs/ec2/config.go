@@ -88,13 +88,10 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 
 	switch cfg.FirewallMode() {
 	case config.FwDefault:
-		// Default mode for dummy is instance.
 		ecfg.attrs["firewall-mode"] = config.FwInstance
 	case config.FwInstance, config.FwGlobal:
-		// Instance and global mode are supported.
 	default:
-		// Unsupported mode.
-		return nil, fmt.Errorf("firewall mode %q not supported", cfg.FirewallMode())
+		return nil, fmt.Errorf("unsupported firewall mode: %q", cfg.FirewallMode())
 	}
 
 	return cfg.Apply(ecfg.attrs)

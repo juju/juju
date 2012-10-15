@@ -39,7 +39,7 @@ var firewallModeTests = []struct {
 		firewallMode: config.FwInstance,
 	}, {
 		// Explicit default value.
-		configFirewallMode: "default",
+		configFirewallMode: "",
 		firewallMode:       config.FwInstance,
 	}, {
 		// Instance mode.
@@ -52,7 +52,7 @@ var firewallModeTests = []struct {
 	}, {
 		// Invalid mode.
 		configFirewallMode: "invalid",
-		errorMsg:           "invalid firewall mode in environment configuration: .*",
+		errorMsg:           `invalid firewall mode in environment configuration: "invalid"`,
 	},
 }
 
