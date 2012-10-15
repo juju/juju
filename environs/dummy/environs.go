@@ -373,6 +373,10 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 	if err := e.checkBroken("Bootstrap"); err != nil {
 		return err
 	}
+	password := e.Config().AdminSecret()
+	if password == "" {
+		return fmt.Errorf("admin-secret is required for bootstrap")
+	}
 	var tools *state.Tools
 	var err error
 	if uploadTools {
@@ -402,10 +406,6 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 		st, err := state.Initialize(info, cfg)
 		if err != nil {
 			panic(err)
-		}
-		password := e.Config().AdminSecret()
-		if password == "" {
-			return fmt.Errorf("admin-secret is required for bootstrap")
 		}
 		if err := st.SetAdminPassword(trivial.PasswordHash(password)); err != nil {
 			return err

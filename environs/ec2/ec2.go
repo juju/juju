@@ -208,6 +208,10 @@ func (e *environ) PublicStorage() environs.StorageReader {
 }
 
 func (e *environ) Bootstrap(uploadTools bool) error {
+	password := e.Config().AdminSecret()
+	if password == "" {
+		return fmt.Errorf("admin-secret is required for bootstrap")
+	}
 	log.Printf("environs/ec2: bootstrapping environment %q", e.name)
 	_, err := e.loadState()
 	if err == nil {
@@ -232,10 +236,6 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 	config, err := environs.BootstrapConfig(providerInstance, e.Config(), tools)
 	if err != nil {
 		return fmt.Errorf("unable to determine inital configuration: %v", err)
-	}
-	password := e.Config().AdminSecret()
-	if password == "" {
-		return fmt.Errorf("admin-secret is required for bootstrap")
 	}
 	info := &state.Info{Password: trivial.PasswordHash(password)}
 	inst, err := e.startInstance(0, info, tools, true, config)
