@@ -98,12 +98,10 @@ func (t *Tests) TestBootstrap(c *C) {
 	c.Assert(info, NotNil)
 	c.Check(info.Addrs, Not(HasLen), 0)
 
-	// TODO eventual consistency.
 	err = e.Bootstrap(false)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	e2 := t.Open(c)
-	// TODO eventual consistency.
 	err = e2.Bootstrap(false)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
@@ -134,7 +132,7 @@ func (t *Tests) TestPersistence(c *C) {
 		"zzz/bb",
 	}
 	for _, name := range names {
-		checkFileDoesNotExist(c, storage, name)
+		checkFileDoesNotExist(c, storage, name, noRetry)
 		checkPutFile(c, storage, name, []byte(name))
 	}
 	checkList(c, storage, "", names)
@@ -155,7 +153,7 @@ func (t *Tests) TestPersistence(c *C) {
 	c.Check(err, IsNil)
 
 	// ... and check it's been removed in the other environment
-	checkFileDoesNotExist(c, storage, names[0])
+	checkFileDoesNotExist(c, storage, names[0], noRetry)
 
 	// ... and that the rest of the files are still around
 	checkList(c, storage2, "", names[1:])
@@ -180,11 +178,16 @@ func checkPutFile(c *C, storage environs.StorageWriter, name string, contents []
 	c.Assert(err, IsNil)
 }
 
-func checkFileDoesNotExist(c *C, storage environs.StorageReader, name string) {
-	// TODO eventual consistency
-	r, err := storage.Get(name)
-	c.Check(r, IsNil)
-	c.Assert(err, NotNil)
+func checkFileDoesNotExist(c *C, storage environs.StorageReader, name string, attempt trivial.AttemptStrategy) {
+	var r io.ReadCloser
+	var err error
+	for a := attempt.Start(); a.Next(); {
+		r, err = storage.Get(name)
+		if err != nil {
+			break
+		}
+	}
+	c.Assert(r, IsNil)
 	var notFoundError *environs.NotFoundError
 	c.Assert(err, FitsTypeOf, notFoundError)
 }

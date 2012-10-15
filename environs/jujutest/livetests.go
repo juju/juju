@@ -580,7 +580,7 @@ func (t *LiveTests) TestFile(c *C) {
 	name := fmt.Sprint("testfile", time.Now().UnixNano())
 	storage := t.Env.Storage()
 
-	checkFileDoesNotExist(c, storage, name)
+	checkFileDoesNotExist(c, storage, name, t.Attempt)
 	checkPutFile(c, storage, name, contents)
 	checkFileHasContents(c, storage, name, contents, t.Attempt)
 	checkPutFile(c, storage, name, contents2) // check that we can overwrite the file
@@ -607,7 +607,7 @@ attempt:
 	}
 	err := storage.Remove(name)
 	c.Check(err, IsNil)
-	checkFileDoesNotExist(c, storage, name)
+	checkFileDoesNotExist(c, storage, name, t.Attempt)
 	// removing a file that does not exist should not be an error.
 	err = storage.Remove(name)
 	c.Check(err, IsNil)
