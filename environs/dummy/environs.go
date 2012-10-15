@@ -291,7 +291,6 @@ func (p *environProvider) Validate(cfg, old *config.Config) (valid *config.Confi
 	}
 	attrs := v.(map[string]interface{})
 	if cfg.FirewallMode() == config.FwDefault {
-		// Default mode for dummy is instance.
 		attrs["firewall-mode"] = config.FwInstance
 	}
 	return cfg.Apply(attrs)
