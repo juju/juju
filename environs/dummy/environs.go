@@ -107,6 +107,7 @@ type environState struct {
 	mu            sync.Mutex
 	maxId         int // maximum instance id allocated so far.
 	insts         map[string]*instance
+	ports         map[state.Port]bool
 	bootstrapped  bool
 	storageDelay  time.Duration
 	storage       *storage
@@ -178,6 +179,7 @@ func newState(name string, ops chan<- Operation) *environState {
 		name:  name,
 		ops:   ops,
 		insts: make(map[string]*instance),
+		ports: make(map[state.Port]bool),
 	}
 	s.storage = newStorage(s, "/"+name+"/private")
 	s.publicStorage = newStorage(s, "/"+name+"/public")
@@ -290,8 +292,12 @@ func (p *environProvider) Validate(cfg, old *config.Config) (valid *config.Confi
 		return nil, err
 	}
 	attrs := v.(map[string]interface{})
-	if cfg.FirewallMode() == config.FwDefault {
+	switch cfg.FirewallMode() {
+	case config.FwDefault:
 		attrs["firewall-mode"] = config.FwInstance
+	case config.FwInstance, config.FwGlobal:
+	default:
+		return nil, fmt.Errorf("unsupported firewall mode: %q", cfg.FirewallMode())
 	}
 	return cfg.Apply(attrs)
 }
@@ -554,6 +560,34 @@ func (e *environ) AllInstances() ([]environs.Instance, error) {
 		insts = append(insts, v)
 	}
 	return insts, nil
+}
+
+func (e *environ) OpenPorts(ports []state.Port) error {
+	e.state.mu.Lock()
+	defer e.state.mu.Unlock()
+	for _, p := range ports {
+		e.state.ports[p] = true
+	}
+	return nil
+}
+
+func (e *environ) ClosePorts(ports []state.Port) error {
+	e.state.mu.Lock()
+	defer e.state.mu.Unlock()
+	for _, p := range ports {
+		delete(e.state.ports, p)
+	}
+	return nil
+}
+
+func (e *environ) Ports() (ports []state.Port, err error) {
+	e.state.mu.Lock()
+	defer e.state.mu.Unlock()
+	for p := range e.state.ports {
+		ports = append(ports, p)
+	}
+	state.SortPorts(ports)
+	return
 }
 
 func (*environ) Provider() environs.EnvironProvider {

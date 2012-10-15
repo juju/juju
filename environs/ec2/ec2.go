@@ -403,7 +403,7 @@ func (e *environ) gatherInstances(ids []string, insts []environs.Instance) error
 	}
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "pending", "running")
-	filter.Add("group-name", e.groupName())
+	filter.Add("group-name", e.jujuGroupName())
 	filter.Add("instance-id", need...)
 	resp, err := e.ec2().Instances(nil, filter)
 	if err != nil {
@@ -465,7 +465,7 @@ func (e *environ) Instances(ids []string) ([]environs.Instance, error) {
 func (e *environ) AllInstances() ([]environs.Instance, error) {
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "pending", "running")
-	filter.Add("group-name", e.groupName())
+	filter.Add("group-name", e.jujuGroupName())
 	resp, err := e.ec2().Instances(nil, filter)
 	if err != nil {
 		return nil, err
@@ -485,7 +485,7 @@ func (e *environ) Destroy(insts []environs.Instance) error {
 	// Try to find all the instances in the environ's group.
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "pending", "running")
-	filter.Add("group-name", e.groupName())
+	filter.Add("group-name", e.jujuGroupName())
 	resp, err := e.ec2().Instances(nil, filter)
 	if err != nil {
 		return fmt.Errorf("cannot get instances: %v", err)
@@ -524,6 +524,109 @@ func (e *environ) Destroy(insts []environs.Instance) error {
 	return nil
 }
 
+func portsToIPPerms(ports []state.Port) []ec2.IPPerm {
+	ipPerms := make([]ec2.IPPerm, len(ports))
+	for i, p := range ports {
+		ipPerms[i] = ec2.IPPerm{
+			Protocol:  p.Protocol,
+			FromPort:  p.Number,
+			ToPort:    p.Number,
+			SourceIPs: []string{"0.0.0.0/0"},
+		}
+	}
+	return ipPerms
+}
+
+func (e *environ) openPortsInGroup(name string, ports []state.Port) error {
+	if len(ports) == 0 {
+		return nil
+	}
+	// Give permissions for anyone to access the given ports.
+	ipPerms := portsToIPPerms(ports)
+	g := ec2.SecurityGroup{Name: name}
+	_, err := e.ec2().AuthorizeSecurityGroup(g, ipPerms)
+	if err != nil && ec2ErrCode(err) == "InvalidPermission.Duplicate" {
+		if len(ports) == 1 {
+			return nil
+		}
+		// If there's more than one port and we get a duplicate error,
+		// then we go through authorizing each port individually,
+		// otherwise the ports that were *not* duplicates will have
+		// been ignored
+		for i := range ipPerms {
+			_, err := e.ec2().AuthorizeSecurityGroup(g, ipPerms[i:i+1])
+			if err != nil && ec2ErrCode(err) != "InvalidPermission.Duplicate" {
+				return fmt.Errorf("cannot open port %v: %v", ipPerms[i], err)
+			}
+		}
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("cannot open ports: %v", err)
+	}
+	return nil
+}
+
+func (e *environ) closePortsInGroup(name string, ports []state.Port) error {
+	if len(ports) == 0 {
+		return nil
+	}
+	// Revoke permissions for anyone to access the given ports.
+	// Note that ec2 allows the revocation of permissions that aren't
+	// granted, so this is naturally idempotent.
+	g := ec2.SecurityGroup{Name: name}
+	_, err := e.ec2().RevokeSecurityGroup(g, portsToIPPerms(ports))
+	if err != nil {
+		return fmt.Errorf("cannot close ports: %v", err)
+	}
+	return nil
+}
+
+func (e *environ) portsInGroup(name string) (ports []state.Port, err error) {
+	g := ec2.SecurityGroup{Name: name}
+	resp, err := e.ec2().SecurityGroups([]ec2.SecurityGroup{g}, nil)
+	if err != nil {
+		return nil, err
+	}
+	if len(resp.Groups) != 1 {
+		return nil, fmt.Errorf("expected one security group, got %d", len(resp.Groups))
+	}
+	for _, p := range resp.Groups[0].IPPerms {
+		if len(p.SourceIPs) != 1 {
+			log.Printf("environs/ec2: unexpected IP permission found: %v", p)
+			continue
+		}
+		for i := p.FromPort; i <= p.ToPort; i++ {
+			ports = append(ports, state.Port{
+				Protocol: p.Protocol,
+				Number:   i,
+			})
+		}
+	}
+	state.SortPorts(ports)
+	return ports, nil
+}
+
+func (e *environ) OpenPorts(ports []state.Port) error {
+	if err := e.openPortsInGroup(e.globalGroupName(), ports); err != nil {
+		return err
+	}
+	log.Printf("environs/ec2: opened ports in global group: %v", ports)
+	return nil
+}
+
+func (e *environ) ClosePorts(ports []state.Port) error {
+	if err := e.closePortsInGroup(e.globalGroupName(), ports); err != nil {
+		return err
+	}
+	log.Printf("environs/ec2: closed ports in global group: %v", ports)
+	return nil
+}
+
+func (e *environ) Ports() ([]state.Port, error) {
+	return e.portsInGroup(e.globalGroupName())
+}
+
 func (*environ) Provider() environs.EnvironProvider {
 	return &providerInstance
 }
@@ -559,97 +662,39 @@ func (e *environ) terminateInstances(ids []string) error {
 	return firstErr
 }
 
-func (e *environ) machineGroupName(machineId int) string {
-	return fmt.Sprintf("%s-%d", e.groupName(), machineId)
+func (e *environ) globalGroupName() string {
+	return fmt.Sprintf("%s-global", e.jujuGroupName())
 }
 
-func (e *environ) groupName() string {
+func (e *environ) machineGroupName(machineId int) string {
+	return fmt.Sprintf("%s-%d", e.jujuGroupName(), machineId)
+}
+
+func (e *environ) jujuGroupName() string {
 	return "juju-" + e.name
 }
 
 func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
-	if len(ports) == 0 {
-		return nil
+	name := inst.e.machineGroupName(machineId)
+	if err := inst.e.openPortsInGroup(name, ports); err != nil {
+		return err
 	}
-	// Give permissions for anyone to access the given ports.
-	ipPerms := portsToIPPerms(ports)
-	g := ec2.SecurityGroup{Name: inst.e.machineGroupName(machineId)}
-	_, err := inst.e.ec2().AuthorizeSecurityGroup(g, ipPerms)
-	if err != nil && ec2ErrCode(err) == "InvalidPermission.Duplicate" {
-		if len(ports) == 1 {
-			return nil
-		}
-		// If there's more than one port and we get a duplicate error,
-		// then we go through authorizing each port individually,
-		// otherwise the ports that were *not* duplicates will have
-		// been ignored
-		for i := range ipPerms {
-			_, err := inst.e.ec2().AuthorizeSecurityGroup(g, ipPerms[i:i+1])
-			if err != nil && ec2ErrCode(err) != "InvalidPermission.Duplicate" {
-				return fmt.Errorf("cannot open port %v: %v", ipPerms[i], err)
-			}
-		}
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("cannot open ports: %v", err)
-	}
-	log.Printf("environs/ec2: opened ports in security group %s: %v", g.Name, ports)
+	log.Printf("environs/ec2: opened ports in security group %s: %v", name, ports)
 	return nil
 }
 
 func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
-	if len(ports) == 0 {
-		return nil
+	name := inst.e.machineGroupName(machineId)
+	if err := inst.e.closePortsInGroup(name, ports); err != nil {
+		return err
 	}
-	// Revoke permissions for anyone to access the given ports.
-	// Note that ec2 allows the revocation of permissions that aren't
-	// granted, so this is naturally idempotent.
-	g := ec2.SecurityGroup{Name: inst.e.machineGroupName(machineId)}
-	_, err := inst.e.ec2().RevokeSecurityGroup(g, portsToIPPerms(ports))
-	if err != nil {
-		return fmt.Errorf("cannot close ports: %v", err)
-	}
-	log.Printf("environs/ec2: closed ports in security group %s: %v", g.Name, ports)
+	log.Printf("environs/ec2: closed ports in security group %s: %v", name, ports)
 	return nil
 }
 
-func portsToIPPerms(ports []state.Port) []ec2.IPPerm {
-	ipPerms := make([]ec2.IPPerm, len(ports))
-	for i, p := range ports {
-		ipPerms[i] = ec2.IPPerm{
-			Protocol:  p.Protocol,
-			FromPort:  p.Number,
-			ToPort:    p.Number,
-			SourceIPs: []string{"0.0.0.0/0"},
-		}
-	}
-	return ipPerms
-}
-
-func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
-	g := ec2.SecurityGroup{Name: inst.e.machineGroupName(machineId)}
-	resp, err := inst.e.ec2().SecurityGroups([]ec2.SecurityGroup{g}, nil)
-	if err != nil {
-		return nil, err
-	}
-	if len(resp.Groups) != 1 {
-		return nil, fmt.Errorf("expected one security group, got %d", len(resp.Groups))
-	}
-	for _, p := range resp.Groups[0].IPPerms {
-		if len(p.SourceIPs) != 1 {
-			log.Printf("environs/ec2: unexpected IP permission found: %v", p)
-			continue
-		}
-		for i := p.FromPort; i <= p.ToPort; i++ {
-			ports = append(ports, state.Port{
-				Protocol: p.Protocol,
-				Number:   i,
-			})
-		}
-	}
-	state.SortPorts(ports)
-	return ports, nil
+func (inst *instance) Ports(machineId int) ([]state.Port, error) {
+	name := inst.e.machineGroupName(machineId)
+	return inst.e.portsInGroup(name)
 }
 
 // setUpGroups creates the security groups for the new machine, and
@@ -660,8 +705,8 @@ func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
 // addition, a specific machine security group is created for each
 // machine, so that its firewall rules can be configured per machine.
 func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
-	sourceGroups := []ec2.UserSecurityGroup{{Name: e.groupName()}}
-	jujuGroup, err := e.ensureGroup(e.groupName(),
+	sourceGroups := []ec2.UserSecurityGroup{{Name: e.jujuGroupName()}}
+	jujuGroup, err := e.ensureGroup(e.jujuGroupName(),
 		[]ec2.IPPerm{
 			{
 				Protocol:  "tcp",
@@ -691,11 +736,17 @@ func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 	if err != nil {
 		return nil, err
 	}
-	jujuMachineGroup, err := e.ensureGroup(e.machineGroupName(machineId), nil)
+	var machineGroup ec2.SecurityGroup
+	switch e.Config().FirewallMode() {
+	case config.FwInstance:
+		machineGroup, err = e.ensureGroup(e.machineGroupName(machineId), nil)
+	case config.FwGlobal:
+		machineGroup, err = e.ensureGroup(e.globalGroupName(), nil)
+	}
 	if err != nil {
 		return nil, err
 	}
-	return []ec2.SecurityGroup{jujuGroup, jujuMachineGroup}, nil
+	return []ec2.SecurityGroup{jujuGroup, machineGroup}, nil
 }
 
 // zeroGroup holds the zero security group.
