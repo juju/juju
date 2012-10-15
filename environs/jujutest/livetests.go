@@ -23,9 +23,10 @@ type LiveTests struct {
 	Environs *environs.Environs
 	Name     string
 	Env      environs.Environ
-	// ConsistencyDelay gives the length of time to wait before
-	// environ becomes logically consistent.
-	ConsistencyDelay time.Duration
+
+	// Attempt holds a strategy for waiting until the environment
+	// becomes logically consistent.
+	Attempt trivial.AttemptStrategy
 
 	// CanOpenState should be true if the testing environment allows
 	// the state to be opened after bootstrapping.
@@ -124,12 +125,11 @@ func (t *LiveTests) TestStartStop(c *C) {
 
 	// Stopping may not be noticed at first due to eventual
 	// consistency. Repeat a few times to ensure we get the error.
-	for i := 0; i < 20; i++ {
+	for a := t.Attempt.Start(); a.Next(); {
 		insts, err = t.Env.Instances([]string{id0})
 		if err != nil {
 			break
 		}
-		time.Sleep(0.25e9)
 	}
 	c.Assert(err, Equals, environs.ErrNoInstances)
 	c.Assert(insts, HasLen, 0)
@@ -286,9 +286,12 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 func (t *LiveTests) TestBootstrapMultiple(c *C) {
 	t.BootstrapOnce(c)
 
-	// Wait for a while to let eventual consistency catch up, hopefully.
-	time.Sleep(t.ConsistencyDelay)
-	err := t.Env.Bootstrap(false)
+	var err error
+	for a := t.Attempt.Start(); a.Next(); {
+		if err = t.Env.Bootstrap(false); err != nil {
+			break
+		}
+	}
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	c.Logf("destroy env")
@@ -595,26 +598,30 @@ func (t *LiveTests) TestFile(c *C) {
 
 	checkFileDoesNotExist(c, storage, name)
 	checkPutFile(c, storage, name, contents)
-	checkFileHasContents(c, storage, name, contents)
+	checkFileHasContents(c, storage, name, contents, t.Attempt)
 	checkPutFile(c, storage, name, contents2) // check that we can overwrite the file
-	checkFileHasContents(c, storage, name, contents2)
+	checkFileHasContents(c, storage, name, contents2, t.Attempt)
 
 	// check that the listed contents include the
 	// expected name.
-	names, err := storage.List("")
-	c.Assert(err, IsNil)
 	found := false
-	for _, lname := range names {
-		if lname == name {
-			found = true
-			break
+	var names []string
+attempt:
+	for a := t.Attempt.Start(); a.Next(); {
+		var err error
+		names, err = storage.List("")
+		c.Assert(err, IsNil)
+		for _, lname := range names {
+			if lname == name {
+				found = true
+				break attempt
+			}
 		}
 	}
 	if !found {
 		c.Errorf("file name %q not found in file list %q", name, names)
 	}
-
-	err = storage.Remove(name)
+	err := storage.Remove(name)
 	c.Check(err, IsNil)
 	checkFileDoesNotExist(c, storage, name)
 	// removing a file that does not exist should not be an error.

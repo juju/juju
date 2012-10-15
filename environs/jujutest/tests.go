@@ -8,8 +8,8 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/trivial"
 	"net/http"
-	"time"
 )
 
 // Tests is a gocheck suite containing tests verifying juju functionality
@@ -123,6 +123,8 @@ func (t *Tests) TestBootstrap(c *C) {
 	c.Assert(err, NotNil)
 }
 
+var noRetry = trivial.AttemptStrategy{}
+
 func (t *Tests) TestPersistence(c *C) {
 	storage := t.Open(c).Storage()
 
@@ -141,7 +143,7 @@ func (t *Tests) TestPersistence(c *C) {
 
 	storage2 := t.Open(c).Storage()
 	for _, name := range names {
-		checkFileHasContents(c, storage2, name, []byte(name))
+		checkFileHasContents(c, storage2, name, []byte(name), noRetry)
 	}
 
 	// remove the first file and check that the others remain.
@@ -187,16 +189,15 @@ func checkFileDoesNotExist(c *C, storage environs.StorageReader, name string) {
 	c.Assert(err, FitsTypeOf, notFoundError)
 }
 
-func checkFileHasContents(c *C, storage environs.StorageReader, name string, contents []byte) {
+func checkFileHasContents(c *C, storage environs.StorageReader, name string, contents []byte, attempt trivial.AttemptStrategy) {
 	var r io.ReadCloser
 	var err error
 
-	for i := 0; i < 5; i++ {
+	for a := attempt.Start(); a.Next(); {
 		r, err = storage.Get(name)
 		if err == nil {
 			break
 		}
-		time.Sleep(1e9)
 	}
 	c.Assert(err, IsNil)
 	c.Check(r, NotNil)
@@ -210,14 +211,13 @@ func checkFileHasContents(c *C, storage environs.StorageReader, name string, con
 	c.Assert(err, IsNil)
 
 	var resp *http.Response
-	for i := 0; i < 5; i++ {
+	for a := attempt.Start(); a.Next(); {
 		resp, err = http.Get(url)
 		c.Assert(err, IsNil)
 		if resp.StatusCode != 404 {
 			break
 		}
 		c.Logf("get retrying after earlier get succeeded. *sigh*.")
-		time.Sleep(1e9)
 	}
 	c.Assert(err, IsNil)
 	data, err = ioutil.ReadAll(resp.Body)

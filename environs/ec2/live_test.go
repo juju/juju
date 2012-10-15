@@ -13,7 +13,6 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"strings"
-	"time"
 )
 
 // amazonConfig holds the environments configuration
@@ -53,11 +52,11 @@ func registerAmazonTests() {
 	for _, name := range envs.Names() {
 		Suite(&LiveTests{
 			LiveTests: jujutest.LiveTests{
-				Environs:         envs,
-				Name:             name,
-				ConsistencyDelay: 5 * time.Second,
-				CanOpenState:     true,
-				HasProvisioner:   true,
+				Environs:       envs,
+				Name:           name,
+				Attempt:        *ec2.ShortAttempt,
+				CanOpenState:   true,
+				HasProvisioner: true,
 			},
 		})
 	}
@@ -239,12 +238,11 @@ func (t *LiveTests) TestDestroy(c *C) {
 	c.Assert(len(names) >= 2, Equals, true)
 
 	t.Destroy(c)
-	for i := 0; i < 30; i++ {
+	for a := ec2.ShortAttempt.Start(); a.Next(); {
 		names, err = s.List("")
 		if len(names) == 0 {
 			break
 		}
-		time.Sleep(100 * time.Millisecond)
 	}
 	c.Assert(names, HasLen, 0)
 }
@@ -311,11 +309,10 @@ func (t *LiveTests) TestStopInstances(c *C) {
 	// for Instances to return an error, and it will not retry
 	// if it succeeds.
 	gone := false
-	for i := 0; i < 30; i++ {
+	for a := ec2.ShortAttempt.Start(); a.Next(); {
 		insts, err = t.Env.Instances([]string{inst0.Id(), inst2.Id()})
 		if err == environs.ErrPartialInstances {
 			// instances not gone yet.
-			time.Sleep(100 * time.Millisecond)
 			continue
 		}
 		if err == environs.ErrNoInstances {
