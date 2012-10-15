@@ -125,7 +125,7 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	ec2conn := ec2.EnvironEC2(t.Env)
 
 	groups := amzec2.SecurityGroupNames(
-		ec2.GroupName(t.Env),
+		ec2.JujuGroupName(t.Env),
 		ec2.MachineGroupName(t.Env, 98),
 		ec2.MachineGroupName(t.Env, 99),
 	)
