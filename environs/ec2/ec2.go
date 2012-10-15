@@ -560,10 +560,7 @@ func (e *environ) terminateInstances(ids []string) error {
 }
 
 func (e *environ) machineGroupName(machineId int) string {
-	if e.Config().FirewallMode() == config.FwDefault {
-		return fmt.Sprintf("%s-%d", e.groupName(), machineId)
-	}
-	return fmt.Sprintf("%s-global", e.groupName())
+	return fmt.Sprintf("%s-%d", e.groupName(), machineId)
 }
 
 func (e *environ) groupName() string {
