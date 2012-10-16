@@ -239,7 +239,7 @@ func (s *StateSuite) TestEnvironConfig(c *C) {
 		"authorized-keys": "i-am-a-key",
 		"default-series":  "precise",
 		"development":     true,
-		"firewall-mode":   "default",
+		"firewall-mode":   "",
 		"admin-secret":    "",
 	}
 	cfg, err := config.New(initial)
@@ -630,7 +630,7 @@ func (s *StateSuite) TestInitialize(c *C) {
 		"authorized-keys": "i-am-a-key",
 		"default-series":  "precise",
 		"development":     true,
-		"firewall-mode":   "default",
+		"firewall-mode":   "",
 		"admin-secret":    "",
 	}
 	cfg, err := config.New(m)
@@ -650,7 +650,7 @@ func (s *StateSuite) TestDoubleInitialize(c *C) {
 		"authorized-keys": "i-am-a-key",
 		"default-series":  "precise",
 		"development":     true,
-		"firewall-mode":   "default",
+		"firewall-mode":   "",
 		"admin-secret":    "",
 	}
 	cfg, err := config.New(m)
@@ -669,7 +669,7 @@ func (s *StateSuite) TestDoubleInitialize(c *C) {
 		"authorized-keys": "i-am-not-an-animal",
 		"default-series":  "xanadu",
 		"development":     false,
-		"firewall-mode":   "default",
+		"firewall-mode":   "",
 		"admin-secret":    "",
 	}
 	cfg, err = config.New(m)

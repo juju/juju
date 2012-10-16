@@ -32,14 +32,15 @@ var testAuth = aws.Auth{"gopher", "long teeth"}
 // when mutated by the mutate function, or that the parse matches the
 // given error.
 type configTest struct {
-	config    attrs
-	change    attrs
-	region    string
-	cbucket   string
-	pbucket   string
-	accessKey string
-	secretKey string
-	err       string
+	config       attrs
+	change       attrs
+	region       string
+	cbucket      string
+	pbucket      string
+	accessKey    string
+	secretKey    string
+	firewallMode config.FirewallMode
+	err          string
 }
 
 type attrs map[string]interface{}
@@ -111,6 +112,9 @@ func (t configTest) check(c *C) {
 	} else {
 		c.Assert(ecfg.accessKey(), DeepEquals, testAuth.AccessKey)
 		c.Assert(ecfg.secretKey(), DeepEquals, testAuth.SecretKey)
+	}
+	if t.firewallMode != "" {
+		c.Assert(ecfg.FirewallMode(), Equals, t.firewallMode)
 	}
 }
 
@@ -196,6 +200,24 @@ var configTests = []configTest{
 		config: attrs{
 			"admin-secret": "Futumpsh",
 		},
+	}, {
+		config:       attrs{},
+		firewallMode: config.FwInstance,
+	}, {
+		config: attrs{
+			"firewall-mode": "",
+		},
+		firewallMode: config.FwInstance,
+	}, {
+		config: attrs{
+			"firewall-mode": "instance",
+		},
+		firewallMode: config.FwInstance,
+	}, {
+		config: attrs{
+			"firewall-mode": "global",
+		},
+		firewallMode: config.FwGlobal,
 	},
 }
 

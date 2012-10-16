@@ -85,5 +85,14 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 			return nil, fmt.Errorf("cannot change control-bucket from %q to %q", bucket, ecfg.controlBucket())
 		}
 	}
+
+	switch cfg.FirewallMode() {
+	case config.FwDefault:
+		ecfg.attrs["firewall-mode"] = config.FwInstance
+	case config.FwInstance, config.FwGlobal:
+	default:
+		return nil, fmt.Errorf("unsupported firewall mode: %q", cfg.FirewallMode())
+	}
+
 	return cfg.Apply(ecfg.attrs)
 }
