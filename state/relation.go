@@ -244,19 +244,16 @@ var ErrScopeClosed = errors.New("scope is closed to new member units")
 // It is an error to enter a scope of a relation that is not alive, and no
 // relation becomes Dead before all units have left.
 func (ru *RelationUnit) EnterScope() error {
-	address, err := ru.unit.PrivateAddress()
-	if err != nil {
-		return fmt.Errorf("cannot initialize state for unit %q in relation %q: %v", ru.unit, ru.relation, err)
-	}
 	key, err := ru.key(ru.unit.Name())
 	if err != nil {
 		return err
 	}
-	content := map[string]interface{}{"private-address": address}
-
-	// Assemble the resuable building blocks for the various transactions that
-	// could be valid, depending on current remote state.
-	enterScope := []txn.Op{{
+	if count, err := ru.st.relationScopes.FindId(key).Count(); err != nil {
+		return err
+	} else if count != 0 {
+		return nil
+	}
+	ops := []txn.Op{{
 		C:      ru.st.relationScopes.Name,
 		Id:     key,
 		Assert: txn.DocMissing,
@@ -267,60 +264,32 @@ func (ru *RelationUnit) EnterScope() error {
 		Assert: isAlive,
 		Update: D{{"$inc", D{{"unitcount", 1}}}},
 	}}
-	preserveScope := []txn.Op{{
-		C:      ru.st.relationScopes.Name,
-		Id:     key,
-		Assert: txn.DocExists,
-	}, {
-		C:      ru.st.relations.Name,
-		Id:     ru.relation.doc.Key,
-		Assert: D{{"unitcount", D{{"$gt", 0}}}},
-	}}
-	updateSettings := txn.Op{
-		C:      ru.st.settings.Name,
-		Id:     key,
-		Assert: D{{"private-address", D{{"$ne", address}}}},
-		Update: content,
-	}
-	preserveSettings := txn.Op{
-		C:      ru.st.settings.Name,
-		Id:     key,
-		Assert: D{{"private-address", address}},
-	}
-
-	// Any of the following op lists may be valid, but no more than one.
-	opss := [][]txn.Op{
-		append(preserveScope, preserveSettings),
-		append(preserveScope, updateSettings),
-		append(enterScope, preserveSettings),
-		append(enterScope, updateSettings),
-		append(enterScope, txn.Op{
+	if _, err := readSettings(ru.st, key); IsNotFound(err) {
+		// If settings do not already exist, create them.
+		address, err := ru.unit.PrivateAddress()
+		if err != nil {
+			return fmt.Errorf("cannot initialize state for unit %q in relation %q: %v", ru.unit, ru.relation, err)
+		}
+		ops = append(ops, txn.Op{
 			C:      ru.st.settings.Name,
 			Id:     key,
 			Assert: txn.DocMissing,
-			Insert: content,
-		}),
-	}
-	for _, ops := range opss {
-		if err := ru.st.runner.Run(ops, "", nil); err == txn.ErrAborted {
-			continue
-		} else if err != nil {
-			return err
-		}
-		return nil
-	}
-
-	// Reaching this point may indicate that the relation is not alive, or that
-	// state is corrupt in some way.
-	if err := ru.relation.Refresh(); IsNotFound(err) {
-		return ErrScopeClosed
+			Insert: map[string]interface{}{"private-address": address},
+		})
 	} else if err != nil {
 		return err
 	}
-	if ru.relation.Life() == Alive {
+	if err := ru.st.runner.Run(ops, "", nil); err == txn.ErrAborted {
+		if count, err := ru.st.relationScopes.FindId(key).Count(); err != nil {
+			return err
+		} else if count == 0 {
+			return ErrScopeClosed
+		}
 		return fmt.Errorf("unit %q cannot enter relation %q scope: inconsistent state", ru.unit, ru.relation)
+	} else if err != nil {
+		return err
 	}
-	return ErrScopeClosed
+	return nil
 }
 
 // LeaveScope signals that the unit has left its scope in the relation.
@@ -332,28 +301,25 @@ func (ru *RelationUnit) LeaveScope() error {
 	if err != nil {
 		return err
 	}
-	preserveAbsence := []txn.Op{{
-		C:      ru.st.relationScopes.Name,
-		Id:     key,
-		Assert: txn.DocMissing,
-	}}
-	leaveScope := []txn.Op{{
-		C:      ru.st.relations.Name,
-		Id:     ru.relation.doc.Key,
-		Assert: D{{"unitcount", D{{"$gt", 0}}}},
-		Update: D{{"$inc", D{{"unitcount", -1}}}},
-	}, {
+	if count, err := ru.st.relationScopes.FindId(key).Count(); err != nil {
+		return err
+	} else if count == 0 {
+		return nil
+	}
+	ops := []txn.Op{{
 		C:      ru.st.relationScopes.Name,
 		Id:     key,
 		Assert: txn.DocExists,
 		Remove: true,
+	}, {
+		C:      ru.st.relations.Name,
+		Id:     ru.relation.doc.Key,
+		Assert: D{{"unitcount", D{{"$gt", 0}}}},
+		Update: D{{"$inc", D{{"unitcount", -1}}}},
 	}}
-	err = ru.st.runner.Run(preserveAbsence, "", nil)
+	err = ru.st.runner.Run(ops, "", nil)
 	if err == txn.ErrAborted {
-		err = ru.st.runner.Run(leaveScope, "", nil)
-		if err == txn.ErrAborted {
-			return fmt.Errorf("unit %q cannot leave relation %q scope: inconsistent state", ru.unit, ru.relation)
-		}
+		return fmt.Errorf("unit %q cannot leave relation %q scope: inconsistent state", ru.unit, ru.relation)
 	}
 	return err
 }
