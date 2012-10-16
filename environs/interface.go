@@ -190,6 +190,21 @@ type Environ interface {
 	// AssignmentPolicy returns the environment's unit assignment policy.
 	AssignmentPolicy() state.AssignmentPolicy
 
+	// OpenPorts opens the given ports for the whole environment.
+	// Must only be used if the environment was setup with the
+	// FwGlobal firewall mode.
+	OpenPorts(ports []state.Port) error
+
+	// ClosePorts closes the given ports for the whole environment.
+	// Must only be used if the environment was setup with the
+	// FwGlobal firewall mode.
+	ClosePorts(ports []state.Port) error
+
+	// Ports returns the ports opened for the whole environment.
+	// Must only be used if the environment was setup with the
+	// FwGlobal firewall mode.
+	Ports() ([]state.Port, error)
+
 	// Provider returns the EnvironProvider that created this Environ.
 	Provider() EnvironProvider
 }

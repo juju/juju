@@ -4,6 +4,7 @@
 package state
 
 import (
+	"errors"
 	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
@@ -98,6 +99,7 @@ type State struct {
 	settings       *mgo.Collection
 	units          *mgo.Collection
 	presence       *mgo.Collection
+	cleanups       *mgo.Collection
 	runner         *txn.Runner
 	watcher        *watcher.Watcher
 	pwatcher       *presence.Watcher
@@ -414,11 +416,10 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err err
 	if err == txn.ErrAborted {
 		for _, ep := range endpoints {
 			svc, err := s.Service(ep.ServiceName)
-			if err != nil {
-				return nil, err
-			}
-			if svc.Life() != Alive {
+			if IsNotFound(err) || svc.Life() != Alive {
 				return nil, fmt.Errorf("service %q is not alive", ep.ServiceName)
+			} else if err != nil {
+				return nil, err
 			}
 		}
 		return nil, fmt.Errorf("relation already exists")
@@ -461,40 +462,17 @@ func (s *State) RemoveRelation(r *Relation) (err error) {
 	if r.doc.Life != Dead {
 		return fmt.Errorf("relation is not dead")
 	}
-	ops := []txn.Op{{
-		C:      s.relations.Name,
-		Id:     r.doc.Key,
-		Assert: D{{"life", Dead}, {"id", r.Id()}},
-		Remove: true,
-	}}
-	for _, ep := range r.doc.Endpoints {
-		ops = append(ops, txn.Op{
-			C:      s.services.Name,
-			Id:     ep.ServiceName,
-			Assert: D{{"relationcount", D{{"$gt", 0}}}},
-			Update: D{{"$inc", D{{"relationcount", -1}}}},
-		})
-	}
-	// Collect all unit settings keys for the relation.
-	docs := []struct {
-		Key string `bson:"_id"`
-	}{}
-	sel := D{{"_id", D{{"$regex", fmt.Sprintf("^r#%d#", r.Id())}}}}
-	if err := s.settings.Find(sel).All(&docs); err != nil {
+	asserts := D{{"life", Dead}, {"id", r.Id()}}
+	if err := s.runner.Run(r.removeOps(asserts), "", nil); err != nil {
+		if err == txn.ErrAborted {
+			if e := r.Refresh(); IsNotFound(e) {
+				return nil
+			} else if e != nil {
+				return e
+			}
+			return fmt.Errorf("cannot remove relation %q: inconsistent state", r)
+		}
 		return err
-	}
-	for _, doc := range docs {
-		ops = append(ops, txn.Op{
-			C:      s.settings.Name,
-			Id:     doc.Key,
-			Remove: true,
-		})
-	}
-	if err := s.runner.Run(ops, "", nil); err != nil {
-		// If aborted, either we're deleted... or a new relation, with
-		// the same key, but a different id, has been created; this means
-		// that the original must in fact have been removed.
-		return onAbort(err, nil)
 	}
 	return nil
 }
@@ -596,6 +574,82 @@ func (s *State) setPassword(name, password string) error {
 	}
 	if err := s.db.Session.DB("presence").AddUser(name, password, false); err != nil {
 		return fmt.Errorf("cannot set password in presence db for %q: %v", name, err)
+	}
+	return nil
+}
+
+// cleanupDoc represents a potentially large set of documents that should be
+// removed.
+type cleanupDoc struct {
+	Id     bson.ObjectId `bson:"_id"`
+	Kind   string
+	Prefix string
+}
+
+// ErrNotClean indicates that Cleanup didn't clean up all documents.
+var ErrNotClean = errors.New("documents remain to be cleaned up")
+
+// Cleanup removes several documents that were previously marked for removal,
+// if any such exist. A result of ErrNotClean indicates that not all documents
+// have been cleaned up; nil indicates that no more deletions are scheduled yet.
+func (s *State) Cleanup() error {
+	// Find something to clean up.
+	doc := cleanupDoc{}
+	if err := s.cleanups.Find(nil).One(&doc); err != nil {
+		if err == mgo.ErrNotFound {
+			return nil
+		}
+		return err
+	}
+
+	// Determine what exactly needs to be cleaned up.
+	var c *mgo.Collection
+	var sel interface{}
+	switch doc.Kind {
+	case "settings":
+		c = s.settings
+		sel = D{{"_id", D{{"$regex", "^" + doc.Prefix}}}}
+	default:
+		panic(fmt.Errorf("unknown cleanup kind %q", doc.Kind))
+	}
+
+	// If referenced documents exist, delete up to 100 of them; otherwise
+	// delete the referee.
+	q := c.Find(sel)
+	ops := []txn.Op{}
+	if count, err := q.Count(); err != nil {
+		return err
+	} else if count == 0 {
+		ops = append(ops, txn.Op{
+			C:      s.cleanups.Name,
+			Id:     doc.Id,
+			Remove: true,
+		})
+	} else {
+		docs := []struct {
+			Id string `bson:"_id"`
+		}{}
+		if err := q.Limit(100).All(&docs); err != nil {
+			return err
+		}
+		for _, doc := range docs {
+			ops = append(ops, txn.Op{
+				C:      c.Name,
+				Id:     doc.Id,
+				Remove: true,
+			})
+		}
+	}
+	err := s.runner.Run(ops, "", nil)
+	if err != nil {
+		return err
+	}
+
+	// If anything remains to be deleted, notify the client.
+	if count, err := s.cleanups.Find(nil).Count(); err != nil {
+		return err
+	} else if count != 0 {
+		return ErrNotClean
 	}
 	return nil
 }

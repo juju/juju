@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/trivial"
@@ -133,9 +134,10 @@ func (r *Relation) EnsureDying() error {
 	return nil
 }
 
-// EnsureDead tries to set the relation lifecycle to Dead if it is Alive or
-// Dying. If it is called while the relation still has member units, it will
-// return an error; if the lifecycle is already Dead, it does nothing.
+// EnsureDead sets the relation lifecycle to Dead if it is Alive or Dying,
+// and does nothing if already Dead.
+// It's an error to call it while there are still units within one or more
+// scopes in the relation.
 func (r *Relation) EnsureDead() error {
 	ops := []txn.Op{{
 		C:      r.st.relations.Name,
@@ -148,6 +150,35 @@ func (r *Relation) EnsureDead() error {
 	}
 	r.doc.Life = Dead
 	return nil
+}
+
+// removeOps returns the operations that must occur when a relation is removed.
+// The only assertions made in the returned list are those supplied, which will
+// be applied to the relation document.
+func (r *Relation) removeOps(asserts D) []txn.Op {
+	cDoc := &cleanupDoc{
+		Id:     bson.NewObjectId(),
+		Kind:   "settings",
+		Prefix: fmt.Sprintf("r#%d#", r.Id()),
+	}
+	ops := []txn.Op{{
+		C:      r.st.cleanups.Name,
+		Id:     cDoc.Id,
+		Insert: cDoc,
+	}, {
+		C:      r.st.relations.Name,
+		Id:     r.doc.Key,
+		Assert: asserts,
+		Remove: true,
+	}}
+	for _, ep := range r.doc.Endpoints {
+		ops = append(ops, txn.Op{
+			C:      r.st.services.Name,
+			Id:     ep.ServiceName,
+			Update: D{{"$inc", D{{"relationcount", -1}}}},
+		})
+	}
+	return ops
 }
 
 // Id returns the integer internal relation key. This is exposed
@@ -234,31 +265,25 @@ func (ru *RelationUnit) Endpoint() RelationEndpoint {
 	return ru.endpoint
 }
 
-// ErrScopeDying indicates that a relation scope cannot accept new members
+// ErrScopeClosed indicates that a relation scope cannot accept new members
 // because the relation is not Alive.
-var ErrScopeDying = errors.New("scope is closed to new member units")
+var ErrScopeClosed = errors.New("scope is closed to new member units")
 
 // EnterScope ensures that the unit has entered its scope in the relation and
-// that its relation settings contain its private address. If the scope cannot
-// be entered because the relation is dying, or worse, it returns ErrScopeDying.
-// Once a unit has entered its scope, it is considered a member of the relation;
-// the relation will not become Dead until all members have left the scope.
+// that its relation settings contain its private address.
+// It is an error to enter a scope of a relation that is not alive, and no
+// relation becomes Dead before all units have left.
 func (ru *RelationUnit) EnterScope() error {
-	address, err := ru.unit.PrivateAddress()
-	if err != nil {
-		return fmt.Errorf("cannot initialize state for unit %q in relation %q: %v", ru.unit, ru.relation, err)
-	}
 	key, err := ru.key(ru.unit.Name())
 	if err != nil {
 		return err
 	}
-	content := map[string]interface{}{"private-address": address}
+	if count, err := ru.st.relationScopes.FindId(key).Count(); err != nil {
+		return err
+	} else if count != 0 {
+		return nil
+	}
 	ops := []txn.Op{{
-		C:      ru.st.settings.Name,
-		Id:     key,
-		Assert: txn.DocMissing,
-		Insert: content,
-	}, {
 		C:      ru.st.relationScopes.Name,
 		Id:     key,
 		Assert: txn.DocMissing,
@@ -269,23 +294,28 @@ func (ru *RelationUnit) EnterScope() error {
 		Assert: isAlive,
 		Update: D{{"$inc", D{{"unitcount", 1}}}},
 	}}
-	if err = ru.st.runner.Run(ops, "", nil); err == txn.ErrAborted {
-		// We either aborted because we're already in the scope, or because
-		// the relation is dying (or worse). If the former, don't treat this
-		// as an error; just update private-address. If the latter, attempting
-		// to read the settings will fail predictably, and the root cause can
-		// be reported.
-		settings, err := readSettings(ru.st, key)
+	if _, err := readSettings(ru.st, key); IsNotFound(err) {
+		// If settings do not already exist, create them.
+		address, err := ru.unit.PrivateAddress()
 		if err != nil {
-			if IsNotFound(err) {
-				return ErrScopeDying
-			}
-			return err
+			return fmt.Errorf("cannot initialize state for unit %q in relation %q: %v", ru.unit, ru.relation, err)
 		}
-		settings.Update(content)
-		if _, err = settings.Write(); err != nil {
+		ops = append(ops, txn.Op{
+			C:      ru.st.settings.Name,
+			Id:     key,
+			Assert: txn.DocMissing,
+			Insert: map[string]interface{}{"private-address": address},
+		})
+	} else if err != nil {
+		return err
+	}
+	if err := ru.st.runner.Run(ops, "", nil); err == txn.ErrAborted {
+		if count, err := ru.st.relationScopes.FindId(key).Count(); err != nil {
 			return err
+		} else if count == 0 {
+			return ErrScopeClosed
 		}
+		return fmt.Errorf("unit %q cannot enter relation %q scope: inconsistent state", ru.unit, ru.relation)
 	} else if err != nil {
 		return err
 	}
@@ -294,42 +324,78 @@ func (ru *RelationUnit) EnterScope() error {
 
 // LeaveScope signals that the unit has left its scope in the relation.
 // After the unit has left its relation scope, it is no longer a member
-// of the relation. It is not an error to leave a scope that the unit is
-// not, or never was, a member of.
+// of the relation; if the relation is dying when its last member unit
+// leaves, it is removed immediately. It is not an error to leave a scope
+// that the unit is not, or never was, a member of.
 func (ru *RelationUnit) LeaveScope() error {
 	key, err := ru.key(ru.unit.Name())
 	if err != nil {
 		return err
 	}
-	ops := []txn.Op{{
-		C:      ru.st.relations.Name,
-		Id:     ru.relation.doc.Key,
-		Assert: D{{"unitcount", D{{"$gt", 0}}}},
-		Update: D{{"$inc", D{{"unitcount", -1}}}},
-	}, {
-		C:      ru.st.relationScopes.Name,
-		Id:     key,
-		Assert: txn.DocExists,
-		Remove: true,
-	}}
-	err = ru.st.runner.Run(ops, "", nil)
-	if err != nil && err != txn.ErrAborted {
-		return err
-	}
-	rel := ru.Relation()
-	if rel.Life() == Alive {
-		// Even if we're the last unit, there's no reason to kill the relation.
+	// The equal-worst-case behaviour of the following loop is as follows:
+	// 1) in-memory Alive - ErrAborted
+	// 2) refreshed Dying, refcount >1 - ErrAborted
+	// 3) refreshed Dying, refcount 1 - ErrAborted
+	// ...because a unit agent could plausibly be leaving a scope at the same
+	// time that a client is forcing removal of that unit, setting it to Dead
+	// and leaving its scopes.
+	// Also note that the unit refcount can *appear* to increase even when the
+	// relation is known to be Dying, because the life status can be explicitly
+	// set in-memory (by EnsureDying) without refreshing other fields. Thus,
+	// the alternate worst-case behaviour (which is deeply pathological) is:
+	// 1) in-memory Dying, refcount 1 - ErrAborted
+	// 2) refreshed Dying, refcount >1 - ErrAborted
+	// 3) refreshed Dying, refcount 1 - ErrAborted
+	// ...which still means that going round the loop 3 times, without seeing
+	// removal of the scope document, indicates that there are deeper problems
+	// than we can resolve.
+	limit := 3
+	for i := 0; i <= limit; i++ {
+		count, err := ru.st.relationScopes.FindId(key).Count()
+		if err != nil {
+			return err
+		} else if count == 0 {
+			return nil
+		} else if i == limit {
+			return fmt.Errorf("unit %q cannot leave relation %q scope: inconsistent state", ru.unit, ru.relation)
+		}
+		ops := []txn.Op{{
+			C:      ru.st.relationScopes.Name,
+			Id:     key,
+			Assert: txn.DocExists,
+			Remove: true,
+		}}
+		if ru.relation.doc.Life == Alive {
+			ops = append(ops, txn.Op{
+				C:      ru.st.relations.Name,
+				Id:     ru.relation.doc.Key,
+				Assert: D{{"life", Alive}},
+				Update: D{{"$inc", D{{"unitcount", -1}}}},
+			})
+		} else if ru.relation.doc.UnitCount > 1 {
+			ops = append(ops, txn.Op{
+				C:      ru.st.relations.Name,
+				Id:     ru.relation.doc.Key,
+				Assert: D{{"unitcount", D{{"$gt", 1}}}},
+				Update: D{{"$inc", D{{"unitcount", -1}}}},
+			})
+		} else {
+			asserts := D{{"life", Dying}, {"unitcount", 1}}
+			ops = append(ops, ru.relation.removeOps(asserts)...)
+		}
+		if err = ru.st.runner.Run(ops, "", nil); err == txn.ErrAborted {
+			if err := ru.relation.Refresh(); IsNotFound(err) {
+				return nil
+			} else if err != nil {
+				return err
+			}
+			continue
+		} else if err != nil {
+			return err
+		}
 		return nil
 	}
-	if err = rel.EnsureDead(); err != nil {
-		if _, ok := err.(*cannotKillError); ok {
-			// We're not the last unit, so we didn't manage to kill the
-			// relation; this is not a problem.
-			return nil
-		}
-		return err
-	}
-	return ru.st.RemoveRelation(rel)
+	panic("unreachable")
 }
 
 // WatchScope returns a watcher which notifies of counterpart units
