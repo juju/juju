@@ -55,37 +55,23 @@ func (s *Service) EnsureDying() error {
 	// To kill the relations in the same transaction as the service, we need
 	// to collect a consistent relation state on which to apply it; and if the
 	// transaction is aborted, we need to re-collect, and retry, until we succeed.
-	for {
-		log.Debugf("state: preparing to set service %q to dying", s)
-		current := struct {
-			Life          Life
-			RelationCount int
-			TxnRevno      int64 `bson:"txn-revno"`
-		}{}
-		err := s.st.services.FindId(s.doc.Name).One(&current)
-		if err != nil {
-			return err
-		}
-		if current.Life != Alive {
-			log.Debugf("state: service %q was already dying", s)
-			return nil
-		}
-		log.Debugf("state: found %d relations for service %q", current.RelationCount, s)
+	for s.doc.Life == Alive {
+		log.Debugf("state: found %d relations for service %q", s.doc.RelationCount, s)
 		rels, err := s.Relations()
 		if err != nil {
 			return err
 		}
-		if len(rels) != current.RelationCount {
+		if len(rels) != s.doc.RelationCount {
 			log.Debugf("state: service %q relations changed; retrying", s)
+			if err := s.Refresh(); err != nil {
+				return err
+			}
 			continue
 		}
 		ops := []txn.Op{{
-			C:  s.st.services.Name,
-			Id: s.doc.Name,
-			Assert: append(isAlive, D{
-				{"relationcount", current.RelationCount},
-				{"txn-revno", current.TxnRevno},
-			}...),
+			C:      s.st.services.Name,
+			Id:     s.doc.Name,
+			Assert: D{{"life", Alive}, {"txn-revno", s.doc.TxnRevno}},
 			Update: D{{"$set", D{{"life", Dying}}}},
 		}}
 		for _, rel := range rels {
@@ -100,15 +86,17 @@ func (s *Service) EnsureDying() error {
 		}
 		if err := s.st.runner.Run(ops, "", nil); err == txn.ErrAborted {
 			log.Debugf("state: service %q changed, retrying", s)
+			if err := s.Refresh(); err != nil {
+				return err
+			}
 			continue
 		} else if err != nil {
 			return err
 		}
 		log.Debugf("state: service %q is now dying", s)
 		s.doc.Life = Dying
-		return nil
 	}
-	panic("unreachable")
+	return nil
 }
 
 // EnsureDead sets the service lifecycle to Dead if it is Alive or Dying.

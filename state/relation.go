@@ -133,9 +133,10 @@ func (r *Relation) EnsureDying() error {
 	return nil
 }
 
-// EnsureDead tries to set the relation lifecycle to Dead if it is Alive or
-// Dying. If it is called while the relation still has member units, it will
-// return an error; if the lifecycle is already Dead, it does nothing.
+// EnsureDead sets the relation lifecycle to Dead if it is Alive or Dying,
+// and does nothing if already Dead.
+// It's an error to call it while there are still units within one or more
+// scopes in the relation.
 func (r *Relation) EnsureDead() error {
 	ops := []txn.Op{{
 		C:      r.st.relations.Name,
@@ -234,15 +235,14 @@ func (ru *RelationUnit) Endpoint() RelationEndpoint {
 	return ru.endpoint
 }
 
-// ErrScopeDying indicates that a relation scope cannot accept new members
+// ErrScopeClosed indicates that a relation scope cannot accept new members
 // because the relation is not Alive.
-var ErrScopeDying = errors.New("scope is closed to new member units")
+var ErrScopeClosed = errors.New("scope is closed to new member units")
 
 // EnterScope ensures that the unit has entered its scope in the relation and
-// that its relation settings contain its private address. If the scope cannot
-// be entered because the relation is dying, or worse, it returns ErrScopeDying.
-// Once a unit has entered its scope, it is considered a member of the relation;
-// the relation will not become Dead until all members have left the scope.
+// that its relation settings contain its private address.
+// It is an error to enter a scope of a relation that is not alive, and no
+// relation becomes Dead before all units have left.
 func (ru *RelationUnit) EnterScope() error {
 	address, err := ru.unit.PrivateAddress()
 	if err != nil {
@@ -253,12 +253,10 @@ func (ru *RelationUnit) EnterScope() error {
 		return err
 	}
 	content := map[string]interface{}{"private-address": address}
-	ops := []txn.Op{{
-		C:      ru.st.settings.Name,
-		Id:     key,
-		Assert: txn.DocMissing,
-		Insert: content,
-	}, {
+
+	// Assemble the resuable building blocks for the various transactions that
+	// could be valid, depending on current remote state.
+	enterScope := []txn.Op{{
 		C:      ru.st.relationScopes.Name,
 		Id:     key,
 		Assert: txn.DocMissing,
@@ -269,27 +267,60 @@ func (ru *RelationUnit) EnterScope() error {
 		Assert: isAlive,
 		Update: D{{"$inc", D{{"unitcount", 1}}}},
 	}}
-	if err = ru.st.runner.Run(ops, "", nil); err == txn.ErrAborted {
-		// We either aborted because we're already in the scope, or because
-		// the relation is dying (or worse). If the former, don't treat this
-		// as an error; just update private-address. If the latter, attempting
-		// to read the settings will fail predictably, and the root cause can
-		// be reported.
-		settings, err := readSettings(ru.st, key)
-		if err != nil {
-			if IsNotFound(err) {
-				return ErrScopeDying
-			}
+	preserveScope := []txn.Op{{
+		C:      ru.st.relationScopes.Name,
+		Id:     key,
+		Assert: txn.DocExists,
+	}, {
+		C:      ru.st.relations.Name,
+		Id:     ru.relation.doc.Key,
+		Assert: D{{"unitcount", D{{"$gt", 0}}}},
+	}}
+	updateSettings := txn.Op{
+		C:      ru.st.settings.Name,
+		Id:     key,
+		Assert: D{{"private-address", D{{"$ne", address}}}},
+		Update: content,
+	}
+	preserveSettings := txn.Op{
+		C:      ru.st.settings.Name,
+		Id:     key,
+		Assert: D{{"private-address", address}},
+	}
+
+	// Any of the following op lists may be valid, but no more than one.
+	opss := [][]txn.Op{
+		append(preserveScope, preserveSettings),
+		append(preserveScope, updateSettings),
+		append(enterScope, preserveSettings),
+		append(enterScope, updateSettings),
+		append(enterScope, txn.Op{
+			C:      ru.st.settings.Name,
+			Id:     key,
+			Assert: txn.DocMissing,
+			Insert: content,
+		}),
+	}
+	for _, ops := range opss {
+		if err := ru.st.runner.Run(ops, "", nil); err == txn.ErrAborted {
+			continue
+		} else if err != nil {
 			return err
 		}
-		settings.Update(content)
-		if _, err = settings.Write(); err != nil {
-			return err
-		}
+		return nil
+	}
+
+	// Reaching this point may indicate that the relation is not alive, or that
+	// state is corrupt in some way.
+	if err := ru.relation.Refresh(); IsNotFound(err) {
+		return ErrScopeClosed
 	} else if err != nil {
 		return err
 	}
-	return nil
+	if ru.relation.Life() == Alive {
+		return fmt.Errorf("unit %q cannot enter relation %q scope: inconsistent state", ru.unit, ru.relation)
+	}
+	return ErrScopeClosed
 }
 
 // LeaveScope signals that the unit has left its scope in the relation.
@@ -301,7 +332,12 @@ func (ru *RelationUnit) LeaveScope() error {
 	if err != nil {
 		return err
 	}
-	ops := []txn.Op{{
+	preserveAbsence := []txn.Op{{
+		C:      ru.st.relationScopes.Name,
+		Id:     key,
+		Assert: txn.DocMissing,
+	}}
+	leaveScope := []txn.Op{{
 		C:      ru.st.relations.Name,
 		Id:     ru.relation.doc.Key,
 		Assert: D{{"unitcount", D{{"$gt", 0}}}},
@@ -312,9 +348,12 @@ func (ru *RelationUnit) LeaveScope() error {
 		Assert: txn.DocExists,
 		Remove: true,
 	}}
-	err = ru.st.runner.Run(ops, "", nil)
+	err = ru.st.runner.Run(preserveAbsence, "", nil)
 	if err == txn.ErrAborted {
-		return nil
+		err = ru.st.runner.Run(leaveScope, "", nil)
+		if err == txn.ErrAborted {
+			return fmt.Errorf("unit %q cannot leave relation %q scope: inconsistent state", ru.unit, ru.relation)
+		}
 	}
 	return err
 }

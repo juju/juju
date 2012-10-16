@@ -5,15 +5,38 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/testing"
 )
 
+// We don't want to use JujuConnSuite because it gives us
+// an already-bootstrapped environment.
 type BootstrapSuite struct {
-	testing.JujuConnSuite
+	testing.LoggingSuite
+	testing.MgoSuite
 }
 
 var _ = Suite(&BootstrapSuite{})
+
+func (s *BootstrapSuite) SetUpSuite(c *C) {
+	s.LoggingSuite.SetUpSuite(c)
+	s.MgoSuite.SetUpSuite(c)
+}
+
+func (s *BootstrapSuite) TearDownSuite(c *C) {
+	s.MgoSuite.TearDownSuite(c)
+	s.LoggingSuite.TearDownSuite(c)
+}
+
+func (s *BootstrapSuite) SetUpTest(c *C) {
+	s.LoggingSuite.SetUpTest(c)
+	s.MgoSuite.SetUpTest(c)
+}
+
+func (s *BootstrapSuite) TearDownTest(c *C) {
+	s.MgoSuite.TearDownTest(c)
+	s.LoggingSuite.TearDownTest(c)
+}
 
 func initBootstrapCommand(args []string) (*BootstrapCommand, error) {
 	c := &BootstrapCommand{}
@@ -47,7 +70,7 @@ func (s *BootstrapSuite) TestParseNoEnvConfig(c *C) {
 
 func (s *BootstrapSuite) TestSetMachineId(c *C) {
 	args := []string{
-		"--state-servers", s.StateInfo(c).Addrs[0],
+		"--state-servers", testing.MgoAddr,
 		"--instance-id", "over9000",
 		"--env-config", b64yaml{
 			"name":            "dummyenv",
@@ -61,7 +84,10 @@ func (s *BootstrapSuite) TestSetMachineId(c *C) {
 	err = cmd.Run(nil)
 	c.Assert(err, IsNil)
 
-	machines, err := s.State.AllMachines()
+	st, err := state.Open(&state.Info{Addrs: []string{testing.MgoAddr}})
+	c.Assert(err, IsNil)
+	defer st.Close()
+	machines, err := st.AllMachines()
 	c.Assert(err, IsNil)
 	c.Assert(len(machines), Equals, 1)
 
@@ -72,7 +98,7 @@ func (s *BootstrapSuite) TestSetMachineId(c *C) {
 
 func (s *BootstrapSuite) TestMachinerWorkers(c *C) {
 	args := []string{
-		"--state-servers", s.StateInfo(c).Addrs[0],
+		"--state-servers", testing.MgoAddr,
 		"--instance-id", "over9000",
 		"--env-config", b64yaml{
 			"name":            "dummyenv",
@@ -86,7 +112,10 @@ func (s *BootstrapSuite) TestMachinerWorkers(c *C) {
 	err = cmd.Run(nil)
 	c.Assert(err, IsNil)
 
-	m, err := s.State.Machine(0)
+	st, err := state.Open(&state.Info{Addrs: []string{testing.MgoAddr}})
+	c.Assert(err, IsNil)
+	defer st.Close()
+	m, err := st.Machine(0)
 	c.Assert(err, IsNil)
 	c.Assert(m.Workers(), DeepEquals, []state.WorkerKind{state.MachinerWorker, state.ProvisionerWorker, state.FirewallerWorker})
 }
@@ -105,7 +134,7 @@ func testOpenState(c *C, info *state.Info, expectErr error) {
 
 func (s *BootstrapSuite) TestInitialPassword(c *C) {
 	args := []string{
-		"--state-servers", s.StateInfo(c).Addrs[0],
+		"--state-servers", testing.MgoAddr,
 		"--instance-id", "over9000",
 		"--env-config", b64yaml{
 			"name":            "dummyenv",
@@ -122,7 +151,9 @@ func (s *BootstrapSuite) TestInitialPassword(c *C) {
 
 	// Check that we cannot now connect to the state
 	// without a password.
-	info := s.StateInfo(c)
+	info := &state.Info{
+		Addrs: []string{testing.MgoAddr},
+	}
 	testOpenState(c, info, state.ErrUnauthorized)
 
 	info.EntityName, info.Password = "machine-0", "foo"
@@ -169,7 +200,7 @@ func (s *BootstrapSuite) TestBase64Config(c *C) {
 	for i, t := range base64ConfigTests {
 		c.Logf("test %d", i)
 		args := []string{"--state-servers"}
-		args = append(args, s.StateInfo(c).Addrs...)
+		args = append(args, testing.MgoAddr)
 		args = append(args, "--instance-id", "over9000")
 		args = append(args, t.input...)
 		cmd, err := initBootstrapCommand(args)

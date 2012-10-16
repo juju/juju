@@ -330,7 +330,7 @@ func (s *RelationUnitSuite) TestScopeWithRelationLifecycle(c *C) {
 
 	// Check that we can't add a new unit now.
 	err = pr.ru1.EnterScope()
-	c.Assert(err, Equals, state.ErrScopeDying)
+	c.Assert(err, Equals, state.ErrScopeClosed)
 
 	// Check that we created no settings for the unit we failed to add.
 	_, err = pr.ru0.ReadSettings("peer/1")
@@ -351,18 +351,32 @@ func (s *RelationUnitSuite) TestScopeWithRelationLifecycle(c *C) {
 	c.Assert(err, IsNil)
 
 	// Check that unit settings for the original unit still exist.
-	settings, err := pr.ru1.ReadSettings("peer/0")
-	c.Assert(err, IsNil)
-	c.Assert(settings, DeepEquals, map[string]interface{}{
-		"private-address": "peer-0.example.com",
-	})
+	assertSettings := func() {
+		settings, err := pr.ru1.ReadSettings("peer/0")
+		c.Assert(err, IsNil)
+		c.Assert(settings, DeepEquals, map[string]interface{}{
+			"private-address": "peer-0.example.com",
+		})
+	}
+	assertSettings()
 
-	// Check the relation can be removed, and that unit settings are deleted.
+	// Check the relation can be removed, and that unit settings are
+	// still not deleted...
 	err = s.State.RemoveRelation(rel)
 	c.Assert(err, IsNil)
+	assertSettings()
+
+	// ...but that they were scheduled for deletion.
+	err = s.State.Cleanup()
+	c.Assert(err, Equals, state.ErrNotClean)
 	_, err = pr.ru1.ReadSettings("peer/0")
 	c.Assert(err, ErrorMatches, `cannot read settings for unit "peer/0" in relation "peer:name": settings not found`)
 
+	// Because this is the only sensible place, check that a further call
+	// to Cleanup will finish the deletions (in this case, of the exhausted
+	// cleanup doc) and return nil.
+	err = s.State.Cleanup()
+	c.Assert(err, IsNil)
 }
 
 func (s *RelationUnitSuite) TestPeerWatchScope(c *C) {
@@ -697,7 +711,7 @@ func (s *OriginalRelationUnitSuite) TestRelationUnitEnterScopeError(c *C) {
 	err = rel.EnsureDying()
 	c.Assert(err, IsNil)
 	err = ru1.EnterScope()
-	c.Assert(err, Equals, state.ErrScopeDying)
+	c.Assert(err, Equals, state.ErrScopeClosed)
 }
 
 func (s *OriginalRelationUnitSuite) TestRelationUnitReadSettings(c *C) {

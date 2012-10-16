@@ -28,3 +28,58 @@ func (*ConfigSuite) TestSecretAttrs(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(expected, DeepEquals, actual)
 }
+
+var firewallModeTests = []struct {
+	configFirewallMode string
+	firewallMode       config.FirewallMode
+	errorMsg           string
+}{
+	{
+		// Empty value leads to default value.
+		firewallMode: config.FwInstance,
+	}, {
+		// Explicit default value.
+		configFirewallMode: "",
+		firewallMode:       config.FwInstance,
+	}, {
+		// Instance mode.
+		configFirewallMode: "instance",
+		firewallMode:       config.FwInstance,
+	}, {
+		// Global mode.
+		configFirewallMode: "global",
+		firewallMode:       config.FwGlobal,
+	}, {
+		// Invalid mode.
+		configFirewallMode: "invalid",
+		errorMsg:           `invalid firewall mode in environment configuration: "invalid"`,
+	},
+}
+
+func (*ConfigSuite) TestFirewallMode(c *C) {
+	for _, test := range firewallModeTests {
+		c.Logf("test firewall mode %q", test.configFirewallMode)
+		cfgMap := map[string]interface{}{
+			"name":         "only",
+			"type":         "dummy",
+			"state-server": true,
+		}
+		if test.configFirewallMode != "" {
+			cfgMap["firewall-mode"] = test.configFirewallMode
+		}
+		cfg, err := config.New(cfgMap)
+		if err != nil {
+			c.Assert(err, ErrorMatches, test.errorMsg)
+			continue
+		}
+
+		env, err := environs.New(cfg)
+		if err != nil {
+			c.Assert(err, ErrorMatches, test.errorMsg)
+			continue
+		}
+
+		firewallMode := env.Config().FirewallMode()
+		c.Assert(firewallMode, Equals, test.firewallMode)
+	}
+}
