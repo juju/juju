@@ -546,14 +546,6 @@ func (s *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 			}
 			return err
 		}
-
-		// TODO(rog) reinstate this code
-		// This works if two AssignUnits are racing each other,
-		// but might not if someone picks the machine we've
-		// just created and tries to assign a unit to that machine
-		// specifically. This should never happen in practice.
-		_, err = u.AssignToUnusedMachine()
-		return err
 	}
 	panic(fmt.Errorf("unknown unit assignment policy: %q", policy))
 }
