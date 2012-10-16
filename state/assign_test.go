@@ -4,6 +4,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state"
 	"sort"
+	"time"
 )
 
 type AssignSuite struct {
@@ -510,6 +511,51 @@ func (s *AssignSuite) TestAssignUnitUnusedPolicy(c *C) {
 	sort.Ints(unused)
 	sort.Ints(got)
 	c.Assert(got, DeepEquals, unused)
+}
+
+func (s *AssignSuite) TestAssignUnitUnusedPolicyConcurrently(c *C) {
+	_, err := s.State.AddMachine(state.MachinerWorker) // bootstrap machine
+	c.Assert(err, IsNil)
+
+	svc, err := s.State.AddService("svc", s.charm)
+	c.Assert(err, IsNil)
+
+	us := make([]*state.Unit, 20)
+	for i := range us {
+		us[i], err = svc.AddUnit()
+		c.Assert(err, IsNil)
+	}
+	type result struct {
+		u   *state.Unit
+		err error
+	}
+	done := make(chan result)
+	for i, u := range us {
+		i, u := i, u
+		go func() {
+			// Start the AssignUnit at different times
+			// to increase the likeliness of a race.
+			time.Sleep(time.Duration(i) * time.Millisecond / 2)
+			err := s.State.AssignUnit(u, state.AssignUnused)
+			done <- result{u, err}
+		}()
+	}
+	assignments := make(map[int][]*state.Unit)
+	for _ = range us {
+		r := <-done
+		if !c.Check(r.err, IsNil) {
+			continue
+		}
+		id, err := r.u.AssignedMachineId()
+		c.Assert(err, IsNil)
+		assignments[id] = append(assignments[id], r.u)
+	}
+	for id, us := range assignments {
+		if len(us) != 1 {
+			c.Errorf("machine %d expected one unit, got %q", id, us)
+		}
+	}
+	c.Assert(assignments, HasLen, len(us))
 }
 
 func (s *AssignSuite) TestAssignSubordinate(c *C) {

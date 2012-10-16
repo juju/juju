@@ -531,11 +531,21 @@ func (s *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 		if _, err = u.AssignToUnusedMachine(); err != noUnusedMachines {
 			return err
 		}
-		m, err := s.AddMachine(MachinerWorker)
-		if err != nil {
+		for {
+			// TODO(rog) take out a lease on the new machine
+			// so that we don't have a race here.
+			m, err := s.AddMachine(MachinerWorker)
+			if err != nil {
+				return err
+			}
+			err = u.assignToMachine(m, true)
+			if err == inUseErr {
+				// Someone else has grabbed the machine we've
+				// just allocated, so try again.
+				continue
+			}
 			return err
 		}
-		return u.AssignToMachine(m)
 
 		// TODO(rog) reinstate this code
 		// This works if two AssignUnits are racing each other,
