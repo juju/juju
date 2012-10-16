@@ -131,9 +131,11 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 }
 
 func (s *JujuConnSuite) tearDownConn(c *C) {
-	// Don't fail if we cannot reset the admin password
-	// because the state might have been reset
-	// by the test independently of JujuConnSuite.
+	// Bootstrap will set the admin password, and render non-authorized use
+	// impossible. s.State may still hold the right password, so try to reset
+	// the password so that the MgoSuite soft-resetting works. If that fails,
+	// it will still work, but it will take a while since it has to kill the
+	// whole database and start over.
 	if err := s.State.SetAdminPassword(""); err != nil {
 		c.Logf("cannot reset admin password: %v", err)
 	}
