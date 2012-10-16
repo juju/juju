@@ -4,6 +4,7 @@
 package state
 
 import (
+	"errors"
 	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
@@ -615,27 +616,23 @@ type cleanupDoc struct {
 	Prefix string
 }
 
-// ErrNotClean indicates that garbage documents exist.
+// ErrNotClean indicates that Cleanup didn't clean up all documents.
 var ErrNotClean = errors.New("documents remain to be cleaned up")
 
 // Cleanup removes several documents that were previously marked for removal,
-// if any such exist. A result of ErrNotClean indicates that documents remain
-// to be processed; a nil error indicates that no garbage documents exist.
+// if any such exist. A result of ErrNotClean indicates that not all documents
+// have been cleaned up; nil indicates that no more deletions are scheduled yet.
 func (s *State) Cleanup() error {
-	cq := s.cleanups.Find(nil)
-	ccount, err := cq.Count()
-	if err != nil {
-		return err
-	} else if ccount == 0 {
-		return nil
-	}
+	// Find something to clean up.
 	doc := cleanupDoc{}
-	if err := q.One(&doc); err != nil {
+	if err := s.cleanups.Find(nil).One(&doc); err != nil {
 		if err == mgo.ErrNotFound {
 			return nil
 		}
 		return err
 	}
+
+	// Determine what exactly needs to be cleaned up.
 	var c *mgo.Collection
 	var sel interface{}
 	switch doc.Kind {
@@ -645,9 +642,11 @@ func (s *State) Cleanup() error {
 	default:
 		panic(fmt.Errorf("unknown cleanup kind %q", doc.Kind))
 	}
+
+	// If referenced documents exist, delete up to 100 of them; otherwise
+	// delete the referee.
 	q := c.Find(sel)
 	ops := []txn.Op{}
-	last := false
 	if count, err := q.Count(); err != nil {
 		return err
 	} else if count == 0 {
@@ -656,9 +655,6 @@ func (s *State) Cleanup() error {
 			Id:     doc.Id,
 			Remove: true,
 		})
-		if ccount == 1 {
-			last = true
-		}
 	} else {
 		docs := []struct {
 			Id string `bson:"_id"`
@@ -674,12 +670,16 @@ func (s *State) Cleanup() error {
 			})
 		}
 	}
-	err = s.runner.Run(ops, "", nil)
+	err := s.runner.Run(ops, "", nil)
 	if err != nil {
 		return err
 	}
-	if last {
-		return nil
+
+	// If anything remains to be deleted, notify the client.
+	if count, err := s.cleanups.Find(nil).Count(); err != nil {
+		return err
+	} else if count != 0 {
+		return ErrNotClean
 	}
-	return ErrNotClean
+	return nil
 }

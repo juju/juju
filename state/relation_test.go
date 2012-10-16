@@ -346,7 +346,7 @@ func (s *RelationUnitSuite) TestScopeWithRelationLifecycle(c *C) {
 
 	// Check that we can't add a new unit now.
 	err = pr.ru1.EnterScope()
-	c.Assert(err, Equals, state.ErrScopeDying)
+	c.Assert(err, Equals, state.ErrScopeClosed)
 
 	// Check that we created no settings for the unit we failed to add.
 	_, err = pr.ru0.ReadSettings("peer/1")
@@ -388,8 +388,9 @@ func (s *RelationUnitSuite) TestScopeWithRelationLifecycle(c *C) {
 	_, err = pr.ru1.ReadSettings("peer/0")
 	c.Assert(err, ErrorMatches, `cannot read settings for unit "peer/0" in relation "peer:name": settings not found`)
 
-	// Because this is the only sensible place, check that subsequent cleanups
-	// don't error out.
+	// Because this is the only sensible place, check that a further call
+	// to Cleanup will finish the deletions (in this case, of the exhausted
+	// cleanup doc) and return nil.
 	err = s.State.Cleanup()
 	c.Assert(err, IsNil)
 }
@@ -726,7 +727,7 @@ func (s *OriginalRelationUnitSuite) TestRelationUnitEnterScopeError(c *C) {
 	err = rel.EnsureDying()
 	c.Assert(err, IsNil)
 	err = ru1.EnterScope()
-	c.Assert(err, Equals, state.ErrScopeDying)
+	c.Assert(err, Equals, state.ErrScopeClosed)
 }
 
 func (s *OriginalRelationUnitSuite) TestRelationUnitReadSettings(c *C) {
