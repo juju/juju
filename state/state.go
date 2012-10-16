@@ -416,11 +416,10 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err err
 	if err == txn.ErrAborted {
 		for _, ep := range endpoints {
 			svc, err := s.Service(ep.ServiceName)
-			if err != nil {
-				return nil, err
-			}
-			if svc.Life() != Alive {
+			if IsNotFound(err) || svc.Life() != Alive {
 				return nil, fmt.Errorf("service %q is not alive", ep.ServiceName)
+			} else if err != nil {
+				return nil, err
 			}
 		}
 		return nil, fmt.Errorf("relation already exists")
