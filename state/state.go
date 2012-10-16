@@ -462,8 +462,7 @@ func (s *State) RemoveRelation(r *Relation) (err error) {
 	if r.doc.Life != Dead {
 		return fmt.Errorf("relation is not dead")
 	}
-	asserts := D{{"life", Dead}, {"id", r.Id()}}
-	if err := s.runner.Run(r.removeOps(asserts), "", nil); err != nil {
+	if err := s.runner.Run(r.removeOps(D{{"life", Dead}}), "", nil); err != nil {
 		if err == txn.ErrAborted {
 			if e := r.Refresh(); IsNotFound(e) {
 				return nil
