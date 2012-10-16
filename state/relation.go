@@ -133,9 +133,10 @@ func (r *Relation) EnsureDying() error {
 	return nil
 }
 
-// EnsureDead tries to set the relation lifecycle to Dead if it is Alive or
-// Dying. If it is called while the relation still has member units, it will
-// return an error; if the lifecycle is already Dead, it does nothing.
+// EnsureDead sets the relation lifecycle to Dead if it is Alive or Dying,
+// and does nothing if already Dead.
+// It's an error to call it while there are still units within one or more
+// scopes in the relation.
 func (r *Relation) EnsureDead() error {
 	ops := []txn.Op{{
 		C:      r.st.relations.Name,

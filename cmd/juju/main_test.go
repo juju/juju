@@ -145,6 +145,7 @@ var commandNames = []string{
 	"destroy-environment",
 	"expose",
 	"get",
+	"remove-unit",
 	"scp",
 	"set",
 	"ssh",
