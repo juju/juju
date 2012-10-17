@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/testing"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func repoMeta(name string) io.Reader {
@@ -101,7 +102,65 @@ func (s *MetaSuite) TestParseMetaRelations(c *C) {
 	c.Assert(meta.Requires["db"], Equals, charm.Relation{Interface: "mysql", Limit: 1, Scope: charm.ScopeGlobal})
 	c.Assert(meta.Requires["cache"], Equals, charm.Relation{Interface: "varnish", Limit: 2, Optional: true, Scope: charm.ScopeGlobal})
 	c.Assert(meta.Peers, IsNil)
+}
 
+var relationsConstraintsTests = []struct {
+	rels string
+	err  string
+}{
+	{
+		"provides:\n  foo: ping\nrequires:\n  foo: pong",
+		`"foo" relation redeclared`,
+	}, {
+		"requires:\n  foo: ping\npeers:\n  foo: pong",
+		`"foo" relation redeclared`,
+	}, {
+		"peers:\n  foo: ping\nprovides:\n  foo: pong",
+		`"foo" relation redeclared`,
+	}, {
+		"provides:\n  juju: blob",
+		`"juju" is a reserved relation name`,
+	}, {
+		"requires:\n  juju: blob",
+		`"juju" is a reserved relation name`,
+	}, {
+		"peers:\n  juju: blob",
+		`"juju" is a reserved relation name`,
+	}, {
+		"provides:\n  juju-snap: blub",
+		`"juju-snap" is a reserved relation name`,
+	}, {
+		"requires:\n  juju-crackle: blub",
+		`"juju-crackle" is a reserved relation name`,
+	}, {
+		"peers:\n  juju-pop: blub",
+		`"juju-pop" is a reserved relation name`,
+	}, {
+		"provides:\n  innocuous: juju-snap",
+		`"innocuous" relation uses the reserved provider interface name "juju-snap"`,
+	}, {
+		"requires:\n  innocuous: juju-snap",
+		``,
+	}, {
+		"peers:\n  innocuous: juju-snap",
+		``,
+	},
+}
+
+func (s *MetaSuite) TestRelationsConstraints(c *C) {
+	prefix := "name: a\nsummary: b\ndescription: c\n"
+	for i, t := range relationsConstraintsTests {
+		c.Logf("test %d", i)
+		r := strings.NewReader(prefix + t.rels)
+		meta, err := charm.ReadMeta(r)
+		if t.err != "" {
+			c.Assert(err, ErrorMatches, t.err)
+			c.Assert(meta, IsNil)
+		} else {
+			c.Assert(err, IsNil)
+			c.Assert(meta, NotNil)
+		}
+	}
 }
 
 // Test rewriting of a given interface specification into long form.
