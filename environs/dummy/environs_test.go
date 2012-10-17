@@ -17,6 +17,7 @@ environments:
         type: dummy
         state-server: true
         secret: pork
+        admin-secret: fish
 `
 	envs, err := environs.ReadEnvironsBytes([]byte(config))
 	if err != nil {
