@@ -17,6 +17,7 @@ func (OpenSuite) TestNewDummyEnviron(c *C) {
 		"type":            "dummy",
 		"state-server":    false,
 		"authorized-keys": "i-am-a-key",
+		"admin-secret":    "foo",
 	}
 	env, err := environs.NewFromAttrs(config)
 	c.Assert(err, IsNil)
