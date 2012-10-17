@@ -489,7 +489,7 @@ func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.To
 		return nil, fmt.Errorf("cannot find image for %s-%s", tools.Series, tools.Arch)
 	}
 	i := &instance{
-		state:     e.state,
+		env:       e,
 		id:        fmt.Sprintf("%s-%d", e.state.name, e.state.maxId),
 		ports:     make(map[state.Port]bool),
 		machineId: machineId,
@@ -565,6 +565,10 @@ func (e *environ) AllInstances() ([]environs.Instance, error) {
 func (e *environ) OpenPorts(ports []state.Port) error {
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
+	if e.Config().FirewallMode() != config.FwGlobal {
+		return fmt.Errorf("invalid firewall mode for opening ports on environment: %q",
+			e.Config().FirewallMode())
+	}
 	for _, p := range ports {
 		e.state.ports[p] = true
 	}
@@ -574,6 +578,10 @@ func (e *environ) OpenPorts(ports []state.Port) error {
 func (e *environ) ClosePorts(ports []state.Port) error {
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
+	if e.Config().FirewallMode() != config.FwGlobal {
+		return fmt.Errorf("invalid firewall mode for closing ports on environment: %q",
+			e.Config().FirewallMode())
+	}
 	for _, p := range ports {
 		delete(e.state.ports, p)
 	}
@@ -583,6 +591,10 @@ func (e *environ) ClosePorts(ports []state.Port) error {
 func (e *environ) Ports() (ports []state.Port, err error) {
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
+	if e.Config().FirewallMode() != config.FwGlobal {
+		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from environment: %q",
+			e.Config().FirewallMode())
+	}
 	for p := range e.state.ports {
 		ports = append(ports, p)
 	}
@@ -595,7 +607,7 @@ func (*environ) Provider() environs.EnvironProvider {
 }
 
 type instance struct {
-	state     *environState
+	env       *environ
 	ports     map[state.Port]bool
 	id        string
 	machineId int
@@ -617,13 +629,17 @@ func (inst *instance) WaitDNSName() (string, error) {
 func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
 	defer delay()
 	log.Printf("openPorts %d, %#v", machineId, ports)
+	if inst.env.Config().FirewallMode() != config.FwInstance {
+		return fmt.Errorf("invalid firewall mode for opening ports on instance: %q",
+			inst.env.Config().FirewallMode())
+	}
 	if inst.machineId != machineId {
 		panic(fmt.Errorf("OpenPorts with mismatched machine id, expected %d got %d", inst.machineId, machineId))
 	}
-	inst.state.mu.Lock()
-	defer inst.state.mu.Unlock()
-	inst.state.ops <- OpOpenPorts{
-		Env:        inst.state.name,
+	inst.env.state.mu.Lock()
+	defer inst.env.state.mu.Unlock()
+	inst.env.state.ops <- OpOpenPorts{
+		Env:        inst.env.state.name,
 		MachineId:  machineId,
 		InstanceId: inst.Id(),
 		Ports:      ports,
@@ -636,13 +652,17 @@ func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
 
 func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
 	defer delay()
+	if inst.env.Config().FirewallMode() != config.FwInstance {
+		return fmt.Errorf("invalid firewall mode for closing ports on instance: %q",
+			inst.env.Config().FirewallMode())
+	}
 	if inst.machineId != machineId {
 		panic(fmt.Errorf("ClosePorts with mismatched machine id, expected %d got %d", inst.machineId, machineId))
 	}
-	inst.state.mu.Lock()
-	defer inst.state.mu.Unlock()
-	inst.state.ops <- OpClosePorts{
-		Env:        inst.state.name,
+	inst.env.state.mu.Lock()
+	defer inst.env.state.mu.Unlock()
+	inst.env.state.ops <- OpClosePorts{
+		Env:        inst.env.state.name,
 		MachineId:  machineId,
 		InstanceId: inst.Id(),
 		Ports:      ports,
@@ -655,11 +675,15 @@ func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
 
 func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
 	defer delay()
+	if inst.env.Config().FirewallMode() != config.FwInstance {
+		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from instance: %q",
+			inst.env.Config().FirewallMode())
+	}
 	if inst.machineId != machineId {
 		panic(fmt.Errorf("Ports with mismatched machine id, expected %d got %d", inst.machineId, machineId))
 	}
-	inst.state.mu.Lock()
-	defer inst.state.mu.Unlock()
+	inst.env.state.mu.Lock()
+	defer inst.env.state.mu.Unlock()
 	for p := range inst.ports {
 		ports = append(ports, p)
 	}
