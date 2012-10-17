@@ -270,12 +270,7 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 func (t *LiveTests) TestBootstrapMultiple(c *C) {
 	t.BootstrapOnce(c)
 
-	var err error
-	for a := t.Attempt.Start(); a.Next(); {
-		if err = t.Env.Bootstrap(false); err != nil {
-			break
-		}
-	}
+	err := t.Env.Bootstrap(false)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	c.Logf("destroy env")

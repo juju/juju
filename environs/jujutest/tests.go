@@ -193,15 +193,7 @@ func checkFileDoesNotExist(c *C, storage environs.StorageReader, name string, at
 }
 
 func checkFileHasContents(c *C, storage environs.StorageReader, name string, contents []byte, attempt trivial.AttemptStrategy) {
-	var r io.ReadCloser
-	var err error
-
-	for a := attempt.Start(); a.Next(); {
-		r, err = storage.Get(name)
-		if err == nil {
-			break
-		}
-	}
+	r, err := storage.Get(name)
 	c.Assert(err, IsNil)
 	c.Check(r, NotNil)
 	defer r.Close()
