@@ -136,14 +136,19 @@ var relationsConstraintsTests = []struct {
 		"peers:\n  juju-pop: blub",
 		`"juju-pop" is a reserved relation name`,
 	}, {
+		"provides:\n  innocuous: juju",
+		`"innocuous" relation uses the reserved provider interface name "juju"`,
+	}, {
+		rels: "requires:\n  innocuous: juju",
+	}, {
+		rels: "peers:\n  innocuous: juju",
+	}, {
 		"provides:\n  innocuous: juju-snap",
 		`"innocuous" relation uses the reserved provider interface name "juju-snap"`,
 	}, {
-		"requires:\n  innocuous: juju-snap",
-		``,
+		rels: "requires:\n  innocuous: juju-snap",
 	}, {
-		"peers:\n  innocuous: juju-snap",
-		``,
+		rels: "peers:\n  innocuous: juju-snap",
 	},
 }
 
