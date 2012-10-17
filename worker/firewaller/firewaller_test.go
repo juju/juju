@@ -3,6 +3,7 @@ package firewaller_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -30,6 +31,32 @@ func (s *FirewallerSuite) assertPorts(c *C, inst environs.Instance, machineId in
 	start := time.Now()
 	for {
 		got, err := inst.Ports(machineId)
+		if err != nil {
+			c.Fatal(err)
+			return
+		}
+		state.SortPorts(got)
+		state.SortPorts(expected)
+		if reflect.DeepEqual(got, expected) {
+			c.Succeed()
+			return
+		}
+		if time.Since(start) > 5*time.Second {
+			c.Fatalf("timed out: expected %q; got %q", expected, got)
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	panic("unreachable")
+}
+
+// assertEnvironPorts retrieves the open ports of environment and compares them
+// to the expected. 
+func (s *FirewallerSuite) assertEnvironPorts(c *C, expected []state.Port) {
+	s.State.StartSync()
+	start := time.Now()
+	for {
+		got, err := s.Conn.Environ.Ports()
 		if err != nil {
 			c.Fatal(err)
 			return
@@ -481,4 +508,73 @@ func (s *FirewallerSuite) TestRemoveMachine(c *C) {
 	c.Assert(err, IsNil)
 	err = s.State.RemoveMachine(m.Id())
 	c.Assert(err, IsNil)
+}
+
+func (s *FirewallerSuite) TestGlobalMode(c *C) {
+	// Change configuration.
+	oldConfig := s.Conn.Environ.Config()
+	defer func() {
+		attrs := oldConfig.AllAttrs()
+		attrs["admin-secret"] = ""
+		oldConfig, err := oldConfig.Apply(attrs)
+		c.Assert(err, IsNil)
+		err = s.Conn.Environ.SetConfig(oldConfig)
+		c.Assert(err, IsNil)
+		err = s.State.SetEnvironConfig(oldConfig)
+		c.Assert(err, IsNil)
+	}()
+
+	attrs := s.Conn.Environ.Config().AllAttrs()
+	attrs["firewall-mode"] = config.FwGlobal
+	attrs["admin-secret"] = ""
+	newConfig, err := s.Conn.Environ.Config().Apply(attrs)
+	c.Assert(err, IsNil)
+	err = s.Conn.Environ.SetConfig(newConfig)
+	c.Assert(err, IsNil)
+	err = s.State.SetEnvironConfig(newConfig)
+	c.Assert(err, IsNil)
+
+	// Start firewall and open ports.
+	fw := firewaller.NewFirewaller(s.State)
+	defer func() { c.Assert(fw.Stop(), IsNil) }()
+
+	svc1, err := s.State.AddService("wordpress", s.charm)
+	c.Assert(err, IsNil)
+	err = svc1.SetExposed()
+	c.Assert(err, IsNil)
+
+	u1, m1 := s.addUnit(c, svc1)
+	s.startInstance(c, m1)
+	err = u1.OpenPort("tcp", 80)
+	c.Assert(err, IsNil)
+	err = u1.OpenPort("tcp", 8080)
+	c.Assert(err, IsNil)
+
+	svc2, err := s.State.AddService("moinmoin", s.charm)
+	c.Assert(err, IsNil)
+	err = svc2.SetExposed()
+	c.Assert(err, IsNil)
+
+	u2, m2 := s.addUnit(c, svc2)
+	s.startInstance(c, m2)
+	err = u2.OpenPort("tcp", 80)
+	c.Assert(err, IsNil)
+
+	// Check that all expected ports are open in environment.
+	s.assertEnvironPorts(c, []state.Port{{"tcp", 80}, {"tcp", 8080}})
+
+	// Check that closing a multiple used port on one machine lets it untouched.
+	err = u1.ClosePort("tcp", 80)
+	c.Assert(err, IsNil)
+	s.assertEnvironPorts(c, []state.Port{{"tcp", 80}, {"tcp", 8080}})
+
+	// Check that closing a single used port is closed.
+	err = u1.ClosePort("tcp", 8080)
+	c.Assert(err, IsNil)
+	s.assertEnvironPorts(c, []state.Port{{"tcp", 80}})
+
+	// Check that closing the last usage of a port closes it globally.
+	err = u2.ClosePort("tcp", 80)
+	c.Assert(err, IsNil)
+	s.assertEnvironPorts(c, nil)
 }
