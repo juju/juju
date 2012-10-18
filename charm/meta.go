@@ -80,11 +80,11 @@ func ReadMeta(r io.Reader) (meta *Meta, err error) {
 	// Check for duplicate or forbidden relation names.
 	names := map[string]bool{}
 	checkName := func(name string) error {
-		if forbidden(name) {
-			return fmt.Errorf("%q is a reserved relation name", name)
+		if reservedName(name) {
+			return fmt.Errorf("charm %q using a reserved relation name: %q", meta.Name, name)
 		}
 		if names[name] {
-			return fmt.Errorf("%q relation redeclared", name)
+			return fmt.Errorf("charm %q using a duplicated relation name: %q", meta.Name, name)
 		}
 		names[name] = true
 		return nil
@@ -93,8 +93,8 @@ func ReadMeta(r io.Reader) (meta *Meta, err error) {
 		if err := checkName(name); err != nil {
 			return nil, err
 		}
-		if forbidden(rel.Interface) {
-			return nil, fmt.Errorf("%q relation uses the reserved provider interface name %q", name, rel.Interface)
+		if reservedName(rel.Interface) {
+			return nil, fmt.Errorf("charm %q relation %q using a reserved provider interface: %q", meta.Name, name, rel.Interface)
 		}
 	}
 	for name := range meta.Requires {
@@ -129,7 +129,7 @@ func ReadMeta(r io.Reader) (meta *Meta, err error) {
 	return
 }
 
-func forbidden(name string) bool {
+func reservedName(name string) bool {
 	return name == "juju" || strings.HasPrefix(name, "juju-")
 }
 

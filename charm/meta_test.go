@@ -110,41 +110,41 @@ var relationsConstraintsTests = []struct {
 }{
 	{
 		"provides:\n  foo: ping\nrequires:\n  foo: pong",
-		`"foo" relation redeclared`,
+		`charm "a" using a duplicated relation name: "foo"`,
 	}, {
 		"requires:\n  foo: ping\npeers:\n  foo: pong",
-		`"foo" relation redeclared`,
+		`charm "a" using a duplicated relation name: "foo"`,
 	}, {
 		"peers:\n  foo: ping\nprovides:\n  foo: pong",
-		`"foo" relation redeclared`,
+		`charm "a" using a duplicated relation name: "foo"`,
 	}, {
 		"provides:\n  juju: blob",
-		`"juju" is a reserved relation name`,
+		`charm "a" using a reserved relation name: "juju"`,
 	}, {
 		"requires:\n  juju: blob",
-		`"juju" is a reserved relation name`,
+		`charm "a" using a reserved relation name: "juju"`,
 	}, {
 		"peers:\n  juju: blob",
-		`"juju" is a reserved relation name`,
+		`charm "a" using a reserved relation name: "juju"`,
 	}, {
 		"provides:\n  juju-snap: blub",
-		`"juju-snap" is a reserved relation name`,
+		`charm "a" using a reserved relation name: "juju-snap"`,
 	}, {
 		"requires:\n  juju-crackle: blub",
-		`"juju-crackle" is a reserved relation name`,
+		`charm "a" using a reserved relation name: "juju-crackle"`,
 	}, {
 		"peers:\n  juju-pop: blub",
-		`"juju-pop" is a reserved relation name`,
+		`charm "a" using a reserved relation name: "juju-pop"`,
 	}, {
 		"provides:\n  innocuous: juju",
-		`"innocuous" relation uses the reserved provider interface name "juju"`,
+		`charm "a" relation "innocuous" using a reserved provider interface: "juju"`,
 	}, {
 		rels: "requires:\n  innocuous: juju",
 	}, {
 		rels: "peers:\n  innocuous: juju",
 	}, {
 		"provides:\n  innocuous: juju-snap",
-		`"innocuous" relation uses the reserved provider interface name "juju-snap"`,
+		`charm "a" relation "innocuous" using a reserved provider interface: "juju-snap"`,
 	}, {
 		rels: "requires:\n  innocuous: juju-snap",
 	}, {
