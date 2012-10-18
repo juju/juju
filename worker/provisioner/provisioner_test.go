@@ -49,7 +49,13 @@ func (s *ProvisionerSuite) SetUpTest(c *C) {
 // invalidateEnvironment alters the environment configuration
 // so the Settings returned from the watcher will not pass
 // validation.
-func (s *ProvisionerSuite) invalidateEnvironment() error {
+func (s *ProvisionerSuite) invalidateEnvironment(c *C) error {
+	admindb := s.Session.DB("admin")
+	err := admindb.Login("admin", testing.AdminSecret)
+	if err != nil {
+		err = admindb.Login("admin", trivial.PasswordHash(testing.AdminSecret))
+	}
+	c.Assert(err, IsNil)
 	settings := s.Session.DB("juju").C("settings")
 	return settings.UpdateId("e", bson.D{{"$unset", bson.D{{"type", 1}}}})
 }
@@ -191,7 +197,7 @@ func (s *ProvisionerSuite) TestSimple(c *C) {
 }
 
 func (s *ProvisionerSuite) TestProvisioningDoesNotOccurWithAnInvalidEnvironment(c *C) {
-	err := s.invalidateEnvironment()
+	err := s.invalidateEnvironment(c)
 	c.Assert(err, IsNil)
 
 	p := provisioner.NewProvisioner(s.State)
@@ -206,7 +212,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurWithAnInvalidEnvironment(
 }
 
 func (s *ProvisionerSuite) TestProvisioningOccursWithFixedEnvironment(c *C) {
-	err := s.invalidateEnvironment()
+	err := s.invalidateEnvironment(c)
 	c.Assert(err, IsNil)
 
 	p := provisioner.NewProvisioner(s.State)
@@ -235,7 +241,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesOccurAfterInvalidEnvironmentPubli
 
 	s.checkStartInstance(c, m, "pork")
 
-	err = s.invalidateEnvironment()
+	err = s.invalidateEnvironment(c)
 	c.Assert(err, IsNil)
 
 	// create a second machine
@@ -343,7 +349,7 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 
 	s.checkStartInstance(c, m, "pork")
 
-	err = s.invalidateEnvironment()
+	err = s.invalidateEnvironment(c)
 	c.Assert(err, IsNil)
 
 	// create a second machine

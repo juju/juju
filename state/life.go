@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
+	"launchpad.net/juju-core/trivial"
 )
 
 // Life represents the lifecycle state of the entities
@@ -54,25 +55,11 @@ func ensureDying(st *State, coll *mgo.Collection, id interface{}, desc string) e
 	return nil
 }
 
-// cannotKillError is returned from ensureDead when the targeted entity's
-// lifecycle has failed to advance to (or beyond) Dead, due to assertion
-// failures.
-type cannotKillError struct {
-	prefix, msg string
-}
-
-func (e *cannotKillError) Error() string {
-	return fmt.Sprintf("%s: %s", e.prefix, e.msg)
-}
-
 // ensureDead advances the specified entity's life status to Dead, if necessary.
 // Preconditions can be supplied in assertOps; if the preconditions fail, the error
 // will contain assertMsg. If the entity is not found, no error is returned.
 func ensureDead(st *State, coll *mgo.Collection, id interface{}, desc string, assertOps []txn.Op, assertMsg string) (err error) {
-	errPrefix := fmt.Sprintf("cannot finish termination of %s %#v", desc, id)
-	decorate := func(err error) error {
-		return fmt.Errorf("%s: %v", errPrefix, err)
-	}
+	defer trivial.ErrorContextf(&err, "cannot finish termination of %s %#v", desc, id)
 	ops := append(assertOps, txn.Op{
 		C:      coll.Name,
 		Id:     id,
@@ -81,15 +68,15 @@ func ensureDead(st *State, coll *mgo.Collection, id interface{}, desc string, as
 	if err = st.runner.Run(ops, "", nil); err == nil {
 		return nil
 	} else if err != txn.ErrAborted {
-		return decorate(err)
+		return err
 	}
 	var doc struct{ Life }
 	if err = coll.FindId(id).One(&doc); err == mgo.ErrNotFound {
 		return nil
 	} else if err != nil {
-		return decorate(err)
+		return err
 	} else if doc.Life != Dead {
-		return &cannotKillError{errPrefix, assertMsg}
+		return fmt.Errorf(assertMsg)
 	}
 	return nil
 }

@@ -23,6 +23,9 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 		return nil, err
 	}
 	password := environ.Config().AdminSecret()
+	if password == "" {
+		return nil, fmt.Errorf("cannot connect without admin-secret")
+	}
 	info.Password = password
 	st, err := state.Open(info)
 	if err == state.ErrUnauthorized {

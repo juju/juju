@@ -317,7 +317,7 @@ func (u *Uniter) restoreRelations() error {
 		} else if err != nil {
 			return err
 		}
-		if err = u.addRelationer(rel, dir); err == state.ErrScopeDying {
+		if err = u.addRelationer(rel, dir); err == state.ErrRelationNotAlive {
 			invalid = true
 		} else if err != nil {
 			return err
@@ -377,7 +377,7 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 				continue
 			}
 			e := dir.Remove()
-			if err != state.ErrScopeDying {
+			if err != state.ErrRelationNotAlive {
 				return nil, err
 			}
 			if e != nil {

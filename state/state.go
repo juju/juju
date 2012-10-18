@@ -10,6 +10,7 @@ import (
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/trivial"
@@ -98,6 +99,7 @@ type State struct {
 	settings       *mgo.Collection
 	units          *mgo.Collection
 	presence       *mgo.Collection
+	cleanups       *mgo.Collection
 	runner         *txn.Runner
 	watcher        *watcher.Watcher
 	pwatcher       *presence.Watcher
@@ -414,11 +416,10 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err err
 	if err == txn.ErrAborted {
 		for _, ep := range endpoints {
 			svc, err := s.Service(ep.ServiceName)
-			if err != nil {
-				return nil, err
-			}
-			if svc.Life() != Alive {
+			if IsNotFound(err) || svc.Life() != Alive {
 				return nil, fmt.Errorf("service %q is not alive", ep.ServiceName)
+			} else if err != nil {
+				return nil, err
 			}
 		}
 		return nil, fmt.Errorf("relation already exists")
@@ -461,40 +462,16 @@ func (s *State) RemoveRelation(r *Relation) (err error) {
 	if r.doc.Life != Dead {
 		return fmt.Errorf("relation is not dead")
 	}
-	ops := []txn.Op{{
-		C:      s.relations.Name,
-		Id:     r.doc.Key,
-		Assert: D{{"life", Dead}, {"id", r.Id()}},
-		Remove: true,
-	}}
-	for _, ep := range r.doc.Endpoints {
-		ops = append(ops, txn.Op{
-			C:      s.services.Name,
-			Id:     ep.ServiceName,
-			Assert: D{{"relationcount", D{{"$gt", 0}}}},
-			Update: D{{"$inc", D{{"relationcount", -1}}}},
-		})
-	}
-	// Collect all unit settings keys for the relation.
-	docs := []struct {
-		Key string `bson:"_id"`
-	}{}
-	sel := D{{"_id", D{{"$regex", fmt.Sprintf("^r#%d#", r.Id())}}}}
-	if err := s.settings.Find(sel).All(&docs); err != nil {
+	if err := s.runner.Run(r.removeOps(D{{"life", Dead}}), "", nil); err != nil {
+		if err == txn.ErrAborted {
+			if e := r.Refresh(); IsNotFound(e) {
+				return nil
+			} else if e != nil {
+				return e
+			}
+			return fmt.Errorf("cannot remove relation %q: inconsistent state", r)
+		}
 		return err
-	}
-	for _, doc := range docs {
-		ops = append(ops, txn.Op{
-			C:      s.settings.Name,
-			Id:     doc.Key,
-			Remove: true,
-		})
-	}
-	if err := s.runner.Run(ops, "", nil); err != nil {
-		// If aborted, either we're deleted... or a new relation, with
-		// the same key, but a different id, has been created; this means
-		// that the original must in fact have been removed.
-		return onAbort(err, nil)
 	}
 	return nil
 }
@@ -596,6 +573,56 @@ func (s *State) setPassword(name, password string) error {
 	}
 	if err := s.db.Session.DB("presence").AddUser(name, password, false); err != nil {
 		return fmt.Errorf("cannot set password in presence db for %q: %v", name, err)
+	}
+	return nil
+}
+
+// cleanupDoc represents a potentially large set of documents that should be
+// removed.
+type cleanupDoc struct {
+	Id     bson.ObjectId `bson:"_id"`
+	Kind   string
+	Prefix string
+}
+
+// Cleanup removes all documents that were previously marked for removal, if
+// any such exist. It should be called periodically by at least one element
+// of the system.
+func (s *State) Cleanup() error {
+	doc := cleanupDoc{}
+	iter := s.cleanups.Find(nil).Iter()
+	for iter.Next(&doc) {
+		var c *mgo.Collection
+		var sel interface{}
+		switch doc.Kind {
+		case "settings":
+			c = s.settings
+			sel = D{{"_id", D{{"$regex", "^" + doc.Prefix}}}}
+		default:
+			log.Printf("state: WARNING: ignoring unknown cleanup kind %q", doc.Kind)
+			continue
+		}
+		if count, err := c.Find(sel).Count(); err != nil {
+			return fmt.Errorf("cannot detect cleanup targets: %v", err)
+		} else if count != 0 {
+			// Documents marked for cleanup are not otherwise referenced in the
+			// system, and will not be under watch, and are therefore safe to
+			// delete directly.
+			if _, err := c.RemoveAll(sel); err != nil {
+				return fmt.Errorf("cannot remove documents marked for cleanup: %v", err)
+			}
+		}
+		ops := []txn.Op{{
+			C:      s.cleanups.Name,
+			Id:     doc.Id,
+			Remove: true,
+		}}
+		if err := s.runner.Run(ops, "", nil); err != nil {
+			return fmt.Errorf("cannot remove empty cleanup document: %v", err)
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return fmt.Errorf("cannot read cleanup document: %v", err)
 	}
 	return nil
 }
