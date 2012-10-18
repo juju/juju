@@ -332,7 +332,7 @@ func (s *RelationUnitSuite) TestDyingRelationLifecycle(c *C) {
 
 	// Check that we can't add a new unit now.
 	err = pr.ru2.EnterScope()
-	c.Assert(err, Equals, state.ErrScopeClosed)
+	c.Assert(err, Equals, state.ErrRelationNotAlive)
 
 	// Check that we created no settings for the unit we failed to add.
 	_, err = pr.ru0.ReadSettings("peer/2")
@@ -352,7 +352,10 @@ func (s *RelationUnitSuite) TestDyingRelationLifecycle(c *C) {
 	err = rel.EnsureDead()
 	c.Assert(err, ErrorMatches, `cannot finish termination of relation "peer:name": relation still has member units`)
 
-	// ...but that unit settings for the departed unit still exist.
+	// Check that unit settings for the original unit still exist, and have
+	// not yet been marked for deletion.
+	err = s.State.Cleanup()
+	c.Assert(err, IsNil)
 	assertSettings := func() {
 		settings, err := pr.ru1.ReadSettings("peer/0")
 		c.Assert(err, IsNil)
@@ -373,13 +376,12 @@ func (s *RelationUnitSuite) TestDyingRelationLifecycle(c *C) {
 
 	// ...but they were scheduled for deletion.
 	err = s.State.Cleanup()
-	c.Assert(err, Equals, state.ErrNotClean)
+	c.Assert(err, IsNil)
 	_, err = pr.ru1.ReadSettings("peer/0")
 	c.Assert(err, ErrorMatches, `cannot read settings for unit "peer/0" in relation "peer:name": settings not found`)
 
 	// Because this is the only sensible place, check that a further call
-	// to Cleanup will finish the deletions (in this case, of the exhausted
-	// cleanup doc) and return nil.
+	// to Cleanup does not error out.
 	err = s.State.Cleanup()
 	c.Assert(err, Equals, nil)
 }
@@ -742,7 +744,7 @@ func (s *OriginalRelationUnitSuite) TestRelationUnitEnterScopeError(c *C) {
 	err = rel.EnsureDying()
 	c.Assert(err, IsNil)
 	err = ru1.EnterScope()
-	c.Assert(err, Equals, state.ErrScopeClosed)
+	c.Assert(err, Equals, state.ErrRelationNotAlive)
 }
 
 func (s *OriginalRelationUnitSuite) TestRelationUnitReadSettings(c *C) {

@@ -28,6 +28,7 @@ environments:
     region: test
     control-bucket: test-bucket
     public-bucket: public-tools
+    admin-secret: local-secret
     access-key: x
     secret-key: x
 `)

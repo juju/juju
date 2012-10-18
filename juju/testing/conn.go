@@ -48,6 +48,8 @@ func InvalidStateInfo(machineId int) *state.Info {
 	}
 }
 
+const AdminSecret = "dummy-secret"
+
 var config = []byte(`
 environments:
     dummyenv:
@@ -55,6 +57,7 @@ environments:
         state-server: true
         authorized-keys: 'i-am-a-key'
         default-series: decrepit
+        admin-secret: ` + AdminSecret + `
 `)
 
 func (s *JujuConnSuite) SetUpSuite(c *C) {
@@ -87,7 +90,10 @@ func (s *JujuConnSuite) Reset(c *C) {
 }
 
 func (s *JujuConnSuite) StateInfo(c *C) *state.Info {
-	return &state.Info{Addrs: []string{testing.MgoAddr}}
+	return &state.Info{
+		Addrs:    []string{testing.MgoAddr},
+		Password: "dummy-secret",
+	}
 }
 
 func (s *JujuConnSuite) setUpConn(c *C) {
@@ -125,8 +131,16 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 }
 
 func (s *JujuConnSuite) tearDownConn(c *C) {
-	dummy.Reset()
+	// Bootstrap will set the admin password, and render non-authorized use
+	// impossible. s.State may still hold the right password, so try to reset
+	// the password so that the MgoSuite soft-resetting works. If that fails,
+	// it will still work, but it will take a while since it has to kill the
+	// whole database and start over.
+	if err := s.State.SetAdminPassword(""); err != nil {
+		c.Logf("cannot reset admin password: %v", err)
+	}
 	c.Assert(s.Conn.Close(), IsNil)
+	dummy.Reset()
 	s.Conn = nil
 	s.State = nil
 	os.Setenv("HOME", s.oldHome)
