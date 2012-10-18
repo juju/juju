@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/schema"
+	"strings"
 )
 
 // RelationScope describes the scope of a relation endpoint.
@@ -75,6 +76,38 @@ func ReadMeta(r io.Reader) (meta *Meta, err error) {
 		// Obsolete
 		meta.OldRevision = int(m["revision"].(int64))
 	}
+
+	// Check for duplicate or forbidden relation names.
+	names := map[string]bool{}
+	checkName := func(name string) error {
+		if reservedName(name) {
+			return fmt.Errorf("charm %q using a reserved relation name: %q", meta.Name, name)
+		}
+		if names[name] {
+			return fmt.Errorf("charm %q using a duplicated relation name: %q", meta.Name, name)
+		}
+		names[name] = true
+		return nil
+	}
+	for name, rel := range meta.Provides {
+		if err := checkName(name); err != nil {
+			return nil, err
+		}
+		if reservedName(rel.Interface) {
+			return nil, fmt.Errorf("charm %q relation %q using a reserved provider interface: %q", meta.Name, name, rel.Interface)
+		}
+	}
+	for name := range meta.Requires {
+		if err := checkName(name); err != nil {
+			return nil, err
+		}
+	}
+	for name := range meta.Peers {
+		if err := checkName(name); err != nil {
+			return nil, err
+		}
+	}
+
 	// Subordinate charms must have at least one relation that
 	// has container scope, otherwise they can't relate to the
 	// principal.
@@ -94,6 +127,10 @@ func ReadMeta(r io.Reader) (meta *Meta, err error) {
 		meta.Subordinate = m["subordinate"].(bool)
 	}
 	return
+}
+
+func reservedName(name string) bool {
+	return name == "juju" || strings.HasPrefix(name, "juju-")
 }
 
 func parseRelations(relations interface{}) map[string]Relation {

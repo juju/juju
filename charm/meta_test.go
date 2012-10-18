@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/testing"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func repoMeta(name string) io.Reader {
@@ -101,7 +102,70 @@ func (s *MetaSuite) TestParseMetaRelations(c *C) {
 	c.Assert(meta.Requires["db"], Equals, charm.Relation{Interface: "mysql", Limit: 1, Scope: charm.ScopeGlobal})
 	c.Assert(meta.Requires["cache"], Equals, charm.Relation{Interface: "varnish", Limit: 2, Optional: true, Scope: charm.ScopeGlobal})
 	c.Assert(meta.Peers, IsNil)
+}
 
+var relationsConstraintsTests = []struct {
+	rels string
+	err  string
+}{
+	{
+		"provides:\n  foo: ping\nrequires:\n  foo: pong",
+		`charm "a" using a duplicated relation name: "foo"`,
+	}, {
+		"requires:\n  foo: ping\npeers:\n  foo: pong",
+		`charm "a" using a duplicated relation name: "foo"`,
+	}, {
+		"peers:\n  foo: ping\nprovides:\n  foo: pong",
+		`charm "a" using a duplicated relation name: "foo"`,
+	}, {
+		"provides:\n  juju: blob",
+		`charm "a" using a reserved relation name: "juju"`,
+	}, {
+		"requires:\n  juju: blob",
+		`charm "a" using a reserved relation name: "juju"`,
+	}, {
+		"peers:\n  juju: blob",
+		`charm "a" using a reserved relation name: "juju"`,
+	}, {
+		"provides:\n  juju-snap: blub",
+		`charm "a" using a reserved relation name: "juju-snap"`,
+	}, {
+		"requires:\n  juju-crackle: blub",
+		`charm "a" using a reserved relation name: "juju-crackle"`,
+	}, {
+		"peers:\n  juju-pop: blub",
+		`charm "a" using a reserved relation name: "juju-pop"`,
+	}, {
+		"provides:\n  innocuous: juju",
+		`charm "a" relation "innocuous" using a reserved provider interface: "juju"`,
+	}, {
+		rels: "requires:\n  innocuous: juju",
+	}, {
+		rels: "peers:\n  innocuous: juju",
+	}, {
+		"provides:\n  innocuous: juju-snap",
+		`charm "a" relation "innocuous" using a reserved provider interface: "juju-snap"`,
+	}, {
+		rels: "requires:\n  innocuous: juju-snap",
+	}, {
+		rels: "peers:\n  innocuous: juju-snap",
+	},
+}
+
+func (s *MetaSuite) TestRelationsConstraints(c *C) {
+	prefix := "name: a\nsummary: b\ndescription: c\n"
+	for i, t := range relationsConstraintsTests {
+		c.Logf("test %d", i)
+		r := strings.NewReader(prefix + t.rels)
+		meta, err := charm.ReadMeta(r)
+		if t.err != "" {
+			c.Assert(err, ErrorMatches, t.err)
+			c.Assert(meta, IsNil)
+		} else {
+			c.Assert(err, IsNil)
+			c.Assert(meta, NotNil)
+		}
+	}
 }
 
 // Test rewriting of a given interface specification into long form.
