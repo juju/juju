@@ -1,6 +1,7 @@
 package state
 
 import (
+	"errors"
 	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
@@ -81,6 +82,7 @@ type relationDoc struct {
 	Id        int
 	Endpoints []RelationEndpoint
 	Life      Life
+	UnitCount int
 }
 
 // Relation represents a relation between one or two service endpoints.
@@ -131,10 +133,17 @@ func (r *Relation) EnsureDying() error {
 	return nil
 }
 
-// EnsureDead sets the relation lifecycle to Dead if it is Alive or Dying.
-// It does nothing otherwise.
+// EnsureDead sets the relation lifecycle to Dead if it is Alive or Dying,
+// and does nothing if already Dead.
+// It's an error to call it while there are still units within one or more
+// scopes in the relation.
 func (r *Relation) EnsureDead() error {
-	err := ensureDead(r.st, r.st.relations, r.doc.Key, "relation", nil, "")
+	ops := []txn.Op{{
+		C:      r.st.relations.Name,
+		Id:     r.doc.Key,
+		Assert: D{{"unitcount", 0}},
+	}}
+	err := ensureDead(r.st, r.st.relations, r.doc.Key, "relation", ops, "relation still has member units")
 	if err != nil {
 		return err
 	}
@@ -226,52 +235,97 @@ func (ru *RelationUnit) Endpoint() RelationEndpoint {
 	return ru.endpoint
 }
 
-// EnterScope ensures that the unit has entered its scope in the relation.
-// A unit is a member of a relation when it has both entered its respective
-// scope and its pinger is signaling presence in the environment.
-func (ru *RelationUnit) EnterScope() (err error) {
-	defer trivial.ErrorContextf(&err, "cannot initialize state for unit %q in relation %q", ru.unit, ru.relation)
-	address, err := ru.unit.PrivateAddress()
-	if err != nil {
-		return err
-	}
+// ErrRelationNotAlive indicates that relation is not Alive.
+var ErrRelationNotAlive = errors.New("relation is not alive")
+
+// EnterScope ensures that the unit has entered its scope in the relation and
+// that its relation settings contain its private address.
+// It is an error to enter a scope of a relation that is not alive, and no
+// relation becomes Dead before all units have left.
+func (ru *RelationUnit) EnterScope() error {
 	key, err := ru.key(ru.unit.Name())
 	if err != nil {
 		return err
 	}
-	_, err = createSettings(ru.st, key, map[string]interface{}{"private-address": address})
-	if err == errSettingsExist {
-		node, err := readSettings(ru.st, key)
-		if err != nil {
-			return err
-		}
-		node.Set("private-address", address)
-		if _, err := node.Write(); err != nil {
-			return err
-		}
-	} else if err != nil {
-		return err
+	desc := fmt.Sprintf("unit %q in relation %q", ru.unit, ru.relation)
+	if count, err := ru.st.relationScopes.FindId(key).Count(); err != nil {
+		return fmt.Errorf("cannot examine scope for %s: %v", desc, err)
+	} else if count != 0 {
+		return nil
 	}
 	ops := []txn.Op{{
 		C:      ru.st.relationScopes.Name,
 		Id:     key,
+		Assert: txn.DocMissing,
 		Insert: relationScopeDoc{key},
+	}, {
+		C:      ru.st.relations.Name,
+		Id:     ru.relation.doc.Key,
+		Assert: isAlive,
+		Update: D{{"$inc", D{{"unitcount", 1}}}},
 	}}
-	return ru.st.runner.Run(ops, "", nil)
+	if _, err := readSettings(ru.st, key); IsNotFound(err) {
+		// If settings do not already exist, create them.
+		address, err := ru.unit.PrivateAddress()
+		if err != nil {
+			return fmt.Errorf("cannot initialize state for %s: %v", desc, err)
+		}
+		ops = append([]txn.Op{{
+			C:      ru.st.settings.Name,
+			Id:     key,
+			Assert: txn.DocMissing,
+			Insert: map[string]interface{}{"private-address": address},
+		}}, ops...)
+	} else if err != nil {
+		return fmt.Errorf("cannot check settings for %s: %v", desc, err)
+	}
+	if err := ru.st.runner.Run(ops, "", nil); err == txn.ErrAborted {
+		if err := ru.relation.Refresh(); IsNotFound(err) {
+			return ErrRelationNotAlive
+		} else if err != nil {
+			return err
+		}
+		if ru.relation.Life() != Alive {
+			return ErrRelationNotAlive
+		}
+		return fmt.Errorf("cannot enter scope for %s: inconsistent state", desc)
+	} else if err != nil {
+		return err
+	}
+	return nil
 }
 
 // LeaveScope signals that the unit has left its scope in the relation.
+// After the unit has left its relation scope, it is no longer a member
+// of the relation. It is not an error to leave a scope that the unit is
+// not, or never was, a member of.
 func (ru *RelationUnit) LeaveScope() error {
 	key, err := ru.key(ru.unit.Name())
 	if err != nil {
 		return err
 	}
+	desc := fmt.Sprintf("unit %q in relation %q", ru.unit, ru.relation)
+	if count, err := ru.st.relationScopes.FindId(key).Count(); err != nil {
+		return fmt.Errorf("cannot examine scope for %s: %v", desc, err)
+	} else if count == 0 {
+		return nil
+	}
 	ops := []txn.Op{{
 		C:      ru.st.relationScopes.Name,
 		Id:     key,
+		Assert: txn.DocExists,
 		Remove: true,
+	}, {
+		C:      ru.st.relations.Name,
+		Id:     ru.relation.doc.Key,
+		Assert: D{{"unitcount", D{{"$gt", 0}}}},
+		Update: D{{"$inc", D{{"unitcount", -1}}}},
 	}}
-	return ru.st.runner.Run(ops, "", nil)
+	err = ru.st.runner.Run(ops, "", nil)
+	if err == txn.ErrAborted {
+		return fmt.Errorf("cannot leave scope for %s: inconsistent state", desc)
+	}
+	return err
 }
 
 // WatchScope returns a watcher which notifies of counterpart units
@@ -307,13 +361,6 @@ func (ru *RelationUnit) ReadSettings(uname string) (m map[string]interface{}, er
 	key, err := ru.key(uname)
 	if err != nil {
 		return nil, err
-	}
-	// TODO drop Count once readSettings refuses to read
-	// non-existent settings (which it should).
-	if n, err := ru.st.settings.FindId(key).Count(); err != nil {
-		return nil, err
-	} else if n == 0 {
-		return nil, fmt.Errorf("not found")
 	}
 	node, err := readSettings(ru.st, key)
 	if err != nil {

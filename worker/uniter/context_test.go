@@ -404,7 +404,7 @@ func (s *ContextRelationSuite) TestChangeMembers(c *C) {
 
 	// ...and that its settings are no longer cached.
 	_, err := ctx.ReadSettings("u/2")
-	c.Assert(err, ErrorMatches, `cannot read settings for unit "u/2" in relation "u:ring": not found`)
+	c.Assert(err, ErrorMatches, `cannot read settings for unit "u/2" in relation "u:ring": settings not found`)
 }
 
 func (s *ContextRelationSuite) TestMemberCaching(c *C) {
