@@ -210,7 +210,7 @@ func (d *StateDir) Write(hi hook.Info) (err error) {
 	return nil
 }
 
-// Remove removes the directory if it exists and is not empty.
+// Remove removes the directory if it exists and is empty.
 func (d *StateDir) Remove() error {
 	if err := os.Remove(d.path); err != nil && !os.IsNotExist(err) {
 		return err

@@ -304,27 +304,24 @@ func (u *Uniter) restoreRelations() error {
 		return err
 	}
 	for id, dir := range dirs {
-		// invalid is set to true when the relation state dir refers to a
-		// dead or missing relation. So long as the dir is empty, this is
-		// a reasonable state: it indicates that the previous execution
-		// was interrupted in the process of joining or departing the
-		// relation, and that in either case the dir should be removed to
-		// bring local state in line with remote.
-		invalid := false
+		alive := true
 		rel, err := u.st.Relation(id)
 		if state.IsNotFound(err) {
-			invalid = true
+			alive = false
 		} else if err != nil {
 			return err
 		}
-		if err = u.addRelationer(rel, dir); err == state.ErrRelationNotAlive {
-			invalid = true
+		if err = u.addRelation(rel, dir); err == state.ErrRelationNotAlive {
+			alive = false
 		} else if err != nil {
 			return err
 		}
-		if invalid {
+		if !alive {
+			// If the previous execution was interrupted in the process of
+			// joining or departing the relation, the directory will be empty
+			// and the state is sane.
 			if err := dir.Remove(); err != nil {
-				return err
+				return fmt.Errorf("cannot synchronize relation state: %v", err)
 			}
 		}
 	}
@@ -340,7 +337,7 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 		if r, found := u.relationers[id]; found {
 			rel := r.ru.Relation()
 			if err := rel.Refresh(); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("cannot update relation %q: %v", rel, err)
 			}
 			switch rel.Life() {
 			case state.Dying:
@@ -350,47 +347,43 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 			case state.Dead:
 				return nil, fmt.Errorf("had reference to dead relation %q", rel)
 			}
-		} else {
-			// If at any point in this block the relation is discovered to be
-			// Dead or Dying, or even removed, we simply continue to the next
-			// id; we didn't know about this relation before, and can completely
-			// ignore its changes. Only once we have entered a relation's scope,
-			// by successfully calling addRelationer, do we take on any
-			// obligation to deal with that relation in future.
-			rel, err := u.st.Relation(id)
-			if err != nil {
-				if state.IsNotFound(err) {
-					continue
-				}
-				return nil, err
-			}
-			if rel.Life() != state.Alive {
+			continue
+		}
+		// Relations that are not alive are simply skipped, because they
+		// were not previously known anyway.
+		rel, err := u.st.Relation(id)
+		if err != nil {
+			if state.IsNotFound(err) {
 				continue
 			}
-			dir, err := relation.ReadStateDir(u.relationsDir, id)
-			if err != nil {
-				return nil, err
-			}
-			err = u.addRelationer(rel, dir)
-			if err == nil {
-				added = append(added, u.relationers[id])
-				continue
-			}
-			e := dir.Remove()
-			if err != state.ErrRelationNotAlive {
-				return nil, err
-			}
-			if e != nil {
-				return nil, e
-			}
+			return nil, err
+		}
+		if rel.Life() != state.Alive {
+			continue
+		}
+		dir, err := relation.ReadStateDir(u.relationsDir, id)
+		if err != nil {
+			return nil, err
+		}
+		err = u.addRelation(rel, dir)
+		if err == nil {
+			added = append(added, u.relationers[id])
+			continue
+		}
+		e := dir.Remove()
+		if err != state.ErrRelationNotAlive {
+			return nil, err
+		}
+		if e != nil {
+			return nil, e
 		}
 	}
 	return added, nil
 }
 
-// addRelationer causes the unit agent to join the supplied relation, and to
+// addRelation causes the unit agent to join the supplied relation, and to
 // store persistent state in the supplied dir.
-func (u *Uniter) addRelationer(rel *state.Relation, dir *relation.StateDir) error {
+func (u *Uniter) addRelation(rel *state.Relation, dir *relation.StateDir) error {
 	ru, err := rel.Unit(u.unit)
 	if err != nil {
 		return err
@@ -401,34 +394,4 @@ func (u *Uniter) addRelationer(rel *state.Relation, dir *relation.StateDir) erro
 	}
 	u.relationers[rel.Id()] = r
 	return nil
-}
-
-// ensureRelationersDying ensures that counterpart relation units are not being
-// watched, and that the only relation hooks generated henceforth will be
-// -departed and -broken.
-func (u *Uniter) ensureRelationersDying() error {
-	for _, r := range u.relationers {
-		if err := r.SetDying(); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// startRelationHooks causes relation hooks to be delivered on the uniter's
-// relationHooksChannel.
-func (u *Uniter) startRelationHooks() {
-	for _, r := range u.relationers {
-		r.StartHooks()
-	}
-}
-
-// stopRelationHooks prevents relation hooks from being delivered on the
-// uniter's relationHooksChannel.
-func (u *Uniter) stopRelationHooks(err *error) {
-	for _, r := range u.relationers {
-		if e := r.StopHooks(); e != nil && *err == nil {
-			*err = e
-		}
-	}
 }
