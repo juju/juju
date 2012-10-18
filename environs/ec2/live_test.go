@@ -232,7 +232,7 @@ func (t *LiveTests) TestDestroy(c *C) {
 	err = s.Put("bar", strings.NewReader("bar"), 3)
 	c.Assert(err, IsNil)
 
-	// Check that bucket exists, so we can be sure
+	// Check that the bucket exists, so we can be sure
 	// we have checked correctly that it's been destroyed.
 	names, err := s.List("")
 	c.Assert(err, IsNil)
