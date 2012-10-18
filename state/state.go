@@ -4,13 +4,13 @@
 package state
 
 import (
-	"errors"
 	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/trivial"
@@ -470,7 +470,6 @@ func (s *State) RemoveRelation(r *Relation) (err error) {
 	ops := []txn.Op{{
 		C:      s.cleanups.Name,
 		Id:     cDoc.Id,
-		Assert: txn.DocMissing,
 		Insert: cDoc,
 	}, {
 		C:      s.relations.Name,
@@ -487,15 +486,7 @@ func (s *State) RemoveRelation(r *Relation) (err error) {
 		})
 	}
 	if err := s.runner.Run(ops, "", nil); err != nil {
-		if err == txn.ErrAborted {
-			if e := r.Refresh(); IsNotFound(e) {
-				return nil
-			} else if e != nil {
-				return e
-			}
-			return fmt.Errorf("cannot remove relation %q: inconsistent state", r)
-		}
-		return err
+		return onAbort(err, nil)
 	}
 	return nil
 }
@@ -609,70 +600,44 @@ type cleanupDoc struct {
 	Prefix string
 }
 
-// ErrNotClean indicates that Cleanup didn't clean up all documents.
-var ErrNotClean = errors.New("documents remain to be cleaned up")
-
-// Cleanup removes several documents that were previously marked for removal,
-// if any such exist. A result of ErrNotClean indicates that not all documents
-// have been cleaned up; nil indicates that no more deletions are scheduled yet.
+// Cleanup removes all documents that were previously marked for removal, if
+// any such exist. It should be called periodically by at least one element
+// of the system.
 func (s *State) Cleanup() error {
-	// Find something to clean up.
 	doc := cleanupDoc{}
-	if err := s.cleanups.Find(nil).One(&doc); err != nil {
-		if err == mgo.ErrNotFound {
-			return nil
+	iter := s.cleanups.Find(nil).Iter()
+	for iter.Next(&doc) {
+		var c *mgo.Collection
+		var sel interface{}
+		switch doc.Kind {
+		case "settings":
+			c = s.settings
+			sel = D{{"_id", D{{"$regex", "^" + doc.Prefix}}}}
+		default:
+			log.Printf("state: WARNING: ignoring unknown cleanup kind %q", doc.Kind)
+			continue
 		}
-		return err
-	}
-
-	// Determine what exactly needs to be cleaned up.
-	var c *mgo.Collection
-	var sel interface{}
-	switch doc.Kind {
-	case "settings":
-		c = s.settings
-		sel = D{{"_id", D{{"$regex", "^" + doc.Prefix}}}}
-	default:
-		panic(fmt.Errorf("unknown cleanup kind %q", doc.Kind))
-	}
-
-	// If referenced documents exist, delete up to 100 of them; otherwise
-	// delete the referee.
-	q := c.Find(sel)
-	ops := []txn.Op{}
-	if count, err := q.Count(); err != nil {
-		return err
-	} else if count == 0 {
-		ops = append(ops, txn.Op{
+		if count, err := c.Find(sel).Count(); err != nil {
+			return fmt.Errorf("cannot detect cleanup targets: %v", err)
+		} else if count != 0 {
+			// Documents marked for cleanup are not otherwise referenced in the
+			// system, and will not be under watch, and are therefore safe to
+			// delete directly.
+			if _, err := c.RemoveAll(sel); err != nil {
+				return fmt.Errorf("cannot remove documents marked for cleanup: %v", err)
+			}
+		}
+		ops := []txn.Op{{
 			C:      s.cleanups.Name,
 			Id:     doc.Id,
 			Remove: true,
-		})
-	} else {
-		docs := []struct {
-			Id string `bson:"_id"`
-		}{}
-		if err := q.Limit(100).All(&docs); err != nil {
-			return err
-		}
-		for _, doc := range docs {
-			ops = append(ops, txn.Op{
-				C:      c.Name,
-				Id:     doc.Id,
-				Remove: true,
-			})
+		}}
+		if err := s.runner.Run(ops, "", nil); err != nil {
+			return fmt.Errorf("cannot remove empty cleanup document: %v", err)
 		}
 	}
-	err := s.runner.Run(ops, "", nil)
-	if err != nil {
-		return err
-	}
-
-	// If anything remains to be deleted, notify the client.
-	if count, err := s.cleanups.Find(nil).Count(); err != nil {
-		return err
-	} else if count != 0 {
-		return ErrNotClean
+	if err := iter.Err(); err != nil {
+		return fmt.Errorf("cannot read cleanup document: %v", err)
 	}
 	return nil
 }

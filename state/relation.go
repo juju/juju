@@ -235,9 +235,8 @@ func (ru *RelationUnit) Endpoint() RelationEndpoint {
 	return ru.endpoint
 }
 
-// ErrScopeClosed indicates that a relation scope cannot accept new members
-// because the relation is not Alive.
-var ErrScopeClosed = errors.New("scope is closed to new member units")
+// ErrRelationNotAlive indicates that relation is not Alive.
+var ErrRelationNotAlive = errors.New("relation is not alive")
 
 // EnterScope ensures that the unit has entered its scope in the relation and
 // that its relation settings contain its private address.
@@ -248,8 +247,9 @@ func (ru *RelationUnit) EnterScope() error {
 	if err != nil {
 		return err
 	}
+	desc := fmt.Sprintf("unit %q in relation %q", ru.unit, ru.relation)
 	if count, err := ru.st.relationScopes.FindId(key).Count(); err != nil {
-		return err
+		return fmt.Errorf("cannot examine scope for %s: %v", desc, err)
 	} else if count != 0 {
 		return nil
 	}
@@ -268,24 +268,27 @@ func (ru *RelationUnit) EnterScope() error {
 		// If settings do not already exist, create them.
 		address, err := ru.unit.PrivateAddress()
 		if err != nil {
-			return fmt.Errorf("cannot initialize state for unit %q in relation %q: %v", ru.unit, ru.relation, err)
+			return fmt.Errorf("cannot initialize state for %s: %v", desc, err)
 		}
-		ops = append(ops, txn.Op{
+		ops = append([]txn.Op{{
 			C:      ru.st.settings.Name,
 			Id:     key,
 			Assert: txn.DocMissing,
 			Insert: map[string]interface{}{"private-address": address},
-		})
+		}}, ops...)
 	} else if err != nil {
-		return err
+		return fmt.Errorf("cannot check settings for %s: %v", desc, err)
 	}
 	if err := ru.st.runner.Run(ops, "", nil); err == txn.ErrAborted {
-		if count, err := ru.st.relationScopes.FindId(key).Count(); err != nil {
+		if err := ru.relation.Refresh(); IsNotFound(err) {
+			return ErrRelationNotAlive
+		} else if err != nil {
 			return err
-		} else if count == 0 {
-			return ErrScopeClosed
 		}
-		return fmt.Errorf("unit %q cannot enter relation %q scope: inconsistent state", ru.unit, ru.relation)
+		if ru.relation.Life() != Alive {
+			return ErrRelationNotAlive
+		}
+		return fmt.Errorf("cannot enter scope for %s: inconsistent state", desc)
 	} else if err != nil {
 		return err
 	}
@@ -301,8 +304,9 @@ func (ru *RelationUnit) LeaveScope() error {
 	if err != nil {
 		return err
 	}
+	desc := fmt.Sprintf("unit %q in relation %q", ru.unit, ru.relation)
 	if count, err := ru.st.relationScopes.FindId(key).Count(); err != nil {
-		return err
+		return fmt.Errorf("cannot examine scope for %s: %v", desc, err)
 	} else if count == 0 {
 		return nil
 	}
@@ -319,7 +323,7 @@ func (ru *RelationUnit) LeaveScope() error {
 	}}
 	err = ru.st.runner.Run(ops, "", nil)
 	if err == txn.ErrAborted {
-		return fmt.Errorf("unit %q cannot leave relation %q scope: inconsistent state", ru.unit, ru.relation)
+		return fmt.Errorf("cannot leave scope for %s: inconsistent state", desc)
 	}
 	return err
 }
