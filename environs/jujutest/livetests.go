@@ -123,8 +123,8 @@ func (t *LiveTests) TestStartStop(c *C) {
 	err = t.Env.StopInstances([]environs.Instance{inst})
 	c.Assert(err, IsNil)
 
-	// Stopping may not be noticed at first due to eventual
-	// consistency. Repeat a few times to ensure we get the error.
+	// The machine may not be marked as shutting down
+	// immediately. Repeat a few times to ensure we get the error.
 	for a := t.Attempt.Start(); a.Next(); {
 		insts, err = t.Env.Instances([]string{id0})
 		if err != nil {
