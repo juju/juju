@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/trivial"
@@ -149,6 +150,35 @@ func (r *Relation) EnsureDead() error {
 	}
 	r.doc.Life = Dead
 	return nil
+}
+
+// removeOps returns the operations that must occur when a relation is removed.
+// The only assertions made in the returned list are those supplied, which will
+// be applied to the relation document.
+func (r *Relation) removeOps(asserts D) []txn.Op {
+	cDoc := &cleanupDoc{
+		Id:     bson.NewObjectId(),
+		Kind:   "settings",
+		Prefix: fmt.Sprintf("r#%d#", r.Id()),
+	}
+	ops := []txn.Op{{
+		C:      r.st.cleanups.Name,
+		Id:     cDoc.Id,
+		Insert: cDoc,
+	}, {
+		C:      r.st.relations.Name,
+		Id:     r.doc.Key,
+		Assert: asserts,
+		Remove: true,
+	}}
+	for _, ep := range r.doc.Endpoints {
+		ops = append(ops, txn.Op{
+			C:      r.st.services.Name,
+			Id:     ep.ServiceName,
+			Update: D{{"$inc", D{{"relationcount", -1}}}},
+		})
+	}
+	return ops
 }
 
 // Id returns the integer internal relation key. This is exposed
@@ -297,35 +327,81 @@ func (ru *RelationUnit) EnterScope() error {
 
 // LeaveScope signals that the unit has left its scope in the relation.
 // After the unit has left its relation scope, it is no longer a member
-// of the relation. It is not an error to leave a scope that the unit is
-// not, or never was, a member of.
+// of the relation; if the relation is dying when its last member unit
+// leaves, it is removed immediately. It is not an error to leave a scope
+// that the unit is not, or never was, a member of.
 func (ru *RelationUnit) LeaveScope() error {
 	key, err := ru.key(ru.unit.Name())
 	if err != nil {
 		return err
 	}
+	// The logic below is involved because we remove a dying relation
+	// with the last unit that leaves a scope in it. It handles three
+	// possible cases:
+	//
+	// 1. Relation is alive: just leave the scope.
+	//
+	// 2. Relation is dying, and other units remain: just leave the scope.
+	//
+	// 3. Relation is dying, and this is the last unit: leave the scope
+	//    and remove the relation.
+	//
+	// In each of those cases, proper assertions are done to guarantee
+	// that the condition observed is still valid when the transaction is
+	// applied. If an abort happens, it observes the new condition and
+	// retries. In theory, a worst case will try at most all of the
+	// conditions once, because units cannot join a scope once its relation
+	// is dying.
+	//
+	// Keep in mind that in the first iteration of the loop it's possible
+	// to have a Dying relation with a smaller-than-real unit count, because
+	// EnsureDying changes the Life attribute in memory (units could join
+	// before the database is actually changed).
 	desc := fmt.Sprintf("unit %q in relation %q", ru.unit, ru.relation)
-	if count, err := ru.st.relationScopes.FindId(key).Count(); err != nil {
-		return fmt.Errorf("cannot examine scope for %s: %v", desc, err)
-	} else if count == 0 {
-		return nil
+	for attempt := 0; attempt < 3; attempt++ {
+		count, err := ru.st.relationScopes.FindId(key).Count()
+		if err != nil {
+			return fmt.Errorf("cannot examine scope for %s: %v", desc, err)
+		} else if count == 0 {
+			return nil
+		}
+		ops := []txn.Op{{
+			C:      ru.st.relationScopes.Name,
+			Id:     key,
+			Assert: txn.DocExists,
+			Remove: true,
+		}}
+		if ru.relation.doc.Life == Alive {
+			ops = append(ops, txn.Op{
+				C:      ru.st.relations.Name,
+				Id:     ru.relation.doc.Key,
+				Assert: D{{"life", Alive}},
+				Update: D{{"$inc", D{{"unitcount", -1}}}},
+			})
+		} else if ru.relation.doc.UnitCount > 1 {
+			ops = append(ops, txn.Op{
+				C:      ru.st.relations.Name,
+				Id:     ru.relation.doc.Key,
+				Assert: D{{"unitcount", D{{"$gt", 1}}}},
+				Update: D{{"$inc", D{{"unitcount", -1}}}},
+			})
+		} else {
+			asserts := D{{"life", Dying}, {"unitcount", 1}}
+			ops = append(ops, ru.relation.removeOps(asserts)...)
+		}
+		if err = ru.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+			if err != nil {
+				return fmt.Errorf("cannot leave scope for %s: %v", desc, err)
+			}
+			return err
+		}
+		if err := ru.relation.Refresh(); IsNotFound(err) {
+			return nil
+		} else if err != nil {
+			return err
+		}
 	}
-	ops := []txn.Op{{
-		C:      ru.st.relationScopes.Name,
-		Id:     key,
-		Assert: txn.DocExists,
-		Remove: true,
-	}, {
-		C:      ru.st.relations.Name,
-		Id:     ru.relation.doc.Key,
-		Assert: D{{"unitcount", D{{"$gt", 0}}}},
-		Update: D{{"$inc", D{{"unitcount", -1}}}},
-	}}
-	err = ru.st.runner.Run(ops, "", nil)
-	if err == txn.ErrAborted {
-		return fmt.Errorf("cannot leave scope for %s: inconsistent state", desc)
-	}
-	return err
+	return fmt.Errorf("cannot leave scope for %s: inconsistent state", desc)
 }
 
 // WatchScope returns a watcher which notifies of counterpart units

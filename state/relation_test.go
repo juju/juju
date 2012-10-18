@@ -314,7 +314,7 @@ func (s *RelationUnitSuite) TestContainerSettings(c *C) {
 	}
 }
 
-func (s *RelationUnitSuite) TestScopeWithRelationLifecycle(c *C) {
+func (s *RelationUnitSuite) TestDyingRelationLifecycle(c *C) {
 	pr := NewPeerRelation(c, &s.ConnSuite)
 	rel := pr.ru0.Relation()
 
@@ -322,19 +322,21 @@ func (s *RelationUnitSuite) TestScopeWithRelationLifecycle(c *C) {
 	err := s.State.RemoveRelation(rel)
 	c.Assert(err, ErrorMatches, `cannot remove relation "peer:name": relation is not dead`)
 
-	// Enter a unit, and check that we can set the relation to Dying.
+	// Enter two units, and check that we can set the relation to Dying.
 	err = pr.ru0.EnterScope()
+	c.Assert(err, IsNil)
+	err = pr.ru1.EnterScope()
 	c.Assert(err, IsNil)
 	err = rel.EnsureDying()
 	c.Assert(err, IsNil)
 
 	// Check that we can't add a new unit now.
-	err = pr.ru1.EnterScope()
+	err = pr.ru2.EnterScope()
 	c.Assert(err, Equals, state.ErrRelationNotAlive)
 
 	// Check that we created no settings for the unit we failed to add.
-	_, err = pr.ru0.ReadSettings("peer/1")
-	c.Assert(err, ErrorMatches, `cannot read settings for unit "peer/1" in relation "peer:name": settings not found`)
+	_, err = pr.ru0.ReadSettings("peer/2")
+	c.Assert(err, ErrorMatches, `cannot read settings for unit "peer/2" in relation "peer:name": settings not found`)
 
 	// Check that we can't set it to Dead while the scope is non-empty.
 	err = rel.EnsureDead()
@@ -344,11 +346,11 @@ func (s *RelationUnitSuite) TestScopeWithRelationLifecycle(c *C) {
 	err = s.State.RemoveRelation(rel)
 	c.Assert(err, ErrorMatches, `cannot remove relation "peer:name": relation is not dead`)
 
-	// Leave the scope, and check that the relation can become Dead.
+	// ru0 leaves the scope; check we still can't set the relation to dead...
 	err = pr.ru0.LeaveScope()
 	c.Assert(err, IsNil)
 	err = rel.EnsureDead()
-	c.Assert(err, IsNil)
+	c.Assert(err, ErrorMatches, `cannot finish termination of relation "peer:name": relation still has member units`)
 
 	// Check that unit settings for the original unit still exist, and have
 	// not yet been marked for deletion.
@@ -363,13 +365,16 @@ func (s *RelationUnitSuite) TestScopeWithRelationLifecycle(c *C) {
 	}
 	assertSettings()
 
-	// Check the relation can be removed, and that unit settings are
-	// still not deleted...
-	err = s.State.RemoveRelation(rel)
+	// The final unit leaves the scope, and cleans up after itself.
+	err = pr.ru1.LeaveScope()
 	c.Assert(err, IsNil)
+	err = rel.Refresh()
+	c.Assert(state.IsNotFound(err), Equals, true)
+
+	// The settings were not themselves actually deleted yet...
 	assertSettings()
 
-	// ...but that they were scheduled for deletion.
+	// ...but they were scheduled for deletion.
 	err = s.State.Cleanup()
 	c.Assert(err, IsNil)
 	_, err = pr.ru1.ReadSettings("peer/0")
@@ -378,6 +383,32 @@ func (s *RelationUnitSuite) TestScopeWithRelationLifecycle(c *C) {
 	// Because this is the only sensible place, check that a further call
 	// to Cleanup does not error out.
 	err = s.State.Cleanup()
+	c.Assert(err, Equals, nil)
+}
+
+func (s *RelationUnitSuite) TestAliveRelationScope(c *C) {
+	pr := NewPeerRelation(c, &s.ConnSuite)
+	rel := pr.ru0.Relation()
+
+	// Two units enter...
+	err := pr.ru0.EnterScope()
+	c.Assert(err, IsNil)
+	err = pr.ru1.EnterScope()
+	c.Assert(err, IsNil)
+
+	// Two units leave...
+	err = pr.ru0.LeaveScope()
+	c.Assert(err, IsNil)
+	err = pr.ru1.LeaveScope()
+	c.Assert(err, IsNil)
+
+	// The relation scope is empty, but the relation is still alive...
+	err = rel.Refresh()
+	c.Assert(err, IsNil)
+	c.Assert(rel.Life(), Equals, state.Alive)
+
+	// ...and new units can still join it.
+	err = pr.ru2.EnterScope()
 	c.Assert(err, IsNil)
 }
 

@@ -462,31 +462,16 @@ func (s *State) RemoveRelation(r *Relation) (err error) {
 	if r.doc.Life != Dead {
 		return fmt.Errorf("relation is not dead")
 	}
-	cDoc := &cleanupDoc{
-		Id:     bson.NewObjectId(),
-		Kind:   "settings",
-		Prefix: fmt.Sprintf("r#%d#", r.Id()),
-	}
-	ops := []txn.Op{{
-		C:      s.cleanups.Name,
-		Id:     cDoc.Id,
-		Insert: cDoc,
-	}, {
-		C:      s.relations.Name,
-		Id:     r.doc.Key,
-		Assert: D{{"life", Dead}, {"id", r.Id()}},
-		Remove: true,
-	}}
-	for _, ep := range r.doc.Endpoints {
-		ops = append(ops, txn.Op{
-			C:      s.services.Name,
-			Id:     ep.ServiceName,
-			Assert: D{{"relationcount", D{{"$gt", 0}}}},
-			Update: D{{"$inc", D{{"relationcount", -1}}}},
-		})
-	}
-	if err := s.runner.Run(ops, "", nil); err != nil {
-		return onAbort(err, nil)
+	if err := s.runner.Run(r.removeOps(D{{"life", Dead}}), "", nil); err != nil {
+		if err == txn.ErrAborted {
+			if e := r.Refresh(); IsNotFound(e) {
+				return nil
+			} else if e != nil {
+				return e
+			}
+			return fmt.Errorf("cannot remove relation %q: inconsistent state", r)
+		}
+		return err
 	}
 	return nil
 }
