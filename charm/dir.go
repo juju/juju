@@ -63,7 +63,7 @@ func ReadDir(path string) (dir *Dir, err error) {
 		return nil, err
 	}
 	for _, fi := range fis {
-		if err := validatePath("hooks/" + fi.Name()); err != nil {
+		if err := validatePath(filepath.Join("hooks", fi.Name())); err != nil {
 			return nil, err
 		}
 	}
