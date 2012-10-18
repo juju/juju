@@ -491,10 +491,11 @@ func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.To
 		return nil, fmt.Errorf("cannot find image for %s-%s", tools.Series, tools.Arch)
 	}
 	i := &instance{
-		env:       e,
-		id:        fmt.Sprintf("%s-%d", e.state.name, e.state.maxId),
-		ports:     make(map[state.Port]bool),
-		machineId: machineId,
+		state:        e.state,
+		id:           fmt.Sprintf("%s-%d", e.state.name, e.state.maxId),
+		ports:        make(map[state.Port]bool),
+		machineId:    machineId,
+		firewallMode: e.Config().FirewallMode(),
 	}
 	e.state.insts[i.id] = i
 	e.state.maxId++
@@ -609,10 +610,11 @@ func (*environ) Provider() environs.EnvironProvider {
 }
 
 type instance struct {
-	env       *environ
-	ports     map[state.Port]bool
-	id        string
-	machineId int
+	state        *environState
+	ports        map[state.Port]bool
+	id           string
+	machineId    int
+	firewallMode config.FirewallMode
 }
 
 func (inst *instance) Id() string {
@@ -631,17 +633,17 @@ func (inst *instance) WaitDNSName() (string, error) {
 func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
 	defer delay()
 	log.Printf("openPorts %d, %#v", machineId, ports)
-	if inst.env.Config().FirewallMode() != config.FwInstance {
+	if inst.firewallMode != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for opening ports on instance: %q",
-			inst.env.Config().FirewallMode())
+			inst.firewallMode)
 	}
 	if inst.machineId != machineId {
 		panic(fmt.Errorf("OpenPorts with mismatched machine id, expected %d got %d", inst.machineId, machineId))
 	}
-	inst.env.state.mu.Lock()
-	defer inst.env.state.mu.Unlock()
-	inst.env.state.ops <- OpOpenPorts{
-		Env:        inst.env.state.name,
+	inst.state.mu.Lock()
+	defer inst.state.mu.Unlock()
+	inst.state.ops <- OpOpenPorts{
+		Env:        inst.state.name,
 		MachineId:  machineId,
 		InstanceId: inst.Id(),
 		Ports:      ports,
@@ -654,17 +656,17 @@ func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
 
 func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
 	defer delay()
-	if inst.env.Config().FirewallMode() != config.FwInstance {
+	if inst.firewallMode != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for closing ports on instance: %q",
-			inst.env.Config().FirewallMode())
+			inst.firewallMode)
 	}
 	if inst.machineId != machineId {
 		panic(fmt.Errorf("ClosePorts with mismatched machine id, expected %d got %d", inst.machineId, machineId))
 	}
-	inst.env.state.mu.Lock()
-	defer inst.env.state.mu.Unlock()
-	inst.env.state.ops <- OpClosePorts{
-		Env:        inst.env.state.name,
+	inst.state.mu.Lock()
+	defer inst.state.mu.Unlock()
+	inst.state.ops <- OpClosePorts{
+		Env:        inst.state.name,
 		MachineId:  machineId,
 		InstanceId: inst.Id(),
 		Ports:      ports,
@@ -677,15 +679,15 @@ func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
 
 func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
 	defer delay()
-	if inst.env.Config().FirewallMode() != config.FwInstance {
+	if inst.firewallMode != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from instance: %q",
-			inst.env.Config().FirewallMode())
+			inst.firewallMode)
 	}
 	if inst.machineId != machineId {
 		panic(fmt.Errorf("Ports with mismatched machine id, expected %d got %d", inst.machineId, machineId))
 	}
-	inst.env.state.mu.Lock()
-	defer inst.env.state.mu.Unlock()
+	inst.state.mu.Lock()
+	defer inst.state.mu.Unlock()
 	for p := range inst.ports {
 		ports = append(ports, p)
 	}
