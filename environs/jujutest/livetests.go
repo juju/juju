@@ -584,23 +584,17 @@ func (t *LiveTests) TestFile(c *C) {
 	// check that the listed contents include the
 	// expected name.
 	found := false
-	var names []string
-attempt:
-	for a := t.Attempt.Start(); a.Next(); {
-		var err error
-		names, err = storage.List("")
-		c.Assert(err, IsNil)
-		for _, lname := range names {
-			if lname == name {
-				found = true
-				break attempt
-			}
+	names, err := storage.List("")
+	for _, lname := range names {
+		if lname == name {
+			found = true
+			break
 		}
 	}
 	if !found {
 		c.Errorf("file name %q not found in file list %q", name, names)
 	}
-	err := storage.Remove(name)
+	err = storage.Remove(name)
 	c.Check(err, IsNil)
 	checkFileDoesNotExist(c, storage, name, t.Attempt)
 	// removing a file that does not exist should not be an error.

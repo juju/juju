@@ -211,7 +211,7 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 	log.Printf("environs/ec2: bootstrapping environment %q", e.name)
 	// If the state file exists, it might actually have just been
 	// removed by Destroy, and eventual consistency has not caught
-	// up yet, so we retry in case that's what's happening.
+	// up yet, so we retry to verify if that is happening.
 	var err error
 	for a := shortAttempt.Start(); a.Next(); {
 		_, err = e.loadState()
