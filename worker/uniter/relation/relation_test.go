@@ -11,11 +11,11 @@ import (
 	"strconv"
 )
 
-type StateDirDuite struct{}
+type StateDirSuite struct{}
 
-var _ = Suite(&StateDirDuite{})
+var _ = Suite(&StateDirSuite{})
 
-func (s *StateDirDuite) TestReadStateDirEmpty(c *C) {
+func (s *StateDirSuite) TestReadStateDirEmpty(c *C) {
 	basedir := c.MkDir()
 	reldir := filepath.Join(basedir, "123")
 
@@ -36,7 +36,7 @@ func (s *StateDirDuite) TestReadStateDirEmpty(c *C) {
 	c.Assert(fi.IsDir(), Equals, true)
 }
 
-func (s *StateDirDuite) TestReadStateDirValid(c *C) {
+func (s *StateDirSuite) TestReadStateDirValid(c *C) {
 	basedir := c.MkDir()
 	reldir := setUpDir(c, basedir, "123", map[string]string{
 		"foo-bar-1":           "change-version: 99\n",
@@ -78,7 +78,7 @@ var badRelationsTests = []struct {
 	},
 }
 
-func (s *StateDirDuite) TestBadRelations(c *C) {
+func (s *StateDirSuite) TestBadRelations(c *C) {
 	for i, t := range badRelationsTests {
 		c.Logf("test %d", i)
 		basedir := c.MkDir()
@@ -202,7 +202,7 @@ var writeTests = []struct {
 	},
 }
 
-func (s *StateDirDuite) TestWrite(c *C) {
+func (s *StateDirSuite) TestWrite(c *C) {
 	for i, t := range writeTests {
 		c.Logf("test %d", i)
 		basedir := c.MkDir()
@@ -211,7 +211,6 @@ func (s *StateDirDuite) TestWrite(c *C) {
 			"foo-2": "change-version: 0\n",
 		})
 		dir, err := relation.ReadStateDir(basedir, 123)
-		c.Logf("%#v", dir.State())
 		c.Assert(err, IsNil)
 		for i, hi := range t.hooks {
 			c.Logf("  hook %d", i)
@@ -235,6 +234,26 @@ func (s *StateDirDuite) TestWrite(c *C) {
 		}
 		assertState(c, dir, basedir, 123, members, t.pending, t.deleted)
 	}
+}
+
+func (s *StateDirSuite) TestRemove(c *C) {
+	basedir := c.MkDir()
+	dir, err := relation.ReadStateDir(basedir, 1)
+	c.Assert(err, IsNil)
+	err = dir.Ensure()
+	c.Assert(err, IsNil)
+	err = dir.Remove()
+	c.Assert(err, IsNil)
+	err = dir.Remove()
+	c.Assert(err, IsNil)
+
+	setUpDir(c, basedir, "99", map[string]string{
+		"foo-1": "change-version: 0\n",
+	})
+	dir, err = relation.ReadStateDir(basedir, 99)
+	c.Assert(err, IsNil)
+	err = dir.Remove()
+	c.Assert(err, ErrorMatches, ".*: directory not empty")
 }
 
 type ReadAllStateDirsSuite struct{}

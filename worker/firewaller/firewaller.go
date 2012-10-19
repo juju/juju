@@ -60,6 +60,17 @@ func (fw *Firewaller) loop() error {
 	if fw.environ.Config().FirewallMode() == config.FwGlobal {
 		fw.globalMode = true
 		fw.globalPorts = make(map[state.Port]int)
+		// Close all ports to ensure that they will be
+		// reopened and counted properly with the initial
+		// retrieval of machines and units.
+		ports, err := fw.environ.Ports()
+		if err != nil {
+			return err
+		}
+		err = fw.environ.ClosePorts(ports)
+		if err != nil {
+			return err
+		}
 	}
 	for {
 		select {
@@ -174,13 +185,14 @@ func (fw *Firewaller) flushMachine(machined *machineData) error {
 	return fw.flushInstancePorts(machined, toOpen, toClose)
 }
 
-// flushGlobalPorts opens and closes ports global in the environment.
+// flushGlobalPorts opens and closes global ports in the environment.
+// It keeps a reference count for ports so that only 0-to-1 and 1-to-0 events
+// modify the environment.
 func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose []state.Port) error {
 	// Filter which ports are really to open or close.
 	var toOpen, toClose []state.Port
 	for _, port := range rawOpen {
 		if fw.globalPorts[port] == 0 {
-			// The port is not already open.
 			toOpen = append(toOpen, port)
 		}
 		fw.globalPorts[port]++
@@ -188,8 +200,6 @@ func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose []state.Port) error {
 	for _, port := range rawClose {
 		fw.globalPorts[port]--
 		if fw.globalPorts[port] == 0 {
-			// The last reference to the port is gone,
-			// so close the port globally.
 			toClose = append(toClose, port)
 			delete(fw.globalPorts, port)
 		}

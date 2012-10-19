@@ -560,20 +560,19 @@ func (s *FirewallerSuite) TestGlobalMode(c *C) {
 	err = u2.OpenPort("tcp", 80)
 	c.Assert(err, IsNil)
 
-	// Check that all expected ports are open in environment.
 	s.assertEnvironPorts(c, []state.Port{{"tcp", 80}, {"tcp", 8080}})
 
-	// Check that closing a multiple used port on one machine lets it untouched.
+	// Closing a port opened by a different unit won't touch the environment.
 	err = u1.ClosePort("tcp", 80)
 	c.Assert(err, IsNil)
 	s.assertEnvironPorts(c, []state.Port{{"tcp", 80}, {"tcp", 8080}})
 
-	// Check that closing a single used port is closed.
+	// Closing a port used just once changes the environment.
 	err = u1.ClosePort("tcp", 8080)
 	c.Assert(err, IsNil)
 	s.assertEnvironPorts(c, []state.Port{{"tcp", 80}})
 
-	// Check that closing the last usage of a port closes it globally.
+	// Closing the last port also modifies the environment.
 	err = u2.ClosePort("tcp", 80)
 	c.Assert(err, IsNil)
 	s.assertEnvironPorts(c, nil)
