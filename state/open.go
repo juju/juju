@@ -159,6 +159,7 @@ func newState(session *mgo.Session, fwd *sshForwarder, entity, password string) 
 		settings:       db.C("settings"),
 		units:          db.C("units"),
 		presence:       pdb.C("presence"),
+		cleanups:       db.C("cleanups"),
 		fwd:            fwd,
 	}
 	log := db.C("txns.log")
