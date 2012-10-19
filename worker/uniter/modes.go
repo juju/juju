@@ -38,6 +38,10 @@ func ModeInit(u *Uniter) (next Mode, err error) {
 	} else if err = u.unit.SetPublicAddress(public); err != nil {
 		return nil, err
 	}
+	log.Printf("reconciling relation state")
+	if err := u.restoreRelations(); err != nil {
+		return nil, err
+	}
 	return ModeContinue, nil
 }
 
@@ -184,7 +188,7 @@ func ModeTerminating(u *Uniter) (next Mode, err error) {
 // ModeAbide is the Uniter's usual steady state. It watches for and responds to:
 // * service configuration changes
 // * charm upgrade requests
-// * relation changes (not implemented)
+// * relation changes
 // * unit death
 func ModeAbide(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeAbide", &err)()
@@ -206,21 +210,82 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 		return nil, err
 	}
 	u.f.WantUpgradeEvent(url, false)
+	for _, r := range u.relationers {
+		r.StartHooks()
+	}
+	defer func() {
+		for _, r := range u.relationers {
+			if e := r.StopHooks(); e != nil && err == nil {
+				err = e
+			}
+		}
+	}()
+	select {
+	case <-u.f.UnitDying():
+		return modeAbideDyingLoop(u)
+	default:
+	}
+	return modeAbideAliveLoop(u)
+}
+
+// modeAbideAliveLoop handles all state changes for ModeAbide when the unit
+// is in an Alive state.
+func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 	for {
+		hi := hook.Info{}
 		select {
 		case <-u.Dying():
 			return nil, tomb.ErrDying
 		case <-u.f.UnitDying():
-			// TODO don't stop until all relations broken.
-			return ModeStopping, nil
+			return modeAbideDyingLoop(u)
 		case <-u.f.ConfigEvents():
-			if err = u.runHook(hook.Info{Kind: hook.ConfigChanged}); err == errHookFailed {
-				return ModeHookError, nil
-			} else if err != nil {
+			hi = hook.Info{Kind: hook.ConfigChanged}
+		case hi = <-u.relationHooks:
+		case ids := <-u.f.RelationsEvents():
+			added, err := u.updateRelations(ids)
+			if err != nil {
 				return nil, err
 			}
+			for _, r := range added {
+				r.StartHooks()
+			}
+			continue
 		case upgrade := <-u.f.UpgradeEvents():
 			return ModeUpgrading(upgrade), nil
+		}
+		if err := u.runHook(hi); err == errHookFailed {
+			return ModeHookError, nil
+		} else if err != nil {
+			return nil, err
+		}
+	}
+	panic("unreachable")
+}
+
+// modeAbideDyingLoop handles the proper termination of all relations in
+// response to a Dying unit.
+func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
+	for _, r := range u.relationers {
+		if err := r.SetDying(); err != nil {
+			return nil, err
+		}
+	}
+	for {
+		if len(u.relationers) == 0 {
+			return ModeStopping, nil
+		}
+		hi := hook.Info{}
+		select {
+		case <-u.Dying():
+			return nil, tomb.ErrDying
+		case <-u.f.ConfigEvents():
+			hi = hook.Info{Kind: hook.ConfigChanged}
+		case hi = <-u.relationHooks:
+		}
+		if err = u.runHook(hi); err == errHookFailed {
+			return ModeHookError, nil
+		} else if err != nil {
+			return nil, err
 		}
 	}
 	panic("unreachable")

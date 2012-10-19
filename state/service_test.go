@@ -299,14 +299,64 @@ func (s *ServiceSuite) TestLifeWithUnits(c *C) {
 	err = s.service.EnsureDying()
 	c.Assert(err, IsNil)
 	err = s.service.EnsureDead()
-	c.Assert(err, ErrorMatches, `cannot finish termination of service "mysql": service still has units`)
+	c.Assert(err, ErrorMatches, `cannot finish termination of service "mysql": service still has units and/or relations`)
 	err = unit.EnsureDead()
 	c.Assert(err, IsNil)
 	err = s.service.EnsureDead()
-	c.Assert(err, ErrorMatches, `cannot finish termination of service "mysql": service still has units`)
+	c.Assert(err, ErrorMatches, `cannot finish termination of service "mysql": service still has units and/or relations`)
 	err = s.service.RemoveUnit(unit)
 	c.Assert(err, IsNil)
 	err = s.service.EnsureDead()
+	c.Assert(err, IsNil)
+}
+
+func (s *ServiceSuite) TestLifeWithRelations(c *C) {
+	ep1 := state.RelationEndpoint{"mysql", "ifce", "blah1", state.RolePeer, charm.ScopeGlobal}
+	rel, err := s.State.AddRelation(ep1)
+	c.Assert(err, IsNil)
+
+	// Check we can't remove the service.
+	err = s.State.RemoveService(s.service)
+	c.Assert(err, ErrorMatches, `cannot remove service "mysql": service is not dead`)
+
+	// Set Dying, and check that the relation also becomes Dying.
+	err = s.service.EnsureDying()
+	c.Assert(err, IsNil)
+	err = rel.Refresh()
+	c.Assert(err, IsNil)
+	c.Assert(rel.Life(), Equals, state.Dying)
+
+	// Check that no new relations can be added.
+	ep2 := state.RelationEndpoint{"mysql", "ifce", "blah2", state.RolePeer, charm.ScopeGlobal}
+	_, err = s.State.AddRelation(ep2)
+	c.Assert(err, ErrorMatches, `cannot add relation "mysql:blah2": service "mysql" is not alive`)
+
+	// Check the service can't yet become Dead.
+	err = s.service.EnsureDead()
+	c.Assert(err, ErrorMatches, `cannot finish termination of service "mysql": service still has units and/or relations`)
+
+	// Check we still can't remove the service.
+	err = s.State.RemoveService(s.service)
+	c.Assert(err, ErrorMatches, `cannot remove service "mysql": service is not dead`)
+
+	// Make the relation dead; check the service still can't become Dead.
+	err = rel.EnsureDead()
+	c.Assert(err, IsNil)
+	err = s.service.EnsureDead()
+	c.Assert(err, ErrorMatches, `cannot finish termination of service "mysql": service still has units and/or relations`)
+
+	// Check the service still can't be removed.
+	err = s.State.RemoveService(s.service)
+	c.Assert(err, ErrorMatches, `cannot remove service "mysql": service is not dead`)
+
+	// Remove the relation; check the service can become Dead.
+	err = s.State.RemoveRelation(rel)
+	c.Assert(err, IsNil)
+	err = s.service.EnsureDead()
+	c.Assert(err, IsNil)
+
+	// Check we can, at last, remove the service.
+	err = s.State.RemoveService(s.service)
 	c.Assert(err, IsNil)
 }
 
