@@ -213,7 +213,16 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 		return fmt.Errorf("admin-secret is required for bootstrap")
 	}
 	log.Printf("environs/ec2: bootstrapping environment %q", e.name)
-	_, err := e.loadState()
+	// If the state file exists, it might actually have just been
+	// removed by Destroy, and eventual consistency has not caught
+	// up yet, so we retry to verify if that is happening.
+	var err error
+	for a := shortAttempt.Start(); a.Next(); {
+		_, err = e.loadState()
+		if err != nil {
+			break
+		}
+	}
 	if err == nil {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
@@ -602,6 +611,10 @@ func (e *environ) portsInGroup(name string) (ports []state.Port, err error) {
 }
 
 func (e *environ) OpenPorts(ports []state.Port) error {
+	if e.Config().FirewallMode() != config.FwGlobal {
+		return fmt.Errorf("invalid firewall mode for opening ports on environment: %q",
+			e.Config().FirewallMode())
+	}
 	if err := e.openPortsInGroup(e.globalGroupName(), ports); err != nil {
 		return err
 	}
@@ -610,6 +623,10 @@ func (e *environ) OpenPorts(ports []state.Port) error {
 }
 
 func (e *environ) ClosePorts(ports []state.Port) error {
+	if e.Config().FirewallMode() != config.FwGlobal {
+		return fmt.Errorf("invalid firewall mode for closing ports on environment: %q",
+			e.Config().FirewallMode())
+	}
 	if err := e.closePortsInGroup(e.globalGroupName(), ports); err != nil {
 		return err
 	}
@@ -618,6 +635,10 @@ func (e *environ) ClosePorts(ports []state.Port) error {
 }
 
 func (e *environ) Ports() ([]state.Port, error) {
+	if e.Config().FirewallMode() != config.FwGlobal {
+		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from environment: %q",
+			e.Config().FirewallMode())
+	}
 	return e.portsInGroup(e.globalGroupName())
 }
 
@@ -669,6 +690,10 @@ func (e *environ) jujuGroupName() string {
 }
 
 func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
+	if inst.e.Config().FirewallMode() != config.FwInstance {
+		return fmt.Errorf("invalid firewall mode for opening ports on instance: %q",
+			inst.e.Config().FirewallMode())
+	}
 	name := inst.e.machineGroupName(machineId)
 	if err := inst.e.openPortsInGroup(name, ports); err != nil {
 		return err
@@ -678,6 +703,10 @@ func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
 }
 
 func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
+	if inst.e.Config().FirewallMode() != config.FwInstance {
+		return fmt.Errorf("invalid firewall mode for closing ports on instance: %q",
+			inst.e.Config().FirewallMode())
+	}
 	name := inst.e.machineGroupName(machineId)
 	if err := inst.e.closePortsInGroup(name, ports); err != nil {
 		return err
@@ -687,6 +716,10 @@ func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
 }
 
 func (inst *instance) Ports(machineId int) ([]state.Port, error) {
+	if inst.e.Config().FirewallMode() != config.FwInstance {
+		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from instance: %q",
+			inst.e.Config().FirewallMode())
+	}
 	name := inst.e.machineGroupName(machineId)
 	return inst.e.portsInGroup(name)
 }

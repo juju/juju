@@ -8,8 +8,8 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/trivial"
 	"net/http"
-	"time"
 )
 
 // Tests is a gocheck suite containing tests verifying juju functionality
@@ -107,12 +107,10 @@ func (t *Tests) TestBootstrap(c *C) {
 	c.Assert(info, NotNil)
 	c.Check(info.Addrs, Not(HasLen), 0)
 
-	// TODO eventual consistency.
 	err = e.Bootstrap(false)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	e2 := t.Open(c)
-	// TODO eventual consistency.
 	err = e2.Bootstrap(false)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
@@ -132,6 +130,8 @@ func (t *Tests) TestBootstrap(c *C) {
 	c.Assert(err, NotNil)
 }
 
+var noRetry = trivial.AttemptStrategy{}
+
 func (t *Tests) TestPersistence(c *C) {
 	storage := t.Open(c).Storage()
 
@@ -141,7 +141,7 @@ func (t *Tests) TestPersistence(c *C) {
 		"zzz/bb",
 	}
 	for _, name := range names {
-		checkFileDoesNotExist(c, storage, name)
+		checkFileDoesNotExist(c, storage, name, noRetry)
 		checkPutFile(c, storage, name, []byte(name))
 	}
 	checkList(c, storage, "", names)
@@ -150,7 +150,7 @@ func (t *Tests) TestPersistence(c *C) {
 
 	storage2 := t.Open(c).Storage()
 	for _, name := range names {
-		checkFileHasContents(c, storage2, name, []byte(name))
+		checkFileHasContents(c, storage2, name, []byte(name), noRetry)
 	}
 
 	// remove the first file and check that the others remain.
@@ -162,7 +162,7 @@ func (t *Tests) TestPersistence(c *C) {
 	c.Check(err, IsNil)
 
 	// ... and check it's been removed in the other environment
-	checkFileDoesNotExist(c, storage, names[0])
+	checkFileDoesNotExist(c, storage, names[0], noRetry)
 
 	// ... and that the rest of the files are still around
 	checkList(c, storage2, "", names[1:])
@@ -187,26 +187,22 @@ func checkPutFile(c *C, storage environs.StorageWriter, name string, contents []
 	c.Assert(err, IsNil)
 }
 
-func checkFileDoesNotExist(c *C, storage environs.StorageReader, name string) {
-	// TODO eventual consistency
-	r, err := storage.Get(name)
-	c.Check(r, IsNil)
-	c.Assert(err, NotNil)
+func checkFileDoesNotExist(c *C, storage environs.StorageReader, name string, attempt trivial.AttemptStrategy) {
+	var r io.ReadCloser
+	var err error
+	for a := attempt.Start(); a.Next(); {
+		r, err = storage.Get(name)
+		if err != nil {
+			break
+		}
+	}
+	c.Assert(r, IsNil)
 	var notFoundError *environs.NotFoundError
 	c.Assert(err, FitsTypeOf, notFoundError)
 }
 
-func checkFileHasContents(c *C, storage environs.StorageReader, name string, contents []byte) {
-	var r io.ReadCloser
-	var err error
-
-	for i := 0; i < 5; i++ {
-		r, err = storage.Get(name)
-		if err == nil {
-			break
-		}
-		time.Sleep(1e9)
-	}
+func checkFileHasContents(c *C, storage environs.StorageReader, name string, contents []byte, attempt trivial.AttemptStrategy) {
+	r, err := storage.Get(name)
 	c.Assert(err, IsNil)
 	c.Check(r, NotNil)
 	defer r.Close()
@@ -219,14 +215,13 @@ func checkFileHasContents(c *C, storage environs.StorageReader, name string, con
 	c.Assert(err, IsNil)
 
 	var resp *http.Response
-	for i := 0; i < 5; i++ {
+	for a := attempt.Start(); a.Next(); {
 		resp, err = http.Get(url)
 		c.Assert(err, IsNil)
 		if resp.StatusCode != 404 {
 			break
 		}
 		c.Logf("get retrying after earlier get succeeded. *sigh*.")
-		time.Sleep(1e9)
 	}
 	c.Assert(err, IsNil)
 	data, err = ioutil.ReadAll(resp.Body)
