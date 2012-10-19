@@ -211,6 +211,16 @@ func (t *LiveTests) TestPorts(c *C) {
 	c.Assert(err, IsNil)
 	ports, err = inst2.Ports(2)
 	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 89}})
+
+	// Check errors when acting on environment.
+	err = t.Env.OpenPorts([]state.Port{{"tcp", 80}})
+	c.Assert(err, ErrorMatches, `invalid firewall mode for opening ports on environment: "instance"`)
+
+	err = t.Env.ClosePorts([]state.Port{{"tcp", 80}})
+	c.Assert(err, ErrorMatches, `invalid firewall mode for closing ports on environment: "instance"`)
+
+	_, err = t.Env.Ports()
+	c.Assert(err, ErrorMatches, `invalid firewall mode for retrieving ports from environment: "instance"`)
 }
 
 func (t *LiveTests) TestGlobalPorts(c *C) {
@@ -265,6 +275,16 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 	ports, err = t.Env.Ports()
 	c.Assert(err, IsNil)
 	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 45}, {"tcp", 89}})
+
+	// Check errors when acting on instances.
+	err = inst1.OpenPorts(1, []state.Port{{"tcp", 80}})
+	c.Assert(err, ErrorMatches, `invalid firewall mode for opening ports on instance: "global"`)
+
+	err = inst1.ClosePorts(1, []state.Port{{"tcp", 80}})
+	c.Assert(err, ErrorMatches, `invalid firewall mode for closing ports on instance: "global"`)
+
+	_, err = inst1.Ports(1)
+	c.Assert(err, ErrorMatches, `invalid firewall mode for retrieving ports from instance: "global"`)
 }
 
 func (t *LiveTests) TestBootstrapMultiple(c *C) {

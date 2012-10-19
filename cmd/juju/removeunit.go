@@ -53,5 +53,5 @@ func (c *RemoveUnitCommand) Run(_ *cmd.Context) error {
 		}
 		units = append(units, unit)
 	}
-	return conn.RemoveUnits(units...)
+	return conn.DestroyUnits(units...)
 }

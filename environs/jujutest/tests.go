@@ -46,6 +46,15 @@ func (t *Tests) TearDownTest(c *C) {
 	t.LoggingSuite.TearDownTest(c)
 }
 
+func (t *Tests) TestBootstrapWithoutAdminSecret(c *C) {
+	m := t.Env.Config().AllAttrs()
+	delete(m, "admin-secret")
+	env, err := environs.NewFromAttrs(m)
+	c.Assert(err, IsNil)
+	err = env.Bootstrap(false)
+	c.Assert(err, ErrorMatches, ".*admin-secret is required for bootstrap")
+}
+
 func (t *Tests) TestStartStop(c *C) {
 	e := t.Open(c)
 

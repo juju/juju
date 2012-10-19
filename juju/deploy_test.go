@@ -30,6 +30,7 @@ func (s *DeploySuite) SetUpTest(c *C) {
 		"type":            "dummy",
 		"state-server":    true,
 		"authorized-keys": "i-am-a-key",
+		"admin-secret":    "deploy-test-secret",
 	}
 	environ, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
@@ -44,11 +45,12 @@ func (s *DeploySuite) TearDownTest(c *C) {
 	if s.conn == nil {
 		return
 	}
-	err := s.conn.Environ.Destroy(nil)
+	err := s.conn.State.SetAdminPassword("")
+	c.Assert(err, IsNil)
+	err = s.conn.Environ.Destroy(nil)
 	c.Check(err, IsNil)
 	s.conn.Close()
 	s.conn = nil
-	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }
@@ -195,7 +197,7 @@ func (s *DeploySuite) TestAddUnits(c *C) {
 	c.Assert(id0, Not(Equals), id1)
 }
 
-func (s *DeploySuite) TestRemoveUnits(c *C) {
+func (s *DeploySuite) TestDestroyUnits(c *C) {
 	curl := testing.Charms.ClonedURL(s.repo.Path, "series", "riak")
 	sch, err := s.conn.PutCharm(curl, s.repo, false)
 	c.Assert(err, IsNil)
@@ -211,7 +213,7 @@ func (s *DeploySuite) TestRemoveUnits(c *C) {
 	c.Assert(u2, HasLen, 1)
 
 	units := append(u1, u2...)
-	err = s.conn.RemoveUnits(units...)
+	err = s.conn.DestroyUnits(units...)
 	c.Assert(err, IsNil)
 	for _, u := range units {
 		// UA will action the transition from Dying to Dead in the future

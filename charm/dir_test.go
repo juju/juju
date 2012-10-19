@@ -197,3 +197,11 @@ func (s *DirSuite) TestDirSetDiskRevision(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(dir.Revision(), Equals, 42)
 }
+
+func (s *BundleSuite) TestDirWithBadHooks(c *C) {
+	path := testing.Charms.ClonedDirPath(c.MkDir(), "series", "dummy")
+	err := ioutil.WriteFile(filepath.Join(path, "hooks", "juju-blah"), nil, 0755)
+	c.Assert(err, IsNil)
+	_, err = charm.ReadDir(path)
+	c.Assert(err, ErrorMatches, `reserved hook name: "hooks/juju-blah"`)
+}
