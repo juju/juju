@@ -213,7 +213,16 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 		return fmt.Errorf("admin-secret is required for bootstrap")
 	}
 	log.Printf("environs/ec2: bootstrapping environment %q", e.name)
-	_, err := e.loadState()
+	// If the state file exists, it might actually have just been
+	// removed by Destroy, and eventual consistency has not caught
+	// up yet, so we retry to verify if that is happening.
+	var err error
+	for a := shortAttempt.Start(); a.Next(); {
+		_, err = e.loadState()
+		if err != nil {
+			break
+		}
+	}
 	if err == nil {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
