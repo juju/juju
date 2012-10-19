@@ -352,7 +352,7 @@ func (s *ContextRelationSuite) SetUpTest(c *C) {
 	s.svc, err = s.State.AddService("u", ch)
 	c.Assert(err, IsNil)
 	s.rel, err = s.State.AddRelation(
-		state.RelationEndpoint{"u", "ifce", "ring", state.RolePeer, charm.ScopeGlobal},
+		state.Endpoint{"u", "ifce", "ring", state.RolePeer, charm.ScopeGlobal},
 	)
 	c.Assert(err, IsNil)
 	unit, err := s.svc.AddUnit()
@@ -648,7 +648,7 @@ func (s *HookContextSuite) AddUnit(c *C) *state.Unit {
 }
 
 func (s *HookContextSuite) AddContextRelation(c *C, name string) {
-	ep := state.RelationEndpoint{
+	ep := state.Endpoint{
 		s.service.Name(), "ifce", name, state.RolePeer, charm.ScopeGlobal,
 	}
 	rel, err := s.State.AddRelation(ep)

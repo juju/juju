@@ -161,7 +161,7 @@ func (s *DeploySuite) TestAddService(c *C) {
 	c.Assert(relations, HasLen, 1)
 	ep, err := relations[0].Endpoint("testriak")
 	c.Assert(err, IsNil)
-	c.Assert(ep, Equals, state.RelationEndpoint{
+	c.Assert(ep, Equals, state.Endpoint{
 		ServiceName:   "testriak",
 		Interface:     "riak",
 		RelationName:  "ring",

@@ -92,7 +92,7 @@ func (l *relationLife) id() (coll string, id interface{}) {
 
 func (l *relationLife) setup(s *LifeSuite, c *C) state.Living {
 	var err error
-	ep := state.RelationEndpoint{s.svc.Name(), "ifce", "baz", state.RolePeer, charm.ScopeGlobal}
+	ep := state.Endpoint{s.svc.Name(), "ifce", "baz", state.RolePeer, charm.ScopeGlobal}
 	l.rel, err = s.State.AddRelation(ep)
 	c.Assert(err, IsNil)
 	return l.rel
