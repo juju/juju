@@ -13,3 +13,9 @@ func (p *Provisioner) CloseState() error {
 func (p *Provisioner) AllMachines() ([]*state.Machine, error) {
 	return p.st.AllMachines()
 }
+
+// WaitConfigReload waits until the Provisioner has completed a 
+// configuration reload.
+func (p *Provisioner) WaitConfigReload() {
+	<-p.reload
+}

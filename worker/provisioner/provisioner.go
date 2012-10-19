@@ -3,6 +3,7 @@ package provisioner
 import (
 	"fmt"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
@@ -22,6 +23,7 @@ type Provisioner struct {
 	instances map[int]environs.Instance
 	// instance.Id => machine id
 	machines map[string]int
+	reload   chan bool
 }
 
 // NewProvisioner returns a new Provisioner. When new machines
@@ -32,6 +34,7 @@ func NewProvisioner(st *state.State) *Provisioner {
 		st:        st,
 		instances: make(map[int]environs.Instance),
 		machines:  make(map[string]int),
+		reload:    make(chan bool, 1),
 	}
 	go func() {
 		defer p.tomb.Done()
@@ -73,7 +76,7 @@ func (p *Provisioner) loop() error {
 			if !ok {
 				return watcher.MustErr(environWatcher)
 			}
-			if err := p.environ.SetConfig(cfg); err != nil {
+			if err := p.SetConfig(cfg); err != nil {
 				log.Printf("provisioner: loaded invalid environment configuration: %v", err)
 			}
 		case ids, ok := <-machinesWatcher.Changes():
@@ -88,6 +91,17 @@ func (p *Provisioner) loop() error {
 		}
 	}
 	panic("not reached")
+}
+
+func (p *Provisioner) SetConfig(config *config.Config) error {
+	if err := p.environ.SetConfig(config); err != nil {
+		return err
+	}
+	select {
+	case p.reload <- true:
+	default:
+	}
+	return nil
 }
 
 // Dying returns a channel that signals a Provisioners exit.

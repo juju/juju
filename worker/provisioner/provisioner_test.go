@@ -369,6 +369,7 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	cfg, err = config.New(attrs)
 	c.Assert(err, IsNil)
 	err = s.State.SetEnvironConfig(cfg)
+	p.WaitConfigReload()
 
 	// create a third machine
 	m, err = s.State.AddMachine(state.MachinerWorker)
