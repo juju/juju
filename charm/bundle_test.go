@@ -165,7 +165,7 @@ func (s *BundleSuite) TestBundleWithBadHooks(c *C) {
 	c.Assert(err, IsNil)
 	bun := extBundleDir(c, path)
 	_, err = charm.ReadBundle(bun)
-	c.Assert(err, ErrorMatches, `reserved hook name "hooks/juju-blah"`)
+	c.Assert(err, ErrorMatches, `reserved hook name: "hooks/juju-blah"`)
 }
 
 func (s *BundleSuite) TestExpandToWithBadLink(c *C) {

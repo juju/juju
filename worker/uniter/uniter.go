@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/worker/uniter/charm"
 	"launchpad.net/juju-core/worker/uniter/hook"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
+	"launchpad.net/juju-core/worker/uniter/relation"
 	"launchpad.net/tomb"
 	"math/rand"
 	"os"
@@ -24,20 +25,23 @@ import (
 // delegated to Mode values, which are expected to react to events and direct
 // the uniter's responses to them.
 type Uniter struct {
-	tomb    tomb.Tomb
-	st      *state.State
-	f       *filter
-	unit    *state.Unit
-	service *state.Service
+	tomb          tomb.Tomb
+	st            *state.State
+	f             *filter
+	unit          *state.Unit
+	service       *state.Service
+	relationers   map[int]*Relationer
+	relationHooks chan hook.Info
 
-	dataDir  string
-	baseDir  string
-	toolsDir string
-	charm    *charm.GitDir
-	bundles  *charm.BundlesDir
-	deployer *charm.Deployer
-	sf       *StateFile
-	rand     *rand.Rand
+	dataDir      string
+	baseDir      string
+	toolsDir     string
+	relationsDir string
+	charm        *charm.GitDir
+	bundles      *charm.BundlesDir
+	deployer     *charm.Deployer
+	sf           *StateFile
+	rand         *rand.Rand
 
 	ranConfigChanged bool
 }
@@ -106,13 +110,16 @@ func (u *Uniter) init(name string) (err error) {
 		return err
 	}
 	u.baseDir = filepath.Join(u.dataDir, "agents", ename)
-	if err := os.MkdirAll(filepath.Join(u.baseDir, "state"), 0755); err != nil {
+	u.relationsDir = filepath.Join(u.baseDir, "state", "relations")
+	if err := os.MkdirAll(u.relationsDir, 0755); err != nil {
 		return err
 	}
 	u.service, err = u.st.Service(u.unit.ServiceName())
 	if err != nil {
 		return err
 	}
+	u.relationers = map[int]*Relationer{}
+	u.relationHooks = make(chan hook.Info)
 	u.charm = charm.NewGitDir(filepath.Join(u.baseDir, "charm"))
 	u.bundles = charm.NewBundlesDir(filepath.Join(u.baseDir, "state", "bundles"))
 	u.deployer = charm.NewDeployer(filepath.Join(u.baseDir, "state", "deployer"))
@@ -205,19 +212,30 @@ var errHookFailed = errors.New("hook execution failed")
 
 // runHook executes the supplied hook.Info in an appropriate hook context. If
 // the hook itself fails to execute, it returns errHookFailed.
-func (u *Uniter) runHook(hi hook.Info) error {
+func (u *Uniter) runHook(hi hook.Info) (err error) {
 	// Prepare context.
+	if err = hi.Validate(); err != nil {
+		return err
+	}
 	hookName := string(hi.Kind)
+	relationId := -1
 	if hi.Kind.IsRelation() {
-		panic("relation hooks are not yet supported")
-		// TODO: update relation context; get hook name.
+		relationId = hi.RelationId
+		if hookName, err = u.relationers[relationId].PrepareHook(hi); err != nil {
+			return err
+		}
 	}
 	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
 	hctx := &HookContext{
-		service:    u.service,
-		unit:       u.unit,
-		id:         hctxId,
-		relationId: -1,
+		service:        u.service,
+		unit:           u.unit,
+		id:             hctxId,
+		relationId:     relationId,
+		remoteUnitName: hi.RemoteUnit,
+		relations:      map[int]*ContextRelation{},
+	}
+	for id, r := range u.relationers {
+		hctx.relations[id] = r.Context()
 	}
 
 	// Prepare server.
@@ -258,8 +276,12 @@ func (u *Uniter) runHook(hi hook.Info) error {
 func (u *Uniter) commitHook(hi hook.Info) error {
 	log.Printf("committing %q hook", hi.Kind)
 	if hi.Kind.IsRelation() {
-		panic("relation hooks are not yet supported")
-		// TODO: commit relation state changes.
+		if err := u.relationers[hi.RelationId].CommitHook(hi); err != nil {
+			return err
+		}
+		if hi.Kind == hook.RelationBroken {
+			delete(u.relationers, hi.RelationId)
+		}
 	}
 	if err := u.charm.Snapshotf("Completed %q hook.", hi.Kind); err != nil {
 		return err
@@ -271,5 +293,105 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 		return err
 	}
 	log.Printf("committed %q hook", hi.Kind)
+	return nil
+}
+
+// restoreRelations reconciles the supplied relation state dirs with the
+// remote state of the corresponding relations.
+func (u *Uniter) restoreRelations() error {
+	dirs, err := relation.ReadAllStateDirs(u.relationsDir)
+	if err != nil {
+		return err
+	}
+	for id, dir := range dirs {
+		alive := true
+		rel, err := u.st.Relation(id)
+		if state.IsNotFound(err) {
+			alive = false
+		} else if err != nil {
+			return err
+		}
+		if err = u.addRelation(rel, dir); err == state.ErrRelationNotAlive {
+			alive = false
+		} else if err != nil {
+			return err
+		}
+		if !alive {
+			// If the previous execution was interrupted in the process of
+			// joining or departing the relation, the directory will be empty
+			// and the state is sane.
+			if err := dir.Remove(); err != nil {
+				return fmt.Errorf("cannot synchronize relation state: %v", err)
+			}
+		}
+	}
+	return nil
+}
+
+// updateRelations responds to changes in the life states of the relations
+// with the supplied ids. If any id corresponds to an alive relation not
+// known to the unit, the uniter will join that relation and return its
+// relationer in the added list.
+func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
+	for _, id := range ids {
+		if r, found := u.relationers[id]; found {
+			rel := r.ru.Relation()
+			if err := rel.Refresh(); err != nil {
+				return nil, fmt.Errorf("cannot update relation %q: %v", rel, err)
+			}
+			switch rel.Life() {
+			case state.Dying:
+				if err := r.SetDying(); err != nil {
+					return nil, err
+				}
+			case state.Dead:
+				return nil, fmt.Errorf("had reference to dead relation %q", rel)
+			}
+			continue
+		}
+		// Relations that are not alive are simply skipped, because they
+		// were not previously known anyway.
+		rel, err := u.st.Relation(id)
+		if err != nil {
+			if state.IsNotFound(err) {
+				continue
+			}
+			return nil, err
+		}
+		if rel.Life() != state.Alive {
+			continue
+		}
+		dir, err := relation.ReadStateDir(u.relationsDir, id)
+		if err != nil {
+			return nil, err
+		}
+		err = u.addRelation(rel, dir)
+		if err == nil {
+			added = append(added, u.relationers[id])
+			continue
+		}
+		e := dir.Remove()
+		if err != state.ErrRelationNotAlive {
+			return nil, err
+		}
+		if e != nil {
+			return nil, e
+		}
+	}
+	return added, nil
+}
+
+// addRelation causes the unit agent to join the supplied relation, and to
+// store persistent state in the supplied dir.
+func (u *Uniter) addRelation(rel *state.Relation, dir *relation.StateDir) error {
+	ru, err := rel.Unit(u.unit)
+	if err != nil {
+		return err
+	}
+	r := NewRelationer(ru, dir, u.relationHooks)
+	if err = r.Join(); err != nil {
+		return err
+	}
+	u.relationers[rel.Id()] = r
 	return nil
 }

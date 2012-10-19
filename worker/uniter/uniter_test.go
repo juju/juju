@@ -89,15 +89,17 @@ type stepper interface {
 }
 
 type context struct {
-	id      int
-	path    string
-	dataDir string
-	st      *state.State
-	charms  coretesting.ResponseMap
-	hooks   []string
-	svc     *state.Service
-	unit    *state.Unit
-	uniter  *uniter.Uniter
+	id            int
+	path          string
+	dataDir       string
+	st            *state.State
+	charms        coretesting.ResponseMap
+	hooks         []string
+	svc           *state.Service
+	unit          *state.Unit
+	uniter        *uniter.Uniter
+	relation      *state.Relation
+	relationUnits map[string]*state.RelationUnit
 }
 
 func (ctx *context) run(c *C, steps []stepper) {
@@ -115,12 +117,12 @@ func (ctx *context) run(c *C, steps []stepper) {
 
 var goodHook = `
 #!/bin/bash
-juju-log UniterSuite-%d %s
+juju-log UniterSuite-%d %s $JUJU_REMOTE_UNIT
 `[1:]
 
 var badHook = `
 #!/bin/bash
-juju-log UniterSuite-%d fail-%s
+juju-log UniterSuite-%d fail-%s $JUJU_REMOTE_UNIT
 exit 1
 `[1:]
 
@@ -135,12 +137,12 @@ func (ctx *context) writeHook(c *C, path string, good bool) {
 }
 
 func (ctx *context) matchLogHooks(c *C) (bool, bool) {
-	hookPattern := fmt.Sprintf(`^.* JUJU u/0: UniterSuite-%d ([a-z-]+)$`, ctx.id)
+	hookPattern := fmt.Sprintf(`^.* JUJU u/0(| [a-z-]+:[0-9]+): UniterSuite-%d ([0-9a-z-/ ]+)$`, ctx.id)
 	hookRegexp := regexp.MustCompile(hookPattern)
 	var actual []string
 	for _, line := range strings.Split(c.GetTestLog(), "\n") {
 		if parts := hookRegexp.FindStringSubmatch(line); parts != nil {
-			actual = append(actual, parts[1])
+			actual = append(actual, parts[2]+parts[1])
 		}
 	}
 	c.Logf("actual: %#v", actual)
@@ -589,6 +591,66 @@ var uniterTests = []uniterTest{
 		waitUniterDead{},
 		waitHooks{},
 	),
+
+	// Relations.
+	ut(
+		"simple joined/changed/departed",
+		quickStartRelation{},
+		addRelationUnit{},
+		waitHooks{"my-relation-joined u/2 my:0", "my-relation-changed u/2 my:0"},
+		changeRelationUnit{"u/1"},
+		waitHooks{"my-relation-changed u/1 my:0"},
+		removeRelationUnit{"u/2"},
+		waitHooks{"my-relation-departed u/2 my:0"},
+		verifyRunning{},
+	), ut(
+		"relation becomes dying; unit is not last remaining member",
+		quickStartRelation{},
+		relationDying,
+		waitHooks{"my-relation-departed u/1 my:0", "my-relation-broken my:0"},
+		verifyRunning{},
+		relationState{life: state.Dying},
+		removeRelationUnit{"u/1"},
+		relationState{removed: true},
+		verifyRunning{},
+	), ut(
+		"relation becomes dying; unit is last remaining member",
+		quickStartRelation{},
+		removeRelationUnit{"u/1"},
+		waitHooks{"my-relation-departed u/1 my:0"},
+		relationDying,
+		waitHooks{"my-relation-broken my:0"},
+		verifyRunning{},
+		relationState{removed: true},
+	), ut(
+		"service becomes dying while in a relation",
+		quickStartRelation{},
+		serviceDying,
+		waitHooks{"my-relation-departed u/1 my:0", "my-relation-broken my:0", "stop"},
+		waitUniterDead{},
+		relationState{life: state.Dying},
+		removeRelationUnit{"u/1"},
+		relationState{removed: true},
+	), ut(
+		"unit becomes dying while in a relation",
+		quickStartRelation{},
+		unitDying,
+		waitHooks{"my-relation-departed u/1 my:0", "my-relation-broken my:0", "stop"},
+		waitUniterDead{},
+		relationState{life: state.Alive},
+		removeRelationUnit{"u/1"},
+		relationState{life: state.Alive},
+	), ut(
+		"unit becomes dead while in a relation",
+		quickStartRelation{},
+		unitDead,
+		waitUniterDead{},
+		waitHooks{},
+		// TODO BUG: the unit doesn't leave the scope, leaving the relation
+		// unkillable without direct intervention. I'm pretty sure it should
+		// not be the uniter's responsibility to fix this; rather, EnsureDead
+		// should cause the unit to leave any relation scopes it may be in.
+	),
 }
 
 func (s *UniterSuite) TestUniter(c *C) {
@@ -623,7 +685,11 @@ type createCharm struct {
 	customize func(*C, string)
 }
 
-var charmHooks = []string{"install", "start", "config-changed", "upgrade-charm", "stop"}
+var charmHooks = []string{
+	"install", "start", "config-changed", "upgrade-charm", "stop",
+	"my-relation-joined", "my-relation-changed", "my-relation-departed",
+	"my-relation-broken",
+}
 
 func (s createCharm) step(c *C, ctx *context) {
 	base := coretesting.Charms.ClonedDirPath(c.MkDir(), "series", "dummy")
@@ -730,22 +796,38 @@ type waitUniterDead struct {
 }
 
 func (s waitUniterDead) step(c *C, ctx *context) {
+	if s.err != "" {
+		err := s.waitDead(c, ctx)
+		c.Assert(err, ErrorMatches, s.err)
+		return
+	}
+	// In the default case, we're waiting for worker.ErrDead, but the path to
+	// that error can be tricky. If the unit becomes Dead at an inconvenient
+	// time, unrelated calls can fail -- as they should -- but not be detected
+	// as worker.ErrDead. In this case, we restart the uniter and check that it
+	// fails as expected when starting up; this mimics the behaviour of the
+	// unit agent and verifies that the UA will, eventually, see the correct
+	// error and respond appropriately.
+	err := s.waitDead(c, ctx)
+	if err != worker.ErrDead {
+		step(c, ctx, startUniter{})
+		err = s.waitDead(c, ctx)
+	}
+	c.Assert(err, Equals, worker.ErrDead)
+	err = ctx.unit.Refresh()
+	c.Assert(err, IsNil)
+	c.Assert(ctx.unit.Life(), Equals, state.Dead)
+}
+
+func (s waitUniterDead) waitDead(c *C, ctx *context) error {
 	u := ctx.uniter
 	ctx.uniter = nil
 	select {
 	case <-u.Dying():
-		err := u.Wait()
-		if s.err == "" {
-			c.Assert(err, Equals, worker.ErrDead)
-			err = ctx.unit.Refresh()
-			c.Assert(err, IsNil)
-			c.Assert(ctx.unit.Life(), Equals, state.Dead)
-		} else {
-			c.Assert(err, ErrorMatches, s.err)
-		}
 	case <-time.After(5 * time.Second):
 		c.Fatalf("uniter still alive")
 	}
+	return u.Wait()
 }
 
 type stopUniter struct {
@@ -810,6 +892,16 @@ func (s quickStart) step(c *C, ctx *context) {
 	step(c, ctx, waitUnit{status: state.UnitStarted})
 	step(c, ctx, waitHooks{"install", "start", "config-changed"})
 	step(c, ctx, verifyCharm{})
+}
+
+type quickStartRelation struct{}
+
+func (s quickStartRelation) step(c *C, ctx *context) {
+	step(c, ctx, quickStart{})
+	step(c, ctx, addRelation{})
+	step(c, ctx, addRelationUnit{})
+	step(c, ctx, waitHooks{"my-relation-joined u/1 my:0", "my-relation-changed u/1 my:0"})
+	step(c, ctx, verifyRunning{})
 }
 
 type resolveError struct {
@@ -1006,6 +1098,80 @@ func (s startUpgradeError) step(c *C, ctx *context) {
 	}
 }
 
+type addRelation struct{}
+
+func (s addRelation) step(c *C, ctx *context) {
+	if ctx.relation != nil {
+		panic("don't add two relations!")
+	}
+	ep := state.RelationEndpoint{"u", "ifce", "my", state.RolePeer, charm.ScopeGlobal}
+	rel, err := ctx.st.AddRelation(ep)
+	c.Assert(err, IsNil)
+	ctx.relation = rel
+	ctx.relationUnits = map[string]*state.RelationUnit{}
+}
+
+type addRelationUnit struct{}
+
+func (s addRelationUnit) step(c *C, ctx *context) {
+	u, err := ctx.svc.AddUnit()
+	c.Assert(err, IsNil)
+	name := u.Name()
+	err = u.SetPrivateAddress(fmt.Sprintf("%s.example.com", strings.Replace(name, "/", "-", 1)))
+	c.Assert(err, IsNil)
+	ru, err := ctx.relation.Unit(u)
+	c.Assert(err, IsNil)
+	err = ru.EnterScope()
+	c.Assert(err, IsNil)
+	ctx.relationUnits[name] = ru
+}
+
+type changeRelationUnit struct {
+	name string
+}
+
+func (s changeRelationUnit) step(c *C, ctx *context) {
+	settings, err := ctx.relationUnits[s.name].Settings()
+	c.Assert(err, IsNil)
+	key := "madness?"
+	raw, _ := settings.Get(key)
+	val, _ := raw.(string)
+	if val == "" {
+		val = "this is juju"
+	} else {
+		val += "u"
+	}
+	settings.Set(key, val)
+	_, err = settings.Write()
+	c.Assert(err, IsNil)
+}
+
+type removeRelationUnit struct {
+	name string
+}
+
+func (s removeRelationUnit) step(c *C, ctx *context) {
+	err := ctx.relationUnits[s.name].LeaveScope()
+	c.Assert(err, IsNil)
+	ctx.relationUnits[s.name] = nil
+}
+
+type relationState struct {
+	removed bool
+	life    state.Life
+}
+
+func (s relationState) step(c *C, ctx *context) {
+	err := ctx.relation.Refresh()
+	if s.removed {
+		c.Assert(state.IsNotFound(err), Equals, true)
+		return
+	}
+	c.Assert(err, IsNil)
+	c.Assert(ctx.relation.Life(), Equals, s.life)
+
+}
+
 type assertYaml struct {
 	path   string
 	expect map[string]interface{}
@@ -1055,6 +1221,10 @@ func (s custom) step(c *C, ctx *context) {
 
 var serviceDying = custom{func(c *C, ctx *context) {
 	c.Assert(ctx.svc.EnsureDying(), IsNil)
+}}
+
+var relationDying = custom{func(c *C, ctx *context) {
+	c.Assert(ctx.relation.EnsureDying(), IsNil)
 }}
 
 var unitDying = custom{func(c *C, ctx *context) {

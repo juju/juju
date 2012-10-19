@@ -203,5 +203,5 @@ func (s *BundleSuite) TestDirWithBadHooks(c *C) {
 	err := ioutil.WriteFile(filepath.Join(path, "hooks", "juju-blah"), nil, 0755)
 	c.Assert(err, IsNil)
 	_, err = charm.ReadDir(path)
-	c.Assert(err, ErrorMatches, `reserved hook name "hooks/juju-blah"`)
+	c.Assert(err, ErrorMatches, `reserved hook name: "hooks/juju-blah"`)
 }

@@ -177,8 +177,10 @@ func (s *LifeSuite) prepareFixture(living state.Living, lfix lifeFixture, cached
 }
 
 func (s *LifeSuite) TestLifecycleStateChanges(c *C) {
-	for _, lfix := range []lifeFixture{&relationLife{}, &unitLife{}, &serviceLife{}, &machineLife{}} {
-		for _, v := range stateChanges {
+	for i, lfix := range []lifeFixture{&relationLife{}, &unitLife{}, &serviceLife{}, &machineLife{}} {
+		c.Logf("fixture %d", i)
+		for j, v := range stateChanges {
+			c.Logf("sequence %d", j)
 			living := lfix.setup(s, c)
 			s.prepareFixture(living, lfix, v.cached, v.dbinitial, c)
 			switch v.desired {

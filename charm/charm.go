@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
+	"path"
 	"strings"
 )
 
@@ -48,9 +48,9 @@ func InferRepository(curl *URL, localRepoPath string) (repo Repository, err erro
 
 // validatePath is used when reading to ensure that charms contain no unwanted
 // files.
-func validatePath(path string) error {
-	if strings.HasPrefix(path, filepath.Join("hooks", "juju-")) {
-		return fmt.Errorf("reserved hook name %q", path)
+func validatePath(p string) error {
+	if strings.HasPrefix(path.Clean(p), "hooks/juju-") {
+		return fmt.Errorf("reserved hook name: %q", p)
 	}
 	return nil
 }

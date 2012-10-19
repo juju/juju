@@ -194,22 +194,6 @@ func (s *RelationSuite) TestPeerRelation(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *RelationSuite) TestRemoveServiceRemovesRelations(c *C) {
-	peer, err := s.State.AddService("peer", s.charm)
-	c.Assert(err, IsNil)
-	peerep := state.RelationEndpoint{"peer", "ifce", "baz", state.RolePeer, charm.ScopeGlobal}
-	_, err = s.State.AddRelation(peerep)
-	c.Assert(err, IsNil)
-	err = peer.EnsureDead()
-	c.Assert(err, IsNil)
-	err = s.State.RemoveService(peer)
-	c.Assert(err, IsNil)
-	_, err = s.State.Service("peer")
-	c.Assert(err, ErrorMatches, `service "peer" not found`)
-	_, err = s.State.EndpointsRelation(peerep)
-	c.Assert(err, ErrorMatches, `relation "peer:baz" not found`)
-}
-
 func assertNoRelations(c *C, srv *state.Service) {
 	rels, err := srv.Relations()
 	c.Assert(err, IsNil)
@@ -248,7 +232,7 @@ func (s *RelationUnitSuite) TestPeerSettings(c *C) {
 	// Check missing settings cannot be read by any RU.
 	for _, ru := range rus {
 		_, err := ru.ReadSettings("peer/0")
-		c.Assert(err, ErrorMatches, `cannot read settings for unit "peer/0" in relation "peer:name": not found`)
+		c.Assert(err, ErrorMatches, `cannot read settings for unit "peer/0" in relation "peer:name": settings not found`)
 	}
 
 	// Add settings for one RU.
@@ -275,7 +259,7 @@ func (s *RelationUnitSuite) TestProReqSettings(c *C) {
 	// Check missing settings cannot be read by any RU.
 	for _, ru := range rus {
 		_, err := ru.ReadSettings("pro/0")
-		c.Assert(err, ErrorMatches, `cannot read settings for unit "pro/0" in relation "pro:pname req:rname": not found`)
+		c.Assert(err, ErrorMatches, `cannot read settings for unit "pro/0" in relation "pro:pname req:rname": settings not found`)
 	}
 
 	// Add settings for one RU.
@@ -302,7 +286,7 @@ func (s *RelationUnitSuite) TestContainerSettings(c *C) {
 	// Check missing settings cannot be read by any RU.
 	for _, ru := range rus {
 		_, err := ru.ReadSettings("pro/0")
-		c.Assert(err, ErrorMatches, `cannot read settings for unit "pro/0" in relation "pro:pname req:rname": not found`)
+		c.Assert(err, ErrorMatches, `cannot read settings for unit "pro/0" in relation "pro:pname req:rname": settings not found`)
 	}
 
 	// Add settings for one RU.
@@ -326,8 +310,106 @@ func (s *RelationUnitSuite) TestContainerSettings(c *C) {
 	rus1 := RUs{prr.pru1, prr.rru1}
 	for _, ru := range rus1 {
 		_, err := ru.ReadSettings("pro/0")
-		c.Assert(err, ErrorMatches, `cannot read settings for unit "pro/0" in relation "pro:pname req:rname": not found`)
+		c.Assert(err, ErrorMatches, `cannot read settings for unit "pro/0" in relation "pro:pname req:rname": settings not found`)
 	}
+}
+
+func (s *RelationUnitSuite) TestDyingRelationLifecycle(c *C) {
+	pr := NewPeerRelation(c, &s.ConnSuite)
+	rel := pr.ru0.Relation()
+
+	// Check the relation can't be removed while Alive.
+	err := s.State.RemoveRelation(rel)
+	c.Assert(err, ErrorMatches, `cannot remove relation "peer:name": relation is not dead`)
+
+	// Enter two units, and check that we can set the relation to Dying.
+	err = pr.ru0.EnterScope()
+	c.Assert(err, IsNil)
+	err = pr.ru1.EnterScope()
+	c.Assert(err, IsNil)
+	err = rel.EnsureDying()
+	c.Assert(err, IsNil)
+
+	// Check that we can't add a new unit now.
+	err = pr.ru2.EnterScope()
+	c.Assert(err, Equals, state.ErrRelationNotAlive)
+
+	// Check that we created no settings for the unit we failed to add.
+	_, err = pr.ru0.ReadSettings("peer/2")
+	c.Assert(err, ErrorMatches, `cannot read settings for unit "peer/2" in relation "peer:name": settings not found`)
+
+	// Check that we can't set it to Dead while the scope is non-empty.
+	err = rel.EnsureDead()
+	c.Assert(err, ErrorMatches, `cannot finish termination of relation "peer:name": relation still has member units`)
+
+	// Check that we still can't remove it while it's Dying.
+	err = s.State.RemoveRelation(rel)
+	c.Assert(err, ErrorMatches, `cannot remove relation "peer:name": relation is not dead`)
+
+	// ru0 leaves the scope; check we still can't set the relation to dead...
+	err = pr.ru0.LeaveScope()
+	c.Assert(err, IsNil)
+	err = rel.EnsureDead()
+	c.Assert(err, ErrorMatches, `cannot finish termination of relation "peer:name": relation still has member units`)
+
+	// Check that unit settings for the original unit still exist, and have
+	// not yet been marked for deletion.
+	err = s.State.Cleanup()
+	c.Assert(err, IsNil)
+	assertSettings := func() {
+		settings, err := pr.ru1.ReadSettings("peer/0")
+		c.Assert(err, IsNil)
+		c.Assert(settings, DeepEquals, map[string]interface{}{
+			"private-address": "peer-0.example.com",
+		})
+	}
+	assertSettings()
+
+	// The final unit leaves the scope, and cleans up after itself.
+	err = pr.ru1.LeaveScope()
+	c.Assert(err, IsNil)
+	err = rel.Refresh()
+	c.Assert(state.IsNotFound(err), Equals, true)
+
+	// The settings were not themselves actually deleted yet...
+	assertSettings()
+
+	// ...but they were scheduled for deletion.
+	err = s.State.Cleanup()
+	c.Assert(err, IsNil)
+	_, err = pr.ru1.ReadSettings("peer/0")
+	c.Assert(err, ErrorMatches, `cannot read settings for unit "peer/0" in relation "peer:name": settings not found`)
+
+	// Because this is the only sensible place, check that a further call
+	// to Cleanup does not error out.
+	err = s.State.Cleanup()
+	c.Assert(err, Equals, nil)
+}
+
+func (s *RelationUnitSuite) TestAliveRelationScope(c *C) {
+	pr := NewPeerRelation(c, &s.ConnSuite)
+	rel := pr.ru0.Relation()
+
+	// Two units enter...
+	err := pr.ru0.EnterScope()
+	c.Assert(err, IsNil)
+	err = pr.ru1.EnterScope()
+	c.Assert(err, IsNil)
+
+	// Two units leave...
+	err = pr.ru0.LeaveScope()
+	c.Assert(err, IsNil)
+	err = pr.ru1.LeaveScope()
+	c.Assert(err, IsNil)
+
+	// The relation scope is empty, but the relation is still alive...
+	err = rel.Refresh()
+	c.Assert(err, IsNil)
+	c.Assert(rel.Life(), Equals, state.Alive)
+
+	// ...and new units can still join it.
+	err = pr.ru2.EnterScope()
+	c.Assert(err, IsNil)
 }
 
 func (s *RelationUnitSuite) TestPeerWatchScope(c *C) {
@@ -642,16 +724,27 @@ func (s *OriginalRelationUnitSuite) TestRelationUnitEnterScopeError(c *C) {
 	peerep := state.RelationEndpoint{"peer", "ifce", "baz", state.RolePeer, charm.ScopeGlobal}
 	rel, err := s.State.AddRelation(peerep)
 	c.Assert(err, IsNil)
-	u, err := peer.AddUnit()
+	u0, err := peer.AddUnit()
 	c.Assert(err, IsNil)
-	ru, err := rel.Unit(u)
+	ru0, err := rel.Unit(u0)
 	c.Assert(err, IsNil)
-	err = u.EnsureDead()
+	err = u0.EnsureDead()
 	c.Assert(err, IsNil)
-	err = peer.RemoveUnit(u)
+	err = peer.RemoveUnit(u0)
 	c.Assert(err, IsNil)
-	err = ru.EnterScope()
+	err = ru0.EnterScope()
 	c.Assert(err, ErrorMatches, `cannot initialize state for unit "peer/0" in relation "peer:baz": private address of unit "peer/0" not found`)
+
+	u1, err := peer.AddUnit()
+	c.Assert(err, IsNil)
+	err = u1.SetPrivateAddress("u1.example.com")
+	c.Assert(err, IsNil)
+	ru1, err := rel.Unit(u1)
+	c.Assert(err, IsNil)
+	err = rel.EnsureDying()
+	c.Assert(err, IsNil)
+	err = ru1.EnterScope()
+	c.Assert(err, Equals, state.ErrRelationNotAlive)
 }
 
 func (s *OriginalRelationUnitSuite) TestRelationUnitReadSettings(c *C) {
@@ -678,7 +771,7 @@ func (s *OriginalRelationUnitSuite) TestRelationUnitReadSettings(c *C) {
 	_, err = ru0.ReadSettings("peer/pressure")
 	c.Assert(err, ErrorMatches, `cannot read settings for unit "peer/pressure" in relation "peer:baz": "peer/pressure" is not a valid unit name`)
 	_, err = ru0.ReadSettings("peer/1")
-	c.Assert(err, ErrorMatches, `cannot read settings for unit "peer/1" in relation "peer:baz": not found`)
+	c.Assert(err, ErrorMatches, `cannot read settings for unit "peer/1" in relation "peer:baz": settings not found`)
 
 	// Put some valid settings in ru1, and check they are now accessible to
 	// both RelationUnits.
