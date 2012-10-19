@@ -171,6 +171,7 @@ func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, name, args st
 		Service: *svc,
 		Desc:    fmt.Sprintf("juju %s agent", name),
 		Cmd:     cmd,
+		Out:     fmt.Sprintf("/var/log/juju/%s-agent.out", name),
 	}
 	cmds, err := conf.InstallCommands()
 	if err != nil {
