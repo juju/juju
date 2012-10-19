@@ -520,7 +520,7 @@ func (s *AssignSuite) TestAssignUnitUnusedPolicyConcurrently(c *C) {
 	svc, err := s.State.AddService("svc", s.charm)
 	c.Assert(err, IsNil)
 
-	us := make([]*state.Unit, 20)
+	us := make([]*state.Unit, 50)
 	for i := range us {
 		us[i], err = svc.AddUnit()
 		c.Assert(err, IsNil)
