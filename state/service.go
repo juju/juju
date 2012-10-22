@@ -165,6 +165,44 @@ func (s *Service) CharmURL() (curl *charm.URL, force bool) {
 	return s.doc.CharmURL, s.doc.ForceCharm
 }
 
+// Endpoints returns the service's available endpoints. If seek is non-empty,
+// the results will be filtered such that only endpoints with matching names
+// will be returned.
+func (s *Service) Endpoints(seek string) (eps []Endpoint, err error) {
+	ch, _, err := s.Charm()
+	if err != nil {
+		return nil, err
+	}
+	collect := func(role RelationRole, rels map[string]charm.Relation) {
+		for name, rel := range rels {
+			if seek != "" && seek != name {
+				continue
+			}
+			eps = append(eps, Endpoint{
+				ServiceName:   s.doc.Name,
+				Interface:     rel.Interface,
+				RelationName:  name,
+				RelationRole:  role,
+				RelationScope: rel.Scope,
+			})
+		}
+	}
+	meta := ch.Meta()
+	collect(RolePeer, meta.Peers)
+	collect(RoleProvider, meta.Provides)
+	collect(RoleRequirer, meta.Requires)
+	collect(RoleProvider, map[string]charm.Relation{
+		"juju-info": charm.Relation{
+			Interface: "juju-info",
+			Scope:     charm.ScopeGlobal,
+		},
+	})
+	if len(eps) == 0 {
+		return nil, fmt.Errorf("service %q has no %q relation", s, seek)
+	}
+	return eps, nil
+}
+
 // SetCharm changes the charm for the service. New units will be started with
 // this charm, and existing units will be upgraded to use it. If force is true,
 // units will be upgraded even if they are in an error state.
