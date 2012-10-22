@@ -58,17 +58,7 @@ func (fw *Firewaller) loop() error {
 		return err
 	}
 	if fw.environ.Config().FirewallMode() == config.FwGlobal {
-		fw.globalMode = true
-		fw.globalPorts = make(map[state.Port]int)
-		// Close all ports to ensure that they will be
-		// reopened and counted properly with the initial
-		// retrieval of machines and units.
-		ports, err := fw.environ.Ports()
-		if err != nil {
-			return err
-		}
-		err = fw.environ.ClosePorts(ports)
-		if err != nil {
+		if err := fw.initGlobalMode(); err != nil {
 			return err
 		}
 	}
@@ -145,6 +135,62 @@ func (fw *Firewaller) loop() error {
 		}
 	}
 	panic("not reached")
+}
+
+// initGlobalMode retrieves the ports that need to be open globally,
+// opens them and also closes not needed open ports left from an
+// earlier run.
+func (fw *Firewaller) initGlobalMode() error {
+	fw.globalMode = true
+	fw.globalPorts = make(map[state.Port]int)
+	initialPorts, err := fw.environ.Ports()
+	if err != nil {
+		return err
+	}
+	// Retrieve ports to be open from state.
+	services, err := fw.st.AllServices()
+	if err != nil {
+		return err
+	}
+	for _, service := range services {
+		if !service.IsExposed() {
+			continue
+		}
+		units, err := service.AllUnits()
+		if err != nil {
+			return err
+		}
+		for _, unit := range units {
+			ports := unit.OpenedPorts()
+			for _, port := range ports {
+				fw.globalPorts[port]++
+			}
+		}
+	}
+	openedPorts := []state.Port{}
+	for port := range fw.globalPorts {
+		openedPorts = append(openedPorts, port)
+	}
+	// Check which ports to open or to close.
+	toOpen := diff(openedPorts, initialPorts)
+	toClose := diff(initialPorts, openedPorts)
+	if len(toOpen) > 0 {
+		if err := fw.environ.OpenPorts(toOpen); err != nil {
+			return err
+		}
+		state.SortPorts(toOpen)
+		log.Printf("firewaller: initially opened ports %v in environment", toOpen)
+	}
+	if len(toClose) > 0 {
+		if err := fw.environ.ClosePorts(toClose); err != nil {
+			return err
+		}
+		state.SortPorts(toClose)
+		log.Printf("firewaller: initially closed ports %v in environment", toClose)
+	}
+	// Reset port counter, will be set during gathering of the units.
+	fw.globalPorts = make(map[state.Port]int)
+	return nil
 }
 
 // flushUnits opens and closes ports for the passed unit data.

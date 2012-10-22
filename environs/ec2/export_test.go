@@ -96,6 +96,8 @@ func ShortTimeouts(short bool) {
 	}
 }
 
+var ShortAttempt = &shortAttempt
+
 func EC2ErrCode(err error) string {
 	return ec2ErrCode(err)
 }

@@ -513,6 +513,10 @@ func (u *Unit) AssignToUnusedMachine() (m *Machine, err error) {
 	// Select all machines with no principals except the bootstrap machine.
 	sel := D{{"principals", D{{"$size", 0}}}, {"_id", D{{"$ne", 0}}}}
 	// TODO use Batch(1). See https://bugs.launchpad.net/mgo/+bug/1053509
+	// TODO(rog) Fix so this is more efficient when there are concurrent uses.
+	// Possible solution: pick the highest and the smallest id of all
+	// unused machines, and try to assign to the first one >= a random id in the
+	// middle.
 	iter := u.st.machines.Find(sel).Batch(2).Prefetch(0).Iter()
 	var mdoc machineDoc
 	for iter.Next(&mdoc) {
