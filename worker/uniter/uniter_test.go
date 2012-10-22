@@ -139,10 +139,18 @@ func (ctx *context) writeHook(c *C, path string, good bool) {
 func (ctx *context) matchLogHooks(c *C) (bool, bool) {
 	hookPattern := fmt.Sprintf(`^.* JUJU u/0(| [a-z-]+:[0-9]+): UniterSuite-%d ([0-9a-z-/ ]+)$`, ctx.id)
 	hookRegexp := regexp.MustCompile(hookPattern)
+	donePattern := `^.* JUJU (ran "[a-z-]+" hook|hook failed)`
+	doneRegexp := regexp.MustCompile(donePattern)
 	var actual []string
+	pending := ""
 	for _, line := range strings.Split(c.GetTestLog(), "\n") {
-		if parts := hookRegexp.FindStringSubmatch(line); parts != nil {
-			actual = append(actual, parts[2]+parts[1])
+		if pending == "" {
+			if parts := hookRegexp.FindStringSubmatch(line); parts != nil {
+				pending = parts[2] + parts[1]
+			}
+		} else if doneRegexp.MatchString(line) {
+			actual = append(actual, pending)
+			pending = ""
 		}
 	}
 	c.Logf("actual: %#v", actual)
