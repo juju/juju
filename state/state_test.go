@@ -232,6 +232,155 @@ func (s *StateSuite) TestAllServices(c *C) {
 	c.Assert(services[1].Name(), Equals, "mysql")
 }
 
+var inferEndpointsTests = []struct {
+	inputs [][]string
+	eps    []state.Endpoint
+	err    string
+}{
+	{
+		inputs: [][]string{nil},
+		err:    `cannot relate 0 endpoints`,
+	}, {
+		inputs: [][]string{{"blah", "blur", "bleurgh"}},
+		err:    `cannot relate 3 endpoints`,
+	}, {
+		inputs: [][]string{
+			{"ping:"},
+			{":pong"},
+			{":"},
+		},
+		err: `invalid endpoint ".*"`,
+	}, {
+		inputs: [][]string{{"wooble"}},
+		err:    `service "wooble" not found`,
+	}, {
+		inputs: [][]string{
+			{"lg", "lg"},
+			{"ms", "ms"},
+			{"wp", "wp"},
+			{"rk1", "rk1"},
+			{"rk1", "rk2"},
+		},
+		err: `no relations found`,
+	}, {
+		inputs: [][]string{
+			{"rk1"},
+			{"rk1:ring"},
+		},
+		eps: []state.Endpoint{{
+			ServiceName:   "rk1",
+			Interface:     "riak",
+			RelationName:  "ring",
+			RelationRole:  state.RolePeer,
+			RelationScope: charm.ScopeGlobal,
+		}},
+	}, {
+		inputs: [][]string{
+			{"ms", "wp"},
+			{"ms", "wp:db"},
+		},
+		err: `ambiguous relation: ".*" could refer to "ms:dev wp:db"; "ms:prod wp:db"`,
+	}, {
+		inputs: [][]string{
+			{"ms:dev", "wp"},
+			{"ms:dev", "wp:db"},
+		},
+		eps: []state.Endpoint{{
+			ServiceName:   "ms",
+			Interface:     "mysql",
+			RelationName:  "dev",
+			RelationRole:  state.RoleProvider,
+			RelationScope: charm.ScopeGlobal,
+		}, {
+			ServiceName:   "wp",
+			Interface:     "mysql",
+			RelationName:  "db",
+			RelationRole:  state.RoleRequirer,
+			RelationScope: charm.ScopeGlobal,
+		}},
+	}, {
+		// Explicit logging relation is preferred over implicit juju-info
+		inputs: [][]string{{"lg", "wp"}},
+		eps: []state.Endpoint{{
+			ServiceName:   "lg",
+			Interface:     "logging",
+			RelationName:  "logging-directory",
+			RelationRole:  state.RoleRequirer,
+			RelationScope: charm.ScopeContainer,
+		}, {
+			ServiceName:   "wp",
+			Interface:     "logging",
+			RelationName:  "logging-dir",
+			RelationRole:  state.RoleProvider,
+			RelationScope: charm.ScopeContainer,
+		}},
+	}, {
+		// Implict relations can be chosen explicitly
+		inputs: [][]string{
+			{"lg:info", "wp"},
+			{"lg", "wp:juju-info"},
+			{"lg:info", "wp:juju-info"},
+		},
+		eps: []state.Endpoint{{
+			ServiceName:   "lg",
+			Interface:     "juju-info",
+			RelationName:  "info",
+			RelationRole:  state.RoleRequirer,
+			RelationScope: charm.ScopeContainer,
+		}, {
+			ServiceName:   "wp",
+			Interface:     "juju-info",
+			RelationName:  "juju-info",
+			RelationRole:  state.RoleProvider,
+			RelationScope: charm.ScopeGlobal,
+		}},
+	}, {
+		// Implicit relations will be chosen if there are no other options
+		inputs: [][]string{{"lg", "ms"}},
+		eps: []state.Endpoint{{
+			ServiceName:   "lg",
+			Interface:     "juju-info",
+			RelationName:  "info",
+			RelationRole:  state.RoleRequirer,
+			RelationScope: charm.ScopeContainer,
+		}, {
+			ServiceName:   "ms",
+			Interface:     "juju-info",
+			RelationName:  "juju-info",
+			RelationRole:  state.RoleProvider,
+			RelationScope: charm.ScopeGlobal,
+		}},
+	},
+}
+
+func (s *StateSuite) TestInferEndpoints(c *C) {
+	_, err := s.State.AddService("ms", s.AddTestingCharm(c, "mysql-alternative"))
+	c.Assert(err, IsNil)
+	_, err = s.State.AddService("wp", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, IsNil)
+	_, err = s.State.AddService("lg", s.AddTestingCharm(c, "logging"))
+	c.Assert(err, IsNil)
+	riak := s.AddTestingCharm(c, "riak")
+	_, err = s.State.AddService("rk1", riak)
+	c.Assert(err, IsNil)
+	_, err = s.State.AddService("rk2", riak)
+	c.Assert(err, IsNil)
+
+	for i, t := range inferEndpointsTests {
+		c.Logf("test %d", i)
+		for j, input := range t.inputs {
+			c.Logf("  input %d", j)
+			eps, err := s.State.InferEndpoints(input)
+			if t.err == "" {
+				c.Assert(err, IsNil)
+				c.Assert(eps, DeepEquals, t.eps)
+			} else {
+				c.Assert(err, ErrorMatches, t.err)
+			}
+		}
+	}
+}
+
 func (s *StateSuite) TestEnvironConfig(c *C) {
 	initial := map[string]interface{}{
 		"name":            "test",

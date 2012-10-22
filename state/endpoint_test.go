@@ -26,8 +26,8 @@ var canRelateTests = []struct {
 func (s *EndpointSuite) TestCanRelate(c *C) {
 	for i, t := range canRelateTests {
 		c.Logf("test %d", i)
-		ep1 := state.Endpoint{"x", "ifce", "x", t.role1, charm.ScopeGlobal}
-		ep2 := state.Endpoint{"x", "ifce", "x", t.role2, charm.ScopeGlobal}
+		ep1 := state.Endpoint{"one-service", "ifce", "foo", t.role1, charm.ScopeGlobal}
+		ep2 := state.Endpoint{"another-service", "ifce", "bar", t.role2, charm.ScopeGlobal}
 		if t.success {
 			c.Assert(ep1.CanRelateTo(ep2), Equals, true)
 			c.Assert(ep2.CanRelateTo(ep1), Equals, true)
@@ -36,6 +36,10 @@ func (s *EndpointSuite) TestCanRelate(c *C) {
 		c.Assert(ep1.CanRelateTo(ep2), Equals, false)
 		c.Assert(ep2.CanRelateTo(ep1), Equals, false)
 	}
+	ep1 := state.Endpoint{"same-service", "ifce", "foo", state.RoleProvider, charm.ScopeGlobal}
+	ep2 := state.Endpoint{"same-service", "ifce", "bar", state.RoleRequirer, charm.ScopeGlobal}
+	c.Assert(ep1.CanRelateTo(ep2), Equals, false)
+	c.Assert(ep2.CanRelateTo(ep1), Equals, false)
 }
 
 type dummyCharm struct{}

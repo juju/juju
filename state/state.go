@@ -17,6 +17,8 @@ import (
 	"launchpad.net/juju-core/version"
 	"net/url"
 	"regexp"
+	"sort"
+	"strings"
 )
 
 // TODO(niemeyer): This must not be exported.
@@ -360,6 +362,110 @@ func (s *State) AllServices() (services []*Service, err error) {
 		services = append(services, newService(s, &v))
 	}
 	return services, nil
+}
+
+// InferEndpoints returns the endpoints corresponding to the supplied names.
+// There must be 1 or 2 supplied names, of the form <service>[:<relation>].
+// If the supplied names uniquely specify a possible relation, or if they
+// uniquely specify a possible relation once all implicit relations have been
+// filtered, the returned endpoints
+// corresponding to that relation will be returned,
+func (s *State) InferEndpoints(names []string) ([]Endpoint, error) {
+	// Collect all possible sane endpoint lists.
+	var candidates [][]Endpoint
+	switch len(names) {
+	case 1:
+		eps, err := s.endpoints(names[0], isPeer)
+		if err != nil {
+			return nil, err
+		}
+		for _, ep := range eps {
+			candidates = append(candidates, []Endpoint{ep})
+		}
+	case 2:
+		eps1, err := s.endpoints(names[0], notPeer)
+		if err != nil {
+			return nil, err
+		}
+		eps2, err := s.endpoints(names[1], notPeer)
+		if err != nil {
+			return nil, err
+		}
+		for _, ep1 := range eps1 {
+			for _, ep2 := range eps2 {
+				if ep1.CanRelateTo(ep2) {
+					candidates = append(candidates, []Endpoint{ep1, ep2})
+				}
+			}
+		}
+	default:
+		return nil, fmt.Errorf("cannot relate %d endpoints", len(names))
+	}
+	// If there's ambiguity, try discarding implicit relations.
+	switch len(candidates) {
+	case 0:
+		return nil, fmt.Errorf("no relations found")
+	case 1:
+		return candidates[0], nil
+	}
+	var filtered [][]Endpoint
+outer:
+	for _, cand := range candidates {
+		for _, ep := range cand {
+			if ep.isImplicit() {
+				continue outer
+			}
+		}
+		filtered = append(filtered, cand)
+	}
+	if len(filtered) == 1 {
+		return filtered[0], nil
+	}
+	keys := []string{}
+	for _, cand := range candidates {
+		keys = append(keys, fmt.Sprintf("%q", relationKey(cand)))
+	}
+	sort.Strings(keys)
+	return nil, fmt.Errorf("ambiguous relation: %q could refer to %s",
+		strings.Join(names, " "), strings.Join(keys, "; "))
+}
+
+func isPeer(ep Endpoint) bool {
+	return ep.RelationRole == RolePeer
+}
+
+func notPeer(ep Endpoint) bool {
+	return ep.RelationRole != RolePeer
+}
+
+// endpoints returns all endpoints that could be intended by the
+// supplied endpoint name, and which cause the filter param to
+// return true.
+func (s *State) endpoints(name string, filter func(ep Endpoint) bool) ([]Endpoint, error) {
+	var svcName, relName string
+	if i := strings.Index(name, ":"); i == -1 {
+		svcName = name
+	} else if i != 0 && i != len(name)-1 {
+		svcName = name[:i]
+		relName = name[i+1:]
+	} else {
+		return nil, fmt.Errorf("invalid endpoint %q", name)
+	}
+	svc, err := s.Service(svcName)
+	if err != nil {
+		return nil, err
+	}
+	eps, err := svc.Endpoints(relName)
+	if err != nil {
+		return nil, err
+	}
+	final := []Endpoint{}
+	for _, ep := range eps {
+		if filter(ep) {
+			final = append(final, ep)
+		}
+	}
+	return final, nil
 }
 
 // AddRelation creates a new relation with the given endpoints.
