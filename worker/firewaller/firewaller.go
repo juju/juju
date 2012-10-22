@@ -14,19 +14,20 @@ import (
 // Firewaller watches the state for ports opened or closed
 // and reflects those changes onto the backing environment.
 type Firewaller struct {
-	tomb            tomb.Tomb
-	st              *state.State
-	environ         environs.Environ
-	environWatcher  *state.EnvironConfigWatcher
-	machinesWatcher *state.MachinesWatcher
-	machineds       map[int]*machineData
-	unitsChange     chan *unitsChange
-	unitds          map[string]*unitData
-	portsChange     chan *portsChange
-	serviceds       map[string]*serviceData
-	exposedChange   chan *exposedChange
-	globalMode      bool
-	globalPorts     map[state.Port]int
+	tomb             tomb.Tomb
+	st               *state.State
+	environ          environs.Environ
+	environWatcher   *state.EnvironConfigWatcher
+	machinesWatcher  *state.MachinesWatcher
+	machineds        map[int]*machineData
+	unitsChange      chan *unitsChange
+	unitds           map[string]*unitData
+	portsChange      chan *portsChange
+	serviceds        map[string]*serviceData
+	exposedChange    chan *exposedChange
+	globalMode       bool
+	globalPortsFlag  map[state.Port]bool
+	globalPortsCount map[state.Port]int
 }
 
 // NewFirewaller returns a new Firewaller.
@@ -142,7 +143,8 @@ func (fw *Firewaller) loop() error {
 // earlier run.
 func (fw *Firewaller) initGlobalMode() error {
 	fw.globalMode = true
-	fw.globalPorts = make(map[state.Port]int)
+	fw.globalPortsFlag = make(map[state.Port]bool)
+	fw.globalPortsCount = make(map[state.Port]int)
 	initialPorts, err := fw.environ.Ports()
 	if err != nil {
 		return err
@@ -163,12 +165,12 @@ func (fw *Firewaller) initGlobalMode() error {
 		for _, unit := range units {
 			ports := unit.OpenedPorts()
 			for _, port := range ports {
-				fw.globalPorts[port]++
+				fw.globalPortsFlag[port] = true
 			}
 		}
 	}
 	openedPorts := []state.Port{}
-	for port := range fw.globalPorts {
+	for port := range fw.globalPortsFlag {
 		openedPorts = append(openedPorts, port)
 	}
 	// Check which ports to open or to close.
@@ -188,8 +190,6 @@ func (fw *Firewaller) initGlobalMode() error {
 		state.SortPorts(toClose)
 		log.Printf("firewaller: initially closed ports %v in environment", toClose)
 	}
-	// Reset port counter, will be set during gathering of the units.
-	fw.globalPorts = make(map[state.Port]int)
 	return nil
 }
 
@@ -238,16 +238,18 @@ func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose []state.Port) error {
 	// Filter which ports are really to open or close.
 	var toOpen, toClose []state.Port
 	for _, port := range rawOpen {
-		if fw.globalPorts[port] == 0 {
+		if !fw.globalPortsFlag[port] {
 			toOpen = append(toOpen, port)
+			fw.globalPortsFlag[port] = true
 		}
-		fw.globalPorts[port]++
+		fw.globalPortsCount[port]++
 	}
 	for _, port := range rawClose {
-		fw.globalPorts[port]--
-		if fw.globalPorts[port] == 0 {
+		fw.globalPortsCount[port]--
+		if fw.globalPortsCount[port] == 0 {
 			toClose = append(toClose, port)
-			delete(fw.globalPorts, port)
+			delete(fw.globalPortsFlag, port)
+			delete(fw.globalPortsCount, port)
 		}
 	}
 	// Open and close the ports.
