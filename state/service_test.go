@@ -311,7 +311,7 @@ func (s *ServiceSuite) TestLifeWithUnits(c *C) {
 }
 
 func (s *ServiceSuite) TestLifeWithRelations(c *C) {
-	ep1 := state.RelationEndpoint{"mysql", "ifce", "blah1", state.RolePeer, charm.ScopeGlobal}
+	ep1 := state.Endpoint{"mysql", "ifce", "blah1", state.RolePeer, charm.ScopeGlobal}
 	rel, err := s.State.AddRelation(ep1)
 	c.Assert(err, IsNil)
 
@@ -327,7 +327,7 @@ func (s *ServiceSuite) TestLifeWithRelations(c *C) {
 	c.Assert(rel.Life(), Equals, state.Dying)
 
 	// Check that no new relations can be added.
-	ep2 := state.RelationEndpoint{"mysql", "ifce", "blah2", state.RolePeer, charm.ScopeGlobal}
+	ep2 := state.Endpoint{"mysql", "ifce", "blah2", state.RolePeer, charm.ScopeGlobal}
 	_, err = s.State.AddRelation(ep2)
 	c.Assert(err, ErrorMatches, `cannot add relation "mysql:blah2": service "mysql" is not alive`)
 
@@ -702,8 +702,8 @@ func (s *ServiceSuite) TestWatchRelations(c *C) {
 	assertNoChange()
 
 	// Add a relation; check change.
-	mysqlep := state.RelationEndpoint{"mysql", "ifce", "foo", state.RoleProvider, charm.ScopeGlobal}
-	wp1ep := state.RelationEndpoint{"wp1", "ifce", "bar", state.RoleRequirer, charm.ScopeGlobal}
+	mysqlep := state.Endpoint{"mysql", "ifce", "foo", state.RoleProvider, charm.ScopeGlobal}
+	wp1ep := state.Endpoint{"wp1", "ifce", "bar", state.RoleRequirer, charm.ScopeGlobal}
 	rel, err := s.State.AddRelation(mysqlep, wp1ep)
 	c.Assert(err, IsNil)
 	s.State.StartSync()
@@ -711,7 +711,7 @@ func (s *ServiceSuite) TestWatchRelations(c *C) {
 	assertNoChange()
 
 	// Add another relation; check change.
-	wp2ep := state.RelationEndpoint{"wp2", "ifce", "baz", state.RoleRequirer, charm.ScopeGlobal}
+	wp2ep := state.Endpoint{"wp2", "ifce", "baz", state.RoleRequirer, charm.ScopeGlobal}
 	_, err = s.State.AddRelation(mysqlep, wp2ep)
 	c.Assert(err, IsNil)
 	s.State.StartSync()
@@ -761,11 +761,11 @@ func (s *ServiceSuite) TestWatchRelations(c *C) {
 	assertNoChange()
 
 	relations := make([]*state.Relation, 5)
-	endpoints := make([]state.RelationEndpoint, 5)
+	endpoints := make([]state.Endpoint, 5)
 	for i := 0; i < 5; i++ {
 		_, err := s.State.AddService("hadoop"+fmt.Sprint(i), s.charm)
 		c.Assert(err, IsNil)
-		endpoints[i] = state.RelationEndpoint{"hadoop" + fmt.Sprint(i), "ifce", "spam" + fmt.Sprint(i), state.RoleRequirer, charm.ScopeGlobal}
+		endpoints[i] = state.Endpoint{"hadoop" + fmt.Sprint(i), "ifce", "spam" + fmt.Sprint(i), state.RoleRequirer, charm.ScopeGlobal}
 		relations[i], err = s.State.AddRelation(mysqlep, endpoints[i])
 		c.Assert(err, IsNil)
 	}
@@ -796,7 +796,7 @@ func (s *ServiceSuite) TestWatchRelations(c *C) {
 	assertNoChange()
 
 	_, err = s.State.AddService("postgresql", s.charm)
-	ep := state.RelationEndpoint{"postgresql", "ifce", "spam", state.RoleRequirer, charm.ScopeGlobal}
+	ep := state.Endpoint{"postgresql", "ifce", "spam", state.RoleRequirer, charm.ScopeGlobal}
 	_, err = s.State.AddRelation(mysqlep, ep)
 	c.Assert(err, IsNil)
 	s.State.StartSync()

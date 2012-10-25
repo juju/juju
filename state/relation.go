@@ -13,62 +13,9 @@ import (
 	"strings"
 )
 
-// RelationRole defines the role of a relation endpoint.
-type RelationRole string
-
-const (
-	RoleProvider RelationRole = "provider"
-	RoleRequirer RelationRole = "requirer"
-	RolePeer     RelationRole = "peer"
-)
-
-// counterpartRole returns the RelationRole that this RelationRole
-// can relate to.
-// This should remain an internal method because the relation
-// model does not guarantee that for every role there will
-// necessarily exist a single counterpart role that is sensible
-// for basing algorithms upon.
-func (r RelationRole) counterpartRole() RelationRole {
-	switch r {
-	case RoleProvider:
-		return RoleRequirer
-	case RoleRequirer:
-		return RoleProvider
-	case RolePeer:
-		return RolePeer
-	}
-	panic(fmt.Errorf("unknown RelationRole: %q", r))
-}
-
-// RelationEndpoint represents one endpoint of a relation.
-type RelationEndpoint struct {
-	ServiceName   string
-	Interface     string
-	RelationName  string
-	RelationRole  RelationRole
-	RelationScope charm.RelationScope
-}
-
-// CanRelateTo returns whether a relation may be established between e and other.
-func (e *RelationEndpoint) CanRelateTo(other *RelationEndpoint) bool {
-	if e.Interface != other.Interface {
-		return false
-	}
-	if e.RelationRole == RolePeer {
-		// Peer relations do not currently work with multiple endpoints.
-		return false
-	}
-	return e.RelationRole.counterpartRole() == other.RelationRole
-}
-
-// String returns the unique identifier of the relation endpoint.
-func (e RelationEndpoint) String() string {
-	return e.ServiceName + ":" + e.RelationName
-}
-
 // relationKey returns a string describing the relation defined by
 // endpoints, for use in various contexts (including error messages).
-func relationKey(endpoints []RelationEndpoint) string {
+func relationKey(endpoints []Endpoint) string {
 	names := []string{}
 	for _, ep := range endpoints {
 		names = append(names, ep.String())
@@ -81,7 +28,7 @@ func relationKey(endpoints []RelationEndpoint) string {
 type relationDoc struct {
 	Key       string `bson:"_id"`
 	Id        int
-	Endpoints []RelationEndpoint
+	Endpoints []Endpoint
 	Life      Life
 	UnitCount int
 }
@@ -191,25 +138,25 @@ func (r *Relation) Id() int {
 
 // Endpoint returns the endpoint of the relation for the named service.
 // If the service is not part of the relation, an error will be returned.
-func (r *Relation) Endpoint(serviceName string) (RelationEndpoint, error) {
+func (r *Relation) Endpoint(serviceName string) (Endpoint, error) {
 	for _, ep := range r.doc.Endpoints {
 		if ep.ServiceName == serviceName {
 			return ep, nil
 		}
 	}
-	return RelationEndpoint{}, fmt.Errorf("service %q is not a member of %q", serviceName, r)
+	return Endpoint{}, fmt.Errorf("service %q is not a member of %q", serviceName, r)
 }
 
 // RelatedEndpoints returns the endpoints of the relation r with which
 // units of the named service will establish relations. If the service
 // is not part of the relation r, an error will be returned.
-func (r *Relation) RelatedEndpoints(serviceName string) ([]RelationEndpoint, error) {
+func (r *Relation) RelatedEndpoints(serviceName string) ([]Endpoint, error) {
 	local, err := r.Endpoint(serviceName)
 	if err != nil {
 		return nil, err
 	}
 	role := local.RelationRole.counterpartRole()
-	var eps []RelationEndpoint
+	var eps []Endpoint
 	for _, ep := range r.doc.Endpoints {
 		if ep.RelationRole == role {
 			eps = append(eps, ep)
@@ -250,7 +197,7 @@ type RelationUnit struct {
 	st       *State
 	relation *Relation
 	unit     *Unit
-	endpoint RelationEndpoint
+	endpoint Endpoint
 	scope    string
 }
 
@@ -261,7 +208,7 @@ func (ru *RelationUnit) Relation() *Relation {
 
 // Endpoint returns the relation endpoint that defines the unit's
 // participation in the relation.
-func (ru *RelationUnit) Endpoint() RelationEndpoint {
+func (ru *RelationUnit) Endpoint() Endpoint {
 	return ru.endpoint
 }
 

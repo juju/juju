@@ -1104,7 +1104,7 @@ func (s addRelation) step(c *C, ctx *context) {
 	if ctx.relation != nil {
 		panic("don't add two relations!")
 	}
-	ep := state.RelationEndpoint{"u", "ifce", "my", state.RolePeer, charm.ScopeGlobal}
+	ep := state.Endpoint{"u", "ifce", "my", state.RolePeer, charm.ScopeGlobal}
 	rel, err := ctx.st.AddRelation(ep)
 	c.Assert(err, IsNil)
 	ctx.relation = rel

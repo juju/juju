@@ -29,7 +29,7 @@ func (s *RelationerSuite) SetUpTest(c *C) {
 	var err error
 	s.svc, err = s.State.AddService("u", ch)
 	c.Assert(err, IsNil)
-	s.rel, err = s.State.AddRelation(state.RelationEndpoint{
+	s.rel, err = s.State.AddRelation(state.Endpoint{
 		"u", "ifce", "my-relation", state.RolePeer, charm.ScopeGlobal,
 	})
 	c.Assert(err, IsNil)

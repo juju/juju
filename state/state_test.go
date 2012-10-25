@@ -891,7 +891,7 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(unit1, DeepEquals, unit2)
 
-	peer := state.RelationEndpoint{"dummy", "ifce", "name", state.RolePeer, charm.ScopeGlobal}
+	peer := state.Endpoint{"dummy", "ifce", "name", state.RolePeer, charm.ScopeGlobal}
 	relation1, err := s.State.AddRelation(peer)
 	c.Assert(err, IsNil)
 	relation2, err := s.State.EndpointsRelation(peer)
