@@ -5,6 +5,9 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/testing"
+	"os"
+	"path/filepath"
 	"sort"
 	"time"
 )
@@ -47,6 +50,104 @@ func (s *ServiceSuite) TestServiceCharm(c *C) {
 
 	testWhenDying(c, s.service, notAliveErr, notAliveErr, func() error {
 		return s.service.SetCharm(wp, true)
+	})
+}
+
+func (s *ServiceSuite) TestEndpoints(c *C) {
+	// Check state for charm with no explicit relations.
+	eps, err := s.service.Endpoints()
+	c.Assert(err, IsNil)
+	jujuInfo := state.Endpoint{
+		ServiceName:   "mysql",
+		Interface:     "juju-info",
+		RelationName:  "juju-info",
+		RelationRole:  state.RoleProvider,
+		RelationScope: charm.ScopeGlobal,
+	}
+	c.Assert(eps, DeepEquals, []state.Endpoint{jujuInfo})
+	checkCommonNames := func() {
+		ep, err := s.service.Endpoint("juju-info")
+		c.Assert(err, IsNil)
+		c.Assert(ep, DeepEquals, jujuInfo)
+
+		_, err = s.service.Endpoint("voodoo-economy")
+		c.Assert(err, ErrorMatches, `service "mysql" has no "voodoo-economy" relation`)
+	}
+	checkCommonNames()
+
+	// Set a new charm, with a few relations.
+	path := testing.Charms.ClonedDirPath(c.MkDir(), "series", "dummy")
+	metaPath := filepath.Join(path, "metadata.yaml")
+	f, err := os.OpenFile(metaPath, os.O_WRONLY|os.O_APPEND, 0644)
+	c.Assert(err, IsNil)
+	_, err = f.Write([]byte(`
+provides:
+  db: mysql
+  db-admin: mysql
+requires:
+  foo:
+    interface: bar
+    scope: container
+peers:
+  pressure: pressure
+`))
+	f.Close()
+	c.Assert(err, IsNil)
+	ch, err := charm.ReadDir(path)
+	c.Assert(err, IsNil)
+	sch, err := s.State.AddCharm(
+		// Fake everything; just use a different URL.
+		ch, s.charm.URL().WithRevision(99), s.charm.BundleURL(), s.charm.BundleSha256(),
+	)
+	c.Assert(err, IsNil)
+	err = s.service.SetCharm(sch, false)
+	c.Assert(err, IsNil)
+
+	// Check single endpoint.
+	checkCommonNames()
+	pressure := state.Endpoint{
+		ServiceName:   "mysql",
+		Interface:     "pressure",
+		RelationName:  "pressure",
+		RelationRole:  state.RolePeer,
+		RelationScope: charm.ScopeGlobal,
+	}
+	ep, err := s.service.Endpoint("pressure")
+	c.Assert(err, IsNil)
+	c.Assert(ep, DeepEquals, pressure)
+
+	// Check the full list of endpoints.
+	eps, err = s.service.Endpoints()
+	c.Assert(err, IsNil)
+	c.Assert(eps, HasLen, 5)
+	actual := map[string]state.Endpoint{}
+	for _, ep := range eps {
+		actual[ep.RelationName] = ep
+	}
+	c.Assert(actual, DeepEquals, map[string]state.Endpoint{
+		"juju-info": jujuInfo,
+		"pressure":  pressure,
+		"db": state.Endpoint{
+			ServiceName:   "mysql",
+			Interface:     "mysql",
+			RelationName:  "db",
+			RelationRole:  state.RoleProvider,
+			RelationScope: charm.ScopeGlobal,
+		},
+		"db-admin": state.Endpoint{
+			ServiceName:   "mysql",
+			Interface:     "mysql",
+			RelationName:  "db-admin",
+			RelationRole:  state.RoleProvider,
+			RelationScope: charm.ScopeGlobal,
+		},
+		"foo": state.Endpoint{
+			ServiceName:   "mysql",
+			Interface:     "bar",
+			RelationName:  "foo",
+			RelationRole:  state.RoleRequirer,
+			RelationScope: charm.ScopeContainer,
+		},
 	})
 }
 
