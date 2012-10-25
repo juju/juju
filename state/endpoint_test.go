@@ -63,7 +63,7 @@ func (c *dummyCharm) Meta() *charm.Meta {
 	}
 }
 
-var matchTests = []struct {
+var implementedByTests = []struct {
 	ifce  string
 	name  string
 	role  state.RelationRole
@@ -101,10 +101,10 @@ var matchTests = []struct {
 	{"ifce-peer", "peer", state.RolePeer, charm.ScopeContainer, true},
 }
 
-func (s *EndpointSuite) TestMatch(c *C) {
-	for i, t := range matchTests {
+func (s *EndpointSuite) TestImplementedBy(c *C) {
+	for i, t := range implementedByTests {
 		c.Logf("test %d", i)
 		ep := state.Endpoint{"x", t.ifce, t.name, t.role, t.scope}
-		c.Assert(ep.Match(&dummyCharm{}), Equals, t.match)
+		c.Assert(ep.ImplementedBy(&dummyCharm{}), Equals, t.match)
 	}
 }
