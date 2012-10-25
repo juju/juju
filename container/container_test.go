@@ -74,7 +74,8 @@ func (s *suite) TestDeploy(c *C) {
 		` --state-servers 'a,b'`+
 		` --log-file /var/log/juju/unit-dummy-0\.log`+
 		` --unit-name dummy/0`+
-		` --initial-password [a-zA-Z0-9+/]+\n`+
+		` --initial-password [a-zA-Z0-9+/]+`+
+		` >> /var/log/juju/unit-dummy-0\.out 2>&1\n`+
 		`(.|\n)*`)
 
 	// We can't check that the unit directory is created, because
@@ -86,7 +87,7 @@ func (s *suite) TestDeploy(c *C) {
 
 	// Extract the password from the upstart script and check we can
 	// connect to the state with it.
-	pat := regexp.MustCompile(" --initial-password ([a-zA-Z0-9+/]+)\n")
+	pat := regexp.MustCompile(" --initial-password ([a-zA-Z0-9+/]+) ")
 	m := pat.FindStringSubmatch(script)
 	c.Assert(m, HasLen, 2)
 
