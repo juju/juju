@@ -153,16 +153,17 @@ func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, name, args st
 	agentDir := environs.AgentDir(cfg.DataDir, name)
 	addScripts(c, fmt.Sprintf("mkdir -p %s", shquote(agentDir)))
 	svc := upstart.NewService("jujud-" + name)
+	logPath := fmt.Sprintf("/var/log/juju/%s-agent.log", name)
 	cmd := fmt.Sprintf(
 		"%s/jujud %s"+
 			" --state-servers '%s'"+
-			" --log-file /var/log/juju/%s-agent.log"+
+			" --log-file %s"+
 			" --data-dir '%s'"+
 			" --initial-password '%s'"+
 			" %s",
 		toolsDir, kind,
 		cfg.stateHostAddrs(),
-		name,
+		logPath,
 		cfg.DataDir,
 		cfg.StateInfo.Password,
 		args,
@@ -171,7 +172,7 @@ func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, name, args st
 		Service: *svc,
 		Desc:    fmt.Sprintf("juju %s agent", name),
 		Cmd:     cmd,
-		Out:     fmt.Sprintf("/var/log/juju/%s-agent.out", name),
+		Out:     logPath,
 	}
 	cmds, err := conf.InstallCommands()
 	if err != nil {
