@@ -24,13 +24,17 @@ func newCharm(st *State, cdoc *charmDoc) (*Charm, error) {
 	return &Charm{st: st, doc: *cdoc}, nil
 }
 
+func (c *Charm) String() string {
+	return c.doc.URL.String()
+}
+
 // URL returns the URL that identifies the charm.
 func (c *Charm) URL() *charm.URL {
 	clone := *c.doc.URL
 	return &clone
 }
 
-// Revision returns the monotonically increasing charm 
+// Revision returns the monotonically increasing charm
 // revision number.
 func (c *Charm) Revision() int {
 	return c.doc.URL.Revision
@@ -46,7 +50,7 @@ func (c *Charm) Config() *charm.Config {
 	return c.doc.Config
 }
 
-// BundleURL returns the url to the charm bundle in 
+// BundleURL returns the url to the charm bundle in
 // the provider storage.
 func (c *Charm) BundleURL() *url.URL {
 	return c.doc.BundleURL

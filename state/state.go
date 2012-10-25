@@ -363,7 +363,7 @@ func (s *State) AllServices() (services []*Service, err error) {
 }
 
 // AddRelation creates a new relation with the given endpoints.
-func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err error) {
+func (s *State) AddRelation(endpoints ...Endpoint) (r *Relation, err error) {
 	defer trivial.ErrorContextf(&err, "cannot add relation %q", relationKey(endpoints))
 	switch len(endpoints) {
 	case 1:
@@ -371,7 +371,7 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err err
 			return nil, fmt.Errorf("single endpoint must be a peer relation")
 		}
 	case 2:
-		if !endpoints[0].CanRelateTo(&endpoints[1]) {
+		if !endpoints[0].CanRelateTo(endpoints[1]) {
 			return nil, fmt.Errorf("endpoints do not relate")
 		}
 	default:
@@ -430,7 +430,7 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err err
 }
 
 // EndpointsRelation returns the existing relation with the given endpoints.
-func (s *State) EndpointsRelation(endpoints ...RelationEndpoint) (*Relation, error) {
+func (s *State) EndpointsRelation(endpoints ...Endpoint) (*Relation, error) {
 	doc := relationDoc{}
 	key := relationKey(endpoints)
 	err := s.relations.Find(D{{"_id", key}}).One(&doc)
