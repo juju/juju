@@ -55,7 +55,7 @@ func (s *ServiceSuite) TestServiceCharm(c *C) {
 
 func (s *ServiceSuite) TestEndpoints(c *C) {
 	// Check state for charm with no explicit relations.
-	eps, err := s.service.Endpoints("")
+	eps, err := s.service.Endpoints()
 	c.Assert(err, IsNil)
 	jujuInfo := state.Endpoint{
 		ServiceName:   "mysql",
@@ -66,11 +66,11 @@ func (s *ServiceSuite) TestEndpoints(c *C) {
 	}
 	c.Assert(eps, DeepEquals, []state.Endpoint{jujuInfo})
 	checkCommonNames := func() {
-		eps, err = s.service.Endpoints("juju-info")
+		ep, err := s.service.Endpoint("juju-info")
 		c.Assert(err, IsNil)
-		c.Assert(eps, DeepEquals, []state.Endpoint{jujuInfo})
+		c.Assert(ep, DeepEquals, jujuInfo)
 
-		_, err = s.service.Endpoints("voodoo-economy")
+		_, err = s.service.Endpoint("voodoo-economy")
 		c.Assert(err, ErrorMatches, `service "mysql" has no "voodoo-economy" relation`)
 	}
 	checkCommonNames()
@@ -103,7 +103,7 @@ peers:
 	err = s.service.SetCharm(sch, false)
 	c.Assert(err, IsNil)
 
-	// Check endpoint filtering.
+	// Check single endpoint.
 	checkCommonNames()
 	pressure := state.Endpoint{
 		ServiceName:   "mysql",
@@ -112,12 +112,12 @@ peers:
 		RelationRole:  state.RolePeer,
 		RelationScope: charm.ScopeGlobal,
 	}
-	eps, err = s.service.Endpoints("pressure")
+	ep, err := s.service.Endpoint("pressure")
 	c.Assert(err, IsNil)
-	c.Assert(eps, DeepEquals, []state.Endpoint{pressure})
+	c.Assert(ep, DeepEquals, pressure)
 
 	// Check the full list of endpoints.
-	eps, err = s.service.Endpoints("")
+	eps, err = s.service.Endpoints()
 	c.Assert(err, IsNil)
 	c.Assert(eps, HasLen, 5)
 	actual := map[string]state.Endpoint{}
