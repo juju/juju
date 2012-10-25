@@ -58,8 +58,8 @@ func (ep Endpoint) CanRelateTo(other Endpoint) bool {
 	return ep.RelationRole.counterpartRole() == other.RelationRole
 }
 
-// Match returns whether the endpoint matches the supplied charm.
-func (ep Endpoint) Match(ch charm.Charm) bool {
+// ImplementedBy returns whether the endpoint is implemented by the supplied charm.
+func (ep Endpoint) ImplementedBy(ch charm.Charm) bool {
 	var m map[string]charm.Relation
 	switch ep.RelationRole {
 	case RoleProvider:
