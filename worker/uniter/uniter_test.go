@@ -141,7 +141,7 @@ func (ctx *context) matchLogHooks(c *C) (match bool, overshoot bool) {
 	hookPattern := fmt.Sprintf(`^.* JUJU `+
 		`u/0(| [a-z-]+:[0-9]+)`+ // juju-log badge; group matches relation id
 		`: UniterSuite-%d`+ // test badge; prevents cross-pollution
-		` ([0-9a-z-/ ]+)$`, // match hook name and possible remote unit
+		` ([0-9a-z-/ ]+)$`, // foo-relation-joined bar/123
 		ctx.id,
 	)
 	// donePattern matches uniter logging that indicates a hook has run.
