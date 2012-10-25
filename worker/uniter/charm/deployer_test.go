@@ -53,7 +53,7 @@ func (s *DeployerSuite) TestUpgrade(c *C) {
 	bun1 := s.bundle(c, func(path string) {
 		err := ioutil.WriteFile(filepath.Join(path, "some-file"), []byte("hello"), 0644)
 		c.Assert(err, IsNil)
-		err = os.Symlink("./some-file", "a-symlink")
+		err = os.Symlink("./some-file", filepath.Join(path, "a-symlink"))
 		c.Assert(err, IsNil)
 	})
 	err := d.Stage(bun1, corecharm.MustParseURL("cs:s/c-1"))
