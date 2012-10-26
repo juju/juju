@@ -455,9 +455,18 @@ func (s *State) endpoints(name string, filter func(ep Endpoint) bool) ([]Endpoin
 	if err != nil {
 		return nil, err
 	}
-	eps, err := svc.Endpoints(relName)
-	if err != nil {
-		return nil, err
+	eps := []Endpoint{}
+	if relName != "" {
+		ep, err := svc.Endpoint(relName)
+		if err != nil {
+			return nil, err
+		}
+		eps = append(eps, ep)
+	} else {
+		eps, err = svc.Endpoints()
+		if err != nil {
+			return nil, err
+		}
 	}
 	final := []Endpoint{}
 	for _, ep := range eps {
