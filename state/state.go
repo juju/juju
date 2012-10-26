@@ -108,8 +108,8 @@ type State struct {
 	fwd            *sshForwarder
 }
 
-func (s *State) EnvironConfig() (*config.Config, error) {
-	settings, err := readSettings(s, "e")
+func (st *State) EnvironConfig() (*config.Config, error) {
+	settings, err := readSettings(st, "e")
 	if err != nil {
 		return nil, err
 	}
@@ -119,14 +119,14 @@ func (s *State) EnvironConfig() (*config.Config, error) {
 
 // SetEnvironConfig replaces the current configuration of the 
 // environment with the provided configuration.
-func (s *State) SetEnvironConfig(cfg *config.Config) error {
+func (st *State) SetEnvironConfig(cfg *config.Config) error {
 	if cfg.AdminSecret() != "" {
 		return fmt.Errorf("admin-secret should never be written to the state")
 	}
 	// TODO(niemeyer): This isn't entirely right as the change is done as a
 	// delta that the user didn't ask for. Instead, take a (old, new) config
 	// pair, and apply *known* delta.
-	settings, err := readSettings(s, "e")
+	settings, err := readSettings(st, "e")
 	if err != nil {
 		return err
 	}
@@ -145,7 +145,7 @@ const (
 
 // AddMachine adds a new machine that when deployed will have a
 // machine agent running the provided workers.
-func (s *State) AddMachine(workers ...WorkerKind) (m *Machine, err error) {
+func (st *State) AddMachine(workers ...WorkerKind) (m *Machine, err error) {
 	defer trivial.ErrorContextf(&err, "cannot add a new machine")
 	wset := make(map[WorkerKind]bool)
 	for _, w := range workers {
@@ -157,7 +157,7 @@ func (s *State) AddMachine(workers ...WorkerKind) (m *Machine, err error) {
 	if !wset[MachinerWorker] {
 		return nil, fmt.Errorf("new machine must be started with a machine worker")
 	}
-	id, err := s.sequence("machine")
+	id, err := st.sequence("machine")
 	if err != nil {
 		return nil, err
 	}
@@ -167,17 +167,17 @@ func (s *State) AddMachine(workers ...WorkerKind) (m *Machine, err error) {
 		Workers: workers,
 	}
 	ops := []txn.Op{{
-		C:      s.machines.Name,
+		C:      st.machines.Name,
 		Id:     id,
 		Assert: txn.DocMissing,
 		Insert: mdoc,
 	}}
-	err = s.runner.Run(ops, "", nil)
+	err = st.runner.Run(ops, "", nil)
 	if err != nil {
 		return nil, err
 	}
 	// Refresh to pick the txn-revno.
-	m = newMachine(s, &mdoc)
+	m = newMachine(st, &mdoc)
 	if err = m.Refresh(); err != nil {
 		return nil, err
 	}
@@ -194,9 +194,9 @@ func onAbort(txnErr, err error) error {
 }
 
 // RemoveMachine removes the machine with the the given id.
-func (s *State) RemoveMachine(id int) (err error) {
+func (st *State) RemoveMachine(id int) (err error) {
 	defer trivial.ErrorContextf(&err, "cannot remove machine %d", id)
-	m, err := s.Machine(id)
+	m, err := st.Machine(id)
 	if err != nil {
 		return err
 	}
@@ -208,12 +208,12 @@ func (s *State) RemoveMachine(id int) (err error) {
 		{"life", Dead},
 	}
 	ops := []txn.Op{{
-		C:      s.machines.Name,
+		C:      st.machines.Name,
 		Id:     id,
 		Assert: sel,
 		Remove: true,
 	}}
-	if err := s.runner.Run(ops, "", nil); err != nil {
+	if err := st.runner.Run(ops, "", nil); err != nil {
 		// If aborted, the machine is either dead or recreated.
 		return onAbort(err, nil)
 	}
@@ -222,36 +222,36 @@ func (s *State) RemoveMachine(id int) (err error) {
 
 // AllMachines returns all machines in the environment
 // ordered by id.
-func (s *State) AllMachines() (machines []*Machine, err error) {
+func (st *State) AllMachines() (machines []*Machine, err error) {
 	mdocs := []machineDoc{}
-	err = s.machines.Find(nil).Sort("_id").All(&mdocs)
+	err = st.machines.Find(nil).Sort("_id").All(&mdocs)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get all machines: %v", err)
 	}
 	for _, doc := range mdocs {
-		machines = append(machines, newMachine(s, &doc))
+		machines = append(machines, newMachine(st, &doc))
 	}
 	return
 }
 
 // Machine returns the machine with the given id.
-func (s *State) Machine(id int) (*Machine, error) {
+func (st *State) Machine(id int) (*Machine, error) {
 	mdoc := &machineDoc{}
 	sel := D{{"_id", id}}
-	err := s.machines.Find(sel).One(mdoc)
+	err := st.machines.Find(sel).One(mdoc)
 	if err == mgo.ErrNotFound {
 		return nil, notFound("machine %d", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get machine %d: %v", id, err)
 	}
-	return newMachine(s, mdoc), nil
+	return newMachine(st, mdoc), nil
 }
 
 // AddCharm adds the ch charm with curl to the state.  bundleUrl must be
 // set to a URL where the bundle for ch may be downloaded from.
 // On success the newly added charm state is returned.
-func (s *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string) (stch *Charm, err error) {
+func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string) (stch *Charm, err error) {
 	cdoc := &charmDoc{
 		URL:          curl,
 		Meta:         ch.Meta(),
@@ -259,29 +259,29 @@ func (s *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bu
 		BundleURL:    bundleURL,
 		BundleSha256: bundleSha256,
 	}
-	err = s.charms.Insert(cdoc)
+	err = st.charms.Insert(cdoc)
 	if err != nil {
 		return nil, fmt.Errorf("cannot add charm %q: %v", curl, err)
 	}
-	return newCharm(s, cdoc)
+	return newCharm(st, cdoc)
 }
 
 // Charm returns the charm with the given URL.
-func (s *State) Charm(curl *charm.URL) (*Charm, error) {
+func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	cdoc := &charmDoc{}
-	err := s.charms.Find(D{{"_id", curl}}).One(cdoc)
+	err := st.charms.Find(D{{"_id", curl}}).One(cdoc)
 	if err == mgo.ErrNotFound {
 		return nil, notFound("charm %q", curl)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get charm %q: %v", curl, err)
 	}
-	return newCharm(s, cdoc)
+	return newCharm(st, cdoc)
 }
 
 // AddService creates a new service state with the given unique name
 // and the charm state.
-func (s *State) AddService(name string, ch *Charm) (service *Service, err error) {
+func (st *State) AddService(name string, ch *Charm) (service *Service, err error) {
 	if !IsServiceName(name) {
 		return nil, fmt.Errorf("%q is not a valid service name", name)
 	}
@@ -290,18 +290,18 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 		CharmURL: ch.URL(),
 		Life:     Alive,
 	}
-	svc := newService(s, sdoc)
+	svc := newService(st, sdoc)
 	ops := []txn.Op{{
-		C:      s.settings.Name,
+		C:      st.settings.Name,
 		Id:     svc.globalKey(),
 		Insert: D{},
 	}, {
-		C:      s.services.Name,
+		C:      st.services.Name,
 		Id:     name,
 		Assert: txn.DocMissing,
 		Insert: sdoc,
 	}}
-	if err := s.runner.Run(ops, "", nil); err != nil {
+	if err := st.runner.Run(ops, "", nil); err != nil {
 		return nil, fmt.Errorf("cannot add service %q: %v", name, onAbort(err, fmt.Errorf("duplicate service name")))
 	}
 	// Refresh to pick the txn-revno.
@@ -312,22 +312,22 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 }
 
 // RemoveService removes a service from the state.
-func (s *State) RemoveService(svc *Service) (err error) {
+func (st *State) RemoveService(svc *Service) (err error) {
 	defer trivial.ErrorContextf(&err, "cannot remove service %q", svc)
 	if svc.doc.Life != Dead {
 		return fmt.Errorf("service is not dead")
 	}
 	ops := []txn.Op{{
-		C:      s.services.Name,
+		C:      st.services.Name,
 		Id:     svc.doc.Name,
 		Assert: D{{"life", Dead}},
 		Remove: true,
 	}, {
-		C:      s.settings.Name,
+		C:      st.settings.Name,
 		Id:     svc.globalKey(),
 		Remove: true,
 	}}
-	if err := s.runner.Run(ops, "", nil); err != nil {
+	if err := st.runner.Run(ops, "", nil); err != nil {
 		// If aborted, the service is either dead or recreated.
 		return onAbort(err, nil)
 	}
@@ -335,31 +335,31 @@ func (s *State) RemoveService(svc *Service) (err error) {
 }
 
 // Service returns a service state by name.
-func (s *State) Service(name string) (service *Service, err error) {
+func (st *State) Service(name string) (service *Service, err error) {
 	if !IsServiceName(name) {
 		return nil, fmt.Errorf("%q is not a valid service name", name)
 	}
 	sdoc := &serviceDoc{}
 	sel := D{{"_id", name}}
-	err = s.services.Find(sel).One(sdoc)
+	err = st.services.Find(sel).One(sdoc)
 	if err == mgo.ErrNotFound {
 		return nil, notFound("service %q", name)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get service %q: %v", name, err)
 	}
-	return newService(s, sdoc), nil
+	return newService(st, sdoc), nil
 }
 
 // AllServices returns all deployed services in the environment.
-func (s *State) AllServices() (services []*Service, err error) {
+func (st *State) AllServices() (services []*Service, err error) {
 	sdocs := []serviceDoc{}
-	err = s.services.Find(D{}).All(&sdocs)
+	err = st.services.Find(D{}).All(&sdocs)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get all services")
 	}
 	for _, v := range sdocs {
-		services = append(services, newService(s, &v))
+		services = append(services, newService(st, &v))
 	}
 	return services, nil
 }
@@ -370,12 +370,12 @@ func (s *State) AllServices() (services []*Service, err error) {
 // uniquely specify a possible relation once all implicit relations have been
 // filtered, the returned endpoints
 // corresponding to that relation will be returned,
-func (s *State) InferEndpoints(names []string) ([]Endpoint, error) {
+func (st *State) InferEndpoints(names []string) ([]Endpoint, error) {
 	// Collect all possible sane endpoint lists.
 	var candidates [][]Endpoint
 	switch len(names) {
 	case 1:
-		eps, err := s.endpoints(names[0], isPeer)
+		eps, err := st.endpoints(names[0], isPeer)
 		if err != nil {
 			return nil, err
 		}
@@ -383,11 +383,11 @@ func (s *State) InferEndpoints(names []string) ([]Endpoint, error) {
 			candidates = append(candidates, []Endpoint{ep})
 		}
 	case 2:
-		eps1, err := s.endpoints(names[0], notPeer)
+		eps1, err := st.endpoints(names[0], notPeer)
 		if err != nil {
 			return nil, err
 		}
-		eps2, err := s.endpoints(names[1], notPeer)
+		eps2, err := st.endpoints(names[1], notPeer)
 		if err != nil {
 			return nil, err
 		}
@@ -441,7 +441,7 @@ func notPeer(ep Endpoint) bool {
 // endpoints returns all endpoints that could be intended by the
 // supplied endpoint name, and which cause the filter param to
 // return true.
-func (s *State) endpoints(name string, filter func(ep Endpoint) bool) ([]Endpoint, error) {
+func (st *State) endpoints(name string, filter func(ep Endpoint) bool) ([]Endpoint, error) {
 	var svcName, relName string
 	if i := strings.Index(name, ":"); i == -1 {
 		svcName = name
@@ -451,7 +451,7 @@ func (s *State) endpoints(name string, filter func(ep Endpoint) bool) ([]Endpoin
 	} else {
 		return nil, fmt.Errorf("invalid endpoint %q", name)
 	}
-	svc, err := s.Service(svcName)
+	svc, err := st.Service(svcName)
 	if err != nil {
 		return nil, err
 	}
@@ -478,7 +478,7 @@ func (s *State) endpoints(name string, filter func(ep Endpoint) bool) ([]Endpoin
 }
 
 // AddRelation creates a new relation with the given endpoints.
-func (s *State) AddRelation(endpoints ...Endpoint) (r *Relation, err error) {
+func (st *State) AddRelation(endpoints ...Endpoint) (r *Relation, err error) {
 	defer trivial.ErrorContextf(&err, "cannot add relation %q", relationKey(endpoints))
 	switch len(endpoints) {
 	case 1:
@@ -500,7 +500,7 @@ func (s *State) AddRelation(endpoints ...Endpoint) (r *Relation, err error) {
 			scope = charm.ScopeContainer
 		}
 		ops = append(ops, txn.Op{
-			C:      s.services.Name,
+			C:      st.services.Name,
 			Id:     v.ServiceName,
 			Assert: isAlive,
 			Update: D{{"$inc", D{{"relationcount", 1}}}},
@@ -511,7 +511,7 @@ func (s *State) AddRelation(endpoints ...Endpoint) (r *Relation, err error) {
 			endpoints[i].RelationScope = scope
 		}
 	}
-	id, err := s.sequence("relation")
+	id, err := st.sequence("relation")
 	if err != nil {
 		return nil, err
 	}
@@ -522,15 +522,15 @@ func (s *State) AddRelation(endpoints ...Endpoint) (r *Relation, err error) {
 		Life:      Alive,
 	}
 	ops = append(ops, txn.Op{
-		C:      s.relations.Name,
+		C:      st.relations.Name,
 		Id:     doc.Key,
 		Assert: txn.DocMissing,
 		Insert: doc,
 	})
-	err = s.runner.Run(ops, "", nil)
+	err = st.runner.Run(ops, "", nil)
 	if err == txn.ErrAborted {
 		for _, ep := range endpoints {
-			svc, err := s.Service(ep.ServiceName)
+			svc, err := st.Service(ep.ServiceName)
 			if IsNotFound(err) || svc.Life() != Alive {
 				return nil, fmt.Errorf("service %q is not alive", ep.ServiceName)
 			} else if err != nil {
@@ -541,43 +541,43 @@ func (s *State) AddRelation(endpoints ...Endpoint) (r *Relation, err error) {
 	} else if err != nil {
 		return nil, err
 	}
-	return newRelation(s, &doc), nil
+	return newRelation(st, &doc), nil
 }
 
 // EndpointsRelation returns the existing relation with the given endpoints.
-func (s *State) EndpointsRelation(endpoints ...Endpoint) (*Relation, error) {
+func (st *State) EndpointsRelation(endpoints ...Endpoint) (*Relation, error) {
 	doc := relationDoc{}
 	key := relationKey(endpoints)
-	err := s.relations.Find(D{{"_id", key}}).One(&doc)
+	err := st.relations.Find(D{{"_id", key}}).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, notFound("relation %q", key)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get relation %q: %v", key, err)
 	}
-	return newRelation(s, &doc), nil
+	return newRelation(st, &doc), nil
 }
 
 // Relation returns the existing relation with the given id.
-func (s *State) Relation(id int) (*Relation, error) {
+func (st *State) Relation(id int) (*Relation, error) {
 	doc := relationDoc{}
-	err := s.relations.Find(D{{"id", id}}).One(&doc)
+	err := st.relations.Find(D{{"id", id}}).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, notFound("relation %d", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get relation %d: %v", id, err)
 	}
-	return newRelation(s, &doc), nil
+	return newRelation(st, &doc), nil
 }
 
 // RemoveRelation removes the supplied relation and all its unit settings.
-func (s *State) RemoveRelation(r *Relation) (err error) {
+func (st *State) RemoveRelation(r *Relation) (err error) {
 	defer trivial.ErrorContextf(&err, "cannot remove relation %q", r.doc.Key)
 	if r.doc.Life != Dead {
 		return fmt.Errorf("relation is not dead")
 	}
-	if err := s.runner.Run(r.removeOps(D{{"life", Dead}}), "", nil); err != nil {
+	if err := st.runner.Run(r.removeOps(D{{"life", Dead}}), "", nil); err != nil {
 		if err == txn.ErrAborted {
 			if e := r.Refresh(); IsNotFound(e) {
 				return nil
@@ -592,25 +592,25 @@ func (s *State) RemoveRelation(r *Relation) (err error) {
 }
 
 // Unit returns a unit by name.
-func (s *State) Unit(name string) (*Unit, error) {
+func (st *State) Unit(name string) (*Unit, error) {
 	if !IsUnitName(name) {
 		return nil, fmt.Errorf("%q is not a valid unit name", name)
 	}
 	doc := unitDoc{}
-	err := s.units.FindId(name).One(&doc)
+	err := st.units.FindId(name).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, notFound("unit %q", name)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get unit %q: %v", name, err)
 	}
-	return newUnit(s, &doc), nil
+	return newUnit(st, &doc), nil
 }
 
 // AssignUnit places the unit on a machine. Depending on the policy, and the
 // state of the environment, this may lead to new instances being launched
 // within the environment.
-func (s *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
+func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 	if !u.IsPrincipal() {
 		return fmt.Errorf("subordinate unit %q cannot be assigned directly to a machine", u)
 	}
@@ -618,7 +618,7 @@ func (s *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 	var m *Machine
 	switch policy {
 	case AssignLocal:
-		m, err = s.Machine(0)
+		m, err = st.Machine(0)
 		if err != nil {
 			return err
 		}
@@ -630,7 +630,7 @@ func (s *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 		for {
 			// TODO(rog) take out a lease on the new machine
 			// so that we don't have a race here.
-			m, err := s.AddMachine(MachinerWorker)
+			m, err := st.AddMachine(MachinerWorker)
 			if err != nil {
 				return err
 			}
@@ -648,24 +648,24 @@ func (s *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 
 // StartSync forces watchers to resynchronize their state with the
 // database immediately. This will happen periodically automatically.
-func (s *State) StartSync() {
-	s.watcher.StartSync()
-	s.pwatcher.StartSync()
+func (st *State) StartSync() {
+	st.watcher.StartSync()
+	st.pwatcher.StartSync()
 }
 
 // Sync forces watchers to resynchronize their state with the
 // database immediately, and waits until all events are known.
-func (s *State) Sync() {
-	s.watcher.Sync()
-	s.pwatcher.Sync()
+func (st *State) Sync() {
+	st.watcher.Sync()
+	st.pwatcher.Sync()
 }
 
 // SetAdminPassword sets the administrative password
 // to access the state. If the password is non-empty,
 // all subsequent attempts to access the state must
 // be authorized; otherwise no authorization is required.
-func (s *State) SetAdminPassword(password string) error {
-	admin := s.db.Session.DB("admin")
+func (st *State) SetAdminPassword(password string) error {
+	admin := st.db.Session.DB("admin")
 	if password != "" {
 		// On 2.2+, we get a "need to login" error without a code when
 		// adding the first user because we go from no-auth+no-login to
@@ -684,11 +684,11 @@ func (s *State) SetAdminPassword(password string) error {
 	return nil
 }
 
-func (s *State) setPassword(name, password string) error {
-	if err := s.db.AddUser(name, password, false); err != nil {
+func (st *State) setPassword(name, password string) error {
+	if err := st.db.AddUser(name, password, false); err != nil {
 		return fmt.Errorf("cannot set password in juju db for %q: %v", name, err)
 	}
-	if err := s.db.Session.DB("presence").AddUser(name, password, false); err != nil {
+	if err := st.db.Session.DB("presence").AddUser(name, password, false); err != nil {
 		return fmt.Errorf("cannot set password in presence db for %q: %v", name, err)
 	}
 	return nil
@@ -705,15 +705,15 @@ type cleanupDoc struct {
 // Cleanup removes all documents that were previously marked for removal, if
 // any such exist. It should be called periodically by at least one element
 // of the system.
-func (s *State) Cleanup() error {
+func (st *State) Cleanup() error {
 	doc := cleanupDoc{}
-	iter := s.cleanups.Find(nil).Iter()
+	iter := st.cleanups.Find(nil).Iter()
 	for iter.Next(&doc) {
 		var c *mgo.Collection
 		var sel interface{}
 		switch doc.Kind {
 		case "settings":
-			c = s.settings
+			c = st.settings
 			sel = D{{"_id", D{{"$regex", "^" + doc.Prefix}}}}
 		default:
 			log.Printf("state: WARNING: ignoring unknown cleanup kind %q", doc.Kind)
@@ -730,11 +730,11 @@ func (s *State) Cleanup() error {
 			}
 		}
 		ops := []txn.Op{{
-			C:      s.cleanups.Name,
+			C:      st.cleanups.Name,
 			Id:     doc.Id,
 			Remove: true,
 		}}
-		if err := s.runner.Run(ops, "", nil); err != nil {
+		if err := st.runner.Run(ops, "", nil); err != nil {
 			return fmt.Errorf("cannot remove empty cleanup document: %v", err)
 		}
 	}
