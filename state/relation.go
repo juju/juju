@@ -99,6 +99,49 @@ func (r *Relation) EnsureDead() error {
 	return nil
 }
 
+// Destroy ensures that the relation will be removed at some point; if no units
+// are currently in scope, it will be removed immediately. It is an error to
+// destroy a relation more than once.
+func (r *Relation) Destroy() (err error) {
+	defer trivial.ErrorContextf(&err, "cannot destroy relation %q", r)
+	// In *theory*, there is no upper bound to the number of attempts we could
+	// legitimately make here; it is not inconsistent for a relation to flip
+	// between 0 and 1 units in scope, indefinitely, and perfectly timed to
+	// abort every transaction we attempt below. In practice, this situation
+	// is very unlikely; if as many as 5 attempts have failed, we can be almost
+	// certain that corrupt state is indicated.
+	for attempt := 0; attempt < 5; attempt++ {
+		if r.doc.Life != Alive {
+			return fmt.Errorf("already being destroyed")
+		}
+		if r.doc.UnitCount == 0 {
+			ops := r.removeOps(D{{"unitcount", 0}})
+			if err := r.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+				return err
+			}
+		} else {
+			ops := []txn.Op{{
+				C:      r.st.relations.Name,
+				Id:     r.doc.Key,
+				Assert: D{{"life", Alive}, {"unitcount", D{{"$gt", 0}}}},
+				Update: D{{"$set", D{{"life", Dying}}}},
+			}}
+			if err := r.st.runner.Run(ops, "", nil); err == nil {
+				r.doc.Life = Dying
+				return nil
+			} else if err != txn.ErrAborted {
+				return err
+			}
+		}
+		if err := r.Refresh(); IsNotFound(err) {
+			return nil
+		} else if err != nil {
+			return err
+		}
+	}
+	return fmt.Errorf("possible corruption; please contact juju-dev@lists.ubuntu.com")
+}
+
 // removeOps returns the operations that must occur when a relation is removed.
 // The only assertions made in the returned list are those supplied, which will
 // be applied to the relation document.

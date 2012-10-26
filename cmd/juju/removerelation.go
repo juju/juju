@@ -5,23 +5,25 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/log"
 )
 
-type AddRelationCommand struct {
+type RemoveRelationCommand struct {
 	EnvName   string
 	Endpoints []string
 }
 
-func (c *AddRelationCommand) Info() *cmd.Info {
-	return &cmd.Info{"add-relation", "<service>[:<relation>][ ...]", "add a service relation", ""}
+func (c *RemoveRelationCommand) Info() *cmd.Info {
+	return &cmd.Info{"remove-relation", "<service>[:<relation>][ ...]", "remove a service relation", ""}
 }
 
-func (c *AddRelationCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *RemoveRelationCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	addEnvironFlags(&c.EnvName, f)
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}
 	args = f.Args()
+	log.Printf("%#v", args)
 	switch len(args) {
 	case 1, 2:
 		c.Endpoints = args
@@ -31,7 +33,7 @@ func (c *AddRelationCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	return nil
 }
 
-func (c *AddRelationCommand) Run(_ *cmd.Context) error {
+func (c *RemoveRelationCommand) Run(_ *cmd.Context) error {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
 		return err
@@ -41,6 +43,9 @@ func (c *AddRelationCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	_, err = conn.State.AddRelation(eps...)
-	return err
+	rel, err := conn.State.EndpointsRelation(eps...)
+	if err != nil {
+		return err
+	}
+	return rel.Destroy()
 }
