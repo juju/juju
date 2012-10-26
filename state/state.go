@@ -363,7 +363,7 @@ func (s *State) AllServices() (services []*Service, err error) {
 }
 
 // AddRelation creates a new relation with the given endpoints.
-func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err error) {
+func (s *State) AddRelation(endpoints ...Endpoint) (r *Relation, err error) {
 	defer trivial.ErrorContextf(&err, "cannot add relation %q", relationKey(endpoints))
 	switch len(endpoints) {
 	case 1:
@@ -371,7 +371,7 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err err
 			return nil, fmt.Errorf("single endpoint must be a peer relation")
 		}
 	case 2:
-		if !endpoints[0].CanRelateTo(&endpoints[1]) {
+		if !endpoints[0].CanRelateTo(endpoints[1]) {
 			return nil, fmt.Errorf("endpoints do not relate")
 		}
 	default:
@@ -430,7 +430,7 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err err
 }
 
 // EndpointsRelation returns the existing relation with the given endpoints.
-func (s *State) EndpointsRelation(endpoints ...RelationEndpoint) (*Relation, error) {
+func (s *State) EndpointsRelation(endpoints ...Endpoint) (*Relation, error) {
 	doc := relationDoc{}
 	key := relationKey(endpoints)
 	err := s.relations.Find(D{{"_id", key}}).One(&doc)
@@ -512,19 +512,21 @@ func (s *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 		if _, err = u.AssignToUnusedMachine(); err != noUnusedMachines {
 			return err
 		}
-		m, err := s.AddMachine(MachinerWorker)
-		if err != nil {
+		for {
+			// TODO(rog) take out a lease on the new machine
+			// so that we don't have a race here.
+			m, err := s.AddMachine(MachinerWorker)
+			if err != nil {
+				return err
+			}
+			err = u.assignToMachine(m, true)
+			if err == inUseErr {
+				// Someone else has grabbed the machine we've
+				// just allocated, so try again.
+				continue
+			}
 			return err
 		}
-		return u.AssignToMachine(m)
-
-		// TODO(rog) reinstate this code
-		// This works if two AssignUnits are racing each other,
-		// but might not if someone picks the machine we've
-		// just created and tries to assign a unit to that machine
-		// specifically. This should never happen in practice.
-		_, err = u.AssignToUnusedMachine()
-		return err
 	}
 	panic(fmt.Errorf("unknown unit assignment policy: %q", policy))
 }

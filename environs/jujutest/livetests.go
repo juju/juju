@@ -23,9 +23,10 @@ type LiveTests struct {
 	Environs *environs.Environs
 	Name     string
 	Env      environs.Environ
-	// ConsistencyDelay gives the length of time to wait before
-	// environ becomes logically consistent.
-	ConsistencyDelay time.Duration
+
+	// Attempt holds a strategy for waiting until the environment
+	// becomes logically consistent.
+	Attempt trivial.AttemptStrategy
 
 	// CanOpenState should be true if the testing environment allows
 	// the state to be opened after bootstrapping.
@@ -122,14 +123,13 @@ func (t *LiveTests) TestStartStop(c *C) {
 	err = t.Env.StopInstances([]environs.Instance{inst})
 	c.Assert(err, IsNil)
 
-	// Stopping may not be noticed at first due to eventual
-	// consistency. Repeat a few times to ensure we get the error.
-	for i := 0; i < 20; i++ {
+	// The machine may not be marked as shutting down
+	// immediately. Repeat a few times to ensure we get the error.
+	for a := t.Attempt.Start(); a.Next(); {
 		insts, err = t.Env.Instances([]string{id0})
 		if err != nil {
 			break
 		}
-		time.Sleep(0.25e9)
 	}
 	c.Assert(err, Equals, environs.ErrNoInstances)
 	c.Assert(insts, HasLen, 0)
@@ -211,6 +211,16 @@ func (t *LiveTests) TestPorts(c *C) {
 	c.Assert(err, IsNil)
 	ports, err = inst2.Ports(2)
 	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 89}})
+
+	// Check errors when acting on environment.
+	err = t.Env.OpenPorts([]state.Port{{"tcp", 80}})
+	c.Assert(err, ErrorMatches, `invalid firewall mode for opening ports on environment: "instance"`)
+
+	err = t.Env.ClosePorts([]state.Port{{"tcp", 80}})
+	c.Assert(err, ErrorMatches, `invalid firewall mode for closing ports on environment: "instance"`)
+
+	_, err = t.Env.Ports()
+	c.Assert(err, ErrorMatches, `invalid firewall mode for retrieving ports from environment: "instance"`)
 }
 
 func (t *LiveTests) TestGlobalPorts(c *C) {
@@ -265,13 +275,21 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 	ports, err = t.Env.Ports()
 	c.Assert(err, IsNil)
 	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 45}, {"tcp", 89}})
+
+	// Check errors when acting on instances.
+	err = inst1.OpenPorts(1, []state.Port{{"tcp", 80}})
+	c.Assert(err, ErrorMatches, `invalid firewall mode for opening ports on instance: "global"`)
+
+	err = inst1.ClosePorts(1, []state.Port{{"tcp", 80}})
+	c.Assert(err, ErrorMatches, `invalid firewall mode for closing ports on instance: "global"`)
+
+	_, err = inst1.Ports(1)
+	c.Assert(err, ErrorMatches, `invalid firewall mode for retrieving ports from instance: "global"`)
 }
 
 func (t *LiveTests) TestBootstrapMultiple(c *C) {
 	t.BootstrapOnce(c)
 
-	// Wait for a while to let eventual consistency catch up, hopefully.
-	time.Sleep(t.ConsistencyDelay)
 	err := t.Env.Bootstrap(false)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
@@ -577,30 +595,34 @@ func (t *LiveTests) TestFile(c *C) {
 	name := fmt.Sprint("testfile", time.Now().UnixNano())
 	storage := t.Env.Storage()
 
-	checkFileDoesNotExist(c, storage, name)
+	checkFileDoesNotExist(c, storage, name, t.Attempt)
 	checkPutFile(c, storage, name, contents)
-	checkFileHasContents(c, storage, name, contents)
+	checkFileHasContents(c, storage, name, contents, t.Attempt)
 	checkPutFile(c, storage, name, contents2) // check that we can overwrite the file
-	checkFileHasContents(c, storage, name, contents2)
+	checkFileHasContents(c, storage, name, contents2, t.Attempt)
 
 	// check that the listed contents include the
 	// expected name.
-	names, err := storage.List("")
-	c.Assert(err, IsNil)
 	found := false
-	for _, lname := range names {
-		if lname == name {
-			found = true
-			break
+	var names []string
+attempt:
+	for a := t.Attempt.Start(); a.Next(); {
+		var err error
+		names, err = storage.List("")
+		c.Assert(err, IsNil)
+		for _, lname := range names {
+			if lname == name {
+				found = true
+				break attempt
+			}
 		}
 	}
 	if !found {
 		c.Errorf("file name %q not found in file list %q", name, names)
 	}
-
-	err = storage.Remove(name)
+	err := storage.Remove(name)
 	c.Check(err, IsNil)
-	checkFileDoesNotExist(c, storage, name)
+	checkFileDoesNotExist(c, storage, name, t.Attempt)
 	// removing a file that does not exist should not be an error.
 	err = storage.Remove(name)
 	c.Check(err, IsNil)

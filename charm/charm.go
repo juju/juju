@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
+	"strings"
 )
 
 // The Charm interface is implemented by any type that
@@ -42,4 +44,13 @@ func InferRepository(curl *URL, localRepoPath string) (repo Repository, err erro
 		return nil, fmt.Errorf("unknown schema for charm URL %q", curl)
 	}
 	return
+}
+
+// validatePath is used when reading to ensure that charms contain no unwanted
+// files.
+func validatePath(p string) error {
+	if strings.HasPrefix(path.Clean(p), "hooks/juju-") {
+		return fmt.Errorf("reserved hook name: %q", p)
+	}
+	return nil
 }

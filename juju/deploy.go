@@ -24,7 +24,7 @@ func (conn *Conn) AddService(name string, ch *state.Charm) (*state.Service, erro
 	}
 	meta := ch.Meta()
 	for rname, rel := range meta.Peers {
-		ep := state.RelationEndpoint{
+		ep := state.Endpoint{
 			name,
 			rel.Interface,
 			rname,
