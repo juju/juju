@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/juju"
 )
 
+// AddRelationCommand adds relations between service endpoints.
 type AddRelationCommand struct {
 	EnvName   string
 	Endpoints []string

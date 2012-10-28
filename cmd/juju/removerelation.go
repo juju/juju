@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/log"
 )
 
+// RemoveRelationCommand causes an existing serive relation to be shut down.
 type RemoveRelationCommand struct {
 	EnvName   string
 	Endpoints []string
