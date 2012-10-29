@@ -348,7 +348,7 @@ func (s *FilterSuite) TestRelationsEvents(c *C) {
 func (s *FilterSuite) addRelation(c *C) *state.Relation {
 	rels, err := s.svc.Relations()
 	c.Assert(err, IsNil)
-	rel, err := s.State.AddRelation(state.RelationEndpoint{
+	rel, err := s.State.AddRelation(state.Endpoint{
 		"dummy", "ifce", fmt.Sprintf("rel%d", len(rels)), state.RolePeer, charm.ScopeGlobal,
 	})
 	c.Assert(err, IsNil)

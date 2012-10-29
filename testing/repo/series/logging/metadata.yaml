@@ -11,3 +11,6 @@ requires:
     logging-directory:
        interface: logging
        scope: container
+    info:
+       interface: juju-info
+       scope: container
