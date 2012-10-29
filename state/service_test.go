@@ -440,25 +440,9 @@ func (s *ServiceSuite) TestLifeWithRelations(c *C) {
 	err = s.State.RemoveService(s.service)
 	c.Assert(err, ErrorMatches, `cannot remove service "mysql": service is not dead`)
 
-	// Make the relation dead; check the service still can't become Dead.
-	err = rel.EnsureDead()
-	c.Assert(err, IsNil)
-	err = s.service.EnsureDead()
-	c.Assert(err, ErrorMatches, `cannot finish termination of service "mysql": service still has units and/or relations`)
-
-	// Check the service still can't be removed.
-	err = s.State.RemoveService(s.service)
-	c.Assert(err, ErrorMatches, `cannot remove service "mysql": service is not dead`)
-
-	// Remove the relation; check the service can become Dead.
-	err = s.State.RemoveRelation(rel)
-	c.Assert(err, IsNil)
-	err = s.service.EnsureDead()
-	c.Assert(err, IsNil)
-
-	// Check we can, at last, remove the service.
-	err = s.State.RemoveService(s.service)
-	c.Assert(err, IsNil)
+	// Start the relation Dying; check the service cannot become Dead yet.
+	// Destroy the relation by leaving scope; check the service can die.
+	c.Fatalf("write me")
 }
 
 func (s *ServiceSuite) TestReadUnitWithChangingState(c *C) {
@@ -819,16 +803,8 @@ func (s *ServiceSuite) TestWatchRelations(c *C) {
 	assertChange([]int{1})
 	assertNoChange()
 
-	// Set relation to dying; check change.
-	err = rel.EnsureDying()
-	c.Assert(err, IsNil)
-	s.State.StartSync()
-	assertChange([]int{0})
-
-	// Remove a relation; check change.
-	err = rel.EnsureDead()
-	c.Assert(err, IsNil)
-	err = s.State.RemoveRelation(rel)
+	// Destroy a relation; check change.
+	err = rel.Destroy()
 	c.Assert(err, IsNil)
 	s.State.StartSync()
 	assertChange([]int{0})
@@ -870,39 +846,40 @@ func (s *ServiceSuite) TestWatchRelations(c *C) {
 		relations[i], err = s.State.AddRelation(mysqlep, endpoints[i])
 		c.Assert(err, IsNil)
 	}
-	err = relations[4].EnsureDead()
-	c.Assert(err, IsNil)
-	err = s.State.RemoveRelation(relations[4])
+	err = relations[4].Destroy()
 	c.Assert(err, IsNil)
 	s.State.StartSync()
 	assertChange([]int{3, 4, 5, 6})
 	assertNoChange()
 
-	err = relations[0].EnsureDying()
-	c.Assert(err, IsNil)
-	err = relations[1].EnsureDying()
-	c.Assert(err, IsNil)
-	s.State.StartSync()
-	assertChange([]int{3, 4})
-	assertNoChange()
+	c.Fatalf("borken", rel)
+	/*
+	   err = relations[0].EnsureDying()
+	   c.Assert(err, IsNil)
+	   err = relations[1].EnsureDying()
+	   c.Assert(err, IsNil)
+	   s.State.StartSync()
+	   assertChange([]int{3, 4})
+	   assertNoChange()
 
-	for i := 0; i < 4; i++ {
-		err = relations[i].EnsureDead()
-		c.Assert(err, IsNil)
-		err = s.State.RemoveRelation(relations[i])
-		c.Assert(err, IsNil)
-	}
-	s.State.StartSync()
-	assertChange([]int{3, 4, 5, 6})
-	assertNoChange()
+	   for i := 0; i < 4; i++ {
+	       err = relations[i].EnsureDead()
+	       c.Assert(err, IsNil)
+	       err = s.State.RemoveRelation(relations[i])
+	       c.Assert(err, IsNil)
+	   }
+	   s.State.StartSync()
+	   assertChange([]int{3, 4, 5, 6})
+	   assertNoChange()
 
-	_, err = s.State.AddService("postgresql", s.charm)
-	ep := state.Endpoint{"postgresql", "ifce", "spam", state.RoleRequirer, charm.ScopeGlobal}
-	_, err = s.State.AddRelation(mysqlep, ep)
-	c.Assert(err, IsNil)
-	s.State.StartSync()
-	assertChange([]int{8})
-	assertNoChange()
+	   _, err = s.State.AddService("postgresql", s.charm)
+	   ep := state.Endpoint{"postgresql", "ifce", "spam", state.RoleRequirer, charm.ScopeGlobal}
+	   _, err = s.State.AddRelation(mysqlep, ep)
+	   c.Assert(err, IsNil)
+	   s.State.StartSync()
+	   assertChange([]int{8})
+	   assertNoChange()
+	*/
 }
 
 func removeAllUnits(c *C, s *state.Service) {

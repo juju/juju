@@ -562,26 +562,6 @@ func (s *State) Relation(id int) (*Relation, error) {
 	return newRelation(s, &doc), nil
 }
 
-// RemoveRelation removes the supplied relation and all its unit settings.
-func (s *State) RemoveRelation(r *Relation) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot remove relation %q", r.doc.Key)
-	if r.doc.Life != Dead {
-		return fmt.Errorf("relation is not dead")
-	}
-	if err := s.runner.Run(r.removeOps(D{{"life", Dead}}), "", nil); err != nil {
-		if err == txn.ErrAborted {
-			if e := r.Refresh(); IsNotFound(e) {
-				return nil
-			} else if e != nil {
-				return e
-			}
-			return fmt.Errorf("cannot remove relation %q: inconsistent state", r)
-		}
-		return err
-	}
-	return nil
-}
-
 // Unit returns a unit by name.
 func (s *State) Unit(name string) (*Unit, error) {
 	if !IsUnitName(name) {

@@ -70,35 +70,6 @@ func (r *Relation) Life() Life {
 	return r.doc.Life
 }
 
-// EnsureDying sets the relation lifecycle to Dying if it is Alive.
-// It does nothing otherwise.
-func (r *Relation) EnsureDying() error {
-	err := ensureDying(r.st, r.st.relations, r.doc.Key, "relation")
-	if err != nil {
-		return err
-	}
-	r.doc.Life = Dying
-	return nil
-}
-
-// EnsureDead sets the relation lifecycle to Dead if it is Alive or Dying,
-// and does nothing if already Dead.
-// It's an error to call it while there are still units within one or more
-// scopes in the relation.
-func (r *Relation) EnsureDead() error {
-	ops := []txn.Op{{
-		C:      r.st.relations.Name,
-		Id:     r.doc.Key,
-		Assert: D{{"unitcount", 0}},
-	}}
-	err := ensureDead(r.st, r.st.relations, r.doc.Key, "relation", ops, "relation still has member units")
-	if err != nil {
-		return err
-	}
-	r.doc.Life = Dead
-	return nil
-}
-
 // Destroy ensures that the relation will be removed at some point; if no units
 // are currently in scope, it will be removed immediately. It is an error to
 // destroy a relation more than once.
