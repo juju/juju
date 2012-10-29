@@ -68,7 +68,7 @@ func (c *Simple) Deploy(unit *state.Unit, info *state.Info, tools *state.Tools) 
 	if true || log.Debug {
 		debugFlag = " --debug"
 	}
-	logPath := filepath.Join("/var/log/juju", unit.EntityName()+"-agent.log")
+	logPath := filepath.Join("/var/log/juju", unit.EntityName()+".log")
 	cmd := fmt.Sprintf(
 		"%s unit"+
 			"%s --state-servers '%s'"+

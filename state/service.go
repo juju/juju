@@ -165,6 +165,50 @@ func (s *Service) CharmURL() (curl *charm.URL, force bool) {
 	return s.doc.CharmURL, s.doc.ForceCharm
 }
 
+// Endpoints returns the service's currently available relation endpoints.
+func (s *Service) Endpoints() (eps []Endpoint, err error) {
+	ch, _, err := s.Charm()
+	if err != nil {
+		return nil, err
+	}
+	collect := func(role RelationRole, rels map[string]charm.Relation) {
+		for name, rel := range rels {
+			eps = append(eps, Endpoint{
+				ServiceName:   s.doc.Name,
+				Interface:     rel.Interface,
+				RelationName:  name,
+				RelationRole:  role,
+				RelationScope: rel.Scope,
+			})
+		}
+	}
+	meta := ch.Meta()
+	collect(RolePeer, meta.Peers)
+	collect(RoleProvider, meta.Provides)
+	collect(RoleRequirer, meta.Requires)
+	collect(RoleProvider, map[string]charm.Relation{
+		"juju-info": charm.Relation{
+			Interface: "juju-info",
+			Scope:     charm.ScopeGlobal,
+		},
+	})
+	return eps, nil
+}
+
+// Endpoint returns the relation endpoint with the supplied name, if it exists.
+func (s *Service) Endpoint(relationName string) (Endpoint, error) {
+	eps, err := s.Endpoints()
+	if err != nil {
+		return Endpoint{}, err
+	}
+	for _, ep := range eps {
+		if ep.RelationName == relationName {
+			return ep, nil
+		}
+	}
+	return Endpoint{}, fmt.Errorf("service %q has no %q relation", s, relationName)
+}
+
 // SetCharm changes the charm for the service. New units will be started with
 // this charm, and existing units will be upgraded to use it. If force is true,
 // units will be upgraded even if they are in an error state.
