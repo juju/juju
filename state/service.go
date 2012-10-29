@@ -165,19 +165,14 @@ func (s *Service) CharmURL() (curl *charm.URL, force bool) {
 	return s.doc.CharmURL, s.doc.ForceCharm
 }
 
-// Endpoints returns the service's available endpoints. If seek is non-empty,
-// the results will be filtered such that only endpoints with matching names
-// will be returned.
-func (s *Service) Endpoints(seek string) (eps []Endpoint, err error) {
+// Endpoints returns the service's currently available relation endpoints.
+func (s *Service) Endpoints() (eps []Endpoint, err error) {
 	ch, _, err := s.Charm()
 	if err != nil {
 		return nil, err
 	}
 	collect := func(role RelationRole, rels map[string]charm.Relation) {
 		for name, rel := range rels {
-			if seek != "" && seek != name {
-				continue
-			}
 			eps = append(eps, Endpoint{
 				ServiceName:   s.doc.Name,
 				Interface:     rel.Interface,
@@ -197,10 +192,21 @@ func (s *Service) Endpoints(seek string) (eps []Endpoint, err error) {
 			Scope:     charm.ScopeGlobal,
 		},
 	})
-	if len(eps) == 0 {
-		return nil, fmt.Errorf("service %q has no %q relation", s, seek)
-	}
 	return eps, nil
+}
+
+// Endpoint returns the relation endpoint with the supplied name, if it exists.
+func (s *Service) Endpoint(relationName string) (Endpoint, error) {
+	eps, err := s.Endpoints()
+	if err != nil {
+		return Endpoint{}, err
+	}
+	for _, ep := range eps {
+		if ep.RelationName == relationName {
+			return ep, nil
+		}
+	}
+	return Endpoint{}, fmt.Errorf("service %q has no %q relation", s, relationName)
 }
 
 // SetCharm changes the charm for the service. New units will be started with

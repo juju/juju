@@ -14,7 +14,10 @@ type AddRelationCommand struct {
 }
 
 func (c *AddRelationCommand) Info() *cmd.Info {
-	return &cmd.Info{"add-relation", "<service>[:<relation>][ ...]", "add a service relation", ""}
+	return &cmd.Info{
+		"add-relation", "<service1>[:<relation name1>] <service2>[:<relation name2>]",
+		"add a relation between two services", "",
+	}
 }
 
 func (c *AddRelationCommand) Init(f *gnuflag.FlagSet, args []string) error {
@@ -23,12 +26,10 @@ func (c *AddRelationCommand) Init(f *gnuflag.FlagSet, args []string) error {
 		return err
 	}
 	args = f.Args()
-	switch len(args) {
-	case 1, 2:
-		c.Endpoints = args
-	default:
-		return fmt.Errorf("a relation must involve one or two services")
+	if len(args) != 2 {
+		return fmt.Errorf("a relation must involve two services")
 	}
+	c.Endpoints = args
 	return nil
 }
 

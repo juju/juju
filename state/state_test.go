@@ -233,17 +233,21 @@ func (s *StateSuite) TestAllServices(c *C) {
 }
 
 var inferEndpointsTests = []struct {
-	inputs [][]string
-	eps    []state.Endpoint
-	err    string
+	summary string
+	inputs  [][]string
+	eps     []state.Endpoint
+	err     string
 }{
 	{
-		inputs: [][]string{nil},
-		err:    `cannot relate 0 endpoints`,
+		summary: "insane args",
+		inputs:  [][]string{nil},
+		err:     `cannot relate 0 endpoints`,
 	}, {
-		inputs: [][]string{{"blah", "blur", "bleurgh"}},
-		err:    `cannot relate 3 endpoints`,
+		summary: "insane args",
+		inputs:  [][]string{{"blah", "blur", "bleurgh"}},
+		err:     `cannot relate 3 endpoints`,
 	}, {
+		summary: "invalid args",
 		inputs: [][]string{
 			{"ping:"},
 			{":pong"},
@@ -251,9 +255,11 @@ var inferEndpointsTests = []struct {
 		},
 		err: `invalid endpoint ".*"`,
 	}, {
-		inputs: [][]string{{"wooble"}},
-		err:    `service "wooble" not found`,
+		summary: "unknown service",
+		inputs:  [][]string{{"wooble"}},
+		err:     `service "wooble" not found`,
 	}, {
+		summary: "invalid relations",
 		inputs: [][]string{
 			{"lg", "lg"},
 			{"ms", "ms"},
@@ -263,6 +269,7 @@ var inferEndpointsTests = []struct {
 		},
 		err: `no relations found`,
 	}, {
+		summary: "valid peer relation",
 		inputs: [][]string{
 			{"rk1"},
 			{"rk1:ring"},
@@ -275,12 +282,14 @@ var inferEndpointsTests = []struct {
 			RelationScope: charm.ScopeGlobal,
 		}},
 	}, {
+		summary: "ambiguous provider/requirer relation",
 		inputs: [][]string{
 			{"ms", "wp"},
 			{"ms", "wp:db"},
 		},
 		err: `ambiguous relation: ".*" could refer to "ms:dev wp:db"; "ms:prod wp:db"`,
 	}, {
+		summary: "unambiguous provider/requirer relation",
 		inputs: [][]string{
 			{"ms:dev", "wp"},
 			{"ms:dev", "wp:db"},
@@ -299,8 +308,8 @@ var inferEndpointsTests = []struct {
 			RelationScope: charm.ScopeGlobal,
 		}},
 	}, {
-		// Explicit logging relation is preferred over implicit juju-info
-		inputs: [][]string{{"lg", "wp"}},
+		summary: "explicit logging relation is preferred over implicit juju-info",
+		inputs:  [][]string{{"lg", "wp"}},
 		eps: []state.Endpoint{{
 			ServiceName:   "lg",
 			Interface:     "logging",
@@ -315,7 +324,7 @@ var inferEndpointsTests = []struct {
 			RelationScope: charm.ScopeContainer,
 		}},
 	}, {
-		// Implict relations can be chosen explicitly
+		summary: "implict relations can be chosen explicitly",
 		inputs: [][]string{
 			{"lg:info", "wp"},
 			{"lg", "wp:juju-info"},
@@ -335,8 +344,8 @@ var inferEndpointsTests = []struct {
 			RelationScope: charm.ScopeGlobal,
 		}},
 	}, {
-		// Implicit relations will be chosen if there are no other options
-		inputs: [][]string{{"lg", "ms"}},
+		summary: "implicit relations will be chosen if there are no other options",
+		inputs:  [][]string{{"lg", "ms"}},
 		eps: []state.Endpoint{{
 			ServiceName:   "lg",
 			Interface:     "juju-info",
