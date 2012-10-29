@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"net/url"
 	"os"
@@ -24,7 +25,7 @@ func (conn *Conn) AddService(name string, ch *state.Charm) (*state.Service, erro
 	}
 	meta := ch.Meta()
 	for rname, rel := range meta.Peers {
-		ep := state.RelationEndpoint{
+		ep := state.Endpoint{
 			name,
 			rel.Interface,
 			rname,
@@ -91,6 +92,7 @@ func (conn *Conn) PutCharm(curl *charm.URL, repo charm.Repository, bumpRevision 
 	digest := hex.EncodeToString(h.Sum(nil))
 	storage := conn.Environ.Storage()
 	name := charm.Quote(curl.String())
+	log.Printf("writing charm to storage [%d bytes]", len(buf.Bytes()))
 	if err := storage.Put(name, &buf, int64(len(buf.Bytes()))); err != nil {
 		return nil, fmt.Errorf("cannot put charm: %v", err)
 	}
@@ -102,6 +104,7 @@ func (conn *Conn) PutCharm(curl *charm.URL, repo charm.Repository, bumpRevision 
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse storage URL: %v", err)
 	}
+	log.Printf("adding charm to state")
 	sch, err := conn.State.AddCharm(ch, curl, u, digest)
 	if err != nil {
 		return nil, fmt.Errorf("cannot add charm: %v", err)

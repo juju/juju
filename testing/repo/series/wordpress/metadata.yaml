@@ -6,6 +6,9 @@ provides:
     interface: http
     limit:
     optional: false
+  logging-dir:
+    interface: logging
+    scope: container
 requires:
   db:
     interface: mysql

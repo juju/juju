@@ -21,7 +21,7 @@ type Container interface {
 	Destroy(unit *state.Unit) error
 }
 
-// Simple is a Container that knows how deploy units within	
+// Simple is a Container that knows how deploy units within
 // the current machine.
 type Simple struct {
 	DataDir string
@@ -85,6 +85,7 @@ func (c *Simple) Deploy(unit *state.Unit, info *state.Info, tools *state.Tools) 
 		Service: *c.service(unit),
 		Desc:    "juju unit agent for " + unit.Name(),
 		Cmd:     cmd,
+		Out:     filepath.Join("/var/log/juju", unit.EntityName()+".out"),
 	}
 	dir := environs.AgentDir(c.DataDir, unit.EntityName())
 	if err := os.MkdirAll(dir, 0755); err != nil {
