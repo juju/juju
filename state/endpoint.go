@@ -48,24 +48,20 @@ func (ep Endpoint) String() string {
 
 // CanRelateTo returns whether a relation may be established between e and other.
 func (ep Endpoint) CanRelateTo(other Endpoint) bool {
-	if ep.Interface != other.Interface {
-		return false
-	}
-	if ep.RelationRole == RolePeer {
-		// Peer relations do not currently work with multiple endpoints.
-		return false
-	}
-	return ep.RelationRole.counterpartRole() == other.RelationRole
+	return (ep.ServiceName != other.ServiceName &&
+		ep.Interface == other.Interface &&
+		ep.RelationRole != RolePeer &&
+		ep.RelationRole.counterpartRole() == other.RelationRole)
 }
 
 // ImplementedBy returns whether the endpoint is implemented by the supplied charm.
 func (ep Endpoint) ImplementedBy(ch charm.Charm) bool {
+	if ep.isImplicit() {
+		return true
+	}
 	var m map[string]charm.Relation
 	switch ep.RelationRole {
 	case RoleProvider:
-		if ep.RelationName == "juju-info" && ep.Interface == "juju-info" {
-			return true
-		}
 		m = ch.Meta().Provides
 	case RoleRequirer:
 		m = ch.Meta().Requires
@@ -89,4 +85,12 @@ func (ep Endpoint) ImplementedBy(ch charm.Charm) bool {
 		}
 	}
 	return false
+}
+
+// isImplicit returns whether the endpoint is supplied by juju itself,
+// rather than by a charm.
+func (ep Endpoint) isImplicit() bool {
+	return (ep.RelationName == "juju-info" &&
+		ep.Interface == "juju-info" &&
+		ep.RelationRole == RoleProvider)
 }
