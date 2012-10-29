@@ -23,7 +23,7 @@ type Provisioner struct {
 	instances map[int]environs.Instance
 	// instance.Id => machine id
 	machines map[string]int
-	reload   chan bool
+	reload   chan<- bool
 }
 
 // NewProvisioner returns a new Provisioner. When new machines
@@ -34,7 +34,6 @@ func NewProvisioner(st *state.State) *Provisioner {
 		st:        st,
 		instances: make(map[int]environs.Instance),
 		machines:  make(map[string]int),
-		reload:    make(chan bool, 1),
 	}
 	go func() {
 		defer p.tomb.Done()

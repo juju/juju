@@ -340,8 +340,12 @@ func (s *ProvisionerSuite) TestProvisioningStopsOnlyUnknownInstances(c *C) {
 }
 
 func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublished(c *C) {
-	p := provisioner.NewProvisioner(s.State)
+	reload := make(chan bool)
+	p := provisioner.NewProvisionerWithReloadChan(s.State, reload)
 	defer s.stopProvisioner(c, p)
+
+	// note: we do not wait for <- reload here because on startup the PA does not
+	// fire SetConfig. This may be something we want to change in the future.
 
 	// place a new machine into the state
 	m, err := s.State.AddMachine(state.MachinerWorker)
@@ -369,7 +373,12 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	cfg, err = config.New(attrs)
 	c.Assert(err, IsNil)
 	err = s.State.SetEnvironConfig(cfg)
-	p.WaitConfigReload()
+
+	// wait for the PA to load the new configuration
+	select {
+	case <-reload:
+	case <-time.After(2 * time.Second):
+	}
 
 	// create a third machine
 	m, err = s.State.AddMachine(state.MachinerWorker)
