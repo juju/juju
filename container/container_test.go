@@ -75,7 +75,7 @@ func (s *suite) TestDeploy(c *C) {
 		` --log-file /var/log/juju/unit-dummy-0\.log`+
 		` --unit-name dummy/0`+
 		` --initial-password [a-zA-Z0-9+/]+`+
-		` >> /var/log/juju/unit-dummy-0\.out 2>&1\n`+
+		` >> /var/log/juju/unit-dummy-0\.log 2>&1\n`+
 		`(.|\n)*`)
 
 	// We can't check that the unit directory is created, because

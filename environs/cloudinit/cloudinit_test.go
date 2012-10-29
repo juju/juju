@@ -101,13 +101,13 @@ func (t *cloudinitTest) check(c *C, cfg *cloudinit.MachineConfig) {
 			" --state-servers 'localhost:37017' "+
 			".*--initial-password '"+t.cfg.StateInfo.Password+"'"+
 			".* --machine-id [0-9]+"+
-			".*>> /var/log/juju/.*out 2>&1")
+			".*>> /var/log/juju/.*log 2>&1")
 	} else {
 		t.checkScripts(c, "jujud machine"+
 			" --state-servers '"+strings.Join(t.cfg.StateInfo.Addrs, ",")+"'"+
 			".*--initial-password '"+t.cfg.StateInfo.Password+"'"+
 			" .*--machine-id [0-9]+"+
-			".*>> /var/log/juju/.*out 2>&1")
+			".*>> /var/log/juju/.*log 2>&1")
 	}
 }
 
