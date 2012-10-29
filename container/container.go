@@ -21,7 +21,7 @@ type Container interface {
 	Destroy(unit *state.Unit) error
 }
 
-// Simple is a Container that knows how deploy units within	
+// Simple is a Container that knows how deploy units within
 // the current machine.
 type Simple struct {
 	DataDir string
@@ -68,6 +68,7 @@ func (c *Simple) Deploy(unit *state.Unit, info *state.Info, tools *state.Tools) 
 	if true || log.Debug {
 		debugFlag = " --debug"
 	}
+	logPath := filepath.Join("/var/log/juju", unit.EntityName()+".log")
 	cmd := fmt.Sprintf(
 		"%s unit"+
 			"%s --state-servers '%s'"+
@@ -77,7 +78,7 @@ func (c *Simple) Deploy(unit *state.Unit, info *state.Info, tools *state.Tools) 
 		filepath.Join(toolsDir, "jujud"),
 		debugFlag,
 		strings.Join(info.Addrs, ","),
-		filepath.Join("/var/log/juju", unit.EntityName()+".log"),
+		logPath,
 		unit.Name(),
 		password)
 
@@ -85,6 +86,7 @@ func (c *Simple) Deploy(unit *state.Unit, info *state.Info, tools *state.Tools) 
 		Service: *c.service(unit),
 		Desc:    "juju unit agent for " + unit.Name(),
 		Cmd:     cmd,
+		Out:     logPath,
 	}
 	dir := environs.AgentDir(c.DataDir, unit.EntityName())
 	if err := os.MkdirAll(dir, 0755); err != nil {

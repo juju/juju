@@ -322,17 +322,22 @@ func (s *FilterSuite) TestRelationsEvents(c *C) {
 	assertChange([]int{0, 1})
 	assertNoChange()
 
-	// Add another relation, and change another's Life; check event.
+	// Add another relation, and change another's Life (by entering scope before
+	// Destroy, thereby setting therelation to Dying); check event.
 	s.addRelation(c)
-	err = rel0.EnsureDying()
+	ru0, err := rel0.Unit(s.unit)
+	c.Assert(err, IsNil)
+	err = s.unit.SetPrivateAddress("x.example.com")
+	c.Assert(err, IsNil)
+	err = ru0.EnterScope()
+	c.Assert(err, IsNil)
+	err = rel0.Destroy()
 	c.Assert(err, IsNil)
 	assertChange([]int{0, 2})
 	assertNoChange()
 
 	// Remove a relation completely; check event.
-	err = rel1.EnsureDead()
-	c.Assert(err, IsNil)
-	err = s.State.RemoveRelation(rel1)
+	err = rel1.Destroy()
 	c.Assert(err, IsNil)
 	assertChange([]int{1})
 	assertNoChange()

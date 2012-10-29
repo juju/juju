@@ -53,6 +53,8 @@ func (s *DeployerSuite) TestUpgrade(c *C) {
 	bun1 := s.bundle(c, func(path string) {
 		err := ioutil.WriteFile(filepath.Join(path, "some-file"), []byte("hello"), 0644)
 		c.Assert(err, IsNil)
+		err = os.Symlink("./some-file", filepath.Join(path, "a-symlink"))
+		c.Assert(err, IsNil)
 	})
 	err := d.Stage(bun1, corecharm.MustParseURL("cs:s/c-1"))
 	c.Assert(err, IsNil)
@@ -64,6 +66,8 @@ func (s *DeployerSuite) TestUpgrade(c *C) {
 	bun2 := s.bundle(c, func(path string) {
 		err := ioutil.WriteFile(filepath.Join(path, "some-file"), []byte("goodbye"), 0644)
 		c.Assert(err, IsNil)
+		err = ioutil.WriteFile(filepath.Join(path, "a-symlink"), []byte("not any more!"), 0644)
+		c.Assert(err, IsNil)
 	})
 	err = d.Stage(bun2, corecharm.MustParseURL("cs:s/c-2"))
 	c.Assert(err, IsNil)
@@ -74,6 +78,9 @@ func (s *DeployerSuite) TestUpgrade(c *C) {
 	data, err := ioutil.ReadFile(filepath.Join(target.Path(), "some-file"))
 	c.Assert(err, IsNil)
 	c.Assert(string(data), Equals, "goodbye")
+	data, err = ioutil.ReadFile(filepath.Join(target.Path(), "a-symlink"))
+	c.Assert(err, IsNil)
+	c.Assert(string(data), Equals, "not any more!")
 	url, err := charm.ReadCharmURL(target)
 	c.Assert(err, IsNil)
 	c.Assert(url, DeepEquals, corecharm.MustParseURL("cs:s/c-2"))

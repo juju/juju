@@ -329,9 +329,9 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(rel.Life(), Equals, state.Dying)
 
-	// Check we can't destroy more than once.
+	// Check a subsequent Destroy is ignored.
 	err = rel.Destroy()
-	c.Assert(err, ErrorMatches, `cannot destroy relation "peer:name": already being destroyed`)
+	c.Assert(err, IsNil)
 
 	// Check that we can't add a new unit now.
 	err = pr.ru2.EnterScope()
@@ -341,11 +341,11 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *C) {
 	_, err = pr.ru0.ReadSettings("peer/2")
 	c.Assert(err, ErrorMatches, `cannot read settings for unit "peer/2" in relation "peer:name": settings not found`)
 
-	// ru0 leaves the scope; check we still can't destroy the relation...
+	// ru0 leaves the scope; check that Destroy is still a no-op.
 	err = pr.ru0.LeaveScope()
 	c.Assert(err, IsNil)
 	err = rel.Destroy()
-	c.Assert(err, ErrorMatches, `cannot destroy relation "peer:name": already being destroyed`)
+	c.Assert(err, IsNil)
 
 	// Check that unit settings for the original unit still exist, and have
 	// not yet been marked for deletion.

@@ -55,7 +55,7 @@ func (s *ServiceSuite) TestServiceCharm(c *C) {
 
 func (s *ServiceSuite) TestEndpoints(c *C) {
 	// Check state for charm with no explicit relations.
-	eps, err := s.service.Endpoints("")
+	eps, err := s.service.Endpoints()
 	c.Assert(err, IsNil)
 	jujuInfo := state.Endpoint{
 		ServiceName:   "mysql",
@@ -66,11 +66,11 @@ func (s *ServiceSuite) TestEndpoints(c *C) {
 	}
 	c.Assert(eps, DeepEquals, []state.Endpoint{jujuInfo})
 	checkCommonNames := func() {
-		eps, err = s.service.Endpoints("juju-info")
+		ep, err := s.service.Endpoint("juju-info")
 		c.Assert(err, IsNil)
-		c.Assert(eps, DeepEquals, []state.Endpoint{jujuInfo})
+		c.Assert(ep, DeepEquals, jujuInfo)
 
-		_, err = s.service.Endpoints("voodoo-economy")
+		_, err = s.service.Endpoint("voodoo-economy")
 		c.Assert(err, ErrorMatches, `service "mysql" has no "voodoo-economy" relation`)
 	}
 	checkCommonNames()
@@ -103,7 +103,7 @@ peers:
 	err = s.service.SetCharm(sch, false)
 	c.Assert(err, IsNil)
 
-	// Check endpoint filtering.
+	// Check single endpoint.
 	checkCommonNames()
 	pressure := state.Endpoint{
 		ServiceName:   "mysql",
@@ -112,12 +112,12 @@ peers:
 		RelationRole:  state.RolePeer,
 		RelationScope: charm.ScopeGlobal,
 	}
-	eps, err = s.service.Endpoints("pressure")
+	ep, err := s.service.Endpoint("pressure")
 	c.Assert(err, IsNil)
-	c.Assert(eps, DeepEquals, []state.Endpoint{pressure})
+	c.Assert(ep, DeepEquals, pressure)
 
 	// Check the full list of endpoints.
-	eps, err = s.service.Endpoints("")
+	eps, err = s.service.Endpoints()
 	c.Assert(err, IsNil)
 	c.Assert(eps, HasLen, 5)
 	actual := map[string]state.Endpoint{}
@@ -412,13 +412,26 @@ func (s *ServiceSuite) TestLifeWithUnits(c *C) {
 }
 
 func (s *ServiceSuite) TestLifeWithRelations(c *C) {
-	ep1 := state.Endpoint{"mysql", "ifce", "blah1", state.RolePeer, charm.ScopeGlobal}
-	rel, err := s.State.AddRelation(ep1)
+	wordpress, err := s.State.AddService("wordpress", s.charm)
+	c.Assert(err, IsNil)
+	ep1 := state.Endpoint{"mysql", "ifce", "blah1", state.RoleProvider, charm.ScopeGlobal}
+	ep2 := state.Endpoint{"wordpress", "ifce", "blah1", state.RoleRequirer, charm.ScopeGlobal}
+	rel, err := s.State.AddRelation(ep1, ep2)
 	c.Assert(err, IsNil)
 
 	// Check we can't remove the service.
 	err = s.State.RemoveService(s.service)
 	c.Assert(err, ErrorMatches, `cannot remove service "mysql": service is not dead`)
+
+	// Join a unit to the wordpress side to keep the relation alive.
+	unit, err := wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	err = unit.SetPrivateAddress("blah.example.com")
+	c.Assert(err, IsNil)
+	ru, err := rel.Unit(unit)
+	c.Assert(err, IsNil)
+	err = ru.EnterScope()
+	c.Assert(err, IsNil)
 
 	// Set Dying, and check that the relation also becomes Dying.
 	err = s.service.EnsureDying()
@@ -428,8 +441,8 @@ func (s *ServiceSuite) TestLifeWithRelations(c *C) {
 	c.Assert(rel.Life(), Equals, state.Dying)
 
 	// Check that no new relations can be added.
-	ep2 := state.Endpoint{"mysql", "ifce", "blah2", state.RolePeer, charm.ScopeGlobal}
-	_, err = s.State.AddRelation(ep2)
+	ep3 := state.Endpoint{"mysql", "ifce", "blah2", state.RolePeer, charm.ScopeGlobal}
+	_, err = s.State.AddRelation(ep3)
 	c.Assert(err, ErrorMatches, `cannot add relation "mysql:blah2": service "mysql" is not alive`)
 
 	// Check the service can't yet become Dead.
@@ -441,8 +454,18 @@ func (s *ServiceSuite) TestLifeWithRelations(c *C) {
 	c.Assert(err, ErrorMatches, `cannot remove service "mysql": service is not dead`)
 
 	// Start the relation Dying; check the service cannot become Dead yet.
+	err = rel.Destroy()
+	c.Assert(err, IsNil)
+	err = s.service.EnsureDead()
+	c.Assert(err, ErrorMatches, `cannot finish termination of service "mysql": service still has units and/or relations`)
+
 	// Destroy the relation by leaving scope; check the service can die.
-	c.Fatalf("write me")
+	err = ru.LeaveScope()
+	c.Assert(err, IsNil)
+	err = s.service.EnsureDead()
+	c.Assert(err, IsNil)
+	err = s.State.RemoveService(s.service)
+	c.Assert(err, IsNil)
 }
 
 func (s *ServiceSuite) TestReadUnitWithChangingState(c *C) {
@@ -852,34 +875,50 @@ func (s *ServiceSuite) TestWatchRelations(c *C) {
 	assertChange([]int{3, 4, 5, 6})
 	assertNoChange()
 
-	c.Fatalf("borken", rel)
-	/*
-	   err = relations[0].EnsureDying()
-	   c.Assert(err, IsNil)
-	   err = relations[1].EnsureDying()
-	   c.Assert(err, IsNil)
-	   s.State.StartSync()
-	   assertChange([]int{3, 4})
-	   assertNoChange()
+	// Add units to a couple of relations to block their destruction...
+	unit, err := s.service.AddUnit()
+	c.Assert(err, IsNil)
+	err = unit.SetPrivateAddress("blah.example.com")
+	c.Assert(err, IsNil)
+	ru0, err := relations[0].Unit(unit)
+	c.Assert(err, IsNil)
+	err = ru0.EnterScope()
+	c.Assert(err, IsNil)
+	ru1, err := relations[1].Unit(unit)
+	c.Assert(err, IsNil)
+	err = ru1.EnterScope()
+	c.Assert(err, IsNil)
 
-	   for i := 0; i < 4; i++ {
-	       err = relations[i].EnsureDead()
-	       c.Assert(err, IsNil)
-	       err = s.State.RemoveRelation(relations[i])
-	       c.Assert(err, IsNil)
-	   }
-	   s.State.StartSync()
-	   assertChange([]int{3, 4, 5, 6})
-	   assertNoChange()
+	// ...and start destroying those relations, and check the change is observed.
+	err = relations[0].Destroy()
+	c.Assert(err, IsNil)
+	err = relations[1].Destroy()
+	c.Assert(err, IsNil)
+	s.State.StartSync()
+	assertChange([]int{3, 4})
+	assertNoChange()
 
-	   _, err = s.State.AddService("postgresql", s.charm)
-	   ep := state.Endpoint{"postgresql", "ifce", "spam", state.RoleRequirer, charm.ScopeGlobal}
-	   _, err = s.State.AddRelation(mysqlep, ep)
-	   c.Assert(err, IsNil)
-	   s.State.StartSync()
-	   assertChange([]int{8})
-	   assertNoChange()
-	*/
+	// Remove all remaining relations, check changes detected.
+	err = relations[2].Destroy()
+	c.Assert(err, IsNil)
+	err = relations[3].Destroy()
+	c.Assert(err, IsNil)
+	err = ru0.LeaveScope()
+	c.Assert(err, IsNil)
+	err = ru1.LeaveScope()
+	c.Assert(err, IsNil)
+	s.State.StartSync()
+	assertChange([]int{3, 4, 5, 6})
+	assertNoChange()
+
+	// Add a final relation.
+	_, err = s.State.AddService("postgresql", s.charm)
+	ep := state.Endpoint{"postgresql", "ifce", "spam", state.RoleRequirer, charm.ScopeGlobal}
+	_, err = s.State.AddRelation(mysqlep, ep)
+	c.Assert(err, IsNil)
+	s.State.StartSync()
+	assertChange([]int{8})
+	assertNoChange()
 }
 
 func removeAllUnits(c *C, s *state.Service) {
