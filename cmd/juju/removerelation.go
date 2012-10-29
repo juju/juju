@@ -5,7 +5,6 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/log"
 )
 
 // RemoveRelationCommand causes an existing serive relation to be shut down.
@@ -15,7 +14,10 @@ type RemoveRelationCommand struct {
 }
 
 func (c *RemoveRelationCommand) Info() *cmd.Info {
-	return &cmd.Info{"remove-relation", "<service>[:<relation>][ ...]", "remove a service relation", ""}
+	return &cmd.Info{
+		"remove-relation", "<service1>[:<relation name1>] <service2>[:<relation name2>]",
+		"remove a relation between two services", "",
+	}
 }
 
 func (c *RemoveRelationCommand) Init(f *gnuflag.FlagSet, args []string) error {
@@ -24,13 +26,10 @@ func (c *RemoveRelationCommand) Init(f *gnuflag.FlagSet, args []string) error {
 		return err
 	}
 	args = f.Args()
-	log.Printf("%#v", args)
-	switch len(args) {
-	case 1, 2:
-		c.Endpoints = args
-	default:
-		return fmt.Errorf("a relation must involve one or two services")
+	if len(args) != 2 {
+		return fmt.Errorf("a relation must involve two services")
 	}
+	c.Endpoints = args
 	return nil
 }
 

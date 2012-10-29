@@ -112,7 +112,7 @@ func (r *Relation) Destroy() (err error) {
 	// certain that corrupt state is indicated.
 	for attempt := 0; attempt < 5; attempt++ {
 		if r.doc.Life != Alive {
-			return fmt.Errorf("already being destroyed")
+			return nil
 		}
 		if r.doc.UnitCount == 0 {
 			ops := r.removeOps(D{{"unitcount", 0}})
@@ -139,7 +139,7 @@ func (r *Relation) Destroy() (err error) {
 			return err
 		}
 	}
-	return fmt.Errorf("possible corruption; please contact juju-dev@lists.ubuntu.com")
+	return fmt.Errorf("units being added during relation removal; shouldn't happen, please contact juju-dev@lists.ubuntu.com")
 }
 
 // removeOps returns the operations that must occur when a relation is removed.

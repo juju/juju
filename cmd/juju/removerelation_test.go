@@ -16,8 +16,9 @@ var _ = Suite(&RemoveRelationSuite{})
 
 func runRemoveRelation(c *C, args ...string) error {
 	com := &RemoveRelationCommand{}
-	err := com.Init(newFlagSet(), args)
-	c.Assert(err, IsNil)
+	if err := com.Init(newFlagSet(), args); err != nil {
+		return err
+	}
 	return com.Run(&cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}})
 }
 
@@ -30,19 +31,17 @@ func (s *RemoveRelationSuite) TestRemoveRelation(c *C) {
 	c.Assert(err, IsNil)
 	runAddRelation(c, "riak", "logging")
 
-	// Remove relations that exist.
-	err = runRemoveRelation(c, "riak")
-	c.Assert(err, IsNil)
+	// Remove a relation that exists.
 	err = runRemoveRelation(c, "logging", "riak")
 	c.Assert(err, IsNil)
 
-	// Remove relations that used to exist.
-	err = runRemoveRelation(c, "riak")
-	c.Assert(err, ErrorMatches, `relation "riak:ring" not found`)
+	// Remove a relation that used to exist.
 	err = runRemoveRelation(c, "riak", "logging")
 	c.Assert(err, ErrorMatches, `relation "logging:info riak:juju-info" not found`)
 
-	// Remove total gibberish.
+	// Invalid removes.
 	err = runRemoveRelation(c, "ping", "pong")
 	c.Assert(err, ErrorMatches, `service "ping" not found`)
+	err = runRemoveRelation(c, "riak")
+	c.Assert(err, ErrorMatches, `a relation must involve two services`)
 }
