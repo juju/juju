@@ -833,6 +833,9 @@ var machineUnitsWatchTests = []struct {
 		},
 		changes: []string{"log40/0", "mysql/0"},
 	},
+	// TODO(niemeyer): This is totally unmaintainable. Do not add more
+	// tests here. Create independent tests that explore specific
+	// functionality instead (see TestWatchUnitsUnassignFromMachine).
 }
 
 func (s *MachineSuite) TestWatchUnits(c *C) {
@@ -845,6 +848,8 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	select {
 	case got := <-unitWatcher.Changes():
 		c.Assert(got, DeepEquals, []string(nil))
+		// TODO(niemeyer): Where's the test checking that this
+		// returns anything other than nil?
 	case <-time.After(500 * time.Millisecond):
 		c.Fatalf("did not get change: %#v", []string(nil))
 	}
@@ -936,5 +941,76 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	case got := <-unitWatcher.Changes():
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
+	}
+}
+
+func (s *MachineSuite) TestWatchUnitsUnassignFromMachine(c *C) {
+	s.testWatchUnitsUnassign(c, false)
+}
+
+func (s *MachineSuite) TestWatchUnitsReassignToMachine(c *C) {
+	s.testWatchUnitsUnassign(c, true)
+}
+
+func (s *MachineSuite) testWatchUnitsUnassign(c *C, reassign bool) {
+	unitWatcher := s.machine.WatchUnits()
+	defer unitWatcher.Stop()
+
+	s.State.StartSync()
+	select {
+	case <-unitWatcher.Changes():
+	case <-time.After(5 * time.Second):
+		c.Fatalf("wacther didn't send initial event")
+	}
+
+	charm := s.AddTestingCharm(c, "dummy")
+	subcharm := s.AddTestingCharm(c, "logging")
+	service, err := s.State.AddService("myservice", charm)
+	c.Assert(err, IsNil)
+	subservice, err := s.State.AddService("mysubservice", subcharm)
+	c.Assert(err, IsNil)
+	principal, err := service.AddUnit()
+	c.Assert(err, IsNil)
+	_, err = subservice.AddUnitSubordinateTo(principal)
+	c.Assert(err, IsNil)
+	subordinate2, err := subservice.AddUnitSubordinateTo(principal)
+	c.Assert(err, IsNil)
+	err = principal.AssignToMachine(s.machine)
+	c.Assert(err, IsNil)
+
+	s.State.StartSync()
+
+	select {
+	case change := <-unitWatcher.Changes():
+		sort.Strings(change)
+		c.Assert(change, DeepEquals, []string{"myservice/0", "mysubservice/0", "mysubservice/1"})
+	case <-time.After(5 * time.Second):
+		c.Fatalf("wacther didn't send expected event")
+	}
+
+	// Remove one of the subordinate to make matters more interesting.
+	subordinate2.EnsureDead()
+	err = subservice.RemoveUnit(subordinate2)
+	c.Assert(err, IsNil)
+
+	machine, err := s.State.AddMachine(state.MachinerWorker)
+	c.Assert(err, IsNil)
+
+	err = principal.UnassignFromMachine()
+	c.Assert(err, IsNil)
+
+	if reassign {
+		err = principal.AssignToMachine(machine)
+		c.Assert(err, IsNil)
+	}
+
+	s.State.Sync()
+
+	select {
+	case change := <-unitWatcher.Changes():
+		sort.Strings(change)
+		c.Assert(change, DeepEquals, []string{"myservice/0", "mysubservice/0", "mysubservice/1"})
+	case <-time.After(5 * time.Second):
+		c.Fatalf("wacther didn't send expected event")
 	}
 }

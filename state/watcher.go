@@ -1304,11 +1304,22 @@ func (w *MachineUnitsWatcher) merge(pending []string, unit string) (new []string
 		return nil, err
 	}
 	life, known := w.known[unit]
-	if err == mgo.ErrNotFound {
+	if err == mgo.ErrNotFound || doc.Principal == "" && (doc.MachineId == nil || *doc.MachineId != w.machine.doc.Id) {
+		// Unit was removed or unassigned from w.machine.
 		if known {
+			delete(w.known, unit)
 			w.st.watcher.Unwatch(w.st.units.Name, unit, w.in)
 			if life != Dead {
-				return append(pending, unit), nil
+				pending = append(pending, unit)
+			}
+			for _, subunit := range doc.Subordinates {
+				if sublife, subknown := w.known[subunit]; subknown {
+					delete(w.known, subunit)
+					w.st.watcher.Unwatch(w.st.units.Name, subunit, w.in)
+					if sublife != Dead {
+						pending = append(pending, subunit)
+					}
+				}
 			}
 		}
 		return pending, nil
