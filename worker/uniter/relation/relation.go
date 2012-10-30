@@ -174,7 +174,7 @@ func ReadAllStateDirs(dirPath string) (dirs map[int]*StateDir, err error) {
 
 // Ensure creates the directory if it does not already exist.
 func (d *StateDir) Ensure() error {
-	return trivial.EnsureDir(d.path)
+	return os.MkdirAll(d.path, 0755)
 }
 
 // Write atomically writes to disk the relation state change in hi.
@@ -184,12 +184,7 @@ func (d *StateDir) Ensure() error {
 func (d *StateDir) Write(hi hook.Info) (err error) {
 	defer trivial.ErrorContextf(&err, "failed to write %q hook info for %q on state directory", hi.Kind, hi.RemoteUnit)
 	if hi.Kind == hook.RelationBroken {
-		if err = os.Remove(d.path); err != nil && !os.IsNotExist(err) {
-			return err
-		}
-		// If atomic delete succeeded, update own state.
-		d.state.Members = nil
-		return nil
+		return d.Remove()
 	}
 	name := strings.Replace(hi.RemoteUnit, "/", "-", 1)
 	path := filepath.Join(d.path, name)
@@ -212,6 +207,16 @@ func (d *StateDir) Write(hi hook.Info) (err error) {
 	} else {
 		d.state.ChangedPending = ""
 	}
+	return nil
+}
+
+// Remove removes the directory if it exists and is empty.
+func (d *StateDir) Remove() error {
+	if err := os.Remove(d.path); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	// If atomic delete succeeded, update own state.
+	d.state.Members = nil
 	return nil
 }
 

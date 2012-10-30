@@ -15,6 +15,76 @@ import (
 	"time"
 )
 
+// LiveTests contains tests that are designed to run against a live server
+// (e.g. Amazon EC2).  The Environ is opened once only for all the tests
+// in the suite, stored in Env, and Destroyed after the suite has completed.
+type LiveTests struct {
+	coretesting.LoggingSuite
+	Environs *environs.Environs
+	Name     string
+	Env      environs.Environ
+
+	// Attempt holds a strategy for waiting until the environment
+	// becomes logically consistent.
+	Attempt trivial.AttemptStrategy
+
+	// CanOpenState should be true if the testing environment allows
+	// the state to be opened after bootstrapping.
+	CanOpenState bool
+
+	// HasProvisioner should be true if the environment has
+	// a provisioning agent.
+	HasProvisioner bool
+
+	bootstrapped bool
+}
+
+func (t *LiveTests) SetUpSuite(c *C) {
+	t.LoggingSuite.SetUpSuite(c)
+	e, err := t.Environs.Open(t.Name)
+	c.Assert(err, IsNil, Commentf("opening environ %q", t.Name))
+	c.Assert(e, NotNil)
+	t.Env = e
+	c.Logf("environment configuration: %#v", publicAttrs(e))
+}
+
+func publicAttrs(e environs.Environ) map[string]interface{} {
+	cfg := e.Config()
+	secrets, err := e.Provider().SecretAttrs(cfg)
+	if err != nil {
+		panic(err)
+	}
+	attrs := cfg.AllAttrs()
+	for attr := range secrets {
+		delete(attrs, attr)
+	}
+	return attrs
+}
+
+func (t *LiveTests) TearDownSuite(c *C) {
+	if t.Env != nil {
+		err := t.Env.Destroy(nil)
+		c.Check(err, IsNil)
+		t.Env = nil
+	}
+	t.LoggingSuite.TearDownSuite(c)
+}
+
+func (t *LiveTests) BootstrapOnce(c *C) {
+	if t.bootstrapped {
+		return
+	}
+	err := t.Env.Bootstrap(true)
+	c.Assert(err, IsNil)
+	t.bootstrapped = true
+}
+
+func (t *LiveTests) Destroy(c *C) {
+	err := t.Env.Destroy(nil)
+	c.Assert(err, IsNil)
+	t.bootstrapped = false
+}
+
 // TestStartStop is similar to Tests.TestStartStop except
 // that it does not assume a pristine environment.
 func (t *LiveTests) TestStartStop(c *C) {
@@ -53,14 +123,13 @@ func (t *LiveTests) TestStartStop(c *C) {
 	err = t.Env.StopInstances([]environs.Instance{inst})
 	c.Assert(err, IsNil)
 
-	// Stopping may not be noticed at first due to eventual
-	// consistency. Repeat a few times to ensure we get the error.
-	for i := 0; i < 20; i++ {
+	// The machine may not be marked as shutting down
+	// immediately. Repeat a few times to ensure we get the error.
+	for a := t.Attempt.Start(); a.Next(); {
 		insts, err = t.Env.Instances([]string{id0})
 		if err != nil {
 			break
 		}
-		time.Sleep(0.25e9)
 	}
 	c.Assert(err, Equals, environs.ErrNoInstances)
 	c.Assert(insts, HasLen, 0)
@@ -142,11 +211,19 @@ func (t *LiveTests) TestPorts(c *C) {
 	c.Assert(err, IsNil)
 	ports, err = inst2.Ports(2)
 	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 89}})
+
+	// Check errors when acting on environment.
+	err = t.Env.OpenPorts([]state.Port{{"tcp", 80}})
+	c.Assert(err, ErrorMatches, `invalid firewall mode for opening ports on environment: "instance"`)
+
+	err = t.Env.ClosePorts([]state.Port{{"tcp", 80}})
+	c.Assert(err, ErrorMatches, `invalid firewall mode for closing ports on environment: "instance"`)
+
+	_, err = t.Env.Ports()
+	c.Assert(err, ErrorMatches, `invalid firewall mode for retrieving ports from environment: "instance"`)
 }
 
 func (t *LiveTests) TestGlobalPorts(c *C) {
-	c.Skip("Global firewall mode is unfinished")
-
 	// Change configuration.
 	oldConfig := t.Env.Config()
 	defer func() {
@@ -165,60 +242,54 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 	inst1, err := t.Env.StartInstance(1, testing.InvalidStateInfo(1), nil)
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst1})
-	ports, err := inst1.Ports(1)
+	ports, err := t.Env.Ports()
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
 
 	inst2, err := t.Env.StartInstance(2, testing.InvalidStateInfo(2), nil)
 	c.Assert(err, IsNil)
-	ports, err = inst2.Ports(2)
+	ports, err = t.Env.Ports()
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
 	defer t.Env.StopInstances([]environs.Instance{inst2})
 
-	err = inst1.OpenPorts(1, []state.Port{{"udp", 67}, {"tcp", 45}})
-	c.Assert(err, IsNil)
-	err = inst2.OpenPorts(2, []state.Port{{"tcp", 89}, {"tcp", 99}})
+	err = t.Env.OpenPorts([]state.Port{{"udp", 67}, {"tcp", 45}, {"tcp", 89}, {"tcp", 99}})
 	c.Assert(err, IsNil)
 
-	ports1, err := inst1.Ports(1)
+	ports, err = t.Env.Ports()
 	c.Assert(err, IsNil)
-	c.Assert(ports1, HasLen, 4)
-	ports2, err := inst2.Ports(2)
-	c.Assert(err, IsNil)
-	c.Assert(ports1, HasLen, 4)
-	c.Assert(ports1, DeepEquals, ports2)
+	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 45}, {"tcp", 89}, {"tcp", 99}, {"udp", 67}})
 
-	// Check that closing ports on one instance effect on both.
-	err = inst1.ClosePorts(1, []state.Port{{"tcp", 99}, {"udp", 67}})
+	// Check closing some ports.
+	err = t.Env.ClosePorts([]state.Port{{"tcp", 99}, {"udp", 67}})
 	c.Assert(err, IsNil)
 
-	ports1, err = inst1.Ports(1)
+	ports, err = t.Env.Ports()
 	c.Assert(err, IsNil)
-	c.Assert(ports1, HasLen, 2)
-	ports2, err = inst2.Ports(2)
-	c.Assert(err, IsNil)
-	c.Assert(ports1, HasLen, 2)
-	c.Assert(ports1, DeepEquals, ports2)
+	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 45}, {"tcp", 89}})
 
 	// Check that we can close ports that aren't there.
-	err = inst1.ClosePorts(1, []state.Port{{"tcp", 111}, {"udp", 222}})
+	err = t.Env.ClosePorts([]state.Port{{"tcp", 111}, {"udp", 222}})
 	c.Assert(err, IsNil)
 
-	ports1, err = inst1.Ports(1)
+	ports, err = t.Env.Ports()
 	c.Assert(err, IsNil)
-	c.Assert(ports1, HasLen, 2)
-	ports2, err = inst2.Ports(2)
-	c.Assert(err, IsNil)
-	c.Assert(ports1, HasLen, 2)
-	c.Assert(ports1, DeepEquals, ports2)
+	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 45}, {"tcp", 89}})
+
+	// Check errors when acting on instances.
+	err = inst1.OpenPorts(1, []state.Port{{"tcp", 80}})
+	c.Assert(err, ErrorMatches, `invalid firewall mode for opening ports on instance: "global"`)
+
+	err = inst1.ClosePorts(1, []state.Port{{"tcp", 80}})
+	c.Assert(err, ErrorMatches, `invalid firewall mode for closing ports on instance: "global"`)
+
+	_, err = inst1.Ports(1)
+	c.Assert(err, ErrorMatches, `invalid firewall mode for retrieving ports from instance: "global"`)
 }
 
 func (t *LiveTests) TestBootstrapMultiple(c *C) {
 	t.BootstrapOnce(c)
 
-	// Wait for a while to let eventual consistency catch up, hopefully.
-	time.Sleep(t.ConsistencyDelay)
 	err := t.Env.Bootstrap(false)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
@@ -524,30 +595,34 @@ func (t *LiveTests) TestFile(c *C) {
 	name := fmt.Sprint("testfile", time.Now().UnixNano())
 	storage := t.Env.Storage()
 
-	checkFileDoesNotExist(c, storage, name)
+	checkFileDoesNotExist(c, storage, name, t.Attempt)
 	checkPutFile(c, storage, name, contents)
-	checkFileHasContents(c, storage, name, contents)
+	checkFileHasContents(c, storage, name, contents, t.Attempt)
 	checkPutFile(c, storage, name, contents2) // check that we can overwrite the file
-	checkFileHasContents(c, storage, name, contents2)
+	checkFileHasContents(c, storage, name, contents2, t.Attempt)
 
 	// check that the listed contents include the
 	// expected name.
-	names, err := storage.List("")
-	c.Assert(err, IsNil)
 	found := false
-	for _, lname := range names {
-		if lname == name {
-			found = true
-			break
+	var names []string
+attempt:
+	for a := t.Attempt.Start(); a.Next(); {
+		var err error
+		names, err = storage.List("")
+		c.Assert(err, IsNil)
+		for _, lname := range names {
+			if lname == name {
+				found = true
+				break attempt
+			}
 		}
 	}
 	if !found {
 		c.Errorf("file name %q not found in file list %q", name, names)
 	}
-
-	err = storage.Remove(name)
+	err := storage.Remove(name)
 	c.Check(err, IsNil)
-	checkFileDoesNotExist(c, storage, name)
+	checkFileDoesNotExist(c, storage, name, t.Attempt)
 	// removing a file that does not exist should not be an error.
 	err = storage.Remove(name)
 	c.Check(err, IsNil)

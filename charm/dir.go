@@ -57,6 +57,16 @@ func ReadDir(path string) (dir *Dir, err error) {
 	} else {
 		dir.revision = dir.meta.OldRevision
 	}
+
+	fis, err := ioutil.ReadDir(dir.join("hooks"))
+	if err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
+	for _, fi := range fis {
+		if err := validatePath("hooks/" + fi.Name()); err != nil {
+			return nil, err
+		}
+	}
 	return dir, nil
 }
 

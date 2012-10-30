@@ -20,8 +20,8 @@ func LoadState(e environs.Environ) (*BootstrapState, error) {
 	return &BootstrapState{s.StateInstances}, nil
 }
 
-func GroupName(e environs.Environ) string {
-	return e.(*environ).groupName()
+func JujuGroupName(e environs.Environ) string {
+	return e.(*environ).jujuGroupName()
 }
 
 func MachineGroupName(e environs.Environ, machineId int) string {
@@ -95,6 +95,8 @@ func ShortTimeouts(short bool) {
 		longAttempt = originalLongAttempt
 	}
 }
+
+var ShortAttempt = &shortAttempt
 
 func EC2ErrCode(err error) string {
 	return ec2ErrCode(err)

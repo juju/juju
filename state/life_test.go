@@ -92,7 +92,7 @@ func (l *relationLife) id() (coll string, id interface{}) {
 
 func (l *relationLife) setup(s *LifeSuite, c *C) state.Living {
 	var err error
-	ep := state.RelationEndpoint{s.svc.Name(), "ifce", "baz", state.RolePeer, charm.ScopeGlobal}
+	ep := state.Endpoint{s.svc.Name(), "ifce", "baz", state.RolePeer, charm.ScopeGlobal}
 	l.rel, err = s.State.AddRelation(ep)
 	c.Assert(err, IsNil)
 	return l.rel
@@ -177,8 +177,10 @@ func (s *LifeSuite) prepareFixture(living state.Living, lfix lifeFixture, cached
 }
 
 func (s *LifeSuite) TestLifecycleStateChanges(c *C) {
-	for _, lfix := range []lifeFixture{&relationLife{}, &unitLife{}, &serviceLife{}, &machineLife{}} {
-		for _, v := range stateChanges {
+	for i, lfix := range []lifeFixture{&relationLife{}, &unitLife{}, &serviceLife{}, &machineLife{}} {
+		c.Logf("fixture %d", i)
+		for j, v := range stateChanges {
+			c.Logf("sequence %d", j)
 			living := lfix.setup(s, c)
 			s.prepareFixture(living, lfix, v.cached, v.dbinitial, c)
 			switch v.desired {

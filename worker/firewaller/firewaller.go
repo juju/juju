@@ -3,6 +3,7 @@ package firewaller
 import (
 	"fmt"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
@@ -24,6 +25,9 @@ type Firewaller struct {
 	portsChange     chan *portsChange
 	serviceds       map[string]*serviceData
 	exposedChange   chan *exposedChange
+	globalMode      bool
+	globalPortOpen  map[state.Port]bool
+	globalPortRef   map[state.Port]int
 }
 
 // NewFirewaller returns a new Firewaller.
@@ -53,6 +57,11 @@ func (fw *Firewaller) loop() error {
 	fw.environ, err = worker.WaitForEnviron(fw.environWatcher, fw.tomb.Dying())
 	if err != nil {
 		return err
+	}
+	if fw.environ.Config().FirewallMode() == config.FwGlobal {
+		if err := fw.initGlobalMode(); err != nil {
+			return err
+		}
 	}
 	for {
 		select {
@@ -129,6 +138,61 @@ func (fw *Firewaller) loop() error {
 	panic("not reached")
 }
 
+// initGlobalMode retrieves the ports that need to be open globally,
+// opens them and also closes not needed open ports left from an
+// earlier run.
+func (fw *Firewaller) initGlobalMode() error {
+	fw.globalMode = true
+	fw.globalPortOpen = make(map[state.Port]bool)
+	fw.globalPortRef = make(map[state.Port]int)
+	initialPorts, err := fw.environ.Ports()
+	if err != nil {
+		return err
+	}
+	// Retrieve ports to be open from state.
+	services, err := fw.st.AllServices()
+	if err != nil {
+		return err
+	}
+	for _, service := range services {
+		if !service.IsExposed() {
+			continue
+		}
+		units, err := service.AllUnits()
+		if err != nil {
+			return err
+		}
+		for _, unit := range units {
+			ports := unit.OpenedPorts()
+			for _, port := range ports {
+				fw.globalPortOpen[port] = true
+			}
+		}
+	}
+	openedPorts := []state.Port{}
+	for port := range fw.globalPortOpen {
+		openedPorts = append(openedPorts, port)
+	}
+	// Check which ports to open or to close.
+	toOpen := diff(openedPorts, initialPorts)
+	toClose := diff(initialPorts, openedPorts)
+	if len(toOpen) > 0 {
+		if err := fw.environ.OpenPorts(toOpen); err != nil {
+			return err
+		}
+		state.SortPorts(toOpen)
+		log.Printf("firewaller: initially opened ports %v in environment", toOpen)
+	}
+	if len(toClose) > 0 {
+		if err := fw.environ.ClosePorts(toClose); err != nil {
+			return err
+		}
+		state.SortPorts(toClose)
+		log.Printf("firewaller: initially closed ports %v in environment", toClose)
+	}
+	return nil
+}
+
 // flushUnits opens and closes ports for the passed unit data.
 func (fw *Firewaller) flushUnits(unitds []*unitData) error {
 	machineds := map[int]*machineData{}
@@ -161,7 +225,55 @@ func (fw *Firewaller) flushMachine(machined *machineData) error {
 	toOpen := diff(want, machined.ports)
 	toClose := diff(machined.ports, want)
 	machined.ports = want
+	if fw.globalMode {
+		return fw.flushGlobalPorts(toOpen, toClose)
+	}
+	return fw.flushInstancePorts(machined, toOpen, toClose)
+}
 
+// flushGlobalPorts opens and closes global ports in the environment.
+// It keeps a reference count for ports so that only 0-to-1 and 1-to-0 events
+// modify the environment.
+func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose []state.Port) error {
+	// Filter which ports are really to open or close.
+	var toOpen, toClose []state.Port
+	for _, port := range rawOpen {
+		if !fw.globalPortOpen[port] {
+			toOpen = append(toOpen, port)
+			fw.globalPortOpen[port] = true
+		}
+		fw.globalPortRef[port]++
+	}
+	for _, port := range rawClose {
+		fw.globalPortRef[port]--
+		if fw.globalPortRef[port] == 0 {
+			toClose = append(toClose, port)
+			delete(fw.globalPortOpen, port)
+			delete(fw.globalPortRef, port)
+		}
+	}
+	// Open and close the ports.
+	if len(toOpen) > 0 {
+		if err := fw.environ.OpenPorts(toOpen); err != nil {
+			// TODO(mue) Add local retry logic.
+			return err
+		}
+		state.SortPorts(toOpen)
+		log.Printf("firewaller: opened ports %v in environment", toOpen)
+	}
+	if len(toClose) > 0 {
+		if err := fw.environ.ClosePorts(toClose); err != nil {
+			// TODO(mue) Add local retry logic.
+			return err
+		}
+		state.SortPorts(toClose)
+		log.Printf("firewaller: closed ports %v in environment", toClose)
+	}
+	return nil
+}
+
+// flushGlobalPorts opens and closes ports global on the machine.
+func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose []state.Port) error {
 	// If there's nothing to do, do nothing.
 	// This is important because when a machine is first created,
 	// it will have no instance id but also no open ports -
@@ -169,7 +281,6 @@ func (fw *Firewaller) flushMachine(machined *machineData) error {
 	if len(toOpen) == 0 && len(toClose) == 0 {
 		return nil
 	}
-	// Open and close the ports.
 	m, err := machined.machine()
 	if state.IsNotFound(err) {
 		return nil
@@ -185,9 +296,9 @@ func (fw *Firewaller) flushMachine(machined *machineData) error {
 	if err != nil {
 		return err
 	}
+	// Open and close the ports.
 	if len(toOpen) > 0 {
-		err = instances[0].OpenPorts(machined.id, toOpen)
-		if err != nil {
+		if err := instances[0].OpenPorts(machined.id, toOpen); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}
@@ -195,8 +306,7 @@ func (fw *Firewaller) flushMachine(machined *machineData) error {
 		log.Printf("worker/firewaller: opened ports %v on machine %d", toOpen, machined.id)
 	}
 	if len(toClose) > 0 {
-		err = instances[0].ClosePorts(machined.id, toClose)
-		if err != nil {
+		if err := instances[0].ClosePorts(machined.id, toClose); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}

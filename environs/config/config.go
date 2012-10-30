@@ -12,7 +12,10 @@ type FirewallMode string
 
 const (
 	// FwDefault is the environment-specific default mode. 
-	FwDefault FirewallMode = "default"
+	FwDefault FirewallMode = ""
+
+	// FwInstance requests the use of an individual firewall per instance.
+	FwInstance FirewallMode = "instance"
 
 	// FwGlobal requests the use of a single firewall group for all machines.
 	// When ports are opened for one machine, all machines will have the same
@@ -74,7 +77,10 @@ func New(attrs map[string]interface{}) (*Config, error) {
 
 	// Check firewall mode.
 	firewallMode := FirewallMode(c.m["firewall-mode"].(string))
-	if firewallMode != FwDefault && firewallMode != FwGlobal {
+	switch firewallMode {
+	case FwDefault, FwInstance, FwGlobal:
+		// Valid mode.
+	default:
 		return nil, fmt.Errorf("invalid firewall mode in environment configuration: %q", firewallMode)
 	}
 

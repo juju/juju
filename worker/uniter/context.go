@@ -151,17 +151,22 @@ func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string)
 	ps := exec.Command(filepath.Join(charmDir, "hooks", hookName))
 	ps.Env = ctx.hookVars(charmDir, toolsDir, socketPath)
 	ps.Dir = charmDir
-	outReader, err := ps.StdoutPipe()
+	outReader, outWriter, err := os.Pipe()
 	if err != nil {
-		return err
+		return fmt.Errorf("cannot make logging pipe: %v", err)
 	}
-	ps.Stderr = ps.Stdout
+	ps.Stdout = outWriter
+	ps.Stderr = outWriter
 	logger := &hookLogger{
 		r:    outReader,
 		done: make(chan struct{}),
 	}
 	go logger.run()
-	err = ps.Run()
+	err = ps.Start()
+	outWriter.Close()
+	if err == nil {
+		err = ps.Wait()
+	}
 	logger.stop()
 	if ee, ok := err.(*exec.Error); ok && err != nil {
 		if os.IsNotExist(ee.Err) {

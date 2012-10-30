@@ -159,6 +159,15 @@ func (s *BundleSuite) TestBundleSetRevision(c *C) {
 	c.Assert(dir.Revision(), Equals, 42)
 }
 
+func (s *BundleSuite) TestBundleWithBadHooks(c *C) {
+	path := testing.Charms.ClonedDirPath(c.MkDir(), "series", "dummy")
+	err := ioutil.WriteFile(filepath.Join(path, "hooks", "juju-blah"), nil, 0755)
+	c.Assert(err, IsNil)
+	bun := extBundleDir(c, path)
+	_, err = charm.ReadBundle(bun)
+	c.Assert(err, ErrorMatches, `reserved hook name: "hooks/juju-blah"`)
+}
+
 func (s *BundleSuite) TestExpandToWithBadLink(c *C) {
 	charmDir := testing.Charms.ClonedDirPath(c.MkDir(), "series", "dummy")
 	badLink := filepath.Join(charmDir, "hooks", "badlink")

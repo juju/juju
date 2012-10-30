@@ -48,7 +48,7 @@ func (d *GitDir) Exists() (bool, error) {
 
 // Init ensures that a git repository exists in the directory.
 func (d *GitDir) Init() error {
-	if err := trivial.EnsureDir(d.path); err != nil {
+	if err := os.MkdirAll(d.path, 0755); err != nil {
 		return err
 	}
 	return d.cmd("init")

@@ -293,7 +293,15 @@ func (p *environProvider) Validate(cfg, old *config.Config) (valid *config.Confi
 	if err != nil {
 		return nil, err
 	}
-	return cfg.Apply(v.(map[string]interface{}))
+	attrs := v.(map[string]interface{})
+	switch cfg.FirewallMode() {
+	case config.FwDefault:
+		attrs["firewall-mode"] = config.FwInstance
+	case config.FwInstance, config.FwGlobal:
+	default:
+		return nil, fmt.Errorf("unsupported firewall mode: %q", cfg.FirewallMode())
+	}
+	return cfg.Apply(attrs)
 }
 
 func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
@@ -373,6 +381,10 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 	if err := e.checkBroken("Bootstrap"); err != nil {
 		return err
 	}
+	password := e.Config().AdminSecret()
+	if password == "" {
+		return fmt.Errorf("admin-secret is required for bootstrap")
+	}
 	var tools *state.Tools
 	var err error
 	if uploadTools {
@@ -403,10 +415,8 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 		if err != nil {
 			panic(err)
 		}
-		if password := e.Config().AdminSecret(); password != "" {
-			if err := st.SetAdminPassword(trivial.PasswordHash(password)); err != nil {
-				return err
-			}
+		if err := st.SetAdminPassword(trivial.PasswordHash(password)); err != nil {
+			return err
 		}
 		if err := st.Close(); err != nil {
 			panic(err)
@@ -447,6 +457,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	}
 	e.ecfgMutex.Lock()
 	e.ecfgUnlocked = ecfg
+	e.state.firewallMode = ecfg.FirewallMode()
 	e.ecfgMutex.Unlock()
 	return nil
 }
@@ -556,6 +567,46 @@ func (e *environ) AllInstances() ([]environs.Instance, error) {
 	return insts, nil
 }
 
+func (e *environ) OpenPorts(ports []state.Port) error {
+	e.state.mu.Lock()
+	defer e.state.mu.Unlock()
+	if e.state.firewallMode != config.FwGlobal {
+		return fmt.Errorf("invalid firewall mode for opening ports on environment: %q",
+			e.state.firewallMode)
+	}
+	for _, p := range ports {
+		e.state.globalPorts[p] = true
+	}
+	return nil
+}
+
+func (e *environ) ClosePorts(ports []state.Port) error {
+	e.state.mu.Lock()
+	defer e.state.mu.Unlock()
+	if e.state.firewallMode != config.FwGlobal {
+		return fmt.Errorf("invalid firewall mode for closing ports on environment: %q",
+			e.state.firewallMode)
+	}
+	for _, p := range ports {
+		delete(e.state.globalPorts, p)
+	}
+	return nil
+}
+
+func (e *environ) Ports() (ports []state.Port, err error) {
+	e.state.mu.Lock()
+	defer e.state.mu.Unlock()
+	if e.state.firewallMode != config.FwGlobal {
+		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from environment: %q",
+			e.state.firewallMode)
+	}
+	for p := range e.state.globalPorts {
+		ports = append(ports, p)
+	}
+	state.SortPorts(ports)
+	return
+}
+
 func (*environ) Provider() environs.EnvironProvider {
 	return &providerInstance
 }
@@ -583,6 +634,10 @@ func (inst *instance) WaitDNSName() (string, error) {
 func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
 	defer delay()
 	log.Printf("environs/dummy: openPorts %d, %#v", machineId, ports)
+	if inst.state.firewallMode != config.FwInstance {
+		return fmt.Errorf("invalid firewall mode for opening ports on instance: %q",
+			inst.state.firewallMode)
+	}
 	if inst.machineId != machineId {
 		panic(fmt.Errorf("OpenPorts with mismatched machine id, expected %d got %d", inst.machineId, machineId))
 	}
@@ -594,15 +649,18 @@ func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
 		InstanceId: inst.Id(),
 		Ports:      ports,
 	}
-	m := inst.portsMap()
 	for _, p := range ports {
-		m[p] = true
+		inst.ports[p] = true
 	}
 	return nil
 }
 
 func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
 	defer delay()
+	if inst.state.firewallMode != config.FwInstance {
+		return fmt.Errorf("invalid firewall mode for closing ports on instance: %q",
+			inst.state.firewallMode)
+	}
 	if inst.machineId != machineId {
 		panic(fmt.Errorf("ClosePorts with mismatched machine id, expected %d got %d", inst.machineId, machineId))
 	}
@@ -614,39 +672,28 @@ func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
 		InstanceId: inst.Id(),
 		Ports:      ports,
 	}
-	m := inst.portsMap()
 	for _, p := range ports {
-		delete(m, p)
+		delete(inst.ports, p)
 	}
 	return nil
 }
 
 func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
 	defer delay()
+	if inst.state.firewallMode != config.FwInstance {
+		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from instance: %q",
+			inst.state.firewallMode)
+	}
 	if inst.machineId != machineId {
 		panic(fmt.Errorf("Ports with mismatched machine id, expected %d got %d", inst.machineId, machineId))
 	}
 	inst.state.mu.Lock()
 	defer inst.state.mu.Unlock()
-	m := inst.portsMap()
-	for p := range m {
+	for p := range inst.ports {
 		ports = append(ports, p)
 	}
 	state.SortPorts(ports)
 	return
-}
-
-// portsMap returns the map of open ports for the instance, taking
-// into account the firewall mode in the environment configuration.
-func (inst *instance) portsMap() map[state.Port]bool {
-	switch inst.state.firewallMode {
-	case config.FwDefault:
-		// dummy simulates ec2 by default: per instance security groups.
-		return inst.ports
-	case config.FwGlobal:
-		return inst.state.globalPorts
-	}
-	panic("unknown firewall mode: " + string(inst.state.firewallMode))
 }
 
 // providerDelay controls the delay before dummy responds.

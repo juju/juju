@@ -25,12 +25,14 @@ https://juju.ubuntu.com/
 // provides an entry point for testing with arbitrary command line arguments.
 func Main(args []string) {
 	juju := &cmd.SuperCommand{Name: "juju", Doc: jujuDoc, Log: &cmd.Log{}}
+	juju.Register(&AddRelationCommand{})
 	juju.Register(&AddUnitCommand{})
 	juju.Register(&BootstrapCommand{})
 	juju.Register(&DeployCommand{})
 	juju.Register(&DestroyEnvironmentCommand{})
 	juju.Register(&ExposeCommand{})
 	juju.Register(&GetCommand{})
+	juju.Register(&RemoveUnitCommand{})
 	juju.Register(&SetCommand{})
 	juju.Register(&SCPCommand{})
 	juju.Register(&SSHCommand{})

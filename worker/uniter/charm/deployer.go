@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/trivial"
 	"os"
 	"path/filepath"
 	"time"
@@ -29,7 +28,7 @@ func NewDeployer(path string) *Deployer {
 // Stage causes subsequent calls to Deploy to deploy the supplied charm.
 func (d *Deployer) Stage(bun *charm.Bundle, url *charm.URL) error {
 	// Read present state of current.
-	if err := trivial.EnsureDir(d.path); err != nil {
+	if err := os.MkdirAll(d.path, 0755); err != nil {
 		return err
 	}
 	defer d.collectOrphans()
