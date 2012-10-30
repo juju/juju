@@ -14,14 +14,12 @@ var configChecker = schema.StrictFieldMap(
 		"region":         schema.String(),
 		"control-bucket": schema.String(),
 		"public-bucket":  schema.String(),
-		"admin-secret":   schema.String(), // Unused. Here just for compatibility.
 	},
 	schema.Defaults{
 		"access-key":    "",
 		"secret-key":    "",
 		"region":        "us-east-1",
 		"public-bucket": "",
-		"admin-secret":  schema.Omit,
 	},
 )
 
