@@ -75,7 +75,6 @@ func (d *BundlesDir) download(sch *state.Charm, abort <-chan struct{}) (err erro
 				)
 			}
 			log.Printf("worker/uniter/charm: download verified")
-			if err := trivial.EnsureDir(d.path); err != nil {
 			if err := os.MkdirAll(d.path, 0755); err != nil {
 				return err
 			}
