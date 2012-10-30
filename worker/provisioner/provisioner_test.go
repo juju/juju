@@ -340,12 +340,8 @@ func (s *ProvisionerSuite) TestProvisioningStopsOnlyUnknownInstances(c *C) {
 }
 
 func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublished(c *C) {
-	reload := make(chan bool)
-	p := provisioner.NewProvisionerWithReloadChan(s.State, reload)
+	p := provisioner.NewProvisioner(s.State)
 	defer s.stopProvisioner(c, p)
-
-	// note: we do not wait for <- reload here because on startup the PA does not
-	// fire SetConfig. This may be something we want to change in the future.
 
 	// place a new machine into the state
 	m, err := s.State.AddMachine(state.MachinerWorker)
@@ -366,6 +362,10 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	err = s.fixEnvironment()
 	c.Assert(err, IsNil)
 
+	// insert our observer
+	cfgObserver := make(chan *config.Config, 1)
+	p.SetObserver(cfgObserver)
+
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, IsNil)
 	attrs := cfg.AllAttrs()
@@ -376,8 +376,13 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 
 	// wait for the PA to load the new configuration
 	select {
-	case <-reload:
-	case <-time.After(2 * time.Second):
+	case <-cfgObserver:
+	case <-time.After(10 * time.Second):
+		// yes, it really does take this long to ack the change in 
+		// config.
+		// TODO(dfc) find out why it takes 4-5 seconds to ack a 
+		// config change.
+		c.Fatalf("PA did not action config change")
 	}
 
 	// create a third machine

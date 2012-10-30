@@ -2,6 +2,8 @@ package provisioner
 
 import (
 	"fmt"
+	"sync"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
@@ -23,7 +25,23 @@ type Provisioner struct {
 	instances map[int]environs.Instance
 	// instance.Id => machine id
 	machines map[string]int
-	reload   chan<- bool
+
+	configObserver
+}
+
+type configObserver struct {
+	sync.Mutex
+	observer chan<- *config.Config
+}
+
+// notify notifies the observer of a configuration change.
+func (o *configObserver) notify(cfg *config.Config) {
+	o.Lock()
+	select {
+	case o.observer <- cfg:
+	default:
+	}
+	o.Unlock()
 }
 
 // NewProvisioner returns a new Provisioner. When new machines
@@ -75,7 +93,7 @@ func (p *Provisioner) loop() error {
 			if !ok {
 				return watcher.MustErr(environWatcher)
 			}
-			if err := p.SetConfig(cfg); err != nil {
+			if err := p.configChanged(cfg); err != nil {
 				log.Printf("provisioner: loaded invalid environment configuration: %v", err)
 			}
 		case ids, ok := <-machinesWatcher.Changes():
@@ -92,14 +110,11 @@ func (p *Provisioner) loop() error {
 	panic("not reached")
 }
 
-func (p *Provisioner) SetConfig(config *config.Config) error {
+func (p *Provisioner) configChanged(config *config.Config) error {
 	if err := p.environ.SetConfig(config); err != nil {
 		return err
 	}
-	select {
-	case p.reload <- true:
-	default:
-	}
+	p.configObserver.notify(config)
 	return nil
 }
 
