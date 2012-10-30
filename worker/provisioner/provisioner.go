@@ -93,7 +93,7 @@ func (p *Provisioner) loop() error {
 			if !ok {
 				return watcher.MustErr(environWatcher)
 			}
-			if err := p.configChanged(cfg); err != nil {
+			if err := p.setConfig(cfg); err != nil {
 				log.Printf("provisioner: loaded invalid environment configuration: %v", err)
 			}
 		case ids, ok := <-machinesWatcher.Changes():
@@ -110,7 +110,9 @@ func (p *Provisioner) loop() error {
 	panic("not reached")
 }
 
-func (p *Provisioner) configChanged(config *config.Config) error {
+// setConfig updates the environment configuration and notifies
+// the configuration observer.
+func (p *Provisioner) setConfig(config *config.Config) error {
 	if err := p.environ.SetConfig(config); err != nil {
 		return err
 	}
