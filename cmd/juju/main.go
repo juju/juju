@@ -33,6 +33,7 @@ func Main(args []string) {
 	juju.Register(&ExposeCommand{})
 	juju.Register(&GetCommand{})
 	juju.Register(&RemoveUnitCommand{})
+	juju.Register(&ResolvedCommand{})
 	juju.Register(&SetCommand{})
 	juju.Register(&SCPCommand{})
 	juju.Register(&SSHCommand{})
