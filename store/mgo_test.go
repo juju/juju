@@ -35,9 +35,7 @@ func (s *MgoSuite) SetUpSuite(c *C) {
 	s.server.Stdout = &s.output
 	s.server.Stderr = &s.output
 	err := s.server.Start()
-	if err != nil {
-		panic(err)
-	}
+	c.Assert(err, IsNil)
 }
 
 func (s *MgoSuite) TearDownSuite(c *C) {
@@ -47,20 +45,18 @@ func (s *MgoSuite) TearDownSuite(c *C) {
 
 func (s *MgoSuite) SetUpTest(c *C) {
 	err := DropAll("localhost:50017")
-	if err != nil {
-		panic(err)
-	}
+	c.Assert(err, IsNil)
 	mgo.SetLogger(c)
 	mgo.ResetStats()
 	s.Addr = "127.0.0.1:50017"
 	s.Session, err = mgo.Dial(s.Addr)
-	if err != nil {
-		panic(err)
-	}
+	c.Assert(err, IsNil)
 }
 
 func (s *MgoSuite) TearDownTest(c *C) {
-	s.Session.Close()
+	if s.Session != nil {
+		s.Session.Close()
+	}
 	for i := 0; ; i++ {
 		stats := mgo.GetStats()
 		if stats.SocketsInUse == 0 && stats.SocketsAlive == 0 {
