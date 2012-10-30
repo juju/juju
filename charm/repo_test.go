@@ -251,8 +251,8 @@ func (s *LocalRepoSuite) TestMissingRepo(c *C) {
 }
 
 func (s *LocalRepoSuite) TestMultipleVersions(c *C) {
-	curl := charm.MustParseURL("local:series/sample")
-	s.addDir("old")
+	curl := charm.MustParseURL("local:series/upgrade")
+	s.addDir("upgrade1")
 	rev, err := s.repo.Latest(curl)
 	c.Assert(err, IsNil)
 	c.Assert(rev, Equals, 1)
@@ -260,7 +260,7 @@ func (s *LocalRepoSuite) TestMultipleVersions(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(ch.Revision(), Equals, 1)
 
-	s.addDir("new")
+	s.addDir("upgrade2")
 	rev, err = s.repo.Latest(curl)
 	c.Assert(err, IsNil)
 	c.Assert(rev, Equals, 2)
@@ -281,7 +281,7 @@ func (s *LocalRepoSuite) TestMultipleVersions(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(rev, Equals, 2)
 	ch, err = s.repo.Get(badRevCurl)
-	c.Assert(err, ErrorMatches, `no charms found matching "local:series/sample-33"`)
+	c.Assert(err, ErrorMatches, `no charms found matching "local:series/upgrade-33"`)
 }
 
 func (s *LocalRepoSuite) TestBundle(c *C) {

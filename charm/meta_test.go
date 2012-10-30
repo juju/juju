@@ -43,15 +43,10 @@ func (s *MetaSuite) TestReadMetaVersion1(c *C) {
 }
 
 func (s *MetaSuite) TestReadMetaVersion2(c *C) {
-	meta, err := charm.ReadMeta(repoMeta("dummy-v2"))
+	meta, err := charm.ReadMeta(repoMeta("format2"))
 	c.Assert(err, IsNil)
-	c.Assert(meta.Name, Equals, "dummy-v2")
-	c.Assert(meta.Summary, Equals, "That's a new dummy charm.")
-	c.Assert(meta.Description, Equals,
-		"This is a longer description which\npotentially contains multiple lines.\n")
+	c.Assert(meta.Name, Equals, "format2")
 	c.Assert(meta.Format, Equals, 2)
-	c.Assert(meta.OldRevision, Equals, 0)
-	c.Assert(meta.Subordinate, Equals, false)
 }
 
 func (s *MetaSuite) TestSubordinate(c *C) {
