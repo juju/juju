@@ -34,12 +34,11 @@ type configObserver struct {
 	observer chan<- *config.Config
 }
 
-// notify notifies the observer of a configuration change.
+// nofity notifies the observer of a configuration change.
 func (o *configObserver) notify(cfg *config.Config) {
 	o.Lock()
-	select {
-	case o.observer <- cfg:
-	default:
+	if o.observer != nil {
+		o.observer <- cfg
 	}
 	o.Unlock()
 }
@@ -69,6 +68,7 @@ func (p *Provisioner) loop() error {
 	if err != nil {
 		return err
 	}
+
 	// Get a new StateInfo from the environment: the one used to
 	// launch the agent may refer to localhost, which will be
 	// unhelpful when attempting to run an agent on a new machine.
@@ -111,7 +111,7 @@ func (p *Provisioner) loop() error {
 }
 
 // setConfig updates the environment configuration and notifies
-// the configuration observer.
+// the config observer.
 func (p *Provisioner) setConfig(config *config.Config) error {
 	if err := p.environ.SetConfig(config); err != nil {
 		return err

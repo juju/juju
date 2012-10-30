@@ -352,6 +352,8 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	err = s.invalidateEnvironment(c)
 	c.Assert(err, IsNil)
 
+	s.State.StartSync()
+
 	// create a second machine
 	m, err = s.State.AddMachine(state.MachinerWorker)
 	c.Assert(err, IsNil)
@@ -374,14 +376,12 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	c.Assert(err, IsNil)
 	err = s.State.SetEnvironConfig(cfg)
 
+	s.State.StartSync()
+
 	// wait for the PA to load the new configuration
 	select {
 	case <-cfgObserver:
-	case <-time.After(10 * time.Second):
-		// yes, it really does take this long to ack the change in 
-		// config.
-		// TODO(dfc) find out why it takes 4-5 seconds to ack a 
-		// config change.
+	case <-time.After(200 * time.Millisecond):
 		c.Fatalf("PA did not action config change")
 	}
 
