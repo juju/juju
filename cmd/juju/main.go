@@ -32,6 +32,7 @@ func Main(args []string) {
 	juju.Register(&DestroyEnvironmentCommand{})
 	juju.Register(&ExposeCommand{})
 	juju.Register(&GetCommand{})
+	juju.Register(&RemoveRelationCommand{})
 	juju.Register(&RemoveUnitCommand{})
 	juju.Register(&SetCommand{})
 	juju.Register(&SCPCommand{})
