@@ -30,7 +30,7 @@ func (s *RelationSuite) TestRelationErrors(c *C) {
 	// Check we can't add a relation until both services exist.
 	proep := state.Endpoint{"pro", "ifce", "foo", state.RoleProvider, charm.ScopeGlobal}
 	_, err = s.State.AddRelation(proep, reqep)
-	c.Assert(err, ErrorMatches, `cannot add relation "pro:foo req:bar": .*`)
+	c.Assert(err, ErrorMatches, `cannot add relation "req:bar pro:foo": .*`)
 	assertNoRelations(c, req)
 	pro, err := s.State.AddService("pro", s.charm)
 	c.Assert(err, IsNil)
@@ -38,7 +38,7 @@ func (s *RelationSuite) TestRelationErrors(c *C) {
 	// Check that interfaces have to match.
 	proep2 := state.Endpoint{"pro", "other", "foo", state.RoleProvider, charm.ScopeGlobal}
 	_, err = s.State.AddRelation(proep2, reqep)
-	c.Assert(err, ErrorMatches, `cannot add relation "pro:foo req:bar": endpoints do not relate`)
+	c.Assert(err, ErrorMatches, `cannot add relation "req:bar pro:foo": endpoints do not relate`)
 	assertNoRelations(c, pro)
 	assertNoRelations(c, req)
 
@@ -51,7 +51,7 @@ func (s *RelationSuite) TestRelationErrors(c *C) {
 	c.Assert(err, IsNil)
 	peerep := state.Endpoint{"peer", "ifce", "baz", state.RolePeer, charm.ScopeGlobal}
 	_, err = s.State.AddRelation(peerep, reqep)
-	c.Assert(err, ErrorMatches, `cannot add relation "peer:baz req:bar": endpoints do not relate`)
+	c.Assert(err, ErrorMatches, `cannot add relation "req:bar peer:baz": endpoints do not relate`)
 	assertNoRelations(c, peer)
 	assertNoRelations(c, req)
 
@@ -62,7 +62,7 @@ func (s *RelationSuite) TestRelationErrors(c *C) {
 	_, err = s.State.AddRelation()
 	c.Assert(err, ErrorMatches, `cannot add relation "": cannot relate 0 endpoints`)
 	_, err = s.State.AddRelation(proep, reqep, peerep)
-	c.Assert(err, ErrorMatches, `cannot add relation "peer:baz pro:foo req:bar": cannot relate 3 endpoints`)
+	c.Assert(err, ErrorMatches, `cannot add relation "req:bar pro:foo peer:baz": cannot relate 3 endpoints`)
 }
 
 func (s *RelationSuite) TestRetrieveSuccess(c *C) {
@@ -91,7 +91,7 @@ func (s *RelationSuite) TestRetrieveNotFound(c *C) {
 	subway := state.Endpoint{"subway", "mongodb", "db", state.RoleRequirer, charm.ScopeGlobal}
 	mongo := state.Endpoint{"mongo", "mongodb", "server", state.RoleProvider, charm.ScopeGlobal}
 	_, err := s.State.EndpointsRelation(subway, mongo)
-	c.Assert(err, ErrorMatches, `relation "mongo:server subway:db" not found`)
+	c.Assert(err, ErrorMatches, `relation "subway:db mongo:server" not found`)
 	c.Assert(state.IsNotFound(err), Equals, true)
 
 	_, err = s.State.Relation(999)
@@ -113,10 +113,10 @@ func (s *RelationSuite) TestProviderRequirerRelation(c *C) {
 	rel, err := s.State.AddRelation(proep, reqep)
 	c.Assert(err, IsNil)
 	_, err = s.State.AddRelation(proep, reqep)
-	c.Assert(err, ErrorMatches, `cannot add relation "pro:foo req:bar": .*`)
+	c.Assert(err, ErrorMatches, `cannot add relation "req:bar pro:foo": .*`)
 
 	err = s.State.RemoveRelation(rel)
-	c.Assert(err, ErrorMatches, `cannot remove relation "pro:foo req:bar": relation is not dead`)
+	c.Assert(err, ErrorMatches, `cannot remove relation "req:bar pro:foo": relation is not dead`)
 
 	assertOneRelation(c, pro, 0, proep, reqep)
 	assertOneRelation(c, req, 0, reqep, proep)
@@ -259,7 +259,7 @@ func (s *RelationUnitSuite) TestProReqSettings(c *C) {
 	// Check missing settings cannot be read by any RU.
 	for _, ru := range rus {
 		_, err := ru.ReadSettings("pro/0")
-		c.Assert(err, ErrorMatches, `cannot read settings for unit "pro/0" in relation "pro:pname req:rname": settings not found`)
+		c.Assert(err, ErrorMatches, `cannot read settings for unit "pro/0" in relation "req:rname pro:pname": settings not found`)
 	}
 
 	// Add settings for one RU.
@@ -286,7 +286,7 @@ func (s *RelationUnitSuite) TestContainerSettings(c *C) {
 	// Check missing settings cannot be read by any RU.
 	for _, ru := range rus {
 		_, err := ru.ReadSettings("pro/0")
-		c.Assert(err, ErrorMatches, `cannot read settings for unit "pro/0" in relation "pro:pname req:rname": settings not found`)
+		c.Assert(err, ErrorMatches, `cannot read settings for unit "pro/0" in relation "req:rname pro:pname": settings not found`)
 	}
 
 	// Add settings for one RU.
@@ -310,7 +310,7 @@ func (s *RelationUnitSuite) TestContainerSettings(c *C) {
 	rus1 := RUs{prr.pru1, prr.rru1}
 	for _, ru := range rus1 {
 		_, err := ru.ReadSettings("pro/0")
-		c.Assert(err, ErrorMatches, `cannot read settings for unit "pro/0" in relation "pro:pname req:rname": settings not found`)
+		c.Assert(err, ErrorMatches, `cannot read settings for unit "pro/0" in relation "req:rname pro:pname": settings not found`)
 	}
 }
 

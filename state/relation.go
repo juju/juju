@@ -16,12 +16,35 @@ import (
 // relationKey returns a string describing the relation defined by
 // endpoints, for use in various contexts (including error messages).
 func relationKey(endpoints []Endpoint) string {
-	names := []string{}
+	eps := epSlice{}
 	for _, ep := range endpoints {
+		eps = append(eps, ep)
+	}
+	sort.Sort(eps)
+	names := []string{}
+	for _, ep := range eps {
 		names = append(names, ep.String())
 	}
-	sort.Strings(names)
 	return strings.Join(names, " ")
+}
+
+type epSlice []Endpoint
+
+var roleOrder = map[RelationRole]int{
+	RoleRequirer: 0,
+	RoleProvider: 1,
+	RolePeer:     2,
+}
+
+func (eps epSlice) Len() int      { return len(eps) }
+func (eps epSlice) Swap(i, j int) { eps[i], eps[j] = eps[j], eps[i] }
+func (eps epSlice) Less(i, j int) bool {
+	ep1 := eps[i]
+	ep2 := eps[j]
+	if ep1.RelationRole != ep2.RelationRole {
+		return roleOrder[ep1.RelationRole] < roleOrder[ep2.RelationRole]
+	}
+	return ep1.String() < ep2.String()
 }
 
 // relationDoc is the internal representation of a Relation in MongoDB.

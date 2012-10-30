@@ -21,7 +21,7 @@ func runAddRelation(c *C, args ...string) error {
 	return com.Run(&cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}})
 }
 
-var msWpAlreadyExists = `cannot add relation "ms:server wp:db": relation already exists`
+var msWpAlreadyExists = `cannot add relation "wp:db ms:server": relation already exists`
 var msLgAlreadyExists = `cannot add relation "lg:info ms:juju-info": relation already exists`
 var wpLgAlreadyExists = `cannot add relation "lg:logging-directory wp:logging-dir": relation already exists`
 var wpLgAlreadyExistsJuju = `cannot add relation "lg:info wp:juju-info": relation already exists`

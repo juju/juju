@@ -287,7 +287,7 @@ var inferEndpointsTests = []struct {
 			{"ms", "wp"},
 			{"ms", "wp:db"},
 		},
-		err: `ambiguous relation: ".*" could refer to "ms:dev wp:db"; "ms:prod wp:db"`,
+		err: `ambiguous relation: ".*" could refer to "wp:db ms:dev"; "wp:db ms:prod"`,
 	}, {
 		summary: "unambiguous provider/requirer relation",
 		inputs: [][]string{
