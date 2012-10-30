@@ -171,6 +171,25 @@ func (s *RelationSuite) TestRefresh(c *C) {
 	c.Assert(state.IsNotFound(err), Equals, true)
 }
 
+func (s *RelationSuite) TestDestroy(c *C) {
+	peer, err := s.State.AddService("peer", s.charm)
+	c.Assert(err, IsNil)
+	// Add a relation, and check we can only do so once.
+	peerep := state.Endpoint{"peer", "ifce", "baz", state.RolePeer, charm.ScopeGlobal}
+	rel, err := s.State.AddRelation(peerep)
+	c.Assert(err, IsNil)
+
+	err = rel.Destroy()
+	c.Assert(err, IsNil)
+	_, err = s.State.Relation(rel.Id())
+	c.Assert(state.IsNotFound(err), Equals, true)
+	_, err = s.State.EndpointsRelation(peerep)
+	c.Assert(state.IsNotFound(err), Equals, true)
+	rels, err := peer.Relations()
+	c.Assert(err, IsNil)
+	c.Assert(rels, HasLen, 0)
+}
+
 func (s *RelationSuite) TestPeerRelation(c *C) {
 	peer, err := s.State.AddService("peer", s.charm)
 	c.Assert(err, IsNil)
@@ -351,6 +370,71 @@ func (s *RelationUnitSuite) TestDyingRelationLifecycle(c *C) {
 	c.Assert(err, IsNil)
 	err = rel.EnsureDead()
 	c.Assert(err, ErrorMatches, `cannot finish termination of relation "peer:name": relation still has member units`)
+
+	// Check that unit settings for the original unit still exist, and have
+	// not yet been marked for deletion.
+	err = s.State.Cleanup()
+	c.Assert(err, IsNil)
+	assertSettings := func() {
+		settings, err := pr.ru1.ReadSettings("peer/0")
+		c.Assert(err, IsNil)
+		c.Assert(settings, DeepEquals, map[string]interface{}{
+			"private-address": "peer-0.example.com",
+		})
+	}
+	assertSettings()
+
+	// The final unit leaves the scope, and cleans up after itself.
+	err = pr.ru1.LeaveScope()
+	c.Assert(err, IsNil)
+	err = rel.Refresh()
+	c.Assert(state.IsNotFound(err), Equals, true)
+
+	// The settings were not themselves actually deleted yet...
+	assertSettings()
+
+	// ...but they were scheduled for deletion.
+	err = s.State.Cleanup()
+	c.Assert(err, IsNil)
+	_, err = pr.ru1.ReadSettings("peer/0")
+	c.Assert(err, ErrorMatches, `cannot read settings for unit "peer/0" in relation "peer:name": settings not found`)
+
+	// Because this is the only sensible place, check that a further call
+	// to Cleanup does not error out.
+	err = s.State.Cleanup()
+	c.Assert(err, Equals, nil)
+}
+
+func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *C) {
+	pr := NewPeerRelation(c, &s.ConnSuite)
+	rel := pr.ru0.Relation()
+
+	// Enter two units, and check that Destroy sets the relation to Dying.
+	err := pr.ru0.EnterScope()
+	c.Assert(err, IsNil)
+	err = pr.ru1.EnterScope()
+	c.Assert(err, IsNil)
+	err = rel.Destroy()
+	c.Assert(err, IsNil)
+	c.Assert(rel.Life(), Equals, state.Dying)
+
+	// Check a subsequent Destroy is ignored.
+	err = rel.Destroy()
+	c.Assert(err, IsNil)
+
+	// Check that we can't add a new unit now.
+	err = pr.ru2.EnterScope()
+	c.Assert(err, Equals, state.ErrRelationNotAlive)
+
+	// Check that we created no settings for the unit we failed to add.
+	_, err = pr.ru0.ReadSettings("peer/2")
+	c.Assert(err, ErrorMatches, `cannot read settings for unit "peer/2" in relation "peer:name": settings not found`)
+
+	// ru0 leaves the scope; check that Destroy is still a no-op.
+	err = pr.ru0.LeaveScope()
+	c.Assert(err, IsNil)
+	err = rel.Destroy()
+	c.Assert(err, IsNil)
 
 	// Check that unit settings for the original unit still exist, and have
 	// not yet been marked for deletion.
