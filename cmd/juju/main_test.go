@@ -139,6 +139,7 @@ func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *C) {
 }
 
 var commandNames = []string{
+	"add-relation",
 	"add-unit",
 	"bootstrap",
 	"deploy",

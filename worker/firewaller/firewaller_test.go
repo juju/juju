@@ -3,6 +3,7 @@ package firewaller_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -49,6 +50,32 @@ func (s *FirewallerSuite) assertPorts(c *C, inst environs.Instance, machineId in
 	panic("unreachable")
 }
 
+// assertEnvironPorts retrieves the open ports of environment and compares them
+// to the expected. 
+func (s *FirewallerSuite) assertEnvironPorts(c *C, expected []state.Port) {
+	s.State.StartSync()
+	start := time.Now()
+	for {
+		got, err := s.Conn.Environ.Ports()
+		if err != nil {
+			c.Fatal(err)
+			return
+		}
+		state.SortPorts(got)
+		state.SortPorts(expected)
+		if reflect.DeepEqual(got, expected) {
+			c.Succeed()
+			return
+		}
+		if time.Since(start) > 5*time.Second {
+			c.Fatalf("timed out: expected %q; got %q", expected, got)
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	panic("unreachable")
+}
+
 var _ = Suite(&FirewallerSuite{})
 
 func (s *FirewallerSuite) SetUpTest(c *C) {
@@ -70,6 +97,32 @@ func (s *FirewallerSuite) addUnit(c *C, svc *state.Service) (*state.Unit, *state
 	m, err := s.State.Machine(id)
 	c.Assert(err, IsNil)
 	return u, m
+}
+
+func (s *FirewallerSuite) setGlobalMode(c *C) func(*C) {
+	oldConfig := s.Conn.Environ.Config()
+	restore := func(rc *C) {
+		attrs := oldConfig.AllAttrs()
+		attrs["admin-secret"] = ""
+		oldConfig, err := oldConfig.Apply(attrs)
+		rc.Assert(err, IsNil)
+		err = s.Conn.Environ.SetConfig(oldConfig)
+		rc.Assert(err, IsNil)
+		err = s.State.SetEnvironConfig(oldConfig)
+		rc.Assert(err, IsNil)
+	}
+
+	attrs := s.Conn.Environ.Config().AllAttrs()
+	attrs["firewall-mode"] = config.FwGlobal
+	attrs["admin-secret"] = ""
+	newConfig, err := s.Conn.Environ.Config().Apply(attrs)
+	c.Assert(err, IsNil)
+	err = s.Conn.Environ.SetConfig(newConfig)
+	c.Assert(err, IsNil)
+	err = s.State.SetEnvironConfig(newConfig)
+	c.Assert(err, IsNil)
+
+	return restore
 }
 
 // startInstance starts a new instance for the given machine.
@@ -481,4 +534,185 @@ func (s *FirewallerSuite) TestRemoveMachine(c *C) {
 	c.Assert(err, IsNil)
 	err = s.State.RemoveMachine(m.Id())
 	c.Assert(err, IsNil)
+}
+
+func (s *FirewallerSuite) TestGlobalMode(c *C) {
+	// Change configuration.
+	restore := s.setGlobalMode(c)
+	defer restore(c)
+
+	// Start firewall and open ports.
+	fw := firewaller.NewFirewaller(s.State)
+	defer func() { c.Assert(fw.Stop(), IsNil) }()
+
+	svc1, err := s.State.AddService("wordpress", s.charm)
+	c.Assert(err, IsNil)
+	err = svc1.SetExposed()
+	c.Assert(err, IsNil)
+
+	u1, m1 := s.addUnit(c, svc1)
+	s.startInstance(c, m1)
+	err = u1.OpenPort("tcp", 80)
+	c.Assert(err, IsNil)
+	err = u1.OpenPort("tcp", 8080)
+	c.Assert(err, IsNil)
+
+	svc2, err := s.State.AddService("moinmoin", s.charm)
+	c.Assert(err, IsNil)
+	err = svc2.SetExposed()
+	c.Assert(err, IsNil)
+
+	u2, m2 := s.addUnit(c, svc2)
+	s.startInstance(c, m2)
+	err = u2.OpenPort("tcp", 80)
+	c.Assert(err, IsNil)
+
+	s.assertEnvironPorts(c, []state.Port{{"tcp", 80}, {"tcp", 8080}})
+
+	// Closing a port opened by a different unit won't touch the environment.
+	err = u1.ClosePort("tcp", 80)
+	c.Assert(err, IsNil)
+	s.assertEnvironPorts(c, []state.Port{{"tcp", 80}, {"tcp", 8080}})
+
+	// Closing a port used just once changes the environment.
+	err = u1.ClosePort("tcp", 8080)
+	c.Assert(err, IsNil)
+	s.assertEnvironPorts(c, []state.Port{{"tcp", 80}})
+
+	// Closing the last port also modifies the environment.
+	err = u2.ClosePort("tcp", 80)
+	c.Assert(err, IsNil)
+	s.assertEnvironPorts(c, nil)
+}
+
+func (s *FirewallerSuite) TestGlobalModeRestart(c *C) {
+	// Change configuration.
+	restore := s.setGlobalMode(c)
+	defer restore(c)
+
+	// Start firewall and open ports.
+	fw := firewaller.NewFirewaller(s.State)
+
+	svc, err := s.State.AddService("wordpress", s.charm)
+	c.Assert(err, IsNil)
+	err = svc.SetExposed()
+	c.Assert(err, IsNil)
+
+	u, m := s.addUnit(c, svc)
+	s.startInstance(c, m)
+	err = u.OpenPort("tcp", 80)
+	c.Assert(err, IsNil)
+	err = u.OpenPort("tcp", 8080)
+	c.Assert(err, IsNil)
+
+	s.assertEnvironPorts(c, []state.Port{{"tcp", 80}, {"tcp", 8080}})
+
+	// Stop firewall and close one and open a different port.
+	err = fw.Stop()
+	c.Assert(err, IsNil)
+
+	err = u.ClosePort("tcp", 8080)
+	c.Assert(err, IsNil)
+	err = u.OpenPort("tcp", 8888)
+	c.Assert(err, IsNil)
+
+	// Start firewall and check port.
+	fw = firewaller.NewFirewaller(s.State)
+	defer func() { c.Assert(fw.Stop(), IsNil) }()
+
+	s.assertEnvironPorts(c, []state.Port{{"tcp", 80}, {"tcp", 8888}})
+}
+
+func (s *FirewallerSuite) TestGlobalModeRestartUnexposedService(c *C) {
+	// Change configuration.
+	restore := s.setGlobalMode(c)
+	defer restore(c)
+
+	// Start firewall and open ports.
+	fw := firewaller.NewFirewaller(s.State)
+
+	svc, err := s.State.AddService("wordpress", s.charm)
+	c.Assert(err, IsNil)
+	err = svc.SetExposed()
+	c.Assert(err, IsNil)
+
+	u, m := s.addUnit(c, svc)
+	s.startInstance(c, m)
+	err = u.OpenPort("tcp", 80)
+	c.Assert(err, IsNil)
+	err = u.OpenPort("tcp", 8080)
+	c.Assert(err, IsNil)
+
+	s.assertEnvironPorts(c, []state.Port{{"tcp", 80}, {"tcp", 8080}})
+
+	// Stop firewall and clear exposed flag on service.
+	err = fw.Stop()
+	c.Assert(err, IsNil)
+
+	err = svc.ClearExposed()
+	c.Assert(err, IsNil)
+
+	// Start firewall and check port.
+	fw = firewaller.NewFirewaller(s.State)
+	defer func() { c.Assert(fw.Stop(), IsNil) }()
+
+	s.assertEnvironPorts(c, nil)
+}
+
+func (s *FirewallerSuite) TestGlobalModeRestartPortCount(c *C) {
+	// Change configuration.
+	restore := s.setGlobalMode(c)
+	defer restore(c)
+
+	// Start firewall and open ports.
+	fw := firewaller.NewFirewaller(s.State)
+
+	svc1, err := s.State.AddService("wordpress", s.charm)
+	c.Assert(err, IsNil)
+	err = svc1.SetExposed()
+	c.Assert(err, IsNil)
+
+	u1, m1 := s.addUnit(c, svc1)
+	s.startInstance(c, m1)
+	err = u1.OpenPort("tcp", 80)
+	c.Assert(err, IsNil)
+	err = u1.OpenPort("tcp", 8080)
+	c.Assert(err, IsNil)
+
+	s.assertEnvironPorts(c, []state.Port{{"tcp", 80}, {"tcp", 8080}})
+
+	// Stop firewall and add another service using the port.
+	err = fw.Stop()
+	c.Assert(err, IsNil)
+
+	svc2, err := s.State.AddService("moinmoin", s.charm)
+	c.Assert(err, IsNil)
+	err = svc2.SetExposed()
+	c.Assert(err, IsNil)
+
+	u2, m2 := s.addUnit(c, svc2)
+	s.startInstance(c, m2)
+	err = u2.OpenPort("tcp", 80)
+	c.Assert(err, IsNil)
+
+	// Start firewall and check port.
+	fw = firewaller.NewFirewaller(s.State)
+	defer func() { c.Assert(fw.Stop(), IsNil) }()
+
+	s.assertEnvironPorts(c, []state.Port{{"tcp", 80}, {"tcp", 8080}})
+
+	// Closing a port opened by a different unit won't touch the environment.
+	err = u1.ClosePort("tcp", 80)
+	c.Assert(err, IsNil)
+	s.assertEnvironPorts(c, []state.Port{{"tcp", 80}, {"tcp", 8080}})
+
+	// Closing a port used just once changes the environment.
+	err = u1.ClosePort("tcp", 8080)
+	c.Assert(err, IsNil)
+	s.assertEnvironPorts(c, []state.Port{{"tcp", 80}})
+
+	// Closing the last port also modifies the environment.
+	err = u2.ClosePort("tcp", 80)
+	c.Assert(err, IsNil)
+	s.assertEnvironPorts(c, nil)
 }
