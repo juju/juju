@@ -323,7 +323,7 @@ func (s *FilterSuite) TestRelationsEvents(c *C) {
 	assertNoChange()
 
 	// Add another relation, and change another's Life (by entering scope before
-	// Destroy, thereby setting therelation to Dying); check event.
+	// Destroy, thereby setting the relation to Dying); check event.
 	s.addRelation(c)
 	ru0, err := rel0.Unit(s.unit)
 	c.Assert(err, IsNil)
