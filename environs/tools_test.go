@@ -555,10 +555,14 @@ func (t *ToolsSuite) TestListTools(c *C) {
 		"xtools/juju-2.2.3-precise-amd64.tgz",
 	}
 
-	tools, err := t.env.PublicStorage().List("")
+	// dummy always populates the tools set with version.Current.
+	// Remove any tools in the storage to ensure they don't
+	// conflict with the list of tools we expect.
+	ps := t.env.PublicStorage().(environs.Storage)
+	tools, err := ps.List("")
 	c.Assert(err, IsNil)
 	for _, tool := range tools {
-		t.env.PublicStorage().(environs.Storage).Remove(tool)
+		ps.Remove(tool)
 	}
 
 	putNames(c, t.env, testList, testList)
