@@ -18,7 +18,7 @@ import (
 // "FORCE-VERSION" is present in the same directory as the running
 // binary, it will override this.
 var Current = Binary{
-	Number: MustParse("0.0.1"),
+	Number: MustParse("0.0.2"),
 	Series: readSeries("/etc/lsb-release"), // current Ubuntu release name.  
 	Arch:   ubuntuArch(runtime.GOARCH),
 }

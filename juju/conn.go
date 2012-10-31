@@ -233,3 +233,23 @@ func (conn *Conn) DestroyUnits(units ...*state.Unit) error {
 	}
 	return nil
 }
+
+// Resolved marks the unit as having had any previous state transition
+// problems resolved, and informs the unit that it may attempt to
+// reestablish normal workflow. The retryHooks parameter informs
+// whether to attempt to reexecute previous failed hooks or to continue
+// as if they had succeeded before.
+func (conn *Conn) Resolved(unit *state.Unit, retryHooks bool) error {
+	status, _, err := unit.Status()
+	if err != nil {
+		return err
+	}
+	if status != state.UnitError {
+		return fmt.Errorf("unit %q is not in an error state", unit)
+	}
+	mode := state.ResolvedNoHooks
+	if retryHooks {
+		mode = state.ResolvedRetryHooks
+	}
+	return unit.SetResolved(mode)
+}
