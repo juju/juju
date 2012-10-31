@@ -529,6 +529,9 @@ var listToolsTests = []struct {
 	major  int
 	expect []string
 }{{
+	0,
+	nil,
+}, {
 	1,
 	[]string{"1.2.3-precise-i386"},
 }, {
