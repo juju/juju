@@ -2,7 +2,6 @@ package state_test
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state"
 )
 
@@ -82,27 +81,6 @@ type lifeFixture interface {
 	teardown(s *LifeSuite, c *C)
 }
 
-type relationLife struct {
-	rel *state.Relation
-}
-
-func (l *relationLife) id() (coll string, id interface{}) {
-	return "relations", l.rel.String()
-}
-
-func (l *relationLife) setup(s *LifeSuite, c *C) state.Living {
-	var err error
-	ep := state.Endpoint{s.svc.Name(), "ifce", "baz", state.RolePeer, charm.ScopeGlobal}
-	l.rel, err = s.State.AddRelation(ep)
-	c.Assert(err, IsNil)
-	return l.rel
-}
-
-func (l *relationLife) teardown(s *LifeSuite, c *C) {
-	err := s.State.RemoveRelation(l.rel)
-	c.Assert(err, IsNil)
-}
-
 type unitLife struct {
 	unit *state.Unit
 }
@@ -177,7 +155,7 @@ func (s *LifeSuite) prepareFixture(living state.Living, lfix lifeFixture, cached
 }
 
 func (s *LifeSuite) TestLifecycleStateChanges(c *C) {
-	for i, lfix := range []lifeFixture{&relationLife{}, &unitLife{}, &serviceLife{}, &machineLife{}} {
+	for i, lfix := range []lifeFixture{&unitLife{}, &serviceLife{}, &machineLife{}} {
 		c.Logf("fixture %d", i)
 		for j, v := range stateChanges {
 			c.Logf("sequence %d", j)

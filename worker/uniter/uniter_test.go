@@ -1247,7 +1247,7 @@ var serviceDying = custom{func(c *C, ctx *context) {
 }}
 
 var relationDying = custom{func(c *C, ctx *context) {
-	c.Assert(ctx.relation.EnsureDying(), IsNil)
+	c.Assert(ctx.relation.Destroy(), IsNil)
 }}
 
 var unitDying = custom{func(c *C, ctx *context) {

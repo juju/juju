@@ -352,6 +352,8 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	err = s.invalidateEnvironment(c)
 	c.Assert(err, IsNil)
 
+	s.State.StartSync()
+
 	// create a second machine
 	m, err = s.State.AddMachine(state.MachinerWorker)
 	c.Assert(err, IsNil)
@@ -362,6 +364,10 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	err = s.fixEnvironment()
 	c.Assert(err, IsNil)
 
+	// insert our observer
+	cfgObserver := make(chan *config.Config, 1)
+	p.SetObserver(cfgObserver)
+
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, IsNil)
 	attrs := cfg.AllAttrs()
@@ -369,6 +375,15 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	cfg, err = config.New(attrs)
 	c.Assert(err, IsNil)
 	err = s.State.SetEnvironConfig(cfg)
+
+	s.State.StartSync()
+
+	// wait for the PA to load the new configuration
+	select {
+	case <-cfgObserver:
+	case <-time.After(200 * time.Millisecond):
+		c.Fatalf("PA did not action config change")
+	}
 
 	// create a third machine
 	m, err = s.State.AddMachine(state.MachinerWorker)

@@ -2,7 +2,10 @@ package provisioner
 
 import (
 	"fmt"
+	"sync"
+
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
@@ -22,6 +25,22 @@ type Provisioner struct {
 	instances map[int]environs.Instance
 	// instance.Id => machine id
 	machines map[string]int
+
+	configObserver
+}
+
+type configObserver struct {
+	sync.Mutex
+	observer chan<- *config.Config
+}
+
+// nofity notifies the observer of a configuration change.
+func (o *configObserver) notify(cfg *config.Config) {
+	o.Lock()
+	if o.observer != nil {
+		o.observer <- cfg
+	}
+	o.Unlock()
 }
 
 // NewProvisioner returns a new Provisioner. When new machines
@@ -49,6 +68,7 @@ func (p *Provisioner) loop() error {
 	if err != nil {
 		return err
 	}
+
 	// Get a new StateInfo from the environment: the one used to
 	// launch the agent may refer to localhost, which will be
 	// unhelpful when attempting to run an agent on a new machine.
@@ -73,7 +93,7 @@ func (p *Provisioner) loop() error {
 			if !ok {
 				return watcher.MustErr(environWatcher)
 			}
-			if err := p.environ.SetConfig(cfg); err != nil {
+			if err := p.setConfig(cfg); err != nil {
 				log.Printf("worker/provisioner: loaded invalid environment configuration: %v", err)
 			}
 		case ids, ok := <-machinesWatcher.Changes():
@@ -88,6 +108,16 @@ func (p *Provisioner) loop() error {
 		}
 	}
 	panic("not reached")
+}
+
+// setConfig updates the environment configuration and notifies
+// the config observer.
+func (p *Provisioner) setConfig(config *config.Config) error {
+	if err := p.environ.SetConfig(config); err != nil {
+		return err
+	}
+	p.configObserver.notify(config)
+	return nil
 }
 
 // Dying returns a channel that signals a Provisioners exit.

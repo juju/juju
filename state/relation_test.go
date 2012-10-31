@@ -30,7 +30,7 @@ func (s *RelationSuite) TestRelationErrors(c *C) {
 	// Check we can't add a relation until both services exist.
 	proep := state.Endpoint{"pro", "ifce", "foo", state.RoleProvider, charm.ScopeGlobal}
 	_, err = s.State.AddRelation(proep, reqep)
-	c.Assert(err, ErrorMatches, `cannot add relation "pro:foo req:bar": .*`)
+	c.Assert(err, ErrorMatches, `cannot add relation "req:bar pro:foo": .*`)
 	assertNoRelations(c, req)
 	pro, err := s.State.AddService("pro", s.charm)
 	c.Assert(err, IsNil)
@@ -38,7 +38,7 @@ func (s *RelationSuite) TestRelationErrors(c *C) {
 	// Check that interfaces have to match.
 	proep2 := state.Endpoint{"pro", "other", "foo", state.RoleProvider, charm.ScopeGlobal}
 	_, err = s.State.AddRelation(proep2, reqep)
-	c.Assert(err, ErrorMatches, `cannot add relation "pro:foo req:bar": endpoints do not relate`)
+	c.Assert(err, ErrorMatches, `cannot add relation "req:bar pro:foo": endpoints do not relate`)
 	assertNoRelations(c, pro)
 	assertNoRelations(c, req)
 
@@ -51,7 +51,7 @@ func (s *RelationSuite) TestRelationErrors(c *C) {
 	c.Assert(err, IsNil)
 	peerep := state.Endpoint{"peer", "ifce", "baz", state.RolePeer, charm.ScopeGlobal}
 	_, err = s.State.AddRelation(peerep, reqep)
-	c.Assert(err, ErrorMatches, `cannot add relation "peer:baz req:bar": endpoints do not relate`)
+	c.Assert(err, ErrorMatches, `cannot add relation "req:bar peer:baz": endpoints do not relate`)
 	assertNoRelations(c, peer)
 	assertNoRelations(c, req)
 
@@ -62,7 +62,7 @@ func (s *RelationSuite) TestRelationErrors(c *C) {
 	_, err = s.State.AddRelation()
 	c.Assert(err, ErrorMatches, `cannot add relation "": cannot relate 0 endpoints`)
 	_, err = s.State.AddRelation(proep, reqep, peerep)
-	c.Assert(err, ErrorMatches, `cannot add relation "peer:baz pro:foo req:bar": cannot relate 3 endpoints`)
+	c.Assert(err, ErrorMatches, `cannot add relation "req:bar pro:foo peer:baz": cannot relate 3 endpoints`)
 }
 
 func (s *RelationSuite) TestRetrieveSuccess(c *C) {
@@ -91,7 +91,7 @@ func (s *RelationSuite) TestRetrieveNotFound(c *C) {
 	subway := state.Endpoint{"subway", "mongodb", "db", state.RoleRequirer, charm.ScopeGlobal}
 	mongo := state.Endpoint{"mongo", "mongodb", "server", state.RoleProvider, charm.ScopeGlobal}
 	_, err := s.State.EndpointsRelation(subway, mongo)
-	c.Assert(err, ErrorMatches, `relation "mongo:server subway:db" not found`)
+	c.Assert(err, ErrorMatches, `relation "subway:db mongo:server" not found`)
 	c.Assert(state.IsNotFound(err), Equals, true)
 
 	_, err = s.State.Relation(999)
@@ -113,25 +113,17 @@ func (s *RelationSuite) TestProviderRequirerRelation(c *C) {
 	rel, err := s.State.AddRelation(proep, reqep)
 	c.Assert(err, IsNil)
 	_, err = s.State.AddRelation(proep, reqep)
-	c.Assert(err, ErrorMatches, `cannot add relation "pro:foo req:bar": .*`)
-
-	err = s.State.RemoveRelation(rel)
-	c.Assert(err, ErrorMatches, `cannot remove relation "pro:foo req:bar": relation is not dead`)
-
+	c.Assert(err, ErrorMatches, `cannot add relation "req:bar pro:foo": .*`)
 	assertOneRelation(c, pro, 0, proep, reqep)
 	assertOneRelation(c, req, 0, reqep, proep)
-	testWhenDying(c, rel, noErr, noErr, func() error {
-		assertOneRelation(c, pro, 0, proep, reqep)
-		assertOneRelation(c, req, 0, reqep, proep)
-		return nil
-	})
 
-	// Remove the relation, and check it's ok to remove again.
-	err = s.State.RemoveRelation(rel)
+	// Destroy the relation, and check we can destroy again without error.
+	err = rel.Destroy()
 	c.Assert(err, IsNil)
-
-	err = s.State.RemoveRelation(rel)
+	err = rel.Destroy()
 	c.Assert(err, IsNil)
+	err = rel.Refresh()
+	c.Assert(state.IsNotFound(err), Equals, true)
 
 	// Check that we can add it again if we want to; but this time,
 	// give one of the endpoints container scope and check that both
@@ -149,7 +141,6 @@ func (s *RelationSuite) TestProviderRequirerRelation(c *C) {
 func (s *RelationSuite) TestRefresh(c *C) {
 	peer, err := s.State.AddService("peer", s.charm)
 	c.Assert(err, IsNil)
-	// Add a relation, and check we can only do so once.
 	peerep := state.Endpoint{"peer", "ifce", "baz", state.RolePeer, charm.ScopeGlobal}
 	rel, err := s.State.AddRelation(peerep)
 	c.Assert(err, IsNil)
@@ -157,18 +148,31 @@ func (s *RelationSuite) TestRefresh(c *C) {
 	rels, err := peer.Relations()
 	c.Assert(err, IsNil)
 	rel1 := rels[0]
-	err = rel.EnsureDead()
+	err = rel.Destroy()
 	c.Assert(err, IsNil)
 
 	c.Assert(rel1.Life(), Equals, state.Alive)
 	err = rel1.Refresh()
-	c.Assert(err, IsNil)
-	c.Assert(rel1.Life(), Equals, state.Dead)
-
-	err = s.State.RemoveRelation(rel)
-	c.Assert(err, IsNil)
-	err = rel1.Refresh()
 	c.Assert(state.IsNotFound(err), Equals, true)
+}
+
+func (s *RelationSuite) TestDestroy(c *C) {
+	peer, err := s.State.AddService("peer", s.charm)
+	c.Assert(err, IsNil)
+	// Add a relation, and check we can only do so once.
+	peerep := state.Endpoint{"peer", "ifce", "baz", state.RolePeer, charm.ScopeGlobal}
+	rel, err := s.State.AddRelation(peerep)
+	c.Assert(err, IsNil)
+
+	err = rel.Destroy()
+	c.Assert(err, IsNil)
+	_, err = s.State.Relation(rel.Id())
+	c.Assert(state.IsNotFound(err), Equals, true)
+	_, err = s.State.EndpointsRelation(peerep)
+	c.Assert(state.IsNotFound(err), Equals, true)
+	rels, err := peer.Relations()
+	c.Assert(err, IsNil)
+	c.Assert(rels, HasLen, 0)
 }
 
 func (s *RelationSuite) TestPeerRelation(c *C) {
@@ -184,13 +188,11 @@ func (s *RelationSuite) TestPeerRelation(c *C) {
 	c.Assert(err, ErrorMatches, `cannot add relation "peer:baz": .*`)
 	assertOneRelation(c, peer, 0, peerep)
 
-	// Remove the relation, and check it can't be removed again.
-	err = rel.EnsureDead()
-	c.Assert(err, IsNil)
-	err = s.State.RemoveRelation(rel)
+	// Remove the relation, and check a second removal succeeds.
+	err = rel.Destroy()
 	c.Assert(err, IsNil)
 	assertNoRelations(c, peer)
-	err = s.State.RemoveRelation(rel)
+	err = rel.Destroy()
 	c.Assert(err, IsNil)
 }
 
@@ -259,7 +261,7 @@ func (s *RelationUnitSuite) TestProReqSettings(c *C) {
 	// Check missing settings cannot be read by any RU.
 	for _, ru := range rus {
 		_, err := ru.ReadSettings("pro/0")
-		c.Assert(err, ErrorMatches, `cannot read settings for unit "pro/0" in relation "pro:pname req:rname": settings not found`)
+		c.Assert(err, ErrorMatches, `cannot read settings for unit "pro/0" in relation "req:rname pro:pname": settings not found`)
 	}
 
 	// Add settings for one RU.
@@ -286,7 +288,7 @@ func (s *RelationUnitSuite) TestContainerSettings(c *C) {
 	// Check missing settings cannot be read by any RU.
 	for _, ru := range rus {
 		_, err := ru.ReadSettings("pro/0")
-		c.Assert(err, ErrorMatches, `cannot read settings for unit "pro/0" in relation "pro:pname req:rname": settings not found`)
+		c.Assert(err, ErrorMatches, `cannot read settings for unit "pro/0" in relation "req:rname pro:pname": settings not found`)
 	}
 
 	// Add settings for one RU.
@@ -310,24 +312,25 @@ func (s *RelationUnitSuite) TestContainerSettings(c *C) {
 	rus1 := RUs{prr.pru1, prr.rru1}
 	for _, ru := range rus1 {
 		_, err := ru.ReadSettings("pro/0")
-		c.Assert(err, ErrorMatches, `cannot read settings for unit "pro/0" in relation "pro:pname req:rname": settings not found`)
+		c.Assert(err, ErrorMatches, `cannot read settings for unit "pro/0" in relation "req:rname pro:pname": settings not found`)
 	}
 }
 
-func (s *RelationUnitSuite) TestDyingRelationLifecycle(c *C) {
+func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *C) {
 	pr := NewPeerRelation(c, &s.ConnSuite)
 	rel := pr.ru0.Relation()
 
-	// Check the relation can't be removed while Alive.
-	err := s.State.RemoveRelation(rel)
-	c.Assert(err, ErrorMatches, `cannot remove relation "peer:name": relation is not dead`)
-
-	// Enter two units, and check that we can set the relation to Dying.
-	err = pr.ru0.EnterScope()
+	// Enter two units, and check that Destroy sets the relation to Dying.
+	err := pr.ru0.EnterScope()
 	c.Assert(err, IsNil)
 	err = pr.ru1.EnterScope()
 	c.Assert(err, IsNil)
-	err = rel.EnsureDying()
+	err = rel.Destroy()
+	c.Assert(err, IsNil)
+	c.Assert(rel.Life(), Equals, state.Dying)
+
+	// Check a subsequent Destroy is ignored.
+	err = rel.Destroy()
 	c.Assert(err, IsNil)
 
 	// Check that we can't add a new unit now.
@@ -338,19 +341,11 @@ func (s *RelationUnitSuite) TestDyingRelationLifecycle(c *C) {
 	_, err = pr.ru0.ReadSettings("peer/2")
 	c.Assert(err, ErrorMatches, `cannot read settings for unit "peer/2" in relation "peer:name": settings not found`)
 
-	// Check that we can't set it to Dead while the scope is non-empty.
-	err = rel.EnsureDead()
-	c.Assert(err, ErrorMatches, `cannot finish termination of relation "peer:name": relation still has member units`)
-
-	// Check that we still can't remove it while it's Dying.
-	err = s.State.RemoveRelation(rel)
-	c.Assert(err, ErrorMatches, `cannot remove relation "peer:name": relation is not dead`)
-
-	// ru0 leaves the scope; check we still can't set the relation to dead...
+	// ru0 leaves the scope; check that Destroy is still a no-op.
 	err = pr.ru0.LeaveScope()
 	c.Assert(err, IsNil)
-	err = rel.EnsureDead()
-	c.Assert(err, ErrorMatches, `cannot finish termination of relation "peer:name": relation still has member units`)
+	err = rel.Destroy()
+	c.Assert(err, IsNil)
 
 	// Check that unit settings for the original unit still exist, and have
 	// not yet been marked for deletion.
@@ -741,7 +736,7 @@ func (s *OriginalRelationUnitSuite) TestRelationUnitEnterScopeError(c *C) {
 	c.Assert(err, IsNil)
 	ru1, err := rel.Unit(u1)
 	c.Assert(err, IsNil)
-	err = rel.EnsureDying()
+	err = rel.Destroy()
 	c.Assert(err, IsNil)
 	err = ru1.EnterScope()
 	c.Assert(err, Equals, state.ErrRelationNotAlive)
