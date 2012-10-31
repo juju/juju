@@ -14,7 +14,9 @@ import (
 	"strings"
 )
 
-// debian/rules uses this constant for the package version.
+// The presence and format of this constant is very important. 
+// The debian/rules build recipe uses this value for the version
+// number of the release package.
 const version = "1.9.1"
 
 // Current gives the current version of the system.  If the file
