@@ -20,13 +20,13 @@ import (
 // It also sets up RootDir to point to a directory hierarchy
 // mirroring the intended juju directory structure, including
 // the following:
-// 	RootDir/home/ubuntu/.juju/environments.yaml
-//		The dummy environments.yaml file, holding
-//		a default environment named "dummyenv"
-//		which uses the "dummy" environment type.
-//	RootDir/var/lib/juju
-//		An empty directory returned as DataDir - the
-//		root of the juju data storage space.
+//  RootDir/home/ubuntu/.juju/environments.yaml
+//      The dummy environments.yaml file, holding
+//      a default environment named "dummyenv"
+//      which uses the "dummy" environment type.
+//  RootDir/var/lib/juju
+//      An empty directory returned as DataDir - the
+//      root of the juju data storage space.
 // $HOME is set to point to RootDir/home/ubuntu.
 type JujuConnSuite struct {
 	testing.LoggingSuite

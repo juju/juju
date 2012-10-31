@@ -12,11 +12,8 @@ import (
 
 type RelationSuite struct {
 	ConnSuite
-	charm     *state.Charm
-	wordpress *state.Charm
-	mysql     *state.Charm
-	riak      *state.Charm
-	logging   *state.Charm
+	charm *state.Charm // TODO remove
+	*Services
 }
 
 var _ = Suite(&RelationSuite{})
@@ -24,65 +21,57 @@ var _ = Suite(&RelationSuite{})
 func (s *RelationSuite) SetUpTest(c *C) {
 	s.ConnSuite.SetUpTest(c)
 	s.charm = s.AddTestingCharm(c, "dummy") // TODO remove
-	s.wordpress = s.AddTestingCharm(c, "wordpress")
-	s.mysql = s.AddTestingCharm(c, "mysql")
-	s.riak = s.AddTestingCharm(c, "riak")
-	s.logging = s.AddTestingCharm(c, "logging")
+	s.Services = s.AddTestingServices(c)
 }
 
 func (s *RelationSuite) TestRelationErrors(c *C) {
-	wp, err := s.State.AddService("wp", s.wordpress)
+	wpep, err := s.Wordpress.Endpoint("db")
 	c.Assert(err, IsNil)
-	wpep, err := wp.Endpoint("db")
+	msep, err := s.Mysql.Endpoint("server")
 	c.Assert(err, IsNil)
 
-	// Check we can't add a relation until both services exist.
-	msep := state.Endpoint{"ms", "mysql", "server", state.RoleProvider, charm.ScopeGlobal}
-	_, err = s.State.AddRelation(msep, wpep)
-	c.Assert(err, ErrorMatches, `cannot add relation "wp:db ms:server": .*`)
-	assertNoRelations(c, wp)
-	ms, err := s.State.AddService("ms", s.mysql)
-	c.Assert(err, IsNil)
+	// Check we can't add a relation with services that don't exist.
+	msep2 := msep
+	msep2.ServiceName = "yoursql"
+	_, err = s.State.AddRelation(msep2, wpep)
+	c.Assert(err, ErrorMatches, `cannot add relation "wordpress:db yoursql:server": .*`)
+	assertNoRelations(c, s.Wordpress)
+	assertNoRelations(c, s.Mysql)
 
 	// Check that interfaces have to match.
-	proep2 := state.Endpoint{"ms", "roflcopter", "server", state.RoleProvider, charm.ScopeGlobal}
-	_, err = s.State.AddRelation(proep2, wpep)
-	c.Assert(err, ErrorMatches, `cannot add relation "wp:db ms:server": endpoints do not relate`)
-	assertNoRelations(c, ms)
-	assertNoRelations(c, wp)
+	msep3 := msep
+	msep3.Interface = "roflcopter"
+	_, err = s.State.AddRelation(msep3, wpep)
+	c.Assert(err, ErrorMatches, `cannot add relation "wordpress:db mysql:server": endpoints do not relate`)
+	assertNoRelations(c, s.Wordpress)
+	assertNoRelations(c, s.Mysql)
 
 	// Check a variety of surprising endpoint combinations.
 	_, err = s.State.AddRelation(wpep)
-	c.Assert(err, ErrorMatches, `cannot add relation "wp:db": single endpoint must be a peer relation`)
-	assertNoRelations(c, wp)
+	c.Assert(err, ErrorMatches, `cannot add relation "wordpress:db": single endpoint must be a peer relation`)
+	assertNoRelations(c, s.Wordpress)
 
-	rk, err := s.State.AddService("rk", s.riak)
-	c.Assert(err, IsNil)
-	rkep, err := rk.Endpoint("ring")
+	rkep, err := s.Riak.Endpoint("ring")
 	c.Assert(err, IsNil)
 	_, err = s.State.AddRelation(rkep, wpep)
-	c.Assert(err, ErrorMatches, `cannot add relation "wp:db rk:ring": endpoints do not relate`)
-	assertNoRelations(c, rk)
-	assertNoRelations(c, wp)
+	c.Assert(err, ErrorMatches, `cannot add relation "wordpress:db riak:ring": endpoints do not relate`)
+	assertNoRelations(c, s.Riak)
+	assertNoRelations(c, s.Wordpress)
 
 	_, err = s.State.AddRelation(rkep, rkep)
-	c.Assert(err, ErrorMatches, `cannot add relation "rk:ring rk:ring": endpoints do not relate`)
-	assertNoRelations(c, rk)
+	c.Assert(err, ErrorMatches, `cannot add relation "riak:ring riak:ring": endpoints do not relate`)
+	assertNoRelations(c, s.Riak)
 
 	_, err = s.State.AddRelation()
 	c.Assert(err, ErrorMatches, `cannot add relation "": cannot relate 0 endpoints`)
 	_, err = s.State.AddRelation(msep, wpep, rkep)
-	c.Assert(err, ErrorMatches, `cannot add relation "wp:db ms:server rk:ring": cannot relate 3 endpoints`)
+	c.Assert(err, ErrorMatches, `cannot add relation "wordpress:db mysql:server riak:ring": cannot relate 3 endpoints`)
 }
 
 func (s *RelationSuite) TestRetrieveSuccess(c *C) {
-	wp, err := s.State.AddService("wp", s.wordpress)
+	wpep, err := s.Wordpress.Endpoint("db")
 	c.Assert(err, IsNil)
-	ms, err := s.State.AddService("ms", s.mysql)
-	c.Assert(err, IsNil)
-	wpep, err := wp.Endpoint("db")
-	c.Assert(err, IsNil)
-	msep, err := ms.Endpoint("server")
+	msep, err := s.Mysql.Endpoint("server")
 	c.Assert(err, IsNil)
 	expect, err := s.State.AddRelation(wpep, msep)
 	c.Assert(err, IsNil)
@@ -112,22 +101,17 @@ func (s *RelationSuite) TestRetrieveNotFound(c *C) {
 }
 
 func (s *RelationSuite) TestProviderRequirerRelation(c *C) {
-	req, err := s.State.AddService("req", s.charm)
-	c.Assert(err, IsNil)
-	pro, err := s.State.AddService("pro", s.charm)
-	c.Assert(err, IsNil)
-	assertNoRelations(c, req)
-	assertNoRelations(c, pro)
-
 	// Add a relation, and check we can only do so once.
-	proep := state.Endpoint{"pro", "ifce", "foo", state.RoleProvider, charm.ScopeGlobal}
-	reqep := state.Endpoint{"req", "ifce", "bar", state.RoleRequirer, charm.ScopeGlobal}
-	rel, err := s.State.AddRelation(proep, reqep)
+	wpep, err := s.Wordpress.Endpoint("db")
 	c.Assert(err, IsNil)
-	_, err = s.State.AddRelation(proep, reqep)
-	c.Assert(err, ErrorMatches, `cannot add relation "req:bar pro:foo": .*`)
-	assertOneRelation(c, pro, 0, proep, reqep)
-	assertOneRelation(c, req, 0, reqep, proep)
+	msep, err := s.Mysql.Endpoint("server")
+	c.Assert(err, IsNil)
+	rel, err := s.State.AddRelation(wpep, msep)
+	c.Assert(err, IsNil)
+	_, err = s.State.AddRelation(wpep, msep)
+	c.Assert(err, ErrorMatches, `cannot add relation "wordpress:db mysql:server": .*`)
+	assertOneRelation(c, s.Mysql, 0, msep, wpep)
+	assertOneRelation(c, s.Wordpress, 0, wpep, msep)
 
 	// Destroy the relation, and check we can destroy again without error.
 	err = rel.Destroy()
@@ -140,14 +124,14 @@ func (s *RelationSuite) TestProviderRequirerRelation(c *C) {
 	// Check that we can add it again if we want to; but this time,
 	// give one of the endpoints container scope and check that both
 	// resulting service relations get that scope.
-	reqep.RelationScope = charm.ScopeContainer
-	_, err = s.State.AddRelation(proep, reqep)
+	wpep.RelationScope = charm.ScopeContainer
+	_, err = s.State.AddRelation(msep, wpep)
 	c.Assert(err, IsNil)
-	// After adding relation, make proep container-scoped as well, for
+	// After adding relation, make msep container-scoped as well, for
 	// simplicity of testing.
-	proep.RelationScope = charm.ScopeContainer
-	assertOneRelation(c, req, 2, reqep, proep)
-	assertOneRelation(c, pro, 2, proep, reqep)
+	msep.RelationScope = charm.ScopeContainer
+	assertOneRelation(c, s.Mysql, 2, msep, wpep)
+	assertOneRelation(c, s.Wordpress, 2, wpep, msep)
 }
 
 func (s *RelationSuite) TestRefresh(c *C) {
