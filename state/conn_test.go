@@ -85,22 +85,3 @@ func (s *ConnSuite) AddTestingCharm(c *C, name string) *state.Charm {
 func (s *ConnSuite) StateInfo(c *C) *state.Info {
 	return &state.Info{Addrs: []string{testing.MgoAddr}}
 }
-
-type Services struct {
-	Wordpress *state.Service
-	Mysql     *state.Service
-	Riak      *state.Service
-	Logging   *state.Service
-}
-
-func (s *ConnSuite) AddTestingServices(c *C) *Services {
-	wp, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, IsNil)
-	ms, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, IsNil)
-	rk, err := s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
-	c.Assert(err, IsNil)
-	lg, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
-	c.Assert(err, IsNil)
-	return &Services{wp, ms, rk, lg}
-}
