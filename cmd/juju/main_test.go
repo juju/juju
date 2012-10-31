@@ -148,6 +148,7 @@ var commandNames = []string{
 	"get",
 	"remove-relation",
 	"remove-unit",
+	"resolved",
 	"scp",
 	"set",
 	"ssh",
