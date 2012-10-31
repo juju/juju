@@ -559,7 +559,7 @@ func (t *ToolsSuite) TestListTools(c *C) {
 	}
 
 	// dummy always populates the tools set with version.Current.
-	// Remove any tools in the storage to ensure they don't
+	// Remove any tools in the public storage to ensure they don't
 	// conflict with the list of tools we expect.
 	ps := t.env.PublicStorage().(environs.Storage)
 	tools, err := ps.List("")
