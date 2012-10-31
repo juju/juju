@@ -35,13 +35,6 @@ func (t *ToolsSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	t.env = env
 	t.dataDir = c.MkDir()
-
-	// remove any tools in the environment. 
-	tools, err := t.env.PublicStorage().List("")
-	c.Assert(err, IsNil)
-	for _, tool := range tools {
-		t.env.PublicStorage().(environs.Storage).Remove(tool)
-	}
 }
 
 func (t *ToolsSuite) TearDownTest(c *C) {
@@ -561,6 +554,12 @@ func (t *ToolsSuite) TestListTools(c *C) {
 		"tools/juju-3.2.1-quantal-amd64.tgz",
 		"xtools/juju-2.2.3-precise-amd64.tgz",
 	}
+
+        tools, err := t.env.PublicStorage().List("")
+        c.Assert(err, IsNil)
+        for _, tool := range tools {
+                t.env.PublicStorage().(environs.Storage).Remove(tool)
+        }
 
 	putNames(c, t.env, testList, testList)
 
