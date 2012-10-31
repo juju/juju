@@ -16,12 +16,35 @@ import (
 // relationKey returns a string describing the relation defined by
 // endpoints, for use in various contexts (including error messages).
 func relationKey(endpoints []Endpoint) string {
-	names := []string{}
+	eps := epSlice{}
 	for _, ep := range endpoints {
+		eps = append(eps, ep)
+	}
+	sort.Sort(eps)
+	names := []string{}
+	for _, ep := range eps {
 		names = append(names, ep.String())
 	}
-	sort.Strings(names)
 	return strings.Join(names, " ")
+}
+
+type epSlice []Endpoint
+
+var roleOrder = map[RelationRole]int{
+	RoleRequirer: 0,
+	RoleProvider: 1,
+	RolePeer:     2,
+}
+
+func (eps epSlice) Len() int      { return len(eps) }
+func (eps epSlice) Swap(i, j int) { eps[i], eps[j] = eps[j], eps[i] }
+func (eps epSlice) Less(i, j int) bool {
+	ep1 := eps[i]
+	ep2 := eps[j]
+	if ep1.RelationRole != ep2.RelationRole {
+		return roleOrder[ep1.RelationRole] < roleOrder[ep2.RelationRole]
+	}
+	return ep1.String() < ep2.String()
 }
 
 // relationDoc is the internal representation of a Relation in MongoDB.
@@ -70,33 +93,47 @@ func (r *Relation) Life() Life {
 	return r.doc.Life
 }
 
-// EnsureDying sets the relation lifecycle to Dying if it is Alive.
-// It does nothing otherwise.
-func (r *Relation) EnsureDying() error {
-	err := ensureDying(r.st, r.st.relations, r.doc.Key, "relation")
-	if err != nil {
-		return err
+// Destroy ensures that the relation will be removed at some point; if no units
+// are currently in scope, it will be removed immediately. It is an error to
+// destroy a relation more than once.
+func (r *Relation) Destroy() (err error) {
+	defer trivial.ErrorContextf(&err, "cannot destroy relation %q", r)
+	// In *theory*, there is no upper bound to the number of attempts we could
+	// legitimately make here; it is not inconsistent for a relation to flip
+	// between 0 and 1 units in scope, indefinitely, and perfectly timed to
+	// abort every transaction we attempt below. In practice, this situation
+	// is very unlikely; if as many as 5 attempts have failed, we can be almost
+	// certain that corrupt state is indicated.
+	for attempt := 0; attempt < 5; attempt++ {
+		if r.doc.Life != Alive {
+			return nil
+		}
+		if r.doc.UnitCount == 0 {
+			ops := r.removeOps(D{{"unitcount", 0}})
+			if err := r.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+				return err
+			}
+		} else {
+			ops := []txn.Op{{
+				C:      r.st.relations.Name,
+				Id:     r.doc.Key,
+				Assert: D{{"life", Alive}, {"unitcount", D{{"$gt", 0}}}},
+				Update: D{{"$set", D{{"life", Dying}}}},
+			}}
+			if err := r.st.runner.Run(ops, "", nil); err == nil {
+				r.doc.Life = Dying
+				return nil
+			} else if err != txn.ErrAborted {
+				return err
+			}
+		}
+		if err := r.Refresh(); IsNotFound(err) {
+			return nil
+		} else if err != nil {
+			return err
+		}
 	}
-	r.doc.Life = Dying
-	return nil
-}
-
-// EnsureDead sets the relation lifecycle to Dead if it is Alive or Dying,
-// and does nothing if already Dead.
-// It's an error to call it while there are still units within one or more
-// scopes in the relation.
-func (r *Relation) EnsureDead() error {
-	ops := []txn.Op{{
-		C:      r.st.relations.Name,
-		Id:     r.doc.Key,
-		Assert: D{{"unitcount", 0}},
-	}}
-	err := ensureDead(r.st, r.st.relations, r.doc.Key, "relation", ops, "relation still has member units")
-	if err != nil {
-		return err
-	}
-	r.doc.Life = Dead
-	return nil
+	return fmt.Errorf("units being added during relation removal; shouldn't happen, please contact juju-dev@lists.ubuntu.com")
 }
 
 // removeOps returns the operations that must occur when a relation is removed.
