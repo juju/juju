@@ -555,11 +555,11 @@ func (t *ToolsSuite) TestListTools(c *C) {
 		"xtools/juju-2.2.3-precise-amd64.tgz",
 	}
 
-        tools, err := t.env.PublicStorage().List("")
-        c.Assert(err, IsNil)
-        for _, tool := range tools {
-                t.env.PublicStorage().(environs.Storage).Remove(tool)
-        }
+	tools, err := t.env.PublicStorage().List("")
+	c.Assert(err, IsNil)
+	for _, tool := range tools {
+		t.env.PublicStorage().(environs.Storage).Remove(tool)
+	}
 
 	putNames(c, t.env, testList, testList)
 
