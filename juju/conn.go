@@ -234,8 +234,12 @@ func (conn *Conn) DestroyUnits(units ...*state.Unit) error {
 	return nil
 }
 
-// ResolveUnit marks the specified unit resolved.
-func (conn *Conn) ResolveUnit(unit *state.Unit, retryHooks bool) error {
+// Resolved marks the unit as having had any previous state transition
+// problems resolved, and informs the unit that it may attempt to
+// reestablish normal workflow. The retryHooks parameter informs
+// whether to attempt to reexecute previous failed hooks or to continue
+// as if they had succeeded before.
+func (conn *Conn) Resolved(unit *state.Unit, retryHooks bool) error {
 	status, _, err := unit.Status()
 	if err != nil {
 		return err

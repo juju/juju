@@ -49,5 +49,5 @@ func (c *ResolvedCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	return conn.ResolveUnit(unit, c.Retry)
+	return conn.Resolved(unit, c.Retry)
 }

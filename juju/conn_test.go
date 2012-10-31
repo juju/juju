@@ -436,7 +436,7 @@ func (s *ConnSuite) TestDestroyUnits(c *C) {
 	}
 }
 
-func (s *ConnSuite) TestResolveUnit(c *C) {
+func (s *ConnSuite) TestResolved(c *C) {
 	curl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "riak")
 	sch, err := s.conn.PutCharm(curl, s.repo, false)
 	c.Assert(err, IsNil)
@@ -446,24 +446,24 @@ func (s *ConnSuite) TestResolveUnit(c *C) {
 	c.Assert(err, IsNil)
 	u := us[0]
 
-	err = s.conn.ResolveUnit(u, false)
+	err = s.conn.Resolved(u, false)
 	c.Assert(err, ErrorMatches, `unit "testriak/0" is not in an error state`)
-	err = s.conn.ResolveUnit(u, true)
+	err = s.conn.Resolved(u, true)
 	c.Assert(err, ErrorMatches, `unit "testriak/0" is not in an error state`)
 
 	err = u.SetStatus(state.UnitError, "gaaah")
 	c.Assert(err, IsNil)
-	err = s.conn.ResolveUnit(u, false)
+	err = s.conn.Resolved(u, false)
 	c.Assert(err, IsNil)
-	err = s.conn.ResolveUnit(u, true)
+	err = s.conn.Resolved(u, true)
 	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "testriak/0": already resolved`)
 	c.Assert(u.Resolved(), Equals, state.ResolvedNoHooks)
 
 	err = u.ClearResolved()
 	c.Assert(err, IsNil)
-	err = s.conn.ResolveUnit(u, true)
+	err = s.conn.Resolved(u, true)
 	c.Assert(err, IsNil)
-	err = s.conn.ResolveUnit(u, false)
+	err = s.conn.Resolved(u, false)
 	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "testriak/0": already resolved`)
 	c.Assert(u.Resolved(), Equals, state.ResolvedRetryHooks)
 }
