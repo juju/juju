@@ -14,11 +14,14 @@ import (
 	"strings"
 )
 
+// debian/rules uses this constant for the package version.
+const version = "1.9.1"
+
 // Current gives the current version of the system.  If the file
 // "FORCE-VERSION" is present in the same directory as the running
 // binary, it will override this.
 var Current = Binary{
-	Number: MustParse("0.0.2"),
+	Number: MustParse(version),
 	Series: readSeries("/etc/lsb-release"), // current Ubuntu release name.  
 	Arch:   ubuntuArch(runtime.GOARCH),
 }
