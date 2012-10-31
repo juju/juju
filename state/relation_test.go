@@ -12,76 +12,88 @@ import (
 
 type RelationSuite struct {
 	ConnSuite
-	charm *state.Charm
+	charm     *state.Charm
+	wordpress *state.Charm
+	mysql     *state.Charm
+	riak      *state.Charm
+	logging   *state.Charm
 }
 
 var _ = Suite(&RelationSuite{})
 
 func (s *RelationSuite) SetUpTest(c *C) {
 	s.ConnSuite.SetUpTest(c)
-	s.charm = s.AddTestingCharm(c, "dummy")
+	s.charm = s.AddTestingCharm(c, "dummy") // TODO remove
+	s.wordpress = s.AddTestingCharm(c, "wordpress")
+	s.mysql = s.AddTestingCharm(c, "mysql")
+	s.riak = s.AddTestingCharm(c, "riak")
+	s.logging = s.AddTestingCharm(c, "logging")
 }
 
 func (s *RelationSuite) TestRelationErrors(c *C) {
-	req, err := s.State.AddService("req", s.charm)
+	wp, err := s.State.AddService("wp", s.wordpress)
 	c.Assert(err, IsNil)
-	reqep := state.Endpoint{"req", "ifce", "bar", state.RoleRequirer, charm.ScopeGlobal}
+	wpep, err := wp.Endpoint("db")
+	c.Assert(err, IsNil)
 
 	// Check we can't add a relation until both services exist.
-	proep := state.Endpoint{"pro", "ifce", "foo", state.RoleProvider, charm.ScopeGlobal}
-	_, err = s.State.AddRelation(proep, reqep)
-	c.Assert(err, ErrorMatches, `cannot add relation "req:bar pro:foo": .*`)
-	assertNoRelations(c, req)
-	pro, err := s.State.AddService("pro", s.charm)
+	msep := state.Endpoint{"ms", "mysql", "server", state.RoleProvider, charm.ScopeGlobal}
+	_, err = s.State.AddRelation(msep, wpep)
+	c.Assert(err, ErrorMatches, `cannot add relation "wp:db ms:server": .*`)
+	assertNoRelations(c, wp)
+	ms, err := s.State.AddService("ms", s.mysql)
 	c.Assert(err, IsNil)
 
 	// Check that interfaces have to match.
-	proep2 := state.Endpoint{"pro", "other", "foo", state.RoleProvider, charm.ScopeGlobal}
-	_, err = s.State.AddRelation(proep2, reqep)
-	c.Assert(err, ErrorMatches, `cannot add relation "req:bar pro:foo": endpoints do not relate`)
-	assertNoRelations(c, pro)
-	assertNoRelations(c, req)
+	proep2 := state.Endpoint{"ms", "roflcopter", "server", state.RoleProvider, charm.ScopeGlobal}
+	_, err = s.State.AddRelation(proep2, wpep)
+	c.Assert(err, ErrorMatches, `cannot add relation "wp:db ms:server": endpoints do not relate`)
+	assertNoRelations(c, ms)
+	assertNoRelations(c, wp)
 
 	// Check a variety of surprising endpoint combinations.
-	_, err = s.State.AddRelation(reqep)
-	c.Assert(err, ErrorMatches, `cannot add relation "req:bar": single endpoint must be a peer relation`)
-	assertNoRelations(c, req)
+	_, err = s.State.AddRelation(wpep)
+	c.Assert(err, ErrorMatches, `cannot add relation "wp:db": single endpoint must be a peer relation`)
+	assertNoRelations(c, wp)
 
-	peer, err := s.State.AddService("peer", s.charm)
+	rk, err := s.State.AddService("rk", s.riak)
 	c.Assert(err, IsNil)
-	peerep := state.Endpoint{"peer", "ifce", "baz", state.RolePeer, charm.ScopeGlobal}
-	_, err = s.State.AddRelation(peerep, reqep)
-	c.Assert(err, ErrorMatches, `cannot add relation "req:bar peer:baz": endpoints do not relate`)
-	assertNoRelations(c, peer)
-	assertNoRelations(c, req)
+	rkep, err := rk.Endpoint("ring")
+	c.Assert(err, IsNil)
+	_, err = s.State.AddRelation(rkep, wpep)
+	c.Assert(err, ErrorMatches, `cannot add relation "wp:db rk:ring": endpoints do not relate`)
+	assertNoRelations(c, rk)
+	assertNoRelations(c, wp)
 
-	_, err = s.State.AddRelation(peerep, peerep)
-	c.Assert(err, ErrorMatches, `cannot add relation "peer:baz peer:baz": endpoints do not relate`)
-	assertNoRelations(c, peer)
+	_, err = s.State.AddRelation(rkep, rkep)
+	c.Assert(err, ErrorMatches, `cannot add relation "rk:ring rk:ring": endpoints do not relate`)
+	assertNoRelations(c, rk)
 
 	_, err = s.State.AddRelation()
 	c.Assert(err, ErrorMatches, `cannot add relation "": cannot relate 0 endpoints`)
-	_, err = s.State.AddRelation(proep, reqep, peerep)
-	c.Assert(err, ErrorMatches, `cannot add relation "req:bar pro:foo peer:baz": cannot relate 3 endpoints`)
+	_, err = s.State.AddRelation(msep, wpep, rkep)
+	c.Assert(err, ErrorMatches, `cannot add relation "wp:db ms:server rk:ring": cannot relate 3 endpoints`)
 }
 
 func (s *RelationSuite) TestRetrieveSuccess(c *C) {
-	_, err := s.State.AddService("subway", s.charm)
+	wp, err := s.State.AddService("wp", s.wordpress)
 	c.Assert(err, IsNil)
-	_, err = s.State.AddService("mongo", s.charm)
+	ms, err := s.State.AddService("ms", s.mysql)
 	c.Assert(err, IsNil)
-	subway := state.Endpoint{"subway", "mongodb", "db", state.RoleRequirer, charm.ScopeGlobal}
-	mongo := state.Endpoint{"mongo", "mongodb", "server", state.RoleProvider, charm.ScopeGlobal}
-	expect, err := s.State.AddRelation(subway, mongo)
+	wpep, err := wp.Endpoint("db")
 	c.Assert(err, IsNil)
-	rel, err := s.State.EndpointsRelation(subway, mongo)
+	msep, err := ms.Endpoint("server")
+	c.Assert(err, IsNil)
+	expect, err := s.State.AddRelation(wpep, msep)
+	c.Assert(err, IsNil)
+	rel, err := s.State.EndpointsRelation(wpep, msep)
 	check := func() {
 		c.Assert(err, IsNil)
 		c.Assert(rel.Id(), Equals, expect.Id())
 		c.Assert(rel.String(), Equals, expect.String())
 	}
 	check()
-	rel, err = s.State.EndpointsRelation(mongo, subway)
+	rel, err = s.State.EndpointsRelation(msep, wpep)
 	check()
 	rel, err = s.State.Relation(expect.Id())
 	check()
