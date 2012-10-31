@@ -63,7 +63,7 @@ func (m *Machiner) loop() {
 			for _, u := range change.Removed {
 				if u.IsPrincipal() {
 					if err := m.localContainer.Destroy(u); err != nil {
-						log.Printf("cannot destroy unit %s: %v", u.Name(), err)
+						log.Printf("worker/machiner: cannot destroy unit %s: %v", u.Name(), err)
 					}
 				}
 			}
@@ -71,7 +71,7 @@ func (m *Machiner) loop() {
 				if u.IsPrincipal() {
 					if err := m.localContainer.Deploy(u, m.stateInfo, m.tools); err != nil {
 						// TODO put unit into a queue to retry the deploy.
-						log.Printf("cannot deploy unit %s: %v", u.Name(), err)
+						log.Printf("worker/machiner: cannot deploy unit %s: %v", u.Name(), err)
 					}
 				}
 			}

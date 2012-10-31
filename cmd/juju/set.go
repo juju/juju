@@ -88,12 +88,12 @@ func (c *SetCommand) Run(ctx *cmd.Context) error {
 	}
 	// 3. Update any keys that remain after validation and filtering.
 	if len(validated) > 0 {
-		log.Debugf("updating configuration items: %v", validated)
+		log.Debugf("cmd/juju: updating configuration items: %v", validated)
 		cfg.Update(validated)
 	}
 	// 4. Delete any removed keys.
 	if len(remove) > 0 {
-		log.Debugf("removing configuration items: %v", remove)
+		log.Debugf("cmd/juju: removing configuration items: %v", remove)
 		for _, k := range remove {
 			cfg.Delete(k)
 		}
