@@ -529,6 +529,9 @@ var listToolsTests = []struct {
 	major  int
 	expect []string
 }{{
+	0,
+	nil,
+}, {
 	1,
 	[]string{"1.2.3-precise-i386"},
 }, {
@@ -553,6 +556,16 @@ func (t *ToolsSuite) TestListTools(c *C) {
 		"tools/juju-2.2-precise-amd64.tgz",
 		"tools/juju-3.2.1-quantal-amd64.tgz",
 		"xtools/juju-2.2.3-precise-amd64.tgz",
+	}
+
+	// dummy always populates the tools set with version.Current.
+	// Remove any tools in the public storage to ensure they don't
+	// conflict with the list of tools we expect.
+	ps := t.env.PublicStorage().(environs.Storage)
+	tools, err := ps.List("")
+	c.Assert(err, IsNil)
+	for _, tool := range tools {
+		ps.Remove(tool)
 	}
 
 	putNames(c, t.env, testList, testList)
