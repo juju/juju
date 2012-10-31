@@ -49,13 +49,5 @@ func (c *ResolvedCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	status, _, err := unit.Status()
-	if status != state.UnitError {
-		return fmt.Errorf("unit %q is not in an error state", unit)
-	}
-	mode := state.ResolvedNoHooks
-	if c.Retry {
-		mode = state.ResolvedRetryHooks
-	}
-	return unit.SetResolved(mode)
+	return conn.ResolveUnit(unit, c.Retry)
 }

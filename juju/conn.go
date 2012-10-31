@@ -233,3 +233,19 @@ func (conn *Conn) DestroyUnits(units ...*state.Unit) error {
 	}
 	return nil
 }
+
+// ResolveUnit marks the specified unit resolved.
+func (conn *Conn) ResolveUnit(unit *state.Unit, retryHooks bool) error {
+	status, _, err := unit.Status()
+	if err != nil {
+		return err
+	}
+	if status != state.UnitError {
+		return fmt.Errorf("unit %q is not in an error state", unit)
+	}
+	mode := state.ResolvedNoHooks
+	if retryHooks {
+		mode = state.ResolvedRetryHooks
+	}
+	return unit.SetResolved(mode)
+}
