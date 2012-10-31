@@ -1,3 +1,6 @@
 package environs
 
-var Setenv = setenv
+var (
+	Setenv     = setenv
+	ToolPrefix = toolPrefix
+)

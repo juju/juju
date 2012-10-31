@@ -35,6 +35,13 @@ func (t *ToolsSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	t.env = env
 	t.dataDir = c.MkDir()
+
+	// remove any tools in the environment. 
+	tools, err := t.env.PublicStorage().List("")
+	c.Assert(err, IsNil)
+	for _, tool := range tools {
+		t.env.PublicStorage().(environs.Storage).Remove(tool)
+	}
 }
 
 func (t *ToolsSuite) TearDownTest(c *C) {
