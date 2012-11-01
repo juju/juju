@@ -216,7 +216,7 @@ type runner interface {
 }
 
 // runWithTimeout runs an agent and waits
-// for it to complete within a reasonable time. 
+// for it to complete within a reasonable time.
 func runWithTimeout(r runner) error {
 	done := make(chan error)
 	go func() {

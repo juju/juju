@@ -102,7 +102,7 @@ func (c *SetCommand) Run(ctx *cmd.Context) error {
 	return err
 }
 
-// parse parses the option k=v strings into a map of options to be 
+// parse parses the option k=v strings into a map of options to be
 // updated in the config. Keys with empty values are returned separately
 // and should be removed.
 func parse(options []string) (kv map[string]string, del []string, err error) {

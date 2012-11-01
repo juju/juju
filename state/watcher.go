@@ -132,7 +132,7 @@ func (w *MachineWatcher) loop(m *Machine) (err error) {
 
 // MachinesWatcher notifies about lifecycle changes for all machines
 // in the environment.
-// 
+//
 // The first event emitted will contain the ids of all machines found
 // irrespective of their life state. From then on a new event is emitted
 // whenever one or more machines are added or change their lifecycle.
@@ -1239,13 +1239,13 @@ func (s *Service) WatchConfig() *ConfigWatcher {
 
 // MachineUnitsWatcher notifies about assignments and lifecycle changes
 // for all units of a machine.
-// 
+//
 // The first event emitted contains the unit names of all units currently
 // assigned to the machine, irrespective of their life state. From then on,
 // a new event is emitted whenever a unit is assigned to or unassigned from
 // the machine, or the lifecycle of a unit that is currently assigned to
 // the machine changes.
-// 
+//
 // After a unit is found to be Dead, no further event will include it.
 type MachineUnitsWatcher struct {
 	commonWatcher

@@ -25,7 +25,7 @@ type FirewallerSuite struct {
 }
 
 // assertPorts retrieves the open ports of the instance and compares them
-// to the expected. 
+// to the expected.
 func (s *FirewallerSuite) assertPorts(c *C, inst environs.Instance, machineId int, expected []state.Port) {
 	s.State.StartSync()
 	start := time.Now()
@@ -51,7 +51,7 @@ func (s *FirewallerSuite) assertPorts(c *C, inst environs.Instance, machineId in
 }
 
 // assertEnvironPorts retrieves the open ports of environment and compares them
-// to the expected. 
+// to the expected.
 func (s *FirewallerSuite) assertEnvironPorts(c *C, expected []state.Port) {
 	s.State.StartSync()
 	start := time.Now()

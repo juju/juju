@@ -68,7 +68,7 @@ func Open(info *Info) (*State, error) {
 	return st, nil
 }
 
-// Initialize sets up an initial empty state and returns it. 
+// Initialize sets up an initial empty state and returns it.
 // This needs to be performed only once for a given environment.
 // It returns ErrUnauthorized if access is unauthorized.
 func Initialize(info *Info, cfg *config.Config) (*State, error) {

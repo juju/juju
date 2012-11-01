@@ -23,7 +23,7 @@ import (
 // The internal implementation of the time slot document is as follows:
 //
 // {
-//   "_id":   <time slot>, 
+//   "_id":   <time slot>,
 //   "alive": { hex(<pinger seq> / 63) : (1 << (<pinger seq> % 63) | <others>) },
 //   "dead":  { hex(<pinger seq> / 63) : (1 << (<pinger seq> % 63) | <others>) },
 // }

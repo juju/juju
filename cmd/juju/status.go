@@ -104,7 +104,7 @@ func fetchAllMachines(st *state.State) (map[int]*state.Machine, error) {
 	return v, nil
 }
 
-// fetchAllServices returns a map representing a mapping of service 
+// fetchAllServices returns a map representing a mapping of service
 // names to services.
 func fetchAllServices(st *state.State) (map[string]*state.Service, error) {
 	v := make(map[string]*state.Service)
@@ -133,7 +133,7 @@ func processMachines(machines map[int]*state.Machine, instances map[string]envir
 			instance, ok := instances[instid]
 			if !ok {
 				// Double plus ungood. There is an instance id recorded for this machine in the state,
-				// yet the environ cannot find that id. 
+				// yet the environ cannot find that id.
 				return nil, fmt.Errorf("instance %s for machine %d not found", instid, m.Id())
 			}
 			r[m.Id()] = checkError(processMachine(m, instance))
