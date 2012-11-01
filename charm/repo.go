@@ -68,7 +68,7 @@ func (s *store) info(curl *URL) (rev int, digest string, err error) {
 		return
 	}
 	for _, w := range info.Warnings {
-		log.Printf("WARNING: charm store reports for %q: %s", key, w)
+		log.Printf("charm: WARNING: charm store reports for %q: %s", key, w)
 	}
 	if info.Errors != nil {
 		err = fmt.Errorf(
@@ -210,7 +210,7 @@ func (r *LocalRepository) Get(curl *URL) (Charm, error) {
 		}
 		chPath := filepath.Join(path, info.Name())
 		if ch, err := Read(chPath); err != nil {
-			log.Printf("WARNING: failed to load charm at %q: %s", chPath, err)
+			log.Printf("charm: WARNING: failed to load charm at %q: %s", chPath, err)
 		} else if ch.Meta().Name == curl.Name {
 			if ch.Revision() == curl.Revision {
 				return ch, nil

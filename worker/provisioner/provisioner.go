@@ -94,7 +94,7 @@ func (p *Provisioner) loop() error {
 				return watcher.MustErr(environWatcher)
 			}
 			if err := p.setConfig(cfg); err != nil {
-				log.Printf("provisioner: loaded invalid environment configuration: %v", err)
+				log.Printf("worker/provisioner: loaded invalid environment configuration: %v", err)
 			}
 		case ids, ok := <-machinesWatcher.Changes():
 			if !ok {
@@ -236,7 +236,7 @@ func (p *Provisioner) pendingOrDead(ids []int) (pending, dead []*state.Machine, 
 		if err != nil {
 			return nil, nil, err
 		}
-		log.Printf("provisioner: machine %v already started as instance %q", m, instId)
+		log.Printf("worker/provisioner: machine %v already started as instance %q", m, instId)
 	}
 	return
 }
@@ -277,7 +277,7 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 	// populate the local cache
 	p.instances[m.Id()] = inst
 	p.machines[inst.Id()] = m.Id()
-	log.Printf("provisioner: started machine %s as instance %s", m, inst.Id())
+	log.Printf("worker/provisioner: started machine %s as instance %s", m, inst.Id())
 	return nil
 }
 
