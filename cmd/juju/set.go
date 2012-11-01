@@ -123,7 +123,7 @@ func parse(options []string) (kv map[string]string, del []string, err error) {
 
 // strip removes from validated, any keys which are not also present in unvalidated.
 func strip(validated map[string]interface{}, unvalidated map[string]string) map[string]interface{} {
-	for k, _ := range validated {
+	for k := range validated {
 		if _, ok := unvalidated[k]; !ok {
 			delete(validated, k)
 		}

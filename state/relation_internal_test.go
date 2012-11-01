@@ -14,15 +14,15 @@ var _ = Suite(&RelationSuite{})
 // by normal means.
 func (s *RelationSuite) TestRelatedEndpoints(c *C) {
 	r := &Relation{nil, relationDoc{Endpoints: []Endpoint{
-		Endpoint{"jeff", "ifce", "group", RolePeer, charm.ScopeGlobal},
-		Endpoint{"mike", "ifce", "group", RolePeer, charm.ScopeGlobal},
-		Endpoint{"bill", "ifce", "group", RolePeer, charm.ScopeGlobal},
+		{"jeff", "ifce", "group", RolePeer, charm.ScopeGlobal},
+		{"mike", "ifce", "group", RolePeer, charm.ScopeGlobal},
+		{"bill", "ifce", "group", RolePeer, charm.ScopeGlobal},
 	}}}
 	eps, err := r.RelatedEndpoints("mike")
 	c.Assert(err, IsNil)
 	c.Assert(eps, DeepEquals, []Endpoint{
-		Endpoint{"jeff", "ifce", "group", RolePeer, charm.ScopeGlobal},
-		Endpoint{"mike", "ifce", "group", RolePeer, charm.ScopeGlobal},
-		Endpoint{"bill", "ifce", "group", RolePeer, charm.ScopeGlobal},
+		{"jeff", "ifce", "group", RolePeer, charm.ScopeGlobal},
+		{"mike", "ifce", "group", RolePeer, charm.ScopeGlobal},
+		{"bill", "ifce", "group", RolePeer, charm.ScopeGlobal},
 	})
 }
