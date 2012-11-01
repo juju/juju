@@ -16,20 +16,37 @@ fi
 
 SRC=$1
 WORK=$(mktemp -d)
-SERIES=precise
-ARCH=amd64
 
 curl -L -o ${WORK}/juju.deb ${SRC}
 mkdir ${WORK}/juju
 dpkg-deb -e ${WORK}/juju.deb ${WORK}/juju
-VERSION=$(sed -n 's/^Version: \([0-9]\+\).\([0-9]\+\).\([0-9]\+\).*/\1.\2.\3/p' ${WORK}/juju/control)
-if [ ${VERSION} == "" ] ; then
+VERSION=$(sed -n 's/^Version: \([0-9]\+\).\([0-9]\+\).\([0-9]\+\)-[0-9]\+~\([0-9]\+\)~\([a-Z]\+\).*/\1.\2.\3/p' ${WORK}/juju/control)
+if [ "${VERSION}" == "" ] ; then
 	echo "cannot extract deb version"
 	exit 2
 fi
 
-dpkg-deb -x ${WORK}/juju.deb ${WORK}/juju
+SERIES=$(sed -n 's/^Version: \([0-9]\+\).\([0-9]\+\).\([0-9]\+\)-[0-9]\+~\([0-9]\+\)~\([a-Z]\+\).*/\5/p' ${WORK}/juju/control)
+case "${SERIES}" in 
+	"precise" | "quantal" | "raring" )
+		;;
+	*)
+		echo "invalid series"
+		exit 2
+		;;
+esac
+
+ARCH=$(sed -n 's/^Architecture: \([a-z]\+\)/\1/p' ${WORK}/juju/control)
+case "${ARCH}" in 
+	"amd64" | "i386" | "armel" | "armhf" )
+		;;
+	*)
+		echo "invalid arch"
+		exit 2
+		;;
+esac
 
 TOOLS=${WORK}/juju-${VERSION}-${SERIES}-${ARCH}.tgz
+dpkg-deb -x ${WORK}/juju.deb ${WORK}/juju
 tar cvfz $TOOLS -C ${WORK}/juju/usr/bin jujuc jujud
 s3up --public ${TOOLS} juju-dist/tools/
