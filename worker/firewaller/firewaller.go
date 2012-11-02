@@ -417,7 +417,7 @@ func (fw *Firewaller) Stop() error {
 	return fw.tomb.Wait()
 }
 
-// unitsChange contains the changed units for one specific machine. 
+// unitsChange contains the changed units for one specific machine.
 type unitsChange struct {
 	machined *machineData
 	*state.MachinePrincipalUnitsChange
@@ -490,7 +490,7 @@ func (md *machineData) Stop() error {
 	return md.tomb.Wait()
 }
 
-// portsChange contains the changed ports for one specific unit. 
+// portsChange contains the changed ports for one specific unit.
 type portsChange struct {
 	unitd *unitData
 	ports []state.Port
@@ -572,7 +572,7 @@ func (ud *unitData) Stop() error {
 	return ud.tomb.Wait()
 }
 
-// exposedChange contains the changed exposed flag for one specific service. 
+// exposedChange contains the changed exposed flag for one specific service.
 type exposedChange struct {
 	serviced *serviceData
 	exposed  bool

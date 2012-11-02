@@ -29,7 +29,7 @@ var statusTests = []struct {
 	output  map[string]interface{}
 }{
 	{
-		// unlikely, as you can't run juju status in real life without 
+		// unlikely, as you can't run juju status in real life without
 		// machine/0 bootstrapped.
 		"empty state",
 		func(*state.State, *juju.Conn, *C) {},

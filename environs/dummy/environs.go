@@ -1,16 +1,16 @@
 // The dummy provider implements an environment provider for testing
 // purposes, registered with environs under the name "dummy".
-// 
+//
 // The configuration YAML for the testing environment
 // must specify a "state-server" property with a boolean
 // value. If this is true, a state server will be started
 // the first time StateInfo is called on a newly reset environment.
-// 
+//
 // The configuration data also accepts a "broken" property
 // of type boolean. If this is non-empty, any operation
 // after the environment has been opened will return
 // the error "broken environment", and will also log that.
-// 
+//
 // The DNS name of instances is the same as the Id,
 // with ".dns" appended.
 //
@@ -697,7 +697,7 @@ func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
 }
 
 // providerDelay controls the delay before dummy responds.
-// non empty values in JUJU_DUMMY_DELAY will be parsed as 
+// non empty values in JUJU_DUMMY_DELAY will be parsed as
 // time.Durations into this value.
 var providerDelay time.Duration
 

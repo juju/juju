@@ -11,7 +11,7 @@ import (
 type FirewallMode string
 
 const (
-	// FwDefault is the environment-specific default mode. 
+	// FwDefault is the environment-specific default mode.
 	FwDefault FirewallMode = ""
 
 	// FwInstance requests the use of an individual firewall per instance.

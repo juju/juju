@@ -252,7 +252,7 @@ func (p *Provisioner) startMachines(machines []*state.Machine) error {
 
 func (p *Provisioner) startMachine(m *state.Machine) error {
 	// TODO(dfc) the state.Info passed to environ.StartInstance remains contentious
-	// however as the PA only knows one state.Info, and that info is used by MAs and 
+	// however as the PA only knows one state.Info, and that info is used by MAs and
 	password, err := trivial.RandomPassword()
 	if err != nil {
 		return fmt.Errorf("cannot make password for new machine: %v", err)
@@ -260,8 +260,8 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 	if err := m.SetPassword(password); err != nil {
 		return fmt.Errorf("cannot set password for new machine: %v", err)
 	}
-	// UAs to locate the ZK for this environment, it is logical to use the same 
-	// state.Info as the PA. 
+	// UAs to locate the ZK for this environment, it is logical to use the same
+	// state.Info as the PA.
 	info := *p.info
 	info.EntityName = m.EntityName()
 	info.Password = password
@@ -282,7 +282,7 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 }
 
 func (p *Provisioner) stopInstances(instances []environs.Instance) error {
-	// Although calling StopInstance with an empty slice should produce no change in the 
+	// Although calling StopInstance with an empty slice should produce no change in the
 	// provider, environs like dummy do not consider this a noop.
 	if len(instances) == 0 {
 		return nil

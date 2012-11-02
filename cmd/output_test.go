@@ -112,8 +112,8 @@ func (s *CmdSuite) TestOutputFormat(c *C) {
 	c.Assert(bufferString(ctx.Stderr), Matches, ".*: unknown format \"cuneiform\"\n")
 }
 
-// Py juju allowed both --format json and --format=json. This test verifies that juju is 
-// being built against a version of the gnuflag library (rev 14 or above) that supports 
+// Py juju allowed both --format json and --format=json. This test verifies that juju is
+// being built against a version of the gnuflag library (rev 14 or above) that supports
 // this argument format.
 // LP #1059921
 func (s *CmdSuite) TestFormatAlternativeSyntax(c *C) {

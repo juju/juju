@@ -917,7 +917,7 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	case <-time.After(100 * time.Millisecond):
 	}
 
-	// Check assignment of additional principal units. 
+	// Check assignment of additional principal units.
 	service, err = s.State.AddService("wordpress", charm)
 	c.Assert(err, IsNil)
 	unit0, err := service.AddUnit()

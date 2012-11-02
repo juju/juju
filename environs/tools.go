@@ -406,7 +406,7 @@ const (
 // FindTools tries to find a set of tools compatible with the given
 // version from the given environment, using flags to determine
 // possible candidates.
-// 
+//
 // If no tools are found and there's no other error, a NotFoundError is
 // returned.  If there's anything compatible in the environ's Storage,
 // it gets precedence over anything in its PublicStorage.

@@ -117,7 +117,7 @@ func (st *State) EnvironConfig() (*config.Config, error) {
 	return config.New(attrs)
 }
 
-// SetEnvironConfig replaces the current configuration of the 
+// SetEnvironConfig replaces the current configuration of the
 // environment with the provided configuration.
 func (st *State) SetEnvironConfig(cfg *config.Config) error {
 	if cfg.AdminSecret() != "" {

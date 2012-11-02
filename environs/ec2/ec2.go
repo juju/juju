@@ -726,7 +726,7 @@ func (inst *instance) Ports(machineId int) ([]state.Port, error) {
 
 // setUpGroups creates the security groups for the new machine, and
 // returns them.
-// 
+//
 // Instances are tagged with a group so they can be distinguished from
 // other instances that might be running on the same EC2 account.  In
 // addition, a specific machine security group is created for each
