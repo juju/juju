@@ -301,7 +301,7 @@ func (s *LocalRepoSuite) TestLogsErrors(c *C) {
 	c.Assert(err, IsNil)
 	err = os.Mkdir(filepath.Join(s.seriesPath, "blah"), 0666)
 	c.Assert(err, IsNil)
-	samplePath := s.addDir("new")
+	samplePath := s.addDir("upgrade2")
 	gibberish := []byte("don't parse me by")
 	err = ioutil.WriteFile(filepath.Join(samplePath, "metadata.yaml"), gibberish, 0666)
 	c.Assert(err, IsNil)
@@ -314,7 +314,7 @@ func (s *LocalRepoSuite) TestLogsErrors(c *C) {
 	c.Assert(c.GetTestLog(), Matches, `
 .* JUJU WARNING: failed to load charm at ".*/series/blah": .*
 .* JUJU WARNING: failed to load charm at ".*/series/blah.charm": .*
-.* JUJU WARNING: failed to load charm at ".*/series/new": .*
+.* JUJU WARNING: failed to load charm at ".*/series/upgrade2": .*
 `[1:])
 }
 
