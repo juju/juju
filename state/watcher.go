@@ -1304,11 +1304,22 @@ func (w *MachineUnitsWatcher) merge(pending []string, unit string) (new []string
 		return nil, err
 	}
 	life, known := w.known[unit]
-	if err == mgo.ErrNotFound {
+	if err == mgo.ErrNotFound || doc.Principal == "" && (doc.MachineId == nil || *doc.MachineId != w.machine.doc.Id) {
+		// Unit was removed or unassigned from w.machine.
 		if known {
+			delete(w.known, unit)
 			w.st.watcher.Unwatch(w.st.units.Name, unit, w.in)
-			if life != Dead {
-				return append(pending, unit), nil
+			if life != Dead && !hasString(pending, unit) {
+				pending = append(pending, unit)
+			}
+			for _, subunit := range doc.Subordinates {
+				if sublife, subknown := w.known[subunit]; subknown {
+					delete(w.known, subunit)
+					w.st.watcher.Unwatch(w.st.units.Name, subunit, w.in)
+					if sublife != Dead && !hasString(pending, subunit) {
+						pending = append(pending, subunit)
+					}
+				}
 			}
 		}
 		return pending, nil
@@ -1316,16 +1327,8 @@ func (w *MachineUnitsWatcher) merge(pending []string, unit string) (new []string
 	if !known {
 		w.st.watcher.Watch(w.st.units.Name, unit, doc.TxnRevno, w.in)
 		pending = append(pending, unit)
-	} else if life != doc.Life {
-		found := false
-		for _, v := range pending {
-			if v == unit {
-				found = true
-			}
-		}
-		if !found {
-			pending = append(pending, unit)
-		}
+	} else if life != doc.Life && !hasString(pending, unit) {
+		pending = append(pending, unit)
 	}
 	w.known[unit] = doc.Life
 	for _, subunit := range doc.Subordinates {
