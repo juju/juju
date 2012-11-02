@@ -1309,14 +1309,14 @@ func (w *MachineUnitsWatcher) merge(pending []string, unit string) (new []string
 		if known {
 			delete(w.known, unit)
 			w.st.watcher.Unwatch(w.st.units.Name, unit, w.in)
-			if life != Dead {
+			if life != Dead && !hasString(pending, unit) {
 				pending = append(pending, unit)
 			}
 			for _, subunit := range doc.Subordinates {
 				if sublife, subknown := w.known[subunit]; subknown {
 					delete(w.known, subunit)
 					w.st.watcher.Unwatch(w.st.units.Name, subunit, w.in)
-					if sublife != Dead {
+					if sublife != Dead && !hasString(pending, subunit) {
 						pending = append(pending, subunit)
 					}
 				}
@@ -1327,16 +1327,8 @@ func (w *MachineUnitsWatcher) merge(pending []string, unit string) (new []string
 	if !known {
 		w.st.watcher.Watch(w.st.units.Name, unit, doc.TxnRevno, w.in)
 		pending = append(pending, unit)
-	} else if life != doc.Life {
-		found := false
-		for _, v := range pending {
-			if v == unit {
-				found = true
-			}
-		}
-		if !found {
-			pending = append(pending, unit)
-		}
+	} else if life != doc.Life && !hasString(pending, unit) {
+		pending = append(pending, unit)
 	}
 	w.known[unit] = doc.Life
 	for _, subunit := range doc.Subordinates {

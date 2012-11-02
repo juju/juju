@@ -956,18 +956,19 @@ func (s *MachineSuite) testWatchUnitsUnassign(c *C, reassign bool) {
 	unitWatcher := s.machine.WatchUnits()
 	defer unitWatcher.Stop()
 
-	s.State.StartSync()
+	s.State.Sync()
+
 	select {
 	case <-unitWatcher.Changes():
 	case <-time.After(5 * time.Second):
 		c.Fatalf("wacther didn't send initial event")
 	}
 
-	charm := s.AddTestingCharm(c, "dummy")
+	charm := s.AddTestingCharm(c, "wordpress")
 	subcharm := s.AddTestingCharm(c, "logging")
-	service, err := s.State.AddService("myservice", charm)
+	service, err := s.State.AddService("wordpress", charm)
 	c.Assert(err, IsNil)
-	subservice, err := s.State.AddService("mysubservice", subcharm)
+	subservice, err := s.State.AddService("logging", subcharm)
 	c.Assert(err, IsNil)
 	principal, err := service.AddUnit()
 	c.Assert(err, IsNil)
@@ -978,14 +979,14 @@ func (s *MachineSuite) testWatchUnitsUnassign(c *C, reassign bool) {
 	err = principal.AssignToMachine(s.machine)
 	c.Assert(err, IsNil)
 
-	s.State.StartSync()
+	s.State.Sync()
 
 	select {
 	case change := <-unitWatcher.Changes():
 		sort.Strings(change)
-		c.Assert(change, DeepEquals, []string{"myservice/0", "mysubservice/0", "mysubservice/1"})
+		c.Assert(change, DeepEquals, []string{"logging/0", "logging/1", "wordpress/0"})
 	case <-time.After(5 * time.Second):
-		c.Fatalf("wacther didn't send expected event")
+		c.Fatalf("watcher didn't send expected event")
 	}
 
 	// Remove one of the subordinate to make matters more interesting.
@@ -1009,8 +1010,8 @@ func (s *MachineSuite) testWatchUnitsUnassign(c *C, reassign bool) {
 	select {
 	case change := <-unitWatcher.Changes():
 		sort.Strings(change)
-		c.Assert(change, DeepEquals, []string{"myservice/0", "mysubservice/0", "mysubservice/1"})
+		c.Assert(change, DeepEquals, []string{"logging/0", "logging/1", "wordpress/0"})
 	case <-time.After(5 * time.Second):
-		c.Fatalf("wacther didn't send expected event")
+		c.Fatalf("watcher didn't send expected event")
 	}
 }
