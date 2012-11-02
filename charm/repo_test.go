@@ -132,7 +132,7 @@ func (s *StoreSuite) TestWarning(c *C) {
 	log.Target = c
 	defer func() { log.Target = orig }()
 	curl := charm.MustParseURL("cs:series/unwise")
-	expect := `.* JUJU WARNING: charm store reports for "cs:series/unwise": foolishness` + "\n"
+	expect := `.* JUJU charm: WARNING: charm store reports for "cs:series/unwise": foolishness` + "\n"
 	r, err := s.store.Latest(curl)
 	c.Assert(r, Equals, 23)
 	c.Assert(err, IsNil)
@@ -251,8 +251,8 @@ func (s *LocalRepoSuite) TestMissingRepo(c *C) {
 }
 
 func (s *LocalRepoSuite) TestMultipleVersions(c *C) {
-	curl := charm.MustParseURL("local:series/sample")
-	s.addDir("old")
+	curl := charm.MustParseURL("local:series/upgrade")
+	s.addDir("upgrade1")
 	rev, err := s.repo.Latest(curl)
 	c.Assert(err, IsNil)
 	c.Assert(rev, Equals, 1)
@@ -260,7 +260,7 @@ func (s *LocalRepoSuite) TestMultipleVersions(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(ch.Revision(), Equals, 1)
 
-	s.addDir("new")
+	s.addDir("upgrade2")
 	rev, err = s.repo.Latest(curl)
 	c.Assert(err, IsNil)
 	c.Assert(rev, Equals, 2)
@@ -281,7 +281,7 @@ func (s *LocalRepoSuite) TestMultipleVersions(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(rev, Equals, 2)
 	ch, err = s.repo.Get(badRevCurl)
-	c.Assert(err, ErrorMatches, `no charms found matching "local:series/sample-33"`)
+	c.Assert(err, ErrorMatches, `no charms found matching "local:series/upgrade-33"`)
 }
 
 func (s *LocalRepoSuite) TestBundle(c *C) {
@@ -301,7 +301,7 @@ func (s *LocalRepoSuite) TestLogsErrors(c *C) {
 	c.Assert(err, IsNil)
 	err = os.Mkdir(filepath.Join(s.seriesPath, "blah"), 0666)
 	c.Assert(err, IsNil)
-	samplePath := s.addDir("new")
+	samplePath := s.addDir("upgrade2")
 	gibberish := []byte("don't parse me by")
 	err = ioutil.WriteFile(filepath.Join(samplePath, "metadata.yaml"), gibberish, 0666)
 	c.Assert(err, IsNil)
@@ -312,9 +312,9 @@ func (s *LocalRepoSuite) TestLogsErrors(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(ch.Revision(), Equals, 1)
 	c.Assert(c.GetTestLog(), Matches, `
-.* JUJU WARNING: failed to load charm at ".*/series/blah": .*
-.* JUJU WARNING: failed to load charm at ".*/series/blah.charm": .*
-.* JUJU WARNING: failed to load charm at ".*/series/new": .*
+.* JUJU charm: WARNING: failed to load charm at ".*/series/blah": .*
+.* JUJU charm: WARNING: failed to load charm at ".*/series/blah.charm": .*
+.* JUJU charm: WARNING: failed to load charm at ".*/series/upgrade2": .*
 `[1:])
 }
 

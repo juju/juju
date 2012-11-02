@@ -19,7 +19,7 @@ type Mode func(u *Uniter) (Mode, error)
 // ModeInit is the initial Uniter mode.
 func ModeInit(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeInit", &err)()
-	log.Printf("updating unit addresses")
+	log.Printf("worker/uniter: updating unit addresses")
 	cfg, err := u.st.EnvironConfig()
 	if err != nil {
 		return nil, err
@@ -52,7 +52,7 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 	// When no charm exists, install it.
 	s, err := u.sf.Read()
 	if err == ErrNoStateFile {
-		log.Printf("charm is not deployed")
+		log.Printf("worker/uniter: charm is not deployed")
 		sch, _, err := u.service.Charm()
 		if err != nil {
 			return nil, err
@@ -65,7 +65,7 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 	// Filter out states not related to charm deployment.
 	switch s.Op {
 	case Continue:
-		log.Printf("continuing after %q hook", s.Hook.Kind)
+		log.Printf("worker/uniter: continuing after %q hook", s.Hook.Kind)
 		switch s.Hook.Kind {
 		case hook.Install:
 			return ModeStarting, nil
@@ -77,20 +77,20 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 		return ModeAbide, nil
 	case RunHook:
 		if s.OpStep == Queued {
-			log.Printf("found queued %q hook", s.Hook.Kind)
+			log.Printf("worker/uniter: found queued %q hook", s.Hook.Kind)
 			if err = u.runHook(*s.Hook); err != nil && err != errHookFailed {
 				return nil, err
 			}
 			return ModeContinue, nil
 		}
 		if s.OpStep == Done {
-			log.Printf("found uncommitted %q hook", s.Hook.Kind)
+			log.Printf("worker/uniter: found uncommitted %q hook", s.Hook.Kind)
 			if err = u.commitHook(*s.Hook); err != nil {
 				return nil, err
 			}
 			return ModeContinue, nil
 		}
-		log.Printf("awaiting error resolution for %q hook", s.Hook.Kind)
+		log.Printf("worker/uniter: awaiting error resolution for %q hook", s.Hook.Kind)
 		return ModeHookError, nil
 	}
 
@@ -100,10 +100,10 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 		return nil, err
 	}
 	if s.Op == Install {
-		log.Printf("resuming charm install")
+		log.Printf("worker/uniter: resuming charm install")
 		return ModeInstalling(sch), nil
 	} else if s.Op == Upgrade {
-		log.Printf("resuming charm upgrade")
+		log.Printf("worker/uniter: resuming charm upgrade")
 		return ModeUpgrading(sch), nil
 	}
 	panic(fmt.Errorf("unhandled uniter operation %q", s.Op))
@@ -380,9 +380,9 @@ func ModeConflicted(sch *state.Charm) Mode {
 // modeContext returns a function that implements logging and common error
 // manipulation for Mode funcs.
 func modeContext(name string, err *error) func() {
-	log.Printf(name + " starting")
+	log.Printf("worker/uniter: %s starting", name)
 	return func() {
-		log.Debugf(name + " exiting")
+		log.Debugf("worker/uniter: %s exiting", name)
 		switch *err {
 		case nil, tomb.ErrDying, worker.ErrDead:
 		default:

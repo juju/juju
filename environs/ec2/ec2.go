@@ -357,7 +357,7 @@ func (e *environ) startInstance(machineId int, info *state.Info, tools *state.To
 	if err != nil {
 		return nil, fmt.Errorf("cannot make user data: %v", err)
 	}
-	log.Debugf("ec2 user data: %q", userData)
+	log.Debugf("environs/ec2: ec2 user data: %q", userData)
 	groups, err := e.setUpGroups(machineId)
 	if err != nil {
 		return nil, fmt.Errorf("cannot set up groups: %v", err)
@@ -726,7 +726,7 @@ func (inst *instance) Ports(machineId int) ([]state.Port, error) {
 
 // setUpGroups creates the security groups for the new machine, and
 // returns them.
-// 
+//
 // Instances are tagged with a group so they can be distinguished from
 // other instances that might be running on the same EC2 account.  In
 // addition, a specific machine security group is created for each

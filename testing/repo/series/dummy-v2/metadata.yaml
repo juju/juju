@@ -1,6 +1,0 @@
-name: dummy-v2
-format: 2
-summary: "That's a new dummy charm."
-description: |
-    This is a longer description which
-    potentially contains multiple lines.

@@ -18,5 +18,3 @@ requires:
     interface: varnish
     limit: 2
     optional: true
-
-

@@ -25,7 +25,7 @@ var mgoPortSuffix = fmt.Sprintf(":%d", mgoPort)
 // Creation of cloudinit data from this struct is largely provider-independent,
 // but we'll keep it internal until we need to factor it out.
 type MachineConfig struct {
-	// StateServer specifies whether the new machine will run a ZooKeeper 
+	// StateServer specifies whether the new machine will run a ZooKeeper
 	// or MongoDB instance.
 	StateServer bool
 

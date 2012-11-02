@@ -220,7 +220,7 @@ type sshProc struct {
 	error  <-chan *sshError // Error printed by ssh.
 	wait   <-chan error     // SSH exit status.
 	output io.Closer        // The output pipe.
-	cmd    *exec.Cmd        // The running command. 
+	cmd    *exec.Cmd        // The running command.
 }
 
 func (p *sshProc) stop() {
