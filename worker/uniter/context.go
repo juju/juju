@@ -182,7 +182,7 @@ func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string)
 					"could not write settings from %q to relation %d: %v",
 					hookName, id, e,
 				)
-				log.Printf("%v", e)
+				log.Printf("worker/uniter: %v", e)
 				if err == nil {
 					err = e
 				}
@@ -208,7 +208,7 @@ func (l *hookLogger) run() {
 		line, _, err := br.ReadLine()
 		if err != nil {
 			if err != io.EOF {
-				log.Printf("cannot read hook output: %v", err)
+				log.Printf("worker/uniter: cannot read hook output: %v", err)
 			}
 			break
 		}
@@ -217,7 +217,7 @@ func (l *hookLogger) run() {
 			l.mu.Unlock()
 			return
 		}
-		log.Printf("HOOK %s", line)
+		log.Printf("worker/uniter: HOOK %s", line)
 		l.mu.Unlock()
 	}
 }

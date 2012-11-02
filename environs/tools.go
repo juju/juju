@@ -55,23 +55,23 @@ func listTools(store StorageReader, majorVersion int) ([]*state.Tools, error) {
 	var toolsList []*state.Tools
 	for _, name := range names {
 		if !strings.HasPrefix(name, toolPrefix) || !strings.HasSuffix(name, ".tgz") {
-			log.Printf("unexpected tools file found %q", name)
+			log.Printf("environs: unexpected tools file found %q", name)
 			continue
 		}
 		vers := name[len(toolPrefix) : len(name)-len(".tgz")]
 		var t state.Tools
 		t.Binary, err = version.ParseBinary(vers)
 		if err != nil {
-			log.Printf("failed to parse %q: %v", vers, err)
+			log.Printf("environs: failed to parse %q: %v", vers, err)
 			continue
 		}
 		if t.Major != majorVersion {
-			log.Printf("tool %q found in wrong directory %q", name, dir)
+			log.Printf("environs: tool %q found in wrong directory %q", name, dir)
 			continue
 		}
 		t.URL, err = store.URL(name)
 		if err != nil {
-			log.Printf("cannot get URL for %q: %v", name, err)
+			log.Printf("environs: cannot get URL for %q: %v", name, err)
 			continue
 		}
 		toolsList = append(toolsList, &t)

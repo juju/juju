@@ -7,7 +7,6 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 )
 
@@ -60,7 +59,6 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err := m.SetInstanceId(c.InstanceId); err != nil {
 		return err
 	}
-	log.Printf("bootstrap-state initial password %q", c.Conf.InitialPassword)
 	if c.Conf.InitialPassword != "" {
 		if err := m.SetPassword(c.Conf.InitialPassword); err != nil {
 			return err
