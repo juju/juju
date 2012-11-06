@@ -845,12 +845,18 @@ func (s waitUniterDead) step(c *C, ctx *context) {
 func (s waitUniterDead) waitDead(c *C, ctx *context) error {
 	u := ctx.uniter
 	ctx.uniter = nil
-	select {
-	case <-u.Dying():
-	case <-time.After(5 * time.Second):
-		c.Fatalf("uniter still alive")
+	timeout := time.After(5 * time.Second)
+	for {
+		select {
+		case <-u.Dying():
+			return u.Wait()
+		case <-time.After(50 * time.Millisecond):
+			ctx.st.StartSync()
+		case <-timeout:
+			c.Fatalf("uniter still alive")
+		}
 	}
-	return u.Wait()
+	panic("unreachable")
 }
 
 type stopUniter struct {
