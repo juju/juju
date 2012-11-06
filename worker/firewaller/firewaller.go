@@ -460,8 +460,7 @@ func (md *machineData) watchLoop() {
 		md.fw.tomb.Killf("firewaller: cannot watch machine units: %v", err)
 		return
 	}
-	// BUG(niemeyer): The firewaller must watch all units, not just principals.
-	w := m.WatchPrincipalUnits()
+	w := m.WatchUnits()
 	defer w.Stop()
 	for {
 		select {
