@@ -420,7 +420,7 @@ func (fw *Firewaller) Stop() error {
 // unitsChange contains the changed units for one specific machine.
 type unitsChange struct {
 	machined *machineData
-	*state.MachinePrincipalUnitsChange
+	units    []string
 }
 
 // machineData holds machine details and watches units added or removed.
