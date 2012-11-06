@@ -251,7 +251,7 @@ func (w *Watcher) flush() {
 // handle deals with requests delivered by the public API
 // onto the background watcher goroutine.
 func (w *Watcher) handle(req interface{}) {
-	log.Debugf("watcher: got request: %#v", req)
+	log.Debugf("state/watcher: got request: %#v", req)
 	switch r := req.(type) {
 	case reqSync:
 		w.next = time.After(0)
@@ -304,7 +304,7 @@ type logInfo struct {
 // lastId with it. This causes all history that precedes the creation
 // of the watcher to be ignored.
 func (w *Watcher) initLastId() error {
-	log.Debugf("watcher: reading most recent document to ignore past history...")
+	log.Debugf("state/watcher: reading most recent document to ignore past history...")
 	var entry struct {
 		Id interface{} "_id"
 	}
@@ -319,7 +319,7 @@ func (w *Watcher) initLastId() error {
 // sync updates the watcher knowledge from the database, and
 // queues events to observing channels.
 func (w *Watcher) sync() error {
-	log.Debugf("watcher: loading new events from changelog collection...")
+	log.Debugf("state/watcher: loading new events from changelog collection...")
 	// Iterate through log events in reverse insertion order (newest first).
 	iter := w.log.Find(nil).Batch(10).Sort("-$natural").Iter()
 	seen := make(map[watchKey]bool)
@@ -328,7 +328,7 @@ func (w *Watcher) sync() error {
 	var entry bson.D
 	for iter.Next(&entry) {
 		if len(entry) == 0 {
-			log.Debugf("watcher: got empty changelog document")
+			log.Debugf("state/watcher: got empty changelog document")
 			continue
 		}
 		id := entry[0]
@@ -342,7 +342,7 @@ func (w *Watcher) sync() error {
 		if id.Value == lastId {
 			break
 		}
-		log.Debugf("watcher: got changelog document: %#v", entry)
+		log.Debugf("state/watcher: got changelog document: %#v", entry)
 		for _, c := range entry[1:] {
 			// See txn's Runner.ChangeLog for the structure of log entries.
 			var d, r []interface{}
@@ -356,7 +356,7 @@ func (w *Watcher) sync() error {
 				}
 			}
 			if len(d) == 0 || len(d) != len(r) {
-				log.Printf("watcher: changelog has invalid collection document: %#v", c)
+				log.Printf("state/watcher: changelog has invalid collection document: %#v", c)
 				continue
 			}
 			for i := len(d) - 1; i >= 0; i-- {
@@ -367,7 +367,7 @@ func (w *Watcher) sync() error {
 				seen[key] = true
 				revno, ok := r[i].(int64)
 				if !ok {
-					log.Printf("watcher: changelog has revno with type %T: %#v", r[i], r[i])
+					log.Printf("state/watcher: changelog has revno with type %T: %#v", r[i], r[i])
 					continue
 				}
 				if revno < 0 {

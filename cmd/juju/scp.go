@@ -43,7 +43,7 @@ func (c *SCPCommand) Run(ctx *cmd.Context) error {
 	}
 	defer c.Close()
 
-	// translate arguments in the form 0:/somepath or service/0:/somepath into 
+	// translate arguments in the form 0:/somepath or service/0:/somepath into
 	// ubuntu@machine:/somepath so they can be presented to scp.
 	for i := range c.Args {
 		// BUG(dfc) This will not work for IPv6 addresses like 2001:db8::1:2:/somepath.

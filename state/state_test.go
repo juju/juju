@@ -819,7 +819,7 @@ func (s *StateSuite) TestDoubleInitialize(c *C) {
 	env1, err := st.EnvironConfig()
 	st.Close()
 
-	// initialize again, there should be no error and the 
+	// initialize again, there should be no error and the
 	// environ config should not change.
 	m = map[string]interface{}{
 		"type":            "dummy",
