@@ -22,10 +22,16 @@ import (
 // to make the Amazon testing work:
 //  access-key: $AWS_ACCESS_KEY_ID
 //  secret-key: $AWS_SECRET_ACCESS_KEY
+//
+// notes:
+// * region should not be us-east-1 to avoid unusual us-east-1 compatbility behavior
+// * default-series should be precise until we public mongodb for other series
 var amazonConfig = fmt.Sprintf(`
 environments:
   sample-%s:
     type: ec2
+    region: us-west-1
+    default-series: precise
     control-bucket: 'juju-test-%s'
     public-bucket: 'juju-public-test-%s'
     admin-secret: 'for real'
