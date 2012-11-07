@@ -27,26 +27,15 @@ func (s *storage) makeBucket() error {
 	if s.madeBucket {
 		return nil
 	}
-	// try to make the bucket - PutBucket will succeed if the
-	// bucket already exists.
-	if err := s.bucket.PutBucket(s3.Private); err != nil {
-		// PutBucket always return a 200 if we recreate an existing bucket for the
-		// original s3.amazonaws.com endpoint. For all other endpoints PutBucket
-		// returns 409 with a known subcode.
-		if !bucketAlreadyCreated(err) {
-			return err
-		}
+	// PutBucket always return a 200 if we recreate an existing bucket for the
+	// original s3.amazonaws.com endpoint. For all other endpoints PutBucket
+	// returns 409 with a known subcode.
+	if err := s.bucket.PutBucket(s3.Private); err != nil && s3ErrCode(err) != "BucketAlreadyOwnedByYou" {
+		return err
 	}
 
 	s.madeBucket = true
 	return nil
-}
-
-func bucketAlreadyCreated(err error) bool {
-	if err, ok := err.(*s3.Error); ok {
-		return err.StatusCode == 409 && err.Code == "BucketAlreadyOwnedByYou"
-	}
-	return false
 }
 
 func (s *storage) Put(file string, r io.Reader, length int64) error {
@@ -83,6 +72,14 @@ func s3ErrorStatusCode(err error) int {
 		return err.StatusCode
 	}
 	return 0
+}
+
+// s3ErrCode returns the text status code of the S3 error code.
+func s3ErrCode(err error) string {
+	if err, ok := err.(*s3.Error); ok {
+		return err.Code
+	}
+	return ""
 }
 
 func (s *storage) Remove(file string) error {
