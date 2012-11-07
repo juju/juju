@@ -5,7 +5,7 @@ import (
 )
 
 // AttemptStrategy represents a strategy for waiting for an action
-// to complete successfully.  
+// to complete successfully.
 type AttemptStrategy struct {
 	Total time.Duration // total duration of attempt.
 	Delay time.Duration // interval between each try in the burst.

@@ -145,7 +145,7 @@ func (ctx *context) matchLogHooks(c *C) (match bool, overshoot bool) {
 		ctx.id,
 	)
 	// donePattern matches uniter logging that indicates a hook has run.
-	donePattern := `^.* JUJU (ran "[a-z-]+" hook|hook failed)`
+	donePattern := `^.* JUJU worker/uniter: (ran "[a-z-]+" hook|hook failed)`
 	hookRegexp := regexp.MustCompile(hookPattern)
 	doneRegexp := regexp.MustCompile(donePattern)
 

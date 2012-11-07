@@ -187,7 +187,7 @@ func (s *Service) Endpoints() (eps []Endpoint, err error) {
 	collect(RoleProvider, meta.Provides)
 	collect(RoleRequirer, meta.Requires)
 	collect(RoleProvider, map[string]charm.Relation{
-		"juju-info": charm.Relation{
+		"juju-info": {
 			Interface: "juju-info",
 			Scope:     charm.ScopeGlobal,
 		},

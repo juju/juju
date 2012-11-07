@@ -450,8 +450,8 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 	}
 	assert := append(isAlive, D{
 		{"$or", []D{
-			D{{"machineid", nil}},
-			D{{"machineid", m.Id()}},
+			{{"machineid", nil}},
+			{{"machineid", m.Id()}},
 		}},
 	}...)
 	massert := isAlive

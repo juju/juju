@@ -127,21 +127,21 @@ peers:
 	c.Assert(actual, DeepEquals, map[string]state.Endpoint{
 		"juju-info": jujuInfo,
 		"pressure":  pressure,
-		"db": state.Endpoint{
+		"db": {
 			ServiceName:   "mysql",
 			Interface:     "mysql",
 			RelationName:  "db",
 			RelationRole:  state.RoleProvider,
 			RelationScope: charm.ScopeGlobal,
 		},
-		"db-admin": state.Endpoint{
+		"db-admin": {
 			ServiceName:   "mysql",
 			Interface:     "mysql",
 			RelationName:  "db-admin",
 			RelationRole:  state.RoleProvider,
 			RelationScope: charm.ScopeGlobal,
 		},
-		"foo": state.Endpoint{
+		"foo": {
 			ServiceName:   "mysql",
 			Interface:     "bar",
 			RelationName:  "foo",

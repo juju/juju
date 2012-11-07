@@ -76,7 +76,7 @@ func ReadConfig(r io.Reader) (config *Config, err error) {
 // - Values are converted from strings to the types defined
 // - Options with default values are introduced for missing keys
 // - Unknown keys and badly typed values are reported as errors
-// 
+//
 func (c *Config) Validate(values map[string]string) (processed map[string]interface{}, err error) {
 	out := make(map[string]interface{})
 	for k, v := range values {

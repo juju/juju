@@ -117,7 +117,7 @@ func (s *ProvisionerSuite) checkNotStartInstance(c *C) {
 				c.Errorf("instance started: %v", o)
 				return
 			default:
-				// ignore   
+				// ignore
 			}
 		case <-time.After(200 * time.Millisecond):
 			return
@@ -128,7 +128,7 @@ func (s *ProvisionerSuite) checkNotStartInstance(c *C) {
 // checkStopInstance checks that an instance has been stopped.
 func (s *ProvisionerSuite) checkStopInstance(c *C) {
 	s.State.StartSync()
-	// use the non fatal variants to avoid leaking provisioners.    
+	// use the non fatal variants to avoid leaking provisioners.
 	for {
 		select {
 		case o := <-s.op:
@@ -136,7 +136,7 @@ func (s *ProvisionerSuite) checkStopInstance(c *C) {
 			case dummy.OpStopInstances:
 				return
 			default:
-				//ignore 
+				//ignore
 			}
 		case <-time.After(2 * time.Second):
 			c.Errorf("provisioner did not stop an instance")
@@ -254,7 +254,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesOccurAfterInvalidEnvironmentPubli
 
 func (s *ProvisionerSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterRestart(c *C) {
 	p := provisioner.NewProvisioner(s.State)
-	// we are not using defer s.stopProvisioner(c, p) because we need to control when 
+	// we are not using defer s.stopProvisioner(c, p) because we need to control when
 	// the PA is restarted in this test. tf. Methods like Fatalf and Assert should not be used.
 
 	// create a machine
@@ -282,7 +282,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterRe
 
 func (s *ProvisionerSuite) TestProvisioningStopsUnknownInstances(c *C) {
 	p := provisioner.NewProvisioner(s.State)
-	// we are not using defer s.stopProvisioner(c, p) because we need to control when 
+	// we are not using defer s.stopProvisioner(c, p) because we need to control when
 	// the PA is restarted in this test. Methods like Fatalf and Assert should not be used.
 
 	// create a machine
@@ -312,11 +312,11 @@ func (s *ProvisionerSuite) TestProvisioningStopsUnknownInstances(c *C) {
 }
 
 // This check is different from the one above as it catches the edge case
-// where the final machine has been removed from the state while the PA was 
-// not running. 
+// where the final machine has been removed from the state while the PA was
+// not running.
 func (s *ProvisionerSuite) TestProvisioningStopsOnlyUnknownInstances(c *C) {
 	p := provisioner.NewProvisioner(s.State)
-	// we are not using defer s.stopProvisioner(c, p) because we need to control when 
+	// we are not using defer s.stopProvisioner(c, p) because we need to control when
 	// the PA is restarted in this test. Methods like Fatalf and Assert should not be used.
 
 	// create a machine

@@ -26,7 +26,7 @@ func (s *FileVarSuite) SetUpTest(c *C) {
 	f, err = os.Create(s.InvalidPath)
 	c.Assert(err, IsNil)
 	f.Close()
-	err = os.Chmod(s.InvalidPath, 0) // make unreadable	
+	err = os.Chmod(s.InvalidPath, 0) // make unreadable
 	c.Assert(err, IsNil)
 }
 

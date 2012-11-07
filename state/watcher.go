@@ -132,7 +132,7 @@ func (w *MachineWatcher) loop(m *Machine) (err error) {
 
 // MachinesWatcher notifies about lifecycle changes for all machines
 // in the environment.
-// 
+//
 // The first event emitted will contain the ids of all machines found
 // irrespective of their life state. From then on a new event is emitted
 // whenever one or more machines are added or change their lifecycle.
@@ -1239,13 +1239,13 @@ func (s *Service) WatchConfig() *ConfigWatcher {
 
 // MachineUnitsWatcher notifies about assignments and lifecycle changes
 // for all units of a machine.
-// 
+//
 // The first event emitted contains the unit names of all units currently
 // assigned to the machine, irrespective of their life state. From then on,
 // a new event is emitted whenever a unit is assigned to or unassigned from
 // the machine, or the lifecycle of a unit that is currently assigned to
 // the machine changes.
-// 
+//
 // After a unit is found to be Dead, no further event will include it.
 type MachineUnitsWatcher struct {
 	commonWatcher
@@ -1304,11 +1304,22 @@ func (w *MachineUnitsWatcher) merge(pending []string, unit string) (new []string
 		return nil, err
 	}
 	life, known := w.known[unit]
-	if err == mgo.ErrNotFound {
+	if err == mgo.ErrNotFound || doc.Principal == "" && (doc.MachineId == nil || *doc.MachineId != w.machine.doc.Id) {
+		// Unit was removed or unassigned from w.machine.
 		if known {
+			delete(w.known, unit)
 			w.st.watcher.Unwatch(w.st.units.Name, unit, w.in)
-			if life != Dead {
-				return append(pending, unit), nil
+			if life != Dead && !hasString(pending, unit) {
+				pending = append(pending, unit)
+			}
+			for _, subunit := range doc.Subordinates {
+				if sublife, subknown := w.known[subunit]; subknown {
+					delete(w.known, subunit)
+					w.st.watcher.Unwatch(w.st.units.Name, subunit, w.in)
+					if sublife != Dead && !hasString(pending, subunit) {
+						pending = append(pending, subunit)
+					}
+				}
 			}
 		}
 		return pending, nil
@@ -1316,16 +1327,8 @@ func (w *MachineUnitsWatcher) merge(pending []string, unit string) (new []string
 	if !known {
 		w.st.watcher.Watch(w.st.units.Name, unit, doc.TxnRevno, w.in)
 		pending = append(pending, unit)
-	} else if life != doc.Life {
-		found := false
-		for _, v := range pending {
-			if v == unit {
-				found = true
-			}
-		}
-		if !found {
-			pending = append(pending, unit)
-		}
+	} else if life != doc.Life && !hasString(pending, unit) {
+		pending = append(pending, unit)
 	}
 	w.known[unit] = doc.Life
 	for _, subunit := range doc.Subordinates {
