@@ -43,7 +43,7 @@ var cloudinitTests = []cloudinit.MachineConfig{
 		AuthorizedKeys:     "sshkey1",
 		Tools:              newSimpleTools("1.2.3-linux-amd64"),
 		StateServer:        true,
-		ServerCertAndKey: certAndKey,
+		ServerCertAndKey:   certAndKey,
 		StateInfo: &state.Info{
 			Password: "arble",
 		},
@@ -297,14 +297,12 @@ var verifyTests = []struct {
 	}},
 }
 
-
-
 // TestCloudInitVerify checks that required fields are appropriately
 // checked for by NewCloudInit.
 func (cloudinitSuite) TestCloudInitVerify(c *C) {
 	cfg := &cloudinit.MachineConfig{
 		StateServer:        true,
-		ServerCertAndKey: certAndKey,
+		ServerCertAndKey:   certAndKey,
 		InstanceIdAccessor: "$instance_id",
 		ProviderType:       "ec2",
 		MachineId:          99,
