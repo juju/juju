@@ -339,7 +339,7 @@ func (e *environ) userData(machineId int, info *state.Info, tools *state.Tools, 
 	cfg := &cloudinit.MachineConfig{
 		StateServer:        master,
 		StateInfo:          info,
-		ServerCertAndKey: certAndKey,
+		ServerCertAndKey:   certAndKey,
 		InstanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
 		ProviderType:       "ec2",
 		DataDir:            "/var/lib/juju",
