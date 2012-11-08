@@ -20,9 +20,10 @@ import (
 // in the suite, stored in Env, and Destroyed after the suite has completed.
 type LiveTests struct {
 	coretesting.LoggingSuite
-	Environs *environs.Environs
-	Name     string
-	Env      environs.Environ
+	Environs         *environs.Environs
+	Name             string
+	Env              environs.Environ
+	ServerCertAndKey []byte
 
 	// Attempt holds a strategy for waiting until the environment
 	// becomes logically consistent.
@@ -74,7 +75,7 @@ func (t *LiveTests) BootstrapOnce(c *C) {
 	if t.bootstrapped {
 		return
 	}
-	err := t.Env.Bootstrap(true)
+	err := t.Env.Bootstrap(true, t.ServerCertAndKey)
 	c.Assert(err, IsNil)
 	t.bootstrapped = true
 }
@@ -290,7 +291,7 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 func (t *LiveTests) TestBootstrapMultiple(c *C) {
 	t.BootstrapOnce(c)
 
-	err := t.Env.Bootstrap(false)
+	err := t.Env.Bootstrap(false, t.ServerCertAndKey)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	c.Logf("destroy env")

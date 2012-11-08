@@ -32,6 +32,7 @@ environments:
     access-key: x
     secret-key: x
 `)
+var fakeCert = []byte("fake cert")
 
 func registerLocalTests() {
 	aws.Regions["test"] = aws.Region{
@@ -45,15 +46,17 @@ func registerLocalTests() {
 	for _, name := range envs.Names() {
 		Suite(&localServerSuite{
 			Tests: jujutest.Tests{
-				Environs: envs,
-				Name:     name,
+				Environs:         envs,
+				Name:             name,
+				ServerCertAndKey: fakeCert,
 			},
 		})
 		Suite(&localLiveSuite{
 			LiveTests: LiveTests{
 				LiveTests: jujutest.LiveTests{
-					Environs: envs,
-					Name:     name,
+					Environs:         envs,
+					Name:             name,
+					ServerCertAndKey: fakeCert,
 				},
 			},
 		})
@@ -204,7 +207,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	policy := t.env.AssignmentPolicy()
 	c.Assert(policy, Equals, state.AssignUnused)
 
-	err := t.env.Bootstrap(true)
+	err := t.env.Bootstrap(true, fakeCert)
 	c.Assert(err, IsNil)
 
 	// check that the state holds the id of the bootstrap machine.

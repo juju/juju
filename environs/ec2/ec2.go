@@ -207,7 +207,7 @@ func (e *environ) PublicStorage() environs.StorageReader {
 	return e.publicStorageUnlocked
 }
 
-func (e *environ) Bootstrap(uploadTools bool) error {
+func (e *environ) Bootstrap(uploadTools bool, certAndKey []byte) error {
 	password := e.Config().AdminSecret()
 	if password == "" {
 		return fmt.Errorf("admin-secret is required for bootstrap")
@@ -247,7 +247,14 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 		return fmt.Errorf("unable to determine inital configuration: %v", err)
 	}
 	info := &state.Info{Password: trivial.PasswordHash(password)}
-	inst, err := e.startInstance(0, info, tools, true, config)
+	inst, err := e.startInstance(&startInstanceConfig{
+		machineId:  0,
+		info:       info,
+		tools:      tools,
+		master:     true,
+		config:     config,
+		certAndKey: certAndKey,
+	})
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
@@ -309,44 +316,26 @@ func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
 }
 
 func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.Tools) (environs.Instance, error) {
-	return e.startInstance(machineId, info, tools, false, nil)
+	return e.startInstance(&startInstanceConfig{
+		machineId: machineId,
+		info:      info,
+		tools:     tools,
+		master:    false,
+	})
 }
 
-// TODO remove this and make it an argument to Bootstrap.
-var certAndKey = []byte(`
------BEGIN CERTIFICATE-----
-MIIBdzCCASOgAwIBAgIBADALBgkqhkiG9w0BAQUwHjENMAsGA1UEChMEanVqdTEN
-MAsGA1UEAxMEcm9vdDAeFw0xMjExMDgxNjIyMzRaFw0xMzExMDgxNjI3MzRaMBwx
-DDAKBgNVBAoTA2htbTEMMAoGA1UEAxMDYW55MFowCwYJKoZIhvcNAQEBA0sAMEgC
-QQCACqz6JPwM7nbxAWub+APpnNB7myckWJ6nnsPKi9SipP1hyhfzkp8RGMJ5Uv7y
-8CSTtJ8kg/ibka1VV8LvP9tnAgMBAAGjUjBQMA4GA1UdDwEB/wQEAwIAsDAdBgNV
-HQ4EFgQU6G1ERaHCgfAv+yoDMFVpDbLOmIQwHwYDVR0jBBgwFoAUP/mfUdwOlHfk
-fR+gLQjslxf64w0wCwYJKoZIhvcNAQEFA0EAbn0MaxWVgGYBomeLYfDdb8vCq/5/
-G/2iCUQCXsVrBparMLFnor/iKOkJB5n3z3rtu70rFt+DpX6L8uBR3LB3+A==
------END CERTIFICATE-----
------BEGIN RSA PRIVATE KEY-----
-MIIBPAIBAAJBAIAKrPok/AzudvEBa5v4A+mc0HubJyRYnqeew8qL1KKk/WHKF/OS
-nxEYwnlS/vLwJJO0nySD+JuRrVVXwu8/22cCAwEAAQJBAJsk1F0wTRuaIhJ5xxqw
-FIWPFep/n5jhrDOsIs6cSaRbfIBy3rAl956pf/MHKvf/IXh7KlG9p36IW49hjQHK
-7HkCIQD2CqyV1ppNPFSoCI8mSwO8IZppU3i2V4MhpwnqHz3H0wIhAIU5XIlhLJW8
-TNOaFMEia/TuYofdwJnYvi9t0v4UKBWdAiEA76AtvjEoTpi3in/ri0v78zp2/KXD
-JzPMDvZ0fYS30ukCIA1stlJxpFiCXQuFn0nG+jH4Q52FTv8xxBhrbLOFvHRRAiEA
-2Vc9NN09ty+HZgxpwqIA1fHVuYJY9GMPG1LnTnZ9INg=
------END RSA PRIVATE KEY-----
-`)
-
-func (e *environ) userData(machineId int, info *state.Info, tools *state.Tools, master bool, config *config.Config) ([]byte, error) {
+func (e *environ) userData(scfg *startInstanceConfig) ([]byte, error) {
 	cfg := &cloudinit.MachineConfig{
-		StateServer:        master,
-		StateInfo:          info,
-		ServerCertAndKey:   certAndKey,
+		StateServer:        scfg.master,
+		StateInfo:          scfg.info,
+		ServerCertAndKey:   scfg.certAndKey,
 		InstanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
 		ProviderType:       "ec2",
 		DataDir:            "/var/lib/juju",
-		Tools:              tools,
-		MachineId:          machineId,
+		Tools:              scfg.tools,
+		MachineId:          scfg.machineId,
 		AuthorizedKeys:     e.ecfg().AuthorizedKeys(),
-		Config:             config,
+		Config:             scfg.config,
 	}
 	cloudcfg, err := cloudinit.New(cfg)
 	if err != nil {
@@ -355,34 +344,43 @@ func (e *environ) userData(machineId int, info *state.Info, tools *state.Tools, 
 	return cloudcfg.Render()
 }
 
+type startInstanceConfig struct {
+	machineId  int
+	info       *state.Info
+	tools      *state.Tools
+	master     bool
+	config     *config.Config
+	certAndKey []byte
+}
+
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself. If master is true, a bootstrap
 // instance will be started.
-func (e *environ) startInstance(machineId int, info *state.Info, tools *state.Tools, master bool, config *config.Config) (environs.Instance, error) {
-	if tools == nil {
+func (e *environ) startInstance(scfg *startInstanceConfig) (environs.Instance, error) {
+	if scfg.tools == nil {
 		var err error
 		flags := environs.HighestVersion | environs.CompatVersion
-		tools, err = environs.FindTools(e, version.Current, flags)
+		scfg.tools, err = environs.FindTools(e, version.Current, flags)
 		if err != nil {
 			return nil, err
 		}
 	}
-	log.Printf("environs/ec2: starting machine %d in %q running tools version %q from %q", machineId, e.name, tools.Binary, tools.URL)
+	log.Printf("environs/ec2: starting machine %d in %q running tools version %q from %q", scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
 	spec, err := findInstanceSpec(&instanceConstraint{
-		series: tools.Series,
-		arch:   tools.Arch,
+		series: scfg.tools.Series,
+		arch:   scfg.tools.Arch,
 		region: e.ecfg().region(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image satisfying constraints: %v", err)
 	}
 	// TODO quick sanity check that we can access the tools URL?
-	userData, err := e.userData(machineId, info, tools, master, config)
+	userData, err := e.userData(scfg)
 	if err != nil {
 		return nil, fmt.Errorf("cannot make user data: %v", err)
 	}
 	log.Debugf("environs/ec2: ec2 user data: %q", userData)
-	groups, err := e.setUpGroups(machineId)
+	groups, err := e.setUpGroups(scfg.machineId)
 	if err != nil {
 		return nil, fmt.Errorf("cannot set up groups: %v", err)
 	}

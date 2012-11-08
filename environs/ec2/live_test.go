@@ -52,11 +52,12 @@ func registerAmazonTests() {
 	for _, name := range envs.Names() {
 		Suite(&LiveTests{
 			LiveTests: jujutest.LiveTests{
-				Environs:       envs,
-				Name:           name,
-				Attempt:        *ec2.ShortAttempt,
-				CanOpenState:   true,
-				HasProvisioner: true,
+				Environs:         envs,
+				Name:             name,
+				Attempt:          *ec2.ShortAttempt,
+				CanOpenState:     true,
+				HasProvisioner:   true,
+				ServerCertAndKey: []byte("fake cert"), // TODO
 			},
 		})
 	}

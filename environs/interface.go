@@ -130,7 +130,10 @@ type Environ interface {
 	// trivial.PasswordHash), When first connecting to the
 	// environment via the juju package, the password hash will be
 	// automatically replaced by the real password.
-	Bootstrap(uploadTools bool) error
+	//
+	// The certificate to be used by the server and its private
+	// key are specified in PEM format.
+	Bootstrap(uploadTools bool, certAndKey []byte) error
 
 	// StateInfo returns information on the state initialized
 	// by Bootstrap.
