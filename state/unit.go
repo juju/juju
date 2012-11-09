@@ -404,22 +404,39 @@ func (u *Unit) SetAgentAlive() (*presence.Pinger, error) {
 	return p, nil
 }
 
+// notAssignedError represents the error that a unit is not assigned.
+type notAssignedError struct {
+	msg string
+}
+
+func (e *notAssignedError) Error() string {
+	return e.msg
+}
+
+func notAssigned(format string, args ...interface{}) error {
+	return &NotFoundError{fmt.Sprintf(format+" is not assigned to a machine", args...)}
+}
+
+func IsNotAssigned(err error) bool {
+	_, ok := err.(*notAssignedError)
+	return ok
+}
+
 // AssignedMachineId returns the id of the assigned machine.
 func (u *Unit) AssignedMachineId() (id int, err error) {
-	defer trivial.ErrorContextf(&err, "cannot get machine id of unit %q", u)
 	if u.IsPrincipal() {
 		if u.doc.MachineId == nil {
-			return 0, errors.New("unit not assigned to machine")
+			return 0, notAssigned("unit %q", u)
 		}
 		return *u.doc.MachineId, nil
 	}
 	pudoc := unitDoc{}
 	err = u.st.units.Find(D{{"_id", u.doc.Principal}}).One(&pudoc)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("cannot get machine id of unit %q: %v", u, err)
 	}
 	if pudoc.MachineId == nil {
-		return 0, errors.New("unit not assigned to machine")
+		return 0, notAssigned("unit %q", u)
 	}
 	return *pudoc.MachineId, nil
 }

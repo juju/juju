@@ -36,7 +36,7 @@ func (s *AssignSuite) TestUnassignUnitFromMachineWithoutBeingAssigned(c *C) {
 
 	// Check that the unit has no machine assigned.
 	_, err = unit.AssignedMachineId()
-	c.Assert(err, ErrorMatches, `cannot get machine id of unit "wordpress/0": unit not assigned to machine`)
+	c.Assert(err, ErrorMatches, `unit "wordpress/0" is not assigned to a machine`)
 }
 
 func (s *AssignSuite) TestAssignUnitToMachineAgainFails(c *C) {
@@ -127,7 +127,7 @@ func (s *AssignSuite) TestUnassignUnitFromMachineWithChangingState(c *C) {
 	err = unit.UnassignFromMachine()
 	c.Assert(err, ErrorMatches, `cannot unassign unit "wordpress/0" from machine: .*`)
 	_, err = unit.AssignedMachineId()
-	c.Assert(err, ErrorMatches, `cannot get machine id of unit "wordpress/0": unit not assigned to machine`)
+	c.Assert(err, ErrorMatches, `unit "wordpress/0" is not assigned to a machine`)
 
 	err = service.EnsureDead()
 	c.Assert(err, IsNil)
@@ -137,7 +137,7 @@ func (s *AssignSuite) TestUnassignUnitFromMachineWithChangingState(c *C) {
 	err = unit.UnassignFromMachine()
 	c.Assert(err, ErrorMatches, `cannot unassign unit "wordpress/0" from machine: .*`)
 	_, err = unit.AssignedMachineId()
-	c.Assert(err, ErrorMatches, `cannot get machine id of unit "wordpress/0": unit not assigned to machine`)
+	c.Assert(err, ErrorMatches, `unit "wordpress/0" is not assigned to a machine`)
 }
 
 func (s *AssignSuite) TestAssignSubordinatesToMachine(c *C) {
@@ -174,9 +174,9 @@ func (s *AssignSuite) TestAssignSubordinatesToMachine(c *C) {
 	err = unit.UnassignFromMachine()
 	c.Assert(err, IsNil)
 	_, err = log1Unit.AssignedMachineId()
-	c.Assert(err, ErrorMatches, `cannot get machine id of unit "logging1/0": unit not assigned to machine`)
+	c.Assert(err, ErrorMatches, `unit "logging1/0" is not assigned to a machine`)
 	_, err = log2Unit.AssignedMachineId()
-	c.Assert(err, ErrorMatches, `cannot get machine id of unit "logging2/0": unit not assigned to machine`)
+	c.Assert(err, ErrorMatches, `unit "logging2/0" is not assigned to a machine`)
 }
 
 func (s *AssignSuite) TestAssignMachineWhenDying(c *C) {
