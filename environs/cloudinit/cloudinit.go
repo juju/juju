@@ -116,8 +116,12 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	}
 
 	if cfg.StateServer {
-		addScripts(c, fmt.Sprintf("echo %s > %s",
-			shquote(string(cfg.ServerCertAndKey)), serverCertFile))
+		addScripts(c,
+			fmt.Sprintf("echo %s > %s",
+				shquote(string(cfg.ServerCertAndKey)), serverCertFile),
+			"chmod 600 "+serverCertFile,
+		)
+
 		// TODO The public bucket must come from the environment configuration.
 		b := cfg.Tools.Binary
 		url := fmt.Sprintf("http://juju-dist.s3.amazonaws.com/tools/mongo-2.2.0-%s-%s.tgz", b.Series, b.Arch)
