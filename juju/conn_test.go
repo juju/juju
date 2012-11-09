@@ -38,6 +38,7 @@ func (*NewConnSuite) TestNewConnWithoutAdminSecret(c *C) {
 		"authorized-keys": "i-am-a-key",
 		"secret":          "pork",
 		"admin-secret":    "really",
+		"root-cert": rootCert,
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
@@ -61,8 +62,7 @@ func (*NewConnSuite) TestNewConnFromName(c *C) {
 	c.Assert(err, ErrorMatches, ".*: no such file or directory")
 
 	if err := os.Mkdir(filepath.Join(home, ".juju"), 0755); err != nil {
-		c.Log("Could not create directory structure")
-		c.Fail()
+		c.Fatal("Could not create directory structure")
 	}
 	envs := filepath.Join(home, ".juju", "environments.yaml")
 	err = ioutil.WriteFile(envs, []byte(`
@@ -75,10 +75,9 @@ environments:
         authorized-keys: i-am-a-key
         admin-secret: conn-from-name-secret
 `), 0644)
-	if err != nil {
-		c.Log("Could not create environments.yaml")
-		c.Fail()
-	}
+
+	err = ioutil.WriteFile(filepath.Join(home, ".juju", "rootcert.pem"), []byte(rootCert), 0600)
+	c.Assert(err, IsNil)
 
 	// Just run through a few operations on the dummy provider and verify that
 	// they behave as expected.
@@ -116,6 +115,7 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *C) {
 		"authorized-keys": "i-am-a-key",
 		"secret":          "pork",
 		"admin-secret":    "side-effect secret",
+		"root-cert": rootCert,
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
@@ -154,6 +154,7 @@ func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *C) {
 		"authorized-keys": "i-am-a-key",
 		"secret":          "pork",
 		"admin-secret":    "some secret",
+		"root-cert": rootCert,
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
@@ -191,6 +192,7 @@ func (cs *NewConnSuite) TestConnWithPassword(c *C) {
 		"authorized-keys": "i-am-a-key",
 		"secret":          "squirrel",
 		"admin-secret":    "nutkin",
+		"root-cert": rootCert,
 	})
 	c.Assert(err, IsNil)
 	err = env.Bootstrap(false, nil)
@@ -246,6 +248,7 @@ func (s *ConnSuite) SetUpTest(c *C) {
 		"state-server":    true,
 		"authorized-keys": "i-am-a-key",
 		"admin-secret":    "deploy-test-secret",
+		"root-cert": rootCert,
 	}
 	environ, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
@@ -467,3 +470,29 @@ func (s *ConnSuite) TestResolved(c *C) {
 	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "testriak/0": already resolved`)
 	c.Assert(u.Resolved(), Equals, state.ResolvedRetryHooks)
 }
+
+
+var rootCert = `
+-----BEGIN CERTIFICATE-----
+MIIBdzCCASOgAwIBAgIBADALBgkqhkiG9w0BAQUwHjENMAsGA1UEChMEanVqdTEN
+MAsGA1UEAxMEcm9vdDAeFw0xMjExMDgxNjIyMzRaFw0xMzExMDgxNjI3MzRaMBwx
+DDAKBgNVBAoTA2htbTEMMAoGA1UEAxMDYW55MFowCwYJKoZIhvcNAQEBA0sAMEgC
+QQCACqz6JPwM7nbxAWub+APpnNB7myckWJ6nnsPKi9SipP1hyhfzkp8RGMJ5Uv7y
+8CSTtJ8kg/ibka1VV8LvP9tnAgMBAAGjUjBQMA4GA1UdDwEB/wQEAwIAsDAdBgNV
+HQ4EFgQU6G1ERaHCgfAv+yoDMFVpDbLOmIQwHwYDVR0jBBgwFoAUP/mfUdwOlHfk
+fR+gLQjslxf64w0wCwYJKoZIhvcNAQEFA0EAbn0MaxWVgGYBomeLYfDdb8vCq/5/
+G/2iCUQCXsVrBparMLFnor/iKOkJB5n3z3rtu70rFt+DpX6L8uBR3LB3+A==
+-----END CERTIFICATE-----
+`
+
+var rootKey = `
+-----BEGIN RSA PRIVATE KEY-----
+MIIBPAIBAAJBAIAKrPok/AzudvEBa5v4A+mc0HubJyRYnqeew8qL1KKk/WHKF/OS
+nxEYwnlS/vLwJJO0nySD+JuRrVVXwu8/22cCAwEAAQJBAJsk1F0wTRuaIhJ5xxqw
+FIWPFep/n5jhrDOsIs6cSaRbfIBy3rAl956pf/MHKvf/IXh7KlG9p36IW49hjQHK
+7HkCIQD2CqyV1ppNPFSoCI8mSwO8IZppU3i2V4MhpwnqHz3H0wIhAIU5XIlhLJW8
+TNOaFMEia/TuYofdwJnYvi9t0v4UKBWdAiEA76AtvjEoTpi3in/ri0v78zp2/KXD
+JzPMDvZ0fYS30ukCIA1stlJxpFiCXQuFn0nG+jH4Q52FTv8xxBhrbLOFvHRRAiEA
+2Vc9NN09ty+HZgxpwqIA1fHVuYJY9GMPG1LnTnZ9INg=
+-----END RSA PRIVATE KEY-----
+`
