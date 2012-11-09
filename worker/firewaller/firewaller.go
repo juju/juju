@@ -107,67 +107,43 @@ func (fw *Firewaller) loop() error {
 // unitsChanged responds to changes to the assigned units.
 func (fw *Firewaller) unitsChanged(change *unitsChange) error {
 	changed := []*unitData{}
-	removed := []string{}
-	added := []*state.Unit{}
 	for _, name := range change.units {
 		unit, err := fw.st.Unit(name)
-		if err != nil {
-			if state.IsNotFound(err) {
-				removed = append(removed, name)
-				continue
-			}
+		if err != nil && !state.IsNotFound(err) {
 			return err
 		}
-		switch unit.Life() {
-		case state.Alive:
-			if _, ok := fw.unitds[name]; !ok {
-				added = append(added, unit)
+		machineId, err := unit.AssignedMachineId()
+		if err != nil && !state.IsNotAssigned(err) {
+			return err
+		}
+		unassigned := state.IsNotAssigned(err)
+		if unitd, ok := fw.unitds[name]; ok {
+			knownMachineId := fw.unitds[name].machined.id
+			if unit == nil || unit.Life() != state.Alive || unassigned || machineId != knownMachineId {
+				fw.forgetUnit(unitd)
+				changed = append(changed, unitd)
+				log.Debugf("worker/firewaller: stopped watching unit %s", name)
+			}
+		} else if unit != nil && unit.Life() == state.Alive {
+			unitd := newUnitData(unit, fw)
+			fw.unitds[unit.Name()] = unitd
+			if fw.machineds[machineId] == nil || unassigned {
 				continue
 			}
-			machineId, err := unit.AssignedMachineId()
-			if machineId != fw.unitds[name].machined.id || err != nil {
-				// BUG(aram): who handles assignment to a new machine?
-				removed = append(removed, name)
+			unitd.machined = fw.machineds[machineId]
+			unitd.machined.unitds[unit.Name()] = unitd
+			if fw.serviceds[unit.ServiceName()] == nil {
+				service, err := fw.st.Service(unit.ServiceName())
+				if err != nil {
+					return err
+				}
+				fw.serviceds[unit.ServiceName()] = newServiceData(service, fw)
 			}
-		case state.Dying, state.Dead:
-			removed = append(removed, name)
-			continue
-		default:
-			panic("unreachable")
+			unitd.serviced = fw.serviceds[unit.ServiceName()]
+			unitd.serviced.unitds[unit.Name()] = unitd
+			changed = append(changed, unitd)
+			log.Debugf("worker/firewaller: started watching unit %s", unit.Name())
 		}
-	}
-	for _, uname := range removed {
-		unitd, ok := fw.unitds[uname]
-		if !ok {
-			panic("trying to remove unit that was not added")
-		}
-		fw.forgetUnit(unitd)
-		changed = append(changed, unitd)
-		log.Debugf("worker/firewaller: stopped watching unit %s", uname)
-	}
-	for _, unit := range added {
-		unitd := newUnitData(unit, fw)
-		fw.unitds[unit.Name()] = unitd
-		machineId, err := unit.AssignedMachineId()
-		if err != nil {
-			fw.tomb.Kill(err)
-		}
-		if fw.machineds[machineId] == nil {
-			panic("machine of added unit is not watched")
-		}
-		unitd.machined = fw.machineds[machineId]
-		unitd.machined.unitds[unit.Name()] = unitd
-		if fw.serviceds[unit.ServiceName()] == nil {
-			service, err := fw.st.Service(unit.ServiceName())
-			if err != nil {
-				return err
-			}
-			fw.serviceds[unit.ServiceName()] = newServiceData(service, fw)
-		}
-		unitd.serviced = fw.serviceds[unit.ServiceName()]
-		unitd.serviced.unitds[unit.Name()] = unitd
-		changed = append(changed, unitd)
-		log.Debugf("worker/firewaller: started watching unit %s", unit.Name())
 	}
 	if err := fw.flushUnits(changed); err != nil {
 		return fmt.Errorf("cannot change firewall ports: %v", err)
