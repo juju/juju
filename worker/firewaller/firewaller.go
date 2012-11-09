@@ -112,11 +112,15 @@ func (fw *Firewaller) unitsChanged(change *unitsChange) error {
 		if err != nil && !state.IsNotFound(err) {
 			return err
 		}
-		machineId, err := unit.AssignedMachineId()
-		if err != nil && !state.IsNotAssigned(err) {
-			return err
+		var machineId int
+		var unassigned bool
+		if unit != nil {
+			machineId, err = unit.AssignedMachineId()
+			if err != nil && !state.IsNotAssigned(err) {
+				return err
+			}
+			unassigned = state.IsNotAssigned(err)
 		}
-		unassigned := state.IsNotAssigned(err)
 		if unitd, ok := fw.unitds[name]; ok {
 			knownMachineId := fw.unitds[name].machined.id
 			if unit == nil || unit.Life() != state.Alive || unassigned || machineId != knownMachineId {
