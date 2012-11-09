@@ -432,6 +432,9 @@ func (u *Unit) AssignedMachineId() (id int, err error) {
 	}
 	pudoc := unitDoc{}
 	err = u.st.units.Find(D{{"_id", u.doc.Principal}}).One(&pudoc)
+	if err == mgo.ErrNotFound {
+		return 0, notFound("cannot get machine id of unit %q: principal %q %v", u, u.doc.Principal)
+	}
 	if err != nil {
 		return 0, fmt.Errorf("cannot get machine id of unit %q: %v", u, err)
 	}
