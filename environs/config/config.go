@@ -29,9 +29,11 @@ type Config struct {
 }
 
 // New returns a new configuration.
-// Fields that are common to all environment providers are verified,
-// and authorized-keys-path is also translated into authorized-keys
-// by loading the content from respective file.
+// Fields that are common to all environment providers are verified.
+// The "authorized-keys-path" key is translated into "authorized-keys"
+// by loading the content from respective file; similarly,
+// "root-cert-path" is translated into the "root-cert" and "root-private-key"
+// keys.
 //
 // The required keys are: "name", "type" and "authorized-keys",
 // all of type string. Additional keys recognised are: "agent-version" and
@@ -50,19 +52,41 @@ func New(attrs map[string]interface{}) (*Config, error) {
 		c.m["default-series"] = version.Current.Series
 	}
 
-	// Load authorized-keys-path onto authorized-keys, if necessary.
+	// Load authorized-keys-path into authorized-keys, if necessary.
 	path := c.m["authorized-keys-path"].(string)
 	keys := c.m["authorized-keys"].(string)
 	if path != "" || keys == "" {
-		c.m["authorized-keys"], err = authorizedKeys(path)
+		c.m["authorized-keys"], err = readAuthorizedKeys(path)
 		if err != nil {
 			return nil, err
 		}
 	}
 	delete(c.m, "authorized-keys-path")
 
+	// Load root certificate and key into root-cert and root-private-key
+	// if necessary.
+	rootCertPath := c.m["root-cert-path"].(string)
+	rootCert := []byte(c.m["root-cert"].(string))
+	rootKey := []byte(c.m["root-private-key"].(string))
+	if rootCertPath != "" || len(rootCert) == 0 {
+		rootCertPath = makeRootCertPath(rootCertPath)
+		rootCert, rootKey, err = readRootCert(rootCertPath)
+		if err != nil {
+			return nil, fmt.Errorf("cannot read root certificate from %q: %v", rootCertPath, err)
+		}
+		c.m["root-cert"] = string(rootCert)
+		c.m["root-private-key"] = string(rootKey)
+	}
+	if err := verifyKeyPair(rootCert, rootKey); err != nil {
+		if rootCertPath == "" {
+			return nil, fmt.Errorf("bad root certificate/key in configuration: %v", err)
+		}
+		return nil, fmt.Errorf("bad root certificate in %q: %v", rootCertPath, err)
+	}
+	delete(c.m, "root-cert-path")
+
 	// Check if there are any required fields that are empty.
-	for _, attr := range []string{"name", "type", "default-series", "authorized-keys"} {
+	for _, attr := range []string{"name", "type", "default-series", "authorized-keys", "root-cert"} {
 		if s, _ := c.m[attr].(string); s == "" {
 			return nil, fmt.Errorf("empty %s in environment configuration", attr)
 		}
@@ -111,6 +135,19 @@ func (c *Config) DefaultSeries() string {
 // AuthorizedKeys returns the content for ssh's authorized_keys file.
 func (c *Config) AuthorizedKeys() string {
 	return c.m["authorized-keys"].(string)
+}
+
+// RootCertPEM returns the X509 certificate for the
+// root certifying authority, in PEM format.
+func (c *Config) RootCertPEM() string {
+	return c.m["root-cert"].(string)
+}
+
+// RootPrivateKeyPEM returns the private key of the
+// root certifying authority, in PEM format.
+// It is empty if the key is not available.
+func (c *Config) RootPrivateKeyPEM() string {
+	return c.m["root-private-key"].(string)
 }
 
 // AdminSecret returns the administrator password.
@@ -185,6 +222,9 @@ var fields = schema.Fields{
 	"agent-version":        schema.String(),
 	"development":          schema.Bool(),
 	"admin-secret":         schema.String(),
+	"root-cert":            schema.String(),
+	"root-private-key":     schema.String(),
+	"root-cert-path":       schema.String(),
 }
 
 var defaults = schema.Defaults{
@@ -195,6 +235,9 @@ var defaults = schema.Defaults{
 	"agent-version":        schema.Omit,
 	"development":          false,
 	"admin-secret":         "",
+	"root-cert-path":       "",
+	"root-cert":            "",
+	"root-private-key":     "",
 }
 
 var checker = schema.FieldMap(fields, defaults)
