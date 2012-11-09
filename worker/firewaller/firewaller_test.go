@@ -659,8 +659,8 @@ func (s *FirewallerSuite) TestGlobalModeRestartUnexposedService(c *C) {
 	s.assertEnvironPorts(c, nil)
 }
 
-// BUG(aram): enable this after fixing firwaller initialization.
-func (s *FirewallerSuite) XTestGlobalModeRestartPortCount(c *C) {
+func (s *FirewallerSuite) TestGlobalModeRestartPortCount(c *C) {
+	c.Skip("disabled until firewaller initialization is fixed")
 	// Change configuration.
 	restore := s.setGlobalMode(c)
 	defer restore(c)
