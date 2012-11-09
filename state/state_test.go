@@ -399,6 +399,8 @@ func (s *StateSuite) TestEnvironConfig(c *C) {
 		"development":     true,
 		"firewall-mode":   "",
 		"admin-secret":    "",
+		"root-cert": rootCert,
+		"root-private-key":"",
 	}
 	cfg, err := config.New(initial)
 	c.Assert(err, IsNil)
@@ -430,6 +432,7 @@ func (s *StateSuite) TestEnvironConfigWithAdminSecret(c *C) {
 		"default-series":  "precise",
 		"development":     true,
 		"admin-secret":    "foo",
+		"root-cert": rootCert,
 	}
 	cfg, err := config.New(attrs)
 	c.Assert(err, IsNil)
@@ -790,6 +793,8 @@ func (s *StateSuite) TestInitialize(c *C) {
 		"development":     true,
 		"firewall-mode":   "",
 		"admin-secret":    "",
+		"root-cert": rootCert,
+		"root-private-key":"",
 	}
 	cfg, err := config.New(m)
 	c.Assert(err, IsNil)
@@ -810,6 +815,8 @@ func (s *StateSuite) TestDoubleInitialize(c *C) {
 		"development":     true,
 		"firewall-mode":   "",
 		"admin-secret":    "",
+		"root-cert": rootCert,
+		"root-private-key":"",
 	}
 	cfg, err := config.New(m)
 	c.Assert(err, IsNil)
@@ -829,6 +836,8 @@ func (s *StateSuite) TestDoubleInitialize(c *C) {
 		"development":     false,
 		"firewall-mode":   "",
 		"admin-secret":    "",
+		"root-cert": rootCert,
+		"root-private-key":"",
 	}
 	cfg, err = config.New(m)
 	c.Assert(err, IsNil)
@@ -883,6 +892,7 @@ var watchEnvironConfigTests = []attrs{
 		"type":            "my-type",
 		"name":            "my-name",
 		"authorized-keys": "i-am-a-key",
+		"root-cert": rootCert,
 	},
 	{
 		// Add an attribute.
@@ -890,6 +900,7 @@ var watchEnvironConfigTests = []attrs{
 		"name":            "my-name",
 		"default-series":  "my-series",
 		"authorized-keys": "i-am-a-key",
+		"root-cert": rootCert,
 	},
 	{
 		// Set a new attribute value.
@@ -897,6 +908,7 @@ var watchEnvironConfigTests = []attrs{
 		"name":            "my-new-name",
 		"default-series":  "my-series",
 		"authorized-keys": "i-am-a-key",
+		"root-cert": rootCert,
 	},
 }
 
@@ -958,6 +970,7 @@ func (s *StateSuite) TestWatchEnvironConfigInvalidConfig(c *C) {
 		"type":            "dummy",
 		"name":            "lisboa",
 		"authorized-keys": "i-am-a-key",
+		"root-cert": rootCert,
 	}
 	cfg1, err := config.New(m)
 	c.Assert(err, IsNil)
@@ -1003,6 +1016,7 @@ func (s *StateSuite) TestWatchEnvironConfigInvalidConfig(c *C) {
 		"type":            "dummy",
 		"name":            "lisboa",
 		"authorized-keys": "new-key",
+		"root-cert": rootCert,
 	})
 	c.Assert(err, IsNil)
 	err = s.State.SetEnvironConfig(cfg2)
@@ -1170,3 +1184,16 @@ func (s *StateSuite) TestSetAdminPassword(c *C) {
 	err = tryOpenState(info)
 	c.Assert(err, IsNil)
 }
+
+var rootCert = `
+-----BEGIN CERTIFICATE-----
+MIIBdzCCASOgAwIBAgIBADALBgkqhkiG9w0BAQUwHjENMAsGA1UEChMEanVqdTEN
+MAsGA1UEAxMEcm9vdDAeFw0xMjExMDgxNjIyMzRaFw0xMzExMDgxNjI3MzRaMBwx
+DDAKBgNVBAoTA2htbTEMMAoGA1UEAxMDYW55MFowCwYJKoZIhvcNAQEBA0sAMEgC
+QQCACqz6JPwM7nbxAWub+APpnNB7myckWJ6nnsPKi9SipP1hyhfzkp8RGMJ5Uv7y
+8CSTtJ8kg/ibka1VV8LvP9tnAgMBAAGjUjBQMA4GA1UdDwEB/wQEAwIAsDAdBgNV
+HQ4EFgQU6G1ERaHCgfAv+yoDMFVpDbLOmIQwHwYDVR0jBBgwFoAUP/mfUdwOlHfk
+fR+gLQjslxf64w0wCwYJKoZIhvcNAQEFA0EAbn0MaxWVgGYBomeLYfDdb8vCq/5/
+G/2iCUQCXsVrBparMLFnor/iKOkJB5n3z3rtu70rFt+DpX6L8uBR3LB3+A==
+-----END CERTIFICATE-----
+`[1:]
