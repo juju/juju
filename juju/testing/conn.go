@@ -117,6 +117,9 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	err = ioutil.WriteFile(filepath.Join(home, ".juju", "environments.yaml"), config, 0600)
 	c.Assert(err, IsNil)
 
+	err = ioutil.WriteFile(filepath.Join(home, ".juju", "rootcert.pem"), rootCert, 0600)
+	c.Assert(err, IsNil)
+
 	environ, err := environs.NewFromName("dummyenv")
 	c.Assert(err, IsNil)
 	// sanity check we've got the correct environment.
@@ -177,3 +180,25 @@ func (s *JujuConnSuite) AddTestingCharm(c *C, name string) *state.Charm {
 	c.Assert(err, IsNil)
 	return sch
 }
+
+var rootCert = []byte(`
+-----BEGIN CERTIFICATE-----
+MIIBdzCCASOgAwIBAgIBADALBgkqhkiG9w0BAQUwHjENMAsGA1UEChMEanVqdTEN
+MAsGA1UEAxMEcm9vdDAeFw0xMjExMDgxNjIyMzRaFw0xMzExMDgxNjI3MzRaMBwx
+DDAKBgNVBAoTA2htbTEMMAoGA1UEAxMDYW55MFowCwYJKoZIhvcNAQEBA0sAMEgC
+QQCACqz6JPwM7nbxAWub+APpnNB7myckWJ6nnsPKi9SipP1hyhfzkp8RGMJ5Uv7y
+8CSTtJ8kg/ibka1VV8LvP9tnAgMBAAGjUjBQMA4GA1UdDwEB/wQEAwIAsDAdBgNV
+HQ4EFgQU6G1ERaHCgfAv+yoDMFVpDbLOmIQwHwYDVR0jBBgwFoAUP/mfUdwOlHfk
+fR+gLQjslxf64w0wCwYJKoZIhvcNAQEFA0EAbn0MaxWVgGYBomeLYfDdb8vCq/5/
+G/2iCUQCXsVrBparMLFnor/iKOkJB5n3z3rtu70rFt+DpX6L8uBR3LB3+A==
+-----END CERTIFICATE-----
+-----BEGIN RSA PRIVATE KEY-----
+MIIBPAIBAAJBAIAKrPok/AzudvEBa5v4A+mc0HubJyRYnqeew8qL1KKk/WHKF/OS
+nxEYwnlS/vLwJJO0nySD+JuRrVVXwu8/22cCAwEAAQJBAJsk1F0wTRuaIhJ5xxqw
+FIWPFep/n5jhrDOsIs6cSaRbfIBy3rAl956pf/MHKvf/IXh7KlG9p36IW49hjQHK
+7HkCIQD2CqyV1ppNPFSoCI8mSwO8IZppU3i2V4MhpwnqHz3H0wIhAIU5XIlhLJW8
+TNOaFMEia/TuYofdwJnYvi9t0v4UKBWdAiEA76AtvjEoTpi3in/ri0v78zp2/KXD
+JzPMDvZ0fYS30ukCIA1stlJxpFiCXQuFn0nG+jH4Q52FTv8xxBhrbLOFvHRRAiEA
+2Vc9NN09ty+HZgxpwqIA1fHVuYJY9GMPG1LnTnZ9INg=
+-----END RSA PRIVATE KEY-----
+`[1:])

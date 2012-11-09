@@ -23,6 +23,7 @@ var envConfig = mustNewConfig(map[string]interface{}{
 	"name":            "foo",
 	"default-series":  "series",
 	"authorized-keys": "keys",
+	"root-cert": certAndKey,
 })
 
 func mustNewConfig(m map[string]interface{}) *config.Config {
@@ -43,7 +44,7 @@ var cloudinitTests = []cloudinit.MachineConfig{
 		AuthorizedKeys:     "sshkey1",
 		Tools:              newSimpleTools("1.2.3-linux-amd64"),
 		StateServer:        true,
-		ServerCertAndKey:   certAndKey,
+		ServerCertAndKey:   []byte(certAndKey),
 		StateInfo: &state.Info{
 			Password: "arble",
 		},
@@ -302,7 +303,7 @@ var verifyTests = []struct {
 func (cloudinitSuite) TestCloudInitVerify(c *C) {
 	cfg := &cloudinit.MachineConfig{
 		StateServer:        true,
-		ServerCertAndKey:   certAndKey,
+		ServerCertAndKey:   []byte(certAndKey),
 		InstanceIdAccessor: "$instance_id",
 		ProviderType:       "ec2",
 		MachineId:          99,
@@ -328,7 +329,7 @@ func (cloudinitSuite) TestCloudInitVerify(c *C) {
 	}
 }
 
-var certAndKey = []byte(`
+var certAndKey = `
 -----BEGIN CERTIFICATE-----
 MIIBdzCCASOgAwIBAgIBADALBgkqhkiG9w0BAQUwHjENMAsGA1UEChMEanVqdTEN
 MAsGA1UEAxMEcm9vdDAeFw0xMjExMDgxNjIyMzRaFw0xMzExMDgxNjI3MzRaMBwx
@@ -348,4 +349,4 @@ TNOaFMEia/TuYofdwJnYvi9t0v4UKBWdAiEA76AtvjEoTpi3in/ri0v78zp2/KXD
 JzPMDvZ0fYS30ukCIA1stlJxpFiCXQuFn0nG+jH4Q52FTv8xxBhrbLOFvHRRAiEA
 2Vc9NN09ty+HZgxpwqIA1fHVuYJY9GMPG1LnTnZ9INg=
 -----END RSA PRIVATE KEY-----
-`)
+`
