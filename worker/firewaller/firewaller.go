@@ -117,6 +117,9 @@ func (fw *Firewaller) unitsChanged(change *unitsChange) error {
 		if unit != nil {
 			machineId, err = unit.AssignedMachineId()
 			if err != nil && !state.IsNotAssigned(err) {
+				if state.IsNotFound(err) {
+					continue
+				}
 				return err
 			}
 			unassigned = state.IsNotAssigned(err)
