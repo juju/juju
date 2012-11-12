@@ -31,10 +31,7 @@ var Current = Binary{
 func init() {
 	toolsDir := filepath.Dir(os.Args[0])
 	v, err := ioutil.ReadFile(filepath.Join(toolsDir, "FORCE-VERSION"))
-	if err != nil {
-		if os.IsNotExist(err) {
-			return
-		}
+	if err != nil { if os.IsNotExist(err) { return }
 		panic(fmt.Errorf("version: cannot read forced version: %v", err))
 	}
 	Current = MustParseBinary(strings.TrimSpace(string(v)))

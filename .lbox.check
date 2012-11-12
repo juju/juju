@@ -5,7 +5,7 @@ set -e
 BADFMT=`find * -name '*.go' | xargs gofmt -l`
 if [ -n "$BADFMT" ]; then
 	BADFMT=`echo "$BADFMT" | sed "s/^/  /"`
-	echo "gofmt is sad:\n\n$BADFMT"
+	echo -e "gofmt is sad:\n\n$BADFMT"
 	exit 1
 fi
 

@@ -1,0 +1,126 @@
+Getting started
+===============
+
+Before contributing to juju-core please read the following sections describing the tools and conventions of this project. This file is a companion to README and it is assumed that file has been read prior.
+
+cobzr
+-----
+
+juju-core uses bzr for source control. To make the bzr branching strategy more palitable for the go toolset juju-core recommends using the cobzr helper. cobzr allows the user to juggle multiple branches in place in a way that is compatible with GOPATH. While it is possible to manage bzr branches manually, the remainder of this document will assume cobzr is in use as practiced by the juju-core team.
+
+To install cobzr, 
+
+    go get launchpad.net/cobzr
+
+TODO(dfc) document PPA version
+
+It is recommended to use alias cobzr to bzr. 
+
+    alias bzr=cobzr
+
+As cobzr passes on any options it does not handle, it is safe, and recommened to add this alias command to your login shell.
+
+lbox
+----
+
+juju-core uses lbox for code review and submission. In addition lbox enables the use of prerequisite branches.
+
+To install lbox
+
+    go get launchpad.net/lbox
+
+TODO(dfc) document PPA version
+
+Branching
+=========
+
+All changes to juju-core must be performed on a branch, that branch reviewed, then submitted. An overview of the commands used to do so follows. These examples use the bzr command, which is assumed to be aliased to cobzr, as described above. First, create a branch for your change.
+
+    bzr branch lp:juju-core/ add-CONTRIBUTING
+
+Will branch juju-core and create a new branch called `add-CONRIBUTING` in your local workspace. Importantly this will not switch to this branch immediately (TODO(dfc): there is a flag for this), so to switch to this branch use the following
+
+    bzr switch add-CONTRIBUTING
+
+At this point your previous branch will be stashed and the working copy updated to match the state of the add-CONTRIBUTING branch. It is a good idea to make sure any outstanding changes to the previous branch are committed or reverted to avoid local merge issues.
+
+You can also list any branches you are currently working on by
+
+    bzr branch
+
+Testing
+=======
+
+juju-core uses the gocheck testing framework. gocheck is automatically installed as a dependancy of juju-core. You can read more about gocheck at http://go.pkgdoc.org/pkg/launchpad.net/gocheck. gocheck is integrated into the source of each package so the standard go test command is used to run gocheck tests. For example
+
+    go test launchpad.net/juju-core/...
+
+will run all the test in the juju-core project. By default gocheck prints only minimal output, and as gocheck is hooked into the testing framework via a single go test test per package, the usual go test -v flags are less useful. As a replacement the following commands produce more output from gocheck.
+
+    go test -gocheck.v 
+
+is similar to go test -v and outputs the name of each test as it is run
+
+    go test -gocheck.vv 
+
+extends the previous example by enabling the juju-core/log package's debug flag. By default gocheck will run all tests in a package, selected tests can by run by passing -gocheck.f 
+
+    go test -gocheck.f '$REGEX'
+
+to match a subset of test names.
+
+Finally, because by default go test runs the tests in the current package, and is not recursive, the following commands are equal, and will produce no output. 
+
+    cd $GOPATH/launchpad.net/juju-core
+    go test
+
+    go test launchpad.net/juju-core
+
+Proposing
+=========
+
+Once you change is ready, and you have run all the tests successfully you can propose your branch for merging
+
+    lbox propose 
+
+lbox will prompt you for a branch description and by default will create a rietveld code review for this change, linking it to the launchpad branch, and mailing reviewers. All code review is done on reitveld, not launchpad. The lbox tool manages the state of the launchpad review, with the exception of marking reviews as rejected or work in progress by the reviewer. If you abandon a propsal, you should mark it as rejected in launchpad to avoid others wasting time reviewing it. If you decide to start again, you should add a comment to the abandoned reitveld proposal linking it to your replacement.
+
+If your proposal requires additional work, then you can use the propose command again to repropose, this will also instruct reitveld to mail off any comments to your reviewers and upload fresh diff.
+
+If your branch requires another branch as a prerequisite use the -req flag to indicate as such
+
+    lbox propose -req lp:dave-cheney/add-README
+
+This will produce a diff in reitveld which masks the changes from your prereq.
+
+It is sometimes useful to be able to review your branch in reitveld without proposing, do to this the -wip flag is used
+
+    lbox propose -wip
+
+You can also edit the description of your change with -edit. This is useful when combined with the -wip flag to avoid sending too many mails to reviewers while preparing your proposal.
+
+    lbox propose -edit
+
+Finally, if your proposal fixes a bug, you can use the -bug flag to link the branch inside launchpad. 
+
+    lbox propose -bug 1234567 
+
+Note, there is currently a bug with lbox when linking a branch to a bug that sets the milestone field to the last milestone defined on the project. Generally this is not what you want, so you should visit the bug's page and correct the milestone, if set.
+
+Code review
+===========
+
+juju-core operates on a two positive, no negative review process. You may not submit your proposal until it has received two LGTM comments. If any NOT LGTM comments are received, those comments should be resolved to the statisfaction of the objecting reviewer before submitting. Once your have received at least two positive reviews, you can submit your branch with lbox
+
+    lbox submit
+
+lbox hooks
+----------
+
+Before proposing, lbox runs a number of hooks to improve code quality and ensure that code is properly formatted. These checks are in $GOPATH/launchpad.net/juju-core/.lbox.check. They are run automatically by lbox before proposing or submitting. If they hooks fail you will have to resolve those errors before trying again. For example
+
+    % lbox propose
+    gofmt is sad:
+
+        version/version.go
+
