@@ -77,9 +77,12 @@ func New(attrs map[string]interface{}) (*Config, error) {
 	delete(c.m, "root-cert-path")
 
 	// Load root key into root-private-cert if necessary.
-	rootKey := []byte(c.m["root-private-key"].(string))
+	var rootKey []byte
+	if k, ok := c.m["root-private-key"]; ok {
+		rootKey = []byte(k.(string))
+	}
 	rootKeyPath := c.m["root-private-key-path"].(string)
-	if rootKeyPath != "" || len(rootKey) == 0 {
+	if rootKeyPath != "" || rootKey == nil {
 		rootKey, err = readCertFile(rootKeyPath, "rootkey.pem")
 		if err != nil && !os.IsNotExist(err) {
 			return nil, err
@@ -249,7 +252,7 @@ var defaults = schema.Defaults{
 	"root-cert-path":        "",
 	"root-cert":             "",
 	"root-private-key-path": "",
-	"root-private-key":      "",
+	"root-private-key":      schema.Omit,
 }
 
 var checker = schema.FieldMap(fields, defaults)

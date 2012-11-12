@@ -28,7 +28,6 @@ var configTests = []struct {
 	about string
 	attrs map[string]interface{}
 	err   string
-	files []configFile
 }{
 	{
 		about: "The minimum good configuration",
@@ -83,19 +82,19 @@ var configTests = []struct {
 	}, {
 		about: "Root cert only from ~ path",
 		attrs: attrs{
-			"type":           "my-type",
-			"name":           "my-name",
-			"root-cert-path": "~/othercert.pem",
+			"type":             "my-type",
+			"name":             "my-name",
+			"root-cert-path":   "~/othercert.pem",
+			"root-private-key": "",
 		},
-		files: configTestFilesNoRootKey,
 	}, {
 		about: "Root cert only as attribute",
 		attrs: attrs{
-			"type":      "my-type",
-			"name":      "my-name",
-			"root-cert": rootCert,
+			"type":             "my-type",
+			"name":             "my-name",
+			"root-cert":        rootCert,
+			"root-private-key": "",
 		},
-		files: configTestFilesNoRootKey,
 	}, {
 		about: "Root cert and key as attributes",
 		attrs: attrs{
@@ -231,11 +230,9 @@ var configTests = []struct {
 	},
 }
 
-type configFile struct {
+var configTestFiles = []struct {
 	name, data string
-}
-
-var defaultConfigTestFiles = []configFile{
+}{
 	{".ssh/id_dsa.pub", "dsa"},
 	{".ssh/id_rsa.pub", "rsa\n"},
 	{".ssh/identity.pub", "identity"},
@@ -250,29 +247,21 @@ var defaultConfigTestFiles = []configFile{
 	{"otherkey.pem", rootKey3},
 }
 
-var configTestFilesNoRootKey = []configFile{
-	{".ssh/id_dsa.pub", "dsa"},
-	{".ssh/id_rsa.pub", "rsa\n"},
-	{".ssh/identity.pub", "identity"},
-	{".ssh/authorized_keys", "auth0\n# first\nauth1\n\n"},
-	{".ssh/authorized_keys2", "auth2\nauth3\n"},
-
-	{".juju/rootcert.pem", rootCert},
-	{"othercert.pem", rootCert3},
-}
-
 func (*ConfigSuite) TestConfig(c *C) {
 	homeDir := filepath.Join(c.MkDir(), "me")
 	defer os.Setenv("HOME", os.Getenv("HOME"))
 	os.Setenv("HOME", homeDir)
 
+	for _, f := range configTestFiles {
+		path := filepath.Join(homeDir, f.name)
+		err := os.MkdirAll(filepath.Dir(path), 0700)
+		c.Assert(err, IsNil)
+		err = ioutil.WriteFile(path, []byte(f.data), 0666)
+		c.Assert(err, IsNil)
+	}
+
 	for i, test := range configTests {
 		c.Logf("test %d. %s", i, test.about)
-		files := test.files
-		if files == nil {
-			files = defaultConfigTestFiles
-		}
-		writeFiles(c, homeDir, files)
 
 		cfg, err := config.New(test.attrs)
 		if test.err != "" {
@@ -311,7 +300,7 @@ func (*ConfigSuite) TestConfig(c *C) {
 		}
 
 		if path, _ := test.attrs["authorized-keys-path"].(string); path != "" {
-			c.Assert(cfg.AuthorizedKeys(), Equals, fileContents(c, files, path))
+			c.Assert(cfg.AuthorizedKeys(), Equals, fileContents(c, path))
 			c.Assert(cfg.AllAttrs()["authorized-keys-path"], Equals, nil)
 		} else if keys, _ := test.attrs["authorized-keys"].(string); keys != "" {
 			c.Assert(cfg.AuthorizedKeys(), Equals, keys)
@@ -322,52 +311,28 @@ func (*ConfigSuite) TestConfig(c *C) {
 		}
 
 		if path, _ := test.attrs["root-cert-path"].(string); path != "" {
-			c.Assert(cfg.RootCertPEM(), Equals, fileContents(c, files, path))
+			c.Assert(cfg.RootCertPEM(), Equals, fileContents(c, path))
 		} else if test.attrs["root-cert"] != nil {
 			c.Assert(cfg.RootCertPEM(), Equals, test.attrs["root-cert"])
 		} else {
-			c.Assert(cfg.RootCertPEM(), Equals, fileContents(c, files, "~/.juju/rootcert.pem"))
+			c.Assert(cfg.RootCertPEM(), Equals, fileContents(c, "~/.juju/rootcert.pem"))
 		}
 
 		if path, _ := test.attrs["root-private-key-path"].(string); path != "" {
-			c.Assert(cfg.RootPrivateKeyPEM(), Equals, fileContents(c, files, path))
-		} else if test.attrs["root-private-key"] != nil {
-			c.Assert(cfg.RootPrivateKeyPEM(), Equals, test.attrs["root-private-key"])
-		} else if hasFile(files, "rootkey.pem") {
-			c.Assert(cfg.RootPrivateKeyPEM(), Equals, fileContents(c, files, "~/.juju/rootkey.pem"))
+			c.Assert(cfg.RootPrivateKeyPEM(), Equals, fileContents(c, path))
+		} else if k, ok := test.attrs["root-private-key"]; ok {
+			c.Assert(cfg.RootPrivateKeyPEM(), Equals, k)
 		} else {
-			c.Assert(cfg.RootPrivateKeyPEM(), Equals, "")
+			c.Assert(cfg.RootPrivateKeyPEM(), Equals, rootKey)
 		}
 	}
-}
-
-func writeFiles(c *C, homeDir string, files []configFile) {
-	err := os.RemoveAll(homeDir)
-	c.Assert(err, IsNil)
-
-	for _, f := range files {
-		path := filepath.Join(homeDir, f.name)
-		err = os.MkdirAll(filepath.Dir(path), 0700)
-		c.Assert(err, IsNil)
-		err = ioutil.WriteFile(path, []byte(f.data), 0666)
-		c.Assert(err, IsNil)
-	}
-}
-
-func hasFile(files []configFile, path string) bool {
-	for _, f := range files {
-		if filepath.Base(f.name) == filepath.Base(path) {
-			return true
-		}
-	}
-	return false
 }
 
 // fileContents returns the test file contents for the
 // given specified path (which may be relative, so
 // we compare with the base filename only).
-func fileContents(c *C, files []configFile, path string) string {
-	for _, f := range files {
+func fileContents(c *C, path string) string {
+	for _, f := range configTestFiles {
 		if filepath.Base(f.name) == filepath.Base(path) {
 			return f.data
 		}
