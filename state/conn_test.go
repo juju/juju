@@ -17,7 +17,7 @@ func TestPackage(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
 }
 
-// ConnSuite provides the infrastructure for all other 
+// ConnSuite provides the infrastructure for all other
 // test suites (StateSuite, CharmSuite, MachineSuite, etc).
 type ConnSuite struct {
 	testing.MgoSuite

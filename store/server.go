@@ -102,7 +102,7 @@ func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 		_, err = w.Write(data)
 	}
 	if err != nil {
-		log.Printf("cannot write content: %v", err)
+		log.Printf("store: cannot write content: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -124,7 +124,7 @@ func (s *Server) serveCharm(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		log.Printf("cannot open charm %q: %v", curl, err)
+		log.Printf("store: cannot open charm %q: %v", curl, err)
 		return
 	}
 	if statsEnabled(r) {
@@ -136,7 +136,7 @@ func (s *Server) serveCharm(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Length", strconv.FormatInt(info.BundleSize(), 10))
 	_, err = io.Copy(w, rc)
 	if err != nil {
-		log.Printf("failed to stream charm %q: %v", curl, err)
+		log.Printf("store: failed to stream charm %q: %v", curl, err)
 	}
 }
 
@@ -169,7 +169,7 @@ func (s *Server) serveStats(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	sum, err := s.store.SumCounter(key, prefix)
 	if err != nil {
-		log.Printf("cannot sum counter: %v", err)
+		log.Printf("store: cannot sum counter: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -178,7 +178,7 @@ func (s *Server) serveStats(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 	_, err = w.Write(data)
 	if err != nil {
-		log.Printf("cannot write content: %v", err)
+		log.Printf("store: cannot write content: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 }

@@ -29,8 +29,8 @@ func (s *MachineSuite) TestParseSuccess(c *C) {
 
 func (s *MachineSuite) TestParseNonsense(c *C) {
 	for _, args := range [][]string{
-		[]string{},
-		[]string{"--machine-id", "-4004"},
+		{},
+		{"--machine-id", "-4004"},
 	} {
 		err := ParseAgentCommand(&MachineAgent{}, args)
 		c.Assert(err, ErrorMatches, "--machine-id option must be set, and expects a non-negative integer")

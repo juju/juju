@@ -166,7 +166,7 @@ func (q *AliveHookQueue) empty() bool {
 func (q *AliveHookQueue) update(ruc state.RelationUnitsChange) {
 	// Enforce consistent addition order, mainly for testing purposes.
 	changedUnits := []string{}
-	for unit, _ := range ruc.Changed {
+	for unit := range ruc.Changed {
 		changedUnits = append(changedUnits, unit)
 	}
 	sort.Strings(changedUnits)

@@ -169,7 +169,7 @@ func (m *Machine) WaitAgentAlive(timeout time.Duration) (err error) {
 	panic(fmt.Sprintf("presence reported dead status twice in a row for machine %v", m))
 }
 
-// SetAgentAlive signals that the agent for machine m is alive. 
+// SetAgentAlive signals that the agent for machine m is alive.
 // It returns the started pinger.
 func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
 	p := presence.NewPinger(m.st.presence, m.globalKey())

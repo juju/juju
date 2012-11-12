@@ -170,7 +170,7 @@ func (d *GitDir) cmd(args ...string) error {
 	cmd := exec.Command("git", args...)
 	cmd.Dir = d.path
 	if out, err := cmd.CombinedOutput(); err != nil {
-		log.Printf("git command failed: %s\npath: %s\nargs: %#v\n%s",
+		log.Printf("worker/uniter/charm: git command failed: %s\npath: %s\nargs: %#v\n%s",
 			err, d.path, args, string(out))
 		return fmt.Errorf("git %s failed: %s", args[0], err)
 	}

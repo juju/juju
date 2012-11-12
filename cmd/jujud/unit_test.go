@@ -34,11 +34,11 @@ func (s *UnitSuite) TestParseMissing(c *C) {
 
 func (s *UnitSuite) TestParseNonsense(c *C) {
 	for _, args := range [][]string{
-		[]string{"--unit-name", "wordpress"},
-		[]string{"--unit-name", "wordpress/seventeen"},
-		[]string{"--unit-name", "wordpress/-32"},
-		[]string{"--unit-name", "wordpress/wild/9"},
-		[]string{"--unit-name", "20/20"},
+		{"--unit-name", "wordpress"},
+		{"--unit-name", "wordpress/seventeen"},
+		{"--unit-name", "wordpress/-32"},
+		{"--unit-name", "wordpress/wild/9"},
+		{"--unit-name", "20/20"},
 	} {
 		err := ParseAgentCommand(&UnitAgent{}, args)
 		c.Assert(err, ErrorMatches, `--unit-name option expects "<service>/<n>" argument`)
