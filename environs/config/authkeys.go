@@ -78,15 +78,17 @@ func readCertFile(path string, defaultPath string) ([]byte, error) {
 // The key is optional - if it is provided, we also check that the key
 // matches the certificate.
 func verifyKeyPair(certPEM, keyPEM []byte) error {
-	log.Printf("verify ok? cert %d, key %d", len(certPEM), len(keyPEM))
 	if len(keyPEM) > 0 {
 		_, err := tls.X509KeyPair(certPEM, keyPEM)
-		log.Printf("verify key pair -> %v", err)
 		return err
 	}
 	for len(certPEM) > 0 {
-		certBlock, _ := pem.Decode(certPEM)
-		if certBlock != nil && certBlock.Type == "CERTIFICATE" {
+		var certBlock *pem.Block
+		certBlock, certPEM = pem.Decode(certPEM)
+		if certBlock == nil {
+			break
+		}
+		if certBlock.Type == "CERTIFICATE" {
 			_, err := x509.ParseCertificate(certBlock.Bytes)
 			return err
 		}

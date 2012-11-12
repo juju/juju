@@ -130,6 +130,15 @@ var configTests = []struct {
 		},
 		err: "bad root certificate/key in configuration: crypto/tls: failed to parse key:.*",
 	}, {
+		about: "No PEM cert",
+		attrs: attrs{
+			"type":             "my-type",
+			"name":             "my-name",
+			"root-cert":        "foo",
+			"root-private-key": "",
+		},
+		err: "bad root certificate/key in configuration: no certificates found",
+	}, {
 		about: "Specified agent version",
 		attrs: attrs{
 			"type":            "my-type",
