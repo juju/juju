@@ -8,7 +8,6 @@ import (
 	"launchpad.net/juju-core/version"
 	"os"
 	"path/filepath"
-	"strings"
 	stdtesting "testing"
 )
 
@@ -29,259 +28,258 @@ var configTests = []struct {
 	about string
 	attrs map[string]interface{}
 	err   string
+	files []configFile
 }{
 	{
-		"The minimum good configuration",
-		attrs{
+		about: "The minimum good configuration",
+		attrs: attrs{
 			"type": "my-type",
 			"name": "my-name",
 		},
-		"",
 	}, {
-		"Explicit series",
-		attrs{
+		about: "Explicit series",
+		attrs: attrs{
 			"type":           "my-type",
 			"name":           "my-name",
 			"default-series": "my-series",
 		},
-		"",
 	}, {
-		"Implicit series with empty value",
-		attrs{
+		about: "Implicit series with empty value",
+		attrs: attrs{
 			"type":           "my-type",
 			"name":           "my-name",
 			"default-series": "",
 		},
-		"",
 	}, {
-		"Explicit authorized-keys",
-		attrs{
+		about: "Explicit authorized-keys",
+		attrs: attrs{
 			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": "my-keys",
 		},
-		"",
 	}, {
-		"Load authorized-keys from path",
-		attrs{
+		about: "Load authorized-keys from path",
+		attrs: attrs{
 			"type":                 "my-type",
 			"name":                 "my-name",
 			"authorized-keys-path": "~/.ssh/authorized_keys2",
 		},
-		"",
 	}, {
-		"Root cert & key from path",
-		attrs{
-			"type":           "my-type",
-			"name":           "my-name",
-			"root-cert-path": "rootcert2.pem",
+		about: "Root cert & key from path",
+		attrs: attrs{
+			"type":                  "my-type",
+			"name":                  "my-name",
+			"root-cert-path":        "rootcert2.pem",
+			"root-private-key-path": "rootkey2.pem",
 		},
-		"",
 	}, {
-		"Root cert & key from ~ path",
-		attrs{
+		about: "Root cert & key from ~ path",
+		attrs: attrs{
+			"type":                  "my-type",
+			"name":                  "my-name",
+			"root-cert-path":        "~/othercert.pem",
+			"root-private-key-path": "~/otherkey.pem",
+		},
+	}, {
+		about: "Root cert only from ~ path",
+		attrs: attrs{
 			"type":           "my-type",
 			"name":           "my-name",
 			"root-cert-path": "~/othercert.pem",
 		},
-		"",
+		files: configTestFilesNoRootKey,
 	}, {
-		"Root cert only from ~ path",
-		attrs{
-			"type":           "my-type",
-			"name":           "my-name",
-			"root-cert-path": "~/certonly.pem",
-		},
-		"",
-	}, {
-		"Root cert only as attribute",
-		attrs{
+		about: "Root cert only as attribute",
+		attrs: attrs{
 			"type":      "my-type",
 			"name":      "my-name",
 			"root-cert": rootCert,
 		},
-		"",
+		files: configTestFilesNoRootKey,
 	}, {
-		"Root cert and key as attributes",
-		attrs{
+		about: "Root cert and key as attributes",
+		attrs: attrs{
 			"type":             "my-type",
 			"name":             "my-name",
 			"root-cert":        rootCert,
 			"root-private-key": rootKey,
 		},
-		"",
 	}, {
-		"Mismatched root cert and key",
-		attrs{
+		about: "Mismatched root cert and key",
+		attrs: attrs{
 			"type":             "my-type",
 			"name":             "my-name",
 			"root-cert":        rootCert,
 			"root-private-key": rootKey2,
 		},
-		"bad root certificate/key in configuration: crypto/tls: private key does not match public key",
+		err: "bad root certificate/key in configuration: crypto/tls: private key does not match public key",
 	}, {
-		"Invalid root cert",
-		attrs{
+		about: "Invalid root cert",
+		attrs: attrs{
 			"type":      "my-type",
 			"name":      "my-name",
 			"root-cert": invalidRootCert,
 		},
-		"bad root certificate/key in configuration: ASN.1 syntax error:.*",
+		err: "bad root certificate/key in configuration: ASN.1 syntax error:.*",
 	}, {
-		"Invalid root key",
-		attrs{
+		about: "Invalid root key",
+		attrs: attrs{
 			"type":             "my-type",
 			"name":             "my-name",
 			"root-cert":        rootCert,
 			"root-private-key": invalidRootKey,
 		},
-		"bad root certificate/key in configuration: crypto/tls: failed to parse key:.*",
+		err: "bad root certificate/key in configuration: crypto/tls: failed to parse key:.*",
 	}, {
-		"Specified agent version",
-		attrs{
+		about: "Specified agent version",
+		attrs: attrs{
 			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": "my-keys",
 			"agent-version":   "1.2.3",
 		},
-		"",
 	}, {
-		"Specified development flag",
-		attrs{
+		about: "Specified development flag",
+		attrs: attrs{
 			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": "my-keys",
 			"development":     true,
 		},
-		"",
 	}, {
-		"Specified admin secret",
-		attrs{
+		about: "Specified admin secret",
+		attrs: attrs{
 			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": "my-keys",
 			"development":     false,
 			"admin-secret":    "pork",
 		},
-		"",
 	}, {
-		"Invalid development flag",
-		attrs{
+		about: "Invalid development flag",
+		attrs: attrs{
 			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": "my-keys",
 			"development":     "true",
 		},
-		"development: expected bool, got \"true\"",
+		err: "development: expected bool, got \"true\"",
 	}, {
-		"Invalid agent version",
-		attrs{
+		about: "Invalid agent version",
+		attrs: attrs{
 			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": "my-keys",
 			"agent-version":   "2",
 		},
-		`invalid agent version in environment configuration: "2"`,
+		err: `invalid agent version in environment configuration: "2"`,
 	}, {
-		"Missing type",
-		attrs{
+		about: "Missing type",
+		attrs: attrs{
 			"name": "my-name",
 		},
-		"type: expected string, got nothing",
+		err: "type: expected string, got nothing",
 	}, {
-		"Empty type",
-		attrs{
+		about: "Empty type",
+		attrs: attrs{
 			"name": "my-name",
 			"type": "",
 		},
-		"empty type in environment configuration",
+		err: "empty type in environment configuration",
 	}, {
-		"Missing name",
-		attrs{
+		about: "Missing name",
+		attrs: attrs{
 			"type": "my-type",
 		},
-		"name: expected string, got nothing",
+		err: "name: expected string, got nothing",
 	}, {
-		"Empty name",
-		attrs{
+		about: "Empty name",
+		attrs: attrs{
 			"type": "my-type",
 			"name": "",
 		},
-		"empty name in environment configuration",
+		err: "empty name in environment configuration",
 	}, {
-		"Default firewall mode",
-		attrs{
+		about: "Default firewall mode",
+		attrs: attrs{
 			"type":          "my-type",
 			"name":          "my-name",
 			"firewall-mode": config.FwDefault,
 		},
-		"",
 	}, {
-		"Instance firewall mode",
-		attrs{
+		about: "Instance firewall mode",
+		attrs: attrs{
 			"type":          "my-type",
 			"name":          "my-name",
 			"firewall-mode": config.FwInstance,
 		},
-		"",
 	}, {
-		"Global firewall mode",
-		attrs{
+		about: "Global firewall mode",
+		attrs: attrs{
 			"type":          "my-type",
 			"name":          "my-name",
 			"firewall-mode": config.FwGlobal,
 		},
-		"",
 	}, {
-		"Illegal firewall mode",
-		attrs{
+		about: "Illegal firewall mode",
+		attrs: attrs{
 			"type":          "my-type",
 			"name":          "my-name",
 			"firewall-mode": "illegal",
 		},
-		"invalid firewall mode in environment configuration: .*",
+		err: "invalid firewall mode in environment configuration: .*",
 	},
 }
 
-var configTestFiles = []struct {
+type configFile struct {
 	name, data string
-}{
+}
+
+var defaultConfigTestFiles = []configFile{
 	{".ssh/id_dsa.pub", "dsa"},
 	{".ssh/id_rsa.pub", "rsa\n"},
 	{".ssh/identity.pub", "identity"},
 	{".ssh/authorized_keys", "auth0\n# first\nauth1\n\n"},
 	{".ssh/authorized_keys2", "auth2\nauth3\n"},
 
-	{".juju/rootcert.pem", rootCert + rootKey},
-	{".juju/rootcert2.pem", rootKey2 + rootCert2},
-	{"othercert.pem", rootCert3 + rootKey3},
-	{"certonly.pem", rootCert3},
+	{".juju/rootcert.pem", rootCert},
+	{".juju/rootkey.pem", rootKey},
+	{".juju/rootcert2.pem", rootCert2},
+	{".juju/rootkey2.pem", rootKey2},
+	{"othercert.pem", rootCert3},
+	{"otherkey.pem", rootKey3},
+}
+
+var configTestFilesNoRootKey = []configFile{
+	{".ssh/id_dsa.pub", "dsa"},
+	{".ssh/id_rsa.pub", "rsa\n"},
+	{".ssh/identity.pub", "identity"},
+	{".ssh/authorized_keys", "auth0\n# first\nauth1\n\n"},
+	{".ssh/authorized_keys2", "auth2\nauth3\n"},
+
+	{".juju/rootcert.pem", rootCert},
+	{"othercert.pem", rootCert3},
 }
 
 func (*ConfigSuite) TestConfig(c *C) {
-	homeDir := c.MkDir()
+	homeDir := filepath.Join(c.MkDir(), "me")
 	defer os.Setenv("HOME", os.Getenv("HOME"))
 	os.Setenv("HOME", homeDir)
 
-	err := os.Mkdir(filepath.Join(homeDir, ".ssh"), 0777)
-	c.Assert(err, IsNil)
-	err = os.Mkdir(filepath.Join(homeDir, ".juju"), 0700)
-	c.Assert(err, IsNil)
-
-	for _, f := range configTestFiles {
-		err = ioutil.WriteFile(filepath.Join(homeDir, f.name), []byte(f.data), 0666)
-		c.Assert(err, IsNil)
-	}
-
 	for i, test := range configTests {
 		c.Logf("test %d. %s", i, test.about)
+		files := test.files
+		if files == nil {
+			files = defaultConfigTestFiles
+		}
+		writeFiles(c, homeDir, files)
+
 		cfg, err := config.New(test.attrs)
 		if test.err != "" {
 			c.Assert(err, ErrorMatches, test.err)
 			continue
-		} else if err != nil {
-			c.Fatalf("error with config %#v: %v", test.attrs, err)
 		}
+		c.Assert(err, IsNil)
 
 		typ, _ := test.attrs["type"].(string)
 		name, _ := test.attrs["name"].(string)
@@ -313,7 +311,7 @@ func (*ConfigSuite) TestConfig(c *C) {
 		}
 
 		if path, _ := test.attrs["authorized-keys-path"].(string); path != "" {
-			c.Assert(cfg.AuthorizedKeys(), Equals, fileContents(c, path))
+			c.Assert(cfg.AuthorizedKeys(), Equals, fileContents(c, files, path))
 			c.Assert(cfg.AllAttrs()["authorized-keys-path"], Equals, nil)
 		} else if keys, _ := test.attrs["authorized-keys"].(string); keys != "" {
 			c.Assert(cfg.AuthorizedKeys(), Equals, keys)
@@ -324,36 +322,52 @@ func (*ConfigSuite) TestConfig(c *C) {
 		}
 
 		if path, _ := test.attrs["root-cert-path"].(string); path != "" {
-			cert := cfg.RootCertPEM()
-			key := cfg.RootPrivateKeyPEM()
-			f := fileContents(c, path)
-			// the certificate and the key can be in any order in the file.
-			certi := strings.Index(f, "CERTIFICATE--")
-			keyi := strings.Index(f, "KEY--")
-			switch {
-			case certi == -1:
-				panic("file does not have certificate")
-			case keyi == -1:
-				c.Assert(cert, Equals, f)
-				c.Assert(key, Equals, "")
-			case certi < keyi:
-				c.Assert(cert+key, Equals, f)
-			default:
-				c.Assert(key+cert, Equals, f)
-			}
+			c.Assert(cfg.RootCertPEM(), Equals, fileContents(c, files, path))
 		} else if test.attrs["root-cert"] != nil {
 			c.Assert(cfg.RootCertPEM(), Equals, test.attrs["root-cert"])
-			key, _ := test.attrs["root-private-key"].(string)
-			c.Assert(cfg.RootPrivateKeyPEM(), Equals, key)
 		} else {
-			c.Assert(cfg.RootCertPEM(), Equals, rootCert)
-			c.Assert(cfg.RootPrivateKeyPEM(), Equals, rootKey)
+			c.Assert(cfg.RootCertPEM(), Equals, fileContents(c, files, "~/.juju/rootcert.pem"))
+		}
+
+		if path, _ := test.attrs["root-private-key-path"].(string); path != "" {
+			c.Assert(cfg.RootPrivateKeyPEM(), Equals, fileContents(c, files, path))
+		} else if test.attrs["root-private-key"] != nil {
+			c.Assert(cfg.RootPrivateKeyPEM(), Equals, test.attrs["root-private-key"])
+		} else if hasFile(files, "rootkey.pem") {
+			c.Assert(cfg.RootPrivateKeyPEM(), Equals, fileContents(c, files, "~/.juju/rootkey.pem"))
+		} else {
+			c.Assert(cfg.RootPrivateKeyPEM(), Equals, "")
 		}
 	}
 }
 
-func fileContents(c *C, path string) string {
-	for _, f := range configTestFiles {
+func writeFiles(c *C, homeDir string, files []configFile) {
+	err := os.RemoveAll(homeDir)
+	c.Assert(err, IsNil)
+
+	for _, f := range files {
+		path := filepath.Join(homeDir, f.name)
+		err = os.MkdirAll(filepath.Dir(path), 0700)
+		c.Assert(err, IsNil)
+		err = ioutil.WriteFile(path, []byte(f.data), 0666)
+		c.Assert(err, IsNil)
+	}
+}
+
+func hasFile(files []configFile, path string) bool {
+	for _, f := range files {
+		if filepath.Base(f.name) == filepath.Base(path) {
+			return true
+		}
+	}
+	return false
+}
+
+// fileContents returns the test file contents for the
+// given specified path (which may be relative, so
+// we compare with the base filename only).
+func fileContents(c *C, files []configFile, path string) string {
+	for _, f := range files {
 		if filepath.Base(f.name) == filepath.Base(path) {
 			return f.data
 		}

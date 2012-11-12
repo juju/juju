@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/version"
+	"os"
 )
 
 // FirewallMode defines the way in which the environment
@@ -52,7 +53,7 @@ func New(attrs map[string]interface{}) (*Config, error) {
 		c.m["default-series"] = version.Current.Series
 	}
 
-	// Load authorized-keys-path into authorized-keys, if necessary.
+	// Load authorized-keys-path into authorized-keys if necessary.
 	path := c.m["authorized-keys-path"].(string)
 	keys := c.m["authorized-keys"].(string)
 	if path != "" || keys == "" {
@@ -63,27 +64,36 @@ func New(attrs map[string]interface{}) (*Config, error) {
 	}
 	delete(c.m, "authorized-keys-path")
 
-	// Load root certificate and key into root-cert and root-private-key
-	// if necessary.
-	rootCertPath := c.m["root-cert-path"].(string)
+	// Load root certificate into root-cert if necessary.
 	rootCert := []byte(c.m["root-cert"].(string))
-	rootKey := []byte(c.m["root-private-key"].(string))
+	rootCertPath := c.m["root-cert-path"].(string)
 	if rootCertPath != "" || len(rootCert) == 0 {
-		rootCertPath = makeRootCertPath(rootCertPath)
-		rootCert, rootKey, err = readRootCert(rootCertPath)
+		rootCert, err = readCertFile(rootCertPath, "rootcert.pem")
 		if err != nil {
-			return nil, fmt.Errorf("cannot read root certificate from %q: %v", rootCertPath, err)
+			return nil, err
 		}
 		c.m["root-cert"] = string(rootCert)
+	}
+	delete(c.m, "root-cert-path")
+
+	// Load root key into root-private-cert if necessary.
+	rootKey := []byte(c.m["root-private-key"].(string))
+	rootKeyPath := c.m["root-private-key-path"].(string)
+	if rootKeyPath != "" || len(rootKey) == 0 {
+		rootKey, err = readCertFile(rootKeyPath, "rootkey.pem")
+		if err != nil && !os.IsNotExist(err) {
+			return nil, err
+		}
 		c.m["root-private-key"] = string(rootKey)
 	}
+	delete(c.m, "root-private-key-path")
+
 	if err := verifyKeyPair(rootCert, rootKey); err != nil {
 		if rootCertPath == "" {
 			return nil, fmt.Errorf("bad root certificate/key in configuration: %v", err)
 		}
 		return nil, fmt.Errorf("bad root certificate in %q: %v", rootCertPath, err)
 	}
-	delete(c.m, "root-cert-path")
 
 	// Check if there are any required fields that are empty.
 	for _, attr := range []string{"name", "type", "default-series", "authorized-keys", "root-cert"} {
@@ -213,31 +223,33 @@ func (c *Config) Apply(attrs map[string]interface{}) (*Config, error) {
 }
 
 var fields = schema.Fields{
-	"type":                 schema.String(),
-	"name":                 schema.String(),
-	"default-series":       schema.String(),
-	"authorized-keys":      schema.String(),
-	"authorized-keys-path": schema.String(),
-	"firewall-mode":        schema.String(),
-	"agent-version":        schema.String(),
-	"development":          schema.Bool(),
-	"admin-secret":         schema.String(),
-	"root-cert":            schema.String(),
-	"root-private-key":     schema.String(),
-	"root-cert-path":       schema.String(),
+	"type":                  schema.String(),
+	"name":                  schema.String(),
+	"default-series":        schema.String(),
+	"authorized-keys":       schema.String(),
+	"authorized-keys-path":  schema.String(),
+	"firewall-mode":         schema.String(),
+	"agent-version":         schema.String(),
+	"development":           schema.Bool(),
+	"admin-secret":          schema.String(),
+	"root-cert":             schema.String(),
+	"root-cert-path":        schema.String(),
+	"root-private-key":      schema.String(),
+	"root-private-key-path": schema.String(),
 }
 
 var defaults = schema.Defaults{
-	"default-series":       version.Current.Series,
-	"authorized-keys":      "",
-	"authorized-keys-path": "",
-	"firewall-mode":        FwDefault,
-	"agent-version":        schema.Omit,
-	"development":          false,
-	"admin-secret":         "",
-	"root-cert-path":       "",
-	"root-cert":            "",
-	"root-private-key":     "",
+	"default-series":        version.Current.Series,
+	"authorized-keys":       "",
+	"authorized-keys-path":  "",
+	"firewall-mode":         FwDefault,
+	"agent-version":         schema.Omit,
+	"development":           false,
+	"admin-secret":          "",
+	"root-cert-path":        "",
+	"root-cert":             "",
+	"root-private-key-path": "",
+	"root-private-key":      "",
 }
 
 var checker = schema.FieldMap(fields, defaults)

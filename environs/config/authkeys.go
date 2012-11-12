@@ -62,50 +62,16 @@ func readAuthorizedKeys(path string) (string, error) {
 	return string(keyData), nil
 }
 
-func makeRootCertPath(path string) string {
+func readCertFile(path string, defaultPath string) ([]byte, error) {
 	if path == "" {
-		path = "rootcert.pem"
+		path = defaultPath
 	}
 	path = expandTilde(path)
 	if !filepath.IsAbs(path) {
 		path = filepath.Join(os.Getenv("HOME"), ".juju", path)
 	}
-	return path
-}
-
-// readRootCert reads a certificate and key for the root
-// certifying authority from the given path.
-func readRootCert(path string) (cert, key []byte, err error) {
-	pemData, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, nil, err
-	}
-	var certPEM bytes.Buffer
-	var keyDERBlock *pem.Block
-	// Separate any certificates from the private key.
-	for len(pemData) > 0 {
-		var b *pem.Block
-		b, pemData = pem.Decode(pemData)
-		switch b.Type {
-		case "CERTIFICATE":
-			pem.Encode(&certPEM, b)
-		case "RSA PRIVATE KEY":
-			if keyDERBlock != nil {
-				return nil, nil, fmt.Errorf("more than one private key found")
-			}
-			keyDERBlock = b
-		default:
-			log.Printf("environs/config: unexpected PEM type %q", b.Type)
-		}
-	}
-	cert = certPEM.Bytes()
-	if len(cert) == 0 {
-		return nil, nil, fmt.Errorf("no certificate found")
-	}
-	if keyDERBlock != nil {
-		key = pem.EncodeToMemory(keyDERBlock)
-	}
-	return cert, key, nil
+	log.Printf("reading cert file %q", path)
+	return ioutil.ReadFile(path)
 }
 
 // verifyKeyPair verifies that the certificate and key parse correctly.
