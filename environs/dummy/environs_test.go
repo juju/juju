@@ -1,9 +1,7 @@
 package dummy_test
 
 import (
-	"fmt"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs/config"
 	_ "launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/testing"
@@ -11,23 +9,20 @@ import (
 )
 
 func init() {
-	cfg, err := config.New(map[string]interface{}{
+	attrs := map[string]interface{}{
 		"name":         "only",
 		"type":         "dummy",
 		"state-server": true,
 		"secret":       "pork",
 		"admin-secret": "fish",
-	})
-	if err != nil {
-		panic(fmt.Errorf("cannot create testing config: %v", err))
 	}
 	Suite(&jujutest.LiveTests{
-		Config:         cfg,
+		Config:         attrs,
 		CanOpenState:   true,
 		HasProvisioner: false,
 	})
 	Suite(&jujutest.Tests{
-		Config: cfg,
+		Config: attrs,
 	})
 }
 

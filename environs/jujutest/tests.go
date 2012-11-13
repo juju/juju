@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/trivial"
@@ -20,14 +19,14 @@ import (
 // may be executed.
 type Tests struct {
 	coretesting.LoggingSuite
-	Config *config.Config
+	Config map[string]interface{}
 	Env    environs.Environ
 }
 
 // Open opens an instance of the testing environment.
 func (t *Tests) Open(c *C) environs.Environ {
-	e, err := environs.New(t.Config)
-	c.Assert(err, IsNil, Commentf("opening environ %#v", t.Config.AllAttrs()))
+	e, err := environs.NewFromAttrs(t.Config)
+	c.Assert(err, IsNil, Commentf("opening environ %#v", t.Config))
 	c.Assert(e, NotNil)
 	return e
 }

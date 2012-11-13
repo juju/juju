@@ -1,7 +1,6 @@
 package ec2_test
 
 import (
-	"fmt"
 	"launchpad.net/goamz/aws"
 	amzec2 "launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/ec2/ec2test"
@@ -10,7 +9,6 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/state"
@@ -26,7 +24,7 @@ func registerLocalTests() {
 	aws.Regions["test"] = aws.Region{
 		Name: "test",
 	}
-	cfg, err := config.New(map[string]interface{}{
+	attrs := map[string]interface{}{
 		"name":           "sample",
 		"type":           "ec2",
 		"region":         "test",
@@ -35,20 +33,17 @@ func registerLocalTests() {
 		"admin-secret":   "local-secret",
 		"access-key":     "x",
 		"secret-key":     "x",
-	})
-	if err != nil {
-		panic(fmt.Errorf("cannot create config: %v", err))
 	}
 
 	Suite(&localServerSuite{
 		Tests: jujutest.Tests{
-			Config: cfg,
+			Config: attrs,
 		},
 	})
 	Suite(&localLiveSuite{
 		LiveTests: LiveTests{
 			LiveTests: jujutest.LiveTests{
-				Config: cfg,
+				Config: attrs,
 			},
 		},
 	})
