@@ -847,11 +847,19 @@ func (s waitUniterDead) waitDead(c *C, ctx *context) error {
 	ctx.uniter = nil
 	timeout := time.After(5 * time.Second)
 	for {
+		// The repeated StartSync is to ensure timely completion of this method
+		// in the case(s) where a state change causes a uniter action which
+		// causes a state change which causes a uniter action, in which case we
+		// need more than one sync. At the moment there's only one situation
+		// that causes this -- setting the unit's service to Dying -- but it's
+		// not an intrinsically insane pattern of action (and helps to simplify
+		// the filter code) so this test seems like a small price to pay.
+		ctx.st.StartSync()
 		select {
 		case <-u.Dying():
 			return u.Wait()
 		case <-time.After(50 * time.Millisecond):
-			ctx.st.StartSync()
+			continue
 		case <-timeout:
 			c.Fatalf("uniter still alive")
 		}
