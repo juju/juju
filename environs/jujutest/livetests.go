@@ -20,9 +20,12 @@ import (
 // in the suite, stored in Env, and Destroyed after the suite has completed.
 type LiveTests struct {
 	coretesting.LoggingSuite
-	Environs *environs.Environs
-	Name     string
-	Env      environs.Environ
+
+	// Config holds the configuration attributes for opening an environment.
+	Config map[string]interface{}
+
+	// Env holds the currently opened environment.
+	Env environs.Environ
 
 	// Attempt holds a strategy for waiting until the environment
 	// becomes logically consistent.
@@ -41,8 +44,8 @@ type LiveTests struct {
 
 func (t *LiveTests) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
-	e, err := t.Environs.Open(t.Name)
-	c.Assert(err, IsNil, Commentf("opening environ %q", t.Name))
+	e, err := environs.NewFromAttrs(t.Config)
+	c.Assert(err, IsNil, Commentf("opening environ %#v", t.Config))
 	c.Assert(e, NotNil)
 	t.Env = e
 	c.Logf("environment configuration: %#v", publicAttrs(e))
