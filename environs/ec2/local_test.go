@@ -21,11 +21,11 @@ import (
 )
 
 func registerLocalTests() {
+	// N.B. Make sure the region we use here
+	// has entries in the images/query txt files.
 	aws.Regions["test"] = aws.Region{
 		Name: "test",
 	}
-	// N.B. Make sure the region we use here
-	// has entries in the images/query txt files.
 	cfg, err := config.New(map[string]interface{}{
 		"name":           "sample",
 		"type":           "ec2",
