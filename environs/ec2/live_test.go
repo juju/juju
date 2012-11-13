@@ -8,7 +8,6 @@ import (
 	amzec2 "launchpad.net/goamz/ec2"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/juju/testing"
@@ -37,19 +36,16 @@ func registerAmazonTests() {
 	// environment variables to make the Amazon testing work:
 	//  access-key: $AWS_ACCESS_KEY_ID
 	//  secret-key: $AWS_SECRET_ACCESS_KEY
-	cfg, err := config.New(map[string]interface{}{
+	attrs := map[string]interface{}{
 		"name":           "sample-" + uniqueName,
 		"type":           "ec2",
 		"control-bucket": "juju-test-" + uniqueName,
 		"public-bucket":  "juju-public-test-" + uniqueName,
 		"admin-secret":   "for real",
-	})
-	if err != nil {
-		panic(fmt.Errorf("cannot create config: %v", err))
 	}
 	Suite(&LiveTests{
 		LiveTests: jujutest.LiveTests{
-			Config:         cfg,
+			Config:         attrs,
 			Attempt:        *ec2.ShortAttempt,
 			CanOpenState:   true,
 			HasProvisioner: true,
@@ -66,7 +62,7 @@ type LiveTests struct {
 
 func (t *LiveTests) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
-	e, err := environs.New(t.Config)
+	e, err := environs.NewFromAttrs(t.Config)
 	c.Assert(err, IsNil)
 	// Put some fake tools in place so that tests that are simply
 	// starting instances without any need to check if those instances
