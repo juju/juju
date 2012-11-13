@@ -8,6 +8,7 @@ import (
 	amzec2 "launchpad.net/goamz/ec2"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/juju/testing"
@@ -15,23 +16,7 @@ import (
 	"strings"
 )
 
-// amazonConfig holds the environments configuration
-// for running the amazon EC2 integration tests.
-//
-// This is missing keys for security reasons; set the following environment variables
-// to make the Amazon testing work:
-//  access-key: $AWS_ACCESS_KEY_ID
-//  secret-key: $AWS_SECRET_ACCESS_KEY
-var amazonConfig = fmt.Sprintf(`
-environments:
-  sample-%s:
-    type: ec2
-    control-bucket: 'juju-test-%s'
-    public-bucket: 'juju-public-test-%s'
-    admin-secret: 'for real'
-`, uniqueName, uniqueName, uniqueName)
-
-// uniqueName is generated afresh for every test, so that
+// uniqueName is generated afresh for every test run, so that
 // we are not polluted by previous test state.
 var uniqueName = randomName()
 
@@ -45,21 +30,31 @@ func randomName() string {
 }
 
 func registerAmazonTests() {
-	envs, err := environs.ReadEnvironsBytes([]byte(amazonConfig))
+	// The following attributes hold the environment configuration
+	// for running the amazon EC2 integration tests.
+	//
+	// This is missing keys for security reasons; set the following
+	// environment variables to make the Amazon testing work:
+	//  access-key: $AWS_ACCESS_KEY_ID
+	//  secret-key: $AWS_SECRET_ACCESS_KEY
+	cfg, err := config.New(map[string]interface{}{
+		"name":           "sample-" + uniqueName,
+		"type":           "ec2",
+		"control-bucket": "juju-test-" + uniqueName,
+		"public-bucket":  "juju-public-test-" + uniqueName,
+		"admin-secret":   "for real",
+	})
 	if err != nil {
-		panic(fmt.Errorf("cannot parse amazon tests config data: %v", err))
+		panic(fmt.Errorf("cannot create config: %v", err))
 	}
-	for _, name := range envs.Names() {
-		Suite(&LiveTests{
-			LiveTests: jujutest.LiveTests{
-				Environs:       envs,
-				Name:           name,
-				Attempt:        *ec2.ShortAttempt,
-				CanOpenState:   true,
-				HasProvisioner: true,
-			},
-		})
-	}
+	Suite(&LiveTests{
+		LiveTests: jujutest.LiveTests{
+			Config:         cfg,
+			Attempt:        *ec2.ShortAttempt,
+			CanOpenState:   true,
+			HasProvisioner: true,
+		},
+	})
 }
 
 // LiveTests contains tests that can be run against the Amazon servers.
@@ -71,7 +66,7 @@ type LiveTests struct {
 
 func (t *LiveTests) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
-	e, err := t.Environs.Open("")
+	e, err := environs.New(t.Config)
 	c.Assert(err, IsNil)
 	// Put some fake tools in place so that tests that are simply
 	// starting instances without any need to check if those instances

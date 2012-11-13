@@ -10,6 +10,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/state"
@@ -19,45 +20,38 @@ import (
 	"strings"
 )
 
-// you need to make sure the region you use here
-// has entries in the images/query txt files.
-var functionalConfig = []byte(`
-environments:
-  sample:
-    type: ec2
-    region: test
-    control-bucket: test-bucket
-    public-bucket: public-tools
-    admin-secret: local-secret
-    access-key: x
-    secret-key: x
-`)
-
 func registerLocalTests() {
+	// N.B. Make sure the region we use here
+	// has entries in the images/query txt files.
 	aws.Regions["test"] = aws.Region{
 		Name: "test",
 	}
-	envs, err := environs.ReadEnvironsBytes(functionalConfig)
+	cfg, err := config.New(map[string]interface{}{
+		"name":           "sample",
+		"type":           "ec2",
+		"region":         "test",
+		"control-bucket": "test-bucket",
+		"public-bucket":  "public-tools",
+		"admin-secret":   "local-secret",
+		"access-key":     "x",
+		"secret-key":     "x",
+	})
 	if err != nil {
-		panic(fmt.Errorf("cannot parse functional tests config data: %v", err))
+		panic(fmt.Errorf("cannot create config: %v", err))
 	}
 
-	for _, name := range envs.Names() {
-		Suite(&localServerSuite{
-			Tests: jujutest.Tests{
-				Environs: envs,
-				Name:     name,
+	Suite(&localServerSuite{
+		Tests: jujutest.Tests{
+			Config: cfg,
+		},
+	})
+	Suite(&localLiveSuite{
+		LiveTests: LiveTests{
+			LiveTests: jujutest.LiveTests{
+				Config: cfg,
 			},
-		})
-		Suite(&localLiveSuite{
-			LiveTests: LiveTests{
-				LiveTests: jujutest.LiveTests{
-					Environs: envs,
-					Name:     name,
-				},
-			},
-		})
-	}
+		},
+	})
 }
 
 // localLiveSuite runs tests from LiveTests using a fake
