@@ -25,7 +25,7 @@ type LiveTests struct {
 	Config *config.Config
 
 	// Env holds the currently opened environment.
-	Env      environs.Environ
+	Env environs.Environ
 
 	// Attempt holds a strategy for waiting until the environment
 	// becomes logically consistent.

@@ -21,7 +21,7 @@ import (
 type Tests struct {
 	coretesting.LoggingSuite
 	Config *config.Config
-	Env      environs.Environ
+	Env    environs.Environ
 }
 
 // Open opens an instance of the testing environment.

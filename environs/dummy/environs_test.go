@@ -12,22 +12,22 @@ import (
 
 func init() {
 	cfg, err := config.New(map[string]interface{}{
-		"name": "only",
-		"type": "dummy",
+		"name":         "only",
+		"type":         "dummy",
 		"state-server": true,
-		"secret": "pork",
+		"secret":       "pork",
 		"admin-secret": "fish",
 	})
 	if err != nil {
 		panic(fmt.Errorf("cannot create testing config: %v", err))
 	}
 	Suite(&jujutest.LiveTests{
-		Config:       cfg,
+		Config:         cfg,
 		CanOpenState:   true,
 		HasProvisioner: false,
 	})
 	Suite(&jujutest.Tests{
-		Config:       cfg,
+		Config: cfg,
 	})
 }
 

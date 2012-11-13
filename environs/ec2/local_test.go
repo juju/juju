@@ -27,14 +27,14 @@ func registerLocalTests() {
 	// N.B. Make sure the region we use here
 	// has entries in the images/query txt files.
 	cfg, err := config.New(map[string]interface{}{
-		"name": "sample",
-		"type": "ec2",
-		"region": "test",
+		"name":           "sample",
+		"type":           "ec2",
+		"region":         "test",
 		"control-bucket": "test-bucket",
-		"public-bucket": "public-tools",
-		"admin-secret": "local-secret",
-		"access-key": "x",
-		"secret-key": "x",
+		"public-bucket":  "public-tools",
+		"admin-secret":   "local-secret",
+		"access-key":     "x",
+		"secret-key":     "x",
 	})
 	if err != nil {
 		panic(fmt.Errorf("cannot create config: %v", err))

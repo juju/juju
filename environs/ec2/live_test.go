@@ -38,18 +38,18 @@ func registerAmazonTests() {
 	//  access-key: $AWS_ACCESS_KEY_ID
 	//  secret-key: $AWS_SECRET_ACCESS_KEY
 	cfg, err := config.New(map[string]interface{}{
-		"name": "sample-" + uniqueName,
-		"type": "ec2",
-		"control-bucket": "juju-test-"+uniqueName,
-		"public-bucket": "juju-public-test-"+uniqueName,
-		"admin-secret": "for real",
+		"name":           "sample-" + uniqueName,
+		"type":           "ec2",
+		"control-bucket": "juju-test-" + uniqueName,
+		"public-bucket":  "juju-public-test-" + uniqueName,
+		"admin-secret":   "for real",
 	})
 	if err != nil {
 		panic(fmt.Errorf("cannot create config: %v", err))
 	}
 	Suite(&LiveTests{
 		LiveTests: jujutest.LiveTests{
-			Config: cfg,
+			Config:         cfg,
 			Attempt:        *ec2.ShortAttempt,
 			CanOpenState:   true,
 			HasProvisioner: true,
