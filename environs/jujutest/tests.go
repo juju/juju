@@ -19,8 +19,9 @@ import (
 // may be executed.
 type Tests struct {
 	coretesting.LoggingSuite
-	Config map[string]interface{}
-	Env    environs.Environ
+	Config         map[string]interface{}
+	Env            environs.Environ
+	StateServerPEM []byte
 }
 
 // Open opens an instance of the testing environment.
@@ -50,7 +51,7 @@ func (t *Tests) TestBootstrapWithoutAdminSecret(c *C) {
 	delete(m, "admin-secret")
 	env, err := environs.NewFromAttrs(m)
 	c.Assert(err, IsNil)
-	err = env.Bootstrap(false)
+	err = env.Bootstrap(false, t.StateServerPEM)
 	c.Assert(err, ErrorMatches, ".*admin-secret is required for bootstrap")
 }
 
@@ -99,18 +100,18 @@ func (t *Tests) TestStartStop(c *C) {
 func (t *Tests) TestBootstrap(c *C) {
 	// TODO tests for Bootstrap(true)
 	e := t.Open(c)
-	err := e.Bootstrap(false)
+	err := e.Bootstrap(false, t.StateServerPEM)
 	c.Assert(err, IsNil)
 
 	info, err := e.StateInfo()
 	c.Assert(info, NotNil)
 	c.Check(info.Addrs, Not(HasLen), 0)
 
-	err = e.Bootstrap(false)
+	err = e.Bootstrap(false, t.StateServerPEM)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	e2 := t.Open(c)
-	err = e2.Bootstrap(false)
+	err = e2.Bootstrap(false, t.StateServerPEM)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	info2, err := e2.StateInfo()
@@ -122,10 +123,10 @@ func (t *Tests) TestBootstrap(c *C) {
 	// Open again because Destroy invalidates old environments.
 	e3 := t.Open(c)
 
-	err = e3.Bootstrap(false)
+	err = e3.Bootstrap(false, t.StateServerPEM)
 	c.Assert(err, IsNil)
 
-	err = e3.Bootstrap(false)
+	err = e3.Bootstrap(false, t.StateServerPEM)
 	c.Assert(err, NotNil)
 }
 

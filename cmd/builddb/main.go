@@ -27,7 +27,8 @@ func build() error {
 	if err != nil {
 		return err
 	}
-	err = environ.Bootstrap(true)
+	// TODO (rog) use juju.Bootstrap
+	err = environ.Bootstrap(true, []byte("fake cert"))
 	if err != nil {
 		return err
 	}

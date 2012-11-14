@@ -49,6 +49,7 @@ func registerAmazonTests() {
 			Attempt:        *ec2.ShortAttempt,
 			CanOpenState:   true,
 			HasProvisioner: true,
+			StateServerPEM: []byte("fake cert"), // TODO(rog) use a real cert
 		},
 	})
 }
