@@ -38,13 +38,13 @@ exist, and be writable by you. For example
     mkdir $GOPATH
 
 will define and create `$HOME/work` as your local `GOPATH`. The `go` tool itself
-will create three sub directories inside your `GOPATH` when required; `src`,
-`pkg` and `bin`, which hold the source of Go programs, compiled packages and
-compiled binaries, respectively. You should add `$GOPATH/bin` to your `PATH`.
+will create three subdirectories inside your `GOPATH` when required; `src`, `pkg`
+and `bin`, which hold the source of Go programs, compiled packages and compiled
+binaries, respectively. You should add `$GOPATH/bin` to your `PATH`.
 
 Setting `GOPATH` correctly is critical when developing Go programs. `GOPATH`
-should be exported as part of your login script. You can check that your
-`GOPATH` with to `go` tool itself.
+should be exported as part of your login script. You can check your `GOPATH`
+with to `go` tool itself.
 
     % go env | grep GOPATH
     GOPATH="/home/dfc/work"
@@ -84,16 +84,18 @@ Building juju-core
     go install -v launchpad.net/juju-core/...
 
 Will build juju and install the binary commands into `$GOPATH/bin`. It is likely
-if you have just completed the previous step to get the `juju-corei` source, the
+if you have just completed the previous step to get the `juju-core` source, the
 install process will produce no output, as the final executables are up-to-date.
 
 Using juju-core
 ===============
 
 After following the steps above you will have the `juju` client installed in
-`GOPATH/bin/juju`. You should ensure that this version of `juju` appears higher
+`GOPATH/bin/juju`. You should ensure that this version of `juju` appears earlier
 in your path than any packaged versions of `juju-core`, or older Python juju
-commands.
+commands. You can verify this using
+
+    which juju
 
 --upload-tools
 --------------
