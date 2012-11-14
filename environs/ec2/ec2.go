@@ -207,7 +207,7 @@ func (e *environ) PublicStorage() environs.StorageReader {
 	return e.publicStorageUnlocked
 }
 
-func (e *environ) Bootstrap(uploadTools bool, certAndKey []byte) error {
+func (e *environ) Bootstrap(uploadTools bool, serverPEM []byte) error {
 	password := e.Config().AdminSecret()
 	if password == "" {
 		return fmt.Errorf("admin-secret is required for bootstrap")
@@ -253,7 +253,7 @@ func (e *environ) Bootstrap(uploadTools bool, certAndKey []byte) error {
 		tools:      tools,
 		master:     true,
 		config:     config,
-		certAndKey: certAndKey,
+		serverPEM: serverPEM,
 	})
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
@@ -325,10 +325,11 @@ func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.To
 }
 
 func (e *environ) userData(scfg *startInstanceConfig) ([]byte, error) {
+
 	cfg := &cloudinit.MachineConfig{
 		StateServer:        scfg.master,
 		StateInfo:          scfg.info,
-		ServerCertAndKey:   scfg.certAndKey,
+		StateServerPEM:   scfg.serverPEM,
 		InstanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
 		ProviderType:       "ec2",
 		DataDir:            "/var/lib/juju",
@@ -350,7 +351,7 @@ type startInstanceConfig struct {
 	tools      *state.Tools
 	master     bool
 	config     *config.Config
-	certAndKey []byte
+	serverPEM []byte
 }
 
 // startInstance is the internal version of StartInstance, used by Bootstrap
