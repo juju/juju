@@ -15,6 +15,8 @@ type BootstrapSuite struct {
 	testing.MgoSuite
 }
 
+var _ = Suite(&BootstrapSuite{})
+
 func (s *BootstrapSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
