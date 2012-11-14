@@ -19,26 +19,24 @@ import (
 	"time"
 )
 
-// Bootstrap bootstraps the given environment.
-// The root certifying authority certificate and private key in PEM
-// format can be given in rootCert; if this is nil,
-// the root CA certificate and key pair is
-// read from $HOME/.juju/<environ-name>-cert.pem,
-// or generated and written there if the file does not exist.
-// If uploadTools is true, the current version of the juju tools
-// will be uploaded, as documented in environs.Environ.Bootstrap.
-func Bootstrap(environ environs.Environ, uploadTools bool, rootCertPEM []byte) error {
-	if rootCertPEM == nil {
+// Bootstrap bootstraps the given environment.  The root certifying
+// authority certificate and private key in PEM format can be given in
+// rootPEM; if this is nil, the root CA certificate and key pair is read
+// from $HOME/.juju/<environ-name>-cert.pem, or generated and written
+// there if the file does not exist.  If uploadTools is true, the
+// current version of the juju tools will be uploaded, as documented in
+// environs.Environ.Bootstrap.
+func Bootstrap(environ environs.Environ, uploadTools bool, rootPEM []byte) error {
+	if rootPEM == nil {
 		var err error
-		rootCertPEM, err = generateRootCert(environ.Name())
+		rootPEM, err = generateRootCert(environ.Name())
 		if err != nil {
 			return fmt.Errorf("cannot generate root certificate: %v", err)
 		}
 	}
-	log.Printf("rootCertPEM: %s\n", rootCertPEM)
-	rootCert, rootKey, err := parseRootCert(rootCertPEM, true)
+	rootCert, rootKey, err := parseRootPEM(rootPEM, true)
 	if err != nil {
-		return fmt.Errorf("bad root certificate: %v", err)
+		return fmt.Errorf("bad root CA PEM: %v", err)
 	}
 	// Generate a new key pair and certificate for
 	// the newly bootstrapped instance.
@@ -49,9 +47,7 @@ func Bootstrap(environ environs.Environ, uploadTools bool, rootCertPEM []byte) e
 	return environ.Bootstrap(uploadTools, bootstrapCert)
 }
 
-const (
-	keyBits = 1024
-)
+const keyBits = 1024
 
 func generateRootCert(envName string) ([]byte, error) {
 	// TODO make sure that the environment name cannot
@@ -147,14 +143,14 @@ func bigIntHash(n *big.Int) []byte {
 	return h.Sum(nil)
 }
 
-func parseRootCert(rootCertPEM []byte, requirePrivateKey bool) (cert *x509.Certificate, priv *rsa.PrivateKey, err error) {
+func parseRootPEM(rootPEM []byte, requirePrivateKey bool) (cert *x509.Certificate, priv *rsa.PrivateKey, err error) {
 	var certBlock, keyBlock *pem.Block
 	// We split the root certificate pem into certificate
 	// blocks and non-certificate blocks so that
 	// it's amenable to checking with tls.X509KeyPair.
 	for {
 		var b *pem.Block
-		b, rootCertPEM = pem.Decode(rootCertPEM)
+		b, rootPEM = pem.Decode(rootPEM)
 		if b == nil {
 			break
 		}
@@ -175,7 +171,7 @@ func parseRootCert(rootCertPEM []byte, requirePrivateKey bool) (cert *x509.Certi
 	}
 	if keyBlock == nil {
 		if requirePrivateKey {
-			return nil, nil, fmt.Errorf("root certificate has no private key")
+			return nil, nil, fmt.Errorf("root PEM holds no private key")
 		}
 		cert, err := x509.ParseCertificate(certBlock.Bytes)
 		if err != nil {
@@ -185,6 +181,9 @@ func parseRootCert(rootCertPEM []byte, requirePrivateKey bool) (cert *x509.Certi
 			return nil, nil, fmt.Errorf("root certificate is not a valid CA")
 		}
 		return cert, nil, nil
+	}
+	if certBlock == nil {
+		return nil, nil, fmt.Errorf("root PEM holds no certificate")
 	}
 	tlsCert, err := tls.X509KeyPair(pem.EncodeToMemory(certBlock), pem.EncodeToMemory(keyBlock))
 	if err != nil {
@@ -200,6 +199,9 @@ func parseRootCert(rootCertPEM []byte, requirePrivateKey bool) (cert *x509.Certi
 	cert, err = x509.ParseCertificate(tlsCert.Certificate[0])
 	if err != nil {
 		return nil, nil, err
+	}
+	if !cert.BasicConstraintsValid || !cert.IsCA {
+		return nil, nil, fmt.Errorf("root certificate is not a valid CA")
 	}
 	return cert, priv, nil
 }

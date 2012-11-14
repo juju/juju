@@ -1,12 +1,13 @@
 package testing
+
 import (
-	"crypto/x509"
 	"crypto/rsa"
+	"crypto/x509"
 	"encoding/pem"
 )
 
 // RootCert and RootKey make up a root CA key pair.
-// RootCertX509 and RootKeyRSA hold the parsed equivalents.
+// RootCertX509 and RootKeyRSA hold their parsed equivalents.
 var (
 	RootCertPEM = `
 -----BEGIN CERTIFICATE-----
@@ -66,4 +67,3 @@ func mustParseKeyPEM(pemData string) *rsa.PrivateKey {
 	}
 	return key1.(*rsa.PrivateKey)
 }
-

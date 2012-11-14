@@ -19,7 +19,7 @@ import (
 	"strings"
 )
 
-type bootstrapSuite struct{
+type bootstrapSuite struct {
 	testing.LoggingSuite
 }
 
@@ -41,7 +41,6 @@ func (s *bootstrapSuite) TestBootstrapKeyGeneration(c *C) {
 	err = juju.Bootstrap(env, false, nil)
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
-	c.Assert(env.uploadTools, Equals, false)
 
 	bootstrapCert, bootstrapKey := parseCertAndKey(c, env.stateServerPEM)
 
@@ -58,36 +57,117 @@ func (s *bootstrapSuite) TestBootstrapKeyGeneration(c *C) {
 
 var testServerPEM = []byte(testing.RootCertPEM + testing.RootKeyPEM)
 
-//func (s *bootstrapSuite) TestBootstrapExistingKey(c *C) {
-//	defer os.Setenv("HOME", os.Getenv("HOME"))
-//	home := c.MkDir()
-//	os.Setenv("HOME", home)
-//	err := os.Mkdir(filepath.Join(home, ".juju"), 0777)
-//	c.Assert(err, IsNil)
-//
-//	err = ioutil.WriteFile(filepath.Join(home, ".juju", "foo-cert.pem"),
-//		stateServerPEM, 0600)
-//	c.Assert(err, IsNil)
-//
-//	env := &bootstrapEnviron{name: "bar"}
-//	err = juju.Bootstrap(env, false, nil)
-//	c.Assert(err, IsNil)
-//	c.Assert(env.bootstrapCount, Equals, 1)
-//	c.Assert(env.uploadTools, Equals, false)
-//
-//	
-//}
+func (s *bootstrapSuite) TestBootstrapExistingKey(c *C) {
+	defer os.Setenv("HOME", os.Getenv("HOME"))
+	home := c.MkDir()
+	os.Setenv("HOME", home)
+	err := os.Mkdir(filepath.Join(home, ".juju"), 0777)
+	c.Assert(err, IsNil)
+
+	path := filepath.Join(home, ".juju", "bar-cert.pem")
+	err = ioutil.WriteFile(path, testServerPEM, 0600)
+	c.Assert(err, IsNil)
+
+	env := &bootstrapEnviron{name: "bar"}
+	err = juju.Bootstrap(env, false, nil)
+	c.Assert(err, IsNil)
+	c.Assert(env.bootstrapCount, Equals, 1)
+
+	bootstrapCert, bootstrapKey := parseCertAndKey(c, env.stateServerPEM)
+
+	rootName := checkTLSConnection(c, certificate(testing.RootCertPEM), bootstrapCert, bootstrapKey)
+	c.Assert(rootName, Equals, testing.RootCertX509.Subject.CommonName)
+}
 
 func (s *bootstrapSuite) TestBootstrapUploadTools(c *C) {
 	env := &bootstrapEnviron{name: "foo"}
-	err := juju.Bootstrap(env, true, testServerPEM)
+	err := juju.Bootstrap(env, false, testServerPEM)
+	c.Assert(err, IsNil)
+	c.Assert(env.bootstrapCount, Equals, 1)
+	c.Assert(env.uploadTools, Equals, false)
+
+	env = &bootstrapEnviron{name: "foo"}
+	err = juju.Bootstrap(env, true, testServerPEM)
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
 	c.Assert(env.uploadTools, Equals, true)
 }
 
-// checkTLSConnection checks that we can correctly perform
-// a TLS handshake using the given credentials.
+func (s *bootstrapSuite) TestBootstrapWithCertArgument(c *C) {
+	env := &bootstrapEnviron{name: "bar"}
+	err := juju.Bootstrap(env, false, testServerPEM)
+	c.Assert(err, IsNil)
+	c.Assert(env.bootstrapCount, Equals, 1)
+
+	bootstrapCert, bootstrapKey := parseCertAndKey(c, env.stateServerPEM)
+
+	rootName := checkTLSConnection(c, certificate(testing.RootCertPEM), bootstrapCert, bootstrapKey)
+	c.Assert(rootName, Equals, testing.RootCertX509.Subject.CommonName)
+}
+
+var invalidCertTests = []struct {
+	pem string
+	err string
+}{{
+	`xxxx`,
+	"bad root CA PEM: root PEM holds no private key",
+}, {
+	testing.RootCertPEM,
+	"bad root CA PEM: root PEM holds no private key",
+}, {
+	testing.RootKeyPEM,
+	"bad root CA PEM: root PEM holds no certificate",
+}, {
+	`-----BEGIN CERTIFICATE-----
+MIIBnTCCAUmgAwIBAgIBADALBgkqhkiG9w0BAQUwJjENMAsGA1UEChMEanVqdTEV
+MBMGA1UEAxMManVqdSB0ZXN0aW5nMB4XDTEyMTExNDE0Mzg1NFoXDTIyMTExNDE0
+NDM1NFowJjENMAsGA1UEChMEanVqdTEVMBMGA1UEAxMManVqdSB0ZXN0aW5n
+-----END CERTIFICATE-----
+` + testing.RootKeyPEM,
+	`bad root CA PEM: ASN\.1.*`,
+}, {
+	`-----BEGIN RSA PRIVATE KEY-----
+MIIBOwIBAAJBAII46mf1pYpwqvYZAa3KDAPs91817Uj0FiI8CprYjfcXn7o+oV1+
+-----END RSA PRIVATE KEY-----
+` + testing.RootCertPEM,
+	"bad root CA PEM: crypto/tls: failed to parse key: .*",
+}, {
+	`-----BEGIN CERTIFICATE-----
+MIIBmjCCAUagAwIBAgIBADALBgkqhkiG9w0BAQUwJjENMAsGA1UEChMEanVqdTEV
+MBMGA1UEAxMManVqdSB0ZXN0aW5nMB4XDTEyMTExNDE3MTU1NloXDTIyMTExNDE3
+MjA1NlowJjENMAsGA1UEChMEanVqdTEVMBMGA1UEAxMManVqdSB0ZXN0aW5nMFow
+CwYJKoZIhvcNAQEBA0sAMEgCQQC96/CsTTY1Va8et6QYNXwrssAi36asFlV/fksG
+hqRucidiz/+xHvhs9EiqEu7NGxeVAkcfIhXu6/BDlobtj2v5AgMBAAGjYzBhMA4G
+A1UdDwEB/wQEAwIABDAPBgNVHRMBAf8EBTADAgEBMB0GA1UdDgQWBBRqbxkIW4R0
+vmmkUoYuWg9sDob4jzAfBgNVHSMEGDAWgBRqbxkIW4R0vmmkUoYuWg9sDob4jzAL
+BgkqhkiG9w0BAQUDQQC3+KN8RppKdvlbP6fDwRC22PaCxd0PVyIHsn7I4jgpBPf8
+Z3codMYYA5/f0AmUsD7wi7nnJVPPLZK7JWu4VI/w
+-----END CERTIFICATE-----
+
+-----BEGIN RSA PRIVATE KEY-----
+MIIBOgIBAAJBAL3r8KxNNjVVrx63pBg1fCuywCLfpqwWVX9+SwaGpG5yJ2LP/7Ee
++Gz0SKoS7s0bF5UCRx8iFe7r8EOWhu2Pa/kCAwEAAQJAdzuAxStUNPeuEWLJKkmp
+wuVdqocuZCtBUeE/yMEOyibZ9NLKSuDJuDorkoeoiBz2vyUITHkLp4jgNmCI8NGg
+AQIhAPZG9+3OghlzcqWR4nTho8KO/CuO9bu5G4jNEdIrSJ6BAiEAxWtoLZNMwI4Q
+kj2moFk9GdBXZV9I0t1VTwcDvVyeAXkCIDrfvldQPdO9wJOKK3vLkS1qpyf2lhIZ
+b1alx3PZuxOBAiAthPltYMRWtar+fTaZTFo5RH+SQSkibaRI534mQF+ySQIhAIml
+yiWVLC2XrtwijDu1fwh/wtFCb/bPvqvgG5wgAO+2
+-----END RSA PRIVATE KEY-----
+`, "bad root CA PEM: root certificate is not a valid CA",
+}}
+
+func (s *bootstrapSuite) TestBootstrapWithInvalidCert(c *C) {
+	for i, test := range invalidCertTests {
+		c.Logf("test %d", i)
+		env := &bootstrapEnviron{name: "foo"}
+		err := juju.Bootstrap(env, false, []byte(test.pem))
+		c.Check(env.bootstrapCount, Equals, 0)
+		c.Assert(err, ErrorMatches, test.err)
+	}
+}
+
+// checkTLSConnection checks that we can correctly perform a TLS
+// handshake using the given credentials.
 func checkTLSConnection(c *C, rootCert, bootstrapCert certificate, bootstrapKey *rsa.PrivateKey) (rootCAName string) {
 	clientCertPool := x509.NewCertPool()
 	clientCertPool.AddCert(rootCert.x509(c))
@@ -153,10 +233,9 @@ func checkTLSConnection(c *C, rootCert, bootstrapCert certificate, bootstrapKey 
 func newTLSCert(c *C, cert certificate, key *rsa.PrivateKey) tls.Certificate {
 	return tls.Certificate{
 		Certificate: [][]byte{cert.der(c)},
-		PrivateKey: key,
+		PrivateKey:  key,
 	}
 }
-
 
 // bufferedConn adds buffering for at least
 // n writes to the given connection.
@@ -194,7 +273,7 @@ type bootstrapEnviron struct {
 	name           string
 	bootstrapCount int
 	uploadTools    bool
-	stateServerPEM     []byte
+	stateServerPEM []byte
 	environs.Environ
 }
 
@@ -246,7 +325,7 @@ func decodePEMBlocks(pemData []byte) (blocks []*pem.Block) {
 		if b == nil {
 			break
 		}
-	 	blocks = append(blocks, b)
+		blocks = append(blocks, b)
 	}
 	return
 }
