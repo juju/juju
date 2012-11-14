@@ -1,10 +1,27 @@
 package juju_test
+
 import (
+	"bytes"
+	"crypto/rsa"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
+	"fmt"
+	"io"
+	"io/ioutil"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/testing"
+	"net"
+	"os"
+	"path/filepath"
+	"strings"
 )
 
-type bootstrapSuite struct{}
+type bootstrapSuite struct{
+	testing.LoggingSuite
+}
 
 var _ = Suite(&bootstrapSuite{})
 
@@ -26,23 +43,54 @@ func (s *bootstrapSuite) TestBootstrapKeyGeneration(c *C) {
 	c.Assert(env.bootstrapCount, Equals, 1)
 	c.Assert(env.uploadTools, Equals, false)
 
-	bootstrapCert, bootstrapKey := parseCertAndKey(env.certAndKey)
+	bootstrapCert, bootstrapKey := parseCertAndKey(c, env.stateServerPEM)
 
 	// Check that the generated root key has been written
 	// correctly.
 	rootKeyPEM, err := ioutil.ReadFile(filepath.Join(home, ".juju", "foo-cert.pem"))
 	c.Assert(err, IsNil)
 
-	rootCert, rootKey := parseCertAndKey(rootKeyPEM)
-	
-	checkTLSConnection(c, rootCert, bootstrapCert, bootstrapKey)
+	rootCert, _ := parseCertAndKey(c, rootKeyPEM)
+
+	rootName := checkTLSConnection(c, rootCert, bootstrapCert, bootstrapKey)
+	c.Assert(rootName, Equals, "juju-generated root CA for environment foo")
+}
+
+var testServerPEM = []byte(testing.RootCertPEM + testing.RootKeyPEM)
+
+//func (s *bootstrapSuite) TestBootstrapExistingKey(c *C) {
+//	defer os.Setenv("HOME", os.Getenv("HOME"))
+//	home := c.MkDir()
+//	os.Setenv("HOME", home)
+//	err := os.Mkdir(filepath.Join(home, ".juju"), 0777)
+//	c.Assert(err, IsNil)
+//
+//	err = ioutil.WriteFile(filepath.Join(home, ".juju", "foo-cert.pem"),
+//		stateServerPEM, 0600)
+//	c.Assert(err, IsNil)
+//
+//	env := &bootstrapEnviron{name: "bar"}
+//	err = juju.Bootstrap(env, false, nil)
+//	c.Assert(err, IsNil)
+//	c.Assert(env.bootstrapCount, Equals, 1)
+//	c.Assert(env.uploadTools, Equals, false)
+//
+//	
+//}
+
+func (s *bootstrapSuite) TestBootstrapUploadTools(c *C) {
+	env := &bootstrapEnviron{name: "foo"}
+	err := juju.Bootstrap(env, true, testServerPEM)
+	c.Assert(err, IsNil)
+	c.Assert(env.bootstrapCount, Equals, 1)
+	c.Assert(env.uploadTools, Equals, true)
 }
 
 // checkTLSConnection checks that we can correctly perform
 // a TLS handshake using the given credentials.
-func checkTLSConnection(c *C, rootCert, bootstrapCert *x509.Certificate, bootstrapKey *rsa.PrivateKey) {
+func checkTLSConnection(c *C, rootCert, bootstrapCert certificate, bootstrapKey *rsa.PrivateKey) (rootCAName string) {
 	clientCertPool := x509.NewCertPool()
-	clientCertPool.AddCert(rootCert)
+	clientCertPool.AddCert(rootCert.x509(c))
 
 	var inBytes, outBytes bytes.Buffer
 
@@ -51,10 +99,11 @@ func checkTLSConnection(c *C, rootCert, bootstrapCert *x509.Certificate, bootstr
 	p0 = bufferedConn(p0, 3)
 	p0 = recordingConn(p0, &inBytes, &outBytes)
 
+	var clientState tls.ConnectionState
 	done := make(chan error)
 	go func() {
 		clientConn := tls.Client(p0, &tls.Config{
-			ServerName: "any",
+			ServerName: "anyServer",
 			RootCAs:    clientCertPool,
 		})
 		defer clientConn.Close()
@@ -63,12 +112,17 @@ func checkTLSConnection(c *C, rootCert, bootstrapCert *x509.Certificate, bootstr
 		if err != nil {
 			done <- fmt.Errorf("client: %v", err)
 		}
+		clientState = clientConn.ConnectionState()
 		done <- nil
 	}()
 	go func() {
-		serverConn := tls.Server(p1, &tls.Config{})
+		serverConn := tls.Server(p1, &tls.Config{
+			Certificates: []tls.Certificate{
+				newTLSCert(c, bootstrapCert, bootstrapKey),
+			},
+		})
 		defer serverConn.Close()
-		data, err := io.ReadAll(serverConn)
+		data, err := ioutil.ReadAll(serverConn)
 		if err != nil {
 			done <- fmt.Errorf("server: %v", err)
 			return
@@ -77,13 +131,13 @@ func checkTLSConnection(c *C, rootCert, bootstrapCert *x509.Certificate, bootstr
 			done <- fmt.Errorf("server: got %q; expected %q", data, msg)
 			return
 		}
-		
+
 		done <- nil
 	}()
 
 	for i := 0; i < 2; i++ {
 		err := <-done
-		c.Assert(err, IsNil)
+		c.Check(err, IsNil)
 	}
 
 	outData := string(outBytes.Bytes())
@@ -91,15 +145,26 @@ func checkTLSConnection(c *C, rootCert, bootstrapCert *x509.Certificate, bootstr
 	if strings.Index(outData, msg) != -1 {
 		c.Fatalf("TLS connection not encrypted")
 	}
+	c.Assert(clientState.VerifiedChains, HasLen, 1)
+	c.Assert(clientState.VerifiedChains[0], HasLen, 2)
+	return clientState.VerifiedChains[0][1].Subject.CommonName
 }
 
+func newTLSCert(c *C, cert certificate, key *rsa.PrivateKey) tls.Certificate {
+	return tls.Certificate{
+		Certificate: [][]byte{cert.der(c)},
+		PrivateKey: key,
+	}
+}
+
+
 // bufferedConn adds buffering for at least
-// n writes to either end of the given connection.
+// n writes to the given connection.
 func bufferedConn(c net.Conn, n int) net.Conn {
 	for i := 0; i < n; i++ {
 		p0, p1 := net.Pipe()
-		go copyClose(c, p0)
 		go copyClose(p1, c)
+		go copyClose(c, p1)
 		c = p0
 	}
 	return c
@@ -110,7 +175,7 @@ func bufferedConn(c net.Conn, n int) net.Conn {
 func recordingConn(c net.Conn, in, out io.Writer) net.Conn {
 	p0, p1 := net.Pipe()
 	go func() {
-		io.Copy(io.MultiWriter(c, out), p0)
+		io.Copy(io.MultiWriter(c, out), p1)
 		c.Close()
 	}()
 	go func() {
@@ -125,11 +190,11 @@ func copyClose(w io.WriteCloser, r io.Reader) {
 	w.Close()
 }
 
-type bootstapEnviron struct {
-	name string
+type bootstrapEnviron struct {
+	name           string
 	bootstrapCount int
-	uploadTools bool
-	certAndKey []byte
+	uploadTools    bool
+	stateServerPEM     []byte
 	environs.Environ
 }
 
@@ -137,21 +202,58 @@ func (e *bootstrapEnviron) Name() string {
 	return e.name
 }
 
-func (e *bootstrapEnviron) Bootstrap(uploadTools bool, certAndKey []byte) error {
+func (e *bootstrapEnviron) Bootstrap(uploadTools bool, stateServerPEM []byte) error {
 	e.bootstrapCount++
 	e.uploadTools = uploadTools
-	e.certAndKey = certAndKey
+	e.stateServerPEM = stateServerPEM
 	return nil
 }
 
-func parseCertAndKey(c *C, certAndKey []byte) (cert *x509.Certificate, key *rsa.PrivateKey) {
-	var certBlocks, otherBlocks []*pem.Block
+// certificate holds a certificate in PEM format.
+type certificate []byte
+
+func (cert certificate) x509(c *C) (x509Cert *x509.Certificate) {
+	for _, b := range decodePEMBlocks(cert) {
+		if b.Type != "CERTIFICATE" {
+			continue
+		}
+		if x509Cert != nil {
+			c.Errorf("found extra certificate")
+			continue
+		}
+		var err error
+		x509Cert, err = x509.ParseCertificate(b.Bytes)
+		c.Assert(err, IsNil)
+	}
+	return
+}
+
+func (cert certificate) der(c *C) []byte {
+	for _, b := range decodePEMBlocks(cert) {
+		if b.Type != "CERTIFICATE" {
+			continue
+		}
+		return b.Bytes
+	}
+	c.Fatalf("no certificate found in cert PEM")
+	panic("unreachable")
+}
+
+func decodePEMBlocks(pemData []byte) (blocks []*pem.Block) {
 	for {
 		var b *pem.Block
-		b, certAndKey = pem.Decode(certAndKey)
+		b, pemData = pem.Decode(pemData)
 		if b == nil {
 			break
 		}
+	 	blocks = append(blocks, b)
+	}
+	return
+}
+
+func parseCertAndKey(c *C, stateServerPEM []byte) (cert certificate, key *rsa.PrivateKey) {
+	var certBlocks, otherBlocks []*pem.Block
+	for _, b := range decodePEMBlocks(stateServerPEM) {
 		if b.Type == "CERTIFICATE" {
 			certBlocks = append(certBlocks, b)
 		} else {
@@ -160,10 +262,9 @@ func parseCertAndKey(c *C, certAndKey []byte) (cert *x509.Certificate, key *rsa.
 	}
 	c.Assert(certBlocks, HasLen, 1)
 	c.Assert(otherBlocks, HasLen, 1)
-	tlsCert, err := tls.X509KeyPair(pem.EncodeToMemory(certBlock), pem.EncodeToMemory(keyBlock))
+	cert = certificate(pem.EncodeToMemory(certBlocks[0]))
+	tlsCert, err := tls.X509KeyPair(cert, pem.EncodeToMemory(otherBlocks[0]))
 	c.Assert(err, IsNil)
-	cert, err = x509.ParseCertificate(tlsCert.Certificate[0])
-	c.Assert(err, IsNil)
-	key = tlsCert.PrivateKey.(*rsa.PrivateKey)
-	return
+
+	return cert, tlsCert.PrivateKey.(*rsa.PrivateKey)
 }

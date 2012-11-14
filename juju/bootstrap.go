@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/juju-core/environs"
-	"log"
+	"launchpad.net/juju-core/log"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -35,6 +35,7 @@ func Bootstrap(environ environs.Environ, uploadTools bool, rootCertPEM []byte) e
 			return fmt.Errorf("cannot generate root certificate: %v", err)
 		}
 	}
+	log.Printf("rootCertPEM: %s\n", rootCertPEM)
 	rootCert, rootKey, err := parseRootCert(rootCertPEM, true)
 	if err != nil {
 		return fmt.Errorf("bad root certificate: %v", err)
@@ -124,7 +125,7 @@ func generateBootstrapCert(envName string, rootCert *x509.Certificate, rootKey *
 		SubjectKeyId: bigIntHash(priv.N),
 		KeyUsage:     x509.KeyUsageDataEncipherment,
 	}
-	certDER, err := x509.CreateCertificate(rand.Reader, template, rootCert, priv.PublicKey, rootKey)
+	certDER, err := x509.CreateCertificate(rand.Reader, template, rootCert, &priv.PublicKey, rootKey)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +168,7 @@ func parseRootCert(rootCertPEM []byte, requirePrivateKey bool) (cert *x509.Certi
 			if keyBlock != nil {
 				return nil, nil, fmt.Errorf("more than one key found in root certificate")
 			}
-			certBlock = b
+			keyBlock = b
 		default:
 			log.Printf("juju: unknown PEM block type %q found", b.Type)
 		}
