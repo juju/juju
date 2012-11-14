@@ -95,6 +95,9 @@ func generateRootCert(envName string) ([]byte, error) {
 		Type:  "RSA PRIVATE KEY",
 		Bytes: x509.MarshalPKCS1PrivateKey(priv),
 	})
+	if err := ioutil.WriteFile(path, b.Bytes(), 0600); err != nil {
+		return nil, err
+	}
 	return b.Bytes(), nil
 }
 
