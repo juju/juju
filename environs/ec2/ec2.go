@@ -313,7 +313,7 @@ func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.To
 }
 
 // TODO remove this and make it an argument to Bootstrap.
-var certAndKey = []byte(`
+var serverPEM = []byte(`
 -----BEGIN CERTIFICATE-----
 MIIBdzCCASOgAwIBAgIBADALBgkqhkiG9w0BAQUwHjENMAsGA1UEChMEanVqdTEN
 MAsGA1UEAxMEcm9vdDAeFw0xMjExMDgxNjIyMzRaFw0xMzExMDgxNjI3MzRaMBwx
@@ -339,7 +339,7 @@ func (e *environ) userData(machineId int, info *state.Info, tools *state.Tools, 
 	cfg := &cloudinit.MachineConfig{
 		StateServer:        master,
 		StateInfo:          info,
-		ServerCertAndKey:   certAndKey,
+		StateServerPEM:     serverPEM,
 		InstanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
 		ProviderType:       "ec2",
 		DataDir:            "/var/lib/juju",
