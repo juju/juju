@@ -45,11 +45,11 @@ func registerAmazonTests() {
 	}
 	Suite(&LiveTests{
 		LiveTests: jujutest.LiveTests{
-			Config:           attrs,
-			Attempt:          *ec2.ShortAttempt,
-			CanOpenState:     true,
-			HasProvisioner:   true,
-			ServerCertAndKey: []byte("fake cert"), // TODO(rog) use a real cert
+			Config:         attrs,
+			Attempt:        *ec2.ShortAttempt,
+			CanOpenState:   true,
+			HasProvisioner: true,
+			StateServerPEM: []byte("fake cert"), // TODO(rog) use a real cert
 		},
 	})
 }

@@ -37,15 +37,15 @@ func registerLocalTests() {
 
 	Suite(&localServerSuite{
 		Tests: jujutest.Tests{
-			Config:           attrs,
-			ServerCertAndKey: bootstrapCert,
+			Config:         attrs,
+			StateServerPEM: stateServerPEM,
 		},
 	})
 	Suite(&localLiveSuite{
 		LiveTests: LiveTests{
 			LiveTests: jujutest.LiveTests{
-				Config:           attrs,
-				ServerCertAndKey: bootstrapCert,
+				Config:         attrs,
+				StateServerPEM: stateServerPEM,
 			},
 		},
 	})
@@ -191,13 +191,13 @@ func (t *localServerSuite) TearDownTest(c *C) {
 	t.LoggingSuite.TearDownTest(c)
 }
 
-var bootstrapCert = []byte(testing.RootCert + testing.RootKey)
+var stateServerPEM = []byte("foo")
 
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	policy := t.env.AssignmentPolicy()
 	c.Assert(policy, Equals, state.AssignUnused)
 
-	err := t.env.Bootstrap(true, bootstrapCert)
+	err := t.env.Bootstrap(true, stateServerPEM)
 	c.Assert(err, IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
