@@ -25,11 +25,6 @@ type bootstrapSuite struct {
 
 var _ = Suite(&bootstrapSuite{})
 
-// without private key
-// with invalid keys
-
-// home directory - already existing; generated.
-
 func (s *bootstrapSuite) TestBootstrapKeyGeneration(c *C) {
 	defer os.Setenv("HOME", os.Getenv("HOME"))
 	home := c.MkDir()
