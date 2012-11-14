@@ -27,6 +27,8 @@ type LiveTests struct {
 	// Env holds the currently opened environment.
 	Env environs.Environ
 
+	StateServerPEM []byte
+
 	// Attempt holds a strategy for waiting until the environment
 	// becomes logically consistent.
 	Attempt trivial.AttemptStrategy
@@ -77,7 +79,7 @@ func (t *LiveTests) BootstrapOnce(c *C) {
 	if t.bootstrapped {
 		return
 	}
-	err := t.Env.Bootstrap(true)
+	err := t.Env.Bootstrap(true, t.StateServerPEM)
 	c.Assert(err, IsNil)
 	t.bootstrapped = true
 }
@@ -293,7 +295,7 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 func (t *LiveTests) TestBootstrapMultiple(c *C) {
 	t.BootstrapOnce(c)
 
-	err := t.Env.Bootstrap(false)
+	err := t.Env.Bootstrap(false, t.StateServerPEM)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	c.Logf("destroy env")
