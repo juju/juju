@@ -37,14 +37,14 @@ func registerLocalTests() {
 
 	Suite(&localServerSuite{
 		Tests: jujutest.Tests{
-			Config: attrs,
+			Config:           attrs,
 			ServerCertAndKey: bootstrapCert,
 		},
 	})
 	Suite(&localLiveSuite{
 		LiveTests: LiveTests{
 			LiveTests: jujutest.LiveTests{
-				Config: attrs,
+				Config:           attrs,
 				ServerCertAndKey: bootstrapCert,
 			},
 		},
