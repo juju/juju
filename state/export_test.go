@@ -1,4 +1,5 @@
 package state
+import "launchpad.net/juju-core/testing"
 
 type (
 	CharmDoc    charmDoc
@@ -15,4 +16,13 @@ func (doc *MachineDoc) String() string {
 
 func init() {
 	logSize = logSizeTests
+}
+
+// TestingStateInfo returns information suitable for
+// connecting to the testing state server.
+func TestingStateInfo() *Info {
+	return &Info{
+		Addrs: []string{testing.MgoAddr},
+		RootCertPEM: []byte(testing.RootCertPEM),
+	}
 }

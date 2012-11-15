@@ -15,7 +15,7 @@ var _ = Suite(&SettingsSuite{})
 
 func (s *SettingsSuite) SetUpTest(c *C) {
 	s.MgoSuite.SetUpTest(c)
-	state, err := Open(&Info{Addrs: []string{testing.MgoAddr}})
+	state, err := Open(TestingStateInfo())
 	c.Assert(err, IsNil)
 
 	s.state = state
