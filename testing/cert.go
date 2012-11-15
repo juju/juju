@@ -37,6 +37,8 @@ HOzuvYngJpoClGw0ipzJPoNZ2Z/GkdOWGByPeKu/8g==
 -----END RSA PRIVATE KEY-----
 `[1:]
 
+	RootPEMBytes = []byte(RootCertPEM + RootKeyPEM)
+
 	RootKeyRSA = mustParseKeyPEM(RootKeyPEM)
 )
 
