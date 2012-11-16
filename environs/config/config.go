@@ -5,6 +5,7 @@ import (
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/version"
 	"os"
+	"strings"
 )
 
 // FirewallMode defines the way in which the environment
@@ -59,6 +60,14 @@ func New(attrs map[string]interface{}) (*Config, error) {
 		t: make(map[string]interface{}),
 	}
 
+	name := c.m["name"].(string)
+	if name == "" {
+		return nil, fmt.Errorf("empty name in environment configuration")
+	}
+	if strings.ContainsAny(name, "/\\") {
+		return nil, fmt.Errorf("environment name contains unsafe characters")
+	}
+
 	if c.m["default-series"].(string) == "" {
 		c.m["default-series"] = version.Current.Series
 	}
@@ -78,7 +87,7 @@ func New(attrs map[string]interface{}) (*Config, error) {
 	rootCert := []byte(c.m["root-cert"].(string))
 	rootCertPath := c.m["root-cert-path"].(string)
 	if rootCertPath != "" || len(rootCert) == 0 {
-		rootCert, err = readCertFile(rootCertPath, "rootcert.pem")
+		rootCert, err = readCertFile(rootCertPath, name + "-root-cert.pem")
 		if err != nil {
 			return nil, err
 		}
@@ -95,7 +104,7 @@ func New(attrs map[string]interface{}) (*Config, error) {
 	// Note: we do not read the key file if the root key is
 	// specified as a empty string.
 	if rootKeyPath != "" || rootKey == nil {
-		rootKey, err = readCertFile(rootKeyPath, "rootkey.pem")
+		rootKey, err = readCertFile(rootKeyPath, name + "-root-key.pem")
 		if err != nil && !os.IsNotExist(err) {
 			return nil, err
 		}
@@ -111,7 +120,7 @@ func New(attrs map[string]interface{}) (*Config, error) {
 	}
 
 	// Check if there are any required fields that are empty.
-	for _, attr := range []string{"name", "type", "default-series", "authorized-keys", "root-cert"} {
+	for _, attr := range []string{"type", "default-series", "authorized-keys", "root-cert"} {
 		if s, _ := c.m[attr].(string); s == "" {
 			return nil, fmt.Errorf("empty %s in environment configuration", attr)
 		}

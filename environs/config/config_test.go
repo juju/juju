@@ -201,6 +201,13 @@ var configTests = []struct {
 		},
 		err: "name: expected string, got nothing",
 	}, {
+		about: "Bad name",
+		attrs: attrs{
+			"name": "foo/bar",
+			"type": "my-type",
+		},
+		err: "environment name contains unsafe characters",
+	}, {
 		about: "Empty name",
 		attrs: attrs{
 			"type": "my-type",
@@ -248,8 +255,8 @@ var configTestFiles = []struct {
 	{".ssh/authorized_keys", "auth0\n# first\nauth1\n\n"},
 	{".ssh/authorized_keys2", "auth2\nauth3\n"},
 
-	{".juju/rootcert.pem", rootCert},
-	{".juju/rootkey.pem", rootKey},
+	{".juju/my-name-root-cert.pem", rootCert},
+	{".juju/my-name-root-key.pem", rootKey},
 	{".juju/rootcert2.pem", rootCert2},
 	{".juju/rootkey2.pem", rootKey2},
 	{"othercert.pem", rootCert3},
@@ -324,7 +331,7 @@ func (*ConfigSuite) TestConfig(c *C) {
 		} else if test.attrs["root-cert"] != nil {
 			c.Assert(cfg.RootCertPEM(), Equals, test.attrs["root-cert"])
 		} else {
-			c.Assert(cfg.RootCertPEM(), Equals, fileContents(c, "~/.juju/rootcert.pem"))
+			c.Assert(cfg.RootCertPEM(), Equals, rootCert)
 		}
 
 		if path, _ := test.attrs["root-private-key-path"].(string); path != "" {
