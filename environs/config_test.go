@@ -210,7 +210,7 @@ func (suite) TestBootstrapConfig(c *C) {
 		"secret":           "um",
 		"authorized-keys":  "i-am-a-key",
 		"root-cert":        testing.RootCertPEM,
-		"root-private-key": "",
+		"root-private-key": testing.RootKeyPEM,
 	})
 	c.Assert(err, IsNil)
 	provider, err := environs.Provider(cfg.Type())
@@ -226,6 +226,7 @@ func (suite) TestBootstrapConfig(c *C) {
 	expect := cfg.AllAttrs()
 	delete(expect, "secret")
 	expect["admin-secret"] = ""
+	expect["root-private-key"] = ""
 	expect["agent-version"] = "1.2.3"
 	c.Assert(cfg1.AllAttrs(), DeepEquals, expect)
 }
