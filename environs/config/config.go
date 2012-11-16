@@ -29,16 +29,26 @@ type Config struct {
 	m, t map[string]interface{}
 }
 
+// TODO(rog) update the doc comment below - it's getting messy
+// and it assumes too much prior knowledge.
+
 // New returns a new configuration.
 // Fields that are common to all environment providers are verified.
 // The "authorized-keys-path" key is translated into "authorized-keys"
 // by loading the content from respective file; similarly,
-// "root-cert-path" is translated into the "root-cert" and "root-private-key"
-// keys.
+// "root-cert-path" is translated into the "root-cert" and
+// "root-private-key" keys.
+// If no authorized keys are specified in the attributes,
+// they will be read from $HOME/.ssh.
+// If no root certificate is specified, it will be read from
+// $HOME/.juju/<name>-root-cert.pem.
+// If no root private key is specified, it will be read from
+// $HOME/.juju/<name>-root-key.pem if that file exists.
 //
-// The required keys are: "name", "type" and "authorized-keys",
-// all of type string. Additional keys recognised are: "agent-version" and
-// "development", of types string and bool respectively.
+// The required keys are: "name", "type", "authorized-keys" and
+// "root-cert", all of type string.  Additional keys recognised are:
+// "agent-version" and "development", of types string and bool
+// respectively.
 func New(attrs map[string]interface{}) (*Config, error) {
 	m, err := checker.Coerce(attrs, nil)
 	if err != nil {
@@ -82,6 +92,8 @@ func New(attrs map[string]interface{}) (*Config, error) {
 		rootKey = []byte(k.(string))
 	}
 	rootKeyPath := c.m["root-private-key-path"].(string)
+	// Note: we do not read the key file if the root key is
+	// specified as a empty string.
 	if rootKeyPath != "" || rootKey == nil {
 		rootKey, err = readCertFile(rootKeyPath, "rootkey.pem")
 		if err != nil && !os.IsNotExist(err) {
