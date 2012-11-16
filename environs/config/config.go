@@ -87,7 +87,7 @@ func New(attrs map[string]interface{}) (*Config, error) {
 	rootCert := []byte(c.m["root-cert"].(string))
 	rootCertPath := c.m["root-cert-path"].(string)
 	if rootCertPath != "" || len(rootCert) == 0 {
-		rootCert, err = readCertFile(rootCertPath, name + "-root-cert.pem")
+		rootCert, err = readCertFile(rootCertPath, name+"-root-cert.pem")
 		if err != nil {
 			return nil, err
 		}
@@ -104,7 +104,7 @@ func New(attrs map[string]interface{}) (*Config, error) {
 	// Note: we do not read the key file if the root key is
 	// specified as a empty string.
 	if rootKeyPath != "" || rootKey == nil {
-		rootKey, err = readCertFile(rootKeyPath, name + "-root-key.pem")
+		rootKey, err = readCertFile(rootKeyPath, name+"-root-key.pem")
 		if err != nil && !os.IsNotExist(err) {
 			return nil, err
 		}

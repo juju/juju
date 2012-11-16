@@ -27,10 +27,12 @@ type ToolsSuite struct {
 func (t *ToolsSuite) SetUpTest(c *C) {
 	t.LoggingSuite.SetUpTest(c)
 	env, err := environs.NewFromAttrs(map[string]interface{}{
-		"name":            "test",
-		"type":            "dummy",
-		"state-server":    false,
-		"authorized-keys": "i-am-a-key",
+		"name":             "test",
+		"type":             "dummy",
+		"state-server":     false,
+		"authorized-keys":  "i-am-a-key",
+		"root-cert":        testing.RootCertPEM,
+		"root-private-key": "",
 	})
 	c.Assert(err, IsNil)
 	t.env = env

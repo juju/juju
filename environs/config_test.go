@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	_ "launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"os"
 	"path/filepath"
@@ -75,6 +76,7 @@ environments:
 }
 
 func (suite) TestInvalidEnv(c *C) {
+	defer makeFakeHome(c, "only").restore()
 	for i, t := range invalidEnvTests {
 		c.Logf("running test %v", i)
 		es, err := environs.ReadEnvironsBytes([]byte(t.env))
@@ -130,6 +132,7 @@ environments:
 }
 
 func (suite) TestConfig(c *C) {
+	defer makeFakeHome(c, "only", "valid", "one", "two").restore()
 	for i, t := range configTests {
 		c.Logf("running test %v", i)
 		es, err := environs.ReadEnvironsBytes([]byte(t.env))
@@ -138,12 +141,9 @@ func (suite) TestConfig(c *C) {
 	}
 }
 
-func (suite) TestConfigFile(c *C) {
-	d := c.MkDir()
-	err := os.Mkdir(filepath.Join(d, ".juju"), 0777)
-	c.Assert(err, IsNil)
+func (suite) TestDefaultConfigFile(c *C) {
+	defer makeFakeHome(c, "only").restore()
 
-	path := filepath.Join(d, ".juju", "environments.yaml")
 	env := `
 environments:
     only:
@@ -151,36 +151,45 @@ environments:
         state-server: false
         authorized-keys: i-am-a-key
 `
-	err = ioutil.WriteFile(path, []byte(env), 0666)
+	err := ioutil.WriteFile(homePath(".juju", "environments.yaml"), []byte(env), 0666)
 	c.Assert(err, IsNil)
 
-	// test reading from a named file
+	es, err := environs.ReadEnvirons("")
+	c.Assert(err, IsNil)
+	e, err := es.Open("")
+	c.Assert(err, IsNil)
+	c.Assert(e.Name(), Equals, "only")
+}
+
+func (suite) TestNamedConfigFile(c *C) {
+	defer makeFakeHome(c, "only").restore()
+
+	env := `
+environments:
+    only:
+        type: dummy
+        state-server: false
+        authorized-keys: i-am-a-key
+`
+	path := filepath.Join(c.MkDir(), "a-file")
+	err := ioutil.WriteFile(path, []byte(env), 0666)
+	c.Assert(err, IsNil)
+
 	es, err := environs.ReadEnvirons(path)
 	c.Assert(err, IsNil)
 	e, err := es.Open("")
 	c.Assert(err, IsNil)
 	c.Assert(e.Name(), Equals, "only")
-
-	// test reading from the default environments.yaml file.
-	h := os.Getenv("HOME")
-	os.Setenv("HOME", d)
-
-	es, err = environs.ReadEnvirons("")
-	c.Assert(err, IsNil)
-	e, err = es.Open("")
-	c.Assert(err, IsNil)
-	c.Assert(e.Name(), Equals, "only")
-
-	// reset $HOME just in case something else relies on it.
-	os.Setenv("HOME", h)
 }
 
 func (suite) TestConfigRoundTrip(c *C) {
 	cfg, err := config.New(map[string]interface{}{
-		"name":            "bladaam",
-		"type":            "dummy",
-		"state-server":    false,
-		"authorized-keys": "i-am-a-key",
+		"name":             "bladaam",
+		"type":             "dummy",
+		"state-server":     false,
+		"authorized-keys":  "i-am-a-key",
+		"root-cert":        testing.RootCertPEM,
+		"root-private-key": "",
 	})
 	c.Assert(err, IsNil)
 	provider, err := environs.Provider(cfg.Type())
@@ -194,12 +203,14 @@ func (suite) TestConfigRoundTrip(c *C) {
 
 func (suite) TestBootstrapConfig(c *C) {
 	cfg, err := config.New(map[string]interface{}{
-		"name":            "bladaam",
-		"type":            "dummy",
-		"state-server":    false,
-		"admin-secret":    "highly",
-		"secret":          "um",
-		"authorized-keys": "i-am-a-key",
+		"name":             "bladaam",
+		"type":             "dummy",
+		"state-server":     false,
+		"admin-secret":     "highly",
+		"secret":           "um",
+		"authorized-keys":  "i-am-a-key",
+		"root-cert":        testing.RootCertPEM,
+		"root-private-key": "",
 	})
 	c.Assert(err, IsNil)
 	provider, err := environs.Provider(cfg.Type())
@@ -217,4 +228,34 @@ func (suite) TestBootstrapConfig(c *C) {
 	expect["admin-secret"] = ""
 	expect["agent-version"] = "1.2.3"
 	c.Assert(cfg1.AllAttrs(), DeepEquals, expect)
+}
+
+type fakeHome string
+
+func makeFakeHome(c *C, certNames ...string) fakeHome {
+	oldHome := os.Getenv("HOME")
+	os.Setenv("HOME", c.MkDir())
+
+	err := os.Mkdir(homePath(".juju"), 0777)
+	c.Assert(err, IsNil)
+	for _, name := range certNames {
+		err := ioutil.WriteFile(homePath(".juju", name+"-root-cert.pem"), testing.RootCertPEMBytes, 0666)
+		c.Assert(err, IsNil)
+	}
+
+	err = os.Mkdir(homePath(".ssh"), 0777)
+	c.Assert(err, IsNil)
+	err = ioutil.WriteFile(homePath(".ssh", "id_rsa.pub"), []byte("auth key\n"), 0666)
+	c.Assert(err, IsNil)
+
+	return fakeHome(oldHome)
+}
+
+func homePath(names ...string) string {
+	all := append([]string{os.Getenv("HOME")}, names...)
+	return filepath.Join(all...)
+}
+
+func (h fakeHome) restore() {
+	os.Setenv("HOME", string(h))
 }

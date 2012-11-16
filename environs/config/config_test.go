@@ -386,26 +386,6 @@ func (*ConfigSuite) TestConfigAttrs(c *C) {
 	c.Assert(newcfg.AllAttrs(), DeepEquals, attrs)
 }
 
-type fakeHome string
-
-func makeFakeHome(c *C) fakeHome {
-	oldHome := os.Getenv("HOME")
-	home := c.MkDir()
-	os.Setenv("HOME", home)
-	err := os.Mkdir(filepath.Join(home, ".juju"), 0777)
-	c.Assert(err, IsNil)
-	return fakeHome(oldHome)
-}
-
-func homePath(names ...string) string {
-	all := append([]string{os.Getenv("HOME")}, names...)
-	return filepath.Join(all...)
-}
-
-func (h fakeHome) restore() {
-	os.Setenv("HOME", string(h))
-}
-
 var rootCert = `
 -----BEGIN CERTIFICATE-----
 MIIBjDCCATigAwIBAgIBADALBgkqhkiG9w0BAQUwHjENMAsGA1UEChMEanVqdTEN
