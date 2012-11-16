@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"regexp"
 	"strings"
@@ -23,7 +24,7 @@ var envConfig = mustNewConfig(map[string]interface{}{
 	"name":            "foo",
 	"default-series":  "series",
 	"authorized-keys": "keys",
-	"root-cert": certAndKey,
+	"root-cert": testing.RootCertPEM,
 })
 
 func mustNewConfig(m map[string]interface{}) *config.Config {
@@ -349,4 +350,4 @@ TNOaFMEia/TuYofdwJnYvi9t0v4UKBWdAiEA76AtvjEoTpi3in/ri0v78zp2/KXD
 JzPMDvZ0fYS30ukCIA1stlJxpFiCXQuFn0nG+jH4Q52FTv8xxBhrbLOFvHRRAiEA
 2Vc9NN09ty+HZgxpwqIA1fHVuYJY9GMPG1LnTnZ9INg=
 -----END RSA PRIVATE KEY-----
-`
+`[1:])

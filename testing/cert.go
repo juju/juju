@@ -23,6 +23,8 @@ JzALBgkqhkiG9w0BAQUDQQAqZzN0DqUyEfR8zIanozyD2pp10m9le+ODaKZDDNfH
 -----END CERTIFICATE-----
 `[1:]
 
+	RootCertPEMBytes = []byte(RootCertPEM)
+
 	RootCertX509 = mustParseCertPEM(RootCertPEM)
 
 	RootKeyPEM = `
