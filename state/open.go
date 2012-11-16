@@ -53,10 +53,7 @@ func Open(info *Info) (*State, error) {
 		fwd     *sshForwarder
 		err     error
 	)
-	if len(info.RootCertPEM) == 0 {
-		// TODO(rog) use it.
-		return nil, errors.New("no root certificate")
-	}
+	// TODO(rog) require root cert
 	if info.UseSSH {
 		// TODO implement authorization on SSL connection; drop sshDial.
 		if len(info.Addrs) > 1 {
