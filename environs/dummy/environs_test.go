@@ -10,12 +10,12 @@ import (
 
 func init() {
 	attrs := map[string]interface{}{
-		"name":         "only",
-		"type":         "dummy",
-		"state-server": true,
-		"secret":       "pork",
-		"admin-secret": "fish",
-		"root-cert": testing.RootCertPEM,
+		"name":             "only",
+		"type":             "dummy",
+		"state-server":     true,
+		"secret":           "pork",
+		"admin-secret":     "fish",
+		"root-cert":        testing.RootCertPEM,
 		"root-private-key": testing.RootKeyPEM,
 	}
 	Suite(&jujutest.LiveTests{

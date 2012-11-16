@@ -759,11 +759,11 @@ type createServiceAndUnit struct{}
 
 func (createServiceAndUnit) step(c *C, ctx *context) {
 	cfg, err := config.New(map[string]interface{}{
-		"name":            "testenv",
-		"type":            "dummy",
-		"default-series":  "abominable",
-		"authorized-keys": "we-are-the-keys",
-		"root-cert": coretesting.RootCertPEM,
+		"name":             "testenv",
+		"type":             "dummy",
+		"default-series":   "abominable",
+		"authorized-keys":  "we-are-the-keys",
+		"root-cert":        coretesting.RootCertPEM,
 		"root-private-key": "",
 	})
 	c.Assert(err, IsNil)

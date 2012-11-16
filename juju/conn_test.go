@@ -32,13 +32,13 @@ func (cs *NewConnSuite) TearDownTest(c *C) {
 
 func (*NewConnSuite) TestNewConnWithoutAdminSecret(c *C) {
 	attrs := map[string]interface{}{
-		"name":            "erewhemos",
-		"type":            "dummy",
-		"state-server":    true,
-		"authorized-keys": "i-am-a-key",
-		"secret":          "pork",
-		"admin-secret":    "really",
-		"root-cert": rootCert,
+		"name":             "erewhemos",
+		"type":             "dummy",
+		"state-server":     true,
+		"authorized-keys":  "i-am-a-key",
+		"secret":           "pork",
+		"admin-secret":     "really",
+		"root-cert":        rootCert,
 		"root-private-key": "",
 	}
 	env, err := environs.NewFromAttrs(attrs)
@@ -116,7 +116,7 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *C) {
 		"authorized-keys": "i-am-a-key",
 		"secret":          "pork",
 		"admin-secret":    "side-effect secret",
-		"root-cert": rootCert,
+		"root-cert":       rootCert,
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
@@ -155,7 +155,7 @@ func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *C) {
 		"authorized-keys": "i-am-a-key",
 		"secret":          "pork",
 		"admin-secret":    "some secret",
-		"root-cert": rootCert,
+		"root-cert":       rootCert,
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
@@ -193,7 +193,7 @@ func (cs *NewConnSuite) TestConnWithPassword(c *C) {
 		"authorized-keys": "i-am-a-key",
 		"secret":          "squirrel",
 		"admin-secret":    "nutkin",
-		"root-cert": rootCert,
+		"root-cert":       rootCert,
 	})
 	c.Assert(err, IsNil)
 	err = juju.Bootstrap(env, false, coretesting.RootPEMBytes)
@@ -249,7 +249,7 @@ func (s *ConnSuite) SetUpTest(c *C) {
 		"state-server":    true,
 		"authorized-keys": "i-am-a-key",
 		"admin-secret":    "deploy-test-secret",
-		"root-cert": rootCert,
+		"root-cert":       rootCert,
 	}
 	environ, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
@@ -471,7 +471,6 @@ func (s *ConnSuite) TestResolved(c *C) {
 	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "testriak/0": already resolved`)
 	c.Assert(u.Resolved(), Equals, state.ResolvedRetryHooks)
 }
-
 
 var rootCert = `
 -----BEGIN CERTIFICATE-----

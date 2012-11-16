@@ -4,8 +4,8 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/testing"
 	_ "launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/testing"
 )
 
 var _ = Suite(&ConfigSuite{})
@@ -14,11 +14,11 @@ type ConfigSuite struct{}
 
 func (*ConfigSuite) TestSecretAttrs(c *C) {
 	cfg, err := config.New(map[string]interface{}{
-		"name":            "only", // must match the name in environs_test.go
-		"type":            "dummy",
-		"state-server":    true,
-		"authorized-keys": "i-am-a-key",
-		"root-cert": testing.RootCertPEM,
+		"name":             "only", // must match the name in environs_test.go
+		"type":             "dummy",
+		"state-server":     true,
+		"authorized-keys":  "i-am-a-key",
+		"root-cert":        testing.RootCertPEM,
 		"root-private-key": "",
 	})
 	c.Assert(err, IsNil)
@@ -63,11 +63,11 @@ func (*ConfigSuite) TestFirewallMode(c *C) {
 	for _, test := range firewallModeTests {
 		c.Logf("test firewall mode %q", test.configFirewallMode)
 		cfgMap := map[string]interface{}{
-			"name":         "only",
-			"type":         "dummy",
-			"state-server": true,
-			"authorized-keys": "none",
-			"root-cert": testing.RootCertPEM,
+			"name":             "only",
+			"type":             "dummy",
+			"state-server":     true,
+			"authorized-keys":  "none",
+			"root-cert":        testing.RootCertPEM,
 			"root-private-key": "",
 		}
 		if test.configFirewallMode != "" {
