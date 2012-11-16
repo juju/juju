@@ -95,27 +95,19 @@ environments:
 
 // breakJuju forces the dummy environment to return an error
 // when environMethod is called.
-func breakJuju(c *C, environMethod string) (msg string, unbreak func()) {
-	home := os.Getenv("HOME")
-	path := c.MkDir()
-	os.Setenv("HOME", path)
-
-	jujuDir := filepath.Join(path, ".juju")
-	err := os.Mkdir(jujuDir, 0777)
-	c.Assert(err, IsNil)
-
+func breakJuju(c *C, environMethod string) (msg string) {
 	yaml := fmt.Sprintf(brokenConfig, environMethod)
-	err = ioutil.WriteFile(filepath.Join(jujuDir, "environments.yaml"), []byte(yaml), 0666)
+	err := ioutil.WriteFile(homePath(".juju", "environments.yaml"), []byte(yaml), 0666)
 	c.Assert(err, IsNil)
 
-	msg = fmt.Sprintf("dummy.%s is broken", environMethod)
-	return msg, func() { os.Setenv("HOME", home) }
+	return fmt.Sprintf("dummy.%s is broken", environMethod)
 }
 
 func (s *MainSuite) TestActualRunJujuArgsBeforeCommand(c *C) {
+	defer makeFakeHome(c, "one").restore()
+
 	// Check global args work when specified before command
-	msg, unbreak := breakJuju(c, "Bootstrap")
-	defer unbreak()
+	msg := breakJuju(c, "Bootstrap")
 	logpath := filepath.Join(c.MkDir(), "log")
 	out := badrun(c, 1, "--log-file", logpath, "--verbose", "--debug", "bootstrap")
 	c.Assert(out, Equals, "error: "+msg+"\n")
@@ -126,9 +118,10 @@ func (s *MainSuite) TestActualRunJujuArgsBeforeCommand(c *C) {
 }
 
 func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *C) {
+	defer makeFakeHome(c, "one").restore()
+
 	// Check global args work when specified after command
-	msg, unbreak := breakJuju(c, "Bootstrap")
-	defer unbreak()
+	msg := breakJuju(c, "Bootstrap")
 	logpath := filepath.Join(c.MkDir(), "log")
 	out := badrun(c, 1, "bootstrap", "--log-file", logpath, "--verbose", "--debug")
 	c.Assert(out, Equals, "error: "+msg+"\n")
@@ -182,4 +175,37 @@ func (s *MainSuite) TestHelp(c *C) {
 	}
 	sort.Strings(names)
 	c.Assert(names, DeepEquals, commandNames)
+}
+
+type fakeHome string
+
+func makeFakeHome(c *C, certNames ...string) fakeHome {
+	oldHome := os.Getenv("HOME")
+	os.Setenv("HOME", c.MkDir())
+
+	err := os.Mkdir(homePath(".juju"), 0777)
+	c.Assert(err, IsNil)
+	for _, name := range certNames {
+		err := ioutil.WriteFile(homePath(".juju", name+"-root-cert.pem"), testing.RootCertPEMBytes, 0666)
+		c.Assert(err, IsNil)
+
+		err = ioutil.WriteFile(homePath(".juju", name+"-root-key.pem"), testing.RootKeyPEMBytes, 0666)
+		c.Assert(err, IsNil)
+	}
+
+	err = os.Mkdir(homePath(".ssh"), 0777)
+	c.Assert(err, IsNil)
+	err = ioutil.WriteFile(homePath(".ssh", "id_rsa.pub"), []byte("auth key\n"), 0666)
+	c.Assert(err, IsNil)
+
+	return fakeHome(oldHome)
+}
+
+func homePath(names ...string) string {
+	all := append([]string{os.Getenv("HOME")}, names...)
+	return filepath.Join(all...)
+}
+
+func (h fakeHome) restore() {
+	os.Setenv("HOME", string(h))
 }

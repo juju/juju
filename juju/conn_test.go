@@ -39,6 +39,7 @@ func (*NewConnSuite) TestNewConnWithoutAdminSecret(c *C) {
 		"secret":          "pork",
 		"admin-secret":    "really",
 		"root-cert": rootCert,
+		"root-private-key": "",
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
@@ -76,7 +77,7 @@ environments:
         admin-secret: conn-from-name-secret
 `), 0644)
 
-	err = ioutil.WriteFile(filepath.Join(home, ".juju", "rootcert.pem"), []byte(rootCert), 0600)
+	err = ioutil.WriteFile(filepath.Join(home, ".juju", "erewhemos-root-cert.pem"), []byte(rootCert), 0600)
 	c.Assert(err, IsNil)
 
 	// Just run through a few operations on the dummy provider and verify that

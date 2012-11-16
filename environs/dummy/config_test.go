@@ -4,6 +4,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/testing"
 	_ "launchpad.net/juju-core/environs/dummy"
 )
 
@@ -17,6 +18,8 @@ func (*ConfigSuite) TestSecretAttrs(c *C) {
 		"type":            "dummy",
 		"state-server":    true,
 		"authorized-keys": "i-am-a-key",
+		"root-cert": testing.RootCertPEM,
+		"root-private-key": "",
 	})
 	c.Assert(err, IsNil)
 	env, err := environs.New(cfg)
@@ -63,6 +66,9 @@ func (*ConfigSuite) TestFirewallMode(c *C) {
 			"name":         "only",
 			"type":         "dummy",
 			"state-server": true,
+			"authorized-keys": "none",
+			"root-cert": testing.RootCertPEM,
+			"root-private-key": "",
 		}
 		if test.configFirewallMode != "" {
 			cfgMap["firewall-mode"] = test.configFirewallMode
