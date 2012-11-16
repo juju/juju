@@ -29,10 +29,10 @@ type MachineConfig struct {
 	// or MongoDB instance.
 	StateServer bool
 
-	// ServerCertAndKey holds the state server certificate and private
+	// StateServerPEM holds the state server certificate and private
 	// key in PEM format; it is required when StateServer is set,
 	// and ignored otherwise.
-	ServerCertAndKey []byte
+	StateServerPEM []byte
 
 	// InstanceIdAccessor holds bash code that evaluates to the current instance id.
 	InstanceIdAccessor string
@@ -85,7 +85,7 @@ func base64yaml(m *config.Config) string {
 	return base64.StdEncoding.EncodeToString(data)
 }
 
-const serverCertFile = "/var/lib/juju/server-cert.pem"
+const serverPEMPath = "/var/lib/juju/server.pem"
 
 func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	if err := verifyConfig(cfg); err != nil {
@@ -118,8 +118,8 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	if cfg.StateServer {
 		addScripts(c,
 			fmt.Sprintf("echo %s > %s",
-				shquote(string(cfg.ServerCertAndKey)), serverCertFile),
-			"chmod 600 "+serverCertFile,
+				shquote(string(cfg.StateServerPEM)), serverPEMPath),
+			"chmod 600 "+serverPEMPath,
 		)
 
 		// TODO The public bucket must come from the environment configuration.
@@ -290,8 +290,8 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		if cfg.StateInfo.EntityName != "" {
 			return fmt.Errorf("entity name must be blank when starting a state server")
 		}
-		if len(cfg.ServerCertAndKey) == 0 {
-			return fmt.Errorf("missing certificate")
+		if len(cfg.StateServerPEM) == 0 {
+			return fmt.Errorf("missing state server PEM")
 		}
 	} else {
 		if len(cfg.StateInfo.Addrs) == 0 {

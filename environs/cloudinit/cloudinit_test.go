@@ -44,7 +44,7 @@ var cloudinitTests = []cloudinit.MachineConfig{
 		AuthorizedKeys:     "sshkey1",
 		Tools:              newSimpleTools("1.2.3-linux-amd64"),
 		StateServer:        true,
-		ServerCertAndKey:   []byte(certAndKey),
+		StateServerPEM:     serverPEM,
 		StateInfo: &state.Info{
 			Password: "arble",
 		},
@@ -258,8 +258,8 @@ var verifyTests = []struct {
 		cfg.StateServer = false
 		cfg.StateInfo = &state.Info{EntityName: "machine-99"}
 	}},
-	{"missing certificate", func(cfg *cloudinit.MachineConfig) {
-		cfg.ServerCertAndKey = []byte{}
+	{"missing state server PEM", func(cfg *cloudinit.MachineConfig) {
+		cfg.StateServerPEM = []byte{}
 	}},
 	{"missing var directory", func(cfg *cloudinit.MachineConfig) {
 		cfg.DataDir = ""
@@ -303,7 +303,7 @@ var verifyTests = []struct {
 func (cloudinitSuite) TestCloudInitVerify(c *C) {
 	cfg := &cloudinit.MachineConfig{
 		StateServer:        true,
-		ServerCertAndKey:   []byte(certAndKey),
+		StateServerPEM:     serverPEM,
 		InstanceIdAccessor: "$instance_id",
 		ProviderType:       "ec2",
 		MachineId:          99,
@@ -329,7 +329,11 @@ func (cloudinitSuite) TestCloudInitVerify(c *C) {
 	}
 }
 
+<<<<<<< TREE
 var certAndKey = `
+=======
+var serverPEM = []byte(`
+>>>>>>> MERGE-SOURCE
 -----BEGIN CERTIFICATE-----
 MIIBdzCCASOgAwIBAgIBADALBgkqhkiG9w0BAQUwHjENMAsGA1UEChMEanVqdTEN
 MAsGA1UEAxMEcm9vdDAeFw0xMjExMDgxNjIyMzRaFw0xMzExMDgxNjI3MzRaMBwx

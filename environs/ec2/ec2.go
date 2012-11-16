@@ -207,7 +207,7 @@ func (e *environ) PublicStorage() environs.StorageReader {
 	return e.publicStorageUnlocked
 }
 
-func (e *environ) Bootstrap(uploadTools bool, certAndKey []byte) error {
+func (e *environ) Bootstrap(uploadTools bool, stateServerPEM []byte) error {
 	password := e.Config().AdminSecret()
 	if password == "" {
 		return fmt.Errorf("admin-secret is required for bootstrap")
@@ -247,13 +247,13 @@ func (e *environ) Bootstrap(uploadTools bool, certAndKey []byte) error {
 		return fmt.Errorf("unable to determine inital configuration: %v", err)
 	}
 	info := &state.Info{Password: trivial.PasswordHash(password)}
-	inst, err := e.startInstance(&startInstanceConfig{
-		machineId:  0,
-		info:       info,
-		tools:      tools,
-		master:     true,
-		config:     config,
-		certAndKey: certAndKey,
+	inst, err := e.startInstance(&startInstanceParams{
+		machineId:      0,
+		info:           info,
+		tools:          tools,
+		stateServer:    true,
+		config:         config,
+		stateServerPEM: stateServerPEM,
 	})
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
@@ -316,19 +316,19 @@ func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
 }
 
 func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.Tools) (environs.Instance, error) {
-	return e.startInstance(&startInstanceConfig{
+	return e.startInstance(&startInstanceParams{
 		machineId: machineId,
 		info:      info,
 		tools:     tools,
-		master:    false,
 	})
 }
 
-func (e *environ) userData(scfg *startInstanceConfig) ([]byte, error) {
+func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
+
 	cfg := &cloudinit.MachineConfig{
-		StateServer:        scfg.master,
+		StateServer:        scfg.stateServer,
 		StateInfo:          scfg.info,
-		ServerCertAndKey:   scfg.certAndKey,
+		StateServerPEM:     scfg.stateServerPEM,
 		InstanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
 		ProviderType:       "ec2",
 		DataDir:            "/var/lib/juju",
@@ -344,19 +344,18 @@ func (e *environ) userData(scfg *startInstanceConfig) ([]byte, error) {
 	return cloudcfg.Render()
 }
 
-type startInstanceConfig struct {
-	machineId  int
-	info       *state.Info
-	tools      *state.Tools
-	master     bool
-	config     *config.Config
-	certAndKey []byte
+type startInstanceParams struct {
+	machineId      int
+	info           *state.Info
+	tools          *state.Tools
+	stateServer    bool
+	config         *config.Config
+	stateServerPEM []byte
 }
 
 // startInstance is the internal version of StartInstance, used by Bootstrap
-// as well as via StartInstance itself. If master is true, a bootstrap
-// instance will be started.
-func (e *environ) startInstance(scfg *startInstanceConfig) (environs.Instance, error) {
+// as well as via StartInstance itself.
+func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, error) {
 	if scfg.tools == nil {
 		var err error
 		flags := environs.HighestVersion | environs.CompatVersion

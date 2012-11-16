@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/trivial"
@@ -13,22 +14,20 @@ import (
 )
 
 // Tests is a gocheck suite containing tests verifying juju functionality
-// against the environment with Name that must exist within Environs. The
+// against the environment with the given configuration. The
 // tests are not designed to be run against a live server - the Environ
 // is opened once for each test, and some potentially expensive operations
 // may be executed.
 type Tests struct {
 	coretesting.LoggingSuite
-	Environs         *environs.Environs
-	Name             string
-	Env              environs.Environ
-	ServerCertAndKey []byte
+	Config map[string]interface{}
+	Env    environs.Environ
 }
 
 // Open opens an instance of the testing environment.
 func (t *Tests) Open(c *C) environs.Environ {
-	e, err := t.Environs.Open(t.Name)
-	c.Assert(err, IsNil, Commentf("opening environ %q", t.Name))
+	e, err := environs.NewFromAttrs(t.Config)
+	c.Assert(err, IsNil, Commentf("opening environ %#v", t.Config))
 	c.Assert(e, NotNil)
 	return e
 }
@@ -52,7 +51,7 @@ func (t *Tests) TestBootstrapWithoutAdminSecret(c *C) {
 	delete(m, "admin-secret")
 	env, err := environs.NewFromAttrs(m)
 	c.Assert(err, IsNil)
-	err = env.Bootstrap(false, t.ServerCertAndKey)
+	err = juju.Bootstrap(env, false, coretesting.RootPEMBytes)
 	c.Assert(err, ErrorMatches, ".*admin-secret is required for bootstrap")
 }
 
@@ -101,18 +100,18 @@ func (t *Tests) TestStartStop(c *C) {
 func (t *Tests) TestBootstrap(c *C) {
 	// TODO tests for Bootstrap(true)
 	e := t.Open(c)
-	err := e.Bootstrap(false, t.ServerCertAndKey)
+	err := juju.Bootstrap(e, false, coretesting.RootPEMBytes)
 	c.Assert(err, IsNil)
 
 	info, err := e.StateInfo()
 	c.Assert(info, NotNil)
 	c.Check(info.Addrs, Not(HasLen), 0)
 
-	err = e.Bootstrap(false, t.ServerCertAndKey)
+	err = juju.Bootstrap(e, false, coretesting.RootPEMBytes)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	e2 := t.Open(c)
-	err = e2.Bootstrap(false, t.ServerCertAndKey)
+	err = juju.Bootstrap(e2, false, coretesting.RootPEMBytes)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	info2, err := e2.StateInfo()
@@ -124,10 +123,10 @@ func (t *Tests) TestBootstrap(c *C) {
 	// Open again because Destroy invalidates old environments.
 	e3 := t.Open(c)
 
-	err = e3.Bootstrap(false, t.ServerCertAndKey)
+	err = juju.Bootstrap(e3, false, coretesting.RootPEMBytes)
 	c.Assert(err, IsNil)
 
-	err = e3.Bootstrap(false, t.ServerCertAndKey)
+	err = juju.Bootstrap(e3, false, coretesting.RootPEMBytes)
 	c.Assert(err, NotNil)
 }
 
