@@ -329,11 +329,7 @@ func (cloudinitSuite) TestCloudInitVerify(c *C) {
 	}
 }
 
-<<<<<<< TREE
-var certAndKey = `
-=======
 var serverPEM = []byte(`
->>>>>>> MERGE-SOURCE
 -----BEGIN CERTIFICATE-----
 MIIBdzCCASOgAwIBAgIBADALBgkqhkiG9w0BAQUwHjENMAsGA1UEChMEanVqdTEN
 MAsGA1UEAxMEcm9vdDAeFw0xMjExMDgxNjIyMzRaFw0xMzExMDgxNjI3MzRaMBwx
