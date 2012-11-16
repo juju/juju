@@ -44,7 +44,10 @@ func stateInfo() *state.Info {
 	if testing.MgoAddr == "" {
 		panic("dummy environ state tests must be run with MgoTestPackage")
 	}
-	return &state.Info{Addrs: []string{testing.MgoAddr}}
+	return &state.Info{
+		Addrs: []string{testing.MgoAddr},
+		RootCertPEM: testing.RootCertPEMBytes,
+	}
 }
 
 // Operation represents an action on the dummy provider.
