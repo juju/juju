@@ -37,11 +37,13 @@ func registerAmazonTests() {
 	//  access-key: $AWS_ACCESS_KEY_ID
 	//  secret-key: $AWS_SECRET_ACCESS_KEY
 	attrs := map[string]interface{}{
-		"name":           "sample-" + uniqueName,
-		"type":           "ec2",
-		"control-bucket": "juju-test-" + uniqueName,
-		"public-bucket":  "juju-public-test-" + uniqueName,
-		"admin-secret":   "for real",
+		"name":             "sample-" + uniqueName,
+		"type":             "ec2",
+		"control-bucket":   "juju-test-" + uniqueName,
+		"public-bucket":    "juju-public-test-" + uniqueName,
+		"admin-secret":     "for real",
+		"root-cert":        testing.RootCertPEM,
+		"root-private-key": testing.RootKeyPEM,
 	}
 	Suite(&LiveTests{
 		LiveTests: jujutest.LiveTests{

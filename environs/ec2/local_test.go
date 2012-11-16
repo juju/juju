@@ -26,14 +26,16 @@ func registerLocalTests() {
 		Name: "test",
 	}
 	attrs := map[string]interface{}{
-		"name":           "sample",
-		"type":           "ec2",
-		"region":         "test",
-		"control-bucket": "test-bucket",
-		"public-bucket":  "public-tools",
-		"admin-secret":   "local-secret",
-		"access-key":     "x",
-		"secret-key":     "x",
+		"name":             "sample",
+		"type":             "ec2",
+		"region":           "test",
+		"control-bucket":   "test-bucket",
+		"public-bucket":    "public-tools",
+		"admin-secret":     "local-secret",
+		"access-key":       "x",
+		"secret-key":       "x",
+		"root-cert":        testing.RootCertPEM,
+		"root-private-key": testing.RootKeyPEM,
 	}
 
 	Suite(&localServerSuite{

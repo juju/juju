@@ -117,7 +117,10 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	err = ioutil.WriteFile(filepath.Join(home, ".juju", "environments.yaml"), config, 0600)
 	c.Assert(err, IsNil)
 
-	err = ioutil.WriteFile(filepath.Join(home, ".juju", "rootcert.pem"), rootCert, 0600)
+	err = ioutil.WriteFile(filepath.Join(home, ".juju", "dummyenv-root-cert.pem"), testing.RootCertPEMBytes, 0666)
+	c.Assert(err, IsNil)
+
+	err = ioutil.WriteFile(filepath.Join(home, ".juju", "dummyenv-root-key.pem"), []byte(testing.RootKeyPEM), 0600)
 	c.Assert(err, IsNil)
 
 	environ, err := environs.NewFromName("dummyenv")
