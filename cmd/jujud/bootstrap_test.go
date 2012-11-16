@@ -85,7 +85,7 @@ func (s *BootstrapSuite) TestSetMachineId(c *C) {
 	c.Assert(err, IsNil)
 
 	st, err := state.Open(&state.Info{
-		Addrs: []string{testing.MgoAddr},
+		Addrs:       []string{testing.MgoAddr},
 		RootCertPEM: testing.RootCertPEMBytes,
 	})
 	c.Assert(err, IsNil)
@@ -116,7 +116,7 @@ func (s *BootstrapSuite) TestMachinerWorkers(c *C) {
 	c.Assert(err, IsNil)
 
 	st, err := state.Open(&state.Info{
-		Addrs: []string{testing.MgoAddr},
+		Addrs:       []string{testing.MgoAddr},
 		RootCertPEM: testing.RootPEMBytes,
 	})
 	c.Assert(err, IsNil)
@@ -158,7 +158,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *C) {
 	// Check that we cannot now connect to the state
 	// without a password.
 	info := &state.Info{
-		Addrs: []string{testing.MgoAddr},
+		Addrs:       []string{testing.MgoAddr},
 		RootCertPEM: testing.RootCertPEMBytes,
 	}
 	testOpenState(c, info, state.ErrUnauthorized)

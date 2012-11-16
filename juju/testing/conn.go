@@ -91,8 +91,8 @@ func (s *JujuConnSuite) Reset(c *C) {
 
 func (s *JujuConnSuite) StateInfo(c *C) *state.Info {
 	return &state.Info{
-		Addrs:    []string{testing.MgoAddr},
-		Password: "dummy-secret",
+		Addrs:       []string{testing.MgoAddr},
+		Password:    "dummy-secret",
 		RootCertPEM: []byte(testing.RootCertPEM),
 	}
 }

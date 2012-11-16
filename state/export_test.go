@@ -1,4 +1,5 @@
 package state
+
 import "launchpad.net/juju-core/testing"
 
 type (
@@ -22,7 +23,7 @@ func init() {
 // connecting to the testing state server.
 func TestingStateInfo() *Info {
 	return &Info{
-		Addrs: []string{testing.MgoAddr},
+		Addrs:       []string{testing.MgoAddr},
 		RootCertPEM: []byte(testing.RootCertPEM),
 	}
 }
