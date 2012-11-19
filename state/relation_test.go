@@ -265,8 +265,8 @@ func (s *RelationUnitSuite) TestProReqSettings(c *C) {
 
 	// Check missing settings cannot be read by any RU.
 	for _, ru := range rus {
-		_, err := ru.ReadSettings("pro/0")
-		c.Assert(err, ErrorMatches, `cannot read settings for unit "pro/0" in relation "req:db pro:server": settings not found`)
+		_, err := ru.ReadSettings("mysql/0")
+		c.Assert(err, ErrorMatches, `cannot read settings for unit "mysql/0" in relation "wordpress:db mysql:server": settings not found`)
 	}
 
 	// Add settings for one RU.
@@ -280,7 +280,7 @@ func (s *RelationUnitSuite) TestProReqSettings(c *C) {
 
 	// Check settings can be read by every RU.
 	for _, ru := range rus {
-		m, err := ru.ReadSettings("pro/0")
+		m, err := ru.ReadSettings("mysql/0")
 		c.Assert(err, IsNil)
 		c.Assert(m["meme"], Equals, "foul-bachelor-frog")
 	}
@@ -292,8 +292,8 @@ func (s *RelationUnitSuite) TestContainerSettings(c *C) {
 
 	// Check missing settings cannot be read by any RU.
 	for _, ru := range rus {
-		_, err := ru.ReadSettings("pro/0")
-		c.Assert(err, ErrorMatches, `cannot read settings for unit "pro/0" in relation "req:info pro:juju-info": settings not found`)
+		_, err := ru.ReadSettings("mysql/0")
+		c.Assert(err, ErrorMatches, `cannot read settings for unit "mysql/0" in relation "logging:info mysql:juju-info": settings not found`)
 	}
 
 	// Add settings for one RU.
@@ -308,7 +308,7 @@ func (s *RelationUnitSuite) TestContainerSettings(c *C) {
 	// Check settings can be read by RUs in the same container.
 	rus0 := RUs{prr.pru0, prr.rru0}
 	for _, ru := range rus0 {
-		m, err := ru.ReadSettings("pro/0")
+		m, err := ru.ReadSettings("mysql/0")
 		c.Assert(err, IsNil)
 		c.Assert(m["meme"], Equals, "foul-bachelor-frog")
 	}
@@ -316,8 +316,8 @@ func (s *RelationUnitSuite) TestContainerSettings(c *C) {
 	// Check settings are still inaccessible to RUs outside that container
 	rus1 := RUs{prr.pru1, prr.rru1}
 	for _, ru := range rus1 {
-		_, err := ru.ReadSettings("pro/0")
-		c.Assert(err, ErrorMatches, `cannot read settings for unit "pro/0" in relation "req:info pro:juju-info": settings not found`)
+		_, err := ru.ReadSettings("mysql/0")
+		c.Assert(err, ErrorMatches, `cannot read settings for unit "mysql/0" in relation "logging:info mysql:juju-info": settings not found`)
 	}
 }
 
@@ -483,7 +483,7 @@ func (s *RelationUnitSuite) TestProReqWatchScope(c *C) {
 		return []*state.RelationScopeWatcher{ws[2], ws[3]}
 	}
 	for _, w := range rws() {
-		s.assertScopeChange(c, w, []string{"pro/0"}, nil)
+		s.assertScopeChange(c, w, []string{"mysql/0"}, nil)
 	}
 	s.assertNoScopeChange(c, ws...)
 
@@ -494,7 +494,7 @@ func (s *RelationUnitSuite) TestProReqWatchScope(c *C) {
 		return []*state.RelationScopeWatcher{ws[0], ws[1]}
 	}
 	for _, w := range pws() {
-		s.assertScopeChange(c, w, []string{"req/0"}, nil)
+		s.assertScopeChange(c, w, []string{"wordpress/0"}, nil)
 	}
 	s.assertNoScopeChange(c, ws...)
 
@@ -513,10 +513,10 @@ func (s *RelationUnitSuite) TestProReqWatchScope(c *C) {
 		defer stop(c, w)
 	}
 	for _, w := range pws() {
-		s.assertScopeChange(c, w, []string{"req/0", "req/1"}, nil)
+		s.assertScopeChange(c, w, []string{"wordpress/0", "wordpress/1"}, nil)
 	}
 	for _, w := range rws() {
-		s.assertScopeChange(c, w, []string{"pro/0", "pro/1"}, nil)
+		s.assertScopeChange(c, w, []string{"mysql/0", "mysql/1"}, nil)
 	}
 	s.assertNoScopeChange(c, ws...)
 
@@ -524,7 +524,7 @@ func (s *RelationUnitSuite) TestProReqWatchScope(c *C) {
 	err = prr.pru0.LeaveScope()
 	c.Assert(err, IsNil)
 	for _, w := range rws() {
-		s.assertScopeChange(c, w, nil, []string{"pro/0"})
+		s.assertScopeChange(c, w, nil, []string{"mysql/0"})
 	}
 	s.assertNoScopeChange(c, ws...)
 
@@ -532,7 +532,7 @@ func (s *RelationUnitSuite) TestProReqWatchScope(c *C) {
 	err = prr.rru0.LeaveScope()
 	c.Assert(err, IsNil)
 	for _, w := range pws() {
-		s.assertScopeChange(c, w, nil, []string{"req/0"})
+		s.assertScopeChange(c, w, nil, []string{"wordpress/0"})
 	}
 	s.assertNoScopeChange(c, ws...)
 }
@@ -553,13 +553,13 @@ func (s *RelationUnitSuite) TestContainerWatchScope(c *C) {
 	// pru0 enters; check detected only by same-container req.
 	err := prr.pru0.EnterScope()
 	c.Assert(err, IsNil)
-	s.assertScopeChange(c, ws[2], []string{"pro/0"}, nil)
+	s.assertScopeChange(c, ws[2], []string{"mysql/0"}, nil)
 	s.assertNoScopeChange(c, ws...)
 
 	// req1 enters; check detected only by same-container pro.
 	err = prr.rru1.EnterScope()
 	c.Assert(err, IsNil)
-	s.assertScopeChange(c, ws[1], []string{"req/1"}, nil)
+	s.assertScopeChange(c, ws[1], []string{"logging/1"}, nil)
 	s.assertNoScopeChange(c, ws...)
 
 	// Stop watches; remaining RUs enter scope.
@@ -576,22 +576,22 @@ func (s *RelationUnitSuite) TestContainerWatchScope(c *C) {
 	for _, w := range ws {
 		defer stop(c, w)
 	}
-	s.assertScopeChange(c, ws[0], []string{"req/0"}, nil)
-	s.assertScopeChange(c, ws[1], []string{"req/1"}, nil)
-	s.assertScopeChange(c, ws[2], []string{"pro/0"}, nil)
-	s.assertScopeChange(c, ws[3], []string{"pro/1"}, nil)
+	s.assertScopeChange(c, ws[0], []string{"logging/0"}, nil)
+	s.assertScopeChange(c, ws[1], []string{"logging/1"}, nil)
+	s.assertScopeChange(c, ws[2], []string{"mysql/0"}, nil)
+	s.assertScopeChange(c, ws[3], []string{"mysql/1"}, nil)
 	s.assertNoScopeChange(c, ws...)
 
 	// pru0 leaves; check detected only by same-container req.
 	err = prr.pru0.LeaveScope()
 	c.Assert(err, IsNil)
-	s.assertScopeChange(c, ws[2], nil, []string{"pro/0"})
+	s.assertScopeChange(c, ws[2], nil, []string{"mysql/0"})
 	s.assertNoScopeChange(c, ws...)
 
 	// rru0 leaves; check detected only by same-container pro.
 	err = prr.rru0.LeaveScope()
 	c.Assert(err, IsNil)
-	s.assertScopeChange(c, ws[0], nil, []string{"req/0"})
+	s.assertScopeChange(c, ws[0], nil, []string{"logging/0"})
 	s.assertNoScopeChange(c, ws...)
 }
 
@@ -623,6 +623,7 @@ func (s *RelationUnitSuite) assertNoScopeChange(c *C, ws ...*state.RelationScope
 }
 
 type PeerRelation struct {
+	svc           *state.Service
 	u0, u1, u2    *state.Unit
 	ru0, ru1, ru2 *state.RelationUnit
 }
@@ -634,7 +635,7 @@ func NewPeerRelation(c *C, s *ConnSuite) *PeerRelation {
 	c.Assert(err, IsNil)
 	rel, err := s.State.AddRelation(ep)
 	c.Assert(err, IsNil)
-	pr := &PeerRelation{}
+	pr := &PeerRelation{svc: svc}
 	pr.u0, pr.ru0 = addRU(c, svc, rel, nil)
 	pr.u1, pr.ru1 = addRU(c, svc, rel, nil)
 	pr.u2, pr.ru2 = addRU(c, svc, rel, nil)
@@ -642,25 +643,26 @@ func NewPeerRelation(c *C, s *ConnSuite) *PeerRelation {
 }
 
 type ProReqRelation struct {
+	psvc, rsvc             *state.Service
 	pu0, pu1, ru0, ru1     *state.Unit
 	pru0, pru1, rru0, rru1 *state.RelationUnit
 }
 
 func NewProReqRelation(c *C, s *ConnSuite, scope charm.RelationScope) *ProReqRelation {
-	psvc, err := s.State.AddService("pro", s.AddTestingCharm(c, "mysql"))
+	psvc, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
 	c.Assert(err, IsNil)
 	var rsvc *state.Service
 	if scope == charm.ScopeGlobal {
-		rsvc, err = s.State.AddService("req", s.AddTestingCharm(c, "wordpress"))
+		rsvc, err = s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	} else {
-		rsvc, err = s.State.AddService("req", s.AddTestingCharm(c, "logging"))
+		rsvc, err = s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
 	}
 	c.Assert(err, IsNil)
-	eps, err := s.State.InferEndpoints([]string{"pro", "req"})
+	eps, err := s.State.InferEndpoints([]string{"mysql", rsvc.Name()})
 	c.Assert(err, IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, IsNil)
-	prr := &ProReqRelation{}
+	prr := &ProReqRelation{psvc: psvc, rsvc: rsvc}
 	prr.pu0, prr.pru0 = addRU(c, psvc, rel, nil)
 	prr.pu1, prr.pru1 = addRU(c, psvc, rel, nil)
 	if scope == charm.ScopeGlobal {
