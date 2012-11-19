@@ -196,7 +196,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	policy := t.env.AssignmentPolicy()
 	c.Assert(policy, Equals, state.AssignUnused)
 
-	err := juju.Bootstrap(t.env, true, testing.RootPEMBytes)
+	err := juju.Bootstrap(t.env, true, []byte(testing.CACertPEM+testing.CAKeyPEM))
 	c.Assert(err, IsNil)
 
 	// check that the state holds the id of the bootstrap machine.

@@ -501,7 +501,6 @@ type unitData struct {
 	tomb     tomb.Tomb
 	fw       *Firewaller
 	unit     *state.Unit
-	watcher  *state.UnitWatcher
 	serviced *serviceData
 	machined *machineData
 	ports    []state.Port
@@ -511,10 +510,9 @@ type unitData struct {
 // and starts watching the unit for port changes.
 func newUnitData(unit *state.Unit, fw *Firewaller) *unitData {
 	ud := &unitData{
-		fw:      fw,
-		unit:    unit,
-		watcher: unit.Watch(),
-		ports:   make([]state.Port, 0),
+		fw:    fw,
+		unit:  unit,
+		ports: make([]state.Port, 0),
 	}
 	go ud.watchLoop()
 	return ud
@@ -523,26 +521,29 @@ func newUnitData(unit *state.Unit, fw *Firewaller) *unitData {
 // watchLoop watches the unit for port changes.
 func (ud *unitData) watchLoop() {
 	defer ud.tomb.Done()
-	defer ud.watcher.Stop()
+	w := ud.unit.Watch()
+	defer watcher.Stop(w, &ud.tomb)
 	var ports []state.Port
 	for {
 		select {
 		case <-ud.tomb.Dying():
 			return
-		case unit, ok := <-ud.watcher.Changes():
+		case _, ok := <-w.Changes():
 			if !ok {
-				// TODO(niemeyer): Unit watcher shouldn't return a unit.
-				err := watcher.MustErr(ud.watcher)
+				ud.fw.tomb.Kill(watcher.MustErr(w))
+				return
+			}
+			if err := ud.unit.Refresh(); err != nil {
 				if !state.IsNotFound(err) {
 					ud.fw.tomb.Kill(err)
 				}
 				return
 			}
-			change := unit.OpenedPorts()
+			change := ud.unit.OpenedPorts()
 			if samePorts(change, ports) {
 				continue
 			}
-			ports = append([]state.Port(nil), change...)
+			ports = append(ports[:0], change...)
 			select {
 			case ud.fw.portsChange <- &portsChange{ud, change}:
 			case <-ud.tomb.Dying():
@@ -583,7 +584,6 @@ type serviceData struct {
 	tomb    tomb.Tomb
 	fw      *Firewaller
 	service *state.Service
-	watcher *state.ServiceWatcher
 	exposed bool
 	unitds  map[string]*unitData
 }
@@ -594,7 +594,6 @@ func newServiceData(service *state.Service, fw *Firewaller) *serviceData {
 	sd := &serviceData{
 		fw:      fw,
 		service: service,
-		watcher: service.Watch(),
 		unitds:  make(map[string]*unitData),
 	}
 	sd.exposed = service.IsExposed()
@@ -605,21 +604,24 @@ func newServiceData(service *state.Service, fw *Firewaller) *serviceData {
 // watchLoop watches the service's exposed flag for changes.
 func (sd *serviceData) watchLoop(exposed bool) {
 	defer sd.tomb.Done()
-	defer sd.watcher.Stop()
+	w := sd.service.Watch()
+	defer watcher.Stop(w, &sd.tomb)
 	for {
 		select {
 		case <-sd.tomb.Dying():
 			return
-		case service, ok := <-sd.watcher.Changes():
+		case _, ok := <-w.Changes():
 			if !ok {
-				// TODO(niemeyer): Service watcher shouldn't return a service.
-				err := watcher.MustErr(sd.watcher)
+				sd.fw.tomb.Kill(watcher.MustErr(w))
+				return
+			}
+			if err := sd.service.Refresh(); err != nil {
 				if !state.IsNotFound(err) {
 					sd.fw.tomb.Kill(err)
 				}
 				return
 			}
-			change := service.IsExposed()
+			change := sd.service.IsExposed()
 			if change == exposed {
 				continue
 			}

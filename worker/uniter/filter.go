@@ -192,7 +192,7 @@ func (f *filter) loop(unitName string) (err error) {
 			return tomb.ErrDying
 
 		// Handle watcher changes.
-		case f.unit, ok = <-unitw.Changes():
+		case _, ok = <-unitw.Changes():
 			log.Debugf("worker/uniter/filter: got unit change")
 			if !ok {
 				return watcher.MustErr(unitw)
@@ -200,7 +200,7 @@ func (f *filter) loop(unitName string) (err error) {
 			if err = f.unitChanged(); err != nil {
 				return err
 			}
-		case f.service, ok = <-servicew.Changes():
+		case _, ok = <-servicew.Changes():
 			log.Debugf("worker/uniter/filter: got service change")
 			if !ok {
 				return watcher.MustErr(servicew)
@@ -261,6 +261,12 @@ func (f *filter) loop(unitName string) (err error) {
 
 // unitChanged responds to changes in the unit.
 func (f *filter) unitChanged() error {
+	if err := f.unit.Refresh(); err != nil {
+		if state.IsNotFound(err) {
+			return worker.ErrDead
+		}
+		return err
+	}
 	if f.life != f.unit.Life() {
 		switch f.life = f.unit.Life(); f.life {
 		case state.Dying:
@@ -283,6 +289,12 @@ func (f *filter) unitChanged() error {
 
 // serviceChanged responds to changes in the service.
 func (f *filter) serviceChanged() error {
+	if err := f.service.Refresh(); err != nil {
+		if state.IsNotFound(err) {
+			return fmt.Errorf("service unexpectedly removed")
+		}
+		return err
+	}
 	url, force := f.service.CharmURL()
 	f.upgradeAvailable = serviceCharm{url, force}
 	switch f.service.Life() {

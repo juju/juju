@@ -43,7 +43,7 @@ func (*NewConnSuite) TestNewConnWithoutAdminSecret(c *C) {
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
-	err = juju.Bootstrap(env, false, coretesting.RootPEMBytes)
+	err = juju.Bootstrap(env, false, []byte(coretesting.CACertPEM+coretesting.CAKeyPEM))
 	c.Assert(err, IsNil)
 
 	delete(attrs, "admin-secret")
@@ -87,7 +87,7 @@ environments:
 
 	environ, err := environs.NewFromName("")
 	c.Assert(err, IsNil)
-	err = juju.Bootstrap(environ, false, coretesting.RootPEMBytes)
+	err = juju.Bootstrap(environ, false, []byte(coretesting.CACertPEM+coretesting.CAKeyPEM))
 	c.Assert(err, IsNil)
 
 	conn, err = juju.NewConnFromName("")
@@ -120,7 +120,7 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *C) {
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
-	err = juju.Bootstrap(env, false, coretesting.RootPEMBytes)
+	err = juju.Bootstrap(env, false, []byte(coretesting.CACertPEM+coretesting.CAKeyPEM))
 	c.Assert(err, IsNil)
 	info, err := env.StateInfo()
 	c.Assert(err, IsNil)
@@ -159,7 +159,7 @@ func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *C) {
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
-	err = juju.Bootstrap(env, false, coretesting.RootPEMBytes)
+	err = juju.Bootstrap(env, false, []byte(coretesting.CACertPEM+coretesting.CAKeyPEM))
 	c.Assert(err, IsNil)
 
 	// Make a new Conn, which will push the secrets.
@@ -196,7 +196,7 @@ func (cs *NewConnSuite) TestConnWithPassword(c *C) {
 		"root-cert":       rootCert,
 	})
 	c.Assert(err, IsNil)
-	err = juju.Bootstrap(env, false, coretesting.RootPEMBytes)
+	err = juju.Bootstrap(env, false, []byte(coretesting.CACertPEM+coretesting.CAKeyPEM))
 	c.Assert(err, IsNil)
 
 	// Check that Bootstrap has correctly used a hash
@@ -253,7 +253,7 @@ func (s *ConnSuite) SetUpTest(c *C) {
 	}
 	environ, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
-	err = juju.Bootstrap(environ, false, coretesting.RootPEMBytes)
+	err = juju.Bootstrap(environ, false, []byte(coretesting.CACertPEM+coretesting.CAKeyPEM))
 	c.Assert(err, IsNil)
 	s.conn, err = juju.NewConn(environ)
 	c.Assert(err, IsNil)

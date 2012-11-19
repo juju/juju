@@ -123,7 +123,8 @@ func (t configTest) check(c *C) {
 
 var configTests = []configTest{
 	{
-		config: attrs{},
+		config:  attrs{},
+		pbucket: "juju-dist",
 	}, {
 		config: attrs{
 			"region": "eu-west-1",
