@@ -109,14 +109,14 @@ type Storage interface {
 
 // An Environ represents a juju environment as specified
 // in the environments.yaml file.
-// 
+//
 // Due to the limitations of some providers (for example ec2), the
 // results of the Environ methods may not be fully sequentially
 // consistent. In particular, while a provider may retry when it
 // gets an error for an operation, it will not retry when
 // an operation succeeds, even if that success is not
 // consistent with a previous operation.
-// 
+//
 type Environ interface {
 	// Name returns the Environ's name.
 	Name() string
@@ -130,7 +130,10 @@ type Environ interface {
 	// trivial.PasswordHash), When first connecting to the
 	// environment via the juju package, the password hash will be
 	// automatically replaced by the real password.
-	Bootstrap(uploadTools bool) error
+	//
+	// The stateServerPEM parameter holds both the private key and the
+	// respective certificate to be used by the initial state server.
+	Bootstrap(uploadTools bool, stateServerPEM []byte) error
 
 	// StateInfo returns information on the state initialized
 	// by Bootstrap.
@@ -166,7 +169,7 @@ type Environ interface {
 	// will be returned.
 	Instances(ids []string) ([]Instance, error)
 
-	// AllInstances returns all instances currently known to the 
+	// AllInstances returns all instances currently known to the
 	// environment.
 	AllInstances() ([]Instance, error)
 

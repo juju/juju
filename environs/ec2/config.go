@@ -19,7 +19,7 @@ var configChecker = schema.StrictFieldMap(
 		"access-key":    "",
 		"secret-key":    "",
 		"region":        "us-east-1",
-		"public-bucket": "",
+		"public-bucket": "juju-dist",
 	},
 )
 

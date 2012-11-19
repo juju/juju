@@ -165,7 +165,13 @@ func (s *FilterSuite) TestResolvedEvents(c *C) {
 }
 
 func (s *FilterSuite) TestCharmEvents(c *C) {
-	f, err := newFilter(s.State, s.unit.Name())
+	oldCharm := s.AddTestingCharm(c, "upgrade1")
+	svc, err := s.State.AddService("upgradetest", oldCharm)
+	c.Assert(err, IsNil)
+	unit, err := svc.AddUnit()
+	c.Assert(err, IsNil)
+
+	f, err := newFilter(s.State, unit.Name())
 	c.Assert(err, IsNil)
 	defer f.Stop()
 
@@ -181,48 +187,48 @@ func (s *FilterSuite) TestCharmEvents(c *C) {
 	assertNoChange()
 
 	// Request an event relative to the existing state; nothing.
-	f.WantUpgradeEvent(s.ch.URL(), false)
+	f.WantUpgradeEvent(oldCharm.URL(), false)
 	assertNoChange()
 
 	// Change the service in an irrelevant way; no events.
-	err = s.svc.SetExposed()
+	err = svc.SetExposed()
 	c.Assert(err, IsNil)
 	assertNoChange()
 
 	// Change the service's charm; new event received.
-	ch := s.AddTestingCharm(c, "dummy-v2")
-	err = s.svc.SetCharm(ch, false)
+	newCharm := s.AddTestingCharm(c, "upgrade2")
+	err = svc.SetCharm(newCharm, false)
 	c.Assert(err, IsNil)
 	assertChange := func(url *charm.URL) {
 		s.State.Sync()
 		select {
-		case sch := <-f.UpgradeEvents():
-			c.Assert(sch.URL(), DeepEquals, url)
+		case upgradeCharm := <-f.UpgradeEvents():
+			c.Assert(upgradeCharm.URL(), DeepEquals, url)
 		case <-time.After(50 * time.Millisecond):
 			c.Fatalf("timed out")
 		}
 	}
-	assertChange(ch.URL())
+	assertChange(newCharm.URL())
 	assertNoChange()
 
 	// Request a change relative to the original state, unforced;
 	// same event is sent.
-	f.WantUpgradeEvent(s.ch.URL(), false)
-	assertChange(ch.URL())
+	f.WantUpgradeEvent(oldCharm.URL(), false)
+	assertChange(newCharm.URL())
 	assertNoChange()
 
 	// Request a forced change relative to the initial state; no change...
-	f.WantUpgradeEvent(s.ch.URL(), true)
+	f.WantUpgradeEvent(oldCharm.URL(), true)
 	assertNoChange()
 
 	// ...and still no change when we have a forced upgrade to that state...
-	err = s.svc.SetCharm(s.ch, true)
+	err = svc.SetCharm(oldCharm, true)
 	c.Assert(err, IsNil)
 	assertNoChange()
 
 	// ...but a *forced* change to a different charm does generate an event.
-	err = s.svc.SetCharm(ch, true)
-	assertChange(ch.URL())
+	err = svc.SetCharm(newCharm, true)
+	assertChange(newCharm.URL())
 	assertNoChange()
 }
 

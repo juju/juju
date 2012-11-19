@@ -20,13 +20,13 @@ import (
 // It also sets up RootDir to point to a directory hierarchy
 // mirroring the intended juju directory structure, including
 // the following:
-//  RootDir/home/ubuntu/.juju/environments.yaml
-//      The dummy environments.yaml file, holding
-//      a default environment named "dummyenv"
-//      which uses the "dummy" environment type.
-//  RootDir/var/lib/juju
-//      An empty directory returned as DataDir - the
-//      root of the juju data storage space.
+//     RootDir/home/ubuntu/.juju/environments.yaml
+//         The dummy environments.yaml file, holding
+//         a default environment named "dummyenv"
+//         which uses the "dummy" environment type.
+//     RootDir/var/lib/juju
+//         An empty directory returned as DataDir - the
+//         root of the juju data storage space.
 // $HOME is set to point to RootDir/home/ubuntu.
 type JujuConnSuite struct {
 	testing.LoggingSuite
@@ -121,7 +121,7 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	c.Assert(err, IsNil)
 	// sanity check we've got the correct environment.
 	c.Assert(environ.Name(), Equals, "dummyenv")
-	c.Assert(environ.Bootstrap(false), IsNil)
+	c.Assert(environ.Bootstrap(false, nil), IsNil)
 
 	conn, err := juju.NewConnFromName("dummyenv")
 	c.Assert(err, IsNil)
@@ -169,7 +169,7 @@ func (s *JujuConnSuite) WriteConfig(config string) {
 
 func (s *JujuConnSuite) AddTestingCharm(c *C, name string) *state.Charm {
 	ch := testing.Charms.Dir("series", name)
-	ident := fmt.Sprintf("%s-%d", name, ch.Revision())
+	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
 	curl := charm.MustParseURL("local:series/" + ident)
 	repo, err := charm.InferRepository(curl, testing.Charms.Path)
 	c.Assert(err, IsNil)

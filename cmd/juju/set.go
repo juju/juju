@@ -102,7 +102,7 @@ func (c *SetCommand) Run(ctx *cmd.Context) error {
 	return err
 }
 
-// parse parses the option k=v strings into a map of options to be 
+// parse parses the option k=v strings into a map of options to be
 // updated in the config. Keys with empty values are returned separately
 // and should be removed.
 func parse(options []string) (kv map[string]string, del []string, err error) {
@@ -123,7 +123,7 @@ func parse(options []string) (kv map[string]string, del []string, err error) {
 
 // strip removes from validated, any keys which are not also present in unvalidated.
 func strip(validated map[string]interface{}, unvalidated map[string]string) map[string]interface{} {
-	for k, _ := range validated {
+	for k := range validated {
 		if _, ok := unvalidated[k]; !ok {
 			delete(validated, k)
 		}

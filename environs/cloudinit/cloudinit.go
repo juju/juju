@@ -25,9 +25,14 @@ var mgoPortSuffix = fmt.Sprintf(":%d", mgoPort)
 // Creation of cloudinit data from this struct is largely provider-independent,
 // but we'll keep it internal until we need to factor it out.
 type MachineConfig struct {
-	// StateServer specifies whether the new machine will run a ZooKeeper 
+	// StateServer specifies whether the new machine will run a ZooKeeper
 	// or MongoDB instance.
 	StateServer bool
+
+	// StateServerPEM holds the state server certificate and private
+	// key in PEM format; it is required when StateServer is set,
+	// and ignored otherwise.
+	StateServerPEM []byte
 
 	// InstanceIdAccessor holds bash code that evaluates to the current instance id.
 	InstanceIdAccessor string
@@ -80,6 +85,8 @@ func base64yaml(m *config.Config) string {
 	return base64.StdEncoding.EncodeToString(data)
 }
 
+const serverPEMPath = "/var/lib/juju/server.pem"
+
 func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	if err := verifyConfig(cfg); err != nil {
 		return nil, err
@@ -109,6 +116,12 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	}
 
 	if cfg.StateServer {
+		addScripts(c,
+			fmt.Sprintf("echo %s > %s",
+				shquote(string(cfg.StateServerPEM)), serverPEMPath),
+			"chmod 600 "+serverPEMPath,
+		)
+
 		// TODO The public bucket must come from the environment configuration.
 		b := cfg.Tools.Binary
 		url := fmt.Sprintf("http://juju-dist.s3.amazonaws.com/tools/mongo-2.2.0-%s-%s.tgz", b.Series, b.Arch)
@@ -276,6 +289,9 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		}
 		if cfg.StateInfo.EntityName != "" {
 			return fmt.Errorf("entity name must be blank when starting a state server")
+		}
+		if len(cfg.StateServerPEM) == 0 {
+			return fmt.Errorf("missing state server PEM")
 		}
 	} else {
 		if len(cfg.StateInfo.Addrs) == 0 {

@@ -36,14 +36,14 @@ type ContextSuite struct {
 
 func (s *ContextSuite) SetUpTest(c *C) {
 	s.rels = map[int]*ContextRelation{
-		0: &ContextRelation{
+		0: {
 			id:   0,
 			name: "peer0",
 			units: map[string]Settings{
 				"u/0": {"private-address": "u-0.example.com"},
 			},
 		},
-		1: &ContextRelation{
+		1: {
 			id:   1,
 			name: "peer1",
 			units: map[string]Settings{

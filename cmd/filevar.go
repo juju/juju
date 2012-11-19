@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 )
 
-// FileVar represents a path to a file. 
+// FileVar represents a path to a file.
 type FileVar struct {
 	Path string
 }
