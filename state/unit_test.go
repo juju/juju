@@ -473,11 +473,10 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 	defer func() {
 		c.Assert(w.Stop(), IsNil)
 	}()
-	s.State.StartSync()
+	s.State.Sync()
 	select {
-	case name, ok := <-w.Changes():
+	case _, ok := <-w.Changes():
 		c.Assert(ok, Equals, true)
-		c.Assert(name, Equals, s.unit.Name())
 		err := s.unit.Refresh()
 		c.Assert(err, IsNil)
 		addr, err := s.unit.PublicAddress()
@@ -493,9 +492,8 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 		c.Assert(err, IsNil)
 		s.State.StartSync()
 		select {
-		case name, ok := <-w.Changes():
+		case _, ok := <-w.Changes():
 			c.Assert(ok, Equals, true)
-			c.Assert(name, Equals, s.unit.Name())
 			err := s.unit.Refresh()
 			c.Assert(err, IsNil)
 			var info unitInfo
@@ -511,8 +509,8 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 		}
 	}
 	select {
-	case got := <-w.Changes():
-		c.Fatalf("got unexpected change: %#v", got)
+	case got, ok := <-w.Changes():
+		c.Fatalf("got unexpected change: %#v, %v", got, ok)
 	case <-time.After(100 * time.Millisecond):
 	}
 }

@@ -138,11 +138,6 @@ func (m *Machine) Refresh() error {
 	return nil
 }
 
-// Watch returns a watcher that fires when the machine changes.
-func (m *Machine) Watch() *MachineWatcher {
-	return newMachineWatcher(m)
-}
-
 // AgentAlive returns whether the respective remote agent is alive.
 func (m *Machine) AgentAlive() (bool, error) {
 	return m.st.pwatcher.Alive(m.globalKey())
