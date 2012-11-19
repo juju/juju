@@ -186,10 +186,10 @@ func makeFakeHome(c *C, certNames ...string) fakeHome {
 	err := os.Mkdir(homePath(".juju"), 0777)
 	c.Assert(err, IsNil)
 	for _, name := range certNames {
-		err := ioutil.WriteFile(homePath(".juju", name+"-root-cert.pem"), []byte(testing.CACertPEM), 0666)
+		err := ioutil.WriteFile(homePath(".juju", name+"-cert.pem"), []byte(testing.CACertPEM), 0666)
 		c.Assert(err, IsNil)
 
-		err = ioutil.WriteFile(homePath(".juju", name+"-root-key.pem"), []byte(testing.CAKeyPEM), 0666)
+		err = ioutil.WriteFile(homePath(".juju", name+"-key.pem"), []byte(testing.CAKeyPEM), 0666)
 		c.Assert(err, IsNil)
 	}
 

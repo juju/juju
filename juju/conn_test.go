@@ -38,8 +38,8 @@ func (*NewConnSuite) TestNewConnWithoutAdminSecret(c *C) {
 		"authorized-keys":  "i-am-a-key",
 		"secret":           "pork",
 		"admin-secret":     "really",
-		"root-cert":        rootCert,
-		"root-private-key": "",
+		"ca-cert":        caCert,
+		"ca-private-key": "",
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
@@ -77,7 +77,7 @@ environments:
         admin-secret: conn-from-name-secret
 `), 0644)
 
-	err = ioutil.WriteFile(filepath.Join(home, ".juju", "erewhemos-root-cert.pem"), []byte(rootCert), 0600)
+	err = ioutil.WriteFile(filepath.Join(home, ".juju", "erewhemos-cert.pem"), []byte(caCert), 0600)
 	c.Assert(err, IsNil)
 
 	// Just run through a few operations on the dummy provider and verify that
@@ -116,7 +116,7 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *C) {
 		"authorized-keys": "i-am-a-key",
 		"secret":          "pork",
 		"admin-secret":    "side-effect secret",
-		"root-cert":       rootCert,
+		"ca-cert":       caCert,
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
@@ -155,7 +155,7 @@ func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *C) {
 		"authorized-keys": "i-am-a-key",
 		"secret":          "pork",
 		"admin-secret":    "some secret",
-		"root-cert":       rootCert,
+		"ca-cert":       caCert,
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
@@ -193,7 +193,7 @@ func (cs *NewConnSuite) TestConnWithPassword(c *C) {
 		"authorized-keys": "i-am-a-key",
 		"secret":          "squirrel",
 		"admin-secret":    "nutkin",
-		"root-cert":       rootCert,
+		"ca-cert":       caCert,
 	})
 	c.Assert(err, IsNil)
 	err = juju.Bootstrap(env, false, []byte(coretesting.CACertPEM+coretesting.CAKeyPEM))
@@ -249,7 +249,7 @@ func (s *ConnSuite) SetUpTest(c *C) {
 		"state-server":    true,
 		"authorized-keys": "i-am-a-key",
 		"admin-secret":    "deploy-test-secret",
-		"root-cert":       rootCert,
+		"ca-cert":      caCert,
 	}
 	environ, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
@@ -472,7 +472,7 @@ func (s *ConnSuite) TestResolved(c *C) {
 	c.Assert(u.Resolved(), Equals, state.ResolvedRetryHooks)
 }
 
-var rootCert = `
+var caCert = `
 -----BEGIN CERTIFICATE-----
 MIIBdzCCASOgAwIBAgIBADALBgkqhkiG9w0BAQUwHjENMAsGA1UEChMEanVqdTEN
 MAsGA1UEAxMEcm9vdDAeFw0xMjExMDgxNjIyMzRaFw0xMzExMDgxNjI3MzRaMBwx
@@ -485,7 +485,7 @@ G/2iCUQCXsVrBparMLFnor/iKOkJB5n3z3rtu70rFt+DpX6L8uBR3LB3+A==
 -----END CERTIFICATE-----
 `
 
-var rootKey = `
+var caKey = `
 -----BEGIN RSA PRIVATE KEY-----
 MIIBPAIBAAJBAIAKrPok/AzudvEBa5v4A+mc0HubJyRYnqeew8qL1KKk/WHKF/OS
 nxEYwnlS/vLwJJO0nySD+JuRrVVXwu8/22cCAwEAAQJBAJsk1F0wTRuaIhJ5xxqw

@@ -763,8 +763,8 @@ func (createServiceAndUnit) step(c *C, ctx *context) {
 		"type":             "dummy",
 		"default-series":   "abominable",
 		"authorized-keys":  "we-are-the-keys",
-		"root-cert":        coretesting.CACertPEM,
-		"root-private-key": "",
+		"ca-cert":        coretesting.CACertPEM,
+		"ca-private-key": "",
 	})
 	c.Assert(err, IsNil)
 	err = ctx.st.SetEnvironConfig(cfg)
