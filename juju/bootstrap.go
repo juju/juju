@@ -164,7 +164,7 @@ func parseCAPEM(caPEM []byte, requirePrivateKey bool) (*x509.Certificate, *rsa.P
 			log.Printf("juju: unknown PEM block type %q found in CA certificate", b.Type)
 		}
 	}
-	
+
 	if certBlock == nil {
 		return nil, nil, fmt.Errorf("CA PEM holds no certificate")
 	}

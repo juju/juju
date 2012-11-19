@@ -58,7 +58,7 @@ func (s *bootstrapSuite) TestBootstrapKeyGeneration(c *C) {
 	c.Assert(caName, Equals, `juju-generated CA for environment "foo"`)
 }
 
-var testServerPEM = []byte(testing.RootCertPEM + testing.RootKeyPEM)
+var testServerPEM = []byte(testing.CACertPEM + testing.CAKeyPEM)
 
 func (s *bootstrapSuite) TestBootstrapExistingKey(c *C) {
 	path := filepath.Join(os.Getenv("HOME"), ".juju", "bar.pem")
@@ -72,7 +72,7 @@ func (s *bootstrapSuite) TestBootstrapExistingKey(c *C) {
 
 	bootstrapCert, bootstrapKey := parseCertAndKey(c, env.stateServerPEM)
 
-	caName := checkTLSConnection(c, certificate(testing.RootCertPEM), bootstrapCert, bootstrapKey)
+	caName := checkTLSConnection(c, certificate(testing.CACertPEM), bootstrapCert, bootstrapKey)
 	c.Assert(caName, Equals, testing.RootCertX509.Subject.CommonName)
 }
 
@@ -98,7 +98,7 @@ func (s *bootstrapSuite) TestBootstrapWithCertArgument(c *C) {
 
 	bootstrapCert, bootstrapKey := parseCertAndKey(c, env.stateServerPEM)
 
-	caName := checkTLSConnection(c, certificate(testing.RootCertPEM), bootstrapCert, bootstrapKey)
+	caName := checkTLSConnection(c, certificate(testing.CACertPEM), bootstrapCert, bootstrapKey)
 	c.Assert(caName, Equals, testing.RootCertX509.Subject.CommonName)
 }
 
@@ -109,10 +109,10 @@ var invalidCertTests = []struct {
 	`xxxx`,
 	"bad CA PEM: CA PEM holds no certificate",
 }, {
-	testing.RootCertPEM,
+	testing.CACertPEM,
 	"bad CA PEM: CA PEM holds no private key",
 }, {
-	testing.RootKeyPEM,
+	testing.CAKeyPEM,
 	"bad CA PEM: CA PEM holds no certificate",
 }, {
 	`-----BEGIN CERTIFICATE-----
@@ -120,13 +120,13 @@ MIIBnTCCAUmgAwIBAgIBADALBgkqhkiG9w0BAQUwJjENMAsGA1UEChMEanVqdTEV
 MBMGA1UEAxMManVqdSB0ZXN0aW5nMB4XDTEyMTExNDE0Mzg1NFoXDTIyMTExNDE0
 NDM1NFowJjENMAsGA1UEChMEanVqdTEVMBMGA1UEAxMManVqdSB0ZXN0aW5n
 -----END CERTIFICATE-----
-` + testing.RootKeyPEM,
+` + testing.CAKeyPEM,
 	`bad CA PEM: ASN\.1.*`,
 }, {
 	`-----BEGIN RSA PRIVATE KEY-----
 MIIBOwIBAAJBAII46mf1pYpwqvYZAa3KDAPs91817Uj0FiI8CprYjfcXn7o+oV1+
 -----END RSA PRIVATE KEY-----
-` + testing.RootCertPEM,
+` + testing.CACertPEM,
 	"bad CA PEM: crypto/tls: failed to parse key: .*",
 }, {
 	`-----BEGIN CERTIFICATE-----
