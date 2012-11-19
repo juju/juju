@@ -51,7 +51,7 @@ func (t *Tests) TestBootstrapWithoutAdminSecret(c *C) {
 	delete(m, "admin-secret")
 	env, err := environs.NewFromAttrs(m)
 	c.Assert(err, IsNil)
-	err = juju.Bootstrap(env, false, coretesting.RootPEMBytes)
+	err = juju.Bootstrap(env, false, []byte(coretesting.CACert + coretesting.CAKey))
 	c.Assert(err, ErrorMatches, ".*admin-secret is required for bootstrap")
 }
 
@@ -100,18 +100,18 @@ func (t *Tests) TestStartStop(c *C) {
 func (t *Tests) TestBootstrap(c *C) {
 	// TODO tests for Bootstrap(true)
 	e := t.Open(c)
-	err := juju.Bootstrap(e, false, coretesting.RootPEMBytes)
+	err := juju.Bootstrap(e, false, []byte(coretesting.CACert + coretesting.CAKey))
 	c.Assert(err, IsNil)
 
 	info, err := e.StateInfo()
 	c.Assert(info, NotNil)
 	c.Check(info.Addrs, Not(HasLen), 0)
 
-	err = juju.Bootstrap(e, false, coretesting.RootPEMBytes)
+	err = juju.Bootstrap(e, false, []byte(coretesting.CACert + coretesting.CAKey))
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	e2 := t.Open(c)
-	err = juju.Bootstrap(e2, false, coretesting.RootPEMBytes)
+	err = juju.Bootstrap(e2, false, []byte(coretesting.CACert + coretesting.CAKey))
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	info2, err := e2.StateInfo()
@@ -123,10 +123,10 @@ func (t *Tests) TestBootstrap(c *C) {
 	// Open again because Destroy invalidates old environments.
 	e3 := t.Open(c)
 
-	err = juju.Bootstrap(e3, false, coretesting.RootPEMBytes)
+	err = juju.Bootstrap(e3, false, []byte(coretesting.CACert + coretesting.CAKey))
 	c.Assert(err, IsNil)
 
-	err = juju.Bootstrap(e3, false, coretesting.RootPEMBytes)
+	err = juju.Bootstrap(e3, false, []byte(coretesting.CACert + coretesting.CAKey))
 	c.Assert(err, NotNil)
 }
 

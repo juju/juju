@@ -77,7 +77,7 @@ func (t *LiveTests) BootstrapOnce(c *C) {
 	if t.bootstrapped {
 		return
 	}
-	err := juju.Bootstrap(t.Env, true, coretesting.RootPEMBytes)
+	err := juju.Bootstrap(t.Env, true, []byte(coretesting.CACert + coretesting.CAKey))
 	c.Assert(err, IsNil)
 	t.bootstrapped = true
 }
@@ -293,7 +293,7 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 func (t *LiveTests) TestBootstrapMultiple(c *C) {
 	t.BootstrapOnce(c)
 
-	err := juju.Bootstrap(t.Env, false, coretesting.RootPEMBytes)
+	err := juju.Bootstrap(t.Env, false, []byte(coretesting.CACert + coretesting.CAKey))
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	c.Logf("destroy env")
