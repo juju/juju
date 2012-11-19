@@ -55,7 +55,7 @@ func (s *bootstrapSuite) TestBootstrapKeyGeneration(c *C) {
 	caCert, _ := parseCertAndKey(c, caKeyPEM)
 
 	caName := checkTLSConnection(c, caCert, bootstrapCert, bootstrapKey)
-	c.Assert(caName, Equals, `juju-generated CA for environment "foo"`)
+	c.Assert(caName, Equals, `juju-generated CA for environment foo`)
 }
 
 var testServerPEM = []byte(testing.CACertPEM + testing.CAKeyPEM)

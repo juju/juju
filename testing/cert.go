@@ -36,7 +36,6 @@ JFwDdp+7gE98mXtaFrjctLWeFx797U8CIAnnqiMTwWM8H2ljyhfBtYMXeTmu3zzU
 HOzuvYngJpoClGw0ipzJPoNZ2Z/GkdOWGByPeKu/8g==
 -----END RSA PRIVATE KEY-----
 `[1:]
-
 	CAKeyRSA = mustParseKeyPEM(CAKeyPEM)
 )
 
