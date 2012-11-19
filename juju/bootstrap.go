@@ -49,8 +49,6 @@ func Bootstrap(environ environs.Environ, uploadTools bool, caPEM []byte) error {
 const keyBits = 1024
 
 func generateCACert(envName string) ([]byte, error) {
-	// TODO make sure that the environment name cannot
-	// contain slashes.
 	path := filepath.Join(os.Getenv("HOME"), ".juju", envName+".pem")
 	data, err := ioutil.ReadFile(path)
 	if err == nil {
@@ -105,8 +103,8 @@ func generateCert(envName string, caCert *x509.Certificate, caKey *rsa.PrivateKe
 	template := &x509.Certificate{
 		SerialNumber: new(big.Int),
 		Subject: pkix.Name{
-			// Note: despite the wildcard, this name will not match
-			// host names containing dots.
+			// This won't match host names with dots. The hostname
+			// is hardcoded when connecting to avoid the issue.
 			CommonName:   "*",
 			Organization: []string{"juju"},
 		},
