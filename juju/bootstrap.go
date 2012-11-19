@@ -65,7 +65,7 @@ func generateCACert(envName string) ([]byte, error) {
 		SerialNumber: new(big.Int),
 		Subject: pkix.Name{
 			// TODO quote the environment name when we start using
-			// Go version 1.1.
+			// Go version 1.1. See Go issue 3791.
 			CommonName:   fmt.Sprintf("juju-generated CA for environment %s", envName),
 			Organization: []string{"juju"},
 		},
@@ -74,8 +74,8 @@ func generateCACert(envName string) ([]byte, error) {
 		SubjectKeyId:          bigIntHash(priv.N),
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
 		BasicConstraintsValid: true,
-		IsCA:                  true,
-		MaxPathLen:            0, // Disallow delegation for now.
+		IsCA:       true,
+		MaxPathLen: 0, // Disallow delegation for now.
 	}
 	certDER, err := x509.CreateCertificate(rand.Reader, template, template, &priv.PublicKey, priv)
 	if err != nil {
