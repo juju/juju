@@ -7,7 +7,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
-	"launchpad.net/juju-core/log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -62,7 +61,7 @@ func readAuthorizedKeys(path string) (string, error) {
 	return string(keyData), nil
 }
 
-func readCertFile(path string, defaultPath string) ([]byte, error) {
+func readFile(path string, defaultPath string) ([]byte, error) {
 	if path == "" {
 		path = defaultPath
 	}
@@ -70,7 +69,6 @@ func readCertFile(path string, defaultPath string) ([]byte, error) {
 	if !filepath.IsAbs(path) {
 		path = filepath.Join(os.Getenv("HOME"), ".juju", path)
 	}
-	log.Printf("reading cert file %q", path)
 	return ioutil.ReadFile(path)
 }
 

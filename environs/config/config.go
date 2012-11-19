@@ -45,8 +45,8 @@ type Config struct {
 //	~/.ssh/id_dsa.pub
 //	~/.ssh/id_rsa.pub
 //	~/.ssh/identity.pub
-//	~/.juju/<name>-ca-cert.pem
-//	~/.juju/<name>-ca-private-key.pem
+//	~/.juju/<name>-cert.pem
+//	~/.juju/<name>-private-key.pem
 //
 // The required keys (after any files have been read) are:
 // "name", "type", "authorized-keys" and
@@ -90,7 +90,7 @@ func New(attrs map[string]interface{}) (*Config, error) {
 	caCert := []byte(c.m["ca-cert"].(string))
 	caCertPath := c.m["ca-cert-path"].(string)
 	if caCertPath != "" || len(caCert) == 0 {
-		caCert, err = readCertFile(caCertPath, name+"-ca-cert.pem")
+		caCert, err = readFile(caCertPath, name+"-cert.pem")
 		if err != nil {
 			return nil, err
 		}
@@ -107,7 +107,7 @@ func New(attrs map[string]interface{}) (*Config, error) {
 	// Note: we do not read the key file if the CA key is
 	// specified as a empty string.
 	if caKeyPath != "" || caKey == nil {
-		caKey, err = readCertFile(caKeyPath, name+"-ca-key.pem")
+		caKey, err = readFile(caKeyPath, name+"-key.pem")
 		if err != nil && !os.IsNotExist(err) {
 			return nil, err
 		}

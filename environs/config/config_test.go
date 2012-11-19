@@ -255,8 +255,8 @@ var configTestFiles = []struct {
 	{".ssh/authorized_keys", "auth0\n# first\nauth1\n\n"},
 	{".ssh/authorized_keys2", "auth2\nauth3\n"},
 
-	{".juju/my-name-ca-cert.pem", caCert},
-	{".juju/my-name-ca-key.pem", caKey},
+	{".juju/my-name-cert.pem", caCert},
+	{".juju/my-name-key.pem", caKey},
 	{".juju/cacert2.pem", caCert2},
 	{".juju/cakey2.pem", caKey2},
 	{"othercert.pem", caCert3},
