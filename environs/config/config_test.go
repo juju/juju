@@ -68,76 +68,76 @@ var configTests = []struct {
 		attrs: attrs{
 			"type":                  "my-type",
 			"name":                  "my-name",
-			"root-cert-path":        "rootcert2.pem",
-			"root-private-key-path": "rootkey2.pem",
+			"ca-cert-path":        "cacert2.pem",
+			"ca-private-key-path": "cakey2.pem",
 		},
 	}, {
 		about: "Root cert & key from ~ path",
 		attrs: attrs{
 			"type":                  "my-type",
 			"name":                  "my-name",
-			"root-cert-path":        "~/othercert.pem",
-			"root-private-key-path": "~/otherkey.pem",
+			"ca-cert-path":        "~/othercert.pem",
+			"ca-private-key-path": "~/otherkey.pem",
 		},
 	}, {
 		about: "Root cert only from ~ path",
 		attrs: attrs{
 			"type":             "my-type",
 			"name":             "my-name",
-			"root-cert-path":   "~/othercert.pem",
-			"root-private-key": "",
+			"ca-cert-path":   "~/othercert.pem",
+			"ca-private-key": "",
 		},
 	}, {
 		about: "Root cert only as attribute",
 		attrs: attrs{
 			"type":             "my-type",
 			"name":             "my-name",
-			"root-cert":        rootCert,
-			"root-private-key": "",
+			"ca-cert":        caCert,
+			"ca-private-key": "",
 		},
 	}, {
 		about: "Root cert and key as attributes",
 		attrs: attrs{
 			"type":             "my-type",
 			"name":             "my-name",
-			"root-cert":        rootCert,
-			"root-private-key": rootKey,
+			"ca-cert":        caCert,
+			"ca-private-key": caKey,
 		},
 	}, {
-		about: "Mismatched root cert and key",
+		about: "Mismatched CA cert and key",
 		attrs: attrs{
 			"type":             "my-type",
 			"name":             "my-name",
-			"root-cert":        rootCert,
-			"root-private-key": rootKey2,
+			"ca-cert":        caCert,
+			"ca-private-key": caKey2,
 		},
-		err: "bad root certificate/key in configuration: crypto/tls: private key does not match public key",
+		err: "bad CA certificate/key in configuration: crypto/tls: private key does not match public key",
 	}, {
-		about: "Invalid root cert",
+		about: "Invalid CA cert",
 		attrs: attrs{
 			"type":      "my-type",
 			"name":      "my-name",
-			"root-cert": invalidRootCert,
+			"ca-cert": invalidCACert,
 		},
-		err: "bad root certificate/key in configuration: ASN.1 syntax error:.*",
+		err: "bad CA certificate/key in configuration: ASN.1 syntax error:.*",
 	}, {
-		about: "Invalid root key",
+		about: "Invalid CA key",
 		attrs: attrs{
 			"type":             "my-type",
 			"name":             "my-name",
-			"root-cert":        rootCert,
-			"root-private-key": invalidRootKey,
+			"ca-cert":        caCert,
+			"ca-private-key": invalidCAKey,
 		},
-		err: "bad root certificate/key in configuration: crypto/tls: failed to parse key:.*",
+		err: "bad CA certificate/key in configuration: crypto/tls: failed to parse key:.*",
 	}, {
 		about: "No PEM cert",
 		attrs: attrs{
 			"type":             "my-type",
 			"name":             "my-name",
-			"root-cert":        "foo",
-			"root-private-key": "",
+			"ca-cert":        "foo",
+			"ca-private-key": "",
 		},
-		err: "bad root certificate/key in configuration: no certificates found",
+		err: "bad CA certificate/key in configuration: no certificates found",
 	}, {
 		about: "Specified agent version",
 		attrs: attrs{
@@ -255,12 +255,12 @@ var configTestFiles = []struct {
 	{".ssh/authorized_keys", "auth0\n# first\nauth1\n\n"},
 	{".ssh/authorized_keys2", "auth2\nauth3\n"},
 
-	{".juju/my-name-root-cert.pem", rootCert},
-	{".juju/my-name-root-key.pem", rootKey},
-	{".juju/rootcert2.pem", rootCert2},
-	{".juju/rootkey2.pem", rootKey2},
-	{"othercert.pem", rootCert3},
-	{"otherkey.pem", rootKey3},
+	{".juju/my-name-ca-cert.pem", caCert},
+	{".juju/my-name-ca-key.pem", caKey},
+	{".juju/cacert2.pem", caCert2},
+	{".juju/cakey2.pem", caKey2},
+	{"othercert.pem", caCert3},
+	{"otherkey.pem", caKey3},
 }
 
 func (*ConfigSuite) TestConfig(c *C) {
@@ -326,20 +326,20 @@ func (*ConfigSuite) TestConfig(c *C) {
 			c.Assert(cfg.AuthorizedKeys(), Equals, want)
 		}
 
-		if path, _ := test.attrs["root-cert-path"].(string); path != "" {
-			c.Assert(cfg.RootCertPEM(), Equals, fileContents(c, path))
-		} else if test.attrs["root-cert"] != nil {
-			c.Assert(cfg.RootCertPEM(), Equals, test.attrs["root-cert"])
+		if path, _ := test.attrs["ca-cert-path"].(string); path != "" {
+			c.Assert(cfg.CACertPEM(), Equals, fileContents(c, path))
+		} else if test.attrs["ca-cert"] != nil {
+			c.Assert(cfg.CACertPEM(), Equals, test.attrs["ca-cert"])
 		} else {
-			c.Assert(cfg.RootCertPEM(), Equals, rootCert)
+			c.Assert(cfg.CACertPEM(), Equals, caCert)
 		}
 
-		if path, _ := test.attrs["root-private-key-path"].(string); path != "" {
-			c.Assert(cfg.RootPrivateKeyPEM(), Equals, fileContents(c, path))
-		} else if k, ok := test.attrs["root-private-key"]; ok {
-			c.Assert(cfg.RootPrivateKeyPEM(), Equals, k)
+		if path, _ := test.attrs["ca-private-key-path"].(string); path != "" {
+			c.Assert(cfg.CAPrivateKeyPEM(), Equals, fileContents(c, path))
+		} else if k, ok := test.attrs["ca-private-key"]; ok {
+			c.Assert(cfg.CAPrivateKeyPEM(), Equals, k)
 		} else {
-			c.Assert(cfg.RootPrivateKeyPEM(), Equals, rootKey)
+			c.Assert(cfg.CAPrivateKeyPEM(), Equals, caKey)
 		}
 	}
 }
@@ -366,8 +366,8 @@ func (*ConfigSuite) TestConfigAttrs(c *C) {
 		"default-series":   version.Current.Series,
 		"admin-secret":     "foo",
 		"unknown":          "my-unknown",
-		"root-private-key": "",
-		"root-cert":        rootCert,
+		"ca-private-key": "",
+		"ca-cert":        caCert,
 	}
 	cfg, err := config.New(attrs)
 	c.Assert(err, IsNil)
@@ -386,7 +386,7 @@ func (*ConfigSuite) TestConfigAttrs(c *C) {
 	c.Assert(newcfg.AllAttrs(), DeepEquals, attrs)
 }
 
-var rootCert = `
+var caCert = `
 -----BEGIN CERTIFICATE-----
 MIIBjDCCATigAwIBAgIBADALBgkqhkiG9w0BAQUwHjENMAsGA1UEChMEanVqdTEN
 MAsGA1UEAxMEcm9vdDAeFw0xMjExMDkxNjQwMjhaFw0yMjExMDkxNjQ1MjhaMB4x
@@ -400,7 +400,7 @@ r71Sj63TUTFWtRZAxvn9qQ==
 -----END CERTIFICATE-----
 `[1:]
 
-var rootKey = `
+var caKey = `
 -----BEGIN RSA PRIVATE KEY-----
 MIIBOQIBAAJAduA1Gnb2VJLxNGfG4St0Qy48Y3q5Z5HheGtTGmti/FjlvQvScCFG
 CnJG7fKAKnd7ia3vWg7lxYkIvMPVP88LAQIDAQABAkEAsFOdMSYn+AcF1M/iBfjo
@@ -412,7 +412,7 @@ ERPyv2NQqIFQZIyzUP7LVRIWfpFFOo9/Ww/7s5Y=
 -----END RSA PRIVATE KEY-----
 `[1:]
 
-var rootCert2 = `
+var caCert2 = `
 -----BEGIN CERTIFICATE-----
 MIIBjTCCATmgAwIBAgIBADALBgkqhkiG9w0BAQUwHjENMAsGA1UEChMEanVqdTEN
 MAsGA1UEAxMEcm9vdDAeFw0xMjExMDkxNjQxMDhaFw0yMjExMDkxNjQ2MDhaMB4x
@@ -426,7 +426,7 @@ XXzJqBQH92KYmp+y3YXDoMQ=
 -----END CERTIFICATE-----
 `[1:]
 
-var rootKey2 = `
+var caKey2 = `
 -----BEGIN RSA PRIVATE KEY-----
 MIIBOQIBAAJBAJkSWRrr81y8pY4dbNgt+8miSKg4z6glp2KO2NnxxAhyyNtQHKvC
 +fJALJj+C2NhuvOv9xImxOl3Hg8fFPCXCtcCAwEAAQJATQNzO11NQvJS5U6eraFt
@@ -438,7 +438,7 @@ fikzPveC5g6S6OvEQmyDz59tYBubm2XHgvxqww0=
 -----END RSA PRIVATE KEY-----
 `[1:]
 
-var rootCert3 = `
+var caCert3 = `
 -----BEGIN CERTIFICATE-----
 MIIBjTCCATmgAwIBAgIBADALBgkqhkiG9w0BAQUwHjENMAsGA1UEChMEanVqdTEN
 MAsGA1UEAxMEcm9vdDAeFw0xMjExMDkxNjQxMjlaFw0yMjExMDkxNjQ2MjlaMB4x
@@ -452,7 +452,7 @@ zHaUR/dbHuiNTO+KXs3/+Y4=
 -----END CERTIFICATE-----
 `[1:]
 
-var rootKey3 = `
+var caKey3 = `
 -----BEGIN RSA PRIVATE KEY-----
 MIIBOgIBAAJBAIW7CbHFJivvV9V6mO8AGzJS9lqjUf6MdEPsdF6wx2Cpzr/lSFIg
 gCwRA1389MuFxflxb/3U8Nq+rd8rVtTgFMECAwEAAQJAaivPi4qJPrJb2onl50H/
@@ -464,13 +464,13 @@ zatzs7c/4mx4a0JBG6Za0oEPUcm2I34is50KSohz
 -----END RSA PRIVATE KEY-----
 `[1:]
 
-var invalidRootKey = `
+var invalidCAKey = `
 -----BEGIN RSA PRIVATE KEY-----
 MIIBOgIBAAJAZabKgKInuOxj5vDWLwHHQtK3/45KB+32D15w94Nt83BmuGxo90lw
 -----END RSA PRIVATE KEY-----
 `[1:]
 
-var invalidRootCert = `
+var invalidCACert = `
 -----BEGIN CERTIFICATE-----
 MIIBOgIBAAJAZabKgKInuOxj5vDWLwHHQtK3/45KB+32D15w94Nt83BmuGxo90lw
 -----END CERTIFICATE-----

@@ -42,8 +42,7 @@ environments:
 func (s *CmdSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.home = makeFakeHome(c, "peckham", "walthamstow", "brokenenv")
-	err := ioutil.WriteFile(homePath(".juju", "environments.yaml"),
-		[]byte(envConfig), 0666)
+	err := ioutil.WriteFile(homePath(".juju", "environments.yaml"), []byte(envConfig), 0666)
 	c.Assert(err, IsNil)
 }
 

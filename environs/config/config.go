@@ -36,18 +36,21 @@ type Config struct {
 // New returns a new configuration.
 // Fields that are common to all environment providers are verified.
 // The "authorized-keys-path" key is translated into "authorized-keys"
-// by loading the content from respective file; similarly,
-// "root-cert-path" is translated into the "root-cert" and
-// "root-private-key" keys.
-// If no authorized keys are specified in the attributes,
-// they will be read from $HOME/.ssh.
-// If no root certificate is specified, it will be read from
-// $HOME/.juju/<name>-root-cert.pem.
-// If no root private key is specified, it will be read from
-// $HOME/.juju/<name>-root-key.pem if that file exists.
+// by loading the content from respective file. Similarly,
+// "ca-cert-path" and "ca-private-key-path" are translated into the
+// "ca-cert" and "ca-private-key" values.
+// If not specified, authorized SSH keys and CA details will
+// be read from:
 //
-// The required keys are: "name", "type", "authorized-keys" and
-// "root-cert", all of type string.  Additional keys recognised are:
+//	~/.ssh/id_dsa.pub
+//	~/.ssh/id_rsa.pub
+//	~/.ssh/identity.pub
+//	~/.juju/<name>-ca-cert.pem
+//	~/.juju/<name>-ca-private-key.pem
+//
+// The required keys (after any files have been read) are:
+// "name", "type", "authorized-keys" and
+// "ca-cert", all of type string.  Additional keys recognised are:
 // "agent-version" and "development", of types string and bool
 // respectively.
 func New(attrs map[string]interface{}) (*Config, error) {
@@ -83,44 +86,44 @@ func New(attrs map[string]interface{}) (*Config, error) {
 	}
 	delete(c.m, "authorized-keys-path")
 
-	// Load root certificate into root-cert if necessary.
-	rootCert := []byte(c.m["root-cert"].(string))
-	rootCertPath := c.m["root-cert-path"].(string)
-	if rootCertPath != "" || len(rootCert) == 0 {
-		rootCert, err = readCertFile(rootCertPath, name+"-root-cert.pem")
+	// Load CA certificate into ca-cert if necessary.
+	caCert := []byte(c.m["ca-cert"].(string))
+	caCertPath := c.m["ca-cert-path"].(string)
+	if caCertPath != "" || len(caCert) == 0 {
+		caCert, err = readCertFile(caCertPath, name+"-ca-cert.pem")
 		if err != nil {
 			return nil, err
 		}
-		c.m["root-cert"] = string(rootCert)
+		c.m["ca-cert"] = string(caCert)
 	}
-	delete(c.m, "root-cert-path")
+	delete(c.m, "ca-cert-path")
 
-	// Load root key into root-private-cert if necessary.
-	var rootKey []byte
-	if k, ok := c.m["root-private-key"]; ok {
-		rootKey = []byte(k.(string))
+	// Load CA key into ca-private-cert if necessary.
+	var caKey []byte
+	if k, ok := c.m["ca-private-key"]; ok {
+		caKey = []byte(k.(string))
 	}
-	rootKeyPath := c.m["root-private-key-path"].(string)
-	// Note: we do not read the key file if the root key is
+	caKeyPath := c.m["ca-private-key-path"].(string)
+	// Note: we do not read the key file if the CA key is
 	// specified as a empty string.
-	if rootKeyPath != "" || rootKey == nil {
-		rootKey, err = readCertFile(rootKeyPath, name+"-root-key.pem")
+	if caKeyPath != "" || caKey == nil {
+		caKey, err = readCertFile(caKeyPath, name+"-ca-key.pem")
 		if err != nil && !os.IsNotExist(err) {
 			return nil, err
 		}
-		c.m["root-private-key"] = string(rootKey)
+		c.m["ca-private-key"] = string(caKey)
 	}
-	delete(c.m, "root-private-key-path")
+	delete(c.m, "ca-private-key-path")
 
-	if err := verifyKeyPair(rootCert, rootKey); err != nil {
-		if rootCertPath == "" {
-			return nil, fmt.Errorf("bad root certificate/key in configuration: %v", err)
+	if err := verifyKeyPair(caCert, caKey); err != nil {
+		if caCertPath == "" {
+			return nil, fmt.Errorf("bad CA certificate/key in configuration: %v", err)
 		}
-		return nil, fmt.Errorf("bad root certificate in %q: %v", rootCertPath, err)
+		return nil, fmt.Errorf("bad CA certificate in %q: %v", caCertPath, err)
 	}
 
 	// Check if there are any required fields that are empty.
-	for _, attr := range []string{"type", "default-series", "authorized-keys", "root-cert"} {
+	for _, attr := range []string{"type", "default-series", "authorized-keys", "ca-cert"} {
 		if s, _ := c.m[attr].(string); s == "" {
 			return nil, fmt.Errorf("empty %s in environment configuration", attr)
 		}
@@ -171,17 +174,17 @@ func (c *Config) AuthorizedKeys() string {
 	return c.m["authorized-keys"].(string)
 }
 
-// RootCertPEM returns the X509 certificate for the
-// root certifying authority, in PEM format.
-func (c *Config) RootCertPEM() string {
-	return c.m["root-cert"].(string)
+// CACertPEM returns the X509 certificate for the
+// certifying authority, in PEM format.
+func (c *Config) CACertPEM() string {
+	return c.m["ca-cert"].(string)
 }
 
-// RootPrivateKeyPEM returns the private key of the
-// root certifying authority, in PEM format.
+// CAPrivateKeyPEM returns the private key of the
+// certifying authority, in PEM format.
 // It is empty if the key is not available.
-func (c *Config) RootPrivateKeyPEM() string {
-	return c.m["root-private-key"].(string)
+func (c *Config) CAPrivateKeyPEM() string {
+	return c.m["ca-private-key"].(string)
 }
 
 // AdminSecret returns the administrator password.
@@ -256,10 +259,10 @@ var fields = schema.Fields{
 	"agent-version":         schema.String(),
 	"development":           schema.Bool(),
 	"admin-secret":          schema.String(),
-	"root-cert":             schema.String(),
-	"root-cert-path":        schema.String(),
-	"root-private-key":      schema.String(),
-	"root-private-key-path": schema.String(),
+	"ca-cert":             schema.String(),
+	"ca-cert-path":        schema.String(),
+	"ca-private-key":      schema.String(),
+	"ca-private-key-path": schema.String(),
 }
 
 var defaults = schema.Defaults{
@@ -270,10 +273,10 @@ var defaults = schema.Defaults{
 	"agent-version":         schema.Omit,
 	"development":           false,
 	"admin-secret":          "",
-	"root-cert-path":        "",
-	"root-cert":             "",
-	"root-private-key-path": "",
-	"root-private-key":      schema.Omit,
+	"ca-cert-path":        "",
+	"ca-cert":             "",
+	"ca-private-key-path": "",
+	"ca-private-key":      schema.Omit,
 }
 
 var checker = schema.FieldMap(fields, defaults)
