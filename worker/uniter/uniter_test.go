@@ -763,7 +763,7 @@ func (createServiceAndUnit) step(c *C, ctx *context) {
 		"type":             "dummy",
 		"default-series":   "abominable",
 		"authorized-keys":  "we-are-the-keys",
-		"root-cert":        coretesting.RootCertPEM,
+		"root-cert":        coretesting.CACertPEM,
 		"root-private-key": "",
 	})
 	c.Assert(err, IsNil)

@@ -77,7 +77,7 @@ func (s *BootstrapSuite) TestSetMachineId(c *C) {
 			"type":            "dummy",
 			"state-server":    false,
 			"authorized-keys": "i-am-a-key",
-			"root-cert":       testing.RootCertPEM,
+			"root-cert":       testing.CACertPEM,
 		}.encode(),
 	}
 	cmd, err := initBootstrapCommand(args)
@@ -106,7 +106,7 @@ func (s *BootstrapSuite) TestMachinerWorkers(c *C) {
 			"type":            "dummy",
 			"state-server":    false,
 			"authorized-keys": "i-am-a-key",
-			"root-cert":       testing.RootCertPEM,
+			"root-cert":       testing.CACertPEM,
 		}.encode(),
 	}
 	cmd, err := initBootstrapCommand(args)
@@ -143,7 +143,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *C) {
 			"type":            "dummy",
 			"state-server":    false,
 			"authorized-keys": "i-am-a-key",
-			"root-cert":       testing.RootCertPEM,
+			"root-cert":       testing.CACertPEM,
 		}.encode(),
 		"--initial-password", "foo",
 	}
