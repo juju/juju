@@ -23,7 +23,7 @@ JzALBgkqhkiG9w0BAQUDQQAqZzN0DqUyEfR8zIanozyD2pp10m9le+ODaKZDDNfH
 -----END CERTIFICATE-----
 `[1:]
 
-	RootCertX509 = mustParseCertPEM(CACertPEM)
+	CACertX509 = mustParseCertPEM(CACertPEM)
 
 	CAKeyPEM = `
 -----BEGIN RSA PRIVATE KEY-----
@@ -37,7 +37,7 @@ HOzuvYngJpoClGw0ipzJPoNZ2Z/GkdOWGByPeKu/8g==
 -----END RSA PRIVATE KEY-----
 `[1:]
 
-	RootKeyRSA = mustParseKeyPEM(CAKeyPEM)
+	CAKeyRSA = mustParseKeyPEM(CAKeyPEM)
 )
 
 func mustParseCertPEM(pemData string) *x509.Certificate {

@@ -73,7 +73,7 @@ func (s *bootstrapSuite) TestBootstrapExistingKey(c *C) {
 	bootstrapCert, bootstrapKey := parseCertAndKey(c, env.stateServerPEM)
 
 	caName := checkTLSConnection(c, certificate(testing.CACertPEM), bootstrapCert, bootstrapKey)
-	c.Assert(caName, Equals, testing.RootCertX509.Subject.CommonName)
+	c.Assert(caName, Equals, testing.CACertX509.Subject.CommonName)
 }
 
 func (s *bootstrapSuite) TestBootstrapUploadTools(c *C) {
@@ -99,7 +99,7 @@ func (s *bootstrapSuite) TestBootstrapWithCertArgument(c *C) {
 	bootstrapCert, bootstrapKey := parseCertAndKey(c, env.stateServerPEM)
 
 	caName := checkTLSConnection(c, certificate(testing.CACertPEM), bootstrapCert, bootstrapKey)
-	c.Assert(caName, Equals, testing.RootCertX509.Subject.CommonName)
+	c.Assert(caName, Equals, testing.CACertX509.Subject.CommonName)
 }
 
 var invalidCertTests = []struct {

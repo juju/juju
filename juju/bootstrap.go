@@ -75,7 +75,7 @@ func generateCACert(envName string) ([]byte, error) {
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
 		BasicConstraintsValid: true,
 		IsCA:       true,
-		MaxPathLen: 0,
+		MaxPathLen: 0, // Disallow delegation for now.
 	}
 	certDER, err := x509.CreateCertificate(rand.Reader, template, template, &priv.PublicKey, priv)
 	if err != nil {
@@ -107,7 +107,7 @@ func generateCert(envName string, caCert *x509.Certificate, caKey *rsa.PrivateKe
 		Subject: pkix.Name{
 			// Note: despite the wildcard, this name will not match
 			// host names containing dots.
-			CommonName:   "anyServer",
+			CommonName:   "*",
 			Organization: []string{"juju"},
 		},
 		NotBefore: now.UTC().Add(-5 * time.Minute),
