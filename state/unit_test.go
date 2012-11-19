@@ -478,7 +478,7 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 	case name, ok := <-w.Changes():
 		c.Assert(ok, Equals, true)
 		c.Assert(name, Equals, s.unit.Name())
-		err = s.unit.Refresh()
+		err := s.unit.Refresh()
 		c.Assert(err, IsNil)
 		addr, err := s.unit.PublicAddress()
 		c.Assert(err, IsNil)
@@ -496,7 +496,7 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 		case name, ok := <-w.Changes():
 			c.Assert(ok, Equals, true)
 			c.Assert(name, Equals, s.unit.Name())
-			err = s.unit.Refresh()
+			err := s.unit.Refresh()
 			c.Assert(err, IsNil)
 			var info unitInfo
 			info.Life = s.unit.Life()

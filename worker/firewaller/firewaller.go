@@ -543,7 +543,7 @@ func (ud *unitData) watchLoop() {
 			if samePorts(change, ports) {
 				continue
 			}
-			ports = append([]state.Port(nil), change...)
+			ports = append(ports[:0], change...)
 			select {
 			case ud.fw.portsChange <- &portsChange{ud, change}:
 			case <-ud.tomb.Dying():

@@ -1067,6 +1067,7 @@ func newUnitWatcher(u *Unit) *UnitWatcher {
 	return w
 }
 
+// Changes returns the event channel for the UnitWatcher.
 func (w *UnitWatcher) Changes() <-chan string {
 	return w.changeChan
 }

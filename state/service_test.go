@@ -975,7 +975,7 @@ func (s *ServiceSuite) TestWatchService(c *C) {
 	case name, ok := <-w.Changes():
 		c.Assert(ok, Equals, true)
 		c.Assert(name, Equals, s.service.Name())
-		err = s.service.Refresh()
+		err := s.service.Refresh()
 		c.Assert(err, IsNil)
 		_, force, err := s.service.Charm()
 		c.Assert(err, IsNil)
@@ -993,7 +993,7 @@ func (s *ServiceSuite) TestWatchService(c *C) {
 		case name, ok := <-w.Changes():
 			c.Assert(ok, Equals, true)
 			c.Assert(name, Equals, s.service.Name())
-			err = s.service.Refresh()
+			err := s.service.Refresh()
 			c.Assert(err, IsNil)
 			c.Assert(s.service.Life(), Equals, test.Life)
 			c.Assert(s.service.IsExposed(), Equals, test.Exposed)
