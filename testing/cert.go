@@ -9,7 +9,7 @@ import (
 // RootCert and RootKey make up a root CA key pair.
 // RootCertX509 and RootKeyRSA hold their parsed equivalents.
 var (
-	RootCertPEM = `
+	CACertPEM = `
 -----BEGIN CERTIFICATE-----
 MIIBnTCCAUmgAwIBAgIBADALBgkqhkiG9w0BAQUwJjENMAsGA1UEChMEanVqdTEV
 MBMGA1UEAxMManVqdSB0ZXN0aW5nMB4XDTEyMTExNDE0Mzg1NFoXDTIyMTExNDE0
@@ -23,9 +23,9 @@ JzALBgkqhkiG9w0BAQUDQQAqZzN0DqUyEfR8zIanozyD2pp10m9le+ODaKZDDNfH
 -----END CERTIFICATE-----
 `[1:]
 
-	RootCertX509 = mustParseCertPEM(RootCertPEM)
+	CACertX509 = mustParseCertPEM(CACertPEM)
 
-	RootKeyPEM = `
+	CAKeyPEM = `
 -----BEGIN RSA PRIVATE KEY-----
 MIIBOwIBAAJBAII46mf1pYpwqvYZAa3KDAPs91817Uj0FiI8CprYjfcXn7o+oV1+
 6NQq+jJMkjpcbhCj8IQJpo32yaHKr0PHMyECAwEAAQJAYctedh4raLE+Ir0a3qnK
@@ -36,10 +36,7 @@ JFwDdp+7gE98mXtaFrjctLWeFx797U8CIAnnqiMTwWM8H2ljyhfBtYMXeTmu3zzU
 HOzuvYngJpoClGw0ipzJPoNZ2Z/GkdOWGByPeKu/8g==
 -----END RSA PRIVATE KEY-----
 `[1:]
-
-	RootPEMBytes = []byte(RootCertPEM + RootKeyPEM)
-
-	RootKeyRSA = mustParseKeyPEM(RootKeyPEM)
+	CAKeyRSA = mustParseKeyPEM(CAKeyPEM)
 )
 
 func mustParseCertPEM(pemData string) *x509.Certificate {
