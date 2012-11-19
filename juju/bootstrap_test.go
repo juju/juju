@@ -20,47 +20,49 @@ import (
 )
 
 type bootstrapSuite struct {
+	oldHome string
 	testing.LoggingSuite
 }
 
 var _ = Suite(&bootstrapSuite{})
 
-func (s *bootstrapSuite) TestBootstrapKeyGeneration(c *C) {
-	defer os.Setenv("HOME", os.Getenv("HOME"))
+func (s *bootstrapSuite) SetUpTest(c *C) {
+	s.LoggingSuite.SetUpTest(c)
+	s.oldHome = os.Getenv("HOME")
 	home := c.MkDir()
 	os.Setenv("HOME", home)
 	err := os.Mkdir(filepath.Join(home, ".juju"), 0777)
 	c.Assert(err, IsNil)
+}
 
+func (s *bootstrapSuite) TearDownTest(c *C) {
+	os.Setenv("HOME", s.oldHome)
+}
+
+func (s *bootstrapSuite) TestBootstrapKeyGeneration(c *C) {
 	env := &bootstrapEnviron{name: "foo"}
-	err = juju.Bootstrap(env, false, nil)
+	err := juju.Bootstrap(env, false, nil)
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
 
 	bootstrapCert, bootstrapKey := parseCertAndKey(c, env.stateServerPEM)
 
-	// Check that the generated root key has been written
+	// Check that the generated CA key has been written
 	// correctly.
-	rootKeyPEM, err := ioutil.ReadFile(filepath.Join(home, ".juju", "foo-cert.pem"))
+	caKeyPEM, err := ioutil.ReadFile(filepath.Join(os.Getenv("HOME"), ".juju", "foo.pem"))
 	c.Assert(err, IsNil)
 
-	rootCert, _ := parseCertAndKey(c, rootKeyPEM)
+	caCert, _ := parseCertAndKey(c, caKeyPEM)
 
-	rootName := checkTLSConnection(c, rootCert, bootstrapCert, bootstrapKey)
-	c.Assert(rootName, Equals, "juju-generated root CA for environment foo")
+	caName := checkTLSConnection(c, caCert, bootstrapCert, bootstrapKey)
+	c.Assert(caName, Equals, `juju-generated CA for environment "foo"`)
 }
 
 var testServerPEM = []byte(testing.RootCertPEM + testing.RootKeyPEM)
 
 func (s *bootstrapSuite) TestBootstrapExistingKey(c *C) {
-	defer os.Setenv("HOME", os.Getenv("HOME"))
-	home := c.MkDir()
-	os.Setenv("HOME", home)
-	err := os.Mkdir(filepath.Join(home, ".juju"), 0777)
-	c.Assert(err, IsNil)
-
-	path := filepath.Join(home, ".juju", "bar-cert.pem")
-	err = ioutil.WriteFile(path, testServerPEM, 0600)
+	path := filepath.Join(os.Getenv("HOME"), ".juju", "bar.pem")
+	err := ioutil.WriteFile(path, testServerPEM, 0600)
 	c.Assert(err, IsNil)
 
 	env := &bootstrapEnviron{name: "bar"}
@@ -70,8 +72,8 @@ func (s *bootstrapSuite) TestBootstrapExistingKey(c *C) {
 
 	bootstrapCert, bootstrapKey := parseCertAndKey(c, env.stateServerPEM)
 
-	rootName := checkTLSConnection(c, certificate(testing.RootCertPEM), bootstrapCert, bootstrapKey)
-	c.Assert(rootName, Equals, testing.RootCertX509.Subject.CommonName)
+	caName := checkTLSConnection(c, certificate(testing.RootCertPEM), bootstrapCert, bootstrapKey)
+	c.Assert(caName, Equals, testing.RootCertX509.Subject.CommonName)
 }
 
 func (s *bootstrapSuite) TestBootstrapUploadTools(c *C) {
@@ -96,8 +98,8 @@ func (s *bootstrapSuite) TestBootstrapWithCertArgument(c *C) {
 
 	bootstrapCert, bootstrapKey := parseCertAndKey(c, env.stateServerPEM)
 
-	rootName := checkTLSConnection(c, certificate(testing.RootCertPEM), bootstrapCert, bootstrapKey)
-	c.Assert(rootName, Equals, testing.RootCertX509.Subject.CommonName)
+	caName := checkTLSConnection(c, certificate(testing.RootCertPEM), bootstrapCert, bootstrapKey)
+	c.Assert(caName, Equals, testing.RootCertX509.Subject.CommonName)
 }
 
 var invalidCertTests = []struct {
@@ -105,13 +107,13 @@ var invalidCertTests = []struct {
 	err string
 }{{
 	`xxxx`,
-	"bad root CA PEM: root PEM holds no private key",
+	"bad CA PEM: CA PEM holds no certificate",
 }, {
 	testing.RootCertPEM,
-	"bad root CA PEM: root PEM holds no private key",
+	"bad CA PEM: CA PEM holds no private key",
 }, {
 	testing.RootKeyPEM,
-	"bad root CA PEM: root PEM holds no certificate",
+	"bad CA PEM: CA PEM holds no certificate",
 }, {
 	`-----BEGIN CERTIFICATE-----
 MIIBnTCCAUmgAwIBAgIBADALBgkqhkiG9w0BAQUwJjENMAsGA1UEChMEanVqdTEV
@@ -119,13 +121,13 @@ MBMGA1UEAxMManVqdSB0ZXN0aW5nMB4XDTEyMTExNDE0Mzg1NFoXDTIyMTExNDE0
 NDM1NFowJjENMAsGA1UEChMEanVqdTEVMBMGA1UEAxMManVqdSB0ZXN0aW5n
 -----END CERTIFICATE-----
 ` + testing.RootKeyPEM,
-	`bad root CA PEM: ASN\.1.*`,
+	`bad CA PEM: ASN\.1.*`,
 }, {
 	`-----BEGIN RSA PRIVATE KEY-----
 MIIBOwIBAAJBAII46mf1pYpwqvYZAa3KDAPs91817Uj0FiI8CprYjfcXn7o+oV1+
 -----END RSA PRIVATE KEY-----
 ` + testing.RootCertPEM,
-	"bad root CA PEM: crypto/tls: failed to parse key: .*",
+	"bad CA PEM: crypto/tls: failed to parse key: .*",
 }, {
 	`-----BEGIN CERTIFICATE-----
 MIIBmjCCAUagAwIBAgIBADALBgkqhkiG9w0BAQUwJjENMAsGA1UEChMEanVqdTEV
@@ -148,7 +150,7 @@ kj2moFk9GdBXZV9I0t1VTwcDvVyeAXkCIDrfvldQPdO9wJOKK3vLkS1qpyf2lhIZ
 b1alx3PZuxOBAiAthPltYMRWtar+fTaZTFo5RH+SQSkibaRI534mQF+ySQIhAIml
 yiWVLC2XrtwijDu1fwh/wtFCb/bPvqvgG5wgAO+2
 -----END RSA PRIVATE KEY-----
-`, "bad root CA PEM: root certificate is not a valid CA",
+`, "bad CA PEM: CA certificate is not a valid CA",
 }}
 
 func (s *bootstrapSuite) TestBootstrapWithInvalidCert(c *C) {
@@ -163,9 +165,9 @@ func (s *bootstrapSuite) TestBootstrapWithInvalidCert(c *C) {
 
 // checkTLSConnection checks that we can correctly perform a TLS
 // handshake using the given credentials.
-func checkTLSConnection(c *C, rootCert, bootstrapCert certificate, bootstrapKey *rsa.PrivateKey) (rootCAName string) {
+func checkTLSConnection(c *C, caCert, bootstrapCert certificate, bootstrapKey *rsa.PrivateKey) (caName string) {
 	clientCertPool := x509.NewCertPool()
-	clientCertPool.AddCert(rootCert.x509(c))
+	clientCertPool.AddCert(caCert.x509(c))
 
 	var inBytes, outBytes bytes.Buffer
 
