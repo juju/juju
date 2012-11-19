@@ -24,7 +24,7 @@ var envConfig = mustNewConfig(map[string]interface{}{
 	"name":            "foo",
 	"default-series":  "series",
 	"authorized-keys": "keys",
-	"root-cert":       testing.CACertPEM,
+	"ca-cert":       testing.CACertPEM,
 })
 
 func mustNewConfig(m map[string]interface{}) *config.Config {

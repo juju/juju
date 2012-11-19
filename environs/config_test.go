@@ -188,8 +188,8 @@ func (suite) TestConfigRoundTrip(c *C) {
 		"type":             "dummy",
 		"state-server":     false,
 		"authorized-keys":  "i-am-a-key",
-		"root-cert":        testing.CACertPEM,
-		"root-private-key": "",
+		"ca-cert":        testing.CACertPEM,
+		"ca-private-key": "",
 	})
 	c.Assert(err, IsNil)
 	provider, err := environs.Provider(cfg.Type())
@@ -209,8 +209,8 @@ func (suite) TestBootstrapConfig(c *C) {
 		"admin-secret":     "highly",
 		"secret":           "um",
 		"authorized-keys":  "i-am-a-key",
-		"root-cert":        testing.CACertPEM,
-		"root-private-key": testing.CAKeyPEM,
+		"ca-cert":        testing.CACertPEM,
+		"ca-private-key": testing.CAKeyPEM,
 	})
 	c.Assert(err, IsNil)
 	provider, err := environs.Provider(cfg.Type())
@@ -226,7 +226,7 @@ func (suite) TestBootstrapConfig(c *C) {
 	expect := cfg.AllAttrs()
 	delete(expect, "secret")
 	expect["admin-secret"] = ""
-	expect["root-private-key"] = ""
+	expect["ca-private-key"] = ""
 	expect["agent-version"] = "1.2.3"
 	c.Assert(cfg1.AllAttrs(), DeepEquals, expect)
 }

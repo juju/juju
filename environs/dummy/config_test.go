@@ -18,8 +18,8 @@ func (*ConfigSuite) TestSecretAttrs(c *C) {
 		"type":             "dummy",
 		"state-server":     true,
 		"authorized-keys":  "i-am-a-key",
-		"root-cert":        testing.CACertPEM,
-		"root-private-key": "",
+		"ca-cert":        testing.CACertPEM,
+		"ca-private-key": "",
 	})
 	c.Assert(err, IsNil)
 	env, err := environs.New(cfg)
@@ -67,8 +67,8 @@ func (*ConfigSuite) TestFirewallMode(c *C) {
 			"type":             "dummy",
 			"state-server":     true,
 			"authorized-keys":  "none",
-			"root-cert":        testing.CACertPEM,
-			"root-private-key": "",
+			"ca-cert":        testing.CACertPEM,
+			"ca-private-key": "",
 		}
 		if test.configFirewallMode != "" {
 			cfgMap["firewall-mode"] = test.configFirewallMode

@@ -15,8 +15,8 @@ func init() {
 		"state-server":     true,
 		"secret":           "pork",
 		"admin-secret":     "fish",
-		"root-cert":        testing.CACertPEM,
-		"root-private-key": testing.CAKeyPEM,
+		"ca-cert":        testing.CACertPEM,
+		"ca-private-key": testing.CAKeyPEM,
 	}
 	Suite(&jujutest.LiveTests{
 		Config:         attrs,
