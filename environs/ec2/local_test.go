@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
+	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
@@ -37,15 +38,13 @@ func registerLocalTests() {
 
 	Suite(&localServerSuite{
 		Tests: jujutest.Tests{
-			Config:         attrs,
-			StateServerPEM: stateServerPEM,
+			Config: attrs,
 		},
 	})
 	Suite(&localLiveSuite{
 		LiveTests: LiveTests{
 			LiveTests: jujutest.LiveTests{
-				Config:         attrs,
-				StateServerPEM: stateServerPEM,
+				Config: attrs,
 			},
 		},
 	})
@@ -191,13 +190,11 @@ func (t *localServerSuite) TearDownTest(c *C) {
 	t.LoggingSuite.TearDownTest(c)
 }
 
-var stateServerPEM = []byte("foo")
-
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	policy := t.env.AssignmentPolicy()
 	c.Assert(policy, Equals, state.AssignUnused)
 
-	err := t.env.Bootstrap(true, stateServerPEM)
+	err := juju.Bootstrap(t.env, true, []byte(testing.CACertPEM+testing.CAKeyPEM))
 	c.Assert(err, IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
