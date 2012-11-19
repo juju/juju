@@ -20,9 +20,14 @@ import (
 // in the suite, stored in Env, and Destroyed after the suite has completed.
 type LiveTests struct {
 	coretesting.LoggingSuite
-	Environs *environs.Environs
-	Name     string
-	Env      environs.Environ
+
+	// Config holds the configuration attributes for opening an environment.
+	Config map[string]interface{}
+
+	// Env holds the currently opened environment.
+	Env environs.Environ
+
+	StateServerPEM []byte
 
 	// Attempt holds a strategy for waiting until the environment
 	// becomes logically consistent.
@@ -41,8 +46,8 @@ type LiveTests struct {
 
 func (t *LiveTests) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
-	e, err := t.Environs.Open(t.Name)
-	c.Assert(err, IsNil, Commentf("opening environ %q", t.Name))
+	e, err := environs.NewFromAttrs(t.Config)
+	c.Assert(err, IsNil, Commentf("opening environ %#v", t.Config))
 	c.Assert(e, NotNil)
 	t.Env = e
 	c.Logf("environment configuration: %#v", publicAttrs(e))
@@ -74,7 +79,7 @@ func (t *LiveTests) BootstrapOnce(c *C) {
 	if t.bootstrapped {
 		return
 	}
-	err := t.Env.Bootstrap(true)
+	err := t.Env.Bootstrap(true, t.StateServerPEM)
 	c.Assert(err, IsNil)
 	t.bootstrapped = true
 }
@@ -290,7 +295,7 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 func (t *LiveTests) TestBootstrapMultiple(c *C) {
 	t.BootstrapOnce(c)
 
-	err := t.Env.Bootstrap(false)
+	err := t.Env.Bootstrap(false, t.StateServerPEM)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	c.Logf("destroy env")

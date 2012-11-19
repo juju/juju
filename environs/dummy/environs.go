@@ -376,7 +376,7 @@ func (e *environ) Name() string {
 	return e.state.name
 }
 
-func (e *environ) Bootstrap(uploadTools bool) error {
+func (e *environ) Bootstrap(uploadTools bool, certAndKey []byte) error {
 	defer delay()
 	if err := e.checkBroken("Bootstrap"); err != nil {
 		return err

@@ -33,5 +33,6 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	return environ.Bootstrap(c.UploadTools)
+	// TODO (rog) use juju.Bootstrap
+	return environ.Bootstrap(c.UploadTools, []byte("fake cert"))
 }

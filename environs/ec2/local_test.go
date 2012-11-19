@@ -1,7 +1,6 @@
 package ec2_test
 
 import (
-	"fmt"
 	"launchpad.net/goamz/aws"
 	amzec2 "launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/ec2/ec2test"
@@ -19,45 +18,37 @@ import (
 	"strings"
 )
 
-// you need to make sure the region you use here
-// has entries in the images/query txt files.
-var functionalConfig = []byte(`
-environments:
-  sample:
-    type: ec2
-    region: test
-    control-bucket: test-bucket
-    public-bucket: public-tools
-    admin-secret: local-secret
-    access-key: x
-    secret-key: x
-`)
-
 func registerLocalTests() {
+	// N.B. Make sure the region we use here
+	// has entries in the images/query txt files.
 	aws.Regions["test"] = aws.Region{
 		Name: "test",
 	}
-	envs, err := environs.ReadEnvironsBytes(functionalConfig)
-	if err != nil {
-		panic(fmt.Errorf("cannot parse functional tests config data: %v", err))
+	attrs := map[string]interface{}{
+		"name":           "sample",
+		"type":           "ec2",
+		"region":         "test",
+		"control-bucket": "test-bucket",
+		"public-bucket":  "public-tools",
+		"admin-secret":   "local-secret",
+		"access-key":     "x",
+		"secret-key":     "x",
 	}
 
-	for _, name := range envs.Names() {
-		Suite(&localServerSuite{
-			Tests: jujutest.Tests{
-				Environs: envs,
-				Name:     name,
+	Suite(&localServerSuite{
+		Tests: jujutest.Tests{
+			Config:         attrs,
+			StateServerPEM: stateServerPEM,
+		},
+	})
+	Suite(&localLiveSuite{
+		LiveTests: LiveTests{
+			LiveTests: jujutest.LiveTests{
+				Config:         attrs,
+				StateServerPEM: stateServerPEM,
 			},
-		})
-		Suite(&localLiveSuite{
-			LiveTests: LiveTests{
-				LiveTests: jujutest.LiveTests{
-					Environs: envs,
-					Name:     name,
-				},
-			},
-		})
-	}
+		},
+	})
 }
 
 // localLiveSuite runs tests from LiveTests using a fake
@@ -200,11 +191,13 @@ func (t *localServerSuite) TearDownTest(c *C) {
 	t.LoggingSuite.TearDownTest(c)
 }
 
+var stateServerPEM = []byte("foo")
+
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	policy := t.env.AssignmentPolicy()
 	c.Assert(policy, Equals, state.AssignUnused)
 
-	err := t.env.Bootstrap(true)
+	err := t.env.Bootstrap(true, stateServerPEM)
 	c.Assert(err, IsNil)
 
 	// check that the state holds the id of the bootstrap machine.

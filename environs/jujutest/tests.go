@@ -13,21 +13,21 @@ import (
 )
 
 // Tests is a gocheck suite containing tests verifying juju functionality
-// against the environment with Name that must exist within Environs. The
+// against the environment with the given configuration. The
 // tests are not designed to be run against a live server - the Environ
 // is opened once for each test, and some potentially expensive operations
 // may be executed.
 type Tests struct {
 	coretesting.LoggingSuite
-	Environs *environs.Environs
-	Name     string
-	Env      environs.Environ
+	Config         map[string]interface{}
+	Env            environs.Environ
+	StateServerPEM []byte
 }
 
 // Open opens an instance of the testing environment.
 func (t *Tests) Open(c *C) environs.Environ {
-	e, err := t.Environs.Open(t.Name)
-	c.Assert(err, IsNil, Commentf("opening environ %q", t.Name))
+	e, err := environs.NewFromAttrs(t.Config)
+	c.Assert(err, IsNil, Commentf("opening environ %#v", t.Config))
 	c.Assert(e, NotNil)
 	return e
 }
@@ -51,7 +51,7 @@ func (t *Tests) TestBootstrapWithoutAdminSecret(c *C) {
 	delete(m, "admin-secret")
 	env, err := environs.NewFromAttrs(m)
 	c.Assert(err, IsNil)
-	err = env.Bootstrap(false)
+	err = env.Bootstrap(false, t.StateServerPEM)
 	c.Assert(err, ErrorMatches, ".*admin-secret is required for bootstrap")
 }
 
@@ -100,18 +100,18 @@ func (t *Tests) TestStartStop(c *C) {
 func (t *Tests) TestBootstrap(c *C) {
 	// TODO tests for Bootstrap(true)
 	e := t.Open(c)
-	err := e.Bootstrap(false)
+	err := e.Bootstrap(false, t.StateServerPEM)
 	c.Assert(err, IsNil)
 
 	info, err := e.StateInfo()
 	c.Assert(info, NotNil)
 	c.Check(info.Addrs, Not(HasLen), 0)
 
-	err = e.Bootstrap(false)
+	err = e.Bootstrap(false, t.StateServerPEM)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	e2 := t.Open(c)
-	err = e2.Bootstrap(false)
+	err = e2.Bootstrap(false, t.StateServerPEM)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	info2, err := e2.StateInfo()
@@ -123,10 +123,10 @@ func (t *Tests) TestBootstrap(c *C) {
 	// Open again because Destroy invalidates old environments.
 	e3 := t.Open(c)
 
-	err = e3.Bootstrap(false)
+	err = e3.Bootstrap(false, t.StateServerPEM)
 	c.Assert(err, IsNil)
 
-	err = e3.Bootstrap(false)
+	err = e3.Bootstrap(false, t.StateServerPEM)
 	c.Assert(err, NotNil)
 }
 
