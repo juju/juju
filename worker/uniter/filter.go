@@ -76,7 +76,7 @@ func newFilter(st *state.State, unitName string) (*filter, error) {
 	go func() {
 		defer f.tomb.Done()
 		err := f.loop(unitName)
-		log.Printf("filter error: %v", err)
+		log.Printf("worker/uniter: filter error: %v", err)
 		f.tomb.Kill(err)
 	}()
 	return f, nil
@@ -192,16 +192,16 @@ func (f *filter) loop(unitName string) (err error) {
 			return tomb.ErrDying
 
 		// Handle watcher changes.
-		case f.unit, ok = <-unitw.Changes():
-			log.Debugf("filter: got unit change")
+		case _, ok = <-unitw.Changes():
+			log.Debugf("worker/uniter/filter: got unit change")
 			if !ok {
 				return watcher.MustErr(unitw)
 			}
 			if err = f.unitChanged(); err != nil {
 				return err
 			}
-		case f.service, ok = <-servicew.Changes():
-			log.Debugf("filter: got service change")
+		case _, ok = <-servicew.Changes():
+			log.Debugf("worker/uniter/filter: got service change")
 			if !ok {
 				return watcher.MustErr(servicew)
 			}
@@ -209,11 +209,11 @@ func (f *filter) loop(unitName string) (err error) {
 				return err
 			}
 		case _, ok := <-configw.Changes():
-			log.Debugf("filter: got config change")
+			log.Debugf("worker/uniter/filter: got config change")
 			if !ok {
 				return watcher.MustErr(configw)
 			}
-			log.Debugf("filter: preparing new config event")
+			log.Debugf("worker/uniter/filter: preparing new config event")
 			f.outConfig = f.outConfigOn
 			discardConfig = f.discardConfig
 		case ids, ok := <-relationsw.Changes():
@@ -225,11 +225,11 @@ func (f *filter) loop(unitName string) (err error) {
 
 		// Send events on active out chans.
 		case f.outUpgrade <- f.upgrade:
-			log.Debugf("filter: sent upgrade event")
+			log.Debugf("worker/uniter/filter: sent upgrade event")
 			f.upgradeRequested.url = f.upgrade.URL()
 			f.outUpgrade = nil
 		case f.outResolved <- f.resolved:
-			log.Debugf("filter: sent resolved event")
+			log.Debugf("worker/uniter/filter: sent resolved event")
 			f.outResolved = nil
 		case f.outConfig <- nothing:
 			log.Debugf("filter: sent config event")
@@ -241,13 +241,13 @@ func (f *filter) loop(unitName string) (err error) {
 
 		// Handle explicit requests.
 		case req := <-f.wantUpgrade:
-			log.Debugf("filter: want upgrade event")
+			log.Debugf("worker/uniter/filter: want upgrade event")
 			f.upgradeRequested = req
 			if err = f.upgradeChanged(); err != nil {
 				return err
 			}
 		case <-f.wantResolved:
-			log.Debugf("filter: want resolved event")
+			log.Debugf("worker/uniter/filter: want resolved event")
 			if f.resolved != state.ResolvedNone {
 				f.outResolved = f.outResolvedOn
 			}
@@ -261,14 +261,20 @@ func (f *filter) loop(unitName string) (err error) {
 
 // unitChanged responds to changes in the unit.
 func (f *filter) unitChanged() error {
+	if err := f.unit.Refresh(); err != nil {
+		if state.IsNotFound(err) {
+			return worker.ErrDead
+		}
+		return err
+	}
 	if f.life != f.unit.Life() {
 		switch f.life = f.unit.Life(); f.life {
 		case state.Dying:
-			log.Printf("unit is dying")
+			log.Printf("worker/uniter: unit is dying")
 			close(f.outUnitDying)
 			f.outUpgrade = nil
 		case state.Dead:
-			log.Printf("unit is dead")
+			log.Printf("worker/uniter: unit is dead")
 			return worker.ErrDead
 		}
 	}
@@ -283,6 +289,12 @@ func (f *filter) unitChanged() error {
 
 // serviceChanged responds to changes in the service.
 func (f *filter) serviceChanged() error {
+	if err := f.service.Refresh(); err != nil {
+		if state.IsNotFound(err) {
+			return fmt.Errorf("service unexpectedly removed")
+		}
+		return err
+	}
 	url, force := f.service.CharmURL()
 	f.upgradeAvailable = serviceCharm{url, force}
 	switch f.service.Life() {
@@ -301,13 +313,13 @@ func (f *filter) serviceChanged() error {
 // delivered as upgrades.
 func (f *filter) upgradeChanged() (err error) {
 	if f.life != state.Alive {
-		log.Debugf("filter: charm check skipped, unit is dying")
+		log.Debugf("worker/uniter/filter: charm check skipped, unit is dying")
 		f.outUpgrade = nil
 		return nil
 	}
 	if *f.upgradeAvailable.url != *f.upgradeRequested.url {
 		if f.upgradeAvailable.force || !f.upgradeRequested.force {
-			log.Debugf("filter: preparing new upgrade event")
+			log.Debugf("worker/uniter/filter: preparing new upgrade event")
 			if f.upgrade == nil || *f.upgrade.URL() != *f.upgradeAvailable.url {
 				if f.upgrade, err = f.st.Charm(f.upgradeAvailable.url); err != nil {
 					return err
@@ -317,7 +329,7 @@ func (f *filter) upgradeChanged() (err error) {
 			return nil
 		}
 	}
-	log.Debugf("filter: no new charm event")
+	log.Debugf("worker/uniter/filter: no new charm event")
 	return nil
 }
 

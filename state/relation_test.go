@@ -17,74 +17,74 @@ type RelationSuite struct {
 var _ = Suite(&RelationSuite{})
 
 func (s *RelationSuite) TestRelationErrors(c *C) {
-	wp, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
-	wpep, err := wp.Endpoint("db")
+	wordpressEP, err := wordpress.Endpoint("db")
 	c.Assert(err, IsNil)
-	ms, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
+	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
 	c.Assert(err, IsNil)
-	msep, err := ms.Endpoint("server")
+	mysqlEP, err := mysql.Endpoint("server")
 	c.Assert(err, IsNil)
 
 	// Check we can't add a relation with services that don't exist.
-	msep2 := msep
+	msep2 := mysqlEP
 	msep2.ServiceName = "yoursql"
-	_, err = s.State.AddRelation(msep2, wpep)
+	_, err = s.State.AddRelation(msep2, wordpressEP)
 	c.Assert(err, ErrorMatches, `cannot add relation "wordpress:db yoursql:server": .*`)
-	assertNoRelations(c, wp)
-	assertNoRelations(c, ms)
+	assertNoRelations(c, wordpress)
+	assertNoRelations(c, mysql)
 
 	// Check that interfaces have to match.
-	msep3 := msep
+	msep3 := mysqlEP
 	msep3.Interface = "roflcopter"
-	_, err = s.State.AddRelation(msep3, wpep)
+	_, err = s.State.AddRelation(msep3, wordpressEP)
 	c.Assert(err, ErrorMatches, `cannot add relation "wordpress:db mysql:server": endpoints do not relate`)
-	assertNoRelations(c, wp)
-	assertNoRelations(c, ms)
+	assertNoRelations(c, wordpress)
+	assertNoRelations(c, mysql)
 
 	// Check a variety of surprising endpoint combinations.
-	_, err = s.State.AddRelation(wpep)
+	_, err = s.State.AddRelation(wordpressEP)
 	c.Assert(err, ErrorMatches, `cannot add relation "wordpress:db": single endpoint must be a peer relation`)
-	assertNoRelations(c, wp)
+	assertNoRelations(c, wordpress)
 
-	rk, err := s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
+	riak, err := s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
 	c.Assert(err, IsNil)
-	rkep, err := rk.Endpoint("ring")
+	riakEP, err := riak.Endpoint("ring")
 	c.Assert(err, IsNil)
-	_, err = s.State.AddRelation(rkep, wpep)
+	_, err = s.State.AddRelation(riakEP, wordpressEP)
 	c.Assert(err, ErrorMatches, `cannot add relation "wordpress:db riak:ring": endpoints do not relate`)
-	assertNoRelations(c, rk)
-	assertNoRelations(c, wp)
+	assertNoRelations(c, riak)
+	assertNoRelations(c, wordpress)
 
-	_, err = s.State.AddRelation(rkep, rkep)
+	_, err = s.State.AddRelation(riakEP, riakEP)
 	c.Assert(err, ErrorMatches, `cannot add relation "riak:ring riak:ring": endpoints do not relate`)
-	assertNoRelations(c, rk)
+	assertNoRelations(c, riak)
 
 	_, err = s.State.AddRelation()
 	c.Assert(err, ErrorMatches, `cannot add relation "": cannot relate 0 endpoints`)
-	_, err = s.State.AddRelation(msep, wpep, rkep)
+	_, err = s.State.AddRelation(mysqlEP, wordpressEP, riakEP)
 	c.Assert(err, ErrorMatches, `cannot add relation "wordpress:db mysql:server riak:ring": cannot relate 3 endpoints`)
 }
 
 func (s *RelationSuite) TestRetrieveSuccess(c *C) {
-	wp, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
-	wpep, err := wp.Endpoint("db")
+	wordpressEP, err := wordpress.Endpoint("db")
 	c.Assert(err, IsNil)
-	ms, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
+	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
 	c.Assert(err, IsNil)
-	msep, err := ms.Endpoint("server")
+	mysqlEP, err := mysql.Endpoint("server")
 	c.Assert(err, IsNil)
-	expect, err := s.State.AddRelation(wpep, msep)
+	expect, err := s.State.AddRelation(wordpressEP, mysqlEP)
 	c.Assert(err, IsNil)
-	rel, err := s.State.EndpointsRelation(wpep, msep)
+	rel, err := s.State.EndpointsRelation(wordpressEP, mysqlEP)
 	check := func() {
 		c.Assert(err, IsNil)
 		c.Assert(rel.Id(), Equals, expect.Id())
 		c.Assert(rel.String(), Equals, expect.String())
 	}
 	check()
-	rel, err = s.State.EndpointsRelation(msep, wpep)
+	rel, err = s.State.EndpointsRelation(mysqlEP, wordpressEP)
 	check()
 	rel, err = s.State.Relation(expect.Id())
 	check()
@@ -104,20 +104,20 @@ func (s *RelationSuite) TestRetrieveNotFound(c *C) {
 
 func (s *RelationSuite) TestProviderRequirerRelation(c *C) {
 	// Add a relation, and check we can only do so once.
-	wp, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
-	wpep, err := wp.Endpoint("db")
+	wordpressEP, err := wordpress.Endpoint("db")
 	c.Assert(err, IsNil)
-	ms, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
+	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
 	c.Assert(err, IsNil)
-	msep, err := ms.Endpoint("server")
+	mysqlEP, err := mysql.Endpoint("server")
 	c.Assert(err, IsNil)
-	rel, err := s.State.AddRelation(wpep, msep)
+	rel, err := s.State.AddRelation(wordpressEP, mysqlEP)
 	c.Assert(err, IsNil)
-	_, err = s.State.AddRelation(wpep, msep)
+	_, err = s.State.AddRelation(wordpressEP, mysqlEP)
 	c.Assert(err, ErrorMatches, `cannot add relation "wordpress:db mysql:server": .*`)
-	assertOneRelation(c, ms, 0, msep, wpep)
-	assertOneRelation(c, wp, 0, wpep, msep)
+	assertOneRelation(c, mysql, 0, mysqlEP, wordpressEP)
+	assertOneRelation(c, wordpress, 0, wordpressEP, mysqlEP)
 
 	// Destroy the relation, and check we can destroy again without error.
 	err = rel.Destroy()
@@ -130,25 +130,25 @@ func (s *RelationSuite) TestProviderRequirerRelation(c *C) {
 	// Check that we can add it again if we want to; but this time,
 	// give one of the endpoints container scope and check that both
 	// resulting service relations get that scope.
-	wpep.RelationScope = charm.ScopeContainer
-	_, err = s.State.AddRelation(msep, wpep)
+	wordpressEP.RelationScope = charm.ScopeContainer
+	_, err = s.State.AddRelation(mysqlEP, wordpressEP)
 	c.Assert(err, IsNil)
-	// After adding relation, make msep container-scoped as well, for
+	// After adding relation, make mysqlEP container-scoped as well, for
 	// simplicity of testing.
-	msep.RelationScope = charm.ScopeContainer
-	assertOneRelation(c, ms, 2, msep, wpep)
-	assertOneRelation(c, wp, 2, wpep, msep)
+	mysqlEP.RelationScope = charm.ScopeContainer
+	assertOneRelation(c, mysql, 2, mysqlEP, wordpressEP)
+	assertOneRelation(c, wordpress, 2, wordpressEP, mysqlEP)
 }
 
 func (s *RelationSuite) TestRefresh(c *C) {
-	rk, err := s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
+	riak, err := s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
 	c.Assert(err, IsNil)
-	rkep, err := rk.Endpoint("ring")
+	riakEP, err := riak.Endpoint("ring")
 	c.Assert(err, IsNil)
-	rel, err := s.State.AddRelation(rkep)
+	rel, err := s.State.AddRelation(riakEP)
 	c.Assert(err, IsNil)
 
-	rels, err := rk.Relations()
+	rels, err := riak.Relations()
 	c.Assert(err, IsNil)
 	rel1 := rels[0]
 	err = rel.Destroy()
@@ -161,42 +161,42 @@ func (s *RelationSuite) TestRefresh(c *C) {
 
 func (s *RelationSuite) TestDestroy(c *C) {
 	// Add a relation, and check we can only do so once.
-	rk, err := s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
+	riak, err := s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
 	c.Assert(err, IsNil)
-	rkep, err := rk.Endpoint("ring")
+	riakEP, err := riak.Endpoint("ring")
 	c.Assert(err, IsNil)
-	rel, err := s.State.AddRelation(rkep)
+	rel, err := s.State.AddRelation(riakEP)
 	c.Assert(err, IsNil)
 
 	err = rel.Destroy()
 	c.Assert(err, IsNil)
 	_, err = s.State.Relation(rel.Id())
 	c.Assert(state.IsNotFound(err), Equals, true)
-	_, err = s.State.EndpointsRelation(rkep)
+	_, err = s.State.EndpointsRelation(riakEP)
 	c.Assert(state.IsNotFound(err), Equals, true)
-	rels, err := rk.Relations()
+	rels, err := riak.Relations()
 	c.Assert(err, IsNil)
 	c.Assert(rels, HasLen, 0)
 }
 
 func (s *RelationSuite) TestPeerRelation(c *C) {
-	rk, err := s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
+	riak, err := s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
 	c.Assert(err, IsNil)
-	rkep, err := rk.Endpoint("ring")
+	riakEP, err := riak.Endpoint("ring")
 	c.Assert(err, IsNil)
-	assertNoRelations(c, rk)
+	assertNoRelations(c, riak)
 
 	// Add a relation, and check we can only do so once.
-	rel, err := s.State.AddRelation(rkep)
+	rel, err := s.State.AddRelation(riakEP)
 	c.Assert(err, IsNil)
-	_, err = s.State.AddRelation(rkep)
+	_, err = s.State.AddRelation(riakEP)
 	c.Assert(err, ErrorMatches, `cannot add relation "riak:ring": .*`)
-	assertOneRelation(c, rk, 0, rkep)
+	assertOneRelation(c, riak, 0, riakEP)
 
 	// Remove the relation, and check a second removal succeeds.
 	err = rel.Destroy()
 	c.Assert(err, IsNil)
-	assertNoRelations(c, rk)
+	assertNoRelations(c, riak)
 	err = rel.Destroy()
 	c.Assert(err, IsNil)
 }
@@ -265,8 +265,8 @@ func (s *RelationUnitSuite) TestProReqSettings(c *C) {
 
 	// Check missing settings cannot be read by any RU.
 	for _, ru := range rus {
-		_, err := ru.ReadSettings("pro/0")
-		c.Assert(err, ErrorMatches, `cannot read settings for unit "pro/0" in relation "req:db pro:server": settings not found`)
+		_, err := ru.ReadSettings("mysql/0")
+		c.Assert(err, ErrorMatches, `cannot read settings for unit "mysql/0" in relation "wordpress:db mysql:server": settings not found`)
 	}
 
 	// Add settings for one RU.
@@ -280,7 +280,7 @@ func (s *RelationUnitSuite) TestProReqSettings(c *C) {
 
 	// Check settings can be read by every RU.
 	for _, ru := range rus {
-		m, err := ru.ReadSettings("pro/0")
+		m, err := ru.ReadSettings("mysql/0")
 		c.Assert(err, IsNil)
 		c.Assert(m["meme"], Equals, "foul-bachelor-frog")
 	}
@@ -292,8 +292,8 @@ func (s *RelationUnitSuite) TestContainerSettings(c *C) {
 
 	// Check missing settings cannot be read by any RU.
 	for _, ru := range rus {
-		_, err := ru.ReadSettings("pro/0")
-		c.Assert(err, ErrorMatches, `cannot read settings for unit "pro/0" in relation "req:info pro:juju-info": settings not found`)
+		_, err := ru.ReadSettings("mysql/0")
+		c.Assert(err, ErrorMatches, `cannot read settings for unit "mysql/0" in relation "logging:info mysql:juju-info": settings not found`)
 	}
 
 	// Add settings for one RU.
@@ -308,7 +308,7 @@ func (s *RelationUnitSuite) TestContainerSettings(c *C) {
 	// Check settings can be read by RUs in the same container.
 	rus0 := RUs{prr.pru0, prr.rru0}
 	for _, ru := range rus0 {
-		m, err := ru.ReadSettings("pro/0")
+		m, err := ru.ReadSettings("mysql/0")
 		c.Assert(err, IsNil)
 		c.Assert(m["meme"], Equals, "foul-bachelor-frog")
 	}
@@ -316,8 +316,8 @@ func (s *RelationUnitSuite) TestContainerSettings(c *C) {
 	// Check settings are still inaccessible to RUs outside that container
 	rus1 := RUs{prr.pru1, prr.rru1}
 	for _, ru := range rus1 {
-		_, err := ru.ReadSettings("pro/0")
-		c.Assert(err, ErrorMatches, `cannot read settings for unit "pro/0" in relation "req:info pro:juju-info": settings not found`)
+		_, err := ru.ReadSettings("mysql/0")
+		c.Assert(err, ErrorMatches, `cannot read settings for unit "mysql/0" in relation "logging:info mysql:juju-info": settings not found`)
 	}
 }
 
@@ -483,7 +483,7 @@ func (s *RelationUnitSuite) TestProReqWatchScope(c *C) {
 		return []*state.RelationScopeWatcher{ws[2], ws[3]}
 	}
 	for _, w := range rws() {
-		s.assertScopeChange(c, w, []string{"pro/0"}, nil)
+		s.assertScopeChange(c, w, []string{"mysql/0"}, nil)
 	}
 	s.assertNoScopeChange(c, ws...)
 
@@ -494,7 +494,7 @@ func (s *RelationUnitSuite) TestProReqWatchScope(c *C) {
 		return []*state.RelationScopeWatcher{ws[0], ws[1]}
 	}
 	for _, w := range pws() {
-		s.assertScopeChange(c, w, []string{"req/0"}, nil)
+		s.assertScopeChange(c, w, []string{"wordpress/0"}, nil)
 	}
 	s.assertNoScopeChange(c, ws...)
 
@@ -513,10 +513,10 @@ func (s *RelationUnitSuite) TestProReqWatchScope(c *C) {
 		defer stop(c, w)
 	}
 	for _, w := range pws() {
-		s.assertScopeChange(c, w, []string{"req/0", "req/1"}, nil)
+		s.assertScopeChange(c, w, []string{"wordpress/0", "wordpress/1"}, nil)
 	}
 	for _, w := range rws() {
-		s.assertScopeChange(c, w, []string{"pro/0", "pro/1"}, nil)
+		s.assertScopeChange(c, w, []string{"mysql/0", "mysql/1"}, nil)
 	}
 	s.assertNoScopeChange(c, ws...)
 
@@ -524,7 +524,7 @@ func (s *RelationUnitSuite) TestProReqWatchScope(c *C) {
 	err = prr.pru0.LeaveScope()
 	c.Assert(err, IsNil)
 	for _, w := range rws() {
-		s.assertScopeChange(c, w, nil, []string{"pro/0"})
+		s.assertScopeChange(c, w, nil, []string{"mysql/0"})
 	}
 	s.assertNoScopeChange(c, ws...)
 
@@ -532,7 +532,7 @@ func (s *RelationUnitSuite) TestProReqWatchScope(c *C) {
 	err = prr.rru0.LeaveScope()
 	c.Assert(err, IsNil)
 	for _, w := range pws() {
-		s.assertScopeChange(c, w, nil, []string{"req/0"})
+		s.assertScopeChange(c, w, nil, []string{"wordpress/0"})
 	}
 	s.assertNoScopeChange(c, ws...)
 }
@@ -553,13 +553,13 @@ func (s *RelationUnitSuite) TestContainerWatchScope(c *C) {
 	// pru0 enters; check detected only by same-container req.
 	err := prr.pru0.EnterScope()
 	c.Assert(err, IsNil)
-	s.assertScopeChange(c, ws[2], []string{"pro/0"}, nil)
+	s.assertScopeChange(c, ws[2], []string{"mysql/0"}, nil)
 	s.assertNoScopeChange(c, ws...)
 
 	// req1 enters; check detected only by same-container pro.
 	err = prr.rru1.EnterScope()
 	c.Assert(err, IsNil)
-	s.assertScopeChange(c, ws[1], []string{"req/1"}, nil)
+	s.assertScopeChange(c, ws[1], []string{"logging/1"}, nil)
 	s.assertNoScopeChange(c, ws...)
 
 	// Stop watches; remaining RUs enter scope.
@@ -576,22 +576,22 @@ func (s *RelationUnitSuite) TestContainerWatchScope(c *C) {
 	for _, w := range ws {
 		defer stop(c, w)
 	}
-	s.assertScopeChange(c, ws[0], []string{"req/0"}, nil)
-	s.assertScopeChange(c, ws[1], []string{"req/1"}, nil)
-	s.assertScopeChange(c, ws[2], []string{"pro/0"}, nil)
-	s.assertScopeChange(c, ws[3], []string{"pro/1"}, nil)
+	s.assertScopeChange(c, ws[0], []string{"logging/0"}, nil)
+	s.assertScopeChange(c, ws[1], []string{"logging/1"}, nil)
+	s.assertScopeChange(c, ws[2], []string{"mysql/0"}, nil)
+	s.assertScopeChange(c, ws[3], []string{"mysql/1"}, nil)
 	s.assertNoScopeChange(c, ws...)
 
 	// pru0 leaves; check detected only by same-container req.
 	err = prr.pru0.LeaveScope()
 	c.Assert(err, IsNil)
-	s.assertScopeChange(c, ws[2], nil, []string{"pro/0"})
+	s.assertScopeChange(c, ws[2], nil, []string{"mysql/0"})
 	s.assertNoScopeChange(c, ws...)
 
 	// rru0 leaves; check detected only by same-container pro.
 	err = prr.rru0.LeaveScope()
 	c.Assert(err, IsNil)
-	s.assertScopeChange(c, ws[0], nil, []string{"req/0"})
+	s.assertScopeChange(c, ws[0], nil, []string{"logging/0"})
 	s.assertNoScopeChange(c, ws...)
 }
 
@@ -623,6 +623,7 @@ func (s *RelationUnitSuite) assertNoScopeChange(c *C, ws ...*state.RelationScope
 }
 
 type PeerRelation struct {
+	svc           *state.Service
 	u0, u1, u2    *state.Unit
 	ru0, ru1, ru2 *state.RelationUnit
 }
@@ -634,7 +635,7 @@ func NewPeerRelation(c *C, s *ConnSuite) *PeerRelation {
 	c.Assert(err, IsNil)
 	rel, err := s.State.AddRelation(ep)
 	c.Assert(err, IsNil)
-	pr := &PeerRelation{}
+	pr := &PeerRelation{svc: svc}
 	pr.u0, pr.ru0 = addRU(c, svc, rel, nil)
 	pr.u1, pr.ru1 = addRU(c, svc, rel, nil)
 	pr.u2, pr.ru2 = addRU(c, svc, rel, nil)
@@ -642,25 +643,26 @@ func NewPeerRelation(c *C, s *ConnSuite) *PeerRelation {
 }
 
 type ProReqRelation struct {
+	psvc, rsvc             *state.Service
 	pu0, pu1, ru0, ru1     *state.Unit
 	pru0, pru1, rru0, rru1 *state.RelationUnit
 }
 
 func NewProReqRelation(c *C, s *ConnSuite, scope charm.RelationScope) *ProReqRelation {
-	psvc, err := s.State.AddService("pro", s.AddTestingCharm(c, "mysql"))
+	psvc, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
 	c.Assert(err, IsNil)
 	var rsvc *state.Service
 	if scope == charm.ScopeGlobal {
-		rsvc, err = s.State.AddService("req", s.AddTestingCharm(c, "wordpress"))
+		rsvc, err = s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	} else {
-		rsvc, err = s.State.AddService("req", s.AddTestingCharm(c, "logging"))
+		rsvc, err = s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
 	}
 	c.Assert(err, IsNil)
-	eps, err := s.State.InferEndpoints([]string{"pro", "req"})
+	eps, err := s.State.InferEndpoints([]string{"mysql", rsvc.Name()})
 	c.Assert(err, IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, IsNil)
-	prr := &ProReqRelation{}
+	prr := &ProReqRelation{psvc: psvc, rsvc: rsvc}
 	prr.pu0, prr.pru0 = addRU(c, psvc, rel, nil)
 	prr.pu1, prr.pru1 = addRU(c, psvc, rel, nil)
 	if scope == charm.ScopeGlobal {
@@ -714,24 +716,24 @@ type OriginalRelationUnitSuite struct {
 var _ = Suite(&OriginalRelationUnitSuite{})
 
 func (s *OriginalRelationUnitSuite) TestRelationUnitEnterScopeError(c *C) {
-	rk, err := s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
+	riak, err := s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
 	c.Assert(err, IsNil)
-	rkep, err := rk.Endpoint("ring")
+	riakEP, err := riak.Endpoint("ring")
 	c.Assert(err, IsNil)
-	rel, err := s.State.AddRelation(rkep)
+	rel, err := s.State.AddRelation(riakEP)
 	c.Assert(err, IsNil)
-	u0, err := rk.AddUnit()
+	u0, err := riak.AddUnit()
 	c.Assert(err, IsNil)
 	ru0, err := rel.Unit(u0)
 	c.Assert(err, IsNil)
 	err = u0.EnsureDead()
 	c.Assert(err, IsNil)
-	err = rk.RemoveUnit(u0)
+	err = riak.RemoveUnit(u0)
 	c.Assert(err, IsNil)
 	err = ru0.EnterScope()
 	c.Assert(err, ErrorMatches, `cannot initialize state for unit "riak/0" in relation "riak:ring": private address of unit "riak/0" not found`)
 
-	u1, err := rk.AddUnit()
+	u1, err := riak.AddUnit()
 	c.Assert(err, IsNil)
 	err = u1.SetPrivateAddress("u1.example.com")
 	c.Assert(err, IsNil)
@@ -745,17 +747,17 @@ func (s *OriginalRelationUnitSuite) TestRelationUnitEnterScopeError(c *C) {
 
 func (s *OriginalRelationUnitSuite) TestRelationUnitReadSettings(c *C) {
 	// Create a peer service with a relation and two units.
-	rk, err := s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
+	riak, err := s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
 	c.Assert(err, IsNil)
-	rkep, err := rk.Endpoint("ring")
+	riakEP, err := riak.Endpoint("ring")
 	c.Assert(err, IsNil)
-	rel, err := s.State.AddRelation(rkep)
+	rel, err := s.State.AddRelation(riakEP)
 	c.Assert(err, IsNil)
-	u0, err := rk.AddUnit()
+	u0, err := riak.AddUnit()
 	c.Assert(err, IsNil)
 	ru0, err := rel.Unit(u0)
 	c.Assert(err, IsNil)
-	u1, err := rk.AddUnit()
+	u1, err := riak.AddUnit()
 	c.Assert(err, IsNil)
 	ru1, err := rel.Unit(u1)
 	c.Assert(err, IsNil)
@@ -802,11 +804,11 @@ func (s *OriginalRelationUnitSuite) TestRelationUnitReadSettings(c *C) {
 
 func (s *OriginalRelationUnitSuite) TestPeerRelationUnit(c *C) {
 	// Create a service and get a peer relation.
-	rk, err := s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
+	riak, err := s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
 	c.Assert(err, IsNil)
-	rkep, err := rk.Endpoint("ring")
+	riakEP, err := riak.Endpoint("ring")
 	c.Assert(err, IsNil)
-	rel, err := s.State.AddRelation(rkep)
+	rel, err := s.State.AddRelation(riakEP)
 	c.Assert(err, IsNil)
 
 	// Add some units to the service and set their private addresses; get
@@ -816,13 +818,13 @@ func (s *OriginalRelationUnitSuite) TestPeerRelationUnit(c *C) {
 	// the information to be available, and uses it to populate the
 	// relation settings node.)
 	addUnit := func(i int) *state.RelationUnit {
-		unit, err := rk.AddUnit()
+		unit, err := riak.AddUnit()
 		c.Assert(err, IsNil)
 		err = unit.SetPrivateAddress(fmt.Sprintf("riak%d.example.com", i))
 		c.Assert(err, IsNil)
 		ru, err := rel.Unit(unit)
 		c.Assert(err, IsNil)
-		c.Assert(ru.Endpoint(), Equals, rkep)
+		c.Assert(ru.Endpoint(), Equals, riakEP)
 		return ru
 	}
 	ru0 := addUnit(0)
@@ -938,15 +940,15 @@ func (s *OriginalRelationUnitSuite) TestPeerRelationUnit(c *C) {
 
 func (s *OriginalRelationUnitSuite) TestGlobalProReqRelationUnit(c *C) {
 	// Create a pair of services and a relation between them.
-	ms, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
+	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
 	c.Assert(err, IsNil)
-	msep, err := ms.Endpoint("server")
+	mysqlEP, err := mysql.Endpoint("server")
 	c.Assert(err, IsNil)
-	wp, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
-	wpep, err := wp.Endpoint("db")
+	wordpressEP, err := wordpress.Endpoint("db")
 	c.Assert(err, IsNil)
-	rel, err := s.State.AddRelation(msep, wpep)
+	rel, err := s.State.AddRelation(mysqlEP, wordpressEP)
 	c.Assert(err, IsNil)
 
 	// Add some units to the services and set their private addresses.
@@ -960,10 +962,10 @@ func (s *OriginalRelationUnitSuite) TestGlobalProReqRelationUnit(c *C) {
 		c.Assert(ru.Endpoint(), Equals, ep)
 		return ru
 	}
-	msru0 := addUnit(ms, "ms0", msep)
-	msru1 := addUnit(ms, "ms1", msep)
-	wpru0 := addUnit(wp, "wp0", wpep)
-	wpru1 := addUnit(wp, "wp1", wpep)
+	msru0 := addUnit(mysql, "ms0", mysqlEP)
+	msru1 := addUnit(mysql, "ms1", mysqlEP)
+	wpru0 := addUnit(wordpress, "wp0", wordpressEP)
+	wpru1 := addUnit(wordpress, "wp1", wordpressEP)
 
 	// ---------- Single role active ----------
 
@@ -1084,36 +1086,36 @@ func (s *OriginalRelationUnitSuite) TestGlobalProReqRelationUnit(c *C) {
 
 func (s *OriginalRelationUnitSuite) TestContainerProReqRelationUnit(c *C) {
 	// Create a pair of services and a relation between them.
-	ms, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
+	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
 	c.Assert(err, IsNil)
-	msep, err := ms.Endpoint("juju-info")
+	mysqlEP, err := mysql.Endpoint("juju-info")
 	c.Assert(err, IsNil)
-	lg, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
+	logging, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
 	c.Assert(err, IsNil)
-	lgep, err := lg.Endpoint("info")
+	loggingEP, err := logging.Endpoint("info")
 	c.Assert(err, IsNil)
-	rel, err := s.State.AddRelation(msep, lgep)
+	rel, err := s.State.AddRelation(mysqlEP, loggingEP)
 	c.Assert(err, IsNil)
 
-	// Change msep to match the endpoint that will actually be used by the relation.
-	msep.RelationScope = charm.ScopeContainer
+	// Change mysqlEP to match the endpoint that will actually be used by the relation.
+	mysqlEP.RelationScope = charm.ScopeContainer
 
 	// Add some units to the services and set their private addresses.
 	addUnits := func(i int) (*state.RelationUnit, *state.RelationUnit) {
-		msu, err := ms.AddUnit()
+		msu, err := mysql.AddUnit()
 		c.Assert(err, IsNil)
-		err = msu.SetPrivateAddress(fmt.Sprintf("ms%d.example.com", i))
+		err = msu.SetPrivateAddress(fmt.Sprintf("mysql%d.example.com", i))
 		c.Assert(err, IsNil)
 		msru, err := rel.Unit(msu)
 		c.Assert(err, IsNil)
-		c.Assert(msru.Endpoint(), Equals, msep)
-		lgu, err := lg.AddUnitSubordinateTo(msu)
+		c.Assert(msru.Endpoint(), Equals, mysqlEP)
+		lgu, err := logging.AddUnitSubordinateTo(msu)
 		c.Assert(err, IsNil)
-		err = lgu.SetPrivateAddress(fmt.Sprintf("lg%d.example.com", i))
+		err = lgu.SetPrivateAddress(fmt.Sprintf("logging%d.example.com", i))
 		c.Assert(err, IsNil)
 		lgru, err := rel.Unit(lgu)
 		c.Assert(err, IsNil)
-		c.Assert(lgru.Endpoint(), Equals, lgep)
+		c.Assert(lgru.Endpoint(), Equals, loggingEP)
 		return msru, lgru
 	}
 	msru0, lgru0 := addUnits(0)

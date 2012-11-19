@@ -145,7 +145,7 @@ func (ctx *context) matchLogHooks(c *C) (match bool, overshoot bool) {
 		ctx.id,
 	)
 	// donePattern matches uniter logging that indicates a hook has run.
-	donePattern := `^.* JUJU (ran "[a-z-]+" hook|hook failed)`
+	donePattern := `^.* JUJU worker/uniter: (ran "[a-z-]+" hook|hook failed)`
 	hookRegexp := regexp.MustCompile(hookPattern)
 	doneRegexp := regexp.MustCompile(donePattern)
 
@@ -845,12 +845,26 @@ func (s waitUniterDead) step(c *C, ctx *context) {
 func (s waitUniterDead) waitDead(c *C, ctx *context) error {
 	u := ctx.uniter
 	ctx.uniter = nil
-	select {
-	case <-u.Dying():
-	case <-time.After(5 * time.Second):
-		c.Fatalf("uniter still alive")
+	timeout := time.After(5 * time.Second)
+	for {
+		// The repeated StartSync is to ensure timely completion of this method
+		// in the case(s) where a state change causes a uniter action which
+		// causes a state change which causes a uniter action, in which case we
+		// need more than one sync. At the moment there's only one situation
+		// that causes this -- setting the unit's service to Dying -- but it's
+		// not an intrinsically insane pattern of action (and helps to simplify
+		// the filter code) so this test seems like a small price to pay.
+		ctx.st.StartSync()
+		select {
+		case <-u.Dying():
+			return u.Wait()
+		case <-time.After(50 * time.Millisecond):
+			continue
+		case <-timeout:
+			c.Fatalf("uniter still alive")
+		}
 	}
-	return u.Wait()
+	panic("unreachable")
 }
 
 type stopUniter struct {

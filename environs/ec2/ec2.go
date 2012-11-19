@@ -207,7 +207,7 @@ func (e *environ) PublicStorage() environs.StorageReader {
 	return e.publicStorageUnlocked
 }
 
-func (e *environ) Bootstrap(uploadTools bool) error {
+func (e *environ) Bootstrap(uploadTools bool, stateServerPEM []byte) error {
 	password := e.Config().AdminSecret()
 	if password == "" {
 		return fmt.Errorf("admin-secret is required for bootstrap")
@@ -247,7 +247,14 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 		return fmt.Errorf("unable to determine inital configuration: %v", err)
 	}
 	info := &state.Info{Password: trivial.PasswordHash(password)}
-	inst, err := e.startInstance(0, info, tools, true, config)
+	inst, err := e.startInstance(&startInstanceParams{
+		machineId:      0,
+		info:           info,
+		tools:          tools,
+		stateServer:    true,
+		config:         config,
+		stateServerPEM: stateServerPEM,
+	})
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
@@ -309,20 +316,26 @@ func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
 }
 
 func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.Tools) (environs.Instance, error) {
-	return e.startInstance(machineId, info, tools, false, nil)
+	return e.startInstance(&startInstanceParams{
+		machineId: machineId,
+		info:      info,
+		tools:     tools,
+	})
 }
 
-func (e *environ) userData(machineId int, info *state.Info, tools *state.Tools, master bool, config *config.Config) ([]byte, error) {
+func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
+
 	cfg := &cloudinit.MachineConfig{
-		StateServer:        master,
-		StateInfo:          info,
+		StateServer:        scfg.stateServer,
+		StateInfo:          scfg.info,
+		StateServerPEM:     scfg.stateServerPEM,
 		InstanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
 		ProviderType:       "ec2",
 		DataDir:            "/var/lib/juju",
-		Tools:              tools,
-		MachineId:          machineId,
+		Tools:              scfg.tools,
+		MachineId:          scfg.machineId,
 		AuthorizedKeys:     e.ecfg().AuthorizedKeys(),
-		Config:             config,
+		Config:             scfg.config,
 	}
 	cloudcfg, err := cloudinit.New(cfg)
 	if err != nil {
@@ -331,34 +344,42 @@ func (e *environ) userData(machineId int, info *state.Info, tools *state.Tools, 
 	return cloudcfg.Render()
 }
 
+type startInstanceParams struct {
+	machineId      int
+	info           *state.Info
+	tools          *state.Tools
+	stateServer    bool
+	config         *config.Config
+	stateServerPEM []byte
+}
+
 // startInstance is the internal version of StartInstance, used by Bootstrap
-// as well as via StartInstance itself. If master is true, a bootstrap
-// instance will be started.
-func (e *environ) startInstance(machineId int, info *state.Info, tools *state.Tools, master bool, config *config.Config) (environs.Instance, error) {
-	if tools == nil {
+// as well as via StartInstance itself.
+func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, error) {
+	if scfg.tools == nil {
 		var err error
 		flags := environs.HighestVersion | environs.CompatVersion
-		tools, err = environs.FindTools(e, version.Current, flags)
+		scfg.tools, err = environs.FindTools(e, version.Current, flags)
 		if err != nil {
 			return nil, err
 		}
 	}
-	log.Printf("environs/ec2: starting machine %d in %q running tools version %q from %q", machineId, e.name, tools.Binary, tools.URL)
+	log.Printf("environs/ec2: starting machine %d in %q running tools version %q from %q", scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
 	spec, err := findInstanceSpec(&instanceConstraint{
-		series: tools.Series,
-		arch:   tools.Arch,
+		series: scfg.tools.Series,
+		arch:   scfg.tools.Arch,
 		region: e.ecfg().region(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image satisfying constraints: %v", err)
 	}
 	// TODO quick sanity check that we can access the tools URL?
-	userData, err := e.userData(machineId, info, tools, master, config)
+	userData, err := e.userData(scfg)
 	if err != nil {
 		return nil, fmt.Errorf("cannot make user data: %v", err)
 	}
-	log.Debugf("ec2 user data: %q", userData)
-	groups, err := e.setUpGroups(machineId)
+	log.Debugf("environs/ec2: ec2 user data: %q", userData)
+	groups, err := e.setUpGroups(scfg.machineId)
 	if err != nil {
 		return nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
@@ -726,7 +747,7 @@ func (inst *instance) Ports(machineId int) ([]state.Port, error) {
 
 // setUpGroups creates the security groups for the new machine, and
 // returns them.
-// 
+//
 // Instances are tagged with a group so they can be distinguished from
 // other instances that might be running on the same EC2 account.  In
 // addition, a specific machine security group is created for each

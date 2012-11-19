@@ -39,7 +39,7 @@ func (c *GetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	return cmd.CheckEmpty(args[1:])
 }
 
-// Run fetches the configuration of the service and formats 
+// Run fetches the configuration of the service and formats
 // the result as a YAML string.
 func (c *GetCommand) Run(ctx *cmd.Context) error {
 	conn, err := juju.NewConnFromName(c.EnvName)

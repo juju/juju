@@ -72,7 +72,7 @@ func (fw *Firewaller) loop() error {
 				return watcher.MustErr(fw.environWatcher)
 			}
 			if err := fw.environ.SetConfig(change); err != nil {
-				log.Printf("firewaller loaded invalid environment configuration: %v", err)
+				log.Printf("worker/firewaller: loaded invalid environment configuration: %v", err)
 			}
 		case change, ok := <-fw.machinesWatcher.Changes():
 			if !ok {
@@ -90,7 +90,7 @@ func (fw *Firewaller) loop() error {
 				}
 				fw.forgetUnit(unitd)
 				changed = append(changed, unitd)
-				log.Debugf("firewaller: stopped watching unit %s", unit.Name())
+				log.Debugf("worker/firewaller: stopped watching unit %s", unit.Name())
 			}
 			for _, unit := range change.Added {
 				unitd := newUnitData(unit, fw)
@@ -114,7 +114,7 @@ func (fw *Firewaller) loop() error {
 				unitd.serviced = fw.serviceds[unit.ServiceName()]
 				unitd.serviced.unitds[unit.Name()] = unitd
 				changed = append(changed, unitd)
-				log.Debugf("firewaller: started watching unit %s", unit.Name())
+				log.Debugf("worker/firewaller: started watching unit %s", unit.Name())
 			}
 			if err := fw.flushUnits(changed); err != nil {
 				return fmt.Errorf("cannot change firewall ports: %v", err)
@@ -303,7 +303,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 			return err
 		}
 		state.SortPorts(toOpen)
-		log.Printf("firewaller: opened ports %v on machine %d", toOpen, machined.id)
+		log.Printf("worker/firewaller: opened ports %v on machine %d", toOpen, machined.id)
 	}
 	if len(toClose) > 0 {
 		if err := instances[0].ClosePorts(machined.id, toClose); err != nil {
@@ -311,7 +311,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 			return err
 		}
 		state.SortPorts(toClose)
-		log.Printf("firewaller: closed ports %v on machine %d", toClose, machined.id)
+		log.Printf("worker/firewaller: closed ports %v on machine %d", toClose, machined.id)
 	}
 	return nil
 }
@@ -332,7 +332,7 @@ func (fw *Firewaller) machineLifeChanged(id int) error {
 	}
 	if !known && !dead {
 		fw.machineds[id] = newMachineData(id, fw)
-		log.Debugf("firewaller: started watching machine %d", id)
+		log.Debugf("worker/firewaller: started watching machine %d", id)
 	}
 	return nil
 }
@@ -351,7 +351,7 @@ func (fw *Firewaller) forgetMachine(machined *machineData) error {
 	if err := machined.Stop(); err != nil {
 		return err
 	}
-	log.Debugf("firewaller: stopped watching machine %d", machined.id)
+	log.Debugf("worker/firewaller: stopped watching machine %d", machined.id)
 	return nil
 }
 
@@ -361,7 +361,7 @@ func (fw *Firewaller) forgetUnit(unitd *unitData) {
 	serviced := unitd.serviced
 	machined := unitd.machined
 	if err := unitd.Stop(); err != nil {
-		log.Printf("unit watcher %q returned error when stopping: %v", name, err)
+		log.Printf("worker/firewaller: unit watcher %q returned error when stopping: %v", name, err)
 	}
 	// Clean up after stopping.
 	delete(fw.unitds, name)
@@ -370,7 +370,7 @@ func (fw *Firewaller) forgetUnit(unitd *unitData) {
 	if len(serviced.unitds) == 0 {
 		// Stop service data after all units are removed.
 		if err := serviced.Stop(); err != nil {
-			log.Printf("service watcher %q returned error when stopping: %v", serviced.service, err)
+			log.Printf("worker/firewaller: service watcher %q returned error when stopping: %v", serviced.service, err)
 		}
 		delete(fw.serviceds, serviced.service.Name())
 	}
@@ -417,7 +417,7 @@ func (fw *Firewaller) Stop() error {
 	return fw.tomb.Wait()
 }
 
-// unitsChange contains the changed units for one specific machine. 
+// unitsChange contains the changed units for one specific machine.
 type unitsChange struct {
 	machined *machineData
 	*state.MachinePrincipalUnitsChange
@@ -490,7 +490,7 @@ func (md *machineData) Stop() error {
 	return md.tomb.Wait()
 }
 
-// portsChange contains the changed ports for one specific unit. 
+// portsChange contains the changed ports for one specific unit.
 type portsChange struct {
 	unitd *unitData
 	ports []state.Port
@@ -501,7 +501,6 @@ type unitData struct {
 	tomb     tomb.Tomb
 	fw       *Firewaller
 	unit     *state.Unit
-	watcher  *state.UnitWatcher
 	serviced *serviceData
 	machined *machineData
 	ports    []state.Port
@@ -511,10 +510,9 @@ type unitData struct {
 // and starts watching the unit for port changes.
 func newUnitData(unit *state.Unit, fw *Firewaller) *unitData {
 	ud := &unitData{
-		fw:      fw,
-		unit:    unit,
-		watcher: unit.Watch(),
-		ports:   make([]state.Port, 0),
+		fw:    fw,
+		unit:  unit,
+		ports: make([]state.Port, 0),
 	}
 	go ud.watchLoop()
 	return ud
@@ -523,26 +521,29 @@ func newUnitData(unit *state.Unit, fw *Firewaller) *unitData {
 // watchLoop watches the unit for port changes.
 func (ud *unitData) watchLoop() {
 	defer ud.tomb.Done()
-	defer ud.watcher.Stop()
+	w := ud.unit.Watch()
+	defer watcher.Stop(w, &ud.tomb)
 	var ports []state.Port
 	for {
 		select {
 		case <-ud.tomb.Dying():
 			return
-		case unit, ok := <-ud.watcher.Changes():
+		case _, ok := <-w.Changes():
 			if !ok {
-				// TODO(niemeyer): Unit watcher shouldn't return a unit.
-				err := watcher.MustErr(ud.watcher)
+				ud.fw.tomb.Kill(watcher.MustErr(w))
+				return
+			}
+			if err := ud.unit.Refresh(); err != nil {
 				if !state.IsNotFound(err) {
 					ud.fw.tomb.Kill(err)
 				}
 				return
 			}
-			change := unit.OpenedPorts()
+			change := ud.unit.OpenedPorts()
 			if samePorts(change, ports) {
 				continue
 			}
-			ports = append([]state.Port(nil), change...)
+			ports = append(ports[:0], change...)
 			select {
 			case ud.fw.portsChange <- &portsChange{ud, change}:
 			case <-ud.tomb.Dying():
@@ -572,7 +573,7 @@ func (ud *unitData) Stop() error {
 	return ud.tomb.Wait()
 }
 
-// exposedChange contains the changed exposed flag for one specific service. 
+// exposedChange contains the changed exposed flag for one specific service.
 type exposedChange struct {
 	serviced *serviceData
 	exposed  bool
@@ -583,7 +584,6 @@ type serviceData struct {
 	tomb    tomb.Tomb
 	fw      *Firewaller
 	service *state.Service
-	watcher *state.ServiceWatcher
 	exposed bool
 	unitds  map[string]*unitData
 }
@@ -594,7 +594,6 @@ func newServiceData(service *state.Service, fw *Firewaller) *serviceData {
 	sd := &serviceData{
 		fw:      fw,
 		service: service,
-		watcher: service.Watch(),
 		unitds:  make(map[string]*unitData),
 	}
 	sd.exposed = service.IsExposed()
@@ -605,21 +604,24 @@ func newServiceData(service *state.Service, fw *Firewaller) *serviceData {
 // watchLoop watches the service's exposed flag for changes.
 func (sd *serviceData) watchLoop(exposed bool) {
 	defer sd.tomb.Done()
-	defer sd.watcher.Stop()
+	w := sd.service.Watch()
+	defer watcher.Stop(w, &sd.tomb)
 	for {
 		select {
 		case <-sd.tomb.Dying():
 			return
-		case service, ok := <-sd.watcher.Changes():
+		case _, ok := <-w.Changes():
 			if !ok {
-				// TODO(niemeyer): Service watcher shouldn't return a service.
-				err := watcher.MustErr(sd.watcher)
+				sd.fw.tomb.Kill(watcher.MustErr(w))
+				return
+			}
+			if err := sd.service.Refresh(); err != nil {
 				if !state.IsNotFound(err) {
 					sd.fw.tomb.Kill(err)
 				}
 				return
 			}
-			change := service.IsExposed()
+			change := sd.service.IsExposed()
 			if change == exposed {
 				continue
 			}

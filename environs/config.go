@@ -143,7 +143,7 @@ func ReadEnvirons(environsFile string) (*Environs, error) {
 // BootstrapConfig returns an environment configuration suitable for
 // priming the juju state using the given provider, configuration and
 // tools.
-// 
+//
 // The returned configuration contains no secret attributes.
 func BootstrapConfig(p EnvironProvider, cfg *config.Config, tools *state.Tools) (*config.Config, error) {
 	secrets, err := p.SecretAttrs(cfg)
