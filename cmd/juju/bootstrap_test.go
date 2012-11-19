@@ -55,7 +55,7 @@ func (*BootstrapSuite) TestBootstrapCommand(c *C) {
 	c.Check(<-errc, IsNil)
 	c.Check((<-opc).(dummy.OpBootstrap).Env, Equals, "peckham")
 
-	// Check that the root certificate has been automatically generated
+	// Check that the CA certificate has been automatically generated
 	// for the environment.
 	_, err = os.Stat(filepath.Join(home, ".juju", "peckham.pem"))
 	c.Assert(err, IsNil)
