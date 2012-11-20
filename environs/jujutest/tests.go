@@ -13,21 +13,20 @@ import (
 )
 
 // Tests is a gocheck suite containing tests verifying juju functionality
-// against the environment with Name that must exist within Environs. The
+// against the environment with the given configuration. The
 // tests are not designed to be run against a live server - the Environ
 // is opened once for each test, and some potentially expensive operations
 // may be executed.
 type Tests struct {
 	coretesting.LoggingSuite
-	Environs *environs.Environs
-	Name     string
-	Env      environs.Environ
+	Config map[string]interface{}
+	Env    environs.Environ
 }
 
 // Open opens an instance of the testing environment.
 func (t *Tests) Open(c *C) environs.Environ {
-	e, err := t.Environs.Open(t.Name)
-	c.Assert(err, IsNil, Commentf("opening environ %q", t.Name))
+	e, err := environs.NewFromAttrs(t.Config)
+	c.Assert(err, IsNil, Commentf("opening environ %#v", t.Config))
 	c.Assert(e, NotNil)
 	return e
 }

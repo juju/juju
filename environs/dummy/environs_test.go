@@ -1,9 +1,7 @@
 package dummy_test
 
 import (
-	"fmt"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs"
 	_ "launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/testing"
@@ -11,27 +9,20 @@ import (
 )
 
 func init() {
-	config := `
-environments:
-    only:
-        type: dummy
-        state-server: true
-        secret: pork
-        admin-secret: fish
-`
-	envs, err := environs.ReadEnvironsBytes([]byte(config))
-	if err != nil {
-		panic(fmt.Errorf("cannot parse testing config: %v", err))
+	attrs := map[string]interface{}{
+		"name":         "only",
+		"type":         "dummy",
+		"state-server": true,
+		"secret":       "pork",
+		"admin-secret": "fish",
 	}
 	Suite(&jujutest.LiveTests{
-		Environs:       envs,
-		Name:           "only",
+		Config:         attrs,
 		CanOpenState:   true,
 		HasProvisioner: false,
 	})
 	Suite(&jujutest.Tests{
-		Environs: envs,
-		Name:     "only",
+		Config: attrs,
 	})
 }
 
