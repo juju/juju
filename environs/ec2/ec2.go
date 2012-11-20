@@ -248,7 +248,6 @@ func (e *environ) Bootstrap(uploadTools bool, stateServerPEM []byte) error {
 	}
 	info := &state.Info{
 		Password: trivial.PasswordHash(password),
-		// TODO(rog) add RootCertPEM from bootstrap arguments.
 	}
 	inst, err := e.startInstance(&startInstanceParams{
 		machineId:      0,
