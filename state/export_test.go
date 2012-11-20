@@ -23,7 +23,7 @@ func init() {
 // connecting to the testing state server.
 func TestingStateInfo() *Info {
 	return &Info{
-		Addrs:       []string{testing.MgoAddr},
+		Addrs:     []string{testing.MgoAddr},
 		CACertPEM: []byte(testing.CACertPEM),
 	}
 }
