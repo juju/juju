@@ -19,46 +19,42 @@ import (
 	"time"
 )
 
-// Bootstrap bootstraps the given environment.  The root certifying
-// authority certificate and private key in PEM format can be given in
-// rootPEM; if this is nil, the root CA certificate and key pair is read
-// from $HOME/.juju/<environ-name>-cert.pem, or generated and written
-// there if the file does not exist.  If uploadTools is true, the
-// current version of the juju tools will be uploaded, as documented in
-// environs.Environ.Bootstrap.
-func Bootstrap(environ environs.Environ, uploadTools bool, rootPEM []byte) error {
-	if rootPEM == nil {
+// Bootstrap bootstraps the given environment.  The CA certificate and
+// private key in PEM format can be given in caPEM; if this is nil,
+// they are read from $HOME/.juju/<environ-name>.pem, or generated and
+// written there if the file does not exist.  If uploadTools is true,
+// the current version of the juju tools will be uploaded, as documented
+// in environs.Environ.Bootstrap.
+func Bootstrap(environ environs.Environ, uploadTools bool, caPEM []byte) error {
+	if caPEM == nil {
 		var err error
-		rootPEM, err = generateRootCert(environ.Name())
+		caPEM, err = generateCACert(environ.Name())
 		if err != nil {
-			return fmt.Errorf("cannot generate root certificate: %v", err)
+			return fmt.Errorf("cannot generate CA certificate: %v", err)
 		}
 	}
-	rootCert, rootKey, err := parseRootPEM(rootPEM, true)
+	caCert, caKey, err := parseCAPEM(caPEM, true)
 	if err != nil {
-		return fmt.Errorf("bad root CA PEM: %v", err)
+		return fmt.Errorf("bad CA PEM: %v", err)
 	}
 	// Generate a new key pair and certificate for
 	// the newly bootstrapped instance.
-	bootstrapCert, err := generateBootstrapCert(environ.Name(), rootCert, rootKey)
+	cert, err := generateCert(environ.Name(), caCert, caKey)
 	if err != nil {
 		return fmt.Errorf("cannot generate bootstrap certificate: %v", err)
 	}
-	return environ.Bootstrap(uploadTools, bootstrapCert)
+	return environ.Bootstrap(uploadTools, cert)
 }
 
 const keyBits = 1024
 
-func generateRootCert(envName string) ([]byte, error) {
-	// TODO make sure that the environment name cannot
-	// contain slashes.
-	path := filepath.Join(os.Getenv("HOME"), ".juju", envName+"-cert.pem")
+func generateCACert(envName string) ([]byte, error) {
+	path := filepath.Join(os.Getenv("HOME"), ".juju", envName+".pem")
 	data, err := ioutil.ReadFile(path)
-	if err != nil && !os.IsNotExist(err) {
-		return nil, err
-	}
 	if err == nil {
 		return data, nil
+	} else if !os.IsNotExist(err) {
+		return nil, err
 	}
 	priv, err := rsa.GenerateKey(rand.Reader, keyBits)
 	if err != nil {
@@ -68,16 +64,18 @@ func generateRootCert(envName string) ([]byte, error) {
 	template := &x509.Certificate{
 		SerialNumber: new(big.Int),
 		Subject: pkix.Name{
-			CommonName:   "juju-generated root CA for environment " + envName,
+			// TODO quote the environment name when we start using
+			// Go version 1.1. See Go issue 3791.
+			CommonName:   fmt.Sprintf("juju-generated CA for environment %s", envName),
 			Organization: []string{"juju"},
 		},
-		NotBefore:             now.Add(-5 * time.Minute).UTC(),
+		NotBefore:             now.UTC().Add(-5 * time.Minute),
 		NotAfter:              now.UTC().AddDate(10, 0, 0), // 10 years hence.
 		SubjectKeyId:          bigIntHash(priv.N),
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
 		BasicConstraintsValid: true,
 		IsCA:       true,
-		MaxPathLen: 1,
+		MaxPathLen: 0, // Disallow delegation for now.
 	}
 	certDER, err := x509.CreateCertificate(rand.Reader, template, template, &priv.PublicKey, priv)
 	if err != nil {
@@ -98,7 +96,7 @@ func generateRootCert(envName string) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-func generateBootstrapCert(envName string, rootCert *x509.Certificate, rootKey *rsa.PrivateKey) ([]byte, error) {
+func generateCert(envName string, caCert *x509.Certificate, caKey *rsa.PrivateKey) ([]byte, error) {
 	priv, err := rsa.GenerateKey(rand.Reader, keyBits)
 	if err != nil {
 		return nil, fmt.Errorf("cannot generate key: %v", err)
@@ -107,21 +105,18 @@ func generateBootstrapCert(envName string, rootCert *x509.Certificate, rootKey *
 	template := &x509.Certificate{
 		SerialNumber: new(big.Int),
 		Subject: pkix.Name{
-			// Note: this is important - we use the same
-			// name for the host name when we connect
-			// later, so that we can avoid hostname verification,
-			// because we don't initially know the name
-			// of the bootstrap server.
-			CommonName:   "anyServer",
+			// This won't match host names with dots. The hostname
+			// is hardcoded when connecting to avoid the issue.
+			CommonName:   "*",
 			Organization: []string{"juju"},
 		},
-		NotBefore: now.Add(-5 * time.Minute).UTC(),
+		NotBefore: now.UTC().Add(-5 * time.Minute),
 		NotAfter:  now.UTC().AddDate(10, 0, 0), // 10 years hence.
 
 		SubjectKeyId: bigIntHash(priv.N),
 		KeyUsage:     x509.KeyUsageDataEncipherment,
 	}
-	certDER, err := x509.CreateCertificate(rand.Reader, template, rootCert, &priv.PublicKey, rootKey)
+	certDER, err := x509.CreateCertificate(rand.Reader, template, caCert, &priv.PublicKey, caKey)
 	if err != nil {
 		return nil, err
 	}
@@ -143,47 +138,48 @@ func bigIntHash(n *big.Int) []byte {
 	return h.Sum(nil)
 }
 
-func parseRootPEM(rootPEM []byte, requirePrivateKey bool) (cert *x509.Certificate, priv *rsa.PrivateKey, err error) {
+func parseCAPEM(caPEM []byte, requirePrivateKey bool) (*x509.Certificate, *rsa.PrivateKey, error) {
 	var certBlock, keyBlock *pem.Block
-	// We split the root certificate pem into certificate
+	// We split the CA certificate pem into certificate
 	// blocks and non-certificate blocks so that
 	// it's amenable to checking with tls.X509KeyPair.
 	for {
 		var b *pem.Block
-		b, rootPEM = pem.Decode(rootPEM)
+		b, caPEM = pem.Decode(caPEM)
 		if b == nil {
 			break
 		}
 		switch b.Type {
 		case "CERTIFICATE":
 			if certBlock != nil {
-				return nil, nil, fmt.Errorf("more than one certificate found in root certificate")
+				return nil, nil, fmt.Errorf("more than one certificate found in CA certificate PEM")
 			}
 			certBlock = b
 		case "RSA PRIVATE KEY":
 			if keyBlock != nil {
-				return nil, nil, fmt.Errorf("more than one key found in root certificate")
+				return nil, nil, fmt.Errorf("more than one key found in CA certificate PEM")
 			}
 			keyBlock = b
 		default:
-			log.Printf("juju: unknown PEM block type %q found", b.Type)
+			log.Printf("juju: unknown PEM block type %q found in CA certificate", b.Type)
 		}
+	}
+
+	if certBlock == nil {
+		return nil, nil, fmt.Errorf("CA PEM holds no certificate")
+	}
+	cert, err := x509.ParseCertificate(certBlock.Bytes)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !cert.BasicConstraintsValid || !cert.IsCA {
+		return nil, nil, fmt.Errorf("CA certificate is not a valid CA")
 	}
 	if keyBlock == nil {
 		if requirePrivateKey {
-			return nil, nil, fmt.Errorf("root PEM holds no private key")
-		}
-		cert, err := x509.ParseCertificate(certBlock.Bytes)
-		if err != nil {
-			return nil, nil, err
-		}
-		if !cert.BasicConstraintsValid || !cert.IsCA {
-			return nil, nil, fmt.Errorf("root certificate is not a valid CA")
+			return nil, nil, fmt.Errorf("CA PEM holds no private key")
 		}
 		return cert, nil, nil
-	}
-	if certBlock == nil {
-		return nil, nil, fmt.Errorf("root PEM holds no certificate")
 	}
 	tlsCert, err := tls.X509KeyPair(pem.EncodeToMemory(certBlock), pem.EncodeToMemory(keyBlock))
 	if err != nil {
@@ -191,17 +187,7 @@ func parseRootPEM(rootPEM []byte, requirePrivateKey bool) (cert *x509.Certificat
 	}
 	priv, ok := tlsCert.PrivateKey.(*rsa.PrivateKey)
 	if !ok {
-		return nil, nil, fmt.Errorf("certificate private key has unexpected type %T", tlsCert.PrivateKey)
-	}
-	if len(tlsCert.Certificate) != 1 {
-		return nil, nil, fmt.Errorf("expected 1 certificate, got %d", len(tlsCert.Certificate))
-	}
-	cert, err = x509.ParseCertificate(tlsCert.Certificate[0])
-	if err != nil {
-		return nil, nil, err
-	}
-	if !cert.BasicConstraintsValid || !cert.IsCA {
-		return nil, nil, fmt.Errorf("root certificate is not a valid CA")
+		return nil, nil, fmt.Errorf("CA private key has unexpected type %T", tlsCert.PrivateKey)
 	}
 	return cert, priv, nil
 }

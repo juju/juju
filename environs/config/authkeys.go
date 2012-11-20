@@ -2,6 +2,9 @@ package config
 
 import (
 	"bytes"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -25,7 +28,7 @@ func expandTilde(f string) string {
 // Home directory expansion will be performed on the path if it starts with
 // a ~; if the expanded path is relative, it will be interpreted relative
 // to $HOME/.ssh.
-func authorizedKeys(path string) (string, error) {
+func readAuthorizedKeys(path string) (string, error) {
 	var files []string
 	if path == "" {
 		files = []string{"id_dsa.pub", "id_rsa.pub", "identity.pub"}
@@ -56,4 +59,37 @@ func authorizedKeys(path string) (string, error) {
 		return "", firstError
 	}
 	return string(keyData), nil
+}
+
+func readFile(path string, defaultPath string) ([]byte, error) {
+	if path == "" {
+		path = defaultPath
+	}
+	path = expandTilde(path)
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(os.Getenv("HOME"), ".juju", path)
+	}
+	return ioutil.ReadFile(path)
+}
+
+// verifyKeyPair verifies that the certificate and key parse correctly.
+// The key is optional - if it is provided, we also check that the key
+// matches the certificate.
+func verifyKeyPair(certPEM, keyPEM []byte) error {
+	if len(keyPEM) > 0 {
+		_, err := tls.X509KeyPair(certPEM, keyPEM)
+		return err
+	}
+	for len(certPEM) > 0 {
+		var certBlock *pem.Block
+		certBlock, certPEM = pem.Decode(certPEM)
+		if certBlock == nil {
+			break
+		}
+		if certBlock.Type == "CERTIFICATE" {
+			_, err := x509.ParseCertificate(certBlock.Bytes)
+			return err
+		}
+	}
+	return fmt.Errorf("no certificates found")
 }

@@ -20,13 +20,13 @@ import (
 // It also sets up RootDir to point to a directory hierarchy
 // mirroring the intended juju directory structure, including
 // the following:
-// 	RootDir/home/ubuntu/.juju/environments.yaml
-//		The dummy environments.yaml file, holding
-//		a default environment named "dummyenv"
-//		which uses the "dummy" environment type.
-//	RootDir/var/lib/juju
-//		An empty directory returned as DataDir - the
-//		root of the juju data storage space.
+//     RootDir/home/ubuntu/.juju/environments.yaml
+//         The dummy environments.yaml file, holding
+//         a default environment named "dummyenv"
+//         which uses the "dummy" environment type.
+//     RootDir/var/lib/juju
+//         An empty directory returned as DataDir - the
+//         root of the juju data storage space.
 // $HOME is set to point to RootDir/home/ubuntu.
 type JujuConnSuite struct {
 	testing.LoggingSuite
@@ -118,11 +118,17 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	err = ioutil.WriteFile(filepath.Join(home, ".juju", "environments.yaml"), config, 0600)
 	c.Assert(err, IsNil)
 
+	err = ioutil.WriteFile(filepath.Join(home, ".juju", "dummyenv-cert.pem"), []byte(testing.CACertPEM), 0666)
+	c.Assert(err, IsNil)
+
+	err = ioutil.WriteFile(filepath.Join(home, ".juju", "dummyenv-private-key.pem"), []byte(testing.CAKeyPEM), 0600)
+	c.Assert(err, IsNil)
+
 	environ, err := environs.NewFromName("dummyenv")
 	c.Assert(err, IsNil)
 	// sanity check we've got the correct environment.
 	c.Assert(environ.Name(), Equals, "dummyenv")
-	c.Assert(juju.Bootstrap(environ, false, testing.RootPEMBytes), IsNil)
+	c.Assert(juju.Bootstrap(environ, false, []byte(testing.CACertPEM+testing.CAKeyPEM)), IsNil)
 
 	conn, err := juju.NewConnFromName("dummyenv")
 	c.Assert(err, IsNil)

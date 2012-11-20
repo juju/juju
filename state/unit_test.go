@@ -470,12 +470,13 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 	defer func() {
 		c.Assert(w.Stop(), IsNil)
 	}()
-	s.State.StartSync()
+	s.State.Sync()
 	select {
-	case u, ok := <-w.Changes():
+	case _, ok := <-w.Changes():
 		c.Assert(ok, Equals, true)
-		c.Assert(u.Name(), Equals, s.unit.Name())
-		addr, err := u.PublicAddress()
+		err := s.unit.Refresh()
+		c.Assert(err, IsNil)
+		addr, err := s.unit.PublicAddress()
 		c.Assert(err, IsNil)
 		c.Assert(addr, Equals, "newer-address")
 	case <-time.After(500 * time.Millisecond):
@@ -484,18 +485,19 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 
 	for i, test := range watchUnitTests {
 		c.Logf("test %d", i)
-		err := test.test(s.unit)
+		err := test.test(altunit)
 		c.Assert(err, IsNil)
 		s.State.StartSync()
 		select {
-		case unit, ok := <-w.Changes():
+		case _, ok := <-w.Changes():
 			c.Assert(ok, Equals, true)
-			c.Assert(unit.Name(), Equals, s.unit.Name())
+			err := s.unit.Refresh()
+			c.Assert(err, IsNil)
 			var info unitInfo
-			info.Life = unit.Life()
+			info.Life = s.unit.Life()
 			c.Assert(err, IsNil)
 			if test.want.PublicAddress != "" {
-				info.PublicAddress, err = unit.PublicAddress()
+				info.PublicAddress, err = s.unit.PublicAddress()
 				c.Assert(err, IsNil)
 			}
 			c.Assert(info, DeepEquals, test.want)
@@ -504,8 +506,8 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 		}
 	}
 	select {
-	case got := <-w.Changes():
-		c.Fatalf("got unexpected change: %#v", got)
+	case got, ok := <-w.Changes():
+		c.Fatalf("got unexpected change: %#v, %v", got, ok)
 	case <-time.After(100 * time.Millisecond):
 	}
 }
