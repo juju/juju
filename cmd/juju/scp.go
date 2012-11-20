@@ -41,7 +41,6 @@ func (c *SCPCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	defer c.Close()
 
 	// translate arguments in the form 0:/somepath or service/0:/somepath into
 	// ubuntu@machine:/somepath so they can be presented to scp.
@@ -50,6 +49,7 @@ func (c *SCPCommand) Run(ctx *cmd.Context) error {
 		if v := strings.SplitN(c.Args[i], ":", 2); len(v) > 1 {
 			host, err := c.hostFromTarget(v[0])
 			if err != nil {
+				c.Close()
 				return err
 			}
 			c.Args[i] = "ubuntu@" + host + ":" + v[1]
@@ -62,5 +62,6 @@ func (c *SCPCommand) Run(ctx *cmd.Context) error {
 	cmd.Stdin = ctx.Stdin
 	cmd.Stdout = ctx.Stdout
 	cmd.Stderr = ctx.Stderr
+	c.Close()
 	return cmd.Run()
 }
