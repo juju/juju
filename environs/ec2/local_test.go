@@ -34,6 +34,8 @@ func registerLocalTests() {
 		"admin-secret":   "local-secret",
 		"access-key":     "x",
 		"secret-key":     "x",
+		"ca-cert":        testing.CACertPEM,
+		"ca-private-key": testing.CAKeyPEM,
 	}
 
 	Suite(&localServerSuite{
