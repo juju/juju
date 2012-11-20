@@ -27,9 +27,9 @@ type Info struct {
 	// TODO(rog) remove
 	UseSSH bool
 
-	// RootCertPEM holds the root CA certificate that
+	// CACertPEM holds the root CA certificate that
 	// was used to sign the state server's public key.
-	RootCertPEM []byte
+	CACertPEM []byte
 
 	// EntityName holds the name of the entity that is connecting.
 	// It should be empty when connecting as an administrator.

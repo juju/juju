@@ -136,7 +136,7 @@ type Environ interface {
 	Bootstrap(uploadTools bool, stateServerPEM []byte) error
 
 	// StateInfo returns information on the state initialized
-	// by Bootstrap. The RootCertPEM field may be
+	// by Bootstrap. The CACertPEM field may be
 	// empty.
 	StateInfo() (*state.Info, error)
 

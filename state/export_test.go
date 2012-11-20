@@ -24,6 +24,6 @@ func init() {
 func TestingStateInfo() *Info {
 	return &Info{
 		Addrs:       []string{testing.MgoAddr},
-		RootCertPEM: []byte(testing.RootCertPEM),
+		CACertPEM: []byte(testing.CACertPEM),
 	}
 }
