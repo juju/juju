@@ -184,12 +184,12 @@ environments:
 
 func (suite) TestConfigRoundTrip(c *C) {
 	cfg, err := config.New(map[string]interface{}{
-		"name":             "bladaam",
-		"type":             "dummy",
-		"state-server":     false,
-		"authorized-keys":  "i-am-a-key",
-		"ca-cert":        testing.CACertPEM,
-		"ca-private-key": "",
+		"name":            "bladaam",
+		"type":            "dummy",
+		"state-server":    false,
+		"authorized-keys": "i-am-a-key",
+		"ca-cert":         testing.CACertPEM,
+		"ca-private-key":  "",
 	})
 	c.Assert(err, IsNil)
 	provider, err := environs.Provider(cfg.Type())
@@ -203,14 +203,14 @@ func (suite) TestConfigRoundTrip(c *C) {
 
 func (suite) TestBootstrapConfig(c *C) {
 	cfg, err := config.New(map[string]interface{}{
-		"name":             "bladaam",
-		"type":             "dummy",
-		"state-server":     false,
-		"admin-secret":     "highly",
-		"secret":           "um",
-		"authorized-keys":  "i-am-a-key",
-		"ca-cert":        testing.CACertPEM,
-		"ca-private-key": testing.CAKeyPEM,
+		"name":            "bladaam",
+		"type":            "dummy",
+		"state-server":    false,
+		"admin-secret":    "highly",
+		"secret":          "um",
+		"authorized-keys": "i-am-a-key",
+		"ca-cert":         testing.CACertPEM,
+		"ca-private-key":  testing.CAKeyPEM,
 	})
 	c.Assert(err, IsNil)
 	provider, err := environs.Provider(cfg.Type())

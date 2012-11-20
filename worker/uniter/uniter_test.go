@@ -759,12 +759,12 @@ type createServiceAndUnit struct{}
 
 func (createServiceAndUnit) step(c *C, ctx *context) {
 	cfg, err := config.New(map[string]interface{}{
-		"name":             "testenv",
-		"type":             "dummy",
-		"default-series":   "abominable",
-		"authorized-keys":  "we-are-the-keys",
-		"ca-cert":        coretesting.CACertPEM,
-		"ca-private-key": "",
+		"name":            "testenv",
+		"type":            "dummy",
+		"default-series":  "abominable",
+		"authorized-keys": "we-are-the-keys",
+		"ca-cert":         coretesting.CACertPEM,
+		"ca-private-key":  "",
 	})
 	c.Assert(err, IsNil)
 	err = ctx.st.SetEnvironConfig(cfg)

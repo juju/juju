@@ -14,12 +14,12 @@ type ConfigSuite struct{}
 
 func (*ConfigSuite) TestSecretAttrs(c *C) {
 	cfg, err := config.New(map[string]interface{}{
-		"name":             "only", // must match the name in environs_test.go
-		"type":             "dummy",
-		"state-server":     true,
-		"authorized-keys":  "i-am-a-key",
-		"ca-cert":        testing.CACertPEM,
-		"ca-private-key": "",
+		"name":            "only", // must match the name in environs_test.go
+		"type":            "dummy",
+		"state-server":    true,
+		"authorized-keys": "i-am-a-key",
+		"ca-cert":         testing.CACertPEM,
+		"ca-private-key":  "",
 	})
 	c.Assert(err, IsNil)
 	env, err := environs.New(cfg)
@@ -63,12 +63,12 @@ func (*ConfigSuite) TestFirewallMode(c *C) {
 	for _, test := range firewallModeTests {
 		c.Logf("test firewall mode %q", test.configFirewallMode)
 		cfgMap := map[string]interface{}{
-			"name":             "only",
-			"type":             "dummy",
-			"state-server":     true,
-			"authorized-keys":  "none",
-			"ca-cert":        testing.CACertPEM,
-			"ca-private-key": "",
+			"name":            "only",
+			"type":            "dummy",
+			"state-server":    true,
+			"authorized-keys": "none",
+			"ca-cert":         testing.CACertPEM,
+			"ca-private-key":  "",
 		}
 		if test.configFirewallMode != "" {
 			cfgMap["firewall-mode"] = test.configFirewallMode

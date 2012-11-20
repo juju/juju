@@ -66,48 +66,48 @@ var configTests = []struct {
 	}, {
 		about: "Root cert & key from path",
 		attrs: attrs{
-			"type":                  "my-type",
-			"name":                  "my-name",
+			"type":                "my-type",
+			"name":                "my-name",
 			"ca-cert-path":        "cacert2.pem",
 			"ca-private-key-path": "cakey2.pem",
 		},
 	}, {
 		about: "Root cert & key from ~ path",
 		attrs: attrs{
-			"type":                  "my-type",
-			"name":                  "my-name",
+			"type":                "my-type",
+			"name":                "my-name",
 			"ca-cert-path":        "~/othercert.pem",
 			"ca-private-key-path": "~/otherkey.pem",
 		},
 	}, {
 		about: "Root cert only from ~ path",
 		attrs: attrs{
-			"type":             "my-type",
-			"name":             "my-name",
+			"type":           "my-type",
+			"name":           "my-name",
 			"ca-cert-path":   "~/othercert.pem",
 			"ca-private-key": "",
 		},
 	}, {
 		about: "Root cert only as attribute",
 		attrs: attrs{
-			"type":             "my-type",
-			"name":             "my-name",
+			"type":           "my-type",
+			"name":           "my-name",
 			"ca-cert":        caCert,
 			"ca-private-key": "",
 		},
 	}, {
 		about: "Root cert and key as attributes",
 		attrs: attrs{
-			"type":             "my-type",
-			"name":             "my-name",
+			"type":           "my-type",
+			"name":           "my-name",
 			"ca-cert":        caCert,
 			"ca-private-key": caKey,
 		},
 	}, {
 		about: "Mismatched CA cert and key",
 		attrs: attrs{
-			"type":             "my-type",
-			"name":             "my-name",
+			"type":           "my-type",
+			"name":           "my-name",
 			"ca-cert":        caCert,
 			"ca-private-key": caKey2,
 		},
@@ -115,16 +115,16 @@ var configTests = []struct {
 	}, {
 		about: "Invalid CA cert",
 		attrs: attrs{
-			"type":      "my-type",
-			"name":      "my-name",
+			"type":    "my-type",
+			"name":    "my-name",
 			"ca-cert": invalidCACert,
 		},
 		err: "bad CA certificate/key in configuration: ASN.1 syntax error:.*",
 	}, {
 		about: "Invalid CA key",
 		attrs: attrs{
-			"type":             "my-type",
-			"name":             "my-name",
+			"type":           "my-type",
+			"name":           "my-name",
 			"ca-cert":        caCert,
 			"ca-private-key": invalidCAKey,
 		},
@@ -132,8 +132,8 @@ var configTests = []struct {
 	}, {
 		about: "No PEM cert",
 		attrs: attrs{
-			"type":             "my-type",
-			"name":             "my-name",
+			"type":           "my-type",
+			"name":           "my-name",
 			"ca-cert":        "foo",
 			"ca-private-key": "",
 		},
@@ -359,15 +359,15 @@ func fileContents(c *C, path string) string {
 
 func (*ConfigSuite) TestConfigAttrs(c *C) {
 	attrs := map[string]interface{}{
-		"type":             "my-type",
-		"name":             "my-name",
-		"authorized-keys":  "my-keys",
-		"firewall-mode":    string(config.FwDefault),
-		"default-series":   version.Current.Series,
-		"admin-secret":     "foo",
-		"unknown":          "my-unknown",
-		"ca-private-key": "",
-		"ca-cert":        caCert,
+		"type":            "my-type",
+		"name":            "my-name",
+		"authorized-keys": "my-keys",
+		"firewall-mode":   string(config.FwDefault),
+		"default-series":  version.Current.Series,
+		"admin-secret":    "foo",
+		"unknown":         "my-unknown",
+		"ca-private-key":  "",
+		"ca-cert":         caCert,
 	}
 	cfg, err := config.New(attrs)
 	c.Assert(err, IsNil)

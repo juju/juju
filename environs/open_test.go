@@ -14,13 +14,13 @@ var _ = Suite(&OpenSuite{})
 func (OpenSuite) TestNewDummyEnviron(c *C) {
 	// matches *Settings.Map()
 	config := map[string]interface{}{
-		"name":             "foo",
-		"type":             "dummy",
-		"state-server":     false,
-		"authorized-keys":  "i-am-a-key",
-		"admin-secret":     "foo",
-		"ca-cert":        testing.CACertPEM,
-		"ca-private-key": "",
+		"name":            "foo",
+		"type":            "dummy",
+		"state-server":    false,
+		"authorized-keys": "i-am-a-key",
+		"admin-secret":    "foo",
+		"ca-cert":         testing.CACertPEM,
+		"ca-private-key":  "",
 	}
 	env, err := environs.NewFromAttrs(config)
 	c.Assert(err, IsNil)
@@ -29,11 +29,11 @@ func (OpenSuite) TestNewDummyEnviron(c *C) {
 
 func (OpenSuite) TestNewUnknownEnviron(c *C) {
 	env, err := environs.NewFromAttrs(map[string]interface{}{
-		"name":             "foo",
-		"type":             "wondercloud",
-		"authorized-keys":  "i-am-a-key",
-		"ca-cert":        testing.CACertPEM,
-		"ca-private-key": "",
+		"name":            "foo",
+		"type":            "wondercloud",
+		"authorized-keys": "i-am-a-key",
+		"ca-cert":         testing.CACertPEM,
+		"ca-private-key":  "",
 	})
 	c.Assert(err, ErrorMatches, "no registered provider for.*")
 	c.Assert(env, IsNil)
