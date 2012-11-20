@@ -24,6 +24,7 @@ environments:
     peckham:
         type: dummy
         state-server: false
+        admin-secret: arble
         authorized-keys: i-am-a-key
     walthamstow:
         type: dummy

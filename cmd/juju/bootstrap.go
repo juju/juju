@@ -4,6 +4,7 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/juju"
 )
 
 // BootstrapCommand is responsible for launching the first machine in a juju
@@ -33,5 +34,5 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	return environ.Bootstrap(c.UploadTools)
+	return juju.Bootstrap(environ, c.UploadTools, nil)
 }

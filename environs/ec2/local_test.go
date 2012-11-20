@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
+	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
@@ -193,7 +194,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	policy := t.env.AssignmentPolicy()
 	c.Assert(policy, Equals, state.AssignUnused)
 
-	err := t.env.Bootstrap(true)
+	err := juju.Bootstrap(t.env, true, []byte(testing.CACertPEM+testing.CAKeyPEM))
 	c.Assert(err, IsNil)
 
 	// check that the state holds the id of the bootstrap machine.

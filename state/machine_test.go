@@ -302,9 +302,8 @@ func (s *MachineSuite) TestWatchMachine(c *C) {
 		c.Assert(err, IsNil)
 		s.State.StartSync()
 		select {
-		case id, ok := <-w.Changes():
+		case _, ok := <-w.Changes():
 			c.Assert(ok, Equals, true)
-			c.Assert(id, Equals, s.machine.Id())
 		case <-time.After(5 * time.Second):
 			c.Fatalf("did not get change")
 		}
