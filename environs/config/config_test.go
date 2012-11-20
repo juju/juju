@@ -64,7 +64,7 @@ var configTests = []struct {
 			"authorized-keys-path": "~/.ssh/authorized_keys2",
 		},
 	}, {
-		about: "Root cert & key from path",
+		about: "CA cert & key from path",
 		attrs: attrs{
 			"type":                "my-type",
 			"name":                "my-name",
@@ -72,7 +72,7 @@ var configTests = []struct {
 			"ca-private-key-path": "cakey2.pem",
 		},
 	}, {
-		about: "Root cert & key from ~ path",
+		about: "CA cert & key from ~ path",
 		attrs: attrs{
 			"type":                "my-type",
 			"name":                "my-name",
@@ -80,7 +80,7 @@ var configTests = []struct {
 			"ca-private-key-path": "~/otherkey.pem",
 		},
 	}, {
-		about: "Root cert only from ~ path",
+		about: "CA cert only from ~ path",
 		attrs: attrs{
 			"type":           "my-type",
 			"name":           "my-name",
@@ -88,7 +88,7 @@ var configTests = []struct {
 			"ca-private-key": "",
 		},
 	}, {
-		about: "Root cert only as attribute",
+		about: "CA cert only as attribute",
 		attrs: attrs{
 			"type":           "my-type",
 			"name":           "my-name",
@@ -96,7 +96,7 @@ var configTests = []struct {
 			"ca-private-key": "",
 		},
 	}, {
-		about: "Root cert and key as attributes",
+		about: "CA cert and key as attributes",
 		attrs: attrs{
 			"type":           "my-type",
 			"name":           "my-name",
