@@ -399,7 +399,7 @@ func (s *StateSuite) TestEnvironConfig(c *C) {
 		"development":     true,
 		"firewall-mode":   "",
 		"admin-secret":    "",
-		"ca-cert":         testing.RootCertPEM,
+		"ca-cert":         testing.CACertPEM,
 		"ca-private-key":  "",
 	}
 	cfg, err := config.New(initial)
@@ -432,7 +432,7 @@ func (s *StateSuite) TestEnvironConfigWithAdminSecret(c *C) {
 		"default-series":  "precise",
 		"development":     true,
 		"admin-secret":    "foo",
-		"ca-cert":         testing.RootCertPEM,
+		"ca-cert":         testing.CACertPEM,
 	}
 	cfg, err := config.New(attrs)
 	c.Assert(err, IsNil)
@@ -793,7 +793,7 @@ func (s *StateSuite) TestInitialize(c *C) {
 		"development":     true,
 		"firewall-mode":   "",
 		"admin-secret":    "",
-		"ca-cert":         testing.RootCertPEM,
+		"ca-cert":         testing.CACertPEM,
 		"ca-private-key":  "",
 	}
 	cfg, err := config.New(m)
@@ -815,7 +815,7 @@ func (s *StateSuite) TestDoubleInitialize(c *C) {
 		"development":     true,
 		"firewall-mode":   "",
 		"admin-secret":    "",
-		"ca-cert":         testing.RootCertPEM,
+		"ca-cert":         testing.CACertPEM,
 		"ca-private-key":  "",
 	}
 	cfg, err := config.New(m)
@@ -836,7 +836,7 @@ func (s *StateSuite) TestDoubleInitialize(c *C) {
 		"development":     false,
 		"firewall-mode":   "",
 		"admin-secret":    "",
-		"ca-cert":         testing.RootCertPEM,
+		"ca-cert":         testing.CACertPEM,
 		"ca-private-key":  "",
 	}
 	cfg, err = config.New(m)
@@ -892,7 +892,7 @@ var watchEnvironConfigTests = []attrs{
 		"type":            "my-type",
 		"name":            "my-name",
 		"authorized-keys": "i-am-a-key",
-		"ca-cert":         testing.RootCertPEM,
+		"ca-cert":         testing.CACertPEM,
 	},
 	{
 		// Add an attribute.
@@ -900,7 +900,7 @@ var watchEnvironConfigTests = []attrs{
 		"name":            "my-name",
 		"default-series":  "my-series",
 		"authorized-keys": "i-am-a-key",
-		"ca-cert":         testing.RootCertPEM,
+		"ca-cert":         testing.CACertPEM,
 	},
 	{
 		// Set a new attribute value.
@@ -908,7 +908,7 @@ var watchEnvironConfigTests = []attrs{
 		"name":            "my-new-name",
 		"default-series":  "my-series",
 		"authorized-keys": "i-am-a-key",
-		"ca-cert":         testing.RootCertPEM,
+		"ca-cert":         testing.CACertPEM,
 	},
 }
 
@@ -970,7 +970,7 @@ func (s *StateSuite) TestWatchEnvironConfigInvalidConfig(c *C) {
 		"type":            "dummy",
 		"name":            "lisboa",
 		"authorized-keys": "i-am-a-key",
-		"ca-cert":         testing.RootCertPEM,
+		"ca-cert":         testing.CACertPEM,
 	}
 	cfg1, err := config.New(m)
 	c.Assert(err, IsNil)
@@ -1016,7 +1016,7 @@ func (s *StateSuite) TestWatchEnvironConfigInvalidConfig(c *C) {
 		"type":            "dummy",
 		"name":            "lisboa",
 		"authorized-keys": "new-key",
-		"ca-cert":         testing.RootCertPEM,
+		"ca-cert":         testing.CACertPEM,
 	})
 	c.Assert(err, IsNil)
 	err = s.State.SetEnvironConfig(cfg2)
