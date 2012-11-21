@@ -1,4 +1,4 @@
-package juju
+package environs
 
 import (
 	"bytes"
@@ -11,7 +11,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"math/big"
 	"os"
@@ -24,8 +23,8 @@ import (
 // they are read from $HOME/.juju/<environ-name>.pem, or generated and
 // written there if the file does not exist.  If uploadTools is true,
 // the current version of the juju tools will be uploaded, as documented
-// in environs.Environ.Bootstrap.
-func Bootstrap(environ environs.Environ, uploadTools bool, caPEM []byte) error {
+// in Environ.Bootstrap.
+func Bootstrap(environ Environ, uploadTools bool, caPEM []byte) error {
 	if caPEM == nil {
 		var err error
 		caPEM, err = generateCACert(environ.Name())

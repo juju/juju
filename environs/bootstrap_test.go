@@ -1,4 +1,4 @@
-package juju_test
+package environs_test
 
 import (
 	"bytes"
@@ -11,7 +11,6 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/testing"
 	"net"
 	"os"
@@ -41,7 +40,7 @@ func (s *bootstrapSuite) TearDownTest(c *C) {
 
 func (s *bootstrapSuite) TestBootstrapKeyGeneration(c *C) {
 	env := &bootstrapEnviron{name: "foo"}
-	err := juju.Bootstrap(env, false, nil)
+	err := environs.Bootstrap(env, false, nil)
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
 
@@ -66,7 +65,7 @@ func (s *bootstrapSuite) TestBootstrapExistingKey(c *C) {
 	c.Assert(err, IsNil)
 
 	env := &bootstrapEnviron{name: "bar"}
-	err = juju.Bootstrap(env, false, nil)
+	err = environs.Bootstrap(env, false, nil)
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
 
@@ -78,13 +77,13 @@ func (s *bootstrapSuite) TestBootstrapExistingKey(c *C) {
 
 func (s *bootstrapSuite) TestBootstrapUploadTools(c *C) {
 	env := &bootstrapEnviron{name: "foo"}
-	err := juju.Bootstrap(env, false, testServerPEM)
+	err := environs.Bootstrap(env, false, testServerPEM)
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
 	c.Assert(env.uploadTools, Equals, false)
 
 	env = &bootstrapEnviron{name: "foo"}
-	err = juju.Bootstrap(env, true, testServerPEM)
+	err = environs.Bootstrap(env, true, testServerPEM)
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
 	c.Assert(env.uploadTools, Equals, true)
@@ -92,7 +91,7 @@ func (s *bootstrapSuite) TestBootstrapUploadTools(c *C) {
 
 func (s *bootstrapSuite) TestBootstrapWithCertArgument(c *C) {
 	env := &bootstrapEnviron{name: "bar"}
-	err := juju.Bootstrap(env, false, testServerPEM)
+	err := environs.Bootstrap(env, false, testServerPEM)
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
 
@@ -157,7 +156,7 @@ func (s *bootstrapSuite) TestBootstrapWithInvalidCert(c *C) {
 	for i, test := range invalidCertTests {
 		c.Logf("test %d", i)
 		env := &bootstrapEnviron{name: "foo"}
-		err := juju.Bootstrap(env, false, []byte(test.pem))
+		err := environs.Bootstrap(env, false, []byte(test.pem))
 		c.Check(env.bootstrapCount, Equals, 0)
 		c.Assert(err, ErrorMatches, test.err)
 	}
