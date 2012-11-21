@@ -168,7 +168,7 @@ func (st *State) AddMachine(workers ...WorkerKind) (m *Machine, err error) {
 	if err != nil {
 		return nil, err
 	}
-    id := strconv.Itoa(seq)
+	id := strconv.Itoa(seq)
 	mdoc := machineDoc{
 		Id:      id,
 		Life:    Alive,
