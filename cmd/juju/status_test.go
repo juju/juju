@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"net/url"
-
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/charm"
@@ -15,6 +13,8 @@ import (
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
+	"net/url"
+	"strconv"
 )
 
 type StatusSuite struct {
@@ -34,7 +34,7 @@ var statusTests = []struct {
 		"empty state",
 		func(*state.State, *juju.Conn, *C) {},
 		map[string]interface{}{
-			"machines": make(map[int]interface{}),
+			"machines": make(map[string]interface{}),
 			"services": make(map[string]interface{}),
 		},
 	},
@@ -43,11 +43,11 @@ var statusTests = []struct {
 		func(st *state.State, _ *juju.Conn, c *C) {
 			m, err := st.AddMachine(state.MachinerWorker)
 			c.Assert(err, IsNil)
-			c.Assert(m.Id(), Equals, 0)
+			c.Assert(m.Id(), Equals, "0")
 		},
 		map[string]interface{}{
-			"machines": map[int]interface{}{
-				0: map[string]interface{}{
+			"machines": map[string]interface{}{
+				"0": map[string]interface{}{
 					"instance-id": "pending",
 				},
 			},
@@ -57,7 +57,7 @@ var statusTests = []struct {
 	{
 		"simulate the PA starting an instance in response to the state change",
 		func(st *state.State, conn *juju.Conn, c *C) {
-			m, err := st.Machine(0)
+			m, err := st.Machine("0")
 			c.Assert(err, IsNil)
 			inst, err := conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), nil)
 			c.Assert(err, IsNil)
@@ -65,8 +65,8 @@ var statusTests = []struct {
 			c.Assert(err, IsNil)
 		},
 		map[string]interface{}{
-			"machines": map[int]interface{}{
-				0: map[string]interface{}{
+			"machines": map[string]interface{}{
+				"0": map[string]interface{}{
 					"dns-name":    "dummyenv-0.dns",
 					"instance-id": "dummyenv-0",
 				},
@@ -77,7 +77,7 @@ var statusTests = []struct {
 	{
 		"simulate the MA setting the version",
 		func(st *state.State, conn *juju.Conn, c *C) {
-			m, err := st.Machine(0)
+			m, err := st.Machine("0")
 			c.Assert(err, IsNil)
 			t := &state.Tools{
 				Binary: version.Binary{
@@ -91,8 +91,8 @@ var statusTests = []struct {
 			c.Assert(err, IsNil)
 		},
 		map[string]interface{}{
-			"machines": map[int]interface{}{
-				0: map[string]interface{}{
+			"machines": map[string]interface{}{
+				"0": map[string]interface{}{
 					"dns-name":      "dummyenv-0.dns",
 					"instance-id":   "dummyenv-0",
 					"agent-version": "1.2.3",
@@ -120,8 +120,8 @@ var statusTests = []struct {
 			c.Assert(err, IsNil)
 		},
 		map[string]interface{}{
-			"machines": map[int]interface{}{
-				0: map[string]interface{}{
+			"machines": map[string]interface{}{
+				"0": map[string]interface{}{
 					"dns-name":      "dummyenv-0.dns",
 					"instance-id":   "dummyenv-0",
 					"agent-version": "1.2.3",
@@ -145,7 +145,7 @@ var statusTests = []struct {
 			for i := 1; i < 3; i++ {
 				m, err := st.AddMachine(state.MachinerWorker)
 				c.Assert(err, IsNil)
-				c.Assert(m.Id(), Equals, i)
+				c.Assert(m.Id(), Equals, strconv.Itoa(i))
 				inst, err := conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), nil)
 				c.Assert(err, IsNil)
 				err = m.SetInstanceId(inst.Id())
@@ -153,17 +153,17 @@ var statusTests = []struct {
 			}
 		},
 		map[string]interface{}{
-			"machines": map[int]interface{}{
-				0: map[string]interface{}{
+			"machines": map[string]interface{}{
+				"0": map[string]interface{}{
 					"dns-name":      "dummyenv-0.dns",
 					"instance-id":   "dummyenv-0",
 					"agent-version": "1.2.3",
 				},
-				1: map[string]interface{}{
+				"1": map[string]interface{}{
 					"dns-name":    "dummyenv-1.dns",
 					"instance-id": "dummyenv-1",
 				},
-				2: map[string]interface{}{
+				"2": map[string]interface{}{
 					"dns-name":    "dummyenv-2.dns",
 					"instance-id": "dummyenv-2",
 				},
@@ -188,7 +188,7 @@ var statusTests = []struct {
 				c.Assert(err, IsNil)
 				u, err := s.AddUnit()
 				c.Assert(err, IsNil)
-				m, err := st.Machine(i + 1)
+				m, err := st.Machine(strconv.Itoa(i + 1))
 				c.Assert(err, IsNil)
 				err = u.AssignToMachine(m)
 				c.Assert(err, IsNil)
@@ -200,17 +200,17 @@ var statusTests = []struct {
 			}
 		},
 		map[string]interface{}{
-			"machines": map[int]interface{}{
-				0: map[string]interface{}{
+			"machines": map[string]interface{}{
+				"0": map[string]interface{}{
 					"dns-name":      "dummyenv-0.dns",
 					"instance-id":   "dummyenv-0",
 					"agent-version": "1.2.3",
 				},
-				1: map[string]interface{}{
+				"1": map[string]interface{}{
 					"dns-name":    "dummyenv-1.dns",
 					"instance-id": "dummyenv-1",
 				},
-				2: map[string]interface{}{
+				"2": map[string]interface{}{
 					"dns-name":    "dummyenv-2.dns",
 					"instance-id": "dummyenv-2",
 				},
@@ -220,7 +220,7 @@ var statusTests = []struct {
 					"exposed": true,
 					"units": map[string]interface{}{
 						"exposed-service/0": map[string]interface{}{
-							"machine":     2,
+							"machine":     "2",
 							"status":      "error",
 							"status-info": "You Require More Vespene Gas",
 						},
@@ -232,7 +232,7 @@ var statusTests = []struct {
 					"exposed": false,
 					"units": map[string]interface{}{
 						"dummy-service/0": map[string]interface{}{
-							"machine": 1,
+							"machine": "1",
 							"status":  "pending",
 						},
 					},
@@ -253,13 +253,7 @@ func (s *StatusSuite) testStatus(format string, marshal func(v interface{}) ([]b
 		c.Check(code, Equals, 0)
 		c.Assert(ctx.Stderr.(*bytes.Buffer).String(), Equals, "")
 
-		var buf []byte
-		var err error
-		if format == "json" {
-			buf, err = marshal(Jsonify(t.output))
-		} else {
-			buf, err = marshal(t.output)
-		}
+		buf, err := marshal(t.output)
 		c.Assert(err, IsNil)
 		expected := make(map[string]interface{})
 		err = unmarshal(buf, &expected)

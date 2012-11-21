@@ -60,7 +60,7 @@ type OpDestroy GenericOperation
 
 type OpStartInstance struct {
 	Env       string
-	MachineId int
+	MachineId string
 	Instance  environs.Instance
 	Info      *state.Info
 	Secret    string
@@ -73,14 +73,14 @@ type OpStopInstances struct {
 
 type OpOpenPorts struct {
 	Env        string
-	MachineId  int
+	MachineId  string
 	InstanceId string
 	Ports      []state.Port
 }
 
 type OpClosePorts struct {
 	Env        string
-	MachineId  int
+	MachineId  string
 	InstanceId string
 	Ports      []state.Port
 }
@@ -479,9 +479,9 @@ func (e *environ) Destroy([]environs.Instance) error {
 	return nil
 }
 
-func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.Tools) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId string, info *state.Info, tools *state.Tools) (environs.Instance, error) {
 	defer delay()
-	log.Printf("environs/dummy: dummy startinstance, machine %d", machineId)
+	log.Printf("environs/dummy: dummy startinstance, machine %s", machineId)
 	if err := e.checkBroken("StartInstance"); err != nil {
 		return nil, err
 	}
@@ -615,7 +615,7 @@ type instance struct {
 	state     *environState
 	ports     map[state.Port]bool
 	id        string
-	machineId int
+	machineId string
 }
 
 func (inst *instance) Id() string {
@@ -631,9 +631,9 @@ func (inst *instance) WaitDNSName() (string, error) {
 	return inst.DNSName()
 }
 
-func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
+func (inst *instance) OpenPorts(machineId string, ports []state.Port) error {
 	defer delay()
-	log.Printf("environs/dummy: openPorts %d, %#v", machineId, ports)
+	log.Printf("environs/dummy: openPorts %s, %#v", machineId, ports)
 	if inst.state.firewallMode != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for opening ports on instance: %q",
 			inst.state.firewallMode)
@@ -655,14 +655,14 @@ func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
 	return nil
 }
 
-func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
+func (inst *instance) ClosePorts(machineId string, ports []state.Port) error {
 	defer delay()
 	if inst.state.firewallMode != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for closing ports on instance: %q",
 			inst.state.firewallMode)
 	}
 	if inst.machineId != machineId {
-		panic(fmt.Errorf("ClosePorts with mismatched machine id, expected %d got %d", inst.machineId, machineId))
+		panic(fmt.Errorf("ClosePorts with mismatched machine id, expected %s got %s", inst.machineId, machineId))
 	}
 	inst.state.mu.Lock()
 	defer inst.state.mu.Unlock()
@@ -678,7 +678,7 @@ func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
 	return nil
 }
 
-func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
+func (inst *instance) Ports(machineId string) (ports []state.Port, err error) {
 	defer delay()
 	if inst.state.firewallMode != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from instance: %q",

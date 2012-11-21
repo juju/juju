@@ -248,7 +248,7 @@ func (e *environ) Bootstrap(uploadTools bool, stateServerPEM []byte) error {
 	}
 	info := &state.Info{Password: trivial.PasswordHash(password)}
 	inst, err := e.startInstance(&startInstanceParams{
-		machineId:      0,
+		machineId:      "0",
 		info:           info,
 		tools:          tools,
 		stateServer:    true,
@@ -315,7 +315,7 @@ func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
 	return state.AssignUnused
 }
 
-func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.Tools) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId string, info *state.Info, tools *state.Tools) (environs.Instance, error) {
 	return e.startInstance(&startInstanceParams{
 		machineId: machineId,
 		info:      info,
@@ -345,7 +345,7 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 }
 
 type startInstanceParams struct {
-	machineId      int
+	machineId      string
 	info           *state.Info
 	tools          *state.Tools
 	stateServer    bool
@@ -364,7 +364,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 			return nil, err
 		}
 	}
-	log.Printf("environs/ec2: starting machine %d in %q running tools version %q from %q", scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
+	log.Printf("environs/ec2: starting machine %s in %q running tools version %q from %q", scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
 	spec, err := findInstanceSpec(&instanceConstraint{
 		series: scfg.tools.Series,
 		arch:   scfg.tools.Arch,
@@ -702,15 +702,15 @@ func (e *environ) globalGroupName() string {
 	return fmt.Sprintf("%s-global", e.jujuGroupName())
 }
 
-func (e *environ) machineGroupName(machineId int) string {
-	return fmt.Sprintf("%s-%d", e.jujuGroupName(), machineId)
+func (e *environ) machineGroupName(machineId string) string {
+	return fmt.Sprintf("%s-%s", e.jujuGroupName(), machineId)
 }
 
 func (e *environ) jujuGroupName() string {
 	return "juju-" + e.name
 }
 
-func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
+func (inst *instance) OpenPorts(machineId string, ports []state.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for opening ports on instance: %q",
 			inst.e.Config().FirewallMode())
@@ -723,7 +723,7 @@ func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
 	return nil
 }
 
-func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
+func (inst *instance) ClosePorts(machineId string, ports []state.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for closing ports on instance: %q",
 			inst.e.Config().FirewallMode())
@@ -736,7 +736,7 @@ func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
 	return nil
 }
 
-func (inst *instance) Ports(machineId int) ([]state.Port, error) {
+func (inst *instance) Ports(machineId string) ([]state.Port, error) {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from instance: %q",
 			inst.e.Config().FirewallMode())
@@ -752,7 +752,7 @@ func (inst *instance) Ports(machineId int) ([]state.Port, error) {
 // other instances that might be running on the same EC2 account.  In
 // addition, a specific machine security group is created for each
 // machine, so that its firewall rules can be configured per machine.
-func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
+func (e *environ) setUpGroups(machineId string) ([]ec2.SecurityGroup, error) {
 	sourceGroups := []ec2.UserSecurityGroup{{Name: e.jujuGroupName()}}
 	jujuGroup, err := e.ensureGroup(e.jujuGroupName(),
 		[]ec2.IPPerm{

@@ -95,7 +95,7 @@ func (t *LiveTests) TestStartStop(c *C) {
 	c.Assert(err, IsNil)
 	c.Check(insts, HasLen, 0)
 
-	inst, err := t.Env.StartInstance(0, testing.InvalidStateInfo(0), nil)
+	inst, err := t.Env.StartInstance("0", testing.InvalidStateInfo("0"), nil)
 	c.Assert(err, IsNil)
 	c.Assert(inst, NotNil)
 	id0 := inst.Id()
@@ -139,80 +139,80 @@ func (t *LiveTests) TestStartStop(c *C) {
 }
 
 func (t *LiveTests) TestPorts(c *C) {
-	inst1, err := t.Env.StartInstance(1, testing.InvalidStateInfo(1), nil)
+	inst1, err := t.Env.StartInstance("1", testing.InvalidStateInfo("1"), nil)
 	c.Assert(err, IsNil)
 	c.Assert(inst1, NotNil)
 	defer t.Env.StopInstances([]environs.Instance{inst1})
-	ports, err := inst1.Ports(1)
+	ports, err := inst1.Ports("1")
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
 
-	inst2, err := t.Env.StartInstance(2, testing.InvalidStateInfo(2), nil)
+	inst2, err := t.Env.StartInstance("2", testing.InvalidStateInfo("2"), nil)
 	c.Assert(err, IsNil)
 	c.Assert(inst2, NotNil)
-	ports, err = inst2.Ports(2)
+	ports, err = inst2.Ports("2")
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
 	defer t.Env.StopInstances([]environs.Instance{inst2})
 
 	// Open some ports and check they're there.
-	err = inst1.OpenPorts(1, []state.Port{{"udp", 67}, {"tcp", 45}})
+	err = inst1.OpenPorts("1", []state.Port{{"udp", 67}, {"tcp", 45}})
 	c.Assert(err, IsNil)
-	ports, err = inst1.Ports(1)
+	ports, err = inst1.Ports("1")
 	c.Assert(err, IsNil)
 	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 45}, {"udp", 67}})
-	ports, err = inst2.Ports(2)
+	ports, err = inst2.Ports("2")
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
 
-	err = inst2.OpenPorts(2, []state.Port{{"tcp", 89}, {"tcp", 45}})
+	err = inst2.OpenPorts("2", []state.Port{{"tcp", 89}, {"tcp", 45}})
 	c.Assert(err, IsNil)
 
 	// Check there's no crosstalk to another machine
-	ports, err = inst2.Ports(2)
+	ports, err = inst2.Ports("2")
 	c.Assert(err, IsNil)
 	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 45}, {"tcp", 89}})
-	ports, err = inst1.Ports(1)
+	ports, err = inst1.Ports("1")
 	c.Assert(err, IsNil)
 	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 45}, {"udp", 67}})
 
 	// Check that opening the same port again is ok.
-	oldPorts, err := inst2.Ports(2)
+	oldPorts, err := inst2.Ports("2")
 	c.Assert(err, IsNil)
-	err = inst2.OpenPorts(2, []state.Port{{"tcp", 45}})
+	err = inst2.OpenPorts("2", []state.Port{{"tcp", 45}})
 	c.Assert(err, IsNil)
-	ports, err = inst2.Ports(2)
+	ports, err = inst2.Ports("2")
 	c.Assert(err, IsNil)
 	c.Assert(ports, DeepEquals, oldPorts)
 
 	// Check that opening the same port again and another port is ok.
-	err = inst2.OpenPorts(2, []state.Port{{"tcp", 45}, {"tcp", 99}})
+	err = inst2.OpenPorts("2", []state.Port{{"tcp", 45}, {"tcp", 99}})
 	c.Assert(err, IsNil)
-	ports, err = inst2.Ports(2)
+	ports, err = inst2.Ports("2")
 	c.Assert(err, IsNil)
 	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 45}, {"tcp", 89}, {"tcp", 99}})
 
-	err = inst2.ClosePorts(2, []state.Port{{"tcp", 45}, {"tcp", 99}})
+	err = inst2.ClosePorts("2", []state.Port{{"tcp", 45}, {"tcp", 99}})
 	c.Assert(err, IsNil)
 
 	// Check that we can close ports and that there's no crosstalk.
-	ports, err = inst2.Ports(2)
+	ports, err = inst2.Ports("2")
 	c.Assert(err, IsNil)
 	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 89}})
-	ports, err = inst1.Ports(1)
+	ports, err = inst1.Ports("1")
 	c.Assert(err, IsNil)
 	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 45}, {"udp", 67}})
 
 	// Check that we can close multiple ports.
-	err = inst1.ClosePorts(1, []state.Port{{"tcp", 45}, {"udp", 67}})
+	err = inst1.ClosePorts("1", []state.Port{{"tcp", 45}, {"udp", 67}})
 	c.Assert(err, IsNil)
-	ports, err = inst1.Ports(1)
+	ports, err = inst1.Ports("1")
 	c.Assert(ports, HasLen, 0)
 
 	// Check that we can close ports that aren't there.
-	err = inst2.ClosePorts(2, []state.Port{{"tcp", 111}, {"udp", 222}})
+	err = inst2.ClosePorts("2", []state.Port{{"tcp", 111}, {"udp", 222}})
 	c.Assert(err, IsNil)
-	ports, err = inst2.Ports(2)
+	ports, err = inst2.Ports("2")
 	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 89}})
 
 	// Check errors when acting on environment.
@@ -242,14 +242,14 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 	c.Assert(err, IsNil)
 
 	// Create instances and check open ports on both instances.
-	inst1, err := t.Env.StartInstance(1, testing.InvalidStateInfo(1), nil)
+	inst1, err := t.Env.StartInstance("1", testing.InvalidStateInfo("1"), nil)
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst1})
 	ports, err := t.Env.Ports()
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
 
-	inst2, err := t.Env.StartInstance(2, testing.InvalidStateInfo(2), nil)
+	inst2, err := t.Env.StartInstance("2", testing.InvalidStateInfo("2"), nil)
 	c.Assert(err, IsNil)
 	ports, err = t.Env.Ports()
 	c.Assert(err, IsNil)
@@ -280,13 +280,13 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 45}, {"tcp", 89}})
 
 	// Check errors when acting on instances.
-	err = inst1.OpenPorts(1, []state.Port{{"tcp", 80}})
+	err = inst1.OpenPorts("1", []state.Port{{"tcp", 80}})
 	c.Assert(err, ErrorMatches, `invalid firewall mode for opening ports on instance: "global"`)
 
-	err = inst1.ClosePorts(1, []state.Port{{"tcp", 80}})
+	err = inst1.ClosePorts("1", []state.Port{{"tcp", 80}})
 	c.Assert(err, ErrorMatches, `invalid firewall mode for closing ports on instance: "global"`)
 
-	_, err = inst1.Ports(1)
+	_, err = inst1.Ports("1")
 	c.Assert(err, ErrorMatches, `invalid firewall mode for retrieving ports from instance: "global"`)
 }
 
@@ -327,7 +327,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	// machine and find the deployed series from that.
 	// Wait for machine agent to come up on the bootstrap
 	// machine and find the deployed series from that.
-	m0, err := conn.State.Machine(0)
+	m0, err := conn.State.Machine("0")
 	c.Assert(err, IsNil)
 	mw0 := newMachineToolWaiter(m0)
 	defer mw0.Stop()
@@ -653,7 +653,7 @@ func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
 		URL:    url,
 	}
 
-	inst, err := t.Env.StartInstance(4, testing.InvalidStateInfo(4), tools)
+	inst, err := t.Env.StartInstance("4", testing.InvalidStateInfo("4"), tools)
 	if inst != nil {
 		err := t.Env.StopInstances([]environs.Instance{inst})
 		c.Check(err, IsNil)

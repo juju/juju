@@ -74,7 +74,7 @@ type unitDoc struct {
 	Subordinates   []string
 	PublicAddress  string
 	PrivateAddress string
-	MachineId      *int
+	MachineId      *string // TODO-IDS this doesn't need to be a pointer
 	Resolved       ResolvedMode
 	Tools          *Tools `bson:",omitempty"`
 	Ports          []Port
@@ -405,21 +405,21 @@ func (u *Unit) SetAgentAlive() (*presence.Pinger, error) {
 }
 
 // AssignedMachineId returns the id of the assigned machine.
-func (u *Unit) AssignedMachineId() (id int, err error) {
+func (u *Unit) AssignedMachineId() (id string, err error) {
 	defer trivial.ErrorContextf(&err, "cannot get machine id of unit %q", u)
 	if u.IsPrincipal() {
 		if u.doc.MachineId == nil {
-			return 0, errors.New("unit not assigned to machine")
+			return "", errors.New("unit not assigned to machine")
 		}
 		return *u.doc.MachineId, nil
 	}
 	pudoc := unitDoc{}
 	err = u.st.units.Find(D{{"_id", u.doc.Principal}}).One(&pudoc)
 	if err != nil {
-		return 0, err
+		return "", err
 	}
 	if pudoc.MachineId == nil {
-		return 0, errors.New("unit not assigned to machine")
+		return "", errors.New("unit not assigned to machine")
 	}
 	return *pudoc.MachineId, nil
 }
@@ -511,7 +511,8 @@ var noUnusedMachines = errors.New("all machines in use")
 // If there are no unused machines besides machine 0, an error is returned.
 func (u *Unit) AssignToUnusedMachine() (m *Machine, err error) {
 	// Select all machines with no principals except the bootstrap machine.
-	sel := D{{"principals", D{{"$size", 0}}}, {"_id", D{{"$ne", 0}}}}
+    // TODO shouldn't this be "machines not running state/provisioner/firewaller tasks?"
+	sel := D{{"principals", D{{"$size", 0}}}, {"_id", D{{"$ne", "0"}}}}
 	// TODO use Batch(1). See https://bugs.launchpad.net/mgo/+bug/1053509
 	// TODO(rog) Fix so this is more efficient when there are concurrent uses.
 	// Possible solution: pick the highest and the smallest id of all

@@ -48,16 +48,16 @@ type Instance interface {
 
 	// OpenPorts opens the given ports on the instance, which
 	// should have been started with the given machine id.
-	OpenPorts(machineId int, ports []state.Port) error
+	OpenPorts(machineId string, ports []state.Port) error
 
 	// ClosePorts closes the given ports on the instance, which
 	// should have been started with the given machine id.
-	ClosePorts(machineId int, ports []state.Port) error
+	ClosePorts(machineId string, ports []state.Port) error
 
 	// Ports returns the set of ports open on the instance, which
 	// should have been started with the given machine id.
 	// The ports are returned as sorted by state.SortPorts.
-	Ports(machineId int) ([]state.Port, error)
+	Ports(machineId string) ([]state.Port, error)
 }
 
 var ErrNoInstances = errors.New("no instances found")
@@ -156,7 +156,7 @@ type Environ interface {
 	// the Environ will find a set of tools compatible with the
 	// current version.
 	// TODO add arguments to specify type of new machine.
-	StartInstance(machineId int, info *state.Info, tools *state.Tools) (Instance, error)
+	StartInstance(machineId string, info *state.Info, tools *state.Tools) (Instance, error)
 
 	// StopInstances shuts down the given instances.
 	StopInstances([]Instance) error

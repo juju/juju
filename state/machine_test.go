@@ -43,7 +43,7 @@ func (s *MachineSuite) TestEntityName(c *C) {
 }
 
 func (s *MachineSuite) TestMachineEntityName(c *C) {
-	c.Assert(state.MachineEntityName(10), Equals, "machine-10")
+	c.Assert(state.MachineEntityName("10"), Equals, "machine-10")
 }
 
 func (s *MachineSuite) TestSetPassword(c *C) {

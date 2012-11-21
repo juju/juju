@@ -272,7 +272,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterRe
 	machines, err := p.AllMachines()
 	c.Check(err, IsNil)
 	c.Check(len(machines), Equals, 1)
-	c.Check(machines[0].Id(), Equals, 0)
+	c.Check(machines[0].Id(), Equals, "0")
 
 	// the PA should not create it a second time
 	s.checkNotStartInstance(c)

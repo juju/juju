@@ -24,7 +24,7 @@ func JujuGroupName(e environs.Environ) string {
 	return e.(*environ).jujuGroupName()
 }
 
-func MachineGroupName(e environs.Environ, machineId int) string {
+func MachineGroupName(e environs.Environ, machineId string) string {
 	return e.(*environ).machineGroupName(machineId)
 }
 
