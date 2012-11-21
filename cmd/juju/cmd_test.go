@@ -1,7 +1,6 @@
 package main
 
 import (
-	"io/ioutil"
 	"os"
 	"reflect"
 
@@ -14,7 +13,6 @@ import (
 
 type CmdSuite struct {
 	testing.JujuConnSuite
-	home fakeHome
 }
 
 var _ = Suite(&CmdSuite{})
@@ -41,14 +39,7 @@ environments:
 
 func (s *CmdSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.home = makeFakeHome(c, "peckham", "walthamstow", "brokenenv")
-	err := ioutil.WriteFile(homePath(".juju", "environments.yaml"), []byte(envConfig), 0666)
-	c.Assert(err, IsNil)
-}
-
-func (s *CmdSuite) TearDownTest(c *C) {
-	s.home.restore()
-	s.JujuConnSuite.TearDownTest(c)
+	s.JujuConnSuite.WriteConfig(envConfig)
 }
 
 func newFlagSet() *gnuflag.FlagSet {

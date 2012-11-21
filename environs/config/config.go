@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/version"
-	"os"
-	"strings"
 )
 
 // FirewallMode defines the way in which the environment
@@ -30,29 +28,14 @@ type Config struct {
 	m, t map[string]interface{}
 }
 
-// TODO(rog) update the doc comment below - it's getting messy
-// and it assumes too much prior knowledge.
-
 // New returns a new configuration.
-// Fields that are common to all environment providers are verified.
-// The "authorized-keys-path" key is translated into "authorized-keys"
-// by loading the content from respective file. Similarly,
-// "ca-cert-path" and "ca-private-key-path" are translated into the
-// "ca-cert" and "ca-private-key" values.
-// If not specified, authorized SSH keys and CA details will
-// be read from:
+// Fields that are common to all environment providers are verified,
+// and authorized-keys-path is also translated into authorized-keys
+// by loading the content from respective file.
 //
-//	~/.ssh/id_dsa.pub
-//	~/.ssh/id_rsa.pub
-//	~/.ssh/identity.pub
-//	~/.juju/<name>-cert.pem
-//	~/.juju/<name>-private-key.pem
-//
-// The required keys (after any files have been read) are:
-// "name", "type", "authorized-keys" and
-// "ca-cert", all of type string.  Additional keys recognised are:
-// "agent-version" and "development", of types string and bool
-// respectively.
+// The required keys are: "name", "type" and "authorized-keys",
+// all of type string. Additional keys recognised are: "agent-version" and
+// "development", of types string and bool respectively.
 func New(attrs map[string]interface{}) (*Config, error) {
 	m, err := checker.Coerce(attrs, nil)
 	if err != nil {
@@ -63,67 +46,23 @@ func New(attrs map[string]interface{}) (*Config, error) {
 		t: make(map[string]interface{}),
 	}
 
-	name := c.m["name"].(string)
-	if name == "" {
-		return nil, fmt.Errorf("empty name in environment configuration")
-	}
-	if strings.ContainsAny(name, "/\\") {
-		return nil, fmt.Errorf("environment name contains unsafe characters")
-	}
-
 	if c.m["default-series"].(string) == "" {
 		c.m["default-series"] = version.Current.Series
 	}
 
-	// Load authorized-keys-path into authorized-keys if necessary.
+	// Load authorized-keys-path onto authorized-keys, if necessary.
 	path := c.m["authorized-keys-path"].(string)
 	keys := c.m["authorized-keys"].(string)
 	if path != "" || keys == "" {
-		c.m["authorized-keys"], err = readAuthorizedKeys(path)
+		c.m["authorized-keys"], err = authorizedKeys(path)
 		if err != nil {
 			return nil, err
 		}
 	}
 	delete(c.m, "authorized-keys-path")
 
-	// Load CA certificate into ca-cert if necessary.
-	caCert := []byte(c.m["ca-cert"].(string))
-	caCertPath := c.m["ca-cert-path"].(string)
-	if caCertPath != "" || len(caCert) == 0 {
-		caCert, err = readFile(caCertPath, name+"-cert.pem")
-		if err != nil {
-			return nil, err
-		}
-		c.m["ca-cert"] = string(caCert)
-	}
-	delete(c.m, "ca-cert-path")
-
-	// Load CA key into ca-private-cert if necessary.
-	var caKey []byte
-	if k, ok := c.m["ca-private-key"]; ok {
-		caKey = []byte(k.(string))
-	}
-	caKeyPath := c.m["ca-private-key-path"].(string)
-	// Note: we do not read the key file if the CA key is
-	// specified as a empty string.
-	if caKeyPath != "" || caKey == nil {
-		caKey, err = readFile(caKeyPath, name+"-private-key.pem")
-		if err != nil && !os.IsNotExist(err) {
-			return nil, err
-		}
-		c.m["ca-private-key"] = string(caKey)
-	}
-	delete(c.m, "ca-private-key-path")
-
-	if err := verifyKeyPair(caCert, caKey); err != nil {
-		if caCertPath == "" {
-			return nil, fmt.Errorf("bad CA certificate/key in configuration: %v", err)
-		}
-		return nil, fmt.Errorf("bad CA certificate in %q: %v", caCertPath, err)
-	}
-
 	// Check if there are any required fields that are empty.
-	for _, attr := range []string{"type", "default-series", "authorized-keys", "ca-cert"} {
+	for _, attr := range []string{"name", "type", "default-series", "authorized-keys"} {
 		if s, _ := c.m[attr].(string); s == "" {
 			return nil, fmt.Errorf("empty %s in environment configuration", attr)
 		}
@@ -172,19 +111,6 @@ func (c *Config) DefaultSeries() string {
 // AuthorizedKeys returns the content for ssh's authorized_keys file.
 func (c *Config) AuthorizedKeys() string {
 	return c.m["authorized-keys"].(string)
-}
-
-// CACertPEM returns the X509 certificate for the
-// certifying authority, in PEM format.
-func (c *Config) CACertPEM() string {
-	return c.m["ca-cert"].(string)
-}
-
-// CAPrivateKeyPEM returns the private key of the
-// certifying authority, in PEM format.
-// It is empty if the key is not available.
-func (c *Config) CAPrivateKeyPEM() string {
-	return c.m["ca-private-key"].(string)
 }
 
 // AdminSecret returns the administrator password.
@@ -259,10 +185,6 @@ var fields = schema.Fields{
 	"agent-version":        schema.String(),
 	"development":          schema.Bool(),
 	"admin-secret":         schema.String(),
-	"ca-cert":              schema.String(),
-	"ca-cert-path":         schema.String(),
-	"ca-private-key":       schema.String(),
-	"ca-private-key-path":  schema.String(),
 }
 
 var defaults = schema.Defaults{
@@ -273,10 +195,6 @@ var defaults = schema.Defaults{
 	"agent-version":        schema.Omit,
 	"development":          false,
 	"admin-secret":         "",
-	"ca-cert-path":         "",
-	"ca-cert":              "",
-	"ca-private-key-path":  "",
-	"ca-private-key":       schema.Omit,
 }
 
 var checker = schema.FieldMap(fields, defaults)

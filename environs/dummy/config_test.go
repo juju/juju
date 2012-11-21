@@ -5,7 +5,6 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	_ "launchpad.net/juju-core/environs/dummy"
-	"launchpad.net/juju-core/testing"
 )
 
 var _ = Suite(&ConfigSuite{})
@@ -18,8 +17,6 @@ func (*ConfigSuite) TestSecretAttrs(c *C) {
 		"type":            "dummy",
 		"state-server":    true,
 		"authorized-keys": "i-am-a-key",
-		"ca-cert":         testing.CACertPEM,
-		"ca-private-key":  "",
 	})
 	c.Assert(err, IsNil)
 	env, err := environs.New(cfg)
@@ -63,12 +60,9 @@ func (*ConfigSuite) TestFirewallMode(c *C) {
 	for _, test := range firewallModeTests {
 		c.Logf("test firewall mode %q", test.configFirewallMode)
 		cfgMap := map[string]interface{}{
-			"name":            "only",
-			"type":            "dummy",
-			"state-server":    true,
-			"authorized-keys": "none",
-			"ca-cert":         testing.CACertPEM,
-			"ca-private-key":  "",
+			"name":         "only",
+			"type":         "dummy",
+			"state-server": true,
 		}
 		if test.configFirewallMode != "" {
 			cfgMap["firewall-mode"] = test.configFirewallMode

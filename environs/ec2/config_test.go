@@ -7,7 +7,6 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/testing"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,9 +49,7 @@ func (t configTest) check(c *C) {
 	envs := attrs{
 		"environments": attrs{
 			"testenv": attrs{
-				"type":           "ec2",
-				"ca-cert":        testing.CACertPEM,
-				"ca-private-key": testing.CAKeyPEM,
+				"type": "ec2",
 			},
 		},
 	}
