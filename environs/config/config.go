@@ -2,6 +2,8 @@ package config
 
 import (
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/version"
 	"os"
@@ -86,34 +88,14 @@ func New(attrs map[string]interface{}) (*Config, error) {
 	}
 	delete(c.m, "authorized-keys-path")
 
-	// Load CA certificate into ca-cert if necessary.
-	caCert := []byte(c.m["ca-cert"].(string))
-	caCertPath := c.m["ca-cert-path"].(string)
-	if caCertPath != "" || len(caCert) == 0 {
-		caCert, err = readFile(caCertPath, name+"-cert.pem")
-		if err != nil {
-			return nil, err
-		}
-		c.m["ca-cert"] = string(caCert)
+	caCert, caCertPath, err := maybeReadFile(c.m, "ca-cert", name + "-cert.pem")
+	if err != nil {
+		return nil, err
 	}
-	delete(c.m, "ca-cert-path")
-
-	// Load CA key into ca-private-cert if necessary.
-	var caKey []byte
-	if k, ok := c.m["ca-private-key"]; ok {
-		caKey = []byte(k.(string))
+	caKey, _, err := maybeReadFile(c.m, "ca-private-key", name + "-private-key.pem")
+	if err != nil {
+		return nil, err
 	}
-	caKeyPath := c.m["ca-private-key-path"].(string)
-	// Note: we do not read the key file if the CA key is
-	// specified as a empty string.
-	if caKeyPath != "" || caKey == nil {
-		caKey, err = readFile(caKeyPath, name+"-private-key.pem")
-		if err != nil && !os.IsNotExist(err) {
-			return nil, err
-		}
-		c.m["ca-private-key"] = string(caKey)
-	}
-	delete(c.m, "ca-private-key-path")
 
 	if err := verifyKeyPair(caCert, caKey); err != nil {
 		if caCertPath == "" {
@@ -123,7 +105,7 @@ func New(attrs map[string]interface{}) (*Config, error) {
 	}
 
 	// Check if there are any required fields that are empty.
-	for _, attr := range []string{"type", "default-series", "authorized-keys", "ca-cert"} {
+	for _, attr := range []string{"type", "default-series", "authorized-keys"} {
 		if s, _ := c.m[attr].(string); s == "" {
 			return nil, fmt.Errorf("empty %s in environment configuration", attr)
 		}
@@ -152,6 +134,38 @@ func New(attrs map[string]interface{}) (*Config, error) {
 		}
 	}
 	return c, nil
+}
+
+// maybeReadFile reads the given attribute from a file if
+// its value has not been explicitly specified.
+// It returns the data for the attribute and the
+// data's file name if that was used.
+// 
+func maybeReadFile(m map[string]interface{}, attr, defaultPath string) ([]byte, string, error) {
+	var data []byte
+	if v, ok := m[attr]; ok {
+		data = []byte(v.(string))
+	}
+	pathAttr := attr + "-path"
+	path := m[pathAttr].(string)
+	delete(m, pathAttr)
+	if data != nil {
+		m[attr] = string(data)
+		return data, "", nil
+	}
+	if path == "" {
+		path = defaultPath
+	}
+	path = expandTilde(path)
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(os.Getenv("HOME"), ".juju", path)
+	}
+	data, err := ioutil.ReadFile(path)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, "", err
+	}
+	m[attr] = string(data)
+	return data, path, nil
 }
 
 // Type returns the environment type.
@@ -273,10 +287,10 @@ var defaults = schema.Defaults{
 	"agent-version":        schema.Omit,
 	"development":          false,
 	"admin-secret":         "",
+	"ca-cert":              schema.Omit,
 	"ca-cert-path":         "",
-	"ca-cert":              "",
-	"ca-private-key-path":  "",
 	"ca-private-key":       schema.Omit,
+	"ca-private-key-path":  "",
 }
 
 var checker = schema.FieldMap(fields, defaults)

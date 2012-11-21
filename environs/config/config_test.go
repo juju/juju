@@ -130,7 +130,24 @@ var configTests = []struct {
 		},
 		err: "bad CA certificate/key in configuration: crypto/tls: failed to parse key:.*",
 	}, {
-		about: "No PEM cert",
+		about: "No CA cert or key",
+		attrs: attrs{
+			"type":           "my-type",
+			"name":           "my-name",
+			"ca-cert":        "",
+			"ca-private-key": "",
+		},
+	},  {
+		about: "CA key but no cert",
+		attrs: attrs{
+			"type":           "my-type",
+			"name":           "my-name",
+			"ca-cert":        "",
+			"ca-private-key": caKey,
+		},
+		err: "bad CA certificate/key in configuration: crypto/tls:.*",
+	}, {
+		about: "No CA key",
 		attrs: attrs{
 			"type":           "my-type",
 			"name":           "my-name",
@@ -342,6 +359,23 @@ func (*ConfigSuite) TestConfig(c *C) {
 			c.Assert(cfg.CAPrivateKeyPEM(), Equals, caKey)
 		}
 	}
+}
+
+
+func (*ConfigSuite) TestConfigNoCertFiles(c *C) {
+	homeDir := filepath.Join(c.MkDir(), "me")
+	defer os.Setenv("HOME", os.Getenv("HOME"))
+	os.Setenv("HOME", homeDir)
+
+	cfg, err := config.New(attrs{
+			"type":            "my-type",
+			"name":            "my-name",
+			"authorized-keys": "my-keys",
+	})
+	c.Assert(err, IsNil)
+	c.Assert(cfg.CACertPEM(), Equals, "")
+	c.Assert(cfg.CAPrivateKeyPEM(), Equals, "")
+
 }
 
 // fileContents returns the test file contents for the
