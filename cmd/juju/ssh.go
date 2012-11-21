@@ -50,9 +50,9 @@ func (c *SSHCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+	defer c.Close()
 	host, err := c.hostFromTarget(c.Target)
 	if err != nil {
-		c.Close()
 		return err
 	}
 	args := []string{"-l", "ubuntu", "-t", "-o", "StrictHostKeyChecking no", "-o", "PasswordAuthentication no", host}
