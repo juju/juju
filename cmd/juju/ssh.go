@@ -60,6 +60,7 @@ func (c *SSHCommand) Run(ctx *cmd.Context) error {
 	cmd.Stdin = ctx.Stdin
 	cmd.Stdout = ctx.Stdout
 	cmd.Stderr = ctx.Stderr
+	c.Close()
 	return cmd.Run()
 }
 
