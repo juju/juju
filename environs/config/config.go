@@ -3,11 +3,11 @@ package config
 import (
 	"fmt"
 	"io/ioutil"
-	"path/filepath"
-	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/version"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -91,11 +91,11 @@ func New(attrs map[string]interface{}) (*Config, error) {
 	}
 	delete(c.m, "authorized-keys-path")
 
-	caCert, err := maybeReadFile(c.m, "ca-cert", name + "-cert.pem")
+	caCert, err := maybeReadFile(c.m, "ca-cert", name+"-cert.pem")
 	if err != nil {
 		return nil, err
 	}
-	caKey, err := maybeReadFile(c.m, "ca-private-key", name + "-private-key.pem")
+	caKey, err := maybeReadFile(c.m, "ca-private-key", name+"-private-key.pem")
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +157,7 @@ func or(a, b string, neither string) string {
 // for the attribute  and sets the attribute's value in attrs.
 //
 // If the attribute should be treated as unspecified, the attribute value in
-// attrs will be set to "" and the returned data value will be nil. 
+// attrs will be set to "" and the returned data value will be nil.
 func maybeReadFile(attrs map[string]interface{}, attr, defaultPath string) ([]byte, error) {
 	pathAttr := attr + "-path"
 	path := attrs[pathAttr].(string)
@@ -180,7 +180,7 @@ func maybeReadFile(attrs map[string]interface{}, attr, defaultPath string) ([]by
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-log.Printf("%q does not exist", path)
+			log.Printf("%q does not exist", path)
 			attrs[attr] = ""
 			return nil, nil
 		}

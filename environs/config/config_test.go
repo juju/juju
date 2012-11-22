@@ -24,14 +24,13 @@ var _ = Suite(&ConfigSuite{})
 
 type attrs map[string]interface{}
 
-
 type configTest struct {
 	about string
 	attrs map[string]interface{}
 	err   string
 }
 
-var configTests = []configTest {
+var configTests = []configTest{
 	{
 		about: "The minimum good configuration",
 		attrs: attrs{
@@ -140,7 +139,7 @@ var configTests = []configTest {
 			"ca-cert":        "",
 			"ca-private-key": "",
 		},
-	},  {
+	}, {
 		about: "CA key but no cert",
 		attrs: attrs{
 			"type":           "my-type",
@@ -277,7 +276,7 @@ func (*ConfigSuite) TestConfig(c *C) {
 		{".ssh/identity.pub", "identity"},
 		{".ssh/authorized_keys", "auth0\n# first\nauth1\n\n"},
 		{".ssh/authorized_keys2", "auth2\nauth3\n"},
-	
+
 		{".juju/my-name-cert.pem", caCert},
 		{".juju/my-name-private-key.pem", caKey},
 		{".juju/cacert2.pem", caCert2},
@@ -297,8 +296,8 @@ var noCertFilesTests = []configTest{
 	{
 		about: "Unspecified certificate and key",
 		attrs: attrs{
-			"type": "my-type",
-			"name": "my-name",
+			"type":            "my-type",
+			"name":            "my-name",
 			"authorized-keys": "my-keys",
 		},
 	}, {
@@ -307,11 +306,11 @@ var noCertFilesTests = []configTest{
 			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": "my-keys",
-			"ca-private-key": caKey,
+			"ca-private-key":  caKey,
 		},
 		err: "bad CA certificate/key in configuration: crypto/tls:.*",
 	},
-}	
+}
 
 func (*ConfigSuite) TestConfigNoCertFiles(c *C) {
 	h := makeFakeHome(c, nil)
@@ -329,9 +328,9 @@ var emptyCertFilesTests = []configTest{
 			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": "my-keys",
-			"ca-private-key": caKey,
+			"ca-private-key":  caKey,
 		},
-		err:  `bad CA certificate/key in configuration: crypto/tls: .*`,
+		err: `bad CA certificate/key in configuration: crypto/tls: .*`,
 	}, {
 		about: "Cert and key unspecified",
 		attrs: attrs{
@@ -346,7 +345,7 @@ var emptyCertFilesTests = []configTest{
 			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": "my-keys",
-			"ca-cert" : caCert,
+			"ca-cert":         caCert,
 		},
 		err: "bad CA certificate/key in configuration: crypto/tls: .*",
 	}, {
@@ -355,8 +354,8 @@ var emptyCertFilesTests = []configTest{
 			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": "my-keys",
-			"ca-cert" : "",
-			"ca-private-key": "",
+			"ca-cert":         "",
+			"ca-private-key":  "",
 		},
 	}, {
 		about: "Cert specified as empty string",
@@ -364,7 +363,7 @@ var emptyCertFilesTests = []configTest{
 			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": "my-keys",
-			"ca-cert" : "",
+			"ca-cert":         "",
 		},
 		err: "bad CA certificate/key in configuration: crypto/tls: .*",
 	},
@@ -485,7 +484,7 @@ func (*ConfigSuite) TestConfigAttrs(c *C) {
 
 type fakeHome struct {
 	oldHome string
-	files []testFile
+	files   []testFile
 }
 
 func makeFakeHome(c *C, files []testFile) fakeHome {

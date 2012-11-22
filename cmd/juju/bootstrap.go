@@ -37,7 +37,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	return environ.Bootstrap(c.UploadTools, caPEM)
 }
 
-var caPEM=[]byte(`
+var caPEM = []byte(`
 -----BEGIN CERTIFICATE-----
 MIIBnTCCAUmgAwIBAgIBADALBgkqhkiG9w0BAQUwJjENMAsGA1UEChMEanVqdTEV
 MBMGA1UEAxMManVqdSB0ZXN0aW5nMB4XDTEyMTExNDE0Mzg1NFoXDTIyMTExNDE0
