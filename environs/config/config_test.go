@@ -38,6 +38,19 @@ var configTests = []configTest{
 			"name": "my-name",
 		},
 	}, {
+		about: "Minimum configuration with explicit empty strings for defaults",
+		attrs: attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"default-series": "",
+			"authorized-keys-path": "",
+			"ca-cert": "",
+			"ca-cert-path": "",
+			"ca-private-key": "",
+			"ca-private-key-path": "",
+			"admin-secret": "",
+		},
+	}, {
 		about: "Explicit series",
 		attrs: attrs{
 			"type":           "my-type",
@@ -74,6 +87,15 @@ var configTests = []configTest{
 			"ca-private-key-path": "cakey2.pem",
 		},
 	}, {
+		about: "Root cert & key from path; cert attribute set too",
+		attrs: attrs{
+			"type":                "my-type",
+			"name":                "my-name",
+			"ca-cert-path":        "cacert2.pem",
+			"ca-cert": "ignored",
+			"ca-private-key-path": "cakey2.pem",
+		},
+	}, {
 		about: "Root cert & key from ~ path",
 		attrs: attrs{
 			"type":                "my-type",
@@ -87,7 +109,7 @@ var configTests = []configTest{
 			"type":           "my-type",
 			"name":           "my-name",
 			"ca-cert-path":   "~/othercert.pem",
-			"ca-private-key": "",
+			"ca-private-key": nil,
 		},
 	}, {
 		about: "Root cert only as attribute",
@@ -95,7 +117,7 @@ var configTests = []configTest{
 			"type":           "my-type",
 			"name":           "my-name",
 			"ca-cert":        caCert,
-			"ca-private-key": "",
+			"ca-private-key": nil,
 		},
 	}, {
 		about: "Root cert and key as attributes",
@@ -136,15 +158,15 @@ var configTests = []configTest{
 		attrs: attrs{
 			"type":           "my-type",
 			"name":           "my-name",
-			"ca-cert":        "",
-			"ca-private-key": "",
+			"ca-cert":        nil,
+			"ca-private-key": nil,
 		},
 	}, {
 		about: "CA key but no cert",
 		attrs: attrs{
 			"type":           "my-type",
 			"name":           "my-name",
-			"ca-cert":        "",
+			"ca-cert":        nil,
 			"ca-private-key": caKey,
 		},
 		err: "bad CA certificate/key in configuration: crypto/tls:.*",
@@ -154,7 +176,7 @@ var configTests = []configTest{
 			"type":           "my-type",
 			"name":           "my-name",
 			"ca-cert":        "foo",
-			"ca-private-key": "",
+			"ca-private-key": nil,
 		},
 		err: "bad CA certificate/key in configuration: no certificates found",
 	}, {
@@ -349,21 +371,21 @@ var emptyCertFilesTests = []configTest{
 		},
 		err: "bad CA certificate/key in configuration: crypto/tls: .*",
 	}, {
-		about: "Cert and key specified as empty strings",
+		about: "Cert and key specified as absent",
 		attrs: attrs{
 			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": "my-keys",
-			"ca-cert":         "",
-			"ca-private-key":  "",
+			"ca-cert":         nil,
+			"ca-private-key":  nil,
 		},
 	}, {
-		about: "Cert specified as empty string",
+		about: "Cert specified as absent",
 		attrs: attrs{
 			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": "my-keys",
-			"ca-cert":         "",
+			"ca-cert":         nil,
 		},
 		err: "bad CA certificate/key in configuration: crypto/tls: .*",
 	},
@@ -432,24 +454,40 @@ func (test configTest) check(c *C, h fakeHome) {
 		c.Assert(cfg.AuthorizedKeys(), Equals, want)
 	}
 
+	cert, certPresent := cfg.CACertPEM()
 	if path, _ := test.attrs["ca-cert-path"].(string); path != "" {
-		c.Assert(cfg.CACertPEM(), Equals, h.fileContents(c, path))
-	} else if test.attrs["ca-cert"] != nil {
-		c.Assert(cfg.CACertPEM(), Equals, test.attrs["ca-cert"])
+		c.Assert(certPresent, Equals, true)
+		c.Assert(cert, Equals, h.fileContents(c, path))
+	} else if v, ok := test.attrs["ca-cert"]; v != nil && v.(string) != ""{
+		c.Assert(certPresent, Equals, true)
+		c.Assert(cert, Equals, v)
+	} else if ok && v == nil {
+		c.Check(cert, Equals, "")
+		c.Assert(certPresent, Equals, false)
 	} else if h.fileExists(".juju/my-name-cert.pem") {
-		c.Assert(cfg.CACertPEM(), Equals, h.fileContents(c, "my-name-cert.pem"))
+		c.Assert(certPresent, Equals, true)
+		c.Assert(cert, Equals, h.fileContents(c, "my-name-cert.pem"))
 	} else {
-		c.Assert(cfg.CACertPEM(), Equals, "")
+		c.Check(cert, Equals, "")
+		c.Assert(certPresent, Equals, false)
 	}
 
+	key, keyPresent := cfg.CAPrivateKeyPEM()
 	if path, _ := test.attrs["ca-private-key-path"].(string); path != "" {
-		c.Assert(cfg.CAPrivateKeyPEM(), Equals, h.fileContents(c, path))
-	} else if k, ok := test.attrs["ca-private-key"]; ok {
-		c.Assert(cfg.CAPrivateKeyPEM(), Equals, k)
+		c.Assert(keyPresent, Equals, true)
+		c.Assert(key, Equals, h.fileContents(c, path))
+	} else if v, ok := test.attrs["ca-private-key"]; v != nil && v.(string) != ""{
+		c.Assert(keyPresent, Equals, true)
+		c.Assert(key, Equals, v)
+	} else if ok && v == nil {
+		c.Check(key, Equals, "")
+		c.Assert(keyPresent, Equals, false)
 	} else if h.fileExists(".juju/my-name-private-key.pem") {
-		c.Assert(cfg.CAPrivateKeyPEM(), Equals, h.fileContents(c, "my-name-private-key.pem"))
+		c.Assert(keyPresent, Equals, true)
+		c.Assert(key, Equals, h.fileContents(c, "my-name-private-key.pem"))
 	} else {
-		c.Assert(cfg.CAPrivateKeyPEM(), Equals, "")
+		c.Check(key, Equals, "")
+		c.Assert(keyPresent, Equals, false)
 	}
 }
 
@@ -462,7 +500,7 @@ func (*ConfigSuite) TestConfigAttrs(c *C) {
 		"default-series":  version.Current.Series,
 		"admin-secret":    "foo",
 		"unknown":         "my-unknown",
-		"ca-private-key":  "",
+		"ca-private-key":  nil,
 		"ca-cert":         caCert,
 	}
 	cfg, err := config.New(attrs)
