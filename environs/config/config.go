@@ -35,14 +35,12 @@ type Config struct {
 // TODO(rog) update the doc comment below - it's getting messy
 // and it assumes too much prior knowledge.
 
-// New returns a new configuration.
-// Fields that are common to all environment providers are verified.
-// The "authorized-keys-path" key is translated into "authorized-keys"
-// by loading the content from respective file. Similarly,
-// "ca-cert-path" and "ca-private-key-path" are translated into the
-// "ca-cert" and "ca-private-key" values.
-// If not specified, authorized SSH keys and CA details will
-// be read from:
+// New returns a new configuration.  Fields that are common to all
+// environment providers are verified.  The "authorized-keys-path" key
+// is translated into "authorized-keys" by loading the content from
+// respective file.  Similarly, "ca-cert-path" and "ca-private-key-path"
+// are translated into the "ca-cert" and "ca-private-key" values.  If
+// not specified, authorized SSH keys and CA details will be read from:
 //
 //	~/.ssh/id_dsa.pub
 //	~/.ssh/id_rsa.pub
@@ -50,9 +48,13 @@ type Config struct {
 //	~/.juju/<name>-cert.pem
 //	~/.juju/<name>-private-key.pem
 //
+// The optional ca-cert and ca-private-key fields may
+// be explicitly specified as empty strings, preventing the
+// above file-reading behaviour.
+//
 // The required keys (after any files have been read) are:
-// "name", "type", "authorized-keys" and
-// "ca-cert", all of type string.  Additional keys recognised are:
+// "name", "type" and "authorized-keys" all of type string.
+// Additional keys recognised are:
 // "agent-version" and "development", of types string and bool
 // respectively.
 func New(attrs map[string]interface{}) (*Config, error) {
@@ -96,12 +98,13 @@ func New(attrs map[string]interface{}) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	if err := verifyKeyPair(caCert, caKey); err != nil {
-		if caCertPath == "" {
-			return nil, fmt.Errorf("bad CA certificate/key in configuration: %v", err)
+	if caCert != nil || caKey != nil {
+		if err := verifyKeyPair(caCert, caKey); err != nil {
+			if caCertPath == "" {
+				return nil, fmt.Errorf("bad CA certificate/key in configuration: %v", err)
+			}
+			return nil, fmt.Errorf("bad CA certificate in %q: %v", caCertPath, err)
 		}
-		return nil, fmt.Errorf("bad CA certificate in %q: %v", caCertPath, err)
 	}
 
 	// Check if there are any required fields that are empty.
@@ -136,35 +139,41 @@ func New(attrs map[string]interface{}) (*Config, error) {
 	return c, nil
 }
 
-// maybeReadFile reads the given attribute from a file if
-// its value has not been explicitly specified.
-// It returns the data for the attribute and the
-// data's file name if that was used.
-// 
-func maybeReadFile(m map[string]interface{}, attr, defaultPath string) ([]byte, string, error) {
-	var data []byte
-	if v, ok := m[attr]; ok {
-		data = []byte(v.(string))
-	}
+// maybeReadFile reads the given attribute from a file if its path
+// attribute is unset or its value is not found in attrs.  It returns the data
+// for the attribute and the data's file name if that was used, and sets
+// the attribute's value in attrs.
+//
+// If the attribute should be treated as unspecified, the attribute value in
+// attrs will be set to "" and the returned data value will be nil. 
+func maybeReadFile(attrs map[string]interface{}, attr, defaultPath string) (data []byte, path string, err error) {
 	pathAttr := attr + "-path"
-	path := m[pathAttr].(string)
-	delete(m, pathAttr)
-	if data != nil {
-		m[attr] = string(data)
-		return data, "", nil
-	}
+	path = attrs[pathAttr].(string)
+	delete(attrs, pathAttr)
 	if path == "" {
+		if v, ok := attrs[attr]; ok {
+			s := v.(string)
+			if s == "" {
+				// An empty string is equivalent to an unspecified value.
+				return nil, "", nil
+			}
+			return []byte(s), "", nil
+		}
 		path = defaultPath
 	}
 	path = expandTilde(path)
 	if !filepath.IsAbs(path) {
 		path = filepath.Join(os.Getenv("HOME"), ".juju", path)
 	}
-	data, err := ioutil.ReadFile(path)
-	if err != nil && !os.IsNotExist(err) {
+	data, err = ioutil.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			attrs[attr] = ""
+			return nil, "", nil
+		}
 		return nil, "", err
 	}
-	m[attr] = string(data)
+	attrs[attr] = string(data)
 	return data, path, nil
 }
 

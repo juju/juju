@@ -263,9 +263,11 @@ var configTests = []struct {
 	},
 }
 
-var configTestFiles = []struct {
+type testFile struct {
 	name, data string
-}{
+}
+
+var configTestFiles = []testFile {
 	{".ssh/id_dsa.pub", "dsa"},
 	{".ssh/id_rsa.pub", "rsa\n"},
 	{".ssh/identity.pub", "identity"},
@@ -281,17 +283,8 @@ var configTestFiles = []struct {
 }
 
 func (*ConfigSuite) TestConfig(c *C) {
-	homeDir := filepath.Join(c.MkDir(), "me")
-	defer os.Setenv("HOME", os.Getenv("HOME"))
-	os.Setenv("HOME", homeDir)
-
-	for _, f := range configTestFiles {
-		path := filepath.Join(homeDir, f.name)
-		err := os.MkdirAll(filepath.Dir(path), 0700)
-		c.Assert(err, IsNil)
-		err = ioutil.WriteFile(path, []byte(f.data), 0666)
-		c.Assert(err, IsNil)
-	}
+	h := makeFakeHome(c, configTestFiles)
+	defer h.restore()
 
 	for i, test := range configTests {
 		c.Logf("test %d. %s", i, test.about)
@@ -333,7 +326,7 @@ func (*ConfigSuite) TestConfig(c *C) {
 		}
 
 		if path, _ := test.attrs["authorized-keys-path"].(string); path != "" {
-			c.Assert(cfg.AuthorizedKeys(), Equals, fileContents(c, path))
+			c.Assert(cfg.AuthorizedKeys(), Equals, h.fileContents(c, path))
 			c.Assert(cfg.AllAttrs()["authorized-keys-path"], Equals, nil)
 		} else if keys, _ := test.attrs["authorized-keys"].(string); keys != "" {
 			c.Assert(cfg.AuthorizedKeys(), Equals, keys)
@@ -344,7 +337,7 @@ func (*ConfigSuite) TestConfig(c *C) {
 		}
 
 		if path, _ := test.attrs["ca-cert-path"].(string); path != "" {
-			c.Assert(cfg.CACertPEM(), Equals, fileContents(c, path))
+			c.Assert(cfg.CACertPEM(), Equals, h.fileContents(c, path))
 		} else if test.attrs["ca-cert"] != nil {
 			c.Assert(cfg.CACertPEM(), Equals, test.attrs["ca-cert"])
 		} else {
@@ -352,7 +345,7 @@ func (*ConfigSuite) TestConfig(c *C) {
 		}
 
 		if path, _ := test.attrs["ca-private-key-path"].(string); path != "" {
-			c.Assert(cfg.CAPrivateKeyPEM(), Equals, fileContents(c, path))
+			c.Assert(cfg.CAPrivateKeyPEM(), Equals, h.fileContents(c, path))
 		} else if k, ok := test.attrs["ca-private-key"]; ok {
 			c.Assert(cfg.CAPrivateKeyPEM(), Equals, k)
 		} else {
@@ -361,11 +354,8 @@ func (*ConfigSuite) TestConfig(c *C) {
 	}
 }
 
-
 func (*ConfigSuite) TestConfigNoCertFiles(c *C) {
-	homeDir := filepath.Join(c.MkDir(), "me")
-	defer os.Setenv("HOME", os.Getenv("HOME"))
-	os.Setenv("HOME", homeDir)
+	defer makeFakeHome(c, nil).restore()
 
 	cfg, err := config.New(attrs{
 			"type":            "my-type",
@@ -376,20 +366,32 @@ func (*ConfigSuite) TestConfigNoCertFiles(c *C) {
 	c.Assert(cfg.CACertPEM(), Equals, "")
 	c.Assert(cfg.CAPrivateKeyPEM(), Equals, "")
 
+	cfg, err = config.New(attrs{
+			"type":            "my-type",
+			"name":            "my-name",
+			"authorized-keys": "my-keys",
+			"ca-private-key": caKey,
+	})
+	c.Assert(cfg, IsNil)
+	c.Assert(err, ErrorMatches, "bad CA certificate/key in configuration: crypto/tls:.*")
 }
 
-// fileContents returns the test file contents for the
-// given specified path (which may be relative, so
-// we compare with the base filename only).
-func fileContents(c *C, path string) string {
-	for _, f := range configTestFiles {
-		if filepath.Base(f.name) == filepath.Base(path) {
-			return f.data
-		}
-	}
-	c.Fatalf("path attribute holds unknown test file: %q", path)
-	panic("unreachable")
-}
+
+//func (*ConfigSuite) TestConfigEmptyCertFile(c *C) {
+//	homeDir := filepath.Join(c.MkDir(), "me")
+//	defer os.Setenv("HOME", os.Getenv("HOME"))
+//	os.Setenv("HOME", homeDir)
+//
+//	cfg, err := config.New(attrs{
+//			"type":            "my-type",
+//			"name":            "my-name",
+//			"authorized-keys": "my-keys",
+//			"ca-private-key": caKey,
+//	})
+//	c.Assert(err, IsNil)
+//	c.Assert(cfg.CACertPEM(), Equals, "")
+//	c.Assert(cfg.CAPrivateKeyPEM(), Equals, "")
+//}
 
 func (*ConfigSuite) TestConfigAttrs(c *C) {
 	attrs := map[string]interface{}{
@@ -418,6 +420,42 @@ func (*ConfigSuite) TestConfigAttrs(c *C) {
 	attrs["name"] = "new-name"
 	attrs["new-unknown"] = "my-new-unknown"
 	c.Assert(newcfg.AllAttrs(), DeepEquals, attrs)
+}
+
+type fakeHome struct {
+	oldHome string
+	files []testFile
+}
+
+func makeFakeHome(c *C, files []testFile) fakeHome {
+	oldHome := os.Getenv("HOME")
+	homeDir := filepath.Join(c.MkDir(), "me")
+	for _, f := range files {
+		path := filepath.Join(homeDir, f.name)
+		err := os.MkdirAll(filepath.Dir(path), 0700)
+		c.Assert(err, IsNil)
+		err = ioutil.WriteFile(path, []byte(f.data), 0666)
+		c.Assert(err, IsNil)
+	}
+	os.Setenv("HOME", homeDir)
+	return fakeHome{oldHome, files}
+}
+
+func (h fakeHome) restore() {
+	os.Setenv("HOME", h.oldHome)
+}
+
+// fileContents returns the test file contents for the
+// given specified path (which may be relative, so
+// we compare with the base filename only).
+func (h fakeHome) fileContents(c *C, path string) string {
+	for _, f := range h.files {
+		if filepath.Base(f.name) == filepath.Base(path) {
+			return f.data
+		}
+	}
+	c.Fatalf("path attribute holds unknown test file: %q", path)
+	panic("unreachable")
 }
 
 var caCert = `
