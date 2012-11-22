@@ -400,7 +400,7 @@ func (s *StateSuite) TestEnvironConfig(c *C) {
 		"firewall-mode":   "",
 		"admin-secret":    "",
 		"ca-cert":         testing.CACertPEM,
-		"ca-private-key":  "",
+		"ca-private-key":  nil,
 	}
 	cfg, err := config.New(initial)
 	c.Assert(err, IsNil)
@@ -433,6 +433,7 @@ func (s *StateSuite) TestEnvironConfigWithAdminSecret(c *C) {
 		"development":     true,
 		"admin-secret":    "foo",
 		"ca-cert":         testing.CACertPEM,
+		"ca-private-key": nil,
 	}
 	cfg, err := config.New(attrs)
 	c.Assert(err, IsNil)
@@ -794,7 +795,7 @@ func (s *StateSuite) TestInitialize(c *C) {
 		"firewall-mode":   "",
 		"admin-secret":    "",
 		"ca-cert":         testing.CACertPEM,
-		"ca-private-key":  "",
+		"ca-private-key":  nil,
 	}
 	cfg, err := config.New(m)
 	c.Assert(err, IsNil)
@@ -816,7 +817,7 @@ func (s *StateSuite) TestDoubleInitialize(c *C) {
 		"firewall-mode":   "",
 		"admin-secret":    "",
 		"ca-cert":         testing.CACertPEM,
-		"ca-private-key":  "",
+		"ca-private-key":  nil,
 	}
 	cfg, err := config.New(m)
 	c.Assert(err, IsNil)
@@ -837,7 +838,7 @@ func (s *StateSuite) TestDoubleInitialize(c *C) {
 		"firewall-mode":   "",
 		"admin-secret":    "",
 		"ca-cert":         testing.CACertPEM,
-		"ca-private-key":  "",
+		"ca-private-key":  nil,
 	}
 	cfg, err = config.New(m)
 	c.Assert(err, IsNil)

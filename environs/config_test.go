@@ -202,6 +202,7 @@ func (suite) TestConfigRoundTrip(c *C) {
 }
 
 func (suite) TestBootstrapConfig(c *C) {
+	defer makeFakeHome(c, "bladaam").restore()
 	cfg, err := config.New(map[string]interface{}{
 		"name":            "bladaam",
 		"type":            "dummy",
@@ -226,7 +227,7 @@ func (suite) TestBootstrapConfig(c *C) {
 	expect := cfg.AllAttrs()
 	delete(expect, "secret")
 	expect["admin-secret"] = ""
-	expect["ca-private-key"] = ""
+	expect["ca-private-key"] = nil
 	expect["agent-version"] = "1.2.3"
 	c.Assert(cfg1.AllAttrs(), DeepEquals, expect)
 }
@@ -241,6 +242,8 @@ func makeFakeHome(c *C, certNames ...string) fakeHome {
 	c.Assert(err, IsNil)
 	for _, name := range certNames {
 		err := ioutil.WriteFile(homePath(".juju", name+"-cert.pem"), []byte(testing.CACertPEM), 0666)
+		c.Assert(err, IsNil)
+		err = ioutil.WriteFile(homePath(".juju", name+"-private-key.pem"), []byte(testing.CAKeyPEM), 0666)
 		c.Assert(err, IsNil)
 	}
 
