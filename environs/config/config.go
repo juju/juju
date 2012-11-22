@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"launchpad.net/juju-core/schema"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/version"
 	"os"
 	"strings"
@@ -90,21 +91,21 @@ func New(attrs map[string]interface{}) (*Config, error) {
 	}
 	delete(c.m, "authorized-keys-path")
 
-	caCert, caCertPath, err := maybeReadFile(c.m, "ca-cert", name + "-cert.pem")
+	caCert, err := maybeReadFile(c.m, "ca-cert", name + "-cert.pem")
 	if err != nil {
 		return nil, err
 	}
-	caKey, _, err := maybeReadFile(c.m, "ca-private-key", name + "-private-key.pem")
+	caKey, err := maybeReadFile(c.m, "ca-private-key", name + "-private-key.pem")
 	if err != nil {
 		return nil, err
 	}
 	if caCert != nil || caKey != nil {
+		log.Printf("verifying key pair")
 		if err := verifyKeyPair(caCert, caKey); err != nil {
-			if caCertPath == "" {
-				return nil, fmt.Errorf("bad CA certificate/key in configuration: %v", err)
-			}
-			return nil, fmt.Errorf("bad CA certificate in %q: %v", caCertPath, err)
+			return nil, fmt.Errorf("bad CA certificate/key in configuration: %v", err)
 		}
+	} else {
+		log.Printf("cert and key are both nil")
 	}
 
 	// Check if there are any required fields that are empty.
@@ -139,25 +140,36 @@ func New(attrs map[string]interface{}) (*Config, error) {
 	return c, nil
 }
 
+func or(a, b string, neither string) string {
+	switch {
+	case a == "" && b == "":
+		return neither
+	case a == "":
+		return fmt.Sprintf("%q", b)
+	case b == "":
+		return fmt.Sprintf("%q", a)
+	}
+	return fmt.Sprintf("%q or %q", a, b)
+}
+
 // maybeReadFile reads the given attribute from a file if its path
 // attribute is unset or its value is not found in attrs.  It returns the data
-// for the attribute and the data's file name if that was used, and sets
-// the attribute's value in attrs.
+// for the attribute  and sets the attribute's value in attrs.
 //
 // If the attribute should be treated as unspecified, the attribute value in
 // attrs will be set to "" and the returned data value will be nil. 
-func maybeReadFile(attrs map[string]interface{}, attr, defaultPath string) (data []byte, path string, err error) {
+func maybeReadFile(attrs map[string]interface{}, attr, defaultPath string) ([]byte, error) {
 	pathAttr := attr + "-path"
-	path = attrs[pathAttr].(string)
+	path := attrs[pathAttr].(string)
 	delete(attrs, pathAttr)
 	if path == "" {
 		if v, ok := attrs[attr]; ok {
 			s := v.(string)
 			if s == "" {
 				// An empty string is equivalent to an unspecified value.
-				return nil, "", nil
+				return nil, nil
 			}
-			return []byte(s), "", nil
+			return []byte(s), nil
 		}
 		path = defaultPath
 	}
@@ -165,16 +177,17 @@ func maybeReadFile(attrs map[string]interface{}, attr, defaultPath string) (data
 	if !filepath.IsAbs(path) {
 		path = filepath.Join(os.Getenv("HOME"), ".juju", path)
 	}
-	data, err = ioutil.ReadFile(path)
+	data, err := ioutil.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
+log.Printf("%q does not exist", path)
 			attrs[attr] = ""
-			return nil, "", nil
+			return nil, nil
 		}
-		return nil, "", err
+		return nil, err
 	}
 	attrs[attr] = string(data)
-	return data, path, nil
+	return data, nil
 }
 
 // Type returns the environment type.
