@@ -31,17 +31,17 @@ func Test(t *testing.T) {
 // baseConfigResult when mutated by the mutate function, or that the
 // parse matches the given error.
 type configTest struct {
-	summary      string
-	config       attrs
-	change       attrs
-	region       string
-	container    string
-	username     string
-	password     string
-	tenantName   string
-	authURL      string
-	firewallMode config.FirewallMode
-	err          string
+	summary       string
+	config        attrs
+	change        attrs
+	region        string
+	controlBucket string
+	username      string
+	password      string
+	tenantName    string
+	authURL       string
+	firewallMode  config.FirewallMode
+	err           string
 }
 
 type attrs map[string]interface{}
@@ -58,8 +58,8 @@ func (t configTest) check(c *C) {
 	for k, v := range t.config {
 		testenv[k] = v
 	}
-	if _, ok := testenv["container"]; !ok {
-		testenv["container"] = "x"
+	if _, ok := testenv["control-bucket"]; !ok {
+		testenv["control-bucket"] = "x"
 	}
 	data, err := goyaml.Marshal(envs)
 	c.Assert(err, IsNil)
@@ -92,7 +92,7 @@ func (t configTest) check(c *C) {
 
 	ecfg := e.(*environ).ecfg()
 	c.Assert(ecfg.Name(), Equals, "testenv")
-	c.Assert(ecfg.container(), Equals, "x")
+	c.Assert(ecfg.controlBucket(), Equals, "x")
 	if t.region != "" {
 		c.Assert(ecfg.region(), Equals, t.region)
 	}
@@ -183,17 +183,17 @@ var configTests = []configTest{
 		},
 		err: ".*expected string, got 666",
 	}, {
-		summary: "invalid container",
+		summary: "invalid control-bucket",
 		config: attrs{
-			"container": 666,
+			"control-bucket": 666,
 		},
 		err: ".*expected string, got 666",
 	}, {
-		summary: "changing container",
+		summary: "changing control-bucket",
 		change: attrs{
-			"container": "new-x",
+			"control-bucket": "new-x",
 		},
-		err: `cannot change container from "x" to "new-x"`,
+		err: `cannot change control-bucket from "x" to "new-x"`,
 	}, {
 		summary: "valid auth args",
 		config: attrs{

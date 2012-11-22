@@ -9,20 +9,20 @@ import (
 
 var configChecker = schema.StrictFieldMap(
 	schema.Fields{
-		"username":    schema.String(),
-		"password":    schema.String(),
-		"tenant-name": schema.String(),
-		"auth-url":    schema.String(),
-		"region":      schema.String(),
-		"container":   schema.String(),
+		"username":       schema.String(),
+		"password":       schema.String(),
+		"tenant-name":    schema.String(),
+		"auth-url":       schema.String(),
+		"region":         schema.String(),
+		"control-bucket": schema.String(),
 	},
 	schema.Defaults{
-		"username":    "",
-		"password":    "",
-		"tenant-name": "",
-		"auth-url":    "",
-		"region":      "",
-		"container":   "",
+		"username":       "",
+		"password":       "",
+		"tenant-name":    "",
+		"auth-url":       "",
+		"region":         "",
+		"control-bucket": "",
 	},
 )
 
@@ -51,8 +51,8 @@ func (c *environConfig) authURL() string {
 	return c.attrs["auth-url"].(string)
 }
 
-func (c *environConfig) container() string {
-	return c.attrs["container"].(string)
+func (c *environConfig) controlBucket() string {
+	return c.attrs["control-bucket"].(string)
 }
 
 func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
@@ -69,14 +69,11 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 		return nil, err
 	}
 	ecfg := &environConfig{cfg, v.(map[string]interface{})}
-	if ecfg.username() == "" ||
-		ecfg.password() == "" ||
-		ecfg.tenantName() == "" ||
-		ecfg.authURL() == "" {
+	if ecfg.username() == "" || ecfg.password() == "" || ecfg.tenantName() == "" || ecfg.authURL() == "" {
 		// TODO(dimitern): get goose client to handle this
-		auth, err := dummyEnvAuth()
-		if err != nil {
-			return nil, fmt.Errorf("environment has no username, password, tenant-name, or auth-url")
+		auth, ok := getEnvAuth()
+		if !ok {
+			return nil, fmt.Errorf("OpenStack environment has no username, password, tenant-name, or auth-url")
 		}
 		ecfg.attrs["username"] = auth.username
 		ecfg.attrs["password"] = auth.password
@@ -92,8 +89,8 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 		if region, _ := attrs["region"].(string); ecfg.region() != region {
 			return nil, fmt.Errorf("cannot change region from %q to %q", region, ecfg.region())
 		}
-		if container, _ := attrs["container"].(string); ecfg.container() != container {
-			return nil, fmt.Errorf("cannot change container from %q to %q", container, ecfg.container())
+		if controlBucket, _ := attrs["control-bucket"].(string); ecfg.controlBucket() != controlBucket {
+			return nil, fmt.Errorf("cannot change control-bucket from %q to %q", controlBucket, ecfg.controlBucket())
 		}
 	}
 
@@ -109,22 +106,19 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 }
 
 // TODO(dimitern): temporarily here, until goose client handles this
-type dummyAuth struct {
+type envAuth struct {
 	username, password, tenantName, authURL string
 }
 
-func dummyEnvAuth() (dummyAuth, error) {
-	auth := dummyAuth{
+func getEnvAuth() (auth envAuth, ok bool) {
+	auth = envAuth{
 		username:   os.Getenv("OS_USERNAME"),
 		password:   os.Getenv("OS_PASSWORD"),
 		tenantName: os.Getenv("OS_TENANT_NAME"),
 		authURL:    os.Getenv("OS_AUTH_URL"),
 	}
-	if auth.username == "" ||
-		auth.password == "" ||
-		auth.tenantName == "" ||
-		auth.authURL == "" {
-		return auth, fmt.Errorf("missing username, password, tenant-name, or auth-url")
+	if auth.username == "" || auth.password == "" || auth.tenantName == "" || auth.authURL == "" {
+		return auth, false
 	}
-	return auth, nil
+	return auth, true
 }
