@@ -17,7 +17,8 @@ var envVars = map[string]string{
 	"OS_USERNAME":    "testuser",
 	"OS_PASSWORD":    "testpass",
 	"OS_TENANT_NAME": "testtenant",
-	"OS_AUTH_URL":    "some url",
+	"OS_AUTH_URL":    "http://somehost",
+	"OS_REGION_NAME": "testreg",
 }
 
 var _ = Suite(&ConfigSuite{})
@@ -177,11 +178,17 @@ var configTests = []configTest{
 		},
 		err: ".*expected string, got 666",
 	}, {
-		summary: "invalid auth-url",
+		summary: "invalid auth-url type",
 		config: attrs{
 			"auth-url": 666,
 		},
 		err: ".*expected string, got 666",
+	}, {
+		summary: "invalid auth-url format",
+		config: attrs{
+			"auth-url": "invalid",
+		},
+		err: `invalid auth-url value "invalid"`,
 	}, {
 		summary: "invalid control-bucket",
 		config: attrs{
@@ -200,12 +207,12 @@ var configTests = []configTest{
 			"username":    "jujuer",
 			"password":    "open sesame",
 			"tenant-name": "juju tenant",
-			"auth-url":    "some url",
+			"auth-url":    "http://some/url",
 		},
 		username:   "jujuer",
 		password:   "open sesame",
 		tenantName: "juju tenant",
-		authURL:    "some url",
+		authURL:    "http://some/url",
 	}, {
 		summary: "admin-secret given",
 		config: attrs{
@@ -241,6 +248,14 @@ func (s *ConfigSuite) TestConfig(c *C) {
 		c.Logf("test %d: %s (%v)", i, t.summary, t.config)
 		t.check(c)
 	}
+}
+
+func (s *ConfigSuite) TestMissingRegion(c *C) {
+	os.Setenv("OS_REGION_NAME", "")
+	test := configTests[0]
+	delete(test.config, "region")
+	test.err = ".*environment has no region"
+	test.check(c)
 }
 
 func (s *ConfigSuite) TestMissingUsername(c *C) {

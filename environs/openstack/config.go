@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/schema"
+	"net/url"
 	"os"
 )
 
@@ -69,6 +70,14 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 		return nil, err
 	}
 	ecfg := &environConfig{cfg, v.(map[string]interface{})}
+
+	if ecfg.authURL() != "" {
+		parts, err := url.Parse(ecfg.authURL())
+		if err != nil || parts.Host == "" || parts.Scheme == "" {
+			return nil, fmt.Errorf("invalid auth-url value %q", ecfg.authURL())
+		}
+	}
+
 	if ecfg.username() == "" || ecfg.password() == "" || ecfg.tenantName() == "" || ecfg.authURL() == "" {
 		// TODO(dimitern): get goose client to handle this
 		auth, ok := getEnvAuth()
@@ -83,6 +92,14 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 	// We cannot validate the region name, since each OS installation
 	// can have its own region names - only after authentication the
 	// region names are known (from the service endpoints)
+	if ecfg.region() == "" {
+		region := os.Getenv("OS_REGION_NAME")
+		if region != "" {
+			ecfg.attrs["region"] = region
+		} else {
+			return nil, fmt.Errorf("OpenStack environment has no region")
+		}
+	}
 
 	if old != nil {
 		attrs := old.UnknownAttrs()
