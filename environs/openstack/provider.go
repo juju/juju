@@ -194,7 +194,7 @@ func fetchMetadata(name string) (value string, err error) {
 		return strings.TrimSpace(string(data)), nil
 	}
 	if err != nil {
-		return "", fmt.Errorf("cannot get %q", uri)
+		return "", fmt.Errorf("cannot get %q: %v", uri, err)
 	}
 	return
 }
