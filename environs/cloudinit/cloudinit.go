@@ -32,7 +32,8 @@ type MachineConfig struct {
 	// StateServerCertPEM and StateServerKeyPEM hold the state server
 	// certificate and private key in PEM format; they are required when
 	// StateServer is set, and ignored otherwise.
-	StateServerCertPEM, StateServerKeyPEM []byte
+	StateServerCertPEM []byte
+	StateServerKeyPEM []byte
 
 	// InstanceIdAccessor holds bash code that evaluates to the current instance id.
 	InstanceIdAccessor string
