@@ -10,27 +10,36 @@ import (
 )
 
 type ConfigSuite struct {
-	savedUsername, savedPassword, savedTenant, savedAuthURL string
+	savedVars map[string]string
+}
+
+var envVars = map[string]string{
+	"OS_USERNAME":    "testuser",
+	"OS_PASSWORD":    "testpass",
+	"OS_TENANT_NAME": "testtenant",
+	"OS_AUTH_URL":    "some url",
 }
 
 var _ = Suite(&ConfigSuite{})
 
-// Hook up gocheck into the gotest runner.
-func Test(t *testing.T) { TestingT(t) }
+func Test(t *testing.T) {
+	TestingT(t)
+}
 
 // configTest specifies a config parsing test, checking that env when
 // parsed as the openstack section of a config file matches
 // baseConfigResult when mutated by the mutate function, or that the
 // parse matches the given error.
 type configTest struct {
+	summary      string
 	config       attrs
 	change       attrs
 	region       string
 	container    string
 	username     string
 	password     string
-	tenantId     string
-	identityURL  string
+	tenantName   string
+	authURL      string
 	firewallMode config.FirewallMode
 	err          string
 }
@@ -90,12 +99,12 @@ func (t configTest) check(c *C) {
 	if t.username != "" {
 		c.Assert(ecfg.username(), Equals, t.username)
 		c.Assert(ecfg.password(), Equals, t.password)
-		c.Assert(ecfg.tenantId(), Equals, t.tenantId)
-		c.Assert(ecfg.identityURL(), Equals, t.identityURL)
+		c.Assert(ecfg.tenantName(), Equals, t.tenantName)
+		c.Assert(ecfg.authURL(), Equals, t.authURL)
 		expected := map[string]interface{}{
-			"username":  t.username,
-			"password":  t.password,
-			"tenant-id": t.tenantId,
+			"username":    t.username,
+			"password":    t.password,
+			"tenant-name": t.tenantName,
 		}
 		c.Assert(err, IsNil)
 		actual, err := e.Provider().SecretAttrs(ecfg.Config)
@@ -108,127 +117,118 @@ func (t configTest) check(c *C) {
 }
 
 func (s *ConfigSuite) SetUpTest(c *C) {
-	s.savedUsername = os.Getenv("OS_USERNAME")
-	s.savedPassword = os.Getenv("OS_PASSWORD")
-	s.savedTenant = os.Getenv("OS_TENANT_NAME")
-	s.savedAuthURL = os.Getenv("OS_AUTH_URL")
-
-	os.Setenv("OS_USERNAME", "testuser")
-	os.Setenv("OS_PASSWORD", "testpass")
-	os.Setenv("OS_TENANT_NAME", "testtenant")
-	os.Setenv("OS_AUTH_URL", "some url")
+	s.savedVars = make(map[string]string)
+	for v, val := range envVars {
+		s.savedVars[v] = os.Getenv(v)
+		os.Setenv(v, val)
+	}
 }
 
 func (s *ConfigSuite) TearDownTest(c *C) {
-	os.Setenv("OS_USERNAME", s.savedUsername)
-	os.Setenv("OS_PASSWORD", s.savedPassword)
-	os.Setenv("OS_TENANT_NAME", s.savedTenant)
-	os.Setenv("OS_AUTH_URL", s.savedAuthURL)
+	for v, val := range envVars {
+		os.Setenv(v, val)
+	}
 }
 
 var configTests = []configTest{
 	{
+		summary: "setting region",
 		config: attrs{
-			"region": "lcy01",
+			"region": "somereg",
 		},
-		region: "lcy01",
+		region: "somereg",
 	}, {
+		summary: "setting region (2)",
 		config: attrs{
 			"region": "configtest",
 		},
 		region: "configtest",
 	}, {
+		summary: "changing region",
 		config: attrs{
 			"region": "configtest",
 		},
 		change: attrs{
-			"region": "lcy01",
+			"region": "somereg",
 		},
-		err: `cannot change region from "configtest" to "lcy01"`,
+		err: `cannot change region from "configtest" to "somereg"`,
 	}, {
+		summary: "invalid region",
 		config: attrs{
 			"region": 666,
 		},
 		err: ".*expected string, got 666",
 	}, {
+		summary: "invalid username",
 		config: attrs{
 			"username": 666,
 		},
 		err: ".*expected string, got 666",
 	}, {
+		summary: "invalid password",
 		config: attrs{
 			"password": 666,
 		},
 		err: ".*expected string, got 666",
 	}, {
+		summary: "invalid tenant-name",
 		config: attrs{
-			"tenant-id": 666,
+			"tenant-name": 666,
 		},
 		err: ".*expected string, got 666",
 	}, {
+		summary: "invalid auth-url",
 		config: attrs{
-			"identity-url": 666,
+			"auth-url": 666,
 		},
 		err: ".*expected string, got 666",
 	}, {
+		summary: "invalid container",
 		config: attrs{
 			"container": 666,
 		},
 		err: ".*expected string, got 666",
 	}, {
+		summary: "changing container",
 		change: attrs{
 			"container": "new-x",
 		},
 		err: `cannot change container from "x" to "new-x"`,
 	}, {
+		summary: "valid auth args",
 		config: attrs{
-			"username":     "jujuer",
-			"password":     "open sesame",
-			"tenant-id":    "juju tenant",
-			"identity-url": "some url",
+			"username":    "jujuer",
+			"password":    "open sesame",
+			"tenant-name": "juju tenant",
+			"auth-url":    "some url",
 		},
-		username:    "jujuer",
-		password:    "open sesame",
-		tenantId:    "juju tenant",
-		identityURL: "some url",
+		username:   "jujuer",
+		password:   "open sesame",
+		tenantName: "juju tenant",
+		authURL:    "some url",
 	}, {
-		config: attrs{
-			"username": "jujuer",
-		},
-		err: ".*environment has no username, password, tenant-id, or identity-url",
-	}, {
-		config: attrs{
-			"password": "open sesame",
-		},
-		err: ".*environment has no username, password, tenant-id, or identity-url",
-	}, {
-		config: attrs{
-			"tenant-id": "juju tenant",
-		},
-		err: ".*environment has no username, password, tenant-id, or identity-url",
-	}, {
-		config: attrs{
-			"identity-url": "some url",
-		},
-		err: ".*environment has no username, password, tenant-id, or identity-url",
-	}, {
+		summary: "admin-secret given",
 		config: attrs{
 			"admin-secret": "Futumpsh",
 		},
 	}, {
+		summary:      "default firewall-mode",
 		config:       attrs{},
 		firewallMode: config.FwInstance,
 	}, {
+		summary: "unset firewall-mode",
 		config: attrs{
 			"firewall-mode": "",
 		},
 		firewallMode: config.FwInstance,
 	}, {
+		summary: "instance firewall-mode",
 		config: attrs{
 			"firewall-mode": "instance",
 		},
 		firewallMode: config.FwInstance,
 	}, {
+		summary: "global firewall-mode",
 		config: attrs{
 			"firewall-mode": "global",
 		},
@@ -238,7 +238,35 @@ var configTests = []configTest{
 
 func (s *ConfigSuite) TestConfig(c *C) {
 	for i, t := range configTests {
-		c.Logf("test %d: %v", i, t.config)
+		c.Logf("test %d: %s (%v)", i, t.summary, t.config)
 		t.check(c)
 	}
+}
+
+func (s *ConfigSuite) TestMissingUsername(c *C) {
+	os.Setenv("OS_USERNAME", "")
+	test := configTests[0]
+	test.err = ".*environment has no username, password, tenant-name, or auth-url"
+	test.check(c)
+}
+
+func (s *ConfigSuite) TestMissingPassword(c *C) {
+	os.Setenv("OS_PASSWORD", "")
+	test := configTests[0]
+	test.err = ".*environment has no username, password, tenant-name, or auth-url"
+	test.check(c)
+}
+
+func (s *ConfigSuite) TestMissinTenant(c *C) {
+	os.Setenv("OS_TENANT_NAME", "")
+	test := configTests[0]
+	test.err = ".*environment has no username, password, tenant-name, or auth-url"
+	test.check(c)
+}
+
+func (s *ConfigSuite) TestMissingAuthUrl(c *C) {
+	os.Setenv("OS_AUTH_URL", "")
+	test := configTests[0]
+	test.err = ".*environment has no username, password, tenant-name, or auth-url"
+	test.check(c)
 }

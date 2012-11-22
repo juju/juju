@@ -12,14 +12,43 @@ import (
 
 type environProvider struct{}
 
+var _ environs.EnvironProvider = (*environProvider)(nil)
+
 var providerInstance environProvider
 
 func init() {
 	environs.RegisterProvider("openstack", environProvider{})
 }
 
-// -------------------------------------------------------------------
-// Environ interface
+func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
+	log.Printf("environs/openstack: opening environment %q", cfg.Name())
+	e := new(environ)
+	err := e.SetConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return e, nil
+}
+
+func (p environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
+	m := make(map[string]interface{})
+	ecfg, err := providerInstance.newConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	m["username"] = ecfg.username()
+	m["password"] = ecfg.password()
+	m["tenant-name"] = ecfg.tenantName()
+	return m, nil
+}
+
+func (p environProvider) PublicAddress() (string, error) {
+	panic("not implemented")
+}
+
+func (p environProvider) PrivateAddress() (string, error) {
+	panic("not implemented")
+}
 
 type environ struct {
 	name string
@@ -63,7 +92,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	e.name = ecfg.Name()
 	e.ecfgUnlocked = ecfg
 
-	// TODO: setup the goose client auth/compute, etc. here
+	// TODO(dimitern): setup the goose client auth/compute, etc. here
 	return nil
 }
 
@@ -113,37 +142,4 @@ func (e *environ) Ports() ([]state.Port, error) {
 
 func (e *environ) Provider() environs.EnvironProvider {
 	return &providerInstance
-}
-
-// -------------------------------------------------------------------
-// EnvironProvider interface
-
-func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	log.Printf("environs/openstack: opening environment %q", cfg.Name())
-	e := new(environ)
-	err := e.SetConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-	return e, nil
-}
-
-func (p environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
-	m := make(map[string]interface{})
-	ecfg, err := providerInstance.newConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-	m["username"] = ecfg.username()
-	m["password"] = ecfg.password()
-	m["tenant-id"] = ecfg.tenantId()
-	return m, nil
-}
-
-func (p environProvider) PublicAddress() (string, error) {
-	panic("not implemented")
-}
-
-func (p environProvider) PrivateAddress() (string, error) {
-	panic("not implemented")
 }
