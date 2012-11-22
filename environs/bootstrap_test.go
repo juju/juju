@@ -277,10 +277,10 @@ func (e *bootstrapEnviron) Name() string {
 	return e.name
 }
 
-func (e *bootstrapEnviron) Bootstrap(uploadTools bool, stateServerPEM []byte) error {
+func (e *bootstrapEnviron) Bootstrap(uploadTools bool, certPEM, keyPEM []byte) error {
 	e.bootstrapCount++
 	e.uploadTools = uploadTools
-	e.stateServerPEM = stateServerPEM
+	e.stateServerPEM = []byte(string(certPEM) + string(keyPEM))
 	return nil
 }
 

@@ -33,7 +33,7 @@ type MachineConfig struct {
 	// certificate and private key in PEM format; they are required when
 	// StateServer is set, and ignored otherwise.
 	StateServerCertPEM []byte
-	StateServerKeyPEM []byte
+	StateServerKeyPEM  []byte
 
 	// InstanceIdAccessor holds bash code that evaluates to the current instance id.
 	InstanceIdAccessor string
@@ -119,7 +119,7 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	if cfg.StateServer {
 		addScripts(c,
 			fmt.Sprintf("echo %s > %s",
-				shquote(string(cfg.StateServerCertPEM) + string(cfg.StateServerKeyPEM)), serverPEMPath),
+				shquote(string(cfg.StateServerCertPEM)+string(cfg.StateServerKeyPEM)), serverPEMPath),
 			"chmod 600 "+serverPEMPath,
 		)
 

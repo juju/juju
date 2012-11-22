@@ -43,8 +43,8 @@ var cloudinitTests = []cloudinit.MachineConfig{
 		AuthorizedKeys:     "sshkey1",
 		Tools:              newSimpleTools("1.2.3-linux-amd64"),
 		StateServer:        true,
-		StateServerCertPEM:     serverCertPEM,
-		StateServerKeyPEM:     serverKeyPEM,
+		StateServerCertPEM: serverCertPEM,
+		StateServerKeyPEM:  serverKeyPEM,
 		StateInfo: &state.Info{
 			Password: "arble",
 		},
@@ -306,8 +306,8 @@ var verifyTests = []struct {
 func (cloudinitSuite) TestCloudInitVerify(c *C) {
 	cfg := &cloudinit.MachineConfig{
 		StateServer:        true,
-		StateServerCertPEM:     serverCertPEM,
-		StateServerKeyPEM:     serverKeyPEM,
+		StateServerCertPEM: serverCertPEM,
+		StateServerKeyPEM:  serverKeyPEM,
 		InstanceIdAccessor: "$instance_id",
 		ProviderType:       "ec2",
 		MachineId:          99,

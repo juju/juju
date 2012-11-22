@@ -34,10 +34,10 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	// TODO(rog) use (juju/environs).Bootstrap
-	return environ.Bootstrap(c.UploadTools, caPEM)
+	return environ.Bootstrap(c.UploadTools, caCertPEM, caKeyPEM)
 }
 
-var caPEM = []byte(`
+var caCertPEM = []byte(`
 -----BEGIN CERTIFICATE-----
 MIIBnTCCAUmgAwIBAgIBADALBgkqhkiG9w0BAQUwJjENMAsGA1UEChMEanVqdTEV
 MBMGA1UEAxMManVqdSB0ZXN0aW5nMB4XDTEyMTExNDE0Mzg1NFoXDTIyMTExNDE0
@@ -49,6 +49,9 @@ FQGeGMeTzPbHW62EZbbTJzAfBgNVHSMEGDAWgBQQDswPFQGeGMeTzPbHW62EZbbT
 JzALBgkqhkiG9w0BAQUDQQAqZzN0DqUyEfR8zIanozyD2pp10m9le+ODaKZDDNfH
 cB2x26F1iZ8ccq5IC2LtQf1IKJnpTcYlLuDvW6yB96g
 -----END CERTIFICATE-----
+`)
+
+var caKeyPEM = []byte(`
 -----BEGIN RSA PRIVATE KEY-----
 MIIBOwIBAAJBAII46mf1pYpwqvYZAa3KDAPs91817Uj0FiI8CprYjfcXn7o+oV1+
 NQq+jJMkjpcbhCj8IQJpo32yaHKr0PHMyECAwEAAQJAYctedh4raLE+Ir0a3qnK

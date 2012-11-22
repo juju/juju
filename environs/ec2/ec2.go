@@ -248,13 +248,13 @@ func (e *environ) Bootstrap(uploadTools bool, certPEM, keyPEM []byte) error {
 	}
 	info := &state.Info{Password: trivial.PasswordHash(password)}
 	inst, err := e.startInstance(&startInstanceParams{
-		machineId:      0,
-		info:           info,
-		tools:          tools,
-		stateServer:    true,
-		config:         config,
+		machineId:          0,
+		info:               info,
+		tools:              tools,
+		stateServer:        true,
+		config:             config,
 		stateServerCertPEM: certPEM,
-		stateServerKeyPEM: keyPEM,
+		stateServerKeyPEM:  keyPEM,
 	})
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
@@ -329,8 +329,8 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 	cfg := &cloudinit.MachineConfig{
 		StateServer:        scfg.stateServer,
 		StateInfo:          scfg.info,
-		StateServerCertPEM:     scfg.stateServerCertPEM,
-		StateServerKeyPEM:     scfg.stateServerKeyPEM,
+		StateServerCertPEM: scfg.stateServerCertPEM,
+		StateServerKeyPEM:  scfg.stateServerKeyPEM,
 		InstanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
 		ProviderType:       "ec2",
 		DataDir:            "/var/lib/juju",
@@ -347,13 +347,13 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 }
 
 type startInstanceParams struct {
-	machineId      int
-	info           *state.Info
-	tools          *state.Tools
-	stateServer    bool
-	config         *config.Config
+	machineId          int
+	info               *state.Info
+	tools              *state.Tools
+	stateServer        bool
+	config             *config.Config
 	stateServerCertPEM []byte
-	stateServerKeyPEM []byte
+	stateServerKeyPEM  []byte
 }
 
 // startInstance is the internal version of StartInstance, used by Bootstrap
