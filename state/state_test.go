@@ -433,7 +433,7 @@ func (s *StateSuite) TestEnvironConfigWithAdminSecret(c *C) {
 		"development":     true,
 		"admin-secret":    "foo",
 		"ca-cert":         testing.CACertPEM,
-		"ca-private-key": nil,
+		"ca-private-key":  nil,
 	}
 	cfg, err := config.New(attrs)
 	c.Assert(err, IsNil)
