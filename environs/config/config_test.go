@@ -40,15 +40,15 @@ var configTests = []configTest{
 	}, {
 		about: "Minimum configuration with explicit empty strings for defaults",
 		attrs: attrs{
-			"type": "my-type",
-			"name": "my-name",
-			"default-series": "",
+			"type":                 "my-type",
+			"name":                 "my-name",
+			"default-series":       "",
 			"authorized-keys-path": "",
-			"ca-cert": "",
-			"ca-cert-path": "",
-			"ca-private-key": "",
-			"ca-private-key-path": "",
-			"admin-secret": "",
+			"ca-cert":              "",
+			"ca-cert-path":         "",
+			"ca-private-key":       "",
+			"ca-private-key-path":  "",
+			"admin-secret":         "",
 		},
 	}, {
 		about: "Explicit series",
@@ -92,7 +92,7 @@ var configTests = []configTest{
 			"type":                "my-type",
 			"name":                "my-name",
 			"ca-cert-path":        "cacert2.pem",
-			"ca-cert": "ignored",
+			"ca-cert":             "ignored",
 			"ca-private-key-path": "cakey2.pem",
 		},
 	}, {
@@ -458,7 +458,7 @@ func (test configTest) check(c *C, h fakeHome) {
 	if path, _ := test.attrs["ca-cert-path"].(string); path != "" {
 		c.Assert(certPresent, Equals, true)
 		c.Assert(cert, Equals, h.fileContents(c, path))
-	} else if v, ok := test.attrs["ca-cert"]; v != nil && v.(string) != ""{
+	} else if v, ok := test.attrs["ca-cert"]; v != nil && v.(string) != "" {
 		c.Assert(certPresent, Equals, true)
 		c.Assert(cert, Equals, v)
 	} else if ok && v == nil {
@@ -476,7 +476,7 @@ func (test configTest) check(c *C, h fakeHome) {
 	if path, _ := test.attrs["ca-private-key-path"].(string); path != "" {
 		c.Assert(keyPresent, Equals, true)
 		c.Assert(key, Equals, h.fileContents(c, path))
-	} else if v, ok := test.attrs["ca-private-key"]; v != nil && v.(string) != ""{
+	} else if v, ok := test.attrs["ca-private-key"]; v != nil && v.(string) != "" {
 		c.Assert(keyPresent, Equals, true)
 		c.Assert(key, Equals, v)
 	} else if ok && v == nil {
