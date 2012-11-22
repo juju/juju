@@ -33,5 +33,5 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	return juju.Bootstrap(environ, c.UploadTools, nil)
+	return environs.Bootstrap(environ, c.UploadTools, nil)
 }
