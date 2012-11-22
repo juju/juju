@@ -172,6 +172,7 @@ var metadataHost = "http://169.254.169.254"
 
 // fetchMetadata fetches a single atom of data from the openstack instance metadata service.
 // http://docs.amazonwebservices.com/AWSEC2/latest/UserGuide/AESDG-chapter-instancedata.html
+// (the same specs is implemented in OpenStack, hence the reference)
 func fetchMetadata(name string) (value string, err error) {
 	uri := fmt.Sprintf("%s/2011-01-01/meta-data/%s", metadataHost, name)
 	defer trivial.ErrorContextf(&err, "cannot get %q", uri)

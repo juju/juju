@@ -23,7 +23,7 @@ var originalShortAttempt = shortAttempt
 var originalLongAttempt = longAttempt
 
 // ShortTimeouts sets the timeouts to a short period as we
-// know that the ec2test server doesn't get better with time,
+// know that the testing server doesn't get better with time,
 // and this reduces the test time from 30s to 3s.
 func ShortTimeouts(short bool) {
 	if short {
