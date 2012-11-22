@@ -3,7 +3,6 @@ package config
 import (
 	"fmt"
 	"io/ioutil"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/version"
 	"os"
@@ -100,12 +99,9 @@ func New(attrs map[string]interface{}) (*Config, error) {
 		return nil, err
 	}
 	if caCert != nil || caKey != nil {
-		log.Printf("verifying key pair")
 		if err := verifyKeyPair(caCert, caKey); err != nil {
 			return nil, fmt.Errorf("bad CA certificate/key in configuration: %v", err)
 		}
-	} else {
-		log.Printf("cert and key are both nil")
 	}
 
 	// Check if there are any required fields that are empty.
@@ -140,21 +136,9 @@ func New(attrs map[string]interface{}) (*Config, error) {
 	return c, nil
 }
 
-func or(a, b string, neither string) string {
-	switch {
-	case a == "" && b == "":
-		return neither
-	case a == "":
-		return fmt.Sprintf("%q", b)
-	case b == "":
-		return fmt.Sprintf("%q", a)
-	}
-	return fmt.Sprintf("%q or %q", a, b)
-}
-
 // maybeReadFile reads the given attribute from a file if its path
-// attribute is unset or its value is not found in attrs.  It returns the data
-// for the attribute  and sets the attribute's value in attrs.
+// attribute is unset and its value is not found in attrs.  It returns the data
+// for the attribute and sets the attribute's value in attrs.
 //
 // If the attribute should be treated as unspecified, the attribute value in
 // attrs will be set to "" and the returned data value will be nil.
@@ -180,7 +164,6 @@ func maybeReadFile(attrs map[string]interface{}, attr, defaultPath string) ([]by
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			log.Printf("%q does not exist", path)
 			attrs[attr] = ""
 			return nil, nil
 		}
