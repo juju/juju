@@ -3,11 +3,17 @@
 package openstack
 
 import (
+	"fmt"
+	"io/ioutil"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/trivial"
+	"net/http"
+	"strings"
 	"sync"
+	"time"
 )
 
 type environProvider struct{}
@@ -15,6 +21,21 @@ type environProvider struct{}
 var _ environs.EnvironProvider = (*environProvider)(nil)
 
 var providerInstance environProvider
+
+// A request may fail to due "eventual consistency" semantics, which
+// should resolve fairly quickly.  A request may also fail due to a slow
+// state transition (for instance an instance taking a while to release
+// a security group after termination).  The former failure mode is
+// dealt with by shortAttempt, the latter by longAttempt.
+var shortAttempt = trivial.AttemptStrategy{
+	Total: 5 * time.Second,
+	Delay: 200 * time.Millisecond,
+}
+
+var longAttempt = trivial.AttemptStrategy{
+	Total: 3 * time.Minute,
+	Delay: 1 * time.Second,
+}
 
 func init() {
 	environs.RegisterProvider("openstack", environProvider{})
@@ -43,11 +64,11 @@ func (p environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}
 }
 
 func (p environProvider) PublicAddress() (string, error) {
-	panic("not implemented")
+	return fetchMetadata("public-hostname")
 }
 
 func (p environProvider) PrivateAddress() (string, error) {
-	panic("not implemented")
+	return fetchMetadata("local-hostname")
 }
 
 type environ struct {
@@ -142,4 +163,35 @@ func (e *environ) Ports() ([]state.Port, error) {
 
 func (e *environ) Provider() environs.EnvironProvider {
 	return &providerInstance
+}
+
+// metadataHost holds the address of the instance metadata service.
+// It is a variable so that tests can change it to refer to a local
+// server when needed.
+var metadataHost = "http://169.254.169.254"
+
+// fetchMetadata fetches a single atom of data from the openstack instance metadata service.
+// http://docs.amazonwebservices.com/AWSEC2/latest/UserGuide/AESDG-chapter-instancedata.html
+func fetchMetadata(name string) (value string, err error) {
+	uri := fmt.Sprintf("%s/2011-01-01/meta-data/%s", metadataHost, name)
+	defer trivial.ErrorContextf(&err, "cannot get %q", uri)
+	for a := shortAttempt.Start(); a.Next(); {
+		var resp *http.Response
+		resp, err = http.Get(uri)
+		if err != nil {
+			continue
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			err = fmt.Errorf("bad http response %v", resp.Status)
+			continue
+		}
+		var data []byte
+		data, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			continue
+		}
+		return strings.TrimSpace(string(data)), nil
+	}
+	return
 }
