@@ -57,9 +57,8 @@ func (*BootstrapSuite) TestBootstrapCommand(c *C) {
 
 	// Check that the CA certificate has been automatically generated
 	// for the environment.
-	// TODO(rog) reenable
-	//_, err = os.Stat(filepath.Join(home, ".juju", "peckham.pem"))
-	//c.Assert(err, IsNil)
+	_, err = os.Stat(filepath.Join(home, ".juju", "peckham.pem"))
+	c.Assert(err, IsNil)
 
 	// bootstrap with tool uploading - checking that a file
 	// is uploaded should be sufficient, as the detailed semantics
