@@ -52,7 +52,7 @@ type Config struct {
 // "type" and "authorized-keys", all of type string.  Additional keys
 // recognised are "agent-version" and "development", of types string
 // and bool respectively.
-func New(attrs map[string]interface{}) (_ *Config, eee error) {
+func New(attrs map[string]interface{}) (*Config, error) {
 	m, err := checker.Coerce(attrs, nil)
 	if err != nil {
 		return nil, err
