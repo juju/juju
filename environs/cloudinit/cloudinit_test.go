@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
+	"path"
 	"regexp"
 	"strings"
 )
@@ -100,6 +101,7 @@ func (t *cloudinitTest) check(c *C, cfg *cloudinit.MachineConfig) {
 	if t.cfg.StateServer {
 		t.checkScripts(c, "jujud bootstrap-state"+
 			".* --state-servers localhost:37017"+
+			".* --ca-cert-file '"+path.Join(t.cfg.DataDir, "ca-cert.pem")+"'"+
 			".*--initial-password '"+t.cfg.StateInfo.Password+"'")
 		t.checkScripts(c, "jujud machine"+
 			" --state-servers 'localhost:37017' "+
@@ -109,6 +111,7 @@ func (t *cloudinitTest) check(c *C, cfg *cloudinit.MachineConfig) {
 	} else {
 		t.checkScripts(c, "jujud machine"+
 			" --state-servers '"+strings.Join(t.cfg.StateInfo.Addrs, ",")+"'"+
+			".* --ca-cert-file '"+path.Join(t.cfg.DataDir, "ca-cert.pem")+"'"+
 			".*--initial-password '"+t.cfg.StateInfo.Password+"'"+
 			" .*--machine-id [0-9]+"+
 			".*>> /var/log/juju/.*log 2>&1")
