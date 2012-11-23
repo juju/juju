@@ -138,8 +138,8 @@ func New(attrs map[string]interface{}) (*Config, error) {
 // maybeReadFile sets m[attr] to:
 //
 // 1) The content of the file m[attr+"-path"], if that's set
-// 2) Preserves m[attr] as nil if it was already nil
-// 3) The content of defaultPath if it exists and m[attr] is unset ("")
+// 2) Preserves m[attr] as "" if it was already ""
+// 3) The content of defaultPath if it exists and m[attr] is unset
 // 4) Preserves the content of m[attr], otherwise
 //
 // The m[attr+"-path"] key is always deleted.
@@ -153,14 +153,11 @@ func maybeReadFile(m map[string]interface{}, attr, defaultPath string) ([]byte, 
 	hasPath := path != ""
 	if !hasPath {
 		if v, ok := m[attr]; ok {
-			if v == nil {
+			if v == "" {
 				// The value is explicitly unspecified.
 				return nil, nil
 			}
-			if s := v.(string); s != "" {
-				// "" means default.
-				return []byte(s), nil
-			}
+			return []byte(v.(string)), nil
 		}
 		path = defaultPath
 	}
@@ -171,7 +168,7 @@ func maybeReadFile(m map[string]interface{}, attr, defaultPath string) ([]byte, 
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) && !hasPath {
-			m[attr] = nil
+			m[attr] = ""
 			return nil, nil
 		}
 		return nil, err
@@ -203,15 +200,19 @@ func (c *Config) AuthorizedKeys() string {
 // CACert returns the certificate of the CA that signed the state server
 // certificate, in PEM format, and whether the setting is available.
 func (c *Config) CACert() ([]byte, bool) {
-	s, ok := c.m["ca-cert"].(string)
-	return []byte(s), ok
+	if s := c.m["ca-cert"].(string); s != "" {
+		return []byte(s), true
+	}
+	return nil, false
 }
 
 // CAPrivateKey returns the private key of the CA that signed the state
 // server certificate, in PEM format, and whether the setting is available.
 func (c *Config) CAPrivateKey() (key []byte, ok bool) {
-	s, ok := c.m["ca-private-key"].(string)
-	return []byte(s), ok
+	if s := c.m["ca-private-key"].(string); s != "" {
+		return []byte(s), true
+	}
+	return nil, false
 }
 
 // AdminSecret returns the administrator password.
@@ -286,9 +287,9 @@ var fields = schema.Fields{
 	"agent-version":        schema.String(),
 	"development":          schema.Bool(),
 	"admin-secret":         schema.String(),
-	"ca-cert":              schema.OneOf(schema.String(), schema.Const(nil)),
+	"ca-cert":              schema.String(),
 	"ca-cert-path":         schema.String(),
-	"ca-private-key":       schema.OneOf(schema.String(), schema.Const(nil)),
+	"ca-private-key":       schema.String(),
 	"ca-private-key-path":  schema.String(),
 }
 
@@ -300,9 +301,9 @@ var defaults = schema.Defaults{
 	"agent-version":        schema.Omit,
 	"development":          false,
 	"admin-secret":         "",
-	"ca-cert":              "",
+	"ca-cert":              schema.Omit,
 	"ca-cert-path":         "",
-	"ca-private-key":       "",
+	"ca-private-key":       schema.Omit,
 	"ca-private-key-path":  "",
 }
 

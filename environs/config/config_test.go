@@ -38,19 +38,6 @@ var configTests = []configTest{
 			"name": "my-name",
 		},
 	}, {
-		about: "Minimum configuration with explicit empty strings for defaults",
-		attrs: attrs{
-			"type":                 "my-type",
-			"name":                 "my-name",
-			"default-series":       "",
-			"authorized-keys-path": "",
-			"ca-cert":              "",
-			"ca-cert-path":         "",
-			"ca-private-key":       "",
-			"ca-private-key-path":  "",
-			"admin-secret":         "",
-		},
-	}, {
 		about: "Explicit series",
 		attrs: attrs{
 			"type":           "my-type",
@@ -109,7 +96,7 @@ var configTests = []configTest{
 			"type":           "my-type",
 			"name":           "my-name",
 			"ca-cert-path":   "~/othercert.pem",
-			"ca-private-key": nil,
+			"ca-private-key": "",
 		},
 	}, {
 		about: "Root cert only as attribute",
@@ -117,7 +104,7 @@ var configTests = []configTest{
 			"type":           "my-type",
 			"name":           "my-name",
 			"ca-cert":        caCert,
-			"ca-private-key": nil,
+			"ca-private-key": "",
 		},
 	}, {
 		about: "Root cert and key as attributes",
@@ -158,15 +145,15 @@ var configTests = []configTest{
 		attrs: attrs{
 			"type":           "my-type",
 			"name":           "my-name",
-			"ca-cert":        nil,
-			"ca-private-key": nil,
+			"ca-cert":        "",
+			"ca-private-key": "",
 		},
 	}, {
 		about: "CA key but no cert",
 		attrs: attrs{
 			"type":           "my-type",
 			"name":           "my-name",
-			"ca-cert":        nil,
+			"ca-cert":        "",
 			"ca-private-key": caKey,
 		},
 		err: "bad CA certificate/key in configuration: crypto/tls:.*",
@@ -176,7 +163,7 @@ var configTests = []configTest{
 			"type":           "my-type",
 			"name":           "my-name",
 			"ca-cert":        "foo",
-			"ca-private-key": nil,
+			"ca-private-key": "",
 		},
 		err: "bad CA certificate/key in configuration: no certificates found",
 	}, {
@@ -392,8 +379,8 @@ var emptyCertFilesTests = []configTest{
 			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": "my-keys",
-			"ca-cert":         nil,
-			"ca-private-key":  nil,
+			"ca-cert":         "",
+			"ca-private-key":  "",
 		},
 	}, {
 		about: "Cert specified as absent",
@@ -401,7 +388,7 @@ var emptyCertFilesTests = []configTest{
 			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": "my-keys",
-			"ca-cert":         nil,
+			"ca-cert":         "",
 		},
 		err: "bad CA certificate/key in configuration: crypto/tls: .*",
 	},
@@ -474,10 +461,10 @@ func (test configTest) check(c *C, h fakeHome) {
 	if path, _ := test.attrs["ca-cert-path"].(string); path != "" {
 		c.Assert(certPresent, Equals, true)
 		c.Assert(string(cert), Equals, h.fileContents(c, path))
-	} else if v, ok := test.attrs["ca-cert"]; v != nil && v.(string) != "" {
+	} else if v, ok := test.attrs["ca-cert"].(string); v != "" {
 		c.Assert(certPresent, Equals, true)
 		c.Assert(string(cert), Equals, v)
-	} else if ok && v == nil {
+	} else if ok {
 		c.Check(cert, HasLen, 0)
 		c.Assert(certPresent, Equals, false)
 	} else if h.fileExists(".juju/my-name-cert.pem") {
@@ -492,10 +479,10 @@ func (test configTest) check(c *C, h fakeHome) {
 	if path, _ := test.attrs["ca-private-key-path"].(string); path != "" {
 		c.Assert(keyPresent, Equals, true)
 		c.Assert(string(key), Equals, h.fileContents(c, path))
-	} else if v, ok := test.attrs["ca-private-key"]; v != nil && v.(string) != "" {
+	} else if v, ok := test.attrs["ca-private-key"].(string); v != "" {
 		c.Assert(keyPresent, Equals, true)
 		c.Assert(string(key), Equals, v)
-	} else if ok && v == nil {
+	} else if ok {
 		c.Check(key, HasLen, 0)
 		c.Assert(keyPresent, Equals, false)
 	} else if h.fileExists(".juju/my-name-private-key.pem") {
@@ -516,7 +503,7 @@ func (*ConfigSuite) TestConfigAttrs(c *C) {
 		"default-series":  version.Current.Series,
 		"admin-secret":    "foo",
 		"unknown":         "my-unknown",
-		"ca-private-key":  nil,
+		"ca-private-key":  "",
 		"ca-cert":         caCert,
 	}
 	cfg, err := config.New(attrs)
