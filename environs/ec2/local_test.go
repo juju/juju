@@ -34,6 +34,7 @@ func registerLocalTests() {
 		"admin-secret":   "local-secret",
 		"access-key":     "x",
 		"secret-key":     "x",
+		"authorized-keys": "foo",
 		"ca-cert":        testing.CACertPEM,
 		"ca-private-key": testing.CAKeyPEM,
 	}
