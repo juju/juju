@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/testing"
 	"net"
 	"os"
@@ -39,11 +40,10 @@ func (s *bootstrapSuite) TearDownTest(c *C) {
 }
 
 func (s *bootstrapSuite) TestBootstrapKeyGeneration(c *C) {
-	env := &bootstrapEnviron{name: "foo"}
+	env := newEnviron("foo", nil, nil)
 	err := environs.Bootstrap(env, false, nil)
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
-
 	bootstrapCert, bootstrapKey := parseCertAndKey(c, env.certPEM, env.keyPEM)
 
 	// Check that the generated CA key has been written correctly.
@@ -52,116 +52,106 @@ func (s *bootstrapSuite) TestBootstrapKeyGeneration(c *C) {
 	caKeyPEM, err := ioutil.ReadFile(filepath.Join(os.Getenv("HOME"), ".juju", "foo-private-key.pem"))
 	c.Assert(err, IsNil)
 
+	// Check that the cert and key have been set correctly in the configuration
+	cfgCertPEM, cfgCertOK := env.cfg.CACertPEM()
+	cfgKeyPEM, cfgKeyOK := env.cfg.CAPrivateKeyPEM()
+	c.Assert(cfgCertOK, Equals, true)
+	c.Assert(cfgKeyOK, Equals, true)
+	c.Assert(cfgCertPEM, DeepEquals, caCertPEM)
+	c.Assert(cfgKeyPEM, DeepEquals, caKeyPEM)
+
 	caCert, _ := parseCertAndKey(c, caCertPEM, caKeyPEM)
 
 	caName := checkTLSConnection(c, caCert, bootstrapCert, bootstrapKey)
 	c.Assert(caName, Equals, `juju-generated CA for environment foo`)
 }
 
-//var testServerPEM = []byte(testing.CACertPEM + testing.CAKeyPEM)
-//
-//func (s *bootstrapSuite) TestBootstrapExistingKey(c *C) {
-//	path := filepath.Join(os.Getenv("HOME"), ".juju", "bar.pem")
-//	err := ioutil.WriteFile(path, testServerPEM, 0600)
-//	c.Assert(err, IsNil)
-//
-//	env := &bootstrapEnviron{name: "bar"}
-//	err = environs.Bootstrap(env, false, nil)
-//	c.Assert(err, IsNil)
-//	c.Assert(env.bootstrapCount, Equals, 1)
-//
-//	bootstrapCert, bootstrapKey := parseCertAndKey(c, env.stateServerPEM)
-//
-//	caName := checkTLSConnection(c, certificate(testing.CACertPEM), bootstrapCert, bootstrapKey)
-//	c.Assert(caName, Equals, testing.CACertX509.Subject.CommonName)
-//}
-//
-//func (s *bootstrapSuite) TestBootstrapUploadTools(c *C) {
-//	env := &bootstrapEnviron{name: "foo"}
-//	err := environs.Bootstrap(env, false, testServerPEM)
-//	c.Assert(err, IsNil)
-//	c.Assert(env.bootstrapCount, Equals, 1)
-//	c.Assert(env.uploadTools, Equals, false)
-//
-//	env = &bootstrapEnviron{name: "foo"}
-//	err = environs.Bootstrap(env, true, testServerPEM)
-//	c.Assert(err, IsNil)
-//	c.Assert(env.bootstrapCount, Equals, 1)
-//	c.Assert(env.uploadTools, Equals, true)
-//}
-//
-//func (s *bootstrapSuite) TestBootstrapWithCertArgument(c *C) {
-//	env := &bootstrapEnviron{name: "bar"}
-//	err := environs.Bootstrap(env, false, testServerPEM)
-//	c.Assert(err, IsNil)
-//	c.Assert(env.bootstrapCount, Equals, 1)
-//
-//	bootstrapCert, bootstrapKey := parseCertAndKey(c, env.stateServerPEM)
-//
-//	caName := checkTLSConnection(c, certificate(testing.CACertPEM), bootstrapCert, bootstrapKey)
-//	c.Assert(caName, Equals, testing.CACertX509.Subject.CommonName)
-//}
-//
-//var invalidCertTests = []struct {
-//	pem string
-//	err string
-//}{{
-//	`xxxx`,
-//	"bad CA PEM: CA PEM holds no certificate",
-//}, {
-//	testing.CACertPEM,
-//	"bad CA PEM: CA PEM holds no private key",
-//}, {
-//	testing.CAKeyPEM,
-//	"bad CA PEM: CA PEM holds no certificate",
-//}, {
-//	`-----BEGIN CERTIFICATE-----
-//MIIBnTCCAUmgAwIBAgIBADALBgkqhkiG9w0BAQUwJjENMAsGA1UEChMEanVqdTEV
-//MBMGA1UEAxMManVqdSB0ZXN0aW5nMB4XDTEyMTExNDE0Mzg1NFoXDTIyMTExNDE0
-//NDM1NFowJjENMAsGA1UEChMEanVqdTEVMBMGA1UEAxMManVqdSB0ZXN0aW5n
-//-----END CERTIFICATE-----
-//` + testing.CAKeyPEM,
-//	`bad CA PEM: ASN\.1.*`,
-//}, {
-//	`-----BEGIN RSA PRIVATE KEY-----
-//MIIBOwIBAAJBAII46mf1pYpwqvYZAa3KDAPs91817Uj0FiI8CprYjfcXn7o+oV1+
-//-----END RSA PRIVATE KEY-----
-//` + testing.CACertPEM,
-//	"bad CA PEM: crypto/tls: failed to parse key: .*",
-//}, {
-//	`-----BEGIN CERTIFICATE-----
-//MIIBmjCCAUagAwIBAgIBADALBgkqhkiG9w0BAQUwJjENMAsGA1UEChMEanVqdTEV
-//MBMGA1UEAxMManVqdSB0ZXN0aW5nMB4XDTEyMTExNDE3MTU1NloXDTIyMTExNDE3
-//MjA1NlowJjENMAsGA1UEChMEanVqdTEVMBMGA1UEAxMManVqdSB0ZXN0aW5nMFow
-//CwYJKoZIhvcNAQEBA0sAMEgCQQC96/CsTTY1Va8et6QYNXwrssAi36asFlV/fksG
-//hqRucidiz/+xHvhs9EiqEu7NGxeVAkcfIhXu6/BDlobtj2v5AgMBAAGjYzBhMA4G
-//A1UdDwEB/wQEAwIABDAPBgNVHRMBAf8EBTADAgEBMB0GA1UdDgQWBBRqbxkIW4R0
-//vmmkUoYuWg9sDob4jzAfBgNVHSMEGDAWgBRqbxkIW4R0vmmkUoYuWg9sDob4jzAL
-//BgkqhkiG9w0BAQUDQQC3+KN8RppKdvlbP6fDwRC22PaCxd0PVyIHsn7I4jgpBPf8
-//Z3codMYYA5/f0AmUsD7wi7nnJVPPLZK7JWu4VI/w
-//-----END CERTIFICATE-----
-//
-//-----BEGIN RSA PRIVATE KEY-----
-//MIIBOgIBAAJBAL3r8KxNNjVVrx63pBg1fCuywCLfpqwWVX9+SwaGpG5yJ2LP/7Ee
-//+Gz0SKoS7s0bF5UCRx8iFe7r8EOWhu2Pa/kCAwEAAQJAdzuAxStUNPeuEWLJKkmp
-//wuVdqocuZCtBUeE/yMEOyibZ9NLKSuDJuDorkoeoiBz2vyUITHkLp4jgNmCI8NGg
-//AQIhAPZG9+3OghlzcqWR4nTho8KO/CuO9bu5G4jNEdIrSJ6BAiEAxWtoLZNMwI4Q
-//kj2moFk9GdBXZV9I0t1VTwcDvVyeAXkCIDrfvldQPdO9wJOKK3vLkS1qpyf2lhIZ
-//b1alx3PZuxOBAiAthPltYMRWtar+fTaZTFo5RH+SQSkibaRI534mQF+ySQIhAIml
-//yiWVLC2XrtwijDu1fwh/wtFCb/bPvqvgG5wgAO+2
-//-----END RSA PRIVATE KEY-----
-//`, "bad CA PEM: CA certificate is not a valid CA",
-//}}
-//
-//func (s *bootstrapSuite) TestBootstrapWithInvalidCert(c *C) {
-//	for i, test := range invalidCertTests {
-//		c.Logf("test %d", i)
-//		env := &bootstrapEnviron{name: "foo"}
-//		err := environs.Bootstrap(env, false, []byte(test.pem))
-//		c.Check(env.bootstrapCount, Equals, 0)
-//		c.Assert(err, ErrorMatches, test.err)
-//	}
-//}
+func (s *bootstrapSuite) TestBootstrapFuncKeyGeneration(c *C) {
+	env := newEnviron("foo", nil, nil)
+	saved := make(map[string][]byte)
+	err := environs.Bootstrap(env, false, func(name string, data []byte) error {
+		saved[name] = data
+		return nil
+	})
+	c.Assert(err, IsNil)
+	c.Assert(env.bootstrapCount, Equals, 1)
+	bootstrapCert, bootstrapKey := parseCertAndKey(c, env.certPEM, env.keyPEM)
+
+	// Check that the cert and key have been set correctly in the configuration
+	cfgCertPEM, cfgCertOK := env.cfg.CACertPEM()
+	cfgKeyPEM, cfgKeyOK := env.cfg.CAPrivateKeyPEM()
+	c.Assert(cfgCertOK, Equals, true)
+	c.Assert(cfgKeyOK, Equals, true)
+	c.Assert(cfgCertPEM, DeepEquals, saved["foo-cert.pem"])
+	c.Assert(cfgKeyPEM, DeepEquals, saved["foo-private-key.pem"])
+	c.Assert(saved, HasLen, 2)
+
+	caCert, _ := parseCertAndKey(c, cfgCertPEM, cfgKeyPEM)
+
+	caName := checkTLSConnection(c, caCert, bootstrapCert, bootstrapKey)
+	c.Assert(caName, Equals, `juju-generated CA for environment foo`)
+}
+
+func panicWrite(name string, data []byte) error {
+	panic("writeCertFile called unexpectedly")
+}
+
+func (s *bootstrapSuite) TestBootstrapExistingKey(c *C) {
+	env := newEnviron("foo", []byte(testing.CACertPEM), []byte(testing.CAKeyPEM))
+	err := environs.Bootstrap(env, false, panicWrite)
+	c.Assert(err, IsNil)
+	c.Assert(env.bootstrapCount, Equals, 1)
+
+	bootstrapCert, bootstrapKey := parseCertAndKey(c, env.certPEM, env.keyPEM)
+
+	caName := checkTLSConnection(c, testing.CACertX509, bootstrapCert, bootstrapKey)
+	c.Assert(caName, Equals, testing.CACertX509.Subject.CommonName)
+}
+
+func (s *bootstrapSuite) TestBootstrapUploadTools(c *C) {
+	env := newEnviron("foo", nil, nil)
+	err := environs.Bootstrap(env, false, nil)
+	c.Assert(err, IsNil)
+	c.Assert(env.bootstrapCount, Equals, 1)
+	c.Assert(env.uploadTools, Equals, false)
+
+	env = newEnviron("foo", nil, nil)
+	err = environs.Bootstrap(env, true, nil)
+	c.Assert(err, IsNil)
+	c.Assert(env.bootstrapCount, Equals, 1)
+	c.Assert(env.uploadTools, Equals, true)
+}
+
+var (
+	nonCACert = `-----BEGIN CERTIFICATE-----
+MIIBmjCCAUagAwIBAgIBADALBgkqhkiG9w0BAQUwJjENMAsGA1UEChMEanVqdTEV
+MBMGA1UEAxMManVqdSB0ZXN0aW5nMB4XDTEyMTExNDE3MTU1NloXDTIyMTExNDE3
+MjA1NlowJjENMAsGA1UEChMEanVqdTEVMBMGA1UEAxMManVqdSB0ZXN0aW5nMFow
+CwYJKoZIhvcNAQEBA0sAMEgCQQC96/CsTTY1Va8et6QYNXwrssAi36asFlV/fksG
+hqRucidiz/+xHvhs9EiqEu7NGxeVAkcfIhXu6/BDlobtj2v5AgMBAAGjYzBhMA4G
+A1UdDwEB/wQEAwIABDAPBgNVHRMBAf8EBTADAgEBMB0GA1UdDgQWBBRqbxkIW4R0
+vmmkUoYuWg9sDob4jzAfBgNVHSMEGDAWgBRqbxkIW4R0vmmkUoYuWg9sDob4jzAL
+BgkqhkiG9w0BAQUDQQC3+KN8RppKdvlbP6fDwRC22PaCxd0PVyIHsn7I4jgpBPf8
+Z3codMYYA5/f0AmUsD7wi7nnJVPPLZK7JWu4VI/w
+-----END CERTIFICATE-----
+`
+	nonCAKey = `-----BEGIN RSA PRIVATE KEY-----
+MIIBOgIBAAJBAL3r8KxNNjVVrx63pBg1fCuywCLfpqwWVX9+SwaGpG5yJ2LP/7Ee
++Gz0SKoS7s0bF5UCRx8iFe7r8EOWhu2Pa/kCAwEAAQJAdzuAxStUNPeuEWLJKkmp
+wuVdqocuZCtBUeE/yMEOyibZ9NLKSuDJuDorkoeoiBz2vyUITHkLp4jgNmCI8NGg
+AQIhAPZG9+3OghlzcqWR4nTho8KO/CuO9bu5G4jNEdIrSJ6BAiEAxWtoLZNMwI4Q
+kj2moFk9GdBXZV9I0t1VTwcDvVyeAXkCIDrfvldQPdO9wJOKK3vLkS1qpyf2lhIZ
+b1alx3PZuxOBAiAthPltYMRWtar+fTaZTFo5RH+SQSkibaRI534mQF+ySQIhAIml
+yiWVLC2XrtwijDu1fwh/wtFCb/bPvqvgG5wgAO+2
+-----END RSA PRIVATE KEY-----
+`
+)
+
+func (s *bootstrapSuite) TestBootstrapWithInvalidCert(c *C) {
+	env := newEnviron("foo", []byte(nonCACert), []byte(nonCAKey))
+	err := environs.Bootstrap(env, false, panicWrite)
+	c.Assert(err, ErrorMatches, "cannot generate bootstrap certificate: CA certificate is not a valid CA")
+}
 
 // checkTLSConnection checks that we can correctly perform a TLS
 // handshake using the given credentials.
@@ -267,12 +257,39 @@ func copyClose(w io.WriteCloser, r io.Reader) {
 }
 
 type bootstrapEnviron struct {
-	name           string
+	name             string
+	cfg              *config.Config
+	environs.Environ // stub out all methods we don't care about.
+
+	// The following fields are filled in when Bootstrap is called.
 	bootstrapCount int
 	uploadTools    bool
-	certPEM []byte
-	keyPEM []byte
-	environs.Environ
+	certPEM        []byte
+	keyPEM         []byte
+}
+
+func newEnviron(name string, caCertPEM, caKeyPEM []byte) *bootstrapEnviron {
+	m := map[string]interface{}{
+		"name":            name,
+		"type":            "test",
+		"authorized-keys": "foo",
+		"ca-cert":         nil,
+		"ca-private-key":  nil,
+	}
+	if caCertPEM != nil {
+		m["ca-cert"] = string(caCertPEM)
+	}
+	if caKeyPEM != nil {
+		m["ca-private-key"] = string(caKeyPEM)
+	}
+	cfg, err := config.New(m)
+	if err != nil {
+		panic(fmt.Errorf("cannot create config from %#v: %v", m, err))
+	}
+	return &bootstrapEnviron{
+		name: name,
+		cfg:  cfg,
+	}
 }
 
 func (e *bootstrapEnviron) Name() string {
@@ -287,9 +304,18 @@ func (e *bootstrapEnviron) Bootstrap(uploadTools bool, certPEM, keyPEM []byte) e
 	return nil
 }
 
+func (e *bootstrapEnviron) Config() *config.Config {
+	return e.cfg
+}
+
+func (e *bootstrapEnviron) SetConfig(cfg *config.Config) error {
+	e.cfg = cfg
+	return nil
+}
+
 func x509ToPEM(cert *x509.Certificate) []byte {
 	return pem.EncodeToMemory(&pem.Block{
-		Type: "CERTIFICATE",
+		Type:  "CERTIFICATE",
 		Bytes: cert.Raw,
 	})
 }
@@ -298,8 +324,8 @@ func parseCertAndKey(c *C, certPEM, keyPEM []byte) (cert *x509.Certificate, key 
 	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
 	c.Assert(err, IsNil)
 
-	cert, err = x509.ParseCertificate(tlsCert.Certificates[0])
+	cert, err = x509.ParseCertificate(tlsCert.Certificate[0])
 	c.Assert(err, IsNil)
-	
+
 	return cert, tlsCert.PrivateKey.(*rsa.PrivateKey)
 }

@@ -33,18 +33,19 @@ func Bootstrap(environ Environ, uploadTools bool, writeCertFile func(name string
 	cfg := environ.Config()
 	caCertPEM, hasCACert := cfg.CACertPEM()
 	caKeyPEM, hasCAKey := cfg.CAPrivateKeyPEM()
+	log.Printf("got cert and key: %v, %v", hasCACert, hasCAKey)
 	if !hasCACert {
 		if hasCAKey {
 			return fmt.Errorf("environment config has private key without CA certificate")
 		}
 		var err error
-		caCert, caKey, err = generateCACert(environ.Name())
+		caCertPEM, caKeyPEM, err = generateCACert(environ.Name())
 		if err != nil {
 			return err
 		}
 		m := cfg.AllAttrs()
-		m["ca-cert"] = string(caCert)
-		m["ca-private-key"] = string(caKey)
+		m["ca-cert"] = string(caCertPEM)
+		m["ca-private-key"] = string(caKeyPEM)
 		cfg, err = config.New(m)
 		if err != nil {
 			return fmt.Errorf("cannot create config with added CA certificate: %v", err)
@@ -52,16 +53,16 @@ func Bootstrap(environ Environ, uploadTools bool, writeCertFile func(name string
 		if err := environ.SetConfig(cfg); err != nil {
 			return fmt.Errorf("cannot add CA certificate to environ: %v", err)
 		}
-		if err := writeCertFile(environ.Name() + "-cert.pem", caCert); err != nil {
+		if err := writeCertFile(environ.Name()+"-cert.pem", caCertPEM); err != nil {
 			return fmt.Errorf("cannot save CA certificate: %v", err)
 		}
-		if err := writeCertFile(environ.Name() + "-private-key.pem", caKey); err != nil {
+		if err := writeCertFile(environ.Name()+"-private-key.pem", caKeyPEM); err != nil {
 			return fmt.Errorf("cannot save CA key: %v", err)
 		}
 	}
 	// Generate a new key pair and certificate for
 	// the newly bootstrapped instance.
-	certPEM, keyPEM, err := generateCert(environ.Name(), caCert, caKey)
+	certPEM, keyPEM, err := generateCert(environ.Name(), caCertPEM, caKeyPEM)
 	if err != nil {
 		return fmt.Errorf("cannot generate bootstrap certificate: %v", err)
 	}
@@ -75,8 +76,7 @@ func writeCertFileToHome(name string, data []byte) error {
 
 const keyBits = 1024
 
-func generateCACert(envName string) (*x509.Certificate, *rsa.PrivateKey, error)
-certPEM, keyPEM []byte, err error) {
+func generateCACert(envName string) (certPEM, keyPEM []byte, err error) {
 	log.Printf("generating new CA certificate")
 	key, err := rsa.GenerateKey(rand.Reader, keyBits)
 	if err != nil {
@@ -103,38 +103,35 @@ certPEM, keyPEM []byte, err error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("canot create certificate: %v", err)
 	}
-	cert, err := x509.ParseCertificate(certDER)
-	if err != nil {
-		return nil, nil, err
-	}
-	return cert, key, nil
-}
-
-func certToPEM(cert *x509.Certificate) []byte {
-	return pem.EncodeToMemory(&bytes.Buffer{
-		Type: "CERTIFICATE",
-		Bytes: cert.Raw,
+	certPEM = pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: certDER,
 	})
-}
-
-func keyToPEM(key *rsa.PrivateKey) []byte {
-	return pem.EncodeToMemory(&pem.Block{
+	keyPEM = pem.EncodeToMemory(&pem.Block{
 		Type:  "RSA PRIVATE KEY",
 		Bytes: x509.MarshalPKCS1PrivateKey(key),
 	})
+	return certPEM, keyPEM, nil
 }
 
-
-func generateCert(envName string, caCertPEM, caKeyPEM string) (certPEM, keyPEM string, err error) {
-	if !caCert.BasicConstraintsValid || !caCert.IsCA {
-		return nil, nil, fmt.Errorf("CA certificate is not a valid CA")
-	}
-	tlsCert, err := tls.X509KeyPair(certToPEM(caCert), keyToPEM(caKey))
+func generateCert(envName string, caCertPEM, caKeyPEM []byte) (certPEM, keyPEM []byte, err error) {
+	tlsCert, err := tls.X509KeyPair(caCertPEM, caKeyPEM)
 	if err != nil {
 		return nil, nil, err
 	}
 	if len(tlsCert.Certificate) != 1 {
 		return nil, nil, fmt.Errorf("more than one certificate for CA")
+	}
+	caCert, err := x509.ParseCertificate(tlsCert.Certificate[0])
+	if err != nil {
+		return nil, nil, err
+	}
+	if !caCert.BasicConstraintsValid || !caCert.IsCA {
+		return nil, nil, fmt.Errorf("CA certificate is not a valid CA")
+	}
+	caKey, ok := tlsCert.PrivateKey.(*rsa.PrivateKey)
+	if !ok {
+		return nil, nil, fmt.Errorf("CA private key has unexpected type %T", tlsCert.PrivateKey)
 	}
 	key, err := rsa.GenerateKey(rand.Reader, keyBits)
 	if err != nil {
