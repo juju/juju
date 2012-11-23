@@ -49,11 +49,12 @@ func (*BootstrapSuite) TestBootstrapCommand(c *C) {
 	c.Check(<-errc, IsNil)
 	c.Check((<-opc).(dummy.OpBootstrap).Env, Equals, "peckham")
 
-	// Check that the CA certificate has been automatically generated
+	// Check that the CA certificate and key have been automatically generated
 	// for the environment.
-	// TODO(rog) reenable
-	//_, err = os.Stat(homePath(".juju", "peckham.pem"))
-	//c.Assert(err, IsNil)
+	_, err = os.Stat(homePath(".juju", "peckham-cert.pem"))
+	c.Assert(err, IsNil)
+	_, err = os.Stat(homePath(".juju", "peckham-private-key.pem"))
+	c.Assert(err, IsNil)
 
 	// bootstrap with tool uploading - checking that a file
 	// is uploaded should be sufficient, as the detailed semantics
