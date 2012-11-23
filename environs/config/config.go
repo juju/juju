@@ -194,17 +194,17 @@ func (c *Config) AuthorizedKeys() string {
 // CACertPEM returns the X509 certificate for the
 // certifying authority, in PEM format.
 // It returns false if the certificate is not present.
-func (c *Config) CACertPEM() (string, bool) {
+func (c *Config) CACertPEM() ([]byte, bool) {
 	s, ok := c.m["ca-cert"].(string)
-	return s, ok
+	return []byte(s), ok
 }
 
 // CAPrivateKeyPEM returns the private key of the
 // certifying authority, in PEM format.
 // It returns false if the key is not present.
-func (c *Config) CAPrivateKeyPEM() (cert string, ok bool) {
+func (c *Config) CAPrivateKeyPEM() (key []byte, ok bool) {
 	s, ok := c.m["ca-private-key"].(string)
-	return s, ok
+	return []byte(s), ok
 }
 
 // AdminSecret returns the administrator password.
