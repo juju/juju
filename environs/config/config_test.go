@@ -457,36 +457,36 @@ func (test configTest) check(c *C, h fakeHome) {
 	cert, certPresent := cfg.CACertPEM()
 	if path, _ := test.attrs["ca-cert-path"].(string); path != "" {
 		c.Assert(certPresent, Equals, true)
-		c.Assert(cert, Equals, h.fileContents(c, path))
+		c.Assert(string(cert), Equals, h.fileContents(c, path))
 	} else if v, ok := test.attrs["ca-cert"]; v != nil && v.(string) != "" {
 		c.Assert(certPresent, Equals, true)
-		c.Assert(cert, Equals, v)
+		c.Assert(string(cert), Equals, v)
 	} else if ok && v == nil {
-		c.Check(cert, Equals, "")
+		c.Check(cert, HasLen, 0)
 		c.Assert(certPresent, Equals, false)
 	} else if h.fileExists(".juju/my-name-cert.pem") {
 		c.Assert(certPresent, Equals, true)
-		c.Assert(cert, Equals, h.fileContents(c, "my-name-cert.pem"))
+		c.Assert(string(cert), Equals, h.fileContents(c, "my-name-cert.pem"))
 	} else {
-		c.Check(cert, Equals, "")
+		c.Check(cert, HasLen, 0)
 		c.Assert(certPresent, Equals, false)
 	}
 
 	key, keyPresent := cfg.CAPrivateKeyPEM()
 	if path, _ := test.attrs["ca-private-key-path"].(string); path != "" {
 		c.Assert(keyPresent, Equals, true)
-		c.Assert(key, Equals, h.fileContents(c, path))
+		c.Assert(string(key), Equals, h.fileContents(c, path))
 	} else if v, ok := test.attrs["ca-private-key"]; v != nil && v.(string) != "" {
 		c.Assert(keyPresent, Equals, true)
-		c.Assert(key, Equals, v)
+		c.Assert(string(key), Equals, v)
 	} else if ok && v == nil {
-		c.Check(key, Equals, "")
+		c.Check(key, HasLen, 0)
 		c.Assert(keyPresent, Equals, false)
 	} else if h.fileExists(".juju/my-name-private-key.pem") {
 		c.Assert(keyPresent, Equals, true)
-		c.Assert(key, Equals, h.fileContents(c, "my-name-private-key.pem"))
+		c.Assert(string(key), Equals, h.fileContents(c, "my-name-private-key.pem"))
 	} else {
-		c.Check(key, Equals, "")
+		c.Check(key, HasLen, 0)
 		c.Assert(keyPresent, Equals, false)
 	}
 }
