@@ -85,8 +85,6 @@ func base64yaml(m *config.Config) string {
 	return base64.StdEncoding.EncodeToString(data)
 }
 
-const serverPEMPath = "/var/lib/juju/server.pem"
-
 func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	if err := verifyConfig(cfg); err != nil {
 		return nil, err
@@ -114,11 +112,15 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	if true || log.Debug {
 		debugFlag = " --debug"
 	}
+	addScripts(c,
+		fmt.Sprintf("echo %s > %s", shquote(caCert), shquote(caCertPath(cfg))),
+	)
 
 	if cfg.StateServer {
+		serverPEMPath := path.Join(cfg.DataDir, "server.pem")
 		addScripts(c,
 			fmt.Sprintf("echo %s > %s",
-				shquote(string(cfg.StateServerPEM)), serverPEMPath),
+				shquote(string(cfg.StateServerPEM)), shquote(serverPEMPath)),
 			"chmod 600 "+serverPEMPath,
 		)
 
@@ -136,11 +138,10 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 			" --instance-id "+cfg.InstanceIdAccessor+
 			" --env-config "+shquote(base64yaml(cfg.Config))+
 			" --state-servers localhost"+mgoPortSuffix+
-			" --ca-cert", caCert,
+			" --ca-cert-file "+shquote(caCertPath(cfg))+
 			" --initial-password "+shquote(cfg.StateInfo.Password)+
-				debugFlag,
+			debugFlag,
 		)
-
 	}
 
 	if err := addAgentToBoot(c, cfg, "machine",
@@ -154,6 +155,10 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	c.SetAptUpdate(true)
 	c.SetOutput(cloudinit.OutAll, "| tee -a /var/log/cloud-init-output.log", "")
 	return c, nil
+}
+
+func caCertPath(cfg *MachineConfig) string {
+	return path.Join(cfg.DataDir, "ca-cert.pem")
 }
 
 func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, name, args string) error {
@@ -171,13 +176,14 @@ func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, name, args st
 	cmd := fmt.Sprintf(
 		"%s/jujud %s"+
 			" --state-servers '%s'"+
-			" --ca-cert", caCert,
-		" --log-file %s"+
+			" --ca-cert-file '%s'"+
+			" --log-file %s"+
 			" --data-dir '%s'"+
 			" --initial-password '%s'"+
 			" %s",
 		toolsDir, kind,
 		cfg.stateHostAddrs(),
+		caCertPath(cfg),
 		logPath,
 		cfg.DataDir,
 		cfg.StateInfo.Password,
