@@ -20,36 +20,36 @@ func requiredError(name string) error {
 	return fmt.Errorf("--%s option must be set", name)
 }
 
-// stateInfoValue implements gnuflag.Value on a state.Info.
-type stateInfoValue state.Info
+// stateServersValue implements gnuflag.Value on a slice of server addresses
+type stateServersValue []string
 
 var validAddr = regexp.MustCompile("^.+:[0-9]+$")
 
 // Set splits the comma-separated list of state server addresses and stores
 // onto v's Addrs. Addresses must include port numbers.
-func (v *stateInfoValue) Set(value string) error {
+func (v *stateServersValue) Set(value string) error {
 	addrs := strings.Split(value, ",")
 	for _, addr := range addrs {
 		if !validAddr.MatchString(addr) {
 			return fmt.Errorf("%q is not a valid state server address", addr)
 		}
 	}
-	v.Addrs = addrs
+	*v = addrs
 	return nil
 }
 
 // String returns the list of server addresses joined by commas.
-func (v *stateInfoValue) String() string {
-	if v.Addrs != nil {
-		return strings.Join(v.Addrs, ",")
+func (v *stateServersValue) String() string {
+	if *v != nil {
+		return strings.Join(*v, ",")
 	}
 	return ""
 }
 
-// stateInfoVar sets up a gnuflag flag analagously to FlagSet.*Var methods.
-func stateInfoVar(fs *gnuflag.FlagSet, target *state.Info, name string, value []string, usage string) {
-	target.Addrs = value
-	fs.Var((*stateInfoValue)(target), name, usage)
+// stateServersVar sets up a gnuflag flag analagously to FlagSet.*Var methods.
+func stateServersVar(fs *gnuflag.FlagSet, target *[]string, name string, value []string, usage string) {
+	*target = value
+	fs.Var((*stateServersValue)(target), name, usage)
 }
 
 // AgentConf handles command-line flags shared by all agents.
@@ -58,6 +58,8 @@ type AgentConf struct {
 	DataDir         string
 	StateInfo       state.Info
 	InitialPassword string
+	CACertPEM       []byte // TODO(rog) use StateInfo.CACertPEM when available
+	caCert          string
 }
 
 type agentFlags int
@@ -76,7 +78,8 @@ func (c *AgentConf) addFlags(f *gnuflag.FlagSet, accept agentFlags) {
 		f.StringVar(&c.DataDir, "data-dir", "/var/lib/juju", "directory for juju data")
 	}
 	if accept&flagStateInfo != 0 {
-		stateInfoVar(f, &c.StateInfo, "state-servers", nil, "state servers to connect to")
+		stateServersVar(f, &c.StateInfo.Addrs, "state-servers", nil, "state servers to connect to")
+		f.StringVar(&c.caCert, "ca-cert", "", "CA certificate in PEM format")
 	}
 	if accept&flagInitialPassword != 0 {
 		f.StringVar(&c.InitialPassword, "initial-password", "", "initial password for state")
@@ -89,8 +92,14 @@ func (c *AgentConf) checkArgs(args []string) error {
 	if c.accept&flagDataDir != 0 && c.DataDir == "" {
 		return requiredError("data-dir")
 	}
-	if c.accept&flagStateInfo != 0 && c.StateInfo.Addrs == nil {
-		return requiredError("state-servers")
+	if c.accept&flagStateInfo != 0 {
+		if c.StateInfo.Addrs == nil {
+			return requiredError("state-servers")
+		}
+		if c.caCert == "" {
+			return requiredError("ca-cert")
+		}
+		c.CACertPEM = []byte(c.caCert)
 	}
 	return cmd.CheckEmpty(args)
 }

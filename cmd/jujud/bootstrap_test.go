@@ -71,6 +71,7 @@ func (s *BootstrapSuite) TestParseNoEnvConfig(c *C) {
 func (s *BootstrapSuite) TestSetMachineId(c *C) {
 	args := []string{
 		"--state-servers", testing.MgoAddr,
+		"--ca-cert", testing.CACertPEM,
 		"--instance-id", "over9000",
 		"--env-config", b64yaml{
 			"name":            "dummyenv",
@@ -99,6 +100,7 @@ func (s *BootstrapSuite) TestSetMachineId(c *C) {
 func (s *BootstrapSuite) TestMachinerWorkers(c *C) {
 	args := []string{
 		"--state-servers", testing.MgoAddr,
+		"--ca-cert", testing.CACertPEM,
 		"--instance-id", "over9000",
 		"--env-config", b64yaml{
 			"name":            "dummyenv",
@@ -135,6 +137,7 @@ func testOpenState(c *C, info *state.Info, expectErr error) {
 func (s *BootstrapSuite) TestInitialPassword(c *C) {
 	args := []string{
 		"--state-servers", testing.MgoAddr,
+		"--ca-cert", testing.CACertPEM,
 		"--instance-id", "over9000",
 		"--env-config", b64yaml{
 			"name":            "dummyenv",
@@ -199,8 +202,9 @@ var base64ConfigTests = []struct {
 func (s *BootstrapSuite) TestBase64Config(c *C) {
 	for i, t := range base64ConfigTests {
 		c.Logf("test %d", i)
-		args := []string{"--state-servers"}
-		args = append(args, testing.MgoAddr)
+		var args []string
+		args = append(args, "--state-servers", testing.MgoAddr)
+		args = append(args, "--ca-cert", testing.CACertPEM)
 		args = append(args, "--instance-id", "over9000")
 		args = append(args, t.input...)
 		cmd, err := initBootstrapCommand(args)
