@@ -227,7 +227,7 @@ func (suite) TestBootstrapConfig(c *C) {
 	expect := cfg.AllAttrs()
 	delete(expect, "secret")
 	expect["admin-secret"] = ""
-	expect["ca-private-key"] = nil
+	expect["ca-private-key"] = ""
 	expect["agent-version"] = "1.2.3"
 	c.Assert(cfg1.AllAttrs(), DeepEquals, expect)
 }
