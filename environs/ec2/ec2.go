@@ -246,7 +246,10 @@ func (e *environ) Bootstrap(uploadTools bool, certPEM, keyPEM []byte) error {
 	if err != nil {
 		return fmt.Errorf("unable to determine inital configuration: %v", err)
 	}
-	info := &state.Info{Password: trivial.PasswordHash(password)}
+	info := &state.Info{
+		Password: trivial.PasswordHash(password),
+		// TODO(rog) add CACertPEM from environ.
+	}
 	inst, err := e.startInstance(&startInstanceParams{
 		machineId:          0,
 		info:               info,
@@ -325,7 +328,6 @@ func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.To
 }
 
 func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
-
 	cfg := &cloudinit.MachineConfig{
 		StateServer:        scfg.stateServer,
 		StateInfo:          scfg.info,
