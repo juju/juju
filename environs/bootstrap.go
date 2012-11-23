@@ -64,7 +64,7 @@ func Bootstrap(environ Environ, uploadTools bool, writeCertFile func(name string
 	if err != nil {
 		return fmt.Errorf("cannot generate bootstrap certificate: %v", err)
 	}
-	return environ.Bootstrap(uploadTools, append(certPEM, keyPEM...))
+	return environ.Bootstrap(uploadTools, certPEM, keyPEM)
 }
 
 func writeCertFileToHome(name string, data []byte) error {
