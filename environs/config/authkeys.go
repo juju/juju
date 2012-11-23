@@ -61,22 +61,11 @@ func readAuthorizedKeys(path string) (string, error) {
 	return string(keyData), nil
 }
 
-func readFile(path string, defaultPath string) ([]byte, error) {
-	if path == "" {
-		path = defaultPath
-	}
-	path = expandTilde(path)
-	if !filepath.IsAbs(path) {
-		path = filepath.Join(os.Getenv("HOME"), ".juju", path)
-	}
-	return ioutil.ReadFile(path)
-}
-
 // verifyKeyPair verifies that the certificate and key parse correctly.
 // The key is optional - if it is provided, we also check that the key
 // matches the certificate.
 func verifyKeyPair(certPEM, keyPEM []byte) error {
-	if len(keyPEM) > 0 {
+	if keyPEM != nil {
 		_, err := tls.X509KeyPair(certPEM, keyPEM)
 		return err
 	}

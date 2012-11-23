@@ -24,16 +24,31 @@ var _ = Suite(&ConfigSuite{})
 
 type attrs map[string]interface{}
 
-var configTests = []struct {
+type configTest struct {
 	about string
 	attrs map[string]interface{}
 	err   string
-}{
+}
+
+var configTests = []configTest{
 	{
 		about: "The minimum good configuration",
 		attrs: attrs{
 			"type": "my-type",
 			"name": "my-name",
+		},
+	}, {
+		about: "Minimum configuration with explicit empty strings for defaults",
+		attrs: attrs{
+			"type":                 "my-type",
+			"name":                 "my-name",
+			"default-series":       "",
+			"authorized-keys-path": "",
+			"ca-cert":              "",
+			"ca-cert-path":         "",
+			"ca-private-key":       "",
+			"ca-private-key-path":  "",
+			"admin-secret":         "",
 		},
 	}, {
 		about: "Explicit series",
@@ -72,6 +87,15 @@ var configTests = []struct {
 			"ca-private-key-path": "cakey2.pem",
 		},
 	}, {
+		about: "CA cert & key from path; cert attribute set too",
+		attrs: attrs{
+			"type":                "my-type",
+			"name":                "my-name",
+			"ca-cert-path":        "cacert2.pem",
+			"ca-cert":             "ignored",
+			"ca-private-key-path": "cakey2.pem",
+		},
+	}, {
 		about: "CA cert & key from ~ path",
 		attrs: attrs{
 			"type":                "my-type",
@@ -85,7 +109,7 @@ var configTests = []struct {
 			"type":           "my-type",
 			"name":           "my-name",
 			"ca-cert-path":   "~/othercert.pem",
-			"ca-private-key": "",
+			"ca-private-key": nil,
 		},
 	}, {
 		about: "CA cert only as attribute",
@@ -93,7 +117,7 @@ var configTests = []struct {
 			"type":           "my-type",
 			"name":           "my-name",
 			"ca-cert":        caCert,
-			"ca-private-key": "",
+			"ca-private-key": nil,
 		},
 	}, {
 		about: "CA cert and key as attributes",
@@ -130,14 +154,47 @@ var configTests = []struct {
 		},
 		err: "bad CA certificate/key in configuration: crypto/tls: failed to parse key:.*",
 	}, {
-		about: "No PEM cert",
+		about: "No CA cert or key",
+		attrs: attrs{
+			"type":           "my-type",
+			"name":           "my-name",
+			"ca-cert":        nil,
+			"ca-private-key": nil,
+		},
+	}, {
+		about: "CA key but no cert",
+		attrs: attrs{
+			"type":           "my-type",
+			"name":           "my-name",
+			"ca-cert":        nil,
+			"ca-private-key": caKey,
+		},
+		err: "bad CA certificate/key in configuration: crypto/tls:.*",
+	}, {
+		about: "No CA key",
 		attrs: attrs{
 			"type":           "my-type",
 			"name":           "my-name",
 			"ca-cert":        "foo",
-			"ca-private-key": "",
+			"ca-private-key": nil,
 		},
 		err: "bad CA certificate/key in configuration: no certificates found",
+	}, {
+		about: "CA cert specified as non-existent file",
+		attrs: attrs{
+			"type":         "my-type",
+			"name":         "my-name",
+			"ca-cert-path": "no-such-file",
+		},
+		err: `open .*\.juju/no-such-file: .*`,
+	}, {
+		about: "CA key specified as non-existent file",
+		attrs: attrs{
+			"type":                "my-type",
+			"name":                "my-name",
+			"ca-private-key-path": "no-such-file",
+		},
+		err: `open .*\.juju/no-such-file: .*`,
 	}, {
 		about: "Specified agent version",
 		attrs: attrs{
@@ -246,115 +303,208 @@ var configTests = []struct {
 	},
 }
 
-var configTestFiles = []struct {
+type testFile struct {
 	name, data string
-}{
-	{".ssh/id_dsa.pub", "dsa"},
-	{".ssh/id_rsa.pub", "rsa\n"},
-	{".ssh/identity.pub", "identity"},
-	{".ssh/authorized_keys", "auth0\n# first\nauth1\n\n"},
-	{".ssh/authorized_keys2", "auth2\nauth3\n"},
-
-	{".juju/my-name-cert.pem", caCert},
-	{".juju/my-name-private-key.pem", caKey},
-	{".juju/cacert2.pem", caCert2},
-	{".juju/cakey2.pem", caKey2},
-	{"othercert.pem", caCert3},
-	{"otherkey.pem", caKey3},
 }
 
 func (*ConfigSuite) TestConfig(c *C) {
-	homeDir := filepath.Join(c.MkDir(), "me")
-	defer os.Setenv("HOME", os.Getenv("HOME"))
-	os.Setenv("HOME", homeDir)
+	files := []testFile{
+		{".ssh/id_dsa.pub", "dsa"},
+		{".ssh/id_rsa.pub", "rsa\n"},
+		{".ssh/identity.pub", "identity"},
+		{".ssh/authorized_keys", "auth0\n# first\nauth1\n\n"},
+		{".ssh/authorized_keys2", "auth2\nauth3\n"},
 
-	for _, f := range configTestFiles {
-		path := filepath.Join(homeDir, f.name)
-		err := os.MkdirAll(filepath.Dir(path), 0700)
-		c.Assert(err, IsNil)
-		err = ioutil.WriteFile(path, []byte(f.data), 0666)
-		c.Assert(err, IsNil)
+		{".juju/my-name-cert.pem", caCert},
+		{".juju/my-name-private-key.pem", caKey},
+		{".juju/cacert2.pem", caCert2},
+		{".juju/cakey2.pem", caKey2},
+		{"othercert.pem", caCert3},
+		{"otherkey.pem", caKey3},
 	}
-
+	h := makeFakeHome(c, files)
+	defer h.restore()
 	for i, test := range configTests {
 		c.Logf("test %d. %s", i, test.about)
-
-		cfg, err := config.New(test.attrs)
-		if test.err != "" {
-			c.Assert(err, ErrorMatches, test.err)
-			continue
-		}
-		c.Assert(err, IsNil)
-
-		typ, _ := test.attrs["type"].(string)
-		name, _ := test.attrs["name"].(string)
-		c.Assert(cfg.Type(), Equals, typ)
-		c.Assert(cfg.Name(), Equals, name)
-		if s := test.attrs["agent-version"]; s != nil {
-			vers, err := version.Parse(s.(string))
-			c.Assert(err, IsNil)
-			c.Assert(cfg.AgentVersion(), Equals, vers)
-		} else {
-			c.Assert(cfg.AgentVersion(), Equals, version.Number{})
-		}
-
-		dev, _ := test.attrs["development"].(bool)
-		c.Assert(cfg.Development(), Equals, dev)
-
-		if series, _ := test.attrs["default-series"].(string); series != "" {
-			c.Assert(cfg.DefaultSeries(), Equals, series)
-		} else {
-			c.Assert(cfg.DefaultSeries(), Equals, version.Current.Series)
-		}
-
-		if m, _ := test.attrs["firewall-mode"].(string); m != "" {
-			c.Assert(cfg.FirewallMode(), Equals, config.FirewallMode(m))
-		}
-
-		if secret, _ := test.attrs["admin-secret"].(string); secret != "" {
-			c.Assert(cfg.AdminSecret(), Equals, secret)
-		}
-
-		if path, _ := test.attrs["authorized-keys-path"].(string); path != "" {
-			c.Assert(cfg.AuthorizedKeys(), Equals, fileContents(c, path))
-			c.Assert(cfg.AllAttrs()["authorized-keys-path"], Equals, nil)
-		} else if keys, _ := test.attrs["authorized-keys"].(string); keys != "" {
-			c.Assert(cfg.AuthorizedKeys(), Equals, keys)
-		} else {
-			// Content of all the files that are read by default.
-			want := "dsa\nrsa\nidentity\n"
-			c.Assert(cfg.AuthorizedKeys(), Equals, want)
-		}
-
-		if path, _ := test.attrs["ca-cert-path"].(string); path != "" {
-			c.Assert(cfg.CACertPEM(), Equals, fileContents(c, path))
-		} else if test.attrs["ca-cert"] != nil {
-			c.Assert(cfg.CACertPEM(), Equals, test.attrs["ca-cert"])
-		} else {
-			c.Assert(cfg.CACertPEM(), Equals, caCert)
-		}
-
-		if path, _ := test.attrs["ca-private-key-path"].(string); path != "" {
-			c.Assert(cfg.CAPrivateKeyPEM(), Equals, fileContents(c, path))
-		} else if k, ok := test.attrs["ca-private-key"]; ok {
-			c.Assert(cfg.CAPrivateKeyPEM(), Equals, k)
-		} else {
-			c.Assert(cfg.CAPrivateKeyPEM(), Equals, caKey)
-		}
+		test.check(c, h)
 	}
 }
 
-// fileContents returns the test file contents for the
-// given specified path (which may be relative, so
-// we compare with the base filename only).
-func fileContents(c *C, path string) string {
-	for _, f := range configTestFiles {
-		if filepath.Base(f.name) == filepath.Base(path) {
-			return f.data
-		}
+var noCertFilesTests = []configTest{
+	{
+		about: "Unspecified certificate and key",
+		attrs: attrs{
+			"type":            "my-type",
+			"name":            "my-name",
+			"authorized-keys": "my-keys",
+		},
+	}, {
+		about: "Unspecified certificate, specified key",
+		attrs: attrs{
+			"type":            "my-type",
+			"name":            "my-name",
+			"authorized-keys": "my-keys",
+			"ca-private-key":  caKey,
+		},
+		err: "bad CA certificate/key in configuration: crypto/tls:.*",
+	},
+}
+
+func (*ConfigSuite) TestConfigNoCertFiles(c *C) {
+	h := makeFakeHome(c, nil)
+	defer h.restore()
+	for i, test := range noCertFilesTests {
+		c.Logf("test %d. %s", i, test.about)
+		test.check(c, h)
 	}
-	c.Fatalf("path attribute holds unknown test file: %q", path)
-	panic("unreachable")
+}
+
+var emptyCertFilesTests = []configTest{
+	{
+		about: "Cert unspecified; key specified",
+		attrs: attrs{
+			"type":            "my-type",
+			"name":            "my-name",
+			"authorized-keys": "my-keys",
+			"ca-private-key":  caKey,
+		},
+		err: `bad CA certificate/key in configuration: crypto/tls: .*`,
+	}, {
+		about: "Cert and key unspecified",
+		attrs: attrs{
+			"type":            "my-type",
+			"name":            "my-name",
+			"authorized-keys": "my-keys",
+		},
+		err: `bad CA certificate/key in configuration: crypto/tls: .*`,
+	}, {
+		about: "Cert specified, key unspecified",
+		attrs: attrs{
+			"type":            "my-type",
+			"name":            "my-name",
+			"authorized-keys": "my-keys",
+			"ca-cert":         caCert,
+		},
+		err: "bad CA certificate/key in configuration: crypto/tls: .*",
+	}, {
+		about: "Cert and key specified as absent",
+		attrs: attrs{
+			"type":            "my-type",
+			"name":            "my-name",
+			"authorized-keys": "my-keys",
+			"ca-cert":         nil,
+			"ca-private-key":  nil,
+		},
+	}, {
+		about: "Cert specified as absent",
+		attrs: attrs{
+			"type":            "my-type",
+			"name":            "my-name",
+			"authorized-keys": "my-keys",
+			"ca-cert":         nil,
+		},
+		err: "bad CA certificate/key in configuration: crypto/tls: .*",
+	},
+}
+
+func (*ConfigSuite) TestConfigEmptyCertFiles(c *C) {
+	files := []testFile{
+		{".juju/my-name-cert.pem", ""},
+		{".juju/my-name-private-key.pem", ""},
+	}
+	h := makeFakeHome(c, files)
+	defer h.restore()
+
+	for i, test := range emptyCertFilesTests {
+		c.Logf("test %d. %s", i, test.about)
+		test.check(c, h)
+	}
+}
+
+func (test configTest) check(c *C, h fakeHome) {
+	cfg, err := config.New(test.attrs)
+	if test.err != "" {
+		c.Check(cfg, IsNil)
+		c.Assert(err, ErrorMatches, test.err)
+		return
+	}
+	c.Assert(err, IsNil)
+
+	typ, _ := test.attrs["type"].(string)
+	name, _ := test.attrs["name"].(string)
+	c.Assert(cfg.Type(), Equals, typ)
+	c.Assert(cfg.Name(), Equals, name)
+	if s := test.attrs["agent-version"]; s != nil {
+		vers, err := version.Parse(s.(string))
+		c.Assert(err, IsNil)
+		c.Assert(cfg.AgentVersion(), Equals, vers)
+	} else {
+		c.Assert(cfg.AgentVersion(), Equals, version.Number{})
+	}
+
+	dev, _ := test.attrs["development"].(bool)
+	c.Assert(cfg.Development(), Equals, dev)
+
+	if series, _ := test.attrs["default-series"].(string); series != "" {
+		c.Assert(cfg.DefaultSeries(), Equals, series)
+	} else {
+		c.Assert(cfg.DefaultSeries(), Equals, version.Current.Series)
+	}
+
+	if m, _ := test.attrs["firewall-mode"].(string); m != "" {
+		c.Assert(cfg.FirewallMode(), Equals, config.FirewallMode(m))
+	}
+
+	if secret, _ := test.attrs["admin-secret"].(string); secret != "" {
+		c.Assert(cfg.AdminSecret(), Equals, secret)
+	}
+
+	if path, _ := test.attrs["authorized-keys-path"].(string); path != "" {
+		c.Assert(cfg.AuthorizedKeys(), Equals, h.fileContents(c, path))
+		c.Assert(cfg.AllAttrs()["authorized-keys-path"], Equals, nil)
+	} else if keys, _ := test.attrs["authorized-keys"].(string); keys != "" {
+		c.Assert(cfg.AuthorizedKeys(), Equals, keys)
+	} else {
+		// Content of all the files that are read by default.
+		want := "dsa\nrsa\nidentity\n"
+		c.Assert(cfg.AuthorizedKeys(), Equals, want)
+	}
+
+	cert, certPresent := cfg.CACert()
+	if path, _ := test.attrs["ca-cert-path"].(string); path != "" {
+		c.Assert(certPresent, Equals, true)
+		c.Assert(string(cert), Equals, h.fileContents(c, path))
+	} else if v, ok := test.attrs["ca-cert"]; v != nil && v.(string) != "" {
+		c.Assert(certPresent, Equals, true)
+		c.Assert(string(cert), Equals, v)
+	} else if ok && v == nil {
+		c.Check(cert, HasLen, 0)
+		c.Assert(certPresent, Equals, false)
+	} else if h.fileExists(".juju/my-name-cert.pem") {
+		c.Assert(certPresent, Equals, true)
+		c.Assert(string(cert), Equals, h.fileContents(c, "my-name-cert.pem"))
+	} else {
+		c.Check(cert, HasLen, 0)
+		c.Assert(certPresent, Equals, false)
+	}
+
+	key, keyPresent := cfg.CAPrivateKey()
+	if path, _ := test.attrs["ca-private-key-path"].(string); path != "" {
+		c.Assert(keyPresent, Equals, true)
+		c.Assert(string(key), Equals, h.fileContents(c, path))
+	} else if v, ok := test.attrs["ca-private-key"]; v != nil && v.(string) != "" {
+		c.Assert(keyPresent, Equals, true)
+		c.Assert(string(key), Equals, v)
+	} else if ok && v == nil {
+		c.Check(key, HasLen, 0)
+		c.Assert(keyPresent, Equals, false)
+	} else if h.fileExists(".juju/my-name-private-key.pem") {
+		c.Assert(keyPresent, Equals, true)
+		c.Assert(string(key), Equals, h.fileContents(c, "my-name-private-key.pem"))
+	} else {
+		c.Check(key, HasLen, 0)
+		c.Assert(keyPresent, Equals, false)
+	}
 }
 
 func (*ConfigSuite) TestConfigAttrs(c *C) {
@@ -366,7 +516,7 @@ func (*ConfigSuite) TestConfigAttrs(c *C) {
 		"default-series":  version.Current.Series,
 		"admin-secret":    "foo",
 		"unknown":         "my-unknown",
-		"ca-private-key":  "",
+		"ca-private-key":  nil,
 		"ca-cert":         caCert,
 	}
 	cfg, err := config.New(attrs)
@@ -384,6 +534,53 @@ func (*ConfigSuite) TestConfigAttrs(c *C) {
 	attrs["name"] = "new-name"
 	attrs["new-unknown"] = "my-new-unknown"
 	c.Assert(newcfg.AllAttrs(), DeepEquals, attrs)
+}
+
+type fakeHome struct {
+	oldHome string
+	files   []testFile
+}
+
+func makeFakeHome(c *C, files []testFile) fakeHome {
+	oldHome := os.Getenv("HOME")
+	homeDir := filepath.Join(c.MkDir(), "me")
+	for _, f := range files {
+		path := filepath.Join(homeDir, f.name)
+		err := os.MkdirAll(filepath.Dir(path), 0700)
+		c.Assert(err, IsNil)
+		err = ioutil.WriteFile(path, []byte(f.data), 0666)
+		c.Assert(err, IsNil)
+	}
+	os.Setenv("HOME", homeDir)
+	return fakeHome{oldHome, files}
+}
+
+func (h fakeHome) restore() {
+	os.Setenv("HOME", h.oldHome)
+}
+
+// fileContents returns the test file contents for the
+// given specified path (which may be relative, so
+// we compare with the base filename only).
+func (h fakeHome) fileContents(c *C, path string) string {
+	for _, f := range h.files {
+		if filepath.Base(f.name) == filepath.Base(path) {
+			return f.data
+		}
+	}
+	c.Fatalf("path attribute holds unknown test file: %q", path)
+	panic("unreachable")
+}
+
+// fileExists returns if the given relative file path exists
+// in the fake home.
+func (h fakeHome) fileExists(path string) bool {
+	for _, f := range h.files {
+		if f.name == path {
+			return true
+		}
+	}
+	return false
 }
 
 var caCert = `
