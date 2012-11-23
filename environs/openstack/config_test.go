@@ -135,9 +135,9 @@ var configTests = []configTest{
 	{
 		summary: "setting region",
 		config: attrs{
-			"region": "somereg",
+			"region": "testreg",
 		},
-		region: "somereg",
+		region: "testreg",
 	}, {
 		summary: "setting region (2)",
 		config: attrs{
