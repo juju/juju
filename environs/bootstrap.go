@@ -31,9 +31,10 @@ func Bootstrap(environ Environ, uploadTools bool, writeCertFile func(name string
 		writeCertFile = writeCertFileToHome
 	}
 	cfg := environ.Config()
-	caCert, caKey := []byte(cfg.CACertPEM()), []byte(cfg.CAPrivateKeyPEM())
-	if len(caCert) == 0 {
-		if len(caKey) != 0 {
+	caCertPEM, hasCACert := cfg.CACertPEM()
+	caKeyPEM, hasCAKey := cfg.CAPrivateKeyPEM()
+	if !hasCACert {
+		if hasCAKey {
 			return fmt.Errorf("environment config has private key without CA certificate")
 		}
 		var err error
@@ -74,7 +75,8 @@ func writeCertFileToHome(name string, data []byte) error {
 
 const keyBits = 1024
 
-func generateCACert(envName string) (certPEM, keyPEM []byte, err error) {
+func generateCACert(envName string) (*x509.Certificate, *rsa.PrivateKey, error)
+certPEM, keyPEM []byte, err error) {
 	log.Printf("generating new CA certificate")
 	key, err := rsa.GenerateKey(rand.Reader, keyBits)
 	if err != nil {
@@ -101,35 +103,38 @@ func generateCACert(envName string) (certPEM, keyPEM []byte, err error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("canot create certificate: %v", err)
 	}
-	certPEM = pem.EncodeToMemory(&pem.Block{
-		Type:  "CERTIFICATE",
-		Bytes: certDER,
+	cert, err := x509.ParseCertificate(certDER)
+	if err != nil {
+		return nil, nil, err
+	}
+	return cert, key, nil
+}
+
+func certToPEM(cert *x509.Certificate) []byte {
+	return pem.EncodeToMemory(&bytes.Buffer{
+		Type: "CERTIFICATE",
+		Bytes: cert.Raw,
 	})
-	keyPEM = pem.EncodeToMemory(&pem.Block{
+}
+
+func keyToPEM(key *rsa.PrivateKey) []byte {
+	return pem.EncodeToMemory(&pem.Block{
 		Type:  "RSA PRIVATE KEY",
 		Bytes: x509.MarshalPKCS1PrivateKey(key),
 	})
-	return certPEM, keyPEM, nil
 }
 
-func generateCert(envName string, caCertPEM, caKeyPEM []byte) (certPEM, keyPEM []byte, err error) {
-	tlsCert, err := tls.X509KeyPair(caCertPEM, caKeyPEM)
+
+func generateCert(envName string, caCertPEM, caKeyPEM string) (certPEM, keyPEM string, err error) {
+	if !caCert.BasicConstraintsValid || !caCert.IsCA {
+		return nil, nil, fmt.Errorf("CA certificate is not a valid CA")
+	}
+	tlsCert, err := tls.X509KeyPair(certToPEM(caCert), keyToPEM(caKey))
 	if err != nil {
 		return nil, nil, err
 	}
 	if len(tlsCert.Certificate) != 1 {
 		return nil, nil, fmt.Errorf("more than one certificate for CA")
-	}
-	caCert, err := x509.ParseCertificate(tlsCert.Certificate[0])
-	if err != nil {
-		return nil, nil, err
-	}
-	if !caCert.BasicConstraintsValid || !caCert.IsCA {
-		return nil, nil, fmt.Errorf("CA certificate is not a valid CA")
-	}
-	caKey, ok := tlsCert.PrivateKey.(*rsa.PrivateKey)
-	if !ok {
-		return nil, nil, fmt.Errorf("CA private key has unexpected type %T", tlsCert.PrivateKey)
 	}
 	key, err := rsa.GenerateKey(rand.Reader, keyBits)
 	if err != nil {
