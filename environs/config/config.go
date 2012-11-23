@@ -3,10 +3,10 @@ package config
 import (
 	"fmt"
 	"io/ioutil"
-	"path/filepath"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/version"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -35,14 +35,12 @@ type Config struct {
 // TODO(rog) update the doc comment below - it's getting messy
 // and it assumes too much prior knowledge.
 
-// New returns a new configuration.
-// Fields that are common to all environment providers are verified.
-// The "authorized-keys-path" key is translated into "authorized-keys"
-// by loading the content from respective file. Similarly,
-// "ca-cert-path" and "ca-private-key-path" are translated into the
-// "ca-cert" and "ca-private-key" values.
-// If not specified, authorized SSH keys and CA details will
-// be read from:
+// New returns a new configuration.  Fields that are common to all
+// environment providers are verified.  The "authorized-keys-path" key
+// is translated into "authorized-keys" by loading the content from
+// respective file.  Similarly, "ca-cert-path" and "ca-private-key-path"
+// are translated into the "ca-cert" and "ca-private-key" values.  If
+// not specified, authorized SSH keys and CA details will be read from:
 //
 //	~/.ssh/id_dsa.pub
 //	~/.ssh/id_rsa.pub
@@ -50,11 +48,13 @@ type Config struct {
 //	~/.juju/<name>-cert.pem
 //	~/.juju/<name>-private-key.pem
 //
-// The required keys (after any files have been read) are:
-// "name", "type", "authorized-keys" and
-// "ca-cert", all of type string.  Additional keys recognised are:
-// "agent-version" and "development", of types string and bool
-// respectively.
+// The ca-cert and ca-private-key attributes may be explicitly
+// provided as nil values.
+//
+// The required keys (after any files have been read) are "name",
+// "type" and "authorized-keys", all of type string.  Additional keys
+// recognised are "agent-version" and "development", of types string
+// and bool respectively.
 func New(attrs map[string]interface{}) (*Config, error) {
 	m, err := checker.Coerce(attrs, nil)
 	if err != nil {
@@ -88,20 +88,18 @@ func New(attrs map[string]interface{}) (*Config, error) {
 	}
 	delete(c.m, "authorized-keys-path")
 
-	caCert, caCertPath, err := maybeReadFile(c.m, "ca-cert", name + "-cert.pem")
+	caCert, err := maybeReadFile(c.m, "ca-cert", name+"-cert.pem")
 	if err != nil {
 		return nil, err
 	}
-	caKey, _, err := maybeReadFile(c.m, "ca-private-key", name + "-private-key.pem")
+	caKey, err := maybeReadFile(c.m, "ca-private-key", name+"-private-key.pem")
 	if err != nil {
 		return nil, err
 	}
-
-	if err := verifyKeyPair(caCert, caKey); err != nil {
-		if caCertPath == "" {
+	if caCert != nil || caKey != nil {
+		if err := verifyKeyPair(caCert, caKey); err != nil {
 			return nil, fmt.Errorf("bad CA certificate/key in configuration: %v", err)
 		}
-		return nil, fmt.Errorf("bad CA certificate in %q: %v", caCertPath, err)
 	}
 
 	// Check if there are any required fields that are empty.
@@ -136,24 +134,25 @@ func New(attrs map[string]interface{}) (*Config, error) {
 	return c, nil
 }
 
-// maybeReadFile reads the given attribute from a file if
-// its value has not been explicitly specified.
-// It returns the data for the attribute and the
-// data's file name if that was used.
-// 
-func maybeReadFile(m map[string]interface{}, attr, defaultPath string) ([]byte, string, error) {
-	var data []byte
-	if v, ok := m[attr]; ok {
-		data = []byte(v.(string))
-	}
+// maybeReadFile reads the given attribute from a file if necessary,
+// sets the attribute in attrs and deletes the associated path
+// attribute.  It returns the data for the attribute, which will be nil
+// if the attribute is not set.
+func maybeReadFile(attrs map[string]interface{}, attr, defaultPath string) ([]byte, error) {
 	pathAttr := attr + "-path"
-	path := m[pathAttr].(string)
-	delete(m, pathAttr)
-	if data != nil {
-		m[attr] = string(data)
-		return data, "", nil
-	}
+	path := attrs[pathAttr].(string)
+	delete(attrs, pathAttr)
 	if path == "" {
+		if v, ok := attrs[attr]; ok {
+			if v == nil {
+				// The value is explicitly unspecified.
+				return nil, nil
+			}
+			if s := v.(string); s != "" {
+				// "" means default.
+				return []byte(s), nil
+			}
+		}
 		path = defaultPath
 	}
 	path = expandTilde(path)
@@ -161,11 +160,15 @@ func maybeReadFile(m map[string]interface{}, attr, defaultPath string) ([]byte, 
 		path = filepath.Join(os.Getenv("HOME"), ".juju", path)
 	}
 	data, err := ioutil.ReadFile(path)
-	if err != nil && !os.IsNotExist(err) {
-		return nil, "", err
+	if err != nil {
+		if os.IsNotExist(err) {
+			attrs[attr] = nil
+			return nil, nil
+		}
+		return nil, err
 	}
-	m[attr] = string(data)
-	return data, path, nil
+	attrs[attr] = string(data)
+	return data, nil
 }
 
 // Type returns the environment type.
@@ -190,15 +193,18 @@ func (c *Config) AuthorizedKeys() string {
 
 // CACertPEM returns the X509 certificate for the
 // certifying authority, in PEM format.
-func (c *Config) CACertPEM() string {
-	return c.m["ca-cert"].(string)
+// It returns false if the certificate is not present.
+func (c *Config) CACertPEM() (string, bool) {
+	s, ok := c.m["ca-cert"].(string)
+	return s, ok
 }
 
 // CAPrivateKeyPEM returns the private key of the
 // certifying authority, in PEM format.
-// It is empty if the key is not available.
-func (c *Config) CAPrivateKeyPEM() string {
-	return c.m["ca-private-key"].(string)
+// It returns false if the key is not present.
+func (c *Config) CAPrivateKeyPEM() (cert string, ok bool) {
+	s, ok := c.m["ca-private-key"].(string)
+	return s, ok
 }
 
 // AdminSecret returns the administrator password.
@@ -273,9 +279,9 @@ var fields = schema.Fields{
 	"agent-version":        schema.String(),
 	"development":          schema.Bool(),
 	"admin-secret":         schema.String(),
-	"ca-cert":              schema.String(),
+	"ca-cert":              schema.OneOf(schema.String(), schema.Const(nil)),
 	"ca-cert-path":         schema.String(),
-	"ca-private-key":       schema.String(),
+	"ca-private-key":       schema.OneOf(schema.String(), schema.Const(nil)),
 	"ca-private-key-path":  schema.String(),
 }
 
@@ -287,9 +293,9 @@ var defaults = schema.Defaults{
 	"agent-version":        schema.Omit,
 	"development":          false,
 	"admin-secret":         "",
-	"ca-cert":              schema.Omit,
+	"ca-cert":              "",
 	"ca-cert-path":         "",
-	"ca-private-key":       schema.Omit,
+	"ca-private-key":       "",
 	"ca-private-key-path":  "",
 }
 
