@@ -39,7 +39,7 @@ func (*NewConnSuite) TestNewConnWithoutAdminSecret(c *C) {
 		"secret":          "pork",
 		"admin-secret":    "really",
 		"ca-cert":         coretesting.CACertPEM,
-		"ca-private-key":  "",
+		"ca-private-key":  coretesting.CAKeyPEM,
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
@@ -117,6 +117,7 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *C) {
 		"secret":          "pork",
 		"admin-secret":    "side-effect secret",
 		"ca-cert":         coretesting.CACertPEM,
+		"ca-private-key":  coretesting.CAKeyPEM,
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
@@ -156,6 +157,7 @@ func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *C) {
 		"secret":          "pork",
 		"admin-secret":    "some secret",
 		"ca-cert":         coretesting.CACertPEM,
+		"ca-private-key":  coretesting.CAKeyPEM,
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
@@ -194,6 +196,7 @@ func (cs *NewConnSuite) TestConnWithPassword(c *C) {
 		"secret":          "squirrel",
 		"admin-secret":    "nutkin",
 		"ca-cert":         coretesting.CACertPEM,
+		"ca-private-key":  coretesting.CAKeyPEM,
 	})
 	c.Assert(err, IsNil)
 	err = juju.Bootstrap(env, false, []byte(coretesting.CACertPEM+coretesting.CAKeyPEM))
@@ -250,6 +253,7 @@ func (s *ConnSuite) SetUpTest(c *C) {
 		"authorized-keys": "i-am-a-key",
 		"admin-secret":    "deploy-test-secret",
 		"ca-cert":         coretesting.CACertPEM,
+		"ca-private-key":  coretesting.CAKeyPEM,
 	}
 	environ, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)

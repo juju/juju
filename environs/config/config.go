@@ -3,8 +3,10 @@ package config
 import (
 	"fmt"
 	"io/ioutil"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/version"
+	"local/runtime/debug"
 	"os"
 	"path/filepath"
 	"strings"
@@ -48,15 +50,18 @@ type Config struct {
 //	~/.juju/<name>-cert.pem
 //	~/.juju/<name>-private-key.pem
 //
-// The ca-cert and ca-private-key attributes may be explicitly
-// provided as nil values to avoid having them read from the
-// standard paths.
-//
 // The required keys (after any files have been read) are "name",
 // "type" and "authorized-keys", all of type string.  Additional keys
 // recognised are "agent-version" and "development", of types string
 // and bool respectively.
-func New(attrs map[string]interface{}) (*Config, error) {
+func New(attrs map[string]interface{}) (_ *Config, eee error) {
+	defer func() {
+		if eee != nil {
+			log.Printf("config.New fails: %v", eee)
+			log.Printf("attrs: %#v", attrs)
+			log.Printf("callers: %s", debug.Callers(0, 10))
+		}
+	}()
 	m, err := checker.Coerce(attrs, nil)
 	if err != nil {
 		return nil, err
