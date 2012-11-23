@@ -248,6 +248,7 @@ func (e *environ) Bootstrap(uploadTools bool, stateServerPEM []byte) error {
 	}
 	info := &state.Info{
 		Password: trivial.PasswordHash(password),
+		// TODO(rog) add CACertPEM from environ.
 	}
 	inst, err := e.startInstance(&startInstanceParams{
 		machineId:      0,

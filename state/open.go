@@ -53,7 +53,7 @@ func Open(info *Info) (*State, error) {
 		fwd     *sshForwarder
 		err     error
 	)
-	// TODO(rog) require root cert
+	// TODO(rog) require CA cert
 	if info.UseSSH {
 		// TODO implement authorization on SSL connection; drop sshDial.
 		if len(info.Addrs) > 1 {
