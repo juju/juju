@@ -4,6 +4,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/openstack"
+	coretesting "launchpad.net/juju-core/testing"
 	"testing"
 )
 
@@ -22,8 +23,11 @@ func Test(t *testing.T) {
 
 func (s *LocalSuite) SetUpSuite(c *C) {
 	env, err := environs.NewFromAttrs(map[string]interface{}{
-		"name": "test",
-		"type": "openstack",
+		"name":            "test",
+		"type":            "openstack",
+		"authorized-keys": "foo",
+		"ca-cert":         coretesting.CACertPEM,
+		"ca-private-key":  coretesting.CAKeyPEM,
 	})
 	c.Assert(err, IsNil)
 	s.env = env
