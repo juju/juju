@@ -136,8 +136,7 @@ type Environ interface {
 	Bootstrap(uploadTools bool, stateServerPEM []byte) error
 
 	// StateInfo returns information on the state initialized
-	// by Bootstrap. The CACertPEM field may be
-	// empty.
+	// by Bootstrap.
 	StateInfo() (*state.Info, error)
 
 	// Config returns the current configuration of this Environ.
