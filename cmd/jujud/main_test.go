@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/testing"
 	"os"
@@ -10,7 +11,22 @@ import (
 	stdtesting "testing"
 )
 
+var caCertFile string
+
 func TestPackage(t *stdtesting.T) {
+	// Create a CA certificate available for all tests.
+	f, err := ioutil.TempFile("", "juju-test-cert")
+	if err != nil {
+		panic(err)
+	}
+	_, err = f.WriteString(testing.CACertPEM)
+	if err != nil {
+		panic(err)
+	}
+	f.Close()
+	caCertFile = f.Name()
+	defer os.Remove(caCertFile)
+
 	testing.MgoTestPackage(t)
 }
 
@@ -57,18 +73,18 @@ func (s *MainSuite) TestParseErrors(c *C) {
 	checkMessage(c, msga,
 		"bootstrap-state",
 		"--state-servers", "st:37017",
-		"--ca-cert", testing.CACertPEM,
+		"--ca-cert-file", caCertFile,
 		"--instance-id", "ii",
 		"--env-config", b64yaml{"blah": "blah"}.encode(),
 		"toastie")
 	checkMessage(c, msga, "unit",
 		"--state-servers", "localhost:37017,st:37017",
-		"--ca-cert", testing.CACertPEM,
+		"--ca-cert-file", caCertFile,
 		"--unit-name", "un/0",
 		"toastie")
 	checkMessage(c, msga, "machine",
 		"--state-servers", "st:37017",
-		"--ca-cert", testing.CACertPEM,
+		"--ca-cert-file", caCertFile,
 		"--machine-id", "42",
 		"toastie")
 }

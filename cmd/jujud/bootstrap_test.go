@@ -71,7 +71,7 @@ func (s *BootstrapSuite) TestParseNoEnvConfig(c *C) {
 func (s *BootstrapSuite) TestSetMachineId(c *C) {
 	args := []string{
 		"--state-servers", testing.MgoAddr,
-		"--ca-cert", testing.CACertPEM,
+		"--ca-cert-file", caCertFile,
 		"--instance-id", "over9000",
 		"--env-config", b64yaml{
 			"name":            "dummyenv",
@@ -100,7 +100,7 @@ func (s *BootstrapSuite) TestSetMachineId(c *C) {
 func (s *BootstrapSuite) TestMachinerWorkers(c *C) {
 	args := []string{
 		"--state-servers", testing.MgoAddr,
-		"--ca-cert", testing.CACertPEM,
+		"--ca-cert-file", caCertFile,
 		"--instance-id", "over9000",
 		"--env-config", b64yaml{
 			"name":            "dummyenv",
@@ -137,7 +137,7 @@ func testOpenState(c *C, info *state.Info, expectErr error) {
 func (s *BootstrapSuite) TestInitialPassword(c *C) {
 	args := []string{
 		"--state-servers", testing.MgoAddr,
-		"--ca-cert", testing.CACertPEM,
+		"--ca-cert-file", caCertFile,
 		"--instance-id", "over9000",
 		"--env-config", b64yaml{
 			"name":            "dummyenv",
@@ -204,7 +204,7 @@ func (s *BootstrapSuite) TestBase64Config(c *C) {
 		c.Logf("test %d", i)
 		var args []string
 		args = append(args, "--state-servers", testing.MgoAddr)
-		args = append(args, "--ca-cert", testing.CACertPEM)
+		args = append(args, "--ca-cert-file", caCertFile)
 		args = append(args, "--instance-id", "over9000")
 		args = append(args, t.input...)
 		cmd, err := initBootstrapCommand(args)

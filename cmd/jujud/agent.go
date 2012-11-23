@@ -59,7 +59,7 @@ type AgentConf struct {
 	StateInfo       state.Info
 	InitialPassword string
 	CACertPEM       []byte // TODO(rog) use StateInfo.CACertPEM when available
-	caCert          string
+	caCertFile      string
 }
 
 type agentFlags int
@@ -79,7 +79,7 @@ func (c *AgentConf) addFlags(f *gnuflag.FlagSet, accept agentFlags) {
 	}
 	if accept&flagStateInfo != 0 {
 		stateServersVar(f, &c.StateInfo.Addrs, "state-servers", nil, "state servers to connect to")
-		f.StringVar(&c.caCert, "ca-cert", "", "CA certificate in PEM format")
+		f.StringVar(&c.caCertFile, "ca-cert-file", "", "file name of CA certificate in PEM format")
 	}
 	if accept&flagInitialPassword != 0 {
 		f.StringVar(&c.InitialPassword, "initial-password", "", "initial password for state")
@@ -96,10 +96,14 @@ func (c *AgentConf) checkArgs(args []string) error {
 		if c.StateInfo.Addrs == nil {
 			return requiredError("state-servers")
 		}
-		if c.caCert == "" {
-			return requiredError("ca-cert")
+		if c.caCertFile == "" {
+			return requiredError("ca-cert-file")
 		}
-		c.CACertPEM = []byte(c.caCert)
+		var err error
+		c.CACertPEM, err = ioutil.ReadFile(c.caCertFile)
+		if err != nil {
+			return err
+		}
 	}
 	return cmd.CheckEmpty(args)
 }
