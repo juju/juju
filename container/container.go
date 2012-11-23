@@ -72,7 +72,7 @@ func (c *Simple) Deploy(unit *state.Unit, info *state.Info, tools *state.Tools) 
 	cmd := fmt.Sprintf(
 		"%s unit%s"+
 			" --state-servers '%s'"+
-			" --ca-cert-file '%q'"+
+			" --ca-cert-file '%s'"+
 			" --log-file %s"+
 			" --unit-name %s"+
 			" --initial-password %s",
