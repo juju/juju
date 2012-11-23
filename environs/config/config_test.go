@@ -180,6 +180,22 @@ var configTests = []configTest{
 		},
 		err: "bad CA certificate/key in configuration: no certificates found",
 	}, {
+		about: "CA cert specified as non-existent file",
+		attrs: attrs{
+			"type":         "my-type",
+			"name":         "my-name",
+			"ca-cert-path": "no-such-file",
+		},
+		err: `open .*\.juju/no-such-file: .*`,
+	}, {
+		about: "CA key specified as non-existent file",
+		attrs: attrs{
+			"type":                "my-type",
+			"name":                "my-name",
+			"ca-private-key-path": "no-such-file",
+		},
+		err: `open .*\.juju/no-such-file: .*`,
+	}, {
 		about: "Specified agent version",
 		attrs: attrs{
 			"type":            "my-type",
@@ -454,7 +470,7 @@ func (test configTest) check(c *C, h fakeHome) {
 		c.Assert(cfg.AuthorizedKeys(), Equals, want)
 	}
 
-	cert, certPresent := cfg.CACertPEM()
+	cert, certPresent := cfg.CACert()
 	if path, _ := test.attrs["ca-cert-path"].(string); path != "" {
 		c.Assert(certPresent, Equals, true)
 		c.Assert(string(cert), Equals, h.fileContents(c, path))
@@ -472,7 +488,7 @@ func (test configTest) check(c *C, h fakeHome) {
 		c.Assert(certPresent, Equals, false)
 	}
 
-	key, keyPresent := cfg.CAPrivateKeyPEM()
+	key, keyPresent := cfg.CAPrivateKey()
 	if path, _ := test.attrs["ca-private-key-path"].(string); path != "" {
 		c.Assert(keyPresent, Equals, true)
 		c.Assert(string(key), Equals, h.fileContents(c, path))
