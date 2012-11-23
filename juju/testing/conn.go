@@ -127,13 +127,17 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	c.Assert(err, IsNil)
 	// sanity check we've got the correct environment.
 	c.Assert(environ.Name(), Equals, "dummyenv")
-	c.Assert(environs.Bootstrap(environ, false, []byte(testing.CACertPEM+testing.CAKeyPEM)), IsNil)
+	c.Assert(environs.Bootstrap(environ, false, panicWrite), IsNil)
 
 	conn, err := juju.NewConnFromName("dummyenv")
 	c.Assert(err, IsNil)
 	s.Conn = conn
 	s.State = conn.State
 	c.Assert(err, IsNil)
+}
+
+func panicWrite(name string, data []byte) error {
+	panic("writeCertFile called unexpectedly")
 }
 
 func (s *JujuConnSuite) tearDownConn(c *C) {

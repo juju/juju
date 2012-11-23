@@ -3,6 +3,7 @@ package main
 import (
 	"io/ioutil"
 	"net/http"
+	"os"
 
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
