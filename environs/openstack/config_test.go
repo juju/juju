@@ -5,6 +5,7 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	coretesting "launchpad.net/juju-core/testing"
 	"os"
 	"testing"
 )
@@ -51,7 +52,10 @@ func (t configTest) check(c *C) {
 	envs := attrs{
 		"environments": attrs{
 			"testenv": attrs{
-				"type": "openstack",
+				"type":            "openstack",
+				"authorized-keys": "foo",
+				"ca-cert":         coretesting.CACertPEM,
+				"ca-private-key":  coretesting.CAKeyPEM,
 			},
 		},
 	}
