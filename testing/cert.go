@@ -4,6 +4,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"launchpad.net/juju-core/trivial"
 )
 
 // CACertPEM and CAKeyPEM make up a CA key pair.
@@ -40,11 +41,7 @@ HOzuvYngJpoClGw0ipzJPoNZ2Z/GkdOWGByPeKu/8g==
 )
 
 func mustParseCertPEM(pemData string) *x509.Certificate {
-	b, _ := pem.Decode([]byte(pemData))
-	if b.Type != "CERTIFICATE" {
-		panic("unexpected type")
-	}
-	cert, err := x509.ParseCertificate(b.Bytes)
+	cert, err := trivial.ParseCertificate([]byte(pemData))
 	if err != nil {
 		panic(err)
 	}
