@@ -96,11 +96,7 @@ var configTests = []configTest{
 			"type":           "my-type",
 			"name":           "my-name",
 			"ca-cert-path":   "~/othercert.pem",
-<<<<<<< TREE
-			"ca-private-key": nil,
-=======
 			"ca-private-key": "",
->>>>>>> MERGE-SOURCE
 		},
 	}, {
 		about: "CA cert only as attribute",
@@ -108,11 +104,7 @@ var configTests = []configTest{
 			"type":           "my-type",
 			"name":           "my-name",
 			"ca-cert":        caCert,
-<<<<<<< TREE
-			"ca-private-key": nil,
-=======
 			"ca-private-key": "",
->>>>>>> MERGE-SOURCE
 		},
 	}, {
 		about: "CA cert and key as attributes",
@@ -153,24 +145,15 @@ var configTests = []configTest{
 		attrs: attrs{
 			"type":           "my-type",
 			"name":           "my-name",
-<<<<<<< TREE
-			"ca-cert":        nil,
-			"ca-private-key": nil,
-=======
 			"ca-cert":        "",
 			"ca-private-key": "",
->>>>>>> MERGE-SOURCE
 		},
 	}, {
 		about: "CA key but no cert",
 		attrs: attrs{
 			"type":           "my-type",
 			"name":           "my-name",
-<<<<<<< TREE
-			"ca-cert":        nil,
-=======
 			"ca-cert":        "",
->>>>>>> MERGE-SOURCE
 			"ca-private-key": caKey,
 		},
 		err: "bad CA certificate/key in configuration: crypto/tls:.*",
@@ -180,17 +163,10 @@ var configTests = []configTest{
 			"type":           "my-type",
 			"name":           "my-name",
 			"ca-cert":        "foo",
-<<<<<<< TREE
-			"ca-private-key": nil,
-=======
 			"ca-private-key": "",
->>>>>>> MERGE-SOURCE
 		},
 		err: "bad CA certificate/key in configuration: no certificates found",
 	}, {
-<<<<<<< TREE
-=======
-		about: "CA cert specified as non-existent file",
 		attrs: attrs{
 			"type":         "my-type",
 			"name":         "my-name",
@@ -206,7 +182,6 @@ var configTests = []configTest{
 		},
 		err: `open .*\.juju/no-such-file: .*`,
 	}, {
->>>>>>> MERGE-SOURCE
 		about: "Specified agent version",
 		attrs: attrs{
 			"type":            "my-type",
@@ -403,13 +378,8 @@ var emptyCertFilesTests = []configTest{
 			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": "my-keys",
-<<<<<<< TREE
-			"ca-cert":         nil,
-			"ca-private-key":  nil,
-=======
 			"ca-cert":         "",
 			"ca-private-key":  "",
->>>>>>> MERGE-SOURCE
 		},
 	}, {
 		about: "Cert specified as absent",
@@ -417,11 +387,7 @@ var emptyCertFilesTests = []configTest{
 			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": "my-keys",
-<<<<<<< TREE
-			"ca-cert":         nil,
-=======
 			"ca-cert":         "",
->>>>>>> MERGE-SOURCE
 		},
 		err: "bad CA certificate/key in configuration: crypto/tls: .*",
 	},
@@ -490,26 +456,14 @@ func (test configTest) check(c *C, h fakeHome) {
 		c.Assert(cfg.AuthorizedKeys(), Equals, want)
 	}
 
-<<<<<<< TREE
-	cert, certPresent := cfg.CACertPEM()
-=======
 	cert, certPresent := cfg.CACert()
->>>>>>> MERGE-SOURCE
 	if path, _ := test.attrs["ca-cert-path"].(string); path != "" {
 		c.Assert(certPresent, Equals, true)
 		c.Assert(string(cert), Equals, h.fileContents(c, path))
-<<<<<<< TREE
-	} else if v, ok := test.attrs["ca-cert"]; v != nil && v.(string) != "" {
-=======
 	} else if v, ok := test.attrs["ca-cert"].(string); v != "" {
->>>>>>> MERGE-SOURCE
 		c.Assert(certPresent, Equals, true)
 		c.Assert(string(cert), Equals, v)
-<<<<<<< TREE
-	} else if ok && v == nil {
-=======
 	} else if ok {
->>>>>>> MERGE-SOURCE
 		c.Check(cert, HasLen, 0)
 		c.Assert(certPresent, Equals, false)
 	} else if h.fileExists(".juju/my-name-cert.pem") {
@@ -520,26 +474,14 @@ func (test configTest) check(c *C, h fakeHome) {
 		c.Assert(certPresent, Equals, false)
 	}
 
-<<<<<<< TREE
-	key, keyPresent := cfg.CAPrivateKeyPEM()
-=======
 	key, keyPresent := cfg.CAPrivateKey()
->>>>>>> MERGE-SOURCE
 	if path, _ := test.attrs["ca-private-key-path"].(string); path != "" {
 		c.Assert(keyPresent, Equals, true)
 		c.Assert(string(key), Equals, h.fileContents(c, path))
-<<<<<<< TREE
-	} else if v, ok := test.attrs["ca-private-key"]; v != nil && v.(string) != "" {
-=======
 	} else if v, ok := test.attrs["ca-private-key"].(string); v != "" {
->>>>>>> MERGE-SOURCE
 		c.Assert(keyPresent, Equals, true)
 		c.Assert(string(key), Equals, v)
-<<<<<<< TREE
-	} else if ok && v == nil {
-=======
 	} else if ok {
->>>>>>> MERGE-SOURCE
 		c.Check(key, HasLen, 0)
 		c.Assert(keyPresent, Equals, false)
 	} else if h.fileExists(".juju/my-name-private-key.pem") {
@@ -560,11 +502,7 @@ func (*ConfigSuite) TestConfigAttrs(c *C) {
 		"default-series":  version.Current.Series,
 		"admin-secret":    "foo",
 		"unknown":         "my-unknown",
-<<<<<<< TREE
-		"ca-private-key":  nil,
-=======
 		"ca-private-key":  "",
->>>>>>> MERGE-SOURCE
 		"ca-cert":         caCert,
 	}
 	cfg, err := config.New(attrs)
