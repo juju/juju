@@ -7,12 +7,28 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
 )
 
 var KeyBits = 1024
+
+func ParseCertificate(certPEM []byte) (*x509.Certificate, error) {
+	for len(certPEM) > 0 {
+		var certBlock *pem.Block
+		certBlock, certPEM = pem.Decode(certPEM)
+		if certBlock == nil {
+			break
+		}
+		if certBlock.Type == "CERTIFICATE" {
+			cert, err := x509.ParseCertificate(certBlock.Bytes)
+			return cert, err
+		}
+	}
+	return nil, errors.New("no certificates found")
+}
 
 // NewCACert generates a CA certificate/key pair suitable for
 // signing server keys for an environment with the
