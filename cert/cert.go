@@ -106,7 +106,7 @@ func NewServer(envName string, caCertPEM, caKeyPEM []byte, expiry time.Time) (ce
 			Organization: []string{"juju"},
 		},
 		NotBefore: now.UTC().Add(-5 * time.Minute),
-		NotAfter:  now.UTC().AddDate(10, 0, 0), // 10 years hence.
+		NotAfter:  expiry,
 
 		SubjectKeyId: bigIntHash(key.N),
 		KeyUsage:     x509.KeyUsageDataEncipherment,
