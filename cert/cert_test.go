@@ -92,6 +92,42 @@ func (certSuite) TestNewServerWithInvalidCert(c *C) {
 	c.Assert(err, ErrorMatches, "CA certificate is not a valid CA")
 }
 
+func (certSuite) TestVerify(c *C) {
+	now := time.Now()
+	caCert, caKey, err := cert.NewCA("foo", now.Add(1 * time.Minute))
+	c.Assert(err, IsNil)
+
+	srvCert, _, err := cert.NewServer("foo", caCert, caKey, now.Add(3 * time.Minute))
+	c.Assert(err, IsNil)
+
+	err = cert.Verify(srvCert, caCert, now)
+	c.Assert(err, IsNil)
+
+	err = cert.Verify(srvCert, caCert, now.Add(55 * time.Second))
+	c.Assert(err, IsNil)
+
+	// TODO(rog) why does this succeed?
+	// err = cert.Verify(srvCert, caCert, now.Add(-1 * time.Minute))
+	//c.Check(err, ErrorMatches, "x509: certificate has expired or is not yet valid")
+
+	err = cert.Verify(srvCert, caCert, now.Add(2 * time.Minute))
+	c.Check(err, ErrorMatches, "x509: certificate has expired or is not yet valid")
+
+	caCert2, caKey2, err := cert.NewCA("bar", now.Add(1 * time.Minute))
+	c.Assert(err, IsNil)
+
+	// Check original server certificate against wrong CA.
+	err = cert.Verify(srvCert, caCert2, now)
+	c.Check(err, ErrorMatches, "x509: certificate signed by unknown authority")
+
+	srvCert2, _, err := cert.NewServer("bar", caCert2, caKey2, now.Add(1 * time.Minute))
+	c.Assert(err, IsNil)
+
+	// Check new server certificate against original CA.
+	err = cert.Verify(srvCert2, caCert, now)
+	c.Check(err, ErrorMatches, "x509: certificate signed by unknown authority")
+}
+
 // checkTLSConnection checks that we can correctly perform a TLS
 // handshake using the given credentials.
 func checkTLSConnection(c *C, caCert, srvCert *x509.Certificate, srvKey *rsa.PrivateKey) (caName string) {

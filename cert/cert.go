@@ -49,6 +49,29 @@ func ParseCertAndKey(certPEM, keyPEM []byte) (*x509.Certificate, *rsa.PrivateKey
 	return cert, key, nil
 }
 
+// Verify verifies that the given server certificate is
+// valid with respect to the given CA certificate
+// at the given time.
+func Verify(srvCertPEM, caCertPEM []byte, when time.Time) error {
+	caCert, err := ParseCertificate(caCertPEM)
+	if err != nil {
+		return fmt.Errorf("cannot parse CA certificate: %v", err)
+	}
+	srvCert, err := ParseCertificate(srvCertPEM)
+	if err != nil {
+		return fmt.Errorf("cannot parse server certificate: %v", err)
+	}
+	pool := x509.NewCertPool()
+	pool.AddCert(caCert)
+	opts := x509.VerifyOptions{
+		DNSName: "anyServer",
+		Roots: pool,
+		CurrentTime: when,
+	}
+	_, err = srvCert.Verify(opts)
+	return err
+}
+
 // NewCA generates a CA certificate/key pair suitable for
 // signing server keys for an environment with the
 // given name.
