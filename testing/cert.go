@@ -25,25 +25,7 @@ func verifyCertificates() error {
 	if err != nil {
 		return fmt.Errorf("bad server cert key pair: %v", err)
 	}
-	caCert, err := cert.ParseCertificate([]byte(CACertPEM))
-	if err != nil {
-		return err
-	}
-	serverCert, err := cert.ParseCertificate([]byte(serverCertPEM))
-	if err != nil {
-		return err
-	}
-	pool := x509.NewCertPool()
-	pool.AddCert(caCert)
-	opts := x509.VerifyOptions{
-		DNSName: "anything",
-		Roots: pool,
-	}
-	_, err = serverCert.Verify(opts)
-	if err != nil {
-		return fmt.Errorf("verification failed: %v", err)
-	}
-	return nil
+	return cert.Verify([]byte(serverCertPEM), []byte(CACertPEM), time.Now())
 }
 
 func mustNewCA() (string, string) {
