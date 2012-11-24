@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	stdlog "log"
 	"net"
 	"time"
 
@@ -61,13 +60,13 @@ func Open(info *Info) (*State, error) {
 		ServerName: "anything",
 	}
 	dial := func(addr net.Addr) (net.Conn, error) {
-		stdlog.Printf("state: dialling %v", addr)
+		log.Printf("state: dialling %v", addr)
 		c, err := tls.Dial("tcp", addr.String(), tlsConfig)
 		if err != nil {
-			stdlog.Printf("state: dial failed: %v", err)
+			log.Printf("state: dial failed: %v", err)
 			return nil, err
 		}
-		stdlog.Printf("state: dial succeeded")
+		log.Printf("state: dial succeeded")
 		return c, err
 	}
 	session, err := mgo.DialWithInfo(&mgo.DialInfo{

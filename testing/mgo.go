@@ -1,6 +1,9 @@
 package testing
 
 import (
+	"crypto/x509"
+	"launchpad.net/juju-core/cert"
+	"crypto/tls"
 	"fmt"
 	"io/ioutil"
 	"labix.org/v2/mgo"
@@ -61,8 +64,6 @@ func startMgoServer() error {
 		"--nojournal",
 	}
 	server := exec.Command("mongod", mgoargs...)
-	server.Stdout = os.Stdout
-	server.Stderr = os.Stderr
 	if err := server.Start(); err != nil {
 		os.RemoveAll(dbdir)
 		return err
@@ -103,7 +104,22 @@ func (s *MgoSuite) TearDownSuite(c *C) {}
 
 // MgoDial returns a new connection to the shared MongoDB server.
 func MgoDial() *mgo.Session {
-	session, err := mgo.Dial(MgoAddr)
+	pool := x509.NewCertPool()
+	cert, err := cert.ParseCertificate([]byte(CACertPEM))
+	if err != nil {
+		panic(err)
+	}
+	pool.AddCert(cert)
+	tlsConfig := &tls.Config{
+		RootCAs: pool,
+		ServerName: "anything",
+	}
+	session, err := mgo.DialWithInfo(&mgo.DialInfo{
+		Addrs: []string{MgoAddr},
+		Dial: func(addr net.Addr) (net.Conn, error) {
+			return tls.Dial("tcp", addr.String(), tlsConfig)
+		},
+	})
 	if err != nil {
 		panic(err)
 	}
