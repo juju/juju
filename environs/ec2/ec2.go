@@ -251,7 +251,7 @@ func (e *environ) Bootstrap(uploadTools bool, certPEM, keyPEM []byte) error {
 		return fmt.Errorf("environ config has no CA certificate")
 	}
 	info := &state.Info{
-		Password: trivial.PasswordHash(password),
+		Password:  trivial.PasswordHash(password),
 		CACertPEM: cert,
 	}
 	inst, err := e.startInstance(&startInstanceParams{
@@ -316,7 +316,7 @@ func (e *environ) StateInfo() (*state.Info, error) {
 		return nil, fmt.Errorf("timed out waiting for mgo address from %v", st.StateInstances)
 	}
 	return &state.Info{
-		Addrs:  addrs,
+		Addrs:     addrs,
 		CACertPEM: cert,
 	}, nil
 }

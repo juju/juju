@@ -55,7 +55,6 @@ var (
 	serverCertPEM, serverKeyPEM = mustNewServer()
 )
 
-
 func mustParseCert(pemData string) *x509.Certificate {
 	cert, err := cert.ParseCertificate([]byte(pemData))
 	if err != nil {

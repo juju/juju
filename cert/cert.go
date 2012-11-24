@@ -64,8 +64,8 @@ func Verify(srvCertPEM, caCertPEM []byte, when time.Time) error {
 	pool := x509.NewCertPool()
 	pool.AddCert(caCert)
 	opts := x509.VerifyOptions{
-		DNSName: "anyServer",
-		Roots: pool,
+		DNSName:     "anyServer",
+		Roots:       pool,
 		CurrentTime: when,
 	}
 	_, err = srvCert.Verify(opts)
