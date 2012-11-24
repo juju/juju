@@ -48,15 +48,14 @@ func Open(info *Info) (*State, error) {
 	if len(info.Addrs) == 0 {
 		return nil, errors.New("no mongo addresses")
 	}
-	if len(info.CACertPEM) == 0 {
-		return nil, errors.New("no CA certificate")
-	}
 	var (
 		session *mgo.Session
 		fwd     *sshForwarder
 		err     error
 	)
-	// TODO(rog) require CA cert
+	if len(info.CACertPEM) == 0 {
+		return nil, errors.New("no CA certificate")
+	}
 	if info.UseSSH {
 		// TODO implement authorization on SSL connection; drop sshDial.
 		if len(info.Addrs) > 1 {
