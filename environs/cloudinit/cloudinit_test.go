@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
+	"path"
 	"regexp"
 	"strings"
 )
@@ -45,9 +46,11 @@ var cloudinitTests = []cloudinit.MachineConfig{
 		AuthorizedKeys:     "sshkey1",
 		Tools:              newSimpleTools("1.2.3-linux-amd64"),
 		StateServer:        true,
-		StateServerPEM:     serverPEM,
+		StateServerCertPEM: serverCertPEM,
+		StateServerKeyPEM:  serverKeyPEM,
 		StateInfo: &state.Info{
 			Password: "arble",
+			CACertPEM: []byte(testing.CACertPEM),
 		},
 		Config:  envConfig,
 		DataDir: "/var/lib/juju",
@@ -63,6 +66,7 @@ var cloudinitTests = []cloudinit.MachineConfig{
 			Addrs:      []string{"state-addr.example.com"},
 			EntityName: "machine-99",
 			Password:   "arble",
+			CACertPEM: []byte(testing.CACertPEM),
 		},
 	},
 }
@@ -99,6 +103,7 @@ func (t *cloudinitTest) check(c *C, cfg *cloudinit.MachineConfig) {
 	if t.cfg.StateServer {
 		t.checkScripts(c, "jujud bootstrap-state"+
 			".* --state-servers localhost:37017"+
+			".* --ca-cert-file '"+path.Join(t.cfg.DataDir, "ca-cert.pem")+"'"+
 			".*--initial-password '"+t.cfg.StateInfo.Password+"'")
 		t.checkScripts(c, "jujud machine"+
 			" --state-servers 'localhost:37017' "+
@@ -108,6 +113,7 @@ func (t *cloudinitTest) check(c *C, cfg *cloudinit.MachineConfig) {
 	} else {
 		t.checkScripts(c, "jujud machine"+
 			" --state-servers '"+strings.Join(t.cfg.StateInfo.Addrs, ",")+"'"+
+			".* --ca-cert-file '"+path.Join(t.cfg.DataDir, "ca-cert.pem")+"'"+
 			".*--initial-password '"+t.cfg.StateInfo.Password+"'"+
 			" .*--machine-id [0-9]+"+
 			".*>> /var/log/juju/.*log 2>&1")
@@ -257,10 +263,26 @@ var verifyTests = []struct {
 	}},
 	{"missing state hosts", func(cfg *cloudinit.MachineConfig) {
 		cfg.StateServer = false
-		cfg.StateInfo = &state.Info{EntityName: "machine-99"}
+		cfg.StateInfo = &state.Info{
+			EntityName: "machine-99",
+			CACertPEM: []byte(testing.CACertPEM),
+		}
 	}},
-	{"missing state server PEM", func(cfg *cloudinit.MachineConfig) {
-		cfg.StateServerPEM = []byte{}
+	{"missing CA certificate", func(cfg *cloudinit.MachineConfig) {
+		cfg.StateInfo = &state.Info{Addrs: []string{"host"}}
+	}},
+	{"missing CA certificate", func(cfg *cloudinit.MachineConfig) {
+		cfg.StateServer = false
+		cfg.StateInfo = &state.Info{
+			EntityName: "machine-99",
+			Addrs: []string{"host"},
+		}
+	}},
+	{"missing state server certificate", func(cfg *cloudinit.MachineConfig) {
+		cfg.StateServerCertPEM = []byte{}
+	}},
+	{"missing state server private key", func(cfg *cloudinit.MachineConfig) {
+		cfg.StateServerKeyPEM = []byte{}
 	}},
 	{"missing var directory", func(cfg *cloudinit.MachineConfig) {
 		cfg.DataDir = ""
@@ -304,7 +326,8 @@ var verifyTests = []struct {
 func (cloudinitSuite) TestCloudInitVerify(c *C) {
 	cfg := &cloudinit.MachineConfig{
 		StateServer:        true,
-		StateServerPEM:     serverPEM,
+		StateServerCertPEM: serverCertPEM,
+		StateServerKeyPEM:  serverKeyPEM,
 		InstanceIdAccessor: "$instance_id",
 		ProviderType:       "ec2",
 		MachineId:          99,
@@ -312,6 +335,7 @@ func (cloudinitSuite) TestCloudInitVerify(c *C) {
 		AuthorizedKeys:     "sshkey1",
 		StateInfo: &state.Info{
 			Addrs: []string{"host"},
+			CACertPEM: []byte(testing.CACertPEM),
 		},
 		Config:  envConfig,
 		DataDir: "/var/lib/juju",
@@ -330,7 +354,7 @@ func (cloudinitSuite) TestCloudInitVerify(c *C) {
 	}
 }
 
-var serverPEM = []byte(`
+var serverCertPEM = []byte(`
 -----BEGIN CERTIFICATE-----
 MIIBdzCCASOgAwIBAgIBADALBgkqhkiG9w0BAQUwHjENMAsGA1UEChMEanVqdTEN
 MAsGA1UEAxMEcm9vdDAeFw0xMjExMDgxNjIyMzRaFw0xMzExMDgxNjI3MzRaMBwx
@@ -341,6 +365,9 @@ HQ4EFgQU6G1ERaHCgfAv+yoDMFVpDbLOmIQwHwYDVR0jBBgwFoAUP/mfUdwOlHfk
 fR+gLQjslxf64w0wCwYJKoZIhvcNAQEFA0EAbn0MaxWVgGYBomeLYfDdb8vCq/5/
 G/2iCUQCXsVrBparMLFnor/iKOkJB5n3z3rtu70rFt+DpX6L8uBR3LB3+A==
 -----END CERTIFICATE-----
+`)
+
+var serverKeyPEM = []byte(`
 -----BEGIN RSA PRIVATE KEY-----
 MIIBPAIBAAJBAIAKrPok/AzudvEBa5v4A+mc0HubJyRYnqeew8qL1KKk/WHKF/OS
 nxEYwnlS/vLwJJO0nySD+JuRrVVXwu8/22cCAwEAAQJBAJsk1F0wTRuaIhJ5xxqw

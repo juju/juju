@@ -49,7 +49,7 @@ func (cs *ConnSuite) SetUpTest(c *C) {
 	cs.services = cs.MgoSuite.Session.DB("juju").C("services")
 	cs.units = cs.MgoSuite.Session.DB("juju").C("units")
 	var err error
-	cs.State, err = state.Open(cs.StateInfo(c))
+	cs.State, err = state.Open(state.TestingStateInfo())
 	c.Assert(err, IsNil)
 }
 
@@ -80,8 +80,4 @@ func (s *ConnSuite) AddTestingCharm(c *C, name string) *state.Charm {
 	sch, err := s.State.AddCharm(ch, curl, bundleURL, ident+"-sha256")
 	c.Assert(err, IsNil)
 	return sch
-}
-
-func (s *ConnSuite) StateInfo(c *C) *state.Info {
-	return &state.Info{Addrs: []string{testing.MgoAddr}}
 }

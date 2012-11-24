@@ -6,7 +6,7 @@ import (
 	"encoding/pem"
 )
 
-// CACertPEM and CAKeyPEM make up a root CA key pair.
+// CACertPEM and CAKeyPEM make up a CA key pair.
 // CACertX509 and CAKeyRSA hold their parsed equivalents.
 var (
 	CACertPEM = `
