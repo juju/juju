@@ -318,7 +318,6 @@ func (e *environ) StateInfo() (*state.Info, error) {
 	return &state.Info{
 		Addrs:  addrs,
 		CACertPEM: cert,
-		UseSSH: true,
 	}, nil
 }
 
