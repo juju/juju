@@ -25,11 +25,11 @@ type certSuite struct{}
 var _ = Suite(certSuite{})
 
 func (certSuite) TestParseCertificate(c *C) {
-	xcert, err := cert.ParseCertificate(certPEM)
+	xcert, err := cert.ParseCertificate(caCertPEM)
 	c.Assert(err, IsNil)
 	c.Assert(xcert.Subject.CommonName, Equals, "juju testing")
 
-	xcert, err = cert.ParseCertificate(keyPEM)
+	xcert, err = cert.ParseCertificate(caKeyPEM)
 	c.Check(xcert, IsNil)
 	c.Assert(err, ErrorMatches, "no certificates found")
 
@@ -39,39 +39,13 @@ func (certSuite) TestParseCertificate(c *C) {
 }
 
 func (certSuite) TestParseCertAndKey(c *C) {
-	xcert, key, err := cert.ParseCertAndKey(certPEM, keyPEM)
+	xcert, key, err := cert.ParseCertAndKey(caCertPEM, caKeyPEM)
 	c.Assert(err, IsNil)
 	c.Assert(xcert.Subject.CommonName, Equals, "juju testing")
 	c.Assert(key, NotNil)
 
 	c.Assert(xcert.PublicKey.(*rsa.PublicKey), DeepEquals, &key.PublicKey)
 }
-
-var certPEM = []byte(`
------BEGIN CERTIFICATE-----
-MIIBnTCCAUmgAwIBAgIBADALBgkqhkiG9w0BAQUwJjENMAsGA1UEChMEanVqdTEV
-MBMGA1UEAxMManVqdSB0ZXN0aW5nMB4XDTEyMTExNDE0Mzg1NFoXDTIyMTExNDE0
-NDM1NFowJjENMAsGA1UEChMEanVqdTEVMBMGA1UEAxMManVqdSB0ZXN0aW5nMFow
-CwYJKoZIhvcNAQEBA0sAMEgCQQCCOOpn9aWKcKr2GQGtygwD7PdfNe1I9BYiPAqa
-2I33F5+6PqFdfujUKvoyTJI6XG4Qo/CECaaN9smhyq9DxzMhAgMBAAGjZjBkMA4G
-A1UdDwEB/wQEAwIABDASBgNVHRMBAf8ECDAGAQH/AgEBMB0GA1UdDgQWBBQQDswP
-FQGeGMeTzPbHW62EZbbTJzAfBgNVHSMEGDAWgBQQDswPFQGeGMeTzPbHW62EZbbT
-JzALBgkqhkiG9w0BAQUDQQAqZzN0DqUyEfR8zIanozyD2pp10m9le+ODaKZDDNfH
-8cB2x26F1iZ8ccq5IC2LtQf1IKJnpTcYlLuDvW6yB96g
------END CERTIFICATE-----
-`)
-
-var keyPEM = []byte(`
------BEGIN RSA PRIVATE KEY-----
-MIIBOwIBAAJBAII46mf1pYpwqvYZAa3KDAPs91817Uj0FiI8CprYjfcXn7o+oV1+
-6NQq+jJMkjpcbhCj8IQJpo32yaHKr0PHMyECAwEAAQJAYctedh4raLE+Ir0a3qnK
-pjQSfiUggtYTvTf7+tfAnZu946PX88ysr7XHPkXEGP4tWDTbl8BfGndrTKswVOx6
-RQIhAOT5OzafJneDQ5cuGLN/hxIPBLWxKT1/25O6dhtBlRyPAiEAkZfFvCtBZyKB
-JFwDdp+7gE98mXtaFrjctLWeFx797U8CIAnnqiMTwWM8H2ljyhfBtYMXeTmu3zzU
-0hfS4hcNwDiLAiEAkNXXU7YEPkFJD46ps1x7/s0UOutHV8tXZD44ou+l1GkCIQDO
-HOzuvYngJpoClGw0ipzJPoNZ2Z/GkdOWGByPeKu/8g==
------END RSA PRIVATE KEY-----
-`)
 
 func (certSuite) TestNewCA(c *C) {
 	expiry := roundTime(time.Now().AddDate(0, 0, 1))
@@ -109,6 +83,13 @@ func (certSuite) TestNewServer(c *C) {
 	c.Assert(srvCert.IsCA, Equals, false)
 
 	checkTLSConnection(c, caCert, srvCert, srvKey)
+}
+
+func (certSuite) TestNewServerWithInvalidCert(c *C) {
+	srvCert, srvKey, err := cert.NewServer("foo", nonCACert, nonCAKey, time.Now())
+	c.Check(srvCert, IsNil)
+	c.Check(srvKey, IsNil)
+	c.Assert(err, ErrorMatches, "CA certificate is not a valid CA")
 }
 
 // checkTLSConnection checks that we can correctly perform a TLS
@@ -218,3 +199,55 @@ func copyClose(w io.WriteCloser, r io.Reader) {
 func roundTime(t time.Time) time.Time {
 	return t.Add(time.Duration(-t.Nanosecond()))
 }
+
+var (
+	caCertPEM = []byte(`
+-----BEGIN CERTIFICATE-----
+MIIBnTCCAUmgAwIBAgIBADALBgkqhkiG9w0BAQUwJjENMAsGA1UEChMEanVqdTEV
+MBMGA1UEAxMManVqdSB0ZXN0aW5nMB4XDTEyMTExNDE0Mzg1NFoXDTIyMTExNDE0
+NDM1NFowJjENMAsGA1UEChMEanVqdTEVMBMGA1UEAxMManVqdSB0ZXN0aW5nMFow
+CwYJKoZIhvcNAQEBA0sAMEgCQQCCOOpn9aWKcKr2GQGtygwD7PdfNe1I9BYiPAqa
+2I33F5+6PqFdfujUKvoyTJI6XG4Qo/CECaaN9smhyq9DxzMhAgMBAAGjZjBkMA4G
+A1UdDwEB/wQEAwIABDASBgNVHRMBAf8ECDAGAQH/AgEBMB0GA1UdDgQWBBQQDswP
+FQGeGMeTzPbHW62EZbbTJzAfBgNVHSMEGDAWgBQQDswPFQGeGMeTzPbHW62EZbbT
+JzALBgkqhkiG9w0BAQUDQQAqZzN0DqUyEfR8zIanozyD2pp10m9le+ODaKZDDNfH
+8cB2x26F1iZ8ccq5IC2LtQf1IKJnpTcYlLuDvW6yB96g
+-----END CERTIFICATE-----
+`)
+
+	caKeyPEM = []byte(`
+-----BEGIN RSA PRIVATE KEY-----
+MIIBOwIBAAJBAII46mf1pYpwqvYZAa3KDAPs91817Uj0FiI8CprYjfcXn7o+oV1+
+6NQq+jJMkjpcbhCj8IQJpo32yaHKr0PHMyECAwEAAQJAYctedh4raLE+Ir0a3qnK
+pjQSfiUggtYTvTf7+tfAnZu946PX88ysr7XHPkXEGP4tWDTbl8BfGndrTKswVOx6
+RQIhAOT5OzafJneDQ5cuGLN/hxIPBLWxKT1/25O6dhtBlRyPAiEAkZfFvCtBZyKB
+JFwDdp+7gE98mXtaFrjctLWeFx797U8CIAnnqiMTwWM8H2ljyhfBtYMXeTmu3zzU
+0hfS4hcNwDiLAiEAkNXXU7YEPkFJD46ps1x7/s0UOutHV8tXZD44ou+l1GkCIQDO
+HOzuvYngJpoClGw0ipzJPoNZ2Z/GkdOWGByPeKu/8g==
+-----END RSA PRIVATE KEY-----
+`)
+
+	nonCACert = []byte(`-----BEGIN CERTIFICATE-----
+MIIBmjCCAUagAwIBAgIBADALBgkqhkiG9w0BAQUwJjENMAsGA1UEChMEanVqdTEV
+MBMGA1UEAxMManVqdSB0ZXN0aW5nMB4XDTEyMTExNDE3MTU1NloXDTIyMTExNDE3
+MjA1NlowJjENMAsGA1UEChMEanVqdTEVMBMGA1UEAxMManVqdSB0ZXN0aW5nMFow
+CwYJKoZIhvcNAQEBA0sAMEgCQQC96/CsTTY1Va8et6QYNXwrssAi36asFlV/fksG
+hqRucidiz/+xHvhs9EiqEu7NGxeVAkcfIhXu6/BDlobtj2v5AgMBAAGjYzBhMA4G
+A1UdDwEB/wQEAwIABDAPBgNVHRMBAf8EBTADAgEBMB0GA1UdDgQWBBRqbxkIW4R0
+vmmkUoYuWg9sDob4jzAfBgNVHSMEGDAWgBRqbxkIW4R0vmmkUoYuWg9sDob4jzAL
+BgkqhkiG9w0BAQUDQQC3+KN8RppKdvlbP6fDwRC22PaCxd0PVyIHsn7I4jgpBPf8
+Z3codMYYA5/f0AmUsD7wi7nnJVPPLZK7JWu4VI/w
+-----END CERTIFICATE-----
+`)
+
+	nonCAKey = []byte(`-----BEGIN RSA PRIVATE KEY-----
+MIIBOgIBAAJBAL3r8KxNNjVVrx63pBg1fCuywCLfpqwWVX9+SwaGpG5yJ2LP/7Ee
++Gz0SKoS7s0bF5UCRx8iFe7r8EOWhu2Pa/kCAwEAAQJAdzuAxStUNPeuEWLJKkmp
+wuVdqocuZCtBUeE/yMEOyibZ9NLKSuDJuDorkoeoiBz2vyUITHkLp4jgNmCI8NGg
+AQIhAPZG9+3OghlzcqWR4nTho8KO/CuO9bu5G4jNEdIrSJ6BAiEAxWtoLZNMwI4Q
+kj2moFk9GdBXZV9I0t1VTwcDvVyeAXkCIDrfvldQPdO9wJOKK3vLkS1qpyf2lhIZ
+b1alx3PZuxOBAiAthPltYMRWtar+fTaZTFo5RH+SQSkibaRI534mQF+ySQIhAIml
+yiWVLC2XrtwijDu1fwh/wtFCb/bPvqvgG5wgAO+2
+-----END RSA PRIVATE KEY-----
+`)
+)
