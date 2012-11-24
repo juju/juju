@@ -1,4 +1,5 @@
 package cert
+
 import (
 	"crypto/rand"
 	"crypto/rsa"
@@ -30,7 +31,25 @@ func ParseCertificate(certPEM []byte) (*x509.Certificate, error) {
 	return nil, errors.New("no certificates found")
 }
 
-// NewCACert generates a CA certificate/key pair suitable for
+func ParseCertAndKey(certPEM, keyPEM []byte) (*x509.Certificate, *rsa.PrivateKey, error) {
+	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	cert, err := x509.ParseCertificate(tlsCert.Certificate[0])
+	if err != nil {
+		return nil, nil, err
+	}
+
+	key, ok := tlsCert.PrivateKey.(*rsa.PrivateKey)
+	if !ok {
+		return nil, nil, fmt.Errorf("private key with unexpected type %T", key)
+	}
+	return cert, key, nil
+}
+
+// NewCA generates a CA certificate/key pair suitable for
 // signing server keys for an environment with the
 // given name.
 func NewCA(envName string, expiry time.Time) (certPEM, keyPEM []byte, err error) {
@@ -52,8 +71,8 @@ func NewCA(envName string, expiry time.Time) (certPEM, keyPEM []byte, err error)
 		SubjectKeyId:          bigIntHash(key.N),
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
 		BasicConstraintsValid: true,
-		IsCA:       true,
-		MaxPathLen: 0, // Disallow delegation for now.
+		IsCA:                  true,
+		MaxPathLen:            0, // Disallow delegation for now.
 	}
 	certDER, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
 	if err != nil {
