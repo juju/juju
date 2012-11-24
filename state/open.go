@@ -48,6 +48,9 @@ func Open(info *Info) (*State, error) {
 	if len(info.Addrs) == 0 {
 		return nil, errors.New("no mongo addresses")
 	}
+	if len(info.CACertPEM) == 0 {
+		return nil, errors.New("no CA certificate")
+	}
 	var (
 		session *mgo.Session
 		fwd     *sshForwarder
