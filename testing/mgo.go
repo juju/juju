@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	stdtesting "testing"
 	"time"
@@ -40,10 +41,18 @@ func startMgoServer() error {
 	if err != nil {
 		return err
 	}
+	pemPath := filepath.Join(dbdir, "server.pem")
+	err = ioutil.WriteFile(pemPath, []byte(CACertPEM + CAKeyPEM), 0600)
+	if err != nil {
+		return fmt.Errorf("cannot write cert/key PEM: %v", err)
+	}
 	mgoport := strconv.Itoa(FindTCPPort())
 	mgoargs := []string{
 		"--auth",
 		"--dbpath", dbdir,
+		"--sslOnNormalPorts",
+		"--sslPEMKeyFile", pemPath,
+		"--sslPEMKeyPassword", "ignored",
 		"--bind_ip", "localhost",
 		"--port", mgoport,
 		"--nssize", "1",
