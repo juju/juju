@@ -69,16 +69,6 @@ func verifyKeyPair(certPEM, keyPEM []byte) error {
 		_, err := tls.X509KeyPair(certPEM, keyPEM)
 		return err
 	}
-	for len(certPEM) > 0 {
-		var certBlock *pem.Block
-		certBlock, certPEM = pem.Decode(certPEM)
-		if certBlock == nil {
-			break
-		}
-		if certBlock.Type == "CERTIFICATE" {
-			_, err := x509.ParseCertificate(certBlock.Bytes)
-			return err
-		}
-	}
-	return fmt.Errorf("no certificates found")
+	_, err := trivial.ParseX509Certificate(certPEM)
+	return err
 }

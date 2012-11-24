@@ -22,11 +22,6 @@ type Info struct {
 	// Each address should be in the form address:port.
 	Addrs []string
 
-	// UseSSH specifies whether MongoDB should be contacted through an
-	// SSH tunnel.
-	// TODO(rog) remove
-	UseSSH bool
-
 	// CACert holds the CA certificate that will be used
 	// to validate the state server's certificate.
 	CACertPEM []byte
@@ -56,14 +51,27 @@ func Open(info *Info) (*State, error) {
 	if len(info.CACertPEM) == 0 {
 		return nil, errors.New("no CA certificate")
 	}
-	if info.UseSSH {
-		// TODO implement authorization on SSL connection; drop sshDial.
-		if len(info.Addrs) > 1 {
-			return nil, errors.New("ssh connect does not support multiple addresses")
+	cert, err := parseCertPEM(info.CACertPEM)
+	if err != nil {
+		return nil, fmt.Errorf("cannot parse CA certificate: %v", err)
+	}
+	pool := x509.NewCertPool()
+	pool.AddCert(cert)
+	tlsConfig := &tls.Config{Pool: pool}
+	dial := func(addr net.Addr) (net.Conn, error) {
+		log.Printf("state: dialling %v", addr)
+		c, err := tls.Dial("tcp", addr.String(), tlsConfig)
+		if err != nil {
+			log.Printf("state: dial failed: %v", err)
+			return nil, err
 		}
-		fwd, session, err = sshDial(info.Addrs[0], "")
-	} else {
-		session, err = mgo.DialWithTimeout(strings.Join(info.Addrs, ","), 10*time.Minute)
+		log.Printf("state: dial succeeded")
+		return c, err
+	}
+	session, err := mgo.DialWithInfo(&mgo.DialInfo{
+		Addrs: info.Addrs,
+		Timeout: 10*time.Minute,
+		Dial: dial,
 	}
 	if err != nil {
 		return nil, err
