@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	stdlog "log"
 	"net"
 	"time"
 
@@ -55,15 +56,18 @@ func Open(info *Info) (*State, error) {
 	}
 	pool := x509.NewCertPool()
 	pool.AddCert(cert)
-	tlsConfig := &tls.Config{RootCAs: pool}
+	tlsConfig := &tls.Config{
+		RootCAs: pool,
+		ServerName: "anything",
+	}
 	dial := func(addr net.Addr) (net.Conn, error) {
-		log.Printf("state: dialling %v", addr)
+		stdlog.Printf("state: dialling %v", addr)
 		c, err := tls.Dial("tcp", addr.String(), tlsConfig)
 		if err != nil {
-			log.Printf("state: dial failed: %v", err)
+			stdlog.Printf("state: dial failed: %v", err)
 			return nil, err
 		}
-		log.Printf("state: dial succeeded")
+		stdlog.Printf("state: dial succeeded")
 		return c, err
 	}
 	session, err := mgo.DialWithInfo(&mgo.DialInfo{

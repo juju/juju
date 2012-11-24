@@ -42,7 +42,7 @@ func startMgoServer() error {
 		return err
 	}
 	pemPath := filepath.Join(dbdir, "server.pem")
-	err = ioutil.WriteFile(pemPath, []byte(CACertPEM + CAKeyPEM), 0600)
+	err = ioutil.WriteFile(pemPath, []byte(serverCertPEM + serverKeyPEM), 0600)
 	if err != nil {
 		return fmt.Errorf("cannot write cert/key PEM: %v", err)
 	}
@@ -61,6 +61,8 @@ func startMgoServer() error {
 		"--nojournal",
 	}
 	server := exec.Command("mongod", mgoargs...)
+	server.Stdout = os.Stdout
+	server.Stderr = os.Stderr
 	if err := server.Start(); err != nil {
 		os.RemoveAll(dbdir)
 		return err
