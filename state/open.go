@@ -1,9 +1,11 @@
 package state
 
 import (
+	"crypto/x509"
+	"crypto/tls"
 	"errors"
 	"fmt"
-	"strings"
+	"net"
 	"time"
 
 	"labix.org/v2/mgo"
@@ -12,6 +14,7 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
+	"launchpad.net/juju-core/trivial"
 )
 
 // Info encapsulates information about cluster of
@@ -43,21 +46,16 @@ func Open(info *Info) (*State, error) {
 	if len(info.Addrs) == 0 {
 		return nil, errors.New("no mongo addresses")
 	}
-	var (
-		session *mgo.Session
-		fwd     *sshForwarder
-		err     error
-	)
 	if len(info.CACertPEM) == 0 {
 		return nil, errors.New("no CA certificate")
 	}
-	cert, err := parseCertPEM(info.CACertPEM)
+	cert, err := trivial.ParseCertificate(info.CACertPEM)
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse CA certificate: %v", err)
 	}
 	pool := x509.NewCertPool()
 	pool.AddCert(cert)
-	tlsConfig := &tls.Config{Pool: pool}
+	tlsConfig := &tls.Config{RootCAs: pool}
 	dial := func(addr net.Addr) (net.Conn, error) {
 		log.Printf("state: dialling %v", addr)
 		c, err := tls.Dial("tcp", addr.String(), tlsConfig)
@@ -72,11 +70,11 @@ func Open(info *Info) (*State, error) {
 		Addrs: info.Addrs,
 		Timeout: 10*time.Minute,
 		Dial: dial,
-	}
+	})
 	if err != nil {
 		return nil, err
 	}
-	st, err := newState(session, fwd, info.EntityName, info.Password)
+	st, err := newState(session, info.EntityName, info.Password)
 	if err != nil {
 		session.Close()
 		return nil, err
@@ -149,7 +147,7 @@ func maybeUnauthorized(err error, msg string) error {
 	return fmt.Errorf("%s: %v", msg, err)
 }
 
-func newState(session *mgo.Session, fwd *sshForwarder, entity, password string) (*State, error) {
+func newState(session *mgo.Session, entity, password string) (*State, error) {
 	db := session.DB("juju")
 	pdb := session.DB("presence")
 	if entity != "" {
@@ -176,7 +174,6 @@ func newState(session *mgo.Session, fwd *sshForwarder, entity, password string) 
 		units:          db.C("units"),
 		presence:       pdb.C("presence"),
 		cleanups:       db.C("cleanups"),
-		fwd:            fwd,
 	}
 	log := db.C("txns.log")
 	info := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
