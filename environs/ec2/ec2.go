@@ -246,9 +246,13 @@ func (e *environ) Bootstrap(uploadTools bool, certPEM, keyPEM []byte) error {
 	if err != nil {
 		return fmt.Errorf("unable to determine inital configuration: %v", err)
 	}
+	cert, hasCert := e.Config.CACert()
+	if !hasCert {
+		return fmt.Errorf("environ config has no CA certificate")
+	}
 	info := &state.Info{
 		Password: trivial.PasswordHash(password),
-		// TODO(rog) add CACertPEM from environ.
+		CACertPEM: cert,
 	}
 	inst, err := e.startInstance(&startInstanceParams{
 		machineId:          0,
@@ -285,6 +289,10 @@ func (e *environ) StateInfo() (*state.Info, error) {
 	if err != nil {
 		return nil, err
 	}
+	cert, hasCert := e.Config.CACert()
+	if !hasCert {
+		return fmt.Errorf("environ config has no CA certificate")
+	}
 	var addrs []string
 	// Wait for the DNS names of any of the instances
 	// to become available.
@@ -309,7 +317,9 @@ func (e *environ) StateInfo() (*state.Info, error) {
 	}
 	return &state.Info{
 		Addrs:  addrs,
+		CACertPEM: 
 		UseSSH: true,
+		CACertPEM: cert,
 	}, nil
 }
 
