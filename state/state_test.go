@@ -433,11 +433,7 @@ func (s *StateSuite) TestEnvironConfigWithAdminSecret(c *C) {
 		"development":     true,
 		"admin-secret":    "foo",
 		"ca-cert":         testing.CACertPEM,
-<<<<<<< TREE
-		"ca-private-key":  nil,
-=======
 		"ca-private-key":  "",
->>>>>>> MERGE-SOURCE
 	}
 	cfg, err := config.New(attrs)
 	c.Assert(err, IsNil)
@@ -799,11 +795,7 @@ func (s *StateSuite) TestInitialize(c *C) {
 		"firewall-mode":   "",
 		"admin-secret":    "",
 		"ca-cert":         testing.CACertPEM,
-<<<<<<< TREE
-		"ca-private-key":  nil,
-=======
 		"ca-private-key":  "",
->>>>>>> MERGE-SOURCE
 	}
 	cfg, err := config.New(m)
 	c.Assert(err, IsNil)
@@ -825,11 +817,7 @@ func (s *StateSuite) TestDoubleInitialize(c *C) {
 		"firewall-mode":   "",
 		"admin-secret":    "",
 		"ca-cert":         testing.CACertPEM,
-<<<<<<< TREE
-		"ca-private-key":  nil,
-=======
 		"ca-private-key":  "",
->>>>>>> MERGE-SOURCE
 	}
 	cfg, err := config.New(m)
 	c.Assert(err, IsNil)
@@ -850,11 +838,7 @@ func (s *StateSuite) TestDoubleInitialize(c *C) {
 		"firewall-mode":   "",
 		"admin-secret":    "",
 		"ca-cert":         testing.CACertPEM,
-<<<<<<< TREE
-		"ca-private-key":  nil,
-=======
 		"ca-private-key":  "",
->>>>>>> MERGE-SOURCE
 	}
 	cfg, err = config.New(m)
 	c.Assert(err, IsNil)
@@ -910,10 +894,7 @@ var watchEnvironConfigTests = []attrs{
 		"name":            "my-name",
 		"authorized-keys": "i-am-a-key",
 		"ca-cert":         testing.CACertPEM,
-<<<<<<< TREE
-=======
 		"ca-private-key":  "",
->>>>>>> MERGE-SOURCE
 	},
 	{
 		// Add an attribute.
@@ -922,10 +903,7 @@ var watchEnvironConfigTests = []attrs{
 		"default-series":  "my-series",
 		"authorized-keys": "i-am-a-key",
 		"ca-cert":         testing.CACertPEM,
-<<<<<<< TREE
-=======
 		"ca-private-key":  "",
->>>>>>> MERGE-SOURCE
 	},
 	{
 		// Set a new attribute value.
@@ -934,10 +912,7 @@ var watchEnvironConfigTests = []attrs{
 		"default-series":  "my-series",
 		"authorized-keys": "i-am-a-key",
 		"ca-cert":         testing.CACertPEM,
-<<<<<<< TREE
-=======
 		"ca-private-key":  "",
->>>>>>> MERGE-SOURCE
 	},
 }
 
@@ -1000,10 +975,7 @@ func (s *StateSuite) TestWatchEnvironConfigInvalidConfig(c *C) {
 		"name":            "lisboa",
 		"authorized-keys": "i-am-a-key",
 		"ca-cert":         testing.CACertPEM,
-<<<<<<< TREE
-=======
 		"ca-private-key":  "",
->>>>>>> MERGE-SOURCE
 	}
 	cfg1, err := config.New(m)
 	c.Assert(err, IsNil)
@@ -1050,10 +1022,7 @@ func (s *StateSuite) TestWatchEnvironConfigInvalidConfig(c *C) {
 		"name":            "lisboa",
 		"authorized-keys": "new-key",
 		"ca-cert":         testing.CACertPEM,
-<<<<<<< TREE
-=======
 		"ca-private-key":  "",
->>>>>>> MERGE-SOURCE
 	})
 	c.Assert(err, IsNil)
 	err = s.State.SetEnvironConfig(cfg2)
