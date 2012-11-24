@@ -156,7 +156,7 @@ func BootstrapConfig(p EnvironProvider, cfg *config.Config, tools *state.Tools) 
 	}
 	// We never want to push admin-secret or the root CA private key to the cloud.
 	delete(m, "admin-secret")
-	m["ca-private-key"] = nil
+	m["ca-private-key"] = ""
 	m["agent-version"] = tools.Number.String()
 	return config.New(m)
 }
