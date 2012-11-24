@@ -31,8 +31,8 @@ func Bootstrap(environ Environ, uploadTools bool, writeCertFile func(name string
 		writeCertFile = writeCertFileToHome
 	}
 	cfg := environ.Config()
-	caCertPEM, hasCACert := cfg.CACertPEM()
-	caKeyPEM, hasCAKey := cfg.CAPrivateKeyPEM()
+	caCertPEM, hasCACert := cfg.CACert()
+	caKeyPEM, hasCAKey := cfg.CAPrivateKey()
 	log.Printf("got cert and key: %v, %v", hasCACert, hasCAKey)
 	if !hasCACert {
 		if hasCAKey {
