@@ -1,8 +1,8 @@
 package state
 
 import (
-	"crypto/x509"
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"net"
@@ -56,7 +56,7 @@ func Open(info *Info) (*State, error) {
 	pool := x509.NewCertPool()
 	pool.AddCert(cert)
 	tlsConfig := &tls.Config{
-		RootCAs: pool,
+		RootCAs:    pool,
 		ServerName: "anything",
 	}
 	dial := func(addr net.Addr) (net.Conn, error) {
@@ -70,9 +70,9 @@ func Open(info *Info) (*State, error) {
 		return c, err
 	}
 	session, err := mgo.DialWithInfo(&mgo.DialInfo{
-		Addrs: info.Addrs,
-		Timeout: 10*time.Minute,
-		Dial: dial,
+		Addrs:   info.Addrs,
+		Timeout: 10 * time.Minute,
+		Dial:    dial,
 	})
 	if err != nil {
 		return nil, err

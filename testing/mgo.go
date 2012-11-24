@@ -1,13 +1,13 @@
 package testing
 
 import (
-	"crypto/x509"
-	"launchpad.net/juju-core/cert"
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io/ioutil"
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/log"
 	"net"
 	"os"
@@ -45,7 +45,7 @@ func startMgoServer() error {
 		return err
 	}
 	pemPath := filepath.Join(dbdir, "server.pem")
-	err = ioutil.WriteFile(pemPath, []byte(serverCertPEM + serverKeyPEM), 0600)
+	err = ioutil.WriteFile(pemPath, []byte(serverCertPEM+serverKeyPEM), 0600)
 	if err != nil {
 		return fmt.Errorf("cannot write cert/key PEM: %v", err)
 	}
@@ -111,7 +111,7 @@ func MgoDial() *mgo.Session {
 	}
 	pool.AddCert(cert)
 	tlsConfig := &tls.Config{
-		RootCAs: pool,
+		RootCAs:    pool,
 		ServerName: "anything",
 	}
 	session, err := mgo.DialWithInfo(&mgo.DialInfo{
