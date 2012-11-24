@@ -52,11 +52,10 @@ var (
 	CACertPEM, CAKeyPEM = mustNewCA()
 
 	CACertX509 = mustParseCertPEM(CACertPEM)
-	CAKeyRSA = mustParseKeyPEM(CAKeyPEM)
+	CAKeyRSA   = mustParseKeyPEM(CAKeyPEM)
 
 	serverCertPEM, serverKeyPEM = mustNewServer()
 )
-
 
 func mustParseCertPEM(pemData string) *x509.Certificate {
 	b, _ := pem.Decode([]byte(pemData))

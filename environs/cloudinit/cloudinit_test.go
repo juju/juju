@@ -49,7 +49,7 @@ var cloudinitTests = []cloudinit.MachineConfig{
 		StateServerCertPEM: serverCertPEM,
 		StateServerKeyPEM:  serverKeyPEM,
 		StateInfo: &state.Info{
-			Password: "arble",
+			Password:  "arble",
 			CACertPEM: []byte(testing.CACertPEM),
 		},
 		Config:  envConfig,
@@ -66,7 +66,7 @@ var cloudinitTests = []cloudinit.MachineConfig{
 			Addrs:      []string{"state-addr.example.com"},
 			EntityName: "machine-99",
 			Password:   "arble",
-			CACertPEM: []byte(testing.CACertPEM),
+			CACertPEM:  []byte(testing.CACertPEM),
 		},
 	},
 }
@@ -265,7 +265,7 @@ var verifyTests = []struct {
 		cfg.StateServer = false
 		cfg.StateInfo = &state.Info{
 			EntityName: "machine-99",
-			CACertPEM: []byte(testing.CACertPEM),
+			CACertPEM:  []byte(testing.CACertPEM),
 		}
 	}},
 	{"missing CA certificate", func(cfg *cloudinit.MachineConfig) {
@@ -275,7 +275,7 @@ var verifyTests = []struct {
 		cfg.StateServer = false
 		cfg.StateInfo = &state.Info{
 			EntityName: "machine-99",
-			Addrs: []string{"host"},
+			Addrs:      []string{"host"},
 		}
 	}},
 	{"missing state server certificate", func(cfg *cloudinit.MachineConfig) {
@@ -334,7 +334,7 @@ func (cloudinitSuite) TestCloudInitVerify(c *C) {
 		Tools:              newSimpleTools("9.9.9-linux-arble"),
 		AuthorizedKeys:     "sshkey1",
 		StateInfo: &state.Info{
-			Addrs: []string{"host"},
+			Addrs:     []string{"host"},
 			CACertPEM: []byte(testing.CACertPEM),
 		},
 		Config:  envConfig,

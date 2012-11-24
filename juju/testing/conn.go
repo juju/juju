@@ -45,7 +45,7 @@ func InvalidStateInfo(machineId int) *state.Info {
 		Addrs:      []string{"0.1.2.3:1234"},
 		EntityName: state.MachineEntityName(machineId),
 		Password:   "unimportant",
-		CACertPEM: []byte(testing.CACertPEM),
+		CACertPEM:  []byte(testing.CACertPEM),
 	}
 }
 
