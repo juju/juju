@@ -132,7 +132,7 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 			"mkdir -p /opt",
 			fmt.Sprintf("wget --no-verbose -O - %s | tar xz -C /opt", shquote(url)),
 		)
-		if err := addMongoToBoot(c); err != nil {
+		if err := addMongoToBoot(c, cfg); err != nil {
 			return nil, err
 		}
 		addScripts(c, cfg.jujuTools()+"/jujud bootstrap-state"+
@@ -204,7 +204,7 @@ func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, name, args st
 	return nil
 }
 
-func addMongoToBoot(c *cloudinit.Config) error {
+func addMongoToBoot(c *cloudinit.Config, cfg *MachineConfig) error {
 	addScripts(c,
 		"mkdir -p /var/lib/juju/db/journal",
 		// Otherwise we get three files with 100M+ each, which takes time.
@@ -219,6 +219,9 @@ func addMongoToBoot(c *cloudinit.Config) error {
 		Cmd: "/opt/mongo/bin/mongod" +
 			" --auth" +
 			" --dbpath=/var/lib/juju/db" +
+			" --sslOnNormalPorts" +
+			" --sslPEMKeyFile '"+caCertPath(cfg) +"'"+
+			" --sslPEMKeyPassword ignored"+
 			" --bind_ip 0.0.0.0" +
 			" --port " + fmt.Sprint(mgoPort) +
 			" --noprealloc" +

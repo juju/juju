@@ -14,7 +14,7 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/cert"
 )
 
 // Info encapsulates information about cluster of
@@ -49,7 +49,7 @@ func Open(info *Info) (*State, error) {
 	if len(info.CACertPEM) == 0 {
 		return nil, errors.New("no CA certificate")
 	}
-	cert, err := trivial.ParseCertificate(info.CACertPEM)
+	cert, err := cert.ParseCertificate(info.CACertPEM)
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse CA certificate: %v", err)
 	}

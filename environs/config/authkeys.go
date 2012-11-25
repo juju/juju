@@ -5,7 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io/ioutil"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/cert"
 	"os"
 	"path/filepath"
 	"strings"
@@ -68,6 +68,6 @@ func verifyKeyPair(certPEM, keyPEM []byte) error {
 		_, err := tls.X509KeyPair(certPEM, keyPEM)
 		return err
 	}
-	_, err := trivial.ParseCertificate(certPEM)
+	_, err := cert.ParseCertificate(certPEM)
 	return err
 }
