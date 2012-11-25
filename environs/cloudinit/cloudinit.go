@@ -118,11 +118,10 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	)
 
 	if cfg.StateServer {
-		serverPEMPath := path.Join(cfg.DataDir, "server.pem")
 		addScripts(c,
 			fmt.Sprintf("echo %s > %s",
-				shquote(string(cfg.StateServerCertPEM)+string(cfg.StateServerKeyPEM)), serverPEMPath),
-			"chmod 600 "+serverPEMPath,
+				shquote(string(cfg.StateServerCertPEM)+string(cfg.StateServerKeyPEM)), serverPEMPath(cfg)),
+			"chmod 600 "+serverPEMPath(cfg),
 		)
 
 		// TODO The public bucket must come from the environment configuration.
@@ -160,6 +159,10 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 
 func caCertPath(cfg *MachineConfig) string {
 	return path.Join(cfg.DataDir, "ca-cert.pem")
+}
+
+func serverPEMPath(cfg *MachineConfig) string {
+	return path.Join(cfg.DataDir, "server.pem")
 }
 
 func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, name, args string) error {
@@ -220,8 +223,8 @@ func addMongoToBoot(c *cloudinit.Config, cfg *MachineConfig) error {
 			" --auth" +
 			" --dbpath=/var/lib/juju/db" +
 			" --sslOnNormalPorts" +
-			" --sslPEMKeyFile '"+caCertPath(cfg) +"'"+
-			" --sslPEMKeyPassword ignored"+
+			" --sslPEMKeyFile '" + serverPEMPath(cfg) + "'" +
+			" --sslPEMKeyPassword ignored" +
 			" --bind_ip 0.0.0.0" +
 			" --port " + fmt.Sprint(mgoPort) +
 			" --noprealloc" +

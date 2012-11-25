@@ -10,11 +10,11 @@ import (
 
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
+	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
-	"launchpad.net/juju-core/cert"
 )
 
 // Info encapsulates information about cluster of

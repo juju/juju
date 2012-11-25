@@ -110,6 +110,8 @@ func (t *cloudinitTest) check(c *C, cfg *cloudinit.MachineConfig) {
 			".*--initial-password '"+t.cfg.StateInfo.Password+"'"+
 			".* --machine-id [0-9]+"+
 			".*>> /var/log/juju/.*log 2>&1")
+		t.checkScripts(c, "mongod"+
+			".* --sslPEMKeyFile '[^']*/server.pem'")
 	} else {
 		t.checkScripts(c, "jujud machine"+
 			" --state-servers '"+strings.Join(t.cfg.StateInfo.Addrs, ",")+"'"+
