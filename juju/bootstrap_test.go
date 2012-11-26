@@ -127,7 +127,7 @@ NDM1NFowJjENMAsGA1UEChMEanVqdTEVMBMGA1UEAxMManVqdSB0ZXN0aW5n
 MIIBOwIBAAJBAII46mf1pYpwqvYZAa3KDAPs91817Uj0FiI8CprYjfcXn7o+oV1+
 -----END RSA PRIVATE KEY-----
 ` + testing.CACertPEM,
-	"bad CA PEM: crypto/tls: failed to parse key: .*",
+	"bad CA PEM: crypto/tls: .*",
 }, {
 	`-----BEGIN CERTIFICATE-----
 MIIBmjCCAUagAwIBAgIBADALBgkqhkiG9w0BAQUwJjENMAsGA1UEChMEanVqdTEV
