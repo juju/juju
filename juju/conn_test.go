@@ -38,6 +38,8 @@ func (*NewConnSuite) TestNewConnWithoutAdminSecret(c *C) {
 		"authorized-keys": "i-am-a-key",
 		"secret":          "pork",
 		"admin-secret":    "really",
+		"ca-cert":         coretesting.CACertPEM,
+		"ca-private-key":  coretesting.CAKeyPEM,
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
@@ -61,8 +63,7 @@ func (*NewConnSuite) TestNewConnFromName(c *C) {
 	c.Assert(err, ErrorMatches, ".*: no such file or directory")
 
 	if err := os.Mkdir(filepath.Join(home, ".juju"), 0755); err != nil {
-		c.Log("Could not create directory structure")
-		c.Fail()
+		c.Fatal("Could not create directory structure")
 	}
 	envs := filepath.Join(home, ".juju", "environments.yaml")
 	err = ioutil.WriteFile(envs, []byte(`
@@ -75,10 +76,9 @@ environments:
         authorized-keys: i-am-a-key
         admin-secret: conn-from-name-secret
 `), 0644)
-	if err != nil {
-		c.Log("Could not create environments.yaml")
-		c.Fail()
-	}
+
+	err = ioutil.WriteFile(filepath.Join(home, ".juju", "erewhemos-cert.pem"), []byte(coretesting.CACertPEM), 0600)
+	c.Assert(err, IsNil)
 
 	// Just run through a few operations on the dummy provider and verify that
 	// they behave as expected.
@@ -116,6 +116,8 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *C) {
 		"authorized-keys": "i-am-a-key",
 		"secret":          "pork",
 		"admin-secret":    "side-effect secret",
+		"ca-cert":         coretesting.CACertPEM,
+		"ca-private-key":  coretesting.CAKeyPEM,
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
@@ -154,6 +156,8 @@ func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *C) {
 		"authorized-keys": "i-am-a-key",
 		"secret":          "pork",
 		"admin-secret":    "some secret",
+		"ca-cert":         coretesting.CACertPEM,
+		"ca-private-key":  coretesting.CAKeyPEM,
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
@@ -191,6 +195,8 @@ func (cs *NewConnSuite) TestConnWithPassword(c *C) {
 		"authorized-keys": "i-am-a-key",
 		"secret":          "squirrel",
 		"admin-secret":    "nutkin",
+		"ca-cert":         coretesting.CACertPEM,
+		"ca-private-key":  coretesting.CAKeyPEM,
 	})
 	c.Assert(err, IsNil)
 	err = environs.Bootstrap(env, false, []byte(coretesting.CACertPEM+coretesting.CAKeyPEM))
@@ -246,6 +252,8 @@ func (s *ConnSuite) SetUpTest(c *C) {
 		"state-server":    true,
 		"authorized-keys": "i-am-a-key",
 		"admin-secret":    "deploy-test-secret",
+		"ca-cert":         coretesting.CACertPEM,
+		"ca-private-key":  coretesting.CAKeyPEM,
 	}
 	environ, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
