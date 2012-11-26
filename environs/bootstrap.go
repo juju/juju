@@ -31,8 +31,8 @@ func Bootstrap(environ Environ, uploadTools bool, writeCertFile func(name string
 		writeCertFile = writeCertFileToHome
 	}
 	cfg := environ.Config()
-	caCertPEM, hasCACert := cfg.CACertPEM()
-	caKeyPEM, hasCAKey := cfg.CAPrivateKeyPEM()
+	caCertPEM, hasCACert := cfg.CACert()
+	caKeyPEM, hasCAKey := cfg.CAPrivateKey()
 	log.Printf("got cert and key: %v, %v", hasCACert, hasCAKey)
 	if !hasCACert {
 		if hasCAKey {
@@ -96,8 +96,8 @@ func generateCACert(envName string) (certPEM, keyPEM []byte, err error) {
 		SubjectKeyId:          bigIntHash(key.N),
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
 		BasicConstraintsValid: true,
-		IsCA:       true,
-		MaxPathLen: 0, // Disallow delegation for now.
+		IsCA:                  true,
+		MaxPathLen:            0, // Disallow delegation for now.
 	}
 	certDER, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
 	if err != nil {

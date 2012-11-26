@@ -48,9 +48,6 @@ type Config struct {
 //	~/.juju/<name>-cert.pem
 //	~/.juju/<name>-private-key.pem
 //
-// The ca-cert and ca-private-key attributes may be explicitly
-// provided as nil values.
-//
 // The required keys (after any files have been read) are "name",
 // "type" and "authorized-keys", all of type string.  Additional keys
 // recognised are "agent-version" and "development", of types string
@@ -134,24 +131,29 @@ func New(attrs map[string]interface{}) (*Config, error) {
 	return c, nil
 }
 
-// maybeReadFile reads the given attribute from a file if necessary,
-// sets the attribute in attrs and deletes the associated path
-// attribute.  It returns the data for the attribute, which will be nil
+// maybeReadFile sets m[attr] to:
+//
+// 1) The content of the file m[attr+"-path"], if that's set
+// 2) Preserves m[attr] as "" if it was already ""
+// 3) The content of defaultPath if it exists and m[attr] is unset
+// 4) Preserves the content of m[attr], otherwise
+//
+// The m[attr+"-path"] key is always deleted.
+//
+// It returns the data for the attribute, which will be nil
 // if the attribute is not set.
-func maybeReadFile(attrs map[string]interface{}, attr, defaultPath string) ([]byte, error) {
+func maybeReadFile(m map[string]interface{}, attr, defaultPath string) ([]byte, error) {
 	pathAttr := attr + "-path"
-	path := attrs[pathAttr].(string)
-	delete(attrs, pathAttr)
-	if path == "" {
-		if v, ok := attrs[attr]; ok {
-			if v == nil {
+	path := m[pathAttr].(string)
+	delete(m, pathAttr)
+	hasPath := path != ""
+	if !hasPath {
+		if v, ok := m[attr]; ok {
+			if v == "" {
 				// The value is explicitly unspecified.
 				return nil, nil
 			}
-			if s := v.(string); s != "" {
-				// "" means default.
-				return []byte(s), nil
-			}
+			return []byte(v.(string)), nil
 		}
 		path = defaultPath
 	}
@@ -161,13 +163,13 @@ func maybeReadFile(attrs map[string]interface{}, attr, defaultPath string) ([]by
 	}
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
-		if os.IsNotExist(err) {
-			attrs[attr] = nil
+		if os.IsNotExist(err) && !hasPath {
+			m[attr] = ""
 			return nil, nil
 		}
 		return nil, err
 	}
-	attrs[attr] = string(data)
+	m[attr] = string(data)
 	return data, nil
 }
 
@@ -191,20 +193,22 @@ func (c *Config) AuthorizedKeys() string {
 	return c.m["authorized-keys"].(string)
 }
 
-// CACertPEM returns the X509 certificate for the
-// certifying authority, in PEM format.
-// It returns false if the certificate is not present.
-func (c *Config) CACertPEM() ([]byte, bool) {
-	s, ok := c.m["ca-cert"].(string)
-	return []byte(s), ok
+// CACert returns the certificate of the CA that signed the state server
+// certificate, in PEM format, and whether the setting is available.
+func (c *Config) CACert() ([]byte, bool) {
+	if s := c.m["ca-cert"].(string); s != "" {
+		return []byte(s), true
+	}
+	return nil, false
 }
 
-// CAPrivateKeyPEM returns the private key of the
-// certifying authority, in PEM format.
-// It returns false if the key is not present.
-func (c *Config) CAPrivateKeyPEM() (key []byte, ok bool) {
-	s, ok := c.m["ca-private-key"].(string)
-	return []byte(s), ok
+// CAPrivateKey returns the private key of the CA that signed the state
+// server certificate, in PEM format, and whether the setting is available.
+func (c *Config) CAPrivateKey() (key []byte, ok bool) {
+	if s := c.m["ca-private-key"].(string); s != "" {
+		return []byte(s), true
+	}
+	return nil, false
 }
 
 // AdminSecret returns the administrator password.
@@ -279,9 +283,9 @@ var fields = schema.Fields{
 	"agent-version":        schema.String(),
 	"development":          schema.Bool(),
 	"admin-secret":         schema.String(),
-	"ca-cert":              schema.OneOf(schema.String(), schema.Const(nil)),
+	"ca-cert":              schema.String(),
 	"ca-cert-path":         schema.String(),
-	"ca-private-key":       schema.OneOf(schema.String(), schema.Const(nil)),
+	"ca-private-key":       schema.String(),
 	"ca-private-key-path":  schema.String(),
 }
 
@@ -293,9 +297,9 @@ var defaults = schema.Defaults{
 	"agent-version":        schema.Omit,
 	"development":          false,
 	"admin-secret":         "",
-	"ca-cert":              "",
+	"ca-cert":              schema.Omit,
 	"ca-cert-path":         "",
-	"ca-private-key":       "",
+	"ca-private-key":       schema.Omit,
 	"ca-private-key-path":  "",
 }
 
