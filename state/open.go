@@ -69,20 +69,29 @@ func Open(info *Info) (*State, error) {
 		log.Printf("state: dial succeeded")
 		return c, err
 	}
-	session, err := mgo.DialWithInfo(&mgo.DialInfo{
-		Addrs:   info.Addrs,
-		Timeout: 10 * time.Minute,
-		Dial:    dial,
-	})
-	if err != nil {
-		return nil, err
+	attempts := 0
+	for{
+		session, err := mgo.DialWithInfo(&mgo.DialInfo{
+			Addrs:   info.Addrs,
+			Timeout: 10 * time.Minute,
+			Dial:    dial,
+		})
+		st, err := newState(session, info.EntityName, info.Password)
+		if err != nil {
+			session.Close()
+			if err == ErrUnauthorized && attempts < 5 {
+				// This can happen when the database
+				// is initializing, so try a few times before
+				// failing.
+				time.Sleep(100 * time.Millisecond)
+				attempts++
+				continue
+			}
+			return nil, err
+		}
+		return st, nil
 	}
-	st, err := newState(session, info.EntityName, info.Password)
-	if err != nil {
-		session.Close()
-		return nil, err
-	}
-	return st, nil
+	panic("unreachable")
 }
 
 // Initialize sets up an initial empty state and returns it.
