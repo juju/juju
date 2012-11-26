@@ -53,8 +53,8 @@ func (s *bootstrapSuite) TestBootstrapKeyGeneration(c *C) {
 	c.Assert(err, IsNil)
 
 	// Check that the cert and key have been set correctly in the configuration
-	cfgCertPEM, cfgCertOK := env.cfg.CACertPEM()
-	cfgKeyPEM, cfgKeyOK := env.cfg.CAPrivateKeyPEM()
+	cfgCertPEM, cfgCertOK := env.cfg.CACert()
+	cfgKeyPEM, cfgKeyOK := env.cfg.CAPrivateKey()
 	c.Assert(cfgCertOK, Equals, true)
 	c.Assert(cfgKeyOK, Equals, true)
 	c.Assert(cfgCertPEM, DeepEquals, caCertPEM)
@@ -78,8 +78,8 @@ func (s *bootstrapSuite) TestBootstrapFuncKeyGeneration(c *C) {
 	bootstrapCert, bootstrapKey := parseCertAndKey(c, env.certPEM, env.keyPEM)
 
 	// Check that the cert and key have been set correctly in the configuration
-	cfgCertPEM, cfgCertOK := env.cfg.CACertPEM()
-	cfgKeyPEM, cfgKeyOK := env.cfg.CAPrivateKeyPEM()
+	cfgCertPEM, cfgCertOK := env.cfg.CACert()
+	cfgKeyPEM, cfgKeyOK := env.cfg.CAPrivateKey()
 	c.Assert(cfgCertOK, Equals, true)
 	c.Assert(cfgKeyOK, Equals, true)
 	c.Assert(cfgCertPEM, DeepEquals, saved["foo-cert.pem"])
@@ -273,8 +273,8 @@ func newEnviron(name string, caCertPEM, caKeyPEM []byte) *bootstrapEnviron {
 		"name":            name,
 		"type":            "test",
 		"authorized-keys": "foo",
-		"ca-cert":         nil,
-		"ca-private-key":  nil,
+		"ca-cert":         "",
+		"ca-private-key":  "",
 	}
 	if caCertPEM != nil {
 		m["ca-cert"] = string(caCertPEM)
