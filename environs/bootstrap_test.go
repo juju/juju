@@ -179,4 +179,24 @@ func (e *bootstrapEnviron) Config() *config.Config {
 func (e *bootstrapEnviron) SetConfig(cfg *config.Config) error {
 	e.cfg = cfg
 	return nil
+<<<<<<< TREE
+=======
+}
+
+func x509ToPEM(cert *x509.Certificate) []byte {
+	return pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: cert.Raw,
+	})
+}
+
+func parseCertAndKey(c *C, certPEM, keyPEM []byte) (cert *x509.Certificate, key *rsa.PrivateKey) {
+	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
+	c.Assert(err, IsNil)
+
+	cert, err = x509.ParseCertificate(tlsCert.Certificate[0])
+	c.Assert(err, IsNil)
+
+	return cert, tlsCert.PrivateKey.(*rsa.PrivateKey)
+>>>>>>> MERGE-SOURCE
 }
