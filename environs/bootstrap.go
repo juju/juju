@@ -38,11 +38,11 @@ func Bootstrap(environ Environ, uploadTools bool, caPEM []byte) error {
 	}
 	// Generate a new key pair and certificate for
 	// the newly bootstrapped instance.
-	cert, err := generateCert(environ.Name(), caCert, caKey)
+	cert, key, err := generateCert(environ.Name(), caCert, caKey)
 	if err != nil {
 		return fmt.Errorf("cannot generate bootstrap certificate: %v", err)
 	}
-	return environ.Bootstrap(uploadTools, cert)
+	return environ.Bootstrap(uploadTools, cert, key)
 }
 
 const keyBits = 1024
@@ -95,10 +95,10 @@ func generateCACert(envName string) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-func generateCert(envName string, caCert *x509.Certificate, caKey *rsa.PrivateKey) ([]byte, error) {
+func generateCert(envName string, caCert *x509.Certificate, caKey *rsa.PrivateKey) (cert, key []byte, err error) {
 	priv, err := rsa.GenerateKey(rand.Reader, keyBits)
 	if err != nil {
-		return nil, fmt.Errorf("cannot generate key: %v", err)
+		return nil, nil, fmt.Errorf("cannot generate key: %v", err)
 	}
 	now := time.Now()
 	template := &x509.Certificate{
@@ -117,18 +117,17 @@ func generateCert(envName string, caCert *x509.Certificate, caKey *rsa.PrivateKe
 	}
 	certDER, err := x509.CreateCertificate(rand.Reader, template, caCert, &priv.PublicKey, caKey)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	var b bytes.Buffer
-	pem.Encode(&b, &pem.Block{
+	cert = pem.EncodeToMemory(&pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: certDER,
 	})
-	pem.Encode(&b, &pem.Block{
+	key = pem.EncodeToMemory(&pem.Block{
 		Type:  "RSA PRIVATE KEY",
 		Bytes: x509.MarshalPKCS1PrivateKey(priv),
 	})
-	return b.Bytes(), nil
+	return cert, key, nil
 }
 
 func bigIntHash(n *big.Int) []byte {
