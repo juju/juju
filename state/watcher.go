@@ -918,6 +918,195 @@ func (w *RelationUnitsWatcher) loop() (err error) {
 	panic("unreachable")
 }
 
+// UnitsWatcher notifies of changes to a set of units. Notifications will be
+// sent when units enter or leave the set, and when units in the set change
+// their lifecycle status. The initial event contains all non-Dead units in
+// the set. Once a unit's Dead status has been notified, it will not be
+// reported again.
+type UnitsWatcher struct {
+	commonWatcher
+	init     D
+	getUnits func() ([]string, error)
+	life     map[string]Life
+	in       chan watcher.Change
+	out      chan []string
+}
+
+// WatchPrincipalUnits2 returns a UnitsWatcher tracking the machine's principal units.
+// TODO: retire WatchPrincipalUnits
+func (m *Machine) WatchPrincipalUnits2() *UnitsWatcher {
+	m = &Machine{m.st, m.doc}
+	coll := m.st.machines.Name
+	init := D{{"_id", D{{"$in", m.doc.Principals}}}}
+	getUnits := func() ([]string, error) {
+		if err := m.Refresh(); err != nil {
+			return nil, err
+		}
+		return m.doc.Principals, nil
+	}
+	return newUnitsWatcher(m.st, init, getUnits, coll, m.doc.Id, m.doc.TxnRevno)
+}
+
+// WatchSubordinateUnits returns a UnitsWatcher tracking the unit's subordinate units.
+func (u *Unit) WatchSubordinateUnits() *UnitsWatcher {
+	u = &Unit{u.st, u.doc}
+	coll := u.st.units.Name
+	init := D{{"_id", D{{"$in", u.doc.Subordinates}}}}
+	getUnits := func() ([]string, error) {
+		if err := u.Refresh(); err != nil {
+			return nil, err
+		}
+		return u.doc.Subordinates, nil
+	}
+	return newUnitsWatcher(u.st, init, getUnits, coll, u.doc.Name, u.doc.TxnRevno)
+}
+
+func newUnitsWatcher(st *State, init D, getUnits func() ([]string, error), coll, id string, revno int64) *UnitsWatcher {
+	w := &UnitsWatcher{
+		commonWatcher: commonWatcher{st: st},
+		init:          init,
+		getUnits:      getUnits,
+		life:          map[string]Life{},
+		in:            make(chan watcher.Change),
+		out:           make(chan []string),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop(coll, id, revno))
+	}()
+	return w
+}
+
+// Changes returns the UnitsWatcher's output channel.
+func (w *UnitsWatcher) Changes() <-chan []string {
+	return w.out
+}
+
+type lifeTxnDoc struct {
+	Id       string `bson:"_id"`
+	Life     Life
+	TxnRevno int64
+}
+
+var lifeTxnFields = D{{"_id", 1}, {"life", 1}, {"txnrevno", 1}}
+
+// initial returns every non-Dead member of the tracked set.
+func (w *UnitsWatcher) initial() ([]string, error) {
+	docs := []lifeTxnDoc{}
+	if err := w.st.units.Find(w.init).Select(lifeTxnFields).All(&docs); err != nil {
+		return nil, err
+	}
+	changes := []string{}
+	for _, doc := range docs {
+		if doc.Life != Dead {
+			w.life[doc.Id] = doc.Life
+			w.st.watcher.Watch(w.st.units.Name, doc.Id, doc.TxnRevno, w.in)
+			changes = append(changes, doc.Id)
+		}
+	}
+	return changes, nil
+}
+
+// update adds to and returns changes, such that it contains the names of any
+// non-Dead units to have entered or left the tracked set.
+func (w *UnitsWatcher) update(changes []string) ([]string, error) {
+	latest, err := w.getUnits()
+	if err != nil {
+		return nil, err
+	}
+	for _, name := range latest {
+		if _, known := w.life[name]; !known {
+			changes, err = w.merge(changes, name)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	for name := range w.life {
+		if hasString(latest, name) {
+			continue
+		}
+		if !hasString(changes, name) {
+			changes = append(changes, name)
+		}
+		delete(w.life, name)
+		w.st.watcher.Unwatch(w.st.units.Name, name, w.in)
+	}
+	return changes, nil
+}
+
+// merge adds to and returns changes, such that it contains the supplied unit
+// name if that unit is unknown and non-Dead, or has changed lifecycle status.
+func (w *UnitsWatcher) merge(changes []string, name string) ([]string, error) {
+	doc := lifeTxnDoc{}
+	err := w.st.units.FindId(name).Select(lifeTxnFields).One(&doc)
+	gone := false
+	if err == mgo.ErrNotFound {
+		gone = true
+	} else if err != nil {
+		return nil, err
+	} else if doc.Life == Dead {
+		gone = true
+	}
+	life, known := w.life[name]
+	if known && gone {
+		delete(w.life, name)
+		w.st.watcher.Unwatch(w.st.units.Name, name, w.in)
+	} else if !known && !gone {
+		w.st.watcher.Watch(w.st.units.Name, name, doc.TxnRevno, w.in)
+		w.life[name] = doc.Life
+	} else if known && life != doc.Life {
+		w.life[name] = doc.Life
+	} else {
+		return changes, nil
+	}
+	if !hasString(changes, name) {
+		changes = append(changes, name)
+	}
+	return changes, nil
+}
+
+func (w *UnitsWatcher) loop(coll, id string, revno int64) error {
+	w.st.watcher.Watch(coll, id, revno, w.in)
+	defer func() {
+		w.st.watcher.Unwatch(coll, id, w.in)
+		for name := range w.life {
+			w.st.watcher.Unwatch(w.st.units.Name, name, w.in)
+		}
+	}()
+	changes, err := w.initial()
+	if err != nil {
+		return err
+	}
+	out := w.out
+	for {
+		select {
+		case <-w.st.watcher.Dead():
+			return watcher.MustErr(w.st.watcher)
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case c := <-w.in:
+			name := c.Id.(string)
+			if name == id {
+				changes, err = w.update(changes)
+			} else {
+				changes, err = w.merge(changes, name)
+			}
+			if err != nil {
+				return err
+			}
+			if len(changes) > 0 {
+				out = w.out
+			}
+		case out <- changes:
+			out = nil
+			changes = nil
+		}
+	}
+	return nil
+}
+
 // EnvironConfigWatcher observes changes to the
 // environment configuration.
 type EnvironConfigWatcher struct {
