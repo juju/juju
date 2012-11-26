@@ -148,6 +148,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 
 	auth := aws.Auth{ecfg.accessKey(), ecfg.secretKey()}
 	region := aws.Regions[ecfg.region()]
+	publicBucketRegion := aws.Regions[ecfg.publicBucketRegion()]
 	e.ec2Unlocked = ec2.New(auth, region)
 	e.s3Unlocked = s3.New(auth, region)
 
@@ -158,7 +159,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	}
 	if ecfg.publicBucket() != "" {
 		e.publicStorageUnlocked = &storage{
-			bucket: e.s3Unlocked.Bucket(ecfg.publicBucket()),
+			bucket: s3.New(auth, publicBucketRegion).Bucket(ecfg.publicBucket()),
 		}
 	} else {
 		e.publicStorageUnlocked = nil

@@ -9,17 +9,19 @@ import (
 
 var configChecker = schema.StrictFieldMap(
 	schema.Fields{
-		"access-key":     schema.String(),
-		"secret-key":     schema.String(),
-		"region":         schema.String(),
-		"control-bucket": schema.String(),
-		"public-bucket":  schema.String(),
+		"access-key":           schema.String(),
+		"secret-key":           schema.String(),
+		"region":               schema.String(),
+		"control-bucket":       schema.String(),
+		"public-bucket":        schema.String(),
+		"public-bucket-region": schema.String(),
 	},
 	schema.Defaults{
-		"access-key":    "",
-		"secret-key":    "",
-		"region":        "us-east-1",
-		"public-bucket": "juju-dist",
+		"access-key":           "",
+		"secret-key":           "",
+		"region":               "us-east-1",
+		"public-bucket":        "juju-dist",
+		"public-bucket-region": "us-east-1",
 	},
 )
 
@@ -38,6 +40,10 @@ func (c *environConfig) controlBucket() string {
 
 func (c *environConfig) publicBucket() string {
 	return c.attrs["public-bucket"].(string)
+}
+
+func (c *environConfig) publicBucketRegion() string {
+	return c.attrs["public-bucket-region"].(string)
 }
 
 func (c *environConfig) accessKey() string {
@@ -72,6 +78,9 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 	}
 	if _, ok := aws.Regions[ecfg.region()]; !ok {
 		return nil, fmt.Errorf("invalid region name %q", ecfg.region())
+	}
+	if _, ok := aws.Regions[ecfg.publicBucketRegion()]; !ok {
+		return nil, fmt.Errorf("invalid public-bucket-region name %q", ecfg.publicBucketRegion())
 	}
 
 	if old != nil {
