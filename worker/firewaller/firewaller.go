@@ -18,7 +18,7 @@ type Firewaller struct {
 	st              *state.State
 	environ         environs.Environ
 	environWatcher  *state.EnvironConfigWatcher
-	machinesWatcher *state.MachinesWatcher
+	machinesWatcher *state.LifecyclesWatcher
 	machineds       map[string]*machineData
 	unitsChange     chan *unitsChange
 	unitds          map[string]*unitData

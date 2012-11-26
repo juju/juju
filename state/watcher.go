@@ -3,7 +3,6 @@ package state
 import (
 	"labix.org/v2/mgo"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/tomb"
 	"strings"
@@ -81,9 +80,9 @@ func hasInt(changes []int, id int) bool {
 
 // LifecyclesWatcher notifies about lifecycle changes for all entities of
 // a given kind. The first event emitted will contain the ids of each such
-// entity, regardless of life state; subsequent events are emitted whenever
-// one such entity is added, or changes its lifecycle state. After an entity
-// is found to be Dead, no further event will include it.
+// non-Dead entity; subsequent events are emitted whenever one such entity
+// is added, or changes its lifecycle state. After an entity is found to be
+// Dead, no further event will include it.
 type LifecyclesWatcher struct {
 	commonWatcher
 	coll *mgo.Collection
@@ -134,8 +133,10 @@ func (w *LifecyclesWatcher) initial() (ids []string, err error) {
 	iter := w.coll.Find(nil).Select(lifeFields).Iter()
 	var doc lifeDoc
 	for iter.Next(&doc) {
-		ids = append(ids, doc.Id)
-		w.life[doc.Id] = doc.Life
+		if doc.Life != Dead {
+			ids = append(ids, doc.Id)
+			w.life[doc.Id] = doc.Life
+		}
 	}
 	if err := iter.Err(); err != nil {
 		return nil, err
@@ -145,38 +146,40 @@ func (w *LifecyclesWatcher) initial() (ids []string, err error) {
 
 func (w *LifecyclesWatcher) merge(ids []string, ch watcher.Change) ([]string, error) {
 	id := ch.Id.(string)
-	log.Printf("changed: %s", id)
-	for _, pending := range ids {
-		if id == pending {
-			return ids, nil
+	latest := lifeDoc{}
+	gone := false
+	if ch.Revno == -1 {
+		gone = true
+	} else {
+		err := w.coll.FindId(id).Select(lifeFields).One(&latest)
+		if err == mgo.ErrNotFound {
+			gone = true
+		} else if err != nil {
+			return nil, err
+		} else if latest.Life == Dead {
+			gone = true
 		}
 	}
-	if ch.Revno == -1 {
-		if life, ok := w.life[id]; ok && life != Dead {
-			ids = append(ids, id)
-		}
+	life, known := w.life[id]
+	if known && gone {
 		delete(w.life, id)
+	} else if !known && !gone {
+		w.life[id] = latest.Life
+	} else if known && life != latest.Life {
+		w.life[id] = latest.Life
+	} else {
 		return ids, nil
 	}
-	doc := lifeDoc{Id: id, Life: Dead}
-	err := w.coll.FindId(id).Select(lifeFields).One(&doc)
-	if err != nil && err != mgo.ErrNotFound {
-		return nil, err
-	}
-	log.Printf("%s; %s; %v", w.life[id], doc.Life, err)
-	if life, ok := w.life[id]; !ok || doc.Life != life {
+	if !hasString(ids, id) {
 		ids = append(ids, id)
-		if err != mgo.ErrNotFound {
-			w.life[id] = doc.Life
-		}
 	}
 	return ids, nil
 }
 
 func (w *LifecyclesWatcher) loop() (err error) {
-	ch := make(chan watcher.Change)
-	w.st.watcher.WatchCollection(w.coll.Name, ch)
-	defer w.st.watcher.UnwatchCollection(w.coll.Name, ch)
+	in := make(chan watcher.Change)
+	w.st.watcher.WatchCollection(w.coll.Name, in)
+	defer w.st.watcher.UnwatchCollection(w.coll.Name, in)
 	ids, err := w.initial()
 	if err != nil {
 		return err
@@ -184,12 +187,12 @@ func (w *LifecyclesWatcher) loop() (err error) {
 	out := w.out
 	for {
 		select {
-		case <-w.st.watcher.Dead():
-			return watcher.MustErr(w.st.watcher)
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
-		case c := <-ch:
-			if ids, err = w.merge(ids, c); err != nil {
+		case <-w.st.watcher.Dead():
+			return watcher.MustErr(w.st.watcher)
+		case ch := <-in:
+			if ids, err = w.merge(ids, ch); err != nil {
 				return err
 			}
 			if len(ids) > 0 {
