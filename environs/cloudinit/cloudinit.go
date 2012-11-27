@@ -114,7 +114,7 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 		debugFlag = " --debug"
 	}
 	addScripts(c,
-		fmt.Sprintf("echo %s > %s", shquote(cfg.StateInfo.CACertPEM), shquote(caCertPath(cfg))),
+		fmt.Sprintf("echo %s > %s", shquote(string(cfg.StateInfo.CACert)), shquote(caCertPath(cfg))),
 	)
 
 	if cfg.StateServer {
@@ -289,7 +289,7 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 	if cfg.StateInfo == nil {
 		return fmt.Errorf("missing state info")
 	}
-	if len(cfg.StateInfo.CACertPEM) == 0 {
+	if len(cfg.StateInfo.CACert) == 0 {
 		return fmt.Errorf("missing CA certificate")
 	}
 	if cfg.StateServer {

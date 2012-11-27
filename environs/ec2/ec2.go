@@ -246,32 +246,15 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 	if err != nil {
 		return fmt.Errorf("unable to determine inital configuration: %v", err)
 	}
-<<<<<<< TREE
-	cert, hasCert := e.Config().CACert()
+	caCert, hasCert := e.Config().CACert()
 	if !hasCert {
 		return fmt.Errorf("environ config has no CA certificate")
 	}
-=======
->>>>>>> MERGE-SOURCE
 	info := &state.Info{
-<<<<<<< TREE
 		Password:  trivial.PasswordHash(password),
-		CACertPEM: cert,
-=======
-		Password: trivial.PasswordHash(password),
-		// TODO(rog) add CACert from environ.
->>>>>>> MERGE-SOURCE
+		CACert: caCert,
 	}
 	inst, err := e.startInstance(&startInstanceParams{
-<<<<<<< TREE
-		machineId:          0,
-		info:               info,
-		tools:              tools,
-		stateServer:        true,
-		config:             config,
-		stateServerCertPEM: certPEM,
-		stateServerKeyPEM:  keyPEM,
-=======
 		machineId:       0,
 		info:            info,
 		tools:           tools,
@@ -279,7 +262,6 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 		config:          config,
 		stateServerCert: cert,
 		stateServerKey:  key,
->>>>>>> MERGE-SOURCE
 	})
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
@@ -358,13 +340,8 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 	cfg := &cloudinit.MachineConfig{
 		StateServer:        scfg.stateServer,
 		StateInfo:          scfg.info,
-<<<<<<< TREE
-		StateServerCertPEM: scfg.stateServerCertPEM,
-		StateServerKeyPEM:  scfg.stateServerKeyPEM,
-=======
 		StateServerCert:    scfg.stateServerCert,
 		StateServerKey:     scfg.stateServerKey,
->>>>>>> MERGE-SOURCE
 		InstanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
 		ProviderType:       "ec2",
 		DataDir:            "/var/lib/juju",
@@ -381,15 +358,6 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 }
 
 type startInstanceParams struct {
-<<<<<<< TREE
-	machineId          int
-	info               *state.Info
-	tools              *state.Tools
-	stateServer        bool
-	config             *config.Config
-	stateServerCertPEM []byte
-	stateServerKeyPEM  []byte
-=======
 	machineId       int
 	info            *state.Info
 	tools           *state.Tools
@@ -397,7 +365,6 @@ type startInstanceParams struct {
 	config          *config.Config
 	stateServerCert []byte
 	stateServerKey  []byte
->>>>>>> MERGE-SOURCE
 }
 
 // startInstance is the internal version of StartInstance, used by Bootstrap
