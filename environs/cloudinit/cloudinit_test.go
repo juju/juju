@@ -45,7 +45,8 @@ var cloudinitTests = []cloudinit.MachineConfig{
 		AuthorizedKeys:     "sshkey1",
 		Tools:              newSimpleTools("1.2.3-linux-amd64"),
 		StateServer:        true,
-		StateServerPEM:     serverPEM,
+		StateServerCertPEM: serverCertPEM,
+		StateServerKeyPEM:  serverKeyPEM,
 		StateInfo: &state.Info{
 			Password: "arble",
 		},
@@ -259,8 +260,11 @@ var verifyTests = []struct {
 		cfg.StateServer = false
 		cfg.StateInfo = &state.Info{EntityName: "machine-99"}
 	}},
-	{"missing state server PEM", func(cfg *cloudinit.MachineConfig) {
-		cfg.StateServerPEM = []byte{}
+	{"missing state server certificate", func(cfg *cloudinit.MachineConfig) {
+		cfg.StateServerCertPEM = []byte{}
+	}},
+	{"missing state server private key", func(cfg *cloudinit.MachineConfig) {
+		cfg.StateServerKeyPEM = []byte{}
 	}},
 	{"missing var directory", func(cfg *cloudinit.MachineConfig) {
 		cfg.DataDir = ""
@@ -304,7 +308,8 @@ var verifyTests = []struct {
 func (cloudinitSuite) TestCloudInitVerify(c *C) {
 	cfg := &cloudinit.MachineConfig{
 		StateServer:        true,
-		StateServerPEM:     serverPEM,
+		StateServerCertPEM: serverCertPEM,
+		StateServerKeyPEM:  serverKeyPEM,
 		InstanceIdAccessor: "$instance_id",
 		ProviderType:       "ec2",
 		MachineId:          99,
@@ -330,7 +335,7 @@ func (cloudinitSuite) TestCloudInitVerify(c *C) {
 	}
 }
 
-var serverPEM = []byte(`
+var serverCertPEM = []byte(`
 -----BEGIN CERTIFICATE-----
 MIIBdzCCASOgAwIBAgIBADALBgkqhkiG9w0BAQUwHjENMAsGA1UEChMEanVqdTEN
 MAsGA1UEAxMEcm9vdDAeFw0xMjExMDgxNjIyMzRaFw0xMzExMDgxNjI3MzRaMBwx
@@ -341,6 +346,9 @@ HQ4EFgQU6G1ERaHCgfAv+yoDMFVpDbLOmIQwHwYDVR0jBBgwFoAUP/mfUdwOlHfk
 fR+gLQjslxf64w0wCwYJKoZIhvcNAQEFA0EAbn0MaxWVgGYBomeLYfDdb8vCq/5/
 G/2iCUQCXsVrBparMLFnor/iKOkJB5n3z3rtu70rFt+DpX6L8uBR3LB3+A==
 -----END CERTIFICATE-----
+`)
+
+var serverKeyPEM = []byte(`
 -----BEGIN RSA PRIVATE KEY-----
 MIIBPAIBAAJBAIAKrPok/AzudvEBa5v4A+mc0HubJyRYnqeew8qL1KKk/WHKF/OS
 nxEYwnlS/vLwJJO0nySD+JuRrVVXwu8/22cCAwEAAQJBAJsk1F0wTRuaIhJ5xxqw

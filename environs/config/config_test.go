@@ -139,7 +139,7 @@ var configTests = []configTest{
 			"ca-cert":        caCert,
 			"ca-private-key": invalidCAKey,
 		},
-		err: "bad CA certificate/key in configuration: crypto/tls: failed to parse key:.*",
+		err: "bad CA certificate/key in configuration: crypto/tls:.*",
 	}, {
 		about: "No CA cert or key",
 		attrs: attrs{
