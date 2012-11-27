@@ -81,8 +81,6 @@ environments:
 	c.Assert(err, IsNil)
 	err = ioutil.WriteFile(filepath.Join(home, ".juju", "erewhemos-private-key.pem"), []byte(coretesting.CAKey), 0600)
 	c.Assert(err, IsNil)
-	err = ioutil.WriteFile(filepath.Join(home, ".juju", "erewhemos-private-key.pem"), []byte(coretesting.CAKey), 0600)
-	c.Assert(err, IsNil)
 
 	// Just run through a few operations on the dummy provider and verify that
 	// they behave as expected.
