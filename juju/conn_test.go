@@ -38,12 +38,12 @@ func (*NewConnSuite) TestNewConnWithoutAdminSecret(c *C) {
 		"authorized-keys": "i-am-a-key",
 		"secret":          "pork",
 		"admin-secret":    "really",
-		"ca-cert":         coretesting.CACertPEM,
-		"ca-private-key":  coretesting.CAKeyPEM,
+		"ca-cert":         coretesting.CACert,
+		"ca-private-key":  coretesting.CAKey,
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
-	err = juju.Bootstrap(env, false, []byte(coretesting.CACertPEM+coretesting.CAKeyPEM))
+	err = environs.Bootstrap(env, false, []byte(coretesting.CACert+coretesting.CAKey))
 	c.Assert(err, IsNil)
 
 	delete(attrs, "admin-secret")
@@ -77,7 +77,7 @@ environments:
         admin-secret: conn-from-name-secret
 `), 0644)
 
-	err = ioutil.WriteFile(filepath.Join(home, ".juju", "erewhemos-cert.pem"), []byte(coretesting.CACertPEM), 0600)
+	err = ioutil.WriteFile(filepath.Join(home, ".juju", "erewhemos-cert.pem"), []byte(coretesting.CACert), 0600)
 	c.Assert(err, IsNil)
 
 	// Just run through a few operations on the dummy provider and verify that
@@ -87,7 +87,7 @@ environments:
 
 	environ, err := environs.NewFromName("")
 	c.Assert(err, IsNil)
-	err = juju.Bootstrap(environ, false, []byte(coretesting.CACertPEM+coretesting.CAKeyPEM))
+	err = environs.Bootstrap(environ, false, []byte(coretesting.CACert+coretesting.CAKey))
 	c.Assert(err, IsNil)
 
 	conn, err = juju.NewConnFromName("")
@@ -116,12 +116,12 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *C) {
 		"authorized-keys": "i-am-a-key",
 		"secret":          "pork",
 		"admin-secret":    "side-effect secret",
-		"ca-cert":         coretesting.CACertPEM,
-		"ca-private-key":  coretesting.CAKeyPEM,
+		"ca-cert":         coretesting.CACert,
+		"ca-private-key":  coretesting.CAKey,
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
-	err = juju.Bootstrap(env, false, []byte(coretesting.CACertPEM+coretesting.CAKeyPEM))
+	err = environs.Bootstrap(env, false, []byte(coretesting.CACert+coretesting.CAKey))
 	c.Assert(err, IsNil)
 	info, err := env.StateInfo()
 	c.Assert(err, IsNil)
@@ -156,12 +156,12 @@ func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *C) {
 		"authorized-keys": "i-am-a-key",
 		"secret":          "pork",
 		"admin-secret":    "some secret",
-		"ca-cert":         coretesting.CACertPEM,
-		"ca-private-key":  coretesting.CAKeyPEM,
+		"ca-cert":         coretesting.CACert,
+		"ca-private-key":  coretesting.CAKey,
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
-	err = juju.Bootstrap(env, false, []byte(coretesting.CACertPEM+coretesting.CAKeyPEM))
+	err = environs.Bootstrap(env, false, []byte(coretesting.CACert+coretesting.CAKey))
 	c.Assert(err, IsNil)
 
 	// Make a new Conn, which will push the secrets.
@@ -195,11 +195,11 @@ func (cs *NewConnSuite) TestConnWithPassword(c *C) {
 		"authorized-keys": "i-am-a-key",
 		"secret":          "squirrel",
 		"admin-secret":    "nutkin",
-		"ca-cert":         coretesting.CACertPEM,
-		"ca-private-key":  coretesting.CAKeyPEM,
+		"ca-cert":         coretesting.CACert,
+		"ca-private-key":  coretesting.CAKey,
 	})
 	c.Assert(err, IsNil)
-	err = juju.Bootstrap(env, false, []byte(coretesting.CACertPEM+coretesting.CAKeyPEM))
+	err = environs.Bootstrap(env, false, []byte(coretesting.CACert+coretesting.CAKey))
 	c.Assert(err, IsNil)
 
 	// Check that Bootstrap has correctly used a hash
@@ -252,12 +252,12 @@ func (s *ConnSuite) SetUpTest(c *C) {
 		"state-server":    true,
 		"authorized-keys": "i-am-a-key",
 		"admin-secret":    "deploy-test-secret",
-		"ca-cert":         coretesting.CACertPEM,
-		"ca-private-key":  coretesting.CAKeyPEM,
+		"ca-cert":         coretesting.CACert,
+		"ca-private-key":  coretesting.CAKey,
 	}
 	environ, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
-	err = juju.Bootstrap(environ, false, []byte(coretesting.CACertPEM+coretesting.CAKeyPEM))
+	err = environs.Bootstrap(environ, false, []byte(coretesting.CACert+coretesting.CAKey))
 	c.Assert(err, IsNil)
 	s.conn, err = juju.NewConn(environ)
 	c.Assert(err, IsNil)

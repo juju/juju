@@ -29,10 +29,11 @@ type MachineConfig struct {
 	// or MongoDB instance.
 	StateServer bool
 
-	// StateServerPEM holds the state server certificate and private
-	// key in PEM format; it is required when StateServer is set,
-	// and ignored otherwise.
-	StateServerPEM []byte
+	// StateServerCert and StateServerKey hold the state server
+	// certificate and private key in PEM format; they are required when
+	// StateServer is set, and ignored otherwise.
+	StateServerCert []byte
+	StateServerKey  []byte
 
 	// InstanceIdAccessor holds bash code that evaluates to the current instance id.
 	InstanceIdAccessor string
@@ -120,7 +121,7 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 		serverPEMPath := path.Join(cfg.DataDir, "server.pem")
 		addScripts(c,
 			fmt.Sprintf("echo %s > %s",
-				shquote(string(cfg.StateServerPEM)), shquote(serverPEMPath)),
+				shquote(string(cfg.StateServerCert)+string(cfg.StateServerKey)), shquote(serverPEMPath)),
 			"chmod 600 "+serverPEMPath,
 		)
 
@@ -298,8 +299,11 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		if cfg.StateInfo.EntityName != "" {
 			return fmt.Errorf("entity name must be blank when starting a state server")
 		}
-		if len(cfg.StateServerPEM) == 0 {
-			return fmt.Errorf("missing state server PEM")
+		if len(cfg.StateServerCert) == 0 {
+			return fmt.Errorf("missing state server certificate")
+		}
+		if len(cfg.StateServerKey) == 0 {
+			return fmt.Errorf("missing state server private key")
 		}
 	} else {
 		if len(cfg.StateInfo.Addrs) == 0 {

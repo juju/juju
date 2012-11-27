@@ -131,9 +131,10 @@ type Environ interface {
 	// environment via the juju package, the password hash will be
 	// automatically replaced by the real password.
 	//
-	// The stateServerPEM parameter holds both the private key and the
-	// respective certificate to be used by the initial state server.
-	Bootstrap(uploadTools bool, stateServerPEM []byte) error
+	// The stateServerCertand stateServerKey parameters hold
+	// both the certificate and the respective private key to be
+	// used by the initial state server, in PEM format.
+	Bootstrap(uploadTools bool, stateServerCert, stateServerKey []byte) error
 
 	// StateInfo returns information on the state initialized
 	// by Bootstrap.

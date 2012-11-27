@@ -91,7 +91,7 @@ func (e *environ) Name() string {
 	return e.name
 }
 
-func (e *environ) Bootstrap(uploadTools bool, stateServerPEM []byte) error {
+func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 	panic("not implemented")
 }
 

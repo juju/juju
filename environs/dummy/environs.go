@@ -44,7 +44,10 @@ func stateInfo() *state.Info {
 	if testing.MgoAddr == "" {
 		panic("dummy environ state tests must be run with MgoTestPackage")
 	}
-	return &state.Info{Addrs: []string{testing.MgoAddr}}
+	return &state.Info{
+		Addrs:  []string{testing.MgoAddr},
+		CACert: []byte(testing.CACert),
+	}
 }
 
 // Operation represents an action on the dummy provider.
@@ -376,7 +379,7 @@ func (e *environ) Name() string {
 	return e.state.name
 }
 
-func (e *environ) Bootstrap(uploadTools bool, certAndKey []byte) error {
+func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 	defer delay()
 	if err := e.checkBroken("Bootstrap"); err != nil {
 		return err

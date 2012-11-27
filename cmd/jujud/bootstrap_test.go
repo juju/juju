@@ -78,7 +78,7 @@ func (s *BootstrapSuite) TestSetMachineId(c *C) {
 			"type":            "dummy",
 			"state-server":    false,
 			"authorized-keys": "i-am-a-key",
-			"ca-cert":         testing.CACertPEM,
+			"ca-cert":         testing.CACert,
 		}.encode(),
 	}
 	cmd, err := initBootstrapCommand(args)
@@ -86,7 +86,10 @@ func (s *BootstrapSuite) TestSetMachineId(c *C) {
 	err = cmd.Run(nil)
 	c.Assert(err, IsNil)
 
-	st, err := state.Open(&state.Info{Addrs: []string{testing.MgoAddr}})
+	st, err := state.Open(&state.Info{
+		Addrs:  []string{testing.MgoAddr},
+		CACert: []byte(testing.CACert),
+	})
 	c.Assert(err, IsNil)
 	defer st.Close()
 	machines, err := st.AllMachines()
@@ -108,7 +111,7 @@ func (s *BootstrapSuite) TestMachinerWorkers(c *C) {
 			"type":            "dummy",
 			"state-server":    false,
 			"authorized-keys": "i-am-a-key",
-			"ca-cert":         testing.CACertPEM,
+			"ca-cert":         testing.CACert,
 		}.encode(),
 	}
 	cmd, err := initBootstrapCommand(args)
@@ -116,7 +119,10 @@ func (s *BootstrapSuite) TestMachinerWorkers(c *C) {
 	err = cmd.Run(nil)
 	c.Assert(err, IsNil)
 
-	st, err := state.Open(&state.Info{Addrs: []string{testing.MgoAddr}})
+	st, err := state.Open(&state.Info{
+		Addrs:  []string{testing.MgoAddr},
+		CACert: []byte(testing.CACert),
+	})
 	c.Assert(err, IsNil)
 	defer st.Close()
 	m, err := st.Machine(0)
@@ -146,7 +152,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *C) {
 			"type":            "dummy",
 			"state-server":    false,
 			"authorized-keys": "i-am-a-key",
-			"ca-cert":         testing.CACertPEM,
+			"ca-cert":         testing.CACert,
 		}.encode(),
 		"--initial-password", "foo",
 	}
@@ -158,7 +164,8 @@ func (s *BootstrapSuite) TestInitialPassword(c *C) {
 	// Check that we cannot now connect to the state
 	// without a password.
 	info := &state.Info{
-		Addrs: []string{testing.MgoAddr},
+		Addrs:  []string{testing.MgoAddr},
+		CACert: []byte(testing.CACert),
 	}
 	testOpenState(c, info, state.ErrUnauthorized)
 

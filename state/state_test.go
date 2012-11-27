@@ -24,7 +24,7 @@ var _ = Suite(&StateSuite{})
 func (s *StateSuite) TestDialAgain(c *C) {
 	// Ensure idempotent operations on Dial are working fine.
 	for i := 0; i < 2; i++ {
-		st, err := state.Open(&state.Info{Addrs: []string{testing.MgoAddr}})
+		st, err := state.Open(state.TestingStateInfo())
 		c.Assert(err, IsNil)
 		c.Assert(st.Close(), IsNil)
 	}
@@ -399,12 +399,12 @@ func (s *StateSuite) TestEnvironConfig(c *C) {
 		"development":     true,
 		"firewall-mode":   "",
 		"admin-secret":    "",
-		"ca-cert":         testing.CACertPEM,
+		"ca-cert":         testing.CACert,
 		"ca-private-key":  "",
 	}
 	cfg, err := config.New(initial)
 	c.Assert(err, IsNil)
-	st, err := state.Initialize(&state.Info{Addrs: []string{testing.MgoAddr}}, cfg)
+	st, err := state.Initialize(state.TestingStateInfo(), cfg)
 	c.Assert(err, IsNil)
 	st.Close()
 	c.Assert(err, IsNil)
@@ -432,17 +432,17 @@ func (s *StateSuite) TestEnvironConfigWithAdminSecret(c *C) {
 		"default-series":  "precise",
 		"development":     true,
 		"admin-secret":    "foo",
-		"ca-cert":         testing.CACertPEM,
+		"ca-cert":         testing.CACert,
 		"ca-private-key":  "",
 	}
 	cfg, err := config.New(attrs)
 	c.Assert(err, IsNil)
-	_, err = state.Initialize(&state.Info{Addrs: []string{testing.MgoAddr}}, cfg)
+	_, err = state.Initialize(state.TestingStateInfo(), cfg)
 	c.Assert(err, ErrorMatches, "admin-secret should never be written to the state")
 
 	delete(attrs, "admin-secret")
 	cfg, err = config.New(attrs)
-	st, err := state.Initialize(&state.Info{Addrs: []string{testing.MgoAddr}}, cfg)
+	st, err := state.Initialize(state.TestingStateInfo(), cfg)
 	c.Assert(err, IsNil)
 	st.Close()
 
@@ -794,12 +794,12 @@ func (s *StateSuite) TestInitialize(c *C) {
 		"development":     true,
 		"firewall-mode":   "",
 		"admin-secret":    "",
-		"ca-cert":         testing.CACertPEM,
+		"ca-cert":         testing.CACert,
 		"ca-private-key":  "",
 	}
 	cfg, err := config.New(m)
 	c.Assert(err, IsNil)
-	st, err := state.Initialize(s.StateInfo(c), cfg)
+	st, err := state.Initialize(state.TestingStateInfo(), cfg)
 	c.Assert(err, IsNil)
 	c.Assert(st, NotNil)
 	defer st.Close()
@@ -816,12 +816,12 @@ func (s *StateSuite) TestDoubleInitialize(c *C) {
 		"development":     true,
 		"firewall-mode":   "",
 		"admin-secret":    "",
-		"ca-cert":         testing.CACertPEM,
+		"ca-cert":         testing.CACert,
 		"ca-private-key":  "",
 	}
 	cfg, err := config.New(m)
 	c.Assert(err, IsNil)
-	st, err := state.Initialize(s.StateInfo(c), cfg)
+	st, err := state.Initialize(state.TestingStateInfo(), cfg)
 	c.Assert(err, IsNil)
 	c.Assert(st, NotNil)
 	env1, err := st.EnvironConfig()
@@ -837,12 +837,12 @@ func (s *StateSuite) TestDoubleInitialize(c *C) {
 		"development":     false,
 		"firewall-mode":   "",
 		"admin-secret":    "",
-		"ca-cert":         testing.CACertPEM,
+		"ca-cert":         testing.CACert,
 		"ca-private-key":  "",
 	}
 	cfg, err = config.New(m)
 	c.Assert(err, IsNil)
-	st, err = state.Initialize(s.StateInfo(c), cfg)
+	st, err = state.Initialize(state.TestingStateInfo(), cfg)
 	c.Assert(err, IsNil)
 	c.Assert(st, NotNil)
 	env2, err := st.EnvironConfig()
@@ -893,7 +893,7 @@ var watchEnvironConfigTests = []attrs{
 		"type":            "my-type",
 		"name":            "my-name",
 		"authorized-keys": "i-am-a-key",
-		"ca-cert":         testing.CACertPEM,
+		"ca-cert":         testing.CACert,
 		"ca-private-key":  "",
 	},
 	{
@@ -902,7 +902,7 @@ var watchEnvironConfigTests = []attrs{
 		"name":            "my-name",
 		"default-series":  "my-series",
 		"authorized-keys": "i-am-a-key",
-		"ca-cert":         testing.CACertPEM,
+		"ca-cert":         testing.CACert,
 		"ca-private-key":  "",
 	},
 	{
@@ -911,7 +911,7 @@ var watchEnvironConfigTests = []attrs{
 		"name":            "my-new-name",
 		"default-series":  "my-series",
 		"authorized-keys": "i-am-a-key",
-		"ca-cert":         testing.CACertPEM,
+		"ca-cert":         testing.CACert,
 		"ca-private-key":  "",
 	},
 }
@@ -926,7 +926,7 @@ func (s *StateSuite) TestWatchEnvironConfig(c *C) {
 		change, err := config.New(test)
 		c.Assert(err, IsNil)
 		if i == 0 {
-			st, err := state.Initialize(&state.Info{Addrs: []string{testing.MgoAddr}}, change)
+			st, err := state.Initialize(state.TestingStateInfo(), change)
 			c.Assert(err, IsNil)
 			st.Close()
 		} else {
@@ -954,7 +954,7 @@ func (s *StateSuite) TestWatchEnvironConfig(c *C) {
 func (s *StateSuite) TestWatchEnvironConfigAfterCreation(c *C) {
 	cfg, err := config.New(watchEnvironConfigTests[0])
 	c.Assert(err, IsNil)
-	st, err := state.Initialize(&state.Info{Addrs: []string{testing.MgoAddr}}, cfg)
+	st, err := state.Initialize(state.TestingStateInfo(), cfg)
 	c.Assert(err, IsNil)
 	st.Close()
 	s.State.Sync()
@@ -974,12 +974,12 @@ func (s *StateSuite) TestWatchEnvironConfigInvalidConfig(c *C) {
 		"type":            "dummy",
 		"name":            "lisboa",
 		"authorized-keys": "i-am-a-key",
-		"ca-cert":         testing.CACertPEM,
+		"ca-cert":         testing.CACert,
 		"ca-private-key":  "",
 	}
 	cfg1, err := config.New(m)
 	c.Assert(err, IsNil)
-	st, err := state.Initialize(&state.Info{Addrs: []string{testing.MgoAddr}}, cfg1)
+	st, err := state.Initialize(state.TestingStateInfo(), cfg1)
 	c.Assert(err, IsNil)
 	st.Close()
 
@@ -1021,7 +1021,7 @@ func (s *StateSuite) TestWatchEnvironConfigInvalidConfig(c *C) {
 		"type":            "dummy",
 		"name":            "lisboa",
 		"authorized-keys": "new-key",
-		"ca-cert":         testing.CACertPEM,
+		"ca-cert":         testing.CACert,
 		"ca-private-key":  "",
 	})
 	c.Assert(err, IsNil)
@@ -1087,7 +1087,7 @@ func tryOpenState(info *state.Info) error {
 }
 
 func (s *StateSuite) TestOpenWithoutSetPassword(c *C) {
-	info := s.StateInfo(c)
+	info := state.TestingStateInfo()
 	info.EntityName, info.Password = "arble", "bar"
 	err := tryOpenState(info)
 	c.Assert(err, Equals, state.ErrUnauthorized)
@@ -1107,9 +1107,7 @@ type entity interface {
 }
 
 func testSetPassword(c *C, getEntity func(st *state.State) (entity, error)) {
-	info := &state.Info{
-		Addrs: []string{testing.MgoAddr},
-	}
+	info := state.TestingStateInfo()
 	st, err := state.Open(info)
 	c.Assert(err, IsNil)
 	defer st.Close()
@@ -1171,7 +1169,7 @@ func (s *StateSuite) TestSetAdminPassword(c *C) {
 	err = s.State.SetAdminPassword("foo")
 	c.Assert(err, IsNil)
 	defer s.State.SetAdminPassword("")
-	info := s.StateInfo(c)
+	info := state.TestingStateInfo()
 	err = tryOpenState(info)
 	c.Assert(err, Equals, state.ErrUnauthorized)
 

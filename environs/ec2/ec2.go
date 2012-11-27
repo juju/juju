@@ -207,7 +207,7 @@ func (e *environ) PublicStorage() environs.StorageReader {
 	return e.publicStorageUnlocked
 }
 
-func (e *environ) Bootstrap(uploadTools bool, stateServerPEM []byte) error {
+func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 	password := e.Config().AdminSecret()
 	if password == "" {
 		return fmt.Errorf("admin-secret is required for bootstrap")
@@ -246,14 +246,18 @@ func (e *environ) Bootstrap(uploadTools bool, stateServerPEM []byte) error {
 	if err != nil {
 		return fmt.Errorf("unable to determine inital configuration: %v", err)
 	}
-	info := &state.Info{Password: trivial.PasswordHash(password)}
+	info := &state.Info{
+		Password: trivial.PasswordHash(password),
+		// TODO(rog) add CACert from environ.
+	}
 	inst, err := e.startInstance(&startInstanceParams{
-		machineId:      0,
-		info:           info,
-		tools:          tools,
-		stateServer:    true,
-		config:         config,
-		stateServerPEM: stateServerPEM,
+		machineId:       0,
+		info:            info,
+		tools:           tools,
+		stateServer:     true,
+		config:          config,
+		stateServerCert: cert,
+		stateServerKey:  key,
 	})
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
@@ -324,11 +328,11 @@ func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.To
 }
 
 func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
-
 	cfg := &cloudinit.MachineConfig{
 		StateServer:        scfg.stateServer,
 		StateInfo:          scfg.info,
-		StateServerPEM:     scfg.stateServerPEM,
+		StateServerCert:    scfg.stateServerCert,
+		StateServerKey:     scfg.stateServerKey,
 		InstanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
 		ProviderType:       "ec2",
 		DataDir:            "/var/lib/juju",
@@ -345,12 +349,13 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 }
 
 type startInstanceParams struct {
-	machineId      int
-	info           *state.Info
-	tools          *state.Tools
-	stateServer    bool
-	config         *config.Config
-	stateServerPEM []byte
+	machineId       int
+	info            *state.Info
+	tools           *state.Tools
+	stateServer     bool
+	config          *config.Config
+	stateServerCert []byte
+	stateServerKey  []byte
 }
 
 // startInstance is the internal version of StartInstance, used by Bootstrap

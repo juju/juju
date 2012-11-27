@@ -1,4 +1,4 @@
-package juju_test
+package environs_test
 
 import (
 	"bytes"
@@ -11,7 +11,6 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/testing"
 	"net"
 	"os"
@@ -41,7 +40,7 @@ func (s *bootstrapSuite) TearDownTest(c *C) {
 
 func (s *bootstrapSuite) TestBootstrapKeyGeneration(c *C) {
 	env := &bootstrapEnviron{name: "foo"}
-	err := juju.Bootstrap(env, false, nil)
+	err := environs.Bootstrap(env, false, nil)
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
 
@@ -58,7 +57,7 @@ func (s *bootstrapSuite) TestBootstrapKeyGeneration(c *C) {
 	c.Assert(caName, Equals, `juju-generated CA for environment foo`)
 }
 
-var testServerPEM = []byte(testing.CACertPEM + testing.CAKeyPEM)
+var testServerPEM = []byte(testing.CACert + testing.CAKey)
 
 func (s *bootstrapSuite) TestBootstrapExistingKey(c *C) {
 	path := filepath.Join(os.Getenv("HOME"), ".juju", "bar.pem")
@@ -66,25 +65,25 @@ func (s *bootstrapSuite) TestBootstrapExistingKey(c *C) {
 	c.Assert(err, IsNil)
 
 	env := &bootstrapEnviron{name: "bar"}
-	err = juju.Bootstrap(env, false, nil)
+	err = environs.Bootstrap(env, false, nil)
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
 
 	bootstrapCert, bootstrapKey := parseCertAndKey(c, env.stateServerPEM)
 
-	caName := checkTLSConnection(c, certificate(testing.CACertPEM), bootstrapCert, bootstrapKey)
+	caName := checkTLSConnection(c, certificate(testing.CACert), bootstrapCert, bootstrapKey)
 	c.Assert(caName, Equals, testing.CACertX509.Subject.CommonName)
 }
 
 func (s *bootstrapSuite) TestBootstrapUploadTools(c *C) {
 	env := &bootstrapEnviron{name: "foo"}
-	err := juju.Bootstrap(env, false, testServerPEM)
+	err := environs.Bootstrap(env, false, testServerPEM)
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
 	c.Assert(env.uploadTools, Equals, false)
 
 	env = &bootstrapEnviron{name: "foo"}
-	err = juju.Bootstrap(env, true, testServerPEM)
+	err = environs.Bootstrap(env, true, testServerPEM)
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
 	c.Assert(env.uploadTools, Equals, true)
@@ -92,13 +91,13 @@ func (s *bootstrapSuite) TestBootstrapUploadTools(c *C) {
 
 func (s *bootstrapSuite) TestBootstrapWithCertArgument(c *C) {
 	env := &bootstrapEnviron{name: "bar"}
-	err := juju.Bootstrap(env, false, testServerPEM)
+	err := environs.Bootstrap(env, false, testServerPEM)
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
 
 	bootstrapCert, bootstrapKey := parseCertAndKey(c, env.stateServerPEM)
 
-	caName := checkTLSConnection(c, certificate(testing.CACertPEM), bootstrapCert, bootstrapKey)
+	caName := checkTLSConnection(c, certificate(testing.CACert), bootstrapCert, bootstrapKey)
 	c.Assert(caName, Equals, testing.CACertX509.Subject.CommonName)
 }
 
@@ -109,10 +108,10 @@ var invalidCertTests = []struct {
 	`xxxx`,
 	"bad CA PEM: CA PEM holds no certificate",
 }, {
-	testing.CACertPEM,
+	testing.CACert,
 	"bad CA PEM: CA PEM holds no private key",
 }, {
-	testing.CAKeyPEM,
+	testing.CAKey,
 	"bad CA PEM: CA PEM holds no certificate",
 }, {
 	`-----BEGIN CERTIFICATE-----
@@ -120,14 +119,14 @@ MIIBnTCCAUmgAwIBAgIBADALBgkqhkiG9w0BAQUwJjENMAsGA1UEChMEanVqdTEV
 MBMGA1UEAxMManVqdSB0ZXN0aW5nMB4XDTEyMTExNDE0Mzg1NFoXDTIyMTExNDE0
 NDM1NFowJjENMAsGA1UEChMEanVqdTEVMBMGA1UEAxMManVqdSB0ZXN0aW5n
 -----END CERTIFICATE-----
-` + testing.CAKeyPEM,
+` + testing.CAKey,
 	`bad CA PEM: ASN\.1.*`,
 }, {
 	`-----BEGIN RSA PRIVATE KEY-----
 MIIBOwIBAAJBAII46mf1pYpwqvYZAa3KDAPs91817Uj0FiI8CprYjfcXn7o+oV1+
 -----END RSA PRIVATE KEY-----
-` + testing.CACertPEM,
-	"bad CA PEM: crypto/tls: failed to parse key: .*",
+` + testing.CACert,
+	"bad CA PEM: crypto/tls: .*",
 }, {
 	`-----BEGIN CERTIFICATE-----
 MIIBmjCCAUagAwIBAgIBADALBgkqhkiG9w0BAQUwJjENMAsGA1UEChMEanVqdTEV
@@ -157,7 +156,7 @@ func (s *bootstrapSuite) TestBootstrapWithInvalidCert(c *C) {
 	for i, test := range invalidCertTests {
 		c.Logf("test %d", i)
 		env := &bootstrapEnviron{name: "foo"}
-		err := juju.Bootstrap(env, false, []byte(test.pem))
+		err := environs.Bootstrap(env, false, []byte(test.pem))
 		c.Check(env.bootstrapCount, Equals, 0)
 		c.Assert(err, ErrorMatches, test.err)
 	}
@@ -278,10 +277,10 @@ func (e *bootstrapEnviron) Name() string {
 	return e.name
 }
 
-func (e *bootstrapEnviron) Bootstrap(uploadTools bool, stateServerPEM []byte) error {
+func (e *bootstrapEnviron) Bootstrap(uploadTools bool, certPEM, keyPEM []byte) error {
 	e.bootstrapCount++
 	e.uploadTools = uploadTools
-	e.stateServerPEM = stateServerPEM
+	e.stateServerPEM = []byte(string(certPEM) + string(keyPEM))
 	return nil
 }
 
