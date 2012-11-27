@@ -251,11 +251,11 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 		// TODO(rog) add CACert from environ.
 	}
 	inst, err := e.startInstance(&startInstanceParams{
-		machineId:          0,
-		info:               info,
-		tools:              tools,
-		stateServer:        true,
-		config:             config,
+		machineId:       0,
+		info:            info,
+		tools:           tools,
+		stateServer:     true,
+		config:          config,
 		stateServerCert: cert,
 		stateServerKey:  key,
 	})
@@ -331,8 +331,8 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 	cfg := &cloudinit.MachineConfig{
 		StateServer:        scfg.stateServer,
 		StateInfo:          scfg.info,
-		StateServerCert: scfg.stateServerCert,
-		StateServerKey:  scfg.stateServerKey,
+		StateServerCert:    scfg.stateServerCert,
+		StateServerKey:     scfg.stateServerKey,
 		InstanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
 		ProviderType:       "ec2",
 		DataDir:            "/var/lib/juju",
@@ -349,11 +349,11 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 }
 
 type startInstanceParams struct {
-	machineId          int
-	info               *state.Info
-	tools              *state.Tools
-	stateServer        bool
-	config             *config.Config
+	machineId       int
+	info            *state.Info
+	tools           *state.Tools
+	stateServer     bool
+	config          *config.Config
 	stateServerCert []byte
 	stateServerKey  []byte
 }
