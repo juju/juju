@@ -256,8 +256,8 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 		tools:              tools,
 		stateServer:        true,
 		config:             config,
-		stateServerCertPEM: cert,
-		stateServerKeyPEM:  key,
+		stateServerCert: cert,
+		stateServerKey:  key,
 	})
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
@@ -331,8 +331,8 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 	cfg := &cloudinit.MachineConfig{
 		StateServer:        scfg.stateServer,
 		StateInfo:          scfg.info,
-		StateServerCertPEM: scfg.stateServerCertPEM,
-		StateServerKeyPEM:  scfg.stateServerKeyPEM,
+		StateServerCert: scfg.stateServerCert,
+		StateServerKey:  scfg.stateServerKey,
 		InstanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
 		ProviderType:       "ec2",
 		DataDir:            "/var/lib/juju",
@@ -354,8 +354,8 @@ type startInstanceParams struct {
 	tools              *state.Tools
 	stateServer        bool
 	config             *config.Config
-	stateServerCertPEM []byte
-	stateServerKeyPEM  []byte
+	stateServerCert []byte
+	stateServerKey  []byte
 }
 
 // startInstance is the internal version of StartInstance, used by Bootstrap
