@@ -211,7 +211,7 @@ func (suite) TestBootstrapConfig(c *C) {
 		"secret":          "um",
 		"authorized-keys": "i-am-a-key",
 		"ca-cert":         testing.CACert,
-		"ca-private-key":  testing.CAKeyPEM,
+		"ca-private-key":  testing.CAKey,
 	})
 	c.Assert(err, IsNil)
 	provider, err := environs.Provider(cfg.Type())
@@ -243,7 +243,7 @@ func makeFakeHome(c *C, certNames ...string) fakeHome {
 	for _, name := range certNames {
 		err := ioutil.WriteFile(homePath(".juju", name+"-cert.pem"), []byte(testing.CACert), 0666)
 		c.Assert(err, IsNil)
-		err = ioutil.WriteFile(homePath(".juju", name+"-private-key.pem"), []byte(testing.CAKeyPEM), 0666)
+		err = ioutil.WriteFile(homePath(".juju", name+"-private-key.pem"), []byte(testing.CAKey), 0666)
 		c.Assert(err, IsNil)
 	}
 

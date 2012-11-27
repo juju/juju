@@ -17,7 +17,7 @@ func init() {
 		"admin-secret":    "fish",
 		"authorized-keys": "foo",
 		"ca-cert":         testing.CACert,
-		"ca-private-key":  testing.CAKeyPEM,
+		"ca-private-key":  testing.CAKey,
 	}
 	Suite(&jujutest.LiveTests{
 		Config:         attrs,

@@ -189,7 +189,7 @@ func makeFakeHome(c *C, certNames ...string) fakeHome {
 		err := ioutil.WriteFile(homePath(".juju", name+"-cert.pem"), []byte(testing.CACert), 0666)
 		c.Assert(err, IsNil)
 
-		err = ioutil.WriteFile(homePath(".juju", name+"-private-key.pem"), []byte(testing.CAKeyPEM), 0666)
+		err = ioutil.WriteFile(homePath(".juju", name+"-private-key.pem"), []byte(testing.CAKey), 0666)
 		c.Assert(err, IsNil)
 	}
 

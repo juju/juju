@@ -27,7 +27,7 @@ func (s *LocalSuite) SetUpSuite(c *C) {
 		"type":            "openstack",
 		"authorized-keys": "foo",
 		"ca-cert":         coretesting.CACert,
-		"ca-private-key":  coretesting.CAKeyPEM,
+		"ca-private-key":  coretesting.CAKey,
 	})
 	c.Assert(err, IsNil)
 	s.env = env

@@ -35,7 +35,7 @@ func registerLocalTests() {
 		"secret-key":      "x",
 		"authorized-keys": "foo",
 		"ca-cert":         testing.CACert,
-		"ca-private-key":  testing.CAKeyPEM,
+		"ca-private-key":  testing.CAKey,
 	}
 
 	Suite(&localServerSuite{
@@ -196,7 +196,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	policy := t.env.AssignmentPolicy()
 	c.Assert(policy, Equals, state.AssignUnused)
 
-	err := environs.Bootstrap(t.env, true, []byte(testing.CACert+testing.CAKeyPEM))
+	err := environs.Bootstrap(t.env, true, []byte(testing.CACert+testing.CAKey))
 	c.Assert(err, IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
