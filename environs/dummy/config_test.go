@@ -18,7 +18,7 @@ func (*ConfigSuite) TestSecretAttrs(c *C) {
 		"type":            "dummy",
 		"state-server":    true,
 		"authorized-keys": "i-am-a-key",
-		"ca-cert":         testing.CACertPEM,
+		"ca-cert":         testing.CACert,
 		"ca-private-key":  "",
 	})
 	c.Assert(err, IsNil)
@@ -67,7 +67,7 @@ func (*ConfigSuite) TestFirewallMode(c *C) {
 			"type":            "dummy",
 			"state-server":    true,
 			"authorized-keys": "none",
-			"ca-cert":         testing.CACertPEM,
+			"ca-cert":         testing.CACert,
 			"ca-private-key":  "",
 		}
 		if test.configFirewallMode != "" {

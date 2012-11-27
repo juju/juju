@@ -86,7 +86,7 @@ func (v *yamlBase64Value) String() string {
 	return fmt.Sprintf("%v", *v)
 }
 
-// yamlBase64Var sets up a gnuflag flag analagously to FlagSet.*Var methods.
+// yamlBase64Var sets up a gnuflag flag analogous to the FlagSet.*Var methods.
 func yamlBase64Var(fs *gnuflag.FlagSet, target *map[string]interface{}, name string, value string, usage string) {
 	fs.Var((*yamlBase64Value)(target), name, usage)
 }

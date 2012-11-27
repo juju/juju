@@ -98,9 +98,9 @@ func generateCACert(envName string) (certPEM, keyPEM []byte, err error) {
 		NotAfter:              now.UTC().AddDate(10, 0, 0), // 10 years hence.
 		SubjectKeyId:          bigIntHash(key.N),
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
-		BasicConstraintsValid: true,
 		IsCA:                  true,
 		MaxPathLen:            0, // Disallow delegation for now.
+		BasicConstraintsValid: true,
 	}
 	certDER, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
 	if err != nil {

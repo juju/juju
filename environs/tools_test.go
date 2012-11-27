@@ -31,7 +31,7 @@ func (t *ToolsSuite) SetUpTest(c *C) {
 		"type":            "dummy",
 		"state-server":    false,
 		"authorized-keys": "i-am-a-key",
-		"ca-cert":         testing.CACertPEM,
+		"ca-cert":         testing.CACert,
 		"ca-private-key":  "",
 	})
 	c.Assert(err, IsNil)

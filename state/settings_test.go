@@ -13,9 +13,18 @@ type SettingsSuite struct {
 
 var _ = Suite(&SettingsSuite{})
 
+// TestingStateInfo returns information suitable for
+// connecting to the testing state server.
+func TestingStateInfo() *Info {
+	return &Info{
+		Addrs:  []string{testing.MgoAddr},
+		CACert: []byte(testing.CACert),
+	}
+}
+
 func (s *SettingsSuite) SetUpTest(c *C) {
 	s.MgoSuite.SetUpTest(c)
-	state, err := Open(&Info{Addrs: []string{testing.MgoAddr}})
+	state, err := Open(TestingStateInfo())
 	c.Assert(err, IsNil)
 
 	s.state = state

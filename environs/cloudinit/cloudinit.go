@@ -29,11 +29,11 @@ type MachineConfig struct {
 	// or MongoDB instance.
 	StateServer bool
 
-	// StateServerCertPEM and StateServerKeyPEM hold the state server
+	// StateServerCert and StateServerKey hold the state server
 	// certificate and private key in PEM format; they are required when
 	// StateServer is set, and ignored otherwise.
-	StateServerCertPEM []byte
-	StateServerKeyPEM  []byte
+	StateServerCert []byte
+	StateServerKey  []byte
 
 	// InstanceIdAccessor holds bash code that evaluates to the current instance id.
 	InstanceIdAccessor string
@@ -86,8 +86,6 @@ func base64yaml(m *config.Config) string {
 	return base64.StdEncoding.EncodeToString(data)
 }
 
-const serverPEMPath = "/var/lib/juju/server.pem"
-
 func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	if err := verifyConfig(cfg); err != nil {
 		return nil, err
@@ -115,11 +113,15 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	if true || log.Debug {
 		debugFlag = " --debug"
 	}
+	addScripts(c,
+		fmt.Sprintf("echo %s > %s", shquote(caCert), shquote(caCertPath(cfg))),
+	)
 
 	if cfg.StateServer {
+		serverPEMPath := path.Join(cfg.DataDir, "server.pem")
 		addScripts(c,
 			fmt.Sprintf("echo %s > %s",
-				shquote(string(cfg.StateServerCertPEM)+string(cfg.StateServerKeyPEM)), serverPEMPath),
+				shquote(string(cfg.StateServerCert)+string(cfg.StateServerKey)), shquote(serverPEMPath)),
 			"chmod 600 "+serverPEMPath,
 		)
 
@@ -137,10 +139,10 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 			" --instance-id "+cfg.InstanceIdAccessor+
 			" --env-config "+shquote(base64yaml(cfg.Config))+
 			" --state-servers localhost"+mgoPortSuffix+
+			" --ca-cert "+shquote(caCertPath(cfg))+
 			" --initial-password "+shquote(cfg.StateInfo.Password)+
 			debugFlag,
 		)
-
 	}
 
 	if err := addAgentToBoot(c, cfg, "machine",
@@ -154,6 +156,10 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	c.SetAptUpdate(true)
 	c.SetOutput(cloudinit.OutAll, "| tee -a /var/log/cloud-init-output.log", "")
 	return c, nil
+}
+
+func caCertPath(cfg *MachineConfig) string {
+	return path.Join(cfg.DataDir, "ca-cert.pem")
 }
 
 func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, name, args string) error {
@@ -171,12 +177,14 @@ func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, name, args st
 	cmd := fmt.Sprintf(
 		"%s/jujud %s"+
 			" --state-servers '%s'"+
+			" --ca-cert '%s'"+
 			" --log-file %s"+
 			" --data-dir '%s'"+
 			" --initial-password '%s'"+
 			" %s",
 		toolsDir, kind,
 		cfg.stateHostAddrs(),
+		caCertPath(cfg),
 		logPath,
 		cfg.DataDir,
 		cfg.StateInfo.Password,
@@ -291,10 +299,10 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		if cfg.StateInfo.EntityName != "" {
 			return fmt.Errorf("entity name must be blank when starting a state server")
 		}
-		if len(cfg.StateServerCertPEM) == 0 {
+		if len(cfg.StateServerCert) == 0 {
 			return fmt.Errorf("missing state server certificate")
 		}
-		if len(cfg.StateServerKeyPEM) == 0 {
+		if len(cfg.StateServerKey) == 0 {
 			return fmt.Errorf("missing state server private key")
 		}
 	} else {
@@ -312,3 +320,18 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 	}
 	return nil
 }
+
+// TODO(rog) remove this and use certificate from config instead
+var caCert = `
+-----BEGIN CERTIFICATE-----
+MIIBnTCCAUmgAwIBAgIBADALBgkqhkiG9w0BAQUwJjENMAsGA1UEChMEanVqdTEV
+MBMGA1UEAxMManVqdSB0ZXN0aW5nMB4XDTEyMTExNDE0Mzg1NFoXDTIyMTExNDE0
+NDM1NFowJjENMAsGA1UEChMEanVqdTEVMBMGA1UEAxMManVqdSB0ZXN0aW5nMFow
+CwYJKoZIhvcNAQEBA0sAMEgCQQCCOOpn9aWKcKr2GQGtygwD7PdfNe1I9BYiPAqa
+2I33F5+6PqFdfujUKvoyTJI6XG4Qo/CECaaN9smhyq9DxzMhAgMBAAGjZjBkMA4G
+A1UdDwEB/wQEAwIABDASBgNVHRMBAf8ECDAGAQH/AgEBMB0GA1UdDgQWBBQQDswP
+FQGeGMeTzPbHW62EZbbTJzAfBgNVHSMEGDAWgBQQDswPFQGeGMeTzPbHW62EZbbT
+JzALBgkqhkiG9w0BAQUDQQAqZzN0DqUyEfR8zIanozyD2pp10m9le+ODaKZDDNfH
+8cB2x26F1iZ8ccq5IC2LtQf1IKJnpTcYlLuDvW6yB96g
+-----END CERTIFICATE-----
+`

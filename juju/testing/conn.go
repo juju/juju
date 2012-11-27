@@ -93,6 +93,7 @@ func (s *JujuConnSuite) StateInfo(c *C) *state.Info {
 	return &state.Info{
 		Addrs:    []string{testing.MgoAddr},
 		Password: "dummy-secret",
+		CACert:   []byte(testing.CACert),
 	}
 }
 
@@ -117,10 +118,10 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	err = ioutil.WriteFile(filepath.Join(home, ".juju", "environments.yaml"), config, 0600)
 	c.Assert(err, IsNil)
 
-	err = ioutil.WriteFile(filepath.Join(home, ".juju", "dummyenv-cert.pem"), []byte(testing.CACertPEM), 0666)
+	err = ioutil.WriteFile(filepath.Join(home, ".juju", "dummyenv-cert.pem"), []byte(testing.CACert), 0666)
 	c.Assert(err, IsNil)
 
-	err = ioutil.WriteFile(filepath.Join(home, ".juju", "dummyenv-private-key.pem"), []byte(testing.CAKeyPEM), 0600)
+	err = ioutil.WriteFile(filepath.Join(home, ".juju", "dummyenv-private-key.pem"), []byte(testing.CAKey), 0600)
 	c.Assert(err, IsNil)
 
 	environ, err := environs.NewFromName("dummyenv")
