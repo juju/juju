@@ -184,7 +184,7 @@ func CheckAgentCommand(c *C, create acCreator, args []string, which agentFlags) 
 		args[len(args)-1] = caCertFile
 		c.Assert(initCmd(com, args), IsNil)
 		c.Assert(conf.StateInfo.Addrs, DeepEquals, []string{"st1:37017", "st2:37017"})
-		c.Assert(string(conf.CACertPEM), Equals, coretesting.CACertPEM) // TODO(rog) conf.StateInfo.CACertPEM
+		c.Assert(string(conf.CACert), Equals, coretesting.CACert) // TODO(rog) conf.StateInfo.CACert
 
 	}
 	if which&flagDataDir != 0 {

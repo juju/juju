@@ -19,7 +19,7 @@ func TestPackage(t *stdtesting.T) {
 	if err != nil {
 		panic(err)
 	}
-	_, err = f.WriteString(testing.CACertPEM)
+	_, err = f.WriteString(testing.CACert)
 	if err != nil {
 		panic(err)
 	}

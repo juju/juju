@@ -58,7 +58,7 @@ type AgentConf struct {
 	DataDir         string
 	StateInfo       state.Info
 	InitialPassword string
-	CACertPEM       []byte // TODO(rog) use StateInfo.CACertPEM when available
+	CACert      []byte // TODO(rog) use StateInfo.CACert when available
 	caCertFile      string
 }
 
@@ -101,7 +101,7 @@ func (c *AgentConf) checkArgs(args []string) error {
 			return requiredError("ca-cert-file")
 		}
 		var err error
-		c.CACertPEM, err = ioutil.ReadFile(c.caCertFile)
+		c.CACert, err = ioutil.ReadFile(c.caCertFile)
 		if err != nil {
 			return err
 		}
