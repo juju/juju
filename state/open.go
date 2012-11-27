@@ -70,7 +70,7 @@ func Open(info *Info) (*State, error) {
 		return c, err
 	}
 	attempts := 0
-	for{
+	for {
 		session, err := mgo.DialWithInfo(&mgo.DialInfo{
 			Addrs:   info.Addrs,
 			Timeout: 10 * time.Minute,
