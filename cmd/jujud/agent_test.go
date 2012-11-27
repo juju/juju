@@ -177,8 +177,8 @@ func CheckAgentCommand(c *C, create acCreator, args []string, which agentFlags) 
 		c.Assert(err, ErrorMatches, "--state-servers option must be set")
 		args = append(args, "--state-servers", "st1:37017,st2:37017")
 		err = initCmd(com, args)
-		c.Assert(err, ErrorMatches, "--ca-cert-file option must be set")
-		args = append(args, "--ca-cert-file", "/non-existing-file")
+		c.Assert(err, ErrorMatches, "--ca-cert option must be set")
+		args = append(args, "--ca-cert", "/non-existing-file")
 		err = initCmd(com, args)
 		c.Assert(err, ErrorMatches, "open /non-existing-file: .*")
 		args[len(args)-1] = caCertFile
@@ -214,7 +214,7 @@ func ParseAgentCommand(ac cmd.Command, args []string) error {
 	common := []string{
 		"--state-servers", "st:37017",
 		"--data-dir", "jd",
-		"--ca-cert-file", caCertFile,
+		"--ca-cert", caCertFile,
 	}
 	return initCmd(ac, append(common, args...))
 }

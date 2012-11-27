@@ -73,18 +73,18 @@ func (s *MainSuite) TestParseErrors(c *C) {
 	checkMessage(c, msga,
 		"bootstrap-state",
 		"--state-servers", "st:37017",
-		"--ca-cert-file", caCertFile,
+		"--ca-cert", caCertFile,
 		"--instance-id", "ii",
 		"--env-config", b64yaml{"blah": "blah"}.encode(),
 		"toastie")
 	checkMessage(c, msga, "unit",
 		"--state-servers", "localhost:37017,st:37017",
-		"--ca-cert-file", caCertFile,
+		"--ca-cert", caCertFile,
 		"--unit-name", "un/0",
 		"toastie")
 	checkMessage(c, msga, "machine",
 		"--state-servers", "st:37017",
-		"--ca-cert-file", caCertFile,
+		"--ca-cert", caCertFile,
 		"--machine-id", "42",
 		"toastie")
 }

@@ -139,7 +139,7 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 			" --instance-id "+cfg.InstanceIdAccessor+
 			" --env-config "+shquote(base64yaml(cfg.Config))+
 			" --state-servers localhost"+mgoPortSuffix+
-			" --ca-cert-file "+shquote(caCertPath(cfg))+
+			" --ca-cert "+shquote(caCertPath(cfg))+
 			" --initial-password "+shquote(cfg.StateInfo.Password)+
 			debugFlag,
 		)
@@ -177,7 +177,7 @@ func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, name, args st
 	cmd := fmt.Sprintf(
 		"%s/jujud %s"+
 			" --state-servers '%s'"+
-			" --ca-cert-file '%s'"+
+			" --ca-cert '%s'"+
 			" --log-file %s"+
 			" --data-dir '%s'"+
 			" --initial-password '%s'"+
