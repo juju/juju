@@ -79,9 +79,9 @@ environments:
 
 	err = ioutil.WriteFile(filepath.Join(home, ".juju", "erewhemos-cert.pem"), []byte(coretesting.CACert), 0600)
 	c.Assert(err, IsNil)
-	err = ioutil.WriteFile(filepath.Join(home, ".juju", "erewhemos-private-key.pem"), []byte(coretesting.CAKeyPEM), 0600)
+	err = ioutil.WriteFile(filepath.Join(home, ".juju", "erewhemos-private-key.pem"), []byte(coretesting.CAKey), 0600)
 	c.Assert(err, IsNil)
-	err = ioutil.WriteFile(filepath.Join(home, ".juju", "erewhemos-private-key.pem"), []byte(coretesting.CAKeyPEM), 0600)
+	err = ioutil.WriteFile(filepath.Join(home, ".juju", "erewhemos-private-key.pem"), []byte(coretesting.CAKey), 0600)
 	c.Assert(err, IsNil)
 
 	// Just run through a few operations on the dummy provider and verify that
