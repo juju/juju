@@ -77,7 +77,7 @@ func (s *BootstrapSuite) TestSetMachineId(c *C) {
 			"type":            "dummy",
 			"state-server":    false,
 			"authorized-keys": "i-am-a-key",
-			"ca-cert":         testing.CACertPEM,
+			"ca-cert":         testing.CACert,
 		}.encode(),
 	}
 	cmd, err := initBootstrapCommand(args)
@@ -87,7 +87,7 @@ func (s *BootstrapSuite) TestSetMachineId(c *C) {
 
 	st, err := state.Open(&state.Info{
 		Addrs:     []string{testing.MgoAddr},
-		CACertPEM: []byte(testing.CACertPEM),
+		CACert: []byte(testing.CACert),
 	})
 	c.Assert(err, IsNil)
 	defer st.Close()
@@ -109,7 +109,7 @@ func (s *BootstrapSuite) TestMachinerWorkers(c *C) {
 			"type":            "dummy",
 			"state-server":    false,
 			"authorized-keys": "i-am-a-key",
-			"ca-cert":         testing.CACertPEM,
+			"ca-cert":         testing.CACert,
 		}.encode(),
 	}
 	cmd, err := initBootstrapCommand(args)
@@ -119,7 +119,7 @@ func (s *BootstrapSuite) TestMachinerWorkers(c *C) {
 
 	st, err := state.Open(&state.Info{
 		Addrs:     []string{testing.MgoAddr},
-		CACertPEM: []byte(testing.CACertPEM),
+		CACert: []byte(testing.CACert),
 	})
 	c.Assert(err, IsNil)
 	defer st.Close()
@@ -149,7 +149,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *C) {
 			"type":            "dummy",
 			"state-server":    false,
 			"authorized-keys": "i-am-a-key",
-			"ca-cert":         testing.CACertPEM,
+			"ca-cert":         testing.CACert,
 		}.encode(),
 		"--initial-password", "foo",
 	}
@@ -162,7 +162,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *C) {
 	// without a password.
 	info := &state.Info{
 		Addrs:     []string{testing.MgoAddr},
-		CACertPEM: []byte(testing.CACertPEM),
+		CACert: []byte(testing.CACert),
 	}
 	testOpenState(c, info, state.ErrUnauthorized)
 

@@ -16,7 +16,7 @@ func init() {
 		"secret":          "pork",
 		"admin-secret":    "fish",
 		"authorized-keys": "foo",
-		"ca-cert":         testing.CACertPEM,
+		"ca-cert":         testing.CACert,
 		"ca-private-key":  testing.CAKeyPEM,
 	}
 	Suite(&jujutest.LiveTests{

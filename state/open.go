@@ -29,7 +29,7 @@ type Info struct {
 
 	// CACert holds the CA certificate that will be used
 	// to validate the state server's certificate.
-	CACertPEM []byte
+	CACert []byte
 
 	// EntityName holds the name of the entity that is connecting.
 	// It should be empty when connecting as an administrator.

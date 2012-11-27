@@ -93,7 +93,7 @@ func (s *JujuConnSuite) StateInfo(c *C) *state.Info {
 	return &state.Info{
 		Addrs:     []string{testing.MgoAddr},
 		Password:  "dummy-secret",
-		CACertPEM: []byte(testing.CACertPEM),
+		CACert: []byte(testing.CACert),
 	}
 }
 
@@ -118,7 +118,7 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	err = ioutil.WriteFile(filepath.Join(home, ".juju", "environments.yaml"), config, 0600)
 	c.Assert(err, IsNil)
 
-	err = ioutil.WriteFile(filepath.Join(home, ".juju", "dummyenv-cert.pem"), []byte(testing.CACertPEM), 0666)
+	err = ioutil.WriteFile(filepath.Join(home, ".juju", "dummyenv-cert.pem"), []byte(testing.CACert), 0666)
 	c.Assert(err, IsNil)
 
 	err = ioutil.WriteFile(filepath.Join(home, ".juju", "dummyenv-private-key.pem"), []byte(testing.CAKeyPEM), 0600)
@@ -128,7 +128,7 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	c.Assert(err, IsNil)
 	// sanity check we've got the correct environment.
 	c.Assert(environ.Name(), Equals, "dummyenv")
-	c.Assert(environs.Bootstrap(environ, false, []byte(testing.CACertPEM+testing.CAKeyPEM)), IsNil)
+	c.Assert(environs.Bootstrap(environ, false, []byte(testing.CACert+testing.CAKeyPEM)), IsNil)
 
 	conn, err := juju.NewConnFromName("dummyenv")
 	c.Assert(err, IsNil)

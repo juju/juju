@@ -51,7 +51,7 @@ func (t configTest) check(c *C) {
 		"environments": attrs{
 			"testenv": attrs{
 				"type":           "ec2",
-				"ca-cert":        testing.CACertPEM,
+				"ca-cert":        testing.CACert,
 				"ca-private-key": testing.CAKeyPEM,
 			},
 		},

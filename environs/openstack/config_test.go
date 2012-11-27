@@ -54,7 +54,7 @@ func (t configTest) check(c *C) {
 			"testenv": attrs{
 				"type":            "openstack",
 				"authorized-keys": "foo",
-				"ca-cert":         coretesting.CACertPEM,
+				"ca-cert":         coretesting.CACert,
 				"ca-private-key":  coretesting.CAKeyPEM,
 			},
 		},

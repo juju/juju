@@ -6,10 +6,10 @@ import (
 	"encoding/pem"
 )
 
-// CACertPEM and CAKeyPEM make up a CA key pair.
+// CACert and CAKeyPEM make up a CA key pair.
 // CACertX509 and CAKeyRSA hold their parsed equivalents.
 var (
-	CACertPEM = `
+	CACert = `
 -----BEGIN CERTIFICATE-----
 MIIBnTCCAUmgAwIBAgIBADALBgkqhkiG9w0BAQUwJjENMAsGA1UEChMEanVqdTEV
 MBMGA1UEAxMManVqdSB0ZXN0aW5nMB4XDTEyMTExNDE0Mzg1NFoXDTIyMTExNDE0
@@ -23,7 +23,7 @@ JzALBgkqhkiG9w0BAQUDQQAqZzN0DqUyEfR8zIanozyD2pp10m9le+ODaKZDDNfH
 -----END CERTIFICATE-----
 `[1:]
 
-	CACertX509 = mustParseCertPEM(CACertPEM)
+	CACertX509 = mustParseCertPEM(CACert)
 
 	CAKeyPEM = `
 -----BEGIN RSA PRIVATE KEY-----

@@ -81,7 +81,7 @@ func (c *AgentConf) addFlags(f *gnuflag.FlagSet, accept agentFlags) {
 	if accept&flagInitialPassword != 0 {
 		f.StringVar(&c.InitialPassword, "initial-password", "", "initial password for state")
 	}
-	c.StateInfo.CACertPEM = rootCert // TODO(rog) set from a flag value.
+	c.StateInfo.CACert = rootCert // TODO(rog) set from a flag value.
 	c.accept = accept
 }
 

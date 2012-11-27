@@ -18,7 +18,7 @@ var _ = Suite(&SettingsSuite{})
 func TestingStateInfo() *Info {
 	return &Info{
 		Addrs:     []string{testing.MgoAddr},
-		CACertPEM: []byte(testing.CACertPEM),
+		CACert: []byte(testing.CACert),
 	}
 }
 

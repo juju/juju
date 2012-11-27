@@ -46,7 +46,7 @@ func stateInfo() *state.Info {
 	}
 	return &state.Info{
 		Addrs:     []string{testing.MgoAddr},
-		CACertPEM: []byte(testing.CACertPEM),
+		CACert: []byte(testing.CACert),
 	}
 }
 
