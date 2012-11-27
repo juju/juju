@@ -207,7 +207,7 @@ func (e *environ) PublicStorage() environs.StorageReader {
 	return e.publicStorageUnlocked
 }
 
-func (e *environ) Bootstrap(uploadTools bool, certPEM, keyPEM []byte) error {
+func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 	password := e.Config().AdminSecret()
 	if password == "" {
 		return fmt.Errorf("admin-secret is required for bootstrap")
@@ -256,8 +256,8 @@ func (e *environ) Bootstrap(uploadTools bool, certPEM, keyPEM []byte) error {
 		tools:              tools,
 		stateServer:        true,
 		config:             config,
-		stateServerCertPEM: certPEM,
-		stateServerKeyPEM:  keyPEM,
+		stateServerCertPEM: cert,
+		stateServerKeyPEM:  key,
 	})
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)

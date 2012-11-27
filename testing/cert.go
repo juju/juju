@@ -23,7 +23,7 @@ JzALBgkqhkiG9w0BAQUDQQAqZzN0DqUyEfR8zIanozyD2pp10m9le+ODaKZDDNfH
 -----END CERTIFICATE-----
 `[1:]
 
-	CACertX509 = mustParseCertPEM(CACert)
+	CACertX509 = mustParseCert(CACert)
 
 	CAKey = `
 -----BEGIN RSA PRIVATE KEY-----
@@ -36,10 +36,10 @@ JFwDdp+7gE98mXtaFrjctLWeFx797U8CIAnnqiMTwWM8H2ljyhfBtYMXeTmu3zzU
 HOzuvYngJpoClGw0ipzJPoNZ2Z/GkdOWGByPeKu/8g==
 -----END RSA PRIVATE KEY-----
 `[1:]
-	CAKeyRSA = mustParseKeyPEM(CAKey)
+	CAKeyRSA = mustParseKey(CAKey)
 )
 
-func mustParseCertPEM(pemData string) *x509.Certificate {
+func mustParseCert(pemData string) *x509.Certificate {
 	b, _ := pem.Decode([]byte(pemData))
 	if b.Type != "CERTIFICATE" {
 		panic("unexpected type")
@@ -51,7 +51,7 @@ func mustParseCertPEM(pemData string) *x509.Certificate {
 	return cert
 }
 
-func mustParseKeyPEM(pemData string) *rsa.PrivateKey {
+func mustParseKey(pemData string) *rsa.PrivateKey {
 	b, _ := pem.Decode([]byte(pemData))
 	if b.Type != "RSA PRIVATE KEY" {
 		panic("unexpected type")

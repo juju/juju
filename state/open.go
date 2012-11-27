@@ -28,7 +28,7 @@ type Info struct {
 	UseSSH bool
 
 	// CACert holds the CA certificate that will be used
-	// to validate the state server's certificate.
+	// to validate the state server's certificate, in PEM format.
 	CACert []byte
 
 	// EntityName holds the name of the entity that is connecting.
