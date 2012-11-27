@@ -38,7 +38,7 @@ type configTest struct {
 	region        string
 	cbucket       string
 	pbucket       string
-	pbucketregion string
+	pbucketRegion string
 	accessKey     string
 	secretKey     string
 	firewallMode  config.FirewallMode
@@ -193,7 +193,7 @@ var configTests = []configTest{
 		config: attrs{
 			"public-bucket-region": "ap-southeast-1",
 		},
-		pbucketregion: "ap-southeast-1",
+		pbucketRegion: "ap-southeast-1",
 	}, {
 		config: attrs{
 			"access-key": "jujuer",
