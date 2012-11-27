@@ -33,15 +33,16 @@ var testAuth = aws.Auth{"gopher", "long teeth"}
 // when mutated by the mutate function, or that the parse matches the
 // given error.
 type configTest struct {
-	config       attrs
-	change       attrs
-	region       string
-	cbucket      string
-	pbucket      string
-	accessKey    string
-	secretKey    string
-	firewallMode config.FirewallMode
-	err          string
+	config        attrs
+	change        attrs
+	region        string
+	cbucket       string
+	pbucket       string
+	pbucketregion string
+	accessKey     string
+	secretKey     string
+	firewallMode  config.FirewallMode
+	err           string
 }
 
 type attrs map[string]interface{}
@@ -183,6 +184,16 @@ var configTests = []configTest{
 			"public-bucket": "foo",
 		},
 		pbucket: "foo",
+	}, {
+		config: attrs{
+			"public-bucket-region": "foo",
+		},
+		err: ".*invalid public-bucket-region name.*",
+	}, {
+		config: attrs{
+			"public-bucket-region": "ap-southeast-1",
+		},
+		pbucketregion: "ap-southeast-1",
 	}, {
 		config: attrs{
 			"access-key": "jujuer",
