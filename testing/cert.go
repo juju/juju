@@ -20,8 +20,7 @@ func init() {
 var (
 	CACert, CAKey = mustNewCA()
 
-	CACertX509 = mustParseCert(CACert)
-	CAKeyRSA   = mustParseKey(CAKey)
+	CACertX509, CAKeyRSA = mustParseCertAndKey([]byte(CACert), []byte(CAKey))
 
 	serverCert, serverKey = mustNewServer()
 )
