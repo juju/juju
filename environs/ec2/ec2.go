@@ -251,8 +251,8 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 		return fmt.Errorf("environ config has no CA certificate")
 	}
 	info := &state.Info{
-		Password:  trivial.PasswordHash(password),
-		CACert: caCert,
+		Password: trivial.PasswordHash(password),
+		CACert:   caCert,
 	}
 	inst, err := e.startInstance(&startInstanceParams{
 		machineId:       0,
@@ -316,9 +316,9 @@ func (e *environ) StateInfo() (*state.Info, error) {
 		return nil, fmt.Errorf("timed out waiting for mgo address from %v", st.StateInstances)
 	}
 	return &state.Info{
-		Addrs:     addrs,
+		Addrs:  addrs,
 		CACert: cert,
-		UseSSH:    true,
+		UseSSH: true,
 	}, nil
 }
 
