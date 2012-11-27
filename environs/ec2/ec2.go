@@ -248,7 +248,7 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 	}
 	caCert, hasCert := e.Config().CACert()
 	if !hasCert {
-		return fmt.Errorf("environ config has no CA certificate")
+		return fmt.Errorf("no CA certificate in environment configuration")
 	}
 	info := &state.Info{
 		Password: trivial.PasswordHash(password),
@@ -291,7 +291,7 @@ func (e *environ) StateInfo() (*state.Info, error) {
 	}
 	cert, hasCert := e.Config().CACert()
 	if !hasCert {
-		return nil, fmt.Errorf("environ config has no CA certificate")
+		return nil, fmt.Errorf("no CA certificate in environment configuration")
 	}
 	var addrs []string
 	// Wait for the DNS names of any of the instances
