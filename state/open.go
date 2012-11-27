@@ -47,7 +47,7 @@ func Open(info *Info) (*State, error) {
 		return nil, errors.New("no mongo addresses")
 	}
 	if len(info.CACert) == 0 {
-		return nil, errors.New("no CA certificate")
+		return nil, errors.New("missing CA certificate")
 	}
 	cert, err := cert.ParseCertificate(info.CACertPEM)
 	if err != nil {
