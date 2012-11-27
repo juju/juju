@@ -25,7 +25,7 @@ var envConfig = mustNewConfig(map[string]interface{}{
 	"name":            "foo",
 	"default-series":  "series",
 	"authorized-keys": "keys",
-	"ca-cert":         testing.CACertPEM,
+	"ca-cert":         testing.CACert,
 })
 
 func mustNewConfig(m map[string]interface{}) *config.Config {
@@ -46,11 +46,11 @@ var cloudinitTests = []cloudinit.MachineConfig{
 		AuthorizedKeys:     "sshkey1",
 		Tools:              newSimpleTools("1.2.3-linux-amd64"),
 		StateServer:        true,
-		StateServerCertPEM: serverCertPEM,
-		StateServerKeyPEM:  serverKeyPEM,
+		StateServerCert:    serverCert,
+		StateServerKey:     serverKey,
 		StateInfo: &state.Info{
-			Password:  "arble",
-			CACertPEM: []byte(testing.CACertPEM),
+			Password: "arble",
+			CACert:   []byte(testing.CACert),
 		},
 		Config:  envConfig,
 		DataDir: "/var/lib/juju",
@@ -66,7 +66,7 @@ var cloudinitTests = []cloudinit.MachineConfig{
 			Addrs:      []string{"state-addr.example.com"},
 			EntityName: "machine-99",
 			Password:   "arble",
-			CACertPEM:  []byte(testing.CACertPEM),
+			CACert:     []byte(testing.CACert),
 		},
 	},
 }
@@ -103,7 +103,7 @@ func (t *cloudinitTest) check(c *C, cfg *cloudinit.MachineConfig) {
 	if t.cfg.StateServer {
 		t.checkScripts(c, "jujud bootstrap-state"+
 			".* --state-servers localhost:37017"+
-			".* --ca-cert-file '"+path.Join(t.cfg.DataDir, "ca-cert.pem")+"'"+
+			".* --ca-cert '"+path.Join(t.cfg.DataDir, "ca-cert.pem")+"'"+
 			".*--initial-password '"+t.cfg.StateInfo.Password+"'")
 		t.checkScripts(c, "jujud machine"+
 			" --state-servers 'localhost:37017' "+
@@ -115,7 +115,7 @@ func (t *cloudinitTest) check(c *C, cfg *cloudinit.MachineConfig) {
 	} else {
 		t.checkScripts(c, "jujud machine"+
 			" --state-servers '"+strings.Join(t.cfg.StateInfo.Addrs, ",")+"'"+
-			".* --ca-cert-file '"+path.Join(t.cfg.DataDir, "ca-cert.pem")+"'"+
+			".* --ca-cert '"+path.Join(t.cfg.DataDir, "ca-cert.pem")+"'"+
 			".*--initial-password '"+t.cfg.StateInfo.Password+"'"+
 			" .*--machine-id [0-9]+"+
 			".*>> /var/log/juju/.*log 2>&1")
@@ -267,7 +267,7 @@ var verifyTests = []struct {
 		cfg.StateServer = false
 		cfg.StateInfo = &state.Info{
 			EntityName: "machine-99",
-			CACertPEM:  []byte(testing.CACertPEM),
+			CACert:     []byte(testing.CACert),
 		}
 	}},
 	{"missing CA certificate", func(cfg *cloudinit.MachineConfig) {
@@ -281,10 +281,10 @@ var verifyTests = []struct {
 		}
 	}},
 	{"missing state server certificate", func(cfg *cloudinit.MachineConfig) {
-		cfg.StateServerCertPEM = []byte{}
+		cfg.StateServerCert = []byte{}
 	}},
 	{"missing state server private key", func(cfg *cloudinit.MachineConfig) {
-		cfg.StateServerKeyPEM = []byte{}
+		cfg.StateServerKey = []byte{}
 	}},
 	{"missing var directory", func(cfg *cloudinit.MachineConfig) {
 		cfg.DataDir = ""
@@ -328,16 +328,16 @@ var verifyTests = []struct {
 func (cloudinitSuite) TestCloudInitVerify(c *C) {
 	cfg := &cloudinit.MachineConfig{
 		StateServer:        true,
-		StateServerCertPEM: serverCertPEM,
-		StateServerKeyPEM:  serverKeyPEM,
+		StateServerCert:    serverCert,
+		StateServerKey:     serverKey,
 		InstanceIdAccessor: "$instance_id",
 		ProviderType:       "ec2",
 		MachineId:          99,
 		Tools:              newSimpleTools("9.9.9-linux-arble"),
 		AuthorizedKeys:     "sshkey1",
 		StateInfo: &state.Info{
-			Addrs:     []string{"host"},
-			CACertPEM: []byte(testing.CACertPEM),
+			Addrs:  []string{"host"},
+			CACert: []byte(testing.CACert),
 		},
 		Config:  envConfig,
 		DataDir: "/var/lib/juju",
@@ -356,7 +356,7 @@ func (cloudinitSuite) TestCloudInitVerify(c *C) {
 	}
 }
 
-var serverCertPEM = []byte(`
+var serverCert = []byte(`
 -----BEGIN CERTIFICATE-----
 MIIBdzCCASOgAwIBAgIBADALBgkqhkiG9w0BAQUwHjENMAsGA1UEChMEanVqdTEN
 MAsGA1UEAxMEcm9vdDAeFw0xMjExMDgxNjIyMzRaFw0xMzExMDgxNjI3MzRaMBwx
@@ -369,7 +369,7 @@ G/2iCUQCXsVrBparMLFnor/iKOkJB5n3z3rtu70rFt+DpX6L8uBR3LB3+A==
 -----END CERTIFICATE-----
 `)
 
-var serverKeyPEM = []byte(`
+var serverKey = []byte(`
 -----BEGIN RSA PRIVATE KEY-----
 MIIBPAIBAAJBAIAKrPok/AzudvEBa5v4A+mc0HubJyRYnqeew8qL1KKk/WHKF/OS
 nxEYwnlS/vLwJJO0nySD+JuRrVVXwu8/22cCAwEAAQJBAJsk1F0wTRuaIhJ5xxqw

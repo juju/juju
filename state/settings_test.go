@@ -18,8 +18,8 @@ var _ = Suite(&SettingsSuite{})
 // connecting to the testing state server.
 func TestingStateInfo() *Info {
 	return &Info{
-		Addrs:     []string{testing.MgoAddr},
-		CACertPEM: []byte(testing.CACertPEM),
+		Addrs:  []string{testing.MgoAddr},
+		CACert: []byte(testing.CACert),
 	}
 }
 

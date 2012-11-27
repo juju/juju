@@ -63,9 +63,9 @@ func readAuthorizedKeys(path string) (string, error) {
 // verifyKeyPair verifies that the certificate and key parse correctly.
 // The key is optional - if it is provided, we also check that the key
 // matches the certificate.
-func verifyKeyPair(certPEM, keyPEM []byte) error {
-	if keyPEM != nil {
-		_, err := tls.X509KeyPair(certPEM, keyPEM)
+func verifyKeyPair(cert, key []byte) error {
+	if key != nil {
+		_, err := tls.X509KeyPair(cert, key)
 		return err
 	}
 	_, err := cert.ParseCertificate(certPEM)

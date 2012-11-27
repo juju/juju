@@ -82,8 +82,8 @@ func (t *LiveTests) BootstrapOnce(c *C) {
 	t.bootstrapped = true
 }
 
-func panicWrite(name string, data []byte) error {
-	panic("writeCertFile called unexpectedly")
+func panicWrite(name string, cert, key []byte) error {
+	panic("writeCertAndKey called unexpectedly")
 }
 
 func (t *LiveTests) Destroy(c *C) {

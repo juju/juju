@@ -26,8 +26,8 @@ type Info struct {
 	Addrs []string
 
 	// CACert holds the CA certificate that will be used
-	// to validate the state server's certificate.
-	CACertPEM []byte
+	// to validate the state server's certificate, in PEM format.
+	CACert []byte
 
 	// EntityName holds the name of the entity that is connecting.
 	// It should be empty when connecting as an administrator.
@@ -46,7 +46,7 @@ func Open(info *Info) (*State, error) {
 	if len(info.Addrs) == 0 {
 		return nil, errors.New("no mongo addresses")
 	}
-	if len(info.CACertPEM) == 0 {
+	if len(info.CACert) == 0 {
 		return nil, errors.New("no CA certificate")
 	}
 	cert, err := cert.ParseCertificate(info.CACertPEM)

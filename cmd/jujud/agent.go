@@ -46,7 +46,7 @@ func (v *stateServersValue) String() string {
 	return ""
 }
 
-// stateServersVar sets up a gnuflag flag analagously to FlagSet.*Var methods.
+// stateServersVar sets up a gnuflag flag analogous to the FlagSet.*Var methods.
 func stateServersVar(fs *gnuflag.FlagSet, target *[]string, name string, value []string, usage string) {
 	*target = value
 	fs.Var((*stateServersValue)(target), name, usage)
@@ -78,7 +78,7 @@ func (c *AgentConf) addFlags(f *gnuflag.FlagSet, accept agentFlags) {
 	}
 	if accept&flagStateInfo != 0 {
 		stateServersVar(f, &c.StateInfo.Addrs, "state-servers", nil, "state servers to connect to")
-		f.StringVar(&c.caCertFile, "ca-cert-file", "", "file name of CA certificate in PEM format")
+		f.StringVar(&c.caCertFile, "ca-cert", "", "path to CA certificate in PEM format")
 	}
 	if accept&flagInitialPassword != 0 {
 		f.StringVar(&c.InitialPassword, "initial-password", "", "initial password for state")
@@ -96,10 +96,10 @@ func (c *AgentConf) checkArgs(args []string) error {
 			return requiredError("state-servers")
 		}
 		if c.caCertFile == "" {
-			return requiredError("ca-cert-file")
+			return requiredError("ca-cert")
 		}
 		var err error
-		c.StateInfo.CACertPEM, err = ioutil.ReadFile(c.caCertFile)
+		c.StateInfo.CACert, err = ioutil.ReadFile(c.caCertFile)
 		if err != nil {
 			return err
 		}
@@ -211,17 +211,3 @@ func openState(entityName string, conf *AgentConf) (st *state.State, password st
 	}
 	return st, password, nil
 }
-
-var rootCert = []byte(`
------BEGIN CERTIFICATE-----
-MIIBnTCCAUmgAwIBAgIBADALBgkqhkiG9w0BAQUwJjENMAsGA1UEChMEanVqdTEV
-MBMGA1UEAxMManVqdSB0ZXN0aW5nMB4XDTEyMTExNDE0Mzg1NFoXDTIyMTExNDE0
-NDM1NFowJjENMAsGA1UEChMEanVqdTEVMBMGA1UEAxMManVqdSB0ZXN0aW5nMFow
-CwYJKoZIhvcNAQEBA0sAMEgCQQCCOOpn9aWKcKr2GQGtygwD7PdfNe1I9BYiPAqa
-2I33F5+6PqFdfujUKvoyTJI6XG4Qo/CECaaN9smhyq9DxzMhAgMBAAGjZjBkMA4G
-A1UdDwEB/wQEAwIABDASBgNVHRMBAf8ECDAGAQH/AgEBMB0GA1UdDgQWBBQQDswP
-FQGeGMeTzPbHW62EZbbTJzAfBgNVHSMEGDAWgBQQDswPFQGeGMeTzPbHW62EZbbT
-JzALBgkqhkiG9w0BAQUDQQAqZzN0DqUyEfR8zIanozyD2pp10m9le+ODaKZDDNfH
-8cB2x26F1iZ8ccq5IC2LtQf1IKJnpTcYlLuDvW6yB96g
------END CERTIFICATE-----
-`[1:])

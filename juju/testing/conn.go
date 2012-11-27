@@ -45,7 +45,7 @@ func InvalidStateInfo(machineId int) *state.Info {
 		Addrs:      []string{"0.1.2.3:1234"},
 		EntityName: state.MachineEntityName(machineId),
 		Password:   "unimportant",
-		CACertPEM:  []byte(testing.CACertPEM),
+		CACert:     []byte(testing.CACert),
 	}
 }
 
@@ -92,9 +92,9 @@ func (s *JujuConnSuite) Reset(c *C) {
 
 func (s *JujuConnSuite) StateInfo(c *C) *state.Info {
 	return &state.Info{
-		Addrs:     []string{testing.MgoAddr},
-		Password:  "dummy-secret",
-		CACertPEM: []byte(testing.CACertPEM),
+		Addrs:    []string{testing.MgoAddr},
+		Password: "dummy-secret",
+		CACert:   []byte(testing.CACert),
 	}
 }
 
@@ -119,10 +119,10 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	err = ioutil.WriteFile(filepath.Join(home, ".juju", "environments.yaml"), config, 0600)
 	c.Assert(err, IsNil)
 
-	err = ioutil.WriteFile(filepath.Join(home, ".juju", "dummyenv-cert.pem"), []byte(testing.CACertPEM), 0666)
+	err = ioutil.WriteFile(filepath.Join(home, ".juju", "dummyenv-cert.pem"), []byte(testing.CACert), 0666)
 	c.Assert(err, IsNil)
 
-	err = ioutil.WriteFile(filepath.Join(home, ".juju", "dummyenv-private-key.pem"), []byte(testing.CAKeyPEM), 0600)
+	err = ioutil.WriteFile(filepath.Join(home, ".juju", "dummyenv-private-key.pem"), []byte(testing.CAKey), 0600)
 	c.Assert(err, IsNil)
 
 	environ, err := environs.NewFromName("dummyenv")
@@ -138,8 +138,8 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func panicWrite(name string, data []byte) error {
-	panic("writeCertFile called unexpectedly")
+func panicWrite(name string, cert, key []byte) error {
+	panic("writeCertAndKey called unexpectedly")
 }
 
 func (s *JujuConnSuite) tearDownConn(c *C) {

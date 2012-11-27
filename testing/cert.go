@@ -15,16 +15,27 @@ func init() {
 	}
 }
 
+// CACert and CAKey make up a CA key pair.
+// CACertX509 and CAKeyRSA hold their parsed equivalents.
+var (
+	CACert, CAKey = mustNewCA()
+
+	CACertX509 = mustParseCert(CACert)
+	CAKeyRSA   = mustParseKey(CAKey)
+
+	serverCert, serverKey = mustNewServer()
+)
+
 func verifyCertificates() error {
-	_, err := tls.X509KeyPair([]byte(CACertPEM), []byte(CAKeyPEM))
+	_, err := tls.X509KeyPair([]byte(CACert), []byte(CAKey))
 	if err != nil {
 		return fmt.Errorf("bad CA cert key pair: %v", err)
 	}
-	_, err = tls.X509KeyPair([]byte(serverCertPEM), []byte(serverKeyPEM))
+	_, err = tls.X509KeyPair([]byte(serverCert), []byte(serverKey))
 	if err != nil {
 		return fmt.Errorf("bad server cert key pair: %v", err)
 	}
-	return cert.Verify([]byte(serverCertPEM), []byte(CACertPEM), time.Now())
+	return cert.Verify([]byte(serverCert), []byte(CACert), time.Now())
 }
 
 func mustNewCA() (string, string) {
@@ -38,7 +49,7 @@ func mustNewCA() (string, string) {
 
 func mustNewServer() (string, string) {
 	cert.KeyBits = 512
-	srvCert, srvKey, err := cert.NewServer("testing-env", []byte(CACertPEM), []byte(CAKeyPEM), time.Now().AddDate(10, 0, 0))
+	srvCert, srvKey, err := cert.NewServer("testing-env", []byte(CACert), []byte(CAKey), time.Now().AddDate(10, 0, 0))
 	if err != nil {
 		panic(err)
 	}

@@ -72,7 +72,7 @@ func (s *suite) TestDeploy(c *C) {
 		`.*/unit-dummy-0/jujud unit`+
 		`( --debug)?`+
 		` --state-servers 'a,b'`+
-		` --ca-cert-file '[^']*/ca-cert.pem'`+
+		` --ca-cert '[^']*/ca-cert.pem'`+
 		` --log-file /var/log/juju/unit-dummy-0\.log`+
 		` --unit-name dummy/0`+
 		` --initial-password [a-zA-Z0-9+/]+`+
