@@ -192,11 +192,15 @@ func (t *localServerSuite) TearDownTest(c *C) {
 	t.LoggingSuite.TearDownTest(c)
 }
 
+func panicWrite(name string, cert, key []byte) error {
+	panic("writeCertAndKey called unexpectedly")
+}
+
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	policy := t.env.AssignmentPolicy()
 	c.Assert(policy, Equals, state.AssignUnused)
 
-	err := environs.Bootstrap(t.env, true, []byte(testing.CACert+testing.CAKey))
+	err := environs.Bootstrap(t.env, true, panicWrite)
 	c.Assert(err, IsNil)
 
 	// check that the state holds the id of the bootstrap machine.

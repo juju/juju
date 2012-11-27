@@ -77,9 +77,13 @@ func (t *LiveTests) BootstrapOnce(c *C) {
 	if t.bootstrapped {
 		return
 	}
-	err := environs.Bootstrap(t.Env, true, []byte(coretesting.CACert+coretesting.CAKey))
+	err := environs.Bootstrap(t.Env, true, panicWrite)
 	c.Assert(err, IsNil)
 	t.bootstrapped = true
+}
+
+func panicWrite(name string, cert, key []byte) error {
+	panic("writeCertAndKey called unexpectedly")
 }
 
 func (t *LiveTests) Destroy(c *C) {
@@ -293,7 +297,7 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 func (t *LiveTests) TestBootstrapMultiple(c *C) {
 	t.BootstrapOnce(c)
 
-	err := environs.Bootstrap(t.Env, false, []byte(coretesting.CACert+coretesting.CAKey))
+	err := environs.Bootstrap(t.Env, false, panicWrite)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	c.Logf("destroy env")
