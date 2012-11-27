@@ -123,7 +123,7 @@ func generateCert(envName string, caCertPEM, caKeyPEM []byte) (certPEM, keyPEM [
 		return nil, nil, err
 	}
 	if len(tlsCert.Certificate) != 1 {
-		return nil, nil, fmt.Errorf("more than one certificate for CA")
+		return nil, nil, fmt.Errorf("CA key pair must have 1 certificate, not %d", len(tlsCert.Certificate))
 	}
 	caCert, err := x509.ParseCertificate(tlsCert.Certificate[0])
 	if err != nil {
