@@ -68,6 +68,6 @@ func verifyKeyPair(certb, key []byte) error {
 		_, err := tls.X509KeyPair(certb, key)
 		return err
 	}
-	_, err := cert.ParseCertificate(certPEM)
+	_, err := cert.ParseCertificate(certb)
 	return err
 }

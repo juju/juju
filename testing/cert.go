@@ -55,16 +55,6 @@ func mustNewServer() (string, string) {
 	return string(srvCert), string(srvKey)
 }
 
-// CACertPEM and CAKeyPEM make up a CA key pair.
-// CACertX509 and CAKeyRSA hold their parsed equivalents.
-var (
-	CACertPEM, CAKeyPEM = mustNewCA()
-
-	CACertX509, CAKeyRSA = mustParseCertAndKey([]byte(CACertPEM), []byte(CAKeyPEM))
-
-	serverCertPEM, serverKeyPEM = mustNewServer()
-)
-
 func mustParseCert(pemData string) *x509.Certificate {
 	cert, err := cert.ParseCertificate([]byte(pemData))
 	if err != nil {

@@ -49,12 +49,12 @@ func Open(info *Info) (*State, error) {
 	if len(info.CACert) == 0 {
 		return nil, errors.New("missing CA certificate")
 	}
-	cert, err := cert.ParseCertificate(info.CACertPEM)
+	xcert, err := cert.ParseCertificate(info.CACert)
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse CA certificate: %v", err)
 	}
 	pool := x509.NewCertPool()
-	pool.AddCert(cert)
+	pool.AddCert(xcert)
 	tlsConfig := &tls.Config{
 		RootCAs:    pool,
 		ServerName: "anything",

@@ -120,8 +120,8 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	if cfg.StateServer {
 		addScripts(c,
 			fmt.Sprintf("echo %s > %s",
-				shquote(string(cfg.StateServerCert)+string(cfg.StateServerKey)), shquote(serverPEMPath)),
-			"chmod 600 "+serverPEMPath,
+				shquote(string(cfg.StateServerCert)+string(cfg.StateServerKey)), shquote(serverPEMPath(cfg))),
+			"chmod 600 "+serverPEMPath(cfg),
 		)
 
 		// TODO The public bucket must come from the environment configuration.

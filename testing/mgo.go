@@ -45,7 +45,7 @@ func startMgoServer() error {
 		return err
 	}
 	pemPath := filepath.Join(dbdir, "server.pem")
-	err = ioutil.WriteFile(pemPath, []byte(serverCertPEM+serverKeyPEM), 0600)
+	err = ioutil.WriteFile(pemPath, []byte(serverCert+serverKey), 0600)
 	if err != nil {
 		return fmt.Errorf("cannot write cert/key PEM: %v", err)
 	}
@@ -105,11 +105,11 @@ func (s *MgoSuite) TearDownSuite(c *C) {}
 // MgoDial returns a new connection to the shared MongoDB server.
 func MgoDial() *mgo.Session {
 	pool := x509.NewCertPool()
-	cert, err := cert.ParseCertificate([]byte(CACertPEM))
+	xcert, err := cert.ParseCertificate([]byte(CACert))
 	if err != nil {
 		panic(err)
 	}
-	pool.AddCert(cert)
+	pool.AddCert(xcert)
 	tlsConfig := &tls.Config{
 		RootCAs:    pool,
 		ServerName: "anything",
