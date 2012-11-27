@@ -388,6 +388,9 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 	if password == "" {
 		return fmt.Errorf("admin-secret is required for bootstrap")
 	}
+	if _, ok := e.Config().CACert(); !ok {
+		return fmt.Errorf("no CA certificate in environment configuration")
+	}
 	var tools *state.Tools
 	var err error
 	if uploadTools {
@@ -490,6 +493,9 @@ func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.To
 	}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
+	if _, ok := e.Config().CACert(); !ok {
+		return nil, fmt.Errorf("no CA certificate in environment configuration")
+	}
 	if info.EntityName != state.MachineEntityName(machineId) {
 		return nil, fmt.Errorf("entity name must match started machine")
 	}

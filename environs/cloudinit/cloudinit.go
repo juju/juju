@@ -114,7 +114,7 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 		debugFlag = " --debug"
 	}
 	addScripts(c,
-		fmt.Sprintf("echo %s > %s", shquote(caCert), shquote(caCertPath(cfg))),
+		fmt.Sprintf("echo %s > %s", shquote(string(cfg.StateInfo.CACert)), shquote(caCertPath(cfg))),
 	)
 
 	if cfg.StateServer {
@@ -289,6 +289,9 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 	if cfg.StateInfo == nil {
 		return fmt.Errorf("missing state info")
 	}
+	if len(cfg.StateInfo.CACert) == 0 {
+		return fmt.Errorf("missing CA certificate")
+	}
 	if cfg.StateServer {
 		if cfg.InstanceIdAccessor == "" {
 			return fmt.Errorf("missing instance id accessor")
@@ -320,18 +323,3 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 	}
 	return nil
 }
-
-// TODO(rog) remove this and use certificate from config instead
-var caCert = `
------BEGIN CERTIFICATE-----
-MIIBnTCCAUmgAwIBAgIBADALBgkqhkiG9w0BAQUwJjENMAsGA1UEChMEanVqdTEV
-MBMGA1UEAxMManVqdSB0ZXN0aW5nMB4XDTEyMTExNDE0Mzg1NFoXDTIyMTExNDE0
-NDM1NFowJjENMAsGA1UEChMEanVqdTEVMBMGA1UEAxMManVqdSB0ZXN0aW5nMFow
-CwYJKoZIhvcNAQEBA0sAMEgCQQCCOOpn9aWKcKr2GQGtygwD7PdfNe1I9BYiPAqa
-2I33F5+6PqFdfujUKvoyTJI6XG4Qo/CECaaN9smhyq9DxzMhAgMBAAGjZjBkMA4G
-A1UdDwEB/wQEAwIABDASBgNVHRMBAf8ECDAGAQH/AgEBMB0GA1UdDgQWBBQQDswP
-FQGeGMeTzPbHW62EZbbTJzAfBgNVHSMEGDAWgBQQDswPFQGeGMeTzPbHW62EZbbT
-JzALBgkqhkiG9w0BAQUDQQAqZzN0DqUyEfR8zIanozyD2pp10m9le+ODaKZDDNfH
-8cB2x26F1iZ8ccq5IC2LtQf1IKJnpTcYlLuDvW6yB96g
------END CERTIFICATE-----
-`
