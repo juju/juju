@@ -97,7 +97,7 @@ func panicWrite(name string, cert, key []byte) error {
 }
 
 func (s *bootstrapSuite) TestBootstrapExistingKey(c *C) {
-	env := newEnviron("foo", []byte(testing.CACertPEM), []byte(testing.CAKeyPEM))
+	env := newEnviron("foo", []byte(testing.CACert), []byte(testing.CAKey))
 	err := environs.Bootstrap(env, false, panicWrite)
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
