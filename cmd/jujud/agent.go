@@ -46,7 +46,7 @@ func (v *stateServersValue) String() string {
 	return ""
 }
 
-// stateServersVar sets up a gnuflag flag analagously to FlagSet.*Var methods.
+// stateServersVar sets up a gnuflag flag analogous to the FlagSet.*Var methods.
 func stateServersVar(fs *gnuflag.FlagSet, target *[]string, name string, value []string, usage string) {
 	*target = value
 	fs.Var((*stateServersValue)(target), name, usage)
@@ -58,7 +58,6 @@ type AgentConf struct {
 	DataDir         string
 	StateInfo       state.Info
 	InitialPassword string
-	CACert      []byte // TODO(rog) use StateInfo.CACert when available
 	caCertFile      string
 }
 
@@ -79,12 +78,11 @@ func (c *AgentConf) addFlags(f *gnuflag.FlagSet, accept agentFlags) {
 	}
 	if accept&flagStateInfo != 0 {
 		stateServersVar(f, &c.StateInfo.Addrs, "state-servers", nil, "state servers to connect to")
-		f.StringVar(&c.caCertFile, "ca-cert-file", "", "file name of CA certificate in PEM format")
+		f.StringVar(&c.caCertFile, "ca-cert", "", "path to CA certificate in PEM format")
 	}
 	if accept&flagInitialPassword != 0 {
 		f.StringVar(&c.InitialPassword, "initial-password", "", "initial password for state")
 	}
-	c.StateInfo.CACert = rootCert // TODO(rog) set from a flag value.
 	c.accept = accept
 }
 
@@ -98,10 +96,10 @@ func (c *AgentConf) checkArgs(args []string) error {
 			return requiredError("state-servers")
 		}
 		if c.caCertFile == "" {
-			return requiredError("ca-cert-file")
+			return requiredError("ca-cert")
 		}
 		var err error
-		c.CACert, err = ioutil.ReadFile(c.caCertFile)
+		c.StateInfo.CACert, err = ioutil.ReadFile(c.caCertFile)
 		if err != nil {
 			return err
 		}
