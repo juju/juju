@@ -19,7 +19,7 @@ func (OpenSuite) TestNewDummyEnviron(c *C) {
 		"state-server":    false,
 		"authorized-keys": "i-am-a-key",
 		"admin-secret":    "foo",
-		"ca-cert":         testing.CACertPEM,
+		"ca-cert":         testing.CACert,
 		"ca-private-key":  "",
 	}
 	env, err := environs.NewFromAttrs(config)
@@ -32,7 +32,7 @@ func (OpenSuite) TestNewUnknownEnviron(c *C) {
 		"name":            "foo",
 		"type":            "wondercloud",
 		"authorized-keys": "i-am-a-key",
-		"ca-cert":         testing.CACertPEM,
+		"ca-cert":         testing.CACert,
 		"ca-private-key":  "",
 	})
 	c.Assert(err, ErrorMatches, "no registered provider for.*")

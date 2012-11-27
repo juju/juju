@@ -57,7 +57,7 @@ func (s *bootstrapSuite) TestBootstrapKeyGeneration(c *C) {
 	c.Assert(caName, Equals, `juju-generated CA for environment foo`)
 }
 
-var testServerPEM = []byte(testing.CACertPEM + testing.CAKeyPEM)
+var testServerPEM = []byte(testing.CACert + testing.CAKey)
 
 func (s *bootstrapSuite) TestBootstrapExistingKey(c *C) {
 	path := filepath.Join(os.Getenv("HOME"), ".juju", "bar.pem")
@@ -71,7 +71,7 @@ func (s *bootstrapSuite) TestBootstrapExistingKey(c *C) {
 
 	bootstrapCert, bootstrapKey := parseCertAndKey(c, env.stateServerPEM)
 
-	caName := checkTLSConnection(c, certificate(testing.CACertPEM), bootstrapCert, bootstrapKey)
+	caName := checkTLSConnection(c, certificate(testing.CACert), bootstrapCert, bootstrapKey)
 	c.Assert(caName, Equals, testing.CACertX509.Subject.CommonName)
 }
 
@@ -97,7 +97,7 @@ func (s *bootstrapSuite) TestBootstrapWithCertArgument(c *C) {
 
 	bootstrapCert, bootstrapKey := parseCertAndKey(c, env.stateServerPEM)
 
-	caName := checkTLSConnection(c, certificate(testing.CACertPEM), bootstrapCert, bootstrapKey)
+	caName := checkTLSConnection(c, certificate(testing.CACert), bootstrapCert, bootstrapKey)
 	c.Assert(caName, Equals, testing.CACertX509.Subject.CommonName)
 }
 
@@ -108,10 +108,10 @@ var invalidCertTests = []struct {
 	`xxxx`,
 	"bad CA PEM: CA PEM holds no certificate",
 }, {
-	testing.CACertPEM,
+	testing.CACert,
 	"bad CA PEM: CA PEM holds no private key",
 }, {
-	testing.CAKeyPEM,
+	testing.CAKey,
 	"bad CA PEM: CA PEM holds no certificate",
 }, {
 	`-----BEGIN CERTIFICATE-----
@@ -119,13 +119,13 @@ MIIBnTCCAUmgAwIBAgIBADALBgkqhkiG9w0BAQUwJjENMAsGA1UEChMEanVqdTEV
 MBMGA1UEAxMManVqdSB0ZXN0aW5nMB4XDTEyMTExNDE0Mzg1NFoXDTIyMTExNDE0
 NDM1NFowJjENMAsGA1UEChMEanVqdTEVMBMGA1UEAxMManVqdSB0ZXN0aW5n
 -----END CERTIFICATE-----
-` + testing.CAKeyPEM,
+` + testing.CAKey,
 	`bad CA PEM: ASN\.1.*`,
 }, {
 	`-----BEGIN RSA PRIVATE KEY-----
 MIIBOwIBAAJBAII46mf1pYpwqvYZAa3KDAPs91817Uj0FiI8CprYjfcXn7o+oV1+
 -----END RSA PRIVATE KEY-----
-` + testing.CACertPEM,
+` + testing.CACert,
 	"bad CA PEM: crypto/tls: .*",
 }, {
 	`-----BEGIN CERTIFICATE-----
