@@ -54,7 +54,7 @@ func Open(info *Info) (*State, error) {
 		err     error
 	)
 	if len(info.CACert) == 0 {
-		return nil, errors.New("no CA certificate")
+		return nil, errors.New("missing CA certificate")
 	}
 	if info.UseSSH {
 		// TODO implement authorization on SSL connection; drop sshDial.
