@@ -68,9 +68,10 @@ func (s *bootstrapSuite) TestBootstrapKeyGeneration(c *C) {
 
 func (s *bootstrapSuite) TestBootstrapFuncKeyGeneration(c *C) {
 	env := newEnviron("foo", nil, nil)
-	saved := make(map[string][]byte)
-	err := environs.Bootstrap(env, false, func(name string, data []byte) error {
-		saved[name] = data
+	var savedCert, savedKey []byte
+	err := environs.Bootstrap(env, false, func(name string, cert, key []byte) error {
+		savedCert = cert
+		savedKey = key
 		return nil
 	})
 	c.Assert(err, IsNil)
@@ -82,9 +83,8 @@ func (s *bootstrapSuite) TestBootstrapFuncKeyGeneration(c *C) {
 	cfgKeyPEM, cfgKeyOK := env.cfg.CAPrivateKey()
 	c.Assert(cfgCertOK, Equals, true)
 	c.Assert(cfgKeyOK, Equals, true)
-	c.Assert(cfgCertPEM, DeepEquals, saved["foo-cert.pem"])
-	c.Assert(cfgKeyPEM, DeepEquals, saved["foo-private-key.pem"])
-	c.Assert(saved, HasLen, 2)
+	c.Assert(cfgCertPEM, DeepEquals, savedCert)
+	c.Assert(cfgKeyPEM, DeepEquals, savedKey)
 
 	caCert, _ := parseCertAndKey(c, cfgCertPEM, cfgKeyPEM)
 
@@ -92,8 +92,8 @@ func (s *bootstrapSuite) TestBootstrapFuncKeyGeneration(c *C) {
 	c.Assert(caName, Equals, `juju-generated CA for environment foo`)
 }
 
-func panicWrite(name string, data []byte) error {
-	panic("writeCertFile called unexpectedly")
+func panicWrite(name string, cert, key []byte) error {
+	panic("writeCertAndKey called unexpectedly")
 }
 
 func (s *bootstrapSuite) TestBootstrapExistingKey(c *C) {

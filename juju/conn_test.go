@@ -189,8 +189,8 @@ func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func panicWrite(name string, data []byte) error {
-	panic("writeCertFile called unexpectedly")
+func panicWrite(name string, cert, key []byte) error {
+	panic("writeCertAndKey called unexpectedly")
 }
 
 func (cs *NewConnSuite) TestConnWithPassword(c *C) {

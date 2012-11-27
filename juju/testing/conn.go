@@ -136,8 +136,8 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func panicWrite(name string, data []byte) error {
-	panic("writeCertFile called unexpectedly")
+func panicWrite(name string, cert, key []byte) error {
+	panic("writeCertAndKey called unexpectedly")
 }
 
 func (s *JujuConnSuite) tearDownConn(c *C) {

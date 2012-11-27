@@ -20,58 +20,61 @@ import (
 
 // Bootstrap bootstraps the given environment.  If the environment does
 // not contain a CA certificate, a new certificate and key pair are
-// generated, added to the environment configuration, and writeCertFile
+// generated, added to the environment configuration, and writeCertAndKey
 // will be called to save them.  If writeCertFile is nil, the generated
-// certificate and key pair will be saved to ~/.juju.
+// certificate and key will be saved to ~/.juju/<environ-name>-cert.pem
+// and ~/.juju/<environ-name>-private-key.pem.
 //
 // If uploadTools is true, the current version of the juju tools will be
 // uploaded, as documented in Environ.Bootstrap.
-func Bootstrap(environ Environ, uploadTools bool, writeCertFile func(name string, data []byte) error) error {
-	if writeCertFile == nil {
-		writeCertFile = writeCertFileToHome
+func Bootstrap(environ Environ, uploadTools bool, writeCertAndKey func(environName string, cert, key []byte) error) error {
+	if writeCertAndKey == nil {
+		writeCertAndKey = writeCertAndKeyToHome
 	}
 	cfg := environ.Config()
-	caCertPEM, hasCACert := cfg.CACert()
-	caKeyPEM, hasCAKey := cfg.CAPrivateKey()
-	log.Printf("got cert and key: %v, %v", hasCACert, hasCAKey)
+	caCert, hasCACert := cfg.CACert()
+	caKey, hasCAKey := cfg.CAPrivateKey()
 	if !hasCACert {
 		if hasCAKey {
-			return fmt.Errorf("environment config has private key without CA certificate")
+			return fmt.Errorf("environment configuration with CA private key but no certificate")
 		}
 		var err error
-		caCertPEM, caKeyPEM, err = generateCACert(environ.Name())
+		caCert, caKey, err = generateCACert(environ.Name())
 		if err != nil {
 			return err
 		}
 		m := cfg.AllAttrs()
-		m["ca-cert"] = string(caCertPEM)
-		m["ca-private-key"] = string(caKeyPEM)
+		m["ca-cert"] = string(caCert)
+		m["ca-private-key"] = string(caKey)
 		cfg, err = config.New(m)
 		if err != nil {
-			return fmt.Errorf("cannot create config with added CA certificate: %v", err)
+			return fmt.Errorf("cannot create environment configuration with new CA: %v", err)
 		}
 		if err := environ.SetConfig(cfg); err != nil {
-			return fmt.Errorf("cannot add CA certificate to environ: %v", err)
+			return fmt.Errorf("cannot set environment configuration with CA: %v", err)
 		}
-		if err := writeCertFile(environ.Name()+"-cert.pem", caCertPEM); err != nil {
-			return fmt.Errorf("cannot save CA certificate: %v", err)
-		}
-		if err := writeCertFile(environ.Name()+"-private-key.pem", caKeyPEM); err != nil {
-			return fmt.Errorf("cannot save CA key: %v", err)
+		if err := writeCertAndKey(environ.Name(), caCert, caKey); err != nil {
+			return fmt.Errorf("cannot write CA certificate and key: %v", err)
 		}
 	}
 	// Generate a new key pair and certificate for
 	// the newly bootstrapped instance.
-	certPEM, keyPEM, err := generateCert(environ.Name(), caCertPEM, caKeyPEM)
+	cert, key, err := generateCert(environ.Name(), caCert, caKey)
 	if err != nil {
 		return fmt.Errorf("cannot generate bootstrap certificate: %v", err)
 	}
-	return environ.Bootstrap(uploadTools, certPEM, keyPEM)
+	return environ.Bootstrap(uploadTools, cert, key)
 }
 
-func writeCertFileToHome(name string, data []byte) error {
+func writeCertAndKeyToHome(name string, cert, key []byte) error {
 	path := filepath.Join(os.Getenv("HOME"), ".juju", name)
-	return ioutil.WriteFile(path, data, 0600)
+	if err := ioutil.WriteFile(path+"-cert.pem", cert, 0644); err != nil {
+		return err
+	}
+	if err := ioutil.WriteFile(path+"-private-key.pem", key, 0600); err != nil {
+		return err
+	}
+	return nil
 }
 
 const keyBits = 1024

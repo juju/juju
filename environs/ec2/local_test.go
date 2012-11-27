@@ -192,8 +192,8 @@ func (t *localServerSuite) TearDownTest(c *C) {
 	t.LoggingSuite.TearDownTest(c)
 }
 
-func panicWrite(name string, data []byte) error {
-	panic("writeCertFile called unexpectedly")
+func panicWrite(name string, cert, key []byte) error {
+	panic("writeCertAndKey called unexpectedly")
 }
 
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
