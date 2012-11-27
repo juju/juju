@@ -29,11 +29,11 @@ type MachineConfig struct {
 	// or MongoDB instance.
 	StateServer bool
 
-	// StateServerCertPEM and StateServerKeyPEM hold the state server
+	// StateServerCert and StateServerKey hold the state server
 	// certificate and private key in PEM format; they are required when
 	// StateServer is set, and ignored otherwise.
-	StateServerCertPEM []byte
-	StateServerKeyPEM  []byte
+	StateServerCert []byte
+	StateServerKey  []byte
 
 	// InstanceIdAccessor holds bash code that evaluates to the current instance id.
 	InstanceIdAccessor string
@@ -114,14 +114,14 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 		debugFlag = " --debug"
 	}
 	addScripts(c,
-		fmt.Sprintf("echo %s > %s", shquote(string(cfg.StateInfo.CACertPEM)), shquote(caCertPath(cfg))),
+		fmt.Sprintf("echo %s > %s", shquote(cfg.StateInfo.CACertPEM), shquote(caCertPath(cfg))),
 	)
 
 	if cfg.StateServer {
 		serverPEMPath := path.Join(cfg.DataDir, "server.pem")
 		addScripts(c,
 			fmt.Sprintf("echo %s > %s",
-				shquote(string(cfg.StateServerCertPEM)+string(cfg.StateServerKeyPEM)), serverPEMPath),
+				shquote(string(cfg.StateServerCert)+string(cfg.StateServerKey)), shquote(serverPEMPath)),
 			"chmod 600 "+serverPEMPath,
 		)
 
@@ -139,7 +139,7 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 			" --instance-id "+cfg.InstanceIdAccessor+
 			" --env-config "+shquote(base64yaml(cfg.Config))+
 			" --state-servers localhost"+mgoPortSuffix+
-			" --ca-cert-file "+shquote(caCertPath(cfg))+
+			" --ca-cert "+shquote(caCertPath(cfg))+
 			" --initial-password "+shquote(cfg.StateInfo.Password)+
 			debugFlag,
 		)
@@ -177,7 +177,7 @@ func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, name, args st
 	cmd := fmt.Sprintf(
 		"%s/jujud %s"+
 			" --state-servers '%s'"+
-			" --ca-cert-file '%s'"+
+			" --ca-cert '%s'"+
 			" --log-file %s"+
 			" --data-dir '%s'"+
 			" --initial-password '%s'"+
@@ -302,10 +302,10 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		if cfg.StateInfo.EntityName != "" {
 			return fmt.Errorf("entity name must be blank when starting a state server")
 		}
-		if len(cfg.StateServerCertPEM) == 0 {
+		if len(cfg.StateServerCert) == 0 {
 			return fmt.Errorf("missing state server certificate")
 		}
-		if len(cfg.StateServerKeyPEM) == 0 {
+		if len(cfg.StateServerKey) == 0 {
 			return fmt.Errorf("missing state server private key")
 		}
 	} else {

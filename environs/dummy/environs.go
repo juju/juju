@@ -45,8 +45,8 @@ func stateInfo() *state.Info {
 		panic("dummy environ state tests must be run with MgoTestPackage")
 	}
 	return &state.Info{
-		Addrs:     []string{testing.MgoAddr},
-		CACertPEM: []byte(testing.CACertPEM),
+		Addrs:  []string{testing.MgoAddr},
+		CACert: []byte(testing.CACert),
 	}
 }
 

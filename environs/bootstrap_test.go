@@ -71,9 +71,10 @@ func verifyCert(c *C, srvCertPEM, caCertPEM []byte) {
 
 func (s *bootstrapSuite) TestBootstrapFuncKeyGeneration(c *C) {
 	env := newEnviron("foo", nil, nil)
-	saved := make(map[string][]byte)
-	err := environs.Bootstrap(env, false, func(name string, data []byte) error {
-		saved[name] = data
+	var savedCert, savedKey []byte
+	err := environs.Bootstrap(env, false, func(name string, cert, key []byte) error {
+		savedCert = cert
+		savedKey = key
 		return nil
 	})
 	c.Assert(err, IsNil)
@@ -86,9 +87,8 @@ func (s *bootstrapSuite) TestBootstrapFuncKeyGeneration(c *C) {
 	cfgKeyPEM, cfgKeyOK := env.cfg.CAPrivateKey()
 	c.Assert(cfgCertOK, Equals, true)
 	c.Assert(cfgKeyOK, Equals, true)
-	c.Assert(cfgCertPEM, DeepEquals, saved["foo-cert.pem"])
-	c.Assert(cfgKeyPEM, DeepEquals, saved["foo-private-key.pem"])
-	c.Assert(saved, HasLen, 2)
+	c.Assert(cfgCertPEM, DeepEquals, savedCert)
+	c.Assert(cfgKeyPEM, DeepEquals, savedKey)
 
 	caCert, _, err := cert.ParseCertAndKey(cfgCertPEM, cfgKeyPEM)
 	c.Assert(err, IsNil)
@@ -97,17 +97,17 @@ func (s *bootstrapSuite) TestBootstrapFuncKeyGeneration(c *C) {
 	verifyCert(c, env.certPEM, cfgCertPEM)
 }
 
-func panicWrite(name string, data []byte) error {
-	panic("writeCertFile called unexpectedly")
+func panicWrite(name string, cert, key []byte) error {
+	panic("writeCertAndKey called unexpectedly")
 }
 
 func (s *bootstrapSuite) TestBootstrapExistingKey(c *C) {
-	env := newEnviron("foo", []byte(testing.CACertPEM), []byte(testing.CAKeyPEM))
+	env := newEnviron("foo", []byte(testing.CACert), []byte(testing.CAKey))
 	err := environs.Bootstrap(env, false, panicWrite)
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
 
-	verifyCert(c, env.certPEM, []byte(testing.CACertPEM))
+	verifyCert(c, env.certPEM, []byte(testing.CACert))
 }
 
 func (s *bootstrapSuite) TestBootstrapUploadTools(c *C) {

@@ -38,8 +38,8 @@ func (*NewConnSuite) TestNewConnWithoutAdminSecret(c *C) {
 		"authorized-keys": "i-am-a-key",
 		"secret":          "pork",
 		"admin-secret":    "really",
-		"ca-cert":         coretesting.CACertPEM,
-		"ca-private-key":  coretesting.CAKeyPEM,
+		"ca-cert":         coretesting.CACert,
+		"ca-private-key":  coretesting.CAKey,
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
@@ -77,7 +77,9 @@ environments:
         admin-secret: conn-from-name-secret
 `), 0644)
 
-	err = ioutil.WriteFile(filepath.Join(home, ".juju", "erewhemos-cert.pem"), []byte(coretesting.CACertPEM), 0600)
+	err = ioutil.WriteFile(filepath.Join(home, ".juju", "erewhemos-cert.pem"), []byte(coretesting.CACert), 0600)
+	c.Assert(err, IsNil)
+	err = ioutil.WriteFile(filepath.Join(home, ".juju", "erewhemos-private-key.pem"), []byte(coretesting.CAKeyPEM), 0600)
 	c.Assert(err, IsNil)
 	err = ioutil.WriteFile(filepath.Join(home, ".juju", "erewhemos-private-key.pem"), []byte(coretesting.CAKeyPEM), 0600)
 	c.Assert(err, IsNil)
@@ -118,8 +120,8 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *C) {
 		"authorized-keys": "i-am-a-key",
 		"secret":          "pork",
 		"admin-secret":    "side-effect secret",
-		"ca-cert":         coretesting.CACertPEM,
-		"ca-private-key":  coretesting.CAKeyPEM,
+		"ca-cert":         coretesting.CACert,
+		"ca-private-key":  coretesting.CAKey,
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
@@ -158,8 +160,8 @@ func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *C) {
 		"authorized-keys": "i-am-a-key",
 		"secret":          "pork",
 		"admin-secret":    "some secret",
-		"ca-cert":         coretesting.CACertPEM,
-		"ca-private-key":  coretesting.CAKeyPEM,
+		"ca-cert":         coretesting.CACert,
+		"ca-private-key":  coretesting.CAKey,
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
@@ -189,8 +191,8 @@ func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func panicWrite(name string, data []byte) error {
-	panic("writeCertFile called unexpectedly")
+func panicWrite(name string, cert, key []byte) error {
+	panic("writeCertAndKey called unexpectedly")
 }
 
 func (cs *NewConnSuite) TestConnWithPassword(c *C) {
@@ -201,8 +203,8 @@ func (cs *NewConnSuite) TestConnWithPassword(c *C) {
 		"authorized-keys": "i-am-a-key",
 		"secret":          "squirrel",
 		"admin-secret":    "nutkin",
-		"ca-cert":         coretesting.CACertPEM,
-		"ca-private-key":  coretesting.CAKeyPEM,
+		"ca-cert":         coretesting.CACert,
+		"ca-private-key":  coretesting.CAKey,
 	})
 	c.Assert(err, IsNil)
 	err = environs.Bootstrap(env, false, panicWrite)
@@ -258,8 +260,8 @@ func (s *ConnSuite) SetUpTest(c *C) {
 		"state-server":    true,
 		"authorized-keys": "i-am-a-key",
 		"admin-secret":    "deploy-test-secret",
-		"ca-cert":         coretesting.CACertPEM,
-		"ca-private-key":  coretesting.CAKeyPEM,
+		"ca-cert":         coretesting.CACert,
+		"ca-private-key":  coretesting.CAKey,
 	}
 	environ, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
