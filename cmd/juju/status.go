@@ -2,8 +2,6 @@ package main
 
 import (
 	"fmt"
-	"strconv"
-
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
@@ -70,9 +68,6 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	if c.out.Name() == "json" {
-		return c.out.Write(ctx, jsonify(result))
-	}
 	return c.out.Write(ctx, result)
 }
 
@@ -90,10 +85,10 @@ func fetchAllInstances(env environs.Environ) (map[string]environs.Instance, erro
 	return m, nil
 }
 
-// fetchAllMachines returns a map[int]*state.Machine representing
+// fetchAllMachines returns a map[string]*state.Machine representing
 // a mapping of machine ids to machines.
-func fetchAllMachines(st *state.State) (map[int]*state.Machine, error) {
-	v := make(map[int]*state.Machine)
+func fetchAllMachines(st *state.State) (map[string]*state.Machine, error) {
+	v := make(map[string]*state.Machine)
 	machines, err := st.AllMachines()
 	if err != nil {
 		return nil, err
@@ -119,8 +114,8 @@ func fetchAllServices(st *state.State) (map[string]*state.Service, error) {
 }
 
 // processMachines gathers information about machines.
-func processMachines(machines map[int]*state.Machine, instances map[string]environs.Instance) (map[int]interface{}, error) {
-	r := make(map[int]interface{})
+func processMachines(machines map[string]*state.Machine, instances map[string]environs.Instance) (map[string]interface{}, error) {
+	r := make(map[string]interface{})
 	for _, m := range machines {
 		instid, err := m.InstanceId()
 		if err, ok := err.(*state.NotFoundError); ok {
@@ -134,7 +129,7 @@ func processMachines(machines map[int]*state.Machine, instances map[string]envir
 			if !ok {
 				// Double plus ungood. There is an instance id recorded for this machine in the state,
 				// yet the environ cannot find that id.
-				return nil, fmt.Errorf("instance %s for machine %d not found", instid, m.Id())
+				return nil, fmt.Errorf("instance %s for machine %s not found", instid, m.Id())
 			}
 			r[m.Id()] = checkError(processMachine(m, instance))
 		}
@@ -247,19 +242,6 @@ func processAgentStatus(r map[string]interface{}, a agent) {
 	if alive, err := a.AgentAlive(); err == nil && alive {
 		r["agent-state"] = "running"
 	}
-}
-
-// jsonify converts the keys of the machines map into their string
-// equivalents for compatibility with encoding/json.
-func jsonify(r map[string]interface{}) map[string]map[string]interface{} {
-	m := map[string]map[string]interface{}{
-		"services": r["services"].(map[string]interface{}),
-		"machines": m(),
-	}
-	for k, v := range r["machines"].(map[int]interface{}) {
-		m["machines"][strconv.Itoa(k)] = v
-	}
-	return m
 }
 
 func m() map[string]interface{} { return make(map[string]interface{}) }

@@ -24,7 +24,7 @@ func (s *MachineSuite) TestParseSuccess(c *C) {
 		return a, &a.Conf
 	}
 	a := CheckAgentCommand(c, create, []string{"--machine-id", "42"}, flagAll)
-	c.Assert(a.(*MachineAgent).MachineId, Equals, 42)
+	c.Assert(a.(*MachineAgent).MachineId, Equals, "42")
 }
 
 func (s *MachineSuite) TestParseNonsense(c *C) {
@@ -43,7 +43,7 @@ func (s *MachineSuite) TestParseUnknown(c *C) {
 	c.Assert(err, ErrorMatches, `unrecognized args: \["blistering barnacles"\]`)
 }
 
-func (s *MachineSuite) newAgent(c *C, mid int) *MachineAgent {
+func (s *MachineSuite) newAgent(c *C, mid string) *MachineAgent {
 	a := &MachineAgent{
 		Conf: AgentConf{
 			DataDir:         c.MkDir(),
@@ -59,7 +59,7 @@ func (s *MachineSuite) newAgent(c *C, mid int) *MachineAgent {
 
 func (s *MachineSuite) TestRunInvalidMachineId(c *C) {
 	c.Skip("agents don't yet distinguish between temporary and permanent errors")
-	err := s.newAgent(c, 2).Run(nil)
+	err := s.newAgent(c, "2").Run(nil)
 	c.Assert(err, ErrorMatches, "some error")
 }
 

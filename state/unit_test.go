@@ -3,6 +3,7 @@ package state_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state"
+	"sort"
 	"time"
 )
 
@@ -421,6 +422,77 @@ func (s *UnitSuite) TestSubordinateChangeInPrincipal(c *C) {
 		c.Errorf(`unit document does not have a "subordinates" field`)
 	}
 	c.Assert(subordinates, DeepEquals, []string{"logging/0"})
+}
+
+func (s *UnitSuite) TestWatchSubordinates(c *C) {
+	w := s.unit.WatchSubordinateUnits()
+	defer stop(c, w)
+	assertChange := func(units ...string) {
+		s.State.Sync()
+		select {
+		case ch, ok := <-w.Changes():
+			c.Assert(ok, Equals, true)
+			if len(units) > 0 {
+				sort.Strings(ch)
+				sort.Strings(units)
+				c.Assert(ch, DeepEquals, units)
+			} else {
+				c.Assert(ch, HasLen, 0)
+			}
+		case <-time.After(500 * time.Millisecond):
+			c.Fatalf("timed out waiting for %#v", units)
+		}
+	}
+	assertChange()
+	assertNoChange := func() {
+		s.State.StartSync()
+		select {
+		case ch, ok := <-w.Changes():
+			c.Fatalf("unexpected change: %#v, %v", ch, ok)
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+	assertNoChange()
+
+	// Add a couple of subordinates, check change.
+	logging, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
+	c.Assert(err, IsNil)
+	logging0, err := logging.AddUnitSubordinateTo(s.unit)
+	c.Assert(err, IsNil)
+	logging1, err := logging.AddUnitSubordinateTo(s.unit)
+	c.Assert(err, IsNil)
+	assertChange("logging/0", "logging/1")
+	assertNoChange()
+
+	// Set one to Dying, check change.
+	err = logging0.EnsureDying()
+	c.Assert(err, IsNil)
+	assertChange("logging/0")
+	assertNoChange()
+
+	// Set both to Dead, and remove one; check change.
+	err = logging0.EnsureDead()
+	c.Assert(err, IsNil)
+	err = logging1.EnsureDead()
+	c.Assert(err, IsNil)
+	err = logging.RemoveUnit(logging1)
+	c.Assert(err, IsNil)
+	assertChange("logging/0", "logging/1")
+	assertNoChange()
+
+	// Remove the leftover, check no change.
+	err = logging.RemoveUnit(logging0)
+	c.Assert(err, IsNil)
+	assertNoChange()
+
+	// Stop watcher, check closed.
+	err = w.Stop()
+	c.Assert(err, IsNil)
+	select {
+	case _, ok := <-w.Changes():
+		c.Assert(ok, Equals, false)
+	default:
+	}
 }
 
 type unitInfo struct {

@@ -56,8 +56,8 @@ type MachineConfig struct {
 	// machine.
 	DataDir string
 
-	// MachineId identifies the new machine. It must be non-negative.
-	MachineId int
+	// MachineId identifies the new machine.
+	MachineId string
 
 	// AuthorizedKeys specifies the keys that are allowed to
 	// connect to the machine (see cloudinit.SSHAddAuthorizedKeys)
@@ -146,7 +146,7 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 
 	if err := addAgentToBoot(c, cfg, "machine",
 		state.MachineEntityName(cfg.MachineId),
-		fmt.Sprintf("--machine-id %d "+debugFlag, cfg.MachineId)); err != nil {
+		fmt.Sprintf("--machine-id %s "+debugFlag, cfg.MachineId)); err != nil {
 		return nil, err
 	}
 
@@ -277,8 +277,8 @@ func (e requiresError) Error() string {
 
 func verifyConfig(cfg *MachineConfig) (err error) {
 	defer trivial.ErrorContextf(&err, "invalid machine configuration")
-	if cfg.MachineId < 0 {
-		return fmt.Errorf("negative machine id")
+	if !state.IsMachineId(cfg.MachineId) {
+		return fmt.Errorf("invalid machine id")
 	}
 	if cfg.ProviderType == "" {
 		return fmt.Errorf("missing provider type")

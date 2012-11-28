@@ -125,7 +125,7 @@ func (s *BootstrapSuite) TestMachinerWorkers(c *C) {
 	})
 	c.Assert(err, IsNil)
 	defer st.Close()
-	m, err := st.Machine(0)
+	m, err := st.Machine("0")
 	c.Assert(err, IsNil)
 	c.Assert(m.Workers(), DeepEquals, []state.WorkerKind{state.MachinerWorker, state.ProvisionerWorker, state.FirewallerWorker})
 }
