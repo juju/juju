@@ -968,18 +968,21 @@ func (w *UnitsWatcher) Changes() <-chan []string {
 	return w.out
 }
 
-type lifeTxnDoc struct {
+// lifeWatchDoc holds the fields used in starting and maintaining a watch
+// on a entity's lifecycle.
+type lifeWatchDoc struct {
 	Id       string `bson:"_id"`
 	Life     Life
-	TxnRevno int64
+	TxnRevno int64 `bson:"txn-revno"`
 }
 
-var lifeTxnFields = D{{"_id", 1}, {"life", 1}, {"txnrevno", 1}}
+// lifeWatchFields specifies the fields of a lifeWatchDoc.
+var lifeWatchFields = D{{"_id", 1}, {"life", 1}, {"txn-revno", 1}}
 
 // initial returns every non-Dead member of the tracked set.
 func (w *UnitsWatcher) initial() ([]string, error) {
-	docs := []lifeTxnDoc{}
-	if err := w.st.units.Find(w.init).Select(lifeTxnFields).All(&docs); err != nil {
+	docs := []lifeWatchDoc{}
+	if err := w.st.units.Find(w.init).Select(lifeWatchFields).All(&docs); err != nil {
 		return nil, err
 	}
 	changes := []string{}
@@ -1024,8 +1027,8 @@ func (w *UnitsWatcher) update(changes []string) ([]string, error) {
 // merge adds to and returns changes, such that it contains the supplied unit
 // name if that unit is unknown and non-Dead, or has changed lifecycle status.
 func (w *UnitsWatcher) merge(changes []string, name string) ([]string, error) {
-	doc := lifeTxnDoc{}
-	err := w.st.units.FindId(name).Select(lifeTxnFields).One(&doc)
+	doc := lifeWatchDoc{}
+	err := w.st.units.FindId(name).Select(lifeWatchFields).One(&doc)
 	gone := false
 	if err == mgo.ErrNotFound {
 		gone = true
@@ -1035,15 +1038,16 @@ func (w *UnitsWatcher) merge(changes []string, name string) ([]string, error) {
 		gone = true
 	}
 	life, known := w.life[name]
-	if known && gone {
+	switch {
+	case known && gone:
 		delete(w.life, name)
 		w.st.watcher.Unwatch(w.st.units.Name, name, w.in)
-	} else if !known && !gone {
+	case !known && !gone:
 		w.st.watcher.Watch(w.st.units.Name, name, doc.TxnRevno, w.in)
 		w.life[name] = doc.Life
-	} else if known && life != doc.Life {
+	case known && life != doc.Life:
 		w.life[name] = doc.Life
-	} else {
+	default:
 		return changes, nil
 	}
 	if !hasString(changes, name) {
