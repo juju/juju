@@ -9,7 +9,8 @@ import (
 	"time"
 )
 
-// InstanceId values hold provider-specific instance identifiers.
+// An InstanceId is a provider-specific identifier associated with an
+// instance (physical or virtual machine allocated in the provider).
 type InstanceId string
 
 // Machine represents the state of a machine.
