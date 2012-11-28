@@ -99,9 +99,6 @@ func (certSuite) TestWithNonUTCExpiry(c *C) {
 	c.Assert(xcert.NotAfter.Equal(expiry), Equals, true)
 }
 
-func (certSuite) TestNewServerWithNonUTCExpiry(c *C) {
-}
-
 func (certSuite) TestNewServerWithInvalidCert(c *C) {
 	srvCert, srvKey, err := cert.NewServer("foo", nonCACert, nonCAKey, time.Now())
 	c.Check(srvCert, IsNil)
