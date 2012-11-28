@@ -176,8 +176,16 @@ func CheckAgentCommand(c *C, create acCreator, args []string, which agentFlags) 
 		err := initCmd(com, args)
 		c.Assert(err, ErrorMatches, "--state-servers option must be set")
 		args = append(args, "--state-servers", "st1:37017,st2:37017")
+		err = initCmd(com, args)
+		c.Assert(err, ErrorMatches, "--ca-cert option must be set")
+		args = append(args, "--ca-cert", "/non-existing-file")
+		err = initCmd(com, args)
+		c.Assert(err, ErrorMatches, "open /non-existing-file: .*")
+		args[len(args)-1] = caCertFile
 		c.Assert(initCmd(com, args), IsNil)
 		c.Assert(conf.StateInfo.Addrs, DeepEquals, []string{"st1:37017", "st2:37017"})
+		c.Assert(string(conf.StateInfo.CACert), Equals, coretesting.CACert) // TODO(rog) conf.StateInfo.CACert
+
 	}
 	if which&flagDataDir != 0 {
 		c.Assert(conf.DataDir, Equals, "/var/lib/juju")
@@ -206,6 +214,7 @@ func ParseAgentCommand(ac cmd.Command, args []string) error {
 	common := []string{
 		"--state-servers", "st:37017",
 		"--data-dir", "jd",
+		"--ca-cert", caCertFile,
 	}
 	return initCmd(ac, append(common, args...))
 }

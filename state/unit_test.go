@@ -3,7 +3,6 @@ package state_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/testing"
 	"sort"
 	"time"
 )
@@ -173,9 +172,7 @@ func (s *UnitSuite) TestSetPasswordOnUnitAfterConnectingAsMachineEntity(c *C) {
 	subUnit, err := logService.AddUnitSubordinateTo(s.unit)
 	c.Assert(err, IsNil)
 
-	info := &state.Info{
-		Addrs: []string{testing.MgoAddr},
-	}
+	info := state.TestingStateInfo()
 	st, err := state.Open(info)
 	c.Assert(err, IsNil)
 	defer st.Close()

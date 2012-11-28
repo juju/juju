@@ -1,16 +1,15 @@
 package main
 
 import (
-	"net/http"
-
 	"io/ioutil"
+	"net/http"
+	"os"
+
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
-	"os"
-	"path/filepath"
 )
 
 type BootstrapSuite struct {
@@ -42,12 +41,8 @@ func (s *BootstrapSuite) TearDownTest(c *C) {
 }
 
 func (*BootstrapSuite) TestBootstrapCommand(c *C) {
-	home := c.MkDir()
-	defer os.Setenv("HOME", os.Getenv("HOME"))
-	os.Setenv("HOME", home)
-	err := os.Mkdir(filepath.Join(home, ".juju"), 0777)
-	c.Assert(err, IsNil)
-	err = ioutil.WriteFile(filepath.Join(home, ".juju", "environments.yaml"), []byte(envConfig), 0666)
+	defer makeFakeHome(c, "brokenenv").restore()
+	err := ioutil.WriteFile(homePath(".juju", "environments.yaml"), []byte(envConfig), 0666)
 	c.Assert(err, IsNil)
 
 	// normal bootstrap
@@ -55,9 +50,11 @@ func (*BootstrapSuite) TestBootstrapCommand(c *C) {
 	c.Check(<-errc, IsNil)
 	c.Check((<-opc).(dummy.OpBootstrap).Env, Equals, "peckham")
 
-	// Check that the CA certificate has been automatically generated
+	// Check that the CA certificate and key have been automatically generated
 	// for the environment.
-	_, err = os.Stat(filepath.Join(home, ".juju", "peckham.pem"))
+	_, err = os.Stat(homePath(".juju", "peckham-cert.pem"))
+	c.Assert(err, IsNil)
+	_, err = os.Stat(homePath(".juju", "peckham-private-key.pem"))
 	c.Assert(err, IsNil)
 
 	// bootstrap with tool uploading - checking that a file
