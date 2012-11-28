@@ -25,15 +25,15 @@ type certSuite struct{}
 var _ = Suite(certSuite{})
 
 func (certSuite) TestParseCertificate(c *C) {
-	xcert, err := cert.ParseCertificate(caCertPEM)
+	xcert, err := cert.ParseCert(caCertPEM)
 	c.Assert(err, IsNil)
 	c.Assert(xcert.Subject.CommonName, Equals, "juju testing")
 
-	xcert, err = cert.ParseCertificate(caKeyPEM)
+	xcert, err = cert.ParseCert(caKeyPEM)
 	c.Check(xcert, IsNil)
 	c.Assert(err, ErrorMatches, "no certificates found")
 
-	xcert, err = cert.ParseCertificate([]byte("hello"))
+	xcert, err = cert.ParseCert([]byte("hello"))
 	c.Check(xcert, IsNil)
 	c.Assert(err, ErrorMatches, "no certificates found")
 }
@@ -211,7 +211,7 @@ func bufferedConn(c net.Conn, n int) net.Conn {
 	return c
 }
 
-// recordongConn returns a connection which
+// recordingConn returns a connection which
 // records traffic in or out of the given connection.
 func recordingConn(c net.Conn, in, out io.Writer) net.Conn {
 	p0, p1 := net.Pipe()

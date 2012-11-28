@@ -16,7 +16,8 @@ import (
 
 var KeyBits = 1024
 
-func ParseCertificate(certPEM []byte) (*x509.Certificate, error) {
+// ParseCert parses the given PEM-formatted X509 certificate.
+func ParseCert(certPEM []byte) (*x509.Certificate, error) {
 	for len(certPEM) > 0 {
 		var certBlock *pem.Block
 		certBlock, certPEM = pem.Decode(certPEM)
@@ -31,6 +32,8 @@ func ParseCertificate(certPEM []byte) (*x509.Certificate, error) {
 	return nil, errors.New("no certificates found")
 }
 
+// ParseCert parses the given PEM-formatted X509 certificate
+// and RSA private key.
 func ParseCertAndKey(certPEM, keyPEM []byte) (*x509.Certificate, *rsa.PrivateKey, error) {
 	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
@@ -49,15 +52,14 @@ func ParseCertAndKey(certPEM, keyPEM []byte) (*x509.Certificate, *rsa.PrivateKey
 	return cert, key, nil
 }
 
-// Verify verifies that the given server certificate is
-// valid with respect to the given CA certificate
-// at the given time.
+// Verify verifies that the given server certificate is valid with
+// respect to the given CA certificate at the given time.
 func Verify(srvCertPEM, caCertPEM []byte, when time.Time) error {
-	caCert, err := ParseCertificate(caCertPEM)
+	caCert, err := ParseCert(caCertPEM)
 	if err != nil {
 		return fmt.Errorf("cannot parse CA certificate: %v", err)
 	}
-	srvCert, err := ParseCertificate(srvCertPEM)
+	srvCert, err := ParseCert(srvCertPEM)
 	if err != nil {
 		return fmt.Errorf("cannot parse server certificate: %v", err)
 	}
@@ -72,9 +74,8 @@ func Verify(srvCertPEM, caCertPEM []byte, when time.Time) error {
 	return err
 }
 
-// NewCA generates a CA certificate/key pair suitable for
-// signing server keys for an environment with the
-// given name.
+// NewCA generates a CA certificate/key pair suitable for signing server
+// keys for an environment with the given name.
 func NewCA(envName string, expiry time.Time) (certPEM, keyPEM []byte, err error) {
 	key, err := rsa.GenerateKey(rand.Reader, KeyBits)
 	if err != nil {
@@ -112,9 +113,8 @@ func NewCA(envName string, expiry time.Time) (certPEM, keyPEM []byte, err error)
 	return certPEM, keyPEM, nil
 }
 
-// NewServer generates a certificate/key pair suitable
-// for using by a server for an environment with the given
-// name.
+// NewServer generates a certificate/key pair suitable for use by a
+// server for an environment with the given name.
 func NewServer(envName string, caCertPEM, caKeyPEM []byte, expiry time.Time) (certPEM, keyPEM []byte, err error) {
 	tlsCert, err := tls.X509KeyPair(caCertPEM, caKeyPEM)
 	if err != nil {
