@@ -85,6 +85,20 @@ func (certSuite) TestNewServer(c *C) {
 	checkTLSConnection(c, caCert, srvCert, srvKey)
 }
 
+func (certSuite) TestWithNonUTCExpiry(c *C) {
+	expiry, err := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", "2012-11-28 15:53:57 +0100 CET")
+	c.Assert(err, IsNil)
+	certPEM, keyPEM, err := cert.NewCA("foo", expiry)
+	xcert, err := cert.ParseCert(certPEM)
+	c.Assert(err, IsNil)
+	c.Assert(xcert.NotAfter.Equal(expiry), Equals, true)
+
+	certPEM, _, err = cert.NewServer("foo", certPEM, keyPEM, expiry)
+	xcert, err = cert.ParseCert(certPEM)
+	c.Assert(err, IsNil)
+	c.Assert(xcert.NotAfter.Equal(expiry), Equals, true)
+}
+
 func (certSuite) TestNewServerWithInvalidCert(c *C) {
 	srvCert, srvKey, err := cert.NewServer("foo", nonCACert, nonCAKey, time.Now())
 	c.Check(srvCert, IsNil)
