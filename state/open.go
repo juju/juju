@@ -24,7 +24,12 @@ type Info struct {
 
 	// UseSSH specifies whether MongoDB should be contacted through an
 	// SSH tunnel.
+	// TODO(rog) remove
 	UseSSH bool
+
+	// CACert holds the CA certificate that will be used
+	// to validate the state server's certificate, in PEM format.
+	CACert []byte
 
 	// EntityName holds the name of the entity that is connecting.
 	// It should be empty when connecting as an administrator.
@@ -48,6 +53,9 @@ func Open(info *Info) (*State, error) {
 		fwd     *sshForwarder
 		err     error
 	)
+	if len(info.CACert) == 0 {
+		return nil, errors.New("missing CA certificate")
+	}
 	if info.UseSSH {
 		// TODO implement authorization on SSL connection; drop sshDial.
 		if len(info.Addrs) > 1 {

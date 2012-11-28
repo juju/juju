@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"strings"
 )
@@ -42,8 +43,8 @@ func registerAmazonTests() {
 		"control-bucket": "juju-test-" + uniqueName,
 		"public-bucket":  "juju-public-test-" + uniqueName,
 		"admin-secret":   "for real",
-		"ca-cert":        coretesting.CACertPEM,
-		"ca-private-key": coretesting.CAKeyPEM,
+		"ca-cert":        coretesting.CACert,
+		"ca-private-key": coretesting.CAKey,
 	}
 	Suite(&LiveTests{
 		LiveTests: jujutest.LiveTests{
@@ -97,7 +98,7 @@ func (t *LiveTests) TearDownTest(c *C) {
 // TODO(niemeyer): Looks like many of those tests should be moved to jujutest.LiveTests.
 
 func (t *LiveTests) TestInstanceDNSName(c *C) {
-	inst, err := t.Env.StartInstance(30, testing.InvalidStateInfo(30), nil)
+	inst, err := t.Env.StartInstance("30", testing.InvalidStateInfo("30"), nil)
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst})
 	dns, err := inst.WaitDNSName()
@@ -105,7 +106,7 @@ func (t *LiveTests) TestInstanceDNSName(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(dns, Not(Equals), "")
 
-	insts, err := t.Env.Instances([]string{inst.Id()})
+	insts, err := t.Env.Instances([]state.InstanceId{inst.Id()})
 	c.Assert(err, IsNil)
 	c.Assert(len(insts), Equals, 1)
 
@@ -118,8 +119,8 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 
 	groups := amzec2.SecurityGroupNames(
 		ec2.JujuGroupName(t.Env),
-		ec2.MachineGroupName(t.Env, 98),
-		ec2.MachineGroupName(t.Env, 99),
+		ec2.MachineGroupName(t.Env, "98"),
+		ec2.MachineGroupName(t.Env, "99"),
 	)
 	info := make([]amzec2.SecurityGroupInfo, len(groups))
 
@@ -148,7 +149,7 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 		})
 	c.Assert(err, IsNil)
 
-	inst0, err := t.Env.StartInstance(98, testing.InvalidStateInfo(98), nil)
+	inst0, err := t.Env.StartInstance("98", testing.InvalidStateInfo("98"), nil)
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst0})
 
@@ -156,7 +157,7 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	// before starting it, to check that it's reused correctly.
 	oldMachineGroup := createGroup(c, ec2conn, groups[2].Name, "old machine group")
 
-	inst1, err := t.Env.StartInstance(99, testing.InvalidStateInfo(99), nil)
+	inst1, err := t.Env.StartInstance("99", testing.InvalidStateInfo("99"), nil)
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst1})
 
@@ -196,7 +197,7 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	c.Check(groups[2].Id, Equals, oldMachineGroup.Id)
 
 	// Check that each instance is part of the correct groups.
-	resp, err := ec2conn.Instances([]string{inst0.Id(), inst1.Id()}, nil)
+	resp, err := ec2conn.Instances([]string{string(inst0.Id()), string(inst1.Id())}, nil)
 	c.Assert(err, IsNil)
 	c.Assert(resp.Reservations, HasLen, 2)
 	for _, r := range resp.Reservations {
@@ -205,7 +206,7 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 		msg := Commentf("reservation %#v", r)
 		c.Assert(hasSecurityGroup(r, groups[0]), Equals, true, msg)
 		inst := r.Instances[0]
-		switch inst.InstanceId {
+		switch state.InstanceId(inst.InstanceId) {
 		case inst0.Id():
 			c.Assert(hasSecurityGroup(r, groups[1]), Equals, true, msg)
 			c.Assert(hasSecurityGroup(r, groups[2]), Equals, false, msg)
@@ -286,12 +287,12 @@ func (t *LiveTests) TestStopInstances(c *C) {
 	// It would be nice if this test was in jujutest, but
 	// there's no way for jujutest to fabricate a valid-looking
 	// instance id.
-	inst0, err := t.Env.StartInstance(40, testing.InvalidStateInfo(40), nil)
+	inst0, err := t.Env.StartInstance("40", testing.InvalidStateInfo("40"), nil)
 	c.Assert(err, IsNil)
 
 	inst1 := ec2.FabricateInstance(inst0, "i-aaaaaaaa")
 
-	inst2, err := t.Env.StartInstance(41, testing.InvalidStateInfo(41), nil)
+	inst2, err := t.Env.StartInstance("41", testing.InvalidStateInfo("41"), nil)
 	c.Assert(err, IsNil)
 
 	err = t.Env.StopInstances([]environs.Instance{inst0, inst1, inst2})
@@ -304,7 +305,7 @@ func (t *LiveTests) TestStopInstances(c *C) {
 	// if it succeeds.
 	gone := false
 	for a := ec2.ShortAttempt.Start(); a.Next(); {
-		insts, err = t.Env.Instances([]string{inst0.Id(), inst2.Id()})
+		insts, err = t.Env.Instances([]state.InstanceId{inst0.Id(), inst2.Id()})
 		if err == environs.ErrPartialInstances {
 			// instances not gone yet.
 			continue
