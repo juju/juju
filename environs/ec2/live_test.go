@@ -190,7 +190,7 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	perms := info[0].IPPerms
 	c.Assert(perms, HasLen, 5)
 	checkPortAllowed(c, perms, 22)
-	checkPortAllowed(c, perms, 37017)
+	checkPortAllowed(c, perms, ec2.MgoPort)
 	checkSecurityGroupAllowed(c, perms, groups[0])
 
 	// The old machine group should have been reused also.
