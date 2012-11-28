@@ -105,7 +105,7 @@ func (s *MgoSuite) TearDownSuite(c *C) {}
 // MgoDial returns a new connection to the shared MongoDB server.
 func MgoDial() *mgo.Session {
 	pool := x509.NewCertPool()
-	xcert, err := cert.ParseCertificate([]byte(CACert))
+	xcert, err := cert.ParseCert([]byte(CACert))
 	if err != nil {
 		panic(err)
 	}

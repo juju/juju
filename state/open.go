@@ -49,7 +49,7 @@ func Open(info *Info) (*State, error) {
 	if len(info.CACert) == 0 {
 		return nil, errors.New("missing CA certificate")
 	}
-	xcert, err := cert.ParseCertificate(info.CACert)
+	xcert, err := cert.ParseCert(info.CACert)
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse CA certificate: %v", err)
 	}

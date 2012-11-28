@@ -56,7 +56,7 @@ func mustNewServer() (string, string) {
 }
 
 func mustParseCert(pemData string) *x509.Certificate {
-	cert, err := cert.ParseCertificate([]byte(pemData))
+	cert, err := cert.ParseCert([]byte(pemData))
 	if err != nil {
 		panic(err)
 	}
