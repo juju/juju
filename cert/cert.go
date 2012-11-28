@@ -91,7 +91,7 @@ func NewCA(envName string, expiry time.Time) (certPEM, keyPEM []byte, err error)
 			Organization: []string{"juju"},
 		},
 		NotBefore:             now.UTC().Add(-5 * time.Minute),
-		NotAfter:              expiry,
+		NotAfter:              expiry.UTC(),
 		SubjectKeyId:          bigIntHash(key.N),
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
 		BasicConstraintsValid: true,
@@ -148,7 +148,7 @@ func NewServer(envName string, caCertPEM, caKeyPEM []byte, expiry time.Time) (ce
 			Organization: []string{"juju"},
 		},
 		NotBefore: now.UTC().Add(-5 * time.Minute),
-		NotAfter:  expiry,
+		NotAfter:  expiry.UTC(),
 
 		SubjectKeyId: bigIntHash(key.N),
 		KeyUsage:     x509.KeyUsageDataEncipherment,
