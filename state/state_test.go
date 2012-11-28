@@ -896,7 +896,9 @@ func (*StateSuite) TestNameChecks(c *C) {
 		c.Assert(state.IsMachineId(s), Equals, expect)
 	}
 	assertMachine("0", true)
+	assertMachine("1", true)
 	assertMachine("1000001", true)
+	assertMachine("01", false)
 	assertMachine("-1", false)
 	assertMachine("", false)
 	assertMachine("cantankerous", false)

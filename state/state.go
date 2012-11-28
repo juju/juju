@@ -60,7 +60,7 @@ func (t *Tools) SetBSON(raw bson.Raw) error {
 var (
 	validService = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*$")
 	validUnit    = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*/[0-9]+$")
-	validMachine = regexp.MustCompile("^[0-9]+$")
+	validMachine = regexp.MustCompile("^0$|^[1-9][0-9]*$")
 )
 
 // IsServiceName returns whether name is a valid service name.
