@@ -24,7 +24,7 @@ type Provisioner struct {
 	// machine.Id => environs.Instance
 	instances map[string]environs.Instance
 	// instance.Id => machine id
-	machines map[string]string
+	machines map[state.InstanceId]string
 
 	configObserver
 }
@@ -50,7 +50,7 @@ func NewProvisioner(st *state.State) *Provisioner {
 	p := &Provisioner{
 		st:        st,
 		instances: make(map[string]environs.Instance),
-		machines:  make(map[string]string),
+		machines:  make(map[state.InstanceId]string),
 	}
 	go func() {
 		defer p.tomb.Done()
@@ -180,7 +180,7 @@ func (p *Provisioner) findUnknownInstances() ([]environs.Instance, error) {
 	if err != nil {
 		return nil, err
 	}
-	instances := make(map[string]environs.Instance)
+	instances := make(map[state.InstanceId]environs.Instance)
 	for _, i := range all {
 		instances[i.Id()] = i
 	}
@@ -315,7 +315,7 @@ func (p *Provisioner) instanceForMachine(m *state.Machine) (environs.Instance, e
 		return nil, err
 	}
 	// TODO(dfc): Ask for all instances at once.
-	insts, err := p.environ.Instances([]string{instId})
+	insts, err := p.environ.Instances([]state.InstanceId{instId})
 	if err != nil {
 		return nil, err
 	}

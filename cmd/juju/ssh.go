@@ -94,7 +94,7 @@ func (c *SSHCommon) machinePublicAddress(id string) (string, error) {
 		instid, err := machine.InstanceId()
 		if err == nil {
 			w.Stop()
-			inst, err := c.Environ.Instances([]string{instid})
+			inst, err := c.Environ.Instances([]state.InstanceId{instid})
 			if err != nil {
 				return "", err
 			}

@@ -98,7 +98,7 @@ func (s *BootstrapSuite) TestSetMachineId(c *C) {
 
 	instid, err := machines[0].InstanceId()
 	c.Assert(err, IsNil)
-	c.Assert(instid, Equals, "over9000")
+	c.Assert(instid, Equals, state.InstanceId("over9000"))
 }
 
 func (s *BootstrapSuite) TestMachinerWorkers(c *C) {
