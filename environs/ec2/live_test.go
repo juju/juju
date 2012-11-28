@@ -42,6 +42,8 @@ func registerAmazonTests() {
 		"control-bucket": "juju-test-" + uniqueName,
 		"public-bucket":  "juju-public-test-" + uniqueName,
 		"admin-secret":   "for real",
+		"ca-cert":        coretesting.CACert,
+		"ca-private-key": coretesting.CAKey,
 	}
 	Suite(&LiveTests{
 		LiveTests: jujutest.LiveTests{

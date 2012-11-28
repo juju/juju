@@ -207,7 +207,7 @@ func (e *environ) PublicStorage() environs.StorageReader {
 	return e.publicStorageUnlocked
 }
 
-func (e *environ) Bootstrap(uploadTools bool, stateServerPEM []byte) error {
+func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 	password := e.Config().AdminSecret()
 	if password == "" {
 		return fmt.Errorf("admin-secret is required for bootstrap")
@@ -246,14 +246,22 @@ func (e *environ) Bootstrap(uploadTools bool, stateServerPEM []byte) error {
 	if err != nil {
 		return fmt.Errorf("unable to determine inital configuration: %v", err)
 	}
-	info := &state.Info{Password: trivial.PasswordHash(password)}
+	caCert, hasCert := e.Config().CACert()
+	if !hasCert {
+		return fmt.Errorf("no CA certificate in environment configuration")
+	}
+	info := &state.Info{
+		Password: trivial.PasswordHash(password),
+		CACert:   caCert,
+	}
 	inst, err := e.startInstance(&startInstanceParams{
-		machineId:      "0",
-		info:           info,
-		tools:          tools,
-		stateServer:    true,
-		config:         config,
-		stateServerPEM: stateServerPEM,
+		machineId:       "0",
+		info:            info,
+		tools:           tools,
+		stateServer:     true,
+		config:          config,
+		stateServerCert: cert,
+		stateServerKey:  key,
 	})
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
@@ -281,6 +289,10 @@ func (e *environ) StateInfo() (*state.Info, error) {
 	if err != nil {
 		return nil, err
 	}
+	cert, hasCert := e.Config().CACert()
+	if !hasCert {
+		return nil, fmt.Errorf("no CA certificate in environment configuration")
+	}
 	var addrs []string
 	// Wait for the DNS names of any of the instances
 	// to become available.
@@ -305,6 +317,7 @@ func (e *environ) StateInfo() (*state.Info, error) {
 	}
 	return &state.Info{
 		Addrs:  addrs,
+		CACert: cert,
 		UseSSH: true,
 	}, nil
 }
@@ -324,11 +337,11 @@ func (e *environ) StartInstance(machineId string, info *state.Info, tools *state
 }
 
 func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
-
 	cfg := &cloudinit.MachineConfig{
 		StateServer:        scfg.stateServer,
 		StateInfo:          scfg.info,
-		StateServerPEM:     scfg.stateServerPEM,
+		StateServerCert:    scfg.stateServerCert,
+		StateServerKey:     scfg.stateServerKey,
 		InstanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
 		ProviderType:       "ec2",
 		DataDir:            "/var/lib/juju",
@@ -345,12 +358,13 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 }
 
 type startInstanceParams struct {
-	machineId      string
-	info           *state.Info
-	tools          *state.Tools
-	stateServer    bool
-	config         *config.Config
-	stateServerPEM []byte
+	machineId       string
+	info            *state.Info
+	tools           *state.Tools
+	stateServer     bool
+	config          *config.Config
+	stateServerCert []byte
+	stateServerKey  []byte
 }
 
 // startInstance is the internal version of StartInstance, used by Bootstrap

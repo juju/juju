@@ -44,7 +44,10 @@ func stateInfo() *state.Info {
 	if testing.MgoAddr == "" {
 		panic("dummy environ state tests must be run with MgoTestPackage")
 	}
-	return &state.Info{Addrs: []string{testing.MgoAddr}}
+	return &state.Info{
+		Addrs:  []string{testing.MgoAddr},
+		CACert: []byte(testing.CACert),
+	}
 }
 
 // Operation represents an action on the dummy provider.
@@ -376,7 +379,7 @@ func (e *environ) Name() string {
 	return e.state.name
 }
 
-func (e *environ) Bootstrap(uploadTools bool, certAndKey []byte) error {
+func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 	defer delay()
 	if err := e.checkBroken("Bootstrap"); err != nil {
 		return err
@@ -384,6 +387,9 @@ func (e *environ) Bootstrap(uploadTools bool, certAndKey []byte) error {
 	password := e.Config().AdminSecret()
 	if password == "" {
 		return fmt.Errorf("admin-secret is required for bootstrap")
+	}
+	if _, ok := e.Config().CACert(); !ok {
+		return fmt.Errorf("no CA certificate in environment configuration")
 	}
 	var tools *state.Tools
 	var err error
@@ -487,6 +493,9 @@ func (e *environ) StartInstance(machineId string, info *state.Info, tools *state
 	}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
+	if _, ok := e.Config().CACert(); !ok {
+		return nil, fmt.Errorf("no CA certificate in environment configuration")
+	}
 	if info.EntityName != state.MachineEntityName(machineId) {
 		return nil, fmt.Errorf("entity name must match started machine")
 	}

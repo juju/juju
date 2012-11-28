@@ -7,7 +7,9 @@ import (
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
+	"path"
 	"regexp"
 	"strings"
 )
@@ -23,6 +25,7 @@ var envConfig = mustNewConfig(map[string]interface{}{
 	"name":            "foo",
 	"default-series":  "series",
 	"authorized-keys": "keys",
+	"ca-cert":         testing.CACert,
 })
 
 func mustNewConfig(m map[string]interface{}) *config.Config {
@@ -43,9 +46,11 @@ var cloudinitTests = []cloudinit.MachineConfig{
 		AuthorizedKeys:     "sshkey1",
 		Tools:              newSimpleTools("1.2.3-linux-amd64"),
 		StateServer:        true,
-		StateServerPEM:     serverPEM,
+		StateServerCert:    serverCert,
+		StateServerKey:     serverKey,
 		StateInfo: &state.Info{
 			Password: "arble",
+			CACert:   []byte(testing.CACert),
 		},
 		Config:  envConfig,
 		DataDir: "/var/lib/juju",
@@ -61,6 +66,7 @@ var cloudinitTests = []cloudinit.MachineConfig{
 			Addrs:      []string{"state-addr.example.com"},
 			EntityName: "machine-99",
 			Password:   "arble",
+			CACert:     []byte(testing.CACert),
 		},
 	},
 }
@@ -97,6 +103,7 @@ func (t *cloudinitTest) check(c *C, cfg *cloudinit.MachineConfig) {
 	if t.cfg.StateServer {
 		t.checkScripts(c, "jujud bootstrap-state"+
 			".* --state-servers localhost:37017"+
+			".* --ca-cert '"+path.Join(t.cfg.DataDir, "ca-cert.pem")+"'"+
 			".*--initial-password '"+t.cfg.StateInfo.Password+"'")
 		t.checkScripts(c, "jujud machine"+
 			" --state-servers 'localhost:37017' "+
@@ -106,6 +113,7 @@ func (t *cloudinitTest) check(c *C, cfg *cloudinit.MachineConfig) {
 	} else {
 		t.checkScripts(c, "jujud machine"+
 			" --state-servers '"+strings.Join(t.cfg.StateInfo.Addrs, ",")+"'"+
+			".* --ca-cert '"+path.Join(t.cfg.DataDir, "ca-cert.pem")+"'"+
 			".*--initial-password '"+t.cfg.StateInfo.Password+"'"+
 			" .*--machine-id [0-9]+"+
 			".*>> /var/log/juju/.*log 2>&1")
@@ -255,10 +263,26 @@ var verifyTests = []struct {
 	}},
 	{"missing state hosts", func(cfg *cloudinit.MachineConfig) {
 		cfg.StateServer = false
-		cfg.StateInfo = &state.Info{EntityName: "machine-99"}
+		cfg.StateInfo = &state.Info{
+			EntityName: "machine-99",
+			CACert:     []byte(testing.CACert),
+		}
 	}},
-	{"missing state server PEM", func(cfg *cloudinit.MachineConfig) {
-		cfg.StateServerPEM = []byte{}
+	{"missing CA certificate", func(cfg *cloudinit.MachineConfig) {
+		cfg.StateInfo = &state.Info{Addrs: []string{"host"}}
+	}},
+	{"missing CA certificate", func(cfg *cloudinit.MachineConfig) {
+		cfg.StateServer = false
+		cfg.StateInfo = &state.Info{
+			EntityName: "machine-99",
+			Addrs:      []string{"host"},
+		}
+	}},
+	{"missing state server certificate", func(cfg *cloudinit.MachineConfig) {
+		cfg.StateServerCert = []byte{}
+	}},
+	{"missing state server private key", func(cfg *cloudinit.MachineConfig) {
+		cfg.StateServerKey = []byte{}
 	}},
 	{"missing var directory", func(cfg *cloudinit.MachineConfig) {
 		cfg.DataDir = ""
@@ -302,14 +326,16 @@ var verifyTests = []struct {
 func (cloudinitSuite) TestCloudInitVerify(c *C) {
 	cfg := &cloudinit.MachineConfig{
 		StateServer:        true,
-		StateServerPEM:     serverPEM,
+		StateServerCert:    serverCert,
+		StateServerKey:     serverKey,
 		InstanceIdAccessor: "$instance_id",
 		ProviderType:       "ec2",
 		MachineId:          "99",
 		Tools:              newSimpleTools("9.9.9-linux-arble"),
 		AuthorizedKeys:     "sshkey1",
 		StateInfo: &state.Info{
-			Addrs: []string{"host"},
+			Addrs:  []string{"host"},
+			CACert: []byte(testing.CACert),
 		},
 		Config:  envConfig,
 		DataDir: "/var/lib/juju",
@@ -328,7 +354,7 @@ func (cloudinitSuite) TestCloudInitVerify(c *C) {
 	}
 }
 
-var serverPEM = []byte(`
+var serverCert = []byte(`
 -----BEGIN CERTIFICATE-----
 MIIBdzCCASOgAwIBAgIBADALBgkqhkiG9w0BAQUwHjENMAsGA1UEChMEanVqdTEN
 MAsGA1UEAxMEcm9vdDAeFw0xMjExMDgxNjIyMzRaFw0xMzExMDgxNjI3MzRaMBwx
@@ -339,6 +365,9 @@ HQ4EFgQU6G1ERaHCgfAv+yoDMFVpDbLOmIQwHwYDVR0jBBgwFoAUP/mfUdwOlHfk
 fR+gLQjslxf64w0wCwYJKoZIhvcNAQEFA0EAbn0MaxWVgGYBomeLYfDdb8vCq/5/
 G/2iCUQCXsVrBparMLFnor/iKOkJB5n3z3rtu70rFt+DpX6L8uBR3LB3+A==
 -----END CERTIFICATE-----
+`)
+
+var serverKey = []byte(`
 -----BEGIN RSA PRIVATE KEY-----
 MIIBPAIBAAJBAIAKrPok/AzudvEBa5v4A+mc0HubJyRYnqeew8qL1KKk/WHKF/OS
 nxEYwnlS/vLwJJO0nySD+JuRrVVXwu8/22cCAwEAAQJBAJsk1F0wTRuaIhJ5xxqw
@@ -348,4 +377,4 @@ TNOaFMEia/TuYofdwJnYvi9t0v4UKBWdAiEA76AtvjEoTpi3in/ri0v78zp2/KXD
 JzPMDvZ0fYS30ukCIA1stlJxpFiCXQuFn0nG+jH4Q52FTv8xxBhrbLOFvHRRAiEA
 2Vc9NN09ty+HZgxpwqIA1fHVuYJY9GMPG1LnTnZ9INg=
 -----END RSA PRIVATE KEY-----
-`)
+`[1:])
