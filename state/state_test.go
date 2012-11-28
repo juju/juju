@@ -570,18 +570,14 @@ var machinesWatchTests = []struct {
 		},
 		[]string{"5", "6", "7", "8", "9", "10", "11", "12", "13", "14"},
 	}, {
-		"Report Dead when first seen",
+		"Do not report never-seen and removed or dead",
 		func(c *C, s *state.State) {
 			m, err := s.AddMachine(state.MachinerWorker)
 			c.Assert(err, IsNil)
 			err = m.EnsureDead()
 			c.Assert(err, IsNil)
-		},
-		[]string{"25"},
-	}, {
-		"Do not report never-seen and removed",
-		func(c *C, s *state.State) {
-			m, err := s.AddMachine(state.MachinerWorker)
+
+			m, err = s.AddMachine(state.MachinerWorker)
 			c.Assert(err, IsNil)
 			err = m.EnsureDead()
 			c.Assert(err, IsNil)
