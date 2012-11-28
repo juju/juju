@@ -35,7 +35,7 @@ var ErrNoDNSName = errors.New("DNS name not allocated")
 // Instance represents the provider-specific notion of a machine.
 type Instance interface {
 	// Id returns a provider-generated identifier for the Instance.
-	Id() string
+	Id() state.InstanceId
 
 	// DNSName returns the DNS name for the instance.
 	// If the name is not yet allocated, it will return
@@ -168,7 +168,7 @@ type Environ interface {
 	// some but not all the instances were found, the returned slice
 	// will have some nil slots, and an ErrPartialInstances error
 	// will be returned.
-	Instances(ids []string) ([]Instance, error)
+	Instances(ids []state.InstanceId) ([]Instance, error)
 
 	// AllInstances returns all instances currently known to the
 	// environment.

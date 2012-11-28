@@ -73,8 +73,8 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 
 // fetchAllInstances returns a map[string]environs.Instance representing
 // a mapping of instance ids to their respective instance.
-func fetchAllInstances(env environs.Environ) (map[string]environs.Instance, error) {
-	m := make(map[string]environs.Instance)
+func fetchAllInstances(env environs.Environ) (map[state.InstanceId]environs.Instance, error) {
+	m := make(map[state.InstanceId]environs.Instance)
 	insts, err := env.AllInstances()
 	if err != nil {
 		return nil, err
@@ -114,7 +114,7 @@ func fetchAllServices(st *state.State) (map[string]*state.Service, error) {
 }
 
 // processMachines gathers information about machines.
-func processMachines(machines map[string]*state.Machine, instances map[string]environs.Instance) (map[string]interface{}, error) {
+func processMachines(machines map[string]*state.Machine, instances map[state.InstanceId]environs.Instance) (map[string]interface{}, error) {
 	r := make(map[string]interface{})
 	for _, m := range machines {
 		instid, err := m.InstanceId()

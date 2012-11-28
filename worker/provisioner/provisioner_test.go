@@ -151,7 +151,7 @@ func (s *ProvisionerSuite) checkStopInstance(c *C) {
 func (s *ProvisionerSuite) checkInstanceId(c *C, m *state.Machine, inst environs.Instance) {
 	// TODO(dfc) add machine.Watch() to avoid having to poll.
 	s.State.StartSync()
-	instId := ""
+	var instId state.InstanceId
 	if inst != nil {
 		instId = inst.Id()
 	}

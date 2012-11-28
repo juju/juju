@@ -9,6 +9,9 @@ import (
 	"time"
 )
 
+// InstanceId values hold provider-specific instance identifiers.
+type InstanceId string
+
 // Machine represents the state of a machine.
 type Machine struct {
 	st  *State
@@ -18,7 +21,7 @@ type Machine struct {
 // machineDoc represents the internal state of a machine in MongoDB.
 type machineDoc struct {
 	Id         string `bson:"_id"`
-	InstanceId string
+	InstanceId InstanceId
 	Principals []string
 	Life       Life
 	Tools      *Tools `bson:",omitempty"`
@@ -174,8 +177,8 @@ func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
 	return p, nil
 }
 
-// InstanceId returns the provider specific machine id for this machine.
-func (m *Machine) InstanceId() (string, error) {
+// InstanceId returns the provider specific instance id for this machine.
+func (m *Machine) InstanceId() (InstanceId, error) {
 	if m.doc.InstanceId == "" {
 		return "", notFound("instance id for machine %v", m)
 	}
@@ -205,7 +208,7 @@ func (m *Machine) Units() (units []*Unit, err error) {
 }
 
 // SetInstanceId sets the provider specific machine id for this machine.
-func (m *Machine) SetInstanceId(id string) (err error) {
+func (m *Machine) SetInstanceId(id InstanceId) (err error) {
 	ops := []txn.Op{{
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,

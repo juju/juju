@@ -125,7 +125,7 @@ func (e *environ) StopInstances([]environs.Instance) error {
 	panic("not implemented")
 }
 
-func (e *environ) Instances(ids []string) ([]environs.Instance, error) {
+func (e *environ) Instances(ids []state.InstanceId) ([]environs.Instance, error) {
 	panic("not implemented")
 }
 
