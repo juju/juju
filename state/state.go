@@ -60,7 +60,7 @@ func (t *Tools) SetBSON(raw bson.Raw) error {
 var (
 	validService = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*$")
 	validUnit    = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*/[0-9]+$")
-	validMachine = regexp.MustCompile("^[0-9]+$")
+	validMachine = regexp.MustCompile("^0$|^[1-9][0-9]*$")
 )
 
 // IsServiceName returns whether name is a valid service name.
@@ -231,7 +231,7 @@ func (st *State) RemoveMachine(id string) (err error) {
 // AllMachines returns all machines in the environment
 // ordered by id.
 func (st *State) AllMachines() (machines []*Machine, err error) {
-	mdocs := machineSlice{}
+	mdocs := machineDocSlice{}
 	err = st.machines.Find(nil).All(&mdocs)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get all machines: %v", err)
@@ -243,11 +243,11 @@ func (st *State) AllMachines() (machines []*Machine, err error) {
 	return
 }
 
-type machineSlice []machineDoc
+type machineDocSlice []machineDoc
 
-func (ms machineSlice) Len() int      { return len(ms) }
-func (ms machineSlice) Swap(i, j int) { ms[i], ms[j] = ms[j], ms[i] }
-func (ms machineSlice) Less(i, j int) bool {
+func (ms machineDocSlice) Len() int      { return len(ms) }
+func (ms machineDocSlice) Swap(i, j int) { ms[i], ms[j] = ms[j], ms[i] }
+func (ms machineDocSlice) Less(i, j int) bool {
 	// There's nothing we can do with errors at this point.
 	m1, _ := strconv.Atoi(ms[i].Id)
 	m2, _ := strconv.Atoi(ms[j].Id)

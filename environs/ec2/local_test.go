@@ -11,7 +11,6 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
-	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
@@ -26,14 +25,17 @@ func registerLocalTests() {
 		Name: "test",
 	}
 	attrs := map[string]interface{}{
-		"name":           "sample",
-		"type":           "ec2",
-		"region":         "test",
-		"control-bucket": "test-bucket",
-		"public-bucket":  "public-tools",
-		"admin-secret":   "local-secret",
-		"access-key":     "x",
-		"secret-key":     "x",
+		"name":            "sample",
+		"type":            "ec2",
+		"region":          "test",
+		"control-bucket":  "test-bucket",
+		"public-bucket":   "public-tools",
+		"admin-secret":    "local-secret",
+		"access-key":      "x",
+		"secret-key":      "x",
+		"authorized-keys": "foo",
+		"ca-cert":         testing.CACert,
+		"ca-private-key":  testing.CAKey,
 	}
 
 	Suite(&localServerSuite{
@@ -190,11 +192,15 @@ func (t *localServerSuite) TearDownTest(c *C) {
 	t.LoggingSuite.TearDownTest(c)
 }
 
+func panicWrite(name string, cert, key []byte) error {
+	panic("writeCertAndKey called unexpectedly")
+}
+
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	policy := t.env.AssignmentPolicy()
 	c.Assert(policy, Equals, state.AssignUnused)
 
-	err := juju.Bootstrap(t.env, true, []byte(testing.CACertPEM+testing.CAKeyPEM))
+	err := environs.Bootstrap(t.env, true, panicWrite)
 	c.Assert(err, IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
