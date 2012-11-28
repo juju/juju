@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/testing"
 	"net/url"
 	"sort"
+	"strconv"
 	"time"
 )
 
@@ -71,25 +72,28 @@ func (s *StateSuite) TestAddMachine(c *C) {
 	c.Assert(m0, IsNil)
 	m0, err = s.State.AddMachine(state.MachinerWorker)
 	c.Assert(err, IsNil)
-	c.Assert(m0.Id(), Equals, 0)
-	m0, err = s.State.Machine(0)
+	c.Assert(m0.Id(), Equals, "0")
+	m0, err = s.State.Machine("0")
 	c.Assert(err, IsNil)
-	c.Assert(m0.Id(), Equals, 0)
+	c.Assert(m0.Id(), Equals, "0")
 	c.Assert(m0.Workers(), DeepEquals, []state.WorkerKind{state.MachinerWorker})
 
 	allWorkers := []state.WorkerKind{state.MachinerWorker, state.FirewallerWorker, state.ProvisionerWorker}
 	m1, err := s.State.AddMachine(allWorkers...)
 	c.Assert(err, IsNil)
-	c.Assert(m1.Id(), Equals, 1)
+	c.Assert(m1.Id(), Equals, "1")
 	c.Assert(m1.Workers(), DeepEquals, allWorkers)
 
-	m0, err = s.State.Machine(1)
+	m0, err = s.State.Machine("1")
 	c.Assert(err, IsNil)
-	c.Assert(m0.Id(), Equals, 1)
+	c.Assert(m0.Id(), Equals, "1")
 	c.Assert(m0.Workers(), DeepEquals, allWorkers)
 
-	machines := s.AllMachines(c)
-	c.Assert(machines, DeepEquals, []int{0, 1})
+	machines, err := s.State.AllMachines()
+	c.Assert(err, IsNil)
+	c.Assert(machines, HasLen, 2)
+	c.Assert(machines[0].Id(), Equals, "0")
+	c.Assert(machines[1].Id(), Equals, "1")
 }
 
 func (s *StateSuite) TestRemoveMachine(c *C) {
@@ -104,8 +108,10 @@ func (s *StateSuite) TestRemoveMachine(c *C) {
 	err = s.State.RemoveMachine(machine.Id())
 	c.Assert(err, IsNil)
 
-	machines := s.AllMachines(c)
-	c.Assert(machines, DeepEquals, []int{1})
+	machines, err := s.State.AllMachines()
+	c.Assert(err, IsNil)
+	c.Assert(machines, HasLen, 1)
+	c.Assert(machines[0].Id(), Equals, "1")
 
 	// Removing a non-existing machine has to fail.
 	// BUG(aram): use error strings from state.
@@ -123,7 +129,7 @@ func (s *StateSuite) TestReadMachine(c *C) {
 }
 
 func (s *StateSuite) TestMachineNotFound(c *C) {
-	_, err := s.State.Machine(0)
+	_, err := s.State.Machine("0")
 	c.Assert(err, ErrorMatches, "machine 0 not found")
 	c.Assert(state.IsNotFound(err), Equals, true)
 }
@@ -143,7 +149,7 @@ func (s *StateSuite) TestAllMachines(c *C) {
 	s.AssertMachineCount(c, numInserts)
 	ms, _ := s.State.AllMachines()
 	for i, m := range ms {
-		c.Assert(m.Id(), Equals, i)
+		c.Assert(m.Id(), Equals, strconv.Itoa(i))
 		instId, err := m.InstanceId()
 		c.Assert(err, IsNil)
 		c.Assert(instId, Equals, fmt.Sprintf("foo-%d", i))
@@ -454,7 +460,7 @@ func (s *StateSuite) TestEnvironConfigWithAdminSecret(c *C) {
 var machinesWatchTests = []struct {
 	summary string
 	test    func(*C, *state.State)
-	changes []int
+	changes []string
 }{
 	{
 		"Do nothing",
@@ -466,18 +472,18 @@ var machinesWatchTests = []struct {
 			_, err := s.AddMachine(state.MachinerWorker)
 			c.Assert(err, IsNil)
 		},
-		[]int{0},
+		[]string{"0"},
 	}, {
 		"Ignore unrelated changes",
 		func(c *C, s *state.State) {
 			_, err := s.AddMachine(state.MachinerWorker)
 			c.Assert(err, IsNil)
-			m0, err := s.Machine(0)
+			m0, err := s.Machine("0")
 			c.Assert(err, IsNil)
 			err = m0.SetInstanceId("spam")
 			c.Assert(err, IsNil)
 		},
-		[]int{1},
+		[]string{"1"},
 	}, {
 		"Add two machines at once",
 		func(c *C, s *state.State) {
@@ -486,62 +492,62 @@ var machinesWatchTests = []struct {
 			_, err = s.AddMachine(state.MachinerWorker)
 			c.Assert(err, IsNil)
 		},
-		[]int{2, 3},
+		[]string{"2", "3"},
 	}, {
 		"Report machines that become Dying",
 		func(c *C, s *state.State) {
-			m3, err := s.Machine(3)
+			m3, err := s.Machine("3")
 			c.Assert(err, IsNil)
 			err = m3.EnsureDying()
 			c.Assert(err, IsNil)
 		},
-		[]int{3},
+		[]string{"3"},
 	}, {
 		"Report machines that become Dead",
 		func(c *C, s *state.State) {
-			m3, err := s.Machine(3)
+			m3, err := s.Machine("3")
 			c.Assert(err, IsNil)
 			err = m3.EnsureDead()
 			c.Assert(err, IsNil)
 		},
-		[]int{3},
+		[]string{"3"},
 	}, {
 		"Do not report Dead machines that are removed",
 		func(c *C, s *state.State) {
-			m0, err := s.Machine(0)
+			m0, err := s.Machine("0")
 			c.Assert(err, IsNil)
 			err = m0.EnsureDying()
 			c.Assert(err, IsNil)
-			err = s.RemoveMachine(3)
+			err = s.RemoveMachine("3")
 			c.Assert(err, IsNil)
 		},
-		[]int{0},
+		[]string{"0"},
 	}, {
 		"Report previously known machines that are removed",
 		func(c *C, s *state.State) {
-			m0, err := s.Machine(0)
+			m0, err := s.Machine("0")
 			c.Assert(err, IsNil)
 			err = m0.EnsureDead()
 			c.Assert(err, IsNil)
-			m2, err := s.Machine(2)
+			m2, err := s.Machine("2")
 			c.Assert(err, IsNil)
 			err = m2.EnsureDead()
 			c.Assert(err, IsNil)
-			err = s.RemoveMachine(2)
+			err = s.RemoveMachine("2")
 			c.Assert(err, IsNil)
 		},
-		[]int{0, 2},
+		[]string{"0", "2"},
 	}, {
 		"Added and Dead machines at once",
 		func(c *C, s *state.State) {
 			_, err := s.AddMachine(state.MachinerWorker)
 			c.Assert(err, IsNil)
-			m1, err := s.Machine(1)
+			m1, err := s.Machine("1")
 			c.Assert(err, IsNil)
 			err = m1.EnsureDead()
 			c.Assert(err, IsNil)
 		},
-		[]int{1, 4},
+		[]string{"1", "4"},
 	}, {
 		"Add many, change many, and remove many at once",
 		func(c *C, s *state.State) {
@@ -562,7 +568,7 @@ var machinesWatchTests = []struct {
 				c.Assert(err, IsNil)
 			}
 		},
-		[]int{5, 6, 7, 8, 9, 10, 11, 12, 13, 14},
+		[]string{"5", "6", "7", "8", "9", "10", "11", "12", "13", "14"},
 	}, {
 		"Report Dead when first seen",
 		func(c *C, s *state.State) {
@@ -571,7 +577,7 @@ var machinesWatchTests = []struct {
 			err = m.EnsureDead()
 			c.Assert(err, IsNil)
 		},
-		[]int{25},
+		[]string{"25"},
 	}, {
 		"Do not report never-seen and removed",
 		func(c *C, s *state.State) {
@@ -585,7 +591,7 @@ var machinesWatchTests = []struct {
 			_, err = s.AddMachine(state.MachinerWorker)
 			c.Assert(err, IsNil)
 		},
-		[]int{27},
+		[]string{"27"},
 	}, {
 		"Take into account what's already in the queue",
 		func(c *C, s *state.State) {
@@ -599,7 +605,7 @@ var machinesWatchTests = []struct {
 			c.Assert(err, IsNil)
 			s.Sync()
 		},
-		[]int{28},
+		[]string{"28"},
 	},
 }
 
@@ -612,7 +618,7 @@ func (s *StateSuite) TestWatchMachines(c *C) {
 		c.Logf("Test %d: %s", i, test.summary)
 		test.test(c, s.State)
 		s.State.StartSync()
-		var got []int
+		var got []string
 		for {
 			select {
 			case ids, ok := <-machineWatcher.Changes():
@@ -621,7 +627,8 @@ func (s *StateSuite) TestWatchMachines(c *C) {
 				if len(got) < len(test.changes) {
 					continue
 				}
-				sort.Ints(got)
+				sort.Strings(got)
+				sort.Strings(test.changes)
 				c.Assert(got, DeepEquals, test.changes)
 			case <-time.After(500 * time.Millisecond):
 				c.Fatalf("did not get change: want %#v, got %#v", test.changes, got)
@@ -884,6 +891,17 @@ func (*StateSuite) TestNameChecks(c *C) {
 	assertService("foo2", true)
 	assertService("foo-2", false)
 	assertService("foo-2foo", true)
+
+	assertMachine := func(s string, expect bool) {
+		c.Assert(state.IsMachineId(s), Equals, expect)
+	}
+	assertMachine("0", true)
+	assertMachine("1", true)
+	assertMachine("1000001", true)
+	assertMachine("01", false)
+	assertMachine("-1", false)
+	assertMachine("", false)
+	assertMachine("cantankerous", false)
 }
 
 type attrs map[string]interface{}

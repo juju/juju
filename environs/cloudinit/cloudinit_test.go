@@ -41,7 +41,7 @@ func mustNewConfig(m map[string]interface{}) *config.Config {
 var cloudinitTests = []cloudinit.MachineConfig{
 	{
 		InstanceIdAccessor: "$instance_id",
-		MachineId:          0,
+		MachineId:          "0",
 		ProviderType:       "ec2",
 		AuthorizedKeys:     "sshkey1",
 		Tools:              newSimpleTools("1.2.3-linux-amd64"),
@@ -56,7 +56,7 @@ var cloudinitTests = []cloudinit.MachineConfig{
 		DataDir: "/var/lib/juju",
 	},
 	{
-		MachineId:      99,
+		MachineId:      "99",
 		ProviderType:   "ec2",
 		AuthorizedKeys: "sshkey1",
 		DataDir:        "/var/lib/juju",
@@ -246,8 +246,8 @@ var verifyTests = []struct {
 	err    string
 	mutate func(*cloudinit.MachineConfig)
 }{
-	{"negative machine id", func(cfg *cloudinit.MachineConfig) {
-		cfg.MachineId = -1
+	{"invalid machine id", func(cfg *cloudinit.MachineConfig) {
+		cfg.MachineId = "-1"
 	}},
 	{"missing provider type", func(cfg *cloudinit.MachineConfig) {
 		cfg.ProviderType = ""
@@ -330,7 +330,7 @@ func (cloudinitSuite) TestCloudInitVerify(c *C) {
 		StateServerKey:     serverKey,
 		InstanceIdAccessor: "$instance_id",
 		ProviderType:       "ec2",
-		MachineId:          99,
+		MachineId:          "99",
 		Tools:              newSimpleTools("9.9.9-linux-arble"),
 		AuthorizedKeys:     "sshkey1",
 		StateInfo: &state.Info{

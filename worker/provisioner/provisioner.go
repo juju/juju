@@ -22,9 +22,9 @@ type Provisioner struct {
 	tomb    tomb.Tomb
 
 	// machine.Id => environs.Instance
-	instances map[int]environs.Instance
+	instances map[string]environs.Instance
 	// instance.Id => machine id
-	machines map[string]int
+	machines map[string]string
 
 	configObserver
 }
@@ -49,8 +49,8 @@ func (o *configObserver) notify(cfg *config.Config) {
 func NewProvisioner(st *state.State) *Provisioner {
 	p := &Provisioner{
 		st:        st,
-		instances: make(map[int]environs.Instance),
-		machines:  make(map[string]int),
+		instances: make(map[string]environs.Instance),
+		machines:  make(map[string]string),
 	}
 	go func() {
 		defer p.tomb.Done()
@@ -147,7 +147,7 @@ func (p *Provisioner) Stop() error {
 	return p.tomb.Wait()
 }
 
-func (p *Provisioner) processMachines(ids []int) error {
+func (p *Provisioner) processMachines(ids []string) error {
 	// Find machines without an instance id or that are dead
 	pending, dead, err := p.pendingOrDead(ids)
 	if err != nil {
@@ -211,7 +211,7 @@ func (p *Provisioner) findUnknownInstances() ([]environs.Instance, error) {
 
 // pendingOrDead looks up machines with ids and retuns those that do not
 // have an instance id assigned yet, and also those that are dead.
-func (p *Provisioner) pendingOrDead(ids []int) (pending, dead []*state.Machine, err error) {
+func (p *Provisioner) pendingOrDead(ids []string) (pending, dead []*state.Machine, err error) {
 	// TODO(niemeyer): ms, err := st.Machines(alive)
 	for _, id := range ids {
 		m, err := p.st.Machine(id)

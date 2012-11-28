@@ -88,8 +88,8 @@ func hasInt(changes []int, id int) bool {
 // After a machine is found to be Dead, no further event will include it.
 type MachinesWatcher struct {
 	commonWatcher
-	out  chan []int
-	life map[int]Life
+	out  chan []string
+	life map[string]Life
 }
 
 var lifeFields = D{{"_id", 1}, {"life", 1}}
@@ -103,8 +103,8 @@ func (s *State) WatchMachines() *MachinesWatcher {
 func newMachinesWatcher(st *State) *MachinesWatcher {
 	w := &MachinesWatcher{
 		commonWatcher: commonWatcher{st: st},
-		out:           make(chan []int),
-		life:          make(map[int]Life),
+		out:           make(chan []string),
+		life:          make(map[string]Life),
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -115,11 +115,11 @@ func newMachinesWatcher(st *State) *MachinesWatcher {
 }
 
 // Changes returns the event channel for the MachinesWatcher.
-func (w *MachinesWatcher) Changes() <-chan []int {
+func (w *MachinesWatcher) Changes() <-chan []string {
 	return w.out
 }
 
-func (w *MachinesWatcher) initial() (ids []int, err error) {
+func (w *MachinesWatcher) initial() (ids []string, err error) {
 	iter := w.st.machines.Find(nil).Select(lifeFields).Iter()
 	var doc machineDoc
 	for iter.Next(&doc) {
@@ -132,8 +132,8 @@ func (w *MachinesWatcher) initial() (ids []int, err error) {
 	return ids, nil
 }
 
-func (w *MachinesWatcher) merge(ids []int, ch watcher.Change) ([]int, error) {
-	id := ch.Id.(int)
+func (w *MachinesWatcher) merge(ids []string, ch watcher.Change) ([]string, error) {
+	id := ch.Id.(string)
 	for _, pending := range ids {
 		if id == pending {
 			return ids, nil
@@ -1177,7 +1177,7 @@ func (w *MachineUnitsWatcher) merge(pending []string, unit string) (new []string
 		return nil, err
 	}
 	life, known := w.known[unit]
-	if err == mgo.ErrNotFound || doc.Principal == "" && (doc.MachineId == nil || *doc.MachineId != w.machine.doc.Id) {
+	if err == mgo.ErrNotFound || doc.Principal == "" && (doc.MachineId == "" || doc.MachineId != w.machine.doc.Id) {
 		// Unit was removed or unassigned from w.machine.
 		if known {
 			delete(w.known, unit)
