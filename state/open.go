@@ -60,38 +60,26 @@ func Open(info *Info) (*State, error) {
 		ServerName: "anything",
 	}
 	dial := func(addr net.Addr) (net.Conn, error) {
-		log.Printf("state: dialling %v", addr)
+		log.Printf("state: connecting to %v", addr)
 		c, err := tls.Dial("tcp", addr.String(), tlsConfig)
 		if err != nil {
-			log.Printf("state: dial failed: %v", err)
+			log.Printf("state: connection failed: %v", err)
 			return nil, err
 		}
-		log.Printf("state: dial succeeded")
+		log.Printf("state: connection established")
 		return c, err
 	}
-	attempts := 0
-	for {
-		session, err := mgo.DialWithInfo(&mgo.DialInfo{
-			Addrs:   info.Addrs,
-			Timeout: 10 * time.Minute,
-			Dial:    dial,
-		})
-		st, err := newState(session, info.EntityName, info.Password)
-		if err != nil {
-			session.Close()
-			if err == ErrUnauthorized && attempts < 5 {
-				// This can happen when the database
-				// is initializing, so try a few times before
-				// failing.
-				time.Sleep(100 * time.Millisecond)
-				attempts++
-				continue
-			}
-			return nil, err
-		}
-		return st, nil
+	session, err := mgo.DialWithInfo(&mgo.DialInfo{
+		Addrs:   info.Addrs,
+		Timeout: 10 * time.Minute,
+		Dial:    dial,
+	})
+	st, err := newState(session, info.EntityName, info.Password)
+	if err != nil {
+		session.Close()
+		return nil, err
 	}
-	panic("unreachable")
+	return st, nil
 }
 
 // Initialize sets up an initial empty state and returns it.

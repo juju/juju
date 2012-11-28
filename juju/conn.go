@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/trivial"
 	"net/url"
 	"os"
+	"time"
 )
 
 // Conn holds a connection to a juju environment and its
@@ -20,6 +21,11 @@ import (
 type Conn struct {
 	Environ environs.Environ
 	State   *state.State
+}
+
+var redialStrategy = trivial.AttemptStrategy{
+	Total: 60 * time.Second,
+	Delay: 250 * time.Millisecond,
 }
 
 // NewConn returns a new Conn that uses the
@@ -41,7 +47,16 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 		// perhaps this was the first connection and the
 		// password has not been changed yet.
 		info.Password = trivial.PasswordHash(password)
-		st, err = state.Open(info)
+
+		// We try for a while because we might succeed in
+		// connecting to mongo before the state has been
+		// initialized and the initial password set.
+		for a := redialStrategy.Start(); a.Next(); {
+			st, err = state.Open(info)
+			if err != state.ErrUnauthorized {
+				break
+			}
+		}
 		if err != nil {
 			return nil, err
 		}

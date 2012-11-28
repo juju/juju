@@ -223,7 +223,7 @@ func addMongoToBoot(c *cloudinit.Config, cfg *MachineConfig) error {
 			" --auth" +
 			" --dbpath=/var/lib/juju/db" +
 			" --sslOnNormalPorts" +
-			" --sslPEMKeyFile "+shquote(serverPEMPath(cfg)) +
+			" --sslPEMKeyFile " + shquote(serverPEMPath(cfg)) +
 			" --sslPEMKeyPassword ignored" +
 			" --bind_ip 0.0.0.0" +
 			" --port " + fmt.Sprint(mgoPort) +
