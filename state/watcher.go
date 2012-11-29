@@ -833,12 +833,10 @@ func (w *RelationUnitsWatcher) loop() (err error) {
 
 // UnitsWatcher notifies of changes to a set of units. Notifications will be
 // sent when units enter or leave the set, and when units in the set change
-// their lifecycle status. The initial event contains all non-Dead units in
-// the set. Once a unit's Dead status has been notified, it will not be
-// reported again.
+// their lifecycle status. The initial event contains all units in the set.
+// Once a unit's Dead status has been notified, it will not be reported again.
 type UnitsWatcher struct {
 	commonWatcher
-	init     D
 	getUnits func() ([]string, error)
 	life     map[string]Life
 	in       chan watcher.Change
@@ -849,20 +847,18 @@ type UnitsWatcher struct {
 func (u *Unit) WatchSubordinateUnits() *UnitsWatcher {
 	u = &Unit{u.st, u.doc}
 	coll := u.st.units.Name
-	init := D{{"_id", D{{"$in", u.doc.Subordinates}}}}
 	getUnits := func() ([]string, error) {
 		if err := u.Refresh(); err != nil {
 			return nil, err
 		}
 		return u.doc.Subordinates, nil
 	}
-	return newUnitsWatcher(u.st, init, getUnits, coll, u.doc.Name, u.doc.TxnRevno)
+	return newUnitsWatcher(u.st, getUnits, coll, u.doc.Name, u.doc.TxnRevno)
 }
 
-func newUnitsWatcher(st *State, init D, getUnits func() ([]string, error), coll, id string, revno int64) *UnitsWatcher {
+func newUnitsWatcher(st *State, getUnits func() ([]string, error), coll, id string, revno int64) *UnitsWatcher {
 	w := &UnitsWatcher{
 		commonWatcher: commonWatcher{st: st},
-		init:          init,
 		getUnits:      getUnits,
 		life:          map[string]Life{},
 		in:            make(chan watcher.Change),
@@ -892,18 +888,23 @@ type lifeWatchDoc struct {
 // lifeWatchFields specifies the fields of a lifeWatchDoc.
 var lifeWatchFields = D{{"_id", 1}, {"life", 1}, {"txn-revno", 1}}
 
-// initial returns every non-Dead member of the tracked set.
+// initial returns every member of the tracked set.
 func (w *UnitsWatcher) initial() ([]string, error) {
+	initial, err := w.getUnits()
+	if err != nil {
+		return nil, err
+	}
 	docs := []lifeWatchDoc{}
-	if err := w.st.units.Find(w.init).Select(lifeWatchFields).All(&docs); err != nil {
+	query := D{{"_id", D{{"$in", initial}}}}
+	if err := w.st.units.Find(query).Select(lifeWatchFields).All(&docs); err != nil {
 		return nil, err
 	}
 	changes := []string{}
 	for _, doc := range docs {
+		changes = append(changes, doc.Id)
 		if doc.Life != Dead {
 			w.life[doc.Id] = doc.Life
 			w.st.watcher.Watch(w.st.units.Name, doc.Id, doc.TxnRevno, w.in)
-			changes = append(changes, doc.Id)
 		}
 	}
 	return changes, nil

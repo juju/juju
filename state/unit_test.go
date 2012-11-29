@@ -480,11 +480,6 @@ func (s *UnitSuite) TestWatchSubordinates(c *C) {
 	assertChange("logging/0", "logging/1")
 	assertNoChange()
 
-	// Remove the leftover, check no change.
-	err = logging.RemoveUnit(logging0)
-	c.Assert(err, IsNil)
-	assertNoChange()
-
 	// Stop watcher, check closed.
 	err = w.Stop()
 	c.Assert(err, IsNil)
@@ -493,6 +488,16 @@ func (s *UnitSuite) TestWatchSubordinates(c *C) {
 		c.Assert(ok, Equals, false)
 	default:
 	}
+
+	// Start a new watch, check Dead unit is reported.
+	w = s.unit.WatchSubordinateUnits()
+	defer stop(c, w)
+	assertChange("logging/0")
+
+	// Remove the leftover, check no change.
+	err = logging.RemoveUnit(logging0)
+	c.Assert(err, IsNil)
+	assertNoChange()
 }
 
 type unitInfo struct {
