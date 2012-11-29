@@ -120,6 +120,7 @@ func (t *LiveTests) TestStartStop(c *C) {
 	c.Assert(insts, HasLen, len(initialInsts)+1, Commentf("%v", insts))
 	found := false
 	for _, inst := range insts {
+		c.Assert(found, Equals, false, Commentf("%v", insts))
 		if inst.Id() == id0 {
 			found = true
 		}
