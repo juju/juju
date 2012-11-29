@@ -107,7 +107,7 @@ func (t *LiveTests) TestStartStop(c *C) {
 	id0 := inst.Id()
 
 	insts, err := t.Env.Instances([]state.InstanceId{id0, id0})
-	c.Assert(err, IsNil) 
+	c.Assert(err, IsNil)
 	c.Assert(insts, HasLen, 2)
 	c.Assert(insts[0].Id(), Equals, id0)
 	c.Assert(insts[1].Id(), Equals, id0)
@@ -117,7 +117,7 @@ func (t *LiveTests) TestStartStop(c *C) {
 	// differs from the check above because AllInstances returns
 	// a set (without duplicates) containing the 
 	// new instance.
-	c.Assert(insts, HasLen, len(initialInsts) + 1, Commentf("%v", insts))
+	c.Assert(insts, HasLen, len(initialInsts)+1, Commentf("%v", insts))
 	found := false
 	for _, inst := range insts {
 		if inst.Id() == id0 {
