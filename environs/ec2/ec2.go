@@ -318,7 +318,6 @@ func (e *environ) StateInfo() (*state.Info, error) {
 	return &state.Info{
 		Addrs:  addrs,
 		CACert: cert,
-		UseSSH: true,
 	}, nil
 }
 
@@ -778,6 +777,12 @@ func (e *environ) setUpGroups(machineId string) ([]ec2.SecurityGroup, error) {
 				Protocol:  "tcp",
 				FromPort:  22,
 				ToPort:    22,
+				SourceIPs: []string{"0.0.0.0/0"},
+			},
+			{
+				Protocol:  "tcp",
+				FromPort:  mgoPort,
+				ToPort:    mgoPort,
 				SourceIPs: []string{"0.0.0.0/0"},
 			},
 			{

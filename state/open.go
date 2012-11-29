@@ -1,13 +1,16 @@
 package state
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
-	"strings"
+	"net"
 	"time"
 
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
+	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/presence"
@@ -21,11 +24,6 @@ type Info struct {
 	// Addrs gives the addresses of the MongoDB servers for the state.
 	// Each address should be in the form address:port.
 	Addrs []string
-
-	// UseSSH specifies whether MongoDB should be contacted through an
-	// SSH tunnel.
-	// TODO(rog) remove
-	UseSSH bool
 
 	// CACert holds the CA certificate that will be used
 	// to validate the state server's certificate, in PEM format.
@@ -48,27 +46,35 @@ func Open(info *Info) (*State, error) {
 	if len(info.Addrs) == 0 {
 		return nil, errors.New("no mongo addresses")
 	}
-	var (
-		session *mgo.Session
-		fwd     *sshForwarder
-		err     error
-	)
 	if len(info.CACert) == 0 {
 		return nil, errors.New("missing CA certificate")
 	}
-	if info.UseSSH {
-		// TODO implement authorization on SSL connection; drop sshDial.
-		if len(info.Addrs) > 1 {
-			return nil, errors.New("ssh connect does not support multiple addresses")
-		}
-		fwd, session, err = sshDial(info.Addrs[0], "")
-	} else {
-		session, err = mgo.DialWithTimeout(strings.Join(info.Addrs, ","), 10*time.Minute)
-	}
+	xcert, err := cert.ParseCert(info.CACert)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot parse CA certificate: %v", err)
 	}
-	st, err := newState(session, fwd, info.EntityName, info.Password)
+	pool := x509.NewCertPool()
+	pool.AddCert(xcert)
+	tlsConfig := &tls.Config{
+		RootCAs:    pool,
+		ServerName: "anything",
+	}
+	dial := func(addr net.Addr) (net.Conn, error) {
+		log.Printf("state: connecting to %v", addr)
+		c, err := tls.Dial("tcp", addr.String(), tlsConfig)
+		if err != nil {
+			log.Printf("state: connection failed: %v", err)
+			return nil, err
+		}
+		log.Printf("state: connection established")
+		return c, err
+	}
+	session, err := mgo.DialWithInfo(&mgo.DialInfo{
+		Addrs:   info.Addrs,
+		Timeout: 10 * time.Minute,
+		Dial:    dial,
+	})
+	st, err := newState(session, info.EntityName, info.Password)
 	if err != nil {
 		session.Close()
 		return nil, err
@@ -141,7 +147,7 @@ func maybeUnauthorized(err error, msg string) error {
 	return fmt.Errorf("%s: %v", msg, err)
 }
 
-func newState(session *mgo.Session, fwd *sshForwarder, entity, password string) (*State, error) {
+func newState(session *mgo.Session, entity, password string) (*State, error) {
 	db := session.DB("juju")
 	pdb := session.DB("presence")
 	if entity != "" {
@@ -168,7 +174,6 @@ func newState(session *mgo.Session, fwd *sshForwarder, entity, password string) 
 		units:          db.C("units"),
 		presence:       pdb.C("presence"),
 		cleanups:       db.C("cleanups"),
-		fwd:            fwd,
 	}
 	log := db.C("txns.log")
 	info := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}

@@ -4,7 +4,6 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"launchpad.net/juju-core/cert"
 	"time"
@@ -21,8 +20,7 @@ func init() {
 var (
 	CACert, CAKey = mustNewCA()
 
-	CACertX509 = mustParseCert(CACert)
-	CAKeyRSA   = mustParseKey(CAKey)
+	CACertX509, CAKeyRSA = mustParseCertAndKey([]byte(CACert), []byte(CAKey))
 
 	serverCert, serverKey = mustNewServer()
 )
@@ -58,29 +56,17 @@ func mustNewServer() (string, string) {
 }
 
 func mustParseCert(pemData string) *x509.Certificate {
-	b, _ := pem.Decode([]byte(pemData))
-	if b.Type != "CERTIFICATE" {
-		panic("unexpected type")
-	}
-	cert, err := x509.ParseCertificate(b.Bytes)
+	cert, err := cert.ParseCert([]byte(pemData))
 	if err != nil {
 		panic(err)
 	}
 	return cert
 }
 
-func mustParseKey(pemData string) *rsa.PrivateKey {
-	b, _ := pem.Decode([]byte(pemData))
-	if b.Type != "RSA PRIVATE KEY" {
-		panic("unexpected type")
-	}
-	key, err := x509.ParsePKCS1PrivateKey(b.Bytes)
-	if key != nil {
-		return key
-	}
-	key1, err := x509.ParsePKCS8PrivateKey(b.Bytes)
+func mustParseCertAndKey(certPEM, keyPEM []byte) (*x509.Certificate, *rsa.PrivateKey) {
+	cert, key, err := cert.ParseCertAndKey(certPEM, keyPEM)
 	if err != nil {
 		panic(err)
 	}
-	return key1.(*rsa.PrivateKey)
+	return cert, key
 }

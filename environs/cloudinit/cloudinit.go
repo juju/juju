@@ -118,11 +118,10 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	)
 
 	if cfg.StateServer {
-		serverPEMPath := path.Join(cfg.DataDir, "server.pem")
 		addScripts(c,
 			fmt.Sprintf("echo %s > %s",
-				shquote(string(cfg.StateServerCert)+string(cfg.StateServerKey)), shquote(serverPEMPath)),
-			"chmod 600 "+serverPEMPath,
+				shquote(string(cfg.StateServerCert)+string(cfg.StateServerKey)), shquote(serverPEMPath(cfg))),
+			"chmod 600 "+serverPEMPath(cfg),
 		)
 
 		// TODO The public bucket must come from the environment configuration.
@@ -132,7 +131,7 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 			"mkdir -p /opt",
 			fmt.Sprintf("wget --no-verbose -O - %s | tar xz -C /opt", shquote(url)),
 		)
-		if err := addMongoToBoot(c); err != nil {
+		if err := addMongoToBoot(c, cfg); err != nil {
 			return nil, err
 		}
 		addScripts(c, cfg.jujuTools()+"/jujud bootstrap-state"+
@@ -160,6 +159,10 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 
 func caCertPath(cfg *MachineConfig) string {
 	return path.Join(cfg.DataDir, "ca-cert.pem")
+}
+
+func serverPEMPath(cfg *MachineConfig) string {
+	return path.Join(cfg.DataDir, "server.pem")
 }
 
 func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, name, args string) error {
@@ -204,7 +207,7 @@ func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, name, args st
 	return nil
 }
 
-func addMongoToBoot(c *cloudinit.Config) error {
+func addMongoToBoot(c *cloudinit.Config, cfg *MachineConfig) error {
 	addScripts(c,
 		"mkdir -p /var/lib/juju/db/journal",
 		// Otherwise we get three files with 100M+ each, which takes time.
@@ -219,6 +222,9 @@ func addMongoToBoot(c *cloudinit.Config) error {
 		Cmd: "/opt/mongo/bin/mongod" +
 			" --auth" +
 			" --dbpath=/var/lib/juju/db" +
+			" --sslOnNormalPorts" +
+			" --sslPEMKeyFile " + shquote(serverPEMPath(cfg)) +
+			" --sslPEMKeyPassword ignored" +
 			" --bind_ip 0.0.0.0" +
 			" --port " + fmt.Sprint(mgoPort) +
 			" --noprealloc" +
