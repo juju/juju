@@ -95,8 +95,16 @@ func (t *LiveTests) Destroy(c *C) {
 // TestStartStop is similar to Tests.TestStartStop except
 // that it does not assume a pristine environment.
 func (t *LiveTests) TestStartStop(c *C) {
-	insts, err := t.Env.Instances(nil)
-	c.Assert(err, IsNil)
+	var insts []environs.Instance
+	for a := t.Attempt.Start(); a.Next(); {
+		var err error
+		insts, err = t.Env.AllInstances()
+		c.Assert(err, IsNil)
+		if len(insts) == 0 {
+			break
+		}
+		c.Logf("AllInstances unexpectedly returned %d instances, expected 0", len(insts))
+	}
 	c.Check(insts, HasLen, 0)
 
 	inst, err := t.Env.StartInstance("0", testing.InvalidStateInfo("0"), nil)
@@ -114,7 +122,7 @@ func (t *LiveTests) TestStartStop(c *C) {
 	c.Assert(err, IsNil)
 	// differs from the check above because AllInstances returns
 	// a set (without duplicates) containing only one instance.
-	c.Assert(insts, HasLen, 1)
+	c.Assert(insts, HasLen, 1, Commentf("%v", insts))
 	c.Assert(insts[0].Id(), Equals, id0)
 
 	dns, err := inst.WaitDNSName()
