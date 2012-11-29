@@ -102,9 +102,6 @@ func EC2ErrCode(err error) string {
 	return ec2ErrCode(err)
 }
 
-var MgoPort = mgoPort
-var MgoPortSuffix = mgoPortSuffix
-
 // FabricateInstance creates a new fictitious instance
 // given an existing instance and a new id.
 func FabricateInstance(inst environs.Instance, newId string) environs.Instance {

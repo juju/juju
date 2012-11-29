@@ -189,8 +189,8 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	// has been deleted).
 	perms := info[0].IPPerms
 	c.Assert(perms, HasLen, 5)
-	checkPortAllowed(c, perms, 22)
-	checkPortAllowed(c, perms, ec2.MgoPort)
+	checkPortAllowed(c, perms, 22)    // SSH
+	checkPortAllowed(c, perms, 37017) // MongoDB
 	checkSecurityGroupAllowed(c, perms, groups[0])
 
 	// The old machine group should have been reused also.
