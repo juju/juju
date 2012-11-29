@@ -95,16 +95,18 @@ func (t *LiveTests) Destroy(c *C) {
 // TestStartStop is similar to Tests.TestStartStop except
 // that it does not assume a pristine environment.
 func (t *LiveTests) TestStartStop(c *C) {
-	insts, err := t.Env.Instances(nil)
+	// We might or might not have a bootstrap instance
+	// around, so we make this test work regardless
+	// of what instances are already started.
+	initialInsts, err := t.Env.AllInstances()
 	c.Assert(err, IsNil)
-	c.Check(insts, HasLen, 0)
 
 	inst, err := t.Env.StartInstance("0", testing.InvalidStateInfo("0"), nil)
 	c.Assert(err, IsNil)
 	c.Assert(inst, NotNil)
 	id0 := inst.Id()
 
-	insts, err = t.Env.Instances([]state.InstanceId{id0, id0})
+	insts, err := t.Env.Instances([]state.InstanceId{id0, id0})
 	c.Assert(err, IsNil)
 	c.Assert(insts, HasLen, 2)
 	c.Assert(insts[0].Id(), Equals, id0)
@@ -112,10 +114,15 @@ func (t *LiveTests) TestStartStop(c *C) {
 
 	insts, err = t.Env.AllInstances()
 	c.Assert(err, IsNil)
-	// differs from the check above because AllInstances returns
-	// a set (without duplicates) containing only one instance.
-	c.Assert(insts, HasLen, 1)
-	c.Assert(insts[0].Id(), Equals, id0)
+	c.Assert(insts, HasLen, len(initialInsts)+1, Commentf("%v", insts))
+	found := false
+	for _, inst := range insts {
+		if inst.Id() == id0 {
+			c.Assert(found, Equals, false, Commentf("%v", insts))
+			found = true
+		}
+	}
+	c.Assert(found, Equals, true, Commentf("expected %v, got %v", append(initialInsts, inst), insts))
 
 	dns, err := inst.WaitDNSName()
 	c.Assert(err, IsNil)
