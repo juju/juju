@@ -4,12 +4,13 @@ import (
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/trivial"
 	"net/http"
 )
 
 type BootstrapState struct {
-	StateInstances []string
+	StateInstances []state.InstanceId
 }
 
 func LoadState(e environs.Environ) (*BootstrapState, error) {

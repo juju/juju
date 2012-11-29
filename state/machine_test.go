@@ -94,7 +94,7 @@ func (s *MachineSuite) TestMachineInstanceId(c *C) {
 	err = machine.Refresh()
 	c.Assert(err, IsNil)
 	iid, _ := machine.InstanceId()
-	c.Assert(iid, Equals, "spaceship/0")
+	c.Assert(iid, Equals, state.InstanceId("spaceship/0"))
 }
 
 func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *C) {
@@ -110,14 +110,14 @@ func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *C) {
 	c.Assert(err, IsNil)
 	iid, err := machine.InstanceId()
 	c.Assert(state.IsNotFound(err), Equals, true)
-	c.Assert(iid, Equals, "")
+	c.Assert(iid, Equals, state.InstanceId(""))
 }
 
 func (s *MachineSuite) TestMachineInstanceIdMissing(c *C) {
 	iid, err := s.machine.InstanceId()
 	c.Assert(state.IsNotFound(err), Equals, true)
 	c.Assert(err, ErrorMatches, "instance id for machine 0 not found")
-	c.Assert(iid, Equals, "")
+	c.Assert(string(iid), Equals, "")
 }
 
 func (s *MachineSuite) TestMachineInstanceIdBlank(c *C) {
@@ -133,7 +133,7 @@ func (s *MachineSuite) TestMachineInstanceIdBlank(c *C) {
 	c.Assert(err, IsNil)
 	iid, err := machine.InstanceId()
 	c.Assert(state.IsNotFound(err), Equals, true)
-	c.Assert(iid, Equals, "")
+	c.Assert(string(iid), Equals, "")
 }
 
 func (s *MachineSuite) TestMachineSetInstanceId(c *C) {
@@ -144,7 +144,7 @@ func (s *MachineSuite) TestMachineSetInstanceId(c *C) {
 	c.Assert(err, IsNil)
 	id, err := m.InstanceId()
 	c.Assert(err, IsNil)
-	c.Assert(id, Equals, "umbrella/0")
+	c.Assert(string(id), Equals, "umbrella/0")
 }
 
 func (s *MachineSuite) TestMachineRefresh(c *C) {

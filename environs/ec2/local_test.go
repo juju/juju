@@ -219,7 +219,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 
 	// check that the user data is configured to start zookeeper
 	// and the machine and provisioning agents.
-	inst := t.srv.ec2srv.Instance(insts[0].Id())
+	inst := t.srv.ec2srv.Instance(string(insts[0].Id()))
 	c.Assert(inst, NotNil)
 	bootstrapDNS, err := insts[0].DNSName()
 	c.Assert(err, IsNil)
@@ -240,7 +240,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	info.EntityName = "machine-1"
 	inst1, err := t.env.StartInstance("1", info, nil)
 	c.Assert(err, IsNil)
-	inst = t.srv.ec2srv.Instance(inst1.Id())
+	inst = t.srv.ec2srv.Instance(string(inst1.Id()))
 	c.Assert(inst, NotNil)
 	c.Logf("second instance: UserData: %q", inst.UserData)
 	x = nil

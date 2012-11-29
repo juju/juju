@@ -77,14 +77,14 @@ type OpStopInstances struct {
 type OpOpenPorts struct {
 	Env        string
 	MachineId  string
-	InstanceId string
+	InstanceId state.InstanceId
 	Ports      []state.Port
 }
 
 type OpClosePorts struct {
 	Env        string
 	MachineId  string
-	InstanceId string
+	InstanceId state.InstanceId
 	Ports      []state.Port
 }
 
@@ -109,7 +109,7 @@ type environState struct {
 	ops           chan<- Operation
 	mu            sync.Mutex
 	maxId         int // maximum instance id allocated so far.
-	insts         map[string]*instance
+	insts         map[state.InstanceId]*instance
 	globalPorts   map[state.Port]bool
 	firewallMode  config.FirewallMode
 	bootstrapped  bool
@@ -182,7 +182,7 @@ func newState(name string, ops chan<- Operation, fwmode config.FirewallMode) *en
 	s := &environState{
 		name:         name,
 		ops:          ops,
-		insts:        make(map[string]*instance),
+		insts:        make(map[state.InstanceId]*instance),
 		globalPorts:  make(map[state.Port]bool),
 		firewallMode: fwmode,
 	}
@@ -504,7 +504,7 @@ func (e *environ) StartInstance(machineId string, info *state.Info, tools *state
 	}
 	i := &instance{
 		state:     e.state,
-		id:        fmt.Sprintf("%s-%d", e.state.name, e.state.maxId),
+		id:        state.InstanceId(fmt.Sprintf("%s-%d", e.state.name, e.state.maxId)),
 		ports:     make(map[state.Port]bool),
 		machineId: machineId,
 	}
@@ -537,7 +537,7 @@ func (e *environ) StopInstances(is []environs.Instance) error {
 	return nil
 }
 
-func (e *environ) Instances(ids []string) (insts []environs.Instance, err error) {
+func (e *environ) Instances(ids []state.InstanceId) (insts []environs.Instance, err error) {
 	defer delay()
 	if err := e.checkBroken("Instances"); err != nil {
 		return nil, err
@@ -623,17 +623,17 @@ func (*environ) Provider() environs.EnvironProvider {
 type instance struct {
 	state     *environState
 	ports     map[state.Port]bool
-	id        string
+	id        state.InstanceId
 	machineId string
 }
 
-func (inst *instance) Id() string {
+func (inst *instance) Id() state.InstanceId {
 	return inst.id
 }
 
 func (inst *instance) DNSName() (string, error) {
 	defer delay()
-	return inst.id + ".dns", nil
+	return string(inst.id) + ".dns", nil
 }
 
 func (inst *instance) WaitDNSName() (string, error) {

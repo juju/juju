@@ -56,7 +56,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	// Set the instance id of machine/0
-	if err := m.SetInstanceId(c.InstanceId); err != nil {
+	if err := m.SetInstanceId(state.InstanceId(c.InstanceId)); err != nil {
 		return err
 	}
 	if c.Conf.InitialPassword != "" {

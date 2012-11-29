@@ -292,7 +292,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	if err != nil {
 		return err
 	}
-	instances, err := fw.environ.Instances([]string{instanceId})
+	instances, err := fw.environ.Instances([]state.InstanceId{instanceId})
 	if err != nil {
 		return err
 	}

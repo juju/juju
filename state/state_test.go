@@ -139,7 +139,7 @@ func (s *StateSuite) TestAllMachines(c *C) {
 	for i := 0; i < numInserts; i++ {
 		m, err := s.State.AddMachine(state.MachinerWorker)
 		c.Assert(err, IsNil)
-		err = m.SetInstanceId(fmt.Sprintf("foo-%d", i))
+		err = m.SetInstanceId(state.InstanceId(fmt.Sprintf("foo-%d", i)))
 		c.Assert(err, IsNil)
 		err = m.SetAgentTools(newTools("7.8.9-foo-bar", "http://arble.tgz"))
 		c.Assert(err, IsNil)
@@ -152,7 +152,7 @@ func (s *StateSuite) TestAllMachines(c *C) {
 		c.Assert(m.Id(), Equals, strconv.Itoa(i))
 		instId, err := m.InstanceId()
 		c.Assert(err, IsNil)
-		c.Assert(instId, Equals, fmt.Sprintf("foo-%d", i))
+		c.Assert(string(instId), Equals, fmt.Sprintf("foo-%d", i))
 		tools, err := m.AgentTools()
 		c.Check(err, IsNil)
 		c.Check(tools, DeepEquals, newTools("7.8.9-foo-bar", "http://arble.tgz"))
@@ -558,7 +558,7 @@ var machinesWatchTests = []struct {
 				c.Assert(err, IsNil)
 			}
 			for i := 0; i < len(machines); i++ {
-				err = machines[i].SetInstanceId("spam" + fmt.Sprint(i))
+				err = machines[i].SetInstanceId(state.InstanceId("spam" + fmt.Sprint(i)))
 				c.Assert(err, IsNil)
 			}
 			for i := 10; i < len(machines); i++ {
