@@ -114,9 +114,6 @@ func (t *LiveTests) TestStartStop(c *C) {
 
 	insts, err = t.Env.AllInstances()
 	c.Assert(err, IsNil)
-	// differs from the check above because AllInstances returns
-	// a set (without duplicates) containing the 
-	// new instance.
 	c.Assert(insts, HasLen, len(initialInsts)+1, Commentf("%v", insts))
 	found := false
 	for _, inst := range insts {
