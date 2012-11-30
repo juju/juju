@@ -1308,7 +1308,7 @@ func (w *MachineUnitsWatcher) merge(pending []string, unit string) (new []string
 
 func (w *MachineUnitsWatcher) loop() (err error) {
 	defer func() {
-		for _, unit := range w.known {
+		for unit := range w.known {
 			w.st.watcher.Unwatch(w.st.units.Name, unit, w.in)
 		}
 	}()
