@@ -197,6 +197,17 @@ func (u *Unit) IsPrincipal() bool {
 	return u.doc.Principal == ""
 }
 
+// DeployerName returns the entity name of the agent responsible for deploying
+// the unit. If no such entity can be determined, false is returned.
+func (u *Unit) DeployerName() (string, bool) {
+	if u.doc.Principal != "" {
+		return UnitEntityName(u.doc.Principal), true
+	} else if u.doc.MachineId != "" {
+		return MachineEntityName(u.doc.MachineId), true
+	}
+	return "", false
+}
+
 // PublicAddress returns the public address of the unit.
 func (u *Unit) PublicAddress() (string, error) {
 	if u.doc.PublicAddress == "" {
