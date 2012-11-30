@@ -34,7 +34,7 @@ type RelationScopeWatcher struct {
 	prefix     string
 	ignore     string
 	knownUnits map[string]bool
-	changeChan chan *RelationScopeChange
+	out        chan *RelationScopeChange
 }
 
 // RelationScopeChange contains information about units that have
@@ -565,12 +565,12 @@ func newRelationScopeWatcher(st *State, scope, ignore string) *RelationScopeWatc
 		commonWatcher: commonWatcher{st: st},
 		prefix:        scope + "#",
 		ignore:        ignore,
-		changeChan:    make(chan *RelationScopeChange),
+		out:           make(chan *RelationScopeChange),
 		knownUnits:    make(map[string]bool),
 	}
 	go func() {
 		defer w.tomb.Done()
-		defer close(w.changeChan)
+		defer close(w.out)
 		w.tomb.Kill(w.loop())
 	}()
 	return w
@@ -580,7 +580,7 @@ func newRelationScopeWatcher(st *State, scope, ignore string) *RelationScopeWatc
 // leave a relation scope. The Entered field in the first event on the channel
 // holds the initial state.
 func (w *RelationScopeWatcher) Changes() <-chan *RelationScopeChange {
-	return w.changeChan
+	return w.out
 }
 
 func (changes *RelationScopeChange) isEmpty() bool {
@@ -635,34 +635,23 @@ func (w *RelationScopeWatcher) loop() error {
 	if err != nil {
 		return err
 	}
+	out := w.out
 	for {
-		for changes != nil {
-			select {
-			case <-w.st.watcher.Dead():
-				return watcher.MustErr(w.st.watcher)
-			case <-w.tomb.Dying():
-				return tomb.ErrDying
-			case c := <-ch:
-				if err := w.mergeChange(changes, c); err != nil {
-					return err
-				}
-			case w.changeChan <- changes:
-				changes = nil
-			}
-		}
 		select {
 		case <-w.st.watcher.Dead():
 			return watcher.MustErr(w.st.watcher)
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case c := <-ch:
-			changes = &RelationScopeChange{}
 			if err := w.mergeChange(changes, c); err != nil {
 				return err
 			}
-			if changes.isEmpty() {
-				changes = nil
+			if !changes.isEmpty() {
+				out = w.out
 			}
+		case out <- changes:
+			changes = &RelationScopeChange{}
+			out = nil
 		}
 	}
 	return nil
@@ -1145,7 +1134,7 @@ func (s *Service) WatchConfig() *ConfigWatcher {
 // EntityWatcher observes changes to a state entity.
 type EntityWatcher struct {
 	commonWatcher
-	changeChan chan struct{}
+	out chan struct{}
 }
 
 // Watch return a watcher for observing changes to a service.
@@ -1166,11 +1155,11 @@ func (m *Machine) Watch() *EntityWatcher {
 func newEntityWatcher(st *State, coll string, key interface{}, revno int64) *EntityWatcher {
 	w := &EntityWatcher{
 		commonWatcher: commonWatcher{st: st},
-		changeChan:    make(chan struct{}),
+		out:           make(chan struct{}),
 	}
 	go func() {
 		defer w.tomb.Done()
-		defer close(w.changeChan)
+		defer close(w.out)
 		ch := make(chan watcher.Change)
 		w.st.watcher.Watch(coll, key, revno, ch)
 		defer w.st.watcher.Unwatch(coll, key, ch)
@@ -1181,11 +1170,11 @@ func newEntityWatcher(st *State, coll string, key interface{}, revno int64) *Ent
 
 // Changes returns the event channel for the EntityWatcher.
 func (w *EntityWatcher) Changes() <-chan struct{} {
-	return w.changeChan
+	return w.out
 }
 
 func (w *EntityWatcher) loop(ch <-chan watcher.Change) (err error) {
-	out := w.changeChan
+	out := w.out
 	for {
 		select {
 		case <-w.st.watcher.Dead():
@@ -1193,7 +1182,7 @@ func (w *EntityWatcher) loop(ch <-chan watcher.Change) (err error) {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-ch:
-			out = w.changeChan
+			out = w.out
 		case out <- struct{}{}:
 			out = nil
 		}
@@ -1308,7 +1297,7 @@ func (w *MachineUnitsWatcher) merge(pending []string, unit string) (new []string
 
 func (w *MachineUnitsWatcher) loop() (err error) {
 	defer func() {
-		for _, unit := range w.known {
+		for unit := range w.known {
 			w.st.watcher.Unwatch(w.st.units.Name, unit, w.in)
 		}
 	}()
