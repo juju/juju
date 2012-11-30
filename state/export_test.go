@@ -23,12 +23,11 @@ func init() {
 func (m *Machine) WatchPrincipalUnits2() *UnitsWatcher {
 	m = &Machine{m.st, m.doc}
 	coll := m.st.machines.Name
-	init := D{{"_id", D{{"$in", m.doc.Principals}}}}
 	getUnits := func() ([]string, error) {
 		if err := m.Refresh(); err != nil {
 			return nil, err
 		}
 		return m.doc.Principals, nil
 	}
-	return newUnitsWatcher(m.st, init, getUnits, coll, m.doc.Id, m.doc.TxnRevno)
+	return newUnitsWatcher(m.st, getUnits, coll, m.doc.Id, m.doc.TxnRevno)
 }
