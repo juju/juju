@@ -822,8 +822,9 @@ func (w *RelationUnitsWatcher) loop() (err error) {
 
 // UnitsWatcher notifies of changes to a set of units. Notifications will be
 // sent when units enter or leave the set, and when units in the set change
-// their lifecycle status. The initial event contains all units in the set.
-// Once a unit's Dead status has been notified, it will not be reported again.
+// their lifecycle status. The initial event contains all units in the set;
+// regardless of lifecycle status; once a unit's Dead status has been sent,
+// no further changes to that unit will be reported.
 type UnitsWatcher struct {
 	commonWatcher
 	getUnits func() ([]string, error)
