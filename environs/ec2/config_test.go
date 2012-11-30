@@ -189,6 +189,10 @@ var configTests = []configTest{
 		},
 		err: ".*expected string, got 666",
 	}, {
+		// check that the public-bucket defaults to juju-dist
+		config:  attrs{},
+		pbucket: "juju-dist",
+	}, {
 		config: attrs{
 			"public-bucket": "foo",
 		},
