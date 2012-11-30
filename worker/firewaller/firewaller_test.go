@@ -660,6 +660,8 @@ func (s *FirewallerSuite) TestGlobalModeRestartUnexposedService(c *C) {
 }
 
 func (s *FirewallerSuite) TestGlobalModeRestartPortCount(c *C) {
+	c.Skip("TODO(mue): skipped pending resolution of port races on startup")
+
 	// Change configuration.
 	restore := s.setGlobalMode(c)
 	defer restore(c)
