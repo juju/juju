@@ -91,7 +91,7 @@ func (e *environ) Name() string {
 	return e.name
 }
 
-func (e *environ) Bootstrap(uploadTools bool, certPEM, keyPEM []byte) error {
+func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 	panic("not implemented")
 }
 
@@ -117,7 +117,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.Tools) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId string, info *state.Info, tools *state.Tools) (environs.Instance, error) {
 	panic("not implemented")
 }
 
@@ -125,7 +125,7 @@ func (e *environ) StopInstances([]environs.Instance) error {
 	panic("not implemented")
 }
 
-func (e *environ) Instances(ids []string) ([]environs.Instance, error) {
+func (e *environ) Instances(ids []state.InstanceId) ([]environs.Instance, error) {
 	panic("not implemented")
 }
 

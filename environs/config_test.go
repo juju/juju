@@ -188,7 +188,7 @@ func (suite) TestConfigRoundTrip(c *C) {
 		"type":            "dummy",
 		"state-server":    false,
 		"authorized-keys": "i-am-a-key",
-		"ca-cert":         testing.CACertPEM,
+		"ca-cert":         testing.CACert,
 		"ca-private-key":  "",
 	})
 	c.Assert(err, IsNil)
@@ -210,8 +210,8 @@ func (suite) TestBootstrapConfig(c *C) {
 		"admin-secret":    "highly",
 		"secret":          "um",
 		"authorized-keys": "i-am-a-key",
-		"ca-cert":         testing.CACertPEM,
-		"ca-private-key":  testing.CAKeyPEM,
+		"ca-cert":         testing.CACert,
+		"ca-private-key":  testing.CAKey,
 	})
 	c.Assert(err, IsNil)
 	provider, err := environs.Provider(cfg.Type())
@@ -241,9 +241,9 @@ func makeFakeHome(c *C, certNames ...string) fakeHome {
 	err := os.Mkdir(homePath(".juju"), 0777)
 	c.Assert(err, IsNil)
 	for _, name := range certNames {
-		err := ioutil.WriteFile(homePath(".juju", name+"-cert.pem"), []byte(testing.CACertPEM), 0666)
+		err := ioutil.WriteFile(homePath(".juju", name+"-cert.pem"), []byte(testing.CACert), 0666)
 		c.Assert(err, IsNil)
-		err = ioutil.WriteFile(homePath(".juju", name+"-private-key.pem"), []byte(testing.CAKeyPEM), 0666)
+		err = ioutil.WriteFile(homePath(".juju", name+"-private-key.pem"), []byte(testing.CAKey), 0666)
 		c.Assert(err, IsNil)
 	}
 

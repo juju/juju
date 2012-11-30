@@ -18,6 +18,7 @@ import (
 	"net/url"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -59,6 +60,7 @@ func (t *Tools) SetBSON(raw bson.Raw) error {
 var (
 	validService = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*$")
 	validUnit    = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*/[0-9]+$")
+	validMachine = regexp.MustCompile("^0$|^[1-9][0-9]*$")
 )
 
 // IsServiceName returns whether name is a valid service name.
@@ -69,6 +71,11 @@ func IsServiceName(name string) bool {
 // IsUnitName returns whether name is a valid unit name.
 func IsUnitName(name string) bool {
 	return validUnit.MatchString(name)
+}
+
+// IsMachineId returns whether id is a valid machine id.
+func IsMachineId(name string) bool {
+	return validMachine.MatchString(name)
 }
 
 // NotFoundError represents the error that something is not found.
@@ -157,10 +164,11 @@ func (st *State) AddMachine(workers ...WorkerKind) (m *Machine, err error) {
 	if !wset[MachinerWorker] {
 		return nil, fmt.Errorf("new machine must be started with a machine worker")
 	}
-	id, err := st.sequence("machine")
+	seq, err := st.sequence("machine")
 	if err != nil {
 		return nil, err
 	}
+	id := strconv.Itoa(seq)
 	mdoc := machineDoc{
 		Id:      id,
 		Life:    Alive,
@@ -194,8 +202,8 @@ func onAbort(txnErr, err error) error {
 }
 
 // RemoveMachine removes the machine with the the given id.
-func (st *State) RemoveMachine(id int) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot remove machine %d", id)
+func (st *State) RemoveMachine(id string) (err error) {
+	defer trivial.ErrorContextf(&err, "cannot remove machine %s", id)
 	m, err := st.Machine(id)
 	if err != nil {
 		return err
@@ -223,27 +231,39 @@ func (st *State) RemoveMachine(id int) (err error) {
 // AllMachines returns all machines in the environment
 // ordered by id.
 func (st *State) AllMachines() (machines []*Machine, err error) {
-	mdocs := []machineDoc{}
-	err = st.machines.Find(nil).Sort("_id").All(&mdocs)
+	mdocs := machineDocSlice{}
+	err = st.machines.Find(nil).All(&mdocs)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get all machines: %v", err)
 	}
+	sort.Sort(mdocs)
 	for _, doc := range mdocs {
 		machines = append(machines, newMachine(st, &doc))
 	}
 	return
 }
 
+type machineDocSlice []machineDoc
+
+func (ms machineDocSlice) Len() int      { return len(ms) }
+func (ms machineDocSlice) Swap(i, j int) { ms[i], ms[j] = ms[j], ms[i] }
+func (ms machineDocSlice) Less(i, j int) bool {
+	// There's nothing we can do with errors at this point.
+	m1, _ := strconv.Atoi(ms[i].Id)
+	m2, _ := strconv.Atoi(ms[j].Id)
+	return m1 < m2
+}
+
 // Machine returns the machine with the given id.
-func (st *State) Machine(id int) (*Machine, error) {
+func (st *State) Machine(id string) (*Machine, error) {
 	mdoc := &machineDoc{}
 	sel := D{{"_id", id}}
 	err := st.machines.Find(sel).One(mdoc)
 	if err == mgo.ErrNotFound {
-		return nil, notFound("machine %d", id)
+		return nil, notFound("machine %s", id)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("cannot get machine %d: %v", id, err)
+		return nil, fmt.Errorf("cannot get machine %s: %v", id, err)
 	}
 	return newMachine(st, mdoc), nil
 }
@@ -598,7 +618,7 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 	var m *Machine
 	switch policy {
 	case AssignLocal:
-		m, err = st.Machine(0)
+		m, err = st.Machine("0")
 		if err != nil {
 			return err
 		}

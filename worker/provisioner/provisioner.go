@@ -22,9 +22,9 @@ type Provisioner struct {
 	tomb    tomb.Tomb
 
 	// machine.Id => environs.Instance
-	instances map[int]environs.Instance
+	instances map[string]environs.Instance
 	// instance.Id => machine id
-	machines map[string]int
+	machines map[state.InstanceId]string
 
 	configObserver
 }
@@ -49,8 +49,8 @@ func (o *configObserver) notify(cfg *config.Config) {
 func NewProvisioner(st *state.State) *Provisioner {
 	p := &Provisioner{
 		st:        st,
-		instances: make(map[int]environs.Instance),
-		machines:  make(map[string]int),
+		instances: make(map[string]environs.Instance),
+		machines:  make(map[state.InstanceId]string),
 	}
 	go func() {
 		defer p.tomb.Done()
@@ -147,7 +147,7 @@ func (p *Provisioner) Stop() error {
 	return p.tomb.Wait()
 }
 
-func (p *Provisioner) processMachines(ids []int) error {
+func (p *Provisioner) processMachines(ids []string) error {
 	// Find machines without an instance id or that are dead
 	pending, dead, err := p.pendingOrDead(ids)
 	if err != nil {
@@ -180,7 +180,7 @@ func (p *Provisioner) findUnknownInstances() ([]environs.Instance, error) {
 	if err != nil {
 		return nil, err
 	}
-	instances := make(map[string]environs.Instance)
+	instances := make(map[state.InstanceId]environs.Instance)
 	for _, i := range all {
 		instances[i.Id()] = i
 	}
@@ -211,7 +211,7 @@ func (p *Provisioner) findUnknownInstances() ([]environs.Instance, error) {
 
 // pendingOrDead looks up machines with ids and retuns those that do not
 // have an instance id assigned yet, and also those that are dead.
-func (p *Provisioner) pendingOrDead(ids []int) (pending, dead []*state.Machine, err error) {
+func (p *Provisioner) pendingOrDead(ids []string) (pending, dead []*state.Machine, err error) {
 	// TODO(niemeyer): ms, err := st.Machines(alive)
 	for _, id := range ids {
 		m, err := p.st.Machine(id)
@@ -315,7 +315,7 @@ func (p *Provisioner) instanceForMachine(m *state.Machine) (environs.Instance, e
 		return nil, err
 	}
 	// TODO(dfc): Ask for all instances at once.
-	insts, err := p.environ.Instances([]string{instId})
+	insts, err := p.environ.Instances([]state.InstanceId{instId})
 	if err != nil {
 		return nil, err
 	}
