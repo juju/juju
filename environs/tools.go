@@ -411,6 +411,7 @@ const (
 // returned.  If there's anything compatible in the environ's Storage,
 // it gets precedence over anything in its PublicStorage.
 func FindTools(env Environ, vers version.Binary, flags ToolsSearchFlags) (*state.Tools, error) {
+	log.Printf("environs: searching for tools compatible with version: %v\n", vers)
 	toolsList, err := ListTools(env, vers.Major)
 	if err != nil {
 		return nil, err

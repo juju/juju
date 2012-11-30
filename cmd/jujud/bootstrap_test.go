@@ -71,12 +71,14 @@ func (s *BootstrapSuite) TestParseNoEnvConfig(c *C) {
 func (s *BootstrapSuite) TestSetMachineId(c *C) {
 	args := []string{
 		"--state-servers", testing.MgoAddr,
+		"--ca-cert", caCertFile,
 		"--instance-id", "over9000",
 		"--env-config", b64yaml{
 			"name":            "dummyenv",
 			"type":            "dummy",
 			"state-server":    false,
 			"authorized-keys": "i-am-a-key",
+			"ca-cert":         testing.CACert,
 		}.encode(),
 	}
 	cmd, err := initBootstrapCommand(args)
@@ -84,7 +86,10 @@ func (s *BootstrapSuite) TestSetMachineId(c *C) {
 	err = cmd.Run(nil)
 	c.Assert(err, IsNil)
 
-	st, err := state.Open(&state.Info{Addrs: []string{testing.MgoAddr}})
+	st, err := state.Open(&state.Info{
+		Addrs:  []string{testing.MgoAddr},
+		CACert: []byte(testing.CACert),
+	})
 	c.Assert(err, IsNil)
 	defer st.Close()
 	machines, err := st.AllMachines()
@@ -93,18 +98,20 @@ func (s *BootstrapSuite) TestSetMachineId(c *C) {
 
 	instid, err := machines[0].InstanceId()
 	c.Assert(err, IsNil)
-	c.Assert(instid, Equals, "over9000")
+	c.Assert(instid, Equals, state.InstanceId("over9000"))
 }
 
 func (s *BootstrapSuite) TestMachinerWorkers(c *C) {
 	args := []string{
 		"--state-servers", testing.MgoAddr,
+		"--ca-cert", caCertFile,
 		"--instance-id", "over9000",
 		"--env-config", b64yaml{
 			"name":            "dummyenv",
 			"type":            "dummy",
 			"state-server":    false,
 			"authorized-keys": "i-am-a-key",
+			"ca-cert":         testing.CACert,
 		}.encode(),
 	}
 	cmd, err := initBootstrapCommand(args)
@@ -112,10 +119,13 @@ func (s *BootstrapSuite) TestMachinerWorkers(c *C) {
 	err = cmd.Run(nil)
 	c.Assert(err, IsNil)
 
-	st, err := state.Open(&state.Info{Addrs: []string{testing.MgoAddr}})
+	st, err := state.Open(&state.Info{
+		Addrs:  []string{testing.MgoAddr},
+		CACert: []byte(testing.CACert),
+	})
 	c.Assert(err, IsNil)
 	defer st.Close()
-	m, err := st.Machine(0)
+	m, err := st.Machine("0")
 	c.Assert(err, IsNil)
 	c.Assert(m.Workers(), DeepEquals, []state.WorkerKind{state.MachinerWorker, state.ProvisionerWorker, state.FirewallerWorker})
 }
@@ -135,12 +145,14 @@ func testOpenState(c *C, info *state.Info, expectErr error) {
 func (s *BootstrapSuite) TestInitialPassword(c *C) {
 	args := []string{
 		"--state-servers", testing.MgoAddr,
+		"--ca-cert", caCertFile,
 		"--instance-id", "over9000",
 		"--env-config", b64yaml{
 			"name":            "dummyenv",
 			"type":            "dummy",
 			"state-server":    false,
 			"authorized-keys": "i-am-a-key",
+			"ca-cert":         testing.CACert,
 		}.encode(),
 		"--initial-password", "foo",
 	}
@@ -152,7 +164,8 @@ func (s *BootstrapSuite) TestInitialPassword(c *C) {
 	// Check that we cannot now connect to the state
 	// without a password.
 	info := &state.Info{
-		Addrs: []string{testing.MgoAddr},
+		Addrs:  []string{testing.MgoAddr},
+		CACert: []byte(testing.CACert),
 	}
 	testOpenState(c, info, state.ErrUnauthorized)
 
@@ -199,8 +212,9 @@ var base64ConfigTests = []struct {
 func (s *BootstrapSuite) TestBase64Config(c *C) {
 	for i, t := range base64ConfigTests {
 		c.Logf("test %d", i)
-		args := []string{"--state-servers"}
-		args = append(args, testing.MgoAddr)
+		var args []string
+		args = append(args, "--state-servers", testing.MgoAddr)
+		args = append(args, "--ca-cert", caCertFile)
 		args = append(args, "--instance-id", "over9000")
 		args = append(args, t.input...)
 		cmd, err := initBootstrapCommand(args)

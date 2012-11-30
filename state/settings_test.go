@@ -6,6 +6,7 @@ import (
 )
 
 type SettingsSuite struct {
+	testing.LoggingSuite
 	testing.MgoSuite
 	state *State
 	key   string
@@ -13,9 +14,29 @@ type SettingsSuite struct {
 
 var _ = Suite(&SettingsSuite{})
 
+// TestingStateInfo returns information suitable for
+// connecting to the testing state server.
+func TestingStateInfo() *Info {
+	return &Info{
+		Addrs:  []string{testing.MgoAddr},
+		CACert: []byte(testing.CACert),
+	}
+}
+
+func (s *SettingsSuite) SetUpSuite(c *C) {
+	s.LoggingSuite.SetUpSuite(c)
+	s.MgoSuite.SetUpSuite(c)
+}
+
+func (s *SettingsSuite) TearDownSuite(c *C) {
+	s.MgoSuite.TearDownSuite(c)
+	s.LoggingSuite.TearDownSuite(c)
+}
+
 func (s *SettingsSuite) SetUpTest(c *C) {
+	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-	state, err := Open(&Info{Addrs: []string{testing.MgoAddr}})
+	state, err := Open(TestingStateInfo())
 	c.Assert(err, IsNil)
 
 	s.state = state
@@ -25,6 +46,7 @@ func (s *SettingsSuite) SetUpTest(c *C) {
 func (s *SettingsSuite) TearDownTest(c *C) {
 	s.state.Close()
 	s.MgoSuite.TearDownTest(c)
+	s.LoggingSuite.TearDownTest(c)
 }
 
 func (s *SettingsSuite) TestCreateEmptySettings(c *C) {

@@ -151,7 +151,7 @@ func (s *ProvisionerSuite) checkStopInstance(c *C) {
 func (s *ProvisionerSuite) checkInstanceId(c *C, m *state.Machine, inst environs.Instance) {
 	// TODO(dfc) add machine.Watch() to avoid having to poll.
 	s.State.StartSync()
-	instId := ""
+	var instId state.InstanceId
 	if inst != nil {
 		instId = inst.Id()
 	}
@@ -272,7 +272,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterRe
 	machines, err := p.AllMachines()
 	c.Check(err, IsNil)
 	c.Check(len(machines), Equals, 1)
-	c.Check(machines[0].Id(), Equals, 0)
+	c.Check(machines[0].Id(), Equals, "0")
 
 	// the PA should not create it a second time
 	s.checkNotStartInstance(c)

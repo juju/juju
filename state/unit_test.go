@@ -3,7 +3,7 @@ package state_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/testing"
+	"sort"
 	"time"
 )
 
@@ -172,9 +172,7 @@ func (s *UnitSuite) TestSetPasswordOnUnitAfterConnectingAsMachineEntity(c *C) {
 	subUnit, err := logService.AddUnitSubordinateTo(s.unit)
 	c.Assert(err, IsNil)
 
-	info := &state.Info{
-		Addrs: []string{testing.MgoAddr},
-	}
+	info := state.TestingStateInfo()
 	st, err := state.Open(info)
 	c.Assert(err, IsNil)
 	defer st.Close()
@@ -426,6 +424,77 @@ func (s *UnitSuite) TestSubordinateChangeInPrincipal(c *C) {
 	c.Assert(subordinates, DeepEquals, []string{"logging/0"})
 }
 
+func (s *UnitSuite) TestWatchSubordinates(c *C) {
+	w := s.unit.WatchSubordinateUnits()
+	defer stop(c, w)
+	assertChange := func(units ...string) {
+		s.State.Sync()
+		select {
+		case ch, ok := <-w.Changes():
+			c.Assert(ok, Equals, true)
+			if len(units) > 0 {
+				sort.Strings(ch)
+				sort.Strings(units)
+				c.Assert(ch, DeepEquals, units)
+			} else {
+				c.Assert(ch, HasLen, 0)
+			}
+		case <-time.After(500 * time.Millisecond):
+			c.Fatalf("timed out waiting for %#v", units)
+		}
+	}
+	assertChange()
+	assertNoChange := func() {
+		s.State.StartSync()
+		select {
+		case ch, ok := <-w.Changes():
+			c.Fatalf("unexpected change: %#v, %v", ch, ok)
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+	assertNoChange()
+
+	// Add a couple of subordinates, check change.
+	logging, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
+	c.Assert(err, IsNil)
+	logging0, err := logging.AddUnitSubordinateTo(s.unit)
+	c.Assert(err, IsNil)
+	logging1, err := logging.AddUnitSubordinateTo(s.unit)
+	c.Assert(err, IsNil)
+	assertChange("logging/0", "logging/1")
+	assertNoChange()
+
+	// Set one to Dying, check change.
+	err = logging0.EnsureDying()
+	c.Assert(err, IsNil)
+	assertChange("logging/0")
+	assertNoChange()
+
+	// Set both to Dead, and remove one; check change.
+	err = logging0.EnsureDead()
+	c.Assert(err, IsNil)
+	err = logging1.EnsureDead()
+	c.Assert(err, IsNil)
+	err = logging.RemoveUnit(logging1)
+	c.Assert(err, IsNil)
+	assertChange("logging/0", "logging/1")
+	assertNoChange()
+
+	// Remove the leftover, check no change.
+	err = logging.RemoveUnit(logging0)
+	c.Assert(err, IsNil)
+	assertNoChange()
+
+	// Stop watcher, check closed.
+	err = w.Stop()
+	c.Assert(err, IsNil)
+	select {
+	case _, ok := <-w.Changes():
+		c.Assert(ok, Equals, false)
+	default:
+	}
+}
+
 type unitInfo struct {
 	PublicAddress string
 	Life          state.Life
@@ -473,12 +542,13 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 	defer func() {
 		c.Assert(w.Stop(), IsNil)
 	}()
-	s.State.StartSync()
+	s.State.Sync()
 	select {
-	case u, ok := <-w.Changes():
+	case _, ok := <-w.Changes():
 		c.Assert(ok, Equals, true)
-		c.Assert(u.Name(), Equals, s.unit.Name())
-		addr, err := u.PublicAddress()
+		err := s.unit.Refresh()
+		c.Assert(err, IsNil)
+		addr, err := s.unit.PublicAddress()
 		c.Assert(err, IsNil)
 		c.Assert(addr, Equals, "newer-address")
 	case <-time.After(500 * time.Millisecond):
@@ -487,18 +557,19 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 
 	for i, test := range watchUnitTests {
 		c.Logf("test %d", i)
-		err := test.test(s.unit)
+		err := test.test(altunit)
 		c.Assert(err, IsNil)
 		s.State.StartSync()
 		select {
-		case unit, ok := <-w.Changes():
+		case _, ok := <-w.Changes():
 			c.Assert(ok, Equals, true)
-			c.Assert(unit.Name(), Equals, s.unit.Name())
+			err := s.unit.Refresh()
+			c.Assert(err, IsNil)
 			var info unitInfo
-			info.Life = unit.Life()
+			info.Life = s.unit.Life()
 			c.Assert(err, IsNil)
 			if test.want.PublicAddress != "" {
-				info.PublicAddress, err = unit.PublicAddress()
+				info.PublicAddress, err = s.unit.PublicAddress()
 				c.Assert(err, IsNil)
 			}
 			c.Assert(info, DeepEquals, test.want)
@@ -507,8 +578,8 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 		}
 	}
 	select {
-	case got := <-w.Changes():
-		c.Fatalf("got unexpected change: %#v", got)
+	case got, ok := <-w.Changes():
+		c.Fatalf("got unexpected change: %#v, %v", got, ok)
 	case <-time.After(100 * time.Millisecond):
 	}
 }

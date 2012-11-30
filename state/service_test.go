@@ -970,12 +970,13 @@ func (s *ServiceSuite) TestWatchService(c *C) {
 	defer func() {
 		c.Assert(w.Stop(), IsNil)
 	}()
-	s.State.StartSync()
+	s.State.Sync()
 	select {
-	case svc, ok := <-w.Changes():
+	case _, ok := <-w.Changes():
 		c.Assert(ok, Equals, true)
-		c.Assert(svc.Name(), Equals, s.service.Name())
-		_, force, err := svc.Charm()
+		err := s.service.Refresh()
+		c.Assert(err, IsNil)
+		_, force, err := s.service.Charm()
 		c.Assert(err, IsNil)
 		c.Assert(force, Equals, true)
 	case <-time.After(500 * time.Millisecond):
@@ -984,22 +985,24 @@ func (s *ServiceSuite) TestWatchService(c *C) {
 
 	for i, test := range watchServiceTests {
 		c.Logf("test %d", i)
-		err := test.test(s.service)
+		err := test.test(altservice)
 		c.Assert(err, IsNil)
 		s.State.StartSync()
 		select {
-		case service, ok := <-w.Changes():
+		case _, ok := <-w.Changes():
 			c.Assert(ok, Equals, true)
-			c.Assert(service.Name(), Equals, s.service.Name())
-			c.Assert(service.Life(), Equals, test.Life)
-			c.Assert(service.IsExposed(), Equals, test.Exposed)
+			err := s.service.Refresh()
+			c.Assert(err, IsNil)
+			c.Assert(s.service.Life(), Equals, test.Life)
+			c.Assert(s.service.IsExposed(), Equals, test.Exposed)
 		case <-time.After(500 * time.Millisecond):
 			c.Fatalf("did not get change: %v %v", test.Exposed, test.Life)
 		}
 	}
+	s.State.StartSync()
 	select {
-	case got := <-w.Changes():
-		c.Fatalf("got unexpected change: %#v", got)
+	case got, ok := <-w.Changes():
+		c.Fatalf("got unexpected change: %#v, %v", got, ok)
 	case <-time.After(100 * time.Millisecond):
 	}
 }

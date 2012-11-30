@@ -1,7 +1,9 @@
 package main
 
 import (
+	"io/ioutil"
 	"net/http"
+	"os"
 
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
@@ -14,6 +16,8 @@ type BootstrapSuite struct {
 	testing.LoggingSuite
 	testing.MgoSuite
 }
+
+var _ = Suite(&BootstrapSuite{})
 
 func (s *BootstrapSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
@@ -33,13 +37,25 @@ func (s *BootstrapSuite) TearDownSuite(c *C) {
 func (s *BootstrapSuite) TearDownTest(c *C) {
 	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
+	dummy.Reset()
 }
 
 func (*BootstrapSuite) TestBootstrapCommand(c *C) {
+	defer makeFakeHome(c, "brokenenv").restore()
+	err := ioutil.WriteFile(homePath(".juju", "environments.yaml"), []byte(envConfig), 0666)
+	c.Assert(err, IsNil)
+
 	// normal bootstrap
 	opc, errc := runCommand(new(BootstrapCommand))
 	c.Check(<-errc, IsNil)
 	c.Check((<-opc).(dummy.OpBootstrap).Env, Equals, "peckham")
+
+	// Check that the CA certificate and key have been automatically generated
+	// for the environment.
+	_, err = os.Stat(homePath(".juju", "peckham-cert.pem"))
+	c.Assert(err, IsNil)
+	_, err = os.Stat(homePath(".juju", "peckham-private-key.pem"))
+	c.Assert(err, IsNil)
 
 	// bootstrap with tool uploading - checking that a file
 	// is uploaded should be sufficient, as the detailed semantics

@@ -7,6 +7,7 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/testing"
 	"os"
 	"path/filepath"
 	"strings"
@@ -49,7 +50,9 @@ func (t configTest) check(c *C) {
 	envs := attrs{
 		"environments": attrs{
 			"testenv": attrs{
-				"type": "ec2",
+				"type":           "ec2",
+				"ca-cert":        testing.CACert,
+				"ca-private-key": testing.CAKey,
 			},
 		},
 	}
@@ -120,7 +123,8 @@ func (t configTest) check(c *C) {
 
 var configTests = []configTest{
 	{
-		config: attrs{},
+		config:  attrs{},
+		pbucket: "juju-dist",
 	}, {
 		config: attrs{
 			"region": "eu-west-1",

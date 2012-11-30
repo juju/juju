@@ -33,5 +33,5 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	return environ.Bootstrap(c.UploadTools)
+	return environs.Bootstrap(environ, c.UploadTools, nil)
 }

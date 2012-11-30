@@ -27,7 +27,7 @@ func build() error {
 	if err != nil {
 		return err
 	}
-	err = environ.Bootstrap(true)
+	err = environs.Bootstrap(environ, true, nil)
 	if err != nil {
 		return err
 	}

@@ -6,9 +6,12 @@ import (
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/trivial"
-	"strconv"
 	"time"
 )
+
+// An InstanceId is a provider-specific identifier associated with an
+// instance (physical or virtual machine allocated in the provider).
+type InstanceId string
 
 // Machine represents the state of a machine.
 type Machine struct {
@@ -18,8 +21,8 @@ type Machine struct {
 
 // machineDoc represents the internal state of a machine in MongoDB.
 type machineDoc struct {
-	Id         int `bson:"_id"`
-	InstanceId string
+	Id         string `bson:"_id"`
+	InstanceId InstanceId
 	Principals []string
 	Life       Life
 	Tools      *Tools `bson:",omitempty"`
@@ -32,7 +35,7 @@ func newMachine(st *State, doc *machineDoc) *Machine {
 }
 
 // Id returns the machine id.
-func (m *Machine) Id() int {
+func (m *Machine) Id() string {
 	return m.doc.Id
 }
 
@@ -43,8 +46,8 @@ func (m *Machine) globalKey() string {
 
 // MachineEntityName returns the entity name for the
 // machine with the given id.
-func MachineEntityName(id int) string {
-	return fmt.Sprintf("machine-%d", id)
+func MachineEntityName(id string) string {
+	return fmt.Sprintf("machine-%s", id)
 }
 
 // EntityName returns a name identifying the machine that is safe to use
@@ -138,11 +141,6 @@ func (m *Machine) Refresh() error {
 	return nil
 }
 
-// Watch returns a watcher that fires when the machine changes.
-func (m *Machine) Watch() *MachineWatcher {
-	return newMachineWatcher(m)
-}
-
 // AgentAlive returns whether the respective remote agent is alive.
 func (m *Machine) AgentAlive() (bool, error) {
 	return m.st.pwatcher.Alive(m.globalKey())
@@ -180,8 +178,8 @@ func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
 	return p, nil
 }
 
-// InstanceId returns the provider specific machine id for this machine.
-func (m *Machine) InstanceId() (string, error) {
+// InstanceId returns the provider specific instance id for this machine.
+func (m *Machine) InstanceId() (InstanceId, error) {
 	if m.doc.InstanceId == "" {
 		return "", notFound("instance id for machine %v", m)
 	}
@@ -190,7 +188,7 @@ func (m *Machine) InstanceId() (string, error) {
 
 // Units returns all the units that have been assigned to the machine.
 func (m *Machine) Units() (units []*Unit, err error) {
-	defer trivial.ErrorContextf(&err, "cannot get units assigned to machine %s", m)
+	defer trivial.ErrorContextf(&err, "cannot get units assigned to machine %v", m)
 	pudocs := []unitDoc{}
 	err = m.st.units.Find(D{{"machineid", m.doc.Id}}).All(&pudocs)
 	if err != nil {
@@ -211,7 +209,7 @@ func (m *Machine) Units() (units []*Unit, err error) {
 }
 
 // SetInstanceId sets the provider specific machine id for this machine.
-func (m *Machine) SetInstanceId(id string) (err error) {
+func (m *Machine) SetInstanceId(id InstanceId) (err error) {
 	ops := []txn.Op{{
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
@@ -219,7 +217,7 @@ func (m *Machine) SetInstanceId(id string) (err error) {
 		Update: D{{"$set", D{{"instanceid", id}}}},
 	}}
 	if err := m.st.runner.Run(ops, "", nil); err != nil {
-		return fmt.Errorf("cannot set instance id of machine %s: %v", m, onAbort(err, errNotAlive))
+		return fmt.Errorf("cannot set instance id of machine %v: %v", m, onAbort(err, errNotAlive))
 	}
 	m.doc.InstanceId = id
 	return nil
@@ -227,5 +225,5 @@ func (m *Machine) SetInstanceId(id string) (err error) {
 
 // String returns a unique description of this machine.
 func (m *Machine) String() string {
-	return strconv.Itoa(m.doc.Id)
+	return m.doc.Id
 }

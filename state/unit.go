@@ -74,7 +74,7 @@ type unitDoc struct {
 	Subordinates   []string
 	PublicAddress  string
 	PrivateAddress string
-	MachineId      *int
+	MachineId      string
 	Resolved       ResolvedMode
 	Tools          *Tools `bson:",omitempty"`
 	Ports          []Port
@@ -404,44 +404,33 @@ func (u *Unit) SetAgentAlive() (*presence.Pinger, error) {
 	return p, nil
 }
 
-// notAssignedError represents the error that a unit is not assigned.
-type notAssignedError struct {
-	msg string
-}
+// NotAssignedError indicates that a unit is not assigned to a machine (and, in
+// the case of subordinate units, that the unit's principal is not assigned).
+type NotAssignedError struct{ Unit *Unit }
 
-func (e *notAssignedError) Error() string {
-	return e.msg
-}
-
-func notAssigned(format string, args ...interface{}) error {
-	return &NotFoundError{fmt.Sprintf(format+" is not assigned to a machine", args...)}
-}
-
-func IsNotAssigned(err error) bool {
-	_, ok := err.(*notAssignedError)
-	return ok
+func (e *NotAssignedError) Error() string {
+	return fmt.Sprintf("unit %q is not assigned to a machine", e.Unit)
 }
 
 // AssignedMachineId returns the id of the assigned machine.
-func (u *Unit) AssignedMachineId() (id int, err error) {
+func (u *Unit) AssignedMachineId() (id string, err error) {
 	if u.IsPrincipal() {
-		if u.doc.MachineId == nil {
-			return 0, notAssigned("unit %q", u)
+		if u.doc.MachineId == "" {
+			return "", &NotAssignedError{u}
 		}
-		return *u.doc.MachineId, nil
+		return u.doc.MachineId, nil
 	}
 	pudoc := unitDoc{}
 	err = u.st.units.Find(D{{"_id", u.doc.Principal}}).One(&pudoc)
 	if err == mgo.ErrNotFound {
-		return 0, notFound("cannot get machine id of unit %q: principal %q %v", u, u.doc.Principal)
+		return "", notFound("cannot get machine id of unit %q: principal %q %v", u, u.doc.Principal)
+	} else if err != nil {
+		return "", err
 	}
-	if err != nil {
-		return 0, fmt.Errorf("cannot get machine id of unit %q: %v", u, err)
+	if pudoc.MachineId == "" {
+		return "", &NotAssignedError{u}
 	}
-	if pudoc.MachineId == nil {
-		return 0, notAssigned("unit %q", u)
-	}
-	return *pudoc.MachineId, nil
+	return pudoc.MachineId, nil
 }
 
 var (
@@ -459,8 +448,8 @@ var (
 // - alreadyAssignedErr when the unit has already been assigned
 // - inUseErr when the machine already has a unit assigned (if unused is true)
 func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
-	if u.doc.MachineId != nil {
-		if *u.doc.MachineId != m.Id() {
+	if u.doc.MachineId != "" {
+		if u.doc.MachineId != m.Id() {
 			return alreadyAssignedErr
 		}
 		return nil
@@ -470,7 +459,7 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 	}
 	assert := append(isAlive, D{
 		{"$or", []D{
-			{{"machineid", nil}},
+			{{"machineid", ""}},
 			{{"machineid", m.Id()}},
 		}},
 	}...)
@@ -491,7 +480,7 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 	}}
 	err = u.st.runner.Run(ops, "", nil)
 	if err == nil {
-		u.doc.MachineId = &m.doc.Id
+		u.doc.MachineId = m.doc.Id
 		return nil
 	}
 	if err != txn.ErrAborted {
@@ -510,7 +499,7 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 		return unitDeadErr
 	case m0.Life() != Alive:
 		return machineDeadErr
-	case u0.doc.MachineId != nil || !unused:
+	case u0.doc.MachineId != "" || !unused:
 		return alreadyAssignedErr
 	}
 	return inUseErr
@@ -531,7 +520,8 @@ var noUnusedMachines = errors.New("all machines in use")
 // If there are no unused machines besides machine 0, an error is returned.
 func (u *Unit) AssignToUnusedMachine() (m *Machine, err error) {
 	// Select all machines with no principals except the bootstrap machine.
-	sel := D{{"principals", D{{"$size", 0}}}, {"_id", D{{"$ne", 0}}}}
+	// TODO shouldn't this be "machines not running state/provisioner/firewaller tasks?"
+	sel := D{{"principals", D{{"$size", 0}}}, {"_id", D{{"$ne", "0"}}}}
 	// TODO use Batch(1). See https://bugs.launchpad.net/mgo/+bug/1053509
 	// TODO(rog) Fix so this is more efficient when there are concurrent uses.
 	// Possible solution: pick the highest and the smallest id of all
@@ -562,9 +552,9 @@ func (u *Unit) UnassignFromMachine() (err error) {
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: txn.DocExists,
-		Update: D{{"$set", D{{"machineid", nil}}}},
+		Update: D{{"$set", D{{"machineid", ""}}}},
 	}}
-	if u.doc.MachineId != nil {
+	if u.doc.MachineId != "" {
 		ops = append(ops, txn.Op{
 			C:      u.st.machines.Name,
 			Id:     u.doc.MachineId,
@@ -576,7 +566,7 @@ func (u *Unit) UnassignFromMachine() (err error) {
 	if err != nil {
 		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, onAbort(err, notFound("machine")))
 	}
-	u.doc.MachineId = nil
+	u.doc.MachineId = ""
 	return nil
 }
 
