@@ -16,12 +16,13 @@ import (
 )
 
 // SimpleContext is a Context that manages unit deployments via upstart
-// services on the local system.
+// jobs on the local system.
 type SimpleContext struct {
 
-	// entityName identifies the unit or machine agent responsible for
-	// installations into this context.
-	entityName string
+	// StateInfo identifies (by EntityName) the agent responsible for
+	// deployments in this context, and (by Addrs and CACert) the
+	// common information required to connect a new agent to state.
+	StateInfo *state.Info
 
 	// InitDir specifies the directory used by upstart on the local system.
 	// It is typically set to "/etc/init".
@@ -38,39 +39,28 @@ type SimpleContext struct {
 
 var _ Context = &SimpleContext{}
 
-// NewSimpleContext returns a new SimpleContext acting on behalf of the
-// named entity, and using the supplied data directory. If dataDir is
-// empty, "/var/lib/juju" will be used; other fields are always set to
-// suitable default values.
-func NewSimpleContext(entityName, dataDir string) *SimpleContext {
+// NewSimpleContext returns a new SimpleContext, acting on behalf of the
+// entity specified in info, that deploys unit agents as upstart jobs in
+// "/etc/init" logging to "/var/log/juju". Paths to which agents and tools
+// are installed are relative to dataDir; if dataDir is empty, it will be
+// set to "/var/lib/juju".
+func NewSimpleContext(info *state.Info, dataDir string) *SimpleContext {
 	if dataDir == "" {
 		dataDir = "/var/lib/juju"
 	}
 	return &SimpleContext{
-		entityName: entityName,
-		InitDir:    "/etc/init",
-		DataDir:    dataDir,
-		LogDir:     "/var/log/juju",
+		StateInfo: info,
+		InitDir:   "/etc/init",
+		DataDir:   dataDir,
+		LogDir:    "/var/log/juju",
 	}
 }
 
-// upstartService returns an upstart.Service corresponding to the supplied
-// unit. Its name is badged according to the entity responsible for the
-// context, so as to distinguish its own jobs from those installed by other
-// means.
-func (ctx *SimpleContext) upstartService(name string) *upstart.Service {
-	entityName := state.UnitEntityName(name)
-	svcName := "jujud-" + entityName + "-x-" + ctx.entityName
-	svc := upstart.NewService(svcName)
-	svc.InitDir = ctx.InitDir
-	return svc
+func (ctx *SimpleContext) DeployerName() string {
+	return ctx.StateInfo.EntityName
 }
 
-func (ctx *SimpleContext) EntityName() string {
-	return ctx.entityName
-}
-
-func (ctx *SimpleContext) DeployUnit(name string, info *state.Info) (err error) {
+func (ctx *SimpleContext) DeployUnit(name, initialPassword string) (err error) {
 	// Check sanity.
 	svc := ctx.upstartService(name)
 	if svc.Installed() {
@@ -92,19 +82,19 @@ func (ctx *SimpleContext) DeployUnit(name string, info *state.Info) (err error) 
 
 	// Create the CA certificate used to validate the state connection.
 	certPath := filepath.Join(agentDir, "ca-cert.pem")
-	if err := ioutil.WriteFile(certPath, info.CACert, 0644); err != nil {
+	if err := ioutil.WriteFile(certPath, ctx.StateInfo.CACert, 0644); err != nil {
 		return err
 	}
 	defer removeOnErr(&err, certPath)
 
-	// Install an upstart job that runs the named unit.
+	// Install an upstart job that runs the unit agent.
 	logPath := filepath.Join(ctx.LogDir, entityName+".log")
 	cmd := strings.Join([]string{
 		filepath.Join(toolsDir, "jujud"), "unit",
 		"--unit-name", name,
 		"--ca-cert", certPath,
-		"--state-servers", strings.Join(info.Addrs, ","),
-		"--initial-password", info.Password,
+		"--state-servers", strings.Join(ctx.StateInfo.Addrs, ","),
+		"--initial-password", initialPassword,
 		"--log-file", logPath,
 		"--debug", // TODO: propagate debug state sensibly
 	}, " ")
@@ -115,14 +105,6 @@ func (ctx *SimpleContext) DeployUnit(name string, info *state.Info) (err error) 
 		Out:     logPath,
 	}
 	return conf.Install()
-}
-
-func removeOnErr(err *error, path string) {
-	if *err != nil {
-		if e := os.Remove(path); e != nil {
-			log.Printf("installer: cannot remove %q: %v", path, e)
-		}
-	}
 }
 
 func (ctx *SimpleContext) RecallUnit(name string) error {
@@ -143,7 +125,7 @@ func (ctx *SimpleContext) RecallUnit(name string) error {
 }
 
 func (ctx *SimpleContext) DeployedUnits() ([]string, error) {
-	pattern := "^jujud-unit-([a-z0-9-]+)-([0-9]+)-x-" + ctx.entityName + "\\.conf$"
+	pattern := "^jujud-unit-([a-z0-9-]+)-([0-9]+)-x-" + ctx.DeployerName() + "\\.conf$"
 	re, err := regexp.Compile(pattern)
 	if err != nil {
 		return nil, err
@@ -163,4 +145,24 @@ func (ctx *SimpleContext) DeployedUnits() ([]string, error) {
 		}
 	}
 	return installed, nil
+}
+
+// upstartService returns an upstart.Service corresponding to the specified
+// unit. Its name is badged according to the entity responsible for the
+// context, so as to distinguish its own jobs from those installed by other
+// means.
+func (ctx *SimpleContext) upstartService(name string) *upstart.Service {
+	entityName := state.UnitEntityName(name)
+	svcName := "jujud-" + entityName + "-x-" + ctx.DeployerName()
+	svc := upstart.NewService(svcName)
+	svc.InitDir = ctx.InitDir
+	return svc
+}
+
+func removeOnErr(err *error, path string) {
+	if *err != nil {
+		if e := os.Remove(path); e != nil {
+			log.Printf("installer: cannot remove %q: %v", path, e)
+		}
+	}
 }

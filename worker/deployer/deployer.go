@@ -11,47 +11,39 @@ import (
 // Context is a representation of the set of units deployed by a given agent.
 type Context interface {
 
-	// EntityName identifies the agent on whose behalf units will be deployed
-	// to and recalled from the context.
-	EntityName() string
+	// DeployerName identifies the agent represented by the context.
+	DeployerName() string
 
-	// DeployUnit causes the agent for the supplied unit to be started and run
+	// DeployUnit causes the agent for the specified unit to be started and run
 	// continuously until further notice without further intervention. It will
-	// return an error if the unit agent is already deployed.
-	DeployUnit(name string, info *state.Info) error
+	// return an error if the agent is already deployed.
+	DeployUnit(name, initialPassword string) error
 
-	// RecallUnit causes the agent for the supplied unit to be stopped, and all
-	// the agent's data to be destroyed. It will return an error if the unit
-	// agent was not deployed to the Context.
+	// RecallUnit causes the agent for the specified unit to be stopped, and
+	// the agent's data to be destroyed. It will return an error if the agent
+	// was not deployed to the context.
 	RecallUnit(name string) error
 
-	// DeployedUnits returns the names of all units deployed to the Context.
+	// DeployedUnits returns the names of all units deployed to the context.
 	DeployedUnits() ([]string, error)
 }
 
 // Deployer is responsible for deploying and recalling unit agents, according
-// to changes in a set of state units, and for the final removal of its agents'
-// units from state when they are no longer used.
+// to changes in a set of state units; and for the final removal of its agents'
+// units from state when they are no longer needed.
 type Deployer struct {
 	tomb     tomb.Tomb
 	st       *state.State
 	ctx      Context
-	info     *state.Info
 	deployed map[string]bool
 }
 
 // NewDeployer returns a Deployer that deploys and recalls unit agents in
-// ctx, according to membership and lifecycle changes notified by w. Agents
-// will connect to state using the Addrs and CACert from the supplied state
-// info, identified by their entity name and a freshly-generated password.
-func NewDeployer(st *state.State, ctx Context, info *state.Info, w *state.UnitsWatcher) *Deployer {
-	anonInfo := *info
-	anonInfo.EntityName = ""
-	anonInfo.Password = ""
+// ctx, according to membership and lifecycle changes notified by w.
+func NewDeployer(st *state.State, ctx Context, w *state.UnitsWatcher) *Deployer {
 	d := &Deployer{
 		st:       st,
 		ctx:      ctx,
-		info:     &anonInfo,
 		deployed: map[string]bool{},
 	}
 	go func() {
@@ -63,7 +55,7 @@ func NewDeployer(st *state.State, ctx Context, info *state.Info, w *state.UnitsW
 }
 
 func (d *Deployer) String() string {
-	return "deployer for " + d.ctx.EntityName()
+	return "deployer for " + d.ctx.DeployerName()
 }
 
 func (d *Deployer) Stop() error {
@@ -93,11 +85,9 @@ func (d *Deployer) changed(name string) error {
 	} else {
 		life = unit.Life()
 		if deployerName, ok := unit.DeployerName(); ok {
-			responsible = deployerName == d.ctx.EntityName()
+			responsible = deployerName == d.ctx.DeployerName()
 		}
 	}
-
-	// If necessary, recall the unit agent.
 	if d.deployed[name] {
 		if life == state.Dead || !responsible {
 			if err := d.recall(name); err != nil {
@@ -105,21 +95,11 @@ func (d *Deployer) changed(name string) error {
 			}
 		}
 	}
-
-	// If necessary, deploy the unit agent or remove the unit entirely.
 	if responsible && !d.deployed[name] {
 		if life == state.Alive {
 			return d.deploy(unit)
 		} else if unit != nil {
-			log.Printf("worker/deployer: removing unit %q", unit)
-			if err := unit.EnsureDead(); err != nil {
-				return err
-			}
-			service, err := unit.Service()
-			if err != nil {
-				return err
-			}
-			return service.RemoveUnit(unit)
+			return d.remove(unit)
 		}
 	}
 	return nil
@@ -127,7 +107,7 @@ func (d *Deployer) changed(name string) error {
 
 func (d *Deployer) deploy(unit *state.Unit) error {
 	log.Printf("worker/deployer: deploying agent for unit %q", unit)
-	// Generate a fresh password for the unit.
+	name := unit.Name()
 	password, err := trivial.RandomPassword()
 	if err != nil {
 		return err
@@ -135,13 +115,7 @@ func (d *Deployer) deploy(unit *state.Unit) error {
 	if err := unit.SetPassword(password); err != nil {
 		return err
 	}
-
-	// Construct state information and deploy the agent.
-	name := unit.Name()
-	info := *d.info
-	info.EntityName = unit.EntityName()
-	info.Password = password
-	if err := d.ctx.DeployUnit(unit.Name(), &info); err != nil {
+	if err := d.ctx.DeployUnit(name, password); err != nil {
 		return err
 	}
 	d.deployed[name] = true
@@ -155,6 +129,18 @@ func (d *Deployer) recall(name string) error {
 	}
 	delete(d.deployed, name)
 	return nil
+}
+
+func (d *Deployer) remove(unit *state.Unit) error {
+	log.Printf("worker/deployer: removing unit %q", unit)
+	if err := unit.EnsureDead(); err != nil {
+		return err
+	}
+	service, err := unit.Service()
+	if err != nil {
+		return err
+	}
+	return service.RemoveUnit(unit)
 }
 
 func (d *Deployer) loop(w *state.UnitsWatcher) error {

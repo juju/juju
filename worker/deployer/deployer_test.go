@@ -51,7 +51,7 @@ func (s *DeployerSuite) TestDeployRecallRemovePrincipals(c *C) {
 
 	// Create a deployer acting on behalf of the machine.
 	ctx := s.getContext(c, m.EntityName())
-	ins := deployer.NewDeployer(s.State, ctx, s.StateInfo(c), m.WatchPrincipalUnits2())
+	ins := deployer.NewDeployer(s.State, ctx, m.WatchPrincipalUnits2())
 	defer stop(c, ins)
 
 	// Assign one unit, and wait for it to be deployed.
@@ -102,7 +102,7 @@ func (s *DeployerSuite) TestDeployRecallRemovePrincipals(c *C) {
 	// ...then restart the deployer and check that in each case (1) no unit
 	// agent is deployed and (2) the non-Alive unit has been removed from
 	// state.
-	ins = deployer.NewDeployer(s.State, ctx, s.StateInfo(c), m.WatchPrincipalUnits2())
+	ins = deployer.NewDeployer(s.State, ctx, m.WatchPrincipalUnits2())
 	defer stop(c, ins)
 	s.waitFor(c, isRemoved(s.State, u2.Name()))
 	s.waitFor(c, isRemoved(s.State, u3.Name()))
@@ -119,7 +119,7 @@ func (s *DeployerSuite) TestDeployRecallRemoveSubordinates(c *C) {
 
 	// Create a deployer acting on behalf of the principal.
 	ctx := s.getContext(c, u.EntityName())
-	ins := deployer.NewDeployer(s.State, ctx, s.StateInfo(c), u.WatchSubordinateUnits())
+	ins := deployer.NewDeployer(s.State, ctx, u.WatchSubordinateUnits())
 	defer stop(c, ins)
 
 	// Add a subordinate, and wait for it to be deployed.
@@ -159,7 +159,7 @@ func (s *DeployerSuite) TestDeployRecallRemoveSubordinates(c *C) {
 
 	// When we start a new deployer, neither unit will be deployed and
 	// both will be removed.
-	ins = deployer.NewDeployer(s.State, ctx, s.StateInfo(c), u.WatchSubordinateUnits())
+	ins = deployer.NewDeployer(s.State, ctx, u.WatchSubordinateUnits())
 	defer stop(c, ins)
 	s.waitFor(c, isDeployed(ctx, sub1.Name()))
 	s.waitFor(c, isRemoved(s.State, sub2.Name()))

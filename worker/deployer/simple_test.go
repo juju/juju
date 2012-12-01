@@ -36,27 +36,27 @@ func (s *SimpleContextSuite) TestInstallRemove(c *C) {
 	c.Assert(units, HasLen, 0)
 	s.assertUpstartCount(c, 0)
 
-	err = ctx0.DeployUnit("foo/123", s.stateInfo("foo/123"))
+	err = ctx0.DeployUnit("foo/123", "some-password")
 	c.Assert(err, IsNil)
 	units, err = ctx0.DeployedUnits()
 	c.Assert(err, IsNil)
 	c.Assert(units, DeepEquals, []string{"foo/123"})
 	s.assertUpstartCount(c, 1)
-	s.checkUnitInstalled(c, "foo/123", "test-entity-0")
+	s.checkUnitInstalled(c, "foo/123", "test-entity-0", "some-password")
 
 	ctx1 := s.getContext(c, "test-entity-1")
 	units, err = ctx1.DeployedUnits()
 	c.Assert(err, IsNil)
 	c.Assert(units, HasLen, 0)
 
-	err = ctx1.DeployUnit("bar/456", s.stateInfo("bar/456"))
+	err = ctx1.DeployUnit("bar/456", "another-password")
 	c.Assert(err, IsNil)
 	units, err = ctx1.DeployedUnits()
 	c.Assert(err, IsNil)
 	c.Assert(units, DeepEquals, []string{"bar/456"})
 	s.assertUpstartCount(c, 2)
-	s.checkUnitInstalled(c, "foo/123", "test-entity-0")
-	s.checkUnitInstalled(c, "bar/456", "test-entity-1")
+	s.checkUnitInstalled(c, "foo/123", "test-entity-0", "some-password")
+	s.checkUnitInstalled(c, "bar/456", "test-entity-1", "another-password")
 
 	err = ctx0.RecallUnit("bar/456")
 	c.Assert(err, ErrorMatches, `unit "bar/456" is not deployed`)
@@ -64,8 +64,8 @@ func (s *SimpleContextSuite) TestInstallRemove(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(units, DeepEquals, []string{"bar/456"})
 	s.assertUpstartCount(c, 2)
-	s.checkUnitInstalled(c, "foo/123", "test-entity-0")
-	s.checkUnitInstalled(c, "bar/456", "test-entity-1")
+	s.checkUnitInstalled(c, "foo/123", "test-entity-0", "some-password")
+	s.checkUnitInstalled(c, "bar/456", "test-entity-1", "another-password")
 
 	err = ctx0.RecallUnit("foo/123")
 	c.Assert(err, IsNil)
@@ -74,7 +74,7 @@ func (s *SimpleContextSuite) TestInstallRemove(c *C) {
 	c.Assert(units, HasLen, 0)
 	s.assertUpstartCount(c, 1)
 	s.checkUnitRemoved(c, "foo/123", "test-entity-0")
-	s.checkUnitInstalled(c, "bar/456", "test-entity-1")
+	s.checkUnitInstalled(c, "bar/456", "test-entity-1", "another-password")
 
 	err = ctx1.RecallUnit("bar/456")
 	c.Assert(err, IsNil)
@@ -83,16 +83,6 @@ func (s *SimpleContextSuite) TestInstallRemove(c *C) {
 	c.Assert(units, HasLen, 0)
 	s.assertUpstartCount(c, 0)
 	s.checkUnitRemoved(c, "bar/456", "test-entity-1")
-}
-
-func (s *SimpleContextSuite) stateInfo(name string) *state.Info {
-	entityName := state.UnitEntityName(name)
-	return &state.Info{
-		CACert:     []byte("test-cert"),
-		Addrs:      []string{"s1:123", "s2:123"},
-		EntityName: entityName,
-		Password:   entityName + "-password",
-	}
 }
 
 type SimpleToolsFixture struct {
@@ -144,11 +134,17 @@ func (fix *SimpleToolsFixture) assertUpstartCount(c *C, count int) {
 	c.Assert(fis, HasLen, count)
 }
 
-func (fix *SimpleToolsFixture) getContext(c *C, name string) *deployer.SimpleContext {
-	ctx := deployer.NewSimpleContext(name, fix.dataDir)
-	ctx.InitDir = fix.initDir
-	ctx.LogDir = fix.logDir
-	return ctx
+func (fix *SimpleToolsFixture) getContext(c *C, deployerName string) *deployer.SimpleContext {
+	return &deployer.SimpleContext{
+		StateInfo: &state.Info{
+			CACert:     []byte("test-cert"),
+			Addrs:      []string{"s1:123", "s2:123"},
+			EntityName: deployerName,
+		},
+		InitDir: fix.initDir,
+		DataDir: fix.dataDir,
+		LogDir:  fix.logDir,
+	}
 }
 
 func (fix *SimpleToolsFixture) paths(entityName, xName string) (confPath, agentDir, toolsDir string) {
@@ -159,7 +155,7 @@ func (fix *SimpleToolsFixture) paths(entityName, xName string) (confPath, agentD
 	return
 }
 
-func (fix *SimpleToolsFixture) checkUnitInstalled(c *C, name, xName string) {
+func (fix *SimpleToolsFixture) checkUnitInstalled(c *C, name, xName, password string) {
 	entityName := state.UnitEntityName(name)
 	confPath, agentDir, toolsDir := fix.paths(entityName, xName)
 	confData, err := ioutil.ReadFile(confPath)
@@ -182,7 +178,7 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *C, name, xName string) {
 		"^exec " + jujudPath + " unit ",
 		" --unit-name " + name + " ",
 		" --state-servers s1:123,s2:123 ",
-		" --initial-password " + entityName + "-password ",
+		" --initial-password " + password + " ",
 		" --ca-cert " + certPath + " ",
 		" --log-file " + logPath + " ",
 		" >> " + logPath + " 2>&1$",
