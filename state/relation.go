@@ -249,13 +249,17 @@ func (ru *RelationUnit) Endpoint() Endpoint {
 	return ru.endpoint
 }
 
-// ErrRelationNotAlive indicates that relation is not Alive.
-var ErrRelationNotAlive = errors.New("relation is not alive")
+// ErrCannotEnterScope indicates that a relation unit failed to enter its scope
+// due to either the unit or the relation not being Alive.
+var ErrCannotEnterScope = errors.New("cannot enter scope: unit or relation is not alive")
 
 // EnterScope ensures that the unit has entered its scope in the relation and
-// that its relation settings contain its private address.
-// It is an error to enter a scope of a relation that is not alive, and no
-// relation becomes Dead before all units have left.
+// that its relation settings contain its private address. When the unit has
+// already entered its relation scope, EnterScope will report success but make
+// no changes to state; otherwise, it is an error for either the relation or
+// the unit not to be Alive. Once a unit has entered a scope, in stays in scope
+// without further intervention; the relation will not be able to become Dead
+// until all units have departed its scopes.
 func (ru *RelationUnit) EnterScope() error {
 	key, err := ru.key(ru.unit.Name())
 	if err != nil {
@@ -277,6 +281,10 @@ func (ru *RelationUnit) EnterScope() error {
 		Id:     ru.relation.doc.Key,
 		Assert: isAlive,
 		Update: D{{"$inc", D{{"unitcount", 1}}}},
+	}, {
+		C:      ru.st.units.Name,
+		Id:     ru.unit.Name(),
+		Assert: isAlive,
 	}}
 	if _, err := readSettings(ru.st, key); IsNotFound(err) {
 		// If settings do not already exist, create them.
@@ -294,19 +302,31 @@ func (ru *RelationUnit) EnterScope() error {
 		return fmt.Errorf("cannot check settings for %s: %v", desc, err)
 	}
 	if err := ru.st.runner.Run(ops, "", nil); err == txn.ErrAborted {
-		if err := ru.relation.Refresh(); IsNotFound(err) {
-			return ErrRelationNotAlive
-		} else if err != nil {
-			return err
+		if count, err := ru.st.relationScopes.FindId(key).Count(); err != nil {
+			return fmt.Errorf("cannot examine scope for %s: %v", desc, err)
+		} else if count != 0 {
+			return nil
 		}
-		if ru.relation.Life() != Alive {
-			return ErrRelationNotAlive
+		for _, l := range []lifeRefresher{ru.relation, ru.unit} {
+			if err := l.Refresh(); IsNotFound(err) {
+				return ErrCannotEnterScope
+			} else if err != nil {
+				return err
+			}
+			if l.Life() != Alive {
+				return ErrCannotEnterScope
+			}
 		}
 		return fmt.Errorf("cannot enter scope for %s: inconsistent state", desc)
 	} else if err != nil {
 		return err
 	}
 	return nil
+}
+
+type lifeRefresher interface {
+	Life() Life
+	Refresh() error
 }
 
 // LeaveScope signals that the unit has left its scope in the relation.
