@@ -5,6 +5,7 @@ import (
 	"strings"
 	"path"
 	"reflect"
+	"log"
 )
 
 /*
@@ -87,7 +88,12 @@ type procedure struct {
 	call func(rcvr, ctxt, arg reflect.Value) (reflect.Value, error)
 }
 
+func (p *procedure) String() string {
+	return fmt.Sprintf("{%s -> %s}", p.arg, p.ret)
+}
+
 func (srv *Server) buildTypes(t reflect.Type) {
+	log.Printf("buildTypes %s, %d methods", t, t.NumMethod())
 	if _, ok := srv.types[t]; ok {
 		return
 	}
@@ -98,16 +104,26 @@ func (srv *Server) buildTypes(t reflect.Type) {
 		m := t.Method(i)
 		if p := srv.methodToProcedure(m); p != nil {
 			members[m.Name] = p
+			log.Printf("added %+v", m)
+		} else {
+			log.Printf("omitting %+v", m)
 		}
 	}
-	if t.Kind() != reflect.Struct {
+	st := t
+	if st.Kind() == reflect.Ptr {
+		st = st.Elem()
+	}
+	if st.Kind() != reflect.Struct {
 		return
 	}
-	for i := 0; i < t.NumField(); i++ {
-		f := t.Field(i)
+	for i := 0; i < st.NumField(); i++ {
+		f := st.Field(i)
 		// TODO if t is addressable, use pointer to field so that we get pointer methods?
 		if p := fieldToProcedure(t, f, i); p != nil {
 			members[f.Name] = p
+			log.Printf("added %+v", f)
+		}else {
+			log.Printf("omitting %+v", f)
 		}
 	}
 	for _, m := range members {
@@ -157,7 +173,7 @@ func (srv *Server) methodToProcedure(m reflect.Method) *procedure {
 		assemble = func(ctxt, arg reflect.Value) []reflect.Value {
 			return []reflect.Value{ctxt}
 		}
-	case t.NumIn() == 3:
+	case t.NumIn() == 2:
 		p.arg = t.In(1)
 		assemble = func(ctxt, arg reflect.Value) []reflect.Value {
 			return []reflect.Value{arg}
@@ -197,7 +213,7 @@ func (srv *Server) methodToProcedure(m reflect.Method) *procedure {
 			out := rcvr.Method(m.Index).Call(assemble(ctxt, arg))
 			r = out[0]
 			if !out[1].IsNil() {
-				err = out[0].Interface().(error)
+				err = out[1].Interface().(error)
 			}
 			return
 		}
@@ -258,6 +274,7 @@ func (srv *Server) Call(path string, ctxt interface{}, arg reflect.Value) (refle
 		soFar := elems[0:i+1]
 		p, ok := members[e]
 		if !ok {
+			log.Printf("lookup %s[%q] failed; members %v", v.Type(), e, members)
 			return reflect.Value{}, &pathError{"not found", soFar}
 		}
 		isLast := i == len(elems)-1
@@ -266,8 +283,8 @@ func (srv *Server) Call(path string, ctxt interface{}, arg reflect.Value) (refle
 		}
 		var parg reflect.Value
 		if hyphen > 0 {
-			if p.arg != nil || p.arg != reflect.TypeOf("") {
-				return reflect.Value{}, &pathError{"string argument given for inappropriate method/field", soFar}
+			if p.arg == nil || p.arg != reflect.TypeOf("") {
+				return reflect.Value{}, &pathError{fmt.Sprintf("string argument given for inappropriate method/field: %v", p.arg), soFar}
 			}
 			if isLast && arg.IsValid() {
 				return reflect.Value{}, &pathError{"argument clash (path string vs arg)", soFar}

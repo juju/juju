@@ -18,7 +18,7 @@ func TestAll(t *testing.T) {
 type TRoot struct {
 	A string
 	B int
-	C TStruct
+	C *TStruct
 	//	D TIntWithMethods TODO
 }
 
@@ -82,14 +82,14 @@ func methodError(name string) error {
 var root = &TRoot{
 	A: "A",
 	B: 99,
-	C: TStruct{
+	C: &TStruct{
 		X: "X",
 	},
 }
 
 var calls []string
 func called(ctxt *TContext, args ...interface{}) {
-	calls = append(calls, fmt.Sprintf("%v: %s", ctxt, fmt.Sprint(args)))
+	calls = append(calls, fmt.Sprintf("%v: %s", ctxt, fmt.Sprint(args...)))
 }
 
 var tests = []struct{
@@ -106,7 +106,7 @@ var tests = []struct{
 	ret: 99,
 }, {
 	path: "/C",
-	ret: TStruct{X: "X"},
+	ret: &TStruct{X: "X"},
 },  {
 	path: "/C/X",
 	ret: "X",
@@ -137,7 +137,8 @@ func (suite) TestCall(c *C) {
 			c.Assert(err, ErrorMatches, test.err)
 		} else {
 			c.Assert(err, IsNil)
-			c.Assert(strings.Join(calls, "; "), Equals, "TRoot.CheckContext; " + test.calls)
+			//c.Assert(strings.Join(calls, "; "), Equals, "TRoot.CheckContext; " + test.calls)
+			c.Assert(strings.Join(calls, "; "), Equals, test.calls)
 			if test.ret == nil {
 				c.Assert(v.IsValid(), Equals, false)
 			} else {
