@@ -215,14 +215,10 @@ func (e *environ) AllInstances() (insts []environs.Instance, err error) {
 	if err != nil {
 		return nil, err
 	}
-	// TODO: WHY DOESN't THIS WORK?
-	//	for _, server := range *servers {
-	//		insts = append(insts, &instance{e, &server})
-	//	}
-	for i := range *servers {
-		insts = append(insts, &instance{e, &(*servers)[i]})
+	for _, server := range *servers {
+		var s = server
+		insts = append(insts, &instance{e, &s})
 	}
-
 	return insts, err
 }
 
