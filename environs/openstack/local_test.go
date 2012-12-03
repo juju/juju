@@ -5,20 +5,14 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/openstack"
 	coretesting "launchpad.net/juju-core/testing"
-	"testing"
 )
 
-func init() {
+func registerLocalTests() {
+	Suite(&LocalSuite{})
 }
 
 type LocalSuite struct {
 	env environs.Environ
-}
-
-var _ = Suite(&LocalSuite{})
-
-func Test(t *testing.T) {
-	TestingT(t)
 }
 
 func (s *LocalSuite) SetUpSuite(c *C) {
