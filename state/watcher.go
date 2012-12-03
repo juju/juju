@@ -1154,7 +1154,7 @@ func (m *Machine) Watch() *EntityWatcher {
 	return newEntityWatcher(m.st, m.st.machines.Name, m.doc.Id, m.doc.TxnRevno)
 }
 
-func newEntityWatcher(st *State, coll string, key interface{}, revno int64) *EntityWatcher {
+func newEntityWatcher(st *State, coll string, key string, revno int64) *EntityWatcher {
 	w := &EntityWatcher{
 		commonWatcher: commonWatcher{st: st},
 		out:           make(chan struct{}),
