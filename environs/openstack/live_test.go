@@ -31,7 +31,7 @@ func registerOpenStackTests() {
 	// for running the OpenStack integration tests.
 	//
 	// This is missing keys for security reasons; set the following
-	// environment variables to make the Amazon testing work:
+	// environment variables to make the OpenStack testing work:
 	//  access-key: $OS_USERNAME
 	//  secret-key: $OS_PASSWORD
 	attrs := map[string]interface{}{
