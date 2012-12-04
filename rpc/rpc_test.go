@@ -1,14 +1,16 @@
 package rpc_test
+
 import (
-	. "launchpad.net/gocheck"
-	"testing"
+	"bytes"
 	"fmt"
+	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/rpc"
 	"reflect"
-	"strings"
+	"testing"
 )
 
 type suite struct{}
+
 var _ = Suite(suite{})
 
 func TestAll(t *testing.T) {
@@ -16,9 +18,10 @@ func TestAll(t *testing.T) {
 }
 
 type TRoot struct {
-	A string
-	B int
-	C *TStruct
+	A    string
+	B    int
+	C    *TStruct
+	List *TList
 	//	D TIntWithMethods TODO
 }
 
@@ -34,8 +37,18 @@ func (ctxt *TContext) String() string {
 }
 
 func (TRoot) CheckContext(ctxt *TContext) error {
-	called(ctxt, "TRoot.CheckContext ")
+	called(ctxt, "TRoot.CheckContext")
 	return nil
+}
+
+type TList struct {
+	Elem string
+	Next *TList
+}
+
+func (r *TList) MNext() *TList {
+	called(nil, "TList.MNext")
+	return r.Next
 }
 
 type TStruct struct {
@@ -49,7 +62,11 @@ func (TStruct) Method_c0r0(ctxt *TContext) {
 	called(ctxt, "TStruct.Method_c0r0", ctxt)
 }
 func (TStruct) Method_1r0(x string) {
-	called(nil, "TStruct.Method1r0", x)
+	called(nil, "TStruct.Method_1r0", x)
+}
+func (TStruct) Method_1r1(x string) string {
+	called(nil, "TStruct.Method_1r1", x)
+	return "TStruct.Method_1r1"
 }
 func (TStruct) Method_c1r0(ctxt *TContext, x string) {
 	called(ctxt, "TStruct.Method_c1r0", ctxt, x)
@@ -69,7 +86,9 @@ func (TStruct) Method_0r1e() (string, error) {
 	called(nil, "TStruct.Method_0r1e")
 	return "TStruct.Method_0r1e", nil
 }
+
 // TODO fill in other permutations
+
 func (TStruct) Method_c1r1e(ctxt *TContext, x string) (int, error) {
 	called(ctxt, "TStruct.Method_c1r1e", x)
 	return 0, methodError("TStruct.Method_c1r1e")
@@ -85,44 +104,91 @@ var root = &TRoot{
 	C: &TStruct{
 		X: "X",
 	},
+	List: newList("zero", "one", "two"),
+}
+
+func newList(elems ...string) *TList {
+	var l *TList
+	for i := len(elems) - 1; i >= 0; i-- {
+		l = &TList{
+			Elem: elems[i],
+			Next: l,
+		}
+	}
+	return l
 }
 
 var calls []string
+
 func called(ctxt *TContext, args ...interface{}) {
-	calls = append(calls, fmt.Sprintf("%v: %s", ctxt, fmt.Sprint(args...)))
+	var b bytes.Buffer
+	fmt.Fprintf(&b, "%v:", ctxt)
+	for _, a := range args {
+		fmt.Fprintf(&b, " %v", a)
+	}
+	calls = append(calls, b.String())
 }
 
-var tests = []struct{
-	path string
-	calls string
-	arg interface{}
-	ret interface{}
-	err string
+var tests = []struct {
+	path  string
+	calls []string
+	arg   interface{}
+	ret   interface{}
+	err   string
 }{{
 	path: "/A",
-	ret: "A",
+	ret:  "A",
+}, {
+	path: "/A/B",
+	err:  `error at "A/B": not found`,
 }, {
 	path: "/B",
-	ret: 99,
+	ret:  99,
 }, {
 	path: "/C",
-	ret: &TStruct{X: "X"},
-},  {
+	ret:  &TStruct{X: "X"},
+}, {
 	path: "/C/X",
-	ret: "X",
+	ret:  "X",
 }, {
-	path: "/C/Method_0r0",
-	calls: "nil: TStruct.Method_0r0",
+	path:  "/C/Method_0r0",
+	calls: []string{"nil: TStruct.Method_0r0"},
 }, {
-	path: "/C/Method_c1r1e",
-	arg: "hello",
-	calls: "ctxt: TStruct.Method_c1r1e hello",
-	err: "method TStruct.Method_c1r1e",
+	path:  "/C/Method_c1r1e",
+	arg:   "hello",
+	calls: []string{"ctxt: TStruct.Method_c1r1e hello"},
+	err:   "method TStruct.Method_c1r1e",
 }, {
-	path: "/C/Method_c1r1e-hello",
-	calls: "ctxt: TStruct.Method_c1r1e hello",
-	err: "method TStruct.Method_c1r1e",
+	path:  "/C/Method_1r1",
+	arg:   "hello",
+	calls: []string{"nil: TStruct.Method_1r1 hello"},
+	ret:   "TStruct.Method_1r1",
+}, {
+	path:  "/C/Method_c1r1e-hello",
+	calls: []string{"ctxt: TStruct.Method_c1r1e hello"},
+	err:   "method TStruct.Method_c1r1e",
+}, {
+	path: "/List",
+	ret:  newList("zero", "one", "two"),
+}, {
+	path: "/List/Next",
+	ret:  newList("one", "two"),
+}, {
+	path: "/List/Next/Next",
+	ret:  newList("two"),
+}, {
+	path:  "/List/MNext",
+	ret:   newList("one", "two"),
+	calls: []string{"nil: TList.MNext"},
+}, {
+	path:  "/List/MNext/MNext",
+	ret:   newList("two"),
+	calls: []string{"nil: TList.MNext", "nil: TList.MNext"},
 },
+
+//{
+//	path: "/List/Next/Next/Next",
+//}, 
 }
 
 func (suite) TestCall(c *C) {
@@ -138,7 +204,8 @@ func (suite) TestCall(c *C) {
 		} else {
 			c.Assert(err, IsNil)
 			//c.Assert(strings.Join(calls, "; "), Equals, "TRoot.CheckContext; " + test.calls)
-			c.Assert(strings.Join(calls, "; "), Equals, test.calls)
+			tcalls := append([]string{"ctxt: TRoot.CheckContext"}, test.calls...)
+			c.Assert(calls, DeepEquals, tcalls)
 			if test.ret == nil {
 				c.Assert(v.IsValid(), Equals, false)
 			} else {

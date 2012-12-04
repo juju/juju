@@ -2,8 +2,6 @@ package rpc
 import (
 	"fmt"
 	"errors"
-	"strings"
-	"path"
 	"reflect"
 	"log"
 )
@@ -19,6 +17,7 @@ var errNilDereference = errors.New("field retrieval from nil reference")
 
 type Server struct {
 	root reflect.Value
+	checkContext func(ctxt interface{}) error
 	ctxtType reflect.Type
 	// We store the member names for each type,
 	// each one holding a function that can get the
@@ -29,15 +28,15 @@ type Server struct {
 // NewServer returns a new server that serves RPC requests by querying
 // the given root value.  The request path specifies an object to act
 // on.  The first element acts on the root value; each subsequent
-// element acts on the value returned by the previous.  The value
-// returned by the final element of the path is returned as the result
-// of the RPC.  If any element in the path returns an error, evaluation
-// stops there.
+// element acts on the value returned by the previous element.  The
+// value returned by the final element of the path is returned as the
+// result of the RPC.  If any element in the path returns an error,
+// evaluation stops there.
 //
-// A element of the path can specify the name of exported field or
+// An element of the path specifies the name of exported field or
 // method. To be considered, a method must be defined
 // in one of the following forms, where T and R represent
-// arbitrary types (except the built-in error type):
+// an arbitrary type other than the built-in error type:
 //
 //     Method() R
 //     Method() (R, error)
@@ -47,30 +46,26 @@ type Server struct {
 //	Method() error
 //	Method(T) error
 //
-// For any element in the path except the final one, the latter three
-// forms may not be used, to ensure there is something for the next
-// element to operate on; also in this case, the argument type T must be
-// of type string - the path element must contain a hyphen (-) character
-// and the argument to the method is supplied from any characters after
-// that.
+// If a path element contains a hyphen (-) character, the method's
+// argument type T must be string, and it will be supplied from any
+// characters after the hyphen.
 //
-// For the last element in the path, the method argument will be filled
-// in from the parameters passed to the RPC; the R result will be
-// returned to the RPC caller.
+// The last element in the path is treated specially.  Its method
+// argument argument will be filled in from the parameters passed to the
+// RPC and the R result will be returned to the RPC caller.
 //
 // If the root value implements the method CheckContext, it will be
 // called for any new connection before any other method, with the
-// argument passed to ServeConn.  In this case, methods with two
-// arguments are also considered - the first argument must be the same
-// type as CheckContext's argument, and it will likewise be passed the
-// context value given to ServerConn.
+// argument passed to ServeConn.  In this case, any method may have a
+// first argument of this type and it will likewise be passed the
+// context value given to ServeConn.
 //
 func NewServer(root interface{}) (*Server, error) {
 	srv := &Server{
 		root: reflect.ValueOf(root),
 		types: make(map[reflect.Type] map[string] *procedure),
 	}
-	t := reflect.TypeOf(root)
+	t := srv.root.Type()
 	if m, ok := t.MethodByName("CheckContext"); ok {
 		if m.Type.NumIn() != 2 ||
 			m.Type.NumOut() != 1 ||
@@ -78,6 +73,15 @@ func NewServer(root interface{}) (*Server, error) {
 			return nil, fmt.Errorf("CheckContext has unexpected type %v", m.Type)
 		}
 		srv.ctxtType = m.Type.In(1)
+		srv.checkContext = func(ctxt interface{}) error {
+			r := srv.root.Method(m.Index).Call([]reflect.Value{
+				reflect.ValueOf(ctxt),
+			})
+			if e := r[0].Interface(); e != nil {
+				return e.(error)
+			}
+			return nil
+		}
 	}
 	srv.buildTypes(t)
 	return srv, nil
@@ -221,86 +225,4 @@ func (srv *Server) methodToProcedure(m reflect.Method) *procedure {
 		return nil
 	}
 	return &p
-}
-
-type ServerCodec interface {
-	// Auth is called once only on a given server;
-	// it fetches the authentication data into req.
-	Auth(req interface{}) error
-	ReadRequestHeader(*Request) error
-	ReadRequestBody(interface{}) error
-	WriteResponse(*Response, interface{}) error
-	Close() error
-}
-
-type Request struct {
-	Path string
-	Seq uint64
-}
-
-type Response struct {
-    ServiceMethod string // echoes that of the Request
-    Seq           uint64 // echoes that of the request
-    Error         string // error, if any.
-}
-
-func (*Server) ServeConn(codec ServerCodec, ctxt interface{}) {
-	
-}
-
-type pathError struct {
-	reason string
-	elems []string
-}
-
-func (e *pathError) Error() string {
-	return fmt.Sprintf("error at %q: %v", path.Join(e.elems...), e.reason)
-}
-
-func (srv *Server) Call(path string, ctxt interface{}, arg reflect.Value) (reflect.Value, error) {
-	elems := strings.FieldsFunc(path, func(r rune) bool { return r == '/' })
-	v := srv.root
-	for i, e := range elems {
-		members, ok := srv.types[v.Type()]
-		if !ok {
-			panic(fmt.Errorf("type %T not found", v))
-		}
-		hyphen := strings.Index(e, "-")
-		var pathArg string
-		if hyphen > 0 {
-			pathArg = e[hyphen+1:]
-			e = e[0:hyphen]
-		}
-		soFar := elems[0:i+1]
-		p, ok := members[e]
-		if !ok {
-			log.Printf("lookup %s[%q] failed; members %v", v.Type(), e, members)
-			return reflect.Value{}, &pathError{"not found", soFar}
-		}
-		isLast := i == len(elems)-1
-		if p.ret == nil && !isLast {
-			return reflect.Value{}, &pathError{"extra path elements", soFar}
-		}
-		var parg reflect.Value
-		if hyphen > 0 {
-			if p.arg == nil || p.arg != reflect.TypeOf("") {
-				return reflect.Value{}, &pathError{fmt.Sprintf("string argument given for inappropriate method/field: %v", p.arg), soFar}
-			}
-			if isLast && arg.IsValid() {
-				return reflect.Value{}, &pathError{"argument clash (path string vs arg)", soFar}
-			}
-			parg = reflect.ValueOf(pathArg)
-		} else if isLast {
-			parg = arg
-		}
-		r, err := p.call(v, reflect.ValueOf(ctxt), parg)
-		if err != nil {
-			if isLast {
-				return reflect.Value{}, err
-			}
-			return reflect.Value{}, &pathError{err.Error(), soFar}
-		}
-		v = r
-	}
-	return v, nil
 }
