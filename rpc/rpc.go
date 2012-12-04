@@ -3,7 +3,6 @@ import (
 	"fmt"
 	"errors"
 	"reflect"
-	"log"
 )
 
 /*
@@ -97,7 +96,7 @@ func (p *procedure) String() string {
 }
 
 func (srv *Server) buildTypes(t reflect.Type) {
-	log.Printf("buildTypes %s, %d methods", t, t.NumMethod())
+	// log.Printf("buildTypes %s, %d methods", t, t.NumMethod())
 	if _, ok := srv.types[t]; ok {
 		return
 	}
@@ -108,9 +107,6 @@ func (srv *Server) buildTypes(t reflect.Type) {
 		m := t.Method(i)
 		if p := srv.methodToProcedure(m); p != nil {
 			members[m.Name] = p
-			log.Printf("added %+v", m)
-		} else {
-			log.Printf("omitting %+v", m)
 		}
 	}
 	st := t
@@ -125,9 +121,6 @@ func (srv *Server) buildTypes(t reflect.Type) {
 		// TODO if t is addressable, use pointer to field so that we get pointer methods?
 		if p := fieldToProcedure(t, f, i); p != nil {
 			members[f.Name] = p
-			log.Printf("added %+v", f)
-		}else {
-			log.Printf("omitting %+v", f)
 		}
 	}
 	for _, m := range members {

@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/rpc"
 	"reflect"
 	"testing"
+	"io"
 )
 
 type suite struct{}
@@ -135,12 +136,14 @@ var tests = []struct {
 	arg   interface{}
 	ret   interface{}
 	err   string
+	errPath string
 }{{
 	path: "/A",
 	ret:  "A",
 }, {
 	path: "/A/B",
-	err:  `error at "A/B": not found`,
+	err: "not found",
+	errPath: "A/B",
 }, {
 	path: "/B",
 	ret:  99,
@@ -200,7 +203,11 @@ func (suite) TestCall(c *C) {
 		calls = nil
 		v, err := srv.Call(test.path, ctxt, reflect.ValueOf(test.arg))
 		if test.err != "" {
-			c.Assert(err, ErrorMatches, test.err)
+			if test.errPath != "" {
+				c.Assert(err, ErrorMatches, fmt.Sprintf("error at %q: %s", test.errPath, test.err))
+			} else {
+				c.Assert(err, ErrorMatches, test.err)
+			}
 		} else {
 			c.Assert(err, IsNil)
 			//c.Assert(strings.Join(calls, "; "), Equals, "TRoot.CheckContext; " + test.calls)
@@ -213,4 +220,94 @@ func (suite) TestCall(c *C) {
 			}
 		}
 	}
+}
+
+func (suite) TestServeCodec(c *C) {
+	ctxt := &TContext{"ctxt"}
+	srv, err := rpc.NewServer(root)
+	c.Assert(err, IsNil)
+	for i, test := range tests {
+		c.Logf("test %d: %s", i, test.path)
+		calls = nil
+
+		codec := &singleShotCodec{
+			req: rpc.Request{
+				Path: test.path,
+				Seq: 99,
+			},
+			reqBody: test.arg,
+		}
+		done := make(chan error)
+		go func() {
+			done <- srv.ServeCodec(codec, ctxt)
+		}()
+		err := <-done
+		c.Assert(err, IsNil)
+		c.Assert(codec.doneHeader, Equals, true)
+		c.Assert(codec.doneBody, Equals, true)
+		c.Assert(codec.resp.Seq, Equals, uint64(99))
+		if test.err != "" {
+			c.Assert(codec.resp.Error, Matches, test.err)
+			c.Assert(codec.resp.ErrorPath, Matches, test.errPath)
+			continue
+		}
+		c.Assert(codec.resp.Error, Equals, "")
+		c.Assert(codec.resp.ErrorPath, Equals, "")
+		tcalls := append([]string{"ctxt: TRoot.CheckContext"}, test.calls...)
+		c.Assert(calls, DeepEquals, tcalls)
+		c.Assert(codec.respValue, DeepEquals, test.ret)
+	}
+}
+
+type singleShotCodec struct {
+	req rpc.Request
+	reqBody interface{}
+	
+	resp rpc.Response
+	respValue interface{}
+
+	doneHeader bool
+	doneBody bool
+}
+
+func (c *singleShotCodec) ReadRequestHeader(req *rpc.Request) error {
+	if c.doneHeader {
+		return io.EOF
+	}
+	*req = c.req
+	c.doneHeader = true
+	return nil
+}
+
+func (c *singleShotCodec) ReadRequestBody(argp interface{}) error {
+	if c.doneBody {
+		panic("readBody called twice")
+	}
+	c.doneBody = true
+	if argp == nil {
+		return nil
+	}
+	v := reflect.ValueOf(argp)
+	t := v.Type()
+	if t.Kind() != reflect.Ptr {
+		return fmt.Errorf("want pointer, got %s", t)
+	}
+	bodyv := reflect.ValueOf(c.reqBody)
+	if t.Elem() != bodyv.Type() {
+		return fmt.Errorf("expected type %s, got %s", bodyv.Type(), t.Elem())
+	}
+	v.Elem().Set(bodyv)
+	return nil
+}
+
+func (c *singleShotCodec) WriteResponse(resp *rpc.Response, v interface{}) error {
+	if !c.doneHeader {
+		panic("header not read")
+	}
+	if !c.doneBody {
+		panic("body not read")
+	}
+	c.resp = *resp
+	c.respValue = v
+	return nil
 }
