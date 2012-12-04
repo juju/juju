@@ -1,6 +1,7 @@
 package rpc
 import (
 	"fmt"
+	"log"
 )
 
 type ClientCodec interface {
@@ -32,29 +33,32 @@ func (e *RemoteError) Error() string {
 	if e.Path == "" {
 		return e.Message
 	}
-	return fmt.Sprintf("error at %q: %s", e.Message, e.Path)
+	return fmt.Sprintf("error at %q: %s", e.Path, e.Message)
 }
 
-func (c *Client) Call(path string, args, reply interface{}) error {
+func (c *Client) Call(path string, arg, reply interface{}) error {
 	// TODO concurrent calls
 	c.seq++
 	req := &Request{
 		Path: path,
 		Seq: c.seq,
 	}
-	if err := c.codec.WriteRequest(req, args); err != nil {
+	if err := c.codec.WriteRequest(req, arg); err != nil {
 		return err
 	}
+	log.Printf("written request")
 	var resp Response
 	if err := c.codec.ReadResponseHeader(&resp); err != nil {
 		return err
 	}
+	log.Printf("read response header")
 	if resp.Error != "" {
 		reply = nil
 	}
 	if err := c.codec.ReadResponseBody(reply); err != nil && resp.Error == "" {
 		return err
 	}
+	log.Printf("read response body")
 	if resp.Error != "" {
 		return &RemoteError{
 			Message: resp.Error,

@@ -27,18 +27,17 @@ func (c *generalServerCodec) ReadRequestHeader(req *Request) error {
 }
 
 func (c *generalServerCodec) ReadRequestBody(argp interface{}) error {
+	if argp == nil {
+		argp = &struct{}{}
+	}
 	return c.dec.Decode(argp)
 }
 
 func (c *generalServerCodec) WriteResponse(resp *Response, v interface{}) error {
-	type generalResponse struct {
-		Response *Response
-		Value    interface{}
+	if err := c.enc.Encode(resp); err != nil {
+		return err
 	}
-	return c.enc.Encode(&generalResponse{
-		Response: resp,
-		Value:    v,
-	})
+	return c.enc.Encode(v)
 }
 
 type generalClientCodec struct {
@@ -58,6 +57,9 @@ func (c *generalClientCodec) ReadResponseHeader(resp *Response) error {
 }
 
 func (c *generalClientCodec) ReadResponseBody(r interface{}) error {
+	if r == nil {
+		r = &struct{}{}
+	}
 	return c.dec.Decode(r)
 }
 

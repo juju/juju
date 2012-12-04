@@ -2,6 +2,8 @@ package rpc
 import (
 	"fmt"
 	"errors"
+	"log"
+	"net"
 	"strings"
 	"io"
 	"path"
@@ -31,6 +33,30 @@ type codecServer struct {
 	req Request
 	doneReadBody bool
 	ctxt reflect.Value
+}
+
+// Accept accepts connections on the listener and serves requests for
+// each incoming connection.  A codec is chosen for the connection by
+// calling newCodec; the context for the connection is obtained by
+// calling newContext. Accept blocks; the caller typically invokes it in
+// a go statement.
+func (srv *Server) Accept(l net.Listener,
+		newCodec func(io.ReadWriter) ServerCodec,
+		newContext func(net.Conn) interface{}) error {
+	for {
+		c, err := l.Accept()
+		if err != nil {
+			return err
+		}
+		go func() {
+			defer c.Close()
+			err := srv.ServeCodec(newCodec(c), newContext(c))
+			if err != nil {
+				log.Printf("ServeCodec error: %v", err)
+			}
+		}()
+	}
+	panic("unreachable")
 }
 
 func (srv *Server) ServeCodec(codec ServerCodec, ctxt interface{}) error {
