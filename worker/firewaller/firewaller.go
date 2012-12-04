@@ -348,7 +348,22 @@ func (fw *Firewaller) machineLifeChanged(id string) error {
 		return fw.forgetMachine(machined)
 	}
 	if !known && !dead {
-		fw.machineds[id] = newMachineData(id, fw)
+		mports := []state.Port{}
+		if fw.globalMode {
+			units, err := m.Units()
+			if err != nil {
+				return err
+			}
+			for _, unit := range units {
+				uports := unit.OpenedPorts()
+				missing := diff(uports, mports)
+				mports = append(mports, missing...)
+				for _, uport := range uports {
+					fw.globalPortRef[uport]++
+				}
+			}
+		}
+		fw.machineds[id] = newMachineData(id, fw, mports)
 		log.Debugf("worker/firewaller: started watching machine %s", id)
 	}
 	return nil
@@ -451,12 +466,12 @@ type machineData struct {
 
 // newMachineData returns a new data value for tracking details of the
 // machine, and starts watching the machine for units added or removed.
-func newMachineData(id string, fw *Firewaller) *machineData {
+func newMachineData(id string, fw *Firewaller, ports []state.Port) *machineData {
 	md := &machineData{
 		fw:     fw,
 		id:     id,
 		unitds: make(map[string]*unitData),
-		ports:  make([]state.Port, 0),
+		ports:  ports,
 	}
 	go md.watchLoop()
 	return md
