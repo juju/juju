@@ -9,17 +9,17 @@ import (
 	"net/http"
 )
 
-type generalServerCodec struct {
-	enc encoder
-	dec decoder
-}
-
 type encoder interface {
 	Encode(e interface{}) error
 }
 
 type decoder interface {
 	Decode(e interface{}) error
+}
+
+type generalServerCodec struct {
+	enc encoder
+	dec decoder
 }
 
 func (c *generalServerCodec) ReadRequestHeader(req *Request) error {
@@ -41,6 +41,26 @@ func (c *generalServerCodec) WriteResponse(resp *Response, v interface{}) error 
 	})
 }
 
+type generalClientCodec struct {
+	enc encoder
+	dec decoder
+}
+
+func (c *generalClientCodec) WriteRequest(req *Request, x interface{}) error {
+	if err := c.enc.Encode(req); err != nil {
+		return err
+	}
+	return c.enc.Encode(x)
+}
+
+func (c *generalClientCodec) ReadResponseHeader(resp *Response) error {
+	return c.dec.Decode(resp)
+}
+
+func (c *generalClientCodec) ReadResponseBody(r interface{}) error {
+	return c.dec.Decode(r)
+}
+
 func NewJSONServerCodec(c io.ReadWriter) ServerCodec {
 	return &generalServerCodec{
 		enc: json.NewEncoder(c),
@@ -48,8 +68,22 @@ func NewJSONServerCodec(c io.ReadWriter) ServerCodec {
 	}
 }
 
+func NewJSONClientCodec(c io.ReadWriter) ClientCodec {
+	return &generalClientCodec{
+		enc: json.NewEncoder(c),
+		dec: json.NewDecoder(c),
+	}
+}
+
 func NewXMLServerCodec(c io.ReadWriter) ServerCodec {
 	return &generalServerCodec{
+		enc: xml.NewEncoder(c),
+		dec: xml.NewDecoder(c),
+	}
+}
+
+func NewXMLClientCodec(c io.ReadWriter) ClientCodec {
+	return &generalClientCodec{
 		enc: xml.NewEncoder(c),
 		dec: xml.NewDecoder(c),
 	}
