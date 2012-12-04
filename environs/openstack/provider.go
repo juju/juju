@@ -200,9 +200,9 @@ func (e *environ) Instances(ids []string) ([]environs.Instance, error) {
 		return nil, err
 	}
 	for i, id := range ids {
-		for j, _ := range *servers {
-			if (*servers)[j].Id == id {
-				insts[i] = &instance{e, &(*servers)[j]}
+		for j, _ := range servers {
+			if servers[j].Id == id {
+				insts[i] = &instance{e, &servers[j]}
 			}
 		}
 	}
@@ -215,7 +215,7 @@ func (e *environ) AllInstances() (insts []environs.Instance, err error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, server := range *servers {
+	for _, server := range servers {
 		var s = server
 		insts = append(insts, &instance{e, &s})
 	}

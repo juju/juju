@@ -59,13 +59,17 @@ func (t *LiveTests) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
 	_, err := environs.NewFromAttrs(t.Config)
 	c.Assert(err, IsNil)
+
 	// Get a nova client and start some test service instances.
 	cred, err := identity.CompleteCredentialsFromEnv()
 	c.Assert(err, IsNil)
 	client := client.NewClient(cred, identity.AuthUserPass)
 	t.novaClient = nova.New(client)
+	// Not all of the provider APIs are implemented yet so we'll use a helper
+	// method to create some test server instances until the implementation catches up.
 	t.testServers, err = t.createInstances(2)
 	c.Assert(err, IsNil)
+
 	// TODO: Put some fake tools in place so that tests that are simply
 	// starting instances without any need to check if those instances
 	// are running will find them in the public bucket.
