@@ -1,9 +1,11 @@
 package rpc
+
 import (
 	"encoding/json"
-	"fmt"
 	"encoding/xml"
+	"fmt"
 	"io"
+	"log"
 	"net/http"
 )
 
@@ -28,15 +30,14 @@ func (c *generalServerCodec) ReadRequestBody(argp interface{}) error {
 	return c.dec.Decode(argp)
 }
 
-
 func (c *generalServerCodec) WriteResponse(resp *Response, v interface{}) error {
 	type generalResponse struct {
 		Response *Response
-		Value interface{}
+		Value    interface{}
 	}
 	return c.enc.Encode(&generalResponse{
 		Response: resp,
-		Value: v,
+		Value:    v,
 	})
 }
 
@@ -54,20 +55,47 @@ func NewXMLServerCodec(c io.ReadWriter) ServerCodec {
 	}
 }
 
-type httpServerCodec struct {
-	done bool
-	w http.ResponseWriter
-	req *http.Request
+type rpcHTTPHandler struct {
+	srv        *Server
+	newContext func(req *http.Request) interface{}
 }
 
-// NewHTTPCodec returns a codec which allows
+// NewHTTPHandler returns an HTTP handler that serves
+// HTTP POST requests by treating them as RPC calls.
+//
+func (srv *Server) NewHTTPHandler(newContext func(req *http.Request) interface{}) http.Handler {
+	if newContext == nil {
+		newContext = func(*http.Request) interface{} { return nil }
+	}
+	return &rpcHTTPHandler{
+		newContext: newContext,
+	}
+}
+
+func (h *rpcHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	// TODO POST vs GET
+	ctxt := h.newContext(req)
+	codec := newHTTPServerCodec(w, req)
+	err := h.srv.ServeCodec(codec, ctxt)
+	if err != nil {
+		log.Printf("ServeCodec error: %v", err)
+	}
+}
+
+type httpServerCodec struct {
+	done bool
+	w    http.ResponseWriter
+	req  *http.Request
+}
+
+// newHTTPServerCodec returns a codec which allows
 // the use of the single HTTP request given in its arguments
 // as a ServerCodec. URL parameters hold the arguments
 // to the RPC (each individually encoded as a JSON value).
 // The response is written to w in JSON format.
-func NewHTTPServerCodec(w http.ResponseWriter, req *http.Request) ServerCodec {
+func newHTTPServerCodec(w http.ResponseWriter, req *http.Request) ServerCodec {
 	return &httpServerCodec{
-		w: w,
+		w:   w,
 		req: req,
 	}
 }
@@ -101,7 +129,7 @@ func (c *httpServerCodec) ReadRequestBody(argp interface{}) error {
 
 func (c *httpServerCodec) WriteResponse(resp *Response, v interface{}) error {
 	type jsonError struct {
-		Error string
+		Error     string
 		ErrorPath string
 	}
 	var data []byte
@@ -109,7 +137,7 @@ func (c *httpServerCodec) WriteResponse(resp *Response, v interface{}) error {
 	if resp.Error != "" {
 		c.w.WriteHeader(http.StatusBadRequest)
 		v = &jsonError{
-			Error: resp.Error,
+			Error:     resp.Error,
 			ErrorPath: resp.ErrorPath,
 		}
 	}
