@@ -95,7 +95,7 @@ func NewXMLClientCodec(c io.ReadWriter) ClientCodec {
 type httpClientCodec struct {
 	url string
 	// TODO allow more than one request at a time.
-	currentSeq uint64
+	currentSeq      uint64
 	currentResponse *http.Response
 	// TODO close when done, even if ReadResponseBody not called.
 }
@@ -104,7 +104,7 @@ func NewHTTPClientCodec(url string) ClientCodec {
 	// strip trailing slash so we can always append a
 	// slash-rooted path.
 	if url[len(url)-1] == '/' {
-		url = url[0:len(url)-1]
+		url = url[0 : len(url)-1]
 	}
 	return &httpClientCodec{
 		url: url,
@@ -123,7 +123,7 @@ func (c *httpClientCodec) WriteRequest(req *Request, x interface{}) error {
 	if err != nil {
 		return err
 	}
-	resp, err := http.PostForm(c.url + req.Path, url.Values{"p": {string(data)}})
+	resp, err := http.PostForm(c.url+req.Path, url.Values{"p": {string(data)}})
 	if err != nil {
 		return err
 	}
@@ -146,8 +146,6 @@ func (c *httpClientCodec) ReadResponseHeader(resp *Response) error {
 		}
 		resp.Error = e.Error
 		resp.ErrorPath = e.ErrorPath
-		c.currentResponse.Body.Close()
-		c.currentResponse = nil
 		return nil
 	}
 	resp.Seq = c.currentSeq
@@ -155,16 +153,17 @@ func (c *httpClientCodec) ReadResponseHeader(resp *Response) error {
 }
 
 func (c *httpClientCodec) ReadResponseBody(r interface{}) error {
-	if c.currentResponse.StatusCode != http.StatusOK {
+	hresp := c.currentResponse
+	defer hresp.Body.Close()
+	c.currentResponse = nil
+	if hresp.StatusCode != http.StatusOK {
 		return nil
 	}
 	if r == nil {
 		r = &struct{}{}
 	}
-	dec := json.NewDecoder(c.currentResponse.Body)
+	dec := json.NewDecoder(hresp.Body)
 	err := dec.Decode(r)
-	c.currentResponse.Body.Close()
-	c.currentResponse = nil
 	return err
 }
 
@@ -173,14 +172,19 @@ type rpcHTTPHandler struct {
 	newContext func(req *http.Request) interface{}
 }
 
-// NewHTTPHandler returns an HTTP handler that serves
-// HTTP POST requests by treating them as RPC calls.
+// NewHTTPHandler returns an HTTP handler that serves HTTP POST requests
+// by treating them as RPC calls.
 //
+// The arguments to an RPC are read, in JSON-encoded form, from the "p"
+// form parameter.  The response is written in JSON format.
+//
+// TODO encode struct fields directly in the form?
 func (srv *Server) NewHTTPHandler(newContext func(req *http.Request) interface{}) http.Handler {
 	if newContext == nil {
 		newContext = func(*http.Request) interface{} { return nil }
 	}
 	return &rpcHTTPHandler{
+		srv:        srv,
 		newContext: newContext,
 	}
 }
@@ -201,10 +205,6 @@ type httpServerCodec struct {
 	req  *http.Request
 }
 
-// newHTTPServerCodec returns a codec which allows the use of the single
-// HTTP request given in its arguments as a ServerCodec.  The arguments
-// to the RPC are read, in JSON-encoded form, from the "p" form
-// parameter.  The response is written to w in JSON format.
 func newHTTPServerCodec(w http.ResponseWriter, req *http.Request) ServerCodec {
 	return &httpServerCodec{
 		w:   w,

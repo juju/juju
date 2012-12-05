@@ -171,39 +171,6 @@ type resolvedElem struct {
 	p    *procedure
 }
 
-func (srv *Server) Call(path string, ctxt interface{}, arg reflect.Value) (reflect.Value, error) {
-	if srv.checkContext != nil {
-		if err := srv.checkContext(ctxt); err != nil {
-			return reflect.Value{}, err
-		}
-	}
-	elems := strings.FieldsFunc(path, func(r rune) bool { return r == '/' })
-	relems, err := srv.lookPath(elems)
-	if err != nil {
-		return reflect.Value{}, err
-	}
-	v := srv.root
-	ctxtv := reflect.ValueOf(ctxt)
-	for i, r := range relems {
-		isLast := i == len(relems)-1
-		parg := r.arg
-		if isLast && !parg.IsValid() {
-			// Note: we discard any argument parameters if
-			// a final path argument is specified.
-			parg = arg
-		}
-		rv, err := r.p.call(v, ctxtv, parg)
-		if err != nil {
-			if isLast {
-				return reflect.Value{}, err
-			}
-			return reflect.Value{}, &pathError{err, elems[0 : i+1]}
-		}
-		v = rv
-	}
-	return v, nil
-}
-
 func (srv *Server) lookPath(elems []string) ([]resolvedElem, error) {
 	if len(elems) == 0 {
 		return nil, errors.New("empty path")

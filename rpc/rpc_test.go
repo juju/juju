@@ -7,6 +7,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/rpc"
 	"net"
+	"net/http"
 	"reflect"
 	"testing"
 )
@@ -14,6 +15,10 @@ import (
 type suite struct{}
 
 var _ = Suite(suite{})
+
+func (suite) SetUpTest(c *C) {
+	contextChecked = make(chan *TContext, 1)
+}
 
 func TestAll(t *testing.T) {
 	TestingT(t)
@@ -38,7 +43,7 @@ func (ctxt *TContext) String() string {
 	return ctxt.S
 }
 
-var contextChecked = make(chan *TContext, 1)
+var contextChecked chan *TContext
 
 func (TRoot) CheckContext(ctxt *TContext) error {
 	contextChecked <- ctxt
@@ -133,14 +138,16 @@ func called(ctxt *TContext, args ...interface{}) {
 	calls = append(calls, b.String())
 }
 
-var tests = []struct {
+type rpcTest struct {
 	path    string
 	calls   []string
 	arg     interface{}
 	ret     interface{}
 	err     string
 	errPath string
-}{{
+}
+
+var rpcTests = []rpcTest{{
 	path: "/A",
 	ret:  "A",
 }, {
@@ -201,7 +208,7 @@ func (suite) TestServeCodec(c *C) {
 	ctxt := &TContext{"ctxt"}
 	srv, err := rpc.NewServer(root)
 	c.Assert(err, IsNil)
-	for i, test := range tests {
+	for i, test := range rpcTests {
 		c.Logf("test %d: %s", i, test.path)
 		calls = nil
 
@@ -254,8 +261,7 @@ var codecs = []codecInfo{{
 //},
 }
 
-func (suite) TestClientCodecs(c *C) {
-
+func (suite) TestConnectionOrientedCodecs(c *C) {
 	for i, info := range codecs {
 		c.Logf("test %d. %s", i, info.name)
 		testCodec(c, info)
@@ -286,37 +292,57 @@ func testCodec(c *C, info codecInfo) {
 	defer conn.Close()
 	c.Assert(<-contextChecked, Equals, ctxt)
 	client := rpc.NewClientWithCodec(info.newClient(conn))
-	for i, test := range tests {
+	for i, test := range rpcTests {
 		c.Logf("test %s.%d: %s", info.name, i, test.path)
-		calls = nil
-		var ret interface{}
-		if test.ret != nil {
-			ret = reflect.New(reflect.TypeOf(test.ret)).Interface()
-		}
-		err := client.Call(test.path, test.arg, ret)
-		c.Assert(calls, DeepEquals, test.calls)
-		if test.err != "" {
-			if test.errPath != "" {
-				c.Assert(err, ErrorMatches, fmt.Sprintf("error at %q: %s", test.errPath, test.err))
-			} else {
-				c.Assert(err, ErrorMatches, test.err)
-			}
-			continue
-		}
-		c.Assert(err, IsNil)
-		if test.ret != nil {
-			c.Assert(reflect.ValueOf(ret).Elem().Interface(), DeepEquals, test.ret)
-		}
+		test.check(c, client)
 	}
 	l.Close()
 	c.Logf("Accept status: %v", <-srvDone)
 }
 
-//func (suite) TestHTTPCodec(c *C) {
-//	ctxt := &TContext{"ctxt"}
-//	srv, err := rpc.NewServer(root)
-//	c.Assert(err, IsNil)
-//}
+func (suite) TestHTTPCodec(c *C) {
+	ctxt := &TContext{"ctxt"}
+	srv, err := rpc.NewServer(root)
+	c.Assert(err, IsNil)
+
+	l, err := net.Listen("tcp", ":0")
+	c.Assert(err, IsNil)
+	defer l.Close()
+	handler := srv.NewHTTPHandler(func(*http.Request) interface{} { return ctxt })
+	go http.Serve(l, handler)
+	codec := rpc.NewHTTPClientCodec("http://" + l.Addr().String())
+	client := rpc.NewClientWithCodec(codec)
+	for i, test := range rpcTests {
+		c.Logf("test %d: %s", i, test.path)
+		test.check(c, client)
+		c.Check(<-contextChecked, Equals, ctxt)
+	}
+	l.Close()
+}
+
+func (test rpcTest) check(c *C, client *rpc.Client) {
+	calls = nil
+	var ret interface{}
+	if test.ret != nil {
+		ret = reflect.New(reflect.TypeOf(test.ret)).Interface()
+	}
+	c.Logf("x1")
+	err := client.Call(test.path, test.arg, ret)
+	c.Logf("x2")
+	c.Assert(calls, DeepEquals, test.calls)
+	if test.err != "" {
+		if test.errPath != "" {
+			c.Assert(err, ErrorMatches, fmt.Sprintf("error at %q: %s", test.errPath, test.err))
+		} else {
+			c.Assert(err, ErrorMatches, test.err)
+		}
+		return
+	}
+	c.Assert(err, IsNil)
+	if test.ret != nil {
+		c.Assert(reflect.ValueOf(ret).Elem().Interface(), DeepEquals, test.ret)
+	}
+}
 
 type singleShotCodec struct {
 	req     rpc.Request
