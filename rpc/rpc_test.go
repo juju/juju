@@ -197,33 +197,6 @@ var tests = []struct {
 //}, 
 }
 
-func (suite) TestCall(c *C) {
-	ctxt := &TContext{"ctxt"}
-	srv, err := rpc.NewServer(root)
-	c.Assert(err, IsNil)
-	for i, test := range tests {
-		c.Logf("test %d: %s", i, test.path)
-		calls = nil
-		v, err := srv.Call(test.path, ctxt, reflect.ValueOf(test.arg))
-		c.Assert(<-contextChecked, Equals, ctxt)
-		if test.err != "" {
-			if test.errPath != "" {
-				c.Assert(err, ErrorMatches, fmt.Sprintf("error at %q: %s", test.errPath, test.err))
-			} else {
-				c.Assert(err, ErrorMatches, test.err)
-			}
-		} else {
-			c.Assert(err, IsNil)
-			c.Assert(calls, DeepEquals, test.calls)
-			if test.ret == nil {
-				c.Assert(v.IsValid(), Equals, false)
-			} else {
-				c.Assert(v.Interface(), DeepEquals, test.ret)
-			}
-		}
-	}
-}
-
 func (suite) TestServeCodec(c *C) {
 	ctxt := &TContext{"ctxt"}
 	srv, err := rpc.NewServer(root)
