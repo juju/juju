@@ -25,17 +25,18 @@ func registerLocalTests() {
 		Name: "test",
 	}
 	attrs := map[string]interface{}{
-		"name":            "sample",
-		"type":            "ec2",
-		"region":          "test",
-		"control-bucket":  "test-bucket",
-		"public-bucket":   "public-tools",
-		"admin-secret":    "local-secret",
-		"access-key":      "x",
-		"secret-key":      "x",
-		"authorized-keys": "foo",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  testing.CAKey,
+		"name":                 "sample",
+		"type":                 "ec2",
+		"region":               "test",
+		"control-bucket":       "test-bucket",
+		"public-bucket":        "public-tools",
+		"public-bucket-region": "test",
+		"admin-secret":         "local-secret",
+		"access-key":           "x",
+		"secret-key":           "x",
+		"authorized-keys":      "foo",
+		"ca-cert":              testing.CACert,
+		"ca-private-key":       testing.CAKey,
 	}
 
 	Suite(&localServerSuite{
@@ -219,7 +220,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 
 	// check that the user data is configured to start zookeeper
 	// and the machine and provisioning agents.
-	inst := t.srv.ec2srv.Instance(insts[0].Id())
+	inst := t.srv.ec2srv.Instance(string(insts[0].Id()))
 	c.Assert(inst, NotNil)
 	bootstrapDNS, err := insts[0].DNSName()
 	c.Assert(err, IsNil)
@@ -238,9 +239,9 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	// zookeeper, with a machine agent, and without a
 	// provisioning agent.
 	info.EntityName = "machine-1"
-	inst1, err := t.env.StartInstance(1, info, nil)
+	inst1, err := t.env.StartInstance("1", info, nil)
 	c.Assert(err, IsNil)
-	inst = t.srv.ec2srv.Instance(inst1.Id())
+	inst = t.srv.ec2srv.Instance(string(inst1.Id()))
 	c.Assert(inst, NotNil)
 	c.Logf("second instance: UserData: %q", inst.UserData)
 	x = nil

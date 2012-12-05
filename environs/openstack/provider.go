@@ -92,13 +92,13 @@ type instance struct {
 }
 
 func (inst *instance) String() string {
-	return inst.Id()
+	return inst.Entity.Id
 }
 
 var _ environs.Instance = (*instance)(nil)
 
-func (inst *instance) Id() string {
-	return inst.Entity.Id
+func (inst *instance) Id() state.InstanceId {
+	return state.InstanceId(inst.Entity.Id)
 }
 
 func (inst *instance) DNSName() (string, error) {
@@ -109,15 +109,15 @@ func (inst *instance) WaitDNSName() (string, error) {
 	panic("WaitDNSName not implemented")
 }
 
-func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
+func (inst *instance) OpenPorts(machineId string, ports []state.Port) error {
 	panic("OpenPorts not implemented")
 }
 
-func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
+func (inst *instance) ClosePorts(machineId string, ports []state.Port) error {
 	panic("ClosePorts not implemented")
 }
 
-func (inst *instance) Ports(machineId int) ([]state.Port, error) {
+func (inst *instance) Ports(machineId string) ([]state.Port, error) {
 	panic("Ports not implemented")
 }
 
@@ -182,7 +182,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.Tools) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId string, info *state.Info, tools *state.Tools) (environs.Instance, error) {
 	panic("StartInstance not implemented")
 }
 
@@ -190,7 +190,7 @@ func (e *environ) StopInstances([]environs.Instance) error {
 	panic("StopInstances not implemented")
 }
 
-func (e *environ) Instances(ids []string) ([]environs.Instance, error) {
+func (e *environ) Instances(ids []state.InstanceId) ([]environs.Instance, error) {
 	// TODO FIXME Instances must somehow be tagged to be part of the environment.
 	// This is returning *all* instances, which means it's impossible to have two different
 	// environments on the same account.
@@ -204,7 +204,7 @@ func (e *environ) Instances(ids []string) ([]environs.Instance, error) {
 	}
 	for i, id := range ids {
 		for j, _ := range servers {
-			if servers[j].Id == id {
+			if servers[j].Id == string(id) {
 				insts[i] = &instance{e, &servers[j]}
 			}
 		}

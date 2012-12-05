@@ -2,14 +2,13 @@ package main
 
 import (
 	"errors"
-	"os/exec"
-	"strconv"
-
+	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"os/exec"
 )
 
 // SSHCommand is responsible for launching a ssh shell on a given unit or machine.
@@ -67,10 +66,10 @@ func (c *SSHCommand) Run(ctx *cmd.Context) error {
 
 func (c *SSHCommon) hostFromTarget(target string) (string, error) {
 	// is the target the id of a machine ?
-	if id, err := strconv.Atoi(target); err == nil {
-		log.Printf("cmd/juju: looking up address for machine %d...", id)
-		// TODO(dfc) maybe we should have machine.PublicAddres() ?
-		return c.machinePublicAddress(id)
+	if state.IsMachineId(target) {
+		log.Printf("cmd/juju: looking up address for machine %s...", target)
+		// TODO(dfc) maybe we should have machine.PublicAddress() ?
+		return c.machinePublicAddress(target)
 	}
 	// maybe the target is a unit ?
 	if state.IsUnitName(target) {
@@ -81,10 +80,10 @@ func (c *SSHCommon) hostFromTarget(target string) (string, error) {
 		}
 		return unit.PublicAddress()
 	}
-	return "", errors.New("no such unit or machine")
+	return "", fmt.Errorf("unknown unit or machine %q", target)
 }
 
-func (c *SSHCommon) machinePublicAddress(id int) (string, error) {
+func (c *SSHCommon) machinePublicAddress(id string) (string, error) {
 	machine, err := c.State.Machine(id)
 	if err != nil {
 		return "", err
@@ -95,7 +94,7 @@ func (c *SSHCommon) machinePublicAddress(id int) (string, error) {
 		instid, err := machine.InstanceId()
 		if err == nil {
 			w.Stop()
-			inst, err := c.Environ.Instances([]string{instid})
+			inst, err := c.Environ.Instances([]state.InstanceId{instid})
 			if err != nil {
 				return "", err
 			}

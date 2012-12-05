@@ -3,10 +3,9 @@ package config
 import (
 	"bytes"
 	"crypto/tls"
-	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"io/ioutil"
+	"launchpad.net/juju-core/cert"
 	"os"
 	"path/filepath"
 	"strings"
@@ -64,21 +63,11 @@ func readAuthorizedKeys(path string) (string, error) {
 // verifyKeyPair verifies that the certificate and key parse correctly.
 // The key is optional - if it is provided, we also check that the key
 // matches the certificate.
-func verifyKeyPair(cert, key []byte) error {
+func verifyKeyPair(certb, key []byte) error {
 	if key != nil {
-		_, err := tls.X509KeyPair(cert, key)
+		_, err := tls.X509KeyPair(certb, key)
 		return err
 	}
-	for len(cert) > 0 {
-		var certBlock *pem.Block
-		certBlock, cert = pem.Decode(cert)
-		if certBlock == nil {
-			break
-		}
-		if certBlock.Type == "CERTIFICATE" {
-			_, err := x509.ParseCertificate(certBlock.Bytes)
-			return err
-		}
-	}
-	return fmt.Errorf("no certificates found")
+	_, err := cert.ParseCert(certb)
+	return err
 }

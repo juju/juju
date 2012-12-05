@@ -8,7 +8,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"net/url"
-	"sort"
 	stdtesting "testing"
 )
 
@@ -57,18 +56,6 @@ func (cs *ConnSuite) TearDownTest(c *C) {
 	cs.State.Close()
 	cs.MgoSuite.TearDownTest(c)
 	cs.LoggingSuite.TearDownTest(c)
-}
-
-func (s *ConnSuite) AllMachines(c *C) []int {
-	docs := []state.MachineDoc{}
-	err := s.machines.Find(D{{"life", state.Alive}}).All(&docs)
-	c.Assert(err, IsNil)
-	ids := []int{}
-	for _, v := range docs {
-		ids = append(ids, v.Id)
-	}
-	sort.Ints(ids)
-	return ids
 }
 
 func (s *ConnSuite) AddTestingCharm(c *C, name string) *state.Charm {

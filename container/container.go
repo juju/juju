@@ -44,9 +44,6 @@ func (c *Simple) service(unit *state.Unit) *upstart.Service {
 // Deploy deploys a unit running the given tools unit into a new container.
 // The unit will use the given info to connect to the state.
 func (c *Simple) Deploy(unit *state.Unit, info *state.Info, tools *state.Tools) (err error) {
-	if info.UseSSH {
-		return fmt.Errorf("cannot deploy unit agent connecting with ssh")
-	}
 	toolsDir := environs.AgentToolsDir(c.DataDir, unit.EntityName())
 	err = os.Symlink(tools.Binary.String(), toolsDir)
 	if err != nil {

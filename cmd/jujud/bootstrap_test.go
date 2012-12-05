@@ -98,7 +98,7 @@ func (s *BootstrapSuite) TestSetMachineId(c *C) {
 
 	instid, err := machines[0].InstanceId()
 	c.Assert(err, IsNil)
-	c.Assert(instid, Equals, "over9000")
+	c.Assert(instid, Equals, state.InstanceId("over9000"))
 }
 
 func (s *BootstrapSuite) TestMachinerWorkers(c *C) {
@@ -125,7 +125,7 @@ func (s *BootstrapSuite) TestMachinerWorkers(c *C) {
 	})
 	c.Assert(err, IsNil)
 	defer st.Close()
-	m, err := st.Machine(0)
+	m, err := st.Machine("0")
 	c.Assert(err, IsNil)
 	c.Assert(m.Workers(), DeepEquals, []state.WorkerKind{state.MachinerWorker, state.ProvisionerWorker, state.FirewallerWorker})
 }

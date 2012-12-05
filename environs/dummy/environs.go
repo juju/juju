@@ -63,7 +63,7 @@ type OpDestroy GenericOperation
 
 type OpStartInstance struct {
 	Env       string
-	MachineId int
+	MachineId string
 	Instance  environs.Instance
 	Info      *state.Info
 	Secret    string
@@ -76,15 +76,15 @@ type OpStopInstances struct {
 
 type OpOpenPorts struct {
 	Env        string
-	MachineId  int
-	InstanceId string
+	MachineId  string
+	InstanceId state.InstanceId
 	Ports      []state.Port
 }
 
 type OpClosePorts struct {
 	Env        string
-	MachineId  int
-	InstanceId string
+	MachineId  string
+	InstanceId state.InstanceId
 	Ports      []state.Port
 }
 
@@ -109,7 +109,7 @@ type environState struct {
 	ops           chan<- Operation
 	mu            sync.Mutex
 	maxId         int // maximum instance id allocated so far.
-	insts         map[string]*instance
+	insts         map[state.InstanceId]*instance
 	globalPorts   map[state.Port]bool
 	firewallMode  config.FirewallMode
 	bootstrapped  bool
@@ -182,7 +182,7 @@ func newState(name string, ops chan<- Operation, fwmode config.FirewallMode) *en
 	s := &environState{
 		name:         name,
 		ops:          ops,
-		insts:        make(map[string]*instance),
+		insts:        make(map[state.InstanceId]*instance),
 		globalPorts:  make(map[state.Port]bool),
 		firewallMode: fwmode,
 	}
@@ -485,9 +485,9 @@ func (e *environ) Destroy([]environs.Instance) error {
 	return nil
 }
 
-func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.Tools) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId string, info *state.Info, tools *state.Tools) (environs.Instance, error) {
 	defer delay()
-	log.Printf("environs/dummy: dummy startinstance, machine %d", machineId)
+	log.Printf("environs/dummy: dummy startinstance, machine %s", machineId)
 	if err := e.checkBroken("StartInstance"); err != nil {
 		return nil, err
 	}
@@ -504,7 +504,7 @@ func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.To
 	}
 	i := &instance{
 		state:     e.state,
-		id:        fmt.Sprintf("%s-%d", e.state.name, e.state.maxId),
+		id:        state.InstanceId(fmt.Sprintf("%s-%d", e.state.name, e.state.maxId)),
 		ports:     make(map[state.Port]bool),
 		machineId: machineId,
 	}
@@ -537,7 +537,7 @@ func (e *environ) StopInstances(is []environs.Instance) error {
 	return nil
 }
 
-func (e *environ) Instances(ids []string) (insts []environs.Instance, err error) {
+func (e *environ) Instances(ids []state.InstanceId) (insts []environs.Instance, err error) {
 	defer delay()
 	if err := e.checkBroken("Instances"); err != nil {
 		return nil, err
@@ -623,26 +623,26 @@ func (*environ) Provider() environs.EnvironProvider {
 type instance struct {
 	state     *environState
 	ports     map[state.Port]bool
-	id        string
-	machineId int
+	id        state.InstanceId
+	machineId string
 }
 
-func (inst *instance) Id() string {
+func (inst *instance) Id() state.InstanceId {
 	return inst.id
 }
 
 func (inst *instance) DNSName() (string, error) {
 	defer delay()
-	return inst.id + ".dns", nil
+	return string(inst.id) + ".dns", nil
 }
 
 func (inst *instance) WaitDNSName() (string, error) {
 	return inst.DNSName()
 }
 
-func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
+func (inst *instance) OpenPorts(machineId string, ports []state.Port) error {
 	defer delay()
-	log.Printf("environs/dummy: openPorts %d, %#v", machineId, ports)
+	log.Printf("environs/dummy: openPorts %s, %#v", machineId, ports)
 	if inst.state.firewallMode != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for opening ports on instance: %q",
 			inst.state.firewallMode)
@@ -664,14 +664,14 @@ func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
 	return nil
 }
 
-func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
+func (inst *instance) ClosePorts(machineId string, ports []state.Port) error {
 	defer delay()
 	if inst.state.firewallMode != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for closing ports on instance: %q",
 			inst.state.firewallMode)
 	}
 	if inst.machineId != machineId {
-		panic(fmt.Errorf("ClosePorts with mismatched machine id, expected %d got %d", inst.machineId, machineId))
+		panic(fmt.Errorf("ClosePorts with mismatched machine id, expected %s got %s", inst.machineId, machineId))
 	}
 	inst.state.mu.Lock()
 	defer inst.state.mu.Unlock()
@@ -687,7 +687,7 @@ func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
 	return nil
 }
 
-func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
+func (inst *instance) Ports(machineId string) (ports []state.Port, err error) {
 	defer delay()
 	if inst.state.firewallMode != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from instance: %q",

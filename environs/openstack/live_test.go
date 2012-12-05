@@ -10,6 +10,7 @@ import (
 	"launchpad.net/goose/nova"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/jujutest"
+	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 )
 
@@ -131,7 +132,7 @@ func (t *LiveTests) TestAllInstances(c *C) {
 	c.Assert(err, IsNil)
 	idSet := make(map[string]bool)
 	for _, inst := range observedInst {
-		idSet[inst.Id()] = true
+		idSet[string(inst.Id())] = true
 	}
 	for _, inst := range t.testServers {
 		_, ok := idSet[inst.Id]
@@ -145,8 +146,8 @@ func (t *LiveTests) TestAllInstances(c *C) {
 func (t *LiveTests) TestInstances(c *C) {
 	// TODO FIXME These instances were not started by the environment, and have no indication that they
 	// should be part of it.
-	observedInst, err := t.Env.Instances([]string{t.testServers[0].Id})
+	observedInst, err := t.Env.Instances([]state.InstanceId{state.InstanceId(t.testServers[0].Id)})
 	c.Assert(err, IsNil)
 	c.Assert(len(observedInst), Equals, 1)
-	c.Assert(observedInst[0].Id(), Equals, t.testServers[0].Id)
+	c.Assert(string(observedInst[0].Id()), Equals, t.testServers[0].Id)
 }

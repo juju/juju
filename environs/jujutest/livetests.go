@@ -95,16 +95,18 @@ func (t *LiveTests) Destroy(c *C) {
 // TestStartStop is similar to Tests.TestStartStop except
 // that it does not assume a pristine environment.
 func (t *LiveTests) TestStartStop(c *C) {
-	insts, err := t.Env.Instances(nil)
+	// We might or might not have a bootstrap instance
+	// around, so we make this test work regardless
+	// of what instances are already started.
+	initialInsts, err := t.Env.AllInstances()
 	c.Assert(err, IsNil)
-	c.Check(insts, HasLen, 0)
 
-	inst, err := t.Env.StartInstance(0, testing.InvalidStateInfo(0), nil)
+	inst, err := t.Env.StartInstance("0", testing.InvalidStateInfo("0"), nil)
 	c.Assert(err, IsNil)
 	c.Assert(inst, NotNil)
 	id0 := inst.Id()
 
-	insts, err = t.Env.Instances([]string{id0, id0})
+	insts, err := t.Env.Instances([]state.InstanceId{id0, id0})
 	c.Assert(err, IsNil)
 	c.Assert(insts, HasLen, 2)
 	c.Assert(insts[0].Id(), Equals, id0)
@@ -112,16 +114,21 @@ func (t *LiveTests) TestStartStop(c *C) {
 
 	insts, err = t.Env.AllInstances()
 	c.Assert(err, IsNil)
-	// differs from the check above because AllInstances returns
-	// a set (without duplicates) containing only one instance.
-	c.Assert(insts, HasLen, 1)
-	c.Assert(insts[0].Id(), Equals, id0)
+	c.Assert(insts, HasLen, len(initialInsts)+1, Commentf("%v", insts))
+	found := false
+	for _, inst := range insts {
+		if inst.Id() == id0 {
+			c.Assert(found, Equals, false, Commentf("%v", insts))
+			found = true
+		}
+	}
+	c.Assert(found, Equals, true, Commentf("expected %v, got %v", append(initialInsts, inst), insts))
 
 	dns, err := inst.WaitDNSName()
 	c.Assert(err, IsNil)
 	c.Assert(dns, Not(Equals), "")
 
-	insts, err = t.Env.Instances([]string{id0, ""})
+	insts, err = t.Env.Instances([]state.InstanceId{id0, ""})
 	c.Assert(err, Equals, environs.ErrPartialInstances)
 	c.Assert(insts, HasLen, 2)
 	c.Check(insts[0].Id(), Equals, id0)
@@ -133,7 +140,7 @@ func (t *LiveTests) TestStartStop(c *C) {
 	// The machine may not be marked as shutting down
 	// immediately. Repeat a few times to ensure we get the error.
 	for a := t.Attempt.Start(); a.Next(); {
-		insts, err = t.Env.Instances([]string{id0})
+		insts, err = t.Env.Instances([]state.InstanceId{id0})
 		if err != nil {
 			break
 		}
@@ -143,80 +150,80 @@ func (t *LiveTests) TestStartStop(c *C) {
 }
 
 func (t *LiveTests) TestPorts(c *C) {
-	inst1, err := t.Env.StartInstance(1, testing.InvalidStateInfo(1), nil)
+	inst1, err := t.Env.StartInstance("1", testing.InvalidStateInfo("1"), nil)
 	c.Assert(err, IsNil)
 	c.Assert(inst1, NotNil)
 	defer t.Env.StopInstances([]environs.Instance{inst1})
-	ports, err := inst1.Ports(1)
+	ports, err := inst1.Ports("1")
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
 
-	inst2, err := t.Env.StartInstance(2, testing.InvalidStateInfo(2), nil)
+	inst2, err := t.Env.StartInstance("2", testing.InvalidStateInfo("2"), nil)
 	c.Assert(err, IsNil)
 	c.Assert(inst2, NotNil)
-	ports, err = inst2.Ports(2)
+	ports, err = inst2.Ports("2")
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
 	defer t.Env.StopInstances([]environs.Instance{inst2})
 
 	// Open some ports and check they're there.
-	err = inst1.OpenPorts(1, []state.Port{{"udp", 67}, {"tcp", 45}})
+	err = inst1.OpenPorts("1", []state.Port{{"udp", 67}, {"tcp", 45}})
 	c.Assert(err, IsNil)
-	ports, err = inst1.Ports(1)
+	ports, err = inst1.Ports("1")
 	c.Assert(err, IsNil)
 	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 45}, {"udp", 67}})
-	ports, err = inst2.Ports(2)
+	ports, err = inst2.Ports("2")
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
 
-	err = inst2.OpenPorts(2, []state.Port{{"tcp", 89}, {"tcp", 45}})
+	err = inst2.OpenPorts("2", []state.Port{{"tcp", 89}, {"tcp", 45}})
 	c.Assert(err, IsNil)
 
 	// Check there's no crosstalk to another machine
-	ports, err = inst2.Ports(2)
+	ports, err = inst2.Ports("2")
 	c.Assert(err, IsNil)
 	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 45}, {"tcp", 89}})
-	ports, err = inst1.Ports(1)
+	ports, err = inst1.Ports("1")
 	c.Assert(err, IsNil)
 	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 45}, {"udp", 67}})
 
 	// Check that opening the same port again is ok.
-	oldPorts, err := inst2.Ports(2)
+	oldPorts, err := inst2.Ports("2")
 	c.Assert(err, IsNil)
-	err = inst2.OpenPorts(2, []state.Port{{"tcp", 45}})
+	err = inst2.OpenPorts("2", []state.Port{{"tcp", 45}})
 	c.Assert(err, IsNil)
-	ports, err = inst2.Ports(2)
+	ports, err = inst2.Ports("2")
 	c.Assert(err, IsNil)
 	c.Assert(ports, DeepEquals, oldPorts)
 
 	// Check that opening the same port again and another port is ok.
-	err = inst2.OpenPorts(2, []state.Port{{"tcp", 45}, {"tcp", 99}})
+	err = inst2.OpenPorts("2", []state.Port{{"tcp", 45}, {"tcp", 99}})
 	c.Assert(err, IsNil)
-	ports, err = inst2.Ports(2)
+	ports, err = inst2.Ports("2")
 	c.Assert(err, IsNil)
 	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 45}, {"tcp", 89}, {"tcp", 99}})
 
-	err = inst2.ClosePorts(2, []state.Port{{"tcp", 45}, {"tcp", 99}})
+	err = inst2.ClosePorts("2", []state.Port{{"tcp", 45}, {"tcp", 99}})
 	c.Assert(err, IsNil)
 
 	// Check that we can close ports and that there's no crosstalk.
-	ports, err = inst2.Ports(2)
+	ports, err = inst2.Ports("2")
 	c.Assert(err, IsNil)
 	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 89}})
-	ports, err = inst1.Ports(1)
+	ports, err = inst1.Ports("1")
 	c.Assert(err, IsNil)
 	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 45}, {"udp", 67}})
 
 	// Check that we can close multiple ports.
-	err = inst1.ClosePorts(1, []state.Port{{"tcp", 45}, {"udp", 67}})
+	err = inst1.ClosePorts("1", []state.Port{{"tcp", 45}, {"udp", 67}})
 	c.Assert(err, IsNil)
-	ports, err = inst1.Ports(1)
+	ports, err = inst1.Ports("1")
 	c.Assert(ports, HasLen, 0)
 
 	// Check that we can close ports that aren't there.
-	err = inst2.ClosePorts(2, []state.Port{{"tcp", 111}, {"udp", 222}})
+	err = inst2.ClosePorts("2", []state.Port{{"tcp", 111}, {"udp", 222}})
 	c.Assert(err, IsNil)
-	ports, err = inst2.Ports(2)
+	ports, err = inst2.Ports("2")
 	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 89}})
 
 	// Check errors when acting on environment.
@@ -246,14 +253,14 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 	c.Assert(err, IsNil)
 
 	// Create instances and check open ports on both instances.
-	inst1, err := t.Env.StartInstance(1, testing.InvalidStateInfo(1), nil)
+	inst1, err := t.Env.StartInstance("1", testing.InvalidStateInfo("1"), nil)
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst1})
 	ports, err := t.Env.Ports()
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
 
-	inst2, err := t.Env.StartInstance(2, testing.InvalidStateInfo(2), nil)
+	inst2, err := t.Env.StartInstance("2", testing.InvalidStateInfo("2"), nil)
 	c.Assert(err, IsNil)
 	ports, err = t.Env.Ports()
 	c.Assert(err, IsNil)
@@ -284,13 +291,13 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 45}, {"tcp", 89}})
 
 	// Check errors when acting on instances.
-	err = inst1.OpenPorts(1, []state.Port{{"tcp", 80}})
+	err = inst1.OpenPorts("1", []state.Port{{"tcp", 80}})
 	c.Assert(err, ErrorMatches, `invalid firewall mode for opening ports on instance: "global"`)
 
-	err = inst1.ClosePorts(1, []state.Port{{"tcp", 80}})
+	err = inst1.ClosePorts("1", []state.Port{{"tcp", 80}})
 	c.Assert(err, ErrorMatches, `invalid firewall mode for closing ports on instance: "global"`)
 
-	_, err = inst1.Ports(1)
+	_, err = inst1.Ports("1")
 	c.Assert(err, ErrorMatches, `invalid firewall mode for retrieving ports from instance: "global"`)
 }
 
@@ -331,7 +338,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	// machine and find the deployed series from that.
 	// Wait for machine agent to come up on the bootstrap
 	// machine and find the deployed series from that.
-	m0, err := conn.State.Machine(0)
+	m0, err := conn.State.Machine("0")
 	c.Assert(err, IsNil)
 	mw0 := newMachineToolWaiter(m0)
 	defer mw0.Stop()
@@ -546,17 +553,17 @@ func (t *LiveTests) assertStartInstance(c *C, m *state.Machine) {
 			continue
 		}
 		c.Assert(err, IsNil)
-		_, err = t.Env.Instances([]string{instId})
+		_, err = t.Env.Instances([]state.InstanceId{instId})
 		c.Assert(err, IsNil)
 		return
 	}
 	c.Fatalf("provisioner failed to start machine after %v", waitAgent.Total)
 }
 
-func (t *LiveTests) assertStopInstance(c *C, env environs.Environ, instId string) {
+func (t *LiveTests) assertStopInstance(c *C, env environs.Environ, instId state.InstanceId) {
 	var err error
 	for a := waitAgent.Start(); a.Next(); {
-		_, err = t.Env.Instances([]string{instId})
+		_, err = t.Env.Instances([]state.InstanceId{instId})
 		if err == nil {
 			continue
 		}
@@ -572,7 +579,7 @@ func (t *LiveTests) assertStopInstance(c *C, env environs.Environ, instId string
 // that matches that of the given instance. If the instance is nil,
 // It asserts that the instance id is unset.
 func assertInstanceId(c *C, m *state.Machine, inst environs.Instance) {
-	var wantId, gotId string
+	var wantId, gotId state.InstanceId
 	var err error
 	if inst != nil {
 		wantId = inst.Id()
@@ -657,7 +664,7 @@ func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
 		URL:    url,
 	}
 
-	inst, err := t.Env.StartInstance(4, testing.InvalidStateInfo(4), tools)
+	inst, err := t.Env.StartInstance("4", testing.InvalidStateInfo("4"), tools)
 	if inst != nil {
 		err := t.Env.StopInstances([]environs.Instance{inst})
 		c.Check(err, IsNil)

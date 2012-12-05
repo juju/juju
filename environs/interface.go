@@ -35,7 +35,7 @@ var ErrNoDNSName = errors.New("DNS name not allocated")
 // Instance represents the provider-specific notion of a machine.
 type Instance interface {
 	// Id returns a provider-generated identifier for the Instance.
-	Id() string
+	Id() state.InstanceId
 
 	// DNSName returns the DNS name for the instance.
 	// If the name is not yet allocated, it will return
@@ -48,16 +48,16 @@ type Instance interface {
 
 	// OpenPorts opens the given ports on the instance, which
 	// should have been started with the given machine id.
-	OpenPorts(machineId int, ports []state.Port) error
+	OpenPorts(machineId string, ports []state.Port) error
 
 	// ClosePorts closes the given ports on the instance, which
 	// should have been started with the given machine id.
-	ClosePorts(machineId int, ports []state.Port) error
+	ClosePorts(machineId string, ports []state.Port) error
 
 	// Ports returns the set of ports open on the instance, which
 	// should have been started with the given machine id.
 	// The ports are returned as sorted by state.SortPorts.
-	Ports(machineId int) ([]state.Port, error)
+	Ports(machineId string) ([]state.Port, error)
 }
 
 var ErrNoInstances = errors.New("no instances found")
@@ -157,7 +157,7 @@ type Environ interface {
 	// the Environ will find a set of tools compatible with the
 	// current version.
 	// TODO add arguments to specify type of new machine.
-	StartInstance(machineId int, info *state.Info, tools *state.Tools) (Instance, error)
+	StartInstance(machineId string, info *state.Info, tools *state.Tools) (Instance, error)
 
 	// StopInstances shuts down the given instances.
 	StopInstances([]Instance) error
@@ -168,7 +168,7 @@ type Environ interface {
 	// some but not all the instances were found, the returned slice
 	// will have some nil slots, and an ErrPartialInstances error
 	// will be returned.
-	Instances(ids []string) ([]Instance, error)
+	Instances(ids []state.InstanceId) ([]Instance, error)
 
 	// AllInstances returns all instances currently known to the
 	// environment.

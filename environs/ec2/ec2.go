@@ -66,13 +66,13 @@ type instance struct {
 }
 
 func (inst *instance) String() string {
-	return inst.Id()
+	return inst.InstanceId
 }
 
 var _ environs.Instance = (*instance)(nil)
 
-func (inst *instance) Id() string {
-	return inst.InstanceId
+func (inst *instance) Id() state.InstanceId {
+	return state.InstanceId(inst.InstanceId)
 }
 
 func (inst *instance) DNSName() (string, error) {
@@ -81,7 +81,7 @@ func (inst *instance) DNSName() (string, error) {
 	}
 	// Fetch the instance information again, in case
 	// the DNS information has become available.
-	insts, err := inst.e.Instances([]string{inst.Id()})
+	insts, err := inst.e.Instances([]state.InstanceId{inst.Id()})
 	if err != nil {
 		return "", err
 	}
@@ -148,6 +148,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 
 	auth := aws.Auth{ecfg.accessKey(), ecfg.secretKey()}
 	region := aws.Regions[ecfg.region()]
+	publicBucketRegion := aws.Regions[ecfg.publicBucketRegion()]
 	e.ec2Unlocked = ec2.New(auth, region)
 	e.s3Unlocked = s3.New(auth, region)
 
@@ -158,7 +159,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	}
 	if ecfg.publicBucket() != "" {
 		e.publicStorageUnlocked = &storage{
-			bucket: e.s3Unlocked.Bucket(ecfg.publicBucket()),
+			bucket: s3.New(auth, publicBucketRegion).Bucket(ecfg.publicBucket()),
 		}
 	} else {
 		e.publicStorageUnlocked = nil
@@ -255,7 +256,7 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 		CACert:   caCert,
 	}
 	inst, err := e.startInstance(&startInstanceParams{
-		machineId:       0,
+		machineId:       "0",
 		info:            info,
 		tools:           tools,
 		stateServer:     true,
@@ -267,7 +268,7 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
 	err = e.saveState(&bootstrapState{
-		StateInstances: []string{inst.Id()},
+		StateInstances: []state.InstanceId{inst.Id()},
 	})
 	if err != nil {
 		// ignore error on StopInstance because the previous error is
@@ -318,7 +319,6 @@ func (e *environ) StateInfo() (*state.Info, error) {
 	return &state.Info{
 		Addrs:  addrs,
 		CACert: cert,
-		UseSSH: true,
 	}, nil
 }
 
@@ -328,7 +328,7 @@ func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
 	return state.AssignUnused
 }
 
-func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.Tools) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId string, info *state.Info, tools *state.Tools) (environs.Instance, error) {
 	return e.startInstance(&startInstanceParams{
 		machineId: machineId,
 		info:      info,
@@ -358,7 +358,7 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 }
 
 type startInstanceParams struct {
-	machineId       int
+	machineId       string
 	info            *state.Info
 	tools           *state.Tools
 	stateServer     bool
@@ -378,7 +378,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 			return nil, err
 		}
 	}
-	log.Printf("environs/ec2: starting machine %d in %q running tools version %q from %q", scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
+	log.Printf("environs/ec2: starting machine %s in %q running tools version %q from %q", scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
 	spec, err := findInstanceSpec(&instanceConstraint{
 		series: scfg.tools.Series,
 		arch:   scfg.tools.Arch,
@@ -424,9 +424,9 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 }
 
 func (e *environ) StopInstances(insts []environs.Instance) error {
-	ids := make([]string, len(insts))
+	ids := make([]state.InstanceId, len(insts))
 	for i, inst := range insts {
-		ids[i] = inst.(*instance).InstanceId
+		ids[i] = inst.(*instance).Id()
 	}
 	return e.terminateInstances(ids)
 }
@@ -435,11 +435,11 @@ func (e *environ) StopInstances(insts []environs.Instance) error {
 // id whose corresponding insts slot is nil.
 // It returns environs.ErrPartialInstances if the insts
 // slice has not been completely filled.
-func (e *environ) gatherInstances(ids []string, insts []environs.Instance) error {
+func (e *environ) gatherInstances(ids []state.InstanceId, insts []environs.Instance) error {
 	var need []string
 	for i, inst := range insts {
 		if inst == nil {
-			need = append(need, ids[i])
+			need = append(need, string(ids[i]))
 		}
 	}
 	if len(need) == 0 {
@@ -463,7 +463,7 @@ func (e *environ) gatherInstances(ids []string, insts []environs.Instance) error
 		for j := range resp.Reservations {
 			r := &resp.Reservations[j]
 			for k := range r.Instances {
-				if r.Instances[k].InstanceId == id {
+				if r.Instances[k].InstanceId == string(id) {
 					inst := r.Instances[k]
 					insts[i] = &instance{e, &inst}
 					n++
@@ -477,7 +477,7 @@ func (e *environ) gatherInstances(ids []string, insts []environs.Instance) error
 	return nil
 }
 
-func (e *environ) Instances(ids []string) ([]environs.Instance, error) {
+func (e *environ) Instances(ids []state.InstanceId) ([]environs.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -530,8 +530,8 @@ func (e *environ) Destroy(ensureInsts []environs.Instance) error {
 	if err != nil {
 		return fmt.Errorf("cannot get instances: %v", err)
 	}
-	found := make(map[string]bool)
-	var ids []string
+	found := make(map[state.InstanceId]bool)
+	var ids []state.InstanceId
 	for _, inst := range insts {
 		ids = append(ids, inst.Id())
 		found[inst.Id()] = true
@@ -540,7 +540,7 @@ func (e *environ) Destroy(ensureInsts []environs.Instance) error {
 	// Add any instances we've been told about but haven't yet shown
 	// up in the instance list.
 	for _, inst := range ensureInsts {
-		id := inst.(*instance).InstanceId
+		id := state.InstanceId(inst.(*instance).InstanceId)
 		if !found[id] {
 			ids = append(ids, id)
 			found[id] = true
@@ -681,14 +681,18 @@ func (*environ) Provider() environs.EnvironProvider {
 	return &providerInstance
 }
 
-func (e *environ) terminateInstances(ids []string) error {
+func (e *environ) terminateInstances(ids []state.InstanceId) error {
 	if len(ids) == 0 {
 		return nil
 	}
 	var err error
 	ec2inst := e.ec2()
+	strs := make([]string, len(ids))
+	for i, id := range ids {
+		strs[i] = string(id)
+	}
 	for a := shortAttempt.Start(); a.Next(); {
-		_, err = ec2inst.TerminateInstances(ids)
+		_, err = ec2inst.TerminateInstances(strs)
 		if err == nil || ec2ErrCode(err) != "InvalidInstanceID.NotFound" {
 			return err
 		}
@@ -701,7 +705,7 @@ func (e *environ) terminateInstances(ids []string) error {
 	// NotFound errors.
 	var firstErr error
 	for _, id := range ids {
-		_, err = ec2inst.TerminateInstances([]string{id})
+		_, err = ec2inst.TerminateInstances([]string{string(id)})
 		if ec2ErrCode(err) == "InvalidInstanceID.NotFound" {
 			err = nil
 		}
@@ -716,15 +720,15 @@ func (e *environ) globalGroupName() string {
 	return fmt.Sprintf("%s-global", e.jujuGroupName())
 }
 
-func (e *environ) machineGroupName(machineId int) string {
-	return fmt.Sprintf("%s-%d", e.jujuGroupName(), machineId)
+func (e *environ) machineGroupName(machineId string) string {
+	return fmt.Sprintf("%s-%s", e.jujuGroupName(), machineId)
 }
 
 func (e *environ) jujuGroupName() string {
 	return "juju-" + e.name
 }
 
-func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
+func (inst *instance) OpenPorts(machineId string, ports []state.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for opening ports on instance: %q",
 			inst.e.Config().FirewallMode())
@@ -737,7 +741,7 @@ func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
 	return nil
 }
 
-func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
+func (inst *instance) ClosePorts(machineId string, ports []state.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for closing ports on instance: %q",
 			inst.e.Config().FirewallMode())
@@ -750,7 +754,7 @@ func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
 	return nil
 }
 
-func (inst *instance) Ports(machineId int) ([]state.Port, error) {
+func (inst *instance) Ports(machineId string) ([]state.Port, error) {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from instance: %q",
 			inst.e.Config().FirewallMode())
@@ -766,7 +770,7 @@ func (inst *instance) Ports(machineId int) ([]state.Port, error) {
 // other instances that might be running on the same EC2 account.  In
 // addition, a specific machine security group is created for each
 // machine, so that its firewall rules can be configured per machine.
-func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
+func (e *environ) setUpGroups(machineId string) ([]ec2.SecurityGroup, error) {
 	sourceGroups := []ec2.UserSecurityGroup{{Name: e.jujuGroupName()}}
 	jujuGroup, err := e.ensureGroup(e.jujuGroupName(),
 		[]ec2.IPPerm{
@@ -774,6 +778,12 @@ func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 				Protocol:  "tcp",
 				FromPort:  22,
 				ToPort:    22,
+				SourceIPs: []string{"0.0.0.0/0"},
+			},
+			{
+				Protocol:  "tcp",
+				FromPort:  mgoPort,
+				ToPort:    mgoPort,
 				SourceIPs: []string{"0.0.0.0/0"},
 			},
 			{
