@@ -69,7 +69,7 @@ func (s *srvState) Machine(id string) (*srvMachine, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &srvMachine{m, m.Id()}, nil
+	return newSrvMachine(m), nil
 }
 
 func (s *srvState) AllMachines() ([]*srvMachine, error) {
@@ -79,7 +79,7 @@ func (s *srvState) AllMachines() ([]*srvMachine, error) {
 	}
 	ms := make([]*srvMachine, len(sms))
 	for i, m := range sms {
-		ms[i] = &srvMachine{m, m.Id()}
+		ms[i] = newSrvMachine(m)
 	}
 	return ms, nil
 }
@@ -89,7 +89,20 @@ func (s *srvState) AddMachine(workers []state.WorkerKind) (*srvMachine, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &srvMachine{m, m.Id()}, nil
+	return newSrvMachine(m), nil
+}
+
+func newSrvMachine(m *state.Machine) *srvMachine {
+	sws := m.Workers()
+	ws := make([]WorkerKind, len(sws))
+	for i, w := range sws {
+		ws[i] = WorkerKind(w)
+	}
+	return &srvMachine{
+		m: m,
+		Id: m.Id(),
+		Workers: ws,
+	}
 }
 
 func (s *srvState) EnvironConfig() (map[string] interface{}, error) {
@@ -103,6 +116,7 @@ func (s *srvState) EnvironConfig() (map[string] interface{}, error) {
 type srvMachine struct {
 	m *state.Machine
 	Id string
+	Workers []WorkerKind
 }
 
 func (m *srvMachine) InstanceId() (string, error) {

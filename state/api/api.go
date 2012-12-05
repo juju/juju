@@ -8,6 +8,7 @@ import (
 
 type State struct {
 	c *rpc.Client
+	conn net.Conn
 }
 
 type Info struct {
@@ -16,19 +17,35 @@ type Info struct {
 	Password string
 }
 
+type WorkerKind string
+
+const (
+	MachinerWorker    WorkerKind = "machiner"
+	ProvisionerWorker WorkerKind = "provisioner"
+	FirewallerWorker  WorkerKind = "firewaller"
+)
+
 func Open(info *Info) (*State, error) {
-	c, err := net.Dial("tcp", info.Addr)
+	conn, err := net.Dial("tcp", info.Addr)
 	if err != nil {
 		return nil, err
 	}
-	client := rpc.NewClientWithCodec(rpc.NewJSONClientCodec(c))
+	c := rpc.NewClientWithCodec(rpc.NewJSONClientCodec(conn))
 	// TODO authenticate with entity name and password
-	return &State{client}, nil
+	return &State{
+		c: c,
+		conn: conn,
+	}, nil
+}
+
+func (s *State) Close() error {
+	return s.conn.Close()
 }
 
 type Machine struct {
 	state *State
 	Id string
+	Workers []WorkerKind
 }
 
 func (s *State) Machine(id string) (*Machine, error) {
@@ -52,9 +69,9 @@ func (s *State) AllMachines() ([]*Machine, error) {
 	return ms, nil
 }
 
-func (s *State) AddMachine() (*Machine, error) {
+func (s *State) AddMachine(workers ...WorkerKind) (*Machine, error) {
 	var m Machine
-	if err := s.c.Call("/AddMachine", nil, &m); err != nil {
+	if err := s.c.Call("/AddMachine", workers, &m); err != nil {
 		return nil, err
 	}
 	m.state = s
