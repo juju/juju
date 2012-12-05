@@ -7,6 +7,7 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/testing"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,15 +33,16 @@ var testAuth = aws.Auth{"gopher", "long teeth"}
 // when mutated by the mutate function, or that the parse matches the
 // given error.
 type configTest struct {
-	config       attrs
-	change       attrs
-	region       string
-	cbucket      string
-	pbucket      string
-	accessKey    string
-	secretKey    string
-	firewallMode config.FirewallMode
-	err          string
+	config        attrs
+	change        attrs
+	region        string
+	cbucket       string
+	pbucket       string
+	pbucketRegion string
+	accessKey     string
+	secretKey     string
+	firewallMode  config.FirewallMode
+	err           string
 }
 
 type attrs map[string]interface{}
@@ -49,7 +51,9 @@ func (t configTest) check(c *C) {
 	envs := attrs{
 		"environments": attrs{
 			"testenv": attrs{
-				"type": "ec2",
+				"type":           "ec2",
+				"ca-cert":        testing.CACert,
+				"ca-private-key": testing.CAKey,
 			},
 		},
 	}
@@ -116,11 +120,21 @@ func (t configTest) check(c *C) {
 	if t.firewallMode != "" {
 		c.Assert(ecfg.FirewallMode(), Equals, t.firewallMode)
 	}
+
+	// check storage buckets are configured correctly
+	env := e.(*environ)
+	c.Assert(env.Storage().(*storage).bucket.Region.Name, Equals, ecfg.region())
+	c.Assert(env.PublicStorage().(*storage).bucket.Region.Name, Equals, ecfg.publicBucketRegion())
 }
 
 var configTests = []configTest{
 	{
+		config:  attrs{},
+		pbucket: "juju-dist",
+	}, {
+		// check that region defaults to us-east-1
 		config: attrs{},
+		region: "us-east-1",
 	}, {
 		config: attrs{
 			"region": "eu-west-1",
@@ -175,10 +189,36 @@ var configTests = []configTest{
 		},
 		err: ".*expected string, got 666",
 	}, {
+		// check that the public-bucket defaults to juju-dist
+		config:  attrs{},
+		pbucket: "juju-dist",
+	}, {
 		config: attrs{
 			"public-bucket": "foo",
 		},
 		pbucket: "foo",
+	}, {
+		// check that public-bucket-region defaults to
+		// us-east-1, the S3 endpoint that owns juju-dist
+		config:        attrs{},
+		pbucketRegion: "us-east-1",
+	}, {
+		config: attrs{
+			"public-bucket-region": "foo",
+		},
+		err: ".*invalid public-bucket-region name.*",
+	}, {
+		config: attrs{
+			"public-bucket-region": "ap-southeast-1",
+		},
+		pbucketRegion: "ap-southeast-1",
+	}, {
+		config: attrs{
+			"region":               "us-west-1",
+			"public-bucket-region": "ap-southeast-1",
+		},
+		region:        "us-west-1",
+		pbucketRegion: "us-east-1",
 	}, {
 		config: attrs{
 			"access-key": "jujuer",

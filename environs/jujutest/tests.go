@@ -7,6 +7,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/trivial"
 	"net/http"
@@ -50,7 +51,7 @@ func (t *Tests) TestBootstrapWithoutAdminSecret(c *C) {
 	delete(m, "admin-secret")
 	env, err := environs.NewFromAttrs(m)
 	c.Assert(err, IsNil)
-	err = env.Bootstrap(false)
+	err = environs.Bootstrap(env, false, panicWrite)
 	c.Assert(err, ErrorMatches, ".*admin-secret is required for bootstrap")
 }
 
@@ -61,17 +62,17 @@ func (t *Tests) TestStartStop(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(insts, HasLen, 0)
 
-	inst0, err := e.StartInstance(0, testing.InvalidStateInfo(0), nil)
+	inst0, err := e.StartInstance("0", testing.InvalidStateInfo("0"), nil)
 	c.Assert(err, IsNil)
 	c.Assert(inst0, NotNil)
 	id0 := inst0.Id()
 
-	inst1, err := e.StartInstance(1, testing.InvalidStateInfo(1), nil)
+	inst1, err := e.StartInstance("1", testing.InvalidStateInfo("1"), nil)
 	c.Assert(err, IsNil)
 	c.Assert(inst1, NotNil)
 	id1 := inst1.Id()
 
-	insts, err = e.Instances([]string{id0, id1})
+	insts, err = e.Instances([]state.InstanceId{id0, id1})
 	c.Assert(err, IsNil)
 	c.Assert(insts, HasLen, 2)
 	c.Assert(insts[0].Id(), Equals, id0)
@@ -86,7 +87,7 @@ func (t *Tests) TestStartStop(c *C) {
 	err = e.StopInstances([]environs.Instance{inst0})
 	c.Assert(err, IsNil)
 
-	insts, err = e.Instances([]string{id0, id1})
+	insts, err = e.Instances([]state.InstanceId{id0, id1})
 	c.Assert(err, Equals, environs.ErrPartialInstances)
 	c.Assert(insts[0], IsNil)
 	c.Assert(insts[1].Id(), Equals, id1)
@@ -99,18 +100,18 @@ func (t *Tests) TestStartStop(c *C) {
 func (t *Tests) TestBootstrap(c *C) {
 	// TODO tests for Bootstrap(true)
 	e := t.Open(c)
-	err := e.Bootstrap(false)
+	err := environs.Bootstrap(e, false, panicWrite)
 	c.Assert(err, IsNil)
 
 	info, err := e.StateInfo()
 	c.Assert(info, NotNil)
 	c.Check(info.Addrs, Not(HasLen), 0)
 
-	err = e.Bootstrap(false)
+	err = environs.Bootstrap(e, false, panicWrite)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	e2 := t.Open(c)
-	err = e2.Bootstrap(false)
+	err = environs.Bootstrap(e2, false, panicWrite)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	info2, err := e2.StateInfo()
@@ -122,10 +123,10 @@ func (t *Tests) TestBootstrap(c *C) {
 	// Open again because Destroy invalidates old environments.
 	e3 := t.Open(c)
 
-	err = e3.Bootstrap(false)
+	err = environs.Bootstrap(e3, false, panicWrite)
 	c.Assert(err, IsNil)
 
-	err = e3.Bootstrap(false)
+	err = environs.Bootstrap(e3, false, panicWrite)
 	c.Assert(err, NotNil)
 }
 
