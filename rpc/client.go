@@ -2,7 +2,6 @@ package rpc
 
 import (
 	"fmt"
-	"log"
 )
 
 type ClientCodec interface {
@@ -47,19 +46,16 @@ func (c *Client) Call(path string, arg, reply interface{}) error {
 	if err := c.codec.WriteRequest(req, arg); err != nil {
 		return err
 	}
-	log.Printf("written request")
 	var resp Response
 	if err := c.codec.ReadResponseHeader(&resp); err != nil {
 		return err
 	}
-	log.Printf("read response header")
 	if resp.Error != "" {
 		reply = nil
 	}
 	if err := c.codec.ReadResponseBody(reply); err != nil && resp.Error == "" {
 		return err
 	}
-	log.Printf("read response body")
 	if resp.Error != "" {
 		return &RemoteError{
 			Message: resp.Error,
