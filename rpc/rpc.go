@@ -1,7 +1,8 @@
 package rpc
+
 import (
-	"fmt"
 	"errors"
+	"fmt"
 	"reflect"
 )
 
@@ -15,13 +16,13 @@ var errorType = reflect.TypeOf((*error)(nil)).Elem()
 var errNilDereference = errors.New("field retrieval from nil reference")
 
 type Server struct {
-	root reflect.Value
+	root         reflect.Value
 	checkContext func(ctxt interface{}) error
-	ctxtType reflect.Type
+	ctxtType     reflect.Type
 	// We store the member names for each type,
 	// each one holding a function that can get the
 	// field or method from its parent value.
-	types map[reflect.Type] map[string] *procedure
+	types map[reflect.Type]map[string]*procedure
 }
 
 // NewServer returns a new server that serves RPC requests by querying
@@ -61,8 +62,8 @@ type Server struct {
 //
 func NewServer(root interface{}) (*Server, error) {
 	srv := &Server{
-		root: reflect.ValueOf(root),
-		types: make(map[reflect.Type] map[string] *procedure),
+		root:  reflect.ValueOf(root),
+		types: make(map[reflect.Type]map[string]*procedure),
 	}
 	t := srv.root.Type()
 	if m, ok := t.MethodByName("CheckContext"); ok {
@@ -88,7 +89,7 @@ func NewServer(root interface{}) (*Server, error) {
 
 type procedure struct {
 	arg, ret reflect.Type
-	call func(rcvr, ctxt, arg reflect.Value) (reflect.Value, error)
+	call     func(rcvr, ctxt, arg reflect.Value) (reflect.Value, error)
 }
 
 func (p *procedure) String() string {
@@ -100,7 +101,7 @@ func (srv *Server) buildTypes(t reflect.Type) {
 	if _, ok := srv.types[t]; ok {
 		return
 	}
-	members := make(map[string] *procedure)
+	members := make(map[string]*procedure)
 	// Add first to guard against infinite recursion.
 	srv.types[t] = members
 	for i := 0; i < t.NumMethod(); i++ {

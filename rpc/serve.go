@@ -1,13 +1,14 @@
 package rpc
+
 import (
-	"fmt"
 	"errors"
+	"fmt"
+	"io"
 	"log"
 	"net"
-	"strings"
-	"io"
 	"path"
 	"reflect"
+	"strings"
 )
 
 type ServerCodec interface {
@@ -18,21 +19,21 @@ type ServerCodec interface {
 
 type Request struct {
 	Path string
-	Seq uint64
+	Seq  uint64
 }
 
 type Response struct {
-	Seq           uint64 // echoes that of the request
-	Error         string // error, if any.
-	ErrorPath string	// path where the error was encountered.
+	Seq       uint64 // echoes that of the request
+	Error     string // error, if any.
+	ErrorPath string // path where the error was encountered.
 }
 
 type codecServer struct {
 	*Server
-	codec ServerCodec
-	req Request
+	codec        ServerCodec
+	req          Request
 	doneReadBody bool
-	ctxt reflect.Value
+	ctxt         reflect.Value
 }
 
 // Accept accepts connections on the listener and serves requests for
@@ -41,8 +42,8 @@ type codecServer struct {
 // calling newContext. Accept blocks; the caller typically invokes it in
 // a go statement.
 func (srv *Server) Accept(l net.Listener,
-		newCodec func(io.ReadWriter) ServerCodec,
-		newContext func(net.Conn) interface{}) error {
+	newCodec func(io.ReadWriter) ServerCodec,
+	newContext func(net.Conn) interface{}) error {
 	for {
 		c, err := l.Accept()
 		if err != nil {
@@ -65,10 +66,10 @@ func (srv *Server) ServeCodec(codec ServerCodec, ctxt interface{}) error {
 			return err
 		}
 	}
-	csrv := &codecServer {
+	csrv := &codecServer{
 		Server: srv,
-		codec: codec,
-		ctxt: reflect.ValueOf(ctxt),
+		codec:  codec,
+		ctxt:   reflect.ValueOf(ctxt),
 	}
 	for {
 		csrv.req = Request{}
@@ -144,7 +145,7 @@ func (csrv *codecServer) runRequest() (reflect.Value, error) {
 			if i == len(relems)-1 {
 				return reflect.Value{}, err
 			}
-			return reflect.Value{}, &pathError{err, elems[0:i+1]}
+			return reflect.Value{}, &pathError{err, elems[0 : i+1]}
 		}
 		v = rv
 	}
@@ -152,12 +153,12 @@ func (csrv *codecServer) runRequest() (reflect.Value, error) {
 }
 
 func isSlash(r rune) bool {
-	return r == '/' 
+	return r == '/'
 }
 
 type pathError struct {
 	reason error
-	elems []string
+	elems  []string
 }
 
 func (e *pathError) Error() string {
@@ -166,8 +167,8 @@ func (e *pathError) Error() string {
 
 type resolvedElem struct {
 	name string
-	arg reflect.Value
-	p *procedure
+	arg  reflect.Value
+	p    *procedure
 }
 
 func (srv *Server) Call(path string, ctxt interface{}, arg reflect.Value) (reflect.Value, error) {
@@ -196,7 +197,7 @@ func (srv *Server) Call(path string, ctxt interface{}, arg reflect.Value) (refle
 			if isLast {
 				return reflect.Value{}, err
 			}
-			return reflect.Value{}, &pathError{err, elems[0:i+1]}
+			return reflect.Value{}, &pathError{err, elems[0 : i+1]}
 		}
 		v = rv
 	}
@@ -212,7 +213,7 @@ func (srv *Server) lookPath(elems []string) ([]resolvedElem, error) {
 	for i, e := range elems {
 		r, err := srv.resolveElem(t, e)
 		if err != nil {
-			return nil, &pathError{err, elems[0:i+1]}
+			return nil, &pathError{err, elems[0 : i+1]}
 		}
 		t = r.p.ret
 		relems[i] = r

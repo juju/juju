@@ -1,4 +1,5 @@
 package rpc
+
 import (
 	"fmt"
 	"log"
@@ -12,7 +13,7 @@ type ClientCodec interface {
 
 type Client struct {
 	codec ClientCodec
-	seq uint64
+	seq   uint64
 }
 
 func NewClientWithCodec(codec ClientCodec) *Client {
@@ -26,7 +27,7 @@ func NewClientWithCodec(codec ClientCodec) *Client {
 // TODO integrate with jsonError, pathError and Response?
 type RemoteError struct {
 	Message string
-	Path string
+	Path    string
 }
 
 func (e *RemoteError) Error() string {
@@ -41,7 +42,7 @@ func (c *Client) Call(path string, arg, reply interface{}) error {
 	c.seq++
 	req := &Request{
 		Path: path,
-		Seq: c.seq,
+		Seq:  c.seq,
 	}
 	if err := c.codec.WriteRequest(req, arg); err != nil {
 		return err
@@ -62,7 +63,7 @@ func (c *Client) Call(path string, arg, reply interface{}) error {
 	if resp.Error != "" {
 		return &RemoteError{
 			Message: resp.Error,
-			Path: resp.ErrorPath,
+			Path:    resp.ErrorPath,
 		}
 	}
 	return nil
