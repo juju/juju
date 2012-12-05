@@ -191,11 +191,14 @@ func (e *environ) StopInstances([]environs.Instance) error {
 }
 
 func (e *environ) Instances(ids []string) ([]environs.Instance, error) {
+	// TODO FIXME Instances must somehow be tagged to be part of the environment.
+	// This is returning *all* instances, which means it's impossible to have two different
+	// environments on the same account.
 	if len(ids) == 0 {
 		return nil, nil
 	}
 	insts := make([]environs.Instance, len(ids))
-	servers, err := e.nova().ListServers()
+	servers, err := e.nova().ListServers(nil)
 	if err != nil {
 		return nil, err
 	}
@@ -210,8 +213,11 @@ func (e *environ) Instances(ids []string) ([]environs.Instance, error) {
 }
 
 func (e *environ) AllInstances() (insts []environs.Instance, err error) {
+	// TODO FIXME Instances must somehow be tagged to be part of the environment.
+	// This is returning *all* instances, which means it's impossible to have two different
+	// environments on the same account.
 	// TODO: add filtering to exclude deleted images etc
-	servers, err := e.nova().ListServers()
+	servers, err := e.nova().ListServers(nil)
 	if err != nil {
 		return nil, err
 	}

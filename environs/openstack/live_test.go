@@ -125,6 +125,8 @@ func (t *LiveTests) createInstances(numInstances int) (instances []nova.Entity, 
 }
 
 func (t *LiveTests) TestAllInstances(c *C) {
+	// TODO FIXME These instances were not started by the environment, and have no indication that they
+	// should be part of it.
 	observedInst, err := t.Env.AllInstances()
 	c.Assert(err, IsNil)
 	idSet := make(map[string]bool)
@@ -141,6 +143,8 @@ func (t *LiveTests) TestAllInstances(c *C) {
 }
 
 func (t *LiveTests) TestInstances(c *C) {
+	// TODO FIXME These instances were not started by the environment, and have no indication that they
+	// should be part of it.
 	observedInst, err := t.Env.Instances([]string{t.testServers[0].Id})
 	c.Assert(err, IsNil)
 	c.Assert(len(observedInst), Equals, 1)

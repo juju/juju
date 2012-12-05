@@ -130,8 +130,8 @@ func (s *ConfigSuite) SetUpTest(c *C) {
 }
 
 func (s *ConfigSuite) TearDownTest(c *C) {
-	for k := range s.savedVars {
-		os.Setenv(k, s.savedVars[k])
+	for k, v := range s.savedVars {
+		os.Setenv(k, v)
 	}
 }
 
