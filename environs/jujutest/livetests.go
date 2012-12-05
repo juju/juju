@@ -336,8 +336,6 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 
 	// Wait for machine agent to come up on the bootstrap
 	// machine and find the deployed series from that.
-	// Wait for machine agent to come up on the bootstrap
-	// machine and find the deployed series from that.
 	m0, err := conn.State.Machine("0")
 	c.Assert(err, IsNil)
 	mw0 := newMachineToolWaiter(m0)
@@ -671,4 +669,51 @@ func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
 	}
 	c.Assert(inst, IsNil)
 	c.Assert(err, ErrorMatches, "cannot find image.*")
+}
+
+func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
+	if !t.HasProvisioner {
+		c.Skip("HasProvisioner is false; cannot test deployment")
+	}
+
+	current := version.Current
+	other := current
+	other.Series = "precise"
+	if current == other {
+		other.Series = "quantal"
+	}
+
+	cfg := t.Env.Config()
+	cfg, err := cfg.Apply(map[string]interface{}{"default-series": other.Series})
+	c.Assert(err, IsNil)
+	env, err := environs.New(cfg)
+	c.Assert(err, IsNil)
+
+	path := environs.ToolsStoragePath(other)
+	storage := env.Storage()
+	_, err = environs.PutTools(storage, &other)
+	c.Assert(err, IsNil)
+	defer storage.Remove(path)
+
+	err = environs.Bootstrap(env, false, panicWrite)
+	c.Assert(err, IsNil)
+	defer env.Destroy(nil)
+
+	conn, err := juju.NewConn(env)
+	c.Assert(err, IsNil)
+	defer conn.Close()
+
+	// Wait for machine agent to come up on the bootstrap
+	// machine and ensure it deployed the proper series.
+	m0, err := conn.State.Machine("0")
+	c.Assert(err, IsNil)
+	mw0 := newMachineToolWaiter(m0)
+	defer mw0.Stop()
+
+	waitAgentTools(c, mw0, other)
+
+	// It would be nice to test here that the container it was
+	// deployed in actually match the series too, but we don't
+	// yet have a common interface to do that kind of
+	// verification.
 }
