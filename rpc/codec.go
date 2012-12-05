@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 )
 
 type encoder interface {
@@ -91,6 +92,82 @@ func NewXMLClientCodec(c io.ReadWriter) ClientCodec {
 	}
 }
 
+type httpClientCodec struct {
+	url string
+	// TODO allow more than one request at a time.
+	currentSeq uint64
+	currentResponse *http.Response
+	// TODO close when done, even if ReadResponseBody not called.
+}
+
+func NewHTTPClientCodec(url string) ClientCodec {
+	// strip trailing slash so we can always append a
+	// slash-rooted path.
+	if url[len(url)-1] == '/' {
+		url = url[0:len(url)-1]
+	}
+	return &httpClientCodec{
+		url: url,
+	}
+}
+
+func isJSONResponse(resp *http.Response) bool {
+	return resp.Header.Get("Content-Type") == "application/json"
+}
+
+func (c *httpClientCodec) WriteRequest(req *Request, x interface{}) error {
+	if req.Path == "" || req.Path[0] != '/' {
+		return fmt.Errorf("bad path in RPC request: %q", req.Path)
+	}
+	data, err := json.Marshal(x)
+	if err != nil {
+		return err
+	}
+	resp, err := http.PostForm(c.url + req.Path, url.Values{"p": {string(data)}})
+	if err != nil {
+		return err
+	}
+	c.currentSeq = req.Seq
+	c.currentResponse = resp
+	return nil
+}
+
+func (c *httpClientCodec) ReadResponseHeader(resp *Response) error {
+	hresp := c.currentResponse
+	if hresp.StatusCode != http.StatusOK {
+		if hresp.StatusCode != http.StatusBadRequest || !isJSONResponse(hresp) {
+			// TODO include some of error response in returned error?
+			return fmt.Errorf("http error: %v", hresp.Status)
+		}
+		var e jsonError
+		dec := json.NewDecoder(c.currentResponse.Body)
+		if err := dec.Decode(&e); err != nil {
+			return err
+		}
+		resp.Error = e.Error
+		resp.ErrorPath = e.ErrorPath
+		c.currentResponse.Body.Close()
+		c.currentResponse = nil
+		return nil
+	}
+	resp.Seq = c.currentSeq
+	return nil
+}
+
+func (c *httpClientCodec) ReadResponseBody(r interface{}) error {
+	if c.currentResponse.StatusCode != http.StatusOK {
+		return nil
+	}
+	if r == nil {
+		r = &struct{}{}
+	}
+	dec := json.NewDecoder(c.currentResponse.Body)
+	err := dec.Decode(r)
+	c.currentResponse.Body.Close()
+	c.currentResponse = nil
+	return err
+}
+
 type rpcHTTPHandler struct {
 	srv        *Server
 	newContext func(req *http.Request) interface{}
@@ -124,11 +201,10 @@ type httpServerCodec struct {
 	req  *http.Request
 }
 
-// newHTTPServerCodec returns a codec which allows
-// the use of the single HTTP request given in its arguments
-// as a ServerCodec. URL parameters hold the arguments
-// to the RPC (each individually encoded as a JSON value).
-// The response is written to w in JSON format.
+// newHTTPServerCodec returns a codec which allows the use of the single
+// HTTP request given in its arguments as a ServerCodec.  The arguments
+// to the RPC are read, in JSON-encoded form, from the "p" form
+// parameter.  The response is written to w in JSON format.
 func newHTTPServerCodec(w http.ResponseWriter, req *http.Request) ServerCodec {
 	return &httpServerCodec{
 		w:   w,
@@ -147,27 +223,18 @@ func (c *httpServerCodec) ReadRequestHeader(req *Request) error {
 }
 
 func (c *httpServerCodec) ReadRequestBody(argp interface{}) error {
-	if err := c.req.ParseForm(); err != nil {
-		return err
+	if argp == nil {
+		return nil
 	}
-	// Quick hack: marshal all the parameters into
-	// JSON, then Unmarshal into argp.
-	m := make(map[string]json.RawMessage)
-	for k, vs := range c.req.Form {
-		m[k] = json.RawMessage(vs[0])
-	}
-	data, err := json.Marshal(m)
-	if err != nil {
-		return err
-	}
-	return json.Unmarshal(data, argp)
+	return json.Unmarshal([]byte(c.req.FormValue("p")), argp)
+}
+
+type jsonError struct {
+	Error     string
+	ErrorPath string
 }
 
 func (c *httpServerCodec) WriteResponse(resp *Response, v interface{}) error {
-	type jsonError struct {
-		Error     string
-		ErrorPath string
-	}
 	var data []byte
 	c.w.Header().Set("Content-Type", "application/json")
 	if resp.Error != "" {
