@@ -1,17 +1,18 @@
 package api_test
+
 import (
 	. "launchpad.net/gocheck"
-	stdtesting "testing"
-	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state/api"
 	coretesting "launchpad.net/juju-core/testing"
 	"net"
+	stdtesting "testing"
 )
 
-type suite struct{
+type suite struct {
 	testing.JujuConnSuite
-	State *api.State
+	State    *api.State
 	listener net.Listener
 }
 

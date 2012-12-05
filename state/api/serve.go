@@ -1,20 +1,21 @@
 package api
+
 import (
 	"fmt"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/rpc"
-	"net/http"
+	"launchpad.net/juju-core/state"
 	"net"
+	"net/http"
 )
 
 type Server struct {
-	srv *rpc.Server
+	srv   *rpc.Server
 	state *state.State
 }
 
 type context struct {
-	state *state.State
-	isHTTP bool
+	state    *state.State
+	isHTTP   bool
 	hostAddr string
 	// ... plus entity/authentication info.
 }
@@ -24,10 +25,10 @@ func NewServer(s *state.State) *Server {
 	if err != nil {
 		// This should only happen if srvState and friends are
 		// malformed types.
-		panic(err)	
+		panic(err)
 	}
 	return &Server{
-		srv: rpcsrv,
+		srv:   rpcsrv,
 		state: s,
 	}
 }
@@ -35,8 +36,8 @@ func NewServer(s *state.State) *Server {
 func (srv *Server) NewHTTPHandler() http.Handler {
 	return srv.srv.NewHTTPHandler(func(req *http.Request) interface{} {
 		return &context{
-			state: srv.state,
-			isHTTP: true,
+			state:    srv.state,
+			isHTTP:   true,
 			hostAddr: req.Host,
 		}
 	})
@@ -45,7 +46,7 @@ func (srv *Server) NewHTTPHandler() http.Handler {
 func (srv *Server) Accept(l net.Listener) error {
 	return srv.srv.Accept(l, rpc.NewJSONServerCodec, func(c net.Conn) interface{} {
 		return &context{
-			state: srv.state,
+			state:    srv.state,
 			hostAddr: c.RemoteAddr().String(),
 		}
 	})
@@ -99,13 +100,13 @@ func newSrvMachine(m *state.Machine) *srvMachine {
 		ws[i] = WorkerKind(w)
 	}
 	return &srvMachine{
-		m: m,
-		Id: m.Id(),
+		m:       m,
+		Id:      m.Id(),
 		Workers: ws,
 	}
 }
 
-func (s *srvState) EnvironConfig() (map[string] interface{}, error) {
+func (s *srvState) EnvironConfig() (map[string]interface{}, error) {
 	cfg, err := s.state.EnvironConfig()
 	if err != nil {
 		return nil, err
@@ -114,8 +115,8 @@ func (s *srvState) EnvironConfig() (map[string] interface{}, error) {
 }
 
 type srvMachine struct {
-	m *state.Machine
-	Id string
+	m       *state.Machine
+	Id      string
 	Workers []WorkerKind
 }
 

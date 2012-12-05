@@ -1,20 +1,21 @@
 package api
+
 import (
 	"fmt"
-	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/rpc"
 	"net"
 )
 
 type State struct {
-	c *rpc.Client
+	c    *rpc.Client
 	conn net.Conn
 }
 
 type Info struct {
-	Addr string
+	Addr       string
 	EntityName string
-	Password string
+	Password   string
 }
 
 type WorkerKind string
@@ -33,7 +34,7 @@ func Open(info *Info) (*State, error) {
 	c := rpc.NewClientWithCodec(rpc.NewJSONClientCodec(conn))
 	// TODO authenticate with entity name and password
 	return &State{
-		c: c,
+		c:    c,
 		conn: conn,
 	}, nil
 }
@@ -43,8 +44,8 @@ func (s *State) Close() error {
 }
 
 type Machine struct {
-	state *State
-	Id string
+	state   *State
+	Id      string
 	Workers []WorkerKind
 }
 
@@ -59,7 +60,7 @@ func (s *State) Machine(id string) (*Machine, error) {
 
 func (s *State) AllMachines() ([]*Machine, error) {
 	var ms []*Machine
-	
+
 	if err := s.c.Call("/AllMachines", nil, &ms); err != nil {
 		return nil, err
 	}
