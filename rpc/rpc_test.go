@@ -340,6 +340,7 @@ func testCodec(c *C, info codecInfo) {
 }
 
 //func (suite) TestHTTPCodec(c *C) {
+TODO!
 //	ctxt := &TContext{"ctxt"}
 //	srv, err := rpc.NewServer(root)
 //	c.Assert(err, IsNil)

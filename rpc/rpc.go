@@ -159,7 +159,7 @@ func (srv *Server) methodToProcedure(m reflect.Method) *procedure {
 	}
 	var p procedure
 	var assemble func(ctxt, arg reflect.Value) []reflect.Value
-	// N.B. The method type includes receiver as first argument.
+	// N.B. The method type has the receiver as its first argument.
 	t := m.Type
 	switch {
 	case t.NumIn() == 1:
