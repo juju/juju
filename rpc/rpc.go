@@ -38,8 +38,8 @@ type Server struct {
 // in one of the following forms, where T and R represent
 // an arbitrary type other than the built-in error type:
 //
-//     Method() R
-//     Method() (R, error)
+//	Method() R
+//	Method() (R, error)
 //	Method(T) R
 //	Method(T) (R, error)
 //	Method()
