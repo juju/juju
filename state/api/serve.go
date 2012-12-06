@@ -1,140 +1,65 @@
 package api
 
 import (
-	"fmt"
-	"launchpad.net/juju-core/rpc"
+	"code.google.com/p/go.net/websocket"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
-	"net"
 	"net/http"
 )
 
 // srvState represents a single client's connection to the state.
 type srvState struct {
-	state    *state.State
-	c *websocket.Conn
+	state *state.State
+	conn  *websocket.Conn
 }
 
-// NewServer returns an http handler that serves the API
+// NewHandler returns an http handler that serves the API
 // interface to the given state as a websocket.
-func NewServer(s *state.State) http.Handler {
-	return websocket.Handler(func(c *websocket.Conn){
-		ctxt.run(&srvState{
-			state: s
-			c: c,
-		})
+func NewHandler(s *state.State) http.Handler {
+	return websocket.Handler(func(conn *websocket.Conn) {
+		srv := &srvState{
+			state: s,
+			conn:  conn,
+		}
+		srv.run()
 	})
 }
 
-type clientRequest struct {
-	Seq uint64
-	Name string
-	Param interface{}
+type rpcRequest struct {
+	Request string // placeholder only
 }
 
-type serverRequest struct {
-	Seq uint64
-	Name string
-	Param json.RawMessage
+type rpcResponse struct {
+	Response string // placeholder only
+	Error    string
 }
 
-type clientReply struct {
-	Seq uint64
-	Result json.RawMessage
-}
-
-type serverReply struct {
-	Seq uint64
-	Error string
-	Result interface{}
-}
-
-var rpcCalls = map[string] func(*srvState, *serverRequest) (interface{}, error) {
-	srvState.Machine,
-	srvState.AddMachine,
-}
-
-func (ctxt *serverConn) run() {
-	var req serverRequest
-	var reply serverReply
+func (srv *srvState) run() {
 	for {
-		req = serverRequest{}
-		err := websocket.JSON.Receive(ctxt.c, &req)
+		var req rpcRequest
+		err := websocket.JSON.Receive(srv.conn, &req)
 		if err != nil {
 			log.Printf("api: error receiving request: %v", err)
 			return
 		}
-		reply = serverReply{Seq: req.Seq}
-		if fn := rpcCalls[req.Name]; fn == nil {
-			reply.Error = "name not known"
+		var resp rpcResponse
+		// placeholder for executing some arbitrary operation
+		// on state.
+		m, err := srv.state.Machine(req.Request)
+		if err != nil {
+			resp.Error = err.Error()
 		} else {
-			result, err := fn(srv, &req)
+			instId, err := m.InstanceId()
 			if err != nil {
-				reply.Error = err.Error()
+				resp.Error = err.Error()
 			} else {
-				reply.Result = result
+				resp.Response = string(instId)
 			}
 		}
-		err = websocket.JSON.Send(ctxt.c, &reply)
+		err = websocket.JSON.Send(srv.conn, &resp)
 		if err != nil {
 			log.Printf("api: error sending reply: %v", err)
 			return
 		}
 	}
-}
-
-type machineDoc struct {
-	Id string
-	InstanceId state.InstanceId
-	Life state.Life
-	Workers []state.WorkerKind
-}
-
-func newMachineDoc(m *state.Machine) *machineDoc {
-	doc := &machineDoc{
-		Id: m.Id(),
-		Life: m.Life(),
-		Workers: m.Workers(),
-	}
-	doc.InstanceId, _ = m.InstanceId()
-	return doc
-}
-
-func (req *serverRequest) unmarshalParam(p interface{}) error {
-	return json.Unmarshal([]byte(req.Param), p)
-}
-
-func (s *srvState) Machine(req *serverRequest) (interface{}, error) {
-	var id string
-	if err := req.unmarshalParam(&id); err != nil {
-		return err
-	}
-	m, err := s.state.Machine(id)
-	if err != nil {
-		return nil, err
-	}
-	return newMachineDoc(m), nil
-}
-
-func (s *srvState) AllMachines() (interface{}, error) {
-	sms, err := s.state.AllMachines()
-	if err != nil {
-		return nil, err
-	}
-	ms := make([]*machineDoc, len(sms))
-	for i, m := range sms {
-		ms[i] = newMachineDoc(m)
-	}
-	return ms, nil
-}
-
-func (s *srvState) AddMachine(req *serverRequest) (interface{}, error) {
-	var workers []state.WorkerKind
-	if err := req.unmarshalParam(&workers); err != nil {
-		return err
-	}
-	m, err := s.state.AddMachine(workers...)
-	if err != nil {
-		return nil, err
-	}
-	return newMachineDoc(m), nil
 }
