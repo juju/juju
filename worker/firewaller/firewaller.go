@@ -25,9 +25,12 @@ type Firewaller struct {
 	portsChange     chan *portsChange
 	serviceds       map[string]*serviceData
 	exposedChange   chan *exposedChange
+
+	// TODO(mue) Create globalControl struct in an extra CL.
 	globalMode      bool
 	globalPortOpen  map[state.Port]bool
 	globalPortRef   map[state.Port]int
+	globalUnitPorts map[*state.Unit][]state.Port
 }
 
 // NewFirewaller returns a new Firewaller.
@@ -104,6 +107,66 @@ func (fw *Firewaller) loop() error {
 	panic("not reached")
 }
 
+// initGlobalMode retrieves the ports that need to be open globally,
+// opens them and also closes not needed open ports left from an
+// earlier run.
+func (fw *Firewaller) initGlobalMode() error {
+	fw.globalMode = true
+	fw.globalPortOpen = make(map[state.Port]bool)
+	fw.globalPortRef = make(map[state.Port]int)
+	fw.globalUnitPorts = make(map[*state.Unit][]state.Port)
+
+	initialPorts, err := fw.environ.Ports()
+	if err != nil {
+		return err
+	}
+	// Retrieve ports to be open from state.
+	services, err := fw.st.AllServices()
+	if err != nil {
+		return err
+	}
+	for _, service := range services {
+		if !service.IsExposed() {
+			continue
+		}
+		units, err := service.AllUnits()
+		if err != nil {
+			return err
+		}
+		for _, unit := range units {
+			ports := unit.OpenedPorts()
+			fw.globalUnitPorts[unit] = ports
+			for _, port := range ports {
+				fw.globalPortOpen[port] = true
+				fw.globalPortRef[port]++
+			}
+		}
+	}
+
+	openedPorts := []state.Port{}
+	for port := range fw.globalPortOpen {
+		openedPorts = append(openedPorts, port)
+	}
+	// Check which ports to open or to close.
+	toOpen := diff(openedPorts, initialPorts)
+	toClose := diff(initialPorts, openedPorts)
+	if len(toOpen) > 0 {
+		if err := fw.environ.OpenPorts(toOpen); err != nil {
+			return err
+		}
+		state.SortPorts(toOpen)
+		log.Printf("worker/firewaller: initially opened ports %v in environment", toOpen)
+	}
+	if len(toClose) > 0 {
+		if err := fw.environ.ClosePorts(toClose); err != nil {
+			return err
+		}
+		state.SortPorts(toClose)
+		log.Printf("worker/firewaller: initially closed ports %v in environment", toClose)
+	}
+	return nil
+}
+
 // unitsChanged responds to changes to the assigned units.
 func (fw *Firewaller) unitsChanged(change *unitsChange) error {
 	changed := []*unitData{}
@@ -131,20 +194,12 @@ func (fw *Firewaller) unitsChanged(change *unitsChange) error {
 				log.Debugf("worker/firewaller: stopped watching unit %s", name)
 			}
 		} else if unit != nil && unit.Life() != state.Dead && fw.machineds[machineId] != nil {
-			unitd := newUnitData(unit, fw)
-			fw.unitds[name] = unitd
-			unitd.machined = fw.machineds[machineId]
-			unitd.machined.unitds[name] = unitd
-			serviceName := unit.ServiceName()
-			if fw.serviceds[serviceName] == nil {
-				service, err := fw.st.Service(serviceName)
-				if err != nil {
-					return err
-				}
-				fw.serviceds[serviceName] = newServiceData(service, fw)
+			// WIP
+			unitd, err := fw.createUnitData(unit, machineId, []state.Port{})
+			if err != nil {
+				return err
 			}
-			unitd.serviced = fw.serviceds[serviceName]
-			unitd.serviced.unitds[name] = unitd
+			go unitd.watchLoop()
 			changed = append(changed, unitd)
 			log.Debugf("worker/firewaller: started watching unit %s", name)
 		}
@@ -155,59 +210,78 @@ func (fw *Firewaller) unitsChanged(change *unitsChange) error {
 	return nil
 }
 
-// initGlobalMode retrieves the ports that need to be open globally,
-// opens them and also closes not needed open ports left from an
-// earlier run.
-func (fw *Firewaller) initGlobalMode() error {
-	fw.globalMode = true
-	fw.globalPortOpen = make(map[state.Port]bool)
-	fw.globalPortRef = make(map[state.Port]int)
-	initialPorts, err := fw.environ.Ports()
-	if err != nil {
-		return err
+// createMachineData creates a new data value for tracking details of the
+// machine.
+func (fw *Firewaller) createMachineData(id string) (*machineData, error) {
+	md := &machineData{
+		fw:     fw,
+		id:     id,
+		unitds: make(map[string]*unitData),
+		ports:  make([]state.Port, 0),
 	}
-	// Retrieve ports to be open from state.
-	services, err := fw.st.AllServices()
-	if err != nil {
-		return err
-	}
-	for _, service := range services {
-		if !service.IsExposed() {
-			continue
-		}
-		units, err := service.AllUnits()
-		if err != nil {
-			return err
-		}
-		for _, unit := range units {
-			ports := unit.OpenedPorts()
-			for _, port := range ports {
-				fw.globalPortOpen[port] = true
+	fw.machineds[id] = md
+	if fw.globalMode {
+		for unit, ports := range fw.globalUnitPorts {
+			assignedId, err := unit.AssignedMachineId()
+			if err != nil {
+				if _, ok := err.(*state.NotAssignedError); ok {
+					continue
+				}
+				return nil, err
+			}
+			if id == assignedId {
+				missing := diff(ports, md.ports)
+				md.ports = append(md.ports, missing...)
+				unitd, err := fw.createUnitData(unit, id, ports)
+				if err != nil {
+					return nil, err
+				}
+				go unitd.watchLoop()
+				md.unitds[unit.Name()] = unitd
 			}
 		}
-	}
-	openedPorts := []state.Port{}
-	for port := range fw.globalPortOpen {
-		openedPorts = append(openedPorts, port)
-	}
-	// Check which ports to open or to close.
-	toOpen := diff(openedPorts, initialPorts)
-	toClose := diff(initialPorts, openedPorts)
-	if len(toOpen) > 0 {
-		if err := fw.environ.OpenPorts(toOpen); err != nil {
-			return err
+		for _, ud := range md.unitds {
+			delete(fw.globalUnitPorts, ud.unit)
 		}
-		state.SortPorts(toOpen)
-		log.Printf("firewaller: initially opened ports %v in environment", toOpen)
 	}
-	if len(toClose) > 0 {
-		if err := fw.environ.ClosePorts(toClose); err != nil {
-			return err
+	return md, nil
+}
+
+// createUnitData creates a new data value for tracking details of the unit.
+func (fw *Firewaller) createUnitData(unit *state.Unit, machineId string, ports []state.Port) (*unitData, error) {
+	name := unit.Name()
+	ud := &unitData{
+		fw:    fw,
+		unit:  unit,
+		ports: ports,
+	}
+	fw.unitds[name] = ud
+	ud.machined = fw.machineds[machineId]
+	ud.machined.unitds[name] = ud
+	serviceName := unit.ServiceName()
+	if fw.serviceds[serviceName] == nil {
+		service, err := fw.st.Service(serviceName)
+		if err != nil {
+			return nil, err
 		}
-		state.SortPorts(toClose)
-		log.Printf("firewaller: initially closed ports %v in environment", toClose)
+		serviced := fw.createServiceData(service)
+		go serviced.watchLoop(serviced.exposed)
 	}
-	return nil
+	ud.serviced = fw.serviceds[serviceName]
+	ud.serviced.unitds[name] = ud
+	return ud, nil
+}
+
+// createServiceData creates a new data value for tracking details of the service.
+func (fw *Firewaller) createServiceData(service *state.Service) *serviceData {
+	sd := &serviceData{
+		fw:      fw,
+		service: service,
+		exposed: service.IsExposed(),
+		unitds:  make(map[string]*unitData),
+	}
+	fw.serviceds[service.Name()] = sd
+	return sd
 }
 
 // flushUnits opens and closes ports for the passed unit data.
@@ -289,7 +363,7 @@ func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose []state.Port) error {
 	return nil
 }
 
-// flushGlobalPorts opens and closes ports global on the machine.
+// flushInstancePorts opens and closes ports global on the machine.
 func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose []state.Port) error {
 	// If there's nothing to do, do nothing.
 	// This is important because when a machine is first created,
@@ -348,22 +422,12 @@ func (fw *Firewaller) machineLifeChanged(id string) error {
 		return fw.forgetMachine(machined)
 	}
 	if !known && !dead {
-		mports := []state.Port{}
-		if fw.globalMode {
-			units, err := m.Units()
-			if err != nil {
-				return err
-			}
-			for _, unit := range units {
-				uports := unit.OpenedPorts()
-				missing := diff(uports, mports)
-				mports = append(mports, missing...)
-				for _, uport := range uports {
-					fw.globalPortRef[uport]++
-				}
-			}
+		machined, err := fw.createMachineData(id)
+		if err != nil {
+			return err
 		}
-		fw.machineds[id] = newMachineData(id, fw, mports)
+		fw.machineds[id] = machined
+		go machined.watchLoop()
 		log.Debugf("worker/firewaller: started watching machine %s", id)
 	}
 	return nil
@@ -464,19 +528,6 @@ type machineData struct {
 	ports  []state.Port
 }
 
-// newMachineData returns a new data value for tracking details of the
-// machine, and starts watching the machine for units added or removed.
-func newMachineData(id string, fw *Firewaller, ports []state.Port) *machineData {
-	md := &machineData{
-		fw:     fw,
-		id:     id,
-		unitds: make(map[string]*unitData),
-		ports:  ports,
-	}
-	go md.watchLoop()
-	return md
-}
-
 func (md *machineData) machine() (*state.Machine, error) {
 	return md.fw.st.Machine(md.id)
 }
@@ -537,24 +588,11 @@ type unitData struct {
 	ports    []state.Port
 }
 
-// newUnitData returns a new data value for tracking details of the unit,
-// and starts watching the unit for port changes.
-func newUnitData(unit *state.Unit, fw *Firewaller) *unitData {
-	ud := &unitData{
-		fw:    fw,
-		unit:  unit,
-		ports: make([]state.Port, 0),
-	}
-	go ud.watchLoop()
-	return ud
-}
-
 // watchLoop watches the unit for port changes.
 func (ud *unitData) watchLoop() {
 	defer ud.tomb.Done()
 	w := ud.unit.Watch()
 	defer watcher.Stop(w, &ud.tomb)
-	var ports []state.Port
 	for {
 		select {
 		case <-ud.tomb.Dying():
@@ -571,10 +609,10 @@ func (ud *unitData) watchLoop() {
 				return
 			}
 			change := ud.unit.OpenedPorts()
-			if samePorts(change, ports) {
+			if samePorts(change, ud.ports) {
 				continue
 			}
-			ports = append(ports[:0], change...)
+			ud.ports = append(ud.ports[:0], change...)
 			select {
 			case ud.fw.portsChange <- &portsChange{ud, change}:
 			case <-ud.tomb.Dying():
@@ -617,19 +655,6 @@ type serviceData struct {
 	service *state.Service
 	exposed bool
 	unitds  map[string]*unitData
-}
-
-// newServiceData returns a new data value for tracking details of the
-// service, and starts watching the service for exposure changes.
-func newServiceData(service *state.Service, fw *Firewaller) *serviceData {
-	sd := &serviceData{
-		fw:      fw,
-		service: service,
-		unitds:  make(map[string]*unitData),
-	}
-	sd.exposed = service.IsExposed()
-	go sd.watchLoop(sd.exposed)
-	return sd
 }
 
 // watchLoop watches the service's exposed flag for changes.
