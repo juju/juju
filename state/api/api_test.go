@@ -14,6 +14,7 @@ type suite struct {
 	testing.JujuConnSuite
 	APIState *api.State
 	listener net.Listener
+	srv      *api.Server
 }
 
 var _ = Suite(&suite{})
@@ -28,19 +29,18 @@ func (s *suite) TearDownSuite(c *C) {
 
 func (s *suite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
-	l, err := net.Listen("tcp", ":0")
-	c.Assert(err, IsNil)
-	s.listener = l
-	go api.Serve(s.State, l, []byte(coretesting.ServerCert), []byte(coretesting.ServerKey))
+	s.srv = api.NewServer(s.State, "localhost:16463", []byte(coretesting.ServerCert), []byte(coretesting.ServerKey))
+	var err error
 	s.APIState, err = api.Open(&api.Info{
-		Addr:   l.Addr().String(),
+		Addr:   "localhost:16463",
 		CACert: []byte(coretesting.CACert),
 	})
 	c.Assert(err, IsNil)
 }
 
 func (s *suite) TearDownTest(c *C) {
-	s.listener.Close()
+	err := s.srv.Stop()
+	c.Assert(err, IsNil)
 	s.JujuConnSuite.TearDownTest(c)
 }
 
