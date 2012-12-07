@@ -259,7 +259,7 @@ func (s *ConfigSuite) TestMissingRegion(c *C) {
 	os.Setenv("NOVA_REGION_NAME", "")
 	test := configTests[0]
 	delete(test.config, "region")
-	test.err = ".*environment has no region"
+	test.err = "required environment variable not set for credentials attribute: Region"
 	test.check(c)
 }
 
