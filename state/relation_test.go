@@ -340,7 +340,7 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *C) {
 
 	// Check that we can't add a new unit now.
 	err = pr.ru2.EnterScope()
-	c.Assert(err, Equals, state.ErrRelationNotAlive)
+	c.Assert(err, Equals, state.ErrCannotEnterScope)
 
 	// Check that we created no settings for the unit we failed to add.
 	_, err = pr.ru0.ReadSettings("riak/2")
@@ -396,6 +396,13 @@ func (s *RelationUnitSuite) TestAliveRelationScope(c *C) {
 	err = pr.ru1.EnterScope()
 	c.Assert(err, IsNil)
 
+	// One unit becomes Dying, then re-enters the scope; this is not an error,
+	// because the state is already as requested.
+	err = pr.u0.EnsureDying()
+	c.Assert(err, IsNil)
+	err = pr.ru0.EnterScope()
+	c.Assert(err, IsNil)
+
 	// Two units leave...
 	err = pr.ru0.LeaveScope()
 	c.Assert(err, IsNil)
@@ -407,9 +414,15 @@ func (s *RelationUnitSuite) TestAliveRelationScope(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(rel.Life(), Equals, state.Alive)
 
-	// ...and new units can still join it.
+	// ...and new units can still join it...
 	err = pr.ru2.EnterScope()
 	c.Assert(err, IsNil)
+
+	// ...but Dying units cannot.
+	err = pr.u3.EnsureDying()
+	c.Assert(err, IsNil)
+	err = pr.ru3.EnterScope()
+	c.Assert(err, Equals, state.ErrCannotEnterScope)
 }
 
 func (s *RelationUnitSuite) TestPeerWatchScope(c *C) {
@@ -623,9 +636,9 @@ func (s *RelationUnitSuite) assertNoScopeChange(c *C, ws ...*state.RelationScope
 }
 
 type PeerRelation struct {
-	svc           *state.Service
-	u0, u1, u2    *state.Unit
-	ru0, ru1, ru2 *state.RelationUnit
+	svc                *state.Service
+	u0, u1, u2, u3     *state.Unit
+	ru0, ru1, ru2, ru3 *state.RelationUnit
 }
 
 func NewPeerRelation(c *C, s *ConnSuite) *PeerRelation {
@@ -639,6 +652,7 @@ func NewPeerRelation(c *C, s *ConnSuite) *PeerRelation {
 	pr.u0, pr.ru0 = addRU(c, svc, rel, nil)
 	pr.u1, pr.ru1 = addRU(c, svc, rel, nil)
 	pr.u2, pr.ru2 = addRU(c, svc, rel, nil)
+	pr.u3, pr.ru3 = addRU(c, svc, rel, nil)
 	return pr
 }
 
@@ -742,7 +756,7 @@ func (s *OriginalRelationUnitSuite) TestRelationUnitEnterScopeError(c *C) {
 	err = rel.Destroy()
 	c.Assert(err, IsNil)
 	err = ru1.EnterScope()
-	c.Assert(err, Equals, state.ErrRelationNotAlive)
+	c.Assert(err, Equals, state.ErrCannotEnterScope)
 }
 
 func (s *OriginalRelationUnitSuite) TestRelationUnitReadSettings(c *C) {
