@@ -425,13 +425,14 @@ var ErrNoSubordinateRequired = errors.New("no subordinate required")
 // not apply, ErrNoSubordinateRequired is returned; if the subordinate already
 // exists, no error is returned; otherwise, it will fail if any of the unit,
 // the relation, or the subordinate service are not Alive.
-func (ru *RelationUnit) EnsureSubordinate() (*Unit, error) {
+func (ru *RelationUnit) EnsureSubordinate() (sub *Unit, err error) {
 	if !ru.unit.IsPrincipal() {
 		return nil, ErrNoSubordinateRequired
 	}
 	if ru.endpoint.RelationScope != charm.ScopeContainer {
 		return nil, ErrNoSubordinateRequired
 	}
+	defer trivial.ErrorContextf(&err, "cannot create subordinate")
 	var serviceName string
 	if related, err := ru.relation.RelatedEndpoints(ru.endpoint.ServiceName); err != nil {
 		return nil, err
