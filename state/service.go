@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/log"
@@ -257,13 +258,32 @@ func (s *Service) newUnitName() (string, error) {
 	return name, nil
 }
 
-// addUnit adds the named unit.
-func (s *Service) addUnit(name string, principal *Unit) (*Unit, error) {
+// addUnitOps returns a unique name for a new unit, and a list of txn operations
+// necessary to create that unit. The principalName param must be non-empty if
+// and only if s is a subordinate service. If s is a subordinate and strictSubordinates
+// is true, the returned ops will assert that no unit of s is already a subordinate
+// of the principal unit. The strictSubordinates param must be removed, and always
+// assumed to be true, once AddUnitSubordinateTo hasbeen removed.
+func (s *Service) addUnitOps(principalName string, strictSubordinates bool) (string, []txn.Op, error) {
+	ch, _, err := s.Charm()
+	if err != nil {
+		return "", nil, err
+	}
+	if subordinate := ch.Meta().Subordinate; subordinate && principalName == "" {
+		return "", nil, fmt.Errorf("service is subordinate")
+	} else if !subordinate && principalName != "" {
+		return "", nil, fmt.Errorf("service is not a subordinate")
+	}
+	name, err := s.newUnitName()
+	if err != nil {
+		return "", nil, err
+	}
 	udoc := &unitDoc{
-		Name:    name,
-		Service: s.doc.Name,
-		Life:    Alive,
-		Status:  UnitPending,
+		Name:      name,
+		Service:   s.doc.Name,
+		Life:      Alive,
+		Status:    UnitPending,
+		Principal: principalName,
 	}
 	ops := []txn.Op{{
 		C:      s.st.units.Name,
@@ -276,55 +296,50 @@ func (s *Service) addUnit(name string, principal *Unit) (*Unit, error) {
 		Assert: isAlive,
 		Update: D{{"$inc", D{{"unitcount", 1}}}},
 	}}
-	if principal != nil {
-		udoc.Principal = principal.Name()
+	if principalName != "" {
+		assert := isAlive
+		if strictSubordinates {
+			assert = append(assert, bson.DocElem{
+				"subordinates", D{{"$not", bson.RegEx{Pattern: "^" + s.doc.Name + "/"}}},
+			})
+		}
 		ops = append(ops, txn.Op{
 			C:      s.st.units.Name,
-			Id:     principal.Name(),
-			Assert: isAlive,
+			Id:     principalName,
+			Assert: assert,
 			Update: D{{"$addToSet", D{{"subordinates", name}}}},
 		})
 	}
-	err := s.st.runner.Run(ops, "", nil)
-	if err != nil {
-		if err == txn.ErrAborted {
-			if principal == nil {
-				err = fmt.Errorf("service is not alive")
-			} else {
-				err = fmt.Errorf("service or principal unit are not alive")
-			}
-		}
-		return nil, err
-	}
-	// Refresh to pick the txn-revno.
-	u := newUnit(s.st, udoc)
-	err = u.Refresh()
-	if err != nil {
-		return nil, err
-	}
-	return u, nil
+	return name, ops, nil
 }
 
 // AddUnit adds a new principal unit to the service.
 func (s *Service) AddUnit() (unit *Unit, err error) {
 	defer trivial.ErrorContextf(&err, "cannot add unit to service %q", s)
-	ch, _, err := s.Charm()
+	name, ops, err := s.addUnitOps("", false)
 	if err != nil {
 		return nil, err
 	}
-	if ch.Meta().Subordinate {
-		return nil, fmt.Errorf("unit is a subordinate")
-	}
-	name, err := s.newUnitName()
-	if err != nil {
+	if err := s.st.runner.Run(ops, "", nil); err == txn.ErrAborted {
+		if alive, err := getAlive(s.st.services, s.doc.Name); err != nil {
+			return nil, err
+		} else if !alive {
+			return nil, fmt.Errorf("service is not alive")
+		}
+		return nil, fmt.Errorf("inconsistent state")
+	} else if err != nil {
 		return nil, err
 	}
-	return s.addUnit(name, nil)
+	return s.Unit(name)
 }
 
-// AddUnitSubordinateTo adds a new subordinate unit to the service,
-// subordinate to principal.
+// AddUnitSubordinateTo adds a new subordinate unit to the service, subordinate
+// to principal. It does not verify relation state sanity or pre-existence of
+// other subordinates of the same service; is deprecated; and only continues
+// to exist for the convenience of certain tests, which are themselves due for
+// overhaul.
 func (s *Service) AddUnitSubordinateTo(principal *Unit) (unit *Unit, err error) {
+	log.Printf("state: Service.AddUnitSubordinateTo is DEPRECATED; use RelationUnit.EnsureSubordinate instead")
 	defer trivial.ErrorContextf(&err, "cannot add unit to service %q as a subordinate of %q", s, principal)
 	ch, _, err := s.Charm()
 	if err != nil {
@@ -336,11 +351,26 @@ func (s *Service) AddUnitSubordinateTo(principal *Unit) (unit *Unit, err error) 
 	if !principal.IsPrincipal() {
 		return nil, fmt.Errorf("unit is not a principal")
 	}
-	name, err := s.newUnitName()
+	name, ops, err := s.addUnitOps(principal.doc.Name, false)
 	if err != nil {
 		return nil, err
 	}
-	return s.addUnit(name, principal)
+	if err = s.st.runner.Run(ops, "", nil); err == nil {
+		return s.Unit(name)
+	} else if err != txn.ErrAborted {
+		return nil, err
+	}
+	if alive, err := getAlive(s.st.services, s.doc.Name); err != nil {
+		return nil, err
+	} else if !alive {
+		return nil, fmt.Errorf("service is not alive")
+	}
+	if alive, err := getAlive(s.st.units, principal.doc.Name); err != nil {
+		return nil, err
+	} else if !alive {
+		return nil, fmt.Errorf("principal unit is not alive")
+	}
+	return nil, fmt.Errorf("inconsistent state")
 }
 
 // RemoveUnit removes the given unit from s.
@@ -377,8 +407,8 @@ func (s *Service) RemoveUnit(u *Unit) (err error) {
 			Update: D{{"$pull", D{{"subordinates", u.doc.Name}}}},
 		})
 	}
-	// TODO assert that subordinates are empty before deleting
-	// a principal
+	// TODO assert that subordinates are empty before deleting a principal
+	// (shouldn't this already be the case before the principal is Dead?)
 	if err = s.st.runner.Run(ops, "", nil); err != nil {
 		// TODO Remove this once we know the logic is right:
 		if c, err := s.st.units.FindId(u.doc.Name).Count(); err != nil {
@@ -410,8 +440,9 @@ func (s *Service) Unit(name string) (*Unit, error) {
 	if !IsUnitName(name) {
 		return nil, fmt.Errorf("%q is not a valid unit name", name)
 	}
-	udoc, err := s.unitDoc(name)
-	if err != nil {
+	udoc := &unitDoc{}
+	sel := D{{"_id", name}, {"service", s.doc.Name}}
+	if err := s.st.units.Find(sel).One(udoc); err != nil {
 		return nil, fmt.Errorf("cannot get unit %q from service %q: %v", name, s.doc.Name, err)
 	}
 	return newUnit(s.st, udoc), nil

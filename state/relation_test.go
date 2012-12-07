@@ -635,6 +635,10 @@ func (s *RelationUnitSuite) assertNoScopeChange(c *C, ws ...*state.RelationScope
 	}
 }
 
+func (s *RelationSuite) TestEnsureSubordinate(c *C) {
+	c.Fatalf("BAM")
+}
+
 type PeerRelation struct {
 	svc                *state.Service
 	u0, u1, u2, u3     *state.Unit

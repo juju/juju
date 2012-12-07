@@ -416,6 +416,80 @@ func (ru *RelationUnit) WatchScope() *RelationScopeWatcher {
 	return newRelationScopeWatcher(ru.st, scope, ru.unit.Name())
 }
 
+// ErrNoSubordinateRequired indicates that a relation unit is not a principal
+// of a container-scoped relation.
+var ErrNoSubordinateRequired = errors.New("no subordinate required")
+
+// EnsureSubordinate ensures that, if the unit is a principal of the relation,
+// a subordinate unit of the related service exists. If the above conditions do
+// not apply, ErrNoSubordinateRequired is returned; if the subordinate already
+// exists, no error is returned; otherwise, it will fail if any of the unit,
+// the relation, or the subordinate service are not Alive.
+func (ru *RelationUnit) EnsureSubordinate() (*Unit, error) {
+	if !ru.unit.IsPrincipal() {
+		return nil, ErrNoSubordinateRequired
+	}
+	if ru.endpoint.RelationScope != charm.ScopeContainer {
+		return nil, ErrNoSubordinateRequired
+	}
+	var serviceName string
+	if related, err := ru.relation.RelatedEndpoints(ru.endpoint.ServiceName); err != nil {
+		return nil, err
+	} else if len(related) != 1 {
+		return nil, fmt.Errorf("expected single related endpoint, got %v", related)
+	} else {
+		serviceName = related[0].ServiceName
+	}
+	principalName := ru.unit.doc.Name
+	selSubordinate := D{{"service", serviceName}, {"principal", principalName}}
+	udoc := &unitDoc{}
+	if err := ru.st.units.Find(selSubordinate).One(udoc); err == nil {
+		return newUnit(ru.st, udoc), nil
+	} else if err != mgo.ErrNotFound {
+		return nil, err
+	}
+	service, err := ru.st.Service(serviceName)
+	if err != nil {
+		return nil, err
+	}
+	name, ops, err := service.addUnitOps(principalName, true)
+	if err != nil {
+		return nil, err
+	}
+	relationKey := ru.relation.doc.Key
+	ops = append(ops, txn.Op{
+		C:      ru.st.relations.Name,
+		Id:     relationKey,
+		Assert: isAlive,
+	})
+	if err = ru.st.runner.Run(ops, "", nil); err == nil {
+		return service.Unit(name)
+	} else if err != txn.ErrAborted {
+		return nil, err
+	}
+	if err := ru.st.units.Find(selSubordinate).One(udoc); err == nil {
+		return newUnit(ru.st, udoc), nil
+	} else if err != mgo.ErrNotFound {
+		return nil, err
+	}
+	if alive, err := getAlive(ru.st.services, serviceName); err != nil {
+		return nil, err
+	} else if !alive {
+		return nil, fmt.Errorf("service %q is not alive", serviceName)
+	}
+	if alive, err := getAlive(ru.st.units, principalName); err != nil {
+		return nil, err
+	} else if !alive {
+		return nil, fmt.Errorf("principal unit %q is not alive", principalName)
+	}
+	if alive, err := getAlive(ru.st.relations, relationKey); err != nil {
+		return nil, err
+	} else if !alive {
+		return nil, fmt.Errorf("relation %q is not alive", relationKey)
+	}
+	return nil, fmt.Errorf("inconsistent state")
+}
+
 // Settings returns a Settings which allows access to the unit's settings
 // within the relation.
 func (ru *RelationUnit) Settings() (*Settings, error) {

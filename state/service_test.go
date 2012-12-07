@@ -218,10 +218,10 @@ func (s *ServiceSuite) TestAddSubordinateUnitWhenNotAlive(c *C) {
 	principalUnit, err := principalService.AddUnit()
 	c.Assert(err, IsNil)
 
-	const errPat = ".*: service or principal unit are not alive"
 	// Test that AddUnitSubordinateTo fails when the principal unit is
 	// not alive.
-	testWhenDying(c, principalUnit, errPat, errPat, func() error {
+	const principalErr = ".*: principal unit is not alive"
+	testWhenDying(c, principalUnit, principalErr, principalErr, func() error {
 		_, err := loggingService.AddUnitSubordinateTo(principalUnit)
 		return err
 	})
@@ -231,7 +231,8 @@ func (s *ServiceSuite) TestAddSubordinateUnitWhenNotAlive(c *C) {
 	principalUnit, err = principalService.AddUnit()
 	c.Assert(err, IsNil)
 	removeAllUnits(c, loggingService)
-	testWhenDying(c, loggingService, errPat, errPat, func() error {
+	const serviceErr = ".*: service is not alive"
+	testWhenDying(c, loggingService, serviceErr, serviceErr, func() error {
 		_, err := loggingService.AddUnitSubordinateTo(principalUnit)
 		return err
 	})
@@ -279,7 +280,7 @@ func (s *ServiceSuite) TestAddUnit(c *C) {
 
 	// Check that subordinate units must be added to other units.
 	_, err = logging.AddUnit()
-	c.Assert(err, ErrorMatches, `cannot add unit to service "logging": unit is a subordinate`)
+	c.Assert(err, ErrorMatches, `cannot add unit to service "logging": service is subordinate`)
 
 	// Check that subordinate units cannnot be added to subordinate units.
 	_, err = logging.AddUnitSubordinateTo(subZero)
