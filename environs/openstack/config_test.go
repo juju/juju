@@ -24,10 +24,6 @@ var envVars = map[string]string{
 
 var _ = Suite(&ConfigSuite{})
 
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
 // configTest specifies a config parsing test, checking that env when
 // parsed as the openstack section of a config file matches
 // baseConfigResult when mutated by the mutate function, or that the
