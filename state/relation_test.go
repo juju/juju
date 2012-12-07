@@ -383,7 +383,7 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *C) {
 	// Because this is the only sensible place, check that a further call
 	// to Cleanup does not error out.
 	err = s.State.Cleanup()
-	c.Assert(err, Equals, nil)
+	c.Assert(err, IsNil)
 }
 
 func (s *RelationUnitSuite) TestAliveRelationScope(c *C) {
@@ -635,11 +635,105 @@ func (s *RelationUnitSuite) assertNoScopeChange(c *C, ws ...*state.RelationScope
 	}
 }
 
-func (s *RelationSuite) TestEnsureSubordinate(c *C) {
-	c.Fatalf("BAM")
+func (s *RelationUnitSuite) TestEnsureSubordinatePeer(c *C) {
+	pr := NewPeerRelation(c, &s.ConnSuite)
+	_, err := pr.ru0.EnsureSubordinate()
+	c.Assert(err, Equals, state.ErrNoSubordinateRequired)
+}
+
+func (s *RelationUnitSuite) TestEnsureSubordinateGlobal(c *C) {
+	prr := NewProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
+	_, err := prr.pru0.EnsureSubordinate()
+	c.Assert(err, Equals, state.ErrNoSubordinateRequired)
+	_, err = prr.rru0.EnsureSubordinate()
+	c.Assert(err, Equals, state.ErrNoSubordinateRequired)
+}
+
+func (s *RelationUnitSuite) TestEnsureSubordinateValid(c *C) {
+	// Test that EnsureRelation returns no error when the subordinate exists.
+	prr := NewProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
+	sub, err := prr.pru0.EnsureSubordinate()
+	c.Assert(err, IsNil)
+	c.Assert(sub.Name(), Equals, prr.ru0.Name())
+	_, err = prr.rru0.EnsureSubordinate()
+	c.Assert(err, Equals, state.ErrNoSubordinateRequired)
+
+	// Test that EnsureSubordinate creates a subordinate when necessary.
+	err = prr.ru0.EnsureDead()
+	c.Assert(err, IsNil)
+	err = prr.rsvc.RemoveUnit(prr.ru0)
+	c.Assert(err, IsNil)
+	rus, err := prr.rsvc.AllUnits()
+	c.Assert(err, IsNil)
+	newSub, err := prr.pru0.EnsureSubordinate()
+	c.Assert(err, IsNil)
+	c.Assert(newSub.ServiceName(), Equals, prr.rsvc.Name())
+	for _, u := range rus {
+		c.Assert(newSub.Name(), Not(Equals), u.Name())
+	}
+}
+
+func (s *RelationUnitSuite) TestEnsureSubordinateDyingPrincipal(c *C) {
+	prr := NewProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
+	err := prr.ru0.EnsureDead()
+	c.Assert(err, IsNil)
+	err = prr.rsvc.RemoveUnit(prr.ru0)
+	c.Assert(err, IsNil)
+	err = prr.pu0.EnsureDying()
+	c.Assert(err, IsNil)
+	_, err = prr.pru0.EnsureSubordinate()
+	c.Assert(err, ErrorMatches, `principal unit "mysql/0" is not alive`)
+}
+
+func (s *RelationUnitSuite) TestEnsureSubordinateDyingService(c *C) {
+	prr := NewProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
+	err := prr.ru0.EnsureDead()
+	c.Assert(err, IsNil)
+	err = prr.rsvc.RemoveUnit(prr.ru0)
+	c.Assert(err, IsNil)
+	err = prr.rsvc.EnsureDying()
+	c.Assert(err, IsNil)
+	_, err = prr.pru0.EnsureSubordinate()
+	c.Assert(err, ErrorMatches, `service "logging" is not alive`)
+}
+
+func (s *RelationUnitSuite) TestEnsureSubordinateDyingRelation(c *C) {
+	prr := NewProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
+	err := prr.ru0.EnsureDead()
+	c.Assert(err, IsNil)
+	err = prr.rsvc.RemoveUnit(prr.ru0)
+	c.Assert(err, IsNil)
+	// Note: the only way to set the relation to Dying is to Destroy it while
+	// some relation unit is in scope.
+	err = prr.pru1.EnterScope()
+	c.Assert(err, IsNil)
+	err = prr.rel.Destroy()
+	c.Assert(err, IsNil)
+	_, err = prr.pru0.EnsureSubordinate()
+	c.Assert(err, ErrorMatches, `relation "logging:info mysql:juju-info" is not alive`)
+}
+
+func (s *RelationUnitSuite) TestEnsureSubordinateDyingButExists(c *C) {
+	// No error when subordinate already exists, even if every entity in play
+	// is already Dying.
+	prr := NewProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
+	// Note: the only way to set the relation to Dying is to Destroy it while
+	// some relation unit is in scope.
+	err := prr.pru1.EnterScope()
+	c.Assert(err, IsNil)
+	err = prr.rel.Destroy()
+	c.Assert(err, IsNil)
+	err = prr.rsvc.EnsureDying()
+	c.Assert(err, IsNil)
+	err = prr.pu0.EnsureDying()
+	c.Assert(err, IsNil)
+	sub, err := prr.pru0.EnsureSubordinate()
+	c.Assert(err, IsNil)
+	c.Assert(sub.Name(), Equals, prr.ru0.Name())
 }
 
 type PeerRelation struct {
+	rel                *state.Relation
 	svc                *state.Service
 	u0, u1, u2, u3     *state.Unit
 	ru0, ru1, ru2, ru3 *state.RelationUnit
@@ -652,7 +746,7 @@ func NewPeerRelation(c *C, s *ConnSuite) *PeerRelation {
 	c.Assert(err, IsNil)
 	rel, err := s.State.AddRelation(ep)
 	c.Assert(err, IsNil)
-	pr := &PeerRelation{svc: svc}
+	pr := &PeerRelation{rel: rel, svc: svc}
 	pr.u0, pr.ru0 = addRU(c, svc, rel, nil)
 	pr.u1, pr.ru1 = addRU(c, svc, rel, nil)
 	pr.u2, pr.ru2 = addRU(c, svc, rel, nil)
@@ -661,6 +755,7 @@ func NewPeerRelation(c *C, s *ConnSuite) *PeerRelation {
 }
 
 type ProReqRelation struct {
+	rel                    *state.Relation
 	psvc, rsvc             *state.Service
 	pu0, pu1, ru0, ru1     *state.Unit
 	pru0, pru1, rru0, rru1 *state.RelationUnit
@@ -680,7 +775,7 @@ func NewProReqRelation(c *C, s *ConnSuite, scope charm.RelationScope) *ProReqRel
 	c.Assert(err, IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, IsNil)
-	prr := &ProReqRelation{psvc: psvc, rsvc: rsvc}
+	prr := &ProReqRelation{rel: rel, psvc: psvc, rsvc: rsvc}
 	prr.pu0, prr.pru0 = addRU(c, psvc, rel, nil)
 	prr.pu1, prr.pru1 = addRU(c, psvc, rel, nil)
 	if scope == charm.ScopeGlobal {
