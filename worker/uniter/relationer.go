@@ -43,14 +43,7 @@ func (r *Relationer) Join() error {
 	if err := r.dir.Ensure(); err != nil {
 		return err
 	}
-	if err := r.ru.EnterScope(); err != nil {
-		return err
-	}
-	_, err := r.ru.EnsureSubordinate()
-	if err == state.ErrNoSubordinateRequired {
-		return nil
-	}
-	return err
+	return r.ru.EnterScope()
 }
 
 // SetDying informs the relationer that the unit is departing the relation,
