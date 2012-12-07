@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/goose/client"
+	"launchpad.net/goose/errors"
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -19,6 +21,8 @@ import (
 	"sync"
 	"time"
 )
+
+const mgoPort = 37017
 
 type environProvider struct{}
 
@@ -183,11 +187,118 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 }
 
 func (e *environ) StartInstance(machineId string, info *state.Info, tools *state.Tools) (environs.Instance, error) {
-	panic("StartInstance not implemented")
+	return e.startInstance(&startInstanceParams{
+		machineId: machineId,
+		info:      info,
+		tools:     tools,
+	})
 }
 
-func (e *environ) StopInstances([]environs.Instance) error {
-	panic("StopInstances not implemented")
+type startInstanceParams struct {
+	machineId       string
+	info            *state.Info
+	tools           *state.Tools
+	stateServer     bool
+	config          *config.Config
+	stateServerCert []byte
+	stateServerKey  []byte
+}
+
+func (e *environ) userData(scfg *startInstanceParams) (*string, error) {
+	cfg := &cloudinit.MachineConfig{
+		StateServer:        scfg.stateServer,
+		StateInfo:          scfg.info,
+		StateServerCert:    scfg.stateServerCert,
+		StateServerKey:     scfg.stateServerKey,
+		InstanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
+		ProviderType:       "ec2",
+		DataDir:            "/var/lib/juju",
+		Tools:              scfg.tools,
+		MachineId:          scfg.machineId,
+		AuthorizedKeys:     e.ecfg().AuthorizedKeys(),
+		Config:             scfg.config,
+	}
+	cloudcfg, err := cloudinit.New(cfg)
+	if err != nil {
+		return nil, err
+	}
+	bytes, err := cloudcfg.Render()
+	if err != nil {
+		return nil, err
+	}
+	data := string(bytes)
+	return &data, nil
+}
+
+// startInstance is the internal version of StartInstance, used by Bootstrap
+// as well as via StartInstance itself.
+func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, error) {
+	// TODO: implement tools lookup
+	scfg.tools = &state.Tools{}
+	//	if scfg.tools == nil {
+	//		var err error
+	//		flags := environs.HighestVersion | environs.CompatVersion
+	//		scfg.tools, err = environs.FindTools(e, version.Current, flags)
+	//		if err != nil {
+	//			return nil, err
+	//		}
+	//	}
+	log.Printf("environs/OpenStack: starting machine %s in %q running tools version %q from %q",
+		scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
+	//TODO - implement spec lookup
+	//	spec, err := findInstanceSpec(&instanceConstraint{
+	//		series: scfg.tools.Series,
+	//		arch:   scfg.tools.Arch,
+	//		region: e.ecfg().region(),
+	//	})
+	//	if err != nil {
+	//		return nil, fmt.Errorf("cannot find image satisfying constraints: %v", err)
+	//	}
+	// TODO - implement userData creation once we have tools
+	var userData *string = nil
+	//	userData, err := e.userData(scfg)
+	//	if err != nil {
+	//		return nil, fmt.Errorf("cannot make user data: %v", err)
+	//	}
+	log.Debugf("environs/OpenStack: OpenStack user data: %q", userData)
+	groups, err := e.setUpGroups(scfg.machineId)
+	if err != nil {
+		return nil, fmt.Errorf("cannot set up groups: %v", err)
+	}
+	var server *nova.Entity
+
+	var groupNames = make([]nova.SecurityGroupName, len(groups))
+	for i, g := range groups {
+		groupNames[i] = nova.SecurityGroupName{g.Name}
+	}
+
+	for a := shortAttempt.Start(); a.Next(); {
+		server, err = e.nova().RunServer(nova.RunServerOpts{
+			Name: state.MachineEntityName(scfg.machineId),
+			// TODO - do not use hard coded image
+			FlavorId:           "1", // m1.tiny
+			ImageId:            "0f602ea9-c09e-440c-9e29-cfae5635afa3",
+			UserData:           userData,
+			SecurityGroupNames: groupNames,
+		})
+		if err == nil {
+			break
+		}
+	}
+	if err != nil {
+		return nil, fmt.Errorf("cannot run instance: %v", err)
+	}
+	inst := &instance{e, server}
+	log.Printf("environs/OpenStack: started instance %q", inst.Id())
+	return inst, nil
+}
+
+func (e *environ) StopInstances(insts []environs.Instance) error {
+	ids := make([]state.InstanceId, len(insts))
+	for i, inst := range insts {
+		ids[i] = inst.(*instance).Id()
+	}
+	return e.terminateInstances(ids)
 }
 
 func (e *environ) Instances(ids []state.InstanceId) ([]environs.Instance, error) {
@@ -245,6 +356,18 @@ func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
 	panic("AssignmentPolicy not implemented")
 }
 
+func (e *environ) globalGroupName() string {
+	return fmt.Sprintf("%s-global", e.jujuGroupName())
+}
+
+func (e *environ) machineGroupName(machineId string) string {
+	return fmt.Sprintf("%s-%s", e.jujuGroupName(), machineId)
+}
+
+func (e *environ) jujuGroupName() string {
+	return "juju-" + e.name
+}
+
 func (e *environ) OpenPorts(ports []state.Port) error {
 	panic("OpenPorts not implemented")
 }
@@ -259,6 +382,123 @@ func (e *environ) Ports() ([]state.Port, error) {
 
 func (e *environ) Provider() environs.EnvironProvider {
 	return &providerInstance
+}
+
+// setUpGroups creates the security groups for the new machine, and
+// returns them.
+//
+// Instances are tagged with a group so they can be distinguished from
+// other instances that might be running on the same OpenStack account.
+// In addition, a specific machine security group is created for each
+// machine, so that its firewall rules can be configured per machine.
+func (e *environ) setUpGroups(machineId string) ([]nova.SecurityGroup, error) {
+	jujuGroup, err := e.ensureGroup(e.jujuGroupName(),
+		[]nova.RuleInfo{
+			{
+				IPProtocol: "tcp",
+				FromPort:   22,
+				ToPort:     22,
+				Cidr:       "0.0.0.0/0",
+			},
+			{
+				IPProtocol: "tcp",
+				FromPort:   mgoPort,
+				ToPort:     mgoPort,
+				Cidr:       "0.0.0.0/0",
+			},
+			{
+				IPProtocol: "tcp",
+				FromPort:   1,
+				ToPort:     65535,
+			},
+			{
+				IPProtocol: "udp",
+				FromPort:   1,
+				ToPort:     65535,
+			},
+			{
+				IPProtocol: "icmp",
+				FromPort:   -1,
+				ToPort:     -1,
+			},
+		})
+	if err != nil {
+		return nil, err
+	}
+	var machineGroup nova.SecurityGroup
+	switch e.Config().FirewallMode() {
+	case config.FwInstance:
+		machineGroup, err = e.ensureGroup(e.machineGroupName(machineId), nil)
+	case config.FwGlobal:
+		machineGroup, err = e.ensureGroup(e.globalGroupName(), nil)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return []nova.SecurityGroup{jujuGroup, machineGroup}, nil
+}
+
+// zeroGroup holds the zero security group.
+var zeroGroup nova.SecurityGroup
+
+// ensureGroup returns the security group with name and perms.
+// If a group with name does not exist, one will be created.
+// If it exists, its permissions are set to perms.
+func (e *environ) ensureGroup(name string, rules []nova.RuleInfo) (g nova.SecurityGroup, err error) {
+	nova := e.nova()
+	group, err := nova.CreateSecurityGroup(name, "juju group")
+	if err != nil {
+		if !errors.IsDuplicateValue(err) {
+			return zeroGroup, err
+		} else {
+			// We just tried to create a duplicate group. We need to load the actual group but OpenStack does
+			// not support group filtering, so we need to load them all and manually search by name.
+			groups, err := nova.ListSecurityGroups()
+			if err != nil {
+				return zeroGroup, err
+			}
+			found := false
+			for _, group := range groups {
+				if group.Name == name {
+					g = group
+					found = true
+					break
+				}
+			}
+			if !found {
+				return zeroGroup, fmt.Errorf("Security group %s exists but could not be retrieved.", name)
+			}
+		}
+	} else {
+		g = *group
+	}
+	// The group is created so now add the rules.
+	for _, rule := range rules {
+		rule.ParentGroupId = g.Id
+		_, err := nova.CreateSecurityGroupRule(rule)
+		if err != nil && !errors.IsDuplicateValue(err) {
+			return zeroGroup, err
+		}
+	}
+	return g, nil
+}
+
+func (e *environ) terminateInstances(ids []state.InstanceId) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	var firstErr error
+	nova := e.nova()
+	for _, id := range ids {
+		err := nova.DeleteServer(string(id))
+		if errors.IsNotFound(err) {
+			err = nil
+		}
+		if err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
 }
 
 // metadataHost holds the address of the instance metadata service.
