@@ -5,6 +5,10 @@ package openstack
 import (
 	"fmt"
 	"io/ioutil"
+	"launchpad.net/goose/client"
+	"launchpad.net/goose/identity"
+	"launchpad.net/goose/nova"
+	"launchpad.net/goose/swift"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
@@ -74,11 +78,48 @@ func (p environProvider) PrivateAddress() (string, error) {
 type environ struct {
 	name string
 
-	ecfgMutex    sync.Mutex
-	ecfgUnlocked *environConfig
+	ecfgMutex     sync.Mutex
+	ecfgUnlocked  *environConfig
+	novaUnlocked  *nova.Client
+	swiftUnlocked *swift.Client
 }
 
 var _ environs.Environ = (*environ)(nil)
+
+type instance struct {
+	e *environ
+	*nova.Entity
+}
+
+func (inst *instance) String() string {
+	return inst.Entity.Id
+}
+
+var _ environs.Instance = (*instance)(nil)
+
+func (inst *instance) Id() state.InstanceId {
+	return state.InstanceId(inst.Entity.Id)
+}
+
+func (inst *instance) DNSName() (string, error) {
+	panic("DNSName not implemented")
+}
+
+func (inst *instance) WaitDNSName() (string, error) {
+	panic("WaitDNSName not implemented")
+}
+
+func (inst *instance) OpenPorts(machineId string, ports []state.Port) error {
+	panic("OpenPorts not implemented")
+}
+
+func (inst *instance) ClosePorts(machineId string, ports []state.Port) error {
+	panic("ClosePorts not implemented")
+}
+
+func (inst *instance) Ports(machineId string) ([]state.Port, error) {
+	panic("Ports not implemented")
+}
 
 func (e *environ) ecfg() *environConfig {
 	e.ecfgMutex.Lock()
@@ -87,20 +128,34 @@ func (e *environ) ecfg() *environConfig {
 	return ecfg
 }
 
+func (e *environ) nova() *nova.Client {
+	e.ecfgMutex.Lock()
+	nova := e.novaUnlocked
+	e.ecfgMutex.Unlock()
+	return nova
+}
+
+func (e *environ) swift() *swift.Client {
+	e.ecfgMutex.Lock()
+	swift := e.swiftUnlocked
+	e.ecfgMutex.Unlock()
+	return swift
+}
+
 func (e *environ) Name() string {
 	return e.name
 }
 
 func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
-	panic("not implemented")
+	panic("Bootstrap not implemented")
 }
 
 func (e *environ) StateInfo() (*state.Info, error) {
-	panic("not implemented")
+	panic("StateInfo not implemented")
 }
 
 func (e *environ) Config() *config.Config {
-	panic("not implemented")
+	return e.ecfg().Config
 }
 
 func (e *environ) SetConfig(cfg *config.Config) error {
@@ -113,52 +168,93 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	e.name = ecfg.Name()
 	e.ecfgUnlocked = ecfg
 
-	// TODO(dimitern): setup the goose client auth/compute, etc. here
+	cred := &identity.Credentials{
+		User:       ecfg.username(),
+		Secrets:    ecfg.password(),
+		Region:     ecfg.region(),
+		TenantName: ecfg.tenantName(),
+		URL:        ecfg.authURL(),
+	}
+	// TODO: do not hard code authentication type
+	client := client.NewClient(cred, identity.AuthUserPass)
+	e.novaUnlocked = nova.New(client)
+	e.swiftUnlocked = swift.New(client)
 	return nil
 }
 
 func (e *environ) StartInstance(machineId string, info *state.Info, tools *state.Tools) (environs.Instance, error) {
-	panic("not implemented")
+	panic("StartInstance not implemented")
 }
 
 func (e *environ) StopInstances([]environs.Instance) error {
-	panic("not implemented")
+	panic("StopInstances not implemented")
 }
 
 func (e *environ) Instances(ids []state.InstanceId) ([]environs.Instance, error) {
-	panic("not implemented")
+	// TODO FIXME Instances must somehow be tagged to be part of the environment.
+	// This is returning *all* instances, which means it's impossible to have two different
+	// environments on the same account.
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	insts := make([]environs.Instance, len(ids))
+	servers, err := e.nova().ListServers(nil)
+	if err != nil {
+		return nil, err
+	}
+	for i, id := range ids {
+		for j, _ := range servers {
+			if servers[j].Id == string(id) {
+				insts[i] = &instance{e, &servers[j]}
+			}
+		}
+	}
+	return insts, nil
 }
 
-func (e *environ) AllInstances() ([]environs.Instance, error) {
-	panic("not implemented")
+func (e *environ) AllInstances() (insts []environs.Instance, err error) {
+	// TODO FIXME Instances must somehow be tagged to be part of the environment.
+	// This is returning *all* instances, which means it's impossible to have two different
+	// environments on the same account.
+	// TODO: add filtering to exclude deleted images etc
+	servers, err := e.nova().ListServers(nil)
+	if err != nil {
+		return nil, err
+	}
+	for _, server := range servers {
+		var s = server
+		insts = append(insts, &instance{e, &s})
+	}
+	return insts, err
 }
 
 func (e *environ) Storage() environs.Storage {
-	panic("not implemented")
+	panic("Storage not implemented")
 }
 
 func (e *environ) PublicStorage() environs.StorageReader {
-	panic("not implemented")
+	panic("PublicStorage not implemented")
 }
 
 func (e *environ) Destroy(insts []environs.Instance) error {
-	panic("not implemented")
+	log.Printf("environs/openstack: destroying environment %q", e.name)
+	return nil
 }
 
 func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
-	panic("not implemented")
+	panic("AssignmentPolicy not implemented")
 }
 
 func (e *environ) OpenPorts(ports []state.Port) error {
-	panic("not implemented")
+	panic("OpenPorts not implemented")
 }
 
 func (e *environ) ClosePorts(ports []state.Port) error {
-	panic("not implemented")
+	panic("ClosePorts not implemented")
 }
 
 func (e *environ) Ports() ([]state.Port, error) {
-	panic("not implemented")
+	panic("Ports not implemented")
 }
 
 func (e *environ) Provider() environs.EnvironProvider {
