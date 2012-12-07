@@ -82,7 +82,7 @@ func listTools(store StorageReader, majorVersion int) ([]*state.Tools, error) {
 // PutTools builds the current version of the juju tools, uploads them
 // to the given storage, and returns a Tools instance describing them.
 // If forceVersion is not nil, the uploaded tools bundle will report
-// as having the given version number.
+// the given version number.
 func PutTools(storage Storage, forceVersion *version.Number) (*state.Tools, error) {
 	// TODO(rog) find binaries from $PATH when not using a development
 	// version of juju within a $GOPATH.
@@ -436,8 +436,8 @@ func setenv(env []string, val string) []string {
 
 // bundleTools bundles all the current juju tools in gzipped tar
 // format to the given writer.
-// If forceVersion is not nil, a FORCE-VERSION file is included
-// in the tools bundle so it lies about its current version number.
+// If forceVersion is not nil, a FORCE-VERSION file is included in
+// the tools bundle so it will lie about its current version number.
 func bundleTools(w io.Writer, forceVersion *version.Number) (version.Binary, error) {
 	dir, err := ioutil.TempDir("", "juju-tools")
 	if err != nil {
