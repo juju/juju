@@ -37,7 +37,7 @@ func init() {
 		}
 		panic(fmt.Errorf("version: cannot read forced version: %v", err))
 	}
-	Current = MustParseBinary(strings.TrimSpace(string(v)))
+	Current.Number = MustParse(strings.TrimSpace(string(v)))
 }
 
 // Number represents a juju version.  When bugs are fixed the patch

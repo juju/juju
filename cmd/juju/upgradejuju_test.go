@@ -146,10 +146,10 @@ func upload(s environs.Storage, v string) {
 // - we can make it return a tools with a version == version.Current.
 // - we don't need to actually rebuild the juju source for each test
 // that uses --upload-tools.
-func testPutTools(storage environs.Storage, forceVersion *version.Binary) (*state.Tools, error) {
+func testPutTools(storage environs.Storage, forceVersion *version.Number) (*state.Tools, error) {
 	vers := version.Current
 	if forceVersion != nil {
-		vers = *forceVersion
+		vers.Number = *forceVersion
 	}
 	upload(storage, vers.String())
 	return &state.Tools{

@@ -5,20 +5,33 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/openstack"
 	coretesting "launchpad.net/juju-core/testing"
-	"testing"
+	"os"
 )
 
 func init() {
+	// HEADS UP: Please do not break trunk tests. Before committing changes,
+	// make sure that tests in trunk are actually passing against whatever
+	// revision of the packages depended upon that are *currently* public,
+	// so that other people can continue to rely on trunk for their work.
+	//
+	// Note that this is just an ugly hack to get trunk building again. Tests
+	// shouldn't depend on external variables like this, and should also not
+	// hack the environment permanently as done here. It is fine to depend on
+	// the environment when running with a flag that enables specific tests
+	// though (such as -amazon).
+	os.Setenv("OS_AUTH_URL", "PLEASE FIX ME")
+	os.Setenv("OS_REGION_NAME", "PLEASE FIX ME")
+	os.Setenv("OS_TENANT_NAME", "PLEASE FIX ME")
+	os.Setenv("OS_USERNAME", "PLEASE FIX ME")
+	os.Setenv("OS_PASSWORD", "PLEASE FIX ME")
+}
+
+func registerLocalTests() {
+	Suite(&LocalSuite{})
 }
 
 type LocalSuite struct {
 	env environs.Environ
-}
-
-var _ = Suite(&LocalSuite{})
-
-func Test(t *testing.T) {
-	TestingT(t)
 }
 
 func (s *LocalSuite) SetUpSuite(c *C) {

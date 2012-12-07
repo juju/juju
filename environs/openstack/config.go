@@ -2,6 +2,7 @@ package openstack
 
 import (
 	"fmt"
+	"launchpad.net/goose/identity"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/schema"
 	"net/url"
@@ -77,17 +78,15 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 			return nil, fmt.Errorf("invalid auth-url value %q", ecfg.authURL())
 		}
 	}
-
 	if ecfg.username() == "" || ecfg.password() == "" || ecfg.tenantName() == "" || ecfg.authURL() == "" {
-		// TODO(dimitern): get goose client to handle this
-		auth, ok := getEnvAuth()
-		if !ok {
-			return nil, fmt.Errorf("OpenStack environment has no username, password, tenant-name, or auth-url")
+		cred, err := identity.CompleteCredentialsFromEnv()
+		if err != nil {
+			return nil, err
 		}
-		ecfg.attrs["username"] = auth.username
-		ecfg.attrs["password"] = auth.password
-		ecfg.attrs["tenant-name"] = auth.tenantName
-		ecfg.attrs["auth-url"] = auth.authURL
+		ecfg.attrs["username"] = cred.User
+		ecfg.attrs["password"] = cred.Secrets
+		ecfg.attrs["tenant-name"] = cred.TenantName
+		ecfg.attrs["auth-url"] = cred.URL
 	}
 	// We cannot validate the region name, since each OS installation
 	// can have its own region names - only after authentication the
@@ -120,22 +119,4 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 	}
 
 	return cfg.Apply(ecfg.attrs)
-}
-
-// TODO(dimitern): temporarily here, until goose client handles this
-type envAuth struct {
-	username, password, tenantName, authURL string
-}
-
-func getEnvAuth() (auth envAuth, ok bool) {
-	auth = envAuth{
-		username:   os.Getenv("OS_USERNAME"),
-		password:   os.Getenv("OS_PASSWORD"),
-		tenantName: os.Getenv("OS_TENANT_NAME"),
-		authURL:    os.Getenv("OS_AUTH_URL"),
-	}
-	if auth.username == "" || auth.password == "" || auth.tenantName == "" || auth.authURL == "" {
-		return auth, false
-	}
-	return auth, true
 }
