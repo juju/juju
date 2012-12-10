@@ -67,38 +67,3 @@ func (s *suite) TestRequest(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(instId, Equals, "foo")
 }
-
-func (s *suite) TestConcurrentRequests(c *C) {
-	c.Skip("concurrent requests not implemented yet")
-	ms := make([]*state.Machine, 3)
-	for i := range ms {
-		var err error
-		ms[i], err = s.State.AddMachine(state.MachinerWorker)
-		c.Assert(err, IsNil)
-		err = ms[i].SetInstanceId(state.InstanceId(fmt.Sprintf("m-%d", i)))
-		c.Assert(err, IsNil)
-	}
-	var wg sync.WaitGroup
-	wg.Add(len(ms))
-	for i, m := range ms {
-		i := i
-		m := m
-		go func() {
-			expectId := fmt.Sprintf("m-%d", i)
-			for j := 0; ; j++ {
-				c.Logf("request %d.%d", i, j)
-				id, err := s.APIState.Request(m.Id())
-				if !c.Check(err, IsNil) {
-					break
-				}
-				c.Check(id, Equals, expectId)
-				runtime.Gosched()
-			}
-			wg.Done()
-		}()
-	}
-	time.Sleep(100 * time.Millisecond)
-	err := s.srv.Stop()
-	c.Assert(err, IsNil)
-	wg.Wait()
-}
