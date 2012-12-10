@@ -643,6 +643,8 @@ func (ud *unitData) watchLoop() {
 	defer ud.tomb.Done()
 	w := ud.unit.Watch()
 	defer watcher.Stop(w, &ud.tomb)
+	// ports for change management opposit to unit data ports 
+	// managed by the firewaller.
 	var ports []state.Port
 	for {
 		select {
