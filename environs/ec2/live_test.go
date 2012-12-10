@@ -16,28 +16,6 @@ import (
 	"strings"
 )
 
-// amazonConfig holds the environments configuration
-// for running the amazon EC2 integration tests.
-//
-// This is missing keys for security reasons; set the following environment variables
-// to make the Amazon testing work:
-//  access-key: $AWS_ACCESS_KEY_ID
-//  secret-key: $AWS_SECRET_ACCESS_KEY
-//
-// notes:
-// * region should not be us-east-1 to avoid unusual us-east-1 compatbility behavior
-// * default-series should be precise until we public mongodb for other series
-var amazonConfig = fmt.Sprintf(`
-environments:
-  sample-%s:
-    type: ec2
-    region: us-west-1
-    default-series: precise
-    control-bucket: 'juju-test-%s'
-    public-bucket: 'juju-public-test-%s'
-    admin-secret: 'for real'
-`, uniqueName, uniqueName, uniqueName)
-
 // uniqueName is generated afresh for every test run, so that
 // we are not polluted by previous test state.
 var uniqueName = randomName()
