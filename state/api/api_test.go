@@ -1,17 +1,13 @@
 package api_test
 
 import (
-	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	coretesting "launchpad.net/juju-core/testing"
 	"net"
-	"runtime"
-	"sync"
 	stdtesting "testing"
-	"time"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -66,4 +62,20 @@ func (s *suite) TestRequest(c *C) {
 	instId, err = s.APIState.Request(m.Id())
 	c.Assert(err, IsNil)
 	c.Assert(instId, Equals, "foo")
+}
+
+func (s *suite) TestStop(c *C) {
+	m, err := s.State.AddMachine(state.MachinerWorker)
+	c.Assert(err, IsNil)
+	err = m.SetInstanceId("foo")
+	c.Assert(err, IsNil)
+
+	err = s.srv.Stop()
+	c.Assert(err, IsNil)
+	_, err = s.APIState.Request(m.Id())
+	c.Assert(err, ErrorMatches, "cannot receive response: EOF")
+
+	// Check it can be stopped twice.
+	err = s.srv.Stop()
+	c.Assert(err, IsNil)
 }
