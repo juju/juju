@@ -21,7 +21,7 @@ type Server struct {
 
 // Serve serves the given state by accepting requests
 // on the given listener, using the given certificate
-// and key (in PEM format) for authentication. 
+// and key (in PEM format) for authentication.
 func Serve(s *state.State, lis net.Listener, cert, key []byte) error {
 	tlsCert, err := tls.X509KeyPair(cert, key)
 	if err != nil {
