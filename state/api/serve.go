@@ -86,14 +86,14 @@ func (srv *Server) run(lis net.Listener) error {
 		<-srv.tomb.Dying()
 		conn.Close()
 	})
-	http.Serve(lis, handler)
 	// The error from http.Serve is not interesting.
+	http.Serve(lis, handler)
 	return nil
 }
 
 // Addr returns the address that the server is listening on.
-func (srv *Server) Addr() net.Addr {
-	return srv.addr
+func (srv *Server) Addr() string {
+	return srv.addr.String()
 }
 
 type rpcRequest struct {
