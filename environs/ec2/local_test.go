@@ -99,11 +99,12 @@ type localServer struct {
 
 func (srv *localServer) startServer(c *C) {
 	var err error
+	const emulateUSEast1 = false
 	srv.ec2srv, err = ec2test.NewServer()
 	if err != nil {
 		c.Fatalf("cannot start ec2 test server: %v", err)
 	}
-	srv.s3srv, err = s3test.NewServer()
+	srv.s3srv, err = s3test.NewServer(emulateUSEast1)
 	if err != nil {
 		c.Fatalf("cannot start s3 test server: %v", err)
 	}
