@@ -3,10 +3,11 @@
 package openstack
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/goose/client"
-	"launchpad.net/goose/errors"
+	gooseerrors "launchpad.net/goose/errors"
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
@@ -276,11 +277,11 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 func (e *environ) StopInstances(insts []environs.Instance) error {
 	ids := make([]state.InstanceId, len(insts))
 	for i, inst := range insts {
-		id, ok := inst.(*instance).Id()
+		instanceValue, ok := inst.(*instance)
 		if !ok {
 			return errors.New("Incompatible environs.Instance supplied")
 		}
-		ids[i] = id
+		ids[i] = instanceValue.Id()
 	}
 	return e.terminateInstances(ids)
 }
@@ -447,7 +448,7 @@ func (e *environ) ensureGroup(name string, rules []nova.RuleInfo) (nova.Security
 	nova := e.nova()
 	group, err := nova.CreateSecurityGroup(name, "juju group")
 	if err != nil {
-		if !errors.IsDuplicateValue(err) {
+		if !gooseerrors.IsDuplicateValue(err) {
 			return zeroGroup, err
 		} else {
 			// We just tried to create a duplicate group, so load the existing group.
@@ -461,7 +462,7 @@ func (e *environ) ensureGroup(name string, rules []nova.RuleInfo) (nova.Security
 	for _, rule := range rules {
 		rule.ParentGroupId = group.Id
 		_, err := nova.CreateSecurityGroupRule(rule)
-		if err != nil && !errors.IsDuplicateValue(err) {
+		if err != nil && !gooseerrors.IsDuplicateValue(err) {
 			return zeroGroup, err
 		}
 	}
@@ -476,7 +477,7 @@ func (e *environ) terminateInstances(ids []state.InstanceId) error {
 	nova := e.nova()
 	for _, id := range ids {
 		err := nova.DeleteServer(string(id))
-		if errors.IsNotFound(err) {
+		if gooseerrors.IsNotFound(err) {
 			err = nil
 		}
 		if err != nil && firstErr == nil {
