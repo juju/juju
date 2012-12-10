@@ -17,12 +17,13 @@ func init() {
 
 // CACert and CAKey make up a CA key pair.
 // CACertX509 and CAKeyRSA hold their parsed equivalents.
+// ServerCert and ServerKey hold a CA-signed server cert/key.
 var (
 	CACert, CAKey = mustNewCA()
 
 	CACertX509, CAKeyRSA = mustParseCertAndKey([]byte(CACert), []byte(CAKey))
 
-	serverCert, serverKey = mustNewServer()
+	ServerCert, ServerKey = mustNewServer()
 )
 
 func verifyCertificates() error {
@@ -30,11 +31,11 @@ func verifyCertificates() error {
 	if err != nil {
 		return fmt.Errorf("bad CA cert key pair: %v", err)
 	}
-	_, err = tls.X509KeyPair([]byte(serverCert), []byte(serverKey))
+	_, err = tls.X509KeyPair([]byte(ServerCert), []byte(ServerKey))
 	if err != nil {
 		return fmt.Errorf("bad server cert key pair: %v", err)
 	}
-	return cert.Verify([]byte(serverCert), []byte(CACert), time.Now())
+	return cert.Verify([]byte(ServerCert), []byte(CACert), time.Now())
 }
 
 func mustNewCA() (string, string) {
