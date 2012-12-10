@@ -21,45 +21,49 @@ type Server struct {
 	tomb  tomb.Tomb
 	wg    sync.WaitGroup
 	state *state.State
+	addr  net.Addr
 }
 
 // Serve serves the given state by accepting requests
 // on the given listener, using the given certificate
 // and key (in PEM format) for authentication. 
-func NewServer(s *state.State, addr string, cert, key []byte) *Server {
+func NewServer(s *state.State, addr string, cert, key []byte) (*Server, error) {
+	lis, err := net.Listen("tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+	tlsCert, err := tls.X509KeyPair(cert, key)
+	if err != nil {
+		return nil, err
+	}
 	srv := &Server{
 		state: s,
+		addr:  lis.Addr(),
 	}
+	lis = tls.NewListener(lis, &tls.Config{
+		Certificates: []tls.Certificate{tlsCert},
+	})
 	go func() {
 		defer srv.tomb.Done()
-		srv.tomb.Kill(srv.run(addr, cert, key))
+		srv.tomb.Kill(srv.run(lis))
 	}()
-	return srv
+	return srv, nil
 }
 
+// Stop stops the server and returns when all requests that
+// it is running have completed.
 func (srv *Server) Stop() error {
 	srv.tomb.Kill(nil)
 	return srv.tomb.Wait()
 }
 
-func (srv *Server) run(addr string, cert, key []byte) error {
-	lis, err := net.Listen("tcp", addr)
-	if err != nil {
-		return err
-	}
+func (srv *Server) run(lis net.Listener) error {
 	srv.wg.Add(1)
 	go func() {
 		<-srv.tomb.Dying()
 		lis.Close()
 		srv.wg.Done()
 	}()
-	tlsCert, err := tls.X509KeyPair(cert, key)
-	if err != nil {
-		return err
-	}
-	lis = tls.NewListener(lis, &tls.Config{
-		Certificates: []tls.Certificate{tlsCert},
-	})
 	handler := websocket.Handler(func(conn *websocket.Conn) {
 		srv.wg.Add(1)
 		defer srv.wg.Done()
@@ -78,15 +82,18 @@ func (srv *Server) run(addr string, cert, key []byte) error {
 		go func() {
 			st.run()
 			srv.wg.Done()
-			log.Printf("run finishing")
 		}()
 		<-srv.tomb.Dying()
-		log.Printf("tomb dying, closing conn")
 		conn.Close()
 	})
 	http.Serve(lis, handler)
 	// The error from http.Serve is not interesting.
 	return nil
+}
+
+// Addr returns the address that the server is listening on.
+func (srv *Server) Addr() net.Addr {
+	return srv.addr
 }
 
 type rpcRequest struct {
