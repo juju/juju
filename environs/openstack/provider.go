@@ -211,7 +211,7 @@ func (e *environ) userData(scfg *startInstanceParams) (*string, error) {
 		StateServerCert:    scfg.stateServerCert,
 		StateServerKey:     scfg.stateServerKey,
 		InstanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
-		ProviderType:       "ec2",
+		ProviderType:       "openstack",
 		DataDir:            "/var/lib/juju",
 		Tools:              scfg.tools,
 		MachineId:          scfg.machineId,
@@ -235,32 +235,12 @@ func (e *environ) userData(scfg *startInstanceParams) (*string, error) {
 func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, error) {
 	// TODO: implement tools lookup
 	scfg.tools = &state.Tools{}
-	//	if scfg.tools == nil {
-	//		var err error
-	//		flags := environs.HighestVersion | environs.CompatVersion
-	//		scfg.tools, err = environs.FindTools(e, version.Current, flags)
-	//		if err != nil {
-	//			return nil, err
-	//		}
-	//	}
-	log.Printf("environs/OpenStack: starting machine %s in %q running tools version %q from %q",
+	log.Printf("environs/openstack: starting machine %s in %q running tools version %q from %q",
 		scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
 	//TODO - implement spec lookup
-	//	spec, err := findInstanceSpec(&instanceConstraint{
-	//		series: scfg.tools.Series,
-	//		arch:   scfg.tools.Arch,
-	//		region: e.ecfg().region(),
-	//	})
-	//	if err != nil {
-	//		return nil, fmt.Errorf("cannot find image satisfying constraints: %v", err)
-	//	}
 	// TODO - implement userData creation once we have tools
 	var userData *string = nil
-	//	userData, err := e.userData(scfg)
-	//	if err != nil {
-	//		return nil, fmt.Errorf("cannot make user data: %v", err)
-	//	}
-	log.Debugf("environs/OpenStack: OpenStack user data: %q", userData)
+	log.Debugf("environs/openstack: openstack user data: %q", userData)
 	groups, err := e.setUpGroups(scfg.machineId)
 	if err != nil {
 		return nil, fmt.Errorf("cannot set up groups: %v", err)
@@ -289,14 +269,18 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 		return nil, fmt.Errorf("cannot run instance: %v", err)
 	}
 	inst := &instance{e, server}
-	log.Printf("environs/OpenStack: started instance %q", inst.Id())
+	log.Printf("environs/openstack: started instance %q", inst.Id())
 	return inst, nil
 }
 
 func (e *environ) StopInstances(insts []environs.Instance) error {
 	ids := make([]state.InstanceId, len(insts))
 	for i, inst := range insts {
-		ids[i] = inst.(*instance).Id()
+		id, ok := inst.(*instance).Id()
+		if !ok {
+			return errors.New("Incompatible environs.Instance supplied")
+		}
+		ids[i] = id
 	}
 	return e.terminateInstances(ids)
 }
