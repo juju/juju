@@ -276,8 +276,8 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 		server, err = e.nova().RunServer(nova.RunServerOpts{
 			Name: state.MachineEntityName(scfg.machineId),
 			// TODO - do not use hard coded image
-			FlavorId:           "1", // m1.tiny
-			ImageId:            "0f602ea9-c09e-440c-9e29-cfae5635afa3",
+			FlavorId:           defaultFlavorId,
+			ImageId:            defaultImageId,
 			UserData:           userData,
 			SecurityGroupNames: groupNames,
 		})
@@ -441,46 +441,47 @@ func (e *environ) setUpGroups(machineId string) ([]nova.SecurityGroup, error) {
 // zeroGroup holds the zero security group.
 var zeroGroup nova.SecurityGroup
 
+func (e *environ) getSecurityGroupByName(name string) (*nova.SecurityGroup, error) {
+	// OpenStack does not support group filtering, so we need to load them all and manually search by name.
+	nova := e.nova()
+	groups, err := nova.ListSecurityGroups()
+	if err != nil {
+		return nil, err
+	}
+	for _, group := range groups {
+		if group.Name == name {
+			return &group, nil
+		}
+	}
+	return nil, fmt.Errorf("Security group %s not found.", name)
+}
+
 // ensureGroup returns the security group with name and perms.
 // If a group with name does not exist, one will be created.
 // If it exists, its permissions are set to perms.
-func (e *environ) ensureGroup(name string, rules []nova.RuleInfo) (g nova.SecurityGroup, err error) {
+func (e *environ) ensureGroup(name string, rules []nova.RuleInfo) (nova.SecurityGroup, error) {
 	nova := e.nova()
 	group, err := nova.CreateSecurityGroup(name, "juju group")
 	if err != nil {
 		if !errors.IsDuplicateValue(err) {
 			return zeroGroup, err
 		} else {
-			// We just tried to create a duplicate group. We need to load the actual group but OpenStack does
-			// not support group filtering, so we need to load them all and manually search by name.
-			groups, err := nova.ListSecurityGroups()
+			// We just tried to create a duplicate group, so load the existing group.
+			group, err = e.getSecurityGroupByName(name)
 			if err != nil {
 				return zeroGroup, err
 			}
-			found := false
-			for _, group := range groups {
-				if group.Name == name {
-					g = group
-					found = true
-					break
-				}
-			}
-			if !found {
-				return zeroGroup, fmt.Errorf("Security group %s exists but could not be retrieved.", name)
-			}
 		}
-	} else {
-		g = *group
 	}
 	// The group is created so now add the rules.
 	for _, rule := range rules {
-		rule.ParentGroupId = g.Id
+		rule.ParentGroupId = group.Id
 		_, err := nova.CreateSecurityGroupRule(rule)
 		if err != nil && !errors.IsDuplicateValue(err) {
 			return zeroGroup, err
 		}
 	}
-	return g, nil
+	return *group, nil
 }
 
 func (e *environ) terminateInstances(ids []state.InstanceId) error {
