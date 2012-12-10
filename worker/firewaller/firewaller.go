@@ -53,6 +53,8 @@ func (fw *Firewaller) loop() error {
 	defer fw.stopWatchers()
 
 	var err error
+	var reconciled bool
+
 	fw.environ, err = worker.WaitForEnviron(fw.environWatcher, fw.tomb.Dying())
 	if err != nil {
 		return err
@@ -60,9 +62,6 @@ func (fw *Firewaller) loop() error {
 	if fw.environ.Config().FirewallMode() == config.FwGlobal {
 		fw.globalMode = true
 		fw.globalPortRef = make(map[state.Port]int)
-	}
-	if err = fw.init(); err != nil {
-		return err
 	}
 	for {
 		select {
@@ -81,6 +80,13 @@ func (fw *Firewaller) loop() error {
 			}
 			for _, id := range change {
 				fw.machineLifeChanged(id)
+			}
+			if !reconciled {
+				err = fw.reconcile()
+				if err != nil {
+					return err
+				}
+				reconciled = true
 			}
 		case change := <-fw.unitsChange:
 			if err := fw.unitsChanged(change); err != nil {
@@ -105,24 +111,79 @@ func (fw *Firewaller) loop() error {
 	panic("not reached")
 }
 
-// init starts the watchers for machines, units and services based
-// on the current state. In global mode it additionally checks if
-// ports are opened or closed illegally.
-func (fw *Firewaller) init() error {
-	change, ok := <-fw.machinesWatcher.Changes()
-	if !ok {
-		return watcher.MustErr(fw.machinesWatcher)
+// startMachine creates a new data value for tracking details of the
+// machine and starts watching the machine for units added or removed.
+func (fw *Firewaller) startMachine(id string) error {
+	md := &machineData{
+		fw:     fw,
+		id:     id,
+		unitds: make(map[string]*unitData),
+		ports:  make([]state.Port, 0),
 	}
-	for _, id := range change {
-		err := fw.initMachine(id)
-		if state.IsNotFound(err) {
-			continue
+	fw.machineds[id] = md
+	m, err := md.machine()
+	if err != nil {
+		if !state.IsNotFound(err) {
+			fw.tomb.Killf("worker/firewaller: cannot watch machine units: %v", err)
 		}
+		return err
+	}
+	md.unitw = m.WatchUnits()
+	change := <-md.unitw.Changes()
+	err = fw.unitsChanged(&unitsChange{md, change})
+	if err != nil {
+		return err
+	}
+	go md.watchLoop()
+	return nil
+}
+
+// startUnit creates a new data value for tracking details of the
+// unit and starts watching the unit for port changes.
+func (fw *Firewaller) startUnit(unit *state.Unit, machineId string) error {
+	ud := &unitData{
+		fw:    fw,
+		unit:  unit,
+		ports: make([]state.Port, 0),
+	}
+	fw.unitds[unit.Name()] = ud
+	ud.machined = fw.machineds[machineId]
+	ud.machined.unitds[unit.Name()] = ud
+	serviceName := unit.ServiceName()
+	if fw.serviceds[serviceName] == nil {
+		err := fw.startService(serviceName)
 		if err != nil {
 			return err
 		}
 	}
+	ud.serviced = fw.serviceds[serviceName]
+	ud.serviced.unitds[unit.Name()] = ud
+	go ud.watchLoop()
+	return nil
+}
 
+// startService creates a new data value for tracking details of the
+// service and starts watching the service for exposure changes.
+func (fw *Firewaller) startService(name string) error {
+	service, err := fw.st.Service(name)
+	if err != nil {
+		return err
+	}
+	sd := &serviceData{
+		fw:      fw,
+		service: service,
+		exposed: service.IsExposed(),
+		unitds:  make(map[string]*unitData),
+	}
+	fw.serviceds[name] = sd
+	go sd.watchLoop(sd.exposed)
+	return nil
+}
+
+// reconcile compares the initially started watcher for machines,
+// units and services with the opened and closed ports of the
+// instances or globally.
+func (fw *Firewaller) reconcile() error {
 	if fw.globalMode {
 		// Compare needed with initial environment ports.
 		initialPorts, err := fw.environ.Ports()
@@ -201,52 +262,6 @@ func (fw *Firewaller) init() error {
 	return nil
 }
 
-// initMachine initializes the watching of the machine with
-// the given id and its assigned units based on the initial
-// watcher events.
-func (fw *Firewaller) initMachine(id string) error {
-	md, err := createMachineData(id, fw)
-	if err != nil {
-		return err
-	}
-	fw.machineds[id] = md
-	change := <-md.unitw.Changes()
-	for _, unitName := range change {
-		unit, err := fw.st.Unit(unitName)
-		if err != nil {
-			return err
-		}
-		service, err := unit.Service()
-		if err != nil {
-			return err
-		}
-		serviceName := service.Name()
-		if service.IsExposed() {
-			if fw.serviceds[serviceName] == nil {
-				fw.serviceds[serviceName] = newServiceData(service, fw)
-			}
-			ud := createUnitData(unit, fw)
-			fw.unitds[unitName] = ud
-			ud.machined = md
-			ud.machined.unitds[unitName] = ud
-			ud.serviced = fw.serviceds[serviceName]
-			ud.serviced.unitds[unitName] = ud
-
-			ports := unit.OpenedPorts()
-			missing := diff(ports, md.ports)
-			ud.ports = ports
-			md.ports = append(md.ports, missing...)
-
-			go ud.watchLoop()
-			log.Debugf("worker/firewaller: started watching unit %s", unitName)
-		}
-	}
-
-	go md.watchLoop()
-	log.Debugf("worker/firewaller: started watching machine %s", id)
-	return nil
-}
-
 // unitsChanged responds to changes to the assigned units.
 func (fw *Firewaller) unitsChanged(change *unitsChange) error {
 	changed := []*unitData{}
@@ -274,21 +289,11 @@ func (fw *Firewaller) unitsChanged(change *unitsChange) error {
 				log.Debugf("worker/firewaller: stopped watching unit %s", name)
 			}
 		} else if unit != nil && unit.Life() != state.Dead && fw.machineds[machineId] != nil {
-			unitd := newUnitData(unit, fw)
-			fw.unitds[name] = unitd
-			unitd.machined = fw.machineds[machineId]
-			unitd.machined.unitds[name] = unitd
-			serviceName := unit.ServiceName()
-			if fw.serviceds[serviceName] == nil {
-				service, err := fw.st.Service(serviceName)
-				if err != nil {
-					return err
-				}
-				fw.serviceds[serviceName] = newServiceData(service, fw)
+			err = fw.startUnit(unit, machineId)
+			if err != nil {
+				return err
 			}
-			unitd.serviced = fw.serviceds[serviceName]
-			unitd.serviced.unitds[name] = unitd
-			changed = append(changed, unitd)
+			changed = append(changed, fw.unitds[name])
 			log.Debugf("worker/firewaller: started watching unit %s", name)
 		}
 	}
@@ -434,16 +439,16 @@ func (fw *Firewaller) machineLifeChanged(id string) error {
 		return fw.forgetMachine(machined)
 	}
 	if !known && !dead {
-		md, err := newMachineData(id, fw)
+		err = fw.startMachine(id)
 		if err != nil {
 			return err
 		}
-		fw.machineds[id] = md
 		log.Debugf("worker/firewaller: started watching machine %s", id)
 	}
 	return nil
 }
 
+// forgetMachine cleans the machine data after the machine is removed.
 func (fw *Firewaller) forgetMachine(machined *machineData) error {
 	for _, unitd := range machined.unitds {
 		unitd.ports = nil
@@ -540,36 +545,6 @@ type machineData struct {
 	unitw  *state.MachineUnitsWatcher
 }
 
-// createMachineData returns an initialized data value for a machine.
-func createMachineData(id string, fw *Firewaller) (*machineData, error) {
-	md := &machineData{
-		fw:     fw,
-		id:     id,
-		unitds: make(map[string]*unitData),
-		ports:  make([]state.Port, 0),
-	}
-	m, err := md.machine()
-	if err != nil {
-		if !state.IsNotFound(err) {
-			md.fw.tomb.Killf("worker/firewaller: cannot watch machine units: %v", err)
-		}
-		return nil, err
-	}
-	md.unitw = m.WatchUnits()
-	return md, nil
-}
-
-// newMachineData returns a new data value for tracking details of the
-// machine, and starts watching the machine for units added or removed.
-func newMachineData(id string, fw *Firewaller) (*machineData, error) {
-	md, err := createMachineData(id, fw)
-	if err != nil {
-		return nil, err
-	}
-	go md.watchLoop()
-	return md, nil
-}
-
 func (md *machineData) machine() (*state.Machine, error) {
 	return md.fw.st.Machine(md.id)
 }
@@ -577,7 +552,7 @@ func (md *machineData) machine() (*state.Machine, error) {
 // watchLoop watches the machine for units added or removed.
 func (md *machineData) watchLoop() {
 	defer md.tomb.Done()
-	defer md.unitw.Stop()
+	defer watcher.Stop(md.unitw, &md.tomb)
 	for {
 		select {
 		case <-md.tomb.Dying():
@@ -619,23 +594,6 @@ type unitData struct {
 	serviced *serviceData
 	machined *machineData
 	ports    []state.Port
-}
-
-// createUnitData returns an initialized data value for a unit.
-func createUnitData(unit *state.Unit, fw *Firewaller) *unitData {
-	return &unitData{
-		fw:    fw,
-		unit:  unit,
-		ports: make([]state.Port, 0),
-	}
-}
-
-// newUnitData returns a new data value for tracking details of the unit,
-// and starts watching the unit for port changes.
-func newUnitData(unit *state.Unit, fw *Firewaller) *unitData {
-	ud := createUnitData(unit, fw)
-	go ud.watchLoop()
-	return ud
 }
 
 // watchLoop watches the unit for port changes.
@@ -708,19 +666,6 @@ type serviceData struct {
 	service *state.Service
 	exposed bool
 	unitds  map[string]*unitData
-}
-
-// newServiceData returns a new data value for tracking details of the
-// service, and starts watching the service for exposure changes.
-func newServiceData(service *state.Service, fw *Firewaller) *serviceData {
-	sd := &serviceData{
-		fw:      fw,
-		service: service,
-		unitds:  make(map[string]*unitData),
-	}
-	sd.exposed = service.IsExposed()
-	go sd.watchLoop(sd.exposed)
-	return sd
 }
 
 // watchLoop watches the service's exposed flag for changes.

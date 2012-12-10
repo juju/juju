@@ -331,6 +331,35 @@ func (s *FirewallerSuite) TestFirewallerStartWithPartialState(c *C) {
 	s.assertPorts(c, inst, m.Id(), []state.Port{{"tcp", 80}})
 }
 
+func (s *FirewallerSuite) TestFirewallerStartWithUnexposedService(c *C) {
+	m, err := s.State.AddMachine(state.MachinerWorker)
+	c.Assert(err, IsNil)
+	inst, err := s.Conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), nil)
+	c.Assert(err, IsNil)
+	err = m.SetInstanceId(inst.Id())
+	c.Assert(err, IsNil)
+
+	svc, err := s.State.AddService("wordpress", s.charm)
+	c.Assert(err, IsNil)
+	u, err := svc.AddUnit()
+	c.Assert(err, IsNil)
+	err = u.AssignToMachine(m)
+	c.Assert(err, IsNil)
+	err = u.OpenPort("tcp", 80)
+	c.Assert(err, IsNil)
+
+	// Starting the firewaller, no open ports.
+	fw := firewaller.NewFirewaller(s.State)
+	defer func() { c.Assert(fw.Stop(), IsNil) }()
+
+	s.assertPorts(c, inst, m.Id(), nil)
+
+	// Expose service.
+	err = svc.SetExposed()
+	c.Assert(err, IsNil)
+	s.assertPorts(c, inst, m.Id(), []state.Port{{"tcp", 80}})
+}
+
 func (s *FirewallerSuite) TestSetClearExposedService(c *C) {
 	fw := firewaller.NewFirewaller(s.State)
 	defer func() { c.Assert(fw.Stop(), IsNil) }()
@@ -583,6 +612,39 @@ func (s *FirewallerSuite) TestGlobalMode(c *C) {
 	err = u2.ClosePort("tcp", 80)
 	c.Assert(err, IsNil)
 	s.assertEnvironPorts(c, nil)
+}
+
+func (s *FirewallerSuite) TestGlobalModeStartWithUnexposedService(c *C) {
+	// Change configuration.
+	restore := s.setGlobalMode(c)
+	defer restore(c)
+
+	m, err := s.State.AddMachine(state.MachinerWorker)
+	c.Assert(err, IsNil)
+	inst, err := s.Conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), nil)
+	c.Assert(err, IsNil)
+	err = m.SetInstanceId(inst.Id())
+	c.Assert(err, IsNil)
+
+	svc, err := s.State.AddService("wordpress", s.charm)
+	c.Assert(err, IsNil)
+	u, err := svc.AddUnit()
+	c.Assert(err, IsNil)
+	err = u.AssignToMachine(m)
+	c.Assert(err, IsNil)
+	err = u.OpenPort("tcp", 80)
+	c.Assert(err, IsNil)
+
+	// Starting the firewaller, no open ports.
+	fw := firewaller.NewFirewaller(s.State)
+	defer func() { c.Assert(fw.Stop(), IsNil) }()
+
+	s.assertEnvironPorts(c, nil)
+
+	// Expose service.
+	err = svc.SetExposed()
+	c.Assert(err, IsNil)
+	s.assertEnvironPorts(c, []state.Port{{"tcp", 80}})
 }
 
 func (s *FirewallerSuite) TestGlobalModeRestart(c *C) {
