@@ -375,7 +375,7 @@ func (s *WatcherSuite) TestScale(c *C) {
 
 	c.Logf("Forcing a refresh...")
 	s.w.StartSync()
-	// There is a data race on log.Debug. To avoid this race stop the 
+	// There is a data race on log.Debug. To avoid this race stop the
 	// watcher before restoring the value of log.Debug so the watcher
 	// does not observe a stale value of log.Debug.
 	defer s.w.Stop()
