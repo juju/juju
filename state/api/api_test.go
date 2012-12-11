@@ -7,7 +7,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	coretesting "launchpad.net/juju-core/testing"
 	"net"
-	"net/http"
 	stdtesting "testing"
 )
 
@@ -32,9 +31,10 @@ func (s *suite) SetUpTest(c *C) {
 	l, err := net.Listen("tcp", ":0")
 	c.Assert(err, IsNil)
 	s.listener = l
-	go http.Serve(l, api.NewHandler(s.State))
+	go api.Serve(s.State, l, []byte(coretesting.ServerCert), []byte(coretesting.ServerKey))
 	s.APIState, err = api.Open(&api.Info{
-		Addr: l.Addr().String(),
+		Addr:   l.Addr().String(),
+		CACert: []byte(coretesting.CACert),
 	})
 	c.Assert(err, IsNil)
 }
