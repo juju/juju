@@ -15,70 +15,70 @@ import (
 	"launchpad.net/juju-core/worker/deployer"
 )
 
-type SimpleContextSuite struct {
+type SimpleManagerSuite struct {
 	SimpleToolsFixture
 }
 
-var _ = Suite(&SimpleContextSuite{})
+var _ = Suite(&SimpleManagerSuite{})
 
-func (s *SimpleContextSuite) SetUpTest(c *C) {
+func (s *SimpleManagerSuite) SetUpTest(c *C) {
 	s.SimpleToolsFixture.SetUp(c, c.MkDir())
 }
 
-func (s *SimpleContextSuite) TearDownTest(c *C) {
+func (s *SimpleManagerSuite) TearDownTest(c *C) {
 	s.SimpleToolsFixture.TearDown(c)
 }
 
-func (s *SimpleContextSuite) TestInstallRemove(c *C) {
-	ctx0 := s.getContext(c, "test-entity-0")
-	units, err := ctx0.DeployedUnits()
+func (s *SimpleManagerSuite) TestInstallRemove(c *C) {
+	mgr0 := s.getManager(c, "test-entity-0")
+	units, err := mgr0.DeployedUnits()
 	c.Assert(err, IsNil)
 	c.Assert(units, HasLen, 0)
 	s.assertUpstartCount(c, 0)
 
-	err = ctx0.DeployUnit("foo/123", "some-password")
+	err = mgr0.DeployUnit("foo/123", "some-password")
 	c.Assert(err, IsNil)
-	units, err = ctx0.DeployedUnits()
+	units, err = mgr0.DeployedUnits()
 	c.Assert(err, IsNil)
 	c.Assert(units, DeepEquals, []string{"foo/123"})
 	s.assertUpstartCount(c, 1)
 	s.checkUnitInstalled(c, "foo/123", "test-entity-0", "some-password")
 
-	ctx1 := s.getContext(c, "test-entity-1")
-	units, err = ctx1.DeployedUnits()
+	mgr1 := s.getManager(c, "test-entity-1")
+	units, err = mgr1.DeployedUnits()
 	c.Assert(err, IsNil)
 	c.Assert(units, HasLen, 0)
 
-	err = ctx1.DeployUnit("bar/456", "another-password")
+	err = mgr1.DeployUnit("bar/456", "another-password")
 	c.Assert(err, IsNil)
-	units, err = ctx1.DeployedUnits()
+	units, err = mgr1.DeployedUnits()
 	c.Assert(err, IsNil)
 	c.Assert(units, DeepEquals, []string{"bar/456"})
 	s.assertUpstartCount(c, 2)
 	s.checkUnitInstalled(c, "foo/123", "test-entity-0", "some-password")
 	s.checkUnitInstalled(c, "bar/456", "test-entity-1", "another-password")
 
-	err = ctx0.RecallUnit("bar/456")
+	err = mgr0.RecallUnit("bar/456")
 	c.Assert(err, ErrorMatches, `unit "bar/456" is not deployed`)
-	units, err = ctx1.DeployedUnits()
+	units, err = mgr1.DeployedUnits()
 	c.Assert(err, IsNil)
 	c.Assert(units, DeepEquals, []string{"bar/456"})
 	s.assertUpstartCount(c, 2)
 	s.checkUnitInstalled(c, "foo/123", "test-entity-0", "some-password")
 	s.checkUnitInstalled(c, "bar/456", "test-entity-1", "another-password")
 
-	err = ctx0.RecallUnit("foo/123")
+	err = mgr0.RecallUnit("foo/123")
 	c.Assert(err, IsNil)
-	units, err = ctx0.DeployedUnits()
+	units, err = mgr0.DeployedUnits()
 	c.Assert(err, IsNil)
 	c.Assert(units, HasLen, 0)
 	s.assertUpstartCount(c, 1)
 	s.checkUnitRemoved(c, "foo/123", "test-entity-0")
 	s.checkUnitInstalled(c, "bar/456", "test-entity-1", "another-password")
 
-	err = ctx1.RecallUnit("bar/456")
+	err = mgr1.RecallUnit("bar/456")
 	c.Assert(err, IsNil)
-	units, err = ctx1.DeployedUnits()
+	units, err = mgr1.DeployedUnits()
 	c.Assert(err, IsNil)
 	c.Assert(units, HasLen, 0)
 	s.assertUpstartCount(c, 0)
@@ -134,8 +134,8 @@ func (fix *SimpleToolsFixture) assertUpstartCount(c *C, count int) {
 	c.Assert(fis, HasLen, count)
 }
 
-func (fix *SimpleToolsFixture) getContext(c *C, deployerName string) *deployer.SimpleContext {
-	return &deployer.SimpleContext{
+func (fix *SimpleToolsFixture) getManager(c *C, deployerName string) *deployer.SimpleManager {
+	return &deployer.SimpleManager{
 		StateInfo: &state.Info{
 			CACert:     []byte("test-cert"),
 			Addrs:      []string{"s1:123", "s2:123"},
@@ -148,7 +148,7 @@ func (fix *SimpleToolsFixture) getContext(c *C, deployerName string) *deployer.S
 }
 
 func (fix *SimpleToolsFixture) paths(entityName, xName string) (confPath, agentDir, toolsDir string) {
-	confName := fmt.Sprintf("jujud-%s-x-%s.conf", entityName, xName)
+	confName := fmt.Sprintf("jujud-%s:%s.conf", xName, entityName)
 	confPath = filepath.Join(fix.initDir, confName)
 	agentDir = environs.AgentDir(fix.dataDir, entityName)
 	toolsDir = environs.AgentToolsDir(fix.dataDir, entityName)

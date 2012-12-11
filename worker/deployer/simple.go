@@ -15,9 +15,9 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
-// SimpleContext is a Context that manages unit deployments via upstart
+// SimpleManager is a Manager that manages unit deployments via upstart
 // jobs on the local system.
-type SimpleContext struct {
+type SimpleManager struct {
 
 	// StateInfo identifies (by EntityName) the agent responsible for
 	// deployments in this context, and (by Addrs and CACert) the
@@ -37,18 +37,18 @@ type SimpleContext struct {
 	LogDir string
 }
 
-var _ Context = &SimpleContext{}
+var _ Manager = (*SimpleManager)(nil)
 
-// NewSimpleContext returns a new SimpleContext, acting on behalf of the
+// NewSimpleContext returns a new SimpleManager, acting on behalf of the
 // entity specified in info, that deploys unit agents as upstart jobs in
 // "/etc/init" logging to "/var/log/juju". Paths to which agents and tools
 // are installed are relative to dataDir; if dataDir is empty, it will be
 // set to "/var/lib/juju".
-func NewSimpleContext(info *state.Info, dataDir string) *SimpleContext {
+func NewSimpleContext(info *state.Info, dataDir string) *SimpleManager {
 	if dataDir == "" {
 		dataDir = "/var/lib/juju"
 	}
-	return &SimpleContext{
+	return &SimpleManager{
 		StateInfo: info,
 		InitDir:   "/etc/init",
 		DataDir:   dataDir,
@@ -56,25 +56,21 @@ func NewSimpleContext(info *state.Info, dataDir string) *SimpleContext {
 	}
 }
 
-func (ctx *SimpleContext) DeployerName() string {
-	return ctx.StateInfo.EntityName
-}
-
-func (ctx *SimpleContext) DeployUnit(name, initialPassword string) (err error) {
+func (mgr *SimpleManager) DeployUnit(unitName, initialPassword string) (err error) {
 	// Check sanity.
-	svc := ctx.upstartService(name)
+	svc := mgr.upstartService(unitName)
 	if svc.Installed() {
-		return fmt.Errorf("unit %q is already deployed", name)
+		return fmt.Errorf("unit %q is already deployed", unitName)
 	}
 
 	// Link the current tools for use by the new agent.
-	entityName := state.UnitEntityName(name)
-	_, err = environs.ChangeAgentTools(ctx.DataDir, entityName, version.Current)
-	toolsDir := environs.AgentToolsDir(ctx.DataDir, entityName)
+	entityName := state.UnitEntityName(unitName)
+	_, err = environs.ChangeAgentTools(mgr.DataDir, entityName, version.Current)
+	toolsDir := environs.AgentToolsDir(mgr.DataDir, entityName)
 	defer removeOnErr(&err, toolsDir)
 
 	// Create the agent's state directory.
-	agentDir := environs.AgentDir(ctx.DataDir, entityName)
+	agentDir := environs.AgentDir(mgr.DataDir, entityName)
 	if err := os.MkdirAll(agentDir, 0755); err != nil {
 		return err
 	}
@@ -82,66 +78,66 @@ func (ctx *SimpleContext) DeployUnit(name, initialPassword string) (err error) {
 
 	// Create the CA certificate used to validate the state connection.
 	certPath := filepath.Join(agentDir, "ca-cert.pem")
-	if err := ioutil.WriteFile(certPath, ctx.StateInfo.CACert, 0644); err != nil {
+	if err := ioutil.WriteFile(certPath, mgr.StateInfo.CACert, 0644); err != nil {
 		return err
 	}
 	defer removeOnErr(&err, certPath)
 
 	// Install an upstart job that runs the unit agent.
-	logPath := filepath.Join(ctx.LogDir, entityName+".log")
+	logPath := filepath.Join(mgr.LogDir, entityName+".log")
 	cmd := strings.Join([]string{
 		filepath.Join(toolsDir, "jujud"), "unit",
-		"--unit-name", name,
+		"--unit-name", unitName,
 		"--ca-cert", certPath,
-		"--state-servers", strings.Join(ctx.StateInfo.Addrs, ","),
+		"--state-servers", strings.Join(mgr.StateInfo.Addrs, ","),
 		"--initial-password", initialPassword,
 		"--log-file", logPath,
 		"--debug", // TODO: propagate debug state sensibly
 	}, " ")
 	conf := &upstart.Conf{
 		Service: *svc,
-		Desc:    "juju unit agent for " + name,
+		Desc:    "juju unit agent for " + unitName,
 		Cmd:     cmd,
 		Out:     logPath,
 	}
 	return conf.Install()
 }
 
-func (ctx *SimpleContext) RecallUnit(name string) error {
-	svc := ctx.upstartService(name)
+func (mgr *SimpleManager) RecallUnit(unitName string) error {
+	svc := mgr.upstartService(unitName)
 	if !svc.Installed() {
-		return fmt.Errorf("unit %q is not deployed", name)
+		return fmt.Errorf("unit %q is not deployed", unitName)
 	}
 	if err := svc.Remove(); err != nil {
 		return err
 	}
-	entityName := state.UnitEntityName(name)
-	agentDir := environs.AgentDir(ctx.DataDir, entityName)
+	entityName := state.UnitEntityName(unitName)
+	agentDir := environs.AgentDir(mgr.DataDir, entityName)
 	if err := os.RemoveAll(agentDir); err != nil {
 		return err
 	}
-	toolsDir := environs.AgentToolsDir(ctx.DataDir, entityName)
+	toolsDir := environs.AgentToolsDir(mgr.DataDir, entityName)
 	return os.Remove(toolsDir)
 }
 
-func (ctx *SimpleContext) DeployedUnits() ([]string, error) {
-	pattern := "^jujud-unit-([a-z0-9-]+)-([0-9]+)-x-" + ctx.DeployerName() + "\\.conf$"
-	re, err := regexp.Compile(pattern)
-	if err != nil {
-		return nil, err
-	}
-	fis, err := ioutil.ReadDir(ctx.InitDir)
+var deployedRe = regexp.MustCompile("^jujud-([a-z0-9-]+):unit-([a-z0-9-]+)-([0-9]+)\\.conf$")
+
+func (mgr *SimpleManager) DeployedUnits() ([]string, error) {
+	fis, err := ioutil.ReadDir(mgr.InitDir)
 	if err != nil {
 		return nil, err
 	}
 	var installed []string
 	for _, fi := range fis {
-		if groups := re.FindStringSubmatch(fi.Name()); len(groups) == 3 {
-			name := groups[1] + "/" + groups[2]
-			if !state.IsUnitName(name) {
+		if groups := deployedRe.FindStringSubmatch(fi.Name()); len(groups) == 4 {
+			if groups[1] != mgr.StateInfo.EntityName {
 				continue
 			}
-			installed = append(installed, name)
+			unitName := groups[2] + "/" + groups[3]
+			if !state.IsUnitName(unitName) {
+				continue
+			}
+			installed = append(installed, unitName)
 		}
 	}
 	return installed, nil
@@ -151,11 +147,11 @@ func (ctx *SimpleContext) DeployedUnits() ([]string, error) {
 // unit. Its name is badged according to the entity responsible for the
 // context, so as to distinguish its own jobs from those installed by other
 // means.
-func (ctx *SimpleContext) upstartService(name string) *upstart.Service {
-	entityName := state.UnitEntityName(name)
-	svcName := "jujud-" + entityName + "-x-" + ctx.DeployerName()
+func (mgr *SimpleManager) upstartService(unitName string) *upstart.Service {
+	entityName := state.UnitEntityName(unitName)
+	svcName := "jujud-" + mgr.StateInfo.EntityName + ":" + entityName
 	svc := upstart.NewService(svcName)
-	svc.InitDir = ctx.InitDir
+	svc.InitDir = mgr.InitDir
 	return svc
 }
 
