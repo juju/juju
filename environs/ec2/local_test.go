@@ -99,12 +99,16 @@ type localServer struct {
 
 func (srv *localServer) startServer(c *C) {
 	var err error
-	const emulateUSEast1 = false
 	srv.ec2srv, err = ec2test.NewServer()
 	if err != nil {
 		c.Fatalf("cannot start ec2 test server: %v", err)
 	}
-	srv.s3srv, err = s3test.NewServer(emulateUSEast1)
+	srv.s3srv, err = s3test.NewServer(&s3test.Config{
+		// this server is not in us-east-1; it's region is test.
+		// tf. it should respond with a 409 conflict when 
+		// PUT is called on an existing bucket.
+		Send409Conflict: true,
+	})
 	if err != nil {
 		c.Fatalf("cannot start s3 test server: %v", err)
 	}
