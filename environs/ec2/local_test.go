@@ -105,7 +105,7 @@ func (srv *localServer) startServer(c *C) {
 	}
 	srv.s3srv, err = s3test.NewServer(&s3test.Config{
 		// this server is not in us-east-1; it's region is test.
-		// tf. it should respond with a 409 conflict when 
+		// tf. it should respond with a 409 conflict when
 		// PUT is called on an existing bucket.
 		Send409Conflict: true,
 	})
