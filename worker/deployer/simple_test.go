@@ -29,7 +29,7 @@ func (s *SimpleManagerSuite) TearDownTest(c *C) {
 	s.SimpleToolsFixture.TearDown(c)
 }
 
-func (s *SimpleManagerSuite) TestInstallRemove(c *C) {
+func (s *SimpleManagerSuite) TestDeployRecall(c *C) {
 	mgr0 := s.getManager(c, "test-entity-0")
 	units, err := mgr0.DeployedUnits()
 	c.Assert(err, IsNil)
@@ -44,45 +44,34 @@ func (s *SimpleManagerSuite) TestInstallRemove(c *C) {
 	s.assertUpstartCount(c, 1)
 	s.checkUnitInstalled(c, "foo/123", "test-entity-0", "some-password")
 
-	mgr1 := s.getManager(c, "test-entity-1")
-	units, err = mgr1.DeployedUnits()
-	c.Assert(err, IsNil)
-	c.Assert(units, HasLen, 0)
-
-	err = mgr1.DeployUnit("bar/456", "another-password")
-	c.Assert(err, IsNil)
-	units, err = mgr1.DeployedUnits()
-	c.Assert(err, IsNil)
-	c.Assert(units, DeepEquals, []string{"bar/456"})
-	s.assertUpstartCount(c, 2)
-	s.checkUnitInstalled(c, "foo/123", "test-entity-0", "some-password")
-	s.checkUnitInstalled(c, "bar/456", "test-entity-1", "another-password")
-
-	err = mgr0.RecallUnit("bar/456")
-	c.Assert(err, ErrorMatches, `unit "bar/456" is not deployed`)
-	units, err = mgr1.DeployedUnits()
-	c.Assert(err, IsNil)
-	c.Assert(units, DeepEquals, []string{"bar/456"})
-	s.assertUpstartCount(c, 2)
-	s.checkUnitInstalled(c, "foo/123", "test-entity-0", "some-password")
-	s.checkUnitInstalled(c, "bar/456", "test-entity-1", "another-password")
-
 	err = mgr0.RecallUnit("foo/123")
 	c.Assert(err, IsNil)
 	units, err = mgr0.DeployedUnits()
 	c.Assert(err, IsNil)
 	c.Assert(units, HasLen, 0)
-	s.assertUpstartCount(c, 1)
+	s.assertUpstartCount(c, 0)
 	s.checkUnitRemoved(c, "foo/123", "test-entity-0")
-	s.checkUnitInstalled(c, "bar/456", "test-entity-1", "another-password")
+}
 
-	err = mgr1.RecallUnit("bar/456")
+func (s *SimpleManagerSuite) TestIndependentManagers(c *C) {
+	mgr0 := s.getManager(c, "test-entity-0")
+	err := mgr0.DeployUnit("foo/123", "some-password")
 	c.Assert(err, IsNil)
-	units, err = mgr1.DeployedUnits()
+
+	mgr1 := s.getManager(c, "test-entity-1")
+	units, err := mgr1.DeployedUnits()
 	c.Assert(err, IsNil)
 	c.Assert(units, HasLen, 0)
-	s.assertUpstartCount(c, 0)
-	s.checkUnitRemoved(c, "bar/456", "test-entity-1")
+
+	err = mgr1.RecallUnit("foo/123")
+	c.Assert(err, ErrorMatches, `unit "foo/123" is not deployed`)
+	s.checkUnitInstalled(c, "foo/123", "test-entity-0", "some-password")
+
+	units, err = mgr0.DeployedUnits()
+	c.Assert(err, IsNil)
+	c.Assert(units, DeepEquals, []string{"foo/123"})
+	s.assertUpstartCount(c, 1)
+	s.checkUnitInstalled(c, "foo/123", "test-entity-0", "some-password")
 }
 
 type SimpleToolsFixture struct {
