@@ -45,7 +45,7 @@ func startMgoServer() error {
 		return err
 	}
 	pemPath := filepath.Join(dbdir, "server.pem")
-	err = ioutil.WriteFile(pemPath, []byte(serverCert+serverKey), 0600)
+	err = ioutil.WriteFile(pemPath, []byte(ServerCert+ServerKey), 0600)
 	if err != nil {
 		return fmt.Errorf("cannot write cert/key PEM: %v", err)
 	}

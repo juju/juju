@@ -81,9 +81,9 @@ func listTools(store StorageReader, majorVersion int) ([]*state.Tools, error) {
 
 // PutTools builds the current version of the juju tools, uploads them
 // to the given storage, and returns a Tools instance describing them.
-// If vers is non-nil it will override the current version in the uploaded
-// tools.
-func PutTools(storage Storage, vers *version.Binary) (*state.Tools, error) {
+// If forceVersion is not nil, the uploaded tools bundle will report
+// the given version number.
+func PutTools(storage Storage, forceVersion *version.Number) (*state.Tools, error) {
 	// TODO(rog) find binaries from $PATH when not using a development
 	// version of juju within a $GOPATH.
 
@@ -96,7 +96,7 @@ func PutTools(storage Storage, vers *version.Binary) (*state.Tools, error) {
 	}
 	defer f.Close()
 	defer os.Remove(f.Name())
-	tvers, err := bundleTools(f, vers)
+	toolsVersion, err := bundleTools(f, forceVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +108,7 @@ func PutTools(storage Storage, vers *version.Binary) (*state.Tools, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot stat newly made tools archive: %v", err)
 	}
-	p := ToolsStoragePath(tvers)
+	p := ToolsStoragePath(toolsVersion)
 	log.Printf("environs: putting tools %v (%dkB)", p, (fi.Size()+512)/1024)
 	err = storage.Put(p, f, fi.Size())
 	if err != nil {
@@ -118,7 +118,7 @@ func PutTools(storage Storage, vers *version.Binary) (*state.Tools, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &state.Tools{tvers, url}, nil
+	return &state.Tools{toolsVersion, url}, nil
 }
 
 // archive writes the executable files found in the given directory in
@@ -436,7 +436,9 @@ func setenv(env []string, val string) []string {
 
 // bundleTools bundles all the current juju tools in gzipped tar
 // format to the given writer.
-func bundleTools(w io.Writer, vers *version.Binary) (version.Binary, error) {
+// If forceVersion is not nil, a FORCE-VERSION file is included in
+// the tools bundle so it will lie about its current version number.
+func bundleTools(w io.Writer, forceVersion *version.Number) (version.Binary, error) {
 	dir, err := ioutil.TempDir("", "juju-tools")
 	if err != nil {
 		return version.Binary{}, err
@@ -456,8 +458,8 @@ func bundleTools(w io.Writer, vers *version.Binary) (version.Binary, error) {
 			return version.Binary{}, fmt.Errorf("build command %q failed: %v; %s", args[0], err, out)
 		}
 	}
-	if vers != nil {
-		if err := ioutil.WriteFile(filepath.Join(dir, "FORCE-VERSION"), []byte((*vers).String()), 0666); err != nil {
+	if forceVersion != nil {
+		if err := ioutil.WriteFile(filepath.Join(dir, "FORCE-VERSION"), []byte(forceVersion.String()), 0666); err != nil {
 			return version.Binary{}, err
 		}
 	}
