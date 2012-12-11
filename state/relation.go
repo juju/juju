@@ -257,7 +257,7 @@ var ErrCannotEnterScope = errors.New("cannot enter scope: unit or relation is no
 // that its relation settings contain its private address. When the unit has
 // already entered its relation scope, EnterScope will report success but make
 // no changes to state; otherwise, it is an error for either the relation or
-// the unit not to be Alive. Once a unit has entered a scope, in stays in scope
+// the unit not to be Alive. Once a unit has entered a scope, it stays in scope
 // without further intervention; the relation will not be able to become Dead
 // until all units have departed its scopes.
 func (ru *RelationUnit) EnterScope() error {
@@ -301,27 +301,31 @@ func (ru *RelationUnit) EnterScope() error {
 	} else if err != nil {
 		return fmt.Errorf("cannot check settings for %s: %v", desc, err)
 	}
-	if err := ru.st.runner.Run(ops, "", nil); err == txn.ErrAborted {
-		if count, err := ru.st.relationScopes.FindId(key).Count(); err != nil {
-			return fmt.Errorf("cannot examine scope for %s: %v", desc, err)
-		} else if count != 0 {
-			return nil
-		}
-		for _, l := range []lifeRefresher{ru.relation, ru.unit} {
-			if err := l.Refresh(); IsNotFound(err) {
-				return ErrCannotEnterScope
-			} else if err != nil {
-				return err
-			}
-			if l.Life() != Alive {
-				return ErrCannotEnterScope
-			}
-		}
-		return fmt.Errorf("cannot enter scope for %s: inconsistent state", desc)
-	} else if err != nil {
+	if err := ru.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
 		return err
 	}
-	return nil
+	if count, err := ru.st.relationScopes.FindId(key).Count(); err != nil {
+		return fmt.Errorf("cannot examine scope for %s: %v", desc, err)
+	} else if count != 0 {
+		// The scope document exists, so we're already in scope; the txn was
+		// aborted by one of the DocMissing checks.
+		return nil
+	}
+	// If there's no scope document, the abort should be a consequence of
+	// one of the isAlive checks: find out which.
+	for _, l := range []lifeRefresher{ru.relation, ru.unit} {
+		if err := l.Refresh(); IsNotFound(err) {
+			return ErrCannotEnterScope
+		} else if err != nil {
+			return err
+		}
+		if l.Life() != Alive {
+			return ErrCannotEnterScope
+		}
+	}
+	// Apparently, all our assertions should have passed, but the txn was
+	// aborted: something is badly wrong.
+	return fmt.Errorf("cannot enter scope for %s: inconsistent state", desc)
 }
 
 type lifeRefresher interface {

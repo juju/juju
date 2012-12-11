@@ -24,10 +24,6 @@ var envVars = map[string]string{
 
 var _ = Suite(&ConfigSuite{})
 
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
 // configTest specifies a config parsing test, checking that env when
 // parsed as the openstack section of a config file matches
 // baseConfigResult when mutated by the mutate function, or that the
@@ -130,8 +126,8 @@ func (s *ConfigSuite) SetUpTest(c *C) {
 }
 
 func (s *ConfigSuite) TearDownTest(c *C) {
-	for v, val := range envVars {
-		os.Setenv(v, val)
+	for k, v := range s.savedVars {
+		os.Setenv(k, v)
 	}
 }
 
@@ -256,36 +252,40 @@ func (s *ConfigSuite) TestConfig(c *C) {
 
 func (s *ConfigSuite) TestMissingRegion(c *C) {
 	os.Setenv("OS_REGION_NAME", "")
+	os.Setenv("NOVA_REGION_NAME", "")
 	test := configTests[0]
 	delete(test.config, "region")
-	test.err = ".*environment has no region"
+	test.err = "required environment variable not set for credentials attribute: Region"
 	test.check(c)
 }
 
 func (s *ConfigSuite) TestMissingUsername(c *C) {
 	os.Setenv("OS_USERNAME", "")
+	os.Setenv("NOVA_USERNAME", "")
 	test := configTests[0]
-	test.err = ".*environment has no username, password, tenant-name, or auth-url"
+	test.err = "required environment variable not set for credentials attribute: User"
 	test.check(c)
 }
 
 func (s *ConfigSuite) TestMissingPassword(c *C) {
 	os.Setenv("OS_PASSWORD", "")
+	os.Setenv("NOVA_PASSWORD", "")
 	test := configTests[0]
-	test.err = ".*environment has no username, password, tenant-name, or auth-url"
+	test.err = "required environment variable not set for credentials attribute: Secrets"
 	test.check(c)
 }
 
 func (s *ConfigSuite) TestMissinTenant(c *C) {
 	os.Setenv("OS_TENANT_NAME", "")
+	os.Setenv("NOVA_PROJECT_ID", "")
 	test := configTests[0]
-	test.err = ".*environment has no username, password, tenant-name, or auth-url"
+	test.err = "required environment variable not set for credentials attribute: TenantName"
 	test.check(c)
 }
 
 func (s *ConfigSuite) TestMissingAuthUrl(c *C) {
 	os.Setenv("OS_AUTH_URL", "")
 	test := configTests[0]
-	test.err = ".*environment has no username, password, tenant-name, or auth-url"
+	test.err = "required environment variable not set for credentials attribute: URL"
 	test.check(c)
 }
