@@ -620,7 +620,7 @@ type offset struct {
 	v int
 }
 
-func (o *offset) set(v int)  { o.Lock(); o.v = v; o.Unlock() }
+func (o *offset) set(v int)  { o.Lock(); defer o.Unlock(); o.v = v }
 func (o *offset) value() int { o.Lock(); defer o.Unlock(); return o.v }
 
 var fakeNow time.Time
