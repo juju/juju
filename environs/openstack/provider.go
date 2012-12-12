@@ -181,7 +181,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 		URL:        ecfg.authURL(),
 	}
 	// TODO(wallyworld): do not hard code authentication type
-	client := client.NewClient(cred, identity.AuthUserPass)
+	client := client.NewClient(cred, identity.AuthUserPass, nil)
 	e.novaUnlocked = nova.New(client)
 	e.swiftUnlocked = swift.New(client)
 	return nil
@@ -239,7 +239,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 		scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
 	//TODO(wallyworld) - implement spec lookup
 	// TODO(wallyworld) - implement userData creation once we have tools
-	var userData []byte = make([]byte, 0)
+	var userData []byte = nil
 	log.Debugf("environs/openstack: openstack user data: %q", userData)
 	groups, err := e.setUpGroups(scfg.machineId)
 	if err != nil {
@@ -252,15 +252,13 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 		groupNames[i] = nova.SecurityGroupName{g.Name}
 	}
 
-	// TODO(wallyworld) - change Goose API to accept []byte not *string
-	userDataString := string(userData)
 	for a := shortAttempt.Start(); a.Next(); {
 		server, err = e.nova().RunServer(nova.RunServerOpts{
 			Name: state.MachineEntityName(scfg.machineId),
 			// TODO(wallyworld) - do not use hard coded image
 			FlavorId:           defaultFlavorId,
 			ImageId:            defaultImageId,
-			UserData:           &userDataString,
+			UserData:           userData,
 			SecurityGroupNames: groupNames,
 		})
 		if err == nil {

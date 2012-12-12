@@ -62,7 +62,7 @@ func (t *LiveTests) SetUpSuite(c *C) {
 	// Get a nova client and start some test service instances.
 	cred, err := identity.CompleteCredentialsFromEnv()
 	c.Assert(err, IsNil)
-	client := client.NewClient(cred, identity.AuthUserPass)
+	client := client.NewClient(cred, identity.AuthUserPass, nil)
 	t.novaClient = nova.New(client)
 
 	// TODO: Put some fake tools in place so that tests that are simply
