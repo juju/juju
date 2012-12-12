@@ -6,7 +6,6 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/schema"
 	"net/url"
-	"os"
 )
 
 var configChecker = schema.StrictFieldMap(
@@ -78,26 +77,37 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 			return nil, fmt.Errorf("invalid auth-url value %q", ecfg.authURL())
 		}
 	}
-	if ecfg.username() == "" || ecfg.password() == "" || ecfg.tenantName() == "" || ecfg.authURL() == "" {
-		cred, err := identity.CompleteCredentialsFromEnv()
-		if err != nil {
-			return nil, err
+	cred := identity.CredentialsFromEnv()
+	missingAttributef := "required environment variable not set for credentials attribute: %s"
+	if ecfg.username() == "" {
+		if cred.User == "" {
+			return nil, fmt.Errorf(missingAttributef, "User")
 		}
 		ecfg.attrs["username"] = cred.User
+	}
+	if ecfg.password() == "" {
+		if cred.Secrets == "" {
+			return nil, fmt.Errorf(missingAttributef, "Secrets")
+		}
 		ecfg.attrs["password"] = cred.Secrets
-		ecfg.attrs["tenant-name"] = cred.TenantName
+	}
+	if ecfg.authURL() == "" {
+		if cred.URL == "" {
+			return nil, fmt.Errorf(missingAttributef, "URL")
+		}
 		ecfg.attrs["auth-url"] = cred.URL
 	}
-	// We cannot validate the region name, since each OS installation
-	// can have its own region names - only after authentication the
-	// region names are known (from the service endpoints)
-	if ecfg.region() == "" {
-		region := os.Getenv("OS_REGION_NAME")
-		if region != "" {
-			ecfg.attrs["region"] = region
-		} else {
-			return nil, fmt.Errorf("OpenStack environment has no region")
+	if ecfg.tenantName() == "" {
+		if cred.TenantName == "" {
+			return nil, fmt.Errorf(missingAttributef, "TenantName")
 		}
+		ecfg.attrs["tenant-name"] = cred.TenantName
+	}
+	if ecfg.region() == "" {
+		if cred.Region == "" {
+			return nil, fmt.Errorf(missingAttributef, "Region")
+		}
+		ecfg.attrs["region"] = cred.Region
 	}
 
 	if old != nil {
