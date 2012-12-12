@@ -129,22 +129,24 @@ func (fw *Firewaller) startMachine(id string) error {
 	if state.IsNotFound(err) {
 		return nil
 	} else if err != nil {
-		fw.tomb.Killf("worker/firewaller: cannot watch machine units: %v", err)
-		return err
+		return fmt.Errorf("worker/firewaller: cannot watch machine units: %v", err)
 	}
-	fw.machineds[id] = machined
-	machined.unitw = m.WatchUnits()
-	change, ok := <-machined.unitw.Changes()
-	if !ok {
-		return watcher.MustErr(machined.unitw)
+	unitw := m.WatchUnits()
+	select {
+	case <-fw.tomb.Dying():
+		return nil
+	case change, ok := <-unitw.Changes():
+		if !ok {
+			return watcher.MustErr(unitw)
+		}
+		fw.machineds[id] = machined
+		err = fw.unitsChanged(&unitsChange{machined, change})
+		if err != nil {
+			watcher.Stop(unitw, &fw.tomb)
+			return fmt.Errorf("worker/firewaller: cannot watch machine units: %v", err)
+		}
 	}
-	err = fw.unitsChanged(&unitsChange{machined, change})
-	if err != nil {
-		watcher.Stop(machined.unitw, &fw.tomb)
-		fw.tomb.Killf("worker/firewaller: cannot watch machine units: %v", err)
-		return err
-	}
-	go machined.watchLoop()
+	go machined.watchLoop(unitw)
 	return nil
 }
 
@@ -163,17 +165,23 @@ func (fw *Firewaller) startUnit(unit *state.Unit, machineId string) error {
 		ports: unit.OpenedPorts(),
 	}
 	fw.unitds[unitName] = unitd
+
 	unitd.machined = fw.machineds[machineId]
 	unitd.machined.unitds[unitName] = unitd
 	if fw.serviceds[serviceName] == nil {
 		err := fw.startService(serviceName)
 		if err != nil {
+			delete(fw.unitds, unitName)
 			return err
 		}
 	}
 	unitd.serviced = fw.serviceds[serviceName]
 	unitd.serviced.unitds[unitName] = unitd
-	go unitd.watchLoop(unitd.ports)
+
+	var ports []state.Port
+	copy(ports, unitd.ports)
+
+	go unitd.watchLoop(ports)
 	return nil
 }
 
@@ -240,9 +248,8 @@ func (fw *Firewaller) reconcileInstances() error {
 	for _, machined := range fw.machineds {
 		m, err := machined.machine()
 		if state.IsNotFound(err) {
-			return nil
-		}
-		if err != nil {
+			return fw.forgetMachine(machined)
+		} else if err != nil {
 			return err
 		}
 		instanceId, err := m.InstanceId()
@@ -469,13 +476,10 @@ func (fw *Firewaller) machineLifeChanged(id string) error {
 // forgetMachine cleans the machine data after the machine is removed.
 func (fw *Firewaller) forgetMachine(machined *machineData) error {
 	for _, unitd := range machined.unitds {
-		unitd.ports = nil
+		fw.forgetUnit(unitd)
 	}
 	if err := fw.flushMachine(machined); err != nil {
 		return err
-	}
-	for _, unitd := range machined.unitds {
-		fw.forgetUnit(unitd)
 	}
 	delete(fw.machineds, machined.id)
 	if err := machined.Stop(); err != nil {
@@ -560,7 +564,6 @@ type machineData struct {
 	id     string
 	unitds map[string]*unitData
 	ports  []state.Port
-	unitw  *state.MachineUnitsWatcher
 }
 
 func (md *machineData) machine() (*state.Machine, error) {
@@ -568,18 +571,18 @@ func (md *machineData) machine() (*state.Machine, error) {
 }
 
 // watchLoop watches the machine for units added or removed.
-func (md *machineData) watchLoop() {
+func (md *machineData) watchLoop(unitw *state.MachineUnitsWatcher) {
 	defer md.tomb.Done()
-	defer watcher.Stop(md.unitw, &md.tomb)
+	defer watcher.Stop(unitw, &md.tomb)
 	for {
 		select {
 		case <-md.tomb.Dying():
 			return
-		case change, ok := <-md.unitw.Changes():
+		case change, ok := <-unitw.Changes():
 			if !ok {
 				_, err := md.machine()
 				if !state.IsNotFound(err) {
-					md.fw.tomb.Kill(watcher.MustErr(md.unitw))
+					md.fw.tomb.Kill(watcher.MustErr(unitw))
 				}
 				return
 			}
