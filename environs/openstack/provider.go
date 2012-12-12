@@ -180,7 +180,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 		TenantName: ecfg.tenantName(),
 		URL:        ecfg.authURL(),
 	}
-	// TODO: do not hard code authentication type
+	// TODO(wallyworld): do not hard code authentication type
 	client := client.NewClient(cred, identity.AuthUserPass)
 	e.novaUnlocked = nova.New(client)
 	e.swiftUnlocked = swift.New(client)
@@ -205,7 +205,7 @@ type startInstanceParams struct {
 	stateServerKey  []byte
 }
 
-func (e *environ) userData(scfg *startInstanceParams) (*string, error) {
+func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 	cfg := &cloudinit.MachineConfig{
 		StateServer:        scfg.stateServer,
 		StateInfo:          scfg.info,
@@ -227,20 +227,19 @@ func (e *environ) userData(scfg *startInstanceParams) (*string, error) {
 	if err != nil {
 		return nil, err
 	}
-	data := string(bytes)
-	return &data, nil
+	return bytes, nil
 }
 
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself.
 func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, error) {
-	// TODO: implement tools lookup
+	// TODO(wallyworld): implement tools lookup
 	scfg.tools = &state.Tools{}
 	log.Printf("environs/openstack: starting machine %s in %q running tools version %q from %q",
 		scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
-	//TODO - implement spec lookup
-	// TODO - implement userData creation once we have tools
-	var userData *string = nil
+	//TODO(wallyworld) - implement spec lookup
+	// TODO(wallyworld) - implement userData creation once we have tools
+	var userData []byte = make([]byte, 0)
 	log.Debugf("environs/openstack: openstack user data: %q", userData)
 	groups, err := e.setUpGroups(scfg.machineId)
 	if err != nil {
@@ -253,13 +252,15 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 		groupNames[i] = nova.SecurityGroupName{g.Name}
 	}
 
+	// TODO(wallyworld) - change Goose API to accept []byte not *string
+	userDataString := string(userData)
 	for a := shortAttempt.Start(); a.Next(); {
 		server, err = e.nova().RunServer(nova.RunServerOpts{
 			Name: state.MachineEntityName(scfg.machineId),
-			// TODO - do not use hard coded image
+			// TODO(wallyworld) - do not use hard coded image
 			FlavorId:           defaultFlavorId,
 			ImageId:            defaultImageId,
-			UserData:           userData,
+			UserData:           &userDataString,
 			SecurityGroupNames: groupNames,
 		})
 		if err == nil {
@@ -312,7 +313,7 @@ func (e *environ) AllInstances() (insts []environs.Instance, err error) {
 	// TODO FIXME Instances must somehow be tagged to be part of the environment.
 	// This is returning *all* instances, which means it's impossible to have two different
 	// environments on the same account.
-	// TODO: add filtering to exclude deleted images etc
+	// TODO(wallyworld): add filtering to exclude deleted images etc
 	servers, err := e.nova().ListServers(nil)
 	if err != nil {
 		return nil, err
@@ -350,7 +351,7 @@ func (e *environ) machineGroupName(machineId string) string {
 }
 
 func (e *environ) jujuGroupName() string {
-	return "juju-" + e.name
+	return fmt.Sprintf("juju-%s", e.name)
 }
 
 func (e *environ) OpenPorts(ports []state.Port) error {
