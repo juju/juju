@@ -425,21 +425,6 @@ func (e *environ) setUpGroups(machineId string) ([]nova.SecurityGroup, error) {
 // zeroGroup holds the zero security group.
 var zeroGroup nova.SecurityGroup
 
-func (e *environ) getSecurityGroupByName(name string) (*nova.SecurityGroup, error) {
-	// OpenStack does not support group filtering, so we need to load them all and manually search by name.
-	nova := e.nova()
-	groups, err := nova.ListSecurityGroups()
-	if err != nil {
-		return nil, err
-	}
-	for _, group := range groups {
-		if group.Name == name {
-			return &group, nil
-		}
-	}
-	return nil, fmt.Errorf("Security group %s not found.", name)
-}
-
 // ensureGroup returns the security group with name and perms.
 // If a group with name does not exist, one will be created.
 // If it exists, its permissions are set to perms.
@@ -451,7 +436,7 @@ func (e *environ) ensureGroup(name string, rules []nova.RuleInfo) (nova.Security
 			return zeroGroup, err
 		} else {
 			// We just tried to create a duplicate group, so load the existing group.
-			group, err = e.getSecurityGroupByName(name)
+			group, err = nova.GetSecurityGroupByName(name)
 			if err != nil {
 				return zeroGroup, err
 			}
