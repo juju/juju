@@ -143,7 +143,7 @@ func (fw *Firewaller) startMachine(id string) error {
 		err = fw.unitsChanged(&unitsChange{machined, change})
 		if err != nil {
 			if werr := unitw.Stop(); werr != nil {
-				log.Printf("worker/firewaller: cannot stop units watcher: %v", werr)
+				log.Printf("worker/firewaller: error stopping machine units watcher: %v", werr)
 			}
 			return fmt.Errorf("worker/firewaller: cannot watch machine units: %v", err)
 		}
