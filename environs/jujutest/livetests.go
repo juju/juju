@@ -692,9 +692,9 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
 	c.Assert(err, IsNil)
 
 	dummyenv, err := environs.NewFromAttrs(map[string]interface{}{
-		"type": "dummy",
-		"name": "dummy storage",
-		"secret": "pizza",
+		"type":         "dummy",
+		"name":         "dummy storage",
+		"secret":       "pizza",
 		"state-server": false,
 	})
 	c.Assert(err, IsNil)
