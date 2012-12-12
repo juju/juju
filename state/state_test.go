@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/testing"
 	"net/url"
 	"sort"
+	"strconv"
 	"time"
 )
 
@@ -24,7 +25,7 @@ var _ = Suite(&StateSuite{})
 func (s *StateSuite) TestDialAgain(c *C) {
 	// Ensure idempotent operations on Dial are working fine.
 	for i := 0; i < 2; i++ {
-		st, err := state.Open(&state.Info{Addrs: []string{testing.MgoAddr}})
+		st, err := state.Open(state.TestingStateInfo())
 		c.Assert(err, IsNil)
 		c.Assert(st.Close(), IsNil)
 	}
@@ -71,25 +72,28 @@ func (s *StateSuite) TestAddMachine(c *C) {
 	c.Assert(m0, IsNil)
 	m0, err = s.State.AddMachine(state.MachinerWorker)
 	c.Assert(err, IsNil)
-	c.Assert(m0.Id(), Equals, 0)
-	m0, err = s.State.Machine(0)
+	c.Assert(m0.Id(), Equals, "0")
+	m0, err = s.State.Machine("0")
 	c.Assert(err, IsNil)
-	c.Assert(m0.Id(), Equals, 0)
+	c.Assert(m0.Id(), Equals, "0")
 	c.Assert(m0.Workers(), DeepEquals, []state.WorkerKind{state.MachinerWorker})
 
 	allWorkers := []state.WorkerKind{state.MachinerWorker, state.FirewallerWorker, state.ProvisionerWorker}
 	m1, err := s.State.AddMachine(allWorkers...)
 	c.Assert(err, IsNil)
-	c.Assert(m1.Id(), Equals, 1)
+	c.Assert(m1.Id(), Equals, "1")
 	c.Assert(m1.Workers(), DeepEquals, allWorkers)
 
-	m0, err = s.State.Machine(1)
+	m0, err = s.State.Machine("1")
 	c.Assert(err, IsNil)
-	c.Assert(m0.Id(), Equals, 1)
+	c.Assert(m0.Id(), Equals, "1")
 	c.Assert(m0.Workers(), DeepEquals, allWorkers)
 
-	machines := s.AllMachines(c)
-	c.Assert(machines, DeepEquals, []int{0, 1})
+	machines, err := s.State.AllMachines()
+	c.Assert(err, IsNil)
+	c.Assert(machines, HasLen, 2)
+	c.Assert(machines[0].Id(), Equals, "0")
+	c.Assert(machines[1].Id(), Equals, "1")
 }
 
 func (s *StateSuite) TestRemoveMachine(c *C) {
@@ -104,8 +108,10 @@ func (s *StateSuite) TestRemoveMachine(c *C) {
 	err = s.State.RemoveMachine(machine.Id())
 	c.Assert(err, IsNil)
 
-	machines := s.AllMachines(c)
-	c.Assert(machines, DeepEquals, []int{1})
+	machines, err := s.State.AllMachines()
+	c.Assert(err, IsNil)
+	c.Assert(machines, HasLen, 1)
+	c.Assert(machines[0].Id(), Equals, "1")
 
 	// Removing a non-existing machine has to fail.
 	// BUG(aram): use error strings from state.
@@ -123,7 +129,7 @@ func (s *StateSuite) TestReadMachine(c *C) {
 }
 
 func (s *StateSuite) TestMachineNotFound(c *C) {
-	_, err := s.State.Machine(0)
+	_, err := s.State.Machine("0")
 	c.Assert(err, ErrorMatches, "machine 0 not found")
 	c.Assert(state.IsNotFound(err), Equals, true)
 }
@@ -133,7 +139,7 @@ func (s *StateSuite) TestAllMachines(c *C) {
 	for i := 0; i < numInserts; i++ {
 		m, err := s.State.AddMachine(state.MachinerWorker)
 		c.Assert(err, IsNil)
-		err = m.SetInstanceId(fmt.Sprintf("foo-%d", i))
+		err = m.SetInstanceId(state.InstanceId(fmt.Sprintf("foo-%d", i)))
 		c.Assert(err, IsNil)
 		err = m.SetAgentTools(newTools("7.8.9-foo-bar", "http://arble.tgz"))
 		c.Assert(err, IsNil)
@@ -143,10 +149,10 @@ func (s *StateSuite) TestAllMachines(c *C) {
 	s.AssertMachineCount(c, numInserts)
 	ms, _ := s.State.AllMachines()
 	for i, m := range ms {
-		c.Assert(m.Id(), Equals, i)
+		c.Assert(m.Id(), Equals, strconv.Itoa(i))
 		instId, err := m.InstanceId()
 		c.Assert(err, IsNil)
-		c.Assert(instId, Equals, fmt.Sprintf("foo-%d", i))
+		c.Assert(string(instId), Equals, fmt.Sprintf("foo-%d", i))
 		tools, err := m.AgentTools()
 		c.Check(err, IsNil)
 		c.Check(tools, DeepEquals, newTools("7.8.9-foo-bar", "http://arble.tgz"))
@@ -399,10 +405,12 @@ func (s *StateSuite) TestEnvironConfig(c *C) {
 		"development":     true,
 		"firewall-mode":   "",
 		"admin-secret":    "",
+		"ca-cert":         testing.CACert,
+		"ca-private-key":  "",
 	}
 	cfg, err := config.New(initial)
 	c.Assert(err, IsNil)
-	st, err := state.Initialize(&state.Info{Addrs: []string{testing.MgoAddr}}, cfg)
+	st, err := state.Initialize(state.TestingStateInfo(), cfg)
 	c.Assert(err, IsNil)
 	st.Close()
 	c.Assert(err, IsNil)
@@ -430,15 +438,17 @@ func (s *StateSuite) TestEnvironConfigWithAdminSecret(c *C) {
 		"default-series":  "precise",
 		"development":     true,
 		"admin-secret":    "foo",
+		"ca-cert":         testing.CACert,
+		"ca-private-key":  "",
 	}
 	cfg, err := config.New(attrs)
 	c.Assert(err, IsNil)
-	_, err = state.Initialize(&state.Info{Addrs: []string{testing.MgoAddr}}, cfg)
+	_, err = state.Initialize(state.TestingStateInfo(), cfg)
 	c.Assert(err, ErrorMatches, "admin-secret should never be written to the state")
 
 	delete(attrs, "admin-secret")
 	cfg, err = config.New(attrs)
-	st, err := state.Initialize(&state.Info{Addrs: []string{testing.MgoAddr}}, cfg)
+	st, err := state.Initialize(state.TestingStateInfo(), cfg)
 	c.Assert(err, IsNil)
 	st.Close()
 
@@ -450,7 +460,7 @@ func (s *StateSuite) TestEnvironConfigWithAdminSecret(c *C) {
 var machinesWatchTests = []struct {
 	summary string
 	test    func(*C, *state.State)
-	changes []int
+	changes []string
 }{
 	{
 		"Do nothing",
@@ -462,18 +472,18 @@ var machinesWatchTests = []struct {
 			_, err := s.AddMachine(state.MachinerWorker)
 			c.Assert(err, IsNil)
 		},
-		[]int{0},
+		[]string{"0"},
 	}, {
 		"Ignore unrelated changes",
 		func(c *C, s *state.State) {
 			_, err := s.AddMachine(state.MachinerWorker)
 			c.Assert(err, IsNil)
-			m0, err := s.Machine(0)
+			m0, err := s.Machine("0")
 			c.Assert(err, IsNil)
 			err = m0.SetInstanceId("spam")
 			c.Assert(err, IsNil)
 		},
-		[]int{1},
+		[]string{"1"},
 	}, {
 		"Add two machines at once",
 		func(c *C, s *state.State) {
@@ -482,62 +492,62 @@ var machinesWatchTests = []struct {
 			_, err = s.AddMachine(state.MachinerWorker)
 			c.Assert(err, IsNil)
 		},
-		[]int{2, 3},
+		[]string{"2", "3"},
 	}, {
 		"Report machines that become Dying",
 		func(c *C, s *state.State) {
-			m3, err := s.Machine(3)
+			m3, err := s.Machine("3")
 			c.Assert(err, IsNil)
 			err = m3.EnsureDying()
 			c.Assert(err, IsNil)
 		},
-		[]int{3},
+		[]string{"3"},
 	}, {
 		"Report machines that become Dead",
 		func(c *C, s *state.State) {
-			m3, err := s.Machine(3)
+			m3, err := s.Machine("3")
 			c.Assert(err, IsNil)
 			err = m3.EnsureDead()
 			c.Assert(err, IsNil)
 		},
-		[]int{3},
+		[]string{"3"},
 	}, {
 		"Do not report Dead machines that are removed",
 		func(c *C, s *state.State) {
-			m0, err := s.Machine(0)
+			m0, err := s.Machine("0")
 			c.Assert(err, IsNil)
 			err = m0.EnsureDying()
 			c.Assert(err, IsNil)
-			err = s.RemoveMachine(3)
+			err = s.RemoveMachine("3")
 			c.Assert(err, IsNil)
 		},
-		[]int{0},
+		[]string{"0"},
 	}, {
 		"Report previously known machines that are removed",
 		func(c *C, s *state.State) {
-			m0, err := s.Machine(0)
+			m0, err := s.Machine("0")
 			c.Assert(err, IsNil)
 			err = m0.EnsureDead()
 			c.Assert(err, IsNil)
-			m2, err := s.Machine(2)
+			m2, err := s.Machine("2")
 			c.Assert(err, IsNil)
 			err = m2.EnsureDead()
 			c.Assert(err, IsNil)
-			err = s.RemoveMachine(2)
+			err = s.RemoveMachine("2")
 			c.Assert(err, IsNil)
 		},
-		[]int{0, 2},
+		[]string{"0", "2"},
 	}, {
 		"Added and Dead machines at once",
 		func(c *C, s *state.State) {
 			_, err := s.AddMachine(state.MachinerWorker)
 			c.Assert(err, IsNil)
-			m1, err := s.Machine(1)
+			m1, err := s.Machine("1")
 			c.Assert(err, IsNil)
 			err = m1.EnsureDead()
 			c.Assert(err, IsNil)
 		},
-		[]int{1, 4},
+		[]string{"1", "4"},
 	}, {
 		"Add many, change many, and remove many at once",
 		func(c *C, s *state.State) {
@@ -548,7 +558,7 @@ var machinesWatchTests = []struct {
 				c.Assert(err, IsNil)
 			}
 			for i := 0; i < len(machines); i++ {
-				err = machines[i].SetInstanceId("spam" + fmt.Sprint(i))
+				err = machines[i].SetInstanceId(state.InstanceId("spam" + fmt.Sprint(i)))
 				c.Assert(err, IsNil)
 			}
 			for i := 10; i < len(machines); i++ {
@@ -558,20 +568,16 @@ var machinesWatchTests = []struct {
 				c.Assert(err, IsNil)
 			}
 		},
-		[]int{5, 6, 7, 8, 9, 10, 11, 12, 13, 14},
+		[]string{"5", "6", "7", "8", "9", "10", "11", "12", "13", "14"},
 	}, {
-		"Report Dead when first seen",
+		"Do not report never-seen and removed or dead",
 		func(c *C, s *state.State) {
 			m, err := s.AddMachine(state.MachinerWorker)
 			c.Assert(err, IsNil)
 			err = m.EnsureDead()
 			c.Assert(err, IsNil)
-		},
-		[]int{25},
-	}, {
-		"Do not report never-seen and removed",
-		func(c *C, s *state.State) {
-			m, err := s.AddMachine(state.MachinerWorker)
+
+			m, err = s.AddMachine(state.MachinerWorker)
 			c.Assert(err, IsNil)
 			err = m.EnsureDead()
 			c.Assert(err, IsNil)
@@ -581,7 +587,7 @@ var machinesWatchTests = []struct {
 			_, err = s.AddMachine(state.MachinerWorker)
 			c.Assert(err, IsNil)
 		},
-		[]int{27},
+		[]string{"27"},
 	}, {
 		"Take into account what's already in the queue",
 		func(c *C, s *state.State) {
@@ -595,7 +601,7 @@ var machinesWatchTests = []struct {
 			c.Assert(err, IsNil)
 			s.Sync()
 		},
-		[]int{28},
+		[]string{"28"},
 	},
 }
 
@@ -608,7 +614,7 @@ func (s *StateSuite) TestWatchMachines(c *C) {
 		c.Logf("Test %d: %s", i, test.summary)
 		test.test(c, s.State)
 		s.State.StartSync()
-		var got []int
+		var got []string
 		for {
 			select {
 			case ids, ok := <-machineWatcher.Changes():
@@ -617,7 +623,8 @@ func (s *StateSuite) TestWatchMachines(c *C) {
 				if len(got) < len(test.changes) {
 					continue
 				}
-				sort.Ints(got)
+				sort.Strings(got)
+				sort.Strings(test.changes)
 				c.Assert(got, DeepEquals, test.changes)
 			case <-time.After(500 * time.Millisecond):
 				c.Fatalf("did not get change: want %#v, got %#v", test.changes, got)
@@ -790,10 +797,12 @@ func (s *StateSuite) TestInitialize(c *C) {
 		"development":     true,
 		"firewall-mode":   "",
 		"admin-secret":    "",
+		"ca-cert":         testing.CACert,
+		"ca-private-key":  "",
 	}
 	cfg, err := config.New(m)
 	c.Assert(err, IsNil)
-	st, err := state.Initialize(s.StateInfo(c), cfg)
+	st, err := state.Initialize(state.TestingStateInfo(), cfg)
 	c.Assert(err, IsNil)
 	c.Assert(st, NotNil)
 	defer st.Close()
@@ -810,10 +819,12 @@ func (s *StateSuite) TestDoubleInitialize(c *C) {
 		"development":     true,
 		"firewall-mode":   "",
 		"admin-secret":    "",
+		"ca-cert":         testing.CACert,
+		"ca-private-key":  "",
 	}
 	cfg, err := config.New(m)
 	c.Assert(err, IsNil)
-	st, err := state.Initialize(s.StateInfo(c), cfg)
+	st, err := state.Initialize(state.TestingStateInfo(), cfg)
 	c.Assert(err, IsNil)
 	c.Assert(st, NotNil)
 	env1, err := st.EnvironConfig()
@@ -829,10 +840,12 @@ func (s *StateSuite) TestDoubleInitialize(c *C) {
 		"development":     false,
 		"firewall-mode":   "",
 		"admin-secret":    "",
+		"ca-cert":         testing.CACert,
+		"ca-private-key":  "",
 	}
 	cfg, err = config.New(m)
 	c.Assert(err, IsNil)
-	st, err = state.Initialize(s.StateInfo(c), cfg)
+	st, err = state.Initialize(state.TestingStateInfo(), cfg)
 	c.Assert(err, IsNil)
 	c.Assert(st, NotNil)
 	env2, err := st.EnvironConfig()
@@ -874,6 +887,17 @@ func (*StateSuite) TestNameChecks(c *C) {
 	assertService("foo2", true)
 	assertService("foo-2", false)
 	assertService("foo-2foo", true)
+
+	assertMachine := func(s string, expect bool) {
+		c.Assert(state.IsMachineId(s), Equals, expect)
+	}
+	assertMachine("0", true)
+	assertMachine("1", true)
+	assertMachine("1000001", true)
+	assertMachine("01", false)
+	assertMachine("-1", false)
+	assertMachine("", false)
+	assertMachine("cantankerous", false)
 }
 
 type attrs map[string]interface{}
@@ -883,6 +907,8 @@ var watchEnvironConfigTests = []attrs{
 		"type":            "my-type",
 		"name":            "my-name",
 		"authorized-keys": "i-am-a-key",
+		"ca-cert":         testing.CACert,
+		"ca-private-key":  "",
 	},
 	{
 		// Add an attribute.
@@ -890,6 +916,8 @@ var watchEnvironConfigTests = []attrs{
 		"name":            "my-name",
 		"default-series":  "my-series",
 		"authorized-keys": "i-am-a-key",
+		"ca-cert":         testing.CACert,
+		"ca-private-key":  "",
 	},
 	{
 		// Set a new attribute value.
@@ -897,6 +925,8 @@ var watchEnvironConfigTests = []attrs{
 		"name":            "my-new-name",
 		"default-series":  "my-series",
 		"authorized-keys": "i-am-a-key",
+		"ca-cert":         testing.CACert,
+		"ca-private-key":  "",
 	},
 }
 
@@ -910,7 +940,7 @@ func (s *StateSuite) TestWatchEnvironConfig(c *C) {
 		change, err := config.New(test)
 		c.Assert(err, IsNil)
 		if i == 0 {
-			st, err := state.Initialize(&state.Info{Addrs: []string{testing.MgoAddr}}, change)
+			st, err := state.Initialize(state.TestingStateInfo(), change)
 			c.Assert(err, IsNil)
 			st.Close()
 		} else {
@@ -938,7 +968,7 @@ func (s *StateSuite) TestWatchEnvironConfig(c *C) {
 func (s *StateSuite) TestWatchEnvironConfigAfterCreation(c *C) {
 	cfg, err := config.New(watchEnvironConfigTests[0])
 	c.Assert(err, IsNil)
-	st, err := state.Initialize(&state.Info{Addrs: []string{testing.MgoAddr}}, cfg)
+	st, err := state.Initialize(state.TestingStateInfo(), cfg)
 	c.Assert(err, IsNil)
 	st.Close()
 	s.State.Sync()
@@ -958,10 +988,12 @@ func (s *StateSuite) TestWatchEnvironConfigInvalidConfig(c *C) {
 		"type":            "dummy",
 		"name":            "lisboa",
 		"authorized-keys": "i-am-a-key",
+		"ca-cert":         testing.CACert,
+		"ca-private-key":  "",
 	}
 	cfg1, err := config.New(m)
 	c.Assert(err, IsNil)
-	st, err := state.Initialize(&state.Info{Addrs: []string{testing.MgoAddr}}, cfg1)
+	st, err := state.Initialize(state.TestingStateInfo(), cfg1)
 	c.Assert(err, IsNil)
 	st.Close()
 
@@ -1003,6 +1035,8 @@ func (s *StateSuite) TestWatchEnvironConfigInvalidConfig(c *C) {
 		"type":            "dummy",
 		"name":            "lisboa",
 		"authorized-keys": "new-key",
+		"ca-cert":         testing.CACert,
+		"ca-private-key":  "",
 	})
 	c.Assert(err, IsNil)
 	err = s.State.SetEnvironConfig(cfg2)
@@ -1067,7 +1101,7 @@ func tryOpenState(info *state.Info) error {
 }
 
 func (s *StateSuite) TestOpenWithoutSetPassword(c *C) {
-	info := s.StateInfo(c)
+	info := state.TestingStateInfo()
 	info.EntityName, info.Password = "arble", "bar"
 	err := tryOpenState(info)
 	c.Assert(err, Equals, state.ErrUnauthorized)
@@ -1087,9 +1121,7 @@ type entity interface {
 }
 
 func testSetPassword(c *C, getEntity func(st *state.State) (entity, error)) {
-	info := &state.Info{
-		Addrs: []string{testing.MgoAddr},
-	}
+	info := state.TestingStateInfo()
 	st, err := state.Open(info)
 	c.Assert(err, IsNil)
 	defer st.Close()
@@ -1151,7 +1183,7 @@ func (s *StateSuite) TestSetAdminPassword(c *C) {
 	err = s.State.SetAdminPassword("foo")
 	c.Assert(err, IsNil)
 	defer s.State.SetAdminPassword("")
-	info := s.StateInfo(c)
+	info := state.TestingStateInfo()
 	err = tryOpenState(info)
 	c.Assert(err, Equals, state.ErrUnauthorized)
 

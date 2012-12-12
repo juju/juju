@@ -31,6 +31,8 @@ func (t *ToolsSuite) SetUpTest(c *C) {
 		"type":            "dummy",
 		"state-server":    false,
 		"authorized-keys": "i-am-a-key",
+		"ca-cert":         testing.CACert,
+		"ca-private-key":  "",
 	})
 	c.Assert(err, IsNil)
 	t.env = env
@@ -114,7 +116,7 @@ func (t *ToolsSuite) TestPutToolsAndForceVersion(c *C) {
 	//   and the reading of the version from jujud.
 	vers := version.Current
 	vers.Patch++
-	tools, err := environs.PutTools(t.env.Storage(), &vers)
+	tools, err := environs.PutTools(t.env.Storage(), &vers.Number)
 	c.Assert(err, IsNil)
 	c.Assert(tools.Binary, Equals, vers)
 }

@@ -304,19 +304,19 @@ func (u *Uniter) restoreRelations() error {
 		return err
 	}
 	for id, dir := range dirs {
-		alive := true
+		remove := false
 		rel, err := u.st.Relation(id)
 		if state.IsNotFound(err) {
-			alive = false
+			remove = true
 		} else if err != nil {
 			return err
 		}
-		if err = u.addRelation(rel, dir); err == state.ErrRelationNotAlive {
-			alive = false
+		if err = u.addRelation(rel, dir); err == state.ErrCannotEnterScope {
+			remove = true
 		} else if err != nil {
 			return err
 		}
-		if !alive {
+		if remove {
 			// If the previous execution was interrupted in the process of
 			// joining or departing the relation, the directory will be empty
 			// and the state is sane.
@@ -371,7 +371,7 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 			continue
 		}
 		e := dir.Remove()
-		if err != state.ErrRelationNotAlive {
+		if err != state.ErrCannotEnterScope {
 			return nil, err
 		}
 		if e != nil {

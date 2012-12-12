@@ -4,6 +4,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state"
 	"sort"
+	"strconv"
 	"time"
 )
 
@@ -36,7 +37,7 @@ func (s *AssignSuite) TestUnassignUnitFromMachineWithoutBeingAssigned(c *C) {
 
 	// Check that the unit has no machine assigned.
 	_, err = unit.AssignedMachineId()
-	c.Assert(err, ErrorMatches, `cannot get machine id of unit "wordpress/0": unit not assigned to machine`)
+	c.Assert(err, ErrorMatches, `unit "wordpress/0" is not assigned to a machine`)
 }
 
 func (s *AssignSuite) TestAssignUnitToMachineAgainFails(c *C) {
@@ -64,7 +65,7 @@ func (s *AssignSuite) TestAssignUnitToMachineAgainFails(c *C) {
 
 	machineId, err := unit.AssignedMachineId()
 	c.Assert(err, IsNil)
-	c.Assert(machineId, Equals, 0)
+	c.Assert(machineId, Equals, "0")
 }
 
 func (s *AssignSuite) TestAssignedMachineIdWhenNotAlive(c *C) {
@@ -117,7 +118,7 @@ func (s *AssignSuite) TestUnassignUnitFromMachineWithChangingState(c *C) {
 	err = unit.UnassignFromMachine()
 	c.Assert(err, ErrorMatches, `cannot unassign unit "wordpress/0" from machine: .*`)
 	_, err = unit.AssignedMachineId()
-	c.Assert(err, ErrorMatches, `cannot get machine id of unit "wordpress/0": unit not assigned to machine`)
+	c.Assert(err, ErrorMatches, `unit "wordpress/0" is not assigned to a machine`)
 
 	err = s.wordpress.EnsureDead()
 	c.Assert(err, IsNil)
@@ -127,7 +128,7 @@ func (s *AssignSuite) TestUnassignUnitFromMachineWithChangingState(c *C) {
 	err = unit.UnassignFromMachine()
 	c.Assert(err, ErrorMatches, `cannot unassign unit "wordpress/0" from machine: .*`)
 	_, err = unit.AssignedMachineId()
-	c.Assert(err, ErrorMatches, `cannot get machine id of unit "wordpress/0": unit not assigned to machine`)
+	c.Assert(err, ErrorMatches, `unit "wordpress/0" is not assigned to a machine`)
 }
 
 func (s *AssignSuite) TestAssignSubordinatesToMachine(c *C) {
@@ -162,9 +163,9 @@ func (s *AssignSuite) TestAssignSubordinatesToMachine(c *C) {
 	err = unit.UnassignFromMachine()
 	c.Assert(err, IsNil)
 	_, err = log1Unit.AssignedMachineId()
-	c.Assert(err, ErrorMatches, `cannot get machine id of unit "logging1/0": unit not assigned to machine`)
+	c.Assert(err, ErrorMatches, `unit "logging1/0" is not assigned to a machine`)
 	_, err = log2Unit.AssignedMachineId()
-	c.Assert(err, ErrorMatches, `cannot get machine id of unit "logging2/0": unit not assigned to machine`)
+	c.Assert(err, ErrorMatches, `unit "logging2/0" is not assigned to a machine`)
 }
 
 func (s *AssignSuite) TestAssignMachineWhenDying(c *C) {
@@ -411,7 +412,7 @@ func (s *AssignSuite) TestAssignUnitLocalPolicy(c *C) {
 		c.Assert(err, IsNil)
 		mid, err := unit.AssignedMachineId()
 		c.Assert(err, IsNil)
-		c.Assert(mid, Equals, 0)
+		c.Assert(mid, Equals, "0")
 		assertMachineCount(c, s.State, 1)
 	}
 }
@@ -428,7 +429,7 @@ func (s *AssignSuite) TestAssignUnitUnusedPolicy(c *C) {
 		c.Assert(err, IsNil)
 		mid, err := unit.AssignedMachineId()
 		c.Assert(err, IsNil)
-		c.Assert(mid, Equals, 1+i)
+		c.Assert(mid, Equals, strconv.Itoa(1+i))
 		assertMachineCount(c, s.State, i+2)
 
 		// Sanity check that the machine knows about its assigned unit.
@@ -441,8 +442,9 @@ func (s *AssignSuite) TestAssignUnitUnusedPolicy(c *C) {
 	}
 
 	// Remove units from alternate machines.
-	var unused []int
-	for mid := 1; mid < 11; mid += 2 {
+	var unused []string
+	for i := 1; i < 11; i += 2 {
+		mid := strconv.Itoa(i)
 		m, err := s.State.Machine(mid)
 		c.Assert(err, IsNil)
 		units, err := m.Units()
@@ -463,7 +465,7 @@ func (s *AssignSuite) TestAssignUnitUnusedPolicy(c *C) {
 	}
 
 	// Assign units to all the unused machines.
-	var got []int
+	var got []string
 	for _ = range unused {
 		unit, err := s.wordpress.AddUnit()
 		c.Assert(err, IsNil)
@@ -473,8 +475,8 @@ func (s *AssignSuite) TestAssignUnitUnusedPolicy(c *C) {
 		c.Assert(err, IsNil)
 		got = append(got, mid)
 	}
-	sort.Ints(unused)
-	sort.Ints(got)
+	sort.Strings(unused)
+	sort.Strings(got)
 	c.Assert(got, DeepEquals, unused)
 }
 
@@ -501,7 +503,7 @@ func (s *AssignSuite) TestAssignUnitUnusedPolicyConcurrently(c *C) {
 			done <- result{u, err}
 		}()
 	}
-	assignments := make(map[int][]*state.Unit)
+	assignments := make(map[string][]*state.Unit)
 	for _ = range us {
 		r := <-done
 		if !c.Check(r.err, IsNil) {
@@ -513,7 +515,7 @@ func (s *AssignSuite) TestAssignUnitUnusedPolicyConcurrently(c *C) {
 	}
 	for id, us := range assignments {
 		if len(us) != 1 {
-			c.Errorf("machine %d expected one unit, got %q", id, us)
+			c.Errorf("machine %s expected one unit, got %q", id, us)
 		}
 	}
 	c.Assert(assignments, HasLen, len(us))

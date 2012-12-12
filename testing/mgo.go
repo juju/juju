@@ -1,14 +1,18 @@
 package testing
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io/ioutil"
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/log"
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	stdtesting "testing"
 	"time"
@@ -40,10 +44,18 @@ func startMgoServer() error {
 	if err != nil {
 		return err
 	}
+	pemPath := filepath.Join(dbdir, "server.pem")
+	err = ioutil.WriteFile(pemPath, []byte(ServerCert+ServerKey), 0600)
+	if err != nil {
+		return fmt.Errorf("cannot write cert/key PEM: %v", err)
+	}
 	mgoport := strconv.Itoa(FindTCPPort())
 	mgoargs := []string{
 		"--auth",
 		"--dbpath", dbdir,
+		"--sslOnNormalPorts",
+		"--sslPEMKeyFile", pemPath,
+		"--sslPEMKeyPassword", "ignored",
 		"--bind_ip", "localhost",
 		"--port", mgoport,
 		"--nssize", "1",
@@ -92,7 +104,22 @@ func (s *MgoSuite) TearDownSuite(c *C) {}
 
 // MgoDial returns a new connection to the shared MongoDB server.
 func MgoDial() *mgo.Session {
-	session, err := mgo.Dial(MgoAddr)
+	pool := x509.NewCertPool()
+	xcert, err := cert.ParseCert([]byte(CACert))
+	if err != nil {
+		panic(err)
+	}
+	pool.AddCert(xcert)
+	tlsConfig := &tls.Config{
+		RootCAs:    pool,
+		ServerName: "anything",
+	}
+	session, err := mgo.DialWithInfo(&mgo.DialInfo{
+		Addrs: []string{MgoAddr},
+		Dial: func(addr net.Addr) (net.Conn, error) {
+			return tls.Dial("tcp", addr.String(), tlsConfig)
+		},
+	})
 	if err != nil {
 		panic(err)
 	}

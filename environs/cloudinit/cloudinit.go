@@ -29,10 +29,11 @@ type MachineConfig struct {
 	// or MongoDB instance.
 	StateServer bool
 
-	// StateServerPEM holds the state server certificate and private
-	// key in PEM format; it is required when StateServer is set,
-	// and ignored otherwise.
-	StateServerPEM []byte
+	// StateServerCert and StateServerKey hold the state server
+	// certificate and private key in PEM format; they are required when
+	// StateServer is set, and ignored otherwise.
+	StateServerCert []byte
+	StateServerKey  []byte
 
 	// InstanceIdAccessor holds bash code that evaluates to the current instance id.
 	InstanceIdAccessor string
@@ -55,8 +56,8 @@ type MachineConfig struct {
 	// machine.
 	DataDir string
 
-	// MachineId identifies the new machine. It must be non-negative.
-	MachineId int
+	// MachineId identifies the new machine.
+	MachineId string
 
 	// AuthorizedKeys specifies the keys that are allowed to
 	// connect to the machine (see cloudinit.SSHAddAuthorizedKeys)
@@ -85,8 +86,6 @@ func base64yaml(m *config.Config) string {
 	return base64.StdEncoding.EncodeToString(data)
 }
 
-const serverPEMPath = "/var/lib/juju/server.pem"
-
 func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	if err := verifyConfig(cfg); err != nil {
 		return nil, err
@@ -114,12 +113,15 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	if true || log.Debug {
 		debugFlag = " --debug"
 	}
+	addScripts(c,
+		fmt.Sprintf("echo %s > %s", shquote(string(cfg.StateInfo.CACert)), shquote(caCertPath(cfg))),
+	)
 
 	if cfg.StateServer {
 		addScripts(c,
 			fmt.Sprintf("echo %s > %s",
-				shquote(string(cfg.StateServerPEM)), serverPEMPath),
-			"chmod 600 "+serverPEMPath,
+				shquote(string(cfg.StateServerCert)+string(cfg.StateServerKey)), shquote(serverPEMPath(cfg))),
+			"chmod 600 "+serverPEMPath(cfg),
 		)
 
 		// TODO The public bucket must come from the environment configuration.
@@ -129,22 +131,22 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 			"mkdir -p /opt",
 			fmt.Sprintf("wget --no-verbose -O - %s | tar xz -C /opt", shquote(url)),
 		)
-		if err := addMongoToBoot(c); err != nil {
+		if err := addMongoToBoot(c, cfg); err != nil {
 			return nil, err
 		}
 		addScripts(c, cfg.jujuTools()+"/jujud bootstrap-state"+
 			" --instance-id "+cfg.InstanceIdAccessor+
 			" --env-config "+shquote(base64yaml(cfg.Config))+
 			" --state-servers localhost"+mgoPortSuffix+
+			" --ca-cert "+shquote(caCertPath(cfg))+
 			" --initial-password "+shquote(cfg.StateInfo.Password)+
 			debugFlag,
 		)
-
 	}
 
 	if err := addAgentToBoot(c, cfg, "machine",
 		state.MachineEntityName(cfg.MachineId),
-		fmt.Sprintf("--machine-id %d "+debugFlag, cfg.MachineId)); err != nil {
+		fmt.Sprintf("--machine-id %s "+debugFlag, cfg.MachineId)); err != nil {
 		return nil, err
 	}
 
@@ -153,6 +155,14 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	c.SetAptUpdate(true)
 	c.SetOutput(cloudinit.OutAll, "| tee -a /var/log/cloud-init-output.log", "")
 	return c, nil
+}
+
+func caCertPath(cfg *MachineConfig) string {
+	return path.Join(cfg.DataDir, "ca-cert.pem")
+}
+
+func serverPEMPath(cfg *MachineConfig) string {
+	return path.Join(cfg.DataDir, "server.pem")
 }
 
 func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, name, args string) error {
@@ -170,12 +180,14 @@ func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, name, args st
 	cmd := fmt.Sprintf(
 		"%s/jujud %s"+
 			" --state-servers '%s'"+
+			" --ca-cert '%s'"+
 			" --log-file %s"+
 			" --data-dir '%s'"+
 			" --initial-password '%s'"+
 			" %s",
 		toolsDir, kind,
 		cfg.stateHostAddrs(),
+		caCertPath(cfg),
 		logPath,
 		cfg.DataDir,
 		cfg.StateInfo.Password,
@@ -195,7 +207,7 @@ func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, name, args st
 	return nil
 }
 
-func addMongoToBoot(c *cloudinit.Config) error {
+func addMongoToBoot(c *cloudinit.Config, cfg *MachineConfig) error {
 	addScripts(c,
 		"mkdir -p /var/lib/juju/db/journal",
 		// Otherwise we get three files with 100M+ each, which takes time.
@@ -210,6 +222,9 @@ func addMongoToBoot(c *cloudinit.Config) error {
 		Cmd: "/opt/mongo/bin/mongod" +
 			" --auth" +
 			" --dbpath=/var/lib/juju/db" +
+			" --sslOnNormalPorts" +
+			" --sslPEMKeyFile " + shquote(serverPEMPath(cfg)) +
+			" --sslPEMKeyPassword ignored" +
 			" --bind_ip 0.0.0.0" +
 			" --port " + fmt.Sprint(mgoPort) +
 			" --noprealloc" +
@@ -262,8 +277,8 @@ func (e requiresError) Error() string {
 
 func verifyConfig(cfg *MachineConfig) (err error) {
 	defer trivial.ErrorContextf(&err, "invalid machine configuration")
-	if cfg.MachineId < 0 {
-		return fmt.Errorf("negative machine id")
+	if !state.IsMachineId(cfg.MachineId) {
+		return fmt.Errorf("invalid machine id")
 	}
 	if cfg.ProviderType == "" {
 		return fmt.Errorf("missing provider type")
@@ -280,6 +295,9 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 	if cfg.StateInfo == nil {
 		return fmt.Errorf("missing state info")
 	}
+	if len(cfg.StateInfo.CACert) == 0 {
+		return fmt.Errorf("missing CA certificate")
+	}
 	if cfg.StateServer {
 		if cfg.InstanceIdAccessor == "" {
 			return fmt.Errorf("missing instance id accessor")
@@ -290,8 +308,11 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		if cfg.StateInfo.EntityName != "" {
 			return fmt.Errorf("entity name must be blank when starting a state server")
 		}
-		if len(cfg.StateServerPEM) == 0 {
-			return fmt.Errorf("missing state server PEM")
+		if len(cfg.StateServerCert) == 0 {
+			return fmt.Errorf("missing state server certificate")
+		}
+		if len(cfg.StateServerKey) == 0 {
+			return fmt.Errorf("missing state server private key")
 		}
 	} else {
 		if len(cfg.StateInfo.Addrs) == 0 {

@@ -44,9 +44,6 @@ func (c *Simple) service(unit *state.Unit) *upstart.Service {
 // Deploy deploys a unit running the given tools unit into a new container.
 // The unit will use the given info to connect to the state.
 func (c *Simple) Deploy(unit *state.Unit, info *state.Info, tools *state.Tools) (err error) {
-	if info.UseSSH {
-		return fmt.Errorf("cannot deploy unit agent connecting with ssh")
-	}
 	toolsDir := environs.AgentToolsDir(c.DataDir, unit.EntityName())
 	err = os.Symlink(tools.Binary.String(), toolsDir)
 	if err != nil {
@@ -70,14 +67,16 @@ func (c *Simple) Deploy(unit *state.Unit, info *state.Info, tools *state.Tools) 
 	}
 	logPath := filepath.Join("/var/log/juju", unit.EntityName()+".log")
 	cmd := fmt.Sprintf(
-		"%s unit"+
-			"%s --state-servers '%s'"+
+		"%s unit%s"+
+			" --state-servers '%s'"+
+			" --ca-cert '%s'"+
 			" --log-file %s"+
 			" --unit-name %s"+
 			" --initial-password %s",
 		filepath.Join(toolsDir, "jujud"),
 		debugFlag,
 		strings.Join(info.Addrs, ","),
+		filepath.Join(c.DataDir, "ca-cert.pem"),
 		logPath,
 		unit.Name(),
 		password)

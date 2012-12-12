@@ -64,6 +64,14 @@ type watchKey struct {
 	id interface{} // nil when watching collection
 }
 
+func (k watchKey) String() string {
+	coll := "collection " + k.c
+	if k.id == nil {
+		return coll
+	}
+	return fmt.Sprintf("document %v in %s", k.id, coll)
+}
+
 type watchInfo struct {
 	ch    chan<- Change
 	revno int64
@@ -261,7 +269,7 @@ func (w *Watcher) handle(req interface{}) {
 	case reqWatch:
 		for _, info := range w.watches[r.key] {
 			if info.ch == r.info.ch {
-				panic("adding channel twice for the same collection/document")
+				panic(fmt.Errorf("tried to re-add channel %v for %s", info.ch, r.key))
 			}
 		}
 		if revno, ok := w.current[r.key]; ok && (revno > r.info.revno || revno == -1 && r.info.revno >= 0) {
@@ -271,12 +279,17 @@ func (w *Watcher) handle(req interface{}) {
 		w.watches[r.key] = append(w.watches[r.key], r.info)
 	case reqUnwatch:
 		watches := w.watches[r.key]
+		removed := false
 		for i, info := range watches {
 			if info.ch == r.ch {
 				watches[i] = watches[len(watches)-1]
 				w.watches[r.key] = watches[:len(watches)-1]
+				removed = true
 				break
 			}
+		}
+		if !removed {
+			panic(fmt.Errorf("tried to remove missing channel %v for %s", r.ch, r.key))
 		}
 		for i := range w.requestEvents {
 			e := &w.requestEvents[i]

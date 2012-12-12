@@ -2,67 +2,72 @@ package testing
 
 import (
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
-	"encoding/pem"
+	"fmt"
+	"launchpad.net/juju-core/cert"
+	"time"
 )
 
-// RootCert and RootKey make up a root CA key pair.
-// RootCertX509 and RootKeyRSA hold their parsed equivalents.
-var (
-	CACertPEM = `
------BEGIN CERTIFICATE-----
-MIIBnTCCAUmgAwIBAgIBADALBgkqhkiG9w0BAQUwJjENMAsGA1UEChMEanVqdTEV
-MBMGA1UEAxMManVqdSB0ZXN0aW5nMB4XDTEyMTExNDE0Mzg1NFoXDTIyMTExNDE0
-NDM1NFowJjENMAsGA1UEChMEanVqdTEVMBMGA1UEAxMManVqdSB0ZXN0aW5nMFow
-CwYJKoZIhvcNAQEBA0sAMEgCQQCCOOpn9aWKcKr2GQGtygwD7PdfNe1I9BYiPAqa
-2I33F5+6PqFdfujUKvoyTJI6XG4Qo/CECaaN9smhyq9DxzMhAgMBAAGjZjBkMA4G
-A1UdDwEB/wQEAwIABDASBgNVHRMBAf8ECDAGAQH/AgEBMB0GA1UdDgQWBBQQDswP
-FQGeGMeTzPbHW62EZbbTJzAfBgNVHSMEGDAWgBQQDswPFQGeGMeTzPbHW62EZbbT
-JzALBgkqhkiG9w0BAQUDQQAqZzN0DqUyEfR8zIanozyD2pp10m9le+ODaKZDDNfH
-8cB2x26F1iZ8ccq5IC2LtQf1IKJnpTcYlLuDvW6yB96g
------END CERTIFICATE-----
-`[1:]
-
-	CACertX509 = mustParseCertPEM(CACertPEM)
-
-	CAKeyPEM = `
------BEGIN RSA PRIVATE KEY-----
-MIIBOwIBAAJBAII46mf1pYpwqvYZAa3KDAPs91817Uj0FiI8CprYjfcXn7o+oV1+
-6NQq+jJMkjpcbhCj8IQJpo32yaHKr0PHMyECAwEAAQJAYctedh4raLE+Ir0a3qnK
-pjQSfiUggtYTvTf7+tfAnZu946PX88ysr7XHPkXEGP4tWDTbl8BfGndrTKswVOx6
-RQIhAOT5OzafJneDQ5cuGLN/hxIPBLWxKT1/25O6dhtBlRyPAiEAkZfFvCtBZyKB
-JFwDdp+7gE98mXtaFrjctLWeFx797U8CIAnnqiMTwWM8H2ljyhfBtYMXeTmu3zzU
-0hfS4hcNwDiLAiEAkNXXU7YEPkFJD46ps1x7/s0UOutHV8tXZD44ou+l1GkCIQDO
-HOzuvYngJpoClGw0ipzJPoNZ2Z/GkdOWGByPeKu/8g==
------END RSA PRIVATE KEY-----
-`[1:]
-	CAKeyRSA = mustParseKeyPEM(CAKeyPEM)
-)
-
-func mustParseCertPEM(pemData string) *x509.Certificate {
-	b, _ := pem.Decode([]byte(pemData))
-	if b.Type != "CERTIFICATE" {
-		panic("unexpected type")
+func init() {
+	if err := verifyCertificates(); err != nil {
+		panic(err)
 	}
-	cert, err := x509.ParseCertificate(b.Bytes)
+}
+
+// CACert and CAKey make up a CA key pair.
+// CACertX509 and CAKeyRSA hold their parsed equivalents.
+// ServerCert and ServerKey hold a CA-signed server cert/key.
+var (
+	CACert, CAKey = mustNewCA()
+
+	CACertX509, CAKeyRSA = mustParseCertAndKey([]byte(CACert), []byte(CAKey))
+
+	ServerCert, ServerKey = mustNewServer()
+)
+
+func verifyCertificates() error {
+	_, err := tls.X509KeyPair([]byte(CACert), []byte(CAKey))
+	if err != nil {
+		return fmt.Errorf("bad CA cert key pair: %v", err)
+	}
+	_, err = tls.X509KeyPair([]byte(ServerCert), []byte(ServerKey))
+	if err != nil {
+		return fmt.Errorf("bad server cert key pair: %v", err)
+	}
+	return cert.Verify([]byte(ServerCert), []byte(CACert), time.Now())
+}
+
+func mustNewCA() (string, string) {
+	cert.KeyBits = 512
+	caCert, caKey, err := cert.NewCA("juju testing", time.Now().AddDate(10, 0, 0))
+	if err != nil {
+		panic(err)
+	}
+	return string(caCert), string(caKey)
+}
+
+func mustNewServer() (string, string) {
+	cert.KeyBits = 512
+	srvCert, srvKey, err := cert.NewServer("testing-env", []byte(CACert), []byte(CAKey), time.Now().AddDate(10, 0, 0))
+	if err != nil {
+		panic(err)
+	}
+	return string(srvCert), string(srvKey)
+}
+
+func mustParseCert(pemData string) *x509.Certificate {
+	cert, err := cert.ParseCert([]byte(pemData))
 	if err != nil {
 		panic(err)
 	}
 	return cert
 }
 
-func mustParseKeyPEM(pemData string) *rsa.PrivateKey {
-	b, _ := pem.Decode([]byte(pemData))
-	if b.Type != "RSA PRIVATE KEY" {
-		panic("unexpected type")
-	}
-	key, err := x509.ParsePKCS1PrivateKey(b.Bytes)
-	if key != nil {
-		return key
-	}
-	key1, err := x509.ParsePKCS8PrivateKey(b.Bytes)
+func mustParseCertAndKey(certPEM, keyPEM []byte) (*x509.Certificate, *rsa.PrivateKey) {
+	cert, key, err := cert.ParseCertAndKey(certPEM, keyPEM)
 	if err != nil {
 		panic(err)
 	}
-	return key1.(*rsa.PrivateKey)
+	return cert, key
 }

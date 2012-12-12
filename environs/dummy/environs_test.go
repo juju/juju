@@ -10,11 +10,14 @@ import (
 
 func init() {
 	attrs := map[string]interface{}{
-		"name":         "only",
-		"type":         "dummy",
-		"state-server": true,
-		"secret":       "pork",
-		"admin-secret": "fish",
+		"name":            "only",
+		"type":            "dummy",
+		"state-server":    true,
+		"secret":          "pork",
+		"admin-secret":    "fish",
+		"authorized-keys": "foo",
+		"ca-cert":         testing.CACert,
+		"ca-private-key":  testing.CAKey,
 	}
 	Suite(&jujutest.LiveTests{
 		Config:         attrs,

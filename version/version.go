@@ -17,7 +17,7 @@ import (
 // The presence and format of this constant is very important.
 // The debian/rules build recipe uses this value for the version
 // number of the release package.
-const version = "1.9.3"
+const version = "1.9.4"
 
 // Current gives the current version of the system.  If the file
 // "FORCE-VERSION" is present in the same directory as the running
@@ -37,7 +37,7 @@ func init() {
 		}
 		panic(fmt.Errorf("version: cannot read forced version: %v", err))
 	}
-	Current = MustParseBinary(strings.TrimSpace(string(v)))
+	Current.Number = MustParse(strings.TrimSpace(string(v)))
 }
 
 // Number represents a juju version.  When bugs are fixed the patch

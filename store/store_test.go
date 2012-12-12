@@ -412,7 +412,7 @@ func (s *StoreSuite) TestLogCharmEvent(c *C) {
 	c.Assert(s1["urls"], DeepEquals, []interface{}{"cs:oneiric/wordpress", "cs:oneiric/mysql"})
 	c.Assert(s1["warnings"], DeepEquals, []interface{}{"A warning."})
 	c.Assert(s1["errors"], IsNil)
-	c.Assert(s1["time"], Equals, time.Unix(1, 0))
+	c.Assert(s1["time"], DeepEquals, time.Unix(1, 0))
 
 	err = events.Find(bson.M{"digest": "revKey2", "kind": store.EventPublishError}).One(&s2)
 	c.Assert(err, IsNil)
