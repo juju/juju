@@ -5,9 +5,8 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing"
 	"os"
-	"testing"
 )
 
 type ConfigSuite struct {
@@ -23,10 +22,6 @@ var envVars = map[string]string{
 }
 
 var _ = Suite(&ConfigSuite{})
-
-func Test(t *testing.T) {
-	TestingT(t)
-}
 
 // configTest specifies a config parsing test, checking that env when
 // parsed as the openstack section of a config file matches
@@ -54,8 +49,8 @@ func (t configTest) check(c *C) {
 			"testenv": attrs{
 				"type":            "openstack",
 				"authorized-keys": "foo",
-				"ca-cert":         coretesting.CACert,
-				"ca-private-key":  coretesting.CAKey,
+				"ca-cert":         testing.CACert,
+				"ca-private-key":  testing.CAKey,
 			},
 		},
 	}
@@ -259,7 +254,7 @@ func (s *ConfigSuite) TestMissingRegion(c *C) {
 	os.Setenv("NOVA_REGION_NAME", "")
 	test := configTests[0]
 	delete(test.config, "region")
-	test.err = ".*environment has no region"
+	test.err = "required environment variable not set for credentials attribute: Region"
 	test.check(c)
 }
 
