@@ -2,8 +2,10 @@ package api
 
 import (
 	"code.google.com/p/go.net/websocket"
+	"crypto/tls"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"net"
 	"net/http"
 )
 
@@ -13,9 +15,27 @@ type srvState struct {
 	conn  *websocket.Conn
 }
 
-// NewHandler returns an http handler that serves the API
+type Server struct {
+	state *state.State
+}
+
+// Serve serves the given state by accepting requests
+// on the given listener, using the given certificate
+// and key (in PEM format) for authentication. 
+func Serve(s *state.State, lis net.Listener, cert, key []byte) error {
+	tlsCert, err := tls.X509KeyPair(cert, key)
+	if err != nil {
+		return err
+	}
+	lis = tls.NewListener(lis, &tls.Config{
+		Certificates: []tls.Certificate{tlsCert},
+	})
+	return http.Serve(lis, newHandler(s))
+}
+
+// newHandler returns an http handler that serves the API
 // interface to the given state as a websocket.
-func NewHandler(s *state.State) http.Handler {
+func newHandler(s *state.State) http.Handler {
 	return websocket.Handler(func(conn *websocket.Conn) {
 		srv := &srvState{
 			state: s,
