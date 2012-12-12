@@ -424,11 +424,12 @@ func (ru *RelationUnit) WatchScope() *RelationScopeWatcher {
 // of a container-scoped relation.
 var ErrNoSubordinateRequired = errors.New("no subordinate required")
 
-// EnsureSubordinate ensures that, if the unit is a principal of the relation,
-// a subordinate unit of the related service exists. If the above conditions do
-// not apply, ErrNoSubordinateRequired is returned; if the subordinate already
-// exists, no error is returned; otherwise, it will fail if any of the unit,
-// the relation, or the subordinate service are not Alive.
+// EnsureSubordinate creates a subordinate unit for the unit in the relation if
+// one does not already exist. If the unit is not a principal of a container-
+// scoped relation, ErrNoSubordinateRequired will be returned; otherwise, if the
+// required subordinate does not exist, it will be created. It will fail to
+// create a subordinate if any of the principal, the relation, or the subordinate
+// service are not Alive.
 func (ru *RelationUnit) EnsureSubordinate() (sub *Unit, err error) {
 	if !ru.unit.IsPrincipal() {
 		return nil, ErrNoSubordinateRequired
@@ -436,15 +437,14 @@ func (ru *RelationUnit) EnsureSubordinate() (sub *Unit, err error) {
 	if ru.endpoint.RelationScope != charm.ScopeContainer {
 		return nil, ErrNoSubordinateRequired
 	}
-	defer trivial.ErrorContextf(&err, "cannot create subordinate")
-	var serviceName string
-	if related, err := ru.relation.RelatedEndpoints(ru.endpoint.ServiceName); err != nil {
+	defer trivial.ErrorContextf(&err, "cannot get or create subordinate")
+	related, err := ru.relation.RelatedEndpoints(ru.endpoint.ServiceName)
+	if err != nil {
 		return nil, err
 	} else if len(related) != 1 {
 		return nil, fmt.Errorf("expected single related endpoint, got %v", related)
-	} else {
-		serviceName = related[0].ServiceName
 	}
+	serviceName := related[0].ServiceName
 	principalName := ru.unit.doc.Name
 	selSubordinate := D{{"service", serviceName}, {"principal", principalName}}
 	udoc := &unitDoc{}

@@ -682,7 +682,7 @@ func (s *RelationUnitSuite) TestEnsureSubordinateDyingPrincipal(c *C) {
 	err = prr.pu0.EnsureDying()
 	c.Assert(err, IsNil)
 	_, err = prr.pru0.EnsureSubordinate()
-	c.Assert(err, ErrorMatches, `cannot create subordinate: principal unit "mysql/0" is not alive`)
+	c.Assert(err, ErrorMatches, `cannot get or create subordinate: principal unit "mysql/0" is not alive`)
 }
 
 func (s *RelationUnitSuite) TestEnsureSubordinateDyingService(c *C) {
@@ -694,7 +694,7 @@ func (s *RelationUnitSuite) TestEnsureSubordinateDyingService(c *C) {
 	err = prr.rsvc.EnsureDying()
 	c.Assert(err, IsNil)
 	_, err = prr.pru0.EnsureSubordinate()
-	c.Assert(err, ErrorMatches, `cannot create subordinate: service "logging" is not alive`)
+	c.Assert(err, ErrorMatches, `cannot get or create subordinate: service "logging" is not alive`)
 }
 
 func (s *RelationUnitSuite) TestEnsureSubordinateDyingRelation(c *C) {
@@ -710,7 +710,7 @@ func (s *RelationUnitSuite) TestEnsureSubordinateDyingRelation(c *C) {
 	err = prr.rel.Destroy()
 	c.Assert(err, IsNil)
 	_, err = prr.pru0.EnsureSubordinate()
-	c.Assert(err, ErrorMatches, `cannot create subordinate: relation "logging:info mysql:juju-info" is not alive`)
+	c.Assert(err, ErrorMatches, `cannot get or create subordinate: relation "logging:info mysql:juju-info" is not alive`)
 }
 
 func (s *RelationUnitSuite) TestEnsureSubordinateDyingButExists(c *C) {

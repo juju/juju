@@ -262,9 +262,12 @@ func (s *Service) newUnitName() (string, error) {
 // necessary to create that unit. The principalName param must be non-empty if
 // and only if s is a subordinate service. If s is a subordinate and strictSubordinates
 // is true, the returned ops will assert that no unit of s is already a subordinate
-// of the principal unit. The strictSubordinates param must be removed, and always
-// assumed to be true, once AddUnitSubordinateTo hasbeen removed.
+// of the principal unit.
 func (s *Service) addUnitOps(principalName string, strictSubordinates bool) (string, []txn.Op, error) {
+	// NOTE: strictSubordinates is a temporary parameter, which allows us to use
+	// this method to simplify AddUnitSubordinateTo. When AUST is removed, the
+	// parameter should be dropped, and subordinates should always be created
+	// "strictly".
 	ch, _, err := s.Charm()
 	if err != nil {
 		return "", nil, err
