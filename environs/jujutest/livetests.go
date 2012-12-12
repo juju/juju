@@ -726,7 +726,6 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
 
 	// Wait for machine agent to come up on the bootstrap
 	// machine and ensure it deployed the proper series.
-	// Note that 
 	m0, err := conn.State.Machine("0")
 	c.Assert(err, IsNil)
 	mw0 := newMachineToolWaiter(m0)
