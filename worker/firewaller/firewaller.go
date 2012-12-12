@@ -134,7 +134,7 @@ func (fw *Firewaller) startMachine(id string) error {
 	unitw := m.WatchUnits()
 	select {
 	case <-fw.tomb.Dying():
-		return nil
+		return tomb.ErrDying
 	case change, ok := <-unitw.Changes():
 		if !ok {
 			return watcher.MustErr(unitw)
@@ -142,7 +142,9 @@ func (fw *Firewaller) startMachine(id string) error {
 		fw.machineds[id] = machined
 		err = fw.unitsChanged(&unitsChange{machined, change})
 		if err != nil {
-			watcher.Stop(unitw, &fw.tomb)
+			if werr := unitw.Stop(); werr != nil {
+				log.Printf("worker/firewaller: cannot stop units watcher: %v", werr)
+			}
 			return fmt.Errorf("worker/firewaller: cannot watch machine units: %v", err)
 		}
 	}
@@ -204,7 +206,8 @@ func (fw *Firewaller) startService(name string) error {
 }
 
 // reconcileGlobal compares the initially started watcher for machines,
-// units and services with the opened and closed ports globally.
+// units and services with the opened and closed ports globally and 
+// opens and closes the appropriate ports for the whole environment.
 func (fw *Firewaller) reconcileGlobal() error {
 	initialPorts, err := fw.environ.Ports()
 	if err != nil {
@@ -243,7 +246,8 @@ func (fw *Firewaller) reconcileGlobal() error {
 }
 
 // reconcileInstances compares the initially started watcher for machines,
-// units and services with the opened and closed ports of the instances.
+// units and services with the opened and closed ports of the instances and 
+// opens and closes the appropriate ports for each instance.
 func (fw *Firewaller) reconcileInstances() error {
 	for _, machined := range fw.machineds {
 		m, err := machined.machine()
@@ -618,14 +622,10 @@ type unitData struct {
 }
 
 // watchLoop watches the unit for port changes.
-func (ud *unitData) watchLoop(initialPorts []state.Port) {
+func (ud *unitData) watchLoop(latestPorts []state.Port) {
 	defer ud.tomb.Done()
 	w := ud.unit.Watch()
 	defer watcher.Stop(w, &ud.tomb)
-	// Local ports is used to detect changes while
-	// unitData.ports is used by the Firewaller for
-	// port opening and closing.
-	ports := initialPorts
 	for {
 		select {
 		case <-ud.tomb.Dying():
@@ -642,10 +642,10 @@ func (ud *unitData) watchLoop(initialPorts []state.Port) {
 				return
 			}
 			change := ud.unit.OpenedPorts()
-			if samePorts(change, ports) {
+			if samePorts(change, latestPorts) {
 				continue
 			}
-			ports = append(ports[:0], change...)
+			latestPorts = append(latestPorts[:0], change...)
 			select {
 			case ud.fw.portsChange <- &portsChange{ud, change}:
 			case <-ud.tomb.Dying():
