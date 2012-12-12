@@ -10,7 +10,6 @@ import (
 	"launchpad.net/goose/nova"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/jujutest"
-	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 )
 
@@ -52,8 +51,7 @@ func registerOpenStackTests() {
 type LiveTests struct {
 	coretesting.LoggingSuite
 	jujutest.LiveTests
-	novaClient  *nova.Client
-	testServers []nova.Entity
+	novaClient *nova.Client
 }
 
 func (t *LiveTests) SetUpSuite(c *C) {
@@ -66,10 +64,6 @@ func (t *LiveTests) SetUpSuite(c *C) {
 	c.Assert(err, IsNil)
 	client := client.NewClient(cred, identity.AuthUserPass)
 	t.novaClient = nova.New(client)
-	// Not all of the provider APIs are implemented yet so we'll use a helper
-	// method to create some test server instances until the implementation catches up.
-	t.testServers, err = t.createInstances(2)
-	c.Assert(err, IsNil)
 
 	// TODO: Put some fake tools in place so that tests that are simply
 	// starting instances without any need to check if those instances
@@ -82,11 +76,6 @@ func (t *LiveTests) TearDownSuite(c *C) {
 	if t.Env == nil {
 		// This can happen if SetUpSuite fails.
 		return
-	}
-	// Delete any test servers started during suite setup.
-	for _, inst := range t.testServers {
-		err := t.novaClient.DeleteServer(inst.Id)
-		c.Check(err, IsNil)
 	}
 	// TODO: delete any content put into swift
 	t.LiveTests.TearDownSuite(c)
@@ -101,53 +90,4 @@ func (t *LiveTests) SetUpTest(c *C) {
 func (t *LiveTests) TearDownTest(c *C) {
 	t.LiveTests.TearDownTest(c)
 	t.LoggingSuite.TearDownTest(c)
-}
-
-// The OpenStack provider is being developed a few methods at a time. The juju tests exercise the whole stack and so
-// currently fail because not everything is implemented yet. So below we add some tests for those methods which have
-// so far been completed.
-
-// createInstances runs some test servers using a known pre-existing image.
-func (t *LiveTests) createInstances(numInstances int) (instances []nova.Entity, err error) {
-	for n := 1; n <= numInstances; n++ {
-		opts := nova.RunServerOpts{
-			Name:     fmt.Sprintf("test_server%d", n),
-			FlavorId: "1", // m1.tiny
-			ImageId:  "0f602ea9-c09e-440c-9e29-cfae5635afa3",
-			UserData: nil,
-		}
-		entity, err := t.novaClient.RunServer(opts)
-		if err != nil {
-			return nil, err
-		}
-		instances = append(t.testServers, *entity)
-	}
-	return instances, nil
-}
-
-func (t *LiveTests) TestAllInstances(c *C) {
-	// TODO FIXME These instances were not started by the environment, and have no indication that they
-	// should be part of it.
-	observedInst, err := t.Env.AllInstances()
-	c.Assert(err, IsNil)
-	idSet := make(map[string]bool)
-	for _, inst := range observedInst {
-		idSet[string(inst.Id())] = true
-	}
-	for _, inst := range t.testServers {
-		_, ok := idSet[inst.Id]
-		if !ok {
-			c.Logf("Server id '%s' was not listed in AllInstances %v", inst.Id, observedInst)
-			c.Fail()
-		}
-	}
-}
-
-func (t *LiveTests) TestInstances(c *C) {
-	// TODO FIXME These instances were not started by the environment, and have no indication that they
-	// should be part of it.
-	observedInst, err := t.Env.Instances([]state.InstanceId{state.InstanceId(t.testServers[0].Id)})
-	c.Assert(err, IsNil)
-	c.Assert(len(observedInst), Equals, 1)
-	c.Assert(string(observedInst[0].Id()), Equals, t.testServers[0].Id)
 }
