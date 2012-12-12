@@ -1,7 +1,9 @@
 package jujutest
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs"
@@ -689,11 +691,30 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
 	env, err := environs.New(cfg)
 	c.Assert(err, IsNil)
 
-	path := environs.ToolsStoragePath(other)
-	storage := env.Storage()
-	_, err = environs.PutTools(storage, &other)
+	dummyenv, err := environs.NewFromAttrs(map[string]interface{}{
+		"type": "dummy",
+		"name": "dummy storage",
+		"secret": "pizza",
+		"state-server": false,
+	})
 	c.Assert(err, IsNil)
-	defer storage.Remove(path)
+	defer dummyenv.Destroy(nil)
+
+	currentPath := environs.ToolsStoragePath(current)
+	otherPath := environs.ToolsStoragePath(other)
+	envStorage := env.Storage()
+	dummyStorage := dummyenv.Storage()
+
+	defer envStorage.Remove(otherPath)
+
+	_, err = environs.PutTools(dummyStorage, &current.Number)
+	c.Assert(err, IsNil)
+
+	// This will only work while cross-compiling across releases is safe,
+	// which depends on external elements. Tends to be safe for the last
+	// few releases, but we may have to refactor some day.
+	err = storageCopy(dummyStorage, currentPath, envStorage, otherPath)
+	c.Assert(err, IsNil)
 
 	err = environs.Bootstrap(env, false, panicWrite)
 	c.Assert(err, IsNil)
@@ -705,15 +726,25 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
 
 	// Wait for machine agent to come up on the bootstrap
 	// machine and ensure it deployed the proper series.
+	// Note that 
 	m0, err := conn.State.Machine("0")
 	c.Assert(err, IsNil)
 	mw0 := newMachineToolWaiter(m0)
 	defer mw0.Stop()
 
 	waitAgentTools(c, mw0, other)
+}
 
-	// It would be nice to test here that the container it was
-	// deployed in actually match the series too, but we don't
-	// yet have a common interface to do that kind of
-	// verification.
+func storageCopy(source environs.Storage, sourcePath string, target environs.Storage, targetPath string) error {
+	rc, err := source.Get(sourcePath)
+	if err != nil {
+		return err
+	}
+	var buf bytes.Buffer
+	_, err = io.Copy(&buf, rc)
+	rc.Close()
+	if err != nil {
+		return err
+	}
+	return target.Put(targetPath, &buf, int64(buf.Len()))
 }
