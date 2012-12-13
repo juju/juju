@@ -275,7 +275,7 @@ func (s *FirewallerSuite) TestMultipleUnits(c *C) {
 	s.assertPorts(c, inst2, m2.Id(), nil)
 }
 
-func (s *FirewallerSuite) TestFirewallerStartWithState(c *C) {
+func (s *FirewallerSuite) TestStartWithState(c *C) {
 	svc, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
 	err = svc.SetExposed()
@@ -301,7 +301,7 @@ func (s *FirewallerSuite) TestFirewallerStartWithState(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *FirewallerSuite) TestFirewallerStartWithPartialState(c *C) {
+func (s *FirewallerSuite) TestStartWithPartialState(c *C) {
 	m, err := s.State.AddMachine(state.MachinerWorker)
 	c.Assert(err, IsNil)
 	inst, err := s.Conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), nil)
@@ -331,7 +331,7 @@ func (s *FirewallerSuite) TestFirewallerStartWithPartialState(c *C) {
 	s.assertPorts(c, inst, m.Id(), []state.Port{{"tcp", 80}})
 }
 
-func (s *FirewallerSuite) TestFirewallerStartWithUnexposedService(c *C) {
+func (s *FirewallerSuite) TestStartWithUnexposedService(c *C) {
 	m, err := s.State.AddMachine(state.MachinerWorker)
 	c.Assert(err, IsNil)
 	inst, err := s.Conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), nil)
