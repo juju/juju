@@ -1,6 +1,7 @@
 package ec2_test
 
 import (
+	"bytes"
 	"launchpad.net/goamz/aws"
 	amzec2 "launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/ec2/ec2test"
@@ -51,6 +52,16 @@ func registerLocalTests() {
 			},
 		},
 	})
+	Suite(&localNonUSEastSuite{
+		tests: jujutest.Tests{
+			Config: attrs,
+		},
+		srv: localServer{
+			config: &s3test.Config{
+				Send409Conflict: true,
+			},
+		},
+	})
 }
 
 // localLiveSuite runs tests from LiveTests using a fake
@@ -95,6 +106,7 @@ func (t *localLiveSuite) TearDownTest(c *C) {
 type localServer struct {
 	ec2srv *ec2test.Server
 	s3srv  *s3test.Server
+	config *s3test.Config
 }
 
 func (srv *localServer) startServer(c *C) {
@@ -103,12 +115,7 @@ func (srv *localServer) startServer(c *C) {
 	if err != nil {
 		c.Fatalf("cannot start ec2 test server: %v", err)
 	}
-	srv.s3srv, err = s3test.NewServer(&s3test.Config{
-		// this server is not in us-east-1; it's region is test.
-		// tf. it should respond with a 409 conflict when
-		// PUT is called on an existing bucket.
-		Send409Conflict: true,
-	})
+	srv.s3srv, err = s3test.NewServer(srv.config)
 	if err != nil {
 		c.Fatalf("cannot start s3 test server: %v", err)
 	}
@@ -324,5 +331,52 @@ func CheckPackage(c *C, x map[interface{}]interface{}, pkg string, match bool) {
 		c.Errorf("package %q not found in %v", pkg, pkgs)
 	case !match && found:
 		c.Errorf("%q found but not expected in %v", pkg, pkgs)
+	}
+}
+
+// localNonUSEastSuite is similar to localServerSuite but the S3 mock server
+// behaves as if
+type localNonUSEastSuite struct {
+	testing.LoggingSuite
+	tests jujutest.Tests
+	srv   localServer
+	env   environs.Environ
+}
+
+func (t *localNonUSEastSuite) SetUpSuite(c *C) {
+	t.LoggingSuite.SetUpSuite(c)
+	ec2.UseTestImageData(true)
+	ec2.UseTestMetadata(true)
+	t.tests.SetUpSuite(c)
+	ec2.ShortTimeouts(true)
+}
+
+func (t *localNonUSEastSuite) TearDownSuite(c *C) {
+	ec2.ShortTimeouts(false)
+	ec2.UseTestMetadata(false)
+	ec2.UseTestImageData(false)
+	t.LoggingSuite.TearDownSuite(c)
+}
+
+func (t *localNonUSEastSuite) SetUpTest(c *C) {
+	t.LoggingSuite.SetUpTest(c)
+	t.srv.startServer(c)
+	t.tests.SetUpTest(c)
+	t.env = t.tests.Env
+}
+
+func (t *localNonUSEastSuite) TearDownTest(c *C) {
+	t.tests.TearDownTest(c)
+	t.srv.stopServer(c)
+	t.LoggingSuite.TearDownTest(c)
+}
+
+func (t *localNonUSEastSuite) TestPutBucket(c *C) {
+	p := t.env.PublicStorage().(ec2.Storage)
+	for i := 0; i < 5; i++ {
+		p.ResetMadeBucket()
+		var buf bytes.Buffer
+		err := p.Put("test-file", &buf, 0)
+		c.Assert(err, IsNil)
 	}
 }
