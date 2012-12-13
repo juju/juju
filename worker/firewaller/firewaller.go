@@ -180,7 +180,7 @@ func (fw *Firewaller) startUnit(unit *state.Unit, machineId string) error {
 	unitd.serviced = fw.serviceds[serviceName]
 	unitd.serviced.unitds[unitName] = unitd
 
-	var ports []state.Port
+	ports := make([]state.Port, len(unitd.ports))
 	copy(ports, unitd.ports)
 
 	go unitd.watchLoop(ports)
