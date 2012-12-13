@@ -59,7 +59,7 @@ func (srv *Server) Stop() error {
 }
 
 func (srv *Server) run(lis net.Listener) {
-	defer srv.wg.Wait()
+	defer srv.wg.Wait()		// wait for any outstanding requests to complete.
 	srv.wg.Add(1)
 	go func() {
 		<-srv.tomb.Dying()
