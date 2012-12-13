@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"launchpad.net/juju-core/cert"
+	"launchpad.net/juju-core/trivial"
 )
 
 type State struct {
@@ -22,6 +23,11 @@ type Info struct {
 	// CACert holds the CA certificate that will be used
 	// to validate the state server's certificate, in PEM format.
 	CACert []byte
+}
+
+var openAttempt = trivial.AttemptStrategy{
+	Total: 5 * time.Minute,
+	Delay: 500 * time.Millisecond,
 }
 
 func Open(info *Info) (*State, error) {
@@ -40,7 +46,13 @@ func Open(info *Info) (*State, error) {
 		RootCAs:    pool,
 		ServerName: "anything",
 	}
-	conn, err := websocket.DialConfig(cfg)
+	var conn *websocket.Conn
+	for a := openAttempt.Start(); a.Next(); {
+		conn, err = websocket.DialConfig(cfg)
+		if err == nil {
+			break
+		}
+	}
 	if err != nil {
 		return nil, err
 	}

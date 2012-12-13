@@ -83,6 +83,8 @@ func (c *AgentConf) addFlags(f *gnuflag.FlagSet, accept agentFlags) {
 	if accept&flagInitialPassword != 0 {
 		f.StringVar(&c.InitialPassword, "initial-password", "", "initial password for state")
 	}
+	if accept&flagMongoAddr != 0 {
+		f.StringVar(&c.mongoAddr, "mongo-addr", "", "address of mongo db server"
 	c.accept = accept
 }
 

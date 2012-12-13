@@ -80,7 +80,50 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	return a.tomb.Err()
 }
 
+if we've been given a mongodb address, we try
+to connect to it to see if our machine is supposed
+to run a state worker.
+
+if we fail because we're not authorised, then
+we fail altogether, i suppose (no use in getting
+the list of workers if we can't run the state server)
+but... should we fail altogether if we can still run
+some of the other tasks?
+
+func (a *MachineAgent) stateServer() {
+	if len(a.MongoAddrs) == 0 {
+		return
+	}
+	st, password, err := openState(state.MachineEntityName(a.MachineId), &a.Conf)
+	
+	what do we do about the new password?
+
+	get machine
+	if workers do not include ServerWorker {
+		return
+	}
+	for {
+		go runServer(0
+		select {
+		case <-serverquit:
+			open mongo state
+		case <-upgraded:
+			srv.Stop()
+			done
+		}
+	}
+}
+
+TODO:
+
+get cert and key from data dir
+change agent.go to get CA cert from data dir
+
 func (a *MachineAgent) runOnce() error {
+	// TODO (when API state is universal): try to open mongo state
+	// first, set password with that, then run state server if
+	// necessary; then open api and set password with that if
+	// necessary.
 	st, password, err := openState(state.MachineEntityName(a.MachineId), &a.Conf)
 	if err != nil {
 		return err
@@ -99,7 +142,31 @@ func (a *MachineAgent) runOnce() error {
 		}
 	}
 	log.Printf("cmd/jujud: requested workers for machine agent: ", m.Workers())
-	tasks := []task{NewUpgrader(st, m, a.Conf.DataDir)}
+	var tasks []task
+	// The API server provides a service that may be required
+	// to open the API client, so we start it first if it's required.
+	for _, w := range m.Workers() {
+		if w == state.ServerWorker {
+			srv, err := api.NewServer(st, apiAddr, cert, key)
+			if err != nil {
+				return err
+			}
+			tasks = append(tasks, t)
+		}
+	}
+	apiSt, err := api.Open(a.APIInfo)
+	if err != nil {
+		stopc := make(chan struct{})
+		close(stopc)
+		if err := runTasks(stopc, tasks); err != nil {
+			// The API server error is probably more interesting
+			// than the API client connection failure.
+			return err
+		}
+		return err
+	}
+	defer apiSt.Close()
+	tasks = append(tasks, NewUpgrader(st, m, a.Conf.DataDir))
 	for _, w := range m.Workers() {
 		var t task
 		switch w {
@@ -109,6 +176,8 @@ func (a *MachineAgent) runOnce() error {
 			t = provisioner.NewProvisioner(st)
 		case state.FirewallerWorker:
 			t = firewaller.NewFirewaller(st)
+		case state.ServerWorker:
+			continue
 		}
 		if t == nil {
 			log.Printf("cmd/jujud: ignoring unknown worker %q", w)
