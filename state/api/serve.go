@@ -3,6 +3,7 @@ package api
 import (
 	"code.google.com/p/go.net/websocket"
 	"crypto/tls"
+	"io"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/tomb"
@@ -45,7 +46,7 @@ func NewServer(s *state.State, addr string, cert, key []byte) (*Server, error) {
 	})
 	go func() {
 		defer srv.tomb.Done()
-		srv.tomb.Kill(srv.run(lis))
+		srv.run(lis)
 	}()
 	return srv, nil
 }
@@ -57,7 +58,8 @@ func (srv *Server) Stop() error {
 	return srv.tomb.Wait()
 }
 
-func (srv *Server) run(lis net.Listener) error {
+func (srv *Server) run(lis net.Listener) {
+	defer srv.wg.Wait()
 	srv.wg.Add(1)
 	go func() {
 		<-srv.tomb.Dying()
@@ -83,7 +85,6 @@ func (srv *Server) run(lis net.Listener) error {
 	})
 	// The error from http.Serve is not interesting.
 	http.Serve(lis, handler)
-	return nil
 }
 
 // Addr returns the address that the server is listening on.
@@ -107,7 +108,7 @@ func (st *srvState) run() {
 		var req rpcRequest
 		var ok bool
 		select {
-		case req, ok := <-msgs:
+		case req, ok = <-msgs:
 			if !ok {
 				return
 			}
