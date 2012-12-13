@@ -44,10 +44,7 @@ func NewServer(s *state.State, addr string, cert, key []byte) (*Server, error) {
 	lis = tls.NewListener(lis, &tls.Config{
 		Certificates: []tls.Certificate{tlsCert},
 	})
-	go func() {
-		defer srv.tomb.Done()
-		srv.run(lis)
-	}()
+	go srv.run(lis)
 	return srv, nil
 }
 
@@ -59,6 +56,7 @@ func (srv *Server) Stop() error {
 }
 
 func (srv *Server) run(lis net.Listener) {
+	defer srv.tomb.Done()
 	defer srv.wg.Wait() // wait for any outstanding requests to complete.
 	srv.wg.Add(1)
 	go func() {
