@@ -65,6 +65,7 @@ func (srv *Server) run(lis net.Listener) error {
 		srv.wg.Done()
 	}()
 	handler := websocket.Handler(func(conn *websocket.Conn) {
+		defer conn.Close()
 		srv.wg.Add(1)
 		defer srv.wg.Done()
 		// If we've got to this stage and the tomb is still
@@ -78,13 +79,7 @@ func (srv *Server) run(lis net.Listener) error {
 			srv:  srv,
 			conn: conn,
 		}
-		srv.wg.Add(1)
-		go func() {
-			st.run()
-			srv.wg.Done()
-		}()
-		<-srv.tomb.Dying()
-		conn.Close()
+		st.run()
 	})
 	// The error from http.Serve is not interesting.
 	http.Serve(lis, handler)
@@ -106,11 +101,17 @@ type rpcResponse struct {
 }
 
 func (st *srvState) run() {
+	msgs := make(chan rpcRequest)
+	go st.readRequests(msgs)
 	for {
 		var req rpcRequest
-		err := websocket.JSON.Receive(st.conn, &req)
-		if err != nil {
-			log.Printf("api: error receiving request: %v", err)
+		var ok bool
+		select {
+		case req, ok := <-msgs:
+			if !ok {
+				return
+			}
+		case <-st.srv.tomb.Dying():
 			return
 		}
 		var resp rpcResponse
@@ -133,4 +134,21 @@ func (st *srvState) run() {
 			return
 		}
 	}
+}
+
+func (st *srvState) readRequests(c chan<- rpcRequest) {
+	var req rpcRequest
+	for {
+		req = rpcRequest{} // avoid any potential cross-message contamination.
+		err := websocket.JSON.Receive(st.conn, &req)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Printf("api: error receiving request: %v", err)
+			break
+		}
+		c <- req
+	}
+	close(c)
 }
