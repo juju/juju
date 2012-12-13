@@ -237,7 +237,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	scfg.tools = &state.Tools{}
 	log.Printf("environs/openstack: starting machine %s in %q running tools version %q from %q",
 		scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
-	//TODO(wallyworld) - implement spec lookup
+	// TODO(wallyworld) - implement spec lookup
 	// TODO(wallyworld) - implement userData creation once we have tools
 	var userData []byte = make([]byte, 0)
 	log.Debugf("environs/openstack: openstack user data: %q", userData)
@@ -263,7 +263,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 			UserData:           &userDataString,
 			SecurityGroupNames: groupNames,
 		})
-		if err == nil {
+		if err == nil || !gooseerrors.IsNotFound(err) {
 			break
 		}
 	}
@@ -427,7 +427,7 @@ func (e *environ) setUpGroups(machineId string) ([]nova.SecurityGroup, error) {
 // zeroGroup holds the zero security group.
 var zeroGroup nova.SecurityGroup
 
-func (e *environ) getSecurityGroupByName(name string) (*nova.SecurityGroup, error) {
+func (e *environ) securityGroupByName(name string) (*nova.SecurityGroup, error) {
 	// OpenStack does not support group filtering, so we need to load them all and manually search by name.
 	nova := e.nova()
 	groups, err := nova.ListSecurityGroups()
@@ -453,7 +453,7 @@ func (e *environ) ensureGroup(name string, rules []nova.RuleInfo) (nova.Security
 			return zeroGroup, err
 		} else {
 			// We just tried to create a duplicate group, so load the existing group.
-			group, err = e.getSecurityGroupByName(name)
+			group, err = e.securityGroupByName(name)
 			if err != nil {
 				return zeroGroup, err
 			}
