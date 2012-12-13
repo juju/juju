@@ -65,7 +65,6 @@ func (srv *Server) run(lis net.Listener) {
 		srv.wg.Done()
 	}()
 	handler := websocket.Handler(func(conn *websocket.Conn) {
-		defer conn.Close()
 		srv.wg.Add(1)
 		defer srv.wg.Done()
 		// If we've got to this stage and the tomb is still
@@ -102,6 +101,12 @@ type rpcResponse struct {
 func (st *srvState) run() {
 	msgs := make(chan rpcRequest)
 	go st.readRequests(msgs)
+	defer func() {
+		st.conn.Close()
+		// Wait for readRequests to see the closed connection and quit.
+		for _ = range msgs {
+		}
+	}()
 	for {
 		var req rpcRequest
 		var ok bool
