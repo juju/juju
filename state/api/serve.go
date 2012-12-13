@@ -141,6 +141,7 @@ func (st *srvState) run() {
 }
 
 func (st *srvState) readRequests(c chan<- rpcRequest) {
+	defer close(c)
 	var req rpcRequest
 	for {
 		req = rpcRequest{} // avoid any potential cross-message contamination.
@@ -154,5 +155,4 @@ func (st *srvState) readRequests(c chan<- rpcRequest) {
 		}
 		c <- req
 	}
-	close(c)
 }
