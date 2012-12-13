@@ -237,7 +237,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	scfg.tools = &state.Tools{}
 	log.Printf("environs/openstack: starting machine %s in %q running tools version %q from %q",
 		scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
-	//TODO(wallyworld) - implement spec lookup
+	// TODO(wallyworld) - implement spec lookup
 	// TODO(wallyworld) - implement userData creation once we have tools
 	var userData []byte = nil
 	log.Debugf("environs/openstack: openstack user data: %q", userData)
@@ -261,7 +261,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 			UserData:           userData,
 			SecurityGroupNames: groupNames,
 		})
-		if err == nil {
+		if err == nil || !gooseerrors.IsNotFound(err) {
 			break
 		}
 	}
@@ -436,7 +436,7 @@ func (e *environ) ensureGroup(name string, rules []nova.RuleInfo) (nova.Security
 			return zeroGroup, err
 		} else {
 			// We just tried to create a duplicate group, so load the existing group.
-			group, err = nova.GetSecurityGroupByName(name)
+			group, err = nova.SecurityGroupByName(name)
 			if err != nil {
 				return zeroGroup, err
 			}
