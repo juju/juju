@@ -80,7 +80,7 @@ func (s *Service) EnsureDying() error {
 				ops = append(ops, txn.Op{
 					C:      s.st.relations.Name,
 					Id:     rel.doc.Key,
-					Assert: isAlive,
+					Assert: isAliveDoc,
 					Update: D{{"$set", D{{"life", Dying}}}},
 				})
 			}
@@ -140,7 +140,7 @@ func (s *Service) setExposed(exposed bool) (err error) {
 	ops := []txn.Op{{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
-		Assert: isAlive,
+		Assert: isAliveDoc,
 		Update: D{{"$set", D{{"exposed", exposed}}}},
 	}}
 	if err := s.st.runner.Run(ops, "", nil); err != nil {
@@ -217,7 +217,7 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 	ops := []txn.Op{{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
-		Assert: isAlive,
+		Assert: isAliveDoc,
 		Update: D{{"$set", D{{"charmurl", ch.URL()}, {"forcecharm", force}}}},
 	}}
 	if err := s.st.runner.Run(ops, "", nil); err != nil {
@@ -296,11 +296,11 @@ func (s *Service) addUnitOps(principalName string, strictSubordinates bool) (str
 	}, {
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
-		Assert: isAlive,
+		Assert: isAliveDoc,
 		Update: D{{"$inc", D{{"unitcount", 1}}}},
 	}}
 	if principalName != "" {
-		assert := isAlive
+		assert := isAliveDoc
 		if strictSubordinates {
 			assert = append(assert, bson.DocElem{
 				"subordinates", D{{"$not", bson.RegEx{Pattern: "^" + s.doc.Name + "/"}}},
@@ -324,7 +324,7 @@ func (s *Service) AddUnit() (unit *Unit, err error) {
 		return nil, err
 	}
 	if err := s.st.runner.Run(ops, "", nil); err == txn.ErrAborted {
-		if alive, err := isAliveDoc(s.st.services, s.doc.Name); err != nil {
+		if alive, err := isAlive(s.st.services, s.doc.Name); err != nil {
 			return nil, err
 		} else if !alive {
 			return nil, fmt.Errorf("service is not alive")
@@ -363,12 +363,12 @@ func (s *Service) AddUnitSubordinateTo(principal *Unit) (unit *Unit, err error) 
 	} else if err != txn.ErrAborted {
 		return nil, err
 	}
-	if alive, err := isAliveDoc(s.st.services, s.doc.Name); err != nil {
+	if alive, err := isAlive(s.st.services, s.doc.Name); err != nil {
 		return nil, err
 	} else if !alive {
 		return nil, fmt.Errorf("service is not alive")
 	}
-	if alive, err := isAliveDoc(s.st.units, principal.doc.Name); err != nil {
+	if alive, err := isAlive(s.st.units, principal.doc.Name); err != nil {
 		return nil, err
 	} else if !alive {
 		return nil, fmt.Errorf("principal unit is not alive")
@@ -410,8 +410,6 @@ func (s *Service) RemoveUnit(u *Unit) (err error) {
 			Update: D{{"$pull", D{{"subordinates", u.doc.Name}}}},
 		})
 	}
-	// TODO assert that subordinates are empty before deleting a principal
-	// (shouldn't this already be the case before the principal is Dead?)
 	if err = s.st.runner.Run(ops, "", nil); err != nil {
 		// TODO Remove this once we know the logic is right:
 		if c, err := s.st.units.FindId(u.doc.Name).Count(); err != nil {

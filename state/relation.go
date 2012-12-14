@@ -289,12 +289,12 @@ func (ru *RelationUnit) EnterScope() error {
 	}, {
 		C:      ru.st.relations.Name,
 		Id:     ru.relation.doc.Key,
-		Assert: isAlive,
+		Assert: isAliveDoc,
 		Update: D{{"$inc", D{{"unitcount", 1}}}},
 	}, {
 		C:      ru.st.units.Name,
 		Id:     unitName,
-		Assert: isAlive,
+		Assert: isAliveDoc,
 	}}
 
 	// Collect the operations necessary to create the unit settings in this
@@ -352,17 +352,17 @@ func (ru *RelationUnit) EnterScope() error {
 		return nil
 	}
 	// If there's no scope document, the abort should be a consequence of
-	// one of the isAlive checks: find out which. (Note that there is no
+	// one of the isAliveDoc checks: find out which. (Note that there is no
 	// need for additional checks if we're trying to create a subordinate
 	// unit: this could fail due to the subordinate service's not being Alive,
 	// but this case will always be caught by the check for the relation's
 	// life (because a relation cannot be Alive if its services are not).)
-	if alive, err := isAliveDoc(ru.st.units, ru.unit.doc.Name); err != nil {
+	if alive, err := isAlive(ru.st.units, ru.unit.doc.Name); err != nil {
 		return err
 	} else if !alive {
 		return ErrCannotEnterScope
 	}
-	if alive, err := isAliveDoc(ru.st.relations, relationKey); err != nil {
+	if alive, err := isAlive(ru.st.relations, relationKey); err != nil {
 		return err
 	} else if !alive {
 		return ErrCannotEnterScope

@@ -146,7 +146,7 @@ func (u *Unit) SetAgentTools(t *Tools) (err error) {
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
-		Assert: notDead,
+		Assert: notDeadDoc,
 		Update: D{{"$set", D{{"tools", t}}}},
 	}}
 	if err := u.st.runner.Run(ops, "", nil); err != nil {
@@ -178,6 +178,7 @@ func (u *Unit) EnsureDying() error {
 // EnsureDead sets the unit lifecycle to Dead if it is Alive or Dying.
 // It does nothing otherwise.
 func (u *Unit) EnsureDead() error {
+	// TODO a principal must not become Dead while it still has subordinates.
 	err := ensureDead(u.st, u.st.units, u.doc.Name, "unit", nil, "")
 	if err != nil {
 		return err
@@ -262,7 +263,7 @@ func (u *Unit) SetStatus(status UnitStatus, info string) error {
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
-		Assert: notDead,
+		Assert: notDeadDoc,
 		Update: D{{"$set", D{{"status", status}, {"statusinfo", info}}}},
 	}}
 	err := u.st.runner.Run(ops, "", nil)
@@ -281,7 +282,7 @@ func (u *Unit) OpenPort(protocol string, number int) (err error) {
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
-		Assert: notDead,
+		Assert: notDeadDoc,
 		Update: D{{"$addToSet", D{{"ports", port}}}},
 	}}
 	err = u.st.runner.Run(ops, "", nil)
@@ -307,7 +308,7 @@ func (u *Unit) ClosePort(protocol string, number int) (err error) {
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
-		Assert: notDead,
+		Assert: notDeadDoc,
 		Update: D{{"$pull", D{{"ports", port}}}},
 	}}
 	err = u.st.runner.Run(ops, "", nil)
@@ -344,7 +345,7 @@ func (u *Unit) SetCharm(ch *Charm) (err error) {
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
-		Assert: notDead,
+		Assert: notDeadDoc,
 		Update: D{{"$set", D{{"charmurl", ch.URL()}}}},
 	}}
 	if err := u.st.runner.Run(ops, "", nil); err != nil {
@@ -457,13 +458,13 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 	if u.doc.Principal != "" {
 		return fmt.Errorf("unit is a subordinate")
 	}
-	assert := append(isAlive, D{
+	assert := append(isAliveDoc, D{
 		{"$or", []D{
 			{{"machineid", ""}},
 			{{"machineid", m.Id()}},
 		}},
 	}...)
-	massert := isAlive
+	massert := isAliveDoc
 	if unused {
 		massert = append(massert, D{{"principals", D{{"$size", 0}}}}...)
 	}
@@ -613,7 +614,7 @@ func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 	default:
 		return fmt.Errorf("invalid error resolution mode: %q", mode)
 	}
-	assert := append(notDead, D{{"resolved", ResolvedNone}}...)
+	assert := append(notDeadDoc, D{{"resolved", ResolvedNone}}...)
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,

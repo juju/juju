@@ -18,8 +18,8 @@ const (
 	nLife
 )
 
-var notDead = D{{"life", D{{"$ne", Dead}}}}
-var isAlive = D{{"life", Alive}}
+var notDeadDoc = D{{"life", D{{"$ne", Dead}}}}
+var isAliveDoc = D{{"life", Alive}}
 
 var lifeStrings = [nLife]string{
 	Alive: "alive",
@@ -44,7 +44,7 @@ func ensureDying(st *State, coll *mgo.Collection, id interface{}, desc string) e
 	ops := []txn.Op{{
 		C:      coll.Name,
 		Id:     id,
-		Assert: isAlive,
+		Assert: isAliveDoc,
 		Update: D{{"$set", D{{"life", Dying}}}},
 	}}
 	if err := st.runner.Run(ops, "", nil); err == txn.ErrAborted {
@@ -81,7 +81,7 @@ func ensureDead(st *State, coll *mgo.Collection, id interface{}, desc string, as
 	return nil
 }
 
-func isAliveDoc(coll *mgo.Collection, id interface{}) (bool, error) {
+func isAlive(coll *mgo.Collection, id interface{}) (bool, error) {
 	n, err := coll.Find(D{{"_id", id}, {"life", Alive}}).Count()
 	return n == 1, err
 }
