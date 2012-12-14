@@ -82,6 +82,7 @@ func (fw *Firewaller) loop() error {
 				fw.machineLifeChanged(id)
 			}
 			if !reconciled {
+				reconciled = true
 				var err error
 				if fw.globalMode {
 					err = fw.reconcileGlobal()
@@ -91,7 +92,6 @@ func (fw *Firewaller) loop() error {
 				if err != nil {
 					return err
 				}
-				reconciled = true
 			}
 		case change := <-fw.unitsChange:
 			if err := fw.unitsChanged(change); err != nil {
@@ -116,6 +116,13 @@ func (fw *Firewaller) loop() error {
 	panic("not reached")
 }
 
+// stop a watcher with logging of a possible error.
+func stop(what string, stopper watcher.Stopper) {
+	if err := stopper.Stop(); err != nil {
+		log.Printf("worker/firewaller: error stopping %s: %v", what, err)
+	}
+}
+
 // startMachine creates a new data value for tracking details of the
 // machine and starts watching the machine for units added or removed.
 func (fw *Firewaller) startMachine(id string) error {
@@ -134,24 +141,18 @@ func (fw *Firewaller) startMachine(id string) error {
 	unitw := m.WatchUnits()
 	select {
 	case <-fw.tomb.Dying():
-		if err := unitw.Stop(); err != nil {
-			log.Printf("worker/firewaller: error stopping machine units watcher: %v", err)
-		}
+		stop("units watcher", unitw)
 		return tomb.ErrDying
 	case change, ok := <-unitw.Changes():
 		if !ok {
-			if err := unitw.Stop(); err != nil {
-				log.Printf("worker/firewaller: error stopping machine units watcher: %v", err)
-			}
+			stop("units watcher", unitw)
 			return watcher.MustErr(unitw)
 		}
 		fw.machineds[id] = machined
 		err = fw.unitsChanged(&unitsChange{machined, change})
 		if err != nil {
-			if werr := unitw.Stop(); werr != nil {
-				log.Printf("worker/firewaller: error stopping machine units watcher: %v", werr)
-			}
-			return fmt.Errorf("worker/firewaller: cannot watch machine units: %v", err)
+			stop("units watcher", unitw)
+			return fmt.Errorf("worker/firewaller: start watching machine %d faild: %v", id, err)
 		}
 	}
 	go machined.watchLoop(unitw)
@@ -159,7 +160,9 @@ func (fw *Firewaller) startMachine(id string) error {
 }
 
 // startUnit creates a new data value for tracking details of the
-// unit and starts watching the unit for port changes.
+// unit and starts watching the unit for port changes. The provided 
+// machineId must be the id for the machine the unit was last observed 
+// to be assigned to.
 func (fw *Firewaller) startUnit(unit *state.Unit, machineId string) error {
 	service, err := unit.Service()
 	if err != nil {
@@ -177,7 +180,7 @@ func (fw *Firewaller) startUnit(unit *state.Unit, machineId string) error {
 	unitd.machined = fw.machineds[machineId]
 	unitd.machined.unitds[unitName] = unitd
 	if fw.serviceds[serviceName] == nil {
-		err := fw.startService(serviceName)
+		err := fw.startService(service)
 		if err != nil {
 			delete(fw.unitds, unitName)
 			return err
@@ -195,18 +198,14 @@ func (fw *Firewaller) startUnit(unit *state.Unit, machineId string) error {
 
 // startService creates a new data value for tracking details of the
 // service and starts watching the service for exposure changes.
-func (fw *Firewaller) startService(name string) error {
-	service, err := fw.st.Service(name)
-	if err != nil {
-		return err
-	}
+func (fw *Firewaller) startService(service *state.Service) error {
 	serviced := &serviceData{
 		fw:      fw,
 		service: service,
 		exposed: service.IsExposed(),
 		unitds:  make(map[string]*unitData),
 	}
-	fw.serviceds[name] = serviced
+	fw.serviceds[service.Name()] = serviced
 	go serviced.watchLoop(serviced.exposed)
 	return nil
 }
@@ -235,18 +234,18 @@ func (fw *Firewaller) reconcileGlobal() error {
 	toOpen := diff(wantedPorts, initialPorts)
 	toClose := diff(initialPorts, wantedPorts)
 	if len(toOpen) > 0 {
+		log.Printf("worker/firewaller: opening global ports %v", toOpen)
 		if err := fw.environ.OpenPorts(toOpen); err != nil {
 			return err
 		}
 		state.SortPorts(toOpen)
-		log.Printf("worker/firewaller: initially opened ports %v in environment", toOpen)
 	}
 	if len(toClose) > 0 {
+		log.Printf("worker/firewaller: closing global ports %v", toClose)
 		if err := fw.environ.ClosePorts(toClose); err != nil {
 			return err
 		}
 		state.SortPorts(toClose)
-		log.Printf("worker/firewaller: initially closed ports %v in environment", toClose)
 	}
 	return nil
 }
@@ -258,7 +257,10 @@ func (fw *Firewaller) reconcileInstances() error {
 	for _, machined := range fw.machineds {
 		m, err := machined.machine()
 		if state.IsNotFound(err) {
-			return fw.forgetMachine(machined)
+			if err := fw.forgetMachine(machined); err != nil {
+				return err
+			}
+			continue
 		} else if err != nil {
 			return err
 		}
@@ -278,20 +280,22 @@ func (fw *Firewaller) reconcileInstances() error {
 		toOpen := diff(machined.ports, initialPorts)
 		toClose := diff(initialPorts, machined.ports)
 		if len(toOpen) > 0 {
+			log.Printf("worker/firewaller: opening instance ports %v for machine %s",
+				toOpen, machined.id)
 			if err := instances[0].OpenPorts(machined.id, toOpen); err != nil {
 				// TODO(mue) Add local retry logic.
 				return err
 			}
 			state.SortPorts(toOpen)
-			log.Printf("worker/firewaller: opened ports %v on machine %s", toOpen, machined.id)
 		}
 		if len(toClose) > 0 {
+			log.Printf("worker/firewaller: closing instance ports %v for machine %s",
+				toClose, machined.id)
 			if err := instances[0].ClosePorts(machined.id, toClose); err != nil {
 				// TODO(mue) Add local retry logic.
 				return err
 			}
 			state.SortPorts(toClose)
-			log.Printf("worker/firewaller: closed ports %v on machine %s", toClose, machined.id)
 		}
 	}
 	return nil
