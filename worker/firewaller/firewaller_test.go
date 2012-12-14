@@ -275,7 +275,7 @@ func (s *FirewallerSuite) TestMultipleUnits(c *C) {
 	s.assertPorts(c, inst2, m2.Id(), nil)
 }
 
-func (s *FirewallerSuite) TestStartWithState(c *C) {
+func (s *FirewallerSuite) TestFirewallerStartWithState(c *C) {
 	svc, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
 	err = svc.SetExposed()
@@ -301,7 +301,7 @@ func (s *FirewallerSuite) TestStartWithState(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *FirewallerSuite) TestStartWithPartialState(c *C) {
+func (s *FirewallerSuite) TestFirewallerStartWithPartialState(c *C) {
 	m, err := s.State.AddMachine(state.MachinerWorker)
 	c.Assert(err, IsNil)
 	inst, err := s.Conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), nil)
@@ -328,35 +328,6 @@ func (s *FirewallerSuite) TestStartWithPartialState(c *C) {
 	err = u.OpenPort("tcp", 80)
 	c.Assert(err, IsNil)
 
-	s.assertPorts(c, inst, m.Id(), []state.Port{{"tcp", 80}})
-}
-
-func (s *FirewallerSuite) TestStartWithUnexposedService(c *C) {
-	m, err := s.State.AddMachine(state.MachinerWorker)
-	c.Assert(err, IsNil)
-	inst, err := s.Conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), nil)
-	c.Assert(err, IsNil)
-	err = m.SetInstanceId(inst.Id())
-	c.Assert(err, IsNil)
-
-	svc, err := s.State.AddService("wordpress", s.charm)
-	c.Assert(err, IsNil)
-	u, err := svc.AddUnit()
-	c.Assert(err, IsNil)
-	err = u.AssignToMachine(m)
-	c.Assert(err, IsNil)
-	err = u.OpenPort("tcp", 80)
-	c.Assert(err, IsNil)
-
-	// Starting the firewaller, no open ports.
-	fw := firewaller.NewFirewaller(s.State)
-	defer func() { c.Assert(fw.Stop(), IsNil) }()
-
-	s.assertPorts(c, inst, m.Id(), nil)
-
-	// Expose service.
-	err = svc.SetExposed()
-	c.Assert(err, IsNil)
 	s.assertPorts(c, inst, m.Id(), []state.Port{{"tcp", 80}})
 }
 
@@ -614,39 +585,6 @@ func (s *FirewallerSuite) TestGlobalMode(c *C) {
 	s.assertEnvironPorts(c, nil)
 }
 
-func (s *FirewallerSuite) TestGlobalModeStartWithUnexposedService(c *C) {
-	// Change configuration.
-	restore := s.setGlobalMode(c)
-	defer restore(c)
-
-	m, err := s.State.AddMachine(state.MachinerWorker)
-	c.Assert(err, IsNil)
-	inst, err := s.Conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), nil)
-	c.Assert(err, IsNil)
-	err = m.SetInstanceId(inst.Id())
-	c.Assert(err, IsNil)
-
-	svc, err := s.State.AddService("wordpress", s.charm)
-	c.Assert(err, IsNil)
-	u, err := svc.AddUnit()
-	c.Assert(err, IsNil)
-	err = u.AssignToMachine(m)
-	c.Assert(err, IsNil)
-	err = u.OpenPort("tcp", 80)
-	c.Assert(err, IsNil)
-
-	// Starting the firewaller, no open ports.
-	fw := firewaller.NewFirewaller(s.State)
-	defer func() { c.Assert(fw.Stop(), IsNil) }()
-
-	s.assertEnvironPorts(c, nil)
-
-	// Expose service.
-	err = svc.SetExposed()
-	c.Assert(err, IsNil)
-	s.assertEnvironPorts(c, []state.Port{{"tcp", 80}})
-}
-
 func (s *FirewallerSuite) TestGlobalModeRestart(c *C) {
 	// Change configuration.
 	restore := s.setGlobalMode(c)
@@ -722,6 +660,8 @@ func (s *FirewallerSuite) TestGlobalModeRestartUnexposedService(c *C) {
 }
 
 func (s *FirewallerSuite) TestGlobalModeRestartPortCount(c *C) {
+	c.Skip("TODO(mue): skipped pending resolution of port races on startup")
+
 	// Change configuration.
 	restore := s.setGlobalMode(c)
 	defer restore(c)
