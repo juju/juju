@@ -152,7 +152,7 @@ func (fw *Firewaller) startMachine(id string) error {
 		err = fw.unitsChanged(&unitsChange{machined, change})
 		if err != nil {
 			stop("units watcher", unitw)
-			return fmt.Errorf("worker/firewaller: start watching machine %d faild: %v", id, err)
+			return err
 		}
 	}
 	go machined.watchLoop(unitw)
@@ -180,11 +180,7 @@ func (fw *Firewaller) startUnit(unit *state.Unit, machineId string) error {
 	unitd.machined = fw.machineds[machineId]
 	unitd.machined.unitds[unitName] = unitd
 	if fw.serviceds[serviceName] == nil {
-		err := fw.startService(service)
-		if err != nil {
-			delete(fw.unitds, unitName)
-			return err
-		}
+		fw.startService(service)
 	}
 	unitd.serviced = fw.serviceds[serviceName]
 	unitd.serviced.unitds[unitName] = unitd
@@ -198,7 +194,7 @@ func (fw *Firewaller) startUnit(unit *state.Unit, machineId string) error {
 
 // startService creates a new data value for tracking details of the
 // service and starts watching the service for exposure changes.
-func (fw *Firewaller) startService(service *state.Service) error {
+func (fw *Firewaller) startService(service *state.Service) {
 	serviced := &serviceData{
 		fw:      fw,
 		service: service,
@@ -207,7 +203,6 @@ func (fw *Firewaller) startService(service *state.Service) error {
 	}
 	fw.serviceds[service.Name()] = serviced
 	go serviced.watchLoop(serviced.exposed)
-	return nil
 }
 
 // reconcileGlobal compares the initially started watcher for machines,
