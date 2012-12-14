@@ -16,6 +16,7 @@ var configChecker = schema.StrictFieldMap(
 		"auth-url":       schema.String(),
 		"region":         schema.String(),
 		"control-bucket": schema.String(),
+		"public-bucket":  schema.String(),
 	},
 	schema.Defaults{
 		"username":       "",
@@ -24,6 +25,7 @@ var configChecker = schema.StrictFieldMap(
 		"auth-url":       "",
 		"region":         "",
 		"control-bucket": "",
+		"public-bucket": "",
 	},
 )
 
@@ -54,6 +56,10 @@ func (c *environConfig) authURL() string {
 
 func (c *environConfig) controlBucket() string {
 	return c.attrs["control-bucket"].(string)
+}
+
+func (c *environConfig) publicBucket() string {
+	return c.attrs["public-bucket"].(string)
 }
 
 func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
