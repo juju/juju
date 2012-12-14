@@ -1,7 +1,9 @@
 package jujutest
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs"
@@ -334,8 +336,6 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	c.Assert(err, IsNil)
 	c.Check(cfg.AgentVersion(), Equals, version.Current.Number)
 
-	// Wait for machine agent to come up on the bootstrap
-	// machine and find the deployed series from that.
 	// Wait for machine agent to come up on the bootstrap
 	// machine and find the deployed series from that.
 	m0, err := conn.State.Machine("0")
@@ -671,4 +671,79 @@ func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
 	}
 	c.Assert(inst, IsNil)
 	c.Assert(err, ErrorMatches, "cannot find image.*")
+}
+
+func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
+	if !t.HasProvisioner {
+		c.Skip("HasProvisioner is false; cannot test deployment")
+	}
+
+	current := version.Current
+	other := current
+	other.Series = "precise"
+	if current == other {
+		other.Series = "quantal"
+	}
+
+	cfg := t.Env.Config()
+	cfg, err := cfg.Apply(map[string]interface{}{"default-series": other.Series})
+	c.Assert(err, IsNil)
+	env, err := environs.New(cfg)
+	c.Assert(err, IsNil)
+
+	dummyenv, err := environs.NewFromAttrs(map[string]interface{}{
+		"type":         "dummy",
+		"name":         "dummy storage",
+		"secret":       "pizza",
+		"state-server": false,
+	})
+	c.Assert(err, IsNil)
+	defer dummyenv.Destroy(nil)
+
+	currentPath := environs.ToolsStoragePath(current)
+	otherPath := environs.ToolsStoragePath(other)
+	envStorage := env.Storage()
+	dummyStorage := dummyenv.Storage()
+
+	defer envStorage.Remove(otherPath)
+
+	_, err = environs.PutTools(dummyStorage, &current.Number)
+	c.Assert(err, IsNil)
+
+	// This will only work while cross-compiling across releases is safe,
+	// which depends on external elements. Tends to be safe for the last
+	// few releases, but we may have to refactor some day.
+	err = storageCopy(dummyStorage, currentPath, envStorage, otherPath)
+	c.Assert(err, IsNil)
+
+	err = environs.Bootstrap(env, false, panicWrite)
+	c.Assert(err, IsNil)
+	defer env.Destroy(nil)
+
+	conn, err := juju.NewConn(env)
+	c.Assert(err, IsNil)
+	defer conn.Close()
+
+	// Wait for machine agent to come up on the bootstrap
+	// machine and ensure it deployed the proper series.
+	m0, err := conn.State.Machine("0")
+	c.Assert(err, IsNil)
+	mw0 := newMachineToolWaiter(m0)
+	defer mw0.Stop()
+
+	waitAgentTools(c, mw0, other)
+}
+
+func storageCopy(source environs.Storage, sourcePath string, target environs.Storage, targetPath string) error {
+	rc, err := source.Get(sourcePath)
+	if err != nil {
+		return err
+	}
+	var buf bytes.Buffer
+	_, err = io.Copy(&buf, rc)
+	rc.Close()
+	if err != nil {
+		return err
+	}
+	return target.Put(targetPath, &buf, int64(buf.Len()))
 }

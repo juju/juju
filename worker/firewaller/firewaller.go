@@ -134,9 +134,15 @@ func (fw *Firewaller) startMachine(id string) error {
 	unitw := m.WatchUnits()
 	select {
 	case <-fw.tomb.Dying():
+		if err := unitw.Stop(); err != nil {
+			log.Printf("worker/firewaller: error stopping machine units watcher: %v", err)
+		}
 		return tomb.ErrDying
 	case change, ok := <-unitw.Changes():
 		if !ok {
+			if err := unitw.Stop(); err != nil {
+				log.Printf("worker/firewaller: error stopping machine units watcher: %v", err)
+			}
 			return watcher.MustErr(unitw)
 		}
 		fw.machineds[id] = machined
