@@ -521,7 +521,7 @@ func (st *State) AddRelation(endpoints ...Endpoint) (r *Relation, err error) {
 		ops = append(ops, txn.Op{
 			C:      st.services.Name,
 			Id:     v.ServiceName,
-			Assert: isAlive,
+			Assert: isAliveDoc,
 			Update: D{{"$inc", D{{"relationcount", 1}}}},
 		})
 	}
