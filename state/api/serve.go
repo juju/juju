@@ -27,7 +27,7 @@ type Server struct {
 
 // Serve serves the given state by accepting requests
 // on the given listener, using the given certificate
-// and key (in PEM format) for authentication. 
+// and key (in PEM format) for authentication.
 func NewServer(s *state.State, addr string, cert, key []byte) (*Server, error) {
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
