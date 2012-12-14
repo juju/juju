@@ -280,7 +280,7 @@ func (s *ServiceSuite) TestAddUnit(c *C) {
 
 	// Check that subordinate units must be added to other units.
 	_, err = logging.AddUnit()
-	c.Assert(err, ErrorMatches, `cannot add unit to service "logging": service is subordinate`)
+	c.Assert(err, ErrorMatches, `cannot add unit to service "logging": service is a subordinate`)
 
 	// Check that subordinate units cannnot be added to subordinate units.
 	_, err = logging.AddUnitSubordinateTo(subZero)

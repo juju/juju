@@ -260,22 +260,32 @@ var ErrCannotEnterScope = errors.New("cannot enter scope: unit or relation is no
 // the unit not to be Alive. Once a unit has entered a scope, it stays in scope
 // without further intervention; the relation will not be able to become Dead
 // until all units have departed its scopes.
+//
+// If the unit is a principal and the relation has container scope, EnterScope
+// will also create the required subordinate unit, if it does not already exist;
+// this is because there's no point having a principal in scope if there is no
+// corresponding subordinate to join it.
 func (ru *RelationUnit) EnterScope() error {
-	key, err := ru.key(ru.unit.Name())
+	// Verify that the unit is not already in scope, and abort without error
+	// if it is.
+	relationKey, err := ru.key(ru.unit.Name())
 	if err != nil {
 		return err
 	}
 	desc := fmt.Sprintf("unit %q in relation %q", ru.unit, ru.relation)
-	if count, err := ru.st.relationScopes.FindId(key).Count(); err != nil {
+	if count, err := ru.st.relationScopes.FindId(relationKey).Count(); err != nil {
 		return fmt.Errorf("cannot examine scope for %s: %v", desc, err)
 	} else if count != 0 {
 		return nil
 	}
+
+	// Collect the operations that are always required to enter scope.
+	unitName := ru.unit.doc.Name
 	ops := []txn.Op{{
 		C:      ru.st.relationScopes.Name,
-		Id:     key,
+		Id:     relationKey,
 		Assert: txn.DocMissing,
-		Insert: relationScopeDoc{key},
+		Insert: relationScopeDoc{relationKey},
 	}, {
 		C:      ru.st.relations.Name,
 		Id:     ru.relation.doc.Key,
@@ -283,28 +293,58 @@ func (ru *RelationUnit) EnterScope() error {
 		Update: D{{"$inc", D{{"unitcount", 1}}}},
 	}, {
 		C:      ru.st.units.Name,
-		Id:     ru.unit.Name(),
+		Id:     unitName,
 		Assert: isAlive,
 	}}
-	if _, err := readSettings(ru.st, key); IsNotFound(err) {
-		// If settings do not already exist, create them.
+
+	// Collect the operations necessary to create the unit settings in this
+	// relation, if they do not already exist.
+	if _, err := readSettings(ru.st, relationKey); IsNotFound(err) {
 		address, err := ru.unit.PrivateAddress()
 		if err != nil {
 			return fmt.Errorf("cannot initialize state for %s: %v", desc, err)
 		}
 		ops = append([]txn.Op{{
 			C:      ru.st.settings.Name,
-			Id:     key,
+			Id:     relationKey,
 			Assert: txn.DocMissing,
 			Insert: map[string]interface{}{"private-address": address},
 		}}, ops...)
 	} else if err != nil {
 		return fmt.Errorf("cannot check settings for %s: %v", desc, err)
 	}
+
+	// If the unit should have a subordinate, and does not, collect the
+	// operations necessary to create it.
+	if ru.unit.IsPrincipal() && ru.endpoint.RelationScope == charm.ScopeContainer {
+		related, err := ru.relation.RelatedEndpoints(ru.endpoint.ServiceName)
+		if err != nil {
+			return err
+		} else if len(related) != 1 {
+			return fmt.Errorf("expected single related endpoint, got %v", related)
+		}
+		serviceName := related[0].ServiceName
+		selSubordinate := D{{"service", serviceName}, {"principal", unitName}}
+		if n, err := ru.st.units.Find(selSubordinate).Count(); err != nil {
+			return err
+		} else if n == 0 {
+			service, err := ru.st.Service(serviceName)
+			if err != nil {
+				return err
+			}
+			_, subOps, err := service.addUnitOps(unitName, true)
+			if err != nil {
+				return err
+			}
+			ops = append(ops, subOps...)
+		}
+	}
+
+	// Run the complete transaction, or figure out why we can't.
 	if err := ru.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
 		return err
 	}
-	if count, err := ru.st.relationScopes.FindId(key).Count(); err != nil {
+	if count, err := ru.st.relationScopes.FindId(relationKey).Count(); err != nil {
 		return fmt.Errorf("cannot examine scope for %s: %v", desc, err)
 	} else if count != 0 {
 		// The scope document exists, so we're already in scope; the txn was
@@ -312,25 +352,24 @@ func (ru *RelationUnit) EnterScope() error {
 		return nil
 	}
 	// If there's no scope document, the abort should be a consequence of
-	// one of the isAlive checks: find out which.
-	for _, l := range []lifeRefresher{ru.relation, ru.unit} {
-		if err := l.Refresh(); IsNotFound(err) {
-			return ErrCannotEnterScope
-		} else if err != nil {
-			return err
-		}
-		if l.Life() != Alive {
-			return ErrCannotEnterScope
-		}
+	// one of the isAlive checks: find out which. (Note that there is no
+	// need for additional checks if we're trying to create a subordinate
+	// unit: this could fail due to the subordinate service's not being Alive,
+	// but this case will always be caught by the check for the relation's
+	// life (because a relation cannot be Alive if its services are not).)
+	if alive, err := isAliveDoc(ru.st.units, ru.unit.doc.Name); err != nil {
+		return err
+	} else if !alive {
+		return ErrCannotEnterScope
+	}
+	if alive, err := isAliveDoc(ru.st.relations, relationKey); err != nil {
+		return err
+	} else if !alive {
+		return ErrCannotEnterScope
 	}
 	// Apparently, all our assertions should have passed, but the txn was
 	// aborted: something is badly wrong.
 	return fmt.Errorf("cannot enter scope for %s: inconsistent state", desc)
-}
-
-type lifeRefresher interface {
-	Life() Life
-	Refresh() error
 }
 
 // LeaveScope signals that the unit has left its scope in the relation.
@@ -418,81 +457,6 @@ func (ru *RelationUnit) WatchScope() *RelationScopeWatcher {
 	role := ru.endpoint.RelationRole.counterpartRole()
 	scope := ru.scope + "#" + string(role)
 	return newRelationScopeWatcher(ru.st, scope, ru.unit.Name())
-}
-
-// ErrNoSubordinateRequired indicates that a relation unit is not a principal
-// of a container-scoped relation.
-var ErrNoSubordinateRequired = errors.New("no subordinate required")
-
-// EnsureSubordinate creates a subordinate unit for the unit in the relation if
-// one does not already exist. If the unit is not a principal of a container-
-// scoped relation, ErrNoSubordinateRequired will be returned; otherwise, if the
-// required subordinate does not exist, it will be created. It will fail to
-// create a subordinate if any of the principal, the relation, or the subordinate
-// service are not Alive.
-func (ru *RelationUnit) EnsureSubordinate() (sub *Unit, err error) {
-	if !ru.unit.IsPrincipal() {
-		return nil, ErrNoSubordinateRequired
-	}
-	if ru.endpoint.RelationScope != charm.ScopeContainer {
-		return nil, ErrNoSubordinateRequired
-	}
-	defer trivial.ErrorContextf(&err, "cannot get or create subordinate")
-	related, err := ru.relation.RelatedEndpoints(ru.endpoint.ServiceName)
-	if err != nil {
-		return nil, err
-	} else if len(related) != 1 {
-		return nil, fmt.Errorf("expected single related endpoint, got %v", related)
-	}
-	serviceName := related[0].ServiceName
-	principalName := ru.unit.doc.Name
-	selSubordinate := D{{"service", serviceName}, {"principal", principalName}}
-	udoc := &unitDoc{}
-	if err := ru.st.units.Find(selSubordinate).One(udoc); err == nil {
-		return newUnit(ru.st, udoc), nil
-	} else if err != mgo.ErrNotFound {
-		return nil, err
-	}
-	service, err := ru.st.Service(serviceName)
-	if err != nil {
-		return nil, err
-	}
-	name, ops, err := service.addUnitOps(principalName, true)
-	if err != nil {
-		return nil, err
-	}
-	relationKey := ru.relation.doc.Key
-	ops = append(ops, txn.Op{
-		C:      ru.st.relations.Name,
-		Id:     relationKey,
-		Assert: isAlive,
-	})
-	if err = ru.st.runner.Run(ops, "", nil); err == nil {
-		return service.Unit(name)
-	} else if err != txn.ErrAborted {
-		return nil, err
-	}
-	if err := ru.st.units.Find(selSubordinate).One(udoc); err == nil {
-		return newUnit(ru.st, udoc), nil
-	} else if err != mgo.ErrNotFound {
-		return nil, err
-	}
-	if alive, err := getAlive(ru.st.services, serviceName); err != nil {
-		return nil, err
-	} else if !alive {
-		return nil, fmt.Errorf("service %q is not alive", serviceName)
-	}
-	if alive, err := getAlive(ru.st.units, principalName); err != nil {
-		return nil, err
-	} else if !alive {
-		return nil, fmt.Errorf("principal unit %q is not alive", principalName)
-	}
-	if alive, err := getAlive(ru.st.relations, relationKey); err != nil {
-		return nil, err
-	} else if !alive {
-		return nil, fmt.Errorf("relation %q is not alive", relationKey)
-	}
-	return nil, fmt.Errorf("inconsistent state")
 }
 
 // Settings returns a Settings which allows access to the unit's settings

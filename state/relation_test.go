@@ -321,6 +321,49 @@ func (s *RelationUnitSuite) TestContainerSettings(c *C) {
 	}
 }
 
+func (s *RelationUnitSuite) TestContainerCreateSubordinate(c *C) {
+	psvc, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
+	c.Assert(err, IsNil)
+	rsvc, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
+	c.Assert(err, IsNil)
+	eps, err := s.State.InferEndpoints([]string{"mysql", "logging"})
+	c.Assert(err, IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	punit, err := psvc.AddUnit()
+	c.Assert(err, IsNil)
+	err = punit.SetPrivateAddress("blah")
+	c.Assert(err, IsNil)
+	pru, err := rel.Unit(punit)
+	c.Assert(err, IsNil)
+
+	// Check that no units of the subordinate service exist.
+	assertSubCount := func(expect int) {
+		runits, err := rsvc.AllUnits()
+		c.Assert(err, IsNil)
+		c.Assert(runits, HasLen, expect)
+	}
+	assertSubCount(0)
+
+	// Enter principal's scope and check a subordinate was created.
+	err = pru.EnterScope()
+	c.Assert(err, IsNil)
+	assertSubCount(1)
+
+	// Enter principal scope again and check no more subordinates created.
+	err = pru.EnterScope()
+	c.Assert(err, IsNil)
+	assertSubCount(1)
+
+	// Leave principal scope, then re-enter, and check that still no further
+	// subordinates are created.
+	err = pru.LeaveScope()
+	c.Assert(err, IsNil)
+	err = pru.EnterScope()
+	c.Assert(err, IsNil)
+	assertSubCount(1)
+}
+
 func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *C) {
 	pr := NewPeerRelation(c, &s.ConnSuite)
 	rel := pr.ru0.Relation()
@@ -633,103 +676,6 @@ func (s *RelationUnitSuite) assertNoScopeChange(c *C, ws ...*state.RelationScope
 		case <-time.After(50 * time.Millisecond):
 		}
 	}
-}
-
-func (s *RelationUnitSuite) TestEnsureSubordinatePeer(c *C) {
-	pr := NewPeerRelation(c, &s.ConnSuite)
-	_, err := pr.ru0.EnsureSubordinate()
-	c.Assert(err, Equals, state.ErrNoSubordinateRequired)
-}
-
-func (s *RelationUnitSuite) TestEnsureSubordinateGlobal(c *C) {
-	prr := NewProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
-	_, err := prr.pru0.EnsureSubordinate()
-	c.Assert(err, Equals, state.ErrNoSubordinateRequired)
-	_, err = prr.rru0.EnsureSubordinate()
-	c.Assert(err, Equals, state.ErrNoSubordinateRequired)
-}
-
-func (s *RelationUnitSuite) TestEnsureSubordinateValid(c *C) {
-	// Test that EnsureRelation returns no error when the subordinate exists.
-	prr := NewProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
-	sub, err := prr.pru0.EnsureSubordinate()
-	c.Assert(err, IsNil)
-	c.Assert(sub.Name(), Equals, prr.ru0.Name())
-	_, err = prr.rru0.EnsureSubordinate()
-	c.Assert(err, Equals, state.ErrNoSubordinateRequired)
-
-	// Test that EnsureSubordinate creates a subordinate when necessary.
-	err = prr.ru0.EnsureDead()
-	c.Assert(err, IsNil)
-	err = prr.rsvc.RemoveUnit(prr.ru0)
-	c.Assert(err, IsNil)
-	rus, err := prr.rsvc.AllUnits()
-	c.Assert(err, IsNil)
-	newSub, err := prr.pru0.EnsureSubordinate()
-	c.Assert(err, IsNil)
-	c.Assert(newSub.ServiceName(), Equals, prr.rsvc.Name())
-	for _, u := range rus {
-		c.Assert(newSub.Name(), Not(Equals), u.Name())
-	}
-}
-
-func (s *RelationUnitSuite) TestEnsureSubordinateDyingPrincipal(c *C) {
-	prr := NewProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
-	err := prr.ru0.EnsureDead()
-	c.Assert(err, IsNil)
-	err = prr.rsvc.RemoveUnit(prr.ru0)
-	c.Assert(err, IsNil)
-	err = prr.pu0.EnsureDying()
-	c.Assert(err, IsNil)
-	_, err = prr.pru0.EnsureSubordinate()
-	c.Assert(err, ErrorMatches, `cannot get or create subordinate: principal unit "mysql/0" is not alive`)
-}
-
-func (s *RelationUnitSuite) TestEnsureSubordinateDyingService(c *C) {
-	prr := NewProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
-	err := prr.ru0.EnsureDead()
-	c.Assert(err, IsNil)
-	err = prr.rsvc.RemoveUnit(prr.ru0)
-	c.Assert(err, IsNil)
-	err = prr.rsvc.EnsureDying()
-	c.Assert(err, IsNil)
-	_, err = prr.pru0.EnsureSubordinate()
-	c.Assert(err, ErrorMatches, `cannot get or create subordinate: service "logging" is not alive`)
-}
-
-func (s *RelationUnitSuite) TestEnsureSubordinateDyingRelation(c *C) {
-	prr := NewProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
-	err := prr.ru0.EnsureDead()
-	c.Assert(err, IsNil)
-	err = prr.rsvc.RemoveUnit(prr.ru0)
-	c.Assert(err, IsNil)
-	// Note: the only way to set the relation to Dying is to Destroy it while
-	// some relation unit is in scope.
-	err = prr.pru1.EnterScope()
-	c.Assert(err, IsNil)
-	err = prr.rel.Destroy()
-	c.Assert(err, IsNil)
-	_, err = prr.pru0.EnsureSubordinate()
-	c.Assert(err, ErrorMatches, `cannot get or create subordinate: relation "logging:info mysql:juju-info" is not alive`)
-}
-
-func (s *RelationUnitSuite) TestEnsureSubordinateDyingButExists(c *C) {
-	// No error when subordinate already exists, even if every entity in play
-	// is already Dying.
-	prr := NewProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
-	// Note: the only way to set the relation to Dying is to Destroy it while
-	// some relation unit is in scope.
-	err := prr.pru1.EnterScope()
-	c.Assert(err, IsNil)
-	err = prr.rel.Destroy()
-	c.Assert(err, IsNil)
-	err = prr.rsvc.EnsureDying()
-	c.Assert(err, IsNil)
-	err = prr.pu0.EnsureDying()
-	c.Assert(err, IsNil)
-	sub, err := prr.pru0.EnsureSubordinate()
-	c.Assert(err, IsNil)
-	c.Assert(sub.Name(), Equals, prr.ru0.Name())
 }
 
 type PeerRelation struct {

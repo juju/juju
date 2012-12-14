@@ -273,7 +273,7 @@ func (s *Service) addUnitOps(principalName string, strictSubordinates bool) (str
 		return "", nil, err
 	}
 	if subordinate := ch.Meta().Subordinate; subordinate && principalName == "" {
-		return "", nil, fmt.Errorf("service is subordinate")
+		return "", nil, fmt.Errorf("service is a subordinate")
 	} else if !subordinate && principalName != "" {
 		return "", nil, fmt.Errorf("service is not a subordinate")
 	}
@@ -324,7 +324,7 @@ func (s *Service) AddUnit() (unit *Unit, err error) {
 		return nil, err
 	}
 	if err := s.st.runner.Run(ops, "", nil); err == txn.ErrAborted {
-		if alive, err := getAlive(s.st.services, s.doc.Name); err != nil {
+		if alive, err := isAliveDoc(s.st.services, s.doc.Name); err != nil {
 			return nil, err
 		} else if !alive {
 			return nil, fmt.Errorf("service is not alive")
@@ -342,7 +342,7 @@ func (s *Service) AddUnit() (unit *Unit, err error) {
 // to exist for the convenience of certain tests, which are themselves due for
 // overhaul.
 func (s *Service) AddUnitSubordinateTo(principal *Unit) (unit *Unit, err error) {
-	log.Printf("state: Service.AddUnitSubordinateTo is DEPRECATED; use RelationUnit.EnsureSubordinate instead")
+	log.Printf("state: Service.AddUnitSubordinateTo is DEPRECATED; subordinate units should be created only as a side-effect of a principal entering relation scope")
 	defer trivial.ErrorContextf(&err, "cannot add unit to service %q as a subordinate of %q", s, principal)
 	ch, _, err := s.Charm()
 	if err != nil {
@@ -363,12 +363,12 @@ func (s *Service) AddUnitSubordinateTo(principal *Unit) (unit *Unit, err error) 
 	} else if err != txn.ErrAborted {
 		return nil, err
 	}
-	if alive, err := getAlive(s.st.services, s.doc.Name); err != nil {
+	if alive, err := isAliveDoc(s.st.services, s.doc.Name); err != nil {
 		return nil, err
 	} else if !alive {
 		return nil, fmt.Errorf("service is not alive")
 	}
-	if alive, err := getAlive(s.st.units, principal.doc.Name); err != nil {
+	if alive, err := isAliveDoc(s.st.units, principal.doc.Name); err != nil {
 		return nil, err
 	} else if !alive {
 		return nil, fmt.Errorf("principal unit is not alive")
@@ -423,19 +423,6 @@ func (s *Service) RemoveUnit(u *Unit) (err error) {
 		return onAbort(err, nil)
 	}
 	return nil
-}
-
-func (s *Service) unitDoc(name string) (*unitDoc, error) {
-	udoc := &unitDoc{}
-	sel := D{
-		{"_id", name},
-		{"service", s.doc.Name},
-	}
-	err := s.st.units.Find(sel).One(udoc)
-	if err != nil {
-		return nil, err
-	}
-	return udoc, nil
 }
 
 // Unit returns the service's unit with name.

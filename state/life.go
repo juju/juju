@@ -81,12 +81,7 @@ func ensureDead(st *State, coll *mgo.Collection, id interface{}, desc string, as
 	return nil
 }
 
-func getAlive(coll *mgo.Collection, id interface{}) (bool, error) {
-	var doc struct{ Life }
-	if err := coll.FindId(id).One(&doc); err == mgo.ErrNotFound {
-		return false, nil
-	} else if err != nil {
-		return false, err
-	}
-	return doc.Life == Alive, nil
+func isAliveDoc(coll *mgo.Collection, id interface{}) (bool, error) {
+	n, err := coll.Find(D{{"_id", id}, {"life", Alive}}).Count()
+	return n == 1, err
 }
