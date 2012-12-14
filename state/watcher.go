@@ -846,6 +846,21 @@ func (u *Unit) WatchSubordinateUnits() *UnitsWatcher {
 	return newUnitsWatcher(u.st, getUnits, coll, u.doc.Name, u.doc.TxnRevno)
 }
 
+// WatchPrincipalUnits2 returns a UnitsWatcher tracking the machine's principal
+// units. The original WatchPrincipalUnits, returning a MachinePrincipalUnitsWatcher,
+// is still in use but due for retirement.
+func (m *Machine) WatchPrincipalUnits2() *UnitsWatcher {
+	m = &Machine{m.st, m.doc}
+	coll := m.st.machines.Name
+	getUnits := func() ([]string, error) {
+		if err := m.Refresh(); err != nil {
+			return nil, err
+		}
+		return m.doc.Principals, nil
+	}
+	return newUnitsWatcher(m.st, getUnits, coll, m.doc.Id, m.doc.TxnRevno)
+}
+
 func newUnitsWatcher(st *State, getUnits func() ([]string, error), coll, id string, revno int64) *UnitsWatcher {
 	w := &UnitsWatcher{
 		commonWatcher: commonWatcher{st: st},
