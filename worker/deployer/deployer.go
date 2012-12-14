@@ -116,7 +116,7 @@ func (d *Deployer) deploy(unit *state.Unit) error {
 	if d.deployed[unit.Name()] {
 		panic("must not re-deploy a deployed unit")
 	}
-	log.Printf("worker/deployer: deploying agent for unit %q", unit)
+	log.Printf("worker/deployer: deploying unit %q", unit)
 	initialPassword, err := trivial.RandomPassword()
 	if err != nil {
 		return err
@@ -137,7 +137,7 @@ func (d *Deployer) recall(unitName string) error {
 	if !d.deployed[unitName] {
 		panic("must not recall a unit that is not deployed")
 	}
-	log.Printf("worker/deployer: recalling agent for unit %q", unitName)
+	log.Printf("worker/deployer: recalling unit %q", unitName)
 	if err := d.mgr.RecallUnit(unitName); err != nil {
 		return err
 	}
