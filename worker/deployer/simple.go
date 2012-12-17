@@ -39,12 +39,12 @@ type SimpleManager struct {
 
 var _ Manager = (*SimpleManager)(nil)
 
-// NewSimpleContext returns a new SimpleManager, acting on behalf of the
+// NewSimpleManager returns a new SimpleManager, acting on behalf of the
 // entity specified in info, that deploys unit agents as upstart jobs in
 // "/etc/init" logging to "/var/log/juju". Paths to which agents and tools
 // are installed are relative to dataDir; if dataDir is empty, it will be
 // set to "/var/lib/juju".
-func NewSimpleContext(info *state.Info, dataDir string) *SimpleManager {
+func NewSimpleManager(info *state.Info, dataDir string) *SimpleManager {
 	if dataDir == "" {
 		dataDir = "/var/lib/juju"
 	}
