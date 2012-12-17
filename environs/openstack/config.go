@@ -25,7 +25,7 @@ var configChecker = schema.StrictFieldMap(
 		"auth-url":       "",
 		"region":         "",
 		"control-bucket": "",
-		"public-bucket": "",
+		"public-bucket":  "",
 	},
 )
 

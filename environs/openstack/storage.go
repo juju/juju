@@ -16,8 +16,8 @@ import (
 type storage struct {
 	containerMutex sync.Mutex
 	madeContainer  bool
-	containerName   string
-	swift *swift.Client
+	containerName  string
+	swift          *swift.Client
 }
 
 // makeContainer makes the environment's control container, the

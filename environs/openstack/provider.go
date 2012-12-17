@@ -83,9 +83,9 @@ func (p environProvider) PrivateAddress() (string, error) {
 type environ struct {
 	name string
 
-	ecfgMutex     sync.Mutex
-	ecfgUnlocked  *environConfig
-	novaUnlocked  *nova.Client
+	ecfgMutex             sync.Mutex
+	ecfgUnlocked          *environConfig
+	novaUnlocked          *nova.Client
 	storageUnlocked       *storage
 	publicStorageUnlocked *storage // optional.
 }
@@ -203,12 +203,12 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	storageClient := e.client(ecfg)
 	e.storageUnlocked = &storage{
 		containerName: ecfg.controlBucket(),
-		swift: swift.New(storageClient),}
+		swift:         swift.New(storageClient)}
 	if ecfg.publicBucket() != "" {
 		publicBucketClient := e.client(ecfg)
 		e.publicStorageUnlocked = &storage{
 			containerName: ecfg.publicBucket(),
-			swift: swift.New(publicBucketClient),}
+			swift:         swift.New(publicBucketClient)}
 	} else {
 		e.publicStorageUnlocked = nil
 	}
