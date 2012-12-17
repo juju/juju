@@ -151,15 +151,11 @@ func (u *Uniter) Wait() error {
 // value of Started.
 func (u *Uniter) writeState(op Op, step OpStep, hi *hook.Info, url *corecharm.URL) error {
 	s := State{
+		Started:  op == RunHook && hi.Kind == hook.Start || u.s != nil && u.s.Started,
 		Op:       op,
 		OpStep:   step,
 		Hook:     hi,
 		CharmURL: url,
-	}
-	if op == RunHook && hi.Kind == hook.Start {
-		s.Started = true
-	} else if u.s != nil {
-		s.Started = u.s.Started
 	}
 	if err := u.sf.Write(s.Started, s.Op, s.OpStep, s.Hook, s.CharmURL); err != nil {
 		return err
