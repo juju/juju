@@ -40,11 +40,11 @@ type Manager interface {
 
 // NewDeployer returns a Deployer that deploys and recalls unit agents via
 // mgr, according to membership and lifecycle changes notified by w.
-func NewDeployer(st *state.State, mgr Manager, entityName string, w *state.UnitsWatcher) *Deployer {
+func NewDeployer(st *state.State, mgr Manager, w *state.UnitsWatcher) *Deployer {
 	d := &Deployer{
 		st:         st,
 		mgr:        mgr,
-		entityName: entityName,
+		entityName: w.EntityName(),
 		deployed:   map[string]bool{},
 	}
 	go func() {

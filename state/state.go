@@ -99,6 +99,7 @@ func IsNotFound(err error) bool {
 // State represents the state of an environment
 // managed by juju.
 type State struct {
+	info           *Info
 	db             *mgo.Database
 	charms         *mgo.Collection
 	machines       *mgo.Collection
