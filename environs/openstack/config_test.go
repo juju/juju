@@ -31,6 +31,7 @@ type configTest struct {
 	username      string
 	password      string
 	tenantName    string
+	authMethod    string
 	authURL       string
 	firewallMode  config.FirewallMode
 	err           string
@@ -44,6 +45,7 @@ func (t configTest) check(c *C) {
 			"testenv": attrs{
 				"username":    "testuser",
 				"tenant-name": "sometenant",
+				"auth-method": "userpass",
 				"auth-url":    "http://somehost",
 				"region":      "someregion",
 				"type":        "openstack",
@@ -179,6 +181,12 @@ var configTests = []configTest{
 		},
 		err: ".*expected string, got 666",
 	}, {
+		summary: "invalid authorisation emthod",
+		config: attrs{
+			"auth-method": "invalid-method",
+		},
+		err: ".*invalid authorisation method.*",
+	}, {
 		summary: "invalid auth-url format",
 		config: attrs{
 			"auth-url": "invalid",
@@ -202,12 +210,14 @@ var configTests = []configTest{
 			"username":    "jujuer",
 			"password":    "open sesame",
 			"tenant-name": "juju tenant",
+			"auth-method": "legacy",
 			"auth-url":    "http://some/url",
 		},
 		username:   "jujuer",
 		password:   "open sesame",
 		tenantName: "juju tenant",
 		authURL:    "http://some/url",
+		authMethod: "legacy",
 	}, {
 		summary: "admin-secret given",
 		config: attrs{

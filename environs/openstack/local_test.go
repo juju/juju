@@ -22,6 +22,7 @@ func (s *LocalSuite) SetUpSuite(c *C) {
 		"password":    "secret",
 		"tenant-name": "sometenant",
 		"region":      "someregion",
+		"auth-method": "userpass",
 		"auth-url":    "http://somehost",
 	})
 	c.Assert(err, IsNil)

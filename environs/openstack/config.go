@@ -14,6 +14,7 @@ var configChecker = schema.StrictFieldMap(
 		"password":       schema.String(),
 		"tenant-name":    schema.String(),
 		"auth-url":       schema.String(),
+		"auth-method":    schema.String(),
 		"region":         schema.String(),
 		"control-bucket": schema.String(),
 		"public-bucket":  schema.String(),
@@ -23,6 +24,7 @@ var configChecker = schema.StrictFieldMap(
 		"password":       "",
 		"tenant-name":    "",
 		"auth-url":       "",
+		"auth-method":    "",
 		"region":         "",
 		"control-bucket": "",
 		"public-bucket":  "",
@@ -54,6 +56,10 @@ func (c *environConfig) authURL() string {
 	return c.attrs["auth-url"].(string)
 }
 
+func (c *environConfig) authMethod() string {
+	return c.attrs["auth-method"].(string)
+}
+
 func (c *environConfig) controlBucket() string {
 	return c.attrs["control-bucket"].(string)
 }
@@ -70,12 +76,30 @@ func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
 	return &environConfig{valid, valid.UnknownAttrs()}, nil
 }
 
+type AuthMethod string
+
+const (
+	AuthLegacy   AuthMethod = "legacy"
+	AuthUserPass AuthMethod = "userpass"
+)
+
 func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
 	v, err := configChecker.Coerce(cfg.UnknownAttrs(), nil)
 	if err != nil {
 		return nil, err
 	}
 	ecfg := &environConfig{cfg, v.(map[string]interface{})}
+
+	if authMethod := ecfg.authMethod(); authMethod != "" {
+		switch AuthMethod(authMethod) {
+		case AuthLegacy:
+			break
+		case AuthUserPass:
+			break
+		default:
+			return nil, fmt.Errorf("invalid authorisation method: %q", authMethod)
+		}
+	}
 
 	if ecfg.authURL() != "" {
 		parts, err := url.Parse(ecfg.authURL())
