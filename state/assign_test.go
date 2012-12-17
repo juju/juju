@@ -46,9 +46,9 @@ func (s *AssignSuite) TestAssignUnitToMachineAgainFails(c *C) {
 	// Check that assigning an already assigned unit to
 	// a machine fails if it isn't precisely the same
 	// machine.
-	machineOne, err := s.State.AddMachine(state.MachinerWorker)
+	machineOne, err := s.State.AddMachine(state.HostPrincipalUnits)
 	c.Assert(err, IsNil)
-	machineTwo, err := s.State.AddMachine(state.MachinerWorker)
+	machineTwo, err := s.State.AddMachine(state.HostPrincipalUnits)
 	c.Assert(err, IsNil)
 
 	err = unit.AssignToMachine(machineOne)
@@ -71,7 +71,7 @@ func (s *AssignSuite) TestAssignUnitToMachineAgainFails(c *C) {
 func (s *AssignSuite) TestAssignedMachineIdWhenNotAlive(c *C) {
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
-	machine, err := s.State.AddMachine(state.MachinerWorker)
+	machine, err := s.State.AddMachine(state.HostPrincipalUnits)
 	c.Assert(err, IsNil)
 
 	err = unit.AssignToMachine(machine)
@@ -87,7 +87,7 @@ func (s *AssignSuite) TestAssignedMachineIdWhenNotAlive(c *C) {
 func (s *AssignSuite) TestAssignedMachineIdWhenPrincipalNotAlive(c *C) {
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
-	machine, err := s.State.AddMachine(state.MachinerWorker)
+	machine, err := s.State.AddMachine(state.HostPrincipalUnits)
 	c.Assert(err, IsNil)
 	err = unit.AssignToMachine(machine)
 	c.Assert(err, IsNil)
@@ -145,7 +145,7 @@ func (s *AssignSuite) TestAssignSubordinatesToMachine(c *C) {
 	log2Unit, err := logService2.AddUnitSubordinateTo(unit)
 	c.Assert(err, IsNil)
 
-	machine, err := s.State.AddMachine(state.MachinerWorker)
+	machine, err := s.State.AddMachine(state.HostPrincipalUnits)
 	c.Assert(err, IsNil)
 	err = log1Unit.AssignToMachine(machine)
 	c.Assert(err, ErrorMatches, ".*: unit is a subordinate")
@@ -169,7 +169,7 @@ func (s *AssignSuite) TestAssignSubordinatesToMachine(c *C) {
 }
 
 func (s *AssignSuite) TestDeployerName(c *C) {
-	machine, err := s.State.AddMachine(state.MachinerWorker)
+	machine, err := s.State.AddMachine(state.HostPrincipalUnits)
 	c.Assert(err, IsNil)
 	principal, err := s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
@@ -208,7 +208,7 @@ type entityNamer interface {
 }
 
 func (s *AssignSuite) TestAssignMachineWhenDying(c *C) {
-	machine, err := s.State.AddMachine(state.MachinerWorker)
+	machine, err := s.State.AddMachine(state.HostPrincipalUnits)
 	c.Assert(err, IsNil)
 
 	const unitDeadErr = ".*: unit is dead"
@@ -231,7 +231,7 @@ func (s *AssignSuite) TestAssignMachineWhenDying(c *C) {
 
 func (s *AssignSuite) TestUnassignMachineWhenDying(c *C) {
 	// Check that UnassignFromMachine works when the unit is dead.
-	machine, err := s.State.AddMachine(state.MachinerWorker)
+	machine, err := s.State.AddMachine(state.HostPrincipalUnits)
 	c.Assert(err, IsNil)
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
@@ -244,7 +244,7 @@ func (s *AssignSuite) TestUnassignMachineWhenDying(c *C) {
 
 	// Check that UnassignFromMachine works when the machine is
 	// dead.
-	machine, err = s.State.AddMachine(state.MachinerWorker)
+	machine, err = s.State.AddMachine(state.HostPrincipalUnits)
 	c.Assert(err, IsNil)
 	unit, err = s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
@@ -257,7 +257,7 @@ func (s *AssignSuite) TestUnassignMachineWhenDying(c *C) {
 }
 
 func (s *AssignSuite) TestAssignMachinePrincipalsChange(c *C) {
-	machine, err := s.State.AddMachine(state.MachinerWorker)
+	machine, err := s.State.AddMachine(state.HostPrincipalUnits)
 	c.Assert(err, IsNil)
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
@@ -295,7 +295,7 @@ func (s *AssignSuite) TestAssignMachinePrincipalsChange(c *C) {
 }
 
 func (s *AssignSuite) TestAssignUnitToUnusedMachine(c *C) {
-	_, err := s.State.AddMachine(state.MachinerWorker) // bootstrap machine
+	_, err := s.State.AddMachine(state.HostEnvironController) // bootstrap machine
 	c.Assert(err, IsNil)
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
@@ -307,7 +307,7 @@ func (s *AssignSuite) TestAssignUnitToUnusedMachine(c *C) {
 	for i := range units {
 		u, err := service1.AddUnit()
 		c.Assert(err, IsNil)
-		m, err := s.State.AddMachine(state.MachinerWorker)
+		m, err := s.State.AddMachine(state.HostPrincipalUnits)
 		c.Assert(err, IsNil)
 		err = u.AssignToMachine(m)
 		c.Assert(err, IsNil)
@@ -316,7 +316,7 @@ func (s *AssignSuite) TestAssignUnitToUnusedMachine(c *C) {
 
 	// Assign the suite's unit to a machine, then remove the unit
 	// so the machine becomes available again.
-	origMachine, err := s.State.AddMachine(state.MachinerWorker)
+	origMachine, err := s.State.AddMachine(state.HostPrincipalUnits)
 	c.Assert(err, IsNil)
 	err = unit.AssignToMachine(origMachine)
 	c.Assert(err, IsNil)
@@ -339,7 +339,7 @@ func (s *AssignSuite) TestAssignUnitToUnusedMachine(c *C) {
 	c.Assert(reusedMachine.Id(), Equals, origMachine.Id())
 
 	// Check that it fails when called again, even when there's an available machine
-	m, err := s.State.AddMachine(state.MachinerWorker)
+	m, err := s.State.AddMachine(state.HostPrincipalUnits)
 	c.Assert(err, IsNil)
 	_, err = newUnit.AssignToUnusedMachine()
 	c.Assert(err, ErrorMatches, `cannot assign unit "riak/0" to unused machine: unit is already assigned to a machine`)
@@ -352,22 +352,29 @@ func (s *AssignSuite) TestAssignUnitToUnusedMachine(c *C) {
 	// and check that we can't
 	newUnit, err = newService.AddUnit()
 	c.Assert(err, IsNil)
-
 	m, err = newUnit.AssignToUnusedMachine()
 	c.Assert(m, IsNil)
 	c.Assert(err, ErrorMatches, `all machines in use`)
 
 	// Add a dying machine and check that it is not chosen.
-	m, err = s.State.AddMachine(state.MachinerWorker)
+	m, err = s.State.AddMachine(state.HostPrincipalUnits)
 	c.Assert(err, IsNil)
 	err = m.EnsureDying()
 	c.Assert(err, IsNil)
 	m, err = newUnit.AssignToUnusedMachine()
 	c.Assert(m, IsNil)
 	c.Assert(err, ErrorMatches, `all machines in use`)
+
+	// Add another non-unit-hosting machine and check it is not chosen.
+	m, err = s.State.AddMachine(state.HostEnvironController)
+	c.Assert(err, IsNil)
+	m, err = newUnit.AssignToUnusedMachine()
+	c.Assert(m, IsNil)
+	c.Assert(err, ErrorMatches, `all machines in use`)
 }
+
 func (s *AssignSuite) TestAssignUnitToUnusedMachineWithRemovedService(c *C) {
-	_, err := s.State.AddMachine(state.MachinerWorker) // bootstrap machine
+	_, err := s.State.AddMachine(state.HostEnvironController) // bootstrap machine
 	c.Assert(err, IsNil)
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
@@ -378,14 +385,14 @@ func (s *AssignSuite) TestAssignUnitToUnusedMachineWithRemovedService(c *C) {
 	c.Assert(err, IsNil)
 	err = s.State.RemoveService(s.wordpress)
 	c.Assert(err, IsNil)
-	_, err = s.State.AddMachine(state.MachinerWorker)
+	_, err = s.State.AddMachine(state.HostPrincipalUnits)
 	c.Assert(err, IsNil)
 	_, err = unit.AssignToUnusedMachine()
 	c.Assert(err, ErrorMatches, `cannot assign unit "wordpress/0" to unused machine.*: unit "wordpress/0" not found`)
 }
 
 func (s *AssignSuite) TestAssignUnitToUnusedMachineWithRemovedUnit(c *C) {
-	_, err := s.State.AddMachine(state.MachinerWorker) // bootstrap machine
+	_, err := s.State.AddMachine(state.HostEnvironController) // bootstrap machine
 	c.Assert(err, IsNil)
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
@@ -394,30 +401,31 @@ func (s *AssignSuite) TestAssignUnitToUnusedMachineWithRemovedUnit(c *C) {
 	c.Assert(err, IsNil)
 	err = s.wordpress.RemoveUnit(unit)
 	c.Assert(err, IsNil)
-	_, err = s.State.AddMachine(state.MachinerWorker)
+	_, err = s.State.AddMachine(state.HostPrincipalUnits)
 	c.Assert(err, IsNil)
 
 	_, err = unit.AssignToUnusedMachine()
 	c.Assert(err, ErrorMatches, `cannot assign unit "wordpress/0" to unused machine.*: unit "wordpress/0" not found`)
 }
 
-func (s *AssignSuite) TestAssignUnitToUnusedMachineOnlyZero(c *C) {
-	_, err := s.State.AddMachine(state.MachinerWorker) // bootstrap machine
+func (s *AssignSuite) TestAssignUnitToUnusedMachineWorksWithMachine0(c *C) {
+	m, err := s.State.AddMachine(state.HostPrincipalUnits)
 	c.Assert(err, IsNil)
+	c.Assert(m.Id(), Equals, "0")
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
-	// Check that the unit can't be assigned to machine zero.
-	_, err = unit.AssignToUnusedMachine()
-	c.Assert(err, ErrorMatches, `all machines in use`)
+	assignedTo, err := unit.AssignToUnusedMachine()
+	c.Assert(err, IsNil)
+	c.Assert(assignedTo.Id(), Equals, "0")
 }
 
 func (s *AssignSuite) TestAssignUnitToUnusedMachineNoneAvailable(c *C) {
-	_, err := s.State.AddMachine(state.MachinerWorker) // bootstrap machine
+	_, err := s.State.AddMachine(state.HostEnvironController) // bootstrap machine
 	c.Assert(err, IsNil)
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
 	// Check that assigning without unused machine fails.
-	m1, err := s.State.AddMachine(state.MachinerWorker)
+	m1, err := s.State.AddMachine(state.HostPrincipalUnits)
 	c.Assert(err, IsNil)
 	err = unit.AssignToMachine(m1)
 	c.Assert(err, IsNil)
@@ -441,7 +449,7 @@ func (s *AssignSuite) TestAssignUnitBadPolicy(c *C) {
 }
 
 func (s *AssignSuite) TestAssignUnitLocalPolicy(c *C) {
-	_, err := s.State.AddMachine(state.MachinerWorker) // bootstrap machine
+	m, err := s.State.AddMachine(state.HostEnvironController, state.HostPrincipalUnits) // bootstrap machine
 	c.Assert(err, IsNil)
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
@@ -451,13 +459,13 @@ func (s *AssignSuite) TestAssignUnitLocalPolicy(c *C) {
 		c.Assert(err, IsNil)
 		mid, err := unit.AssignedMachineId()
 		c.Assert(err, IsNil)
-		c.Assert(mid, Equals, "0")
+		c.Assert(mid, Equals, m.Id())
 		assertMachineCount(c, s.State, 1)
 	}
 }
 
 func (s *AssignSuite) TestAssignUnitUnusedPolicy(c *C) {
-	_, err := s.State.AddMachine(state.MachinerWorker) // bootstrap machine
+	_, err := s.State.AddMachine(state.HostEnvironController) // bootstrap machine
 	c.Assert(err, IsNil)
 
 	// Check unassigned placements with no unused machines.
@@ -498,7 +506,7 @@ func (s *AssignSuite) TestAssignUnitUnusedPolicy(c *C) {
 	}
 	// Add some more unused machines
 	for i := 0; i < 4; i++ {
-		m, err := s.State.AddMachine(state.MachinerWorker)
+		m, err := s.State.AddMachine(state.HostPrincipalUnits)
 		c.Assert(err, IsNil)
 		unused = append(unused, m.Id())
 	}
@@ -520,7 +528,7 @@ func (s *AssignSuite) TestAssignUnitUnusedPolicy(c *C) {
 }
 
 func (s *AssignSuite) TestAssignUnitUnusedPolicyConcurrently(c *C) {
-	_, err := s.State.AddMachine(state.MachinerWorker) // bootstrap machine
+	_, err := s.State.AddMachine(state.HostEnvironController) // bootstrap machine
 	c.Assert(err, IsNil)
 	us := make([]*state.Unit, 50)
 	for i := range us {
@@ -561,7 +569,7 @@ func (s *AssignSuite) TestAssignUnitUnusedPolicyConcurrently(c *C) {
 }
 
 func (s *AssignSuite) TestAssignSubordinate(c *C) {
-	_, err := s.State.AddMachine(state.MachinerWorker) // bootstrap machine
+	_, err := s.State.AddMachine(state.HostEnvironController) // bootstrap machine
 	c.Assert(err, IsNil)
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, IsNil)

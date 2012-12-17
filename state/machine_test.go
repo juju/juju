@@ -18,7 +18,7 @@ var _ = Suite(&MachineSuite{})
 func (s *MachineSuite) SetUpTest(c *C) {
 	s.ConnSuite.SetUpTest(c)
 	var err error
-	s.machine, err = s.State.AddMachine(state.MachinerWorker)
+	s.machine, err = s.State.AddMachine(state.HostPrincipalUnits)
 	c.Assert(err, IsNil)
 }
 
@@ -83,7 +83,7 @@ func (s *MachineSuite) TestMachineWaitAgentAlive(c *C) {
 }
 
 func (s *MachineSuite) TestMachineInstanceId(c *C) {
-	machine, err := s.State.AddMachine(state.MachinerWorker)
+	machine, err := s.State.AddMachine(state.HostPrincipalUnits)
 	c.Assert(err, IsNil)
 	err = s.machines.Update(
 		D{{"_id", machine.Id()}},
@@ -98,7 +98,7 @@ func (s *MachineSuite) TestMachineInstanceId(c *C) {
 }
 
 func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *C) {
-	machine, err := s.State.AddMachine(state.MachinerWorker)
+	machine, err := s.State.AddMachine(state.HostPrincipalUnits)
 	c.Assert(err, IsNil)
 	err = s.machines.Update(
 		D{{"_id", machine.Id()}},
@@ -121,7 +121,7 @@ func (s *MachineSuite) TestMachineInstanceIdMissing(c *C) {
 }
 
 func (s *MachineSuite) TestMachineInstanceIdBlank(c *C) {
-	machine, err := s.State.AddMachine(state.MachinerWorker)
+	machine, err := s.State.AddMachine(state.HostPrincipalUnits)
 	c.Assert(err, IsNil)
 	err = s.machines.Update(
 		D{{"_id", machine.Id()}},
@@ -148,7 +148,7 @@ func (s *MachineSuite) TestMachineSetInstanceId(c *C) {
 }
 
 func (s *MachineSuite) TestMachineRefresh(c *C) {
-	m0, err := s.State.AddMachine(state.MachinerWorker)
+	m0, err := s.State.AddMachine(state.HostPrincipalUnits)
 	c.Assert(err, IsNil)
 	oldId, _ := m0.InstanceId()
 
@@ -193,9 +193,9 @@ func (s *MachineSuite) TestMachinePrincipalUnits(c *C) {
 	// tells us the right thing.
 
 	m1 := s.machine
-	m2, err := s.State.AddMachine(state.MachinerWorker)
+	m2, err := s.State.AddMachine(state.HostPrincipalUnits)
 	c.Assert(err, IsNil)
-	m3, err := s.State.AddMachine(state.MachinerWorker)
+	m3, err := s.State.AddMachine(state.HostPrincipalUnits)
 	c.Assert(err, IsNil)
 
 	dummy := s.AddTestingCharm(c, "dummy")
@@ -455,7 +455,7 @@ var machinePrincipalsWatchTests = []struct {
 			err = bacon1.AssignToMachine(s.machine)
 			c.Assert(err, IsNil)
 
-			spammachine, err := s.State.AddMachine(state.MachinerWorker)
+			spammachine, err := s.State.AddMachine(state.HostPrincipalUnits)
 			c.Assert(err, IsNil)
 			svc, err = s.State.AddService("spam", ch)
 			c.Assert(err, IsNil)
@@ -775,7 +775,7 @@ var machineUnitsWatchTests = []struct {
 			c.Assert(err, IsNil)
 			_, err = log99.AddUnitSubordinateTo(unit980)
 			c.Assert(err, IsNil)
-			m, err := s.State.AddMachine(state.MachinerWorker)
+			m, err := s.State.AddMachine(state.HostPrincipalUnits)
 			c.Assert(err, IsNil)
 			err = unit980.AssignToMachine(m)
 		},
@@ -968,7 +968,7 @@ func (s *MachineSuite) testWatchUnitsUnassign(c *C, reassign bool) {
 	err = subservice.RemoveUnit(subordinate2)
 	c.Assert(err, IsNil)
 
-	machine, err := s.State.AddMachine(state.MachinerWorker)
+	machine, err := s.State.AddMachine(state.HostPrincipalUnits)
 	c.Assert(err, IsNil)
 
 	err = principal.UnassignFromMachine()

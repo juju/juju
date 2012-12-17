@@ -182,7 +182,7 @@ func (s *UnitSuite) TestSetPasswordOnUnitAfterConnectingAsMachineEntity(c *C) {
 
 	// Add a new machine, assign the units to it
 	// and set its password.
-	m, err := st.AddMachine(state.MachinerWorker)
+	m, err := st.AddMachine(state.HostPrincipalUnits)
 	c.Assert(err, IsNil)
 	unit, err := st.Unit(s.unit.Name())
 	c.Assert(err, IsNil)

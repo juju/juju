@@ -63,8 +63,8 @@ func (s *MachineSuite) TestRunInvalidMachineId(c *C) {
 	c.Assert(err, ErrorMatches, "some error")
 }
 
-func addMachine(st *state.State, workers ...state.WorkerKind) *state.Machine {
-	m, err := st.AddMachine(workers...)
+func addMachine(st *state.State, jobs ...state.MachineAgentJob) *state.Machine {
+	m, err := st.AddMachine(jobs...)
 	if err != nil {
 		panic(err)
 	}
@@ -76,7 +76,7 @@ func addMachine(st *state.State, workers ...state.WorkerKind) *state.Machine {
 }
 
 func (s *MachineSuite) TestRunStop(c *C) {
-	m := addMachine(s.State, state.MachinerWorker)
+	m := addMachine(s.State, state.HostPrincipalUnits)
 	a := s.newAgent(c, m.Id())
 	done := make(chan error)
 	go func() {
@@ -88,7 +88,7 @@ func (s *MachineSuite) TestRunStop(c *C) {
 }
 
 func (s *MachineSuite) TestWithDeadMachine(c *C) {
-	m := addMachine(s.State, state.MachinerWorker)
+	m := addMachine(s.State, state.HostPrincipalUnits)
 	err := m.EnsureDead()
 	c.Assert(err, IsNil)
 	a := s.newAgent(c, m.Id())
@@ -104,11 +104,7 @@ func (s *MachineSuite) TestWithDeadMachine(c *C) {
 }
 
 func (s *MachineSuite) TestProvisionerFirewaller(c *C) {
-	m := addMachine(s.State,
-		state.MachinerWorker,
-		state.ProvisionerWorker,
-		state.FirewallerWorker)
-
+	m := addMachine(s.State, state.HostEnvironController)
 	op := make(chan dummy.Operation, 200)
 	dummy.Listen(op)
 
@@ -186,7 +182,7 @@ func opRecvTimeout(c *C, st *state.State, opc <-chan dummy.Operation, kinds ...d
 }
 
 func (s *MachineSuite) TestChangePasswordChanging(c *C) {
-	m := addMachine(s.State, state.MachinerWorker)
+	m := addMachine(s.State, state.HostPrincipalUnits)
 	a := s.newAgent(c, m.Id())
 	dataDir := a.Conf.DataDir
 	newAgent := func(initialPassword string) runner {

@@ -469,6 +469,16 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 	if u.doc.Principal != "" {
 		return fmt.Errorf("unit is a subordinate")
 	}
+	canHost := false
+	for _, j := range m.doc.Jobs {
+		if j == HostPrincipalUnits {
+			canHost = true
+			break
+		}
+	}
+	if !canHost {
+		return fmt.Errorf("machine %q cannot host units", m)
+	}
 	assert := append(isAliveDoc, D{
 		{"$or", []D{
 			{{"machineid", ""}},
@@ -531,14 +541,13 @@ var noUnusedMachines = errors.New("all machines in use")
 // AssignToUnusedMachine assigns u to a machine without other units.
 // If there are no unused machines besides machine 0, an error is returned.
 func (u *Unit) AssignToUnusedMachine() (m *Machine, err error) {
-	// Select all machines with no principals except the bootstrap machine.
-	// TODO shouldn't this be "machines not running state/provisioner/firewaller tasks?"
-	sel := D{{"principals", D{{"$size", 0}}}, {"_id", D{{"$ne", "0"}}}}
 	// TODO use Batch(1). See https://bugs.launchpad.net/mgo/+bug/1053509
 	// TODO(rog) Fix so this is more efficient when there are concurrent uses.
 	// Possible solution: pick the highest and the smallest id of all
 	// unused machines, and try to assign to the first one >= a random id in the
 	// middle.
+	// Select all machines that can accept principal units but have none assigned.
+	sel := D{{"principals", D{{"$size", 0}}}, {"jobs", HostPrincipalUnits}}
 	iter := u.st.machines.Find(sel).Batch(2).Prefetch(0).Iter()
 	var mdoc machineDoc
 	for iter.Next(&mdoc) {
