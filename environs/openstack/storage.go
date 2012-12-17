@@ -9,7 +9,6 @@ import (
 	"launchpad.net/juju-core/environs"
 	"net/http"
 	"sync"
-	"bytes"
 	"time"
 )
 
@@ -54,7 +53,7 @@ func (s *storage) Put(file string, r io.Reader, length int64) error {
 
 func (s *storage) Get(file string) (r io.ReadCloser, err error) {
 	for a := shortAttempt.Start(); a.Next(); {
-		r, err = s.swift.Getreader(s.containerName, file)
+		r, err = s.swift.GetReader(s.containerName, file)
 		if errors.IsNotFound(err) {
 			continue
 		}
