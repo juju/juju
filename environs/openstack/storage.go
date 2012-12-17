@@ -13,8 +13,7 @@ import (
 	"time"
 )
 
-// storage implements environs.Storage on
-// an ec2.bucket.
+// storage implements environs.Storage on an OpenStack container.
 type storage struct {
 	containerMutex sync.Mutex
 	madeContainer  bool
@@ -32,9 +31,8 @@ func (s *storage) makeContainer(containerName string) error {
 	if s.madeContainer {
 		return nil
 	}
-	// try to make the bucket - PutBucket will succeed if the
-	// bucket already exists.
-	// TODO - add security specification
+	// try to make the container - CreateContainer will succeed if the container already exists.
+	// TODO(wallyworld) - add security specification?
 	err := s.swift.CreateContainer(containerName)
 	if err == nil {
 		s.madeContainer = true
@@ -46,32 +44,17 @@ func (s *storage) Put(file string, r io.Reader, length int64) error {
 	if err := s.makeContainer(s.containerName); err != nil {
 		return fmt.Errorf("cannot make Swift control container: %v", err)
 	}
-	// TODO - add security spec for private??
-	buf := make([]byte, length)
-	numRead, err := io.ReadFull(r, buf)
-	if int64(numRead) != length || err != nil {
-		return fmt.Errorf("error reading file contents: %v bytes of %v read", numRead, length, err)
-	}
-	err = s.swift.PutObject(s.containerName, file, buf)
+	// TODO(wallyuworld) - add security specification?
+	err := s.swift.PutReader(s.containerName, file, r, length)
 	if err != nil {
 		return fmt.Errorf("cannot write file %q to control container %q: %v", file, s.containerName, err)
 	}
 	return nil
 }
 
-type storageData struct {
-	io.Reader
-}
-
-func (s *storageData) Close() error {
-	// A NOP simply to satisfy the Closer interface.
-	return nil
-}
-
 func (s *storage) Get(file string) (r io.ReadCloser, err error) {
-	var data []byte
 	for a := shortAttempt.Start(); a.Next(); {
-		data, err = s.swift.GetObject(s.containerName, file)
+		r, err = s.swift.Getreader(s.containerName, file)
 		if errors.IsNotFound(err) {
 			continue
 		}
@@ -80,8 +63,7 @@ func (s *storage) Get(file string) (r io.ReadCloser, err error) {
 	if err != nil {
 		return nil, err
 	}
-	return &storageData{
-		Reader: bytes.NewReader(data),}, nil
+	return r, nil
 }
 
 func (s *storage) URL(name string) (string, error) {
