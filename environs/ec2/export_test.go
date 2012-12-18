@@ -1,6 +1,7 @@
 package ec2
 
 import (
+	"io"
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju-core/environs"
@@ -111,4 +112,16 @@ func FabricateInstance(inst environs.Instance, newId string) environs.Instance {
 	*newi.Instance = *oldi.Instance
 	newi.InstanceId = newId
 	return newi
+}
+
+// Access non exported methods on ec2.storage
+type Storage interface {
+	Put(file string, r io.Reader, length int64) error
+	ResetMadeBucket()
+}
+
+func (s *storage) ResetMadeBucket() {
+	s.bucketMutex.Lock()
+	defer s.bucketMutex.Unlock()
+	s.madeBucket = false
 }

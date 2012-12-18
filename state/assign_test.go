@@ -168,6 +168,45 @@ func (s *AssignSuite) TestAssignSubordinatesToMachine(c *C) {
 	c.Assert(err, ErrorMatches, `unit "logging2/0" is not assigned to a machine`)
 }
 
+func (s *AssignSuite) TestDeployerName(c *C) {
+	machine, err := s.State.AddMachine(state.MachinerWorker)
+	c.Assert(err, IsNil)
+	principal, err := s.wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	logging, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
+	c.Assert(err, IsNil)
+	subordinate, err := logging.AddUnitSubordinateTo(principal)
+	c.Assert(err, IsNil)
+
+	assertDeployer := func(u *state.Unit, d entityNamer) {
+		err := u.Refresh()
+		c.Assert(err, IsNil)
+		name, ok := u.DeployerName()
+		if d == nil {
+			c.Assert(ok, Equals, false)
+		} else {
+			c.Assert(ok, Equals, true)
+			c.Assert(name, Equals, d.EntityName())
+		}
+	}
+	assertDeployer(subordinate, principal)
+	assertDeployer(principal, nil)
+
+	err = principal.AssignToMachine(machine)
+	c.Assert(err, IsNil)
+	assertDeployer(subordinate, principal)
+	assertDeployer(principal, machine)
+
+	err = principal.UnassignFromMachine()
+	c.Assert(err, IsNil)
+	assertDeployer(subordinate, principal)
+	assertDeployer(principal, nil)
+}
+
+type entityNamer interface {
+	EntityName() string
+}
+
 func (s *AssignSuite) TestAssignMachineWhenDying(c *C) {
 	machine, err := s.State.AddMachine(state.MachinerWorker)
 	c.Assert(err, IsNil)
