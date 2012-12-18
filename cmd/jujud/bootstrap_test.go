@@ -127,7 +127,7 @@ func (s *BootstrapSuite) TestMachinerWorkers(c *C) {
 	defer st.Close()
 	m, err := st.Machine("0")
 	c.Assert(err, IsNil)
-	c.Assert(m.AgentJobs(), DeepEquals, []state.MachineAgentJob{state.HostEnvironController})
+	c.Assert(m.Jobs(), DeepEquals, []state.MachineJob{state.JobManageEnviron})
 }
 
 func testOpenState(c *C, info *state.Info, expectErr error) {

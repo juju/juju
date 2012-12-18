@@ -144,12 +144,12 @@ func (st *State) SetEnvironConfig(cfg *config.Config) error {
 
 // AddMachine adds a new machine that when deployed will have a
 // machine agent running the provided workers.
-func (st *State) AddMachine(jobs ...MachineAgentJob) (m *Machine, err error) {
+func (st *State) AddMachine(jobs ...MachineJob) (m *Machine, err error) {
 	defer trivial.ErrorContextf(&err, "cannot add a new machine")
 	if len(jobs) == 0 {
 		return nil, fmt.Errorf("no jobs specified")
 	}
-	jset := make(map[MachineAgentJob]bool)
+	jset := make(map[MachineJob]bool)
 	for _, j := range jobs {
 		if jset[j] {
 			return nil, fmt.Errorf("duplicate job: %s", j)
@@ -622,7 +622,7 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 		for {
 			// TODO(rog) take out a lease on the new machine
 			// so that we don't have a race here.
-			m, err := st.AddMachine(HostPrincipalUnits)
+			m, err := st.AddMachine(JobHostUnits)
 			if err != nil {
 				return err
 			}

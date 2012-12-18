@@ -98,11 +98,11 @@ func (a *MachineAgent) runOnce() error {
 			return err
 		}
 	}
-	log.Printf("cmd/jujud: running jobs for machine agent: %v", m.AgentJobs())
+	log.Printf("cmd/jujud: running jobs for machine agent: %v", m.Jobs())
 	tasks := []task{NewUpgrader(st, m, a.Conf.DataDir)}
-	for _, j := range m.AgentJobs() {
+	for _, j := range m.Jobs() {
 		switch j {
-		case state.HostPrincipalUnits:
+		case state.JobHostUnits:
 			info := &state.Info{
 				EntityName: m.EntityName(),
 				Addrs:      st.Addrs(),
@@ -111,7 +111,7 @@ func (a *MachineAgent) runOnce() error {
 			mgr := deployer.NewSimpleManager(info, a.Conf.DataDir)
 			tasks = append(tasks,
 				deployer.NewDeployer(st, mgr, m.WatchPrincipalUnits()))
-		case state.HostEnvironController:
+		case state.JobManageEnviron:
 			tasks = append(tasks,
 				provisioner.NewProvisioner(st),
 				firewaller.NewFirewaller(st))

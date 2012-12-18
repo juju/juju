@@ -51,7 +51,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	defer st.Close()
 
 	// Manually insert machine/0 into the state
-	m, err := st.AddMachine(state.HostEnvironController)
+	m, err := st.AddMachine(state.JobManageEnviron)
 	if err != nil {
 		return err
 	}

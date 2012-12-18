@@ -256,7 +256,7 @@ func (s *ServiceSuite) TestAddUnit(c *C) {
 	c.Assert(err, ErrorMatches, `cannot add unit to service "mysql" as a subordinate of "mysql/0": service is not a subordinate`)
 
 	// Assign the principal unit to a machine.
-	m, err := s.State.AddMachine(state.HostPrincipalUnits)
+	m, err := s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
 	err = unitZero.AssignToMachine(m)
 	c.Assert(err, IsNil)

@@ -19,14 +19,14 @@ type Machine struct {
 	doc machineDoc
 }
 
-// MachineAgentJob values define responsibilities that machines may be
+// MachineJob values define responsibilities that machines may be
 // expected to fulfil.
-type MachineAgentJob int
+type MachineJob int
 
 const (
-	_ MachineAgentJob = iota
-	HostPrincipalUnits
-	HostEnvironController
+	_ MachineJob = iota
+	JobHostUnits
+	JobManageEnviron
 )
 
 // machineDoc represents the internal state of a machine in MongoDB.
@@ -37,7 +37,7 @@ type machineDoc struct {
 	Life       Life
 	Tools      *Tools `bson:",omitempty"`
 	TxnRevno   int64  `bson:"txn-revno"`
-	Jobs       []MachineAgentJob
+	Jobs       []MachineJob
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {
@@ -72,8 +72,8 @@ func (m *Machine) Life() Life {
 	return m.doc.Life
 }
 
-// AgentJobs returns the responsibilities that must be fulfilled by m's agent.
-func (m *Machine) AgentJobs() []MachineAgentJob {
+// Jobs returns the responsibilities that must be fulfilled by m's agent.
+func (m *Machine) Jobs() []MachineJob {
 	return m.doc.Jobs
 }
 
