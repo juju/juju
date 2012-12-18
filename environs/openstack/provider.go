@@ -3,13 +3,16 @@
 package openstack
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/goose/client"
+	gooseerrors "launchpad.net/goose/errors"
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -19,6 +22,8 @@ import (
 	"sync"
 	"time"
 )
+
+const mgoPort = 37017
 
 type environProvider struct{}
 
@@ -78,10 +83,11 @@ func (p environProvider) PrivateAddress() (string, error) {
 type environ struct {
 	name string
 
-	ecfgMutex     sync.Mutex
-	ecfgUnlocked  *environConfig
-	novaUnlocked  *nova.Client
-	swiftUnlocked *swift.Client
+	ecfgMutex             sync.Mutex
+	ecfgUnlocked          *environConfig
+	novaUnlocked          *nova.Client
+	storageUnlocked       *storage
+	publicStorageUnlocked *storage // optional.
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -135,15 +141,24 @@ func (e *environ) nova() *nova.Client {
 	return nova
 }
 
-func (e *environ) swift() *swift.Client {
-	e.ecfgMutex.Lock()
-	swift := e.swiftUnlocked
-	e.ecfgMutex.Unlock()
-	return swift
-}
-
 func (e *environ) Name() string {
 	return e.name
+}
+
+func (e *environ) Storage() environs.Storage {
+	e.ecfgMutex.Lock()
+	storage := e.storageUnlocked
+	e.ecfgMutex.Unlock()
+	return storage
+}
+
+func (e *environ) PublicStorage() environs.StorageReader {
+	e.ecfgMutex.Lock()
+	defer e.ecfgMutex.Unlock()
+	if e.publicStorageUnlocked == nil {
+		return environs.EmptyStorage
+	}
+	return e.publicStorageUnlocked
 }
 
 func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
@@ -158,6 +173,18 @@ func (e *environ) Config() *config.Config {
 	return e.ecfg().Config
 }
 
+func (e *environ) client(ecfg *environConfig) *client.OpenStackClient {
+	cred := &identity.Credentials{
+		User:       ecfg.username(),
+		Secrets:    ecfg.password(),
+		Region:     ecfg.region(),
+		TenantName: ecfg.tenantName(),
+		URL:        ecfg.authURL(),
+	}
+	// TODO(wallyworld): do not hard code authentication type
+	return client.NewClient(cred, identity.AuthUserPass, nil)
+}
+
 func (e *environ) SetConfig(cfg *config.Config) error {
 	ecfg, err := providerInstance.newConfig(cfg)
 	if err != nil {
@@ -168,26 +195,129 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	e.name = ecfg.Name()
 	e.ecfgUnlocked = ecfg
 
-	cred := &identity.Credentials{
-		User:       ecfg.username(),
-		Secrets:    ecfg.password(),
-		Region:     ecfg.region(),
-		TenantName: ecfg.tenantName(),
-		URL:        ecfg.authURL(),
+	novaClient := e.client(ecfg)
+	e.novaUnlocked = nova.New(novaClient)
+
+	// create new storage instances, existing instances continue
+	// to reference their existing configuration.
+	storageClient := e.client(ecfg)
+	e.storageUnlocked = &storage{
+		containerName: ecfg.controlBucket(),
+		swift:         swift.New(storageClient)}
+	if ecfg.publicBucket() != "" {
+		publicBucketClient := e.client(ecfg)
+		e.publicStorageUnlocked = &storage{
+			containerName: ecfg.publicBucket(),
+			swift:         swift.New(publicBucketClient)}
+	} else {
+		e.publicStorageUnlocked = nil
 	}
-	// TODO: do not hard code authentication type
-	client := client.NewClient(cred, identity.AuthUserPass)
-	e.novaUnlocked = nova.New(client)
-	e.swiftUnlocked = swift.New(client)
+
 	return nil
 }
 
 func (e *environ) StartInstance(machineId string, info *state.Info, tools *state.Tools) (environs.Instance, error) {
-	panic("StartInstance not implemented")
+	return e.startInstance(&startInstanceParams{
+		machineId: machineId,
+		info:      info,
+		tools:     tools,
+	})
 }
 
-func (e *environ) StopInstances([]environs.Instance) error {
-	panic("StopInstances not implemented")
+type startInstanceParams struct {
+	machineId       string
+	info            *state.Info
+	tools           *state.Tools
+	stateServer     bool
+	config          *config.Config
+	stateServerCert []byte
+	stateServerKey  []byte
+}
+
+func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
+	cfg := &cloudinit.MachineConfig{
+		StateServer:        scfg.stateServer,
+		StateInfo:          scfg.info,
+		StateServerCert:    scfg.stateServerCert,
+		StateServerKey:     scfg.stateServerKey,
+		InstanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
+		ProviderType:       "openstack",
+		DataDir:            "/var/lib/juju",
+		Tools:              scfg.tools,
+		MachineId:          scfg.machineId,
+		AuthorizedKeys:     e.ecfg().AuthorizedKeys(),
+		Config:             scfg.config,
+	}
+	cloudcfg, err := cloudinit.New(cfg)
+	if err != nil {
+		return nil, err
+	}
+	bytes, err := cloudcfg.Render()
+	if err != nil {
+		return nil, err
+	}
+	return bytes, nil
+}
+
+const (
+	// Until image lookup is implemented, we'll use some pre-established, known values for starting instances.
+	defaultFlavorId = "1" //m1.tiny
+	defaultImageId  = "0f602ea9-c09e-440c-9e29-cfae5635afa3"
+)
+
+// startInstance is the internal version of StartInstance, used by Bootstrap
+// as well as via StartInstance itself.
+func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, error) {
+	// TODO(wallyworld): implement tools lookup
+	scfg.tools = &state.Tools{}
+	log.Printf("environs/openstack: starting machine %s in %q running tools version %q from %q",
+		scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
+	// TODO(wallyworld) - implement spec lookup
+	// TODO(wallyworld) - implement userData creation once we have tools
+	var userData []byte = nil
+	log.Debugf("environs/openstack: openstack user data: %q", userData)
+	groups, err := e.setUpGroups(scfg.machineId)
+	if err != nil {
+		return nil, fmt.Errorf("cannot set up groups: %v", err)
+	}
+	var server *nova.Entity
+
+	var groupNames = make([]nova.SecurityGroupName, len(groups))
+	for i, g := range groups {
+		groupNames[i] = nova.SecurityGroupName{g.Name}
+	}
+
+	for a := shortAttempt.Start(); a.Next(); {
+		server, err = e.nova().RunServer(nova.RunServerOpts{
+			Name: state.MachineEntityName(scfg.machineId),
+			// TODO(wallyworld) - do not use hard coded image
+			FlavorId:           defaultFlavorId,
+			ImageId:            defaultImageId,
+			UserData:           userData,
+			SecurityGroupNames: groupNames,
+		})
+		if err == nil || !gooseerrors.IsNotFound(err) {
+			break
+		}
+	}
+	if err != nil {
+		return nil, fmt.Errorf("cannot run instance: %v", err)
+	}
+	inst := &instance{e, server}
+	log.Printf("environs/openstack: started instance %q", inst.Id())
+	return inst, nil
+}
+
+func (e *environ) StopInstances(insts []environs.Instance) error {
+	ids := make([]state.InstanceId, len(insts))
+	for i, inst := range insts {
+		instanceValue, ok := inst.(*instance)
+		if !ok {
+			return errors.New("Incompatible environs.Instance supplied")
+		}
+		ids[i] = instanceValue.Id()
+	}
+	return e.terminateInstances(ids)
 }
 
 func (e *environ) Instances(ids []state.InstanceId) ([]environs.Instance, error) {
@@ -216,7 +346,7 @@ func (e *environ) AllInstances() (insts []environs.Instance, err error) {
 	// TODO FIXME Instances must somehow be tagged to be part of the environment.
 	// This is returning *all* instances, which means it's impossible to have two different
 	// environments on the same account.
-	// TODO: add filtering to exclude deleted images etc
+	// TODO(wallyworld): add filtering to exclude deleted images etc
 	servers, err := e.nova().ListServers(nil)
 	if err != nil {
 		return nil, err
@@ -228,21 +358,58 @@ func (e *environ) AllInstances() (insts []environs.Instance, err error) {
 	return insts, err
 }
 
-func (e *environ) Storage() environs.Storage {
-	panic("Storage not implemented")
-}
-
-func (e *environ) PublicStorage() environs.StorageReader {
-	panic("PublicStorage not implemented")
-}
-
-func (e *environ) Destroy(insts []environs.Instance) error {
+func (e *environ) Destroy(ensureInsts []environs.Instance) error {
 	log.Printf("environs/openstack: destroying environment %q", e.name)
+	insts, err := e.AllInstances()
+	if err != nil {
+		return fmt.Errorf("cannot get instances: %v", err)
+	}
+	found := make(map[state.InstanceId]bool)
+	var ids []state.InstanceId
+	for _, inst := range insts {
+		ids = append(ids, inst.Id())
+		found[inst.Id()] = true
+	}
+
+	// Add any instances we've been told about but haven't yet shown
+	// up in the instance list.
+	for _, inst := range ensureInsts {
+		id := state.InstanceId(inst.(*instance).Id())
+		if !found[id] {
+			ids = append(ids, id)
+			found[id] = true
+		}
+	}
+	err = e.terminateInstances(ids)
+	if err != nil {
+		return err
+	}
+
+	// To properly observe e.storageUnlocked we need to get its value while
+	// holding e.ecfgMutex. e.Storage() does this for us, then we convert
+	// back to the (*storage) to access the private deleteAll() method.
+	st := e.Storage().(*storage)
+	err = st.deleteAll()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
 func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
 	panic("AssignmentPolicy not implemented")
+}
+
+func (e *environ) globalGroupName() string {
+	return fmt.Sprintf("%s-global", e.jujuGroupName())
+}
+
+func (e *environ) machineGroupName(machineId string) string {
+	return fmt.Sprintf("%s-%s", e.jujuGroupName(), machineId)
+}
+
+func (e *environ) jujuGroupName() string {
+	return fmt.Sprintf("juju-%s", e.name)
 }
 
 func (e *environ) OpenPorts(ports []state.Port) error {
@@ -259,6 +426,109 @@ func (e *environ) Ports() ([]state.Port, error) {
 
 func (e *environ) Provider() environs.EnvironProvider {
 	return &providerInstance
+}
+
+// setUpGroups creates the security groups for the new machine, and
+// returns them.
+//
+// Instances are tagged with a group so they can be distinguished from
+// other instances that might be running on the same OpenStack account.
+// In addition, a specific machine security group is created for each
+// machine, so that its firewall rules can be configured per machine.
+func (e *environ) setUpGroups(machineId string) ([]nova.SecurityGroup, error) {
+	jujuGroup, err := e.ensureGroup(e.jujuGroupName(),
+		[]nova.RuleInfo{
+			{
+				IPProtocol: "tcp",
+				FromPort:   22,
+				ToPort:     22,
+				Cidr:       "0.0.0.0/0",
+			},
+			{
+				IPProtocol: "tcp",
+				FromPort:   mgoPort,
+				ToPort:     mgoPort,
+				Cidr:       "0.0.0.0/0",
+			},
+			{
+				IPProtocol: "tcp",
+				FromPort:   1,
+				ToPort:     65535,
+			},
+			{
+				IPProtocol: "udp",
+				FromPort:   1,
+				ToPort:     65535,
+			},
+			{
+				IPProtocol: "icmp",
+				FromPort:   -1,
+				ToPort:     -1,
+			},
+		})
+	if err != nil {
+		return nil, err
+	}
+	var machineGroup nova.SecurityGroup
+	switch e.Config().FirewallMode() {
+	case config.FwInstance:
+		machineGroup, err = e.ensureGroup(e.machineGroupName(machineId), nil)
+	case config.FwGlobal:
+		machineGroup, err = e.ensureGroup(e.globalGroupName(), nil)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return []nova.SecurityGroup{jujuGroup, machineGroup}, nil
+}
+
+// zeroGroup holds the zero security group.
+var zeroGroup nova.SecurityGroup
+
+// ensureGroup returns the security group with name and perms.
+// If a group with name does not exist, one will be created.
+// If it exists, its permissions are set to perms.
+func (e *environ) ensureGroup(name string, rules []nova.RuleInfo) (nova.SecurityGroup, error) {
+	nova := e.nova()
+	group, err := nova.CreateSecurityGroup(name, "juju group")
+	if err != nil {
+		if !gooseerrors.IsDuplicateValue(err) {
+			return zeroGroup, err
+		} else {
+			// We just tried to create a duplicate group, so load the existing group.
+			group, err = nova.SecurityGroupByName(name)
+			if err != nil {
+				return zeroGroup, err
+			}
+		}
+	}
+	// The group is created so now add the rules.
+	for _, rule := range rules {
+		rule.ParentGroupId = group.Id
+		_, err := nova.CreateSecurityGroupRule(rule)
+		if err != nil && !gooseerrors.IsDuplicateValue(err) {
+			return zeroGroup, err
+		}
+	}
+	return *group, nil
+}
+
+func (e *environ) terminateInstances(ids []state.InstanceId) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	var firstErr error
+	nova := e.nova()
+	for _, id := range ids {
+		err := nova.DeleteServer(string(id))
+		if gooseerrors.IsNotFound(err) {
+			err = nil
+		}
+		if err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
 }
 
 // metadataHost holds the address of the instance metadata service.

@@ -74,7 +74,7 @@ func Open(info *Info) (*State, error) {
 		Timeout: 10 * time.Minute,
 		Dial:    dial,
 	})
-	st, err := newState(session, info.EntityName, info.Password)
+	st, err := newState(session, info)
 	if err != nil {
 		session.Close()
 		return nil, err
@@ -147,23 +147,24 @@ func maybeUnauthorized(err error, msg string) error {
 	return fmt.Errorf("%s: %v", msg, err)
 }
 
-func newState(session *mgo.Session, entity, password string) (*State, error) {
+func newState(session *mgo.Session, info *Info) (*State, error) {
 	db := session.DB("juju")
 	pdb := session.DB("presence")
-	if entity != "" {
-		if err := db.Login(entity, password); err != nil {
+	if info.EntityName != "" {
+		if err := db.Login(info.EntityName, info.Password); err != nil {
 			return nil, maybeUnauthorized(err, "cannot log in to juju database")
 		}
-		if err := pdb.Login(entity, password); err != nil {
+		if err := pdb.Login(info.EntityName, info.Password); err != nil {
 			return nil, maybeUnauthorized(err, "cannot log in to presence database")
 		}
-	} else if password != "" {
+	} else if info.Password != "" {
 		admin := session.DB("admin")
-		if err := admin.Login("admin", password); err != nil {
+		if err := admin.Login("admin", info.Password); err != nil {
 			return nil, maybeUnauthorized(err, "cannot log in to admin database")
 		}
 	}
 	st := &State{
+		info:           info,
 		db:             db,
 		charms:         db.C("charms"),
 		machines:       db.C("machines"),
@@ -176,10 +177,10 @@ func newState(session *mgo.Session, entity, password string) (*State, error) {
 		cleanups:       db.C("cleanups"),
 	}
 	log := db.C("txns.log")
-	info := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
+	logInfo := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
 	// The lack of error code for this error was reported upstream:
 	//     https://jira.mongodb.org/browse/SERVER-6992
-	err := log.Create(&info)
+	err := log.Create(&logInfo)
 	if err != nil && err.Error() != "collection already exists" {
 		return nil, maybeUnauthorized(err, "cannot create log collection")
 	}
@@ -194,6 +195,16 @@ func newState(session *mgo.Session, entity, password string) (*State, error) {
 		}
 	}
 	return st, nil
+}
+
+// Addrs returns the list of addresses used to connect to the state.
+func (st *State) Addrs() (addrs []string) {
+	return append(addrs, st.info.Addrs...)
+}
+
+// CACert returns the certificate used to validate the state connection.
+func (st *State) CACert() (cert []byte) {
+	return append(cert, st.info.CACert...)
 }
 
 func (st *State) Close() error {
