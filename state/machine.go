@@ -86,7 +86,7 @@ func (m *Machine) SetAgentTools(t *Tools) (err error) {
 	ops := []txn.Op{{
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
-		Assert: notDead,
+		Assert: notDeadDoc,
 		Update: D{{"$set", D{{"tools", t}}}},
 	}}
 	if err := m.st.runner.Run(ops, "", nil); err != nil {
@@ -213,7 +213,7 @@ func (m *Machine) SetInstanceId(id InstanceId) (err error) {
 	ops := []txn.Op{{
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
-		Assert: notDead,
+		Assert: notDeadDoc,
 		Update: D{{"$set", D{{"instanceid", id}}}},
 	}}
 	if err := m.st.runner.Run(ops, "", nil); err != nil {

@@ -8,8 +8,8 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker"
+	"launchpad.net/juju-core/worker/deployer"
 	"launchpad.net/juju-core/worker/firewaller"
-	"launchpad.net/juju-core/worker/machiner"
 	"launchpad.net/juju-core/worker/provisioner"
 	"launchpad.net/tomb"
 	"time"
@@ -104,7 +104,13 @@ func (a *MachineAgent) runOnce() error {
 		var t task
 		switch w {
 		case state.MachinerWorker:
-			t = machiner.NewMachiner(m, &a.Conf.StateInfo, a.Conf.DataDir)
+			info := &state.Info{
+				EntityName: m.EntityName(),
+				Addrs:      st.Addrs(),
+				CACert:     st.CACert(),
+			}
+			mgr := deployer.NewSimpleManager(info, a.Conf.DataDir)
+			t = deployer.NewDeployer(st, mgr, m.WatchPrincipalUnits())
 		case state.ProvisionerWorker:
 			t = provisioner.NewProvisioner(st)
 		case state.FirewallerWorker:
