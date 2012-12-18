@@ -5,7 +5,6 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/testing"
 	"os"
 )
 
@@ -14,11 +13,7 @@ type ConfigSuite struct {
 }
 
 var envVars = map[string]string{
-	"OS_USERNAME":    "testuser",
-	"OS_PASSWORD":    "testpass",
-	"OS_TENANT_NAME": "testtenant",
-	"OS_AUTH_URL":    "http://somehost",
-	"OS_REGION_NAME": "testreg",
+	"OS_PASSWORD": "testpass",
 }
 
 var _ = Suite(&ConfigSuite{})
@@ -47,10 +42,11 @@ func (t configTest) check(c *C) {
 	envs := attrs{
 		"environments": attrs{
 			"testenv": attrs{
-				"type":            "openstack",
-				"authorized-keys": "foo",
-				"ca-cert":         testing.CACert,
-				"ca-private-key":  testing.CAKey,
+				"username":    "testuser",
+				"tenant-name": "sometenant",
+				"auth-url":    "http://somehost",
+				"region":      "someregion",
+				"type":        "openstack",
 			},
 		},
 	}
@@ -249,42 +245,10 @@ func (s *ConfigSuite) TestConfig(c *C) {
 	}
 }
 
-func (s *ConfigSuite) TestMissingRegion(c *C) {
-	os.Setenv("OS_REGION_NAME", "")
-	os.Setenv("NOVA_REGION_NAME", "")
-	test := configTests[0]
-	delete(test.config, "region")
-	test.err = "required environment variable not set for credentials attribute: Region"
-	test.check(c)
-}
-
-func (s *ConfigSuite) TestMissingUsername(c *C) {
-	os.Setenv("OS_USERNAME", "")
-	os.Setenv("NOVA_USERNAME", "")
-	test := configTests[0]
-	test.err = "required environment variable not set for credentials attribute: User"
-	test.check(c)
-}
-
 func (s *ConfigSuite) TestMissingPassword(c *C) {
 	os.Setenv("OS_PASSWORD", "")
 	os.Setenv("NOVA_PASSWORD", "")
 	test := configTests[0]
 	test.err = "required environment variable not set for credentials attribute: Secrets"
-	test.check(c)
-}
-
-func (s *ConfigSuite) TestMissinTenant(c *C) {
-	os.Setenv("OS_TENANT_NAME", "")
-	os.Setenv("NOVA_PROJECT_ID", "")
-	test := configTests[0]
-	test.err = "required environment variable not set for credentials attribute: TenantName"
-	test.check(c)
-}
-
-func (s *ConfigSuite) TestMissingAuthUrl(c *C) {
-	os.Setenv("OS_AUTH_URL", "")
-	test := configTests[0]
-	test.err = "required environment variable not set for credentials attribute: URL"
 	test.check(c)
 }

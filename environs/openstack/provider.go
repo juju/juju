@@ -3,13 +3,16 @@
 package openstack
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/goose/client"
+	gooseerrors "launchpad.net/goose/errors"
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -19,6 +22,8 @@ import (
 	"sync"
 	"time"
 )
+
+const mgoPort = 37017
 
 type environProvider struct{}
 
@@ -175,7 +180,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 		TenantName: ecfg.tenantName(),
 		URL:        ecfg.authURL(),
 	}
-	// TODO: do not hard code authentication type
+	// TODO(wallyworld): do not hard code authentication type
 	client := client.NewClient(cred, identity.AuthUserPass)
 	e.novaUnlocked = nova.New(client)
 	e.swiftUnlocked = swift.New(client)
@@ -183,11 +188,109 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 }
 
 func (e *environ) StartInstance(machineId string, info *state.Info, tools *state.Tools) (environs.Instance, error) {
-	panic("StartInstance not implemented")
+	return e.startInstance(&startInstanceParams{
+		machineId: machineId,
+		info:      info,
+		tools:     tools,
+	})
 }
 
-func (e *environ) StopInstances([]environs.Instance) error {
-	panic("StopInstances not implemented")
+type startInstanceParams struct {
+	machineId       string
+	info            *state.Info
+	tools           *state.Tools
+	stateServer     bool
+	config          *config.Config
+	stateServerCert []byte
+	stateServerKey  []byte
+}
+
+func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
+	cfg := &cloudinit.MachineConfig{
+		StateServer:        scfg.stateServer,
+		StateInfo:          scfg.info,
+		StateServerCert:    scfg.stateServerCert,
+		StateServerKey:     scfg.stateServerKey,
+		InstanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
+		ProviderType:       "openstack",
+		DataDir:            "/var/lib/juju",
+		Tools:              scfg.tools,
+		MachineId:          scfg.machineId,
+		AuthorizedKeys:     e.ecfg().AuthorizedKeys(),
+		Config:             scfg.config,
+	}
+	cloudcfg, err := cloudinit.New(cfg)
+	if err != nil {
+		return nil, err
+	}
+	bytes, err := cloudcfg.Render()
+	if err != nil {
+		return nil, err
+	}
+	return bytes, nil
+}
+
+const (
+	// Until image lookup is implemented, we'll use some pre-established, known values for starting instances.
+	defaultFlavorId = "1" //m1.tiny
+	defaultImageId  = "0f602ea9-c09e-440c-9e29-cfae5635afa3"
+)
+
+// startInstance is the internal version of StartInstance, used by Bootstrap
+// as well as via StartInstance itself.
+func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, error) {
+	// TODO(wallyworld): implement tools lookup
+	scfg.tools = &state.Tools{}
+	log.Printf("environs/openstack: starting machine %s in %q running tools version %q from %q",
+		scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
+	// TODO(wallyworld) - implement spec lookup
+	// TODO(wallyworld) - implement userData creation once we have tools
+	var userData []byte = make([]byte, 0)
+	log.Debugf("environs/openstack: openstack user data: %q", userData)
+	groups, err := e.setUpGroups(scfg.machineId)
+	if err != nil {
+		return nil, fmt.Errorf("cannot set up groups: %v", err)
+	}
+	var server *nova.Entity
+
+	var groupNames = make([]nova.SecurityGroupName, len(groups))
+	for i, g := range groups {
+		groupNames[i] = nova.SecurityGroupName{g.Name}
+	}
+
+	// TODO(wallyworld) - change Goose API to accept []byte not *string
+	userDataString := string(userData)
+	for a := shortAttempt.Start(); a.Next(); {
+		server, err = e.nova().RunServer(nova.RunServerOpts{
+			Name: state.MachineEntityName(scfg.machineId),
+			// TODO(wallyworld) - do not use hard coded image
+			FlavorId:           defaultFlavorId,
+			ImageId:            defaultImageId,
+			UserData:           &userDataString,
+			SecurityGroupNames: groupNames,
+		})
+		if err == nil || !gooseerrors.IsNotFound(err) {
+			break
+		}
+	}
+	if err != nil {
+		return nil, fmt.Errorf("cannot run instance: %v", err)
+	}
+	inst := &instance{e, server}
+	log.Printf("environs/openstack: started instance %q", inst.Id())
+	return inst, nil
+}
+
+func (e *environ) StopInstances(insts []environs.Instance) error {
+	ids := make([]state.InstanceId, len(insts))
+	for i, inst := range insts {
+		instanceValue, ok := inst.(*instance)
+		if !ok {
+			return errors.New("Incompatible environs.Instance supplied")
+		}
+		ids[i] = instanceValue.Id()
+	}
+	return e.terminateInstances(ids)
 }
 
 func (e *environ) Instances(ids []state.InstanceId) ([]environs.Instance, error) {
@@ -216,7 +319,7 @@ func (e *environ) AllInstances() (insts []environs.Instance, err error) {
 	// TODO FIXME Instances must somehow be tagged to be part of the environment.
 	// This is returning *all* instances, which means it's impossible to have two different
 	// environments on the same account.
-	// TODO: add filtering to exclude deleted images etc
+	// TODO(wallyworld): add filtering to exclude deleted images etc
 	servers, err := e.nova().ListServers(nil)
 	if err != nil {
 		return nil, err
@@ -245,6 +348,18 @@ func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
 	panic("AssignmentPolicy not implemented")
 }
 
+func (e *environ) globalGroupName() string {
+	return fmt.Sprintf("%s-global", e.jujuGroupName())
+}
+
+func (e *environ) machineGroupName(machineId string) string {
+	return fmt.Sprintf("%s-%s", e.jujuGroupName(), machineId)
+}
+
+func (e *environ) jujuGroupName() string {
+	return fmt.Sprintf("juju-%s", e.name)
+}
+
 func (e *environ) OpenPorts(ports []state.Port) error {
 	panic("OpenPorts not implemented")
 }
@@ -259,6 +374,124 @@ func (e *environ) Ports() ([]state.Port, error) {
 
 func (e *environ) Provider() environs.EnvironProvider {
 	return &providerInstance
+}
+
+// setUpGroups creates the security groups for the new machine, and
+// returns them.
+//
+// Instances are tagged with a group so they can be distinguished from
+// other instances that might be running on the same OpenStack account.
+// In addition, a specific machine security group is created for each
+// machine, so that its firewall rules can be configured per machine.
+func (e *environ) setUpGroups(machineId string) ([]nova.SecurityGroup, error) {
+	jujuGroup, err := e.ensureGroup(e.jujuGroupName(),
+		[]nova.RuleInfo{
+			{
+				IPProtocol: "tcp",
+				FromPort:   22,
+				ToPort:     22,
+				Cidr:       "0.0.0.0/0",
+			},
+			{
+				IPProtocol: "tcp",
+				FromPort:   mgoPort,
+				ToPort:     mgoPort,
+				Cidr:       "0.0.0.0/0",
+			},
+			{
+				IPProtocol: "tcp",
+				FromPort:   1,
+				ToPort:     65535,
+			},
+			{
+				IPProtocol: "udp",
+				FromPort:   1,
+				ToPort:     65535,
+			},
+			{
+				IPProtocol: "icmp",
+				FromPort:   -1,
+				ToPort:     -1,
+			},
+		})
+	if err != nil {
+		return nil, err
+	}
+	var machineGroup nova.SecurityGroup
+	switch e.Config().FirewallMode() {
+	case config.FwInstance:
+		machineGroup, err = e.ensureGroup(e.machineGroupName(machineId), nil)
+	case config.FwGlobal:
+		machineGroup, err = e.ensureGroup(e.globalGroupName(), nil)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return []nova.SecurityGroup{jujuGroup, machineGroup}, nil
+}
+
+// zeroGroup holds the zero security group.
+var zeroGroup nova.SecurityGroup
+
+func (e *environ) securityGroupByName(name string) (*nova.SecurityGroup, error) {
+	// OpenStack does not support group filtering, so we need to load them all and manually search by name.
+	nova := e.nova()
+	groups, err := nova.ListSecurityGroups()
+	if err != nil {
+		return nil, err
+	}
+	for _, group := range groups {
+		if group.Name == name {
+			return &group, nil
+		}
+	}
+	return nil, fmt.Errorf("Security group %s not found.", name)
+}
+
+// ensureGroup returns the security group with name and perms.
+// If a group with name does not exist, one will be created.
+// If it exists, its permissions are set to perms.
+func (e *environ) ensureGroup(name string, rules []nova.RuleInfo) (nova.SecurityGroup, error) {
+	nova := e.nova()
+	group, err := nova.CreateSecurityGroup(name, "juju group")
+	if err != nil {
+		if !gooseerrors.IsDuplicateValue(err) {
+			return zeroGroup, err
+		} else {
+			// We just tried to create a duplicate group, so load the existing group.
+			group, err = e.securityGroupByName(name)
+			if err != nil {
+				return zeroGroup, err
+			}
+		}
+	}
+	// The group is created so now add the rules.
+	for _, rule := range rules {
+		rule.ParentGroupId = group.Id
+		_, err := nova.CreateSecurityGroupRule(rule)
+		if err != nil && !gooseerrors.IsDuplicateValue(err) {
+			return zeroGroup, err
+		}
+	}
+	return *group, nil
+}
+
+func (e *environ) terminateInstances(ids []state.InstanceId) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	var firstErr error
+	nova := e.nova()
+	for _, id := range ids {
+		err := nova.DeleteServer(string(id))
+		if gooseerrors.IsNotFound(err) {
+			err = nil
+		}
+		if err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
 }
 
 // metadataHost holds the address of the instance metadata service.
