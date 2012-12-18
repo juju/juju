@@ -603,6 +603,7 @@ func clockDelta(c *mgo.Collection) (time.Duration, error) {
 // The result of this method may be manipulated for test purposes
 // by fakeTimeSlot and realTimeSlot.
 func timeSlot(now time.Time, delta time.Duration) int64 {
+	fakeMutex.Lock()
 	fake := !fakeNow.IsZero()
 	if fake {
 		now = fakeNow
@@ -610,38 +611,38 @@ func timeSlot(now time.Time, delta time.Duration) int64 {
 	slot := now.Add(delta).Unix()
 	slot -= slot % period
 	if fake {
-		slot += int64(fakeOffset.value()) * period
+		slot += int64(fakeOffset) * period
 	}
+	fakeMutex.Unlock()
 	return slot
 }
 
-type offset struct {
-	sync.Mutex
-	v int
-}
-
-func (o *offset) set(v int)  { o.Lock(); defer o.Unlock(); o.v = v }
-func (o *offset) value() int { o.Lock(); defer o.Unlock(); return o.v }
-
-var fakeNow time.Time
-var fakeOffset offset
+var (
+	fakeMutex  sync.Mutex // protects fakeOffset, fakeNow
+	fakeNow    time.Time
+	fakeOffset int
+)
 
 // fakeTimeSlot hardcodes the slot time returned by the timeSlot
 // function for testing purposes. The offset parameter is the slot
 // position to return: offsets +1 and -1 are +period and -period
 // seconds from slot 0, respectively.
 func fakeTimeSlot(offset int) {
+	fakeMutex.Lock()
 	if fakeNow.IsZero() {
 		fakeNow = time.Now()
 	}
-	fakeOffset.set(offset)
+	fakeOffset = offset
+	fakeMutex.Unlock()
 	log.Printf("state/presence: Faking presence to time slot %d", offset)
 }
 
 // realTimeSlot disables the hardcoding introduced by fakeTimeSlot.
 func realTimeSlot() {
+	fakeMutex.Lock()
 	fakeNow = time.Time{}
-	fakeOffset.set(0)
+	fakeOffset = 0
+	fakeMutex.Unlock()
 	log.Printf("state/presence: Not faking presence time. Real time slot in use.")
 }
 
