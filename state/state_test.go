@@ -31,6 +31,12 @@ func (s *StateSuite) TestDialAgain(c *C) {
 	}
 }
 
+func (s *StateSuite) TestStateInfo(c *C) {
+	info := state.TestingStateInfo()
+	c.Assert(s.State.Addrs(), DeepEquals, info.Addrs)
+	c.Assert(s.State.CACert(), DeepEquals, info.CACert)
+}
+
 func (s *StateSuite) TestIsNotFound(c *C) {
 	err1 := fmt.Errorf("unrelated error")
 	err2 := &state.NotFoundError{}

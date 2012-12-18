@@ -321,6 +321,49 @@ func (s *RelationUnitSuite) TestContainerSettings(c *C) {
 	}
 }
 
+func (s *RelationUnitSuite) TestContainerCreateSubordinate(c *C) {
+	psvc, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
+	c.Assert(err, IsNil)
+	rsvc, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
+	c.Assert(err, IsNil)
+	eps, err := s.State.InferEndpoints([]string{"mysql", "logging"})
+	c.Assert(err, IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	punit, err := psvc.AddUnit()
+	c.Assert(err, IsNil)
+	err = punit.SetPrivateAddress("blah")
+	c.Assert(err, IsNil)
+	pru, err := rel.Unit(punit)
+	c.Assert(err, IsNil)
+
+	// Check that no units of the subordinate service exist.
+	assertSubCount := func(expect int) {
+		runits, err := rsvc.AllUnits()
+		c.Assert(err, IsNil)
+		c.Assert(runits, HasLen, expect)
+	}
+	assertSubCount(0)
+
+	// Enter principal's scope and check a subordinate was created.
+	err = pru.EnterScope()
+	c.Assert(err, IsNil)
+	assertSubCount(1)
+
+	// Enter principal scope again and check no more subordinates created.
+	err = pru.EnterScope()
+	c.Assert(err, IsNil)
+	assertSubCount(1)
+
+	// Leave principal scope, then re-enter, and check that still no further
+	// subordinates are created.
+	err = pru.LeaveScope()
+	c.Assert(err, IsNil)
+	err = pru.EnterScope()
+	c.Assert(err, IsNil)
+	assertSubCount(1)
+}
+
 func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *C) {
 	pr := NewPeerRelation(c, &s.ConnSuite)
 	rel := pr.ru0.Relation()
@@ -383,7 +426,7 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *C) {
 	// Because this is the only sensible place, check that a further call
 	// to Cleanup does not error out.
 	err = s.State.Cleanup()
-	c.Assert(err, Equals, nil)
+	c.Assert(err, IsNil)
 }
 
 func (s *RelationUnitSuite) TestAliveRelationScope(c *C) {
@@ -636,6 +679,7 @@ func (s *RelationUnitSuite) assertNoScopeChange(c *C, ws ...*state.RelationScope
 }
 
 type PeerRelation struct {
+	rel                *state.Relation
 	svc                *state.Service
 	u0, u1, u2, u3     *state.Unit
 	ru0, ru1, ru2, ru3 *state.RelationUnit
@@ -648,7 +692,7 @@ func NewPeerRelation(c *C, s *ConnSuite) *PeerRelation {
 	c.Assert(err, IsNil)
 	rel, err := s.State.AddRelation(ep)
 	c.Assert(err, IsNil)
-	pr := &PeerRelation{svc: svc}
+	pr := &PeerRelation{rel: rel, svc: svc}
 	pr.u0, pr.ru0 = addRU(c, svc, rel, nil)
 	pr.u1, pr.ru1 = addRU(c, svc, rel, nil)
 	pr.u2, pr.ru2 = addRU(c, svc, rel, nil)
@@ -657,6 +701,7 @@ func NewPeerRelation(c *C, s *ConnSuite) *PeerRelation {
 }
 
 type ProReqRelation struct {
+	rel                    *state.Relation
 	psvc, rsvc             *state.Service
 	pu0, pu1, ru0, ru1     *state.Unit
 	pru0, pru1, rru0, rru1 *state.RelationUnit
@@ -676,7 +721,7 @@ func NewProReqRelation(c *C, s *ConnSuite, scope charm.RelationScope) *ProReqRel
 	c.Assert(err, IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, IsNil)
-	prr := &ProReqRelation{psvc: psvc, rsvc: rsvc}
+	prr := &ProReqRelation{rel: rel, psvc: psvc, rsvc: rsvc}
 	prr.pu0, prr.pru0 = addRU(c, psvc, rel, nil)
 	prr.pu1, prr.pru1 = addRU(c, psvc, rel, nil)
 	if scope == charm.ScopeGlobal {
