@@ -92,10 +92,10 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 
 	authMethod := ecfg.authMethod()
 	switch AuthMethod(authMethod) {
-		case AuthLegacy:
-		case AuthUserPass:
-		default:
-			return nil, fmt.Errorf("invalid authorization method: %q", authMethod)
+	case AuthLegacy:
+	case AuthUserPass:
+	default:
+		return nil, fmt.Errorf("invalid authorization method: %q", authMethod)
 	}
 
 	if ecfg.authURL() != "" {
