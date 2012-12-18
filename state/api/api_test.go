@@ -10,10 +10,15 @@ import (
 	stdtesting "testing"
 )
 
+func TestAll(t *stdtesting.T) {
+	coretesting.MgoTestPackage(t)
+}
+
 type suite struct {
 	testing.JujuConnSuite
 	APIState *api.State
 	listener net.Listener
+	srv      *api.Server
 }
 
 var _ = Suite(&suite{})
@@ -28,24 +33,20 @@ func (s *suite) TearDownSuite(c *C) {
 
 func (s *suite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
-	l, err := net.Listen("tcp", ":0")
+	var err error
+	s.srv, err = api.NewServer(s.State, "localhost:0", []byte(coretesting.ServerCert), []byte(coretesting.ServerKey))
 	c.Assert(err, IsNil)
-	s.listener = l
-	go api.Serve(s.State, l, []byte(coretesting.ServerCert), []byte(coretesting.ServerKey))
 	s.APIState, err = api.Open(&api.Info{
-		Addr:   l.Addr().String(),
+		Addr:   s.srv.Addr(),
 		CACert: []byte(coretesting.CACert),
 	})
 	c.Assert(err, IsNil)
 }
 
 func (s *suite) TearDownTest(c *C) {
-	s.listener.Close()
+	err := s.srv.Stop()
+	c.Assert(err, IsNil)
 	s.JujuConnSuite.TearDownTest(c)
-}
-
-func TestAll(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
 }
 
 func (s *suite) TestRequest(c *C) {
@@ -61,4 +62,20 @@ func (s *suite) TestRequest(c *C) {
 	instId, err = s.APIState.Request(m.Id())
 	c.Assert(err, IsNil)
 	c.Assert(instId, Equals, "foo")
+}
+
+func (s *suite) TestStop(c *C) {
+	m, err := s.State.AddMachine(state.MachinerWorker)
+	c.Assert(err, IsNil)
+	err = m.SetInstanceId("foo")
+	c.Assert(err, IsNil)
+
+	err = s.srv.Stop()
+	c.Assert(err, IsNil)
+	_, err = s.APIState.Request(m.Id())
+	c.Assert(err, ErrorMatches, "cannot receive response: EOF")
+
+	// Check it can be stopped twice.
+	err = s.srv.Stop()
+	c.Assert(err, IsNil)
 }

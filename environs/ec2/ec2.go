@@ -238,7 +238,9 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 		}
 	} else {
 		flags := environs.HighestVersion | environs.CompatVersion
-		tools, err = environs.FindTools(e, version.Current, flags)
+		v := version.Current
+		v.Series = e.Config().DefaultSeries()
+		tools, err = environs.FindTools(e, v, flags)
 		if err != nil {
 			return fmt.Errorf("cannot find tools: %v", err)
 		}
