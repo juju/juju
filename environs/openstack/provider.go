@@ -233,6 +233,7 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 const (
 	// Until image lookup is implemented, we'll use some pre-established, known values for starting instances.
 	defaultFlavorId = "1" //m1.tiny
+	// This is an existing image on Canonistack - smoser-cloud-images/ubuntu-quantal-12.10-i386-server-20121017
 	defaultImageId  = "0f602ea9-c09e-440c-9e29-cfae5635afa3"
 )
 
@@ -251,13 +252,12 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	if err != nil {
 		return nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
-	var server *nova.Entity
-
 	var groupNames = make([]nova.SecurityGroupName, len(groups))
 	for i, g := range groups {
 		groupNames[i] = nova.SecurityGroupName{g.Name}
 	}
 
+	var server *nova.Entity
 	for a := shortAttempt.Start(); a.Next(); {
 		server, err = e.nova().RunServer(nova.RunServerOpts{
 			Name: state.MachineEntityName(scfg.machineId),
