@@ -84,34 +84,34 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 		}
 	}
 	cred := identity.CredentialsFromEnv()
-	missingAttributef := "required environment variable not set for credentials attribute: %s"
+	format := "required environment variable not set for credentials attribute: %s"
 	if ecfg.username() == "" {
 		if cred.User == "" {
-			return nil, fmt.Errorf(missingAttributef, "User")
+			return nil, fmt.Errorf(format, "User")
 		}
 		ecfg.attrs["username"] = cred.User
 	}
 	if ecfg.password() == "" {
 		if cred.Secrets == "" {
-			return nil, fmt.Errorf(missingAttributef, "Secrets")
+			return nil, fmt.Errorf(format, "Secrets")
 		}
 		ecfg.attrs["password"] = cred.Secrets
 	}
 	if ecfg.authURL() == "" {
 		if cred.URL == "" {
-			return nil, fmt.Errorf(missingAttributef, "URL")
+			return nil, fmt.Errorf(format, "URL")
 		}
 		ecfg.attrs["auth-url"] = cred.URL
 	}
 	if ecfg.tenantName() == "" {
 		if cred.TenantName == "" {
-			return nil, fmt.Errorf(missingAttributef, "TenantName")
+			return nil, fmt.Errorf(format, "TenantName")
 		}
 		ecfg.attrs["tenant-name"] = cred.TenantName
 	}
 	if ecfg.region() == "" {
 		if cred.Region == "" {
-			return nil, fmt.Errorf(missingAttributef, "Region")
+			return nil, fmt.Errorf(format, "Region")
 		}
 		ecfg.attrs["region"] = cred.Region
 	}
