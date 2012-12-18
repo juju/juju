@@ -185,11 +185,11 @@ var configTests = []configTest{
 		},
 		err: ".*expected string, got 666",
 	}, {
-		summary: "invalid authorisation emthod",
+		summary: "invalid authorization method",
 		config: attrs{
 			"auth-method": "invalid-method",
 		},
-		err: ".*invalid authorisation method.*",
+		err: ".*invalid authorization method.*",
 	}, {
 		summary: "invalid auth-url format",
 		config: attrs{
@@ -272,7 +272,7 @@ func (s *ConfigSuite) TestMissingRegion(c *C) {
 	s.setupEnvCredentials()
 	os.Setenv("OS_REGION_NAME", "")
 	os.Setenv("NOVA_REGION", "")
-	test := configTests[11]
+	test := configTests[12]
 	test.err = "required environment variable not set for credentials attribute: Region"
 	test.check(c)
 }
@@ -334,4 +334,23 @@ func (s *ConfigSuite) TestCredentialsFromEnv(c *C) {
 	c.Assert(ecfg.authURL(), Equals, "http://auth")
 	c.Assert(ecfg.region(), Equals, "region")
 	c.Assert(ecfg.tenantName(), Equals, "sometenant")
+}
+
+func (s *ConfigSuite) TestDefaultAuthorisationMethod(c *C) {
+	// Specify a basic configuration without authorization method.
+	envs := attrs{
+		"environments": attrs{
+			"testenv": attrs{
+				"type": "openstack",
+			},
+		},
+	}
+	data, err := goyaml.Marshal(envs)
+	c.Assert(err, IsNil)
+	s.setupEnvCredentials()
+	es, err := environs.ReadEnvironsBytes(data)
+	c.Check(err, IsNil)
+	e, err := es.Open("testenv")
+	ecfg := e.(*environ).ecfg()
+	c.Assert(ecfg.authMethod(), Equals, string(AuthUserPass))
 }

@@ -24,7 +24,7 @@ var configChecker = schema.StrictFieldMap(
 		"password":       "",
 		"tenant-name":    "",
 		"auth-url":       "",
-		"auth-method":    "",
+		"auth-method":    string(AuthUserPass),
 		"region":         "",
 		"control-bucket": "",
 		"public-bucket":  "",
@@ -90,15 +90,12 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 	}
 	ecfg := &environConfig{cfg, v.(map[string]interface{})}
 
-	if authMethod := ecfg.authMethod(); authMethod != "" {
-		switch AuthMethod(authMethod) {
+	authMethod := ecfg.authMethod()
+	switch AuthMethod(authMethod) {
 		case AuthLegacy:
-			break
 		case AuthUserPass:
-			break
 		default:
-			return nil, fmt.Errorf("invalid authorisation method: %q", authMethod)
-		}
+			return nil, fmt.Errorf("invalid authorization method: %q", authMethod)
 	}
 
 	if ecfg.authURL() != "" {
