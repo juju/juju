@@ -14,10 +14,10 @@ import (
 
 // storage implements environs.Storage on an OpenStack container.
 type storage struct {
-	containerMutex sync.Mutex
-	madeContainer  bool
-	containerName  string
-	swift          *swift.Client
+	sync.Mutex
+	madeContainer bool
+	containerName string
+	swift         *swift.Client
 }
 
 // makeContainer makes the environment's control container, the
@@ -25,8 +25,8 @@ type storage struct {
 // are stored. To avoid two round trips on every PUT operation,
 // we do this only once for each environ.
 func (s *storage) makeContainer(containerName string) error {
-	s.containerMutex.Lock()
-	defer s.containerMutex.Unlock()
+	s.Lock()
+	defer s.Unlock()
 	if s.madeContainer {
 		return nil
 	}
@@ -67,7 +67,7 @@ func (s *storage) Get(file string) (r io.ReadCloser, err error) {
 
 func (s *storage) URL(name string) (string, error) {
 	// 10 years should be good enough.
-	expires := time.Now().AddDate(1, 0, 0)
+	expires := time.Now().AddDate(10, 0, 0)
 	return s.swift.SignedURL(s.containerName, name, expires)
 }
 
@@ -75,11 +75,10 @@ func (s *storage) Remove(file string) error {
 	err := s.swift.DeleteObject(s.containerName, file)
 	// If we can't delete the object because the bucket doesn't
 	// exist, then we don't care.
-	err, ok := maybeNotFound(err)
-	if ok {
-		return nil
+	if err, ok := maybeNotFound(err); !ok {
+		return err
 	}
-	return err
+	return nil
 }
 
 func (s *storage) List(prefix string) ([]string, error) {
@@ -88,11 +87,10 @@ func (s *storage) List(prefix string) ([]string, error) {
 		// If the container is not found, it's not an error
 		// because it's only created when the first
 		// file is put.
-		err, ok := maybeNotFound(err)
-		if ok {
-			return nil, nil
+		if err, ok := maybeNotFound(err); !ok {
+			return nil, err
 		}
-		return nil, err
+		return nil, nil
 	}
 	var names []string
 	for _, item := range contents {
@@ -110,6 +108,9 @@ func (s *storage) deleteAll() error {
 	// If we're in danger of having hundreds of objects,
 	// we'll want to change this to limit the number
 	// of concurrent operations.
+	if len(names) > 100 {
+		return fmt.Errorf("Too many files to remove: %d", len(names))
+	}
 	var wg sync.WaitGroup
 	wg.Add(len(names))
 	errc := make(chan error, len(names))
@@ -129,8 +130,8 @@ func (s *storage) deleteAll() error {
 	default:
 	}
 
-	s.containerMutex.Lock()
-	defer s.containerMutex.Unlock()
+	s.Lock()
+	defer s.Unlock()
 	// Even DeleteContainer fails, it won't harm if we try again - the operation
 	// might have succeeded even if we get an error.
 	s.madeContainer = false
@@ -148,16 +149,16 @@ func maybeNotFound(err error) (error, bool) {
 	if err == nil {
 		return nil, false
 	}
-	error, ok := err.(errors.Error)
-	if !ok {
-		return err, false
-	}
-	var statusCode int
-	if context, ok := error.Context().(goosehttp.ResponseData); ok {
-		statusCode = context.StatusCode
-	}
-	if errors.IsNotFound(err) || statusCode == http.StatusPreconditionFailed {
-		return &environs.NotFoundError{err}, true
+	if error, ok := err.(errors.Error); ok {
+		var statusCode int
+		if context, ok := error.Context().(goosehttp.ResponseData); ok {
+			statusCode = context.StatusCode
+		}
+		// The OpenStack API says that attempts to operate on non existent containers or objects return a status code
+		// of 412 (StatusPreconditionFailed).
+		if errors.IsNotFound(err) || statusCode == http.StatusPreconditionFailed {
+			return &environs.NotFoundError{err}, true
+		}
 	}
 	return err, false
 }
