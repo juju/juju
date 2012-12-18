@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker"
+	"launchpad.net/juju-core/worker/deployer"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/tomb"
 	"time"
@@ -96,8 +97,19 @@ func (a *UnitAgent) runOnce() error {
 			return err
 		}
 	}
-	return runTasks(a.tomb.Dying(),
+	tasks := []task{
 		uniter.NewUniter(st, unit.Name(), a.Conf.DataDir),
 		NewUpgrader(st, unit, a.Conf.DataDir),
-	)
+	}
+	if unit.IsPrincipal() {
+		info := &state.Info{
+			EntityName: unit.EntityName(),
+			CACert:     st.CACert(),
+			Addrs:      st.Addrs(),
+		}
+		mgr := deployer.NewSimpleManager(info, a.Conf.DataDir)
+		tasks = append(tasks,
+			deployer.NewDeployer(st, mgr, unit.WatchSubordinateUnits()))
+	}
+	return runTasks(a.tomb.Dying(), tasks...)
 }
