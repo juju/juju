@@ -234,7 +234,7 @@ const (
 	// Until image lookup is implemented, we'll use some pre-established, known values for starting instances.
 	defaultFlavorId = "1" //m1.tiny
 	// This is an existing image on Canonistack - smoser-cloud-images/ubuntu-quantal-12.10-i386-server-20121017
-	defaultImageId  = "0f602ea9-c09e-440c-9e29-cfae5635afa3"
+	defaultImageId = "0f602ea9-c09e-440c-9e29-cfae5635afa3"
 )
 
 // startInstance is the internal version of StartInstance, used by Bootstrap
