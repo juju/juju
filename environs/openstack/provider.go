@@ -181,7 +181,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 		URL:        ecfg.authURL(),
 	}
 	// TODO(wallyworld): do not hard code authentication type
-	client := client.NewClient(cred, identity.AuthUserPass)
+	client := client.NewClient(cred, identity.AuthUserPass, nil)
 	e.novaUnlocked = nova.New(client)
 	e.swiftUnlocked = swift.New(client)
 	return nil
@@ -233,7 +233,8 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 const (
 	// Until image lookup is implemented, we'll use some pre-established, known values for starting instances.
 	defaultFlavorId = "1" //m1.tiny
-	defaultImageId  = "0f602ea9-c09e-440c-9e29-cfae5635afa3"
+	// This is an existing image on Canonistack - smoser-cloud-images/ubuntu-quantal-12.10-i386-server-20121017
+	defaultImageId = "0f602ea9-c09e-440c-9e29-cfae5635afa3"
 )
 
 // startInstance is the internal version of StartInstance, used by Bootstrap
@@ -245,28 +246,25 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 		scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
 	// TODO(wallyworld) - implement spec lookup
 	// TODO(wallyworld) - implement userData creation once we have tools
-	var userData []byte = make([]byte, 0)
+	var userData []byte = nil
 	log.Debugf("environs/openstack: openstack user data: %q", userData)
 	groups, err := e.setUpGroups(scfg.machineId)
 	if err != nil {
 		return nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
-	var server *nova.Entity
-
 	var groupNames = make([]nova.SecurityGroupName, len(groups))
 	for i, g := range groups {
 		groupNames[i] = nova.SecurityGroupName{g.Name}
 	}
 
-	// TODO(wallyworld) - change Goose API to accept []byte not *string
-	userDataString := string(userData)
+	var server *nova.Entity
 	for a := shortAttempt.Start(); a.Next(); {
 		server, err = e.nova().RunServer(nova.RunServerOpts{
 			Name: state.MachineEntityName(scfg.machineId),
 			// TODO(wallyworld) - do not use hard coded image
 			FlavorId:           defaultFlavorId,
 			ImageId:            defaultImageId,
-			UserData:           &userDataString,
+			UserData:           userData,
 			SecurityGroupNames: groupNames,
 		})
 		if err == nil || !gooseerrors.IsNotFound(err) {
@@ -433,21 +431,6 @@ func (e *environ) setUpGroups(machineId string) ([]nova.SecurityGroup, error) {
 // zeroGroup holds the zero security group.
 var zeroGroup nova.SecurityGroup
 
-func (e *environ) securityGroupByName(name string) (*nova.SecurityGroup, error) {
-	// OpenStack does not support group filtering, so we need to load them all and manually search by name.
-	nova := e.nova()
-	groups, err := nova.ListSecurityGroups()
-	if err != nil {
-		return nil, err
-	}
-	for _, group := range groups {
-		if group.Name == name {
-			return &group, nil
-		}
-	}
-	return nil, fmt.Errorf("Security group %s not found.", name)
-}
-
 // ensureGroup returns the security group with name and perms.
 // If a group with name does not exist, one will be created.
 // If it exists, its permissions are set to perms.
@@ -459,7 +442,7 @@ func (e *environ) ensureGroup(name string, rules []nova.RuleInfo) (nova.Security
 			return zeroGroup, err
 		} else {
 			// We just tried to create a duplicate group, so load the existing group.
-			group, err = e.securityGroupByName(name)
+			group, err = nova.SecurityGroupByName(name)
 			if err != nil {
 				return zeroGroup, err
 			}
