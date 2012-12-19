@@ -259,11 +259,14 @@ func (s *ConfigSuite) setupEnvCredentials() {
 	os.Setenv("OS_REGION_NAME", "region")
 }
 
+var regionTestConfig = configTests[0]
+var credentialsTestConfig = configTests[11]
+
 func (s *ConfigSuite) TestMissingRegion(c *C) {
 	s.setupEnvCredentials()
 	os.Setenv("OS_REGION_NAME", "")
 	os.Setenv("NOVA_REGION", "")
-	test := configTests[11]
+	test := credentialsTestConfig
 	test.err = "required environment variable not set for credentials attribute: Region"
 	test.check(c)
 }
@@ -272,7 +275,7 @@ func (s *ConfigSuite) TestMissingUsername(c *C) {
 	s.setupEnvCredentials()
 	os.Setenv("OS_USERNAME", "")
 	os.Setenv("NOVA_USERNAME", "")
-	test := configTests[0]
+	test := regionTestConfig
 	test.err = "required environment variable not set for credentials attribute: User"
 	test.check(c)
 }
@@ -281,15 +284,15 @@ func (s *ConfigSuite) TestMissingPassword(c *C) {
 	s.setupEnvCredentials()
 	os.Setenv("OS_PASSWORD", "")
 	os.Setenv("NOVA_PASSWORD", "")
-	test := configTests[0]
+	test := regionTestConfig
 	test.err = "required environment variable not set for credentials attribute: Secrets"
 	test.check(c)
 }
-func (s *ConfigSuite) TestMissinTenant(c *C) {
+func (s *ConfigSuite) TestMissingTenant(c *C) {
 	s.setupEnvCredentials()
 	os.Setenv("OS_TENANT_NAME", "")
 	os.Setenv("NOVA_PROJECT_ID", "")
-	test := configTests[0]
+	test := regionTestConfig
 	test.err = "required environment variable not set for credentials attribute: TenantName"
 	test.check(c)
 }
@@ -297,7 +300,7 @@ func (s *ConfigSuite) TestMissinTenant(c *C) {
 func (s *ConfigSuite) TestMissingAuthUrl(c *C) {
 	s.setupEnvCredentials()
 	os.Setenv("OS_AUTH_URL", "")
-	test := configTests[0]
+	test := regionTestConfig
 	test.err = "required environment variable not set for credentials attribute: URL"
 	test.check(c)
 }
