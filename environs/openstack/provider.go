@@ -83,10 +83,11 @@ func (p environProvider) PrivateAddress() (string, error) {
 type environ struct {
 	name string
 
-	ecfgMutex     sync.Mutex
-	ecfgUnlocked  *environConfig
-	novaUnlocked  *nova.Client
-	swiftUnlocked *swift.Client
+	ecfgMutex             sync.Mutex
+	ecfgUnlocked          *environConfig
+	novaUnlocked          *nova.Client
+	storageUnlocked       *storage
+	publicStorageUnlocked *storage // optional.
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -140,15 +141,24 @@ func (e *environ) nova() *nova.Client {
 	return nova
 }
 
-func (e *environ) swift() *swift.Client {
-	e.ecfgMutex.Lock()
-	swift := e.swiftUnlocked
-	e.ecfgMutex.Unlock()
-	return swift
-}
-
 func (e *environ) Name() string {
 	return e.name
+}
+
+func (e *environ) Storage() environs.Storage {
+	e.ecfgMutex.Lock()
+	storage := e.storageUnlocked
+	e.ecfgMutex.Unlock()
+	return storage
+}
+
+func (e *environ) PublicStorage() environs.StorageReader {
+	e.ecfgMutex.Lock()
+	defer e.ecfgMutex.Unlock()
+	if e.publicStorageUnlocked == nil {
+		return environs.EmptyStorage
+	}
+	return e.publicStorageUnlocked
 }
 
 func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
@@ -163,6 +173,18 @@ func (e *environ) Config() *config.Config {
 	return e.ecfg().Config
 }
 
+func (e *environ) client(ecfg *environConfig) *client.OpenStackClient {
+	cred := &identity.Credentials{
+		User:       ecfg.username(),
+		Secrets:    ecfg.password(),
+		Region:     ecfg.region(),
+		TenantName: ecfg.tenantName(),
+		URL:        ecfg.authURL(),
+	}
+	// TODO(wallyworld): do not hard code authentication type
+	return client.NewClient(cred, identity.AuthUserPass, nil)
+}
+
 func (e *environ) SetConfig(cfg *config.Config) error {
 	ecfg, err := providerInstance.newConfig(cfg)
 	if err != nil {
@@ -173,17 +195,24 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	e.name = ecfg.Name()
 	e.ecfgUnlocked = ecfg
 
-	cred := &identity.Credentials{
-		User:       ecfg.username(),
-		Secrets:    ecfg.password(),
-		Region:     ecfg.region(),
-		TenantName: ecfg.tenantName(),
-		URL:        ecfg.authURL(),
+	novaClient := e.client(ecfg)
+	e.novaUnlocked = nova.New(novaClient)
+
+	// create new storage instances, existing instances continue
+	// to reference their existing configuration.
+	storageClient := e.client(ecfg)
+	e.storageUnlocked = &storage{
+		containerName: ecfg.controlBucket(),
+		swift:         swift.New(storageClient)}
+	if ecfg.publicBucket() != "" {
+		publicBucketClient := e.client(ecfg)
+		e.publicStorageUnlocked = &storage{
+			containerName: ecfg.publicBucket(),
+			swift:         swift.New(publicBucketClient)}
+	} else {
+		e.publicStorageUnlocked = nil
 	}
-	// TODO(wallyworld): do not hard code authentication type
-	client := client.NewClient(cred, identity.AuthUserPass, nil)
-	e.novaUnlocked = nova.New(client)
-	e.swiftUnlocked = swift.New(client)
+
 	return nil
 }
 
@@ -329,17 +358,38 @@ func (e *environ) AllInstances() (insts []environs.Instance, err error) {
 	return insts, err
 }
 
-func (e *environ) Storage() environs.Storage {
-	panic("Storage not implemented")
-}
-
-func (e *environ) PublicStorage() environs.StorageReader {
-	panic("PublicStorage not implemented")
-}
-
-func (e *environ) Destroy(insts []environs.Instance) error {
+func (e *environ) Destroy(ensureInsts []environs.Instance) error {
 	log.Printf("environs/openstack: destroying environment %q", e.name)
-	return nil
+	insts, err := e.AllInstances()
+	if err != nil {
+		return fmt.Errorf("cannot get instances: %v", err)
+	}
+	found := make(map[state.InstanceId]bool)
+	var ids []state.InstanceId
+	for _, inst := range insts {
+		ids = append(ids, inst.Id())
+		found[inst.Id()] = true
+	}
+
+	// Add any instances we've been told about but haven't yet shown
+	// up in the instance list.
+	for _, inst := range ensureInsts {
+		id := state.InstanceId(inst.(*instance).Id())
+		if !found[id] {
+			ids = append(ids, id)
+			found[id] = true
+		}
+	}
+	err = e.terminateInstances(ids)
+	if err != nil {
+		return err
+	}
+
+	// To properly observe e.storageUnlocked we need to get its value while
+	// holding e.ecfgMutex. e.Storage() does this for us, then we convert
+	// back to the (*storage) to access the private deleteAll() method.
+	st := e.Storage().(*storage)
+	return st.deleteAll()
 }
 
 func (e *environ) AssignmentPolicy() state.AssignmentPolicy {

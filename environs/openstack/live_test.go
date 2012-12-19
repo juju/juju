@@ -35,9 +35,10 @@ func registerOpenStackTests() {
 	//  access-key: $OS_USERNAME
 	//  secret-key: $OS_PASSWORD
 	attrs := map[string]interface{}{
-		"name":         "sample-" + uniqueName,
-		"type":         "openstack",
-		"admin-secret": "for real",
+		"name":           "sample-" + uniqueName,
+		"type":           "openstack",
+		"control-bucket": "juju-test-" + uniqueName,
+		"public-bucket":  "juju-public-test-" + uniqueName,
 	}
 	Suite(&LiveTests{
 		LiveTests: jujutest.LiveTests{
