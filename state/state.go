@@ -99,6 +99,7 @@ func IsNotFound(err error) bool {
 // State represents the state of an environment
 // managed by juju.
 type State struct {
+	info           *Info
 	db             *mgo.Database
 	charms         *mgo.Collection
 	machines       *mgo.Collection
@@ -521,7 +522,7 @@ func (st *State) AddRelation(endpoints ...Endpoint) (r *Relation, err error) {
 		ops = append(ops, txn.Op{
 			C:      st.services.Name,
 			Id:     v.ServiceName,
-			Assert: isAlive,
+			Assert: isAliveDoc,
 			Update: D{{"$inc", D{{"relationcount", 1}}}},
 		})
 	}
