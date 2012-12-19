@@ -40,6 +40,7 @@ type configTest struct {
 	username      string
 	password      string
 	tenantName    string
+	authMethod    string
 	authURL       string
 	firewallMode  config.FirewallMode
 	err           string
@@ -184,6 +185,12 @@ var configTests = []configTest{
 		},
 		err: ".*expected string, got 666",
 	}, {
+		summary: "invalid authorization method",
+		config: attrs{
+			"auth-method": "invalid-method",
+		},
+		err: ".*invalid authorization method.*",
+	}, {
 		summary: "invalid auth-url format",
 		config: attrs{
 			"auth-url": "invalid",
@@ -207,12 +214,14 @@ var configTests = []configTest{
 			"username":    "jujuer",
 			"password":    "open sesame",
 			"tenant-name": "juju tenant",
+			"auth-method": "legacy",
 			"auth-url":    "http://some/url",
 		},
 		username:   "jujuer",
 		password:   "open sesame",
 		tenantName: "juju tenant",
 		authURL:    "http://some/url",
+		authMethod: "legacy",
 	}, {
 		summary: "admin-secret given",
 		config: attrs{
@@ -260,7 +269,7 @@ func (s *ConfigSuite) setupEnvCredentials() {
 }
 
 var regionTestConfig = configTests[0]
-var credentialsTestConfig = configTests[11]
+var credentialsTestConfig = configTests[12]
 
 func (s *ConfigSuite) TestMissingRegion(c *C) {
 	s.setupEnvCredentials()
@@ -328,4 +337,23 @@ func (s *ConfigSuite) TestCredentialsFromEnv(c *C) {
 	c.Assert(ecfg.authURL(), Equals, "http://auth")
 	c.Assert(ecfg.region(), Equals, "region")
 	c.Assert(ecfg.tenantName(), Equals, "sometenant")
+}
+
+func (s *ConfigSuite) TestDefaultAuthorisationMethod(c *C) {
+	// Specify a basic configuration without authorization method.
+	envs := attrs{
+		"environments": attrs{
+			"testenv": attrs{
+				"type": "openstack",
+			},
+		},
+	}
+	data, err := goyaml.Marshal(envs)
+	c.Assert(err, IsNil)
+	s.setupEnvCredentials()
+	es, err := environs.ReadEnvironsBytes(data)
+	c.Check(err, IsNil)
+	e, err := es.Open("testenv")
+	ecfg := e.(*environ).ecfg()
+	c.Assert(ecfg.authMethod(), Equals, string(AuthUserPass))
 }

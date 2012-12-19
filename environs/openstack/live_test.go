@@ -37,6 +37,7 @@ func registerOpenStackTests() {
 	attrs := map[string]interface{}{
 		"name":           "sample-" + uniqueName,
 		"type":           "openstack",
+		"auth-method":    "userpass",
 		"control-bucket": "juju-test-" + uniqueName,
 		"public-bucket":  "juju-public-test-" + uniqueName,
 	}

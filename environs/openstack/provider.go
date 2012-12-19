@@ -173,7 +173,7 @@ func (e *environ) Config() *config.Config {
 	return e.ecfg().Config
 }
 
-func (e *environ) client(ecfg *environConfig) *client.OpenStackClient {
+func (e *environ) client(ecfg *environConfig, authMethodCfg AuthMethod) *client.OpenStackClient {
 	cred := &identity.Credentials{
 		User:       ecfg.username(),
 		Secrets:    ecfg.password(),
@@ -181,8 +181,15 @@ func (e *environ) client(ecfg *environConfig) *client.OpenStackClient {
 		TenantName: ecfg.tenantName(),
 		URL:        ecfg.authURL(),
 	}
-	// TODO(wallyworld): do not hard code authentication type
-	return client.NewClient(cred, identity.AuthUserPass, nil)
+	// authMethodCfg has already been validated so we know it's one of the values below.
+	var authMethod identity.AuthMethod
+	switch authMethodCfg {
+	case AuthLegacy:
+		authMethod = identity.AuthLegacy
+	case AuthUserPass:
+		authMethod = identity.AuthUserPass
+	}
+	return client.NewClient(cred, authMethod, nil)
 }
 
 func (e *environ) SetConfig(cfg *config.Config) error {
@@ -190,22 +197,26 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
+	// At this point, the authentication method config value has been validated so we extract it's value here
+	// to avoid having to validate again each time when creating the OpenStack client.
+	var authMethodCfg AuthMethod
 	e.ecfgMutex.Lock()
 	defer e.ecfgMutex.Unlock()
 	e.name = ecfg.Name()
+	authMethodCfg = AuthMethod(ecfg.authMethod())
 	e.ecfgUnlocked = ecfg
 
-	novaClient := e.client(ecfg)
+	novaClient := e.client(ecfg, authMethodCfg)
 	e.novaUnlocked = nova.New(novaClient)
 
 	// create new storage instances, existing instances continue
 	// to reference their existing configuration.
-	storageClient := e.client(ecfg)
+	storageClient := e.client(ecfg, authMethodCfg)
 	e.storageUnlocked = &storage{
 		containerName: ecfg.controlBucket(),
 		swift:         swift.New(storageClient)}
 	if ecfg.publicBucket() != "" {
-		publicBucketClient := e.client(ecfg)
+		publicBucketClient := e.client(ecfg, authMethodCfg)
 		e.publicStorageUnlocked = &storage{
 			containerName: ecfg.publicBucket(),
 			swift:         swift.New(publicBucketClient)}
