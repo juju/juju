@@ -4,10 +4,8 @@ import (
 	"fmt"
 	"io"
 	"launchpad.net/goose/errors"
-	goosehttp "launchpad.net/goose/http"
 	"launchpad.net/goose/swift"
 	"launchpad.net/juju-core/environs"
-	"net/http"
 	"sync"
 	"time"
 )
@@ -146,19 +144,8 @@ func (s *storage) deleteAll() error {
 // maybeNotFound returns a environs.NotFoundError if the root cause of the specified error is due to a file or
 // container not being found.
 func maybeNotFound(err error) (error, bool) {
-	if err == nil {
-		return nil, false
-	}
-	if error, ok := err.(errors.Error); ok {
-		var statusCode int
-		if context, ok := error.Context().(goosehttp.ResponseData); ok {
-			statusCode = context.StatusCode
-		}
-		// The OpenStack API says that attempts to operate on non existent containers or objects return a status code
-		// of 412 (StatusPreconditionFailed).
-		if errors.IsNotFound(err) || statusCode == http.StatusPreconditionFailed {
-			return &environs.NotFoundError{err}, true
-		}
+	if err != nil && errors.IsNotFound(err) {
+		return &environs.NotFoundError{err}, true
 	}
 	return err, false
 }
