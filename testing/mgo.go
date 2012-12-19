@@ -134,11 +134,10 @@ func readLines(r io.Reader, n int) []string {
 	i := 0
 	for {
 		line, err := br.ReadString('\n')
-		line = strings.TrimRight(line, "\n")
-		if line != "" {
+		if line = strings.TrimRight(line, "\n"); line != "" {
 			lines[i%n] = line
+			i++
 		}
-		i++
 		if err != nil {
 			break
 		}
