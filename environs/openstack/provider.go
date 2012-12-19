@@ -186,10 +186,8 @@ func (e *environ) client(ecfg *environConfig, authMethodCfg AuthMethod) *client.
 	switch authMethodCfg {
 	case AuthLegacy:
 		authMethod = identity.AuthLegacy
-		break
 	case AuthUserPass:
 		authMethod = identity.AuthUserPass
-		break
 	}
 	return client.NewClient(cred, authMethod, nil)
 }
