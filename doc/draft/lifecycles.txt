@@ -1,92 +1,108 @@
 Lifecycles
 ==========
 
-In juju, some things have "lifecycles". We sometimes refer to these things as
-"entities", but I think that term is becoming overloaded to mean "thing that
-can connect to state", ie unit and machine agents (and then presumably, one day,
-users). So we don't have a good name for the group, but happily there are ony 4:
+In juju, certain fundamental state entities have "lifecycles". These entities
+are:
 
   * Machines
   * Units
   * Services
   * Relations
 
-...and there are only 4 possible states for the above things:
+...and there are only 3 possible states for the above things:
 
-  * Alive
-  * Dying
-  * Dead
-  * (removed)
+  * Alive (An entity is Alive when it is first created.)
+  * Dying (An entity becomes Dying when the user indicates that it should be
+    destroyed, and remains so while there are impediments to its removal.)
+  * Dead (an entity becomes Dead when there are no further impediments to
+    its removal; at this point it may be removed from the database at any time.
+    Some entities may become Dead and are removed as a single atomic operation,
+    and are hence never directly observed to be "Dead", but should still be so
+    considered.)
 
 There are two fundamental truths in this system:
 
   * All such things start existence Alive.
   * No such thing can ever change to an earlier state.
 
-...and just about all else is tricky detail, that is worth examining from a few
-different angles. First of all, it's worth considering the things that happen to
-each state object separately, insofar as that is possible:
+Beyond the above rules, lifecycle shifts occur at different times for different
+kinds of entities.
 
 Machines
 --------
 
-  * Like everything else, a machine starts out Alive.
-  * While it is Alive, principal units can be assigned to it.
-  * When no principal units are assigned to it, it can be destroyed with
-    `juju destroy-machine`. This will set the machine to Dying, but will
-    fail when units are assigned. (Future plans: allow a machine to become
-    Dying when it has principal units, so long as they are not Alive. For now
-    it's extra complexity with little direct benefit.)
+  * Like everything else, a machine starts out Alive. `juju bootstrap` aside,
+    the user interface does not allow for direct creation of machines, but
+    `juju deploy` and `juju add-unit` may create machines as a consequence of
+    unit creation.
+  * If a machine has the JobManageEnviron job, it cannot become Dying or Dead.
+    [TODO: not implemented]. Other jobs do not affect the lifecycle directly.
+  * If a machine has the JobHostUnits job, principal units can be assigned to it
+    while it is Alive.
+  * While principal units are assigned to a machine, its lifecycle cannot change
+    and `juju destroy-machine` will fail. [TODO: not implemented]
+  * When no principal units are assigned, `juju destroy-machine` will set the
+    machine to Dying. (Future plans: allow a machine to become Dying when it
+    has principal units, so long as they are not Alive. For now it's extra
+    complexity with little direct benefit.)
   * Once a machine has been set to Dying, the corresponding Machine Agent (MA)
-    is responsible for setting it to Dead. (Future plans: when Dying units are
-    assigned, wait for them to become Dead and remove them completely before
-    making the machine Dead; not an issue now because the machine can't yet
-    become Dying with units assigned.)
-  * When the Provisioning Agent (PA) observes that the machine has become Dead,
-    it releases the underlying instance back to the provider and removes the
-    machine object from state. (Future uncertainty: should the PA provision an
-    instance for a Dying machine? At the moment, no, because a Dying machine
-    can't have any units in the first place; in the future, er, maybe, because
-    those Dying units may be attached to persistent storage and should thus be
-    allowed to continue to shut down cleanly as they would usually do. Maybe.)
+    is responsible for setting it to Dead. [TODO: not implemented] (Future
+    plans: when Dying units are assigned, wait for them to become Dead and
+    remove them completely before making the machine Dead; not an issue now
+    because the machine can't yet become Dying with units assigned.)
+  * Once a machine has been set to Dead, some other MA (for a machine with
+    JobManageEnviron) will release the underlying instance back to the provider
+    and remove the machine entity from state. (Future uncertainty: should the
+    provisioner provision an instance for a Dying machine? At the moment, no,
+    because a Dying machine can't have any units in the first place; in the
+    future, er, maybe, because those Dying units may be attached to persistent
+    storage and should thus be allowed to continue to shut down cleanly as they
+    would usually do. Maybe.)
 
 Units
 -----
 
-  * While a principal unit is alive, it can be assigned to machines and can have
-    subordinate units added. When subordinate units are added, it is responsible
-    for them in exactly the same
+  * A principal unit can be created directly with `juju deploy` or
+    `juju add-unit`.
+  * While a principal unit is Alive, it can be assigned to a machine.
+  * While a principal unit is Alive, it can enter the scopes of Alive
+    relations, which may cause the creation of subordinate units; so,
+    indirectly, `juju add-relation` can also cause the creation of units.
   * A unit can become Dying at any time, but may not become Dead while any unit
-    subordinate to it exists, or when the unit is in scope for any relation.
-    (Future plans: `juju destroy-unit --force`, which will clean up a unit and
-    all its subordinates and relations.)
-  * A unit can become Dying in one of two ways:
-      * `juju destroy-unit`
-      * `juju destroy-service` (This happens indirectly: the Unit Agents (UAs)
-        for each unit of a service set their corresponding units to Dying when
-        they detect service Dying; this is because we try to assume 100k-scale
-        and we can't use mgo/txn to do a bulk update of 100k units because that
-        makes for a transaction with at least 100k operations and that's just
-        crazy.)
-  * When a principal unit becomes Dying, all its subordinates must also become
-    Dying.
-  * When a unit is Dying, its UA is responsible for removing impediments to the
-    unit becoming Dead, and then making it so. To do so, the UA must:
+    subordinate to it exists, or while the unit is in scope for any relation.
+  * A principal unit can become Dying in one of two ways:
+      * `juju destroy-unit` (This doesn't work on subordinates; see below.)
+      * `juju destroy-service` (This does work on subordinates, but happens
+        indirectly in either case: the Unit Agents (UAs) for each unit of a
+        service set their corresponding units to Dying when they detect their
+        service Dying; this is because we try to assume 100k-scale and we can't
+        use mgo/txn to do a bulk update of 100k units: that makes for a txn
+        with at least 100k operations, and that's just crazy.)
+  * A subordinate must also become Dying when either:
+      * its principal becomes Dying, via `juju destroy-unit`; or
+      * the last Alive relation between its service and its principal's service
+        is no longer Alive. This may come about via `juju destroy-relation`.
+  * When any unit is Dying, its UA is responsible for removing impediments to
+    the unit becoming Dead, and then making it so. To do so, the UA must:
       * Depart from all its relations in an orderly fashion.
       * Wait for all its subordinates to become Dead, and remove them from state.
       * Set its unit to Dead.
   * As just noted, when a subordinate unit is Dead, it is removed from state by
-    its principal's UA; similarly, when a principal unit is Dead, it is removed
-    from state by the MA of the machine to which it is assigned.
+    its principal's UA; the relationship is the same as that of a principal unit
+    to its assigned machine agent, and of a machine to the JobManageEnviron
+    machine agent.
 
 Services
 --------
 
+  * Services are created with `juju deploy`. Services with duplicate names
+    are not allowed (units and machine with duplicate names are not possible:
+    their identifiers are assigned by juju).
   * Unlike units and machines, services have no corresponding agent.
-  * In addition, services are never Dead: they can only be Alive or Dying (or
-    removed, if you want to consider that a life state).
-  * When a service is Alive, units may be added to it, and the service's
-    endpoints can be added torelations.
+  * In addition, services become Dead and are removed from the database in a
+    single atomic operation.
+  * When a service is Alive, units may be added to it, and relations can be
+    added using the service's endpoints.
   * A service can become dying at any time, via `juju destroy-service`. This
     causes all the units to become Dying, as discussed above, and will also
     cause all relations in which the service is participating to become Dying.
@@ -104,16 +120,25 @@ Services
 Relations
 ---------
 
-  * A relation, like a service, has no corresponding agent and cannot be Dead.
+  * A relation is created with `juju add-relation`. No two relations with the
+    same canonical name can exist. (The canonical relation name form is
+    "<requirer-endpoint> <provider-endpoint>", where each endpoint takes the
+    form "<service-name>:<charm-relation-name>".)
+  * A relation, like a service, has no corresponding agent; and becomes Dead
+    and is removed from the database in a single operation.
+  * Similarly to a service, a relation cannot be created while an identical
+    relation exists in state (in which identity is determined by equality of
+    canonical relation name -- a sequence of endpoint pairs sorted by role).
   * While a relation is Alive, units of services in that relation can enter its
-    scope.
+    scope; that is, the UAs for those units can signal to the system that they
+    are participating in the relation.
   * A relation can become Dying via either `juju destroy-relation` or
     `juju destroy-service`. (Maybe; see services, above.)
-  * When a relation is destroyed with no units in scope, it will be removed
-    from state immediately rather than being set to Dying.
+  * When a relation is destroyed with no units in scope, it will immediately
+    become Dead and be removed from state, rather than being set to Dying.
   * When a relation becomes Dying, the UAs of units that have entered its scope
     are responsible for cleanly departing the relation by running hooks and then
-    leaving relation scope.
+    leaving relation scope (signalling that they are no longer participating).
   * When the last unit leaves the scope of a Dying relation, it must remove the
     relation from state.
   * As noted above, the Dying relation may be the only thing keeping a Dying
@@ -135,9 +160,9 @@ perhaps not always clear. To consider it from another angle:
 In every case above, where X references Y, the life state of an X may be
 sufficient to prevent a change in the life state of a Y; and, conversely, a
 life change in an X may be sufficient to cause a life change in a Y. (In only
-one case does the reverse hold -- that is, setting a service to Dying will
-cause its units' agents to individually set the units to Dying -- and this is
-just an implementation detail.)
+one case does the reverse hold -- that is, setting a service or relation to
+Dying will cause appropriate units' agents to individually set their units to
+Dying -- and this is just an implementation detail.)
 
 The following scrawl may help you to visualize the references in play:
 
@@ -179,103 +204,64 @@ Agents
 It may also be instructive to consider the responsibilities of the unit and
 machine agents. The unit agent is responsible for:
 
+  * detecting Alive relations incorporating its service and entering their
+    scopes (if a principal, this may involve creating subordinates).
+  * detecting Dying relations whose scope it has entered and leaving their
+    scope (this involves removing any relations or services that thereby
+    become unreferenced).
+  * detecting undeployed Alive subordinates and deploying them.
+  * detecting undeployed non-Alive subordinates and removing them (this raises
+    similar questions to those alluded to above re Dying units on Dying machines:
+    but, without persistent storage, there's no point deploying a Dying unit just
+    to wait for its agent to set itself to Dead).
+  * detecting deployed Dead subordinates, recalling them, and removing them.
   * detecting its service's Dying state, and setting its own Dying state.
+  * if a subordinate, detecting that no relations with its principal are Alive,
+    and setting its own Dying state.
   * detecting its own Dying state, and:
-      * leaving relation scopes
-      * possibly removing those relations
-      * possibly removing some of those relations' services
-      * waiting for its subordinates' Dead states and
-          * removing the subordinates
-          * possibly removing their services
-      * finally setting its own Dead state
+      * leaving all its relation scopes;
+      * waiting for all its subordinates to be removed;
+      * setting its own Dead state.
 
-The machine agent, meanwhile, is responsible for:
+A machine agent's responsibilities are determined by its jobs. There are only
+two jobs in existence at the moment; an MA whose machine has JobHostUnits is
+responsible for:
 
-  * detecting its principals' Dead states and:
-      * removing the principals
-      * possibly removing their services
+  * detecting undeployed Alive principals assigned to it and deploying them.
+  * detecting undeployed non-Alive principals assigned to it and removing them
+    (recall that unit removal may imply service removal).
+  * detecting deployed Dead principals assigned to it, recalling them, and
+    removing them.
+  * detecting deployed principals not assigned to it, and recalling them.
   * detecting its machine's Dying state, and setting it to Dead.
 
-Finally, the provisioning agent is responsible for:
+...while one whose machine has JobManageEnviron is responsible for:
 
-  * detecting machines' Dead states, and removing the machines.
+  * detecting Alive machines without instance IDs and provisioning provider
+    instances to run their agents.
+  * detecting non-Alive machines without instance IDs and removing them.
+  * detecting Dead machines with instance IDs, decommissioning the instance, and
+    removing the machine.
 
-(Oh: it shoud be noted explicitly that the PA is responsible for provisioning
-Alive machines, that an MA is responsible for deploying Alive principals, that
-a principal UA is responsible for creating and deploying its Alive subordinates,
-and that all UAs are responsible for entering relevant relation scopes; but that
-side is easy, and the what-do-we-do-with-a-Dying-object problem STM to have the
-same tradeoffs regardless of object: the problem is still, and always, about
-how we shoud treat Dying units backed by persistent storage, and the answer
-remains easy... for now.)
+Machines can in theory have multiple jobs, but in current practice do not.
 
 Implementation
 --------------
 
-We use the mgo/txn package for easy multi-document transactions against MongoDB.
-Without this, it would be very difficult to enforce the various conditions
-described above (consider, for example, the race between one client assigning a
-new principal to a machine that another client is trying to destroy). However,
-even with mgo/txn doing an awful lot of heavy lifting, actually landing a
-consistent transaction occasionally demands a somewhat taxing level of attention
-to detail.
+All state change operations are mediated by the mgo/txn package, which provides
+multi-document transactions aginst MongoDB. This allows us to enforce the many
+conditions described above without experiencing races, so long as we are mindful
+when implementing them.
 
-At the moment, the only type whose lifecycle has been implemented approximately
-correctly is relation... and even that's incomplete, because RelationUnit's
-LeaveScope method fails to take into account the possibility that it might be
-responsible for destroying a service as well as just a relation. But, I guess,
-we haven't started looking at service desctruction yet, so this is maybe not so
-bad.
+Lifecycle support is not complete: relation lifecycles are, mostly, as are
+large parts of the unit and machine agent; but substantial parts of the
+machine, unit and service entity implementation still lack sophistication.
+This situation is being actively addressed.
 
-So -- IMO, none of this has yet been implemented to an adequate standard, and
-we're not short of detailed work to do. I'm currently focused on subordinates,
-which will demand correct implementations of:
-
-  * relation destruction (done)
-  * service destruction (not started)
-  * unit destruction (not started)
-
-...and if we're doing all those we really should do machine destruction too,
-especially considering it'll be easiest, but I'm not even going to think about
-that until i've dealt with the rest.
-
-Implementation issues
----------------------
-
-As mentioned, we save ourselves some hassle by restricting machines to become
-Dying only when they have no units (rather than when none of their units are
-Alive). Fixing this will probably be trivial (we have to solve almost exactly
-the same problem for subordinate units wrt their principal), but since we don't
-*have* to worry about it yet I'm ignoring it.
-
-But there's a trickier one: as you will no doubt have observed, the unit is
-mired deep in dependencies, and a non-functioning unit agent can potentially
-paralyse whole chunks of the system [0]. So, we decided a while ago that we should
-support forcible unit destruction: that it should be possible to set a unit to
-Dead directly.
-
-However, the number of interactions between units and other objects is a little
-bit daunting. In the worst case, forcibly destroying a unit and keeping state
-consistent may require:
-
-  * that the unit leave several relation scopes
-  * that the unit remove several relations it had been in scope of
-  * that the unit remove some services on the other end of removed relations
-
-...*and*:
-
-  * that all the same things happen for all the unit's subordinates.
-
-To take a pessimistic view of the matter, "just" setting a unit to Dead may
-require hundreds of txn operations in a pathological case. However, none of
-the alternatives fill me with great joy; I am starting to feel that a big
-ugly bottleneck txn (specifically to deal with known-pathological cases) may
-in fact be the most reliable and comprehensible way to express the desired
-state change. More discussions on this topic will most assuredly come to pass.
-
------
-
-[0] Heh. Frankly, so can a paralysed MA. `juju destroy-machine --force`..? If unit
-force destruction seemed complex, the machine case is even worse because machines
-can (in theory, if not currently in practice) have several principal units. No, I
-haven't figured out how to deal with a paralysed PA either...
+Beyond the plans detailed above, it is important to note that an agent that is
+failing to meet its responsibilities can have a somewhat distressing impact on
+the rest of the system. To counteract this, we intend to implement a --force
+flag to destroy-unit (and destroy-machine?) that forcibly sets an entity to
+Dead while maintaining consistency and sanity across all references. The best
+approach to this problem has yet to be agreed; we're not short of options, but
+none are exceptionally compelling.

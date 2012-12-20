@@ -5,7 +5,7 @@ This document introduces and briefly explains a number of terms that are used
 throughout the juju documentation, roughly broken down by conceptual area. The
 intent of this document is to make the reader aware of the available modes of
 interaction with juju, and how the various commands and concepts interact. It
-makes no attempt to be comprehensive; just accurate, and opinionated.
+makes no attempt to be comprehensive; just accurate and opinionated.
 
 Charms
 ------
@@ -22,7 +22,7 @@ of software that has been charmed include:
   * glance, keystone, nova-compute, etc (openstack components)
   * minecraft (game server)
 
-A charm consists of the following compnents:
+A charm consists of the following components:
 
   * metadata (describes the charm's purpose and capabilities)
   * configuration (describes the ways in which a user can tune the software)
@@ -53,7 +53,7 @@ Charms are identified by their charm URLs.
 Environments
 ------------
 
-A `machine` is a compute resource on which components of juju, and of the
+A `machine` is a computing resource on which components of juju, and of the
 software deployed by juju, can run. The following command is used to
 manipulate machines directly.
 
@@ -73,9 +73,9 @@ An `environment provider` mediates between juju and the substrate on which an
 environment runs. Each provider allows juju to run against a different backend:
 
   * ec2 (Amazon EC2 and S3)
-  * maas (bare metal) [TODO: not implemented]
-  * local (lightweight containers on client machine) [TODO: not implemented]
-  * openstack (many public and private clouds) [TODO: not implemented]
+  * maas (bare metal) [TODO: work in progress]
+  * local (LXC containers on client machine) [TODO: work in progress]
+  * openstack (many public and private clouds) [TODO: work in progress]
 
 An `environment configuration` describes how to create and connect to an
 environment from a specific provider. An environment configuration must
@@ -117,9 +117,10 @@ environments map ("aws"), and the "authorized-keys" can be safely omitted so
 long as the client machine has a public key with a standard name saved in
 `~/.ssh`. Because it's using the "ec2" provider type, it also has to specify
 a "control-bucket" key; the "access-key" and "secret-key" settings are also
-required, but can be omitted if AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
-are set in the client process environment. The "region" setting defaults to
-"us-east-1"; there are other possible settings but they're not relevant here.
+required, but can be omitted if the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
+environment variables are set in the client process. The "region" setting
+defaults to "us-east-1"; there are other possible settings but they're not
+relevant here.
 
 [NOTE: there is much more to environment configuration than has been discussed
 here. "authorized-keys-path" and "default-series" both apply to every provider,
@@ -165,7 +166,8 @@ service is exposed. Service exposure is controlled with the following commands:
   * juju unexpose
 
 [NOTE: the "firewall-mode" environment configuration setting comes into play
-here, but that may be a topic for a more detailed document.]
+here, but that may be a topic for a more detailed document, along with the
+varying levels of firewalling support in the various providers.]
 
 A service's charm can be `upgraded` when the revision of that charm available
 from its original repository is greater than that or the service's current charm,
@@ -173,7 +175,7 @@ and when the following conditions hold:
 
   * all configuration keys that exist in both versions of the charm must have
     the same data type (addition or removal of config settings is fine, and it's
-    ok for defaults to change, but (eg) a string cannot become an integer).
+    ok for defaults to change, but (e.g.) a string cannot become an integer).
   * any normal relations in which the service is participating must also be
     available, unchanged, in the newer version of the charm (addition or removal
     of charm relations is, in general, fine).
@@ -225,7 +227,26 @@ A `role` describes the manner in which a charm uses an interface. A role can
 have one of three values: "provider", "requirer", or "peer".
 
 A `(charm) relation` is an entry in a charm's metadata that indicates that it
-can fulfil some role over some interface.
+can fulfil some role over some interface. For example, the "relations" section
+of a charm's metadata might look like this (taken from wordpress):
+
+    requires:
+      db:
+        interface: mysql
+      nfs:
+        interface: mount
+      cache:
+        interface: memcache
+    provides:
+      website:
+        interface: http
+    peers:
+      loadbalancer:
+        interface: reversenginx
+
+The above defines five (charm) relations, named "db", "nfs", "cache", "website",
+and "loadbalancer". "db" is a "requirer" over the "mysql" interface; "website"
+is a "provider" over the "http" interface.
 
 An `endpoint` is the combination of a service with one of its charm's relations.
 The set of a service's endpoints define the possible connections involving that
@@ -282,14 +303,17 @@ A charm relation's `scope` controls which units within a relation are visible
 to one another. Most relations have "global" scope, which is the default; a
 subordinate charm must define at least one relation with "local" scope.
 
-A normal relation's `scope` is the narrowest scope amongst its endpoints; a
-normal relation's scope is "global" unless either endpoint has "local" scope,
-in which case it the whole relation has "local" scope.
+A normal or peer relation's `scope` is the narrowest scope amongst its
+endpoints; a normal relation's scope is "global" unless either endpoint has
+"local" scope, in which case it the whole relation has "local" scope, while a
+peer relation's single endpoint must always in practice have "global" scope.
 
 When a subordinate service is deployed, no units are created; the add-unit and
-remove-unit commands do not apply to subordinate services. Instead, subordinate
-units are deployed as a side-effect of the creation of locally-scoped relations
-between the subordinate service and others.
+remove-unit [TODO: lp:1091634] commands do not apply to subordinate services.
+Instead, subordinate units are deployed as a side-effect of the creation of
+locally-scoped relations between the subordinate service and others, and
+recalled as a result of the destruction of the services or relations they are
+dependent upon [TODO: lp:1091865].
 
 To clarify: when a new relation is added and all the following conditions apply:
 
@@ -299,10 +323,11 @@ To clarify: when a new relation is added and all the following conditions apply:
     of the endpoints having local scope:
 
 ...a new unit of the subordinate service will be created and deployed alongside
-each unit of the principal service. Each principal unit is responsible for its
-own associated subordinate, which runs alongside the principal with essentially
-identical privileges. Due to the local scoping of the relation, each subordinate
-unit responds only to the principal unit that deployed it, and vice versa.
+each unit of the principal service (unless one already exists). Each principal
+unit is responsible for its own associated subordinate, which runs alongside
+the principal with essentially identical privileges. Due to the local scoping
+of the relation, each subordinate unit responds only to the principal unit that
+deployed it, and vice versa.
 
 [TODO: to clarify: once units are deployed inside their own containers, subordinate
 units will be installed inside their principal unit's container. But we don't have
@@ -324,7 +349,7 @@ needs to be done]
 
 Some environment providers offer the ability to provision machines with varying
 characteristics. An environment provider defines a vocabulary of `constraints`
-to control the compute resources that are available from the provider; by
+to control the computing resources that are available from the provider; by
 specifying global environment constraints and overriding them where necessary
 at the service level, a user can ensure that her workloads are only run on
 machines with appropriate characteristics.
