@@ -287,6 +287,21 @@ var configTests = []configTest{
 			"firewall-mode": "illegal",
 		},
 		err: "invalid firewall mode in environment configuration: .*",
+	}, {
+		about: "ssl-hostname-verification off",
+		attrs: attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"ssl-hostname-verification": false,
+		},
+	}, {
+		about: "ssl-hostname-verification incorrect",
+		attrs: attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"ssl-hostname-verification": "yes please",
+		},
+		err: `ssl-hostname-verification: expected bool, got "yes please"`,
 	},
 }
 
@@ -492,19 +507,24 @@ func (test configTest) check(c *C, h fakeHome) {
 		c.Check(key, HasLen, 0)
 		c.Assert(keyPresent, Equals, false)
 	}
+
+	if v, ok := test.attrs["ssl-hostname-verification"]; ok {
+		c.Assert(cfg.SSLHostnameVerification(), Equals, v)
+	}
 }
 
 func (*ConfigSuite) TestConfigAttrs(c *C) {
 	attrs := map[string]interface{}{
-		"type":            "my-type",
-		"name":            "my-name",
-		"authorized-keys": "my-keys",
-		"firewall-mode":   string(config.FwDefault),
-		"default-series":  version.Current.Series,
-		"admin-secret":    "foo",
-		"unknown":         "my-unknown",
-		"ca-private-key":  "",
-		"ca-cert":         caCert,
+		"type":                      "my-type",
+		"name":                      "my-name",
+		"authorized-keys":           "my-keys",
+		"firewall-mode":             string(config.FwDefault),
+		"default-series":            version.Current.Series,
+		"admin-secret":              "foo",
+		"unknown":                   "my-unknown",
+		"ca-private-key":            "",
+		"ca-cert":                   caCert,
+		"ssl-hostname-verification": true,
 	}
 	cfg, err := config.New(attrs)
 	c.Assert(err, IsNil)

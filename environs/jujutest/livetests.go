@@ -97,12 +97,6 @@ func (t *LiveTests) Destroy(c *C) {
 // TestStartStop is similar to Tests.TestStartStop except
 // that it does not assume a pristine environment.
 func (t *LiveTests) TestStartStop(c *C) {
-	// We might or might not have a bootstrap instance
-	// around, so we make this test work regardless
-	// of what instances are already started.
-	initialInsts, err := t.Env.AllInstances()
-	c.Assert(err, IsNil)
-
 	inst, err := t.Env.StartInstance("0", testing.InvalidStateInfo("0"), nil)
 	c.Assert(err, IsNil)
 	c.Assert(inst, NotNil)
@@ -114,9 +108,12 @@ func (t *LiveTests) TestStartStop(c *C) {
 	c.Assert(insts[0].Id(), Equals, id0)
 	c.Assert(insts[1].Id(), Equals, id0)
 
+	// Asserting on the return of AllInstances makes the test fragile,
+	// as even comparing the before and after start values can be thrown
+	// off if other instances have been created or destroyed in the same
+	// time frame. Instead, just check the instance we created exists.
 	insts, err = t.Env.AllInstances()
 	c.Assert(err, IsNil)
-	c.Assert(insts, HasLen, len(initialInsts)+1, Commentf("%v", insts))
 	found := false
 	for _, inst := range insts {
 		if inst.Id() == id0 {
@@ -124,7 +121,7 @@ func (t *LiveTests) TestStartStop(c *C) {
 			found = true
 		}
 	}
-	c.Assert(found, Equals, true, Commentf("expected %v, got %v", append(initialInsts, inst), insts))
+	c.Assert(found, Equals, true, Commentf("expected %v in %v", inst, insts))
 
 	dns, err := inst.WaitDNSName()
 	c.Assert(err, IsNil)

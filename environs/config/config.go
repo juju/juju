@@ -237,10 +237,15 @@ func (c *Config) AgentVersion() version.Number {
 	return n
 }
 
-// Development returns whether the environment is in development
-// mode.
+// Development returns whether the environment is in development mode.
 func (c *Config) Development() bool {
 	return c.m["development"].(bool)
+}
+
+// SSLHostnameVerification returns weather the environment has requested
+// SSL hostname verification to be enabled.
+func (c *Config) SSLHostnameVerification() bool {
+	return c.m["ssl-hostname-verification"].(bool)
 }
 
 // UnknownAttrs returns a copy of the raw configuration attributes
@@ -274,33 +279,35 @@ func (c *Config) Apply(attrs map[string]interface{}) (*Config, error) {
 }
 
 var fields = schema.Fields{
-	"type":                 schema.String(),
-	"name":                 schema.String(),
-	"default-series":       schema.String(),
-	"authorized-keys":      schema.String(),
-	"authorized-keys-path": schema.String(),
-	"firewall-mode":        schema.String(),
-	"agent-version":        schema.String(),
-	"development":          schema.Bool(),
-	"admin-secret":         schema.String(),
-	"ca-cert":              schema.String(),
-	"ca-cert-path":         schema.String(),
-	"ca-private-key":       schema.String(),
-	"ca-private-key-path":  schema.String(),
+	"type":                      schema.String(),
+	"name":                      schema.String(),
+	"default-series":            schema.String(),
+	"authorized-keys":           schema.String(),
+	"authorized-keys-path":      schema.String(),
+	"firewall-mode":             schema.String(),
+	"agent-version":             schema.String(),
+	"development":               schema.Bool(),
+	"admin-secret":              schema.String(),
+	"ca-cert":                   schema.String(),
+	"ca-cert-path":              schema.String(),
+	"ca-private-key":            schema.String(),
+	"ca-private-key-path":       schema.String(),
+	"ssl-hostname-verification": schema.Bool(),
 }
 
 var defaults = schema.Defaults{
-	"default-series":       version.Current.Series,
-	"authorized-keys":      "",
-	"authorized-keys-path": "",
-	"firewall-mode":        FwDefault,
-	"agent-version":        schema.Omit,
-	"development":          false,
-	"admin-secret":         "",
-	"ca-cert":              schema.Omit,
-	"ca-cert-path":         "",
-	"ca-private-key":       schema.Omit,
-	"ca-private-key-path":  "",
+	"default-series":            version.Current.Series,
+	"authorized-keys":           "",
+	"authorized-keys-path":      "",
+	"firewall-mode":             FwDefault,
+	"agent-version":             schema.Omit,
+	"development":               false,
+	"admin-secret":              "",
+	"ca-cert":                   schema.Omit,
+	"ca-cert-path":              "",
+	"ca-private-key":            schema.Omit,
+	"ca-private-key-path":       "",
+	"ssl-hostname-verification": true,
 }
 
 var checker = schema.FieldMap(fields, defaults)
