@@ -98,29 +98,26 @@ func (a *MachineAgent) runOnce() error {
 			return err
 		}
 	}
-	log.Printf("cmd/jujud: requested workers for machine agent: ", m.Workers())
+	log.Printf("cmd/jujud: running jobs for machine agent: %v", m.Jobs())
 	tasks := []task{NewUpgrader(st, m, a.Conf.DataDir)}
-	for _, w := range m.Workers() {
-		var t task
-		switch w {
-		case state.MachinerWorker:
+	for _, j := range m.Jobs() {
+		switch j {
+		case state.JobHostUnits:
 			info := &state.Info{
 				EntityName: m.EntityName(),
 				Addrs:      st.Addrs(),
 				CACert:     st.CACert(),
 			}
 			mgr := deployer.NewSimpleManager(info, a.Conf.DataDir)
-			t = deployer.NewDeployer(st, mgr, m.WatchPrincipalUnits())
-		case state.ProvisionerWorker:
-			t = provisioner.NewProvisioner(st)
-		case state.FirewallerWorker:
-			t = firewaller.NewFirewaller(st)
+			tasks = append(tasks,
+				deployer.NewDeployer(st, mgr, m.WatchPrincipalUnits()))
+		case state.JobManageEnviron:
+			tasks = append(tasks,
+				provisioner.NewProvisioner(st),
+				firewaller.NewFirewaller(st))
+		default:
+			log.Printf("cmd/jujud: ignoring unknown job %q", j)
 		}
-		if t == nil {
-			log.Printf("cmd/jujud: ignoring unknown worker %q", w)
-			continue
-		}
-		tasks = append(tasks, t)
 	}
 	return runTasks(a.tomb.Dying(), tasks...)
 }

@@ -70,30 +70,29 @@ func (s *StateSuite) AssertMachineCount(c *C, expect int) {
 }
 
 func (s *StateSuite) TestAddMachine(c *C) {
-	m0, err := s.State.AddMachine()
-	c.Assert(err, ErrorMatches, "cannot add a new machine: new machine must be started with a machine worker")
+	_, err := s.State.AddMachine()
+	c.Assert(err, ErrorMatches, "cannot add a new machine: no jobs specified")
+	m0, err := s.State.AddMachine(state.JobHostUnits, state.JobHostUnits)
+	c.Assert(err, ErrorMatches, "cannot add a new machine: duplicate job: .*")
 	c.Assert(m0, IsNil)
-	m0, err = s.State.AddMachine(state.MachinerWorker, state.MachinerWorker)
-	c.Assert(err, ErrorMatches, "cannot add a new machine: duplicate worker: machiner")
-	c.Assert(m0, IsNil)
-	m0, err = s.State.AddMachine(state.MachinerWorker)
+	m0, err = s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
 	c.Assert(m0.Id(), Equals, "0")
 	m0, err = s.State.Machine("0")
 	c.Assert(err, IsNil)
 	c.Assert(m0.Id(), Equals, "0")
-	c.Assert(m0.Workers(), DeepEquals, []state.WorkerKind{state.MachinerWorker})
+	c.Assert(m0.Jobs(), DeepEquals, []state.MachineJob{state.JobHostUnits})
 
-	allWorkers := []state.WorkerKind{state.MachinerWorker, state.FirewallerWorker, state.ProvisionerWorker}
-	m1, err := s.State.AddMachine(allWorkers...)
+	allJobs := []state.MachineJob{state.JobHostUnits, state.JobManageEnviron}
+	m1, err := s.State.AddMachine(allJobs...)
 	c.Assert(err, IsNil)
 	c.Assert(m1.Id(), Equals, "1")
-	c.Assert(m1.Workers(), DeepEquals, allWorkers)
+	c.Assert(m1.Jobs(), DeepEquals, allJobs)
 
 	m0, err = s.State.Machine("1")
 	c.Assert(err, IsNil)
 	c.Assert(m0.Id(), Equals, "1")
-	c.Assert(m0.Workers(), DeepEquals, allWorkers)
+	c.Assert(m0.Jobs(), DeepEquals, allJobs)
 
 	machines, err := s.State.AllMachines()
 	c.Assert(err, IsNil)
@@ -103,9 +102,9 @@ func (s *StateSuite) TestAddMachine(c *C) {
 }
 
 func (s *StateSuite) TestRemoveMachine(c *C) {
-	machine, err := s.State.AddMachine(state.MachinerWorker)
+	machine, err := s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
-	_, err = s.State.AddMachine(state.MachinerWorker)
+	_, err = s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
 	err = s.State.RemoveMachine(machine.Id())
 	c.Assert(err, ErrorMatches, "cannot remove machine 0: machine is not dead")
@@ -126,7 +125,7 @@ func (s *StateSuite) TestRemoveMachine(c *C) {
 }
 
 func (s *StateSuite) TestReadMachine(c *C) {
-	machine, err := s.State.AddMachine(state.MachinerWorker)
+	machine, err := s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
 	expectedId := machine.Id()
 	machine, err = s.State.Machine(expectedId)
@@ -143,7 +142,7 @@ func (s *StateSuite) TestMachineNotFound(c *C) {
 func (s *StateSuite) TestAllMachines(c *C) {
 	numInserts := 42
 	for i := 0; i < numInserts; i++ {
-		m, err := s.State.AddMachine(state.MachinerWorker)
+		m, err := s.State.AddMachine(state.JobHostUnits)
 		c.Assert(err, IsNil)
 		err = m.SetInstanceId(state.InstanceId(fmt.Sprintf("foo-%d", i)))
 		c.Assert(err, IsNil)
@@ -476,14 +475,14 @@ var machinesWatchTests = []struct {
 	}, {
 		"Add a machine",
 		func(c *C, s *state.State) {
-			_, err := s.AddMachine(state.MachinerWorker)
+			_, err := s.AddMachine(state.JobHostUnits)
 			c.Assert(err, IsNil)
 		},
 		[]string{"0"},
 	}, {
 		"Ignore unrelated changes",
 		func(c *C, s *state.State) {
-			_, err := s.AddMachine(state.MachinerWorker)
+			_, err := s.AddMachine(state.JobHostUnits)
 			c.Assert(err, IsNil)
 			m0, err := s.Machine("0")
 			c.Assert(err, IsNil)
@@ -494,9 +493,9 @@ var machinesWatchTests = []struct {
 	}, {
 		"Add two machines at once",
 		func(c *C, s *state.State) {
-			_, err := s.AddMachine(state.MachinerWorker)
+			_, err := s.AddMachine(state.JobHostUnits)
 			c.Assert(err, IsNil)
-			_, err = s.AddMachine(state.MachinerWorker)
+			_, err = s.AddMachine(state.JobHostUnits)
 			c.Assert(err, IsNil)
 		},
 		[]string{"2", "3"},
@@ -547,7 +546,7 @@ var machinesWatchTests = []struct {
 	}, {
 		"Added and Dead machines at once",
 		func(c *C, s *state.State) {
-			_, err := s.AddMachine(state.MachinerWorker)
+			_, err := s.AddMachine(state.JobHostUnits)
 			c.Assert(err, IsNil)
 			m1, err := s.Machine("1")
 			c.Assert(err, IsNil)
@@ -561,7 +560,7 @@ var machinesWatchTests = []struct {
 			machines := [20]*state.Machine{}
 			var err error
 			for i := 0; i < len(machines); i++ {
-				machines[i], err = s.AddMachine(state.MachinerWorker)
+				machines[i], err = s.AddMachine(state.JobHostUnits)
 				c.Assert(err, IsNil)
 			}
 			for i := 0; i < len(machines); i++ {
@@ -579,26 +578,26 @@ var machinesWatchTests = []struct {
 	}, {
 		"Do not report never-seen and removed or dead",
 		func(c *C, s *state.State) {
-			m, err := s.AddMachine(state.MachinerWorker)
+			m, err := s.AddMachine(state.JobHostUnits)
 			c.Assert(err, IsNil)
 			err = m.EnsureDead()
 			c.Assert(err, IsNil)
 
-			m, err = s.AddMachine(state.MachinerWorker)
+			m, err = s.AddMachine(state.JobHostUnits)
 			c.Assert(err, IsNil)
 			err = m.EnsureDead()
 			c.Assert(err, IsNil)
 			err = s.RemoveMachine(m.Id())
 			c.Assert(err, IsNil)
 
-			_, err = s.AddMachine(state.MachinerWorker)
+			_, err = s.AddMachine(state.JobHostUnits)
 			c.Assert(err, IsNil)
 		},
 		[]string{"27"},
 	}, {
 		"Take into account what's already in the queue",
 		func(c *C, s *state.State) {
-			m, err := s.AddMachine(state.MachinerWorker)
+			m, err := s.AddMachine(state.JobHostUnits)
 			c.Assert(err, IsNil)
 			s.Sync()
 			err = m.EnsureDead()
@@ -1071,7 +1070,7 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *C) {
 	// before, so this testing at least ensures we're conscious
 	// about such changes.
 
-	m1, err := s.State.AddMachine(state.MachinerWorker)
+	m1, err := s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
 	m2, err := s.State.Machine(m1.Id())
 	c.Assert(m1, DeepEquals, m2)
