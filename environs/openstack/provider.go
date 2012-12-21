@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/version"
 	"net/http"
 	"strings"
 	"sync"
@@ -86,8 +87,8 @@ type environ struct {
 	ecfgMutex             sync.Mutex
 	ecfgUnlocked          *environConfig
 	novaUnlocked          *nova.Client
-	storageUnlocked       *storage
-	publicStorageUnlocked *storage // optional.
+	storageUnlocked       environs.Storage
+	publicStorageUnlocked environs.Storage // optional.
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -173,7 +174,7 @@ func (e *environ) Config() *config.Config {
 	return e.ecfg().Config
 }
 
-func (e *environ) client(ecfg *environConfig, authMethodCfg AuthMethod) *client.OpenStackClient {
+func (e *environ) client(ecfg *environConfig, authMethodCfg AuthMethod) client.AuthenticatingClient {
 	cred := &identity.Credentials{
 		User:       ecfg.username(),
 		Secrets:    ecfg.password(),
@@ -190,6 +191,10 @@ func (e *environ) client(ecfg *environConfig, authMethodCfg AuthMethod) *client.
 		authMethod = identity.AuthUserPass
 	}
 	return client.NewClient(cred, authMethod, nil)
+}
+
+func (e *environ) publicClient(ecfg *environConfig) client.Client {
+	return client.NewPublicClient(ecfg.publicBucketURL(), nil)
 }
 
 func (e *environ) SetConfig(cfg *config.Config) error {
@@ -211,15 +216,15 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 
 	// create new storage instances, existing instances continue
 	// to reference their existing configuration.
-	storageClient := e.client(ecfg, authMethodCfg)
 	e.storageUnlocked = &storage{
 		containerName: ecfg.controlBucket(),
-		swift:         swift.New(storageClient)}
+		containerACL:  swift.Private,
+		swift:         swift.New(e.client(ecfg, authMethodCfg))}
 	if ecfg.publicBucket() != "" {
-		publicBucketClient := e.client(ecfg, authMethodCfg)
 		e.publicStorageUnlocked = &storage{
 			containerName: ecfg.publicBucket(),
-			swift:         swift.New(publicBucketClient)}
+			containerACL:  swift.PublicRead,
+			swift:         swift.New(e.publicClient(ecfg))}
 	} else {
 		e.publicStorageUnlocked = nil
 	}
@@ -280,13 +285,25 @@ const (
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself.
 func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, error) {
-	// TODO(wallyworld): implement tools lookup
-	scfg.tools = &state.Tools{}
+	if scfg.tools == nil {
+		var err error
+		flags := environs.HighestVersion | environs.CompatVersion
+		scfg.tools, err = environs.FindTools(e, version.Current, flags)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	log.Printf("environs/openstack: starting machine %s in %q running tools version %q from %q",
 		scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
 	// TODO(wallyworld) - implement spec lookup
-	// TODO(wallyworld) - implement userData creation once we have tools
-	var userData []byte = nil
+	if strings.Contains(scfg.tools.Series, "unknown") || strings.Contains(scfg.tools.Series, "unknown") {
+		return nil, fmt.Errorf("cannot find image for unknown series or architecture")
+	}
+	userData, err := e.userData(scfg)
+	if err != nil {
+		return nil, fmt.Errorf("cannot make user data: %v", err)
+	}
 	log.Debugf("environs/openstack: openstack user data: %q", userData)
 	groups, err := e.setUpGroups(scfg.machineId)
 	if err != nil {

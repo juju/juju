@@ -39,7 +39,6 @@ func registerOpenStackTests() {
 		"type":           "openstack",
 		"auth-method":    "userpass",
 		"control-bucket": "juju-test-" + uniqueName,
-		"public-bucket":  "juju-public-test-" + uniqueName,
 	}
 	Suite(&LiveTests{
 		LiveTests: jujutest.LiveTests{

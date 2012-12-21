@@ -10,24 +10,26 @@ import (
 
 var configChecker = schema.StrictFieldMap(
 	schema.Fields{
-		"username":       schema.String(),
-		"password":       schema.String(),
-		"tenant-name":    schema.String(),
-		"auth-url":       schema.String(),
-		"auth-method":    schema.String(),
-		"region":         schema.String(),
-		"control-bucket": schema.String(),
-		"public-bucket":  schema.String(),
+		"username":          schema.String(),
+		"password":          schema.String(),
+		"tenant-name":       schema.String(),
+		"auth-url":          schema.String(),
+		"auth-method":       schema.String(),
+		"region":            schema.String(),
+		"control-bucket":    schema.String(),
+		"public-bucket":     schema.String(),
+		"public-bucket-url": schema.String(),
 	},
 	schema.Defaults{
-		"username":       "",
-		"password":       "",
-		"tenant-name":    "",
-		"auth-url":       "",
-		"auth-method":    string(AuthUserPass),
-		"region":         "",
-		"control-bucket": "",
-		"public-bucket":  "",
+		"username":          "",
+		"password":          "",
+		"tenant-name":       "",
+		"auth-url":          "",
+		"auth-method":       string(AuthUserPass),
+		"region":            "",
+		"control-bucket":    "",
+		"public-bucket":     "juju-dist",
+		"public-bucket-url": "https://swift.canonistack.canonical.com/v1/AUTH_97dca28143f744b19713bb901094a59d",
 	},
 )
 
@@ -66,6 +68,10 @@ func (c *environConfig) controlBucket() string {
 
 func (c *environConfig) publicBucket() string {
 	return c.attrs["public-bucket"].(string)
+}
+
+func (c *environConfig) publicBucketURL() string {
+	return c.attrs["public-bucket-url"].(string)
 }
 
 func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
