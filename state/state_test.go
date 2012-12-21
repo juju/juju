@@ -31,6 +31,12 @@ func (s *StateSuite) TestDialAgain(c *C) {
 	}
 }
 
+func (s *StateSuite) TestStateInfo(c *C) {
+	info := state.TestingStateInfo()
+	c.Assert(s.State.Addrs(), DeepEquals, info.Addrs)
+	c.Assert(s.State.CACert(), DeepEquals, info.CACert)
+}
+
 func (s *StateSuite) TestIsNotFound(c *C) {
 	err1 := fmt.Errorf("unrelated error")
 	err2 := &state.NotFoundError{}
@@ -398,15 +404,16 @@ func (s *StateSuite) TestInferEndpoints(c *C) {
 
 func (s *StateSuite) TestEnvironConfig(c *C) {
 	initial := map[string]interface{}{
-		"name":            "test",
-		"type":            "test",
-		"authorized-keys": "i-am-a-key",
-		"default-series":  "precise",
-		"development":     true,
-		"firewall-mode":   "",
-		"admin-secret":    "",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  "",
+		"name":                      "test",
+		"type":                      "test",
+		"authorized-keys":           "i-am-a-key",
+		"default-series":            "precise",
+		"development":               true,
+		"firewall-mode":             "",
+		"admin-secret":              "",
+		"ca-cert":                   testing.CACert,
+		"ca-private-key":            "",
+		"ssl-hostname-verification": true,
 	}
 	cfg, err := config.New(initial)
 	c.Assert(err, IsNil)
@@ -790,15 +797,16 @@ func (s *StateSuite) TestWatchServices(c *C) {
 
 func (s *StateSuite) TestInitialize(c *C) {
 	m := map[string]interface{}{
-		"type":            "dummy",
-		"name":            "lisboa",
-		"authorized-keys": "i-am-a-key",
-		"default-series":  "precise",
-		"development":     true,
-		"firewall-mode":   "",
-		"admin-secret":    "",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  "",
+		"type":                      "dummy",
+		"name":                      "lisboa",
+		"authorized-keys":           "i-am-a-key",
+		"default-series":            "precise",
+		"development":               true,
+		"firewall-mode":             "",
+		"admin-secret":              "",
+		"ca-cert":                   testing.CACert,
+		"ca-private-key":            "",
+		"ssl-hostname-verification": true,
 	}
 	cfg, err := config.New(m)
 	c.Assert(err, IsNil)
@@ -812,15 +820,16 @@ func (s *StateSuite) TestInitialize(c *C) {
 
 func (s *StateSuite) TestDoubleInitialize(c *C) {
 	m := map[string]interface{}{
-		"type":            "dummy",
-		"name":            "lisboa",
-		"authorized-keys": "i-am-a-key",
-		"default-series":  "precise",
-		"development":     true,
-		"firewall-mode":   "",
-		"admin-secret":    "",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  "",
+		"type":                      "dummy",
+		"name":                      "lisboa",
+		"authorized-keys":           "i-am-a-key",
+		"default-series":            "precise",
+		"development":               true,
+		"firewall-mode":             "",
+		"admin-secret":              "",
+		"ca-cert":                   testing.CACert,
+		"ca-private-key":            "",
+		"ssl-hostname-verification": true,
 	}
 	cfg, err := config.New(m)
 	c.Assert(err, IsNil)
@@ -833,15 +842,16 @@ func (s *StateSuite) TestDoubleInitialize(c *C) {
 	// initialize again, there should be no error and the
 	// environ config should not change.
 	m = map[string]interface{}{
-		"type":            "dummy",
-		"name":            "sydney",
-		"authorized-keys": "i-am-not-an-animal",
-		"default-series":  "xanadu",
-		"development":     false,
-		"firewall-mode":   "",
-		"admin-secret":    "",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  "",
+		"type":                      "dummy",
+		"name":                      "sydney",
+		"authorized-keys":           "i-am-not-an-animal",
+		"default-series":            "xanadu",
+		"development":               false,
+		"firewall-mode":             "",
+		"admin-secret":              "",
+		"ca-cert":                   testing.CACert,
+		"ca-private-key":            "",
+		"ssl-hostname-verification": false,
 	}
 	cfg, err = config.New(m)
 	c.Assert(err, IsNil)

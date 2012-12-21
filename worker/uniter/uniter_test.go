@@ -220,7 +220,7 @@ var uniterTests = []uniterTest{
 		waitUnit{
 			status: state.UnitStarted,
 		},
-		waitHooks{"start", "config-changed"},
+		waitHooks{"config-changed", "start"},
 	), ut(
 		"install hook fail and retry",
 		startupError{"install"},
@@ -239,7 +239,7 @@ var uniterTests = []uniterTest{
 		waitUnit{
 			status: state.UnitStarted,
 		},
-		waitHooks{"install", "start", "config-changed"},
+		waitHooks{"install", "config-changed", "start"},
 	), ut(
 		"start hook fail and resolve",
 		startupError{"start"},
@@ -284,7 +284,7 @@ var uniterTests = []uniterTest{
 		waitUnit{
 			status: state.UnitStarted,
 		},
-		waitHooks{"config-changed"},
+		waitHooks{"start", "config-changed"},
 		// If we'd accidentally retried that hook, somehow, we would get
 		// an extra config-changed as we entered started; see that we don't.
 		waitHooks{},
@@ -307,7 +307,7 @@ var uniterTests = []uniterTest{
 		waitUnit{
 			status: state.UnitStarted,
 		},
-		waitHooks{"config-changed"},
+		waitHooks{"config-changed", "start"},
 		verifyRunning{},
 	),
 
@@ -324,7 +324,7 @@ var uniterTests = []uniterTest{
 		waitUnit{
 			status: state.UnitStarted,
 		},
-		waitHooks{"install", "start", "config-changed"},
+		waitHooks{"install", "config-changed", "start"},
 		assertYaml{"charm/config.out", map[string]interface{}{
 			"title":    "My Title",
 			"username": "admin001",
@@ -530,7 +530,7 @@ var uniterTests = []uniterTest{
 		waitUnit{
 			status: state.UnitStarted,
 		},
-		waitHooks{"install", "start", "config-changed"},
+		waitHooks{"install", "config-changed", "start"},
 		verifyCharm{},
 
 		createCharm{
@@ -784,7 +784,7 @@ type createUniter struct{}
 func (createUniter) step(c *C, ctx *context) {
 	step(c, ctx, createServiceAndUnit{})
 	step(c, ctx, startUniter{})
-	timeout := time.After(1 * time.Second)
+	timeout := time.After(5 * time.Second)
 	for {
 		select {
 		case <-timeout:
@@ -912,7 +912,7 @@ func (s startupError) step(c *C, ctx *context) {
 		status: state.UnitError,
 		info:   fmt.Sprintf(`hook failed: %q`, s.badHook),
 	})
-	for _, hook := range []string{"install", "start", "config-changed"} {
+	for _, hook := range []string{"install", "config-changed", "start"} {
 		if hook == s.badHook {
 			step(c, ctx, waitHooks{"fail-" + hook})
 			break
@@ -929,7 +929,7 @@ func (s quickStart) step(c *C, ctx *context) {
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
 	step(c, ctx, waitUnit{status: state.UnitStarted})
-	step(c, ctx, waitHooks{"install", "start", "config-changed"})
+	step(c, ctx, waitHooks{"install", "config-changed", "start"})
 	step(c, ctx, verifyCharm{})
 }
 
@@ -1109,7 +1109,7 @@ func (s startUpgradeError) step(c *C, ctx *context) {
 		waitUnit{
 			status: state.UnitStarted,
 		},
-		waitHooks{"install", "start", "config-changed"},
+		waitHooks{"install", "config-changed", "start"},
 		verifyCharm{},
 
 		createCharm{
