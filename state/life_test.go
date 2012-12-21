@@ -127,7 +127,7 @@ func (l *machineLife) id() (coll string, id interface{}) {
 
 func (l *machineLife) setup(s *LifeSuite, c *C) state.Living {
 	var err error
-	l.machine, err = s.State.AddMachine(state.MachinerWorker)
+	l.machine, err = s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
 	return l.machine
 }
