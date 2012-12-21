@@ -114,25 +114,73 @@ func (m *Machine) SetPassword(password string) error {
 	return m.st.setPassword(m.EntityName(), password)
 }
 
-// EnsureDying sets the machine lifecycle to Dying if it is Alive.
-// It does nothing otherwise.
-func (m *Machine) EnsureDying() error {
-	err := ensureDying(m.st, m.st.machines, m.doc.Id, "machine")
-	if err != nil {
+// deathAsserts returns the conditions that must hold for a machine to
+// become Dying or Dead.
+func (m *Machine) deathAsserts() D {
+	return D{
+		{"jobs", D{{"$nin", []MachineJob{JobManageEnviron}}}},
+		{"$or", []D{
+			{{"principals", D{{"$size", 0}}}},
+			{{"principals", D{{"$exists", false}}}},
+		}},
+	}
+}
+
+// EnsureDying sets the machine lifecycle to Dying if it is Alive. It does
+// nothing otherwise. EnsureDying will fail if the machine has principal
+// units assigned, or if the machine has JobManageEnviron.
+func (m *Machine) EnsureDying() (err error) {
+	if m.doc.Life != Alive {
+		return nil
+	}
+	defer func() {
+		if err == nil {
+			m.doc.Life = Dying
+		}
+	}()
+	ops := []txn.Op{{
+		C:      m.st.machines.Name,
+		Id:     m.doc.Id,
+		Assert: append(m.deathAsserts(), isAliveDoc...),
+		Update: D{{"$set", D{{"life", Dying}}}},
+	}}
+	if err := m.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
 		return err
 	}
-	m.doc.Life = Dying
+	if alive, err := isAlive(m.st.machines, m.doc.Id); err != nil {
+		return err
+	} else if alive {
+		return fmt.Errorf("machine %s cannot become Dying", m)
+	}
 	return nil
 }
 
 // EnsureDead sets the machine lifecycle to Dead if it is Alive or Dying.
-// It does nothing otherwise.
-func (m *Machine) EnsureDead() error {
-	err := ensureDead(m.st, m.st.machines, m.doc.Id, "machine", nil, "")
-	if err != nil {
+// It does nothing otherwise. EnsureDead will fail if the machine has
+// principal units assigned, or if the machine has JobManageEnviron.
+func (m *Machine) EnsureDead() (err error) {
+	if m.doc.Life == Dead {
+		return nil
+	}
+	defer func() {
+		if err == nil {
+			m.doc.Life = Dead
+		}
+	}()
+	ops := []txn.Op{{
+		C:      m.st.machines.Name,
+		Id:     m.doc.Id,
+		Assert: append(m.deathAsserts(), notDeadDoc...),
+		Update: D{{"$set", D{{"life", Dead}}}},
+	}}
+	if err := m.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
 		return err
 	}
-	m.doc.Life = Dead
+	if notDead, err := isNotDead(m.st.machines, m.doc.Id); err != nil {
+		return err
+	} else if notDead {
+		return fmt.Errorf("machine %s cannot become Dead", m)
+	}
 	return nil
 }
 
