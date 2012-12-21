@@ -126,6 +126,27 @@ func (m *Machine) deathAsserts() D {
 	}
 }
 
+// deathFailureReason returns an error indicating why the machine may have
+// failed to advance its lifecycle to Dying or Dead. If deathFailureReason
+// returns no error, a failed lifecycle operation should be retried once,
+// on the basis that the blocker may have been removed in between the txn
+// and the diagnosis; otherwise this should be treated as a serious error.
+func (m *Machine) deathFailureReason(life Life) (err error) {
+	if m, err = m.st.Machine(m.doc.Id); err != nil {
+		return err
+	}
+	defer trivial.ErrorContextf(&err, "machine %s cannot become %s", m, life)
+	for _, j := range m.doc.Jobs {
+		if j == JobManageEnviron {
+			return fmt.Errorf("required by environment")
+		}
+	}
+	if len(m.doc.Principals) != 0 {
+		return fmt.Errorf("unit %q is assigned", m.doc.Principals[0])
+	}
+	return nil
+}
+
 // EnsureDying sets the machine lifecycle to Dying if it is Alive. It does
 // nothing otherwise. EnsureDying will fail if the machine has principal
 // units assigned, or if the machine has JobManageEnviron.
@@ -138,21 +159,26 @@ func (m *Machine) EnsureDying() (err error) {
 			m.doc.Life = Dying
 		}
 	}()
-	ops := []txn.Op{{
-		C:      m.st.machines.Name,
-		Id:     m.doc.Id,
-		Assert: append(m.deathAsserts(), isAliveDoc...),
-		Update: D{{"$set", D{{"life", Dying}}}},
-	}}
-	if err := m.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
-		return err
+	for i := 0; i < 2; i++ {
+		ops := []txn.Op{{
+			C:      m.st.machines.Name,
+			Id:     m.doc.Id,
+			Assert: append(m.deathAsserts(), isAliveDoc...),
+			Update: D{{"$set", D{{"life", Dying}}}},
+		}}
+		if err := m.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+			return err
+		}
+		if alive, err := isAlive(m.st.machines, m.doc.Id); err != nil {
+			return err
+		} else if !alive {
+			return nil
+		}
+		if err := m.deathFailureReason(Dying); err != nil {
+			return err
+		}
 	}
-	if alive, err := isAlive(m.st.machines, m.doc.Id); err != nil {
-		return err
-	} else if alive {
-		return fmt.Errorf("machine %s cannot become Dying", m)
-	}
-	return nil
+	return fmt.Errorf("machine %s cannot become dying: please contact juju-dev@lists.juju.com")
 }
 
 // EnsureDead sets the machine lifecycle to Dead if it is Alive or Dying.
@@ -167,21 +193,26 @@ func (m *Machine) EnsureDead() (err error) {
 			m.doc.Life = Dead
 		}
 	}()
-	ops := []txn.Op{{
-		C:      m.st.machines.Name,
-		Id:     m.doc.Id,
-		Assert: append(m.deathAsserts(), notDeadDoc...),
-		Update: D{{"$set", D{{"life", Dead}}}},
-	}}
-	if err := m.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
-		return err
+	for i := 0; i < 2; i++ {
+		ops := []txn.Op{{
+			C:      m.st.machines.Name,
+			Id:     m.doc.Id,
+			Assert: append(m.deathAsserts(), notDeadDoc...),
+			Update: D{{"$set", D{{"life", Dead}}}},
+		}}
+		if err := m.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+			return err
+		}
+		if notDead, err := isNotDead(m.st.machines, m.doc.Id); err != nil {
+			return err
+		} else if !notDead {
+			return nil
+		}
+		if err := m.deathFailureReason(Dead); err != nil {
+			return err
+		}
 	}
-	if notDead, err := isNotDead(m.st.machines, m.doc.Id); err != nil {
-		return err
-	} else if notDead {
-		return fmt.Errorf("machine %s cannot become Dead", m)
-	}
-	return nil
+	return fmt.Errorf("machine %s cannot become dead: please contact juju-dev@lists.juju.com")
 }
 
 // Refresh refreshes the contents of the machine from the underlying
