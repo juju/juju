@@ -66,9 +66,12 @@ bin='/var/lib/juju/tools/1\.2\.3-linux-amd64'
 mkdir -p \$bin
 wget --no-verbose -O - 'http://foo\.com/tools/juju1\.2\.3-linux-amd64\.tgz' \| tar xz -C \$bin
 echo -n 'http://foo\.com/tools/juju1\.2\.3-linux-amd64\.tgz' > \$bin/downloaded-url\.txt
-echo 'CA CERT\\n.*' > '/var/lib/juju/ca-cert\.pem'
-echo 'SERVER CERT\\n.*SERVER KEY\\n.*' > '/var/lib/juju/server\.pem'
-chmod 600 /var/lib/juju/server\.pem
+echo 'SERVER CERT[^']*' > '/var/lib/juju/server-cert\.pem'
+chmod 600 '/var/lib/juju/server-cert\.pem'
+echo 'SERVER KEY[^']*' > '/var/lib/juju/server-key\.pem'
+chmod 600 '/var/lib/juju/server-key\.pem'
+cat '/var/lib/juju/server-cert\.pem' '/var/lib/juju/server-key\.pem' > '/var/lib/juju/server\.pem'
+chmod 600 '/var/lib/juju/server\.pem'
 mkdir -p /opt
 wget --no-verbose -O - 'http://juju-dist\.s3\.amazonaws\.com/tools/mongo-2\.2\.0-linux-amd64\.tgz' \| tar xz -C /opt
 mkdir -p /var/lib/juju/db/journal
@@ -77,10 +80,25 @@ dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.1
 dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.2
 cat >> /etc/init/juju-db\.conf << 'EOF'\\n.*/opt/mongo/bin/mongod --auth --dbpath=/var/lib/juju/db --sslOnNormalPorts --sslPEMKeyFile '/var/lib/juju/server\.pem' --sslPEMKeyPassword ignored --bind_ip 0\.0\.0\.0 --port 37017 --noprealloc --smallfiles.*
 start juju-db
-/var/lib/juju/tools/1\.2\.3-linux-amd64/jujud bootstrap-state --instance-id \$instance_id --env-config '.*' --state-servers localhost:37017 --ca-cert '/var/lib/juju/ca-cert\.pem' --initial-password 'arble' --debug
-ln -s 1\.2\.3-linux-amd64 '/var/lib/juju/tools/machine-0'
+mkdir -p '/var/lib/juju/agents/bootstrap'
+echo 'CA CERT[^']*' > '/var/lib/juju/agents/bootstrap/ca-cert\.pem'
+chmod 644 '/var/lib/juju/agents/bootstrap/ca-cert\.pem'
+echo 'localhost:37017' > '/var/lib/juju/agents/bootstrap/host-addrs'
+chmod 644 '/var/lib/juju/agents/bootstrap/host-addrs'
+echo 'localhost:37017' > '/var/lib/juju/agents/bootstrap/initial-password'
+chmod 600 '/var/lib/juju/agents/bootstrap/initial-password'
+/var/lib/juju/tools/1\.2\.3-linux-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --instance-id \$instance_id --env-config '[^']*' --debug
+rm -rf '/var/lib/juju/agents/bootstrap'
 mkdir -p '/var/lib/juju/agents/machine-0'
-cat >> /etc/init/jujud-machine-0\.conf << 'EOF'\\n.*/var/lib/juju/tools/machine-0/jujud machine --state-servers 'localhost:37017' --ca-cert '/var/lib/juju/ca-cert\.pem' --log-file /var/log/juju/machine-0\.log --data-dir '/var/lib/juju' --initial-password 'arble' --machine-id 0  --debug >> /var/log/juju/machine-0\.log.*
+echo 'CA CERT[^']*' > '/var/lib/juju/agents/machine-0/ca-cert\.pem'
+chmod 644 '/var/lib/juju/agents/machine-0/ca-cert\.pem'
+echo 'localhost:37017' > '/var/lib/juju/agents/machine-0/host-addrs'
+chmod 644 '/var/lib/juju/agents/machine-0/host-addrs'
+echo 'localhost:37017' > '/var/lib/juju/agents/machine-0/initial-password'
+chmod 600 '/var/lib/juju/agents/machine-0/initial-password'
+cp '/var/lib/juju/server-cert\.pem' '/var/lib/juju/server-key\.pem' '/var/lib/juju/agents/machine-0'
+ln -s 1\.2\.3-linux-amd64 '/var/lib/juju/tools/machine-0'
+cat >> /etc/init/jujud-machine-0\.conf << 'EOF'\\n.*/var/lib/juju/tools/machine-0/jujud machine --log-file /var/log/juju/machine-0\.log --data-dir '/var/lib/juju' --machine-id 0  --debug >> /var/log/juju/machine-0\.log.*
 start jujud-machine-0
 `,
 },
@@ -106,10 +124,15 @@ bin='/var/lib/juju/tools/1\.2\.3-linux-amd64'
 mkdir -p \$bin
 wget --no-verbose -O - 'http://foo\.com/tools/juju1\.2\.3-linux-amd64\.tgz' \| tar xz -C \$bin
 echo -n 'http://foo\.com/tools/juju1\.2\.3-linux-amd64\.tgz' > \$bin/downloaded-url\.txt
-echo 'CA CERT\\n.*' > '/var/lib/juju/ca-cert\.pem'
-ln -s 1\.2\.3-linux-amd64 '/var/lib/juju/tools/machine-99'
 mkdir -p '/var/lib/juju/agents/machine-99'
-cat >> /etc/init/jujud-machine-99\.conf << 'EOF'\\n.*/var/lib/juju/tools/machine-99/jujud machine --state-servers 'state-addr\.example\.com' --ca-cert '/var/lib/juju/ca-cert\.pem' --log-file /var/log/juju/machine-99\.log --data-dir '/var/lib/juju' --initial-password 'arble' --machine-id 99  --debug >> /var/log/juju/machine-99\.log.*
+echo 'CA CERT[^']*' > '/var/lib/juju/agents/machine-99/ca-cert\.pem'
+chmod 644 '/var/lib/juju/agents/machine-99/ca-cert\.pem'
+echo 'state-addr\.example\.com' > '/var/lib/juju/agents/machine-99/host-addrs'
+chmod 644 '/var/lib/juju/agents/machine-99/host-addrs'
+echo 'state-addr\.example\.com' > '/var/lib/juju/agents/machine-99/initial-password'
+chmod 600 '/var/lib/juju/agents/machine-99/initial-password'
+ln -s 1\.2\.3-linux-amd64 '/var/lib/juju/tools/machine-99'
+cat >> /etc/init/jujud-machine-99\.conf << 'EOF'\\n.*/var/lib/juju/tools/machine-99/jujud machine --log-file /var/log/juju/machine-99\.log --data-dir '/var/lib/juju' --machine-id 99  --debug >> /var/log/juju/machine-99\.log.*
 start jujud-machine-99
 `,
 	},

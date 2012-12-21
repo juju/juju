@@ -69,7 +69,7 @@ type MachineConfig struct {
 	Config *config.Config
 }
 
-func (c *cloudConfig) addScripts(scripts ...string) {
+func addScripts(c *cloudinit.Config, scripts ...string) {
 	for _, s := range scripts {
 		c.AddRunCmd(s)
 	}
@@ -115,16 +115,16 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	if cfg.StateServer {
 		serverCert := cfg.dataFile("server-cert.pem")
 		serverKey := cfg.dataFile("server-key.pem")
-		c.addFile(serverCert, strings(cfg.StateServerCert), 0600))
-		c.addFile(serverKey, string(cfg.StateServerKey), 0600))
 		serverCertKey := cfg.dataFile("server.pem")
-		c.addScripts(
+		addFile(c, serverCert, string(cfg.StateServerCert), 0600)
+		addFile(c, serverKey, string(cfg.StateServerKey), 0600)
+		// mongodb requires server cert and key in the same file.
+		addScripts(c,
 			fmt.Sprintf("cat %s %s > %s",
 				shquote(serverCert), shquote(serverKey),
 				shquote(serverCertKey)),
 			fmt.Sprintf("chmod 600 %s", shquote(serverCertKey)),
 		)
-		// mongodb requires server cert and key in the same file.
 		// TODO The public bucket must come from the environment configuration.
 		b := cfg.Tools.Binary
 		url := fmt.Sprintf("http://juju-dist.s3.amazonaws.com/tools/mongo-2.2.0-%s-%s.tgz", b.Series, b.Arch)
@@ -135,11 +135,17 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 		if err := addMongoToBoot(c, cfg); err != nil {
 			return nil, err
 		}
-		addScripts(c, cfg.jujuTools()+"/jujud bootstrap-state"+
-			" --data-dir " + shquote(cfg.DataDir)+
-			" --instance-id "+cfg.InstanceIdAccessor+
-			" --env-config "+shquote(base64yaml(cfg.Config))+
-			debugFlag,
+		// We temporarily give bootstrap-state a directory
+		// of its own so that it can get the state info via the
+		// same mechanism as other jujud commands.
+		agentDir := addAgentInfo(c, cfg, "bootstrap")
+		addScripts(c,
+			cfg.jujuTools()+"/jujud bootstrap-state"+
+				" --data-dir "+shquote(cfg.DataDir)+
+				" --instance-id "+cfg.InstanceIdAccessor+
+				" --env-config "+shquote(base64yaml(cfg.Config))+
+				debugFlag,
+			"rm -rf "+shquote(agentDir),
 		)
 	}
 
@@ -156,44 +162,43 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	return c, nil
 }
 
-type fileInfo struct {
-	name string
-	mode uint
-}
-
-// cloudConfig wraps a cloudinit.Config, adding some
-// convenience methods.
-type cloudConfig struct {
-	files map[string]fileInfo		// contents -> file info
-	*cloudinit.Config
-}
-
-// addFile causes cloud-init to create a file with the given name,
-// content and mode.
-func (cfg *cloudConfig) addFile(filename, content string, mode uint) {
+func addFile(c *cloudinit.Config, filename, data string, mode uint) {
 	p := shquote(filename)
-	if info, ok := cfg.files[content]; ok {
-		// We already have the file available, so make
-		// a copy rather than duplicating the data in cloudinit.
-		cfg.addScripts(fmt.Sprintf("cp %s %s", oldName, p))
-		if mode != info.mode {
-			cfg.addScripts(fmt.Sprintf("chmod %o %s", mode, p))
-		}
-	} else {
-		cfg.addScripts(fmt.Sprintf("echo %s > %s", shquote(content), p)
-		cfg.addScripts(fmt.Sprintf("chmod %o %s", mode, p))
-		cfg.contents[content] = fileInfo{
-			name: filename,
-			mode: mode,
-		}
-	}
+	addScripts(c,
+		fmt.Sprintf("echo %s > %s", shquote(data), p),
+		fmt.Sprintf("chmod %o %s", mode, p),
+	)
 }
 
 func (cfg *MachineConfig) dataFile(name string) string {
 	return path.Join(cfg.DataDir, name)
 }
 
-func (c *cloudConfig) addAgentToBoot(cfg *MachineConfig, kind, name, args string) error {
+// addAgentInfo adds agent-required information to the agent's directory
+// and returns the agent directory name.
+func addAgentInfo(c *cloudinit.Config, cfg *MachineConfig, entityName string) string {
+	agentDir := environs.AgentDir(cfg.DataDir, entityName)
+	addScripts(c, fmt.Sprintf("mkdir -p %s", shquote(agentDir)))
+	addFile(c, path.Join(agentDir, "ca-cert.pem"), string(cfg.StateInfo.CACert), 0644)
+	addFile(c, path.Join(agentDir, "host-addrs"), cfg.stateHostAddrs(), 0644)
+	addFile(c, path.Join(agentDir, "initial-password"), cfg.stateHostAddrs(), 0600)
+	return agentDir
+}
+
+func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, name, args string) error {
+	agentDir := addAgentInfo(c, cfg, name)
+	if cfg.StateServer {
+		// TODO remove this when the server certificate and key
+		// are stored in the state and there's a secure vector
+		// for passing them to an existing agent.
+		addScripts(c,
+			fmt.Sprintf("cp %s %s %s",
+				shquote(cfg.dataFile("server-cert.pem")),
+				shquote(cfg.dataFile("server-key.pem")),
+				shquote(agentDir)),
+		)
+	}
+
 	// Make the agent run via a symbolic link to the actual tools
 	// directory, so it can upgrade itself without needing to change
 	// the upstart script.
@@ -201,11 +206,6 @@ func (c *cloudConfig) addAgentToBoot(cfg *MachineConfig, kind, name, args string
 	// TODO(dfc) ln -nfs, so it doesn't fail if for some reason that the target already exists
 	addScripts(c, fmt.Sprintf("ln -s %v %s", cfg.Tools.Binary, shquote(toolsDir)))
 
-	agentDir := environs.AgentDir(cfg.DataDir, name)
-	c.addScripts(fmt.Sprintf("mkdir -p %s", shquote(agentDir)))
-	c.addFile(path.Join(agentDir, "ca-cert.pem"), string(cfg.StateInfo.CACert), 0644)
-	c.addFile(path.Join(agentDir, "host-addrs"), cfg.stateHostAddrs(), 0644)
-	c.addFile(path.Join(agentDir, "initial-password"), cfg.stateHostAddrs(), 0600)
 	svc := upstart.NewService("jujud-" + name)
 	logPath := fmt.Sprintf("/var/log/juju/%s.log", name)
 	cmd := fmt.Sprintf(
@@ -228,11 +228,11 @@ func (c *cloudConfig) addAgentToBoot(cfg *MachineConfig, kind, name, args string
 	if err != nil {
 		return fmt.Errorf("cannot make cloud-init upstart script for the %s agent: %v", name, err)
 	}
-	c.addScripts(cmds...)
+	addScripts(c, cmds...)
 	return nil
 }
 
-func (c *cloudConfig) addMongoToBoot(cfg *MachineConfig) error {
+func addMongoToBoot(c *cloudinit.Config, cfg *MachineConfig) error {
 	addScripts(c,
 		"mkdir -p /var/lib/juju/db/journal",
 		// Otherwise we get three files with 100M+ each, which takes time.
@@ -259,7 +259,7 @@ func (c *cloudConfig) addMongoToBoot(cfg *MachineConfig) error {
 	if err != nil {
 		return fmt.Errorf("cannot make cloud-init upstart script for the state database: %v", err)
 	}
-	c.addScripts(cmds...)
+	addScripts(c, cmds...)
 	return nil
 }
 
