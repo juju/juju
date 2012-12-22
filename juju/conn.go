@@ -1,11 +1,11 @@
 package juju
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
@@ -177,31 +177,47 @@ func (conn *Conn) PutCharm(curl *charm.URL, repo charm.Repository, bumpRevision 
 	if sch, err := conn.State.Charm(curl); err == nil {
 		return sch, nil
 	}
-	var buf bytes.Buffer
+	return conn.addCharm(curl, ch)
+}
+
+func (conn *Conn) addCharm(curl *charm.URL, ch charm.Charm) (*state.Charm, error) {
+	var path string
+	name := charm.Quote(curl.String())
 	switch ch := ch.(type) {
 	case *charm.Dir:
-		if err := ch.BundleTo(&buf); err != nil {
+		f, err := ioutil.TempFile("", name)
+		if err != nil {
+			return nil, err
+		}
+		path = f.Name()
+		defer os.Remove(path)
+		err = ch.BundleTo(f)
+		f.Close()
+		if err != nil {
 			return nil, fmt.Errorf("cannot bundle charm: %v", err)
 		}
 	case *charm.Bundle:
-		f, err := os.Open(ch.Path)
-		if err != nil {
-			return nil, fmt.Errorf("cannot open charm bundle path: %v", err)
-		}
-		defer f.Close()
-		if _, err := io.Copy(&buf, f); err != nil {
-			return nil, fmt.Errorf("cannot read charm from bundle: %v", err)
-		}
+		path = ch.Path
 	default:
 		return nil, fmt.Errorf("unknown charm type %T", ch)
 	}
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("cannot read charm bundle: %v", err)
+	}
+	defer f.Close()
 	h := sha256.New()
-	h.Write(buf.Bytes())
+	size, err := io.Copy(h, f)
+	if err != nil {
+		return nil, err
+	}
 	digest := hex.EncodeToString(h.Sum(nil))
+	if _, err := f.Seek(0, 0); err != nil {
+		return nil, err
+	}
 	storage := conn.Environ.Storage()
-	name := charm.Quote(curl.String())
-	log.Printf("writing charm to storage [%d bytes]", len(buf.Bytes()))
-	if err := storage.Put(name, &buf, int64(len(buf.Bytes()))); err != nil {
+	log.Printf("writing charm to storage [%d bytes]", size)
+	if err := storage.Put(name, f, size); err != nil {
 		return nil, fmt.Errorf("cannot put charm: %v", err)
 	}
 	ustr, err := storage.URL(name)
