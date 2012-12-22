@@ -48,7 +48,7 @@ type alias struct {
 
 func (a *alias) Info() *Info {
 	info := a.Command.Info()
-	return &Info{a.name, info.Args, "alias for " + a.name, info.Doc}
+	return &Info{a.name, info.Args, "alias for " + info.Name, info.Doc}
 }
 
 // describeCommands returns a short description of each registered subcommand.

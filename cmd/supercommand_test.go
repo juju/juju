@@ -52,11 +52,20 @@ func (s *SuperCommandSuite) TestDispatch(c *C) {
 func (s *SuperCommandSuite) TestRegister(c *C) {
 	jc := &cmd.SuperCommand{Name: "jujutest"}
 	jc.Register(&TestCommand{Name: "flip"})
-	jc.Register(&TestCommand{Name: "flap"}, "flop", "flup")
-	for _, name := range []string{"flip", "flap", "flop", "flup"} {
-		badCall := func() { jc.Register(&TestCommand{Name: name}) }
-		c.Assert(badCall, PanicMatches, "command already registered: "+name)
-	}
+	jc.Register(&TestCommand{Name: "flap"})
+	badCall := func() { jc.Register(&TestCommand{Name: "flap"}) }
+	c.Assert(badCall, PanicMatches, "command already registered: flap")
+}
+
+func (s *SuperCommandSuite) TestRegisterAlias(c *C) {
+	jc := &cmd.SuperCommand{Name: "jujutest"}
+	jc.Register(&TestCommand{Name: "flip"}, "flap", "flop")
+
+	info := jc.Info()
+	c.Assert(info.Doc, Equals, `commands:
+    flap - alias for flip
+    flip - flip the juju
+    flop - alias for flip`)
 }
 
 var commandsDoc = `commands:
