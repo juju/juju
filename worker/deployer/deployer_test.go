@@ -36,7 +36,7 @@ func (s *DeployerSuite) TearDownTest(c *C) {
 
 func (s *DeployerSuite) TestDeployRecallRemovePrincipals(c *C) {
 	// Create a machine, and a couple of units.
-	m, err := s.State.AddMachine(state.MachinerWorker)
+	m, err := s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
 	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
@@ -86,7 +86,7 @@ func (s *DeployerSuite) TestDeployRecallRemovePrincipals(c *C) {
 
 func (s *DeployerSuite) TestRemoveNonAlivePrincipals(c *C) {
 	// Create a machine, and a couple of units.
-	m, err := s.State.AddMachine(state.MachinerWorker)
+	m, err := s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
 	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)

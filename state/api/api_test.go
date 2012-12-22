@@ -50,7 +50,7 @@ func (s *suite) TearDownTest(c *C) {
 }
 
 func (s *suite) TestRequest(c *C) {
-	m, err := s.State.AddMachine(state.MachinerWorker)
+	m, err := s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
 	instId, err := s.APIState.Request(m.Id())
 	c.Check(instId, Equals, "")
@@ -65,7 +65,7 @@ func (s *suite) TestRequest(c *C) {
 }
 
 func (s *suite) TestStop(c *C) {
-	m, err := s.State.AddMachine(state.MachinerWorker)
+	m, err := s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
 	err = m.SetInstanceId("foo")
 	c.Assert(err, IsNil)

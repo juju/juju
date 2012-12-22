@@ -62,7 +62,7 @@ func (s *storage) Get(file string) (r io.ReadCloser, err error) {
 
 func (s *storage) URL(name string) (string, error) {
 	// 10 years should be good enough.
-	return s.bucket.SignedURL(name, time.Now().AddDate(1, 0, 0)), nil
+	return s.bucket.SignedURL(name, time.Now().AddDate(10, 0, 0)), nil
 }
 
 // s3ErrorStatusCode returns the HTTP status of the S3 request error,
