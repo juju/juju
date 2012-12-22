@@ -7,20 +7,20 @@ import (
 	"launchpad.net/juju-core/juju"
 )
 
-// RemoveRelationCommand causes an existing serive relation to be shut down.
-type RemoveRelationCommand struct {
+// DestroyRelationCommand causes an existing service relation to be shut down.
+type DestroyRelationCommand struct {
 	EnvName   string
 	Endpoints []string
 }
 
-func (c *RemoveRelationCommand) Info() *cmd.Info {
+func (c *DestroyRelationCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		"remove-relation", "<service1>[:<relation name1>] <service2>[:<relation name2>]",
-		"remove a relation between two services", "",
+		"destroy-relation", "<service1>[:<relation name1>] <service2>[:<relation name2>]",
+		"destroy a relation between two services", "",
 	}
 }
 
-func (c *RemoveRelationCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *DestroyRelationCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	addEnvironFlags(&c.EnvName, f)
 	if err := f.Parse(true, args); err != nil {
 		return err
@@ -33,7 +33,7 @@ func (c *RemoveRelationCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	return nil
 }
 
-func (c *RemoveRelationCommand) Run(_ *cmd.Context) error {
+func (c *DestroyRelationCommand) Run(_ *cmd.Context) error {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
 		return err

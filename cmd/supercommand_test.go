@@ -52,9 +52,11 @@ func (s *SuperCommandSuite) TestDispatch(c *C) {
 func (s *SuperCommandSuite) TestRegister(c *C) {
 	jc := &cmd.SuperCommand{Name: "jujutest"}
 	jc.Register(&TestCommand{Name: "flip"})
-	jc.Register(&TestCommand{Name: "flap"})
-	badCall := func() { jc.Register(&TestCommand{Name: "flap"}) }
-	c.Assert(badCall, PanicMatches, "command already registered: flap")
+	jc.Register(&TestCommand{Name: "flap"}, "flop", "flup")
+	for _, name := range []string{"flip", "flap", "flop", "flup"} {
+		badCall := func() { jc.Register(&TestCommand{Name: name}) }
+		c.Assert(badCall, PanicMatches, "command already registered: "+name)
+	}
 }
 
 var commandsDoc = `commands:
