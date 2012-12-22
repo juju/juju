@@ -2,10 +2,12 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/state"
 	"os"
 )
 
@@ -61,9 +63,15 @@ func (c *DeployCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	args = f.Args()
 	switch len(args) {
 	case 2:
+		if !state.IsServiceName(args[1]) {
+			return fmt.Errorf("invalid service name %q", args[1])
+		}
 		c.ServiceName = args[1]
 		fallthrough
 	case 1:
+		if _, err := charm.InferURL(args[0], "fake"); err != nil {
+			return fmt.Errorf("invalid charm name %q", args[0])
+		}
 		c.CharmName = args[0]
 	case 0:
 		return errors.New("no charm specified")
@@ -71,6 +79,8 @@ func (c *DeployCommand) Init(f *gnuflag.FlagSet, args []string) error {
 		return cmd.CheckEmpty(args[2:])
 	}
 	if c.NumUnits < 1 {
+		// TODO improve/remove: this is misleading when deploying subordinates.
+		// Reviewers, start your opinions.
 		return errors.New("must deploy at least one unit")
 	}
 	return nil
@@ -94,7 +104,6 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	// TODO check for valid service name *before* touching state
 	ch, err := conn.PutCharm(curl, repo, c.BumpRevision)
 	if err != nil {
 		return err
