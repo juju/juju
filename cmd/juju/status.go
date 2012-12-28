@@ -167,7 +167,7 @@ func processService(service *state.Service) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	r["charm"] = ch.Meta().Name
+	r["charm"] = ch.String()
 	r["exposed"] = service.IsExposed()
 
 	// TODO(dfc) service.IsSubordinate() ?
