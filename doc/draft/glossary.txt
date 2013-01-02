@@ -175,7 +175,8 @@ and when the following conditions hold:
 
   * all configuration keys that exist in both versions of the charm must have
     the same data type (addition or removal of config settings is fine, and it's
-    ok for defaults to change, but (e.g.) a string cannot become an integer).
+    ok for defaults to change, but (for example) a string cannot become an
+    integer).
   * any normal relations in which the service is participating must also be
     available, unchanged, in the newer version of the charm (addition or removal
     of charm relations is, in general, fine).
