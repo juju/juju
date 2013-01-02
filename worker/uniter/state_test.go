@@ -148,7 +148,7 @@ func (s *StateFileSuite) TestStates(c *C) {
 		_, err := file.Read()
 		c.Assert(err, Equals, uniter.ErrNoStateFile)
 		write := func() {
-			err := file.Write(t.st.Op, t.st.OpStep, t.st.Hook, t.st.CharmURL)
+			err := file.Write(t.st.Started, t.st.Op, t.st.OpStep, t.st.Hook, t.st.CharmURL)
 			c.Assert(err, IsNil)
 		}
 		if t.err != "" {

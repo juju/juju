@@ -557,11 +557,7 @@ func (e *environ) Destroy(ensureInsts []environs.Instance) error {
 	// holding e.ecfgMutex. e.Storage() does this for us, then we convert
 	// back to the (*storage) to access the private deleteAll() method.
 	st := e.Storage().(*storage)
-	err = st.deleteAll()
-	if err != nil {
-		return err
-	}
-	return nil
+	return st.deleteAll()
 }
 
 func portsToIPPerms(ports []state.Port) []ec2.IPPerm {

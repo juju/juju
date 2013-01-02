@@ -3,6 +3,7 @@ package uniter
 import (
 	"errors"
 	"fmt"
+	corecharm "launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
@@ -40,6 +41,7 @@ type Uniter struct {
 	charm        *charm.GitDir
 	bundles      *charm.BundlesDir
 	deployer     *charm.Deployer
+	s            *State
 	sf           *StateFile
 	rand         *rand.Rand
 
@@ -145,27 +147,40 @@ func (u *Uniter) Wait() error {
 	return u.tomb.Wait()
 }
 
+// writeState saves uniter state with the supplied values, and infers the appropriate
+// value of Started.
+func (u *Uniter) writeState(op Op, step OpStep, hi *hook.Info, url *corecharm.URL) error {
+	s := State{
+		Started:  op == RunHook && hi.Kind == hook.Start || u.s != nil && u.s.Started,
+		Op:       op,
+		OpStep:   step,
+		Hook:     hi,
+		CharmURL: url,
+	}
+	if err := u.sf.Write(s.Started, s.Op, s.OpStep, s.Hook, s.CharmURL); err != nil {
+		return err
+	}
+	u.s = &s
+	return nil
+}
+
 // deploy deploys the supplied charm, and sets follow-up hook operation state
 // as indicated by reason.
 func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
 	if reason != Install && reason != Upgrade {
 		panic(fmt.Errorf("%q is not a deploy operation", reason))
 	}
-	s, err := u.sf.Read()
-	if err != nil && err != ErrNoStateFile {
-		return err
-	}
 	var hi *hook.Info
-	if s != nil && (s.Op == RunHook || s.Op == Upgrade) {
+	if u.s != nil && (u.s.Op == RunHook || u.s.Op == Upgrade) {
 		// If this upgrade interrupts a RunHook, we need to preserve the hook
 		// info so that we can return to the appropriate error state. However,
 		// if we're resuming (or have force-interrupted) an Upgrade, we also
 		// need to preserve whatever hook info was preserved when we initially
 		// started upgrading, to ensure we still return to the correct state.
-		hi = s.Hook
+		hi = u.s.Hook
 	}
 	url := sch.URL()
-	if s == nil || s.OpStep != Done {
+	if u.s == nil || u.s.OpStep != Done {
 		log.Printf("worker/uniter: fetching charm %q", url)
 		bun, err := u.bundles.Read(sch, u.tomb.Dying())
 		if err != nil {
@@ -175,13 +190,13 @@ func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
 			return err
 		}
 		log.Printf("worker/uniter: deploying charm %q", url)
-		if err = u.sf.Write(reason, Pending, hi, url); err != nil {
+		if err = u.writeState(reason, Pending, hi, url); err != nil {
 			return err
 		}
 		if err = u.deployer.Deploy(u.charm); err != nil {
 			return err
 		}
-		if err = u.sf.Write(reason, Done, hi, url); err != nil {
+		if err = u.writeState(reason, Done, hi, url); err != nil {
 			return err
 		}
 	}
@@ -203,7 +218,7 @@ func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
 			hi.Kind = hook.UpgradeCharm
 		}
 	}
-	return u.sf.Write(RunHook, status, hi, nil)
+	return u.writeState(RunHook, status, hi, nil)
 }
 
 // errHookFailed indicates that a hook failed to execute, but that the Uniter's
@@ -256,7 +271,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	defer srv.Close()
 
 	// Run the hook.
-	if err := u.sf.Write(RunHook, Pending, &hi, nil); err != nil {
+	if err := u.writeState(RunHook, Pending, &hi, nil); err != nil {
 		return err
 	}
 	log.Printf("worker/uniter: running %q hook", hookName)
@@ -264,7 +279,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 		log.Printf("worker/uniter: hook failed: %s", err)
 		return errHookFailed
 	}
-	if err := u.sf.Write(RunHook, Done, &hi, nil); err != nil {
+	if err := u.writeState(RunHook, Done, &hi, nil); err != nil {
 		return err
 	}
 	log.Printf("worker/uniter: ran %q hook", hookName)
@@ -289,7 +304,7 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 	if hi.Kind == hook.ConfigChanged {
 		u.ranConfigChanged = true
 	}
-	if err := u.sf.Write(Continue, Pending, &hi, nil); err != nil {
+	if err := u.writeState(Continue, Pending, &hi, nil); err != nil {
 		return err
 	}
 	log.Printf("worker/uniter: committed %q hook", hi.Kind)
