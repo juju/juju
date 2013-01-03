@@ -393,6 +393,23 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 			return nil, e
 		}
 	}
+	if !u.unit.IsPrincipal() {
+		// If no Alive relations remain between a subordinate unit's service
+		// and its principal's service, the subordinate must become Dying.
+		keepAlive := false
+		for _, r := range u.relationers {
+			scope := r.ru.Endpoint().RelationScope
+			if scope == corecharm.ScopeContainer && !r.dying {
+				keepAlive = true
+				break
+			}
+		}
+		if !keepAlive {
+			if err := u.unit.EnsureDying(); err != nil {
+				return nil, err
+			}
+		}
+	}
 	return added, nil
 }
 
