@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state/presence"
@@ -175,16 +176,40 @@ func (u *Unit) EnsureDying() error {
 	return nil
 }
 
+var ErrUnitHasSubordinates = errors.New("unit has subordinates")
+
 // EnsureDead sets the unit lifecycle to Dead if it is Alive or Dying.
-// It does nothing otherwise.
-func (u *Unit) EnsureDead() error {
-	// TODO a principal must not become Dead while it still has subordinates.
-	err := ensureDead(u.st, u.st.units, u.doc.Name, "unit", nil, "")
-	if err != nil {
+// It does nothing otherwise. If the unit has subordinates, it will
+// return ErrUnitHasSubordinates.
+func (u *Unit) EnsureDead() (err error) {
+	if u.doc.Life == Dead {
+		return nil
+	}
+	defer func() {
+		if err == nil {
+			u.doc.Life = Dead
+		}
+	}()
+	ops := []txn.Op{{
+		C:  u.st.units.Name,
+		Id: u.doc.Name,
+		Assert: append(notDeadDoc, bson.DocElem{
+			"$or", []D{
+				{{"subordinates", D{{"$size", 0}}}},
+				{{"subordinates", D{{"$exists", false}}}},
+			},
+		}),
+		Update: D{{"$set", D{{"life", Dead}}}},
+	}}
+	if err := u.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
 		return err
 	}
-	u.doc.Life = Dead
-	return nil
+	if notDead, err := isNotDead(u.st.units, u.doc.Name); err != nil {
+		return err
+	} else if !notDead {
+		return nil
+	}
+	return ErrUnitHasSubordinates
 }
 
 // Resolved returns the resolved mode for the unit.

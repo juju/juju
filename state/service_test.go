@@ -285,11 +285,12 @@ func (s *ServiceSuite) TestAddUnit(c *C) {
 	// Check that subordinate units cannnot be added to subordinate units.
 	_, err = logging.AddUnitSubordinateTo(subZero)
 	c.Assert(err, ErrorMatches, `cannot add unit to service "logging" as a subordinate of "logging/0": unit is not a principal`)
+}
 
-	removeAllUnits(c, s.service)
+func (s *ServiceSuite) TestAddUnitWhenNotAlive(c *C) {
 	const errPat = ".*: service is not alive"
 	testWhenDying(c, s.service, errPat, errPat, func() error {
-		_, err = s.service.AddUnit()
+		_, err := s.service.AddUnit()
 		return err
 	})
 }
