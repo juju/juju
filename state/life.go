@@ -85,3 +85,8 @@ func isAlive(coll *mgo.Collection, id interface{}) (bool, error) {
 	n, err := coll.Find(D{{"_id", id}, {"life", Alive}}).Count()
 	return n == 1, err
 }
+
+func isNotDead(coll *mgo.Collection, id interface{}) (bool, error) {
+	n, err := coll.Find(D{{"_id", id}, {"life", D{{"$ne", Dead}}}}).Count()
+	return n == 1, err
+}
