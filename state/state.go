@@ -142,9 +142,22 @@ func (st *State) SetEnvironConfig(cfg *config.Config) error {
 	return err
 }
 
-// AddMachine adds a new machine that when deployed will have a
-// machine agent running the provided workers.
+// AddMachine adds a new machine configured to run the supplied jobs.
 func (st *State) AddMachine(jobs ...MachineJob) (m *Machine, err error) {
+	return st.addMachine("", jobs)
+}
+
+// InjectMachine adds a new machine, corresponding to an existing provider
+// instance, configure to run the supplied jobs.
+func (st *State) InjectMachine(instanceId InstanceId, jobs ...MachineJob) (m *Machine, err error) {
+	if instanceId == "" {
+		return nil, fmt.Errorf("cannot inject a machine without an instance id")
+	}
+	return st.addMachine(instanceId, jobs)
+}
+
+// addMachine implements AddMachine and InjectMachine.
+func (st *State) addMachine(instanceId InstanceId, jobs []MachineJob) (m *Machine, err error) {
 	defer trivial.ErrorContextf(&err, "cannot add a new machine")
 	if len(jobs) == 0 {
 		return nil, fmt.Errorf("no jobs specified")
@@ -165,6 +178,9 @@ func (st *State) AddMachine(jobs ...MachineJob) (m *Machine, err error) {
 		Id:   id,
 		Life: Alive,
 		Jobs: jobs,
+	}
+	if instanceId != "" {
+		mdoc.InstanceId = instanceId
 	}
 	ops := []txn.Op{{
 		C:      st.machines.Name,
