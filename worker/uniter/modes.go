@@ -6,6 +6,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/uniter/charm"
 	"launchpad.net/juju-core/worker/uniter/hook"
@@ -198,7 +199,7 @@ func ModeTerminating(u *Uniter) (next Mode, err error) {
 			if !ok {
 				return nil, watcher.MustErr(w)
 			}
-			if err := u.unit.EnsureDead(); err == state.ErrHasSubordinates {
+			if err := u.unit.EnsureDead(); err == state.ErrUnitHasSubordinates {
 				continue
 			} else if err != nil {
 				return nil, err
