@@ -181,31 +181,32 @@ func (conn *Conn) PutCharm(curl *charm.URL, repo charm.Repository, bumpRevision 
 }
 
 func (conn *Conn) addCharm(curl *charm.URL, ch charm.Charm) (*state.Charm, error) {
-	var path string
+	var f *os.File
 	name := charm.Quote(curl.String())
 	switch ch := ch.(type) {
 	case *charm.Dir:
-		f, err := ioutil.TempFile("", name)
-		if err != nil {
+		var err error
+		if f, err = ioutil.TempFile("", name); err != nil {
 			return nil, err
 		}
-		path = f.Name()
-		defer os.Remove(path)
+		defer os.Remove(f.Name())
+		defer f.Close()
 		err = ch.BundleTo(f)
-		f.Close()
 		if err != nil {
 			return nil, fmt.Errorf("cannot bundle charm: %v", err)
 		}
+		if _, err := f.Seek(0, 0); err != nil {
+			return nil, err
+		}
 	case *charm.Bundle:
-		path = ch.Path
+		var err error
+		if f, err = os.Open(ch.Path); err != nil {
+			return nil, fmt.Errorf("cannot read charm bundle: %v", err)
+		}
+		defer f.Close()
 	default:
 		return nil, fmt.Errorf("unknown charm type %T", ch)
 	}
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, fmt.Errorf("cannot read charm bundle: %v", err)
-	}
-	defer f.Close()
 	h := sha256.New()
 	size, err := io.Copy(h, f)
 	if err != nil {
