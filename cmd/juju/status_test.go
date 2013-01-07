@@ -129,11 +129,11 @@ var statusTests = []struct {
 			},
 			"services": map[string]interface{}{
 				"dummy-service": map[string]interface{}{
-					"charm":   "dummy",
+					"charm":   "local:series/dummy-1",
 					"exposed": false,
 				},
 				"exposed-service": map[string]interface{}{
-					"charm":   "dummy",
+					"charm":   "local:series/dummy-1",
 					"exposed": true,
 				},
 			},
@@ -170,11 +170,11 @@ var statusTests = []struct {
 			},
 			"services": map[string]interface{}{
 				"dummy-service": map[string]interface{}{
-					"charm":   "dummy",
+					"charm":   "local:series/dummy-1",
 					"exposed": false,
 				},
 				"exposed-service": map[string]interface{}{
-					"charm":   "dummy",
+					"charm":   "local:series/dummy-1",
 					"exposed": true,
 				},
 			},
@@ -225,10 +225,10 @@ var statusTests = []struct {
 							"status-info": "You Require More Vespene Gas",
 						},
 					},
-					"charm": "dummy",
+					"charm": "local:series/dummy-1",
 				},
 				"dummy-service": map[string]interface{}{
-					"charm":   "dummy",
+					"charm":   "local:series/dummy-1",
 					"exposed": false,
 					"units": map[string]interface{}{
 						"dummy-service/0": map[string]interface{}{
