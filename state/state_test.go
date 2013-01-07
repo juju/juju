@@ -101,6 +101,19 @@ func (s *StateSuite) TestAddMachine(c *C) {
 	c.Assert(machines[1].Id(), Equals, "1")
 }
 
+func (s *StateSuite) TestInjectMachine(c *C) {
+	_, err := s.State.InjectMachine(state.InstanceId(""), state.JobHostUnits)
+	c.Assert(err, ErrorMatches, "cannot inject a machine without an instance id")
+	_, err = s.State.InjectMachine(state.InstanceId("i-mlazy"))
+	c.Assert(err, ErrorMatches, "cannot add a new machine: no jobs specified")
+	m, err := s.State.InjectMachine(state.InstanceId("i-mindustrious"), state.JobHostUnits, state.JobManageEnviron)
+	c.Assert(err, IsNil)
+	c.Assert(m.Jobs(), DeepEquals, []state.MachineJob{state.JobHostUnits, state.JobManageEnviron})
+	instanceId, err := m.InstanceId()
+	c.Assert(err, IsNil)
+	c.Assert(instanceId, Equals, state.InstanceId("i-mindustrious"))
+}
+
 func (s *StateSuite) TestRemoveMachine(c *C) {
 	machine, err := s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
