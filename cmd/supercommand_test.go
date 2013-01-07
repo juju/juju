@@ -57,6 +57,17 @@ func (s *SuperCommandSuite) TestRegister(c *C) {
 	c.Assert(badCall, PanicMatches, "command already registered: flap")
 }
 
+func (s *SuperCommandSuite) TestRegisterAlias(c *C) {
+	jc := &cmd.SuperCommand{Name: "jujutest"}
+	jc.Register(&TestCommand{Name: "flip"}, "flap", "flop")
+
+	info := jc.Info()
+	c.Assert(info.Doc, Equals, `commands:
+    flap - alias for flip
+    flip - flip the juju
+    flop - alias for flip`)
+}
+
 var commandsDoc = `commands:
     flapbabble - flapbabble the juju
     flip       - flip the juju`
