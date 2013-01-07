@@ -229,33 +229,6 @@ func (s *AssignSuite) TestAssignMachineWhenDying(c *C) {
 	testWhenDying(c, machine, machineDeadErr, machineDeadErr, assignTest)
 }
 
-func (s *AssignSuite) TestUnassignMachineWhenDying(c *C) {
-	// Check that UnassignFromMachine works when the unit is dead.
-	machine, err := s.State.AddMachine(state.JobHostUnits)
-	c.Assert(err, IsNil)
-	unit, err := s.wordpress.AddUnit()
-	c.Assert(err, IsNil)
-	err = unit.AssignToMachine(machine)
-	c.Assert(err, IsNil)
-	err = unit.EnsureDead()
-	c.Assert(err, IsNil)
-	err = unit.UnassignFromMachine()
-	c.Assert(err, IsNil)
-
-	// Check that UnassignFromMachine works when the machine is
-	// dead.
-	machine, err = s.State.AddMachine(state.JobHostUnits)
-	c.Assert(err, IsNil)
-	unit, err = s.wordpress.AddUnit()
-	c.Assert(err, IsNil)
-	err = unit.AssignToMachine(machine)
-	c.Assert(err, IsNil)
-	err = machine.EnsureDead()
-	c.Assert(err, IsNil)
-	err = unit.UnassignFromMachine()
-	c.Assert(err, IsNil)
-}
-
 func (s *AssignSuite) TestAssignMachinePrincipalsChange(c *C) {
 	machine, err := s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
