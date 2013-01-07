@@ -361,5 +361,5 @@ func (*CmdSuite) TestDestroyUnitCommandInit(c *C) {
 	c.Assert(err, ErrorMatches, "no service units specified")
 	// not a unit
 	_, err = initDestroyUnitCommand("seven/nine")
-	c.Assert(err, ErrorMatches, "invalid service unit name: \"seven/nine\"")
+	c.Assert(err, ErrorMatches, `invalid service unit name: "seven/nine"`)
 }
