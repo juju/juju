@@ -53,10 +53,10 @@ func (s *UnitSuite) TestParseUnknown(c *C) {
 
 func (s *UnitSuite) TestRunStop(c *C) {
 	a, unit, _ := s.newAgent(c)
-	patchDeployManager(c, &a.Conf.StateInfo, a.Conf.DataDir)
-	defer resetDeployManager()
-	go func() { c.Assert(a.Run(nil), IsNil) }()
-	defer func() { c.Assert(a.Stop(), IsNil) }()
+	mgr, reset := patchDeployManager(c, &a.Conf.StateInfo, a.Conf.DataDir)
+	defer reset()
+	go func() { c.Check(a.Run(nil), IsNil) }()
+	defer func() { c.Check(a.Stop(), IsNil) }()
 	timeout := time.After(5 * time.Second)
 
 waitStarted:
@@ -86,7 +86,7 @@ waitStarted:
 	}
 
 	// Check no subordinates have been deployed.
-	waitDeployed(c)
+	mgr.waitDeployed(c)
 
 	// Add a relation with a subordinate service and wait for the subordinate
 	// to be deployed...
@@ -96,14 +96,14 @@ waitStarted:
 	c.Assert(err, IsNil)
 	_, err = s.State.AddRelation(eps...)
 	c.Assert(err, IsNil)
-	waitDeployed(c, "logging/0")
+	mgr.waitDeployed(c, "logging/0")
 
 	// ...then kill the subordinate and wait for it to be recalled and removed.
 	logging0, err := s.State.Unit("logging/0")
 	c.Assert(err, IsNil)
 	err = logging0.EnsureDead()
 	c.Assert(err, IsNil)
-	waitDeployed(c)
+	mgr.waitDeployed(c)
 	err = logging0.Refresh()
 	c.Assert(state.IsNotFound(err), Equals, true)
 }
