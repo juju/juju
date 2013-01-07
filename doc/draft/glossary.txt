@@ -1,0 +1,383 @@
+Juju Glossary
+=============
+
+This document introduces and briefly explains a number of terms that are used
+throughout the juju documentation, roughly broken down by conceptual area. The
+intent of this document is to make the reader aware of the available modes of
+interaction with juju, and how the various commands and concepts interact. It
+makes no attempt to be comprehensive; just accurate and opinionated.
+
+Charms
+------
+
+A `charm` is a collection of code and data that embodies best practice in
+the deployment of a particular piece (or collection) of software. Examples
+of software that has been charmed include:
+
+  * wordpress (blogging platform)
+  * mediawiki (wiki platform)
+  * mysql (relational database)
+  * mongodb (non-relational database)
+  * hadoop (heavyweight data crunching)
+  * glance, keystone, nova-compute, etc (openstack components)
+  * minecraft (game server)
+
+A charm consists of the following components:
+
+  * metadata (describes the charm's purpose and capabilities)
+  * configuration (describes the ways in which a user can tune the software)
+  * hooks (executables, invoked by juju, that configure and deploy the software)
+  * revision (an integer identifying separate versions of the same charm)
+  * any additional code or data useful to the hooks or the deployed software
+
+A `charm directory` is a filesystem directory containing the aforementioned
+components of a charm in standard locations. (Any additional code/data can go
+anywhere not reserved for the other components.)
+
+A `charm bundle` is a charm directory serialized as a zip file. This format is
+used for storage and distribution only; when a charm is deployed it is always
+unbundled into a charm directory, within which all hooks are executed.
+
+A `repository` is a collection of charms that can be deployed by juju.
+
+The `charm store` is the default repository, which serves only curated bundled
+charms.
+
+A `local repository` is a repository located on the same system as the juju
+client.
+
+A `charm URL` is a string that identifies the provenance and the intended
+deployment target of a charm, and may also specify the charm's revision.
+Charms are identified by their charm URLs.
+
+Environments
+------------
+
+A `machine` is a computing resource on which components of juju, and of the
+software deployed by juju, can run. The following command is used to
+manipulate machines directly.
+
+  * juju terminate-machine (soon to alias destroy-machine) [TODO: not implemented]
+
+An `environment` is a deployment of juju. It always includes at least one
+machine responsible for maintaining the system's state, and potentially
+provisioning additional machines in response to state changes. The following
+commands are used to manipulate and inspect the environment.
+
+  * juju bootstrap
+  * juju status [TODO: somewhat incomplete]
+  * juju upgrade-juju
+  * juju destroy-environment
+
+An `environment provider` mediates between juju and the substrate on which an
+environment runs. Each provider allows juju to run against a different backend:
+
+  * ec2 (Amazon EC2 and S3)
+  * maas (bare metal) [TODO: work in progress]
+  * local (LXC containers on client machine) [TODO: work in progress]
+  * openstack (many public and private clouds) [TODO: work in progress]
+
+An `environment configuration` describes how to create and connect to an
+environment from a specific provider. An environment configuration must
+always specify at least the following information:
+
+  * name (to identify the environment)
+  * type (to specify the provider)
+  * admin-secret (a "password" identifying an client with administrative-
+    level access to system state)
+  * authorized-keys (SSH public keys identifying users allowed to connect to
+    machines in the environment)
+
+...and may accept or even require additional keys depending on the provider
+type; but the full details of environment configuration are outside the scope
+of this document.
+
+[TODO: there should/will be commands for inspecting and manipulating the
+configuration of an environment while it's running; the names "env-get" and
+"env-set" have been mooted, but I'm not sure that's sane: I can't see any
+reason not to use the existing "get" and "set", which currently only work
+for services. But I could just be missing something obvious. Note that certain
+settings, such as "name" and "type", and "region" in the ec2 provider, will
+need to be immutable, and I'm not sure whether that's implemented yet.]
+
+An `environments file` is a YAML file containing environment configurations.
+Juju cannot operate without a valid environments file, which must be saved at
+`~/.juju/environments.yaml` on the client machine.
+
+The simplest functional environments file looks like this:
+
+  environments:
+    aws:
+      type: ec2
+      admin-secret: <password string>
+      control-bucket: <globally unique S3 bucket name>
+
+The "name" of the single defined environment is determined by its key in the
+environments map ("aws"), and the "authorized-keys" can be safely omitted so
+long as the client machine has a public key with a standard name saved in
+`~/.ssh`. Because it's using the "ec2" provider type, it also has to specify
+a "control-bucket" key; the "access-key" and "secret-key" settings are also
+required, but can be omitted if the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
+environment variables are set in the client process. The "region" setting
+defaults to "us-east-1"; there are other possible settings but they're not
+relevant here.
+
+[NOTE: there is much more to environment configuration than has been discussed
+here. "authorized-keys-path" and "default-series" both apply to every provider,
+the ec2 provider offers many not mentioned here, and it will only get worse with
+each new provider...]
+
+Services
+--------
+
+A `service` is a deployment of a charm in an environment. The following commands
+are used to manipulate services:
+
+  * juju deploy
+  * juju destroy-service [TODO: not implemented]
+
+A service's `configuration` is defined by its charm, and allows the user to
+inspect and tune the service's operation using the following commands:
+
+  * juju get
+  * juju set
+
+A `unit` is the fundamental component of a service; services are composed of
+units. Each unit represents an instance of the charm's software, deployed to
+some machine in the service's environment. The following commands are used to
+manipulate units:
+
+  * juju add-unit
+  * juju remove-unit (soon to alias destroy-unit)
+
+[TODO: units are currently not, but will shortly be, deployed to LXC containers
+within their machines; this prevents units on the same machine from interfering
+with one another (except when each attempts to open the same port; we haven't
+worked out how to deal with that yet).]
+
+A service is `exposed` if it is theoretically accessible from the public
+internet (or, at least, from outside its environment). The fact of a service's
+exposure does not necessarily imply that any units of that service are actually
+accessible; actual access is mediated by the service's units, which are
+responsible for specifying the ports that should actually be opened when the
+service is exposed. Service exposure is controlled with the following commands:
+
+  * juju expose
+  * juju unexpose
+
+[NOTE: the "firewall-mode" environment configuration setting comes into play
+here, but that may be a topic for a more detailed document, along with the
+varying levels of firewalling support in the various providers.]
+
+A service's charm can be `upgraded` when the revision of that charm available
+from its original repository is greater than that or the service's current charm,
+and when the following conditions hold:
+
+  * all configuration keys that exist in both versions of the charm must have
+    the same data type (addition or removal of config settings is fine, and it's
+    ok for defaults to change, but (for example) a string cannot become an
+    integer).
+  * any normal relations in which the service is participating must also be
+    available, unchanged, in the newer version of the charm (addition or removal
+    of charm relations is, in general, fine).
+  * [TODO: something to do with storage compatibility, but storage doesn't exist
+    yet]
+
+The following command is used to upgrade a service's charm:
+
+  * juju upgrade-charm [TODO: not implemented]
+
+[TODO: --revision and --switch params, that do not exist in the python version,
+are mooted; they would respectively allow up/downgrades to specific revisions,
+and crossgrades to entirely different charms, but priority/agreement is unclear.]
+
+Sometimes (although, hopefully, rarely) a unit will encounter an `error` that
+requires human intervention. These cases are as follows:
+
+  * a charm hook returned a non-zero exit code
+  * the unit process was killed while running a charm hook
+  * a charm upgrade failed due to conflicting content in the charm directory
+
+In each of these situations, the unit stops responding to most external events,
+and waits for an administrator to resolve the problem. The administrator may
+need to log into the machine with the failed unit to determine and resolve the
+problem, or he may be able to resolve the problem automatically by trying to
+re-run the failed hook. The following commands are useful in error recovery:
+
+  * juju ssh
+  * juju scp
+  * juju resolved
+
+A `forced upgrade` is a form of upgrade that ignores unit error states, and
+upgrades them anyway. Forced upgrades are subtle and quick to anger; they
+are only recommended if you have sole control of your environment and a clear
+understanding of the upgrade process as it applies to your specific charm.
+
+Relations
+---------
+
+An `interface` is an informally-agreed protocol for transferring information
+between service units. Examples include:
+
+  * http (hostname, port)
+  * mysql (host, database, user, password, slave)
+  * ceph-client (key, auth, rid) [TODO: I don't think rid is appropriate, we
+    should take a look and figure out if it could be dropped]
+
+A `role` describes the manner in which a charm uses an interface. A role can
+have one of three values: "provider", "requirer", or "peer".
+
+A `(charm) relation` is an entry in a charm's metadata that indicates that it
+can fulfil some role over some interface. For example, the "relations" section
+of a charm's metadata might look like this (taken from wordpress):
+
+    requires:
+      db:
+        interface: mysql
+      nfs:
+        interface: mount
+      cache:
+        interface: memcache
+    provides:
+      website:
+        interface: http
+    peers:
+      loadbalancer:
+        interface: reversenginx
+
+The above defines five (charm) relations, named "db", "nfs", "cache", "website",
+and "loadbalancer". "db" is a "requirer" over the "mysql" interface; "website"
+is a "provider" over the "http" interface.
+
+An `endpoint` is the combination of a service with one of its charm's relations.
+The set of a service's endpoints define the possible connections involving that
+service. Within an environment, an endpoint is uniquely identifiable when
+expressed in the form `<service-name>:<charm-relation-name>`.
+
+A "normal" `relation` is a connection between the endpoints of two services.
+The services' charms must respectively "provide" and "require" relations with
+identical interfaces. When two services are participating in a relation, each
+unit of each service can communicate with every unit of the other service.
+Normal relations can be manipulated with the following commands:
+
+  * juju add-relation
+  * juju remove-relation (soon to alias destroy-relation)
+
+A `(peer) relation` is a connection within a service defined by a single
+endpoint with the "peer" role. If such an endpoint exists, the peer relation
+is automatically created when the service is deployed; each unit of the
+service can communicate with every other unit of the service. Peer relations
+cannot be manipulated in the UI, but are displayed in `juju status` output.
+
+The word `relation`, when used casually, *may* refer to a charm relation or a
+peer relation, but is most likely to refer to a "normal" relation.
+
+When manipulating relations, it is important to understand that a single
+endpoint can participate in multiple relations. For example, a mysql:server
+endpoint can quite happily participate in relations with both a wikimedia:db
+endpoint and a wordpress:db endpoint (or even in multiple relations with
+separate services running their own charms: for example, wordpress1:db and
+wordpress2:db). In each case, the mysql charm is responsible for creating
+separate users and databases for each separate relation.
+
+[TODO: charm relations also have a concept of "limit" which probably ought to
+come in here, but no code respects it at the moment. Oh, and a "required" field
+too, and I'm not sure whether anyone fully recalls its precise intended
+semantics... not sure what to do about this.]
+
+Subordinates
+------------
+
+[TODO: subordinates are not yet implemented in go, but the vast majority of the
+building blocks are already integrated.]
+
+A `subordinate charm` is a charm which declares itself to be subordinate.
+
+A `subordinate service` is a service running a subordinate charm.
+
+A `subordinate unit` is a unit of a subordinate service.
+
+All other charms, services, and units are `principal` units, by virtue of not
+being subordinate.
+
+A charm relation's `scope` controls which units within a relation are visible
+to one another. Most relations have "global" scope, which is the default; a
+subordinate charm must define at least one relation with "local" scope.
+
+A normal or peer relation's `scope` is the narrowest scope amongst its
+endpoints; a normal relation's scope is "global" unless either endpoint has
+"local" scope, in which case it the whole relation has "local" scope, while a
+peer relation's single endpoint must always in practice have "global" scope.
+
+When a subordinate service is deployed, no units are created; the add-unit and
+remove-unit [TODO: lp:1091634] commands do not apply to subordinate services.
+Instead, subordinate units are deployed as a side-effect of the creation of
+locally-scoped relations between the subordinate service and others, and
+recalled as a result of the destruction of the services or relations they are
+dependent upon [TODO: lp:1091865].
+
+To clarify: when a new relation is added and all the following conditions apply:
+
+  * one service is a subordinate;
+  * one service is a principal;
+  * the relation between the two is locally scoped, by virtue of at least one
+    of the endpoints having local scope:
+
+...a new unit of the subordinate service will be created and deployed alongside
+each unit of the principal service (unless one already exists). Each principal
+unit is responsible for its own associated subordinate, which runs alongside
+the principal with essentially identical privileges. Due to the local scoping
+of the relation, each subordinate unit responds only to the principal unit that
+deployed it, and vice versa.
+
+[TODO: to clarify: once units are deployed inside their own containers, subordinate
+units will be installed inside their principal unit's container. But we don't have
+containers yet.]
+
+A subordinate service can of course participate in globally-scoped relations as
+well; such relations can be added as normal, and the subordinate units participate
+in those relations just as in any other global relation.
+
+[NOTE: there's also a magic implicit charm relation, called "juju-info", which
+provides the "juju-info" interface and allows subordinates to establish relations
+with arbitrary principals. Couldn't really figure out how to work it in nicely.]
+
+Constraints
+-----------
+
+[TODO: constraints are not yet implemented in go; a substantial amount of work
+needs to be done]
+
+Some environment providers offer the ability to provision machines with varying
+characteristics. An environment provider defines a vocabulary of `constraints`
+to control the computing resources that are available from the provider; by
+specifying global environment constraints and overriding them where necessary
+at the service level, a user can ensure that her workloads are only run on
+machines with appropriate characteristics.
+
+Available constraints vary by provider, and are manipulated and inspected using
+the following commands:
+
+  * juju set-constraints (not implemented)
+  * juju get-constraints (not implemented)
+
+Storage
+-------
+
+[TODO: storage remains an informally-specified concept distributed across
+several brains; don't even try to document it.]
+
+Entity lifecycles
+-----------------
+
+When services, relations, units and machines are added and destroyed by the
+client, changes to the environment will take some time to occur: in particular,
+destruction is rarely instantaneous. Destroyed entities will continue to be
+displayed in juju status output but marked as "dying" [TODO: they are not] until
+the underlying resources have been removed.
+
+This is not really worth worrying about in general, but it does mean that after
+a service or relation has been destroyed you will need to wait until they have
+been *removed* before you're able to add a new service or relation with the same
+name. It's not an issue for units or machines, because their names are assigned
+internally by juju and are guaranteed to be unique.

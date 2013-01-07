@@ -80,7 +80,6 @@ func (c *DeployCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	}
 	if c.NumUnits < 1 {
 		// TODO improve/remove: this is misleading when deploying subordinates.
-		// Reviewers, start your opinions.
 		return errors.New("must deploy at least one unit")
 	}
 	return nil
