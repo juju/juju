@@ -199,6 +199,12 @@ func ModeTerminating(u *Uniter) (next Mode, err error) {
 			if !ok {
 				return nil, watcher.MustErr(w)
 			}
+			if err := u.unit.Refresh(); err != nil {
+				return nil, err
+			}
+			if u.unit.HasSubordinates() {
+				continue
+			}
 			if err := u.unit.EnsureDead(); err == state.ErrUnitHasSubordinates {
 				continue
 			} else if err != nil {
