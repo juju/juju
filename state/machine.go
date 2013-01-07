@@ -128,9 +128,8 @@ func (m *Machine) deathAsserts() D {
 
 // deathFailureReason returns an error indicating why the machine may have
 // failed to advance its lifecycle to Dying or Dead. If deathFailureReason
-// returns no error, a failed lifecycle operation should be retried once,
-// on the basis that the blocker may have been removed in between the txn
-// and the diagnosis; otherwise this should be treated as a serious error.
+// returns no error, it is possible that the condition that caused the txn
+// failure no longer holds; it does not automatically indicate bad state.
 func (m *Machine) deathFailureReason(life Life) (err error) {
 	if m, err = m.st.Machine(m.doc.Id); err != nil {
 		return err
@@ -147,6 +146,15 @@ func (m *Machine) deathFailureReason(life Life) (err error) {
 	return nil
 }
 
+// deathAttempts controls how many times we should attempt a death operation.
+// A single failure without a diagnosed cause indicates that the operation
+// should certainly be retried; subsequent unknown failures cannot ever
+// unambiguously indicate bad state, because it is *possible* that the number
+// of assigned units is flipping from 1 to 0 and back, perfectly timed to
+// abort every txn but show no reason for the failure, but this becomes less
+// and less likely with the number of attempts.
+var deathAttempts = 3
+
 // EnsureDying sets the machine lifecycle to Dying if it is Alive. It does
 // nothing otherwise. EnsureDying will fail if the machine has principal
 // units assigned, or if the machine has JobManageEnviron.
@@ -159,7 +167,7 @@ func (m *Machine) EnsureDying() (err error) {
 			m.doc.Life = Dying
 		}
 	}()
-	for i := 0; i < 2; i++ {
+	for i := 0; i < deathAttempts; i++ {
 		ops := []txn.Op{{
 			C:      m.st.machines.Name,
 			Id:     m.doc.Id,
@@ -193,7 +201,7 @@ func (m *Machine) EnsureDead() (err error) {
 			m.doc.Life = Dead
 		}
 	}()
-	for i := 0; i < 2; i++ {
+	for i := 0; i < deathAttempts; i++ {
 		ops := []txn.Op{{
 			C:      m.st.machines.Name,
 			Id:     m.doc.Id,
