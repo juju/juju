@@ -137,11 +137,14 @@ func (m *Machine) deathFailureReason(life Life) (err error) {
 	defer trivial.ErrorContextf(&err, "machine %s cannot become %s", m, life)
 	for _, j := range m.doc.Jobs {
 		if j == JobManageEnviron {
+			// If and when we enable multiple JobManageEnviron machines, the
+			// restriction will become "there must be at least one machine
+			// with this job", and this will need to change.
 			return fmt.Errorf("required by environment")
 		}
 	}
 	if len(m.doc.Principals) != 0 {
-		return fmt.Errorf("unit %q is assigned", m.doc.Principals[0])
+		return fmt.Errorf("unit %q is assigned to it", m.doc.Principals[0])
 	}
 	return nil
 }
@@ -151,9 +154,9 @@ func (m *Machine) deathFailureReason(life Life) (err error) {
 // should certainly be retried; subsequent unknown failures cannot ever
 // unambiguously indicate bad state, because it is *possible* that the number
 // of assigned units is flipping from 1 to 0 and back, perfectly timed to
-// abort every txn but show no reason for the failure, but this becomes less
-// and less likely with the number of attempts.
-var deathAttempts = 3
+// abort every txn but show no reason for the failure; but we believe this
+// situation to be vanishingly unlikely, and so only retry once.
+var deathAttempts = 2
 
 // EnsureDying sets the machine lifecycle to Dying if it is Alive. It does
 // nothing otherwise. EnsureDying will fail if the machine has principal
@@ -186,7 +189,7 @@ func (m *Machine) EnsureDying() (err error) {
 			return err
 		}
 	}
-	return fmt.Errorf("machine %s cannot become dying: please contact juju-dev@lists.juju.com")
+	return fmt.Errorf("machine %s cannot become dying: please contact juju-dev@lists.ubuntu.com")
 }
 
 // EnsureDead sets the machine lifecycle to Dead if it is Alive or Dying.
@@ -220,7 +223,7 @@ func (m *Machine) EnsureDead() (err error) {
 			return err
 		}
 	}
-	return fmt.Errorf("machine %s cannot become dead: please contact juju-dev@lists.juju.com")
+	return fmt.Errorf("machine %s cannot become dead: please contact juju-dev@lists.ubuntu.com")
 }
 
 // Refresh refreshes the contents of the machine from the underlying
