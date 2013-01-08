@@ -114,6 +114,34 @@ func runDeploy(c *C, args ...string) error {
 	return com.Run(&cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}})
 }
 
+var initErrorTests = []struct {
+	args []string
+	err  string
+}{
+	{
+		args: nil,
+		err:  `no charm specified`,
+	}, {
+		args: []string{"craz~ness"},
+		err:  `invalid charm name "craz~ness"`,
+	}, {
+		args: []string{"craziness", "burble-1"},
+		err:  `invalid service name "burble-1"`,
+	}, {
+		args: []string{"craziness", "burble1", "-n", "0"},
+		err:  `must deploy at least one unit`,
+	},
+}
+
+func (s *DeploySuite) TestInitErrors(c *C) {
+	for i, t := range initErrorTests {
+		c.Logf("test %d", i)
+		com := &DeployCommand{}
+		err := com.Init(newFlagSet(), t.args)
+		c.Assert(err, ErrorMatches, t.err)
+	}
+}
+
 func (s *DeploySuite) TestCharmDir(c *C) {
 	coretesting.Charms.ClonedDirPath(s.seriesPath, "series", "dummy")
 	err := runDeploy(c, "local:dummy")
