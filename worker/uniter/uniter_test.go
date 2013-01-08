@@ -95,6 +95,7 @@ type context struct {
 	st            *state.State
 	charms        coretesting.ResponseMap
 	hooks         []string
+	sch           *state.Charm
 	svc           *state.Service
 	unit          *state.Unit
 	uniter        *uniter.Uniter
@@ -707,26 +708,13 @@ func (s *UniterSuite) TestSubordinateDying(c *C) {
 	}
 	defer os.RemoveAll(ctx.path)
 
-	// Create the subordinate service with a real charm.
+	// Create the subordinate service.
 	dir := coretesting.Charms.ClonedDir(c.MkDir(), "series", "logging")
-	buf := &bytes.Buffer{}
-	err := dir.BundleTo(buf)
-	c.Assert(err, IsNil)
-	body := buf.Bytes()
-	hasher := sha256.New()
-	_, err = io.Copy(hasher, buf)
-	c.Assert(err, IsNil)
-	hash := hex.EncodeToString(hasher.Sum(nil))
-	key := fmt.Sprintf("/charms/%d", dir.Revision())
-	hurl, err := url.Parse(coretesting.Server.URL + key)
-	c.Assert(err, IsNil)
-	ctx.charms[key] = coretesting.Response{200, nil, body}
 	curl, err := charm.ParseURL("cs:series/logging")
 	c.Assert(err, IsNil)
 	curl = curl.WithRevision(dir.Revision())
-	sch, err := ctx.st.AddCharm(dir, curl, hurl, hash)
-	c.Assert(err, IsNil)
-	ctx.svc, err = s.State.AddService("u", sch)
+	step(c, ctx, addCharm{dir, curl})
+	ctx.svc, err = s.State.AddService("u", ctx.sch)
 	c.Assert(err, IsNil)
 
 	// Create the principal service and add a relation.
@@ -797,19 +785,28 @@ func (s createCharm) step(c *C, ctx *context) {
 	c.Assert(err, IsNil)
 	err = dir.SetDiskRevision(s.revision)
 	c.Assert(err, IsNil)
+	step(c, ctx, addCharm{dir, curl(s.revision)})
+}
+
+type addCharm struct {
+	dir  *charm.Dir
+	curl *charm.URL
+}
+
+func (s addCharm) step(c *C, ctx *context) {
 	buf := &bytes.Buffer{}
-	err = dir.BundleTo(buf)
+	err := s.dir.BundleTo(buf)
 	c.Assert(err, IsNil)
 	body := buf.Bytes()
 	hasher := sha256.New()
 	_, err = io.Copy(hasher, buf)
 	c.Assert(err, IsNil)
 	hash := hex.EncodeToString(hasher.Sum(nil))
-	key := fmt.Sprintf("/charms/%d", s.revision)
+	key := fmt.Sprintf("/charms/%s/%d", s.dir.Meta().Name, s.dir.Revision())
 	hurl, err := url.Parse(coretesting.Server.URL + key)
 	c.Assert(err, IsNil)
 	ctx.charms[key] = coretesting.Response{200, nil, body}
-	_, err = ctx.st.AddCharm(dir, curl(s.revision), hurl, hash)
+	ctx.sch, err = ctx.st.AddCharm(s.dir, s.curl, hurl, hash)
 	c.Assert(err, IsNil)
 }
 
