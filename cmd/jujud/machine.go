@@ -7,7 +7,6 @@ import (
 	_ "launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/worker/deployer"
 	"launchpad.net/juju-core/worker/firewaller"
 	"launchpad.net/juju-core/worker/provisioner"
 	"launchpad.net/tomb"
@@ -61,14 +60,8 @@ func (a *MachineAgent) RunOnce(st *state.State, e AgentState) error {
 	for _, j := range m.Jobs() {
 		switch j {
 		case state.JobHostUnits:
-			info := &state.Info{
-				EntityName: m.EntityName(),
-				Addrs:      st.Addrs(),
-				CACert:     st.CACert(),
-			}
-			mgr := deployer.NewSimpleManager(info, a.Conf.DataDir)
 			tasks = append(tasks,
-				deployer.NewDeployer(st, mgr, m.WatchPrincipalUnits()))
+				newDeployer(st, m.WatchPrincipalUnits(), a.Conf.DataDir))
 		case state.JobManageEnviron:
 			tasks = append(tasks,
 				provisioner.NewProvisioner(st),

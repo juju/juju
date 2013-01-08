@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/worker"
+	"launchpad.net/juju-core/worker/deployer"
 	"launchpad.net/tomb"
 	"os"
 	"path/filepath"
@@ -268,4 +269,26 @@ func openState(entityName string, conf *AgentConf) (st *state.State, password st
 		return nil, "", fmt.Errorf("cannot save password: %v", err)
 	}
 	return st, password, nil
+}
+
+// newDeployManager gives the tests the opportunity to create a deployer.Manager
+// that can be used for testing so as to avoid (1) deploying units to the system
+// running the tests and (2) get access to the *State used internally, so that
+// tests can be run without waiting for the 5s watcher refresh time we would
+// otherwise be restricted to. When not testing, st is unused.
+var newDeployManager = func(st *state.State, info *state.Info, dataDir string) deployer.Manager {
+	// TODO: pick manager kind based on entity name? (once we have a
+	// container manager for prinicpal units, that is; for now, there
+	// is no distinction between principal and subordinate deployments)
+	return deployer.NewSimpleManager(info, dataDir)
+}
+
+func newDeployer(st *state.State, w *state.UnitsWatcher, dataDir string) *deployer.Deployer {
+	info := &state.Info{
+		EntityName: w.EntityName(),
+		Addrs:      st.Addrs(),
+		CACert:     st.CACert(),
+	}
+	mgr := newDeployManager(st, info, dataDir)
+	return deployer.NewDeployer(st, mgr, w)
 }
