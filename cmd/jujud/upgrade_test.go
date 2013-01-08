@@ -314,6 +314,14 @@ func (as testAgentState) EntityName() string {
 	return "testagent"
 }
 
+func (as testAgentState) Life() state.Life {
+	panic("unimplemented")
+}
+
+func (as testAgentState) SetPassword(string) error {
+	panic("unimplemented")
+}
+
 func proposeVersion(c *C, st *state.State, vers version.Number, development bool) {
 	cfg, err := st.EnvironConfig()
 	c.Assert(err, IsNil)
