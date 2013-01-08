@@ -42,7 +42,9 @@ func (mr *Machiner) Wait() error {
 
 func (mr *Machiner) loop() error {
 	m, err := mr.st.Machine(mr.id)
-	if err != nil {
+	if state.IsNotFound(err) {
+		return worker.ErrDead
+	} else if err != nil {
 		return err
 	}
 	w := m.Watch()

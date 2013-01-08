@@ -10,7 +10,6 @@ import (
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/deployer"
 	"launchpad.net/juju-core/worker/firewaller"
-	"launchpad.net/juju-core/worker/machiner"
 	"launchpad.net/juju-core/worker/provisioner"
 	"launchpad.net/tomb"
 	"time"
@@ -100,10 +99,7 @@ func (a *MachineAgent) runOnce() error {
 		}
 	}
 	log.Printf("cmd/jujud: running jobs for machine agent: %v", m.Jobs())
-	tasks := []task{
-		machiner.NewMachiner(st, m.Id()),
-		NewUpgrader(st, m, a.Conf.DataDir),
-	}
+	tasks := []task{NewUpgrader(st, m, a.Conf.DataDir)}
 	for _, j := range m.Jobs() {
 		switch j {
 		case state.JobHostUnits:
