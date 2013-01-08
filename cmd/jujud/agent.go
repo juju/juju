@@ -146,8 +146,11 @@ func RunLoop(c *AgentConf, a Agent) error {
 	return atomb.Err()
 }
 
-func runOnce(c *AgentConf, a Agent) error {
-	st, password, err := openState(a.EntityName(), c)
+func runOnce(c *agent.Conf, a Agent) error {
+	st, passwordChanged, err := c.OpenState()
+	if err != nil {
+		return err
+	}
 	defer st.Close()
 	entity, err := a.Entity(st)
 	if state.IsNotFound(err) || err == nil && entity.Life() == state.Dead {
@@ -162,42 +165,4 @@ func runOnce(c *AgentConf, a Agent) error {
 		}
 	}
 	return a.RunOnce(st, entity)
-}
-
-// openState tries to open the state with the given entity name
-// and configuration information. If the returned password
-// is non-empty, the caller should set the entity's password
-// accordingly.
-func openState(entityName string, conf *AgentConf) (st *state.State, password string, err error) {
-	info := conf.StateInfo
-	if info.Password != "" {
-		st, err := state.Open(&info)
-		if err == nil {
-			return st, "", nil
-		}
-		if err != state.ErrUnauthorized {
-			return nil, "", err
-		}
-		// Access isn't authorized even though the password was
-		// saved.  This can happen if we crash after saving the
-		// password but before changing it, so we'll try again
-		// with the initial password.
-	}
-	info.Password = conf.InitialPassword
-	st, err = state.Open(&info)
-	if err != nil {
-		return nil, "", err
-	}
-	// We've succeeded in connecting with the initial password, so
-	// we can now change it to something more private.
-	password, err = trivial.RandomPassword()
-	if err != nil {
-		st.Close()
-		return nil, "", err
-	}
-	if err := ioutil.WriteFile(pwfile, []byte(password), 0600); err != nil {
-		st.Close()
-		return nil, "", fmt.Errorf("cannot save password: %v", err)
-	}
-	return st, password, nil
 }
