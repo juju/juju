@@ -6,10 +6,8 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/tomb"
-	"time"
 )
 
 // UnitAgent is a cmd.Command responsible for running a unit agent.
@@ -50,54 +48,26 @@ func (a *UnitAgent) Stop() error {
 func (a *UnitAgent) Run(ctx *cmd.Context) error {
 	defer log.Printf("cmd/jujud: unit agent exiting")
 	defer a.tomb.Done()
-	for a.tomb.Err() == tomb.ErrStillAlive {
-		err := a.runOnce()
-		if ug, ok := err.(*UpgradeReadyError); ok {
-			if err = ug.ChangeAgentTools(); err == nil {
-				// Return and let upstart deal with the restart.
-				return ug
-			}
-		}
-		if err == worker.ErrDead {
-			log.Printf("cmd/jujud: unit is dead")
-			return nil
-		}
-		if err == nil {
-			log.Printf("cmd/jujud: workers died with no error")
-		} else {
-			log.Printf("cmd/jujud: %v", err)
-		}
-		select {
-		case <-a.tomb.Dying():
-			a.tomb.Kill(err)
-		case <-time.After(retryDelay):
-			log.Printf("cmd/jujud: rerunning uniter")
-		}
-	}
-	return a.tomb.Err()
+	return RunLoop(&a.Conf, a)
 }
 
 // runOnce runs a uniter once.
-func (a *UnitAgent) runOnce() error {
-	st, password, err := openState(state.UnitEntityName(a.UnitName), &a.Conf)
-	if err != nil {
-		return err
-	}
-	defer st.Close()
-	unit, err := st.Unit(a.UnitName)
-	if state.IsNotFound(err) || err == nil && unit.Life() == state.Dead {
-		return worker.ErrDead
-	}
-	if err != nil {
-		return err
-	}
-	if password != "" {
-		if err := unit.SetPassword(password); err != nil {
-			return err
-		}
-	}
+func (a *UnitAgent) RunOnce(st *state.State, e AgentState) error {
+	unit := e.(*state.Unit)
 	return runTasks(a.tomb.Dying(),
 		uniter.NewUniter(st, unit.Name(), a.Conf.DataDir),
 		NewUpgrader(st, unit, a.Conf.DataDir),
 	)
+}
+
+func (a *UnitAgent) Entity(st *state.State) (AgentState, error) {
+	return st.Unit(a.UnitName)
+}
+
+func (a *UnitAgent) EntityName() string {
+	return state.UnitEntityName(a.UnitName)
+}
+
+func (a *UnitAgent) Tomb() *tomb.Tomb {
+	return &a.tomb
 }
