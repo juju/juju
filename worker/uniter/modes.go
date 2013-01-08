@@ -205,9 +205,9 @@ func ModeTerminating(u *Uniter) (next Mode, err error) {
 			if u.unit.HasSubordinates() {
 				continue
 			}
-			if err := u.unit.EnsureDead(); err == state.ErrUnitHasSubordinates {
-				continue
-			} else if err != nil {
+			// The unit is known to be Dying; so if it didn't have subordinates
+			// just above, it can't acquire new ones before this call.
+			if err := u.unit.EnsureDead(); err != nil {
 				return nil, err
 			}
 			return nil, worker.ErrDead
