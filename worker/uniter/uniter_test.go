@@ -794,12 +794,12 @@ type addCharm struct {
 }
 
 func (s addCharm) step(c *C, ctx *context) {
-	buf := &bytes.Buffer{}
-	err := s.dir.BundleTo(buf)
+	var buf bytes.Buffer
+	err := s.dir.BundleTo(&buf)
 	c.Assert(err, IsNil)
 	body := buf.Bytes()
 	hasher := sha256.New()
-	_, err = io.Copy(hasher, buf)
+	_, err = io.Copy(hasher, &buf)
 	c.Assert(err, IsNil)
 	hash := hex.EncodeToString(hasher.Sum(nil))
 	key := fmt.Sprintf("/charms/%s/%d", s.dir.Meta().Name, s.dir.Revision())
