@@ -23,7 +23,7 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 
 // Init initializes the command for running.
 func (c *BootstrapCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	c.Conf.addFlags(f, flagStateInfo|flagInitialPassword)
+	c.Conf.addFlags(f)
 	f.StringVar(&c.InstanceId, "instance-id", "", "instance id of this machine")
 	yamlBase64Var(f, &c.EnvConfig, "env-config", "", "initial environment configuration (yaml, base64 encoded)")
 	if err := f.Parse(true, args); err != nil {
@@ -40,6 +40,9 @@ func (c *BootstrapCommand) Init(f *gnuflag.FlagSet, args []string) error {
 
 // Run initializes state for an environment.
 func (c *BootstrapCommand) Run(_ *cmd.Context) error {
+	if err := c.Conf.complete("bootstrap"); err != nil {
+		return err
+	}
 	cfg, err := config.New(c.EnvConfig)
 	if err != nil {
 		return err

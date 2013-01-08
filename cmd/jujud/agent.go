@@ -20,91 +20,30 @@ func requiredError(name string) error {
 	return fmt.Errorf("--%s option must be set", name)
 }
 
-// stateServersValue implements gnuflag.Value on a slice of server addresses
-type stateServersValue []string
+// AgentConf handles command-line flags shared by all agents.
+type AgentConf struct {
+	*agent.Conf
+	dataDir string
+}
 
 var validAddr = regexp.MustCompile("^.+:[0-9]+$")
 
-// Set splits the comma-separated list of state server addresses and stores
-// onto v's Addrs. Addresses must include port numbers.
-func (v *stateServersValue) Set(value string) error {
-	addrs := strings.Split(value, ",")
-	for _, addr := range addrs {
-		if !validAddr.MatchString(addr) {
-			return fmt.Errorf("%q is not a valid state server address", addr)
-		}
-	}
-	*v = addrs
-	return nil
-}
-
-// String returns the list of server addresses joined by commas.
-func (v *stateServersValue) String() string {
-	if *v != nil {
-		return strings.Join(*v, ",")
-	}
-	return ""
-}
-
-// stateServersVar sets up a gnuflag flag analogous to the FlagSet.*Var methods.
-func stateServersVar(fs *gnuflag.FlagSet, target *[]string, name string, value []string, usage string) {
-	*target = value
-	fs.Var((*stateServersValue)(target), name, usage)
-}
-
-// AgentConf handles command-line flags shared by all agents.
-type AgentConf struct {
-	accept          agentFlags
-	DataDir         string
-	StateInfo       state.Info
-	InitialPassword string
-	caCertFile      string
-}
-
-type agentFlags int
-
-const (
-	flagStateInfo agentFlags = 1 << iota
-	flagInitialPassword
-	flagDataDir
-
-	flagAll agentFlags = ^0
-)
-
 // addFlags injects common agent flags into f.
-func (c *AgentConf) addFlags(f *gnuflag.FlagSet, accept agentFlags) {
-	if accept&flagDataDir != 0 {
-		f.StringVar(&c.DataDir, "data-dir", "/var/lib/juju", "directory for juju data")
-	}
-	if accept&flagStateInfo != 0 {
-		stateServersVar(f, &c.StateInfo.Addrs, "state-servers", nil, "state servers to connect to")
-		f.StringVar(&c.caCertFile, "ca-cert", "", "path to CA certificate in PEM format")
-	}
-	if accept&flagInitialPassword != 0 {
-		f.StringVar(&c.InitialPassword, "initial-password", "", "initial password for state")
-	}
-	c.accept = accept
+func (c *AgentConf) addFlags(f *gnuflag.FlagSet) {
+	f.StringVar(&c.dataDir, "data-dir", "/var/lib/juju", "directory for juju data")
 }
 
-// checkArgs checks that required flags have been set and that args is empty.
 func (c *AgentConf) checkArgs(args []string) error {
-	if c.accept&flagDataDir != 0 && c.DataDir == "" {
+	if c.dataDir == "" {
 		return requiredError("data-dir")
 	}
-	if c.accept&flagStateInfo != 0 {
-		if c.StateInfo.Addrs == nil {
-			return requiredError("state-servers")
-		}
-		if c.caCertFile == "" {
-			return requiredError("ca-cert")
-		}
-		var err error
-		c.StateInfo.CACert, err = ioutil.ReadFile(c.caCertFile)
-		if err != nil {
-			return err
-		}
-	}
 	return cmd.CheckEmpty(args)
+}
+
+func (c *AgentConf) read(entityName string) error {
+	var err error
+	c.Conf, err = agent.ReadConf(c.dataDir, entityName)
+	return err
 }
 
 type task interface {
@@ -172,15 +111,8 @@ func isUpgraded(err error) bool {
 // is non-empty, the caller should set the entity's password
 // accordingly.
 func openState(entityName string, conf *AgentConf) (st *state.State, password string, err error) {
-	pwfile := filepath.Join(environs.AgentDir(conf.DataDir, entityName), "password")
-	data, err := ioutil.ReadFile(pwfile)
-	if err != nil && !os.IsNotExist(err) {
-		return nil, "", err
-	}
 	info := conf.StateInfo
-	info.EntityName = entityName
-	if err == nil {
-		info.Password = string(data)
+	if info.Password != "" {
 		st, err := state.Open(&info)
 		if err == nil {
 			return st, "", nil
@@ -190,8 +122,8 @@ func openState(entityName string, conf *AgentConf) (st *state.State, password st
 		}
 		// Access isn't authorized even though the password was
 		// saved.  This can happen if we crash after saving the
-		// password but before changing the password, so we'll
-		// try again with the initial password.
+		// password but before changing it, so we'll try again
+		// with the initial password.
 	}
 	info.Password = conf.InitialPassword
 	st, err = state.Open(&info)

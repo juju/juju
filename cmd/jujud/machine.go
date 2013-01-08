@@ -31,7 +31,7 @@ func (a *MachineAgent) Info() *cmd.Info {
 
 // Init initializes the command for running.
 func (a *MachineAgent) Init(f *gnuflag.FlagSet, args []string) error {
-	a.Conf.addFlags(f, flagAll)
+	a.Conf.addFlags(f)
 	f.StringVar(&a.MachineId, "machine-id", "", "id of the machine to run")
 	if err := f.Parse(true, args); err != nil {
 		return err
@@ -50,6 +50,10 @@ func (a *MachineAgent) Stop() error {
 
 // Run runs a machine agent.
 func (a *MachineAgent) Run(_ *cmd.Context) error {
+	if err := a.Conf.Read(state.MachineEntityName(a.MachineId)); err != nil {
+		return err
+	}
+
 	defer log.Printf("cmd/jujud: machine agent exiting")
 	defer a.tomb.Done()
 	for a.tomb.Err() == tomb.ErrStillAlive {
@@ -81,7 +85,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 }
 
 func (a *MachineAgent) runOnce() error {
-	st, password, err := openState(state.MachineEntityName(a.MachineId), &a.Conf)
+	st, passwordChanged, err := a.Conf.OpenState()
 	if err != nil {
 		return err
 	}
@@ -93,8 +97,8 @@ func (a *MachineAgent) runOnce() error {
 	if err != nil {
 		return err
 	}
-	if password != "" {
-		if err := m.SetPassword(password); err != nil {
+	if passwordChanged != "" {
+		if err := m.SetPassword(a.Conf.StateInfo.Password); err != nil {
 			return err
 		}
 	}

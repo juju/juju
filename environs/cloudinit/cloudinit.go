@@ -138,14 +138,17 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 		// We temporarily give bootstrap-state a directory
 		// of its own so that it can get the state info via the
 		// same mechanism as other jujud commands.
-		agentDir := addAgentInfo(c, cfg, "bootstrap")
+		acfg, err := addAgentInfo(c, cfg, "bootstrap")
+		if err != nil {
+			return nil, err
+		}
 		addScripts(c,
 			cfg.jujuTools()+"/jujud bootstrap-state"+
 				" --data-dir "+shquote(cfg.DataDir)+
 				" --instance-id "+cfg.InstanceIdAccessor+
 				" --env-config "+shquote(base64yaml(cfg.Config))+
 				debugFlag,
-			"rm -rf "+shquote(agentDir),
+			"rm -rf "+shquote(acfg.Dir()),
 		)
 	}
 
@@ -174,28 +177,51 @@ func (cfg *MachineConfig) dataFile(name string) string {
 	return path.Join(cfg.DataDir, name)
 }
 
-// addAgentInfo adds agent-required information to the agent's directory
-// and returns the agent directory name.
-func addAgentInfo(c *cloudinit.Config, cfg *MachineConfig, entityName string) string {
-	agentDir := environs.AgentDir(cfg.DataDir, entityName)
-	addScripts(c, fmt.Sprintf("mkdir -p %s", shquote(agentDir)))
-	addFile(c, path.Join(agentDir, "ca-cert.pem"), string(cfg.StateInfo.CACert), 0644)
-	addFile(c, path.Join(agentDir, "host-addrs"), cfg.stateHostAddrs(), 0644)
-	addFile(c, path.Join(agentDir, "initial-password"), cfg.stateHostAddrs(), 0600)
-	return agentDir
+func (cfg *MachineConfig) agentConfig(entityName string) (*agent.Conf, error) {
+	return &agent.Conf{
+		DataDir: cfg.DataDir,
+		InitialPassword: cfg.StateInfo.Password,
+		StateInfo: state.Info{
+			Addrs: cfg.stateHostAddrs(),
+			EntityName: entityName,
+		},
+	}
 }
 
-func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, name, args string) error {
-	agentDir := addAgentInfo(c, cfg, name)
+// addAgentInfo adds agent-required information to the agent's directory
+// and returns the agent directory name.
+func addAgentInfo(c *cloudinit.Config, cfg *MachineConfig, entityName string) error {
+	acfg := cfg.agentConfig(entityName)
+		DataDir: cfg.DataDir,
+		InitialPassword: cfg.StateInfo.Password,
+		StateInfo: state.Info{
+			Addrs: cfg.stateHostAddrs(),
+			EntityName: entityName,
+		},
+	}
+	cmds, err := acfg.WriteCommands()
+	if err != nil {
+		return nil, err
+	}
+	return acfg, nil
+}
+
+func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, entityName, args string) (*agent.Conf, error) {
+	acfg := cfg.agentConfig(entityName)
+	cmds, err := acfg.WriteCommands()
+	if err != nil {
+		return err
+	}
+	addScripts(c, cmds...)
 	if cfg.StateServer {
 		// TODO remove this when the server certificate and key
 		// are stored in the state and there's a secure vector
 		// for passing them to an existing agent.
 		addScripts(c,
 			fmt.Sprintf("cp %s %s %s",
-				shquote(cfg.dataFile("server-cert.pem")),
-				shquote(cfg.dataFile("server-key.pem")),
-				shquote(agentDir)),
+				shquote(acfg.File("server-cert.pem")),
+				shquote(acfg.File("server-key.pem")),
+				shquote(acfg.Dir())),
 		)
 	}
 
@@ -287,11 +313,8 @@ func (cfg *MachineConfig) stateHostAddrs() string {
 	return strings.Join(hosts, ",")
 }
 
-// shquote quotes s so that when read by bash, no metacharacters
-// within s will be interpreted as such.
-func shquote(s string) string {
-	// single-quote becomes single-quote, double-quote, single-quote, double-quote, single-quote
-	return `'` + strings.Replace(s, `'`, `'"'"'`, -1) + `'`
+func shquote(p string) string {
+	return trivial.ShQuote(p)
 }
 
 type requiresError string
