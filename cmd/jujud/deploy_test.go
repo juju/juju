@@ -74,11 +74,11 @@ func patchDeployManager(c *C, expectInfo *state.Info, expectDataDir string) (*fa
 	}
 	orig := newDeployManager
 	newDeployManager = func(st *state.State, info *state.Info, dataDir string) deployer.Manager {
-		c.Assert(info.Addrs, DeepEquals, expectInfo.Addrs)
-		c.Assert(info.CACert, DeepEquals, expectInfo.CACert)
-		c.Assert(info.EntityName, Equals, expectInfo.EntityName)
-		c.Assert(info.Password, Equals, "")
-		c.Assert(dataDir, Equals, expectDataDir)
+		c.Check(info.Addrs, DeepEquals, expectInfo.Addrs)
+		c.Check(info.CACert, DeepEquals, expectInfo.CACert)
+		c.Check(info.EntityName, Equals, expectInfo.EntityName)
+		c.Check(info.Password, Equals, "")
+		c.Check(dataDir, Equals, expectDataDir)
 		mgr.st = st
 		return mgr
 	}

@@ -9,11 +9,14 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/deployer"
+	"launchpad.net/tomb"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // requiredError is useful when complaining about missing command-line options.
@@ -166,6 +169,61 @@ waiting:
 func isUpgraded(err error) bool {
 	_, ok := err.(*UpgradeReadyError)
 	return ok
+}
+
+type Agent interface {
+	Tomb() *tomb.Tomb
+	RunOnce(st *state.State, entity AgentState) error
+	Entity(st *state.State) (AgentState, error)
+	EntityName() string
+}
+
+func RunLoop(c *AgentConf, a Agent) error {
+	atomb := a.Tomb()
+	for atomb.Err() == tomb.ErrStillAlive {
+		log.Printf("cmd/jujud: agent starting")
+		err := runOnce(c, a)
+		if ug, ok := err.(*UpgradeReadyError); ok {
+			if err = ug.ChangeAgentTools(); err == nil {
+				// Return and let upstart deal with the restart.
+				return ug
+			}
+		}
+		if err == worker.ErrDead {
+			log.Printf("cmd/jujud: agent is dead")
+			return nil
+		}
+		if err == nil {
+			log.Printf("cmd/jujud: workers died with no error")
+		} else {
+			log.Printf("cmd/jujud: %v", err)
+		}
+		select {
+		case <-atomb.Dying():
+			atomb.Kill(err)
+		case <-time.After(retryDelay):
+			log.Printf("cmd/jujud: rerunning machiner")
+		}
+	}
+	return atomb.Err()
+}
+
+func runOnce(c *AgentConf, a Agent) error {
+	st, password, err := openState(a.EntityName(), c)
+	defer st.Close()
+	entity, err := a.Entity(st)
+	if state.IsNotFound(err) || err == nil && entity.Life() == state.Dead {
+		return worker.ErrDead
+	}
+	if err != nil {
+		return err
+	}
+	if password != "" {
+		if err := entity.SetPassword(password); err != nil {
+			return err
+		}
+	}
+	return a.RunOnce(st, entity)
 }
 
 // openState tries to open the state with the given entity name

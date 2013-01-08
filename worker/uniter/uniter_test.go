@@ -92,6 +92,7 @@ type context struct {
 	id            int
 	path          string
 	dataDir       string
+	s             *UniterSuite
 	st            *state.State
 	charms        coretesting.ResponseMap
 	hooks         []string
@@ -101,6 +102,7 @@ type context struct {
 	uniter        *uniter.Uniter
 	relation      *state.Relation
 	relationUnits map[string]*state.RelationUnit
+	subordinate   *state.Unit
 }
 
 func (ctx *context) run(c *C, steps []stepper) {
@@ -670,10 +672,19 @@ var uniterTests = []uniterTest{
 		unitDead,
 		waitUniterDead{},
 		waitHooks{},
-		// TODO BUG: the unit doesn't leave the scope, leaving the relation
-		// unkillable without direct intervention. I'm pretty sure it should
-		// not be the uniter's responsibility to fix this; rather, EnsureDead
-		// should cause the unit to leave any relation scopes it may be in.
+		// TODO BUG(?): the unit doesn't leave the scope, leaving the relation
+		// unkillable without direct intervention. I'm pretty sure it's not a
+		// uniter bug -- it should be the responisbility of `juju remove-unit
+		// --force` to cause the unit to leave any relation scopes it may be
+		// in -- but it's worth noting here all the same.
+	), ut(
+		"unit becomes dying while subordinates exist",
+		quickStart{},
+		addSubordinate{},
+		unitDying,
+		verifyRunning{},
+		removeSubordinate{},
+		waitUniterDead{},
 	),
 }
 
@@ -688,6 +699,7 @@ func (s *UniterSuite) TestUniter(c *C) {
 		}
 		c.Logf("\ntest %d: %s\n", i, t.summary)
 		ctx := &context{
+			s:       s,
 			st:      s.State,
 			id:      i,
 			path:    unitDir,
@@ -1276,6 +1288,40 @@ func (s relationState) step(c *C, ctx *context) {
 	c.Assert(err, IsNil)
 	c.Assert(ctx.relation.Life(), Equals, s.life)
 
+}
+
+type addSubordinate struct{}
+
+func (addSubordinate) step(c *C, ctx *context) {
+	logging, err := ctx.st.AddService("logging", ctx.s.AddTestingCharm(c, "logging"))
+	c.Assert(err, IsNil)
+	eps, err := ctx.st.InferEndpoints([]string{"logging", "u"})
+	c.Assert(err, IsNil)
+	_, err = ctx.st.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	w := logging.WatchUnits()
+	defer func() { c.Assert(w.Stop(), IsNil) }()
+	for {
+		names, ok := <-w.Changes()
+		c.Assert(ok, Equals, true)
+		if len(names) != 0 {
+			ctx.subordinate, err = ctx.st.Unit(names[0])
+			c.Assert(err, IsNil)
+			break
+		}
+	}
+}
+
+type removeSubordinate struct{}
+
+func (removeSubordinate) step(c *C, ctx *context) {
+	err := ctx.subordinate.EnsureDead()
+	c.Assert(err, IsNil)
+	svc, err := ctx.subordinate.Service()
+	c.Assert(err, IsNil)
+	err = svc.RemoveUnit(ctx.subordinate)
+	c.Assert(err, IsNil)
+	ctx.subordinate = nil
 }
 
 type assertYaml struct {
