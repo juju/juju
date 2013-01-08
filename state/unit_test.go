@@ -9,18 +9,20 @@ import (
 
 type UnitSuite struct {
 	ConnSuite
-	charm *state.Charm
-	unit  *state.Unit
+	charm   *state.Charm
+	service *state.Service
+	unit    *state.Unit
 }
 
 var _ = Suite(&UnitSuite{})
 
 func (s *UnitSuite) SetUpTest(c *C) {
 	s.ConnSuite.SetUpTest(c)
-	s.charm = s.AddTestingCharm(c, "dummy")
-	svc, err := s.State.AddService("wordpress", s.charm)
+	s.charm = s.AddTestingCharm(c, "wordpress")
+	var err error
+	s.service, err = s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
-	s.unit, err = svc.AddUnit()
+	s.unit, err = s.service.AddUnit()
 	c.Assert(err, IsNil)
 }
 
@@ -422,6 +424,54 @@ func (s *UnitSuite) TestSubordinateChangeInPrincipal(c *C) {
 		c.Errorf(`unit document does not have a "subordinates" field`)
 	}
 	c.Assert(subordinates, DeepEquals, []string{"logging/0"})
+}
+
+func (s *UnitSuite) TestDeathWithSubordinates(c *C) {
+	// Check that units can become dead when they've never had subordinates.
+	u, err := s.service.AddUnit()
+	c.Assert(err, IsNil)
+	err = u.EnsureDead()
+	c.Assert(err, IsNil)
+
+	// Create a new unit and add a subordinate.
+	u, err = s.service.AddUnit()
+	c.Assert(err, IsNil)
+	logging, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
+	c.Assert(err, IsNil)
+	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
+	c.Assert(err, IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	ru, err := rel.Unit(u)
+	c.Assert(err, IsNil)
+	err = u.SetPrivateAddress("blah")
+	c.Assert(err, IsNil)
+	err = ru.EnterScope()
+	c.Assert(err, IsNil)
+
+	// Check the unit cannot become Dead, but can become Dying...
+	err = u.EnsureDead()
+	c.Assert(err, Equals, state.ErrUnitHasSubordinates)
+	err = u.EnsureDying()
+	c.Assert(err, IsNil)
+
+	// ...and that it still can't become Dead now it's Dying.
+	err = u.EnsureDead()
+	c.Assert(err, Equals, state.ErrUnitHasSubordinates)
+
+	// Make the subordinate Dead and check the principal still cannot be removed.
+	sub, err := s.State.Unit("logging/0")
+	c.Assert(err, IsNil)
+	err = sub.EnsureDead()
+	c.Assert(err, IsNil)
+	err = u.EnsureDead()
+	c.Assert(err, Equals, state.ErrUnitHasSubordinates)
+
+	// remove the subordinate and check the principal can finally become Dead.
+	err = logging.RemoveUnit(sub)
+	c.Assert(err, IsNil)
+	err = u.EnsureDead()
+	c.Assert(err, IsNil)
 }
 
 func (s *UnitSuite) TestWatchSubordinates(c *C) {
