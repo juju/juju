@@ -59,13 +59,12 @@ func (mr *Machiner) loop() error {
 			} else if err != nil {
 				return err
 			}
-			switch life := m.Life(); life {
-			case state.Dying:
+			if m.Life() != state.Alive {
+				// If the machine is Dying, it has no units,
+				// and can be safely set to Dead.
 				if err := m.EnsureDead(); err != nil {
 					return err
 				}
-				fallthrough
-			case state.Dead:
 				return worker.ErrDead
 			}
 		}
