@@ -10,17 +10,17 @@ import (
 	"launchpad.net/juju-core/state"
 )
 
-// RemoveUnitCommand is responsible removing service units.
-type RemoveUnitCommand struct {
+// DestroyUnitCommand is responsible for destroying service units.
+type DestroyUnitCommand struct {
 	EnvName   string
 	UnitNames []string
 }
 
-func (c *RemoveUnitCommand) Info() *cmd.Info {
-	return &cmd.Info{"remove-unit", "<unit> [...]", "remove service units", ""}
+func (c *DestroyUnitCommand) Info() *cmd.Info {
+	return &cmd.Info{"destroy-unit", "<unit> [...]", "destroy service units", ""}
 }
 
-func (c *RemoveUnitCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *DestroyUnitCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	addEnvironFlags(&c.EnvName, f)
 	if err := f.Parse(true, args); err != nil {
 		return err
@@ -38,8 +38,8 @@ func (c *RemoveUnitCommand) Init(f *gnuflag.FlagSet, args []string) error {
 }
 
 // Run connects to the environment specified on the command line
-// and calls conn.RemoveUnits.
-func (c *RemoveUnitCommand) Run(_ *cmd.Context) error {
+// and calls conn.DestroyUnits.
+func (c *DestroyUnitCommand) Run(_ *cmd.Context) error {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
 		return err
