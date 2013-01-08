@@ -52,14 +52,8 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer st.Close()
-
-	// Manually insert machine/0 into the state
-	m, err := st.AddMachine(state.JobManageEnviron)
+	m, err := st.InjectMachine(state.InstanceId(c.InstanceId), state.JobManageEnviron)
 	if err != nil {
-		return err
-	}
-	// Set the instance id of machine/0
-	if err := m.SetInstanceId(state.InstanceId(c.InstanceId)); err != nil {
 		return err
 	}
 	if c.Conf.InitialPassword != "" {
