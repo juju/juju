@@ -243,13 +243,13 @@ func (s *ServiceSuite) TestAddUnit(c *C) {
 	unitZero, err := s.service.AddUnit()
 	c.Assert(err, IsNil)
 	c.Assert(unitZero.Name(), Equals, "mysql/0")
-	principal := unitZero.IsPrincipal()
-	c.Assert(principal, Equals, true)
+	c.Assert(unitZero.IsPrincipal(), Equals, true)
+	c.Assert(unitZero.HasSubordinates(), Equals, false)
 	unitOne, err := s.service.AddUnit()
 	c.Assert(err, IsNil)
 	c.Assert(unitOne.Name(), Equals, "mysql/1")
-	principal = unitOne.IsPrincipal()
-	c.Assert(principal, Equals, true)
+	c.Assert(unitOne.IsPrincipal(), Equals, true)
+	c.Assert(unitOne.HasSubordinates(), Equals, false)
 
 	// Check that principal units cannot be added to principal units.
 	_, err = s.service.AddUnitSubordinateTo(unitZero)
@@ -270,8 +270,13 @@ func (s *ServiceSuite) TestAddUnit(c *C) {
 	subZero, err := logging.AddUnitSubordinateTo(unitZero)
 	c.Assert(err, IsNil)
 	c.Assert(subZero.Name(), Equals, "logging/0")
-	principal = subZero.IsPrincipal()
-	c.Assert(principal, Equals, false)
+	c.Assert(subZero.IsPrincipal(), Equals, false)
+	c.Assert(subZero.HasSubordinates(), Equals, false)
+
+	// Check that once it's refreshed unitZero has subordinates.
+	err = unitZero.Refresh()
+	c.Assert(err, IsNil)
+	c.Assert(unitZero.HasSubordinates(), Equals, true)
 
 	// Check the subordinate unit has been assigned its principal's machine.
 	id, err := subZero.AssignedMachineId()
@@ -285,11 +290,12 @@ func (s *ServiceSuite) TestAddUnit(c *C) {
 	// Check that subordinate units cannnot be added to subordinate units.
 	_, err = logging.AddUnitSubordinateTo(subZero)
 	c.Assert(err, ErrorMatches, `cannot add unit to service "logging" as a subordinate of "logging/0": unit is not a principal`)
+}
 
-	removeAllUnits(c, s.service)
+func (s *ServiceSuite) TestAddUnitWhenNotAlive(c *C) {
 	const errPat = ".*: service is not alive"
 	testWhenDying(c, s.service, errPat, errPat, func() error {
-		_, err = s.service.AddUnit()
+		_, err := s.service.AddUnit()
 		return err
 	})
 }

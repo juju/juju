@@ -7,8 +7,6 @@ import (
 	_ "launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/worker"
-	"launchpad.net/juju-core/worker/deployer"
 	"launchpad.net/juju-core/worker/firewaller"
 	"launchpad.net/juju-core/worker/provisioner"
 	"launchpad.net/tomb"
@@ -52,65 +50,18 @@ func (a *MachineAgent) Stop() error {
 func (a *MachineAgent) Run(_ *cmd.Context) error {
 	defer log.Printf("cmd/jujud: machine agent exiting")
 	defer a.tomb.Done()
-	for a.tomb.Err() == tomb.ErrStillAlive {
-		log.Printf("cmd/jujud: machine agent starting")
-		err := a.runOnce()
-		if ug, ok := err.(*UpgradeReadyError); ok {
-			if err = ug.ChangeAgentTools(); err == nil {
-				// Return and let upstart deal with the restart.
-				return ug
-			}
-		}
-		if err == worker.ErrDead {
-			log.Printf("cmd/jujud: machine is dead")
-			return nil
-		}
-		if err == nil {
-			log.Printf("cmd/jujud: workers died with no error")
-		} else {
-			log.Printf("cmd/jujud: %v", err)
-		}
-		select {
-		case <-a.tomb.Dying():
-			a.tomb.Kill(err)
-		case <-time.After(retryDelay):
-			log.Printf("cmd/jujud: rerunning machiner")
-		}
-	}
-	return a.tomb.Err()
+	return RunLoop(&a.Conf, a)
 }
 
-func (a *MachineAgent) runOnce() error {
-	st, password, err := openState(state.MachineEntityName(a.MachineId), &a.Conf)
-	if err != nil {
-		return err
-	}
-	defer st.Close()
-	m, err := st.Machine(a.MachineId)
-	if state.IsNotFound(err) || err == nil && m.Life() == state.Dead {
-		return worker.ErrDead
-	}
-	if err != nil {
-		return err
-	}
-	if password != "" {
-		if err := m.SetPassword(password); err != nil {
-			return err
-		}
-	}
+func (a *MachineAgent) RunOnce(st *state.State, e AgentState) error {
+	m := e.(*state.Machine)
 	log.Printf("cmd/jujud: running jobs for machine agent: %v", m.Jobs())
 	tasks := []task{NewUpgrader(st, m, a.Conf.DataDir)}
 	for _, j := range m.Jobs() {
 		switch j {
 		case state.JobHostUnits:
-			info := &state.Info{
-				EntityName: m.EntityName(),
-				Addrs:      st.Addrs(),
-				CACert:     st.CACert(),
-			}
-			mgr := deployer.NewSimpleManager(info, a.Conf.DataDir)
 			tasks = append(tasks,
-				deployer.NewDeployer(st, mgr, m.WatchPrincipalUnits()))
+				newDeployer(st, m.WatchPrincipalUnits(), a.Conf.DataDir))
 		case state.JobManageEnviron:
 			tasks = append(tasks,
 				provisioner.NewProvisioner(st),
@@ -120,4 +71,16 @@ func (a *MachineAgent) runOnce() error {
 		}
 	}
 	return runTasks(a.tomb.Dying(), tasks...)
+}
+
+func (a *MachineAgent) Entity(st *state.State) (AgentState, error) {
+	return st.Machine(a.MachineId)
+}
+
+func (a *MachineAgent) EntityName() string {
+	return state.MachineEntityName(a.MachineId)
+}
+
+func (a *MachineAgent) Tomb() *tomb.Tomb {
+	return &a.tomb
 }
