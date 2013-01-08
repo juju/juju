@@ -96,6 +96,7 @@ type context struct {
 	st            *state.State
 	charms        coretesting.ResponseMap
 	hooks         []string
+	sch           *state.Charm
 	svc           *state.Service
 	unit          *state.Unit
 	uniter        *uniter.Uniter
@@ -709,6 +710,57 @@ func (s *UniterSuite) TestUniter(c *C) {
 	}
 }
 
+func (s *UniterSuite) TestSubordinateDying(c *C) {
+	// Create a test context for later use.
+	ctx := &context{
+		st:      s.State,
+		path:    filepath.Join(s.dataDir, "agents", "unit-u-0"),
+		dataDir: s.dataDir,
+		charms:  coretesting.ResponseMap{},
+	}
+	defer os.RemoveAll(ctx.path)
+
+	// Create the subordinate service.
+	dir := coretesting.Charms.ClonedDir(c.MkDir(), "series", "logging")
+	curl, err := charm.ParseURL("cs:series/logging")
+	c.Assert(err, IsNil)
+	curl = curl.WithRevision(dir.Revision())
+	step(c, ctx, addCharm{dir, curl})
+	ctx.svc, err = s.State.AddService("u", ctx.sch)
+	c.Assert(err, IsNil)
+
+	// Create the principal service and add a relation.
+	wps, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, IsNil)
+	wpu, err := wps.AddUnit()
+	c.Assert(err, IsNil)
+	eps, err := s.State.InferEndpoints([]string{"wordpress", "u"})
+	c.Assert(err, IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+
+	// Create the subordinate unit by entering scope as the principal.
+	err = wpu.SetPrivateAddress("blah")
+	c.Assert(err, IsNil)
+	wpru, err := rel.Unit(wpu)
+	c.Assert(err, IsNil)
+	err = wpru.EnterScope()
+	c.Assert(err, IsNil)
+	ctx.unit, err = s.State.Unit("u/0")
+	c.Assert(err, IsNil)
+
+	// Run the actual test.
+	ctx.run(c, []stepper{
+		serveCharm{},
+		startUniter{},
+		waitAddresses{},
+		custom{func(c *C, ctx *context) {
+			c.Assert(rel.Destroy(), IsNil)
+		}},
+		waitUniterDead{},
+	})
+}
+
 func step(c *C, ctx *context, s stepper) {
 	c.Logf("%#v", s)
 	s.step(c, ctx)
@@ -745,19 +797,28 @@ func (s createCharm) step(c *C, ctx *context) {
 	c.Assert(err, IsNil)
 	err = dir.SetDiskRevision(s.revision)
 	c.Assert(err, IsNil)
-	buf := &bytes.Buffer{}
-	err = dir.BundleTo(buf)
+	step(c, ctx, addCharm{dir, curl(s.revision)})
+}
+
+type addCharm struct {
+	dir  *charm.Dir
+	curl *charm.URL
+}
+
+func (s addCharm) step(c *C, ctx *context) {
+	var buf bytes.Buffer
+	err := s.dir.BundleTo(&buf)
 	c.Assert(err, IsNil)
 	body := buf.Bytes()
 	hasher := sha256.New()
-	_, err = io.Copy(hasher, buf)
+	_, err = io.Copy(hasher, &buf)
 	c.Assert(err, IsNil)
 	hash := hex.EncodeToString(hasher.Sum(nil))
-	key := fmt.Sprintf("/charms/%d", s.revision)
+	key := fmt.Sprintf("/charms/%s/%d", s.dir.Meta().Name, s.dir.Revision())
 	hurl, err := url.Parse(coretesting.Server.URL + key)
 	c.Assert(err, IsNil)
 	ctx.charms[key] = coretesting.Response{200, nil, body}
-	_, err = ctx.st.AddCharm(dir, curl(s.revision), hurl, hash)
+	ctx.sch, err = ctx.st.AddCharm(s.dir, s.curl, hurl, hash)
 	c.Assert(err, IsNil)
 }
 
@@ -796,6 +857,12 @@ type createUniter struct{}
 func (createUniter) step(c *C, ctx *context) {
 	step(c, ctx, createServiceAndUnit{})
 	step(c, ctx, startUniter{})
+	step(c, ctx, waitAddresses{})
+}
+
+type waitAddresses struct{}
+
+func (waitAddresses) step(c *C, ctx *context) {
 	timeout := time.After(5 * time.Second)
 	for {
 		select {
