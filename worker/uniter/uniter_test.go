@@ -873,12 +873,12 @@ func (waitAddresses) step(c *C, ctx *context) {
 			if err != nil {
 				c.Fatalf("unit refresh failed: %v", err)
 			}
-			private, err := ctx.unit.PrivateAddress()
-			if err != nil || private != "private.dummy.address.example.com" {
+			private, _ := ctx.unit.PrivateAddress()
+			if private != "private.dummy.address.example.com" {
 				continue
 			}
-			public, err := ctx.unit.PublicAddress()
-			if err != nil || public != "public.dummy.address.example.com" {
+			public, _ := ctx.unit.PublicAddress()
+			if public != "public.dummy.address.example.com" {
 				continue
 			}
 			return

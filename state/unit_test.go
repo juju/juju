@@ -39,22 +39,22 @@ func (s *UnitSuite) TestService(c *C) {
 }
 
 func (s *UnitSuite) TestGetSetPublicAddress(c *C) {
-	address, err := s.unit.PublicAddress()
-	c.Assert(err, ErrorMatches, `public address of unit "wordpress/0" not found`)
-	err = s.unit.SetPublicAddress("example.foobar.com")
+	address, ok := s.unit.PublicAddress()
+	c.Assert(ok, Equals, false)
+	err := s.unit.SetPublicAddress("example.foobar.com")
 	c.Assert(err, IsNil)
-	address, err = s.unit.PublicAddress()
-	c.Assert(err, IsNil)
+	address, ok = s.unit.PublicAddress()
+	c.Assert(ok, Equals, true)
 	c.Assert(address, Equals, "example.foobar.com")
 }
 
 func (s *UnitSuite) TestGetSetPrivateAddress(c *C) {
-	address, err := s.unit.PrivateAddress()
-	c.Assert(err, ErrorMatches, `private address of unit "wordpress/0" not found`)
-	err = s.unit.SetPrivateAddress("example.local")
+	address, ok := s.unit.PrivateAddress()
+	c.Assert(ok, Equals, false)
+	err := s.unit.SetPrivateAddress("example.local")
 	c.Assert(err, IsNil)
-	address, err = s.unit.PrivateAddress()
-	c.Assert(err, IsNil)
+	address, ok = s.unit.PrivateAddress()
+	c.Assert(ok, Equals, true)
 	c.Assert(address, Equals, "example.local")
 }
 
@@ -67,18 +67,18 @@ func (s *UnitSuite) TestRefresh(c *C) {
 	err = s.unit.SetPublicAddress("example.foobar.com")
 	c.Assert(err, IsNil)
 
-	address, err := unit1.PrivateAddress()
-	c.Assert(err, ErrorMatches, `private address of unit "wordpress/0" not found`)
-	address, err = unit1.PublicAddress()
-	c.Assert(err, ErrorMatches, `public address of unit "wordpress/0" not found`)
+	address, ok := unit1.PrivateAddress()
+	c.Assert(ok, Equals, false)
+	address, ok = unit1.PublicAddress()
+	c.Assert(ok, Equals, false)
 
 	err = unit1.Refresh()
 	c.Assert(err, IsNil)
-	address, err = unit1.PrivateAddress()
-	c.Assert(err, IsNil)
+	address, ok = unit1.PrivateAddress()
+	c.Assert(ok, Equals, true)
 	c.Assert(address, Equals, "example.local")
-	address, err = unit1.PublicAddress()
-	c.Assert(err, IsNil)
+	address, ok = unit1.PublicAddress()
+	c.Assert(ok, Equals, true)
 	c.Assert(address, Equals, "example.foobar.com")
 
 	err = unit1.EnsureDead()
@@ -590,8 +590,8 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 	c.Assert(err, IsNil)
 	err = altunit.SetPublicAddress("newer-address")
 	c.Assert(err, IsNil)
-	_, err = s.unit.PublicAddress()
-	c.Assert(err, ErrorMatches, `public address of unit ".*" not found`)
+	_, ok := s.unit.PublicAddress()
+	c.Assert(ok, Equals, false)
 
 	w := s.unit.Watch()
 	defer func() {
@@ -603,8 +603,8 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 		c.Assert(ok, Equals, true)
 		err := s.unit.Refresh()
 		c.Assert(err, IsNil)
-		addr, err := s.unit.PublicAddress()
-		c.Assert(err, IsNil)
+		addr, ok := s.unit.PublicAddress()
+		c.Assert(ok, Equals, true)
 		c.Assert(addr, Equals, "newer-address")
 	case <-time.After(500 * time.Millisecond):
 		c.Fatalf("did not get change: %v", s.unit)
@@ -624,8 +624,8 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 			info.Life = s.unit.Life()
 			c.Assert(err, IsNil)
 			if test.want.PublicAddress != "" {
-				info.PublicAddress, err = s.unit.PublicAddress()
-				c.Assert(err, IsNil)
+				info.PublicAddress, ok = s.unit.PublicAddress()
+				c.Assert(ok, Equals, true)
 			}
 			c.Assert(info, DeepEquals, test.want)
 		case <-time.After(500 * time.Millisecond):

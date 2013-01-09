@@ -56,11 +56,11 @@ func (ctx *HookContext) UnitName() string {
 	return ctx.unit.Name()
 }
 
-func (ctx *HookContext) PublicAddress() (string, error) {
+func (ctx *HookContext) PublicAddress() (string, bool) {
 	return ctx.unit.PublicAddress()
 }
 
-func (ctx *HookContext) PrivateAddress() (string, error) {
+func (ctx *HookContext) PrivateAddress() (string, bool) {
 	return ctx.unit.PrivateAddress()
 }
 
