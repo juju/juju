@@ -573,7 +573,7 @@ func (s *InterfaceSuite) TestUnitCaching(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(pr, Equals, "u-0.example.com")
 	_, err = ctx.PublicAddress()
-	c.Assert(err, ErrorMatches, `public address of unit "u/0" not found`)
+	c.Assert(err, ErrorMatches, `unit has no public address`)
 
 	// Change remote state.
 	u, err := s.State.Unit("u/0")
@@ -588,7 +588,7 @@ func (s *InterfaceSuite) TestUnitCaching(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(pr, Equals, "u-0.example.com")
 	_, err = ctx.PublicAddress()
-	c.Assert(err, ErrorMatches, `public address of unit "u/0" not found`)
+	c.Assert(err, ErrorMatches, `unit has no public address`)
 }
 
 func (s *InterfaceSuite) TestConfigCaching(c *C) {

@@ -57,11 +57,19 @@ func (ctx *HookContext) UnitName() string {
 }
 
 func (ctx *HookContext) PublicAddress() (string, error) {
-	return ctx.unit.PublicAddress()
+	addr, ok := ctx.unit.PublicAddress()
+	if !ok {
+		return "", fmt.Errorf("unit has no public address")
+	}
+	return addr, nil
 }
 
 func (ctx *HookContext) PrivateAddress() (string, error) {
-	return ctx.unit.PrivateAddress()
+	addr, ok := ctx.unit.PrivateAddress()
+	if !ok {
+		return "", fmt.Errorf("unit has no private address")
+	}
+	return addr, nil
 }
 
 func (ctx *HookContext) OpenPort(protocol string, port int) error {

@@ -239,20 +239,20 @@ func (u *Unit) DeployerName() (string, bool) {
 	return "", false
 }
 
-// PublicAddress returns the public address of the unit.
-func (u *Unit) PublicAddress() (string, error) {
+// PublicAddress returns the public address of the unit and whether it is valid.
+func (u *Unit) PublicAddress() (string, bool) {
 	if u.doc.PublicAddress == "" {
-		return "", fmt.Errorf("public address of unit %q not found", u)
+		return "", false
 	}
-	return u.doc.PublicAddress, nil
+	return u.doc.PublicAddress, true
 }
 
-// PrivateAddress returns the public address of the unit.
-func (u *Unit) PrivateAddress() (string, error) {
+// PrivateAddress returns the private address of the unit and whether it is valid.
+func (u *Unit) PrivateAddress() (string, bool) {
 	if u.doc.PrivateAddress == "" {
-		return "", fmt.Errorf("private address of unit %q not found", u)
+		return "", false
 	}
-	return u.doc.PrivateAddress, nil
+	return u.doc.PrivateAddress, true
 }
 
 // Refresh refreshes the contents of the Unit from the underlying
