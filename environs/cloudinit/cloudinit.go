@@ -6,6 +6,7 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -177,10 +178,10 @@ func (cfg *MachineConfig) dataFile(name string) string {
 	return path.Join(cfg.DataDir, name)
 }
 
-func (cfg *MachineConfig) agentConfig(entityName string) (*agent.Conf, error) {
+func (cfg *MachineConfig) agentConfig(entityName string) *agent.Conf {
 	return &agent.Conf{
 		DataDir: cfg.DataDir,
-		InitialPassword: cfg.StateInfo.Password,
+		OldPassword: cfg.StateInfo.Password,
 		StateInfo: state.Info{
 			Addrs: cfg.stateHostAddrs(),
 			EntityName: entityName,
@@ -190,15 +191,8 @@ func (cfg *MachineConfig) agentConfig(entityName string) (*agent.Conf, error) {
 
 // addAgentInfo adds agent-required information to the agent's directory
 // and returns the agent directory name.
-func addAgentInfo(c *cloudinit.Config, cfg *MachineConfig, entityName string) error {
+func addAgentInfo(c *cloudinit.Config, cfg *MachineConfig, entityName string) (*agent.Conf, error) {
 	acfg := cfg.agentConfig(entityName)
-		DataDir: cfg.DataDir,
-		InitialPassword: cfg.StateInfo.Password,
-		StateInfo: state.Info{
-			Addrs: cfg.stateHostAddrs(),
-			EntityName: entityName,
-		},
-	}
 	cmds, err := acfg.WriteCommands()
 	if err != nil {
 		return nil, err
