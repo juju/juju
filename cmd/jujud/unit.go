@@ -51,13 +51,18 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 	return RunLoop(&a.Conf, a)
 }
 
-// runOnce runs a uniter once.
+// RunOnce runs a unit agent once.
 func (a *UnitAgent) RunOnce(st *state.State, e AgentState) error {
 	unit := e.(*state.Unit)
-	return runTasks(a.tomb.Dying(),
+	tasks := []task{
 		uniter.NewUniter(st, unit.Name(), a.Conf.DataDir),
 		NewUpgrader(st, unit, a.Conf.DataDir),
-	)
+	}
+	if unit.IsPrincipal() {
+		tasks = append(tasks,
+			newDeployer(st, unit.WatchSubordinateUnits(), a.Conf.DataDir))
+	}
+	return runTasks(a.tomb.Dying(), tasks...)
 }
 
 func (a *UnitAgent) Entity(st *state.State) (AgentState, error) {
