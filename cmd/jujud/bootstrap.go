@@ -40,7 +40,7 @@ func (c *BootstrapCommand) Init(f *gnuflag.FlagSet, args []string) error {
 
 // Run initializes state for an environment.
 func (c *BootstrapCommand) Run(_ *cmd.Context) error {
-	if err := c.Conf.complete("bootstrap"); err != nil {
+	if err := c.Conf.read("bootstrap"); err != nil {
 		return err
 	}
 	cfg, err := config.New(c.EnvConfig)
@@ -56,11 +56,11 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	if c.Conf.InitialPassword != "" {
-		if err := m.SetPassword(c.Conf.InitialPassword); err != nil {
+	if c.Conf.OldPassword != "" {
+		if err := m.SetPassword(c.Conf.OldPassword); err != nil {
 			return err
 		}
-		if err := st.SetAdminPassword(c.Conf.InitialPassword); err != nil {
+		if err := st.SetAdminPassword(c.Conf.OldPassword); err != nil {
 			return err
 		}
 	}

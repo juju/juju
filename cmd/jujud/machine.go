@@ -48,13 +48,13 @@ func (a *MachineAgent) Stop() error {
 
 // Run runs a machine agent.
 func (a *MachineAgent) Run(_ *cmd.Context) error {
-	if err := a.Conf.Read(state.MachineEntityName(a.MachineId)); err != nil {
+	if err := a.Conf.read(state.MachineEntityName(a.MachineId)); err != nil {
 		return err
 	}
 
 	defer log.Printf("cmd/jujud: machine agent exiting")
 	defer a.tomb.Done()
-	return RunLoop(&a.Conf, a)
+	return RunLoop(a.Conf.Conf, a)
 }
 
 func (a *MachineAgent) RunOnce(st *state.State, e AgentState) error {

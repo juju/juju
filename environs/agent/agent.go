@@ -74,6 +74,7 @@ func (c *Conf) Check() error {
 		return requiredError("data directory")
 	}
 	if c.StateInfo.EntityName == "" {
+		panic("no entity name")
 		return requiredError("entity name")
 	}
 	if len(c.StateInfo.Addrs) == 0 {
@@ -127,9 +128,10 @@ func (c *Conf) WriteCommands() ([]string, error) {
 	addCmd := func(f string, a ...interface{}) {
 		cmds = append(cmds, fmt.Sprintf(f, a...))
 	}
+	f := trivial.ShQuote(c.confFile())
 	addCmd("mkdir -p %s", trivial.ShQuote(c.Dir()))
-	addCmd("echo %s > %s", trivial.ShQuote(string(data)), c.confFile())
-	addCmd("chmod %o %s", 0600, c.confFile())
+	addCmd("echo %s > %s", trivial.ShQuote(string(data)), f)
+	addCmd("chmod %o %s", 0600, f)
 	return cmds, nil
 }
 

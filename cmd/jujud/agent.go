@@ -2,21 +2,15 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/deployer"
 	"launchpad.net/tomb"
-	"os"
-	"path/filepath"
 	"regexp"
-	"strings"
 	"time"
 )
 
@@ -118,7 +112,7 @@ type Agent interface {
 	EntityName() string
 }
 
-func RunLoop(c *AgentConf, a Agent) error {
+func RunLoop(c *agent.Conf, a Agent) error {
 	atomb := a.Tomb()
 	for {
 		log.Printf("cmd/jujud: agent starting")
@@ -168,7 +162,7 @@ func runOnce(c *agent.Conf, a Agent) error {
 	if err != nil {
 		return err
 	}
-	if passwordChanged != "" {
+	if passwordChanged {
 		if err := entity.SetPassword(c.StateInfo.Password); err != nil {
 			return err
 		}
