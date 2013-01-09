@@ -55,7 +55,15 @@ Other prerequisites
 A number of additional prerequisite packages are required to compile `juju-core`
 and run the tests.
 
-    sudo apt-get install mongodb build-essential bzr zip git-core mercurial
+    sudo apt-get install build-essential bzr zip git-core mercurial
+
+Binaries for mongodb are also required, but a newer version than is present in
+either 12.04 or 12.10 Ubuntu releases. Instead, you can get what you need from
+the public bucket which juju uses when deploying itself:
+
+    http://juju-dist.s3.amazonaws.com/tools/mongo-2.2.0-precise-amd64.tgz
+
+Change the Ubuntu series name and architecture to match your system.
 
 Getting juju-core
 =================
