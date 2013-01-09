@@ -241,18 +241,12 @@ func (u *Unit) DeployerName() (string, bool) {
 
 // PublicAddress returns the public address of the unit and whether it is valid.
 func (u *Unit) PublicAddress() (string, bool) {
-	if u.doc.PublicAddress == "" {
-		return "", false
-	}
-	return u.doc.PublicAddress, true
+	return u.doc.PublicAddress, u.doc.PublicAddress != ""
 }
 
 // PrivateAddress returns the private address of the unit and whether it is valid.
 func (u *Unit) PrivateAddress() (string, bool) {
-	if u.doc.PrivateAddress == "" {
-		return "", false
-	}
-	return u.doc.PrivateAddress, true
+	return u.doc.PrivateAddress, u.doc.PrivateAddress != ""
 }
 
 // Refresh refreshes the contents of the Unit from the underlying

@@ -569,11 +569,11 @@ func (s *InterfaceSuite) TestTrivial(c *C) {
 
 func (s *InterfaceSuite) TestUnitCaching(c *C) {
 	ctx := s.GetContext(c, -1, "")
-	pr, err := ctx.PrivateAddress()
-	c.Assert(err, IsNil)
+	pr, ok := ctx.PrivateAddress()
+	c.Assert(ok, Equals, true)
 	c.Assert(pr, Equals, "u-0.example.com")
-	_, err = ctx.PublicAddress()
-	c.Assert(err, ErrorMatches, `unit has no public address`)
+	_, ok = ctx.PublicAddress()
+	c.Assert(ok, Equals, false)
 
 	// Change remote state.
 	u, err := s.State.Unit("u/0")
@@ -584,11 +584,11 @@ func (s *InterfaceSuite) TestUnitCaching(c *C) {
 	c.Assert(err, IsNil)
 
 	// Local view is unchanged.
-	pr, err = ctx.PrivateAddress()
-	c.Assert(err, IsNil)
+	pr, ok = ctx.PrivateAddress()
+	c.Assert(ok, Equals, true)
 	c.Assert(pr, Equals, "u-0.example.com")
-	_, err = ctx.PublicAddress()
-	c.Assert(err, ErrorMatches, `unit has no public address`)
+	_, ok = ctx.PublicAddress()
+	c.Assert(ok, Equals, false)
 }
 
 func (s *InterfaceSuite) TestConfigCaching(c *C) {
