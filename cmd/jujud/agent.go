@@ -210,6 +210,9 @@ func RunLoop(c *AgentConf, a Agent) error {
 
 func runOnce(c *AgentConf, a Agent) error {
 	st, password, err := openState(a.EntityName(), c)
+	if err != nil {
+		return err
+	}
 	defer st.Close()
 	entity, err := a.Entity(st)
 	if state.IsNotFound(err) || err == nil && entity.Life() == state.Dead {
