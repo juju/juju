@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/version"
 	"os"
 	"reflect"
 	"time"
@@ -44,15 +45,22 @@ func (s *MachineSuite) TestParseUnknown(c *C) {
 }
 
 func (s *MachineSuite) newAgent(c *C, mid string) *MachineAgent {
+	entityName := state.MachineEntityName(mid)
+	dataDir, tools := primeTools(c, s.Conn, version.Current)
+	tools1, err := environs.ChangeAgentTools(dataDir, entityName, version.Current)
+	c.Assert(err, IsNil)
+	c.Assert(tools1, DeepEquals, tools)
+
 	a := &MachineAgent{
 		Conf: AgentConf{
-			DataDir:         c.MkDir(),
+			DataDir:         dataDir,
 			StateInfo:       *s.StateInfo(c),
 			InitialPassword: "machine-password",
 		},
 		MachineId: mid,
 	}
-	err := os.MkdirAll(environs.AgentDir(a.Conf.DataDir, state.MachineEntityName(mid)), 0777)
+	a.Conf.StateInfo.EntityName = entityName
+	err = os.MkdirAll(environs.AgentDir(dataDir, entityName), 0777)
 	c.Assert(err, IsNil)
 	return a
 }
@@ -103,7 +111,43 @@ func (s *MachineSuite) TestWithDeadMachine(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *MachineSuite) TestProvisionerFirewaller(c *C) {
+func (s *MachineSuite) TestHostUnits(c *C) {
+	m := addMachine(s.State, state.JobHostUnits)
+	a := s.newAgent(c, m.Id())
+	mgr, reset := patchDeployManager(c, &a.Conf.StateInfo, a.Conf.DataDir)
+	defer reset()
+	go func() { c.Check(a.Run(nil), IsNil) }()
+	defer func() { c.Check(a.Stop(), IsNil) }()
+
+	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, IsNil)
+	u0, err := svc.AddUnit()
+	c.Assert(err, IsNil)
+	u1, err := svc.AddUnit()
+	c.Assert(err, IsNil)
+	mgr.waitDeployed(c)
+
+	err = u0.AssignToMachine(m)
+	c.Assert(err, IsNil)
+	mgr.waitDeployed(c, u0.Name())
+
+	err = u0.EnsureDying()
+	c.Assert(err, IsNil)
+	mgr.waitDeployed(c, u0.Name())
+
+	err = u1.AssignToMachine(m)
+	c.Assert(err, IsNil)
+	mgr.waitDeployed(c, u0.Name(), u1.Name())
+
+	err = u0.EnsureDead()
+	c.Assert(err, IsNil)
+	mgr.waitDeployed(c, u1.Name())
+
+	err = u0.Refresh()
+	c.Assert(state.IsNotFound(err), Equals, true)
+}
+
+func (s *MachineSuite) TestManageEnviron(c *C) {
 	m := addMachine(s.State, state.JobManageEnviron)
 	op := make(chan dummy.Operation, 200)
 	dummy.Listen(op)
