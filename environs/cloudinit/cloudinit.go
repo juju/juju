@@ -13,7 +13,6 @@ import (
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/upstart"
 	"path"
-	"strings"
 )
 
 // TODO(dfc) duplicated from environs/ec2
@@ -153,7 +152,7 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 		)
 	}
 
-	if err := addAgentToBoot(c, cfg, "machine",
+	if _, err := addAgentToBoot(c, cfg, "machine",
 		state.MachineEntityName(cfg.MachineId),
 		fmt.Sprintf("--machine-id %s "+debugFlag, cfg.MachineId)); err != nil {
 		return nil, err
@@ -179,14 +178,14 @@ func (cfg *MachineConfig) dataFile(name string) string {
 }
 
 func (cfg *MachineConfig) agentConfig(entityName string) *agent.Conf {
-	return &agent.Conf{
+	c := &agent.Conf{
 		DataDir: cfg.DataDir,
 		OldPassword: cfg.StateInfo.Password,
-		StateInfo: state.Info{
-			Addrs: cfg.stateHostAddrs(),
-			EntityName: entityName,
-		},
+		StateInfo: *cfg.StateInfo,
 	}
+	c.StateInfo.Addrs = cfg.stateHostAddrs()
+	c.StateInfo.EntityName = entityName
+	return c
 }
 
 // addAgentInfo adds agent-required information to the agent's directory
@@ -197,6 +196,7 @@ func addAgentInfo(c *cloudinit.Config, cfg *MachineConfig, entityName string) (*
 	if err != nil {
 		return nil, err
 	}
+	addScripts(c, cmds...)
 	return acfg, nil
 }
 
@@ -204,7 +204,7 @@ func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, entityName, a
 	acfg := cfg.agentConfig(entityName)
 	cmds, err := acfg.WriteCommands()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	addScripts(c, cmds...)
 	if cfg.StateServer {
@@ -222,12 +222,12 @@ func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, entityName, a
 	// Make the agent run via a symbolic link to the actual tools
 	// directory, so it can upgrade itself without needing to change
 	// the upstart script.
-	toolsDir := environs.AgentToolsDir(cfg.DataDir, name)
+	toolsDir := environs.AgentToolsDir(cfg.DataDir, entityName)
 	// TODO(dfc) ln -nfs, so it doesn't fail if for some reason that the target already exists
 	addScripts(c, fmt.Sprintf("ln -s %v %s", cfg.Tools.Binary, shquote(toolsDir)))
 
-	svc := upstart.NewService("jujud-" + name)
-	logPath := fmt.Sprintf("/var/log/juju/%s.log", name)
+	svc := upstart.NewService("jujud-" + entityName)
+	logPath := fmt.Sprintf("/var/log/juju/%s.log", entityName)
 	cmd := fmt.Sprintf(
 		"%s/jujud %s"+
 			" --log-file %s"+
@@ -240,16 +240,16 @@ func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, entityName, a
 	)
 	conf := &upstart.Conf{
 		Service: *svc,
-		Desc:    fmt.Sprintf("juju %s agent", name),
+		Desc:    fmt.Sprintf("juju %s agent", entityName),
 		Cmd:     cmd,
 		Out:     logPath,
 	}
-	cmds, err := conf.InstallCommands()
+	cmds, err = conf.InstallCommands()
 	if err != nil {
-		return fmt.Errorf("cannot make cloud-init upstart script for the %s agent: %v", name, err)
+		return nil, fmt.Errorf("cannot make cloud-init upstart script for the %s agent: %v", entityName, err)
 	}
 	addScripts(c, cmds...)
-	return nil
+	return acfg, nil
 }
 
 func addMongoToBoot(c *cloudinit.Config, cfg *MachineConfig) error {
@@ -296,7 +296,7 @@ func (cfg *MachineConfig) jujuTools() string {
 	return environs.ToolsDir(cfg.DataDir, cfg.Tools.Binary)
 }
 
-func (cfg *MachineConfig) stateHostAddrs() string {
+func (cfg *MachineConfig) stateHostAddrs() []string {
 	var hosts []string
 	if cfg.StateServer {
 		hosts = append(hosts, "localhost"+mgoPortSuffix)
@@ -304,7 +304,7 @@ func (cfg *MachineConfig) stateHostAddrs() string {
 	if cfg.StateInfo != nil {
 		hosts = append(hosts, cfg.StateInfo.Addrs...)
 	}
-	return strings.Join(hosts, ",")
+	return hosts
 }
 
 func shquote(p string) string {
