@@ -115,26 +115,48 @@ func (s *DeployerSuite) TestRemoveNonAlivePrincipals(c *C) {
 	s.waitFor(c, isDeployed(mgr))
 }
 
-func (s *DeployerSuite) TestDeployRecallRemoveSubordinates(c *C) {
-	// Create a unit of a principal service, and create a subordinate service.
+func (s *DeployerSuite) prepareSubordinates(c *C) (*state.Unit, []*state.RelationUnit) {
 	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
 	u, err := svc.AddUnit()
-	sub, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
+	c.Assert(err, IsNil)
+	err = u.SetPrivateAddress("blech")
 	c.Assert(err, IsNil)
 
+	rus := []*state.RelationUnit{}
+	logging := s.AddTestingCharm(c, "logging")
+	for _, name := range []string{"subsvc0", "subsvc1"} {
+		_, err := s.State.AddService(name, logging)
+		c.Assert(err, IsNil)
+		eps, err := s.State.InferEndpoints([]string{"wordpress", name})
+		c.Assert(err, IsNil)
+		rel, err := s.State.AddRelation(eps...)
+		c.Assert(err, IsNil)
+		ru, err := rel.Unit(u)
+		c.Assert(err, IsNil)
+		rus = append(rus, ru)
+	}
+	return u, rus
+}
+
+func (s *DeployerSuite) TestDeployRecallRemoveSubordinates(c *C) {
 	// Create a deployer acting on behalf of the principal.
+	u, rus := s.prepareSubordinates(c)
 	mgr := s.getManager(c, u.EntityName())
 	dep := deployer.NewDeployer(s.State, mgr, u.WatchSubordinateUnits())
 	defer stop(c, dep)
 
 	// Add a subordinate, and wait for it to be deployed.
-	sub0, err := sub.AddUnitSubordinateTo(u)
+	err := rus[0].EnterScope()
+	c.Assert(err, IsNil)
+	sub0, err := s.State.Unit("subsvc0/0")
 	c.Assert(err, IsNil)
 	s.waitFor(c, isDeployed(mgr, sub0.Name()))
 
 	// And another.
-	sub1, err := sub.AddUnitSubordinateTo(u)
+	err = rus[1].EnterScope()
+	c.Assert(err, IsNil)
+	sub1, err := s.State.Unit("subsvc1/0")
 	c.Assert(err, IsNil)
 	s.waitFor(c, isDeployed(mgr, sub0.Name(), sub1.Name()))
 
@@ -153,19 +175,17 @@ func (s *DeployerSuite) TestDeployRecallRemoveSubordinates(c *C) {
 }
 
 func (s *DeployerSuite) TestNonAliveSubordinates(c *C) {
-	// Create a unit of a principal service, and create a subordinate service.
-	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, IsNil)
-	u, err := svc.AddUnit()
-	sub, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
-	c.Assert(err, IsNil)
-
 	// Add two subordinate units and set them to Dead/Dying respectively.
-	sub0, err := sub.AddUnitSubordinateTo(u)
+	u, rus := s.prepareSubordinates(c)
+	err := rus[0].EnterScope()
+	c.Assert(err, IsNil)
+	sub0, err := s.State.Unit("subsvc0/0")
 	c.Assert(err, IsNil)
 	err = sub0.EnsureDead()
 	c.Assert(err, IsNil)
-	sub1, err := sub.AddUnitSubordinateTo(u)
+	err = rus[1].EnterScope()
+	c.Assert(err, IsNil)
+	sub1, err := s.State.Unit("subsvc1/0")
 	c.Assert(err, IsNil)
 	err = sub1.EnsureDying()
 	c.Assert(err, IsNil)
