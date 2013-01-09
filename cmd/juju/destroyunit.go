@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/trivial"
 )
 
 // DestroyUnitCommand is responsible for destroying service units.
@@ -27,11 +28,11 @@ func (c *DestroyUnitCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	}
 	c.UnitNames = f.Args()
 	if len(c.UnitNames) == 0 {
-		return errors.New("no service units specified")
+		return errors.New("no units specified")
 	}
 	for _, name := range c.UnitNames {
 		if !state.IsUnitName(name) {
-			return fmt.Errorf("invalid service unit name: %q", name)
+			return fmt.Errorf("invalid unit name: %q", name)
 		}
 	}
 	return nil
@@ -39,19 +40,26 @@ func (c *DestroyUnitCommand) Init(f *gnuflag.FlagSet, args []string) error {
 
 // Run connects to the environment specified on the command line
 // and calls conn.DestroyUnits.
-func (c *DestroyUnitCommand) Run(_ *cmd.Context) error {
+func (c *DestroyUnitCommand) Run(_ *cmd.Context) (err error) {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
+	defer trivial.ErrorContextf(&err, "cannot destroy units")
 	var units []*state.Unit
 	for _, name := range c.UnitNames {
-		unit, err := conn.State.Unit(name)
-		if err != nil {
+		if unit, err := conn.State.Unit(name); state.IsNotFound(err) {
+			return fmt.Errorf("unit %q is not alive", name)
+		} else if err != nil {
 			return err
+		} else if unit.Life() != state.Alive {
+			return fmt.Errorf("unit %q is not alive", name)
+		} else if unit.IsPrincipal() {
+			units = append(units, unit)
+		} else {
+			return fmt.Errorf("unit %q is a subordinate", name)
 		}
-		units = append(units, unit)
 	}
 	return conn.DestroyUnits(units...)
 }

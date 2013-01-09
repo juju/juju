@@ -349,17 +349,3 @@ func (*CmdSuite) TestSetCommandInit(c *C) {
 	com, err = initSetCommand("service", "--config", "testconfig", "bees=")
 	c.Assert(err, ErrorMatches, "cannot specify --config when using key=value arguments")
 }
-
-func initDestroyUnitCommand(args ...string) (*DestroyUnitCommand, error) {
-	com := &DestroyUnitCommand{}
-	return com, com.Init(newFlagSet(), args)
-}
-
-func (*CmdSuite) TestDestroyUnitCommandInit(c *C) {
-	// missing args
-	_, err := initDestroyUnitCommand()
-	c.Assert(err, ErrorMatches, "no service units specified")
-	// not a unit
-	_, err = initDestroyUnitCommand("seven/nine")
-	c.Assert(err, ErrorMatches, `invalid service unit name: "seven/nine"`)
-}
