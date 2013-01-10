@@ -444,9 +444,7 @@ func (s *UnitSuite) TestDeathWithSubordinates(c *C) {
 	c.Assert(err, IsNil)
 	ru, err := rel.Unit(u)
 	c.Assert(err, IsNil)
-	err = u.SetPrivateAddress("blah")
-	c.Assert(err, IsNil)
-	err = ru.EnterScope()
+	err = ru.EnterScope(nil)
 	c.Assert(err, IsNil)
 
 	// Check the unit cannot become Dead, but can become Dying...

@@ -40,10 +40,14 @@ func (r *Relationer) Join() error {
 	if r.dying {
 		panic("dying relationer must not join!")
 	}
+	address, ok := r.ru.PrivateAddress()
+	if !ok {
+		return fmt.Errorf("cannot enter scope: private-address not set")
+	}
 	if err := r.dir.Ensure(); err != nil {
 		return err
 	}
-	return r.ru.EnterScope()
+	return r.ru.EnterScope(map[string]interface{}{"private-address": address})
 }
 
 // SetDying informs the relationer that the unit is departing the relation,
