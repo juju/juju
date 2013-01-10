@@ -255,32 +255,32 @@ func (s *RelationUnitSuite) TestPeerSettings(c *C) {
 	}
 
 	// Check settings can be read by every RU.
-	assertSettings := func(expect map[string]interface{}) {
+	assertSettings := func(u *state.Unit, expect map[string]interface{}) {
 		for _, ru := range rus {
-			m, err := ru.ReadSettings("riak/0")
+			m, err := ru.ReadSettings(u.Name())
 			c.Assert(err, IsNil)
 			c.Assert(m, DeepEquals, expect)
 		}
 	}
-	assertSettings(normal)
+	assertSettings(pr.u0, normal)
 
 	// Check that EnterScope when scope already entered does not touch
 	// settings at all.
 	changed := map[string]interface{}{"foo": "bar"}
 	err = pr.ru0.EnterScope(changed)
 	c.Assert(err, IsNil)
-	assertSettings(normal)
+	assertSettings(pr.u0, normal)
 
 	// Leave scope, check settings are still as accessible as before.
 	err = pr.ru0.LeaveScope()
 	c.Assert(err, IsNil)
-	assertSettings(normal)
+	assertSettings(pr.u0, normal)
 
 	// Re-enter scope wih changed settings, and check they completely overwrite
 	// the old ones.
 	err = pr.ru0.EnterScope(changed)
 	c.Assert(err, IsNil)
-	assertSettings(changed)
+	assertSettings(pr.u0, changed)
 
 	// Leave and re-enter with nil nettings, and check they overwrite to become
 	// an empty map.
@@ -288,7 +288,12 @@ func (s *RelationUnitSuite) TestPeerSettings(c *C) {
 	c.Assert(err, IsNil)
 	err = pr.ru0.EnterScope(nil)
 	c.Assert(err, IsNil)
-	assertSettings(map[string]interface{}{})
+	assertSettings(pr.u0, map[string]interface{}{})
+
+	// Check that entering scope for the first time with nil settings works correctly.
+	err = pr.ru1.EnterScope(nil)
+	c.Assert(err, IsNil)
+	assertSettings(pr.u1, map[string]interface{}{})
 }
 
 func (s *RelationUnitSuite) TestProReqSettings(c *C) {

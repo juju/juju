@@ -274,7 +274,7 @@ var ErrCannotEnterScope = errors.New("cannot enter scope: unit or relation is no
 // Once a unit has entered a scope, it stays in scope without further
 // intervention; the relation will not be able to become Dead until all units
 // have departed its scopes.
-func (ru *RelationUnit) EnterScope(enterSettings map[string]interface{}) error {
+func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	// Verify that the unit is not already in scope, and abort without error
 	// if it is.
 	ruKey, err := ru.key(ru.unit.Name())
@@ -305,17 +305,14 @@ func (ru *RelationUnit) EnterScope(enterSettings map[string]interface{}) error {
 	//   exist; or completely overwrite them if they do. This must happen
 	//   before we create the scope doc, because the existence of a scope doc
 	//   is considered to be a guarantee of the existence of a settings doc.
-	if enterSettings == nil {
-		enterSettings = map[string]interface{}{}
-	}
 	settingsChanged := func() (bool, error) { return false, nil }
 	if count, err := ru.st.settings.FindId(ruKey).Count(); err != nil {
 		return err
 	} else if count == 0 {
-		ops = append(ops, createSettingsOp(ru.st, ruKey, enterSettings))
+		ops = append(ops, createSettingsOp(ru.st, ruKey, settings))
 	} else {
 		var rop txn.Op
-		rop, settingsChanged, err = replaceSettingsOp(ru.st, ruKey, enterSettings)
+		rop, settingsChanged, err = replaceSettingsOp(ru.st, ruKey, settings)
 		if err != nil {
 			return err
 		}
@@ -347,6 +344,7 @@ func (ru *RelationUnit) EnterScope(enterSettings map[string]interface{}) error {
 		// The scope document exists, so we're actually already in scope.
 		return nil
 	}
+
 	// The relation or unit might no longer be Alive. (Note that there is no
 	// need for additional checks if we're trying to create a subordinate
 	// unit: this could fail due to the subordinate service's not being Alive,
@@ -362,6 +360,7 @@ func (ru *RelationUnit) EnterScope(enterSettings map[string]interface{}) error {
 	} else if !alive {
 		return ErrCannotEnterScope
 	}
+
 	// It's possible that there was a pre-existing settings doc whose version
 	// has changed under our feet, preventing us from clearing it properly; if
 	// that is the case, something is seriously wrong (nobody else should be
@@ -372,6 +371,7 @@ func (ru *RelationUnit) EnterScope(enterSettings map[string]interface{}) error {
 	} else if changed {
 		return fmt.Errorf(t, "concurrent settings change detected")
 	}
+
 	// Apparently, all our assertions should have passed, but the txn was
 	// aborted: something is really seriously wrong.
 	return fmt.Errorf(t, "inconsistent state")

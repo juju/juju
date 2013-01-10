@@ -250,6 +250,10 @@ func removeSettings(st *State, key string) error {
 	return nil
 }
 
+// replaceSettingsOp returns a txn.Op that deletes the document's contents and
+// replaces it with the supplied values, and a function that should be called on
+// txn failure to determine whether this operation failed (due to a concurrent
+// settings change).
 func replaceSettingsOp(st *State, key string, values map[string]interface{}) (txn.Op, func() (bool, error), error) {
 	s, err := readSettings(st, key)
 	if err != nil {

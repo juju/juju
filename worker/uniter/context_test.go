@@ -284,14 +284,10 @@ func (s *RunHookSuite) TestRunHookRelationFlushing(c *C) {
 	// Check that the changes to the local settings nodes have been discarded.
 	node0, err = s.relctxs[0].Settings()
 	c.Assert(err, IsNil)
-	c.Assert(node0.Map(), DeepEquals, map[string]interface{}{
-		"private-address": "u-0.example.com",
-	})
+	c.Assert(node0.Map(), DeepEquals, map[string]interface{}{"unit-name": "u/0"})
 	node1, err = s.relctxs[1].Settings()
 	c.Assert(err, IsNil)
-	c.Assert(node1.Map(), DeepEquals, map[string]interface{}{
-		"private-address": "u-0.example.com",
-	})
+	c.Assert(node1.Map(), DeepEquals, map[string]interface{}{"unit-name": "u/1"})
 
 	// Check that the changes have been written to state.
 	settings0, err := s.relunits[0].ReadSettings("u/0")
@@ -317,14 +313,14 @@ func (s *RunHookSuite) TestRunHookRelationFlushing(c *C) {
 	node0, err = s.relctxs[0].Settings()
 	c.Assert(err, IsNil)
 	c.Assert(node0.Map(), DeepEquals, map[string]interface{}{
-		"private-address": "u-0.example.com",
-		"baz":             3,
+		"unit-name": "u/0",
+		"baz":       3,
 	})
 	node1, err = s.relctxs[1].Settings()
 	c.Assert(err, IsNil)
 	c.Assert(node1.Map(), DeepEquals, map[string]interface{}{
-		"private-address": "u-0.example.com",
-		"qux":             4,
+		"unit-name": "u/1",
+		"qux":       4,
 	})
 
 	// Check that the changes have been written to state.
@@ -652,7 +648,7 @@ func (s *HookContextSuite) AddContextRelation(c *C, name string) {
 	s.relunits[rel.Id()] = ru
 	addr, ok := ru.PrivateAddress()
 	c.Assert(ok, Equals, true)
-	err = ru.EnterScope(map[string]interface{}{"private-address": addr})
+	err = ru.EnterScope(map[string]interface{}{"unit-name": name})
 	c.Assert(err, IsNil)
 	s.relctxs[rel.Id()] = uniter.NewContextRelation(ru, nil)
 }
