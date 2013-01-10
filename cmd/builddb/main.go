@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju"
@@ -74,9 +75,9 @@ func build() error {
 			last = status
 		}
 	}
-	addr, err := unit.PublicAddress()
-	if err != nil {
-		return err
+	addr, ok := unit.PublicAddress()
+	if !ok {
+		return fmt.Errorf("cannot retrieve files: build unit lacks a public-address")
 	}
 	log.Printf("builddb: Built files published at http://%s", addr)
 	log.Printf("builddb: Remember to destroy the environment when you're done...")
