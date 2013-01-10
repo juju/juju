@@ -72,7 +72,7 @@ func (s *MachineSuite) TestRunInvalidMachineId(c *C) {
 }
 
 func addMachine(st *state.State, jobs ...state.MachineJob) *state.Machine {
-	m, err := st.AddMachine(jobs...)
+	m, err := st.InjectMachine("ardbeg-0", jobs...)
 	if err != nil {
 		panic(err)
 	}
