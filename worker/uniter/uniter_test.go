@@ -1315,7 +1315,10 @@ func (addSubordinate) step(c *C, ctx *context) {
 type removeSubordinate struct{}
 
 func (removeSubordinate) step(c *C, ctx *context) {
-	err := ctx.subordinate.EnsureDead()
+	err := ctx.subordinate.Refresh()
+	c.Assert(err, IsNil)
+	c.Assert(ctx.subordinate.Life(), Equals, state.Dying)
+	err = ctx.subordinate.EnsureDead()
 	c.Assert(err, IsNil)
 	svc, err := ctx.subordinate.Service()
 	c.Assert(err, IsNil)

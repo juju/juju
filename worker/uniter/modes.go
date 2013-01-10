@@ -202,7 +202,7 @@ func ModeTerminating(u *Uniter) (next Mode, err error) {
 			if err := u.unit.Refresh(); err != nil {
 				return nil, err
 			}
-			if u.unit.HasSubordinates() {
+			if len(u.unit.SubordinateNames()) > 0 {
 				continue
 			}
 			// The unit is known to be Dying; so if it didn't have subordinates
@@ -289,6 +289,18 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 // modeAbideDyingLoop handles the proper termination of all relations in
 // response to a Dying unit.
 func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
+	if err := u.unit.Refresh(); err != nil {
+		return nil, err
+	}
+	for _, name := range u.unit.SubordinateNames() {
+		if sub, err := u.st.Unit(name); state.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			return nil, err
+		} else if err := sub.EnsureDying(); err != nil {
+			return nil, err
+		}
+	}
 	for _, r := range u.relationers {
 		if err := r.SetDying(); err != nil {
 			return nil, err

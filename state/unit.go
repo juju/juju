@@ -223,9 +223,12 @@ func (u *Unit) IsPrincipal() bool {
 	return u.doc.Principal == ""
 }
 
-// HasSubordinates returns whether the unit has any subordinate units.
-func (u *Unit) HasSubordinates() bool {
-	return len(u.doc.Subordinates) > 0
+// SubordinateNames returns the names of any subordinate units.
+func (u *Unit) SubordinateNames() (names []string) {
+	for _, name := range u.doc.Subordinates {
+		names = append(names, name)
+	}
+	return names
 }
 
 // DeployerName returns the entity name of the agent responsible for deploying
