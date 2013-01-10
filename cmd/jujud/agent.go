@@ -163,6 +163,9 @@ func runOnce(c *agent.Conf, a Agent) error {
 		return err
 	}
 	if passwordChanged {
+		if err := c.Write(); err != nil {
+			return err
+		}
 		if err := entity.SetPassword(c.StateInfo.Password); err != nil {
 			return err
 		}
