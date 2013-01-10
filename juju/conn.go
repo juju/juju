@@ -257,7 +257,24 @@ func (conn *Conn) AddUnits(svc *state.Service, n int) ([]*state.Unit, error) {
 }
 
 // DestroyUnits removes the specified units from the state.
-func (conn *Conn) DestroyUnits(units ...*state.Unit) error {
+func (conn *Conn) DestroyUnits(names ...string) (err error) {
+	defer trivial.ErrorContextf(&err, "cannot destroy units")
+	var units []*state.Unit
+	for _, name := range names {
+		unit, err := conn.State.Unit(name)
+		switch {
+		case state.IsNotFound(err):
+			return fmt.Errorf("unit %q is not alive", name)
+		case err != nil:
+			return err
+		case unit.Life() != state.Alive:
+			return fmt.Errorf("unit %q is not alive", name)
+		case unit.IsPrincipal():
+			units = append(units, unit)
+		default:
+			return fmt.Errorf("unit %q is a subordinate", name)
+		}
+	}
 	for _, unit := range units {
 		if err := unit.EnsureDying(); err != nil {
 			return err
