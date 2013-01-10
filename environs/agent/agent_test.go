@@ -1,15 +1,16 @@
 package agent_test
+
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/environs/agent"
-	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/state"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/trivial"
-	stdtesting "testing"
-	"path/filepath"
 	"os"
 	"os/exec"
+	"path/filepath"
+	stdtesting "testing"
 )
 
 type suite struct{}
@@ -20,25 +21,25 @@ func Test(t *stdtesting.T) {
 
 var _ = Suite(suite{})
 
-var confTests = []struct{
-	conf agent.Conf
+var confTests = []struct {
+	conf     agent.Conf
 	checkErr string
 }{{
 	conf: agent.Conf{
 		OldPassword: "old password",
 		StateInfo: state.Info{
-			Addrs: []string{"foo.com:355", "bar:545"},
-			CACert: []byte("ca cert"),
+			Addrs:      []string{"foo.com:355", "bar:545"},
+			CACert:     []byte("ca cert"),
 			EntityName: "entity",
-			Password: "current password",
+			Password:   "current password",
 		},
 	},
 }, {
 	conf: agent.Conf{
 		OldPassword: "old password",
 		StateInfo: state.Info{
-			Addrs: []string{"foo.com:355", "bar:545"},
-			CACert: []byte("ca cert"),
+			Addrs:    []string{"foo.com:355", "bar:545"},
+			CACert:   []byte("ca cert"),
 			Password: "current password",
 		},
 	},
@@ -47,8 +48,8 @@ var confTests = []struct{
 	conf: agent.Conf{
 		OldPassword: "old password",
 		StateInfo: state.Info{
-			CACert: []byte("ca cert"),
-			Password: "current password",
+			CACert:     []byte("ca cert"),
+			Password:   "current password",
 			EntityName: "entity",
 		},
 	},
@@ -57,10 +58,10 @@ var confTests = []struct{
 	conf: agent.Conf{
 		OldPassword: "old password",
 		StateInfo: state.Info{
-			Addrs: []string{"foo"},
-			CACert: []byte("ca cert"),
+			Addrs:      []string{"foo"},
+			CACert:     []byte("ca cert"),
 			EntityName: "entity",
-			Password: "current password",
+			Password:   "current password",
 		},
 	},
 	checkErr: "invalid server address \"foo\"",
@@ -68,10 +69,10 @@ var confTests = []struct{
 	conf: agent.Conf{
 		OldPassword: "old password",
 		StateInfo: state.Info{
-			Addrs: []string{"foo:bar"},
-			CACert: []byte("ca cert"),
+			Addrs:      []string{"foo:bar"},
+			CACert:     []byte("ca cert"),
 			EntityName: "entity",
-			Password: "current password",
+			Password:   "current password",
 		},
 	},
 	checkErr: "invalid server address \"foo:bar\"",
@@ -79,10 +80,10 @@ var confTests = []struct{
 	conf: agent.Conf{
 		OldPassword: "old password",
 		StateInfo: state.Info{
-			Addrs: []string{"foo:345d"},
-			CACert: []byte("ca cert"),
+			Addrs:      []string{"foo:345d"},
+			CACert:     []byte("ca cert"),
 			EntityName: "entity",
-			Password: "current password",
+			Password:   "current password",
 		},
 	},
 	checkErr: "invalid server address \"foo:345d\"",
@@ -90,15 +91,14 @@ var confTests = []struct{
 	conf: agent.Conf{
 		OldPassword: "old password",
 		StateInfo: state.Info{
-			Addrs: []string{"foo.com:456"},
+			Addrs:      []string{"foo.com:456"},
 			EntityName: "entity",
-			Password: "current password",
+			Password:   "current password",
 		},
 	},
 	checkErr: "CA certificate not found in configuration",
 },
 }
-	
 
 func (suite) TestConfReadWriteCheck(c *C) {
 	d := c.MkDir()
@@ -123,7 +123,7 @@ func (suite) TestConfReadWriteCheck(c *C) {
 		c.Assert(err, IsNil)
 		info, err := os.Stat(conf.File("agent.conf"))
 		c.Assert(err, IsNil)
-		c.Assert(info.Mode() & os.ModePerm, Equals, os.FileMode(0600))
+		c.Assert(info.Mode()&os.ModePerm, Equals, os.FileMode(0600))
 
 		// move the configuration file to a different directory
 		// to check that the entity name gets set correctly when
@@ -152,7 +152,7 @@ func (suite) TestConfReadWriteCheck(c *C) {
 		}
 		info, err = os.Stat(conf.File("agent.conf"))
 		c.Assert(err, IsNil)
-		c.Assert(info.Mode() & os.ModePerm, Equals, os.FileMode(0600))
+		c.Assert(info.Mode()&os.ModePerm, Equals, os.FileMode(0600))
 
 		rconf, err = agent.ReadConf(dataDir, conf.StateInfo.EntityName)
 		c.Assert(err, IsNil)
@@ -167,10 +167,10 @@ func (suite) TestConfReadWriteCheck(c *C) {
 func (suite) TestCheckNoDataDir(c *C) {
 	conf := agent.Conf{
 		StateInfo: state.Info{
-			Addrs: []string{"x:4"},
-			CACert: []byte("xxx"),
+			Addrs:      []string{"x:4"},
+			CACert:     []byte("xxx"),
 			EntityName: "bar",
-			Password: "pass",
+			Password:   "pass",
 		},
 	}
 	c.Assert(conf.Check(), ErrorMatches, "data directory not found in configuration")
@@ -180,10 +180,10 @@ func (suite) TestConfDir(c *C) {
 	conf := agent.Conf{
 		DataDir: "/foo",
 		StateInfo: state.Info{
-			Addrs: []string{"x:4"},
-			CACert: []byte("xxx"),
+			Addrs:      []string{"x:4"},
+			CACert:     []byte("xxx"),
 			EntityName: "bar",
-			Password: "pass",
+			Password:   "pass",
 		},
 	}
 	c.Assert(conf.Dir(), Equals, "/foo/agents/bar")
@@ -193,10 +193,10 @@ func (suite) TestConfFile(c *C) {
 	conf := agent.Conf{
 		DataDir: "/foo",
 		StateInfo: state.Info{
-			Addrs: []string{"x:4"},
-			CACert: []byte("xxx"),
+			Addrs:      []string{"x:4"},
+			CACert:     []byte("xxx"),
 			EntityName: "bar",
-			Password: "pass",
+			Password:   "pass",
 		},
 	}
 	c.Assert(conf.File("x/y"), Equals, "/foo/agents/bar/x/y")

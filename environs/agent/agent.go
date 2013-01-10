@@ -1,21 +1,22 @@
 package agent
+
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/state"
-	"regexp"
+	"launchpad.net/juju-core/trivial"
 	"os"
-	"fmt"
 	"path/filepath"
+	"regexp"
 )
 
 // Conf holds information for a given agent.
 type Conf struct {
 	// DataDir specifies the path of the data directory used by all
 	// agents
-	DataDir         string		`json:",omitempty"`
+	DataDir string `json:",omitempty"`
 
 	// OldPassword specifies a password that should be
 	// used to connect to the state if StateInfo.Password
