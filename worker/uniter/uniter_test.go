@@ -1293,21 +1293,25 @@ func (s relationState) step(c *C, ctx *context) {
 type addSubordinate struct{}
 
 func (addSubordinate) step(c *C, ctx *context) {
-	logging, err := ctx.st.AddService("logging", ctx.s.AddTestingCharm(c, "logging"))
+	_, err := ctx.st.AddService("logging", ctx.s.AddTestingCharm(c, "logging"))
 	c.Assert(err, IsNil)
 	eps, err := ctx.st.InferEndpoints([]string{"logging", "u"})
 	c.Assert(err, IsNil)
 	_, err = ctx.st.AddRelation(eps...)
 	c.Assert(err, IsNil)
-	w := logging.WatchUnits()
-	defer func() { c.Assert(w.Stop(), IsNil) }()
+	timeout := time.After(5 * time.Second)
 	for {
-		names, ok := <-w.Changes()
-		c.Assert(ok, Equals, true)
-		if len(names) != 0 {
-			ctx.subordinate, err = ctx.st.Unit(names[0])
+		ctx.st.StartSync()
+		select {
+		case <-timeout:
+			c.Fatalf("subordinate was not created")
+		case <-time.After(50 * time.Millisecond):
+			ctx.subordinate, err = ctx.st.Unit("logging/0")
+			if state.IsNotFound(err) {
+				continue
+			}
 			c.Assert(err, IsNil)
-			break
+			return
 		}
 	}
 }
@@ -1315,6 +1319,21 @@ func (addSubordinate) step(c *C, ctx *context) {
 type removeSubordinate struct{}
 
 func (removeSubordinate) step(c *C, ctx *context) {
+	timeout := time.After(5 * time.Second)
+	for {
+		ctx.st.StartSync()
+		select {
+		case <-timeout:
+			c.Fatalf("subordinate was not made Dying")
+		case <-time.After(50 * time.Millisecond):
+			err := ctx.subordinate.Refresh()
+			c.Assert(err, IsNil)
+			if ctx.subordinate.Life() != state.Dying {
+				continue
+			}
+		}
+		break
+	}
 	err := ctx.subordinate.EnsureDead()
 	c.Assert(err, IsNil)
 	svc, err := ctx.subordinate.Service()
