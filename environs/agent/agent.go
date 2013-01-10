@@ -1,0 +1,175 @@
+package agent
+import (
+	"encoding/json"
+	"io/ioutil"
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/state"
+	"regexp"
+	"os"
+	"fmt"
+	"path/filepath"
+)
+
+// Conf holds information for a given agent.
+type Conf struct {
+	// DataDir specifies the path of the data directory used by all
+	// agents
+	DataDir         string		`json:",omitempty"`
+
+	// OldPassword specifies a password that should be
+	// used to connect to the state if StateInfo.Password
+	// is blank or invalid.
+	OldPassword string
+
+	// StateInfo specifies how the agent should connect to the
+	// state.  The password may be empty if an old password is
+	// specified, or when bootstrapping.
+	StateInfo state.Info
+}
+
+var validAddr = regexp.MustCompile("^.+:[0-9]+$")
+
+// ReadConf reads configuration data for the given
+// entity from the given data directory.
+func ReadConf(dataDir, entityName string) (*Conf, error) {
+	dir := environs.AgentDir(dataDir, entityName)
+	data, err := ioutil.ReadFile(filepath.Join(dir, "agent.conf"))
+	if err != nil {
+		return nil, err
+	}
+	var c Conf
+	if err := json.Unmarshal(data, &c); err != nil {
+		return nil, err
+	}
+	c.DataDir = dataDir
+	c.StateInfo.EntityName = entityName
+	if err := c.Check(); err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+func requiredError(what string) error {
+	return fmt.Errorf("%s not found in configuration", what)
+}
+
+// File returns the path of the given file in the agent's directory.
+func (c *Conf) File(name string) string {
+	return filepath.Join(c.Dir(), name)
+}
+
+func (c *Conf) confFile() string {
+	return c.File("agent.conf")
+}
+
+// Dir returns the agent's directory.
+func (c *Conf) Dir() string {
+	return environs.AgentDir(c.DataDir, c.StateInfo.EntityName)
+}
+
+// Check checks that the configuration has all the required elements.
+func (c *Conf) Check() error {
+	if c.DataDir == "" {
+		return requiredError("data directory")
+	}
+	if c.StateInfo.EntityName == "" {
+		panic("no entity name")
+		return requiredError("entity name")
+	}
+	if len(c.StateInfo.Addrs) == 0 {
+		return requiredError("state server address")
+	}
+	for _, a := range c.StateInfo.Addrs {
+		if !validAddr.MatchString(a) {
+			return fmt.Errorf("invalid server address %q", a)
+		}
+	}
+	if len(c.StateInfo.CACert) == 0 {
+		return requiredError("CA certificate")
+	}
+	return nil
+}
+
+// Write writes the agent configuration.
+func (c *Conf) Write() error {
+	if err := c.Check(); err != nil {
+		return err
+	}
+	data, err := json.Marshal(c)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(c.Dir(), 0755); err != nil {
+		return err
+	}
+	f := c.File("agent.conf-new")
+	if err := ioutil.WriteFile(f, data, 0600); err != nil {
+		return err
+	}
+	if err := os.Rename(f, c.confFile()); err != nil {
+		return err
+	}
+	return nil
+}
+
+// WriteCommands returns shell commands to write the agent
+// configuration.  It returns an error if the configuration does not
+// have all the right elements.
+func (c *Conf) WriteCommands() ([]string, error) {
+	if err := c.Check(); err != nil {
+		return nil, err
+	}
+	data, err := json.Marshal(c)
+	if err != nil {
+		return nil, err
+	}
+	var cmds []string
+	addCmd := func(f string, a ...interface{}) {
+		cmds = append(cmds, fmt.Sprintf(f, a...))
+	}
+	f := trivial.ShQuote(c.confFile())
+	addCmd("mkdir -p %s", trivial.ShQuote(c.Dir()))
+	addCmd("echo %s > %s", trivial.ShQuote(string(data)), f)
+	addCmd("chmod %o %s", 0600, f)
+	return cmds, nil
+}
+
+// OpenState tries to open the state using the given Conf.  If
+// passwordChanged is returned as true, c.StateInfo.Password has been
+// changed, the configuration file will have been rewritten, and the
+// caller should set the entity's password accordingly.
+func (c *Conf) OpenState() (st *state.State, passwordChanged bool, err error) {
+	info := c.StateInfo
+	if info.Password != "" {
+		st, err := state.Open(&info)
+		if err == nil {
+			return st, false, nil
+		}
+		if err != state.ErrUnauthorized {
+			return nil, false, err
+		}
+		// Access isn't authorized even though we have a password
+		// This can happen if we crash after saving the
+		// password but before changing it, so we'll try again
+		// with the old password.
+	}
+	info.Password = c.OldPassword
+	st, err = state.Open(&info)
+	if err != nil {
+		return nil, false, err
+	}
+	// We've succeeded in connecting with the old password, so
+	// we can now change it to something more private.
+	password, err := trivial.RandomPassword()
+	if err != nil {
+		st.Close()
+		return nil, false, err
+	}
+	c.StateInfo.Password = password
+	if err := c.Write(); err != nil {
+		st.Close()
+		return nil, false, fmt.Errorf("cannot write configuration file: %v", err)
+	}
+	return st, true, nil
+}
