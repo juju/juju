@@ -132,35 +132,48 @@ var relationsConstraintsTests = []struct {
 		`charm "a" using a reserved relation name: "juju-pop"`,
 	}, {
 		"provides:\n  innocuous: juju",
-		`charm "a" relation "innocuous" using a reserved provider interface: "juju"`,
+		`charm "a" relation "innocuous" using a reserved interface: "juju"`,
 	}, {
-		rels: "requires:\n  innocuous: juju",
-	}, {
-		rels: "peers:\n  innocuous: juju",
+		"peers:\n  innocuous: juju",
+		`charm "a" relation "innocuous" using a reserved interface: "juju"`,
 	}, {
 		"provides:\n  innocuous: juju-snap",
-		`charm "a" relation "innocuous" using a reserved provider interface: "juju-snap"`,
+		`charm "a" relation "innocuous" using a reserved interface: "juju-snap"`,
 	}, {
-		rels: "requires:\n  innocuous: juju-snap",
-	}, {
-		rels: "peers:\n  innocuous: juju-snap",
+		"peers:\n  innocuous: juju-snap",
+		`charm "a" relation "innocuous" using a reserved interface: "juju-snap"`,
 	},
 }
 
 func (s *MetaSuite) TestRelationsConstraints(c *C) {
-	prefix := "name: a\nsummary: b\ndescription: c\n"
-	for i, t := range relationsConstraintsTests {
-		c.Logf("test %d", i)
-		r := strings.NewReader(prefix + t.rels)
-		meta, err := charm.ReadMeta(r)
-		if t.err != "" {
-			c.Assert(err, ErrorMatches, t.err)
+	check := func(s, e string) {
+		meta, err := charm.ReadMeta(strings.NewReader(s))
+		if e != "" {
+			c.Assert(err, ErrorMatches, e)
 			c.Assert(meta, IsNil)
 		} else {
 			c.Assert(err, IsNil)
 			c.Assert(meta, NotNil)
 		}
 	}
+	prefix := "name: a\nsummary: b\ndescription: c\n"
+	for i, t := range relationsConstraintsTests {
+		c.Logf("test %d", i)
+		check(prefix+t.rels, t.err)
+		check(prefix+"subordinate: true\n"+t.rels, t.err)
+	}
+	// The juju-* namespace is accessible to container-scoped require
+	// relations on subordinate charms.
+	check(prefix+`
+subordinate: true
+requires:
+  juju-info:
+    interface: juju-info
+    scope: container`, "")
+	// The juju-* interfaces are allowed on any require relation.
+	check(prefix+`
+requires:
+  innocuous: juju-info`, "")
 }
 
 // Test rewriting of a given interface specification into long form.

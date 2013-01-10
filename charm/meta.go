@@ -72,6 +72,9 @@ func ReadMeta(r io.Reader) (meta *Meta, err error) {
 	meta.Requires = parseRelations(m["requires"])
 	meta.Peers = parseRelations(m["peers"])
 	meta.Format = int(m["format"].(int64))
+	if subordinate := m["subordinate"]; subordinate != nil {
+		meta.Subordinate = m["subordinate"].(bool)
+	}
 	if rev := m["revision"]; rev != nil {
 		// Obsolete
 		meta.OldRevision = int(m["revision"].(int64))
@@ -79,39 +82,41 @@ func ReadMeta(r io.Reader) (meta *Meta, err error) {
 
 	// Check for duplicate or forbidden relation names.
 	names := map[string]bool{}
-	checkName := func(name string) error {
-		if reservedName(name) {
-			return fmt.Errorf("charm %q using a reserved relation name: %q", meta.Name, name)
+	collect := func(src map[string]Relation, isRequire bool) error {
+		for name, rel := range src {
+			// Container-scoped require relations on subordinates are allowed
+			// to use the otherwise-reserved juju-* namespace.
+			if !meta.Subordinate || !isRequire || rel.Scope != ScopeContainer {
+				if reservedName(name) {
+					return fmt.Errorf("charm %q using a reserved relation name: %q", meta.Name, name)
+				}
+			}
+			if !isRequire {
+				if reservedName(rel.Interface) {
+					return fmt.Errorf("charm %q relation %q using a reserved interface: %q", meta.Name, name, rel.Interface)
+				}
+			}
+			if names[name] {
+				return fmt.Errorf("charm %q using a duplicated relation name: %q", meta.Name, name)
+			}
+			names[name] = true
 		}
-		if names[name] {
-			return fmt.Errorf("charm %q using a duplicated relation name: %q", meta.Name, name)
-		}
-		names[name] = true
 		return nil
 	}
-	for name, rel := range meta.Provides {
-		if err := checkName(name); err != nil {
-			return nil, err
-		}
-		if reservedName(rel.Interface) {
-			return nil, fmt.Errorf("charm %q relation %q using a reserved provider interface: %q", meta.Name, name, rel.Interface)
-		}
+	if err := collect(meta.Provides, false); err != nil {
+		return nil, err
 	}
-	for name := range meta.Requires {
-		if err := checkName(name); err != nil {
-			return nil, err
-		}
+	if err := collect(meta.Requires, true); err != nil {
+		return nil, err
 	}
-	for name := range meta.Peers {
-		if err := checkName(name); err != nil {
-			return nil, err
-		}
+	if err := collect(meta.Peers, false); err != nil {
+		return nil, err
 	}
 
 	// Subordinate charms must have at least one relation that
 	// has container scope, otherwise they can't relate to the
 	// principal.
-	if subordinate := m["subordinate"]; subordinate != nil {
+	if meta.Subordinate {
 		valid := false
 		if meta.Requires != nil {
 			for _, relationData := range meta.Requires {
@@ -124,7 +129,6 @@ func ReadMeta(r io.Reader) (meta *Meta, err error) {
 		if !valid {
 			return nil, fmt.Errorf("subordinate charm %q lacks requires relation with container scope", meta.Name)
 		}
-		meta.Subordinate = m["subordinate"].(bool)
 	}
 	return
 }
