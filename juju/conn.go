@@ -261,15 +261,17 @@ func (conn *Conn) DestroyUnits(names ...string) (err error) {
 	defer trivial.ErrorContextf(&err, "cannot destroy units")
 	var units []*state.Unit
 	for _, name := range names {
-		if unit, err := conn.State.Unit(name); state.IsNotFound(err) {
+		unit, err := conn.State.Unit(name)
+		switch {
+		case state.IsNotFound(err):
 			return fmt.Errorf("unit %q is not alive", name)
-		} else if err != nil {
+		case err != nil:
 			return err
-		} else if unit.Life() != state.Alive {
+		case unit.Life() != state.Alive:
 			return fmt.Errorf("unit %q is not alive", name)
-		} else if unit.IsPrincipal() {
+		case unit.IsPrincipal():
 			units = append(units, unit)
-		} else {
+		default:
 			return fmt.Errorf("unit %q is a subordinate", name)
 		}
 	}

@@ -510,6 +510,7 @@ func (s *ConnSuite) assertUnitLife(c *C, name string, life state.Life) {
 	c.Assert(unit.Refresh(), IsNil)
 	c.Assert(unit.Life(), Equals, life)
 }
+
 func (s *ConnSuite) TestResolved(c *C) {
 	curl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "riak")
 	sch, err := s.conn.PutCharm(curl, s.repo, false)
