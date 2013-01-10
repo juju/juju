@@ -8,7 +8,6 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/trivial"
 )
 
 // DestroyUnitCommand is responsible for destroying service units.
@@ -46,20 +45,5 @@ func (c *DestroyUnitCommand) Run(_ *cmd.Context) (err error) {
 		return err
 	}
 	defer conn.Close()
-	defer trivial.ErrorContextf(&err, "cannot destroy units")
-	var units []*state.Unit
-	for _, name := range c.UnitNames {
-		if unit, err := conn.State.Unit(name); state.IsNotFound(err) {
-			return fmt.Errorf("unit %q is not alive", name)
-		} else if err != nil {
-			return err
-		} else if unit.Life() != state.Alive {
-			return fmt.Errorf("unit %q is not alive", name)
-		} else if unit.IsPrincipal() {
-			units = append(units, unit)
-		} else {
-			return fmt.Errorf("unit %q is a subordinate", name)
-		}
-	}
-	return conn.DestroyUnits(units...)
+	return conn.DestroyUnits(c.UnitNames...)
 }
