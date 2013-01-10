@@ -224,10 +224,9 @@ func (u *Unit) IsPrincipal() bool {
 }
 
 // SubordinateNames returns the names of any subordinate units.
-func (u *Unit) SubordinateNames() (names []string) {
-	for _, name := range u.doc.Subordinates {
-		names = append(names, name)
-	}
+func (u *Unit) SubordinateNames() []string {
+	names := make([]string, len(u.doc.Subordinates))
+	copy(names, u.doc.Subordinates)
 	return names
 }
 
