@@ -73,17 +73,16 @@ func ReadMeta(r io.Reader) (meta *Meta, err error) {
 	meta.Peers = parseRelations(m["peers"])
 	meta.Format = int(m["format"].(int64))
 	if subordinate := m["subordinate"]; subordinate != nil {
-		meta.Subordinate = m["subordinate"].(bool)
+		meta.Subordinate = subordinate.(bool)
 	}
 	if rev := m["revision"]; rev != nil {
 		// Obsolete
 		meta.OldRevision = int(m["revision"].(int64))
 	}
 
-	// Collect all known relations, checking for duplicate or forbidden
-	// relation names or interfaces.
+	// Check for duplicate or forbidden relation names or interfaces.
 	names := map[string]bool{}
-	collect := func(src map[string]Relation, isRequire bool) error {
+	checkRelations := func(src map[string]Relation, isRequire bool) error {
 		for name, rel := range src {
 			// Container-scoped require relations on subordinates are allowed
 			// to use the otherwise-reserved juju-* namespace.
@@ -104,13 +103,13 @@ func ReadMeta(r io.Reader) (meta *Meta, err error) {
 		}
 		return nil
 	}
-	if err := collect(meta.Provides, false); err != nil {
+	if err := checkRelations(meta.Provides, false); err != nil {
 		return nil, err
 	}
-	if err := collect(meta.Requires, true); err != nil {
+	if err := checkRelations(meta.Requires, true); err != nil {
 		return nil, err
 	}
-	if err := collect(meta.Peers, false); err != nil {
+	if err := checkRelations(meta.Peers, false); err != nil {
 		return nil, err
 	}
 
