@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"launchpad.net/goyaml"
 	"os"
+	"strings"
 )
 
 // WriteYaml marshals obj as yaml and then writes it to a file, atomically,
@@ -45,4 +46,11 @@ func ErrorContextf(err *error, format string, args ...interface{}) {
 	if *err != nil {
 		*err = errors.New(fmt.Sprintf(format, args...) + ": " + (*err).Error())
 	}
+}
+
+// ShQuote quotes s so that when read by bash, no metacharacters
+// within s will be interpreted as such.
+func ShQuote(s string) string {
+	// single-quote becomes single-quote, double-quote, single-quote, double-quote, single-quote
+	return `'` + strings.Replace(s, `'`, `'"'"'`, -1) + `'`
 }
