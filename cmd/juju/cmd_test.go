@@ -358,8 +358,8 @@ func initDestroyUnitCommand(args ...string) (*DestroyUnitCommand, error) {
 func (*CmdSuite) TestDestroyUnitCommandInit(c *C) {
 	// missing args
 	_, err := initDestroyUnitCommand()
-	c.Assert(err, ErrorMatches, "no service units specified")
+	c.Assert(err, ErrorMatches, "no units specified")
 	// not a unit
 	_, err = initDestroyUnitCommand("seven/nine")
-	c.Assert(err, ErrorMatches, `invalid service unit name: "seven/nine"`)
+	c.Assert(err, ErrorMatches, `invalid unit name: "seven/nine"`)
 }
