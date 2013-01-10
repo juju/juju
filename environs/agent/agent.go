@@ -74,7 +74,6 @@ func (c *Conf) Check() error {
 		return requiredError("data directory")
 	}
 	if c.StateInfo.EntityName == "" {
-		panic("no entity name")
 		return requiredError("entity name")
 	}
 	if len(c.StateInfo.Addrs) == 0 {
