@@ -40,6 +40,9 @@ func ReadConf(dataDir, entityName string) (*Conf, error) {
 		return nil, err
 	}
 	var c Conf
+	// We use json rather than yaml because it deals with
+	// []byte better (it uses base64 encoding rather than
+	// an array of decimal numbers).
 	if err := json.Unmarshal(data, &c); err != nil {
 		return nil, err
 	}
