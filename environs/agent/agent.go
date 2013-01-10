@@ -136,8 +136,8 @@ func (c *Conf) WriteCommands() ([]string, error) {
 
 // OpenState tries to open the state using the given Conf.  If
 // passwordChanged is returned as true, c.StateInfo.Password has been
-// changed, the configuration file will have been rewritten, and the
-// caller should set the entity's password accordingly.
+// changed, and the caller should write the configuration
+// and set the entity's password accordingly (in that order).
 func (c *Conf) OpenState() (st *state.State, passwordChanged bool, err error) {
 	info := c.StateInfo
 	if info.Password != "" {
@@ -166,9 +166,5 @@ func (c *Conf) OpenState() (st *state.State, passwordChanged bool, err error) {
 		return nil, false, err
 	}
 	c.StateInfo.Password = password
-	if err := c.Write(); err != nil {
-		st.Close()
-		return nil, false, fmt.Errorf("cannot write configuration file: %v", err)
-	}
 	return st, true, nil
 }

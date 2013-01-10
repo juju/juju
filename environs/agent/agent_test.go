@@ -3,7 +3,10 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/environs/agent"
-	"testing"
+	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/trivial"
+	stdtesting "testing"
 	"path/filepath"
 	"os"
 	"os/exec"
@@ -11,8 +14,8 @@ import (
 
 type suite struct{}
 
-func Test(t *testing.T) {
-	TestingT(t)
+func Test(t *stdtesting.T) {
+	coretesting.MgoTestPackage(t)
 }
 
 var _ = Suite(suite{})
@@ -197,4 +200,59 @@ func (suite) TestConfFile(c *C) {
 		},
 	}
 	c.Assert(conf.File("x/y"), Equals, "/foo/agents/bar/x/y")
+}
+
+type openSuite struct {
+	testing.JujuConnSuite
+}
+
+var _ = Suite(&openSuite{})
+
+func (s *openSuite) TestOpenStateNormal(c *C) {
+	conf := agent.Conf{
+		StateInfo: *s.StateInfo(c),
+	}
+	conf.OldPassword = "irrelevant"
+
+	st, changed, err := conf.OpenState()
+	c.Assert(err, IsNil)
+	defer st.Close()
+	c.Assert(changed, Equals, false)
+	c.Assert(st, NotNil)
+}
+
+func (s *openSuite) TestOpenStateFallbackPassword(c *C) {
+	conf := agent.Conf{
+		StateInfo: *s.StateInfo(c),
+	}
+	conf.OldPassword = conf.StateInfo.Password
+	conf.StateInfo.Password = "not the right password"
+
+	st, changed, err := conf.OpenState()
+	c.Assert(err, IsNil)
+	defer st.Close()
+	c.Assert(changed, Equals, true)
+	c.Assert(st, NotNil)
+	p, err := trivial.RandomPassword()
+	c.Assert(err, IsNil)
+	c.Assert(conf.StateInfo.Password, HasLen, len(p))
+	c.Assert(conf.OldPassword, Equals, s.StateInfo(c).Password)
+}
+
+func (s *openSuite) TestOpenStateNoPassword(c *C) {
+	conf := agent.Conf{
+		StateInfo: *s.StateInfo(c),
+	}
+	conf.OldPassword = conf.StateInfo.Password
+	conf.StateInfo.Password = ""
+
+	st, changed, err := conf.OpenState()
+	c.Assert(err, IsNil)
+	defer st.Close()
+	c.Assert(changed, Equals, true)
+	c.Assert(st, NotNil)
+	p, err := trivial.RandomPassword()
+	c.Assert(err, IsNil)
+	c.Assert(conf.StateInfo.Password, HasLen, len(p))
+	c.Assert(conf.OldPassword, Equals, s.StateInfo(c).Password)
 }
