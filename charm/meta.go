@@ -80,7 +80,8 @@ func ReadMeta(r io.Reader) (meta *Meta, err error) {
 		meta.OldRevision = int(m["revision"].(int64))
 	}
 
-	// Check for duplicate or forbidden relation names.
+	// Collect all known relations, checking for duplicate or forbidden
+	// relation names or interfaces.
 	names := map[string]bool{}
 	collect := func(src map[string]Relation, isRequire bool) error {
 		for name, rel := range src {
