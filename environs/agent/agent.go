@@ -1,21 +1,22 @@
 package agent
+
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/state"
-	"regexp"
+	"launchpad.net/juju-core/trivial"
 	"os"
-	"fmt"
 	"path/filepath"
+	"regexp"
 )
 
-// Conf holds information shared by all agents.
+// Conf holds information for a given agent.
 type Conf struct {
 	// DataDir specifies the path of the data directory used by all
 	// agents
-	DataDir         string		`json:",omitempty"`
+	DataDir string `json:",omitempty"`
 
 	// OldPassword specifies a password that should be
 	// used to connect to the state if StateInfo.Password
@@ -74,7 +75,6 @@ func (c *Conf) Check() error {
 		return requiredError("data directory")
 	}
 	if c.StateInfo.EntityName == "" {
-		panic("no entity name")
 		return requiredError("entity name")
 	}
 	if len(c.StateInfo.Addrs) == 0 {
@@ -137,8 +137,8 @@ func (c *Conf) WriteCommands() ([]string, error) {
 
 // OpenState tries to open the state using the given Conf.  If
 // passwordChanged is returned as true, c.StateInfo.Password has been
-// changed, the configuration file will have been rewritten, and the
-// caller should set the entity's password accordingly.
+// changed, and the caller should write the configuration
+// and set the entity's password accordingly (in that order).
 func (c *Conf) OpenState() (st *state.State, passwordChanged bool, err error) {
 	info := c.StateInfo
 	if info.Password != "" {
@@ -167,9 +167,5 @@ func (c *Conf) OpenState() (st *state.State, passwordChanged bool, err error) {
 		return nil, false, err
 	}
 	c.StateInfo.Password = password
-	if err := c.Write(); err != nil {
-		st.Close()
-		return nil, false, fmt.Errorf("cannot write configuration file: %v", err)
-	}
 	return st, true, nil
 }

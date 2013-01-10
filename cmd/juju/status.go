@@ -197,7 +197,7 @@ func processUnits(units []*state.Unit) (map[string]interface{}, error) {
 func processUnit(unit *state.Unit) (map[string]interface{}, error) {
 	r := m()
 
-	if addr, err := unit.PublicAddress(); err == nil {
+	if addr, ok := unit.PublicAddress(); ok {
 		r["public-address"] = addr
 	}
 
