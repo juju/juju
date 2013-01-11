@@ -42,7 +42,7 @@ type Info struct {
 // representing the environment connected to.
 // It returns ErrUnauthorized if access is unauthorized.
 func Open(info *Info) (*State, error) {
-	log.Printf("state: opening state; mongo addresses: %q; entity: %q; password: %q", info.Addrs, info.EntityName, info.Password)
+	log.Printf("state: opening state; mongo addresses: %q; entity %q", info.Addrs, info.EntityName)
 	if len(info.Addrs) == 0 {
 		return nil, errors.New("no mongo addresses")
 	}
