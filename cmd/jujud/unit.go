@@ -46,6 +46,9 @@ func (a *UnitAgent) Stop() error {
 
 // Run runs a unit agent.
 func (a *UnitAgent) Run(ctx *cmd.Context) error {
+	if err := a.Conf.read(state.UnitEntityName(a.UnitName)); err != nil {
+		return err
+	}
 	defer log.Printf("cmd/jujud: unit agent exiting")
 	defer a.tomb.Done()
 	return RunLoop(a.Conf.Conf, a)

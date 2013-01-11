@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/trivial"
 	"os"
 	"path/filepath"
@@ -40,6 +41,9 @@ func ReadConf(dataDir, entityName string) (*Conf, error) {
 		return nil, err
 	}
 	var c Conf
+	// We use json rather than yaml because it deals with
+	// []byte better (it uses base64 encoding rather than
+	// an array of decimal numbers).
 	if err := json.Unmarshal(data, &c); err != nil {
 		return nil, err
 	}
@@ -96,6 +100,7 @@ func (c *Conf) Write() error {
 	if err := c.Check(); err != nil {
 		return err
 	}
+	log.Printf("writing conf to %q", c.confFile())
 	data, err := json.Marshal(c)
 	if err != nil {
 		return err

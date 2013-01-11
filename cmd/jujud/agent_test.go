@@ -13,7 +13,6 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/tomb"
-	"path/filepath"
 	"time"
 )
 
@@ -190,9 +189,7 @@ func CheckAgentCommand(c *C, create acCreator, args []string) cmd.Command {
 // before parsing an agent command and returning the result.
 func ParseAgentCommand(ac cmd.Command, args []string) error {
 	common := []string{
-		"--state-servers", "st:37017",
 		"--data-dir", "jd",
-		"--ca-cert", caCertFile,
 	}
 	return initCmd(ac, append(common, args...))
 }
@@ -256,9 +253,9 @@ func (s *agentSuite) primeAgent(c *C, entityName, password string) (*agent.Conf,
 	c.Assert(tools1, DeepEquals, tools)
 
 	conf := &agent.Conf{
-		DataDir: s.DataDir(),
+		DataDir:     s.DataDir(),
 		OldPassword: password,
-		StateInfo: *s.StateInfo(c),
+		StateInfo:   *s.StateInfo(c),
 	}
 	conf.StateInfo.EntityName = entityName
 	err = conf.Write()
@@ -274,12 +271,22 @@ func (s *agentSuite) initAgent(c *C, a cmd.Command, args ...string) {
 	c.Assert(err, IsNil)
 }
 
-func (s *agentSuite) testAgentPasswordChanging(c *C, ent entity, newAgent func(initialPassword string) runner) {
-	// Check that it starts initially and changes the password
-	err := ent.SetPassword("initial")
+func (s *agentSuite) testAgentPasswordChanging(c *C, ent entity, newAgent func() runner) {
+	conf, err := agent.ReadConf(s.DataDir(), ent.EntityName())
 	c.Assert(err, IsNil)
 
-	err = runStop(newAgent("initial"))
+	// Check that it starts initially and changes the password
+	err = ent.SetPassword("initial")
+	c.Assert(err, IsNil)
+
+	setOldPassword := func(password string) {
+		conf.OldPassword = password
+		err = conf.Write()
+		c.Assert(err, IsNil)
+	}
+
+	setOldPassword("initial")
+	err = runStop(newAgent())
 	c.Assert(err, IsNil)
 
 	// Check that we can no longer gain access with the initial password.
@@ -288,32 +295,40 @@ func (s *agentSuite) testAgentPasswordChanging(c *C, ent entity, newAgent func(i
 	info.Password = "initial"
 	testOpenState(c, info, state.ErrUnauthorized)
 
-	// Read the password file and check that we can connect it.
-	pwfile := filepath.Join(environs.AgentDir(s.DataDir(), ent.EntityName()), "password")
-	data, err := ioutil.ReadFile(pwfile)
-	c.Assert(err, IsNil)
-	newPassword := string(data)
+	// Read the configuration and check that we can connect with it.
+	c.Assert(refreshConfig(conf), IsNil)
+	newPassword := conf.StateInfo.Password
 
-	info.Password = newPassword
-	testOpenState(c, info, nil)
+	testOpenState(c, &conf.StateInfo, nil)
 
 	// Check that it starts again ok
-	err = runStop(newAgent("initial"))
+	err = runStop(newAgent())
 	c.Assert(err, IsNil)
 
-	// Change the password file and check
+	// Change the password in the configuration and check
 	// that it falls back to using the initial password
-	err = ioutil.WriteFile(pwfile, []byte("spurious"), 0700)
-	c.Assert(err, IsNil)
-	err = runStop(newAgent(newPassword))
+	c.Assert(refreshConfig(conf), IsNil)
+	conf.StateInfo.Password = "spurious"
+	conf.OldPassword = newPassword
+	c.Assert(conf.Write(), IsNil)
+
+	err = runStop(newAgent())
 	c.Assert(err, IsNil)
 
 	// Check that it's changed the password again
-	data, err = ioutil.ReadFile(pwfile)
-	c.Assert(err, IsNil)
-	c.Assert(string(data), Not(Equals), "spurious")
-	c.Assert(string(data), Not(Equals), newPassword)
+	c.Assert(refreshConfig(conf), IsNil)
+	c.Assert(conf.StateInfo.Password, Not(Equals), "spurious")
+	c.Assert(conf.StateInfo.Password, Not(Equals), newPassword)
 
-	info.Password = string(data)
+	info.Password = conf.StateInfo.Password
 	testOpenState(c, info, nil)
+}
+
+func refreshConfig(c *agent.Conf) error {
+	nc, err := agent.ReadConf(c.DataDir, c.StateInfo.EntityName)
+	if err != nil {
+		return err
+	}
+	*c = *nc
+	return nil
 }

@@ -46,8 +46,8 @@ func (s *BootstrapSuite) initBootstrapCommand(c *C, args ...string) (*agent.Conf
 		DataDir: s.dataDir,
 		StateInfo: state.Info{
 			EntityName: "bootstrap",
-			Addrs:  []string{testing.MgoAddr},
-			CACert: []byte(testing.CACert),
+			Addrs:      []string{testing.MgoAddr},
+			CACert:     []byte(testing.CACert),
 		},
 	}
 	err := conf.Write()

@@ -24,12 +24,12 @@ func (s *UnitSuite) primeAgent(c *C) (*state.Unit, *agent.Conf, *state.Tools) {
 	c.Assert(err, IsNil)
 	err = unit.SetPassword("unit-password")
 	c.Assert(err, IsNil)
-	conf, tools := s.agentSuite.primeAgent(c, state.UnitEntityName(unit.EntityName()), "unit-password")
+	conf, tools := s.agentSuite.primeAgent(c, unit.EntityName(), "unit-password")
 	return unit, conf, tools
 }
 
-func (s *UnitSuite) newAgent(c *C, unit *state.Unit) *MachineAgent {
-	a := &MachineAgent{}
+func (s *UnitSuite) newAgent(c *C, unit *state.Unit) *UnitAgent {
+	a := &UnitAgent{}
 	s.initAgent(c, a, "--unit-name", unit.Name())
 	return a
 }
@@ -69,9 +69,9 @@ func (s *UnitSuite) TestParseUnknown(c *C) {
 }
 
 func (s *UnitSuite) TestRunStop(c *C) {
-	unit, _, _ := s.primeAgent(c)
+	unit, conf, _ := s.primeAgent(c)
 	a := s.newAgent(c, unit)
-	mgr, reset := patchDeployManager(c, &a.Conf.StateInfo, a.Conf.DataDir)
+	mgr, reset := patchDeployManager(c, &conf.StateInfo, conf.DataDir)
 	defer reset()
 	go func() { c.Check(a.Run(nil), IsNil) }()
 	defer func() { c.Check(a.Stop(), IsNil) }()
@@ -163,11 +163,8 @@ func (s *UnitSuite) TestWithDeadUnit(c *C) {
 }
 
 func (s *UnitSuite) TestChangePasswordChanging(c *C) {
-	unit, conf, _ := s.primeAgent(c)
-	newAgent := func(oldPassword string) runner {
-		conf.OldPassword = oldPassword
-		err := conf.Write()
-		c.Check(err, IsNil)
+	unit, _, _ := s.primeAgent(c)
+	newAgent := func() runner {
 		return s.newAgent(c, unit)
 	}
 	s.testAgentPasswordChanging(c, unit, newAgent)

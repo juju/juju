@@ -210,11 +210,8 @@ func opRecvTimeout(c *C, st *state.State, opc <-chan dummy.Operation, kinds ...d
 }
 
 func (s *MachineSuite) TestChangePasswordChanging(c *C) {
-	m, conf := s.primeAgent(c, state.JobHostUnits)
-	newAgent := func(oldPassword string) runner {
-		conf.OldPassword = oldPassword
-		err := conf.Write()
-		c.Check(err, IsNil)
+	m, _ := s.primeAgent(c, state.JobHostUnits)
+	newAgent := func() runner {
 		return s.newAgent(c, m)
 	}
 	s.testAgentPasswordChanging(c, m, newAgent)
