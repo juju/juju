@@ -18,7 +18,47 @@ var _ = Suite(&MachineSuite{})
 func (s *MachineSuite) SetUpTest(c *C) {
 	s.ConnSuite.SetUpTest(c)
 	var err error
-	s.machine, err = s.State.AddMachine(state.MachinerWorker)
+	s.machine, err = s.State.AddMachine(state.JobHostUnits)
+	c.Assert(err, IsNil)
+}
+
+func (s *MachineSuite) TestLifeJobManageEnviron(c *C) {
+	// A JobManageEnviron machine must never advance lifecycle.
+	m, err := s.State.AddMachine(state.JobManageEnviron)
+	c.Assert(err, IsNil)
+	err = m.EnsureDying()
+	c.Assert(err, ErrorMatches, "machine 1 cannot become dying: required by environment")
+	err = m.EnsureDead()
+	c.Assert(err, ErrorMatches, "machine 1 cannot become dead: required by environment")
+}
+
+func (s *MachineSuite) TestLifeJobHostUnits(c *C) {
+	// A machine with an assigned unit must not advance lifecycle.
+	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, IsNil)
+	unit, err := svc.AddUnit()
+	c.Assert(err, IsNil)
+	err = unit.AssignToMachine(s.machine)
+	c.Assert(err, IsNil)
+	err = s.machine.EnsureDying()
+	c.Assert(err, ErrorMatches, `machine 0 cannot become dying: unit "wordpress/0" is assigned to it`)
+	err = s.machine.EnsureDead()
+	c.Assert(err, ErrorMatches, `machine 0 cannot become dead: unit "wordpress/0" is assigned to it`)
+
+	// Once no unit is assigned, lifecycle can advance.
+	err = unit.UnassignFromMachine()
+	c.Assert(err, IsNil)
+	err = s.machine.EnsureDying()
+	c.Assert(err, IsNil)
+	err = s.machine.EnsureDead()
+	c.Assert(err, IsNil)
+
+	// A machine that has never had units assigned can advance lifecycle.
+	m, err := s.State.AddMachine(state.JobHostUnits)
+	c.Assert(err, IsNil)
+	err = m.EnsureDying()
+	c.Assert(err, IsNil)
+	err = m.EnsureDead()
 	c.Assert(err, IsNil)
 }
 
@@ -83,7 +123,7 @@ func (s *MachineSuite) TestMachineWaitAgentAlive(c *C) {
 }
 
 func (s *MachineSuite) TestMachineInstanceId(c *C) {
-	machine, err := s.State.AddMachine(state.MachinerWorker)
+	machine, err := s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
 	err = s.machines.Update(
 		D{{"_id", machine.Id()}},
@@ -98,7 +138,7 @@ func (s *MachineSuite) TestMachineInstanceId(c *C) {
 }
 
 func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *C) {
-	machine, err := s.State.AddMachine(state.MachinerWorker)
+	machine, err := s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
 	err = s.machines.Update(
 		D{{"_id", machine.Id()}},
@@ -121,7 +161,7 @@ func (s *MachineSuite) TestMachineInstanceIdMissing(c *C) {
 }
 
 func (s *MachineSuite) TestMachineInstanceIdBlank(c *C) {
-	machine, err := s.State.AddMachine(state.MachinerWorker)
+	machine, err := s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
 	err = s.machines.Update(
 		D{{"_id", machine.Id()}},
@@ -148,7 +188,7 @@ func (s *MachineSuite) TestMachineSetInstanceId(c *C) {
 }
 
 func (s *MachineSuite) TestMachineRefresh(c *C) {
-	m0, err := s.State.AddMachine(state.MachinerWorker)
+	m0, err := s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
 	oldId, _ := m0.InstanceId()
 
@@ -182,7 +222,6 @@ func (s *MachineSuite) TestRefreshWhenNotAlive(c *C) {
 	testWhenDying(c, s.machine, noErr, noErr, func() error {
 		return m.Refresh()
 	})
-
 }
 
 func (s *MachineSuite) TestMachinePrincipalUnits(c *C) {
@@ -193,9 +232,9 @@ func (s *MachineSuite) TestMachinePrincipalUnits(c *C) {
 	// tells us the right thing.
 
 	m1 := s.machine
-	m2, err := s.State.AddMachine(state.MachinerWorker)
+	m2, err := s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
-	m3, err := s.State.AddMachine(state.MachinerWorker)
+	m3, err := s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
 
 	dummy := s.AddTestingCharm(c, "dummy")
@@ -455,7 +494,7 @@ var machinePrincipalsWatchTests = []struct {
 			err = bacon1.AssignToMachine(s.machine)
 			c.Assert(err, IsNil)
 
-			spammachine, err := s.State.AddMachine(state.MachinerWorker)
+			spammachine, err := s.State.AddMachine(state.JobHostUnits)
 			c.Assert(err, IsNil)
 			svc, err = s.State.AddService("spam", ch)
 			c.Assert(err, IsNil)
@@ -775,7 +814,7 @@ var machineUnitsWatchTests = []struct {
 			c.Assert(err, IsNil)
 			_, err = log99.AddUnitSubordinateTo(unit980)
 			c.Assert(err, IsNil)
-			m, err := s.State.AddMachine(state.MachinerWorker)
+			m, err := s.State.AddMachine(state.JobHostUnits)
 			c.Assert(err, IsNil)
 			err = unit980.AssignToMachine(m)
 		},
@@ -968,7 +1007,7 @@ func (s *MachineSuite) testWatchUnitsUnassign(c *C, reassign bool) {
 	err = subservice.RemoveUnit(subordinate2)
 	c.Assert(err, IsNil)
 
-	machine, err := s.State.AddMachine(state.MachinerWorker)
+	machine, err := s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
 
 	err = principal.UnassignFromMachine()

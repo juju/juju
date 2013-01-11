@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state/presence"
@@ -175,16 +176,40 @@ func (u *Unit) EnsureDying() error {
 	return nil
 }
 
+var ErrUnitHasSubordinates = errors.New("unit has subordinates")
+
 // EnsureDead sets the unit lifecycle to Dead if it is Alive or Dying.
-// It does nothing otherwise.
-func (u *Unit) EnsureDead() error {
-	// TODO a principal must not become Dead while it still has subordinates.
-	err := ensureDead(u.st, u.st.units, u.doc.Name, "unit", nil, "")
-	if err != nil {
+// It does nothing otherwise. If the unit has subordinates, it will
+// return ErrUnitHasSubordinates.
+func (u *Unit) EnsureDead() (err error) {
+	if u.doc.Life == Dead {
+		return nil
+	}
+	defer func() {
+		if err == nil {
+			u.doc.Life = Dead
+		}
+	}()
+	ops := []txn.Op{{
+		C:  u.st.units.Name,
+		Id: u.doc.Name,
+		Assert: append(notDeadDoc, bson.DocElem{
+			"$or", []D{
+				{{"subordinates", D{{"$size", 0}}}},
+				{{"subordinates", D{{"$exists", false}}}},
+			},
+		}),
+		Update: D{{"$set", D{{"life", Dead}}}},
+	}}
+	if err := u.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
 		return err
 	}
-	u.doc.Life = Dead
-	return nil
+	if notDead, err := isNotDead(u.st.units, u.doc.Name); err != nil {
+		return err
+	} else if !notDead {
+		return nil
+	}
+	return ErrUnitHasSubordinates
 }
 
 // Resolved returns the resolved mode for the unit.
@@ -198,6 +223,13 @@ func (u *Unit) IsPrincipal() bool {
 	return u.doc.Principal == ""
 }
 
+// SubordinateNames returns the names of any subordinate units.
+func (u *Unit) SubordinateNames() []string {
+	names := make([]string, len(u.doc.Subordinates))
+	copy(names, u.doc.Subordinates)
+	return names
+}
+
 // DeployerName returns the entity name of the agent responsible for deploying
 // the unit. If no such entity can be determined, false is returned.
 func (u *Unit) DeployerName() (string, bool) {
@@ -209,20 +241,14 @@ func (u *Unit) DeployerName() (string, bool) {
 	return "", false
 }
 
-// PublicAddress returns the public address of the unit.
-func (u *Unit) PublicAddress() (string, error) {
-	if u.doc.PublicAddress == "" {
-		return "", fmt.Errorf("public address of unit %q not found", u)
-	}
-	return u.doc.PublicAddress, nil
+// PublicAddress returns the public address of the unit and whether it is valid.
+func (u *Unit) PublicAddress() (string, bool) {
+	return u.doc.PublicAddress, u.doc.PublicAddress != ""
 }
 
-// PrivateAddress returns the public address of the unit.
-func (u *Unit) PrivateAddress() (string, error) {
-	if u.doc.PrivateAddress == "" {
-		return "", fmt.Errorf("private address of unit %q not found", u)
-	}
-	return u.doc.PrivateAddress, nil
+// PrivateAddress returns the private address of the unit and whether it is valid.
+func (u *Unit) PrivateAddress() (string, bool) {
+	return u.doc.PrivateAddress, u.doc.PrivateAddress != ""
 }
 
 // Refresh refreshes the contents of the Unit from the underlying
@@ -469,6 +495,16 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 	if u.doc.Principal != "" {
 		return fmt.Errorf("unit is a subordinate")
 	}
+	canHost := false
+	for _, j := range m.doc.Jobs {
+		if j == JobHostUnits {
+			canHost = true
+			break
+		}
+	}
+	if !canHost {
+		return fmt.Errorf("machine %q cannot host units", m)
+	}
 	assert := append(isAliveDoc, D{
 		{"$or", []D{
 			{{"machineid", ""}},
@@ -531,19 +567,19 @@ var noUnusedMachines = errors.New("all machines in use")
 // AssignToUnusedMachine assigns u to a machine without other units.
 // If there are no unused machines besides machine 0, an error is returned.
 func (u *Unit) AssignToUnusedMachine() (m *Machine, err error) {
-	// Select all machines with no principals except the bootstrap machine.
-	// TODO shouldn't this be "machines not running state/provisioner/firewaller tasks?"
-	sel := D{{"principals", D{{"$size", 0}}}, {"_id", D{{"$ne", "0"}}}}
+	// Select all machines that can accept principal units but have none assigned.
+	sel := D{{"principals", D{{"$size", 0}}}, {"jobs", JobHostUnits}}
+	query := u.st.machines.Find(sel)
+
 	// TODO use Batch(1). See https://bugs.launchpad.net/mgo/+bug/1053509
 	// TODO(rog) Fix so this is more efficient when there are concurrent uses.
 	// Possible solution: pick the highest and the smallest id of all
 	// unused machines, and try to assign to the first one >= a random id in the
 	// middle.
-	iter := u.st.machines.Find(sel).Batch(2).Prefetch(0).Iter()
+	iter := query.Batch(2).Prefetch(0).Iter()
 	var mdoc machineDoc
 	for iter.Next(&mdoc) {
 		m := newMachine(u.st, &mdoc)
-
 		err := u.assignToMachine(m, true)
 		if err == nil {
 			return m, nil
@@ -551,6 +587,9 @@ func (u *Unit) AssignToUnusedMachine() (m *Machine, err error) {
 		if err != inUseErr && err != machineDeadErr {
 			return nil, fmt.Errorf("cannot assign unit %q to unused machine: %v", u, err)
 		}
+	}
+	if err := iter.Err(); err != nil {
+		return nil, err
 	}
 	return nil, noUnusedMachines
 }

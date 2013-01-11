@@ -53,12 +53,13 @@ func (s *UnitSuite) TestParseUnknown(c *C) {
 
 func (s *UnitSuite) TestRunStop(c *C) {
 	a, unit, _ := s.newAgent(c)
-	done := make(chan error)
-	go func() {
-		done <- a.Run(nil)
-	}()
-	defer a.Stop()
+	mgr, reset := patchDeployManager(c, &a.Conf.StateInfo, a.Conf.DataDir)
+	defer reset()
+	go func() { c.Check(a.Run(nil), IsNil) }()
+	defer func() { c.Check(a.Stop(), IsNil) }()
 	timeout := time.After(5 * time.Second)
+
+waitStarted:
 	for {
 		select {
 		case <-timeout:
@@ -74,6 +75,7 @@ func (s *UnitSuite) TestRunStop(c *C) {
 				continue
 			case state.UnitStarted:
 				c.Logf("started!")
+				break waitStarted
 			case state.UnitDown:
 				s.State.StartSync()
 				c.Logf("unit is still down")
@@ -81,18 +83,34 @@ func (s *UnitSuite) TestRunStop(c *C) {
 				c.Fatalf("unexpected status %s %s", st, info)
 			}
 		}
-		break
 	}
-	err := a.Stop()
+
+	// Check no subordinates have been deployed.
+	mgr.waitDeployed(c)
+
+	// Add a relation with a subordinate service and wait for the subordinate
+	// to be deployed...
+	_, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
 	c.Assert(err, IsNil)
-	c.Assert(<-done, IsNil)
+	eps, err := s.State.InferEndpoints([]string{"wordpress", "logging"})
+	c.Assert(err, IsNil)
+	_, err = s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	mgr.waitDeployed(c, "logging/0")
+
+	// ...then kill the subordinate and wait for it to be recalled and removed.
+	logging0, err := s.State.Unit("logging/0")
+	c.Assert(err, IsNil)
+	err = logging0.EnsureDead()
+	c.Assert(err, IsNil)
+	mgr.waitDeployed(c)
+	err = logging0.Refresh()
+	c.Assert(state.IsNotFound(err), Equals, true)
 }
 
-// newAgent starts a new unit agent running a unit
-// of the dummy charm.
+// newAgent starts a new unit agent.
 func (s *UnitSuite) newAgent(c *C) (*UnitAgent, *state.Unit, *state.Tools) {
-	ch := s.AddTestingCharm(c, "dummy")
-	svc, err := s.Conn.AddService("dummy", ch)
+	svc, err := s.Conn.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
 	unit, err := svc.AddUnit()
 	c.Assert(err, IsNil)
@@ -100,21 +118,24 @@ func (s *UnitSuite) newAgent(c *C) (*UnitAgent, *state.Unit, *state.Tools) {
 	c.Assert(err, IsNil)
 
 	dataDir, tools := primeTools(c, s.Conn, version.Current)
-	tools1, err := environs.ChangeAgentTools(dataDir, unit.EntityName(), version.Current)
+	entityName := unit.EntityName()
+	tools1, err := environs.ChangeAgentTools(dataDir, entityName, version.Current)
 	c.Assert(err, IsNil)
 	c.Assert(tools1, DeepEquals, tools)
 
-	err = os.MkdirAll(environs.AgentDir(dataDir, unit.EntityName()), 0777)
+	err = os.MkdirAll(environs.AgentDir(dataDir, entityName), 0777)
 	c.Assert(err, IsNil)
 
-	return &UnitAgent{
+	a := &UnitAgent{
 		Conf: AgentConf{
 			DataDir:         dataDir,
 			StateInfo:       *s.StateInfo(c),
 			InitialPassword: "unit-password",
 		},
 		UnitName: unit.Name(),
-	}, unit, tools
+	}
+	a.Conf.StateInfo.EntityName = entityName
+	return a, unit, tools
 }
 
 func (s *UnitSuite) TestUpgrade(c *C) {
