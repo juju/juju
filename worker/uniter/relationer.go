@@ -132,7 +132,8 @@ func (r *Relationer) PrepareHook(hi hook.Info) (hookName string, err error) {
 func (r *Relationer) CommitHook(hi hook.Info) error {
 	if r.IsImplicit() {
 		panic("implicit relations must not run hooks")
-	} else if hi.Kind == hook.RelationBroken {
+	}
+	if hi.Kind == hook.RelationBroken {
 		return r.die()
 	}
 	return r.dir.Write(hi)

@@ -417,30 +417,32 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *C) {
 	c.Assert(err, IsNil)
 	err = subru.EnterScope()
 	c.Assert(err, IsNil)
-	checkNoHooks := func() {
-		s.State.StartSync()
-		select {
-		case <-time.After(50 * time.Millisecond):
-		case <-hooks:
-			c.Fatalf("unexpected hook generated")
-		}
+	s.State.StartSync()
+	select {
+	case <-time.After(50 * time.Millisecond):
+	case <-hooks:
+		c.Fatalf("unexpected hook generated")
 	}
-	checkNoHooks()
 
-	// Set it to Dying; check that the dir is removed and no hooks are fired.
+	// Set it to Dying; check that the dir is removed.
 	err = r.SetDying()
 	c.Assert(err, IsNil)
 	_, err = os.Stat(filepath.Join(relsDir, strconv.Itoa(rel.Id())))
 	c.Assert(os.IsNotExist(err), Equals, true)
-	checkNoHooks()
 
 	// Check that it left scope, by leaving scope on the other side and destroying
-	// the relation, and that still no hooks are fired.
+	// the relation.
 	err = subru.LeaveScope()
 	c.Assert(err, IsNil)
 	err = rel.Destroy()
 	c.Assert(err, IsNil)
 	err = rel.Refresh()
 	c.Assert(state.IsNotFound(err), Equals, true)
-	checkNoHooks()
+
+	// Verify that no other hooks were sent at any stage.
+	select {
+	case <-hooks:
+		c.Fatalf("unexpected hook generated")
+	default:
+	}
 }
