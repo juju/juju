@@ -47,6 +47,8 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+	// There is no entity that's created at init time.
+	c.Conf.StateInfo.EntityName = ""
 	st, err := state.Initialize(&c.Conf.StateInfo, cfg)
 	if err != nil {
 		return err

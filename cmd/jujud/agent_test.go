@@ -172,16 +172,17 @@ func initCmd(c cmd.Command, args []string) error {
 // command pre-parsed, with any mandatory flags added.
 func CheckAgentCommand(c *C, create acCreator, args []string) cmd.Command {
 	com, conf := create()
-	c.Assert(conf.DataDir, Equals, "/var/lib/juju")
+	err := initCmd(com, args)
+	c.Assert(conf.dataDir, Equals, "/var/lib/juju")
 	badArgs := append(args, "--data-dir", "")
 	com, conf = create()
-	err := initCmd(com, badArgs)
+	err = initCmd(com, badArgs)
 	c.Assert(err, ErrorMatches, "--data-dir option must be set")
 
 	args = append(args, "--data-dir", "jd")
 	com, conf = create()
 	c.Assert(initCmd(com, args), IsNil)
-	c.Assert(conf.DataDir, Equals, "jd")
+	c.Assert(conf.dataDir, Equals, "jd")
 	return com
 }
 
