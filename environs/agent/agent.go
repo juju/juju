@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/trivial"
 	"os"
@@ -100,7 +99,6 @@ func (c *Conf) Write() error {
 	if err := c.Check(); err != nil {
 		return err
 	}
-	log.Printf("writing conf to %q", c.confFile())
 	data, err := json.Marshal(c)
 	if err != nil {
 		return err

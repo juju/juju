@@ -51,7 +51,6 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	if err := a.Conf.read(state.MachineEntityName(a.MachineId)); err != nil {
 		return err
 	}
-	log.Printf("machine conf %#v\n", a.Conf.Conf)
 	defer log.Printf("cmd/jujud: machine agent exiting")
 	defer a.tomb.Done()
 	return RunLoop(a.Conf.Conf, a)

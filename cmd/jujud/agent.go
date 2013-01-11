@@ -10,7 +10,6 @@ import (
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/deployer"
 	"launchpad.net/tomb"
-	"regexp"
 	"time"
 )
 
