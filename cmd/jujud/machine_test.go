@@ -3,28 +3,44 @@ package main
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/dummy"
-	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/version"
-	"os"
 	"reflect"
 	"time"
 )
 
 type MachineSuite struct {
-	testing.JujuConnSuite
+	agentSuite
 }
 
 var _ = Suite(&MachineSuite{})
+
+// primeAgent adds a new Machine to run the given jobs, and sets up the
+// machine agent's directory.  It returns the new machine and the
+// agent's configuration.
+func (s *MachineSuite) primeAgent(c *C, jobs ...state.MachineJob) (*state.Machine, *agent.Conf) {
+	m, err := s.State.InjectMachine("ardbeg-0", jobs...)
+	c.Assert(err, IsNil)
+	err = m.SetPassword("machine-password")
+	c.Assert(err, IsNil)
+	conf, _ := s.agentSuite.primeAgent(c, state.MachineEntityName(m.Id()), "machine-password")
+	return m, conf
+}
+
+// newAgent returns a new MachineAgent instance
+func (s *MachineSuite) newAgent(c *C, m *state.Machine) *MachineAgent {
+	a := &MachineAgent{}
+	s.initAgent(c, a, "--machine-id", m.Id())
+	return a
+}
 
 func (s *MachineSuite) TestParseSuccess(c *C) {
 	create := func() (cmd.Command, *AgentConf) {
 		a := &MachineAgent{}
 		return a, &a.Conf
 	}
-	a := CheckAgentCommand(c, create, []string{"--machine-id", "42"}, flagAll)
+	a := CheckAgentCommand(c, create, []string{"--machine-id", "42"})
 	c.Assert(a.(*MachineAgent).MachineId, Equals, "42")
 }
 
@@ -44,48 +60,16 @@ func (s *MachineSuite) TestParseUnknown(c *C) {
 	c.Assert(err, ErrorMatches, `unrecognized args: \["blistering barnacles"\]`)
 }
 
-func (s *MachineSuite) newAgent(c *C, mid string) *MachineAgent {
-	entityName := state.MachineEntityName(mid)
-	dataDir, tools := primeTools(c, s.Conn, version.Current)
-	tools1, err := environs.ChangeAgentTools(dataDir, entityName, version.Current)
-	c.Assert(err, IsNil)
-	c.Assert(tools1, DeepEquals, tools)
-
-	a := &MachineAgent{
-		Conf: AgentConf{
-			DataDir:         dataDir,
-			StateInfo:       *s.StateInfo(c),
-			InitialPassword: "machine-password",
-		},
-		MachineId: mid,
-	}
-	a.Conf.StateInfo.EntityName = entityName
-	err = os.MkdirAll(environs.AgentDir(dataDir, entityName), 0777)
-	c.Assert(err, IsNil)
-	return a
-}
-
 func (s *MachineSuite) TestRunInvalidMachineId(c *C) {
 	c.Skip("agents don't yet distinguish between temporary and permanent errors")
-	err := s.newAgent(c, "2").Run(nil)
+	m, _ := s.primeAgent(c, state.JobHostUnits)
+	err := s.newAgent(c, m).Run(nil)
 	c.Assert(err, ErrorMatches, "some error")
 }
 
-func addMachine(st *state.State, jobs ...state.MachineJob) *state.Machine {
-	m, err := st.InjectMachine("ardbeg-0", jobs...)
-	if err != nil {
-		panic(err)
-	}
-	err = m.SetPassword("machine-password")
-	if err != nil {
-		panic(err)
-	}
-	return m
-}
-
 func (s *MachineSuite) TestRunStop(c *C) {
-	m := addMachine(s.State, state.JobHostUnits)
-	a := s.newAgent(c, m.Id())
+	m, _ := s.primeAgent(c, state.JobHostUnits)
+	a := s.newAgent(c, m)
 	done := make(chan error)
 	go func() {
 		done <- a.Run(nil)
@@ -96,25 +80,25 @@ func (s *MachineSuite) TestRunStop(c *C) {
 }
 
 func (s *MachineSuite) TestWithDeadMachine(c *C) {
-	m := addMachine(s.State, state.JobHostUnits)
+	m, _ := s.primeAgent(c, state.JobHostUnits)
 	err := m.EnsureDead()
 	c.Assert(err, IsNil)
-	a := s.newAgent(c, m.Id())
+	a := s.newAgent(c, m)
 	err = runWithTimeout(a)
 	c.Assert(err, IsNil)
 
 	// try again with the machine removed.
 	err = s.State.RemoveMachine(m.Id())
 	c.Assert(err, IsNil)
-	a = s.newAgent(c, m.Id())
+	a = s.newAgent(c, m)
 	err = runWithTimeout(a)
 	c.Assert(err, IsNil)
 }
 
 func (s *MachineSuite) TestHostUnits(c *C) {
-	m := addMachine(s.State, state.JobHostUnits)
-	a := s.newAgent(c, m.Id())
-	mgr, reset := patchDeployManager(c, &a.Conf.StateInfo, a.Conf.DataDir)
+	m, conf := s.primeAgent(c, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	mgr, reset := patchDeployManager(c, &conf.StateInfo, conf.DataDir)
 	defer reset()
 	go func() { c.Check(a.Run(nil), IsNil) }()
 	defer func() { c.Check(a.Stop(), IsNil) }()
@@ -148,11 +132,11 @@ func (s *MachineSuite) TestHostUnits(c *C) {
 }
 
 func (s *MachineSuite) TestManageEnviron(c *C) {
-	m := addMachine(s.State, state.JobManageEnviron)
+	m, _ := s.primeAgent(c, state.JobManageEnviron)
 	op := make(chan dummy.Operation, 200)
 	dummy.Listen(op)
 
-	a := s.newAgent(c, m.Id())
+	a := s.newAgent(c, m)
 	done := make(chan error)
 	go func() {
 		done <- a.Run(nil)
@@ -226,18 +210,9 @@ func opRecvTimeout(c *C, st *state.State, opc <-chan dummy.Operation, kinds ...d
 }
 
 func (s *MachineSuite) TestChangePasswordChanging(c *C) {
-	m := addMachine(s.State, state.JobHostUnits)
-	a := s.newAgent(c, m.Id())
-	dataDir := a.Conf.DataDir
-	newAgent := func(initialPassword string) runner {
-		return &MachineAgent{
-			Conf: AgentConf{
-				DataDir:         dataDir,
-				StateInfo:       *s.StateInfo(c),
-				InitialPassword: initialPassword,
-			},
-			MachineId: m.Id(),
-		}
+	m, _ := s.primeAgent(c, state.JobHostUnits)
+	newAgent := func() runner {
+		return s.newAgent(c, m)
 	}
-	testAgentPasswordChanging(&s.JujuConnSuite, c, m, dataDir, newAgent)
+	s.testAgentPasswordChanging(c, m, newAgent)
 }
