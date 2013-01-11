@@ -179,8 +179,8 @@ func (cfg *MachineConfig) dataFile(name string) string {
 
 func (cfg *MachineConfig) agentConfig(entityName string) *agent.Conf {
 	c := &agent.Conf{
-		DataDir:     cfg.DataDir,
-		StateInfo:   *cfg.StateInfo,
+		DataDir:   cfg.DataDir,
+		StateInfo: *cfg.StateInfo,
 	}
 	c.StateInfo.Addrs = cfg.stateHostAddrs()
 	c.StateInfo.EntityName = entityName
