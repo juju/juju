@@ -125,7 +125,7 @@ func (suite) TestConfReadWriteCheck(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(info.Mode()&os.ModePerm, Equals, os.FileMode(0600))
 
-		// move the configuration file to a different directory
+		// Move the configuration file to a different directory
 		// to check that the entity name gets set correctly when
 		// reading.
 		newDir := filepath.Join(dataDir, "agents", "another")

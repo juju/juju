@@ -30,12 +30,6 @@ func (s *DestroyUnitSuite) TestDestroyUnit(c *C) {
 
 	err = runDestroyUnit(c, "dummy1/0", "dummy1/1")
 	c.Assert(err, IsNil)
-
-	// can't destroy a nonexistent unit.
 	err = runDestroyUnit(c, "dummy1/5")
-	c.Assert(err, ErrorMatches, "unit \"dummy1/5\" not found")
-
-	// Removing a unit that is dying is not an error.
-	err = runDestroyUnit(c, "dummy1/1")
-	c.Assert(err, IsNil)
+	c.Assert(err, ErrorMatches, `cannot destroy units: unit "dummy1/5" is not alive`)
 }
