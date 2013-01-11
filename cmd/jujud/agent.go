@@ -25,8 +25,6 @@ type AgentConf struct {
 	dataDir string
 }
 
-var validAddr = regexp.MustCompile("^.+:[0-9]+$")
-
 // addFlags injects common agent flags into f.
 func (c *AgentConf) addFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.dataDir, "data-dir", "/var/lib/juju", "directory for juju data")
