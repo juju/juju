@@ -27,6 +27,10 @@ type Conf struct {
 	// state.  The password may be empty if an old password is
 	// specified, or when bootstrapping.
 	StateInfo state.Info
+
+	// APIInfo specifies how the agent show connect to the
+	// state through the API.
+	APIInfo api.Info
 }
 
 var validAddr = regexp.MustCompile("^.+:[0-9]+$")
@@ -48,6 +52,10 @@ func ReadConf(dataDir, entityName string) (*Conf, error) {
 	}
 	c.DataDir = dataDir
 	c.StateInfo.EntityName = entityName
+
+	if len(c.APIInfo.CACert) == 0 {
+		c.APIInfo.CACert = c.StateInfo.CACert
+	}
 	if err := c.Check(); err != nil {
 		return nil, err
 	}
@@ -95,9 +103,14 @@ func (c *Conf) Check() error {
 }
 
 // Write writes the agent configuration.
-func (c *Conf) Write() error {
-	if err := c.Check(); err != nil {
+func (c0 *Conf) Write() error {
+	if err := c0.Check(); err != nil {
 		return err
+	}
+	c := *c0
+	// don't needlessly duplicate the CA certificate.
+	if bytes.Equal(c.APIInfo.CACert, c.StateInfo.CACert) {
+		c.APIInfo.CACert = nil
 	}
 	data, err := json.Marshal(c)
 	if err != nil {
