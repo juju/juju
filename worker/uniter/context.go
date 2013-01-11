@@ -138,9 +138,8 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 	if r, found := ctx.HookRelation(); found {
 		vars = append(vars, "JUJU_RELATION="+r.Name())
 		vars = append(vars, "JUJU_RELATION_ID="+r.FakeId())
-		if name, found := ctx.RemoteUnitName(); found {
-			vars = append(vars, "JUJU_REMOTE_UNIT="+name)
-		}
+		name, _ := ctx.RemoteUnitName()
+		vars = append(vars, "JUJU_REMOTE_UNIT="+name)
 	}
 	return vars
 }
