@@ -88,7 +88,6 @@ rm -rf '/var/lib/juju/agents/bootstrap'
 mkdir -p '/var/lib/juju/agents/machine-0'
 echo '\{"DataDir":"/var/lib/juju","OldPassword":"arble","StateInfo":\{"Addrs":\["localhost:37017"\],"CACert":"[^"]+","EntityName":"machine-0","Password":"arble"\}\}' > '/var/lib/juju/agents/machine-0/agent\.conf'
 chmod 600 '/var/lib/juju/agents/machine-0/agent\.conf'
-cp '/var/lib/juju/agents/machine-0/server-cert\.pem' '/var/lib/juju/agents/machine-0/server-key\.pem' '/var/lib/juju/agents/machine-0'
 ln -s 1\.2\.3-linux-amd64 '/var/lib/juju/tools/machine-0'
 cat >> /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju machine-0 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nexec /var/lib/juju/tools/machine-0/jujud machine --log-file /var/log/juju/machine-0\.log --data-dir '/var/lib/juju' --machine-id 0  --debug >> /var/log/juju/machine-0\.log 2>&1\\nEOF\\n
 start jujud-machine-0

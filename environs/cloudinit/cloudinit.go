@@ -207,17 +207,6 @@ func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, entityName, a
 		return nil, err
 	}
 	addScripts(c, cmds...)
-	if cfg.StateServer {
-		// TODO remove this when the server certificate and key
-		// are stored in the state and there's a secure vector
-		// for passing them to an existing agent.
-		addScripts(c,
-			fmt.Sprintf("cp %s %s %s",
-				shquote(acfg.File("server-cert.pem")),
-				shquote(acfg.File("server-key.pem")),
-				shquote(acfg.Dir())),
-		)
-	}
 
 	// Make the agent run via a symbolic link to the actual tools
 	// directory, so it can upgrade itself without needing to change
