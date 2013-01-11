@@ -202,12 +202,10 @@ func addAgentInfo(c *cloudinit.Config, cfg *MachineConfig, entityName string) (*
 }
 
 func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, entityName, args string) (*agent.Conf, error) {
-	acfg := cfg.agentConfig(entityName)
-	cmds, err := acfg.WriteCommands()
+	acfg, err := addAgentInfo(c, cfg, entityName)
 	if err != nil {
 		return nil, err
 	}
-	addScripts(c, cmds...)
 
 	// Make the agent run via a symbolic link to the actual tools
 	// directory, so it can upgrade itself without needing to change
@@ -234,7 +232,7 @@ func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, entityName, a
 		Cmd:     cmd,
 		Out:     logPath,
 	}
-	cmds, err = conf.InstallCommands()
+	cmds, err := conf.InstallCommands()
 	if err != nil {
 		return nil, fmt.Errorf("cannot make cloud-init upstart script for the %s agent: %v", entityName, err)
 	}
