@@ -5,6 +5,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 )
@@ -14,6 +15,7 @@ import (
 type BootstrapSuite struct {
 	testing.LoggingSuite
 	testing.MgoSuite
+	dataDir string
 }
 
 var _ = Suite(&BootstrapSuite{})
@@ -31,6 +33,7 @@ func (s *BootstrapSuite) TearDownSuite(c *C) {
 func (s *BootstrapSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
+	s.dataDir = c.MkDir()
 }
 
 func (s *BootstrapSuite) TearDownTest(c *C) {
@@ -38,9 +41,20 @@ func (s *BootstrapSuite) TearDownTest(c *C) {
 	s.LoggingSuite.TearDownTest(c)
 }
 
-func initBootstrapCommand(args []string) (*BootstrapCommand, error) {
-	c := &BootstrapCommand{}
-	return c, initCmd(c, args)
+func (s *BootstrapSuite) initBootstrapCommand(c *C, args ...string) (*agent.Conf, *BootstrapCommand, error) {
+	conf := &agent.Conf{
+		DataDir: s.dataDir,
+		StateInfo: state.Info{
+			EntityName: "bootstrap",
+			Addrs:      []string{testing.MgoAddr},
+			CACert:     []byte(testing.CACert),
+		},
+	}
+	err := conf.Write()
+	c.Assert(err, IsNil)
+	cmd := &BootstrapCommand{}
+	err = initCmd(cmd, append([]string{"--data-dir", s.dataDir}, args...))
+	return conf, cmd, err
 }
 
 func (s *BootstrapSuite) TestParse(c *C) {
@@ -51,27 +65,24 @@ func (s *BootstrapSuite) TestParse(c *C) {
 	a := CheckAgentCommand(c, create, []string{
 		"--env-config", b64yaml{"foo": 123}.encode(),
 		"--instance-id", "iWhatever",
-	}, flagInitialPassword|flagStateInfo)
+	})
 	cmd := a.(*BootstrapCommand)
 	c.Check(cmd.InstanceId, Equals, "iWhatever")
 }
 
 func (s *BootstrapSuite) TestParseNoInstanceId(c *C) {
 	ecfg := b64yaml{"foo": 123}.encode()
-	_, err := initBootstrapCommand([]string{"--env-config", ecfg})
+	_, _, err := s.initBootstrapCommand(c, "--env-config", ecfg)
 	c.Assert(err, ErrorMatches, "--instance-id option must be set")
 }
 
 func (s *BootstrapSuite) TestParseNoEnvConfig(c *C) {
-	_, err := initBootstrapCommand([]string{"--instance-id", "x"})
+	_, _, err := s.initBootstrapCommand(c, "--instance-id", "x")
 	c.Assert(err, ErrorMatches, "--env-config option must be set")
-
 }
 
 func (s *BootstrapSuite) TestSetMachineId(c *C) {
 	args := []string{
-		"--state-servers", testing.MgoAddr,
-		"--ca-cert", caCertFile,
 		"--instance-id", "over9000",
 		"--env-config", b64yaml{
 			"name":            "dummyenv",
@@ -81,7 +92,7 @@ func (s *BootstrapSuite) TestSetMachineId(c *C) {
 			"ca-cert":         testing.CACert,
 		}.encode(),
 	}
-	cmd, err := initBootstrapCommand(args)
+	_, cmd, err := s.initBootstrapCommand(c, args...)
 	c.Assert(err, IsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, IsNil)
@@ -103,8 +114,6 @@ func (s *BootstrapSuite) TestSetMachineId(c *C) {
 
 func (s *BootstrapSuite) TestMachinerWorkers(c *C) {
 	args := []string{
-		"--state-servers", testing.MgoAddr,
-		"--ca-cert", caCertFile,
 		"--instance-id", "over9000",
 		"--env-config", b64yaml{
 			"name":            "dummyenv",
@@ -114,7 +123,7 @@ func (s *BootstrapSuite) TestMachinerWorkers(c *C) {
 			"ca-cert":         testing.CACert,
 		}.encode(),
 	}
-	cmd, err := initBootstrapCommand(args)
+	_, cmd, err := s.initBootstrapCommand(c, args...)
 	c.Assert(err, IsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, IsNil)
@@ -127,7 +136,7 @@ func (s *BootstrapSuite) TestMachinerWorkers(c *C) {
 	defer st.Close()
 	m, err := st.Machine("0")
 	c.Assert(err, IsNil)
-	c.Assert(m.Workers(), DeepEquals, []state.WorkerKind{state.MachinerWorker, state.ProvisionerWorker, state.FirewallerWorker})
+	c.Assert(m.Jobs(), DeepEquals, []state.MachineJob{state.JobManageEnviron})
 }
 
 func testOpenState(c *C, info *state.Info, expectErr error) {
@@ -144,8 +153,6 @@ func testOpenState(c *C, info *state.Info, expectErr error) {
 
 func (s *BootstrapSuite) TestInitialPassword(c *C) {
 	args := []string{
-		"--state-servers", testing.MgoAddr,
-		"--ca-cert", caCertFile,
 		"--instance-id", "over9000",
 		"--env-config", b64yaml{
 			"name":            "dummyenv",
@@ -154,10 +161,13 @@ func (s *BootstrapSuite) TestInitialPassword(c *C) {
 			"authorized-keys": "i-am-a-key",
 			"ca-cert":         testing.CACert,
 		}.encode(),
-		"--initial-password", "foo",
 	}
-	cmd, err := initBootstrapCommand(args)
+	conf, cmd, err := s.initBootstrapCommand(c, args...)
 	c.Assert(err, IsNil)
+	conf.OldPassword = "foo"
+	err = conf.Write()
+	c.Assert(err, IsNil)
+
 	err = cmd.Run(nil)
 	c.Assert(err, IsNil)
 
@@ -213,11 +223,9 @@ func (s *BootstrapSuite) TestBase64Config(c *C) {
 	for i, t := range base64ConfigTests {
 		c.Logf("test %d", i)
 		var args []string
-		args = append(args, "--state-servers", testing.MgoAddr)
-		args = append(args, "--ca-cert", caCertFile)
 		args = append(args, "--instance-id", "over9000")
 		args = append(args, t.input...)
-		cmd, err := initBootstrapCommand(args)
+		_, cmd, err := s.initBootstrapCommand(c, args...)
 		if t.err == "" {
 			c.Assert(cmd, NotNil)
 			c.Assert(err, IsNil)

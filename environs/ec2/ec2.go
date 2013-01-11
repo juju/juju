@@ -238,7 +238,9 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 		}
 	} else {
 		flags := environs.HighestVersion | environs.CompatVersion
-		tools, err = environs.FindTools(e, version.Current, flags)
+		v := version.Current
+		v.Series = e.Config().DefaultSeries()
+		tools, err = environs.FindTools(e, v, flags)
 		if err != nil {
 			return fmt.Errorf("cannot find tools: %v", err)
 		}
@@ -555,11 +557,7 @@ func (e *environ) Destroy(ensureInsts []environs.Instance) error {
 	// holding e.ecfgMutex. e.Storage() does this for us, then we convert
 	// back to the (*storage) to access the private deleteAll() method.
 	st := e.Storage().(*storage)
-	err = st.deleteAll()
-	if err != nil {
-		return err
-	}
-	return nil
+	return st.deleteAll()
 }
 
 func portsToIPPerms(ports []state.Port) []ec2.IPPerm {

@@ -6,6 +6,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/uniter/charm"
 	"launchpad.net/juju-core/worker/uniter/hook"
@@ -49,64 +50,72 @@ func ModeInit(u *Uniter) (next Mode, err error) {
 func ModeContinue(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeContinue", &err)()
 
-	// When no charm exists, install it.
-	s, err := u.sf.Read()
-	if err == ErrNoStateFile {
-		log.Printf("worker/uniter: charm is not deployed")
-		sch, _, err := u.service.Charm()
-		if err != nil {
+	// If we haven't yet loaded state, do so.
+	if u.s == nil {
+		log.Printf("loading uniter state")
+		if u.s, err = u.sf.Read(); err == ErrNoStateFile {
+			// When no state exists, start from scratch.
+			log.Printf("worker/uniter: charm is not deployed")
+			sch, _, err := u.service.Charm()
+			if err != nil {
+				return nil, err
+			}
+			return ModeInstalling(sch), nil
+		} else if err != nil {
 			return nil, err
 		}
-		return ModeInstalling(sch), nil
-	} else if err != nil {
-		return nil, err
 	}
 
 	// Filter out states not related to charm deployment.
-	switch s.Op {
+	switch u.s.Op {
 	case Continue:
-		log.Printf("worker/uniter: continuing after %q hook", s.Hook.Kind)
-		switch s.Hook.Kind {
-		case hook.Install:
-			return ModeStarting, nil
-		case hook.Start, hook.UpgradeCharm:
-			return ModeConfigChanged, nil
+		log.Printf("worker/uniter: continuing after %q hook", u.s.Hook.Kind)
+		switch u.s.Hook.Kind {
 		case hook.Stop:
 			return ModeTerminating, nil
+		case hook.UpgradeCharm:
+			return ModeConfigChanged, nil
+		case hook.ConfigChanged:
+			if !u.s.Started {
+				return ModeStarting, nil
+			}
+		}
+		if !u.ranConfigChanged {
+			return ModeConfigChanged, nil
 		}
 		return ModeAbide, nil
 	case RunHook:
-		if s.OpStep == Queued {
-			log.Printf("worker/uniter: found queued %q hook", s.Hook.Kind)
-			if err = u.runHook(*s.Hook); err != nil && err != errHookFailed {
+		if u.s.OpStep == Queued {
+			log.Printf("worker/uniter: found queued %q hook", u.s.Hook.Kind)
+			if err = u.runHook(*u.s.Hook); err != nil && err != errHookFailed {
 				return nil, err
 			}
 			return ModeContinue, nil
 		}
-		if s.OpStep == Done {
-			log.Printf("worker/uniter: found uncommitted %q hook", s.Hook.Kind)
-			if err = u.commitHook(*s.Hook); err != nil {
+		if u.s.OpStep == Done {
+			log.Printf("worker/uniter: found uncommitted %q hook", u.s.Hook.Kind)
+			if err = u.commitHook(*u.s.Hook); err != nil {
 				return nil, err
 			}
 			return ModeContinue, nil
 		}
-		log.Printf("worker/uniter: awaiting error resolution for %q hook", s.Hook.Kind)
+		log.Printf("worker/uniter: awaiting error resolution for %q hook", u.s.Hook.Kind)
 		return ModeHookError, nil
 	}
 
 	// Resume interrupted deployment operations.
-	sch, err := u.st.Charm(s.CharmURL)
+	sch, err := u.st.Charm(u.s.CharmURL)
 	if err != nil {
 		return nil, err
 	}
-	if s.Op == Install {
+	if u.s.Op == Install {
 		log.Printf("worker/uniter: resuming charm install")
 		return ModeInstalling(sch), nil
-	} else if s.Op == Upgrade {
+	} else if u.s.Op == Upgrade {
 		log.Printf("worker/uniter: resuming charm upgrade")
 		return ModeUpgrading(sch), nil
 	}
-	panic(fmt.Errorf("unhandled uniter operation %q", s.Op))
+	panic(fmt.Errorf("unhandled uniter operation %q", u.s.Op))
 }
 
 // ModeInstalling is responsible for the initial charm deployment.
@@ -135,13 +144,16 @@ func ModeUpgrading(sch *state.Charm) Mode {
 	}
 }
 
-// ModeStarting runs the "start" hook.
-func ModeStarting(u *Uniter) (next Mode, err error) {
-	defer modeContext("ModeStarting", &err)()
-	if err = u.unit.SetStatus(state.UnitInstalled, ""); err != nil {
-		return nil, err
+// ModeConfigChanged runs the "config-changed" hook.
+func ModeConfigChanged(u *Uniter) (next Mode, err error) {
+	defer modeContext("ModeConfigChanged", &err)()
+	if !u.s.Started {
+		if err = u.unit.SetStatus(state.UnitInstalled, ""); err != nil {
+			return nil, err
+		}
 	}
-	if err := u.runHook(hook.Info{Kind: hook.Start}); err == errHookFailed {
+	u.f.DiscardConfigEvent()
+	if err := u.runHook(hook.Info{Kind: hook.ConfigChanged}); err == errHookFailed {
 		return ModeHookError, nil
 	} else if err != nil {
 		return nil, err
@@ -149,12 +161,10 @@ func ModeStarting(u *Uniter) (next Mode, err error) {
 	return ModeContinue, nil
 }
 
-// ModeConfigChanged runs the "config-changed" hook that is guaranteed to
-// run after a "start" or "upgrade-charm" hook.
-func ModeConfigChanged(u *Uniter) (next Mode, err error) {
-	defer modeContext("ModeConfigChanged", &err)()
-	u.f.DiscardConfigEvent()
-	if err := u.runHook(hook.Info{Kind: hook.ConfigChanged}); err == errHookFailed {
+// ModeStarting runs the "start" hook.
+func ModeStarting(u *Uniter) (next Mode, err error) {
+	defer modeContext("ModeStarting", &err)()
+	if err := u.runHook(hook.Info{Kind: hook.Start}); err == errHookFailed {
 		return ModeHookError, nil
 	} else if err != nil {
 		return nil, err
@@ -179,10 +189,31 @@ func ModeTerminating(u *Uniter) (next Mode, err error) {
 	if err = u.unit.SetStatus(state.UnitStopped, ""); err != nil {
 		return nil, err
 	}
-	if err = u.unit.EnsureDead(); err != nil {
-		return nil, err
+	w := u.unit.Watch()
+	defer watcher.Stop(w, &u.tomb)
+	for {
+		select {
+		case <-u.tomb.Dying():
+			return nil, tomb.ErrDying
+		case _, ok := <-w.Changes():
+			if !ok {
+				return nil, watcher.MustErr(w)
+			}
+			if err := u.unit.Refresh(); err != nil {
+				return nil, err
+			}
+			if len(u.unit.SubordinateNames()) > 0 {
+				continue
+			}
+			// The unit is known to be Dying; so if it didn't have subordinates
+			// just above, it can't acquire new ones before this call.
+			if err := u.unit.EnsureDead(); err != nil {
+				return nil, err
+			}
+			return nil, worker.ErrDead
+		}
 	}
-	return nil, worker.ErrDead
+	panic("unreachable")
 }
 
 // ModeAbide is the Uniter's usual steady state. It watches for and responds to:
@@ -192,15 +223,8 @@ func ModeTerminating(u *Uniter) (next Mode, err error) {
 // * unit death
 func ModeAbide(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeAbide", &err)()
-	if !u.ranConfigChanged {
-		return ModeConfigChanged, nil
-	}
-	s, err := u.sf.Read()
-	if err != nil {
-		return nil, err
-	}
-	if s.Op != Continue {
-		return nil, fmt.Errorf("insane uniter state: %#v", s)
+	if u.s.Op != Continue {
+		return nil, fmt.Errorf("insane uniter state: %#v", u.s)
 	}
 	if err = u.unit.SetStatus(state.UnitStarted, ""); err != nil {
 		return nil, err
@@ -265,6 +289,18 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 // modeAbideDyingLoop handles the proper termination of all relations in
 // response to a Dying unit.
 func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
+	if err := u.unit.Refresh(); err != nil {
+		return nil, err
+	}
+	for _, name := range u.unit.SubordinateNames() {
+		if sub, err := u.st.Unit(name); state.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			return nil, err
+		} else if err = sub.EnsureDying(); err != nil {
+			return nil, err
+		}
+	}
 	for _, r := range u.relationers {
 		if err := r.SetDying(); err != nil {
 			return nil, err
@@ -296,14 +332,10 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 // * charm upgrade requests
 func ModeHookError(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeHookError", &err)()
-	s, err := u.sf.Read()
-	if err != nil {
-		return nil, err
+	if u.s.Op != RunHook || u.s.OpStep != Pending {
+		return nil, fmt.Errorf("insane uniter state: %#v", u.s)
 	}
-	if s.Op != RunHook || s.OpStep != Pending {
-		return nil, fmt.Errorf("insane uniter state: %#v", s)
-	}
-	msg := fmt.Sprintf("hook failed: %q", s.Hook.Kind)
+	msg := fmt.Sprintf("hook failed: %q", u.s.Hook.Kind)
 	if err = u.unit.SetStatus(state.UnitError, msg); err != nil {
 		return nil, err
 	}
@@ -320,9 +352,9 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 		case rm := <-u.f.ResolvedEvents():
 			switch rm {
 			case state.ResolvedRetryHooks:
-				err = u.runHook(*s.Hook)
+				err = u.runHook(*u.s.Hook)
 			case state.ResolvedNoHooks:
-				err = u.commitHook(*s.Hook)
+				err = u.commitHook(*u.s.Hook)
 			default:
 				return nil, fmt.Errorf("unknown resolved mode %q", rm)
 			}

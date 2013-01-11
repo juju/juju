@@ -321,6 +321,49 @@ func (s *RelationUnitSuite) TestContainerSettings(c *C) {
 	}
 }
 
+func (s *RelationUnitSuite) TestContainerCreateSubordinate(c *C) {
+	psvc, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
+	c.Assert(err, IsNil)
+	rsvc, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
+	c.Assert(err, IsNil)
+	eps, err := s.State.InferEndpoints([]string{"mysql", "logging"})
+	c.Assert(err, IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	punit, err := psvc.AddUnit()
+	c.Assert(err, IsNil)
+	err = punit.SetPrivateAddress("blah")
+	c.Assert(err, IsNil)
+	pru, err := rel.Unit(punit)
+	c.Assert(err, IsNil)
+
+	// Check that no units of the subordinate service exist.
+	assertSubCount := func(expect int) {
+		runits, err := rsvc.AllUnits()
+		c.Assert(err, IsNil)
+		c.Assert(runits, HasLen, expect)
+	}
+	assertSubCount(0)
+
+	// Enter principal's scope and check a subordinate was created.
+	err = pru.EnterScope()
+	c.Assert(err, IsNil)
+	assertSubCount(1)
+
+	// Enter principal scope again and check no more subordinates created.
+	err = pru.EnterScope()
+	c.Assert(err, IsNil)
+	assertSubCount(1)
+
+	// Leave principal scope, then re-enter, and check that still no further
+	// subordinates are created.
+	err = pru.LeaveScope()
+	c.Assert(err, IsNil)
+	err = pru.EnterScope()
+	c.Assert(err, IsNil)
+	assertSubCount(1)
+}
+
 func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *C) {
 	pr := NewPeerRelation(c, &s.ConnSuite)
 	rel := pr.ru0.Relation()
@@ -340,7 +383,7 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *C) {
 
 	// Check that we can't add a new unit now.
 	err = pr.ru2.EnterScope()
-	c.Assert(err, Equals, state.ErrRelationNotAlive)
+	c.Assert(err, Equals, state.ErrCannotEnterScope)
 
 	// Check that we created no settings for the unit we failed to add.
 	_, err = pr.ru0.ReadSettings("riak/2")
@@ -383,7 +426,7 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *C) {
 	// Because this is the only sensible place, check that a further call
 	// to Cleanup does not error out.
 	err = s.State.Cleanup()
-	c.Assert(err, Equals, nil)
+	c.Assert(err, IsNil)
 }
 
 func (s *RelationUnitSuite) TestAliveRelationScope(c *C) {
@@ -394,6 +437,13 @@ func (s *RelationUnitSuite) TestAliveRelationScope(c *C) {
 	err := pr.ru0.EnterScope()
 	c.Assert(err, IsNil)
 	err = pr.ru1.EnterScope()
+	c.Assert(err, IsNil)
+
+	// One unit becomes Dying, then re-enters the scope; this is not an error,
+	// because the state is already as requested.
+	err = pr.u0.EnsureDying()
+	c.Assert(err, IsNil)
+	err = pr.ru0.EnterScope()
 	c.Assert(err, IsNil)
 
 	// Two units leave...
@@ -407,9 +457,15 @@ func (s *RelationUnitSuite) TestAliveRelationScope(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(rel.Life(), Equals, state.Alive)
 
-	// ...and new units can still join it.
+	// ...and new units can still join it...
 	err = pr.ru2.EnterScope()
 	c.Assert(err, IsNil)
+
+	// ...but Dying units cannot.
+	err = pr.u3.EnsureDying()
+	c.Assert(err, IsNil)
+	err = pr.ru3.EnterScope()
+	c.Assert(err, Equals, state.ErrCannotEnterScope)
 }
 
 func (s *RelationUnitSuite) TestPeerWatchScope(c *C) {
@@ -623,9 +679,10 @@ func (s *RelationUnitSuite) assertNoScopeChange(c *C, ws ...*state.RelationScope
 }
 
 type PeerRelation struct {
-	svc           *state.Service
-	u0, u1, u2    *state.Unit
-	ru0, ru1, ru2 *state.RelationUnit
+	rel                *state.Relation
+	svc                *state.Service
+	u0, u1, u2, u3     *state.Unit
+	ru0, ru1, ru2, ru3 *state.RelationUnit
 }
 
 func NewPeerRelation(c *C, s *ConnSuite) *PeerRelation {
@@ -635,14 +692,16 @@ func NewPeerRelation(c *C, s *ConnSuite) *PeerRelation {
 	c.Assert(err, IsNil)
 	rel, err := s.State.AddRelation(ep)
 	c.Assert(err, IsNil)
-	pr := &PeerRelation{svc: svc}
+	pr := &PeerRelation{rel: rel, svc: svc}
 	pr.u0, pr.ru0 = addRU(c, svc, rel, nil)
 	pr.u1, pr.ru1 = addRU(c, svc, rel, nil)
 	pr.u2, pr.ru2 = addRU(c, svc, rel, nil)
+	pr.u3, pr.ru3 = addRU(c, svc, rel, nil)
 	return pr
 }
 
 type ProReqRelation struct {
+	rel                    *state.Relation
 	psvc, rsvc             *state.Service
 	pu0, pu1, ru0, ru1     *state.Unit
 	pru0, pru1, rru0, rru1 *state.RelationUnit
@@ -662,7 +721,7 @@ func NewProReqRelation(c *C, s *ConnSuite, scope charm.RelationScope) *ProReqRel
 	c.Assert(err, IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, IsNil)
-	prr := &ProReqRelation{psvc: psvc, rsvc: rsvc}
+	prr := &ProReqRelation{rel: rel, psvc: psvc, rsvc: rsvc}
 	prr.pu0, prr.pru0 = addRU(c, psvc, rel, nil)
 	prr.pu1, prr.pru1 = addRU(c, psvc, rel, nil)
 	if scope == charm.ScopeGlobal {
@@ -731,7 +790,7 @@ func (s *OriginalRelationUnitSuite) TestRelationUnitEnterScopeError(c *C) {
 	err = riak.RemoveUnit(u0)
 	c.Assert(err, IsNil)
 	err = ru0.EnterScope()
-	c.Assert(err, ErrorMatches, `cannot initialize state for unit "riak/0" in relation "riak:ring": private address of unit "riak/0" not found`)
+	c.Assert(err, ErrorMatches, `cannot initialize state for unit "riak/0" in relation "riak:ring": private address not set`)
 
 	u1, err := riak.AddUnit()
 	c.Assert(err, IsNil)
@@ -742,7 +801,7 @@ func (s *OriginalRelationUnitSuite) TestRelationUnitEnterScopeError(c *C) {
 	err = rel.Destroy()
 	c.Assert(err, IsNil)
 	err = ru1.EnterScope()
-	c.Assert(err, Equals, state.ErrRelationNotAlive)
+	c.Assert(err, Equals, state.ErrCannotEnterScope)
 }
 
 func (s *OriginalRelationUnitSuite) TestRelationUnitReadSettings(c *C) {

@@ -47,6 +47,9 @@ const (
 // State defines the local persistent state of the uniter, excluding relation
 // state.
 type State struct {
+	// Started indicates whether the start hook has run.
+	Started bool
+
 	// Op indicates the current operation.
 	Op Op
 
@@ -128,7 +131,7 @@ func (f *StateFile) Read() (*State, error) {
 }
 
 // Write stores the supplied state to the file.
-func (f *StateFile) Write(op Op, step OpStep, hi *hook.Info, url *charm.URL) error {
+func (f *StateFile) Write(started bool, op Op, step OpStep, hi *hook.Info, url *charm.URL) error {
 	if hi != nil {
 		// Strip membership info: it's potentially large, and can
 		// be reconstructed from relation state when required.
@@ -137,6 +140,7 @@ func (f *StateFile) Write(op Op, step OpStep, hi *hook.Info, url *charm.URL) err
 		hi = &hiCopy
 	}
 	st := &State{
+		Started:  started,
 		Op:       op,
 		OpStep:   step,
 		Hook:     hi,

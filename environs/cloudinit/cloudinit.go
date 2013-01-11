@@ -6,13 +6,13 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/upstart"
 	"path"
-	"strings"
 )
 
 // TODO(dfc) duplicated from environs/ec2
@@ -22,8 +22,6 @@ const mgoPort = 37017
 var mgoPortSuffix = fmt.Sprintf(":%d", mgoPort)
 
 // MachineConfig represents initialization information for a new juju machine.
-// Creation of cloudinit data from this struct is largely provider-independent,
-// but we'll keep it internal until we need to factor it out.
 type MachineConfig struct {
 	// StateServer specifies whether the new machine will run a ZooKeeper
 	// or MongoDB instance.
@@ -113,17 +111,20 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	if true || log.Debug {
 		debugFlag = " --debug"
 	}
-	addScripts(c,
-		fmt.Sprintf("echo %s > %s", shquote(string(cfg.StateInfo.CACert)), shquote(caCertPath(cfg))),
-	)
 
 	if cfg.StateServer {
+		serverCert := cfg.dataFile("server-cert.pem")
+		serverKey := cfg.dataFile("server-key.pem")
+		serverCertKey := cfg.dataFile("server.pem")
+		addFile(c, serverCert, string(cfg.StateServerCert), 0600)
+		addFile(c, serverKey, string(cfg.StateServerKey), 0600)
+		// mongodb requires server cert and key in the same file.
 		addScripts(c,
-			fmt.Sprintf("echo %s > %s",
-				shquote(string(cfg.StateServerCert)+string(cfg.StateServerKey)), shquote(serverPEMPath(cfg))),
-			"chmod 600 "+serverPEMPath(cfg),
+			fmt.Sprintf("cat %s %s > %s",
+				shquote(serverCert), shquote(serverKey),
+				shquote(serverCertKey)),
+			fmt.Sprintf("chmod 600 %s", shquote(serverCertKey)),
 		)
-
 		// TODO The public bucket must come from the environment configuration.
 		b := cfg.Tools.Binary
 		url := fmt.Sprintf("http://juju-dist.s3.amazonaws.com/tools/mongo-2.2.0-%s-%s.tgz", b.Series, b.Arch)
@@ -134,17 +135,24 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 		if err := addMongoToBoot(c, cfg); err != nil {
 			return nil, err
 		}
-		addScripts(c, cfg.jujuTools()+"/jujud bootstrap-state"+
-			" --instance-id "+cfg.InstanceIdAccessor+
-			" --env-config "+shquote(base64yaml(cfg.Config))+
-			" --state-servers localhost"+mgoPortSuffix+
-			" --ca-cert "+shquote(caCertPath(cfg))+
-			" --initial-password "+shquote(cfg.StateInfo.Password)+
-			debugFlag,
+		// We temporarily give bootstrap-state a directory
+		// of its own so that it can get the state info via the
+		// same mechanism as other jujud commands.
+		acfg, err := addAgentInfo(c, cfg, "bootstrap")
+		if err != nil {
+			return nil, err
+		}
+		addScripts(c,
+			cfg.jujuTools()+"/jujud bootstrap-state"+
+				" --data-dir "+shquote(cfg.DataDir)+
+				" --instance-id "+cfg.InstanceIdAccessor+
+				" --env-config "+shquote(base64yaml(cfg.Config))+
+				debugFlag,
+			"rm -rf "+shquote(acfg.Dir()),
 		)
 	}
 
-	if err := addAgentToBoot(c, cfg, "machine",
+	if _, err := addAgentToBoot(c, cfg, "machine",
 		state.MachineEntityName(cfg.MachineId),
 		fmt.Sprintf("--machine-id %s "+debugFlag, cfg.MachineId)); err != nil {
 		return nil, err
@@ -157,54 +165,81 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	return c, nil
 }
 
-func caCertPath(cfg *MachineConfig) string {
-	return path.Join(cfg.DataDir, "ca-cert.pem")
+func addFile(c *cloudinit.Config, filename, data string, mode uint) {
+	p := shquote(filename)
+	addScripts(c,
+		fmt.Sprintf("echo %s > %s", shquote(data), p),
+		fmt.Sprintf("chmod %o %s", mode, p),
+	)
 }
 
-func serverPEMPath(cfg *MachineConfig) string {
-	return path.Join(cfg.DataDir, "server.pem")
+func (cfg *MachineConfig) dataFile(name string) string {
+	return path.Join(cfg.DataDir, name)
 }
 
-func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, name, args string) error {
+func (cfg *MachineConfig) agentConfig(entityName string) *agent.Conf {
+	c := &agent.Conf{
+		DataDir:   cfg.DataDir,
+		StateInfo: *cfg.StateInfo,
+	}
+	c.StateInfo.Addrs = cfg.stateHostAddrs()
+	c.StateInfo.EntityName = entityName
+	c.StateInfo.Password = ""
+	c.OldPassword = cfg.StateInfo.Password
+	return c
+}
+
+// addAgentInfo adds agent-required information to the agent's directory
+// and returns the agent directory name.
+func addAgentInfo(c *cloudinit.Config, cfg *MachineConfig, entityName string) (*agent.Conf, error) {
+	acfg := cfg.agentConfig(entityName)
+	cmds, err := acfg.WriteCommands()
+	if err != nil {
+		return nil, err
+	}
+	addScripts(c, cmds...)
+	return acfg, nil
+}
+
+func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, entityName, args string) (*agent.Conf, error) {
+	acfg := cfg.agentConfig(entityName)
+	cmds, err := acfg.WriteCommands()
+	if err != nil {
+		return nil, err
+	}
+	addScripts(c, cmds...)
+
 	// Make the agent run via a symbolic link to the actual tools
 	// directory, so it can upgrade itself without needing to change
 	// the upstart script.
-	toolsDir := environs.AgentToolsDir(cfg.DataDir, name)
+	toolsDir := environs.AgentToolsDir(cfg.DataDir, entityName)
 	// TODO(dfc) ln -nfs, so it doesn't fail if for some reason that the target already exists
 	addScripts(c, fmt.Sprintf("ln -s %v %s", cfg.Tools.Binary, shquote(toolsDir)))
 
-	agentDir := environs.AgentDir(cfg.DataDir, name)
-	addScripts(c, fmt.Sprintf("mkdir -p %s", shquote(agentDir)))
-	svc := upstart.NewService("jujud-" + name)
-	logPath := fmt.Sprintf("/var/log/juju/%s.log", name)
+	svc := upstart.NewService("jujud-" + entityName)
+	logPath := fmt.Sprintf("/var/log/juju/%s.log", entityName)
 	cmd := fmt.Sprintf(
 		"%s/jujud %s"+
-			" --state-servers '%s'"+
-			" --ca-cert '%s'"+
 			" --log-file %s"+
 			" --data-dir '%s'"+
-			" --initial-password '%s'"+
 			" %s",
 		toolsDir, kind,
-		cfg.stateHostAddrs(),
-		caCertPath(cfg),
 		logPath,
 		cfg.DataDir,
-		cfg.StateInfo.Password,
 		args,
 	)
 	conf := &upstart.Conf{
 		Service: *svc,
-		Desc:    fmt.Sprintf("juju %s agent", name),
+		Desc:    fmt.Sprintf("juju %s agent", entityName),
 		Cmd:     cmd,
 		Out:     logPath,
 	}
-	cmds, err := conf.InstallCommands()
+	cmds, err = conf.InstallCommands()
 	if err != nil {
-		return fmt.Errorf("cannot make cloud-init upstart script for the %s agent: %v", name, err)
+		return nil, fmt.Errorf("cannot make cloud-init upstart script for the %s agent: %v", entityName, err)
 	}
 	addScripts(c, cmds...)
-	return nil
+	return acfg, nil
 }
 
 func addMongoToBoot(c *cloudinit.Config, cfg *MachineConfig) error {
@@ -223,7 +258,7 @@ func addMongoToBoot(c *cloudinit.Config, cfg *MachineConfig) error {
 			" --auth" +
 			" --dbpath=/var/lib/juju/db" +
 			" --sslOnNormalPorts" +
-			" --sslPEMKeyFile " + shquote(serverPEMPath(cfg)) +
+			" --sslPEMKeyFile " + shquote(cfg.dataFile("server.pem")) +
 			" --sslPEMKeyPassword ignored" +
 			" --bind_ip 0.0.0.0" +
 			" --port " + fmt.Sprint(mgoPort) +
@@ -251,7 +286,7 @@ func (cfg *MachineConfig) jujuTools() string {
 	return environs.ToolsDir(cfg.DataDir, cfg.Tools.Binary)
 }
 
-func (cfg *MachineConfig) stateHostAddrs() string {
+func (cfg *MachineConfig) stateHostAddrs() []string {
 	var hosts []string
 	if cfg.StateServer {
 		hosts = append(hosts, "localhost"+mgoPortSuffix)
@@ -259,14 +294,11 @@ func (cfg *MachineConfig) stateHostAddrs() string {
 	if cfg.StateInfo != nil {
 		hosts = append(hosts, cfg.StateInfo.Addrs...)
 	}
-	return strings.Join(hosts, ",")
+	return hosts
 }
 
-// shquote quotes s so that when read by bash, no metacharacters
-// within s will be interpreted as such.
-func shquote(s string) string {
-	// single-quote becomes single-quote, double-quote, single-quote, double-quote, single-quote
-	return `'` + strings.Replace(s, `'`, `'"'"'`, -1) + `'`
+func shquote(p string) string {
+	return trivial.ShQuote(p)
 }
 
 type requiresError string

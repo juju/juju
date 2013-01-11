@@ -63,28 +63,20 @@ func (s *MainSuite) TestParseErrors(c *C) {
 	checkMessage(c, msgf, "--cheese", "cavitate")
 
 	cmds := []string{"bootstrap-state", "unit", "machine"}
-	msgz := `invalid value "localhost:37017,srv" for flag --state-servers: "srv" is not a valid state server address`
 	for _, cmd := range cmds {
 		checkMessage(c, msgf, cmd, "--cheese")
-		checkMessage(c, msgz, cmd, "--state-servers", "localhost:37017,srv")
 	}
 
 	msga := `unrecognized args: ["toastie"]`
 	checkMessage(c, msga,
 		"bootstrap-state",
-		"--state-servers", "st:37017",
-		"--ca-cert", caCertFile,
 		"--instance-id", "ii",
 		"--env-config", b64yaml{"blah": "blah"}.encode(),
 		"toastie")
 	checkMessage(c, msga, "unit",
-		"--state-servers", "localhost:37017,st:37017",
-		"--ca-cert", caCertFile,
 		"--unit-name", "un/0",
 		"toastie")
 	checkMessage(c, msga, "machine",
-		"--state-servers", "st:37017",
-		"--ca-cert", caCertFile,
 		"--machine-id", "42",
 		"toastie")
 }
