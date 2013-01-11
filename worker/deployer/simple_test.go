@@ -10,6 +10,7 @@ import (
 
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/deployer"
@@ -146,30 +147,25 @@ func (fix *SimpleToolsFixture) paths(entityName, xName string) (confPath, agentD
 
 func (fix *SimpleToolsFixture) checkUnitInstalled(c *C, name, xName, password string) {
 	entityName := state.UnitEntityName(name)
-	confPath, agentDir, toolsDir := fix.paths(entityName, xName)
-	confData, err := ioutil.ReadFile(confPath)
+	uconfPath, _, toolsDir := fix.paths(entityName, xName)
+	uconfData, err := ioutil.ReadFile(uconfPath)
 	c.Assert(err, IsNil)
-	conf := string(confData)
+	uconf := string(uconfData)
 	var execLine string
-	for _, line := range strings.Split(conf, "\n") {
+	for _, line := range strings.Split(uconf, "\n") {
 		if strings.HasPrefix(line, "exec ") {
 			execLine = line
 			break
 		}
 	}
 	if execLine == "" {
-		c.Fatalf("no command found in %s:\n%s", confPath, conf)
+		c.Fatalf("no command found in %s:\n%s", uconfPath, uconf)
 	}
 	logPath := filepath.Join(fix.logDir, entityName+".log")
-	certPath := filepath.Join(agentDir, "ca-cert.pem")
 	jujudPath := filepath.Join(toolsDir, "jujud")
 	for _, pat := range []string{
 		"^exec " + jujudPath + " unit ",
 		" --unit-name " + name + " ",
-		" --state-servers s1:123,s2:123 ",
-		" --initial-password " + password + " ",
-		" --ca-cert " + certPath + " ",
-		" --log-file " + logPath + " ",
 		" >> " + logPath + " 2>&1$",
 	} {
 		match, err := regexp.MatchString(pat, execLine)
@@ -179,9 +175,17 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *C, name, xName, password st
 		}
 	}
 
-	certData, err := ioutil.ReadFile(certPath)
+	conf, err := agent.ReadConf(fix.dataDir, entityName)
 	c.Assert(err, IsNil)
-	c.Assert(string(certData), Equals, "test-cert")
+	c.Assert(conf, DeepEquals, &agent.Conf{
+		DataDir:     fix.dataDir,
+		OldPassword: password,
+		StateInfo: state.Info{
+			Addrs:      []string{"s1:123", "s2:123"},
+			CACert:     []byte("test-cert"),
+			EntityName: entityName,
+		},
+	})
 
 	jujudData, err := ioutil.ReadFile(jujudPath)
 	c.Assert(err, IsNil)
