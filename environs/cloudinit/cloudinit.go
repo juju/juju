@@ -180,11 +180,12 @@ func (cfg *MachineConfig) dataFile(name string) string {
 func (cfg *MachineConfig) agentConfig(entityName string) *agent.Conf {
 	c := &agent.Conf{
 		DataDir:     cfg.DataDir,
-		OldPassword: cfg.StateInfo.Password,
 		StateInfo:   *cfg.StateInfo,
 	}
 	c.StateInfo.Addrs = cfg.stateHostAddrs()
 	c.StateInfo.EntityName = entityName
+	c.StateInfo.Password = ""
+	c.OldPassword = cfg.StateInfo.Password
 	return c
 }
 
