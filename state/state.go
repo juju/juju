@@ -440,7 +440,7 @@ func (st *State) InferEndpoints(names []string) ([]Endpoint, error) {
 outer:
 	for _, cand := range candidates {
 		for _, ep := range cand {
-			if ep.isImplicit() {
+			if ep.IsImplicit() {
 				continue outer
 			}
 		}
