@@ -417,14 +417,32 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 // addRelation causes the unit agent to join the supplied relation, and to
 // store persistent state in the supplied dir.
 func (u *Uniter) addRelation(rel *state.Relation, dir *relation.StateDir) error {
+	log.Printf("worker/uniter: joining relation %q", rel)
 	ru, err := rel.Unit(u.unit)
 	if err != nil {
 		return err
 	}
 	r := NewRelationer(ru, dir, u.relationHooks)
-	if err = r.Join(); err != nil {
-		return err
+	w := u.unit.Watch()
+	defer watcher.Stop(w, &u.tomb)
+	for {
+		select {
+		case <-u.tomb.Dying():
+			return tomb.ErrDying
+		case _, ok := <-w.Changes():
+			if !ok {
+				return watcher.MustErr(w)
+			}
+			if err = r.Join(); err == state.ErrCannotEnterScopeYet {
+				log.Printf("worker/uniter: waiting for relation scope to become accessible")
+				continue
+			} else if err != nil {
+				return err
+			}
+			log.Printf("worker/uniter: joined relation %q", rel)
+			u.relationers[rel.Id()] = r
+			return nil
+		}
 	}
-	u.relationers[rel.Id()] = r
-	return nil
+	panic("unreachable")
 }
