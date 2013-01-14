@@ -95,6 +95,7 @@ When a unit becomes Dying, the following operations occur:
     particular, any hooks that fail while the unit is leaving relations and
     stopping the charm will suspend this sequence until resolved (just like
     when the unit is Alive).
+  * The unit's agent then sets the unit to Dead.
 
 When a unit becomes Dead, the following operations occur:
 
