@@ -60,7 +60,7 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 		if err != nil {
 			return nil, err
 		}
-		if err := st.SetAdminPassword(password); err != nil {
+		if err := st.SetAdminMongoPassword(password); err != nil {
 			return nil, err
 		}
 	} else if err != nil {

@@ -15,6 +15,7 @@ type storage struct {
 	sync.Mutex
 	madeContainer bool
 	containerName string
+	containerACL  swift.ACL
 	swift         *swift.Client
 }
 
@@ -22,15 +23,14 @@ type storage struct {
 // place where bootstrap information and deployed charms
 // are stored. To avoid two round trips on every PUT operation,
 // we do this only once for each environ.
-func (s *storage) makeContainer(containerName string) error {
+func (s *storage) makeContainer(containerName string, containerACL swift.ACL) error {
 	s.Lock()
 	defer s.Unlock()
 	if s.madeContainer {
 		return nil
 	}
 	// try to make the container - CreateContainer will succeed if the container already exists.
-	// TODO(wallyworld) - add security specification?
-	err := s.swift.CreateContainer(containerName)
+	err := s.swift.CreateContainer(containerName, containerACL)
 	if err == nil {
 		s.madeContainer = true
 	}
@@ -38,10 +38,9 @@ func (s *storage) makeContainer(containerName string) error {
 }
 
 func (s *storage) Put(file string, r io.Reader, length int64) error {
-	if err := s.makeContainer(s.containerName); err != nil {
+	if err := s.makeContainer(s.containerName, s.containerACL); err != nil {
 		return fmt.Errorf("cannot make Swift control container: %v", err)
 	}
-	// TODO(wallyuworld) - add security specification?
 	err := s.swift.PutReader(s.containerName, file, r, length)
 	if err != nil {
 		return fmt.Errorf("cannot write file %q to control container %q: %v", file, s.containerName, err)

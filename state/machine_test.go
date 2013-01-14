@@ -86,8 +86,8 @@ func (s *MachineSuite) TestMachineEntityName(c *C) {
 	c.Assert(state.MachineEntityName("10"), Equals, "machine-10")
 }
 
-func (s *MachineSuite) TestSetPassword(c *C) {
-	testSetPassword(c, func(st *state.State) (entity, error) {
+func (s *MachineSuite) TestSetMongoPassword(c *C) {
+	testSetMongoPassword(c, func(st *state.State) (entity, error) {
 		return st.Machine(s.machine.Id())
 	})
 }

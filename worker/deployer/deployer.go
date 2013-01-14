@@ -121,7 +121,7 @@ func (d *Deployer) deploy(unit *state.Unit) error {
 	if err != nil {
 		return err
 	}
-	if err := unit.SetPassword(initialPassword); err != nil {
+	if err := unit.SetMongoPassword(initialPassword); err != nil {
 		return err
 	}
 	if err := d.mgr.DeployUnit(unitName, initialPassword); err != nil {
