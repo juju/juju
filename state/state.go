@@ -99,23 +99,20 @@ func IsNotFound(err error) bool {
 // State represents the state of an environment
 // managed by juju.
 type State struct {
-	info *Info
-	db   *mgo.Database
-
+	info           *Info
+	db             *mgo.Database
 	charms         *mgo.Collection
-	cleanups       *mgo.Collection
 	machines       *mgo.Collection
-	presence       *mgo.Collection
-	relationScopes *mgo.Collection
 	relations      *mgo.Collection
+	relationScopes *mgo.Collection
 	services       *mgo.Collection
 	settings       *mgo.Collection
 	units          *mgo.Collection
-	users          *mgo.Collection
-
-	runner   *txn.Runner
-	watcher  *watcher.Watcher
-	pwatcher *presence.Watcher
+	presence       *mgo.Collection
+	cleanups       *mgo.Collection
+	runner         *txn.Runner
+	watcher        *watcher.Watcher
+	pwatcher       *presence.Watcher
 }
 
 func (st *State) EnvironConfig() (*config.Config, error) {
@@ -671,11 +668,11 @@ func (st *State) Sync() {
 	st.pwatcher.Sync()
 }
 
-// SetAdminMongoPassword sets the administrative password
+// SetAdminPassword sets the administrative password
 // to access the state. If the password is non-empty,
 // all subsequent attempts to access the state must
 // be authorized; otherwise no authorization is required.
-func (st *State) SetAdminMongoPassword(password string) error {
+func (st *State) SetAdminPassword(password string) error {
 	admin := st.db.Session.DB("admin")
 	if password != "" {
 		// On 2.2+, we get a "need to login" error without a code when
@@ -695,7 +692,7 @@ func (st *State) SetAdminMongoPassword(password string) error {
 	return nil
 }
 
-func (st *State) setMongoPassword(name, password string) error {
+func (st *State) setPassword(name, password string) error {
 	if err := st.db.AddUser(name, password, false); err != nil {
 		return fmt.Errorf("cannot set password in juju db for %q: %v", name, err)
 	}

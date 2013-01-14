@@ -165,6 +165,27 @@ func (u *Unit) SetMongoPassword(password string) error {
 	return u.st.setMongoPassword(u.EntityName(), password)
 }
 
+// SetPassword sets the password for the machine's agent.
+func (u *Unit) SetPassword(password string) (err error) {
+	hp := trivial.PasswordHash(password)
+	if status == UnitPending {
+		panic("unit status must not be set to pending")
+	}
+	ops := []txn.Op{{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: notDeadDoc,
+		Update: D{{"$set", D{{"status", status}, {"statusinfo", info}}}},
+	}}
+	err := u.st.runner.Run(ops, "", nil)
+	if err != nil {
+		return fmt.Errorf("cannot set status of unit %q: %v", u, onAbort(err, errNotAlive))
+	}
+	u.doc.Status = status
+	u.doc.StatusInfo = info
+	return nil
+
+
 // EnsureDying sets the unit lifecycle to Dying if it is Alive.
 // It does nothing otherwise.
 func (u *Unit) EnsureDying() error {
