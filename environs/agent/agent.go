@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sync"
 )
 
 // Conf holds information for a given agent.
@@ -136,6 +137,34 @@ func (c *Conf) WriteCommands() ([]string, error) {
 	addCmd("echo %s > %s", trivial.ShQuote(string(data)), f)
 	addCmd("chmod %o %s", 0600, f)
 	return cmds, nil
+}
+
+var changeMutex sync.Mutex
+
+// Change re-reads the receiving configuration, passes it to the given
+// mutate function, and writes it back.  Change may be called
+// concurrently - each mutation will happen in sequence.  The receiver
+// will be changed to match the result.  If mutate returns an error, or
+// the mutation results in an invalid configuration no
+// change will be made and the error will be returned.
+func (c *Conf) Change(mutate func(conf *Conf) error) error {
+	changeMutex.Lock()
+	defer changeMutex.Unlock()
+	nc, err := ReadConf(c.DataDir, c.StateInfo.EntityName)
+	if err != nil {
+		return err
+	}
+	if err := mutate(nc); err != nil {
+		return err
+	}
+	if err := nc.Check(); err != nil {
+		return err
+	}
+	if err := nc.Write(); err != nil {
+		return err
+	}
+	*c = *nc
+	return nil
 }
 
 // OpenState tries to open the state using the given Conf.  If
