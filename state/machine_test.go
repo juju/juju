@@ -94,7 +94,7 @@ func (s *MachineSuite) TestSetMongoPassword(c *C) {
 
 func (s *MachineSuite) TestSetPassword(c *C) {
 	testSetPassword(c, func() (entity, error) {
-		return s.st.Machine(s.machine.Id())
+		return s.State.Machine(s.machine.Id())
 	})
 }
 

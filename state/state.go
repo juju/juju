@@ -668,11 +668,11 @@ func (st *State) Sync() {
 	st.pwatcher.Sync()
 }
 
-// SetAdminPassword sets the administrative password
+// SetAdminMongoPassword sets the administrative password
 // to access the state. If the password is non-empty,
 // all subsequent attempts to access the state must
 // be authorized; otherwise no authorization is required.
-func (st *State) SetAdminPassword(password string) error {
+func (st *State) SetAdminMongoPassword(password string) error {
 	admin := st.db.Session.DB("admin")
 	if password != "" {
 		// On 2.2+, we get a "need to login" error without a code when

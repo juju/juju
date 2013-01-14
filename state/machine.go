@@ -31,13 +31,13 @@ const (
 
 // machineDoc represents the internal state of a machine in MongoDB.
 type machineDoc struct {
-	Id         string `bson:"_id"`
-	InstanceId InstanceId
-	Principals []string
-	Life       Life
-	Tools      *Tools `bson:",omitempty"`
-	TxnRevno   int64  `bson:"txn-revno"`
-	Jobs       []MachineJob
+	Id           string `bson:"_id"`
+	InstanceId   InstanceId
+	Principals   []string
+	Life         Life
+	Tools        *Tools `bson:",omitempty"`
+	TxnRevno     int64  `bson:"txn-revno"`
+	Jobs         []MachineJob
 	PasswordHash string
 }
 
@@ -134,7 +134,7 @@ func (m *Machine) SetPassword(password string) (err error) {
 // PasswordValid returns whether the given password is valid
 // for the given machine.
 func (m *Machine) PasswordValid(password string) bool {
-	return trivial.PasswordHash(password) == m.PasswordHash
+	return trivial.PasswordHash(password) == m.doc.PasswordHash
 }
 
 // deathAsserts returns the conditions that must hold for a machine to
