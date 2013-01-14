@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/trivial"
 	"os"
 	"path/filepath"
@@ -28,7 +29,12 @@ type Conf struct {
 	// specified, or when bootstrapping.
 	StateInfo state.Info
 
-	// APIInfo specifies how the agent show connect to the
+	// OldAPIPassword specifies a password that should
+	// be used to connect to the API if APIInfo.Password
+	// is blank or invalid.
+	OldAPIPassword string
+
+	// APIInfo specifies how the agent should connect to the
 	// state through the API.
 	APIInfo api.Info
 }
