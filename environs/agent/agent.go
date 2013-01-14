@@ -139,6 +139,9 @@ func (c *Conf) WriteCommands() ([]string, error) {
 	return cmds, nil
 }
 
+// We use a global mutex here so that agents can use different Conf's
+// writing to the same filesystem path and we'll still get reasonable
+// behavior.
 var changeMutex sync.Mutex
 
 // Change re-reads the receiving configuration, passes it to the given
