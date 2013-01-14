@@ -20,6 +20,7 @@ type fakeManager struct {
 	mu       sync.Mutex
 	deployed map[string]bool
 	st       *state.State
+	inited   chan struct{}
 }
 
 func (mgr *fakeManager) DeployUnit(unitName, _ string) error {
@@ -50,18 +51,23 @@ func (mgr *fakeManager) DeployedUnits() ([]string, error) {
 func (mgr *fakeManager) waitDeployed(c *C, want ...string) {
 	sort.Strings(want)
 	timeout := time.After(500 * time.Millisecond)
-	for {
-		mgr.st.StartSync()
-		select {
-		case <-timeout:
-			got, err := mgr.DeployedUnits()
-			c.Assert(err, IsNil)
-			c.Fatalf("unexpected units: %#v", got)
-		case <-time.After(50 * time.Millisecond):
-			got, err := mgr.DeployedUnits()
-			c.Assert(err, IsNil)
-			if reflect.DeepEqual(got, want) {
-				return
+	select {
+	case <-timeout:
+		c.Fatalf("manager never initialized")
+	case <-mgr.inited:
+		for {
+			mgr.st.StartSync()
+			select {
+			case <-timeout:
+				got, err := mgr.DeployedUnits()
+				c.Assert(err, IsNil)
+				c.Fatalf("unexpected units: %#v", got)
+			case <-time.After(50 * time.Millisecond):
+				got, err := mgr.DeployedUnits()
+				c.Assert(err, IsNil)
+				if reflect.DeepEqual(got, want) {
+					return
+				}
 			}
 		}
 	}
@@ -71,7 +77,10 @@ func (mgr *fakeManager) waitDeployed(c *C, want ...string) {
 func patchDeployManager(c *C, expectInfo *state.Info, expectDataDir string) (*fakeManager, func()) {
 	mgr := &fakeManager{
 		deployed: map[string]bool{},
+		inited:   make(chan struct{}),
 	}
+	e0 := *expectInfo
+	expectInfo = &e0
 	orig := newDeployManager
 	newDeployManager = func(st *state.State, info *state.Info, dataDir string) deployer.Manager {
 		c.Check(info.Addrs, DeepEquals, expectInfo.Addrs)
@@ -80,6 +89,7 @@ func patchDeployManager(c *C, expectInfo *state.Info, expectDataDir string) (*fa
 		c.Check(info.Password, Equals, "")
 		c.Check(dataDir, Equals, expectDataDir)
 		mgr.st = st
+		close(mgr.inited)
 		return mgr
 	}
 	return mgr, func() { newDeployManager = orig }

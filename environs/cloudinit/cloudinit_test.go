@@ -9,7 +9,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
-	"path"
 	"regexp"
 	"strings"
 )
@@ -36,10 +35,15 @@ func mustNewConfig(m map[string]interface{}) *config.Config {
 	return cfg
 }
 
+type cloudinitTest struct {
+	cfg           cloudinit.MachineConfig
+	expectScripts string
+}
+
 // Each test gives a cloudinit config - we check the
 // output to see if it looks correct.
-var cloudinitTests = []cloudinit.MachineConfig{
-	{
+var cloudinitTests = []cloudinitTest{{
+	cfg: cloudinit.MachineConfig{
 		InstanceIdAccessor: "$instance_id",
 		MachineId:          "0",
 		ProviderType:       "ec2",
@@ -50,24 +54,74 @@ var cloudinitTests = []cloudinit.MachineConfig{
 		StateServerKey:     serverKey,
 		StateInfo: &state.Info{
 			Password: "arble",
-			CACert:   []byte(testing.CACert),
+			CACert:   []byte("CA CERT\n" + testing.CACert),
 		},
 		Config:  envConfig,
 		DataDir: "/var/lib/juju",
 	},
+	expectScripts: `
+mkdir -p /var/lib/juju
+mkdir -p /var/log/juju
+bin='/var/lib/juju/tools/1\.2\.3-linux-amd64'
+mkdir -p \$bin
+wget --no-verbose -O - 'http://foo\.com/tools/juju1\.2\.3-linux-amd64\.tgz' \| tar xz -C \$bin
+echo -n 'http://foo\.com/tools/juju1\.2\.3-linux-amd64\.tgz' > \$bin/downloaded-url\.txt
+echo 'SERVER CERT\\n[^']*' > '/var/lib/juju/server-cert\.pem'
+chmod 600 '/var/lib/juju/server-cert\.pem'
+echo 'SERVER KEY\\n[^']*' > '/var/lib/juju/server-key\.pem'
+chmod 600 '/var/lib/juju/server-key\.pem'
+cat '/var/lib/juju/server-cert\.pem' '/var/lib/juju/server-key\.pem' > '/var/lib/juju/server\.pem'
+chmod 600 '/var/lib/juju/server\.pem'
+mkdir -p /opt
+wget --no-verbose -O - 'http://juju-dist\.s3\.amazonaws\.com/tools/mongo-2\.2\.0-linux-amd64\.tgz' \| tar xz -C /opt
+mkdir -p /var/lib/juju/db/journal
+dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.0
+dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.1
+dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.2
+cat >> /etc/init/juju-db\.conf << 'EOF'\\ndescription "juju state database"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nexec /opt/mongo/bin/mongod --auth --dbpath=/var/lib/juju/db --sslOnNormalPorts --sslPEMKeyFile '/var/lib/juju/server\.pem' --sslPEMKeyPassword ignored --bind_ip 0\.0\.0\.0 --port 37017 --noprealloc --smallfiles\\nEOF\\n
+start juju-db
+mkdir -p '/var/lib/juju/agents/bootstrap'
+echo '\{"DataDir":"/var/lib/juju","OldPassword":"arble","StateInfo":\{"Addrs":\["localhost:37017"\],"CACert":"[^"]+","EntityName":"bootstrap","Password":""\}\}' > '/var/lib/juju/agents/bootstrap/agent\.conf'
+chmod 600 '/var/lib/juju/agents/bootstrap/agent\.conf'
+/var/lib/juju/tools/1\.2\.3-linux-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --instance-id \$instance_id --env-config '[^']*' --debug
+rm -rf '/var/lib/juju/agents/bootstrap'
+mkdir -p '/var/lib/juju/agents/machine-0'
+echo '\{"DataDir":"/var/lib/juju","OldPassword":"arble","StateInfo":\{"Addrs":\["localhost:37017"\],"CACert":"[^"]+","EntityName":"machine-0","Password":""\}\}' > '/var/lib/juju/agents/machine-0/agent\.conf'
+chmod 600 '/var/lib/juju/agents/machine-0/agent\.conf'
+ln -s 1\.2\.3-linux-amd64 '/var/lib/juju/tools/machine-0'
+cat >> /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju machine-0 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nexec /var/lib/juju/tools/machine-0/jujud machine --log-file /var/log/juju/machine-0\.log --data-dir '/var/lib/juju' --machine-id 0  --debug >> /var/log/juju/machine-0\.log 2>&1\\nEOF\\n
+start jujud-machine-0
+`,
+},
 	{
-		MachineId:      "99",
-		ProviderType:   "ec2",
-		AuthorizedKeys: "sshkey1",
-		DataDir:        "/var/lib/juju",
-		StateServer:    false,
-		Tools:          newSimpleTools("1.2.3-linux-amd64"),
-		StateInfo: &state.Info{
-			Addrs:      []string{"state-addr.example.com"},
-			EntityName: "machine-99",
-			Password:   "arble",
-			CACert:     []byte(testing.CACert),
+		cfg: cloudinit.MachineConfig{
+			MachineId:      "99",
+			ProviderType:   "ec2",
+			AuthorizedKeys: "sshkey1",
+			DataDir:        "/var/lib/juju",
+			StateServer:    false,
+			Tools:          newSimpleTools("1.2.3-linux-amd64"),
+			StateInfo: &state.Info{
+				Addrs:      []string{"state-addr.example.com:12345"},
+				EntityName: "machine-99",
+				Password:   "arble",
+				CACert:     []byte("CA CERT\n" + testing.CACert),
+			},
 		},
+		expectScripts: `
+mkdir -p /var/lib/juju
+mkdir -p /var/log/juju
+bin='/var/lib/juju/tools/1\.2\.3-linux-amd64'
+mkdir -p \$bin
+wget --no-verbose -O - 'http://foo\.com/tools/juju1\.2\.3-linux-amd64\.tgz' \| tar xz -C \$bin
+echo -n 'http://foo\.com/tools/juju1\.2\.3-linux-amd64\.tgz' > \$bin/downloaded-url\.txt
+mkdir -p '/var/lib/juju/agents/machine-99'
+echo '\{"DataDir":"/var/lib/juju","OldPassword":"arble","StateInfo":\{"Addrs":\["state-addr\.example\.com:12345"\],"CACert":"[^"]+","EntityName":"machine-99","Password":""\}\}' > '/var/lib/juju/agents/machine-99/agent\.conf'
+chmod 600 '/var/lib/juju/agents/machine-99/agent\.conf'
+ln -s 1\.2\.3-linux-amd64 '/var/lib/juju/tools/machine-99'
+cat >> /etc/init/jujud-machine-99\.conf << 'EOF'\\ndescription "juju machine-99 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nexec /var/lib/juju/tools/machine-99/jujud machine --log-file /var/log/juju/machine-99\.log --data-dir '/var/lib/juju' --machine-id 99  --debug >> /var/log/juju/machine-99\.log 2>&1\\nEOF\\n
+start jujud-machine-99
+`,
 	},
 }
 
@@ -78,62 +132,38 @@ func newSimpleTools(vers string) *state.Tools {
 	}
 }
 
-// cloundInitTest runs a set of tests for one of the MachineConfig
-// values above.
-type cloudinitTest struct {
-	x   map[interface{}]interface{} // the unmarshalled YAML.
-	cfg *cloudinit.MachineConfig    // the config being tested.
-}
+func (t *cloudinitTest) check(c *C) {
+	ci, err := cloudinit.New(&t.cfg)
+	c.Assert(err, IsNil)
+	c.Check(ci, NotNil)
+	// render the cloudinit config to bytes, and then
+	// back to a map so we can introspect it without
+	// worrying about internal details of the cloudinit
+	// package.
+	data, err := ci.Render()
+	c.Assert(err, IsNil)
 
-func (t *cloudinitTest) check(c *C, cfg *cloudinit.MachineConfig) {
-	c.Check(t.x["apt_upgrade"], Equals, true)
-	c.Check(t.x["apt_update"], Equals, true)
-	t.checkScripts(c, "mkdir -p "+cfg.DataDir)
-	t.checkScripts(c, "wget.*"+regexp.QuoteMeta(t.cfg.Tools.URL)+".*tar .*xz")
+	x := make(map[interface{}]interface{})
+	err = goyaml.Unmarshal(data, &x)
+	c.Assert(err, IsNil)
 
-	if t.cfg.StateServer {
-		t.checkScripts(c, regexp.QuoteMeta(t.cfg.InstanceIdAccessor))
-	}
+	c.Check(x["apt_upgrade"], Equals, true)
+	c.Check(x["apt_update"], Equals, true)
+
+	scripts := getScripts(x)
+	scriptDiff(c, scripts, t.expectScripts)
 	if t.cfg.Config != nil {
-		t.checkScripts(c, "tools/mongo-.*tgz")
-		t.checkEnvConfig(c)
+		checkEnvConfig(c, t.cfg.Config, x, scripts)
 	}
-	t.checkPackage(c, "git")
-
-	if t.cfg.StateServer {
-		t.checkScripts(c, "jujud bootstrap-state"+
-			".* --state-servers localhost:37017"+
-			".* --ca-cert '"+path.Join(t.cfg.DataDir, "ca-cert.pem")+"'"+
-			".*--initial-password '"+t.cfg.StateInfo.Password+"'")
-		t.checkScripts(c, "jujud machine"+
-			" --state-servers 'localhost:37017' "+
-			".*--initial-password '"+t.cfg.StateInfo.Password+"'"+
-			".* --machine-id [0-9]+"+
-			".*>> /var/log/juju/.*log 2>&1")
-		t.checkScripts(c, "mongod"+
-			".* --sslPEMKeyFile '[^']*/server.pem'")
-	} else {
-		t.checkScripts(c, "jujud machine"+
-			" --state-servers '"+strings.Join(t.cfg.StateInfo.Addrs, ",")+"'"+
-			".* --ca-cert '"+path.Join(t.cfg.DataDir, "ca-cert.pem")+"'"+
-			".*--initial-password '"+t.cfg.StateInfo.Password+"'"+
-			" .*--machine-id [0-9]+"+
-			".*>> /var/log/juju/.*log 2>&1")
-	}
+	checkPackage(c, x, "git", true)
 }
 
 // check that any --env-config $base64 is valid and matches t.cfg.Config
-func (t *cloudinitTest) checkEnvConfig(c *C) {
-	scripts0 := t.x["runcmd"]
-	if scripts0 == nil {
-		c.Errorf("cloudinit has no entry for runcmd")
-		return
-	}
-	scripts := scripts0.([]interface{})
+func checkEnvConfig(c *C, cfg *config.Config, x map[interface{}]interface{}, scripts []string) {
 	re := regexp.MustCompile(`--env-config '([\w,=]+)'`)
 	found := false
-	for _, s0 := range scripts {
-		m := re.FindStringSubmatch(s0.(string))
+	for _, s := range scripts {
+		m := re.FindStringSubmatch(s)
 		if m == nil {
 			continue
 		}
@@ -143,50 +173,54 @@ func (t *cloudinitTest) checkEnvConfig(c *C) {
 		var actual map[string]interface{}
 		err = goyaml.Unmarshal(buf, &actual)
 		c.Assert(err, IsNil)
-		c.Assert(t.cfg.Config.AllAttrs(), DeepEquals, actual)
+		c.Assert(cfg.AllAttrs(), DeepEquals, actual)
 	}
 	c.Assert(found, Equals, true)
 }
 
-func (t *cloudinitTest) checkScripts(c *C, pattern string) {
-	CheckScripts(c, t.x, pattern, true)
+// TestCloudInit checks that the output from the various tests
+// in cloudinitTests is well formed.
+func (cloudinitSuite) TestCloudInit(c *C) {
+	for i, test := range cloudinitTests {
+		c.Logf("test %d", i)
+		ci, err := cloudinit.New(&test.cfg)
+		c.Assert(err, IsNil)
+		c.Check(ci, NotNil)
+
+		test.check(c)
+	}
 }
 
-// If match is true, CheckScripts checks that at least one script started
-// by the cloudinit data matches the given regexp pattern, otherwise it
-// checks that no script matches.  It's exported so it can be used by tests
-// defined in ec2_test.
-func CheckScripts(c *C, x map[interface{}]interface{}, pattern string, match bool) {
-	scripts0 := x["runcmd"]
-	if scripts0 == nil {
-		c.Errorf("cloudinit has no entry for runcmd")
-		return
+func getScripts(x map[interface{}]interface{}) []string {
+	var scripts []string
+	for _, s := range x["runcmd"].([]interface{}) {
+		scripts = append(scripts, s.(string))
 	}
-	scripts := scripts0.([]interface{})
-	re := regexp.MustCompile(pattern)
-	found := false
-	for _, s0 := range scripts {
-		s := s0.(string)
-		if re.MatchString(s) {
-			found = true
+	return scripts
+}
+
+func scriptDiff(c *C, got []string, expect string) {
+	for _, s := range got {
+		c.Logf("script: %s", regexp.QuoteMeta(strings.Replace(s, "\n", "\\n", -1)))
+	}
+	pats := strings.Split(strings.Trim(expect, "\n"), "\n")
+	for i := 0; ; i++ {
+		switch {
+		case i == len(got) && i == len(pats):
+			return
+		case i == len(got):
+			c.Fatalf("too few scripts found (expected %q at line %d)", pats[i], i)
+		case i == len(pats):
+			c.Fatalf("too many scripts found (got %q at line %d)", got[i], i)
 		}
+		script := strings.Replace(got[i], "\n", "\\n", -1) // make .* work
+		c.Assert(script, Matches, pats[i], Commentf("line %d", i))
 	}
-	switch {
-	case match && !found:
-		c.Errorf("script %q not found in %q", pattern, scripts)
-	case !match && found:
-		c.Errorf("script %q found but not expected in %q", pattern, scripts)
-	}
-}
-
-func (t *cloudinitTest) checkPackage(c *C, pkg string) {
-	CheckPackage(c, t.x, pkg, true)
 }
 
 // CheckPackage checks that the cloudinit will or won't install the given
-// package, depending on the value of match.  It's exported so it can be
-// used by tests defined outside the ec2 package.
-func CheckPackage(c *C, x map[interface{}]interface{}, pkg string, match bool) {
+// package, depending on the value of match.
+func checkPackage(c *C, x map[interface{}]interface{}, pkg string, match bool) {
 	pkgs0 := x["packages"]
 	if pkgs0 == nil {
 		if match {
@@ -209,35 +243,6 @@ func CheckPackage(c *C, x map[interface{}]interface{}, pkg string, match bool) {
 		c.Errorf("package %q not found in %v", pkg, pkgs)
 	case !match && found:
 		c.Errorf("%q found but not expected in %v", pkg, pkgs)
-	}
-}
-
-// TestCloudInit checks that the output from the various tests
-// in cloudinitTests is well formed.
-func (cloudinitSuite) TestCloudInit(c *C) {
-	for i, cfg := range cloudinitTests {
-		c.Logf("test %d", i)
-		ci, err := cloudinit.New(&cfg)
-		c.Assert(err, IsNil)
-		c.Check(ci, NotNil)
-
-		// render the cloudinit config to bytes, and then
-		// back to a map so we can introspect it without
-		// worrying about internal details of the cloudinit
-		// package.
-
-		data, err := ci.Render()
-		c.Assert(err, IsNil)
-
-		x := make(map[interface{}]interface{})
-		err = goyaml.Unmarshal(data, &x)
-		c.Assert(err, IsNil)
-
-		t := &cloudinitTest{
-			cfg: &cfg,
-			x:   x,
-		}
-		t.check(c, &cfg)
 	}
 }
 
@@ -271,13 +276,13 @@ var verifyTests = []struct {
 		}
 	}},
 	{"missing CA certificate", func(cfg *cloudinit.MachineConfig) {
-		cfg.StateInfo = &state.Info{Addrs: []string{"host"}}
+		cfg.StateInfo = &state.Info{Addrs: []string{"host:98765"}}
 	}},
 	{"missing CA certificate", func(cfg *cloudinit.MachineConfig) {
 		cfg.StateServer = false
 		cfg.StateInfo = &state.Info{
 			EntityName: "machine-99",
-			Addrs:      []string{"host"},
+			Addrs:      []string{"host:98765"},
 		}
 	}},
 	{"missing state server certificate", func(cfg *cloudinit.MachineConfig) {
@@ -336,7 +341,7 @@ func (cloudinitSuite) TestCloudInitVerify(c *C) {
 		Tools:              newSimpleTools("9.9.9-linux-arble"),
 		AuthorizedKeys:     "sshkey1",
 		StateInfo: &state.Info{
-			Addrs:  []string{"host"},
+			Addrs:  []string{"host:98765"},
 			CACert: []byte(testing.CACert),
 		},
 		Config:  envConfig,
@@ -357,6 +362,7 @@ func (cloudinitSuite) TestCloudInitVerify(c *C) {
 }
 
 var serverCert = []byte(`
+SERVER CERT
 -----BEGIN CERTIFICATE-----
 MIIBdzCCASOgAwIBAgIBADALBgkqhkiG9w0BAQUwHjENMAsGA1UEChMEanVqdTEN
 MAsGA1UEAxMEcm9vdDAeFw0xMjExMDgxNjIyMzRaFw0xMzExMDgxNjI3MzRaMBwx
@@ -367,9 +373,10 @@ HQ4EFgQU6G1ERaHCgfAv+yoDMFVpDbLOmIQwHwYDVR0jBBgwFoAUP/mfUdwOlHfk
 fR+gLQjslxf64w0wCwYJKoZIhvcNAQEFA0EAbn0MaxWVgGYBomeLYfDdb8vCq/5/
 G/2iCUQCXsVrBparMLFnor/iKOkJB5n3z3rtu70rFt+DpX6L8uBR3LB3+A==
 -----END CERTIFICATE-----
-`)
+`[1:])
 
 var serverKey = []byte(`
+SERVER KEY
 -----BEGIN RSA PRIVATE KEY-----
 MIIBPAIBAAJBAIAKrPok/AzudvEBa5v4A+mc0HubJyRYnqeew8qL1KKk/WHKF/OS
 nxEYwnlS/vLwJJO0nySD+JuRrVVXwu8/22cCAwEAAQJBAJsk1F0wTRuaIhJ5xxqw

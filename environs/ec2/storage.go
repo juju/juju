@@ -9,12 +9,16 @@ import (
 	"time"
 )
 
+func NewStorage(bucket *s3.Bucket) environs.Storage {
+	return &storage{bucket: bucket}
+}
+
 // storage implements environs.Storage on
 // an ec2.bucket.
 type storage struct {
-	bucketMutex sync.Mutex
-	madeBucket  bool
-	bucket      *s3.Bucket
+	sync.Mutex
+	madeBucket bool
+	bucket     *s3.Bucket
 }
 
 // makeBucket makes the environent's control bucket, the
@@ -22,8 +26,8 @@ type storage struct {
 // are stored. To avoid two round trips on every PUT operation,
 // we do this only once for each environ.
 func (s *storage) makeBucket() error {
-	s.bucketMutex.Lock()
-	defer s.bucketMutex.Unlock()
+	s.Lock()
+	defer s.Unlock()
 	if s.madeBucket {
 		return nil
 	}
@@ -139,8 +143,8 @@ func (s *storage) deleteAll() error {
 	default:
 	}
 
-	s.bucketMutex.Lock()
-	defer s.bucketMutex.Unlock()
+	s.Lock()
+	defer s.Unlock()
 	// Even DelBucket fails, it won't harm if we try again - the operation
 	// might have succeeded even if we get an error.
 	s.madeBucket = false

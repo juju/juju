@@ -107,11 +107,11 @@ func (m *Machine) SetAgentTools(t *Tools) (err error) {
 	return nil
 }
 
-// SetPassword sets the password the agent responsible for the machine
+// SetMongoPassword sets the password the agent responsible for the machine
 // should use to communicate with the state servers.  Previous passwords
 // are invalidated.
-func (m *Machine) SetPassword(password string) error {
-	return m.st.setPassword(m.EntityName(), password)
+func (m *Machine) SetMongoPassword(password string) error {
+	return m.st.setMongoPassword(m.EntityName(), password)
 }
 
 // deathAsserts returns the conditions that must hold for a machine to
