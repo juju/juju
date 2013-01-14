@@ -220,7 +220,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 		containerName: ecfg.controlBucket(),
 		containerACL:  swift.Private,
 		swift:         swift.New(e.client(ecfg, authMethodCfg))}
-	if ecfg.publicBucket() != "" {
+	if ecfg.publicBucket() != "" && ecfg.publicBucketURL() != "" {
 		e.publicStorageUnlocked = &storage{
 			containerName: ecfg.publicBucket(),
 			containerACL:  swift.PublicRead,

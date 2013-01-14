@@ -29,7 +29,7 @@ var configChecker = schema.StrictFieldMap(
 		"region":            "",
 		"control-bucket":    "",
 		"public-bucket":     "juju-dist",
-		"public-bucket-url": "https://swift.canonistack.canonical.com/v1/AUTH_97dca28143f744b19713bb901094a59d",
+		"public-bucket-url": "",
 	},
 )
 

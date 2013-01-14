@@ -93,12 +93,6 @@ func readBundle(r io.ReaderAt, size int64) (bundle *Bundle, err error) {
 		}
 	}
 
-	for _, zfile := range zipr.File {
-		if err := validatePath(zfile.Name); err != nil {
-			return nil, err
-		}
-	}
-
 	return b, nil
 }
 

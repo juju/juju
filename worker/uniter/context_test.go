@@ -171,6 +171,7 @@ var runHookTests = []struct {
 			"JUJU_UNIT_NAME":   "u/0",
 			"JUJU_RELATION":    "peer1",
 			"JUJU_RELATION_ID": "peer1:1",
+			"JUJU_REMOTE_UNIT": "",
 		},
 	}, {
 		summary: "check shell environment for relation hook context",
@@ -569,11 +570,11 @@ func (s *InterfaceSuite) TestTrivial(c *C) {
 
 func (s *InterfaceSuite) TestUnitCaching(c *C) {
 	ctx := s.GetContext(c, -1, "")
-	pr, err := ctx.PrivateAddress()
-	c.Assert(err, IsNil)
+	pr, ok := ctx.PrivateAddress()
+	c.Assert(ok, Equals, true)
 	c.Assert(pr, Equals, "u-0.example.com")
-	_, err = ctx.PublicAddress()
-	c.Assert(err, ErrorMatches, `public address of unit "u/0" not found`)
+	_, ok = ctx.PublicAddress()
+	c.Assert(ok, Equals, false)
 
 	// Change remote state.
 	u, err := s.State.Unit("u/0")
@@ -584,11 +585,11 @@ func (s *InterfaceSuite) TestUnitCaching(c *C) {
 	c.Assert(err, IsNil)
 
 	// Local view is unchanged.
-	pr, err = ctx.PrivateAddress()
-	c.Assert(err, IsNil)
+	pr, ok = ctx.PrivateAddress()
+	c.Assert(ok, Equals, true)
 	c.Assert(pr, Equals, "u-0.example.com")
-	_, err = ctx.PublicAddress()
-	c.Assert(err, ErrorMatches, `public address of unit "u/0" not found`)
+	_, ok = ctx.PublicAddress()
+	c.Assert(ok, Equals, false)
 }
 
 func (s *InterfaceSuite) TestConfigCaching(c *C) {

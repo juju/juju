@@ -142,27 +142,32 @@ func (st *State) SetEnvironConfig(cfg *config.Config) error {
 	return err
 }
 
-type WorkerKind string
+// AddMachine adds a new machine configured to run the supplied jobs.
+func (st *State) AddMachine(jobs ...MachineJob) (m *Machine, err error) {
+	return st.addMachine("", jobs)
+}
 
-const (
-	MachinerWorker    WorkerKind = "machiner"
-	ProvisionerWorker WorkerKind = "provisioner"
-	FirewallerWorker  WorkerKind = "firewaller"
-)
-
-// AddMachine adds a new machine that when deployed will have a
-// machine agent running the provided workers.
-func (st *State) AddMachine(workers ...WorkerKind) (m *Machine, err error) {
-	defer trivial.ErrorContextf(&err, "cannot add a new machine")
-	wset := make(map[WorkerKind]bool)
-	for _, w := range workers {
-		if wset[w] {
-			return nil, fmt.Errorf("duplicate worker: %s", w)
-		}
-		wset[w] = true
+// InjectMachine adds a new machine, corresponding to an existing provider
+// instance, configure to run the supplied jobs.
+func (st *State) InjectMachine(instanceId InstanceId, jobs ...MachineJob) (m *Machine, err error) {
+	if instanceId == "" {
+		return nil, fmt.Errorf("cannot inject a machine without an instance id")
 	}
-	if !wset[MachinerWorker] {
-		return nil, fmt.Errorf("new machine must be started with a machine worker")
+	return st.addMachine(instanceId, jobs)
+}
+
+// addMachine implements AddMachine and InjectMachine.
+func (st *State) addMachine(instanceId InstanceId, jobs []MachineJob) (m *Machine, err error) {
+	defer trivial.ErrorContextf(&err, "cannot add a new machine")
+	if len(jobs) == 0 {
+		return nil, fmt.Errorf("no jobs specified")
+	}
+	jset := make(map[MachineJob]bool)
+	for _, j := range jobs {
+		if jset[j] {
+			return nil, fmt.Errorf("duplicate job: %s", j)
+		}
+		jset[j] = true
 	}
 	seq, err := st.sequence("machine")
 	if err != nil {
@@ -170,9 +175,12 @@ func (st *State) AddMachine(workers ...WorkerKind) (m *Machine, err error) {
 	}
 	id := strconv.Itoa(seq)
 	mdoc := machineDoc{
-		Id:      id,
-		Life:    Alive,
-		Workers: workers,
+		Id:   id,
+		Life: Alive,
+		Jobs: jobs,
+	}
+	if instanceId != "" {
+		mdoc.InstanceId = instanceId
 	}
 	ops := []txn.Op{{
 		C:      st.machines.Name,
@@ -630,7 +638,7 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 		for {
 			// TODO(rog) take out a lease on the new machine
 			// so that we don't have a race here.
-			m, err := st.AddMachine(MachinerWorker)
+			m, err := st.AddMachine(JobHostUnits)
 			if err != nil {
 				return err
 			}

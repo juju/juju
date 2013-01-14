@@ -101,5 +101,10 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 		return nil, fmt.Errorf("unsupported firewall mode: %q", cfg.FirewallMode())
 	}
 
+	// ssl-hostname-verification cannot be disabled
+	if !ecfg.SSLHostnameVerification() {
+		return nil, fmt.Errorf("disabling ssh-hostname-verification is not supported")
+	}
+
 	return cfg.Apply(ecfg.attrs)
 }

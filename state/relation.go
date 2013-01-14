@@ -300,9 +300,9 @@ func (ru *RelationUnit) EnterScope() error {
 	// Collect the operations necessary to create the unit settings in this
 	// relation, if they do not already exist.
 	if _, err := readSettings(ru.st, relationKey); IsNotFound(err) {
-		address, err := ru.unit.PrivateAddress()
-		if err != nil {
-			return fmt.Errorf("cannot initialize state for %s: %v", desc, err)
+		address, ok := ru.unit.PrivateAddress()
+		if !ok {
+			return fmt.Errorf("cannot initialize state for %s: private address not set", desc)
 		}
 		ops = append([]txn.Op{{
 			C:      ru.st.settings.Name,
