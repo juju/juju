@@ -432,8 +432,8 @@ func (u *Uniter) addRelation(rel *state.Relation, dir *relation.StateDir) error 
 			if !ok {
 				return watcher.MustErr(w)
 			}
-			if err = r.Join(); err == state.ErrCannotEnterScopeYet {
-				log.Printf("worker/uniter: waiting for relation scope to become accessible")
+			if err := r.Join(); err == state.ErrCannotEnterScopeYet {
+				log.Printf("worker/uniter: cannot enter scope for relation %q; waiting for subordinates to change", rel)
 				continue
 			} else if err != nil {
 				return err

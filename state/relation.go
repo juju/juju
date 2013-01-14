@@ -330,10 +330,9 @@ func (ru *RelationUnit) EnterScope() error {
 			return fmt.Errorf("expected single related endpoint, got %v", related)
 		}
 		serviceName := related[0].ServiceName
+		var lDoc lifeDoc
 		selSubordinate := D{{"service", serviceName}, {"principal", unitName}}
-		if n, err := ru.st.units.Find(selSubordinate).Count(); err != nil {
-			return err
-		} else if n == 0 {
+		if err := ru.st.units.Find(selSubordinate).One(&lDoc); err == mgo.ErrNotFound {
 			service, err := ru.st.Service(serviceName)
 			if err != nil {
 				return err
@@ -343,15 +342,12 @@ func (ru *RelationUnit) EnterScope() error {
 				return err
 			}
 			ops = append(ops, subOps...)
+		} else if err != nil {
+			return err
+		} else if lDoc.Life != Alive {
+			return ErrCannotEnterScopeYet
 		} else {
-			var doc lifeDoc
-			if err := ru.st.units.Find(selSubordinate).Select(lifeFields).One(&doc); err != nil {
-				return err
-			}
-			if doc.Life != Alive {
-				return ErrCannotEnterScopeYet
-			}
-			existingSubName = doc.Id
+			existingSubName = lDoc.Id
 			ops = append(ops, txn.Op{
 				C:      ru.st.units.Name,
 				Id:     existingSubName,
