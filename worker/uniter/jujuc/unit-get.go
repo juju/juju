@@ -40,15 +40,15 @@ func (c *UnitGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	return cmd.CheckEmpty(args[1:])
 }
 
-func (c *UnitGetCommand) Run(ctx *cmd.Context) (err error) {
-	var value string
+func (c *UnitGetCommand) Run(ctx *cmd.Context) error {
+	value, ok := "", false
 	if c.Key == "private-address" {
-		value, err = c.ctx.PrivateAddress()
+		value, ok = c.ctx.PrivateAddress()
 	} else {
-		value, err = c.ctx.PublicAddress()
+		value, ok = c.ctx.PublicAddress()
 	}
-	if err != nil {
-		return
+	if !ok {
+		return fmt.Errorf("%s not set", c.Key)
 	}
 	return c.out.Write(ctx, value)
 }

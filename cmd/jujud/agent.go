@@ -2,17 +2,15 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/trivial"
-	"os"
-	"path/filepath"
-	"regexp"
-	"strings"
+	"launchpad.net/juju-core/worker"
+	"launchpad.net/juju-core/worker/deployer"
+	"launchpad.net/tomb"
+	"time"
 )
 
 // requiredError is useful when complaining about missing command-line options.
@@ -20,91 +18,28 @@ func requiredError(name string) error {
 	return fmt.Errorf("--%s option must be set", name)
 }
 
-// stateServersValue implements gnuflag.Value on a slice of server addresses
-type stateServersValue []string
-
-var validAddr = regexp.MustCompile("^.+:[0-9]+$")
-
-// Set splits the comma-separated list of state server addresses and stores
-// onto v's Addrs. Addresses must include port numbers.
-func (v *stateServersValue) Set(value string) error {
-	addrs := strings.Split(value, ",")
-	for _, addr := range addrs {
-		if !validAddr.MatchString(addr) {
-			return fmt.Errorf("%q is not a valid state server address", addr)
-		}
-	}
-	*v = addrs
-	return nil
-}
-
-// String returns the list of server addresses joined by commas.
-func (v *stateServersValue) String() string {
-	if *v != nil {
-		return strings.Join(*v, ",")
-	}
-	return ""
-}
-
-// stateServersVar sets up a gnuflag flag analogous to the FlagSet.*Var methods.
-func stateServersVar(fs *gnuflag.FlagSet, target *[]string, name string, value []string, usage string) {
-	*target = value
-	fs.Var((*stateServersValue)(target), name, usage)
-}
-
 // AgentConf handles command-line flags shared by all agents.
 type AgentConf struct {
-	accept          agentFlags
-	DataDir         string
-	StateInfo       state.Info
-	InitialPassword string
-	caCertFile      string
+	*agent.Conf
+	dataDir string
 }
-
-type agentFlags int
-
-const (
-	flagStateInfo agentFlags = 1 << iota
-	flagInitialPassword
-	flagDataDir
-
-	flagAll agentFlags = ^0
-)
 
 // addFlags injects common agent flags into f.
-func (c *AgentConf) addFlags(f *gnuflag.FlagSet, accept agentFlags) {
-	if accept&flagDataDir != 0 {
-		f.StringVar(&c.DataDir, "data-dir", "/var/lib/juju", "directory for juju data")
-	}
-	if accept&flagStateInfo != 0 {
-		stateServersVar(f, &c.StateInfo.Addrs, "state-servers", nil, "state servers to connect to")
-		f.StringVar(&c.caCertFile, "ca-cert", "", "path to CA certificate in PEM format")
-	}
-	if accept&flagInitialPassword != 0 {
-		f.StringVar(&c.InitialPassword, "initial-password", "", "initial password for state")
-	}
-	c.accept = accept
+func (c *AgentConf) addFlags(f *gnuflag.FlagSet) {
+	f.StringVar(&c.dataDir, "data-dir", "/var/lib/juju", "directory for juju data")
 }
 
-// checkArgs checks that required flags have been set and that args is empty.
 func (c *AgentConf) checkArgs(args []string) error {
-	if c.accept&flagDataDir != 0 && c.DataDir == "" {
+	if c.dataDir == "" {
 		return requiredError("data-dir")
 	}
-	if c.accept&flagStateInfo != 0 {
-		if c.StateInfo.Addrs == nil {
-			return requiredError("state-servers")
-		}
-		if c.caCertFile == "" {
-			return requiredError("ca-cert")
-		}
-		var err error
-		c.StateInfo.CACert, err = ioutil.ReadFile(c.caCertFile)
-		if err != nil {
-			return err
-		}
-	}
 	return cmd.CheckEmpty(args)
+}
+
+func (c *AgentConf) read(entityName string) error {
+	var err error
+	c.Conf, err = agent.ReadConf(c.dataDir, entityName)
+	return err
 }
 
 type task interface {
@@ -167,47 +102,92 @@ func isUpgraded(err error) bool {
 	return ok
 }
 
-// openState tries to open the state with the given entity name
-// and configuration information. If the returned password
-// is non-empty, the caller should set the entity's password
-// accordingly.
-func openState(entityName string, conf *AgentConf) (st *state.State, password string, err error) {
-	pwfile := filepath.Join(environs.AgentDir(conf.DataDir, entityName), "password")
-	data, err := ioutil.ReadFile(pwfile)
-	if err != nil && !os.IsNotExist(err) {
-		return nil, "", err
-	}
-	info := conf.StateInfo
-	info.EntityName = entityName
-	if err == nil {
-		info.Password = string(data)
-		st, err := state.Open(&info)
+type Agent interface {
+	Tomb() *tomb.Tomb
+	RunOnce(st *state.State, entity AgentState) error
+	Entity(st *state.State) (AgentState, error)
+	EntityName() string
+}
+
+func RunLoop(c *agent.Conf, a Agent) error {
+	atomb := a.Tomb()
+	for {
+		log.Printf("cmd/jujud: agent starting")
+		err := runOnce(c, a)
+		if ug, ok := err.(*UpgradeReadyError); ok {
+			if err = ug.ChangeAgentTools(); err == nil {
+				// Return and let upstart deal with the restart.
+				return ug
+			}
+		}
+		if err == worker.ErrDead {
+			log.Printf("cmd/jujud: agent is dead")
+			return nil
+		}
 		if err == nil {
-			return st, "", nil
+			log.Printf("cmd/jujud: workers died with no error")
+		} else {
+			log.Printf("cmd/jujud: %v", err)
 		}
-		if err != state.ErrUnauthorized {
-			return nil, "", err
+		select {
+		case <-atomb.Dying():
+			atomb.Kill(err)
+		case <-time.After(retryDelay):
+			log.Printf("cmd/jujud: rerunning machiner")
 		}
-		// Access isn't authorized even though the password was
-		// saved.  This can happen if we crash after saving the
-		// password but before changing the password, so we'll
-		// try again with the initial password.
+		// Note: we don't want this at the head of the loop
+		// because we want the agent to go through the body of
+		// the loop at least once, even if it's been killed
+		// before the start.
+		if atomb.Err() != tomb.ErrStillAlive {
+			break
+		}
 	}
-	info.Password = conf.InitialPassword
-	st, err = state.Open(&info)
+	return atomb.Err()
+}
+
+func runOnce(c *agent.Conf, a Agent) error {
+	st, passwordChanged, err := c.OpenState()
 	if err != nil {
-		return nil, "", err
+		return err
 	}
-	// We've succeeded in connecting with the initial password, so
-	// we can now change it to something more private.
-	password, err = trivial.RandomPassword()
+	defer st.Close()
+	entity, err := a.Entity(st)
+	if state.IsNotFound(err) || err == nil && entity.Life() == state.Dead {
+		return worker.ErrDead
+	}
 	if err != nil {
-		st.Close()
-		return nil, "", err
+		return err
 	}
-	if err := ioutil.WriteFile(pwfile, []byte(password), 0600); err != nil {
-		st.Close()
-		return nil, "", fmt.Errorf("cannot save password: %v", err)
+	if passwordChanged {
+		if err := c.Write(); err != nil {
+			return err
+		}
+		if err := entity.SetPassword(c.StateInfo.Password); err != nil {
+			return err
+		}
 	}
-	return st, password, nil
+	return a.RunOnce(st, entity)
+}
+
+// newDeployManager gives the tests the opportunity to create a deployer.Manager
+// that can be used for testing so as to avoid (1) deploying units to the system
+// running the tests and (2) get access to the *State used internally, so that
+// tests can be run without waiting for the 5s watcher refresh time we would
+// otherwise be restricted to. When not testing, st is unused.
+var newDeployManager = func(st *state.State, info *state.Info, dataDir string) deployer.Manager {
+	// TODO: pick manager kind based on entity name? (once we have a
+	// container manager for prinicpal units, that is; for now, there
+	// is no distinction between principal and subordinate deployments)
+	return deployer.NewSimpleManager(info, dataDir)
+}
+
+func newDeployer(st *state.State, w *state.UnitsWatcher, dataDir string) *deployer.Deployer {
+	info := &state.Info{
+		EntityName: w.EntityName(),
+		Addrs:      st.Addrs(),
+		CACert:     st.CACert(),
+	}
+	mgr := newDeployManager(st, info, dataDir)
+	return deployer.NewDeployer(st, mgr, w)
 }

@@ -56,11 +56,11 @@ func (ctx *HookContext) UnitName() string {
 	return ctx.unit.Name()
 }
 
-func (ctx *HookContext) PublicAddress() (string, error) {
+func (ctx *HookContext) PublicAddress() (string, bool) {
 	return ctx.unit.PublicAddress()
 }
 
-func (ctx *HookContext) PrivateAddress() (string, error) {
+func (ctx *HookContext) PrivateAddress() (string, bool) {
 	return ctx.unit.PrivateAddress()
 }
 
@@ -138,9 +138,8 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 	if r, found := ctx.HookRelation(); found {
 		vars = append(vars, "JUJU_RELATION="+r.Name())
 		vars = append(vars, "JUJU_RELATION_ID="+r.FakeId())
-		if name, found := ctx.RemoteUnitName(); found {
-			vars = append(vars, "JUJU_REMOTE_UNIT="+name)
-		}
+		name, _ := ctx.RemoteUnitName()
+		vars = append(vars, "JUJU_REMOTE_UNIT="+name)
 	}
 	return vars
 }

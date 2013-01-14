@@ -6,10 +6,8 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/tomb"
-	"time"
 )
 
 // UnitAgent is a cmd.Command responsible for running a unit agent.
@@ -26,7 +24,7 @@ func (a *UnitAgent) Info() *cmd.Info {
 
 // Init initializes the command for running.
 func (a *UnitAgent) Init(f *gnuflag.FlagSet, args []string) error {
-	a.Conf.addFlags(f, flagAll)
+	a.Conf.addFlags(f)
 	f.StringVar(&a.UnitName, "unit-name", "", "name of the unit to run")
 	if err := f.Parse(true, args); err != nil {
 		return err
@@ -48,56 +46,36 @@ func (a *UnitAgent) Stop() error {
 
 // Run runs a unit agent.
 func (a *UnitAgent) Run(ctx *cmd.Context) error {
+	if err := a.Conf.read(state.UnitEntityName(a.UnitName)); err != nil {
+		return err
+	}
 	defer log.Printf("cmd/jujud: unit agent exiting")
 	defer a.tomb.Done()
-	for a.tomb.Err() == tomb.ErrStillAlive {
-		err := a.runOnce()
-		if ug, ok := err.(*UpgradeReadyError); ok {
-			if err = ug.ChangeAgentTools(); err == nil {
-				// Return and let upstart deal with the restart.
-				return ug
-			}
-		}
-		if err == worker.ErrDead {
-			log.Printf("cmd/jujud: unit is dead")
-			return nil
-		}
-		if err == nil {
-			log.Printf("cmd/jujud: workers died with no error")
-		} else {
-			log.Printf("cmd/jujud: %v", err)
-		}
-		select {
-		case <-a.tomb.Dying():
-			a.tomb.Kill(err)
-		case <-time.After(retryDelay):
-			log.Printf("cmd/jujud: rerunning uniter")
-		}
-	}
-	return a.tomb.Err()
+	return RunLoop(a.Conf.Conf, a)
 }
 
-// runOnce runs a uniter once.
-func (a *UnitAgent) runOnce() error {
-	st, password, err := openState(state.UnitEntityName(a.UnitName), &a.Conf)
-	if err != nil {
-		return err
-	}
-	defer st.Close()
-	unit, err := st.Unit(a.UnitName)
-	if state.IsNotFound(err) || err == nil && unit.Life() == state.Dead {
-		return worker.ErrDead
-	}
-	if err != nil {
-		return err
-	}
-	if password != "" {
-		if err := unit.SetPassword(password); err != nil {
-			return err
-		}
-	}
-	return runTasks(a.tomb.Dying(),
+// RunOnce runs a unit agent once.
+func (a *UnitAgent) RunOnce(st *state.State, e AgentState) error {
+	unit := e.(*state.Unit)
+	tasks := []task{
 		uniter.NewUniter(st, unit.Name(), a.Conf.DataDir),
 		NewUpgrader(st, unit, a.Conf.DataDir),
-	)
+	}
+	if unit.IsPrincipal() {
+		tasks = append(tasks,
+			newDeployer(st, unit.WatchSubordinateUnits(), a.Conf.DataDir))
+	}
+	return runTasks(a.tomb.Dying(), tasks...)
+}
+
+func (a *UnitAgent) Entity(st *state.State) (AgentState, error) {
+	return st.Unit(a.UnitName)
+}
+
+func (a *UnitAgent) EntityName() string {
+	return state.UnitEntityName(a.UnitName)
+}
+
+func (a *UnitAgent) Tomb() *tomb.Tomb {
+	return &a.tomb
 }
