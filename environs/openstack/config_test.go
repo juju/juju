@@ -231,7 +231,14 @@ var configTests = []configTest{
 	}, {
 		summary: "public bucket URL",
 		config: attrs{
-			"public-bucket":     "juju-dist",
+			"public-bucket":     "juju-dist-non-default",
+			"public-bucket-url": "http://some/url",
+		},
+		publicBucket: "juju-dist-non-default",
+		pbucketURL:   "http://some/url",
+	}, {
+		summary: "public bucket URL with default bucket",
+		config: attrs{
 			"public-bucket-url": "http://some/url",
 		},
 		publicBucket: "juju-dist",
