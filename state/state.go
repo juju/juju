@@ -693,7 +693,6 @@ func (st *State) SetAdminPassword(password string) error {
 }
 
 func (st *State) setPassword(name, password string) error {
-	log.Printf("set password %q = %q", name, password)
 	if err := st.db.AddUser(name, password, false); err != nil {
 		return fmt.Errorf("cannot set password in juju db for %q: %v", name, err)
 	}
