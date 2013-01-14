@@ -59,10 +59,10 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	if c.Conf.OldPassword != "" {
-		if err := m.SetPassword(c.Conf.OldPassword); err != nil {
+		if err := m.SetMongoPassword(c.Conf.OldPassword); err != nil {
 			return err
 		}
-		if err := st.SetAdminPassword(c.Conf.OldPassword); err != nil {
+		if err := st.SetAdminMongoPassword(c.Conf.OldPassword); err != nil {
 			return err
 		}
 	}
