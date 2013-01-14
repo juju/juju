@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -105,6 +106,7 @@ func (c *Conf) Check() error {
 	if len(c.StateInfo.CACert) == 0 {
 		return requiredError("CA certificate")
 	}
+	// TODO(rog) check for API-specific fields.
 	return nil
 }
 
