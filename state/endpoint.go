@@ -56,7 +56,7 @@ func (ep Endpoint) CanRelateTo(other Endpoint) bool {
 
 // ImplementedBy returns whether the endpoint is implemented by the supplied charm.
 func (ep Endpoint) ImplementedBy(ch charm.Charm) bool {
-	if ep.isImplicit() {
+	if ep.IsImplicit() {
 		return true
 	}
 	var m map[string]charm.Relation
@@ -87,9 +87,9 @@ func (ep Endpoint) ImplementedBy(ch charm.Charm) bool {
 	return false
 }
 
-// isImplicit returns whether the endpoint is supplied by juju itself,
+// IsImplicit returns whether the endpoint is supplied by juju itself,
 // rather than by a charm.
-func (ep Endpoint) isImplicit() bool {
+func (ep Endpoint) IsImplicit() bool {
 	return (ep.RelationName == "juju-info" &&
 		ep.Interface == "juju-info" &&
 		ep.RelationRole == RoleProvider)
