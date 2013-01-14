@@ -99,20 +99,23 @@ func IsNotFound(err error) bool {
 // State represents the state of an environment
 // managed by juju.
 type State struct {
-	info           *Info
-	db             *mgo.Database
+	info *Info
+	db   *mgo.Database
+
 	charms         *mgo.Collection
+	cleanups       *mgo.Collection
 	machines       *mgo.Collection
-	relations      *mgo.Collection
+	presence       *mgo.Collection
 	relationScopes *mgo.Collection
+	relations      *mgo.Collection
 	services       *mgo.Collection
 	settings       *mgo.Collection
 	units          *mgo.Collection
-	presence       *mgo.Collection
-	cleanups       *mgo.Collection
-	runner         *txn.Runner
-	watcher        *watcher.Watcher
-	pwatcher       *presence.Watcher
+	users          *mgo.Collection
+
+	runner   *txn.Runner
+	watcher  *watcher.Watcher
+	pwatcher *presence.Watcher
 }
 
 func (st *State) EnvironConfig() (*config.Config, error) {
