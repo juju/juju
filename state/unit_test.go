@@ -166,6 +166,12 @@ func (s *UnitSuite) TestSetMongoPassword(c *C) {
 	})
 }
 
+func (s *UnitSuite) TestSetPassword(c *C) {
+	testSetPassword(c, func() (entity, error) {
+		return s.st.Unit(s.unit.Name())
+	})
+}
+
 func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *C) {
 	// Make a second unit to use later.
 	subCharm := s.AddTestingCharm(c, "logging")

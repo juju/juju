@@ -692,7 +692,7 @@ func (st *State) SetAdminPassword(password string) error {
 	return nil
 }
 
-func (st *State) setPassword(name, password string) error {
+func (st *State) setMongoPassword(name, password string) error {
 	if err := st.db.AddUser(name, password, false); err != nil {
 		return fmt.Errorf("cannot set password in juju db for %q: %v", name, err)
 	}

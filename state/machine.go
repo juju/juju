@@ -132,7 +132,7 @@ func (m *Machine) SetPassword(password string) (err error) {
 }
 
 // PasswordValid returns whether the given password is valid
-// for granting access to act on behalf of the given machine.
+// for the given machine.
 func (m *Machine) PasswordValid(password string) bool {
 	return trivial.PasswordHash(password) == m.PasswordHash
 }
