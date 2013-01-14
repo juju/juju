@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/upstart"
@@ -69,38 +70,34 @@ func (mgr *SimpleManager) DeployUnit(unitName, initialPassword string) (err erro
 	toolsDir := environs.AgentToolsDir(mgr.DataDir, entityName)
 	defer removeOnErr(&err, toolsDir)
 
-	// Create the agent's state directory.
-	agentDir := environs.AgentDir(mgr.DataDir, entityName)
-	if err := os.MkdirAll(agentDir, 0755); err != nil {
+	// Prepare the agent's configuration data.
+	conf := &agent.Conf{
+		DataDir:     mgr.DataDir,
+		OldPassword: initialPassword,
+		StateInfo:   *mgr.StateInfo,
+	}
+	conf.StateInfo.EntityName = entityName
+	conf.StateInfo.Password = ""
+	if err := conf.Write(); err != nil {
 		return err
 	}
-	defer removeOnErr(&err, agentDir)
-
-	// Create the CA certificate used to validate the state connection.
-	certPath := filepath.Join(agentDir, "ca-cert.pem")
-	if err := ioutil.WriteFile(certPath, mgr.StateInfo.CACert, 0644); err != nil {
-		return err
-	}
-	defer removeOnErr(&err, certPath)
+	defer removeOnErr(&err, conf.Dir())
 
 	// Install an upstart job that runs the unit agent.
 	logPath := filepath.Join(mgr.LogDir, entityName+".log")
 	cmd := strings.Join([]string{
 		filepath.Join(toolsDir, "jujud"), "unit",
+		"--data-dir", conf.DataDir,
 		"--unit-name", unitName,
-		"--ca-cert", certPath,
-		"--state-servers", strings.Join(mgr.StateInfo.Addrs, ","),
-		"--initial-password", initialPassword,
-		"--log-file", logPath,
 		"--debug", // TODO: propagate debug state sensibly
 	}, " ")
-	conf := &upstart.Conf{
+	uconf := &upstart.Conf{
 		Service: *svc,
 		Desc:    "juju unit agent for " + unitName,
 		Cmd:     cmd,
 		Out:     logPath,
 	}
-	return conf.Install()
+	return uconf.Install()
 }
 
 func (mgr *SimpleManager) RecallUnit(unitName string) error {

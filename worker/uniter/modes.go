@@ -6,6 +6,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/uniter/charm"
 	"launchpad.net/juju-core/worker/uniter/hook"
@@ -188,10 +189,31 @@ func ModeTerminating(u *Uniter) (next Mode, err error) {
 	if err = u.unit.SetStatus(state.UnitStopped, ""); err != nil {
 		return nil, err
 	}
-	if err = u.unit.EnsureDead(); err != nil {
-		return nil, err
+	w := u.unit.Watch()
+	defer watcher.Stop(w, &u.tomb)
+	for {
+		select {
+		case <-u.tomb.Dying():
+			return nil, tomb.ErrDying
+		case _, ok := <-w.Changes():
+			if !ok {
+				return nil, watcher.MustErr(w)
+			}
+			if err := u.unit.Refresh(); err != nil {
+				return nil, err
+			}
+			if len(u.unit.SubordinateNames()) > 0 {
+				continue
+			}
+			// The unit is known to be Dying; so if it didn't have subordinates
+			// just above, it can't acquire new ones before this call.
+			if err := u.unit.EnsureDead(); err != nil {
+				return nil, err
+			}
+			return nil, worker.ErrDead
+		}
 	}
-	return nil, worker.ErrDead
+	panic("unreachable")
 }
 
 // ModeAbide is the Uniter's usual steady state. It watches for and responds to:
@@ -267,6 +289,18 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 // modeAbideDyingLoop handles the proper termination of all relations in
 // response to a Dying unit.
 func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
+	if err := u.unit.Refresh(); err != nil {
+		return nil, err
+	}
+	for _, name := range u.unit.SubordinateNames() {
+		if sub, err := u.st.Unit(name); state.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			return nil, err
+		} else if err = sub.EnsureDying(); err != nil {
+			return nil, err
+		}
+	}
 	for _, r := range u.relationers {
 		if err := r.SetDying(); err != nil {
 			return nil, err

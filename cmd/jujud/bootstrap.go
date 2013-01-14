@@ -23,7 +23,7 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 
 // Init initializes the command for running.
 func (c *BootstrapCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	c.Conf.addFlags(f, flagStateInfo|flagInitialPassword)
+	c.Conf.addFlags(f)
 	f.StringVar(&c.InstanceId, "instance-id", "", "instance id of this machine")
 	yamlBase64Var(f, &c.EnvConfig, "env-config", "", "initial environment configuration (yaml, base64 encoded)")
 	if err := f.Parse(true, args); err != nil {
@@ -40,30 +40,29 @@ func (c *BootstrapCommand) Init(f *gnuflag.FlagSet, args []string) error {
 
 // Run initializes state for an environment.
 func (c *BootstrapCommand) Run(_ *cmd.Context) error {
+	if err := c.Conf.read("bootstrap"); err != nil {
+		return err
+	}
 	cfg, err := config.New(c.EnvConfig)
 	if err != nil {
 		return err
 	}
+	// There is no entity that's created at init time.
+	c.Conf.StateInfo.EntityName = ""
 	st, err := state.Initialize(&c.Conf.StateInfo, cfg)
 	if err != nil {
 		return err
 	}
 	defer st.Close()
-
-	// Manually insert machine/0 into the state
-	m, err := st.AddMachine(state.JobManageEnviron)
+	m, err := st.InjectMachine(state.InstanceId(c.InstanceId), state.JobManageEnviron)
 	if err != nil {
 		return err
 	}
-	// Set the instance id of machine/0
-	if err := m.SetInstanceId(state.InstanceId(c.InstanceId)); err != nil {
-		return err
-	}
-	if c.Conf.InitialPassword != "" {
-		if err := m.SetPassword(c.Conf.InitialPassword); err != nil {
+	if c.Conf.OldPassword != "" {
+		if err := m.SetPassword(c.Conf.OldPassword); err != nil {
 			return err
 		}
-		if err := st.SetAdminPassword(c.Conf.InitialPassword); err != nil {
+		if err := st.SetAdminPassword(c.Conf.OldPassword); err != nil {
 			return err
 		}
 	}

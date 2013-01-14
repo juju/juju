@@ -92,14 +92,17 @@ type context struct {
 	id            int
 	path          string
 	dataDir       string
+	s             *UniterSuite
 	st            *state.State
 	charms        coretesting.ResponseMap
 	hooks         []string
+	sch           *state.Charm
 	svc           *state.Service
 	unit          *state.Unit
 	uniter        *uniter.Uniter
 	relation      *state.Relation
 	relationUnits map[string]*state.RelationUnit
+	subordinate   *state.Unit
 }
 
 func (ctx *context) run(c *C, steps []stepper) {
@@ -669,10 +672,19 @@ var uniterTests = []uniterTest{
 		unitDead,
 		waitUniterDead{},
 		waitHooks{},
-		// TODO BUG: the unit doesn't leave the scope, leaving the relation
-		// unkillable without direct intervention. I'm pretty sure it should
-		// not be the uniter's responsibility to fix this; rather, EnsureDead
-		// should cause the unit to leave any relation scopes it may be in.
+		// TODO BUG(?): the unit doesn't leave the scope, leaving the relation
+		// unkillable without direct intervention. I'm pretty sure it's not a
+		// uniter bug -- it should be the responisbility of `juju remove-unit
+		// --force` to cause the unit to leave any relation scopes it may be
+		// in -- but it's worth noting here all the same.
+	), ut(
+		"unit becomes dying while subordinates exist",
+		quickStart{},
+		addSubordinate{},
+		unitDying,
+		verifyRunning{},
+		removeSubordinate{},
+		waitUniterDead{},
 	),
 }
 
@@ -687,6 +699,7 @@ func (s *UniterSuite) TestUniter(c *C) {
 		}
 		c.Logf("\ntest %d: %s\n", i, t.summary)
 		ctx := &context{
+			s:       s,
 			st:      s.State,
 			id:      i,
 			path:    unitDir,
@@ -695,6 +708,57 @@ func (s *UniterSuite) TestUniter(c *C) {
 		}
 		ctx.run(c, t.steps)
 	}
+}
+
+func (s *UniterSuite) TestSubordinateDying(c *C) {
+	// Create a test context for later use.
+	ctx := &context{
+		st:      s.State,
+		path:    filepath.Join(s.dataDir, "agents", "unit-u-0"),
+		dataDir: s.dataDir,
+		charms:  coretesting.ResponseMap{},
+	}
+	defer os.RemoveAll(ctx.path)
+
+	// Create the subordinate service.
+	dir := coretesting.Charms.ClonedDir(c.MkDir(), "series", "logging")
+	curl, err := charm.ParseURL("cs:series/logging")
+	c.Assert(err, IsNil)
+	curl = curl.WithRevision(dir.Revision())
+	step(c, ctx, addCharm{dir, curl})
+	ctx.svc, err = s.State.AddService("u", ctx.sch)
+	c.Assert(err, IsNil)
+
+	// Create the principal service and add a relation.
+	wps, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, IsNil)
+	wpu, err := wps.AddUnit()
+	c.Assert(err, IsNil)
+	eps, err := s.State.InferEndpoints([]string{"wordpress", "u"})
+	c.Assert(err, IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+
+	// Create the subordinate unit by entering scope as the principal.
+	err = wpu.SetPrivateAddress("blah")
+	c.Assert(err, IsNil)
+	wpru, err := rel.Unit(wpu)
+	c.Assert(err, IsNil)
+	err = wpru.EnterScope()
+	c.Assert(err, IsNil)
+	ctx.unit, err = s.State.Unit("u/0")
+	c.Assert(err, IsNil)
+
+	// Run the actual test.
+	ctx.run(c, []stepper{
+		serveCharm{},
+		startUniter{},
+		waitAddresses{},
+		custom{func(c *C, ctx *context) {
+			c.Assert(rel.Destroy(), IsNil)
+		}},
+		waitUniterDead{},
+	})
 }
 
 func step(c *C, ctx *context, s stepper) {
@@ -733,19 +797,28 @@ func (s createCharm) step(c *C, ctx *context) {
 	c.Assert(err, IsNil)
 	err = dir.SetDiskRevision(s.revision)
 	c.Assert(err, IsNil)
-	buf := &bytes.Buffer{}
-	err = dir.BundleTo(buf)
+	step(c, ctx, addCharm{dir, curl(s.revision)})
+}
+
+type addCharm struct {
+	dir  *charm.Dir
+	curl *charm.URL
+}
+
+func (s addCharm) step(c *C, ctx *context) {
+	var buf bytes.Buffer
+	err := s.dir.BundleTo(&buf)
 	c.Assert(err, IsNil)
 	body := buf.Bytes()
 	hasher := sha256.New()
-	_, err = io.Copy(hasher, buf)
+	_, err = io.Copy(hasher, &buf)
 	c.Assert(err, IsNil)
 	hash := hex.EncodeToString(hasher.Sum(nil))
-	key := fmt.Sprintf("/charms/%d", s.revision)
+	key := fmt.Sprintf("/charms/%s/%d", s.dir.Meta().Name, s.dir.Revision())
 	hurl, err := url.Parse(coretesting.Server.URL + key)
 	c.Assert(err, IsNil)
 	ctx.charms[key] = coretesting.Response{200, nil, body}
-	_, err = ctx.st.AddCharm(dir, curl(s.revision), hurl, hash)
+	ctx.sch, err = ctx.st.AddCharm(s.dir, s.curl, hurl, hash)
 	c.Assert(err, IsNil)
 }
 
@@ -784,6 +857,12 @@ type createUniter struct{}
 func (createUniter) step(c *C, ctx *context) {
 	step(c, ctx, createServiceAndUnit{})
 	step(c, ctx, startUniter{})
+	step(c, ctx, waitAddresses{})
+}
+
+type waitAddresses struct{}
+
+func (waitAddresses) step(c *C, ctx *context) {
 	timeout := time.After(5 * time.Second)
 	for {
 		select {
@@ -794,12 +873,12 @@ func (createUniter) step(c *C, ctx *context) {
 			if err != nil {
 				c.Fatalf("unit refresh failed: %v", err)
 			}
-			private, err := ctx.unit.PrivateAddress()
-			if err != nil || private != "private.dummy.address.example.com" {
+			private, _ := ctx.unit.PrivateAddress()
+			if private != "private.dummy.address.example.com" {
 				continue
 			}
-			public, err := ctx.unit.PublicAddress()
-			if err != nil || public != "public.dummy.address.example.com" {
+			public, _ := ctx.unit.PublicAddress()
+			if public != "public.dummy.address.example.com" {
 				continue
 			}
 			return
@@ -1209,6 +1288,59 @@ func (s relationState) step(c *C, ctx *context) {
 	c.Assert(err, IsNil)
 	c.Assert(ctx.relation.Life(), Equals, s.life)
 
+}
+
+type addSubordinate struct{}
+
+func (addSubordinate) step(c *C, ctx *context) {
+	_, err := ctx.st.AddService("logging", ctx.s.AddTestingCharm(c, "logging"))
+	c.Assert(err, IsNil)
+	eps, err := ctx.st.InferEndpoints([]string{"logging", "u"})
+	c.Assert(err, IsNil)
+	_, err = ctx.st.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	timeout := time.After(5 * time.Second)
+	for {
+		ctx.st.StartSync()
+		select {
+		case <-timeout:
+			c.Fatalf("subordinate was not created")
+		case <-time.After(50 * time.Millisecond):
+			ctx.subordinate, err = ctx.st.Unit("logging/0")
+			if state.IsNotFound(err) {
+				continue
+			}
+			c.Assert(err, IsNil)
+			return
+		}
+	}
+}
+
+type removeSubordinate struct{}
+
+func (removeSubordinate) step(c *C, ctx *context) {
+	timeout := time.After(5 * time.Second)
+	for {
+		ctx.st.StartSync()
+		select {
+		case <-timeout:
+			c.Fatalf("subordinate was not made Dying")
+		case <-time.After(50 * time.Millisecond):
+			err := ctx.subordinate.Refresh()
+			c.Assert(err, IsNil)
+			if ctx.subordinate.Life() != state.Dying {
+				continue
+			}
+		}
+		break
+	}
+	err := ctx.subordinate.EnsureDead()
+	c.Assert(err, IsNil)
+	svc, err := ctx.subordinate.Service()
+	c.Assert(err, IsNil)
+	err = svc.RemoveUnit(ctx.subordinate)
+	c.Assert(err, IsNil)
+	ctx.subordinate = nil
 }
 
 type assertYaml struct {

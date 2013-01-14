@@ -98,11 +98,11 @@ func (s *AssignSuite) TestAssignedMachineIdWhenPrincipalNotAlive(c *C) {
 	subUnit, err := subSvc.AddUnitSubordinateTo(unit)
 	c.Assert(err, IsNil)
 
-	testWhenDying(c, unit, noErr, noErr,
-		func() error {
-			_, err = subUnit.AssignedMachineId()
-			return err
-		})
+	err = unit.EnsureDying()
+	c.Assert(err, IsNil)
+	mid, err := subUnit.AssignedMachineId()
+	c.Assert(err, IsNil)
+	c.Assert(mid, Equals, machine.Id())
 }
 
 func (s *AssignSuite) TestUnassignUnitFromMachineWithChangingState(c *C) {
@@ -229,33 +229,6 @@ func (s *AssignSuite) TestAssignMachineWhenDying(c *C) {
 	testWhenDying(c, machine, machineDeadErr, machineDeadErr, assignTest)
 }
 
-func (s *AssignSuite) TestUnassignMachineWhenDying(c *C) {
-	// Check that UnassignFromMachine works when the unit is dead.
-	machine, err := s.State.AddMachine(state.JobHostUnits)
-	c.Assert(err, IsNil)
-	unit, err := s.wordpress.AddUnit()
-	c.Assert(err, IsNil)
-	err = unit.AssignToMachine(machine)
-	c.Assert(err, IsNil)
-	err = unit.EnsureDead()
-	c.Assert(err, IsNil)
-	err = unit.UnassignFromMachine()
-	c.Assert(err, IsNil)
-
-	// Check that UnassignFromMachine works when the machine is
-	// dead.
-	machine, err = s.State.AddMachine(state.JobHostUnits)
-	c.Assert(err, IsNil)
-	unit, err = s.wordpress.AddUnit()
-	c.Assert(err, IsNil)
-	err = unit.AssignToMachine(machine)
-	c.Assert(err, IsNil)
-	err = machine.EnsureDead()
-	c.Assert(err, IsNil)
-	err = unit.UnassignFromMachine()
-	c.Assert(err, IsNil)
-}
-
 func (s *AssignSuite) TestAssignMachinePrincipalsChange(c *C) {
 	machine, err := s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
@@ -270,7 +243,7 @@ func (s *AssignSuite) TestAssignMachinePrincipalsChange(c *C) {
 	subCharm := s.AddTestingCharm(c, "logging")
 	logService, err := s.State.AddService("logging", subCharm)
 	c.Assert(err, IsNil)
-	_, err = logService.AddUnitSubordinateTo(unit)
+	logUnit, err := logService.AddUnitSubordinateTo(unit)
 	c.Assert(err, IsNil)
 
 	doc := make(map[string][]string)
@@ -281,6 +254,10 @@ func (s *AssignSuite) TestAssignMachinePrincipalsChange(c *C) {
 	}
 	c.Assert(principals, DeepEquals, []string{"wordpress/0", "wordpress/1"})
 
+	err = logUnit.EnsureDead()
+	c.Assert(err, IsNil)
+	err = logService.RemoveUnit(logUnit)
+	c.Assert(err, IsNil)
 	err = unit.EnsureDead()
 	c.Assert(err, IsNil)
 	err = s.wordpress.RemoveUnit(unit)

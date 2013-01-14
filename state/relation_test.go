@@ -790,7 +790,7 @@ func (s *OriginalRelationUnitSuite) TestRelationUnitEnterScopeError(c *C) {
 	err = riak.RemoveUnit(u0)
 	c.Assert(err, IsNil)
 	err = ru0.EnterScope()
-	c.Assert(err, ErrorMatches, `cannot initialize state for unit "riak/0" in relation "riak:ring": private address of unit "riak/0" not found`)
+	c.Assert(err, ErrorMatches, `cannot initialize state for unit "riak/0" in relation "riak:ring": private address not set`)
 
 	u1, err := riak.AddUnit()
 	c.Assert(err, IsNil)

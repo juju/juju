@@ -9,18 +9,20 @@ import (
 
 type UnitSuite struct {
 	ConnSuite
-	charm *state.Charm
-	unit  *state.Unit
+	charm   *state.Charm
+	service *state.Service
+	unit    *state.Unit
 }
 
 var _ = Suite(&UnitSuite{})
 
 func (s *UnitSuite) SetUpTest(c *C) {
 	s.ConnSuite.SetUpTest(c)
-	s.charm = s.AddTestingCharm(c, "dummy")
-	svc, err := s.State.AddService("wordpress", s.charm)
+	s.charm = s.AddTestingCharm(c, "wordpress")
+	var err error
+	s.service, err = s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
-	s.unit, err = svc.AddUnit()
+	s.unit, err = s.service.AddUnit()
 	c.Assert(err, IsNil)
 }
 
@@ -37,22 +39,22 @@ func (s *UnitSuite) TestService(c *C) {
 }
 
 func (s *UnitSuite) TestGetSetPublicAddress(c *C) {
-	address, err := s.unit.PublicAddress()
-	c.Assert(err, ErrorMatches, `public address of unit "wordpress/0" not found`)
-	err = s.unit.SetPublicAddress("example.foobar.com")
+	address, ok := s.unit.PublicAddress()
+	c.Assert(ok, Equals, false)
+	err := s.unit.SetPublicAddress("example.foobar.com")
 	c.Assert(err, IsNil)
-	address, err = s.unit.PublicAddress()
-	c.Assert(err, IsNil)
+	address, ok = s.unit.PublicAddress()
+	c.Assert(ok, Equals, true)
 	c.Assert(address, Equals, "example.foobar.com")
 }
 
 func (s *UnitSuite) TestGetSetPrivateAddress(c *C) {
-	address, err := s.unit.PrivateAddress()
-	c.Assert(err, ErrorMatches, `private address of unit "wordpress/0" not found`)
-	err = s.unit.SetPrivateAddress("example.local")
+	address, ok := s.unit.PrivateAddress()
+	c.Assert(ok, Equals, false)
+	err := s.unit.SetPrivateAddress("example.local")
 	c.Assert(err, IsNil)
-	address, err = s.unit.PrivateAddress()
-	c.Assert(err, IsNil)
+	address, ok = s.unit.PrivateAddress()
+	c.Assert(ok, Equals, true)
 	c.Assert(address, Equals, "example.local")
 }
 
@@ -65,18 +67,18 @@ func (s *UnitSuite) TestRefresh(c *C) {
 	err = s.unit.SetPublicAddress("example.foobar.com")
 	c.Assert(err, IsNil)
 
-	address, err := unit1.PrivateAddress()
-	c.Assert(err, ErrorMatches, `private address of unit "wordpress/0" not found`)
-	address, err = unit1.PublicAddress()
-	c.Assert(err, ErrorMatches, `public address of unit "wordpress/0" not found`)
+	address, ok := unit1.PrivateAddress()
+	c.Assert(ok, Equals, false)
+	address, ok = unit1.PublicAddress()
+	c.Assert(ok, Equals, false)
 
 	err = unit1.Refresh()
 	c.Assert(err, IsNil)
-	address, err = unit1.PrivateAddress()
-	c.Assert(err, IsNil)
+	address, ok = unit1.PrivateAddress()
+	c.Assert(ok, Equals, true)
 	c.Assert(address, Equals, "example.local")
-	address, err = unit1.PublicAddress()
-	c.Assert(err, IsNil)
+	address, ok = unit1.PublicAddress()
+	c.Assert(ok, Equals, true)
 	c.Assert(address, Equals, "example.foobar.com")
 
 	err = unit1.EnsureDead()
@@ -424,6 +426,54 @@ func (s *UnitSuite) TestSubordinateChangeInPrincipal(c *C) {
 	c.Assert(subordinates, DeepEquals, []string{"logging/0"})
 }
 
+func (s *UnitSuite) TestDeathWithSubordinates(c *C) {
+	// Check that units can become dead when they've never had subordinates.
+	u, err := s.service.AddUnit()
+	c.Assert(err, IsNil)
+	err = u.EnsureDead()
+	c.Assert(err, IsNil)
+
+	// Create a new unit and add a subordinate.
+	u, err = s.service.AddUnit()
+	c.Assert(err, IsNil)
+	logging, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
+	c.Assert(err, IsNil)
+	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
+	c.Assert(err, IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	ru, err := rel.Unit(u)
+	c.Assert(err, IsNil)
+	err = u.SetPrivateAddress("blah")
+	c.Assert(err, IsNil)
+	err = ru.EnterScope()
+	c.Assert(err, IsNil)
+
+	// Check the unit cannot become Dead, but can become Dying...
+	err = u.EnsureDead()
+	c.Assert(err, Equals, state.ErrUnitHasSubordinates)
+	err = u.EnsureDying()
+	c.Assert(err, IsNil)
+
+	// ...and that it still can't become Dead now it's Dying.
+	err = u.EnsureDead()
+	c.Assert(err, Equals, state.ErrUnitHasSubordinates)
+
+	// Make the subordinate Dead and check the principal still cannot be removed.
+	sub, err := s.State.Unit("logging/0")
+	c.Assert(err, IsNil)
+	err = sub.EnsureDead()
+	c.Assert(err, IsNil)
+	err = u.EnsureDead()
+	c.Assert(err, Equals, state.ErrUnitHasSubordinates)
+
+	// remove the subordinate and check the principal can finally become Dead.
+	err = logging.RemoveUnit(sub)
+	c.Assert(err, IsNil)
+	err = u.EnsureDead()
+	c.Assert(err, IsNil)
+}
+
 func (s *UnitSuite) TestWatchSubordinates(c *C) {
 	w := s.unit.WatchSubordinateUnits()
 	defer stop(c, w)
@@ -540,8 +590,8 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 	c.Assert(err, IsNil)
 	err = altunit.SetPublicAddress("newer-address")
 	c.Assert(err, IsNil)
-	_, err = s.unit.PublicAddress()
-	c.Assert(err, ErrorMatches, `public address of unit ".*" not found`)
+	_, ok := s.unit.PublicAddress()
+	c.Assert(ok, Equals, false)
 
 	w := s.unit.Watch()
 	defer func() {
@@ -553,8 +603,8 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 		c.Assert(ok, Equals, true)
 		err := s.unit.Refresh()
 		c.Assert(err, IsNil)
-		addr, err := s.unit.PublicAddress()
-		c.Assert(err, IsNil)
+		addr, ok := s.unit.PublicAddress()
+		c.Assert(ok, Equals, true)
 		c.Assert(addr, Equals, "newer-address")
 	case <-time.After(500 * time.Millisecond):
 		c.Fatalf("did not get change: %v", s.unit)
@@ -574,8 +624,8 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 			info.Life = s.unit.Life()
 			c.Assert(err, IsNil)
 			if test.want.PublicAddress != "" {
-				info.PublicAddress, err = s.unit.PublicAddress()
-				c.Assert(err, IsNil)
+				info.PublicAddress, ok = s.unit.PublicAddress()
+				c.Assert(ok, Equals, true)
 			}
 			c.Assert(info, DeepEquals, test.want)
 		case <-time.After(500 * time.Millisecond):

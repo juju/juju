@@ -78,7 +78,11 @@ func (c *SSHCommon) hostFromTarget(target string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		return unit.PublicAddress()
+		addr, ok := unit.PublicAddress()
+		if !ok {
+			return "", fmt.Errorf("unit %q has no public address", unit)
+		}
+		return addr, nil
 	}
 	return "", fmt.Errorf("unknown unit or machine %q", target)
 }

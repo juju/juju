@@ -167,7 +167,7 @@ func processService(service *state.Service) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	r["charm"] = ch.Meta().Name
+	r["charm"] = ch.String()
 	r["exposed"] = service.IsExposed()
 
 	// TODO(dfc) service.IsSubordinate() ?
@@ -197,7 +197,7 @@ func processUnits(units []*state.Unit) (map[string]interface{}, error) {
 func processUnit(unit *state.Unit) (map[string]interface{}, error) {
 	r := m()
 
-	if addr, err := unit.PublicAddress(); err == nil {
+	if addr, ok := unit.PublicAddress(); ok {
 		r["public-address"] = addr
 	}
 
