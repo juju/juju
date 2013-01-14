@@ -50,54 +50,92 @@ func (s *Service) Life() Life {
 	return s.doc.Life
 }
 
-// EnsureDying sets the service lifecycle, and those of all its relations,
-// to Dying if the service is Alive. It does nothing otherwise.
-func (s *Service) EnsureDying() error {
-	// To kill the relations in the same transaction as the service, we need
-	// to collect a consistent relation state on which to apply it; and if the
-	// transaction is aborted, we need to re-collect, and retry, until we succeed.
-	for s.doc.Life == Alive {
-		log.Debugf("state: found %d relations for service %q", s.doc.RelationCount, s)
-		rels, err := s.Relations()
+func (s *Service) Destroy() (err error) {
+	if s.doc.Life != Alive {
+		return nil
+	}
+	defer func() {
 		if err != nil {
-			return err
+			// This is a white lie; the document might actually be removed.
+			s.doc.Life = Dying
 		}
-		if len(rels) != s.doc.RelationCount {
-			log.Debugf("state: service %q relations changed; retrying", s)
-			if err := s.Refresh(); err != nil {
-				return err
-			}
-			continue
-		}
-		ops := []txn.Op{{
-			C:      s.st.services.Name,
-			Id:     s.doc.Name,
-			Assert: D{{"life", Alive}, {"txn-revno", s.doc.TxnRevno}},
-			Update: D{{"$set", D{{"life", Dying}}}},
-		}}
-		for _, rel := range rels {
-			if rel.Life() == Alive {
-				ops = append(ops, txn.Op{
-					C:      s.st.relations.Name,
-					Id:     rel.doc.Key,
-					Assert: isAliveDoc,
-					Update: D{{"$set", D{{"life", Dying}}}},
-				})
-			}
-		}
-		if err := s.st.runner.Run(ops, "", nil); err == txn.ErrAborted {
-			log.Debugf("state: service %q changed, retrying", s)
-			if err := s.Refresh(); err != nil {
-				return err
-			}
-			continue
+	}()
+	var svc *Service
+	for {
+		if svc == nil {
+			// Clone the service for convenient future refreshes.
+			svc = &Service{s.st, s.doc}
+		} else if err := svc.Refresh(); IsNotFound(err) {
+			return nil
 		} else if err != nil {
 			return err
 		}
-		log.Debugf("state: service %q is now dying", s)
-		s.doc.Life = Dying
+		if svc.doc.Life == Dying() {
+			return nil
+		}
+		svcOp := txn.Op{
+			C:      svc.st.services.Name,
+			Id:     svc.doc.Name,
+			Assert: D{{"life", Alive}, {"txn-revno", s.doc.TxnRevno}},
+		}
+		var relOps []txn.Op
+		removedCount := 0
+		if svc.doc.RelationCount == 0 {
+			if svc.doc.UnitCount == 0 {
+				svcOp.Remove = true
+			}
+		} else {
+			rels, err := svc.Relations()
+			if err != nil {
+				return err
+			}
+			if len(rels) != svc.doc.RelationCount {
+				continue
+			}
+			for _, rel := range rels {
+				if rel.doc.Life != Alive {
+					// No further assertions required: if they happen to be
+					// removed while we're still working the service txn-revno
+					// check will fail anyway.
+					continue
+				}
+				newRelOps, remove := rel.destroyOps(svc)
+				relOps = append(relOps, newRelOps...)
+				if remove {
+					removedCount += 1
+				}
+			}
+		}
+		if removedCount == svc.Doc.RelationCount {
+			svcOp.Remove = true
+		}
+		if !svcOp.Remove {
+			svcOp.Update = D{{"$set", D{{"life", Dying}}}}
+			if removedCount != 0 {
+				decref := D{{"$inc", {{"relationcount", -removedCount}}}}
+				svcOp.Update = append(svcOp.Update, decref...)
+			}
+		}
+		if err := svc.st.runner.Run(append(relOps, svcOp), "", nil); err != txn.ErrAborted {
+			return err
+		}
 	}
-	return nil
+	panic("unreachable")
+}
+
+func (s *Service) destroyOps([]*Relation) ([]txn.Op, func() (bool, error), error) {
+	ops := []txn.Op{{
+		C:      s.st.services.Name,
+		Id:     s.doc.Name,
+		Assert: D{{"life", Alive}, {"txn-revno", s.doc.TxnRevno}},
+		Update: D{{"$set", D{{"life", Dying}}}},
+	}}
+	destroyed := 0
+	for _, rel := range rels {
+		if rel.Life() == Alive {
+
+		}
+	}
 }
 
 // EnsureDead sets the service lifecycle to Dead if it is Alive or Dying.

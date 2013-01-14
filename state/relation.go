@@ -94,8 +94,7 @@ func (r *Relation) Life() Life {
 }
 
 // Destroy ensures that the relation will be removed at some point; if no units
-// are currently in scope, it will be removed immediately. It is an error to
-// destroy a relation more than once.
+// are currently in scope, it will be removed immediately.
 func (r *Relation) Destroy() (err error) {
 	defer trivial.ErrorContextf(&err, "cannot destroy relation %q", r)
 	// In *theory*, there is no upper bound to the number of attempts we could
@@ -136,31 +135,45 @@ func (r *Relation) Destroy() (err error) {
 	return fmt.Errorf("units being added during relation removal; shouldn't happen, please contact juju-dev@lists.ubuntu.com")
 }
 
+func (r *Relation) destroyOps(destroyingService string) ([]txn.Op, bool) {
+	if r.doc.UnitCount == 0 {
+		return r.removeOps(D{{"unitcount", 0}}, destroyingService), true
+	}
+	return []txn.Op{{
+		C:      r.st.relations.Name,
+		Id:     r.doc.Key,
+		Assert: D{{"life", Alive}, {"unitcount", D{{"$gt", 0}}}},
+		Update: D{{"$set", D{{"life", Dying}}}},
+	}}, false
+}
+
 // removeOps returns the operations that must occur when a relation is removed.
 // The only assertions made in the returned list are those supplied, which will
 // be applied to the relation document.
-func (r *Relation) removeOps(asserts D) []txn.Op {
+func (r *Relation) removeOps(asserts D, destroyingService string) []txn.Op {
 	cDoc := &cleanupDoc{
 		Id:     bson.NewObjectId(),
 		Kind:   "settings",
 		Prefix: fmt.Sprintf("r#%d#", r.Id()),
 	}
 	ops := []txn.Op{{
-		C:      r.st.cleanups.Name,
-		Id:     cDoc.Id,
-		Insert: cDoc,
-	}, {
 		C:      r.st.relations.Name,
 		Id:     r.doc.Key,
 		Assert: asserts,
 		Remove: true,
+	}, {
+		C:      r.st.cleanups.Name,
+		Id:     cDoc.Id,
+		Insert: cDoc,
 	}}
 	for _, ep := range r.doc.Endpoints {
-		ops = append(ops, txn.Op{
-			C:      r.st.services.Name,
-			Id:     ep.ServiceName,
-			Update: D{{"$inc", D{{"relationcount", -1}}}},
-		})
+		if ep.ServiceName != destroyingService {
+			ops = append(ops, txn.Op{
+				C:      r.st.services.Name,
+				Id:     ep.ServiceName,
+				Update: D{{"$inc", D{{"relationcount", -1}}}},
+			})
+		}
 	}
 	return ops
 }
