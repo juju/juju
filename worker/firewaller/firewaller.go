@@ -160,8 +160,8 @@ func (fw *Firewaller) startMachine(id string) error {
 }
 
 // startUnit creates a new data value for tracking details of the
-// unit and starts watching the unit for port changes. The provided 
-// machineId must be the id for the machine the unit was last observed 
+// unit and starts watching the unit for port changes. The provided
+// machineId must be the id for the machine the unit was last observed
 // to be assigned to.
 func (fw *Firewaller) startUnit(unit *state.Unit, machineId string) error {
 	service, err := unit.Service()
@@ -211,7 +211,7 @@ func (fw *Firewaller) startService(service *state.Service) error {
 }
 
 // reconcileGlobal compares the initially started watcher for machines,
-// units and services with the opened and closed ports globally and 
+// units and services with the opened and closed ports globally and
 // opens and closes the appropriate ports for the whole environment.
 func (fw *Firewaller) reconcileGlobal() error {
 	initialPorts, err := fw.environ.Ports()
@@ -251,7 +251,7 @@ func (fw *Firewaller) reconcileGlobal() error {
 }
 
 // reconcileInstances compares the initially started watcher for machines,
-// units and services with the opened and closed ports of the instances and 
+// units and services with the opened and closed ports of the instances and
 // opens and closes the appropriate ports for each instance.
 func (fw *Firewaller) reconcileInstances() error {
 	for _, machined := range fw.machineds {

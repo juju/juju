@@ -79,6 +79,8 @@ func patchDeployManager(c *C, expectInfo *state.Info, expectDataDir string) (*fa
 		deployed: map[string]bool{},
 		inited:   make(chan struct{}),
 	}
+	e0 := *expectInfo
+	expectInfo = &e0
 	orig := newDeployManager
 	newDeployManager = func(st *state.State, info *state.Info, dataDir string) deployer.Manager {
 		c.Check(info.Addrs, DeepEquals, expectInfo.Addrs)

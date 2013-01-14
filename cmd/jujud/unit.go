@@ -24,7 +24,7 @@ func (a *UnitAgent) Info() *cmd.Info {
 
 // Init initializes the command for running.
 func (a *UnitAgent) Init(f *gnuflag.FlagSet, args []string) error {
-	a.Conf.addFlags(f, flagAll)
+	a.Conf.addFlags(f)
 	f.StringVar(&a.UnitName, "unit-name", "", "name of the unit to run")
 	if err := f.Parse(true, args); err != nil {
 		return err
@@ -46,9 +46,12 @@ func (a *UnitAgent) Stop() error {
 
 // Run runs a unit agent.
 func (a *UnitAgent) Run(ctx *cmd.Context) error {
+	if err := a.Conf.read(state.UnitEntityName(a.UnitName)); err != nil {
+		return err
+	}
 	defer log.Printf("cmd/jujud: unit agent exiting")
 	defer a.tomb.Done()
-	return RunLoop(&a.Conf, a)
+	return RunLoop(a.Conf.Conf, a)
 }
 
 // RunOnce runs a unit agent once.

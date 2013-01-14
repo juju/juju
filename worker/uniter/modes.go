@@ -301,9 +301,11 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 			return nil, err
 		}
 	}
-	for _, r := range u.relationers {
+	for id, r := range u.relationers {
 		if err := r.SetDying(); err != nil {
 			return nil, err
+		} else if r.IsImplicit() {
+			delete(u.relationers, id)
 		}
 	}
 	for {

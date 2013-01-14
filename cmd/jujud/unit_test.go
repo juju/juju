@@ -3,26 +3,43 @@ package main
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
-	"os"
 	"time"
 )
 
 type UnitSuite struct {
-	testing.JujuConnSuite
+	agentSuite
 }
 
 var _ = Suite(&UnitSuite{})
+
+// primeAgent creates a unit, and sets up the unit agent's directory.
+// It returns the new unit and the agent's configuration.
+func (s *UnitSuite) primeAgent(c *C) (*state.Unit, *agent.Conf, *state.Tools) {
+	svc, err := s.Conn.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, IsNil)
+	unit, err := svc.AddUnit()
+	c.Assert(err, IsNil)
+	err = unit.SetMongoPassword("unit-password")
+	c.Assert(err, IsNil)
+	conf, tools := s.agentSuite.primeAgent(c, unit.EntityName(), "unit-password")
+	return unit, conf, tools
+}
+
+func (s *UnitSuite) newAgent(c *C, unit *state.Unit) *UnitAgent {
+	a := &UnitAgent{}
+	s.initAgent(c, a, "--unit-name", unit.Name())
+	return a
+}
 
 func (s *UnitSuite) TestParseSuccess(c *C) {
 	create := func() (cmd.Command, *AgentConf) {
 		a := &UnitAgent{}
 		return a, &a.Conf
 	}
-	uc := CheckAgentCommand(c, create, []string{"--unit-name", "w0rd-pre55/1"}, flagAll)
+	uc := CheckAgentCommand(c, create, []string{"--unit-name", "w0rd-pre55/1"})
 	c.Assert(uc.(*UnitAgent).UnitName, Equals, "w0rd-pre55/1")
 }
 
@@ -52,8 +69,9 @@ func (s *UnitSuite) TestParseUnknown(c *C) {
 }
 
 func (s *UnitSuite) TestRunStop(c *C) {
-	a, unit, _ := s.newAgent(c)
-	mgr, reset := patchDeployManager(c, &a.Conf.StateInfo, a.Conf.DataDir)
+	unit, conf, _ := s.primeAgent(c)
+	a := s.newAgent(c, unit)
+	mgr, reset := patchDeployManager(c, &conf.StateInfo, conf.DataDir)
 	defer reset()
 	go func() { c.Check(a.Run(nil), IsNil) }()
 	defer func() { c.Check(a.Stop(), IsNil) }()
@@ -108,42 +126,13 @@ waitStarted:
 	c.Assert(state.IsNotFound(err), Equals, true)
 }
 
-// newAgent starts a new unit agent.
-func (s *UnitSuite) newAgent(c *C) (*UnitAgent, *state.Unit, *state.Tools) {
-	svc, err := s.Conn.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, IsNil)
-	unit, err := svc.AddUnit()
-	c.Assert(err, IsNil)
-	err = unit.SetPassword("unit-password")
-	c.Assert(err, IsNil)
-
-	dataDir, tools := primeTools(c, s.Conn, version.Current)
-	entityName := unit.EntityName()
-	tools1, err := environs.ChangeAgentTools(dataDir, entityName, version.Current)
-	c.Assert(err, IsNil)
-	c.Assert(tools1, DeepEquals, tools)
-
-	err = os.MkdirAll(environs.AgentDir(dataDir, entityName), 0777)
-	c.Assert(err, IsNil)
-
-	a := &UnitAgent{
-		Conf: AgentConf{
-			DataDir:         dataDir,
-			StateInfo:       *s.StateInfo(c),
-			InitialPassword: "unit-password",
-		},
-		UnitName: unit.Name(),
-	}
-	a.Conf.StateInfo.EntityName = entityName
-	return a, unit, tools
-}
-
 func (s *UnitSuite) TestUpgrade(c *C) {
 	newVers := version.Current
 	newVers.Patch++
-	newTools := uploadTools(c, s.Conn, newVers)
-	proposeVersion(c, s.State, newVers.Number, true)
-	a, _, currentTools := s.newAgent(c)
+	newTools := s.uploadTools(c, newVers)
+	s.proposeVersion(c, newVers.Number, true)
+	unit, _, currentTools := s.primeAgent(c)
+	a := s.newAgent(c, unit)
 	defer a.Stop()
 	err := runWithTimeout(a)
 	c.Assert(err, FitsTypeOf, &UpgradeReadyError{})
@@ -153,19 +142,11 @@ func (s *UnitSuite) TestUpgrade(c *C) {
 }
 
 func (s *UnitSuite) TestWithDeadUnit(c *C) {
-	a, unit, _ := s.newAgent(c)
+	unit, _, _ := s.primeAgent(c)
 	err := unit.EnsureDead()
 	c.Assert(err, IsNil)
 
-	dataDir := a.Conf.DataDir
-	a = &UnitAgent{
-		Conf: AgentConf{
-			DataDir:         dataDir,
-			StateInfo:       *s.StateInfo(c),
-			InitialPassword: "unit-password",
-		},
-		UnitName: unit.Name(),
-	}
+	a := s.newAgent(c, unit)
 	err = runWithTimeout(a)
 	c.Assert(err, IsNil)
 
@@ -175,30 +156,16 @@ func (s *UnitSuite) TestWithDeadUnit(c *C) {
 	// try again when the unit has been removed.
 	err = svc.RemoveUnit(unit)
 	c.Assert(err, IsNil)
-	a = &UnitAgent{
-		Conf: AgentConf{
-			DataDir:         dataDir,
-			StateInfo:       *s.StateInfo(c),
-			InitialPassword: "unit-password",
-		},
-		UnitName: unit.Name(),
-	}
+
+	a = s.newAgent(c, unit)
 	err = runWithTimeout(a)
 	c.Assert(err, IsNil)
 }
 
 func (s *UnitSuite) TestChangePasswordChanging(c *C) {
-	a, unit, _ := s.newAgent(c)
-	dataDir := a.Conf.DataDir
-	newAgent := func(initialPassword string) runner {
-		return &UnitAgent{
-			Conf: AgentConf{
-				DataDir:         dataDir,
-				StateInfo:       *s.StateInfo(c),
-				InitialPassword: initialPassword,
-			},
-			UnitName: unit.Name(),
-		}
+	unit, _, _ := s.primeAgent(c)
+	newAgent := func() runner {
+		return s.newAgent(c, unit)
 	}
-	testAgentPasswordChanging(&s.JujuConnSuite, c, unit, dataDir, newAgent)
+	s.testAgentPasswordChanging(c, unit, newAgent)
 }

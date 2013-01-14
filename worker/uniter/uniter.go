@@ -354,13 +354,12 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 			if err := rel.Refresh(); err != nil {
 				return nil, fmt.Errorf("cannot update relation %q: %v", rel, err)
 			}
-			switch rel.Life() {
-			case state.Dying:
+			if rel.Life() == state.Dying {
 				if err := r.SetDying(); err != nil {
 					return nil, err
+				} else if r.IsImplicit() {
+					delete(u.relationers, id)
 				}
-			case state.Dead:
-				return nil, fmt.Errorf("had reference to dead relation %q", rel)
 			}
 			continue
 		}

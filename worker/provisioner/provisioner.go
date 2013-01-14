@@ -257,7 +257,7 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 	if err != nil {
 		return fmt.Errorf("cannot make password for new machine: %v", err)
 	}
-	if err := m.SetPassword(password); err != nil {
+	if err := m.SetMongoPassword(password); err != nil {
 		return fmt.Errorf("cannot set password for new machine: %v", err)
 	}
 	// UAs to locate the ZK for this environment, it is logical to use the same
