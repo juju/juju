@@ -316,7 +316,7 @@ func (as testAgentState) Life() state.Life {
 	panic("unimplemented")
 }
 
-func (as testAgentState) SetPassword(string) error {
+func (as testAgentState) SetMongoPassword(string) error {
 	panic("unimplemented")
 }
 

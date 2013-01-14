@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/jujutest"
 	coretesting "launchpad.net/juju-core/testing"
+	"os"
 )
 
 // uniqueName is generated afresh for every test run, so that
@@ -34,12 +35,17 @@ func registerOpenStackTests() {
 	// environment variables to make the OpenStack testing work:
 	//  access-key: $OS_USERNAME
 	//  secret-key: $OS_PASSWORD
+	//
+	// There is no standard public bucket for storing the tools as yet.
+	// Individuals can create their own public bucket for testing, which is
+	// specified using the following environment variable: $OS_PUBLIC_BUCKET_URL
+	var publicBucketURL = os.Getenv("OS_PUBLIC_BUCKET_URL")
 	attrs := map[string]interface{}{
-		"name":           "sample-" + uniqueName,
-		"type":           "openstack",
-		"auth-method":    "userpass",
-		"control-bucket": "juju-test-" + uniqueName,
-		"public-bucket":  "juju-public-test-" + uniqueName,
+		"name":              "sample-" + uniqueName,
+		"type":              "openstack",
+		"auth-method":       "userpass",
+		"control-bucket":    "juju-test-" + uniqueName,
+		"public-bucket-url": publicBucketURL,
 	}
 	Suite(&LiveTests{
 		LiveTests: jujutest.LiveTests{

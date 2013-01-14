@@ -121,7 +121,7 @@ type Storage interface {
 }
 
 func (s *storage) ResetMadeBucket() {
-	s.bucketMutex.Lock()
-	defer s.bucketMutex.Unlock()
+	s.Lock()
+	defer s.Unlock()
 	s.madeBucket = false
 }

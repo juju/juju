@@ -1,9 +1,11 @@
 package testing
 
 import (
+	"bufio"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
@@ -14,6 +16,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	stdtesting "testing"
 	"time"
 )
@@ -25,6 +28,9 @@ var (
 
 	// mgoServer holds the running MongoDB command.
 	mgoServer *exec.Cmd
+
+	// mgoExited receives a value when the mongodb server exits.
+	mgoExited <-chan struct{}
 
 	// mgoDir holds the directory that MongoDB is running in.
 	mgoDir string
@@ -64,6 +70,26 @@ func startMgoServer() error {
 		"--nojournal",
 	}
 	server := exec.Command("mongod", mgoargs...)
+	out, err := server.StdoutPipe()
+	if err != nil {
+		return err
+	}
+	server.Stderr = server.Stdout
+	exited := make(chan struct{})
+	go func() {
+		lines := readLines(out, 20)
+		err := server.Wait()
+		exitErr, _ := err.(*exec.ExitError)
+		if err == nil || exitErr != nil && exitErr.Exited() {
+			// mongodb has exited without being killed, so print the
+			// last few lines of its log output.
+			for _, line := range lines {
+				log.Printf("mongod: %s", line)
+			}
+		}
+		close(exited)
+	}()
+	mgoExited = exited
 	if err := server.Start(); err != nil {
 		os.RemoveAll(dbdir)
 		return err
@@ -77,9 +103,9 @@ func startMgoServer() error {
 func destroyMgoServer() {
 	if mgoServer != nil {
 		mgoServer.Process.Kill()
-		mgoServer.Process.Wait()
+		<-mgoExited
 		os.RemoveAll(mgoDir)
-		MgoAddr, mgoServer, mgoDir = "", nil, ""
+		MgoAddr, mgoServer, mgoExited, mgoDir = "", nil, nil, ""
 	}
 }
 
@@ -98,6 +124,34 @@ func (s *MgoSuite) SetUpSuite(c *C) {
 		panic("MgoSuite tests must be run with MgoTestPackage")
 	}
 	mgo.SetStats(true)
+}
+
+// readLines reads lines from the given reader and returns
+// the last n non-empty lines, ignoring empty lines.
+func readLines(r io.Reader, n int) []string {
+	br := bufio.NewReader(r)
+	lines := make([]string, n)
+	i := 0
+	for {
+		line, err := br.ReadString('\n')
+		if line = strings.TrimRight(line, "\n"); line != "" {
+			lines[i%n] = line
+			i++
+		}
+		if err != nil {
+			break
+		}
+	}
+	final := make([]string, 0, n+1)
+	if i > n {
+		final = append(final, fmt.Sprintf("[%d lines omitted]", i-n))
+	}
+	for j := 0; j < n; j++ {
+		if line := lines[(j+i)%n]; line != "" {
+			final = append(final, line)
+		}
+	}
+	return final
 }
 
 func (s *MgoSuite) TearDownSuite(c *C) {}
