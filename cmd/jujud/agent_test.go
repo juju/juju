@@ -235,7 +235,7 @@ func runStop(r runner) error {
 
 type entity interface {
 	EntityName() string
-	SetPassword(string) error
+	SetMongoPassword(string) error
 }
 
 // agentSuite is a fixture to be used by agent test suites.
@@ -276,7 +276,7 @@ func (s *agentSuite) testAgentPasswordChanging(c *C, ent entity, newAgent func()
 	c.Assert(err, IsNil)
 
 	// Check that it starts initially and changes the password
-	err = ent.SetPassword("initial")
+	err = ent.SetMongoPassword("initial")
 	c.Assert(err, IsNil)
 
 	setOldPassword := func(password string) {
