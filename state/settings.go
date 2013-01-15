@@ -260,7 +260,7 @@ func replaceSettingsOp(st *State, key string, values map[string]interface{}) (tx
 		return txn.Op{}, nil, err
 	}
 	deletes := map[string]int{}
-	for k, _ := range s.disk {
+	for k := range s.disk {
 		if _, found := values[k]; !found {
 			deletes[k] = 1
 		}

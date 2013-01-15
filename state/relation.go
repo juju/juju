@@ -382,16 +382,16 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	// has changed under our feet, preventing us from clearing it properly; if
 	// that is the case, something is seriously wrong (nobody else should be
 	// touching that doc under our feet) and we should bail out.
-	t := fmt.Sprintf("cannot enter scope for unit %q in relation %q", ru.unit, ru.relation) + ": %v"
+	prefix := fmt.Sprintf("cannot enter scope for unit %q in relation %q: ", ru.unit, ru.relation)
 	if changed, err := settingsChanged(); err != nil {
 		return err
 	} else if changed {
-		return fmt.Errorf(t, "concurrent settings change detected")
+		return fmt.Errorf(prefix + "concurrent settings change detected")
 	}
 
 	// Apparently, all our assertions should have passed, but the txn was
 	// aborted: something is really seriously wrong.
-	return fmt.Errorf(t, "inconsistent state")
+	return fmt.Errorf(prefix + "inconsistent state in EnterScope")
 }
 
 // subordinateOps returns any txn operations necessary to ensure sane
@@ -405,7 +405,8 @@ func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
 	related, err := ru.relation.RelatedEndpoints(ru.endpoint.ServiceName)
 	if err != nil {
 		return nil, "", err
-	} else if len(related) != 1 {
+	}
+	if len(related) != 1 {
 		return nil, "", fmt.Errorf("expected single related endpoint, got %v", related)
 	}
 	serviceName, unitName := related[0].ServiceName, ru.unit.doc.Name
