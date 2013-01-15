@@ -755,11 +755,9 @@ func (s *UniterSuite) TestSubordinateDying(c *C) {
 	c.Assert(err, IsNil)
 
 	// Create the subordinate unit by entering scope as the principal.
-	err = wpu.SetPrivateAddress("blah")
-	c.Assert(err, IsNil)
 	wpru, err := rel.Unit(wpu)
 	c.Assert(err, IsNil)
-	err = wpru.EnterScope()
+	err = wpru.EnterScope(nil)
 	c.Assert(err, IsNil)
 	ctx.unit, err = s.State.Unit("u/0")
 	c.Assert(err, IsNil)
@@ -1255,14 +1253,11 @@ type addRelationUnit struct{}
 func (s addRelationUnit) step(c *C, ctx *context) {
 	u, err := ctx.svc.AddUnit()
 	c.Assert(err, IsNil)
-	name := u.Name()
-	err = u.SetPrivateAddress(fmt.Sprintf("%s.example.com", strings.Replace(name, "/", "-", 1)))
-	c.Assert(err, IsNil)
 	ru, err := ctx.relation.Unit(u)
 	c.Assert(err, IsNil)
-	err = ru.EnterScope()
+	err = ru.EnterScope(nil)
 	c.Assert(err, IsNil)
-	ctx.relationUnits[name] = ru
+	ctx.relationUnits[u.Name()] = ru
 }
 
 type changeRelationUnit struct {

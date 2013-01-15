@@ -434,11 +434,9 @@ func (s *ServiceSuite) TestLifeWithRelations(c *C) {
 	// Join a unit to the wordpress side to keep the relation alive.
 	unit, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
-	err = unit.SetPrivateAddress("blah.example.com")
-	c.Assert(err, IsNil)
 	ru, err := rel.Unit(unit)
 	c.Assert(err, IsNil)
-	err = ru.EnterScope()
+	err = ru.EnterScope(nil)
 	c.Assert(err, IsNil)
 
 	// Set Dying, and check that the relation also becomes Dying.
@@ -871,15 +869,13 @@ func (s *ServiceSuite) TestWatchRelations(c *C) {
 	// Add units to a couple of relations to block their destruction...
 	unit, err := s.service.AddUnit()
 	c.Assert(err, IsNil)
-	err = unit.SetPrivateAddress("blah.example.com")
-	c.Assert(err, IsNil)
 	ru0, err := relations[0].Unit(unit)
 	c.Assert(err, IsNil)
-	err = ru0.EnterScope()
+	err = ru0.EnterScope(nil)
 	c.Assert(err, IsNil)
 	ru1, err := relations[1].Unit(unit)
 	c.Assert(err, IsNil)
-	err = ru1.EnterScope()
+	err = ru1.EnterScope(nil)
 	c.Assert(err, IsNil)
 
 	// ...and start destroying those relations, and check the change is observed.

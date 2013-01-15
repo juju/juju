@@ -120,9 +120,6 @@ func (s *DeployerSuite) prepareSubordinates(c *C) (*state.Unit, []*state.Relatio
 	c.Assert(err, IsNil)
 	u, err := svc.AddUnit()
 	c.Assert(err, IsNil)
-	err = u.SetPrivateAddress("blech")
-	c.Assert(err, IsNil)
-
 	rus := []*state.RelationUnit{}
 	logging := s.AddTestingCharm(c, "logging")
 	for _, name := range []string{"subsvc0", "subsvc1"} {
@@ -147,14 +144,14 @@ func (s *DeployerSuite) TestDeployRecallRemoveSubordinates(c *C) {
 	defer stop(c, dep)
 
 	// Add a subordinate, and wait for it to be deployed.
-	err := rus[0].EnterScope()
+	err := rus[0].EnterScope(nil)
 	c.Assert(err, IsNil)
 	sub0, err := s.State.Unit("subsvc0/0")
 	c.Assert(err, IsNil)
 	s.waitFor(c, isDeployed(mgr, sub0.Name()))
 
 	// And another.
-	err = rus[1].EnterScope()
+	err = rus[1].EnterScope(nil)
 	c.Assert(err, IsNil)
 	sub1, err := s.State.Unit("subsvc1/0")
 	c.Assert(err, IsNil)
@@ -177,13 +174,13 @@ func (s *DeployerSuite) TestDeployRecallRemoveSubordinates(c *C) {
 func (s *DeployerSuite) TestNonAliveSubordinates(c *C) {
 	// Add two subordinate units and set them to Dead/Dying respectively.
 	u, rus := s.prepareSubordinates(c)
-	err := rus[0].EnterScope()
+	err := rus[0].EnterScope(nil)
 	c.Assert(err, IsNil)
 	sub0, err := s.State.Unit("subsvc0/0")
 	c.Assert(err, IsNil)
 	err = sub0.EnsureDead()
 	c.Assert(err, IsNil)
-	err = rus[1].EnterScope()
+	err = rus[1].EnterScope(nil)
 	c.Assert(err, IsNil)
 	sub1, err := s.State.Unit("subsvc1/0")
 	c.Assert(err, IsNil)
