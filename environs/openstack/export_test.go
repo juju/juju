@@ -1,6 +1,7 @@
 package openstack
 
 import (
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/trivial"
 	"net/http"
 )
@@ -39,3 +40,7 @@ func ShortTimeouts(short bool) {
 }
 
 var ShortAttempt = &shortAttempt
+
+func DeleteStorageContent(s environs.Storage) error {
+	return s.(*storage).deleteAll()
+}

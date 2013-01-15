@@ -10,6 +10,7 @@ import (
 	"launchpad.net/goose/nova"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/jujutest"
+	"launchpad.net/juju-core/environs/openstack"
 	coretesting "launchpad.net/juju-core/testing"
 	"os"
 )
@@ -64,7 +65,7 @@ type LiveTests struct {
 
 func (t *LiveTests) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
-	_, err := environs.NewFromAttrs(t.Config)
+	e, err := environs.NewFromAttrs(t.Config)
 	c.Assert(err, IsNil)
 
 	// Get a nova client and start some test service instances.
@@ -73,10 +74,10 @@ func (t *LiveTests) SetUpSuite(c *C) {
 	client := client.NewClient(cred, identity.AuthUserPass, nil)
 	t.novaClient = nova.New(client)
 
-	// TODO: Put some fake tools in place so that tests that are simply
+	// Put some fake tools in place so that tests that are simply
 	// starting instances without any need to check if those instances
 	// are running will find them in the public bucket.
-	//	putFakeTools(c, e.PublicStorage().(environs.Storage))
+	putFakeTools(c, e.Storage().(environs.Storage))
 	t.LiveTests.SetUpSuite(c)
 }
 
@@ -85,7 +86,10 @@ func (t *LiveTests) TearDownSuite(c *C) {
 		// This can happen if SetUpSuite fails.
 		return
 	}
-	// TODO: delete any content put into swift
+	err := openstack.DeleteStorageContent(t.Env.Storage().(environs.Storage))
+	c.Check(err, IsNil)
+	err = openstack.DeleteStorageContent(t.Env.PublicStorage().(environs.Storage))
+	c.Assert(err, IsNil)
 	t.LiveTests.TearDownSuite(c)
 	t.LoggingSuite.TearDownSuite(c)
 }
