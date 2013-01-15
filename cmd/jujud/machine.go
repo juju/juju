@@ -66,8 +66,10 @@ the list of workers if we can't run the state server)
 but... should we fail altogether if we can still run
 some of the other tasks?
 
-func (a *MachineAgent) stateServer() {
-	if len(a.MongoAddrs) == 0 {
+func (a *MachineAgent) stateServer(conf *agent.Conf) {
+	info := a.Conf.conf.APIInfo
+	if a.Conf.conf.APIInfo.Addr == "" {
+		// TODO(rog) fetch APIInfo from API s
 		return
 	}
 	st, password, err := openState(state.MachineEntityName(a.MachineId), &a.Conf)
