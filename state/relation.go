@@ -253,6 +253,11 @@ func (ru *RelationUnit) Endpoint() Endpoint {
 // due to either the unit or the relation not being Alive.
 var ErrCannotEnterScope = errors.New("cannot enter scope: unit or relation is not alive")
 
+// ErrCannotEnterScopeYet indicates that a relation unit failed to enter its
+// scope due to a required and pre-existing subordinate unit that is not Alive.
+// Once that subordinate has been removed, a new one can be created.
+var ErrCannotEnterScopeYet = errors.New("cannot enter scope yet: non-alive subordinate unit has not been removed")
+
 // EnterScope ensures that the unit has entered its scope in the relation and
 // that its relation settings contain its private address. When the unit has
 // already entered its relation scope, EnterScope will report success but make
@@ -316,6 +321,7 @@ func (ru *RelationUnit) EnterScope() error {
 
 	// If the unit should have a subordinate, and does not, collect the
 	// operations necessary to create it.
+	var existingSubName string
 	if ru.unit.IsPrincipal() && ru.endpoint.RelationScope == charm.ScopeContainer {
 		related, err := ru.relation.RelatedEndpoints(ru.endpoint.ServiceName)
 		if err != nil {
@@ -324,10 +330,9 @@ func (ru *RelationUnit) EnterScope() error {
 			return fmt.Errorf("expected single related endpoint, got %v", related)
 		}
 		serviceName := related[0].ServiceName
+		var lDoc lifeDoc
 		selSubordinate := D{{"service", serviceName}, {"principal", unitName}}
-		if n, err := ru.st.units.Find(selSubordinate).Count(); err != nil {
-			return err
-		} else if n == 0 {
+		if err := ru.st.units.Find(selSubordinate).One(&lDoc); err == mgo.ErrNotFound {
 			service, err := ru.st.Service(serviceName)
 			if err != nil {
 				return err
@@ -337,6 +342,17 @@ func (ru *RelationUnit) EnterScope() error {
 				return err
 			}
 			ops = append(ops, subOps...)
+		} else if err != nil {
+			return err
+		} else if lDoc.Life != Alive {
+			return ErrCannotEnterScopeYet
+		} else {
+			existingSubName = lDoc.Id
+			ops = append(ops, txn.Op{
+				C:      ru.st.units.Name,
+				Id:     existingSubName,
+				Assert: isAliveDoc,
+			})
 		}
 	}
 
@@ -351,6 +367,7 @@ func (ru *RelationUnit) EnterScope() error {
 		// aborted by one of the DocMissing checks.
 		return nil
 	}
+
 	// If there's no scope document, the abort should be a consequence of
 	// one of the isAliveDoc checks: find out which. (Note that there is no
 	// need for additional checks if we're trying to create a subordinate
@@ -367,6 +384,17 @@ func (ru *RelationUnit) EnterScope() error {
 	} else if !alive {
 		return ErrCannotEnterScope
 	}
+
+	// Maybe a subordinate used to exist, but is no longer alive. If that is
+	// case, we will be unable to enter scope until that unit is gone.
+	if existingSubName != "" {
+		if alive, err := isAlive(ru.st.units, existingSubName); err != nil {
+			return err
+		} else if !alive {
+			return ErrCannotEnterScopeYet
+		}
+	}
+
 	// Apparently, all our assertions should have passed, but the txn was
 	// aborted: something is badly wrong.
 	return fmt.Errorf("cannot enter scope for %s: inconsistent state", desc)
