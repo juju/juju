@@ -67,11 +67,11 @@ but... should we fail altogether if we can still run
 some of the other tasks?
 
 func (a *MachineAgent) stateServer(conf *agent.Conf) {
-	info := a.Conf.conf.APIInfo
-	if a.Conf.conf.APIInfo.Addr == "" {
+	if a.Conf.conf.StateInfo.Addrs) == "" {
 		// TODO(rog) fetch APIInfo from API s
 		return
 	}
+	info := a.Conf.conf.StateInfo
 	st, password, err := openState(state.MachineEntityName(a.MachineId), &a.Conf)
 	
 	what do we do about the new password?
