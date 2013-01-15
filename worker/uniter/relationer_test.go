@@ -413,7 +413,7 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *C) {
 	defer func() { c.Assert(r.StopHooks(), IsNil) }()
 	subru, err := rel.Unit(sub)
 	c.Assert(err, IsNil)
-	err = subru.EnterScope()
+	err = subru.EnterScope(map[string]interface{}{"some": "data"})
 	c.Assert(err, IsNil)
 	s.State.StartSync()
 	select {
