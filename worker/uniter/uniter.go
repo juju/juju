@@ -28,8 +28,8 @@ import (
 type Uniter struct {
 	tomb          tomb.Tomb
 	st            *state.State
-	unit          *state.Unit
 	f             *filter
+	unit          *state.Unit
 	service       *state.Service
 	relationers   map[int]*Relationer
 	relationHooks chan hook.Info
