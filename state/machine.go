@@ -31,13 +31,14 @@ const (
 
 // machineDoc represents the internal state of a machine in MongoDB.
 type machineDoc struct {
-	Id         string `bson:"_id"`
-	InstanceId InstanceId
-	Principals []string
-	Life       Life
-	Tools      *Tools `bson:",omitempty"`
-	TxnRevno   int64  `bson:"txn-revno"`
-	Jobs       []MachineJob
+	Id           string `bson:"_id"`
+	InstanceId   InstanceId
+	Principals   []string
+	Life         Life
+	Tools        *Tools `bson:",omitempty"`
+	TxnRevno     int64  `bson:"txn-revno"`
+	Jobs         []MachineJob
+	PasswordHash string
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {
@@ -112,6 +113,28 @@ func (m *Machine) SetAgentTools(t *Tools) (err error) {
 // are invalidated.
 func (m *Machine) SetMongoPassword(password string) error {
 	return m.st.setMongoPassword(m.EntityName(), password)
+}
+
+// SetPassword sets the password for the machine's agent.
+func (m *Machine) SetPassword(password string) (err error) {
+	hp := trivial.PasswordHash(password)
+	ops := []txn.Op{{
+		C:      m.st.machines.Name,
+		Id:     m.doc.Id,
+		Assert: notDeadDoc,
+		Update: D{{"$set", D{{"passwordhash", hp}}}},
+	}}
+	if err := m.st.runner.Run(ops, "", nil); err != nil {
+		return fmt.Errorf("cannot set password of machine %v: %v", m, onAbort(err, errNotAlive))
+	}
+	m.doc.PasswordHash = hp
+	return nil
+}
+
+// PasswordValid returns whether the given password is valid
+// for the given machine.
+func (m *Machine) PasswordValid(password string) bool {
+	return trivial.PasswordHash(password) == m.doc.PasswordHash
 }
 
 // deathAsserts returns the conditions that must hold for a machine to
