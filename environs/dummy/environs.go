@@ -421,7 +421,7 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 		if err != nil {
 			panic(err)
 		}
-		if err := st.SetAdminPassword(trivial.PasswordHash(password)); err != nil {
+		if err := st.SetAdminMongoPassword(trivial.PasswordHash(password)); err != nil {
 			return err
 		}
 		if err := st.Close(); err != nil {

@@ -22,7 +22,7 @@ var _ = Suite(&MachineSuite{})
 func (s *MachineSuite) primeAgent(c *C, jobs ...state.MachineJob) (*state.Machine, *agent.Conf) {
 	m, err := s.State.InjectMachine("ardbeg-0", jobs...)
 	c.Assert(err, IsNil)
-	err = m.SetPassword("machine-password")
+	err = m.SetMongoPassword("machine-password")
 	c.Assert(err, IsNil)
 	conf, _ := s.agentSuite.primeAgent(c, state.MachineEntityName(m.Id()), "machine-password")
 	return m, conf
