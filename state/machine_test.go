@@ -92,6 +92,12 @@ func (s *MachineSuite) TestSetMongoPassword(c *C) {
 	})
 }
 
+func (s *MachineSuite) TestSetPassword(c *C) {
+	testSetPassword(c, func() (entity, error) {
+		return s.State.Machine(s.machine.Id())
+	})
+}
+
 func (s *MachineSuite) TestMachineWaitAgentAlive(c *C) {
 	timeout := 200 * time.Millisecond
 	alive, err := s.machine.AgentAlive()

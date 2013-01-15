@@ -1137,9 +1137,42 @@ func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *C) {
 	c.Assert(err, IsNil)
 }
 
+func testSetPassword(c *C, getEntity func() (entity, error)) {
+	e, err := getEntity()
+	c.Assert(err, IsNil)
+
+	c.Assert(e.PasswordValid("foo"), Equals, false)
+	err = e.SetPassword("foo")
+	c.Assert(err, IsNil)
+	c.Assert(e.PasswordValid("foo"), Equals, true)
+
+	// Check a newly-fetched entity has the same password.
+	e2, err := getEntity()
+	c.Assert(err, IsNil)
+	c.Assert(e2.PasswordValid("foo"), Equals, true)
+
+	err = e.SetPassword("bar")
+	c.Assert(err, IsNil)
+	c.Assert(e.PasswordValid("foo"), Equals, false)
+	c.Assert(e.PasswordValid("bar"), Equals, true)
+
+	// Check that refreshing fetches the new password
+	err = e2.Refresh()
+	c.Assert(err, IsNil)
+	c.Assert(e2.PasswordValid("bar"), Equals, true)
+
+	testWhenDying(c, e, noErr, notAliveErr, func() error {
+		return e.SetPassword("arble")
+	})
+}
+
 type entity interface {
+	lifer
 	EntityName() string
 	SetMongoPassword(password string) error
+	SetPassword(password string) error
+	PasswordValid(password string) bool
+	Refresh() error
 }
 
 func testSetMongoPassword(c *C, getEntity func(st *state.State) (entity, error)) {

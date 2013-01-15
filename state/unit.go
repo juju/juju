@@ -83,6 +83,7 @@ type unitDoc struct {
 	Status         UnitStatus
 	StatusInfo     string
 	TxnRevno       int64 `bson:"txn-revno"`
+	PasswordHash   string
 }
 
 // Unit represents the state of a service unit.
@@ -163,6 +164,29 @@ func (u *Unit) SetAgentTools(t *Tools) (err error) {
 // are invalidated.
 func (u *Unit) SetMongoPassword(password string) error {
 	return u.st.setMongoPassword(u.EntityName(), password)
+}
+
+// SetPassword sets the password for the machine's agent.
+func (u *Unit) SetPassword(password string) error {
+	hp := trivial.PasswordHash(password)
+	ops := []txn.Op{{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: notDeadDoc,
+		Update: D{{"$set", D{{"passwordhash", hp}}}},
+	}}
+	err := u.st.runner.Run(ops, "", nil)
+	if err != nil {
+		return fmt.Errorf("cannot set password of unit %q: %v", u, onAbort(err, errNotAlive))
+	}
+	u.doc.PasswordHash = hp
+	return nil
+}
+
+// PasswordValid returns whether the given password is valid
+// for the given unit.
+func (u *Unit) PasswordValid(password string) bool {
+	return trivial.PasswordHash(password) == u.doc.PasswordHash
 }
 
 // EnsureDying sets the unit lifecycle to Dying if it is Alive.
