@@ -87,8 +87,8 @@ func (f *filter) Stop() error {
 	return f.tomb.Wait()
 }
 
-func (f *filter) Dying() <-chan struct{} {
-	return f.tomb.Dying()
+func (f *filter) Dead() <-chan struct{} {
+	return f.tomb.Dead()
 }
 
 func (f *filter) Wait() error {

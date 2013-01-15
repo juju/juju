@@ -139,8 +139,8 @@ func (u *Uniter) String() string {
 	return "uniter for " + u.unit.Name()
 }
 
-func (u *Uniter) Dying() <-chan struct{} {
-	return u.tomb.Dying()
+func (u *Uniter) Dead() <-chan struct{} {
+	return u.tomb.Dead()
 }
 
 func (u *Uniter) Wait() error {

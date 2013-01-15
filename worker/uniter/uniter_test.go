@@ -950,7 +950,7 @@ func (s waitUniterDead) waitDead(c *C, ctx *context) error {
 		// the filter code) so this test seems like a small price to pay.
 		ctx.st.StartSync()
 		select {
-		case <-u.Dying():
+		case <-u.Dead():
 			return u.Wait()
 		case <-time.After(50 * time.Millisecond):
 			continue

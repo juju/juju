@@ -72,7 +72,7 @@ func (s *FilterSuite) TestUnitDeath(c *C) {
 	c.Assert(err, IsNil)
 	s.State.StartSync()
 	select {
-	case <-f.Dying():
+	case <-f.Dead():
 	case <-time.After(50 * time.Millisecond):
 		c.Fatalf("dead not detected")
 	}
