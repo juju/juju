@@ -132,21 +132,18 @@ func (s *RelationerSuite) TestStartStopHooks(c *C) {
 	c.Assert(f, PanicMatches, "hooks already started!")
 
 	// Join u/1 to the relation, and check that we receive the expected hooks.
-	err = ru1.EnterScope()
+	settings := map[string]interface{}{"unit": "settings"}
+	err = ru1.EnterScope(settings)
 	c.Assert(err, IsNil)
 	s.assertHook(c, hook.Info{
 		Kind:       hook.RelationJoined,
 		RemoteUnit: "u/1",
-		Members: map[string]map[string]interface{}{
-			"u/1": {"private-address": "u-1.example.com"},
-		},
+		Members:    map[string]map[string]interface{}{"u/1": settings},
 	})
 	s.assertHook(c, hook.Info{
 		Kind:       hook.RelationChanged,
 		RemoteUnit: "u/1",
-		Members: map[string]map[string]interface{}{
-			"u/1": {"private-address": "u-1.example.com"},
-		},
+		Members:    map[string]map[string]interface{}{"u/1": settings},
 	})
 	s.assertNoHook(c)
 
@@ -155,7 +152,7 @@ func (s *RelationerSuite) TestStartStopHooks(c *C) {
 	c.Assert(err, IsNil)
 	err = ru1.LeaveScope()
 	c.Assert(err, IsNil)
-	err = ru2.EnterScope()
+	err = ru2.EnterScope(nil)
 	c.Assert(err, IsNil)
 	node, err := ru2.Settings()
 	c.Assert(err, IsNil)
@@ -299,7 +296,8 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 
 func (s *RelationerSuite) TestSetDying(c *C) {
 	ru1 := s.AddRelationUnit(c, "u/1")
-	err := ru1.EnterScope()
+	settings := map[string]interface{}{"unit": "settings"}
+	err := ru1.EnterScope(settings)
 	c.Assert(err, IsNil)
 	r := uniter.NewRelationer(s.ru, s.dir, s.hooks)
 	err = r.Join()
@@ -310,7 +308,7 @@ func (s *RelationerSuite) TestSetDying(c *C) {
 		Kind:       hook.RelationJoined,
 		RemoteUnit: "u/1",
 		Members: map[string]map[string]interface{}{
-			"u/1": {"private-address": "u-1.example.com"},
+			"u/1": settings,
 		},
 	})
 
@@ -415,7 +413,7 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *C) {
 	defer func() { c.Assert(r.StopHooks(), IsNil) }()
 	subru, err := rel.Unit(sub)
 	c.Assert(err, IsNil)
-	err = subru.EnterScope()
+	err = subru.EnterScope(map[string]interface{}{"some": "data"})
 	c.Assert(err, IsNil)
 	s.State.StartSync()
 	select {

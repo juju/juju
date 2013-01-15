@@ -6,7 +6,6 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state"
 	"sort"
-	"strings"
 	"time"
 )
 
@@ -243,20 +242,58 @@ func (s *RelationUnitSuite) TestPeerSettings(c *C) {
 	}
 
 	// Add settings for one RU.
-	err := pr.ru0.EnterScope()
+	err := pr.ru0.EnterScope(map[string]interface{}{"gene": "kelly"})
 	c.Assert(err, IsNil)
 	node, err := pr.ru0.Settings()
 	c.Assert(err, IsNil)
 	node.Set("meme", "socially-awkward-penguin")
 	_, err = node.Write()
 	c.Assert(err, IsNil)
+	normal := map[string]interface{}{
+		"gene": "kelly",
+		"meme": "socially-awkward-penguin",
+	}
 
 	// Check settings can be read by every RU.
-	for _, ru := range rus {
-		m, err := ru.ReadSettings("riak/0")
-		c.Assert(err, IsNil)
-		c.Assert(m["meme"], Equals, "socially-awkward-penguin")
+	assertSettings := func(u *state.Unit, expect map[string]interface{}) {
+		for _, ru := range rus {
+			m, err := ru.ReadSettings(u.Name())
+			c.Assert(err, IsNil)
+			c.Assert(m, DeepEquals, expect)
+		}
 	}
+	assertSettings(pr.u0, normal)
+
+	// Check that EnterScope when scope already entered does not touch
+	// settings at all.
+	changed := map[string]interface{}{"foo": "bar"}
+	err = pr.ru0.EnterScope(changed)
+	c.Assert(err, IsNil)
+	assertSettings(pr.u0, normal)
+
+	// Leave scope, check settings are still as accessible as before.
+	err = pr.ru0.LeaveScope()
+	c.Assert(err, IsNil)
+	assertSettings(pr.u0, normal)
+
+	// Re-enter scope wih changed settings, and check they completely overwrite
+	// the old ones.
+	err = pr.ru0.EnterScope(changed)
+	c.Assert(err, IsNil)
+	assertSettings(pr.u0, changed)
+
+	// Leave and re-enter with nil nettings, and check they overwrite to become
+	// an empty map.
+	err = pr.ru0.LeaveScope()
+	c.Assert(err, IsNil)
+	err = pr.ru0.EnterScope(nil)
+	c.Assert(err, IsNil)
+	assertSettings(pr.u0, map[string]interface{}{})
+
+	// Check that entering scope for the first time with nil settings works correctly.
+	err = pr.ru1.EnterScope(nil)
+	c.Assert(err, IsNil)
+	assertSettings(pr.u1, map[string]interface{}{})
 }
 
 func (s *RelationUnitSuite) TestProReqSettings(c *C) {
@@ -270,7 +307,7 @@ func (s *RelationUnitSuite) TestProReqSettings(c *C) {
 	}
 
 	// Add settings for one RU.
-	err := prr.pru0.EnterScope()
+	err := prr.pru0.EnterScope(map[string]interface{}{"gene": "simmons"})
 	c.Assert(err, IsNil)
 	node, err := prr.pru0.Settings()
 	c.Assert(err, IsNil)
@@ -282,6 +319,7 @@ func (s *RelationUnitSuite) TestProReqSettings(c *C) {
 	for _, ru := range rus {
 		m, err := ru.ReadSettings("mysql/0")
 		c.Assert(err, IsNil)
+		c.Assert(m["gene"], Equals, "simmons")
 		c.Assert(m["meme"], Equals, "foul-bachelor-frog")
 	}
 }
@@ -297,7 +335,7 @@ func (s *RelationUnitSuite) TestContainerSettings(c *C) {
 	}
 
 	// Add settings for one RU.
-	err := prr.pru0.EnterScope()
+	err := prr.pru0.EnterScope(map[string]interface{}{"gene": "hackman"})
 	c.Assert(err, IsNil)
 	node, err := prr.pru0.Settings()
 	c.Assert(err, IsNil)
@@ -310,6 +348,7 @@ func (s *RelationUnitSuite) TestContainerSettings(c *C) {
 	for _, ru := range rus0 {
 		m, err := ru.ReadSettings("mysql/0")
 		c.Assert(err, IsNil)
+		c.Assert(m["gene"], Equals, "hackman")
 		c.Assert(m["meme"], Equals, "foul-bachelor-frog")
 	}
 
@@ -332,8 +371,6 @@ func (s *RelationUnitSuite) TestContainerCreateSubordinate(c *C) {
 	c.Assert(err, IsNil)
 	punit, err := psvc.AddUnit()
 	c.Assert(err, IsNil)
-	err = punit.SetPrivateAddress("blah")
-	c.Assert(err, IsNil)
 	pru, err := rel.Unit(punit)
 	c.Assert(err, IsNil)
 
@@ -347,12 +384,12 @@ func (s *RelationUnitSuite) TestContainerCreateSubordinate(c *C) {
 	assertSubCount(0)
 
 	// Enter principal's scope and check a subordinate was created.
-	err = pru.EnterScope()
+	err = pru.EnterScope(nil)
 	c.Assert(err, IsNil)
 	assertSubCount(1)
 
 	// Enter principal scope again and check no more subordinates created.
-	err = pru.EnterScope()
+	err = pru.EnterScope(nil)
 	c.Assert(err, IsNil)
 	assertSubCount(1)
 
@@ -360,7 +397,7 @@ func (s *RelationUnitSuite) TestContainerCreateSubordinate(c *C) {
 	// subordinates are created.
 	err = pru.LeaveScope()
 	c.Assert(err, IsNil)
-	err = pru.EnterScope()
+	err = pru.EnterScope(nil)
 	c.Assert(err, IsNil)
 	runits := assertSubCount(1)
 
@@ -369,13 +406,13 @@ func (s *RelationUnitSuite) TestContainerCreateSubordinate(c *C) {
 	runit := runits[0]
 	err = runit.EnsureDying()
 	c.Assert(err, IsNil)
-	err = pru.EnterScope()
+	err = pru.EnterScope(nil)
 	c.Assert(err, IsNil)
 
 	// Leave scope, then try to enter again with the Dying subordinate.
 	err = pru.LeaveScope()
 	c.Assert(err, IsNil)
-	err = pru.EnterScope()
+	err = pru.EnterScope(nil)
 	c.Assert(err, Equals, state.ErrCannotEnterScopeYet)
 
 	// Remove the subordinate, and enter scope again; this should work, and
@@ -385,7 +422,7 @@ func (s *RelationUnitSuite) TestContainerCreateSubordinate(c *C) {
 	err = rsvc.RemoveUnit(runit)
 	c.Assert(err, IsNil)
 	assertSubCount(0)
-	err = pru.EnterScope()
+	err = pru.EnterScope(nil)
 	c.Assert(err, IsNil)
 	assertSubCount(1)
 }
@@ -395,9 +432,9 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *C) {
 	rel := pr.ru0.Relation()
 
 	// Enter two units, and check that Destroy sets the relation to Dying.
-	err := pr.ru0.EnterScope()
+	err := pr.ru0.EnterScope(map[string]interface{}{"some": "settings"})
 	c.Assert(err, IsNil)
-	err = pr.ru1.EnterScope()
+	err = pr.ru1.EnterScope(nil)
 	c.Assert(err, IsNil)
 	err = rel.Destroy()
 	c.Assert(err, IsNil)
@@ -408,7 +445,7 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *C) {
 	c.Assert(err, IsNil)
 
 	// Check that we can't add a new unit now.
-	err = pr.ru2.EnterScope()
+	err = pr.ru2.EnterScope(nil)
 	c.Assert(err, Equals, state.ErrCannotEnterScope)
 
 	// Check that we created no settings for the unit we failed to add.
@@ -428,9 +465,7 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *C) {
 	assertSettings := func() {
 		settings, err := pr.ru1.ReadSettings("riak/0")
 		c.Assert(err, IsNil)
-		c.Assert(settings, DeepEquals, map[string]interface{}{
-			"private-address": "riak-0.example.com",
-		})
+		c.Assert(settings, DeepEquals, map[string]interface{}{"some": "settings"})
 	}
 	assertSettings()
 
@@ -460,16 +495,16 @@ func (s *RelationUnitSuite) TestAliveRelationScope(c *C) {
 	rel := pr.ru0.Relation()
 
 	// Two units enter...
-	err := pr.ru0.EnterScope()
+	err := pr.ru0.EnterScope(nil)
 	c.Assert(err, IsNil)
-	err = pr.ru1.EnterScope()
+	err = pr.ru1.EnterScope(nil)
 	c.Assert(err, IsNil)
 
 	// One unit becomes Dying, then re-enters the scope; this is not an error,
 	// because the state is already as requested.
 	err = pr.u0.EnsureDying()
 	c.Assert(err, IsNil)
-	err = pr.ru0.EnterScope()
+	err = pr.ru0.EnterScope(nil)
 	c.Assert(err, IsNil)
 
 	// Two units leave...
@@ -484,13 +519,13 @@ func (s *RelationUnitSuite) TestAliveRelationScope(c *C) {
 	c.Assert(rel.Life(), Equals, state.Alive)
 
 	// ...and new units can still join it...
-	err = pr.ru2.EnterScope()
+	err = pr.ru2.EnterScope(nil)
 	c.Assert(err, IsNil)
 
 	// ...but Dying units cannot.
 	err = pr.u3.EnsureDying()
 	c.Assert(err, IsNil)
-	err = pr.ru3.EnterScope()
+	err = pr.ru3.EnterScope(nil)
 	c.Assert(err, Equals, state.ErrCannotEnterScope)
 }
 
@@ -503,28 +538,28 @@ func (s *RelationUnitSuite) TestPeerWatchScope(c *C) {
 	s.assertScopeChange(c, w0, nil, nil)
 	s.assertNoScopeChange(c, w0)
 
-	// ru0 enters; check no change, but private-address written.
-	err := pr.ru0.EnterScope()
+	// ru0 enters; check no change, but settings written.
+	err := pr.ru0.EnterScope(map[string]interface{}{"foo": "bar"})
 	c.Assert(err, IsNil)
 	s.assertNoScopeChange(c, w0)
 	node, err := pr.ru0.Settings()
 	c.Assert(err, IsNil)
-	c.Assert(node.Map(), DeepEquals, map[string]interface{}{"private-address": "riak-0.example.com"})
+	c.Assert(node.Map(), DeepEquals, map[string]interface{}{"foo": "bar"})
 
 	// ru1 enters; check change is observed.
-	err = pr.ru1.EnterScope()
+	err = pr.ru1.EnterScope(nil)
 	c.Assert(err, IsNil)
 	s.assertScopeChange(c, w0, []string{"riak/1"}, nil)
 	s.assertNoScopeChange(c, w0)
 
 	// ru1 enters again, check no problems and no changes.
-	err = pr.ru1.EnterScope()
+	err = pr.ru1.EnterScope(nil)
 	c.Assert(err, IsNil)
 	s.assertNoScopeChange(c, w0)
 
 	// Stop watching; ru2 enters.
 	stop(c, w0)
-	err = pr.ru2.EnterScope()
+	err = pr.ru2.EnterScope(nil)
 	c.Assert(err, IsNil)
 
 	// Start watch again, check initial event.
@@ -559,7 +594,7 @@ func (s *RelationUnitSuite) TestProReqWatchScope(c *C) {
 	s.assertNoScopeChange(c, ws...)
 
 	// pru0 enters; check detected only by req RUs.
-	err := prr.pru0.EnterScope()
+	err := prr.pru0.EnterScope(nil)
 	c.Assert(err, IsNil)
 	rws := func() []*state.RelationScopeWatcher {
 		return []*state.RelationScopeWatcher{ws[2], ws[3]}
@@ -570,7 +605,7 @@ func (s *RelationUnitSuite) TestProReqWatchScope(c *C) {
 	s.assertNoScopeChange(c, ws...)
 
 	// req0 enters; check detected only by pro RUs.
-	err = prr.rru0.EnterScope()
+	err = prr.rru0.EnterScope(nil)
 	c.Assert(err, IsNil)
 	pws := func() []*state.RelationScopeWatcher {
 		return []*state.RelationScopeWatcher{ws[0], ws[1]}
@@ -584,9 +619,9 @@ func (s *RelationUnitSuite) TestProReqWatchScope(c *C) {
 	for _, w := range ws {
 		stop(c, w)
 	}
-	err = prr.pru1.EnterScope()
+	err = prr.pru1.EnterScope(nil)
 	c.Assert(err, IsNil)
-	err = prr.rru1.EnterScope()
+	err = prr.rru1.EnterScope(nil)
 	c.Assert(err, IsNil)
 
 	// Start new watches, check initial events.
@@ -633,13 +668,13 @@ func (s *RelationUnitSuite) TestContainerWatchScope(c *C) {
 	s.assertNoScopeChange(c, ws...)
 
 	// pru0 enters; check detected only by same-container req.
-	err := prr.pru0.EnterScope()
+	err := prr.pru0.EnterScope(nil)
 	c.Assert(err, IsNil)
 	s.assertScopeChange(c, ws[2], []string{"mysql/0"}, nil)
 	s.assertNoScopeChange(c, ws...)
 
 	// req1 enters; check detected only by same-container pro.
-	err = prr.rru1.EnterScope()
+	err = prr.rru1.EnterScope(nil)
 	c.Assert(err, IsNil)
 	s.assertScopeChange(c, ws[1], []string{"logging/1"}, nil)
 	s.assertNoScopeChange(c, ws...)
@@ -648,9 +683,9 @@ func (s *RelationUnitSuite) TestContainerWatchScope(c *C) {
 	for _, w := range ws {
 		stop(c, w)
 	}
-	err = prr.pru1.EnterScope()
+	err = prr.pru1.EnterScope(nil)
 	c.Assert(err, IsNil)
-	err = prr.rru0.EnterScope()
+	err = prr.rru0.EnterScope(nil)
 	c.Assert(err, IsNil)
 
 	// Start new watches, check initial events.
@@ -776,9 +811,6 @@ func addRU(c *C, svc *state.Service, rel *state.Relation, principal *state.Unit)
 		u, err = svc.AddUnitSubordinateTo(principal)
 	}
 	c.Assert(err, IsNil)
-	addr := fmt.Sprintf("%s.example.com", strings.Replace(u.Name(), "/", "-", 1))
-	err = u.SetPrivateAddress(addr)
-	c.Assert(err, IsNil)
 	ru, err := rel.Unit(u)
 	c.Assert(err, IsNil)
 	return u, ru
@@ -815,8 +847,8 @@ func (s *OriginalRelationUnitSuite) TestRelationUnitEnterScopeError(c *C) {
 	c.Assert(err, IsNil)
 	err = riak.RemoveUnit(u0)
 	c.Assert(err, IsNil)
-	err = ru0.EnterScope()
-	c.Assert(err, ErrorMatches, `cannot initialize state for unit "riak/0" in relation "riak:ring": private address not set`)
+	err = ru0.EnterScope(nil)
+	c.Assert(err, ErrorMatches, `cannot enter scope: unit or relation is not alive`)
 
 	u1, err := riak.AddUnit()
 	c.Assert(err, IsNil)
@@ -826,7 +858,7 @@ func (s *OriginalRelationUnitSuite) TestRelationUnitEnterScopeError(c *C) {
 	c.Assert(err, IsNil)
 	err = rel.Destroy()
 	c.Assert(err, IsNil)
-	err = ru1.EnterScope()
+	err = ru1.EnterScope(nil)
 	c.Assert(err, Equals, state.ErrCannotEnterScope)
 }
 
@@ -861,7 +893,7 @@ func (s *OriginalRelationUnitSuite) TestRelationUnitReadSettings(c *C) {
 	// both RelationUnits.
 	err = u1.SetPrivateAddress("ru1.example.com")
 	c.Assert(err, IsNil)
-	err = ru1.EnterScope()
+	err = ru1.EnterScope(nil)
 	c.Assert(err, IsNil)
 	node, err := ru1.Settings()
 	c.Assert(err, IsNil)
@@ -926,7 +958,7 @@ func (s *OriginalRelationUnitSuite) TestPeerRelationUnit(c *C) {
 
 	// Join the first unit to the relation, and change the settings, and
 	// check that nothing apparently happens.
-	err = ru0.EnterScope()
+	err = ru0.EnterScope(nil)
 	c.Assert(err, IsNil)
 	s0 := changeSettings(c, ru0)
 	s.assertNoChange(c, w0)
@@ -934,7 +966,7 @@ func (s *OriginalRelationUnitSuite) TestPeerRelationUnit(c *C) {
 	// ---------- Two units ----------
 
 	// Now join another unit to the relation...
-	err = ru1.EnterScope()
+	err = ru1.EnterScope(nil)
 	c.Assert(err, IsNil)
 
 	// ...and check that the first relation unit sees the change.
@@ -947,7 +979,7 @@ func (s *OriginalRelationUnitSuite) TestPeerRelationUnit(c *C) {
 	s.assertNoChange(c, w0)
 
 	// Join again, check it's a no-op.
-	err = ru1.EnterScope()
+	err = ru1.EnterScope(nil)
 	c.Assert(err, IsNil)
 	s.assertNoChange(c, w0)
 
@@ -974,7 +1006,7 @@ func (s *OriginalRelationUnitSuite) TestPeerRelationUnit(c *C) {
 	s.assertNoChange(c, w2)
 
 	// Join the third unit, and check the first and second units see it.
-	err = ru2.EnterScope()
+	err = ru2.EnterScope(nil)
 	c.Assert(err, IsNil)
 	s2, err := ru2.Settings()
 	c.Assert(err, IsNil)
@@ -1040,8 +1072,6 @@ func (s *OriginalRelationUnitSuite) TestGlobalProReqRelationUnit(c *C) {
 	addUnit := func(srv *state.Service, sub string, ep state.Endpoint) *state.RelationUnit {
 		unit, err := srv.AddUnit()
 		c.Assert(err, IsNil)
-		err = unit.SetPrivateAddress(fmt.Sprintf("%s.example.com", sub))
-		c.Assert(err, IsNil)
 		ru, err := rel.Unit(unit)
 		c.Assert(err, IsNil)
 		c.Assert(ru.Endpoint(), Equals, ep)
@@ -1063,14 +1093,14 @@ func (s *OriginalRelationUnitSuite) TestGlobalProReqRelationUnit(c *C) {
 
 	// Join the unit to the relation, change its settings, and check that
 	// nothing apparently happens.
-	err = msru0.EnterScope()
+	err = msru0.EnterScope(nil)
 	c.Assert(err, IsNil)
 	mss0 := changeSettings(c, msru0)
 	s.assertNoChange(c, msw0)
 
 	// Join the second provider unit, start its watch, and check what it thinks the
 	// state of the relation is.
-	err = msru1.EnterScope()
+	err = msru1.EnterScope(nil)
 	c.Assert(err, IsNil)
 	msw1 := msru1.Watch()
 	defer stop(c, msw1)
@@ -1102,7 +1132,7 @@ func (s *OriginalRelationUnitSuite) TestGlobalProReqRelationUnit(c *C) {
 	s.assertNoChange(c, wpw1)
 
 	// Join the first requirer unit, and check the provider units see it.
-	err = wpru0.EnterScope()
+	err = wpru0.EnterScope(nil)
 	c.Assert(err, IsNil)
 	wps0, err := wpru0.Settings()
 	c.Assert(err, IsNil)
@@ -1116,13 +1146,13 @@ func (s *OriginalRelationUnitSuite) TestGlobalProReqRelationUnit(c *C) {
 	s.assertNoChange(c, msw1)
 
 	// Join again, check no-op.
-	err = wpru0.EnterScope()
+	err = wpru0.EnterScope(nil)
 	c.Assert(err, IsNil)
 	s.assertNoChange(c, msw0)
 	s.assertNoChange(c, msw1)
 
 	// Join the second requirer, and check the provider units see the change.
-	err = wpru1.EnterScope()
+	err = wpru1.EnterScope(nil)
 	c.Assert(err, IsNil)
 	wps1, err := wpru1.Settings()
 	c.Assert(err, IsNil)
@@ -1189,14 +1219,10 @@ func (s *OriginalRelationUnitSuite) TestContainerProReqRelationUnit(c *C) {
 	addUnits := func(i int) (*state.RelationUnit, *state.RelationUnit) {
 		msu, err := mysql.AddUnit()
 		c.Assert(err, IsNil)
-		err = msu.SetPrivateAddress(fmt.Sprintf("mysql%d.example.com", i))
-		c.Assert(err, IsNil)
 		msru, err := rel.Unit(msu)
 		c.Assert(err, IsNil)
 		c.Assert(msru.Endpoint(), Equals, mysqlEP)
 		lgu, err := logging.AddUnitSubordinateTo(msu)
-		c.Assert(err, IsNil)
-		err = lgu.SetPrivateAddress(fmt.Sprintf("logging%d.example.com", i))
 		c.Assert(err, IsNil)
 		lgru, err := rel.Unit(lgu)
 		c.Assert(err, IsNil)
@@ -1217,7 +1243,7 @@ func (s *OriginalRelationUnitSuite) TestContainerProReqRelationUnit(c *C) {
 
 	// Join the unit to the relation, change its settings, and check that
 	// nothing apparently happens.
-	err = msru0.EnterScope()
+	err = msru0.EnterScope(nil)
 	c.Assert(err, IsNil)
 	mss0 := changeSettings(c, msru0)
 	s.assertNoChange(c, msw0)
@@ -1231,7 +1257,7 @@ func (s *OriginalRelationUnitSuite) TestContainerProReqRelationUnit(c *C) {
 
 	// Join the second provider unit to the relation, and check that neither
 	// watching unit observes any change.
-	err = msru1.EnterScope()
+	err = msru1.EnterScope(nil)
 	c.Assert(err, IsNil)
 	s.assertNoChange(c, msw1)
 	s.assertNoChange(c, msw0)
@@ -1256,7 +1282,7 @@ func (s *OriginalRelationUnitSuite) TestContainerProReqRelationUnit(c *C) {
 
 	// Join the first requirer unit, and check that only the first provider
 	// observes the change.
-	err = lgru0.EnterScope()
+	err = lgru0.EnterScope(nil)
 	c.Assert(err, IsNil)
 	lgs0, err := lgru0.Settings()
 	c.Assert(err, IsNil)
@@ -1281,7 +1307,7 @@ func (s *OriginalRelationUnitSuite) TestContainerProReqRelationUnit(c *C) {
 	s.assertNoChange(c, lgw1)
 
 	// Join the second requirer, and check that the first provider observes it...
-	err = lgru1.EnterScope()
+	err = lgru1.EnterScope(nil)
 	c.Assert(err, IsNil)
 	lgs1, err := lgru1.Settings()
 	c.Assert(err, IsNil)
