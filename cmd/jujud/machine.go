@@ -29,7 +29,7 @@ func (a *MachineAgent) Info() *cmd.Info {
 
 // Init initializes the command for running.
 func (a *MachineAgent) Init(f *gnuflag.FlagSet, args []string) error {
-	a.Conf.addFlags(f, flagAll)
+	a.Conf.addFlags(f)
 	f.StringVar(&a.MachineId, "machine-id", "", "id of the machine to run")
 	if err := f.Parse(true, args); err != nil {
 		return err
@@ -48,9 +48,12 @@ func (a *MachineAgent) Stop() error {
 
 // Run runs a machine agent.
 func (a *MachineAgent) Run(_ *cmd.Context) error {
+	if err := a.Conf.read(state.MachineEntityName(a.MachineId)); err != nil {
+		return err
+	}
 	defer log.Printf("cmd/jujud: machine agent exiting")
 	defer a.tomb.Done()
-	return RunLoop(&a.Conf, a)
+	return RunLoop(a.Conf.Conf, a)
 }
 
 func (a *MachineAgent) RunOnce(st *state.State, e AgentState) error {
