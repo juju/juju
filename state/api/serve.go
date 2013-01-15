@@ -48,6 +48,11 @@ func NewServer(s *state.State, addr string, cert, key []byte) (*Server, error) {
 	return srv, nil
 }
 
+// Dead returns a channel that signals when the server has exited.
+func (srv *Server) Dead() <-chan struct{} {
+	return srv.tomb.Dead()
+}
+
 // Stop stops the server and returns when all requests that
 // it is running have completed.
 func (srv *Server) Stop() error {

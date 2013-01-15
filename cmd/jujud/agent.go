@@ -111,8 +111,8 @@ type Agent interface {
 
 func RunLoop(c *agent.Conf, a Agent) error {
 	atomb := a.Tomb()
+	log.Printf("cmd/jujud: agent starting")
 	for {
-		log.Printf("cmd/jujud: agent starting")
 		err := runOnce(c, a)
 		if ug, ok := err.(*UpgradeReadyError); ok {
 			if err = ug.ChangeAgentTools(); err == nil {
@@ -133,7 +133,6 @@ func RunLoop(c *agent.Conf, a Agent) error {
 		case <-atomb.Dying():
 			atomb.Kill(err)
 		case <-time.After(retryDelay):
-			log.Printf("cmd/jujud: rerunning machiner")
 		}
 		// Note: we don't want this at the head of the loop
 		// because we want the agent to go through the body of
@@ -142,6 +141,7 @@ func RunLoop(c *agent.Conf, a Agent) error {
 		if atomb.Err() != tomb.ErrStillAlive {
 			break
 		}
+		log.Printf("cmd/jujud: rerunning agent")
 	}
 	return atomb.Err()
 }
