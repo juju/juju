@@ -61,7 +61,8 @@ func ReadConf(dataDir, entityName string) (*Conf, error) {
 	c.DataDir = dataDir
 	c.StateInfo.EntityName = entityName
 
-	if len(c.APIInfo.CACert) == 0 {
+	// Restore CA certificate if necessary.
+	if c.APIInfo.Addr != "" && c.APIInfo.CACert == nil {
 		c.APIInfo.CACert = c.StateInfo.CACert
 	}
 	if err := c.Check(); err != nil {
@@ -94,20 +95,28 @@ func (c *Conf) Check() error {
 		return requiredError("data directory")
 	}
 	if c.StateInfo.EntityName == "" {
-		return requiredError("entity name")
+		return requiredError("state entity name")
 	}
 	if len(c.StateInfo.Addrs) == 0 {
 		return requiredError("state server address")
 	}
 	for _, a := range c.StateInfo.Addrs {
 		if !validAddr.MatchString(a) {
-			return fmt.Errorf("invalid server address %q", a)
+			return fmt.Errorf("invalid state server address %q", a)
 		}
 	}
 	if len(c.StateInfo.CACert) == 0 {
-		return requiredError("CA certificate")
+		return requiredError("state CA certificate")
 	}
-	// TODO(rog) check for API-specific fields.
+	// TODO(rog) make APIInfo mandatory
+	if c.APIInfo.Addr != "" {
+		if !validAddr.MatchString(c.APIInfo.Addr) {
+			return fmt.Errorf("invalid API server address %q", c.APIInfo.Addr)
+		}
+		if len(c.APIInfo.CACert) == 0 {
+			return requiredError("API CA certficate")
+		}
+	}
 	return nil
 }
 
@@ -118,7 +127,7 @@ func (c0 *Conf) Write() error {
 	}
 	c := *c0
 	// don't needlessly duplicate the CA certificate.
-	if bytes.Equal(c.APIInfo.CACert, c.StateInfo.CACert) {
+	if c.APIInfo.Addr != "" && bytes.Equal(c.APIInfo.CACert, c.StateInfo.CACert) {
 		c.APIInfo.CACert = nil
 	}
 	data, err := json.Marshal(c)

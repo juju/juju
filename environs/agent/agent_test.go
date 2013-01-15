@@ -6,6 +6,7 @@ import (
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/trivial"
 	"os"
@@ -25,9 +26,11 @@ func Test(t *stdtesting.T) {
 var _ = Suite(suite{})
 
 var confTests = []struct {
+	about    string
 	conf     agent.Conf
 	checkErr string
 }{{
+	about: "state info only",
 	conf: agent.Conf{
 		OldPassword: "old password",
 		StateInfo: state.Info{
@@ -38,6 +41,37 @@ var confTests = []struct {
 		},
 	},
 }, {
+	about: "state info and api info",
+	conf: agent.Conf{
+		OldPassword: "old password",
+		StateInfo: state.Info{
+			Addrs:      []string{"foo.com:355", "bar:545"},
+			CACert:     []byte("ca cert"),
+			EntityName: "entity",
+			Password:   "current password",
+		},
+		APIInfo: api.Info{
+			Addr:   "foo.com:555",
+			CACert: []byte("api ca cert"),
+		},
+	},
+}, {
+	about: "API info and state info sharing CA cert",
+	conf: agent.Conf{
+		OldPassword: "old password",
+		StateInfo: state.Info{
+			Addrs:      []string{"foo.com:355", "bar:545"},
+			CACert:     []byte("ca cert"),
+			EntityName: "entity",
+			Password:   "current password",
+		},
+		APIInfo: api.Info{
+			Addr:   "foo.com:555",
+			CACert: []byte("ca cert"),
+		},
+	},
+}, {
+	about: "no state entity name",
 	conf: agent.Conf{
 		OldPassword: "old password",
 		StateInfo: state.Info{
@@ -46,8 +80,9 @@ var confTests = []struct {
 			Password: "current password",
 		},
 	},
-	checkErr: "entity name not found in configuration",
+	checkErr: "state entity name not found in configuration",
 }, {
+	about: "no state server address",
 	conf: agent.Conf{
 		OldPassword: "old password",
 		StateInfo: state.Info{
@@ -58,6 +93,7 @@ var confTests = []struct {
 	},
 	checkErr: "state server address not found in configuration",
 }, {
+	about: "state server address with no port",
 	conf: agent.Conf{
 		OldPassword: "old password",
 		StateInfo: state.Info{
@@ -67,8 +103,9 @@ var confTests = []struct {
 			Password:   "current password",
 		},
 	},
-	checkErr: "invalid server address \"foo\"",
+	checkErr: "invalid state server address \"foo\"",
 }, {
+	about: "state server address with non-numeric port",
 	conf: agent.Conf{
 		OldPassword: "old password",
 		StateInfo: state.Info{
@@ -78,8 +115,9 @@ var confTests = []struct {
 			Password:   "current password",
 		},
 	},
-	checkErr: "invalid server address \"foo:bar\"",
+	checkErr: "invalid state server address \"foo:bar\"",
 }, {
+	about: "state server address with bad port",
 	conf: agent.Conf{
 		OldPassword: "old password",
 		StateInfo: state.Info{
@@ -89,17 +127,39 @@ var confTests = []struct {
 			Password:   "current password",
 		},
 	},
-	checkErr: "invalid server address \"foo:345d\"",
+	checkErr: "invalid state server address \"foo:345d\"",
 }, {
+	about: "invalid api server address",
 	conf: agent.Conf{
 		OldPassword: "old password",
 		StateInfo: state.Info{
-			Addrs:      []string{"foo.com:456"},
+			Addrs:      []string{"foo:345"},
+			CACert:     []byte("ca cert"),
 			EntityName: "entity",
 			Password:   "current password",
 		},
+		APIInfo: api.Info{
+			Addr:   "foo",
+			CACert: []byte("ca cert"),
+		},
 	},
-	checkErr: "CA certificate not found in configuration",
+	checkErr: "invalid API server address \"foo\"",
+}, {
+	about: "no api CA cert",
+	conf: agent.Conf{
+		OldPassword: "old password",
+		StateInfo: state.Info{
+			Addrs:      []string{"foo:345"},
+			CACert:     []byte("ca cert"),
+			EntityName: "entity",
+			Password:   "current password",
+		},
+		APIInfo: api.Info{
+			Addr:   "foo:3",
+			CACert: []byte{},
+		},
+	},
+	checkErr: "API CA certficate not found in configuration",
 },
 }
 
@@ -107,7 +167,7 @@ func (suite) TestConfReadWriteCheck(c *C) {
 	d := c.MkDir()
 	dataDir := filepath.Join(d, "data")
 	for i, test := range confTests {
-		c.Logf("test %d", i)
+		c.Logf("test %d; %s", i, test.about)
 		conf := test.conf
 		conf.DataDir = dataDir
 		err := conf.Check()
