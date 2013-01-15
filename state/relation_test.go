@@ -375,10 +375,11 @@ func (s *RelationUnitSuite) TestContainerCreateSubordinate(c *C) {
 	c.Assert(err, IsNil)
 
 	// Check that no units of the subordinate service exist.
-	assertSubCount := func(expect int) {
+	assertSubCount := func(expect int) []*state.Unit {
 		runits, err := rsvc.AllUnits()
 		c.Assert(err, IsNil)
 		c.Assert(runits, HasLen, expect)
+		return runits
 	}
 	assertSubCount(0)
 
@@ -396,6 +397,31 @@ func (s *RelationUnitSuite) TestContainerCreateSubordinate(c *C) {
 	// subordinates are created.
 	err = pru.LeaveScope()
 	c.Assert(err, IsNil)
+	err = pru.EnterScope(nil)
+	c.Assert(err, IsNil)
+	runits := assertSubCount(1)
+
+	// Set the subordinate to Dying, and enter scope again; because the scope
+	// is already entered, no error is returned.
+	runit := runits[0]
+	err = runit.EnsureDying()
+	c.Assert(err, IsNil)
+	err = pru.EnterScope(nil)
+	c.Assert(err, IsNil)
+
+	// Leave scope, then try to enter again with the Dying subordinate.
+	err = pru.LeaveScope()
+	c.Assert(err, IsNil)
+	err = pru.EnterScope(nil)
+	c.Assert(err, Equals, state.ErrCannotEnterScopeYet)
+
+	// Remove the subordinate, and enter scope again; this should work, and
+	// create a new subordinate.
+	err = runit.EnsureDead()
+	c.Assert(err, IsNil)
+	err = rsvc.RemoveUnit(runit)
+	c.Assert(err, IsNil)
+	assertSubCount(0)
 	err = pru.EnterScope(nil)
 	c.Assert(err, IsNil)
 	assertSubCount(1)

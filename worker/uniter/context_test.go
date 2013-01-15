@@ -171,6 +171,7 @@ var runHookTests = []struct {
 			"JUJU_UNIT_NAME":   "u/0",
 			"JUJU_RELATION":    "peer1",
 			"JUJU_RELATION_ID": "peer1:1",
+			"JUJU_REMOTE_UNIT": "",
 		},
 	}, {
 		summary: "check shell environment for relation hook context",

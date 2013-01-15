@@ -7,18 +7,18 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/tomb"
-	"path/filepath"
 	"time"
 )
 
-var _ = Suite(&agentSuite{})
+var _ = Suite(&toolSuite{})
 
-type agentSuite struct {
+type toolSuite struct {
 	coretesting.LoggingSuite
 }
 
@@ -28,7 +28,7 @@ func assertDead(c *C, tasks []*testTask) {
 	}
 }
 
-func (*agentSuite) TestRunTasksAllSuccess(c *C) {
+func (*toolSuite) TestRunTasksAllSuccess(c *C) {
 	tasks := newTestTasks(4)
 	for _, t := range tasks {
 		t.kill <- nil
@@ -38,7 +38,7 @@ func (*agentSuite) TestRunTasksAllSuccess(c *C) {
 	assertDead(c, tasks)
 }
 
-func (*agentSuite) TestOneTaskError(c *C) {
+func (*toolSuite) TestOneTaskError(c *C) {
 	tasks := newTestTasks(4)
 	for i, t := range tasks {
 		if i == 2 {
@@ -50,7 +50,7 @@ func (*agentSuite) TestOneTaskError(c *C) {
 	assertDead(c, tasks)
 }
 
-func (*agentSuite) TestTaskStop(c *C) {
+func (*toolSuite) TestTaskStop(c *C) {
 	tasks := newTestTasks(4)
 	tasks[2].stopErr = fmt.Errorf("stop")
 	stop := make(chan struct{})
@@ -60,7 +60,7 @@ func (*agentSuite) TestTaskStop(c *C) {
 	assertDead(c, tasks)
 }
 
-func (*agentSuite) TestUpgradeGetsPrecedence(c *C) {
+func (*toolSuite) TestUpgradeGetsPrecedence(c *C) {
 	tasks := newTestTasks(2)
 	tasks[1].stopErr = &UpgradeReadyError{}
 	go func() {
@@ -78,7 +78,7 @@ func mkTools(s string) *state.Tools {
 	}
 }
 
-func (*agentSuite) TestUpgradeErrorLog(c *C) {
+func (*toolSuite) TestUpgradeErrorLog(c *C) {
 	tasks := newTestTasks(7)
 	tasks[0].stopErr = fmt.Errorf("zero")
 	tasks[1].stopErr = fmt.Errorf("one")
@@ -168,43 +168,20 @@ func initCmd(c cmd.Command, args []string) error {
 
 // CheckAgentCommand is a utility function for verifying that common agent
 // options are handled by a Command; it returns an instance of that
-// command pre-parsed with the always-required options and whatever others
-// are necessary to allow parsing to succeed (specified in args).
-func CheckAgentCommand(c *C, create acCreator, args []string, which agentFlags) cmd.Command {
+// command pre-parsed, with any mandatory flags added.
+func CheckAgentCommand(c *C, create acCreator, args []string) cmd.Command {
 	com, conf := create()
-	if which&flagStateInfo != 0 {
-		err := initCmd(com, args)
-		c.Assert(err, ErrorMatches, "--state-servers option must be set")
-		args = append(args, "--state-servers", "st1:37017,st2:37017")
-		err = initCmd(com, args)
-		c.Assert(err, ErrorMatches, "--ca-cert option must be set")
-		args = append(args, "--ca-cert", "/non-existing-file")
-		err = initCmd(com, args)
-		c.Assert(err, ErrorMatches, "open /non-existing-file: .*")
-		args[len(args)-1] = caCertFile
-		c.Assert(initCmd(com, args), IsNil)
-		c.Assert(conf.StateInfo.Addrs, DeepEquals, []string{"st1:37017", "st2:37017"})
-		c.Assert(string(conf.StateInfo.CACert), Equals, coretesting.CACert) // TODO(rog) conf.StateInfo.CACert
+	err := initCmd(com, args)
+	c.Assert(conf.dataDir, Equals, "/var/lib/juju")
+	badArgs := append(args, "--data-dir", "")
+	com, conf = create()
+	err = initCmd(com, badArgs)
+	c.Assert(err, ErrorMatches, "--data-dir option must be set")
 
-	}
-	if which&flagDataDir != 0 {
-		c.Assert(conf.DataDir, Equals, "/var/lib/juju")
-		badArgs := append(args, "--data-dir", "")
-		com, conf = create()
-		err := initCmd(com, badArgs)
-		c.Assert(err, ErrorMatches, "--data-dir option must be set")
-
-		args = append(args, "--data-dir", "jd")
-		com, conf = create()
-		c.Assert(initCmd(com, args), IsNil)
-		c.Assert(conf.DataDir, Equals, "jd")
-	}
-	if which&flagInitialPassword != 0 {
-		args = append(args, "--initial-password", "secret")
-		com, conf = create()
-		c.Assert(initCmd(com, args), IsNil)
-		c.Assert(conf.InitialPassword, Equals, "secret")
-	}
+	args = append(args, "--data-dir", "jd")
+	com, conf = create()
+	c.Assert(initCmd(com, args), IsNil)
+	c.Assert(conf.dataDir, Equals, "jd")
 	return com
 }
 
@@ -212,9 +189,7 @@ func CheckAgentCommand(c *C, create acCreator, args []string, which agentFlags) 
 // before parsing an agent command and returning the result.
 func ParseAgentCommand(ac cmd.Command, args []string) error {
 	common := []string{
-		"--state-servers", "st:37017",
 		"--data-dir", "jd",
-		"--ca-cert", caCertFile,
 	}
 	return initCmd(ac, append(common, args...))
 }
@@ -260,15 +235,58 @@ func runStop(r runner) error {
 
 type entity interface {
 	EntityName() string
-	SetPassword(string) error
+	SetMongoPassword(string) error
 }
 
-func testAgentPasswordChanging(s *testing.JujuConnSuite, c *C, ent entity, dataDir string, newAgent func(initialPassword string) runner) {
-	// Check that it starts initially and changes the password
-	err := ent.SetPassword("initial")
+// agentSuite is a fixture to be used by agent test suites.
+type agentSuite struct {
+	testing.JujuConnSuite
+}
+
+// primeAgent writes the configuration file and tools
+// for an agent with the given entity name.
+// It returns the agent's configuration and the current tools.
+func (s *agentSuite) primeAgent(c *C, entityName, password string) (*agent.Conf, *state.Tools) {
+	tools := s.primeTools(c, version.Current)
+	tools1, err := environs.ChangeAgentTools(s.DataDir(), entityName, version.Current)
+	c.Assert(err, IsNil)
+	c.Assert(tools1, DeepEquals, tools)
+
+	conf := &agent.Conf{
+		DataDir:     s.DataDir(),
+		OldPassword: password,
+		StateInfo:   *s.StateInfo(c),
+	}
+	conf.StateInfo.EntityName = entityName
+	err = conf.Write()
+	c.Assert(err, IsNil)
+	return conf, tools
+}
+
+// initAgent initialises the given agent command with additional
+// arguments as provided.
+func (s *agentSuite) initAgent(c *C, a cmd.Command, args ...string) {
+	args = append([]string{"--data-dir", s.DataDir()}, args...)
+	err := initCmd(a, args)
+	c.Assert(err, IsNil)
+}
+
+func (s *agentSuite) testAgentPasswordChanging(c *C, ent entity, newAgent func() runner) {
+	conf, err := agent.ReadConf(s.DataDir(), ent.EntityName())
 	c.Assert(err, IsNil)
 
-	err = runStop(newAgent("initial"))
+	// Check that it starts initially and changes the password
+	err = ent.SetMongoPassword("initial")
+	c.Assert(err, IsNil)
+
+	setOldPassword := func(password string) {
+		conf.OldPassword = password
+		err = conf.Write()
+		c.Assert(err, IsNil)
+	}
+
+	setOldPassword("initial")
+	err = runStop(newAgent())
 	c.Assert(err, IsNil)
 
 	// Check that we can no longer gain access with the initial password.
@@ -277,32 +295,40 @@ func testAgentPasswordChanging(s *testing.JujuConnSuite, c *C, ent entity, dataD
 	info.Password = "initial"
 	testOpenState(c, info, state.ErrUnauthorized)
 
-	// Read the password file and check that we can connect it.
-	pwfile := filepath.Join(environs.AgentDir(dataDir, ent.EntityName()), "password")
-	data, err := ioutil.ReadFile(pwfile)
-	c.Assert(err, IsNil)
-	newPassword := string(data)
+	// Read the configuration and check that we can connect with it.
+	c.Assert(refreshConfig(conf), IsNil)
+	newPassword := conf.StateInfo.Password
 
-	info.Password = newPassword
-	testOpenState(c, info, nil)
+	testOpenState(c, &conf.StateInfo, nil)
 
 	// Check that it starts again ok
-	err = runStop(newAgent("initial"))
+	err = runStop(newAgent())
 	c.Assert(err, IsNil)
 
-	// Change the password file and check
+	// Change the password in the configuration and check
 	// that it falls back to using the initial password
-	err = ioutil.WriteFile(pwfile, []byte("spurious"), 0700)
-	c.Assert(err, IsNil)
-	err = runStop(newAgent(newPassword))
+	c.Assert(refreshConfig(conf), IsNil)
+	conf.StateInfo.Password = "spurious"
+	conf.OldPassword = newPassword
+	c.Assert(conf.Write(), IsNil)
+
+	err = runStop(newAgent())
 	c.Assert(err, IsNil)
 
 	// Check that it's changed the password again
-	data, err = ioutil.ReadFile(pwfile)
-	c.Assert(err, IsNil)
-	c.Assert(string(data), Not(Equals), "spurious")
-	c.Assert(string(data), Not(Equals), newPassword)
+	c.Assert(refreshConfig(conf), IsNil)
+	c.Assert(conf.StateInfo.Password, Not(Equals), "spurious")
+	c.Assert(conf.StateInfo.Password, Not(Equals), newPassword)
 
-	info.Password = string(data)
+	info.Password = conf.StateInfo.Password
 	testOpenState(c, info, nil)
+}
+
+func refreshConfig(c *agent.Conf) error {
+	nc, err := agent.ReadConf(c.DataDir, c.StateInfo.EntityName)
+	if err != nil {
+		return err
+	}
+	*c = *nc
+	return nil
 }

@@ -258,6 +258,11 @@ func (ru *RelationUnit) PrivateAddress() (string, bool) {
 // due to either the unit or the relation not being Alive.
 var ErrCannotEnterScope = errors.New("cannot enter scope: unit or relation is not alive")
 
+// ErrCannotEnterScopeYet indicates that a relation unit failed to enter its
+// scope due to a required and pre-existing subordinate unit that is not Alive.
+// Once that subordinate has been removed, a new one can be created.
+var ErrCannotEnterScopeYet = errors.New("cannot enter scope yet: non-alive subordinate unit has not been removed")
+
 // EnterScope ensures that the unit has entered its scope in the relation.
 // When the unit has already entered its relation scope, EnterScope will report
 // success but make no changes to state.
@@ -328,9 +333,11 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	})
 
 	// * If the unit should have a subordinate, and does not, create it.
-	if subOps, err := ru.createSubordinateOps(); err != nil {
+	var existingSubName string
+	if subOps, subName, err := ru.subordinateOps(); err != nil {
 		return err
 	} else {
+		existingSubName = subName
 		ops = append(ops, subOps...)
 	}
 
@@ -361,6 +368,16 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 		return ErrCannotEnterScope
 	}
 
+	// Maybe a subordinate used to exist, but is no longer alive. If that is
+	// case, we will be unable to enter scope until that unit is gone.
+	if existingSubName != "" {
+		if alive, err := isAlive(ru.st.units, existingSubName); err != nil {
+			return err
+		} else if !alive {
+			return ErrCannotEnterScopeYet
+		}
+	}
+
 	// It's possible that there was a pre-existing settings doc whose version
 	// has changed under our feet, preventing us from clearing it properly; if
 	// that is the case, something is seriously wrong (nobody else should be
@@ -377,35 +394,40 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	return fmt.Errorf(t, "inconsistent state")
 }
 
-// createSubordinateOps returns any txn operations necessary to ensure sane
-// subordinate state when entering scope.
-func (ru *RelationUnit) createSubordinateOps() ([]txn.Op, error) {
+// subordinateOps returns any txn operations necessary to ensure sane
+// subordinate state when entering scope. If a required subordinate unit
+// exists and is Alive, its name will be returned as well; if one exists
+// but is not Alive, ErrCannotEnterScopeYet is returned.
+func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
 	if !ru.unit.IsPrincipal() || ru.endpoint.RelationScope != charm.ScopeContainer {
-		return nil, nil
+		return nil, "", nil
 	}
 	related, err := ru.relation.RelatedEndpoints(ru.endpoint.ServiceName)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	} else if len(related) != 1 {
-		return nil, fmt.Errorf("expected single related endpoint, got %v", related)
+		return nil, "", fmt.Errorf("expected single related endpoint, got %v", related)
 	}
 	serviceName, unitName := related[0].ServiceName, ru.unit.doc.Name
 	selSubordinate := D{{"service", serviceName}, {"principal", unitName}}
-	if n, err := ru.st.units.Find(selSubordinate).Count(); err != nil {
-		return nil, err
-	} else if n == 0 {
+	var lDoc lifeDoc
+	if err := ru.st.units.Find(selSubordinate).One(&lDoc); err == mgo.ErrNotFound {
 		service, err := ru.st.Service(serviceName)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
-		_, subOps, err := service.addUnitOps(unitName, true)
-		return subOps, err
-	} else {
-		// TODO BUG: if a subordinate exists, but is Dying, it won't be
-		// recreated later; and if it is Alive we need to assert that it
-		// still is when the txn is flushed.
+		_, ops, err := service.addUnitOps(unitName, true)
+		return ops, "", err
+	} else if err != nil {
+		return nil, "", err
+	} else if lDoc.Life != Alive {
+		return nil, "", ErrCannotEnterScopeYet
 	}
-	return nil, nil
+	return []txn.Op{{
+		C:      ru.st.units.Name,
+		Id:     lDoc.Id,
+		Assert: isAliveDoc,
+	}}, lDoc.Id, nil
 }
 
 // LeaveScope signals that the unit has left its scope in the relation.

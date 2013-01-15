@@ -1122,7 +1122,7 @@ func tryOpenState(info *state.Info) error {
 	return err
 }
 
-func (s *StateSuite) TestOpenWithoutSetPassword(c *C) {
+func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *C) {
 	info := state.TestingStateInfo()
 	info.EntityName, info.Password = "arble", "bar"
 	err := tryOpenState(info)
@@ -1137,24 +1137,57 @@ func (s *StateSuite) TestOpenWithoutSetPassword(c *C) {
 	c.Assert(err, IsNil)
 }
 
-type entity interface {
-	EntityName() string
-	SetPassword(password string) error
+func testSetPassword(c *C, getEntity func() (entity, error)) {
+	e, err := getEntity()
+	c.Assert(err, IsNil)
+
+	c.Assert(e.PasswordValid("foo"), Equals, false)
+	err = e.SetPassword("foo")
+	c.Assert(err, IsNil)
+	c.Assert(e.PasswordValid("foo"), Equals, true)
+
+	// Check a newly-fetched entity has the same password.
+	e2, err := getEntity()
+	c.Assert(err, IsNil)
+	c.Assert(e2.PasswordValid("foo"), Equals, true)
+
+	err = e.SetPassword("bar")
+	c.Assert(err, IsNil)
+	c.Assert(e.PasswordValid("foo"), Equals, false)
+	c.Assert(e.PasswordValid("bar"), Equals, true)
+
+	// Check that refreshing fetches the new password
+	err = e2.Refresh()
+	c.Assert(err, IsNil)
+	c.Assert(e2.PasswordValid("bar"), Equals, true)
+
+	testWhenDying(c, e, noErr, notAliveErr, func() error {
+		return e.SetPassword("arble")
+	})
 }
 
-func testSetPassword(c *C, getEntity func(st *state.State) (entity, error)) {
+type entity interface {
+	lifer
+	EntityName() string
+	SetMongoPassword(password string) error
+	SetPassword(password string) error
+	PasswordValid(password string) bool
+	Refresh() error
+}
+
+func testSetMongoPassword(c *C, getEntity func(st *state.State) (entity, error)) {
 	info := state.TestingStateInfo()
 	st, err := state.Open(info)
 	c.Assert(err, IsNil)
 	defer st.Close()
 	// Turn on fully-authenticated mode.
-	err = st.SetAdminPassword("admin-secret")
+	err = st.SetAdminMongoPassword("admin-secret")
 	c.Assert(err, IsNil)
 
 	// Set the password for the entity
 	ent, err := getEntity(st)
 	c.Assert(err, IsNil)
-	err = ent.SetPassword("foo")
+	err = ent.SetMongoPassword("foo")
 	c.Assert(err, IsNil)
 
 	// Check that we cannot log in with the wrong password.
@@ -1173,7 +1206,7 @@ func testSetPassword(c *C, getEntity func(st *state.State) (entity, error)) {
 	// opened and authenticated state.
 	ent, err = getEntity(st)
 	c.Assert(err, IsNil)
-	err = ent.SetPassword("bar")
+	err = ent.SetMongoPassword("bar")
 	c.Assert(err, IsNil)
 
 	// Check that we cannot log in with the old password.
@@ -1192,19 +1225,19 @@ func testSetPassword(c *C, getEntity func(st *state.State) (entity, error)) {
 	c.Assert(err, IsNil)
 
 	// Remove the admin password so that the test harness can reset the state.
-	err = st.SetAdminPassword("")
+	err = st.SetAdminMongoPassword("")
 	c.Assert(err, IsNil)
 }
 
-func (s *StateSuite) TestSetAdminPassword(c *C) {
-	// Check that we can SetAdminPassword to nothing when there's
+func (s *StateSuite) TestSetAdminMongoPassword(c *C) {
+	// Check that we can SetAdminMongoPassword to nothing when there's
 	// no password currently set.
-	err := s.State.SetAdminPassword("")
+	err := s.State.SetAdminMongoPassword("")
 	c.Assert(err, IsNil)
 
-	err = s.State.SetAdminPassword("foo")
+	err = s.State.SetAdminMongoPassword("foo")
 	c.Assert(err, IsNil)
-	defer s.State.SetAdminPassword("")
+	defer s.State.SetAdminMongoPassword("")
 	info := state.TestingStateInfo()
 	err = tryOpenState(info)
 	c.Assert(err, Equals, state.ErrUnauthorized)
@@ -1213,11 +1246,11 @@ func (s *StateSuite) TestSetAdminPassword(c *C) {
 	err = tryOpenState(info)
 	c.Assert(err, IsNil)
 
-	err = s.State.SetAdminPassword("")
+	err = s.State.SetAdminMongoPassword("")
 	c.Assert(err, IsNil)
 
 	// Check that removing the password is idempotent.
-	err = s.State.SetAdminPassword("")
+	err = s.State.SetAdminMongoPassword("")
 	c.Assert(err, IsNil)
 
 	info.Password = ""

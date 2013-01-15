@@ -160,13 +160,19 @@ func (s *UnitSuite) TestUnitEntityName(c *C) {
 	c.Assert(state.UnitEntityName("wordpress/2"), Equals, "unit-wordpress-2")
 }
 
-func (s *UnitSuite) TestSetPassword(c *C) {
-	testSetPassword(c, func(st *state.State) (entity, error) {
+func (s *UnitSuite) TestSetMongoPassword(c *C) {
+	testSetMongoPassword(c, func(st *state.State) (entity, error) {
 		return st.Unit(s.unit.Name())
 	})
 }
 
-func (s *UnitSuite) TestSetPasswordOnUnitAfterConnectingAsMachineEntity(c *C) {
+func (s *UnitSuite) TestSetPassword(c *C) {
+	testSetPassword(c, func() (entity, error) {
+		return s.State.Unit(s.unit.Name())
+	})
+}
+
+func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *C) {
 	// Make a second unit to use later.
 	subCharm := s.AddTestingCharm(c, "logging")
 	logService, err := s.State.AddService("logging", subCharm)
@@ -179,7 +185,7 @@ func (s *UnitSuite) TestSetPasswordOnUnitAfterConnectingAsMachineEntity(c *C) {
 	c.Assert(err, IsNil)
 	defer st.Close()
 	// Turn on fully-authenticated mode.
-	err = st.SetAdminPassword("admin-secret")
+	err = st.SetAdminMongoPassword("admin-secret")
 	c.Assert(err, IsNil)
 
 	// Add a new machine, assign the units to it
@@ -192,7 +198,7 @@ func (s *UnitSuite) TestSetPasswordOnUnitAfterConnectingAsMachineEntity(c *C) {
 	c.Assert(err, IsNil)
 	err = unit.AssignToMachine(m)
 	c.Assert(err, IsNil)
-	err = m.SetPassword("foo")
+	err = m.SetMongoPassword("foo")
 	c.Assert(err, IsNil)
 
 	// Sanity check that we cannot connect with the wrong
@@ -213,7 +219,7 @@ func (s *UnitSuite) TestSetPasswordOnUnitAfterConnectingAsMachineEntity(c *C) {
 	// the machine entity's state.
 	unit, err = st1.Unit(s.unit.Name())
 	c.Assert(err, IsNil)
-	err = unit.SetPassword("bar")
+	err = unit.SetMongoPassword("bar")
 	c.Assert(err, IsNil)
 
 	// Now connect as the unit entity and, as that
@@ -227,11 +233,11 @@ func (s *UnitSuite) TestSetPasswordOnUnitAfterConnectingAsMachineEntity(c *C) {
 	// Check that we can set its password.
 	unit, err = st2.Unit(subUnit.Name())
 	c.Assert(err, IsNil)
-	err = unit.SetPassword("bar2")
+	err = unit.SetMongoPassword("bar2")
 	c.Assert(err, IsNil)
 
 	// Clear the admin password, so tests can reset the db.
-	err = st.SetAdminPassword("")
+	err = st.SetAdminMongoPassword("")
 	c.Assert(err, IsNil)
 }
 

@@ -83,6 +83,7 @@ type unitDoc struct {
 	Status         UnitStatus
 	StatusInfo     string
 	TxnRevno       int64 `bson:"txn-revno"`
+	PasswordHash   string
 }
 
 // Unit represents the state of a service unit.
@@ -158,11 +159,34 @@ func (u *Unit) SetAgentTools(t *Tools) (err error) {
 	return nil
 }
 
-// SetPassword sets the password the agent responsible for the unit
+// SetMongoPassword sets the password the agent responsible for the unit
 // should use to communicate with the state servers.  Previous passwords
 // are invalidated.
+func (u *Unit) SetMongoPassword(password string) error {
+	return u.st.setMongoPassword(u.EntityName(), password)
+}
+
+// SetPassword sets the password for the machine's agent.
 func (u *Unit) SetPassword(password string) error {
-	return u.st.setPassword(u.EntityName(), password)
+	hp := trivial.PasswordHash(password)
+	ops := []txn.Op{{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: notDeadDoc,
+		Update: D{{"$set", D{{"passwordhash", hp}}}},
+	}}
+	err := u.st.runner.Run(ops, "", nil)
+	if err != nil {
+		return fmt.Errorf("cannot set password of unit %q: %v", u, onAbort(err, errNotAlive))
+	}
+	u.doc.PasswordHash = hp
+	return nil
+}
+
+// PasswordValid returns whether the given password is valid
+// for the given unit.
+func (u *Unit) PasswordValid(password string) bool {
+	return trivial.PasswordHash(password) == u.doc.PasswordHash
 }
 
 // EnsureDying sets the unit lifecycle to Dying if it is Alive.
@@ -223,9 +247,11 @@ func (u *Unit) IsPrincipal() bool {
 	return u.doc.Principal == ""
 }
 
-// HasSubordinates returns whether the unit has any subordinate units.
-func (u *Unit) HasSubordinates() bool {
-	return len(u.doc.Subordinates) > 0
+// SubordinateNames returns the names of any subordinate units.
+func (u *Unit) SubordinateNames() []string {
+	names := make([]string, len(u.doc.Subordinates))
+	copy(names, u.doc.Subordinates)
+	return names
 }
 
 // DeployerName returns the entity name of the agent responsible for deploying

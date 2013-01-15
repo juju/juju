@@ -205,7 +205,7 @@ var uniterTests = []uniterTest{
 		serveCharm{},
 		writeFile{"charm", 0644},
 		createUniter{},
-		waitUniterDead{`ModeInstalling cs:series/dummy-0: charm deployment failed: ".*charm" is not a directory`},
+		waitUniterDead{`ModeInstalling cs:series/wordpress-0: charm deployment failed: ".*charm" is not a directory`},
 	), ut(
 		"charm cannot be downloaded",
 		createCharm{},
@@ -213,7 +213,7 @@ var uniterTests = []uniterTest{
 			coretesting.Server.Response(404, nil, nil)
 		}},
 		createUniter{},
-		waitUniterDead{`ModeInstalling cs:series/dummy-0: failed to download charm .* 404 Not Found`},
+		waitUniterDead{`ModeInstalling cs:series/wordpress-0: failed to download charm .* 404 Not Found`},
 	), ut(
 		"install hook fail and resolve",
 		startupError{"install"},
@@ -329,16 +329,13 @@ var uniterTests = []uniterTest{
 		},
 		waitHooks{"install", "config-changed", "start"},
 		assertYaml{"charm/config.out", map[string]interface{}{
-			"title":    "My Title",
-			"username": "admin001",
+			"blog-title": "My Title",
 		}},
-		changeConfig{"skill-level": 9001, "title": "Goodness Gracious Me"},
+		changeConfig{"blog-title": "Goodness Gracious Me"},
 		waitHooks{"config-changed"},
 		verifyRunning{},
 		assertYaml{"charm/config.out", map[string]interface{}{
-			"skill-level": 9001,
-			"title":       "Goodness Gracious Me",
-			"username":    "admin001",
+			"blog-title": "Goodness Gracious Me",
 		}},
 	),
 
@@ -677,14 +674,32 @@ var uniterTests = []uniterTest{
 		// uniter bug -- it should be the responisbility of `juju remove-unit
 		// --force` to cause the unit to leave any relation scopes it may be
 		// in -- but it's worth noting here all the same.
-	), ut(
+	),
+
+	// Subordinates.
+	ut(
 		"unit becomes dying while subordinates exist",
 		quickStart{},
-		addSubordinate{},
+		addSubordinateRelation{"juju-info"},
+		waitSubordinateExists{"logging/0"},
 		unitDying,
-		verifyRunning{},
+		waitSubordinateDying{},
+		waitHooks{"stop"},
+		verifyRunning{true},
 		removeSubordinate{},
 		waitUniterDead{},
+	), ut(
+		"new subordinate becomes necessary while old one is dying",
+		quickStart{},
+		addSubordinateRelation{"juju-info"},
+		waitSubordinateExists{"logging/0"},
+		removeSubordinateRelation{"juju-info"},
+		// The subordinate Uniter would usually set Dying in this situation.
+		subordinateDying,
+		addSubordinateRelation{"logging-dir"},
+		verifyRunning{},
+		removeSubordinate{},
+		waitSubordinateExists{"logging/1"},
 	),
 }
 
@@ -777,7 +792,7 @@ var charmHooks = []string{
 }
 
 func (s createCharm) step(c *C, ctx *context) {
-	base := coretesting.Charms.ClonedDirPath(c.MkDir(), "series", "dummy")
+	base := coretesting.Charms.ClonedDirPath(c.MkDir(), "series", "wordpress")
 	for _, name := range charmHooks {
 		path := filepath.Join(base, "hooks", name)
 		good := true
@@ -969,12 +984,18 @@ func (s verifyWaiting) step(c *C, ctx *context) {
 	step(c, ctx, waitHooks{})
 }
 
-type verifyRunning struct{}
+type verifyRunning struct {
+	noHooks bool
+}
 
 func (s verifyRunning) step(c *C, ctx *context) {
 	step(c, ctx, stopUniter{})
 	step(c, ctx, startUniter{})
-	step(c, ctx, waitHooks{"config-changed"})
+	if s.noHooks {
+		step(c, ctx, waitHooks{})
+	} else {
+		step(c, ctx, waitHooks{"config-changed"})
+	}
 }
 
 type startupError struct {
@@ -1285,25 +1306,74 @@ func (s relationState) step(c *C, ctx *context) {
 
 }
 
-type addSubordinate struct{}
+type addSubordinateRelation struct {
+	ifce string
+}
 
-func (addSubordinate) step(c *C, ctx *context) {
-	logging, err := ctx.st.AddService("logging", ctx.s.AddTestingCharm(c, "logging"))
-	c.Assert(err, IsNil)
-	eps, err := ctx.st.InferEndpoints([]string{"logging", "u"})
+func (s addSubordinateRelation) step(c *C, ctx *context) {
+	if _, err := ctx.st.Service("logging"); state.IsNotFound(err) {
+		_, err := ctx.st.AddService("logging", ctx.s.AddTestingCharm(c, "logging"))
+		c.Assert(err, IsNil)
+	}
+	eps, err := ctx.st.InferEndpoints([]string{"logging", "u:" + s.ifce})
 	c.Assert(err, IsNil)
 	_, err = ctx.st.AddRelation(eps...)
 	c.Assert(err, IsNil)
-	w := logging.WatchUnits()
-	defer func() { c.Assert(w.Stop(), IsNil) }()
+}
+
+type removeSubordinateRelation struct {
+	ifce string
+}
+
+func (s removeSubordinateRelation) step(c *C, ctx *context) {
+	eps, err := ctx.st.InferEndpoints([]string{"logging", "u:" + s.ifce})
+	c.Assert(err, IsNil)
+	rel, err := ctx.st.EndpointsRelation(eps...)
+	c.Assert(err, IsNil)
+	err = rel.Destroy()
+	c.Assert(err, IsNil)
+}
+
+type waitSubordinateExists struct {
+	name string
+}
+
+func (s waitSubordinateExists) step(c *C, ctx *context) {
+	timeout := time.After(5 * time.Second)
 	for {
-		names, ok := <-w.Changes()
-		c.Assert(ok, Equals, true)
-		if len(names) != 0 {
-			ctx.subordinate, err = ctx.st.Unit(names[0])
+		ctx.st.StartSync()
+		select {
+		case <-timeout:
+			c.Fatalf("subordinate was not created")
+		case <-time.After(50 * time.Millisecond):
+			var err error
+			ctx.subordinate, err = ctx.st.Unit(s.name)
+			if state.IsNotFound(err) {
+				continue
+			}
 			c.Assert(err, IsNil)
-			break
+			return
 		}
+	}
+}
+
+type waitSubordinateDying struct{}
+
+func (waitSubordinateDying) step(c *C, ctx *context) {
+	timeout := time.After(5 * time.Second)
+	for {
+		ctx.st.StartSync()
+		select {
+		case <-timeout:
+			c.Fatalf("subordinate was not made Dying")
+		case <-time.After(50 * time.Millisecond):
+			err := ctx.subordinate.Refresh()
+			c.Assert(err, IsNil)
+			if ctx.subordinate.Life() != state.Dying {
+				continue
+			}
+		}
+		break
 	}
 }
 
@@ -1382,8 +1452,12 @@ var unitDead = custom{func(c *C, ctx *context) {
 	c.Assert(ctx.unit.EnsureDead(), IsNil)
 }}
 
+var subordinateDying = custom{func(c *C, ctx *context) {
+	c.Assert(ctx.subordinate.EnsureDying(), IsNil)
+}}
+
 func curl(revision int) *charm.URL {
-	return charm.MustParseURL("cs:series/dummy").WithRevision(revision)
+	return charm.MustParseURL("cs:series/wordpress").WithRevision(revision)
 }
 
 func appendHook(c *C, charm, name, data string) {
