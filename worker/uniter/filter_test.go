@@ -90,7 +90,7 @@ func (s *FilterSuite) TestServiceDeath(c *C) {
 		c.Fatalf("unexpected receive")
 	}
 
-	err = s.svc.EnsureDying()
+	err = s.svc.Destroy()
 	c.Assert(err, IsNil)
 	timeout := time.After(500 * time.Millisecond)
 loop:

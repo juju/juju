@@ -97,36 +97,25 @@ func (r *Relation) Life() Life {
 // are currently in scope, it will be removed immediately.
 func (r *Relation) Destroy() (err error) {
 	defer trivial.ErrorContextf(&err, "cannot destroy relation %q", r)
-	// In *theory*, there is no upper bound to the number of attempts we could
-	// legitimately make here; it is not inconsistent for a relation to flip
-	// between 0 and 1 units in scope, indefinitely, and perfectly timed to
-	// abort every transaction we attempt below. In practice, this situation
-	// is very unlikely; if as many as 5 attempts have failed, we can be almost
-	// certain that corrupt state is indicated.
+	defer func() {
+		if err == nil {
+			// This is a white lie; the document might actually be removed.
+			r.doc.Life = Dying
+		}
+	}()
+	rel := &Relation{r.st, r.doc}
 	for attempt := 0; attempt < 5; attempt++ {
-		if r.doc.Life != Alive {
+		ops, _, err := rel.destroyOps("")
+		if err != nil {
+			return err
+		}
+		if len(ops) == 0 {
 			return nil
 		}
-		if r.doc.UnitCount == 0 {
-			ops := r.removeOps(D{{"unitcount", 0}})
-			if err := r.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
-				return err
-			}
-		} else {
-			ops := []txn.Op{{
-				C:      r.st.relations.Name,
-				Id:     r.doc.Key,
-				Assert: D{{"life", Alive}, {"unitcount", D{{"$gt", 0}}}},
-				Update: D{{"$set", D{{"life", Dying}}}},
-			}}
-			if err := r.st.runner.Run(ops, "", nil); err == nil {
-				r.doc.Life = Dying
-				return nil
-			} else if err != txn.ErrAborted {
-				return err
-			}
+		if err := rel.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+			return err
 		}
-		if err := r.Refresh(); IsNotFound(err) {
+		if err := rel.Refresh(); IsNotFound(err) {
 			return nil
 		} else if err != nil {
 			return err
@@ -135,47 +124,97 @@ func (r *Relation) Destroy() (err error) {
 	return fmt.Errorf("units being added during relation removal; shouldn't happen, please contact juju-dev@lists.ubuntu.com")
 }
 
-func (r *Relation) destroyOps(destroyingService string) ([]txn.Op, bool) {
+func (r *Relation) destroyOps(destroyingService string) ([]txn.Op, bool, error) {
+	if r.doc.Life != Alive {
+		return nil, false, nil
+	}
 	if r.doc.UnitCount == 0 {
-		return r.removeOps(D{{"unitcount", 0}}, destroyingService), true
+		mode := modeDestroyRelation
+		if destroyingService != "" {
+			mode = modeDestroyService
+		}
+		ops, err := r.removeOps(mode, destroyingService)
+		if err != nil {
+			return nil, false, err
+		}
+		return ops, true, nil
 	}
 	return []txn.Op{{
 		C:      r.st.relations.Name,
 		Id:     r.doc.Key,
 		Assert: D{{"life", Alive}, {"unitcount", D{{"$gt", 0}}}},
 		Update: D{{"$set", D{{"life", Dying}}}},
-	}}, false
+	}}, false, nil
 }
 
-// removeOps returns the operations that must occur when a relation is removed.
-// The only assertions made in the returned list are those supplied, which will
-// be applied to the relation document.
-func (r *Relation) removeOps(asserts D, destroyingService string) []txn.Op {
+type removeMode string
+
+const (
+	modeDestroyService  removeMode = "destroy-service"
+	modeDestroyRelation removeMode = "destroy-relation"
+	modeLeaveScope      removeMode = "leave-scope"
+)
+
+func (r *Relation) removeOps(mode removeMode, serviceName string) ([]txn.Op, error) {
+	var ops []txn.Op
+	for _, ep := range r.doc.Endpoints {
+		epOps, err := r.endpointRemoveOps(mode, serviceName, ep)
+		if err != nil {
+			return nil, err
+		}
+		ops = append(ops, epOps...)
+	}
+	relOp := txn.Op{
+		C:      r.st.relations.Name,
+		Id:     r.doc.Key,
+		Remove: true,
+	}
+	if mode == modeLeaveScope {
+		relOp.Assert = D{{"life", Dying}, {"unitcount", 1}}
+	} else {
+		relOp.Assert = D{{"life", Alive}, {"unitcount", 0}}
+	}
+	ops = append(ops, relOp)
 	cDoc := &cleanupDoc{
 		Id:     bson.NewObjectId(),
 		Kind:   "settings",
 		Prefix: fmt.Sprintf("r#%d#", r.Id()),
 	}
-	ops := []txn.Op{{
-		C:      r.st.relations.Name,
-		Id:     r.doc.Key,
-		Assert: asserts,
-		Remove: true,
-	}, {
+	return append(ops, txn.Op{
 		C:      r.st.cleanups.Name,
 		Id:     cDoc.Id,
 		Insert: cDoc,
-	}}
-	for _, ep := range r.doc.Endpoints {
-		if ep.ServiceName != destroyingService {
-			ops = append(ops, txn.Op{
-				C:      r.st.services.Name,
-				Id:     ep.ServiceName,
-				Update: D{{"$inc", D{{"relationcount", -1}}}},
-			})
+	}), nil
+}
+
+func (r *Relation) endpointRemoveOps(mode removeMode, serviceName string, ep Endpoint) ([]txn.Op, error) {
+	name := ep.ServiceName
+	switch mode {
+	case modeDestroyRelation:
+	case modeDestroyService:
+		if name == serviceName {
+			// The service destroy op is handling its own changes; don't interfere.
+			return nil, nil
+		}
+	case modeLeaveScope:
+		if name != serviceName {
+			// If we hold the last reference to a Dying relation, it can be
+			// removed directly without further assertions, because nothing
+			// can add a reference to a Dying service.
+			svc, err := r.st.Service(name)
+			if err != nil {
+				return nil, err
+			}
+			if svc.doc.Life == Dying && svc.doc.UnitCount == 0 && svc.doc.RelationCount == 1 {
+				return svc.removeOps(nil), nil
+			}
 		}
 	}
-	return ops
+	return []txn.Op{{
+		C:      r.st.services.Name,
+		Id:     name,
+		Update: D{{"$inc", D{{"relationcount", -1}}}},
+	}}, nil
 }
 
 // Id returns the integer internal relation key. This is exposed
@@ -446,8 +485,11 @@ func (ru *RelationUnit) LeaveScope() error {
 				Update: D{{"$inc", D{{"unitcount", -1}}}},
 			})
 		} else {
-			asserts := D{{"life", Dying}, {"unitcount", 1}}
-			ops = append(ops, ru.relation.removeOps(asserts)...)
+			relOps, err := ru.relation.removeOps(modeLeaveScope, ru.unit.doc.Service)
+			if err != nil {
+				return err
+			}
+			ops = append(ops, relOps...)
 		}
 		if err = ru.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
 			if err != nil {
