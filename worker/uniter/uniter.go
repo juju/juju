@@ -21,15 +21,15 @@ import (
 	"time"
 )
 
-// Uniter implements the capabilities of the unit agent. It is not intended to
+// Uniter implements the capabilities of the unit agent.  It is not intended to
 // implement the actual *behaviour* of the unit agent; that responsibility is
 // delegated to Mode values, which are expected to react to events and direct
 // the uniter's responses to them.
 type Uniter struct {
 	tomb          tomb.Tomb
 	st            *state.State
-	f             *filter
 	unit          *state.Unit
+	f             *filter
 	service       *state.Service
 	relationers   map[int]*Relationer
 	relationHooks chan hook.Info
