@@ -51,6 +51,9 @@ func (s *Service) Life() Life {
 
 var errRefresh = errors.New("cannot determine relation destruction operations; please refresh the service")
 
+// Destroy ensures that the service and all its relations will be removed at
+// some point; if the service has no units, and no relation involving the
+// service has any units in scope, they will all be removed immediately.
 func (s *Service) Destroy() (err error) {
 	defer trivial.ErrorContextf(&err, "cannot destroy service %q", s)
 	defer func() {
@@ -60,7 +63,7 @@ func (s *Service) Destroy() (err error) {
 		}
 	}()
 	svc := &Service{s.st, s.doc}
-	for {
+	for i := 0; i < 5; i++ {
 		ops, err := svc.destroyOps()
 		switch {
 		case err == errRefresh:
@@ -79,9 +82,12 @@ func (s *Service) Destroy() (err error) {
 			return err
 		}
 	}
-	panic("unreachable")
+	return ErrExcessiveContention
 }
 
+// destroyOps returns the operations required to destroy the service. If it
+// returns errRefresh, the service should be refreshed and the destruction
+// operations recalculated.
 func (s *Service) destroyOps() ([]txn.Op, error) {
 	if s.doc.Life == Dying {
 		return nil, nil
@@ -122,6 +128,8 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 	}), nil
 }
 
+// removeOps returns the oprations required to remove the service. Supplied
+// asserts will be applied to the service document.
 func (s *Service) removeOps(asserts D) []txn.Op {
 	return []txn.Op{{
 		C:      s.st.services.Name,
@@ -369,7 +377,7 @@ func (s *Service) RemoveUnit(u *Unit) (err error) {
 	}
 	svc := &Service{s.st, s.doc}
 	unit := &Unit{u.st, u.doc}
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 5; i++ {
 		ops := svc.removeUnitOps(unit)
 		if err := svc.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
 			return err

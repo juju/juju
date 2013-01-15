@@ -104,6 +104,10 @@ func (r *Relation) Destroy() (err error) {
 		}
 	}()
 	rel := &Relation{r.st, r.doc}
+	// In this context, aborted transactions indicate that the number of units
+	// in scope have changed between 0 and not-0. The chances of 5 successive
+	// attempts each hitting this change -- which is itself an unlikely one --
+	// are considered to be extremely small.
 	for attempt := 0; attempt < 5; attempt++ {
 		ops, _, err := rel.destroyOps("")
 		if err != nil {
@@ -121,9 +125,13 @@ func (r *Relation) Destroy() (err error) {
 			return err
 		}
 	}
-	return fmt.Errorf("units being added during relation removal; shouldn't happen, please contact juju-dev@lists.ubuntu.com")
+	return ErrExcessiveContention
 }
 
+// destroyOps returns the operations necessary to destroy the relation, and
+// whether those operations will lead to the relation's removal. If
+// destroyingService is not empty, and the relation needs to be removed,
+// no operations modifying that service will be generated.
 func (r *Relation) destroyOps(destroyingService string) ([]txn.Op, bool, error) {
 	if r.doc.Life != Alive {
 		return nil, false, nil
@@ -147,6 +155,8 @@ func (r *Relation) destroyOps(destroyingService string) ([]txn.Op, bool, error) 
 	}}, false, nil
 }
 
+// removeMode enumerates the circumstances in which a relation might need
+// to be removed from state.
 type removeMode string
 
 const (
@@ -155,15 +165,10 @@ const (
 	modeLeaveScope      removeMode = "leave-scope"
 )
 
+// removeOps returns the operations necessary to remove the relation, depending
+// on the context in which those operations will run, as determined by mode and
+// serviceName.
 func (r *Relation) removeOps(mode removeMode, serviceName string) ([]txn.Op, error) {
-	var ops []txn.Op
-	for _, ep := range r.doc.Endpoints {
-		epOps, err := r.endpointRemoveOps(mode, serviceName, ep)
-		if err != nil {
-			return nil, err
-		}
-		ops = append(ops, epOps...)
-	}
 	relOp := txn.Op{
 		C:      r.st.relations.Name,
 		Id:     r.doc.Key,
@@ -174,7 +179,14 @@ func (r *Relation) removeOps(mode removeMode, serviceName string) ([]txn.Op, err
 	} else {
 		relOp.Assert = D{{"life", Alive}, {"unitcount", 0}}
 	}
-	ops = append(ops, relOp)
+	ops := []txn.Op{relOp}
+	for _, ep := range r.doc.Endpoints {
+		epOps, err := r.endpointRemoveOps(mode, serviceName, ep)
+		if err != nil {
+			return nil, err
+		}
+		ops = append(ops, epOps...)
+	}
 	cDoc := &cleanupDoc{
 		Id:     bson.NewObjectId(),
 		Kind:   "settings",
@@ -187,6 +199,9 @@ func (r *Relation) removeOps(mode removeMode, serviceName string) ([]txn.Op, err
 	}), nil
 }
 
+// endpointRemoveOps returns the operations that are needed to maintain the
+// service identified by the supplied endpoint, as determined by mode and
+// serviceName.
 func (r *Relation) endpointRemoveOps(mode removeMode, serviceName string, ep Endpoint) ([]txn.Op, error) {
 	name := ep.ServiceName
 	switch mode {
@@ -198,7 +213,7 @@ func (r *Relation) endpointRemoveOps(mode removeMode, serviceName string, ep End
 		}
 	case modeLeaveScope:
 		if name != serviceName {
-			// If we hold the last reference to a Dying relation, it can be
+			// If we hold the last reference to a Dying service, it can be
 			// removed directly without further assertions, because nothing
 			// can add a reference to a Dying service.
 			svc, err := r.st.Service(name)
