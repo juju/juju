@@ -21,7 +21,7 @@ import (
 	"time"
 )
 
-// Uniter implements the capabilities of the unit agent.  It is not intended to
+// Uniter implements the capabilities of the unit agent. It is not intended to
 // implement the actual *behaviour* of the unit agent; that responsibility is
 // delegated to Mode values, which are expected to react to events and direct
 // the uniter's responses to them.
