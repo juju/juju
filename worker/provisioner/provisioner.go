@@ -120,11 +120,6 @@ func (p *Provisioner) setConfig(config *config.Config) error {
 	return nil
 }
 
-// Dying returns a channel that signals a Provisioners exit.
-func (p *Provisioner) Dying() <-chan struct{} {
-	return p.tomb.Dying()
-}
-
 // Err returns the reason why the Provisioner has stopped or tomb.ErrStillAlive
 // when it is still alive.
 func (p *Provisioner) Err() (reason error) {

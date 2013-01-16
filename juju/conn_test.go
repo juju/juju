@@ -482,7 +482,7 @@ func (s *ConnSuite) TestDestroySubordinateUnits(c *C) {
 	c.Assert(err, IsNil)
 	ru, err := rel.Unit(wordpress0)
 	c.Assert(err, IsNil)
-	err = ru.EnterScope()
+	err = ru.EnterScope(nil)
 	c.Assert(err, IsNil)
 
 	// Try to destroy the subordinate alone; check it fails.

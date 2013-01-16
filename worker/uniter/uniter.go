@@ -139,8 +139,8 @@ func (u *Uniter) String() string {
 	return "uniter for " + u.unit.Name()
 }
 
-func (u *Uniter) Dying() <-chan struct{} {
-	return u.tomb.Dying()
+func (u *Uniter) Dead() <-chan struct{} {
+	return u.tomb.Dead()
 }
 
 func (u *Uniter) Wait() error {
@@ -354,13 +354,12 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 			if err := rel.Refresh(); err != nil {
 				return nil, fmt.Errorf("cannot update relation %q: %v", rel, err)
 			}
-			switch rel.Life() {
-			case state.Dying:
+			if rel.Life() == state.Dying {
 				if err := r.SetDying(); err != nil {
 					return nil, err
+				} else if r.IsImplicit() {
+					delete(u.relationers, id)
 				}
-			case state.Dead:
-				return nil, fmt.Errorf("had reference to dead relation %q", rel)
 			}
 			continue
 		}
@@ -417,14 +416,32 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 // addRelation causes the unit agent to join the supplied relation, and to
 // store persistent state in the supplied dir.
 func (u *Uniter) addRelation(rel *state.Relation, dir *relation.StateDir) error {
+	log.Printf("worker/uniter: joining relation %q", rel)
 	ru, err := rel.Unit(u.unit)
 	if err != nil {
 		return err
 	}
 	r := NewRelationer(ru, dir, u.relationHooks)
-	if err = r.Join(); err != nil {
-		return err
+	w := u.unit.Watch()
+	defer watcher.Stop(w, &u.tomb)
+	for {
+		select {
+		case <-u.tomb.Dying():
+			return tomb.ErrDying
+		case _, ok := <-w.Changes():
+			if !ok {
+				return watcher.MustErr(w)
+			}
+			if err := r.Join(); err == state.ErrCannotEnterScopeYet {
+				log.Printf("worker/uniter: cannot enter scope for relation %q; waiting for subordinate to be removed", rel)
+				continue
+			} else if err != nil {
+				return err
+			}
+			log.Printf("worker/uniter: joined relation %q", rel)
+			u.relationers[rel.Id()] = r
+			return nil
+		}
 	}
-	u.relationers[rel.Id()] = r
-	return nil
+	panic("unreachable")
 }

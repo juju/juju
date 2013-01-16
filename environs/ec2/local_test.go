@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
 	"regexp"
 	"strings"
@@ -238,9 +239,11 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(bootstrapDNS, Not(Equals), "")
 
-	c.Logf("first instance: UserData: %q", inst.UserData)
+	userData, err := trivial.Gunzip(inst.UserData)
+	c.Assert(err, IsNil)
+	c.Logf("first instance: UserData: %q", userData)
 	var x map[interface{}]interface{}
-	err = goyaml.Unmarshal(inst.UserData, &x)
+	err = goyaml.Unmarshal(userData, &x)
 	c.Assert(err, IsNil)
 	CheckPackage(c, x, "git", true)
 	CheckScripts(c, x, "jujud bootstrap-state", true)
@@ -255,9 +258,11 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	c.Assert(err, IsNil)
 	inst = t.srv.ec2srv.Instance(string(inst1.Id()))
 	c.Assert(inst, NotNil)
-	c.Logf("second instance: UserData: %q", inst.UserData)
+	userData, err = trivial.Gunzip(inst.UserData)
+	c.Assert(err, IsNil)
+	c.Logf("second instance: UserData: %q", userData)
 	x = nil
-	err = goyaml.Unmarshal(inst.UserData, &x)
+	err = goyaml.Unmarshal(userData, &x)
 	c.Assert(err, IsNil)
 	CheckPackage(c, x, "zookeeperd", false)
 	// TODO check for provisioning agent
