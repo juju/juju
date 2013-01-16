@@ -4,9 +4,6 @@
 package cloudinit
 
 import (
-	"bytes"
-	"compress/gzip"
-	"fmt"
 	yaml "launchpad.net/goyaml"
 )
 
@@ -27,23 +24,6 @@ func (cfg *Config) Render() ([]byte, error) {
 		return nil, err
 	}
 	return append([]byte("#cloud-config\n"), data...), nil
-}
-
-// Render returns the cloud-init configuration as gzip-compressed YAML file.
-func (cfg *Config) RenderCompressed() ([]byte, error) {
-	data, err := cfg.Render()
-	if err != nil {
-		return nil, err
-	}
-	var buf bytes.Buffer
-	w := gzip.NewWriter(&buf)
-	if _, err := w.Write(data); err != nil {
-		return nil, fmt.Errorf("cannot compress data: %v", err)
-	}
-	if err := w.Close(); err != nil {
-		return nil, fmt.Errorf("cannot compress data: %v", err)
-	}
-	return buf.Bytes(), nil
 }
 
 func (cfg *Config) set(opt string, yes bool, value interface{}) {
