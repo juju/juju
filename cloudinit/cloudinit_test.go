@@ -211,7 +211,6 @@ func (S) TestOutput(c *C) {
 	}
 }
 
-
 //#cloud-config
 //packages:
 //- juju
