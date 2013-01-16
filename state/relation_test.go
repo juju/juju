@@ -6,6 +6,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state"
 	"sort"
+	"strconv"
 	"time"
 )
 
@@ -330,8 +331,8 @@ func (s *RelationUnitSuite) TestContainerSettings(c *C) {
 
 	// Check missing settings cannot be read by any RU.
 	for _, ru := range rus {
-		_, err := ru.ReadSettings("mysql/0")
-		c.Assert(err, ErrorMatches, `cannot read settings for unit "mysql/0" in relation "logging:info mysql:juju-info": settings not found`)
+		_, err := ru.ReadSettings("logging/0")
+		c.Assert(err, ErrorMatches, `cannot read settings for unit "logging/0" in relation "logging:info mysql:juju-info": settings not found`)
 	}
 
 	// Add settings for one RU.
@@ -804,13 +805,34 @@ func (prr *ProReqRelation) watches() []*state.RelationScopeWatcher {
 
 func addRU(c *C, svc *state.Service, rel *state.Relation, principal *state.Unit) (*state.Unit, *state.RelationUnit) {
 	var u *state.Unit
-	var err error
 	if principal == nil {
+		var err error
 		u, err = svc.AddUnit()
+		c.Assert(err, IsNil)
 	} else {
-		u, err = svc.AddUnitSubordinateTo(principal)
+		origUnits, err := svc.AllUnits()
+		c.Assert(err, IsNil)
+		pru, err := rel.Unit(principal)
+		c.Assert(err, IsNil)
+		err = pru.EnterScope(nil) // to create the subordinate
+		c.Assert(err, IsNil)
+		err = pru.LeaveScope() // to reset to initial expected state
+		c.Assert(err, IsNil)
+		newUnits, err := svc.AllUnits()
+		c.Assert(err, IsNil)
+		for _, u = range newUnits {
+			found := false
+			for _, oldu := range origUnits {
+				if u.Name() == oldu.Name() {
+					found = true
+					break
+				}
+			}
+			if !found {
+				break
+			}
+		}
 	}
-	c.Assert(err, IsNil)
 	ru, err := rel.Unit(u)
 	c.Assert(err, IsNil)
 	return u, ru
@@ -1222,7 +1244,11 @@ func (s *OriginalRelationUnitSuite) TestContainerProReqRelationUnit(c *C) {
 		msru, err := rel.Unit(msu)
 		c.Assert(err, IsNil)
 		c.Assert(msru.Endpoint(), Equals, mysqlEP)
-		lgu, err := logging.AddUnitSubordinateTo(msu)
+		err = msru.EnterScope(nil)
+		c.Assert(err, IsNil)
+		err = msru.LeaveScope()
+		c.Assert(err, IsNil)
+		lgu, err := s.State.Unit("logging/" + strconv.Itoa(i))
 		c.Assert(err, IsNil)
 		lgru, err := rel.Unit(lgu)
 		c.Assert(err, IsNil)
