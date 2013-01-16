@@ -77,7 +77,7 @@ func (t *LiveTests) SetUpSuite(c *C) {
 	// Put some fake tools in place so that tests that are simply
 	// starting instances without any need to check if those instances
 	// are running will find them in the public bucket.
-	putFakeTools(c, e.Storage().(environs.Storage))
+	putFakeTools(c, e.PublicStorage().(environs.Storage))
 	t.LiveTests.SetUpSuite(c)
 }
 
@@ -86,10 +86,8 @@ func (t *LiveTests) TearDownSuite(c *C) {
 		// This can happen if SetUpSuite fails.
 		return
 	}
-	err := openstack.DeleteStorageContent(t.Env.Storage().(environs.Storage))
+	err := openstack.DeleteStorageContent(t.Env.PublicStorage().(environs.Storage))
 	c.Check(err, IsNil)
-	err = openstack.DeleteStorageContent(t.Env.PublicStorage().(environs.Storage))
-	c.Assert(err, IsNil)
 	t.LiveTests.TearDownSuite(c)
 	t.LoggingSuite.TearDownSuite(c)
 }
