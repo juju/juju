@@ -356,7 +356,17 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return cloudcfg.Render()
+	cdata, err := cloudcfg.RenderCompressed()
+	if err != nil {
+		return nil, err
+	}
+	// Show the uncompressed data for debugging purposes.
+	data, err := cloudcfg.Render()
+	if err != nil {
+		return nil, err
+	}
+	log.Debugf("environs/ec2: ec2 user data; %d bytes: %q", len(cdata), data)
+	return cdata, nil
 }
 
 type startInstanceParams struct {
@@ -394,7 +404,6 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	if err != nil {
 		return nil, fmt.Errorf("cannot make user data: %v", err)
 	}
-	log.Debugf("environs/ec2: ec2 user data: %q", userData)
 	groups, err := e.setUpGroups(scfg.machineId)
 	if err != nil {
 		return nil, fmt.Errorf("cannot set up groups: %v", err)

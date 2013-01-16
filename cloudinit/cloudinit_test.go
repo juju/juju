@@ -1,7 +1,10 @@
 package cloudinit_test
 
 import (
+	"bytes"
+	"compress/gzip"
 	"fmt"
+	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cloudinit"
 	"testing"
@@ -208,7 +211,19 @@ func (S) TestOutput(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(data, NotNil)
 		c.Assert(string(data), Equals, header+t.expect, Commentf("test %q output differs", t.name))
+
+		cdata, err := cfg.RenderCompressed()
+		c.Assert(err, IsNil)
+		c.Assert(gunzip(c, cdata), DeepEquals, data)
 	}
+}
+
+func gunzip(c *C, data []byte) []byte {
+	r, err := gzip.NewReader(bytes.NewReader(data))
+	c.Assert(err, IsNil)
+	data, err = ioutil.ReadAll(r)
+	c.Assert(err, IsNil)
+	return data
 }
 
 //#cloud-config

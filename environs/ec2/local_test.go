@@ -2,6 +2,8 @@ package ec2_test
 
 import (
 	"bytes"
+	"compress/gzip"
+	"io/ioutil"
 	"launchpad.net/goamz/aws"
 	amzec2 "launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/ec2/ec2test"
@@ -238,9 +240,10 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(bootstrapDNS, Not(Equals), "")
 
-	c.Logf("first instance: UserData: %q", inst.UserData)
+	userData := gunzip(c, inst.UserData)
+	c.Logf("first instance: UserData: %q", userData)
 	var x map[interface{}]interface{}
-	err = goyaml.Unmarshal(inst.UserData, &x)
+	err = goyaml.Unmarshal(userData, &x)
 	c.Assert(err, IsNil)
 	CheckPackage(c, x, "git", true)
 	CheckScripts(c, x, "jujud bootstrap-state", true)
@@ -255,9 +258,10 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	c.Assert(err, IsNil)
 	inst = t.srv.ec2srv.Instance(string(inst1.Id()))
 	c.Assert(inst, NotNil)
-	c.Logf("second instance: UserData: %q", inst.UserData)
+	userData = gunzip(c, inst.UserData)
+	c.Logf("second instance: UserData: %q", userData)
 	x = nil
-	err = goyaml.Unmarshal(inst.UserData, &x)
+	err = goyaml.Unmarshal(userData, &x)
 	c.Assert(err, IsNil)
 	CheckPackage(c, x, "zookeeperd", false)
 	// TODO check for provisioning agent
@@ -276,6 +280,14 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 
 	_, err = ec2.LoadState(t.env)
 	c.Assert(err, NotNil)
+}
+
+func gunzip(c *C, data []byte) []byte {
+	r, err := gzip.NewReader(bytes.NewReader(data))
+	c.Assert(err, IsNil)
+	data, err = ioutil.ReadAll(r)
+	c.Assert(err, IsNil)
+	return data
 }
 
 // If match is true, CheckScripts checks that at least one script started
