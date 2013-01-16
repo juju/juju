@@ -356,15 +356,11 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	cdata, err := cloudcfg.RenderCompressed()
-	if err != nil {
-		return nil, err
-	}
-	// Show the uncompressed data for debugging purposes.
 	data, err := cloudcfg.Render()
 	if err != nil {
 		return nil, err
 	}
+	cdata := trivial.Gzip(data)
 	log.Debugf("environs/ec2: ec2 user data; %d bytes: %q", len(cdata), data)
 	return cdata, nil
 }
