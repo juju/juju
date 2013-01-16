@@ -33,6 +33,12 @@ func (r *Relationer) Context() *ContextRelation {
 	return r.ctx
 }
 
+// IsImplicit returns whether the local relation endpoint is implicit. Implicit
+// relations do not run hooks.
+func (r *Relationer) IsImplicit() bool {
+	return r.ru.Endpoint().IsImplicit()
+}
+
 // Join initializes local state and causes the unit to enter its relation
 // scope, allowing its counterpart units to detect its presence and settings
 // changes.
@@ -40,16 +46,24 @@ func (r *Relationer) Join() error {
 	if r.dying {
 		panic("dying relationer must not join!")
 	}
+	address, ok := r.ru.PrivateAddress()
+	if !ok {
+		return fmt.Errorf("cannot enter scope: private-address not set")
+	}
 	if err := r.dir.Ensure(); err != nil {
 		return err
 	}
-	return r.ru.EnterScope()
+	return r.ru.EnterScope(map[string]interface{}{"private-address": address})
 }
 
 // SetDying informs the relationer that the unit is departing the relation,
 // and that the only hooks it should send henceforth are -departed hooks,
 // until the relation is empty, followed by a -broken hook.
 func (r *Relationer) SetDying() error {
+	if r.IsImplicit() {
+		r.dying = true
+		return r.die()
+	}
 	if r.queue != nil {
 		if err := r.StopHooks(); err != nil {
 			return err
@@ -60,10 +74,22 @@ func (r *Relationer) SetDying() error {
 	return nil
 }
 
+// die is run when the relationer has no further responsibilities; it leaves
+// relation scope, and removes the local relation state directory.
+func (r *Relationer) die() error {
+	if err := r.ru.LeaveScope(); err != nil {
+		return err
+	}
+	return r.dir.Remove()
+}
+
 // StartHooks starts watching the relation, and sending hook.Info events on the
 // hooks channel. It will panic if called when already responding to relation
 // changes.
 func (r *Relationer) StartHooks() {
+	if r.IsImplicit() {
+		return
+	}
 	if r.queue != nil {
 		panic("hooks already started!")
 	}
@@ -90,6 +116,9 @@ func (r *Relationer) StopHooks() error {
 // contains the latest relation state as communicated in the hook.Info. It
 // returns the name of the hook that must be run.
 func (r *Relationer) PrepareHook(hi hook.Info) (hookName string, err error) {
+	if r.IsImplicit() {
+		panic("implicit relations must not run hooks")
+	}
 	if err = r.dir.State().Validate(hi); err != nil {
 		return
 	}
@@ -105,10 +134,11 @@ func (r *Relationer) PrepareHook(hi hook.Info) (hookName string, err error) {
 
 // CommitHook persists the fact of the supplied hook's completion.
 func (r *Relationer) CommitHook(hi hook.Info) error {
+	if r.IsImplicit() {
+		panic("implicit relations must not run hooks")
+	}
 	if hi.Kind == hook.RelationBroken {
-		if err := r.ru.LeaveScope(); err != nil {
-			return err
-		}
+		return r.die()
 	}
 	return r.dir.Write(hi)
 }

@@ -22,7 +22,7 @@ func (s *UnitSuite) primeAgent(c *C) (*state.Unit, *agent.Conf, *state.Tools) {
 	c.Assert(err, IsNil)
 	unit, err := svc.AddUnit()
 	c.Assert(err, IsNil)
-	err = unit.SetPassword("unit-password")
+	err = unit.SetMongoPassword("unit-password")
 	c.Assert(err, IsNil)
 	conf, tools := s.agentSuite.primeAgent(c, unit.EntityName(), "unit-password")
 	return unit, conf, tools

@@ -37,6 +37,8 @@ type configTest struct {
 	change        attrs
 	region        string
 	controlBucket string
+	publicBucket  string
+	pbucketURL    string
 	username      string
 	password      string
 	tenantName    string
@@ -112,6 +114,10 @@ func (t configTest) check(c *C) {
 		actual, err := e.Provider().SecretAttrs(ecfg.Config)
 		c.Assert(err, IsNil)
 		c.Assert(expected, DeepEquals, actual)
+	}
+	if t.pbucketURL != "" {
+		c.Assert(ecfg.publicBucketURL(), Equals, t.pbucketURL)
+		c.Assert(ecfg.publicBucket(), Equals, t.publicBucket)
 	}
 	if t.firewallMode != "" {
 		c.Assert(ecfg.FirewallMode(), Equals, t.firewallMode)
@@ -222,6 +228,21 @@ var configTests = []configTest{
 		tenantName: "juju tenant",
 		authURL:    "http://some/url",
 		authMethod: "legacy",
+	}, {
+		summary: "public bucket URL",
+		config: attrs{
+			"public-bucket":     "juju-dist-non-default",
+			"public-bucket-url": "http://some/url",
+		},
+		publicBucket: "juju-dist-non-default",
+		pbucketURL:   "http://some/url",
+	}, {
+		summary: "public bucket URL with default bucket",
+		config: attrs{
+			"public-bucket-url": "http://some/url",
+		},
+		publicBucket: "juju-dist",
+		pbucketURL:   "http://some/url",
 	}, {
 		summary: "admin-secret given",
 		config: attrs{

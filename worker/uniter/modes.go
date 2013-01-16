@@ -258,7 +258,7 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 	for {
 		hi := hook.Info{}
 		select {
-		case <-u.Dying():
+		case <-u.tomb.Dying():
 			return nil, tomb.ErrDying
 		case <-u.f.UnitDying():
 			return modeAbideDyingLoop(u)
@@ -301,9 +301,11 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 			return nil, err
 		}
 	}
-	for _, r := range u.relationers {
+	for id, r := range u.relationers {
 		if err := r.SetDying(); err != nil {
 			return nil, err
+		} else if r.IsImplicit() {
+			delete(u.relationers, id)
 		}
 	}
 	for {
@@ -312,7 +314,7 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 		}
 		hi := hook.Info{}
 		select {
-		case <-u.Dying():
+		case <-u.tomb.Dying():
 			return nil, tomb.ErrDying
 		case <-u.f.ConfigEvents():
 			hi = hook.Info{Kind: hook.ConfigChanged}
@@ -347,7 +349,7 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 	u.f.WantUpgradeEvent(url, true)
 	for {
 		select {
-		case <-u.Dying():
+		case <-u.tomb.Dying():
 			return nil, tomb.ErrDying
 		case rm := <-u.f.ResolvedEvents():
 			switch rm {
@@ -387,7 +389,7 @@ func ModeConflicted(sch *state.Charm) Mode {
 		u.f.WantUpgradeEvent(sch.URL(), true)
 		for {
 			select {
-			case <-u.Dying():
+			case <-u.tomb.Dying():
 				return nil, tomb.ErrDying
 			case <-u.f.ResolvedEvents():
 				err = u.charm.Snapshotf("Upgrade conflict resolved.")

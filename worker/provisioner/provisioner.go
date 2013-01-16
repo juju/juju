@@ -120,11 +120,6 @@ func (p *Provisioner) setConfig(config *config.Config) error {
 	return nil
 }
 
-// Dying returns a channel that signals a Provisioners exit.
-func (p *Provisioner) Dying() <-chan struct{} {
-	return p.tomb.Dying()
-}
-
 // Err returns the reason why the Provisioner has stopped or tomb.ErrStillAlive
 // when it is still alive.
 func (p *Provisioner) Err() (reason error) {
@@ -257,7 +252,7 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 	if err != nil {
 		return fmt.Errorf("cannot make password for new machine: %v", err)
 	}
-	if err := m.SetPassword(password); err != nil {
+	if err := m.SetMongoPassword(password); err != nil {
 		return fmt.Errorf("cannot set password for new machine: %v", err)
 	}
 	// UAs to locate the ZK for this environment, it is logical to use the same
