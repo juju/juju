@@ -276,8 +276,7 @@ func (s *Service) Refresh() error {
 func (s *Service) newUnitName() (string, error) {
 	change := mgo.Change{Update: D{{"$inc", D{{"unitseq", 1}}}}}
 	result := serviceDoc{}
-	_, err := s.st.services.Find(D{{"_id", s.doc.Name}}).Apply(change, &result)
-	if err == mgo.ErrNotFound {
+	if _, err := s.st.services.Find(D{{"_id", s.doc.Name}}).Apply(change, &result); err == mgo.ErrNotFound {
 		return "", notFound("service %q", s)
 	} else if err != nil {
 		return "", fmt.Errorf("cannot increment unit sequence: %v", err)
