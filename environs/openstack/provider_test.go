@@ -8,6 +8,7 @@ import (
 )
 
 var live = flag.Bool("live", false, "Include live OpenStack (Canonistack) tests")
+
 // TODO(wallyworld): local tests should always be run but at the moment, some fail as the code is still WIP.
 var local = flag.Bool("local", false, "Include local OpenStack (service double) tests")
 
