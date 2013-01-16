@@ -12,7 +12,9 @@ import (
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/openstack"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/version"
 	"os"
+	"strings"
 )
 
 // uniqueName is generated afresh for every test run, so that
@@ -28,7 +30,7 @@ func randomName() string {
 	return fmt.Sprintf("%x", buf)
 }
 
-func registerOpenStackTests() {
+func makeTestConfig() map[string]interface{} {
 	// The following attributes hold the environment configuration
 	// for running the OpenStack integration tests.
 	//
@@ -48,18 +50,40 @@ func registerOpenStackTests() {
 		"control-bucket":    "juju-test-" + uniqueName,
 		"public-bucket-url": publicBucketURL,
 	}
+	return attrs
+}
+
+// Register tests to run against a real Openstack instance.
+func registerOpenStackTests(cred *identity.Credentials) {
+	attrs := makeTestConfig()
 	Suite(&LiveTests{
+		cred: cred,
 		LiveTests: jujutest.LiveTests{
 			Config: attrs,
 		},
 	})
 }
 
+// Register tests to run against a test Openstack instance (service doubles).
+func registerServiceDoubleTests() {
+	cred := &identity.Credentials{
+		User:    "fred",
+		Secrets: "secret",
+		Region:  "some region"}
+	Suite(&localLiveSuite{
+		LiveTests: LiveTests{
+			cred: cred,
+		},
+	})
+}
+
 // LiveTests contains tests that can be run against OpenStack deployments.
+// The deployment can be a real live instance or service doubles.
 // Each test runs using the same connection.
 type LiveTests struct {
 	coretesting.LoggingSuite
 	jujutest.LiveTests
+	cred       *identity.Credentials
 	novaClient *nova.Client
 }
 
@@ -69,9 +93,7 @@ func (t *LiveTests) SetUpSuite(c *C) {
 	c.Assert(err, IsNil)
 
 	// Get a nova client and start some test service instances.
-	cred, err := identity.CompleteCredentialsFromEnv()
-	c.Assert(err, IsNil)
-	client := client.NewClient(cred, identity.AuthUserPass, nil)
+	client := client.NewClient(t.cred, identity.AuthUserPass, nil)
 	t.novaClient = nova.New(client)
 
 	// Put some fake tools in place so that tests that are simply
@@ -100,4 +122,16 @@ func (t *LiveTests) SetUpTest(c *C) {
 func (t *LiveTests) TearDownTest(c *C) {
 	t.LiveTests.TearDownTest(c)
 	t.LoggingSuite.TearDownTest(c)
+}
+
+// putFakeTools sets up a bucket containing something
+// that looks like a tools archive so test methods
+// that start an instance can succeed even though they
+// do not upload tools.
+func putFakeTools(c *C, s environs.StorageWriter) {
+	path := environs.ToolsStoragePath(version.Current)
+	c.Logf("putting fake tools at %v", path)
+	toolsContents := "tools archive, honest guv"
+	err := s.Put(path, strings.NewReader(toolsContents), int64(len(toolsContents)))
+	c.Assert(err, IsNil)
 }

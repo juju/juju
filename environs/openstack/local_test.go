@@ -2,39 +2,92 @@ package openstack_test
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/openstack"
-	"launchpad.net/juju-core/version"
-	"strings"
+	"launchpad.net/goose/testservices/identityservice"
+	"launchpad.net/goose/testservices/novaservice"
+	"launchpad.net/goose/testservices/swiftservice"
+	"net/http"
+	"net/http/httptest"
 )
 
-func registerLocalTests() {
-	Suite(&LocalSuite{})
+const (
+	baseIdentityURL = "/tokens"
+	baseNovaURL     = "/V1/1"
+	baseSwiftURL    = "/object-store"
+)
+
+type localLiveSuite struct {
+	LiveTests
+	// The following attributes are for using the service doubles.
+	Server         *httptest.Server
+	Mux            *http.ServeMux
+	oldHandler     http.Handler
+	identityDouble http.Handler
+	novaDouble     *novaservice.Nova
+	swiftDouble    http.Handler
 }
 
-type LocalSuite struct {
+func (s *localLiveSuite) SetUpSuite(c *C) {
+	c.Logf("Using openstack service test doubles")
+
+	// Set up the HTTP server.
+	s.Server = httptest.NewServer(nil)
+	s.oldHandler = s.Server.Config.Handler
+	s.Mux = http.NewServeMux()
+	s.Server.Config.Handler = s.Mux
+
+	s.cred.URL = s.Server.URL
+	// Create the identity service.
+	s.identityDouble = identityservice.NewUserPass()
+	token := s.identityDouble.(*identityservice.UserPass).AddUser(s.cred.User, s.cred.Secrets)
+	s.Mux.Handle(baseIdentityURL, s.identityDouble)
+
+	// Register Swift endpoints with identity service.
+	ep := identityservice.Endpoint{
+		AdminURL:    s.Server.URL + baseSwiftURL,
+		InternalURL: s.Server.URL + baseSwiftURL,
+		PublicURL:   s.Server.URL + baseSwiftURL,
+		Region:      s.cred.Region,
+	}
+	service := identityservice.Service{"swift", "object-store", []identityservice.Endpoint{ep}}
+	s.identityDouble.(*identityservice.UserPass).AddService(service)
+	s.swiftDouble = swiftservice.New("localhost", baseSwiftURL+"/", token)
+	s.Mux.Handle(baseSwiftURL+"/", s.swiftDouble)
+
+	// Register Nova endpoints with identity service.
+	ep = identityservice.Endpoint{
+		AdminURL:    s.Server.URL + baseNovaURL,
+		InternalURL: s.Server.URL + baseNovaURL,
+		PublicURL:   s.Server.URL + baseNovaURL,
+		Region:      s.cred.Region,
+	}
+	service = identityservice.Service{"nova", "compute", []identityservice.Endpoint{ep}}
+	s.identityDouble.(*identityservice.UserPass).AddService(service)
+	s.novaDouble = novaservice.New("localhost", "V1", token, "1")
+	s.novaDouble.SetupHTTP(s.Mux)
+
+	// Set up the Openstack tests to use our fake credentials.
+	attrs := makeTestConfig()
+	attrs["username"] = s.cred.User
+	attrs["password"] = s.cred.Secrets
+	attrs["region"] = s.cred.Region
+	attrs["auth-url"] = s.cred.URL
+	s.LiveTests.Config = attrs
+	s.LiveTests.SetUpSuite(c)
 }
 
-func (s *LocalSuite) SetUpSuite(c *C) {
-	openstack.UseTestMetadata(true)
-	openstack.ShortTimeouts(true)
+func (s *localLiveSuite) TearDownSuite(c *C) {
+	s.LiveTests.TearDownSuite(c)
+	s.Mux = nil
+	s.Server.Config.Handler = s.oldHandler
+	if s.Server != nil {
+		s.Server.Close()
+	}
 }
 
-func (s *LocalSuite) TearDownSuite(c *C) {
-	openstack.UseTestMetadata(false)
-	openstack.ShortTimeouts(false)
+func (s *localLiveSuite) SetUpTest(c *C) {
+	s.LiveTests.SetUpTest(c)
 }
 
-// putFakeTools sets up a bucket containing something
-// that looks like a tools archive so test methods
-// that start an instance can succeed even though they
-// do not upload tools.
-func putFakeTools(c *C, s environs.StorageWriter) {
-	path := environs.ToolsStoragePath(version.Current)
-	c.Logf("putting fake tools at %v", path)
-	toolsContents := "tools archive, honest guv"
-	err := s.Put(path, strings.NewReader(toolsContents), int64(len(toolsContents)))
-	c.Assert(err, IsNil)
+func (s *localLiveSuite) TearDownTest(c *C) {
+	s.LiveTests.TearDownTest(c)
 }
-
-//TODO(wallyworld) - add any necessary tests
