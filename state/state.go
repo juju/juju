@@ -209,33 +209,6 @@ func onAbort(txnErr, err error) error {
 	return txnErr
 }
 
-// RemoveMachine removes the machine with the the given id.
-func (st *State) RemoveMachine(id string) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot remove machine %s", id)
-	m, err := st.Machine(id)
-	if err != nil {
-		return err
-	}
-	if m.doc.Life != Dead {
-		return fmt.Errorf("machine is not dead")
-	}
-	sel := D{
-		{"_id", id},
-		{"life", Dead},
-	}
-	ops := []txn.Op{{
-		C:      st.machines.Name,
-		Id:     id,
-		Assert: sel,
-		Remove: true,
-	}}
-	if err := st.runner.Run(ops, "", nil); err != nil {
-		// If aborted, the machine is either dead or recreated.
-		return onAbort(err, nil)
-	}
-	return nil
-}
-
 // AllMachines returns all machines in the environment
 // ordered by id.
 func (st *State) AllMachines() (machines []*Machine, err error) {

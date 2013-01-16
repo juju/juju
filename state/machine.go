@@ -181,10 +181,10 @@ func (m *Machine) deathFailureReason(life Life) (err error) {
 // situation to be vanishingly unlikely, and so only retry once.
 var deathAttempts = 2
 
-// EnsureDying sets the machine lifecycle to Dying if it is Alive. It does
-// nothing otherwise. EnsureDying will fail if the machine has principal
+// Destroy sets the machine lifecycle to Dying if it is Alive. It does
+// nothing otherwise. Destroy will fail if the machine has principal
 // units assigned, or if the machine has JobManageEnviron.
-func (m *Machine) EnsureDying() (err error) {
+func (m *Machine) Destroy() (err error) {
 	if m.doc.Life != Alive {
 		return nil
 	}
@@ -247,6 +247,21 @@ func (m *Machine) EnsureDead() (err error) {
 		}
 	}
 	return fmt.Errorf("machine %s cannot become dead: please contact juju-dev@lists.ubuntu.com")
+}
+
+// Remove removes the machine from state. It will fail if the machine is not
+// Dead.
+func (m *Machine) Remove() (err error) {
+	defer trivial.ErrorContextf(&err, "cannot remove machine %s", m.doc.Id)
+	if m.doc.Life != Dead {
+		return fmt.Errorf("machine is not dead")
+	}
+	ops := []txn.Op{{
+		C:      m.st.machines.Name,
+		Id:     m.doc.Id,
+		Remove: true,
+	}}
+	return m.st.runner.Run(ops, "", nil)
 }
 
 // Refresh refreshes the contents of the machine from the underlying

@@ -219,7 +219,7 @@ func (s *ServiceSuite) TestServiceExposed(c *C) {
 	// Remove the service and check that both fail.
 	err = u.EnsureDead()
 	c.Assert(err, IsNil)
-	err = s.service.RemoveUnit(u)
+	err = u.Remove()
 	c.Assert(err, IsNil)
 	err = s.service.SetExposed()
 	c.Assert(err, ErrorMatches, notAliveErr)
@@ -290,7 +290,7 @@ func (s *ServiceSuite) TestAddUnitWhenNotAlive(c *C) {
 	c.Assert(err, ErrorMatches, `cannot add unit to service "mysql": service is not alive`)
 	err = u.EnsureDead()
 	c.Assert(err, IsNil)
-	err = s.service.RemoveUnit(u)
+	err = u.Remove()
 	c.Assert(err, IsNil)
 	_, err = s.service.AddUnit()
 	c.Assert(err, ErrorMatches, `cannot add unit to service "mysql": service "mysql" not found`)
@@ -370,31 +370,6 @@ func (s *ServiceSuite) TestReadUnitWhenDying(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *ServiceSuite) TestRemoveUnit(c *C) {
-	_, err := s.service.AddUnit()
-	c.Assert(err, IsNil)
-	_, err = s.service.AddUnit()
-	c.Assert(err, IsNil)
-
-	// Check that removing a unit works.
-	unit, err := s.service.Unit("mysql/0")
-	c.Assert(err, IsNil)
-	err = s.service.RemoveUnit(unit)
-	c.Assert(err, ErrorMatches, `cannot remove unit "mysql/0": unit is not dead`)
-	err = unit.EnsureDead()
-	c.Assert(err, IsNil)
-	err = s.service.RemoveUnit(unit)
-	c.Assert(err, IsNil)
-
-	units, err := s.service.AllUnits()
-	c.Assert(err, IsNil)
-	c.Assert(units, HasLen, 1)
-	c.Assert(units[0].Name(), Equals, "mysql/1")
-
-	err = s.service.RemoveUnit(unit)
-	c.Assert(err, IsNil)
-}
-
 func (s *ServiceSuite) TestLifeWithUnits(c *C) {
 	unit, err := s.service.AddUnit()
 	c.Assert(err, IsNil)
@@ -402,7 +377,9 @@ func (s *ServiceSuite) TestLifeWithUnits(c *C) {
 	c.Assert(err, IsNil)
 	err = unit.EnsureDead()
 	c.Assert(err, IsNil)
-	err = s.service.RemoveUnit(unit)
+	err = s.service.Refresh()
+	c.Assert(err, IsNil)
+	err = unit.Remove()
 	c.Assert(err, IsNil)
 	err = s.service.Refresh()
 	c.Assert(state.IsNotFound(err), Equals, true)
@@ -538,7 +515,7 @@ var serviceUnitsWatchTests = []struct {
 		func(c *C, s *state.State, service *state.Service) {
 			unit0, err := service.Unit("mysql/0")
 			c.Assert(err, IsNil)
-			err = unit0.EnsureDying()
+			err = unit0.Destroy()
 			c.Assert(err, IsNil)
 		},
 		[]string{"mysql/0"},
@@ -547,7 +524,7 @@ var serviceUnitsWatchTests = []struct {
 		func(c *C, s *state.State, service *state.Service) {
 			unit2, err := service.Unit("mysql/2")
 			c.Assert(err, IsNil)
-			err = unit2.EnsureDying()
+			err = unit2.Destroy()
 			c.Assert(err, IsNil)
 		},
 		[]string{"mysql/2"},
@@ -569,7 +546,7 @@ var serviceUnitsWatchTests = []struct {
 		func(c *C, s *state.State, service *state.Service) {
 			unit3, err := service.Unit("mysql/3")
 			c.Assert(err, IsNil)
-			err = unit3.EnsureDying()
+			err = unit3.Destroy()
 			c.Assert(err, IsNil)
 			_, err = service.AddUnit()
 			c.Assert(err, IsNil)
@@ -604,7 +581,7 @@ var serviceUnitsWatchTests = []struct {
 			for i := 10; i < len(units); i++ {
 				err = units[i].EnsureDead()
 				c.Assert(err, IsNil)
-				err = service.RemoveUnit(units[i])
+				err = units[i].Remove()
 				c.Assert(err, IsNil)
 			}
 		},
@@ -619,7 +596,7 @@ var serviceUnitsWatchTests = []struct {
 				c.Assert(err, IsNil)
 			}
 			for _, unit := range units {
-				err = unit.EnsureDying()
+				err = unit.Destroy()
 				c.Assert(err, IsNil)
 			}
 			err = units[8].EnsureDead()
@@ -658,7 +635,7 @@ var serviceUnitsWatchTests = []struct {
 			c.Assert(err, IsNil)
 			err = unit10.EnsureDead()
 			c.Assert(err, IsNil)
-			err = service.RemoveUnit(unit10)
+			err = unit10.Remove()
 			c.Assert(err, IsNil)
 		},
 		[]string{"mysql/10", "mysql/29", "mysql/30"},
@@ -669,7 +646,7 @@ var serviceUnitsWatchTests = []struct {
 			c.Assert(err, IsNil)
 			err = unit30.EnsureDead()
 			c.Assert(err, IsNil)
-			err = service.RemoveUnit(unit30)
+			err = unit30.Remove()
 			c.Assert(err, IsNil)
 		},
 		[]string{"mysql/30"},
@@ -715,9 +692,7 @@ func (s *ServiceSuite) TestWatchUnits(c *C) {
 			continue
 		}
 		c.Assert(err, IsNil)
-		svc, err := s.State.Service(unit.ServiceName())
-		c.Assert(err, IsNil)
-		err = svc.RemoveUnit(unit)
+		err = unit.Remove()
 		c.Assert(err, IsNil)
 	}
 	s.State.StartSync()
@@ -916,7 +891,7 @@ func removeAllUnits(c *C, s *state.Service) {
 	for _, u := range us {
 		err = u.EnsureDead()
 		c.Assert(err, IsNil)
-		err = s.RemoveUnit(u)
+		err = u.Remove()
 		c.Assert(err, IsNil)
 	}
 }
