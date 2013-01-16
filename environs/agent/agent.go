@@ -1,10 +1,9 @@
 package agent
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -12,14 +11,13 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sync"
 )
 
 // Conf holds information for a given agent.
 type Conf struct {
 	// DataDir specifies the path of the data directory used by all
 	// agents
-	DataDir string `json:",omitempty"`
+	DataDir string
 
 	// OldPassword specifies a password that should be
 	// used to connect to the state if StateInfo.Password
@@ -52,19 +50,11 @@ func ReadConf(dataDir, entityName string) (*Conf, error) {
 		return nil, err
 	}
 	var c Conf
-	// We use json rather than yaml because it deals with
-	// []byte better (it uses base64 encoding rather than
-	// an array of decimal numbers).
-	if err := json.Unmarshal(data, &c); err != nil {
+	if err := goyaml.Unmarshal(data, &c); err != nil {
 		return nil, err
 	}
 	c.DataDir = dataDir
 	c.StateInfo.EntityName = entityName
-
-	// Restore CA certificate if necessary.
-	if c.APIInfo.Addr != "" && c.APIInfo.CACert == nil {
-		c.APIInfo.CACert = c.StateInfo.CACert
-	}
 	if err := c.Check(); err != nil {
 		return nil, err
 	}
@@ -121,16 +111,11 @@ func (c *Conf) Check() error {
 }
 
 // Write writes the agent configuration.
-func (c0 *Conf) Write() error {
-	if err := c0.Check(); err != nil {
+func (c *Conf) Write() error {
+	if err := c.Check(); err != nil {
 		return err
 	}
-	c := *c0
-	// don't needlessly duplicate the CA certificate.
-	if c.APIInfo.Addr != "" && bytes.Equal(c.APIInfo.CACert, c.StateInfo.CACert) {
-		c.APIInfo.CACert = nil
-	}
-	data, err := json.Marshal(c)
+	data, err := goyaml.Marshal(c)
 	if err != nil {
 		return err
 	}
@@ -154,7 +139,7 @@ func (c *Conf) WriteCommands() ([]string, error) {
 	if err := c.Check(); err != nil {
 		return nil, err
 	}
-	data, err := json.Marshal(c)
+	data, err := goyaml.Marshal(c)
 	if err != nil {
 		return nil, err
 	}
@@ -167,37 +152,6 @@ func (c *Conf) WriteCommands() ([]string, error) {
 	addCmd("echo %s > %s", trivial.ShQuote(string(data)), f)
 	addCmd("chmod %o %s", 0600, f)
 	return cmds, nil
-}
-
-// We use a global mutex here so that agents can use different Conf's
-// writing to the same filesystem path and we'll still get reasonable
-// behavior.
-var changeMutex sync.Mutex
-
-// Change re-reads the receiving configuration, passes it to the given
-// mutate function, and writes it back.  Change may be called
-// concurrently - each mutation will happen in sequence.  The receiver
-// will be changed to match the result.  If mutate returns an error, or
-// the mutation results in an invalid configuration no
-// change will be made and the error will be returned.
-func (c *Conf) Change(mutate func(conf *Conf) error) error {
-	changeMutex.Lock()
-	defer changeMutex.Unlock()
-	nc, err := ReadConf(c.DataDir, c.StateInfo.EntityName)
-	if err != nil {
-		return err
-	}
-	if err := mutate(nc); err != nil {
-		return err
-	}
-	if err := nc.Check(); err != nil {
-		return err
-	}
-	if err := nc.Write(); err != nil {
-		return err
-	}
-	*c = *nc
-	return nil
 }
 
 // OpenState tries to open the state using the given Conf.  If

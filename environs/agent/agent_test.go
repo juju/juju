@@ -1,7 +1,6 @@
 package agent_test
 
 import (
-	"errors"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/juju/testing"
@@ -12,9 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sync"
 	stdtesting "testing"
-	"time"
 )
 
 type suite struct{}
@@ -263,105 +260,6 @@ func (suite) TestConfFile(c *C) {
 		},
 	}
 	c.Assert(conf.File("x/y"), Equals, "/foo/agents/bar/x/y")
-}
-
-func (suite) TestChange(c *C) {
-	dataDir := c.MkDir()
-	conf := agent.Conf{
-		DataDir:     dataDir,
-		OldPassword: "old",
-		StateInfo: state.Info{
-			Addrs:      []string{"x:4"},
-			CACert:     []byte("xxx"),
-			EntityName: "bar",
-			Password:   "pass",
-		},
-	}
-	err := conf.Write()
-	c.Assert(err, IsNil)
-
-	conf2 := agent.Conf{
-		DataDir: dataDir,
-		StateInfo: state.Info{
-			Addrs:      []string{"y:8"},
-			CACert:     []byte("yyy"),
-			EntityName: "bar",
-			Password:   "again",
-		},
-	}
-
-	mutate1 := func(c *agent.Conf) error {
-		c.StateInfo.Password += "-1"
-		time.Sleep(10 * time.Millisecond)
-		return nil
-	}
-	mutate2 := func(c *agent.Conf) error {
-		c.OldPassword += "-2"
-		time.Sleep(10 * time.Millisecond)
-		return nil
-	}
-
-	start := make(chan struct{})
-	var wg sync.WaitGroup
-	for _, f := range []func(*agent.Conf) error{mutate1, mutate1, mutate2, mutate2} {
-		f := f
-		wg.Add(1)
-		go func() {
-			<-start
-			err := conf2.Change(f)
-			c.Check(err, IsNil)
-			wg.Done()
-		}()
-	}
-	close(start)
-	wg.Wait()
-	c.Assert(conf2, DeepEquals, agent.Conf{
-		DataDir:     dataDir,
-		OldPassword: "old-2-2",
-		StateInfo: state.Info{
-			Addrs:      []string{"x:4"},
-			CACert:     []byte("xxx"),
-			EntityName: "bar",
-			Password:   "pass-1-1",
-		},
-	})
-}
-
-func (suite) TestChangeError(c *C) {
-	dataDir := c.MkDir()
-	conf := agent.Conf{
-		DataDir: dataDir,
-		StateInfo: state.Info{
-			Addrs:      []string{"x:4"},
-			CACert:     []byte("xxx"),
-			EntityName: "bar",
-			Password:   "pass",
-		},
-	}
-	err := conf.Write()
-	c.Assert(err, IsNil)
-
-	// Check that an error returned from the mutate function
-	// is returned from Change.
-	changeErr := errors.New("an error")
-	err = conf.Change(func(c *agent.Conf) error {
-		c.StateInfo.EntityName = "not-written"
-		return changeErr
-	})
-	c.Assert(err, Equals, changeErr)
-
-	// Check that an invalid change yields an error.
-	err = conf.Change(func(c *agent.Conf) error {
-		c.StateInfo.Addrs = nil
-		return nil
-	})
-	c.Assert(err, ErrorMatches, "state server address not found in configuration")
-
-	// Check the file hasn't changed
-	conf2, err := agent.ReadConf(dataDir, "bar")
-	c.Assert(err, IsNil)
-
-	c.Assert(conf2, DeepEquals, &conf)
 }
 
 type openSuite struct {
