@@ -372,7 +372,7 @@ func (t *localNonUSEastSuite) TearDownTest(c *C) {
 }
 
 func (t *localNonUSEastSuite) TestPutBucket(c *C) {
-	p := t.env.PublicStorage().(ec2.Storage)
+	p := ec2.WritablePublicStorage(t.env).(ec2.Storage)
 	for i := 0; i < 5; i++ {
 		p.ResetMadeBucket()
 		var buf bytes.Buffer
