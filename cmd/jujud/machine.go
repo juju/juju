@@ -54,6 +54,19 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	defer log.Printf("cmd/jujud: machine agent exiting")
 	defer a.tomb.Done()
 
+	// TODO(rog): When the state server address is
+	// available from the API, this will need to change.
+	// The plan is this:
+	// - The API server address will always be available.
+	// - If the state server address is available in the configuration
+	//	we'll use that to connect (that will happen at bootstrap time
+	// 	only)
+	// - Otherwise we'll do an initial connect to the API server (changing
+	//	the password as required), and use
+	//	that to fetch the state server address (and password
+	//	and server cert and key too), before starting to run
+	//	the jobs.
+
 	apiDone := make(chan error, 1)
 	if err := a.startAPIServer(apiDone); err != nil {
 		return err
@@ -74,86 +87,6 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	}
 	return a.tomb.Err()
 }
-
-func (a *MachineAgent) startAPIServer(apiDone chan<- error) error {
-	// The initial API connection runs synchronously because
-	// things will go wrong if we're concurrently modifying
-	// the password.
-	// TODO(rog): Simplify this when this is the only thing
-	// that connects directly to the mongodb state.
-	var st *state.State
-	var m *state.Machine
-	for {
-		st0, entity, err := openState(a.Conf.Conf, a)
-		if err == worker.ErrDead {
-			return err
-		}
-		if err == nil {
-			st = st0
-			m = entity.(*state.Machine)
-			break
-		}
-		log.Printf("cmd/jujud: %v", err)
-		if isleep(retryDelay, a.tomb.Dying()) {
-			return nil
-		}
-	}
-	runAPI := false
-	for _, job := range m.Jobs() {
-		if job == state.APIServerJob {
-			runAPI = true
-		}
-	}
-	if !runAPI {
-		go func() {
-			<-a.tomb.Dying
-			apiDone <- nil
-		}()
-		return
-	}
-	// TODO(rog) fetch server cert and key from state?
-	if len(conf.ServerCert) == 0 || len(conf.ServerKey) == 0 {
-		return fmt.Errorf("configuration does not have server cert/key")
-	}
-	if conf.APIInfo.Addr == "" {
-		return fmt.Errorf("configuration does not have API server address")
-	}
-	// Use a copy of the configuration so that we're independent.
-	conf := *a.Conf.Conf
-	go func() {
-		apiDone <- a.apiServer(st, &conf)
-	}()
-	return nil
-}
-
-func (a *MachineAgent) apiServer(st *state.State, conf *agent.Conf) error {
-	defer func() {
-		if st != nil {
-			st.Close()
-		}
-	}()
-	for {
-		srv, err := api.NewServer(st, conf.APIInfo.Addr, conf.ServerCert, conf.ServerKey)
-		if err != nil {
-			st.Close()
-			return err
-		}
-		select{
-		case <-a.tomb.Dying():
-			return srv.Stop()
-		case <-srv.Dead():
-			log.Printf("cmd/jujud: api server died: %v", srv.Wait())
-		}
-		if isleep(retryDelay, a.tomb.Dying()) {
-			return nil
-		}
-	}
-}
-
-TODO:
-
-get cert and key from data dir
-change agent.go to get CA cert from data dir
 
 func (a *MachineAgent) runOnce() error {
 	// TODO (when API state is universal): try to open mongo state
@@ -225,7 +158,6 @@ func (a *MachineAgent) runOnce() error {
 	return runTasks(a.tomb.Dying(), tasks...)
 }
 
-
 func (a *MachineAgent) RunOnce(st *state.State, e AgentState) error {
 	m := e.(*state.Machine)
 	log.Printf("cmd/jujud: running jobs for machine agent: %v", m.Jobs())
@@ -256,4 +188,78 @@ func (a *MachineAgent) EntityName() string {
 
 func (a *MachineAgent) Tomb() *tomb.Tomb {
 	return &a.tomb
+}
+
+func (a *MachineAgent) startAPIServer(apiDone chan<- error) error {
+	// The initial API connection runs synchronously because
+	// things will go wrong if we're concurrently modifying
+	// the password.
+
+	var st *state.State
+	var m *state.Machine
+	for {
+		st0, entity, err := openState(a.Conf.Conf, a)
+		if err == worker.ErrDead {
+			return err
+		}
+		if err == nil {
+			st = st0
+			m = entity.(*state.Machine)
+			break
+		}
+		log.Printf("cmd/jujud: %v", err)
+		if isleep(retryDelay, a.tomb.Dying()) {
+			return nil
+		}
+	}
+	runAPI := false
+	for _, job := range m.Jobs() {
+		if job == state.APIServerJob {
+			runAPI = true
+		}
+	}
+	if !runAPI {
+		go func() {
+			<-a.tomb.Dying
+			apiDone <- nil
+		}()
+		return
+	}
+	// TODO(rog) fetch server cert and key from state?
+	if len(conf.ServerCert) == 0 || len(conf.ServerKey) == 0 {
+		return fmt.Errorf("configuration does not have server cert/key")
+	}
+	if conf.APIInfo.Addr == "" {
+		return fmt.Errorf("configuration does not have API server address")
+	}
+	// Use a copy of the configuration so that we're independent.
+	conf := *a.Conf.Conf
+	go func() {
+		apiDone <- a.apiServer(st, &conf)
+	}()
+	return nil
+}
+
+func (a *MachineAgent) apiServer(st *state.State, conf *agent.Conf) error {
+	defer func() {
+		if st != nil {
+			st.Close()
+		}
+	}()
+	for {
+		srv, err := api.NewServer(st, conf.APIInfo.Addr, conf.ServerCert, conf.ServerKey)
+		if err != nil {
+			st.Close()
+			return err
+		}
+		select{
+		case <-a.tomb.Dying():
+			return srv.Stop()
+		case <-srv.Dead():
+			log.Printf("cmd/jujud: api server died: %v", srv.Wait())
+		}
+		if isleep(retryDelay, a.tomb.Dying()) {
+			return nil
+		}
+	}
 }
