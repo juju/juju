@@ -83,7 +83,11 @@ func (s *StateSuite) TestAddMachine(c *C) {
 	c.Assert(m0.Id(), Equals, "0")
 	c.Assert(m0.Jobs(), DeepEquals, []state.MachineJob{state.JobHostUnits})
 
-	allJobs := []state.MachineJob{state.JobHostUnits, state.JobManageEnviron}
+	allJobs := []state.MachineJob{
+		state.JobHostUnits,
+		state.JobManageEnviron,
+		state.JobServeAPI,
+	}
 	m1, err := s.State.AddMachine(allJobs...)
 	c.Assert(err, IsNil)
 	c.Assert(m1.Id(), Equals, "1")

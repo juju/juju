@@ -27,6 +27,7 @@ const (
 	_ MachineJob = iota
 	JobHostUnits
 	JobManageEnviron
+	JobServeAPI
 )
 
 // machineDoc represents the internal state of a machine in MongoDB.
