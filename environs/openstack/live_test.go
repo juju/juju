@@ -7,14 +7,10 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goose/client"
 	"launchpad.net/goose/identity"
-	"launchpad.net/goose/nova"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/openstack"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/version"
-	"os"
-	"strings"
 )
 
 // uniqueName is generated afresh for every test run, so that
@@ -39,29 +35,17 @@ func makeTestConfig() map[string]interface{} {
 	//  access-key: $OS_USERNAME
 	//  secret-key: $OS_PASSWORD
 	//
-	// There is no standard public bucket for storing the tools as yet.
-	// Individuals can create their own public bucket for testing, which is
-	// specified using the following environment variable: $OS_PUBLIC_BUCKET_URL
-	var publicBucketURL = os.Getenv("OS_PUBLIC_BUCKET_URL")
 	attrs := map[string]interface{}{
-		"name":              "sample-" + uniqueName,
-		"type":              "openstack",
-		"auth-method":       "userpass",
-		"control-bucket":    "juju-test-" + uniqueName,
-		"public-bucket-url": publicBucketURL,
+		"name":           "sample-" + uniqueName,
+		"type":           "openstack",
+		"auth-method":    "userpass",
+		"control-bucket": "juju-test-" + uniqueName,
 	}
 	return attrs
 }
 
-// Register tests to run against a real Openstack instance.
-func registerOpenStackTests(cred *identity.Credentials) {
-	attrs := makeTestConfig()
-	Suite(&LiveTests{
-		cred: cred,
-		LiveTests: jujutest.LiveTests{
-			Config: attrs,
-		},
-	})
+func registerOpenStackTests() {
+	Suite(&LiveTests{})
 }
 
 // Register tests to run against a test Openstack instance (service doubles).
@@ -84,22 +68,34 @@ type LiveTests struct {
 	coretesting.LoggingSuite
 	jujutest.LiveTests
 	cred       *identity.Credentials
-	novaClient *nova.Client
+	writeablePublicStorage environs.Storage
 }
 
 func (t *LiveTests) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
+	// Get an authenticated Goose client to extract some configuration parameters for the test environment.
+	cred, err := identity.CompleteCredentialsFromEnv()
+	c.Assert(err, IsNil)
+	client := client.NewClient(cred, identity.AuthUserPass, nil)
+	err = client.Authenticate()
+	c.Assert(err, IsNil)
+	publicBucketURL, err := client.MakeServiceURL("object-store", nil)
+	c.Assert(err, IsNil)
+	attrs := makeTestConfig()
+	attrs["public-bucket-url"] = publicBucketURL
+	t.Config = attrs
 	e, err := environs.NewFromAttrs(t.Config)
 	c.Assert(err, IsNil)
 
-	// Get a nova client and start some test service instances.
-	client := client.NewClient(t.cred, identity.AuthUserPass, nil)
-	t.novaClient = nova.New(client)
-
+	// Environ.PublicStorage() is read only.
+	// For testing, we create a specific storage instance which is authorised to write to
+	// the public storage bucket so that we can upload files for testing.
+	t.writeablePublicStorage, err = openstack.WritablePublicStorage(e)
+	c.Assert(err, IsNil)
 	// Put some fake tools in place so that tests that are simply
 	// starting instances without any need to check if those instances
 	// are running will find them in the public bucket.
-	putFakeTools(c, e.PublicStorage().(environs.Storage))
+	putFakeTools(c, t.writeablePublicStorage)
 	t.LiveTests.SetUpSuite(c)
 }
 
@@ -108,8 +104,10 @@ func (t *LiveTests) TearDownSuite(c *C) {
 		// This can happen if SetUpSuite fails.
 		return
 	}
-	err := openstack.DeleteStorageContent(t.Env.PublicStorage().(environs.Storage))
-	c.Check(err, IsNil)
+	if t.writeablePublicStorage != nil {
+		err := openstack.DeleteStorageContent(t.writeablePublicStorage)
+		c.Check(err, IsNil)
+	}
 	t.LiveTests.TearDownSuite(c)
 	t.LoggingSuite.TearDownSuite(c)
 }

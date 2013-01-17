@@ -193,6 +193,10 @@ func (e *environ) client(ecfg *environConfig, authMethodCfg AuthMethod) client.A
 	return client.NewClient(cred, authMethod, nil)
 }
 
+func (e *environ) publicClient(ecfg *environConfig) client.Client {
+	return client.NewPublicClient(ecfg.publicBucketURL(), nil)
+}
+
 func (e *environ) SetConfig(cfg *config.Config) error {
 	ecfg, err := providerInstance.newConfig(cfg)
 	if err != nil {
@@ -220,7 +224,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 		e.publicStorageUnlocked = &storage{
 			containerName: ecfg.publicBucket(),
 			containerACL:  swift.PublicRead,
-			swift:         swift.New(e.client(ecfg, authMethodCfg))}
+			swift:         swift.New(e.publicClient(ecfg))}
 	} else {
 		e.publicStorageUnlocked = nil
 	}
