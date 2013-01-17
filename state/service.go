@@ -108,7 +108,7 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 		}
 		ops = append(ops, relOps...)
 		if isRemove {
-			removeCount += 1
+			removeCount++
 		}
 	}
 	asserts := D{{"life", Alive}, {"txn-revno", s.doc.TxnRevno}}

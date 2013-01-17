@@ -204,30 +204,36 @@ func (r *Relation) removeOps(mode removeMode, serviceName string) ([]txn.Op, err
 // serviceName.
 func (r *Relation) endpointRemoveOps(mode removeMode, serviceName string, ep Endpoint) ([]txn.Op, error) {
 	name := ep.ServiceName
-	switch mode {
-	case modeDestroyRelation:
-	case modeDestroyService:
+	var asserts D
+	if mode == modeLeaveScope {
 		if name == serviceName {
-			// The service destroy op is handling its own changes; don't interfere.
-			return nil, nil
-		}
-	case modeLeaveScope:
-		if name != serviceName {
-			// If we hold the last reference to a Dying service, it can be
-			// removed directly without further assertions, because nothing
-			// can add a reference to a Dying service.
+			// The service of the unit leaving scope must have at least one
+			// unit (otherwise, what exactly is leaving scope?).
+			asserts = D{{"unitcount", D{{"$gt", 0}}}}
+		} else {
+			// If we hold the last reference to a Dying service on the other
+			// side of the relation, remove it.
 			svc, err := r.st.Service(name)
 			if err != nil {
 				return nil, err
 			}
 			if svc.doc.Life == Dying && svc.doc.UnitCount == 0 && svc.doc.RelationCount == 1 {
-				return svc.removeOps(nil), nil
+				return svc.removeOps(D{{"life", Dying}, {"unitcount", 0}, {"relationcount", 1}}), nil
 			}
 		}
+	} else if mode == modeDestroyService && name == serviceName {
+		// The service destroy op is handling its own changes; don't interfere.
+		return nil, nil
+	} else {
+		// We're destroying the relation; this operation is only valid when
+		// the relation is Alive, which implies that both its services must
+		// also be Alive.
+		asserts = isAliveDoc
 	}
 	return []txn.Op{{
 		C:      r.st.services.Name,
 		Id:     name,
+		Assert: append(D{{"relationcount", D{{"$gt", 0}}}}, asserts...),
 		Update: D{{"$inc", D{{"relationcount", -1}}}},
 	}}, nil
 }
