@@ -443,11 +443,8 @@ func (s *FirewallerSuite) TestRemoveService(c *C) {
 	c.Assert(err, IsNil)
 	err = svc.RemoveUnit(u)
 	c.Assert(err, IsNil)
-	err = svc.EnsureDead()
+	err = svc.Destroy()
 	c.Assert(err, IsNil)
-	err = s.State.RemoveService(svc)
-	c.Assert(err, IsNil)
-
 	s.assertPorts(c, inst, m.Id(), nil)
 }
 
@@ -483,18 +480,14 @@ func (s *FirewallerSuite) TestRemoveMultipleServices(c *C) {
 	c.Assert(err, IsNil)
 	err = svc2.RemoveUnit(u2)
 	c.Assert(err, IsNil)
-	err = svc2.EnsureDead()
-	c.Assert(err, IsNil)
-	err = s.State.RemoveService(svc2)
+	err = svc2.Destroy()
 	c.Assert(err, IsNil)
 
 	err = u1.EnsureDead()
 	c.Assert(err, IsNil)
 	err = svc1.RemoveUnit(u1)
 	c.Assert(err, IsNil)
-	err = svc1.EnsureDead()
-	c.Assert(err, IsNil)
-	err = s.State.RemoveService(svc1)
+	err = svc1.Destroy()
 	c.Assert(err, IsNil)
 
 	s.assertPorts(c, inst1, m1.Id(), nil)
@@ -522,9 +515,7 @@ func (s *FirewallerSuite) TestDeadMachine(c *C) {
 	c.Assert(err, IsNil)
 	err = svc.RemoveUnit(u)
 	c.Assert(err, IsNil)
-	err = svc.EnsureDead()
-	c.Assert(err, IsNil)
-	err = s.State.RemoveService(svc)
+	err = svc.Destroy()
 	c.Assert(err, IsNil)
 
 	// Kill machine.

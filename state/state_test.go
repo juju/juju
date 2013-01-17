@@ -213,25 +213,6 @@ func (s *StateSuite) TestServiceNotFound(c *C) {
 	c.Assert(state.IsNotFound(err), Equals, true)
 }
 
-func (s *StateSuite) TestRemoveService(c *C) {
-	charm := s.AddTestingCharm(c, "dummy")
-	service, err := s.State.AddService("wordpress", charm)
-	c.Assert(err, IsNil)
-
-	// Remove of existing service.
-	err = s.State.RemoveService(service)
-	c.Assert(err, ErrorMatches, `cannot remove service "wordpress": service is not dead`)
-	err = service.EnsureDead()
-	c.Assert(err, IsNil)
-	err = s.State.RemoveService(service)
-	c.Assert(err, IsNil)
-	_, err = s.State.Service("wordpress")
-	c.Assert(err, ErrorMatches, `service "wordpress" not found`)
-
-	err = s.State.RemoveService(service)
-	c.Assert(err, IsNil)
-}
-
 func (s *StateSuite) TestAllServices(c *C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	services, err := s.State.AllServices()
@@ -699,30 +680,39 @@ var servicesWatchTests = []struct {
 		[]string{"s2", "s3"},
 	},
 	{
-		"die a service",
+		"destroy a service",
 		func(c *C, s *state.State, _ *state.Charm) {
 			svc3, err := s.Service("s3")
 			c.Assert(err, IsNil)
-			err = svc3.EnsureDead()
+			err = svc3.Destroy()
 			c.Assert(err, IsNil)
 		},
 		[]string{"s3"},
 	},
 	{
-		"die and remove multiple services",
+		"destroy one (to Dying); remove another",
 		func(c *C, s *state.State, _ *state.Charm) {
 			svc0, err := s.Service("s0")
 			c.Assert(err, IsNil)
-			err = svc0.EnsureDead()
+			_, err = svc0.AddUnit()
+			c.Assert(err, IsNil)
+			err = svc0.Destroy()
 			c.Assert(err, IsNil)
 			svc2, err := s.Service("s2")
 			c.Assert(err, IsNil)
-			err = svc2.EnsureDead()
-			c.Assert(err, IsNil)
-			err = s.RemoveService(svc2)
+			err = svc2.Destroy()
 			c.Assert(err, IsNil)
 		},
 		[]string{"s0", "s2"},
+	},
+	{
+		"remove the Dying one",
+		func(c *C, s *state.State, _ *state.Charm) {
+			svc0, err := s.Service("s0")
+			c.Assert(err, IsNil)
+			removeAllUnits(c, svc0)
+		},
+		[]string{"s0"},
 	},
 	{
 		"add and remove a service at the same time",
@@ -731,9 +721,7 @@ var servicesWatchTests = []struct {
 			c.Assert(err, IsNil)
 			svc1, err := s.Service("s1")
 			c.Assert(err, IsNil)
-			err = svc1.EnsureDead()
-			c.Assert(err, IsNil)
-			err = s.RemoveService(svc1)
+			err = svc1.Destroy()
 			c.Assert(err, IsNil)
 		},
 		[]string{"s1", "s4"},
@@ -748,9 +736,7 @@ var servicesWatchTests = []struct {
 				c.Assert(err, IsNil)
 			}
 			for i := 10; i < len(services); i++ {
-				err = services[i].EnsureDead()
-				c.Assert(err, IsNil)
-				err = s.RemoveService(services[i])
+				err = services[i].Destroy()
 				c.Assert(err, IsNil)
 			}
 		},
@@ -765,7 +751,7 @@ var servicesWatchTests = []struct {
 			c.Assert(err, IsNil)
 			err = svc9.SetExposed()
 			c.Assert(err, IsNil)
-			err = svc9.EnsureDead()
+			err = svc9.Destroy()
 			c.Assert(err, IsNil)
 		},
 		[]string{"twenty-five", "ss9"},

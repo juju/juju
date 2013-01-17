@@ -339,29 +339,6 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	return svc, nil
 }
 
-// RemoveService removes a service from the state.
-func (st *State) RemoveService(svc *Service) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot remove service %q", svc)
-	if svc.doc.Life != Dead {
-		return fmt.Errorf("service is not dead")
-	}
-	ops := []txn.Op{{
-		C:      st.services.Name,
-		Id:     svc.doc.Name,
-		Assert: D{{"life", Dead}},
-		Remove: true,
-	}, {
-		C:      st.settings.Name,
-		Id:     svc.globalKey(),
-		Remove: true,
-	}}
-	if err := st.runner.Run(ops, "", nil); err != nil {
-		// If aborted, the service is either dead or recreated.
-		return onAbort(err, nil)
-	}
-	return nil
-}
-
 // Service returns a service state by name.
 func (st *State) Service(name string) (service *Service, err error) {
 	if !IsServiceName(name) {
@@ -396,8 +373,7 @@ func (st *State) AllServices() (services []*Service, err error) {
 // There must be 1 or 2 supplied names, of the form <service>[:<relation>].
 // If the supplied names uniquely specify a possible relation, or if they
 // uniquely specify a possible relation once all implicit relations have been
-// filtered, the returned endpoints
-// corresponding to that relation will be returned,
+// filtered, the endpoints corresponding to that relation will be returned.
 func (st *State) InferEndpoints(names []string) ([]Endpoint, error) {
 	// Collect all possible sane endpoint lists.
 	var candidates [][]Endpoint

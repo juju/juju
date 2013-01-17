@@ -1437,7 +1437,7 @@ func (s custom) step(c *C, ctx *context) {
 }
 
 var serviceDying = custom{func(c *C, ctx *context) {
-	c.Assert(ctx.svc.EnsureDying(), IsNil)
+	c.Assert(ctx.svc.Destroy(), IsNil)
 }}
 
 var relationDying = custom{func(c *C, ctx *context) {

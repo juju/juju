@@ -7,7 +7,6 @@ import (
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/trivial"
 	"strconv"
 )
@@ -50,71 +49,120 @@ func (s *Service) Life() Life {
 	return s.doc.Life
 }
 
-// EnsureDying sets the service lifecycle, and those of all its relations,
-// to Dying if the service is Alive. It does nothing otherwise.
-func (s *Service) EnsureDying() error {
-	// To kill the relations in the same transaction as the service, we need
-	// to collect a consistent relation state on which to apply it; and if the
-	// transaction is aborted, we need to re-collect, and retry, until we succeed.
-	for s.doc.Life == Alive {
-		log.Debugf("state: found %d relations for service %q", s.doc.RelationCount, s)
-		rels, err := s.Relations()
+var errRefresh = errors.New("cannot determine relation destruction operations; please refresh the service")
+
+// Destroy ensures that the service and all its relations will be removed at
+// some point; if the service has no units, and no relation involving the
+// service has any units in scope, they are all removed immediately.
+func (s *Service) Destroy() (err error) {
+	defer trivial.ErrorContextf(&err, "cannot destroy service %q", s)
+	defer func() {
 		if err != nil {
+			// This is a white lie; the document might actually be removed.
+			s.doc.Life = Dying
+		}
+	}()
+	svc := &Service{s.st, s.doc}
+	for i := 0; i < 5; i++ {
+		ops, err := svc.destroyOps()
+		switch {
+		case err == errRefresh:
+		case err == errAlreadyDying:
+			return nil
+		case err != nil:
 			return err
-		}
-		if len(rels) != s.doc.RelationCount {
-			log.Debugf("state: service %q relations changed; retrying", s)
-			if err := s.Refresh(); err != nil {
+		default:
+			if err := svc.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
 				return err
 			}
-			continue
 		}
-		ops := []txn.Op{{
-			C:      s.st.services.Name,
-			Id:     s.doc.Name,
-			Assert: D{{"life", Alive}, {"txn-revno", s.doc.TxnRevno}},
-			Update: D{{"$set", D{{"life", Dying}}}},
-		}}
-		for _, rel := range rels {
-			if rel.Life() == Alive {
-				ops = append(ops, txn.Op{
-					C:      s.st.relations.Name,
-					Id:     rel.doc.Key,
-					Assert: isAliveDoc,
-					Update: D{{"$set", D{{"life", Dying}}}},
-				})
-			}
-		}
-		if err := s.st.runner.Run(ops, "", nil); err == txn.ErrAborted {
-			log.Debugf("state: service %q changed, retrying", s)
-			if err := s.Refresh(); err != nil {
-				return err
-			}
-			continue
+		if err := svc.Refresh(); IsNotFound(err) {
+			return nil
 		} else if err != nil {
 			return err
 		}
-		log.Debugf("state: service %q is now dying", s)
-		s.doc.Life = Dying
 	}
-	return nil
+	return ErrExcessiveContention
 }
 
-// EnsureDead sets the service lifecycle to Dead if it is Alive or Dying.
-// It does nothing otherwise. It will return an error if the service still
-// has units, or is still participating in relations.
-func (s *Service) EnsureDead() error {
-	assertOps := []txn.Op{{
+// destroyOps returns the operations required to destroy the service. If it
+// returns errRefresh, the service should be refreshed and the destruction
+// operations recalculated.
+func (s *Service) destroyOps() ([]txn.Op, error) {
+	if s.doc.Life == Dying {
+		return nil, errAlreadyDying
+	}
+	rels, err := s.Relations()
+	if err != nil {
+		return nil, err
+	}
+	if len(rels) != s.doc.RelationCount {
+		// This is just an early bail out. The relations obtained may still
+		// be wrong, but that situation will be caught by a combination of
+		// asserts on relationcount and on each known relation, below.
+		return nil, errRefresh
+	}
+	var ops []txn.Op
+	removeCount := 0
+	for _, rel := range rels {
+		relOps, isRemove, err := rel.destroyOps(s.doc.Name)
+		if err == errAlreadyDying {
+			relOps = []txn.Op{{
+				C:      s.st.relations.Name,
+				Id:     rel.doc.Key,
+				Assert: D{{"life", Dying}},
+			}}
+		} else if err != nil {
+			return nil, err
+		}
+		if isRemove {
+			removeCount++
+		}
+		ops = append(ops, relOps...)
+	}
+	// If the service has no units, and all its known relations will be
+	// removed, the service can also be removed.
+	if s.doc.UnitCount == 0 && s.doc.RelationCount == removeCount {
+		hasLastRefs := D{{"life", Alive}, {"unitcount", 0}, {"relationcount", removeCount}}
+		return append(ops, s.removeOps(hasLastRefs)...), nil
+	}
+	// If any units of the service exist, or if any known relation was not
+	// removed (because it had units in scope, or because it was Dying, which
+	// implies the same condition), service removal will be handled as a
+	// consequence of the removal of the last unit or relation referencing it.
+	notLastRefs := D{
+		{"life", Alive},
+		{"$or", []D{
+			{{"unitcount", D{{"$gt", 0}}}},
+			{{"relationcount", s.doc.RelationCount}},
+		}},
+	}
+	update := D{{"$set", D{{"life", Dying}}}}
+	if removeCount != 0 {
+		decref := D{{"$inc", D{{"relationcount", -removeCount}}}}
+		update = append(update, decref...)
+	}
+	return append(ops, txn.Op{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
-		Assert: D{{"unitcount", 0}, {"relationcount", 0}},
+		Assert: notLastRefs,
+		Update: update,
+	}), nil
+}
+
+// removeOps returns the operations required to remove the service. Supplied
+// asserts will be included in the operation on the service document.
+func (s *Service) removeOps(asserts D) []txn.Op {
+	return []txn.Op{{
+		C:      s.st.services.Name,
+		Id:     s.doc.Name,
+		Assert: asserts,
+		Remove: true,
+	}, {
+		C:      s.st.settings.Name,
+		Id:     s.globalKey(),
+		Remove: true,
 	}}
-	err := ensureDead(s.st, s.st.services, s.doc.Name, "service", assertOps, "service still has units and/or relations")
-	if err != nil {
-		return err
-	}
-	s.doc.Life = Dead
-	return nil
 }
 
 // IsExposed returns whether this service is exposed. The explicitly open
@@ -250,8 +298,9 @@ func (s *Service) Refresh() error {
 func (s *Service) newUnitName() (string, error) {
 	change := mgo.Change{Update: D{{"$inc", D{{"unitseq", 1}}}}}
 	result := serviceDoc{}
-	_, err := s.st.services.Find(D{{"_id", s.doc.Name}}).Apply(change, &result)
-	if err != nil {
+	if _, err := s.st.services.Find(D{{"_id", s.doc.Name}}).Apply(change, &result); err == mgo.ErrNotFound {
+		return "", notFoundf("service %q", s)
+	} else if err != nil {
 		return "", fmt.Errorf("cannot increment unit sequence: %v", err)
 	}
 	name := s.doc.Name + "/" + strconv.Itoa(result.UnitSeq)
@@ -336,6 +385,8 @@ func (s *Service) AddUnit() (unit *Unit, err error) {
 	return s.Unit(name)
 }
 
+var ErrExcessiveContention = errors.New("state changing too quickly; try again soon")
+
 // RemoveUnit removes the given unit from s.
 func (s *Service) RemoveUnit(u *Unit) (err error) {
 	defer trivial.ErrorContextf(&err, "cannot remove unit %q", u)
@@ -345,23 +396,29 @@ func (s *Service) RemoveUnit(u *Unit) (err error) {
 	if u.doc.Service != s.doc.Name {
 		return fmt.Errorf("unit is not assigned to service %q", s)
 	}
-	if u.doc.MachineId != "" {
-		err = u.UnassignFromMachine()
-		if err != nil {
+	svc := &Service{s.st, s.doc}
+	unit := &Unit{u.st, u.doc}
+	for i := 0; i < 5; i++ {
+		ops := svc.removeUnitOps(unit)
+		if err := svc.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+			return err
+		}
+		if err := unit.Refresh(); IsNotFound(err) {
+			return nil
+		} else if err != nil {
+			return err
+		}
+		if err := svc.Refresh(); IsNotFound(err) {
+			return nil
+		} else if err != nil {
 			return err
 		}
 	}
-	ops := []txn.Op{{
-		C:      s.st.units.Name,
-		Id:     u.doc.Name,
-		Assert: D{{"life", Dead}},
-		Remove: true,
-	}, {
-		C:      s.st.services.Name,
-		Id:     s.doc.Name,
-		Assert: D{{"unitcount", D{{"$gt", 0}}}},
-		Update: D{{"$inc", D{{"unitcount", -1}}}},
-	}}
+	return ErrExcessiveContention
+}
+
+func (s *Service) removeUnitOps(u *Unit) []txn.Op {
+	var ops []txn.Op
 	if u.doc.Principal != "" {
 		ops = append(ops, txn.Op{
 			C:      s.st.units.Name,
@@ -369,18 +426,35 @@ func (s *Service) RemoveUnit(u *Unit) (err error) {
 			Assert: txn.DocExists,
 			Update: D{{"$pull", D{{"subordinates", u.doc.Name}}}},
 		})
+	} else if u.doc.MachineId != "" {
+		ops = append(ops, txn.Op{
+			C:      s.st.machines.Name,
+			Id:     u.doc.MachineId,
+			Assert: txn.DocExists,
+			Update: D{{"$pull", D{{"principals", u.doc.Name}}}},
+		})
 	}
-	if err = s.st.runner.Run(ops, "", nil); err != nil {
-		// TODO Remove this once we know the logic is right:
-		if c, err := s.st.units.FindId(u.doc.Name).Count(); err != nil {
-			return err
-		} else if c > 0 {
-			return fmt.Errorf("cannot remove unit; something smells bad")
-		}
-		// If aborted, the unit is either dead or recreated.
-		return onAbort(err, nil)
+	ops = append(ops, txn.Op{
+		C:      s.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: txn.DocExists,
+		Remove: true,
+	})
+	if s.doc.Life == Dying && s.doc.RelationCount == 0 && s.doc.UnitCount == 1 {
+		hasLastRef := D{{"life", Dying}, {"relationcount", 0}, {"unitcount", 1}}
+		return append(ops, s.removeOps(hasLastRef)...)
 	}
-	return nil
+	svcOp := txn.Op{
+		C:      s.st.services.Name,
+		Id:     s.doc.Name,
+		Update: D{{"$inc", D{{"unitcount", -1}}}},
+	}
+	if s.doc.Life == Alive {
+		svcOp.Assert = D{{"life", Alive}, {"unitcount", D{{"$gt", 0}}}}
+	} else {
+		svcOp.Assert = D{{"life", Dying}, {"unitcount", D{{"$gt", 1}}}}
+	}
+	return append(ops, svcOp)
 }
 
 // Unit returns the service's unit with name.

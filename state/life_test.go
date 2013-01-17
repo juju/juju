@@ -101,22 +101,6 @@ func (l *unitLife) teardown(s *LifeSuite, c *C) {
 	c.Assert(err, IsNil)
 }
 
-type serviceLife struct {
-	service *state.Service
-}
-
-func (l *serviceLife) id() (coll string, id interface{}) {
-	return "services", l.service.Name()
-}
-
-func (l *serviceLife) setup(s *LifeSuite, c *C) state.Living {
-	l.service = s.svc
-	return l.service
-}
-
-func (l *serviceLife) teardown(s *LifeSuite, c *C) {
-}
-
 type machineLife struct {
 	machine *state.Machine
 }
@@ -155,7 +139,7 @@ func (s *LifeSuite) prepareFixture(living state.Living, lfix lifeFixture, cached
 }
 
 func (s *LifeSuite) TestLifecycleStateChanges(c *C) {
-	for i, lfix := range []lifeFixture{&unitLife{}, &serviceLife{}, &machineLife{}} {
+	for i, lfix := range []lifeFixture{&unitLife{}, &machineLife{}} {
 		c.Logf("fixture %d", i)
 		for j, v := range stateChanges {
 			c.Logf("sequence %d", j)
