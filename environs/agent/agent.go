@@ -21,8 +21,8 @@ type Conf struct {
 
 	// StateServerCert and StateServerKey hold the state server
 	// certificate and private key in PEM format.
-	StateServerCert []byte
-	StateServerKey  []byte
+	StateServerCert []byte	`yaml:",omitempty"`
+	StateServerKey  []byte	`yaml:",omitempty"`
 
 	// OldPassword specifies a password that should be
 	// used to connect to the state if StateInfo.Password
