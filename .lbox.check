@@ -15,6 +15,6 @@ if [ $VERSION == 'devel' ]; then
 		-methods \
 		-printf \
 		-rangeloops \
-		-printfuncs 'ErrorContextf:1,notFoundf:0' \
+		-printfuncs 'ErrorContextf:1,notFoundf:0,badReqErrorf:0,Commitf:0,Snapshotf:0,Debugf:0' \
 		.
 fi
