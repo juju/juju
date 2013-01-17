@@ -1,6 +1,8 @@
 package trivial
 
 import (
+	"bytes"
+	"compress/gzip"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -53,4 +55,29 @@ func ErrorContextf(err *error, format string, args ...interface{}) {
 func ShQuote(s string) string {
 	// single-quote becomes single-quote, double-quote, single-quote, double-quote, single-quote
 	return `'` + strings.Replace(s, `'`, `'"'"'`, -1) + `'`
+}
+
+// Gzip compresses the given data.
+func Gzip(data []byte) []byte {
+	var buf bytes.Buffer
+	w := gzip.NewWriter(&buf)
+	if _, err := w.Write(data); err != nil {
+		// Compression should never fail unless it fails
+		// to write to the underlying writer, which is a bytes.Buffer
+		// that never fails.
+		panic(err)
+	}
+	if err := w.Close(); err != nil {
+		panic(err)
+	}
+	return buf.Bytes()
+}
+
+// Gunzip uncompresses the given data.
+func Gunzip(data []byte) ([]byte, error) {
+	r, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	return ioutil.ReadAll(r)
 }
