@@ -129,29 +129,47 @@ func RunLoop(c *agent.Conf, a Agent) error {
 		} else {
 			log.Printf("cmd/jujud: %v", err)
 		}
-		select {
-		case <-atomb.Dying():
-			atomb.Kill(err)
-		case <-time.After(retryDelay):
-		}
-		// Note: we don't want this at the head of the loop
-		// because we want the agent to go through the body of
-		// the loop at least once, even if it's been killed
-		// before the start.
-		if atomb.Err() != tomb.ErrStillAlive {
-			break
+		if isleep(retryDelay, atomb.Dying()) {
+			return nil
 		}
 		log.Printf("cmd/jujud: rerunning agent")
 	}
-	return atomb.Err()
+	panic("unreachable")
+}
+
+// isleep waits for the given duration, or until
+// it receives a value on stop. It returns whether
+// it has been stopped.
+func isleep(d time.Duration, stop <-chan struct{}) bool {
+	select {
+	case <-stopped:
+		return true
+	case <-time.After(d):
+	}
+	return false
 }
 
 func runOnce(c *agent.Conf, a Agent) error {
-	st, passwordChanged, err := c.OpenState()
+	st, entity, err := openState(c, a)
 	if err != nil {
 		return err
 	}
 	defer st.Close()
+	return a.RunOnce(st, entity)
+}
+
+func openState(c *agent.Conf, a Agent) (st *state.State, entity Entity, err error) {
+	st, passwordChanged, err := c.OpenState()
+	if err != nil {
+		return nil, err
+	}
+	defer func(){
+		if err != nil {
+			st.Close()
+			st = nil
+			entity = nil
+		}
+	}()
 	entity, err := a.Entity(st)
 	if state.IsNotFound(err) || err == nil && entity.Life() == state.Dead {
 		return worker.ErrDead
@@ -167,7 +185,7 @@ func runOnce(c *agent.Conf, a Agent) error {
 			return err
 		}
 	}
-	return a.RunOnce(st, entity)
+	return st, entity, nil
 }
 
 // newDeployManager gives the tests the opportunity to create a deployer.Manager
