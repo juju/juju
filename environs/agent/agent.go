@@ -19,6 +19,11 @@ type Conf struct {
 	// agents
 	DataDir string
 
+	// StateServerCert and StateServerKey hold the state server
+	// certificate and private key in PEM format.
+	StateServerCert []byte
+	StateServerKey  []byte
+
 	// OldPassword specifies a password that should be
 	// used to connect to the state if StateInfo.Password
 	// is blank or invalid.

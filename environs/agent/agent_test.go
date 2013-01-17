@@ -40,6 +40,8 @@ var confTests = []struct {
 }, {
 	about: "state info and api info",
 	conf: agent.Conf{
+		StateServerCert: []byte("server cert"),
+		StateServerKey: []byte("server key"),
 		OldPassword: "old password",
 		StateInfo: state.Info{
 			Addrs:      []string{"foo.com:355", "bar:545"},
@@ -67,7 +69,7 @@ var confTests = []struct {
 			CACert: []byte("ca cert"),
 		},
 	},
-}, {
+},{
 	about: "no state entity name",
 	conf: agent.Conf{
 		OldPassword: "old password",
