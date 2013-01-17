@@ -53,7 +53,7 @@ var errRefresh = errors.New("cannot determine relation destruction operations; p
 
 // Destroy ensures that the service and all its relations will be removed at
 // some point; if the service has no units, and no relation involving the
-// service has any units in scope, they will all be removed immediately.
+// service has any units in scope, they are all removed immediately.
 func (s *Service) Destroy() (err error) {
 	defer trivial.ErrorContextf(&err, "cannot destroy service %q", s)
 	defer func() {
@@ -97,6 +97,9 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 		return nil, err
 	}
 	if len(rels) != s.doc.RelationCount {
+		// This is just an early bail out. The relations obtained may still
+		// be wrong, but that situation will be caught by a combination of
+		// asserts on relationcount and on each known relation, below.
 		return nil, errRefresh
 	}
 	var ops []txn.Op
@@ -106,14 +109,36 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 		if err != nil {
 			return nil, err
 		}
-		ops = append(ops, relOps...)
 		if isRemove {
 			removeCount++
+		} else if len(relOps) == 0 {
+			// This indicates that the relation was already Dying; by checking
+			// that is still the case, we can ensure we always abort on relation
+			// state change, even when the number of relations has not changed.
+			relOps = append(relOps, txn.Op{
+				C:      s.st.relations.Name,
+				Id:     rel.doc.Key,
+				Assert: D{{"life", Dying}},
+			})
 		}
+		ops = append(ops, relOps...)
 	}
-	asserts := D{{"life", Alive}, {"txn-revno", s.doc.TxnRevno}}
+	// If the service has no units, and all its known relations will be
+	// removed, the service can also be removed.
 	if s.doc.UnitCount == 0 && s.doc.RelationCount == removeCount {
-		return append(ops, s.removeOps(asserts)...), nil
+		hasLastRefs := D{{"life", Alive}, {"unitcount", 0}, {"relationcount", removeCount}}
+		return append(ops, s.removeOps(hasLastRefs)...), nil
+	}
+	// If any units of the service exist, or if any known relation was not
+	// removed (because it had units in scope, or because it was Dying, which
+	// implies the same condition), service removal will be handled as a
+	// consequence of the removal of the last unit or relation referencing it.
+	notLastRefs := D{
+		{"life", Alive},
+		{"$or", []D{
+			{{"unitcount", D{{"$gt", 0}}}},
+			{{"relationcount", D{{"$gt", removeCount}}}},
+		}},
 	}
 	update := D{{"$set", D{{"life", Dying}}}}
 	if removeCount != 0 {
@@ -123,13 +148,13 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 	return append(ops, txn.Op{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
-		Assert: asserts,
+		Assert: notLastRefs,
 		Update: update,
 	}), nil
 }
 
 // removeOps returns the operations required to remove the service. Supplied
-// asserts will be applied to the service document.
+// asserts will be included in the operation on the service document.
 func (s *Service) removeOps(asserts D) []txn.Op {
 	return []txn.Op{{
 		C:      s.st.services.Name,
@@ -419,7 +444,8 @@ func (s *Service) removeUnitOps(u *Unit) []txn.Op {
 		Remove: true,
 	})
 	if s.doc.Life == Dying && s.doc.RelationCount == 0 && s.doc.UnitCount == 1 {
-		return append(ops, s.removeOps(nil)...)
+		hasLastRef := D{{"life", Dying}, {"relationcount", 0}, {"unitcount", 1}}
+		return append(ops, s.removeOps(hasLastRef)...)
 	}
 	svcOp := txn.Op{
 		C:      s.st.services.Name,

@@ -405,7 +405,7 @@ func (s *ServiceSuite) TestLifeWithUnits(c *C) {
 	c.Assert(state.IsNotFound(err), Equals, true)
 }
 
-func (s *ServiceSuite) TestLifeWithRelations(c *C) {
+func (s *ServiceSuite) TestLifeWithRemovableRelations(c *C) {
 	wordpress, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
 	ep1 := state.Endpoint{"mysql", "ifce", "blah1", state.RoleProvider, charm.ScopeGlobal}
@@ -421,11 +421,14 @@ func (s *ServiceSuite) TestLifeWithRelations(c *C) {
 	c.Assert(state.IsNotFound(err), Equals, true)
 	err = rel.Refresh()
 	c.Assert(state.IsNotFound(err), Equals, true)
+}
 
-	// Recreate service and relation.
-	wordpress, err = s.State.AddService("wordpress", s.charm)
+func (s *ServiceSuite) TestLifeWithReferencedRelations(c *C) {
+	wordpress, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
-	rel, err = s.State.AddRelation(ep1, ep2)
+	ep1 := state.Endpoint{"mysql", "ifce", "blah1", state.RoleProvider, charm.ScopeGlobal}
+	ep2 := state.Endpoint{"wordpress", "ifce", "blah1", state.RoleRequirer, charm.ScopeGlobal}
+	rel, err := s.State.AddRelation(ep1, ep2)
 	c.Assert(err, IsNil)
 
 	// Join a unit to the wordpress side to keep the relation alive.
