@@ -128,7 +128,7 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 	}), nil
 }
 
-// removeOps returns the oprations required to remove the service. Supplied
+// removeOps returns the operations required to remove the service. Supplied
 // asserts will be applied to the service document.
 func (s *Service) removeOps(asserts D) []txn.Op {
 	return []txn.Op{{

@@ -129,23 +129,20 @@ func (r *Relation) Destroy() (err error) {
 }
 
 // destroyOps returns the operations necessary to destroy the relation, and
-// whether those operations will lead to the relation's removal. If
-// destroyingService is not empty, and the relation needs to be removed,
-// no operations modifying that service will be generated.
-func (r *Relation) destroyOps(destroyingService string) ([]txn.Op, bool, error) {
+// whether those operations will lead to the relation's removal. These
+// operations may include changes to the relation's services; however, if
+// ignoreService is not empty, no operations modifying that service will
+// be generated.
+func (r *Relation) destroyOps(ignoreService string) (ops []txn.Op, isRemove bool, err error) {
 	if r.doc.Life != Alive {
 		return nil, false, nil
 	}
 	if r.doc.UnitCount == 0 {
-		mode := modeDestroyRelation
-		if destroyingService != "" {
-			mode = modeDestroyService
-		}
-		ops, err := r.removeOps(mode, destroyingService)
+		removeOps, err := r.removeOps(ignoreService, nil)
 		if err != nil {
 			return nil, false, err
 		}
-		return ops, true, nil
+		return removeOps, true, nil
 	}
 	return []txn.Op{{
 		C:      r.st.relations.Name,
@@ -155,37 +152,64 @@ func (r *Relation) destroyOps(destroyingService string) ([]txn.Op, bool, error) 
 	}}, false, nil
 }
 
-// removeMode enumerates the circumstances in which a relation might need
-// to be removed from state.
-type removeMode string
-
-const (
-	modeDestroyService  removeMode = "destroy-service"
-	modeDestroyRelation removeMode = "destroy-relation"
-	modeLeaveScope      removeMode = "leave-scope"
-)
-
-// removeOps returns the operations necessary to remove the relation, depending
-// on the context in which those operations will run, as determined by mode and
-// serviceName.
-func (r *Relation) removeOps(mode removeMode, serviceName string) ([]txn.Op, error) {
+// removeOps returns the operations necessary to remove the relation. If
+// ignoreService is not empty, no operations affecting that service will be
+// included; if departingUnit is not nil, this implies that the relation's
+// services may be Dying and otherwise unreferenced, and may thus require
+// removal themselves.
+func (r *Relation) removeOps(ignoreService string, departingUnit *Unit) ([]txn.Op, error) {
 	relOp := txn.Op{
 		C:      r.st.relations.Name,
 		Id:     r.doc.Key,
 		Remove: true,
 	}
-	if mode == modeLeaveScope {
+	if departingUnit != nil {
 		relOp.Assert = D{{"life", Dying}, {"unitcount", 1}}
 	} else {
 		relOp.Assert = D{{"life", Alive}, {"unitcount", 0}}
 	}
 	ops := []txn.Op{relOp}
 	for _, ep := range r.doc.Endpoints {
-		epOps, err := r.endpointRemoveOps(mode, serviceName, ep)
-		if err != nil {
-			return nil, err
+		if ep.ServiceName == ignoreService {
+			continue
 		}
-		ops = append(ops, epOps...)
+		var asserts D
+		hasRelation := D{{"relationcount", D{{"$gt", 0}}}}
+		if departingUnit == nil {
+			// We're constructing a destroy operation, either of the relation
+			// or one of its services, and can therefore be assured that both
+			// services are Alive.
+			asserts = append(hasRelation, isAliveDoc...)
+		} else if ep.ServiceName == departingUnit.ServiceName() {
+			// This service must have at least one unit -- the one that's
+			// departing the relation -- so it cannot be ready for removal.
+			cannotDieYet := D{{"unitcount", D{{"$gt", 0}}}}
+			asserts = append(hasRelation, cannotDieYet...)
+		} else {
+			// This service may require immediate removal.
+			svc := &Service{st: r.st}
+			hasLastRef := D{{"life", Dying}, {"unitcount", 0}, {"relationcount", 1}}
+			removable := append(D{{"_id", ep.ServiceName}}, hasLastRef...)
+			if err := r.st.services.Find(removable).One(&svc.doc); err == nil {
+				ops = append(ops, svc.removeOps(hasLastRef)...)
+				continue
+			} else if err != mgo.ErrNotFound {
+				return nil, err
+			}
+			// If not, we must check that this is still the case when the
+			// transaction is applied.
+			asserts = D{{"$or", []D{
+				{{"life", Alive}},
+				{{"unitcount", D{{"$gt", 0}}}},
+				{{"relationcount", D{{"$gt", 1}}}},
+			}}}
+		}
+		ops = append(ops, txn.Op{
+			C:      r.st.services.Name,
+			Id:     ep.ServiceName,
+			Assert: asserts,
+			Update: D{{"$inc", D{{"relationcount", -1}}}},
+		})
 	}
 	cDoc := &cleanupDoc{
 		Id:     bson.NewObjectId(),
@@ -197,45 +221,6 @@ func (r *Relation) removeOps(mode removeMode, serviceName string) ([]txn.Op, err
 		Id:     cDoc.Id,
 		Insert: cDoc,
 	}), nil
-}
-
-// endpointRemoveOps returns the operations that are needed to maintain the
-// service identified by the supplied endpoint, as determined by mode and
-// serviceName.
-func (r *Relation) endpointRemoveOps(mode removeMode, serviceName string, ep Endpoint) ([]txn.Op, error) {
-	name := ep.ServiceName
-	var asserts D
-	if mode == modeLeaveScope {
-		if name == serviceName {
-			// The service of the unit leaving scope must have at least one
-			// unit (otherwise, what exactly is leaving scope?).
-			asserts = D{{"unitcount", D{{"$gt", 0}}}}
-		} else {
-			// If we hold the last reference to a Dying service on the other
-			// side of the relation, remove it.
-			svc, err := r.st.Service(name)
-			if err != nil {
-				return nil, err
-			}
-			if svc.doc.Life == Dying && svc.doc.UnitCount == 0 && svc.doc.RelationCount == 1 {
-				return svc.removeOps(D{{"life", Dying}, {"unitcount", 0}, {"relationcount", 1}}), nil
-			}
-		}
-	} else if mode == modeDestroyService && name == serviceName {
-		// The service destroy op is handling its own changes; don't interfere.
-		return nil, nil
-	} else {
-		// We're destroying the relation; this operation is only valid when
-		// the relation is Alive, which implies that both its services must
-		// also be Alive.
-		asserts = isAliveDoc
-	}
-	return []txn.Op{{
-		C:      r.st.services.Name,
-		Id:     name,
-		Assert: append(D{{"relationcount", D{{"$gt", 0}}}}, asserts...),
-		Update: D{{"$inc", D{{"relationcount", -1}}}},
-	}}, nil
 }
 
 // Id returns the integer internal relation key. This is exposed
@@ -565,7 +550,7 @@ func (ru *RelationUnit) LeaveScope() error {
 				Update: D{{"$inc", D{{"unitcount", -1}}}},
 			})
 		} else {
-			relOps, err := ru.relation.removeOps(modeLeaveScope, ru.unit.doc.Service)
+			relOps, err := ru.relation.removeOps("", ru.unit)
 			if err != nil {
 				return err
 			}
