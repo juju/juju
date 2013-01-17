@@ -11,6 +11,8 @@ import (
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/openstack"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/version"
+	"strings"
 )
 
 // uniqueName is generated afresh for every test run, so that
@@ -44,20 +46,10 @@ func makeTestConfig() map[string]interface{} {
 	return attrs
 }
 
-func registerOpenStackTests() {
-	Suite(&LiveTests{})
-}
-
-// Register tests to run against a test Openstack instance (service doubles).
-func registerServiceDoubleTests() {
-	cred := &identity.Credentials{
-		User:    "fred",
-		Secrets: "secret",
-		Region:  "some region"}
-	Suite(&localLiveSuite{
-		LiveTests: LiveTests{
-			cred: cred,
-		},
+// Register tests to run against a real Openstack instance.
+func registerOpenStackTests(cred *identity.Credentials) {
+	Suite(&LiveTests{
+		cred: cred,
 	})
 }
 
@@ -67,21 +59,23 @@ func registerServiceDoubleTests() {
 type LiveTests struct {
 	coretesting.LoggingSuite
 	jujutest.LiveTests
-	cred       *identity.Credentials
+	cred                   *identity.Credentials
 	writeablePublicStorage environs.Storage
 }
 
 func (t *LiveTests) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
 	// Get an authenticated Goose client to extract some configuration parameters for the test environment.
-	cred, err := identity.CompleteCredentialsFromEnv()
-	c.Assert(err, IsNil)
-	client := client.NewClient(cred, identity.AuthUserPass, nil)
-	err = client.Authenticate()
+	client := client.NewClient(t.cred, identity.AuthUserPass, nil)
+	err := client.Authenticate()
 	c.Assert(err, IsNil)
 	publicBucketURL, err := client.MakeServiceURL("object-store", nil)
 	c.Assert(err, IsNil)
 	attrs := makeTestConfig()
+	attrs["username"] = t.cred.User
+	attrs["password"] = t.cred.Secrets
+	attrs["region"] = t.cred.Region
+	attrs["auth-url"] = t.cred.URL
 	attrs["public-bucket-url"] = publicBucketURL
 	t.Config = attrs
 	e, err := environs.NewFromAttrs(t.Config)

@@ -2,6 +2,7 @@ package openstack_test
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/goose/identity"
 	"launchpad.net/goose/testservices/identityservice"
 	"launchpad.net/goose/testservices/novaservice"
 	"launchpad.net/goose/testservices/swiftservice"
@@ -14,6 +15,19 @@ const (
 	baseNovaURL     = "/V1/1"
 	baseSwiftURL    = "/object-store"
 )
+
+// Register tests to run against a test Openstack instance (service doubles).
+func registerServiceDoubleTests() {
+	cred := &identity.Credentials{
+		User:    "fred",
+		Secrets: "secret",
+		Region:  "some region"}
+	Suite(&localLiveSuite{
+		LiveTests: LiveTests{
+			cred: cred,
+		},
+	})
+}
 
 type localLiveSuite struct {
 	LiveTests
@@ -65,13 +79,6 @@ func (s *localLiveSuite) SetUpSuite(c *C) {
 	s.novaDouble = novaservice.New("localhost", "V1", token, "1")
 	s.novaDouble.SetupHTTP(s.Mux)
 
-	// Set up the Openstack tests to use our fake credentials.
-	attrs := makeTestConfig()
-	attrs["username"] = s.cred.User
-	attrs["password"] = s.cred.Secrets
-	attrs["region"] = s.cred.Region
-	attrs["auth-url"] = s.cred.URL
-	s.LiveTests.Config = attrs
 	s.LiveTests.SetUpSuite(c)
 }
 
