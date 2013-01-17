@@ -100,7 +100,7 @@ environments:
 	c.Assert(conn.State, NotNil)
 
 	// Reset the admin password so the state db can be reused.
-	err = conn.State.SetAdminPassword("")
+	err = conn.State.SetAdminMongoPassword("")
 	c.Assert(err, IsNil)
 	// Close the conn (thereby closing its state) a couple of times to
 	// verify that multiple closes will not panic. We ignore the error,
@@ -146,7 +146,7 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *C) {
 	c.Assert(cfg.UnknownAttrs()["secret"], Equals, "pork")
 
 	// Reset the admin password so the state db can be reused.
-	err = conn.State.SetAdminPassword("")
+	err = conn.State.SetAdminMongoPassword("")
 	c.Assert(err, IsNil)
 }
 
@@ -185,7 +185,7 @@ func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *C) {
 	c.Assert(cfg.UnknownAttrs()["secret"], Equals, "pork")
 
 	// Reset the admin password so the state db can be reused.
-	err = conn.State.SetAdminPassword("")
+	err = conn.State.SetAdminMongoPassword("")
 	c.Assert(err, IsNil)
 }
 
@@ -236,7 +236,7 @@ func (cs *NewConnSuite) TestConnWithPassword(c *C) {
 	defer conn.Close()
 
 	// Reset the admin password so the state db can be reused.
-	err = conn.State.SetAdminPassword("")
+	err = conn.State.SetAdminMongoPassword("")
 	c.Assert(err, IsNil)
 }
 
@@ -274,7 +274,7 @@ func (s *ConnSuite) TearDownTest(c *C) {
 	if s.conn == nil {
 		return
 	}
-	err := s.conn.State.SetAdminPassword("")
+	err := s.conn.State.SetAdminMongoPassword("")
 	c.Assert(err, IsNil)
 	err = s.conn.Environ.Destroy(nil)
 	c.Check(err, IsNil)
@@ -482,7 +482,7 @@ func (s *ConnSuite) TestDestroySubordinateUnits(c *C) {
 	c.Assert(err, IsNil)
 	ru, err := rel.Unit(wordpress0)
 	c.Assert(err, IsNil)
-	err = ru.EnterScope()
+	err = ru.EnterScope(nil)
 	c.Assert(err, IsNil)
 
 	// Try to destroy the subordinate alone; check it fails.

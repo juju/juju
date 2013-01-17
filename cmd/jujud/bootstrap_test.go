@@ -188,7 +188,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *C) {
 	defer st.Close()
 
 	// Reset password so the tests can continue to use the same server.
-	err = st.SetAdminPassword("")
+	err = st.SetAdminMongoPassword("")
 	c.Assert(err, IsNil)
 }
 

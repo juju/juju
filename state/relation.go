@@ -249,115 +249,115 @@ func (ru *RelationUnit) Endpoint() Endpoint {
 	return ru.endpoint
 }
 
+// PrivateAddress returns the private address of the unit and whether it is valid.
+func (ru *RelationUnit) PrivateAddress() (string, bool) {
+	return ru.unit.PrivateAddress()
+}
+
 // ErrCannotEnterScope indicates that a relation unit failed to enter its scope
 // due to either the unit or the relation not being Alive.
 var ErrCannotEnterScope = errors.New("cannot enter scope: unit or relation is not alive")
 
-// EnterScope ensures that the unit has entered its scope in the relation and
-// that its relation settings contain its private address. When the unit has
-// already entered its relation scope, EnterScope will report success but make
-// no changes to state; otherwise, it is an error for either the relation or
-// the unit not to be Alive. Once a unit has entered a scope, it stays in scope
-// without further intervention; the relation will not be able to become Dead
-// until all units have departed its scopes.
+// ErrCannotEnterScopeYet indicates that a relation unit failed to enter its
+// scope due to a required and pre-existing subordinate unit that is not Alive.
+// Once that subordinate has been removed, a new one can be created.
+var ErrCannotEnterScopeYet = errors.New("cannot enter scope yet: non-alive subordinate unit has not been removed")
+
+// EnterScope ensures that the unit has entered its scope in the relation.
+// When the unit has already entered its relation scope, EnterScope will report
+// success but make no changes to state.
+//
+// Otherwise, assuming both the relation and the unit are alive, it will enter
+// scope and create or overwrite the unit's settings in the relation according
+// to the supplied map.
 //
 // If the unit is a principal and the relation has container scope, EnterScope
 // will also create the required subordinate unit, if it does not already exist;
 // this is because there's no point having a principal in scope if there is no
 // corresponding subordinate to join it.
-func (ru *RelationUnit) EnterScope() error {
+//
+// Once a unit has entered a scope, it stays in scope without further
+// intervention; the relation will not be able to become Dead until all units
+// have departed its scopes.
+func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	// Verify that the unit is not already in scope, and abort without error
 	// if it is.
-	relationKey, err := ru.key(ru.unit.Name())
+	ruKey, err := ru.key(ru.unit.Name())
 	if err != nil {
 		return err
 	}
-	desc := fmt.Sprintf("unit %q in relation %q", ru.unit, ru.relation)
-	if count, err := ru.st.relationScopes.FindId(relationKey).Count(); err != nil {
-		return fmt.Errorf("cannot examine scope for %s: %v", desc, err)
+	if count, err := ru.st.relationScopes.FindId(ruKey).Count(); err != nil {
+		return err
 	} else if count != 0 {
 		return nil
 	}
 
-	// Collect the operations that are always required to enter scope.
-	unitName := ru.unit.doc.Name
+	// Collect the operations necessary to enter scope, as follows:
+	// * Check unit and relation state, and incref the relation.
+	unitName, relationKey := ru.unit.doc.Name, ru.relation.doc.Key
 	ops := []txn.Op{{
-		C:      ru.st.relationScopes.Name,
-		Id:     relationKey,
-		Assert: txn.DocMissing,
-		Insert: relationScopeDoc{relationKey},
-	}, {
-		C:      ru.st.relations.Name,
-		Id:     ru.relation.doc.Key,
-		Assert: isAliveDoc,
-		Update: D{{"$inc", D{{"unitcount", 1}}}},
-	}, {
 		C:      ru.st.units.Name,
 		Id:     unitName,
 		Assert: isAliveDoc,
+	}, {
+		C:      ru.st.relations.Name,
+		Id:     relationKey,
+		Assert: isAliveDoc,
+		Update: D{{"$inc", D{{"unitcount", 1}}}},
 	}}
 
-	// Collect the operations necessary to create the unit settings in this
-	// relation, if they do not already exist.
-	if _, err := readSettings(ru.st, relationKey); IsNotFound(err) {
-		address, ok := ru.unit.PrivateAddress()
-		if !ok {
-			return fmt.Errorf("cannot initialize state for %s: private address not set", desc)
-		}
-		ops = append([]txn.Op{{
-			C:      ru.st.settings.Name,
-			Id:     relationKey,
-			Assert: txn.DocMissing,
-			Insert: map[string]interface{}{"private-address": address},
-		}}, ops...)
-	} else if err != nil {
-		return fmt.Errorf("cannot check settings for %s: %v", desc, err)
-	}
-
-	// If the unit should have a subordinate, and does not, collect the
-	// operations necessary to create it.
-	if ru.unit.IsPrincipal() && ru.endpoint.RelationScope == charm.ScopeContainer {
-		related, err := ru.relation.RelatedEndpoints(ru.endpoint.ServiceName)
+	// * Create the unit settings in this relation, if they do not already
+	//   exist; or completely overwrite them if they do. This must happen
+	//   before we create the scope doc, because the existence of a scope doc
+	//   is considered to be a guarantee of the existence of a settings doc.
+	settingsChanged := func() (bool, error) { return false, nil }
+	if count, err := ru.st.settings.FindId(ruKey).Count(); err != nil {
+		return err
+	} else if count == 0 {
+		ops = append(ops, createSettingsOp(ru.st, ruKey, settings))
+	} else {
+		var rop txn.Op
+		rop, settingsChanged, err = replaceSettingsOp(ru.st, ruKey, settings)
 		if err != nil {
 			return err
-		} else if len(related) != 1 {
-			return fmt.Errorf("expected single related endpoint, got %v", related)
 		}
-		serviceName := related[0].ServiceName
-		selSubordinate := D{{"service", serviceName}, {"principal", unitName}}
-		if n, err := ru.st.units.Find(selSubordinate).Count(); err != nil {
-			return err
-		} else if n == 0 {
-			service, err := ru.st.Service(serviceName)
-			if err != nil {
-				return err
-			}
-			_, subOps, err := service.addUnitOps(unitName, true)
-			if err != nil {
-				return err
-			}
-			ops = append(ops, subOps...)
-		}
+		ops = append(ops, rop)
 	}
 
-	// Run the complete transaction, or figure out why we can't.
+	// * Create the scope doc.
+	ops = append(ops, txn.Op{
+		C:      ru.st.relationScopes.Name,
+		Id:     ruKey,
+		Assert: txn.DocMissing,
+		Insert: relationScopeDoc{ruKey},
+	})
+
+	// * If the unit should have a subordinate, and does not, create it.
+	var existingSubName string
+	if subOps, subName, err := ru.subordinateOps(); err != nil {
+		return err
+	} else {
+		existingSubName = subName
+		ops = append(ops, subOps...)
+	}
+
+	// Now run the complete transaction, or figure out why we can't.
 	if err := ru.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
 		return err
 	}
-	if count, err := ru.st.relationScopes.FindId(relationKey).Count(); err != nil {
-		return fmt.Errorf("cannot examine scope for %s: %v", desc, err)
+	if count, err := ru.st.relationScopes.FindId(ruKey).Count(); err != nil {
+		return err
 	} else if count != 0 {
-		// The scope document exists, so we're already in scope; the txn was
-		// aborted by one of the DocMissing checks.
+		// The scope document exists, so we're actually already in scope.
 		return nil
 	}
-	// If there's no scope document, the abort should be a consequence of
-	// one of the isAliveDoc checks: find out which. (Note that there is no
+
+	// The relation or unit might no longer be Alive. (Note that there is no
 	// need for additional checks if we're trying to create a subordinate
 	// unit: this could fail due to the subordinate service's not being Alive,
 	// but this case will always be caught by the check for the relation's
 	// life (because a relation cannot be Alive if its services are not).)
-	if alive, err := isAlive(ru.st.units, ru.unit.doc.Name); err != nil {
+	if alive, err := isAlive(ru.st.units, unitName); err != nil {
 		return err
 	} else if !alive {
 		return ErrCannotEnterScope
@@ -367,9 +367,68 @@ func (ru *RelationUnit) EnterScope() error {
 	} else if !alive {
 		return ErrCannotEnterScope
 	}
+
+	// Maybe a subordinate used to exist, but is no longer alive. If that is
+	// case, we will be unable to enter scope until that unit is gone.
+	if existingSubName != "" {
+		if alive, err := isAlive(ru.st.units, existingSubName); err != nil {
+			return err
+		} else if !alive {
+			return ErrCannotEnterScopeYet
+		}
+	}
+
+	// It's possible that there was a pre-existing settings doc whose version
+	// has changed under our feet, preventing us from clearing it properly; if
+	// that is the case, something is seriously wrong (nobody else should be
+	// touching that doc under our feet) and we should bail out.
+	prefix := fmt.Sprintf("cannot enter scope for unit %q in relation %q: ", ru.unit, ru.relation)
+	if changed, err := settingsChanged(); err != nil {
+		return err
+	} else if changed {
+		return fmt.Errorf(prefix + "concurrent settings change detected")
+	}
+
 	// Apparently, all our assertions should have passed, but the txn was
-	// aborted: something is badly wrong.
-	return fmt.Errorf("cannot enter scope for %s: inconsistent state", desc)
+	// aborted: something is really seriously wrong.
+	return fmt.Errorf(prefix + "inconsistent state in EnterScope")
+}
+
+// subordinateOps returns any txn operations necessary to ensure sane
+// subordinate state when entering scope. If a required subordinate unit
+// exists and is Alive, its name will be returned as well; if one exists
+// but is not Alive, ErrCannotEnterScopeYet is returned.
+func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
+	if !ru.unit.IsPrincipal() || ru.endpoint.RelationScope != charm.ScopeContainer {
+		return nil, "", nil
+	}
+	related, err := ru.relation.RelatedEndpoints(ru.endpoint.ServiceName)
+	if err != nil {
+		return nil, "", err
+	}
+	if len(related) != 1 {
+		return nil, "", fmt.Errorf("expected single related endpoint, got %v", related)
+	}
+	serviceName, unitName := related[0].ServiceName, ru.unit.doc.Name
+	selSubordinate := D{{"service", serviceName}, {"principal", unitName}}
+	var lDoc lifeDoc
+	if err := ru.st.units.Find(selSubordinate).One(&lDoc); err == mgo.ErrNotFound {
+		service, err := ru.st.Service(serviceName)
+		if err != nil {
+			return nil, "", err
+		}
+		_, ops, err := service.addUnitOps(unitName, true)
+		return ops, "", err
+	} else if err != nil {
+		return nil, "", err
+	} else if lDoc.Life != Alive {
+		return nil, "", ErrCannotEnterScopeYet
+	}
+	return []txn.Op{{
+		C:      ru.st.units.Name,
+		Id:     lDoc.Id,
+		Assert: isAliveDoc,
+	}}, lDoc.Id, nil
 }
 
 // LeaveScope signals that the unit has left its scope in the relation.

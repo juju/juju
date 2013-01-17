@@ -56,7 +56,7 @@ type AgentState interface {
 	// SetAgentTools sets the tools that the agent is currently running.
 	SetAgentTools(tools *state.Tools) error
 	EntityName() string
-	SetPassword(password string) error
+	SetMongoPassword(password string) error
 	Life() state.Life
 }
 

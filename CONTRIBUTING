@@ -47,7 +47,7 @@ All changes to `juju-core` must be performed on a branch, that branch reviewed,
 then submitted. An overview of the commands used to do so follows. These
 examples use the `bzr` command, which is assumed to be aliased to `cobzr`, as
 described above. It is also assumed that your working directory is 
-$GOPATH/launchpad.net/juju-core.
+$GOPATH/src/launchpad.net/juju-core.
 
 First, create a branch for your change using the following command
 
@@ -108,7 +108,7 @@ to match a subset of test names.
 Finally, because by default `go test` runs the tests in the current package, and
 is not recursive, the following commands are equal, and will produce no output.
 
-    cd $GOPATH/launchpad.net/juju-core
+    cd $GOPATH/src/launchpad.net/juju-core
     go test
 
     go test launchpad.net/juju-core
@@ -184,7 +184,7 @@ lbox hooks
 
 Before proposing, `lbox` runs a number of hooks to improve code quality and
 ensure that code is properly formatted. These checks are in
-`$GOPATH/launchpad.net/juju-core/.lbox.check`. They are run automatically
+`$GOPATH/src/launchpad.net/juju-core/.lbox.check`. They are run automatically
 by `lbox` before proposing or submitting. If these hooks fail you will have
 to resolve those errors before trying again. For example
 

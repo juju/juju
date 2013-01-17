@@ -148,7 +148,7 @@ func (s *JujuConnSuite) tearDownConn(c *C) {
 	// the password so that the MgoSuite soft-resetting works. If that fails,
 	// it will still work, but it will take a while since it has to kill the
 	// whole database and start over.
-	if err := s.State.SetAdminPassword(""); err != nil {
+	if err := s.State.SetAdminMongoPassword(""); err != nil {
 		c.Logf("cannot reset admin password: %v", err)
 	}
 	c.Assert(s.Conn.Close(), IsNil)
