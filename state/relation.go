@@ -110,11 +110,10 @@ func (r *Relation) Destroy() (err error) {
 	// are considered to be extremely small.
 	for attempt := 0; attempt < 5; attempt++ {
 		ops, _, err := rel.destroyOps("")
-		if err != nil {
-			return err
-		}
-		if len(ops) == 0 {
+		if err == errAlreadyDying {
 			return nil
+		} else if err != nil {
+			return err
 		}
 		if err := rel.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
 			return err
@@ -128,6 +127,8 @@ func (r *Relation) Destroy() (err error) {
 	return ErrExcessiveContention
 }
 
+var errAlreadyDying = errors.New("relation is already dying and cannot be destroyed")
+
 // destroyOps returns the operations necessary to destroy the relation, and
 // whether those operations will lead to the relation's removal. These
 // operations may include changes to the relation's services; however, if
@@ -135,7 +136,7 @@ func (r *Relation) Destroy() (err error) {
 // be generated.
 func (r *Relation) destroyOps(ignoreService string) (ops []txn.Op, isRemove bool, err error) {
 	if r.doc.Life != Alive {
-		return nil, false, nil
+		return nil, false, errAlreadyDying
 	}
 	if r.doc.UnitCount == 0 {
 		removeOps, err := r.removeOps(ignoreService, nil)

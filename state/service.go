@@ -106,20 +106,17 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 	removeCount := 0
 	for _, rel := range rels {
 		relOps, isRemove, err := rel.destroyOps(s.doc.Name)
-		if err != nil {
+		if err == errAlreadyDying {
+			relOps = []txn.Op{{
+				C:      s.st.relations.Name,
+				Id:     rel.doc.Key,
+				Assert: D{{"life", Dying}},
+			}}
+		} else if err != nil {
 			return nil, err
 		}
 		if isRemove {
 			removeCount++
-		} else if len(relOps) == 0 {
-			// This indicates that the relation was already Dying; by checking
-			// that is still the case, we can ensure we always abort on relation
-			// state change, even when the number of relations has not changed.
-			relOps = append(relOps, txn.Op{
-				C:      s.st.relations.Name,
-				Id:     rel.doc.Key,
-				Assert: D{{"life", Dying}},
-			})
 		}
 		ops = append(ops, relOps...)
 	}
@@ -137,7 +134,7 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 		{"life", Alive},
 		{"$or", []D{
 			{{"unitcount", D{{"$gt", 0}}}},
-			{{"relationcount", D{{"$gt", removeCount}}}},
+			{{"relationcount", s.doc.RelationCount}},
 		}},
 	}
 	update := D{{"$set", D{{"life", Dying}}}}
