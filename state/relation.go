@@ -127,7 +127,7 @@ func (r *Relation) Destroy() (err error) {
 	return ErrExcessiveContention
 }
 
-var errAlreadyDying = errors.New("relation is already dying and cannot be destroyed")
+var errAlreadyDying = errors.New("entity is already dying and cannot be destroyed")
 
 // destroyOps returns the operations necessary to destroy the relation, and
 // whether those operations will lead to the relation's removal. These

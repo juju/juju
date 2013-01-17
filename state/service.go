@@ -67,10 +67,10 @@ func (s *Service) Destroy() (err error) {
 		ops, err := svc.destroyOps()
 		switch {
 		case err == errRefresh:
+		case err == errAlreadyDying:
+			return nil
 		case err != nil:
 			return err
-		case len(ops) == 0:
-			return nil
 		default:
 			if err := svc.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
 				return err
@@ -90,7 +90,7 @@ func (s *Service) Destroy() (err error) {
 // operations recalculated.
 func (s *Service) destroyOps() ([]txn.Op, error) {
 	if s.doc.Life == Dying {
-		return nil, nil
+		return nil, errAlreadyDying
 	}
 	rels, err := s.Relations()
 	if err != nil {
