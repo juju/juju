@@ -48,9 +48,13 @@ func (s *ServiceSuite) TestServiceCharm(c *C) {
 	c.Assert(url, DeepEquals, wp.URL())
 	c.Assert(force, Equals, true)
 
-	testWhenDying(c, s.service, notAliveErr, notAliveErr, func() error {
-		return s.service.SetCharm(wp, true)
-	})
+	// SetCharm fails when the service is Dying.
+	_, err = s.service.AddUnit()
+	c.Assert(err, IsNil)
+	err = s.service.Destroy()
+	c.Assert(err, IsNil)
+	err = s.service.SetCharm(wp, true)
+	c.Assert(err, ErrorMatches, notAliveErr)
 }
 
 func (s *ServiceSuite) TestEndpoints(c *C) {
@@ -170,9 +174,7 @@ func (s *ServiceSuite) TestServiceRefresh(c *C) {
 	c.Assert(force, Equals, true)
 	c.Assert(testch.URL(), DeepEquals, s.charm.URL())
 
-	err = s.service.EnsureDead()
-	c.Assert(err, IsNil)
-	err = s.State.RemoveService(s.service)
+	err = s.service.Destroy()
 	c.Assert(err, IsNil)
 	err = s.service.Refresh()
 	c.Assert(state.IsNotFound(err), Equals, true)
@@ -199,14 +201,30 @@ func (s *ServiceSuite) TestServiceExposed(c *C) {
 	c.Assert(err, IsNil)
 	err = s.service.ClearExposed()
 	c.Assert(err, IsNil)
+	err = s.service.SetExposed()
+	c.Assert(err, IsNil)
+	c.Assert(s.service.IsExposed(), Equals, true)
 
-	testWhenDying(c, s.service, notAliveErr, notAliveErr,
-		func() error {
-			return s.service.SetExposed()
-		},
-		func() error {
-			return s.service.ClearExposed()
-		})
+	// Make the service Dying and check that ClearExposed and SetExposed fail.
+	// TODO(fwereade): maybe service destruction should always unexpose?
+	u, err := s.service.AddUnit()
+	c.Assert(err, IsNil)
+	err = s.service.Destroy()
+	c.Assert(err, IsNil)
+	err = s.service.ClearExposed()
+	c.Assert(err, ErrorMatches, notAliveErr)
+	err = s.service.SetExposed()
+	c.Assert(err, ErrorMatches, notAliveErr)
+
+	// Remove the service and check that both fail.
+	err = u.EnsureDead()
+	c.Assert(err, IsNil)
+	err = s.service.RemoveUnit(u)
+	c.Assert(err, IsNil)
+	err = s.service.SetExposed()
+	c.Assert(err, ErrorMatches, notAliveErr)
+	err = s.service.ClearExposed()
+	c.Assert(err, ErrorMatches, notAliveErr)
 }
 
 func (s *ServiceSuite) TestAddUnit(c *C) {
@@ -261,11 +279,18 @@ func (s *ServiceSuite) TestAddUnit(c *C) {
 }
 
 func (s *ServiceSuite) TestAddUnitWhenNotAlive(c *C) {
-	const errPat = ".*: service is not alive"
-	testWhenDying(c, s.service, errPat, errPat, func() error {
-		_, err := s.service.AddUnit()
-		return err
-	})
+	u, err := s.service.AddUnit()
+	c.Assert(err, IsNil)
+	err = s.service.Destroy()
+	c.Assert(err, IsNil)
+	_, err = s.service.AddUnit()
+	c.Assert(err, ErrorMatches, `cannot add unit to service "mysql": service is not alive`)
+	err = u.EnsureDead()
+	c.Assert(err, IsNil)
+	err = s.service.RemoveUnit(u)
+	c.Assert(err, IsNil)
+	_, err = s.service.AddUnit()
+	c.Assert(err, ErrorMatches, `cannot add unit to service "mysql": service "mysql" not found`)
 }
 
 func (s *ServiceSuite) TestReadUnit(c *C) {
@@ -320,7 +345,7 @@ func (s *ServiceSuite) TestReadUnitWhenDying(c *C) {
 	// Test that we can still read units when the service is Dying...
 	unit, err := s.service.AddUnit()
 	c.Assert(err, IsNil)
-	err = s.service.EnsureDying()
+	err = s.service.Destroy()
 	c.Assert(err, IsNil)
 	_, err = s.service.AllUnits()
 	c.Assert(err, IsNil)
@@ -336,10 +361,8 @@ func (s *ServiceSuite) TestReadUnitWhenDying(c *C) {
 		return err
 	})
 
-	// ...and that we can even read the empty list of units once the
-	// service itself is Dead.
+	// ...and even, in a very limited way, when the service itself is removed.
 	removeAllUnits(c, s.service)
-	err = s.service.EnsureDead()
 	_, err = s.service.AllUnits()
 	c.Assert(err, IsNil)
 }
@@ -372,21 +395,17 @@ func (s *ServiceSuite) TestRemoveUnit(c *C) {
 func (s *ServiceSuite) TestLifeWithUnits(c *C) {
 	unit, err := s.service.AddUnit()
 	c.Assert(err, IsNil)
-	err = s.service.EnsureDying()
+	err = s.service.Destroy()
 	c.Assert(err, IsNil)
-	err = s.service.EnsureDead()
-	c.Assert(err, ErrorMatches, `cannot finish termination of service "mysql": service still has units and/or relations`)
 	err = unit.EnsureDead()
 	c.Assert(err, IsNil)
-	err = s.service.EnsureDead()
-	c.Assert(err, ErrorMatches, `cannot finish termination of service "mysql": service still has units and/or relations`)
 	err = s.service.RemoveUnit(unit)
 	c.Assert(err, IsNil)
-	err = s.service.EnsureDead()
-	c.Assert(err, IsNil)
+	err = s.service.Refresh()
+	c.Assert(state.IsNotFound(err), Equals, true)
 }
 
-func (s *ServiceSuite) TestLifeWithRelations(c *C) {
+func (s *ServiceSuite) TestLifeWithRemovableRelations(c *C) {
 	wordpress, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
 	ep1 := state.Endpoint{"mysql", "ifce", "blah1", state.RoleProvider, charm.ScopeGlobal}
@@ -394,9 +413,23 @@ func (s *ServiceSuite) TestLifeWithRelations(c *C) {
 	rel, err := s.State.AddRelation(ep1, ep2)
 	c.Assert(err, IsNil)
 
-	// Check we can't remove the service.
-	err = s.State.RemoveService(s.service)
-	c.Assert(err, ErrorMatches, `cannot remove service "mysql": service is not dead`)
+	// Destroy a service with no units in relation scope; check service and
+	// unit removed.
+	err = wordpress.Destroy()
+	c.Assert(err, IsNil)
+	err = wordpress.Refresh()
+	c.Assert(state.IsNotFound(err), Equals, true)
+	err = rel.Refresh()
+	c.Assert(state.IsNotFound(err), Equals, true)
+}
+
+func (s *ServiceSuite) TestLifeWithReferencedRelations(c *C) {
+	wordpress, err := s.State.AddService("wordpress", s.charm)
+	c.Assert(err, IsNil)
+	ep1 := state.Endpoint{"mysql", "ifce", "blah1", state.RoleProvider, charm.ScopeGlobal}
+	ep2 := state.Endpoint{"wordpress", "ifce", "blah1", state.RoleRequirer, charm.ScopeGlobal}
+	rel, err := s.State.AddRelation(ep1, ep2)
+	c.Assert(err, IsNil)
 
 	// Join a unit to the wordpress side to keep the relation alive.
 	unit, err := wordpress.AddUnit()
@@ -407,7 +440,7 @@ func (s *ServiceSuite) TestLifeWithRelations(c *C) {
 	c.Assert(err, IsNil)
 
 	// Set Dying, and check that the relation also becomes Dying.
-	err = s.service.EnsureDying()
+	err = s.service.Destroy()
 	c.Assert(err, IsNil)
 	err = rel.Refresh()
 	c.Assert(err, IsNil)
@@ -418,38 +451,23 @@ func (s *ServiceSuite) TestLifeWithRelations(c *C) {
 	_, err = s.State.AddRelation(ep3)
 	c.Assert(err, ErrorMatches, `cannot add relation "mysql:blah2": service "mysql" is not alive`)
 
-	// Check the service can't yet become Dead.
-	err = s.service.EnsureDead()
-	c.Assert(err, ErrorMatches, `cannot finish termination of service "mysql": service still has units and/or relations`)
-
-	// Check we still can't remove the service.
-	err = s.State.RemoveService(s.service)
-	c.Assert(err, ErrorMatches, `cannot remove service "mysql": service is not dead`)
-
-	// Start the relation Dying; check the service cannot become Dead yet.
-	err = rel.Destroy()
-	c.Assert(err, IsNil)
-	err = s.service.EnsureDead()
-	c.Assert(err, ErrorMatches, `cannot finish termination of service "mysql": service still has units and/or relations`)
-
-	// Destroy the relation by leaving scope; check the service can die.
+	// Leave scope on the counterpart side; check the service and relation
+	// are both removed.
 	err = ru.LeaveScope()
 	c.Assert(err, IsNil)
-	err = s.service.EnsureDead()
-	c.Assert(err, IsNil)
-	err = s.State.RemoveService(s.service)
-	c.Assert(err, IsNil)
+	err = s.service.Refresh()
+	c.Assert(state.IsNotFound(err), Equals, true)
+	err = rel.Refresh()
+	c.Assert(state.IsNotFound(err), Equals, true)
 }
 
 func (s *ServiceSuite) TestReadUnitWithChangingState(c *C) {
 	// Check that reading a unit after removing the service
 	// fails nicely.
-	err := s.State.RemoveService(s.service)
-	c.Assert(err, ErrorMatches, `cannot remove service "mysql": service is not dead`)
-	err = s.service.EnsureDead()
+	err := s.service.Destroy()
 	c.Assert(err, IsNil)
-	err = s.State.RemoveService(s.service)
-	c.Assert(err, IsNil)
+	err = s.service.Refresh()
+	c.Assert(state.IsNotFound(err), Equals, true)
 	_, err = s.State.Unit("mysql/0")
 	c.Assert(err, ErrorMatches, `unit "mysql/0" not found`)
 }
@@ -913,16 +931,17 @@ var watchServiceTests = []struct {
 			return s.SetExposed()
 		},
 		Exposed: true,
-	},
-	{
+	}, {
 		test: func(s *state.Service) error {
 			return s.ClearExposed()
 		},
 		Exposed: false,
-	},
-	{
+	}, {
 		test: func(s *state.Service) error {
-			return s.EnsureDying()
+			if _, err := s.AddUnit(); err != nil {
+				return err
+			}
+			return s.Destroy()
 		},
 		Life: state.Dying,
 	},

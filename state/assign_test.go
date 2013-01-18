@@ -131,11 +131,8 @@ func (s *AssignSuite) TestUnassignUnitFromMachineWithChangingState(c *C) {
 	_, err = unit.AssignedMachineId()
 	c.Assert(err, ErrorMatches, `unit "wordpress/0" is not assigned to a machine`)
 
-	err = s.wordpress.EnsureDead()
+	err = s.wordpress.Destroy()
 	c.Assert(err, IsNil)
-	err = s.State.RemoveService(s.wordpress)
-	c.Assert(err, IsNil)
-
 	err = unit.UnassignFromMachine()
 	c.Assert(err, ErrorMatches, `cannot unassign unit "wordpress/0" from machine: .*`)
 	_, err = unit.AssignedMachineId()
@@ -295,9 +292,7 @@ func (s *AssignSuite) TestAssignUnitToUnusedMachine(c *C) {
 	c.Assert(err, IsNil)
 	err = s.wordpress.RemoveUnit(unit)
 	c.Assert(err, IsNil)
-	err = s.wordpress.EnsureDead()
-	c.Assert(err, IsNil)
-	err = s.State.RemoveService(s.wordpress)
+	err = s.wordpress.Destroy()
 	c.Assert(err, IsNil)
 
 	// Check that AssignToUnusedMachine finds the old (now unused) machine.
@@ -352,9 +347,7 @@ func (s *AssignSuite) TestAssignUnitToUnusedMachineWithRemovedService(c *C) {
 
 	// Fail if service is removed.
 	removeAllUnits(c, s.wordpress)
-	err = s.wordpress.EnsureDead()
-	c.Assert(err, IsNil)
-	err = s.State.RemoveService(s.wordpress)
+	err = s.wordpress.Destroy()
 	c.Assert(err, IsNil)
 	_, err = s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
