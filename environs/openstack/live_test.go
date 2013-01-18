@@ -75,8 +75,7 @@ func (t *LiveTests) SetUpSuite(c *C) {
 	// Environ.PublicStorage() is read only.
 	// For testing, we create a specific storage instance which is authorised to write to
 	// the public storage bucket so that we can upload files for testing.
-	t.writeablePublicStorage, err = openstack.WritablePublicStorage(e)
-	c.Assert(err, IsNil)
+	t.writeablePublicStorage = openstack.WritablePublicStorage(e)
 	// Put some fake tools in place so that tests that are simply
 	// starting instances without any need to check if those instances
 	// are running will find them in the public bucket.
