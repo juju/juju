@@ -39,7 +39,7 @@ var jobNames = []string{
 func (job MachineJob) String() string {
 	j := int(job)
 	if j <= 0 || j >= len(jobNames) {
-		return fmt.Sprintf("JobUnknown%d", j)
+		return fmt.Sprintf("<unknown job %d>", j)
 	}
 	return jobNames[j]
 }
