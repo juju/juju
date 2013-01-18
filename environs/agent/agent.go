@@ -1,23 +1,23 @@
 package agent
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/trivial"
 	"os"
 	"path/filepath"
 	"regexp"
-	"sync"
 )
 
 // Conf holds information for a given agent.
 type Conf struct {
 	// DataDir specifies the path of the data directory used by all
 	// agents
-	DataDir string `json:",omitempty"`
+	DataDir string
 
 	// OldPassword specifies a password that should be
 	// used to connect to the state if StateInfo.Password
@@ -28,6 +28,15 @@ type Conf struct {
 	// state.  The password may be empty if an old password is
 	// specified, or when bootstrapping.
 	StateInfo state.Info
+
+	// OldAPIPassword specifies a password that should
+	// be used to connect to the API if APIInfo.Password
+	// is blank or invalid.
+	OldAPIPassword string
+
+	// APIInfo specifies how the agent should connect to the
+	// state through the API.
+	APIInfo api.Info
 }
 
 var validAddr = regexp.MustCompile("^.+:[0-9]+$")
@@ -41,10 +50,7 @@ func ReadConf(dataDir, entityName string) (*Conf, error) {
 		return nil, err
 	}
 	var c Conf
-	// We use json rather than yaml because it deals with
-	// []byte better (it uses base64 encoding rather than
-	// an array of decimal numbers).
-	if err := json.Unmarshal(data, &c); err != nil {
+	if err := goyaml.Unmarshal(data, &c); err != nil {
 		return nil, err
 	}
 	c.DataDir = dataDir
@@ -79,18 +85,27 @@ func (c *Conf) Check() error {
 		return requiredError("data directory")
 	}
 	if c.StateInfo.EntityName == "" {
-		return requiredError("entity name")
+		return requiredError("state entity name")
 	}
 	if len(c.StateInfo.Addrs) == 0 {
 		return requiredError("state server address")
 	}
 	for _, a := range c.StateInfo.Addrs {
 		if !validAddr.MatchString(a) {
-			return fmt.Errorf("invalid server address %q", a)
+			return fmt.Errorf("invalid state server address %q", a)
 		}
 	}
 	if len(c.StateInfo.CACert) == 0 {
-		return requiredError("CA certificate")
+		return requiredError("state CA certificate")
+	}
+	// TODO(rog) make APIInfo mandatory
+	if c.APIInfo.Addr != "" {
+		if !validAddr.MatchString(c.APIInfo.Addr) {
+			return fmt.Errorf("invalid API server address %q", c.APIInfo.Addr)
+		}
+		if len(c.APIInfo.CACert) == 0 {
+			return requiredError("API CA certficate")
+		}
 	}
 	return nil
 }
@@ -100,7 +115,7 @@ func (c *Conf) Write() error {
 	if err := c.Check(); err != nil {
 		return err
 	}
-	data, err := json.Marshal(c)
+	data, err := goyaml.Marshal(c)
 	if err != nil {
 		return err
 	}
@@ -124,7 +139,7 @@ func (c *Conf) WriteCommands() ([]string, error) {
 	if err := c.Check(); err != nil {
 		return nil, err
 	}
-	data, err := json.Marshal(c)
+	data, err := goyaml.Marshal(c)
 	if err != nil {
 		return nil, err
 	}
@@ -137,37 +152,6 @@ func (c *Conf) WriteCommands() ([]string, error) {
 	addCmd("echo %s > %s", trivial.ShQuote(string(data)), f)
 	addCmd("chmod %o %s", 0600, f)
 	return cmds, nil
-}
-
-// We use a global mutex here so that agents can use different Conf's
-// writing to the same filesystem path and we'll still get reasonable
-// behavior.
-var changeMutex sync.Mutex
-
-// Change re-reads the receiving configuration, passes it to the given
-// mutate function, and writes it back.  Change may be called
-// concurrently - each mutation will happen in sequence.  The receiver
-// will be changed to match the result.  If mutate returns an error, or
-// the mutation results in an invalid configuration no
-// change will be made and the error will be returned.
-func (c *Conf) Change(mutate func(conf *Conf) error) error {
-	changeMutex.Lock()
-	defer changeMutex.Unlock()
-	nc, err := ReadConf(c.DataDir, c.StateInfo.EntityName)
-	if err != nil {
-		return err
-	}
-	if err := mutate(nc); err != nil {
-		return err
-	}
-	if err := nc.Check(); err != nil {
-		return err
-	}
-	if err := nc.Write(); err != nil {
-		return err
-	}
-	*c = *nc
-	return nil
 }
 
 // OpenState tries to open the state using the given Conf.  If
