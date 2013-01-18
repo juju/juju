@@ -35,7 +35,7 @@ type localLiveSuite struct {
 	Server         *httptest.Server
 	Mux            *http.ServeMux
 	oldHandler     http.Handler
-	identityDouble http.Handler
+	identityDouble *identityservice.UserPass
 	novaDouble     *novaservice.Nova
 	swiftDouble    http.Handler
 }
@@ -52,7 +52,7 @@ func (s *localLiveSuite) SetUpSuite(c *C) {
 	s.cred.URL = s.Server.URL
 	// Create the identity service.
 	s.identityDouble = identityservice.NewUserPass()
-	token := s.identityDouble.(*identityservice.UserPass).AddUser(s.cred.User, s.cred.Secrets)
+	token := s.identityDouble.AddUser(s.cred.User, s.cred.Secrets)
 	s.Mux.Handle(baseIdentityURL, s.identityDouble)
 
 	// Register Swift endpoints with identity service.
@@ -63,7 +63,7 @@ func (s *localLiveSuite) SetUpSuite(c *C) {
 		Region:      s.cred.Region,
 	}
 	service := identityservice.Service{"swift", "object-store", []identityservice.Endpoint{ep}}
-	s.identityDouble.(*identityservice.UserPass).AddService(service)
+	s.identityDouble.AddService(service)
 	s.swiftDouble = swiftservice.New("localhost", baseSwiftURL+"/", token)
 	s.Mux.Handle(baseSwiftURL+"/", s.swiftDouble)
 
@@ -75,7 +75,7 @@ func (s *localLiveSuite) SetUpSuite(c *C) {
 		Region:      s.cred.Region,
 	}
 	service = identityservice.Service{"nova", "compute", []identityservice.Endpoint{ep}}
-	s.identityDouble.(*identityservice.UserPass).AddService(service)
+	s.identityDouble.AddService(service)
 	s.novaDouble = novaservice.New("localhost", "V1", token, "1")
 	s.novaDouble.SetupHTTP(s.Mux)
 
@@ -86,9 +86,7 @@ func (s *localLiveSuite) TearDownSuite(c *C) {
 	s.LiveTests.TearDownSuite(c)
 	s.Mux = nil
 	s.Server.Config.Handler = s.oldHandler
-	if s.Server != nil {
-		s.Server.Close()
-	}
+	s.Server.Close()
 }
 
 func (s *localLiveSuite) SetUpTest(c *C) {
