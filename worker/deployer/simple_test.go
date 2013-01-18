@@ -180,7 +180,7 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *C, name, xName, password st
 	c.Assert(conf, DeepEquals, &agent.Conf{
 		DataDir:     fix.dataDir,
 		OldPassword: password,
-		StateInfo: state.Info{
+		StateInfo: &state.Info{
 			Addrs:      []string{"s1:123", "s2:123"},
 			CACert:     []byte("test-cert"),
 			EntityName: entityName,
