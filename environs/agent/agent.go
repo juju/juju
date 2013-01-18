@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/environs"
+	"log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/trivial"
@@ -146,6 +147,9 @@ func (c *Conf) Write() error {
 	data, err := goyaml.Marshal(c)
 	if err != nil {
 		return err
+	}
+	if c.APIInfo == nil {
+		log.Printf("marshalled: %s\n", data)
 	}
 	if err := os.MkdirAll(c.Dir(), 0755); err != nil {
 		return err
