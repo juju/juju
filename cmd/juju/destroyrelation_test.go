@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	. "launchpad.net/gocheck"
-	_ "launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
 )
