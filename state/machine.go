@@ -82,7 +82,7 @@ func (m *Machine) Jobs() []MachineJob {
 // It returns a *NotFoundError if the tools have not yet been set.
 func (m *Machine) AgentTools() (*Tools, error) {
 	if m.doc.Tools == nil {
-		return nil, notFound("agent tools for machine %v", m)
+		return nil, notFoundf("agent tools for machine %v", m)
 	}
 	tools := *m.doc.Tools
 	return &tools, nil
@@ -212,7 +212,7 @@ func (m *Machine) Destroy() (err error) {
 			return err
 		}
 	}
-	return fmt.Errorf("machine %s cannot become dying: please contact juju-dev@lists.ubuntu.com")
+	return fmt.Errorf("machine %s cannot become dying: please contact juju-dev@lists.ubuntu.com", m)
 }
 
 // EnsureDead sets the machine lifecycle to Dead if it is Alive or Dying.
@@ -246,7 +246,7 @@ func (m *Machine) EnsureDead() (err error) {
 			return err
 		}
 	}
-	return fmt.Errorf("machine %s cannot become dead: please contact juju-dev@lists.ubuntu.com")
+	return fmt.Errorf("machine %s cannot become dead: please contact juju-dev@lists.ubuntu.com", m)
 }
 
 // Remove removes the machine from state. It will fail if the machine is not
@@ -270,7 +270,7 @@ func (m *Machine) Refresh() error {
 	doc := machineDoc{}
 	err := m.st.machines.FindId(m.doc.Id).One(&doc)
 	if err == mgo.ErrNotFound {
-		return notFound("machine %v", m)
+		return notFoundf("machine %v", m)
 	}
 	if err != nil {
 		return fmt.Errorf("cannot refresh machine %v: %v", m, err)
@@ -319,7 +319,7 @@ func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
 // InstanceId returns the provider specific instance id for this machine.
 func (m *Machine) InstanceId() (InstanceId, error) {
 	if m.doc.InstanceId == "" {
-		return "", notFound("instance id for machine %v", m)
+		return "", notFoundf("instance id for machine %v", m)
 	}
 	return m.doc.InstanceId, nil
 }

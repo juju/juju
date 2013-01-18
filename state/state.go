@@ -87,7 +87,7 @@ func (e *NotFoundError) Error() string {
 	return e.msg
 }
 
-func notFound(format string, args ...interface{}) error {
+func notFoundf(format string, args ...interface{}) error {
 	return &NotFoundError{fmt.Sprintf(format+" not found", args...)}
 }
 
@@ -241,7 +241,7 @@ func (st *State) Machine(id string) (*Machine, error) {
 	sel := D{{"_id", id}}
 	err := st.machines.Find(sel).One(mdoc)
 	if err == mgo.ErrNotFound {
-		return nil, notFound("machine %s", id)
+		return nil, notFoundf("machine %s", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get machine %s: %v", id, err)
@@ -272,7 +272,7 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	cdoc := &charmDoc{}
 	err := st.charms.Find(D{{"_id", curl}}).One(cdoc)
 	if err == mgo.ErrNotFound {
-		return nil, notFound("charm %q", curl)
+		return nil, notFoundf("charm %q", curl)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get charm %q: %v", curl, err)
@@ -321,7 +321,7 @@ func (st *State) Service(name string) (service *Service, err error) {
 	sel := D{{"_id", name}}
 	err = st.services.Find(sel).One(sdoc)
 	if err == mgo.ErrNotFound {
-		return nil, notFound("service %q", name)
+		return nil, notFoundf("service %q", name)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get service %q: %v", name, err)
@@ -527,7 +527,7 @@ func (st *State) EndpointsRelation(endpoints ...Endpoint) (*Relation, error) {
 	key := relationKey(endpoints)
 	err := st.relations.Find(D{{"_id", key}}).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, notFound("relation %q", key)
+		return nil, notFoundf("relation %q", key)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get relation %q: %v", key, err)
@@ -540,7 +540,7 @@ func (st *State) Relation(id int) (*Relation, error) {
 	doc := relationDoc{}
 	err := st.relations.Find(D{{"id", id}}).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, notFound("relation %d", id)
+		return nil, notFoundf("relation %d", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get relation %d: %v", id, err)
@@ -556,7 +556,7 @@ func (st *State) Unit(name string) (*Unit, error) {
 	doc := unitDoc{}
 	err := st.units.FindId(name).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, notFound("unit %q", name)
+		return nil, notFoundf("unit %q", name)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get unit %q: %v", name, err)

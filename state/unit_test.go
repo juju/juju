@@ -4,6 +4,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state"
 	"sort"
+	"strconv"
 	"time"
 )
 
@@ -173,9 +174,17 @@ func (s *UnitSuite) TestSetPassword(c *C) {
 func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *C) {
 	// Make a second unit to use later.
 	subCharm := s.AddTestingCharm(c, "logging")
-	logService, err := s.State.AddService("logging", subCharm)
+	_, err := s.State.AddService("logging", subCharm)
 	c.Assert(err, IsNil)
-	subUnit, err := logService.AddUnitSubordinateTo(s.unit)
+	eps, err := s.State.InferEndpoints([]string{"wordpress", "logging"})
+	c.Assert(err, IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	ru, err := rel.Unit(s.unit)
+	c.Assert(err, IsNil)
+	err = ru.EnterScope(nil)
+	c.Assert(err, IsNil)
+	subUnit, err := s.State.Unit("logging/0")
 	c.Assert(err, IsNil)
 
 	info := state.TestingStateInfo()
@@ -402,32 +411,35 @@ func (s *UnitSuite) TestSetClearResolvedWhenNotAlive(c *C) {
 
 func (s *UnitSuite) TestSubordinateChangeInPrincipal(c *C) {
 	subCharm := s.AddTestingCharm(c, "logging")
-	logService, err := s.State.AddService("logging", subCharm)
-	c.Assert(err, IsNil)
-	_, err = logService.AddUnitSubordinateTo(s.unit)
-	c.Assert(err, IsNil)
-	su1, err := logService.AddUnitSubordinateTo(s.unit)
-	c.Assert(err, IsNil)
-
-	doc := make(map[string][]string)
-	s.ConnSuite.units.FindId(s.unit.Name()).One(&doc)
-	subordinates, ok := doc["subordinates"]
-	if !ok {
-		c.Errorf(`unit document does not have a "subordinates" field`)
+	for i := 0; i < 2; i++ {
+		name := "logging" + strconv.Itoa(i)
+		_, err := s.State.AddService(name, subCharm)
+		c.Assert(err, IsNil)
+		eps, err := s.State.InferEndpoints([]string{name, "wordpress"})
+		c.Assert(err, IsNil)
+		rel, err := s.State.AddRelation(eps...)
+		c.Assert(err, IsNil)
+		ru, err := rel.Unit(s.unit)
+		c.Assert(err, IsNil)
+		err = ru.EnterScope(nil)
+		c.Assert(err, IsNil)
 	}
-	c.Assert(subordinates, DeepEquals, []string{"logging/0", "logging/1"})
 
+	err := s.unit.Refresh()
+	c.Assert(err, IsNil)
+	subordinates := s.unit.SubordinateNames()
+	c.Assert(subordinates, DeepEquals, []string{"logging0/0", "logging1/0"})
+
+	su1, err := s.State.Unit("logging1/0")
+	c.Assert(err, IsNil)
 	err = su1.EnsureDead()
 	c.Assert(err, IsNil)
 	err = su1.Remove()
 	c.Assert(err, IsNil)
-	doc = make(map[string][]string)
-	s.ConnSuite.units.FindId(s.unit.Name()).One(&doc)
-	subordinates, ok = doc["subordinates"]
-	if !ok {
-		c.Errorf(`unit document does not have a "subordinates" field`)
-	}
-	c.Assert(subordinates, DeepEquals, []string{"logging/0"})
+	err = s.unit.Refresh()
+	c.Assert(err, IsNil)
+	subordinates = s.unit.SubordinateNames()
+	c.Assert(subordinates, DeepEquals, []string{"logging0/0"})
 }
 
 func (s *UnitSuite) TestDeathWithSubordinates(c *C) {
@@ -523,29 +535,42 @@ func (s *UnitSuite) TestWatchSubordinates(c *C) {
 	assertNoChange()
 
 	// Add a couple of subordinates, check change.
-	logging, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
-	c.Assert(err, IsNil)
-	logging0, err := logging.AddUnitSubordinateTo(s.unit)
-	c.Assert(err, IsNil)
-	logging1, err := logging.AddUnitSubordinateTo(s.unit)
-	c.Assert(err, IsNil)
-	assertChange("logging/0", "logging/1")
+	subCharm := s.AddTestingCharm(c, "logging")
+	var subUnits []*state.Unit
+	for i := 0; i < 2; i++ {
+		name := "logging" + strconv.Itoa(i)
+		subSvc, err := s.State.AddService(name, subCharm)
+		c.Assert(err, IsNil)
+		eps, err := s.State.InferEndpoints([]string{name, "wordpress"})
+		c.Assert(err, IsNil)
+		rel, err := s.State.AddRelation(eps...)
+		c.Assert(err, IsNil)
+		ru, err := rel.Unit(s.unit)
+		c.Assert(err, IsNil)
+		err = ru.EnterScope(nil)
+		c.Assert(err, IsNil)
+		units, err := subSvc.AllUnits()
+		c.Assert(err, IsNil)
+		c.Assert(units, HasLen, 1)
+		subUnits = append(subUnits, units[0])
+	}
+	assertChange(subUnits[0].Name(), subUnits[1].Name())
 	assertNoChange()
 
 	// Set one to Dying, check change.
-	err = logging0.Destroy()
+	err := subUnits[0].Destroy()
 	c.Assert(err, IsNil)
-	assertChange("logging/0")
+	assertChange(subUnits[0].Name())
 	assertNoChange()
 
 	// Set both to Dead, and remove one; check change.
-	err = logging0.EnsureDead()
+	err = subUnits[0].EnsureDead()
 	c.Assert(err, IsNil)
-	err = logging1.EnsureDead()
+	err = subUnits[1].EnsureDead()
 	c.Assert(err, IsNil)
-	err = logging1.Remove()
+	err = subUnits[1].Remove()
 	c.Assert(err, IsNil)
-	assertChange("logging/0", "logging/1")
+	assertChange(subUnits[0].Name(), subUnits[1].Name())
 	assertNoChange()
 
 	// Stop watcher, check closed.
@@ -560,10 +585,10 @@ func (s *UnitSuite) TestWatchSubordinates(c *C) {
 	// Start a new watch, check Dead unit is reported.
 	w = s.unit.WatchSubordinateUnits()
 	defer stop(c, w)
-	assertChange("logging/0")
+	assertChange(subUnits[0].Name())
 
 	// Remove the leftover, check no change.
-	err = logging0.Remove()
+	err = subUnits[0].Remove()
 	c.Assert(err, IsNil)
 	assertNoChange()
 }

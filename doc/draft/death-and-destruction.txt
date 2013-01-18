@@ -58,8 +58,8 @@ juju destroy-machine
 Destroying a machine involves a single transaction defined as follows:
 
   * If the machine is not Alive, abort without error.
-  * If the machine has JobManageEnviron, or has any assigned units, abort with
-    an appropriate error.
+  * If the machine is the last one with JobManageEnviron, or has any assigned
+    units, abort with an appropriate error.
   * Set the machine to Dying.
 
 When a machine becomes Dying, the following operation occurs:
@@ -108,7 +108,8 @@ Removing a unit involves a single transaction, defined as follows:
   * If the unit is a subordinate unit, unassign it from its principal unit.
   * Delete the unit document.
   * If its service is Alive, or has at least two units, or is in at least
-    one relation, decrement its relation count; otherwise remove the service.
+    one relation, decrement the service's unit count; otherwise remove the
+    service.
 
 
 juju destroy-relation
@@ -139,25 +140,27 @@ When a relation is set to Dying, the following operations occur:
 
   * Every unit agent whose unit has entered the scope of that relation
     observes the change and causes its unit to leave scope.
-  * If the relation has container scope, and no other Alive relation exists
-    between its services, the unit agents of the subordinate units in the
-    relation will observe the change and set their units to Dying.
+  * If the relation has container scope, and no other container-scoped relation
+    between its services is Alive, the unit agents of the subordinate units in
+    the relation will observe the change and destroy their units.
 
 The Dying relation's document is finally removed in the same transaction in
-which the last unit leaves its scope. The operations here are subtly different
-to those that occur in simple destroy operations, because we no longer have
-guarantees of the relation's -- and hence the affected services' -- Aliveness:
+which the last unit leaves its scope. Because this situation involves the
+relation already being Dying, its services may also be Dying, and so the
+operations involved are subtly different to those taken above (when we know
+for sure that the relation -- and hence both services -- are still Alive).
 
   * Here, "the service" refers to the service of the unit departing scope, and
     "the counterpart service" refers to the other service in the relation.
-  * Decrement the relation count of the service (we know it's not ready to be
-    removed, because its unit is responsible for this transaction and the
-    service clearly therefore has a unit count greater than zero).
+  * Decrement the relation count of the unit's service (we know that service
+    is not ready to be removed, because its unit is responsible for this
+    transaction and the service clearly therefore has a unit count greater
+    than zero).
   * Delete the relation document.
   * Mark the relation's unit settings documents for future cleanup.
-  * If the counterpart service is Alive, or has at least one unit, or is in at
-    least two relations, decrement its relation count; otherwise remove the
-    counterpart service.
+  * If the counterpart service (the one that is not the unit's service) is
+    Alive, or has at least one unit, or is in at least two relations, decrement
+    its relation count; otherwise remove the counterpart service.
 
 
 juju destroy-service
@@ -167,20 +170,21 @@ Destroying a service involves a single transaction defined as follows:
 
   * If the service is not Alive, abort without error.
   * If the service is in any relations, do the following for each one:
-      * If it's already Dying, skip it.
-      * If it's Alive, destroy the relation without modifying the service's
-        relation count; however, if the relation's destruction implies its
-        removal, increment a local counter instead.
+      * If the relation is already Dying, skip it.
+      * If the relation is Alive, destroy the relation without modifying the
+        service's relation count. If the relation's destruction implies its
+        removal, increment a local removed-relations counter instead.
   * If the service's unit count is greater than 0, or if the value of the
-    aforementioned counter is less than the service's relation count, set
-    the service to Dying and decrement its relation count by the value of
-    the counter.
-  * Otherwise, remove the service immediately.
+    aforementioned removal counter is less than the service's relation count,
+    we know that some entity will still hold a reference to the service after
+    the transaction completes, so we set the service to Dying and decrement
+    its relation count by the value of the removal counter.
+  * Otherwise, remove the service immediately, because we know that no
+    reference to the service will survive the transaction.
 
 When a service becomes Dying, the following operations occur:
 
-  * Every unit agent of the service observes the change and sets its unit to
-    Dying.
+  * Every unit agent of the service observes the change and destroys its unit.
 
 The Dying service's document is finally removed in the same transaction that
 removes the last entity referencing that service. This could be either the

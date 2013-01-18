@@ -240,27 +240,32 @@ func (s *ServiceSuite) TestAddUnit(c *C) {
 	c.Assert(unitOne.IsPrincipal(), Equals, true)
 	c.Assert(unitOne.SubordinateNames(), HasLen, 0)
 
-	// Check that principal units cannot be added to principal units.
-	_, err = s.service.AddUnitSubordinateTo(unitZero)
-	c.Assert(err, ErrorMatches, `cannot add unit to service "mysql" as a subordinate of "mysql/0": service is not a subordinate`)
-
 	// Assign the principal unit to a machine.
 	m, err := s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
 	err = unitZero.AssignToMachine(m)
 	c.Assert(err, IsNil)
 
-	// Add a subordinate service.
+	// Add a subordinate service and check that units cannot be added directly.
+	// to add a subordinate unit.
 	subCharm := s.AddTestingCharm(c, "logging")
 	logging, err := s.State.AddService("logging", subCharm)
 	c.Assert(err, IsNil)
+	_, err = logging.AddUnit()
+	c.Assert(err, ErrorMatches, `cannot add unit to service "logging": service is a subordinate`)
 
-	// Check that subordinate units can be added to principal units
-	subZero, err := logging.AddUnitSubordinateTo(unitZero)
+	// Indirectly create a subordinate unit by adding a relation and entering
+	// scope as a principal.
+	eps, err := s.State.InferEndpoints([]string{"logging", "mysql"})
 	c.Assert(err, IsNil)
-	c.Assert(subZero.Name(), Equals, "logging/0")
-	c.Assert(subZero.IsPrincipal(), Equals, false)
-	c.Assert(subZero.SubordinateNames(), HasLen, 0)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	ru, err := rel.Unit(unitZero)
+	c.Assert(err, IsNil)
+	err = ru.EnterScope(nil)
+	c.Assert(err, IsNil)
+	subZero, err := s.State.Unit("logging/0")
+	c.Assert(err, IsNil)
 
 	// Check that once it's refreshed unitZero has subordinates.
 	err = unitZero.Refresh()
@@ -271,14 +276,6 @@ func (s *ServiceSuite) TestAddUnit(c *C) {
 	id, err := subZero.AssignedMachineId()
 	c.Assert(err, IsNil)
 	c.Assert(id, Equals, m.Id())
-
-	// Check that subordinate units must be added to other units.
-	_, err = logging.AddUnit()
-	c.Assert(err, ErrorMatches, `cannot add unit to service "logging": service is a subordinate`)
-
-	// Check that subordinate units cannnot be added to subordinate units.
-	_, err = logging.AddUnitSubordinateTo(subZero)
-	c.Assert(err, ErrorMatches, `cannot add unit to service "logging" as a subordinate of "logging/0": unit is not a principal`)
 }
 
 func (s *ServiceSuite) TestAddUnitWhenNotAlive(c *C) {
@@ -385,7 +382,7 @@ func (s *ServiceSuite) TestLifeWithUnits(c *C) {
 	c.Assert(state.IsNotFound(err), Equals, true)
 }
 
-func (s *ServiceSuite) TestLifeWithRelations(c *C) {
+func (s *ServiceSuite) TestLifeWithRemovableRelations(c *C) {
 	wordpress, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
 	ep1 := state.Endpoint{"mysql", "ifce", "blah1", state.RoleProvider, charm.ScopeGlobal}
@@ -401,11 +398,14 @@ func (s *ServiceSuite) TestLifeWithRelations(c *C) {
 	c.Assert(state.IsNotFound(err), Equals, true)
 	err = rel.Refresh()
 	c.Assert(state.IsNotFound(err), Equals, true)
+}
 
-	// Recreate service and relation.
-	wordpress, err = s.State.AddService("wordpress", s.charm)
+func (s *ServiceSuite) TestLifeWithReferencedRelations(c *C) {
+	wordpress, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
-	rel, err = s.State.AddRelation(ep1, ep2)
+	ep1 := state.Endpoint{"mysql", "ifce", "blah1", state.RoleProvider, charm.ScopeGlobal}
+	ep2 := state.Endpoint{"wordpress", "ifce", "blah1", state.RoleRequirer, charm.ScopeGlobal}
+	rel, err := s.State.AddRelation(ep1, ep2)
 	c.Assert(err, IsNil)
 
 	// Join a unit to the wordpress side to keep the relation alive.
