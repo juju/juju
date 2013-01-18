@@ -31,9 +31,9 @@ const (
 )
 
 var jobNames = []string{
-	JobHostUnits: "JobHostUnits",
+	JobHostUnits:     "JobHostUnits",
 	JobManageEnviron: "JobManageEnviron",
-	JobServeAPI: "JobServeAPI",
+	JobServeAPI:      "JobServeAPI",
 }
 
 func (job MachineJob) String() string {

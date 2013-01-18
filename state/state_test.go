@@ -71,7 +71,7 @@ func (s *StateSuite) AssertMachineCount(c *C, expect int) {
 
 var jobStringTests = []struct {
 	job state.MachineJob
-	s string
+	s   string
 }{
 	{state.JobHostUnits, "JobHostUnits"},
 	{state.JobManageEnviron, "JobManageEnviron"},
