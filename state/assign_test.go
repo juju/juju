@@ -22,6 +22,22 @@ func (s *AssignSuite) SetUpTest(c *C) {
 	s.wordpress = wordpress
 }
 
+func (s *AssignSuite) addSubordinate(c *C, principal *state.Unit) *state.Unit {
+	_, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
+	c.Assert(err, IsNil)
+	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
+	c.Assert(err, IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	ru, err := rel.Unit(principal)
+	c.Assert(err, IsNil)
+	err = ru.EnterScope(nil)
+	c.Assert(err, IsNil)
+	subUnit, err := s.State.Unit("logging/0")
+	c.Assert(err, IsNil)
+	return subUnit
+}
+
 func (s *AssignSuite) TestUnassignUnitFromMachineWithoutBeingAssigned(c *C) {
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
@@ -92,12 +108,7 @@ func (s *AssignSuite) TestAssignedMachineIdWhenPrincipalNotAlive(c *C) {
 	err = unit.AssignToMachine(machine)
 	c.Assert(err, IsNil)
 
-	subCharm := s.AddTestingCharm(c, "logging")
-	subSvc, err := s.State.AddService("logging", subCharm)
-	c.Assert(err, IsNil)
-	subUnit, err := subSvc.AddUnitSubordinateTo(unit)
-	c.Assert(err, IsNil)
-
+	subUnit := s.addSubordinate(c, unit)
 	err = unit.EnsureDying()
 	c.Assert(err, IsNil)
 	mid, err := subUnit.AssignedMachineId()
@@ -120,11 +131,8 @@ func (s *AssignSuite) TestUnassignUnitFromMachineWithChangingState(c *C) {
 	_, err = unit.AssignedMachineId()
 	c.Assert(err, ErrorMatches, `unit "wordpress/0" is not assigned to a machine`)
 
-	err = s.wordpress.EnsureDead()
+	err = s.wordpress.Destroy()
 	c.Assert(err, IsNil)
-	err = s.State.RemoveService(s.wordpress)
-	c.Assert(err, IsNil)
-
 	err = unit.UnassignFromMachine()
 	c.Assert(err, ErrorMatches, `cannot unassign unit "wordpress/0" from machine: .*`)
 	_, err = unit.AssignedMachineId()
@@ -132,40 +140,28 @@ func (s *AssignSuite) TestUnassignUnitFromMachineWithChangingState(c *C) {
 }
 
 func (s *AssignSuite) TestAssignSubordinatesToMachine(c *C) {
+	// Check that assigning a principal unit assigns its subordinates too.
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
-	// Check that assigning a principal unit assigns its subordinates too.
-	subCharm := s.AddTestingCharm(c, "logging")
-	logService1, err := s.State.AddService("logging1", subCharm)
-	c.Assert(err, IsNil)
-	logService2, err := s.State.AddService("logging2", subCharm)
-	c.Assert(err, IsNil)
-	log1Unit, err := logService1.AddUnitSubordinateTo(unit)
-	c.Assert(err, IsNil)
-	log2Unit, err := logService2.AddUnitSubordinateTo(unit)
-	c.Assert(err, IsNil)
+	subUnit := s.addSubordinate(c, unit)
 
 	machine, err := s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
-	err = log1Unit.AssignToMachine(machine)
+	err = subUnit.AssignToMachine(machine)
 	c.Assert(err, ErrorMatches, ".*: unit is a subordinate")
 	err = unit.AssignToMachine(machine)
 	c.Assert(err, IsNil)
 
-	id, err := log1Unit.AssignedMachineId()
+	id, err := subUnit.AssignedMachineId()
 	c.Assert(err, IsNil)
-	c.Check(id, Equals, machine.Id())
-	id, err = log2Unit.AssignedMachineId()
 	c.Check(id, Equals, machine.Id())
 
 	// Check that unassigning the principal unassigns the
 	// subordinates too.
 	err = unit.UnassignFromMachine()
 	c.Assert(err, IsNil)
-	_, err = log1Unit.AssignedMachineId()
-	c.Assert(err, ErrorMatches, `unit "logging1/0" is not assigned to a machine`)
-	_, err = log2Unit.AssignedMachineId()
-	c.Assert(err, ErrorMatches, `unit "logging2/0" is not assigned to a machine`)
+	_, err = subUnit.AssignedMachineId()
+	c.Assert(err, ErrorMatches, `unit "logging/0" is not assigned to a machine`)
 }
 
 func (s *AssignSuite) TestDeployerName(c *C) {
@@ -173,10 +169,7 @@ func (s *AssignSuite) TestDeployerName(c *C) {
 	c.Assert(err, IsNil)
 	principal, err := s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
-	logging, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
-	c.Assert(err, IsNil)
-	subordinate, err := logging.AddUnitSubordinateTo(principal)
-	c.Assert(err, IsNil)
+	subordinate := s.addSubordinate(c, principal)
 
 	assertDeployer := func(u *state.Unit, d entityNamer) {
 		err := u.Refresh()
@@ -240,11 +233,7 @@ func (s *AssignSuite) TestAssignMachinePrincipalsChange(c *C) {
 	c.Assert(err, IsNil)
 	err = unit.AssignToMachine(machine)
 	c.Assert(err, IsNil)
-	subCharm := s.AddTestingCharm(c, "logging")
-	logService, err := s.State.AddService("logging", subCharm)
-	c.Assert(err, IsNil)
-	logUnit, err := logService.AddUnitSubordinateTo(unit)
-	c.Assert(err, IsNil)
+	subUnit := s.addSubordinate(c, unit)
 
 	doc := make(map[string][]string)
 	s.ConnSuite.machines.FindId(machine.Id()).One(&doc)
@@ -254,9 +243,11 @@ func (s *AssignSuite) TestAssignMachinePrincipalsChange(c *C) {
 	}
 	c.Assert(principals, DeepEquals, []string{"wordpress/0", "wordpress/1"})
 
-	err = logUnit.EnsureDead()
+	err = subUnit.EnsureDead()
 	c.Assert(err, IsNil)
-	err = logService.RemoveUnit(logUnit)
+	subSvc, err := s.State.Service("logging")
+	c.Assert(err, IsNil)
+	err = subSvc.RemoveUnit(subUnit)
 	c.Assert(err, IsNil)
 	err = unit.EnsureDead()
 	c.Assert(err, IsNil)
@@ -301,9 +292,7 @@ func (s *AssignSuite) TestAssignUnitToUnusedMachine(c *C) {
 	c.Assert(err, IsNil)
 	err = s.wordpress.RemoveUnit(unit)
 	c.Assert(err, IsNil)
-	err = s.wordpress.EnsureDead()
-	c.Assert(err, IsNil)
-	err = s.State.RemoveService(s.wordpress)
+	err = s.wordpress.Destroy()
 	c.Assert(err, IsNil)
 
 	// Check that AssignToUnusedMachine finds the old (now unused) machine.
@@ -358,9 +347,7 @@ func (s *AssignSuite) TestAssignUnitToUnusedMachineWithRemovedService(c *C) {
 
 	// Fail if service is removed.
 	removeAllUnits(c, s.wordpress)
-	err = s.wordpress.EnsureDead()
-	c.Assert(err, IsNil)
-	err = s.State.RemoveService(s.wordpress)
+	err = s.wordpress.Destroy()
 	c.Assert(err, IsNil)
 	_, err = s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
@@ -552,12 +539,8 @@ func (s *AssignSuite) TestAssignSubordinate(c *C) {
 	c.Assert(err, IsNil)
 
 	// Check cannot assign subordinates to machines
-	subCharm := s.AddTestingCharm(c, "logging")
-	logging, err := s.State.AddService("logging", subCharm)
-	c.Assert(err, IsNil)
-	unit2, err := logging.AddUnitSubordinateTo(unit)
-	c.Assert(err, IsNil)
-	err = s.State.AssignUnit(unit2, state.AssignUnused)
+	subUnit := s.addSubordinate(c, unit)
+	err = s.State.AssignUnit(subUnit, state.AssignUnused)
 	c.Assert(err, ErrorMatches, `subordinate unit "logging/0" cannot be assigned directly to a machine`)
 }
 
