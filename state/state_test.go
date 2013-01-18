@@ -69,6 +69,23 @@ func (s *StateSuite) AssertMachineCount(c *C, expect int) {
 	c.Assert(len(ms), Equals, expect)
 }
 
+var jobStringTests = []struct {
+	job state.MachineJob
+	s string
+}{
+	{state.JobHostUnits, "JobHostUnits"},
+	{state.JobManageEnviron, "JobManageEnviron"},
+	{state.JobServeAPI, "JobServeAPI"},
+	{0, "JobUnknown0"},
+	{5, "JobUnknown5"},
+}
+
+func (s *StateSuite) TestJobString(c *C) {
+	for _, t := range jobStringTests {
+		c.Check(t.job.String(), Equals, t.s)
+	}
+}
+
 func (s *StateSuite) TestAddMachine(c *C) {
 	_, err := s.State.AddMachine()
 	c.Assert(err, ErrorMatches, "cannot add a new machine: no jobs specified")

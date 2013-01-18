@@ -30,6 +30,20 @@ const (
 	JobServeAPI
 )
 
+var jobNames = []string{
+	JobHostUnits: "JobHostUnits",
+	JobManageEnviron: "JobManageEnviron",
+	JobServeAPI: "JobServeAPI",
+}
+
+func (job MachineJob) String() string {
+	j := int(job)
+	if j <= 0 || j >= len(jobNames) {
+		return fmt.Sprintf("JobUnknown%d", j)
+	}
+	return jobNames[j]
+}
+
 // machineDoc represents the internal state of a machine in MongoDB.
 type machineDoc struct {
 	Id           string `bson:"_id"`
