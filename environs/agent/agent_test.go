@@ -1,8 +1,6 @@
 package agent_test
 
 import (
-	"bytes"
-	"github.com/davecgh/go-spew/spew"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/juju/testing"
@@ -15,23 +13,6 @@ import (
 	"path/filepath"
 	stdtesting "testing"
 )
-
-var spewCfg = spewState()
-
-func spewDump(x ...interface{}) string {
-	var b bytes.Buffer
-	spewCfg.Fdump(&b, x...)
-	return b.String()
-}
-
-func spewState() *spew.SpewState {
-	st := &spew.SpewState{}
-	cfg := st.Config()
-	*cfg = spew.ConfigState{
-		Indent: "\t",
-	}
-	return st
-}
 
 type suite struct{}
 
@@ -272,7 +253,7 @@ func (suite) TestConfReadWriteCheck(c *C) {
 		if rconf.APIInfo != nil {
 			rconf.APIInfo.EntityName = conf.EntityName()
 		}
-		c.Assert(rconf, DeepEquals, &conf, Commentf(spewDump(rconf, &conf)))
+		c.Assert(rconf, DeepEquals, &conf)
 
 		err = os.RemoveAll(dataDir)
 		c.Assert(err, IsNil)
