@@ -87,7 +87,7 @@ func (e *NotFoundError) Error() string {
 	return e.msg
 }
 
-func notFound(format string, args ...interface{}) error {
+func notFoundf(format string, args ...interface{}) error {
 	return &NotFoundError{fmt.Sprintf(format+" not found", args...)}
 }
 
@@ -268,7 +268,7 @@ func (st *State) Machine(id string) (*Machine, error) {
 	sel := D{{"_id", id}}
 	err := st.machines.Find(sel).One(mdoc)
 	if err == mgo.ErrNotFound {
-		return nil, notFound("machine %s", id)
+		return nil, notFoundf("machine %s", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get machine %s: %v", id, err)
@@ -299,7 +299,7 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	cdoc := &charmDoc{}
 	err := st.charms.Find(D{{"_id", curl}}).One(cdoc)
 	if err == mgo.ErrNotFound {
-		return nil, notFound("charm %q", curl)
+		return nil, notFoundf("charm %q", curl)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get charm %q: %v", curl, err)
@@ -339,29 +339,6 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	return svc, nil
 }
 
-// RemoveService removes a service from the state.
-func (st *State) RemoveService(svc *Service) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot remove service %q", svc)
-	if svc.doc.Life != Dead {
-		return fmt.Errorf("service is not dead")
-	}
-	ops := []txn.Op{{
-		C:      st.services.Name,
-		Id:     svc.doc.Name,
-		Assert: D{{"life", Dead}},
-		Remove: true,
-	}, {
-		C:      st.settings.Name,
-		Id:     svc.globalKey(),
-		Remove: true,
-	}}
-	if err := st.runner.Run(ops, "", nil); err != nil {
-		// If aborted, the service is either dead or recreated.
-		return onAbort(err, nil)
-	}
-	return nil
-}
-
 // Service returns a service state by name.
 func (st *State) Service(name string) (service *Service, err error) {
 	if !IsServiceName(name) {
@@ -371,7 +348,7 @@ func (st *State) Service(name string) (service *Service, err error) {
 	sel := D{{"_id", name}}
 	err = st.services.Find(sel).One(sdoc)
 	if err == mgo.ErrNotFound {
-		return nil, notFound("service %q", name)
+		return nil, notFoundf("service %q", name)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get service %q: %v", name, err)
@@ -396,8 +373,7 @@ func (st *State) AllServices() (services []*Service, err error) {
 // There must be 1 or 2 supplied names, of the form <service>[:<relation>].
 // If the supplied names uniquely specify a possible relation, or if they
 // uniquely specify a possible relation once all implicit relations have been
-// filtered, the returned endpoints
-// corresponding to that relation will be returned,
+// filtered, the endpoints corresponding to that relation will be returned.
 func (st *State) InferEndpoints(names []string) ([]Endpoint, error) {
 	// Collect all possible sane endpoint lists.
 	var candidates [][]Endpoint
@@ -578,7 +554,7 @@ func (st *State) EndpointsRelation(endpoints ...Endpoint) (*Relation, error) {
 	key := relationKey(endpoints)
 	err := st.relations.Find(D{{"_id", key}}).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, notFound("relation %q", key)
+		return nil, notFoundf("relation %q", key)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get relation %q: %v", key, err)
@@ -591,7 +567,7 @@ func (st *State) Relation(id int) (*Relation, error) {
 	doc := relationDoc{}
 	err := st.relations.Find(D{{"id", id}}).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, notFound("relation %d", id)
+		return nil, notFoundf("relation %d", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get relation %d: %v", id, err)
@@ -607,7 +583,7 @@ func (st *State) Unit(name string) (*Unit, error) {
 	doc := unitDoc{}
 	err := st.units.FindId(name).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, notFound("unit %q", name)
+		return nil, notFoundf("unit %q", name)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get unit %q: %v", name, err)

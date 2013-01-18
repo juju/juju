@@ -27,7 +27,22 @@ const (
 	_ MachineJob = iota
 	JobHostUnits
 	JobManageEnviron
+	JobServeAPI
 )
+
+var jobNames = []string{
+	JobHostUnits:     "JobHostUnits",
+	JobManageEnviron: "JobManageEnviron",
+	JobServeAPI:      "JobServeAPI",
+}
+
+func (job MachineJob) String() string {
+	j := int(job)
+	if j <= 0 || j >= len(jobNames) {
+		return fmt.Sprintf("<unknown job %d>", j)
+	}
+	return jobNames[j]
+}
 
 // machineDoc represents the internal state of a machine in MongoDB.
 type machineDoc struct {
@@ -82,7 +97,7 @@ func (m *Machine) Jobs() []MachineJob {
 // It returns a *NotFoundError if the tools have not yet been set.
 func (m *Machine) AgentTools() (*Tools, error) {
 	if m.doc.Tools == nil {
-		return nil, notFound("agent tools for machine %v", m)
+		return nil, notFoundf("agent tools for machine %v", m)
 	}
 	tools := *m.doc.Tools
 	return &tools, nil
@@ -212,7 +227,7 @@ func (m *Machine) EnsureDying() (err error) {
 			return err
 		}
 	}
-	return fmt.Errorf("machine %s cannot become dying: please contact juju-dev@lists.ubuntu.com")
+	return fmt.Errorf("machine %s cannot become dying: please contact juju-dev@lists.ubuntu.com", m)
 }
 
 // EnsureDead sets the machine lifecycle to Dead if it is Alive or Dying.
@@ -246,7 +261,7 @@ func (m *Machine) EnsureDead() (err error) {
 			return err
 		}
 	}
-	return fmt.Errorf("machine %s cannot become dead: please contact juju-dev@lists.ubuntu.com")
+	return fmt.Errorf("machine %s cannot become dead: please contact juju-dev@lists.ubuntu.com", m)
 }
 
 // Refresh refreshes the contents of the machine from the underlying
@@ -255,7 +270,7 @@ func (m *Machine) Refresh() error {
 	doc := machineDoc{}
 	err := m.st.machines.FindId(m.doc.Id).One(&doc)
 	if err == mgo.ErrNotFound {
-		return notFound("machine %v", m)
+		return notFoundf("machine %v", m)
 	}
 	if err != nil {
 		return fmt.Errorf("cannot refresh machine %v: %v", m, err)
@@ -304,7 +319,7 @@ func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
 // InstanceId returns the provider specific instance id for this machine.
 func (m *Machine) InstanceId() (InstanceId, error) {
 	if m.doc.InstanceId == "" {
-		return "", notFound("instance id for machine %v", m)
+		return "", notFoundf("instance id for machine %v", m)
 	}
 	return m.doc.InstanceId, nil
 }
