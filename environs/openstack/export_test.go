@@ -1,6 +1,7 @@
 package openstack
 
 import (
+	"fmt"
 	"launchpad.net/goose/swift"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/trivial"
@@ -48,14 +49,18 @@ func DeleteStorageContent(s environs.Storage) error {
 
 // WritablePublicStorage returns a Storage instance which is authorised to write to the PublicStorage bucket.
 // It is used by tests which need to upload files.
-func WritablePublicStorage(e environs.Environ) (environs.Storage, error) {
+func WritablePublicStorage(e environs.Environ) environs.Storage {
 	ecfg := e.(*environ).ecfg()
 	authMethodCfg := AuthMethod(ecfg.authMethod())
-	writeablePublicStorage := &storage{
+	writablePublicStorage := &storage{
 		containerName: ecfg.publicBucket(),
-		swift:         swift.New(e.(*environ).client(ecfg, authMethodCfg))}
+		swift:         swift.New(e.(*environ).client(ecfg, authMethodCfg)),
+	}
 
 	// Ensure the container exists.
-	err := writeablePublicStorage.makeContainer(ecfg.publicBucket(), swift.PublicRead)
-	return writeablePublicStorage, err
+	err := writablePublicStorage.makeContainer(ecfg.publicBucket(), swift.PublicRead)
+	if err != nil {
+		panic(fmt.Errorf("cannot create writable public container: %v", err))
+	}
+	return writablePublicStorage
 }
