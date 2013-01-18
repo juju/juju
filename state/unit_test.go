@@ -84,9 +84,7 @@ func (s *UnitSuite) TestRefresh(c *C) {
 
 	err = unit1.EnsureDead()
 	c.Assert(err, IsNil)
-	svc, err := s.State.Service(unit1.ServiceName())
-	c.Assert(err, IsNil)
-	err = svc.RemoveUnit(unit1)
+	err = unit1.Remove()
 	c.Assert(err, IsNil)
 	err = unit1.Refresh()
 	c.Assert(state.IsNotFound(err), Equals, true)
@@ -139,7 +137,7 @@ func (s *UnitSuite) TestUnitCharm(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(ch.URL(), DeepEquals, s.charm.URL())
 
-	err = s.unit.EnsureDying()
+	err = s.unit.Destroy()
 	c.Assert(err, IsNil)
 	err = s.unit.SetCharm(s.charm)
 	c.Assert(err, IsNil)
@@ -393,7 +391,7 @@ func (s *UnitSuite) TestOpenClosePortWhenDying(c *C) {
 }
 
 func (s *UnitSuite) TestSetClearResolvedWhenNotAlive(c *C) {
-	err := s.unit.EnsureDying()
+	err := s.unit.Destroy()
 	c.Assert(err, IsNil)
 	err = s.unit.SetResolved(state.ResolvedNoHooks)
 	c.Assert(err, IsNil)
@@ -436,9 +434,7 @@ func (s *UnitSuite) TestSubordinateChangeInPrincipal(c *C) {
 	c.Assert(err, IsNil)
 	err = su1.EnsureDead()
 	c.Assert(err, IsNil)
-	ss1, err := s.State.Service("logging1")
-	c.Assert(err, IsNil)
-	err = ss1.RemoveUnit(su1)
+	err = su1.Remove()
 	c.Assert(err, IsNil)
 	err = s.unit.Refresh()
 	c.Assert(err, IsNil)
@@ -456,7 +452,7 @@ func (s *UnitSuite) TestDeathWithSubordinates(c *C) {
 	// Create a new unit and add a subordinate.
 	u, err = s.service.AddUnit()
 	c.Assert(err, IsNil)
-	logging, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
+	_, err = s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
 	c.Assert(err, IsNil)
 	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
 	c.Assert(err, IsNil)
@@ -470,7 +466,7 @@ func (s *UnitSuite) TestDeathWithSubordinates(c *C) {
 	// Check the unit cannot become Dead, but can become Dying...
 	err = u.EnsureDead()
 	c.Assert(err, Equals, state.ErrUnitHasSubordinates)
-	err = u.EnsureDying()
+	err = u.Destroy()
 	c.Assert(err, IsNil)
 
 	// ...and that it still can't become Dead now it's Dying.
@@ -486,9 +482,25 @@ func (s *UnitSuite) TestDeathWithSubordinates(c *C) {
 	c.Assert(err, Equals, state.ErrUnitHasSubordinates)
 
 	// remove the subordinate and check the principal can finally become Dead.
-	err = logging.RemoveUnit(sub)
+	err = sub.Remove()
 	c.Assert(err, IsNil)
 	err = u.EnsureDead()
+	c.Assert(err, IsNil)
+}
+
+func (s *UnitSuite) TestRemove(c *C) {
+	err := s.unit.Remove()
+	c.Assert(err, ErrorMatches, `cannot remove unit "wordpress/0": unit is not dead`)
+	err = s.unit.EnsureDead()
+	c.Assert(err, IsNil)
+	err = s.unit.Remove()
+	c.Assert(err, IsNil)
+	err = s.unit.Refresh()
+	c.Assert(state.IsNotFound(err), Equals, true)
+	units, err := s.service.AllUnits()
+	c.Assert(err, IsNil)
+	c.Assert(units, HasLen, 0)
+	err = s.unit.Remove()
 	c.Assert(err, IsNil)
 }
 
@@ -524,7 +536,6 @@ func (s *UnitSuite) TestWatchSubordinates(c *C) {
 
 	// Add a couple of subordinates, check change.
 	subCharm := s.AddTestingCharm(c, "logging")
-	var subSvcs []*state.Service
 	var subUnits []*state.Unit
 	for i := 0; i < 2; i++ {
 		name := "logging" + strconv.Itoa(i)
@@ -540,14 +551,14 @@ func (s *UnitSuite) TestWatchSubordinates(c *C) {
 		c.Assert(err, IsNil)
 		units, err := subSvc.AllUnits()
 		c.Assert(err, IsNil)
-		subSvcs = append(subSvcs, subSvc)
+		c.Assert(units, HasLen, 1)
 		subUnits = append(subUnits, units[0])
 	}
 	assertChange(subUnits[0].Name(), subUnits[1].Name())
 	assertNoChange()
 
 	// Set one to Dying, check change.
-	err := subUnits[0].EnsureDying()
+	err := subUnits[0].Destroy()
 	c.Assert(err, IsNil)
 	assertChange(subUnits[0].Name())
 	assertNoChange()
@@ -557,7 +568,7 @@ func (s *UnitSuite) TestWatchSubordinates(c *C) {
 	c.Assert(err, IsNil)
 	err = subUnits[1].EnsureDead()
 	c.Assert(err, IsNil)
-	err = subSvcs[1].RemoveUnit(subUnits[1])
+	err = subUnits[1].Remove()
 	c.Assert(err, IsNil)
 	assertChange(subUnits[0].Name(), subUnits[1].Name())
 	assertNoChange()
@@ -577,7 +588,7 @@ func (s *UnitSuite) TestWatchSubordinates(c *C) {
 	assertChange(subUnits[0].Name())
 
 	// Remove the leftover, check no change.
-	err = subSvcs[0].RemoveUnit(subUnits[0])
+	err = subUnits[0].Remove()
 	c.Assert(err, IsNil)
 	assertNoChange()
 }
@@ -609,7 +620,7 @@ var watchUnitTests = []struct {
 	},
 	{
 		func(u *state.Unit) error {
-			return u.EnsureDying()
+			return u.Destroy()
 		},
 		unitInfo{
 			Life: state.Dying,

@@ -520,8 +520,8 @@ func (ru *RelationUnit) LeaveScope() error {
 	//
 	// Keep in mind that in the first iteration of the loop it's possible
 	// to have a Dying relation with a smaller-than-real unit count, because
-	// EnsureDying changes the Life attribute in memory (units could join
-	// before the database is actually changed).
+	// Destroy changes the Life attribute in memory (units could join before
+	// the database is actually changed).
 	desc := fmt.Sprintf("unit %q in relation %q", ru.unit, ru.relation)
 	for attempt := 0; attempt < 3; attempt++ {
 		count, err := ru.st.relationScopes.FindId(key).Count()

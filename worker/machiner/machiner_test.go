@@ -39,7 +39,7 @@ func (s *MachinerSuite) TestSetDead(c *C) {
 	c.Assert(err, IsNil)
 	mr := machiner.NewMachiner(s.State, m.Id())
 	defer mr.Stop()
-	c.Assert(m.EnsureDying(), IsNil)
+	c.Assert(m.Destroy(), IsNil)
 	s.State.StartSync()
 	c.Assert(mr.Wait(), Equals, worker.ErrDead)
 	c.Assert(m.Refresh(), IsNil)
