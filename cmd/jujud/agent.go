@@ -137,7 +137,7 @@ func RunLoop(c *agent.Conf, a Agent) error {
 	panic("unreachable")
 }
 
-// isleep waits for the given duration, or until
+// isleep waits for the given duration or until
 // it receives a value on stop. It returns whether
 // it has been stopped.
 func isleep(d time.Duration, stop <-chan struct{}) bool {
