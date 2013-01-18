@@ -32,7 +32,7 @@ type Conf struct {
 	// StateInfo specifies how the agent should connect to the
 	// state.  The password may be empty if an old password is
 	// specified, or when bootstrapping.
-	StateInfo state.Info
+	StateInfo *state.Info `yaml:",omitempty"`
 
 	// OldAPIPassword specifies a password that should
 	// be used to connect to the API if APIInfo.Password
@@ -41,7 +41,7 @@ type Conf struct {
 
 	// APIInfo specifies how the agent should connect to the
 	// state through the API.
-	APIInfo api.Info
+	APIInfo *api.Info `yaml:",omitempty"`
 }
 
 var validAddr = regexp.MustCompile("^.+:[0-9]+$")
@@ -59,9 +59,14 @@ func ReadConf(dataDir, entityName string) (*Conf, error) {
 		return nil, err
 	}
 	c.DataDir = dataDir
-	c.StateInfo.EntityName = entityName
 	if err := c.Check(); err != nil {
 		return nil, err
+	}
+	if c.StateInfo != nil {
+		c.StateInfo.EntityName = entityName
+	}
+	if c.APIInfo != nil {
+		c.APIInfo.EntityName = entityName
 	}
 	return &c, nil
 }
@@ -79,9 +84,16 @@ func (c *Conf) confFile() string {
 	return c.File("agent.conf")
 }
 
+func (c *Conf) EntityName() string {
+	if c.StateInfo != nil {
+		return c.StateInfo.EntityName
+	}
+	return c.APIInfo.EntityName
+}
+
 // Dir returns the agent's directory.
 func (c *Conf) Dir() string {
-	return environs.AgentDir(c.DataDir, c.StateInfo.EntityName)
+	return environs.AgentDir(c.DataDir, c.EntityName())
 }
 
 // Check checks that the configuration has all the required elements.
@@ -89,28 +101,39 @@ func (c *Conf) Check() error {
 	if c.DataDir == "" {
 		return requiredError("data directory")
 	}
-	if c.StateInfo.EntityName == "" {
-		return requiredError("state entity name")
+	if c.StateInfo == nil && c.APIInfo == nil {
+		return requiredError("state info and API info")
 	}
-	if len(c.StateInfo.Addrs) == 0 {
-		return requiredError("state server address")
-	}
-	for _, a := range c.StateInfo.Addrs {
-		if !validAddr.MatchString(a) {
-			return fmt.Errorf("invalid state server address %q", a)
+	if c.StateInfo != nil {
+		if c.StateInfo.EntityName == "" {
+			return requiredError("state entity name")
+		}
+		if len(c.StateInfo.Addrs) == 0 {
+			return requiredError("state server address")
+		}
+		for _, a := range c.StateInfo.Addrs {
+			if !validAddr.MatchString(a) {
+				return fmt.Errorf("invalid state server address %q", a)
+			}
+		}
+		if len(c.StateInfo.CACert) == 0 {
+			return requiredError("state CA certificate")
 		}
 	}
-	if len(c.StateInfo.CACert) == 0 {
-		return requiredError("state CA certificate")
-	}
 	// TODO(rog) make APIInfo mandatory
-	if c.APIInfo.Addr != "" {
+	if c.APIInfo != nil {
+		if c.APIInfo.EntityName == "" {
+			return requiredError("API entity name")
+		}
 		if !validAddr.MatchString(c.APIInfo.Addr) {
 			return fmt.Errorf("invalid API server address %q", c.APIInfo.Addr)
 		}
 		if len(c.APIInfo.CACert) == 0 {
 			return requiredError("API CA certficate")
 		}
+	}
+	if c.StateInfo != nil && c.APIInfo != nil && c.StateInfo.EntityName != c.APIInfo.EntityName {
+		return fmt.Errorf("mismatched entity names")
 	}
 	return nil
 }
@@ -164,7 +187,7 @@ func (c *Conf) WriteCommands() ([]string, error) {
 // changed, and the caller should write the configuration
 // and set the entity's password accordingly (in that order).
 func (c *Conf) OpenState() (st *state.State, passwordChanged bool, err error) {
-	info := c.StateInfo
+	info := *c.StateInfo
 	if info.Password != "" {
 		st, err := state.Open(&info)
 		if err == nil {
