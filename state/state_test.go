@@ -76,8 +76,8 @@ var jobStringTests = []struct {
 	{state.JobHostUnits, "JobHostUnits"},
 	{state.JobManageEnviron, "JobManageEnviron"},
 	{state.JobServeAPI, "JobServeAPI"},
-	{0, "JobUnknown0"},
-	{5, "JobUnknown5"},
+	{0, "<unknown job 0>"},
+	{5, "<unknown job 5>"},
 }
 
 func (s *StateSuite) TestJobString(c *C) {

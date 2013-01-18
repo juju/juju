@@ -1,19 +1,17 @@
 package agent_test
 
 import (
-	"errors"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/trivial"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sync"
 	stdtesting "testing"
-	"time"
 )
 
 type suite struct{}
@@ -25,9 +23,11 @@ func Test(t *stdtesting.T) {
 var _ = Suite(suite{})
 
 var confTests = []struct {
+	about    string
 	conf     agent.Conf
 	checkErr string
 }{{
+	about: "state info only",
 	conf: agent.Conf{
 		OldPassword: "old password",
 		StateInfo: state.Info{
@@ -38,6 +38,39 @@ var confTests = []struct {
 		},
 	},
 }, {
+	about: "state info and api info",
+	conf: agent.Conf{
+		StateServerCert: []byte("server cert"),
+		StateServerKey:  []byte("server key"),
+		OldPassword:     "old password",
+		StateInfo: state.Info{
+			Addrs:      []string{"foo.com:355", "bar:545"},
+			CACert:     []byte("ca cert"),
+			EntityName: "entity",
+			Password:   "current password",
+		},
+		APIInfo: api.Info{
+			Addr:   "foo.com:555",
+			CACert: []byte("api ca cert"),
+		},
+	},
+}, {
+	about: "API info and state info sharing CA cert",
+	conf: agent.Conf{
+		OldPassword: "old password",
+		StateInfo: state.Info{
+			Addrs:      []string{"foo.com:355", "bar:545"},
+			CACert:     []byte("ca cert"),
+			EntityName: "entity",
+			Password:   "current password",
+		},
+		APIInfo: api.Info{
+			Addr:   "foo.com:555",
+			CACert: []byte("ca cert"),
+		},
+	},
+}, {
+	about: "no state entity name",
 	conf: agent.Conf{
 		OldPassword: "old password",
 		StateInfo: state.Info{
@@ -46,8 +79,9 @@ var confTests = []struct {
 			Password: "current password",
 		},
 	},
-	checkErr: "entity name not found in configuration",
+	checkErr: "state entity name not found in configuration",
 }, {
+	about: "no state server address",
 	conf: agent.Conf{
 		OldPassword: "old password",
 		StateInfo: state.Info{
@@ -58,6 +92,7 @@ var confTests = []struct {
 	},
 	checkErr: "state server address not found in configuration",
 }, {
+	about: "state server address with no port",
 	conf: agent.Conf{
 		OldPassword: "old password",
 		StateInfo: state.Info{
@@ -67,8 +102,9 @@ var confTests = []struct {
 			Password:   "current password",
 		},
 	},
-	checkErr: "invalid server address \"foo\"",
+	checkErr: "invalid state server address \"foo\"",
 }, {
+	about: "state server address with non-numeric port",
 	conf: agent.Conf{
 		OldPassword: "old password",
 		StateInfo: state.Info{
@@ -78,8 +114,9 @@ var confTests = []struct {
 			Password:   "current password",
 		},
 	},
-	checkErr: "invalid server address \"foo:bar\"",
+	checkErr: "invalid state server address \"foo:bar\"",
 }, {
+	about: "state server address with bad port",
 	conf: agent.Conf{
 		OldPassword: "old password",
 		StateInfo: state.Info{
@@ -89,17 +126,39 @@ var confTests = []struct {
 			Password:   "current password",
 		},
 	},
-	checkErr: "invalid server address \"foo:345d\"",
+	checkErr: "invalid state server address \"foo:345d\"",
 }, {
+	about: "invalid api server address",
 	conf: agent.Conf{
 		OldPassword: "old password",
 		StateInfo: state.Info{
-			Addrs:      []string{"foo.com:456"},
+			Addrs:      []string{"foo:345"},
+			CACert:     []byte("ca cert"),
 			EntityName: "entity",
 			Password:   "current password",
 		},
+		APIInfo: api.Info{
+			Addr:   "foo",
+			CACert: []byte("ca cert"),
+		},
 	},
-	checkErr: "CA certificate not found in configuration",
+	checkErr: "invalid API server address \"foo\"",
+}, {
+	about: "no api CA cert",
+	conf: agent.Conf{
+		OldPassword: "old password",
+		StateInfo: state.Info{
+			Addrs:      []string{"foo:345"},
+			CACert:     []byte("ca cert"),
+			EntityName: "entity",
+			Password:   "current password",
+		},
+		APIInfo: api.Info{
+			Addr:   "foo:3",
+			CACert: []byte{},
+		},
+	},
+	checkErr: "API CA certficate not found in configuration",
 },
 }
 
@@ -107,7 +166,7 @@ func (suite) TestConfReadWriteCheck(c *C) {
 	d := c.MkDir()
 	dataDir := filepath.Join(d, "data")
 	for i, test := range confTests {
-		c.Logf("test %d", i)
+		c.Logf("test %d; %s", i, test.about)
 		conf := test.conf
 		conf.DataDir = dataDir
 		err := conf.Check()
@@ -203,105 +262,6 @@ func (suite) TestConfFile(c *C) {
 		},
 	}
 	c.Assert(conf.File("x/y"), Equals, "/foo/agents/bar/x/y")
-}
-
-func (suite) TestChange(c *C) {
-	dataDir := c.MkDir()
-	conf := agent.Conf{
-		DataDir:     dataDir,
-		OldPassword: "old",
-		StateInfo: state.Info{
-			Addrs:      []string{"x:4"},
-			CACert:     []byte("xxx"),
-			EntityName: "bar",
-			Password:   "pass",
-		},
-	}
-	err := conf.Write()
-	c.Assert(err, IsNil)
-
-	conf2 := agent.Conf{
-		DataDir: dataDir,
-		StateInfo: state.Info{
-			Addrs:      []string{"y:8"},
-			CACert:     []byte("yyy"),
-			EntityName: "bar",
-			Password:   "again",
-		},
-	}
-
-	mutate1 := func(c *agent.Conf) error {
-		c.StateInfo.Password += "-1"
-		time.Sleep(10 * time.Millisecond)
-		return nil
-	}
-	mutate2 := func(c *agent.Conf) error {
-		c.OldPassword += "-2"
-		time.Sleep(10 * time.Millisecond)
-		return nil
-	}
-
-	start := make(chan struct{})
-	var wg sync.WaitGroup
-	for _, f := range []func(*agent.Conf) error{mutate1, mutate1, mutate2, mutate2} {
-		f := f
-		wg.Add(1)
-		go func() {
-			<-start
-			err := conf2.Change(f)
-			c.Check(err, IsNil)
-			wg.Done()
-		}()
-	}
-	close(start)
-	wg.Wait()
-	c.Assert(conf2, DeepEquals, agent.Conf{
-		DataDir:     dataDir,
-		OldPassword: "old-2-2",
-		StateInfo: state.Info{
-			Addrs:      []string{"x:4"},
-			CACert:     []byte("xxx"),
-			EntityName: "bar",
-			Password:   "pass-1-1",
-		},
-	})
-}
-
-func (suite) TestChangeError(c *C) {
-	dataDir := c.MkDir()
-	conf := agent.Conf{
-		DataDir: dataDir,
-		StateInfo: state.Info{
-			Addrs:      []string{"x:4"},
-			CACert:     []byte("xxx"),
-			EntityName: "bar",
-			Password:   "pass",
-		},
-	}
-	err := conf.Write()
-	c.Assert(err, IsNil)
-
-	// Check that an error returned from the mutate function
-	// is returned from Change.
-	changeErr := errors.New("an error")
-	err = conf.Change(func(c *agent.Conf) error {
-		c.StateInfo.EntityName = "not-written"
-		return changeErr
-	})
-	c.Assert(err, Equals, changeErr)
-
-	// Check that an invalid change yields an error.
-	err = conf.Change(func(c *agent.Conf) error {
-		c.StateInfo.Addrs = nil
-		return nil
-	})
-	c.Assert(err, ErrorMatches, "state server address not found in configuration")
-
-	// Check the file hasn't changed
-	conf2, err := agent.ReadConf(dataDir, "bar")
-	c.Assert(err, IsNil)
-
-	c.Assert(conf2, DeepEquals, &conf)
 }
 
 type openSuite struct {
