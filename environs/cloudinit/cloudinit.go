@@ -113,18 +113,8 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	}
 
 	if cfg.StateServer {
-		serverCert := cfg.dataFile("server-cert.pem")
-		serverKey := cfg.dataFile("server-key.pem")
-		serverCertKey := cfg.dataFile("server.pem")
-		addFile(c, serverCert, string(cfg.StateServerCert), 0600)
-		addFile(c, serverKey, string(cfg.StateServerKey), 0600)
-		// mongodb requires server cert and key in the same file.
-		addScripts(c,
-			fmt.Sprintf("cat %s %s > %s",
-				shquote(serverCert), shquote(serverKey),
-				shquote(serverCertKey)),
-			fmt.Sprintf("chmod 600 %s", shquote(serverCertKey)),
-		)
+		certKey := string(cfg.StateServerCert) + string(cfg.StateServerKey)
+		addFile(c, cfg.dataFile("server.pem"), certKey, 0600)
 		// TODO The public bucket must come from the environment configuration.
 		b := cfg.Tools.Binary
 		url := fmt.Sprintf("http://juju-dist.s3.amazonaws.com/tools/mongo-2.2.0-%s-%s.tgz", b.Series, b.Arch)
@@ -179,8 +169,10 @@ func (cfg *MachineConfig) dataFile(name string) string {
 
 func (cfg *MachineConfig) agentConfig(entityName string) *agent.Conf {
 	c := &agent.Conf{
-		DataDir:   cfg.DataDir,
-		StateInfo: *cfg.StateInfo,
+		DataDir:         cfg.DataDir,
+		StateInfo:       *cfg.StateInfo,
+		StateServerCert: cfg.StateServerCert,
+		StateServerKey:  cfg.StateServerKey,
 	}
 	c.StateInfo.Addrs = cfg.stateHostAddrs()
 	c.StateInfo.EntityName = entityName
