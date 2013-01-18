@@ -137,6 +137,7 @@ var commandNames = []string{
 	"bootstrap",
 	"deploy",
 	"destroy-environment",
+	"destroy-machine",
 	"destroy-relation",
 	"destroy-unit",
 	"expose",
@@ -148,6 +149,7 @@ var commandNames = []string{
 	"set",
 	"ssh",
 	"status",
+	"terminate-machine",
 	"unexpose",
 	"upgrade-juju",
 }
