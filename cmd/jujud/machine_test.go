@@ -20,15 +20,15 @@ type MachineSuite struct {
 var _ = Suite(&MachineSuite{})
 
 // primeAgent adds a new Machine to run the given jobs, and sets up the
-// machine agent's directory.  It returns the new machine and the
-// agent's configuration.
-func (s *MachineSuite) primeAgent(c *C, jobs ...state.MachineJob) (*state.Machine, *agent.Conf) {
+// machine agent's directory.  It returns the new machine, the
+// agent's configuration and the tools currently running.
+func (s *MachineSuite) primeAgent(c *C, jobs ...state.MachineJob) (*state.Machine, *agent.Conf, *state.Tools) {
 	m, err := s.State.InjectMachine("ardbeg-0", jobs...)
 	c.Assert(err, IsNil)
 	err = m.SetMongoPassword("machine-password")
 	c.Assert(err, IsNil)
-	conf, _ := s.agentSuite.primeAgent(c, state.MachineEntityName(m.Id()), "machine-password")
-	return m, conf
+	conf, tools := s.agentSuite.primeAgent(c, state.MachineEntityName(m.Id()), "machine-password")
+	return m, conf, tools
 }
 
 // newAgent returns a new MachineAgent instance
@@ -65,13 +65,13 @@ func (s *MachineSuite) TestParseUnknown(c *C) {
 
 func (s *MachineSuite) TestRunInvalidMachineId(c *C) {
 	c.Skip("agents don't yet distinguish between temporary and permanent errors")
-	m, _ := s.primeAgent(c, state.JobHostUnits)
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	err := s.newAgent(c, m).Run(nil)
 	c.Assert(err, ErrorMatches, "some error")
 }
 
 func (s *MachineSuite) TestRunStop(c *C) {
-	m, _ := s.primeAgent(c, state.JobHostUnits)
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	done := make(chan error)
 	go func() {
@@ -83,7 +83,7 @@ func (s *MachineSuite) TestRunStop(c *C) {
 }
 
 func (s *MachineSuite) TestWithDeadMachine(c *C) {
-	m, _ := s.primeAgent(c, state.JobHostUnits)
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	err := m.EnsureDead()
 	c.Assert(err, IsNil)
 	a := s.newAgent(c, m)
@@ -99,7 +99,7 @@ func (s *MachineSuite) TestWithDeadMachine(c *C) {
 }
 
 func (s *MachineSuite) TestHostUnits(c *C) {
-	m, conf := s.primeAgent(c, state.JobHostUnits)
+	m, conf, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	mgr, reset := patchDeployManager(c, conf.StateInfo, conf.DataDir)
 	defer reset()
@@ -135,7 +135,7 @@ func (s *MachineSuite) TestHostUnits(c *C) {
 }
 
 func (s *MachineSuite) TestManageEnviron(c *C) {
-	m, _ := s.primeAgent(c, state.JobManageEnviron)
+	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
 	op := make(chan dummy.Operation, 200)
 	dummy.Listen(op)
 
@@ -192,8 +192,16 @@ func (s *MachineSuite) TestManageEnviron(c *C) {
 	}
 }
 
-func (s *MachineSuite) TestServeAPI(c *C) {
-	m, conf := s.primeAgent(c, state.JobServeAPI)
+func (s *MachineSuite) TestUpgrade(c *C) {
+	m, conf, currentTools := s.primeAgent(c, state.JobServeAPI, state.JobManageEnviron, state.JobHostUnits)	
+	addAPIInfo(conf, m)
+	err := conf.Write()
+	c.Assert(err, IsNil)
+	a := s.newAgent(c, m)
+	s.testUpgrade(c, a, currentTools)
+}
+
+func addAPIInfo(conf *agent.Conf, m *state.Machine) {
 	conf.APIInfo = &api.Info{
 		Addr: fmt.Sprintf("localhost:%d", testing.FindTCPPort()),
 		CACert: []byte(testing.CACert),
@@ -202,9 +210,13 @@ func (s *MachineSuite) TestServeAPI(c *C) {
 	}
 	conf.StateServerCert = []byte(testing.ServerCert)
 	conf.StateServerKey = []byte(testing.ServerKey)
+}
+
+func (s *MachineSuite) TestServeAPI(c *C) {
+	m, conf, _ := s.primeAgent(c, state.JobServeAPI)
+	addAPIInfo(conf, m)
 	err := conf.Write()
 	c.Assert(err, IsNil)
-
 	a := s.newAgent(c, m)
 	done := make(chan error)
 	go func() {
@@ -250,7 +262,7 @@ func opRecvTimeout(c *C, st *state.State, opc <-chan dummy.Operation, kinds ...d
 }
 
 func (s *MachineSuite) TestChangePasswordChanging(c *C) {
-	m, _ := s.primeAgent(c, state.JobHostUnits)
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	newAgent := func() runner {
 		return s.newAgent(c, m)
 	}

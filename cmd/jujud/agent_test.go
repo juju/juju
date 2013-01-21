@@ -367,6 +367,18 @@ func (s *agentSuite) testAgentPasswordChanging(c *C, ent entity, newAgent func()
 	testOpenState(c, info, nil)
 }
 
+func (s *agentSuite) testUpgrade(c *C, agent runner, currentTools *state.Tools) {
+	newVers := version.Current
+	newVers.Patch++
+	newTools := s.uploadTools(c, newVers)
+	s.proposeVersion(c, newVers.Number, true)
+	err := runWithTimeout(agent)
+	c.Assert(err, FitsTypeOf, &UpgradeReadyError{})
+	ug := err.(*UpgradeReadyError)
+	c.Assert(ug.NewTools, DeepEquals, newTools)
+	c.Assert(ug.OldTools, DeepEquals, currentTools)
+}
+
 func refreshConfig(c *agent.Conf) error {
 	nc, err := agent.ReadConf(c.DataDir, c.StateInfo.EntityName)
 	if err != nil {
