@@ -206,7 +206,7 @@ var confTests = []struct {
 	conf: agent.Conf{
 		OldPassword: "old password",
 	},
-	checkErr: "state info and API info not found in configuration",
+	checkErr: "state info or API info not found in configuration",
 },
 }
 

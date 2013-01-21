@@ -8,7 +8,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/trivial"
-	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -103,7 +102,7 @@ func (c *Conf) Check() error {
 		return requiredError("data directory")
 	}
 	if c.StateInfo == nil && c.APIInfo == nil {
-		return requiredError("state info and API info")
+		return requiredError("state info or API info")
 	}
 	if c.StateInfo != nil {
 		if c.StateInfo.EntityName == "" {
@@ -147,9 +146,6 @@ func (c *Conf) Write() error {
 	data, err := goyaml.Marshal(c)
 	if err != nil {
 		return err
-	}
-	if c.APIInfo == nil {
-		log.Printf("marshalled: %s\n", data)
 	}
 	if err := os.MkdirAll(c.Dir(), 0755); err != nil {
 		return err
