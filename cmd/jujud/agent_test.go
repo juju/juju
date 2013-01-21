@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/gnuflag"
@@ -8,11 +9,13 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/agent"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/tomb"
+	"net/http"
 	"time"
 )
 
@@ -269,6 +272,46 @@ func (s *agentSuite) initAgent(c *C, a cmd.Command, args ...string) {
 	args = append([]string{"--data-dir", s.DataDir()}, args...)
 	err := initCmd(a, args)
 	c.Assert(err, IsNil)
+}
+
+func (s *agentSuite) proposeVersion(c *C, vers version.Number, development bool) {
+	cfg, err := s.State.EnvironConfig()
+	c.Assert(err, IsNil)
+	attrs := cfg.AllAttrs()
+	attrs["agent-version"] = vers.String()
+	attrs["development"] = development
+	newCfg, err := config.New(attrs)
+	c.Assert(err, IsNil)
+	err = s.State.SetEnvironConfig(newCfg)
+	c.Assert(err, IsNil)
+}
+
+func (s *agentSuite) uploadTools(c *C, vers version.Binary) *state.Tools {
+	tgz := coretesting.TarGz(
+		coretesting.NewTarFile("juju", 0777, "juju contents "+vers.String()),
+		coretesting.NewTarFile("jujuc", 0777, "jujuc contents "+vers.String()),
+		coretesting.NewTarFile("jujud", 0777, "jujud contents "+vers.String()),
+	)
+	storage := s.Conn.Environ.Storage()
+	err := storage.Put(environs.ToolsStoragePath(vers), bytes.NewReader(tgz), int64(len(tgz)))
+	c.Assert(err, IsNil)
+	url, err := s.Conn.Environ.Storage().URL(environs.ToolsStoragePath(vers))
+	c.Assert(err, IsNil)
+	return &state.Tools{URL: url, Binary: vers}
+}
+
+// primeTools sets up the current version of the tools to vers and
+// makes sure that they're available JujuConnSuite's DataDir.
+func (s *agentSuite) primeTools(c *C, vers version.Binary) *state.Tools {
+	// Set up the current version and tools.
+	version.Current = vers
+	tools := s.uploadTools(c, vers)
+	resp, err := http.Get(tools.URL)
+	c.Assert(err, IsNil)
+	defer resp.Body.Close()
+	err = environs.UnpackTools(s.DataDir(), tools, resp.Body)
+	c.Assert(err, IsNil)
+	return tools
 }
 
 func (s *agentSuite) testAgentPasswordChanging(c *C, ent entity, newAgent func() runner) {
