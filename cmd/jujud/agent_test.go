@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/gnuflag"
@@ -8,15 +9,14 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/agent"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/tomb"
-	"time"
-	"launchpad.net/juju-core/environs/config"
-	"bytes"
 	"net/http"
+	"time"
 )
 
 var _ = Suite(&toolSuite{})
