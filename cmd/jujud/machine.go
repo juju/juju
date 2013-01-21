@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs/agent"
 	_ "launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/worker"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/worker/firewaller"
+	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/worker/provisioner"
 	"launchpad.net/tomb"
 	"time"
@@ -57,20 +57,20 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	defer log.Printf("cmd/jujud: machine agent exiting")
 	defer a.tomb.Done()
 
-	apiDone, err := a.maybeStartAPIServer()
-	if err != nil {
-		if err == worker.ErrDead {
-			return nil
-		}
-		return err
-	}
-	runLoopDone := make(chan error, 1)
+	apiDone := make(chan error)
+	// Pass a copy of the API configuration to maybeRunAPIServer
+	// so that it can mutate it independently.
+	conf := *a.Conf.Conf
 	go func() {
-		runLoopDone <- RunLoop(a.Conf.Conf, a)
+		apiDone <- a.maybeRunAPIServer(&conf)
+	}()
+	runLoopDone := make(chan error)
+	go func() {
+		runLoopDone <- RunAgentLoop(a.Conf.Conf, a)
 	}()
 	for apiDone != nil || runLoopDone != nil {
 		var err error
-		select {
+		select{
 		case err = <-apiDone:
 			apiDone = nil
 		case err = <-runLoopDone:
@@ -78,7 +78,17 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 		}
 		a.tomb.Kill(err)
 	}
-	return a.tomb.Err()
+	err := a.tomb.Err()
+	if err == worker.ErrDead {
+		err = nil
+	}
+	if ug, ok := err.(*UpgradeReadyError); ok {
+		if err1 := ug.ChangeAgentTools(); err1 != nil {
+			err = err1
+			// Return and let upstart deal with the restart.
+		}
+	}
+	return err
 }
 
 func (a *MachineAgent) RunOnce(st *state.State, e AgentState) error {
@@ -115,32 +125,20 @@ func (a *MachineAgent) Tomb() *tomb.Tomb {
 	return &a.tomb
 }
 
-// maybeStartAPIServer starts the API server if it needs to run.
-// If it does not need to run, it returns a nil done channel.
-func (a *MachineAgent) maybeStartAPIServer() (apiDone <-chan error, err error) {
-	// Note: the initial state connection runs synchronously because
-	// things will go wrong if we're concurrently modifying
-	// the password.
+// maybeStartAPIServer starts the API server if necessary.
+func (a *MachineAgent) maybeRunAPIServer(conf *agent.Conf) error {
+	return runLoop(func() error{
+		return a.maybeRunAPIServerOnce(conf)
+	}, a.tomb.Dying())
+}
 
-	// First determine if we should run an API server
-	// by opening the state and looking at the machine's jobs.
-	var st *state.State
-	var m *state.Machine
-	for {
-		st0, entity, err := openState(a.Conf.Conf, a)
-		if err == worker.ErrDead {
-			return nil, err
-		}
-		if err == nil {
-			st = st0
-			m = entity.(*state.Machine)
-			break
-		}
-		log.Printf("cmd/jujud: %v", err)
-		if !isleep(retryDelay, a.tomb.Dying()) {
-			return nil, tomb.ErrDying
-		}
+func (a *MachineAgent) maybeRunAPIServerOnce(conf *agent.Conf) error {
+	st, entity, err := openState(conf, a)
+	if err != nil {
+		return err
 	}
+	defer st.Close()
+	m := entity.(*state.Machine)
 	runAPI := false
 	for _, job := range m.Jobs() {
 		if job == state.JobServeAPI {
@@ -148,46 +146,36 @@ func (a *MachineAgent) maybeStartAPIServer() (apiDone <-chan error, err error) {
 		}
 	}
 	if !runAPI {
-		st.Close()
-		return nil, nil
+		// If we don't need to run the API, then
+		// we just hang around indefinitely until
+		// asked to stop.
+		<-a.tomb.Dying()
+		return nil
 	}
-	// Use a copy of the configuration so that we're independent.
-	conf := *a.Conf.Conf
+	// If the configuration does not have the required information,
+	// it is currently not a recoverable error, so we kill the whole
+	// agent, potentially enabling human intervention to fix
+	// the agent's configuration file. In the future, we may retrieve
+	// the state server certificate and key from the state, and
+	// this should then change.
 	if len(conf.StateServerCert) == 0 || len(conf.StateServerKey) == 0 {
-		return nil, fmt.Errorf("configuration does not have state server cert/key")
+		err := fmt.Errorf("configuration does not have state server cert/key")
+		a.tomb.Kill(err)
+		return err
 	}
 	if conf.APIInfo.Addr == "" {
-		return nil, fmt.Errorf("configuration does not have API server address")
+		err := fmt.Errorf("configuration does not have API server address")
+		a.tomb.Kill(err)
+		return err
 	}
 	log.Printf("cmd/jujud: running API server job")
-	done := make(chan error, 1)
-	go func() {
-		done <- a.apiServer(st, &conf)
-	}()
-	return done, nil
-}
-
-func (a *MachineAgent) apiServer(st *state.State, conf *agent.Conf) error {
-	defer func() {
-		if st != nil {
-			st.Close()
-		}
-	}()
-	for {
-		srv, err := api.NewServer(st, conf.APIInfo.Addr, conf.StateServerCert, conf.StateServerKey)
-		if err != nil {
-			st.Close()
-			return err
-		}
-		select {
-		case <-a.tomb.Dying():
-			return srv.Stop()
-		case <-srv.Dead():
-			log.Printf("cmd/jujud: api server died: %v", srv.Stop())
-		}
-		if !isleep(retryDelay, a.tomb.Dying()) {
-			return tomb.ErrDying
-		}
+	srv, err := api.NewServer(st, conf.APIInfo.Addr, conf.StateServerCert, conf.StateServerKey)
+	if err != nil {
+		return err
 	}
-	panic("unreachable")
+	select{
+	case <-a.tomb.Dying():
+	case <-srv.Dead():
+	}
+	return srv.Stop()
 }
