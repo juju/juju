@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs/agent"
 	_ "launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/firewaller"
-	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/worker/provisioner"
 	"launchpad.net/tomb"
 	"time"
@@ -70,7 +70,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	}()
 	for apiDone != nil || runLoopDone != nil {
 		var err error
-		select{
+		select {
 		case err = <-apiDone:
 			apiDone = nil
 		case err = <-runLoopDone:
@@ -127,7 +127,7 @@ func (a *MachineAgent) Tomb() *tomb.Tomb {
 
 // maybeStartAPIServer starts the API server if necessary.
 func (a *MachineAgent) maybeRunAPIServer(conf *agent.Conf) error {
-	return runLoop(func() error{
+	return runLoop(func() error {
 		return a.maybeRunAPIServerOnce(conf)
 	}, a.tomb.Dying())
 }
@@ -163,17 +163,12 @@ func (a *MachineAgent) maybeRunAPIServerOnce(conf *agent.Conf) error {
 		a.tomb.Kill(err)
 		return err
 	}
-	if conf.APIInfo.Addr == "" {
-		err := fmt.Errorf("configuration does not have API server address")
-		a.tomb.Kill(err)
-		return err
-	}
 	log.Printf("cmd/jujud: running API server job")
 	srv, err := api.NewServer(st, conf.APIInfo.Addr, conf.StateServerCert, conf.StateServerKey)
 	if err != nil {
 		return err
 	}
-	select{
+	select {
 	case <-a.tomb.Dying():
 	case <-srv.Dead():
 	}

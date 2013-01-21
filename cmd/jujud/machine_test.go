@@ -241,6 +241,38 @@ func (s *MachineSuite) TestServeAPI(c *C) {
 	}
 }
 
+var serveAPIWithBadConfTests = []struct {
+	change func(c *agent.Conf)
+	err    string
+}{{
+	func(c *agent.Conf) {
+		c.StateServerCert = nil
+	},
+	"configuration does not have state server cert/key",
+}, {
+	func(c *agent.Conf) {
+		c.StateServerKey = nil
+	},
+	"configuration does not have state server cert/key",
+}}
+
+func (s *MachineSuite) TestServeAPIWithBadConf(c *C) {
+	m, conf, _ := s.primeAgent(c, state.JobServeAPI)
+	addAPIInfo(conf, m)
+	for i, t := range serveAPIWithBadConfTests {
+		c.Logf("test %d: %q", i, t.err)
+		conf1 := *conf
+		t.change(&conf1)
+		err := conf1.Write()
+		c.Assert(err, IsNil)
+		a := s.newAgent(c, m)
+		err = runWithTimeout(a)
+		c.Assert(err, ErrorMatches, t.err)
+		err = refreshConfig(conf)
+		c.Assert(err, IsNil)
+	}
+}
+
 // opRecvTimeout waits for any of the given kinds of operation to
 // be received from ops, and times out if not.
 func opRecvTimeout(c *C, st *state.State, opc <-chan dummy.Operation, kinds ...dummy.Operation) dummy.Operation {
