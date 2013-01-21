@@ -7,7 +7,10 @@ import (
 	_ "launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/worker"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/worker/firewaller"
+	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/worker/provisioner"
 	"launchpad.net/tomb"
 	"time"
@@ -54,8 +57,11 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	defer log.Printf("cmd/jujud: machine agent exiting")
 	defer a.tomb.Done()
 
-	apiDone := make(chan error, 1)
-	if err := a.startAPIServer(apiDone); err != nil {
+	apiDone, err := a.maybeStartAPIServer()
+	if err != nil {
+		if err == worker.ErrDead {
+			return nil
+		}
 		return err
 	}
 	runLoopDone := make(chan error, 1)
@@ -75,79 +81,9 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	return a.tomb.Err()
 }
 
-func (a *MachineAgent) runOnce() error {
-	// TODO (when API state is universal): try to open mongo state
-	// first, set password with that, then run state server if
-	// necessary; then open api and set password with that if
-	// necessary.
-	st, password, err := openState(state.MachineEntityName(a.MachineId), &a.Conf)
-	if err != nil {
-		return err
-	}
-	defer st.Close()
-	m, err := st.Machine(a.MachineId)
-	if state.IsNotFound(err) || err == nil && m.Life() == state.Dead {
-		return worker.ErrDead
-	}
-	if err != nil {
-		return err
-	}
-	if password != "" {
-		if err := m.SetPassword(password); err != nil {
-			return err
-		}
-	}
-	log.Printf("cmd/jujud: requested workers for machine agent: ", m.Workers())
-	var tasks []task
-	// The API server provides a service that may be required
-	// to open the API client, so we start it first if it's required.
-	for _, w := range m.Workers() {
-		if w == state.ServerWorker {
-			srv, err := api.NewServer(st, apiAddr, cert, key)
-			if err != nil {
-				return err
-			}
-			tasks = append(tasks, t)
-		}
-	}
-	apiSt, err := api.Open(a.APIInfo)
-	if err != nil {
-		stopc := make(chan struct{})
-		close(stopc)
-		if err := runTasks(stopc, tasks); err != nil {
-			// The API server error is probably more interesting
-			// than the API client connection failure.
-			return err
-		}
-		return err
-	}
-	defer apiSt.Close()
-	tasks = append(tasks, NewUpgrader(st, m, a.Conf.DataDir))
-	for _, w := range m.Workers() {
-		var t task
-		switch w {
-		case state.MachinerWorker:
-			t = machiner.NewMachiner(m, &a.Conf.StateInfo, a.Conf.DataDir)
-		case state.ProvisionerWorker:
-			t = provisioner.NewProvisioner(st)
-		case state.FirewallerWorker:
-			t = firewaller.NewFirewaller(st)
-		case state.ServerWorker:
-			continue
-		}
-		if t == nil {
-			log.Printf("cmd/jujud: ignoring unknown worker %q", w)
-			continue
-		}
-		tasks = append(tasks, t)
-
-	}
-	return runTasks(a.tomb.Dying(), tasks...)
-}
-
 func (a *MachineAgent) RunOnce(st *state.State, e AgentState) error {
 	m := e.(*state.Machine)
-	log.Printf("cmd/jujud: running jobs for machine agent: %v", m.Jobs())
+	log.Printf("cmd/jujud: jobs for machine agent: %v", m.Jobs())
 	tasks := []task{NewUpgrader(st, m, a.Conf.DataDir)}
 	for _, j := range m.Jobs() {
 		switch j {
@@ -158,6 +94,8 @@ func (a *MachineAgent) RunOnce(st *state.State, e AgentState) error {
 			tasks = append(tasks,
 				provisioner.NewProvisioner(st),
 				firewaller.NewFirewaller(st))
+		case state.JobServeAPI:
+			continue
 		default:
 			log.Printf("cmd/jujud: ignoring unknown job %q", j)
 		}
@@ -177,17 +115,21 @@ func (a *MachineAgent) Tomb() *tomb.Tomb {
 	return &a.tomb
 }
 
-func (a *MachineAgent) startAPIServer(apiDone chan<- error) error {
-	// The initial API connection runs synchronously because
+// maybeStartAPIServer starts the API server if it needs to run.
+// If it does not need to run, it returns a nil done channel.
+func (a *MachineAgent) maybeStartAPIServer() (apiDone <-chan error, err error) {
+	// Note: the initial state connection runs synchronously because
 	// things will go wrong if we're concurrently modifying
 	// the password.
 
+	// First determine if we should run an API server
+	// by opening the state and looking at the machine's jobs.
 	var st *state.State
 	var m *state.Machine
 	for {
 		st0, entity, err := openState(a.Conf.Conf, a)
 		if err == worker.ErrDead {
-			return err
+			return nil, err
 		}
 		if err == nil {
 			st = st0
@@ -195,36 +137,34 @@ func (a *MachineAgent) startAPIServer(apiDone chan<- error) error {
 			break
 		}
 		log.Printf("cmd/jujud: %v", err)
-		if isleep(retryDelay, a.tomb.Dying()) {
-			return nil
+		if !isleep(retryDelay, a.tomb.Dying()) {
+			return nil, tomb.ErrDying
 		}
 	}
 	runAPI := false
 	for _, job := range m.Jobs() {
-		if job == state.APIServerJob {
+		if job == state.JobServeAPI {
 			runAPI = true
 		}
 	}
 	if !runAPI {
-		go func() {
-			<-a.tomb.Dying
-			apiDone <- nil
-		}()
-		return
-	}
-	// TODO(rog) fetch server cert and key from state?
-	if len(conf.ServerCert) == 0 || len(conf.ServerKey) == 0 {
-		return fmt.Errorf("configuration does not have server cert/key")
-	}
-	if conf.APIInfo.Addr == "" {
-		return fmt.Errorf("configuration does not have API server address")
+		st.Close()
+		return nil, nil
 	}
 	// Use a copy of the configuration so that we're independent.
 	conf := *a.Conf.Conf
+	if len(conf.StateServerCert) == 0 || len(conf.StateServerKey) == 0 {
+		return nil, fmt.Errorf("configuration does not have state server cert/key")
+	}
+	if conf.APIInfo.Addr == "" {
+		return nil, fmt.Errorf("configuration does not have API server address")
+	}
+	log.Printf("cmd/jujud: running API server job")
+	done := make(chan error, 1)
 	go func() {
-		apiDone <- a.apiServer(st, &conf)
+		done <- a.apiServer(st, &conf)
 	}()
-	return nil
+	return done, nil
 }
 
 func (a *MachineAgent) apiServer(st *state.State, conf *agent.Conf) error {
@@ -234,7 +174,7 @@ func (a *MachineAgent) apiServer(st *state.State, conf *agent.Conf) error {
 		}
 	}()
 	for {
-		srv, err := api.NewServer(st, conf.APIInfo.Addr, conf.ServerCert, conf.ServerKey)
+		srv, err := api.NewServer(st, conf.APIInfo.Addr, conf.StateServerCert, conf.StateServerKey)
 		if err != nil {
 			st.Close()
 			return err
@@ -243,10 +183,11 @@ func (a *MachineAgent) apiServer(st *state.State, conf *agent.Conf) error {
 		case <-a.tomb.Dying():
 			return srv.Stop()
 		case <-srv.Dead():
-			log.Printf("cmd/jujud: api server died: %v", srv.Wait())
+			log.Printf("cmd/jujud: api server died: %v", srv.Stop())
 		}
-		if isleep(retryDelay, a.tomb.Dying()) {
-			return nil
+		if !isleep(retryDelay, a.tomb.Dying()) {
+			return tomb.ErrDying
 		}
 	}
+	panic("unreachable")
 }

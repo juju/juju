@@ -129,7 +129,7 @@ func RunLoop(c *agent.Conf, a Agent) error {
 		} else {
 			log.Printf("cmd/jujud: %v", err)
 		}
-		if isleep(retryDelay, atomb.Dying()) {
+		if !isleep(retryDelay, atomb.Dying()) {
 			return nil
 		}
 		log.Printf("cmd/jujud: rerunning agent")
@@ -139,14 +139,15 @@ func RunLoop(c *agent.Conf, a Agent) error {
 
 // isleep waits for the given duration or until
 // it receives a value on stop. It returns whether
-// it has been stopped.
+// the full duration was slept without being
+// stopped.
 func isleep(d time.Duration, stop <-chan struct{}) bool {
 	select {
-	case <-stopped:
-		return true
+	case <-stop:
+		return false
 	case <-time.After(d):
 	}
-	return false
+	return true
 }
 
 func runOnce(c *agent.Conf, a Agent) error {
@@ -155,13 +156,14 @@ func runOnce(c *agent.Conf, a Agent) error {
 		return err
 	}
 	defer st.Close()
+	// TODO(rog) connect to API.
 	return a.RunOnce(st, entity)
 }
 
-func openState(c *agent.Conf, a Agent) (st *state.State, entity Entity, err error) {
+func openState(c *agent.Conf, a Agent) (st *state.State, entity AgentState, err error) {
 	st, passwordChanged, err := c.OpenState()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer func(){
 		if err != nil {
@@ -170,22 +172,22 @@ func openState(c *agent.Conf, a Agent) (st *state.State, entity Entity, err erro
 			entity = nil
 		}
 	}()
-	entity, err := a.Entity(st)
+	entity, err = a.Entity(st)
 	if state.IsNotFound(err) || err == nil && entity.Life() == state.Dead {
-		return worker.ErrDead
+		err = worker.ErrDead
 	}
 	if err != nil {
-		return err
+		return
 	}
 	if passwordChanged {
-		if err := c.Write(); err != nil {
-			return err
+		if err = c.Write(); err != nil {
+			return
 		}
-		if err := entity.SetMongoPassword(c.StateInfo.Password); err != nil {
-			return err
+		if err = entity.SetMongoPassword(c.StateInfo.Password); err != nil {
+			return
 		}
 	}
-	return st, entity, nil
+	return
 }
 
 // newDeployManager gives the tests the opportunity to create a deployer.Manager

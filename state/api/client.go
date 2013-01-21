@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/trivial"
+	"time"
 )
 
 type State struct {
