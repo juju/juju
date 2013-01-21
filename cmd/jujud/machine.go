@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs/agent"
 	_ "launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/firewaller"
-	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/worker/provisioner"
 	"launchpad.net/tomb"
 	"time"
@@ -70,7 +70,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	}()
 	for apiDone != nil || runLoopDone != nil {
 		var err error
-		select{
+		select {
 		case err = <-apiDone:
 			apiDone = nil
 		case err = <-runLoopDone:
@@ -179,7 +179,7 @@ func (a *MachineAgent) apiServer(st *state.State, conf *agent.Conf) error {
 			st.Close()
 			return err
 		}
-		select{
+		select {
 		case <-a.tomb.Dying():
 			return srv.Stop()
 		case <-srv.Dead():

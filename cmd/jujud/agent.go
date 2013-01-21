@@ -165,7 +165,7 @@ func openState(c *agent.Conf, a Agent) (st *state.State, entity AgentState, err 
 	if err != nil {
 		return nil, nil, err
 	}
-	defer func(){
+	defer func() {
 		if err != nil {
 			st.Close()
 			st = nil

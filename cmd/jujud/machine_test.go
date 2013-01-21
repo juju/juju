@@ -83,7 +83,7 @@ func (s *MachineSuite) TestRunStop(c *C) {
 }
 
 func (s *MachineSuite) TestWithDeadMachine(c *C) {
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
+	m, _, _ := s.primeAgent(c, state.JobHostUnits, state.JobServeAPI)
 	err := m.EnsureDead()
 	c.Assert(err, IsNil)
 	a := s.newAgent(c, m)
@@ -193,7 +193,7 @@ func (s *MachineSuite) TestManageEnviron(c *C) {
 }
 
 func (s *MachineSuite) TestUpgrade(c *C) {
-	m, conf, currentTools := s.primeAgent(c, state.JobServeAPI, state.JobManageEnviron, state.JobHostUnits)	
+	m, conf, currentTools := s.primeAgent(c, state.JobServeAPI, state.JobManageEnviron, state.JobHostUnits)
 	addAPIInfo(conf, m)
 	err := conf.Write()
 	c.Assert(err, IsNil)
@@ -203,10 +203,10 @@ func (s *MachineSuite) TestUpgrade(c *C) {
 
 func addAPIInfo(conf *agent.Conf, m *state.Machine) {
 	conf.APIInfo = &api.Info{
-		Addr: fmt.Sprintf("localhost:%d", testing.FindTCPPort()),
-		CACert: []byte(testing.CACert),
+		Addr:       fmt.Sprintf("localhost:%d", testing.FindTCPPort()),
+		CACert:     []byte(testing.CACert),
 		EntityName: m.EntityName(),
-		Password: "unused",
+		Password:   "unused",
 	}
 	conf.StateServerCert = []byte(testing.ServerCert)
 	conf.StateServerKey = []byte(testing.ServerKey)
