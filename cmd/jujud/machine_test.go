@@ -1,11 +1,14 @@
 package main
 
 import (
+	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/testing"
 	"reflect"
 	"time"
 )
@@ -177,6 +180,43 @@ func (s *MachineSuite) TestManageEnviron(c *C) {
 	c.Assert(err, IsNil)
 
 	c.Check(opRecvTimeout(c, s.State, op, dummy.OpOpenPorts{}), NotNil)
+
+	err = a.Stop()
+	c.Assert(err, IsNil)
+
+	select {
+	case err := <-done:
+		c.Assert(err, IsNil)
+	case <-time.After(5 * time.Second):
+		c.Fatalf("timed out waiting for agent to terminate")
+	}
+}
+
+func (s *MachineSuite) TestServeAPI(c *C) {
+	m, conf := s.primeAgent(c, state.JobServeAPI)
+	conf.APIInfo = &api.Info{
+		Addr: fmt.Sprintf("localhost:%d", testing.FindTCPPort()),
+		CACert: []byte(testing.CACert),
+		EntityName: m.EntityName(),
+		Password: "unused",
+	}
+	conf.StateServerCert = []byte(testing.ServerCert)
+	conf.StateServerKey = []byte(testing.ServerKey)
+	err := conf.Write()
+	c.Assert(err, IsNil)
+
+	a := s.newAgent(c, m)
+	done := make(chan error)
+	go func() {
+		done <- a.Run(nil)
+	}()
+
+	st, err := api.Open(conf.APIInfo)
+	c.Assert(err, IsNil)
+	defer st.Close()
+	instId, err := st.Request(m.Id())
+	c.Assert(err, IsNil)
+	c.Assert(instId, Equals, "ardbeg-0")
 
 	err = a.Stop()
 	c.Assert(err, IsNil)
