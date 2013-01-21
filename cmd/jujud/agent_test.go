@@ -255,7 +255,7 @@ func (s *agentSuite) primeAgent(c *C, entityName, password string) (*agent.Conf,
 	conf := &agent.Conf{
 		DataDir:     s.DataDir(),
 		OldPassword: password,
-		StateInfo:   *s.StateInfo(c),
+		StateInfo:   s.StateInfo(c),
 	}
 	conf.StateInfo.EntityName = entityName
 	err = conf.Write()
@@ -299,7 +299,7 @@ func (s *agentSuite) testAgentPasswordChanging(c *C, ent entity, newAgent func()
 	c.Assert(refreshConfig(conf), IsNil)
 	newPassword := conf.StateInfo.Password
 
-	testOpenState(c, &conf.StateInfo, nil)
+	testOpenState(c, conf.StateInfo, nil)
 
 	// Check that it starts again ok
 	err = runStop(newAgent())

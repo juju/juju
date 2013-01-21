@@ -30,7 +30,7 @@ var confTests = []struct {
 	about: "state info only",
 	conf: agent.Conf{
 		OldPassword: "old password",
-		StateInfo: state.Info{
+		StateInfo: &state.Info{
 			Addrs:      []string{"foo.com:355", "bar:545"},
 			CACert:     []byte("ca cert"),
 			EntityName: "entity",
@@ -43,37 +43,77 @@ var confTests = []struct {
 		StateServerCert: []byte("server cert"),
 		StateServerKey:  []byte("server key"),
 		OldPassword:     "old password",
-		StateInfo: state.Info{
+		StateInfo: &state.Info{
 			Addrs:      []string{"foo.com:355", "bar:545"},
 			CACert:     []byte("ca cert"),
 			EntityName: "entity",
 			Password:   "current password",
 		},
-		APIInfo: api.Info{
-			Addr:   "foo.com:555",
-			CACert: []byte("api ca cert"),
+		APIInfo: &api.Info{
+			EntityName: "entity",
+			Password:   "other password",
+			Addr:       "foo.com:555",
+			CACert:     []byte("api ca cert"),
 		},
 	},
 }, {
 	about: "API info and state info sharing CA cert",
 	conf: agent.Conf{
 		OldPassword: "old password",
-		StateInfo: state.Info{
+		StateInfo: &state.Info{
 			Addrs:      []string{"foo.com:355", "bar:545"},
 			CACert:     []byte("ca cert"),
 			EntityName: "entity",
 			Password:   "current password",
 		},
-		APIInfo: api.Info{
-			Addr:   "foo.com:555",
-			CACert: []byte("ca cert"),
+		APIInfo: &api.Info{
+			EntityName: "entity",
+			Addr:       "foo.com:555",
+			CACert:     []byte("ca cert"),
 		},
 	},
+}, {
+	about: "no api entity name",
+	conf: agent.Conf{
+		StateServerCert: []byte("server cert"),
+		StateServerKey:  []byte("server key"),
+		OldPassword:     "old password",
+		StateInfo: &state.Info{
+			Addrs:      []string{"foo.com:355", "bar:545"},
+			CACert:     []byte("ca cert"),
+			EntityName: "entity",
+			Password:   "current password",
+		},
+		APIInfo: &api.Info{
+			Addr:   "foo.com:555",
+			CACert: []byte("api ca cert"),
+		},
+	},
+	checkErr: "API entity name not found in configuration",
+}, {
+	about: "mismatched entity names",
+	conf: agent.Conf{
+		StateServerCert: []byte("server cert"),
+		StateServerKey:  []byte("server key"),
+		OldPassword:     "old password",
+		StateInfo: &state.Info{
+			Addrs:      []string{"foo.com:355", "bar:545"},
+			CACert:     []byte("ca cert"),
+			EntityName: "entity",
+			Password:   "current password",
+		},
+		APIInfo: &api.Info{
+			EntityName: "other",
+			Addr:       "foo.com:555",
+			CACert:     []byte("api ca cert"),
+		},
+	},
+	checkErr: "mismatched entity names",
 }, {
 	about: "no state entity name",
 	conf: agent.Conf{
 		OldPassword: "old password",
-		StateInfo: state.Info{
+		StateInfo: &state.Info{
 			Addrs:    []string{"foo.com:355", "bar:545"},
 			CACert:   []byte("ca cert"),
 			Password: "current password",
@@ -84,7 +124,7 @@ var confTests = []struct {
 	about: "no state server address",
 	conf: agent.Conf{
 		OldPassword: "old password",
-		StateInfo: state.Info{
+		StateInfo: &state.Info{
 			CACert:     []byte("ca cert"),
 			Password:   "current password",
 			EntityName: "entity",
@@ -95,7 +135,7 @@ var confTests = []struct {
 	about: "state server address with no port",
 	conf: agent.Conf{
 		OldPassword: "old password",
-		StateInfo: state.Info{
+		StateInfo: &state.Info{
 			Addrs:      []string{"foo"},
 			CACert:     []byte("ca cert"),
 			EntityName: "entity",
@@ -107,7 +147,7 @@ var confTests = []struct {
 	about: "state server address with non-numeric port",
 	conf: agent.Conf{
 		OldPassword: "old password",
-		StateInfo: state.Info{
+		StateInfo: &state.Info{
 			Addrs:      []string{"foo:bar"},
 			CACert:     []byte("ca cert"),
 			EntityName: "entity",
@@ -119,7 +159,7 @@ var confTests = []struct {
 	about: "state server address with bad port",
 	conf: agent.Conf{
 		OldPassword: "old password",
-		StateInfo: state.Info{
+		StateInfo: &state.Info{
 			Addrs:      []string{"foo:345d"},
 			CACert:     []byte("ca cert"),
 			EntityName: "entity",
@@ -131,15 +171,16 @@ var confTests = []struct {
 	about: "invalid api server address",
 	conf: agent.Conf{
 		OldPassword: "old password",
-		StateInfo: state.Info{
+		StateInfo: &state.Info{
 			Addrs:      []string{"foo:345"},
 			CACert:     []byte("ca cert"),
 			EntityName: "entity",
 			Password:   "current password",
 		},
-		APIInfo: api.Info{
-			Addr:   "foo",
-			CACert: []byte("ca cert"),
+		APIInfo: &api.Info{
+			EntityName: "entity",
+			Addr:       "foo",
+			CACert:     []byte("ca cert"),
 		},
 	},
 	checkErr: "invalid API server address \"foo\"",
@@ -147,18 +188,25 @@ var confTests = []struct {
 	about: "no api CA cert",
 	conf: agent.Conf{
 		OldPassword: "old password",
-		StateInfo: state.Info{
+		StateInfo: &state.Info{
 			Addrs:      []string{"foo:345"},
 			CACert:     []byte("ca cert"),
 			EntityName: "entity",
 			Password:   "current password",
 		},
-		APIInfo: api.Info{
-			Addr:   "foo:3",
-			CACert: []byte{},
+		APIInfo: &api.Info{
+			EntityName: "entity",
+			Addr:       "foo:3",
+			CACert:     []byte{},
 		},
 	},
 	checkErr: "API CA certficate not found in configuration",
+}, {
+	about: "no state or API info",
+	conf: agent.Conf{
+		OldPassword: "old password",
+	},
+	checkErr: "state info or API info not found in configuration",
 },
 }
 
@@ -199,7 +247,12 @@ func (suite) TestConfReadWriteCheck(c *C) {
 		rconf, err := agent.ReadConf(dataDir, "another")
 		c.Assert(err, IsNil)
 		c.Assert(rconf.StateInfo.EntityName, Equals, "another")
-		rconf.StateInfo.EntityName = conf.StateInfo.EntityName
+		if rconf.StateInfo != nil {
+			rconf.StateInfo.EntityName = conf.EntityName()
+		}
+		if rconf.APIInfo != nil {
+			rconf.APIInfo.EntityName = conf.EntityName()
+		}
 		c.Assert(rconf, DeepEquals, &conf)
 
 		err = os.RemoveAll(dataDir)
@@ -228,7 +281,7 @@ func (suite) TestConfReadWriteCheck(c *C) {
 
 func (suite) TestCheckNoDataDir(c *C) {
 	conf := agent.Conf{
-		StateInfo: state.Info{
+		StateInfo: &state.Info{
 			Addrs:      []string{"x:4"},
 			CACert:     []byte("xxx"),
 			EntityName: "bar",
@@ -241,7 +294,7 @@ func (suite) TestCheckNoDataDir(c *C) {
 func (suite) TestConfDir(c *C) {
 	conf := agent.Conf{
 		DataDir: "/foo",
-		StateInfo: state.Info{
+		StateInfo: &state.Info{
 			Addrs:      []string{"x:4"},
 			CACert:     []byte("xxx"),
 			EntityName: "bar",
@@ -254,7 +307,7 @@ func (suite) TestConfDir(c *C) {
 func (suite) TestConfFile(c *C) {
 	conf := agent.Conf{
 		DataDir: "/foo",
-		StateInfo: state.Info{
+		StateInfo: &state.Info{
 			Addrs:      []string{"x:4"},
 			CACert:     []byte("xxx"),
 			EntityName: "bar",
@@ -272,7 +325,7 @@ var _ = Suite(&openSuite{})
 
 func (s *openSuite) TestOpenStateNormal(c *C) {
 	conf := agent.Conf{
-		StateInfo: *s.StateInfo(c),
+		StateInfo: s.StateInfo(c),
 	}
 	conf.OldPassword = "irrelevant"
 
@@ -285,7 +338,7 @@ func (s *openSuite) TestOpenStateNormal(c *C) {
 
 func (s *openSuite) TestOpenStateFallbackPassword(c *C) {
 	conf := agent.Conf{
-		StateInfo: *s.StateInfo(c),
+		StateInfo: s.StateInfo(c),
 	}
 	conf.OldPassword = conf.StateInfo.Password
 	conf.StateInfo.Password = "not the right password"
@@ -303,7 +356,7 @@ func (s *openSuite) TestOpenStateFallbackPassword(c *C) {
 
 func (s *openSuite) TestOpenStateNoPassword(c *C) {
 	conf := agent.Conf{
-		StateInfo: *s.StateInfo(c),
+		StateInfo: s.StateInfo(c),
 	}
 	conf.OldPassword = conf.StateInfo.Password
 	conf.StateInfo.Password = ""

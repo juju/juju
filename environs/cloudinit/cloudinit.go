@@ -168,9 +168,10 @@ func (cfg *MachineConfig) dataFile(name string) string {
 }
 
 func (cfg *MachineConfig) agentConfig(entityName string) *agent.Conf {
+	info := *cfg.StateInfo
 	c := &agent.Conf{
 		DataDir:         cfg.DataDir,
-		StateInfo:       *cfg.StateInfo,
+		StateInfo:       &info,
 		StateServerCert: cfg.StateServerCert,
 		StateServerKey:  cfg.StateServerKey,
 	}

@@ -98,7 +98,7 @@ func (s *MachineSuite) TestWithDeadMachine(c *C) {
 func (s *MachineSuite) TestHostUnits(c *C) {
 	m, conf := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
-	mgr, reset := patchDeployManager(c, &conf.StateInfo, conf.DataDir)
+	mgr, reset := patchDeployManager(c, conf.StateInfo, conf.DataDir)
 	defer reset()
 	go func() { c.Check(a.Run(nil), IsNil) }()
 	defer func() { c.Check(a.Stop(), IsNil) }()

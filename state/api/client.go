@@ -24,6 +24,13 @@ type Info struct {
 	// CACert holds the CA certificate that will be used
 	// to validate the state server's certificate, in PEM format.
 	CACert []byte
+
+	// EntityName holds the name of the entity that is connecting.
+	// It should be empty when connecting as an administrator.
+	EntityName string
+
+	// Password holds the password for the administrator or connecting entity.
+	Password string
 }
 
 var openAttempt = trivial.AttemptStrategy{
