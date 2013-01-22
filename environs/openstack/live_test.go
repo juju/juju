@@ -126,3 +126,25 @@ func putFakeTools(c *C, s environs.StorageWriter) {
 	err := s.Put(path, strings.NewReader(toolsContents), int64(len(toolsContents)))
 	c.Assert(err, IsNil)
 }
+
+// The following tests need to be enabled once the coding is complete.
+
+func (s *LiveTests) TestBootstrap(c *C) {
+	c.Skip("Work in progress")
+}
+
+func (s *LiveTests) TestBootstrapMultiple(c *C) {
+	c.Skip("Work in progress")
+}
+
+func (s *LiveTests) TestGlobalPorts(c *C) {
+	c.Skip("Work in progress")
+}
+
+func (s *LiveTests) TestPorts(c *C) {
+	c.Skip("Work in progress")
+}
+
+func (s *LiveTests) TestStartStop(c *C) {
+	c.Skip("Work in progress")
+}

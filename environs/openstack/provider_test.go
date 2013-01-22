@@ -9,9 +9,6 @@ import (
 
 var live = flag.Bool("live", false, "Include live OpenStack (Canonistack) tests")
 
-// TODO(wallyworld): local tests should always be run but at the moment, some fail as the code is still WIP.
-var local = flag.Bool("local", false, "Include local OpenStack (service double) tests")
-
 func Test(t *testing.T) {
 	if *live {
 		cred, err := identity.CompleteCredentialsFromEnv()
@@ -20,8 +17,6 @@ func Test(t *testing.T) {
 		}
 		registerOpenStackTests(cred)
 	}
-	if *local {
-		registerServiceDoubleTests()
-	}
+	registerServiceDoubleTests()
 	TestingT(t)
 }
