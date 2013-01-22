@@ -57,6 +57,8 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	defer log.Printf("cmd/jujud: machine agent exiting")
 	defer a.tomb.Done()
 
+	// We run the API server worker first, because we may
+	// need to connect to it before starting the other workers.
 	apiDone := make(chan error)
 	// Pass a copy of the API configuration to maybeRunAPIServer
 	// so that it can mutate it independently.
@@ -111,6 +113,7 @@ func (a *MachineAgent) RunOnce(st *state.State, e AgentState) error {
 				provisioner.NewProvisioner(st),
 				firewaller.NewFirewaller(st))
 		case state.JobServeAPI:
+			// Ignore because it's started independently.
 			continue
 		default:
 			log.Printf("cmd/jujud: ignoring unknown job %q", j)
@@ -138,6 +141,8 @@ func (a *MachineAgent) maybeRunAPIServer(conf *agent.Conf) error {
 	}, a.tomb.Dying())
 }
 
+// maybeRunAPIServerOnce runs the API server until it dies,
+// but only if the machine is required to run the API server.
 func (a *MachineAgent) maybeRunAPIServerOnce(conf *agent.Conf) error {
 	st, entity, err := openState(conf, a)
 	if err != nil {
@@ -149,6 +154,7 @@ func (a *MachineAgent) maybeRunAPIServerOnce(conf *agent.Conf) error {
 	for _, job := range m.Jobs() {
 		if job == state.JobServeAPI {
 			runAPI = true
+			break
 		}
 	}
 	if !runAPI {

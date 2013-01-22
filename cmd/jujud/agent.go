@@ -97,7 +97,7 @@ waiting:
 
 func importance(err error) int {
 	switch {
-	case err ==  nil:
+	case err == nil:
 		return 0
 	default:
 		return 1
