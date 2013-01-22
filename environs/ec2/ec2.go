@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
 	"net/http"
@@ -287,16 +288,17 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 	return nil
 }
 
-func (e *environ) StateInfo() (*state.Info, error) {
+func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 	st, err := e.loadState()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	cert, hasCert := e.Config().CACert()
 	if !hasCert {
-		return nil, fmt.Errorf("no CA certificate in environment configuration")
+		return nil, nil, fmt.Errorf("no CA certificate in environment configuration")
 	}
-	var addrs []string
+	var stateAddrs []string
+	var apiAddr string
 	// Wait for the DNS names of any of the instances
 	// to become available.
 	log.Printf("environs/ec2: waiting for DNS name(s) of state server instances %v", st.StateInstances)
@@ -311,15 +313,19 @@ func (e *environ) StateInfo() (*state.Info, error) {
 			}
 			name := inst.(*instance).Instance.DNSName
 			if name != "" {
-				addrs = append(addrs, name+mgoPortSuffix)
+				mgoAddrs = append(addrs, name+mgoPortSuffix)
+				apiAddr = name+apiPortSuffix
 			}
 		}
 	}
-	if len(addrs) == 0 {
+	if len(mgoAddrs) == 0 {
 		return nil, fmt.Errorf("timed out waiting for mgo address from %v", st.StateInstances)
 	}
 	return &state.Info{
 		Addrs:  addrs,
+		CACert: cert,
+	}, &api.Info{
+		Addr: apiAddr
 		CACert: cert,
 	}, nil
 }
