@@ -84,8 +84,8 @@ func (c *Conf) confFile() string {
 	return c.File("agent.conf")
 }
 
-// EntityName returns the entity name that
-// will be used to connect to the state.
+// EntityName returns the entity name that will be used to connect to
+// the state.
 func (c *Conf) EntityName() string {
 	if c.StateInfo != nil {
 		return c.StateInfo.EntityName

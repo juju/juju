@@ -82,9 +82,6 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 		a.tomb.Kill(err1)
 		if moreImportant(err1, err) {
 			err = err1
-			log.Printf("%q > %q", err1, err)
-		} else {
-			log.Printf("%q <= %q", err1, err)
 		}
 	}
 	if err == worker.ErrDead {
