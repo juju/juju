@@ -11,6 +11,8 @@ import (
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/openstack"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/version"
+	"strings"
 )
 
 // uniqueName is generated afresh for every test run, so that
@@ -44,29 +46,36 @@ func makeTestConfig() map[string]interface{} {
 	return attrs
 }
 
-func registerOpenStackTests() {
-	Suite(&LiveTests{})
+// Register tests to run against a real Openstack instance.
+func registerOpenStackTests(cred *identity.Credentials) {
+	Suite(&LiveTests{
+		cred: cred,
+	})
 }
 
 // LiveTests contains tests that can be run against OpenStack deployments.
+// The deployment can be a real live instance or service doubles.
 // Each test runs using the same connection.
 type LiveTests struct {
 	coretesting.LoggingSuite
 	jujutest.LiveTests
+	cred                   *identity.Credentials
 	writeablePublicStorage environs.Storage
 }
 
 func (t *LiveTests) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
 	// Get an authenticated Goose client to extract some configuration parameters for the test environment.
-	cred, err := identity.CompleteCredentialsFromEnv()
-	c.Assert(err, IsNil)
-	client := client.NewClient(cred, identity.AuthUserPass, nil)
-	err = client.Authenticate()
+	client := client.NewClient(t.cred, identity.AuthUserPass, nil)
+	err := client.Authenticate()
 	c.Assert(err, IsNil)
 	publicBucketURL, err := client.MakeServiceURL("object-store", nil)
 	c.Assert(err, IsNil)
 	attrs := makeTestConfig()
+	attrs["username"] = t.cred.User
+	attrs["password"] = t.cred.Secrets
+	attrs["region"] = t.cred.Region
+	attrs["auth-url"] = t.cred.URL
 	attrs["public-bucket-url"] = publicBucketURL
 	t.Config = attrs
 	e, err := environs.NewFromAttrs(t.Config)
@@ -104,4 +113,38 @@ func (t *LiveTests) SetUpTest(c *C) {
 func (t *LiveTests) TearDownTest(c *C) {
 	t.LiveTests.TearDownTest(c)
 	t.LoggingSuite.TearDownTest(c)
+}
+
+// putFakeTools sets up a bucket containing something
+// that looks like a tools archive so test methods
+// that start an instance can succeed even though they
+// do not upload tools.
+func putFakeTools(c *C, s environs.StorageWriter) {
+	path := environs.ToolsStoragePath(version.Current)
+	c.Logf("putting fake tools at %v", path)
+	toolsContents := "tools archive, honest guv"
+	err := s.Put(path, strings.NewReader(toolsContents), int64(len(toolsContents)))
+	c.Assert(err, IsNil)
+}
+
+// The following tests need to be enabled once the coding is complete.
+
+func (s *LiveTests) TestBootstrap(c *C) {
+	c.Skip("Work in progress")
+}
+
+func (s *LiveTests) TestBootstrapMultiple(c *C) {
+	c.Skip("Work in progress")
+}
+
+func (s *LiveTests) TestGlobalPorts(c *C) {
+	c.Skip("Work in progress")
+}
+
+func (s *LiveTests) TestPorts(c *C) {
+	c.Skip("Work in progress")
+}
+
+func (s *LiveTests) TestStartStop(c *C) {
+	c.Skip("Work in progress")
 }
