@@ -329,10 +329,10 @@ func (s *openSuite) TestOpenStateNormal(c *C) {
 	}
 	conf.OldPassword = "irrelevant"
 
-	st, changed, err := conf.OpenState()
+	st, newPassword, err := conf.OpenState()
 	c.Assert(err, IsNil)
 	defer st.Close()
-	c.Assert(changed, Equals, "")
+	c.Assert(newPassword, Equals, "")
 	c.Assert(st, NotNil)
 }
 
@@ -346,7 +346,7 @@ func (s *openSuite) TestOpenStateFallbackPassword(c *C) {
 	st, newPassword, err := conf.OpenState()
 	c.Assert(err, IsNil)
 	defer st.Close()
-	c.Assert(newPassword, Not(Equals), "")
+	c.Assert(newPassword, Matches, ".+")
 	c.Assert(st, NotNil)
 	p, err := trivial.RandomPassword()
 	c.Assert(err, IsNil)
@@ -364,7 +364,7 @@ func (s *openSuite) TestOpenStateNoPassword(c *C) {
 	st, newPassword, err := conf.OpenState()
 	c.Assert(err, IsNil)
 	defer st.Close()
-	c.Assert(newPassword, Not(Equals), "")
+	c.Assert(newPassword, Matches, ".+")
 	c.Assert(st, NotNil)
 	p, err := trivial.RandomPassword()
 	c.Assert(err, IsNil)

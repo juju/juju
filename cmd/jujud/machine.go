@@ -68,17 +68,23 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	go func() {
 		runLoopDone <- RunAgentLoop(a.Conf.Conf, a)
 	}()
+	var err error
 	for apiDone != nil || runLoopDone != nil {
-		var err error
+		var err1 error
 		select {
-		case err = <-apiDone:
+		case err1 = <-apiDone:
 			apiDone = nil
-		case err = <-runLoopDone:
+		case err1 = <-runLoopDone:
 			runLoopDone = nil
 		}
-		a.tomb.Kill(err)
+		a.tomb.Kill(err1)
+		if moreImportant(err1, err) {
+			err = err1
+			log.Printf("%q > %q", err1, err)
+		} else {
+			log.Printf("%q <= %q", err1, err)
+		}
 	}
-	err := a.tomb.Err()
 	if err == worker.ErrDead {
 		err = nil
 	}
@@ -146,9 +152,8 @@ func (a *MachineAgent) maybeRunAPIServerOnce(conf *agent.Conf) error {
 		}
 	}
 	if !runAPI {
-		// If we don't need to run the API, then
-		// we just hang around indefinitely until
-		// asked to stop.
+		// If we don't need to run the API, then we just hang
+		// around indefinitely until asked to stop.
 		<-a.tomb.Dying()
 		return nil
 	}
@@ -159,9 +164,7 @@ func (a *MachineAgent) maybeRunAPIServerOnce(conf *agent.Conf) error {
 	// the state server certificate and key from the state, and
 	// this should then change.
 	if len(conf.StateServerCert) == 0 || len(conf.StateServerKey) == 0 {
-		err := fmt.Errorf("configuration does not have state server cert/key")
-		a.tomb.Kill(err)
-		return err
+		return &fatalError{"configuration does not have state server cert/key"}
 	}
 	log.Printf("cmd/jujud: running API server job")
 	srv, err := api.NewServer(st, conf.APIInfo.Addr, conf.StateServerCert, conf.StateServerKey)

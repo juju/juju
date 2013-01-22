@@ -84,7 +84,8 @@ func (c *Conf) confFile() string {
 	return c.File("agent.conf")
 }
 
-// EntityName returns the configuration's entity name,
+// EntityName returns the entity name that
+// will be used to connect to the state.
 func (c *Conf) EntityName() string {
 	if c.StateInfo != nil {
 		return c.StateInfo.EntityName
@@ -184,8 +185,9 @@ func (c *Conf) WriteCommands() ([]string, error) {
 }
 
 // OpenState tries to open the state using the given Conf.  If it
-// returns a non-empty newPassword, the StateInfo password should be
-// changed accordingly - the caller should write the configuration, then
+// returns a non-empty newPassword, the password used to connect
+// to the state should be changed accordingly - the caller should write the
+// configuration with StateInfo.Password set to newPassword, then
 // set the entity's password accordingly.
 func (c *Conf) OpenState() (st *state.State, newPassword string, err error) {
 	info := *c.StateInfo

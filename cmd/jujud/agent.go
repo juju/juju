@@ -52,12 +52,12 @@ type task interface {
 // runTasks runs all the given tasks until any of them fails with an
 // error.  It then stops all of them and returns that error.  If a value
 // is received on the stop channel, the workers are stopped.
-// The task values should be comparable.
-func runTasks(stop <-chan struct{}, tasks ...task) (err error) {
+func runTasks(stop <-chan struct{}, tasks ...task) error {
 	type errInfo struct {
 		index int
 		err   error
 	}
+	logged := make(map[int]bool)
 	done := make(chan errInfo, len(tasks))
 	for i, t := range tasks {
 		i, t := i, t
@@ -65,37 +65,55 @@ func runTasks(stop <-chan struct{}, tasks ...task) (err error) {
 			done <- errInfo{i, t.Wait()}
 		}()
 	}
-	chosen := errInfo{index: -1}
+	var err error
 waiting:
 	for _ = range tasks {
 		select {
 		case info := <-done:
 			if info.err != nil {
-				chosen = info
+				log.Printf("cmd/jujud: %s: %v", tasks[info.index], info.err)
+				logged[info.index] = true
+				err = info.err
 				break waiting
 			}
 		case <-stop:
 			break waiting
 		}
 	}
-	// Stop all the tasks. If we've been upgraded,
-	// that error taks precedence over other errors, because
-	// that's the only way we can escape bad code.
+	// Stop all the tasks. We choose the most important error
+	// to return.
 	for i, t := range tasks {
-		if err := t.Stop(); isUpgraded(err) || err != nil && chosen.err == nil {
-			chosen = errInfo{i, err}
+		err1 := t.Stop()
+		if !logged[i] && err1 != nil {
+			log.Printf("cmd/jujud: %s: %v", t, err1)
+			logged[i] = true
+		}
+		if moreImportant(err1, err) {
+			err = err1
 		}
 	}
-	// Log any errors that we're discarding.
-	for i, t := range tasks {
-		if i == chosen.index {
-			continue
-		}
-		if err := t.Wait(); err != nil {
-			log.Printf("cmd/jujud: %s: %v", tasks[i], err)
-		}
+	return err
+}
+
+func importance(err error) int {
+	switch {
+	case err ==  nil:
+		return 0
+	default:
+		return 1
+	case isUpgraded(err):
+		return 2
+	case err == worker.ErrDead:
+		return 3
 	}
-	return chosen.err
+	panic("unreachable")
+}
+
+// moreImportant returns whether err0 is
+// more important than err1 - that is, whether
+// we should act on err0 in preference to err1.
+func moreImportant(err0, err1 error) bool {
+	return importance(err0) > importance(err1)
 }
 
 func isUpgraded(err error) bool {
@@ -120,7 +138,7 @@ func runLoop(runOnce func() error, stop <-chan struct{}) error {
 			log.Printf("cmd/jujud: entity is dead")
 			return nil
 		}
-		if _, ok := err.(*UpgradeReadyError); ok {
+		if isFatal(err) {
 			return err
 		}
 		if err == nil {
@@ -134,6 +152,22 @@ func runLoop(runOnce func() error, stop <-chan struct{}) error {
 		log.Printf("cmd/jujud: rerunning agent")
 	}
 	panic("unreachable")
+}
+
+type fatalError struct {
+	Err string
+}
+
+func (e *fatalError) Error() string {
+	return e.Err
+}
+
+func isFatal(err error) bool {
+	if err == worker.ErrDead || isUpgraded(err) {
+		return true
+	}
+	_, ok := err.(*fatalError)
+	return ok
 }
 
 // isleep waits for the given duration or until it receives a value on

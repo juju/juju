@@ -8,6 +8,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/testing"
@@ -75,6 +76,19 @@ func (*toolSuite) TestUpgradeGetsPrecedence(c *C) {
 	assertDead(c, tasks)
 }
 
+func (*toolSuite) TestDeadGetsPrecedence(c *C) {
+	tasks := newTestTasks(3)
+	tasks[1].stopErr = &UpgradeReadyError{}
+	tasks[2].stopErr = worker.ErrDead
+	go func() {
+		time.Sleep(10 * time.Millisecond)
+		tasks[0].kill <- fmt.Errorf("stop")
+	}()
+	err := runTasks(nil, taskSlice(tasks)...)
+	c.Assert(err, Equals, tasks[2].stopErr)
+	assertDead(c, tasks)
+}
+
 func mkTools(s string) *state.Tools {
 	return &state.Tools{
 		Binary: version.MustParseBinary(s + "-foo-bar"),
@@ -92,16 +106,17 @@ func (*toolSuite) TestUpgradeErrorLog(c *C) {
 	tasks[6].stopErr = fmt.Errorf("six")
 
 	expectLog := `
-(.|\n)*task0: zero
+(.|\n)*task3: three
+.*task0: zero
 .*task1: one
 .*task2: must restart: an agent upgrade is available
-.*task3: three
 .*task4: four
+.*task5: must restart: an agent upgrade is available
 .*task6: six
 (.|\n)*`[1:]
 
 	err := runTasks(nil, taskSlice(tasks)...)
-	c.Assert(err, Equals, tasks[5].stopErr)
+	c.Assert(err, Equals, tasks[2].stopErr)
 	c.Assert(c.GetTestLog(), Matches, expectLog)
 }
 
