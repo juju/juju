@@ -21,8 +21,10 @@ import (
 )
 
 const mgoPort = 37017
+const apiPort = 37018
 
 var mgoPortSuffix = fmt.Sprintf(":%d", mgoPort)
+var apiPortSuffix = fmt.Sprintf(":%d", apiPort)
 
 // A request may fail to due "eventual consistency" semantics, which
 // should resolve fairly quickly.  A request may also fail due to a slow
@@ -302,10 +304,10 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 	// Wait for the DNS names of any of the instances
 	// to become available.
 	log.Printf("environs/ec2: waiting for DNS name(s) of state server instances %v", st.StateInstances)
-	for a := longAttempt.Start(); len(addrs) == 0 && a.Next(); {
+	for a := longAttempt.Start(); len(stateAddrs) == 0 && a.Next(); {
 		insts, err := e.Instances(st.StateInstances)
 		if err != nil && err != environs.ErrPartialInstances {
-			return nil, err
+			return nil, nil, err
 		}
 		for _, inst := range insts {
 			if inst == nil {
@@ -313,19 +315,19 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 			}
 			name := inst.(*instance).Instance.DNSName
 			if name != "" {
-				mgoAddrs = append(addrs, name+mgoPortSuffix)
+				stateAddrs = append(stateAddrs, name+mgoPortSuffix)
 				apiAddr = name+apiPortSuffix
 			}
 		}
 	}
-	if len(mgoAddrs) == 0 {
-		return nil, fmt.Errorf("timed out waiting for mgo address from %v", st.StateInstances)
+	if len(stateAddrs) == 0 {
+		return nil, nil, fmt.Errorf("timed out waiting for mgo address from %v", st.StateInstances)
 	}
 	return &state.Info{
-		Addrs:  addrs,
+		Addrs:  stateAddrs,
 		CACert: cert,
 	}, &api.Info{
-		Addr: apiAddr
+		Addr: apiAddr,
 		CACert: cert,
 	}, nil
 }
@@ -336,7 +338,7 @@ func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
 	return state.AssignUnused
 }
 
-func (e *environ) StartInstance(machineId string, info *state.Info, tools *state.Tools) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId string, info *state.Info, _ *api.Info, tools *state.Tools) (environs.Instance, error) {
 	return e.startInstance(&startInstanceParams{
 		machineId: machineId,
 		info:      info,

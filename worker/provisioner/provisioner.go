@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/worker"

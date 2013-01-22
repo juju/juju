@@ -27,6 +27,7 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
@@ -66,6 +67,7 @@ type OpStartInstance struct {
 	MachineId string
 	Instance  environs.Instance
 	Info      *state.Info
+	APIInfo *api.Info
 	Secret    string
 }
 
@@ -117,6 +119,9 @@ type environState struct {
 	storage       *storage
 	publicStorage *storage
 	httpListener  net.Listener
+	apiServer *api.Server
+	apiState *state.State
+	apiAddr string
 }
 
 // environ represents a client's connection to a given environment's
@@ -165,14 +170,36 @@ func Reset() {
 	p := &providerInstance
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	providerInstance.ops = discardOperations
 	for _, s := range p.state {
 		s.httpListener.Close()
+		s.destroy()
 	}
-	providerInstance.ops = discardOperations
 	providerInstance.state = make(map[string]*environState)
 	if testing.MgoAddr != "" {
 		testing.MgoReset()
 	}
+}
+
+func (state *environState) destroy() {
+	if !state.bootstrapped {
+		return
+	}
+	if state.apiServer != nil {
+		if err := state.apiServer.Stop(); err != nil {
+			panic(err)
+		}
+		state.apiServer = nil
+		if err := state.apiState.Close(); err != nil {
+			panic(err)
+		}
+		state.apiState = nil
+	}
+	if testing.MgoAddr != "" {
+		testing.MgoReset()
+	}
+	state.bootstrapped = false
+	state.storage.files = make(map[string][]byte)
 }
 
 // newState creates the state for a new environment with the
@@ -424,25 +451,33 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 		if err := st.SetAdminMongoPassword(trivial.PasswordHash(password)); err != nil {
 			return err
 		}
-		if err := st.Close(); err != nil {
+		e.state.apiAddr = fmt.Sprintf("localhost:%d", testing.FindTCPPort())
+		e.state.apiServer, err = api.NewServer(st, e.state.apiAddr, []byte(testing.ServerCert), []byte(testing.ServerKey))
+		if err != nil {
 			panic(err)
 		}
+		e.state.apiState = st
 	}
 	e.state.bootstrapped = true
 	return nil
 }
 
-func (e *environ) StateInfo() (*state.Info, error) {
+func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
+	e.state.mu.Lock()
+	defer e.state.mu.Unlock()
 	if err := e.checkBroken("StateInfo"); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if !e.ecfg().stateServer() {
-		return nil, errors.New("dummy environment has no state configured")
+		return nil, nil, errors.New("dummy environment has no state configured")
 	}
 	if !e.state.bootstrapped {
-		return nil, errors.New("dummy environment not bootstrapped")
+		return nil, nil, errors.New("dummy environment not bootstrapped")
 	}
-	return stateInfo(), nil
+	return stateInfo(), &api.Info{
+		Addr: e.state.apiAddr,
+		CACert: []byte(testing.CACert),
+	}, nil
 }
 
 func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
@@ -476,16 +511,11 @@ func (e *environ) Destroy([]environs.Instance) error {
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	e.state.ops <- OpDestroy{Env: e.state.name}
-	if testing.MgoAddr != "" {
-		testing.MgoReset()
-	}
-	e.state.bootstrapped = false
-	e.state.storage.files = make(map[string][]byte)
-
+	e.state.destroy()
 	return nil
 }
 
-func (e *environ) StartInstance(machineId string, info *state.Info, tools *state.Tools) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId string, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
 	defer delay()
 	log.Printf("environs/dummy: dummy startinstance, machine %s", machineId)
 	if err := e.checkBroken("StartInstance"); err != nil {
@@ -497,6 +527,9 @@ func (e *environ) StartInstance(machineId string, info *state.Info, tools *state
 		return nil, fmt.Errorf("no CA certificate in environment configuration")
 	}
 	if info.EntityName != state.MachineEntityName(machineId) {
+		return nil, fmt.Errorf("entity name must match started machine")
+	}
+	if apiInfo.EntityName != state.MachineEntityName(machineId) {
 		return nil, fmt.Errorf("entity name must match started machine")
 	}
 	if tools != nil && (strings.HasPrefix(tools.Series, "unknown") || strings.HasPrefix(tools.Arch, "unknown")) {
@@ -515,6 +548,7 @@ func (e *environ) StartInstance(machineId string, info *state.Info, tools *state
 		MachineId: machineId,
 		Instance:  i,
 		Info:      info,
+		APIInfo: apiInfo,
 		Secret:    e.ecfg().secret(),
 	}
 	return i, nil
