@@ -29,6 +29,7 @@ type Server struct {
 // on the given listener, using the given certificate
 // and key (in PEM format) for authentication.
 func NewServer(s *state.State, addr string, cert, key []byte) (*Server, error) {
+	log.Printf("state/api: listening on %q", addr)
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, err
