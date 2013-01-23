@@ -54,7 +54,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer st.Close()
-	m, err := st.InjectMachine(state.InstanceId(c.InstanceId), state.JobManageEnviron)
+	m, err := st.InjectMachine(state.InstanceId(c.InstanceId), state.JobManageEnviron, state.JobServeAPI)
 	if err != nil {
 		return err
 	}

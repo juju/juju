@@ -47,6 +47,13 @@ type MachineConfig struct {
 	// or be empty when starting a state server.
 	StateInfo *state.Info
 
+	// APIInfo holds the means for the new instance to communicate with the
+	// juju state API. Unless the new machine is running a state server (StateServer is
+	// set), there must be at least one state server address supplied.
+	// The entity name must match that of the machine being started,
+	// or be empty when starting a state server.
+	StateInfo *state.Info
+
 	// Tools is juju tools to be used on the new machine.
 	Tools *state.Tools
 
