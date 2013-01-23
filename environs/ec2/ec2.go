@@ -253,13 +253,16 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 	if !hasCert {
 		return fmt.Errorf("no CA certificate in environment configuration")
 	}
-	info := &state.Info{
-		Password: trivial.PasswordHash(password),
-		CACert:   caCert,
-	}
 	inst, err := e.startInstance(&startInstanceParams{
 		machineId:       "0",
-		info:            info,
+		info:            &state.Info{
+			Password: trivial.PasswordHash(password),
+			CACert:   caCert,
+		},
+		apiInfo: &api.Info{
+			Password: trivial.PasswordHash(password),
+			CACert:   caCert,
+		},
 		tools:           tools,
 		stateServer:     true,
 		config:          config,
