@@ -37,7 +37,7 @@ func (s *suite) SetUpTest(c *C) {
 	s.srv, err = api.NewServer(s.State, "localhost:0", []byte(coretesting.ServerCert), []byte(coretesting.ServerKey))
 	c.Assert(err, IsNil)
 	s.APIState, err = api.Open(&api.Info{
-		Addr:   s.srv.Addr(),
+		Addrs:  []string{s.srv.Addr()},
 		CACert: []byte(coretesting.CACert),
 	})
 	c.Assert(err, IsNil)
