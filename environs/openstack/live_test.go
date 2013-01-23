@@ -76,6 +76,7 @@ func (t *LiveTests) SetUpSuite(c *C) {
 	attrs["password"] = t.cred.Secrets
 	attrs["region"] = t.cred.Region
 	attrs["auth-url"] = t.cred.URL
+	attrs["tenant-name"] = t.cred.TenantName
 	attrs["public-bucket-url"] = publicBucketURL
 	t.Config = attrs
 	e, err := environs.NewFromAttrs(t.Config)
