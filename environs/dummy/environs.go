@@ -67,7 +67,7 @@ type OpStartInstance struct {
 	MachineId string
 	Instance  environs.Instance
 	Info      *state.Info
-	APIInfo *api.Info
+	APIInfo   *api.Info
 	Secret    string
 }
 
@@ -119,9 +119,9 @@ type environState struct {
 	storage       *storage
 	publicStorage *storage
 	httpListener  net.Listener
-	apiServer *api.Server
-	apiState *state.State
-	apiAddr string
+	apiServer     *api.Server
+	apiState      *state.State
+	apiAddr       string
 }
 
 // environ represents a client's connection to a given environment's
@@ -475,7 +475,7 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 		return nil, nil, errors.New("dummy environment not bootstrapped")
 	}
 	return stateInfo(), &api.Info{
-		Addr: e.state.apiAddr,
+		Addr:   e.state.apiAddr,
 		CACert: []byte(testing.CACert),
 	}, nil
 }
@@ -548,7 +548,7 @@ func (e *environ) StartInstance(machineId string, info *state.Info, apiInfo *api
 		MachineId: machineId,
 		Instance:  i,
 		Info:      info,
-		APIInfo: apiInfo,
+		APIInfo:   apiInfo,
 		Secret:    e.ecfg().secret(),
 	}
 	return i, nil

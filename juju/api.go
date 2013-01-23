@@ -1,10 +1,10 @@
 package juju
+
 import (
 	"fmt"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/state/api"
 )
- 
 
 // APIConn holds a connection to a juju environment and its
 // associated state through its API interface.
@@ -35,7 +35,7 @@ func NewAPIConn(environ environs.Environ) (*APIConn, error) {
 	// TODO(rog): updateSecrets
 	return &APIConn{
 		Environ: environ,
-		State: st,
+		State:   st,
 	}, nil
 }
 

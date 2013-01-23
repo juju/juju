@@ -316,7 +316,7 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 			name := inst.(*instance).Instance.DNSName
 			if name != "" {
 				stateAddrs = append(stateAddrs, name+mgoPortSuffix)
-				apiAddr = name+apiPortSuffix
+				apiAddr = name + apiPortSuffix
 			}
 		}
 	}
@@ -324,12 +324,12 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 		return nil, nil, fmt.Errorf("timed out waiting for mgo address from %v", st.StateInstances)
 	}
 	return &state.Info{
-		Addrs:  stateAddrs,
-		CACert: cert,
-	}, &api.Info{
-		Addr: apiAddr,
-		CACert: cert,
-	}, nil
+			Addrs:  stateAddrs,
+			CACert: cert,
+		}, &api.Info{
+			Addr:   apiAddr,
+			CACert: cert,
+		}, nil
 }
 
 // AssignmentPolicy for EC2 is to deploy units only on machines without other

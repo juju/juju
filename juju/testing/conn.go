@@ -7,9 +7,9 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
-	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
 	"os"
 	"path/filepath"
@@ -32,12 +32,12 @@ import (
 type JujuConnSuite struct {
 	testing.LoggingSuite
 	testing.MgoSuite
-	Conn    *juju.Conn
-	State   *state.State
-	APIConn *juju.APIConn
+	Conn     *juju.Conn
+	State    *state.State
+	APIConn  *juju.APIConn
 	APIState *api.State
-	RootDir string // The faked-up root directory.
-	oldHome string
+	RootDir  string // The faked-up root directory.
+	oldHome  string
 }
 
 // InvalidStateInfo holds information about no state - it will always
@@ -57,7 +57,7 @@ func InvalidStateInfo(machineId string) *state.Info {
 // of the machine to be started.
 func InvalidAPIInfo(machineId string) *api.Info {
 	return &api.Info{
-		Addr:      "0.1.2.3:1234",
+		Addr:       "0.1.2.3:1234",
 		EntityName: state.MachineEntityName(machineId),
 		Password:   "unimportant",
 		CACert:     []byte(testing.CACert),
