@@ -16,8 +16,8 @@ type State struct {
 // Info encapsulates information about a server holding juju state and
 // can be used to make a connection to it.
 type Info struct {
-	// Addr holds the address of the state server.
-	Addr string
+	// Addrs holds the addresses of the state servers.
+	Addrs []string
 
 	// CACert holds the CA certificate that will be used
 	// to validate the state server's certificate, in PEM format.
