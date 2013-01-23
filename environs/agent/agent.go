@@ -44,8 +44,6 @@ type Conf struct {
 	APIInfo *api.Info `yaml:",omitempty"`
 }
 
-var validAddr = regexp.MustCompile("^.+:[0-9]+$")
-
 // ReadConf reads configuration data for the given
 // entity from the given data directory.
 func ReadConf(dataDir, entityName string) (*Conf, error) {
@@ -108,13 +106,8 @@ func (c *Conf) Check() error {
 		if c.StateInfo.EntityName == "" {
 			return requiredError("state entity name")
 		}
-		if len(c.StateInfo.Addrs) == 0 {
-			return requiredError("state server address")
-		}
-		for _, a := range c.StateInfo.Addrs {
-			if !validAddr.MatchString(a) {
-				return fmt.Errorf("invalid state server address %q", a)
-			}
+		if err := checkAddrs(c.StateInfo.Addrs, "state server address"); err != nil {
+			return err
 		}
 		if len(c.StateInfo.CACert) == 0 {
 			return requiredError("state CA certificate")
@@ -125,8 +118,8 @@ func (c *Conf) Check() error {
 		if c.APIInfo.EntityName == "" {
 			return requiredError("API entity name")
 		}
-		if !validAddr.MatchString(c.APIInfo.Addr) {
-			return fmt.Errorf("invalid API server address %q", c.APIInfo.Addr)
+		if err := checkAddrs(c.APIInfo.Addrs, "API server address"); err != nil {
+			return err
 		}
 		if len(c.APIInfo.CACert) == 0 {
 			return requiredError("API CA certficate")
@@ -134,6 +127,20 @@ func (c *Conf) Check() error {
 	}
 	if c.StateInfo != nil && c.APIInfo != nil && c.StateInfo.EntityName != c.APIInfo.EntityName {
 		return fmt.Errorf("mismatched entity names")
+	}
+	return nil
+}
+
+var validAddr = regexp.MustCompile("^.+:[0-9]+$")
+
+func checkAddrs(addrs []string, what string) error {
+	if len(addrs) == 0 {
+		return requiredError(what)
+	}
+	for _, a := range addrs {
+		if !validAddr.MatchString(a) {
+			return fmt.Errorf("invalid %s %q", what, a)
+		}
 	}
 	return nil
 }

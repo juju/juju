@@ -32,8 +32,10 @@ type Info struct {
 }
 
 func Open(info *Info) (*State, error) {
+	// TODO Select a random address from info.Addrs
+	// and only fail when we've tried all the addresses.
 	// TODO what does "origin" really mean, and is localhost always ok?
-	cfg, err := websocket.NewConfig("wss://"+info.Addr+"/", "http://localhost/")
+	cfg, err := websocket.NewConfig("wss://"+info.Addrs[0]+"/", "http://localhost/")
 	if err != nil {
 		return nil, err
 	}

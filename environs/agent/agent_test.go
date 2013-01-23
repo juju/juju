@@ -52,7 +52,7 @@ var confTests = []struct {
 		APIInfo: &api.Info{
 			EntityName: "entity",
 			Password:   "other password",
-			Addr:       "foo.com:555",
+			Addrs:      []string{"foo.com:555", "bar:555"},
 			CACert:     []byte("api ca cert"),
 		},
 	},
@@ -68,7 +68,7 @@ var confTests = []struct {
 		},
 		APIInfo: &api.Info{
 			EntityName: "entity",
-			Addr:       "foo.com:555",
+			Addrs:      []string{"foo.com:555"},
 			CACert:     []byte("ca cert"),
 		},
 	},
@@ -85,7 +85,7 @@ var confTests = []struct {
 			Password:   "current password",
 		},
 		APIInfo: &api.Info{
-			Addr:   "foo.com:555",
+			Addrs:  []string{"foo.com:555"},
 			CACert: []byte("api ca cert"),
 		},
 	},
@@ -104,7 +104,7 @@ var confTests = []struct {
 		},
 		APIInfo: &api.Info{
 			EntityName: "other",
-			Addr:       "foo.com:555",
+			Addrs:      []string{"foo.com:555"},
 			CACert:     []byte("api ca cert"),
 		},
 	},
@@ -179,7 +179,7 @@ var confTests = []struct {
 		},
 		APIInfo: &api.Info{
 			EntityName: "entity",
-			Addr:       "foo",
+			Addrs:      []string{"bar.com:455", "foo"},
 			CACert:     []byte("ca cert"),
 		},
 	},
@@ -196,7 +196,7 @@ var confTests = []struct {
 		},
 		APIInfo: &api.Info{
 			EntityName: "entity",
-			Addr:       "foo:3",
+			Addrs:      []string{"foo:3"},
 			CACert:     []byte{},
 		},
 	},
