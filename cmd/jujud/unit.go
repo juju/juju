@@ -51,7 +51,14 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 	}
 	defer log.Printf("cmd/jujud: unit agent exiting")
 	defer a.tomb.Done()
-	return RunLoop(a.Conf.Conf, a)
+	err := RunAgentLoop(a.Conf.Conf, a)
+	if ug, ok := err.(*UpgradeReadyError); ok {
+		if err1 := ug.ChangeAgentTools(); err1 != nil {
+			err = err1
+			// Return and let upstart deal with the restart.
+		}
+	}
+	return err
 }
 
 // RunOnce runs a unit agent once.

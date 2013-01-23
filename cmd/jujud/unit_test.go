@@ -5,7 +5,6 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/version"
 	"time"
 )
 
@@ -127,18 +126,9 @@ waitStarted:
 }
 
 func (s *UnitSuite) TestUpgrade(c *C) {
-	newVers := version.Current
-	newVers.Patch++
-	newTools := s.uploadTools(c, newVers)
-	s.proposeVersion(c, newVers.Number, true)
 	unit, _, currentTools := s.primeAgent(c)
 	a := s.newAgent(c, unit)
-	defer a.Stop()
-	err := runWithTimeout(a)
-	c.Assert(err, FitsTypeOf, &UpgradeReadyError{})
-	ug := err.(*UpgradeReadyError)
-	c.Assert(ug.NewTools, DeepEquals, newTools)
-	c.Assert(ug.OldTools, DeepEquals, currentTools)
+	s.testUpgrade(c, a, currentTools)
 }
 
 func (s *UnitSuite) TestWithDeadUnit(c *C) {

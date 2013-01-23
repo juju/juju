@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/gnuflag"
@@ -8,11 +9,14 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/agent"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
+	"launchpad.net/juju-core/worker"
 	"launchpad.net/tomb"
+	"net/http"
 	"time"
 )
 
@@ -72,6 +76,19 @@ func (*toolSuite) TestUpgradeGetsPrecedence(c *C) {
 	assertDead(c, tasks)
 }
 
+func (*toolSuite) TestDeadGetsPrecedence(c *C) {
+	tasks := newTestTasks(3)
+	tasks[1].stopErr = &UpgradeReadyError{}
+	tasks[2].stopErr = worker.ErrDead
+	go func() {
+		time.Sleep(10 * time.Millisecond)
+		tasks[0].kill <- fmt.Errorf("stop")
+	}()
+	err := runTasks(nil, taskSlice(tasks)...)
+	c.Assert(err, Equals, tasks[2].stopErr)
+	assertDead(c, tasks)
+}
+
 func mkTools(s string) *state.Tools {
 	return &state.Tools{
 		Binary: version.MustParseBinary(s + "-foo-bar"),
@@ -89,16 +106,17 @@ func (*toolSuite) TestUpgradeErrorLog(c *C) {
 	tasks[6].stopErr = fmt.Errorf("six")
 
 	expectLog := `
-(.|\n)*task0: zero
+(.|\n)*task3: three
+.*task0: zero
 .*task1: one
 .*task2: must restart: an agent upgrade is available
-.*task3: three
 .*task4: four
+.*task5: must restart: an agent upgrade is available
 .*task6: six
 (.|\n)*`[1:]
 
 	err := runTasks(nil, taskSlice(tasks)...)
-	c.Assert(err, Equals, tasks[5].stopErr)
+	c.Assert(err, Equals, tasks[2].stopErr)
 	c.Assert(c.GetTestLog(), Matches, expectLog)
 }
 
@@ -271,6 +289,46 @@ func (s *agentSuite) initAgent(c *C, a cmd.Command, args ...string) {
 	c.Assert(err, IsNil)
 }
 
+func (s *agentSuite) proposeVersion(c *C, vers version.Number, development bool) {
+	cfg, err := s.State.EnvironConfig()
+	c.Assert(err, IsNil)
+	attrs := cfg.AllAttrs()
+	attrs["agent-version"] = vers.String()
+	attrs["development"] = development
+	newCfg, err := config.New(attrs)
+	c.Assert(err, IsNil)
+	err = s.State.SetEnvironConfig(newCfg)
+	c.Assert(err, IsNil)
+}
+
+func (s *agentSuite) uploadTools(c *C, vers version.Binary) *state.Tools {
+	tgz := coretesting.TarGz(
+		coretesting.NewTarFile("juju", 0777, "juju contents "+vers.String()),
+		coretesting.NewTarFile("jujuc", 0777, "jujuc contents "+vers.String()),
+		coretesting.NewTarFile("jujud", 0777, "jujud contents "+vers.String()),
+	)
+	storage := s.Conn.Environ.Storage()
+	err := storage.Put(environs.ToolsStoragePath(vers), bytes.NewReader(tgz), int64(len(tgz)))
+	c.Assert(err, IsNil)
+	url, err := s.Conn.Environ.Storage().URL(environs.ToolsStoragePath(vers))
+	c.Assert(err, IsNil)
+	return &state.Tools{URL: url, Binary: vers}
+}
+
+// primeTools sets up the current version of the tools to vers and
+// makes sure that they're available JujuConnSuite's DataDir.
+func (s *agentSuite) primeTools(c *C, vers version.Binary) *state.Tools {
+	// Set up the current version and tools.
+	version.Current = vers
+	tools := s.uploadTools(c, vers)
+	resp, err := http.Get(tools.URL)
+	c.Assert(err, IsNil)
+	defer resp.Body.Close()
+	err = environs.UnpackTools(s.DataDir(), tools, resp.Body)
+	c.Assert(err, IsNil)
+	return tools
+}
+
 func (s *agentSuite) testAgentPasswordChanging(c *C, ent entity, newAgent func() runner) {
 	conf, err := agent.ReadConf(s.DataDir(), ent.EntityName())
 	c.Assert(err, IsNil)
@@ -322,6 +380,18 @@ func (s *agentSuite) testAgentPasswordChanging(c *C, ent entity, newAgent func()
 
 	info.Password = conf.StateInfo.Password
 	testOpenState(c, info, nil)
+}
+
+func (s *agentSuite) testUpgrade(c *C, agent runner, currentTools *state.Tools) {
+	newVers := version.Current
+	newVers.Patch++
+	newTools := s.uploadTools(c, newVers)
+	s.proposeVersion(c, newVers.Number, true)
+	err := runWithTimeout(agent)
+	c.Assert(err, FitsTypeOf, &UpgradeReadyError{})
+	ug := err.(*UpgradeReadyError)
+	c.Assert(ug.NewTools, DeepEquals, newTools)
+	c.Assert(ug.OldTools, DeepEquals, currentTools)
 }
 
 func refreshConfig(c *agent.Conf) error {
