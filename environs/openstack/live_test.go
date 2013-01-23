@@ -38,13 +38,12 @@ func makeTestConfig() map[string]interface{} {
 	//  secret-key: $OS_PASSWORD
 	//
 	attrs := map[string]interface{}{
-		"name":            "sample-" + uniqueName,
-		"type":            "openstack",
-		"auth-method":     "userpass",
-		"control-bucket":  "juju-test-" + uniqueName,
-		"authorized-keys": "foo",
-		"ca-cert":         coretesting.CACert,
-		"ca-private-key":  coretesting.CAKey,
+		"name":           "sample-" + uniqueName,
+		"type":           "openstack",
+		"auth-method":    "userpass",
+		"control-bucket": "juju-test-" + uniqueName,
+		"ca-cert":        coretesting.CACert,
+		"ca-private-key": coretesting.CAKey,
 	}
 	return attrs
 }
@@ -85,7 +84,7 @@ func (t *LiveTests) SetUpSuite(c *C) {
 	t.LiveTests = jujutest.LiveTests{
 		Config:         attrs,
 		Attempt:        *openstack.ShortAttempt,
-		CanOpenState:   false, // no state, just local tests
+		CanOpenState:   false, // no state; local tests (unless -live is passed)
 		HasProvisioner: false, // nothing to deploy (no machines)
 	}
 	e, err := environs.NewFromAttrs(t.Config)
