@@ -84,6 +84,8 @@ func (c *Conf) confFile() string {
 	return c.File("agent.conf")
 }
 
+// EntityName returns the entity name that will be used to connect to
+// the state.
 func (c *Conf) EntityName() string {
 	if c.StateInfo != nil {
 		return c.StateInfo.EntityName
@@ -182,19 +184,20 @@ func (c *Conf) WriteCommands() ([]string, error) {
 	return cmds, nil
 }
 
-// OpenState tries to open the state using the given Conf.  If
-// passwordChanged is returned as true, c.StateInfo.Password has been
-// changed, and the caller should write the configuration
-// and set the entity's password accordingly (in that order).
-func (c *Conf) OpenState() (st *state.State, passwordChanged bool, err error) {
+// OpenState tries to open the state using the given Conf.  If it
+// returns a non-empty newPassword, the password used to connect
+// to the state should be changed accordingly - the caller should write the
+// configuration with StateInfo.Password set to newPassword, then
+// set the entity's password accordingly.
+func (c *Conf) OpenState() (st *state.State, newPassword string, err error) {
 	info := *c.StateInfo
 	if info.Password != "" {
 		st, err := state.Open(&info)
 		if err == nil {
-			return st, false, nil
+			return st, "", nil
 		}
 		if err != state.ErrUnauthorized {
-			return nil, false, err
+			return nil, "", err
 		}
 		// Access isn't authorized even though we have a password
 		// This can happen if we crash after saving the
@@ -204,15 +207,14 @@ func (c *Conf) OpenState() (st *state.State, passwordChanged bool, err error) {
 	info.Password = c.OldPassword
 	st, err = state.Open(&info)
 	if err != nil {
-		return nil, false, err
+		return nil, "", err
 	}
 	// We've succeeded in connecting with the old password, so
 	// we can now change it to something more private.
 	password, err := trivial.RandomPassword()
 	if err != nil {
 		st.Close()
-		return nil, false, err
+		return nil, "", err
 	}
-	c.StateInfo.Password = password
-	return st, true, nil
+	return st, password, nil
 }

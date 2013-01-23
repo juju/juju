@@ -127,7 +127,7 @@ func (s *FirewallerSuite) setGlobalMode(c *C) func(*C) {
 
 // startInstance starts a new instance for the given machine.
 func (s *FirewallerSuite) startInstance(c *C, m *state.Machine) environs.Instance {
-	inst, err := s.Conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), nil)
+	inst, err := s.Conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), testing.InvalidAPIInfo(m.Id()), nil)
 	c.Assert(err, IsNil)
 	err = m.SetInstanceId(inst.Id())
 	c.Assert(err, IsNil)
@@ -304,10 +304,7 @@ func (s *FirewallerSuite) TestStartWithState(c *C) {
 func (s *FirewallerSuite) TestStartWithPartialState(c *C) {
 	m, err := s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
-	inst, err := s.Conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), nil)
-	c.Assert(err, IsNil)
-	err = m.SetInstanceId(inst.Id())
-	c.Assert(err, IsNil)
+	inst := s.startInstance(c, m)
 
 	svc, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
@@ -334,10 +331,7 @@ func (s *FirewallerSuite) TestStartWithPartialState(c *C) {
 func (s *FirewallerSuite) TestStartWithUnexposedService(c *C) {
 	m, err := s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
-	inst, err := s.Conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), nil)
-	c.Assert(err, IsNil)
-	err = m.SetInstanceId(inst.Id())
-	c.Assert(err, IsNil)
+	inst := s.startInstance(c, m)
 
 	svc, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
@@ -612,10 +606,7 @@ func (s *FirewallerSuite) TestGlobalModeStartWithUnexposedService(c *C) {
 
 	m, err := s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
-	inst, err := s.Conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), nil)
-	c.Assert(err, IsNil)
-	err = m.SetInstanceId(inst.Id())
-	c.Assert(err, IsNil)
+	s.startInstance(c, m)
 
 	svc, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
