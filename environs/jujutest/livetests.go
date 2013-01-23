@@ -327,6 +327,11 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	c.Assert(err, IsNil)
 	defer conn.Close()
 
+	c.Logf("opening API connection")
+	apiConn, err := juju.NewAPIConn(t.Env)
+	c.Assert(err, IsNil)
+	defer conn.Close()
+
 	// Check that the agent version has made it through the
 	// bootstrap process (it's optional in the config.Config)
 	cfg, err := conn.State.EnvironConfig()
@@ -337,6 +342,15 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	// machine and find the deployed series from that.
 	m0, err := conn.State.Machine("0")
 	c.Assert(err, IsNil)
+
+	instId0, err := m0.InstanceId()
+	c.Assert(err, IsNil)
+
+	// Check that the API connection is working.
+	apiInstId0, err := apiConn.State.Request("0")
+	c.Assert(err, IsNil)
+	c.Assert(apiInstId0, Equals, instId0)
+
 	mw0 := newMachineToolWaiter(m0)
 	defer mw0.Stop()
 
