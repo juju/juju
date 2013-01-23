@@ -79,13 +79,14 @@ func (t *LiveTests) SetUpSuite(c *C) {
 	attrs["password"] = t.cred.Secrets
 	attrs["region"] = t.cred.Region
 	attrs["auth-url"] = t.cred.URL
+	attrs["tenant-name"] = t.cred.TenantName
 	attrs["public-bucket-url"] = publicBucketURL
 	t.Config = attrs
 	t.LiveTests = jujutest.LiveTests{
 		Config:         attrs,
 		Attempt:        *openstack.ShortAttempt,
 		CanOpenState:   false, // no state; local tests (unless -live is passed)
-		HasProvisioner: false, // nothing to deploy (no machines)
+		HasProvisioner: false, // don't deploy anything
 	}
 	e, err := environs.NewFromAttrs(t.Config)
 	c.Assert(err, IsNil)
