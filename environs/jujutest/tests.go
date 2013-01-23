@@ -105,7 +105,7 @@ func (t *Tests) TestBootstrap(c *C) {
 
 	info, apiInfo, err := e.StateInfo()
 	c.Check(info.Addrs, Not(HasLen), 0)
-	c.Assert(apiInfo.Addr, Matches, ".+")
+	c.Check(apiInfo.Addrs, Not(HasLen), 0)
 
 	err = environs.Bootstrap(e, false, panicWrite)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")

@@ -170,7 +170,7 @@ func (a *MachineAgent) maybeRunAPIServerOnce(conf *agent.Conf) error {
 		return &fatalError{"configuration does not have state server cert/key"}
 	}
 	log.Printf("cmd/jujud: running API server job")
-	srv, err := api.NewServer(st, conf.APIInfo.Addr, conf.StateServerCert, conf.StateServerKey)
+	srv, err := api.NewServer(st, conf.APIInfo.Addrs[0], conf.StateServerCert, conf.StateServerKey)
 	if err != nil {
 		return err
 	}

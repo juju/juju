@@ -303,7 +303,7 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 		return nil, nil, fmt.Errorf("no CA certificate in environment configuration")
 	}
 	var stateAddrs []string
-	var apiAddr string
+	var apiAddrs []string
 	// Wait for the DNS names of any of the instances
 	// to become available.
 	log.Printf("environs/ec2: waiting for DNS name(s) of state server instances %v", st.StateInstances)
@@ -319,7 +319,7 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 			name := inst.(*instance).Instance.DNSName
 			if name != "" {
 				stateAddrs = append(stateAddrs, name+mgoPortSuffix)
-				apiAddr = name + apiPortSuffix
+				apiAddrs = append(apiAddrs, name+apiPortSuffix)
 			}
 		}
 	}
@@ -330,7 +330,7 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 			Addrs:  stateAddrs,
 			CACert: cert,
 		}, &api.Info{
-			Addr:   apiAddr,
+			Addrs:   apiAddrs,
 			CACert: cert,
 		}, nil
 }
@@ -341,10 +341,11 @@ func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
 	return state.AssignUnused
 }
 
-func (e *environ) StartInstance(machineId string, info *state.Info, _ *api.Info, tools *state.Tools) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId string, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
 	return e.startInstance(&startInstanceParams{
 		machineId: machineId,
 		info:      info,
+		apiInfo: apiInfo,
 		tools:     tools,
 	})
 }
@@ -353,6 +354,7 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 	cfg := &cloudinit.MachineConfig{
 		StateServer:        scfg.stateServer,
 		StateInfo:          scfg.info,
+		APIInfo: scfg.apiInfo,
 		StateServerCert:    scfg.stateServerCert,
 		StateServerKey:     scfg.stateServerKey,
 		InstanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
@@ -379,6 +381,7 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 type startInstanceParams struct {
 	machineId       string
 	info            *state.Info
+	apiInfo	*api.Info
 	tools           *state.Tools
 	stateServer     bool
 	config          *config.Config

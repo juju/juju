@@ -57,7 +57,7 @@ func InvalidStateInfo(machineId string) *state.Info {
 // of the machine to be started.
 func InvalidAPIInfo(machineId string) *api.Info {
 	return &api.Info{
-		Addr:       "0.1.2.3:1234",
+		Addrs:       []string{"0.1.2.3:1234"},
 		EntityName: state.MachineEntityName(machineId),
 		Password:   "unimportant",
 		CACert:     []byte(testing.CACert),
@@ -108,12 +108,14 @@ func (s *JujuConnSuite) Reset(c *C) {
 func (s *JujuConnSuite) StateInfo(c *C) *state.Info {
 	info, _, err := s.Conn.Environ.StateInfo()
 	c.Assert(err, IsNil)
+	info.Password = "dummy-secret"
 	return info
 }
 
 func (s *JujuConnSuite) APIInfo(c *C) *api.Info {
 	_, apiInfo, err := s.APIConn.Environ.StateInfo()
 	c.Assert(err, IsNil)
+	apiInfo.Password = "dummy-secret"
 	return apiInfo
 }
 
