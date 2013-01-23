@@ -183,7 +183,7 @@ func (cfg *MachineConfig) agentConfig(entityName string) *agent.Conf {
 	c := &agent.Conf{
 		DataDir:         cfg.DataDir,
 		StateInfo:       &info,
-		APIInfo: &apiInfo,
+		APIInfo:         &apiInfo,
 		StateServerCert: cfg.StateServerCert,
 		StateServerKey:  cfg.StateServerKey,
 	}

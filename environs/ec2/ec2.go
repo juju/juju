@@ -257,8 +257,8 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 		return fmt.Errorf("no CA certificate in environment configuration")
 	}
 	inst, err := e.startInstance(&startInstanceParams{
-		machineId:       "0",
-		info:            &state.Info{
+		machineId: "0",
+		info: &state.Info{
 			Password: trivial.PasswordHash(password),
 			CACert:   caCert,
 		},
@@ -330,7 +330,7 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 			Addrs:  stateAddrs,
 			CACert: cert,
 		}, &api.Info{
-			Addrs:   apiAddrs,
+			Addrs:  apiAddrs,
 			CACert: cert,
 		}, nil
 }
@@ -345,7 +345,7 @@ func (e *environ) StartInstance(machineId string, info *state.Info, apiInfo *api
 	return e.startInstance(&startInstanceParams{
 		machineId: machineId,
 		info:      info,
-		apiInfo: apiInfo,
+		apiInfo:   apiInfo,
 		tools:     tools,
 	})
 }
@@ -354,7 +354,7 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 	cfg := &cloudinit.MachineConfig{
 		StateServer:        scfg.stateServer,
 		StateInfo:          scfg.info,
-		APIInfo: scfg.apiInfo,
+		APIInfo:            scfg.apiInfo,
 		StateServerCert:    scfg.stateServerCert,
 		StateServerKey:     scfg.stateServerKey,
 		InstanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
@@ -381,7 +381,7 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 type startInstanceParams struct {
 	machineId       string
 	info            *state.Info
-	apiInfo	*api.Info
+	apiInfo         *api.Info
 	tools           *state.Tools
 	stateServer     bool
 	config          *config.Config

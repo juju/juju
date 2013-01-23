@@ -475,7 +475,7 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 		return nil, nil, errors.New("dummy environment not bootstrapped")
 	}
 	return stateInfo(), &api.Info{
-		Addrs:   []string{e.state.apiAddr},
+		Addrs:  []string{e.state.apiAddr},
 		CACert: []byte(testing.CACert),
 	}, nil
 }

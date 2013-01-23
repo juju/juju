@@ -285,7 +285,7 @@ var verifyTests = []struct {
 			CACert:     []byte(testing.CACert),
 		}
 		cfg.APIInfo = &api.Info{
-			Addrs: []string{"foo:35"},
+			Addrs:      []string{"foo:35"},
 			EntityName: "machine-99",
 			CACert:     []byte(testing.CACert),
 		}
@@ -293,7 +293,7 @@ var verifyTests = []struct {
 	{"missing API hosts", func(cfg *cloudinit.MachineConfig) {
 		cfg.StateServer = false
 		cfg.StateInfo = &state.Info{
-			Addrs: []string{"foo:35"},
+			Addrs:      []string{"foo:35"},
 			EntityName: "machine-99",
 			CACert:     []byte(testing.CACert),
 		}
@@ -380,7 +380,7 @@ func (cloudinitSuite) TestCloudInitVerify(c *C) {
 			CACert: []byte(testing.CACert),
 		},
 		APIInfo: &api.Info{
-			Addrs: []string{"host:9999"},
+			Addrs:  []string{"host:9999"},
 			CACert: []byte(testing.CACert),
 		},
 		Config:  envConfig,
