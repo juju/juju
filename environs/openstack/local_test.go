@@ -50,6 +50,7 @@ func (s *localLiveSuite) SetUpSuite(c *C) {
 	s.Server.Config.Handler = s.Mux
 
 	s.cred.URL = s.Server.URL
+	s.cred.TenantName = "tenant"
 	// Create the identity service.
 	s.identityDouble = identityservice.NewUserPass()
 	token := s.identityDouble.AddUser(s.cred.User, s.cred.Secrets)
