@@ -329,10 +329,10 @@ func (s *openSuite) TestOpenStateNormal(c *C) {
 	}
 	conf.OldPassword = "irrelevant"
 
-	st, changed, err := conf.OpenState()
+	st, newPassword, err := conf.OpenState()
 	c.Assert(err, IsNil)
 	defer st.Close()
-	c.Assert(changed, Equals, false)
+	c.Assert(newPassword, Equals, "")
 	c.Assert(st, NotNil)
 }
 
@@ -343,14 +343,14 @@ func (s *openSuite) TestOpenStateFallbackPassword(c *C) {
 	conf.OldPassword = conf.StateInfo.Password
 	conf.StateInfo.Password = "not the right password"
 
-	st, changed, err := conf.OpenState()
+	st, newPassword, err := conf.OpenState()
 	c.Assert(err, IsNil)
 	defer st.Close()
-	c.Assert(changed, Equals, true)
+	c.Assert(newPassword, Matches, ".+")
 	c.Assert(st, NotNil)
 	p, err := trivial.RandomPassword()
 	c.Assert(err, IsNil)
-	c.Assert(conf.StateInfo.Password, HasLen, len(p))
+	c.Assert(newPassword, HasLen, len(p))
 	c.Assert(conf.OldPassword, Equals, s.StateInfo(c).Password)
 }
 
@@ -361,13 +361,13 @@ func (s *openSuite) TestOpenStateNoPassword(c *C) {
 	conf.OldPassword = conf.StateInfo.Password
 	conf.StateInfo.Password = ""
 
-	st, changed, err := conf.OpenState()
+	st, newPassword, err := conf.OpenState()
 	c.Assert(err, IsNil)
 	defer st.Close()
-	c.Assert(changed, Equals, true)
+	c.Assert(newPassword, Matches, ".+")
 	c.Assert(st, NotNil)
 	p, err := trivial.RandomPassword()
 	c.Assert(err, IsNil)
-	c.Assert(conf.StateInfo.Password, HasLen, len(p))
+	c.Assert(newPassword, HasLen, len(p))
 	c.Assert(conf.OldPassword, Equals, s.StateInfo(c).Password)
 }

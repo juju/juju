@@ -8,7 +8,8 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju"
-	state "launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
 	"os"
 	"path/filepath"
@@ -31,18 +32,32 @@ import (
 type JujuConnSuite struct {
 	testing.LoggingSuite
 	testing.MgoSuite
-	Conn    *juju.Conn
-	State   *state.State
-	RootDir string // The faked-up root directory.
-	oldHome string
+	Conn     *juju.Conn
+	State    *state.State
+	APIConn  *juju.APIConn
+	APIState *api.State
+	RootDir  string // The faked-up root directory.
+	oldHome  string
 }
 
 // InvalidStateInfo holds information about no state - it will always
 // give an error when connected to.  The machine id gives the machine id
-// of the machine to be started
+// of the machine to be started.
 func InvalidStateInfo(machineId string) *state.Info {
 	return &state.Info{
 		Addrs:      []string{"0.1.2.3:1234"},
+		EntityName: state.MachineEntityName(machineId),
+		Password:   "unimportant",
+		CACert:     []byte(testing.CACert),
+	}
+}
+
+// InvalidAPIInfo holds information about no state - it will always
+// give an error when connected to.  The machine id gives the machine id
+// of the machine to be started.
+func InvalidAPIInfo(machineId string) *api.Info {
+	return &api.Info{
+		Addr:       "0.1.2.3:1234",
 		EntityName: state.MachineEntityName(machineId),
 		Password:   "unimportant",
 		CACert:     []byte(testing.CACert),
@@ -91,11 +106,15 @@ func (s *JujuConnSuite) Reset(c *C) {
 }
 
 func (s *JujuConnSuite) StateInfo(c *C) *state.Info {
-	return &state.Info{
-		Addrs:    []string{testing.MgoAddr},
-		Password: "dummy-secret",
-		CACert:   []byte(testing.CACert),
-	}
+	info, _, err := s.Conn.Environ.StateInfo()
+	c.Assert(err, IsNil)
+	return info
+}
+
+func (s *JujuConnSuite) APIInfo(c *C) *api.Info {
+	_, apiInfo, err := s.APIConn.Environ.StateInfo()
+	c.Assert(err, IsNil)
+	return apiInfo
 }
 
 func (s *JujuConnSuite) setUpConn(c *C) {
@@ -131,11 +150,15 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	c.Assert(environ.Name(), Equals, "dummyenv")
 	c.Assert(environs.Bootstrap(environ, false, panicWrite), IsNil)
 
-	conn, err := juju.NewConnFromName("dummyenv")
+	conn, err := juju.NewConn(environ)
 	c.Assert(err, IsNil)
 	s.Conn = conn
 	s.State = conn.State
+
+	apiConn, err := juju.NewAPIConn(environ)
 	c.Assert(err, IsNil)
+	s.APIConn = apiConn
+	s.APIState = apiConn.State
 }
 
 func panicWrite(name string, cert, key []byte) error {

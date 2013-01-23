@@ -32,7 +32,7 @@ var redialStrategy = trivial.AttemptStrategy{
 // given environment. The environment must have already
 // been bootstrapped.
 func NewConn(environ environs.Environ) (*Conn, error) {
-	info, err := environ.StateInfo()
+	info, _, err := environ.StateInfo()
 	if err != nil {
 		return nil, err
 	}

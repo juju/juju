@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"launchpad.net/juju-core/cert"
+	"launchpad.net/juju-core/trivial"
+	"time"
 )
 
 type State struct {
@@ -31,6 +33,11 @@ type Info struct {
 	Password string
 }
 
+var openAttempt = trivial.AttemptStrategy{
+	Total: 5 * time.Minute,
+	Delay: 500 * time.Millisecond,
+}
+
 func Open(info *Info) (*State, error) {
 	// TODO Select a random address from info.Addrs
 	// and only fail when we've tried all the addresses.
@@ -49,7 +56,13 @@ func Open(info *Info) (*State, error) {
 		RootCAs:    pool,
 		ServerName: "anything",
 	}
-	conn, err := websocket.DialConfig(cfg)
+	var conn *websocket.Conn
+	for a := openAttempt.Start(); a.Next(); {
+		conn, err = websocket.DialConfig(cfg)
+		if err == nil {
+			break
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
