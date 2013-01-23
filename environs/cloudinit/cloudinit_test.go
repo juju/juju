@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"regexp"
@@ -54,6 +55,10 @@ var cloudinitTests = []cloudinitTest{{
 		StateServerKey:     serverKey,
 		StateInfo: &state.Info{
 			Password: "arble",
+			CACert:   []byte("CA CERT\n" + testing.CACert),
+		},
+		APIInfo: &api.Info{
+			Password: "bletch",
 			CACert:   []byte("CA CERT\n" + testing.CACert),
 		},
 		Config:  envConfig,
@@ -264,9 +269,29 @@ var verifyTests = []struct {
 	{"missing state info", func(cfg *cloudinit.MachineConfig) {
 		cfg.StateInfo = nil
 	}},
+	{"missing API info", func(cfg *cloudinit.MachineConfig) {
+		cfg.APIInfo = nil
+	}},
 	{"missing state hosts", func(cfg *cloudinit.MachineConfig) {
 		cfg.StateServer = false
 		cfg.StateInfo = &state.Info{
+			EntityName: "machine-99",
+			CACert:     []byte(testing.CACert),
+		}
+		cfg.APIInfo = &api.Info{
+			Addrs: []string{"foo:35"},
+			EntityName: "machine-99",
+			CACert:     []byte(testing.CACert),
+		}
+	}},
+	{"missing API hosts", func(cfg *cloudinit.MachineConfig) {
+		cfg.StateServer = false
+		cfg.StateInfo = &state.Info{
+			Addrs: []string{"foo:35"},
+			EntityName: "machine-99",
+			CACert:     []byte(testing.CACert),
+		}
+		cfg.APIInfo = &api.Info{
 			EntityName: "machine-99",
 			CACert:     []byte(testing.CACert),
 		}
@@ -308,19 +333,27 @@ var verifyTests = []struct {
 		info.EntityName = ""
 		cfg.StateInfo = &info
 	}},
+	{"entity name must match started machine", func(cfg *cloudinit.MachineConfig) {
+		cfg.StateServer = false
+		info := *cfg.APIInfo
+		info.EntityName = "machine-0"
+		cfg.APIInfo = &info
+	}},
+	{"entity name must match started machine", func(cfg *cloudinit.MachineConfig) {
+		cfg.StateServer = false
+		info := *cfg.APIInfo
+		info.EntityName = ""
+		cfg.APIInfo = &info
+	}},
 	{"entity name must be blank when starting a state server", func(cfg *cloudinit.MachineConfig) {
 		info := *cfg.StateInfo
 		info.EntityName = "machine-0"
 		cfg.StateInfo = &info
 	}},
-	{"password has disallowed characters", func(cfg *cloudinit.MachineConfig) {
-		cfg.StateInfo.Password = "'"
-	}},
-	{"password has disallowed characters", func(cfg *cloudinit.MachineConfig) {
-		cfg.StateInfo.Password = "\\"
-	}},
-	{"password has disallowed characters", func(cfg *cloudinit.MachineConfig) {
-		cfg.StateInfo.Password = "\n"
+	{"entity name must be blank when starting a state server", func(cfg *cloudinit.MachineConfig) {
+		info := *cfg.APIInfo
+		info.EntityName = "machine-0"
+		cfg.APIInfo = &info
 	}},
 }
 
@@ -338,6 +371,10 @@ func (cloudinitSuite) TestCloudInitVerify(c *C) {
 		AuthorizedKeys:     "sshkey1",
 		StateInfo: &state.Info{
 			Addrs:  []string{"host:98765"},
+			CACert: []byte(testing.CACert),
+		},
+		APIInfo: &api.Info{
+			Addrs: []string{"host:9999"},
 			CACert: []byte(testing.CACert),
 		},
 		Config:  envConfig,

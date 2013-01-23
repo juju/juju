@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/upstart"
 	"path"
@@ -18,8 +19,10 @@ import (
 // TODO(dfc) duplicated from environs/ec2
 
 const mgoPort = 37017
+const apiPort = 37018
 
 var mgoPortSuffix = fmt.Sprintf(":%d", mgoPort)
+var apiPortSuffix = fmt.Sprintf(":%d", apiPort)
 
 // MachineConfig represents initialization information for a new juju machine.
 type MachineConfig struct {
@@ -46,6 +49,13 @@ type MachineConfig struct {
 	// The entity name must match that of the machine being started,
 	// or be empty when starting a state server.
 	StateInfo *state.Info
+
+	// APIInfo holds the means for the new instance to communicate with the
+	// juju state API. Unless the new machine is running a state server (StateServer is
+	// set), there must be at least one state server address supplied.
+	// The entity name must match that of the machine being started,
+	// or be empty when starting a state server.
+	APIInfo *api.Info
 
 	// Tools is juju tools to be used on the new machine.
 	Tools *state.Tools
@@ -169,9 +179,11 @@ func (cfg *MachineConfig) dataFile(name string) string {
 
 func (cfg *MachineConfig) agentConfig(entityName string) *agent.Conf {
 	info := *cfg.StateInfo
+	apiInfo := *cfg.APIInfo
 	c := &agent.Conf{
 		DataDir:         cfg.DataDir,
 		StateInfo:       &info,
+		APIInfo: &apiInfo,
 		StateServerCert: cfg.StateServerCert,
 		StateServerKey:  cfg.StateServerKey,
 	}
@@ -179,6 +191,11 @@ func (cfg *MachineConfig) agentConfig(entityName string) *agent.Conf {
 	c.StateInfo.EntityName = entityName
 	c.StateInfo.Password = ""
 	c.OldPassword = cfg.StateInfo.Password
+
+	c.APIInfo.Addrs = cfg.apiHostAddrs()
+	c.APIInfo.EntityName = entityName
+	c.APIInfo.Password = ""
+
 	return c
 }
 
@@ -288,6 +305,17 @@ func (cfg *MachineConfig) stateHostAddrs() []string {
 	return hosts
 }
 
+func (cfg *MachineConfig) apiHostAddrs() []string {
+	var hosts []string
+	if cfg.StateServer {
+		hosts = append(hosts, "localhost"+apiPortSuffix)
+	}
+	if cfg.StateInfo != nil {
+		hosts = append(hosts, cfg.APIInfo.Addrs...)
+	}
+	return hosts
+}
+
 func shquote(p string) string {
 	return trivial.ShQuote(p)
 }
@@ -321,6 +349,12 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 	if len(cfg.StateInfo.CACert) == 0 {
 		return fmt.Errorf("missing CA certificate")
 	}
+	if cfg.APIInfo == nil {
+		return fmt.Errorf("missing API info")
+	}
+	if len(cfg.APIInfo.CACert) == 0 {
+		return fmt.Errorf("missing API CA certificate")
+	}
 	if cfg.StateServer {
 		if cfg.InstanceIdAccessor == "" {
 			return fmt.Errorf("missing instance id accessor")
@@ -329,6 +363,9 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 			return fmt.Errorf("missing environment configuration")
 		}
 		if cfg.StateInfo.EntityName != "" {
+			return fmt.Errorf("entity name must be blank when starting a state server")
+		}
+		if cfg.APIInfo.EntityName != "" {
 			return fmt.Errorf("entity name must be blank when starting a state server")
 		}
 		if len(cfg.StateServerCert) == 0 {
@@ -344,10 +381,11 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		if cfg.StateInfo.EntityName != state.MachineEntityName(cfg.MachineId) {
 			return fmt.Errorf("entity name must match started machine")
 		}
-	}
-	for _, r := range cfg.StateInfo.Password {
-		if r == '\'' || r == '\\' || r < 32 {
-			return fmt.Errorf("password has disallowed characters")
+		if len(cfg.APIInfo.Addrs) == 0 {
+			return fmt.Errorf("missing API hosts")
+		}
+		if cfg.APIInfo.EntityName != state.MachineEntityName(cfg.MachineId) {
+			return fmt.Errorf("entity name must match started machine")
 		}
 	}
 	return nil
