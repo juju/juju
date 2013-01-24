@@ -711,6 +711,13 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
 	c.Assert(err, IsNil)
 	defer dummyenv.Destroy(nil)
 
+	// BUG: We destroy the environment, then write to its storage.
+	// This is bogus, strictly speaking, but it works on
+	// existing providers for the time being and means
+	// this test does not fail when the environment is
+	// already bootstrapped.
+	t.Destroy(c)
+
 	currentPath := environs.ToolsStoragePath(current)
 	otherPath := environs.ToolsStoragePath(other)
 	envStorage := env.Storage()

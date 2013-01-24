@@ -16,18 +16,10 @@ import (
 	"path"
 )
 
-// TODO(dfc) duplicated from environs/ec2
-
-const mgoPort = 37017
-const apiPort = 37018
-
-var mgoPortSuffix = fmt.Sprintf(":%d", mgoPort)
-var apiPortSuffix = fmt.Sprintf(":%d", apiPort)
-
 // MachineConfig represents initialization information for a new juju machine.
 type MachineConfig struct {
-	// StateServer specifies whether the new machine will run a ZooKeeper
-	// or MongoDB instance.
+	// StateServer specifies whether the new machine will run the
+	// mongo and API servers.
 	StateServer bool
 
 	// StateServerCert and StateServerKey hold the state server
@@ -35,6 +27,16 @@ type MachineConfig struct {
 	// StateServer is set, and ignored otherwise.
 	StateServerCert []byte
 	StateServerKey  []byte
+
+	// MongoPort specifies the TCP port that will be used
+	// by the MongoDB server. It must be non-zero
+	// if StateServer is true.
+	MongoPort int
+
+	// APIPort specifies the TCP port that will be used
+	// by the API server. It must be non-zero
+	// if StateServer is true.
+	APIPort int
 
 	// InstanceIdAccessor holds bash code that evaluates to the current instance id.
 	InstanceIdAccessor string
@@ -186,6 +188,8 @@ func (cfg *MachineConfig) agentConfig(entityName string) *agent.Conf {
 		APIInfo:         &apiInfo,
 		StateServerCert: cfg.StateServerCert,
 		StateServerKey:  cfg.StateServerKey,
+		MongoPort:       cfg.MongoPort,
+		APIPort:         cfg.APIPort,
 	}
 	c.StateInfo.Addrs = cfg.stateHostAddrs()
 	c.StateInfo.EntityName = entityName
@@ -269,7 +273,7 @@ func addMongoToBoot(c *cloudinit.Config, cfg *MachineConfig) error {
 			" --sslPEMKeyFile " + shquote(cfg.dataFile("server.pem")) +
 			" --sslPEMKeyPassword ignored" +
 			" --bind_ip 0.0.0.0" +
-			" --port " + fmt.Sprint(mgoPort) +
+			" --port " + fmt.Sprint(cfg.MongoPort) +
 			" --noprealloc" +
 			" --smallfiles",
 	}
@@ -297,7 +301,7 @@ func (cfg *MachineConfig) jujuTools() string {
 func (cfg *MachineConfig) stateHostAddrs() []string {
 	var hosts []string
 	if cfg.StateServer {
-		hosts = append(hosts, "localhost"+mgoPortSuffix)
+		hosts = append(hosts, fmt.Sprintf("localhost:%d", cfg.MongoPort))
 	}
 	if cfg.StateInfo != nil {
 		hosts = append(hosts, cfg.StateInfo.Addrs...)
@@ -308,7 +312,7 @@ func (cfg *MachineConfig) stateHostAddrs() []string {
 func (cfg *MachineConfig) apiHostAddrs() []string {
 	var hosts []string
 	if cfg.StateServer {
-		hosts = append(hosts, "localhost"+apiPortSuffix)
+		hosts = append(hosts, fmt.Sprintf("localhost:%d", cfg.APIPort))
 	}
 	if cfg.StateInfo != nil {
 		hosts = append(hosts, cfg.APIInfo.Addrs...)
@@ -373,6 +377,12 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		}
 		if len(cfg.StateServerKey) == 0 {
 			return fmt.Errorf("missing state server private key")
+		}
+		if cfg.MongoPort == 0 {
+			return fmt.Errorf("missing mongo port")
+		}
+		if cfg.APIPort == 0 {
+			return fmt.Errorf("missing API port")
 		}
 	} else {
 		if len(cfg.StateInfo.Addrs) == 0 {
