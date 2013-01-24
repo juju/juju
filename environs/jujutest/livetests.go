@@ -349,7 +349,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	// Check that the API connection is working.
 	apiInstId0, err := apiConn.State.Request("0")
 	c.Assert(err, IsNil)
-	c.Assert(apiInstId0, Equals, instId0)
+	c.Assert(apiInstId0, Equals, string(instId0))
 
 	mw0 := newMachineToolWaiter(m0)
 	defer mw0.Stop()
