@@ -26,6 +26,7 @@ import (
 )
 
 const mgoPort = 37017
+const apiPort = 17070
 
 type environProvider struct{}
 
@@ -329,6 +330,8 @@ type startInstanceParams struct {
 func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 	cfg := &cloudinit.MachineConfig{
 		StateServer:        scfg.stateServer,
+		MongoPort:          mgoPort,
+		APIPort:            apiPort,
 		StateInfo:          scfg.info,
 		StateServerCert:    scfg.stateServerCert,
 		StateServerKey:     scfg.stateServerKey,

@@ -42,6 +42,8 @@ var confTests = []struct {
 	conf: agent.Conf{
 		StateServerCert: []byte("server cert"),
 		StateServerKey:  []byte("server key"),
+		MongoPort:       1234,
+		APIPort:         4321,
 		OldPassword:     "old password",
 		StateInfo: &state.Info{
 			Addrs:      []string{"foo.com:355", "bar:545"},
