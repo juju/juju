@@ -42,6 +42,8 @@ func makeTestConfig() map[string]interface{} {
 		"type":           "openstack",
 		"auth-method":    "userpass",
 		"control-bucket": "juju-test-" + uniqueName,
+		"ca-cert":        coretesting.CACert,
+		"ca-private-key": coretesting.CAKey,
 	}
 	return attrs
 }
@@ -72,12 +74,20 @@ func (t *LiveTests) SetUpSuite(c *C) {
 	publicBucketURL, err := client.MakeServiceURL("object-store", nil)
 	c.Assert(err, IsNil)
 	attrs := makeTestConfig()
+	attrs["admin-secret"] = "secret"
 	attrs["username"] = t.cred.User
 	attrs["password"] = t.cred.Secrets
 	attrs["region"] = t.cred.Region
 	attrs["auth-url"] = t.cred.URL
+	attrs["tenant-name"] = t.cred.TenantName
 	attrs["public-bucket-url"] = publicBucketURL
 	t.Config = attrs
+	t.LiveTests = jujutest.LiveTests{
+		Config:         attrs,
+		Attempt:        *openstack.ShortAttempt,
+		CanOpenState:   false, // no state; local tests (unless -live is passed)
+		HasProvisioner: false, // don't deploy anything
+	}
 	e, err := environs.NewFromAttrs(t.Config)
 	c.Assert(err, IsNil)
 
@@ -128,14 +138,6 @@ func putFakeTools(c *C, s environs.StorageWriter) {
 }
 
 // The following tests need to be enabled once the coding is complete.
-
-func (s *LiveTests) TestBootstrap(c *C) {
-	c.Skip("Work in progress")
-}
-
-func (s *LiveTests) TestBootstrapMultiple(c *C) {
-	c.Skip("Work in progress")
-}
 
 func (s *LiveTests) TestGlobalPorts(c *C) {
 	c.Skip("Work in progress")

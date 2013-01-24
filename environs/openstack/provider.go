@@ -164,7 +164,82 @@ func (e *environ) PublicStorage() environs.StorageReader {
 }
 
 func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
-	panic("Bootstrap not implemented")
+	password := e.Config().AdminSecret()
+	if password == "" {
+		return fmt.Errorf("admin-secret is required for bootstrap")
+	}
+	log.Printf("environs/openstack: bootstrapping environment %q", e.name)
+	// If the state file exists, it might actually have just been
+	// removed by Destroy, and eventual consistency has not caught
+	// up yet, so we retry to verify if that is happening.
+	var err error
+	for a := shortAttempt.Start(); a.Next(); {
+		_, err = e.loadState()
+		if err != nil {
+			break
+		}
+	}
+	if err == nil {
+		return fmt.Errorf("environment is already bootstrapped")
+	}
+	if _, notFound := err.(*environs.NotFoundError); !notFound {
+		return fmt.Errorf("cannot query old bootstrap state: %v", err)
+	}
+	var tools *state.Tools
+	if uploadTools {
+		tools, err = environs.PutTools(e.Storage(), nil)
+		if err != nil {
+			return fmt.Errorf("cannot upload tools: %v", err)
+		}
+	} else {
+		flags := environs.HighestVersion | environs.CompatVersion
+		v := version.Current
+		v.Series = e.Config().DefaultSeries()
+		tools, err = environs.FindTools(e, v, flags)
+		if err != nil {
+			return fmt.Errorf("cannot find tools: %v", err)
+		}
+	}
+	config, err := environs.BootstrapConfig(providerInstance, e.Config(), tools)
+	if err != nil {
+		return fmt.Errorf("unable to determine inital configuration: %v", err)
+	}
+	caCert, hasCert := e.Config().CACert()
+	if !hasCert {
+		return fmt.Errorf("no CA certificate in environment configuration")
+	}
+	info := &state.Info{
+		Password: trivial.PasswordHash(password),
+		CACert:   caCert,
+	}
+	inst, err := e.startInstance(&startInstanceParams{
+		machineId:       "0",
+		info:            info,
+		tools:           tools,
+		stateServer:     true,
+		config:          config,
+		stateServerCert: cert,
+		stateServerKey:  key,
+	})
+	if err != nil {
+		return fmt.Errorf("cannot start bootstrap instance: %v", err)
+	}
+	err = e.saveState(&bootstrapState{
+		StateInstances: []state.InstanceId{inst.Id()},
+	})
+	if err != nil {
+		// ignore error on StopInstance because the previous error is
+		// more important.
+		e.StopInstances([]environs.Instance{inst})
+		return fmt.Errorf("cannot save state: %v", err)
+	}
+	// TODO make safe in the case of racing Bootstraps
+	// If two Bootstraps are called concurrently, there's
+	// no way to use Swift to make sure that only one succeeds.
+	// Perhaps consider using SimpleDB for state storage
+	// which would enable that possibility.
+
+	return nil
 }
 
 func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
