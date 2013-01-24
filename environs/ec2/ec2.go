@@ -355,6 +355,8 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 		StateServer:        scfg.stateServer,
 		StateInfo:          scfg.info,
 		APIInfo:            scfg.apiInfo,
+		MongoPort: mgoPort,
+		APIPort: apiPort,
 		StateServerCert:    scfg.stateServerCert,
 		StateServerKey:     scfg.stateServerKey,
 		InstanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
