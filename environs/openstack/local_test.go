@@ -13,7 +13,9 @@ func registerServiceDoubleTests() {
 	cred := &identity.Credentials{
 		User:    "fred",
 		Secrets: "secret",
-		Region:  "some region"}
+		Region:  "some region",
+		TenantName: "some tenant",
+	}
 	Suite(&localLiveSuite{
 		LiveTests: LiveTests{
 			cred: cred,
@@ -39,7 +41,7 @@ func (s *localLiveSuite) SetUpSuite(c *C) {
 	s.Server.Config.Handler = s.Mux
 
 	s.cred.URL = s.Server.URL
-	openstack := openstack.New(s.Server.URL, s.cred.User, s.cred.Secrets, s.LiveTests.cred.Region)
+	openstack := openstack.New(s.cred)
 	openstack.SetupHTTP(s.Mux)
 
 	s.LiveTests.SetUpSuite(c)
