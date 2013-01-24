@@ -18,8 +18,8 @@ type State struct {
 // Info encapsulates information about a server holding juju state and
 // can be used to make a connection to it.
 type Info struct {
-	// Addr holds the address of the state server.
-	Addr string
+	// Addrs holds the addresses of the state servers.
+	Addrs []string
 
 	// CACert holds the CA certificate that will be used
 	// to validate the state server's certificate, in PEM format.
@@ -39,8 +39,10 @@ var openAttempt = trivial.AttemptStrategy{
 }
 
 func Open(info *Info) (*State, error) {
+	// TODO Select a random address from info.Addrs
+	// and only fail when we've tried all the addresses.
 	// TODO what does "origin" really mean, and is localhost always ok?
-	cfg, err := websocket.NewConfig("wss://"+info.Addr+"/", "http://localhost/")
+	cfg, err := websocket.NewConfig("wss://"+info.Addrs[0]+"/", "http://localhost/")
 	if err != nil {
 		return nil, err
 	}
