@@ -24,8 +24,8 @@ type Conf struct {
 	StateServerCert []byte `yaml:",omitempty"`
 	StateServerKey  []byte `yaml:",omitempty"`
 
-	MongoPort int		`yaml:",omitempty"`
-	APIPort int		`yaml:",omitempty"`
+	MongoPort int `yaml:",omitempty"`
+	APIPort   int `yaml:",omitempty"`
 
 	// OldPassword specifies a password that should be
 	// used to connect to the state if StateInfo.Password

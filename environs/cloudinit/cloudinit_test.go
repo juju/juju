@@ -16,7 +16,7 @@ import (
 
 // Use local suite since this file lives in the ec2 package
 // for testing internals.
-type cloudinitSuite struct{
+type cloudinitSuite struct {
 	testing.LoggingSuite
 }
 
@@ -55,8 +55,8 @@ var cloudinitTests = []cloudinitTest{{
 		StateServer:        true,
 		StateServerCert:    serverCert,
 		StateServerKey:     serverKey,
-		MongoPort: 37017,
-		APIPort: 37018,
+		MongoPort:          37017,
+		APIPort:            37018,
 		StateInfo: &state.Info{
 			Password: "arble",
 			CACert:   []byte("CA CERT\n" + testing.CACert),
@@ -380,8 +380,8 @@ func (*cloudinitSuite) TestCloudInitVerify(c *C) {
 		StateServer:        true,
 		StateServerCert:    serverCert,
 		StateServerKey:     serverKey,
-		MongoPort: 1234,
-		APIPort: 1235,
+		MongoPort:          1234,
+		APIPort:            1235,
 		InstanceIdAccessor: "$instance_id",
 		ProviderType:       "ec2",
 		MachineId:          "99",

@@ -188,8 +188,8 @@ func (cfg *MachineConfig) agentConfig(entityName string) *agent.Conf {
 		APIInfo:         &apiInfo,
 		StateServerCert: cfg.StateServerCert,
 		StateServerKey:  cfg.StateServerKey,
-		MongoPort: cfg.MongoPort,
-		APIPort: cfg.APIPort,
+		MongoPort:       cfg.MongoPort,
+		APIPort:         cfg.APIPort,
 	}
 	c.StateInfo.Addrs = cfg.stateHostAddrs()
 	c.StateInfo.EntityName = entityName
