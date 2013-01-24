@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
 	"net/http"
@@ -20,8 +21,10 @@ import (
 )
 
 const mgoPort = 37017
+const apiPort = 17070
 
 var mgoPortSuffix = fmt.Sprintf(":%d", mgoPort)
+var apiPortSuffix = fmt.Sprintf(":%d", apiPort)
 
 // A request may fail to due "eventual consistency" semantics, which
 // should resolve fairly quickly.  A request may also fail due to a slow
@@ -287,23 +290,24 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 	return nil
 }
 
-func (e *environ) StateInfo() (*state.Info, error) {
+func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 	st, err := e.loadState()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	cert, hasCert := e.Config().CACert()
 	if !hasCert {
-		return nil, fmt.Errorf("no CA certificate in environment configuration")
+		return nil, nil, fmt.Errorf("no CA certificate in environment configuration")
 	}
-	var addrs []string
+	var stateAddrs []string
+	var apiAddr string
 	// Wait for the DNS names of any of the instances
 	// to become available.
 	log.Printf("environs/ec2: waiting for DNS name(s) of state server instances %v", st.StateInstances)
-	for a := longAttempt.Start(); len(addrs) == 0 && a.Next(); {
+	for a := longAttempt.Start(); len(stateAddrs) == 0 && a.Next(); {
 		insts, err := e.Instances(st.StateInstances)
 		if err != nil && err != environs.ErrPartialInstances {
-			return nil, err
+			return nil, nil, err
 		}
 		for _, inst := range insts {
 			if inst == nil {
@@ -311,17 +315,21 @@ func (e *environ) StateInfo() (*state.Info, error) {
 			}
 			name := inst.(*instance).Instance.DNSName
 			if name != "" {
-				addrs = append(addrs, name+mgoPortSuffix)
+				stateAddrs = append(stateAddrs, name+mgoPortSuffix)
+				apiAddr = name + apiPortSuffix
 			}
 		}
 	}
-	if len(addrs) == 0 {
-		return nil, fmt.Errorf("timed out waiting for mgo address from %v", st.StateInstances)
+	if len(stateAddrs) == 0 {
+		return nil, nil, fmt.Errorf("timed out waiting for mgo address from %v", st.StateInstances)
 	}
 	return &state.Info{
-		Addrs:  addrs,
-		CACert: cert,
-	}, nil
+			Addrs:  stateAddrs,
+			CACert: cert,
+		}, &api.Info{
+			Addr:   apiAddr,
+			CACert: cert,
+		}, nil
 }
 
 // AssignmentPolicy for EC2 is to deploy units only on machines without other
@@ -330,7 +338,7 @@ func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
 	return state.AssignUnused
 }
 
-func (e *environ) StartInstance(machineId string, info *state.Info, tools *state.Tools) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId string, info *state.Info, _ *api.Info, tools *state.Tools) (environs.Instance, error) {
 	return e.startInstance(&startInstanceParams{
 		machineId: machineId,
 		info:      info,

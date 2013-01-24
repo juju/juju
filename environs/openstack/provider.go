@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
 	"net/http"
@@ -241,7 +242,7 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 	return nil
 }
 
-func (e *environ) StateInfo() (*state.Info, error) {
+func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 	panic("StateInfo not implemented")
 }
 
@@ -307,7 +308,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (e *environ) StartInstance(machineId string, info *state.Info, tools *state.Tools) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId string, info *state.Info, _ *api.Info, tools *state.Tools) (environs.Instance, error) {
 	return e.startInstance(&startInstanceParams{
 		machineId: machineId,
 		info:      info,

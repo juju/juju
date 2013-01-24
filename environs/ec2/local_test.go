@@ -227,7 +227,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	c.Assert(insts, HasLen, 1)
 	c.Check(insts[0].Id(), Equals, state.StateInstances[0])
 
-	info, err := t.env.StateInfo()
+	info, apiInfo, err := t.env.StateInfo()
 	c.Assert(err, IsNil)
 	c.Assert(info, NotNil)
 
@@ -254,7 +254,8 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	// zookeeper, with a machine agent, and without a
 	// provisioning agent.
 	info.EntityName = "machine-1"
-	inst1, err := t.env.StartInstance("1", info, nil)
+	apiInfo.EntityName = "machine-1"
+	inst1, err := t.env.StartInstance("1", info, apiInfo, nil)
 	c.Assert(err, IsNil)
 	inst = t.srv.ec2srv.Instance(string(inst1.Id()))
 	c.Assert(inst, NotNil)
