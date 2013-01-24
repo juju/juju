@@ -21,7 +21,7 @@ import (
 )
 
 const mgoPort = 37017
-const apiPort = 37018
+const apiPort = 17070
 
 var mgoPortSuffix = fmt.Sprintf(":%d", mgoPort)
 var apiPortSuffix = fmt.Sprintf(":%d", apiPort)
