@@ -377,38 +377,6 @@ func (s *ConnSuite) TestPutCharmUpload(c *C) {
 	c.Assert(sch.Revision(), Equals, rev+1)
 }
 
-func (s *ConnSuite) TestAddService(c *C) {
-	curl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "riak")
-	sch, err := s.conn.PutCharm(curl, s.repo, false)
-	c.Assert(err, IsNil)
-
-	svc, err := s.conn.AddService("testriak", sch)
-	c.Assert(err, IsNil)
-
-	// Check that the peer relation has been made.
-	relations, err := svc.Relations()
-	c.Assert(relations, HasLen, 1)
-	ep, err := relations[0].Endpoint("testriak")
-	c.Assert(err, IsNil)
-	c.Assert(ep, Equals, state.Endpoint{
-		ServiceName:   "testriak",
-		Interface:     "riak",
-		RelationName:  "ring",
-		RelationRole:  state.RolePeer,
-		RelationScope: charm.ScopeGlobal,
-	})
-}
-
-func (s *ConnSuite) TestAddServiceDefaultName(c *C) {
-	curl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "riak")
-	sch, err := s.conn.PutCharm(curl, s.repo, false)
-	c.Assert(err, IsNil)
-
-	svc, err := s.conn.AddService("", sch)
-	c.Assert(err, IsNil)
-	c.Assert(svc.Name(), Equals, "riak")
-}
-
 func (s *ConnSuite) TestAddUnits(c *C) {
 	curl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "riak")
 	sch, err := s.conn.PutCharm(curl, s.repo, false)

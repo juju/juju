@@ -65,6 +65,12 @@ func (r *Relation) Refresh() error {
 	if err != nil {
 		return fmt.Errorf("cannot refresh relation %v: %v", r, err)
 	}
+	if r.doc.Id != doc.Id {
+		// The relation has been destroyed and recreated. This is *not* the
+		// same relation; if we pretend it is, we run the risk of violating
+		// the lifecycle-only-advances guarantee.
+		return notFoundf("relation %v", r)
+	}
 	r.doc = doc
 	return nil
 }
@@ -78,6 +84,9 @@ func (r *Relation) Life() Life {
 // are currently in scope, it will be removed immediately.
 func (r *Relation) Destroy() (err error) {
 	defer trivial.ErrorContextf(&err, "cannot destroy relation %q", r)
+	if len(r.doc.Endpoints) == 1 && r.doc.Endpoints[0].RelationRole == RolePeer {
+		return fmt.Errorf("is a peer relation")
+	}
 	defer func() {
 		if err == nil {
 			// This is a white lie; the document might actually be removed.

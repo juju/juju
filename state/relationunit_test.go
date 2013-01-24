@@ -17,11 +17,11 @@ var _ = Suite(&RelationUnitSuite{})
 func (s *RelationUnitSuite) TestReadSettingsErrors(c *C) {
 	riak, err := s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
 	c.Assert(err, IsNil)
+	u0, err := riak.AddUnit()
+	c.Assert(err, IsNil)
 	riakEP, err := riak.Endpoint("ring")
 	c.Assert(err, IsNil)
-	rel, err := s.State.AddRelation(riakEP)
-	c.Assert(err, IsNil)
-	u0, err := riak.AddUnit()
+	rel, err := s.State.EndpointsRelation(riakEP)
 	c.Assert(err, IsNil)
 	ru0, err := rel.Unit(u0)
 	c.Assert(err, IsNil)
@@ -236,18 +236,17 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *C) {
 	pr := NewPeerRelation(c, &s.ConnSuite)
 	rel := pr.ru0.Relation()
 
-	// Enter two units, and check that Destroy sets the relation to Dying.
+	// Enter two units, and check that Destroying the service sets the
+	// relation to Dying (rather than removing it directly).
 	err := pr.ru0.EnterScope(map[string]interface{}{"some": "settings"})
 	c.Assert(err, IsNil)
 	err = pr.ru1.EnterScope(nil)
 	c.Assert(err, IsNil)
-	err = rel.Destroy()
+	err = pr.svc.Destroy()
+	c.Assert(err, IsNil)
+	err = rel.Refresh()
 	c.Assert(err, IsNil)
 	c.Assert(rel.Life(), Equals, state.Dying)
-
-	// Check a subsequent Destroy is ignored.
-	err = rel.Destroy()
-	c.Assert(err, IsNil)
 
 	// Check that we can't add a new unit now.
 	err = pr.ru2.EnterScope(nil)
@@ -257,10 +256,10 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *C) {
 	_, err = pr.ru0.ReadSettings("riak/2")
 	c.Assert(err, ErrorMatches, `cannot read settings for unit "riak/2" in relation "riak:ring": settings not found`)
 
-	// ru0 leaves the scope; check that Destroy is still a no-op.
+	// ru0 leaves the scope; check that service Destroy is still a no-op.
 	err = pr.ru0.LeaveScope()
 	c.Assert(err, IsNil)
-	err = rel.Destroy()
+	err = pr.svc.Destroy()
 	c.Assert(err, IsNil)
 
 	// Check that unit settings for the original unit still exist, and have
@@ -556,7 +555,7 @@ func NewPeerRelation(c *C, s *ConnSuite) *PeerRelation {
 	c.Assert(err, IsNil)
 	ep, err := svc.Endpoint("ring")
 	c.Assert(err, IsNil)
-	rel, err := s.State.AddRelation(ep)
+	rel, err := s.State.EndpointsRelation(ep)
 	c.Assert(err, IsNil)
 	pr := &PeerRelation{rel: rel, svc: svc}
 	pr.u0, pr.ru0 = addRU(c, svc, rel, nil)
