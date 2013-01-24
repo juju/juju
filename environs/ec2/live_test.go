@@ -198,7 +198,7 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	c.Assert(perms, HasLen, 6)
 	checkPortAllowed(c, perms, 22)    // SSH
 	checkPortAllowed(c, perms, 37017) // MongoDB
-	checkPortAllowed(c, perms, 37018) // API
+	checkPortAllowed(c, perms, 17070) // API
 	checkSecurityGroupAllowed(c, perms, groups[0])
 
 	// The old machine group should have been reused also.
