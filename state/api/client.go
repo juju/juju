@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"launchpad.net/juju-core/cert"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/trivial"
 	"time"
 )
@@ -58,11 +59,14 @@ func Open(info *Info) (*State, error) {
 	}
 	var conn *websocket.Conn
 	for a := openAttempt.Start(); a.Next(); {
+		log.Printf("state/api: dialling %q", cfg.Location)
 		conn, err = websocket.DialConfig(cfg)
 		if err == nil {
 			break
 		}
+		log.Printf("state/api: %v", err)
 	}
+	log.Printf("state/api: connection established")
 	if err != nil {
 		return nil, err
 	}

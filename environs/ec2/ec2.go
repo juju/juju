@@ -806,6 +806,12 @@ func (e *environ) setUpGroups(machineId string) ([]ec2.SecurityGroup, error) {
 				SourceIPs: []string{"0.0.0.0/0"},
 			},
 			{
+				Protocol:  "tcp",
+				FromPort:  apiPort,
+				ToPort:    apiPort,
+				SourceIPs: []string{"0.0.0.0/0"},
+			},
+			{
 				Protocol:     "tcp",
 				FromPort:     0,
 				ToPort:       65535,
