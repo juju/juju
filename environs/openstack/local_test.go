@@ -11,9 +11,9 @@ import (
 // Register tests to run against a test Openstack instance (service doubles).
 func registerServiceDoubleTests() {
 	cred := &identity.Credentials{
-		User:    "fred",
-		Secrets: "secret",
-		Region:  "some region",
+		User:       "fred",
+		Secrets:    "secret",
+		Region:     "some region",
 		TenantName: "some tenant",
 	}
 	Suite(&localLiveSuite{
