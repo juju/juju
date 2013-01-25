@@ -406,7 +406,7 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 		}
 	}
 	if !keepAlive {
-		if err := u.unit.EnsureDying(); err != nil {
+		if err := u.unit.Destroy(); err != nil {
 			return nil, err
 		}
 	}

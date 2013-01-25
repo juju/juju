@@ -297,7 +297,7 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 			continue
 		} else if err != nil {
 			return nil, err
-		} else if err = sub.EnsureDying(); err != nil {
+		} else if err = sub.Destroy(); err != nil {
 			return nil, err
 		}
 	}

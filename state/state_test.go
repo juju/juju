@@ -135,29 +135,6 @@ func (s *StateSuite) TestInjectMachine(c *C) {
 	c.Assert(instanceId, Equals, state.InstanceId("i-mindustrious"))
 }
 
-func (s *StateSuite) TestRemoveMachine(c *C) {
-	machine, err := s.State.AddMachine(state.JobHostUnits)
-	c.Assert(err, IsNil)
-	_, err = s.State.AddMachine(state.JobHostUnits)
-	c.Assert(err, IsNil)
-	err = s.State.RemoveMachine(machine.Id())
-	c.Assert(err, ErrorMatches, "cannot remove machine 0: machine is not dead")
-	err = machine.EnsureDead()
-	c.Assert(err, IsNil)
-	err = s.State.RemoveMachine(machine.Id())
-	c.Assert(err, IsNil)
-
-	machines, err := s.State.AllMachines()
-	c.Assert(err, IsNil)
-	c.Assert(machines, HasLen, 1)
-	c.Assert(machines[0].Id(), Equals, "1")
-
-	// Removing a non-existing machine has to fail.
-	// BUG(aram): use error strings from state.
-	err = s.State.RemoveMachine(machine.Id())
-	c.Assert(err, ErrorMatches, "cannot remove machine 0: .*")
-}
-
 func (s *StateSuite) TestReadMachine(c *C) {
 	machine, err := s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
@@ -182,7 +159,7 @@ func (s *StateSuite) TestAllMachines(c *C) {
 		c.Assert(err, IsNil)
 		err = m.SetAgentTools(newTools("7.8.9-foo-bar", "http://arble.tgz"))
 		c.Assert(err, IsNil)
-		err = m.EnsureDying()
+		err = m.Destroy()
 		c.Assert(err, IsNil)
 	}
 	s.AssertMachineCount(c, numInserts)
@@ -519,7 +496,7 @@ var machinesWatchTests = []struct {
 		func(c *C, s *state.State) {
 			m3, err := s.Machine("3")
 			c.Assert(err, IsNil)
-			err = m3.EnsureDying()
+			err = m3.Destroy()
 			c.Assert(err, IsNil)
 		},
 		[]string{"3"},
@@ -537,9 +514,11 @@ var machinesWatchTests = []struct {
 		func(c *C, s *state.State) {
 			m0, err := s.Machine("0")
 			c.Assert(err, IsNil)
-			err = m0.EnsureDying()
+			err = m0.Destroy()
 			c.Assert(err, IsNil)
-			err = s.RemoveMachine("3")
+			m3, err := s.Machine("3")
+			c.Assert(err, IsNil)
+			err = m3.Remove()
 			c.Assert(err, IsNil)
 		},
 		[]string{"0"},
@@ -554,7 +533,7 @@ var machinesWatchTests = []struct {
 			c.Assert(err, IsNil)
 			err = m2.EnsureDead()
 			c.Assert(err, IsNil)
-			err = s.RemoveMachine("2")
+			err = m2.Remove()
 			c.Assert(err, IsNil)
 		},
 		[]string{"0", "2"},
@@ -585,7 +564,7 @@ var machinesWatchTests = []struct {
 			for i := 10; i < len(machines); i++ {
 				err = machines[i].EnsureDead()
 				c.Assert(err, IsNil)
-				err = s.RemoveMachine(machines[i].Id())
+				err = machines[i].Remove()
 				c.Assert(err, IsNil)
 			}
 		},
@@ -602,7 +581,7 @@ var machinesWatchTests = []struct {
 			c.Assert(err, IsNil)
 			err = m.EnsureDead()
 			c.Assert(err, IsNil)
-			err = s.RemoveMachine(m.Id())
+			err = m.Remove()
 			c.Assert(err, IsNil)
 
 			_, err = s.AddMachine(state.JobHostUnits)
@@ -618,7 +597,7 @@ var machinesWatchTests = []struct {
 			err = m.EnsureDead()
 			c.Assert(err, IsNil)
 			s.Sync()
-			err = s.RemoveMachine(m.Id())
+			err = m.Remove()
 			c.Assert(err, IsNil)
 			s.Sync()
 		},
