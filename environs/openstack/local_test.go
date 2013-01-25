@@ -3,8 +3,8 @@ package openstack_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goose/identity"
-	"launchpad.net/juju-core/environs/openstack"
 	testopenstack "launchpad.net/goose/testservices/openstack"
+	"launchpad.net/juju-core/environs/openstack"
 	"net/http"
 	"net/http/httptest"
 )
