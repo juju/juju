@@ -29,7 +29,8 @@ func (c *DestroyServiceCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	args = f.Args()
 	if len(args) == 0 {
 		return fmt.Errorf("no service specified")
-	} else if !state.IsServiceName(args[0]) {
+	}
+	if !state.IsServiceName(args[0]) {
 		return fmt.Errorf("invalid service name %q", args[0])
 	}
 	c.ServiceName, args = args[0], args[1:]
