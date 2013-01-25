@@ -8,6 +8,7 @@ import (
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/trivial"
+	"sort"
 	"strconv"
 )
 
@@ -241,6 +242,7 @@ func (s *Service) Endpoints() (eps []Endpoint, err error) {
 			Scope:     charm.ScopeGlobal,
 		},
 	})
+	sort.Sort(epSlice(eps))
 	return eps, nil
 }
 
