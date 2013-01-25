@@ -11,10 +11,10 @@ import (
 type tooler interface {
 	AgentTools() (*state.Tools, error)
 	SetAgentTools(t *state.Tools) error
-	EnsureDying() error
-	EnsureDead() error
 	Life() state.Life
 	Refresh() error
+	Destroy() error
+	EnsureDead() error
 }
 
 var _ = Suite(&ToolsSuite{})

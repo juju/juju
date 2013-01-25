@@ -1382,9 +1382,7 @@ type removeSubordinate struct{}
 func (removeSubordinate) step(c *C, ctx *context) {
 	err := ctx.subordinate.EnsureDead()
 	c.Assert(err, IsNil)
-	svc, err := ctx.subordinate.Service()
-	c.Assert(err, IsNil)
-	err = svc.RemoveUnit(ctx.subordinate)
+	err = ctx.subordinate.Remove()
 	c.Assert(err, IsNil)
 	ctx.subordinate = nil
 }
@@ -1445,7 +1443,7 @@ var relationDying = custom{func(c *C, ctx *context) {
 }}
 
 var unitDying = custom{func(c *C, ctx *context) {
-	c.Assert(ctx.unit.EnsureDying(), IsNil)
+	c.Assert(ctx.unit.Destroy(), IsNil)
 }}
 
 var unitDead = custom{func(c *C, ctx *context) {
@@ -1453,7 +1451,7 @@ var unitDead = custom{func(c *C, ctx *context) {
 }}
 
 var subordinateDying = custom{func(c *C, ctx *context) {
-	c.Assert(ctx.subordinate.EnsureDying(), IsNil)
+	c.Assert(ctx.subordinate.Destroy(), IsNil)
 }}
 
 func curl(revision int) *charm.URL {

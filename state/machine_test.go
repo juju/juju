@@ -26,7 +26,7 @@ func (s *MachineSuite) TestLifeJobManageEnviron(c *C) {
 	// A JobManageEnviron machine must never advance lifecycle.
 	m, err := s.State.AddMachine(state.JobManageEnviron)
 	c.Assert(err, IsNil)
-	err = m.EnsureDying()
+	err = m.Destroy()
 	c.Assert(err, ErrorMatches, "machine 1 cannot become dying: required by environment")
 	err = m.EnsureDead()
 	c.Assert(err, ErrorMatches, "machine 1 cannot become dead: required by environment")
@@ -40,7 +40,7 @@ func (s *MachineSuite) TestLifeJobHostUnits(c *C) {
 	c.Assert(err, IsNil)
 	err = unit.AssignToMachine(s.machine)
 	c.Assert(err, IsNil)
-	err = s.machine.EnsureDying()
+	err = s.machine.Destroy()
 	c.Assert(err, ErrorMatches, `machine 0 cannot become dying: unit "wordpress/0" is assigned to it`)
 	err = s.machine.EnsureDead()
 	c.Assert(err, ErrorMatches, `machine 0 cannot become dead: unit "wordpress/0" is assigned to it`)
@@ -48,7 +48,7 @@ func (s *MachineSuite) TestLifeJobHostUnits(c *C) {
 	// Once no unit is assigned, lifecycle can advance.
 	err = unit.UnassignFromMachine()
 	c.Assert(err, IsNil)
-	err = s.machine.EnsureDying()
+	err = s.machine.Destroy()
 	c.Assert(err, IsNil)
 	err = s.machine.EnsureDead()
 	c.Assert(err, IsNil)
@@ -56,9 +56,22 @@ func (s *MachineSuite) TestLifeJobHostUnits(c *C) {
 	// A machine that has never had units assigned can advance lifecycle.
 	m, err := s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
-	err = m.EnsureDying()
+	err = m.Destroy()
 	c.Assert(err, IsNil)
 	err = m.EnsureDead()
+	c.Assert(err, IsNil)
+}
+
+func (s *MachineSuite) TestRemove(c *C) {
+	err := s.machine.Remove()
+	c.Assert(err, ErrorMatches, "cannot remove machine 0: machine is not dead")
+	err = s.machine.EnsureDead()
+	c.Assert(err, IsNil)
+	err = s.machine.Remove()
+	c.Assert(err, IsNil)
+	err = s.machine.Refresh()
+	c.Assert(state.IsNotFound(err), Equals, true)
+	err = s.machine.Remove()
 	c.Assert(err, IsNil)
 }
 
@@ -213,7 +226,7 @@ func (s *MachineSuite) TestMachineRefresh(c *C) {
 
 	err = m0.EnsureDead()
 	c.Assert(err, IsNil)
-	err = s.State.RemoveMachine(m0.Id())
+	err = m0.Remove()
 	c.Assert(err, IsNil)
 	err = m0.Refresh()
 	c.Assert(state.IsNotFound(err), Equals, true)
@@ -405,7 +418,7 @@ var machinePrincipalsWatchTests = []struct {
 			c.Assert(err, IsNil)
 			err = unit3.EnsureDead()
 			c.Assert(err, IsNil)
-			err = service.RemoveUnit(unit3)
+			err = unit3.Remove()
 			c.Assert(err, IsNil)
 		},
 		changed: []string{"mysql/3"},
@@ -416,13 +429,13 @@ var machinePrincipalsWatchTests = []struct {
 			c.Assert(err, IsNil)
 			err = unit0.EnsureDead()
 			c.Assert(err, IsNil)
-			err = service.RemoveUnit(unit0)
+			err = unit0.Remove()
 			c.Assert(err, IsNil)
 			unit2, err := service.Unit("mysql/2")
 			c.Assert(err, IsNil)
 			err = unit2.EnsureDead()
 			c.Assert(err, IsNil)
-			err = service.RemoveUnit(unit2)
+			err = unit2.Remove()
 			c.Assert(err, IsNil)
 		},
 		changed: []string{"mysql/0", "mysql/2"},
@@ -437,7 +450,7 @@ var machinePrincipalsWatchTests = []struct {
 			c.Assert(err, IsNil)
 			err = unit1.EnsureDead()
 			c.Assert(err, IsNil)
-			err = service.RemoveUnit(unit1)
+			err = unit1.Remove()
 			c.Assert(err, IsNil)
 		},
 		changed: []string{"mysql/1", "mysql/4"},
@@ -455,7 +468,7 @@ var machinePrincipalsWatchTests = []struct {
 			for i := 10; i < len(units); i++ {
 				err = units[i].EnsureDead()
 				c.Assert(err, IsNil)
-				err = service.RemoveUnit(units[i])
+				err = units[i].Remove()
 				c.Assert(err, IsNil)
 			}
 		},
@@ -471,7 +484,7 @@ var machinePrincipalsWatchTests = []struct {
 			c.Assert(err, IsNil)
 			err = unit9.EnsureDead()
 			c.Assert(err, IsNil)
-			err = service.RemoveUnit(unit9)
+			err = unit9.Remove()
 			c.Assert(err, IsNil)
 		},
 		changed: []string{"mysql/9", "mysql/25"},
@@ -517,7 +530,7 @@ var machinePrincipalsWatchTests = []struct {
 			c.Assert(err, IsNil)
 			err = unit14.EnsureDead()
 			c.Assert(err, IsNil)
-			err = service.RemoveUnit(unit14)
+			err = unit14.Remove()
 			c.Assert(err, IsNil)
 		},
 		changed: []string{"bacon/0", "bacon/1", "mysql/14", "mysql/26", "mysql/27"},
@@ -657,7 +670,7 @@ var machineUnitsWatchTests = []struct {
 			c.Assert(err, IsNil)
 			unit, err := svc.Unit("log0/0")
 			c.Assert(err, IsNil)
-			err = unit.EnsureDying()
+			err = unit.Destroy()
 			c.Assert(err, IsNil)
 		},
 		changes: []string{"log0/0"},
@@ -681,7 +694,7 @@ var machineUnitsWatchTests = []struct {
 			c.Assert(err, IsNil)
 			unit2, err := svc2.Unit("log2/0")
 			c.Assert(err, IsNil)
-			err = unit2.EnsureDying()
+			err = unit2.Destroy()
 			c.Assert(err, IsNil)
 			svc3, err := s.State.Service("log3")
 			c.Assert(err, IsNil)
@@ -762,13 +775,13 @@ var machineUnitsWatchTests = []struct {
 			for i := 10; i < len(units20); i++ {
 				err = units20[i].EnsureDead()
 				c.Assert(err, IsNil)
-				err = log20.RemoveUnit(units20[i])
+				err = units20[i].Remove()
 				c.Assert(err, IsNil)
 			}
 			for i := 5; i < len(units10); i++ {
 				err = units10[i].EnsureDead()
 				c.Assert(err, IsNil)
-				err = log10.RemoveUnit(units10[i])
+				err = units10[i].Remove()
 				c.Assert(err, IsNil)
 			}
 		},
@@ -835,7 +848,7 @@ var machineUnitsWatchTests = []struct {
 			c.Assert(err, IsNil)
 			err = unit.EnsureDead()
 			c.Assert(err, IsNil)
-			err = svc.RemoveUnit(unit)
+			err = unit.Remove()
 			c.Assert(err, IsNil)
 		},
 		changes: []string{"log35/0"},
@@ -847,7 +860,7 @@ var machineUnitsWatchTests = []struct {
 			c.Assert(err, IsNil)
 			_, err = log.AddUnitSubordinateTo(principal)
 			c.Assert(err, IsNil)
-			err = principal.EnsureDying()
+			err = principal.Destroy()
 			c.Assert(err, IsNil)
 		},
 		changes: []string{"log40/0", "mysql/0"},
@@ -924,9 +937,7 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 			continue
 		}
 		c.Assert(err, IsNil)
-		svc, err := s.State.Service(unit.ServiceName())
-		c.Assert(err, IsNil)
-		err = svc.RemoveUnit(unit)
+		err = unit.Remove()
 		c.Assert(err, IsNil)
 	}
 	s.State.StartSync()
@@ -1009,8 +1020,9 @@ func (s *MachineSuite) testWatchUnitsUnassign(c *C, reassign bool) {
 	}
 
 	// Remove one of the subordinate to make matters more interesting.
-	subordinate2.EnsureDead()
-	err = subservice.RemoveUnit(subordinate2)
+	err = subordinate2.EnsureDead()
+	c.Assert(err, IsNil)
+	err = subordinate2.Remove()
 	c.Assert(err, IsNil)
 
 	machine, err := s.State.AddMachine(state.JobHostUnits)

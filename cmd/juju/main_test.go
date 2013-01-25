@@ -138,6 +138,7 @@ var commandNames = []string{
 	"deploy",
 	"destroy-environment",
 	"destroy-relation",
+	"destroy-service",
 	"destroy-unit",
 	"expose",
 	"get",
