@@ -121,32 +121,6 @@ func (c *Conn) updateSecrets() error {
 	return c.State.SetEnvironConfig(cfg)
 }
 
-// AddService creates a new service with the given name to run the given
-// charm.  If svcName is empty, the charm name will be used.
-func (conn *Conn) AddService(name string, ch *state.Charm) (*state.Service, error) {
-	if name == "" {
-		name = ch.URL().Name // TODO ch.Meta().Name ?
-	}
-	svc, err := conn.State.AddService(name, ch)
-	if err != nil {
-		return nil, err
-	}
-	meta := ch.Meta()
-	for rname, rel := range meta.Peers {
-		ep := state.Endpoint{
-			name,
-			rel.Interface,
-			rname,
-			state.RolePeer,
-			rel.Scope,
-		}
-		if _, err := conn.State.AddRelation(ep); err != nil {
-			return nil, fmt.Errorf("cannot add peer relation %q to service %q: %v", rname, name, err)
-		}
-	}
-	return svc, nil
-}
-
 // PutCharm uploads the given charm to provider storage, and adds a
 // state.Charm to the state.  The charm is not uploaded if a charm with
 // the same URL already exists in the state.

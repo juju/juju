@@ -151,7 +151,7 @@ func (s *MachineSuite) TestManageEnviron(c *C) {
 	// Add one unit to a service; it should get allocated a machine
 	// and then its ports should be opened.
 	charm := s.AddTestingCharm(c, "dummy")
-	svc, err := s.Conn.AddService("test-service", charm)
+	svc, err := s.State.AddService("test-service", charm)
 	c.Assert(err, IsNil)
 	err = svc.SetExposed()
 	c.Assert(err, IsNil)

@@ -280,18 +280,29 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	return newCharm(st, cdoc)
 }
 
-// AddService creates a new service state with the given unique name
-// and the charm state.
+// AddService creates a new service, running the supplied charm, with the
+// supplied name (which must be unique). If the charm defines peer relations,
+// they will be created automatically.
 func (st *State) AddService(name string, ch *Charm) (service *Service, err error) {
+	defer trivial.ErrorContextf(&err, "cannot add service %q", name)
+	// Sanity checks.
 	if !IsServiceName(name) {
-		return nil, fmt.Errorf("%q is not a valid service name", name)
+		return nil, fmt.Errorf("invalid name")
 	}
-	sdoc := &serviceDoc{
-		Name:     name,
-		CharmURL: ch.URL(),
-		Life:     Alive,
+	if exists, err := isNotDead(st.services, name); err != nil {
+		return nil, err
+	} else if exists {
+		return nil, fmt.Errorf("service already exists")
 	}
-	svc := newService(st, sdoc)
+	// Create the service addition operations.
+	peers := ch.Meta().Peers
+	svcDoc := &serviceDoc{
+		Name:          name,
+		CharmURL:      ch.URL(),
+		RelationCount: len(peers),
+		Life:          Alive,
+	}
+	svc := newService(st, svcDoc)
 	ops := []txn.Op{{
 		C:      st.settings.Name,
 		Id:     svc.globalKey(),
@@ -300,10 +311,42 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 		C:      st.services.Name,
 		Id:     name,
 		Assert: txn.DocMissing,
-		Insert: sdoc,
+		Insert: svcDoc,
 	}}
-	if err := st.runner.Run(ops, "", nil); err != nil {
-		return nil, fmt.Errorf("cannot add service %q: %v", name, onAbort(err, fmt.Errorf("duplicate service name")))
+	// Collect peer relation addition operations.
+	for relName, rel := range peers {
+		relId, err := st.sequence("relation")
+		if err != nil {
+			return nil, err
+		}
+		eps := []Endpoint{{
+			ServiceName:   name,
+			Interface:     rel.Interface,
+			RelationName:  relName,
+			RelationRole:  RolePeer,
+			RelationScope: rel.Scope,
+		}}
+		relKey := relationKey(eps)
+		relDoc := &relationDoc{
+			Key:       relKey,
+			Id:        relId,
+			Endpoints: eps,
+			Life:      Alive,
+		}
+		ops = append(ops, txn.Op{
+			C:      st.relations.Name,
+			Id:     relKey,
+			Assert: txn.DocMissing,
+			Insert: relDoc,
+		})
+	}
+	// Run the transaction; happily, there's never any reason to retry,
+	// because all the possible failed assertions imply that the service
+	// already exists.
+	if err := st.runner.Run(ops, "", nil); err == txn.ErrAborted {
+		return nil, fmt.Errorf("service already exists")
+	} else if err != nil {
+		return nil, err
 	}
 	// Refresh to pick the txn-revno.
 	if err = svc.Refresh(); err != nil {
