@@ -2,55 +2,62 @@ package openstack_test
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/openstack"
-	coretesting "launchpad.net/juju-core/testing"
-	"testing"
+	"launchpad.net/goose/identity"
+	"launchpad.net/goose/testservices/openstack"
+	"net/http"
+	"net/http/httptest"
 )
 
-func init() {
-}
-
-type LocalSuite struct {
-	env environs.Environ
-}
-
-var _ = Suite(&LocalSuite{})
-
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-func (s *LocalSuite) SetUpSuite(c *C) {
-	env, err := environs.NewFromAttrs(map[string]interface{}{
-		"name":            "test",
-		"type":            "openstack",
-		"authorized-keys": "foo",
-		"ca-cert":         coretesting.CACert,
-		"ca-private-key":  coretesting.CAKey,
+// Register tests to run against a test Openstack instance (service doubles).
+func registerServiceDoubleTests() {
+	cred := &identity.Credentials{
+		User:       "fred",
+		Secrets:    "secret",
+		Region:     "some region",
+		TenantName: "some tenant",
+	}
+	Suite(&localLiveSuite{
+		LiveTests: LiveTests{
+			cred: cred,
+		},
 	})
-	c.Assert(err, IsNil)
-	s.env = env
-	openstack.UseTestMetadata(true)
-	openstack.ShortTimeouts(true)
 }
 
-func (s *LocalSuite) TearDownSuite(c *C) {
-	openstack.UseTestMetadata(false)
-	openstack.ShortTimeouts(false)
-	s.env = nil
+type localLiveSuite struct {
+	LiveTests
+	// The following attributes are for using the service doubles.
+	Server     *httptest.Server
+	Mux        *http.ServeMux
+	oldHandler http.Handler
 }
 
-func (s *LocalSuite) TestPrivateAddress(c *C) {
-	p := s.env.Provider()
-	addr, err := p.PrivateAddress()
-	c.Assert(err, IsNil)
-	c.Assert(addr, Equals, "private.dummy.address.example.com")
+func (s *localLiveSuite) SetUpSuite(c *C) {
+	c.Logf("Using openstack service test doubles")
+
+	// Set up the HTTP server.
+	s.Server = httptest.NewServer(nil)
+	s.oldHandler = s.Server.Config.Handler
+	s.Mux = http.NewServeMux()
+	s.Server.Config.Handler = s.Mux
+
+	s.cred.URL = s.Server.URL
+	openstack := openstack.New(s.cred)
+	openstack.SetupHTTP(s.Mux)
+
+	s.LiveTests.SetUpSuite(c)
 }
 
-func (s *LocalSuite) TestPublicAddress(c *C) {
-	p := s.env.Provider()
-	addr, err := p.PublicAddress()
-	c.Assert(err, IsNil)
-	c.Assert(addr, Equals, "public.dummy.address.example.com")
+func (s *localLiveSuite) TearDownSuite(c *C) {
+	s.LiveTests.TearDownSuite(c)
+	s.Mux = nil
+	s.Server.Config.Handler = s.oldHandler
+	s.Server.Close()
+}
+
+func (s *localLiveSuite) SetUpTest(c *C) {
+	s.LiveTests.SetUpTest(c)
+}
+
+func (s *localLiveSuite) TearDownTest(c *C) {
+	s.LiveTests.TearDownTest(c)
 }

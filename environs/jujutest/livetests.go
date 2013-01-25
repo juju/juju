@@ -1,7 +1,9 @@
 package jujutest
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs"
@@ -95,13 +97,7 @@ func (t *LiveTests) Destroy(c *C) {
 // TestStartStop is similar to Tests.TestStartStop except
 // that it does not assume a pristine environment.
 func (t *LiveTests) TestStartStop(c *C) {
-	// We might or might not have a bootstrap instance
-	// around, so we make this test work regardless
-	// of what instances are already started.
-	initialInsts, err := t.Env.AllInstances()
-	c.Assert(err, IsNil)
-
-	inst, err := t.Env.StartInstance("0", testing.InvalidStateInfo("0"), nil)
+	inst, err := t.Env.StartInstance("0", testing.InvalidStateInfo("0"), testing.InvalidAPIInfo("0"), nil)
 	c.Assert(err, IsNil)
 	c.Assert(inst, NotNil)
 	id0 := inst.Id()
@@ -112,9 +108,12 @@ func (t *LiveTests) TestStartStop(c *C) {
 	c.Assert(insts[0].Id(), Equals, id0)
 	c.Assert(insts[1].Id(), Equals, id0)
 
+	// Asserting on the return of AllInstances makes the test fragile,
+	// as even comparing the before and after start values can be thrown
+	// off if other instances have been created or destroyed in the same
+	// time frame. Instead, just check the instance we created exists.
 	insts, err = t.Env.AllInstances()
 	c.Assert(err, IsNil)
-	c.Assert(insts, HasLen, len(initialInsts)+1, Commentf("%v", insts))
 	found := false
 	for _, inst := range insts {
 		if inst.Id() == id0 {
@@ -122,7 +121,7 @@ func (t *LiveTests) TestStartStop(c *C) {
 			found = true
 		}
 	}
-	c.Assert(found, Equals, true, Commentf("expected %v, got %v", append(initialInsts, inst), insts))
+	c.Assert(found, Equals, true, Commentf("expected %v in %v", inst, insts))
 
 	dns, err := inst.WaitDNSName()
 	c.Assert(err, IsNil)
@@ -150,7 +149,7 @@ func (t *LiveTests) TestStartStop(c *C) {
 }
 
 func (t *LiveTests) TestPorts(c *C) {
-	inst1, err := t.Env.StartInstance("1", testing.InvalidStateInfo("1"), nil)
+	inst1, err := t.Env.StartInstance("1", testing.InvalidStateInfo("1"), testing.InvalidAPIInfo("1"), nil)
 	c.Assert(err, IsNil)
 	c.Assert(inst1, NotNil)
 	defer t.Env.StopInstances([]environs.Instance{inst1})
@@ -158,7 +157,7 @@ func (t *LiveTests) TestPorts(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
 
-	inst2, err := t.Env.StartInstance("2", testing.InvalidStateInfo("2"), nil)
+	inst2, err := t.Env.StartInstance("2", testing.InvalidStateInfo("2"), testing.InvalidAPIInfo("2"), nil)
 	c.Assert(err, IsNil)
 	c.Assert(inst2, NotNil)
 	ports, err = inst2.Ports("2")
@@ -253,14 +252,14 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 	c.Assert(err, IsNil)
 
 	// Create instances and check open ports on both instances.
-	inst1, err := t.Env.StartInstance("1", testing.InvalidStateInfo("1"), nil)
+	inst1, err := t.Env.StartInstance("1", testing.InvalidStateInfo("1"), testing.InvalidAPIInfo("1"), nil)
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst1})
 	ports, err := t.Env.Ports()
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
 
-	inst2, err := t.Env.StartInstance("2", testing.InvalidStateInfo("2"), nil)
+	inst2, err := t.Env.StartInstance("2", testing.InvalidStateInfo("2"), testing.InvalidAPIInfo("2"), nil)
 	c.Assert(err, IsNil)
 	ports, err = t.Env.Ports()
 	c.Assert(err, IsNil)
@@ -328,6 +327,11 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	c.Assert(err, IsNil)
 	defer conn.Close()
 
+	c.Logf("opening API connection")
+	apiConn, err := juju.NewAPIConn(t.Env)
+	c.Assert(err, IsNil)
+	defer conn.Close()
+
 	// Check that the agent version has made it through the
 	// bootstrap process (it's optional in the config.Config)
 	cfg, err := conn.State.EnvironConfig()
@@ -336,10 +340,17 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 
 	// Wait for machine agent to come up on the bootstrap
 	// machine and find the deployed series from that.
-	// Wait for machine agent to come up on the bootstrap
-	// machine and find the deployed series from that.
 	m0, err := conn.State.Machine("0")
 	c.Assert(err, IsNil)
+
+	instId0, err := m0.InstanceId()
+	c.Assert(err, IsNil)
+
+	// Check that the API connection is working.
+	apiInstId0, err := apiConn.State.Request("0")
+	c.Assert(err, IsNil)
+	c.Assert(apiInstId0, Equals, string(instId0))
+
 	mw0 := newMachineToolWaiter(m0)
 	defer mw0.Stop()
 
@@ -506,7 +517,7 @@ func waitAgentTools(c *C, w *toolsWaiter, expect version.Binary) *state.Tools {
 // all the provided watchers upgrade to the requested version.
 func (t *LiveTests) checkUpgrade(c *C, conn *juju.Conn, newVersion version.Binary, waiters ...*toolsWaiter) {
 	c.Logf("putting testing version of juju tools")
-	upgradeTools, err := environs.PutTools(t.Env.Storage(), &newVersion)
+	upgradeTools, err := environs.PutTools(t.Env.Storage(), &newVersion.Number)
 	c.Assert(err, IsNil)
 
 	// Check that the put version really is the version we expect.
@@ -664,11 +675,93 @@ func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
 		URL:    url,
 	}
 
-	inst, err := t.Env.StartInstance("4", testing.InvalidStateInfo("4"), tools)
+	inst, err := t.Env.StartInstance("4", testing.InvalidStateInfo("4"), testing.InvalidAPIInfo("4"), tools)
 	if inst != nil {
 		err := t.Env.StopInstances([]environs.Instance{inst})
 		c.Check(err, IsNil)
 	}
 	c.Assert(inst, IsNil)
 	c.Assert(err, ErrorMatches, "cannot find image.*")
+}
+
+func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
+	if !t.HasProvisioner {
+		c.Skip("HasProvisioner is false; cannot test deployment")
+	}
+
+	current := version.Current
+	other := current
+	other.Series = "precise"
+	if current == other {
+		other.Series = "quantal"
+	}
+
+	cfg := t.Env.Config()
+	cfg, err := cfg.Apply(map[string]interface{}{"default-series": other.Series})
+	c.Assert(err, IsNil)
+	env, err := environs.New(cfg)
+	c.Assert(err, IsNil)
+
+	dummyenv, err := environs.NewFromAttrs(map[string]interface{}{
+		"type":         "dummy",
+		"name":         "dummy storage",
+		"secret":       "pizza",
+		"state-server": false,
+	})
+	c.Assert(err, IsNil)
+	defer dummyenv.Destroy(nil)
+
+	// BUG: We destroy the environment, then write to its storage.
+	// This is bogus, strictly speaking, but it works on
+	// existing providers for the time being and means
+	// this test does not fail when the environment is
+	// already bootstrapped.
+	t.Destroy(c)
+
+	currentPath := environs.ToolsStoragePath(current)
+	otherPath := environs.ToolsStoragePath(other)
+	envStorage := env.Storage()
+	dummyStorage := dummyenv.Storage()
+
+	defer envStorage.Remove(otherPath)
+
+	_, err = environs.PutTools(dummyStorage, &current.Number)
+	c.Assert(err, IsNil)
+
+	// This will only work while cross-compiling across releases is safe,
+	// which depends on external elements. Tends to be safe for the last
+	// few releases, but we may have to refactor some day.
+	err = storageCopy(dummyStorage, currentPath, envStorage, otherPath)
+	c.Assert(err, IsNil)
+
+	err = environs.Bootstrap(env, false, panicWrite)
+	c.Assert(err, IsNil)
+	defer env.Destroy(nil)
+
+	conn, err := juju.NewConn(env)
+	c.Assert(err, IsNil)
+	defer conn.Close()
+
+	// Wait for machine agent to come up on the bootstrap
+	// machine and ensure it deployed the proper series.
+	m0, err := conn.State.Machine("0")
+	c.Assert(err, IsNil)
+	mw0 := newMachineToolWaiter(m0)
+	defer mw0.Stop()
+
+	waitAgentTools(c, mw0, other)
+}
+
+func storageCopy(source environs.Storage, sourcePath string, target environs.Storage, targetPath string) error {
+	rc, err := source.Get(sourcePath)
+	if err != nil {
+		return err
+	}
+	var buf bytes.Buffer
+	_, err = io.Copy(&buf, rc)
+	rc.Close()
+	if err != nil {
+		return err
+	}
+	return target.Put(targetPath, &buf, int64(buf.Len()))
 }

@@ -171,6 +171,7 @@ var runHookTests = []struct {
 			"JUJU_UNIT_NAME":   "u/0",
 			"JUJU_RELATION":    "peer1",
 			"JUJU_RELATION_ID": "peer1:1",
+			"JUJU_REMOTE_UNIT": "",
 		},
 	}, {
 		summary: "check shell environment for relation hook context",
@@ -284,14 +285,10 @@ func (s *RunHookSuite) TestRunHookRelationFlushing(c *C) {
 	// Check that the changes to the local settings nodes have been discarded.
 	node0, err = s.relctxs[0].Settings()
 	c.Assert(err, IsNil)
-	c.Assert(node0.Map(), DeepEquals, map[string]interface{}{
-		"private-address": "u-0.example.com",
-	})
+	c.Assert(node0.Map(), DeepEquals, map[string]interface{}{"relation-name": "peer0"})
 	node1, err = s.relctxs[1].Settings()
 	c.Assert(err, IsNil)
-	c.Assert(node1.Map(), DeepEquals, map[string]interface{}{
-		"private-address": "u-0.example.com",
-	})
+	c.Assert(node1.Map(), DeepEquals, map[string]interface{}{"relation-name": "peer1"})
 
 	// Check that the changes have been written to state.
 	settings0, err := s.relunits[0].ReadSettings("u/0")
@@ -317,14 +314,14 @@ func (s *RunHookSuite) TestRunHookRelationFlushing(c *C) {
 	node0, err = s.relctxs[0].Settings()
 	c.Assert(err, IsNil)
 	c.Assert(node0.Map(), DeepEquals, map[string]interface{}{
-		"private-address": "u-0.example.com",
-		"baz":             3,
+		"relation-name": "peer0",
+		"baz":           3,
 	})
 	node1, err = s.relctxs[1].Settings()
 	c.Assert(err, IsNil)
 	c.Assert(node1.Map(), DeepEquals, map[string]interface{}{
-		"private-address": "u-0.example.com",
-		"qux":             4,
+		"relation-name": "peer1",
+		"qux":           4,
 	})
 
 	// Check that the changes have been written to state.
@@ -357,11 +354,9 @@ func (s *ContextRelationSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	unit, err := s.svc.AddUnit()
 	c.Assert(err, IsNil)
-	unit.SetPrivateAddress("u-0.example.com")
-	c.Assert(err, IsNil)
 	s.ru, err = s.rel.Unit(unit)
 	c.Assert(err, IsNil)
-	err = s.ru.EnterScope()
+	err = s.ru.EnterScope(nil)
 	c.Assert(err, IsNil)
 }
 
@@ -412,9 +407,7 @@ func (s *ContextRelationSuite) TestMemberCaching(c *C) {
 	c.Assert(err, IsNil)
 	ru, err := s.rel.Unit(unit)
 	c.Assert(err, IsNil)
-	err = unit.SetPrivateAddress("u-1.example.com")
-	c.Assert(err, IsNil)
-	err = ru.EnterScope()
+	err = ru.EnterScope(map[string]interface{}{"blib": "blob"})
 	c.Assert(err, IsNil)
 	settings, err := ru.Settings()
 	c.Assert(err, IsNil)
@@ -456,9 +449,7 @@ func (s *ContextRelationSuite) TestNonMemberCaching(c *C) {
 	c.Assert(err, IsNil)
 	ru, err := s.rel.Unit(unit)
 	c.Assert(err, IsNil)
-	err = unit.SetPrivateAddress("u-1.example.com")
-	c.Assert(err, IsNil)
-	err = ru.EnterScope()
+	err = ru.EnterScope(map[string]interface{}{"blib": "blob"})
 	c.Assert(err, IsNil)
 	settings, err := ru.Settings()
 	c.Assert(err, IsNil)
@@ -569,11 +560,11 @@ func (s *InterfaceSuite) TestTrivial(c *C) {
 
 func (s *InterfaceSuite) TestUnitCaching(c *C) {
 	ctx := s.GetContext(c, -1, "")
-	pr, err := ctx.PrivateAddress()
-	c.Assert(err, IsNil)
+	pr, ok := ctx.PrivateAddress()
+	c.Assert(ok, Equals, true)
 	c.Assert(pr, Equals, "u-0.example.com")
-	_, err = ctx.PublicAddress()
-	c.Assert(err, ErrorMatches, `public address of unit "u/0" not found`)
+	_, ok = ctx.PublicAddress()
+	c.Assert(ok, Equals, false)
 
 	// Change remote state.
 	u, err := s.State.Unit("u/0")
@@ -584,11 +575,11 @@ func (s *InterfaceSuite) TestUnitCaching(c *C) {
 	c.Assert(err, IsNil)
 
 	// Local view is unchanged.
-	pr, err = ctx.PrivateAddress()
-	c.Assert(err, IsNil)
+	pr, ok = ctx.PrivateAddress()
+	c.Assert(ok, Equals, true)
 	c.Assert(pr, Equals, "u-0.example.com")
-	_, err = ctx.PublicAddress()
-	c.Assert(err, ErrorMatches, `public address of unit "u/0" not found`)
+	_, ok = ctx.PublicAddress()
+	c.Assert(ok, Equals, false)
 }
 
 func (s *InterfaceSuite) TestConfigCaching(c *C) {
@@ -656,7 +647,7 @@ func (s *HookContextSuite) AddContextRelation(c *C, name string) {
 	ru, err := rel.Unit(s.unit)
 	c.Assert(err, IsNil)
 	s.relunits[rel.Id()] = ru
-	err = ru.EnterScope()
+	err = ru.EnterScope(map[string]interface{}{"relation-name": name})
 	c.Assert(err, IsNil)
 	s.relctxs[rel.Id()] = uniter.NewContextRelation(ru, nil)
 }

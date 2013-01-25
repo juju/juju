@@ -100,7 +100,7 @@ environments:
 	c.Assert(conn.State, NotNil)
 
 	// Reset the admin password so the state db can be reused.
-	err = conn.State.SetAdminPassword("")
+	err = conn.State.SetAdminMongoPassword("")
 	c.Assert(err, IsNil)
 	// Close the conn (thereby closing its state) a couple of times to
 	// verify that multiple closes will not panic. We ignore the error,
@@ -125,7 +125,7 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *C) {
 	c.Assert(err, IsNil)
 	err = environs.Bootstrap(env, false, panicWrite)
 	c.Assert(err, IsNil)
-	info, err := env.StateInfo()
+	info, _, err := env.StateInfo()
 	c.Assert(err, IsNil)
 	info.Password = trivial.PasswordHash("side-effect secret")
 	st, err := state.Open(info)
@@ -146,7 +146,7 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *C) {
 	c.Assert(cfg.UnknownAttrs()["secret"], Equals, "pork")
 
 	// Reset the admin password so the state db can be reused.
-	err = conn.State.SetAdminPassword("")
+	err = conn.State.SetAdminMongoPassword("")
 	c.Assert(err, IsNil)
 }
 
@@ -185,7 +185,7 @@ func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *C) {
 	c.Assert(cfg.UnknownAttrs()["secret"], Equals, "pork")
 
 	// Reset the admin password so the state db can be reused.
-	err = conn.State.SetAdminPassword("")
+	err = conn.State.SetAdminMongoPassword("")
 	c.Assert(err, IsNil)
 }
 
@@ -210,7 +210,7 @@ func (cs *NewConnSuite) TestConnWithPassword(c *C) {
 
 	// Check that Bootstrap has correctly used a hash
 	// of the admin password.
-	info, err := env.StateInfo()
+	info, _, err := env.StateInfo()
 	c.Assert(err, IsNil)
 	info.Password = trivial.PasswordHash("nutkin")
 	st, err := state.Open(info)
@@ -236,7 +236,7 @@ func (cs *NewConnSuite) TestConnWithPassword(c *C) {
 	defer conn.Close()
 
 	// Reset the admin password so the state db can be reused.
-	err = conn.State.SetAdminPassword("")
+	err = conn.State.SetAdminMongoPassword("")
 	c.Assert(err, IsNil)
 }
 
@@ -274,7 +274,7 @@ func (s *ConnSuite) TearDownTest(c *C) {
 	if s.conn == nil {
 		return
 	}
-	err := s.conn.State.SetAdminPassword("")
+	err := s.conn.State.SetAdminMongoPassword("")
 	c.Assert(err, IsNil)
 	err = s.conn.Environ.Destroy(nil)
 	c.Check(err, IsNil)
@@ -426,28 +426,89 @@ func (s *ConnSuite) TestAddUnits(c *C) {
 	c.Assert(id0, Not(Equals), id1)
 }
 
-func (s *ConnSuite) TestDestroyUnits(c *C) {
-	curl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "riak")
+func (s *ConnSuite) TestDestroyPrincipalUnits(c *C) {
+	// Create 3 principal units.
+	curl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "wordpress")
 	sch, err := s.conn.PutCharm(curl, s.repo, false)
+	wordpress, err := s.conn.AddService("wordpress", sch)
 	c.Assert(err, IsNil)
-	svc, err := s.conn.AddService("testriak", sch)
-	c.Assert(err, IsNil)
-	u1, err := s.conn.AddUnits(svc, 2)
-	c.Assert(err, IsNil)
-	c.Assert(u1, HasLen, 2)
-	svc, err = s.conn.AddService("anotherriak", sch)
-	c.Assert(err, IsNil)
-	u2, err := s.conn.AddUnits(svc, 1)
-	c.Assert(err, IsNil)
-	c.Assert(u2, HasLen, 1)
-
-	units := append(u1, u2...)
-	err = s.conn.DestroyUnits(units...)
-	c.Assert(err, IsNil)
-	for _, u := range units {
-		// UA will action the transition from Dying to Dead in the future
-		c.Assert(u.Life(), Equals, state.Dying)
+	for i := 0; i < 3; i++ {
+		_, err = wordpress.AddUnit()
+		c.Assert(err, IsNil)
 	}
+
+	// Destroy 2 of them; check they become Dying.
+	err = s.conn.DestroyUnits("wordpress/0", "wordpress/1")
+	c.Assert(err, IsNil)
+	s.assertUnitLife(c, "wordpress/0", state.Dying)
+	s.assertUnitLife(c, "wordpress/1", state.Dying)
+
+	// Try to destroy the remaining one along with a pre-destroyed one; check
+	// it fails.
+	err = s.conn.DestroyUnits("wordpress/2", "wordpress/0")
+	c.Assert(err, ErrorMatches, `cannot destroy units: unit "wordpress/0" is not alive`)
+	s.assertUnitLife(c, "wordpress/2", state.Alive)
+
+	// Try to destroy the remaining one along with a nonexistent one; check it
+	// fails.
+	err = s.conn.DestroyUnits("wordpress/2", "boojum/123")
+	c.Assert(err, ErrorMatches, `cannot destroy units: unit "boojum/123" is not alive`)
+	s.assertUnitLife(c, "wordpress/2", state.Alive)
+
+	// Destroy the remaining unit on its own, accidentally specifying it twice;
+	// this should work.
+	err = s.conn.DestroyUnits("wordpress/2", "wordpress/2")
+	c.Assert(err, IsNil)
+	s.assertUnitLife(c, "wordpress/2", state.Dying)
+}
+
+func (s *ConnSuite) TestDestroySubordinateUnits(c *C) {
+	// Create a principal and a subordinate.
+	wpcurl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "wordpress")
+	wpsch, err := s.conn.PutCharm(wpcurl, s.repo, false)
+	wordpress, err := s.conn.AddService("wordpress", wpsch)
+	c.Assert(err, IsNil)
+	wordpress0, err := wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	err = wordpress0.SetPrivateAddress("meh")
+	c.Assert(err, IsNil)
+	lgcurl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "logging")
+	lgsch, err := s.conn.PutCharm(lgcurl, s.repo, false)
+	_, err = s.conn.AddService("logging", lgsch)
+	c.Assert(err, IsNil)
+	eps, err := s.conn.State.InferEndpoints([]string{"logging", "wordpress"})
+	c.Assert(err, IsNil)
+	rel, err := s.conn.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	ru, err := rel.Unit(wordpress0)
+	c.Assert(err, IsNil)
+	err = ru.EnterScope(nil)
+	c.Assert(err, IsNil)
+
+	// Try to destroy the subordinate alone; check it fails.
+	err = s.conn.DestroyUnits("logging/0")
+	c.Assert(err, ErrorMatches, `cannot destroy units: unit "logging/0" is a subordinate`)
+	s.assertUnitLife(c, "logging/0", state.Alive)
+
+	// Try to destroy the principal and the subordinate together; check it fails.
+	err = s.conn.DestroyUnits("wordpress/0", "logging/0")
+	c.Assert(err, ErrorMatches, `cannot destroy units: unit "logging/0" is a subordinate`)
+	s.assertUnitLife(c, "wordpress/0", state.Alive)
+	s.assertUnitLife(c, "logging/0", state.Alive)
+
+	// Destroy the principal; check the subordinate does not become Dying. (This
+	// is the unit agent's responsibility.)
+	err = s.conn.DestroyUnits("wordpress/0")
+	c.Assert(err, IsNil)
+	s.assertUnitLife(c, "wordpress/0", state.Dying)
+	s.assertUnitLife(c, "logging/0", state.Alive)
+}
+
+func (s *ConnSuite) assertUnitLife(c *C, name string, life state.Life) {
+	unit, err := s.conn.State.Unit(name)
+	c.Assert(err, IsNil)
+	c.Assert(unit.Refresh(), IsNil)
+	c.Assert(unit.Life(), Equals, life)
 }
 
 func (s *ConnSuite) TestResolved(c *C) {

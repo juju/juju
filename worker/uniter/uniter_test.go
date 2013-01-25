@@ -92,14 +92,17 @@ type context struct {
 	id            int
 	path          string
 	dataDir       string
+	s             *UniterSuite
 	st            *state.State
 	charms        coretesting.ResponseMap
 	hooks         []string
+	sch           *state.Charm
 	svc           *state.Service
 	unit          *state.Unit
 	uniter        *uniter.Uniter
 	relation      *state.Relation
 	relationUnits map[string]*state.RelationUnit
+	subordinate   *state.Unit
 }
 
 func (ctx *context) run(c *C, steps []stepper) {
@@ -202,7 +205,7 @@ var uniterTests = []uniterTest{
 		serveCharm{},
 		writeFile{"charm", 0644},
 		createUniter{},
-		waitUniterDead{`ModeInstalling cs:series/dummy-0: charm deployment failed: ".*charm" is not a directory`},
+		waitUniterDead{`ModeInstalling cs:series/wordpress-0: charm deployment failed: ".*charm" is not a directory`},
 	), ut(
 		"charm cannot be downloaded",
 		createCharm{},
@@ -210,7 +213,7 @@ var uniterTests = []uniterTest{
 			coretesting.Server.Response(404, nil, nil)
 		}},
 		createUniter{},
-		waitUniterDead{`ModeInstalling cs:series/dummy-0: failed to download charm .* 404 Not Found`},
+		waitUniterDead{`ModeInstalling cs:series/wordpress-0: failed to download charm .* 404 Not Found`},
 	), ut(
 		"install hook fail and resolve",
 		startupError{"install"},
@@ -220,7 +223,7 @@ var uniterTests = []uniterTest{
 		waitUnit{
 			status: state.UnitStarted,
 		},
-		waitHooks{"start", "config-changed"},
+		waitHooks{"config-changed", "start"},
 	), ut(
 		"install hook fail and retry",
 		startupError{"install"},
@@ -239,7 +242,7 @@ var uniterTests = []uniterTest{
 		waitUnit{
 			status: state.UnitStarted,
 		},
-		waitHooks{"install", "start", "config-changed"},
+		waitHooks{"install", "config-changed", "start"},
 	), ut(
 		"start hook fail and resolve",
 		startupError{"start"},
@@ -284,7 +287,7 @@ var uniterTests = []uniterTest{
 		waitUnit{
 			status: state.UnitStarted,
 		},
-		waitHooks{"config-changed"},
+		waitHooks{"start", "config-changed"},
 		// If we'd accidentally retried that hook, somehow, we would get
 		// an extra config-changed as we entered started; see that we don't.
 		waitHooks{},
@@ -307,7 +310,7 @@ var uniterTests = []uniterTest{
 		waitUnit{
 			status: state.UnitStarted,
 		},
-		waitHooks{"config-changed"},
+		waitHooks{"config-changed", "start"},
 		verifyRunning{},
 	),
 
@@ -324,18 +327,15 @@ var uniterTests = []uniterTest{
 		waitUnit{
 			status: state.UnitStarted,
 		},
-		waitHooks{"install", "start", "config-changed"},
+		waitHooks{"install", "config-changed", "start"},
 		assertYaml{"charm/config.out", map[string]interface{}{
-			"title":    "My Title",
-			"username": "admin001",
+			"blog-title": "My Title",
 		}},
-		changeConfig{"skill-level": 9001, "title": "Goodness Gracious Me"},
+		changeConfig{"blog-title": "Goodness Gracious Me"},
 		waitHooks{"config-changed"},
 		verifyRunning{},
 		assertYaml{"charm/config.out", map[string]interface{}{
-			"skill-level": 9001,
-			"title":       "Goodness Gracious Me",
-			"username":    "admin001",
+			"blog-title": "Goodness Gracious Me",
 		}},
 	),
 
@@ -530,7 +530,7 @@ var uniterTests = []uniterTest{
 		waitUnit{
 			status: state.UnitStarted,
 		},
-		waitHooks{"install", "start", "config-changed"},
+		waitHooks{"install", "config-changed", "start"},
 		verifyCharm{},
 
 		createCharm{
@@ -669,10 +669,37 @@ var uniterTests = []uniterTest{
 		unitDead,
 		waitUniterDead{},
 		waitHooks{},
-		// TODO BUG: the unit doesn't leave the scope, leaving the relation
-		// unkillable without direct intervention. I'm pretty sure it should
-		// not be the uniter's responsibility to fix this; rather, EnsureDead
-		// should cause the unit to leave any relation scopes it may be in.
+		// TODO BUG(?): the unit doesn't leave the scope, leaving the relation
+		// unkillable without direct intervention. I'm pretty sure it's not a
+		// uniter bug -- it should be the responisbility of `juju remove-unit
+		// --force` to cause the unit to leave any relation scopes it may be
+		// in -- but it's worth noting here all the same.
+	),
+
+	// Subordinates.
+	ut(
+		"unit becomes dying while subordinates exist",
+		quickStart{},
+		addSubordinateRelation{"juju-info"},
+		waitSubordinateExists{"logging/0"},
+		unitDying,
+		waitSubordinateDying{},
+		waitHooks{"stop"},
+		verifyRunning{true},
+		removeSubordinate{},
+		waitUniterDead{},
+	), ut(
+		"new subordinate becomes necessary while old one is dying",
+		quickStart{},
+		addSubordinateRelation{"juju-info"},
+		waitSubordinateExists{"logging/0"},
+		removeSubordinateRelation{"juju-info"},
+		// The subordinate Uniter would usually set Dying in this situation.
+		subordinateDying,
+		addSubordinateRelation{"logging-dir"},
+		verifyRunning{},
+		removeSubordinate{},
+		waitSubordinateExists{"logging/1"},
 	),
 }
 
@@ -687,6 +714,7 @@ func (s *UniterSuite) TestUniter(c *C) {
 		}
 		c.Logf("\ntest %d: %s\n", i, t.summary)
 		ctx := &context{
+			s:       s,
 			st:      s.State,
 			id:      i,
 			path:    unitDir,
@@ -695,6 +723,55 @@ func (s *UniterSuite) TestUniter(c *C) {
 		}
 		ctx.run(c, t.steps)
 	}
+}
+
+func (s *UniterSuite) TestSubordinateDying(c *C) {
+	// Create a test context for later use.
+	ctx := &context{
+		st:      s.State,
+		path:    filepath.Join(s.dataDir, "agents", "unit-u-0"),
+		dataDir: s.dataDir,
+		charms:  coretesting.ResponseMap{},
+	}
+	defer os.RemoveAll(ctx.path)
+
+	// Create the subordinate service.
+	dir := coretesting.Charms.ClonedDir(c.MkDir(), "series", "logging")
+	curl, err := charm.ParseURL("cs:series/logging")
+	c.Assert(err, IsNil)
+	curl = curl.WithRevision(dir.Revision())
+	step(c, ctx, addCharm{dir, curl})
+	ctx.svc, err = s.State.AddService("u", ctx.sch)
+	c.Assert(err, IsNil)
+
+	// Create the principal service and add a relation.
+	wps, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, IsNil)
+	wpu, err := wps.AddUnit()
+	c.Assert(err, IsNil)
+	eps, err := s.State.InferEndpoints([]string{"wordpress", "u"})
+	c.Assert(err, IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+
+	// Create the subordinate unit by entering scope as the principal.
+	wpru, err := rel.Unit(wpu)
+	c.Assert(err, IsNil)
+	err = wpru.EnterScope(nil)
+	c.Assert(err, IsNil)
+	ctx.unit, err = s.State.Unit("u/0")
+	c.Assert(err, IsNil)
+
+	// Run the actual test.
+	ctx.run(c, []stepper{
+		serveCharm{},
+		startUniter{},
+		waitAddresses{},
+		custom{func(c *C, ctx *context) {
+			c.Assert(rel.Destroy(), IsNil)
+		}},
+		waitUniterDead{},
+	})
 }
 
 func step(c *C, ctx *context, s stepper) {
@@ -715,7 +792,7 @@ var charmHooks = []string{
 }
 
 func (s createCharm) step(c *C, ctx *context) {
-	base := coretesting.Charms.ClonedDirPath(c.MkDir(), "series", "dummy")
+	base := coretesting.Charms.ClonedDirPath(c.MkDir(), "series", "wordpress")
 	for _, name := range charmHooks {
 		path := filepath.Join(base, "hooks", name)
 		good := true
@@ -733,19 +810,28 @@ func (s createCharm) step(c *C, ctx *context) {
 	c.Assert(err, IsNil)
 	err = dir.SetDiskRevision(s.revision)
 	c.Assert(err, IsNil)
-	buf := &bytes.Buffer{}
-	err = dir.BundleTo(buf)
+	step(c, ctx, addCharm{dir, curl(s.revision)})
+}
+
+type addCharm struct {
+	dir  *charm.Dir
+	curl *charm.URL
+}
+
+func (s addCharm) step(c *C, ctx *context) {
+	var buf bytes.Buffer
+	err := s.dir.BundleTo(&buf)
 	c.Assert(err, IsNil)
 	body := buf.Bytes()
 	hasher := sha256.New()
-	_, err = io.Copy(hasher, buf)
+	_, err = io.Copy(hasher, &buf)
 	c.Assert(err, IsNil)
 	hash := hex.EncodeToString(hasher.Sum(nil))
-	key := fmt.Sprintf("/charms/%d", s.revision)
+	key := fmt.Sprintf("/charms/%s/%d", s.dir.Meta().Name, s.dir.Revision())
 	hurl, err := url.Parse(coretesting.Server.URL + key)
 	c.Assert(err, IsNil)
 	ctx.charms[key] = coretesting.Response{200, nil, body}
-	_, err = ctx.st.AddCharm(dir, curl(s.revision), hurl, hash)
+	ctx.sch, err = ctx.st.AddCharm(s.dir, s.curl, hurl, hash)
 	c.Assert(err, IsNil)
 }
 
@@ -784,7 +870,13 @@ type createUniter struct{}
 func (createUniter) step(c *C, ctx *context) {
 	step(c, ctx, createServiceAndUnit{})
 	step(c, ctx, startUniter{})
-	timeout := time.After(1 * time.Second)
+	step(c, ctx, waitAddresses{})
+}
+
+type waitAddresses struct{}
+
+func (waitAddresses) step(c *C, ctx *context) {
+	timeout := time.After(5 * time.Second)
 	for {
 		select {
 		case <-timeout:
@@ -794,12 +886,12 @@ func (createUniter) step(c *C, ctx *context) {
 			if err != nil {
 				c.Fatalf("unit refresh failed: %v", err)
 			}
-			private, err := ctx.unit.PrivateAddress()
-			if err != nil || private != "private.dummy.address.example.com" {
+			private, _ := ctx.unit.PrivateAddress()
+			if private != "private.dummy.address.example.com" {
 				continue
 			}
-			public, err := ctx.unit.PublicAddress()
-			if err != nil || public != "public.dummy.address.example.com" {
+			public, _ := ctx.unit.PublicAddress()
+			if public != "public.dummy.address.example.com" {
 				continue
 			}
 			return
@@ -858,7 +950,7 @@ func (s waitUniterDead) waitDead(c *C, ctx *context) error {
 		// the filter code) so this test seems like a small price to pay.
 		ctx.st.StartSync()
 		select {
-		case <-u.Dying():
+		case <-u.Dead():
 			return u.Wait()
 		case <-time.After(50 * time.Millisecond):
 			continue
@@ -892,12 +984,18 @@ func (s verifyWaiting) step(c *C, ctx *context) {
 	step(c, ctx, waitHooks{})
 }
 
-type verifyRunning struct{}
+type verifyRunning struct {
+	noHooks bool
+}
 
 func (s verifyRunning) step(c *C, ctx *context) {
 	step(c, ctx, stopUniter{})
 	step(c, ctx, startUniter{})
-	step(c, ctx, waitHooks{"config-changed"})
+	if s.noHooks {
+		step(c, ctx, waitHooks{})
+	} else {
+		step(c, ctx, waitHooks{"config-changed"})
+	}
 }
 
 type startupError struct {
@@ -912,7 +1010,7 @@ func (s startupError) step(c *C, ctx *context) {
 		status: state.UnitError,
 		info:   fmt.Sprintf(`hook failed: %q`, s.badHook),
 	})
-	for _, hook := range []string{"install", "start", "config-changed"} {
+	for _, hook := range []string{"install", "config-changed", "start"} {
 		if hook == s.badHook {
 			step(c, ctx, waitHooks{"fail-" + hook})
 			break
@@ -929,7 +1027,7 @@ func (s quickStart) step(c *C, ctx *context) {
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
 	step(c, ctx, waitUnit{status: state.UnitStarted})
-	step(c, ctx, waitHooks{"install", "start", "config-changed"})
+	step(c, ctx, waitHooks{"install", "config-changed", "start"})
 	step(c, ctx, verifyCharm{})
 }
 
@@ -1109,7 +1207,7 @@ func (s startUpgradeError) step(c *C, ctx *context) {
 		waitUnit{
 			status: state.UnitStarted,
 		},
-		waitHooks{"install", "start", "config-changed"},
+		waitHooks{"install", "config-changed", "start"},
 		verifyCharm{},
 
 		createCharm{
@@ -1155,14 +1253,11 @@ type addRelationUnit struct{}
 func (s addRelationUnit) step(c *C, ctx *context) {
 	u, err := ctx.svc.AddUnit()
 	c.Assert(err, IsNil)
-	name := u.Name()
-	err = u.SetPrivateAddress(fmt.Sprintf("%s.example.com", strings.Replace(name, "/", "-", 1)))
-	c.Assert(err, IsNil)
 	ru, err := ctx.relation.Unit(u)
 	c.Assert(err, IsNil)
-	err = ru.EnterScope()
+	err = ru.EnterScope(nil)
 	c.Assert(err, IsNil)
-	ctx.relationUnits[name] = ru
+	ctx.relationUnits[u.Name()] = ru
 }
 
 type changeRelationUnit struct {
@@ -1209,6 +1304,89 @@ func (s relationState) step(c *C, ctx *context) {
 	c.Assert(err, IsNil)
 	c.Assert(ctx.relation.Life(), Equals, s.life)
 
+}
+
+type addSubordinateRelation struct {
+	ifce string
+}
+
+func (s addSubordinateRelation) step(c *C, ctx *context) {
+	if _, err := ctx.st.Service("logging"); state.IsNotFound(err) {
+		_, err := ctx.st.AddService("logging", ctx.s.AddTestingCharm(c, "logging"))
+		c.Assert(err, IsNil)
+	}
+	eps, err := ctx.st.InferEndpoints([]string{"logging", "u:" + s.ifce})
+	c.Assert(err, IsNil)
+	_, err = ctx.st.AddRelation(eps...)
+	c.Assert(err, IsNil)
+}
+
+type removeSubordinateRelation struct {
+	ifce string
+}
+
+func (s removeSubordinateRelation) step(c *C, ctx *context) {
+	eps, err := ctx.st.InferEndpoints([]string{"logging", "u:" + s.ifce})
+	c.Assert(err, IsNil)
+	rel, err := ctx.st.EndpointsRelation(eps...)
+	c.Assert(err, IsNil)
+	err = rel.Destroy()
+	c.Assert(err, IsNil)
+}
+
+type waitSubordinateExists struct {
+	name string
+}
+
+func (s waitSubordinateExists) step(c *C, ctx *context) {
+	timeout := time.After(5 * time.Second)
+	for {
+		ctx.st.StartSync()
+		select {
+		case <-timeout:
+			c.Fatalf("subordinate was not created")
+		case <-time.After(50 * time.Millisecond):
+			var err error
+			ctx.subordinate, err = ctx.st.Unit(s.name)
+			if state.IsNotFound(err) {
+				continue
+			}
+			c.Assert(err, IsNil)
+			return
+		}
+	}
+}
+
+type waitSubordinateDying struct{}
+
+func (waitSubordinateDying) step(c *C, ctx *context) {
+	timeout := time.After(5 * time.Second)
+	for {
+		ctx.st.StartSync()
+		select {
+		case <-timeout:
+			c.Fatalf("subordinate was not made Dying")
+		case <-time.After(50 * time.Millisecond):
+			err := ctx.subordinate.Refresh()
+			c.Assert(err, IsNil)
+			if ctx.subordinate.Life() != state.Dying {
+				continue
+			}
+		}
+		break
+	}
+}
+
+type removeSubordinate struct{}
+
+func (removeSubordinate) step(c *C, ctx *context) {
+	err := ctx.subordinate.EnsureDead()
+	c.Assert(err, IsNil)
+	svc, err := ctx.subordinate.Service()
+	c.Assert(err, IsNil)
+	err = svc.RemoveUnit(ctx.subordinate)
+	c.Assert(err, IsNil)
+	ctx.subordinate = nil
 }
 
 type assertYaml struct {
@@ -1259,7 +1437,7 @@ func (s custom) step(c *C, ctx *context) {
 }
 
 var serviceDying = custom{func(c *C, ctx *context) {
-	c.Assert(ctx.svc.EnsureDying(), IsNil)
+	c.Assert(ctx.svc.Destroy(), IsNil)
 }}
 
 var relationDying = custom{func(c *C, ctx *context) {
@@ -1274,8 +1452,12 @@ var unitDead = custom{func(c *C, ctx *context) {
 	c.Assert(ctx.unit.EnsureDead(), IsNil)
 }}
 
+var subordinateDying = custom{func(c *C, ctx *context) {
+	c.Assert(ctx.subordinate.EnsureDying(), IsNil)
+}}
+
 func curl(revision int) *charm.URL {
-	return charm.MustParseURL("cs:series/dummy").WithRevision(revision)
+	return charm.MustParseURL("cs:series/wordpress").WithRevision(revision)
 }
 
 func appendHook(c *C, charm, name, data string) {

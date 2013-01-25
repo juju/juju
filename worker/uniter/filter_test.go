@@ -72,7 +72,7 @@ func (s *FilterSuite) TestUnitDeath(c *C) {
 	c.Assert(err, IsNil)
 	s.State.StartSync()
 	select {
-	case <-f.Dying():
+	case <-f.Dead():
 	case <-time.After(50 * time.Millisecond):
 		c.Fatalf("dead not detected")
 	}
@@ -90,7 +90,7 @@ func (s *FilterSuite) TestServiceDeath(c *C) {
 		c.Fatalf("unexpected receive")
 	}
 
-	err = s.svc.EnsureDying()
+	err = s.svc.Destroy()
 	c.Assert(err, IsNil)
 	timeout := time.After(500 * time.Millisecond)
 loop:
@@ -333,9 +333,7 @@ func (s *FilterSuite) TestRelationsEvents(c *C) {
 	s.addRelation(c)
 	ru0, err := rel0.Unit(s.unit)
 	c.Assert(err, IsNil)
-	err = s.unit.SetPrivateAddress("x.example.com")
-	c.Assert(err, IsNil)
-	err = ru0.EnterScope()
+	err = ru0.EnterScope(nil)
 	c.Assert(err, IsNil)
 	err = rel0.Destroy()
 	c.Assert(err, IsNil)

@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
 	"net/http"
@@ -20,8 +21,10 @@ import (
 )
 
 const mgoPort = 37017
+const apiPort = 17070
 
 var mgoPortSuffix = fmt.Sprintf(":%d", mgoPort)
+var apiPortSuffix = fmt.Sprintf(":%d", apiPort)
 
 // A request may fail to due "eventual consistency" semantics, which
 // should resolve fairly quickly.  A request may also fail due to a slow
@@ -238,7 +241,9 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 		}
 	} else {
 		flags := environs.HighestVersion | environs.CompatVersion
-		tools, err = environs.FindTools(e, version.Current, flags)
+		v := version.Current
+		v.Series = e.Config().DefaultSeries()
+		tools, err = environs.FindTools(e, v, flags)
 		if err != nil {
 			return fmt.Errorf("cannot find tools: %v", err)
 		}
@@ -251,13 +256,16 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 	if !hasCert {
 		return fmt.Errorf("no CA certificate in environment configuration")
 	}
-	info := &state.Info{
-		Password: trivial.PasswordHash(password),
-		CACert:   caCert,
-	}
 	inst, err := e.startInstance(&startInstanceParams{
-		machineId:       "0",
-		info:            info,
+		machineId: "0",
+		info: &state.Info{
+			Password: trivial.PasswordHash(password),
+			CACert:   caCert,
+		},
+		apiInfo: &api.Info{
+			Password: trivial.PasswordHash(password),
+			CACert:   caCert,
+		},
 		tools:           tools,
 		stateServer:     true,
 		config:          config,
@@ -285,23 +293,24 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 	return nil
 }
 
-func (e *environ) StateInfo() (*state.Info, error) {
+func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 	st, err := e.loadState()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	cert, hasCert := e.Config().CACert()
 	if !hasCert {
-		return nil, fmt.Errorf("no CA certificate in environment configuration")
+		return nil, nil, fmt.Errorf("no CA certificate in environment configuration")
 	}
-	var addrs []string
+	var stateAddrs []string
+	var apiAddrs []string
 	// Wait for the DNS names of any of the instances
 	// to become available.
 	log.Printf("environs/ec2: waiting for DNS name(s) of state server instances %v", st.StateInstances)
-	for a := longAttempt.Start(); len(addrs) == 0 && a.Next(); {
+	for a := longAttempt.Start(); len(stateAddrs) == 0 && a.Next(); {
 		insts, err := e.Instances(st.StateInstances)
 		if err != nil && err != environs.ErrPartialInstances {
-			return nil, err
+			return nil, nil, err
 		}
 		for _, inst := range insts {
 			if inst == nil {
@@ -309,17 +318,21 @@ func (e *environ) StateInfo() (*state.Info, error) {
 			}
 			name := inst.(*instance).Instance.DNSName
 			if name != "" {
-				addrs = append(addrs, name+mgoPortSuffix)
+				stateAddrs = append(stateAddrs, name+mgoPortSuffix)
+				apiAddrs = append(apiAddrs, name+apiPortSuffix)
 			}
 		}
 	}
-	if len(addrs) == 0 {
-		return nil, fmt.Errorf("timed out waiting for mgo address from %v", st.StateInstances)
+	if len(stateAddrs) == 0 {
+		return nil, nil, fmt.Errorf("timed out waiting for mgo address from %v", st.StateInstances)
 	}
 	return &state.Info{
-		Addrs:  addrs,
-		CACert: cert,
-	}, nil
+			Addrs:  stateAddrs,
+			CACert: cert,
+		}, &api.Info{
+			Addrs:  apiAddrs,
+			CACert: cert,
+		}, nil
 }
 
 // AssignmentPolicy for EC2 is to deploy units only on machines without other
@@ -328,10 +341,11 @@ func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
 	return state.AssignUnused
 }
 
-func (e *environ) StartInstance(machineId string, info *state.Info, tools *state.Tools) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId string, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
 	return e.startInstance(&startInstanceParams{
 		machineId: machineId,
 		info:      info,
+		apiInfo:   apiInfo,
 		tools:     tools,
 	})
 }
@@ -340,6 +354,9 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 	cfg := &cloudinit.MachineConfig{
 		StateServer:        scfg.stateServer,
 		StateInfo:          scfg.info,
+		APIInfo:            scfg.apiInfo,
+		MongoPort:          mgoPort,
+		APIPort:            apiPort,
 		StateServerCert:    scfg.stateServerCert,
 		StateServerKey:     scfg.stateServerKey,
 		InstanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
@@ -354,12 +371,19 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return cloudcfg.Render()
+	data, err := cloudcfg.Render()
+	if err != nil {
+		return nil, err
+	}
+	cdata := trivial.Gzip(data)
+	log.Debugf("environs/ec2: ec2 user data; %d bytes: %q", len(cdata), data)
+	return cdata, nil
 }
 
 type startInstanceParams struct {
 	machineId       string
 	info            *state.Info
+	apiInfo         *api.Info
 	tools           *state.Tools
 	stateServer     bool
 	config          *config.Config
@@ -392,7 +416,6 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	if err != nil {
 		return nil, fmt.Errorf("cannot make user data: %v", err)
 	}
-	log.Debugf("environs/ec2: ec2 user data: %q", userData)
 	groups, err := e.setUpGroups(scfg.machineId)
 	if err != nil {
 		return nil, fmt.Errorf("cannot set up groups: %v", err)
@@ -555,11 +578,7 @@ func (e *environ) Destroy(ensureInsts []environs.Instance) error {
 	// holding e.ecfgMutex. e.Storage() does this for us, then we convert
 	// back to the (*storage) to access the private deleteAll() method.
 	st := e.Storage().(*storage)
-	err = st.deleteAll()
-	if err != nil {
-		return err
-	}
-	return nil
+	return st.deleteAll()
 }
 
 func portsToIPPerms(ports []state.Port) []ec2.IPPerm {
@@ -784,6 +803,12 @@ func (e *environ) setUpGroups(machineId string) ([]ec2.SecurityGroup, error) {
 				Protocol:  "tcp",
 				FromPort:  mgoPort,
 				ToPort:    mgoPort,
+				SourceIPs: []string{"0.0.0.0/0"},
+			},
+			{
+				Protocol:  "tcp",
+				FromPort:  apiPort,
+				ToPort:    apiPort,
 				SourceIPs: []string{"0.0.0.0/0"},
 			},
 			{

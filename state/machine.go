@@ -19,15 +19,41 @@ type Machine struct {
 	doc machineDoc
 }
 
+// MachineJob values define responsibilities that machines may be
+// expected to fulfil.
+type MachineJob int
+
+const (
+	_ MachineJob = iota
+	JobHostUnits
+	JobManageEnviron
+	JobServeAPI
+)
+
+var jobNames = []string{
+	JobHostUnits:     "JobHostUnits",
+	JobManageEnviron: "JobManageEnviron",
+	JobServeAPI:      "JobServeAPI",
+}
+
+func (job MachineJob) String() string {
+	j := int(job)
+	if j <= 0 || j >= len(jobNames) {
+		return fmt.Sprintf("<unknown job %d>", j)
+	}
+	return jobNames[j]
+}
+
 // machineDoc represents the internal state of a machine in MongoDB.
 type machineDoc struct {
-	Id         string `bson:"_id"`
-	InstanceId InstanceId
-	Principals []string
-	Life       Life
-	Tools      *Tools `bson:",omitempty"`
-	TxnRevno   int64  `bson:"txn-revno"`
-	Workers    []WorkerKind
+	Id           string `bson:"_id"`
+	InstanceId   InstanceId
+	Principals   []string
+	Life         Life
+	Tools        *Tools `bson:",omitempty"`
+	TxnRevno     int64  `bson:"txn-revno"`
+	Jobs         []MachineJob
+	PasswordHash string
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {
@@ -62,16 +88,16 @@ func (m *Machine) Life() Life {
 	return m.doc.Life
 }
 
-// Workers returns the workers that the machine agent for m must run.
-func (m *Machine) Workers() []WorkerKind {
-	return m.doc.Workers
+// Jobs returns the responsibilities that must be fulfilled by m's agent.
+func (m *Machine) Jobs() []MachineJob {
+	return m.doc.Jobs
 }
 
 // AgentTools returns the tools that the agent is currently running.
 // It returns a *NotFoundError if the tools have not yet been set.
 func (m *Machine) AgentTools() (*Tools, error) {
 	if m.doc.Tools == nil {
-		return nil, notFound("agent tools for machine %v", m)
+		return nil, notFoundf("agent tools for machine %v", m)
 	}
 	tools := *m.doc.Tools
 	return &tools, nil
@@ -86,7 +112,7 @@ func (m *Machine) SetAgentTools(t *Tools) (err error) {
 	ops := []txn.Op{{
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
-		Assert: notDead,
+		Assert: notDeadDoc,
 		Update: D{{"$set", D{{"tools", t}}}},
 	}}
 	if err := m.st.runner.Run(ops, "", nil); err != nil {
@@ -97,33 +123,145 @@ func (m *Machine) SetAgentTools(t *Tools) (err error) {
 	return nil
 }
 
-// SetPassword sets the password the agent responsible for the machine
+// SetMongoPassword sets the password the agent responsible for the machine
 // should use to communicate with the state servers.  Previous passwords
 // are invalidated.
-func (m *Machine) SetPassword(password string) error {
-	return m.st.setPassword(m.EntityName(), password)
+func (m *Machine) SetMongoPassword(password string) error {
+	return m.st.setMongoPassword(m.EntityName(), password)
 }
 
-// EnsureDying sets the machine lifecycle to Dying if it is Alive.
-// It does nothing otherwise.
-func (m *Machine) EnsureDying() error {
-	err := ensureDying(m.st, m.st.machines, m.doc.Id, "machine")
-	if err != nil {
+// SetPassword sets the password for the machine's agent.
+func (m *Machine) SetPassword(password string) (err error) {
+	hp := trivial.PasswordHash(password)
+	ops := []txn.Op{{
+		C:      m.st.machines.Name,
+		Id:     m.doc.Id,
+		Assert: notDeadDoc,
+		Update: D{{"$set", D{{"passwordhash", hp}}}},
+	}}
+	if err := m.st.runner.Run(ops, "", nil); err != nil {
+		return fmt.Errorf("cannot set password of machine %v: %v", m, onAbort(err, errNotAlive))
+	}
+	m.doc.PasswordHash = hp
+	return nil
+}
+
+// PasswordValid returns whether the given password is valid
+// for the given machine.
+func (m *Machine) PasswordValid(password string) bool {
+	return trivial.PasswordHash(password) == m.doc.PasswordHash
+}
+
+// deathAsserts returns the conditions that must hold for a machine to
+// become Dying or Dead.
+func (m *Machine) deathAsserts() D {
+	return D{
+		{"jobs", D{{"$nin", []MachineJob{JobManageEnviron}}}},
+		{"$or", []D{
+			{{"principals", D{{"$size", 0}}}},
+			{{"principals", D{{"$exists", false}}}},
+		}},
+	}
+}
+
+// deathFailureReason returns an error indicating why the machine may have
+// failed to advance its lifecycle to Dying or Dead. If deathFailureReason
+// returns no error, it is possible that the condition that caused the txn
+// failure no longer holds; it does not automatically indicate bad state.
+func (m *Machine) deathFailureReason(life Life) (err error) {
+	if m, err = m.st.Machine(m.doc.Id); err != nil {
 		return err
 	}
-	m.doc.Life = Dying
+	defer trivial.ErrorContextf(&err, "machine %s cannot become %s", m, life)
+	for _, j := range m.doc.Jobs {
+		if j == JobManageEnviron {
+			// If and when we enable multiple JobManageEnviron machines, the
+			// restriction will become "there must be at least one machine
+			// with this job", and this will need to change.
+			return fmt.Errorf("required by environment")
+		}
+	}
+	if len(m.doc.Principals) != 0 {
+		return fmt.Errorf("unit %q is assigned to it", m.doc.Principals[0])
+	}
 	return nil
+}
+
+// deathAttempts controls how many times we should attempt a death operation.
+// A single failure without a diagnosed cause indicates that the operation
+// should certainly be retried; subsequent unknown failures cannot ever
+// unambiguously indicate bad state, because it is *possible* that the number
+// of assigned units is flipping from 1 to 0 and back, perfectly timed to
+// abort every txn but show no reason for the failure; but we believe this
+// situation to be vanishingly unlikely, and so only retry once.
+var deathAttempts = 2
+
+// EnsureDying sets the machine lifecycle to Dying if it is Alive. It does
+// nothing otherwise. EnsureDying will fail if the machine has principal
+// units assigned, or if the machine has JobManageEnviron.
+func (m *Machine) EnsureDying() (err error) {
+	if m.doc.Life != Alive {
+		return nil
+	}
+	defer func() {
+		if err == nil {
+			m.doc.Life = Dying
+		}
+	}()
+	for i := 0; i < deathAttempts; i++ {
+		ops := []txn.Op{{
+			C:      m.st.machines.Name,
+			Id:     m.doc.Id,
+			Assert: append(m.deathAsserts(), isAliveDoc...),
+			Update: D{{"$set", D{{"life", Dying}}}},
+		}}
+		if err := m.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+			return err
+		}
+		if alive, err := isAlive(m.st.machines, m.doc.Id); err != nil {
+			return err
+		} else if !alive {
+			return nil
+		}
+		if err := m.deathFailureReason(Dying); err != nil {
+			return err
+		}
+	}
+	return fmt.Errorf("machine %s cannot become dying: please contact juju-dev@lists.ubuntu.com", m)
 }
 
 // EnsureDead sets the machine lifecycle to Dead if it is Alive or Dying.
-// It does nothing otherwise.
-func (m *Machine) EnsureDead() error {
-	err := ensureDead(m.st, m.st.machines, m.doc.Id, "machine", nil, "")
-	if err != nil {
-		return err
+// It does nothing otherwise. EnsureDead will fail if the machine has
+// principal units assigned, or if the machine has JobManageEnviron.
+func (m *Machine) EnsureDead() (err error) {
+	if m.doc.Life == Dead {
+		return nil
 	}
-	m.doc.Life = Dead
-	return nil
+	defer func() {
+		if err == nil {
+			m.doc.Life = Dead
+		}
+	}()
+	for i := 0; i < deathAttempts; i++ {
+		ops := []txn.Op{{
+			C:      m.st.machines.Name,
+			Id:     m.doc.Id,
+			Assert: append(m.deathAsserts(), notDeadDoc...),
+			Update: D{{"$set", D{{"life", Dead}}}},
+		}}
+		if err := m.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+			return err
+		}
+		if notDead, err := isNotDead(m.st.machines, m.doc.Id); err != nil {
+			return err
+		} else if !notDead {
+			return nil
+		}
+		if err := m.deathFailureReason(Dead); err != nil {
+			return err
+		}
+	}
+	return fmt.Errorf("machine %s cannot become dead: please contact juju-dev@lists.ubuntu.com", m)
 }
 
 // Refresh refreshes the contents of the machine from the underlying
@@ -132,7 +270,7 @@ func (m *Machine) Refresh() error {
 	doc := machineDoc{}
 	err := m.st.machines.FindId(m.doc.Id).One(&doc)
 	if err == mgo.ErrNotFound {
-		return notFound("machine %v", m)
+		return notFoundf("machine %v", m)
 	}
 	if err != nil {
 		return fmt.Errorf("cannot refresh machine %v: %v", m, err)
@@ -181,7 +319,7 @@ func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
 // InstanceId returns the provider specific instance id for this machine.
 func (m *Machine) InstanceId() (InstanceId, error) {
 	if m.doc.InstanceId == "" {
-		return "", notFound("instance id for machine %v", m)
+		return "", notFoundf("instance id for machine %v", m)
 	}
 	return m.doc.InstanceId, nil
 }
@@ -213,7 +351,7 @@ func (m *Machine) SetInstanceId(id InstanceId) (err error) {
 	ops := []txn.Op{{
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
-		Assert: notDead,
+		Assert: notDeadDoc,
 		Update: D{{"$set", D{{"instanceid", id}}}},
 	}}
 	if err := m.st.runner.Run(ops, "", nil); err != nil {

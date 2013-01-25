@@ -4,23 +4,26 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state"
 	"sort"
+	"strconv"
 	"time"
 )
 
 type UnitSuite struct {
 	ConnSuite
-	charm *state.Charm
-	unit  *state.Unit
+	charm   *state.Charm
+	service *state.Service
+	unit    *state.Unit
 }
 
 var _ = Suite(&UnitSuite{})
 
 func (s *UnitSuite) SetUpTest(c *C) {
 	s.ConnSuite.SetUpTest(c)
-	s.charm = s.AddTestingCharm(c, "dummy")
-	svc, err := s.State.AddService("wordpress", s.charm)
+	s.charm = s.AddTestingCharm(c, "wordpress")
+	var err error
+	s.service, err = s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
-	s.unit, err = svc.AddUnit()
+	s.unit, err = s.service.AddUnit()
 	c.Assert(err, IsNil)
 }
 
@@ -37,22 +40,22 @@ func (s *UnitSuite) TestService(c *C) {
 }
 
 func (s *UnitSuite) TestGetSetPublicAddress(c *C) {
-	address, err := s.unit.PublicAddress()
-	c.Assert(err, ErrorMatches, `public address of unit "wordpress/0" not found`)
-	err = s.unit.SetPublicAddress("example.foobar.com")
+	address, ok := s.unit.PublicAddress()
+	c.Assert(ok, Equals, false)
+	err := s.unit.SetPublicAddress("example.foobar.com")
 	c.Assert(err, IsNil)
-	address, err = s.unit.PublicAddress()
-	c.Assert(err, IsNil)
+	address, ok = s.unit.PublicAddress()
+	c.Assert(ok, Equals, true)
 	c.Assert(address, Equals, "example.foobar.com")
 }
 
 func (s *UnitSuite) TestGetSetPrivateAddress(c *C) {
-	address, err := s.unit.PrivateAddress()
-	c.Assert(err, ErrorMatches, `private address of unit "wordpress/0" not found`)
-	err = s.unit.SetPrivateAddress("example.local")
+	address, ok := s.unit.PrivateAddress()
+	c.Assert(ok, Equals, false)
+	err := s.unit.SetPrivateAddress("example.local")
 	c.Assert(err, IsNil)
-	address, err = s.unit.PrivateAddress()
-	c.Assert(err, IsNil)
+	address, ok = s.unit.PrivateAddress()
+	c.Assert(ok, Equals, true)
 	c.Assert(address, Equals, "example.local")
 }
 
@@ -65,18 +68,18 @@ func (s *UnitSuite) TestRefresh(c *C) {
 	err = s.unit.SetPublicAddress("example.foobar.com")
 	c.Assert(err, IsNil)
 
-	address, err := unit1.PrivateAddress()
-	c.Assert(err, ErrorMatches, `private address of unit "wordpress/0" not found`)
-	address, err = unit1.PublicAddress()
-	c.Assert(err, ErrorMatches, `public address of unit "wordpress/0" not found`)
+	address, ok := unit1.PrivateAddress()
+	c.Assert(ok, Equals, false)
+	address, ok = unit1.PublicAddress()
+	c.Assert(ok, Equals, false)
 
 	err = unit1.Refresh()
 	c.Assert(err, IsNil)
-	address, err = unit1.PrivateAddress()
-	c.Assert(err, IsNil)
+	address, ok = unit1.PrivateAddress()
+	c.Assert(ok, Equals, true)
 	c.Assert(address, Equals, "example.local")
-	address, err = unit1.PublicAddress()
-	c.Assert(err, IsNil)
+	address, ok = unit1.PublicAddress()
+	c.Assert(ok, Equals, true)
 	c.Assert(address, Equals, "example.foobar.com")
 
 	err = unit1.EnsureDead()
@@ -158,18 +161,32 @@ func (s *UnitSuite) TestUnitEntityName(c *C) {
 	c.Assert(state.UnitEntityName("wordpress/2"), Equals, "unit-wordpress-2")
 }
 
-func (s *UnitSuite) TestSetPassword(c *C) {
-	testSetPassword(c, func(st *state.State) (entity, error) {
+func (s *UnitSuite) TestSetMongoPassword(c *C) {
+	testSetMongoPassword(c, func(st *state.State) (entity, error) {
 		return st.Unit(s.unit.Name())
 	})
 }
 
-func (s *UnitSuite) TestSetPasswordOnUnitAfterConnectingAsMachineEntity(c *C) {
+func (s *UnitSuite) TestSetPassword(c *C) {
+	testSetPassword(c, func() (entity, error) {
+		return s.State.Unit(s.unit.Name())
+	})
+}
+
+func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *C) {
 	// Make a second unit to use later.
 	subCharm := s.AddTestingCharm(c, "logging")
-	logService, err := s.State.AddService("logging", subCharm)
+	_, err := s.State.AddService("logging", subCharm)
 	c.Assert(err, IsNil)
-	subUnit, err := logService.AddUnitSubordinateTo(s.unit)
+	eps, err := s.State.InferEndpoints([]string{"wordpress", "logging"})
+	c.Assert(err, IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	ru, err := rel.Unit(s.unit)
+	c.Assert(err, IsNil)
+	err = ru.EnterScope(nil)
+	c.Assert(err, IsNil)
+	subUnit, err := s.State.Unit("logging/0")
 	c.Assert(err, IsNil)
 
 	info := state.TestingStateInfo()
@@ -177,12 +194,12 @@ func (s *UnitSuite) TestSetPasswordOnUnitAfterConnectingAsMachineEntity(c *C) {
 	c.Assert(err, IsNil)
 	defer st.Close()
 	// Turn on fully-authenticated mode.
-	err = st.SetAdminPassword("admin-secret")
+	err = st.SetAdminMongoPassword("admin-secret")
 	c.Assert(err, IsNil)
 
 	// Add a new machine, assign the units to it
 	// and set its password.
-	m, err := st.AddMachine(state.MachinerWorker)
+	m, err := st.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
 	unit, err := st.Unit(s.unit.Name())
 	c.Assert(err, IsNil)
@@ -190,7 +207,7 @@ func (s *UnitSuite) TestSetPasswordOnUnitAfterConnectingAsMachineEntity(c *C) {
 	c.Assert(err, IsNil)
 	err = unit.AssignToMachine(m)
 	c.Assert(err, IsNil)
-	err = m.SetPassword("foo")
+	err = m.SetMongoPassword("foo")
 	c.Assert(err, IsNil)
 
 	// Sanity check that we cannot connect with the wrong
@@ -211,7 +228,7 @@ func (s *UnitSuite) TestSetPasswordOnUnitAfterConnectingAsMachineEntity(c *C) {
 	// the machine entity's state.
 	unit, err = st1.Unit(s.unit.Name())
 	c.Assert(err, IsNil)
-	err = unit.SetPassword("bar")
+	err = unit.SetMongoPassword("bar")
 	c.Assert(err, IsNil)
 
 	// Now connect as the unit entity and, as that
@@ -225,11 +242,11 @@ func (s *UnitSuite) TestSetPasswordOnUnitAfterConnectingAsMachineEntity(c *C) {
 	// Check that we can set its password.
 	unit, err = st2.Unit(subUnit.Name())
 	c.Assert(err, IsNil)
-	err = unit.SetPassword("bar2")
+	err = unit.SetMongoPassword("bar2")
 	c.Assert(err, IsNil)
 
 	// Clear the admin password, so tests can reset the db.
-	err = st.SetAdminPassword("")
+	err = st.SetAdminMongoPassword("")
 	c.Assert(err, IsNil)
 }
 
@@ -396,32 +413,83 @@ func (s *UnitSuite) TestSetClearResolvedWhenNotAlive(c *C) {
 
 func (s *UnitSuite) TestSubordinateChangeInPrincipal(c *C) {
 	subCharm := s.AddTestingCharm(c, "logging")
-	logService, err := s.State.AddService("logging", subCharm)
-	c.Assert(err, IsNil)
-	_, err = logService.AddUnitSubordinateTo(s.unit)
-	c.Assert(err, IsNil)
-	su1, err := logService.AddUnitSubordinateTo(s.unit)
-	c.Assert(err, IsNil)
-
-	doc := make(map[string][]string)
-	s.ConnSuite.units.FindId(s.unit.Name()).One(&doc)
-	subordinates, ok := doc["subordinates"]
-	if !ok {
-		c.Errorf(`unit document does not have a "subordinates" field`)
+	for i := 0; i < 2; i++ {
+		name := "logging" + strconv.Itoa(i)
+		_, err := s.State.AddService(name, subCharm)
+		c.Assert(err, IsNil)
+		eps, err := s.State.InferEndpoints([]string{name, "wordpress"})
+		c.Assert(err, IsNil)
+		rel, err := s.State.AddRelation(eps...)
+		c.Assert(err, IsNil)
+		ru, err := rel.Unit(s.unit)
+		c.Assert(err, IsNil)
+		err = ru.EnterScope(nil)
+		c.Assert(err, IsNil)
 	}
-	c.Assert(subordinates, DeepEquals, []string{"logging/0", "logging/1"})
 
+	err := s.unit.Refresh()
+	c.Assert(err, IsNil)
+	subordinates := s.unit.SubordinateNames()
+	c.Assert(subordinates, DeepEquals, []string{"logging0/0", "logging1/0"})
+
+	su1, err := s.State.Unit("logging1/0")
+	c.Assert(err, IsNil)
 	err = su1.EnsureDead()
 	c.Assert(err, IsNil)
-	err = logService.RemoveUnit(su1)
+	ss1, err := s.State.Service("logging1")
 	c.Assert(err, IsNil)
-	doc = make(map[string][]string)
-	s.ConnSuite.units.FindId(s.unit.Name()).One(&doc)
-	subordinates, ok = doc["subordinates"]
-	if !ok {
-		c.Errorf(`unit document does not have a "subordinates" field`)
-	}
-	c.Assert(subordinates, DeepEquals, []string{"logging/0"})
+	err = ss1.RemoveUnit(su1)
+	c.Assert(err, IsNil)
+	err = s.unit.Refresh()
+	c.Assert(err, IsNil)
+	subordinates = s.unit.SubordinateNames()
+	c.Assert(subordinates, DeepEquals, []string{"logging0/0"})
+}
+
+func (s *UnitSuite) TestDeathWithSubordinates(c *C) {
+	// Check that units can become dead when they've never had subordinates.
+	u, err := s.service.AddUnit()
+	c.Assert(err, IsNil)
+	err = u.EnsureDead()
+	c.Assert(err, IsNil)
+
+	// Create a new unit and add a subordinate.
+	u, err = s.service.AddUnit()
+	c.Assert(err, IsNil)
+	logging, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
+	c.Assert(err, IsNil)
+	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
+	c.Assert(err, IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	ru, err := rel.Unit(u)
+	c.Assert(err, IsNil)
+	err = ru.EnterScope(nil)
+	c.Assert(err, IsNil)
+
+	// Check the unit cannot become Dead, but can become Dying...
+	err = u.EnsureDead()
+	c.Assert(err, Equals, state.ErrUnitHasSubordinates)
+	err = u.EnsureDying()
+	c.Assert(err, IsNil)
+
+	// ...and that it still can't become Dead now it's Dying.
+	err = u.EnsureDead()
+	c.Assert(err, Equals, state.ErrUnitHasSubordinates)
+
+	// Make the subordinate Dead and check the principal still cannot be removed.
+	sub, err := s.State.Unit("logging/0")
+	c.Assert(err, IsNil)
+	err = sub.EnsureDead()
+	c.Assert(err, IsNil)
+	err = u.EnsureDead()
+	c.Assert(err, Equals, state.ErrUnitHasSubordinates)
+
+	// remove the subordinate and check the principal can finally become Dead.
+	err = logging.RemoveUnit(sub)
+	c.Assert(err, IsNil)
+	err = u.EnsureDead()
+	c.Assert(err, IsNil)
 }
 
 func (s *UnitSuite) TestWatchSubordinates(c *C) {
@@ -455,29 +523,43 @@ func (s *UnitSuite) TestWatchSubordinates(c *C) {
 	assertNoChange()
 
 	// Add a couple of subordinates, check change.
-	logging, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
-	c.Assert(err, IsNil)
-	logging0, err := logging.AddUnitSubordinateTo(s.unit)
-	c.Assert(err, IsNil)
-	logging1, err := logging.AddUnitSubordinateTo(s.unit)
-	c.Assert(err, IsNil)
-	assertChange("logging/0", "logging/1")
+	subCharm := s.AddTestingCharm(c, "logging")
+	var subSvcs []*state.Service
+	var subUnits []*state.Unit
+	for i := 0; i < 2; i++ {
+		name := "logging" + strconv.Itoa(i)
+		subSvc, err := s.State.AddService(name, subCharm)
+		c.Assert(err, IsNil)
+		eps, err := s.State.InferEndpoints([]string{name, "wordpress"})
+		c.Assert(err, IsNil)
+		rel, err := s.State.AddRelation(eps...)
+		c.Assert(err, IsNil)
+		ru, err := rel.Unit(s.unit)
+		c.Assert(err, IsNil)
+		err = ru.EnterScope(nil)
+		c.Assert(err, IsNil)
+		units, err := subSvc.AllUnits()
+		c.Assert(err, IsNil)
+		subSvcs = append(subSvcs, subSvc)
+		subUnits = append(subUnits, units[0])
+	}
+	assertChange(subUnits[0].Name(), subUnits[1].Name())
 	assertNoChange()
 
 	// Set one to Dying, check change.
-	err = logging0.EnsureDying()
+	err := subUnits[0].EnsureDying()
 	c.Assert(err, IsNil)
-	assertChange("logging/0")
+	assertChange(subUnits[0].Name())
 	assertNoChange()
 
 	// Set both to Dead, and remove one; check change.
-	err = logging0.EnsureDead()
+	err = subUnits[0].EnsureDead()
 	c.Assert(err, IsNil)
-	err = logging1.EnsureDead()
+	err = subUnits[1].EnsureDead()
 	c.Assert(err, IsNil)
-	err = logging.RemoveUnit(logging1)
+	err = subSvcs[1].RemoveUnit(subUnits[1])
 	c.Assert(err, IsNil)
-	assertChange("logging/0", "logging/1")
+	assertChange(subUnits[0].Name(), subUnits[1].Name())
 	assertNoChange()
 
 	// Stop watcher, check closed.
@@ -492,10 +574,10 @@ func (s *UnitSuite) TestWatchSubordinates(c *C) {
 	// Start a new watch, check Dead unit is reported.
 	w = s.unit.WatchSubordinateUnits()
 	defer stop(c, w)
-	assertChange("logging/0")
+	assertChange(subUnits[0].Name())
 
 	// Remove the leftover, check no change.
-	err = logging.RemoveUnit(logging0)
+	err = subSvcs[0].RemoveUnit(subUnits[0])
 	c.Assert(err, IsNil)
 	assertNoChange()
 }
@@ -540,8 +622,8 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 	c.Assert(err, IsNil)
 	err = altunit.SetPublicAddress("newer-address")
 	c.Assert(err, IsNil)
-	_, err = s.unit.PublicAddress()
-	c.Assert(err, ErrorMatches, `public address of unit ".*" not found`)
+	_, ok := s.unit.PublicAddress()
+	c.Assert(ok, Equals, false)
 
 	w := s.unit.Watch()
 	defer func() {
@@ -553,8 +635,8 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 		c.Assert(ok, Equals, true)
 		err := s.unit.Refresh()
 		c.Assert(err, IsNil)
-		addr, err := s.unit.PublicAddress()
-		c.Assert(err, IsNil)
+		addr, ok := s.unit.PublicAddress()
+		c.Assert(ok, Equals, true)
 		c.Assert(addr, Equals, "newer-address")
 	case <-time.After(500 * time.Millisecond):
 		c.Fatalf("did not get change: %v", s.unit)
@@ -574,8 +656,8 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 			info.Life = s.unit.Life()
 			c.Assert(err, IsNil)
 			if test.want.PublicAddress != "" {
-				info.PublicAddress, err = s.unit.PublicAddress()
-				c.Assert(err, IsNil)
+				info.PublicAddress, ok = s.unit.PublicAddress()
+				c.Assert(ok, Equals, true)
 			}
 			c.Assert(info, DeepEquals, test.want)
 		case <-time.After(500 * time.Millisecond):

@@ -41,7 +41,7 @@ var statusTests = []struct {
 	{
 		"simulate juju bootstrap by adding machine/0 to the state",
 		func(st *state.State, _ *juju.Conn, c *C) {
-			m, err := st.AddMachine(state.MachinerWorker)
+			m, err := st.AddMachine(state.JobManageEnviron)
 			c.Assert(err, IsNil)
 			c.Assert(m.Id(), Equals, "0")
 		},
@@ -59,7 +59,7 @@ var statusTests = []struct {
 		func(st *state.State, conn *juju.Conn, c *C) {
 			m, err := st.Machine("0")
 			c.Assert(err, IsNil)
-			inst, err := conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), nil)
+			inst, err := conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), testing.InvalidAPIInfo(m.Id()), nil)
 			c.Assert(err, IsNil)
 			err = m.SetInstanceId(inst.Id())
 			c.Assert(err, IsNil)
@@ -129,24 +129,24 @@ var statusTests = []struct {
 			},
 			"services": map[string]interface{}{
 				"dummy-service": map[string]interface{}{
-					"charm":   "dummy",
+					"charm":   "local:series/dummy-1",
 					"exposed": false,
 				},
 				"exposed-service": map[string]interface{}{
-					"charm":   "dummy",
+					"charm":   "local:series/dummy-1",
 					"exposed": true,
 				},
 			},
 		},
 	},
 	{
-		"add two more machines for units",
+		"add three more machines for units",
 		func(st *state.State, conn *juju.Conn, c *C) {
 			for i := 1; i < 3; i++ {
-				m, err := st.AddMachine(state.MachinerWorker)
+				m, err := st.AddMachine(state.JobHostUnits)
 				c.Assert(err, IsNil)
 				c.Assert(m.Id(), Equals, strconv.Itoa(i))
-				inst, err := conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), nil)
+				inst, err := conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), testing.InvalidAPIInfo(m.Id()), nil)
 				c.Assert(err, IsNil)
 				err = m.SetInstanceId(inst.Id())
 				c.Assert(err, IsNil)
@@ -170,11 +170,11 @@ var statusTests = []struct {
 			},
 			"services": map[string]interface{}{
 				"dummy-service": map[string]interface{}{
-					"charm":   "dummy",
+					"charm":   "local:series/dummy-1",
 					"exposed": false,
 				},
 				"exposed-service": map[string]interface{}{
-					"charm":   "dummy",
+					"charm":   "local:series/dummy-1",
 					"exposed": true,
 				},
 			},
@@ -225,10 +225,10 @@ var statusTests = []struct {
 							"status-info": "You Require More Vespene Gas",
 						},
 					},
-					"charm": "dummy",
+					"charm": "local:series/dummy-1",
 				},
 				"dummy-service": map[string]interface{}{
-					"charm":   "dummy",
+					"charm":   "local:series/dummy-1",
 					"exposed": false,
 					"units": map[string]interface{}{
 						"dummy-service/0": map[string]interface{}{

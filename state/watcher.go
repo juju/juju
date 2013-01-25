@@ -27,39 +27,6 @@ func (w *commonWatcher) Err() error {
 	return w.tomb.Err()
 }
 
-// RelationScopeWatcher observes changes to the set of units
-// in a particular relation scope.
-type RelationScopeWatcher struct {
-	commonWatcher
-	prefix     string
-	ignore     string
-	knownUnits map[string]bool
-	out        chan *RelationScopeChange
-}
-
-// RelationScopeChange contains information about units that have
-// entered or left a particular scope.
-type RelationScopeChange struct {
-	Entered []string
-	Left    []string
-}
-
-// MachinePrincipalUnitsWatcher observes the assignment and removal of units
-// to and from a machine.
-type MachinePrincipalUnitsWatcher struct {
-	commonWatcher
-	machine    *Machine
-	changeChan chan *MachinePrincipalUnitsChange
-	knownUnits map[string]*Unit
-}
-
-// MachinePrincipalUnitsChange contains information about units that have been
-// assigned to or removed from the machine.
-type MachinePrincipalUnitsChange struct {
-	Added   []*Unit
-	Removed []*Unit
-}
-
 func hasString(changes []string, name string) bool {
 	for _, v := range changes {
 		if v == name {
@@ -436,128 +403,21 @@ func (w *ServiceRelationsWatcher) loop() (err error) {
 	return nil
 }
 
-// WatchPrincipalUnits returns a watcher for observing units being
-// added to or removed from the machine.
-func (m *Machine) WatchPrincipalUnits() *MachinePrincipalUnitsWatcher {
-	return newMachinePrincipalUnitsWatcher(m)
+// RelationScopeWatcher observes changes to the set of units
+// in a particular relation scope.
+type RelationScopeWatcher struct {
+	commonWatcher
+	prefix     string
+	ignore     string
+	knownUnits map[string]bool
+	out        chan *RelationScopeChange
 }
 
-// newMachinePrincipalUnitsWatcher creates and starts a watcher to watch information
-// about units being added to or deleted from the machine.
-func newMachinePrincipalUnitsWatcher(m *Machine) *MachinePrincipalUnitsWatcher {
-	w := &MachinePrincipalUnitsWatcher{
-		changeChan:    make(chan *MachinePrincipalUnitsChange),
-		machine:       m,
-		knownUnits:    make(map[string]*Unit),
-		commonWatcher: commonWatcher{st: m.st},
-	}
-	go func() {
-		defer w.tomb.Done()
-		defer close(w.changeChan)
-		w.tomb.Kill(w.loop())
-	}()
-	return w
-}
-
-// Changes returns a channel that will receive changes when units are
-// added or deleted. The Added field in the first event on the channel
-// holds the initial state as returned by Machine.Units.
-func (w *MachinePrincipalUnitsWatcher) Changes() <-chan *MachinePrincipalUnitsChange {
-	return w.changeChan
-}
-
-func (w *MachinePrincipalUnitsWatcher) mergeChange(changes *MachinePrincipalUnitsChange, ch watcher.Change) (err error) {
-	err = w.machine.Refresh()
-	if err != nil {
-		return err
-	}
-	units := make(map[string]*Unit)
-	for _, name := range w.machine.doc.Principals {
-		var unit *Unit
-		doc := &unitDoc{}
-		if _, ok := w.knownUnits[name]; !ok {
-			err = w.st.units.FindId(name).One(doc)
-			if err == mgo.ErrNotFound {
-				continue
-			}
-			if err != nil {
-				return err
-			}
-			unit = newUnit(w.st, doc)
-			changes.Added = append(changes.Added, unit)
-			w.knownUnits[name] = unit
-		}
-		units[name] = unit
-	}
-	for name, unit := range w.knownUnits {
-		if _, ok := units[name]; !ok {
-			changes.Removed = append(changes.Removed, unit)
-			delete(w.knownUnits, name)
-		}
-	}
-	return nil
-}
-
-func (changes *MachinePrincipalUnitsChange) isEmpty() bool {
-	return len(changes.Added)+len(changes.Removed) == 0
-}
-
-func (w *MachinePrincipalUnitsWatcher) getInitialEvent() (initial *MachinePrincipalUnitsChange, err error) {
-	changes := &MachinePrincipalUnitsChange{}
-	docs := []unitDoc{}
-	err = w.st.units.Find(D{{"_id", D{{"$in", w.machine.doc.Principals}}}}).All(&docs)
-	if err != nil {
-		return nil, err
-	}
-	for _, doc := range docs {
-		unit := newUnit(w.st, &doc)
-		w.knownUnits[doc.Name] = unit
-		changes.Added = append(changes.Added, unit)
-	}
-	return changes, nil
-}
-
-func (w *MachinePrincipalUnitsWatcher) loop() (err error) {
-	ch := make(chan watcher.Change)
-	w.st.watcher.Watch(w.st.machines.Name, w.machine.doc.Id, w.machine.doc.TxnRevno, ch)
-	defer w.st.watcher.Unwatch(w.st.machines.Name, w.machine.doc.Id, ch)
-	changes, err := w.getInitialEvent()
-	if err != nil {
-		return err
-	}
-	for {
-		for changes != nil {
-			select {
-			case <-w.st.watcher.Dead():
-				return watcher.MustErr(w.st.watcher)
-			case <-w.tomb.Dying():
-				return tomb.ErrDying
-			case c := <-ch:
-				err := w.mergeChange(changes, c)
-				if err != nil {
-					return err
-				}
-			case w.changeChan <- changes:
-				changes = nil
-			}
-		}
-		select {
-		case <-w.st.watcher.Dead():
-			return watcher.MustErr(w.st.watcher)
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
-		case c := <-ch:
-			changes = &MachinePrincipalUnitsChange{}
-			err := w.mergeChange(changes, c)
-			if err != nil {
-				return err
-			}
-			if changes.isEmpty() {
-				changes = nil
-			}
-		}
-	}
-	return nil
+// RelationScopeChange contains information about units that have
+// entered or left a particular scope.
+type RelationScopeChange struct {
+	Entered []string
+	Left    []string
 }
 
 func newRelationScopeWatcher(st *State, scope, ignore string) *RelationScopeWatcher {
@@ -827,10 +687,11 @@ func (w *RelationUnitsWatcher) loop() (err error) {
 // has been reported, it will not be reported again.
 type UnitsWatcher struct {
 	commonWatcher
-	getUnits func() ([]string, error)
-	life     map[string]Life
-	in       chan watcher.Change
-	out      chan []string
+	entityName string
+	getUnits   func() ([]string, error)
+	life       map[string]Life
+	in         chan watcher.Change
+	out        chan []string
 }
 
 // WatchSubordinateUnits returns a UnitsWatcher tracking the unit's subordinate units.
@@ -843,12 +704,27 @@ func (u *Unit) WatchSubordinateUnits() *UnitsWatcher {
 		}
 		return u.doc.Subordinates, nil
 	}
-	return newUnitsWatcher(u.st, getUnits, coll, u.doc.Name, u.doc.TxnRevno)
+	return newUnitsWatcher(u.st, u.EntityName(), getUnits, coll, u.doc.Name, u.doc.TxnRevno)
 }
 
-func newUnitsWatcher(st *State, getUnits func() ([]string, error), coll, id string, revno int64) *UnitsWatcher {
+// WatchPrincipalUnits returns a UnitsWatcher tracking the machine's principal
+// units.
+func (m *Machine) WatchPrincipalUnits() *UnitsWatcher {
+	m = &Machine{m.st, m.doc}
+	coll := m.st.machines.Name
+	getUnits := func() ([]string, error) {
+		if err := m.Refresh(); err != nil {
+			return nil, err
+		}
+		return m.doc.Principals, nil
+	}
+	return newUnitsWatcher(m.st, m.EntityName(), getUnits, coll, m.doc.Id, m.doc.TxnRevno)
+}
+
+func newUnitsWatcher(st *State, entityName string, getUnits func() ([]string, error), coll, id string, revno int64) *UnitsWatcher {
 	w := &UnitsWatcher{
 		commonWatcher: commonWatcher{st: st},
+		entityName:    entityName,
 		getUnits:      getUnits,
 		life:          map[string]Life{},
 		in:            make(chan watcher.Change),
@@ -860,6 +736,11 @@ func newUnitsWatcher(st *State, getUnits func() ([]string, error), coll, id stri
 		w.tomb.Kill(w.loop(coll, id, revno))
 	}()
 	return w
+}
+
+// EntityName returns the name of the entity whose units are being watched.
+func (w *UnitsWatcher) EntityName() string {
+	return w.entityName
 }
 
 // Changes returns the UnitsWatcher's output channel.

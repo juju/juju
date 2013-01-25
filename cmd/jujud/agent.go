@@ -2,17 +2,16 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/trivial"
-	"os"
-	"path/filepath"
-	"regexp"
-	"strings"
+	"launchpad.net/juju-core/worker"
+	"launchpad.net/juju-core/worker/deployer"
+	"launchpad.net/tomb"
+	"sync"
+	"time"
 )
 
 // requiredError is useful when complaining about missing command-line options.
@@ -20,91 +19,28 @@ func requiredError(name string) error {
 	return fmt.Errorf("--%s option must be set", name)
 }
 
-// stateServersValue implements gnuflag.Value on a slice of server addresses
-type stateServersValue []string
-
-var validAddr = regexp.MustCompile("^.+:[0-9]+$")
-
-// Set splits the comma-separated list of state server addresses and stores
-// onto v's Addrs. Addresses must include port numbers.
-func (v *stateServersValue) Set(value string) error {
-	addrs := strings.Split(value, ",")
-	for _, addr := range addrs {
-		if !validAddr.MatchString(addr) {
-			return fmt.Errorf("%q is not a valid state server address", addr)
-		}
-	}
-	*v = addrs
-	return nil
-}
-
-// String returns the list of server addresses joined by commas.
-func (v *stateServersValue) String() string {
-	if *v != nil {
-		return strings.Join(*v, ",")
-	}
-	return ""
-}
-
-// stateServersVar sets up a gnuflag flag analogous to the FlagSet.*Var methods.
-func stateServersVar(fs *gnuflag.FlagSet, target *[]string, name string, value []string, usage string) {
-	*target = value
-	fs.Var((*stateServersValue)(target), name, usage)
-}
-
 // AgentConf handles command-line flags shared by all agents.
 type AgentConf struct {
-	accept          agentFlags
-	DataDir         string
-	StateInfo       state.Info
-	InitialPassword string
-	caCertFile      string
+	*agent.Conf
+	dataDir string
 }
-
-type agentFlags int
-
-const (
-	flagStateInfo agentFlags = 1 << iota
-	flagInitialPassword
-	flagDataDir
-
-	flagAll agentFlags = ^0
-)
 
 // addFlags injects common agent flags into f.
-func (c *AgentConf) addFlags(f *gnuflag.FlagSet, accept agentFlags) {
-	if accept&flagDataDir != 0 {
-		f.StringVar(&c.DataDir, "data-dir", "/var/lib/juju", "directory for juju data")
-	}
-	if accept&flagStateInfo != 0 {
-		stateServersVar(f, &c.StateInfo.Addrs, "state-servers", nil, "state servers to connect to")
-		f.StringVar(&c.caCertFile, "ca-cert", "", "path to CA certificate in PEM format")
-	}
-	if accept&flagInitialPassword != 0 {
-		f.StringVar(&c.InitialPassword, "initial-password", "", "initial password for state")
-	}
-	c.accept = accept
+func (c *AgentConf) addFlags(f *gnuflag.FlagSet) {
+	f.StringVar(&c.dataDir, "data-dir", "/var/lib/juju", "directory for juju data")
 }
 
-// checkArgs checks that required flags have been set and that args is empty.
 func (c *AgentConf) checkArgs(args []string) error {
-	if c.accept&flagDataDir != 0 && c.DataDir == "" {
+	if c.dataDir == "" {
 		return requiredError("data-dir")
 	}
-	if c.accept&flagStateInfo != 0 {
-		if c.StateInfo.Addrs == nil {
-			return requiredError("state-servers")
-		}
-		if c.caCertFile == "" {
-			return requiredError("ca-cert")
-		}
-		var err error
-		c.StateInfo.CACert, err = ioutil.ReadFile(c.caCertFile)
-		if err != nil {
-			return err
-		}
-	}
 	return cmd.CheckEmpty(args)
+}
+
+func (c *AgentConf) read(entityName string) error {
+	var err error
+	c.Conf, err = agent.ReadConf(c.dataDir, entityName)
+	return err
 }
 
 type task interface {
@@ -116,12 +52,12 @@ type task interface {
 // runTasks runs all the given tasks until any of them fails with an
 // error.  It then stops all of them and returns that error.  If a value
 // is received on the stop channel, the workers are stopped.
-// The task values should be comparable.
-func runTasks(stop <-chan struct{}, tasks ...task) (err error) {
+func runTasks(stop <-chan struct{}, tasks ...task) error {
 	type errInfo struct {
 		index int
 		err   error
 	}
+	logged := make(map[int]bool)
 	done := make(chan errInfo, len(tasks))
 	for i, t := range tasks {
 		i, t := i, t
@@ -129,37 +65,55 @@ func runTasks(stop <-chan struct{}, tasks ...task) (err error) {
 			done <- errInfo{i, t.Wait()}
 		}()
 	}
-	chosen := errInfo{index: -1}
+	var err error
 waiting:
 	for _ = range tasks {
 		select {
 		case info := <-done:
 			if info.err != nil {
-				chosen = info
+				log.Printf("cmd/jujud: %s: %v", tasks[info.index], info.err)
+				logged[info.index] = true
+				err = info.err
 				break waiting
 			}
 		case <-stop:
 			break waiting
 		}
 	}
-	// Stop all the tasks. If we've been upgraded,
-	// that error taks precedence over other errors, because
-	// that's the only way we can escape bad code.
+	// Stop all the tasks. We choose the most important error
+	// to return.
 	for i, t := range tasks {
-		if err := t.Stop(); isUpgraded(err) || err != nil && chosen.err == nil {
-			chosen = errInfo{i, err}
+		err1 := t.Stop()
+		if !logged[i] && err1 != nil {
+			log.Printf("cmd/jujud: %s: %v", t, err1)
+			logged[i] = true
+		}
+		if moreImportant(err1, err) {
+			err = err1
 		}
 	}
-	// Log any errors that we're discarding.
-	for i, t := range tasks {
-		if i == chosen.index {
-			continue
-		}
-		if err := t.Wait(); err != nil {
-			log.Printf("cmd/jujud: %s: %v", tasks[i], err)
-		}
+	return err
+}
+
+func importance(err error) int {
+	switch {
+	case err == nil:
+		return 0
+	default:
+		return 1
+	case isUpgraded(err):
+		return 2
+	case err == worker.ErrDead:
+		return 3
 	}
-	return chosen.err
+	panic("unreachable")
+}
+
+// moreImportant returns whether err0 is
+// more important than err1 - that is, whether
+// we should act on err0 in preference to err1.
+func moreImportant(err0, err1 error) bool {
+	return importance(err0) > importance(err1)
 }
 
 func isUpgraded(err error) bool {
@@ -167,47 +121,144 @@ func isUpgraded(err error) bool {
 	return ok
 }
 
-// openState tries to open the state with the given entity name
-// and configuration information. If the returned password
-// is non-empty, the caller should set the entity's password
-// accordingly.
-func openState(entityName string, conf *AgentConf) (st *state.State, password string, err error) {
-	pwfile := filepath.Join(environs.AgentDir(conf.DataDir, entityName), "password")
-	data, err := ioutil.ReadFile(pwfile)
-	if err != nil && !os.IsNotExist(err) {
-		return nil, "", err
-	}
-	info := conf.StateInfo
-	info.EntityName = entityName
-	if err == nil {
-		info.Password = string(data)
-		st, err := state.Open(&info)
+type Agent interface {
+	Tomb() *tomb.Tomb
+	RunOnce(st *state.State, entity AgentState) error
+	Entity(st *state.State) (AgentState, error)
+	EntityName() string
+}
+
+// runLoop repeatedly calls runOnce until it returns worker.ErrDead or
+// an upgraded error, or a value is received on stop.
+func runLoop(runOnce func() error, stop <-chan struct{}) error {
+	log.Printf("cmd/jujud: agent starting")
+	for {
+		err := runOnce()
+		if err == worker.ErrDead {
+			log.Printf("cmd/jujud: entity is dead")
+			return nil
+		}
+		if isFatal(err) {
+			return err
+		}
 		if err == nil {
-			return st, "", nil
+			log.Printf("cmd/jujud: agent died with no error")
+		} else {
+			log.Printf("cmd/jujud: %v", err)
 		}
-		if err != state.ErrUnauthorized {
-			return nil, "", err
+		if !isleep(retryDelay, stop) {
+			return nil
 		}
-		// Access isn't authorized even though the password was
-		// saved.  This can happen if we crash after saving the
-		// password but before changing the password, so we'll
-		// try again with the initial password.
+		log.Printf("cmd/jujud: rerunning agent")
 	}
-	info.Password = conf.InitialPassword
-	st, err = state.Open(&info)
+	panic("unreachable")
+}
+
+type fatalError struct {
+	Err string
+}
+
+func (e *fatalError) Error() string {
+	return e.Err
+}
+
+func isFatal(err error) bool {
+	if err == worker.ErrDead || isUpgraded(err) {
+		return true
+	}
+	_, ok := err.(*fatalError)
+	return ok
+}
+
+// isleep waits for the given duration or until it receives a value on
+// stop.  It returns whether the full duration was slept without being
+// stopped.
+func isleep(d time.Duration, stop <-chan struct{}) bool {
+	select {
+	case <-stop:
+		return false
+	case <-time.After(d):
+	}
+	return true
+}
+
+// RunAgentLoop repeatedly connects to the state server
+// and calls the agent's RunOnce method.
+func RunAgentLoop(c *agent.Conf, a Agent) error {
+	return runLoop(func() error {
+		st, entity, err := openState(c, a)
+		if err != nil {
+			return err
+		}
+		defer st.Close()
+		// TODO(rog) connect to API.
+		return a.RunOnce(st, entity)
+	}, a.Tomb().Dying())
+}
+
+// This mutex ensures that we can have two concurrent workers
+// opening the same state without a problem with the
+// password changing.
+var openStateMutex sync.Mutex
+
+func openState(c *agent.Conf, a Agent) (_ *state.State, _ AgentState, err error) {
+	openStateMutex.Lock()
+	defer openStateMutex.Unlock()
+
+	st, newPassword, err0 := c.OpenState()
+	if err0 != nil {
+		return nil, nil, err0
+	}
+	defer func() {
+		if err != nil {
+			st.Close()
+		}
+	}()
+	entity, err := a.Entity(st)
+	if state.IsNotFound(err) || err == nil && entity.Life() == state.Dead {
+		err = worker.ErrDead
+	}
 	if err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
-	// We've succeeded in connecting with the initial password, so
-	// we can now change it to something more private.
-	password, err = trivial.RandomPassword()
-	if err != nil {
-		st.Close()
-		return nil, "", err
+	if newPassword != "" {
+		// Ensure we do not lose changes made by another
+		// worker by re-reading the configuration and changing
+		// only the password.
+		c1, err := agent.ReadConf(c.DataDir, c.EntityName())
+		if err != nil {
+			return nil, nil, err
+		}
+		c1.StateInfo.Password = newPassword
+		if err := c1.Write(); err != nil {
+			return nil, nil, err
+		}
+		if err := entity.SetMongoPassword(c1.StateInfo.Password); err != nil {
+			return nil, nil, err
+		}
+		c.StateInfo.Password = newPassword
 	}
-	if err := ioutil.WriteFile(pwfile, []byte(password), 0600); err != nil {
-		st.Close()
-		return nil, "", fmt.Errorf("cannot save password: %v", err)
+	return st, entity, nil
+}
+
+// newDeployManager gives the tests the opportunity to create a deployer.Manager
+// that can be used for testing so as to avoid (1) deploying units to the system
+// running the tests and (2) get access to the *State used internally, so that
+// tests can be run without waiting for the 5s watcher refresh time we would
+// otherwise be restricted to. When not testing, st is unused.
+var newDeployManager = func(st *state.State, info *state.Info, dataDir string) deployer.Manager {
+	// TODO: pick manager kind based on entity name? (once we have a
+	// container manager for prinicpal units, that is; for now, there
+	// is no distinction between principal and subordinate deployments)
+	return deployer.NewSimpleManager(info, dataDir)
+}
+
+func newDeployer(st *state.State, w *state.UnitsWatcher, dataDir string) *deployer.Deployer {
+	info := &state.Info{
+		EntityName: w.EntityName(),
+		Addrs:      st.Addrs(),
+		CACert:     st.CACert(),
 	}
-	return st, password, nil
+	mgr := newDeployManager(st, info, dataDir)
+	return deployer.NewDeployer(st, mgr, w)
 }

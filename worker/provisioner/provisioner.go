@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/worker"
@@ -18,6 +19,7 @@ import (
 type Provisioner struct {
 	st      *state.State
 	info    *state.Info
+	apiInfo *api.Info
 	environ environs.Environ
 	tomb    tomb.Tomb
 
@@ -72,7 +74,7 @@ func (p *Provisioner) loop() error {
 	// Get a new StateInfo from the environment: the one used to
 	// launch the agent may refer to localhost, which will be
 	// unhelpful when attempting to run an agent on a new machine.
-	if p.info, err = p.environ.StateInfo(); err != nil {
+	if p.info, p.apiInfo, err = p.environ.StateInfo(); err != nil {
 		return err
 	}
 
@@ -118,11 +120,6 @@ func (p *Provisioner) setConfig(config *config.Config) error {
 	}
 	p.configObserver.notify(config)
 	return nil
-}
-
-// Dying returns a channel that signals a Provisioners exit.
-func (p *Provisioner) Dying() <-chan struct{} {
-	return p.tomb.Dying()
 }
 
 // Err returns the reason why the Provisioner has stopped or tomb.ErrStillAlive
@@ -257,7 +254,7 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 	if err != nil {
 		return fmt.Errorf("cannot make password for new machine: %v", err)
 	}
-	if err := m.SetPassword(password); err != nil {
+	if err := m.SetMongoPassword(password); err != nil {
 		return fmt.Errorf("cannot set password for new machine: %v", err)
 	}
 	// UAs to locate the ZK for this environment, it is logical to use the same
@@ -265,7 +262,11 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 	info := *p.info
 	info.EntityName = m.EntityName()
 	info.Password = password
-	inst, err := p.environ.StartInstance(m.Id(), &info, nil)
+
+	apiInfo := *p.apiInfo
+	apiInfo.EntityName = m.EntityName()
+	apiInfo.Password = password
+	inst, err := p.environ.StartInstance(m.Id(), &info, &apiInfo, nil)
 	if err != nil {
 		return fmt.Errorf("cannot start instance for new machine: %v", err)
 	}

@@ -71,8 +71,8 @@ type Jujuc struct {
 	getCmd CmdGetter
 }
 
-// badReqErr returns an error indicating a bad Request.
-func badReqErr(format string, v ...interface{}) error {
+// badReqErrorf returns an error indicating a bad Request.
+func badReqErrorf(format string, v ...interface{}) error {
 	return fmt.Errorf("bad request: "+format, v...)
 }
 
@@ -80,14 +80,14 @@ func badReqErr(format string, v ...interface{}) error {
 // is run at a time.
 func (j *Jujuc) Main(req Request, resp *Response) error {
 	if req.CommandName == "" {
-		return badReqErr("command not specified")
+		return badReqErrorf("command not specified")
 	}
 	if !filepath.IsAbs(req.Dir) {
-		return badReqErr("Dir is not absolute")
+		return badReqErrorf("Dir is not absolute")
 	}
 	c, err := j.getCmd(req.ContextId, req.CommandName)
 	if err != nil {
-		return badReqErr("%s", err)
+		return badReqErrorf("%s", err)
 	}
 	var stdin, stdout, stderr bytes.Buffer
 	ctx := &cmd.Context{req.Dir, &stdin, &stdout, &stderr}

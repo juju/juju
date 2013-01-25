@@ -2,28 +2,34 @@ package openstack
 
 import (
 	"fmt"
+	"launchpad.net/goose/identity"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/schema"
 	"net/url"
-	"os"
 )
 
 var configChecker = schema.StrictFieldMap(
 	schema.Fields{
-		"username":       schema.String(),
-		"password":       schema.String(),
-		"tenant-name":    schema.String(),
-		"auth-url":       schema.String(),
-		"region":         schema.String(),
-		"control-bucket": schema.String(),
+		"username":          schema.String(),
+		"password":          schema.String(),
+		"tenant-name":       schema.String(),
+		"auth-url":          schema.String(),
+		"auth-method":       schema.String(),
+		"region":            schema.String(),
+		"control-bucket":    schema.String(),
+		"public-bucket":     schema.String(),
+		"public-bucket-url": schema.String(),
 	},
 	schema.Defaults{
-		"username":       "",
-		"password":       "",
-		"tenant-name":    "",
-		"auth-url":       "",
-		"region":         "",
-		"control-bucket": "",
+		"username":          "",
+		"password":          "",
+		"tenant-name":       "",
+		"auth-url":          "",
+		"auth-method":       string(AuthUserPass),
+		"region":            "",
+		"control-bucket":    "",
+		"public-bucket":     "juju-dist",
+		"public-bucket-url": "",
 	},
 )
 
@@ -52,8 +58,20 @@ func (c *environConfig) authURL() string {
 	return c.attrs["auth-url"].(string)
 }
 
+func (c *environConfig) authMethod() string {
+	return c.attrs["auth-method"].(string)
+}
+
 func (c *environConfig) controlBucket() string {
 	return c.attrs["control-bucket"].(string)
+}
+
+func (c *environConfig) publicBucket() string {
+	return c.attrs["public-bucket"].(string)
+}
+
+func (c *environConfig) publicBucketURL() string {
+	return c.attrs["public-bucket-url"].(string)
 }
 
 func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
@@ -64,6 +82,13 @@ func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
 	return &environConfig{valid, valid.UnknownAttrs()}, nil
 }
 
+type AuthMethod string
+
+const (
+	AuthLegacy   AuthMethod = "legacy"
+	AuthUserPass AuthMethod = "userpass"
+)
+
 func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
 	v, err := configChecker.Coerce(cfg.UnknownAttrs(), nil)
 	if err != nil {
@@ -71,34 +96,51 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 	}
 	ecfg := &environConfig{cfg, v.(map[string]interface{})}
 
+	authMethod := ecfg.authMethod()
+	switch AuthMethod(authMethod) {
+	case AuthLegacy:
+	case AuthUserPass:
+	default:
+		return nil, fmt.Errorf("invalid authorization method: %q", authMethod)
+	}
+
 	if ecfg.authURL() != "" {
 		parts, err := url.Parse(ecfg.authURL())
 		if err != nil || parts.Host == "" || parts.Scheme == "" {
 			return nil, fmt.Errorf("invalid auth-url value %q", ecfg.authURL())
 		}
 	}
-
-	if ecfg.username() == "" || ecfg.password() == "" || ecfg.tenantName() == "" || ecfg.authURL() == "" {
-		// TODO(dimitern): get goose client to handle this
-		auth, ok := getEnvAuth()
-		if !ok {
-			return nil, fmt.Errorf("OpenStack environment has no username, password, tenant-name, or auth-url")
+	cred := identity.CredentialsFromEnv()
+	format := "required environment variable not set for credentials attribute: %s"
+	if ecfg.username() == "" {
+		if cred.User == "" {
+			return nil, fmt.Errorf(format, "User")
 		}
-		ecfg.attrs["username"] = auth.username
-		ecfg.attrs["password"] = auth.password
-		ecfg.attrs["tenant-name"] = auth.tenantName
-		ecfg.attrs["auth-url"] = auth.authURL
+		ecfg.attrs["username"] = cred.User
 	}
-	// We cannot validate the region name, since each OS installation
-	// can have its own region names - only after authentication the
-	// region names are known (from the service endpoints)
-	if ecfg.region() == "" {
-		region := os.Getenv("OS_REGION_NAME")
-		if region != "" {
-			ecfg.attrs["region"] = region
-		} else {
-			return nil, fmt.Errorf("OpenStack environment has no region")
+	if ecfg.password() == "" {
+		if cred.Secrets == "" {
+			return nil, fmt.Errorf(format, "Secrets")
 		}
+		ecfg.attrs["password"] = cred.Secrets
+	}
+	if ecfg.authURL() == "" {
+		if cred.URL == "" {
+			return nil, fmt.Errorf(format, "URL")
+		}
+		ecfg.attrs["auth-url"] = cred.URL
+	}
+	if ecfg.tenantName() == "" {
+		if cred.TenantName == "" {
+			return nil, fmt.Errorf(format, "TenantName")
+		}
+		ecfg.attrs["tenant-name"] = cred.TenantName
+	}
+	if ecfg.region() == "" {
+		if cred.Region == "" {
+			return nil, fmt.Errorf(format, "Region")
+		}
+		ecfg.attrs["region"] = cred.Region
 	}
 
 	if old != nil {
@@ -120,22 +162,4 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 	}
 
 	return cfg.Apply(ecfg.attrs)
-}
-
-// TODO(dimitern): temporarily here, until goose client handles this
-type envAuth struct {
-	username, password, tenantName, authURL string
-}
-
-func getEnvAuth() (auth envAuth, ok bool) {
-	auth = envAuth{
-		username:   os.Getenv("OS_USERNAME"),
-		password:   os.Getenv("OS_PASSWORD"),
-		tenantName: os.Getenv("OS_TENANT_NAME"),
-		authURL:    os.Getenv("OS_AUTH_URL"),
-	}
-	if auth.username == "" || auth.password == "" || auth.tenantName == "" || auth.authURL == "" {
-		return auth, false
-	}
-	return auth, true
 }

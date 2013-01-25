@@ -117,11 +117,11 @@ func (s *SSHSuite) TestSSHCommand(c *C) {
 func (s *SSHCommonSuite) makeMachines(n int, c *C) []*state.Machine {
 	var machines = make([]*state.Machine, n)
 	for i := 0; i < n; i++ {
-		m, err := s.State.AddMachine(state.MachinerWorker)
+		m, err := s.State.AddMachine(state.JobHostUnits)
 		c.Assert(err, IsNil)
 		// must set an instance id as the ssh command uses that as a signal the machine
 		// has been provisioned
-		inst, err := s.Conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), nil)
+		inst, err := s.Conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), testing.InvalidAPIInfo(m.Id()), nil)
 		c.Assert(err, IsNil)
 		c.Assert(m.SetInstanceId(inst.Id()), IsNil)
 		machines[i] = m

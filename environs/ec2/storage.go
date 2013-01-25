@@ -9,12 +9,16 @@ import (
 	"time"
 )
 
+func NewStorage(bucket *s3.Bucket) environs.Storage {
+	return &storage{bucket: bucket}
+}
+
 // storage implements environs.Storage on
 // an ec2.bucket.
 type storage struct {
-	bucketMutex sync.Mutex
-	madeBucket  bool
-	bucket      *s3.Bucket
+	sync.Mutex
+	madeBucket bool
+	bucket     *s3.Bucket
 }
 
 // makeBucket makes the environent's control bucket, the
@@ -22,18 +26,20 @@ type storage struct {
 // are stored. To avoid two round trips on every PUT operation,
 // we do this only once for each environ.
 func (s *storage) makeBucket() error {
-	s.bucketMutex.Lock()
-	defer s.bucketMutex.Unlock()
+	s.Lock()
+	defer s.Unlock()
 	if s.madeBucket {
 		return nil
 	}
-	// try to make the bucket - PutBucket will succeed if the
-	// bucket already exists.
-	err := s.bucket.PutBucket(s3.Private)
-	if err == nil {
-		s.madeBucket = true
+	// PutBucket always return a 200 if we recreate an existing bucket for the
+	// original s3.amazonaws.com endpoint. For all other endpoints PutBucket
+	// returns 409 with a known subcode.
+	if err := s.bucket.PutBucket(s3.Private); err != nil && s3ErrCode(err) != "BucketAlreadyOwnedByYou" {
+		return err
 	}
-	return err
+
+	s.madeBucket = true
+	return nil
 }
 
 func (s *storage) Put(file string, r io.Reader, length int64) error {
@@ -60,7 +66,7 @@ func (s *storage) Get(file string) (r io.ReadCloser, err error) {
 
 func (s *storage) URL(name string) (string, error) {
 	// 10 years should be good enough.
-	return s.bucket.SignedURL(name, time.Now().AddDate(1, 0, 0)), nil
+	return s.bucket.SignedURL(name, time.Now().AddDate(10, 0, 0)), nil
 }
 
 // s3ErrorStatusCode returns the HTTP status of the S3 request error,
@@ -70,6 +76,14 @@ func s3ErrorStatusCode(err error) int {
 		return err.StatusCode
 	}
 	return 0
+}
+
+// s3ErrCode returns the text status code of the S3 error code.
+func s3ErrCode(err error) string {
+	if err, ok := err.(*s3.Error); ok {
+		return err.Code
+	}
+	return ""
 }
 
 func (s *storage) Remove(file string) error {
@@ -129,8 +143,8 @@ func (s *storage) deleteAll() error {
 	default:
 	}
 
-	s.bucketMutex.Lock()
-	defer s.bucketMutex.Unlock()
+	s.Lock()
+	defer s.Unlock()
 	// Even DelBucket fails, it won't harm if we try again - the operation
 	// might have succeeded even if we get an error.
 	s.madeBucket = false

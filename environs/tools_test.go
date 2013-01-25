@@ -116,7 +116,7 @@ func (t *ToolsSuite) TestPutToolsAndForceVersion(c *C) {
 	//   and the reading of the version from jujud.
 	vers := version.Current
 	vers.Patch++
-	tools, err := environs.PutTools(t.env.Storage(), &vers)
+	tools, err := environs.PutTools(t.env.Storage(), &vers.Number)
 	c.Assert(err, IsNil)
 	c.Assert(tools.Binary, Equals, vers)
 }

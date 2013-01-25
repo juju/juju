@@ -1,6 +1,7 @@
 package ec2_test
 
 import (
+	"bytes"
 	"launchpad.net/goamz/aws"
 	amzec2 "launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/ec2/ec2test"
@@ -13,6 +14,7 @@ import (
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
 	"regexp"
 	"strings"
@@ -48,6 +50,16 @@ func registerLocalTests() {
 		LiveTests: LiveTests{
 			LiveTests: jujutest.LiveTests{
 				Config: attrs,
+			},
+		},
+	})
+	Suite(&localNonUSEastSuite{
+		tests: jujutest.Tests{
+			Config: attrs,
+		},
+		srv: localServer{
+			config: &s3test.Config{
+				Send409Conflict: true,
 			},
 		},
 	})
@@ -95,6 +107,7 @@ func (t *localLiveSuite) TearDownTest(c *C) {
 type localServer struct {
 	ec2srv *ec2test.Server
 	s3srv  *s3test.Server
+	config *s3test.Config
 }
 
 func (srv *localServer) startServer(c *C) {
@@ -103,7 +116,7 @@ func (srv *localServer) startServer(c *C) {
 	if err != nil {
 		c.Fatalf("cannot start ec2 test server: %v", err)
 	}
-	srv.s3srv, err = s3test.NewServer()
+	srv.s3srv, err = s3test.NewServer(srv.config)
 	if err != nil {
 		c.Fatalf("cannot start s3 test server: %v", err)
 	}
@@ -214,7 +227,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	c.Assert(insts, HasLen, 1)
 	c.Check(insts[0].Id(), Equals, state.StateInstances[0])
 
-	info, err := t.env.StateInfo()
+	info, apiInfo, err := t.env.StateInfo()
 	c.Assert(err, IsNil)
 	c.Assert(info, NotNil)
 
@@ -226,9 +239,11 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(bootstrapDNS, Not(Equals), "")
 
-	c.Logf("first instance: UserData: %q", inst.UserData)
+	userData, err := trivial.Gunzip(inst.UserData)
+	c.Assert(err, IsNil)
+	c.Logf("first instance: UserData: %q", userData)
 	var x map[interface{}]interface{}
-	err = goyaml.Unmarshal(inst.UserData, &x)
+	err = goyaml.Unmarshal(userData, &x)
 	c.Assert(err, IsNil)
 	CheckPackage(c, x, "git", true)
 	CheckScripts(c, x, "jujud bootstrap-state", true)
@@ -239,13 +254,16 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	// zookeeper, with a machine agent, and without a
 	// provisioning agent.
 	info.EntityName = "machine-1"
-	inst1, err := t.env.StartInstance("1", info, nil)
+	apiInfo.EntityName = "machine-1"
+	inst1, err := t.env.StartInstance("1", info, apiInfo, nil)
 	c.Assert(err, IsNil)
 	inst = t.srv.ec2srv.Instance(string(inst1.Id()))
 	c.Assert(inst, NotNil)
-	c.Logf("second instance: UserData: %q", inst.UserData)
+	userData, err = trivial.Gunzip(inst.UserData)
+	c.Assert(err, IsNil)
+	c.Logf("second instance: UserData: %q", userData)
 	x = nil
-	err = goyaml.Unmarshal(inst.UserData, &x)
+	err = goyaml.Unmarshal(userData, &x)
 	c.Assert(err, IsNil)
 	CheckPackage(c, x, "zookeeperd", false)
 	// TODO check for provisioning agent
@@ -319,5 +337,52 @@ func CheckPackage(c *C, x map[interface{}]interface{}, pkg string, match bool) {
 		c.Errorf("package %q not found in %v", pkg, pkgs)
 	case !match && found:
 		c.Errorf("%q found but not expected in %v", pkg, pkgs)
+	}
+}
+
+// localNonUSEastSuite is similar to localServerSuite but the S3 mock server
+// behaves as if
+type localNonUSEastSuite struct {
+	testing.LoggingSuite
+	tests jujutest.Tests
+	srv   localServer
+	env   environs.Environ
+}
+
+func (t *localNonUSEastSuite) SetUpSuite(c *C) {
+	t.LoggingSuite.SetUpSuite(c)
+	ec2.UseTestImageData(true)
+	ec2.UseTestMetadata(true)
+	t.tests.SetUpSuite(c)
+	ec2.ShortTimeouts(true)
+}
+
+func (t *localNonUSEastSuite) TearDownSuite(c *C) {
+	ec2.ShortTimeouts(false)
+	ec2.UseTestMetadata(false)
+	ec2.UseTestImageData(false)
+	t.LoggingSuite.TearDownSuite(c)
+}
+
+func (t *localNonUSEastSuite) SetUpTest(c *C) {
+	t.LoggingSuite.SetUpTest(c)
+	t.srv.startServer(c)
+	t.tests.SetUpTest(c)
+	t.env = t.tests.Env
+}
+
+func (t *localNonUSEastSuite) TearDownTest(c *C) {
+	t.tests.TearDownTest(c)
+	t.srv.stopServer(c)
+	t.LoggingSuite.TearDownTest(c)
+}
+
+func (t *localNonUSEastSuite) TestPutBucket(c *C) {
+	p := ec2.WritablePublicStorage(t.env).(ec2.Storage)
+	for i := 0; i < 5; i++ {
+		p.ResetMadeBucket()
+		var buf bytes.Buffer
+		err := p.Put("test-file", &buf, 0)
+		c.Assert(err, IsNil)
 	}
 }

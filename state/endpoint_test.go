@@ -68,41 +68,42 @@ func (c *dummyCharm) Meta() *charm.Meta {
 }
 
 var implementedByTests = []struct {
-	ifce  string
-	name  string
-	role  state.RelationRole
-	scope charm.RelationScope
-	match bool
+	ifce     string
+	name     string
+	role     state.RelationRole
+	scope    charm.RelationScope
+	match    bool
+	implicit bool
 }{
-	{"ifce-pro", "pro", state.RoleProvider, charm.ScopeGlobal, true},
-	{"blah", "pro", state.RoleProvider, charm.ScopeGlobal, false},
-	{"ifce-pro", "blah", state.RoleProvider, charm.ScopeGlobal, false},
-	{"ifce-pro", "pro", state.RoleRequirer, charm.ScopeGlobal, false},
-	{"ifce-pro", "pro", state.RoleProvider, charm.ScopeContainer, true},
+	{"ifce-pro", "pro", state.RoleProvider, charm.ScopeGlobal, true, false},
+	{"blah", "pro", state.RoleProvider, charm.ScopeGlobal, false, false},
+	{"ifce-pro", "blah", state.RoleProvider, charm.ScopeGlobal, false, false},
+	{"ifce-pro", "pro", state.RoleRequirer, charm.ScopeGlobal, false, false},
+	{"ifce-pro", "pro", state.RoleProvider, charm.ScopeContainer, true, false},
 
-	{"juju-info", "juju-info", state.RoleProvider, charm.ScopeGlobal, true},
-	{"blah", "juju-info", state.RoleProvider, charm.ScopeGlobal, false},
-	{"juju-info", "blah", state.RoleProvider, charm.ScopeGlobal, false},
-	{"juju-info", "juju-info", state.RoleRequirer, charm.ScopeGlobal, false},
-	{"juju-info", "juju-info", state.RoleProvider, charm.ScopeContainer, true},
+	{"juju-info", "juju-info", state.RoleProvider, charm.ScopeGlobal, true, true},
+	{"blah", "juju-info", state.RoleProvider, charm.ScopeGlobal, false, false},
+	{"juju-info", "blah", state.RoleProvider, charm.ScopeGlobal, false, false},
+	{"juju-info", "juju-info", state.RoleRequirer, charm.ScopeGlobal, false, false},
+	{"juju-info", "juju-info", state.RoleProvider, charm.ScopeContainer, true, true},
 
-	{"ifce-req", "req", state.RoleRequirer, charm.ScopeGlobal, true},
-	{"blah", "req", state.RoleRequirer, charm.ScopeGlobal, false},
-	{"ifce-req", "blah", state.RoleRequirer, charm.ScopeGlobal, false},
-	{"ifce-req", "req", state.RolePeer, charm.ScopeGlobal, false},
-	{"ifce-req", "req", state.RoleRequirer, charm.ScopeContainer, true},
+	{"ifce-req", "req", state.RoleRequirer, charm.ScopeGlobal, true, false},
+	{"blah", "req", state.RoleRequirer, charm.ScopeGlobal, false, false},
+	{"ifce-req", "blah", state.RoleRequirer, charm.ScopeGlobal, false, false},
+	{"ifce-req", "req", state.RolePeer, charm.ScopeGlobal, false, false},
+	{"ifce-req", "req", state.RoleRequirer, charm.ScopeContainer, true, false},
 
-	{"juju-info", "info", state.RoleRequirer, charm.ScopeContainer, true},
-	{"blah", "info", state.RoleRequirer, charm.ScopeContainer, false},
-	{"juju-info", "blah", state.RoleRequirer, charm.ScopeContainer, false},
-	{"juju-info", "info", state.RolePeer, charm.ScopeContainer, false},
-	{"juju-info", "info", state.RoleRequirer, charm.ScopeGlobal, false},
+	{"juju-info", "info", state.RoleRequirer, charm.ScopeContainer, true, false},
+	{"blah", "info", state.RoleRequirer, charm.ScopeContainer, false, false},
+	{"juju-info", "blah", state.RoleRequirer, charm.ScopeContainer, false, false},
+	{"juju-info", "info", state.RolePeer, charm.ScopeContainer, false, false},
+	{"juju-info", "info", state.RoleRequirer, charm.ScopeGlobal, false, false},
 
-	{"ifce-peer", "peer", state.RolePeer, charm.ScopeGlobal, true},
-	{"blah", "peer", state.RolePeer, charm.ScopeGlobal, false},
-	{"ifce-peer", "blah", state.RolePeer, charm.ScopeGlobal, false},
-	{"ifce-peer", "peer", state.RoleProvider, charm.ScopeGlobal, false},
-	{"ifce-peer", "peer", state.RolePeer, charm.ScopeContainer, true},
+	{"ifce-peer", "peer", state.RolePeer, charm.ScopeGlobal, true, false},
+	{"blah", "peer", state.RolePeer, charm.ScopeGlobal, false, false},
+	{"ifce-peer", "blah", state.RolePeer, charm.ScopeGlobal, false, false},
+	{"ifce-peer", "peer", state.RoleProvider, charm.ScopeGlobal, false, false},
+	{"ifce-peer", "peer", state.RolePeer, charm.ScopeContainer, true, false},
 }
 
 func (s *EndpointSuite) TestImplementedBy(c *C) {
@@ -110,5 +111,6 @@ func (s *EndpointSuite) TestImplementedBy(c *C) {
 		c.Logf("test %d", i)
 		ep := state.Endpoint{"x", t.ifce, t.name, t.role, t.scope}
 		c.Assert(ep.ImplementedBy(&dummyCharm{}), Equals, t.match)
+		c.Assert(ep.IsImplicit(), Equals, t.implicit)
 	}
 }

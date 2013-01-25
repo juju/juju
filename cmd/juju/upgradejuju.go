@@ -73,10 +73,10 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	if c.UploadTools {
-		var forceVersion *version.Binary
+		var forceVersion *version.Number
 		if c.BumpVersion {
 			vers := c.bumpedVersion()
-			forceVersion = &vers
+			forceVersion = &vers.Number
 			c.Version = vers.Number
 		}
 		tools, err := putTools(c.conn.Environ.Storage(), forceVersion)

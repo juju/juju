@@ -2,94 +2,72 @@ package machiner
 
 import (
 	"fmt"
-	"launchpad.net/juju-core/container"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
-	"launchpad.net/juju-core/version"
+	"launchpad.net/juju-core/worker"
 	"launchpad.net/tomb"
 )
 
-// Machiner represents a running machine agent.
+// Machiner is responsible for a machine agent's lifecycle.
 type Machiner struct {
-	tomb           tomb.Tomb
-	machine        *state.Machine
-	localContainer container.Container
-	stateInfo      *state.Info
-	tools          *state.Tools
+	tomb tomb.Tomb
+	st   *state.State
+	id   string
 }
 
-// NewMachiner starts a machine agent running that
-// deploys agents in the given directory.
-// The Machiner dies when it encounters an error.
-func NewMachiner(machine *state.Machine, info *state.Info, dataDir string) *Machiner {
-	cont := &container.Simple{DataDir: dataDir}
-	return newMachiner(machine, info, dataDir, cont)
+// NewMachiner returns a Machiner that will wait for the identified machine
+// to become Dying and make it Dead; or until the machine becomes Dead by
+// other means.
+func NewMachiner(st *state.State, id string) *Machiner {
+	mr := &Machiner{st: st, id: id}
+	go func() {
+		defer mr.tomb.Done()
+		mr.tomb.Kill(mr.loop())
+	}()
+	return mr
 }
 
-func newMachiner(machine *state.Machine, info *state.Info, dataDir string, cont container.Container) *Machiner {
-	tools, err := environs.ReadTools(dataDir, version.Current)
-	if err != nil {
-		tools = &state.Tools{Binary: version.Current}
+func (mr *Machiner) String() string {
+	return fmt.Sprintf("machiner %s", mr.id)
+}
+
+func (mr *Machiner) Stop() error {
+	mr.tomb.Kill(nil)
+	return mr.tomb.Wait()
+}
+
+func (mr *Machiner) Wait() error {
+	return mr.tomb.Wait()
+}
+
+func (mr *Machiner) loop() error {
+	m, err := mr.st.Machine(mr.id)
+	if state.IsNotFound(err) {
+		return worker.ErrDead
+	} else if err != nil {
+		return err
 	}
-	m := &Machiner{
-		machine:        machine,
-		stateInfo:      info,
-		tools:          tools,
-		localContainer: cont,
-	}
-	go m.loop()
-	return m
-}
-
-func (m *Machiner) loop() {
-	defer m.tomb.Done()
-	w := m.machine.WatchPrincipalUnits()
-	defer watcher.Stop(w, &m.tomb)
-
-	// TODO read initial units, check if they're running
-	// and restart them if not. Also track units so
-	// that we don't deploy units that are already running.
+	w := m.Watch()
+	defer watcher.Stop(w, &mr.tomb)
 	for {
 		select {
-		case <-m.tomb.Dying():
-			return
-		case change, ok := <-w.Changes():
-			if !ok {
-				m.tomb.Kill(watcher.MustErr(w))
-				return
+		case <-mr.tomb.Dying():
+			return tomb.ErrDying
+		case <-w.Changes():
+			if err := m.Refresh(); state.IsNotFound(err) {
+				return worker.ErrDead
+			} else if err != nil {
+				return err
 			}
-			for _, u := range change.Removed {
-				if u.IsPrincipal() {
-					if err := m.localContainer.Destroy(u); err != nil {
-						log.Printf("worker/machiner: cannot destroy unit %s: %v", u.Name(), err)
-					}
+			if m.Life() != state.Alive {
+				// If the machine is Dying, it has no units,
+				// and can be safely set to Dead.
+				if err := m.EnsureDead(); err != nil {
+					return err
 				}
-			}
-			for _, u := range change.Added {
-				if u.IsPrincipal() {
-					if err := m.localContainer.Deploy(u, m.stateInfo, m.tools); err != nil {
-						// TODO put unit into a queue to retry the deploy.
-						log.Printf("worker/machiner: cannot deploy unit %s: %v", u.Name(), err)
-					}
-				}
+				return worker.ErrDead
 			}
 		}
 	}
-}
-
-func (a *Machiner) String() string {
-	return fmt.Sprintf("machiner for machine %v", a.machine)
-}
-
-// Wait waits until the Machiner has died, and returns the error encountered.
-func (m *Machiner) Wait() error {
-	return m.tomb.Wait()
-}
-
-// Stop terminates the Machiner and returns any error that it encountered.
-func (m *Machiner) Stop() error {
-	m.tomb.Kill(nil)
-	return m.tomb.Wait()
+	panic("unreachable")
 }

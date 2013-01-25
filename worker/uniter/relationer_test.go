@@ -8,6 +8,9 @@ import (
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/juju-core/worker/uniter/hook"
 	"launchpad.net/juju-core/worker/uniter/relation"
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -112,6 +115,7 @@ func (s *RelationerSuite) TestStartStopHooks(c *C) {
 	ru1 := s.AddRelationUnit(c, "u/1")
 	ru2 := s.AddRelationUnit(c, "u/2")
 	r := uniter.NewRelationer(s.ru, s.dir, s.hooks)
+	c.Assert(r.IsImplicit(), Equals, false)
 	err := r.Join()
 	c.Assert(err, IsNil)
 
@@ -128,21 +132,18 @@ func (s *RelationerSuite) TestStartStopHooks(c *C) {
 	c.Assert(f, PanicMatches, "hooks already started!")
 
 	// Join u/1 to the relation, and check that we receive the expected hooks.
-	err = ru1.EnterScope()
+	settings := map[string]interface{}{"unit": "settings"}
+	err = ru1.EnterScope(settings)
 	c.Assert(err, IsNil)
 	s.assertHook(c, hook.Info{
 		Kind:       hook.RelationJoined,
 		RemoteUnit: "u/1",
-		Members: map[string]map[string]interface{}{
-			"u/1": {"private-address": "u-1.example.com"},
-		},
+		Members:    map[string]map[string]interface{}{"u/1": settings},
 	})
 	s.assertHook(c, hook.Info{
 		Kind:       hook.RelationChanged,
 		RemoteUnit: "u/1",
-		Members: map[string]map[string]interface{}{
-			"u/1": {"private-address": "u-1.example.com"},
-		},
+		Members:    map[string]map[string]interface{}{"u/1": settings},
 	})
 	s.assertNoHook(c)
 
@@ -151,7 +152,7 @@ func (s *RelationerSuite) TestStartStopHooks(c *C) {
 	c.Assert(err, IsNil)
 	err = ru1.LeaveScope()
 	c.Assert(err, IsNil)
-	err = ru2.EnterScope()
+	err = ru2.EnterScope(nil)
 	c.Assert(err, IsNil)
 	node, err := ru2.Settings()
 	c.Assert(err, IsNil)
@@ -295,7 +296,8 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 
 func (s *RelationerSuite) TestSetDying(c *C) {
 	ru1 := s.AddRelationUnit(c, "u/1")
-	err := ru1.EnterScope()
+	settings := map[string]interface{}{"unit": "settings"}
+	err := ru1.EnterScope(settings)
 	c.Assert(err, IsNil)
 	r := uniter.NewRelationer(s.ru, s.dir, s.hooks)
 	err = r.Join()
@@ -306,7 +308,7 @@ func (s *RelationerSuite) TestSetDying(c *C) {
 		Kind:       hook.RelationJoined,
 		RemoteUnit: "u/1",
 		Members: map[string]map[string]interface{}{
-			"u/1": {"private-address": "u-1.example.com"},
+			"u/1": settings,
 		},
 	})
 
@@ -330,9 +332,6 @@ func (s *RelationerSuite) TestSetDying(c *C) {
 	// Check that the relation state has been broken.
 	err = s.dir.State().Validate(hook.Info{Kind: hook.RelationBroken})
 	c.Assert(err, ErrorMatches, ".*: relation is broken and cannot be changed further")
-
-	// TODO: when we have lifecycle handling, verify that the relation can
-	// be destroyed. Can't see a clean way to do so currently.
 }
 
 func (s *RelationerSuite) assertNoHook(c *C) {
@@ -367,4 +366,81 @@ func stop(c *C, s stopper) {
 
 func stopHooks(c *C, r *uniter.Relationer) {
 	c.Assert(r.StopHooks(), IsNil)
+}
+
+type RelationerImplicitSuite struct {
+	testing.JujuConnSuite
+}
+
+var _ = Suite(&RelationerImplicitSuite{})
+
+func (s *RelationerImplicitSuite) TestImplicitRelationer(c *C) {
+	// Create a relationer for an implicit endpoint (mysql:juju-info).
+	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
+	c.Assert(err, IsNil)
+	u, err := mysql.AddUnit()
+	c.Assert(err, IsNil)
+	err = u.SetPrivateAddress("blah")
+	c.Assert(err, IsNil)
+	logging, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
+	c.Assert(err, IsNil)
+	eps, err := s.State.InferEndpoints([]string{"logging", "mysql"})
+	c.Assert(err, IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	ru, err := rel.Unit(u)
+	c.Assert(err, IsNil)
+	relsDir := c.MkDir()
+	dir, err := relation.ReadStateDir(relsDir, rel.Id())
+	c.Assert(err, IsNil)
+	hooks := make(chan hook.Info)
+	r := uniter.NewRelationer(ru, dir, hooks)
+	c.Assert(r.IsImplicit(), Equals, true)
+
+	// Join the relationer; check the dir was created and scope was entered.
+	err = r.Join()
+	c.Assert(err, IsNil)
+	fi, err := os.Stat(filepath.Join(relsDir, strconv.Itoa(rel.Id())))
+	c.Assert(err, IsNil)
+	c.Assert(fi.IsDir(), Equals, true)
+	sub, err := logging.Unit("logging/0")
+	c.Assert(err, IsNil)
+	err = sub.SetPrivateAddress("blah")
+	c.Assert(err, IsNil)
+
+	// Join the other side; check no hooks are sent.
+	r.StartHooks()
+	defer func() { c.Assert(r.StopHooks(), IsNil) }()
+	subru, err := rel.Unit(sub)
+	c.Assert(err, IsNil)
+	err = subru.EnterScope(map[string]interface{}{"some": "data"})
+	c.Assert(err, IsNil)
+	s.State.StartSync()
+	select {
+	case <-time.After(50 * time.Millisecond):
+	case <-hooks:
+		c.Fatalf("unexpected hook generated")
+	}
+
+	// Set it to Dying; check that the dir is removed.
+	err = r.SetDying()
+	c.Assert(err, IsNil)
+	_, err = os.Stat(filepath.Join(relsDir, strconv.Itoa(rel.Id())))
+	c.Assert(os.IsNotExist(err), Equals, true)
+
+	// Check that it left scope, by leaving scope on the other side and destroying
+	// the relation.
+	err = subru.LeaveScope()
+	c.Assert(err, IsNil)
+	err = rel.Destroy()
+	c.Assert(err, IsNil)
+	err = rel.Refresh()
+	c.Assert(state.IsNotFound(err), Equals, true)
+
+	// Verify that no other hooks were sent at any stage.
+	select {
+	case <-hooks:
+		c.Fatalf("unexpected hook generated")
+	default:
+	}
 }

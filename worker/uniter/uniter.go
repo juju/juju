@@ -3,6 +3,7 @@ package uniter
 import (
 	"errors"
 	"fmt"
+	corecharm "launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
@@ -40,6 +41,7 @@ type Uniter struct {
 	charm        *charm.GitDir
 	bundles      *charm.BundlesDir
 	deployer     *charm.Deployer
+	s            *State
 	sf           *StateFile
 	rand         *rand.Rand
 
@@ -137,12 +139,29 @@ func (u *Uniter) String() string {
 	return "uniter for " + u.unit.Name()
 }
 
-func (u *Uniter) Dying() <-chan struct{} {
-	return u.tomb.Dying()
+func (u *Uniter) Dead() <-chan struct{} {
+	return u.tomb.Dead()
 }
 
 func (u *Uniter) Wait() error {
 	return u.tomb.Wait()
+}
+
+// writeState saves uniter state with the supplied values, and infers the appropriate
+// value of Started.
+func (u *Uniter) writeState(op Op, step OpStep, hi *hook.Info, url *corecharm.URL) error {
+	s := State{
+		Started:  op == RunHook && hi.Kind == hook.Start || u.s != nil && u.s.Started,
+		Op:       op,
+		OpStep:   step,
+		Hook:     hi,
+		CharmURL: url,
+	}
+	if err := u.sf.Write(s.Started, s.Op, s.OpStep, s.Hook, s.CharmURL); err != nil {
+		return err
+	}
+	u.s = &s
+	return nil
 }
 
 // deploy deploys the supplied charm, and sets follow-up hook operation state
@@ -151,21 +170,17 @@ func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
 	if reason != Install && reason != Upgrade {
 		panic(fmt.Errorf("%q is not a deploy operation", reason))
 	}
-	s, err := u.sf.Read()
-	if err != nil && err != ErrNoStateFile {
-		return err
-	}
 	var hi *hook.Info
-	if s != nil && (s.Op == RunHook || s.Op == Upgrade) {
+	if u.s != nil && (u.s.Op == RunHook || u.s.Op == Upgrade) {
 		// If this upgrade interrupts a RunHook, we need to preserve the hook
 		// info so that we can return to the appropriate error state. However,
 		// if we're resuming (or have force-interrupted) an Upgrade, we also
 		// need to preserve whatever hook info was preserved when we initially
 		// started upgrading, to ensure we still return to the correct state.
-		hi = s.Hook
+		hi = u.s.Hook
 	}
 	url := sch.URL()
-	if s == nil || s.OpStep != Done {
+	if u.s == nil || u.s.OpStep != Done {
 		log.Printf("worker/uniter: fetching charm %q", url)
 		bun, err := u.bundles.Read(sch, u.tomb.Dying())
 		if err != nil {
@@ -175,13 +190,13 @@ func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
 			return err
 		}
 		log.Printf("worker/uniter: deploying charm %q", url)
-		if err = u.sf.Write(reason, Pending, hi, url); err != nil {
+		if err = u.writeState(reason, Pending, hi, url); err != nil {
 			return err
 		}
 		if err = u.deployer.Deploy(u.charm); err != nil {
 			return err
 		}
-		if err = u.sf.Write(reason, Done, hi, url); err != nil {
+		if err = u.writeState(reason, Done, hi, url); err != nil {
 			return err
 		}
 	}
@@ -203,7 +218,7 @@ func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
 			hi.Kind = hook.UpgradeCharm
 		}
 	}
-	return u.sf.Write(RunHook, status, hi, nil)
+	return u.writeState(RunHook, status, hi, nil)
 }
 
 // errHookFailed indicates that a hook failed to execute, but that the Uniter's
@@ -256,7 +271,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	defer srv.Close()
 
 	// Run the hook.
-	if err := u.sf.Write(RunHook, Pending, &hi, nil); err != nil {
+	if err := u.writeState(RunHook, Pending, &hi, nil); err != nil {
 		return err
 	}
 	log.Printf("worker/uniter: running %q hook", hookName)
@@ -264,7 +279,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 		log.Printf("worker/uniter: hook failed: %s", err)
 		return errHookFailed
 	}
-	if err := u.sf.Write(RunHook, Done, &hi, nil); err != nil {
+	if err := u.writeState(RunHook, Done, &hi, nil); err != nil {
 		return err
 	}
 	log.Printf("worker/uniter: ran %q hook", hookName)
@@ -289,7 +304,7 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 	if hi.Kind == hook.ConfigChanged {
 		u.ranConfigChanged = true
 	}
-	if err := u.sf.Write(Continue, Pending, &hi, nil); err != nil {
+	if err := u.writeState(Continue, Pending, &hi, nil); err != nil {
 		return err
 	}
 	log.Printf("worker/uniter: committed %q hook", hi.Kind)
@@ -304,19 +319,19 @@ func (u *Uniter) restoreRelations() error {
 		return err
 	}
 	for id, dir := range dirs {
-		alive := true
+		remove := false
 		rel, err := u.st.Relation(id)
 		if state.IsNotFound(err) {
-			alive = false
+			remove = true
 		} else if err != nil {
 			return err
 		}
-		if err = u.addRelation(rel, dir); err == state.ErrRelationNotAlive {
-			alive = false
+		if err = u.addRelation(rel, dir); err == state.ErrCannotEnterScope {
+			remove = true
 		} else if err != nil {
 			return err
 		}
-		if !alive {
+		if remove {
 			// If the previous execution was interrupted in the process of
 			// joining or departing the relation, the directory will be empty
 			// and the state is sane.
@@ -339,13 +354,12 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 			if err := rel.Refresh(); err != nil {
 				return nil, fmt.Errorf("cannot update relation %q: %v", rel, err)
 			}
-			switch rel.Life() {
-			case state.Dying:
+			if rel.Life() == state.Dying {
 				if err := r.SetDying(); err != nil {
 					return nil, err
+				} else if r.IsImplicit() {
+					delete(u.relationers, id)
 				}
-			case state.Dead:
-				return nil, fmt.Errorf("had reference to dead relation %q", rel)
 			}
 			continue
 		}
@@ -371,11 +385,29 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 			continue
 		}
 		e := dir.Remove()
-		if err != state.ErrRelationNotAlive {
+		if err != state.ErrCannotEnterScope {
 			return nil, err
 		}
 		if e != nil {
 			return nil, e
+		}
+	}
+	if u.unit.IsPrincipal() {
+		return added, nil
+	}
+	// If no Alive relations remain between a subordinate unit's service
+	// and its principal's service, the subordinate must become Dying.
+	keepAlive := false
+	for _, r := range u.relationers {
+		scope := r.ru.Endpoint().RelationScope
+		if scope == corecharm.ScopeContainer && !r.dying {
+			keepAlive = true
+			break
+		}
+	}
+	if !keepAlive {
+		if err := u.unit.EnsureDying(); err != nil {
+			return nil, err
 		}
 	}
 	return added, nil
@@ -384,14 +416,32 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 // addRelation causes the unit agent to join the supplied relation, and to
 // store persistent state in the supplied dir.
 func (u *Uniter) addRelation(rel *state.Relation, dir *relation.StateDir) error {
+	log.Printf("worker/uniter: joining relation %q", rel)
 	ru, err := rel.Unit(u.unit)
 	if err != nil {
 		return err
 	}
 	r := NewRelationer(ru, dir, u.relationHooks)
-	if err = r.Join(); err != nil {
-		return err
+	w := u.unit.Watch()
+	defer watcher.Stop(w, &u.tomb)
+	for {
+		select {
+		case <-u.tomb.Dying():
+			return tomb.ErrDying
+		case _, ok := <-w.Changes():
+			if !ok {
+				return watcher.MustErr(w)
+			}
+			if err := r.Join(); err == state.ErrCannotEnterScopeYet {
+				log.Printf("worker/uniter: cannot enter scope for relation %q; waiting for subordinate to be removed", rel)
+				continue
+			} else if err != nil {
+				return err
+			}
+			log.Printf("worker/uniter: joined relation %q", rel)
+			u.relationers[rel.Id()] = r
+			return nil
+		}
 	}
-	u.relationers[rel.Id()] = r
-	return nil
+	panic("unreachable")
 }

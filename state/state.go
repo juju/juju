@@ -87,7 +87,7 @@ func (e *NotFoundError) Error() string {
 	return e.msg
 }
 
-func notFound(format string, args ...interface{}) error {
+func notFoundf(format string, args ...interface{}) error {
 	return &NotFoundError{fmt.Sprintf(format+" not found", args...)}
 }
 
@@ -99,6 +99,7 @@ func IsNotFound(err error) bool {
 // State represents the state of an environment
 // managed by juju.
 type State struct {
+	info           *Info
 	db             *mgo.Database
 	charms         *mgo.Collection
 	machines       *mgo.Collection
@@ -141,27 +142,32 @@ func (st *State) SetEnvironConfig(cfg *config.Config) error {
 	return err
 }
 
-type WorkerKind string
+// AddMachine adds a new machine configured to run the supplied jobs.
+func (st *State) AddMachine(jobs ...MachineJob) (m *Machine, err error) {
+	return st.addMachine("", jobs)
+}
 
-const (
-	MachinerWorker    WorkerKind = "machiner"
-	ProvisionerWorker WorkerKind = "provisioner"
-	FirewallerWorker  WorkerKind = "firewaller"
-)
-
-// AddMachine adds a new machine that when deployed will have a
-// machine agent running the provided workers.
-func (st *State) AddMachine(workers ...WorkerKind) (m *Machine, err error) {
-	defer trivial.ErrorContextf(&err, "cannot add a new machine")
-	wset := make(map[WorkerKind]bool)
-	for _, w := range workers {
-		if wset[w] {
-			return nil, fmt.Errorf("duplicate worker: %s", w)
-		}
-		wset[w] = true
+// InjectMachine adds a new machine, corresponding to an existing provider
+// instance, configure to run the supplied jobs.
+func (st *State) InjectMachine(instanceId InstanceId, jobs ...MachineJob) (m *Machine, err error) {
+	if instanceId == "" {
+		return nil, fmt.Errorf("cannot inject a machine without an instance id")
 	}
-	if !wset[MachinerWorker] {
-		return nil, fmt.Errorf("new machine must be started with a machine worker")
+	return st.addMachine(instanceId, jobs)
+}
+
+// addMachine implements AddMachine and InjectMachine.
+func (st *State) addMachine(instanceId InstanceId, jobs []MachineJob) (m *Machine, err error) {
+	defer trivial.ErrorContextf(&err, "cannot add a new machine")
+	if len(jobs) == 0 {
+		return nil, fmt.Errorf("no jobs specified")
+	}
+	jset := make(map[MachineJob]bool)
+	for _, j := range jobs {
+		if jset[j] {
+			return nil, fmt.Errorf("duplicate job: %s", j)
+		}
+		jset[j] = true
 	}
 	seq, err := st.sequence("machine")
 	if err != nil {
@@ -169,9 +175,12 @@ func (st *State) AddMachine(workers ...WorkerKind) (m *Machine, err error) {
 	}
 	id := strconv.Itoa(seq)
 	mdoc := machineDoc{
-		Id:      id,
-		Life:    Alive,
-		Workers: workers,
+		Id:   id,
+		Life: Alive,
+		Jobs: jobs,
+	}
+	if instanceId != "" {
+		mdoc.InstanceId = instanceId
 	}
 	ops := []txn.Op{{
 		C:      st.machines.Name,
@@ -259,7 +268,7 @@ func (st *State) Machine(id string) (*Machine, error) {
 	sel := D{{"_id", id}}
 	err := st.machines.Find(sel).One(mdoc)
 	if err == mgo.ErrNotFound {
-		return nil, notFound("machine %s", id)
+		return nil, notFoundf("machine %s", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get machine %s: %v", id, err)
@@ -290,7 +299,7 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	cdoc := &charmDoc{}
 	err := st.charms.Find(D{{"_id", curl}}).One(cdoc)
 	if err == mgo.ErrNotFound {
-		return nil, notFound("charm %q", curl)
+		return nil, notFoundf("charm %q", curl)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get charm %q: %v", curl, err)
@@ -330,29 +339,6 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	return svc, nil
 }
 
-// RemoveService removes a service from the state.
-func (st *State) RemoveService(svc *Service) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot remove service %q", svc)
-	if svc.doc.Life != Dead {
-		return fmt.Errorf("service is not dead")
-	}
-	ops := []txn.Op{{
-		C:      st.services.Name,
-		Id:     svc.doc.Name,
-		Assert: D{{"life", Dead}},
-		Remove: true,
-	}, {
-		C:      st.settings.Name,
-		Id:     svc.globalKey(),
-		Remove: true,
-	}}
-	if err := st.runner.Run(ops, "", nil); err != nil {
-		// If aborted, the service is either dead or recreated.
-		return onAbort(err, nil)
-	}
-	return nil
-}
-
 // Service returns a service state by name.
 func (st *State) Service(name string) (service *Service, err error) {
 	if !IsServiceName(name) {
@@ -362,7 +348,7 @@ func (st *State) Service(name string) (service *Service, err error) {
 	sel := D{{"_id", name}}
 	err = st.services.Find(sel).One(sdoc)
 	if err == mgo.ErrNotFound {
-		return nil, notFound("service %q", name)
+		return nil, notFoundf("service %q", name)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get service %q: %v", name, err)
@@ -387,8 +373,7 @@ func (st *State) AllServices() (services []*Service, err error) {
 // There must be 1 or 2 supplied names, of the form <service>[:<relation>].
 // If the supplied names uniquely specify a possible relation, or if they
 // uniquely specify a possible relation once all implicit relations have been
-// filtered, the returned endpoints
-// corresponding to that relation will be returned,
+// filtered, the endpoints corresponding to that relation will be returned.
 func (st *State) InferEndpoints(names []string) ([]Endpoint, error) {
 	// Collect all possible sane endpoint lists.
 	var candidates [][]Endpoint
@@ -431,7 +416,7 @@ func (st *State) InferEndpoints(names []string) ([]Endpoint, error) {
 outer:
 	for _, cand := range candidates {
 		for _, ep := range cand {
-			if ep.isImplicit() {
+			if ep.IsImplicit() {
 				continue outer
 			}
 		}
@@ -521,7 +506,7 @@ func (st *State) AddRelation(endpoints ...Endpoint) (r *Relation, err error) {
 		ops = append(ops, txn.Op{
 			C:      st.services.Name,
 			Id:     v.ServiceName,
-			Assert: isAlive,
+			Assert: isAliveDoc,
 			Update: D{{"$inc", D{{"relationcount", 1}}}},
 		})
 	}
@@ -569,7 +554,7 @@ func (st *State) EndpointsRelation(endpoints ...Endpoint) (*Relation, error) {
 	key := relationKey(endpoints)
 	err := st.relations.Find(D{{"_id", key}}).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, notFound("relation %q", key)
+		return nil, notFoundf("relation %q", key)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get relation %q: %v", key, err)
@@ -582,7 +567,7 @@ func (st *State) Relation(id int) (*Relation, error) {
 	doc := relationDoc{}
 	err := st.relations.Find(D{{"id", id}}).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, notFound("relation %d", id)
+		return nil, notFoundf("relation %d", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get relation %d: %v", id, err)
@@ -598,7 +583,7 @@ func (st *State) Unit(name string) (*Unit, error) {
 	doc := unitDoc{}
 	err := st.units.FindId(name).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, notFound("unit %q", name)
+		return nil, notFoundf("unit %q", name)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get unit %q: %v", name, err)
@@ -629,7 +614,7 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 		for {
 			// TODO(rog) take out a lease on the new machine
 			// so that we don't have a race here.
-			m, err := st.AddMachine(MachinerWorker)
+			m, err := st.AddMachine(JobHostUnits)
 			if err != nil {
 				return err
 			}
@@ -659,11 +644,11 @@ func (st *State) Sync() {
 	st.pwatcher.Sync()
 }
 
-// SetAdminPassword sets the administrative password
+// SetAdminMongoPassword sets the administrative password
 // to access the state. If the password is non-empty,
 // all subsequent attempts to access the state must
 // be authorized; otherwise no authorization is required.
-func (st *State) SetAdminPassword(password string) error {
+func (st *State) SetAdminMongoPassword(password string) error {
 	admin := st.db.Session.DB("admin")
 	if password != "" {
 		// On 2.2+, we get a "need to login" error without a code when
@@ -683,7 +668,7 @@ func (st *State) SetAdminPassword(password string) error {
 	return nil
 }
 
-func (st *State) setPassword(name, password string) error {
+func (st *State) setMongoPassword(name, password string) error {
 	if err := st.db.AddUser(name, password, false); err != nil {
 		return fmt.Errorf("cannot set password in juju db for %q: %v", name, err)
 	}

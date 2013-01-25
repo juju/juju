@@ -163,7 +163,7 @@ func (c *Settings) Write() ([]ItemChange, error) {
 	}}
 	err := c.st.runner.Run(ops, "", nil)
 	if err == txn.ErrAborted {
-		return nil, notFound("settings")
+		return nil, notFoundf("settings")
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot write settings: %v", err)
@@ -194,7 +194,7 @@ func (c *Settings) Read() error {
 	if err == mgo.ErrNotFound {
 		c.disk = nil
 		c.core = make(map[string]interface{})
-		return notFound("settings")
+		return notFoundf("settings")
 	}
 	if err != nil {
 		return fmt.Errorf("cannot read settings: %v", err)
@@ -217,16 +217,20 @@ func readSettings(st *State, key string) (*Settings, error) {
 
 var errSettingsExist = fmt.Errorf("cannot overwrite existing settings")
 
+func createSettingsOp(st *State, key string, values map[string]interface{}) txn.Op {
+	return txn.Op{
+		C:      st.settings.Name,
+		Id:     key,
+		Assert: txn.DocMissing,
+		Insert: values,
+	}
+}
+
 // createSettings writes an initial config node.
 func createSettings(st *State, key string, values map[string]interface{}) (*Settings, error) {
 	s := newSettings(st, key)
 	s.core = copyMap(values)
-	ops := []txn.Op{{
-		C:      s.st.settings.Name,
-		Id:     s.key,
-		Assert: txn.DocMissing,
-		Insert: s.core,
-	}}
+	ops := []txn.Op{createSettingsOp(st, key, values)}
 	err := s.st.runner.Run(ops, "", nil)
 	if err == txn.ErrAborted {
 		return nil, errSettingsExist
@@ -241,7 +245,41 @@ func createSettings(st *State, key string, values map[string]interface{}) (*Sett
 func removeSettings(st *State, key string) error {
 	err := st.settings.RemoveId(key)
 	if err == mgo.ErrNotFound {
-		return notFound("settings")
+		return notFoundf("settings")
 	}
 	return nil
+}
+
+// replaceSettingsOp returns a txn.Op that deletes the document's contents and
+// replaces it with the supplied values, and a function that should be called on
+// txn failure to determine whether this operation failed (due to a concurrent
+// settings change).
+func replaceSettingsOp(st *State, key string, values map[string]interface{}) (txn.Op, func() (bool, error), error) {
+	s, err := readSettings(st, key)
+	if err != nil {
+		return txn.Op{}, nil, err
+	}
+	deletes := map[string]int{}
+	for k := range s.disk {
+		if _, found := values[k]; !found {
+			deletes[k] = 1
+		}
+	}
+	op := txn.Op{
+		C:      st.settings.Name,
+		Id:     key,
+		Assert: D{{"txn-revno", s.txnRevno}},
+		Update: D{
+			{"$set", values},
+			{"$unset", deletes},
+		},
+	}
+	assertFailed := func() (bool, error) {
+		latest, err := readSettings(st, key)
+		if err != nil {
+			return false, err
+		}
+		return latest.txnRevno != s.txnRevno, nil
+	}
+	return op, assertFailed, nil
 }

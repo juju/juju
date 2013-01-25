@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state/presence"
@@ -82,6 +83,7 @@ type unitDoc struct {
 	Status         UnitStatus
 	StatusInfo     string
 	TxnRevno       int64 `bson:"txn-revno"`
+	PasswordHash   string
 }
 
 // Unit represents the state of a service unit.
@@ -131,7 +133,7 @@ func (u *Unit) Life() Life {
 // It returns a *NotFoundError if the tools have not yet been set.
 func (u *Unit) AgentTools() (*Tools, error) {
 	if u.doc.Tools == nil {
-		return nil, notFound("agent tools for unit %q", u)
+		return nil, notFoundf("agent tools for unit %q", u)
 	}
 	tools := *u.doc.Tools
 	return &tools, nil
@@ -146,7 +148,7 @@ func (u *Unit) SetAgentTools(t *Tools) (err error) {
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
-		Assert: notDead,
+		Assert: notDeadDoc,
 		Update: D{{"$set", D{{"tools", t}}}},
 	}}
 	if err := u.st.runner.Run(ops, "", nil); err != nil {
@@ -157,11 +159,34 @@ func (u *Unit) SetAgentTools(t *Tools) (err error) {
 	return nil
 }
 
-// SetPassword sets the password the agent responsible for the unit
+// SetMongoPassword sets the password the agent responsible for the unit
 // should use to communicate with the state servers.  Previous passwords
 // are invalidated.
+func (u *Unit) SetMongoPassword(password string) error {
+	return u.st.setMongoPassword(u.EntityName(), password)
+}
+
+// SetPassword sets the password for the machine's agent.
 func (u *Unit) SetPassword(password string) error {
-	return u.st.setPassword(u.EntityName(), password)
+	hp := trivial.PasswordHash(password)
+	ops := []txn.Op{{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: notDeadDoc,
+		Update: D{{"$set", D{{"passwordhash", hp}}}},
+	}}
+	err := u.st.runner.Run(ops, "", nil)
+	if err != nil {
+		return fmt.Errorf("cannot set password of unit %q: %v", u, onAbort(err, errNotAlive))
+	}
+	u.doc.PasswordHash = hp
+	return nil
+}
+
+// PasswordValid returns whether the given password is valid
+// for the given unit.
+func (u *Unit) PasswordValid(password string) bool {
+	return trivial.PasswordHash(password) == u.doc.PasswordHash
 }
 
 // EnsureDying sets the unit lifecycle to Dying if it is Alive.
@@ -175,15 +200,40 @@ func (u *Unit) EnsureDying() error {
 	return nil
 }
 
+var ErrUnitHasSubordinates = errors.New("unit has subordinates")
+
 // EnsureDead sets the unit lifecycle to Dead if it is Alive or Dying.
-// It does nothing otherwise.
-func (u *Unit) EnsureDead() error {
-	err := ensureDead(u.st, u.st.units, u.doc.Name, "unit", nil, "")
-	if err != nil {
+// It does nothing otherwise. If the unit has subordinates, it will
+// return ErrUnitHasSubordinates.
+func (u *Unit) EnsureDead() (err error) {
+	if u.doc.Life == Dead {
+		return nil
+	}
+	defer func() {
+		if err == nil {
+			u.doc.Life = Dead
+		}
+	}()
+	ops := []txn.Op{{
+		C:  u.st.units.Name,
+		Id: u.doc.Name,
+		Assert: append(notDeadDoc, bson.DocElem{
+			"$or", []D{
+				{{"subordinates", D{{"$size", 0}}}},
+				{{"subordinates", D{{"$exists", false}}}},
+			},
+		}),
+		Update: D{{"$set", D{{"life", Dead}}}},
+	}}
+	if err := u.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
 		return err
 	}
-	u.doc.Life = Dead
-	return nil
+	if notDead, err := isNotDead(u.st.units, u.doc.Name); err != nil {
+		return err
+	} else if !notDead {
+		return nil
+	}
+	return ErrUnitHasSubordinates
 }
 
 // Resolved returns the resolved mode for the unit.
@@ -197,20 +247,32 @@ func (u *Unit) IsPrincipal() bool {
 	return u.doc.Principal == ""
 }
 
-// PublicAddress returns the public address of the unit.
-func (u *Unit) PublicAddress() (string, error) {
-	if u.doc.PublicAddress == "" {
-		return "", fmt.Errorf("public address of unit %q not found", u)
-	}
-	return u.doc.PublicAddress, nil
+// SubordinateNames returns the names of any subordinate units.
+func (u *Unit) SubordinateNames() []string {
+	names := make([]string, len(u.doc.Subordinates))
+	copy(names, u.doc.Subordinates)
+	return names
 }
 
-// PrivateAddress returns the public address of the unit.
-func (u *Unit) PrivateAddress() (string, error) {
-	if u.doc.PrivateAddress == "" {
-		return "", fmt.Errorf("private address of unit %q not found", u)
+// DeployerName returns the entity name of the agent responsible for deploying
+// the unit. If no such entity can be determined, false is returned.
+func (u *Unit) DeployerName() (string, bool) {
+	if u.doc.Principal != "" {
+		return UnitEntityName(u.doc.Principal), true
+	} else if u.doc.MachineId != "" {
+		return MachineEntityName(u.doc.MachineId), true
 	}
-	return u.doc.PrivateAddress, nil
+	return "", false
+}
+
+// PublicAddress returns the public address of the unit and whether it is valid.
+func (u *Unit) PublicAddress() (string, bool) {
+	return u.doc.PublicAddress, u.doc.PublicAddress != ""
+}
+
+// PrivateAddress returns the private address of the unit and whether it is valid.
+func (u *Unit) PrivateAddress() (string, bool) {
+	return u.doc.PrivateAddress, u.doc.PrivateAddress != ""
 }
 
 // Refresh refreshes the contents of the Unit from the underlying
@@ -218,7 +280,7 @@ func (u *Unit) PrivateAddress() (string, error) {
 func (u *Unit) Refresh() error {
 	err := u.st.units.FindId(u.doc.Name).One(&u.doc)
 	if err == mgo.ErrNotFound {
-		return notFound("unit %q", u)
+		return notFoundf("unit %q", u)
 	}
 	if err != nil {
 		return fmt.Errorf("cannot refresh unit %q: %v", u, err)
@@ -262,7 +324,7 @@ func (u *Unit) SetStatus(status UnitStatus, info string) error {
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
-		Assert: notDead,
+		Assert: notDeadDoc,
 		Update: D{{"$set", D{{"status", status}, {"statusinfo", info}}}},
 	}}
 	err := u.st.runner.Run(ops, "", nil)
@@ -281,7 +343,7 @@ func (u *Unit) OpenPort(protocol string, number int) (err error) {
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
-		Assert: notDead,
+		Assert: notDeadDoc,
 		Update: D{{"$addToSet", D{{"ports", port}}}},
 	}}
 	err = u.st.runner.Run(ops, "", nil)
@@ -307,7 +369,7 @@ func (u *Unit) ClosePort(protocol string, number int) (err error) {
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
-		Assert: notDead,
+		Assert: notDeadDoc,
 		Update: D{{"$pull", D{{"ports", port}}}},
 	}}
 	err = u.st.runner.Run(ops, "", nil)
@@ -344,7 +406,7 @@ func (u *Unit) SetCharm(ch *Charm) (err error) {
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
-		Assert: notDead,
+		Assert: notDeadDoc,
 		Update: D{{"$set", D{{"charmurl", ch.URL()}}}},
 	}}
 	if err := u.st.runner.Run(ops, "", nil); err != nil {
@@ -423,7 +485,7 @@ func (u *Unit) AssignedMachineId() (id string, err error) {
 	pudoc := unitDoc{}
 	err = u.st.units.Find(D{{"_id", u.doc.Principal}}).One(&pudoc)
 	if err == mgo.ErrNotFound {
-		return "", notFound("cannot get machine id of unit %q: principal %q %v", u, u.doc.Principal)
+		return "", notFoundf("cannot get machine id of unit %q: principal %q", u, u.doc.Principal)
 	} else if err != nil {
 		return "", err
 	}
@@ -457,13 +519,23 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 	if u.doc.Principal != "" {
 		return fmt.Errorf("unit is a subordinate")
 	}
-	assert := append(isAlive, D{
+	canHost := false
+	for _, j := range m.doc.Jobs {
+		if j == JobHostUnits {
+			canHost = true
+			break
+		}
+	}
+	if !canHost {
+		return fmt.Errorf("machine %q cannot host units", m)
+	}
+	assert := append(isAliveDoc, D{
 		{"$or", []D{
 			{{"machineid", ""}},
 			{{"machineid", m.Id()}},
 		}},
 	}...)
-	massert := isAlive
+	massert := isAliveDoc
 	if unused {
 		massert = append(massert, D{{"principals", D{{"$size", 0}}}}...)
 	}
@@ -519,19 +591,19 @@ var noUnusedMachines = errors.New("all machines in use")
 // AssignToUnusedMachine assigns u to a machine without other units.
 // If there are no unused machines besides machine 0, an error is returned.
 func (u *Unit) AssignToUnusedMachine() (m *Machine, err error) {
-	// Select all machines with no principals except the bootstrap machine.
-	// TODO shouldn't this be "machines not running state/provisioner/firewaller tasks?"
-	sel := D{{"principals", D{{"$size", 0}}}, {"_id", D{{"$ne", "0"}}}}
+	// Select all machines that can accept principal units but have none assigned.
+	sel := D{{"principals", D{{"$size", 0}}}, {"jobs", JobHostUnits}}
+	query := u.st.machines.Find(sel)
+
 	// TODO use Batch(1). See https://bugs.launchpad.net/mgo/+bug/1053509
 	// TODO(rog) Fix so this is more efficient when there are concurrent uses.
 	// Possible solution: pick the highest and the smallest id of all
 	// unused machines, and try to assign to the first one >= a random id in the
 	// middle.
-	iter := u.st.machines.Find(sel).Batch(2).Prefetch(0).Iter()
+	iter := query.Batch(2).Prefetch(0).Iter()
 	var mdoc machineDoc
 	for iter.Next(&mdoc) {
 		m := newMachine(u.st, &mdoc)
-
 		err := u.assignToMachine(m, true)
 		if err == nil {
 			return m, nil
@@ -539,6 +611,9 @@ func (u *Unit) AssignToUnusedMachine() (m *Machine, err error) {
 		if err != inUseErr && err != machineDeadErr {
 			return nil, fmt.Errorf("cannot assign unit %q to unused machine: %v", u, err)
 		}
+	}
+	if err := iter.Err(); err != nil {
+		return nil, err
 	}
 	return nil, noUnusedMachines
 }
@@ -564,7 +639,7 @@ func (u *Unit) UnassignFromMachine() (err error) {
 	}
 	err = u.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, onAbort(err, notFound("machine")))
+		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, onAbort(err, notFoundf("machine")))
 	}
 	u.doc.MachineId = ""
 	return nil
@@ -579,7 +654,7 @@ func (u *Unit) SetPublicAddress(address string) (err error) {
 		Update: D{{"$set", D{{"publicaddress", address}}}},
 	}}
 	if err := u.st.runner.Run(ops, "", nil); err != nil {
-		return fmt.Errorf("cannot set public address of unit %q: %v", u, onAbort(err, notFound("machine")))
+		return fmt.Errorf("cannot set public address of unit %q: %v", u, onAbort(err, notFoundf("machine")))
 	}
 	u.doc.PublicAddress = address
 	return nil
@@ -595,7 +670,7 @@ func (u *Unit) SetPrivateAddress(address string) error {
 	}}
 	err := u.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot set private address of unit %q: %v", u, notFound("unit"))
+		return fmt.Errorf("cannot set private address of unit %q: %v", u, notFoundf("unit"))
 	}
 	u.doc.PrivateAddress = address
 	return nil
@@ -613,7 +688,7 @@ func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 	default:
 		return fmt.Errorf("invalid error resolution mode: %q", mode)
 	}
-	assert := append(notDead, D{{"resolved", ResolvedNone}}...)
+	assert := append(notDeadDoc, D{{"resolved", ResolvedNone}}...)
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
@@ -649,7 +724,7 @@ func (u *Unit) ClearResolved() error {
 	}}
 	err := u.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot clear resolved mode for unit %q: %v", u, notFound("unit"))
+		return fmt.Errorf("cannot clear resolved mode for unit %q: %v", u, notFoundf("unit"))
 	}
 	u.doc.Resolved = ResolvedNone
 	return nil

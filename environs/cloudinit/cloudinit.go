@@ -6,27 +6,20 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/upstart"
 	"path"
-	"strings"
 )
 
-// TODO(dfc) duplicated from environs/ec2
-
-const mgoPort = 37017
-
-var mgoPortSuffix = fmt.Sprintf(":%d", mgoPort)
-
 // MachineConfig represents initialization information for a new juju machine.
-// Creation of cloudinit data from this struct is largely provider-independent,
-// but we'll keep it internal until we need to factor it out.
 type MachineConfig struct {
-	// StateServer specifies whether the new machine will run a ZooKeeper
-	// or MongoDB instance.
+	// StateServer specifies whether the new machine will run the
+	// mongo and API servers.
 	StateServer bool
 
 	// StateServerCert and StateServerKey hold the state server
@@ -34,6 +27,16 @@ type MachineConfig struct {
 	// StateServer is set, and ignored otherwise.
 	StateServerCert []byte
 	StateServerKey  []byte
+
+	// MongoPort specifies the TCP port that will be used
+	// by the MongoDB server. It must be non-zero
+	// if StateServer is true.
+	MongoPort int
+
+	// APIPort specifies the TCP port that will be used
+	// by the API server. It must be non-zero
+	// if StateServer is true.
+	APIPort int
 
 	// InstanceIdAccessor holds bash code that evaluates to the current instance id.
 	InstanceIdAccessor string
@@ -48,6 +51,13 @@ type MachineConfig struct {
 	// The entity name must match that of the machine being started,
 	// or be empty when starting a state server.
 	StateInfo *state.Info
+
+	// APIInfo holds the means for the new instance to communicate with the
+	// juju state API. Unless the new machine is running a state server (StateServer is
+	// set), there must be at least one state server address supplied.
+	// The entity name must match that of the machine being started,
+	// or be empty when starting a state server.
+	APIInfo *api.Info
 
 	// Tools is juju tools to be used on the new machine.
 	Tools *state.Tools
@@ -113,17 +123,10 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	if true || log.Debug {
 		debugFlag = " --debug"
 	}
-	addScripts(c,
-		fmt.Sprintf("echo %s > %s", shquote(string(cfg.StateInfo.CACert)), shquote(caCertPath(cfg))),
-	)
 
 	if cfg.StateServer {
-		addScripts(c,
-			fmt.Sprintf("echo %s > %s",
-				shquote(string(cfg.StateServerCert)+string(cfg.StateServerKey)), shquote(serverPEMPath(cfg))),
-			"chmod 600 "+serverPEMPath(cfg),
-		)
-
+		certKey := string(cfg.StateServerCert) + string(cfg.StateServerKey)
+		addFile(c, cfg.dataFile("server.pem"), certKey, 0600)
 		// TODO The public bucket must come from the environment configuration.
 		b := cfg.Tools.Binary
 		url := fmt.Sprintf("http://juju-dist.s3.amazonaws.com/tools/mongo-2.2.0-%s-%s.tgz", b.Series, b.Arch)
@@ -134,17 +137,24 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 		if err := addMongoToBoot(c, cfg); err != nil {
 			return nil, err
 		}
-		addScripts(c, cfg.jujuTools()+"/jujud bootstrap-state"+
-			" --instance-id "+cfg.InstanceIdAccessor+
-			" --env-config "+shquote(base64yaml(cfg.Config))+
-			" --state-servers localhost"+mgoPortSuffix+
-			" --ca-cert "+shquote(caCertPath(cfg))+
-			" --initial-password "+shquote(cfg.StateInfo.Password)+
-			debugFlag,
+		// We temporarily give bootstrap-state a directory
+		// of its own so that it can get the state info via the
+		// same mechanism as other jujud commands.
+		acfg, err := addAgentInfo(c, cfg, "bootstrap")
+		if err != nil {
+			return nil, err
+		}
+		addScripts(c,
+			cfg.jujuTools()+"/jujud bootstrap-state"+
+				" --data-dir "+shquote(cfg.DataDir)+
+				" --instance-id "+cfg.InstanceIdAccessor+
+				" --env-config "+shquote(base64yaml(cfg.Config))+
+				debugFlag,
+			"rm -rf "+shquote(acfg.Dir()),
 		)
 	}
 
-	if err := addAgentToBoot(c, cfg, "machine",
+	if _, err := addAgentToBoot(c, cfg, "machine",
 		state.MachineEntityName(cfg.MachineId),
 		fmt.Sprintf("--machine-id %s "+debugFlag, cfg.MachineId)); err != nil {
 		return nil, err
@@ -157,54 +167,91 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	return c, nil
 }
 
-func caCertPath(cfg *MachineConfig) string {
-	return path.Join(cfg.DataDir, "ca-cert.pem")
+func addFile(c *cloudinit.Config, filename, data string, mode uint) {
+	p := shquote(filename)
+	addScripts(c,
+		fmt.Sprintf("echo %s > %s", shquote(data), p),
+		fmt.Sprintf("chmod %o %s", mode, p),
+	)
 }
 
-func serverPEMPath(cfg *MachineConfig) string {
-	return path.Join(cfg.DataDir, "server.pem")
+func (cfg *MachineConfig) dataFile(name string) string {
+	return path.Join(cfg.DataDir, name)
 }
 
-func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, name, args string) error {
+func (cfg *MachineConfig) agentConfig(entityName string) *agent.Conf {
+	info := *cfg.StateInfo
+	apiInfo := *cfg.APIInfo
+	c := &agent.Conf{
+		DataDir:         cfg.DataDir,
+		StateInfo:       &info,
+		APIInfo:         &apiInfo,
+		StateServerCert: cfg.StateServerCert,
+		StateServerKey:  cfg.StateServerKey,
+		MongoPort:       cfg.MongoPort,
+		APIPort:         cfg.APIPort,
+	}
+	c.StateInfo.Addrs = cfg.stateHostAddrs()
+	c.StateInfo.EntityName = entityName
+	c.StateInfo.Password = ""
+	c.OldPassword = cfg.StateInfo.Password
+
+	c.APIInfo.Addrs = cfg.apiHostAddrs()
+	c.APIInfo.EntityName = entityName
+	c.APIInfo.Password = ""
+
+	return c
+}
+
+// addAgentInfo adds agent-required information to the agent's directory
+// and returns the agent directory name.
+func addAgentInfo(c *cloudinit.Config, cfg *MachineConfig, entityName string) (*agent.Conf, error) {
+	acfg := cfg.agentConfig(entityName)
+	cmds, err := acfg.WriteCommands()
+	if err != nil {
+		return nil, err
+	}
+	addScripts(c, cmds...)
+	return acfg, nil
+}
+
+func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, entityName, args string) (*agent.Conf, error) {
+	acfg, err := addAgentInfo(c, cfg, entityName)
+	if err != nil {
+		return nil, err
+	}
+
 	// Make the agent run via a symbolic link to the actual tools
 	// directory, so it can upgrade itself without needing to change
 	// the upstart script.
-	toolsDir := environs.AgentToolsDir(cfg.DataDir, name)
+	toolsDir := environs.AgentToolsDir(cfg.DataDir, entityName)
 	// TODO(dfc) ln -nfs, so it doesn't fail if for some reason that the target already exists
 	addScripts(c, fmt.Sprintf("ln -s %v %s", cfg.Tools.Binary, shquote(toolsDir)))
 
-	agentDir := environs.AgentDir(cfg.DataDir, name)
-	addScripts(c, fmt.Sprintf("mkdir -p %s", shquote(agentDir)))
-	svc := upstart.NewService("jujud-" + name)
-	logPath := fmt.Sprintf("/var/log/juju/%s.log", name)
+	svc := upstart.NewService("jujud-" + entityName)
+	logPath := fmt.Sprintf("/var/log/juju/%s.log", entityName)
 	cmd := fmt.Sprintf(
 		"%s/jujud %s"+
-			" --state-servers '%s'"+
-			" --ca-cert '%s'"+
 			" --log-file %s"+
 			" --data-dir '%s'"+
-			" --initial-password '%s'"+
 			" %s",
 		toolsDir, kind,
-		cfg.stateHostAddrs(),
-		caCertPath(cfg),
 		logPath,
 		cfg.DataDir,
-		cfg.StateInfo.Password,
 		args,
 	)
 	conf := &upstart.Conf{
 		Service: *svc,
-		Desc:    fmt.Sprintf("juju %s agent", name),
+		Desc:    fmt.Sprintf("juju %s agent", entityName),
 		Cmd:     cmd,
 		Out:     logPath,
 	}
 	cmds, err := conf.InstallCommands()
 	if err != nil {
-		return fmt.Errorf("cannot make cloud-init upstart script for the %s agent: %v", name, err)
+		return nil, fmt.Errorf("cannot make cloud-init upstart script for the %s agent: %v", entityName, err)
 	}
 	addScripts(c, cmds...)
-	return nil
+	return acfg, nil
 }
 
 func addMongoToBoot(c *cloudinit.Config, cfg *MachineConfig) error {
@@ -223,10 +270,10 @@ func addMongoToBoot(c *cloudinit.Config, cfg *MachineConfig) error {
 			" --auth" +
 			" --dbpath=/var/lib/juju/db" +
 			" --sslOnNormalPorts" +
-			" --sslPEMKeyFile " + shquote(serverPEMPath(cfg)) +
+			" --sslPEMKeyFile " + shquote(cfg.dataFile("server.pem")) +
 			" --sslPEMKeyPassword ignored" +
 			" --bind_ip 0.0.0.0" +
-			" --port " + fmt.Sprint(mgoPort) +
+			" --port " + fmt.Sprint(cfg.MongoPort) +
 			" --noprealloc" +
 			" --smallfiles",
 	}
@@ -251,22 +298,30 @@ func (cfg *MachineConfig) jujuTools() string {
 	return environs.ToolsDir(cfg.DataDir, cfg.Tools.Binary)
 }
 
-func (cfg *MachineConfig) stateHostAddrs() string {
+func (cfg *MachineConfig) stateHostAddrs() []string {
 	var hosts []string
 	if cfg.StateServer {
-		hosts = append(hosts, "localhost"+mgoPortSuffix)
+		hosts = append(hosts, fmt.Sprintf("localhost:%d", cfg.MongoPort))
 	}
 	if cfg.StateInfo != nil {
 		hosts = append(hosts, cfg.StateInfo.Addrs...)
 	}
-	return strings.Join(hosts, ",")
+	return hosts
 }
 
-// shquote quotes s so that when read by bash, no metacharacters
-// within s will be interpreted as such.
-func shquote(s string) string {
-	// single-quote becomes single-quote, double-quote, single-quote, double-quote, single-quote
-	return `'` + strings.Replace(s, `'`, `'"'"'`, -1) + `'`
+func (cfg *MachineConfig) apiHostAddrs() []string {
+	var hosts []string
+	if cfg.StateServer {
+		hosts = append(hosts, fmt.Sprintf("localhost:%d", cfg.APIPort))
+	}
+	if cfg.StateInfo != nil {
+		hosts = append(hosts, cfg.APIInfo.Addrs...)
+	}
+	return hosts
+}
+
+func shquote(p string) string {
+	return trivial.ShQuote(p)
 }
 
 type requiresError string
@@ -298,6 +353,12 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 	if len(cfg.StateInfo.CACert) == 0 {
 		return fmt.Errorf("missing CA certificate")
 	}
+	if cfg.APIInfo == nil {
+		return fmt.Errorf("missing API info")
+	}
+	if len(cfg.APIInfo.CACert) == 0 {
+		return fmt.Errorf("missing API CA certificate")
+	}
 	if cfg.StateServer {
 		if cfg.InstanceIdAccessor == "" {
 			return fmt.Errorf("missing instance id accessor")
@@ -308,11 +369,20 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		if cfg.StateInfo.EntityName != "" {
 			return fmt.Errorf("entity name must be blank when starting a state server")
 		}
+		if cfg.APIInfo.EntityName != "" {
+			return fmt.Errorf("entity name must be blank when starting a state server")
+		}
 		if len(cfg.StateServerCert) == 0 {
 			return fmt.Errorf("missing state server certificate")
 		}
 		if len(cfg.StateServerKey) == 0 {
 			return fmt.Errorf("missing state server private key")
+		}
+		if cfg.MongoPort == 0 {
+			return fmt.Errorf("missing mongo port")
+		}
+		if cfg.APIPort == 0 {
+			return fmt.Errorf("missing API port")
 		}
 	} else {
 		if len(cfg.StateInfo.Addrs) == 0 {
@@ -321,10 +391,11 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		if cfg.StateInfo.EntityName != state.MachineEntityName(cfg.MachineId) {
 			return fmt.Errorf("entity name must match started machine")
 		}
-	}
-	for _, r := range cfg.StateInfo.Password {
-		if r == '\'' || r == '\\' || r < 32 {
-			return fmt.Errorf("password has disallowed characters")
+		if len(cfg.APIInfo.Addrs) == 0 {
+			return fmt.Errorf("missing API hosts")
+		}
+		if cfg.APIInfo.EntityName != state.MachineEntityName(cfg.MachineId) {
+			return fmt.Errorf("entity name must match started machine")
 		}
 	}
 	return nil
