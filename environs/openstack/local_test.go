@@ -3,7 +3,8 @@ package openstack_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goose/identity"
-	"launchpad.net/goose/testservices/openstack"
+	testopenstack "launchpad.net/goose/testservices/openstack"
+	"launchpad.net/juju-core/environs/openstack"
 	"net/http"
 	"net/http/httptest"
 )
@@ -34,6 +35,7 @@ type localLiveSuite struct {
 func (s *localLiveSuite) SetUpSuite(c *C) {
 	c.Logf("Using openstack service test doubles")
 
+	openstack.ShortTimeouts(true)
 	// Set up the HTTP server.
 	s.Server = httptest.NewServer(nil)
 	s.oldHandler = s.Server.Config.Handler
@@ -41,8 +43,8 @@ func (s *localLiveSuite) SetUpSuite(c *C) {
 	s.Server.Config.Handler = s.Mux
 
 	s.cred.URL = s.Server.URL
-	openstack := openstack.New(s.cred)
-	openstack.SetupHTTP(s.Mux)
+	srv := testopenstack.New(s.cred)
+	srv.SetupHTTP(s.Mux)
 
 	s.LiveTests.SetUpSuite(c)
 }
@@ -52,6 +54,7 @@ func (s *localLiveSuite) TearDownSuite(c *C) {
 	s.Mux = nil
 	s.Server.Config.Handler = s.oldHandler
 	s.Server.Close()
+	openstack.ShortTimeouts(false)
 }
 
 func (s *localLiveSuite) SetUpTest(c *C) {

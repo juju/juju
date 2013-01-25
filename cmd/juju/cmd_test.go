@@ -361,5 +361,5 @@ func (*CmdSuite) TestDestroyUnitCommandInit(c *C) {
 	c.Assert(err, ErrorMatches, "no units specified")
 	// not a unit
 	_, err = initDestroyUnitCommand("seven/nine")
-	c.Assert(err, ErrorMatches, `invalid unit name: "seven/nine"`)
+	c.Assert(err, ErrorMatches, `invalid unit name "seven/nine"`)
 }

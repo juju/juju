@@ -97,7 +97,7 @@ func (l *unitLife) setup(s *LifeSuite, c *C) state.Living {
 }
 
 func (l *unitLife) teardown(s *LifeSuite, c *C) {
-	err := s.svc.RemoveUnit(l.unit)
+	err := l.unit.Remove()
 	c.Assert(err, IsNil)
 }
 
@@ -117,7 +117,7 @@ func (l *machineLife) setup(s *LifeSuite, c *C) state.Living {
 }
 
 func (l *machineLife) teardown(s *LifeSuite, c *C) {
-	err := s.State.RemoveMachine(l.machine.Id())
+	err := l.machine.Remove()
 	c.Assert(err, IsNil)
 }
 
@@ -147,7 +147,7 @@ func (s *LifeSuite) TestLifecycleStateChanges(c *C) {
 			s.prepareFixture(living, lfix, v.cached, v.dbinitial, c)
 			switch v.desired {
 			case state.Dying:
-				err := living.EnsureDying()
+				err := living.Destroy()
 				c.Assert(err, IsNil)
 			case state.Dead:
 				err := living.EnsureDead()
@@ -172,7 +172,7 @@ const (
 
 type lifer interface {
 	EnsureDead() error
-	EnsureDying() error
+	Destroy() error
 	Life() state.Life
 }
 
@@ -193,7 +193,7 @@ func runLifeChecks(c *C, obj lifer, expectErr string, checks []func() error) {
 // in each respective life state.
 func testWhenDying(c *C, obj lifer, dyingErr, deadErr string, checks ...func() error) {
 	c.Logf("checking life of %v (%T)", obj, obj)
-	err := obj.EnsureDying()
+	err := obj.Destroy()
 	c.Assert(err, IsNil)
 	runLifeChecks(c, obj, dyingErr, checks)
 	err = obj.EnsureDead()

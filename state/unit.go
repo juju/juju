@@ -189,9 +189,9 @@ func (u *Unit) PasswordValid(password string) bool {
 	return trivial.PasswordHash(password) == u.doc.PasswordHash
 }
 
-// EnsureDying sets the unit lifecycle to Dying if it is Alive.
+// Destroy sets the unit lifecycle to Dying if it is Alive.
 // It does nothing otherwise.
-func (u *Unit) EnsureDying() error {
+func (u *Unit) Destroy() error {
 	err := ensureDying(u.st, u.st.units, u.doc.Name, "unit")
 	if err != nil {
 		return err
@@ -234,6 +234,38 @@ func (u *Unit) EnsureDead() (err error) {
 		return nil
 	}
 	return ErrUnitHasSubordinates
+}
+
+// Remove removes the unit from state, and may remove its service as well, if
+// the service is Dying and no other references to it exist. It will fail if
+// the unit is not Dead.
+func (u *Unit) Remove() (err error) {
+	defer trivial.ErrorContextf(&err, "cannot remove unit %q", u)
+	if u.doc.Life != Dead {
+		return errors.New("unit is not dead")
+	}
+	svc, err := u.st.Service(u.doc.Service)
+	if err != nil {
+		return err
+	}
+	unit := &Unit{u.st, u.doc}
+	for i := 0; i < 5; i++ {
+		ops := svc.removeUnitOps(unit)
+		if err := svc.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+			return err
+		}
+		if err := svc.Refresh(); IsNotFound(err) {
+			return nil
+		} else if err != nil {
+			return err
+		}
+		if err := unit.Refresh(); IsNotFound(err) {
+			return nil
+		} else if err != nil {
+			return err
+		}
+	}
+	return ErrExcessiveContention
 }
 
 // Resolved returns the resolved mode for the unit.

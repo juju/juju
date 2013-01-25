@@ -157,11 +157,7 @@ func (d *Deployer) remove(unit *state.Unit) error {
 	if err := unit.EnsureDead(); err != nil {
 		return err
 	}
-	service, err := unit.Service()
-	if err != nil {
-		return err
-	}
-	return service.RemoveUnit(unit)
+	return unit.Remove()
 }
 
 func (d *Deployer) loop(w *state.UnitsWatcher) error {

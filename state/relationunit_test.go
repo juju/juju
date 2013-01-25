@@ -209,7 +209,7 @@ func (s *RelationUnitSuite) TestContainerCreateSubordinate(c *C) {
 	// Set the subordinate to Dying, and enter scope again; because the scope
 	// is already entered, no error is returned.
 	runit := runits[0]
-	err = runit.EnsureDying()
+	err = runit.Destroy()
 	c.Assert(err, IsNil)
 	err = pru.EnterScope(nil)
 	c.Assert(err, IsNil)
@@ -224,7 +224,7 @@ func (s *RelationUnitSuite) TestContainerCreateSubordinate(c *C) {
 	// create a new subordinate.
 	err = runit.EnsureDead()
 	c.Assert(err, IsNil)
-	err = rsvc.RemoveUnit(runit)
+	err = runit.Remove()
 	c.Assert(err, IsNil)
 	assertSubCount(0)
 	err = pru.EnterScope(nil)
@@ -306,7 +306,7 @@ func (s *RelationUnitSuite) TestAliveRelationScope(c *C) {
 
 	// One unit becomes Dying, then re-enters the scope; this is not an error,
 	// because the state is already as requested.
-	err = pr.u0.EnsureDying()
+	err = pr.u0.Destroy()
 	c.Assert(err, IsNil)
 	err = pr.ru0.EnterScope(nil)
 	c.Assert(err, IsNil)
@@ -327,7 +327,7 @@ func (s *RelationUnitSuite) TestAliveRelationScope(c *C) {
 	c.Assert(err, IsNil)
 
 	// ...but Dying units cannot.
-	err = pr.u3.EnsureDying()
+	err = pr.u3.Destroy()
 	c.Assert(err, IsNil)
 	err = pr.ru3.EnterScope(nil)
 	c.Assert(err, Equals, state.ErrCannotEnterScope)

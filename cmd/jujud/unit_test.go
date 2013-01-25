@@ -135,18 +135,13 @@ func (s *UnitSuite) TestWithDeadUnit(c *C) {
 	unit, _, _ := s.primeAgent(c)
 	err := unit.EnsureDead()
 	c.Assert(err, IsNil)
-
 	a := s.newAgent(c, unit)
 	err = runWithTimeout(a)
 	c.Assert(err, IsNil)
 
-	svc, err := s.State.Service(unit.ServiceName())
-	c.Assert(err, IsNil)
-
 	// try again when the unit has been removed.
-	err = svc.RemoveUnit(unit)
+	err = unit.Remove()
 	c.Assert(err, IsNil)
-
 	a = s.newAgent(c, unit)
 	err = runWithTimeout(a)
 	c.Assert(err, IsNil)

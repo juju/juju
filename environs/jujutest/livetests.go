@@ -406,11 +406,11 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	c.Logf("removing unit")
 	err = unit.EnsureDead()
 	c.Assert(err, IsNil)
-	err = svc.RemoveUnit(unit)
+	err = unit.Remove()
 	c.Assert(err, IsNil)
 	err = m1.EnsureDead()
 	c.Assert(err, IsNil)
-	err = conn.State.RemoveMachine(mid1)
+	err = m1.Remove()
 	c.Assert(err, IsNil)
 
 	c.Logf("waiting for instance to be removed")

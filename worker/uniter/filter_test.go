@@ -48,7 +48,7 @@ func (s *FilterSuite) TestUnitDeath(c *C) {
 	assertNotClosed()
 
 	// Set dying.
-	err = s.unit.EnsureDying()
+	err = s.unit.Destroy()
 	c.Assert(err, IsNil)
 	assertClosed := func() {
 		s.State.StartSync()

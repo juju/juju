@@ -389,36 +389,6 @@ func (s *Service) AddUnit() (unit *Unit, err error) {
 
 var ErrExcessiveContention = errors.New("state changing too quickly; try again soon")
 
-// RemoveUnit removes the given unit from s.
-func (s *Service) RemoveUnit(u *Unit) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot remove unit %q", u)
-	if u.doc.Life != Dead {
-		return errors.New("unit is not dead")
-	}
-	if u.doc.Service != s.doc.Name {
-		return fmt.Errorf("unit is not assigned to service %q", s)
-	}
-	svc := &Service{s.st, s.doc}
-	unit := &Unit{u.st, u.doc}
-	for i := 0; i < 5; i++ {
-		ops := svc.removeUnitOps(unit)
-		if err := svc.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
-			return err
-		}
-		if err := unit.Refresh(); IsNotFound(err) {
-			return nil
-		} else if err != nil {
-			return err
-		}
-		if err := svc.Refresh(); IsNotFound(err) {
-			return nil
-		} else if err != nil {
-			return err
-		}
-	}
-	return ErrExcessiveContention
-}
-
 func (s *Service) removeUnitOps(u *Unit) []txn.Op {
 	var ops []txn.Op
 	if u.doc.Principal != "" {
