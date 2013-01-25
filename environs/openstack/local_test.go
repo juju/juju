@@ -3,7 +3,8 @@ package openstack_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goose/identity"
-	"launchpad.net/goose/testservices/openstack"
+	"launchpad.net/juju-core/environs/openstack"
+	testopenstack "launchpad.net/goose/testservices/openstack"
 	"net/http"
 	"net/http/httptest"
 )
@@ -42,8 +43,8 @@ func (s *localLiveSuite) SetUpSuite(c *C) {
 	s.Server.Config.Handler = s.Mux
 
 	s.cred.URL = s.Server.URL
-	openstack := openstack.New(s.cred)
-	openstack.SetupHTTP(s.Mux)
+	srv := testopenstack.New(s.cred)
+	srv.SetupHTTP(s.Mux)
 
 	s.LiveTests.SetUpSuite(c)
 }
