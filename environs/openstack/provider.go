@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
 	"net/http"
@@ -25,6 +26,7 @@ import (
 )
 
 const mgoPort = 37017
+const apiPort = 17070
 
 type environProvider struct{}
 
@@ -163,10 +165,88 @@ func (e *environ) PublicStorage() environs.StorageReader {
 }
 
 func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
-	panic("Bootstrap not implemented")
+	password := e.Config().AdminSecret()
+	if password == "" {
+		return fmt.Errorf("admin-secret is required for bootstrap")
+	}
+	log.Printf("environs/openstack: bootstrapping environment %q", e.name)
+	// If the state file exists, it might actually have just been
+	// removed by Destroy, and eventual consistency has not caught
+	// up yet, so we retry to verify if that is happening.
+	var err error
+	for a := shortAttempt.Start(); a.Next(); {
+		_, err = e.loadState()
+		if err != nil {
+			break
+		}
+	}
+	if err == nil {
+		return fmt.Errorf("environment is already bootstrapped")
+	}
+	if _, notFound := err.(*environs.NotFoundError); !notFound {
+		return fmt.Errorf("cannot query old bootstrap state: %v", err)
+	}
+	var tools *state.Tools
+	if uploadTools {
+		tools, err = environs.PutTools(e.Storage(), nil)
+		if err != nil {
+			return fmt.Errorf("cannot upload tools: %v", err)
+		}
+	} else {
+		flags := environs.HighestVersion | environs.CompatVersion
+		v := version.Current
+		v.Series = e.Config().DefaultSeries()
+		tools, err = environs.FindTools(e, v, flags)
+		if err != nil {
+			return fmt.Errorf("cannot find tools: %v", err)
+		}
+	}
+	config, err := environs.BootstrapConfig(providerInstance, e.Config(), tools)
+	if err != nil {
+		return fmt.Errorf("unable to determine inital configuration: %v", err)
+	}
+	caCert, hasCert := e.Config().CACert()
+	if !hasCert {
+		return fmt.Errorf("no CA certificate in environment configuration")
+	}
+	inst, err := e.startInstance(&startInstanceParams{
+		machineId: "0",
+		info: &state.Info{
+			Password: trivial.PasswordHash(password),
+			CACert:   caCert,
+		},
+		apiInfo: &api.Info{
+			Password: trivial.PasswordHash(password),
+			CACert:   caCert,
+		},
+		tools:           tools,
+		stateServer:     true,
+		config:          config,
+		stateServerCert: cert,
+		stateServerKey:  key,
+	})
+	if err != nil {
+		return fmt.Errorf("cannot start bootstrap instance: %v", err)
+	}
+	err = e.saveState(&bootstrapState{
+		StateInstances: []state.InstanceId{inst.Id()},
+	})
+	if err != nil {
+		// ignore error on StopInstance because the previous error is
+		// more important.
+		e.StopInstances([]environs.Instance{inst})
+		return fmt.Errorf("cannot save state: %v", err)
+	}
+	// TODO make safe in the case of racing Bootstraps
+	// If two Bootstraps are called concurrently, there's
+	// no way to use Swift to make sure that only one succeeds.
+	// Perhaps consider using SimpleDB for state storage
+	// which would enable that possibility.
+
+	return nil
 }
 
-func (e *environ) StateInfo() (*state.Info, error) {
+func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 	panic("StateInfo not implemented")
 }
 
@@ -232,10 +312,11 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (e *environ) StartInstance(machineId string, info *state.Info, tools *state.Tools) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId string, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
 	return e.startInstance(&startInstanceParams{
 		machineId: machineId,
 		info:      info,
+		apiInfo:   apiInfo,
 		tools:     tools,
 	})
 }
@@ -243,6 +324,7 @@ func (e *environ) StartInstance(machineId string, info *state.Info, tools *state
 type startInstanceParams struct {
 	machineId       string
 	info            *state.Info
+	apiInfo         *api.Info
 	tools           *state.Tools
 	stateServer     bool
 	config          *config.Config
@@ -253,7 +335,10 @@ type startInstanceParams struct {
 func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 	cfg := &cloudinit.MachineConfig{
 		StateServer:        scfg.stateServer,
+		MongoPort:          mgoPort,
+		APIPort:            apiPort,
 		StateInfo:          scfg.info,
+		APIInfo:            scfg.apiInfo,
 		StateServerCert:    scfg.stateServerCert,
 		StateServerKey:     scfg.stateServerKey,
 		InstanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",

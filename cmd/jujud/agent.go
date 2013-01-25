@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/deployer"
 	"launchpad.net/tomb"
+	"sync"
 	"time"
 )
 
@@ -51,12 +52,12 @@ type task interface {
 // runTasks runs all the given tasks until any of them fails with an
 // error.  It then stops all of them and returns that error.  If a value
 // is received on the stop channel, the workers are stopped.
-// The task values should be comparable.
-func runTasks(stop <-chan struct{}, tasks ...task) (err error) {
+func runTasks(stop <-chan struct{}, tasks ...task) error {
 	type errInfo struct {
 		index int
 		err   error
 	}
+	logged := make(map[int]bool)
 	done := make(chan errInfo, len(tasks))
 	for i, t := range tasks {
 		i, t := i, t
@@ -64,37 +65,55 @@ func runTasks(stop <-chan struct{}, tasks ...task) (err error) {
 			done <- errInfo{i, t.Wait()}
 		}()
 	}
-	chosen := errInfo{index: -1}
+	var err error
 waiting:
 	for _ = range tasks {
 		select {
 		case info := <-done:
 			if info.err != nil {
-				chosen = info
+				log.Printf("cmd/jujud: %s: %v", tasks[info.index], info.err)
+				logged[info.index] = true
+				err = info.err
 				break waiting
 			}
 		case <-stop:
 			break waiting
 		}
 	}
-	// Stop all the tasks. If we've been upgraded,
-	// that error taks precedence over other errors, because
-	// that's the only way we can escape bad code.
+	// Stop all the tasks. We choose the most important error
+	// to return.
 	for i, t := range tasks {
-		if err := t.Stop(); isUpgraded(err) || err != nil && chosen.err == nil {
-			chosen = errInfo{i, err}
+		err1 := t.Stop()
+		if !logged[i] && err1 != nil {
+			log.Printf("cmd/jujud: %s: %v", t, err1)
+			logged[i] = true
+		}
+		if moreImportant(err1, err) {
+			err = err1
 		}
 	}
-	// Log any errors that we're discarding.
-	for i, t := range tasks {
-		if i == chosen.index {
-			continue
-		}
-		if err := t.Wait(); err != nil {
-			log.Printf("cmd/jujud: %s: %v", tasks[i], err)
-		}
+	return err
+}
+
+func importance(err error) int {
+	switch {
+	case err == nil:
+		return 0
+	default:
+		return 1
+	case isUpgraded(err):
+		return 2
+	case err == worker.ErrDead:
+		return 3
 	}
-	return chosen.err
+	panic("unreachable")
+}
+
+// moreImportant returns whether err0 is
+// more important than err1 - that is, whether
+// we should act on err0 in preference to err1.
+func moreImportant(err0, err1 error) bool {
+	return importance(err0) > importance(err1)
 }
 
 func isUpgraded(err error) bool {
@@ -109,65 +128,117 @@ type Agent interface {
 	EntityName() string
 }
 
-func RunLoop(c *agent.Conf, a Agent) error {
-	atomb := a.Tomb()
+// runLoop repeatedly calls runOnce until it returns worker.ErrDead or
+// an upgraded error, or a value is received on stop.
+func runLoop(runOnce func() error, stop <-chan struct{}) error {
+	log.Printf("cmd/jujud: agent starting")
 	for {
-		log.Printf("cmd/jujud: agent starting")
-		err := runOnce(c, a)
-		if ug, ok := err.(*UpgradeReadyError); ok {
-			if err = ug.ChangeAgentTools(); err == nil {
-				// Return and let upstart deal with the restart.
-				return ug
-			}
-		}
+		err := runOnce()
 		if err == worker.ErrDead {
-			log.Printf("cmd/jujud: agent is dead")
+			log.Printf("cmd/jujud: entity is dead")
 			return nil
 		}
+		if isFatal(err) {
+			return err
+		}
 		if err == nil {
-			log.Printf("cmd/jujud: workers died with no error")
+			log.Printf("cmd/jujud: agent died with no error")
 		} else {
 			log.Printf("cmd/jujud: %v", err)
 		}
-		select {
-		case <-atomb.Dying():
-			atomb.Kill(err)
-		case <-time.After(retryDelay):
-			log.Printf("cmd/jujud: rerunning machiner")
+		if !isleep(retryDelay, stop) {
+			return nil
 		}
-		// Note: we don't want this at the head of the loop
-		// because we want the agent to go through the body of
-		// the loop at least once, even if it's been killed
-		// before the start.
-		if atomb.Err() != tomb.ErrStillAlive {
-			break
-		}
+		log.Printf("cmd/jujud: rerunning agent")
 	}
-	return atomb.Err()
+	panic("unreachable")
 }
 
-func runOnce(c *agent.Conf, a Agent) error {
-	st, passwordChanged, err := c.OpenState()
-	if err != nil {
-		return err
+type fatalError struct {
+	Err string
+}
+
+func (e *fatalError) Error() string {
+	return e.Err
+}
+
+func isFatal(err error) bool {
+	if err == worker.ErrDead || isUpgraded(err) {
+		return true
 	}
-	defer st.Close()
+	_, ok := err.(*fatalError)
+	return ok
+}
+
+// isleep waits for the given duration or until it receives a value on
+// stop.  It returns whether the full duration was slept without being
+// stopped.
+func isleep(d time.Duration, stop <-chan struct{}) bool {
+	select {
+	case <-stop:
+		return false
+	case <-time.After(d):
+	}
+	return true
+}
+
+// RunAgentLoop repeatedly connects to the state server
+// and calls the agent's RunOnce method.
+func RunAgentLoop(c *agent.Conf, a Agent) error {
+	return runLoop(func() error {
+		st, entity, err := openState(c, a)
+		if err != nil {
+			return err
+		}
+		defer st.Close()
+		// TODO(rog) connect to API.
+		return a.RunOnce(st, entity)
+	}, a.Tomb().Dying())
+}
+
+// This mutex ensures that we can have two concurrent workers
+// opening the same state without a problem with the
+// password changing.
+var openStateMutex sync.Mutex
+
+func openState(c *agent.Conf, a Agent) (_ *state.State, _ AgentState, err error) {
+	openStateMutex.Lock()
+	defer openStateMutex.Unlock()
+
+	st, newPassword, err0 := c.OpenState()
+	if err0 != nil {
+		return nil, nil, err0
+	}
+	defer func() {
+		if err != nil {
+			st.Close()
+		}
+	}()
 	entity, err := a.Entity(st)
 	if state.IsNotFound(err) || err == nil && entity.Life() == state.Dead {
-		return worker.ErrDead
+		err = worker.ErrDead
 	}
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
-	if passwordChanged {
-		if err := c.Write(); err != nil {
-			return err
+	if newPassword != "" {
+		// Ensure we do not lose changes made by another
+		// worker by re-reading the configuration and changing
+		// only the password.
+		c1, err := agent.ReadConf(c.DataDir, c.EntityName())
+		if err != nil {
+			return nil, nil, err
 		}
-		if err := entity.SetMongoPassword(c.StateInfo.Password); err != nil {
-			return err
+		c1.StateInfo.Password = newPassword
+		if err := c1.Write(); err != nil {
+			return nil, nil, err
 		}
+		if err := entity.SetMongoPassword(c1.StateInfo.Password); err != nil {
+			return nil, nil, err
+		}
+		c.StateInfo.Password = newPassword
 	}
-	return a.RunOnce(st, entity)
+	return st, entity, nil
 }
 
 // newDeployManager gives the tests the opportunity to create a deployer.Manager

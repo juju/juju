@@ -2,24 +2,65 @@ package openstack_test
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/goose/identity"
+	testopenstack "launchpad.net/goose/testservices/openstack"
 	"launchpad.net/juju-core/environs/openstack"
+	"net/http"
+	"net/http/httptest"
 )
 
-func registerLocalTests() {
-	Suite(&LocalSuite{})
+// Register tests to run against a test Openstack instance (service doubles).
+func registerServiceDoubleTests() {
+	cred := &identity.Credentials{
+		User:       "fred",
+		Secrets:    "secret",
+		Region:     "some region",
+		TenantName: "some tenant",
+	}
+	Suite(&localLiveSuite{
+		LiveTests: LiveTests{
+			cred: cred,
+		},
+	})
 }
 
-type LocalSuite struct {
+type localLiveSuite struct {
+	LiveTests
+	// The following attributes are for using the service doubles.
+	Server     *httptest.Server
+	Mux        *http.ServeMux
+	oldHandler http.Handler
 }
 
-func (s *LocalSuite) SetUpSuite(c *C) {
-	openstack.UseTestMetadata(true)
+func (s *localLiveSuite) SetUpSuite(c *C) {
+	c.Logf("Using openstack service test doubles")
+
 	openstack.ShortTimeouts(true)
+	// Set up the HTTP server.
+	s.Server = httptest.NewServer(nil)
+	s.oldHandler = s.Server.Config.Handler
+	s.Mux = http.NewServeMux()
+	s.Server.Config.Handler = s.Mux
+
+	s.cred.URL = s.Server.URL
+	srv := testopenstack.New(s.cred)
+	srv.SetupHTTP(s.Mux)
+
+	s.LiveTests.SetUpSuite(c)
 }
 
-func (s *LocalSuite) TearDownSuite(c *C) {
-	openstack.UseTestMetadata(false)
+func (s *localLiveSuite) TearDownSuite(c *C) {
+	s.LiveTests.TearDownSuite(c)
+	s.Mux = nil
+	s.Server.Config.Handler = s.oldHandler
+	s.Server.Close()
 	openstack.ShortTimeouts(false)
 }
 
-//TODO(wallyworld) - add any necessary tests
+func (s *localLiveSuite) SetUpTest(c *C) {
+	s.LiveTests.SetUpTest(c)
+}
+
+func (s *localLiveSuite) TearDownTest(c *C) {
+	s.LiveTests.TearDownTest(c)
+}

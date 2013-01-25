@@ -1,11 +1,14 @@
 package main
 
 import (
+	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/testing"
 	"reflect"
 	"time"
 )
@@ -17,15 +20,15 @@ type MachineSuite struct {
 var _ = Suite(&MachineSuite{})
 
 // primeAgent adds a new Machine to run the given jobs, and sets up the
-// machine agent's directory.  It returns the new machine and the
-// agent's configuration.
-func (s *MachineSuite) primeAgent(c *C, jobs ...state.MachineJob) (*state.Machine, *agent.Conf) {
+// machine agent's directory.  It returns the new machine, the
+// agent's configuration and the tools currently running.
+func (s *MachineSuite) primeAgent(c *C, jobs ...state.MachineJob) (*state.Machine, *agent.Conf, *state.Tools) {
 	m, err := s.State.InjectMachine("ardbeg-0", jobs...)
 	c.Assert(err, IsNil)
 	err = m.SetMongoPassword("machine-password")
 	c.Assert(err, IsNil)
-	conf, _ := s.agentSuite.primeAgent(c, state.MachineEntityName(m.Id()), "machine-password")
-	return m, conf
+	conf, tools := s.agentSuite.primeAgent(c, state.MachineEntityName(m.Id()), "machine-password")
+	return m, conf, tools
 }
 
 // newAgent returns a new MachineAgent instance
@@ -62,13 +65,13 @@ func (s *MachineSuite) TestParseUnknown(c *C) {
 
 func (s *MachineSuite) TestRunInvalidMachineId(c *C) {
 	c.Skip("agents don't yet distinguish between temporary and permanent errors")
-	m, _ := s.primeAgent(c, state.JobHostUnits)
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	err := s.newAgent(c, m).Run(nil)
 	c.Assert(err, ErrorMatches, "some error")
 }
 
 func (s *MachineSuite) TestRunStop(c *C) {
-	m, _ := s.primeAgent(c, state.JobHostUnits)
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	done := make(chan error)
 	go func() {
@@ -80,7 +83,7 @@ func (s *MachineSuite) TestRunStop(c *C) {
 }
 
 func (s *MachineSuite) TestWithDeadMachine(c *C) {
-	m, _ := s.primeAgent(c, state.JobHostUnits)
+	m, _, _ := s.primeAgent(c, state.JobHostUnits, state.JobServeAPI)
 	err := m.EnsureDead()
 	c.Assert(err, IsNil)
 	a := s.newAgent(c, m)
@@ -96,9 +99,9 @@ func (s *MachineSuite) TestWithDeadMachine(c *C) {
 }
 
 func (s *MachineSuite) TestHostUnits(c *C) {
-	m, conf := s.primeAgent(c, state.JobHostUnits)
+	m, conf, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
-	mgr, reset := patchDeployManager(c, &conf.StateInfo, conf.DataDir)
+	mgr, reset := patchDeployManager(c, conf.StateInfo, conf.DataDir)
 	defer reset()
 	go func() { c.Check(a.Run(nil), IsNil) }()
 	defer func() { c.Check(a.Stop(), IsNil) }()
@@ -132,7 +135,7 @@ func (s *MachineSuite) TestHostUnits(c *C) {
 }
 
 func (s *MachineSuite) TestManageEnviron(c *C) {
-	m, _ := s.primeAgent(c, state.JobManageEnviron)
+	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
 	op := make(chan dummy.Operation, 200)
 	dummy.Listen(op)
 
@@ -189,6 +192,89 @@ func (s *MachineSuite) TestManageEnviron(c *C) {
 	}
 }
 
+func (s *MachineSuite) TestUpgrade(c *C) {
+	m, conf, currentTools := s.primeAgent(c, state.JobServeAPI, state.JobManageEnviron, state.JobHostUnits)
+	addAPIInfo(conf, m)
+	err := conf.Write()
+	c.Assert(err, IsNil)
+	a := s.newAgent(c, m)
+	s.testUpgrade(c, a, currentTools)
+}
+
+func addAPIInfo(conf *agent.Conf, m *state.Machine) {
+	port := testing.FindTCPPort()
+	conf.APIInfo = &api.Info{
+		Addrs:      []string{fmt.Sprintf("localhost:%d", port)},
+		CACert:     []byte(testing.CACert),
+		EntityName: m.EntityName(),
+		Password:   "unused",
+	}
+	conf.StateServerCert = []byte(testing.ServerCert)
+	conf.StateServerKey = []byte(testing.ServerKey)
+	conf.APIPort = port
+}
+
+func (s *MachineSuite) TestServeAPI(c *C) {
+	m, conf, _ := s.primeAgent(c, state.JobServeAPI)
+	addAPIInfo(conf, m)
+	err := conf.Write()
+	c.Assert(err, IsNil)
+	a := s.newAgent(c, m)
+	done := make(chan error)
+	go func() {
+		done <- a.Run(nil)
+	}()
+
+	st, err := api.Open(conf.APIInfo)
+	c.Assert(err, IsNil)
+	defer st.Close()
+	instId, err := st.Request(m.Id())
+	c.Assert(err, IsNil)
+	c.Assert(instId, Equals, "ardbeg-0")
+
+	err = a.Stop()
+	c.Assert(err, IsNil)
+
+	select {
+	case err := <-done:
+		c.Assert(err, IsNil)
+	case <-time.After(5 * time.Second):
+		c.Fatalf("timed out waiting for agent to terminate")
+	}
+}
+
+var serveAPIWithBadConfTests = []struct {
+	change func(c *agent.Conf)
+	err    string
+}{{
+	func(c *agent.Conf) {
+		c.StateServerCert = nil
+	},
+	"configuration does not have state server cert/key",
+}, {
+	func(c *agent.Conf) {
+		c.StateServerKey = nil
+	},
+	"configuration does not have state server cert/key",
+}}
+
+func (s *MachineSuite) TestServeAPIWithBadConf(c *C) {
+	m, conf, _ := s.primeAgent(c, state.JobServeAPI)
+	addAPIInfo(conf, m)
+	for i, t := range serveAPIWithBadConfTests {
+		c.Logf("test %d: %q", i, t.err)
+		conf1 := *conf
+		t.change(&conf1)
+		err := conf1.Write()
+		c.Assert(err, IsNil)
+		a := s.newAgent(c, m)
+		err = runWithTimeout(a)
+		c.Assert(err, ErrorMatches, t.err)
+		err = refreshConfig(conf)
+		c.Assert(err, IsNil)
+	}
+}
+
 // opRecvTimeout waits for any of the given kinds of operation to
 // be received from ops, and times out if not.
 func opRecvTimeout(c *C, st *state.State, opc <-chan dummy.Operation, kinds ...dummy.Operation) dummy.Operation {
@@ -210,7 +296,7 @@ func opRecvTimeout(c *C, st *state.State, opc <-chan dummy.Operation, kinds ...d
 }
 
 func (s *MachineSuite) TestChangePasswordChanging(c *C) {
-	m, _ := s.primeAgent(c, state.JobHostUnits)
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	newAgent := func() runner {
 		return s.newAgent(c, m)
 	}

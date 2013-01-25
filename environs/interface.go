@@ -5,6 +5,7 @@ import (
 	"io"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 )
 
 // A EnvironProvider represents a computing and storage provider.
@@ -138,7 +139,7 @@ type Environ interface {
 
 	// StateInfo returns information on the state initialized
 	// by Bootstrap.
-	StateInfo() (*state.Info, error)
+	StateInfo() (*state.Info, *api.Info, error)
 
 	// Config returns the current configuration of this Environ.
 	Config() *config.Config
@@ -157,7 +158,7 @@ type Environ interface {
 	// the Environ will find a set of tools compatible with the
 	// current version.
 	// TODO add arguments to specify type of new machine.
-	StartInstance(machineId string, info *state.Info, tools *state.Tools) (Instance, error)
+	StartInstance(machineId string, info *state.Info, apiInfo *api.Info, tools *state.Tools) (Instance, error)
 
 	// StopInstances shuts down the given instances.
 	StopInstances([]Instance) error

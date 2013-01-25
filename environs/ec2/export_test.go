@@ -125,3 +125,13 @@ func (s *storage) ResetMadeBucket() {
 	defer s.Unlock()
 	s.madeBucket = false
 }
+
+// WritablePublicStorage returns a Storage instance which is authorised to write to the PublicStorage bucket.
+// It is used by tests which need to upload files.
+func WritablePublicStorage(e environs.Environ) environs.Storage {
+	// In the case of ec2, access to the public storage instance is created with the user's AWS credentials.
+	// So write access is there implicitly, and we just need to cast to a writable storage instance.
+	// This contrasts with the openstack case, where the public storage instance truly is read only and we need
+	// to create a separate writable instance. If the ec2 case ever changes, the changes are confined to this method.
+	return e.PublicStorage().(environs.Storage)
+}

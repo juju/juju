@@ -10,21 +10,16 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/upstart"
 	"path"
 )
 
-// TODO(dfc) duplicated from environs/ec2
-
-const mgoPort = 37017
-
-var mgoPortSuffix = fmt.Sprintf(":%d", mgoPort)
-
 // MachineConfig represents initialization information for a new juju machine.
 type MachineConfig struct {
-	// StateServer specifies whether the new machine will run a ZooKeeper
-	// or MongoDB instance.
+	// StateServer specifies whether the new machine will run the
+	// mongo and API servers.
 	StateServer bool
 
 	// StateServerCert and StateServerKey hold the state server
@@ -32,6 +27,16 @@ type MachineConfig struct {
 	// StateServer is set, and ignored otherwise.
 	StateServerCert []byte
 	StateServerKey  []byte
+
+	// MongoPort specifies the TCP port that will be used
+	// by the MongoDB server. It must be non-zero
+	// if StateServer is true.
+	MongoPort int
+
+	// APIPort specifies the TCP port that will be used
+	// by the API server. It must be non-zero
+	// if StateServer is true.
+	APIPort int
 
 	// InstanceIdAccessor holds bash code that evaluates to the current instance id.
 	InstanceIdAccessor string
@@ -46,6 +51,13 @@ type MachineConfig struct {
 	// The entity name must match that of the machine being started,
 	// or be empty when starting a state server.
 	StateInfo *state.Info
+
+	// APIInfo holds the means for the new instance to communicate with the
+	// juju state API. Unless the new machine is running a state server (StateServer is
+	// set), there must be at least one state server address supplied.
+	// The entity name must match that of the machine being started,
+	// or be empty when starting a state server.
+	APIInfo *api.Info
 
 	// Tools is juju tools to be used on the new machine.
 	Tools *state.Tools
@@ -113,18 +125,8 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	}
 
 	if cfg.StateServer {
-		serverCert := cfg.dataFile("server-cert.pem")
-		serverKey := cfg.dataFile("server-key.pem")
-		serverCertKey := cfg.dataFile("server.pem")
-		addFile(c, serverCert, string(cfg.StateServerCert), 0600)
-		addFile(c, serverKey, string(cfg.StateServerKey), 0600)
-		// mongodb requires server cert and key in the same file.
-		addScripts(c,
-			fmt.Sprintf("cat %s %s > %s",
-				shquote(serverCert), shquote(serverKey),
-				shquote(serverCertKey)),
-			fmt.Sprintf("chmod 600 %s", shquote(serverCertKey)),
-		)
+		certKey := string(cfg.StateServerCert) + string(cfg.StateServerKey)
+		addFile(c, cfg.dataFile("server.pem"), certKey, 0600)
 		// TODO The public bucket must come from the environment configuration.
 		b := cfg.Tools.Binary
 		url := fmt.Sprintf("http://juju-dist.s3.amazonaws.com/tools/mongo-2.2.0-%s-%s.tgz", b.Series, b.Arch)
@@ -178,14 +180,26 @@ func (cfg *MachineConfig) dataFile(name string) string {
 }
 
 func (cfg *MachineConfig) agentConfig(entityName string) *agent.Conf {
+	info := *cfg.StateInfo
+	apiInfo := *cfg.APIInfo
 	c := &agent.Conf{
-		DataDir:   cfg.DataDir,
-		StateInfo: *cfg.StateInfo,
+		DataDir:         cfg.DataDir,
+		StateInfo:       &info,
+		APIInfo:         &apiInfo,
+		StateServerCert: cfg.StateServerCert,
+		StateServerKey:  cfg.StateServerKey,
+		MongoPort:       cfg.MongoPort,
+		APIPort:         cfg.APIPort,
 	}
 	c.StateInfo.Addrs = cfg.stateHostAddrs()
 	c.StateInfo.EntityName = entityName
 	c.StateInfo.Password = ""
 	c.OldPassword = cfg.StateInfo.Password
+
+	c.APIInfo.Addrs = cfg.apiHostAddrs()
+	c.APIInfo.EntityName = entityName
+	c.APIInfo.Password = ""
+
 	return c
 }
 
@@ -259,7 +273,7 @@ func addMongoToBoot(c *cloudinit.Config, cfg *MachineConfig) error {
 			" --sslPEMKeyFile " + shquote(cfg.dataFile("server.pem")) +
 			" --sslPEMKeyPassword ignored" +
 			" --bind_ip 0.0.0.0" +
-			" --port " + fmt.Sprint(mgoPort) +
+			" --port " + fmt.Sprint(cfg.MongoPort) +
 			" --noprealloc" +
 			" --smallfiles",
 	}
@@ -287,10 +301,21 @@ func (cfg *MachineConfig) jujuTools() string {
 func (cfg *MachineConfig) stateHostAddrs() []string {
 	var hosts []string
 	if cfg.StateServer {
-		hosts = append(hosts, "localhost"+mgoPortSuffix)
+		hosts = append(hosts, fmt.Sprintf("localhost:%d", cfg.MongoPort))
 	}
 	if cfg.StateInfo != nil {
 		hosts = append(hosts, cfg.StateInfo.Addrs...)
+	}
+	return hosts
+}
+
+func (cfg *MachineConfig) apiHostAddrs() []string {
+	var hosts []string
+	if cfg.StateServer {
+		hosts = append(hosts, fmt.Sprintf("localhost:%d", cfg.APIPort))
+	}
+	if cfg.StateInfo != nil {
+		hosts = append(hosts, cfg.APIInfo.Addrs...)
 	}
 	return hosts
 }
@@ -328,6 +353,12 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 	if len(cfg.StateInfo.CACert) == 0 {
 		return fmt.Errorf("missing CA certificate")
 	}
+	if cfg.APIInfo == nil {
+		return fmt.Errorf("missing API info")
+	}
+	if len(cfg.APIInfo.CACert) == 0 {
+		return fmt.Errorf("missing API CA certificate")
+	}
 	if cfg.StateServer {
 		if cfg.InstanceIdAccessor == "" {
 			return fmt.Errorf("missing instance id accessor")
@@ -338,11 +369,20 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		if cfg.StateInfo.EntityName != "" {
 			return fmt.Errorf("entity name must be blank when starting a state server")
 		}
+		if cfg.APIInfo.EntityName != "" {
+			return fmt.Errorf("entity name must be blank when starting a state server")
+		}
 		if len(cfg.StateServerCert) == 0 {
 			return fmt.Errorf("missing state server certificate")
 		}
 		if len(cfg.StateServerKey) == 0 {
 			return fmt.Errorf("missing state server private key")
+		}
+		if cfg.MongoPort == 0 {
+			return fmt.Errorf("missing mongo port")
+		}
+		if cfg.APIPort == 0 {
+			return fmt.Errorf("missing API port")
 		}
 	} else {
 		if len(cfg.StateInfo.Addrs) == 0 {
@@ -351,10 +391,11 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		if cfg.StateInfo.EntityName != state.MachineEntityName(cfg.MachineId) {
 			return fmt.Errorf("entity name must match started machine")
 		}
-	}
-	for _, r := range cfg.StateInfo.Password {
-		if r == '\'' || r == '\\' || r < 32 {
-			return fmt.Errorf("password has disallowed characters")
+		if len(cfg.APIInfo.Addrs) == 0 {
+			return fmt.Errorf("missing API hosts")
+		}
+		if cfg.APIInfo.EntityName != state.MachineEntityName(cfg.MachineId) {
+			return fmt.Errorf("entity name must match started machine")
 		}
 	}
 	return nil
