@@ -34,6 +34,7 @@ type localLiveSuite struct {
 func (s *localLiveSuite) SetUpSuite(c *C) {
 	c.Logf("Using openstack service test doubles")
 
+	openstack.ShortTimeouts(true)
 	// Set up the HTTP server.
 	s.Server = httptest.NewServer(nil)
 	s.oldHandler = s.Server.Config.Handler
@@ -52,6 +53,7 @@ func (s *localLiveSuite) TearDownSuite(c *C) {
 	s.Mux = nil
 	s.Server.Config.Handler = s.oldHandler
 	s.Server.Close()
+	openstack.ShortTimeouts(false)
 }
 
 func (s *localLiveSuite) SetUpTest(c *C) {
