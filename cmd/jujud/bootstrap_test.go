@@ -44,7 +44,7 @@ func (s *BootstrapSuite) TearDownTest(c *C) {
 func (s *BootstrapSuite) initBootstrapCommand(c *C, args ...string) (*agent.Conf, *BootstrapCommand, error) {
 	conf := &agent.Conf{
 		DataDir: s.dataDir,
-		StateInfo: state.Info{
+		StateInfo: &state.Info{
 			EntityName: "bootstrap",
 			Addrs:      []string{testing.MgoAddr},
 			CACert:     []byte(testing.CACert),
@@ -136,7 +136,7 @@ func (s *BootstrapSuite) TestMachinerWorkers(c *C) {
 	defer st.Close()
 	m, err := st.Machine("0")
 	c.Assert(err, IsNil)
-	c.Assert(m.Jobs(), DeepEquals, []state.MachineJob{state.JobManageEnviron})
+	c.Assert(m.Jobs(), DeepEquals, []state.MachineJob{state.JobManageEnviron, state.JobServeAPI})
 }
 
 func testOpenState(c *C, info *state.Info, expectErr error) {

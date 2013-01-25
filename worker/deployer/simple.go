@@ -70,11 +70,12 @@ func (mgr *SimpleManager) DeployUnit(unitName, initialPassword string) (err erro
 	toolsDir := environs.AgentToolsDir(mgr.DataDir, entityName)
 	defer removeOnErr(&err, toolsDir)
 
+	info := *mgr.StateInfo
 	// Prepare the agent's configuration data.
 	conf := &agent.Conf{
 		DataDir:     mgr.DataDir,
 		OldPassword: initialPassword,
-		StateInfo:   *mgr.StateInfo,
+		StateInfo:   &info,
 	}
 	conf.StateInfo.EntityName = entityName
 	conf.StateInfo.Password = ""

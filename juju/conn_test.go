@@ -125,7 +125,7 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *C) {
 	c.Assert(err, IsNil)
 	err = environs.Bootstrap(env, false, panicWrite)
 	c.Assert(err, IsNil)
-	info, err := env.StateInfo()
+	info, _, err := env.StateInfo()
 	c.Assert(err, IsNil)
 	info.Password = trivial.PasswordHash("side-effect secret")
 	st, err := state.Open(info)
@@ -210,7 +210,7 @@ func (cs *NewConnSuite) TestConnWithPassword(c *C) {
 
 	// Check that Bootstrap has correctly used a hash
 	// of the admin password.
-	info, err := env.StateInfo()
+	info, _, err := env.StateInfo()
 	c.Assert(err, IsNil)
 	info.Password = trivial.PasswordHash("nutkin")
 	st, err := state.Open(info)
