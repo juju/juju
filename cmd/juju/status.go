@@ -56,7 +56,7 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	result := map[string]interface{} {
+	result := map[string]interface{}{
 		"machines": checkError(processMachines(machines, instances)),
 		"services": checkError(processServices(services)),
 	}
