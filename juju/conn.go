@@ -276,7 +276,7 @@ func (conn *Conn) DestroyUnits(names ...string) (err error) {
 		}
 	}
 	for _, unit := range units {
-		if err := unit.EnsureDying(); err != nil {
+		if err := unit.Destroy(); err != nil {
 			return err
 		}
 	}

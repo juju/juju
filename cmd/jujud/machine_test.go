@@ -91,7 +91,7 @@ func (s *MachineSuite) TestWithDeadMachine(c *C) {
 	c.Assert(err, IsNil)
 
 	// try again with the machine removed.
-	err = s.State.RemoveMachine(m.Id())
+	err = m.Remove()
 	c.Assert(err, IsNil)
 	a = s.newAgent(c, m)
 	err = runWithTimeout(a)
@@ -118,7 +118,7 @@ func (s *MachineSuite) TestHostUnits(c *C) {
 	c.Assert(err, IsNil)
 	mgr.waitDeployed(c, u0.Name())
 
-	err = u0.EnsureDying()
+	err = u0.Destroy()
 	c.Assert(err, IsNil)
 	mgr.waitDeployed(c, u0.Name())
 

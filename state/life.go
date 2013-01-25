@@ -34,7 +34,7 @@ func (l Life) String() string {
 // Living describes state entities with a lifecycle.
 type Living interface {
 	Life() Life
-	EnsureDying() error
+	Destroy() error
 	EnsureDead() error
 	Refresh() error
 }

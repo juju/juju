@@ -299,7 +299,7 @@ func (f *filter) serviceChanged() error {
 	f.upgradeAvailable = serviceCharm{url, force}
 	switch f.service.Life() {
 	case state.Dying:
-		if err := f.unit.EnsureDying(); err != nil {
+		if err := f.unit.Destroy(); err != nil {
 			return err
 		}
 	case state.Dead:
