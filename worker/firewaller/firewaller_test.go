@@ -138,7 +138,7 @@ func (s *FirewallerSuite) TestNotExposedService(c *C) {
 	fw := firewaller.NewFirewaller(s.State)
 	defer func() { c.Assert(fw.Stop(), IsNil) }()
 
-	svc, err := s.Conn.AddService("wordpress", s.charm)
+	svc, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
 	u, m := s.addUnit(c, svc)
 	inst := s.startInstance(c, m)
@@ -160,7 +160,7 @@ func (s *FirewallerSuite) TestExposedService(c *C) {
 	fw := firewaller.NewFirewaller(s.State)
 	defer func() { c.Assert(fw.Stop(), IsNil) }()
 
-	svc, err := s.Conn.AddService("wordpress", s.charm)
+	svc, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
 
 	err = svc.SetExposed()
@@ -223,7 +223,7 @@ func (s *FirewallerSuite) TestMachineWithoutInstanceId(c *C) {
 	fw := firewaller.NewFirewaller(s.State)
 	defer func() { c.Assert(fw.Stop(), IsNil) }()
 
-	svc, err := s.Conn.AddService("wordpress", s.charm)
+	svc, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
 	err = svc.SetExposed()
 	c.Assert(err, IsNil)

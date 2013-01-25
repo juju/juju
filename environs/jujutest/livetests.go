@@ -363,7 +363,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	sch, err := conn.PutCharm(url, &charm.LocalRepository{repoDir}, false)
 
 	c.Assert(err, IsNil)
-	svc, err := conn.AddService("", sch)
+	svc, err := conn.State.AddService("", sch)
 	c.Assert(err, IsNil)
 	units, err := conn.AddUnits(svc, 1)
 	c.Assert(err, IsNil)

@@ -12,20 +12,19 @@ import (
 
 type FilterSuite struct {
 	testing.JujuConnSuite
-	ch   *state.Charm
-	svc  *state.Service
-	unit *state.Unit
+	wordpress  *state.Service
+	unit       *state.Unit
+	mysqlcharm *state.Charm
 }
 
 var _ = Suite(&FilterSuite{})
 
 func (s *FilterSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.ch = s.AddTestingCharm(c, "dummy")
 	var err error
-	s.svc, err = s.State.AddService("dummy", s.ch)
+	s.wordpress, err = s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
-	s.unit, err = s.svc.AddUnit()
+	s.unit, err = s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
 }
 
@@ -90,7 +89,7 @@ func (s *FilterSuite) TestServiceDeath(c *C) {
 		c.Fatalf("unexpected receive")
 	}
 
-	err = s.svc.Destroy()
+	err = s.wordpress.Destroy()
 	c.Assert(err, IsNil)
 	timeout := time.After(500 * time.Millisecond)
 loop:
@@ -108,7 +107,7 @@ loop:
 	c.Assert(err, IsNil)
 	c.Assert(s.unit.Life(), Equals, state.Dying)
 
-	// Can't set s.svc to Dead while it still has units.
+	// Can't set s.wordpress to Dead while it still has units.
 }
 
 func (s *FilterSuite) TestResolvedEvents(c *C) {
@@ -132,7 +131,7 @@ func (s *FilterSuite) TestResolvedEvents(c *C) {
 	assertNoChange()
 
 	// Change the unit in an irrelevant way; no events.
-	err = s.unit.SetCharm(s.ch)
+	err = s.unit.SetStatus(state.UnitError, "blarg")
 	c.Assert(err, IsNil)
 	assertNoChange()
 
@@ -259,7 +258,7 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	assertNoChange()
 
 	// Change the config; new event received.
-	node, err := s.svc.Config()
+	node, err := s.wordpress.Config()
 	c.Assert(err, IsNil)
 	node.Set("skill-level", 9001)
 	_, err = node.Write()
@@ -355,11 +354,17 @@ func (s *FilterSuite) TestRelationsEvents(c *C) {
 }
 
 func (s *FilterSuite) addRelation(c *C) *state.Relation {
-	rels, err := s.svc.Relations()
+	if s.mysqlcharm == nil {
+		s.mysqlcharm = s.AddTestingCharm(c, "mysql")
+	}
+	rels, err := s.wordpress.Relations()
 	c.Assert(err, IsNil)
-	rel, err := s.State.AddRelation(state.Endpoint{
-		"dummy", "ifce", fmt.Sprintf("rel%d", len(rels)), state.RolePeer, charm.ScopeGlobal,
-	})
+	svcName := fmt.Sprintf("mysql%d", len(rels))
+	_, err = s.State.AddService(svcName, s.mysqlcharm)
+	c.Assert(err, IsNil)
+	eps, err := s.State.InferEndpoints([]string{svcName, "wordpress"})
+	c.Assert(err, IsNil)
+	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, IsNil)
 	return rel
 }

@@ -17,7 +17,7 @@ var _ = Suite(&UnitSuite{})
 // primeAgent creates a unit, and sets up the unit agent's directory.
 // It returns the new unit and the agent's configuration.
 func (s *UnitSuite) primeAgent(c *C) (*state.Unit, *agent.Conf, *state.Tools) {
-	svc, err := s.Conn.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
 	unit, err := svc.AddUnit()
 	c.Assert(err, IsNil)
