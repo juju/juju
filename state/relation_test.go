@@ -30,7 +30,7 @@ func (s *RelationSuite) TestAddRelationErrors(c *C) {
 	msep2 := mysqlEP
 	msep2.ServiceName = "yoursql"
 	_, err = s.State.AddRelation(msep2, wordpressEP)
-	c.Assert(err, ErrorMatches, `cannot add relation "wordpress:db yoursql:server": .*`)
+	c.Assert(err, ErrorMatches, `cannot add relation "wordpress:db yoursql:server": service "yoursql" does not exist`)
 	assertNoRelations(c, wordpress)
 	assertNoRelations(c, mysql)
 
@@ -42,14 +42,9 @@ func (s *RelationSuite) TestAddRelationErrors(c *C) {
 	assertNoRelations(c, wordpress)
 	assertNoRelations(c, mysql)
 
-	// Check that pre-existing relations cannot be added again.
-	_, err = s.State.AddRelation(riakEP)
-	c.Assert(err, ErrorMatches, `cannot add relation "riak:ring": relation already exists`)
-	assertOneRelation(c, riak, 0, riakEP)
-
 	// Check a variety of surprising endpoint combinations.
 	_, err = s.State.AddRelation(wordpressEP)
-	c.Assert(err, ErrorMatches, `cannot add relation "wordpress:db": single endpoint must be a peer relation`)
+	c.Assert(err, ErrorMatches, `cannot add relation "wordpress:db": relation must have two endpoints`)
 	assertNoRelations(c, wordpress)
 
 	_, err = s.State.AddRelation(riakEP, wordpressEP)
@@ -62,9 +57,9 @@ func (s *RelationSuite) TestAddRelationErrors(c *C) {
 	assertOneRelation(c, riak, 0, riakEP)
 
 	_, err = s.State.AddRelation()
-	c.Assert(err, ErrorMatches, `cannot add relation "": cannot relate 0 endpoints`)
+	c.Assert(err, ErrorMatches, `cannot add relation "": relation must have two endpoints`)
 	_, err = s.State.AddRelation(mysqlEP, wordpressEP, riakEP)
-	c.Assert(err, ErrorMatches, `cannot add relation "wordpress:db mysql:server riak:ring": cannot relate 3 endpoints`)
+	c.Assert(err, ErrorMatches, `cannot add relation "wordpress:db mysql:server riak:ring": relation must have two endpoints`)
 	assertOneRelation(c, riak, 0, riakEP)
 	assertNoRelations(c, wordpress)
 	assertNoRelations(c, mysql)
