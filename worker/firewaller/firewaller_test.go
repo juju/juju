@@ -138,7 +138,7 @@ func (s *FirewallerSuite) TestNotExposedService(c *C) {
 	fw := firewaller.NewFirewaller(s.State)
 	defer func() { c.Assert(fw.Stop(), IsNil) }()
 
-	svc, err := s.Conn.AddService("wordpress", s.charm)
+	svc, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
 	u, m := s.addUnit(c, svc)
 	inst := s.startInstance(c, m)
@@ -160,7 +160,7 @@ func (s *FirewallerSuite) TestExposedService(c *C) {
 	fw := firewaller.NewFirewaller(s.State)
 	defer func() { c.Assert(fw.Stop(), IsNil) }()
 
-	svc, err := s.Conn.AddService("wordpress", s.charm)
+	svc, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
 
 	err = svc.SetExposed()
@@ -223,7 +223,7 @@ func (s *FirewallerSuite) TestMachineWithoutInstanceId(c *C) {
 	fw := firewaller.NewFirewaller(s.State)
 	defer func() { c.Assert(fw.Stop(), IsNil) }()
 
-	svc, err := s.Conn.AddService("wordpress", s.charm)
+	svc, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
 	err = svc.SetExposed()
 	c.Assert(err, IsNil)
@@ -409,7 +409,7 @@ func (s *FirewallerSuite) TestRemoveUnit(c *C) {
 	// Remove unit.
 	err = u1.EnsureDead()
 	c.Assert(err, IsNil)
-	err = svc.RemoveUnit(u1)
+	err = u1.Remove()
 	c.Assert(err, IsNil)
 
 	s.assertPorts(c, inst1, m1.Id(), nil)
@@ -435,7 +435,7 @@ func (s *FirewallerSuite) TestRemoveService(c *C) {
 	// Remove service.
 	err = u.EnsureDead()
 	c.Assert(err, IsNil)
-	err = svc.RemoveUnit(u)
+	err = u.Remove()
 	c.Assert(err, IsNil)
 	err = svc.Destroy()
 	c.Assert(err, IsNil)
@@ -472,14 +472,14 @@ func (s *FirewallerSuite) TestRemoveMultipleServices(c *C) {
 	// Remove services.
 	err = u2.EnsureDead()
 	c.Assert(err, IsNil)
-	err = svc2.RemoveUnit(u2)
+	err = u2.Remove()
 	c.Assert(err, IsNil)
 	err = svc2.Destroy()
 	c.Assert(err, IsNil)
 
 	err = u1.EnsureDead()
 	c.Assert(err, IsNil)
-	err = svc1.RemoveUnit(u1)
+	err = u1.Remove()
 	c.Assert(err, IsNil)
 	err = svc1.Destroy()
 	c.Assert(err, IsNil)
@@ -507,7 +507,7 @@ func (s *FirewallerSuite) TestDeadMachine(c *C) {
 	// Remove unit and service, also tested without. Has no effect.
 	err = u.EnsureDead()
 	c.Assert(err, IsNil)
-	err = svc.RemoveUnit(u)
+	err = u.Remove()
 	c.Assert(err, IsNil)
 	err = svc.Destroy()
 	c.Assert(err, IsNil)
@@ -538,7 +538,7 @@ func (s *FirewallerSuite) TestRemoveMachine(c *C) {
 	// Remove unit.
 	err = u.EnsureDead()
 	c.Assert(err, IsNil)
-	err = svc.RemoveUnit(u)
+	err = u.Remove()
 	c.Assert(err, IsNil)
 
 	// Remove machine. Nothing bad should happen, but can't
@@ -546,7 +546,7 @@ func (s *FirewallerSuite) TestRemoveMachine(c *C) {
 	// destroyed and we lost its reference.
 	err = m.EnsureDead()
 	c.Assert(err, IsNil)
-	err = s.State.RemoveMachine(m.Id())
+	err = m.Remove()
 	c.Assert(err, IsNil)
 }
 

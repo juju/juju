@@ -31,6 +31,7 @@ func Main(args []string) {
 	juju.Register(&DeployCommand{})
 	juju.Register(&DestroyEnvironmentCommand{})
 	juju.Register(&DestroyRelationCommand{}, "remove-relation")
+	juju.Register(&DestroyServiceCommand{})
 	juju.Register(&DestroyUnitCommand{}, "remove-unit")
 	juju.Register(&ExposeCommand{})
 	juju.Register(&GetCommand{})

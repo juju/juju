@@ -17,7 +17,7 @@ var _ = Suite(&UnitSuite{})
 // primeAgent creates a unit, and sets up the unit agent's directory.
 // It returns the new unit and the agent's configuration.
 func (s *UnitSuite) primeAgent(c *C) (*state.Unit, *agent.Conf, *state.Tools) {
-	svc, err := s.Conn.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
 	unit, err := svc.AddUnit()
 	c.Assert(err, IsNil)
@@ -135,18 +135,13 @@ func (s *UnitSuite) TestWithDeadUnit(c *C) {
 	unit, _, _ := s.primeAgent(c)
 	err := unit.EnsureDead()
 	c.Assert(err, IsNil)
-
 	a := s.newAgent(c, unit)
 	err = runWithTimeout(a)
 	c.Assert(err, IsNil)
 
-	svc, err := s.State.Service(unit.ServiceName())
-	c.Assert(err, IsNil)
-
 	// try again when the unit has been removed.
-	err = svc.RemoveUnit(unit)
+	err = unit.Remove()
 	c.Assert(err, IsNil)
-
 	a = s.newAgent(c, unit)
 	err = runWithTimeout(a)
 	c.Assert(err, IsNil)

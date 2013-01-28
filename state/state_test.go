@@ -135,29 +135,6 @@ func (s *StateSuite) TestInjectMachine(c *C) {
 	c.Assert(instanceId, Equals, state.InstanceId("i-mindustrious"))
 }
 
-func (s *StateSuite) TestRemoveMachine(c *C) {
-	machine, err := s.State.AddMachine(state.JobHostUnits)
-	c.Assert(err, IsNil)
-	_, err = s.State.AddMachine(state.JobHostUnits)
-	c.Assert(err, IsNil)
-	err = s.State.RemoveMachine(machine.Id())
-	c.Assert(err, ErrorMatches, "cannot remove machine 0: machine is not dead")
-	err = machine.EnsureDead()
-	c.Assert(err, IsNil)
-	err = s.State.RemoveMachine(machine.Id())
-	c.Assert(err, IsNil)
-
-	machines, err := s.State.AllMachines()
-	c.Assert(err, IsNil)
-	c.Assert(machines, HasLen, 1)
-	c.Assert(machines[0].Id(), Equals, "1")
-
-	// Removing a non-existing machine has to fail.
-	// BUG(aram): use error strings from state.
-	err = s.State.RemoveMachine(machine.Id())
-	c.Assert(err, ErrorMatches, "cannot remove machine 0: .*")
-}
-
 func (s *StateSuite) TestReadMachine(c *C) {
 	machine, err := s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
@@ -182,7 +159,7 @@ func (s *StateSuite) TestAllMachines(c *C) {
 		c.Assert(err, IsNil)
 		err = m.SetAgentTools(newTools("7.8.9-foo-bar", "http://arble.tgz"))
 		c.Assert(err, IsNil)
-		err = m.EnsureDying()
+		err = m.Destroy()
 		c.Assert(err, IsNil)
 	}
 	s.AssertMachineCount(c, numInserts)
@@ -202,7 +179,7 @@ func (s *StateSuite) TestAllMachines(c *C) {
 func (s *StateSuite) TestAddService(c *C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddService("haha/borken", charm)
-	c.Assert(err, ErrorMatches, `"haha/borken" is not a valid service name`)
+	c.Assert(err, ErrorMatches, `cannot add service "haha/borken": invalid name`)
 	_, err = s.State.Service("haha/borken")
 	c.Assert(err, ErrorMatches, `"haha/borken" is not a valid service name`)
 
@@ -519,7 +496,7 @@ var machinesWatchTests = []struct {
 		func(c *C, s *state.State) {
 			m3, err := s.Machine("3")
 			c.Assert(err, IsNil)
-			err = m3.EnsureDying()
+			err = m3.Destroy()
 			c.Assert(err, IsNil)
 		},
 		[]string{"3"},
@@ -537,9 +514,11 @@ var machinesWatchTests = []struct {
 		func(c *C, s *state.State) {
 			m0, err := s.Machine("0")
 			c.Assert(err, IsNil)
-			err = m0.EnsureDying()
+			err = m0.Destroy()
 			c.Assert(err, IsNil)
-			err = s.RemoveMachine("3")
+			m3, err := s.Machine("3")
+			c.Assert(err, IsNil)
+			err = m3.Remove()
 			c.Assert(err, IsNil)
 		},
 		[]string{"0"},
@@ -554,7 +533,7 @@ var machinesWatchTests = []struct {
 			c.Assert(err, IsNil)
 			err = m2.EnsureDead()
 			c.Assert(err, IsNil)
-			err = s.RemoveMachine("2")
+			err = m2.Remove()
 			c.Assert(err, IsNil)
 		},
 		[]string{"0", "2"},
@@ -585,7 +564,7 @@ var machinesWatchTests = []struct {
 			for i := 10; i < len(machines); i++ {
 				err = machines[i].EnsureDead()
 				c.Assert(err, IsNil)
-				err = s.RemoveMachine(machines[i].Id())
+				err = machines[i].Remove()
 				c.Assert(err, IsNil)
 			}
 		},
@@ -602,7 +581,7 @@ var machinesWatchTests = []struct {
 			c.Assert(err, IsNil)
 			err = m.EnsureDead()
 			c.Assert(err, IsNil)
-			err = s.RemoveMachine(m.Id())
+			err = m.Remove()
 			c.Assert(err, IsNil)
 
 			_, err = s.AddMachine(state.JobHostUnits)
@@ -618,7 +597,7 @@ var machinesWatchTests = []struct {
 			err = m.EnsureDead()
 			c.Assert(err, IsNil)
 			s.Sync()
-			err = s.RemoveMachine(m.Id())
+			err = m.Remove()
 			c.Assert(err, IsNil)
 			s.Sync()
 		},
@@ -1095,27 +1074,30 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *C) {
 	m2, err := s.State.Machine(m1.Id())
 	c.Assert(m1, DeepEquals, m2)
 
-	charm1 := s.AddTestingCharm(c, "dummy")
+	charm1 := s.AddTestingCharm(c, "wordpress")
 	charm2, err := s.State.Charm(charm1.URL())
 	c.Assert(err, IsNil)
 	c.Assert(charm1, DeepEquals, charm2)
 
-	service1, err := s.State.AddService("dummy", charm1)
+	wordpress1, err := s.State.AddService("wordpress", charm1)
 	c.Assert(err, IsNil)
-	service2, err := s.State.Service("dummy")
+	wordpress2, err := s.State.Service("wordpress")
 	c.Assert(err, IsNil)
-	c.Assert(service1, DeepEquals, service2)
+	c.Assert(wordpress1, DeepEquals, wordpress2)
 
-	unit1, err := service1.AddUnit()
+	unit1, err := wordpress1.AddUnit()
 	c.Assert(err, IsNil)
-	unit2, err := s.State.Unit("dummy/0")
+	unit2, err := s.State.Unit("wordpress/0")
 	c.Assert(err, IsNil)
 	c.Assert(unit1, DeepEquals, unit2)
 
-	peer := state.Endpoint{"dummy", "ifce", "name", state.RolePeer, charm.ScopeGlobal}
-	relation1, err := s.State.AddRelation(peer)
+	_, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
 	c.Assert(err, IsNil)
-	relation2, err := s.State.EndpointsRelation(peer)
+	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
+	c.Assert(err, IsNil)
+	relation1, err := s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	relation2, err := s.State.EndpointsRelation(eps...)
 	c.Assert(relation1, DeepEquals, relation2)
 	relation3, err := s.State.Relation(relation1.Id())
 	c.Assert(relation1, DeepEquals, relation3)

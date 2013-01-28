@@ -363,7 +363,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	sch, err := conn.PutCharm(url, &charm.LocalRepository{repoDir}, false)
 
 	c.Assert(err, IsNil)
-	svc, err := conn.AddService("", sch)
+	svc, err := conn.State.AddService("dummy", sch)
 	c.Assert(err, IsNil)
 	units, err := conn.AddUnits(svc, 1)
 	c.Assert(err, IsNil)
@@ -406,11 +406,11 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	c.Logf("removing unit")
 	err = unit.EnsureDead()
 	c.Assert(err, IsNil)
-	err = svc.RemoveUnit(unit)
+	err = unit.Remove()
 	c.Assert(err, IsNil)
 	err = m1.EnsureDead()
 	c.Assert(err, IsNil)
-	err = conn.State.RemoveMachine(mid1)
+	err = m1.Remove()
 	c.Assert(err, IsNil)
 
 	c.Logf("waiting for instance to be removed")

@@ -91,7 +91,7 @@ func (s *MachineSuite) TestWithDeadMachine(c *C) {
 	c.Assert(err, IsNil)
 
 	// try again with the machine removed.
-	err = s.State.RemoveMachine(m.Id())
+	err = m.Remove()
 	c.Assert(err, IsNil)
 	a = s.newAgent(c, m)
 	err = runWithTimeout(a)
@@ -118,7 +118,7 @@ func (s *MachineSuite) TestHostUnits(c *C) {
 	c.Assert(err, IsNil)
 	mgr.waitDeployed(c, u0.Name())
 
-	err = u0.EnsureDying()
+	err = u0.Destroy()
 	c.Assert(err, IsNil)
 	mgr.waitDeployed(c, u0.Name())
 
@@ -151,7 +151,7 @@ func (s *MachineSuite) TestManageEnviron(c *C) {
 	// Add one unit to a service; it should get allocated a machine
 	// and then its ports should be opened.
 	charm := s.AddTestingCharm(c, "dummy")
-	svc, err := s.Conn.AddService("test-service", charm)
+	svc, err := s.State.AddService("test-service", charm)
 	c.Assert(err, IsNil)
 	err = svc.SetExposed()
 	c.Assert(err, IsNil)
