@@ -2,7 +2,6 @@ package uniter_test
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker/uniter"
@@ -28,14 +27,13 @@ var _ = Suite(&RelationerSuite{})
 
 func (s *RelationerSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
-	ch := s.AddTestingCharm(c, "dummy")
 	var err error
-	s.svc, err = s.State.AddService("u", ch)
+	s.svc, err = s.State.AddService("u", s.AddTestingCharm(c, "riak"))
 	c.Assert(err, IsNil)
-	s.rel, err = s.State.AddRelation(state.Endpoint{
-		"u", "ifce", "my-relation", state.RolePeer, charm.ScopeGlobal,
-	})
+	rels, err := s.svc.Relations()
 	c.Assert(err, IsNil)
+	c.Assert(rels, HasLen, 1)
+	s.rel = rels[0]
 	s.ru = s.AddRelationUnit(c, "u/0")
 	s.dir, err = relation.ReadStateDir(c.MkDir(), s.rel.Id())
 	c.Assert(err, IsNil)
@@ -231,7 +229,7 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 	name, err := r.PrepareHook(joined)
 	c.Assert(err, IsNil)
 	c.Assert(s.dir.State().Members, HasLen, 0)
-	c.Assert(name, Equals, "my-relation-relation-joined")
+	c.Assert(name, Equals, "ring-relation-joined")
 	c.Assert(ctx.UnitNames(), DeepEquals, []string{"u/1"})
 	s1, err := ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
@@ -262,7 +260,7 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 	// ...and allows us to prepare the next hook...
 	name, err = r.PrepareHook(changed)
 	c.Assert(err, IsNil)
-	c.Assert(name, Equals, "my-relation-relation-changed")
+	c.Assert(name, Equals, "ring-relation-changed")
 	c.Assert(s.dir.State().Members, DeepEquals, map[string]int64{"u/1": 0})
 	c.Assert(ctx.UnitNames(), DeepEquals, []string{"u/1"})
 	s1, err = ctx.ReadSettings("u/1")
@@ -284,7 +282,7 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 	name, err = r.PrepareHook(joined)
 	c.Assert(err, IsNil)
 	c.Assert(s.dir.State().Members, HasLen, 1)
-	c.Assert(name, Equals, "my-relation-relation-joined")
+	c.Assert(name, Equals, "ring-relation-joined")
 	c.Assert(ctx.UnitNames(), DeepEquals, []string{"u/1", "u/2"})
 
 	// ...and so is relation state on commit.
