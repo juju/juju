@@ -144,10 +144,10 @@ func (w *Watcher) sendReq(req interface{}) {
 // field is observed to change after a transaction is applied. The revno
 // parameter holds the currently known revision number for the document.
 // Non-existent documents are represented by a -1 revno.
-func (w *Watcher) Watch(collection string, id string, revno int64, ch chan<- Change) {
-	//	if id == nil {
-	//		panic("watcher: cannot watch a document with nil id")
-	//	}
+func (w *Watcher) Watch(collection string, id interface{}, revno int64, ch chan<- Change) {
+	if id == nil {
+		panic("watcher: cannot watch a document with nil id")
+	}
 	w.sendReq(reqWatch{watchKey{collection, id}, watchInfo{ch, revno}})
 }
 
