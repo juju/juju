@@ -248,6 +248,10 @@ func (conn *Conn) AddUnits(svc *state.Service, n int) ([]*state.Unit, error) {
 		if err != nil {
 			return nil, fmt.Errorf("cannot add unit %d/%d to service %q: %v", i+1, n, svc.Name(), err)
 		}
+		// TODO more specifically, what do we do if we fail here? The unit
+		// then becomes unremovable... unless we fix Unit.Destroy to insta-
+		// nuke unassigned machines. Now that this is the only(?) way to hit
+		// this bug, that sounds like a good move...
 		if err := conn.State.AssignUnit(unit, policy); err != nil {
 			return nil, err
 		}
@@ -256,29 +260,54 @@ func (conn *Conn) AddUnits(svc *state.Service, n int) ([]*state.Unit, error) {
 	return units, nil
 }
 
-// DestroyUnits removes the specified units from the state.
+// DestroyMachines destroys the specified machines.
+func (conn *Conn) DestroyMachines(ids ...string) (err error) {
+	failed := false
+	for _, id := range ids {
+		machine, err := conn.State.Machine(id)
+		switch {
+		case state.IsNotFound(err):
+			err = fmt.Errorf("machine %s does not exist", id)
+		case err != nil:
+		case machine.Life() != state.Alive:
+			continue
+		default:
+			err = machine.Destroy()
+		}
+		if err != nil {
+			log.Printf("error: %v", err)
+			failed = true
+		}
+	}
+	if failed {
+		return fmt.Errorf("some machines were not destroyed")
+	}
+	return nil
+}
+
+// DestroyUnits destroys the specified units.
 func (conn *Conn) DestroyUnits(names ...string) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot destroy units")
-	var units []*state.Unit
+	failed := false
 	for _, name := range names {
 		unit, err := conn.State.Unit(name)
 		switch {
 		case state.IsNotFound(err):
-			return fmt.Errorf("unit %q is not alive", name)
+			err = fmt.Errorf("unit %q does not exist", name)
 		case err != nil:
-			return err
 		case unit.Life() != state.Alive:
-			return fmt.Errorf("unit %q is not alive", name)
+			continue
 		case unit.IsPrincipal():
-			units = append(units, unit)
+			err = unit.Destroy()
 		default:
-			return fmt.Errorf("unit %q is a subordinate", name)
+			err = fmt.Errorf("unit %q is a subordinate", name)
+		}
+		if err != nil {
+			log.Printf("error: %v", err)
+			failed = true
 		}
 	}
-	for _, unit := range units {
-		if err := unit.Destroy(); err != nil {
-			return err
-		}
+	if failed {
+		return fmt.Errorf("some units were not destroyed")
 	}
 	return nil
 }
