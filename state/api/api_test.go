@@ -80,3 +80,30 @@ func (s *suite) TestStop(c *C) {
 	err = s.srv.Stop()
 	c.Assert(err, IsNil)
 }
+
+func (s *suite) BenchmarkRequests(c *C) {
+	stm, err := s.State.AddMachine(state.JobHostUnits)
+	c.Assert(err, IsNil)
+	err = stm.SetInstanceId("foo")
+	c.Assert(err, IsNil)
+	m := s.APIState.Machine(stm.Id())
+	id, err := m.InstanceId()
+	c.Assert(err, IsNil)
+	c.Assert(id, Equals, "foo")
+	c.ResetTimer()
+	for i := 0; i < c.N; i++ {
+		_, err := m.InstanceId()
+		if err != nil {
+			c.Assert(err, IsNil)
+		}
+	}
+}
+
+func (s *suite) BenchmarkTestRequests(c *C) {
+	for i := 0; i < c.N; i++ {
+		err := s.APIState.TestRequest()
+		if err != nil {
+			c.Assert(err, IsNil)
+		}
+	}
+}
