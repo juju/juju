@@ -228,7 +228,7 @@ func (s *MachineSuite) TestServeAPI(c *C) {
 	st, err := api.Open(conf.APIInfo)
 	c.Assert(err, IsNil)
 	defer st.Close()
-	instId, err := st.Request(m.Id())
+	instId, err := st.Machine(m.Id()).InstanceId()
 	c.Assert(err, IsNil)
 	c.Assert(instId, Equals, "ardbeg-0")
 
