@@ -12,174 +12,164 @@ Things to think about:
 can we provide some way of distinguishing GET from POST methods?
 */
 
-var errorType = reflect.TypeOf((*error)(nil)).Elem()
+var (
+	errorType = reflect.TypeOf((*error)(nil)).Elem()
+	interfaceType = reflect.TypeOf((*interface{})(nil)).Elem()
+	stringType = reflect.TypeOf("")
+)
+
 var errNilDereference = errors.New("field retrieval from nil reference")
 
 type Server struct {
-	root         reflect.Value
-	checkContext func(ctxt interface{}) error
-	ctxtType     reflect.Type
-	// We store the member names for each type,
-	// each one holding a function that can get the
-	// field or method from its parent value.
-	types map[reflect.Type]map[string]*procedure
+	newRoot func(ctxt interface{}) (reflect.Value, error)
+	obtain map[string] *obtainer
+	action map[reflect.Type] map[string] *action
 }
 
-// NewServer returns a new server that serves RPC requests by querying
-// the given root value.  The request path specifies an object to act
-// on.  The first element acts on the root value; each subsequent
-// element acts on the value returned by the previous element.  The
-// value returned by the final element of the path is returned as the
-// result of the RPC.  If any element in the path returns an error,
-// evaluation stops there.
+// NewServer returns a new server.  The newRoot value must be a function
+// of the form:
 //
-// An element of the path specifies the name of exported field or
-// method. To be considered, a method must be defined
-// in one of the following forms, where T and R represent
-// an arbitrary type other than the built-in error type:
+//     func(ctxt interface{}) (T, error)
 //
+// where ctxt is a connection-specific value representing the client's
+// connection.  For instance, when using Server.Accept, ctxt will be a
+// net.Conn.  The value returned by newRoot, the "root" value, is used
+// to serve requests for a single client.
+// TODO if root value implements io.Closer, call Close.
+//
+// The server executes each client request by calling a "type" method on
+// the root value to obtain an object to act on; then it invokes an
+// action method on that object with the request parameters, possibly
+// returning some result.
+//
+// Type methods on the root value are of the form:
+//
+//      M(id string) (O, error)
+//
+// where M is an exported name, conventionally naming the object type,
+// id is some identifier for the object and O is the type of the
+// returned object.
+//
+// Action methods defined on O may defined in one of the following
+// forms, where T and R each represent an arbitrary type other than the
+// built-in error type.
+//
+//	Method()
 //	Method() R
 //	Method() (R, error)
+//	Method() error
+//	Method(T)
 //	Method(T) R
 //	Method(T) (R, error)
-//	Method()
-//	Method() error
 //	Method(T) error
 //
-// If a path element contains a hyphen (-) character, the method's
-// argument type T must be string, and it will be supplied from any
-// characters after the hyphen.
-//
-// The last element in the path is treated specially.  Its method
-// argument argument will be filled in from the parameters passed to the
-// RPC and the R result will be returned to the RPC caller.
-//
-// If the root value implements the method CheckContext, it will be
-// called for any new connection before any other method, with the
-// argument passed to ServeConn.  In this case, any method may have a
-// first argument of this type and it will likewise be passed the
-// context value given to ServeConn.
-//
-func NewServer(root interface{}) (*Server, error) {
+func NewServer(newRoot interface{}) (*Server, error) {
+	rfv := reflect.ValueOf(newRoot)
+	rft := rfv.Type()
+	if rft.Kind() != reflect.Func ||
+		rft.NumIn() != 1 ||
+		rft.NumOut() != 2 ||
+		rft.In(0) != interfaceType ||
+		rft.Out(1) != errorType {
+		return nil, fmt.Errorf("newRoot has unexpected type signature %s", rft)
+	}
 	srv := &Server{
-		root:  reflect.ValueOf(root),
-		types: make(map[reflect.Type]map[string]*procedure),
-	}
-	t := srv.root.Type()
-	if m, ok := t.MethodByName("CheckContext"); ok {
-		if m.Type.NumIn() != 2 ||
-			m.Type.NumOut() != 1 ||
-			m.Type.Out(0) != errorType {
-			return nil, fmt.Errorf("CheckContext has unexpected type %v", m.Type)
-		}
-		srv.ctxtType = m.Type.In(1)
-		srv.checkContext = func(ctxt interface{}) error {
-			r := srv.root.Method(m.Index).Call([]reflect.Value{
-				reflect.ValueOf(ctxt),
-			})
-			if e := r[0].Interface(); e != nil {
-				return e.(error)
+		newRoot: func(ctxt interface{}) (rv  reflect.Value, err error) {
+			r := rfv.Call([]reflect.Value{reflect.ValueOf(ctxt)})
+			rv = r[0]
+			if !r[1].IsNil() {
+				err = r[1].Interface().(error)
 			}
-			return nil
+			return
+		},
+		obtain: make(map[string] *obtainer),
+		action: make(map[reflect.Type] map[string] *action),
+	}
+	rt := rft.Out(0)
+	for i := 0; i < rt.NumMethod(); i++ {
+		m := rt.Method(i)
+		o := srv.methodToObtainer(m)
+		if o == nil {
+			continue
+		}
+		actions := make(map[string] *action)
+		for i := 0; i < o.ret.NumMethod(); i++ {
+			m := o.ret.Method(i)
+			if a := srv.methodToAction(m); a != nil {
+				actions[m.Name] = a
+			}
+		}
+		if len(actions) > 0 {
+			srv.action[o.ret] = actions
+			srv.obtain[m.Name] = o
 		}
 	}
-	srv.buildTypes(t)
+	if len(srv.obtain) == 0 {
+		return nil, fmt.Errorf("no RPC methods found on %s", rt)
+	}
 	return srv, nil
 }
 
-type procedure struct {
-	arg, ret reflect.Type
-	call     func(rcvr, ctxt, arg reflect.Value) (reflect.Value, error)
+type obtainer struct {
+	ret reflect.Type
+	call func(rcvr reflect.Value, id string) (reflect.Value, error)
 }
 
-func (p *procedure) String() string {
+func (o *obtainer) String() string {
+	return fmt.Sprintf("{id -> %s}", o.ret)
+}
+
+func (srv *Server) methodToObtainer(m reflect.Method) *obtainer {
+	if m.PkgPath != "" {
+		return nil
+	}
+	t := m.Type
+	if t.NumIn() != 1 ||
+		t.NumOut() != 2 ||
+		t.In(0) != stringType ||
+		t.Out(1) != errorType {
+		return nil
+	}
+	f := func(rcvr reflect.Value, id string) (r reflect.Value, err error) {
+		out := rcvr.Call([]reflect.Value{rcvr, reflect.ValueOf(id)})
+		if !out[1].IsNil() {
+			err = out[1].Interface().(error)
+		}
+		r = out[0]
+		return
+	}
+	return &obtainer{
+		t.Out(0),
+		f,
+	}
+}
+
+type action struct {
+	arg, ret reflect.Type
+	call     func(rcvr, arg reflect.Value) (reflect.Value, error)
+}
+
+func (p *action) String() string {
 	return fmt.Sprintf("{%s -> %s}", p.arg, p.ret)
 }
 
-func (srv *Server) buildTypes(t reflect.Type) {
-	// log.Printf("buildTypes %s, %d methods", t, t.NumMethod())
-	if _, ok := srv.types[t]; ok {
-		return
-	}
-	members := make(map[string]*procedure)
-	// Add first to guard against infinite recursion.
-	srv.types[t] = members
-	for i := 0; i < t.NumMethod(); i++ {
-		m := t.Method(i)
-		if p := srv.methodToProcedure(m); p != nil {
-			members[m.Name] = p
-		}
-	}
-	st := t
-	if st.Kind() == reflect.Ptr {
-		st = st.Elem()
-	}
-	if st.Kind() != reflect.Struct {
-		return
-	}
-	for i := 0; i < st.NumField(); i++ {
-		f := st.Field(i)
-		// TODO if t is addressable, use pointer to field so that we get pointer methods?
-		if p := fieldToProcedure(t, f, i); p != nil {
-			members[f.Name] = p
-		}
-	}
-	for _, m := range members {
-		if m.ret != nil {
-			srv.buildTypes(m.ret)
-		}
-	}
-}
-
-func fieldToProcedure(rcvr reflect.Type, f reflect.StructField, index int) *procedure {
-	if f.PkgPath != "" {
+func (srv *Server) methodToAction(m reflect.Method) *action {
+	if m.PkgPath != "" {
 		return nil
 	}
-	var p procedure
-	p.ret = f.Type
-	if rcvr.Kind() == reflect.Ptr {
-		p.call = func(rcvr, ctxt, arg reflect.Value) (r reflect.Value, err error) {
-			if rcvr.IsNil() {
-				err = errNilDereference
-				return
-			}
-			rcvr = rcvr.Elem()
-			return rcvr.Field(index), nil
-		}
-	} else {
-		p.call = func(rcvr, ctxt, arg reflect.Value) (r reflect.Value, err error) {
-			return rcvr.Field(index), nil
-		}
-	}
-	return &p
-}
-
-func (srv *Server) methodToProcedure(m reflect.Method) *procedure {
-	if m.PkgPath != "" || m.Name == "CheckContext" {
-		return nil
-	}
-	var p procedure
-	var assemble func(ctxt, arg reflect.Value) []reflect.Value
+	var p action
+	var assemble func(arg reflect.Value) []reflect.Value
 	// N.B. The method type has the receiver as its first argument.
 	t := m.Type
 	switch {
 	case t.NumIn() == 1:
-		assemble = func(ctxt, arg reflect.Value) []reflect.Value {
+		assemble = func(arg reflect.Value) []reflect.Value {
 			return nil
-		}
-	case t.NumIn() == 2 && t.In(1) == srv.ctxtType:
-		assemble = func(ctxt, arg reflect.Value) []reflect.Value {
-			return []reflect.Value{ctxt}
 		}
 	case t.NumIn() == 2:
 		p.arg = t.In(1)
-		assemble = func(ctxt, arg reflect.Value) []reflect.Value {
+		assemble = func(arg reflect.Value) []reflect.Value {
 			return []reflect.Value{arg}
-		}
-	case t.NumIn() == 3 && t.In(1) == srv.ctxtType:
-		p.arg = t.In(2)
-		assemble = func(ctxt, arg reflect.Value) []reflect.Value {
-			return []reflect.Value{ctxt, arg}
 		}
 	default:
 		return nil
@@ -187,13 +177,13 @@ func (srv *Server) methodToProcedure(m reflect.Method) *procedure {
 
 	switch {
 	case t.NumOut() == 0:
-		p.call = func(rcvr, ctxt, arg reflect.Value) (r reflect.Value, err error) {
-			rcvr.Method(m.Index).Call(assemble(ctxt, arg))
+		p.call = func(rcvr, arg reflect.Value) (r reflect.Value, err error) {
+			rcvr.Method(m.Index).Call(assemble(arg))
 			return
 		}
 	case t.NumOut() == 1 && t.Out(0) == errorType:
-		p.call = func(rcvr, ctxt, arg reflect.Value) (r reflect.Value, err error) {
-			out := rcvr.Method(m.Index).Call(assemble(ctxt, arg))
+		p.call = func(rcvr, arg reflect.Value) (r reflect.Value, err error) {
+			out := rcvr.Method(m.Index).Call(assemble(arg))
 			if !out[0].IsNil() {
 				err = out[0].Interface().(error)
 			}
@@ -201,14 +191,14 @@ func (srv *Server) methodToProcedure(m reflect.Method) *procedure {
 		}
 	case t.NumOut() == 1:
 		p.ret = t.Out(0)
-		p.call = func(rcvr, ctxt, arg reflect.Value) (reflect.Value, error) {
-			out := rcvr.Method(m.Index).Call(assemble(ctxt, arg))
+		p.call = func(rcvr, arg reflect.Value) (reflect.Value, error) {
+			out := rcvr.Method(m.Index).Call(assemble(arg))
 			return out[0], nil
 		}
 	case t.NumOut() == 2 && t.Out(1) == errorType:
 		p.ret = t.Out(0)
-		p.call = func(rcvr, ctxt, arg reflect.Value) (r reflect.Value, err error) {
-			out := rcvr.Method(m.Index).Call(assemble(ctxt, arg))
+		p.call = func(rcvr, arg reflect.Value) (r reflect.Value, err error) {
+			out := rcvr.Method(m.Index).Call(assemble(arg))
 			r = out[0]
 			if !out[1].IsNil() {
 				err = out[1].Interface().(error)

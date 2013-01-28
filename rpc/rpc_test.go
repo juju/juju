@@ -1,23 +1,29 @@
 package rpc_test
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/rpc"
 	"net"
-	"net/http"
-	"reflect"
 	"testing"
+	"encoding/json"
 )
 
 type suite struct{}
 
 var _ = Suite(suite{})
 
-func (suite) SetUpTest(c *C) {
-	contextChecked = make(chan *TContext, 1)
+type callInfo struct {
+	rcvr interface{}
+	method string
+	arg interface{}
+}
+
+type callError callInfo
+
+func (e *callError) Error() string {
+	return fmt.Sprintf("error calling %s", e.method)
 }
 
 func TestAll(t *testing.T) {
@@ -25,252 +31,82 @@ func TestAll(t *testing.T) {
 }
 
 type TRoot struct {
-	A    string
-	B    int
-	C    *TStruct
-	List *TList
-	//	D TIntWithMethods TODO
+	t *testContext
 }
 
-type TContext struct {
-	S string
-}
-
-func (ctxt *TContext) String() string {
-	if ctxt == nil {
-		return "nil"
+func (r *TRoot) A(id string) (*A, error) {
+	if id == "" || id[0] != 'a' {
+		return nil, fmt.Errorf("unknown a id")
 	}
-	return ctxt.S
+	return r.t.newA(id)
 }
 
-var contextChecked chan *TContext
-
-func (TRoot) CheckContext(ctxt *TContext) error {
-	contextChecked <- ctxt
-	return nil
+type A struct {
+	t *testContext
+	id string
+	called string
 }
 
-type TList struct {
-	Elem string
-	Next *TList
+func (a *A) Call0r0() {
+	a.t.called(a, "Call0r0", nil)
 }
 
-func (r *TList) MNext() *TList {
-	called(nil, "TList.MNext")
-	return r.Next
+func (a *A) Call0r1() string {
+	a.t.called(a, "Call0r1", nil)
+	return "Call0r1 ret"
 }
 
-type TStruct struct {
-	X string
+func (a *A) Call0r1e() (string, error) {
+	a.t.called(a, "Call0r1e", nil)
+	return "Call0r1e ret", &callError{a, "Call0r1e", nil}
 }
 
-func (TStruct) Method_0r0() {
-	called(nil, "TStruct.Method_0r0")
-}
-func (TStruct) Method_c0r0(ctxt *TContext) {
-	called(ctxt, "TStruct.Method_c0r0", ctxt)
-}
-func (TStruct) Method_1r0(x string) {
-	called(nil, "TStruct.Method_1r0", x)
-}
-func (TStruct) Method_1r1(x string) string {
-	called(nil, "TStruct.Method_1r1", x)
-	return "TStruct.Method_1r1"
-}
-func (TStruct) Method_c1r0(ctxt *TContext, x string) {
-	called(ctxt, "TStruct.Method_c1r0", ctxt, x)
-}
-func (TStruct) Method_c2r0(ctxt *TContext, x, bogus string) {
-	called(ctxt, "TStruct.Method_c2r0", ctxt, x, bogus)
-}
-func (TStruct) Method_0r0e() error {
-	called(nil, "TStruct.Method_0r0e")
-	return methodError("TStruct.Method_0r0e")
-}
-func (TStruct) Method_0r1() string {
-	called(nil, "TStruct.Method_0r1")
-	return "TStruct.Method_0r0e"
-}
-func (TStruct) Method_0r1e() (string, error) {
-	called(nil, "TStruct.Method_0r1e")
-	return "TStruct.Method_0r1e", nil
+func (a *A) Call0r0e() error {
+	a.t.called(a, "Call0r0e", nil)
+	return &callError{a, "Call0r0e", nil}
 }
 
-// TODO fill in other permutations
-
-func (TStruct) Method_c1r1e(ctxt *TContext, x string) (int, error) {
-	called(ctxt, "TStruct.Method_c1r1e", x)
-	return 0, methodError("TStruct.Method_c1r1e")
+func (a *A) Call1r0(s string) {
+	a.t.called(a, "Call1r0", s)
 }
 
-func methodError(name string) error {
-	return fmt.Errorf("method %s", name)
+func (a *A) Call1r1(s string) string {
+	a.t.called(a, "Call1r1", s)
+	return "Call1r1 ret"
 }
 
-var root = &TRoot{
-	A: "A",
-	B: 99,
-	C: &TStruct{
-		X: "X",
-	},
-	List: newList("zero", "one", "two"),
+func (a *A) Call1r1e(s string) (string, error) {
+	a.t.called(a, "Call1r1e", s)
+	return "", &callError{a, "Call1r1e", s}
 }
 
-func newList(elems ...string) *TList {
-	var l *TList
-	for i := len(elems) - 1; i >= 0; i-- {
-		l = &TList{
-			Elem: elems[i],
-			Next: l,
-		}
+func (a *A) Call1r0e(s string) error {
+	a.t.called(a, "Call1r0e", s)
+	return &callError{a, "Call1r0e", s}
+}
+
+type testContext struct {
+	calls []*callInfo
+	as map[string] *A
+}
+
+func (t *testContext) called(rcvr interface{}, method string, arg interface{}) {
+	t.calls = append(t.calls, &callInfo{rcvr, method, arg})
+}
+
+func (t *testContext) newA(id string) (*A, error) {
+	if a := t.as[id]; a != nil {
+		return a, nil
 	}
-	return l
+	return nil, fmt.Errorf("A(%s) not found", id)
 }
 
-var calls []string
-
-func called(ctxt *TContext, args ...interface{}) {
-	var b bytes.Buffer
-	fmt.Fprintf(&b, "%v:", ctxt)
-	for _, a := range args {
-		fmt.Fprintf(&b, " %v", a)
-	}
-	calls = append(calls, b.String())
-}
-
-type rpcTest struct {
-	path    string
-	calls   []string
-	arg     interface{}
-	ret     interface{}
-	err     string
-	errPath string
-}
-
-var rpcTests = []rpcTest{{
-	path: "/A",
-	ret:  "A",
-}, {
-	path:    "/A/B",
-	err:     "not found",
-	errPath: "A/B",
-}, {
-	path: "/B",
-	ret:  99,
-}, {
-	path: "/C",
-	ret:  &TStruct{X: "X"},
-}, {
-	path: "/C/X",
-	ret:  "X",
-}, {
-	path:  "/C/Method_0r0",
-	calls: []string{"nil: TStruct.Method_0r0"},
-}, {
-	path:  "/C/Method_c1r1e",
-	arg:   "hello",
-	calls: []string{"ctxt: TStruct.Method_c1r1e hello"},
-	err:   "method TStruct.Method_c1r1e",
-}, {
-	path:  "/C/Method_1r1",
-	arg:   "hello",
-	calls: []string{"nil: TStruct.Method_1r1 hello"},
-	ret:   "TStruct.Method_1r1",
-}, {
-	path:  "/C/Method_c1r1e-hello",
-	calls: []string{"ctxt: TStruct.Method_c1r1e hello"},
-	err:   "method TStruct.Method_c1r1e",
-}, {
-	path: "/List",
-	ret:  newList("zero", "one", "two"),
-}, {
-	path: "/List/Next",
-	ret:  newList("one", "two"),
-}, {
-	path: "/List/Next/Next",
-	ret:  newList("two"),
-}, {
-	path:  "/List/MNext",
-	ret:   newList("one", "two"),
-	calls: []string{"nil: TList.MNext"},
-}, {
-	path:  "/List/MNext/MNext",
-	ret:   newList("two"),
-	calls: []string{"nil: TList.MNext", "nil: TList.MNext"},
-},
-
-//{
-//	path: "/List/Next/Next/Next",
-//}, 
-}
-
-func (suite) TestServeCodec(c *C) {
-	ctxt := &TContext{"ctxt"}
-	srv, err := rpc.NewServer(root)
-	c.Assert(err, IsNil)
-	for i, test := range rpcTests {
-		c.Logf("test %d: %s", i, test.path)
-		calls = nil
-
-		codec := &singleShotCodec{
-			req: rpc.Request{
-				Path: test.path,
-				Seq:  99,
-			},
-			reqBody: test.arg,
-		}
-		done := make(chan error)
-		go func() {
-			done <- srv.ServeCodec(codec, ctxt)
-		}()
-		c.Assert(<-contextChecked, Equals, ctxt)
-		err := <-done
-		c.Assert(err, IsNil)
-		c.Assert(codec.doneHeader, Equals, true)
-		c.Assert(codec.doneBody, Equals, true)
-		c.Assert(codec.resp.Seq, Equals, uint64(99))
-		c.Assert(calls, DeepEquals, test.calls)
-		if test.err != "" {
-			c.Assert(codec.resp.Error, Matches, test.err)
-			c.Assert(codec.resp.ErrorPath, Matches, test.errPath)
-			continue
-		}
-		c.Assert(codec.resp.Error, Equals, "")
-		c.Assert(codec.resp.ErrorPath, Equals, "")
-		c.Assert(codec.respValue, DeepEquals, test.ret)
-	}
-}
-
-type codecInfo struct {
-	name      string
-	newClient func(io.ReadWriter) rpc.ClientCodec
-	newServer func(io.ReadWriter) rpc.ServerCodec
-}
-
-var codecs = []codecInfo{{
-	"json",
-	rpc.NewJSONClientCodec,
-	rpc.NewJSONServerCodec,
-},
-
-// XML doesn't currently work because it doesn't delimit messages.
-//{
-//	"xml",
-//	rpc.NewXMLClientCodec,
-//	rpc.NewXMLServerCodec,
-//},
-}
-
-func (suite) TestConnectionOrientedCodecs(c *C) {
-	for i, info := range codecs {
-		c.Logf("test %d. %s", i, info.name)
-		testCodec(c, info)
-	}
-}
-
-func testCodec(c *C, info codecInfo) {
-	ctxt := &TContext{"ctxt"}
-	srv, err := rpc.NewServer(root)
+func (suite) TestRPC(c *C) {
+	rootc := make(chan *TRoot)
+	srv, err := rpc.NewServer(func(ctxt interface{}) (*TRoot, error) {
+		c.Check(ctxt, FitsTypeOf, (*net.TCPConn)(nil))
+		return <-rootc, nil
+	})
 	c.Assert(err, IsNil)
 
 	l, err := net.Listen("tcp", ":0")
@@ -279,120 +115,124 @@ func testCodec(c *C, info codecInfo) {
 
 	srvDone := make(chan error)
 	go func() {
-		// TODO better checking of context.
-		err := srv.Accept(l, info.newServer, func(net.Conn) interface{} {
-			return ctxt
-		})
-		c.Logf("Accept returned %v", err)
+		err := srv.Accept(l, NewJSONServerCodec)
+		c.Check(err, IsNil)
 		srvDone <- err
 	}()
 
 	conn, err := net.Dial("tcp", l.Addr().String())
 	c.Assert(err, IsNil)
 	defer conn.Close()
-	c.Assert(<-contextChecked, Equals, ctxt)
-	client := rpc.NewClientWithCodec(info.newClient(conn))
-	for i, test := range rpcTests {
-		c.Logf("test %s.%d: %s", info.name, i, test.path)
-		test.check(c, client)
+	t := &testContext{
+ 		as: map[string]*A{},
+	}
+	t.as["a99"] = &A{id: "a99", t: t}
+	rootc <- &TRoot{t}
+	client := rpc.NewClientWithCodec(NewJSONClientCodec(conn))
+	for narg := 0; narg < 2; narg++ {
+		for nret := 0; nret < 2; nret++ {
+			for nerr := 0; nerr < 2; nerr++ {
+				t.calls = nil
+				t.testCall(c, client, narg, nret, nerr != 0)
+			}
+		}
 	}
 	l.Close()
 	c.Logf("Accept status: %v", <-srvDone)
 }
 
-func (suite) TestHTTPCodec(c *C) {
-	ctxt := &TContext{"ctxt"}
-	srv, err := rpc.NewServer(root)
-	c.Assert(err, IsNil)
-
-	l, err := net.Listen("tcp", ":0")
-	c.Assert(err, IsNil)
-	defer l.Close()
-	handler := srv.NewHTTPHandler(func(*http.Request) interface{} { return ctxt })
-	go http.Serve(l, handler)
-	codec := rpc.NewHTTPClientCodec("http://" + l.Addr().String())
-	client := rpc.NewClientWithCodec(codec)
-	for i, test := range rpcTests {
-		c.Logf("test %d: %s", i, test.path)
-		test.check(c, client)
-		c.Check(<-contextChecked, Equals, ctxt)
+func (t *testContext) testCall(c *C, client *rpc.Client, narg, nret int, retErr bool) {
+	e := ""
+	if retErr {
+		e = "e"
 	}
-	l.Close()
-}
-
-func (test rpcTest) check(c *C, client *rpc.Client) {
-	calls = nil
-	var ret interface{}
-	if test.ret != nil {
-		ret = reflect.New(reflect.TypeOf(test.ret)).Interface()
+	method := fmt.Sprintf("Call%dr%d%s", narg, nret, e)
+	var r string
+	err := client.Call("A", "a99", method, "arg", &r)
+	c.Assert(t.calls, HasLen, 1)
+	expectCall := callInfo{
+		rcvr: t.as["a99"],
+		method: method,
 	}
-	c.Logf("x1")
-	err := client.Call(test.path, test.arg, ret)
-	c.Logf("x2")
-	c.Assert(calls, DeepEquals, test.calls)
-	if test.err != "" {
-		if test.errPath != "" {
-			c.Assert(err, ErrorMatches, fmt.Sprintf("error at %q: %s", test.errPath, test.err))
-		} else {
-			c.Assert(err, ErrorMatches, test.err)
-		}
-		return
+	if narg > 0 {
+		expectCall.arg = "arg"
 	}
-	c.Assert(err, IsNil)
-	if test.ret != nil {
-		c.Assert(reflect.ValueOf(ret).Elem().Interface(), DeepEquals, test.ret)
+	c.Assert(*t.calls[0], Equals, expectCall)
+	switch {
+	case retErr:
+		c.Assert(err, DeepEquals, &rpc.RemoteError{
+			fmt.Sprintf("error calling %s", method),
+		})
+	case nret > 0:
+		c.Assert(r, Equals, method + " ret")
 	}
 }
 
-type singleShotCodec struct {
-	req     rpc.Request
-	reqBody interface{}
 
-	resp      rpc.Response
-	respValue interface{}
-
-	doneHeader bool
-	doneBody   bool
+type generalServerCodec struct {
+	enc encoder
+	dec decoder
 }
 
-func (c *singleShotCodec) ReadRequestHeader(req *rpc.Request) error {
-	if c.doneHeader {
-		return io.EOF
-	}
-	*req = c.req
-	c.doneHeader = true
-	return nil
+type encoder interface {
+	Encode(e interface{}) error
 }
 
-func (c *singleShotCodec) ReadRequestBody(argp interface{}) error {
-	if c.doneBody {
-		panic("readBody called twice")
-	}
-	c.doneBody = true
+type decoder interface {
+	Decode(e interface{}) error
+}
+
+func (c *generalServerCodec) ReadRequestHeader(req *rpc.Request) error {
+	return c.dec.Decode(req)
+}
+
+func (c *generalServerCodec) ReadRequestBody(argp interface{}) error {
 	if argp == nil {
-		return nil
+		argp = &struct{}{}
 	}
-	v := reflect.ValueOf(argp)
-	t := v.Type()
-	if t.Kind() != reflect.Ptr {
-		return fmt.Errorf("want pointer, got %s", t)
-	}
-	bodyv := reflect.ValueOf(c.reqBody)
-	if t.Elem() != bodyv.Type() {
-		return fmt.Errorf("expected type %s, got %s", bodyv.Type(), t.Elem())
-	}
-	v.Elem().Set(bodyv)
-	return nil
+	return c.dec.Decode(argp)
 }
 
-func (c *singleShotCodec) WriteResponse(resp *rpc.Response, v interface{}) error {
-	if !c.doneHeader {
-		panic("header not read")
+func (c *generalServerCodec) WriteResponse(resp *rpc.Response, v interface{}) error {
+	if err := c.enc.Encode(resp); err != nil {
+		return err
 	}
-	if !c.doneBody {
-		panic("body not read")
+	return c.enc.Encode(v)
+}
+
+type generalClientCodec struct {
+	enc encoder
+	dec decoder
+}
+
+func (c *generalClientCodec) WriteRequest(req *rpc.Request, x interface{}) error {
+	if err := c.enc.Encode(req); err != nil {
+		return err
 	}
-	c.resp = *resp
-	c.respValue = v
-	return nil
+	return c.enc.Encode(x)
+}
+
+func (c *generalClientCodec) ReadResponseHeader(resp *rpc.Response) error {
+	return c.dec.Decode(resp)
+}
+
+func (c *generalClientCodec) ReadResponseBody(r interface{}) error {
+	if r == nil {
+		r = &struct{}{}
+	}
+	return c.dec.Decode(r)
+}
+
+func NewJSONServerCodec(c io.ReadWriter) rpc.ServerCodec {
+	return &generalServerCodec{
+		enc: json.NewEncoder(c),
+		dec: json.NewDecoder(c),
+	}
+}
+
+func NewJSONClientCodec(c io.ReadWriter) rpc.ClientCodec {
+	return &generalClientCodec{
+		enc: json.NewEncoder(c),
+		dec: json.NewDecoder(c),
+	}
 }

@@ -1,9 +1,5 @@
 package rpc
 
-import (
-	"fmt"
-)
-
 type ClientCodec interface {
 	WriteRequest(*Request, interface{}) error
 	ReadResponseHeader(*Response) error
@@ -12,7 +8,7 @@ type ClientCodec interface {
 
 type Client struct {
 	codec ClientCodec
-	seq   uint64
+	reqId   uint64
 }
 
 func NewClientWithCodec(codec ClientCodec) *Client {
@@ -21,29 +17,28 @@ func NewClientWithCodec(codec ClientCodec) *Client {
 	}
 }
 
-// RemoteError represents an error returned from
-// an RPC server.
-// TODO integrate with jsonError, pathError and Response?
+// RemoteError represents an error returned from an RPC server.
 type RemoteError struct {
 	Message string
-	Path    string
 }
 
 func (e *RemoteError) Error() string {
-	if e.Path == "" {
-		return e.Message
-	}
-	return fmt.Sprintf("error at %q: %s", e.Path, e.Message)
+	return e.Message
 }
 
-func (c *Client) Call(path string, arg, reply interface{}) error {
+// Call invokes the named action on the object of the given
+// type with the given id. If the action fails remotely, the
+// returned error will be a RemoteError.
+func (c *Client) Call(objType, id, action string, args, reply interface{}) error {
 	// TODO concurrent calls
-	c.seq++
+	c.reqId++
 	req := &Request{
-		Path: path,
-		Seq:  c.seq,
+		RequestId:  c.reqId,
+		Type: objType,
+		Id: id,
+		Action: action,
 	}
-	if err := c.codec.WriteRequest(req, arg); err != nil {
+	if err := c.codec.WriteRequest(req, args); err != nil {
 		return err
 	}
 	var resp Response
@@ -57,10 +52,7 @@ func (c *Client) Call(path string, arg, reply interface{}) error {
 		return err
 	}
 	if resp.Error != "" {
-		return &RemoteError{
-			Message: resp.Error,
-			Path:    resp.ErrorPath,
-		}
+		return &RemoteError{resp.Error}
 	}
 	return nil
 }
