@@ -134,7 +134,7 @@ func (csrv *codecServer) runRequest() (reflect.Value, error) {
 		return reflect.Value{}, err
 	}
 	a := csrv.action[o.ret][csrv.req.Action]
-	if a != nil {
+	if a == nil {
 		return reflect.Value{}, fmt.Errorf("no such action %q on %s", csrv.req.Action, csrv.req.Type)
 	}
 	var arg reflect.Value

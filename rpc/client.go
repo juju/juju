@@ -23,7 +23,7 @@ type RemoteError struct {
 }
 
 func (e *RemoteError) Error() string {
-	return e.Message
+	return "remote error: " + e.Message
 }
 
 // Call invokes the named action on the object of the given

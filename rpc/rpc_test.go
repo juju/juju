@@ -14,6 +14,10 @@ type suite struct{}
 
 var _ = Suite(suite{})
 
+func TestAll(t *testing.T) {
+	TestingT(t)
+}
+
 type callInfo struct {
 	rcvr   interface{}
 	method string
@@ -26,8 +30,8 @@ func (e *callError) Error() string {
 	return fmt.Sprintf("error calling %s", e.method)
 }
 
-func TestAll(t *testing.T) {
-	TestingT(t)
+type stringVal struct {
+	Val string
 }
 
 type TRoot struct {
@@ -42,23 +46,22 @@ func (r *TRoot) A(id string) (*A, error) {
 }
 
 type A struct {
-	t      *testContext
-	id     string
-	called string
+	t  *testContext
+	id string
 }
 
 func (a *A) Call0r0() {
 	a.t.called(a, "Call0r0", nil)
 }
 
-func (a *A) Call0r1() string {
+func (a *A) Call0r1() stringVal {
 	a.t.called(a, "Call0r1", nil)
-	return "Call0r1 ret"
+	return stringVal{"Call0r1 ret"}
 }
 
-func (a *A) Call0r1e() (string, error) {
+func (a *A) Call0r1e() (stringVal, error) {
 	a.t.called(a, "Call0r1e", nil)
-	return "Call0r1e ret", &callError{a, "Call0r1e", nil}
+	return stringVal{"Call0r1e ret"}, &callError{a, "Call0r1e", nil}
 }
 
 func (a *A) Call0r0e() error {
@@ -66,21 +69,21 @@ func (a *A) Call0r0e() error {
 	return &callError{a, "Call0r0e", nil}
 }
 
-func (a *A) Call1r0(s string) {
+func (a *A) Call1r0(s stringVal) {
 	a.t.called(a, "Call1r0", s)
 }
 
-func (a *A) Call1r1(s string) string {
+func (a *A) Call1r1(s stringVal) stringVal {
 	a.t.called(a, "Call1r1", s)
-	return "Call1r1 ret"
+	return stringVal{"Call1r1 ret"}
 }
 
-func (a *A) Call1r1e(s string) (string, error) {
+func (a *A) Call1r1e(s stringVal) (stringVal, error) {
 	a.t.called(a, "Call1r1e", s)
-	return "", &callError{a, "Call1r1e", s}
+	return stringVal{}, &callError{a, "Call1r1e", s}
 }
 
-func (a *A) Call1r0e(s string) error {
+func (a *A) Call1r0e(s stringVal) error {
 	a.t.called(a, "Call1r0e", s)
 	return &callError{a, "Call1r0e", s}
 }
@@ -116,7 +119,7 @@ func (suite) TestRPC(c *C) {
 	srvDone := make(chan error)
 	go func() {
 		err := srv.Accept(l, NewJSONServerCodec)
-		c.Check(err, IsNil)
+		c.Logf("accept status: %v", err)
 		srvDone <- err
 	}()
 
@@ -138,7 +141,7 @@ func (suite) TestRPC(c *C) {
 		}
 	}
 	l.Close()
-	c.Logf("Accept status: %v", <-srvDone)
+	<-srvDone
 }
 
 func (t *testContext) testCall(c *C, client *rpc.Client, narg, nret int, retErr bool) {
@@ -147,15 +150,16 @@ func (t *testContext) testCall(c *C, client *rpc.Client, narg, nret int, retErr 
 		e = "e"
 	}
 	method := fmt.Sprintf("Call%dr%d%s", narg, nret, e)
-	var r string
-	err := client.Call("A", "a99", method, "arg", &r)
-	c.Assert(t.calls, HasLen, 1)
+	c.Logf("test call %s", method)
+	var r stringVal
+	err := client.Call("A", "a99", method, stringVal{"arg"}, &r)
+	c.Assert(t.calls, HasLen, 1, Commentf("err %v", err))
 	expectCall := callInfo{
 		rcvr:   t.as["a99"],
 		method: method,
 	}
 	if narg > 0 {
-		expectCall.arg = "arg"
+		expectCall.arg = stringVal{"arg"}
 	}
 	c.Assert(*t.calls[0], Equals, expectCall)
 	switch {
@@ -164,7 +168,7 @@ func (t *testContext) testCall(c *C, client *rpc.Client, narg, nret int, retErr 
 			fmt.Sprintf("error calling %s", method),
 		})
 	case nret > 0:
-		c.Assert(r, Equals, method+" ret")
+		c.Assert(r, Equals, stringVal{method + " ret"})
 	}
 }
 

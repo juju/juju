@@ -124,14 +124,14 @@ func (srv *Server) methodToObtainer(m reflect.Method) *obtainer {
 		return nil
 	}
 	t := m.Type
-	if t.NumIn() != 1 ||
+	if t.NumIn() != 2 ||
 		t.NumOut() != 2 ||
-		t.In(0) != stringType ||
+		t.In(1) != stringType ||
 		t.Out(1) != errorType {
 		return nil
 	}
 	f := func(rcvr reflect.Value, id string) (r reflect.Value, err error) {
-		out := rcvr.Call([]reflect.Value{rcvr, reflect.ValueOf(id)})
+		out := rcvr.Method(m.Index).Call([]reflect.Value{reflect.ValueOf(id)})
 		if !out[1].IsNil() {
 			err = out[1].Interface().(error)
 		}
@@ -150,7 +150,7 @@ type action struct {
 }
 
 func (p *action) String() string {
-	return fmt.Sprintf("{%s -> %s}", p.arg, p.ret)
+	return fmt.Sprintf("{%v -> %v}", p.arg, p.ret)
 }
 
 func (srv *Server) methodToAction(m reflect.Method) *action {
