@@ -5,7 +5,6 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/version"
 	"time"
 )
 
@@ -71,7 +70,7 @@ func (s *UnitSuite) TestParseUnknown(c *C) {
 func (s *UnitSuite) TestRunStop(c *C) {
 	unit, conf, _ := s.primeAgent(c)
 	a := s.newAgent(c, unit)
-	mgr, reset := patchDeployManager(c, &conf.StateInfo, conf.DataDir)
+	mgr, reset := patchDeployManager(c, conf.StateInfo, conf.DataDir)
 	defer reset()
 	go func() { c.Check(a.Run(nil), IsNil) }()
 	defer func() { c.Check(a.Stop(), IsNil) }()
@@ -127,18 +126,9 @@ waitStarted:
 }
 
 func (s *UnitSuite) TestUpgrade(c *C) {
-	newVers := version.Current
-	newVers.Patch++
-	newTools := s.uploadTools(c, newVers)
-	s.proposeVersion(c, newVers.Number, true)
 	unit, _, currentTools := s.primeAgent(c)
 	a := s.newAgent(c, unit)
-	defer a.Stop()
-	err := runWithTimeout(a)
-	c.Assert(err, FitsTypeOf, &UpgradeReadyError{})
-	ug := err.(*UpgradeReadyError)
-	c.Assert(ug.NewTools, DeepEquals, newTools)
-	c.Assert(ug.OldTools, DeepEquals, currentTools)
+	s.testUpgrade(c, a, currentTools)
 }
 
 func (s *UnitSuite) TestWithDeadUnit(c *C) {

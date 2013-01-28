@@ -172,7 +172,8 @@ func (s *UnitSuite) TestSetPassword(c *C) {
 }
 
 func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *C) {
-	// Make a second unit to use later.
+	// Make a second unit to use later. (Subordinate units can only be created
+	// as a side-effect of a principal entering relation scope.)
 	subCharm := s.AddTestingCharm(c, "logging")
 	_, err := s.State.AddService("logging", subCharm)
 	c.Assert(err, IsNil)
@@ -412,6 +413,9 @@ func (s *UnitSuite) TestSetClearResolvedWhenNotAlive(c *C) {
 func (s *UnitSuite) TestSubordinateChangeInPrincipal(c *C) {
 	subCharm := s.AddTestingCharm(c, "logging")
 	for i := 0; i < 2; i++ {
+		// Note: subordinate units can only be created as a side effect of a
+		// principal entering scope; and a given principal can only have a
+		// single subordinate unit of each service.
 		name := "logging" + strconv.Itoa(i)
 		_, err := s.State.AddService(name, subCharm)
 		c.Assert(err, IsNil)
@@ -538,6 +542,9 @@ func (s *UnitSuite) TestWatchSubordinates(c *C) {
 	subCharm := s.AddTestingCharm(c, "logging")
 	var subUnits []*state.Unit
 	for i := 0; i < 2; i++ {
+		// Note: subordinate units can only be created as a side effect of a
+		// principal entering scope; and a given principal can only have a
+		// single subordinate unit of each service.
 		name := "logging" + strconv.Itoa(i)
 		subSvc, err := s.State.AddService(name, subCharm)
 		c.Assert(err, IsNil)

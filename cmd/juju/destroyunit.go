@@ -31,7 +31,7 @@ func (c *DestroyUnitCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	}
 	for _, name := range c.UnitNames {
 		if !state.IsUnitName(name) {
-			return fmt.Errorf("invalid unit name: %q", name)
+			return fmt.Errorf("invalid unit name %q", name)
 		}
 	}
 	return nil

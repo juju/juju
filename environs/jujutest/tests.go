@@ -62,12 +62,12 @@ func (t *Tests) TestStartStop(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(insts, HasLen, 0)
 
-	inst0, err := e.StartInstance("0", testing.InvalidStateInfo("0"), nil)
+	inst0, err := e.StartInstance("0", testing.InvalidStateInfo("0"), testing.InvalidAPIInfo("0"), nil)
 	c.Assert(err, IsNil)
 	c.Assert(inst0, NotNil)
 	id0 := inst0.Id()
 
-	inst1, err := e.StartInstance("1", testing.InvalidStateInfo("1"), nil)
+	inst1, err := e.StartInstance("1", testing.InvalidStateInfo("1"), testing.InvalidAPIInfo("1"), nil)
 	c.Assert(err, IsNil)
 	c.Assert(inst1, NotNil)
 	id1 := inst1.Id()
@@ -103,9 +103,9 @@ func (t *Tests) TestBootstrap(c *C) {
 	err := environs.Bootstrap(e, false, panicWrite)
 	c.Assert(err, IsNil)
 
-	info, err := e.StateInfo()
-	c.Assert(info, NotNil)
+	info, apiInfo, err := e.StateInfo()
 	c.Check(info.Addrs, Not(HasLen), 0)
+	c.Check(apiInfo.Addrs, Not(HasLen), 0)
 
 	err = environs.Bootstrap(e, false, panicWrite)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
@@ -114,8 +114,9 @@ func (t *Tests) TestBootstrap(c *C) {
 	err = environs.Bootstrap(e2, false, panicWrite)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
-	info2, err := e2.StateInfo()
+	info2, apiInfo2, err := e2.StateInfo()
 	c.Check(info2, DeepEquals, info)
+	c.Check(apiInfo2, DeepEquals, apiInfo)
 
 	err = e2.Destroy(nil)
 	c.Assert(err, IsNil)
