@@ -21,9 +21,9 @@ var (
 var errNilDereference = errors.New("field retrieval from nil reference")
 
 type Server struct {
-	root reflect.Value
-	obtain  map[string]*obtainer
-	action  map[reflect.Type]map[string]*action
+	root   reflect.Value
+	obtain map[string]*obtainer
+	action map[reflect.Type]map[string]*action
 }
 
 // NewServer returns a new server that will serve requests
@@ -61,7 +61,7 @@ type Server struct {
 //
 func NewServer(rootValue interface{}) (*Server, error) {
 	srv := &Server{
-		root: reflect.ValueOf(rootValue),
+		root:   reflect.ValueOf(rootValue),
 		obtain: make(map[string]*obtainer),
 		action: make(map[reflect.Type]map[string]*action),
 	}

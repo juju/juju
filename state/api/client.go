@@ -4,16 +4,17 @@ import (
 	"code.google.com/p/go.net/websocket"
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
-	"fmt"
+	"encoding/json"
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/trivial"
 	"time"
 )
 
 type State struct {
-	conn *websocket.Conn
+	client *rpc.Client
+	conn   *websocket.Conn
 }
 
 // Info encapsulates information about a server holding juju state and
@@ -66,11 +67,15 @@ func Open(info *Info) (*State, error) {
 		}
 		log.Printf("state/api: %v", err)
 	}
-	log.Printf("state/api: connection established")
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("state/api: connection established")
+
 	return &State{
+		client: rpc.NewClientWithCodec(&clientCodec{
+			conn: conn,
+		}),
 		conn: conn,
 	}, nil
 }
@@ -79,21 +84,50 @@ func (s *State) Close() error {
 	return s.conn.Close()
 }
 
-// Request is a placeholder for an arbitrary operation in the state API.
-// Currently it simply returns the instance id of the machine with the
-// id given by the request.
-func (s *State) Request(req string) (string, error) {
-	err := websocket.JSON.Send(s.conn, rpcRequest{req})
-	if err != nil {
-		return "", fmt.Errorf("cannot send request: %v", err)
+type clientReq struct {
+	RequestId uint64
+	Type      string
+	Id        string
+	Action    string
+	Params    interface{}
+}
+
+type clientResp struct {
+	RequestId uint64
+	Error     string
+	Response  json.RawMessage
+}
+
+type clientCodec struct {
+	conn *websocket.Conn
+	resp clientResp
+}
+
+func (c *clientCodec) WriteRequest(req *rpc.Request, p interface{}) error {
+	return websocket.JSON.Send(c.conn, &clientReq{
+		RequestId: req.RequestId,
+		Type:      req.Type,
+		Id:        req.Id,
+		Action:    req.Action,
+		Params:    p,
+	})
+}
+
+func (c *clientCodec) ReadResponseHeader(resp *rpc.Response) error {
+	c.resp = clientResp{}
+	log.Printf("ReadResponseHeader")
+	if err := websocket.JSON.Receive(c.conn, &c.resp); err != nil {
+		return err
 	}
-	var resp rpcResponse
-	err = websocket.JSON.Receive(s.conn, &resp)
-	if err != nil {
-		return "", fmt.Errorf("cannot receive response: %v", err)
+	log.Printf("read %#v", c.resp)
+	resp.RequestId = c.resp.RequestId
+	resp.Error = c.resp.Error
+	return nil
+}
+
+func (c *clientCodec) ReadResponseBody(body interface{}) error {
+	if body == nil {
+		return nil
 	}
-	if resp.Error != "" {
-		return "", errors.New(resp.Error)
-	}
-	return resp.Response, nil
+	return json.Unmarshal(c.resp.Response, body)
 }

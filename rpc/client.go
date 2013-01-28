@@ -1,5 +1,9 @@
 package rpc
 
+import (
+	"fmt"
+)
+
 type ClientCodec interface {
 	WriteRequest(*Request, interface{}) error
 	ReadResponseHeader(*Response) error
@@ -39,11 +43,11 @@ func (c *Client) Call(objType, id, action string, args, reply interface{}) error
 		Action:    action,
 	}
 	if err := c.codec.WriteRequest(req, args); err != nil {
-		return err
+		return fmt.Errorf("cannot write request: %v", err)
 	}
 	var resp Response
 	if err := c.codec.ReadResponseHeader(&resp); err != nil {
-		return err
+		return fmt.Errorf("cannot receive response: %v", err)
 	}
 	if resp.Error != "" {
 		reply = nil

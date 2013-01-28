@@ -84,6 +84,7 @@ func (srv *Server) ServeCodec(codec ServerCodec, rootValue interface{}) error {
 }
 
 func (srv *Server) serve(root reflect.Value, codec ServerCodec) error {
+	// TODO(rog) allow concurrent requests.
 	if root.Type() != srv.root.Type() {
 		panic(fmt.Errorf("rpc: unexpected type of root value; got %s, want %s", root.Type(), srv.root.Type()))
 	}
