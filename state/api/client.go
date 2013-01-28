@@ -115,11 +115,9 @@ func (c *clientCodec) WriteRequest(req *rpc.Request, p interface{}) error {
 
 func (c *clientCodec) ReadResponseHeader(resp *rpc.Response) error {
 	c.resp = clientResp{}
-	log.Printf("ReadResponseHeader")
 	if err := websocket.JSON.Receive(c.conn, &c.resp); err != nil {
 		return err
 	}
-	log.Printf("read %#v", c.resp)
 	resp.RequestId = c.resp.RequestId
 	resp.Error = c.resp.Error
 	return nil
