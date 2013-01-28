@@ -111,7 +111,11 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		// TODO many dependencies :(
 		return errors.New("state.Service.SetConfig not implemented (format 2...)")
 	}
-	svc, err := conn.AddService(c.ServiceName, ch)
+	svcName := c.ServiceName
+	if svcName == "" {
+		svcName = curl.Name
+	}
+	svc, err := conn.State.AddService(svcName, ch)
 	if err != nil {
 		return err
 	}

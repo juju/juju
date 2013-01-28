@@ -179,7 +179,7 @@ func (s *StateSuite) TestAllMachines(c *C) {
 func (s *StateSuite) TestAddService(c *C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddService("haha/borken", charm)
-	c.Assert(err, ErrorMatches, `"haha/borken" is not a valid service name`)
+	c.Assert(err, ErrorMatches, `cannot add service "haha/borken": invalid name`)
 	_, err = s.State.Service("haha/borken")
 	c.Assert(err, ErrorMatches, `"haha/borken" is not a valid service name`)
 
@@ -1074,27 +1074,30 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *C) {
 	m2, err := s.State.Machine(m1.Id())
 	c.Assert(m1, DeepEquals, m2)
 
-	charm1 := s.AddTestingCharm(c, "dummy")
+	charm1 := s.AddTestingCharm(c, "wordpress")
 	charm2, err := s.State.Charm(charm1.URL())
 	c.Assert(err, IsNil)
 	c.Assert(charm1, DeepEquals, charm2)
 
-	service1, err := s.State.AddService("dummy", charm1)
+	wordpress1, err := s.State.AddService("wordpress", charm1)
 	c.Assert(err, IsNil)
-	service2, err := s.State.Service("dummy")
+	wordpress2, err := s.State.Service("wordpress")
 	c.Assert(err, IsNil)
-	c.Assert(service1, DeepEquals, service2)
+	c.Assert(wordpress1, DeepEquals, wordpress2)
 
-	unit1, err := service1.AddUnit()
+	unit1, err := wordpress1.AddUnit()
 	c.Assert(err, IsNil)
-	unit2, err := s.State.Unit("dummy/0")
+	unit2, err := s.State.Unit("wordpress/0")
 	c.Assert(err, IsNil)
 	c.Assert(unit1, DeepEquals, unit2)
 
-	peer := state.Endpoint{"dummy", "ifce", "name", state.RolePeer, charm.ScopeGlobal}
-	relation1, err := s.State.AddRelation(peer)
+	_, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
 	c.Assert(err, IsNil)
-	relation2, err := s.State.EndpointsRelation(peer)
+	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
+	c.Assert(err, IsNil)
+	relation1, err := s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	relation2, err := s.State.EndpointsRelation(eps...)
 	c.Assert(relation1, DeepEquals, relation2)
 	relation3, err := s.State.Relation(relation1.Id())
 	c.Assert(relation1, DeepEquals, relation3)
