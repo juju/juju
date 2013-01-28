@@ -105,20 +105,20 @@ func (t *testContext) newA(id string) (*A, error) {
 }
 
 func (suite) TestRPC(c *C) {
-	rootc := make(chan *TRoot)
-	srv, err := rpc.NewServer(func(ctxt interface{}) (*TRoot, error) {
-		c.Check(ctxt, FitsTypeOf, (*net.TCPConn)(nil))
-		return <-rootc, nil
-	})
+	srv, err := rpc.NewServer(&TRoot{})
 	c.Assert(err, IsNil)
 
 	l, err := net.Listen("tcp", ":0")
 	c.Assert(err, IsNil)
 	defer l.Close()
 
+	rootc := make(chan *TRoot)
 	srvDone := make(chan error)
 	go func() {
-		err := srv.Accept(l, NewJSONServerCodec)
+		newRoot := func(net.Conn) (interface{}, error) {
+			return <-rootc, nil
+		}
+		err := srv.Accept(l, newRoot, NewJSONServerCodec)
 		c.Logf("accept status: %v", err)
 		srvDone <- err
 	}()

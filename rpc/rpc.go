@@ -21,24 +21,20 @@ var (
 var errNilDereference = errors.New("field retrieval from nil reference")
 
 type Server struct {
-	newRoot func(ctxt interface{}) (reflect.Value, error)
+	root reflect.Value
 	obtain  map[string]*obtainer
 	action  map[reflect.Type]map[string]*action
 }
 
-// NewServer returns a new server.  The newRoot value must be a function
-// of the form:
-//
-//     func(ctxt interface{}) (T, error)
-//
-// where ctxt is a connection-specific value representing the client's
-// connection.  For instance, when using Server.Accept, ctxt will be a
-// net.Conn.  The value returned by newRoot, the "root" value, is used
-// to serve requests for a single client.
-// TODO if root value implements io.Closer, call Close.
+// NewServer returns a new server that will serve requests
+// by invoking methods on values of the same type as rootValue.
+// Actual values of rootValue may be provided for
+// each client connection (see ServeCodec and Accept),
+// or rootValue may be used directly if no such values are
+// provided.
 //
 // The server executes each client request by calling a "type" method on
-// the root value to obtain an object to act on; then it invokes an
+// a root value to obtain an object to act on; then it invokes an
 // action method on that object with the request parameters, possibly
 // returning some result.
 //
@@ -63,29 +59,13 @@ type Server struct {
 //	Method(T) (R, error)
 //	Method(T) error
 //
-func NewServer(newRoot interface{}) (*Server, error) {
-	rfv := reflect.ValueOf(newRoot)
-	rft := rfv.Type()
-	if rft.Kind() != reflect.Func ||
-		rft.NumIn() != 1 ||
-		rft.NumOut() != 2 ||
-		rft.In(0) != interfaceType ||
-		rft.Out(1) != errorType {
-		return nil, fmt.Errorf("newRoot has unexpected type signature %s", rft)
-	}
+func NewServer(rootValue interface{}) (*Server, error) {
 	srv := &Server{
-		newRoot: func(ctxt interface{}) (rv reflect.Value, err error) {
-			r := rfv.Call([]reflect.Value{reflect.ValueOf(ctxt)})
-			rv = r[0]
-			if !r[1].IsNil() {
-				err = r[1].Interface().(error)
-			}
-			return
-		},
+		root: reflect.ValueOf(rootValue),
 		obtain: make(map[string]*obtainer),
 		action: make(map[reflect.Type]map[string]*action),
 	}
-	rt := rft.Out(0)
+	rt := srv.root.Type()
 	for i := 0; i < rt.NumMethod(); i++ {
 		m := rt.Method(i)
 		o := srv.methodToObtainer(m)

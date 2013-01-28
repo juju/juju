@@ -35,26 +35,36 @@ type codecServer struct {
 }
 
 // Accept accepts connections on the listener and serves requests for
-// each incoming connection.  A codec is chosen for the connection by
-// calling newCodec.  Accept blocks; the caller typically invokes it in
-// a go statement.  The net.Conn returned from Accept is passed to the
-// server's newConn function before spawning the goroutine to service
-// RPC requests.
-func (srv *Server) Accept(l net.Listener, newCodec func(io.ReadWriter) ServerCodec) error {
+// each incoming connection.  The newRoot function is called
+// to create the root value for the connection before spawning
+// the goroutine to service the RPC requests; it may be nil,
+// in which case the original root value passed to NewServer
+// will be used. A codec is chosen for the connection by
+// calling newCodec.
+//
+// Accept blocks; the caller typically invokes it in
+// a go statement.
+func (srv *Server) Accept(l net.Listener,
+	newRoot func(net.Conn) (interface{}, error),
+	newCodec func(io.ReadWriter) ServerCodec) error {
 	for {
 		c, err := l.Accept()
 		if err != nil {
 			return err
 		}
-		root, err := srv.newRoot(c)
-		if err != nil {
-			log.Printf("rpc: connection refused: %v", err)
-			c.Close()
-			continue
+		rootv := srv.root
+		if newRoot != nil {
+			root, err := newRoot(c)
+			if err != nil {
+				log.Printf("rpc: connection refused: %v", err)
+				c.Close()
+				continue
+			}
+			rootv = reflect.ValueOf(root)
 		}
 		go func() {
 			defer c.Close()
-			if err := srv.serve(root, newCodec(c)); err != nil {
+			if err := srv.serve(rootv, newCodec(c)); err != nil {
 				log.Printf("rpc: ServeCodec error: %v", err)
 			}
 		}()
@@ -64,18 +74,19 @@ func (srv *Server) Accept(l net.Listener, newCodec func(io.ReadWriter) ServerCod
 
 // ServeCodec runs the server on a single connection.  ServeCodec
 // blocks, serving the connection until the client hangs up.  The caller
-// typically invokes ServeCodec in a go statement.  The given context is
-// passed to the server's newRoot function when creating the root object
-// to serve requests from.
-func (srv *Server) ServeCodec(codec ServerCodec, ctxt interface{}) error {
-	root, err := srv.newRoot(ctxt)
-	if err != nil {
-		return err
-	}
-	return srv.serve(root, codec)
+// typically invokes ServeCodec in a go statement.  The given
+// root value, which must be the same type as that passed to
+// NewServer, is used to invoke the RPC requests. If rootValue
+// nil, the original root value passed to NewServer will
+// be used instead.
+func (srv *Server) ServeCodec(codec ServerCodec, rootValue interface{}) error {
+	return srv.serve(reflect.ValueOf(rootValue), codec)
 }
 
 func (srv *Server) serve(root reflect.Value, codec ServerCodec) error {
+	if root.Type() != srv.root.Type() {
+		panic(fmt.Errorf("rpc: unexpected type of root value; got %s, want %s", root.Type(), srv.root.Type()))
+	}
 	csrv := &codecServer{
 		Server: srv,
 		codec:  codec,
