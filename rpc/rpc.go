@@ -13,17 +13,17 @@ can we provide some way of distinguishing GET from POST methods?
 */
 
 var (
-	errorType = reflect.TypeOf((*error)(nil)).Elem()
+	errorType     = reflect.TypeOf((*error)(nil)).Elem()
 	interfaceType = reflect.TypeOf((*interface{})(nil)).Elem()
-	stringType = reflect.TypeOf("")
+	stringType    = reflect.TypeOf("")
 )
 
 var errNilDereference = errors.New("field retrieval from nil reference")
 
 type Server struct {
 	newRoot func(ctxt interface{}) (reflect.Value, error)
-	obtain map[string] *obtainer
-	action map[reflect.Type] map[string] *action
+	obtain  map[string]*obtainer
+	action  map[reflect.Type]map[string]*action
 }
 
 // NewServer returns a new server.  The newRoot value must be a function
@@ -74,7 +74,7 @@ func NewServer(newRoot interface{}) (*Server, error) {
 		return nil, fmt.Errorf("newRoot has unexpected type signature %s", rft)
 	}
 	srv := &Server{
-		newRoot: func(ctxt interface{}) (rv  reflect.Value, err error) {
+		newRoot: func(ctxt interface{}) (rv reflect.Value, err error) {
 			r := rfv.Call([]reflect.Value{reflect.ValueOf(ctxt)})
 			rv = r[0]
 			if !r[1].IsNil() {
@@ -82,8 +82,8 @@ func NewServer(newRoot interface{}) (*Server, error) {
 			}
 			return
 		},
-		obtain: make(map[string] *obtainer),
-		action: make(map[reflect.Type] map[string] *action),
+		obtain: make(map[string]*obtainer),
+		action: make(map[reflect.Type]map[string]*action),
 	}
 	rt := rft.Out(0)
 	for i := 0; i < rt.NumMethod(); i++ {
@@ -92,7 +92,7 @@ func NewServer(newRoot interface{}) (*Server, error) {
 		if o == nil {
 			continue
 		}
-		actions := make(map[string] *action)
+		actions := make(map[string]*action)
 		for i := 0; i < o.ret.NumMethod(); i++ {
 			m := o.ret.Method(i)
 			if a := srv.methodToAction(m); a != nil {
@@ -111,7 +111,7 @@ func NewServer(newRoot interface{}) (*Server, error) {
 }
 
 type obtainer struct {
-	ret reflect.Type
+	ret  reflect.Type
 	call func(rcvr reflect.Value, id string) (reflect.Value, error)
 }
 

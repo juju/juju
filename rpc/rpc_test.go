@@ -1,13 +1,13 @@
 package rpc_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/rpc"
 	"net"
 	"testing"
-	"encoding/json"
 )
 
 type suite struct{}
@@ -15,9 +15,9 @@ type suite struct{}
 var _ = Suite(suite{})
 
 type callInfo struct {
-	rcvr interface{}
+	rcvr   interface{}
 	method string
-	arg interface{}
+	arg    interface{}
 }
 
 type callError callInfo
@@ -42,8 +42,8 @@ func (r *TRoot) A(id string) (*A, error) {
 }
 
 type A struct {
-	t *testContext
-	id string
+	t      *testContext
+	id     string
 	called string
 }
 
@@ -87,7 +87,7 @@ func (a *A) Call1r0e(s string) error {
 
 type testContext struct {
 	calls []*callInfo
-	as map[string] *A
+	as    map[string]*A
 }
 
 func (t *testContext) called(rcvr interface{}, method string, arg interface{}) {
@@ -124,7 +124,7 @@ func (suite) TestRPC(c *C) {
 	c.Assert(err, IsNil)
 	defer conn.Close()
 	t := &testContext{
- 		as: map[string]*A{},
+		as: map[string]*A{},
 	}
 	t.as["a99"] = &A{id: "a99", t: t}
 	rootc <- &TRoot{t}
@@ -151,7 +151,7 @@ func (t *testContext) testCall(c *C, client *rpc.Client, narg, nret int, retErr 
 	err := client.Call("A", "a99", method, "arg", &r)
 	c.Assert(t.calls, HasLen, 1)
 	expectCall := callInfo{
-		rcvr: t.as["a99"],
+		rcvr:   t.as["a99"],
 		method: method,
 	}
 	if narg > 0 {
@@ -164,10 +164,9 @@ func (t *testContext) testCall(c *C, client *rpc.Client, narg, nret int, retErr 
 			fmt.Sprintf("error calling %s", method),
 		})
 	case nret > 0:
-		c.Assert(r, Equals, method + " ret")
+		c.Assert(r, Equals, method+" ret")
 	}
 }
-
 
 type generalServerCodec struct {
 	enc encoder

@@ -8,7 +8,7 @@ type ClientCodec interface {
 
 type Client struct {
 	codec ClientCodec
-	reqId   uint64
+	reqId uint64
 }
 
 func NewClientWithCodec(codec ClientCodec) *Client {
@@ -33,10 +33,10 @@ func (c *Client) Call(objType, id, action string, args, reply interface{}) error
 	// TODO concurrent calls
 	c.reqId++
 	req := &Request{
-		RequestId:  c.reqId,
-		Type: objType,
-		Id: id,
-		Action: action,
+		RequestId: c.reqId,
+		Type:      objType,
+		Id:        id,
+		Action:    action,
 	}
 	if err := c.codec.WriteRequest(req, args); err != nil {
 		return err

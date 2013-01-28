@@ -15,14 +15,14 @@ type ServerCodec interface {
 }
 
 type Request struct {
-	RequestId  uint64
-	Type string
-	Id string
-	Action string
+	RequestId uint64
+	Type      string
+	Id        string
+	Action    string
 }
 
 type Response struct {
-	RequestId       uint64 // echoes that of the request
+	RequestId uint64 // echoes that of the request
 	Error     string // error, if any.
 }
 
@@ -31,7 +31,7 @@ type codecServer struct {
 	codec        ServerCodec
 	req          Request
 	doneReadBody bool
-	root reflect.Value
+	root         reflect.Value
 }
 
 // Accept accepts connections on the listener and serves requests for
@@ -79,7 +79,7 @@ func (srv *Server) serve(root reflect.Value, codec ServerCodec) error {
 	csrv := &codecServer{
 		Server: srv,
 		codec:  codec,
-		root: root,
+		root:   root,
 	}
 	for {
 		csrv.req = Request{}
