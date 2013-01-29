@@ -96,33 +96,33 @@ var addressTests = []struct {
 		failure:  nil,
 	},
 	{
-		summary:  "private plus",
-		private:  []nova.IPAddress{{4, "127.0.0.4"}, {4, "8.8.4.4."}},
+		summary:  "private plus (HP cloud)",
+		private:  []nova.IPAddress{{4, "127.0.0.4"}, {4, "8.8.4.4"}},
 		networks: []string{"private"},
-		expected: "127.0.0.4",
+		expected: "8.8.4.4",
 		failure:  nil,
 	},
 	{
 		summary:  "public only",
 		public:   []nova.IPAddress{{4, "8.8.8.8"}},
 		networks: []string{"", "public"},
-		expected: "",
-		failure:  environs.ErrNoDNSName,
+		expected: "8.8.8.8",
+		failure:  nil,
 	},
 	{
 		summary:  "public and private",
 		private:  []nova.IPAddress{{4, "127.0.0.4"}},
-		public:   []nova.IPAddress{{4, "8.8.4.4."}},
+		public:   []nova.IPAddress{{4, "8.8.4.4"}},
 		networks: []string{"private", "public"},
-		expected: "127.0.0.4",
+		expected: "8.8.4.4",
 		failure:  nil,
 	},
 	{
 		summary:  "public private plus",
 		private:  []nova.IPAddress{{4, "127.0.0.4"}, {4, "8.8.4.4"}},
-		public:   []nova.IPAddress{{4, "8.8.8.8."}},
+		public:   []nova.IPAddress{{4, "8.8.8.8"}},
 		networks: []string{"private", "public"},
-		expected: "127.0.0.4",
+		expected: "8.8.8.8",
 		failure:  nil,
 	},
 	{
@@ -145,7 +145,7 @@ var addressTests = []struct {
 		private:  []nova.IPAddress{{4, "127.0.0.2"}},
 		public:   []nova.IPAddress{{4, "8.8.8.8"}},
 		networks: []string{"special", "public"},
-		expected: "127.0.0.2",
+		expected: "8.8.8.8",
 		failure:  nil,
 	},
 	{
@@ -175,7 +175,7 @@ func (s *LiveTests) TestGetServerAddresses(c *C) {
 				addresses[t.networks[1]] = t.public
 			}
 		}
-		addr, err := openstack.GetPrivateAddress(addresses)
+		addr, err := openstack.GetInstanceAddress(addresses)
 		c.Assert(err, Equals, t.failure)
 		c.Assert(addr, Equals, t.expected)
 	}

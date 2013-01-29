@@ -98,7 +98,7 @@ var _ environs.Environ = (*environ)(nil)
 type instance struct {
 	e *environ
 	*nova.ServerDetail
-	privateAddress string
+	address string
 }
 
 func (inst *instance) String() string {
@@ -111,26 +111,46 @@ func (inst *instance) Id() state.InstanceId {
 	return state.InstanceId(inst.ServerDetail.Id)
 }
 
-// GetPrivateAddress processes a map of networks to lists of IP
+// getInstanceAddress processes a map of networks to lists of IP
 // addresses, as returned by Nova.GetServer(), extracting the proper
-// private address and returning it (or an error).
-func GetPrivateAddress(addresses map[string][]nova.IPAddress) (string, error) {
+// public (or private, if public is not available) IPv4 address, and
+// returning it, or an error.
+func getInstanceAddress(addresses map[string][]nova.IPAddress) (string, error) {
+	var private, public string
 	for network, ips := range addresses {
 		for _, address := range ips {
 			if address.Version == 4 {
-				if network != "public" {
+				if network == "public" {
+					public = address.Address
+				} else {
 					// Some setups use custom network name, treat as "private"
-					return address.Address, nil
+					private = address.Address
 				}
+				break
 			}
 		}
 	}
-	return "", environs.ErrNoDNSName
+	// HP cloud specific: public address is 2nd in the private network
+	if prv, ok := addresses["private"]; public == "" && ok {
+		if len(prv) > 1 && prv[1].Version == 4 {
+			public = prv[1].Address
+		}
+	}
+	// Juju assumes it always needs a public address and loops waiting for one.
+	// In fact a private address is generally fine provided it can be sshed to.
+	// (ported from py-juju/providers/openstack)
+	if public == "" && private != "" {
+		public = private
+	}
+	if public == "" {
+		return "", environs.ErrNoDNSName
+	}
+	return public, nil
 }
 
 func (inst *instance) DNSName() (string, error) {
-	if inst.privateAddress != "" {
-		return inst.privateAddress, nil
+	if inst.address != "" {
+		return inst.address, nil
 	}
 	// Fetch the instance information again, in case
 	// the addresses have become available.
@@ -138,11 +158,11 @@ func (inst *instance) DNSName() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	inst.privateAddress, err = GetPrivateAddress(server.Addresses)
+	inst.address, err = getInstanceAddress(server.Addresses)
 	if err != nil {
 		return "", err
 	}
-	return inst.privateAddress, nil
+	return inst.address, nil
 }
 
 func (inst *instance) WaitDNSName() (string, error) {
