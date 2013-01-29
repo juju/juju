@@ -97,25 +97,82 @@ var _ environs.Environ = (*environ)(nil)
 
 type instance struct {
 	e *environ
-	*nova.Entity
+	*nova.ServerDetail
+	address string
 }
 
 func (inst *instance) String() string {
-	return inst.Entity.Id
+	return inst.ServerDetail.Id
 }
 
 var _ environs.Instance = (*instance)(nil)
 
 func (inst *instance) Id() state.InstanceId {
-	return state.InstanceId(inst.Entity.Id)
+	return state.InstanceId(inst.ServerDetail.Id)
+}
+
+// getInstanceAddress processes a map of networks to lists of IP
+// addresses, as returned by Nova.GetServer(), extracting the proper
+// public (or private, if public is not available) IPv4 address, and
+// returning it, or an error.
+func getInstanceAddress(addresses map[string][]nova.IPAddress) (string, error) {
+	var private, public string
+	for network, ips := range addresses {
+		for _, address := range ips {
+			if address.Version == 4 {
+				if network == "public" {
+					public = address.Address
+				} else {
+					// Some setups use custom network name, treat as "private"
+					private = address.Address
+				}
+				break
+			}
+		}
+	}
+	// HP cloud specific: public address is 2nd in the private network
+	if prv, ok := addresses["private"]; public == "" && ok {
+		if len(prv) > 1 && prv[1].Version == 4 {
+			public = prv[1].Address
+		}
+	}
+	// Juju assumes it always needs a public address and loops waiting for one.
+	// In fact a private address is generally fine provided it can be sshed to.
+	// (ported from py-juju/providers/openstack)
+	if public == "" && private != "" {
+		public = private
+	}
+	if public == "" {
+		return "", environs.ErrNoDNSName
+	}
+	return public, nil
 }
 
 func (inst *instance) DNSName() (string, error) {
-	panic("DNSName not implemented")
+	if inst.address != "" {
+		return inst.address, nil
+	}
+	// Fetch the instance information again, in case
+	// the addresses have become available.
+	server, err := inst.e.nova().GetServer(string(inst.Id()))
+	if err != nil {
+		return "", err
+	}
+	inst.address, err = getInstanceAddress(server.Addresses)
+	if err != nil {
+		return "", err
+	}
+	return inst.address, nil
 }
 
 func (inst *instance) WaitDNSName() (string, error) {
-	panic("WaitDNSName not implemented")
+	for a := longAttempt.Start(); a.Next(); {
+		addr, err := inst.DNSName()
+		if err == nil || err != environs.ErrNoDNSName {
+			return addr, err
+		}
+	}
+	return "", fmt.Errorf("timed out trying to get DNS address for %v", inst.Id())
 }
 
 func (inst *instance) OpenPorts(machineId string, ports []state.Port) error {
@@ -417,7 +474,11 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	if err != nil {
 		return nil, fmt.Errorf("cannot run instance: %v", err)
 	}
-	inst := &instance{e, server}
+	detail, err := e.nova().GetServer(server.Id)
+	if err != nil {
+		return nil, fmt.Errorf("cannot get started instance: %v", err)
+	}
+	inst := &instance{e, detail, ""}
 	log.Printf("environs/openstack: started instance %q", inst.Id())
 	return inst, nil
 }
@@ -442,14 +503,14 @@ func (e *environ) Instances(ids []state.InstanceId) ([]environs.Instance, error)
 		return nil, nil
 	}
 	insts := make([]environs.Instance, len(ids))
-	servers, err := e.nova().ListServers(nil)
+	servers, err := e.nova().ListServersDetail(nil)
 	if err != nil {
 		return nil, err
 	}
 	for i, id := range ids {
 		for j, _ := range servers {
 			if servers[j].Id == string(id) {
-				insts[i] = &instance{e, &servers[j]}
+				insts[i] = &instance{e, &servers[j], ""}
 			}
 		}
 	}
@@ -461,13 +522,13 @@ func (e *environ) AllInstances() (insts []environs.Instance, err error) {
 	// This is returning *all* instances, which means it's impossible to have two different
 	// environments on the same account.
 	// TODO(wallyworld): add filtering to exclude deleted images etc
-	servers, err := e.nova().ListServers(nil)
+	servers, err := e.nova().ListServersDetail(nil)
 	if err != nil {
 		return nil, err
 	}
 	for _, server := range servers {
 		var s = server
-		insts = append(insts, &instance{e, &s})
+		insts = append(insts, &instance{e, &s, ""})
 	}
 	return insts, err
 }
