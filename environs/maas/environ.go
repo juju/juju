@@ -3,19 +3,23 @@ package maas
 import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 )
 
-type maasEnviron struct{}
+type maasEnviron struct {
+	name string
+}
 
 var _ environs.Environ = (*maasEnviron)(nil)
 
-func (*maasEnviron) Name() string {
-	panic("Not implemented.")
+func (env *maasEnviron) Name() string {
+	return env.name
 }
 
-func (*maasEnviron) Bootstrap(uploadTools bool, stateServerCert, stateServerKey []byte) error {
+func (env *maasEnviron) Bootstrap(uploadTools bool, stateServerCert, stateServerKey []byte) error {
+	log.Printf("environs/maas: bootstrapping environment %q.", env.Name())
 	panic("Not implemented.")
 }
 
@@ -27,7 +31,8 @@ func (*maasEnviron) Config() *config.Config {
 	panic("Not implemented.")
 }
 
-func (*maasEnviron) SetConfig(*config.Config) error {
+func (env *maasEnviron) SetConfig(cfg *config.Config) error {
+	env.name = cfg.Name()
 	panic("Not implemented.")
 }
 
@@ -55,7 +60,8 @@ func (*maasEnviron) PublicStorage() environs.StorageReader {
 	panic("Not implemented.")
 }
 
-func (*maasEnviron) Destroy([]environs.Instance) error {
+func (env *maasEnviron) Destroy([]environs.Instance) error {
+	log.Printf("environs/maas: destroying environment %q", env.name)
 	panic("Not implemented.")
 }
 
