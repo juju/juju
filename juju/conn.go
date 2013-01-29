@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/trivial"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -236,7 +237,7 @@ func (conn *Conn) AddUnits(svc *state.Service, n int) ([]*state.Unit, error) {
 
 // DestroyMachines destroys the specified machines.
 func (conn *Conn) DestroyMachines(ids ...string) (err error) {
-	failed := false
+	var errs []string
 	for _, id := range ids {
 		machine, err := conn.State.Machine(id)
 		switch {
@@ -249,19 +250,18 @@ func (conn *Conn) DestroyMachines(ids ...string) (err error) {
 			err = machine.Destroy()
 		}
 		if err != nil {
-			log.Printf("error: %v", err)
-			failed = true
+			errs = append(errs, err.Error())
 		}
 	}
-	if failed {
-		return fmt.Errorf("some machines were not destroyed")
+	if len(errs) > 0 {
+		return fmt.Errorf("some machines were not destroyed: " + strings.Join(errs, "; "))
 	}
 	return nil
 }
 
 // DestroyUnits destroys the specified units.
 func (conn *Conn) DestroyUnits(names ...string) (err error) {
-	failed := false
+	var errs []string
 	for _, name := range names {
 		unit, err := conn.State.Unit(name)
 		switch {
@@ -276,12 +276,11 @@ func (conn *Conn) DestroyUnits(names ...string) (err error) {
 			err = fmt.Errorf("unit %q is a subordinate", name)
 		}
 		if err != nil {
-			log.Printf("error: %v", err)
-			failed = true
+			errs = append(errs, err.Error())
 		}
 	}
-	if failed {
-		return fmt.Errorf("some units were not destroyed")
+	if len(errs) != 0 {
+		return fmt.Errorf("some units were not destroyed: " + strings.Join(errs, "; "))
 	}
 	return nil
 }
