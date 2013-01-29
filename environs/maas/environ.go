@@ -1,6 +1,7 @@
 package maas
 
 import (
+	"errors"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
@@ -13,6 +14,20 @@ type maasEnviron struct {
 }
 
 var _ environs.Environ = (*maasEnviron)(nil)
+
+var couldNotAllocate = errors.New("Could not allocate MAAS environment object.")
+
+func NewEnviron(cfg *config.Config) (*maasEnviron, error) {
+	env := new(maasEnviron)
+	if env == nil {
+		return nil, couldNotAllocate
+	}
+	err := env.SetConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return env, nil
+}
 
 func (env *maasEnviron) Name() string {
 	return env.name
