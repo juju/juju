@@ -108,6 +108,7 @@ type State struct {
 	services       *mgo.Collection
 	settings       *mgo.Collection
 	units          *mgo.Collection
+	users *mgo.Collection
 	presence       *mgo.Collection
 	cleanups       *mgo.Collection
 	runner         *txn.Runner
