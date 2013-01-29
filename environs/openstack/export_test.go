@@ -2,6 +2,7 @@ package openstack
 
 import (
 	"fmt"
+	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/trivial"
@@ -63,4 +64,8 @@ func WritablePublicStorage(e environs.Environ) environs.Storage {
 		panic(fmt.Errorf("cannot create writable public container: %v", err))
 	}
 	return writablePublicStorage
+}
+
+func GetInstanceAddress(addresses map[string][]nova.IPAddress) (string, error) {
+	return getInstanceAddress(addresses)
 }
