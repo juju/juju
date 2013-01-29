@@ -1,4 +1,5 @@
 package state
+
 import (
 	"fmt"
 	"labix.org/v2/mgo"
@@ -11,25 +12,31 @@ import (
 var validUser = regexp.MustCompile("^[a-zA-Z][a-zA-Z0-9]*$")
 
 // AddUser adds a user to the state.
-func (st *State) AddUser(name, password string) error {
+func (st *State) AddUser(name, password string) (*User, error) {
 	if !validUser.MatchString(name) {
-		return fmt.Errorf("invalid user name %q", name)
+		return nil, fmt.Errorf("invalid user name %q", name)
 	}
-	udoc := userDoc{
-		Name: name,
-		PasswordHash: trivial.PasswordHash(password),
+	u := &User{
+		st: st,
+		doc: userDoc{
+			Name:         name,
+			PasswordHash: trivial.PasswordHash(password),
+		},
 	}
 	ops := []txn.Op{{
-		C: st.users.Name,
-		Id: name,
+		C:      st.users.Name,
+		Id:     name,
 		Assert: txn.DocMissing,
-		Insert: udoc,
+		Insert: &u.doc,
 	}}
 	err := st.runner.Run(ops, "", nil)
 	if err == txn.ErrAborted {
 		err = fmt.Errorf("user already exists")
 	}
-	return err
+	if err != nil {
+		return nil, err
+	}
+	return u, nil
 }
 
 // getUser fetches information about the user with the
@@ -41,7 +48,6 @@ func (st *State) getUser(name string, udoc *userDoc) error {
 	}
 	return err
 }
-
 
 // User returns the state user for the given name,
 func (st *State) User(name string) (*User, error) {
@@ -57,6 +63,7 @@ func (st *State) User(name string) (*User, error) {
 type AuthEntity interface {
 	SetPassword(pass string) error
 	PasswordValid(pass string) bool
+	Refresh() error
 }
 
 // AuthEntity returns the entity for the given name.
@@ -79,12 +86,12 @@ func (st *State) AuthEntity(entityName string) (AuthEntity, error) {
 
 // User represents a juju client user.
 type User struct {
-	st *State
+	st  *State
 	doc userDoc
 }
 
 type userDoc struct {
-	Name string		`bson:"_id_"`
+	Name         string `bson:"_id_"`
 	PasswordHash string
 }
 
@@ -96,15 +103,15 @@ func (u *User) Name() string {
 // EntityName returns the entity name for
 // the user ("user-$username")
 func (u *User) EntityName() string {
-	return "user-"+u.doc.Name
+	return "user-" + u.doc.Name
 }
 
 // SetPassword sets the password associated with the user.
 func (u *User) SetPassword(password string) error {
 	hp := trivial.PasswordHash(password)
 	ops := []txn.Op{{
-		C: u.st.users.Name,
-		Id: u.Name(),
+		C:      u.st.users.Name,
+		Id:     u.Name(),
 		Update: D{{"$set", D{{"passwordhash", hp}}}},
 	}}
 	if err := u.st.runner.Run(ops, "", nil); err != nil {

@@ -173,7 +173,7 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 		services:       db.C("services"),
 		settings:       db.C("settings"),
 		units:          db.C("units"),
-		users: db.C("users"),
+		users:          db.C("users"),
 		presence:       pdb.C("presence"),
 		cleanups:       db.C("cleanups"),
 	}
