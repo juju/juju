@@ -133,14 +133,6 @@ var addressTests = []struct {
 		failure:  nil,
 	},
 	{
-		summary:  "custom and private",
-		private:  []nova.IPAddress{{4, "127.0.0.4"}},
-		public:   []nova.IPAddress{{4, "127.0.0.2"}},
-		networks: []string{"private", "special"},
-		expected: "127.0.0.4",
-		failure:  nil,
-	},
-	{
 		summary:  "custom and public",
 		private:  []nova.IPAddress{{4, "127.0.0.2"}},
 		public:   []nova.IPAddress{{4, "8.8.8.8"}},
