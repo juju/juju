@@ -360,13 +360,6 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 	return bytes, nil
 }
 
-const (
-	// Until image lookup is implemented, we'll use some pre-established, known values for starting instances.
-	defaultFlavorId = "1" //m1.tiny
-	// This is an existing image on Canonistack - smoser-cloud-images/ubuntu-quantal-12.10-i386-server-20121017
-	defaultImageId = "0f602ea9-c09e-440c-9e29-cfae5635afa3"
-)
-
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself.
 func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, error) {
@@ -381,10 +374,19 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 
 	log.Printf("environs/openstack: starting machine %s in %q running tools version %q from %q",
 		scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
-	// TODO(wallyworld) - implement spec lookup
-	if strings.Contains(scfg.tools.Series, "unknown") || strings.Contains(scfg.tools.Series, "unknown") {
+	if strings.Contains(scfg.tools.Series, "unknown") || strings.Contains(scfg.tools.Arch, "unknown") {
 		return nil, fmt.Errorf("cannot find image for unknown series or architecture")
 	}
+	spec, err := findInstanceSpec(e, &instanceConstraint{
+		series: scfg.tools.Series,
+		arch:   scfg.tools.Arch,
+		region: e.ecfg().region(),
+		flavor: "m1.small",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("cannot find image satisfying constraints: %v", err)
+	}
+
 	userData, err := e.userData(scfg)
 	if err != nil {
 		return nil, fmt.Errorf("cannot make user data: %v", err)
@@ -402,10 +404,9 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	var server *nova.Entity
 	for a := shortAttempt.Start(); a.Next(); {
 		server, err = e.nova().RunServer(nova.RunServerOpts{
-			Name: state.MachineEntityName(scfg.machineId),
-			// TODO(wallyworld) - do not use hard coded image
-			FlavorId:           defaultFlavorId,
-			ImageId:            defaultImageId,
+			Name:               state.MachineEntityName(scfg.machineId),
+			FlavorId:           spec.flavorId,
+			ImageId:            spec.imageId,
 			UserData:           userData,
 			SecurityGroupNames: groupNames,
 		})

@@ -8,6 +8,13 @@ import (
 	"net/url"
 )
 
+const (
+	// TODO (wallyworld) - ideally, something like http://cloud-images.ubuntu.com would have images we could use
+	// but until it does, we allow a default image id to be specified.
+	// This is an existing image on Canonistack - smoser-cloud-images/ubuntu-quantal-12.10-i386-server-20121017
+	defaultImageId = "0f602ea9-c09e-440c-9e29-cfae5635afa3"
+)
+
 var configChecker = schema.StrictFieldMap(
 	schema.Fields{
 		"username":          schema.String(),
@@ -19,6 +26,7 @@ var configChecker = schema.StrictFieldMap(
 		"control-bucket":    schema.String(),
 		"public-bucket":     schema.String(),
 		"public-bucket-url": schema.String(),
+		"default-image-id":  schema.String(),
 	},
 	schema.Defaults{
 		"username":          "",
@@ -30,6 +38,7 @@ var configChecker = schema.StrictFieldMap(
 		"control-bucket":    "",
 		"public-bucket":     "juju-dist",
 		"public-bucket-url": "",
+		"default-image-id":  defaultImageId,
 	},
 )
 
@@ -72,6 +81,10 @@ func (c *environConfig) publicBucket() string {
 
 func (c *environConfig) publicBucketURL() string {
 	return c.attrs["public-bucket-url"].(string)
+}
+
+func (c *environConfig) defaultImageId() string {
+	return c.attrs["default-image-id"].(string)
 }
 
 func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
