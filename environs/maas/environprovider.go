@@ -5,7 +5,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 )
 
-type maasEnvironProvider struct {}
+type maasEnvironProvider struct{}
 
 var _ environs.EnvironProvider = (*maasEnvironProvider)(nil)
 
