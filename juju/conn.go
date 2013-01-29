@@ -32,7 +32,7 @@ var redialStrategy = trivial.AttemptStrategy{
 // given environment. The environment must have already
 // been bootstrapped.
 func NewConn(environ environs.Environ) (*Conn, error) {
-	info, err := environ.StateInfo()
+	info, _, err := environ.StateInfo()
 	if err != nil {
 		return nil, err
 	}
@@ -119,32 +119,6 @@ func (c *Conn) updateSecrets() error {
 		return err
 	}
 	return c.State.SetEnvironConfig(cfg)
-}
-
-// AddService creates a new service with the given name to run the given
-// charm.  If svcName is empty, the charm name will be used.
-func (conn *Conn) AddService(name string, ch *state.Charm) (*state.Service, error) {
-	if name == "" {
-		name = ch.URL().Name // TODO ch.Meta().Name ?
-	}
-	svc, err := conn.State.AddService(name, ch)
-	if err != nil {
-		return nil, err
-	}
-	meta := ch.Meta()
-	for rname, rel := range meta.Peers {
-		ep := state.Endpoint{
-			name,
-			rel.Interface,
-			rname,
-			state.RolePeer,
-			rel.Scope,
-		}
-		if _, err := conn.State.AddRelation(ep); err != nil {
-			return nil, fmt.Errorf("cannot add peer relation %q to service %q: %v", rname, name, err)
-		}
-	}
-	return svc, nil
 }
 
 // PutCharm uploads the given charm to provider storage, and adds a
@@ -276,7 +250,7 @@ func (conn *Conn) DestroyUnits(names ...string) (err error) {
 		}
 	}
 	for _, unit := range units {
-		if err := unit.EnsureDying(); err != nil {
+		if err := unit.Destroy(); err != nil {
 			return err
 		}
 	}

@@ -94,3 +94,22 @@ func (ep Endpoint) IsImplicit() bool {
 		ep.Interface == "juju-info" &&
 		ep.RelationRole == RoleProvider)
 }
+
+type epSlice []Endpoint
+
+var roleOrder = map[RelationRole]int{
+	RoleRequirer: 0,
+	RoleProvider: 1,
+	RolePeer:     2,
+}
+
+func (eps epSlice) Len() int      { return len(eps) }
+func (eps epSlice) Swap(i, j int) { eps[i], eps[j] = eps[j], eps[i] }
+func (eps epSlice) Less(i, j int) bool {
+	ep1 := eps[i]
+	ep2 := eps[j]
+	if ep1.RelationRole != ep2.RelationRole {
+		return roleOrder[ep1.RelationRole] < roleOrder[ep2.RelationRole]
+	}
+	return ep1.String() < ep2.String()
+}

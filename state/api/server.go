@@ -33,6 +33,7 @@ func NewServer(s *state.State, addr string, cert, key []byte) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("state/api: listening on %q", addr)
 	tlsCert, err := tls.X509KeyPair(cert, key)
 	if err != nil {
 		return nil, err
@@ -46,6 +47,11 @@ func NewServer(s *state.State, addr string, cert, key []byte) (*Server, error) {
 	})
 	go srv.run(lis)
 	return srv, nil
+}
+
+// Dead returns a channel that signals when the server has exited.
+func (srv *Server) Dead() <-chan struct{} {
+	return srv.tomb.Dead()
 }
 
 // Stop stops the server and returns when all requests that

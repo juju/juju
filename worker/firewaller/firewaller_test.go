@@ -127,7 +127,7 @@ func (s *FirewallerSuite) setGlobalMode(c *C) func(*C) {
 
 // startInstance starts a new instance for the given machine.
 func (s *FirewallerSuite) startInstance(c *C, m *state.Machine) environs.Instance {
-	inst, err := s.Conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), nil)
+	inst, err := s.Conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), testing.InvalidAPIInfo(m.Id()), nil)
 	c.Assert(err, IsNil)
 	err = m.SetInstanceId(inst.Id())
 	c.Assert(err, IsNil)
@@ -138,7 +138,7 @@ func (s *FirewallerSuite) TestNotExposedService(c *C) {
 	fw := firewaller.NewFirewaller(s.State)
 	defer func() { c.Assert(fw.Stop(), IsNil) }()
 
-	svc, err := s.Conn.AddService("wordpress", s.charm)
+	svc, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
 	u, m := s.addUnit(c, svc)
 	inst := s.startInstance(c, m)
@@ -160,7 +160,7 @@ func (s *FirewallerSuite) TestExposedService(c *C) {
 	fw := firewaller.NewFirewaller(s.State)
 	defer func() { c.Assert(fw.Stop(), IsNil) }()
 
-	svc, err := s.Conn.AddService("wordpress", s.charm)
+	svc, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
 
 	err = svc.SetExposed()
@@ -223,7 +223,7 @@ func (s *FirewallerSuite) TestMachineWithoutInstanceId(c *C) {
 	fw := firewaller.NewFirewaller(s.State)
 	defer func() { c.Assert(fw.Stop(), IsNil) }()
 
-	svc, err := s.Conn.AddService("wordpress", s.charm)
+	svc, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
 	err = svc.SetExposed()
 	c.Assert(err, IsNil)
@@ -304,10 +304,7 @@ func (s *FirewallerSuite) TestStartWithState(c *C) {
 func (s *FirewallerSuite) TestStartWithPartialState(c *C) {
 	m, err := s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
-	inst, err := s.Conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), nil)
-	c.Assert(err, IsNil)
-	err = m.SetInstanceId(inst.Id())
-	c.Assert(err, IsNil)
+	inst := s.startInstance(c, m)
 
 	svc, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
@@ -334,10 +331,7 @@ func (s *FirewallerSuite) TestStartWithPartialState(c *C) {
 func (s *FirewallerSuite) TestStartWithUnexposedService(c *C) {
 	m, err := s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
-	inst, err := s.Conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), nil)
-	c.Assert(err, IsNil)
-	err = m.SetInstanceId(inst.Id())
-	c.Assert(err, IsNil)
+	inst := s.startInstance(c, m)
 
 	svc, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
@@ -415,7 +409,7 @@ func (s *FirewallerSuite) TestRemoveUnit(c *C) {
 	// Remove unit.
 	err = u1.EnsureDead()
 	c.Assert(err, IsNil)
-	err = svc.RemoveUnit(u1)
+	err = u1.Remove()
 	c.Assert(err, IsNil)
 
 	s.assertPorts(c, inst1, m1.Id(), nil)
@@ -441,13 +435,10 @@ func (s *FirewallerSuite) TestRemoveService(c *C) {
 	// Remove service.
 	err = u.EnsureDead()
 	c.Assert(err, IsNil)
-	err = svc.RemoveUnit(u)
+	err = u.Remove()
 	c.Assert(err, IsNil)
-	err = svc.EnsureDead()
+	err = svc.Destroy()
 	c.Assert(err, IsNil)
-	err = s.State.RemoveService(svc)
-	c.Assert(err, IsNil)
-
 	s.assertPorts(c, inst, m.Id(), nil)
 }
 
@@ -481,20 +472,16 @@ func (s *FirewallerSuite) TestRemoveMultipleServices(c *C) {
 	// Remove services.
 	err = u2.EnsureDead()
 	c.Assert(err, IsNil)
-	err = svc2.RemoveUnit(u2)
+	err = u2.Remove()
 	c.Assert(err, IsNil)
-	err = svc2.EnsureDead()
-	c.Assert(err, IsNil)
-	err = s.State.RemoveService(svc2)
+	err = svc2.Destroy()
 	c.Assert(err, IsNil)
 
 	err = u1.EnsureDead()
 	c.Assert(err, IsNil)
-	err = svc1.RemoveUnit(u1)
+	err = u1.Remove()
 	c.Assert(err, IsNil)
-	err = svc1.EnsureDead()
-	c.Assert(err, IsNil)
-	err = s.State.RemoveService(svc1)
+	err = svc1.Destroy()
 	c.Assert(err, IsNil)
 
 	s.assertPorts(c, inst1, m1.Id(), nil)
@@ -520,11 +507,9 @@ func (s *FirewallerSuite) TestDeadMachine(c *C) {
 	// Remove unit and service, also tested without. Has no effect.
 	err = u.EnsureDead()
 	c.Assert(err, IsNil)
-	err = svc.RemoveUnit(u)
+	err = u.Remove()
 	c.Assert(err, IsNil)
-	err = svc.EnsureDead()
-	c.Assert(err, IsNil)
-	err = s.State.RemoveService(svc)
+	err = svc.Destroy()
 	c.Assert(err, IsNil)
 
 	// Kill machine.
@@ -553,7 +538,7 @@ func (s *FirewallerSuite) TestRemoveMachine(c *C) {
 	// Remove unit.
 	err = u.EnsureDead()
 	c.Assert(err, IsNil)
-	err = svc.RemoveUnit(u)
+	err = u.Remove()
 	c.Assert(err, IsNil)
 
 	// Remove machine. Nothing bad should happen, but can't
@@ -561,7 +546,7 @@ func (s *FirewallerSuite) TestRemoveMachine(c *C) {
 	// destroyed and we lost its reference.
 	err = m.EnsureDead()
 	c.Assert(err, IsNil)
-	err = s.State.RemoveMachine(m.Id())
+	err = m.Remove()
 	c.Assert(err, IsNil)
 }
 
@@ -621,10 +606,7 @@ func (s *FirewallerSuite) TestGlobalModeStartWithUnexposedService(c *C) {
 
 	m, err := s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
-	inst, err := s.Conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), nil)
-	c.Assert(err, IsNil)
-	err = m.SetInstanceId(inst.Id())
-	c.Assert(err, IsNil)
+	s.startInstance(c, m)
 
 	svc, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)

@@ -125,7 +125,7 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *C) {
 	c.Assert(err, IsNil)
 	err = environs.Bootstrap(env, false, panicWrite)
 	c.Assert(err, IsNil)
-	info, err := env.StateInfo()
+	info, _, err := env.StateInfo()
 	c.Assert(err, IsNil)
 	info.Password = trivial.PasswordHash("side-effect secret")
 	st, err := state.Open(info)
@@ -210,7 +210,7 @@ func (cs *NewConnSuite) TestConnWithPassword(c *C) {
 
 	// Check that Bootstrap has correctly used a hash
 	// of the admin password.
-	info, err := env.StateInfo()
+	info, _, err := env.StateInfo()
 	c.Assert(err, IsNil)
 	info.Password = trivial.PasswordHash("nutkin")
 	st, err := state.Open(info)
@@ -377,43 +377,11 @@ func (s *ConnSuite) TestPutCharmUpload(c *C) {
 	c.Assert(sch.Revision(), Equals, rev+1)
 }
 
-func (s *ConnSuite) TestAddService(c *C) {
-	curl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "riak")
-	sch, err := s.conn.PutCharm(curl, s.repo, false)
-	c.Assert(err, IsNil)
-
-	svc, err := s.conn.AddService("testriak", sch)
-	c.Assert(err, IsNil)
-
-	// Check that the peer relation has been made.
-	relations, err := svc.Relations()
-	c.Assert(relations, HasLen, 1)
-	ep, err := relations[0].Endpoint("testriak")
-	c.Assert(err, IsNil)
-	c.Assert(ep, Equals, state.Endpoint{
-		ServiceName:   "testriak",
-		Interface:     "riak",
-		RelationName:  "ring",
-		RelationRole:  state.RolePeer,
-		RelationScope: charm.ScopeGlobal,
-	})
-}
-
-func (s *ConnSuite) TestAddServiceDefaultName(c *C) {
-	curl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "riak")
-	sch, err := s.conn.PutCharm(curl, s.repo, false)
-	c.Assert(err, IsNil)
-
-	svc, err := s.conn.AddService("", sch)
-	c.Assert(err, IsNil)
-	c.Assert(svc.Name(), Equals, "riak")
-}
-
 func (s *ConnSuite) TestAddUnits(c *C) {
 	curl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "riak")
 	sch, err := s.conn.PutCharm(curl, s.repo, false)
 	c.Assert(err, IsNil)
-	svc, err := s.conn.AddService("testriak", sch)
+	svc, err := s.conn.State.AddService("testriak", sch)
 	c.Assert(err, IsNil)
 	units, err := s.conn.AddUnits(svc, 2)
 	c.Assert(err, IsNil)
@@ -430,7 +398,7 @@ func (s *ConnSuite) TestDestroyPrincipalUnits(c *C) {
 	// Create 3 principal units.
 	curl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "wordpress")
 	sch, err := s.conn.PutCharm(curl, s.repo, false)
-	wordpress, err := s.conn.AddService("wordpress", sch)
+	wordpress, err := s.conn.State.AddService("wordpress", sch)
 	c.Assert(err, IsNil)
 	for i := 0; i < 3; i++ {
 		_, err = wordpress.AddUnit()
@@ -466,7 +434,7 @@ func (s *ConnSuite) TestDestroySubordinateUnits(c *C) {
 	// Create a principal and a subordinate.
 	wpcurl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "wordpress")
 	wpsch, err := s.conn.PutCharm(wpcurl, s.repo, false)
-	wordpress, err := s.conn.AddService("wordpress", wpsch)
+	wordpress, err := s.conn.State.AddService("wordpress", wpsch)
 	c.Assert(err, IsNil)
 	wordpress0, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
@@ -474,7 +442,7 @@ func (s *ConnSuite) TestDestroySubordinateUnits(c *C) {
 	c.Assert(err, IsNil)
 	lgcurl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "logging")
 	lgsch, err := s.conn.PutCharm(lgcurl, s.repo, false)
-	_, err = s.conn.AddService("logging", lgsch)
+	_, err = s.conn.State.AddService("logging", lgsch)
 	c.Assert(err, IsNil)
 	eps, err := s.conn.State.InferEndpoints([]string{"logging", "wordpress"})
 	c.Assert(err, IsNil)
@@ -515,7 +483,7 @@ func (s *ConnSuite) TestResolved(c *C) {
 	curl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "riak")
 	sch, err := s.conn.PutCharm(curl, s.repo, false)
 	c.Assert(err, IsNil)
-	svc, err := s.conn.AddService("testriak", sch)
+	svc, err := s.conn.State.AddService("testriak", sch)
 	c.Assert(err, IsNil)
 	us, err := s.conn.AddUnits(svc, 1)
 	c.Assert(err, IsNil)

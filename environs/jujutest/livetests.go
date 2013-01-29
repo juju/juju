@@ -97,7 +97,7 @@ func (t *LiveTests) Destroy(c *C) {
 // TestStartStop is similar to Tests.TestStartStop except
 // that it does not assume a pristine environment.
 func (t *LiveTests) TestStartStop(c *C) {
-	inst, err := t.Env.StartInstance("0", testing.InvalidStateInfo("0"), nil)
+	inst, err := t.Env.StartInstance("0", testing.InvalidStateInfo("0"), testing.InvalidAPIInfo("0"), nil)
 	c.Assert(err, IsNil)
 	c.Assert(inst, NotNil)
 	id0 := inst.Id()
@@ -149,7 +149,7 @@ func (t *LiveTests) TestStartStop(c *C) {
 }
 
 func (t *LiveTests) TestPorts(c *C) {
-	inst1, err := t.Env.StartInstance("1", testing.InvalidStateInfo("1"), nil)
+	inst1, err := t.Env.StartInstance("1", testing.InvalidStateInfo("1"), testing.InvalidAPIInfo("1"), nil)
 	c.Assert(err, IsNil)
 	c.Assert(inst1, NotNil)
 	defer t.Env.StopInstances([]environs.Instance{inst1})
@@ -157,7 +157,7 @@ func (t *LiveTests) TestPorts(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
 
-	inst2, err := t.Env.StartInstance("2", testing.InvalidStateInfo("2"), nil)
+	inst2, err := t.Env.StartInstance("2", testing.InvalidStateInfo("2"), testing.InvalidAPIInfo("2"), nil)
 	c.Assert(err, IsNil)
 	c.Assert(inst2, NotNil)
 	ports, err = inst2.Ports("2")
@@ -252,14 +252,14 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 	c.Assert(err, IsNil)
 
 	// Create instances and check open ports on both instances.
-	inst1, err := t.Env.StartInstance("1", testing.InvalidStateInfo("1"), nil)
+	inst1, err := t.Env.StartInstance("1", testing.InvalidStateInfo("1"), testing.InvalidAPIInfo("1"), nil)
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst1})
 	ports, err := t.Env.Ports()
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
 
-	inst2, err := t.Env.StartInstance("2", testing.InvalidStateInfo("2"), nil)
+	inst2, err := t.Env.StartInstance("2", testing.InvalidStateInfo("2"), testing.InvalidAPIInfo("2"), nil)
 	c.Assert(err, IsNil)
 	ports, err = t.Env.Ports()
 	c.Assert(err, IsNil)
@@ -327,6 +327,11 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	c.Assert(err, IsNil)
 	defer conn.Close()
 
+	c.Logf("opening API connection")
+	apiConn, err := juju.NewAPIConn(t.Env)
+	c.Assert(err, IsNil)
+	defer conn.Close()
+
 	// Check that the agent version has made it through the
 	// bootstrap process (it's optional in the config.Config)
 	cfg, err := conn.State.EnvironConfig()
@@ -337,6 +342,15 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	// machine and find the deployed series from that.
 	m0, err := conn.State.Machine("0")
 	c.Assert(err, IsNil)
+
+	instId0, err := m0.InstanceId()
+	c.Assert(err, IsNil)
+
+	// Check that the API connection is working.
+	apiInstId0, err := apiConn.State.Request("0")
+	c.Assert(err, IsNil)
+	c.Assert(apiInstId0, Equals, string(instId0))
+
 	mw0 := newMachineToolWaiter(m0)
 	defer mw0.Stop()
 
@@ -349,7 +363,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	sch, err := conn.PutCharm(url, &charm.LocalRepository{repoDir}, false)
 
 	c.Assert(err, IsNil)
-	svc, err := conn.AddService("", sch)
+	svc, err := conn.State.AddService("dummy", sch)
 	c.Assert(err, IsNil)
 	units, err := conn.AddUnits(svc, 1)
 	c.Assert(err, IsNil)
@@ -392,11 +406,11 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	c.Logf("removing unit")
 	err = unit.EnsureDead()
 	c.Assert(err, IsNil)
-	err = svc.RemoveUnit(unit)
+	err = unit.Remove()
 	c.Assert(err, IsNil)
 	err = m1.EnsureDead()
 	c.Assert(err, IsNil)
-	err = conn.State.RemoveMachine(mid1)
+	err = m1.Remove()
 	c.Assert(err, IsNil)
 
 	c.Logf("waiting for instance to be removed")
@@ -661,7 +675,7 @@ func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
 		URL:    url,
 	}
 
-	inst, err := t.Env.StartInstance("4", testing.InvalidStateInfo("4"), tools)
+	inst, err := t.Env.StartInstance("4", testing.InvalidStateInfo("4"), testing.InvalidAPIInfo("4"), tools)
 	if inst != nil {
 		err := t.Env.StopInstances([]environs.Instance{inst})
 		c.Check(err, IsNil)
@@ -696,6 +710,13 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
 	})
 	c.Assert(err, IsNil)
 	defer dummyenv.Destroy(nil)
+
+	// BUG: We destroy the environment, then write to its storage.
+	// This is bogus, strictly speaking, but it works on
+	// existing providers for the time being and means
+	// this test does not fail when the environment is
+	// already bootstrapped.
+	t.Destroy(c)
 
 	currentPath := environs.ToolsStoragePath(current)
 	otherPath := environs.ToolsStoragePath(other)
