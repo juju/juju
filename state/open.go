@@ -30,7 +30,7 @@ type Info struct {
 	CACert []byte
 
 	// EntityName holds the name of the entity that is connecting.
-	// The administrator user is named "user-admin".
+	// It should be empty when connecting as an administrator.
 	EntityName string
 
 	// Password holds the password for the connecting entity.

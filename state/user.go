@@ -6,7 +6,6 @@ import (
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/trivial"
 	"regexp"
-	"strings"
 )
 
 var validUser = regexp.MustCompile("^[a-zA-Z][a-zA-Z0-9]*$")
@@ -56,32 +55,6 @@ func (st *State) User(name string) (*User, error) {
 		return nil, err
 	}
 	return u, nil
-}
-
-// Entity represents an entity that has
-// a password that can be authenticated against.
-type AuthEntity interface {
-	SetPassword(pass string) error
-	PasswordValid(pass string) bool
-	Refresh() error
-}
-
-// AuthEntity returns the entity for the given name.
-func (st *State) AuthEntity(entityName string) (AuthEntity, error) {
-	i := strings.Index(entityName, "-")
-	if i <= 0 || i >= len(entityName)-1 {
-		return nil, fmt.Errorf("invalid entity name %q", entityName)
-	}
-	prefix, id := entityName[0:i], entityName[i+1:]
-	switch prefix {
-	case "machine":
-		return st.Machine(id)
-	case "unit":
-		return st.Unit(id)
-	case "user":
-		return st.User(id)
-	}
-	return nil, fmt.Errorf("invalid entity name %q", entityName)
 }
 
 // User represents a juju client user.

@@ -250,6 +250,32 @@ func (st *State) Machine(id string) (*Machine, error) {
 	return newMachine(st, mdoc), nil
 }
 
+// Entity represents an entity that has
+// a password that can be authenticated against.
+type AuthEntity interface {
+	SetPassword(pass string) error
+	PasswordValid(pass string) bool
+	Refresh() error
+}
+
+// AuthEntity returns the entity for the given name.
+func (st *State) AuthEntity(entityName string) (AuthEntity, error) {
+	i := strings.Index(entityName, "-")
+	if i <= 0 || i >= len(entityName)-1 {
+		return nil, fmt.Errorf("invalid entity name %q", entityName)
+	}
+	prefix, id := entityName[0:i], entityName[i+1:]
+	switch prefix {
+	case "machine":
+		return st.Machine(id)
+	case "unit":
+		return st.Unit(id)
+	case "user":
+		return st.User(id)
+	}
+	return nil, fmt.Errorf("invalid entity name %q", entityName)
+}
+
 // AddCharm adds the ch charm with curl to the state.  bundleUrl must be
 // set to a URL where the bundle for ch may be downloaded from.
 // On success the newly added charm state is returned.
