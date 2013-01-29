@@ -50,32 +50,60 @@ func (s *suite) TearDownTest(c *C) {
 }
 
 func (s *suite) TestRequest(c *C) {
-	m, err := s.State.AddMachine(state.JobHostUnits)
+	stm, err := s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
-	instId, err := s.APIState.Request(m.Id())
+	m := s.APIState.Machine(stm.Id())
+	instId, err := m.InstanceId()
 	c.Check(instId, Equals, "")
-	c.Assert(err, ErrorMatches, "instance id for machine 0 not found")
+	c.Check(err, ErrorMatches, "instance id for machine 0 not found")
 
-	err = m.SetInstanceId("foo")
+	err = stm.SetInstanceId("foo")
 	c.Assert(err, IsNil)
 
-	instId, err = s.APIState.Request(m.Id())
+	instId, err = m.InstanceId()
 	c.Assert(err, IsNil)
 	c.Assert(instId, Equals, "foo")
 }
 
 func (s *suite) TestStop(c *C) {
-	m, err := s.State.AddMachine(state.JobHostUnits)
+	stm, err := s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
-	err = m.SetInstanceId("foo")
+	err = stm.SetInstanceId("foo")
 	c.Assert(err, IsNil)
 
 	err = s.srv.Stop()
 	c.Assert(err, IsNil)
-	_, err = s.APIState.Request(m.Id())
+	_, err = s.APIState.Machine(stm.Id()).InstanceId()
 	c.Assert(err, ErrorMatches, "cannot receive response: EOF")
 
 	// Check it can be stopped twice.
 	err = s.srv.Stop()
 	c.Assert(err, IsNil)
+}
+
+func (s *suite) BenchmarkRequests(c *C) {
+	stm, err := s.State.AddMachine(state.JobHostUnits)
+	c.Assert(err, IsNil)
+	err = stm.SetInstanceId("foo")
+	c.Assert(err, IsNil)
+	m := s.APIState.Machine(stm.Id())
+	id, err := m.InstanceId()
+	c.Assert(err, IsNil)
+	c.Assert(id, Equals, "foo")
+	c.ResetTimer()
+	for i := 0; i < c.N; i++ {
+		_, err := m.InstanceId()
+		if err != nil {
+			c.Assert(err, IsNil)
+		}
+	}
+}
+
+func (s *suite) BenchmarkTestRequests(c *C) {
+	for i := 0; i < c.N; i++ {
+		err := s.APIState.TestRequest()
+		if err != nil {
+			c.Assert(err, IsNil)
+		}
+	}
 }
