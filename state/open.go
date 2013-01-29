@@ -33,7 +33,7 @@ type Info struct {
 	// It should be empty when connecting as an administrator.
 	EntityName string
 
-	// Password holds the password for the administrator or connecting entity.
+	// Password holds the password for the connecting entity.
 	Password string
 }
 
@@ -173,6 +173,7 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 		services:       db.C("services"),
 		settings:       db.C("settings"),
 		units:          db.C("units"),
+		users:          db.C("users"),
 		presence:       pdb.C("presence"),
 		cleanups:       db.C("cleanups"),
 	}

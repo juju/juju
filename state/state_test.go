@@ -1126,7 +1126,7 @@ func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func testSetPassword(c *C, getEntity func() (entity, error)) {
+func testSetPassword(c *C, getEntity func() (state.AuthEntity, error)) {
 	e, err := getEntity()
 	c.Assert(err, IsNil)
 
@@ -1150,9 +1150,11 @@ func testSetPassword(c *C, getEntity func() (entity, error)) {
 	c.Assert(err, IsNil)
 	c.Assert(e2.PasswordValid("bar"), Equals, true)
 
-	testWhenDying(c, e, noErr, notAliveErr, func() error {
-		return e.SetPassword("arble")
-	})
+	if le, ok := e.(lifer); ok {
+		testWhenDying(c, le, noErr, notAliveErr, func() error {
+			return e.SetPassword("arble")
+		})
+	}
 }
 
 type entity interface {
