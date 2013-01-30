@@ -471,7 +471,7 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 		return nil, err
 	}
 	cdata := trivial.Gzip(data)
-	log.Debugf("environs/openstack: openstack user data; %d bytes: %q", len(cdata), data)
+	log.Debugf("environs/openstack: openstack user data; %d bytes", len(cdata))
 	return cdata, nil
 }
 
