@@ -15,7 +15,7 @@ type srvRoot struct {
 type srvAdmin struct {
 	mu     sync.Mutex
 	root   *srvRoot
-	entity string
+	user *state.User
 }
 
 type srvMachine struct {
@@ -59,7 +59,7 @@ func (a *srvAdmin) Login(c rpcCreds) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	entity, err := a.srv.state.Entity(c.EntityName)
-	if err != nil && err != state.IsNotFound {
+	if err != nil && !state.IsNotFound(err) {
 		return err
 	}
 	// We return the same error when an entity
@@ -72,6 +72,16 @@ func (a *srvAdmin) Login(c rpcCreds) error {
 	a.entity = c.EntityName
 	return nil
 }
+
+type rpcPassword struct {
+	Password string
+}
+
+func (a *srvAdmin) SetPassword(p rpcPassword) error {
+	if !st.a.loggedIn() {
+		return errNotLoggedIn
+	}
+	u, err := 
 
 func (a *srvAdmin) loggedIn() bool {
 	a.mu.Lock()
