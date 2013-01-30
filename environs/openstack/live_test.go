@@ -153,6 +153,14 @@ func (t *LiveTests) TestFindImageSpec(c *C) {
 	c.Assert(flavorId, Not(Equals), "")
 }
 
+func (t *LiveTests) TestFindImageBadFlavor(c *C) {
+	imageId, flavorId, err := openstack.FindInstanceSpec(t.Env, "precise", "amd64", "bad.flavor")
+	_, ok := err.(environs.NotFoundError)
+	c.Assert(ok, Equals, true)
+	c.Assert(imageId, Equals, "")
+	c.Assert(flavorId, Equals, "")
+}
+
 // The following tests need to be enabled once the coding is complete.
 
 func (s *LiveTests) TestGlobalPorts(c *C) {
