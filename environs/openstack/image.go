@@ -6,7 +6,7 @@ import (
 )
 
 // instanceConstraint constrains the possible instances that may be
-// chosen by the ec2 provider.
+// chosen by the Openstack provider.
 type instanceConstraint struct {
 	series string // Ubuntu release name.
 	arch   string

@@ -233,9 +233,6 @@ var configTests = []configTest{
 		authURL:    "http://some/url",
 		authMethod: "legacy",
 	}, {
-		summary: "default image id",
-		imageId: defaultImageId,
-	}, {
 		summary: "image id",
 		config: attrs{
 			"default-image-id": "image-id",
