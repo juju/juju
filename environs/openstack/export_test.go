@@ -65,7 +65,21 @@ func WritablePublicStorage(e environs.Environ) environs.Storage {
 	}
 	return writablePublicStorage
 }
-
 func GetInstanceAddress(addresses map[string][]nova.IPAddress) (string, error) {
 	return getInstanceAddress(addresses)
+}
+
+func FindInstanceSpec(e environs.Environ, series, arch, flavor string) (imageId, flavorId string, err error) {
+	env := e.(*environ)
+	spec, err := findInstanceSpec(env, &instanceConstraint{
+		series: series,
+		arch:   arch,
+		region: env.ecfg().region(),
+		flavor: flavor,
+	})
+	if err == nil {
+		imageId = spec.imageId
+		flavorId = spec.flavorId
+	}
+	return
 }

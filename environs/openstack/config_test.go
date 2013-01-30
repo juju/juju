@@ -39,6 +39,7 @@ type configTest struct {
 	controlBucket string
 	publicBucket  string
 	pbucketURL    string
+	imageId       string
 	username      string
 	password      string
 	tenantName    string
@@ -121,6 +122,9 @@ func (t configTest) check(c *C) {
 	}
 	if t.firewallMode != "" {
 		c.Assert(ecfg.FirewallMode(), Equals, t.firewallMode)
+	}
+	if t.imageId != "" {
+		c.Assert(ecfg.defaultImageId(), Equals, t.imageId)
 	}
 }
 
@@ -228,6 +232,12 @@ var configTests = []configTest{
 		tenantName: "juju tenant",
 		authURL:    "http://some/url",
 		authMethod: "legacy",
+	}, {
+		summary: "image id",
+		config: attrs{
+			"default-image-id": "image-id",
+		},
+		imageId: "image-id",
 	}, {
 		summary: "public bucket URL",
 		config: attrs{
