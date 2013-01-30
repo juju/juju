@@ -10,11 +10,7 @@ import (
 type Machine struct {
 	st  *State
 	id  string
-	doc unitDoc
-}
-
-type unitDoc struct {
-	InstanceId string
+	doc rpcMachine
 }
 
 // Machine returns a reference to the machine with the given id.  It
