@@ -25,8 +25,13 @@ import (
 	"time"
 )
 
-const mgoPort = 37017
-const apiPort = 17070
+const (
+	mgoPort = 37017
+	apiPort = 17070
+
+	mgoPortSuffix = ":" + string(mgoPort)
+	apiPortSuffix = ":" + string(apiPort)
+)
 
 type environProvider struct{}
 
@@ -111,18 +116,19 @@ func (inst *instance) Id() state.InstanceId {
 	return state.InstanceId(inst.ServerDetail.Id)
 }
 
-// getInstanceAddress processes a map of networks to lists of IP
+// instanceAddress processes a map of networks to lists of IP
 // addresses, as returned by Nova.GetServer(), extracting the proper
 // public (or private, if public is not available) IPv4 address, and
 // returning it, or an error.
-func getInstanceAddress(addresses map[string][]nova.IPAddress) (string, error) {
-	var private, public string
+func instanceAddress(addresses map[string][]nova.IPAddress) (string, error) {
+	var private, public, privateNet string
 	for network, ips := range addresses {
 		for _, address := range ips {
 			if address.Version == 4 {
 				if network == "public" {
 					public = address.Address
 				} else {
+					privateNet = network
 					// Some setups use custom network name, treat as "private"
 					private = address.Address
 				}
@@ -130,8 +136,8 @@ func getInstanceAddress(addresses map[string][]nova.IPAddress) (string, error) {
 			}
 		}
 	}
-	// HP cloud specific: public address is 2nd in the private network
-	if prv, ok := addresses["private"]; public == "" && ok {
+	// HP cloud/canonistack specific: public address is 2nd in the private network
+	if prv, ok := addresses[privateNet]; public == "" && ok {
 		if len(prv) > 1 && prv[1].Version == 4 {
 			public = prv[1].Address
 		}
@@ -158,7 +164,7 @@ func (inst *instance) DNSName() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	inst.address, err = getInstanceAddress(server.Addresses)
+	inst.address, err = instanceAddress(server.Addresses)
 	if err != nil {
 		return "", err
 	}
@@ -304,7 +310,53 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 }
 
 func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
-	panic("StateInfo not implemented")
+	st, err := e.loadState()
+	if err != nil {
+		return nil, nil, err
+	}
+	cert, hasCert := e.Config().CACert()
+	if !hasCert {
+		return nil, nil, fmt.Errorf("no CA certificate in environment configuration")
+	}
+	var stateAddrs []string
+	var apiAddrs []string
+	// Wait for the DNS names of any of the instances
+	// to become available.
+	log.Printf("environs/openstack: waiting for DNS name(s) of state server instances %v", st.StateInstances)
+	for a := longAttempt.Start(); len(stateAddrs) == 0 && a.Next(); {
+		insts, err := e.Instances(st.StateInstances)
+		if err != nil && err != environs.ErrPartialInstances {
+			log.Debugf("error getting state instance: %v", err.Error())
+			return nil, nil, err
+		}
+		log.Debugf("started processing instances: %#v", insts)
+		for _, inst := range insts {
+			if inst == nil {
+				log.Debugf("inst is nil, continue")
+				continue
+			}
+			name, err := inst.(*instance).DNSName()
+			if err != nil {
+				log.Debugf("DNSName error: %v", err)
+				continue
+			}
+			log.Debugf("inst address: %s", name)
+			if name != "" {
+				stateAddrs = append(stateAddrs, name+mgoPortSuffix)
+				apiAddrs = append(apiAddrs, name+apiPortSuffix)
+			}
+		}
+	}
+	if len(stateAddrs) == 0 {
+		return nil, nil, fmt.Errorf("timed out waiting for mgo address from %v", st.StateInstances)
+	}
+	return &state.Info{
+			Addrs:  stateAddrs,
+			CACert: cert,
+		}, &api.Info{
+			Addrs:  apiAddrs,
+			CACert: cert,
+		}, nil
 }
 
 func (e *environ) Config() *config.Config {
@@ -355,8 +407,10 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	// to reference their existing configuration.
 	e.storageUnlocked = &storage{
 		containerName: ecfg.controlBucket(),
-		containerACL:  swift.Private,
-		swift:         swift.New(e.client(ecfg, authMethodCfg))}
+		// this is possibly just a hack - if the ACL is swift.Private,
+		// the machine won't be able to get the tools (401 error)
+		containerACL: swift.PublicRead,
+		swift:        swift.New(e.client(ecfg, authMethodCfg))}
 	if ecfg.publicBucket() != "" && ecfg.publicBucketURL() != "" {
 		e.publicStorageUnlocked = &storage{
 			containerName: ecfg.publicBucket(),
@@ -391,14 +445,16 @@ type startInstanceParams struct {
 
 func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 	cfg := &cloudinit.MachineConfig{
-		StateServer:        scfg.stateServer,
-		MongoPort:          mgoPort,
-		APIPort:            apiPort,
-		StateInfo:          scfg.info,
-		APIInfo:            scfg.apiInfo,
-		StateServerCert:    scfg.stateServerCert,
-		StateServerKey:     scfg.stateServerKey,
-		InstanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
+		StateServer:     scfg.stateServer,
+		MongoPort:       mgoPort,
+		APIPort:         apiPort,
+		StateInfo:       scfg.info,
+		APIInfo:         scfg.apiInfo,
+		StateServerCert: scfg.stateServerCert,
+		StateServerKey:  scfg.stateServerKey,
+		// This is a horrible hack, which only works on folsom or
+		// later and we'd really like to have a better way
+		InstanceIdAccessor: `$(curl http://169.254.169.254/openstack/2012-08-10/meta_data.json|python -c 'import json,sys;print json.loads(sys.stdin.read())["uuid"]')`,
 		ProviderType:       "openstack",
 		DataDir:            "/var/lib/juju",
 		Tools:              scfg.tools,
@@ -410,11 +466,13 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	bytes, err := cloudcfg.Render()
+	data, err := cloudcfg.Render()
 	if err != nil {
 		return nil, err
 	}
-	return bytes, nil
+	cdata := trivial.Gzip(data)
+	log.Debugf("environs/openstack: openstack user data; %d bytes", len(cdata))
+	return cdata, nil
 }
 
 // startInstance is the internal version of StartInstance, used by Bootstrap

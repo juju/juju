@@ -167,7 +167,7 @@ func (s *LiveTests) TestGetServerAddresses(c *C) {
 				addresses[t.networks[1]] = t.public
 			}
 		}
-		addr, err := openstack.GetInstanceAddress(addresses)
+		addr, err := openstack.InstanceAddress(addresses)
 		c.Assert(err, Equals, t.failure)
 		c.Assert(addr, Equals, t.expected)
 	}
