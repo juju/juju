@@ -8,30 +8,57 @@ import (
 	"reflect"
 )
 
+// A ServerCodec implements reading of RPC requests and writing of RPC
+// responses for the server side of an RPC session.  The server calls
+// ReadRequestHeader and ReadRequestBody in pairs to read requests from
+// the connection, and it calls WriteResponse to write a response back.
+// The server calls Close when finished with the connection.
+// ReadRequestBody may be called with a nil argument to force the body of
+// the request to be read and discarded.
 type ServerCodec interface {
 	ReadRequestHeader(*Request) error
 	ReadRequestBody(interface{}) error
 	WriteResponse(*Response, interface{}) error
 }
 
+// Request is a header written before every RPC call.
 type Request struct {
+	// RequestId holds the sequence number of the request.
 	RequestId uint64
-	Type      string
-	Id        string
-	Action    string
+
+	// Type holds the type of object to act on.
+	Type string
+
+	// Id holds the id of the object to act on.
+	Id string
+
+	// Action holds the action to invoke on the remote object.
+	Action string
 }
 
+// Response is a header written before every RPC return.
 type Response struct {
-	RequestId uint64 // echoes that of the request
-	Error     string // error, if any.
+	// RequestId echoes that of the request.
+	RequestId uint64
+
+	// Error holds the error, if any.
+	Error string
 }
 
+// codecServer represents an active server instance.
 type codecServer struct {
 	*Server
-	codec        ServerCodec
-	req          Request
+	codec ServerCodec
+
+	// req holds the most recently read request header.
+	req Request
+
+	// doneReadBody is true if the body of
+	// the request has been read.
 	doneReadBody bool
-	root         reflect.Value
+
+	// root holds the root value being served.
+	root reflect.Value
 }
 
 // Accept accepts connections on the listener and serves requests for

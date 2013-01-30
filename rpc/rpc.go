@@ -14,9 +14,21 @@ var (
 
 var errNilDereference = errors.New("field retrieval from nil reference")
 
+// Server represents an RPC server.
 type Server struct {
-	root   reflect.Value
+	// root holds the default root value.
+	root reflect.Value
+
+	// obtain maps from root-object method name to
+	// information about that method. The term "obtain"
+	// is because these methods obtain an object to
+	// call an action on.
 	obtain map[string]*obtainer
+
+	// action maps from an object type (as returned by
+	// an obtainer method) to the set of methods on an
+	// object of that type, with information about each
+	// method.
 	action map[reflect.Type]map[string]*action
 }
 
@@ -84,8 +96,14 @@ func NewServer(rootValue interface{}) (*Server, error) {
 	return srv, nil
 }
 
+// obtainer holds information on a root-level method.
 type obtainer struct {
-	ret  reflect.Type
+	// ret holds the type of the object returned by the method.
+	ret reflect.Type
+
+	// call invokes the obtainer method. The rcvr parameter must be
+	// the same type as the root object. The given id is passed
+	// as an argument to the method.
 	call func(rcvr reflect.Value, id string) (reflect.Value, error)
 }
 
@@ -118,9 +136,21 @@ func (srv *Server) methodToObtainer(m reflect.Method) *obtainer {
 	}
 }
 
+// action holds information about a method on an object
+// that can be obtained from the root object.
 type action struct {
-	arg, ret reflect.Type
-	call     func(rcvr, arg reflect.Value) (reflect.Value, error)
+	// arg holds the argument type of the method, or nil
+	// if there is no argument.
+	arg reflect.Type
+
+	// ret holds the return type of the method, or nil
+	// if the method returns no value.
+	ret reflect.Type
+
+	// call calls the action method with the given argument
+	// on the given receiver value. If the method does
+	// not return a value, the returned valid will not be valid.
+	call func(rcvr, arg reflect.Value) (reflect.Value, error)
 }
 
 func (p *action) String() string {
@@ -137,10 +167,12 @@ func (srv *Server) methodToAction(m reflect.Method) *action {
 	t := m.Type
 	switch {
 	case t.NumIn() == 1:
+		// Method() ...
 		assemble = func(arg reflect.Value) []reflect.Value {
 			return nil
 		}
 	case t.NumIn() == 2:
+		// Method(T) ...
 		p.arg = t.In(1)
 		assemble = func(arg reflect.Value) []reflect.Value {
 			return []reflect.Value{arg}
@@ -151,11 +183,13 @@ func (srv *Server) methodToAction(m reflect.Method) *action {
 
 	switch {
 	case t.NumOut() == 0:
+		// Method(...)
 		p.call = func(rcvr, arg reflect.Value) (r reflect.Value, err error) {
 			rcvr.Method(m.Index).Call(assemble(arg))
 			return
 		}
 	case t.NumOut() == 1 && t.Out(0) == errorType:
+		// Method(...) error
 		p.call = func(rcvr, arg reflect.Value) (r reflect.Value, err error) {
 			out := rcvr.Method(m.Index).Call(assemble(arg))
 			if !out[0].IsNil() {
@@ -164,12 +198,14 @@ func (srv *Server) methodToAction(m reflect.Method) *action {
 			return
 		}
 	case t.NumOut() == 1:
+		// Method(...) R
 		p.ret = t.Out(0)
 		p.call = func(rcvr, arg reflect.Value) (reflect.Value, error) {
 			out := rcvr.Method(m.Index).Call(assemble(arg))
 			return out[0], nil
 		}
 	case t.NumOut() == 2 && t.Out(1) == errorType:
+		// Method(...) (R, error)
 		p.ret = t.Out(0)
 		p.call = func(rcvr, arg reflect.Value) (r reflect.Value, err error) {
 			out := rcvr.Method(m.Index).Call(assemble(arg))
