@@ -34,7 +34,12 @@ type srvMachine struct {
 	m *state.Machine
 }
 
-func (m *srvMachine) InstanceId() (rpcId, error) {
-	id, err := m.m.InstanceId()
-	return rpcId{string(id)}, err
+type rpcMachine struct {
+	InstanceId string
+}
+
+func (m *srvMachine) Get() (info rpcMachine) {
+	instId, _ := m.m.InstanceId()
+	info.InstanceId = string(instId)
+	return
 }
