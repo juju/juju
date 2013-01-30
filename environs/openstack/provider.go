@@ -25,11 +25,13 @@ import (
 	"time"
 )
 
-const mgoPort = 37017
-const apiPort = 17070
+const (
+	mgoPort = 37017
+	apiPort = 17070
 
-var mgoPortSuffix = fmt.Sprintf(":%d", mgoPort)
-var apiPortSuffix = fmt.Sprintf(":%d", apiPort)
+	mgoPortSuffix = ":" + string(mgoPort)
+	apiPortSuffix = ":" + string(apiPort)
+)
 
 type environProvider struct{}
 
@@ -114,19 +116,19 @@ func (inst *instance) Id() state.InstanceId {
 	return state.InstanceId(inst.ServerDetail.Id)
 }
 
-// getInstanceAddress processes a map of networks to lists of IP
+// instanceAddress processes a map of networks to lists of IP
 // addresses, as returned by Nova.GetServer(), extracting the proper
 // public (or private, if public is not available) IPv4 address, and
 // returning it, or an error.
-func getInstanceAddress(addresses map[string][]nova.IPAddress) (string, error) {
-	var private, public, privatenet string
+func instanceAddress(addresses map[string][]nova.IPAddress) (string, error) {
+	var private, public, privateNet string
 	for network, ips := range addresses {
 		for _, address := range ips {
 			if address.Version == 4 {
 				if network == "public" {
 					public = address.Address
 				} else {
-					privatenet = network
+					privateNet = network
 					// Some setups use custom network name, treat as "private"
 					private = address.Address
 				}
@@ -135,7 +137,7 @@ func getInstanceAddress(addresses map[string][]nova.IPAddress) (string, error) {
 		}
 	}
 	// HP cloud/canonistack specific: public address is 2nd in the private network
-	if prv, ok := addresses[privatenet]; public == "" && ok {
+	if prv, ok := addresses[privateNet]; public == "" && ok {
 		if len(prv) > 1 && prv[1].Version == 4 {
 			public = prv[1].Address
 		}
@@ -162,7 +164,7 @@ func (inst *instance) DNSName() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	inst.address, err = getInstanceAddress(server.Addresses)
+	inst.address, err = instanceAddress(server.Addresses)
 	if err != nil {
 		return "", err
 	}
@@ -405,8 +407,10 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	// to reference their existing configuration.
 	e.storageUnlocked = &storage{
 		containerName: ecfg.controlBucket(),
-		containerACL:  swift.PublicRead,
-		swift:         swift.New(e.client(ecfg, authMethodCfg))}
+		// this is possibly just a hack - if the ACL is swift.Private,
+		// the machine won't be able to get the tools (401 error)
+		containerACL: swift.PublicRead,
+		swift:        swift.New(e.client(ecfg, authMethodCfg))}
 	if ecfg.publicBucket() != "" && ecfg.publicBucketURL() != "" {
 		e.publicStorageUnlocked = &storage{
 			containerName: ecfg.publicBucket(),
@@ -441,13 +445,15 @@ type startInstanceParams struct {
 
 func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 	cfg := &cloudinit.MachineConfig{
-		StateServer:        scfg.stateServer,
-		MongoPort:          mgoPort,
-		APIPort:            apiPort,
-		StateInfo:          scfg.info,
-		APIInfo:            scfg.apiInfo,
-		StateServerCert:    scfg.stateServerCert,
-		StateServerKey:     scfg.stateServerKey,
+		StateServer:     scfg.stateServer,
+		MongoPort:       mgoPort,
+		APIPort:         apiPort,
+		StateInfo:       scfg.info,
+		APIInfo:         scfg.apiInfo,
+		StateServerCert: scfg.stateServerCert,
+		StateServerKey:  scfg.stateServerKey,
+		// This is a horrible hack, which only works on folsom or
+		// later and we'd really like to have a better way
 		InstanceIdAccessor: `$(curl http://169.254.169.254/openstack/2012-08-10/meta_data.json|python -c 'import json,sys;print json.loads(sys.stdin.read())["uuid"]')`,
 		ProviderType:       "openstack",
 		DataDir:            "/var/lib/juju",
