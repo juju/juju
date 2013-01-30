@@ -27,9 +27,9 @@ func (s *MachineSuite) TestLifeJobManageEnviron(c *C) {
 	m, err := s.State.AddMachine(state.JobManageEnviron)
 	c.Assert(err, IsNil)
 	err = m.Destroy()
-	c.Assert(err, ErrorMatches, "machine 1 cannot become dying: required by environment")
+	c.Assert(err, ErrorMatches, "machine 1 is required by the environment")
 	err = m.EnsureDead()
-	c.Assert(err, ErrorMatches, "machine 1 cannot become dead: required by environment")
+	c.Assert(err, ErrorMatches, "machine 1 is required by the environment")
 }
 
 func (s *MachineSuite) TestLifeJobHostUnits(c *C) {
@@ -41,25 +41,30 @@ func (s *MachineSuite) TestLifeJobHostUnits(c *C) {
 	err = unit.AssignToMachine(s.machine)
 	c.Assert(err, IsNil)
 	err = s.machine.Destroy()
-	c.Assert(err, ErrorMatches, `machine 0 cannot become dying: unit "wordpress/0" is assigned to it`)
+	c.Assert(err, ErrorMatches, `machine 0 has unit "wordpress/0" assigned`)
 	err = s.machine.EnsureDead()
-	c.Assert(err, ErrorMatches, `machine 0 cannot become dead: unit "wordpress/0" is assigned to it`)
+	c.Assert(err, ErrorMatches, `machine 0 has unit "wordpress/0" assigned`)
+	c.Assert(s.machine.Life(), Equals, state.Alive)
 
 	// Once no unit is assigned, lifecycle can advance.
 	err = unit.UnassignFromMachine()
 	c.Assert(err, IsNil)
 	err = s.machine.Destroy()
+	c.Assert(s.machine.Life(), Equals, state.Dying)
 	c.Assert(err, IsNil)
 	err = s.machine.EnsureDead()
 	c.Assert(err, IsNil)
+	c.Assert(s.machine.Life(), Equals, state.Dead)
 
 	// A machine that has never had units assigned can advance lifecycle.
 	m, err := s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
 	err = m.Destroy()
 	c.Assert(err, IsNil)
+	c.Assert(m.Life(), Equals, state.Dying)
 	err = m.EnsureDead()
 	c.Assert(err, IsNil)
+	c.Assert(m.Life(), Equals, state.Dead)
 }
 
 func (s *MachineSuite) TestRemove(c *C) {

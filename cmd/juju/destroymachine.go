@@ -28,7 +28,7 @@ func (c *DestroyMachineCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	}
 	args = f.Args()
 	if len(args) == 0 {
-		return fmt.Errorf("no service specified")
+		return fmt.Errorf("no machines specified")
 	}
 	for _, id := range args {
 		if !state.IsMachineId(id) {

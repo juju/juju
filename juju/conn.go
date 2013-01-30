@@ -223,10 +223,7 @@ func (conn *Conn) AddUnits(svc *state.Service, n int) ([]*state.Unit, error) {
 		if err != nil {
 			return nil, fmt.Errorf("cannot add unit %d/%d to service %q: %v", i+1, n, svc.Name(), err)
 		}
-		// TODO more specifically, what do we do if we fail here? The unit
-		// then becomes unremovable... unless we fix Unit.Destroy to insta-
-		// nuke unassigned machines. Now that this is the only(?) way to hit
-		// this bug, that sounds like a good move...
+		// TODO lp:1101139
 		if err := conn.State.AssignUnit(unit, policy); err != nil {
 			return nil, err
 		}
@@ -253,10 +250,7 @@ func (conn *Conn) DestroyMachines(ids ...string) (err error) {
 			errs = append(errs, err.Error())
 		}
 	}
-	if len(errs) > 0 {
-		return fmt.Errorf("some machines were not destroyed: " + strings.Join(errs, "; "))
-	}
-	return nil
+	return destroyErr("machines", ids, errs)
 }
 
 // DestroyUnits destroys the specified units.
@@ -279,10 +273,19 @@ func (conn *Conn) DestroyUnits(names ...string) (err error) {
 			errs = append(errs, err.Error())
 		}
 	}
-	if len(errs) != 0 {
-		return fmt.Errorf("some units were not destroyed: " + strings.Join(errs, "; "))
+	return destroyErr("units", names, errs)
+}
+
+func destroyErr(desc string, ids, errs []string) error {
+	if len(errs) == 0 {
+		return nil
 	}
-	return nil
+	msg := "some %s were not destroyed"
+	if len(errs) == len(ids) {
+		msg = "no %s were destroyed"
+	}
+	msg = fmt.Sprintf(msg, desc)
+	return fmt.Errorf("%s: %s", msg, strings.Join(errs, "; "))
 }
 
 // Resolved marks the unit as having had any previous state transition

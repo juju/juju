@@ -37,10 +37,11 @@ func (s *DestroyMachineSuite) TestDestroyMachine(c *C) {
 
 	// Try to destroy the machine and fail.
 	err = runDestroyMachine(c, "0")
-	c.Assert(err, ErrorMatches, `machine 0 cannot become dying: unit "riak/0" is assigned to it`)
+	c.Assert(err, ErrorMatches, `no machines were destroyed: machine 0 has unit "riak/0" assigned`)
 
 	// Remove the unit, and try to destroy the machine along with another that
-	// doesn't exist; check nothing's removed.
+	// doesn't exist; check that the machine is destroyed, but the missing one
+	// is warned about.
 	err = u.Destroy()
 	c.Assert(err, IsNil)
 	err = u.EnsureDead()
@@ -48,17 +49,32 @@ func (s *DestroyMachineSuite) TestDestroyMachine(c *C) {
 	err = u.Remove()
 	c.Assert(err, IsNil)
 	err = runDestroyMachine(c, "0", "1")
-	c.Assert(err, ErrorMatches, `machine 1 not found`)
-	m, err := s.State.Machine("0")
+	c.Assert(err, ErrorMatches, `some machines were not destroyed: machine 1 does not exist`)
+	m0, err := s.State.Machine("0")
 	c.Assert(err, IsNil)
-	c.Assert(m.Life(), Equals, state.Alive)
+	c.Assert(m0.Life(), Equals, state.Dying)
 
-	// Just destroy the machine.
+	// Destroying a destroyed machine is a no-op.
 	err = runDestroyMachine(c, "0")
 	c.Assert(err, IsNil)
-	err = m.Refresh()
+	err = m0.Refresh()
 	c.Assert(err, IsNil)
-	c.Assert(m.Life(), Equals, state.Dying)
+	c.Assert(m0.Life(), Equals, state.Dying)
+
+	// As is destroying a Dead machine; destroying it alongside a JobManageEnviron
+	// machine complains only about the JMA machine.
+	err = m0.EnsureDead()
+	c.Assert(err, IsNil)
+	m1, err := s.State.AddMachine(state.JobManageEnviron)
+	c.Assert(err, IsNil)
+	err = runDestroyMachine(c, "0", "1")
+	c.Assert(err, ErrorMatches, `some machines were not destroyed: machine 1 is required by the environment`)
+	err = m0.Refresh()
+	c.Assert(err, IsNil)
+	c.Assert(m0.Life(), Equals, state.Dead)
+	err = m1.Refresh()
+	c.Assert(err, IsNil)
+	c.Assert(m1.Life(), Equals, state.Alive)
 
 	// Check invalid args.
 	err = runDestroyMachine(c)
