@@ -6,12 +6,6 @@ import (
 	"reflect"
 )
 
-/*
-Things to think about:
-
-can we provide some way of distinguishing GET from POST methods?
-*/
-
 var (
 	errorType     = reflect.TypeOf((*error)(nil)).Elem()
 	interfaceType = reflect.TypeOf((*interface{})(nil)).Elem()
