@@ -25,13 +25,11 @@ import (
 	"time"
 )
 
-const (
-	mgoPort = 37017
-	apiPort = 17070
+const mgoPort = 37017
+const apiPort = 17070
 
-	mgoPortSuffix = ":" + string(mgoPort)
-	apiPortSuffix = ":" + string(apiPort)
-)
+var mgoPortSuffix = fmt.Sprintf(":%d", mgoPort)
+var apiPortSuffix = fmt.Sprintf(":%d", apiPort)
 
 type environProvider struct{}
 
@@ -287,6 +285,7 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 		config:          config,
 		stateServerCert: cert,
 		stateServerKey:  key,
+		withPublicIP:    true,
 	})
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
@@ -441,6 +440,10 @@ type startInstanceParams struct {
 	config          *config.Config
 	stateServerCert []byte
 	stateServerKey  []byte
+
+	// withPublicIP, if true causes a floating IP to be
+	// assigned to the server after starting
+	withPublicIP bool
 }
 
 func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
@@ -473,6 +476,40 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 	cdata := trivial.Gzip(data)
 	log.Debugf("environs/openstack: openstack user data; %d bytes", len(cdata))
 	return cdata, nil
+}
+
+// assignPublicIP tries to find an available floating IP address to
+// assign to the given instance, or allocates a new one and uses it.
+func (e *environ) assignPublicIP(serverId string) error {
+	fips, err := e.nova().ListFloatingIPs()
+	if err != nil {
+		return err
+	}
+	var newfip *nova.FloatingIP
+	for _, fip := range fips {
+		if fipInstId, ok := fip.InstanceId.(string); ok && fipInstId == serverId {
+			// the instance already has an IP assigned
+			return nil
+		} else if !ok || fipInstId == "" {
+			newfip = &fip
+		}
+	}
+	if newfip == nil {
+		// allocate a new IP and use it
+		newfip, err = e.nova().AllocateFloatingIP()
+		if err != nil {
+			return err
+		}
+	}
+	// At startup nw_info is not yet cached so this may fail
+	// temporarily while the server is being built
+	for a := longAttempt.Start(); a.Next(); {
+		err = e.nova().AddServerFloatingIP(serverId, newfip.IP)
+		if err == nil {
+			return nil
+		}
+	}
+	return err
 }
 
 // startInstance is the internal version of StartInstance, used by Bootstrap
@@ -538,6 +575,15 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	}
 	inst := &instance{e, detail, ""}
 	log.Printf("environs/openstack: started instance %q", inst.Id())
+	if scfg.withPublicIP {
+		if err = e.assignPublicIP(string(inst.Id())); err != nil {
+			// ignore any error, because it's not relevant anymore
+			e.terminateInstances([]state.InstanceId{inst.Id()})
+			return nil, fmt.Errorf("cannot assign a public address to %q: %s", inst.Id(), err.Error())
+		} else {
+			log.Printf("environs/openstack: assigned public IP to %q", inst.Id())
+		}
+	}
 	return inst, nil
 }
 
