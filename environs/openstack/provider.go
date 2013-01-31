@@ -576,7 +576,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	inst := &instance{e, detail, ""}
 	log.Printf("environs/openstack: started instance %q", inst.Id())
 	if scfg.withPublicIP {
-		if err = e.assignPublicIP(string(inst.Id())); err != nil {
+		if err := e.assignPublicIP(string(inst.Id())); err != nil {
 			// ignore any error, because it's not relevant anymore
 			e.terminateInstances([]state.InstanceId{inst.Id()})
 			return nil, fmt.Errorf("cannot assign a public address to %q: %s", inst.Id(), err.Error())
