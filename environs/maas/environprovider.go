@@ -20,13 +20,13 @@ func (*maasEnvironProvider) Validate(cfg, old *config.Config) (*config.Config, e
 }
 
 func (*maasEnvironProvider) SecretAttrs(*config.Config) (map[string]interface{}, error) {
-	panic("Not implemented")
+	panic("Not implemented.")
 }
 
 func (*maasEnvironProvider) PublicAddress() (string, error) {
-	panic("Not implemented")
+	panic("Not implemented.")
 }
 
 func (*maasEnvironProvider) PrivateAddress() (string, error) {
-	panic("Not implemented")
+	panic("Not implemented.")
 }
