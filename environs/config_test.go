@@ -151,8 +151,10 @@ environments:
         state-server: false
         authorized-keys: i-am-a-key
 `
-	err := ioutil.WriteFile(homePath(".juju", "environments.yaml"), []byte(env), 0666)
+	path := homePath(".juju", "environments.yaml")
+	outfile, err := environs.WriteEnvirons(path, env)
 	c.Assert(err, IsNil)
+	c.Assert(path, Equals, outfile)
 
 	es, err := environs.ReadEnvirons("")
 	c.Assert(err, IsNil)
@@ -172,8 +174,9 @@ environments:
         authorized-keys: i-am-a-key
 `
 	path := filepath.Join(c.MkDir(), "a-file")
-	err := ioutil.WriteFile(path, []byte(env), 0666)
+	outfile, err := environs.WriteEnvirons(path, env)
 	c.Assert(err, IsNil)
+	c.Assert(path, Equals, outfile)
 
 	es, err := environs.ReadEnvirons(path)
 	c.Assert(err, IsNil)

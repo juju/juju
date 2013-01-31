@@ -84,3 +84,14 @@ func (*BootstrapSuite) TestBootstrapCommand(c *C) {
 	c.Check(<-errc, ErrorMatches, "dummy.Bootstrap is broken")
 	c.Check(<-opc, IsNil)
 }
+
+func (*BootstrapSuite) TestBoilerPlateEnvironment(c *C) {
+	defer makeFakeHome(c, "empty").restore()
+	// bootstrap without an environments.yaml
+	_, errc := runCommand(new(BootstrapCommand))
+	c.Check(<-errc, IsNil)
+	environpath := homePath(".juju", "environments.yaml")
+	data, err := ioutil.ReadFile(environpath)
+	c.Assert(err, IsNil)
+	c.Assert(string(data), Equals, environs.BoilerPlateConfig())
+}
