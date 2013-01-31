@@ -19,6 +19,7 @@ var configChecker = schema.StrictFieldMap(
 		"control-bucket":    schema.String(),
 		"public-bucket":     schema.String(),
 		"public-bucket-url": schema.String(),
+		"default-image-id":  schema.String(),
 	},
 	schema.Defaults{
 		"username":          "",
@@ -30,6 +31,7 @@ var configChecker = schema.StrictFieldMap(
 		"control-bucket":    "",
 		"public-bucket":     "juju-dist",
 		"public-bucket-url": "",
+		"default-image-id":  "",
 	},
 )
 
@@ -72,6 +74,10 @@ func (c *environConfig) publicBucket() string {
 
 func (c *environConfig) publicBucketURL() string {
 	return c.attrs["public-bucket-url"].(string)
+}
+
+func (c *environConfig) defaultImageId() string {
+	return c.attrs["default-image-id"].(string)
 }
 
 func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
