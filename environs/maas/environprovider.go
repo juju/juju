@@ -15,10 +15,6 @@ func (*maasEnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return NewEnviron(cfg)
 }
 
-func (*maasEnvironProvider) Validate(cfg, old *config.Config) (*config.Config, error) {
-	return cfg, nil
-}
-
 func (*maasEnvironProvider) SecretAttrs(*config.Config) (map[string]interface{}, error) {
 	panic("Not implemented.")
 }
