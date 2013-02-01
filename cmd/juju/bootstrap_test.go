@@ -4,8 +4,11 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strings"
 
+	"bytes"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/testing"
@@ -85,13 +88,13 @@ func (*BootstrapSuite) TestBootstrapCommand(c *C) {
 	c.Check(<-opc, IsNil)
 }
 
-func (*BootstrapSuite) TestBoilerPlateEnvironment(c *C) {
+func (*BootstrapSuite) TestMissingEnvironment(c *C) {
 	defer makeFakeHome(c, "empty").restore()
 	// bootstrap without an environments.yaml
-	_, errc := runCommand(new(BootstrapCommand))
-	c.Check(<-errc, IsNil)
-	environpath := homePath(".juju", "environments.yaml")
-	data, err := ioutil.ReadFile(environpath)
-	c.Assert(err, IsNil)
-	c.Assert(string(data), Equals, environs.BoilerPlateConfig())
+	ctx := &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}}
+	code := cmd.Main(&BootstrapCommand{}, ctx, nil)
+	c.Check(code, Equals, 1)
+	errStr := ctx.Stderr.(*bytes.Buffer).String()
+	strippedErr := strings.Replace(errStr, "\n", "", -1)
+	c.Assert(strippedErr, Matches, ".*No juju environment configuration file exists.*")
 }

@@ -384,6 +384,10 @@ func (*environProvider) PrivateAddress() (string, error) {
 	return "private.dummy.address.example.com", nil
 }
 
+func (*environProvider) BoilerPlateConfig() string {
+	return ""
+}
+
 var errBroken = errors.New("broken environment")
 
 func (e *environ) ecfg() *environConfig {

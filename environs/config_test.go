@@ -151,9 +151,9 @@ environments:
         state-server: false
         authorized-keys: i-am-a-key
 `
-	path := homePath(".juju", "environments.yaml")
-	outfile, err := environs.WriteEnvirons(path, env)
+	outfile, err := environs.WriteEnvirons("", env)
 	c.Assert(err, IsNil)
+	path := homePath(".juju", "environments.yaml")
 	c.Assert(path, Equals, outfile)
 
 	es, err := environs.ReadEnvirons("")
@@ -183,6 +183,20 @@ environments:
 	e, err := es.Open("")
 	c.Assert(err, IsNil)
 	c.Assert(e.Name(), Equals, "only")
+}
+
+func (suite) TestWriteConfigNoHome(c *C) {
+	defer makeMissingHome(c).restore()
+
+	env := `
+environments:
+    only:
+        type: dummy
+        state-server: false
+        authorized-keys: i-am-a-key
+`
+	_, err := environs.WriteEnvirons("", env)
+	c.Assert(err, Not(IsNil))
 }
 
 func (suite) TestConfigRoundTrip(c *C) {
@@ -255,6 +269,12 @@ func makeFakeHome(c *C, certNames ...string) fakeHome {
 	err = ioutil.WriteFile(homePath(".ssh", "id_rsa.pub"), []byte("auth key\n"), 0666)
 	c.Assert(err, IsNil)
 
+	return fakeHome(oldHome)
+}
+
+func makeMissingHome(c *C) fakeHome {
+	oldHome := os.Getenv("HOME")
+	os.Setenv("HOME", "")
 	return fakeHome(oldHome)
 }
 

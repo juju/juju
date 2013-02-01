@@ -30,21 +30,17 @@ func (c *BootstrapCommand) Init(f *gnuflag.FlagSet, args []string) error {
 
 // Run connects to the environment specified on the command line and bootstraps
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
-// a boilerplate version is created so that the user can edit it to get started.
-func (c *BootstrapCommand) Run(_ *cmd.Context) error {
+// the user is informed how to create one.
+func (c *BootstrapCommand) Run(context *cmd.Context) error {
 	environ, err := environs.NewFromName(c.EnvName)
 	if err != nil {
-		if _, ok := err.(*os.PathError); ok {
-			fmt.Println("No juju enviroment configuration file exists.")
-			filename, err := environs.WriteEnvirons("", environs.BoilerPlateConfig())
-			if err == nil {
-				fmt.Printf("A boilerplate environment configuration file has been written to %s.\n", filename)
-				fmt.Println("Edit the file to configure your juju environment and re-run bootstrap.")
-				return nil
-			} else {
-				return fmt.Errorf("A boilerplate environment configurtion file could not be created: %s", err.Error())
-			}
-
+		if os.IsNotExist(err) {
+			out := context.Stderr
+			fmt.Fprintln(out, "No juju environment configuration file exists.")
+			fmt.Fprintln(out, "Please create a configuration by running:")
+			fmt.Fprintln(out, "    juju generate-config")
+			fmt.Fprintln(out, "then edit the file to configure your juju environment.")
+			fmt.Fprintln(out, "You can then re-run bootstrap.")
 		}
 		return err
 	}

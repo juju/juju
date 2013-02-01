@@ -20,6 +20,10 @@ type EnvironProvider interface {
 	// for consideration when validating changes.
 	Validate(cfg, old *config.Config) (valid *config.Config, err error)
 
+	// BoilerPlateConfig returns a yaml format string which contains boilerplate
+	// config for this environment type.
+	BoilerPlateConfig() string
+
 	// SecretAttrs filters the supplied configuration returning only values
 	// which are considered sensitive.
 	SecretAttrs(cfg *config.Config) (map[string]interface{}, error)

@@ -116,15 +116,15 @@ func ReadEnvironsBytes(data []byte) (*Environs, error) {
 	return &Environs{raw.Default, environs}, nil
 }
 
-func environsPath(environsFile string) (string, error) {
-	if environsFile == "" {
+func environsPath(environsFilepath string) (string, error) {
+	if environsFilepath == "" {
 		home := os.Getenv("HOME")
 		if home == "" {
 			return "", errors.New("$HOME not set")
 		}
-		environsFile = filepath.Join(home, ".juju/environments.yaml")
+		environsFilepath = filepath.Join(home, ".juju/environments.yaml")
 	}
-	return environsFile, nil
+	return environsFilepath, nil
 }
 
 // ReadEnvirons reads the juju environments.yaml file
@@ -132,30 +132,32 @@ func environsPath(environsFile string) (string, error) {
 // on the file's contents.
 // If environsFile is empty, $HOME/.juju/environments.yaml
 // is used.
-func ReadEnvirons(environsFile string) (*Environs, error) {
-	environsFile, err := environsPath(environsFile)
+func ReadEnvirons(environsFilepath string) (*Environs, error) {
+	environsFilepath, err := environsPath(environsFilepath)
 	if err != nil {
 		return nil, err
 	}
-	data, err := ioutil.ReadFile(environsFile)
+	data, err := ioutil.ReadFile(environsFilepath)
 	if err != nil {
 		return nil, err
 	}
 	e, err := ReadEnvironsBytes(data)
 	if err != nil {
-		return nil, fmt.Errorf("cannot parse %q: %v", environsFile, err)
+		return nil, fmt.Errorf("cannot parse %q: %v", environsFilepath, err)
 	}
 	return e, nil
 }
 
 // WriteEnvirons creates a new juju environments.yaml file with the specified contents.
-func WriteEnvirons(environsFile string, fileContents string) (string, error) {
-	environsFile, err := environsPath(environsFile)
+func WriteEnvirons(environsFilepath string, fileContents string) (string, error) {
+	environsFilepath, err := environsPath(environsFilepath)
 	if err != nil {
 		return "", err
 	}
-	err = ioutil.WriteFile(environsFile, []byte(fileContents), 0666)
-	return environsFile, err
+	if err = ioutil.WriteFile(environsFilepath, []byte(fileContents), 0666); err != nil {
+		return "", nil
+	}
+	return environsFilepath, err
 }
 
 // BootstrapConfig returns an environment configuration suitable for
