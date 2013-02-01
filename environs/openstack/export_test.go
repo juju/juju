@@ -85,6 +85,5 @@ func FindInstanceSpec(e environs.Environ, series, arch, flavor string) (imageId,
 }
 
 func AllocatePublicIP(e environs.Environ) (*nova.FloatingIP, error) {
-	env := e.(*environ)
-	return env.allocatePublicIP()
+	return e.(*environ).allocatePublicIP()
 }
