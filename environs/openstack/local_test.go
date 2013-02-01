@@ -48,7 +48,7 @@ func (s *localLiveSuite) SetUpSuite(c *C) {
 	srv := openstackservice.New(s.cred)
 	srv.SetupHTTP(s.Mux)
 
-	s.LiveTests.SetUpSuite(c)
+	s.LiveTests.SetUpSuite(c, srv)
 }
 
 func (s *localLiveSuite) TearDownSuite(c *C) {

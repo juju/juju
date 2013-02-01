@@ -331,15 +331,12 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 		log.Debugf("started processing instances: %#v", insts)
 		for _, inst := range insts {
 			if inst == nil {
-				log.Debugf("inst is nil, continue")
 				continue
 			}
 			name, err := inst.(*instance).DNSName()
 			if err != nil {
-				log.Debugf("DNSName error: %v", err)
 				continue
 			}
-			log.Debugf("inst address: %s", name)
 			if name != "" {
 				stateAddrs = append(stateAddrs, name+mgoPortSuffix)
 				apiAddrs = append(apiAddrs, name+apiPortSuffix)
@@ -478,33 +475,49 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 	return cdata, nil
 }
 
-// assignPublicIP tries to find an available floating IP address to
-// assign to the given instance, or allocates a new one and uses it.
-func (e *environ) assignPublicIP(serverId string) error {
+// allocatePublicIP tries to find an available floating IP address, or
+// allocates a new one, returning it, or an error
+func (e *environ) allocatePublicIP() (*nova.FloatingIP, error) {
 	fips, err := e.nova().ListFloatingIPs()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	var newfip *nova.FloatingIP
 	for _, fip := range fips {
-		if fipInstId, ok := fip.InstanceId.(string); ok && fipInstId == serverId {
-			// the instance already has an IP assigned
-			return nil
+		newfip = &fip
+		if fipInstId, ok := fip.InstanceId.(string); ok && fipInstId != "" {
+			// unavailable, skip
+			newfip = nil
+			continue
 		} else if !ok || fipInstId == "" {
-			newfip = &fip
+			// unassigned, we can use it
+			return newfip, nil
 		}
 	}
 	if newfip == nil {
 		// allocate a new IP and use it
 		newfip, err = e.nova().AllocateFloatingIP()
 		if err != nil {
-			return err
+			return nil, err
 		}
+	}
+	return newfip, nil
+}
+
+// assignPublicIP tries to assign the given floating IP address to the
+// specified server, or returns an error.
+func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err error) {
+	if fip == nil {
+		return fmt.Errorf("cannot assign a nil public IP to %q", serverId)
+	}
+	if fip.InstanceId == serverId {
+		// IP already assigned, nothing to do
+		return nil
 	}
 	// At startup nw_info is not yet cached so this may fail
 	// temporarily while the server is being built
 	for a := longAttempt.Start(); a.Next(); {
-		err = e.nova().AddServerFloatingIP(serverId, newfip.IP)
+		err = e.nova().AddServerFloatingIP(serverId, fip.IP)
 		if err == nil {
 			return nil
 		}
@@ -515,6 +528,15 @@ func (e *environ) assignPublicIP(serverId string) error {
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself.
 func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, error) {
+	var publicIP *nova.FloatingIP
+	if scfg.withPublicIP {
+		if fip, err := e.allocatePublicIP(); err != nil {
+			return nil, fmt.Errorf("cannot allocate a public IP as needed")
+		} else {
+			publicIP = fip
+			log.Printf("environs/openstack: allocated public IP %s", publicIP.IP)
+		}
+	}
 	if scfg.tools == nil {
 		var err error
 		flags := environs.HighestVersion | environs.CompatVersion
@@ -523,7 +545,6 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 			return nil, err
 		}
 	}
-
 	log.Printf("environs/openstack: starting machine %s in %q running tools version %q from %q",
 		scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
 	if strings.Contains(scfg.tools.Series, "unknown") || strings.Contains(scfg.tools.Arch, "unknown") {
@@ -543,7 +564,6 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	if err != nil {
 		return nil, fmt.Errorf("cannot make user data: %v", err)
 	}
-	log.Debugf("environs/openstack: openstack user data: %q", userData)
 	groups, err := e.setUpGroups(scfg.machineId)
 	if err != nil {
 		return nil, fmt.Errorf("cannot set up groups: %v", err)
@@ -576,12 +596,14 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	inst := &instance{e, detail, ""}
 	log.Printf("environs/openstack: started instance %q", inst.Id())
 	if scfg.withPublicIP {
-		if err := e.assignPublicIP(string(inst.Id())); err != nil {
-			// ignore any error, because it's not relevant anymore
-			e.terminateInstances([]state.InstanceId{inst.Id()})
-			return nil, fmt.Errorf("cannot assign a public address to %q: %s", inst.Id(), err.Error())
+		if err := e.assignPublicIP(publicIP, string(inst.Id())); err != nil {
+			if err1 := e.terminateInstances([]state.InstanceId{inst.Id()}); err1 != nil {
+				// ignore the failure at this stage, just log it
+				log.Debugf("environs/openstack: failed to terminate instance %q", inst.Id())
+			}
+			return nil, fmt.Errorf("cannot assign a public address %s to instance %q: %s", publicIP.IP, inst.Id(), err.Error())
 		} else {
-			log.Printf("environs/openstack: assigned public IP to %q", inst.Id())
+			log.Printf("environs/openstack: assigned public IP %s to %q", publicIP.IP, inst.Id())
 		}
 	}
 	return inst, nil
