@@ -15,7 +15,7 @@ type srvRoot struct {
 type srvAdmin struct {
 	mu     sync.Mutex
 	root   *srvRoot
-	user *state.User
+	entity state.Entity
 }
 
 type srvMachine struct {
@@ -78,15 +78,23 @@ type rpcPassword struct {
 }
 
 func (a *srvAdmin) SetPassword(p rpcPassword) error {
-	if !st.a.loggedIn() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.entity == nil {
 		return errNotLoggedIn
 	}
-	u, err := 
+	// Catch expected common case of mispelled
+	// or missing Password parameter.
+	if p.Password == "" {
+		return fmt.Errorf("password is empty")
+	}
+	return a.entity.SetPassword(p.Password)
+}
 
 func (a *srvAdmin) loggedIn() bool {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	return a.entity != ""
+	return a.entity != nil
 }
 
 func (st *srvRoot) Machine(id string) (*srvMachine, error) {
