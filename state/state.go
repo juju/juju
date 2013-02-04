@@ -250,7 +250,7 @@ func (st *State) Machine(id string) (*Machine, error) {
 	return newMachine(st, mdoc), nil
 }
 
-// Entity represents an entity that has
+// AuthEntity represents an entity that has
 // a password that can be authenticated against.
 type AuthEntity interface {
 	SetPassword(pass string) error
