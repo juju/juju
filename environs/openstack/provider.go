@@ -599,9 +599,9 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 		if err := e.assignPublicIP(publicIP, string(inst.Id())); err != nil {
 			if err := e.terminateInstances([]state.InstanceId{inst.Id()}); err != nil {
 				// ignore the failure at this stage, just log it
-				log.Debugf("environs/openstack: failed to terminate instance %q: %s", inst.Id(), err.Error())
+				log.Debugf("environs/openstack: failed to terminate instance %q: %v", inst.Id(), err)
 			}
-			return nil, fmt.Errorf("cannot assign public address %s to instance %q: %s", publicIP.IP, inst.Id(), err.Error())
+			return nil, fmt.Errorf("cannot assign public address %s to instance %q: %v", publicIP.IP, inst.Id(), err)
 		} else {
 			log.Printf("environs/openstack: assigned public IP %s to %q", publicIP.IP, inst.Id())
 		}
