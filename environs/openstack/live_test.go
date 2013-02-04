@@ -7,8 +7,6 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goose/client"
 	"launchpad.net/goose/identity"
-	"launchpad.net/goose/testservices"
-	"launchpad.net/goose/testservices/openstackservice"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/openstack"
@@ -65,7 +63,6 @@ type LiveTests struct {
 	jujutest.LiveTests
 	cred                   *identity.Credentials
 	writeablePublicStorage environs.Storage
-	openstack              *openstackservice.Openstack
 }
 
 const (
@@ -75,7 +72,7 @@ const (
 	testImageId = "0f602ea9-c09e-440c-9e29-cfae5635afa3"
 )
 
-func (t *LiveTests) SetUpSuite(c *C, localSvc *openstackservice.Openstack) {
+func (t *LiveTests) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
 	// Get an authenticated Goose client to extract some configuration parameters for the test environment.
 	client := client.NewClient(t.cred, identity.AuthUserPass, nil)
@@ -110,8 +107,6 @@ func (t *LiveTests) SetUpSuite(c *C, localSvc *openstackservice.Openstack) {
 	// starting instances without any need to check if those instances
 	// are running will find them in the public bucket.
 	putFakeTools(c, t.writeablePublicStorage)
-
-	t.openstack = localSvc
 
 	t.LiveTests.SetUpSuite(c)
 }
@@ -165,23 +160,6 @@ func (t *LiveTests) TestFindImageBadFlavor(c *C) {
 	c.Assert(ok, Equals, true)
 	c.Assert(imageId, Equals, "")
 	c.Assert(flavorId, Equals, "")
-}
-
-// This is only a local test with the doubles
-func (t *LiveTests) TestAllocatePublicIPFailsWhenAddFails(c *C) {
-	if *live || t.openstack == nil {
-		c.Skip("targets the test double only")
-	}
-	t.openstack.Nova.RegisterControlPoint(
-		"addFloatingIP",
-		func(sc testservices.ServiceControl, args ...interface{}) error {
-			return fmt.Errorf("failed on purpose")
-		},
-	)
-	defer t.openstack.Nova.RegisterControlPoint("addFloatingIP", nil)
-	fip, err := openstack.AllocatePublicIP(t.Env)
-	c.Check(err, ErrorMatches, ".*failed on purpose.*")
-	c.Assert(fip, IsNil)
 }
 
 // The following tests need to be enabled once the coding is complete.

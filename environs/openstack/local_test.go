@@ -1,9 +1,12 @@
 package openstack_test
 
 import (
+	"fmt"
 	. "launchpad.net/gocheck"
+	"launchpad.net/goose/client"
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
+	"launchpad.net/goose/testservices"
 	"launchpad.net/goose/testservices/openstackservice"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/openstack"
@@ -20,6 +23,7 @@ func registerServiceDoubleTests() {
 		TenantName: "some tenant",
 	}
 	Suite(&localLiveSuite{
+		creds: cred,
 		LiveTests: LiveTests{
 			cred: cred,
 		},
@@ -32,6 +36,10 @@ type localLiveSuite struct {
 	Server     *httptest.Server
 	Mux        *http.ServeMux
 	oldHandler http.Handler
+	creds      *identity.Credentials
+
+	Env     environs.Environ
+	Service *openstackservice.Openstack
 }
 
 func (s *localLiveSuite) SetUpSuite(c *C) {
@@ -45,10 +53,25 @@ func (s *localLiveSuite) SetUpSuite(c *C) {
 	s.Server.Config.Handler = s.Mux
 
 	s.cred.URL = s.Server.URL
-	srv := openstackservice.New(s.cred)
-	srv.SetupHTTP(s.Mux)
+	s.Service = openstackservice.New(s.cred)
+	s.Service.SetupHTTP(s.Mux)
 
-	s.LiveTests.SetUpSuite(c, srv)
+	// Get an authenticated Goose client to extract some configuration parameters for the test environment.
+	client := client.NewClient(s.cred, identity.AuthUserPass, nil)
+	err := client.Authenticate()
+	c.Assert(err, IsNil)
+	publicBucketURL, err := client.MakeServiceURL("object-store", nil)
+	c.Assert(err, IsNil)
+	config := makeTestConfig()
+	config["admin-secret"] = "secret"
+	config["public-bucket-url"] = publicBucketURL
+	if e, err := environs.NewFromAttrs(config); err != nil {
+		c.Fatalf("cannot create local test environment: %q", err.Error())
+	} else {
+		s.Env = e
+	}
+
+	s.LiveTests.SetUpSuite(c)
 }
 
 func (s *localLiveSuite) TearDownSuite(c *C) {
@@ -171,4 +194,20 @@ func (s *LiveTests) TestGetServerAddresses(c *C) {
 		c.Assert(err, Equals, t.failure)
 		c.Assert(addr, Equals, t.expected)
 	}
+}
+
+func panicWrite(name string, cert, key []byte) error {
+	panic("writeCertAndKey called unexpectedly")
+}
+
+func (s *localLiveSuite) TestBootstrapFailsWithoutPublicIP(c *C) {
+	s.Service.Nova.RegisterControlPoint(
+		"addFloatingIP",
+		func(sc testservices.ServiceControl, args ...interface{}) error {
+			return fmt.Errorf("failed on purpose")
+		},
+	)
+	defer s.Service.Nova.RegisterControlPoint("addFloatingIP", nil)
+	err := environs.Bootstrap(s.Env, false, panicWrite)
+	c.Assert(err, ErrorMatches, ".*cannot allocate a public IP as needed.*")
 }
