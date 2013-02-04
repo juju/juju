@@ -17,7 +17,6 @@ func newConfig(values map[string]interface{}) (*maasEnvironConfig, error) {
 		"type": "maas",
 		"ca-cert": testing.CACert,
 		"ca-private-key": testing.CAKey,
-		"control-bucket": "x",
 	}
 	for k, v := range values {
 		cfg[k] = v
@@ -29,27 +28,52 @@ func newConfig(values map[string]interface{}) (*maasEnvironConfig, error) {
 	return env.(*maasEnviron).ecfg(), nil
 }
 
-func (ConfigSuite) TestParsesMAASServer(c *C) {
-	e, err := newConfig(map[string]interface{}{"maas-server": "foo.local"})
-	c.Check(err, IsNil)
-	c.Check(e.maasServer(), Equals, "foo.local")
-}
-
-func (ConfigSuite) TestParsesMAASOAuth(c *C) {
+func (ConfigSuite) TestParsesMAASSettings(c *C) {
+	server := "maas.example.com"
 	oauth := []string{"consumer-key", "resource-token", "resource-secret"}
-	e, err := newConfig(map[string]interface{}{"maas-oauth": oauth})
+	secret := "ssssssht"
+	ecfg, err := newConfig(map[string]interface{}{
+		"maas-server": server,
+		"maas-oauth": oauth,
+		"admin-secret": secret,
+	})
 	c.Check(err, IsNil)
-	c.Check(e.maasOAuth(), DeepEquals, oauth)
+	c.Check(ecfg.maasServer(), Equals, server)
+	c.Check(ecfg.maasOAuth(), DeepEquals, oauth)
+	c.Check(ecfg.adminSecret(), Equals, secret)
 }
 
-func (ConfigSuite) TestParsesAdminSecret(c *C) {
-	e, err := newConfig(map[string]interface{}{"admin-secret": "sssssht"})
-	c.Check(err, IsNil)
-	c.Check(e.adminSecret(), Equals, "sssssht")
+func (ConfigSuite) TestRequiresMaasServer(c *C) {
+	oauth := []string{"consumer-key", "resource-token", "resource-secret"}
+	_, err := newConfig(map[string]interface{}{
+		"maas-oauth": oauth,
+		"admin-secret": "secret",
+	})
+	c.Check(err, NotNil)
 }
 
-/*
-func (ConfigSuite) TestXXX(c *C) {
+func (ConfigSuite) TestRequiresOAuth(c *C) {
+	_, err := newConfig(map[string]interface{}{
+		"maas-server": "maas.example.com",
+		"admin-secret": "secret",
+	})
+	c.Check(err, NotNil)
 }
 
-*/
+func (ConfigSuite) TestChecksWellFormedOAuth(c *C) {
+	_, err := newConfig(map[string]interface{}{
+		"maas-server": "maas.example.com",
+		"maas-oauth": "This should have been a 3-part token.",
+		"admin-secret": "secret",
+	})
+	c.Check(err, NotNil)
+}
+
+func (ConfigSuite) TestRequiresAdminSecret(c *C) {
+	oauth := []string{"consumer-key", "resource-token", "resource-secret"}
+	_, err := newConfig(map[string]interface{}{
+		"maas-server": "maas.example.com",
+		"maas-oauth": oauth,
+	})
+	c.Check(err, NotNil)
+}
