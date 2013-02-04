@@ -131,7 +131,7 @@ func (m *Machine) SetMongoPassword(password string) error {
 }
 
 // SetPassword sets the password for the machine's agent.
-func (m *Machine) SetPassword(password string) (err error) {
+func (m *Machine) SetPassword(password string) error {
 	hp := trivial.PasswordHash(password)
 	ops := []txn.Op{{
 		C:      m.st.machines.Name,
