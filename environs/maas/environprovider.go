@@ -8,6 +8,10 @@ import (
 
 type maasEnvironProvider struct{}
 
+func init() {
+	environs.RegisterProvider("maas", &maasEnvironProvider{})
+}
+
 var _ environs.EnvironProvider = (*maasEnvironProvider)(nil)
 
 func (*maasEnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
