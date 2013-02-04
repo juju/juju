@@ -56,6 +56,61 @@ func init() {
 	environs.RegisterProvider("openstack", environProvider{})
 }
 
+func (p environProvider) BoilerplateConfig() string {
+	return `
+## https://juju.ubuntu.com/get-started/openstack/
+openstack:
+  type: openstack
+  admin-secret: {{rand}}
+  # Globally unique swift bucket name
+  control-bucket: juju-{{rand}}
+  # Usually set via the env variable OS_AUTH_URL, but can be specified here
+  # auth-url: https://yourkeystoneurl:443/v2.0/
+  # override if your workstation is running a different series to which you are deploying
+  # default-series: precise
+  default-image-id: <nova server id>
+  # The following are used for userpass authentication (the default)
+  auth-mode: userpass
+  # Usually set via the env variable OS_USERNAME, but can be specified here
+  # username: <your username>
+  # Usually set via the env variable OS_PASSWORD, but can be specified here
+  # password: <secret>
+  # Usually set via the env variable OS_TENANT_NAME, but can be specified here
+  # tenant-name: <your tenant name>
+  # Usually set via the env variable OS_REGION_NAME, but can be specified here
+  # region: <your region>
+
+## https://juju.ubuntu.com/get-started/hp-cloud/
+hpcloud:
+  type: openstack
+  admin-secret: {{rand}}
+  # Globally unique swift bucket name
+  control-bucket: juju-{{rand}}
+  # Not required if env variable OS_AUTH_URL is set
+  auth-url: https://yourkeystoneurl:35357/v2.0/
+  # override if your workstation is running a different series to which you are deploying
+  # default-series: precise
+  default-image-id: <nova server id>
+  # The following are used for userpass authentication (the default)
+  auth-mode: userpass
+  # Usually set via the env variable OS_USERNAME, but can be specified here
+  # username: <your username>
+  # Usually set via the env variable OS_PASSWORD, but can be specified here
+  # password: <secret>
+  # Usually set via the env variable OS_TENANT_NAME, but can be specified here
+  # tenant-name: <your tenant name>
+  # Usually set via the env variable OS_REGION_NAME, but can be specified here
+  # region: <your region>
+  # The following are used for keypair authentication
+  # auth-mode: keypair
+  # Usually set via the env variable AWS_ACCESS_KEY_ID, but can be specified here
+  # access-key: <secret>
+  # Usually set via the env variable AWS_SECRET_ACCESS_KEY, but can be specified here
+  # secret-key: <secret>
+
+`[1:]
+}
+
 func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	log.Printf("environs/openstack: opening environment %q", cfg.Name())
 	e := new(environ)
@@ -359,7 +414,7 @@ func (e *environ) Config() *config.Config {
 	return e.ecfg().Config
 }
 
-func (e *environ) client(ecfg *environConfig, authMethodCfg AuthMethod) client.AuthenticatingClient {
+func (e *environ) client(ecfg *environConfig, authModeCfg AuthMode) client.AuthenticatingClient {
 	cred := &identity.Credentials{
 		User:       ecfg.username(),
 		Secrets:    ecfg.password(),
@@ -367,15 +422,15 @@ func (e *environ) client(ecfg *environConfig, authMethodCfg AuthMethod) client.A
 		TenantName: ecfg.tenantName(),
 		URL:        ecfg.authURL(),
 	}
-	// authMethodCfg has already been validated so we know it's one of the values below.
-	var authMethod identity.AuthMethod
-	switch authMethodCfg {
+	// authModeCfg has already been validated so we know it's one of the values below.
+	var authMode identity.AuthMode
+	switch authModeCfg {
 	case AuthLegacy:
-		authMethod = identity.AuthLegacy
+		authMode = identity.AuthLegacy
 	case AuthUserPass:
-		authMethod = identity.AuthUserPass
+		authMode = identity.AuthUserPass
 	}
-	return client.NewClient(cred, authMethod, nil)
+	return client.NewClient(cred, authMode, nil)
 }
 
 func (e *environ) publicClient(ecfg *environConfig) client.Client {
@@ -389,14 +444,14 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	}
 	// At this point, the authentication method config value has been validated so we extract it's value here
 	// to avoid having to validate again each time when creating the OpenStack client.
-	var authMethodCfg AuthMethod
+	var authModeCfg AuthMode
 	e.ecfgMutex.Lock()
 	defer e.ecfgMutex.Unlock()
 	e.name = ecfg.Name()
-	authMethodCfg = AuthMethod(ecfg.authMethod())
+	authModeCfg = AuthMode(ecfg.authMode())
 	e.ecfgUnlocked = ecfg
 
-	novaClient := e.client(ecfg, authMethodCfg)
+	novaClient := e.client(ecfg, authModeCfg)
 	e.novaUnlocked = nova.New(novaClient)
 
 	// create new storage instances, existing instances continue
@@ -406,7 +461,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 		// this is possibly just a hack - if the ACL is swift.Private,
 		// the machine won't be able to get the tools (401 error)
 		containerACL: swift.PublicRead,
-		swift:        swift.New(e.client(ecfg, authMethodCfg))}
+		swift:        swift.New(e.client(ecfg, authModeCfg))}
 	if ecfg.publicBucket() != "" && ecfg.publicBucketURL() != "" {
 		e.publicStorageUnlocked = &storage{
 			containerName: ecfg.publicBucket(),

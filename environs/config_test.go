@@ -151,8 +151,10 @@ environments:
         state-server: false
         authorized-keys: i-am-a-key
 `
-	err := ioutil.WriteFile(homePath(".juju", "environments.yaml"), []byte(env), 0666)
+	outfile, err := environs.WriteEnvirons("", env)
 	c.Assert(err, IsNil)
+	path := homePath(".juju", "environments.yaml")
+	c.Assert(path, Equals, outfile)
 
 	es, err := environs.ReadEnvirons("")
 	c.Assert(err, IsNil)
@@ -172,14 +174,31 @@ environments:
         authorized-keys: i-am-a-key
 `
 	path := filepath.Join(c.MkDir(), "a-file")
-	err := ioutil.WriteFile(path, []byte(env), 0666)
+	outfile, err := environs.WriteEnvirons(path, env)
 	c.Assert(err, IsNil)
+	c.Assert(path, Equals, outfile)
 
 	es, err := environs.ReadEnvirons(path)
 	c.Assert(err, IsNil)
 	e, err := es.Open("")
 	c.Assert(err, IsNil)
 	c.Assert(e.Name(), Equals, "only")
+}
+
+func (suite) TestWriteConfigNoHome(c *C) {
+	defer makeFakeHome(c).restore()
+	os.Setenv("HOME", "")
+
+	env := `
+environments:
+    only:
+        type: dummy
+        state-server: false
+        authorized-keys: i-am-a-key
+`
+	_, err := environs.WriteEnvirons("", env)
+	c.Assert(err, NotNil)
+	c.Assert(err.Error(), Equals, "$HOME not set")
 }
 
 func (suite) TestConfigRoundTrip(c *C) {

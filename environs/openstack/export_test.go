@@ -52,10 +52,10 @@ func DeleteStorageContent(s environs.Storage) error {
 // It is used by tests which need to upload files.
 func WritablePublicStorage(e environs.Environ) environs.Storage {
 	ecfg := e.(*environ).ecfg()
-	authMethodCfg := AuthMethod(ecfg.authMethod())
+	authModeCfg := AuthMode(ecfg.authMode())
 	writablePublicStorage := &storage{
 		containerName: ecfg.publicBucket(),
-		swift:         swift.New(e.(*environ).client(ecfg, authMethodCfg)),
+		swift:         swift.New(e.(*environ).client(ecfg, authModeCfg)),
 	}
 
 	// Ensure the container exists.
