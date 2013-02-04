@@ -107,7 +107,6 @@ func (t *LiveTests) SetUpSuite(c *C) {
 	// starting instances without any need to check if those instances
 	// are running will find them in the public bucket.
 	putFakeTools(c, t.writeablePublicStorage)
-
 	t.LiveTests.SetUpSuite(c)
 }
 

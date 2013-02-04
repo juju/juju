@@ -602,9 +602,8 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 				log.Debugf("environs/openstack: failed to terminate instance %q: %v", inst.Id(), err)
 			}
 			return nil, fmt.Errorf("cannot assign public address %s to instance %q: %v", publicIP.IP, inst.Id(), err)
-		} else {
-			log.Printf("environs/openstack: assigned public IP %s to %q", publicIP.IP, inst.Id())
 		}
+		log.Printf("environs/openstack: assigned public IP %s to %q", publicIP.IP, inst.Id())
 	}
 	return inst, nil
 }
