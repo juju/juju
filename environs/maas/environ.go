@@ -7,10 +7,16 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"sync"
 )
 
 type maasEnviron struct {
 	name string
+
+	// ecfgMutext protects the *Unlocked fields below.
+	ecfgMutex	sync.Mutex
+
+	ecfgUnlocked	*maasEnvironConfig
 }
 
 var _ environs.Environ = (*maasEnviron)(nil)
@@ -42,8 +48,16 @@ func (*maasEnviron) StateInfo() (*state.Info, *api.Info, error) {
 	panic("Not implemented.")
 }
 
-func (*maasEnviron) Config() *config.Config {
-	panic("Not implemented.")
+// ecfg returns the environment's maasEnvironConfig, and protects it with a
+// mutex.
+func (env *maasEnviron) ecfg() *maasEnvironConfig {
+	env.ecfgMutex.Lock()
+	defer env.ecfgMutex.Unlock()
+	return env.ecfgUnlocked
+}
+
+func (env *maasEnviron) Config() *config.Config {
+	return env.ecfg().Config
 }
 
 func (env *maasEnviron) SetConfig(cfg *config.Config) error {
