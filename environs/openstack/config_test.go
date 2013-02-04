@@ -43,7 +43,7 @@ type configTest struct {
 	username      string
 	password      string
 	tenantName    string
-	authMode    string
+	authMode      string
 	authURL       string
 	firewallMode  config.FirewallMode
 	err           string
@@ -231,7 +231,7 @@ var configTests = []configTest{
 		password:   "open sesame",
 		tenantName: "juju tenant",
 		authURL:    "http://some/url",
-		authMode: "legacy",
+		authMode:   "legacy",
 	}, {
 		summary: "image id",
 		config: attrs{
