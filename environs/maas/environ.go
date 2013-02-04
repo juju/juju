@@ -61,8 +61,18 @@ func (env *maasEnviron) Config() *config.Config {
 }
 
 func (env *maasEnviron) SetConfig(cfg *config.Config) error {
+	ecfg, err := env.Provider().(*maasEnvironProvider).newConfig(cfg)
+	if err != nil {
+		return err
+	}
+
+	env.ecfgMutex.Lock()
+	defer env.ecfgMutex.Unlock()
+
 	env.name = cfg.Name()
-	panic("Not implemented.")
+	env.ecfgUnlocked = ecfg
+
+	return nil
 }
 
 func (*maasEnviron) StartInstance(machineId string, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
