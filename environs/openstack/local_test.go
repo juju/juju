@@ -3,7 +3,6 @@ package openstack_test
 import (
 	"fmt"
 	. "launchpad.net/gocheck"
-	"launchpad.net/goose/client"
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/testservices"
@@ -23,7 +22,6 @@ func registerServiceDoubleTests() {
 		TenantName: "some tenant",
 	}
 	Suite(&localLiveSuite{
-		creds: cred,
 		LiveTests: LiveTests{
 			cred: cred,
 		},
@@ -36,7 +34,6 @@ type localLiveSuite struct {
 	Server     *httptest.Server
 	Mux        *http.ServeMux
 	oldHandler http.Handler
-	creds      *identity.Credentials
 
 	Env     environs.Environ
 	Service *openstackservice.Openstack
@@ -56,19 +53,19 @@ func (s *localLiveSuite) SetUpSuite(c *C) {
 	s.Service = openstackservice.New(s.cred)
 	s.Service.SetupHTTP(s.Mux)
 
-	// Get an authenticated Goose client to extract some configuration parameters for the test environment.
-	client := client.NewClient(s.cred, identity.AuthUserPass, nil)
-	err := client.Authenticate()
-	c.Assert(err, IsNil)
-	publicBucketURL, err := client.MakeServiceURL("object-store", nil)
-	c.Assert(err, IsNil)
-	config := makeTestConfig()
-	config["admin-secret"] = "secret"
-	config["public-bucket-url"] = publicBucketURL
-	if e, err := environs.NewFromAttrs(config); err != nil {
-		c.Fatalf("cannot create local test environment: %q", err.Error())
+	attrs := makeTestConfig()
+	attrs["admin-secret"] = "secret"
+	attrs["username"] = s.cred.User
+	attrs["password"] = s.cred.Secrets
+	attrs["region"] = s.cred.Region
+	attrs["auth-url"] = s.cred.URL
+	attrs["tenant-name"] = s.cred.TenantName
+	attrs["default-image-id"] = testImageId
+	if e, err := environs.NewFromAttrs(attrs); err != nil {
+		c.Fatalf("cannot create local test environment: %s", err.Error())
 	} else {
 		s.Env = e
+		putFakeTools(c, openstack.WritablePublicStorage(s.Env))
 	}
 
 	s.LiveTests.SetUpSuite(c)
@@ -208,6 +205,10 @@ func (s *localLiveSuite) TestBootstrapFailsWithoutPublicIP(c *C) {
 		},
 	)
 	defer s.Service.Nova.RegisterControlPoint("addFloatingIP", nil)
-	err := environs.Bootstrap(s.Env, false, panicWrite)
+	writeablePublicStorage := openstack.WritablePublicStorage(s.Env)
+	putFakeTools(c, writeablePublicStorage)
+
+	err := environs.Bootstrap(s.Env, true, panicWrite)
 	c.Assert(err, ErrorMatches, ".*cannot allocate a public IP as needed.*")
+	defer s.Env.Destroy(nil)
 }
