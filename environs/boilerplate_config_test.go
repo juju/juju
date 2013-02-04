@@ -13,7 +13,7 @@ type BoilerplateConfigSuite struct {
 var _ = Suite(&BoilerplateConfigSuite{})
 
 func (*BoilerplateConfigSuite) TestBoilerPlateGeneration(c *C) {
-	boilerplate_text := environs.BoilerPlateConfig()
+	boilerplate_text := environs.BoilerplateConfig()
 	_, err := environs.ReadEnvironsBytes([]byte(boilerplate_text))
 	c.Assert(err, IsNil)
 }

@@ -1,43 +1,14 @@
 package environs
 
 import (
+	"bytes"
 	"crypto/rand"
 	"fmt"
 	"io"
-	"strings"
+	"text/template"
 )
 
-func randomKey() string {
-	buf := make([]byte, 16)
-	_, err := io.ReadFull(rand.Reader, buf)
-	if err != nil {
-		panic(fmt.Sprintf("error from crypto rand: %v", err))
-	}
-	return fmt.Sprintf("%x", buf)
-}
-
-const (
-	adminSecretKey   = "${admin-secret}"
-	controlBucketKey = "${control-bucket}"
-)
-
-func generateAdminSecretValues(envConfig string) string {
-	for strings.Contains(envConfig, adminSecretKey) {
-		envConfig = strings.Replace(envConfig, adminSecretKey, randomKey(), 1)
-	}
-	return envConfig
-}
-
-func generateControlBucketSecretValues(envConfig string) string {
-	for strings.Contains(envConfig, controlBucketKey) {
-		envConfig = strings.Replace(envConfig, controlBucketKey, "juju-"+randomKey(), 1)
-	}
-	return envConfig
-}
-
-// BoilerPlateConfig returns a sample juju configuration which is written to a boilerplate environments.yaml file.
-func BoilerPlateConfig() string {
-	config := `## This is the Juju config file, which you can use to specify multiple environments in which to deploy.
+var configHeader = `## This is the Juju config file, which you can use to specify multiple environments in which to deploy.
 ## By default we ship AWS (default), HP Cloud, OpenStack.
 ## See http://juju.ubuntu.com/docs for more information
 
@@ -50,17 +21,65 @@ func BoilerPlateConfig() string {
 ## Values in <brackets> below need to be filled in by the user.
 
 default: amazon
+
 environments:
 `
-	for _, p := range providers {
-		providerConfig := p.BoilerPlateConfig()
-		if providerConfig != "" {
-			config += providerConfig
-		}
-	}
-	config += "\n"
 
-	config = generateAdminSecretValues(config)
-	config = generateControlBucketSecretValues(config)
-	return config
+func randomKey() string {
+	buf := make([]byte, 16)
+	_, err := io.ReadFull(rand.Reader, buf)
+	if err != nil {
+		panic(fmt.Sprintf("error from crypto rand: %v", err))
+	}
+	return fmt.Sprintf("%x", buf)
+}
+
+// BoilerplateConfig returns a sample juju configuration.
+func BoilerplateConfig() string {
+	var config bytes.Buffer
+
+	config.WriteString(configHeader)
+	for name, p := range providers {
+		t, err := parseTemplate(p.BoilerplateConfig())
+		if err != nil {
+			panic(fmt.Errorf("cannot parse boilerplate from %s: %v", name, err))
+		}
+		var ecfg bytes.Buffer
+		if err := t.Execute(&ecfg, nil); err != nil {
+			panic(fmt.Errorf("cannot generate boilerplate from %s: %v", name, err))
+		}
+		indent(&config, ecfg.Bytes(), " ")
+	}
+
+	// Sanity check to ensure the boilerplate parses.
+	_, err := ReadEnvironsBytes(config.Bytes())
+	if err != nil {
+		panic(fmt.Errorf("cannot parse %s:\n%v", config.String(), err))
+	}
+	return config.String()
+}
+
+func parseTemplate(s string) (*template.Template, error) {
+	t := template.New("")
+	t.Funcs(template.FuncMap{"rand": randomKey})
+	return t.Parse(s)
+}
+
+// indent appends the given text to the given buffer indented by the given ident string.
+func indent(b *bytes.Buffer, text []byte, indentStr string) {
+	for {
+		if len(text) == 0 {
+			return
+		}
+		b.WriteString(indentStr)
+		i := bytes.IndexByte(text, '\n')
+		if i == -1 {
+			b.Write(text)
+			b.WriteRune('\n')
+			return
+		}
+		i++
+		b.Write(text[0:i])
+		text = text[i:]
+	}
 }

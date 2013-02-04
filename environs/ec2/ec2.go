@@ -106,14 +106,14 @@ func (inst *instance) WaitDNSName() (string, error) {
 	return "", fmt.Errorf("timed out trying to get DNS address for %v", inst.Id())
 }
 
-func (p environProvider) BoilerPlateConfig() string {
+func (p environProvider) BoilerplateConfig() string {
 	return `
 ## https://juju.ubuntu.com/get-started/amazon/
   amazon:
     type: ec2
-    admin-secret: ${admin-secret}
+    admin-secret: {{rand}}
     # globally unique S3 bucket name
-    control-bucket: ${control-bucket}
+    control-bucket: juju-{{rand}}
     # override if your workstation is running a different series to which you are deploying
     # default-series: precise
     # region defaults to us-east-1, override if required
@@ -122,7 +122,8 @@ func (p environProvider) BoilerPlateConfig() string {
     # access-key: <secret>
     # Usually set via the env variable AWS_SECRET_ACCESS_KEY, but can be specified here
     # secret-key: <secret>
-`
+
+`[1:]
 }
 
 func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {

@@ -20,9 +20,15 @@ type EnvironProvider interface {
 	// for consideration when validating changes.
 	Validate(cfg, old *config.Config) (valid *config.Config, err error)
 
-	// BoilerPlateConfig returns a yaml format string which contains boilerplate
-	// config for this environment type.
-	BoilerPlateConfig() string
+	// Boilerplate returns a default configuration for the environment in yaml format.
+	// The text should be have a key followed by some number of attributes:
+	//    `environName:
+	//        type: environTypeName
+	//        attr1: val1
+	//    `
+	// The text is used as a template (see the template package) with one extra template
+	// function available, rand, which expands to a random hexadecimal string when invoked.
+	BoilerplateConfig() string
 
 	// SecretAttrs filters the supplied configuration returning only values
 	// which are considered sensitive.

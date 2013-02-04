@@ -186,7 +186,8 @@ environments:
 }
 
 func (suite) TestWriteConfigNoHome(c *C) {
-	defer makeMissingHome(c).restore()
+	defer makeFakeHome(c).restore()
+	os.Setenv("HOME", "")
 
 	env := `
 environments:
@@ -196,7 +197,8 @@ environments:
         authorized-keys: i-am-a-key
 `
 	_, err := environs.WriteEnvirons("", env)
-	c.Assert(err, Not(IsNil))
+	c.Assert(err, NotNil)
+	c.Assert(err.Error(), Equals, "$HOME not set")
 }
 
 func (suite) TestConfigRoundTrip(c *C) {
@@ -269,12 +271,6 @@ func makeFakeHome(c *C, certNames ...string) fakeHome {
 	err = ioutil.WriteFile(homePath(".ssh", "id_rsa.pub"), []byte("auth key\n"), 0666)
 	c.Assert(err, IsNil)
 
-	return fakeHome(oldHome)
-}
-
-func makeMissingHome(c *C) fakeHome {
-	oldHome := os.Getenv("HOME")
-	os.Setenv("HOME", "")
 	return fakeHome(oldHome)
 }
 

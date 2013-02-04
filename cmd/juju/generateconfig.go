@@ -10,6 +10,7 @@ import (
 
 // GenerateConfigCommand is used to write out a boilerplate environments.yaml file.
 type GenerateConfigCommand struct {
+	WriteFile bool
 }
 
 func (c *GenerateConfigCommand) Info() *cmd.Info {
@@ -17,32 +18,36 @@ func (c *GenerateConfigCommand) Info() *cmd.Info {
 }
 
 func (c *GenerateConfigCommand) Init(f *gnuflag.FlagSet, args []string) error {
+	f.BoolVar(&c.WriteFile, "w", false, "write to environments.yaml file if it doesn't already exist")
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}
 	return cmd.CheckEmpty(f.Args())
 }
 
-// Run checks to see if there is already an environments.yaml file. In one exists already, it is
+// Run checks to see if there is already an environments.yaml file. In one does not exist already,
 // a boilerplate version is created so that the user can edit it to get started.
 func (c *GenerateConfigCommand) Run(context *cmd.Context) error {
-	_, err := environs.ReadEnvirons("")
 	out := context.Stdout
-	if err != nil {
-		if os.IsNotExist(err) {
-			filename, err := environs.WriteEnvirons("", environs.BoilerPlateConfig())
-			if err == nil {
-				fmt.Fprintf(out, "A boilerplate environment configuration file has been written to %s.\n", filename)
-				fmt.Fprint(out, "Edit the file to configure your juju environment and re-run bootstrap.\n")
-				return nil
-			} else {
-				return fmt.Errorf("A boilerplate environment configuration file could not be created: %s", err.Error())
-			}
-		}
-		return err
-	} else {
+	config := environs.BoilerplateConfig()
+	if !c.WriteFile {
+		fmt.Fprintln(out, config)
+		return nil
+	}
+	_, err := environs.ReadEnvirons("")
+	if err == nil {
 		fmt.Fprintf(out, "A juju environment configuration already exists.\n")
 		fmt.Fprintf(out, "It will not be overwritten.\n")
+		return nil
 	}
+	if !os.IsNotExist(err) {
+		return err
+	}
+	filename, err := environs.WriteEnvirons("", config)
+	if err != nil {
+		return fmt.Errorf("A boilerplate environment configuration file could not be created: %s", err.Error())
+	}
+	fmt.Fprintf(out, "A boilerplate environment configuration file has been written to %s.\n", filename)
+	fmt.Fprint(out, "Edit the file to configure your juju environment and re-run bootstrap.\n")
 	return nil
 }
