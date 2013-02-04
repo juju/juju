@@ -48,6 +48,6 @@ func (c *GenerateConfigCommand) Run(context *cmd.Context) error {
 		return fmt.Errorf("A boilerplate environment configuration file could not be created: %s", err.Error())
 	}
 	fmt.Fprintf(out, "A boilerplate environment configuration file has been written to %s.\n", filename)
-	fmt.Fprint(out, "Edit the file to configure your juju environment and re-run bootstrap.\n")
+	fmt.Fprint(out, "Edit the file to configure your juju environment and run bootstrap.\n")
 	return nil
 }

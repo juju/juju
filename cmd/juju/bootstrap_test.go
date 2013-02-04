@@ -1,18 +1,17 @@
 package main
 
 import (
-	"io/ioutil"
-	"net/http"
-	"os"
-	"strings"
-
 	"bytes"
+	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
+	"net/http"
+	"os"
+	"strings"
 )
 
 type BootstrapSuite struct {

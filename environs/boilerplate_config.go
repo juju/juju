@@ -29,7 +29,7 @@ func randomKey() string {
 	buf := make([]byte, 16)
 	_, err := io.ReadFull(rand.Reader, buf)
 	if err != nil {
-		panic(fmt.Sprintf("error from crypto rand: %v", err))
+		panic(fmt.Errorf("error from crypto rand: %v", err))
 	}
 	return fmt.Sprintf("%x", buf)
 }
@@ -48,7 +48,7 @@ func BoilerplateConfig() string {
 		if err := t.Execute(&ecfg, nil); err != nil {
 			panic(fmt.Errorf("cannot generate boilerplate from %s: %v", name, err))
 		}
-		indent(&config, ecfg.Bytes(), " ")
+		indent(&config, ecfg.Bytes(), "  ")
 	}
 
 	// Sanity check to ensure the boilerplate parses.
@@ -65,7 +65,7 @@ func parseTemplate(s string) (*template.Template, error) {
 	return t.Parse(s)
 }
 
-// indent appends the given text to the given buffer indented by the given ident string.
+// indent appends the given text to the given buffer indented by the given indent string.
 func indent(b *bytes.Buffer, text []byte, indentStr string) {
 	for {
 		if len(text) == 0 {

@@ -21,7 +21,7 @@ type EnvironProvider interface {
 	Validate(cfg, old *config.Config) (valid *config.Config, err error)
 
 	// Boilerplate returns a default configuration for the environment in yaml format.
-	// The text should be have a key followed by some number of attributes:
+	// The text should be a key followed by some number of attributes:
 	//    `environName:
 	//        type: environTypeName
 	//        attr1: val1

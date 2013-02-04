@@ -59,44 +59,54 @@ func init() {
 func (p environProvider) BoilerplateConfig() string {
 	return `
 ## https://juju.ubuntu.com/get-started/openstack/
-  openstack:
-    type: openstack
-    admin-secret: {{rand}}
-    # Globally unique swift bucket name
-    control-bucket: juju-{{rand}}
-    # Usually set via the env variable OS_AUTH_URL, but can be specified here
-    # auth-url: https://yourkeystoneurl:443/v2.0/
-    # override if your workstation is running a different series to which you are deploying
-    # default-series: precise
-    default-image-id: <nova server id>
-    # The following are used for userpass authentication (the default)
-    auth-mode: userpass
-    # Usually set via the env variable OS_USERNAME, but can be specified here
-    # username: <your username>
-    # Usually set via the env variable OS_PASSWORD, but can be specified here
-    # password: <secret>
-    # Usually set via the env variable OS_TENANT_NAME, but can be specified here
-    # tenant-name: <your tenant name>
-    # Usually set via the env variable OS_REGION_NAME, but can be specified here
-    # region: <your region>
+openstack:
+  type: openstack
+  admin-secret: {{rand}}
+  # Globally unique swift bucket name
+  control-bucket: juju-{{rand}}
+  # Usually set via the env variable OS_AUTH_URL, but can be specified here
+  # auth-url: https://yourkeystoneurl:443/v2.0/
+  # override if your workstation is running a different series to which you are deploying
+  # default-series: precise
+  default-image-id: <nova server id>
+  # The following are used for userpass authentication (the default)
+  auth-mode: userpass
+  # Usually set via the env variable OS_USERNAME, but can be specified here
+  # username: <your username>
+  # Usually set via the env variable OS_PASSWORD, but can be specified here
+  # password: <secret>
+  # Usually set via the env variable OS_TENANT_NAME, but can be specified here
+  # tenant-name: <your tenant name>
+  # Usually set via the env variable OS_REGION_NAME, but can be specified here
+  # region: <your region>
 
 ## https://juju.ubuntu.com/get-started/hp-cloud/
-  hpcloud:
-    type: openstack
-    admin-secret: {{rand}}
-    # Globally unique swift bucket name
-    control-bucket: juju-{{rand}}
-    # Not required if env variable OS_AUTH_URL is set
-    auth-url: https://yourkeystoneurl:35357/v2.0/
-    # override if your workstation is running a different series to which you are deploying
-    # default-series: precise
-    default-image-id: <nova server id>
-    # The following are used for keypair authentication
-    auth-mode: keypair
-    # Usually set via the env variable AWS_ACCESS_KEY_ID, but can be specified here
-    # access-key: <secret>
-    # Usually set via the env variable AWS_SECRET_ACCESS_KEY, but can be specified here
-    # secret-key: <secret>
+hpcloud:
+  type: openstack
+  admin-secret: {{rand}}
+  # Globally unique swift bucket name
+  control-bucket: juju-{{rand}}
+  # Not required if env variable OS_AUTH_URL is set
+  auth-url: https://yourkeystoneurl:35357/v2.0/
+  # override if your workstation is running a different series to which you are deploying
+  # default-series: precise
+  default-image-id: <nova server id>
+  # The following are used for userpass authentication (the default)
+  auth-mode: userpass
+  # Usually set via the env variable OS_USERNAME, but can be specified here
+  # username: <your username>
+  # Usually set via the env variable OS_PASSWORD, but can be specified here
+  # password: <secret>
+  # Usually set via the env variable OS_TENANT_NAME, but can be specified here
+  # tenant-name: <your tenant name>
+  # Usually set via the env variable OS_REGION_NAME, but can be specified here
+  # region: <your region>
+  # The following are used for keypair authentication
+  # auth-mode: keypair
+  # Usually set via the env variable AWS_ACCESS_KEY_ID, but can be specified here
+  # access-key: <secret>
+  # Usually set via the env variable AWS_SECRET_ACCESS_KEY, but can be specified here
+  # secret-key: <secret>
 
 `[1:]
 }
