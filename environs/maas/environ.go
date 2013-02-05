@@ -2,6 +2,7 @@ package maas
 
 import (
 	"errors"
+	"launchpad.net/gomaasapi"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
@@ -11,6 +12,9 @@ import (
 
 type maasEnviron struct {
 	name string
+	// TODO sync up with the config work to make sure this is populated (
+        // or update the code if this is stored elsewhere).
+	MAASServer gomaasapi.MAASObject
 }
 
 var _ environs.Environ = (*maasEnviron)(nil)
@@ -59,12 +63,40 @@ func (*maasEnviron) StopInstances([]environs.Instance) error {
 	panic("Not implemented.")
 }
 
-func (*maasEnviron) Instances([]state.InstanceId) ([]environs.Instance, error) {
-	panic("Not implemented.")
+func (environ *maasEnviron) Instances(ids []state.InstanceId) ([]environs.Instance, error) {
+	if len(ids) == 0 {
+		return []environs.Instance{}, nil
+	}
+	nodeListing := environ.MAASServer.GetSubObject("nodes")
+	filter := getSystemIdValues(ids)
+	listNodeObjects, err := nodeListing.CallGet("list", filter)
+	if err != nil {
+		return nil, err
+	}
+	listNodes, err := listNodeObjects.GetArray()
+	if err != nil {
+		return nil, err
+	}
+	instances := make([]environs.Instance, len(listNodes))
+	for index, nodeObj := range listNodes {
+		node, err := nodeObj.GetMAASObject()
+		if err != nil {
+			// Skip that node.
+			continue
+		}
+		instances[index] = &maasInstance{
+			maasobject: &node,
+			environ:    environ,
+		}
+	}
+	if len(ids) != len(instances) {
+		return instances, environs.ErrPartialInstances
+	}
+	return instances, nil
 }
 
-func (*maasEnviron) AllInstances() ([]environs.Instance, error) {
-	panic("Not implemented.")
+func (environ *maasEnviron) AllInstances() ([]environs.Instance, error) {
+	return environ.Instances([]state.InstanceId{})
 }
 
 func (*maasEnviron) Storage() environs.Storage {
