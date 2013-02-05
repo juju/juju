@@ -11,10 +11,8 @@ import (
 )
 
 type maasEnviron struct {
-	name string
-	// TODO sync up with the config work to make sure this is populated (
-	// or update the code if this is stored elsewhere).
-	MAASServer gomaasapi.MAASObject
+	name               string
+	MAASServerUnlocked gomaasapi.MAASObject
 }
 
 var _ environs.Environ = (*maasEnviron)(nil)
@@ -67,7 +65,7 @@ func (environ *maasEnviron) Instances(ids []state.InstanceId) ([]environs.Instan
 	if len(ids) == 0 {
 		return []environs.Instance{}, nil
 	}
-	nodeListing := environ.MAASServer.GetSubObject("nodes")
+	nodeListing := environ.MAASServerUnlocked.GetSubObject("nodes")
 	filter := getSystemIdValues(ids)
 	listNodeObjects, err := nodeListing.CallGet("list", filter)
 	if err != nil {
