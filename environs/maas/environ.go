@@ -2,6 +2,7 @@ package maas
 
 import (
 	"errors"
+	"launchpad.net/gomaasapi"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
@@ -16,7 +17,8 @@ type maasEnviron struct {
 	// ecfgMutext protects the *Unlocked fields below.
 	ecfgMutex sync.Mutex
 
-	ecfgUnlocked *maasEnvironConfig
+	ecfgUnlocked        *maasEnvironConfig
+	_MAASServerUnlocked gomaasapi.MAASObject
 }
 
 var _ environs.Environ = (*maasEnviron)(nil)
@@ -71,6 +73,12 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 
 	env.name = cfg.Name()
 	env.ecfgUnlocked = ecfg
+
+	authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.MAASServer(), ecfg.MAASOAuth())
+	if err != nil {
+		return err
+	}
+	env._MAASServerUnlocked = gomaasapi.NewMAAS(*authClient)
 
 	return nil
 }
