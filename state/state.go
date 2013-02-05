@@ -270,7 +270,7 @@ func (st *State) AuthEntity(entityName string) (AuthEntity, error) {
 	case "machine":
 		return st.Machine(id)
 	case "unit":
-		return st.Unit(id)
+		return st.Unit(strings.Replace(id, "-", "/", -1))
 	case "user":
 		return st.User(id)
 	}
