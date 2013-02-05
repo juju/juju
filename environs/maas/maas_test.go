@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func Test(t *testing.T) {
+func TestMAAS(t *testing.T) {
 	TestingT(t)
 }
 
