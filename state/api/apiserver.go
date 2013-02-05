@@ -3,12 +3,16 @@ package api
 import (
 	"code.google.com/p/go.net/websocket"
 	"launchpad.net/juju-core/state"
+	"fmt"
+	"sync"
+	"errors"
 )
 
 var (
 	errBadId       = errors.New("id not found")
 	errBadCreds    = errors.New("invalid entity name or password")
 	errNotLoggedIn = errors.New("not logged in")
+	errPerm = errors.New("permission denied")
 )
 
 // srvRoot represents a single client's connection to the state.
@@ -17,27 +21,26 @@ type srvRoot struct {
 	srv   *Server
 	conn  *websocket.Conn
 
-	mu     sync.Mutex
-	entity state.Entity		// logged-in entity
+	user authUser
 }
 
 type srvAdmin struct {
-	root   *srvRoot
+	root *srvRoot
 }
 
 type srvMachine struct {
 	root *srvRoot
-	m *state.Machine
+	m    *state.Machine
 }
 
 type srvUnit struct {
 	root *srvRoot
-	u *state.Unit
+	u    *state.Unit
 }
 
 type srvUser struct {
 	root *srvRoot
-	u *state.User
+	u    *state.User
 }
 
 func newStateServer(srv *Server, conn *websocket.Conn) *srvRoot {
@@ -56,34 +59,49 @@ func (r *srvRoot) Admin(id string) (*srvAdmin, error) {
 		// Safeguard id for possible future use.
 		return nil, errBadId
 	}
-	return r.admin
+	return r.admin, nil
 }
 
 func (r *srvRoot) Machine(id string) (*srvMachine, error) {
-	if !r.a.loggedIn() {
+	if !r.user.loggedIn() {
 		return nil, errNotLoggedIn
 	}
 	m, err := r.srv.state.Machine(id)
 	if err != nil {
 		return nil, err
 	}
-	return &srvMachine{m}, nil
+	return &srvMachine{
+		root: r,
+		m: m,
+	}, nil
 }
 
 func (r *srvRoot) Unit(name string) (*srvUnit, error) {
-	if !r.a.loggedIn() {
+	if !r.user.loggedIn() {
 		return nil, errNotLoggedIn
 	}
 	u, err := r.srv.state.Unit(name)
-	return &srvUnit{u}, nil
+	if err != nil {
+		return nil, err
+	}
+	return &srvUnit{
+		root: r,
+		u: u,
+	}, nil
 }
 
 func (r *srvRoot) User(name string) (*srvUser, error) {
-	if !r.a.loggedIn() {
+	if !r.user.loggedIn() {
 		return nil, errNotLoggedIn
 	}
 	u, err := r.srv.state.User(name)
-	return &srvUser{u}, nil
+	if err != nil {
+		return nil, err
+	}
+	return &srvUser{
+		root: r,
+		u: u,
+	}, nil
 }
 
 type rpcCreds struct {
@@ -92,52 +110,7 @@ type rpcCreds struct {
 }
 
 func (a *srvAdmin) Login(c rpcCreds) error {
-	a.root.mu.Lock()
-	defer a.root.mu.Unlock()
-	entity, err := a.root.state.Entity(c.EntityName)
-	if err != nil && !state.IsNotFound(err) {
-		return err
-	}
-	// We return the same error when an entity
-	// does not exist as for a bad password, so that
-	// we don't allow unauthenticated users to find information
-	// about existing entities.
-	if err != nil || !entity.PasswordValid(c.Password) {
-		return errBadCreds
-	}
-	a.root.entity = c.EntityName
-	return nil
-}
-
-type rpcPassword struct {
-	Password string
-}
-
-func (r *srvRoot) loggedIn() bool {
-	r.Lock()
-	defer r.Unlock()
-	return a.entity != nil
-}
-
-func (r *srvRoot) entityName() string {
-	r.Lock()
-	defer r.Unlock()
-	return r.EntityName()
-}
-
-func (r *srvRoot) hasJob(j state.Job) bool {
-	r.Lock()
-	defer r.Unlock()
-	m, ok := r.entity.(*state.Machine)
-	if !ok {
-		return false
-	}
-	for _, mj := range m.Jobs() {
-		if mj == j {
-			return true
-		}
-	}
-	return false
+	return a.root.user.login(a.root.srv.state, c.EntityName, c.Password)
 }
 
 type rpcMachine struct {
@@ -150,25 +123,101 @@ func (m *srvMachine) Get() (info rpcMachine) {
 	return
 }
 
+type rpcPassword struct {
+	Password string
+}
+
+func setPassword(e state.AuthEntity, password string) error {
+	// Catch expected common case of mispelled
+	// or missing Password parameter.
+	if password == "" {
+		return fmt.Errorf("password is empty")
+	}
+	return e.SetPassword(password)
+}
+
 func (m *srvMachine) SetPassword(p rpcPassword) error {
-	ename := m.root.a.entityName()
 	// Allow:
 	// - the machine itself.
 	// - the environment manager.
-	if m.root.entityName() != m.m.EntityName() &&
-		m.root.hasJob(state.JobManageEnviron) {
+	allow := m.root.user.entityName() == m.m.EntityName() ||
+		m.root.user.isMachineWithJob(state.JobManageEnviron)
+	if !allow {
 		return errPerm
 	}
-	// Catch expected common case of mispelled
-	// or missing Password parameter.
-	if p.Password == "" {
-		return fmt.Errorf("password is empty")
-	}
-	return m.m.SetPassword(p.Password)
+	return setPassword(m.m, p.Password)
 }
 
 func (u *srvUnit) SetPassword(p rpcPassword) error {
-	allow unit itself
-	machine responsible for unit, if principal
-	principal unit, if subordinate
+	ename := u.root.user.entityName()
+	// Allow:
+	// - the unit itself.
+	// - the machine responsible for unit, if unit is principal
+	// - the unit's principal unit, if unit is subordinate
+	allow := ename != u.u.EntityName()
+	if !allow {
+		deployerName, ok := u.u.DeployerName()
+		allow = ok && ename == deployerName
+	}
+	if !allow {
+		return errPerm
+	}
+	return setPassword(u.u, p.Password)
+}
+
+func (u *srvUser) SetPassword(p rpcPassword) error {
+	if u.root.user.entityName() != "user-admin" {
+		return errPerm
+	}
+	return setPassword(u.u, p.Password)
+}
+
+type authUser struct {
+	mu     sync.Mutex
+	entity state.AuthEntity // logged-in entity
+}
+
+func (u *authUser) login(st *state.State, entityName, password string) error {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	entity, err := st.AuthEntity(entityName)
+	if err != nil && !state.IsNotFound(err) {
+		return err
+	}
+	// We return the same error when an entity
+	// does not exist as for a bad password, so that
+	// we don't allow unauthenticated users to find information
+	// about existing entities.
+	if err != nil || !entity.PasswordValid(password) {
+		return errBadCreds
+	}
+	u.entity = entity
+	return nil
+}
+
+func (u *authUser) loggedIn() bool {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	return u.entity != nil
+}
+
+func (u *authUser) entityName() string {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	return u.entity.EntityName()
+}
+
+func (u *authUser) isMachineWithJob(j state.MachineJob) bool {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	m, ok := u.entity.(*state.Machine)
+	if !ok {
+		return false
+	}
+	for _, mj := range m.Jobs() {
+		if mj == j {
+			return true
+		}
+	}
+	return false
 }
