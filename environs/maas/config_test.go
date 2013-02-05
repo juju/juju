@@ -30,7 +30,7 @@ func newConfig(values map[string]interface{}) (*maasEnvironConfig, error) {
 
 func (ConfigSuite) TestParsesMAASSettings(c *C) {
 	server := "maas.example.com"
-	oauth := []string{"consumer-key", "resource-token", "resource-secret"}
+	oauth := "consumer-key:resource-token:resource-secret"
 	secret := "ssssssht"
 	ecfg, err := newConfig(map[string]interface{}{
 		"maas-server": server,
@@ -44,7 +44,7 @@ func (ConfigSuite) TestParsesMAASSettings(c *C) {
 }
 
 func (ConfigSuite) TestRequiresMaasServer(c *C) {
-	oauth := []string{"consumer-key", "resource-token", "resource-secret"}
+	oauth := "consumer-key:resource-token:resource-secret"
 	_, err := newConfig(map[string]interface{}{
 		"maas-oauth": oauth,
 		"admin-secret": "secret",
@@ -70,7 +70,7 @@ func (ConfigSuite) TestChecksWellFormedOAuth(c *C) {
 }
 
 func (ConfigSuite) TestRequiresAdminSecret(c *C) {
-	oauth := []string{"consumer-key", "resource-token", "resource-secret"}
+	oauth := "consumer-key:resource-token:resource-secret"
 	_, err := newConfig(map[string]interface{}{
 		"maas-server": "maas.example.com",
 		"maas-oauth": oauth,

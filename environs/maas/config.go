@@ -4,12 +4,15 @@ import (
 	"errors"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/schema"
+	"strings"
 )
 
 var maasConfigChecker = schema.StrictFieldMap(
 	schema.Fields{
 		"maas-server":  schema.String(),
-		"maas-oauth":   schema.List(schema.String()),
+		// maas-oauth is a colon-separated triplet of:
+		// consumer-key:resource-token:resource-secret
+		"maas-oauth":   schema.String(),
 		"admin-secret": schema.String(),
 	},
 	schema.Defaults{
@@ -27,8 +30,8 @@ func (cfg *maasEnvironConfig) maasServer() string {
 	return cfg.attrs["maas-server"].(string)
 }
 
-func (cfg *maasEnvironConfig) maasOAuth() []string {
-	return cfg.attrs["maas-oauth"].([]string)
+func (cfg *maasEnvironConfig) maasOAuth() string {
+	return cfg.attrs["maas-oauth"].(string)
 }
 
 func (cfg *maasEnvironConfig) adminSecret() string {
@@ -45,7 +48,7 @@ func (prov maasEnvironProvider) newConfig(cfg *config.Config) (*maasEnvironConfi
 
 var noMaasServer = errors.New("No maas-server configured.")
 var noMaasOAuth = errors.New("No maas-oauth configured.")
-var malformedMaasOAuth = errors.New("Malformed maas-oauth (expected a list of 3 items).")
+var malformedMaasOAuth = errors.New("Malformed maas-oauth (3 items separated by colons).")
 var noAdminSecret = errors.New("No admin-secret configured.")
 
 func (prov maasEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.Config, error) {
@@ -58,10 +61,10 @@ func (prov maasEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.Co
 		return nil, noMaasServer
 	}
 	oauth := envCfg.maasOAuth()
-	if len(oauth) == 0 {
+	if oauth == "" {
 		return nil, noMaasOAuth
 	}
-	if len(oauth) != 3 {
+	if strings.Count(oauth, ":") != 2 {
 		return nil, malformedMaasOAuth
 	}
 	if envCfg.adminSecret() == "" {
