@@ -27,7 +27,7 @@ type maasEnvironConfig struct {
 	attrs map[string]interface{}
 }
 
-func (cfg *maasEnvironConfig) maasServer() string {
+func (cfg *maasEnvironConfig) MAASServer() string {
 	value, ok := cfg.attrs["maas-server"]
 	if !ok {
 		return ""
@@ -35,16 +35,8 @@ func (cfg *maasEnvironConfig) maasServer() string {
 	return value.(string)
 }
 
-func (cfg *maasEnvironConfig) maasOAuth() string {
+func (cfg *maasEnvironConfig) MAASOAuth() string {
 	value, ok := cfg.attrs["maas-oauth"]
-	if !ok {
-		return ""
-	}
-	return value.(string)
-}
-
-func (cfg *maasEnvironConfig) adminSecret() string {
-	value, ok := cfg.attrs["admin-secret"]
 	if !ok {
 		return ""
 	}
@@ -72,18 +64,20 @@ func (prov maasEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.Co
 	if err != nil {
 		return nil, err
 	}
-	envCfg := &maasEnvironConfig{cfg, v.(map[string]interface{})}
-	if envCfg.maasServer() == "" {
+	envCfg := new(maasEnvironConfig)
+	envCfg.Config = cfg
+	envCfg.attrs = v.(map[string]interface{})
+	if envCfg.MAASServer() == "" {
 		return nil, noMaasServer
 	}
-	oauth := envCfg.maasOAuth()
+	oauth := envCfg.MAASOAuth()
 	if oauth == "" {
 		return nil, noMaasOAuth
 	}
 	if strings.Count(oauth, ":") != 2 {
 		return nil, malformedMaasOAuth
 	}
-	if envCfg.adminSecret() == "" {
+	if envCfg.AdminSecret() == "" {
 		return nil, noAdminSecret
 	}
 	return cfg.Apply(envCfg.attrs)

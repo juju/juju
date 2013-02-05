@@ -47,9 +47,9 @@ func (ConfigSuite) TestParsesMAASSettings(c *C) {
 		"admin-secret": secret,
 	})
 	c.Assert(err, IsNil)
-	c.Check(ecfg.maasServer(), Equals, server)
-	c.Check(ecfg.maasOAuth(), DeepEquals, oauth)
-	c.Check(ecfg.adminSecret(), Equals, secret)
+	c.Check(ecfg.MAASServer(), Equals, server)
+	c.Check(ecfg.MAASOAuth(), DeepEquals, oauth)
+	c.Check(ecfg.AdminSecret(), Equals, secret)
 }
 
 func (ConfigSuite) TestRequiresMaasServer(c *C) {
