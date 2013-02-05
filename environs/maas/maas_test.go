@@ -20,7 +20,7 @@ var _ = Suite(&_MAASProviderTestSuite{})
 func (s *_MAASProviderTestSuite) SetUpSuite(c *C) {
 	TestMAASObject := gomaasapi.NewTestMAAS("1.0")
 	s.testMAASObject = TestMAASObject
-	s.environ = &maasEnviron{"test env", TestMAASObject}
+	s.environ = &maasEnviron{name: "test env", _MAASServerUnlocked: TestMAASObject}
 }
 
 func (s *_MAASProviderTestSuite) TearDownTest(c *C) {
