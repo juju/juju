@@ -121,5 +121,5 @@ func (*maasEnviron) Ports() ([]state.Port, error) {
 }
 
 func (*maasEnviron) Provider() environs.EnvironProvider {
-	return &maasEnvironProvider{}
+	return &providerInstance
 }

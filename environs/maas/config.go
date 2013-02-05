@@ -17,6 +17,7 @@ var maasConfigChecker = schema.StrictFieldMap(
 	},
 	schema.Defaults{
 		"maas-server":  "",
+		"maas-oauth":  "",
 		"admin-secret": "",
 	},
 )
@@ -35,7 +36,11 @@ func (cfg *maasEnvironConfig) maasOAuth() string {
 }
 
 func (cfg *maasEnvironConfig) adminSecret() string {
-	return cfg.attrs["admin-secret"].(string)
+	secret, ok := cfg.attrs["admin-secret"]
+	if !ok {
+		return ""
+	}
+	return secret.(string)
 }
 
 func (prov maasEnvironProvider) newConfig(cfg *config.Config) (*maasEnvironConfig, error) {
@@ -56,7 +61,10 @@ func (prov maasEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.Co
 	if err != nil {
 		return nil, err
 	}
-	envCfg := &maasEnvironConfig{cfg, v.(map[string]interface{})}
+	envCfg := new(maasEnvironConfig)
+	envCfg.Config = cfg
+	envCfg.attrs = v.(map[string]interface{})
+	//envCfg := &maasEnvironConfig{cfg, v.(map[string]interface{})}
 	if envCfg.maasServer() == "" {
 		return nil, noMaasServer
 	}

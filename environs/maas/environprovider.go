@@ -8,11 +8,13 @@ import (
 
 type maasEnvironProvider struct{}
 
-func init() {
-	environs.RegisterProvider("maas", &maasEnvironProvider{})
-}
-
 var _ environs.EnvironProvider = (*maasEnvironProvider)(nil)
+
+var providerInstance maasEnvironProvider
+
+func init() {
+	environs.RegisterProvider("maas", &providerInstance)
+}
 
 func (*maasEnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	log.Printf("environs/maas: opening environment %q.", cfg.Name())

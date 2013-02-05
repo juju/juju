@@ -8,7 +8,7 @@ import (
 
 type ConfigSuite struct{}
 
-var _ = Suite(&ConfigSuite{})
+var _ = Suite(new(ConfigSuite))
 
 // newConfig creates a MAAS environment config from attributes.
 func newConfig(values map[string]interface{}) (*maasEnvironConfig, error) {
@@ -37,7 +37,7 @@ func (ConfigSuite) TestParsesMAASSettings(c *C) {
 		"maas-oauth": oauth,
 		"admin-secret": secret,
 	})
-	c.Check(err, IsNil)
+	c.Assert(err, IsNil)
 	c.Check(ecfg.maasServer(), Equals, server)
 	c.Check(ecfg.maasOAuth(), DeepEquals, oauth)
 	c.Check(ecfg.adminSecret(), Equals, secret)
