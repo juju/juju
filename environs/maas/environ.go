@@ -11,7 +11,7 @@ import (
 )
 
 type maasEnviron struct {
-	name string
+	name                string
 	_MAASServerUnlocked gomaasapi.MAASObject
 }
 
