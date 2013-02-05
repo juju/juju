@@ -14,9 +14,9 @@ type maasEnviron struct {
 	name string
 
 	// ecfgMutext protects the *Unlocked fields below.
-	ecfgMutex	sync.Mutex
+	ecfgMutex sync.Mutex
 
-	ecfgUnlocked	*maasEnvironConfig
+	ecfgUnlocked *maasEnvironConfig
 }
 
 var _ environs.Environ = (*maasEnviron)(nil)

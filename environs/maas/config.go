@@ -9,7 +9,7 @@ import (
 
 var maasConfigChecker = schema.StrictFieldMap(
 	schema.Fields{
-		"maas-server":  schema.String(),
+		"maas-server": schema.String(),
 		// maas-oauth is a colon-separated triplet of:
 		// consumer-key:resource-token:resource-secret
 		"maas-oauth":   schema.String(),
@@ -17,7 +17,7 @@ var maasConfigChecker = schema.StrictFieldMap(
 	},
 	schema.Defaults{
 		"maas-server":  "",
-		"maas-oauth":  "",
+		"maas-oauth":   "",
 		"admin-secret": "",
 	},
 )

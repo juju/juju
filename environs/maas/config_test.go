@@ -22,9 +22,9 @@ func copyAttrs(src, dest map[string]interface{}) {
 // newConfig creates a MAAS environment config from attributes.
 func newConfig(values map[string]interface{}) (*maasEnvironConfig, error) {
 	defaults := map[string]interface{}{
-		"name": "testenv",
-		"type":	"maas",
-		"ca-cert": testing.CACert,
+		"name":           "testenv",
+		"type":           "maas",
+		"ca-cert":        testing.CACert,
 		"ca-private-key": testing.CAKey,
 	}
 	cfg := make(map[string]interface{})
@@ -42,8 +42,8 @@ func (ConfigSuite) TestParsesMAASSettings(c *C) {
 	oauth := "consumer-key:resource-token:resource-secret"
 	secret := "ssssssht"
 	ecfg, err := newConfig(map[string]interface{}{
-		"maas-server": server,
-		"maas-oauth": oauth,
+		"maas-server":  server,
+		"maas-oauth":   oauth,
 		"admin-secret": secret,
 	})
 	c.Assert(err, IsNil)
@@ -55,7 +55,7 @@ func (ConfigSuite) TestParsesMAASSettings(c *C) {
 func (ConfigSuite) TestRequiresMaasServer(c *C) {
 	oauth := "consumer-key:resource-token:resource-secret"
 	_, err := newConfig(map[string]interface{}{
-		"maas-oauth": oauth,
+		"maas-oauth":   oauth,
 		"admin-secret": "secret",
 	})
 	c.Check(err, NotNil)
@@ -63,7 +63,7 @@ func (ConfigSuite) TestRequiresMaasServer(c *C) {
 
 func (ConfigSuite) TestRequiresOAuth(c *C) {
 	_, err := newConfig(map[string]interface{}{
-		"maas-server": "maas.example.com",
+		"maas-server":  "maas.example.com",
 		"admin-secret": "secret",
 	})
 	c.Check(err, NotNil)
@@ -71,8 +71,8 @@ func (ConfigSuite) TestRequiresOAuth(c *C) {
 
 func (ConfigSuite) TestChecksWellFormedOAuth(c *C) {
 	_, err := newConfig(map[string]interface{}{
-		"maas-server": "maas.example.com",
-		"maas-oauth": "This should have been a 3-part token.",
+		"maas-server":  "maas.example.com",
+		"maas-oauth":   "This should have been a 3-part token.",
 		"admin-secret": "secret",
 	})
 	c.Check(err, NotNil)
@@ -82,7 +82,7 @@ func (ConfigSuite) TestRequiresAdminSecret(c *C) {
 	oauth := "consumer-key:resource-token:resource-secret"
 	_, err := newConfig(map[string]interface{}{
 		"maas-server": "maas.example.com",
-		"maas-oauth": oauth,
+		"maas-oauth":  oauth,
 	})
 	c.Check(err, NotNil)
 }
