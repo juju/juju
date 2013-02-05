@@ -3,14 +3,9 @@ package maas
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state"
-	"testing"
 )
 
 type _MAASUtilTestSuite struct{}
-
-func Test(t *testing.T) {
-	TestingT(t)
-}
 
 var _ = Suite(&_MAASUtilTestSuite{})
 

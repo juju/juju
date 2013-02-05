@@ -3,11 +3,14 @@ package maas
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/gomaasapi"
-	coretesting "launchpad.net/juju-core/testing"
+	"testing"
 )
 
+func Test(t *testing.T) {
+	TestingT(t)
+}
+
 type _MAASProviderTestSuite struct {
-	coretesting.HTTPSuite
 	environ        *maasEnviron
 	testMAASObject *gomaasapi.TestMAASObject
 }
@@ -15,7 +18,6 @@ type _MAASProviderTestSuite struct {
 var _ = Suite(&_MAASProviderTestSuite{})
 
 func (s *_MAASProviderTestSuite) SetUpSuite(c *C) {
-	s.HTTPSuite.SetUpSuite(c)
 	TestMAASObject := gomaasapi.NewTestMAAS("1.0")
 	s.testMAASObject = TestMAASObject
 	s.environ = &maasEnviron{"test env", TestMAASObject}

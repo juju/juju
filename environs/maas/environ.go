@@ -13,7 +13,7 @@ import (
 type maasEnviron struct {
 	name string
 	// TODO sync up with the config work to make sure this is populated (
-        // or update the code if this is stored elsewhere).
+	// or update the code if this is stored elsewhere).
 	MAASServer gomaasapi.MAASObject
 }
 
