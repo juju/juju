@@ -540,11 +540,11 @@ func (e *environ) allocatePublicIP() (*nova.FloatingIP, error) {
 	var newfip *nova.FloatingIP
 	for _, fip := range fips {
 		newfip = &fip
-		if fipInstId, ok := fip.InstanceId.(string); ok && fipInstId != "" {
+		if fip.InstanceId != nil && *fip.InstanceId != "" {
 			// unavailable, skip
 			newfip = nil
 			continue
-		} else if !ok || fipInstId == "" {
+		} else {
 			// unassigned, we can use it
 			return newfip, nil
 		}
@@ -565,7 +565,7 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 	if fip == nil {
 		return fmt.Errorf("cannot assign a nil public IP to %q", serverId)
 	}
-	if fip.InstanceId == serverId {
+	if fip.InstanceId != nil && *fip.InstanceId == serverId {
 		// IP already assigned, nothing to do
 		return nil
 	}
