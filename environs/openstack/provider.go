@@ -629,9 +629,10 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	}
 
 	var server *nova.Entity
+	machineName := fmt.Sprintf("juju-%s-%s", e.Name(), state.MachineEntityName(scfg.machineId))
 	for a := shortAttempt.Start(); a.Next(); {
 		server, err = e.nova().RunServer(nova.RunServerOpts{
-			Name:               state.MachineEntityName(scfg.machineId),
+			Name:               machineName,
 			FlavorId:           spec.flavorId,
 			ImageId:            spec.imageId,
 			UserData:           userData,
@@ -675,33 +676,83 @@ func (e *environ) StopInstances(insts []environs.Instance) error {
 	return e.terminateInstances(ids)
 }
 
+// gatherInstances tries to get information on each instance
+// id whose corresponding insts slot is nil.
+// It returns environs.ErrPartialInstances if the insts
+// slice has not been completely filled.
+func (e *environ) gatherInstances(ids []state.InstanceId, insts []environs.Instance) error {
+	var need []string
+	for i, inst := range insts {
+		if inst == nil {
+			need = append(need, string(ids[i]))
+		}
+	}
+	if len(need) == 0 {
+		return nil
+	}
+	filter := nova.NewFilter()
+	filter.Add(nova.FilterServer, fmt.Sprintf(`juju-%s-machine.*`, e.Name()))
+	filter.Add(nova.FilterStatus, nova.StatusBuild)
+	filter.Add(nova.FilterStatus, nova.StatusActive)
+	servers, err := e.nova().ListServersDetail(filter)
+	if err != nil {
+		return err
+	}
+	n := 0
+	// For each requested id, add it to the returned instances
+	// if we find it in the response.
+	for i, id := range ids {
+		if insts[i] != nil {
+			n++
+			continue
+		}
+		for j := range servers {
+			if servers[j].Id == string(id) {
+				insts[i] = &instance{e, &servers[j], ""}
+				n++
+			}
+		}
+	}
+	if n < len(ids) {
+		return environs.ErrPartialInstances
+	}
+	return nil
+}
+
 func (e *environ) Instances(ids []state.InstanceId) ([]environs.Instance, error) {
-	// TODO FIXME Instances must somehow be tagged to be part of the environment.
-	// This is returning *all* instances, which means it's impossible to have two different
-	// environments on the same account.
 	if len(ids) == 0 {
 		return nil, nil
 	}
 	insts := make([]environs.Instance, len(ids))
-	servers, err := e.nova().ListServersDetail(nil)
-	if err != nil {
-		return nil, err
+	// Make a series of requests to cope with eventual consistency.
+	// Each request will attempt to add more instances to the requested
+	// set.
+	var err error
+	for a := shortAttempt.Start(); a.Next(); {
+		err = e.gatherInstances(ids, insts)
+		if err == nil || err != environs.ErrPartialInstances {
+			break
+		}
 	}
-	for i, id := range ids {
-		for j, _ := range servers {
-			if servers[j].Id == string(id) {
-				insts[i] = &instance{e, &servers[j], ""}
+	if err == environs.ErrPartialInstances {
+		for _, inst := range insts {
+			if inst != nil {
+				return insts, environs.ErrPartialInstances
 			}
 		}
+		return nil, environs.ErrNoInstances
+	}
+	if err != nil {
+		return nil, err
 	}
 	return insts, nil
 }
 
 func (e *environ) AllInstances() (insts []environs.Instance, err error) {
-	// TODO FIXME Instances must somehow be tagged to be part of the environment.
-	// This is returning *all* instances, which means it's impossible to have two different
-	// environments on the same account.
-	// TODO(wallyworld): add filtering to exclude deleted images etc
+	filter := nova.NewFilter()
+	filter.Add(nova.FilterServer, fmt.Sprintf(`juju-%s-machine.*`, e.Name()))
+	filter.Add(nova.FilterStatus, nova.StatusBuild)
+	filter.Add(nova.FilterStatus, nova.StatusActive)
 	servers, err := e.nova().ListServersDetail(nil)
 	if err != nil {
 		return nil, err
