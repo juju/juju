@@ -5,7 +5,7 @@ import (
 )
 
 func (s *_MAASProviderTestSuite) TestId(c *C) {
-	obj := s.environ.MAASServerUnlocked.GetSubObject("nodes").GetSubObject("system_id")
+	obj := s.environ._MAASServerUnlocked.GetSubObject("nodes").GetSubObject("system_id")
 	resourceURI, _ := obj.GetField("resource_uri")
 	instance := maasInstance{&obj, s.environ}
 
