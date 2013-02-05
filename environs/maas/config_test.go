@@ -77,12 +77,3 @@ func (ConfigSuite) TestChecksWellFormedOAuth(c *C) {
 	})
 	c.Check(err, NotNil)
 }
-
-func (ConfigSuite) TestRequiresAdminSecret(c *C) {
-	oauth := "consumer-key:resource-token:resource-secret"
-	_, err := newConfig(map[string]interface{}{
-		"maas-server": "maas.example.com",
-		"maas-oauth":  oauth,
-	})
-	c.Check(err, NotNil)
-}
