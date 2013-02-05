@@ -49,10 +49,7 @@ func (prov maasEnvironProvider) newConfig(cfg *config.Config) (*maasEnvironConfi
 	return result, nil
 }
 
-var noMaasServer = errors.New("No maas-server configured.")
-var noMaasOAuth = errors.New("No maas-oauth configured.")
-var malformedMaasOAuth = errors.New("Malformed maas-oauth (3 items separated by colons).")
-var noAdminSecret = errors.New("No admin-secret configured.")
+var errMalformedMaasOAuth = errors.New("malformed maas-oauth (3 items separated by colons)")
 
 func (prov maasEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.Config, error) {
 	v, err := maasConfigChecker.Coerce(cfg.UnknownAttrs(), nil)
@@ -64,7 +61,7 @@ func (prov maasEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.Co
 	envCfg.attrs = v.(map[string]interface{})
 	oauth := envCfg.MAASOAuth()
 	if strings.Count(oauth, ":") != 2 {
-		return nil, malformedMaasOAuth
+		return nil, errMalformedMaasOAuth
 	}
 	return cfg.Apply(envCfg.attrs)
 }
