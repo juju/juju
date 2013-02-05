@@ -12,13 +12,11 @@ var maasConfigChecker = schema.StrictFieldMap(
 		"maas-server": schema.String(),
 		// maas-oauth is a colon-separated triplet of:
 		// consumer-key:resource-token:resource-secret
-		"maas-oauth":   schema.String(),
-		"admin-secret": schema.String(),
+		"maas-oauth": schema.String(),
 	},
 	schema.Defaults{
-		"maas-server":  "",
-		"maas-oauth":   "",
-		"admin-secret": "",
+		"maas-server": "",
+		"maas-oauth":  "",
 	},
 )
 
