@@ -50,6 +50,14 @@ type A struct {
 	id string
 }
 
+// Each Call method is named in this standard form:
+//
+//     Call<narg>r<nret><e>
+//
+// where narg is the number of arguments, nret is the number of returned
+// values (not including the error) and e is the letter 'e' if the
+// method returns an error.
+
 func (a *A) Call0r0() {
 	a.t.called(a, "Call0r0", nil)
 }

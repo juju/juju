@@ -253,6 +253,7 @@ func (st *State) Machine(id string) (*Machine, error) {
 // AuthEntity represents an entity that has
 // a password that can be authenticated against.
 type AuthEntity interface {
+	EntityName() string
 	SetPassword(pass string) error
 	PasswordValid(pass string) bool
 	Refresh() error

@@ -5,25 +5,39 @@ import (
 	"launchpad.net/juju-core/state"
 )
 
+var (
+	errBadId       = errors.New("id not found")
+	errBadCreds    = errors.New("invalid entity name or password")
+	errNotLoggedIn = errors.New("not logged in")
+)
+
 // srvRoot represents a single client's connection to the state.
 type srvRoot struct {
 	admin *srvAdmin
 	srv   *Server
 	conn  *websocket.Conn
+
+	mu     sync.Mutex
+	entity state.Entity		// logged-in entity
 }
 
 type srvAdmin struct {
-	mu     sync.Mutex
 	root   *srvRoot
-	entity state.Entity
 }
 
 type srvMachine struct {
+	root *srvRoot
 	m *state.Machine
 }
 
-type rpcId struct {
-	Id string
+type srvUnit struct {
+	root *srvRoot
+	u *state.Unit
+}
+
+type srvUser struct {
+	root *srvRoot
+	u *state.User
 }
 
 func newStateServer(srv *Server, conn *websocket.Conn) *srvRoot {
@@ -37,17 +51,39 @@ func newStateServer(srv *Server, conn *websocket.Conn) *srvRoot {
 	return r
 }
 
-var (
-	errBadId       = errors.New("id not found")
-	errBadCreds    = errors.New("invalid entity name or password")
-	errNotLoggedIn = errors.New("not logged in")
-)
-
-func (st *srvRoot) Admin(id string) (*srvAdmin, error) {
+func (r *srvRoot) Admin(id string) (*srvAdmin, error) {
 	if id != "" {
+		// Safeguard id for possible future use.
 		return nil, errBadId
 	}
-	return st.admin
+	return r.admin
+}
+
+func (r *srvRoot) Machine(id string) (*srvMachine, error) {
+	if !r.a.loggedIn() {
+		return nil, errNotLoggedIn
+	}
+	m, err := r.srv.state.Machine(id)
+	if err != nil {
+		return nil, err
+	}
+	return &srvMachine{m}, nil
+}
+
+func (r *srvRoot) Unit(name string) (*srvUnit, error) {
+	if !r.a.loggedIn() {
+		return nil, errNotLoggedIn
+	}
+	u, err := r.srv.state.Unit(name)
+	return &srvUnit{u}, nil
+}
+
+func (r *srvRoot) User(name string) (*srvUser, error) {
+	if !r.a.loggedIn() {
+		return nil, errNotLoggedIn
+	}
+	u, err := r.srv.state.User(name)
+	return &srvUser{u}, nil
 }
 
 type rpcCreds struct {
@@ -56,9 +92,9 @@ type rpcCreds struct {
 }
 
 func (a *srvAdmin) Login(c rpcCreds) error {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	entity, err := a.srv.state.Entity(c.EntityName)
+	a.root.mu.Lock()
+	defer a.root.mu.Unlock()
+	entity, err := a.root.state.Entity(c.EntityName)
 	if err != nil && !state.IsNotFound(err) {
 		return err
 	}
@@ -69,7 +105,7 @@ func (a *srvAdmin) Login(c rpcCreds) error {
 	if err != nil || !entity.PasswordValid(c.Password) {
 		return errBadCreds
 	}
-	a.entity = c.EntityName
+	a.root.entity = c.EntityName
 	return nil
 }
 
@@ -77,38 +113,62 @@ type rpcPassword struct {
 	Password string
 }
 
-func (a *srvAdmin) SetPassword(p rpcPassword) error {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	if a.entity == nil {
-		return errNotLoggedIn
+func (r *srvRoot) loggedIn() bool {
+	r.Lock()
+	defer r.Unlock()
+	return a.entity != nil
+}
+
+func (r *srvRoot) entityName() string {
+	r.Lock()
+	defer r.Unlock()
+	return r.EntityName()
+}
+
+func (r *srvRoot) hasJob(j state.Job) bool {
+	r.Lock()
+	defer r.Unlock()
+	m, ok := r.entity.(*state.Machine)
+	if !ok {
+		return false
+	}
+	for _, mj := range m.Jobs() {
+		if mj == j {
+			return true
+		}
+	}
+	return false
+}
+
+type rpcMachine struct {
+	InstanceId string
+}
+
+func (m *srvMachine) Get() (info rpcMachine) {
+	instId, _ := m.m.InstanceId()
+	info.InstanceId = string(instId)
+	return
+}
+
+func (m *srvMachine) SetPassword(p rpcPassword) error {
+	ename := m.root.a.entityName()
+	// Allow:
+	// - the machine itself.
+	// - the environment manager.
+	if m.root.entityName() != m.m.EntityName() &&
+		m.root.hasJob(state.JobManageEnviron) {
+		return errPerm
 	}
 	// Catch expected common case of mispelled
 	// or missing Password parameter.
 	if p.Password == "" {
 		return fmt.Errorf("password is empty")
 	}
-	return a.entity.SetPassword(p.Password)
+	return m.m.SetPassword(p.Password)
 }
 
-func (a *srvAdmin) loggedIn() bool {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	return a.entity != nil
-}
-
-func (st *srvRoot) Machine(id string) (*srvMachine, error) {
-	if !st.a.loggedIn() {
-		return nil, errNotLoggedIn
-	}
-	m, err := st.srv.state.Machine(id)
-	if err != nil {
-		return nil, err
-	}
-	return &srvMachine{m}, nil
-}
-
-func (m *srvMachine) InstanceId() (rpcId, error) {
-	id, err := m.m.InstanceId()
-	return rpcId{string(id)}, err
+func (u *srvUnit) SetPassword(p rpcPassword) error {
+	allow unit itself
+	machine responsible for unit, if principal
+	principal unit, if subordinate
 }

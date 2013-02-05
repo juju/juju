@@ -72,10 +72,17 @@ func Open(info *Info) (*State, error) {
 	}
 	log.Printf("state/api: connection established")
 
+	client := rpc.NewClientWithCodec(&clientCodec{conn: conn})
+	err := client.Call("Admin", "", "Login", &rpcCreds{
+		EntityName: info.EntityName,
+		Password: info.Password,
+	})
+	if err != nil {
+		conn.Close()
+		return nil, err
+	}
 	return &State{
-		client: rpc.NewClientWithCodec(&clientCodec{
-			conn: conn,
-		}),
+		client: client,
 		conn: conn,
 	}, nil
 }
