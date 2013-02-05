@@ -10,17 +10,26 @@ type ConfigSuite struct{}
 
 var _ = Suite(new(ConfigSuite))
 
+// copyAttrs copies values from src into dest.  If src contains a key that was
+// already in dest, its value in dest will still be updated to the one from
+// src.
+func copyAttrs(src, dest map[string]interface{}) {
+	for k, v := range src {
+		dest[k] = v
+	}
+}
+
 // newConfig creates a MAAS environment config from attributes.
 func newConfig(values map[string]interface{}) (*maasEnvironConfig, error) {
-	cfg := map[string]interface{}{
+	defaults := map[string]interface{}{
 		"name": "testenv",
-		"type": "maas",
+		"type":	"maas",
 		"ca-cert": testing.CACert,
 		"ca-private-key": testing.CAKey,
 	}
-	for k, v := range values {
-		cfg[k] = v
-	}
+	cfg := make(map[string]interface{})
+	copyAttrs(defaults, cfg)
+	copyAttrs(values, cfg)
 	env, err := environs.NewFromAttrs(cfg)
 	if err != nil {
 		return nil, err

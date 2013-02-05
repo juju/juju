@@ -28,19 +28,27 @@ type maasEnvironConfig struct {
 }
 
 func (cfg *maasEnvironConfig) maasServer() string {
-	return cfg.attrs["maas-server"].(string)
-}
-
-func (cfg *maasEnvironConfig) maasOAuth() string {
-	return cfg.attrs["maas-oauth"].(string)
-}
-
-func (cfg *maasEnvironConfig) adminSecret() string {
-	secret, ok := cfg.attrs["admin-secret"]
+	value, ok := cfg.attrs["maas-server"]
 	if !ok {
 		return ""
 	}
-	return secret.(string)
+	return value.(string)
+}
+
+func (cfg *maasEnvironConfig) maasOAuth() string {
+	value, ok := cfg.attrs["maas-oauth"]
+	if !ok {
+		return ""
+	}
+	return value.(string)
+}
+
+func (cfg *maasEnvironConfig) adminSecret() string {
+	value, ok := cfg.attrs["admin-secret"]
+	if !ok {
+		return ""
+	}
+	return value.(string)
 }
 
 func (prov maasEnvironProvider) newConfig(cfg *config.Config) (*maasEnvironConfig, error) {
@@ -48,7 +56,10 @@ func (prov maasEnvironProvider) newConfig(cfg *config.Config) (*maasEnvironConfi
 	if err != nil {
 		return nil, err
 	}
-	return &maasEnvironConfig{validCfg, validCfg.UnknownAttrs()}, nil
+	result := new(maasEnvironConfig)
+	result.Config = validCfg
+	result.attrs = validCfg.UnknownAttrs()
+	return result, nil
 }
 
 var noMaasServer = errors.New("No maas-server configured.")
@@ -61,10 +72,7 @@ func (prov maasEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.Co
 	if err != nil {
 		return nil, err
 	}
-	envCfg := new(maasEnvironConfig)
-	envCfg.Config = cfg
-	envCfg.attrs = v.(map[string]interface{})
-	//envCfg := &maasEnvironConfig{cfg, v.(map[string]interface{})}
+	envCfg := &maasEnvironConfig{cfg, v.(map[string]interface{})}
 	if envCfg.maasServer() == "" {
 		return nil, noMaasServer
 	}
