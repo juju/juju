@@ -30,11 +30,3 @@ func (s *_MAASProviderTestSuite) TearDownTest(c *C) {
 func (s *_MAASProviderTestSuite) TearDownSuite(c *C) {
 	s.testMAASObject.Close()
 }
-
-func (s *_MAASProviderTestSuite) TestId(c *C) {
-	obj := s.environ.MAASServer.GetSubObject("nodes").GetSubObject("system_id")
-	resourceURI, _ := obj.GetField("resource_uri")
-	instance := maasInstance{&obj, s.environ}
-
-	c.Check(string(instance.Id()), Equals, resourceURI)
-}

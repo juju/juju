@@ -4,6 +4,14 @@ import (
 	. "launchpad.net/gocheck"
 )
 
+func (s *_MAASProviderTestSuite) TestId(c *C) {
+	obj := s.environ.MAASServer.GetSubObject("nodes").GetSubObject("system_id")
+	resourceURI, _ := obj.GetField("resource_uri")
+	instance := maasInstance{&obj, s.environ}
+
+	c.Check(string(instance.Id()), Equals, resourceURI)
+}
+
 func (s *_MAASProviderTestSuite) TestRefreshInstance(c *C) {
 	jsonValue := `{"system_id": "system_id", "test": "test"}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
