@@ -2,8 +2,10 @@ package maas
 
 import (
 	"errors"
+	"fmt"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/schema"
+	"net/url"
 	"strings"
 )
 
@@ -59,6 +61,11 @@ func (prov maasEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.Co
 	envCfg := new(maasEnvironConfig)
 	envCfg.Config = cfg
 	envCfg.attrs = v.(map[string]interface{})
+	server := envCfg.MAASServer()
+	serverURL, err := url.Parse(server)
+	if err != nil || serverURL.Scheme == "" || serverURL.Host == "" {
+		return nil, fmt.Errorf("malformed maas-server URL '%v': %s", server, err)
+	}
 	oauth := envCfg.MAASOAuth()
 	if strings.Count(oauth, ":") != 2 {
 		return nil, errMalformedMaasOAuth

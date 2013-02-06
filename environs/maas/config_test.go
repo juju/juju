@@ -38,7 +38,7 @@ func newConfig(values map[string]interface{}) (*maasEnvironConfig, error) {
 }
 
 func (ConfigSuite) TestParsesMAASSettings(c *C) {
-	server := "maas.example.com"
+	server := "http://maas.example.com/maas/"
 	oauth := "consumer-key:resource-token:resource-secret"
 	secret := "ssssssht"
 	ecfg, err := newConfig(map[string]interface{}{
@@ -52,9 +52,19 @@ func (ConfigSuite) TestParsesMAASSettings(c *C) {
 	c.Check(ecfg.AdminSecret(), Equals, secret)
 }
 
+func (ConfigSuite) TestChecksWellFormedMaasServer(c *C) {
+	_, err := newConfig(map[string]interface{}{
+		"maas-server":  "This should have been a URL.",
+		"maas-oauth":   "consumer-key:resource-token:resource-secret",
+		"admin-secret": "secret",
+	})
+	c.Assert(err, NotNil)
+	c.Check(err, ErrorMatches, ".*malformed maas-server.*")
+}
+
 func (ConfigSuite) TestChecksWellFormedMaasOAuth(c *C) {
 	_, err := newConfig(map[string]interface{}{
-		"maas-server":  "maas.example.com",
+		"maas-server":  "http://maas.example.com/maas/",
 		"maas-oauth":   "This should have been a 3-part token.",
 		"admin-secret": "secret",
 	})
