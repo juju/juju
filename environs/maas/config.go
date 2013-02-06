@@ -25,19 +25,11 @@ type maasEnvironConfig struct {
 }
 
 func (cfg *maasEnvironConfig) MAASServer() string {
-	value, ok := cfg.attrs["maas-server"]
-	if !ok {
-		return ""
-	}
-	return value.(string)
+	return cfg.attrs["maas-server"].(string)
 }
 
 func (cfg *maasEnvironConfig) MAASOAuth() string {
-	value, ok := cfg.attrs["maas-oauth"]
-	if !ok {
-		return ""
-	}
-	return value.(string)
+	return cfg.attrs["maas-oauth"].(string)
 }
 
 func (prov maasEnvironProvider) newConfig(cfg *config.Config) (*maasEnvironConfig, error) {
