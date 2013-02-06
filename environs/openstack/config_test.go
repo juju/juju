@@ -39,10 +39,11 @@ type configTest struct {
 	controlBucket string
 	publicBucket  string
 	pbucketURL    string
+	imageId       string
 	username      string
 	password      string
 	tenantName    string
-	authMethod    string
+	authMode      string
 	authURL       string
 	firewallMode  config.FirewallMode
 	err           string
@@ -122,6 +123,9 @@ func (t configTest) check(c *C) {
 	if t.firewallMode != "" {
 		c.Assert(ecfg.FirewallMode(), Equals, t.firewallMode)
 	}
+	if t.imageId != "" {
+		c.Assert(ecfg.defaultImageId(), Equals, t.imageId)
+	}
 }
 
 func (s *ConfigSuite) SetUpTest(c *C) {
@@ -191,11 +195,11 @@ var configTests = []configTest{
 		},
 		err: ".*expected string, got 666",
 	}, {
-		summary: "invalid authorization method",
+		summary: "invalid authorization mode",
 		config: attrs{
-			"auth-method": "invalid-method",
+			"auth-mode": "invalid-mode",
 		},
-		err: ".*invalid authorization method.*",
+		err: ".*invalid authorization mode.*",
 	}, {
 		summary: "invalid auth-url format",
 		config: attrs{
@@ -220,14 +224,20 @@ var configTests = []configTest{
 			"username":    "jujuer",
 			"password":    "open sesame",
 			"tenant-name": "juju tenant",
-			"auth-method": "legacy",
+			"auth-mode":   "legacy",
 			"auth-url":    "http://some/url",
 		},
 		username:   "jujuer",
 		password:   "open sesame",
 		tenantName: "juju tenant",
 		authURL:    "http://some/url",
-		authMethod: "legacy",
+		authMode:   "legacy",
+	}, {
+		summary: "image id",
+		config: attrs{
+			"default-image-id": "image-id",
+		},
+		imageId: "image-id",
 	}, {
 		summary: "public bucket URL",
 		config: attrs{
@@ -360,8 +370,8 @@ func (s *ConfigSuite) TestCredentialsFromEnv(c *C) {
 	c.Assert(ecfg.tenantName(), Equals, "sometenant")
 }
 
-func (s *ConfigSuite) TestDefaultAuthorisationMethod(c *C) {
-	// Specify a basic configuration without authorization method.
+func (s *ConfigSuite) TestDefaultAuthorisationMode(c *C) {
+	// Specify a basic configuration without authorization mode.
 	envs := attrs{
 		"environments": attrs{
 			"testenv": attrs{
@@ -376,5 +386,5 @@ func (s *ConfigSuite) TestDefaultAuthorisationMethod(c *C) {
 	c.Check(err, IsNil)
 	e, err := es.Open("testenv")
 	ecfg := e.(*environ).ecfg()
-	c.Assert(ecfg.authMethod(), Equals, string(AuthUserPass))
+	c.Assert(ecfg.authMode(), Equals, string(AuthUserPass))
 }

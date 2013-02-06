@@ -106,6 +106,26 @@ func (inst *instance) WaitDNSName() (string, error) {
 	return "", fmt.Errorf("timed out trying to get DNS address for %v", inst.Id())
 }
 
+func (p environProvider) BoilerplateConfig() string {
+	return `
+## https://juju.ubuntu.com/get-started/amazon/
+amazon:
+  type: ec2
+  admin-secret: {{rand}}
+  # globally unique S3 bucket name
+  control-bucket: juju-{{rand}}
+  # override if your workstation is running a different series to which you are deploying
+  # default-series: precise
+  # region defaults to us-east-1, override if required
+  # region: us-east-1
+  # Usually set via the env variable AWS_ACCESS_KEY_ID, but can be specified here
+  # access-key: <secret>
+  # Usually set via the env variable AWS_SECRET_ACCESS_KEY, but can be specified here
+  # secret-key: <secret>
+
+`[1:]
+}
+
 func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	log.Printf("environs/ec2: opening environment %q", cfg.Name())
 	e := new(environ)
