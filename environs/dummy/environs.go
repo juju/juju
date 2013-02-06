@@ -449,7 +449,13 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 			panic(err)
 		}
 		if err := st.SetAdminMongoPassword(trivial.PasswordHash(password)); err != nil {
-			return err
+			panic(err)
+		}
+		// TODO(rog) use hash of password when we can change passwords
+		// in the API
+		_, err = st.AddUser("admin", password)
+		if err != nil {
+			panic(err)
 		}
 		e.state.apiAddr = fmt.Sprintf("localhost:%d", testing.FindTCPPort())
 		e.state.apiServer, err = api.NewServer(st, e.state.apiAddr, []byte(testing.ServerCert), []byte(testing.ServerKey))

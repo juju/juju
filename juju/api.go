@@ -21,6 +21,7 @@ func NewAPIConn(environ environs.Environ) (*APIConn, error) {
 	if err != nil {
 		return nil, err
 	}
+	info.EntityName = "user-admin"
 	password := environ.Config().AdminSecret()
 	if password == "" {
 		return nil, fmt.Errorf("cannot connect without admin-secret")
