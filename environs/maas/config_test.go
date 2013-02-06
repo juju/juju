@@ -52,28 +52,12 @@ func (ConfigSuite) TestParsesMAASSettings(c *C) {
 	c.Check(ecfg.AdminSecret(), Equals, secret)
 }
 
-func (ConfigSuite) TestRequiresMaasServer(c *C) {
-	oauth := "consumer-key:resource-token:resource-secret"
-	_, err := newConfig(map[string]interface{}{
-		"maas-oauth":   oauth,
-		"admin-secret": "secret",
-	})
-	c.Check(err, NotNil)
-}
-
-func (ConfigSuite) TestRequiresOAuth(c *C) {
-	_, err := newConfig(map[string]interface{}{
-		"maas-server":  "maas.example.com",
-		"admin-secret": "secret",
-	})
-	c.Check(err, NotNil)
-}
-
-func (ConfigSuite) TestChecksWellFormedOAuth(c *C) {
+func (ConfigSuite) TestChecksWellFormedMaasOAuth(c *C) {
 	_, err := newConfig(map[string]interface{}{
 		"maas-server":  "maas.example.com",
 		"maas-oauth":   "This should have been a 3-part token.",
 		"admin-secret": "secret",
 	})
-	c.Check(err, NotNil)
+	c.Assert(err, NotNil)
+	c.Check(err, ErrorMatches, ".*malformed maas-oauth.*")
 }
