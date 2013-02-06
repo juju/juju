@@ -5,11 +5,11 @@ import (
 	"launchpad.net/juju-core/state"
 )
 
-type _MAASUtilTestSuite struct{}
+type UtilSuite struct{}
 
-var _ = Suite(&_MAASUtilTestSuite{})
+var _ = Suite(&UtilSuite{})
 
-func (s *_MAASUtilTestSuite) TestExtractSystemId(c *C) {
+func (s *UtilSuite) TestExtractSystemId(c *C) {
 	instanceId := state.InstanceId("/MAAS/api/1.0/nodes/system_id/")
 
 	systemId := extractSystemId(instanceId)
@@ -17,7 +17,7 @@ func (s *_MAASUtilTestSuite) TestExtractSystemId(c *C) {
 	c.Check(systemId, Equals, "system_id")
 }
 
-func (s *_MAASUtilTestSuite) TestGetSystemIdValues(c *C) {
+func (s *UtilSuite) TestGetSystemIdValues(c *C) {
 	instanceId1 := state.InstanceId("/MAAS/api/1.0/nodes/system_id1/")
 	instanceId2 := state.InstanceId("/MAAS/api/1.0/nodes/system_id2/")
 	instanceIds := []state.InstanceId{instanceId1, instanceId2}

@@ -10,23 +10,23 @@ func TestMAAS(t *testing.T) {
 	TestingT(t)
 }
 
-type _MAASProviderTestSuite struct {
+type ProviderSuite struct {
 	environ        *maasEnviron
 	testMAASObject *gomaasapi.TestMAASObject
 }
 
-var _ = Suite(&_MAASProviderTestSuite{})
+var _ = Suite(&ProviderSuite{})
 
-func (s *_MAASProviderTestSuite) SetUpSuite(c *C) {
+func (s *ProviderSuite) SetUpSuite(c *C) {
 	TestMAASObject := gomaasapi.NewTestMAAS("1.0")
 	s.testMAASObject = TestMAASObject
-	s.environ = &maasEnviron{name: "test env", _MAASServerUnlocked: TestMAASObject}
+	s.environ = &maasEnviron{name: "test env", maasServerUnlocked: TestMAASObject}
 }
 
-func (s *_MAASProviderTestSuite) TearDownTest(c *C) {
+func (s *ProviderSuite) TearDownTest(c *C) {
 	s.testMAASObject.TestServer.Clear()
 }
 
-func (s *_MAASProviderTestSuite) TearDownSuite(c *C) {
+func (s *ProviderSuite) TearDownSuite(c *C) {
 	s.testMAASObject.Close()
 }

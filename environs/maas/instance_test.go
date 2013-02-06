@@ -4,15 +4,21 @@ import (
 	. "launchpad.net/gocheck"
 )
 
-func (s *_MAASProviderTestSuite) TestId(c *C) {
-	obj := s.environ._MAASServerUnlocked.GetSubObject("nodes").GetSubObject("system_id")
+type InstanceTest struct {
+	ProviderSuite
+}
+
+var _ = Suite(&InstanceTest{})
+
+func (s *InstanceTest) TestId(c *C) {
+	obj := s.environ.maasServerUnlocked.GetSubObject("nodes").GetSubObject("system_id")
 	resourceURI, _ := obj.GetField("resource_uri")
 	instance := maasInstance{&obj, s.environ}
 
 	c.Check(string(instance.Id()), Equals, resourceURI)
 }
 
-func (s *_MAASProviderTestSuite) TestRefreshInstance(c *C) {
+func (s *InstanceTest) TestRefreshInstance(c *C) {
 	jsonValue := `{"system_id": "system_id", "test": "test"}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
 	s.testMAASObject.TestServer.ChangeNode("system_id", "test2", "test2")
@@ -26,7 +32,7 @@ func (s *_MAASProviderTestSuite) TestRefreshInstance(c *C) {
 	c.Check(testField, Equals, "test2")
 }
 
-func (s *_MAASProviderTestSuite) TestDNSName(c *C) {
+func (s *InstanceTest) TestDNSName(c *C) {
 	jsonValue := `{"hostname": "old DNS name", "system_id": "system_id"}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
 	s.testMAASObject.TestServer.ChangeNode("system_id", "hostname", "new DNS name")

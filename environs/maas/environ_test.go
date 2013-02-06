@@ -6,7 +6,13 @@ import (
 	"launchpad.net/juju-core/state"
 )
 
-func (suite *_MAASProviderTestSuite) TestInstancesReturnsInstances(c *C) {
+type EnvironSuite struct {
+	ProviderSuite
+}
+
+var _ = Suite(&EnvironSuite{})
+
+func (suite *EnvironSuite) TestInstancesReturnsInstances(c *C) {
 	input := `{"system_id": "test"}`
 	node := suite.testMAASObject.TestServer.NewNode(input)
 	resourceURI, _ := node.GetField("resource_uri")
@@ -19,14 +25,14 @@ func (suite *_MAASProviderTestSuite) TestInstancesReturnsInstances(c *C) {
 	c.Check(string(instances[0].Id()), Equals, resourceURI)
 }
 
-func (suite *_MAASProviderTestSuite) TestInstancesReturnsNilIfEmptyParameter(c *C) {
+func (suite *EnvironSuite) TestInstancesReturnsNilIfEmptyParameter(c *C) {
 	instances, err := suite.environ.Instances([]state.InstanceId{})
 
 	c.Check(err, IsNil)
 	c.Check(instances, DeepEquals, []environs.Instance{})
 }
 
-func (suite *_MAASProviderTestSuite) TestInstancesReturnsErrorIfPartialInstances(c *C) {
+func (suite *EnvironSuite) TestInstancesReturnsErrorIfPartialInstances(c *C) {
 	input1 := `{"system_id": "test"}`
 	node1 := suite.testMAASObject.TestServer.NewNode(input1)
 	input2 := `{"system_id": "test2"}`
