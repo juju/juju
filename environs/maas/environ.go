@@ -7,10 +7,16 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"sync"
 )
 
 type maasEnviron struct {
 	name string
+
+	// ecfgMutext protects the *Unlocked fields below.
+	ecfgMutex sync.Mutex
+
+	ecfgUnlocked *maasEnvironConfig
 }
 
 var _ environs.Environ = (*maasEnviron)(nil)
@@ -42,13 +48,31 @@ func (*maasEnviron) StateInfo() (*state.Info, *api.Info, error) {
 	panic("Not implemented.")
 }
 
-func (*maasEnviron) Config() *config.Config {
-	panic("Not implemented.")
+// ecfg returns the environment's maasEnvironConfig, and protects it with a
+// mutex.
+func (env *maasEnviron) ecfg() *maasEnvironConfig {
+	env.ecfgMutex.Lock()
+	defer env.ecfgMutex.Unlock()
+	return env.ecfgUnlocked
+}
+
+func (env *maasEnviron) Config() *config.Config {
+	return env.ecfg().Config
 }
 
 func (env *maasEnviron) SetConfig(cfg *config.Config) error {
+	ecfg, err := env.Provider().(*maasEnvironProvider).newConfig(cfg)
+	if err != nil {
+		return err
+	}
+
+	env.ecfgMutex.Lock()
+	defer env.ecfgMutex.Unlock()
+
 	env.name = cfg.Name()
-	panic("Not implemented.")
+	env.ecfgUnlocked = ecfg
+
+	return nil
 }
 
 func (*maasEnviron) StartInstance(machineId string, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
@@ -97,5 +121,5 @@ func (*maasEnviron) Ports() ([]state.Port, error) {
 }
 
 func (*maasEnviron) Provider() environs.EnvironProvider {
-	panic("Not implemented.")
+	return &providerInstance
 }

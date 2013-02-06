@@ -10,13 +10,15 @@ type maasEnvironProvider struct{}
 
 var _ environs.EnvironProvider = (*maasEnvironProvider)(nil)
 
+var providerInstance maasEnvironProvider
+
+func init() {
+	environs.RegisterProvider("maas", &providerInstance)
+}
+
 func (*maasEnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	log.Printf("environs/maas: opening environment %q.", cfg.Name())
 	return NewEnviron(cfg)
-}
-
-func (*maasEnvironProvider) Validate(cfg, old *config.Config) (*config.Config, error) {
-	return cfg, nil
 }
 
 func (*maasEnvironProvider) SecretAttrs(*config.Config) (map[string]interface{}, error) {
