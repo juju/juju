@@ -253,6 +253,7 @@ func (st *State) Machine(id string) (*Machine, error) {
 // AuthEntity represents an entity that has
 // a password that can be authenticated against.
 type AuthEntity interface {
+	EntityName() string
 	SetPassword(pass string) error
 	PasswordValid(pass string) bool
 	Refresh() error
@@ -269,7 +270,7 @@ func (st *State) AuthEntity(entityName string) (AuthEntity, error) {
 	case "machine":
 		return st.Machine(id)
 	case "unit":
-		return st.Unit(id)
+		return st.Unit(strings.Replace(id, "-", "/", -1))
 	case "user":
 		return st.User(id)
 	}
