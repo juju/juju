@@ -25,13 +25,11 @@ import (
 	"time"
 )
 
-const (
-	mgoPort = 37017
-	apiPort = 17070
+const mgoPort = 37017
+const apiPort = 17070
 
-	mgoPortSuffix = ":" + string(mgoPort)
-	apiPortSuffix = ":" + string(apiPort)
-)
+var mgoPortSuffix = fmt.Sprintf(":%d", mgoPort)
+var apiPortSuffix = fmt.Sprintf(":%d", apiPort)
 
 type environProvider struct{}
 
@@ -56,6 +54,61 @@ var longAttempt = trivial.AttemptStrategy{
 
 func init() {
 	environs.RegisterProvider("openstack", environProvider{})
+}
+
+func (p environProvider) BoilerplateConfig() string {
+	return `
+## https://juju.ubuntu.com/get-started/openstack/
+openstack:
+  type: openstack
+  admin-secret: {{rand}}
+  # Globally unique swift bucket name
+  control-bucket: juju-{{rand}}
+  # Usually set via the env variable OS_AUTH_URL, but can be specified here
+  # auth-url: https://yourkeystoneurl:443/v2.0/
+  # override if your workstation is running a different series to which you are deploying
+  # default-series: precise
+  default-image-id: <nova server id>
+  # The following are used for userpass authentication (the default)
+  auth-mode: userpass
+  # Usually set via the env variable OS_USERNAME, but can be specified here
+  # username: <your username>
+  # Usually set via the env variable OS_PASSWORD, but can be specified here
+  # password: <secret>
+  # Usually set via the env variable OS_TENANT_NAME, but can be specified here
+  # tenant-name: <your tenant name>
+  # Usually set via the env variable OS_REGION_NAME, but can be specified here
+  # region: <your region>
+
+## https://juju.ubuntu.com/get-started/hp-cloud/
+hpcloud:
+  type: openstack
+  admin-secret: {{rand}}
+  # Globally unique swift bucket name
+  control-bucket: juju-{{rand}}
+  # Not required if env variable OS_AUTH_URL is set
+  auth-url: https://yourkeystoneurl:35357/v2.0/
+  # override if your workstation is running a different series to which you are deploying
+  # default-series: precise
+  default-image-id: <nova server id>
+  # The following are used for userpass authentication (the default)
+  auth-mode: userpass
+  # Usually set via the env variable OS_USERNAME, but can be specified here
+  # username: <your username>
+  # Usually set via the env variable OS_PASSWORD, but can be specified here
+  # password: <secret>
+  # Usually set via the env variable OS_TENANT_NAME, but can be specified here
+  # tenant-name: <your tenant name>
+  # Usually set via the env variable OS_REGION_NAME, but can be specified here
+  # region: <your region>
+  # The following are used for keypair authentication
+  # auth-mode: keypair
+  # Usually set via the env variable AWS_ACCESS_KEY_ID, but can be specified here
+  # access-key: <secret>
+  # Usually set via the env variable AWS_SECRET_ACCESS_KEY, but can be specified here
+  # secret-key: <secret>
+
+`[1:]
 }
 
 func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
@@ -287,6 +340,7 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 		config:          config,
 		stateServerCert: cert,
 		stateServerKey:  key,
+		withPublicIP:    true,
 	})
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
@@ -332,15 +386,12 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 		log.Debugf("started processing instances: %#v", insts)
 		for _, inst := range insts {
 			if inst == nil {
-				log.Debugf("inst is nil, continue")
 				continue
 			}
 			name, err := inst.(*instance).DNSName()
 			if err != nil {
-				log.Debugf("DNSName error: %v", err)
 				continue
 			}
-			log.Debugf("inst address: %s", name)
 			if name != "" {
 				stateAddrs = append(stateAddrs, name+mgoPortSuffix)
 				apiAddrs = append(apiAddrs, name+apiPortSuffix)
@@ -363,7 +414,7 @@ func (e *environ) Config() *config.Config {
 	return e.ecfg().Config
 }
 
-func (e *environ) client(ecfg *environConfig, authMethodCfg AuthMethod) client.AuthenticatingClient {
+func (e *environ) client(ecfg *environConfig, authModeCfg AuthMode) client.AuthenticatingClient {
 	cred := &identity.Credentials{
 		User:       ecfg.username(),
 		Secrets:    ecfg.password(),
@@ -371,15 +422,15 @@ func (e *environ) client(ecfg *environConfig, authMethodCfg AuthMethod) client.A
 		TenantName: ecfg.tenantName(),
 		URL:        ecfg.authURL(),
 	}
-	// authMethodCfg has already been validated so we know it's one of the values below.
-	var authMethod identity.AuthMethod
-	switch authMethodCfg {
+	// authModeCfg has already been validated so we know it's one of the values below.
+	var authMode identity.AuthMode
+	switch authModeCfg {
 	case AuthLegacy:
-		authMethod = identity.AuthLegacy
+		authMode = identity.AuthLegacy
 	case AuthUserPass:
-		authMethod = identity.AuthUserPass
+		authMode = identity.AuthUserPass
 	}
-	return client.NewClient(cred, authMethod, nil)
+	return client.NewClient(cred, authMode, nil)
 }
 
 func (e *environ) publicClient(ecfg *environConfig) client.Client {
@@ -393,14 +444,14 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	}
 	// At this point, the authentication method config value has been validated so we extract it's value here
 	// to avoid having to validate again each time when creating the OpenStack client.
-	var authMethodCfg AuthMethod
+	var authModeCfg AuthMode
 	e.ecfgMutex.Lock()
 	defer e.ecfgMutex.Unlock()
 	e.name = ecfg.Name()
-	authMethodCfg = AuthMethod(ecfg.authMethod())
+	authModeCfg = AuthMode(ecfg.authMode())
 	e.ecfgUnlocked = ecfg
 
-	novaClient := e.client(ecfg, authMethodCfg)
+	novaClient := e.client(ecfg, authModeCfg)
 	e.novaUnlocked = nova.New(novaClient)
 
 	// create new storage instances, existing instances continue
@@ -410,7 +461,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 		// this is possibly just a hack - if the ACL is swift.Private,
 		// the machine won't be able to get the tools (401 error)
 		containerACL: swift.PublicRead,
-		swift:        swift.New(e.client(ecfg, authMethodCfg))}
+		swift:        swift.New(e.client(ecfg, authModeCfg))}
 	if ecfg.publicBucket() != "" && ecfg.publicBucketURL() != "" {
 		e.publicStorageUnlocked = &storage{
 			containerName: ecfg.publicBucket(),
@@ -441,6 +492,10 @@ type startInstanceParams struct {
 	config          *config.Config
 	stateServerCert []byte
 	stateServerKey  []byte
+
+	// withPublicIP, if true causes a floating IP to be
+	// assigned to the server after starting
+	withPublicIP bool
 }
 
 func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
@@ -475,9 +530,68 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 	return cdata, nil
 }
 
+// allocatePublicIP tries to find an available floating IP address, or
+// allocates a new one, returning it, or an error
+func (e *environ) allocatePublicIP() (*nova.FloatingIP, error) {
+	fips, err := e.nova().ListFloatingIPs()
+	if err != nil {
+		return nil, err
+	}
+	var newfip *nova.FloatingIP
+	for _, fip := range fips {
+		newfip = &fip
+		if fip.InstanceId != nil && *fip.InstanceId != "" {
+			// unavailable, skip
+			newfip = nil
+			continue
+		} else {
+			// unassigned, we can use it
+			return newfip, nil
+		}
+	}
+	if newfip == nil {
+		// allocate a new IP and use it
+		newfip, err = e.nova().AllocateFloatingIP()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return newfip, nil
+}
+
+// assignPublicIP tries to assign the given floating IP address to the
+// specified server, or returns an error.
+func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err error) {
+	if fip == nil {
+		return fmt.Errorf("cannot assign a nil public IP to %q", serverId)
+	}
+	if fip.InstanceId != nil && *fip.InstanceId == serverId {
+		// IP already assigned, nothing to do
+		return nil
+	}
+	// At startup nw_info is not yet cached so this may fail
+	// temporarily while the server is being built
+	for a := longAttempt.Start(); a.Next(); {
+		err = e.nova().AddServerFloatingIP(serverId, fip.IP)
+		if err == nil {
+			return nil
+		}
+	}
+	return err
+}
+
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself.
 func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, error) {
+	var publicIP *nova.FloatingIP
+	if scfg.withPublicIP {
+		if fip, err := e.allocatePublicIP(); err != nil {
+			return nil, fmt.Errorf("cannot allocate a public IP as needed")
+		} else {
+			publicIP = fip
+			log.Printf("environs/openstack: allocated public IP %s", publicIP.IP)
+		}
+	}
 	if scfg.tools == nil {
 		var err error
 		flags := environs.HighestVersion | environs.CompatVersion
@@ -486,7 +600,6 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 			return nil, err
 		}
 	}
-
 	log.Printf("environs/openstack: starting machine %s in %q running tools version %q from %q",
 		scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
 	if strings.Contains(scfg.tools.Series, "unknown") || strings.Contains(scfg.tools.Arch, "unknown") {
@@ -506,7 +619,6 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	if err != nil {
 		return nil, fmt.Errorf("cannot make user data: %v", err)
 	}
-	log.Debugf("environs/openstack: openstack user data: %q", userData)
 	groups, err := e.setUpGroups(scfg.machineId)
 	if err != nil {
 		return nil, fmt.Errorf("cannot set up groups: %v", err)
@@ -538,6 +650,16 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	}
 	inst := &instance{e, detail, ""}
 	log.Printf("environs/openstack: started instance %q", inst.Id())
+	if scfg.withPublicIP {
+		if err := e.assignPublicIP(publicIP, string(inst.Id())); err != nil {
+			if err := e.terminateInstances([]state.InstanceId{inst.Id()}); err != nil {
+				// ignore the failure at this stage, just log it
+				log.Debugf("environs/openstack: failed to terminate instance %q: %v", inst.Id(), err)
+			}
+			return nil, fmt.Errorf("cannot assign public address %s to instance %q: %v", publicIP.IP, inst.Id(), err)
+		}
+		log.Printf("environs/openstack: assigned public IP %s to %q", publicIP.IP, inst.Id())
+	}
 	return inst, nil
 }
 

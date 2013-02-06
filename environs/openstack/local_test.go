@@ -1,9 +1,11 @@
 package openstack_test
 
 import (
+	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
+	"launchpad.net/goose/testservices"
 	"launchpad.net/goose/testservices/openstackservice"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/openstack"
@@ -32,6 +34,9 @@ type localLiveSuite struct {
 	Server     *httptest.Server
 	Mux        *http.ServeMux
 	oldHandler http.Handler
+
+	Env     environs.Environ
+	Service *openstackservice.Openstack
 }
 
 func (s *localLiveSuite) SetUpSuite(c *C) {
@@ -45,8 +50,23 @@ func (s *localLiveSuite) SetUpSuite(c *C) {
 	s.Server.Config.Handler = s.Mux
 
 	s.cred.URL = s.Server.URL
-	srv := openstackservice.New(s.cred)
-	srv.SetupHTTP(s.Mux)
+	s.Service = openstackservice.New(s.cred)
+	s.Service.SetupHTTP(s.Mux)
+
+	attrs := makeTestConfig()
+	attrs["admin-secret"] = "secret"
+	attrs["username"] = s.cred.User
+	attrs["password"] = s.cred.Secrets
+	attrs["region"] = s.cred.Region
+	attrs["auth-url"] = s.cred.URL
+	attrs["tenant-name"] = s.cred.TenantName
+	attrs["default-image-id"] = testImageId
+	if e, err := environs.NewFromAttrs(attrs); err != nil {
+		c.Fatalf("cannot create local test environment: %s", err.Error())
+	} else {
+		s.Env = e
+		putFakeTools(c, openstack.WritablePublicStorage(s.Env))
+	}
 
 	s.LiveTests.SetUpSuite(c)
 }
@@ -171,4 +191,24 @@ func (s *LiveTests) TestGetServerAddresses(c *C) {
 		c.Assert(err, Equals, t.failure)
 		c.Assert(addr, Equals, t.expected)
 	}
+}
+
+func panicWrite(name string, cert, key []byte) error {
+	panic("writeCertAndKey called unexpectedly")
+}
+
+func (s *localLiveSuite) TestBootstrapFailsWithoutPublicIP(c *C) {
+	s.Service.Nova.RegisterControlPoint(
+		"addFloatingIP",
+		func(sc testservices.ServiceControl, args ...interface{}) error {
+			return fmt.Errorf("failed on purpose")
+		},
+	)
+	defer s.Service.Nova.RegisterControlPoint("addFloatingIP", nil)
+	writeablePublicStorage := openstack.WritablePublicStorage(s.Env)
+	putFakeTools(c, writeablePublicStorage)
+
+	err := environs.Bootstrap(s.Env, true, panicWrite)
+	c.Assert(err, ErrorMatches, ".*cannot allocate a public IP as needed.*")
+	defer s.Env.Destroy(nil)
 }
