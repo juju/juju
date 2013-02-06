@@ -18,7 +18,7 @@ type maasEnviron struct {
 	ecfgMutex sync.Mutex
 
 	ecfgUnlocked        *maasEnvironConfig
-	_MAASServerUnlocked gomaasapi.MAASObject
+	maasServerUnlocked gomaasapi.MAASObject
 }
 
 var _ environs.Environ = (*maasEnviron)(nil)
@@ -78,7 +78,7 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
-	env._MAASServerUnlocked = gomaasapi.NewMAAS(*authClient)
+	env.maasServerUnlocked = gomaasapi.NewMAAS(*authClient)
 
 	return nil
 }
