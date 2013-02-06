@@ -2,7 +2,6 @@ package api_test
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state"
@@ -63,11 +62,16 @@ func (s *suite) TestStop(c *C) {
 	err = stm.SetInstanceId("foo")
 	c.Assert(err, IsNil)
 
-	conn, err := juju.NewAPIConn(s.Conn.Environ)
+	st, err := api.Open(&api.Info{
+		EntityName: "user-admin",
+		Password: s.Conn.Environ.Config().AdminSecret(),
+		Addrs: []string{srv.Addr()},
+		CACert: []byte(coretesting.CACert),
+	})
 	c.Assert(err, IsNil)
-	defer conn.Close()
+	defer st.Close()
 
-	m, err := conn.State.Machine(stm.Id())
+	m, err := st.Machine(stm.Id())
 	c.Assert(err, IsNil)
 	c.Assert(m.Id(), Equals, stm.Id())
 
@@ -75,7 +79,7 @@ func (s *suite) TestStop(c *C) {
 	c.Assert(err, IsNil)
 	c.Logf("srv stopped")
 
-	_, err = conn.State.Machine(stm.Id())
+	_, err = st.Machine(stm.Id())
 	c.Assert(err, ErrorMatches, "cannot receive response: EOF")
 
 	// Check it can be stopped twice.
