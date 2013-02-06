@@ -2,7 +2,9 @@ package api_test
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"net"
@@ -19,6 +21,12 @@ type suite struct {
 }
 
 var _ = Suite(&suite{})
+
+//func (s *suite) TestLogin(c *C) {
+	
+//	login with wrong password
+//	login with correct password
+//	test 
 
 func (s *suite) TestMachineInstanceId(c *C) {
 	stm, err := s.State.AddMachine(state.JobHostUnits)
@@ -44,21 +52,36 @@ func (s *suite) TestMachineInstanceId(c *C) {
 	c.Assert(instId, Equals, "foo")
 }
 
-//func (s *suite) TestStop(c *C) {
-//	stm, err := s.State.AddMachine(state.JobHostUnits)
-//	c.Assert(err, IsNil)
-//	err = stm.SetInstanceId("foo")
-//	c.Assert(err, IsNil)
-//
-//	err = s.srv.Stop()
-//	c.Assert(err, IsNil)
-//	_, err = s.APIState.Machine(stm.Id())
-//	c.Assert(err, ErrorMatches, "cannot receive response: EOF")
-//
-//	// Check it can be stopped twice.
-//	err = s.srv.Stop()
-//	c.Assert(err, IsNil)
-//}
+func (s *suite) TestStop(c *C) {
+	// Start our own instance of the server so have
+	// a handle on it to stop it.
+	srv, err := api.NewServer(s.State, "localhost:0", []byte(coretesting.ServerCert), []byte(coretesting.ServerKey))
+	c.Assert(err, IsNil)
+
+	stm, err := s.State.AddMachine(state.JobHostUnits)
+	c.Assert(err, IsNil)
+	err = stm.SetInstanceId("foo")
+	c.Assert(err, IsNil)
+
+	conn, err := juju.NewAPIConn(s.Conn.Environ)
+	c.Assert(err, IsNil)
+	defer conn.Close()
+
+	m, err := conn.State.Machine(stm.Id())
+	c.Assert(err, IsNil)
+	c.Assert(m.Id(), Equals, stm.Id())
+
+	err = srv.Stop()
+	c.Assert(err, IsNil)
+	c.Logf("srv stopped")
+
+	_, err = conn.State.Machine(stm.Id())
+	c.Assert(err, ErrorMatches, "cannot receive response: EOF")
+
+	// Check it can be stopped twice.
+	err = srv.Stop()
+	c.Assert(err, IsNil)
+}
 
 //func (s *suite) BenchmarkRequests(c *C) {
 //	stm, err := s.State.AddMachine(state.JobHostUnits)

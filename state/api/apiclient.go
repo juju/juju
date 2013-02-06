@@ -27,6 +27,10 @@ func (st *State) Machine(id string) (*Machine, error) {
 	return m, nil
 }
 
+func (m *Machine) Id() string {
+	return m.id
+}
+
 func (m *Machine) Refresh() error {
 	err := m.st.client.Call("Machine", m.id, "Get", nil, &m.doc)
 	return rpcError(err)
