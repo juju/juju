@@ -7,14 +7,14 @@ import (
 )
 
 type maasInstance struct {
-	maasobject *gomaasapi.MAASObject
+	maasObject *gomaasapi.MAASObject
 	environ    *maasEnviron
 }
 
 var _ environs.Instance = (*maasInstance)(nil)
 
 func (inst *maasInstance) Id() state.InstanceId {
-	return state.InstanceId((*inst.maasobject).URI().String())
+	return state.InstanceId((*inst.maasObject).URI().String())
 }
 
 // refreshInstance refreshes the instance with the most up-to-date information
@@ -24,8 +24,8 @@ func (inst *maasInstance) refreshInstance() error {
 	if err != nil {
 		return err
 	}
-	newMaasObject := insts[0].(*maasInstance).maasobject
-	inst.maasobject = newMaasObject
+	newMaasObject := insts[0].(*maasInstance).maasObject
+	inst.maasObject = newMaasObject
 	return nil
 }
 
@@ -34,7 +34,7 @@ func (inst *maasInstance) DNSName() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	hostname, err := (*inst.maasobject).GetField("hostname")
+	hostname, err := (*inst.maasObject).GetField("hostname")
 	if err != nil {
 		return "", err
 	}

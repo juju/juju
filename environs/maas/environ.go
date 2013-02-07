@@ -95,6 +95,12 @@ func (environ *maasEnviron) Instances(ids []state.InstanceId) ([]environs.Instan
 	if len(ids) == 0 {
 		return []environs.Instance{}, nil
 	}
+	return environ.instances(ids)
+}
+
+// instances returns the instances matching the given instance ids or all the
+// the instances if 'ids' is empty.
+func (environ *maasEnviron) instances(ids []state.InstanceId) ([]environs.Instance, error) {
 	nodeListing := environ.maasClientUnlocked.GetSubObject("nodes")
 	filter := getSystemIdValues(ids)
 	listNodeObjects, err := nodeListing.CallGet("list", filter)
@@ -109,22 +115,21 @@ func (environ *maasEnviron) Instances(ids []state.InstanceId) ([]environs.Instan
 	for index, nodeObj := range listNodes {
 		node, err := nodeObj.GetMAASObject()
 		if err != nil {
-			// Skip that node.
-			continue
+			return nil, err
 		}
 		instances[index] = &maasInstance{
-			maasobject: &node,
+			maasObject: &node,
 			environ:    environ,
 		}
 	}
-	if len(ids) != len(instances) {
+	if len(ids) != 0 && len(ids) != len(instances) {
 		return instances, environs.ErrPartialInstances
 	}
 	return instances, nil
 }
 
 func (environ *maasEnviron) AllInstances() ([]environs.Instance, error) {
-	return environ.Instances([]state.InstanceId{})
+	return environ.instances([]state.InstanceId{})
 }
 
 func (*maasEnviron) Storage() environs.Storage {
