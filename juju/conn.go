@@ -223,7 +223,7 @@ func (conn *Conn) AddUnits(svc *state.Service, n int) ([]*state.Unit, error) {
 		if err != nil {
 			return nil, fmt.Errorf("cannot add unit %d/%d to service %q: %v", i+1, n, svc.Name(), err)
 		}
-		// TODO lp:1101139
+		// TODO lp:1101139 (units are not assigned transactionally)
 		if err := conn.State.AssignUnit(unit, policy); err != nil {
 			return nil, err
 		}

@@ -171,8 +171,8 @@ func (m *Machine) EnsureDead() error {
 // value, or a later one, no changes will be made to remote state. If
 // the machine has any responsibilities that preclude a valid change in
 // lifecycle, it will return an error.
-func (m0 *Machine) advanceLifecycle(life Life) (err error) {
-	m := m0
+func (original *Machine) advanceLifecycle(life Life) (err error) {
+	m := original
 	defer func() {
 		if err == nil {
 			// The machine's lifecycle is known to have advanced; it may be
@@ -183,7 +183,7 @@ func (m0 *Machine) advanceLifecycle(life Life) (err error) {
 			} else if m.doc.Life > life {
 				life = m.doc.Life
 			}
-			m0.doc.Life = life
+			original.doc.Life = life
 		}
 	}()
 	// op and
@@ -203,6 +203,11 @@ func (m0 *Machine) advanceLifecycle(life Life) (err error) {
 	// one intended to determine the cause of failure of the preceding attempt.
 	for i := 0; i < 3; i++ {
 		// If the transaction was aborted, grab a fresh copy of the machine data.
+		// We don't write to original, because the expectation is that state-
+		// changing methods only set the requested change on the receiver; a case
+		// could perhaps be made that this is not a helpful convention in the
+		// context of the new state API, but we maintain consistency in the
+		// face of uncertainty.
 		if i != 0 {
 			if m, err = m.st.Machine(m.doc.Id); IsNotFound(err) {
 				return nil

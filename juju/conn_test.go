@@ -395,7 +395,7 @@ func (s *ConnSuite) TestAddUnits(c *C) {
 }
 
 func (s *ConnSuite) TestDestroyPrincipalUnits(c *C) {
-	// Create 4 principal units.
+	// Create 5 principal units.
 	curl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "wordpress")
 	sch, err := s.conn.PutCharm(curl, s.repo, false)
 	wordpress, err := s.conn.State.AddService("wordpress", sch)
