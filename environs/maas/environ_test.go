@@ -107,3 +107,38 @@ func (suite *EnvironSuite) TestInstancesReturnsErrorIfPartialInstances(c *C) {
 	c.Check(len(instances), Equals, 1)
 	c.Check(string(instances[0].Id()), Equals, resourceURI1)
 }
+
+func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
+	input := `{"system_id": "test"}`
+	node := suite.testMAASObject.TestServer.NewNode(input)
+	resourceURI, _ := node.GetField("resource_uri")
+
+	instance, err := suite.environ.StartInstance(resourceURI, nil, nil, nil)
+
+	c.Check(err, IsNil)
+	c.Check(string(instance.Id()), Equals, resourceURI)
+	operations := suite.testMAASObject.TestServer.NodeOperations()
+	actions, found := operations["test"]
+	c.Check(found, Equals, true)
+	c.Check(actions, DeepEquals, []string{"start"})
+}
+
+func (suite *EnvironSuite) getInstance(systemId string) *maasInstance {
+	input := `{"system_id": "` + systemId + `"}`
+	node := suite.testMAASObject.TestServer.NewNode(input)
+	return &maasInstance{&node, suite.environ}
+}
+
+func (suite *EnvironSuite) TestStopInstancesStopsInstances(c *C) {
+	instance1 := suite.getInstance("test1")
+	instance2 := suite.getInstance("test2")
+	suite.getInstance("test3")
+	instances := []environs.Instance{instance1, instance2}
+
+	err := suite.environ.StopInstances(instances)
+
+	c.Check(err, IsNil)
+	operations := suite.testMAASObject.TestServer.NodeOperations()
+	expectedOperations := map[string][]string{"test1": {"stop"}, "test2": {"stop"}}
+	c.Check(operations, DeepEquals, expectedOperations)
+}
