@@ -11,7 +11,7 @@ type InstanceTest struct {
 var _ = Suite(&InstanceTest{})
 
 func (s *InstanceTest) TestId(c *C) {
-	obj := s.environ.maasServerUnlocked.GetSubObject("nodes").GetSubObject("system_id")
+	obj := s.environ.maasClientUnlocked.GetSubObject("nodes").GetSubObject("system_id")
 	resourceURI, _ := obj.GetField("resource_uri")
 	instance := maasInstance{&obj, s.environ}
 

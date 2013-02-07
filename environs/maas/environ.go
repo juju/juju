@@ -18,7 +18,7 @@ type maasEnviron struct {
 	ecfgMutex sync.Mutex
 
 	ecfgUnlocked       *maasEnvironConfig
-	maasServerUnlocked gomaasapi.MAASObject
+	maasClientUnlocked gomaasapi.MAASObject
 }
 
 var _ environs.Environ = (*maasEnviron)(nil)
@@ -89,7 +89,7 @@ func (environ *maasEnviron) Instances(ids []state.InstanceId) ([]environs.Instan
 	if len(ids) == 0 {
 		return []environs.Instance{}, nil
 	}
-	nodeListing := environ.maasServerUnlocked.GetSubObject("nodes")
+	nodeListing := environ.maasClientUnlocked.GetSubObject("nodes")
 	filter := getSystemIdValues(ids)
 	listNodeObjects, err := nodeListing.CallGet("list", filter)
 	if err != nil {
