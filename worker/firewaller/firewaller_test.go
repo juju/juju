@@ -513,6 +513,8 @@ func (s *FirewallerSuite) TestDeadMachine(c *C) {
 	c.Assert(err, IsNil)
 
 	// Kill machine.
+	err = m.Refresh()
+	c.Assert(err, IsNil)
 	err = m.EnsureDead()
 	c.Assert(err, IsNil)
 
@@ -544,6 +546,8 @@ func (s *FirewallerSuite) TestRemoveMachine(c *C) {
 	// Remove machine. Nothing bad should happen, but can't
 	// assert port state since the machine must have been
 	// destroyed and we lost its reference.
+	err = m.Refresh()
+	c.Assert(err, IsNil)
 	err = m.EnsureDead()
 	c.Assert(err, IsNil)
 	err = m.Remove()
