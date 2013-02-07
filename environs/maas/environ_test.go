@@ -76,7 +76,7 @@ func (suite *EnvironSuite) TestInstancesReturnsNilIfEmptyParameter(c *C) {
 	instances, err := suite.environ.Instances([]state.InstanceId{})
 
 	c.Check(err, IsNil)
-	c.Check(instances, DeepEquals, []environs.Instance{})
+	c.Check(instances, IsNil)
 }
 
 func (suite *EnvironSuite) TestAllInstancesReturnsAllInstances(c *C) {

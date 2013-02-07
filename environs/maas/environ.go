@@ -93,7 +93,7 @@ func (*maasEnviron) StopInstances([]environs.Instance) error {
 
 func (environ *maasEnviron) Instances(ids []state.InstanceId) ([]environs.Instance, error) {
 	if len(ids) == 0 {
-		return []environs.Instance{}, nil
+		return nil, nil
 	}
 	return environ.instances(ids)
 }

@@ -30,10 +30,6 @@ func (inst *maasInstance) refreshInstance() error {
 }
 
 func (inst *maasInstance) DNSName() (string, error) {
-	err := inst.refreshInstance()
-	if err != nil {
-		return "", err
-	}
 	hostname, err := (*inst.maasObject).GetField("hostname")
 	if err != nil {
 		return "", err

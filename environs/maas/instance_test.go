@@ -34,22 +34,18 @@ func (s *InstanceTest) TestRefreshInstance(c *C) {
 }
 
 func (s *InstanceTest) TestDNSName(c *C) {
-	jsonValue := `{"hostname": "old DNS name", "system_id": "system_id"}`
+	jsonValue := `{"hostname": "DNS name", "system_id": "system_id"}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	s.testMAASObject.TestServer.ChangeNode("system_id", "hostname", "new DNS name")
 	instance := maasInstance{&obj, s.environ}
 
 	dnsName, err := instance.DNSName()
 
 	c.Check(err, IsNil)
-	c.Check(dnsName, Equals, "new DNS name")
+	c.Check(dnsName, Equals, "DNS name")
 
 	// WaitDNSName() currently simply calls DNSName().
-	s.testMAASObject.TestServer.ChangeNode("system_id", "hostname", "new DNS name 2")
-
 	dnsName, err = instance.WaitDNSName()
 
 	c.Check(err, IsNil)
-	c.Check(dnsName, Equals, "new DNS name 2")
-
+	c.Check(dnsName, Equals, "DNS name")
 }
