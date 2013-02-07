@@ -108,6 +108,7 @@ type State struct {
 	services       *mgo.Collection
 	settings       *mgo.Collection
 	units          *mgo.Collection
+	users          *mgo.Collection
 	presence       *mgo.Collection
 	cleanups       *mgo.Collection
 	runner         *txn.Runner
@@ -247,6 +248,32 @@ func (st *State) Machine(id string) (*Machine, error) {
 		return nil, fmt.Errorf("cannot get machine %s: %v", id, err)
 	}
 	return newMachine(st, mdoc), nil
+}
+
+// AuthEntity represents an entity that has
+// a password that can be authenticated against.
+type AuthEntity interface {
+	SetPassword(pass string) error
+	PasswordValid(pass string) bool
+	Refresh() error
+}
+
+// AuthEntity returns the entity for the given name.
+func (st *State) AuthEntity(entityName string) (AuthEntity, error) {
+	i := strings.Index(entityName, "-")
+	if i <= 0 || i >= len(entityName)-1 {
+		return nil, fmt.Errorf("invalid entity name %q", entityName)
+	}
+	prefix, id := entityName[0:i], entityName[i+1:]
+	switch prefix {
+	case "machine":
+		return st.Machine(id)
+	case "unit":
+		return st.Unit(id)
+	case "user":
+		return st.User(id)
+	}
+	return nil, fmt.Errorf("invalid entity name %q", entityName)
 }
 
 // AddCharm adds the ch charm with curl to the state.  bundleUrl must be

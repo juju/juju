@@ -40,7 +40,7 @@ func makeTestConfig() map[string]interface{} {
 	attrs := map[string]interface{}{
 		"name":           "sample-" + uniqueName,
 		"type":           "openstack",
-		"auth-method":    "userpass",
+		"auth-mode":      "userpass",
 		"control-bucket": "juju-test-" + uniqueName,
 		"ca-cert":        coretesting.CACert,
 		"ca-private-key": coretesting.CAKey,

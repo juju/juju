@@ -166,7 +166,7 @@ func (s *UnitSuite) TestSetMongoPassword(c *C) {
 }
 
 func (s *UnitSuite) TestSetPassword(c *C) {
-	testSetPassword(c, func() (entity, error) {
+	testSetPassword(c, func() (state.AuthEntity, error) {
 		return s.State.Unit(s.unit.Name())
 	})
 }
