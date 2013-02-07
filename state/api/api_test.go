@@ -38,10 +38,9 @@ var operationPermTests = []struct {
 },
 }
 
-// allowed returns the set of allowed entities given
-// an allow list and a deny list.
-// If an allow list is specified, only those entities
-// are allowed; otherwise those in deny are disallowed.
+// allowed returns the set of allowed entities given an allow list and a
+// deny list.  If an allow list is specified, only those entities are
+// allowed; otherwise those in deny are disallowed.
 func allowed(all, allow, deny []string) map[string]bool {
 	p := make(map[string]bool)
 	if allow != nil {
@@ -68,7 +67,7 @@ func (s *suite) TestOperationPerm(c *C) {
 		allow := allowed(entities, t.allow, t.deny)
 		for _, e := range entities {
 			c.Logf("test %d; %s; entity %q", i, t.about, e)
-			st := s.openAs(c, e, fmt.Sprintf("%s password", e))
+			st := s.openAs(c, e)
 			reset, err := t.op(c, st)
 			if allow[e] {
 				c.Check(err, IsNil)
@@ -114,35 +113,29 @@ func opGetMachine(c *C, st *api.State) (bool, error) {
 // 
 // When the scenario is initialized, we have:
 // user-admin
-//	password="user-admin password"
 // user-other
-//	password="user-other password"
 // machine-0
-//     password="machine-0 password
 //	instance-id="i-machine-0"
 //	jobs=manage-environ
 // machine-1
-//	password="machine-1 password"
 //	instance-id="i-machine-1"
 //	jobs=host-units
 // machine-2
-//	password="machine-2 password"
 //	instance-id="i-machine-2"
 //	jobs=host-units
 // service-wordpress
 // service-logging
 // unit-wordpress-0
-//	password="unit-wordpress-0 password"
 //     deployer-name=machine-1
 // unit-logging-0
-//	password="unit-logging-0 password"
 //	deployer-name=unit-wordpress-0
 // unit-wordpress-1
-//	password="unit-wordpress-0 password"
 //     deployer-name=machine-2
 // unit-logging-1
-//	password="unit-logging-0 password"
 //	deployer-name=unit-wordpress-1
+//
+// The passwords for all returned entities are
+// set to the entity name with a " password" suffix.
 func (s *suite) setUpScenario(c *C) (entities []string) {
 	add := func(e state.AuthEntity) {
 		entities = append(entities, e.EntityName())
@@ -298,8 +291,7 @@ func (s *suite) TestMachineLogin(c *C) {
 func (s *suite) TestMachineInstanceId(c *C) {
 	stm, err := s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
-	err = stm.SetPassword("machine password")
-	c.Assert(err, IsNil)
+	setDefaultPassword(c, stm)
 
 	// Normal users can't access Machines...
 	m, err := s.APIState.Machine(stm.Id())
@@ -307,7 +299,7 @@ func (s *suite) TestMachineInstanceId(c *C) {
 	c.Assert(m, IsNil)
 
 	// ... so login as the machine.
-	st := s.openAs(c, stm.EntityName(), "machine password")
+	st := s.openAs(c, stm.EntityName())
 
 	m, err = st.Machine(stm.Id())
 	c.Assert(err, IsNil)
@@ -334,12 +326,11 @@ func (s *suite) TestMachineInstanceId(c *C) {
 func (s *suite) TestMachineRefresh(c *C) {
 	stm, err := s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
-	err = stm.SetPassword("machine password")
-	c.Assert(err, IsNil)
+	setDefaultPassword(c, stm)
 	err = stm.SetInstanceId("foo")
 	c.Assert(err, IsNil)
 
-	st := s.openAs(c, stm.EntityName(), "machine password")
+	st := s.openAs(c, stm.EntityName())
 	m, err := st.Machine(stm.Id())
 	c.Assert(err, IsNil)
 
@@ -360,6 +351,34 @@ func (s *suite) TestMachineRefresh(c *C) {
 	instId, err = m.InstanceId()
 	c.Assert(err, IsNil)
 	c.Assert(instId, Equals, "bar")
+}
+
+func (s *suite) TestUnitRefresh(c *C) {
+	s.setUpScenario(c)
+	st := s.openAs(c, "unit-wordpress-0")
+
+	u, err := st.Unit("wordpress/0")
+	c.Assert(err, IsNil)
+
+	deployer, ok := u.DeployerName()
+	c.Assert(ok, Equals, true)
+	c.Assert(deployer, Equals, "machine-1")
+
+	stu, err := s.State.Unit("wordpress/0")
+	c.Assert(err, IsNil)
+	err = stu.UnassignFromMachine()
+	c.Assert(err, IsNil)
+
+	deployer, ok = u.DeployerName()
+	c.Assert(ok, Equals, true)
+	c.Assert(deployer, Equals, "machine-1")
+
+	err = u.Refresh()
+	c.Assert(err, IsNil)
+
+	deployer, ok = u.DeployerName()
+	c.Assert(ok, Equals, false)
+	c.Assert(deployer, Equals, "")
 }
 
 func (s *suite) TestStop(c *C) {
@@ -421,12 +440,14 @@ func (s *suite) TestStop(c *C) {
 //	}
 //}
 
-func (s *suite) openAs(c *C, entityName, password string) *api.State {
+// openAs connects to the API state as the given entity
+// with the default password for that entity.
+func (s *suite) openAs(c *C, entityName string) *api.State {
 	_, info, err := s.APIConn.Environ.StateInfo()
 	c.Assert(err, IsNil)
 	info.EntityName = entityName
-	info.Password = password
-	c.Logf("opening state; entity %q; password %q", entityName, password)
+	info.Password = fmt.Sprintf("%s password", entityName)
+	c.Logf("opening state; entity %q; password %q", info.EntityName, info.Password)
 	st, err := api.Open(info)
 	c.Assert(err, IsNil)
 	c.Assert(st, NotNil)
