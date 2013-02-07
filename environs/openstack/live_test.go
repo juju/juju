@@ -163,14 +163,6 @@ func (t *LiveTests) TestFindImageBadFlavor(c *C) {
 
 // The following tests need to be enabled once the coding is complete.
 
-func (s *LiveTests) TestGlobalPorts(c *C) {
-	c.Skip("Work in progress")
-}
-
-func (s *LiveTests) TestPorts(c *C) {
-	c.Skip("Work in progress")
-}
-
 func (s *LiveTests) TestStartStop(c *C) {
 	c.Skip("Work in progress")
 }
