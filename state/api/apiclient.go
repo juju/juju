@@ -13,9 +13,7 @@ type Machine struct {
 	doc rpcMachine
 }
 
-// Machine returns a reference to the machine with the given id.  It
-// does not check whether the machine exists - subsequent requests will
-// fail if it does not.
+// Machine returns a reference to the machine with the given id.
 func (st *State) Machine(id string) (*Machine, error) {
 	m := &Machine{
 		st: st,
@@ -25,6 +23,23 @@ func (st *State) Machine(id string) (*Machine, error) {
 		return nil, err
 	}
 	return m, nil
+}
+
+type Unit struct {
+	st *State
+	name string
+	doc rpcUnit
+}
+
+func (st *State) Unit(name string) (*Unit, error) {
+	u := &Unit{
+		st: st,
+		name: name,
+	}
+	if err := u.Refresh(); err != nil {
+		return nil, err
+	}
+	return u, nil
 }
 
 // Login authenticates as the entity with the given name and password.
@@ -61,6 +76,15 @@ func (m *Machine) InstanceId() (string, error) {
 		return "", fmt.Errorf("instance id for machine %v not found", m.id)
 	}
 	return m.doc.InstanceId, nil
+}
+
+func (u *Unit) Refresh() error {
+	err := u.st.client.Call("Unit", u.name, "Get", nil, &u.doc)
+	return rpcError(err)
+}
+
+func (u *Unit) DeployerName() (string, bool) {
+	return u.doc.DeployerName, u.doc.DeployerName != ""
 }
 
 func rpcError(err error) error {

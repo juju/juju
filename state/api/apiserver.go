@@ -4,6 +4,7 @@ import (
 	"code.google.com/p/go.net/websocket"
 	"launchpad.net/juju-core/state"
 	"fmt"
+	"launchpad.net/juju-core/log"
 	"sync"
 	"errors"
 )
@@ -181,8 +182,32 @@ func (u *srvUnit) SetPassword(p rpcPassword) error {
 	return setPassword(u.u, p.Password)
 }
 
+type rpcUnit struct {
+	DeployerName string
+	// TODO(rog) other unit attributes.
+}
+
+func (u *srvUnit) Get() (rpcUnit, error) {
+	var ru rpcUnit
+	ru.DeployerName, _ = u.u.DeployerName()
+	// TODO add other unit attributes, possibly
+	// filling them in on a need-to-know basis.
+	return ru, nil
+}
+
 func (u *srvUser) SetPassword(p rpcPassword) error {
 	return setPassword(u.u, p.Password)
+}
+
+type rpcUser struct {
+	// This is a placeholder for any information
+	// that may be associated with a user in the
+	// future.
+}
+
+
+func (u *srvUser) Get() (rpcUser, error) {
+	return rpcUser{}, nil
 }
 
 type authUser struct {
@@ -202,6 +227,7 @@ func (u *authUser) login(st *state.State, entityName, password string) error {
 	// we don't allow unauthenticated users to find information
 	// about existing entities.
 	if err != nil || !entity.PasswordValid(password) {
+		log.Printf("failed to login as %q: %v", entityName, err)
 		return errBadCreds
 	}
 	u._entity = entity
