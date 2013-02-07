@@ -74,6 +74,12 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	env.name = cfg.Name()
 	env.ecfgUnlocked = ecfg
 
+	authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.MAASServer(), ecfg.MAASOAuth())
+	if err != nil {
+		return err
+	}
+	env.maasClientUnlocked = gomaasapi.NewMAAS(*authClient)
+
 	return nil
 }
 

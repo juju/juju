@@ -2,7 +2,9 @@ package maas
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/gomaasapi"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 )
 
@@ -10,7 +12,50 @@ type EnvironSuite struct {
 	ProviderSuite
 }
 
-var _ = Suite(&EnvironSuite{})
+var _ = Suite(new(EnvironSuite))
+
+func getTestConfig(name, server, oauth, secret string) *config.Config {
+	ecfg, err := newConfig(map[string]interface{}{
+		"name":         name,
+		"maas-server":  server,
+		"maas-oauth":   oauth,
+		"admin-secret": secret,
+	})
+	if err != nil {
+		panic(err)
+	}
+	return ecfg.Config
+}
+
+func (EnvironSuite) TestSetConfigUpdatesConfig(c *C) {
+	cfg := getTestConfig("test env", "http://maas2.example.com", "a:b:c", "secret")
+	env, err := NewEnviron(cfg)
+	c.Check(err, IsNil)
+	c.Check(env.name, Equals, "test env")
+
+	anotherName := "another name"
+	anotherServer := "http://maas.example.com"
+	anotherOauth := "c:d:e"
+	anotherSecret := "secret2"
+	cfg2 := getTestConfig(anotherName, anotherServer, anotherOauth, anotherSecret)
+	errSetConfig := env.SetConfig(cfg2)
+	c.Check(errSetConfig, IsNil)
+	c.Check(env.name, Equals, anotherName)
+	authClient, _ := gomaasapi.NewAuthenticatedClient(anotherServer, anotherOauth)
+	maas := gomaasapi.NewMAAS(*authClient)
+	MAASServer := env.maasClientUnlocked
+	c.Check(MAASServer, DeepEquals, maas)
+}
+
+func (EnvironSuite) TestNewEnvironSetsConfig(c *C) {
+	name := "test env"
+	cfg := getTestConfig(name, "http://maas.example.com", "a:b:c", "secret")
+
+	env, err := NewEnviron(cfg)
+
+	c.Check(err, IsNil)
+	c.Check(env.name, Equals, name)
+}
 
 func (suite *EnvironSuite) TestInstancesReturnsInstances(c *C) {
 	input := `{"system_id": "test"}`
