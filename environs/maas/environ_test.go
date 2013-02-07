@@ -39,7 +39,7 @@ func (EnvironTest) TestSetConfigUpdatesConfig(c *C) {
 	c.Check(env.name, Equals, anotherName)
 	authClient, _ := gomaasapi.NewAuthenticatedClient(anotherServer, anotherOauth)
 	maas := gomaasapi.NewMAAS(*authClient)
-	MAASServer := env.maasServerUnlocked
+	MAASServer := env.maasClientUnlocked
 	c.Check(MAASServer, DeepEquals, maas)
 }
 

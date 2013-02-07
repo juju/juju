@@ -17,8 +17,8 @@ type maasEnviron struct {
 	// ecfgMutext protects the *Unlocked fields below.
 	ecfgMutex sync.Mutex
 
-	ecfgUnlocked        *maasEnvironConfig
-	maasServerUnlocked gomaasapi.MAASObject
+	ecfgUnlocked       *maasEnvironConfig
+	maasClientUnlocked gomaasapi.MAASObject
 }
 
 var _ environs.Environ = (*maasEnviron)(nil)
@@ -78,7 +78,7 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
-	env.maasServerUnlocked = gomaasapi.NewMAAS(*authClient)
+	env.maasClientUnlocked = gomaasapi.NewMAAS(*authClient)
 
 	return nil
 }
