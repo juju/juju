@@ -9,7 +9,6 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 	"net"
 	stdtesting "testing"
-	"time"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -76,7 +75,7 @@ func (s *suite) TestOperationPerm(c *C) {
 				c.Check(err, ErrorMatches, "permission denied")
 			}
 			st.Close()
-			if true || reset {
+			if reset {
 				s.Reset(c)
 				s.setUpScenario(c)
 			}
@@ -138,12 +137,6 @@ func opGetMachine(c *C, st *api.State) (bool, error) {
 // The passwords for all returned entities are
 // set to the entity name with a " password" suffix.
 func (s *suite) setUpScenario(c *C) (entities []string) {
-	t0 := time.Now()
-	sofar := func(s string) {
-		now := time.Now()
-		c.Logf("duration %d %s", now.Sub(t0), s)
-		t0 = now
-	}
 	add := func(e state.AuthEntity) {
 		entities = append(entities, e.EntityName())
 	}
@@ -152,61 +145,47 @@ func (s *suite) setUpScenario(c *C) (entities []string) {
 	setDefaultPassword(c, u)
 	add(u)
 
-	sofar("get user")
 	u, err = s.State.AddUser("other", "")
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, u)
 	add(u)
 
-	sofar("add user")
 	m, err := s.State.AddMachine(state.JobManageEnviron)
 	c.Assert(err, IsNil)
-	sofar("add machine")
 	c.Assert(m.EntityName(), Equals, "machine-0")
 	err = m.SetInstanceId(state.InstanceId("i-" + m.EntityName()))
 	c.Assert(err, IsNil)
-	sofar("set instance id")
 	setDefaultPassword(c, m)
-	sofar("set password")
 	add(m)
 
 	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
-	sofar("add wordpress")
 
 	_, err = s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
 	c.Assert(err, IsNil)
-	sofar("add logging")
+
 	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
 	c.Assert(err, IsNil)
-	sofar("infer endpoints")
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, IsNil)
-	sofar("add relation")
 
 	for i := 0; i < 2; i++ {
 		wu, err := wordpress.AddUnit()
 		c.Assert(err, IsNil)
 		c.Assert(wu.EntityName(), Equals, fmt.Sprintf("unit-wordpress-%d", i))
-		sofar("add wordpress unit")
 		setDefaultPassword(c, wu)
-		sofar("set password")
 		add(wu)
 
 		m, err := s.State.AddMachine(state.JobHostUnits)
 		c.Assert(err, IsNil)
 		c.Assert(m.EntityName(), Equals, fmt.Sprintf("machine-%d", i+1))
-		sofar("add machine")
 		err = m.SetInstanceId(state.InstanceId("i-" + m.EntityName()))
 		c.Assert(err, IsNil)
-		sofar("set instance id")
 		setDefaultPassword(c, m)
-		sofar("set password")
 		add(m)
 
 		err = wu.AssignToMachine(m)
 		c.Assert(err, IsNil)
-		sofar("assign to machine")
 
 		deployer, ok := wu.DeployerName()
 		c.Assert(ok, Equals, true)
@@ -214,27 +193,21 @@ func (s *suite) setUpScenario(c *C) (entities []string) {
 
 		wru, err := rel.Unit(wu)
 		c.Assert(err, IsNil)
-		sofar("get unit")
 
 		// Create the subordinate unit as a side-effect of entering
 		// scope in the principal's relation-unit.
 		err = wru.EnterScope(nil)
 		c.Assert(err, IsNil)
-		sofar("enter scope")
 
 		lu, err := s.State.Unit(fmt.Sprintf("logging/%d", i))
 		c.Assert(err, IsNil)
 		c.Assert(lu.IsPrincipal(), Equals, false)
-
-		sofar("get unit")
 		deployer, ok = lu.DeployerName()
 		c.Assert(ok, Equals, true)
 		c.Assert(deployer, Equals, fmt.Sprintf("unit-wordpress-%d", i))
 		setDefaultPassword(c, lu)
-		sofar("set password")
 		add(lu)
 	}
-	sofar("final")
 	return
 }
 
