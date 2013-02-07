@@ -55,15 +55,12 @@ func (srv *Server) Dead() <-chan struct{} {
 // Stop stops the server and returns when all requests that
 // it is running have completed.
 func (srv *Server) Stop() error {
-	log.Printf("killing server")
 	srv.tomb.Kill(nil)
-	log.Printf("waiting for server to quit")
 	return srv.tomb.Wait()
 }
 
 func (srv *Server) run(lis net.Listener) {
 	defer srv.tomb.Done()
-	defer log.Printf("waited for requests")
 	defer srv.wg.Wait() // wait for any outstanding requests to complete.
 	srv.wg.Add(1)
 	go func() {
@@ -84,11 +81,9 @@ func (srv *Server) run(lis net.Listener) {
 		if err := srv.serveConn(conn); err != nil {
 			log.Printf("state/api: error serving RPCs: %v", err)
 		}
-		log.Printf("serveConn quit")
 	})
 	// The error from http.Serve is not interesting.
 	http.Serve(lis, handler)
-	log.Printf("http server completed")
 }
 
 // Addr returns the address that the server is listening on.

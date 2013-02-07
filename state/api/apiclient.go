@@ -27,8 +27,23 @@ func (st *State) Machine(id string) (*Machine, error) {
 	return m, nil
 }
 
+// Login authenticates as the entity with the given name and password.
+// Subsequent requests on the state will act as that entity.
+// This method is usually called automatically by Open.
+func (st *State) Login(entityName, password string) error {
+	err := st.client.Call("Admin", "", "Login", &rpcCreds{
+		EntityName: entityName,
+		Password: password,
+	}, nil)
+	return rpcError(err)
+}
+
 func (m *Machine) Id() string {
 	return m.id
+}
+
+func (m *Machine) EntityName() string {
+	return "machine-"+m.Id()
 }
 
 func (m *Machine) Refresh() error {

@@ -62,9 +62,20 @@ func (r *srvRoot) Admin(id string) (*srvAdmin, error) {
 	return r.admin, nil
 }
 
+func (r *srvRoot) accessAgentAPI() error {
+	e := r.user.entity()
+	if e == nil {
+		return errNotLoggedIn
+	}
+	if !isAgent(e) {
+		return errPerm
+	}
+	return nil
+}
+
 func (r *srvRoot) Machine(id string) (*srvMachine, error) {
-	if !r.user.loggedIn() {
-		return nil, errNotLoggedIn
+	if err := r.accessAgentAPI(); err != nil {
+		return nil, err
 	}
 	m, err := r.srv.state.Machine(id)
 	if err != nil {
@@ -77,8 +88,8 @@ func (r *srvRoot) Machine(id string) (*srvMachine, error) {
 }
 
 func (r *srvRoot) Unit(name string) (*srvUnit, error) {
-	if !r.user.loggedIn() {
-		return nil, errNotLoggedIn
+	if err := r.accessAgentAPI(); err != nil {
+		return nil, err
 	}
 	u, err := r.srv.state.Unit(name)
 	if err != nil {
@@ -91,8 +102,13 @@ func (r *srvRoot) Unit(name string) (*srvUnit, error) {
 }
 
 func (r *srvRoot) User(name string) (*srvUser, error) {
-	if !r.user.loggedIn() {
+	// Any entity is allowed to change its own password.
+	e := r.user.entity()
+	if e == nil {
 		return nil, errNotLoggedIn
+	}
+	if e.EntityName() != name {
+		return nil, errPerm
 	}
 	u, err := r.srv.state.User(name)
 	if err != nil {
@@ -140,7 +156,7 @@ func (m *srvMachine) SetPassword(p rpcPassword) error {
 	// Allow:
 	// - the machine itself.
 	// - the environment manager.
-	allow := m.root.user.entityName() == m.m.EntityName() ||
+	allow := m.root.user.entity().EntityName() == m.m.EntityName() ||
 		m.root.user.isMachineWithJob(state.JobManageEnviron)
 	if !allow {
 		return errPerm
@@ -149,7 +165,7 @@ func (m *srvMachine) SetPassword(p rpcPassword) error {
 }
 
 func (u *srvUnit) SetPassword(p rpcPassword) error {
-	ename := u.root.user.entityName()
+	ename := u.root.user.entity().EntityName()
 	// Allow:
 	// - the unit itself.
 	// - the machine responsible for unit, if unit is principal
@@ -166,15 +182,12 @@ func (u *srvUnit) SetPassword(p rpcPassword) error {
 }
 
 func (u *srvUser) SetPassword(p rpcPassword) error {
-	if u.root.user.entityName() != "user-admin" {
-		return errPerm
-	}
 	return setPassword(u.u, p.Password)
 }
 
 type authUser struct {
 	mu     sync.Mutex
-	entity state.AuthEntity // logged-in entity
+	_entity state.AuthEntity // logged-in entity (access only when mu is locked)
 }
 
 func (u *authUser) login(st *state.State, entityName, password string) error {
@@ -191,26 +204,18 @@ func (u *authUser) login(st *state.State, entityName, password string) error {
 	if err != nil || !entity.PasswordValid(password) {
 		return errBadCreds
 	}
-	u.entity = entity
+	u._entity = entity
 	return nil
 }
 
-func (u *authUser) loggedIn() bool {
+func (u *authUser) entity() state.AuthEntity {
 	u.mu.Lock()
 	defer u.mu.Unlock()
-	return u.entity != nil
-}
-
-func (u *authUser) entityName() string {
-	u.mu.Lock()
-	defer u.mu.Unlock()
-	return u.entity.EntityName()
+	return u._entity
 }
 
 func (u *authUser) isMachineWithJob(j state.MachineJob) bool {
-	u.mu.Lock()
-	defer u.mu.Unlock()
-	m, ok := u.entity.(*state.Machine)
+	m, ok := u.entity().(*state.Machine)
 	if !ok {
 		return false
 	}
@@ -220,4 +225,9 @@ func (u *authUser) isMachineWithJob(j state.MachineJob) bool {
 		}
 	}
 	return false
+}
+
+func isAgent(e state.AuthEntity) bool {
+	_, isUser := e.(*state.User)
+	return !isUser
 }
