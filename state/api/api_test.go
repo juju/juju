@@ -22,60 +22,101 @@ type suite struct {
 
 var _ = Suite(&suite{})
 
-var badLoginTests = []struct {
-	entityName string
-	password   string
-	err        string
-}{{
-	entityName: "user-admin",
-	password:   "wrong password",
-	err:        "invalid entity name or password",
+var operationPermTests = []struct {
+	about string
+	op func(c *C, st *api.State) (bool, error)
+	allow []string
+	deny []string
+} {{
+	about: "Unit.Get",
+	op: opGetUnit,
+	deny: []string{"user-admin", "user-other"},
 }, {
-	entityName: "user-foo",
-	password:   "password",
-	err:        "invalid entity name or password",
-}, {
-	entityName: "bar",
-	password:   "password",
-	err:        `invalid entity name "bar"`,
-}}
-
-type permTest struct {
-	entityName string
-	password   string
-	err        string
+	about: "Machine.Get",
+	op: opGetMachine,
+	deny: []string{"user-admin", "user-other"},
+},
 }
 
-// testAsDifferentEntities runs a test as several different entities.
-// For each test, it sets up the default scenario, connects
-// as the specified entity and runs the given check function.
-// If the password is blank, it is derived from the entity name.
-// If reset is true, the state will be set up from scratch for each
-// test.
-func (s *suite) testAsDifferentEntities(c *C, reset bool, check func(st *api.State) error, tests []permTest) {
-	for i, t := range tests {
-		c.Logf("test %d. entity %q; password %q", i, t.entityName, t.password)
-		if i == 0 || reset {
-			s.Reset(c)
-			s.setupScenario(c)
+// allowed returns the set of allowed entities given
+// an allow list and a deny list.
+// If an allow list is specified, only those entities
+// are allowed; otherwise those in deny are disallowed.
+func allowed(all, allow, deny []string) map[string]bool {
+	p := make(map[string]bool)
+	if allow != nil {
+		for _, e := range allow {
+			p[e] = true
 		}
-		password := t.password
-		if password == "" {
-			password = fmt.Sprintf("%s password", t.entityName)
+		return p
+	}
+loop:
+	for _, e0 := range all {
+		for _, e1 := range deny {
+			if e1 == e0 {
+				continue loop
+			}
 		}
-		st := s.openAs(c, t.entityName, password)
-		err := check(st)
-		if t.err != "" {
-			c.Check(err, ErrorMatches, t.err)
-		} else {
-			c.Check(err, IsNil)
+		p[e0] = true
+	}
+	return p
+}
+
+func (s *suite) TestOperationPerm(c *C) {
+	entities := s.setUpScenario(c)
+	for i, t := range operationPermTests {
+		allow := allowed(entities, t.allow, t.deny)
+		for _, e := range entities {
+			c.Logf("test %d; %s; entity %q", i, t.about, e)
+			st := s.openAs(c, e, fmt.Sprintf("%s password", e))
+			reset, err := t.op(c, st)
+			if allow[e] {
+				c.Check(err, IsNil)
+			} else {
+				c.Check(err, ErrorMatches, "permission denied")
+			}
+			st.Close()
+			if reset {
+				s.Reset(c)
+				s.setUpScenario(c)
+			}
 		}
 	}
 }
 
-// setupScenario makes an environment scenario suitable for
-// testing most kinds of access scenario.
-// After the scenario is set up, we have:
+func opGetUnit(c *C, st *api.State) (bool, error) {
+	u, err := st.Unit("wordpress/0")
+	if err != nil {
+		c.Check(u, IsNil)
+	} else {
+		name, ok := u.DeployerName()
+		c.Check(ok, Equals, true)
+		c.Check(name, Equals, "machine-1")
+	}
+	return false, err
+}
+
+func opGetMachine(c *C, st *api.State) (bool, error) {
+	m, err := st.Machine("1")
+	if err != nil {
+		c.Check(m, IsNil)
+	} else {
+		name, err := m.InstanceId()
+		c.Assert(err, IsNil)
+		c.Assert(name, Equals, "i-machine-1")
+	}
+	return false, err
+}
+
+// setUpScenario makes an environment scenario suitable for
+// testing most kinds of access scenario. It returns
+// a list of all the entities in the scenario.
+// 
+// When the scenario is initialized, we have:
+// user-admin
+//	password="user-admin password"
+// user-other
+//	password="user-other password"
 // machine-0
 //     password="machine-0 password
 //	instance-id="i-machine-0"
@@ -102,13 +143,27 @@ func (s *suite) testAsDifferentEntities(c *C, reset bool, check func(st *api.Sta
 // unit-logging-1
 //	password="unit-logging-0 password"
 //	deployer-name=unit-wordpress-1
-func (s *suite) setupScenario(c *C) {
+func (s *suite) setUpScenario(c *C) (entities []string) {
+	add := func(e state.AuthEntity) {
+		entities = append(entities, e.EntityName())
+	}
+	u, err := s.State.User("admin")
+	c.Assert(err, IsNil)
+	setDefaultPassword(c, u)
+	add(u)
+
+	u, err = s.State.AddUser("other", "")
+	c.Assert(err, IsNil)
+	setDefaultPassword(c, u)
+	add(u)
+
 	m, err := s.State.AddMachine(state.JobManageEnviron)
 	c.Assert(err, IsNil)
 	c.Assert(m.EntityName(), Equals, "machine-0")
 	err = m.SetInstanceId(state.InstanceId("i-" + m.EntityName()))
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, m)
+	add(m)
 
 	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
@@ -126,9 +181,7 @@ func (s *suite) setupScenario(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(wu.EntityName(), Equals, fmt.Sprintf("unit-wordpress-%d", i))
 		setDefaultPassword(c, wu)
-
-		err = wu.SetPassword(fmt.Sprintf("%s password", wu.EntityName()))
-		c.Assert(err, IsNil)
+		add(wu)
 
 		m, err := s.State.AddMachine(state.JobHostUnits)
 		c.Assert(err, IsNil)
@@ -136,6 +189,7 @@ func (s *suite) setupScenario(c *C) {
 		err = m.SetInstanceId(state.InstanceId("i-" + m.EntityName()))
 		c.Assert(err, IsNil)
 		setDefaultPassword(c, m)
+		add(m)
 
 		err = wu.AssignToMachine(m)
 		c.Assert(err, IsNil)
@@ -158,9 +212,10 @@ func (s *suite) setupScenario(c *C) {
 		deployer, ok = lu.DeployerName()
 		c.Assert(ok, Equals, true)
 		c.Assert(deployer, Equals, fmt.Sprintf("unit-wordpress-%d", i))
-
 		setDefaultPassword(c, lu)
+		add(lu)
 	}
+	return
 }
 
 func setDefaultPassword(c *C, e state.AuthEntity) {
@@ -168,65 +223,24 @@ func setDefaultPassword(c *C, e state.AuthEntity) {
 	c.Assert(err, IsNil)
 }
 
-func (s *suite) TestUnitGet(c *C) {
-	s.testAsDifferentEntities(c, false, func(st *api.State) error {
-		u, err := st.Unit("wordpress/0")
-		if err != nil {
-			c.Check(u, IsNil)
-		} else {
-			name, ok := u.DeployerName()
-			c.Check(ok, Equals, true)
-			c.Check(name, Equals, "machine-1")
-		}
-		return err
-	}, []permTest{{
-		entityName: "user-admin",
-		password:   s.Conn.Environ.Config().AdminSecret(),
-		err:        "permission denied",
-	}, {
-		entityName: "machine-0",
-	}, {
-		entityName: "unit-wordpress-0",
-	}, {
-		entityName: "unit-logging-0",
-	}, {
-		entityName: "unit-wordpress-1",
-	}, {
-		entityName: "unit-logging-1",
-	}, {
-		entityName: "machine-1",
-	}})
-}
 
-func (s *suite) TestMachineGet(c *C) {
-	s.testAsDifferentEntities(c, false, func(st *api.State) error {
-		m, err := st.Machine("1")
-		if err != nil {
-			c.Check(m, IsNil)
-		} else {
-			name, err := m.InstanceId()
-			c.Assert(err, IsNil)
-			c.Assert(name, Equals, "i-machine-1")
-		}
-		return err
-	}, []permTest{{
-		entityName: "user-admin",
-		password:   s.Conn.Environ.Config().AdminSecret(),
-		err:        "permission denied",
-	}, {
-		entityName: "machine-0",
-	}, {
-		entityName: "unit-wordpress-0",
-	}, {
-		entityName: "unit-logging-0",
-	}, {
-		entityName: "unit-wordpress-1",
-	}, {
-		entityName: "unit-logging-1",
-	}, {
-		entityName: "machine-1",
-	}})
-}
+var badLoginTests = []struct {
+	entityName string
+	password   string
+	err        string
+}{{
+	entityName: "user-admin",
+	password:   "wrong password",
+	err:        "invalid entity name or password",
+}, {
+	entityName: "user-foo",
+	password:   "password",
+	err:        "invalid entity name or password",
+}, {
+	entityName: "bar",
+	password:   "password",
+	err:        `invalid entity name "bar"`,
+}}
 
 func (s *suite) TestBadLogin(c *C) {
 	_, info, err := s.APIConn.Environ.StateInfo()
@@ -315,6 +329,37 @@ func (s *suite) TestMachineInstanceId(c *C) {
 	instId, err = m.InstanceId()
 	c.Assert(err, IsNil)
 	c.Assert(instId, Equals, "foo")
+}
+
+func (s *suite) TestMachineRefresh(c *C) {
+	stm, err := s.State.AddMachine(state.JobHostUnits)
+	c.Assert(err, IsNil)
+	err = stm.SetPassword("machine password")
+	c.Assert(err, IsNil)
+	err = stm.SetInstanceId("foo")
+	c.Assert(err, IsNil)
+
+	st := s.openAs(c, stm.EntityName(), "machine password")
+	m, err := st.Machine(stm.Id())
+	c.Assert(err, IsNil)
+
+	instId, err := m.InstanceId()
+	c.Assert(err, IsNil)
+	c.Assert(instId, Equals, "foo")
+
+	err = stm.SetInstanceId("bar")
+	c.Assert(err, IsNil)
+
+	instId, err = m.InstanceId()
+	c.Assert(err, IsNil)
+	c.Assert(instId, Equals, "foo")
+
+	err = m.Refresh()
+	c.Assert(err, IsNil)
+
+	instId, err = m.InstanceId()
+	c.Assert(err, IsNil)
+	c.Assert(instId, Equals, "bar")
 }
 
 func (s *suite) TestStop(c *C) {
