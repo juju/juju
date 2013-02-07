@@ -116,28 +116,47 @@ func ReadEnvironsBytes(data []byte) (*Environs, error) {
 	return &Environs{raw.Default, environs}, nil
 }
 
+func environsPath(path string) (string, error) {
+	if path == "" {
+		home := os.Getenv("HOME")
+		if home == "" {
+			return "", errors.New("$HOME not set")
+		}
+		path = filepath.Join(home, ".juju/environments.yaml")
+	}
+	return path, nil
+}
+
 // ReadEnvirons reads the juju environments.yaml file
 // and returns the result of running ParseEnvironments
 // on the file's contents.
-// If environsFile is empty, $HOME/.juju/environments.yaml
-// is used.
-func ReadEnvirons(environsFile string) (*Environs, error) {
-	if environsFile == "" {
-		home := os.Getenv("HOME")
-		if home == "" {
-			return nil, errors.New("$HOME not set")
-		}
-		environsFile = filepath.Join(home, ".juju/environments.yaml")
+// If path is empty, $HOME/.juju/environments.yaml is used.
+func ReadEnvirons(path string) (*Environs, error) {
+	environsFilepath, err := environsPath(path)
+	if err != nil {
+		return nil, err
 	}
-	data, err := ioutil.ReadFile(environsFile)
+	data, err := ioutil.ReadFile(environsFilepath)
 	if err != nil {
 		return nil, err
 	}
 	e, err := ReadEnvironsBytes(data)
 	if err != nil {
-		return nil, fmt.Errorf("cannot parse %q: %v", environsFile, err)
+		return nil, fmt.Errorf("cannot parse %q: %v", environsFilepath, err)
 	}
 	return e, nil
+}
+
+// WriteEnvirons creates a new juju environments.yaml file with the specified contents.
+func WriteEnvirons(path string, fileContents string) (string, error) {
+	environsFilepath, err := environsPath(path)
+	if err != nil {
+		return "", err
+	}
+	if err := ioutil.WriteFile(environsFilepath, []byte(fileContents), 0666); err != nil {
+		return "", err
+	}
+	return environsFilepath, nil
 }
 
 // BootstrapConfig returns an environment configuration suitable for
