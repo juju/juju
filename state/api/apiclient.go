@@ -26,14 +26,14 @@ func (st *State) Machine(id string) (*Machine, error) {
 }
 
 type Unit struct {
-	st *State
+	st   *State
 	name string
-	doc rpcUnit
+	doc  rpcUnit
 }
 
 func (st *State) Unit(name string) (*Unit, error) {
 	u := &Unit{
-		st: st,
+		st:   st,
 		name: name,
 	}
 	if err := u.Refresh(); err != nil {
@@ -48,7 +48,7 @@ func (st *State) Unit(name string) (*Unit, error) {
 func (st *State) Login(entityName, password string) error {
 	err := st.client.Call("Admin", "", "Login", &rpcCreds{
 		EntityName: entityName,
-		Password: password,
+		Password:   password,
 	}, nil)
 	return rpcError(err)
 }
@@ -58,7 +58,7 @@ func (m *Machine) Id() string {
 }
 
 func (m *Machine) EntityName() string {
-	return "machine-"+m.Id()
+	return "machine-" + m.Id()
 }
 
 func (m *Machine) Refresh() error {

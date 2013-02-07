@@ -24,17 +24,17 @@ var _ = Suite(&suite{})
 
 var operationPermTests = []struct {
 	about string
-	op func(c *C, st *api.State) (bool, error)
+	op    func(c *C, st *api.State) (bool, error)
 	allow []string
-	deny []string
-} {{
+	deny  []string
+}{{
 	about: "Unit.Get",
-	op: opGetUnit,
-	deny: []string{"user-admin", "user-other"},
+	op:    opGetUnit,
+	deny:  []string{"user-admin", "user-other"},
 }, {
 	about: "Machine.Get",
-	op: opGetMachine,
-	deny: []string{"user-admin", "user-other"},
+	op:    opGetMachine,
+	deny:  []string{"user-admin", "user-other"},
 },
 }
 
@@ -215,7 +215,6 @@ func setDefaultPassword(c *C, e state.AuthEntity) {
 	err := e.SetPassword(e.EntityName() + " password")
 	c.Assert(err, IsNil)
 }
-
 
 var badLoginTests = []struct {
 	entityName string

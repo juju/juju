@@ -75,7 +75,7 @@ func Open(info *Info) (*State, error) {
 	client := rpc.NewClientWithCodec(&clientCodec{conn: conn})
 	st := &State{
 		client: client,
-		conn: conn,
+		conn:   conn,
 	}
 	if info.EntityName != "" || info.Password != "" {
 		if err := st.Login(info.EntityName, info.Password); err != nil {

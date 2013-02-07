@@ -2,18 +2,18 @@ package api
 
 import (
 	"code.google.com/p/go.net/websocket"
-	"launchpad.net/juju-core/state"
+	"errors"
 	"fmt"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state"
 	"sync"
-	"errors"
 )
 
 var (
 	errBadId       = errors.New("id not found")
 	errBadCreds    = errors.New("invalid entity name or password")
 	errNotLoggedIn = errors.New("not logged in")
-	errPerm = errors.New("permission denied")
+	errPerm        = errors.New("permission denied")
 )
 
 // srvRoot represents a single client's connection to the state.
@@ -84,7 +84,7 @@ func (r *srvRoot) Machine(id string) (*srvMachine, error) {
 	}
 	return &srvMachine{
 		root: r,
-		m: m,
+		m:    m,
 	}, nil
 }
 
@@ -98,7 +98,7 @@ func (r *srvRoot) Unit(name string) (*srvUnit, error) {
 	}
 	return &srvUnit{
 		root: r,
-		u: u,
+		u:    u,
 	}, nil
 }
 
@@ -117,7 +117,7 @@ func (r *srvRoot) User(name string) (*srvUser, error) {
 	}
 	return &srvUser{
 		root: r,
-		u: u,
+		u:    u,
 	}, nil
 }
 
@@ -205,13 +205,12 @@ type rpcUser struct {
 	// future.
 }
 
-
 func (u *srvUser) Get() (rpcUser, error) {
 	return rpcUser{}, nil
 }
 
 type authUser struct {
-	mu     sync.Mutex
+	mu      sync.Mutex
 	_entity state.AuthEntity // logged-in entity (access only when mu is locked)
 }
 
