@@ -43,7 +43,7 @@ var providerInstance environProvider
 // a security group after termination).  The former failure mode is
 // dealt with by shortAttempt, the latter by longAttempt.
 var shortAttempt = trivial.AttemptStrategy{
-	Total: 5 * time.Second,
+	Total: 10 * time.Second, // it seems Nova needs more time than EC2
 	Delay: 200 * time.Millisecond,
 }
 
@@ -629,10 +629,9 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	}
 
 	var server *nova.Entity
-	machineName := fmt.Sprintf("juju-%s-%s", e.Name(), state.MachineEntityName(scfg.machineId))
 	for a := shortAttempt.Start(); a.Next(); {
 		server, err = e.nova().RunServer(nova.RunServerOpts{
-			Name:               machineName,
+			Name:               e.machineFullName(scfg.machineId),
 			FlavorId:           spec.flavorId,
 			ImageId:            spec.imageId,
 			UserData:           userData,
@@ -673,42 +672,76 @@ func (e *environ) StopInstances(insts []environs.Instance) error {
 		}
 		ids[i] = instanceValue.Id()
 	}
+	log.Debugf("environs/openstack: terminating instances %v", ids)
 	return e.terminateInstances(ids)
 }
 
 // gatherInstances tries to get information on each instance
-// id whose corresponding insts slot is nil.
+// id whose corresponding insts slot is nil, and the instance's
+// status is either ACTIVE or BUILD.
 // It returns environs.ErrPartialInstances if the insts
 // slice has not been completely filled.
 func (e *environ) gatherInstances(ids []state.InstanceId, insts []environs.Instance) error {
-	var need []string
+	needMany := false
+	needOne := ""
 	for i, inst := range insts {
 		if inst == nil {
-			need = append(need, string(ids[i]))
+			thisId := string(ids[i])
+			if needOne != "" && needOne != thisId && thisId != "" {
+				// we already have one, so it seems we need the all
+				needMany = true
+				needOne = ""
+			} else if thisId != "" {
+				// we only need thisId (so far)
+				needOne = thisId
+			}
+		} else {
+			if needOne == "" {
+				// we already have this from before
+				needOne = string(inst.Id())
+			} else {
+				// we have many from before
+				needMany = true
+				needOne = ""
+			}
 		}
 	}
-	if len(need) == 0 {
-		return nil
+	if needOne == "" && !needMany {
+		// no non-empty ids were passed
+		return environs.ErrPartialInstances
 	}
-	filter := nova.NewFilter()
-	filter.Add(nova.FilterServer, fmt.Sprintf(`juju-%s-machine.*`, e.Name()))
-	filter.Add(nova.FilterStatus, nova.StatusBuild)
-	filter.Add(nova.FilterStatus, nova.StatusActive)
-	servers, err := e.nova().ListServersDetail(filter)
-	if err != nil {
-		return err
+	serversById := make(map[string]nova.ServerDetail)
+	if needMany {
+		servers, err := e.nova().ListServersDetail(e.machinesFilter())
+		if err == nil {
+			for _, server := range servers {
+				serversById[server.Id] = server
+			}
+		}
+		// errors will cause ErrPartialInstances eventually
+	} else {
+		server, err := e.nova().GetServer(needOne)
+		if err == nil {
+			serversById[server.Id] = *server
+		}
+		// errors will cause ErrPartialInstances eventually
 	}
 	n := 0
 	// For each requested id, add it to the returned instances
 	// if we find it in the response.
 	for i, id := range ids {
+		thisId := string(id)
+		if thisId == "" {
+			// empty ids will always return ErrPartialInstances
+			continue
+		}
 		if insts[i] != nil {
 			n++
 			continue
 		}
-		for j := range servers {
-			if servers[j].Id == string(id) {
-				insts[i] = &instance{e, &servers[j], ""}
+		if server, ok := serversById[thisId]; ok {
+			if server.Status == nova.StatusBuild || server.Status == nova.StatusActive {
+				insts[i] = &instance{e, &server, ""}
 				n++
 			}
 		}
@@ -721,7 +754,7 @@ func (e *environ) gatherInstances(ids []state.InstanceId, insts []environs.Insta
 
 func (e *environ) Instances(ids []state.InstanceId) ([]environs.Instance, error) {
 	if len(ids) == 0 {
-		return nil, nil
+		return nil, environs.ErrNoInstances
 	}
 	insts := make([]environs.Instance, len(ids))
 	// Make a series of requests to cope with eventual consistency.
@@ -749,17 +782,15 @@ func (e *environ) Instances(ids []state.InstanceId) ([]environs.Instance, error)
 }
 
 func (e *environ) AllInstances() (insts []environs.Instance, err error) {
-	filter := nova.NewFilter()
-	filter.Add(nova.FilterServer, fmt.Sprintf(`juju-%s-machine.*`, e.Name()))
-	filter.Add(nova.FilterStatus, nova.StatusBuild)
-	filter.Add(nova.FilterStatus, nova.StatusActive)
-	servers, err := e.nova().ListServersDetail(nil)
+	servers, err := e.nova().ListServersDetail(e.machinesFilter())
 	if err != nil {
 		return nil, err
 	}
 	for _, server := range servers {
-		var s = server
-		insts = append(insts, &instance{e, &s, ""})
+		if server.Status == nova.StatusActive || server.Status == nova.StatusBuild {
+			var s = server
+			insts = append(insts, &instance{e, &s, ""})
+		}
 	}
 	return insts, err
 }
@@ -812,6 +843,17 @@ func (e *environ) machineGroupName(machineId string) string {
 
 func (e *environ) jujuGroupName() string {
 	return fmt.Sprintf("juju-%s", e.name)
+}
+
+func (e *environ) machineFullName(machineId string) string {
+	return fmt.Sprintf("juju-%s-%s", e.Name(), state.MachineEntityName(machineId))
+}
+
+// machinesFilter returns a nova.Filter matching all machines in the environment.
+func (e *environ) machinesFilter() *nova.Filter {
+	filter := nova.NewFilter()
+	filter.Set(nova.FilterServer, fmt.Sprintf("juju-%s-.*", e.Name()))
+	return filter
 }
 
 func (e *environ) OpenPorts(ports []state.Port) error {
@@ -927,6 +969,7 @@ func (e *environ) terminateInstances(ids []state.InstanceId) error {
 			err = nil
 		}
 		if err != nil && firstErr == nil {
+			log.Debugf("environs/openstack: error terminating instance %q: %v", id, err)
 			firstErr = err
 		}
 	}
