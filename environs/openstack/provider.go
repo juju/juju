@@ -680,20 +680,31 @@ func (e *environ) StopInstances(insts []environs.Instance) error {
 // It fills the slots in the given map for known servers with status
 // either ACTIVE or BUILD. Returns a list of missing ids.
 func (e *environ) collectInstances(ids []state.InstanceId, out map[state.InstanceId]environs.Instance) []state.InstanceId {
-	servers, err := e.nova().ListServersDetail(e.machinesFilter())
-	if err != nil {
-		return ids
-	}
+	var err error
 	serversById := make(map[string]nova.ServerDetail)
-	for _, server := range servers {
-		if server.Status == nova.StatusActive || server.Status == nova.StatusBuild {
+	if len(ids) == 1 {
+		// most common case - single instance
+		var server *nova.ServerDetail
+		server, err = e.nova().GetServer(string(ids[0]))
+		if server != nil {
+			serversById[server.Id] = *server
+		}
+	} else {
+		var servers []nova.ServerDetail
+		servers, err = e.nova().ListServersDetail(e.machinesFilter())
+		for _, server := range servers {
 			serversById[server.Id] = server
 		}
+	}
+	if err != nil {
+		return ids
 	}
 	var missing []state.InstanceId
 	for _, id := range ids {
 		if server, found := serversById[string(id)]; found {
-			out[id] = &instance{e, &server, ""}
+			if server.Status == nova.StatusActive || server.Status == nova.StatusBuild {
+				out[id] = &instance{e, &server, ""}
+			}
 			continue
 		}
 		missing = append(missing, id)
