@@ -25,20 +25,26 @@ type srvRoot struct {
 	user authUser
 }
 
+// srvAdmin is the only object that unlogged-in
+// clients can access. It holds any methods
+// that are needed to log in.
 type srvAdmin struct {
 	root *srvRoot
 }
 
+// srvMachine serves API methods on a machine.
 type srvMachine struct {
 	root *srvRoot
 	m    *state.Machine
 }
 
+// srvUnit serves API methods on a unit.
 type srvUnit struct {
 	root *srvRoot
 	u    *state.Unit
 }
 
+// srvUser serves API methods on a state User.
 type srvUser struct {
 	root *srvRoot
 	u    *state.User
@@ -63,6 +69,8 @@ func (r *srvRoot) Admin(id string) (*srvAdmin, error) {
 	return r.admin, nil
 }
 
+// accessAgentAPI checks whether the
+// current client may access the agent APIs.
 func (r *srvRoot) accessAgentAPI() error {
 	e := r.user.entity()
 	if e == nil {
@@ -126,6 +134,9 @@ type rpcCreds struct {
 	Password   string
 }
 
+// Login logs in with the provided credentials.
+// All subsequent requests on the connection will
+// act as the authenticated user.
 func (a *srvAdmin) Login(c rpcCreds) error {
 	return a.root.user.login(a.root.srv.state, c.EntityName, c.Password)
 }
@@ -134,6 +145,7 @@ type rpcMachine struct {
 	InstanceId string
 }
 
+// Get retrieves all the details of a machine.
 func (m *srvMachine) Get() (info rpcMachine) {
 	instId, _ := m.m.InstanceId()
 	info.InstanceId = string(instId)
@@ -153,27 +165,41 @@ func setPassword(e state.AuthEntity, password string) error {
 	return e.SetPassword(password)
 }
 
+// SetPassword sets the machine's password.
 func (m *srvMachine) SetPassword(p rpcPassword) error {
 	// Allow:
 	// - the machine itself.
 	// - the environment manager.
-	allow := m.root.user.entity().EntityName() == m.m.EntityName() ||
-		m.root.user.isMachineWithJob(state.JobManageEnviron)
+	e := m.root.user.entity()
+	allow := e.EntityName() == m.m.EntityName() ||
+		isMachineWithJob(e, state.JobManageEnviron)
 	if !allow {
 		return errPerm
 	}
 	return setPassword(m.m, p.Password)
 }
 
+// Get retrieves all the details of a unit.
+func (u *srvUnit) Get() (rpcUnit, error) {
+	var ru rpcUnit
+	ru.DeployerName, _ = u.u.DeployerName()
+	// TODO add other unit attributes, possibly
+	// filling them in on a need-to-know basis.
+	return ru, nil
+}
+
+// SetPassword sets the unit's password.
 func (u *srvUnit) SetPassword(p rpcPassword) error {
 	ename := u.root.user.entity().EntityName()
+	log.Printf("srvUnit.SetPassword; logged in entity: %q", ename)
 	// Allow:
 	// - the unit itself.
 	// - the machine responsible for unit, if unit is principal
 	// - the unit's principal unit, if unit is subordinate
-	allow := ename != u.u.EntityName()
+	allow := ename == u.u.EntityName()
 	if !allow {
 		deployerName, ok := u.u.DeployerName()
+		log.Printf("allow %v; deployer name %q; ok %v", allow, deployerName, ok)
 		allow = ok && ename == deployerName
 	}
 	if !allow {
@@ -187,14 +213,7 @@ type rpcUnit struct {
 	// TODO(rog) other unit attributes.
 }
 
-func (u *srvUnit) Get() (rpcUnit, error) {
-	var ru rpcUnit
-	ru.DeployerName, _ = u.u.DeployerName()
-	// TODO add other unit attributes, possibly
-	// filling them in on a need-to-know basis.
-	return ru, nil
-}
-
+// SetPassword sets the user's password.
 func (u *srvUser) SetPassword(p rpcPassword) error {
 	return setPassword(u.u, p.Password)
 }
@@ -205,15 +224,19 @@ type rpcUser struct {
 	// future.
 }
 
+// Get retrieves all details of a user.
 func (u *srvUser) Get() (rpcUser, error) {
 	return rpcUser{}, nil
 }
 
+// authUser holds login details. It's ok to call
+// its methods concurrently.
 type authUser struct {
 	mu      sync.Mutex
 	_entity state.AuthEntity // logged-in entity (access only when mu is locked)
 }
 
+// login authenticates as entity with the given name,.
 func (u *authUser) login(st *state.State, entityName, password string) error {
 	u.mu.Lock()
 	defer u.mu.Unlock()
@@ -233,14 +256,19 @@ func (u *authUser) login(st *state.State, entityName, password string) error {
 	return nil
 }
 
+// entity returns the currently logged-in entity, or nil if not
+// currently logged on.  The returned entity should not be modified
+// because it may be used concurrently.
 func (u *authUser) entity() state.AuthEntity {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	return u._entity
 }
 
-func (u *authUser) isMachineWithJob(j state.MachineJob) bool {
-	m, ok := u.entity().(*state.Machine)
+// isMachineWithJob returns whether the given entity is a machine that
+// is configured to run the given job.
+func isMachineWithJob(e state.AuthEntity, j state.MachineJob) bool {
+	m, ok := e.(*state.Machine)
 	if !ok {
 		return false
 	}
@@ -252,6 +280,7 @@ func (u *authUser) isMachineWithJob(j state.MachineJob) bool {
 	return false
 }
 
+// isAgent returns whether the given entity is an agent.
 func isAgent(e state.AuthEntity) bool {
 	_, isUser := e.(*state.User)
 	return !isUser

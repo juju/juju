@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"launchpad.net/juju-core/rpc"
+	"strings"
 )
 
 // Machine represents the state of a machine.
@@ -78,9 +79,36 @@ func (m *Machine) InstanceId() (string, error) {
 	return m.doc.InstanceId, nil
 }
 
+// SetPassword sets the password for the machine's agent.
+func (m *Machine) SetPassword(password string) error {
+	err := m.st.client.Call("Machine", m.id, "SetPassword", &rpcPassword{
+		Password: password,
+	}, nil)
+	return rpcError(err)
+
+}
+
 func (u *Unit) Refresh() error {
 	err := u.st.client.Call("Unit", u.name, "Get", nil, &u.doc)
 	return rpcError(err)
+}
+
+// SetPassword sets the password for the unit's agent.
+func (u *Unit) SetPassword(password string) error {
+	err := u.st.client.Call("Unit", u.name, "SetPassword", &rpcPassword{
+		Password: password,
+	}, nil)
+	return rpcError(err)
+}
+
+// UnitEntityName returns the entity name for the
+// unit with the given name.
+func UnitEntityName(unitName string) string {
+	return "unit-" + strings.Replace(unitName, "/", "-", -1)
+}
+
+func (u *Unit) EntityName() string {
+	return UnitEntityName(u.name)
 }
 
 func (u *Unit) DeployerName() (string, bool) {

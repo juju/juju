@@ -24,17 +24,32 @@ var _ = Suite(&suite{})
 
 var operationPermTests = []struct {
 	about string
-	op    func(c *C, st *api.State) (bool, error)
+	// op performs the operation to be tested using the given state
+	// connection.  It returns a function that should be used to
+	// undo any changes made by the operation.
+	op    func(c *C, st *api.State) (reset func(), err error)
 	allow []string
 	deny  []string
 }{{
 	about: "Unit.Get",
-	op:    opGetUnit,
+	op:    opGetUnitWordpress0,
 	deny:  []string{"user-admin", "user-other"},
 }, {
 	about: "Machine.Get",
-	op:    opGetMachine,
+	op:    opGetMachine1,
 	deny:  []string{"user-admin", "user-other"},
+}, {
+	about: "Machine.SetPassword",
+	op:    opMachine1SetPassword,
+	allow: []string{"machine-0", "machine-1"},
+}, {
+	about: "Unit.SetPassword (on principal unit)",
+	op:    opUnitSetPassword("wordpress/0"),
+	allow: []string{"unit-wordpress-0", "machine-1"},
+}, {
+	about: "Unit.SetPassword (on subordinate unit)",
+	op:    opUnitSetPassword("logging/0"),
+	allow: []string{"unit-logging-0", "unit-wordpress-0"},
 },
 }
 
@@ -74,16 +89,13 @@ func (s *suite) TestOperationPerm(c *C) {
 			} else {
 				c.Check(err, ErrorMatches, "permission denied")
 			}
+			reset()
 			st.Close()
-			if reset {
-				s.Reset(c)
-				s.setUpScenario(c)
-			}
 		}
 	}
 }
 
-func opGetUnit(c *C, st *api.State) (bool, error) {
+func opGetUnitWordpress0(c *C, st *api.State) (func(), error) {
 	u, err := st.Unit("wordpress/0")
 	if err != nil {
 		c.Check(u, IsNil)
@@ -92,10 +104,27 @@ func opGetUnit(c *C, st *api.State) (bool, error) {
 		c.Check(ok, Equals, true)
 		c.Check(name, Equals, "machine-1")
 	}
-	return false, err
+	return func() {}, err
 }
 
-func opGetMachine(c *C, st *api.State) (bool, error) {
+func opUnitSetPassword(unitName string) func(c *C, st *api.State) (func(), error) {
+	return func(c *C, st *api.State) (func(), error) {
+		u, err := st.Unit(unitName)
+		if err != nil {
+			c.Check(u, IsNil)
+			return func() {}, err
+		}
+		err = u.SetPassword("another password")
+		if err != nil {
+			return func() {}, err
+		}
+		return func() {
+			setDefaultPassword(c, u)
+		}, nil
+	}
+}
+
+func opGetMachine1(c *C, st *api.State) (func(), error) {
 	m, err := st.Machine("1")
 	if err != nil {
 		c.Check(m, IsNil)
@@ -104,7 +133,22 @@ func opGetMachine(c *C, st *api.State) (bool, error) {
 		c.Assert(err, IsNil)
 		c.Assert(name, Equals, "i-machine-1")
 	}
-	return false, err
+	return func() {}, err
+}
+
+func opMachine1SetPassword(c *C, st *api.State) (func(), error) {
+	m, err := st.Machine("1")
+	if err != nil {
+		c.Check(m, IsNil)
+		return func() {}, err
+	}
+	err = m.SetPassword("another password")
+	if err != nil {
+		return func() {}, err
+	}
+	return func() {
+		setDefaultPassword(c, m)
+	}, nil
 }
 
 // setUpScenario makes an environment scenario suitable for
@@ -211,7 +255,16 @@ func (s *suite) setUpScenario(c *C) (entities []string) {
 	return
 }
 
-func setDefaultPassword(c *C, e state.AuthEntity) {
+// AuthEntity is the same as state.AuthEntity but
+// without PasswordValid, which is implemented
+// by state entities but not by api entities.
+type AuthEntity interface {
+	EntityName() string
+	SetPassword(pass string) error
+	Refresh() error
+}
+
+func setDefaultPassword(c *C, e AuthEntity) {
 	err := e.SetPassword(e.EntityName() + " password")
 	c.Assert(err, IsNil)
 }
@@ -352,6 +405,23 @@ func (s *suite) TestMachineRefresh(c *C) {
 	c.Assert(instId, Equals, "bar")
 }
 
+func (s *suite) TestMachineSetPassword(c *C) {
+	stm, err := s.State.AddMachine(state.JobHostUnits)
+	c.Assert(err, IsNil)
+	setDefaultPassword(c, stm)
+
+	st := s.openAs(c, stm.EntityName())
+	m, err := st.Machine(stm.Id())
+	c.Assert(err, IsNil)
+
+	err = m.SetPassword("foo")
+	c.Assert(err, IsNil)
+
+	err = stm.Refresh()
+	c.Assert(err, IsNil)
+	c.Assert(stm.PasswordValid("foo"), Equals, true)
+}
+
 func (s *suite) TestUnitRefresh(c *C) {
 	s.setUpScenario(c)
 	st := s.openAs(c, "unit-wordpress-0")
@@ -378,6 +448,18 @@ func (s *suite) TestUnitRefresh(c *C) {
 	deployer, ok = u.DeployerName()
 	c.Assert(ok, Equals, false)
 	c.Assert(deployer, Equals, "")
+}
+
+func (s *suite) TestEntityName(c *C) {
+	s.setUpScenario(c)
+	st := s.openAs(c, "unit-wordpress-0")
+	u, err := st.Unit("wordpress/0")
+	c.Assert(err, IsNil)
+	c.Assert(u.EntityName(), Equals, "unit-wordpress-0")
+}
+
+func (s *suite) TestUnitEntityName(c *C) {
+	c.Assert(api.UnitEntityName("wordpress/2"), Equals, "unit-wordpress-2")
 }
 
 func (s *suite) TestStop(c *C) {
