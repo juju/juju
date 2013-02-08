@@ -152,116 +152,109 @@ func (m *Machine) PasswordValid(password string) bool {
 	return trivial.PasswordHash(password) == m.doc.PasswordHash
 }
 
-// deathAsserts returns the conditions that must hold for a machine to
-// become Dying or Dead.
-func (m *Machine) deathAsserts() D {
-	return D{
+// Destroy sets the machine lifecycle to Dying if it is Alive. It does
+// nothing otherwise. Destroy will fail if the machine has principal
+// units assigned, or if the machine has JobManageEnviron.
+func (m *Machine) Destroy() error {
+	return m.advanceLifecycle(Dying)
+}
+
+// EnsureDead sets the machine lifecycle to Dead if it is Alive or Dying.
+// It does nothing otherwise. EnsureDead will fail if the machine has
+// principal units assigned, or if the machine has JobManageEnviron.
+func (m *Machine) EnsureDead() error {
+	return m.advanceLifecycle(Dead)
+}
+
+// advanceLifecycle ensures that the machine's lifecycle is no earlier
+// than the supplied value. If the machine already has that lifecycle
+// value, or a later one, no changes will be made to remote state. If
+// the machine has any responsibilities that preclude a valid change in
+// lifecycle, it will return an error.
+func (original *Machine) advanceLifecycle(life Life) (err error) {
+	m := original
+	defer func() {
+		if err == nil {
+			// The machine's lifecycle is known to have advanced; it may be
+			// known to have already advanced further than requested, in
+			// which case we set the latest known valid value.
+			if m == nil {
+				life = Dead
+			} else if m.doc.Life > life {
+				life = m.doc.Life
+			}
+			original.doc.Life = life
+		}
+	}()
+	// op and
+	op := txn.Op{
+		C:      m.st.machines.Name,
+		Id:     m.doc.Id,
+		Update: D{{"$set", D{{"life", life}}}},
+	}
+	advanceAsserts := D{
 		{"jobs", D{{"$nin", []MachineJob{JobManageEnviron}}}},
 		{"$or", []D{
 			{{"principals", D{{"$size", 0}}}},
 			{{"principals", D{{"$exists", false}}}},
 		}},
 	}
-}
-
-// deathFailureReason returns an error indicating why the machine may have
-// failed to advance its lifecycle to Dying or Dead. If deathFailureReason
-// returns no error, it is possible that the condition that caused the txn
-// failure no longer holds; it does not automatically indicate bad state.
-func (m *Machine) deathFailureReason(life Life) (err error) {
-	if m, err = m.st.Machine(m.doc.Id); err != nil {
-		return err
-	}
-	defer trivial.ErrorContextf(&err, "machine %s cannot become %s", m, life)
-	for _, j := range m.doc.Jobs {
-		if j == JobManageEnviron {
-			// If and when we enable multiple JobManageEnviron machines, the
-			// restriction will become "there must be at least one machine
-			// with this job", and this will need to change.
-			return fmt.Errorf("required by environment")
+	// 3 atempts: one with original data, one with refreshed data, and a final
+	// one intended to determine the cause of failure of the preceding attempt.
+	for i := 0; i < 3; i++ {
+		// If the transaction was aborted, grab a fresh copy of the machine data.
+		// We don't write to original, because the expectation is that state-
+		// changing methods only set the requested change on the receiver; a case
+		// could perhaps be made that this is not a helpful convention in the
+		// context of the new state API, but we maintain consistency in the
+		// face of uncertainty.
+		if i != 0 {
+			if m, err = m.st.Machine(m.doc.Id); IsNotFound(err) {
+				return nil
+			} else if err != nil {
+				return err
+			}
 		}
-	}
-	if len(m.doc.Principals) != 0 {
-		return fmt.Errorf("unit %q is assigned to it", m.doc.Principals[0])
-	}
-	return nil
-}
-
-// deathAttempts controls how many times we should attempt a death operation.
-// A single failure without a diagnosed cause indicates that the operation
-// should certainly be retried; subsequent unknown failures cannot ever
-// unambiguously indicate bad state, because it is *possible* that the number
-// of assigned units is flipping from 1 to 0 and back, perfectly timed to
-// abort every txn but show no reason for the failure; but we believe this
-// situation to be vanishingly unlikely, and so only retry once.
-var deathAttempts = 2
-
-// Destroy sets the machine lifecycle to Dying if it is Alive. It does
-// nothing otherwise. Destroy will fail if the machine has principal
-// units assigned, or if the machine has JobManageEnviron.
-func (m *Machine) Destroy() (err error) {
-	if m.doc.Life != Alive {
-		return nil
-	}
-	defer func() {
-		if err == nil {
-			m.doc.Life = Dying
+		// Check that the life change is sane, and collect the assertions
+		// necessary to determine that it remains so.
+		switch life {
+		case Dying:
+			if m.doc.Life != Alive {
+				return nil
+			}
+			op.Assert = append(advanceAsserts, isAliveDoc...)
+		case Dead:
+			if m.doc.Life == Dead {
+				return nil
+			}
+			op.Assert = append(advanceAsserts, notDeadDoc...)
+		default:
+			panic(fmt.Errorf("cannot advance lifecycle to %v", life))
 		}
-	}()
-	for i := 0; i < deathAttempts; i++ {
-		ops := []txn.Op{{
-			C:      m.st.machines.Name,
-			Id:     m.doc.Id,
-			Assert: append(m.deathAsserts(), isAliveDoc...),
-			Update: D{{"$set", D{{"life", Dying}}}},
-		}}
-		if err := m.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+		// Check that the machine does not have any responsibilities that
+		// prevent a lifecycle change.
+		for _, j := range m.doc.Jobs {
+			if j == JobManageEnviron {
+				// (NOTE: When we enable multiple JobManageEnviron machines,
+				// the restriction will become "there must be at least one
+				// machine with this job".)
+				return fmt.Errorf("machine %s is required by the environment", m.doc.Id)
+			}
+		}
+		if len(m.doc.Principals) != 0 {
+			return fmt.Errorf("machine %s has unit %q assigned", m.doc.Id, m.doc.Principals[0])
+		}
+		// Run the transaction...
+		if err := m.st.runner.Run([]txn.Op{op}, "", nil); err != txn.ErrAborted {
 			return err
 		}
-		if alive, err := isAlive(m.st.machines, m.doc.Id); err != nil {
-			return err
-		} else if !alive {
-			return nil
-		}
-		if err := m.deathFailureReason(Dying); err != nil {
-			return err
-		}
+		// ...and retry on abort.
 	}
-	return fmt.Errorf("machine %s cannot become dying: please contact juju-dev@lists.ubuntu.com", m)
-}
-
-// EnsureDead sets the machine lifecycle to Dead if it is Alive or Dying.
-// It does nothing otherwise. EnsureDead will fail if the machine has
-// principal units assigned, or if the machine has JobManageEnviron.
-func (m *Machine) EnsureDead() (err error) {
-	if m.doc.Life == Dead {
-		return nil
-	}
-	defer func() {
-		if err == nil {
-			m.doc.Life = Dead
-		}
-	}()
-	for i := 0; i < deathAttempts; i++ {
-		ops := []txn.Op{{
-			C:      m.st.machines.Name,
-			Id:     m.doc.Id,
-			Assert: append(m.deathAsserts(), notDeadDoc...),
-			Update: D{{"$set", D{{"life", Dead}}}},
-		}}
-		if err := m.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
-			return err
-		}
-		if notDead, err := isNotDead(m.st.machines, m.doc.Id); err != nil {
-			return err
-		} else if !notDead {
-			return nil
-		}
-		if err := m.deathFailureReason(Dead); err != nil {
-			return err
-		}
-	}
-	return fmt.Errorf("machine %s cannot become dead: please contact juju-dev@lists.ubuntu.com", m)
+	// In very rare circumstances, the final iteration above will have determined
+	// no cause of failure, and attempted a final transaction: if this also failed,
+	// we can be sure that the machine document is changing very fast, in a somewhat
+	// surprising fashion, and that it is sensible to back off for now.
+	return fmt.Errorf("machine %s cannot advance lifecycle: %v", m, ErrExcessiveContention)
 }
 
 // Remove removes the machine from state. It will fail if the machine is not

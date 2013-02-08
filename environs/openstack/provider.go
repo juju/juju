@@ -68,7 +68,7 @@ openstack:
   # auth-url: https://yourkeystoneurl:443/v2.0/
   # override if your workstation is running a different series to which you are deploying
   # default-series: precise
-  default-image-id: <nova server id>
+  default-image-id: c876e5fe-abb0-41f0-8f29-f0b47481f523
   # The following are used for userpass authentication (the default)
   auth-mode: userpass
   # Usually set via the env variable OS_USERNAME, but can be specified here
@@ -90,7 +90,7 @@ hpcloud:
   auth-url: https://yourkeystoneurl:35357/v2.0/
   # override if your workstation is running a different series to which you are deploying
   # default-series: precise
-  default-image-id: <nova server id>
+  default-image-id: 75845
   # The following are used for userpass authentication (the default)
   auth-mode: userpass
   # Usually set via the env variable OS_USERNAME, but can be specified here
