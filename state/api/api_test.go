@@ -426,6 +426,18 @@ func (s *suite) TestMachineSetPassword(c *C) {
 	c.Assert(stm.PasswordValid("foo"), Equals, true)
 }
 
+func (s *suite) TestMachineEntityName(c *C) {
+	c.Assert(api.MachineEntityName("2"), Equals, "machine-2")
+
+	stm, err := s.State.AddMachine(state.JobHostUnits)
+	c.Assert(err, IsNil)
+	setDefaultPassword(c, stm)
+	st := s.openAs(c, "machine-0")
+	m, err := st.Machine("0")
+	c.Assert(err, IsNil)
+	c.Assert(m.EntityName(), Equals, "machine-0")
+}
+
 func (s *suite) TestUnitRefresh(c *C) {
 	s.setUpScenario(c)
 	st := s.openAs(c, "unit-wordpress-0")
@@ -454,16 +466,14 @@ func (s *suite) TestUnitRefresh(c *C) {
 	c.Assert(deployer, Equals, "")
 }
 
-func (s *suite) TestEntityName(c *C) {
+func (s *suite) TestUnitEntityName(c *C) {
+	c.Assert(api.UnitEntityName("wordpress/2"), Equals, "unit-wordpress-2")
+
 	s.setUpScenario(c)
 	st := s.openAs(c, "unit-wordpress-0")
 	u, err := st.Unit("wordpress/0")
 	c.Assert(err, IsNil)
 	c.Assert(u.EntityName(), Equals, "unit-wordpress-0")
-}
-
-func (s *suite) TestUnitEntityName(c *C) {
-	c.Assert(api.UnitEntityName("wordpress/2"), Equals, "unit-wordpress-2")
 }
 
 func (s *suite) TestStop(c *C) {
