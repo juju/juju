@@ -99,11 +99,22 @@ func (environ *maasEnviron) StartInstance(machineId string, info *state.Info, ap
 }
 
 func (environ *maasEnviron) StopInstances(instances []environs.Instance) error {
+	// Shortcut to exit quickly if instances is empty (or nil).
+	if len(instances) == 0 {
+		return nil
+	}
+	// Iterate over all the instances and send the "stop" signal,
+	// collecting the errors returned.
+	var errors []error
 	for _, instance := range instances {
 		maasInstance := instance.(*maasInstance)
 		_, errPost := (*maasInstance.maasObject).CallPost("stop", url.Values{})
-		if errPost != nil {
-			return errPost
+		errors = append(errors, errPost)
+	}
+	// Return the first error encountered, if any.
+	for _, err := range errors {
+		if err != nil {
+			return err
 		}
 	}
 	return nil

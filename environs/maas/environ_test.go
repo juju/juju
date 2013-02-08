@@ -147,6 +147,15 @@ func (suite *EnvironSuite) getInstance(systemId string) *maasInstance {
 	return &maasInstance{&node, suite.environ}
 }
 
+func (suite *EnvironSuite) TestStopInstancesReturnsIfParameterEmpty(c *C) {
+	suite.getInstance("test1")
+
+	err := suite.environ.StopInstances([]environs.Instance{})
+	c.Check(err, IsNil)
+	operations := suite.testMAASObject.TestServer.NodeOperations()
+	c.Check(operations, DeepEquals, map[string][]string{})
+}
+
 func (suite *EnvironSuite) TestStopInstancesStopsInstances(c *C) {
 	instance1 := suite.getInstance("test1")
 	instance2 := suite.getInstance("test2")
