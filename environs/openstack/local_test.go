@@ -216,75 +216,58 @@ func (s *localLiveSuite) TestBootstrapFailsWithoutPublicIP(c *C) {
 }
 
 var instanceGathering = []struct {
-	ids    []state.InstanceId
-	expect error
+	ids []state.InstanceId
+	err error
 }{
+	{ids: []state.InstanceId{"id0"}},
+	{ids: []state.InstanceId{"id0", "id0"}},
+	{ids: []state.InstanceId{"id0", "id1"}},
+	{ids: []state.InstanceId{"id1", "id0"}},
+	{ids: []state.InstanceId{"id1", "id0", "id1"}},
 	{
-		ids:    []state.InstanceId{"id0"},
-		expect: nil,
+		ids: []state.InstanceId{""},
+		err: environs.ErrNoInstances,
 	},
 	{
-		ids:    []state.InstanceId{"id0", "id0"},
-		expect: nil,
+		ids: []state.InstanceId{"", ""},
+		err: environs.ErrNoInstances,
 	},
 	{
-		ids:    []state.InstanceId{"id0", "id1"},
-		expect: nil,
+		ids: []state.InstanceId{"", "", ""},
+		err: environs.ErrNoInstances,
 	},
 	{
-		ids:    []state.InstanceId{"id1", "id0"},
-		expect: nil,
+		ids: []state.InstanceId{"id0", ""},
+		err: environs.ErrPartialInstances,
 	},
 	{
-		ids:    []state.InstanceId{"id1", "id0", "id1"},
-		expect: nil,
+		ids: []state.InstanceId{"", "id1"},
+		err: environs.ErrPartialInstances,
 	},
 	{
-		ids:    []state.InstanceId{""},
-		expect: environs.ErrNoInstances,
+		ids: []state.InstanceId{"id0", "id1", ""},
+		err: environs.ErrPartialInstances,
 	},
 	{
-		ids:    []state.InstanceId{"", ""},
-		expect: environs.ErrNoInstances,
+		ids: []state.InstanceId{"id0", "", "id0"},
+		err: environs.ErrPartialInstances,
 	},
 	{
-		ids:    []state.InstanceId{"", "", ""},
-		expect: environs.ErrNoInstances,
+		ids: []state.InstanceId{"id0", "id0", ""},
+		err: environs.ErrPartialInstances,
 	},
 	{
-		ids:    []state.InstanceId{"id0", ""},
-		expect: environs.ErrPartialInstances,
-	},
-	{
-		ids:    []state.InstanceId{"", "id1"},
-		expect: environs.ErrPartialInstances,
-	},
-	{
-		ids:    []state.InstanceId{"id0", "id1", ""},
-		expect: environs.ErrPartialInstances,
-	},
-	{
-		ids:    []state.InstanceId{"id0", "", "id0"},
-		expect: environs.ErrPartialInstances,
-	},
-	{
-		ids:    []state.InstanceId{"id0", "id0", ""},
-		expect: environs.ErrPartialInstances,
-	},
-	{
-		ids:    []state.InstanceId{"", "id0", "id1"},
-		expect: environs.ErrPartialInstances,
+		ids: []state.InstanceId{"", "id0", "id1"},
+		err: environs.ErrPartialInstances,
 	},
 }
 
 func (s *localLiveSuite) TestInstancesGathering(c *C) {
 	inst0, err := s.Env.StartInstance("100", testing.InvalidStateInfo("100"), testing.InvalidAPIInfo("100"), nil)
 	c.Assert(err, IsNil)
-	c.Assert(inst0, NotNil)
 	id0 := inst0.Id()
 	inst1, err := s.Env.StartInstance("101", testing.InvalidStateInfo("101"), testing.InvalidAPIInfo("101"), nil)
 	c.Assert(err, IsNil)
-	c.Assert(inst1, NotNil)
 	id1 := inst1.Id()
 	defer func() {
 		err := s.Env.StopInstances([]environs.Instance{inst0, inst1})
@@ -292,7 +275,7 @@ func (s *localLiveSuite) TestInstancesGathering(c *C) {
 	}()
 
 	for i, test := range instanceGathering {
-		c.Logf("test %d: find %v -> expect len %d, err: %v", i, test.ids, len(test.ids), test.expect)
+		c.Logf("test %d: find %v -> expect len %d, err: %v", i, test.ids, len(test.ids), test.err)
 		ids := make([]state.InstanceId, len(test.ids))
 		for j, id := range test.ids {
 			switch id {
@@ -303,7 +286,7 @@ func (s *localLiveSuite) TestInstancesGathering(c *C) {
 			}
 		}
 		insts, err := s.Env.Instances(ids)
-		c.Assert(err, Equals, test.expect)
+		c.Assert(err, Equals, test.err)
 		if err == environs.ErrNoInstances {
 			c.Assert(insts, HasLen, 0)
 		} else {

@@ -676,109 +676,55 @@ func (e *environ) StopInstances(insts []environs.Instance) error {
 	return e.terminateInstances(ids)
 }
 
-// gatherInstances tries to get information on each instance
-// id whose corresponding insts slot is nil, and the instance's
-// status is either ACTIVE or BUILD.
-// It returns environs.ErrPartialInstances if the insts
-// slice has not been completely filled.
-func (e *environ) gatherInstances(ids []state.InstanceId, insts []environs.Instance) error {
-	needMany := false
-	needOne := ""
-	for i, inst := range insts {
-		if inst == nil {
-			thisId := string(ids[i])
-			if needOne != "" && needOne != thisId && thisId != "" {
-				// we already have one, so it seems we need the all
-				needMany = true
-				needOne = ""
-			} else if thisId != "" {
-				// we only need thisId (so far)
-				needOne = thisId
-			}
-		} else {
-			if needOne == "" {
-				// we already have this from before
-				needOne = string(inst.Id())
-			} else {
-				// we have many from before
-				needMany = true
-				needOne = ""
-			}
-		}
-	}
-	if needOne == "" && !needMany {
-		// no non-empty ids were passed
-		return environs.ErrPartialInstances
+// collectInstances tries to get information on each instance id in ids.
+// It fills the slots in the given map for known servers with status
+// either ACTIVE or BUILD. Returns a list of missing ids.
+func (e *environ) collectInstances(ids []state.InstanceId, out map[state.InstanceId]environs.Instance) []state.InstanceId {
+	servers, err := e.nova().ListServersDetail(e.machinesFilter())
+	if err != nil {
+		return ids
 	}
 	serversById := make(map[string]nova.ServerDetail)
-	if needMany {
-		servers, err := e.nova().ListServersDetail(e.machinesFilter())
-		if err == nil {
-			for _, server := range servers {
-				serversById[server.Id] = server
-			}
+	for _, server := range servers {
+		if server.Status == nova.StatusActive || server.Status == nova.StatusBuild {
+			serversById[server.Id] = server
 		}
-		// errors will cause ErrPartialInstances eventually
-	} else {
-		server, err := e.nova().GetServer(needOne)
-		if err == nil {
-			serversById[server.Id] = *server
-		}
-		// errors will cause ErrPartialInstances eventually
 	}
-	n := 0
-	// For each requested id, add it to the returned instances
-	// if we find it in the response.
-	for i, id := range ids {
-		thisId := string(id)
-		if thisId == "" {
-			// empty ids will always return ErrPartialInstances
+	var missing []state.InstanceId
+	for _, id := range ids {
+		if server, found := serversById[string(id)]; found {
+			out[id] = &instance{e, &server, ""}
 			continue
 		}
-		if insts[i] != nil {
-			n++
-			continue
-		}
-		if server, ok := serversById[thisId]; ok {
-			if server.Status == nova.StatusBuild || server.Status == nova.StatusActive {
-				insts[i] = &instance{e, &server, ""}
-				n++
-			}
-		}
+		missing = append(missing, id)
 	}
-	if n < len(ids) {
-		return environs.ErrPartialInstances
-	}
-	return nil
+	return missing
 }
 
 func (e *environ) Instances(ids []state.InstanceId) ([]environs.Instance, error) {
-	if len(ids) == 0 {
-		return nil, environs.ErrNoInstances
-	}
-	insts := make([]environs.Instance, len(ids))
+	missing := ids
+	found := make(map[state.InstanceId]environs.Instance)
 	// Make a series of requests to cope with eventual consistency.
 	// Each request will attempt to add more instances to the requested
 	// set.
-	var err error
 	for a := shortAttempt.Start(); a.Next(); {
-		err = e.gatherInstances(ids, insts)
-		if err == nil || err != environs.ErrPartialInstances {
+		if missing = e.collectInstances(missing, found); len(missing) == 0 {
 			break
 		}
 	}
-	if err == environs.ErrPartialInstances {
-		for _, inst := range insts {
-			if inst != nil {
-				return insts, environs.ErrPartialInstances
-			}
-		}
+	if len(found) == 0 {
 		return nil, environs.ErrNoInstances
 	}
-	if err != nil {
-		return nil, err
+	insts := make([]environs.Instance, len(ids))
+	var err error
+	for i, id := range ids {
+		if inst := found[id]; inst != nil {
+			insts[i] = inst
+		} else {
+			err = environs.ErrPartialInstances
+		}
 	}
-	return insts, nil
+	return insts, err
 }
 
 func (e *environ) AllInstances() (insts []environs.Instance, err error) {
