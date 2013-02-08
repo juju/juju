@@ -99,7 +99,7 @@ func (environ *maasEnviron) StartInstance(machineId string, info *state.Info, ap
 }
 
 func (environ *maasEnviron) StopInstances(instances []environs.Instance) error {
-	// Shortcut to exit quickly if instances is empty (or nil).
+	// Shortcut to exit quickly if 'instances' is an empty slice or nil.
 	if len(instances) == 0 {
 		return nil
 	}
