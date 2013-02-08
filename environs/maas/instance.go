@@ -14,6 +14,7 @@ type maasInstance struct {
 var _ environs.Instance = (*maasInstance)(nil)
 
 func (instance *maasInstance) Id() state.InstanceId {
+	// Use the node's 'resource_uri' value.
 	return state.InstanceId((*instance.maasObject).URI().String())
 }
 
@@ -38,6 +39,8 @@ func (instance *maasInstance) DNSName() (string, error) {
 }
 
 func (instance *maasInstance) WaitDNSName() (string, error) {
+	// A MAAS nodes gets his DNS name when it's created.  WaitDNSName,
+	// (same as DNSName) just returns the hostname of the node.
 	return instance.DNSName()
 }
 

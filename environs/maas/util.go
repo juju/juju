@@ -9,8 +9,8 @@ import (
 // extractSystemId extracts the 'system_id' part from an InstanceId.
 // "/MAAS/api/1.0/nodes/system_id/" => "system_id"
 func extractSystemId(instanceId state.InstanceId) string {
-	trimed := strings.Trim(string(instanceId), "/")
-	split := strings.Split(trimed, "/")
+	trimmed := strings.TrimRight(string(instanceId), "/")
+	split := strings.Split(trimmed, "/")
 	return split[len(split)-1]
 }
 
