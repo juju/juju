@@ -3,12 +3,16 @@ package maas
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/gomaasapi"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/state"
 )
 
-type EnvironTest struct{}
+type EnvironSuite struct {
+	ProviderSuite
+}
 
-var _ = Suite(new(EnvironTest))
+var _ = Suite(new(EnvironSuite))
 
 func getTestConfig(name, server, oauth, secret string) *config.Config {
 	ecfg, err := newConfig(map[string]interface{}{
@@ -23,14 +27,14 @@ func getTestConfig(name, server, oauth, secret string) *config.Config {
 	return ecfg.Config
 }
 
-func (EnvironTest) TestSetConfigUpdatesConfig(c *C) {
-	cfg := getTestConfig("test env", "maas2.example.com", "a:b:c", "secret")
+func (EnvironSuite) TestSetConfigUpdatesConfig(c *C) {
+	cfg := getTestConfig("test env", "http://maas2.example.com", "a:b:c", "secret")
 	env, err := NewEnviron(cfg)
 	c.Check(err, IsNil)
 	c.Check(env.name, Equals, "test env")
 
 	anotherName := "another name"
-	anotherServer := "maas.example.com"
+	anotherServer := "http://maas.example.com"
 	anotherOauth := "c:d:e"
 	anotherSecret := "secret2"
 	cfg2 := getTestConfig(anotherName, anotherServer, anotherOauth, anotherSecret)
@@ -43,12 +47,81 @@ func (EnvironTest) TestSetConfigUpdatesConfig(c *C) {
 	c.Check(MAASServer, DeepEquals, maas)
 }
 
-func (EnvironTest) TestNewEnvironSetsConfig(c *C) {
+func (EnvironSuite) TestNewEnvironSetsConfig(c *C) {
 	name := "test env"
-	cfg := getTestConfig(name, "maas.example.com", "a:b:c", "secret")
+	cfg := getTestConfig(name, "http://maas.example.com", "a:b:c", "secret")
 
 	env, err := NewEnviron(cfg)
 
 	c.Check(err, IsNil)
 	c.Check(env.name, Equals, name)
+}
+
+func (suite *EnvironSuite) TestInstancesReturnsInstances(c *C) {
+	input := `{"system_id": "test"}`
+	node := suite.testMAASObject.TestServer.NewNode(input)
+	resourceURI, _ := node.GetField("resource_uri")
+	instanceIds := []state.InstanceId{state.InstanceId(resourceURI)}
+
+	instances, err := suite.environ.Instances(instanceIds)
+
+	c.Check(err, IsNil)
+	c.Check(len(instances), Equals, 1)
+	c.Check(string(instances[0].Id()), Equals, resourceURI)
+}
+
+func (suite *EnvironSuite) TestInstancesReturnsNilIfEmptyParameter(c *C) {
+	// Instances returns nil if the given parameter is empty.
+	input := `{"system_id": "test"}`
+	suite.testMAASObject.TestServer.NewNode(input)
+	instances, err := suite.environ.Instances([]state.InstanceId{})
+
+	c.Check(err, IsNil)
+	c.Check(instances, IsNil)
+}
+
+func (suite *EnvironSuite) TestInstancesReturnsNilIfNilParameter(c *C) {
+	// Instances returns nil if the given parameter is nil.
+	input := `{"system_id": "test"}`
+	suite.testMAASObject.TestServer.NewNode(input)
+	instances, err := suite.environ.Instances(nil)
+
+	c.Check(err, IsNil)
+	c.Check(instances, IsNil)
+}
+
+func (suite *EnvironSuite) TestAllInstancesReturnsAllInstances(c *C) {
+	input := `{"system_id": "test"}`
+	node := suite.testMAASObject.TestServer.NewNode(input)
+	resourceURI, _ := node.GetField("resource_uri")
+
+	instances, err := suite.environ.AllInstances()
+
+	c.Check(err, IsNil)
+	c.Check(len(instances), Equals, 1)
+	c.Check(string(instances[0].Id()), Equals, resourceURI)
+}
+
+func (suite *EnvironSuite) TestAllInstancesReturnsEmptySliceIfNoInstance(c *C) {
+	instances, err := suite.environ.AllInstances()
+
+	c.Check(err, IsNil)
+	c.Check(len(instances), Equals, 0)
+}
+
+func (suite *EnvironSuite) TestInstancesReturnsErrorIfPartialInstances(c *C) {
+	input1 := `{"system_id": "test"}`
+	node1 := suite.testMAASObject.TestServer.NewNode(input1)
+	resourceURI1, _ := node1.GetField("resource_uri")
+	input2 := `{"system_id": "test2"}`
+	suite.testMAASObject.TestServer.NewNode(input2)
+	instanceId1 := state.InstanceId(resourceURI1)
+	instanceId2 := state.InstanceId("unknown systemID")
+	instanceIds := []state.InstanceId{instanceId1, instanceId2}
+
+	instances, err := suite.environ.Instances(instanceIds)
+
+	c.Check(err, Equals, environs.ErrPartialInstances)
+	c.Check(len(instances), Equals, 1)
+	c.Check(string(instances[0].Id()), Equals, resourceURI1)
 }
