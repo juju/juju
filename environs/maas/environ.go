@@ -109,6 +109,9 @@ func (environ *maasEnviron) StopInstances(instances []environs.Instance) error {
 	return nil
 }
 
+// Instances returns the environs.Instance objects corresponding to the given
+// slice of state.InstanceId.  Similar to what the ec2 provider does,
+// Instances returns nil if the given slice is empty or nil.
 func (environ *maasEnviron) Instances(ids []state.InstanceId) ([]environs.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
@@ -116,8 +119,11 @@ func (environ *maasEnviron) Instances(ids []state.InstanceId) ([]environs.Instan
 	return environ.instances(ids)
 }
 
-// instances returns the instances matching the given instance ids or all the
-// the instances if 'ids' is empty.
+// instances is an internal method which returns the instances matching the
+// given instance ids or all the instances if 'ids' is empty.
+// If the some of the intances could not be found, it returns the instance
+// that could be found plus the error environs.ErrPartialInstances in the error
+// return.
 func (environ *maasEnviron) instances(ids []state.InstanceId) ([]environs.Instance, error) {
 	nodeListing := environ.maasClientUnlocked.GetSubObject("nodes")
 	filter := getSystemIdValues(ids)
@@ -146,8 +152,9 @@ func (environ *maasEnviron) instances(ids []state.InstanceId) ([]environs.Instan
 	return instances, nil
 }
 
+// AllInstances returns all the environs.Instance in this provider.
 func (environ *maasEnviron) AllInstances() ([]environs.Instance, error) {
-	return environ.instances([]state.InstanceId{})
+	return environ.instances(nil)
 }
 
 func (*maasEnviron) Storage() environs.Storage {

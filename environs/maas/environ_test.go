@@ -71,9 +71,20 @@ func (suite *EnvironSuite) TestInstancesReturnsInstances(c *C) {
 }
 
 func (suite *EnvironSuite) TestInstancesReturnsNilIfEmptyParameter(c *C) {
+	// Instances returns nil if the given parameter is empty.
 	input := `{"system_id": "test"}`
 	suite.testMAASObject.TestServer.NewNode(input)
 	instances, err := suite.environ.Instances([]state.InstanceId{})
+
+	c.Check(err, IsNil)
+	c.Check(instances, IsNil)
+}
+
+func (suite *EnvironSuite) TestInstancesReturnsNilIfNilParameter(c *C) {
+	// Instances returns nil if the given parameter is nil.
+	input := `{"system_id": "test"}`
+	suite.testMAASObject.TestServer.NewNode(input)
+	instances, err := suite.environ.Instances(nil)
 
 	c.Check(err, IsNil)
 	c.Check(instances, IsNil)
@@ -89,6 +100,13 @@ func (suite *EnvironSuite) TestAllInstancesReturnsAllInstances(c *C) {
 	c.Check(err, IsNil)
 	c.Check(len(instances), Equals, 1)
 	c.Check(string(instances[0].Id()), Equals, resourceURI)
+}
+
+func (suite *EnvironSuite) TestAllInstancesReturnsEmptySliceIfNoInstance(c *C) {
+	instances, err := suite.environ.AllInstances()
+
+	c.Check(err, IsNil)
+	c.Check(len(instances), Equals, 0)
 }
 
 func (suite *EnvironSuite) TestInstancesReturnsErrorIfPartialInstances(c *C) {
