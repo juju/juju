@@ -788,8 +788,6 @@ func (e *environ) jujuGroupName() string {
 	return fmt.Sprintf("juju-%s", e.name)
 }
 
-// XXX: I give in, let's just copy the bad design from ec2 provider
-
 func (e *environ) openPortsInGroup(name string, ports []state.Port) error {
 	novaclient := e.nova()
 	group, err := novaclient.SecurityGroupByName(name)
@@ -806,6 +804,7 @@ func (e *environ) openPortsInGroup(name string, ports []state.Port) error {
 		})
 		if err != nil {
 			// TODO: if err is not rule already exists, raise?
+			log.Debugf("error creating security group rule: %v", err.Error())
 		}
 	}
 	return nil
