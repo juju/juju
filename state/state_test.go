@@ -1248,3 +1248,52 @@ func (s *StateSuite) TestSetAdminMongoPassword(c *C) {
 	err = tryOpenState(info)
 	c.Assert(err, IsNil)
 }
+
+func (s *StateSuite) TestAuthEntity(c *C) {
+	for _, name := range []string{"", "machine", "-foo", "foo-", "---"} {
+		e, err := s.State.AuthEntity(name)
+		c.Check(e, IsNil)
+		c.Assert(err, ErrorMatches, `invalid entity name ".*"`)
+	}
+
+	e, err := s.State.AuthEntity("machine-1234")
+	c.Check(e, IsNil)
+	c.Assert(err, ErrorMatches, `machine 1234 not found`)
+	c.Assert(state.IsNotFound(err), Equals, true)
+
+	e, err = s.State.AuthEntity("unit-foo-654")
+	c.Check(e, IsNil)
+	c.Assert(err, ErrorMatches, `unit "foo/654" not found`)
+	c.Assert(state.IsNotFound(err), Equals, true)
+
+	e, err = s.State.AuthEntity("user-arble")
+	c.Check(e, IsNil)
+	c.Assert(err, ErrorMatches, `user "arble" not found`)
+	c.Assert(state.IsNotFound(err), Equals, true)
+
+	m, err := s.State.AddMachine(state.JobHostUnits)
+	c.Assert(err, IsNil)
+
+	e, err = s.State.AuthEntity(m.EntityName())
+	c.Assert(err, IsNil)
+	c.Assert(e, FitsTypeOf, m)
+	c.Assert(e.EntityName(), Equals, m.EntityName())
+
+	svc, err := s.State.AddService("s1", s.AddTestingCharm(c, "dummy"))
+	c.Assert(err, IsNil)
+	u, err := svc.AddUnit()
+	c.Assert(err, IsNil)
+
+	e, err = s.State.AuthEntity(u.EntityName())
+	c.Assert(err, IsNil)
+	c.Assert(e, FitsTypeOf, u)
+	c.Assert(e.EntityName(), Equals, u.EntityName())
+
+	user, err := s.State.AddUser("arble", "pass")
+	c.Assert(err, IsNil)
+
+	e, err = s.State.AuthEntity(user.EntityName())
+	c.Assert(err, IsNil)
+	c.Assert(e, FitsTypeOf, user)
+	c.Assert(e.EntityName(), Equals, user.EntityName())
+}
