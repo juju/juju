@@ -47,3 +47,11 @@ func (s *UserSuite) TestSetPassword(c *C) {
 		return s.State.User(u.Name())
 	})
 }
+
+func (s *UserSuite) TestName(c *C) {
+	u, err := s.State.AddUser("someuser", "")
+	c.Assert(err, IsNil)
+
+	c.Assert(u.Name(), Equals, "someuser")
+	c.Assert(u.EntityName(), Equals, "user-someuser")
+}
