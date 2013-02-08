@@ -347,7 +347,9 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	c.Assert(err, IsNil)
 
 	// Check that the API connection is working.
-	apiInstId0, err := apiConn.State.Machine("0").InstanceId()
+	apim0, err := apiConn.State.Machine("0")
+	c.Assert(err, IsNil)
+	apiInstId0, err := apim0.InstanceId()
 	c.Assert(err, IsNil)
 	c.Assert(apiInstId0, Equals, string(instId0))
 

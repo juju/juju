@@ -22,6 +22,10 @@ type suite struct {
 
 var _ = Suite(&suite{})
 
+func init() {
+	api.AuthenticationEnabled = true
+}
+
 var operationPermTests = []struct {
 	about string
 	// op performs the operation to be tested using the given state

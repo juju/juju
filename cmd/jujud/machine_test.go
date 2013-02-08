@@ -215,11 +215,11 @@ func addAPIInfo(conf *agent.Conf, m *state.Machine) {
 }
 
 func (s *MachineSuite) TestServeAPI(c *C) {
-	m, conf, _ := s.primeAgent(c, state.JobServeAPI)
-	addAPIInfo(conf, m)
+	stm, conf, _ := s.primeAgent(c, state.JobServeAPI)
+	addAPIInfo(conf, stm)
 	err := conf.Write()
 	c.Assert(err, IsNil)
-	a := s.newAgent(c, m)
+	a := s.newAgent(c, stm)
 	done := make(chan error)
 	go func() {
 		done <- a.Run(nil)
@@ -228,7 +228,11 @@ func (s *MachineSuite) TestServeAPI(c *C) {
 	st, err := api.Open(conf.APIInfo)
 	c.Assert(err, IsNil)
 	defer st.Close()
-	instId, err := st.Machine(m.Id()).InstanceId()
+
+	m, err := st.Machine(stm.Id())
+	c.Assert(err, IsNil)
+
+	instId, err := m.InstanceId()
 	c.Assert(err, IsNil)
 	c.Assert(instId, Equals, "ardbeg-0")
 

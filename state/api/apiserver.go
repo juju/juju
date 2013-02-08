@@ -4,10 +4,13 @@ import (
 	"code.google.com/p/go.net/websocket"
 	"errors"
 	"fmt"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"sync"
 )
+
+// TODO(rog) remove this when the rest of the system
+// has been updated to set passwords appropriately.
+var AuthenticationEnabled = false
 
 var (
 	errBadId       = errors.New("id not found")
@@ -191,7 +194,6 @@ func (u *srvUnit) Get() (rpcUnit, error) {
 // SetPassword sets the unit's password.
 func (u *srvUnit) SetPassword(p rpcPassword) error {
 	ename := u.root.user.entity().EntityName()
-	log.Printf("srvUnit.SetPassword; logged in entity: %q", ename)
 	// Allow:
 	// - the unit itself.
 	// - the machine responsible for unit, if unit is principal
@@ -199,7 +201,6 @@ func (u *srvUnit) SetPassword(p rpcPassword) error {
 	allow := ename == u.u.EntityName()
 	if !allow {
 		deployerName, ok := u.u.DeployerName()
-		log.Printf("allow %v; deployer name %q; ok %v", allow, deployerName, ok)
 		allow = ok && ename == deployerName
 	}
 	if !allow {
@@ -244,12 +245,16 @@ func (u *authUser) login(st *state.State, entityName, password string) error {
 	if err != nil && !state.IsNotFound(err) {
 		return err
 	}
+	// TODO(rog) remove
+	if !AuthenticationEnabled {
+		u._entity = entity
+		return nil
+	}
 	// We return the same error when an entity
 	// does not exist as for a bad password, so that
 	// we don't allow unauthenticated users to find information
 	// about existing entities.
 	if err != nil || !entity.PasswordValid(password) {
-		log.Printf("failed to login as %q: %v", entityName, err)
 		return errBadCreds
 	}
 	u._entity = entity
