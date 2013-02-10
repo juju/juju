@@ -11,6 +11,7 @@ import (
 // be available to the juju command.
 import (
 	_ "launchpad.net/juju-core/environs/ec2"
+	_ "launchpad.net/juju-core/environs/openstack"
 )
 
 var jujuDoc = `
@@ -30,9 +31,12 @@ func Main(args []string) {
 	juju.Register(&BootstrapCommand{})
 	juju.Register(&DeployCommand{})
 	juju.Register(&DestroyEnvironmentCommand{})
+	juju.Register(&DestroyMachineCommand{}, "terminate-machine")
 	juju.Register(&DestroyRelationCommand{}, "remove-relation")
+	juju.Register(&DestroyServiceCommand{})
 	juju.Register(&DestroyUnitCommand{}, "remove-unit")
 	juju.Register(&ExposeCommand{})
+	juju.Register(&GenerateConfigCommand{})
 	juju.Register(&GetCommand{})
 	juju.Register(&ResolvedCommand{})
 	juju.Register(&SetCommand{})

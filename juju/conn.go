@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/trivial"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -32,7 +33,7 @@ var redialStrategy = trivial.AttemptStrategy{
 // given environment. The environment must have already
 // been bootstrapped.
 func NewConn(environ environs.Environ) (*Conn, error) {
-	info, err := environ.StateInfo()
+	info, _, err := environ.StateInfo()
 	if err != nil {
 		return nil, err
 	}
@@ -119,32 +120,6 @@ func (c *Conn) updateSecrets() error {
 		return err
 	}
 	return c.State.SetEnvironConfig(cfg)
-}
-
-// AddService creates a new service with the given name to run the given
-// charm.  If svcName is empty, the charm name will be used.
-func (conn *Conn) AddService(name string, ch *state.Charm) (*state.Service, error) {
-	if name == "" {
-		name = ch.URL().Name // TODO ch.Meta().Name ?
-	}
-	svc, err := conn.State.AddService(name, ch)
-	if err != nil {
-		return nil, err
-	}
-	meta := ch.Meta()
-	for rname, rel := range meta.Peers {
-		ep := state.Endpoint{
-			name,
-			rel.Interface,
-			rname,
-			state.RolePeer,
-			rel.Scope,
-		}
-		if _, err := conn.State.AddRelation(ep); err != nil {
-			return nil, fmt.Errorf("cannot add peer relation %q to service %q: %v", rname, name, err)
-		}
-	}
-	return svc, nil
 }
 
 // PutCharm uploads the given charm to provider storage, and adds a
@@ -248,6 +223,7 @@ func (conn *Conn) AddUnits(svc *state.Service, n int) ([]*state.Unit, error) {
 		if err != nil {
 			return nil, fmt.Errorf("cannot add unit %d/%d to service %q: %v", i+1, n, svc.Name(), err)
 		}
+		// TODO lp:1101139 (units are not assigned transactionally)
 		if err := conn.State.AssignUnit(unit, policy); err != nil {
 			return nil, err
 		}
@@ -256,31 +232,60 @@ func (conn *Conn) AddUnits(svc *state.Service, n int) ([]*state.Unit, error) {
 	return units, nil
 }
 
-// DestroyUnits removes the specified units from the state.
+// DestroyMachines destroys the specified machines.
+func (conn *Conn) DestroyMachines(ids ...string) (err error) {
+	var errs []string
+	for _, id := range ids {
+		machine, err := conn.State.Machine(id)
+		switch {
+		case state.IsNotFound(err):
+			err = fmt.Errorf("machine %s does not exist", id)
+		case err != nil:
+		case machine.Life() != state.Alive:
+			continue
+		default:
+			err = machine.Destroy()
+		}
+		if err != nil {
+			errs = append(errs, err.Error())
+		}
+	}
+	return destroyErr("machines", ids, errs)
+}
+
+// DestroyUnits destroys the specified units.
 func (conn *Conn) DestroyUnits(names ...string) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot destroy units")
-	var units []*state.Unit
+	var errs []string
 	for _, name := range names {
 		unit, err := conn.State.Unit(name)
 		switch {
 		case state.IsNotFound(err):
-			return fmt.Errorf("unit %q is not alive", name)
+			err = fmt.Errorf("unit %q does not exist", name)
 		case err != nil:
-			return err
 		case unit.Life() != state.Alive:
-			return fmt.Errorf("unit %q is not alive", name)
+			continue
 		case unit.IsPrincipal():
-			units = append(units, unit)
+			err = unit.Destroy()
 		default:
-			return fmt.Errorf("unit %q is a subordinate", name)
+			err = fmt.Errorf("unit %q is a subordinate", name)
+		}
+		if err != nil {
+			errs = append(errs, err.Error())
 		}
 	}
-	for _, unit := range units {
-		if err := unit.EnsureDying(); err != nil {
-			return err
-		}
+	return destroyErr("units", names, errs)
+}
+
+func destroyErr(desc string, ids, errs []string) error {
+	if len(errs) == 0 {
+		return nil
 	}
-	return nil
+	msg := "some %s were not destroyed"
+	if len(errs) == len(ids) {
+		msg = "no %s were destroyed"
+	}
+	msg = fmt.Sprintf(msg, desc)
+	return fmt.Errorf("%s: %s", msg, strings.Join(errs, "; "))
 }
 
 // Resolved marks the unit as having had any previous state transition

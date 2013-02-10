@@ -48,21 +48,21 @@ func (s *repoSuite) TearDownTest(c *C) {
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-func (s *repoSuite) assertService(c *C, name string, expectCurl *charm.URL, unitCount, relCount int) []*state.Relation {
-	srv, err := s.State.Service(name)
+func (s *repoSuite) assertService(c *C, name string, expectCurl *charm.URL, unitCount, relCount int) (*state.Service, []*state.Relation) {
+	svc, err := s.State.Service(name)
 	c.Assert(err, IsNil)
-	ch, _, err := srv.Charm()
+	ch, _, err := svc.Charm()
 	c.Assert(err, IsNil)
 	c.Assert(ch.URL(), DeepEquals, expectCurl)
 	s.assertCharmUploaded(c, expectCurl)
-	units, err := srv.AllUnits()
+	units, err := svc.AllUnits()
 	c.Assert(err, IsNil)
 	c.Assert(units, HasLen, unitCount)
 	s.assertUnitMachines(c, units)
-	rels, err := srv.Relations()
+	rels, err := svc.Relations()
 	c.Assert(err, IsNil)
 	c.Assert(rels, HasLen, relCount)
-	return rels
+	return svc, rels
 }
 
 func (s *repoSuite) assertCharmUploaded(c *C, curl *charm.URL) {
@@ -187,7 +187,7 @@ func (s *DeploySuite) TestAddsPeerRelations(c *C) {
 	err := runDeploy(c, "local:riak")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/riak-7")
-	rels := s.assertService(c, "riak", curl, 1, 1)
+	_, rels := s.assertService(c, "riak", curl, 1, 1)
 	rel := rels[0]
 	ep, err := rel.Endpoint("riak")
 	c.Assert(err, IsNil)

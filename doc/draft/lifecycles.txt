@@ -16,8 +16,8 @@ are:
     destroyed, and remains so while there are impediments to its removal.)
   * Dead (an entity becomes Dead when there are no further impediments to
     its removal; at this point it may be removed from the database at any time.
-    Some entities may become Dead and are removed as a single atomic operation,
-    and are hence never directly observed to be "Dead", but should still be so
+    Some entities may become Dead and are removed as a single operation, and
+    are hence never directly observed to be "Dead", but should still be so
     considered.)
 
 There are two fundamental truths in this system:
@@ -36,21 +36,21 @@ Machines
     `juju deploy` and `juju add-unit` may create machines as a consequence of
     unit creation.
   * If a machine has the JobManageEnviron job, it cannot become Dying or Dead.
-    [TODO: not implemented]. Other jobs do not affect the lifecycle directly.
+    Other jobs do not affect the lifecycle directly.
   * If a machine has the JobHostUnits job, principal units can be assigned to it
     while it is Alive.
   * While principal units are assigned to a machine, its lifecycle cannot change
-    and `juju destroy-machine` will fail. [TODO: not implemented]
+    and `juju destroy-machine` will fail.
   * When no principal units are assigned, `juju destroy-machine` will set the
     machine to Dying. (Future plans: allow a machine to become Dying when it
     has principal units, so long as they are not Alive. For now it's extra
     complexity with little direct benefit.)
   * Once a machine has been set to Dying, the corresponding Machine Agent (MA)
-    is responsible for setting it to Dead. [TODO: not implemented] (Future
-    plans: when Dying units are assigned, wait for them to become Dead and
-    remove them completely before making the machine Dead; not an issue now
-    because the machine can't yet become Dying with units assigned.)
-  * Once a machine has been set to Dead, some other MA (for a machine with
+    is responsible for setting it to Dead. (Future plans: when Dying units are
+    assigned, wait for them to become Dead and remove them completely before
+    making the machine Dead; not an issue now because the machine can't yet
+    become Dying with units assigned.)
+  * Once a machine has been set to Dead, the agent for some other machine (with
     JobManageEnviron) will release the underlying instance back to the provider
     and remove the machine entity from state. (Future uncertainty: should the
     provisioner provision an instance for a Dying machine? At the moment, no,
@@ -103,13 +103,13 @@ Services
     single atomic operation.
   * When a service is Alive, units may be added to it, and relations can be
     added using the service's endpoints.
-  * A service can become dying at any time, via `juju destroy-service`. This
+  * A service can be destroyed at any time, via `juju destroy-service`. This
     causes all the units to become Dying, as discussed above, and will also
-    cause all relations in which the service is participating to become Dying.
-    (Contentious? I *think* python blocks service removal until relations are
-    removed...)
-  * If no associated units or relations exist when a service is destroyed, the
-    service is removed from state immediately rather than being set to Dying.
+    cause all relations in which the service is participating to become Dying
+    or be removed.
+  * If a destroyed service has no units, and all its relations are eligible
+    for immediate removal, then the service will also be removed immediately
+    rather than being set to Dying.
   * If no associated relations exist, the service is removed by the MA which
     removes the last unit of that service from state.
   * If no units of the service remain, but its relations still exist, the
@@ -124,6 +124,11 @@ Relations
     same canonical name can exist. (The canonical relation name form is
     "<requirer-endpoint> <provider-endpoint>", where each endpoint takes the
     form "<service-name>:<charm-relation-name>".)
+      * Thanks to convention, the above is not strictly true: it is possible
+        for a subordinate charm to require a container-scoped "juju-info"
+        relation. These restrictions mean that the name can never cause
+        actual ambiguity; nonetheless, support should be phased out smoothly
+        (see lp:1100076).
   * A relation, like a service, has no corresponding agent; and becomes Dead
     and is removed from the database in a single operation.
   * Similarly to a service, a relation cannot be created while an identical
@@ -132,8 +137,8 @@ Relations
   * While a relation is Alive, units of services in that relation can enter its
     scope; that is, the UAs for those units can signal to the system that they
     are participating in the relation.
-  * A relation can become Dying via either `juju destroy-relation` or
-    `juju destroy-service`. (Maybe; see services, above.)
+  * A relation can be destroyed with either `juju destroy-relation` or
+    `juju destroy-service`.
   * When a relation is destroyed with no units in scope, it will immediately
     become Dead and be removed from state, rather than being set to Dying.
   * When a relation becomes Dying, the UAs of units that have entered its scope

@@ -61,16 +61,22 @@ func registerAmazonTests() {
 type LiveTests struct {
 	coretesting.LoggingSuite
 	jujutest.LiveTests
+	writablePublicStorage environs.Storage
 }
 
 func (t *LiveTests) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
 	e, err := environs.NewFromAttrs(t.Config)
 	c.Assert(err, IsNil)
+
+	// Environ.PublicStorage() is read only.
+	// For testing, we create a specific storage instance which is authorised to write to
+	// the public storage bucket so that we can upload files for testing.
+	t.writablePublicStorage = ec2.WritablePublicStorage(e)
 	// Put some fake tools in place so that tests that are simply
 	// starting instances without any need to check if those instances
 	// are running will find them in the public bucket.
-	putFakeTools(c, e.PublicStorage().(environs.Storage))
+	putFakeTools(c, t.writablePublicStorage)
 	t.LiveTests.SetUpSuite(c)
 }
 
@@ -79,7 +85,7 @@ func (t *LiveTests) TearDownSuite(c *C) {
 		// This can happen if SetUpSuite fails.
 		return
 	}
-	err := ec2.DeleteStorageContent(t.Env.PublicStorage().(environs.Storage))
+	err := ec2.DeleteStorageContent(t.writablePublicStorage)
 	c.Assert(err, IsNil)
 	t.LiveTests.TearDownSuite(c)
 	t.LoggingSuite.TearDownSuite(c)
@@ -98,7 +104,7 @@ func (t *LiveTests) TearDownTest(c *C) {
 // TODO(niemeyer): Looks like many of those tests should be moved to jujutest.LiveTests.
 
 func (t *LiveTests) TestInstanceDNSName(c *C) {
-	inst, err := t.Env.StartInstance("30", testing.InvalidStateInfo("30"), nil)
+	inst, err := t.Env.StartInstance("30", testing.InvalidStateInfo("30"), testing.InvalidAPIInfo("30"), nil)
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst})
 	dns, err := inst.WaitDNSName()
@@ -149,7 +155,7 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 		})
 	c.Assert(err, IsNil)
 
-	inst0, err := t.Env.StartInstance("98", testing.InvalidStateInfo("98"), nil)
+	inst0, err := t.Env.StartInstance("98", testing.InvalidStateInfo("98"), testing.InvalidAPIInfo("98"), nil)
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst0})
 
@@ -157,7 +163,7 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	// before starting it, to check that it's reused correctly.
 	oldMachineGroup := createGroup(c, ec2conn, groups[2].Name, "old machine group")
 
-	inst1, err := t.Env.StartInstance("99", testing.InvalidStateInfo("99"), nil)
+	inst1, err := t.Env.StartInstance("99", testing.InvalidStateInfo("99"), testing.InvalidAPIInfo("99"), nil)
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst1})
 
@@ -189,9 +195,10 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	// that the unneeded permission that we added earlier
 	// has been deleted).
 	perms := info[0].IPPerms
-	c.Assert(perms, HasLen, 5)
+	c.Assert(perms, HasLen, 6)
 	checkPortAllowed(c, perms, 22)    // SSH
 	checkPortAllowed(c, perms, 37017) // MongoDB
+	checkPortAllowed(c, perms, 17070) // API
 	checkSecurityGroupAllowed(c, perms, groups[0])
 
 	// The old machine group should have been reused also.
@@ -288,12 +295,12 @@ func (t *LiveTests) TestStopInstances(c *C) {
 	// It would be nice if this test was in jujutest, but
 	// there's no way for jujutest to fabricate a valid-looking
 	// instance id.
-	inst0, err := t.Env.StartInstance("40", testing.InvalidStateInfo("40"), nil)
+	inst0, err := t.Env.StartInstance("40", testing.InvalidStateInfo("40"), testing.InvalidAPIInfo("40"), nil)
 	c.Assert(err, IsNil)
 
 	inst1 := ec2.FabricateInstance(inst0, "i-aaaaaaaa")
 
-	inst2, err := t.Env.StartInstance("41", testing.InvalidStateInfo("41"), nil)
+	inst2, err := t.Env.StartInstance("41", testing.InvalidStateInfo("41"), testing.InvalidAPIInfo("41"), nil)
 	c.Assert(err, IsNil)
 
 	err = t.Env.StopInstances([]environs.Instance{inst0, inst1, inst2})
@@ -323,7 +330,7 @@ func (t *LiveTests) TestStopInstances(c *C) {
 }
 
 func (t *LiveTests) TestPublicStorage(c *C) {
-	s := t.Env.PublicStorage().(environs.Storage)
+	s := ec2.WritablePublicStorage(t.Env)
 
 	contents := "test"
 	err := s.Put("test-object", strings.NewReader(contents), int64(len(contents)))

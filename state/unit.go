@@ -133,7 +133,7 @@ func (u *Unit) Life() Life {
 // It returns a *NotFoundError if the tools have not yet been set.
 func (u *Unit) AgentTools() (*Tools, error) {
 	if u.doc.Tools == nil {
-		return nil, notFound("agent tools for unit %q", u)
+		return nil, notFoundf("agent tools for unit %q", u)
 	}
 	tools := *u.doc.Tools
 	return &tools, nil
@@ -189,9 +189,9 @@ func (u *Unit) PasswordValid(password string) bool {
 	return trivial.PasswordHash(password) == u.doc.PasswordHash
 }
 
-// EnsureDying sets the unit lifecycle to Dying if it is Alive.
+// Destroy sets the unit lifecycle to Dying if it is Alive.
 // It does nothing otherwise.
-func (u *Unit) EnsureDying() error {
+func (u *Unit) Destroy() error {
 	err := ensureDying(u.st, u.st.units, u.doc.Name, "unit")
 	if err != nil {
 		return err
@@ -234,6 +234,38 @@ func (u *Unit) EnsureDead() (err error) {
 		return nil
 	}
 	return ErrUnitHasSubordinates
+}
+
+// Remove removes the unit from state, and may remove its service as well, if
+// the service is Dying and no other references to it exist. It will fail if
+// the unit is not Dead.
+func (u *Unit) Remove() (err error) {
+	defer trivial.ErrorContextf(&err, "cannot remove unit %q", u)
+	if u.doc.Life != Dead {
+		return errors.New("unit is not dead")
+	}
+	svc, err := u.st.Service(u.doc.Service)
+	if err != nil {
+		return err
+	}
+	unit := &Unit{u.st, u.doc}
+	for i := 0; i < 5; i++ {
+		ops := svc.removeUnitOps(unit)
+		if err := svc.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+			return err
+		}
+		if err := svc.Refresh(); IsNotFound(err) {
+			return nil
+		} else if err != nil {
+			return err
+		}
+		if err := unit.Refresh(); IsNotFound(err) {
+			return nil
+		} else if err != nil {
+			return err
+		}
+	}
+	return ErrExcessiveContention
 }
 
 // Resolved returns the resolved mode for the unit.
@@ -280,7 +312,7 @@ func (u *Unit) PrivateAddress() (string, bool) {
 func (u *Unit) Refresh() error {
 	err := u.st.units.FindId(u.doc.Name).One(&u.doc)
 	if err == mgo.ErrNotFound {
-		return notFound("unit %q", u)
+		return notFoundf("unit %q", u)
 	}
 	if err != nil {
 		return fmt.Errorf("cannot refresh unit %q: %v", u, err)
@@ -485,7 +517,7 @@ func (u *Unit) AssignedMachineId() (id string, err error) {
 	pudoc := unitDoc{}
 	err = u.st.units.Find(D{{"_id", u.doc.Principal}}).One(&pudoc)
 	if err == mgo.ErrNotFound {
-		return "", notFound("cannot get machine id of unit %q: principal %q %v", u, u.doc.Principal)
+		return "", notFoundf("cannot get machine id of unit %q: principal %q", u, u.doc.Principal)
 	} else if err != nil {
 		return "", err
 	}
@@ -639,7 +671,7 @@ func (u *Unit) UnassignFromMachine() (err error) {
 	}
 	err = u.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, onAbort(err, notFound("machine")))
+		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, onAbort(err, notFoundf("machine")))
 	}
 	u.doc.MachineId = ""
 	return nil
@@ -654,7 +686,7 @@ func (u *Unit) SetPublicAddress(address string) (err error) {
 		Update: D{{"$set", D{{"publicaddress", address}}}},
 	}}
 	if err := u.st.runner.Run(ops, "", nil); err != nil {
-		return fmt.Errorf("cannot set public address of unit %q: %v", u, onAbort(err, notFound("machine")))
+		return fmt.Errorf("cannot set public address of unit %q: %v", u, onAbort(err, notFoundf("machine")))
 	}
 	u.doc.PublicAddress = address
 	return nil
@@ -670,7 +702,7 @@ func (u *Unit) SetPrivateAddress(address string) error {
 	}}
 	err := u.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot set private address of unit %q: %v", u, notFound("unit"))
+		return fmt.Errorf("cannot set private address of unit %q: %v", u, notFoundf("unit"))
 	}
 	u.doc.PrivateAddress = address
 	return nil
@@ -724,7 +756,7 @@ func (u *Unit) ClearResolved() error {
 	}}
 	err := u.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot clear resolved mode for unit %q: %v", u, notFound("unit"))
+		return fmt.Errorf("cannot clear resolved mode for unit %q: %v", u, notFoundf("unit"))
 	}
 	u.doc.Resolved = ResolvedNone
 	return nil
