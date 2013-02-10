@@ -199,7 +199,7 @@ func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
 		if err != nil {
 			return nil, "", err
 		}
-		_, ops, err := service.addUnitOps(unitName, true)
+		_, ops, err := service.addUnitOps(unitName)
 		return ops, "", err
 	} else if err != nil {
 		return nil, "", err
