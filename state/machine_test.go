@@ -263,10 +263,18 @@ func (s *MachineSuite) TestMachinePrincipalUnits(c *C) {
 		}
 	}
 	// Add the logging units subordinate to the s2 units.
-	units[3] = make([]*state.Unit, 3)
-	for i := range units[3] {
-		units[3][i], err = s3.AddUnitSubordinateTo(units[2][i])
+	eps, err := s.State.InferEndpoints([]string{"s2", "s3"})
+	c.Assert(err, IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	for _, u := range units[2] {
+		ru, err := rel.Unit(u)
+		c.Assert(err, IsNil)
+		err = ru.EnterScope(nil)
+		c.Assert(err, IsNil)
 	}
+	units[3], err = s3.AllUnits()
+	c.Assert(err, IsNil)
 
 	assignments := []struct {
 		machine      *state.Machine
