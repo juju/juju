@@ -804,11 +804,15 @@ func (prr *ProReqRelation) watches() []*state.RelationScopeWatcher {
 }
 
 func addRU(c *C, svc *state.Service, rel *state.Relation, principal *state.Unit) (*state.Unit, *state.RelationUnit) {
+	// Given the service svc in the relation rel, add a unit of svc and create
+	// a RelationUnit with rel. If principal is supplied, svc is assumed to be
+	// subordinate and the unit will be created by temporarily entering the
+	// relation's scope as the principal.
 	var u *state.Unit
 	if principal == nil {
-		var err error
-		u, err = svc.AddUnit()
+		unit, err := svc.AddUnit()
 		c.Assert(err, IsNil)
+		u = unit
 	} else {
 		origUnits, err := svc.AllUnits()
 		c.Assert(err, IsNil)
@@ -820,18 +824,20 @@ func addRU(c *C, svc *state.Service, rel *state.Relation, principal *state.Unit)
 		c.Assert(err, IsNil)
 		newUnits, err := svc.AllUnits()
 		c.Assert(err, IsNil)
-		for _, u = range newUnits {
+		for _, unit := range newUnits {
 			found := false
-			for _, oldu := range origUnits {
-				if u.Name() == oldu.Name() {
+			for _, old := range origUnits {
+				if unit.Name() == old.Name() {
 					found = true
 					break
 				}
 			}
 			if !found {
+				u = unit
 				break
 			}
 		}
+		c.Assert(u, NotNil)
 	}
 	ru, err := rel.Unit(u)
 	c.Assert(err, IsNil)
