@@ -9,8 +9,9 @@ import (
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/testing"
 	"net"
-	stdtesting "testing"
 	"sync"
+	stdtesting "testing"
+	"time"
 )
 
 type suite struct {
@@ -40,19 +41,39 @@ type stringVal struct {
 }
 
 type TRoot struct {
-	t *testContext
+	mu      sync.Mutex
+	calls   []*callInfo
+	simple  map[string]*SimpleMethods
+	delayed map[string]*DelayedMethods
 }
 
-func (r *TRoot) A(id string) (*A, error) {
-	if id == "" || id[0] != 'a' {
-		return nil, fmt.Errorf("unknown a id")
+func (r *TRoot) SimpleMethods(id string) (*SimpleMethods, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if a := r.simple[id]; a != nil {
+		return a, nil
 	}
-	return r.t.newA(id)
+	return nil, fmt.Errorf("unknown SimpleMethods id")
 }
 
-type A struct {
-	t  *testContext
-	id string
+func (r *TRoot) DelayedMethods(id string) (*DelayedMethods, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if a := r.delayed[id]; a != nil {
+		return a, nil
+	}
+	return nil, fmt.Errorf("unknown DelayedMethods id")
+}
+
+func (t *TRoot) called(rcvr interface{}, method string, arg interface{}) {
+	t.mu.Lock()
+	t.calls = append(t.calls, &callInfo{rcvr, method, arg})
+	t.mu.Unlock()
+}
+
+type SimpleMethods struct {
+	root *TRoot
+	id   string
 }
 
 // Each Call method is named in this standard form:
@@ -63,73 +84,67 @@ type A struct {
 // values (not including the error) and e is the letter 'e' if the
 // method returns an error.
 
-func (a *A) Call0r0() {
-	a.t.called(a, "Call0r0", nil)
+func (a *SimpleMethods) Call0r0() {
+	a.root.called(a, "Call0r0", nil)
 }
 
-func (a *A) Call0r1() stringVal {
-	a.t.called(a, "Call0r1", nil)
+func (a *SimpleMethods) Call0r1() stringVal {
+	a.root.called(a, "Call0r1", nil)
 	return stringVal{"Call0r1 ret"}
 }
 
-func (a *A) Call0r1e() (stringVal, error) {
-	a.t.called(a, "Call0r1e", nil)
+func (a *SimpleMethods) Call0r1e() (stringVal, error) {
+	a.root.called(a, "Call0r1e", nil)
 	return stringVal{"Call0r1e ret"}, &callError{a, "Call0r1e", nil}
 }
 
-func (a *A) Call0r0e() error {
-	a.t.called(a, "Call0r0e", nil)
+func (a *SimpleMethods) Call0r0e() error {
+	a.root.called(a, "Call0r0e", nil)
 	return &callError{a, "Call0r0e", nil}
 }
 
-func (a *A) Call1r0(s stringVal) {
-	a.t.called(a, "Call1r0", s)
+func (a *SimpleMethods) Call1r0(s stringVal) {
+	a.root.called(a, "Call1r0", s)
 }
 
-func (a *A) Call1r1(s stringVal) stringVal {
-	a.t.called(a, "Call1r1", s)
+func (a *SimpleMethods) Call1r1(s stringVal) stringVal {
+	a.root.called(a, "Call1r1", s)
 	return stringVal{"Call1r1 ret"}
 }
 
-func (a *A) Call1r1e(s stringVal) (stringVal, error) {
-	a.t.called(a, "Call1r1e", s)
+func (a *SimpleMethods) Call1r1e(s stringVal) (stringVal, error) {
+	a.root.called(a, "Call1r1e", s)
 	return stringVal{}, &callError{a, "Call1r1e", s}
 }
 
-func (a *A) Call1r0e(s stringVal) error {
-	a.t.called(a, "Call1r0e", s)
+func (a *SimpleMethods) Call1r0e(s stringVal) error {
+	a.root.called(a, "Call1r0e", s)
 	return &callError{a, "Call1r0e", s}
 }
 
-type testContext struct {
-	mu sync.Mutex
-	calls []*callInfo
-	as    map[string]*A
+type DelayedMethods struct {
+	ready chan struct{}
+	done  chan string
 }
 
-func (t *testContext) called(rcvr interface{}, method string, arg interface{}) {
-	t.mu.Lock()
-	t.calls = append(t.calls, &callInfo{rcvr, method, arg})
-	t.mu.Unlock()
-}
-
-func (t *testContext) newA(id string) (*A, error) {
-	if a := t.as[id]; a != nil {
-		return a, nil
+func (a *DelayedMethods) Delay() stringVal {
+	if a.ready != nil {
+		a.ready <- struct{}{}
 	}
-	return nil, fmt.Errorf("A(%s) not found", id)
+	return stringVal{<-a.done}
 }
 
 func (*suite) TestRPC(c *C) {
-	t := &testContext{as: make(map[string]*A)}
-	root := &TRoot{t: t}
-	root.t.as["a99"] = &A{id: "a99", t: t}
+	root := &TRoot{
+		simple: make(map[string]*SimpleMethods),
+	}
+	root.simple["a99"] = &SimpleMethods{root: root, id: "a99"}
 	client, srvDone := newRPCClientServer(c, root)
 	for narg := 0; narg < 2; narg++ {
 		for nret := 0; nret < 2; nret++ {
 			for nerr := 0; nerr < 2; nerr++ {
-				t.calls = nil
-				t.testCall(c, client, narg, nret, nerr != 0)
+				root.calls = nil
+				root.testCall(c, client, narg, nret, nerr != 0)
 			}
 		}
 	}
@@ -138,10 +153,107 @@ func (*suite) TestRPC(c *C) {
 	c.Assert(err, IsNil)
 }
 
-
+func (root *TRoot) testCall(c *C, client *rpc.Client, narg, nret int, retErr bool) {
+	e := ""
+	if retErr {
+		e = "e"
+	}
+	method := fmt.Sprintf("Call%dr%d%s", narg, nret, e)
+	c.Logf("test call %s", method)
+	var r stringVal
+	err := client.Call("SimpleMethods", "a99", method, stringVal{"arg"}, &r)
+	root.mu.Lock()
+	defer root.mu.Unlock()
+	c.Assert(root.calls, HasLen, 1, Commentf("err %v", err))
+	expectCall := callInfo{
+		rcvr:   root.simple["a99"],
+		method: method,
+	}
+	if narg > 0 {
+		expectCall.arg = stringVal{"arg"}
+	}
+	c.Assert(*root.calls[0], Equals, expectCall)
+	switch {
+	case retErr:
+		c.Assert(err, DeepEquals, &rpc.ServerError{
+			fmt.Sprintf("error calling %s", method),
+		})
+	case nret > 0:
+		c.Assert(r, Equals, stringVal{method + " ret"})
+	}
+}
 
 func (*suite) TestConcurrentCalls(c *C) {
-	
+	start1 := make(chan string)
+	start2 := make(chan string)
+	root := &TRoot{
+		delayed: map[string]*DelayedMethods{
+			"1": {done: start1},
+			"2": {done: start2},
+		},
+	}
+
+	client, srvDone := newRPCClientServer(c, root)
+	call := func(id string, done chan<- bool) {
+		var r stringVal
+		err := client.Call("DelayedMethods", id, "Delay", nil, &r)
+		c.Check(err, IsNil)
+		c.Check(r.Val, Equals, "return "+id)
+		done <- true
+	}
+	done1 := make(chan bool)
+	done2 := make(chan bool)
+	go call("1", done1)
+	go call("2", done2)
+
+	// Check that calls are blocking appropriately.
+	select {
+	case <-done1:
+		c.Fatalf("call 1 returned unexpectedly")
+	case <-done2:
+		c.Fatalf("call 2 returned unexpectedly")
+	case <-time.After(25 * time.Millisecond):
+	}
+	start1 <- "return 1"
+	start2 <- "return 2"
+	<-done1
+	<-done2
+	client.Close()
+	err := <-srvDone
+	c.Assert(err, IsNil)
+}
+
+func (*suite) TestServerWaitsForOutstandingCalls(c *C) {
+	ready := make(chan struct{})
+	start := make(chan string)
+	root := &TRoot{
+		delayed: map[string]*DelayedMethods{
+			"1": {
+				ready: ready,
+				done:  start,
+			},
+		},
+	}
+	client, srvDone := newRPCClientServer(c, root)
+	done := make(chan bool)
+	go func() {
+		var r stringVal
+		err := client.Call("DelayedMethods", "1", "Delay", nil, &r)
+		c.Check(err, FitsTypeOf, &net.OpError{})
+		done <- true
+	}()
+	<-ready
+	client.Close()
+	select {
+	case err := <-srvDone:
+		c.Fatalf("server returned while outstanding operation in progress: %v", err)
+		<-done
+	case <-time.After(25 * time.Millisecond):
+	}
+	start <- "xxx"
+	err := <-srvDone
+	c.Check(err, IsNil)
+	<-done
 }
 
 // newRPCClientServer starts an RPC server serving a connection from a
@@ -170,36 +282,6 @@ func newRPCClientServer(c *C, root interface{}) (client *rpc.Client, done <-chan
 	c.Assert(err, IsNil)
 	client = rpc.NewClientWithCodec(NewJSONClientCodec(conn))
 	return client, srvDone
-}
-
-func (t *testContext) testCall(c *C, client *rpc.Client, narg, nret int, retErr bool) {
-	e := ""
-	if retErr {
-		e = "e"
-	}
-	method := fmt.Sprintf("Call%dr%d%s", narg, nret, e)
-	c.Logf("test call %s", method)
-	var r stringVal
-	err := client.Call("A", "a99", method, stringVal{"arg"}, &r)
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	c.Assert(t.calls, HasLen, 1, Commentf("err %v", err))
-	expectCall := callInfo{
-		rcvr:   t.as["a99"],
-		method: method,
-	}
-	if narg > 0 {
-		expectCall.arg = stringVal{"arg"}
-	}
-	c.Assert(*t.calls[0], Equals, expectCall)
-	switch {
-	case retErr:
-		c.Assert(err, DeepEquals, &rpc.ServerError{
-			fmt.Sprintf("error calling %s", method),
-		})
-	case nret > 0:
-		c.Assert(r, Equals, stringVal{method + " ret"})
-	}
 }
 
 type generalServerCodec struct {
