@@ -3,9 +3,10 @@ package rpc
 import (
 	"fmt"
 	"io"
-	"log"
+	"launchpad.net/juju-core/log"
 	"net"
 	"reflect"
+	"sync"
 )
 
 // A ServerCodec implements reading of RPC requests and writing of RPC
@@ -32,8 +33,8 @@ type Request struct {
 	// Id holds the id of the object to act on.
 	Id string
 
-	// Action holds the action to invoke on the remote object.
-	Action string
+	// Request holds the action to invoke on the remote object.
+	Request string
 }
 
 // Response is a header written before every RPC return.
@@ -50,15 +51,14 @@ type codecServer struct {
 	*Server
 	codec ServerCodec
 
-	// req holds the most recently read request header.
-	req Request
-
-	// doneReadBody is true if the body of
-	// the request has been read.
-	doneReadBody bool
+	// pending represents the currently pending requests.
+	pending sync.WaitGroup
 
 	// root holds the root value being served.
 	root reflect.Value
+
+	// sending guards the write side of the codec.
+	sending sync.Mutex
 }
 
 // Accept accepts connections on the listener and serves requests for
@@ -73,7 +73,7 @@ type codecServer struct {
 // a go statement.
 func (srv *Server) Accept(l net.Listener,
 	newRoot func(net.Conn) (interface{}, error),
-	newCodec func(io.ReadWriter) ServerCodec) error {
+	newCodec func(io.ReadWriteCloser) ServerCodec) error {
 	for {
 		c, err := l.Accept()
 		if err != nil {
@@ -106,6 +106,9 @@ func (srv *Server) Accept(l net.Listener,
 // NewServer, is used to invoke the RPC requests. If rootValue
 // nil, the original root value passed to NewServer will
 // be used instead.
+//
+// ServeCodec will only return when all outstanding calls have
+// completed.
 func (srv *Server) ServeCodec(codec ServerCodec, rootValue interface{}) error {
 	return srv.serve(reflect.ValueOf(rootValue), codec)
 }
@@ -120,23 +123,22 @@ func (srv *Server) serve(root reflect.Value, codec ServerCodec) error {
 		codec:  codec,
 		root:   root,
 	}
+	defer csrv.pending.Wait()
+	var req Request
 	for {
-		csrv.req = Request{}
-		err := codec.ReadRequestHeader(&csrv.req)
+		req = Request{}
+		err := codec.ReadRequestHeader(&req)
 		if err != nil {
 			if err == io.EOF {
 				return nil
 			}
 			return err
 		}
-		csrv.doneReadBody = false
-		rv, err := csrv.runRequest()
+		o, a, err := csrv.findRequest(&req)
 		if err != nil {
-			if !csrv.doneReadBody {
-				_ = codec.ReadRequestBody(nil)
-			}
+			_ = codec.ReadRequestBody(nil)
 			resp := &Response{
-				RequestId: csrv.req.RequestId,
+				RequestId: req.RequestId,
 			}
 			resp.Error = err.Error()
 			if err := codec.WriteResponse(resp, nil); err != nil {
@@ -144,50 +146,58 @@ func (srv *Server) serve(root reflect.Value, codec ServerCodec) error {
 			}
 			continue
 		}
-		var rvi interface{}
-		if rv.IsValid() {
-			rvi = rv.Interface()
+		var argp interface{}
+		var arg reflect.Value
+		if a.arg != nil {
+			v := reflect.New(a.arg)
+			arg = v.Elem()
+			argp = v.Interface()
 		}
-		resp := &Response{
-			RequestId: csrv.req.RequestId,
+		if err := csrv.codec.ReadRequestBody(argp); err != nil {
+			return fmt.Errorf("error reading request body: %v", err)
 		}
-		if err := codec.WriteResponse(resp, rvi); err != nil {
-			return err
-		}
+		csrv.pending.Add(1)
+		go csrv.runRequest(req.RequestId, req.Id, o, a, arg)
 	}
 	panic("unreachable")
 }
 
-func (csrv *codecServer) readRequestBody(arg interface{}) error {
-	csrv.doneReadBody = true
-	return csrv.codec.ReadRequestBody(arg)
+func (csrv *codecServer) findRequest(req *Request) (*obtainer, *action, error) {
+	o := csrv.obtain[req.Type]
+	if o == nil {
+		return nil, nil, fmt.Errorf("unknown object type %q", req.Type)
+	}
+	a := csrv.action[o.ret][req.Request]
+	if a == nil {
+		return nil, nil, fmt.Errorf("no such action %q on %s", req.Request, req.Type)
+	}
+	return o, a, nil
 }
 
-func (csrv *codecServer) runRequest() (reflect.Value, error) {
-	o := csrv.obtain[csrv.req.Type]
-	if o == nil {
-		return reflect.Value{}, fmt.Errorf("unknown object type %q", csrv.req.Type)
+// runRequest runs the given request and sends the reply.
+func (csrv *codecServer) runRequest(reqId uint64, objId string, o *obtainer, a *action, arg reflect.Value) {
+	defer csrv.pending.Done()
+	rv, err := csrv.runRequest0(reqId, objId, o, a, arg)
+	csrv.sending.Lock()
+	defer csrv.sending.Unlock()
+	var rvi interface{}
+	resp := &Response{
+		RequestId: reqId,
 	}
-	obj, err := o.call(csrv.root, csrv.req.Id)
+	if err != nil {
+		resp.Error = err.Error()
+	} else if rv.IsValid() {
+		rvi = rv.Interface()
+	}
+	if err := csrv.codec.WriteResponse(resp, rvi); err != nil {
+		log.Printf("rpc: error writing response %#v: %v", rvi, err)
+	}
+}
+
+func (csrv *codecServer) runRequest0(reqId uint64, objId string, o *obtainer, a *action, arg reflect.Value) (reflect.Value, error) {
+	obj, err := o.call(csrv.root, objId)
 	if err != nil {
 		return reflect.Value{}, err
-	}
-	a := csrv.action[o.ret][csrv.req.Action]
-	if a == nil {
-		return reflect.Value{}, fmt.Errorf("no such action %q on %s", csrv.req.Action, csrv.req.Type)
-	}
-	var arg reflect.Value
-	if a.arg == nil {
-		// If the action has no arguments, discard any RPC parameters.
-		if err := csrv.readRequestBody(nil); err != nil {
-			return reflect.Value{}, err
-		}
-	} else {
-		argp := reflect.New(a.arg)
-		if err := csrv.readRequestBody(argp.Interface()); err != nil {
-			return reflect.Value{}, err
-		}
-		arg = argp.Elem()
 	}
 	return a.call(obj, arg)
 }

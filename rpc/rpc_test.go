@@ -5,16 +5,20 @@ import (
 	"fmt"
 	"io"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/rpc"
+	"launchpad.net/juju-core/testing"
 	"net"
-	"testing"
+	stdtesting "testing"
 )
 
-type suite struct{}
+type suite struct {
+	testing.LoggingSuite
+}
 
-var _ = Suite(suite{})
+var _ = Suite(&suite{})
 
-func TestAll(t *testing.T) {
+func TestAll(t *stdtesting.T) {
 	TestingT(t)
 }
 
@@ -112,7 +116,7 @@ func (t *testContext) newA(id string) (*A, error) {
 	return nil, fmt.Errorf("A(%s) not found", id)
 }
 
-func (suite) TestRPC(c *C) {
+func (*suite) TestRPC(c *C) {
 	srv, err := rpc.NewServer(&TRoot{})
 	c.Assert(err, IsNil)
 
@@ -172,7 +176,7 @@ func (t *testContext) testCall(c *C, client *rpc.Client, narg, nret int, retErr 
 	c.Assert(*t.calls[0], Equals, expectCall)
 	switch {
 	case retErr:
-		c.Assert(err, DeepEquals, &rpc.RemoteError{
+		c.Assert(err, DeepEquals, &rpc.ServerError{
 			fmt.Sprintf("error calling %s", method),
 		})
 	case nret > 0:
@@ -181,6 +185,7 @@ func (t *testContext) testCall(c *C, client *rpc.Client, narg, nret int, retErr 
 }
 
 type generalServerCodec struct {
+	io.Closer
 	enc encoder
 	dec decoder
 }
@@ -212,38 +217,53 @@ func (c *generalServerCodec) WriteResponse(resp *rpc.Response, v interface{}) er
 }
 
 type generalClientCodec struct {
+	io.Closer
 	enc encoder
 	dec decoder
 }
 
 func (c *generalClientCodec) WriteRequest(req *rpc.Request, x interface{}) error {
+	log.Printf("send client request header: %#v", req)
 	if err := c.enc.Encode(req); err != nil {
 		return err
 	}
+	log.Printf("send client request body: %#v", x)
 	return c.enc.Encode(x)
 }
 
 func (c *generalClientCodec) ReadResponseHeader(resp *rpc.Response) error {
-	return c.dec.Decode(resp)
+	err := c.dec.Decode(resp)
+	log.Printf("got response header %#v", resp)
+	return err
 }
 
 func (c *generalClientCodec) ReadResponseBody(r interface{}) error {
+	var m json.RawMessage
+	err := c.dec.Decode(&m)
+	if err != nil {
+		return err
+	}
+	log.Printf("got response body: %q", m)
 	if r == nil {
 		r = &struct{}{}
 	}
-	return c.dec.Decode(r)
+	err = json.Unmarshal(m, r)
+	log.Printf("unmarshalled into %#v", r)
+	return err
 }
 
-func NewJSONServerCodec(c io.ReadWriter) rpc.ServerCodec {
+func NewJSONServerCodec(c io.ReadWriteCloser) rpc.ServerCodec {
 	return &generalServerCodec{
-		enc: json.NewEncoder(c),
-		dec: json.NewDecoder(c),
+		Closer: c,
+		enc:    json.NewEncoder(c),
+		dec:    json.NewDecoder(c),
 	}
 }
 
-func NewJSONClientCodec(c io.ReadWriter) rpc.ClientCodec {
+func NewJSONClientCodec(c io.ReadWriteCloser) rpc.ClientCodec {
 	return &generalClientCodec{
-		enc: json.NewEncoder(c),
-		dec: json.NewDecoder(c),
+		Closer: c,
+		enc:    json.NewEncoder(c),
+		dec:    json.NewDecoder(c),
 	}
 }
