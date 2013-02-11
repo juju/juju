@@ -124,11 +124,17 @@ func (*suite) TestRPC(c *C) {
 	c.Assert(err, IsNil)
 	defer l.Close()
 
-	rootc := make(chan *TRoot)
 	srvDone := make(chan error)
+	t := &testContext{
+			as: make(map[string]*A),
+	}
+	troot := &TRoot{
+		t: t,
+	}
+	troot.t.as["a99"] = &A{id: "a99", t: t}
 	go func() {
 		newRoot := func(net.Conn) (interface{}, error) {
-			return <-rootc, nil
+			return troot, nil
 		}
 		err := srv.Accept(l, newRoot, NewJSONServerCodec)
 		c.Logf("accept status: %v", err)
@@ -138,11 +144,6 @@ func (*suite) TestRPC(c *C) {
 	conn, err := net.Dial("tcp", l.Addr().String())
 	c.Assert(err, IsNil)
 	defer conn.Close()
-	t := &testContext{
-		as: map[string]*A{},
-	}
-	t.as["a99"] = &A{id: "a99", t: t}
-	rootc <- &TRoot{t}
 	client := rpc.NewClientWithCodec(NewJSONClientCodec(conn))
 	for narg := 0; narg < 2; narg++ {
 		for nret := 0; nret < 2; nret++ {
