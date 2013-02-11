@@ -128,7 +128,7 @@ type serverReq struct {
 	RequestId uint64
 	Type      string
 	Id        string
-	Action    string
+	Request   string
 	Params    json.RawMessage
 }
 
@@ -158,7 +158,7 @@ func (c *serverCodec) ReadRequestHeader(req *rpc.Request) error {
 	req.RequestId = c.req.RequestId
 	req.Type = c.req.Type
 	req.Id = c.req.Id
-	req.Action = c.req.Action
+	req.Request = c.req.Request
 	return nil
 }
 

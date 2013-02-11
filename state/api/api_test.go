@@ -3,6 +3,7 @@ package api_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	coretesting "launchpad.net/juju-core/testing"
@@ -82,7 +83,7 @@ func (s *suite) TestStop(c *C) {
 	err = s.srv.Stop()
 	c.Assert(err, IsNil)
 	_, err = s.APIState.Machine(stm.Id())
-	c.Assert(err, ErrorMatches, "cannot receive response: EOF")
+	c.Assert(err, Equals, rpc.ErrShutdown)
 
 	// Check it can be stopped twice.
 	err = s.srv.Stop()
