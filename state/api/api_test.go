@@ -438,6 +438,17 @@ func (s *suite) TestMachineEntityName(c *C) {
 	c.Assert(m.EntityName(), Equals, "machine-0")
 }
 
+func (s *suite) TestMachineWatch(c *C) {
+	stm, err := s.State.AddMachine(state.JobHostUnits)
+	c.Assert(err, IsNil)
+	setDefaultPassword(c, stm)
+
+	st := s.openAs(c, stm.EntityName())
+	m, err := st.Machine(stm.Id())
+	c.Assert(err, IsNil)
+	w, 
+}
+
 func (s *suite) TestUnitRefresh(c *C) {
 	s.setUpScenario(c)
 	st := s.openAs(c, "unit-wordpress-0")

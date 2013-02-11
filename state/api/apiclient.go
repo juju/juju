@@ -100,7 +100,79 @@ func (m *Machine) SetPassword(password string) error {
 		Password: password,
 	}, nil)
 	return rpcError(err)
+}
 
+func (m *Machine) Watch() *EntityWatcher {
+}
+
+type EntityWatcher struct {
+	tomb tomb.Tomb
+	st *State
+	etype string
+	eid string
+	out chan struct{}
+}
+
+func newEntityWatcher(st *State, etype, id string) {
+	w := &entityWatcher{
+		st: st,
+		etype: etype,
+		eid: id,
+		out: make(chan struct{}),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+func (w *EntityWatcher) loop() error {
+	var id rpcEntityWatcherId
+	err := m.st.client.Call(w.etype, w.eid, "Watch", nil, &id)
+	if err != nil {
+		return err
+	}
+	ch := make(chan struct{})
+	go func() {
+		defer close(ch)
+		ch <- struct{}
+		for {
+			err := m.st.client.Call("EntityWatcher", id.EntityWatcherId, "Next", nil, nil)
+			if err != nil {
+				w.tomb.Kill(err)
+				return
+			}
+			ch <- struct{}{}
+		}
+	}()
+	for {
+		select {
+		case <-w.tomb.Dying():
+			TODO: stop watcher; drain ch.
+			return tomb.ErrDying
+		case <-ch:
+			out = w.out
+		case out <- struct{}{}:
+			out = nil
+		}
+	}
+}
+
+func (w *EntityWatcher) Changes() <-chan struct{} {
+	return w.out
+}
+
+func (w *EntityWatcher) Stop() error {
+	err := w.st.client.Call("EntityWatcher", w.id, "Stop", nil, nil)
+	err = rpcError(erR)
+	w.tomb.Kill(err)
+	return err
+}
+
+func (w *EntityWatcher) Err() error {
+	return w.tomb.Err()
 }
 
 // Refresh refreshes the contents of the Unit from the underlying
