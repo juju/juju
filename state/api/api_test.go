@@ -4,6 +4,7 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	coretesting "launchpad.net/juju-core/testing"
@@ -438,16 +439,16 @@ func (s *suite) TestMachineEntityName(c *C) {
 	c.Assert(m.EntityName(), Equals, "machine-0")
 }
 
-func (s *suite) TestMachineWatch(c *C) {
-	stm, err := s.State.AddMachine(state.JobHostUnits)
-	c.Assert(err, IsNil)
-	setDefaultPassword(c, stm)
-
-	st := s.openAs(c, stm.EntityName())
-	m, err := st.Machine(stm.Id())
-	c.Assert(err, IsNil)
-	w, 
-}
+//func (s *suite) TestMachineWatch(c *C) {
+//	stm, err := s.State.AddMachine(state.JobHostUnits)
+//	c.Assert(err, IsNil)
+//	setDefaultPassword(c, stm)
+//
+//	st := s.openAs(c, stm.EntityName())
+//	m, err := st.Machine(stm.Id())
+//	c.Assert(err, IsNil)
+//	w, 
+//}
 
 func (s *suite) TestUnitRefresh(c *C) {
 	s.setUpScenario(c)
@@ -518,7 +519,7 @@ func (s *suite) TestStop(c *C) {
 	c.Logf("srv stopped")
 
 	_, err = st.Machine(stm.Id())
-	c.Assert(err, ErrorMatches, "cannot receive response: EOF")
+	c.Assert(err, Equals, rpc.ErrShutdown)
 
 	// Check it can be stopped twice.
 	err = srv.Stop()

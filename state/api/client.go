@@ -94,7 +94,7 @@ type clientReq struct {
 	RequestId uint64
 	Type      string
 	Id        string
-	Action    string
+	Request   string
 	Params    interface{}
 }
 
@@ -109,12 +109,16 @@ type clientCodec struct {
 	resp clientResp
 }
 
+func (c *clientCodec) Close() error {
+	return c.conn.Close()
+}
+
 func (c *clientCodec) WriteRequest(req *rpc.Request, p interface{}) error {
 	return websocket.JSON.Send(c.conn, &clientReq{
 		RequestId: req.RequestId,
 		Type:      req.Type,
 		Id:        req.Id,
-		Action:    req.Action,
+		Request:   req.Request,
 		Params:    p,
 	})
 }

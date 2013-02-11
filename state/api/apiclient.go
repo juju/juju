@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"launchpad.net/juju-core/rpc"
+	"launchpad.net/tomb"
 	"strings"
 )
 
@@ -103,6 +104,7 @@ func (m *Machine) SetPassword(password string) error {
 }
 
 func (m *Machine) Watch() *EntityWatcher {
+	return newEntityWatcher(m.st, "Machine", m.id)
 }
 
 type EntityWatcher struct {
@@ -113,8 +115,8 @@ type EntityWatcher struct {
 	out chan struct{}
 }
 
-func newEntityWatcher(st *State, etype, id string) {
-	w := &entityWatcher{
+func newEntityWatcher(st *State, etype, id string) *EntityWatcher {
+	w := &EntityWatcher{
 		st: st,
 		etype: etype,
 		eid: id,
@@ -130,16 +132,15 @@ func newEntityWatcher(st *State, etype, id string) {
 
 func (w *EntityWatcher) loop() error {
 	var id rpcEntityWatcherId
-	err := m.st.client.Call(w.etype, w.eid, "Watch", nil, &id)
+	err := w.st.client.Call(w.etype, w.eid, "Watch", nil, &id)
 	if err != nil {
 		return err
 	}
 	ch := make(chan struct{})
 	go func() {
 		defer close(ch)
-		ch <- struct{}
 		for {
-			err := m.st.client.Call("EntityWatcher", id.EntityWatcherId, "Next", nil, nil)
+			err := w.st.client.Call("EntityWatcher", id.EntityWatcherId, "Next", nil, nil)
 			if err != nil {
 				w.tomb.Kill(err)
 				return
@@ -147,10 +148,11 @@ func (w *EntityWatcher) loop() error {
 			ch <- struct{}{}
 		}
 	}()
+	out := w.out
 	for {
 		select {
 		case <-w.tomb.Dying():
-			TODO: stop watcher; drain ch.
+			// TODO: stop watcher; drain ch.
 			return tomb.ErrDying
 		case <-ch:
 			out = w.out
@@ -158,6 +160,7 @@ func (w *EntityWatcher) loop() error {
 			out = nil
 		}
 	}
+	panic("unreachable")
 }
 
 func (w *EntityWatcher) Changes() <-chan struct{} {
@@ -165,8 +168,8 @@ func (w *EntityWatcher) Changes() <-chan struct{} {
 }
 
 func (w *EntityWatcher) Stop() error {
-	err := w.st.client.Call("EntityWatcher", w.id, "Stop", nil, nil)
-	err = rpcError(erR)
+	err := w.st.client.Call("EntityWatcher", w.eid, "Stop", nil, nil)
+	err = rpcError(err)
 	w.tomb.Kill(err)
 	return err
 }
@@ -216,7 +219,7 @@ func rpcError(err error) error {
 	if err == nil {
 		return nil
 	}
-	rerr, ok := err.(*rpc.RemoteError)
+	rerr, ok := err.(*rpc.ServerError)
 	if !ok {
 		return err
 	}
