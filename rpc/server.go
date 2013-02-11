@@ -107,7 +107,7 @@ func (srv *Server) Accept(l net.Listener,
 // nil, the original root value passed to NewServer will
 // be used instead.
 //
-// ServeCodec will only return when all outstanding calls have
+// ServeCodec will only return when all its outstanding calls have
 // completed.
 func (srv *Server) ServeCodec(codec ServerCodec, rootValue interface{}) error {
 	return srv.serve(reflect.ValueOf(rootValue), codec)

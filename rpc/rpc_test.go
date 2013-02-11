@@ -117,34 +117,10 @@ func (t *testContext) newA(id string) (*A, error) {
 }
 
 func (*suite) TestRPC(c *C) {
-	srv, err := rpc.NewServer(&TRoot{})
-	c.Assert(err, IsNil)
-
-	l, err := net.Listen("tcp", ":0")
-	c.Assert(err, IsNil)
-	defer l.Close()
-
-	srvDone := make(chan error)
-	t := &testContext{
-			as: make(map[string]*A),
-	}
-	troot := &TRoot{
-		t: t,
-	}
-	troot.t.as["a99"] = &A{id: "a99", t: t}
-	go func() {
-		newRoot := func(net.Conn) (interface{}, error) {
-			return troot, nil
-		}
-		err := srv.Accept(l, newRoot, NewJSONServerCodec)
-		c.Logf("accept status: %v", err)
-		srvDone <- err
-	}()
-
-	conn, err := net.Dial("tcp", l.Addr().String())
-	c.Assert(err, IsNil)
-	defer conn.Close()
-	client := rpc.NewClientWithCodec(NewJSONClientCodec(conn))
+	t := &testContext{as: make(map[string]*A)}
+	root := &TRoot{t: t}
+	root.t.as["a99"] = &A{id: "a99", t: t}
+	client, srvDone := newRPCClientServer(c, root)
 	for narg := 0; narg < 2; narg++ {
 		for nret := 0; nret < 2; nret++ {
 			for nerr := 0; nerr < 2; nerr++ {
@@ -153,8 +129,38 @@ func (*suite) TestRPC(c *C) {
 			}
 		}
 	}
-	l.Close()
-	<-srvDone
+	client.Close()
+	err := <-srvDone
+	c.Assert(err, IsNil)
+}
+
+// newRPCClientServer starts an RPC server serving
+// a connection from a single client. When the
+// server has finished serving the connection,
+// it sends a value on done.
+func newRPCClientServer(c *C, root interface{}) (client *rpc.Client, done <-chan error) {
+	srv, err := rpc.NewServer(&TRoot{})
+	c.Assert(err, IsNil)
+
+	l, err := net.Listen("tcp", ":0")
+	c.Assert(err, IsNil)
+	defer l.Close()
+
+	srvDone := make(chan error, 1)
+	go func() {
+		conn, err := l.Accept()
+		if err != nil {
+			srvDone <- err
+			return
+		}
+		err = srv.ServeCodec(NewJSONServerCodec(conn), root)
+		c.Logf("server status: %v", err)
+		srvDone <- err
+	}()
+	conn, err := net.Dial("tcp", l.Addr().String())
+	c.Assert(err, IsNil)
+	client = rpc.NewClientWithCodec(NewJSONClientCodec(conn))
+	return client, srvDone
 }
 
 func (t *testContext) testCall(c *C, client *rpc.Client, narg, nret int, retErr bool) {

@@ -71,6 +71,17 @@ func (e *ServerError) Error() string {
 	return "server error: " + e.Message
 }
 
+func (client *Client) Close() error {
+	client.mutex.Lock()
+	if client.shutdown || client.closing {
+		client.mutex.Unlock()
+		return ErrShutdown
+	}
+	client.closing = true
+	client.mutex.Unlock()
+	return client.codec.Close()
+}
+
 func (client *Client) send(call *Call) {
 	client.sending.Lock()
 	defer client.sending.Unlock()
