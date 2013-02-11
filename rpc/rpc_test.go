@@ -186,10 +186,13 @@ func (root *TRoot) testCall(c *C, client *rpc.Client, narg, nret int, retErr boo
 func (*suite) TestConcurrentCalls(c *C) {
 	start1 := make(chan string)
 	start2 := make(chan string)
+	ready1 := make(chan struct{})
+	ready2 := make(chan struct{})
+
 	root := &TRoot{
 		delayed: map[string]*DelayedMethods{
-			"1": {done: start1},
-			"2": {done: start2},
+			"1": {ready: ready1, done: start1},
+			"2": {ready: ready2, done: start2},
 		},
 	}
 
@@ -206,14 +209,11 @@ func (*suite) TestConcurrentCalls(c *C) {
 	go call("1", done1)
 	go call("2", done2)
 
-	// Check that calls are blocking appropriately.
-	select {
-	case <-done1:
-		c.Fatalf("call 1 returned unexpectedly")
-	case <-done2:
-		c.Fatalf("call 2 returned unexpectedly")
-	case <-time.After(25 * time.Millisecond):
-	}
+	// Check that both calls are running concurrently.
+	<-ready1
+	<-ready2
+
+	// Let the requests complete.
 	start1 <- "return 1"
 	start2 <- "return 2"
 	<-done1
