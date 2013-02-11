@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"launchpad.net/juju-core/state"
 	"sync"
+	statewatcher "launchpad.net/juju-core/state/watcher"
+	"strconv"
 )
 
 // TODO(rog) remove this when the rest of the system
@@ -17,6 +19,7 @@ var (
 	errBadCreds    = errors.New("invalid entity name or password")
 	errNotLoggedIn = errors.New("not logged in")
 	errPerm        = errors.New("permission denied")
+	errUnknownWatcher = errors.New("unknown watcher id")
 )
 
 // srvRoot represents a single client's connection to the state.
@@ -24,6 +27,7 @@ type srvRoot struct {
 	admin *srvAdmin
 	srv   *Server
 	conn  *websocket.Conn
+	watchers *watchers
 
 	user authUser
 }
@@ -57,6 +61,7 @@ func newStateServer(srv *Server, conn *websocket.Conn) *srvRoot {
 	r := &srvRoot{
 		srv:  srv,
 		conn: conn,
+		watchers: newWatchers(),
 	}
 	r.admin = &srvAdmin{
 		root: r,
@@ -132,6 +137,31 @@ func (r *srvRoot) User(name string) (*srvUser, error) {
 	}, nil
 }
 
+func (r *srvRoot) EntityWatcher(id string) (srvEntityWatcher, error) {
+	if err := r.accessAgentAPI(); err != nil {
+		return srvEntityWatcher{}, err
+	}
+	w := r.watchers.get(id)
+	if w == nil {
+		return srvEntityWatcher{}, errUnknownWatcher
+	}
+	if _, ok := w.w.(*state.EntityWatcher); !ok {
+		return srvEntityWatcher{}, errUnknownWatcher
+	}
+	return srvEntityWatcher{w}, nil
+}
+
+type srvEntityWatcher struct {
+	*srvWatcher
+}
+
+func (w srvEntityWatcher) Next() error {
+	if _, ok := <-w.srvWatcher.w.(*state.EntityWatcher).Changes(); ok {
+		return nil
+	}
+	return statewatcher.MustErr(w.w)
+}
+
 type rpcCreds struct {
 	EntityName string
 	Password   string
@@ -153,6 +183,20 @@ func (m *srvMachine) Get() (info rpcMachine) {
 	instId, _ := m.m.InstanceId()
 	info.InstanceId = string(instId)
 	return
+}
+
+type rpcEntityWatcherId struct {
+	EntityWatcherId string
+}
+
+func (m *srvMachine) Watch() (rpcEntityWatcherId, error) {
+	w := m.m.Watch()
+	if _, ok := <-w.Changes(); !ok {
+		return rpcEntityWatcherId{}, statewatcher.MustErr(w)
+	}
+	return rpcEntityWatcherId{
+		EntityWatcherId: m.root.watchers.register(w).id,
+	}, nil
 }
 
 type rpcPassword struct {
@@ -289,4 +333,61 @@ func isMachineWithJob(e state.AuthEntity, j state.MachineJob) bool {
 func isAgent(e state.AuthEntity) bool {
 	_, isUser := e.(*state.User)
 	return !isUser
+}
+
+type watcher interface {
+	Stop() error
+	Err() error
+}
+// watchers holds all the watchers for a connection.
+type watchers struct {
+	mu sync.Mutex
+	maxId uint64
+	ws map[string] *srvWatcher
+}
+
+// srvWatcher holds the details of a watcher.
+// It also implements the Stop RPC method
+// for all watchers.
+type srvWatcher struct {
+	ws *watchers
+	w watcher
+	id string
+}
+
+func (w *srvWatcher) Stop() error {
+	err := w.w.Stop()
+	w.ws.mu.Lock()
+	defer w.ws.mu.Unlock()
+	delete(w.ws.ws, w.id)
+	return err
+}
+
+func newWatchers() *watchers {
+	return &watchers{
+		ws: make(map[string] *srvWatcher),
+	}
+}
+
+// get returns the srvWatcher registered with the given
+// id, or nil if there is no such watcher.
+func (ws *watchers) get(id string) *srvWatcher {
+	ws.mu.Lock()
+	defer ws.mu.Unlock()
+	return ws.ws[id]
+}
+
+// register records the given watcher and returns
+// a srvWatcher instance for it.
+func (ws *watchers) register(w watcher) *srvWatcher {
+	ws.mu.Lock()
+	defer ws.mu.Unlock()
+	ws.maxId++
+	sw := &srvWatcher{
+		ws: ws,
+		id: strconv.FormatUint(ws.maxId, 10),
+		w: w,
+	}
+	ws.ws[sw.id]= sw
+	return sw
 }
