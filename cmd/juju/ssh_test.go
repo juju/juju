@@ -87,7 +87,7 @@ var sshTests = []struct {
 
 func (s *SSHSuite) TestSSHCommand(c *C) {
 	m := s.makeMachines(3, c)
-	ch := coretesting.Charms.Dir("series", "dummy")
+	ch := coretesting.Charms.Dir("dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:series/%s-%d", ch.Meta().Name, ch.Revision()),
 	)

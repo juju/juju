@@ -22,7 +22,7 @@ func runDestroyUnit(c *C, args ...string) error {
 }
 
 func (s *DestroyUnitSuite) TestDestroyUnit(c *C) {
-	testing.Charms.BundlePath(s.seriesPath, "series", "dummy")
+	testing.Charms.BundlePath(s.seriesPath, "dummy")
 	err := runDeploy(c, "-n", "2", "local:dummy", "dummy1")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")

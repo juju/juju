@@ -13,7 +13,7 @@ import (
 )
 
 func repoMeta(name string) io.Reader {
-	charmDir := testing.Charms.DirPath("series", name)
+	charmDir := testing.Charms.DirPath(name)
 	file, err := os.Open(filepath.Join(charmDir, "metadata.yaml"))
 	if err != nil {
 		panic(err)

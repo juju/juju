@@ -314,7 +314,7 @@ func (s *ConnSuite) TestPutBundledCharm(c *C) {
 	w, err := os.Create(filepath.Join(dir, "riak.charm"))
 	c.Assert(err, IsNil)
 	defer w.Close()
-	charmDir := coretesting.Charms.Dir("series", "riak")
+	charmDir := coretesting.Charms.Dir("riak")
 	err = charmDir.BundleTo(w)
 	c.Assert(err, IsNil)
 

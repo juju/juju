@@ -143,7 +143,7 @@ func (s *DeploySuite) TestInitErrors(c *C) {
 }
 
 func (s *DeploySuite) TestCharmDir(c *C) {
-	coretesting.Charms.ClonedDirPath(s.seriesPath, "series", "dummy")
+	coretesting.Charms.ClonedDirPath(s.seriesPath, "dummy")
 	err := runDeploy(c, "local:dummy")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
@@ -151,7 +151,7 @@ func (s *DeploySuite) TestCharmDir(c *C) {
 }
 
 func (s *DeploySuite) TestUpgradeCharmDir(c *C) {
-	dirPath := coretesting.Charms.ClonedDirPath(s.seriesPath, "series", "dummy")
+	dirPath := coretesting.Charms.ClonedDirPath(s.seriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "-u")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-2")
@@ -163,7 +163,7 @@ func (s *DeploySuite) TestUpgradeCharmDir(c *C) {
 }
 
 func (s *DeploySuite) TestCharmBundle(c *C) {
-	coretesting.Charms.BundlePath(s.seriesPath, "series", "dummy")
+	coretesting.Charms.BundlePath(s.seriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "some-service-name")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
@@ -171,7 +171,7 @@ func (s *DeploySuite) TestCharmBundle(c *C) {
 }
 
 func (s *DeploySuite) TestCannotUpgradeCharmBundle(c *C) {
-	coretesting.Charms.BundlePath(s.seriesPath, "series", "dummy")
+	coretesting.Charms.BundlePath(s.seriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "-u")
 	c.Assert(err, ErrorMatches, `cannot increment version of charm "local:precise/dummy-1": not a directory`)
 	// Verify state not touched...
@@ -183,7 +183,7 @@ func (s *DeploySuite) TestCannotUpgradeCharmBundle(c *C) {
 }
 
 func (s *DeploySuite) TestAddsPeerRelations(c *C) {
-	coretesting.Charms.BundlePath(s.seriesPath, "series", "riak")
+	coretesting.Charms.BundlePath(s.seriesPath, "riak")
 	err := runDeploy(c, "local:riak")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/riak-7")
@@ -197,7 +197,7 @@ func (s *DeploySuite) TestAddsPeerRelations(c *C) {
 }
 
 func (s *DeploySuite) TestNumUnits(c *C) {
-	coretesting.Charms.BundlePath(s.seriesPath, "series", "dummy")
+	coretesting.Charms.BundlePath(s.seriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "-n", "13")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
@@ -205,7 +205,7 @@ func (s *DeploySuite) TestNumUnits(c *C) {
 }
 
 func (s *DeploySuite) TestSubordinateCharm(c *C) {
-	coretesting.Charms.BundlePath(s.seriesPath, "series", "logging")
+	coretesting.Charms.BundlePath(s.seriesPath, "logging")
 	err := runDeploy(c, "local:logging")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/logging-1")
