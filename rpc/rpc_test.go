@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/testing"
 	"net"
 	stdtesting "testing"
+	"sync"
 )
 
 type suite struct {
@@ -101,12 +102,15 @@ func (a *A) Call1r0e(s stringVal) error {
 }
 
 type testContext struct {
+	mu sync.Mutex
 	calls []*callInfo
 	as    map[string]*A
 }
 
 func (t *testContext) called(rcvr interface{}, method string, arg interface{}) {
+	t.mu.Lock()
 	t.calls = append(t.calls, &callInfo{rcvr, method, arg})
+	t.mu.Unlock()
 }
 
 func (t *testContext) newA(id string) (*A, error) {
@@ -134,9 +138,14 @@ func (*suite) TestRPC(c *C) {
 	c.Assert(err, IsNil)
 }
 
-// newRPCClientServer starts an RPC server serving
-// a connection from a single client. When the
-// server has finished serving the connection,
+
+
+func (*suite) TestConcurrentCalls(c *C) {
+	
+}
+
+// newRPCClientServer starts an RPC server serving a connection from a
+// single client.  When the server has finished serving the connection,
 // it sends a value on done.
 func newRPCClientServer(c *C, root interface{}) (client *rpc.Client, done <-chan error) {
 	srv, err := rpc.NewServer(&TRoot{})
@@ -172,6 +181,8 @@ func (t *testContext) testCall(c *C, client *rpc.Client, narg, nret int, retErr 
 	c.Logf("test call %s", method)
 	var r stringVal
 	err := client.Call("A", "a99", method, stringVal{"arg"}, &r)
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	c.Assert(t.calls, HasLen, 1, Commentf("err %v", err))
 	expectCall := callInfo{
 		rcvr:   t.as["a99"],
