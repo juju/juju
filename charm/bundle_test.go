@@ -79,10 +79,9 @@ func (s *BundleSuite) TestBundleFileModes(c *C) {
 		}
 	}
 	var haveSymlinks = true
-	err := os.Symlink("../target", filepath.Join(srcPath, "hooks/symlink"))
-	//if err != nil {
-	//    haveSymlinks = false
-	//}
+	if err := os.Symlink("../target", filepath.Join(srcPath, "hooks/symlink")); err != nil {
+	    haveSymlinks = false
+	}
 
 	// Bundle and extract the charm to a new directory.
 	dir, err := charm.ReadDir(srcPath)
