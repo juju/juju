@@ -72,9 +72,11 @@ func (r *srvRoot) Admin(id string) (*srvAdmin, error) {
 	return r.admin, nil
 }
 
-// accessAgentAPI checks whether the
-// current client may access the agent APIs.
-func (r *srvRoot) accessAgentAPI() error {
+// requireAgent checks whether the current client is an agent and hence
+// may access the agent APIs.  We filter out non-agents when calling one
+// of the accessor functions (Machine, Unit, etc) which avoids us making
+// the check in every single request method.
+func (r *srvRoot) requireAgent() error {
 	e := r.user.entity()
 	if e == nil {
 		return errNotLoggedIn
@@ -86,7 +88,7 @@ func (r *srvRoot) accessAgentAPI() error {
 }
 
 func (r *srvRoot) Machine(id string) (*srvMachine, error) {
-	if err := r.accessAgentAPI(); err != nil {
+	if err := r.requireAgent(); err != nil {
 		return nil, err
 	}
 	m, err := r.srv.state.Machine(id)
@@ -100,7 +102,7 @@ func (r *srvRoot) Machine(id string) (*srvMachine, error) {
 }
 
 func (r *srvRoot) Unit(name string) (*srvUnit, error) {
-	if err := r.accessAgentAPI(); err != nil {
+	if err := r.requireAgent(); err != nil {
 		return nil, err
 	}
 	u, err := r.srv.state.Unit(name)
@@ -186,8 +188,7 @@ func (m *srvMachine) SetPassword(p rpcPassword) error {
 func (u *srvUnit) Get() (rpcUnit, error) {
 	var ru rpcUnit
 	ru.DeployerName, _ = u.u.DeployerName()
-	// TODO add other unit attributes, possibly
-	// filling them in on a need-to-know basis.
+	// TODO add other unit attributes
 	return ru, nil
 }
 

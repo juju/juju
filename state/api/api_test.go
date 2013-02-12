@@ -184,6 +184,12 @@ func opMachine1SetPassword(c *C, st *api.State) (func(), error) {
 //
 // The passwords for all returned entities are
 // set to the entity name with a " password" suffix.
+//
+// Note that there is nothing special about machine-0
+// here - it's the environment manager in this scenario
+// just because machine 0 has traditionally been the
+// environment manager (bootstrap machine), so is
+// hopefully easier to remember as such.
 func (s *suite) setUpScenario(c *C) (entities []string) {
 	add := func(e state.AuthEntity) {
 		entities = append(entities, e.EntityName())

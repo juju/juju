@@ -100,7 +100,6 @@ func (m *Machine) SetPassword(password string) error {
 		Password: password,
 	}, nil)
 	return rpcError(err)
-
 }
 
 // Refresh refreshes the contents of the Unit from the underlying
