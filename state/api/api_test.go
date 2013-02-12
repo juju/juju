@@ -4,6 +4,7 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	coretesting "launchpad.net/juju-core/testing"
@@ -533,6 +534,8 @@ func (s *suite) TestStop(c *C) {
 	err = stm.SetPassword("password")
 	c.Assert(err, IsNil)
 
+	// Note we can't use openAs because we're
+	// not connecting to s.APIConn.
 	st, err := api.Open(&api.Info{
 		EntityName: stm.EntityName(),
 		Password:   "password",
@@ -551,7 +554,7 @@ func (s *suite) TestStop(c *C) {
 	c.Logf("srv stopped")
 
 	_, err = st.Machine(stm.Id())
-	c.Assert(err, ErrorMatches, "cannot receive response: EOF")
+	c.Assert(err, Equals, rpc.ErrShutdown)
 
 	// Check it can be stopped twice.
 	err = srv.Stop()

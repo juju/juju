@@ -175,7 +175,7 @@ func rpcError(err error) error {
 	if err == nil {
 		return nil
 	}
-	rerr, ok := err.(*rpc.RemoteError)
+	rerr, ok := err.(*rpc.ServerError)
 	if !ok {
 		return err
 	}
