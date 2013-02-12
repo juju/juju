@@ -13,9 +13,7 @@ type Machine struct {
 	doc rpcMachine
 }
 
-// Machine returns a reference to the machine with the given id.  It
-// does not check whether the machine exists - subsequent requests will
-// fail if it does not.
+// Machine returns a reference to the machine with the given id.
 func (st *State) Machine(id string) (*Machine, error) {
 	m := &Machine{
 		st: st,

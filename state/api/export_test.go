@@ -3,6 +3,9 @@ package api
 // Add methods that do not interact with the state
 // server so we can benchmark request time
 // independent of mongo.
+type rpcId struct {
+	Id string
+}
 
 func (st *State) TestRequest() error {
 	var resp rpcId

@@ -18,10 +18,6 @@ func newStateServer(srv *Server, conn *websocket.Conn) *srvState {
 	}
 }
 
-type rpcId struct {
-	Id string
-}
-
 func (st *srvState) Machine(id string) (*srvMachine, error) {
 	m, err := st.srv.state.Machine(id)
 	if err != nil {

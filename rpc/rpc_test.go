@@ -42,7 +42,7 @@ func (r *TRoot) A(id string) (*A, error) {
 	if id == "" || id[0] != 'a' {
 		return nil, fmt.Errorf("unknown a id")
 	}
-	return r.t.newA(id)
+	return r.t.getA(id)
 }
 
 type A struct {
@@ -105,7 +105,7 @@ func (t *testContext) called(rcvr interface{}, method string, arg interface{}) {
 	t.calls = append(t.calls, &callInfo{rcvr, method, arg})
 }
 
-func (t *testContext) newA(id string) (*A, error) {
+func (t *testContext) getA(id string) (*A, error) {
 	if a := t.as[id]; a != nil {
 		return a, nil
 	}
