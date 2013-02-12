@@ -18,7 +18,7 @@ type maasEnviron struct {
 	ecfgMutex sync.Mutex
 
 	ecfgUnlocked       *maasEnvironConfig
-	maasClientUnlocked gomaasapi.MAASObject
+	maasClientUnlocked *gomaasapi.MAASObject
 }
 
 var _ environs.Environ = (*maasEnviron)(nil)
