@@ -311,14 +311,9 @@ func (s *Service) newUnitName() (string, error) {
 
 // addUnitOps returns a unique name for a new unit, and a list of txn operations
 // necessary to create that unit. The principalName param must be non-empty if
-// and only if s is a subordinate service. If s is a subordinate and strictSubordinates
-// is true, the returned ops will assert that no unit of s is already a subordinate
-// of the principal unit.
-func (s *Service) addUnitOps(principalName string, strictSubordinates bool) (string, []txn.Op, error) {
-	// NOTE: strictSubordinates is a temporary parameter, which allows us to use
-	// this method to simplify AddUnitSubordinateTo. When AUST is removed, the
-	// parameter should be dropped, and subordinates should always be created
-	// "strictly".
+// and only if s is a subordinate service. Only one subordinate of a given
+// service will be assigned to a given principal.
+func (s *Service) addUnitOps(principalName string) (string, []txn.Op, error) {
 	ch, _, err := s.Charm()
 	if err != nil {
 		return "", nil, err
@@ -351,16 +346,12 @@ func (s *Service) addUnitOps(principalName string, strictSubordinates bool) (str
 		Update: D{{"$inc", D{{"unitcount", 1}}}},
 	}}
 	if principalName != "" {
-		assert := isAliveDoc
-		if strictSubordinates {
-			assert = append(assert, bson.DocElem{
-				"subordinates", D{{"$not", bson.RegEx{Pattern: "^" + s.doc.Name + "/"}}},
-			})
-		}
 		ops = append(ops, txn.Op{
-			C:      s.st.units.Name,
-			Id:     principalName,
-			Assert: assert,
+			C:  s.st.units.Name,
+			Id: principalName,
+			Assert: append(isAliveDoc, bson.DocElem{
+				"subordinates", D{{"$not", bson.RegEx{Pattern: "^" + s.doc.Name + "/"}}},
+			}),
 			Update: D{{"$addToSet", D{{"subordinates", name}}}},
 		})
 	}
@@ -370,7 +361,7 @@ func (s *Service) addUnitOps(principalName string, strictSubordinates bool) (str
 // AddUnit adds a new principal unit to the service.
 func (s *Service) AddUnit() (unit *Unit, err error) {
 	defer trivial.ErrorContextf(&err, "cannot add unit to service %q", s)
-	name, ops, err := s.addUnitOps("", false)
+	name, ops, err := s.addUnitOps("")
 	if err != nil {
 		return nil, err
 	}

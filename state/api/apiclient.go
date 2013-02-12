@@ -15,6 +15,38 @@ type Machine struct {
 	doc rpcMachine
 }
 
+// Client represents the client-accessible part of the state.
+type Client struct {
+	st *State
+}
+
+// Client returns an object that can be used
+// to access client-specific functionality.
+func (st *State) Client() *Client {
+	return &Client{st}
+}
+
+// MachineInfo holds information about a machine.
+type MachineInfo struct {
+	InstanceId string // blank if not set.
+}
+
+// Status holds information about the status of a juju environment.
+type Status struct {
+	Machines map[string]MachineInfo
+	// TODO the rest
+}
+
+// Status returns the status of the juju environment.
+func (c *Client) Status() (*Status, error) {
+	var s Status
+	err := c.st.client.Call("Client", "", "Status", nil, &s)
+	if err != nil {
+		return nil, rpcError(err)
+	}
+	return &s, nil
+}
+
 // Machine returns a reference to the machine with the given id.
 func (st *State) Machine(id string) (*Machine, error) {
 	m := &Machine{

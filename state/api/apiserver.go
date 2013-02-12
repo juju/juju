@@ -25,6 +25,7 @@ var (
 // srvRoot represents a single client's connection to the state.
 type srvRoot struct {
 	admin *srvAdmin
+	client *srvClient
 	srv   *Server
 	conn  *websocket.Conn
 	watchers *watchers
@@ -57,6 +58,11 @@ type srvUser struct {
 	u    *state.User
 }
 
+// srvClient serves client-specific API methods.
+type srvClient struct {
+	root *srvRoot
+}
+
 func newStateServer(srv *Server, conn *websocket.Conn) *srvRoot {
 	r := &srvRoot{
 		srv:  srv,
@@ -64,6 +70,9 @@ func newStateServer(srv *Server, conn *websocket.Conn) *srvRoot {
 		watchers: newWatchers(),
 	}
 	r.admin = &srvAdmin{
+		root: r,
+	}
+	r.client = &srvClient{
 		root: r,
 	}
 	return r
@@ -77,9 +86,11 @@ func (r *srvRoot) Admin(id string) (*srvAdmin, error) {
 	return r.admin, nil
 }
 
-// accessAgentAPI checks whether the
-// current client may access the agent APIs.
-func (r *srvRoot) accessAgentAPI() error {
+// requireAgent checks whether the current client is an agent and hence
+// may access the agent APIs.  We filter out non-agents when calling one
+// of the accessor functions (Machine, Unit, etc) which avoids us making
+// the check in every single request method.
+func (r *srvRoot) requireAgent() error {
 	e := r.user.entity()
 	if e == nil {
 		return errNotLoggedIn
@@ -90,8 +101,21 @@ func (r *srvRoot) accessAgentAPI() error {
 	return nil
 }
 
+// requireClient returns an error unless the current
+// client is a juju client user.
+func (r *srvRoot) requireClient() error {
+	e := r.user.entity()
+	if e == nil {
+		return errNotLoggedIn
+	}
+	if isAgent(e) {
+		return errPerm
+	}
+	return nil
+}
+
 func (r *srvRoot) Machine(id string) (*srvMachine, error) {
-	if err := r.accessAgentAPI(); err != nil {
+	if err := r.requireAgent(); err != nil {
 		return nil, err
 	}
 	m, err := r.srv.state.Machine(id)
@@ -105,7 +129,7 @@ func (r *srvRoot) Machine(id string) (*srvMachine, error) {
 }
 
 func (r *srvRoot) Unit(name string) (*srvUnit, error) {
-	if err := r.accessAgentAPI(); err != nil {
+	if err := r.requireAgent(); err != nil {
 		return nil, err
 	}
 	u, err := r.srv.state.Unit(name)
@@ -160,6 +184,34 @@ func (w srvEntityWatcher) Next() error {
 		return nil
 	}
 	return statewatcher.MustErr(w.w)
+}
+
+func (r *srvRoot) Client(id string) (*srvClient, error) {
+	if err := r.requireClient(); err != nil {
+		return nil, err
+	}
+	if id != "" {
+		// Safeguard id for possible future use.
+		return nil, errBadId
+	}
+	return r.client, nil
+}
+
+func (c *srvClient) Status() (*Status, error) {
+	ms, err := c.root.srv.state.AllMachines()
+	if err != nil {
+		return nil, err
+	}
+	st := &Status{
+		Machines: make(map[string]MachineInfo),
+	}
+	for _, m := range ms {
+		instId, _ := m.InstanceId()
+		st.Machines[m.Id()] = MachineInfo{
+			InstanceId: string(instId),
+		}
+	}
+	return st, nil
 }
 
 type rpcCreds struct {
@@ -230,8 +282,7 @@ func (m *srvMachine) SetPassword(p rpcPassword) error {
 func (u *srvUnit) Get() (rpcUnit, error) {
 	var ru rpcUnit
 	ru.DeployerName, _ = u.u.DeployerName()
-	// TODO add other unit attributes, possibly
-	// filling them in on a need-to-know basis.
+	// TODO add other unit attributes
 	return ru, nil
 }
 

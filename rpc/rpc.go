@@ -149,7 +149,7 @@ type action struct {
 
 	// call calls the action method with the given argument
 	// on the given receiver value. If the method does
-	// not return a value, the returned valid will not be valid.
+	// not return a value, the returned value will not be valid.
 	call func(rcvr, arg reflect.Value) (reflect.Value, error)
 }
 

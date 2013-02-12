@@ -460,8 +460,8 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 		if err := st.SetAdminMongoPassword(trivial.PasswordHash(password)); err != nil {
 			panic(err)
 		}
-		// TODO(rog) use hash of password when we can change passwords
-		// in the API
+		// TODO(rog) use hash of password when the juju API connection
+		// logic is done.
 		_, err = st.AddUser("admin", password)
 		if err != nil {
 			panic(err)
