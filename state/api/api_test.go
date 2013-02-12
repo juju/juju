@@ -55,6 +55,10 @@ var operationPermTests = []struct {
 	about: "Unit.SetPassword (on subordinate unit)",
 	op:    opUnitSetPassword("logging/0"),
 	allow: []string{"unit-logging-0", "unit-wordpress-0"},
+}, {
+	about: "Client.Status",
+	op:    opClientStatus,
+	allow: []string{"user-admin", "user-other"},
 },
 }
 
@@ -154,6 +158,33 @@ func opMachine1SetPassword(c *C, st *api.State) (func(), error) {
 	return func() {
 		setDefaultPassword(c, m)
 	}, nil
+}
+
+func opClientStatus(c *C, st *api.State) (func(), error) {
+	status, err := st.Client().Status()
+	if err != nil {
+		c.Check(status, IsNil)
+		return func() {}, err
+	}
+	c.Assert(err, IsNil)
+	c.Assert(status, DeepEquals, scenarioStatus)
+	return func() {}, nil
+}
+
+// scenarioStatus describes the expected state
+// of the juju environment set up by setUpScenario.
+var scenarioStatus = &api.Status{
+	Machines: map[string]api.MachineInfo{
+		"0": {
+			InstanceId: "i-machine-0",
+		},
+		"1": {
+			InstanceId: "i-machine-1",
+		},
+		"2": {
+			InstanceId: "i-machine-2",
+		},
+	},
 }
 
 // setUpScenario makes an environment scenario suitable for
@@ -323,6 +354,13 @@ func (s *suite) TestBadLogin(c *C) {
 			c.Assert(err, ErrorMatches, "not logged in")
 		}()
 	}
+}
+
+func (s *suite) TestClientStatus(c *C) {
+	s.setUpScenario(c)
+	status, err := s.APIState.Client().Status()
+	c.Assert(err, IsNil)
+	c.Assert(status, DeepEquals, scenarioStatus)
 }
 
 func (s *suite) TestMachineLogin(c *C) {
