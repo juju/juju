@@ -28,7 +28,9 @@ type Info struct {
 	CACert []byte
 
 	// EntityName holds the name of the entity that is connecting.
-	// If this and the password are empty, no login attempt will be made.
+	// If this and the password are empty, no login attempt will be made
+	// (this is to allow tests to access the API to check that operations
+	// fail when not logged in).
 	EntityName string
 
 	// Password holds the password for the administrator or connecting entity.
