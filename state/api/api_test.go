@@ -88,24 +88,3 @@ func (s *suite) TestStop(c *C) {
 	err = s.srv.Stop()
 	c.Assert(err, IsNil)
 }
-
-func (s *suite) BenchmarkRequests(c *C) {
-	stm, err := s.State.AddMachine(state.JobHostUnits)
-	c.Assert(err, IsNil)
-	c.ResetTimer()
-	for i := 0; i < c.N; i++ {
-		_, err := s.APIState.Machine(stm.Id())
-		if err != nil {
-			c.Assert(err, IsNil)
-		}
-	}
-}
-
-func (s *suite) BenchmarkTestRequests(c *C) {
-	for i := 0; i < c.N; i++ {
-		err := s.APIState.TestRequest()
-		if err != nil {
-			c.Assert(err, IsNil)
-		}
-	}
-}
