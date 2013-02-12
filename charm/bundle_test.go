@@ -78,6 +78,11 @@ func (s *BundleSuite) TestBundleFileModes(c *C) {
 			panic(err)
 		}
 	}
+        var haveSymlinks = true
+        err := os.Symlink("../target", filepath.Join(srcPath, "hooks/symlink"))
+        //if err != nil {
+        //    haveSymlinks = false
+        //}
 
 	// Bundle and extract the charm to a new directory.
 	dir, err := charm.ReadDir(srcPath)
@@ -106,9 +111,11 @@ func (s *BundleSuite) TestBundleFileModes(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(info.Mode()&0777, Equals, os.FileMode(0755))
 
-	target, err := os.Readlink(filepath.Join(path, "hooks", "symlink"))
-	c.Assert(err, IsNil)
-	c.Assert(target, Equals, "../target")
+        if haveSymlinks {
+            target, err := os.Readlink(filepath.Join(path, "hooks", "symlink"))
+            c.Assert(err, IsNil)
+            c.Assert(target, Equals, "../target")
+        }
 }
 
 func (s *BundleSuite) TestBundleRevisionFile(c *C) {

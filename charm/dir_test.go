@@ -34,8 +34,15 @@ func (s *DirSuite) TestReadDirWithoutConfig(c *C) {
 }
 
 func (s *DirSuite) TestBundleTo(c *C) {
-	dir := testing.Charms.Dir("series", "dummy")
-	path := filepath.Join(c.MkDir(), "bundle.charm")
+        baseDir := c.MkDir()
+	charmDir := testing.Charms.ClonedDirPath(baseDir, "series", "dummy")
+        err := os.Symlink("../target", filepath.Join(charmDir, "hooks/symlink"))
+        if err != nil {
+            panic(err)
+        }
+        dir, err := charm.ReadDir(charmDir)
+        c.Assert(err, IsNil)
+	path := filepath.Join(baseDir, "bundle.charm")
 	file, err := os.Create(path)
 	c.Assert(err, IsNil)
 	err = dir.BundleTo(file)
