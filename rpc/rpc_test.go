@@ -41,10 +41,18 @@ type stringVal struct {
 }
 
 type TRoot struct {
-	mu      sync.Mutex
-	calls   []*callInfo
-	simple  map[string]*SimpleMethods
-	delayed map[string]*DelayedMethods
+	mu        sync.Mutex
+	calls     []*callInfo
+	returnErr bool
+	simple    map[string]*SimpleMethods
+	delayed   map[string]*DelayedMethods
+}
+
+func (r *TRoot) callError(rcvr interface{}, name string, arg interface{}) error {
+	if r.returnErr {
+		return &callError{rcvr, name, arg}
+	}
+	return nil
 }
 
 func (r *TRoot) SimpleMethods(id string) (*SimpleMethods, error) {
@@ -95,12 +103,12 @@ func (a *SimpleMethods) Call0r1() stringVal {
 
 func (a *SimpleMethods) Call0r1e() (stringVal, error) {
 	a.root.called(a, "Call0r1e", nil)
-	return stringVal{"Call0r1e ret"}, &callError{a, "Call0r1e", nil}
+	return stringVal{"Call0r1e ret"}, a.root.callError(a, "Call0r1e", nil)
 }
 
 func (a *SimpleMethods) Call0r0e() error {
 	a.root.called(a, "Call0r0e", nil)
-	return &callError{a, "Call0r0e", nil}
+	return a.root.callError(a, "Call0r0e", nil)
 }
 
 func (a *SimpleMethods) Call1r0(s stringVal) {
@@ -114,12 +122,12 @@ func (a *SimpleMethods) Call1r1(s stringVal) stringVal {
 
 func (a *SimpleMethods) Call1r1e(s stringVal) (stringVal, error) {
 	a.root.called(a, "Call1r1e", s)
-	return stringVal{}, &callError{a, "Call1r1e", s}
+	return stringVal{"Call1r1e ret"}, a.root.callError(a, "Call1r1e", s)
 }
 
 func (a *SimpleMethods) Call1r0e(s stringVal) error {
 	a.root.called(a, "Call1r0e", s)
-	return &callError{a, "Call1r0e", s}
+	return a.root.callError(a, "Call1r0e", s)
 }
 
 type DelayedMethods struct {
@@ -143,8 +151,11 @@ func (*suite) TestRPC(c *C) {
 	for narg := 0; narg < 2; narg++ {
 		for nret := 0; nret < 2; nret++ {
 			for nerr := 0; nerr < 2; nerr++ {
-				root.calls = nil
-				root.testCall(c, client, narg, nret, nerr != 0)
+				retErr := nerr != 0
+				root.testCall(c, client, narg, nret, retErr, false)
+				if retErr {
+					root.testCall(c, client, narg, nret, retErr, true)
+				}
 			}
 		}
 	}
@@ -153,7 +164,9 @@ func (*suite) TestRPC(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (root *TRoot) testCall(c *C, client *rpc.Client, narg, nret int, retErr bool) {
+func (root *TRoot) testCall(c *C, client *rpc.Client, narg, nret int, retErr, testErr bool) {
+	root.calls = nil
+	root.returnErr = testErr
 	e := ""
 	if retErr {
 		e = "e"
@@ -174,10 +187,11 @@ func (root *TRoot) testCall(c *C, client *rpc.Client, narg, nret int, retErr boo
 	}
 	c.Assert(*root.calls[0], Equals, expectCall)
 	switch {
-	case retErr:
+	case retErr && testErr:
 		c.Assert(err, DeepEquals, &rpc.ServerError{
 			fmt.Sprintf("error calling %s", method),
 		})
+		c.Assert(r, Equals, stringVal{})
 	case nret > 0:
 		c.Assert(r, Equals, stringVal{method + " ret"})
 	}

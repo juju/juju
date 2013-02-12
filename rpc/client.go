@@ -204,7 +204,7 @@ func (c *Client) Call(objType, id, action string, params, response interface{}) 
 // Go invokes the request asynchronously.  It returns the Call structure representing
 // the invocation.  The done channel will signal when the call is complete by returning
 // the same Call object.  If done is nil, Go will allocate a new channel.
-// If non-nil, done must be buffered or Go will deliberately crash.
+// If non-nil, done must be buffered or Go will deliberately panic.
 func (c *Client) Go(objType, id, request string, args, response interface{}, done chan *Call) *Call {
 	if done == nil {
 		done = make(chan *Call, 10) // buffered.
