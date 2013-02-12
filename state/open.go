@@ -120,6 +120,7 @@ var indexes = []struct {
 	{"units", []string{"service"}},
 	{"units", []string{"principal"}},
 	{"units", []string{"machineid"}},
+	{"users", []string{"name"}},
 }
 
 // The capped collection used for transaction logs defaults to 10MB.

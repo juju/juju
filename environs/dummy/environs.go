@@ -121,7 +121,6 @@ type environState struct {
 	httpListener  net.Listener
 	apiServer     *api.Server
 	apiState      *state.State
-	apiAddr       string
 }
 
 // environ represents a client's connection to a given environment's
@@ -459,10 +458,15 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 			panic(err)
 		}
 		if err := st.SetAdminMongoPassword(trivial.PasswordHash(password)); err != nil {
-			return err
+			panic(err)
 		}
-		e.state.apiAddr = fmt.Sprintf("localhost:%d", testing.FindTCPPort())
-		e.state.apiServer, err = api.NewServer(st, e.state.apiAddr, []byte(testing.ServerCert), []byte(testing.ServerKey))
+		// TODO(rog) use hash of password when the juju API connection
+		// logic is done.
+		_, err = st.AddUser("admin", password)
+		if err != nil {
+			panic(err)
+		}
+		e.state.apiServer, err = api.NewServer(st, "localhost:0", []byte(testing.ServerCert), []byte(testing.ServerKey))
 		if err != nil {
 			panic(err)
 		}
@@ -485,7 +489,7 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 		return nil, nil, errors.New("dummy environment not bootstrapped")
 	}
 	return stateInfo(), &api.Info{
-		Addrs:  []string{e.state.apiAddr},
+		Addrs:  []string{e.state.apiServer.Addr()},
 		CACert: []byte(testing.CACert),
 	}, nil
 }
