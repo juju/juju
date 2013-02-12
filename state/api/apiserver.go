@@ -21,9 +21,10 @@ var (
 
 // srvRoot represents a single client's connection to the state.
 type srvRoot struct {
-	admin *srvAdmin
-	srv   *Server
-	conn  *websocket.Conn
+	admin  *srvAdmin
+	client *srvClient
+	srv    *Server
+	conn   *websocket.Conn
 
 	user authUser
 }
@@ -53,12 +54,20 @@ type srvUser struct {
 	u    *state.User
 }
 
+// srvClient serves client-specific API methods.
+type srvClient struct {
+	root *srvRoot
+}
+
 func newStateServer(srv *Server, conn *websocket.Conn) *srvRoot {
 	r := &srvRoot{
 		srv:  srv,
 		conn: conn,
 	}
 	r.admin = &srvAdmin{
+		root: r,
+	}
+	r.client = &srvClient{
 		root: r,
 	}
 	return r
@@ -82,6 +91,19 @@ func (r *srvRoot) requireAgent() error {
 		return errNotLoggedIn
 	}
 	if !isAgent(e) {
+		return errPerm
+	}
+	return nil
+}
+
+// requireClient returns an error unless the current
+// client is a juju client user.
+func (r *srvRoot) requireClient() error {
+	e := r.user.entity()
+	if e == nil {
+		return errNotLoggedIn
+	}
+	if isAgent(e) {
 		return errPerm
 	}
 	return nil
@@ -132,6 +154,34 @@ func (r *srvRoot) User(name string) (*srvUser, error) {
 		root: r,
 		u:    u,
 	}, nil
+}
+
+func (r *srvRoot) Client(id string) (*srvClient, error) {
+	if err := r.requireClient(); err != nil {
+		return nil, err
+	}
+	if id != "" {
+		// Safeguard id for possible future use.
+		return nil, errBadId
+	}
+	return r.client, nil
+}
+
+func (c *srvClient) Status() (*Status, error) {
+	ms, err := c.root.srv.state.AllMachines()
+	if err != nil {
+		return nil, err
+	}
+	st := &Status{
+		Machines: make(map[string]MachineInfo),
+	}
+	for _, m := range ms {
+		instId, _ := m.InstanceId()
+		st.Machines[m.Id()] = MachineInfo{
+			InstanceId: string(instId),
+		}
+	}
+	return st, nil
 }
 
 type rpcCreds struct {

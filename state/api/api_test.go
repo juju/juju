@@ -56,7 +56,7 @@ var operationPermTests = []struct {
 	allow: []string{"unit-logging-0", "unit-wordpress-0"},
 }, {
 	about: "Client.Status",
-	op: opClientStatus,
+	op:    opClientStatus,
 	allow: []string{"user-admin", "user-other"},
 },
 }
@@ -163,16 +163,16 @@ func opClientStatus(c *C, st *api.State) (func(), error) {
 	status, err := st.Client().Status()
 	if err != nil {
 		c.Check(status, IsNil)
-		return func(){}, err
+		return func() {}, err
 	}
 	c.Assert(err, IsNil)
 	c.Assert(status, DeepEquals, scenarioStatus)
-	return func(){}, nil
+	return func() {}, nil
 }
 
 // scenarioStatus describes the expected state
 // of the juju environment set up by setUpScenario.
-var scenarioStatus = api.Status{
+var scenarioStatus = &api.Status{
 	Machines: map[string]api.MachineInfo{
 		"0": {
 			InstanceId: "i-machine-0",
@@ -185,7 +185,6 @@ var scenarioStatus = api.Status{
 		},
 	},
 }
-
 
 // setUpScenario makes an environment scenario suitable for
 // testing most kinds of access scenario. It returns
