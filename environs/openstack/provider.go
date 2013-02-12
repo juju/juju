@@ -43,7 +43,7 @@ var providerInstance environProvider
 // a security group after termination).  The former failure mode is
 // dealt with by shortAttempt, the latter by longAttempt.
 var shortAttempt = trivial.AttemptStrategy{
-	Total: 5 * time.Second,
+	Total: 10 * time.Second, // it seems Nova needs more time than EC2
 	Delay: 200 * time.Millisecond,
 }
 
@@ -68,7 +68,7 @@ openstack:
   # auth-url: https://yourkeystoneurl:443/v2.0/
   # override if your workstation is running a different series to which you are deploying
   # default-series: precise
-  default-image-id: <nova server id>
+  default-image-id: c876e5fe-abb0-41f0-8f29-f0b47481f523
   # The following are used for userpass authentication (the default)
   auth-mode: userpass
   # Usually set via the env variable OS_USERNAME, but can be specified here
@@ -90,7 +90,7 @@ hpcloud:
   auth-url: https://yourkeystoneurl:35357/v2.0/
   # override if your workstation is running a different series to which you are deploying
   # default-series: precise
-  default-image-id: <nova server id>
+  default-image-id: 75845
   # The following are used for userpass authentication (the default)
   auth-mode: userpass
   # Usually set via the env variable OS_USERNAME, but can be specified here
@@ -631,7 +631,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	var server *nova.Entity
 	for a := shortAttempt.Start(); a.Next(); {
 		server, err = e.nova().RunServer(nova.RunServerOpts{
-			Name:               state.MachineEntityName(scfg.machineId),
+			Name:               e.machineFullName(scfg.machineId),
 			FlavorId:           spec.flavorId,
 			ImageId:            spec.imageId,
 			UserData:           userData,
@@ -672,43 +672,82 @@ func (e *environ) StopInstances(insts []environs.Instance) error {
 		}
 		ids[i] = instanceValue.Id()
 	}
+	log.Debugf("environs/openstack: terminating instances %v", ids)
 	return e.terminateInstances(ids)
 }
 
-func (e *environ) Instances(ids []state.InstanceId) ([]environs.Instance, error) {
-	// TODO FIXME Instances must somehow be tagged to be part of the environment.
-	// This is returning *all* instances, which means it's impossible to have two different
-	// environments on the same account.
-	if len(ids) == 0 {
-		return nil, nil
-	}
-	insts := make([]environs.Instance, len(ids))
-	servers, err := e.nova().ListServersDetail(nil)
-	if err != nil {
-		return nil, err
-	}
-	for i, id := range ids {
-		for j, _ := range servers {
-			if servers[j].Id == string(id) {
-				insts[i] = &instance{e, &servers[j], ""}
-			}
+// collectInstances tries to get information on each instance id in ids.
+// It fills the slots in the given map for known servers with status
+// either ACTIVE or BUILD. Returns a list of missing ids.
+func (e *environ) collectInstances(ids []state.InstanceId, out map[state.InstanceId]environs.Instance) []state.InstanceId {
+	var err error
+	serversById := make(map[string]nova.ServerDetail)
+	if len(ids) == 1 {
+		// most common case - single instance
+		var server *nova.ServerDetail
+		server, err = e.nova().GetServer(string(ids[0]))
+		if server != nil {
+			serversById[server.Id] = *server
+		}
+	} else {
+		var servers []nova.ServerDetail
+		servers, err = e.nova().ListServersDetail(e.machinesFilter())
+		for _, server := range servers {
+			serversById[server.Id] = server
 		}
 	}
-	return insts, nil
+	if err != nil {
+		return ids
+	}
+	var missing []state.InstanceId
+	for _, id := range ids {
+		if server, found := serversById[string(id)]; found {
+			if server.Status == nova.StatusActive || server.Status == nova.StatusBuild {
+				out[id] = &instance{e, &server, ""}
+			}
+			continue
+		}
+		missing = append(missing, id)
+	}
+	return missing
+}
+
+func (e *environ) Instances(ids []state.InstanceId) ([]environs.Instance, error) {
+	missing := ids
+	found := make(map[state.InstanceId]environs.Instance)
+	// Make a series of requests to cope with eventual consistency.
+	// Each request will attempt to add more instances to the requested
+	// set.
+	for a := shortAttempt.Start(); a.Next(); {
+		if missing = e.collectInstances(missing, found); len(missing) == 0 {
+			break
+		}
+	}
+	if len(found) == 0 {
+		return nil, environs.ErrNoInstances
+	}
+	insts := make([]environs.Instance, len(ids))
+	var err error
+	for i, id := range ids {
+		if inst := found[id]; inst != nil {
+			insts[i] = inst
+		} else {
+			err = environs.ErrPartialInstances
+		}
+	}
+	return insts, err
 }
 
 func (e *environ) AllInstances() (insts []environs.Instance, err error) {
-	// TODO FIXME Instances must somehow be tagged to be part of the environment.
-	// This is returning *all* instances, which means it's impossible to have two different
-	// environments on the same account.
-	// TODO(wallyworld): add filtering to exclude deleted images etc
-	servers, err := e.nova().ListServersDetail(nil)
+	servers, err := e.nova().ListServersDetail(e.machinesFilter())
 	if err != nil {
 		return nil, err
 	}
 	for _, server := range servers {
-		var s = server
-		insts = append(insts, &instance{e, &s, ""})
+		if server.Status == nova.StatusActive || server.Status == nova.StatusBuild {
+			var s = server
+			insts = append(insts, &instance{e, &s, ""})
+		}
 	}
 	return insts, err
 }
@@ -761,6 +800,17 @@ func (e *environ) machineGroupName(machineId string) string {
 
 func (e *environ) jujuGroupName() string {
 	return fmt.Sprintf("juju-%s", e.name)
+}
+
+func (e *environ) machineFullName(machineId string) string {
+	return fmt.Sprintf("juju-%s-%s", e.Name(), state.MachineEntityName(machineId))
+}
+
+// machinesFilter returns a nova.Filter matching all machines in the environment.
+func (e *environ) machinesFilter() *nova.Filter {
+	filter := nova.NewFilter()
+	filter.Set(nova.FilterServer, fmt.Sprintf("juju-%s-.*", e.Name()))
+	return filter
 }
 
 func (e *environ) OpenPorts(ports []state.Port) error {
@@ -876,6 +926,7 @@ func (e *environ) terminateInstances(ids []state.InstanceId) error {
 			err = nil
 		}
 		if err != nil && firstErr == nil {
+			log.Debugf("environs/openstack: error terminating instance %q: %v", id, err)
 			firstErr = err
 		}
 	}

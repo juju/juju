@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -169,20 +168,20 @@ var runHookTests = []struct {
 		spec:    hookSpec{perm: 0700},
 		env: map[string]string{
 			"JUJU_UNIT_NAME":   "u/0",
-			"JUJU_RELATION":    "peer1",
-			"JUJU_RELATION_ID": "peer1:1",
+			"JUJU_RELATION":    "db",
+			"JUJU_RELATION_ID": "db:1",
 			"JUJU_REMOTE_UNIT": "",
 		},
 	}, {
 		summary: "check shell environment for relation hook context",
 		relid:   1,
-		remote:  "u/1",
+		remote:  "r/1",
 		spec:    hookSpec{perm: 0700},
 		env: map[string]string{
 			"JUJU_UNIT_NAME":   "u/0",
-			"JUJU_RELATION":    "peer1",
-			"JUJU_RELATION_ID": "peer1:1",
-			"JUJU_REMOTE_UNIT": "u/1",
+			"JUJU_RELATION":    "db",
+			"JUJU_RELATION_ID": "db:1",
+			"JUJU_REMOTE_UNIT": "r/1",
 		},
 	},
 }
@@ -285,10 +284,10 @@ func (s *RunHookSuite) TestRunHookRelationFlushing(c *C) {
 	// Check that the changes to the local settings nodes have been discarded.
 	node0, err = s.relctxs[0].Settings()
 	c.Assert(err, IsNil)
-	c.Assert(node0.Map(), DeepEquals, map[string]interface{}{"relation-name": "peer0"})
+	c.Assert(node0.Map(), DeepEquals, map[string]interface{}{"relation-name": "db0"})
 	node1, err = s.relctxs[1].Settings()
 	c.Assert(err, IsNil)
-	c.Assert(node1.Map(), DeepEquals, map[string]interface{}{"relation-name": "peer1"})
+	c.Assert(node1.Map(), DeepEquals, map[string]interface{}{"relation-name": "db1"})
 
 	// Check that the changes have been written to state.
 	settings0, err := s.relunits[0].ReadSettings("u/0")
@@ -314,13 +313,13 @@ func (s *RunHookSuite) TestRunHookRelationFlushing(c *C) {
 	node0, err = s.relctxs[0].Settings()
 	c.Assert(err, IsNil)
 	c.Assert(node0.Map(), DeepEquals, map[string]interface{}{
-		"relation-name": "peer0",
+		"relation-name": "db0",
 		"baz":           3,
 	})
 	node1, err = s.relctxs[1].Settings()
 	c.Assert(err, IsNil)
 	c.Assert(node1.Map(), DeepEquals, map[string]interface{}{
-		"relation-name": "peer1",
+		"relation-name": "db1",
 		"qux":           4,
 	})
 
@@ -344,14 +343,14 @@ var _ = Suite(&ContextRelationSuite{})
 
 func (s *ContextRelationSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
-	ch := s.AddTestingCharm(c, "dummy")
+	ch := s.AddTestingCharm(c, "riak")
 	var err error
 	s.svc, err = s.State.AddService("u", ch)
 	c.Assert(err, IsNil)
-	s.rel, err = s.State.AddRelation(
-		state.Endpoint{"u", "ifce", "ring", state.RolePeer, charm.ScopeGlobal},
-	)
+	rels, err := s.svc.Relations()
 	c.Assert(err, IsNil)
+	c.Assert(rels, HasLen, 1)
+	s.rel = rels[0]
 	unit, err := s.svc.AddUnit()
 	c.Assert(err, IsNil)
 	s.ru, err = s.rel.Unit(unit)
@@ -540,8 +539,8 @@ func (s *InterfaceSuite) TestTrivial(c *C) {
 	c.Assert(ctx.RelationIds(), HasLen, 2)
 	r, found = ctx.Relation(0)
 	c.Assert(found, Equals, true)
-	c.Assert(r.Name(), Equals, "peer0")
-	c.Assert(r.FakeId(), Equals, "peer0:0")
+	c.Assert(r.Name(), Equals, "db")
+	c.Assert(r.FakeId(), Equals, "db:0")
 	r, found = ctx.Relation(123)
 	c.Assert(found, Equals, false)
 	c.Assert(r, IsNil)
@@ -549,8 +548,8 @@ func (s *InterfaceSuite) TestTrivial(c *C) {
 	ctx = s.GetContext(c, 1, "")
 	r, found = ctx.HookRelation()
 	c.Assert(found, Equals, true)
-	c.Assert(r.Name(), Equals, "peer1")
-	c.Assert(r.FakeId(), Equals, "peer1:1")
+	c.Assert(r.Name(), Equals, "db")
+	c.Assert(r.FakeId(), Equals, "db:1")
 
 	ctx = s.GetContext(c, 1, "u/123")
 	name, found = ctx.RemoteUnitName()
@@ -586,51 +585,45 @@ func (s *InterfaceSuite) TestConfigCaching(c *C) {
 	ctx := s.GetContext(c, -1, "")
 	cfg, err := ctx.Config()
 	c.Assert(err, IsNil)
-	c.Assert(cfg, DeepEquals, map[string]interface{}{
-		"title":    "My Title",
-		"username": "admin001",
-	})
+	c.Assert(cfg, DeepEquals, map[string]interface{}{"blog-title": "My Title"})
 
 	// Change remote config.
 	node, err := s.service.Config()
 	c.Assert(err, IsNil)
-	node.Set("title", "Something Else")
+	node.Set("blog-title", "Something Else")
 	_, err = node.Write()
 	c.Assert(err, IsNil)
 
 	// Local view is not changed.
 	cfg, err = ctx.Config()
 	c.Assert(err, IsNil)
-	c.Assert(cfg, DeepEquals, map[string]interface{}{
-		"title":    "My Title",
-		"username": "admin001",
-	})
+	c.Assert(cfg, DeepEquals, map[string]interface{}{"blog-title": "My Title"})
 }
 
 type HookContextSuite struct {
 	testing.JujuConnSuite
-	ch       *state.Charm
 	service  *state.Service
 	unit     *state.Unit
+	relch    *state.Charm
 	relunits map[int]*state.RelationUnit
 	relctxs  map[int]*uniter.ContextRelation
 }
 
 func (s *HookContextSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.ch = s.AddTestingCharm(c, "dummy")
 	var err error
-	s.service, err = s.State.AddService("u", s.ch)
+	s.service, err = s.State.AddService("u", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
-	s.unit = s.AddUnit(c)
+	s.unit = s.AddUnit(c, s.service)
+	s.relch = s.AddTestingCharm(c, "mysql")
 	s.relunits = map[int]*state.RelationUnit{}
 	s.relctxs = map[int]*uniter.ContextRelation{}
-	s.AddContextRelation(c, "peer0")
-	s.AddContextRelation(c, "peer1")
+	s.AddContextRelation(c, "db0")
+	s.AddContextRelation(c, "db1")
 }
 
-func (s *HookContextSuite) AddUnit(c *C) *state.Unit {
-	unit, err := s.service.AddUnit()
+func (s *HookContextSuite) AddUnit(c *C, svc *state.Service) *state.Unit {
+	unit, err := svc.AddUnit()
 	c.Assert(err, IsNil)
 	name := strings.Replace(unit.Name(), "/", "-", 1)
 	err = unit.SetPrivateAddress(name + ".example.com")
@@ -639,10 +632,11 @@ func (s *HookContextSuite) AddUnit(c *C) *state.Unit {
 }
 
 func (s *HookContextSuite) AddContextRelation(c *C, name string) {
-	ep := state.Endpoint{
-		s.service.Name(), "ifce", name, state.RolePeer, charm.ScopeGlobal,
-	}
-	rel, err := s.State.AddRelation(ep)
+	_, err := s.State.AddService(name, s.relch)
+	c.Assert(err, IsNil)
+	eps, err := s.State.InferEndpoints([]string{"u", name})
+	c.Assert(err, IsNil)
+	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, IsNil)
 	ru, err := rel.Unit(s.unit)
 	c.Assert(err, IsNil)

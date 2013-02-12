@@ -170,7 +170,3 @@ func (s *LiveTests) TestGlobalPorts(c *C) {
 func (s *LiveTests) TestPorts(c *C) {
 	c.Skip("Work in progress")
 }
-
-func (s *LiveTests) TestStartStop(c *C) {
-	c.Skip("Work in progress")
-}
