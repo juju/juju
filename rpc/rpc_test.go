@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/testing"
 	"net"
+	"reflect"
 	"sync"
 	stdtesting "testing"
 	"time"
@@ -78,7 +79,6 @@ func (t *TRoot) called(rcvr interface{}, method string, arg interface{}) {
 	t.calls = append(t.calls, &callInfo{rcvr, method, arg})
 	t.mu.Unlock()
 }
-
 
 type SimpleMethods struct {
 	root *TRoot
@@ -299,7 +299,7 @@ func (*suite) TestCompatibility(c *C) {
 		return info.arg
 	}
 	type extra struct {
-		Val string
+		Val   string
 		Extra string
 	}
 	// Extra fields in request and response.
@@ -384,17 +384,20 @@ func (c *generalServerCodec) ReadRequestHeader(req *rpc.Request) error {
 }
 
 func (c *generalServerCodec) ReadRequestBody(argp interface{}) error {
-	if argp == nil {
-		argp = &struct{}{}
+	if v := reflect.ValueOf(argp); v.Kind() != reflect.Ptr || v.Elem().Kind() != reflect.Struct {
+		panic(fmt.Errorf("ReadRequestBody bad destination; want *struct got %T", argp))
 	}
 	return c.dec.Decode(argp)
 }
 
-func (c *generalServerCodec) WriteResponse(resp *rpc.Response, v interface{}) error {
+func (c *generalServerCodec) WriteResponse(resp *rpc.Response, x interface{}) error {
+	if reflect.ValueOf(x).Kind() != reflect.Struct {
+		panic(fmt.Errorf("WriteResponse bad result; want struct got %T (%#v)", x, x))
+	}
 	if err := c.enc.Encode(resp); err != nil {
 		return err
 	}
-	return c.enc.Encode(v)
+	return c.enc.Encode(x)
 }
 
 type generalClientCodec struct {
@@ -404,6 +407,9 @@ type generalClientCodec struct {
 }
 
 func (c *generalClientCodec) WriteRequest(req *rpc.Request, x interface{}) error {
+	if reflect.ValueOf(x).Kind() != reflect.Struct {
+		panic(fmt.Errorf("WriteRequest bad param; want struct got %T (%#v)", x, x))
+	}
 	log.Printf("send client request header: %#v", req)
 	if err := c.enc.Encode(req); err != nil {
 		return err
@@ -419,15 +425,15 @@ func (c *generalClientCodec) ReadResponseHeader(resp *rpc.Response) error {
 }
 
 func (c *generalClientCodec) ReadResponseBody(r interface{}) error {
+	if v := reflect.ValueOf(r); v.Kind() != reflect.Ptr || v.Elem().Kind() != reflect.Struct {
+		panic(fmt.Errorf("ReadResponseBody bad destination; want *struct got %T", r))
+	}
 	var m json.RawMessage
 	err := c.dec.Decode(&m)
 	if err != nil {
 		return err
 	}
 	log.Printf("got response body: %q", m)
-	if r == nil {
-		r = &struct{}{}
-	}
 	err = json.Unmarshal(m, r)
 	log.Printf("unmarshalled into %#v", r)
 	return err

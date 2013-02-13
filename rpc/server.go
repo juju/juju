@@ -146,6 +146,7 @@ func (csrv *codecServer) runRequest(reqId uint64, objId string, o *obtainer, a *
 	}
 	if err != nil {
 		resp.Error = err.Error()
+		rvi = struct{}{}
 	} else if rv.IsValid() {
 		rvi = rv.Interface()
 	} else {

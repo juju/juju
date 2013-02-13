@@ -117,6 +117,9 @@ func (client *Client) send(call *Call) {
 }
 
 func (client *Client) readBody(resp interface{}) error {
+	if resp == nil {
+		resp = &struct{}{}
+	}
 	err := client.codec.ReadResponseBody(resp)
 	if err != nil {
 		err = fmt.Errorf("error reading body: %v", err)
@@ -149,13 +152,13 @@ func (client *Client) input() {
 			// removed; response is a server telling us about an
 			// error reading request body. We should still attempt
 			// to read error body, but there's no one to give it to.
-			err = client.readBody(&struct{}{})
+			err = client.readBody(nil)
 		case response.Error != "":
 			// We've got an error response. Give this to the request;
 			// any subsequent requests will get the ReadResponseBody
 			// error if there is one.
 			call.Error = &ServerError{response.Error}
-			err = client.readBody(&struct{}{})
+			err = client.readBody(nil)
 			call.done()
 		default:
 			err = client.readBody(call.Response)
