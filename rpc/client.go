@@ -107,7 +107,11 @@ func (client *Client) send(call *Call) {
 		Id:        call.Id,
 		Request:   call.Request,
 	}
-	if err := client.codec.WriteRequest(&client.request, call.Params); err != nil {
+	params := call.Params
+	if params == nil {
+		params = struct{}{}
+	}
+	if err := client.codec.WriteRequest(&client.request, params); err != nil {
 		client.mutex.Lock()
 		call = client.pending[reqId]
 		delete(client.pending, reqId)
@@ -201,7 +205,7 @@ func (call *Call) done() {
 // should be a pointer.  If the action fails remotely, the returned
 // error will be of type ServerError.
 // The params value may be nil if no parameters are provided;
-// the response value may be nil if to discard any result value.
+// the response value may be nil to discard any result value.
 func (c *Client) Call(objType, id, action string, params, response interface{}) error {
 	call := <-c.Go(objType, id, action, params, response, make(chan *Call, 1)).Done
 	return call.Error
@@ -222,11 +226,6 @@ func (c *Client) Go(objType, id, request string, args, response interface{}, don
 		if cap(done) == 0 {
 			panic("launchpad.net/juju-core/rpc: done channel is unbuffered")
 		}
-	}
-	// Make sure we always send a struct even when the caller
-	// provides a nil argment.
-	if args == nil {
-		args = struct{}{}
 	}
 	call := &Call{
 		Type:     objType,
