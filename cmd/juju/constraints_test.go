@@ -92,6 +92,10 @@ var constraintsValueTests = []struct {
 		args:    []string{"mem=-1"},
 		err:     `bad "mem" constraint: must be a non-negative float with optional M/G/T/P suffix`,
 	}, {
+		summary: "set nonsense mem 3",
+		args:    []string{"mem=32Y"},
+		err:     `bad "mem" constraint: must be a non-negative float with optional M/G/T/P suffix`,
+	}, {
 		summary: "double set mem together",
 		args:    []string{"mem=1G mem=2G"},
 		err:     `bad "mem" constraint: already set`,
