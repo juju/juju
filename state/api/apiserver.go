@@ -188,7 +188,11 @@ func (w srvEntityWatcher) Next() error {
 	if _, ok := <-w.srvWatcher.w.(*state.EntityWatcher).Changes(); ok {
 		return nil
 	}
-	return statewatcher.MustErr(w.w)
+	err := w.w.Err()
+	if err == nil {
+		err = fmt.Errorf("watcher was stopped")
+	}
+	return err
 }
 
 func (r *srvRoot) Client(id string) (*srvClient, error) {

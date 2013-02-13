@@ -523,7 +523,7 @@ func (s *suite) TestMachineWatch(c *C) {
 	c.Assert(ok, Equals, true)
 
 	err = w0.Stop()
-	c.Assert(err, IsNil)
+	c.Check(err, IsNil)
 
 	ok = chanRead(c, w0.Changes(), "watcher 0")
 	c.Assert(ok, Equals, false)

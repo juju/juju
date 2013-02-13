@@ -197,6 +197,9 @@ func (w *EntityWatcher) loop() error {
 		}
 		log.Printf("calling Next")
 		if err := callWatch("Next"); err != nil {
+
+TODO: error codes.
+then we can make this check for the right error reliably.
 			return err
 		}
 	}
