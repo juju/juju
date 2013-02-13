@@ -88,6 +88,27 @@ func Open(info *Info) (*State, error) {
 	return st, nil
 }
 
+func (s *State) call(objType, id, request string, params, response interface{}) error {
+	err := s.client.call(objType, id, request, params, response)
+	return rpcError(err)
+}
+
+// rpcError maps errors returned from an RPC call into local errors with
+// appropriate values.
+// TODO(rog): implement NotFoundError, etc.
+func rpcError(err error) error {
+	if err == nil {
+		return nil
+	}
+	rerr, ok := err.(*rpc.ServerError)
+	if !ok {
+		return err
+	}
+	// TODO(rog) map errors into known error types, possibly introducing
+	// error codes to do so.
+	return errors.New(rerr.Message)
+}
+
 func (s *State) Close() error {
 	return s.conn.Close()
 }
