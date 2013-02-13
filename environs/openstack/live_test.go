@@ -160,13 +160,3 @@ func (t *LiveTests) TestFindImageBadFlavor(c *C) {
 	c.Assert(imageId, Equals, "")
 	c.Assert(flavorId, Equals, "")
 }
-
-// The following tests need to be enabled once the coding is complete.
-
-func (s *LiveTests) TestGlobalPorts(c *C) {
-	c.Skip("Work in progress")
-}
-
-func (s *LiveTests) TestPorts(c *C) {
-	c.Skip("Work in progress")
-}
