@@ -3,8 +3,8 @@ package rpc
 import (
 	"errors"
 	"fmt"
-	"reflect"
 	"launchpad.net/juju-core/log"
+	"reflect"
 )
 
 var (
