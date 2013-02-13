@@ -10,6 +10,7 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 	"net"
 	stdtesting "testing"
+	"time"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -495,10 +496,10 @@ func (s *suite) TestMachineWatch(c *C) {
 	w1 := m.Watch()
 
 	// Initial event.
-	ok := chanRead(w0.Changes(), "watcher 0")
+	ok := chanRead(c, w0.Changes(), "watcher 0")
 	c.Assert(ok, Equals, true)
 
-	ok = chanRead(w1.Changes(), "watcher 1")
+	ok = chanRead(c, w1.Changes(), "watcher 1")
 	c.Assert(ok, Equals, true)
 
 	// No subsequent event until something changes.
@@ -512,22 +513,22 @@ func (s *suite) TestMachineWatch(c *C) {
 
 	err = stm.SetInstanceId("foo")
 	c.Assert(err, IsNil)
-	stm.StartSync()
+	s.State.StartSync()
 
 	// Next event.
-	ok = chanRead(w0.Changes(), "watcher 0")
+	ok = chanRead(c, w0.Changes(), "watcher 0")
 	c.Assert(ok, Equals, true)
 
-	ok = chanRead(w1.Changes(), "watcher 1")
+	ok = chanRead(c, w1.Changes(), "watcher 1")
 	c.Assert(ok, Equals, true)
 
 	err = w0.Stop()
 	c.Assert(err, IsNil)
 
-	ok = chanRead(w0.Changes(), "watcher 0")
+	ok = chanRead(c, w0.Changes(), "watcher 0")
 	c.Assert(ok, Equals, false)
 
-	ok = chanRead(w1.Changes(), "watcher 1")
+	ok = chanRead(c, w1.Changes(), "watcher 1")
 	c.Assert(ok, Equals, false)
 }
 
@@ -535,7 +536,7 @@ func chanRead(c *C, ch <-chan struct{}, what string) (ok bool) {
 	select{
 	case _, ok := <-ch:
 		return ok
-	case <-time.After(3 * time.Second):
+	case <-time.After(10 * time.Second):
 		c.Fatalf("timed out reading from %s", what)
 	}
 	panic("unreachable")

@@ -163,6 +163,7 @@ func newEntityWatcher(st *State, etype, id string) *EntityWatcher {
 
 func (w *EntityWatcher) loop() error {
 	var id rpcEntityWatcherId
+	log.Printf("calling Watch")
 	err := w.st.call(w.etype, w.eid, "Watch", nil, &id)
 	if err != nil {
 		return err
@@ -188,13 +189,15 @@ func (w *EntityWatcher) loop() error {
 		}
 	}()
 	for {
-		if err := callWatch("Next"); err != nil {
-			return err
-		}
+		log.Printf("sending change notification")
 		select {
 		case <-w.tomb.Dying():
 			return nil
 		case w.out <- struct{}{}:
+		}
+		log.Printf("calling Next")
+		if err := callWatch("Next"); err != nil {
+			return err
 		}
 	}
 	panic("unreachable")
