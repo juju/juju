@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"launchpad.net/juju-core/log"
-	"net"
 	"reflect"
 	"sync"
 )
@@ -59,44 +58,6 @@ type codecServer struct {
 
 	// sending guards the write side of the codec.
 	sending sync.Mutex
-}
-
-// Accept accepts connections on the listener and serves requests for
-// each incoming connection.  The newRoot function is called
-// to create the root value for the connection before spawning
-// the goroutine to service the RPC requests; it may be nil,
-// in which case the original root value passed to NewServer
-// will be used. A codec is chosen for the connection by
-// calling newCodec.
-//
-// Accept blocks; the caller typically invokes it in
-// a go statement.
-func (srv *Server) Accept(l net.Listener,
-	newRoot func(net.Conn) (interface{}, error),
-	newCodec func(io.ReadWriteCloser) ServerCodec) error {
-	for {
-		c, err := l.Accept()
-		if err != nil {
-			return err
-		}
-		rootv := srv.root
-		if newRoot != nil {
-			root, err := newRoot(c)
-			if err != nil {
-				log.Printf("rpc: connection refused: %v", err)
-				c.Close()
-				continue
-			}
-			rootv = reflect.ValueOf(root)
-		}
-		go func() {
-			defer c.Close()
-			if err := srv.serve(rootv, newCodec(c)); err != nil {
-				log.Printf("rpc: ServeCodec error: %v", err)
-			}
-		}()
-	}
-	panic("unreachable")
 }
 
 // ServeCodec runs the server on a single connection.  ServeCodec
