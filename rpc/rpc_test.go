@@ -327,6 +327,28 @@ func (*suite) TestCompatibility(c *C) {
 	c.Assert(err, IsNil)
 }
 
+func (*suite) TestBadCall(c *C) {
+	root := &TRoot{
+		simple: make(map[string]*SimpleMethods),
+	}
+	a0 := &SimpleMethods{root: root, id: "a0"}
+	root.simple["a0"] = a0
+	client, srvDone := newRPCClientServer(c, root)
+
+	err := client.Call("BadSomething", "a0", "No", nil, nil)
+	c.Assert(err, ErrorMatches, `server error: unknown object type "BadSomething"`)
+
+	err = client.Call("SimpleMethods", "xx", "No", nil, nil)
+	c.Assert(err, ErrorMatches, `server error: no such request "No" on SimpleMethods`)
+
+	err = client.Call("SimpleMethods", "xx", "Call0r0", nil, nil)
+	c.Assert(err, ErrorMatches, "server error: unknown SimpleMethods id")
+
+	client.Close()
+	err = chanReadError(c, srvDone, "server done")
+	c.Assert(err, IsNil)
+}
+
 func chanReadError(c *C, ch <-chan error, what string) error {
 	select {
 	case e := <-ch:

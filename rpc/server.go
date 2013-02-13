@@ -131,7 +131,7 @@ func (csrv *codecServer) findRequest(req *Request) (*obtainer, *action, error) {
 	}
 	a := csrv.action[o.ret][req.Request]
 	if a == nil {
-		return nil, nil, fmt.Errorf("no such action %q on %s", req.Request, req.Type)
+		return nil, nil, fmt.Errorf("no such request %q on %s", req.Request, req.Type)
 	}
 	return o, a, nil
 }
