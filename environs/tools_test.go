@@ -54,6 +54,14 @@ func toolsStoragePath(vers string) string {
 	})
 }
 
+func mongoStoragePath() string {
+	series := version.Current.Series
+	return environs.MongoStoragePath(version.Binary{
+		Series: series,
+		Arch:   version.Current.Arch,
+	})
+}
+
 var _ = Suite(&ToolsSuite{})
 
 const urlFile = "downloaded-url.txt"
@@ -483,6 +491,71 @@ func (t *ToolsSuite) TestFindTools(c *C) {
 			assertURLContents(c, tools.URL, tt.expect)
 		}
 		t.env.Destroy(nil)
+	}
+}
+
+var mongoURLTests = []struct {
+	contents       []string // names in private storage.
+	publicContents []string // names in public storage.
+	expect         string   // the name we expect to find (if no error).
+	url            string   // the url we expect to find (if not blank).
+}{{
+	// grab mongo from private storage if it exists there
+	contents: []string{environs.MongoStoragePath(version.Current)},
+	expect:   environs.MongoStoragePath(version.Current),
+}, {
+	// fall back to public storage when nothing found in private.
+	contents: []string{
+		environs.MongoStoragePath(version.Binary{
+			Series: "foo",
+			Arch:   version.Current.Arch}),
+	},
+	publicContents: []string{
+		environs.MongoStoragePath(version.Binary{
+			Series: version.Current.Series,
+			Arch:   version.Current.Arch,
+		}),
+	},
+	expect: "public-" + mongoStoragePath(),
+}, {
+	// if nothing in public or private storage, fall back to copy in ec2.
+	contents: []string{
+		environs.ToolsStoragePath(version.Binary{
+			Series: "foo",
+			Arch:   version.Current.Arch,
+		}),
+		environs.ToolsStoragePath(version.Binary{
+			Series: version.Current.Series,
+			Arch:   "foo",
+		}),
+	},
+	publicContents: []string{
+		environs.MongoStoragePath(version.Binary{
+			Series: "foo",
+			Arch:   version.Current.Arch,
+		}),
+	},
+	url: "http://juju-dist.s3.amazonaws.com",
+},
+}
+
+func (t *ToolsSuite) TestMongoURL(c *C) {
+	for i, tt := range mongoURLTests {
+		c.Logf("test %d", i)
+		putNames(c, t.env, tt.contents, tt.publicContents)
+		vers := version.Binary{
+			Series: version.Current.Series,
+			Arch:   version.Current.Arch,
+		}
+		mongoURL := environs.MongoURL(t.env, vers)
+		if tt.expect != "" {
+			assertURLContents(c, mongoURL, tt.expect)
+		}
+		if tt.url != "" {
+			c.Assert(strings.Contains(mongoURL, tt.url), Equals, true)
+		}
+		t.env.Destroy(nil)
+		dummy.ResetPublicStorage(t.env)
 	}
 }
 
