@@ -33,32 +33,67 @@ var constraintsValueTests = []struct {
 		err:     `unknown constraint "cheese"`,
 	},
 
-	// "cores" in detail.
+	// "cpu-cores" in detail.
 	{
-		summary: "set cores empty",
-		args:    []string{"cores="},
+		summary: "set cpu-cores empty",
+		args:    []string{"cpu-cores="},
 	}, {
-		summary: "set cores zero",
-		args:    []string{"cores=0"},
+		summary: "set cpu-cores zero",
+		args:    []string{"cpu-cores=0"},
 	}, {
-		summary: "set cores",
-		args:    []string{"cores=4"},
+		summary: "set cpu-cores",
+		args:    []string{"cpu-cores=4"},
 	}, {
-		summary: "set nonsense cores 1",
-		args:    []string{"cores=cheese"},
-		err:     `bad "cores" constraint: must be a non-negative integer`,
+		summary: "set nonsense cpu-cores 1",
+		args:    []string{"cpu-cores=cheese"},
+		err:     `bad "cpu-cores" constraint: must be a non-negative integer`,
 	}, {
-		summary: "set nonsense cores 2",
-		args:    []string{"cores=-1"},
-		err:     `bad "cores" constraint: must be a non-negative integer`,
+		summary: "set nonsense cpu-cores 2",
+		args:    []string{"cpu-cores=-1"},
+		err:     `bad "cpu-cores" constraint: must be a non-negative integer`,
 	}, {
-		summary: "double set cores together",
-		args:    []string{"cores=128 cores=1"},
-		err:     `bad "cores" constraint: already set`,
+		summary: "set nonsense cpu-cores 3",
+		args:    []string{"cpu-cores=123.45"},
+		err:     `bad "cpu-cores" constraint: must be a non-negative integer`,
 	}, {
-		summary: "double set cores separately",
-		args:    []string{"cores=128", "cores=1"},
-		err:     `bad "cores" constraint: already set`,
+		summary: "double set cpu-cores together",
+		args:    []string{"cpu-cores=128 cpu-cores=1"},
+		err:     `bad "cpu-cores" constraint: already set`,
+	}, {
+		summary: "double set cpu-cores separately",
+		args:    []string{"cpu-cores=128", "cpu-cores=1"},
+		err:     `bad "cpu-cores" constraint: already set`,
+	},
+
+	// "cpu-power" in detail.
+	{
+		summary: "set cpu-power empty",
+		args:    []string{"cpu-power="},
+	}, {
+		summary: "set cpu-power zero",
+		args:    []string{"cpu-power=0"},
+	}, {
+		summary: "set cpu-power int",
+		args:    []string{"cpu-power=44"},
+	}, {
+		summary: "set cpu-power float",
+		args:    []string{"cpu-power=47.3"},
+	}, {
+		summary: "set nonsense cpu-power 1",
+		args:    []string{"cpu-power=cheese"},
+		err:     `bad "cpu-power" constraint: must be a non-negative float`,
+	}, {
+		summary: "set nonsense cpu-power 2",
+		args:    []string{"cpu-power=-1"},
+		err:     `bad "cpu-power" constraint: must be a non-negative float`,
+	}, {
+		summary: "double set cpu-power together",
+		args:    []string{"cpu-power=300.0 cpu-power=1.7"},
+		err:     `bad "cpu-power" constraint: already set`,
+	}, {
+		summary: "double set cpu-power separately",
+		args:    []string{"cpu-power=300.0", "cpu-power=1.7"},
+		err:     `bad "cpu-power" constraint: already set`,
 	},
 
 	// "mem" in detail.
@@ -108,10 +143,10 @@ var constraintsValueTests = []struct {
 	// Everything at once.
 	{
 		summary: "kitchen sink together",
-		args:    []string{"mem=2T cores=4096"},
+		args:    []string{"mem=2T cpu-cores=4096 cpu-power=9000.1"},
 	}, {
 		summary: "kitchen sink separately",
-		args:    []string{"mem=2T", "cores=4096"},
+		args:    []string{"mem=2T", "cpu-cores=4096", "cpu-power=9000.1"},
 	},
 }
 

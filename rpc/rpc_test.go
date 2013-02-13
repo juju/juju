@@ -160,7 +160,7 @@ func (*suite) TestRPC(c *C) {
 		}
 	}
 	client.Close()
-	err := <-srvDone
+	err := chanReadError(c, srvDone, "server done")
 	c.Assert(err, IsNil)
 }
 
@@ -211,29 +211,29 @@ func (*suite) TestConcurrentCalls(c *C) {
 	}
 
 	client, srvDone := newRPCClientServer(c, root)
-	call := func(id string, done chan<- bool) {
+	call := func(id string, done chan<- struct{}) {
 		var r stringVal
 		err := client.Call("DelayedMethods", id, "Delay", nil, &r)
 		c.Check(err, IsNil)
 		c.Check(r.Val, Equals, "return "+id)
-		done <- true
+		done <- struct{}{}
 	}
-	done1 := make(chan bool)
-	done2 := make(chan bool)
+	done1 := make(chan struct{})
+	done2 := make(chan struct{})
 	go call("1", done1)
 	go call("2", done2)
 
 	// Check that both calls are running concurrently.
-	<-ready1
-	<-ready2
+	chanRead(c, ready1, "method 1 ready")
+	chanRead(c, ready2, "method 2 ready")
 
 	// Let the requests complete.
 	start1 <- "return 1"
 	start2 <- "return 2"
-	<-done1
-	<-done2
+	chanRead(c, done1, "method 1 done")
+	chanRead(c, done2, "method 2 done")
 	client.Close()
-	err := <-srvDone
+	err := chanReadError(c, srvDone, "server done")
 	c.Assert(err, IsNil)
 }
 
@@ -249,14 +249,14 @@ func (*suite) TestServerWaitsForOutstandingCalls(c *C) {
 		},
 	}
 	client, srvDone := newRPCClientServer(c, root)
-	done := make(chan bool)
+	done := make(chan struct{})
 	go func() {
 		var r stringVal
 		err := client.Call("DelayedMethods", "1", "Delay", nil, &r)
 		c.Check(err, FitsTypeOf, &net.OpError{})
-		done <- true
+		done <- struct{}{}
 	}()
-	<-ready
+	chanRead(c, ready, "DelayedMethods.Delay ready")
 	client.Close()
 	select {
 	case err := <-srvDone:
@@ -265,9 +265,28 @@ func (*suite) TestServerWaitsForOutstandingCalls(c *C) {
 	case <-time.After(25 * time.Millisecond):
 	}
 	start <- "xxx"
-	err := <-srvDone
+	err := chanReadError(c, srvDone, "server done")
 	c.Check(err, IsNil)
-	<-done
+	chanRead(c, done, "DelayedMethods.Delay done")
+}
+
+func chanRead(c *C, ch <-chan struct{}, what string) {
+	select {
+	case <-ch:
+		return
+	case <-time.After(3 * time.Second):
+		c.Fatalf("timeout on channel read %s", what)
+	}
+}
+
+func chanReadError(c *C, ch <-chan error, what string) error {
+	select {
+	case e := <-ch:
+		return e
+	case <-time.After(3 * time.Second):
+		c.Fatalf("timeout on channel read %s", what)
+	}
+	panic("unreachable")
 }
 
 // newRPCClientServer starts an RPC server serving a connection from a

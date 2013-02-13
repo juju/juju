@@ -26,8 +26,10 @@ func (v *constraintsValue) Set(raw string) error {
 		name, str := arg[:eq], arg[eq+1:]
 		var err error
 		switch name {
-		case "cores":
-			err = v.setCores(str)
+		case "cpu-cores":
+			err = v.setCpuCores(str)
+		case "cpu-power":
+			err = v.setCpuPower(str)
 		case "mem":
 			err = v.setMem(str)
 		default:
@@ -40,8 +42,8 @@ func (v *constraintsValue) Set(raw string) error {
 	return nil
 }
 
-func (v *constraintsValue) setCores(str string) error {
-	if v.c.Cores != nil {
+func (v *constraintsValue) setCpuCores(str string) error {
+	if v.c.CpuCores != nil {
 		return fmt.Errorf("already set")
 	}
 	var val int
@@ -51,7 +53,22 @@ func (v *constraintsValue) setCores(str string) error {
 			return fmt.Errorf("must be a non-negative integer")
 		}
 	}
-	v.c.Cores = &val
+	v.c.CpuCores = &val
+	return nil
+}
+
+func (v *constraintsValue) setCpuPower(str string) error {
+	if v.c.CpuPower != nil {
+		return fmt.Errorf("already set")
+	}
+	var val float64
+	if str != "" {
+		var err error
+		if val, err = strconv.ParseFloat(str, 64); err != nil || val < 0 {
+			return fmt.Errorf("must be a non-negative float")
+		}
+	}
+	v.c.CpuPower = &val
 	return nil
 }
 

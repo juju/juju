@@ -11,19 +11,40 @@ import (
 // onto which a unit will be deployed, or to provision a new machine if no
 // existing one satisfies the requirements.
 type Constraints struct {
-	Cores *int
-	Mem   *float64
+	CpuCores *int
+	CpuPower *float64
+	Mem      *float64
 }
 
 // String expresses a Constraints in the language in which it was specified.
 func (c Constraints) String() string {
 	var strs []string
-	if c.Cores != nil {
-		strs = append(strs, fmt.Sprintf("cores=%d", *c.Cores))
+	if c.CpuCores != nil {
+		strs = append(strs, "cpu-cores="+intStr(*c.CpuCores))
+	}
+	if c.CpuPower != nil {
+		strs = append(strs, "cpu-power="+floatStr(*c.CpuPower))
 	}
 	if c.Mem != nil {
-		s := strconv.FormatFloat(*c.Mem, 'f', -1, 64)
-		strs = append(strs, fmt.Sprintf("mem=%sM", s))
+		s := floatStr(*c.Mem)
+		if s != "" {
+			s += "M"
+		}
+		strs = append(strs, "mem="+s)
 	}
 	return strings.Join(strs, " ")
+}
+
+func intStr(i int) string {
+	if i == 0 {
+		return ""
+	}
+	return fmt.Sprintf("%d", i)
+}
+
+func floatStr(f float64) string {
+	if f == 0 {
+		return ""
+	}
+	return strconv.FormatFloat(f, 'f', -1, 64)
 }
