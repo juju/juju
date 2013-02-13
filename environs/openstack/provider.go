@@ -234,16 +234,41 @@ func (inst *instance) WaitDNSName() (string, error) {
 	return "", fmt.Errorf("timed out trying to get DNS address for %v", inst.Id())
 }
 
+// TODO: following 30 lines nearly verbatim from environs/ec2
+
 func (inst *instance) OpenPorts(machineId string, ports []state.Port) error {
-	panic("OpenPorts not implemented")
+	if inst.e.Config().FirewallMode() != config.FwInstance {
+		return fmt.Errorf("invalid firewall mode for opening ports on instance: %q",
+			inst.e.Config().FirewallMode())
+	}
+	name := inst.e.machineGroupName(machineId)
+	if err := inst.e.openPortsInGroup(name, ports); err != nil {
+		return err
+	}
+	log.Printf("environs/openstack: opened ports in security group %s: %v", name, ports)
+	return nil
 }
 
 func (inst *instance) ClosePorts(machineId string, ports []state.Port) error {
-	panic("ClosePorts not implemented")
+	if inst.e.Config().FirewallMode() != config.FwInstance {
+		return fmt.Errorf("invalid firewall mode for closing ports on instance: %q",
+			inst.e.Config().FirewallMode())
+	}
+	name := inst.e.machineGroupName(machineId)
+	if err := inst.e.closePortsInGroup(name, ports); err != nil {
+		return err
+	}
+	log.Printf("environs/openstack: closed ports in security group %s: %v", name, ports)
+	return nil
 }
 
 func (inst *instance) Ports(machineId string) ([]state.Port, error) {
-	panic("Ports not implemented")
+	if inst.e.Config().FirewallMode() != config.FwInstance {
+		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from instance: %q",
+			inst.e.Config().FirewallMode())
+	}
+	name := inst.e.machineGroupName(machineId)
+	return inst.e.portsInGroup(name)
 }
 
 func (e *environ) ecfg() *environConfig {
@@ -813,16 +838,104 @@ func (e *environ) machinesFilter() *nova.Filter {
 	return filter
 }
 
+func (e *environ) openPortsInGroup(name string, ports []state.Port) error {
+	novaclient := e.nova()
+	group, err := novaclient.SecurityGroupByName(name)
+	if err != nil {
+		return err
+	}
+	for _, port := range ports {
+		_, err := novaclient.CreateSecurityGroupRule(nova.RuleInfo{
+			ParentGroupId: group.Id,
+			FromPort:      port.Number,
+			ToPort:        port.Number,
+			IPProtocol:    port.Protocol,
+			Cidr:          "0.0.0.0/0",
+		})
+		if err != nil {
+			// TODO: if err is not rule already exists, raise?
+			log.Debugf("error creating security group rule: %v", err.Error())
+		}
+	}
+	return nil
+}
+
+func (e *environ) closePortsInGroup(name string, ports []state.Port) error {
+	if len(ports) == 0 {
+		return nil
+	}
+	novaclient := e.nova()
+	group, err := novaclient.SecurityGroupByName(name)
+	if err != nil {
+		return err
+	}
+	// TODO: Hey look ma, it's quadratic
+	for _, port := range ports {
+		for _, p := range (*group).Rules {
+			if p.IPProtocol == nil || *p.IPProtocol != port.Protocol ||
+				p.FromPort == nil || *p.FromPort != port.Number ||
+				p.ToPort == nil || *p.ToPort != port.Number {
+				continue
+			}
+			err := novaclient.DeleteSecurityGroupRule(p.Id)
+			if err != nil {
+				return err
+			}
+			break
+		}
+	}
+	return nil
+}
+
+func (e *environ) portsInGroup(name string) (ports []state.Port, err error) {
+	group, err := e.nova().SecurityGroupByName(name)
+	if err != nil {
+		return nil, err
+	}
+	for _, p := range (*group).Rules {
+		for i := *p.FromPort; i <= *p.ToPort; i++ {
+			ports = append(ports, state.Port{
+				Protocol: *p.IPProtocol,
+				Number:   i,
+			})
+		}
+	}
+	state.SortPorts(ports)
+	return ports, nil
+}
+
+// TODO: following 30 lines nearly verbatim from environs/ec2
+
 func (e *environ) OpenPorts(ports []state.Port) error {
-	panic("OpenPorts not implemented")
+	if e.Config().FirewallMode() != config.FwGlobal {
+		return fmt.Errorf("invalid firewall mode for opening ports on environment: %q",
+			e.Config().FirewallMode())
+	}
+	if err := e.openPortsInGroup(e.globalGroupName(), ports); err != nil {
+		return err
+	}
+	log.Printf("environs/openstack: opened ports in global group: %v", ports)
+	return nil
 }
 
 func (e *environ) ClosePorts(ports []state.Port) error {
-	panic("ClosePorts not implemented")
+	if e.Config().FirewallMode() != config.FwGlobal {
+		return fmt.Errorf("invalid firewall mode for closing ports on environment: %q",
+			e.Config().FirewallMode())
+	}
+	if err := e.closePortsInGroup(e.globalGroupName(), ports); err != nil {
+		return err
+	}
+	log.Printf("environs/openstack: closed ports in global group: %v", ports)
+	return nil
 }
 
 func (e *environ) Ports() ([]state.Port, error) {
-	panic("Ports not implemented")
+	if e.Config().FirewallMode() != config.FwGlobal {
+		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from environment: %q",
+			e.Config().FirewallMode())
+	}
+	return e.portsInGroup(e.globalGroupName())
 }
 
 func (e *environ) Provider() environs.EnvironProvider {
