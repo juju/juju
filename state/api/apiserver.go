@@ -143,7 +143,12 @@ func (r *srvRoot) Unit(name string) (*srvUnit, error) {
 }
 
 func (r *srvRoot) User(name string) (*srvUser, error) {
-	// Any entity is allowed to change its own password.
+	// Any user is allowed to access their own user object.
+	// We check at this level rather than at the operation
+	// level to stop malicious probing for current user names.
+	// When we provide support for user administration,
+	// this will need to be changed to allow access to
+	// the administrator.
 	e := r.user.entity()
 	if e == nil {
 		return nil, errNotLoggedIn
