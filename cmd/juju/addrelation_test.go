@@ -128,16 +128,16 @@ var addRelationTests = []struct {
 }
 
 func (s *AddRelationSuite) TestAddRelation(c *C) {
-	testing.Charms.BundlePath(s.seriesPath, "series", "wordpress")
+	testing.Charms.BundlePath(s.seriesPath, "wordpress")
 	err := runDeploy(c, "local:wordpress", "wp")
 	c.Assert(err, IsNil)
-	testing.Charms.BundlePath(s.seriesPath, "series", "mysql")
+	testing.Charms.BundlePath(s.seriesPath, "mysql")
 	err = runDeploy(c, "local:mysql", "ms")
 	c.Assert(err, IsNil)
-	testing.Charms.BundlePath(s.seriesPath, "series", "riak")
+	testing.Charms.BundlePath(s.seriesPath, "riak")
 	err = runDeploy(c, "local:riak", "rk")
 	c.Assert(err, IsNil)
-	testing.Charms.BundlePath(s.seriesPath, "series", "logging")
+	testing.Charms.BundlePath(s.seriesPath, "logging")
 	err = runDeploy(c, "local:logging", "lg")
 	c.Assert(err, IsNil)
 
