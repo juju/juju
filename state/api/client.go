@@ -28,7 +28,9 @@ type Info struct {
 	CACert []byte
 
 	// EntityName holds the name of the entity that is connecting.
-	// It should be empty when connecting as an administrator.
+	// If this and the password are empty, no login attempt will be made
+	// (this is to allow tests to access the API to check that operations
+	// fail when not logged in).
 	EntityName string
 
 	// Password holds the password for the administrator or connecting entity.
@@ -72,12 +74,18 @@ func Open(info *Info) (*State, error) {
 	}
 	log.Printf("state/api: connection established")
 
-	return &State{
-		client: rpc.NewClientWithCodec(&clientCodec{
-			conn: conn,
-		}),
-		conn: conn,
-	}, nil
+	client := rpc.NewClientWithCodec(&clientCodec{conn: conn})
+	st := &State{
+		client: client,
+		conn:   conn,
+	}
+	if info.EntityName != "" || info.Password != "" {
+		if err := st.Login(info.EntityName, info.Password); err != nil {
+			conn.Close()
+			return nil, err
+		}
+	}
+	return st, nil
 }
 
 func (s *State) Close() error {
@@ -88,7 +96,7 @@ type clientReq struct {
 	RequestId uint64
 	Type      string
 	Id        string
-	Action    string
+	Request   string
 	Params    interface{}
 }
 
@@ -103,12 +111,16 @@ type clientCodec struct {
 	resp clientResp
 }
 
+func (c *clientCodec) Close() error {
+	return c.conn.Close()
+}
+
 func (c *clientCodec) WriteRequest(req *rpc.Request, p interface{}) error {
 	return websocket.JSON.Send(c.conn, &clientReq{
 		RequestId: req.RequestId,
 		Type:      req.Type,
 		Id:        req.Id,
-		Action:    req.Action,
+		Request:   req.Request,
 		Params:    p,
 	})
 }

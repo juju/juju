@@ -39,7 +39,7 @@ func NewServer(s *state.State, addr string, cert, key []byte) (*Server, error) {
 		state: s,
 		addr:  lis.Addr(),
 	}
-	srv.rpcSrv, err = rpc.NewServer(&srvState{})
+	srv.rpcSrv, err = rpc.NewServer(&srvRoot{})
 	lis = tls.NewListener(lis, &tls.Config{
 		Certificates: []tls.Certificate{tlsCert},
 	})
@@ -128,7 +128,7 @@ type serverReq struct {
 	RequestId uint64
 	Type      string
 	Id        string
-	Action    string
+	Request   string
 	Params    json.RawMessage
 }
 
@@ -158,7 +158,7 @@ func (c *serverCodec) ReadRequestHeader(req *rpc.Request) error {
 	req.RequestId = c.req.RequestId
 	req.Type = c.req.Type
 	req.Id = c.req.Id
-	req.Action = c.req.Action
+	req.Request = c.req.Request
 	return nil
 }
 

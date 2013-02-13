@@ -103,7 +103,10 @@ var constraintsValueTests = []struct {
 
 	// Everything at once.
 	{
-		summary: "kitchen sink",
+		summary: "kitchen sink together",
+		args:    []string{"mem=2T cores=4096"},
+	}, {
+		summary: "kitchen sink separately",
 		args:    []string{"mem=2T", "cores=4096"},
 	},
 }
