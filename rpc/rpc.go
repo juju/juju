@@ -52,9 +52,8 @@ type Server struct {
 // id is some identifier for the object and O is the type of the
 // returned object.
 //
-// Action methods defined on O may defined in one of the following
-// forms, where T and R each represent an arbitrary type other than the
-// built-in error type.
+// Request methods defined on O may defined in one of the following
+// forms, where T and R must be struct types.
 //
 //	Method()
 //	Method() R
@@ -216,6 +215,12 @@ func (srv *Server) methodToAction(m reflect.Method) *action {
 			return
 		}
 	default:
+		return nil
+	}
+	if p.arg != nil && p.arg.Kind() != reflect.Struct {
+		return nil
+	}
+	if p.ret != nil && p.ret.Kind() != reflect.Struct {
 		return nil
 	}
 	return &p

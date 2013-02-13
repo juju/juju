@@ -196,6 +196,8 @@ func (call *Call) done() {
 // the given id.  The returned values will be stored in response, which
 // should be a pointer.  If the action fails remotely, the returned
 // error will be of type ServerError.
+// The params value may be nil if no parameters are provided;
+// the response value may be nil if to discard any result value.
 func (c *Client) Call(objType, id, action string, params, response interface{}) error {
 	call := <-c.Go(objType, id, action, params, response, make(chan *Call, 1)).Done
 	return call.Error
@@ -216,6 +218,11 @@ func (c *Client) Go(objType, id, request string, args, response interface{}, don
 		if cap(done) == 0 {
 			panic("launchpad.net/juju-core/rpc: done channel is unbuffered")
 		}
+	}
+	// Make sure we always send a struct even when the caller
+	// provides a nil argment.
+	if args == nil {
+		args = struct{}{}
 	}
 	call := &Call{
 		Type:     objType,
