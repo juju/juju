@@ -12,10 +12,12 @@ import (
 // responses for the server side of an RPC session.  The server calls
 // ReadRequestHeader and ReadRequestBody in pairs to read requests from
 // the connection, and it calls WriteResponse to write a response back.
+// The params argument to ReadRequestBody will always be of struct type.
+// The result argument to WriteResponse will always be a pointer to a struct.
 type ServerCodec interface {
-	ReadRequestHeader(*Request) error
-	ReadRequestBody(interface{}) error
-	WriteResponse(*Response, interface{}) error
+	ReadRequestHeader(req *Request) error
+	ReadRequestBody(params interface{}) error
+	WriteResponse(resp *Response, result interface{}) error
 }
 
 // Request is a header written before every RPC call.

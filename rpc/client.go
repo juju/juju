@@ -15,10 +15,13 @@ var ErrShutdown = errors.New("connection is shut down")
 // WriteRequest to write a request to the connection and calls
 // ReadResponseHeader and ReadResponseBody in pairs to read responses.
 // The client calls Close when finished with the connection.
+// The params argument to WriteRequest will always be of struct
+// type; the result argument to ReadResponseBody will always be
+// a non-nil pointer to a struct.
 type ClientCodec interface {
-	WriteRequest(*Request, interface{}) error
-	ReadResponseHeader(*Response) error
-	ReadResponseBody(interface{}) error
+	WriteRequest(req *Request, params interface{}) error
+	ReadResponseHeader(resp *Response) error
+	ReadResponseBody(result interface{}) error
 	Close() error
 }
 
