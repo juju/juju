@@ -105,7 +105,6 @@ func Main(args []string) {
 		code = 2
 		err = fmt.Errorf("jujuc should not be called directly")
 	} else {
-		_ = &cmd.SuperCommand{Name: "jujuc", Doc: jujudDoc, Log: &cmd.Log{}}
 		code, err = jujuCMain(commandName, args)
 	}
 	if err != nil {

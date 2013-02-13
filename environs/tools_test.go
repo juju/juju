@@ -70,9 +70,6 @@ var commandTests = []struct {
 	{
 		[]string{"jujud", "arble"},
 		"error: unrecognized command: jujud arble\n",
-	}, {
-		[]string{"jujuc"},
-		"(.|\n)*error: jujuc should not be called directly\n",
 	},
 }
 
