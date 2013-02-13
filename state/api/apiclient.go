@@ -4,8 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"launchpad.net/juju-core/rpc"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/tomb"
 	"strings"
+	"sync"
 )
 
 // Machine represents the state of a machine.
@@ -141,6 +143,7 @@ func (m *Machine) Watch() *EntityWatcher {
 
 type EntityWatcher struct {
 	tomb tomb.Tomb
+	wg sync.WaitGroup
 	st *State
 	etype string
 	eid string
@@ -157,6 +160,7 @@ func newEntityWatcher(st *State, etype, id string) *EntityWatcher {
 	go func() {
 		defer w.tomb.Done()
 		defer close(w.out)
+		defer w.wg.Wait()		// Wait for watcher to be stopped.
 		w.tomb.Kill(w.loop())
 	}()
 	return w
@@ -168,28 +172,34 @@ func (w *EntityWatcher) loop() error {
 	if err != nil {
 		return err
 	}
-	ch := make(chan struct{})
+	callWatch := func(request string) error {
+		return w.st.client.Call("EntityWatcher", id.EntityWatcherId, request, nil, nil)
+	}
+	// When the watcher has been stopped, we send a stop
+	// request to the server, which will remove the watcher
+	// and return an error to any currently outstanding call
+	// to Next. If a call to Next happens just after the watcher
+	// has been stopped, we'll get a watcher-not-found error.
+	// Either way we'll return, wait for the stop request to
+	// complete, and the watcher will die with all resources
+	// cleaned up.
+	w.wg.Add(1)
 	go func() {
-		defer close(ch)
-		for {
-			err := w.st.client.Call("EntityWatcher", id.EntityWatcherId, "Next", nil, nil)
-			if err != nil {
-				w.tomb.Kill(err)
-				return
-			}
-			ch <- struct{}{}
+		defer w.wg.Done()
+		<-w.tomb.Dying()
+		err := callWatch("Stop")
+		if err != nil {
+			log.Printf("state/api: error trying to stop watcher: %v", err)
 		}
 	}()
-	out := w.out
 	for {
+		if err := callWatch("Next"); err != nil {
+			return err
+		}
 		select {
 		case <-w.tomb.Dying():
-			// TODO: stop watcher; drain ch.
-			return tomb.ErrDying
-		case <-ch:
-			out = w.out
-		case out <- struct{}{}:
-			out = nil
+			return nil
+		case w.out <- struct{}{}:
 		}
 	}
 	panic("unreachable")
@@ -200,10 +210,8 @@ func (w *EntityWatcher) Changes() <-chan struct{} {
 }
 
 func (w *EntityWatcher) Stop() error {
-	err := w.st.client.Call("EntityWatcher", w.eid, "Stop", nil, nil)
-	err = rpcError(err)
-	w.tomb.Kill(err)
-	return err
+	w.tomb.Kill(nil)
+	return w.tomb.Wait()
 }
 
 func (w *EntityWatcher) Err() error {
