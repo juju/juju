@@ -12,13 +12,12 @@ import (
 // responses for the server side of an RPC session.  The server calls
 // ReadRequestHeader and ReadRequestBody in pairs to read requests from
 // the connection, and it calls WriteResponse to write a response back.
-// The server calls Close when finished with the connection.
-// ReadRequestBody may be called with a nil argument to force the body of
-// the request to be read and discarded.
+// The params argument to ReadRequestBody will always be of struct type.
+// The result argument to WriteResponse will always be a non-nil pointer to a struct.
 type ServerCodec interface {
-	ReadRequestHeader(*Request) error
-	ReadRequestBody(interface{}) error
-	WriteResponse(*Response, interface{}) error
+	ReadRequestHeader(req *Request) error
+	ReadRequestBody(params interface{}) error
+	WriteResponse(resp *Response, result interface{}) error
 }
 
 // Request is a header written before every RPC call.
@@ -97,12 +96,12 @@ func (srv *Server) serve(root reflect.Value, codec ServerCodec) error {
 		}
 		o, a, err := csrv.findRequest(&req)
 		if err != nil {
-			_ = codec.ReadRequestBody(nil)
+			_ = codec.ReadRequestBody(&struct{}{})
 			resp := &Response{
 				RequestId: req.RequestId,
 			}
 			resp.Error = err.Error()
-			if err := codec.WriteResponse(resp, nil); err != nil {
+			if err := codec.WriteResponse(resp, struct{}{}); err != nil {
 				return err
 			}
 			continue
@@ -113,6 +112,8 @@ func (srv *Server) serve(root reflect.Value, codec ServerCodec) error {
 			v := reflect.New(a.arg)
 			arg = v.Elem()
 			argp = v.Interface()
+		} else {
+			argp = &struct{}{}
 		}
 		if err := csrv.codec.ReadRequestBody(argp); err != nil {
 			return fmt.Errorf("error reading request body: %v", err)
@@ -130,7 +131,7 @@ func (csrv *codecServer) findRequest(req *Request) (*obtainer, *action, error) {
 	}
 	a := csrv.action[o.ret][req.Request]
 	if a == nil {
-		return nil, nil, fmt.Errorf("no such action %q on %s", req.Request, req.Type)
+		return nil, nil, fmt.Errorf("no such request %q on %s", req.Request, req.Type)
 	}
 	return o, a, nil
 }
@@ -147,8 +148,11 @@ func (csrv *codecServer) runRequest(reqId uint64, objId string, o *obtainer, a *
 	}
 	if err != nil {
 		resp.Error = err.Error()
+		rvi = struct{}{}
 	} else if rv.IsValid() {
 		rvi = rv.Interface()
+	} else {
+		rvi = struct{}{}
 	}
 	if err := csrv.codec.WriteResponse(resp, rvi); err != nil {
 		log.Printf("rpc: error writing response %#v: %v", rvi, err)

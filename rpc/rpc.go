@@ -3,6 +3,7 @@ package rpc
 import (
 	"errors"
 	"fmt"
+	"launchpad.net/juju-core/log"
 	"reflect"
 )
 
@@ -52,9 +53,8 @@ type Server struct {
 // id is some identifier for the object and O is the type of the
 // returned object.
 //
-// Action methods defined on O may defined in one of the following
-// forms, where T and R each represent an arbitrary type other than the
-// built-in error type.
+// Request methods defined on O may defined in one of the following
+// forms, where T and R must be struct types.
 //
 //	Method()
 //	Method() R
@@ -76,6 +76,7 @@ func NewServer(rootValue interface{}) (*Server, error) {
 		m := rt.Method(i)
 		o := srv.methodToObtainer(m)
 		if o == nil {
+			log.Printf("rpc: discarding obtainer method %#v", m)
 			continue
 		}
 		actions := make(map[string]*action)
@@ -83,11 +84,15 @@ func NewServer(rootValue interface{}) (*Server, error) {
 			m := o.ret.Method(i)
 			if a := srv.methodToAction(m); a != nil {
 				actions[m.Name] = a
+			} else {
+				log.Printf("rpc: discarding action method %#v", m)
 			}
 		}
 		if len(actions) > 0 {
 			srv.action[o.ret] = actions
 			srv.obtain[m.Name] = o
+		} else {
+			log.Printf("rpc: discarding obtainer %v because its result has no methods", m.Name)
 		}
 	}
 	if len(srv.obtain) == 0 {
@@ -216,6 +221,12 @@ func (srv *Server) methodToAction(m reflect.Method) *action {
 			return
 		}
 	default:
+		return nil
+	}
+	if p.arg != nil && p.arg.Kind() != reflect.Struct {
+		return nil
+	}
+	if p.ret != nil && p.ret.Kind() != reflect.Struct {
 		return nil
 	}
 	return &p
