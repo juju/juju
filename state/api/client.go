@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/rpc"
@@ -89,7 +90,7 @@ func Open(info *Info) (*State, error) {
 }
 
 func (s *State) call(objType, id, request string, params, response interface{}) error {
-	err := s.client.call(objType, id, request, params, response)
+	err := s.client.Call(objType, id, request, params, response)
 	return rpcError(err)
 }
 

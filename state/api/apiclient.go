@@ -1,9 +1,7 @@
 package api
 
 import (
-	"errors"
 	"fmt"
-	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/tomb"
 	"strings"
@@ -42,9 +40,9 @@ type Status struct {
 // Status returns the status of the juju environment.
 func (c *Client) Status() (*Status, error) {
 	var s Status
-	err := c.st.client.Call("Client", "", "Status", nil, &s)
+	err := c.st.call("Client", "", "Status", nil, &s)
 	if err != nil {
-		return nil, rpcError(err)
+		return nil, err
 	}
 	return &s, nil
 }
@@ -84,11 +82,10 @@ func (st *State) Unit(name string) (*Unit, error) {
 // Subsequent requests on the state will act as that entity.
 // This method is usually called automatically by Open.
 func (st *State) Login(entityName, password string) error {
-	err := st.client.Call("Admin", "", "Login", &rpcCreds{
+	return st.call("Admin", "", "Login", &rpcCreds{
 		EntityName: entityName,
 		Password:   password,
 	}, nil)
-	return rpcError(err)
 }
 
 // Id returns the machine id.
@@ -112,8 +109,7 @@ func MachineEntityName(id string) string {
 // Refresh refreshes the contents of the machine from the underlying
 // state. TODO(rog) It returns a NotFoundError if the machine has been removed.
 func (m *Machine) Refresh() error {
-	err := m.st.client.Call("Machine", m.id, "Get", nil, &m.doc)
-	return rpcError(err)
+	return m.st.call("Machine", m.id, "Get", nil, &m.doc)
 }
 
 // String returns the machine's id.
@@ -131,10 +127,9 @@ func (m *Machine) InstanceId() (string, error) {
 
 // SetPassword sets the password for the machine's agent.
 func (m *Machine) SetPassword(password string) error {
-	err := m.st.client.Call("Machine", m.id, "SetPassword", &rpcPassword{
+	return m.st.call("Machine", m.id, "SetPassword", &rpcPassword{
 		Password: password,
 	}, nil)
-	return rpcError(err)
 }
 
 func (m *Machine) Watch() *EntityWatcher {
@@ -168,12 +163,12 @@ func newEntityWatcher(st *State, etype, id string) *EntityWatcher {
 
 func (w *EntityWatcher) loop() error {
 	var id rpcEntityWatcherId
-	err := w.st.client.Call(w.etype, w.eid, "Watch", nil, &id)
+	err := w.st.call(w.etype, w.eid, "Watch", nil, &id)
 	if err != nil {
 		return err
 	}
 	callWatch := func(request string) error {
-		return w.st.client.Call("EntityWatcher", id.EntityWatcherId, request, nil, nil)
+		return w.st.call("EntityWatcher", id.EntityWatcherId, request, nil, nil)
 	}
 	// When the watcher has been stopped, we send a stop
 	// request to the server, which will remove the watcher
@@ -221,16 +216,14 @@ func (w *EntityWatcher) Err() error {
 // Refresh refreshes the contents of the Unit from the underlying
 // state. TODO(rog) It returns a NotFoundError if the unit has been removed.
 func (u *Unit) Refresh() error {
-	err := u.st.client.Call("Unit", u.name, "Get", nil, &u.doc)
-	return rpcError(err)
+	return u.st.call("Unit", u.name, "Get", nil, &u.doc)
 }
 
 // SetPassword sets the password for the unit's agent.
 func (u *Unit) SetPassword(password string) error {
-	err := u.st.client.Call("Unit", u.name, "SetPassword", &rpcPassword{
+	return u.st.call("Unit", u.name, "SetPassword", &rpcPassword{
 		Password: password,
 	}, nil)
-	return rpcError(err)
 }
 
 // UnitEntityName returns the entity name for the
@@ -250,20 +243,4 @@ func (u *Unit) EntityName() string {
 // the unit. If no such entity can be determined, false is returned.
 func (u *Unit) DeployerName() (string, bool) {
 	return u.doc.DeployerName, u.doc.DeployerName != ""
-}
-
-// rpcError maps errors returned from an RPC call into local errors with
-// appropriate values.
-// TODO(rog): implement NotFoundError, etc.
-func rpcError(err error) error {
-	if err == nil {
-		return nil
-	}
-	rerr, ok := err.(*rpc.ServerError)
-	if !ok {
-		return err
-	}
-	// TODO(rog) map errors into known error types, possibly introducing
-	// error codes to do so.
-	return errors.New(rerr.Message)
 }
