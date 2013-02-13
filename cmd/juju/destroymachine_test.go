@@ -24,7 +24,7 @@ func runDestroyMachine(c *C, args ...string) error {
 
 func (s *DestroyMachineSuite) TestDestroyMachine(c *C) {
 	// Create a machine running a unit.
-	testing.Charms.BundlePath(s.seriesPath, "series", "riak")
+	testing.Charms.BundlePath(s.seriesPath, "riak")
 	err := runDeploy(c, "local:riak", "riak")
 	c.Assert(err, IsNil)
 
