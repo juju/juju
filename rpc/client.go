@@ -15,8 +15,6 @@ var ErrShutdown = errors.New("connection is shut down")
 // WriteRequest to write a request to the connection and calls
 // ReadResponseHeader and ReadResponseBody in pairs to read responses.
 // The client calls Close when finished with the connection.
-// ReadResponseBody may be called with a nil argument to force the body
-// of the response to be read and then discarded.
 type ClientCodec interface {
 	WriteRequest(*Request, interface{}) error
 	ReadResponseHeader(*Response) error
@@ -151,13 +149,13 @@ func (client *Client) input() {
 			// removed; response is a server telling us about an
 			// error reading request body. We should still attempt
 			// to read error body, but there's no one to give it to.
-			err = client.readBody(nil)
+			err = client.readBody(&struct{}{})
 		case response.Error != "":
 			// We've got an error response. Give this to the request;
 			// any subsequent requests will get the ReadResponseBody
 			// error if there is one.
 			call.Error = &ServerError{response.Error}
-			err = client.readBody(nil)
+			err = client.readBody(&struct{}{})
 			call.done()
 		default:
 			err = client.readBody(call.Response)

@@ -12,9 +12,6 @@ import (
 // responses for the server side of an RPC session.  The server calls
 // ReadRequestHeader and ReadRequestBody in pairs to read requests from
 // the connection, and it calls WriteResponse to write a response back.
-// The server calls Close when finished with the connection.
-// ReadRequestBody may be called with a nil argument to force the body of
-// the request to be read and discarded.
 type ServerCodec interface {
 	ReadRequestHeader(*Request) error
 	ReadRequestBody(interface{}) error
@@ -97,12 +94,12 @@ func (srv *Server) serve(root reflect.Value, codec ServerCodec) error {
 		}
 		o, a, err := csrv.findRequest(&req)
 		if err != nil {
-			_ = codec.ReadRequestBody(nil)
+			_ = codec.ReadRequestBody(&struct{}{})
 			resp := &Response{
 				RequestId: req.RequestId,
 			}
 			resp.Error = err.Error()
-			if err := codec.WriteResponse(resp, nil); err != nil {
+			if err := codec.WriteResponse(resp, struct{}{}); err != nil {
 				return err
 			}
 			continue
@@ -113,6 +110,8 @@ func (srv *Server) serve(root reflect.Value, codec ServerCodec) error {
 			v := reflect.New(a.arg)
 			arg = v.Elem()
 			argp = v.Interface()
+		} else {
+			argp = &struct{}{}
 		}
 		if err := csrv.codec.ReadRequestBody(argp); err != nil {
 			return fmt.Errorf("error reading request body: %v", err)
