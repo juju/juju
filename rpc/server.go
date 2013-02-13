@@ -13,7 +13,7 @@ import (
 // ReadRequestHeader and ReadRequestBody in pairs to read requests from
 // the connection, and it calls WriteResponse to write a response back.
 // The params argument to ReadRequestBody will always be of struct type.
-// The result argument to WriteResponse will always be a pointer to a struct.
+// The result argument to WriteResponse will always be a non-nil pointer to a struct.
 type ServerCodec interface {
 	ReadRequestHeader(req *Request) error
 	ReadRequestBody(params interface{}) error
