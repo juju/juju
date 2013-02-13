@@ -79,6 +79,7 @@ func (t *TRoot) called(rcvr interface{}, method string, arg interface{}) {
 	t.mu.Unlock()
 }
 
+
 type SimpleMethods struct {
 	root *TRoot
 	id   string
@@ -177,7 +178,6 @@ func (root *TRoot) testCall(c *C, client *rpc.Client, narg, nret int, retErr, te
 	err := client.Call("SimpleMethods", "a99", method, stringVal{"arg"}, &r)
 	root.mu.Lock()
 	defer root.mu.Unlock()
-	c.Assert(root.calls, HasLen, 1, Commentf("err %v", err))
 	expectCall := callInfo{
 		rcvr:   root.simple["a99"],
 		method: method,
@@ -185,6 +185,7 @@ func (root *TRoot) testCall(c *C, client *rpc.Client, narg, nret int, retErr, te
 	if narg > 0 {
 		expectCall.arg = stringVal{"arg"}
 	}
+	c.Assert(root.calls, HasLen, 1)
 	c.Assert(*root.calls[0], Equals, expectCall)
 	switch {
 	case retErr && testErr:
@@ -277,6 +278,53 @@ func chanRead(c *C, ch <-chan struct{}, what string) {
 	case <-time.After(3 * time.Second):
 		c.Fatalf("timeout on channel read %s", what)
 	}
+}
+
+func (*suite) TestCompatibility(c *C) {
+	root := &TRoot{
+		simple: make(map[string]*SimpleMethods),
+	}
+	a0 := &SimpleMethods{root: root, id: "a0"}
+	root.simple["a0"] = a0
+
+	client, srvDone := newRPCClientServer(c, root)
+	call := func(method string, arg, ret interface{}) (passedArg interface{}) {
+		root.calls = nil
+		err := client.Call("SimpleMethods", "a0", method, arg, ret)
+		c.Assert(err, IsNil)
+		c.Assert(root.calls, HasLen, 1)
+		info := root.calls[0]
+		c.Assert(info.rcvr, Equals, a0)
+		c.Assert(info.method, Equals, method)
+		return info.arg
+	}
+	type extra struct {
+		Val string
+		Extra string
+	}
+	// Extra fields in request and response.
+	var r extra
+	arg := call("Call1r1", extra{"x", "y"}, &r)
+	c.Assert(arg, Equals, stringVal{"x"})
+
+	// Nil argument as request.
+	r = extra{}
+	arg = call("Call1r1", nil, &r)
+	c.Assert(arg, Equals, stringVal{})
+
+	// Nil argument as response.
+	arg = call("Call1r1", stringVal{"x"}, nil)
+	c.Assert(arg, Equals, stringVal{"x"})
+
+	// Non-nil argument for no response.
+	r = extra{}
+	arg = call("Call1r0", stringVal{"x"}, &r)
+	c.Assert(arg, Equals, stringVal{"x"})
+	c.Assert(r, Equals, extra{})
+
+	client.Close()
+	err := chanReadError(c, srvDone, "server done")
+	c.Assert(err, IsNil)
 }
 
 func chanReadError(c *C, ch <-chan error, what string) error {
