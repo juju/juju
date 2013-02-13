@@ -160,8 +160,6 @@ func opMachine1SetPassword(c *C, st *api.State) (func(), error) {
 	}, nil
 }
 
-<<<<<<< TREE
-=======
 func opClientStatus(c *C, st *api.State) (func(), error) {
 	status, err := st.Client().Status()
 	if err != nil {
@@ -189,7 +187,6 @@ var scenarioStatus = &api.Status{
 	},
 }
 
->>>>>>> MERGE-SOURCE
 // setUpScenario makes an environment scenario suitable for
 // testing most kinds of access scenario. It returns
 // a list of all the entities in the scenario.
@@ -219,15 +216,12 @@ var scenarioStatus = &api.Status{
 //
 // The passwords for all returned entities are
 // set to the entity name with a " password" suffix.
-<<<<<<< TREE
-=======
 //
 // Note that there is nothing special about machine-0
 // here - it's the environment manager in this scenario
 // just because machine 0 has traditionally been the
 // environment manager (bootstrap machine), so is
 // hopefully easier to remember as such.
->>>>>>> MERGE-SOURCE
 func (s *suite) setUpScenario(c *C) (entities []string) {
 	add := func(e state.AuthEntity) {
 		entities = append(entities, e.EntityName())
@@ -362,8 +356,6 @@ func (s *suite) TestBadLogin(c *C) {
 	}
 }
 
-<<<<<<< TREE
-=======
 func (s *suite) TestClientStatus(c *C) {
 	s.setUpScenario(c)
 	status, err := s.APIState.Client().Status()
@@ -371,7 +363,6 @@ func (s *suite) TestClientStatus(c *C) {
 	c.Assert(status, DeepEquals, scenarioStatus)
 }
 
->>>>>>> MERGE-SOURCE
 func (s *suite) TestMachineLogin(c *C) {
 	stm, err := s.State.AddMachine(state.JobHostUnits)
 	c.Assert(err, IsNil)
@@ -492,7 +483,6 @@ func (s *suite) TestMachineEntityName(c *C) {
 	c.Assert(m.EntityName(), Equals, "machine-0")
 }
 
-<<<<<<< TREE
 //func (s *suite) TestMachineWatch(c *C) {
 //	stm, err := s.State.AddMachine(state.JobHostUnits)
 //	c.Assert(err, IsNil)
@@ -504,8 +494,6 @@ func (s *suite) TestMachineEntityName(c *C) {
 //	w, 
 //}
 
-=======
->>>>>>> MERGE-SOURCE
 func (s *suite) TestUnitRefresh(c *C) {
 	s.setUpScenario(c)
 	st := s.openAs(c, "unit-wordpress-0")
@@ -557,11 +545,8 @@ func (s *suite) TestStop(c *C) {
 	err = stm.SetPassword("password")
 	c.Assert(err, IsNil)
 
-<<<<<<< TREE
-=======
 	// Note we can't use openAs because we're
 	// not connecting to s.APIConn.
->>>>>>> MERGE-SOURCE
 	st, err := api.Open(&api.Info{
 		EntityName: stm.EntityName(),
 		Password:   "password",

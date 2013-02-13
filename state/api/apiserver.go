@@ -167,7 +167,7 @@ func (r *srvRoot) User(name string) (*srvUser, error) {
 }
 
 func (r *srvRoot) EntityWatcher(id string) (srvEntityWatcher, error) {
-	if err := r.accessAgentAPI(); err != nil {
+	if err := r.requireAgent(); err != nil {
 		return srvEntityWatcher{}, err
 	}
 	w := r.watchers.get(id)
