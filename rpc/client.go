@@ -205,7 +205,8 @@ func (call *Call) done() {
 // should be a pointer.  If the action fails remotely, the returned
 // error will be of type ServerError.
 // The params value may be nil if no parameters are provided;
-// the response value may be nil to discard any result value.
+// the response value may be nil to indicate that any result
+// should be discarded.
 func (c *Client) Call(objType, id, action string, params, response interface{}) error {
 	call := <-c.Go(objType, id, action, params, response, make(chan *Call, 1)).Done
 	return call.Error
