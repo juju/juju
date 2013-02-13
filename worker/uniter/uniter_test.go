@@ -48,7 +48,7 @@ func (s *UniterSuite) SetUpSuite(c *C) {
 	toolsDir := environs.AgentToolsDir(s.dataDir, "unit-u-0")
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, IsNil)
-	cmd := exec.Command("go", "build", "launchpad.net/juju-core/cmd/jujuc")
+	cmd := exec.Command("go", "build", "launchpad.net/juju-core/cmd/jujud")
 	cmd.Dir = toolsDir
 	out, err := cmd.CombinedOutput()
 	c.Logf(string(out))
