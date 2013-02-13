@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"launchpad.net/juju-core/log"
 )
 
 var (
@@ -75,6 +76,7 @@ func NewServer(rootValue interface{}) (*Server, error) {
 		m := rt.Method(i)
 		o := srv.methodToObtainer(m)
 		if o == nil {
+			log.Printf("discarding obtainer method %#v", m)
 			continue
 		}
 		actions := make(map[string]*action)
@@ -82,6 +84,8 @@ func NewServer(rootValue interface{}) (*Server, error) {
 			m := o.ret.Method(i)
 			if a := srv.methodToAction(m); a != nil {
 				actions[m.Name] = a
+			} else {
+				log.Printf("discarding action method %#v", m)
 			}
 		}
 		if len(actions) > 0 {
