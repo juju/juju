@@ -66,10 +66,15 @@ type Call struct {
 // ServerError represents an error returned from an RPC server.
 type ServerError struct {
 	Message string
+	Code    string
 }
 
 func (e *ServerError) Error() string {
 	return "server error: " + e.Message
+}
+
+func (e *ServerError) ErrorCode() string {
+	return e.Code
 }
 
 func (client *Client) Close() error {
@@ -164,7 +169,10 @@ func (client *Client) input() {
 			// We've got an error response. Give this to the request;
 			// any subsequent requests will get the ReadResponseBody
 			// error if there is one.
-			call.Error = &ServerError{response.Error}
+			call.Error = &ServerError{
+				Message: response.Error,
+				Code:    response.ErrorCode,
+			}
 			err = client.readBody(nil)
 			call.done()
 		default:
