@@ -47,6 +47,7 @@ type TRoot struct {
 	returnErr bool
 	simple    map[string]*SimpleMethods
 	delayed   map[string]*DelayedMethods
+	errorInst *ErrorMethods
 }
 
 func (r *TRoot) callError(rcvr interface{}, name string, arg interface{}) error {
@@ -72,6 +73,10 @@ func (r *TRoot) DelayedMethods(id string) (*DelayedMethods, error) {
 		return a, nil
 	}
 	return nil, fmt.Errorf("unknown DelayedMethods id")
+}
+
+func (r *TRoot) ErrorMethods(id string) (*ErrorMethods, error) {
+	return r.errorInst, nil
 }
 
 func (t *TRoot) called(rcvr interface{}, method string, arg interface{}) {
@@ -141,6 +146,14 @@ func (a *DelayedMethods) Delay() stringVal {
 		a.ready <- struct{}{}
 	}
 	return stringVal{<-a.done}
+}
+
+type ErrorMethods struct {
+	err error
+}
+
+func (e *ErrorMethods) Call() error {
+	return e.err
 }
 
 func (*suite) TestRPC(c *C) {
@@ -235,6 +248,32 @@ func (*suite) TestConcurrentCalls(c *C) {
 	chanRead(c, done2, "method 2 done")
 	client.Close()
 	err := chanReadError(c, srvDone, "server done")
+	c.Assert(err, IsNil)
+}
+
+type codedError struct {
+	m string
+	code string
+}
+
+func (e *codedError) Error() string {
+	return e.m
+}
+
+func (e *codedError) ErrorCode() string {
+	return e.code
+}
+
+func (*suite) TestErrorCode(c *C) {
+	root := &TRoot{
+		errorInst: &ErrorMethods{&codedError{"message", "code"}},
+	}
+	client, srvDone := newRPCClientServer(c, root)
+	err := client.Call("ErrorMethods", "", "Call", nil, nil)
+	c.Assert(err, ErrorMatches, "server error: message")
+	c.Assert(err.(rpc.ErrorCoder).ErrorCode(), Equals, "code")
+	client.Close()
+	err = chanReadError(c, srvDone, "server done")
 	c.Assert(err, IsNil)
 }
 
