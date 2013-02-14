@@ -70,7 +70,11 @@ type ServerError struct {
 }
 
 func (e *ServerError) Error() string {
-	return "server error: " + e.Message
+	m := "server error: " + e.Message
+	if e.Code != "" {
+		m += "(" + e.Code + ")"
+	}
+	return m
 }
 
 func (e *ServerError) ErrorCode() string {
