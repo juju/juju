@@ -94,7 +94,7 @@ func (client *Client) send(call *Call) {
 
 	// Register this call.
 	client.mutex.Lock()
-	if client.shutdown {
+	if client.shutdown || client.closing {
 		call.Error = ErrShutdown
 		client.mutex.Unlock()
 		call.done()
