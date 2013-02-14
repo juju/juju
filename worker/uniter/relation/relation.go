@@ -5,8 +5,9 @@ package relation
 import (
 	"fmt"
 	"io/ioutil"
+	"launchpad.net/juju-core/charm/hook"
 	"launchpad.net/juju-core/trivial"
-	"launchpad.net/juju-core/worker/uniter/hook"
+	uhook "launchpad.net/juju-core/worker/uniter/hook"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -46,7 +47,7 @@ func (s *State) copy() *State {
 // a valid change to the relation state. Hooks must always be validated
 // against the current state before they are run, to ensure that the system
 // meets its guarantees about hook execution order.
-func (s *State) Validate(hi hook.Info) (err error) {
+func (s *State) Validate(hi uhook.Info) (err error) {
 	defer trivial.ErrorContextf(&err, "inappropriate %q for %q", hi.Kind, hi.RemoteUnit)
 	if hi.RelationId != s.RelationId {
 		return fmt.Errorf("expected relation %d, got relation %d", s.RelationId, hi.RelationId)
@@ -181,7 +182,7 @@ func (d *StateDir) Ensure() error {
 // It must be called after the respective hook was executed successfully.
 // Write doesn't validate hi but guarantees that successive writes of
 // the same hi are idempotent.
-func (d *StateDir) Write(hi hook.Info) (err error) {
+func (d *StateDir) Write(hi uhook.Info) (err error) {
 	defer trivial.ErrorContextf(&err, "failed to write %q hook info for %q on state directory", hi.Kind, hi.RemoteUnit)
 	if hi.Kind == hook.RelationBroken {
 		return d.Remove()

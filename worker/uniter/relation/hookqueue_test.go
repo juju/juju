@@ -2,9 +2,10 @@ package relation_test
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/charm/hook"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/worker/uniter/hook"
+	uhook "launchpad.net/juju-core/worker/uniter/hook"
 	"launchpad.net/juju-core/worker/uniter/relation"
 	stdtesting "testing"
 	"time"
@@ -160,7 +161,7 @@ var aliveHookQueueTests = []hookQueueTest{
 func (s *HookQueueSuite) TestAliveHookQueue(c *C) {
 	for i, t := range aliveHookQueueTests {
 		c.Logf("test %d: %s", i, t.summary)
-		out := make(chan hook.Info)
+		out := make(chan uhook.Info)
 		in := make(chan state.RelationUnitsChange)
 		ruw := &RUW{in, false}
 		q := relation.NewAliveHookQueue(t.initial, out, ruw)
@@ -196,7 +197,7 @@ var dyingHookQueueTests = []hookQueueTest{
 func (s *HookQueueSuite) TestDyingHookQueue(c *C) {
 	for i, t := range dyingHookQueueTests {
 		c.Logf("test %d: %s", i, t.summary)
-		out := make(chan hook.Info)
+		out := make(chan uhook.Info)
 		q := relation.NewDyingHookQueue(t.initial, out)
 		for i, step := range t.steps {
 			c.Logf("  step %d", i)
@@ -229,7 +230,7 @@ func (w *RUW) Err() error {
 }
 
 type checker interface {
-	check(c *C, in chan state.RelationUnitsChange, out chan hook.Info)
+	check(c *C, in chan state.RelationUnitsChange, out chan uhook.Info)
 }
 
 type send struct {
@@ -237,7 +238,7 @@ type send struct {
 	departed []string
 }
 
-func (d send) check(c *C, in chan state.RelationUnitsChange, out chan hook.Info) {
+func (d send) check(c *C, in chan state.RelationUnitsChange, out chan uhook.Info) {
 	ruc := state.RelationUnitsChange{Changed: map[string]state.UnitSettings{}}
 	for name, version := range d.changed {
 		ruc.Changed[name] = state.UnitSettings{
@@ -255,7 +256,7 @@ type advance struct {
 	count int
 }
 
-func (d advance) check(c *C, in chan state.RelationUnitsChange, out chan hook.Info) {
+func (d advance) check(c *C, in chan state.RelationUnitsChange, out chan uhook.Info) {
 	for i := 0; i < d.count; i++ {
 		select {
 		case <-out:
@@ -272,7 +273,7 @@ type expect struct {
 	members msi
 }
 
-func (d expect) check(c *C, in chan state.RelationUnitsChange, out chan hook.Info) {
+func (d expect) check(c *C, in chan state.RelationUnitsChange, out chan uhook.Info) {
 	if d.hook == "" {
 		select {
 		case unexpected := <-out:
@@ -281,7 +282,7 @@ func (d expect) check(c *C, in chan state.RelationUnitsChange, out chan hook.Inf
 		}
 		return
 	}
-	expect := hook.Info{
+	expect := uhook.Info{
 		Kind:          d.hook,
 		RelationId:    21345,
 		RemoteUnit:    d.unit,

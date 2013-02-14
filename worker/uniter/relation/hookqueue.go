@@ -1,9 +1,10 @@
 package relation
 
 import (
+	"launchpad.net/juju-core/charm/hook"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
-	"launchpad.net/juju-core/worker/uniter/hook"
+	uhook "launchpad.net/juju-core/worker/uniter/hook"
 	"launchpad.net/tomb"
 	"sort"
 )
@@ -29,7 +30,7 @@ type RelationUnitsWatcher interface {
 type AliveHookQueue struct {
 	tomb       tomb.Tomb
 	w          RelationUnitsWatcher
-	out        chan<- hook.Info
+	out        chan<- uhook.Info
 	relationId int
 
 	// info holds information about all units that were added to the
@@ -79,7 +80,7 @@ type unitInfo struct {
 // respect the guarantees Juju makes about hook execution order. If any values
 // have previously been received from w's Changes channel, the AliveHookQueue's
 // behaviour is undefined.
-func NewAliveHookQueue(initial *State, out chan<- hook.Info, w RelationUnitsWatcher) *AliveHookQueue {
+func NewAliveHookQueue(initial *State, out chan<- uhook.Info, w RelationUnitsWatcher) *AliveHookQueue {
 	q := &AliveHookQueue{
 		w:          w,
 		out:        out,
@@ -121,8 +122,8 @@ func (q *AliveHookQueue) loop(initial *State) {
 	q.update(ch0)
 	q.update(ch1)
 
-	var next hook.Info
-	var out chan<- hook.Info
+	var next uhook.Info
+	var out chan<- uhook.Info
 	for {
 		if q.empty() {
 			out = nil
@@ -222,7 +223,7 @@ func (q *AliveHookQueue) pop() {
 }
 
 // next returns the next hook.Info value to send.
-func (q *AliveHookQueue) next() hook.Info {
+func (q *AliveHookQueue) next() uhook.Info {
 	if q.empty() {
 		panic("queue is empty")
 	}
@@ -247,7 +248,7 @@ func (q *AliveHookQueue) next() hook.Info {
 	} else if kind == hook.RelationDeparted {
 		delete(members, unit)
 	}
-	return hook.Info{
+	return uhook.Info{
 		Kind:          kind,
 		RelationId:    q.relationId,
 		RemoteUnit:    unit,
@@ -316,7 +317,7 @@ func (q *AliveHookQueue) unqueue(unit string) {
 // "relation-broken" hook for the relation itself.
 type DyingHookQueue struct {
 	tomb           tomb.Tomb
-	out            chan<- hook.Info
+	out            chan<- uhook.Info
 	relationId     int
 	members        map[string]int64
 	changedPending string
@@ -324,7 +325,7 @@ type DyingHookQueue struct {
 
 // NewDyingHookQueue returns a new DyingHookQueue that shuts down the state in
 // initial.
-func NewDyingHookQueue(initial *State, out chan<- hook.Info) *DyingHookQueue {
+func NewDyingHookQueue(initial *State, out chan<- uhook.Info) *DyingHookQueue {
 	q := &DyingHookQueue{
 		out:            out,
 		relationId:     initial.RelationId,
@@ -368,7 +369,7 @@ func (q *DyingHookQueue) loop() {
 	select {
 	case <-q.tomb.Dying():
 		return
-	case q.out <- hook.Info{Kind: hook.RelationBroken, RelationId: q.relationId}:
+	case q.out <- uhook.Info{Kind: hook.RelationBroken, RelationId: q.relationId}:
 	}
 	q.tomb.Kill(nil)
 	return
@@ -376,8 +377,8 @@ func (q *DyingHookQueue) loop() {
 
 // hookInfo updates the queue's internal membership state according to the
 // supplied information, and returns a hook.Info reflecting that change.
-func (q *DyingHookQueue) hookInfo(kind hook.Kind, unit string) hook.Info {
-	hi := hook.Info{
+func (q *DyingHookQueue) hookInfo(kind hook.Kind, unit string) uhook.Info {
+	hi := uhook.Info{
 		Kind:          kind,
 		RelationId:    q.relationId,
 		RemoteUnit:    unit,

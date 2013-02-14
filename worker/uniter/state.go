@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/trivial"
-	"launchpad.net/juju-core/worker/uniter/hook"
+	uhook "launchpad.net/juju-core/worker/uniter/hook"
 	"os"
 )
 
@@ -61,7 +61,7 @@ type State struct {
 	// it holds the running hook; if Op is Upgrade, a non-nil hook indicates
 	// that the uniter should return to that hook's Pending state after the
 	// upgrade is complete (instead of running an upgrade-charm hook).
-	Hook *hook.Info `yaml:"hook,omitempty"`
+	Hook *uhook.Info `yaml:"hook,omitempty"`
 
 	// Charm describes the charm being deployed by an Install or Upgrade
 	// operation, and is otherwise blank.
@@ -131,7 +131,7 @@ func (f *StateFile) Read() (*State, error) {
 }
 
 // Write stores the supplied state to the file.
-func (f *StateFile) Write(started bool, op Op, step OpStep, hi *hook.Info, url *charm.URL) error {
+func (f *StateFile) Write(started bool, op Op, step OpStep, hi *uhook.Info, url *charm.URL) error {
 	if hi != nil {
 		// Strip membership info: it's potentially large, and can
 		// be reconstructed from relation state when required.

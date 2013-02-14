@@ -3,9 +3,10 @@ package uniter_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/charm/hook"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/worker/uniter"
-	"launchpad.net/juju-core/worker/uniter/hook"
+	uhook "launchpad.net/juju-core/worker/uniter/hook"
 	"path/filepath"
 )
 
@@ -14,7 +15,7 @@ type StateFileSuite struct{}
 var _ = Suite(&StateFileSuite{})
 
 var stcurl = charm.MustParseURL("cs:series/service-name-123")
-var relhook = &hook.Info{
+var relhook = &uhook.Info{
 	Kind:       hook.RelationJoined,
 	RemoteUnit: "some-thing/123",
 	Members: map[string]map[string]interface{}{
@@ -34,7 +35,7 @@ var stateTests = []struct {
 		st: uniter.State{
 			Op:     uniter.Continue,
 			OpStep: uniter.OpStep("dudelike"),
-			Hook:   &hook.Info{Kind: hook.ConfigChanged},
+			Hook:   &uhook.Info{Kind: hook.ConfigChanged},
 		},
 		err: `unknown operation step "dudelike"`,
 	},
@@ -43,7 +44,7 @@ var stateTests = []struct {
 		st: uniter.State{
 			Op:     uniter.Install,
 			OpStep: uniter.Pending,
-			Hook:   &hook.Info{Kind: hook.ConfigChanged},
+			Hook:   &uhook.Info{Kind: hook.ConfigChanged},
 		},
 		err: `unexpected hook info`,
 	}, {
@@ -64,21 +65,21 @@ var stateTests = []struct {
 		st: uniter.State{
 			Op:     uniter.RunHook,
 			OpStep: uniter.Pending,
-			Hook:   &hook.Info{Kind: hook.Kind("machine-exploded")},
+			Hook:   &uhook.Info{Kind: hook.Kind("machine-exploded")},
 		},
 		err: `unknown hook kind "machine-exploded"`,
 	}, {
 		st: uniter.State{
 			Op:     uniter.RunHook,
 			OpStep: uniter.Pending,
-			Hook:   &hook.Info{Kind: hook.RelationJoined},
+			Hook:   &uhook.Info{Kind: hook.RelationJoined},
 		},
 		err: `"relation-joined" hook requires a remote unit`,
 	}, {
 		st: uniter.State{
 			Op:       uniter.RunHook,
 			OpStep:   uniter.Pending,
-			Hook:     &hook.Info{Kind: hook.ConfigChanged},
+			Hook:     &uhook.Info{Kind: hook.ConfigChanged},
 			CharmURL: stcurl,
 		},
 		err: `unexpected charm URL`,
@@ -86,7 +87,7 @@ var stateTests = []struct {
 		st: uniter.State{
 			Op:     uniter.RunHook,
 			OpStep: uniter.Pending,
-			Hook:   &hook.Info{Kind: hook.ConfigChanged},
+			Hook:   &uhook.Info{Kind: hook.ConfigChanged},
 		},
 	}, {
 		st: uniter.State{
