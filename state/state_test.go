@@ -1263,7 +1263,11 @@ func (s *StateSuite) TestAuthEntity(c *C) {
 
 	e, err = s.State.AuthEntity("unit-123")
 	c.Check(e, IsNil)
-	c.Assert(err, ErrorMatches, `invalid unit specifier "123"`)
+	c.Assert(err, ErrorMatches, `invalid unit name "123"`)
+
+	e, err = s.State.AuthEntity("unit-foo")
+	c.Check(e, IsNil)
+	c.Assert(err, ErrorMatches, `invalid unit name "foo"`)
 
 	e, err = s.State.AuthEntity("unit-foo-654")
 	c.Check(e, IsNil)

@@ -272,9 +272,13 @@ func (st *State) AuthEntity(entityName string) (AuthEntity, error) {
 	case "unit":
 		i := strings.LastIndex(id, "-")
 		if i == -1 {
-			return nil, fmt.Errorf("invalid unit specifier %q", id)
+			return nil, fmt.Errorf("invalid unit name %q", id)
 		}
-		return st.Unit(id[:i] + "/" + id[i+1:])
+		name := id[:i] + "/" + id[i+1:]
+		if !IsUnitName(name) {
+			return nil, fmt.Errorf("invalid unit name %q", name)
+		}
+		return st.Unit(name)
 	case "user":
 		return st.User(id)
 	}
