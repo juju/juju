@@ -270,7 +270,7 @@ func (*suite) TestErrorCode(c *C) {
 	}
 	client, srvDone := newRPCClientServer(c, root)
 	err := client.Call("ErrorMethods", "", "Call", nil, nil)
-	c.Assert(err, ErrorMatches, "server error: message")
+	c.Assert(err, ErrorMatches, `server error: message \(code\)`)
 	c.Assert(err.(rpc.ErrorCoder).ErrorCode(), Equals, "code")
 	client.Close()
 	err = chanReadError(c, srvDone, "server done")

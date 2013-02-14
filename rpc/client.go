@@ -72,7 +72,7 @@ type ServerError struct {
 func (e *ServerError) Error() string {
 	m := "server error: " + e.Message
 	if e.Code != "" {
-		m += "(" + e.Code + ")"
+		m += " (" + e.Code + ")"
 	}
 	return m
 }
