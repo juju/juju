@@ -1261,9 +1261,18 @@ func (s *StateSuite) TestAuthEntity(c *C) {
 	c.Assert(err, ErrorMatches, `machine 1234 not found`)
 	c.Assert(state.IsNotFound(err), Equals, true)
 
+	e, err = s.State.AuthEntity("unit-123")
+	c.Check(e, IsNil)
+	c.Assert(err, ErrorMatches, `invalid unit specifier "123"`)
+
 	e, err = s.State.AuthEntity("unit-foo-654")
 	c.Check(e, IsNil)
 	c.Assert(err, ErrorMatches, `unit "foo/654" not found`)
+	c.Assert(state.IsNotFound(err), Equals, true)
+
+	e, err = s.State.AuthEntity("unit-foo-bar-654")
+	c.Check(e, IsNil)
+	c.Assert(err, ErrorMatches, `unit "foo-bar/654" not found`)
 	c.Assert(state.IsNotFound(err), Equals, true)
 
 	e, err = s.State.AuthEntity("user-arble")
@@ -1279,7 +1288,7 @@ func (s *StateSuite) TestAuthEntity(c *C) {
 	c.Assert(e, FitsTypeOf, m)
 	c.Assert(e.EntityName(), Equals, m.EntityName())
 
-	svc, err := s.State.AddService("s1", s.AddTestingCharm(c, "dummy"))
+	svc, err := s.State.AddService("ser-vice1", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, IsNil)
 	u, err := svc.AddUnit()
 	c.Assert(err, IsNil)
