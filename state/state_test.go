@@ -1250,7 +1250,7 @@ func (s *StateSuite) TestSetAdminMongoPassword(c *C) {
 }
 
 func (s *StateSuite) TestAuthEntity(c *C) {
-	bad := []string{"", "machine", "-foo", "foo-", "---", "unit-123", "unit-foo"}
+	bad := []string{"", "machine", "-foo", "foo-", "---", "machine-jim", "unit-123", "unit-foo"}
 	for _, name := range bad {
 		e, err := s.State.AuthEntity(name)
 		c.Check(e, IsNil)

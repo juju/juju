@@ -268,6 +268,9 @@ func (st *State) AuthEntity(entityName string) (AuthEntity, error) {
 	prefix, id := entityName[0:i], entityName[i+1:]
 	switch prefix {
 	case "machine":
+		if !IsMachineId(id) {
+			return nil, fmt.Errorf("invalid entity name %q", entityName)
+		}
 		return st.Machine(id)
 	case "unit":
 		i := strings.LastIndex(id, "-")
