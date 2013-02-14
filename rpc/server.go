@@ -42,6 +42,9 @@ type Response struct {
 
 	// Error holds the error, if any.
 	Error string
+
+	// ErrorCode holds the code of the error, if any.
+	ErrorCode string
 }
 
 // codecServer represents an active server instance.
@@ -57,6 +60,13 @@ type codecServer struct {
 
 	// sending guards the write side of the codec.
 	sending sync.Mutex
+}
+
+// ErrorCoder represents an any error that has an associated
+// error code. An error code is a short string that describes the
+// class of error.
+type ErrorCoder interface {
+	ErrorCode() string
 }
 
 // ServeCodec runs the server on a single connection.  ServeCodec
@@ -148,6 +158,9 @@ func (csrv *codecServer) runRequest(reqId uint64, objId string, o *obtainer, a *
 	}
 	if err != nil {
 		resp.Error = err.Error()
+		if err, ok := err.(ErrorCoder); ok {
+			resp.ErrorCode = err.ErrorCode()
+		}
 		rvi = struct{}{}
 	} else if rv.IsValid() {
 		rvi = rv.Interface()

@@ -190,7 +190,7 @@ func (root *TRoot) testCall(c *C, client *rpc.Client, narg, nret int, retErr, te
 	switch {
 	case retErr && testErr:
 		c.Assert(err, DeepEquals, &rpc.ServerError{
-			fmt.Sprintf("error calling %s", method),
+			Message: fmt.Sprintf("error calling %s", method),
 		})
 		c.Assert(r, Equals, stringVal{})
 	case nret > 0:
