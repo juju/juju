@@ -1250,7 +1250,8 @@ func (s *StateSuite) TestSetAdminMongoPassword(c *C) {
 }
 
 func (s *StateSuite) TestAuthEntity(c *C) {
-	for _, name := range []string{"", "machine", "-foo", "foo-", "---"} {
+	bad := []string{"", "machine", "-foo", "foo-", "---", "unit-123", "unit-foo"}
+	for _, name := range bad {
 		e, err := s.State.AuthEntity(name)
 		c.Check(e, IsNil)
 		c.Assert(err, ErrorMatches, `invalid entity name ".*"`)
@@ -1260,14 +1261,6 @@ func (s *StateSuite) TestAuthEntity(c *C) {
 	c.Check(e, IsNil)
 	c.Assert(err, ErrorMatches, `machine 1234 not found`)
 	c.Assert(state.IsNotFound(err), Equals, true)
-
-	e, err = s.State.AuthEntity("unit-123")
-	c.Check(e, IsNil)
-	c.Assert(err, ErrorMatches, `invalid unit name "123"`)
-
-	e, err = s.State.AuthEntity("unit-foo")
-	c.Check(e, IsNil)
-	c.Assert(err, ErrorMatches, `invalid unit name "foo"`)
 
 	e, err = s.State.AuthEntity("unit-foo-654")
 	c.Check(e, IsNil)
