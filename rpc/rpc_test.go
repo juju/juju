@@ -252,7 +252,7 @@ func (*suite) TestConcurrentCalls(c *C) {
 }
 
 type codedError struct {
-	m string
+	m    string
 	code string
 }
 
