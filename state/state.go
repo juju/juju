@@ -268,9 +268,20 @@ func (st *State) AuthEntity(entityName string) (AuthEntity, error) {
 	prefix, id := entityName[0:i], entityName[i+1:]
 	switch prefix {
 	case "machine":
+		if !IsMachineId(id) {
+			return nil, fmt.Errorf("invalid entity name %q", entityName)
+		}
 		return st.Machine(id)
 	case "unit":
-		return st.Unit(strings.Replace(id, "-", "/", -1))
+		i := strings.LastIndex(id, "-")
+		if i == -1 {
+			return nil, fmt.Errorf("invalid entity name %q", entityName)
+		}
+		name := id[:i] + "/" + id[i+1:]
+		if !IsUnitName(name) {
+			return nil, fmt.Errorf("invalid entity name %q", entityName)
+		}
+		return st.Unit(name)
 	case "user":
 		return st.User(id)
 	}
