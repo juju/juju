@@ -350,6 +350,10 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 	if !hasCert {
 		return fmt.Errorf("no CA certificate in environment configuration")
 	}
+	v := version.Current
+	v.Series = tools.Series
+	v.Arch = tools.Arch
+	mongoURL := environs.MongoURL(e, v)
 	inst, err := e.startInstance(&startInstanceParams{
 		machineId: "0",
 		info: &state.Info{
@@ -361,6 +365,7 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 			CACert:   caCert,
 		},
 		tools:           tools,
+		mongoURL:        mongoURL,
 		stateServer:     true,
 		config:          config,
 		stateServerCert: cert,
@@ -513,6 +518,7 @@ type startInstanceParams struct {
 	info            *state.Info
 	apiInfo         *api.Info
 	tools           *state.Tools
+	mongoURL        string
 	stateServer     bool
 	config          *config.Config
 	stateServerCert []byte
@@ -538,6 +544,7 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 		ProviderType:       "openstack",
 		DataDir:            "/var/lib/juju",
 		Tools:              scfg.tools,
+		MongoURL:           scfg.mongoURL,
 		MachineId:          scfg.machineId,
 		AuthorizedKeys:     e.ecfg().AuthorizedKeys(),
 		Config:             scfg.config,
