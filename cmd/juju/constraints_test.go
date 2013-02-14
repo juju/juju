@@ -73,26 +73,23 @@ var constraintsValueTests = []struct {
 		summary: "set cpu-power zero",
 		args:    []string{"cpu-power=0"},
 	}, {
-		summary: "set cpu-power int",
+		summary: "set cpu-power",
 		args:    []string{"cpu-power=44"},
-	}, {
-		summary: "set cpu-power float",
-		args:    []string{"cpu-power=47.3"},
 	}, {
 		summary: "set nonsense cpu-power 1",
 		args:    []string{"cpu-power=cheese"},
-		err:     `bad "cpu-power" constraint: must be a non-negative float`,
+		err:     `bad "cpu-power" constraint: must be a non-negative integer`,
 	}, {
 		summary: "set nonsense cpu-power 2",
 		args:    []string{"cpu-power=-1"},
-		err:     `bad "cpu-power" constraint: must be a non-negative float`,
+		err:     `bad "cpu-power" constraint: must be a non-negative integer`,
 	}, {
 		summary: "double set cpu-power together",
-		args:    []string{"cpu-power=300.0 cpu-power=1.7"},
+		args:    []string{"cpu-power=300 cpu-power=1700"},
 		err:     `bad "cpu-power" constraint: already set`,
 	}, {
 		summary: "double set cpu-power separately",
-		args:    []string{"cpu-power=300.0", "cpu-power=1.7"},
+		args:    []string{"cpu-power=300", "cpu-power=1700"},
 		err:     `bad "cpu-power" constraint: already set`,
 	},
 
@@ -111,13 +108,13 @@ var constraintsValueTests = []struct {
 		args:    []string{"mem=512M"},
 	}, {
 		summary: "set mem with G suffix",
-		args:    []string{"mem=512G"},
+		args:    []string{"mem=1.5G"},
 	}, {
 		summary: "set mem with T suffix",
-		args:    []string{"mem=512T"},
+		args:    []string{"mem=36.2T"},
 	}, {
 		summary: "set mem with P suffix",
-		args:    []string{"mem=512P"},
+		args:    []string{"mem=18.9P"},
 	}, {
 		summary: "set nonsense mem 1",
 		args:    []string{"mem=cheese"},
@@ -143,10 +140,10 @@ var constraintsValueTests = []struct {
 	// Everything at once.
 	{
 		summary: "kitchen sink together",
-		args:    []string{"mem=2T cpu-cores=4096 cpu-power=9000.1"},
+		args:    []string{"mem=2T cpu-cores=4096 cpu-power=9001"},
 	}, {
 		summary: "kitchen sink separately",
-		args:    []string{"mem=2T", "cpu-cores=4096", "cpu-power=9000.1"},
+		args:    []string{"mem=2T", "cpu-cores=4096", "cpu-power=9001"},
 	},
 }
 

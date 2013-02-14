@@ -9,55 +9,46 @@ type ConstraintsSuite struct{}
 
 var _ = Suite(&ConstraintsSuite{})
 
+func uint64p(i uint64) *uint64 {
+	return &i
+}
+
 var constraintsStringTests = []struct {
-	cpuCores interface{}
-	cpuPower interface{}
-	mem      interface{}
-	str      string
+	cons state.Constraints
+	str  string
 }{
 	{}, // Nothing set, nothing stringed.
 	{
-		cpuCores: 0,
-		str:      "cpu-cores=",
+		state.Constraints{CpuCores: uint64p(0)},
+		"cpu-cores=",
 	}, {
-		cpuCores: 128,
-		str:      "cpu-cores=128",
+		state.Constraints{CpuCores: uint64p(128)},
+		"cpu-cores=128",
 	}, {
-		cpuPower: 0.0,
-		str:      "cpu-power=",
+		state.Constraints{CpuPower: uint64p(0)},
+		"cpu-power=",
 	}, {
-		cpuPower: 123.45,
-		str:      "cpu-power=123.45",
+		state.Constraints{CpuPower: uint64p(250)},
+		"cpu-power=250",
 	}, {
-		mem: 0.0,
-		str: "mem=",
+		state.Constraints{Mem: uint64p(0)},
+		"mem=",
 	}, {
-		mem: 98765.4321,
-		str: "mem=98765.4321M",
+		state.Constraints{Mem: uint64p(98765)},
+		"mem=98765M",
 	}, {
-		cpuCores: 4096,
-		cpuPower: 9000.3,
-		mem:      18000000000.0,
-		str:      "cpu-cores=4096 cpu-power=9000.3 mem=18000000000M",
+		state.Constraints{
+			CpuCores: uint64p(4096),
+			CpuPower: uint64p(9001),
+			Mem:      uint64p(18000000000),
+		},
+		"cpu-cores=4096 cpu-power=9001 mem=18000000000M",
 	},
 }
 
 func (s *ConstraintsSuite) TestString(c *C) {
 	for i, t := range constraintsStringTests {
 		c.Logf("test %d", i)
-		cons := state.Constraints{}
-		if t.cpuCores != nil {
-			cpuCores := t.cpuCores.(int)
-			cons.CpuCores = &cpuCores
-		}
-		if t.cpuPower != nil {
-			cpuPower := t.cpuPower.(float64)
-			cons.CpuPower = &cpuPower
-		}
-		if t.mem != nil {
-			mem := t.mem.(float64)
-			cons.Mem = &mem
-		}
-		c.Assert(cons.String(), Equals, t.str)
+		c.Assert(t.cons.String(), Equals, t.str)
 	}
 }

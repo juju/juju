@@ -42,54 +42,53 @@ func (v *constraintsValue) Set(raw string) error {
 	return nil
 }
 
-func (v *constraintsValue) setCpuCores(str string) error {
+func (v *constraintsValue) setCpuCores(str string) (err error) {
 	if v.c.CpuCores != nil {
 		return fmt.Errorf("already set")
 	}
-	var val int
-	if str != "" {
-		var err error
-		if val, err = strconv.Atoi(str); err != nil || val < 0 {
-			return fmt.Errorf("must be a non-negative integer")
-		}
-	}
-	v.c.CpuCores = &val
-	return nil
+	v.c.CpuCores, err = parseUint64(str)
+	return
 }
 
-func (v *constraintsValue) setCpuPower(str string) error {
+func (v *constraintsValue) setCpuPower(str string) (err error) {
 	if v.c.CpuPower != nil {
 		return fmt.Errorf("already set")
 	}
-	var val float64
+	v.c.CpuPower, err = parseUint64(str)
+	return
+}
+
+func parseUint64(str string) (*uint64, error) {
+	var value uint64
 	if str != "" {
-		var err error
-		if val, err = strconv.ParseFloat(str, 64); err != nil || val < 0 {
-			return fmt.Errorf("must be a non-negative float")
+		if val, err := strconv.Atoi(str); err != nil || val < 0 {
+			return nil, fmt.Errorf("must be a non-negative integer")
+		} else {
+			value = uint64(val)
 		}
 	}
-	v.c.CpuPower = &val
-	return nil
+	return &value, nil
 }
 
 func (v *constraintsValue) setMem(str string) error {
 	if v.c.Mem != nil {
 		return fmt.Errorf("already set")
 	}
-	var val float64
+	var value uint64
 	if str != "" {
 		mult := 1.0
 		if m, ok := mbSuffixes[str[len(str)-1:]]; ok {
 			str = str[:len(str)-1]
 			mult = m
 		}
-		var err error
-		if val, err = strconv.ParseFloat(str, 64); err != nil || val < 0 {
+		val, err := strconv.ParseFloat(str, 64)
+		if err != nil || val < 0 {
 			return fmt.Errorf("must be a non-negative float with optional M/G/T/P suffix")
 		}
 		val *= mult
+		value = uint64(val)
 	}
-	v.c.Mem = &val
+	v.c.Mem = &value
 	return nil
 }
 
