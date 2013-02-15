@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"launchpad.net/juju-core/state"
+	"math"
 	"strconv"
 	"strings"
 )
@@ -86,7 +87,7 @@ func (v *constraintsValue) setMem(str string) error {
 			return fmt.Errorf("must be a non-negative float with optional M/G/T/P suffix")
 		}
 		val *= mult
-		value = uint64(val)
+		value = uint64(math.Ceil(val))
 	}
 	v.c.Mem = &value
 	return nil
