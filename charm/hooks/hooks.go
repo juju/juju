@@ -28,8 +28,7 @@ const (
 	RelationBroken Kind = "relation-broken"
 )
 
-// UnitHooks contains all known unit hook kinds.
-var UnitHooks = []Kind{
+var unitHooks = []Kind{
 	Install,
 	Start,
 	ConfigChanged,
@@ -37,27 +36,27 @@ var UnitHooks = []Kind{
 	Stop,
 }
 
-// RelationBroken contains all known relation hook kinds.
-var RelationHooks = []Kind{
+// UnitHooks returns all known unit hook kinds.
+func UnitHooks() []Kind {
+	return unitHooks
+}
+
+var relationHooks = []Kind{
 	RelationJoined,
 	RelationChanged,
 	RelationDeparted,
 	RelationBroken,
 }
 
-// IsRelation will return true if the Kind represents a relation hook.
+// RelationHooks returns all known relation hook kinds.
+func RelationHooks() []Kind {
+	return relationHooks
+}
+
+// IsRelation returns whether the Kind represents a relation hook.
 func (kind Kind) IsRelation() bool {
 	switch kind {
 	case RelationJoined, RelationChanged, RelationDeparted, RelationBroken:
-		return true
-	}
-	return false
-}
-
-// IsUnit will return true if the Kind does represents an unit hook.
-func (kind Kind) IsUnit() bool {
-	switch kind {
-	case Install, Start, ConfigChanged, UpgradeCharm, Stop:
 		return true
 	}
 	return false

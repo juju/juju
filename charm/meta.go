@@ -47,7 +47,7 @@ type Meta struct {
 }
 
 func generateRelationHooks(relName string, allHooks map[string]bool) {
-	for _, hookName := range hooks.RelationHooks {
+	for _, hookName := range hooks.RelationHooks() {
 		allHooks[fmt.Sprintf("%s-%s", relName, hookName)] = true
 	}
 }
@@ -58,7 +58,7 @@ func generateRelationHooks(relName string, allHooks map[string]bool) {
 func (m Meta) Hooks() map[string]bool {
 	allHooks := make(map[string]bool)
 	// Unit hooks
-	for _, hookName := range hooks.UnitHooks {
+	for _, hookName := range hooks.UnitHooks() {
 		allHooks[string(hookName)] = true
 	}
 	// Relation hooks
