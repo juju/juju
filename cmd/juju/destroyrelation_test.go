@@ -22,10 +22,10 @@ func runDestroyRelation(c *C, args ...string) error {
 }
 
 func (s *DestroyRelationSuite) TestDestroyRelation(c *C) {
-	testing.Charms.BundlePath(s.seriesPath, "series", "riak")
+	testing.Charms.BundlePath(s.seriesPath, "riak")
 	err := runDeploy(c, "local:riak", "riak")
 	c.Assert(err, IsNil)
-	testing.Charms.BundlePath(s.seriesPath, "series", "logging")
+	testing.Charms.BundlePath(s.seriesPath, "logging")
 	err = runDeploy(c, "local:logging", "logging")
 	c.Assert(err, IsNil)
 	runAddRelation(c, "riak", "logging")

@@ -71,7 +71,7 @@ var resolvedTests = []struct {
 }
 
 func (s *ResolvedSuite) TestResolved(c *C) {
-	testing.Charms.BundlePath(s.seriesPath, "series", "dummy")
+	testing.Charms.BundlePath(s.seriesPath, "dummy")
 	err := runDeploy(c, "-n", "5", "local:dummy", "dummy")
 	c.Assert(err, IsNil)
 

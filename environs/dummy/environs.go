@@ -180,7 +180,13 @@ func Reset() {
 	}
 }
 
+// ResetPublicStorage clears the contents of the specified environment's public storage.
+func ResetPublicStorage(e environs.Environ) {
+	e.(*environ).state.publicStorage.files = make(map[string][]byte)
+}
+
 func (state *environState) destroy() {
+	state.storage.files = make(map[string][]byte)
 	if !state.bootstrapped {
 		return
 	}
@@ -198,7 +204,6 @@ func (state *environState) destroy() {
 		testing.MgoReset()
 	}
 	state.bootstrapped = false
-	state.storage.files = make(map[string][]byte)
 }
 
 // newState creates the state for a new environment with the

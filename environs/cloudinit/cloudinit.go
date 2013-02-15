@@ -62,6 +62,9 @@ type MachineConfig struct {
 	// Tools is juju tools to be used on the new machine.
 	Tools *state.Tools
 
+	// MongoURL is used to retrieve the mongodb tarball.
+	MongoURL string
+
 	// DataDir holds the directory that juju state will be put in the new
 	// machine.
 	DataDir string
@@ -127,12 +130,9 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	if cfg.StateServer {
 		certKey := string(cfg.StateServerCert) + string(cfg.StateServerKey)
 		addFile(c, cfg.dataFile("server.pem"), certKey, 0600)
-		// TODO The public bucket must come from the environment configuration.
-		b := cfg.Tools.Binary
-		url := fmt.Sprintf("http://juju-dist.s3.amazonaws.com/tools/mongo-2.2.0-%s-%s.tgz", b.Series, b.Arch)
 		addScripts(c,
 			"mkdir -p /opt",
-			fmt.Sprintf("wget --no-verbose -O - %s | tar xz -C /opt", shquote(url)),
+			fmt.Sprintf("wget --no-verbose -O - %s | tar xz -C /opt", shquote(cfg.MongoURL)),
 		)
 		if err := addMongoToBoot(c, cfg); err != nil {
 			return nil, err

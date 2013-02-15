@@ -15,12 +15,13 @@ var ErrShutdown = errors.New("connection is shut down")
 // WriteRequest to write a request to the connection and calls
 // ReadResponseHeader and ReadResponseBody in pairs to read responses.
 // The client calls Close when finished with the connection.
-// ReadResponseBody may be called with a nil argument to force the body
-// of the response to be read and then discarded.
+// The params argument to WriteRequest will always be of struct
+// type; the result argument to ReadResponseBody will always be
+// a non-nil pointer to a struct.
 type ClientCodec interface {
-	WriteRequest(*Request, interface{}) error
-	ReadResponseHeader(*Response) error
-	ReadResponseBody(interface{}) error
+	WriteRequest(req *Request, params interface{}) error
+	ReadResponseHeader(resp *Response) error
+	ReadResponseBody(result interface{}) error
 	Close() error
 }
 
@@ -65,10 +66,15 @@ type Call struct {
 // ServerError represents an error returned from an RPC server.
 type ServerError struct {
 	Message string
+	Code    string
 }
 
 func (e *ServerError) Error() string {
 	return "server error: " + e.Message
+}
+
+func (e *ServerError) ErrorCode() string {
+	return e.Code
 }
 
 func (client *Client) Close() error {
@@ -88,7 +94,7 @@ func (client *Client) send(call *Call) {
 
 	// Register this call.
 	client.mutex.Lock()
-	if client.shutdown {
+	if client.shutdown || client.closing {
 		call.Error = ErrShutdown
 		client.mutex.Unlock()
 		call.done()
@@ -106,7 +112,11 @@ func (client *Client) send(call *Call) {
 		Id:        call.Id,
 		Request:   call.Request,
 	}
-	if err := client.codec.WriteRequest(&client.request, call.Params); err != nil {
+	params := call.Params
+	if params == nil {
+		params = struct{}{}
+	}
+	if err := client.codec.WriteRequest(&client.request, params); err != nil {
 		client.mutex.Lock()
 		call = client.pending[reqId]
 		delete(client.pending, reqId)
@@ -119,6 +129,9 @@ func (client *Client) send(call *Call) {
 }
 
 func (client *Client) readBody(resp interface{}) error {
+	if resp == nil {
+		resp = &struct{}{}
+	}
 	err := client.codec.ReadResponseBody(resp)
 	if err != nil {
 		err = fmt.Errorf("error reading body: %v", err)
@@ -156,7 +169,10 @@ func (client *Client) input() {
 			// We've got an error response. Give this to the request;
 			// any subsequent requests will get the ReadResponseBody
 			// error if there is one.
-			call.Error = &ServerError{response.Error}
+			call.Error = &ServerError{
+				Message: response.Error,
+				Code:    response.ErrorCode,
+			}
 			err = client.readBody(nil)
 			call.done()
 		default:
@@ -196,6 +212,9 @@ func (call *Call) done() {
 // the given id.  The returned values will be stored in response, which
 // should be a pointer.  If the action fails remotely, the returned
 // error will be of type ServerError.
+// The params value may be nil if no parameters are provided;
+// the response value may be nil to indicate that any result
+// should be discarded.
 func (c *Client) Call(objType, id, action string, params, response interface{}) error {
 	call := <-c.Go(objType, id, action, params, response, make(chan *Call, 1)).Done
 	return call.Error

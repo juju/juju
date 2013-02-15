@@ -59,7 +59,7 @@ func (cs *ConnSuite) TearDownTest(c *C) {
 }
 
 func (s *ConnSuite) AddTestingCharm(c *C, name string) *state.Charm {
-	ch := testing.Charms.Dir("series", name)
+	ch := testing.Charms.Dir(name)
 	ident := fmt.Sprintf("%s-%d", name, ch.Revision())
 	curl := charm.MustParseURL("local:series/" + ident)
 	bundleURL, err := url.Parse("http://bundles.example.com/" + ident)

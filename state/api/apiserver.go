@@ -172,21 +172,21 @@ func (r *srvRoot) Client(id string) (*srvClient, error) {
 	return r.client, nil
 }
 
-func (c *srvClient) Status() (*Status, error) {
+func (c *srvClient) Status() (Status, error) {
 	ms, err := c.root.srv.state.AllMachines()
 	if err != nil {
-		return nil, err
+		return Status{}, err
 	}
-	st := &Status{
+	status := Status{
 		Machines: make(map[string]MachineInfo),
 	}
 	for _, m := range ms {
 		instId, _ := m.InstanceId()
-		st.Machines[m.Id()] = MachineInfo{
+		status.Machines[m.Id()] = MachineInfo{
 			InstanceId: string(instId),
 		}
 	}
-	return st, nil
+	return status, nil
 }
 
 type rpcCreds struct {

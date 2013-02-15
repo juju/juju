@@ -89,7 +89,7 @@ func Open(info *Info) (*State, error) {
 }
 
 func (s *State) Close() error {
-	return s.conn.Close()
+	return s.client.Close()
 }
 
 type clientReq struct {

@@ -52,6 +52,7 @@ var cloudinitTests = []cloudinitTest{{
 		ProviderType:       "ec2",
 		AuthorizedKeys:     "sshkey1",
 		Tools:              newSimpleTools("1.2.3-linux-amd64"),
+		MongoURL:           "http://juju-dist.host.com/mongodb.tar.gz",
 		StateServer:        true,
 		StateServerCert:    serverCert,
 		StateServerKey:     serverKey,
@@ -78,7 +79,7 @@ echo -n 'http://foo\.com/tools/juju1\.2\.3-linux-amd64\.tgz' > \$bin/downloaded-
 echo 'SERVER CERT\\n[^']*SERVER KEY\\n[^']*' > '/var/lib/juju/server\.pem'
 chmod 600 '/var/lib/juju/server\.pem'
 mkdir -p /opt
-wget --no-verbose -O - 'http://juju-dist\.s3\.amazonaws\.com/tools/mongo-2\.2\.0-linux-amd64\.tgz' \| tar xz -C /opt
+wget --no-verbose -O - 'http://juju-dist\.host\.com/mongodb\.tar\.gz' \| tar xz -C /opt
 mkdir -p /var/lib/juju/db/journal
 dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.0
 dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.1
