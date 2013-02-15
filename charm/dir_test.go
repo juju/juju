@@ -3,6 +3,7 @@ package charm_test
 import (
 	"archive/zip"
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
@@ -109,17 +110,12 @@ func (s *DirSuite) TestBundleToWithNonExecutableHooks(c *C) {
 	orig := log.Target
 	log.Target = c
 	defer func() { log.Target = orig }()
-	var hooks []string
-	for _, hookName := range []string{"install", "start", "config-changed",
-		"upgrade-charm", "stop"} {
-		hooks = append(hooks, hookName)
-	}
+	hooks := []string{"install", "start", "config-changed", "upgrade-charm", "stop"}
 	for _, relName := range []string{"foo", "bar", "self"} {
 		for _, kind := range []string{"joined", "changed", "departed", "broken"} {
 			hooks = append(hooks, relName+"-relation-"+kind)
 		}
 	}
-	expectHooks := `.*"(` + strings.Join(hooks, "|") + `").*`
 
 	dir := testing.Charms.Dir("all-hooks")
 	path := filepath.Join(c.MkDir(), "bundle.charm")
@@ -128,12 +124,13 @@ func (s *DirSuite) TestBundleToWithNonExecutableHooks(c *C) {
 	err = dir.BundleTo(file)
 	file.Close()
 	c.Assert(err, IsNil)
-	tlog := c.GetTestLog()
 
-	// Because Matches automatically prepends "^" and appends "$" to regexp,
-	// we need to negate this with (?m) - multiline mode.
-	c.Assert(tlog, Matches, `(?m).* JUJU charm: WARNING: setting hook ".+" in charm "all-hooks" to executable.*`)
-	c.Assert(tlog, Matches, `(?m)`+expectHooks)
+	tlog := c.GetTestLog()
+	for _, hook := range hooks {
+		fullpath := filepath.Join(dir.Path, "hooks", hook)
+		exp := fmt.Sprintf(`^(.|\n)*JUJU charm: WARNING: making "%s" executable in charm(.|\n)*$`, fullpath)
+		c.Assert(tlog, Matches, exp, Commentf("hook %q was not made executable", fullpath))
+	}
 
 	// Expand it and check the hooks' permissions
 	// (But do not use ExpandTo(), just use the raw zip)
@@ -151,7 +148,7 @@ func (s *DirSuite) TestBundleToWithNonExecutableHooks(c *C) {
 		if strings.HasPrefix(cleanName, "hooks") {
 			hookName := filepath.Base(cleanName)
 			if _, ok := allhooks[hookName]; ok {
-				perms := zfile.Mode() & 0777
+				perms := zfile.Mode()
 				c.Assert(perms&0100 != 0, Equals, true, Commentf("hook %q is not executable", hookName))
 			}
 		}

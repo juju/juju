@@ -184,6 +184,9 @@ func (b *Bundle) ExpandTo(dir string) (err error) {
 	return lasterr
 }
 
+// expand unpacks a charm's zip file into the given directory.
+// The hooks map holds all the possible hook names in the
+// charm.
 func (b *Bundle) expand(hooks map[string]bool, dir string, zfile *zip.File) error {
 	cleanName := filepath.Clean(zfile.Name)
 	if cleanName == "revision" {
@@ -226,8 +229,8 @@ func (b *Bundle) expand(hooks map[string]bool, dir string, zfile *zip.File) erro
 	if filepath.Dir(cleanName) == "hooks" {
 		// Process only hooks directly inside hooks/
 		hookName := filepath.Base(cleanName)
-		if _, ok := hooks[hookName]; mode&os.ModeDir == 0 && ok {
-			// Bug #864164: Set all hooks executable (by owner)
+		if _, ok := hooks[hookName]; mode&os.ModeType == 0 && ok {
+			// Set all hooks executable (by owner)
 			mode = mode | 0100
 		}
 	}
