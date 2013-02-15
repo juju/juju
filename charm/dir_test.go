@@ -134,6 +134,28 @@ func (s *DirSuite) TestBundleToWithNonExecutableHooks(c *C) {
 	// we need to negate this with (?m) - multiline mode.
 	c.Assert(tlog, Matches, `(?m).* JUJU charm: WARNING: setting hook ".+" in charm "all-hooks" to executable.*`)
 	c.Assert(tlog, Matches, `(?m)`+expectHooks)
+
+	// Expand it and check the hooks' permissions
+	// (But do not use ExpandTo(), just use the raw zip)
+	f, err := os.Open(path)
+	c.Assert(err, IsNil)
+	defer f.Close()
+	fi, err := f.Stat()
+	c.Assert(err, IsNil)
+	size := fi.Size()
+	zipr, err := zip.NewReader(f, size)
+	c.Assert(err, IsNil)
+	allhooks := dir.Meta().Hooks()
+	for _, zfile := range zipr.File {
+		cleanName := filepath.Clean(zfile.Name)
+		if strings.HasPrefix(cleanName, "hooks") {
+			hookName := filepath.Base(cleanName)
+			if _, ok := allhooks[hookName]; ok {
+				perms := zfile.Mode() & 0777
+				c.Assert(perms&0100 != 0, Equals, true, Commentf("hook %q is not executable", hookName))
+			}
+		}
+	}
 }
 
 func (s *DirSuite) TestBundleToWithBadType(c *C) {

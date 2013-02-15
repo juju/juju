@@ -335,9 +335,5 @@ func (s *LocalRepoSuite) TestIgnoresUnpromisingNames(c *C) {
 	c.Assert(err, ErrorMatches, `no charms found matching "local:series/dummy"`)
 	_, err = s.repo.Latest(curl)
 	c.Assert(err, ErrorMatches, `no charms found matching "local:series/dummy"`)
-	// because of "dummy" charm's "install" hook not being executable,
-	// since the introduction of the fix for bug #864164, the log will
-	// always contain a warning about setting the hook executable, so
-	// we need to test the log does not match the warning we're after
-	c.Assert(c.GetTestLog(), Not(Matches), "(?m).* JUJU charm: WARNING: failed to load charm.*")
+	c.Assert(c.GetTestLog(), Equals, "")
 }
