@@ -6,9 +6,11 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/testing"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 )
 
@@ -100,6 +102,38 @@ func (s *DirSuite) TestBundleTo(c *C) {
 	c.Assert(emptyf.Mode()&os.ModeType, Equals, os.ModeDir)
 	// Despite it being 0750, we pack and unpack it as 0755.
 	c.Assert(emptyf.Mode()&0777, Equals, os.FileMode(0755))
+}
+
+// Bug #864164: Must complain if charm hooks aren't executable
+func (s *DirSuite) TestBundleToWithNonExecutableHooks(c *C) {
+	orig := log.Target
+	log.Target = c
+	defer func() { log.Target = orig }()
+	var hooks []string
+	for _, hookName := range []string{"install", "start", "config-changed",
+		"upgrade-charm", "stop"} {
+		hooks = append(hooks, hookName)
+	}
+	for _, relName := range []string{"foo", "bar", "self"} {
+		for _, kind := range []string{"joined", "changed", "departed", "broken"} {
+			hooks = append(hooks, relName+"-relation-"+kind)
+		}
+	}
+	expectHooks := `.*"(` + strings.Join(hooks, "|") + `").*`
+
+	dir := testing.Charms.Dir("all-hooks")
+	path := filepath.Join(c.MkDir(), "bundle.charm")
+	file, err := os.Create(path)
+	c.Assert(err, IsNil)
+	err = dir.BundleTo(file)
+	file.Close()
+	c.Assert(err, IsNil)
+	tlog := c.GetTestLog()
+
+	// Because Matches automatically prepends "^" and appends "$" to regexp,
+	// we need to negate this with (?m) - multiline mode.
+	c.Assert(tlog, Matches, `(?m).* JUJU charm: WARNING: setting hook ".+" in charm "all-hooks" to executable.*`)
+	c.Assert(tlog, Matches, `(?m)`+expectHooks)
 }
 
 func (s *DirSuite) TestBundleToWithBadType(c *C) {

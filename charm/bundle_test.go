@@ -61,6 +61,38 @@ func (s *BundleSuite) TestExpandTo(c *C) {
 	checkDummy(c, dir, path)
 }
 
+func (s *BundleSuite) checkHookPerms(c *C, path, hookName string) {
+	info, err := os.Stat(filepath.Join(path, "hooks", hookName))
+	c.Assert(err, IsNil)
+	perm := info.Mode() & 0700
+	c.Assert(perm&0100 != 0, Equals, true, Commentf("hook %q not executable", hookName))
+}
+
+func (s *BundleSuite) TestExpandToSetsHooksExecutable(c *C) {
+	bundlePath := testing.Charms.BundlePath(c.MkDir(), "all-hooks")
+	bundle, err := charm.ReadBundle(bundlePath)
+	c.Assert(err, IsNil)
+
+	path := filepath.Join(c.MkDir(), "charm")
+	err = bundle.ExpandTo(path)
+	c.Assert(err, IsNil)
+
+	dir, err := charm.ReadDir(path)
+	c.Assert(err, IsNil)
+
+	c.Assert(dir.Revision(), Equals, 1)
+	c.Assert(dir.Meta().Name, Equals, "all-hooks")
+	c.Assert(dir.Meta().Provides["foo"], NotNil)
+	c.Assert(dir.Meta().Requires["bar"], NotNil)
+	c.Assert(dir.Meta().Peers["self"], NotNil)
+	c.Assert(dir.Config().Options, HasLen, 0)
+	c.Assert(dir.Path, Equals, path)
+
+	for name := range bundle.Meta().Hooks() {
+		s.checkHookPerms(c, path, string(name))
+	}
+}
+
 func (s *BundleSuite) TestBundleFileModes(c *C) {
 	// Apply subtler mode differences than can be expressed in Bazaar.
 	srcPath := testing.Charms.ClonedDirPath(c.MkDir(), "dummy")

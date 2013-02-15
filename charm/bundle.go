@@ -164,9 +164,10 @@ func (b *Bundle) ExpandTo(dir string) (err error) {
 		return err
 	}
 
+	hooks := b.meta.Hooks()
 	var lasterr error
 	for _, zfile := range zipr.File {
-		if err := b.expand(dir, zfile); err != nil {
+		if err := b.expand(hooks, dir, zfile); err != nil {
 			lasterr = err
 		}
 	}
@@ -183,7 +184,7 @@ func (b *Bundle) ExpandTo(dir string) (err error) {
 	return lasterr
 }
 
-func (b *Bundle) expand(dir string, zfile *zip.File) error {
+func (b *Bundle) expand(hooks map[string]bool, dir string, zfile *zip.File) error {
 	cleanName := filepath.Clean(zfile.Name)
 	if cleanName == "revision" {
 		return nil
@@ -221,6 +222,13 @@ func (b *Bundle) expand(dir string, zfile *zip.File) error {
 			return err
 		}
 		return os.Symlink(target, path)
+	}
+	if strings.HasPrefix(cleanName, "hooks") {
+		hookName := filepath.Base(cleanName)
+		if _, ok := hooks[hookName]; mode&os.ModeDir == 0 && ok {
+			// Bug #864164: Set all hooks executable (by owner)
+			mode = mode | 0100
+		}
 	}
 
 	if err := checkFileType(cleanName, mode); err != nil {

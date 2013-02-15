@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"launchpad.net/juju-core/log"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 )
 
@@ -112,14 +114,15 @@ func (dir *Dir) SetDiskRevision(revision int) error {
 func (dir *Dir) BundleTo(w io.Writer) (err error) {
 	zipw := zip.NewWriter(w)
 	defer zipw.Close()
-	zp := zipPacker{zipw, dir.Path}
+	zp := zipPacker{zipw, dir.Path, dir.Meta().Hooks()}
 	zp.AddRevision(dir.revision)
 	return filepath.Walk(dir.Path, zp.WalkFunc())
 }
 
 type zipPacker struct {
 	*zip.Writer
-	root string
+	root  string
+	hooks map[string]bool
 }
 
 func (zp *zipPacker) WalkFunc() filepath.WalkFunc {
@@ -166,6 +169,15 @@ func (zp *zipPacker) visit(path string, fi os.FileInfo, err error) error {
 	if mode&os.ModeSymlink != 0 {
 		method = zip.Store
 	}
+	setExec := false
+	if strings.HasPrefix(relpath, "hooks") {
+		hookName := filepath.Base(relpath)
+		charmName := filepath.Base(zp.root)
+		if _, ok := zp.hooks[hookName]; !fi.IsDir() && ok {
+			log.Printf("charm: WARNING: setting hook %q in charm %q to executable.", hookName, charmName)
+			setExec = true
+		}
+	}
 	if hidden || relpath == "revision" {
 		return nil
 	}
@@ -179,6 +191,9 @@ func (zp *zipPacker) visit(path string, fi os.FileInfo, err error) error {
 		perm = 0777
 	} else if mode&0100 != 0 {
 		perm = 0755
+	}
+	if setExec {
+		perm = perm | 0100
 	}
 	h.SetMode(mode&^0777 | perm)
 
