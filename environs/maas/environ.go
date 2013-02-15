@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"net/url"
 	"sync"
 )
 
@@ -83,12 +84,40 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (*maasEnviron) StartInstance(machineId string, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
-	panic("Not implemented.")
+func (environ *maasEnviron) StartInstance(machineId string, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
+	node := environ.maasClientUnlocked.GetSubObject(machineId)
+	refreshedNode, err := node.Get()
+	if err != nil {
+		return nil, err
+	}
+	_, refreshErr := refreshedNode.CallPost("start", url.Values{})
+	if refreshErr != nil {
+		return nil, refreshErr
+	}
+	instance := &maasInstance{maasObject: &refreshedNode, environ: environ}
+	return instance, nil
 }
 
-func (*maasEnviron) StopInstances([]environs.Instance) error {
-	panic("Not implemented.")
+func (environ *maasEnviron) StopInstances(instances []environs.Instance) error {
+	// Shortcut to exit quickly if 'instances' is an empty slice or nil.
+	if len(instances) == 0 {
+		return nil
+	}
+	// Iterate over all the instances and send the "stop" signal,
+	// collecting the errors returned.
+	var errors []error
+	for _, instance := range instances {
+		maasInstance := instance.(*maasInstance)
+		_, errPost := (*maasInstance.maasObject).CallPost("stop", url.Values{})
+		errors = append(errors, errPost)
+	}
+	// Return the first error encountered, if any.
+	for _, err := range errors {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Instances returns the environs.Instance objects corresponding to the given
@@ -147,8 +176,8 @@ func (*maasEnviron) PublicStorage() environs.StorageReader {
 	panic("Not implemented.")
 }
 
-func (env *maasEnviron) Destroy([]environs.Instance) error {
-	log.Printf("environs/maas: destroying environment %q", env.name)
+func (environ *maasEnviron) Destroy([]environs.Instance) error {
+	log.Printf("environs/maas: destroying environment %q", environ.name)
 	panic("Not implemented.")
 }
 
