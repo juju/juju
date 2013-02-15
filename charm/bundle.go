@@ -223,7 +223,8 @@ func (b *Bundle) expand(hooks map[string]bool, dir string, zfile *zip.File) erro
 		}
 		return os.Symlink(target, path)
 	}
-	if strings.HasPrefix(cleanName, "hooks") {
+	if filepath.Dir(cleanName) == "hooks" {
+		// Process only hooks directly inside hooks/
 		hookName := filepath.Base(cleanName)
 		if _, ok := hooks[hookName]; mode&os.ModeDir == 0 && ok {
 			// Bug #864164: Set all hooks executable (by owner)

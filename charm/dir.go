@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"syscall"
 )
 
@@ -183,7 +182,8 @@ func (zp *zipPacker) visit(path string, fi os.FileInfo, err error) error {
 	} else if mode&0100 != 0 {
 		perm = 0755
 	}
-	if strings.HasPrefix(relpath, "hooks") {
+	if filepath.Dir(relpath) == "hooks" {
+		// Process only hooks directly inside hooks/
 		hookName := filepath.Base(relpath)
 		charmName := zp.meta.Name
 		hooks := zp.meta.Hooks()
