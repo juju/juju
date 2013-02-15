@@ -388,6 +388,16 @@ func (*suite) TestBadCall(c *C) {
 	c.Assert(err, IsNil)
 }
 
+func (*suite) TestErrorAfterClientClose(c *C) {
+	client, srvDone := newRPCClientServer(c, &TRoot{})
+	err := client.Close()
+	c.Assert(err, IsNil)
+	err = client.Call("Foo", "", "Bar", nil, nil)
+	c.Assert(err, Equals, rpc.ErrShutdown)
+	err = chanReadError(c, srvDone, "server done")
+	c.Assert(err, IsNil)
+}
+
 func chanReadError(c *C, ch <-chan error, what string) error {
 	select {
 	case e := <-ch:
