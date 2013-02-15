@@ -6,7 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"launchpad.net/goyaml"
-	"launchpad.net/juju-core/charm/hook"
+	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/schema"
 	"strings"
 )
@@ -46,11 +46,10 @@ type Meta struct {
 	OldRevision int                 `bson:",omitempty"` // Obsolete
 }
 
-func generateRelationHooks(relName string, allHooks map[string]bool) map[string]bool {
-	for _, hookName := range hook.RelationHooks {
+func generateRelationHooks(relName string, allHooks map[string]bool) {
+	for _, hookName := range hooks.RelationHooks {
 		allHooks[fmt.Sprintf("%s-%s", relName, hookName)] = true
 	}
-	return allHooks
 }
 
 // Hooks returns a map of all possible valid hooks, taking relations
@@ -59,18 +58,18 @@ func generateRelationHooks(relName string, allHooks map[string]bool) map[string]
 func (m Meta) Hooks() map[string]bool {
 	allHooks := make(map[string]bool)
 	// Unit hooks
-	for _, hookName := range hook.UnitHooks {
+	for _, hookName := range hooks.UnitHooks {
 		allHooks[string(hookName)] = true
 	}
 	// Relation hooks
-	for hookName, _ := range m.Provides {
-		allHooks = generateRelationHooks(hookName, allHooks)
+	for hookName := range m.Provides {
+		generateRelationHooks(hookName, allHooks)
 	}
-	for hookName, _ := range m.Requires {
-		allHooks = generateRelationHooks(hookName, allHooks)
+	for hookName := range m.Requires {
+		generateRelationHooks(hookName, allHooks)
 	}
-	for hookName, _ := range m.Provides {
-		allHooks = generateRelationHooks(hookName, allHooks)
+	for hookName := range m.Provides {
+		generateRelationHooks(hookName, allHooks)
 	}
 	return allHooks
 }

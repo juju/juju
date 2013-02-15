@@ -3,10 +3,10 @@ package uniter_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/charm/hook"
+	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/worker/uniter"
-	uhook "launchpad.net/juju-core/worker/uniter/hook"
+	"launchpad.net/juju-core/worker/uniter/hook"
 	"path/filepath"
 )
 
@@ -15,8 +15,8 @@ type StateFileSuite struct{}
 var _ = Suite(&StateFileSuite{})
 
 var stcurl = charm.MustParseURL("cs:series/service-name-123")
-var relhook = &uhook.Info{
-	Kind:       hook.RelationJoined,
+var relhook = &hook.Info{
+	Kind:       hooks.RelationJoined,
 	RemoteUnit: "some-thing/123",
 	Members: map[string]map[string]interface{}{
 		"blah/0": {"cheese": "gouda"},
@@ -35,7 +35,7 @@ var stateTests = []struct {
 		st: uniter.State{
 			Op:     uniter.Continue,
 			OpStep: uniter.OpStep("dudelike"),
-			Hook:   &uhook.Info{Kind: hook.ConfigChanged},
+			Hook:   &hook.Info{Kind: hooks.ConfigChanged},
 		},
 		err: `unknown operation step "dudelike"`,
 	},
@@ -44,7 +44,7 @@ var stateTests = []struct {
 		st: uniter.State{
 			Op:     uniter.Install,
 			OpStep: uniter.Pending,
-			Hook:   &uhook.Info{Kind: hook.ConfigChanged},
+			Hook:   &hook.Info{Kind: hooks.ConfigChanged},
 		},
 		err: `unexpected hook info`,
 	}, {
@@ -65,21 +65,21 @@ var stateTests = []struct {
 		st: uniter.State{
 			Op:     uniter.RunHook,
 			OpStep: uniter.Pending,
-			Hook:   &uhook.Info{Kind: hook.Kind("machine-exploded")},
+			Hook:   &hook.Info{Kind: hooks.Kind("machine-exploded")},
 		},
 		err: `unknown hook kind "machine-exploded"`,
 	}, {
 		st: uniter.State{
 			Op:     uniter.RunHook,
 			OpStep: uniter.Pending,
-			Hook:   &uhook.Info{Kind: hook.RelationJoined},
+			Hook:   &hook.Info{Kind: hooks.RelationJoined},
 		},
 		err: `"relation-joined" hook requires a remote unit`,
 	}, {
 		st: uniter.State{
 			Op:       uniter.RunHook,
 			OpStep:   uniter.Pending,
-			Hook:     &uhook.Info{Kind: hook.ConfigChanged},
+			Hook:     &hook.Info{Kind: hooks.ConfigChanged},
 			CharmURL: stcurl,
 		},
 		err: `unexpected charm URL`,
@@ -87,7 +87,7 @@ var stateTests = []struct {
 		st: uniter.State{
 			Op:     uniter.RunHook,
 			OpStep: uniter.Pending,
-			Hook:   &uhook.Info{Kind: hook.ConfigChanged},
+			Hook:   &hook.Info{Kind: hooks.ConfigChanged},
 		},
 	}, {
 		st: uniter.State{

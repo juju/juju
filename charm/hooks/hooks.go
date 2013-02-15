@@ -1,5 +1,5 @@
-// hook provides types and constants that define the hooks known to Juju.
-package hook
+// hooks provides types and constants that define the hooks known to Juju.
+package hooks
 
 // Kind enumerates the different kinds of hooks that exist.
 type Kind string

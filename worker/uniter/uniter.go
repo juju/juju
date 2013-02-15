@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	corecharm "launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/charm/hook"
+	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
@@ -12,7 +12,7 @@ import (
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/worker/uniter/charm"
-	uhook "launchpad.net/juju-core/worker/uniter/hook"
+	"launchpad.net/juju-core/worker/uniter/hook"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"launchpad.net/juju-core/worker/uniter/relation"
 	"launchpad.net/tomb"
@@ -33,7 +33,7 @@ type Uniter struct {
 	unit          *state.Unit
 	service       *state.Service
 	relationers   map[int]*Relationer
-	relationHooks chan uhook.Info
+	relationHooks chan hook.Info
 
 	dataDir      string
 	baseDir      string
@@ -122,7 +122,7 @@ func (u *Uniter) init(name string) (err error) {
 		return err
 	}
 	u.relationers = map[int]*Relationer{}
-	u.relationHooks = make(chan uhook.Info)
+	u.relationHooks = make(chan hook.Info)
 	u.charm = charm.NewGitDir(filepath.Join(u.baseDir, "charm"))
 	u.bundles = charm.NewBundlesDir(filepath.Join(u.baseDir, "state", "bundles"))
 	u.deployer = charm.NewDeployer(filepath.Join(u.baseDir, "state", "deployer"))
@@ -150,9 +150,9 @@ func (u *Uniter) Wait() error {
 
 // writeState saves uniter state with the supplied values, and infers the appropriate
 // value of Started.
-func (u *Uniter) writeState(op Op, step OpStep, hi *uhook.Info, url *corecharm.URL) error {
+func (u *Uniter) writeState(op Op, step OpStep, hi *hook.Info, url *corecharm.URL) error {
 	s := State{
-		Started:  op == RunHook && hi.Kind == hook.Start || u.s != nil && u.s.Started,
+		Started:  op == RunHook && hi.Kind == hooks.Start || u.s != nil && u.s.Started,
 		Op:       op,
 		OpStep:   step,
 		Hook:     hi,
@@ -171,7 +171,7 @@ func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
 	if reason != Install && reason != Upgrade {
 		panic(fmt.Errorf("%q is not a deploy operation", reason))
 	}
-	var hi *uhook.Info
+	var hi *hook.Info
 	if u.s != nil && (u.s.Op == RunHook || u.s.Op == Upgrade) {
 		// If this upgrade interrupts a RunHook, we need to preserve the hook
 		// info so that we can return to the appropriate error state. However,
@@ -211,12 +211,12 @@ func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
 		status = Pending
 	} else {
 		// Otherwise, queue the relevant post-deploy hook.
-		hi = &uhook.Info{}
+		hi = &hook.Info{}
 		switch reason {
 		case Install:
-			hi.Kind = hook.Install
+			hi.Kind = hooks.Install
 		case Upgrade:
-			hi.Kind = hook.UpgradeCharm
+			hi.Kind = hooks.UpgradeCharm
 		}
 	}
 	return u.writeState(RunHook, status, hi, nil)
@@ -228,7 +228,7 @@ var errHookFailed = errors.New("hook execution failed")
 
 // runHook executes the supplied hook.Info in an appropriate hook context. If
 // the hook itself fails to execute, it returns errHookFailed.
-func (u *Uniter) runHook(hi uhook.Info) (err error) {
+func (u *Uniter) runHook(hi hook.Info) (err error) {
 	// Prepare context.
 	if err = hi.Validate(); err != nil {
 		return err
@@ -289,20 +289,20 @@ func (u *Uniter) runHook(hi uhook.Info) (err error) {
 
 // commitHook ensures that state is consistent with the supplied hook, and
 // that the fact of the hook's completion is persisted.
-func (u *Uniter) commitHook(hi uhook.Info) error {
+func (u *Uniter) commitHook(hi hook.Info) error {
 	log.Printf("worker/uniter: committing %q hook", hi.Kind)
 	if hi.Kind.IsRelation() {
 		if err := u.relationers[hi.RelationId].CommitHook(hi); err != nil {
 			return err
 		}
-		if hi.Kind == hook.RelationBroken {
+		if hi.Kind == hooks.RelationBroken {
 			delete(u.relationers, hi.RelationId)
 		}
 	}
 	if err := u.charm.Snapshotf("Completed %q hook.", hi.Kind); err != nil {
 		return err
 	}
-	if hi.Kind == hook.ConfigChanged {
+	if hi.Kind == hooks.ConfigChanged {
 		u.ranConfigChanged = true
 	}
 	if err := u.writeState(Continue, Pending, &hi, nil); err != nil {

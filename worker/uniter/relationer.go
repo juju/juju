@@ -2,9 +2,9 @@ package uniter
 
 import (
 	"fmt"
-	"launchpad.net/juju-core/charm/hook"
+	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/state"
-	uhook "launchpad.net/juju-core/worker/uniter/hook"
+	"launchpad.net/juju-core/worker/uniter/hook"
 	"launchpad.net/juju-core/worker/uniter/relation"
 )
 
@@ -14,13 +14,13 @@ type Relationer struct {
 	ru    *state.RelationUnit
 	dir   *relation.StateDir
 	queue relation.HookQueue
-	hooks chan<- uhook.Info
+	hooks chan<- hook.Info
 	dying bool
 }
 
 // NewRelationer creates a new Relationer. The unit will not join the
 // relation until explicitly requested.
-func NewRelationer(ru *state.RelationUnit, dir *relation.StateDir, hooks chan<- uhook.Info) *Relationer {
+func NewRelationer(ru *state.RelationUnit, dir *relation.StateDir, hooks chan<- hook.Info) *Relationer {
 	return &Relationer{
 		ctx:   NewContextRelation(ru, dir.State().Members),
 		ru:    ru,
@@ -116,7 +116,7 @@ func (r *Relationer) StopHooks() error {
 // sense to execute the supplied hook, and ensures that the relation context
 // contains the latest relation state as communicated in the hook.Info. It
 // returns the name of the hook that must be run.
-func (r *Relationer) PrepareHook(hi uhook.Info) (hookName string, err error) {
+func (r *Relationer) PrepareHook(hi hook.Info) (hookName string, err error) {
 	if r.IsImplicit() {
 		panic("implicit relations must not run hooks")
 	}
@@ -124,7 +124,7 @@ func (r *Relationer) PrepareHook(hi uhook.Info) (hookName string, err error) {
 		return
 	}
 	r.ctx.UpdateMembers(hi.Members)
-	if hi.Kind == hook.RelationDeparted {
+	if hi.Kind == hooks.RelationDeparted {
 		r.ctx.DeleteMember(hi.RemoteUnit)
 	} else if hi.RemoteUnit != "" {
 		r.ctx.UpdateMembers(SettingsMap{hi.RemoteUnit: nil})
@@ -134,11 +134,11 @@ func (r *Relationer) PrepareHook(hi uhook.Info) (hookName string, err error) {
 }
 
 // CommitHook persists the fact of the supplied hook's completion.
-func (r *Relationer) CommitHook(hi uhook.Info) error {
+func (r *Relationer) CommitHook(hi hook.Info) error {
 	if r.IsImplicit() {
 		panic("implicit relations must not run hooks")
 	}
-	if hi.Kind == hook.RelationBroken {
+	if hi.Kind == hooks.RelationBroken {
 		return r.die()
 	}
 	return r.dir.Write(hi)

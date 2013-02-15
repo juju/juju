@@ -3,13 +3,13 @@ package hook
 
 import (
 	"fmt"
-	chook "launchpad.net/juju-core/charm/hook"
+	"launchpad.net/juju-core/charm/hooks"
 )
 
 // Info holds details required to execute a hook. Not all fields are
 // relevant to all Kind values.
 type Info struct {
-	Kind chook.Kind
+	Kind hooks.Kind
 
 	// RelationId identifies the relation associated with the hook. It is
 	// only set when Kind indicates a relation hook.
@@ -33,12 +33,12 @@ type Info struct {
 // Validate returns an error if the info is not valid.
 func (hi Info) Validate() error {
 	switch hi.Kind {
-	case chook.RelationJoined, chook.RelationChanged, chook.RelationDeparted:
+	case hooks.RelationJoined, hooks.RelationChanged, hooks.RelationDeparted:
 		if hi.RemoteUnit == "" {
 			return fmt.Errorf("%q hook requires a remote unit", hi.Kind)
 		}
 		fallthrough
-	case chook.Install, chook.Start, chook.ConfigChanged, chook.UpgradeCharm, chook.Stop, chook.RelationBroken:
+	case hooks.Install, hooks.Start, hooks.ConfigChanged, hooks.UpgradeCharm, hooks.Stop, hooks.RelationBroken:
 		return nil
 	}
 	return fmt.Errorf("unknown hook kind %q", hi.Kind)

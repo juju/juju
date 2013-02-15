@@ -5,9 +5,9 @@ package relation
 import (
 	"fmt"
 	"io/ioutil"
-	"launchpad.net/juju-core/charm/hook"
+	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/trivial"
-	uhook "launchpad.net/juju-core/worker/uniter/hook"
+	"launchpad.net/juju-core/worker/uniter/hook"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -47,7 +47,7 @@ func (s *State) copy() *State {
 // a valid change to the relation state. Hooks must always be validated
 // against the current state before they are run, to ensure that the system
 // meets its guarantees about hook execution order.
-func (s *State) Validate(hi uhook.Info) (err error) {
+func (s *State) Validate(hi hook.Info) (err error) {
 	defer trivial.ErrorContextf(&err, "inappropriate %q for %q", hi.Kind, hi.RemoteUnit)
 	if hi.RelationId != s.RelationId {
 		return fmt.Errorf("expected relation %d, got relation %d", s.RelationId, hi.RelationId)
@@ -56,19 +56,19 @@ func (s *State) Validate(hi uhook.Info) (err error) {
 		return fmt.Errorf(`relation is broken and cannot be changed further`)
 	}
 	unit, kind := hi.RemoteUnit, hi.Kind
-	if kind == hook.RelationBroken {
+	if kind == hooks.RelationBroken {
 		if len(s.Members) == 0 {
 			return nil
 		}
 		return fmt.Errorf(`cannot run "relation-broken" while units still present`)
 	}
 	if s.ChangedPending != "" {
-		if unit != s.ChangedPending || kind != hook.RelationChanged {
+		if unit != s.ChangedPending || kind != hooks.RelationChanged {
 			return fmt.Errorf(`expected "relation-changed" for %q`, s.ChangedPending)
 		}
-	} else if _, joined := s.Members[unit]; joined && kind == hook.RelationJoined {
+	} else if _, joined := s.Members[unit]; joined && kind == hooks.RelationJoined {
 		return fmt.Errorf("unit already joined")
-	} else if !joined && kind != hook.RelationJoined {
+	} else if !joined && kind != hooks.RelationJoined {
 		return fmt.Errorf("unit has not joined")
 	}
 	return nil
@@ -182,14 +182,14 @@ func (d *StateDir) Ensure() error {
 // It must be called after the respective hook was executed successfully.
 // Write doesn't validate hi but guarantees that successive writes of
 // the same hi are idempotent.
-func (d *StateDir) Write(hi uhook.Info) (err error) {
+func (d *StateDir) Write(hi hook.Info) (err error) {
 	defer trivial.ErrorContextf(&err, "failed to write %q hook info for %q on state directory", hi.Kind, hi.RemoteUnit)
-	if hi.Kind == hook.RelationBroken {
+	if hi.Kind == hooks.RelationBroken {
 		return d.Remove()
 	}
 	name := strings.Replace(hi.RemoteUnit, "/", "-", 1)
 	path := filepath.Join(d.path, name)
-	if hi.Kind == hook.RelationDeparted {
+	if hi.Kind == hooks.RelationDeparted {
 		if err = os.Remove(path); err != nil && !os.IsNotExist(err) {
 			return err
 		}
@@ -197,13 +197,13 @@ func (d *StateDir) Write(hi uhook.Info) (err error) {
 		delete(d.state.Members, hi.RemoteUnit)
 		return nil
 	}
-	di := diskInfo{&hi.ChangeVersion, hi.Kind == hook.RelationJoined}
+	di := diskInfo{&hi.ChangeVersion, hi.Kind == hooks.RelationJoined}
 	if err := trivial.WriteYaml(path, &di); err != nil {
 		return err
 	}
 	// If write was successful, update own state.
 	d.state.Members[hi.RemoteUnit] = hi.ChangeVersion
-	if hi.Kind == hook.RelationJoined {
+	if hi.Kind == hooks.RelationJoined {
 		d.state.ChangedPending = hi.RemoteUnit
 	} else {
 		d.state.ChangedPending = ""
