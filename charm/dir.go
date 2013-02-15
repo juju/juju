@@ -183,7 +183,6 @@ func (zp *zipPacker) visit(path string, fi os.FileInfo, err error) error {
 		perm = 0755
 	}
 	if filepath.Dir(relpath) == "hooks" {
-		// Process only hooks directly inside hooks/
 		hookName := filepath.Base(relpath)
 		if _, ok := zp.hooks[hookName]; !fi.IsDir() && ok && mode&0100 == 0 {
 			log.Printf("charm: WARNING: making %q executable in charm", path)
