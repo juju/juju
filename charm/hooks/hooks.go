@@ -38,7 +38,9 @@ var unitHooks = []Kind{
 
 // UnitHooks returns all known unit hook kinds.
 func UnitHooks() []Kind {
-	return unitHooks
+	hooks := make([]Kind, len(unitHooks))
+	copy(hooks, unitHooks)
+	return hooks
 }
 
 var relationHooks = []Kind{
@@ -50,7 +52,9 @@ var relationHooks = []Kind{
 
 // RelationHooks returns all known relation hook kinds.
 func RelationHooks() []Kind {
-	return relationHooks
+	hooks := make([]Kind, len(relationHooks))
+	copy(hooks, relationHooks)
+	return hooks
 }
 
 // IsRelation returns whether the Kind represents a relation hook.
