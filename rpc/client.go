@@ -100,7 +100,6 @@ func (client *Client) send(call *Call) {
 		call.done()
 		return
 	}
-
 	client.reqId++
 	reqId := client.reqId
 	client.pending[reqId] = call
