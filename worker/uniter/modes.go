@@ -3,6 +3,7 @@ package uniter
 import (
 	"errors"
 	"fmt"
+	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -71,11 +72,11 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 	case Continue:
 		log.Printf("worker/uniter: continuing after %q hook", u.s.Hook.Kind)
 		switch u.s.Hook.Kind {
-		case hook.Stop:
+		case hooks.Stop:
 			return ModeTerminating, nil
-		case hook.UpgradeCharm:
+		case hooks.UpgradeCharm:
 			return ModeConfigChanged, nil
-		case hook.ConfigChanged:
+		case hooks.ConfigChanged:
 			if !u.s.Started {
 				return ModeStarting, nil
 			}
@@ -153,7 +154,7 @@ func ModeConfigChanged(u *Uniter) (next Mode, err error) {
 		}
 	}
 	u.f.DiscardConfigEvent()
-	if err := u.runHook(hook.Info{Kind: hook.ConfigChanged}); err == errHookFailed {
+	if err := u.runHook(hook.Info{Kind: hooks.ConfigChanged}); err == errHookFailed {
 		return ModeHookError, nil
 	} else if err != nil {
 		return nil, err
@@ -164,7 +165,7 @@ func ModeConfigChanged(u *Uniter) (next Mode, err error) {
 // ModeStarting runs the "start" hook.
 func ModeStarting(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeStarting", &err)()
-	if err := u.runHook(hook.Info{Kind: hook.Start}); err == errHookFailed {
+	if err := u.runHook(hook.Info{Kind: hooks.Start}); err == errHookFailed {
 		return ModeHookError, nil
 	} else if err != nil {
 		return nil, err
@@ -175,7 +176,7 @@ func ModeStarting(u *Uniter) (next Mode, err error) {
 // ModeStopping runs the "stop" hook.
 func ModeStopping(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeStopping", &err)()
-	if err := u.runHook(hook.Info{Kind: hook.Stop}); err == errHookFailed {
+	if err := u.runHook(hook.Info{Kind: hooks.Stop}); err == errHookFailed {
 		return ModeHookError, nil
 	} else if err != nil {
 		return nil, err
@@ -263,7 +264,7 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 		case <-u.f.UnitDying():
 			return modeAbideDyingLoop(u)
 		case <-u.f.ConfigEvents():
-			hi = hook.Info{Kind: hook.ConfigChanged}
+			hi = hook.Info{Kind: hooks.ConfigChanged}
 		case hi = <-u.relationHooks:
 		case ids := <-u.f.RelationsEvents():
 			added, err := u.updateRelations(ids)
@@ -317,7 +318,7 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 		case <-u.tomb.Dying():
 			return nil, tomb.ErrDying
 		case <-u.f.ConfigEvents():
-			hi = hook.Info{Kind: hook.ConfigChanged}
+			hi = hook.Info{Kind: hooks.ConfigChanged}
 		case hi = <-u.relationHooks:
 		}
 		if err = u.runHook(hi); err == errHookFailed {
