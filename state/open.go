@@ -96,12 +96,16 @@ func Initialize(info *Info, cfg *config.Config) (*State, error) {
 	if _, err = st.EnvironConfig(); !IsNotFound(err) {
 		return st, nil
 	}
-	log.Printf("state: storing no-secrets environment configuration")
-	if _, err = createSettings(st, "e", nil); err != nil {
-		st.Close()
-		return nil, err
+	log.Printf("state: initializing environment")
+	ops := []txn.Op{
+		createConstraintsOp(st, "e", Constraints{}),
+		createSettingsOp(st, "e", cfg.AllAttrs()),
 	}
-	if err = st.SetEnvironConfig(cfg); err != nil {
+	if err := st.runner.Run(ops, "", nil); err == txn.ErrAborted {
+		// Whoops, it was actually already created; guess the original txn
+		// didn't complete before, but did just now to make way for this one.
+		return st, nil
+	} else if err != nil {
 		st.Close()
 		return nil, err
 	}
@@ -173,6 +177,7 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 		relationScopes: db.C("relationscopes"),
 		services:       db.C("services"),
 		settings:       db.C("settings"),
+		constraints:    db.C("constraints"),
 		units:          db.C("units"),
 		users:          db.C("users"),
 		presence:       pdb.C("presence"),

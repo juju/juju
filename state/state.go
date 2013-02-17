@@ -143,6 +143,16 @@ func (st *State) SetEnvironConfig(cfg *config.Config) error {
 	return err
 }
 
+// EnvironConstraints returns the current environment constraints.
+func (st *State) EnvironConstraints() (cons Constraints, err error) {
+	return readConstraints("e")
+}
+
+// SetEnvironConstraints replaces the current environment constraints.
+func (st *State) SetEnvironConstraints(cons Constraints) error {
+	return writeConstraints("e", cons)
+}
+
 // AddMachine adds a new machine configured to run the supplied jobs.
 func (st *State) AddMachine(jobs ...MachineJob) (m *Machine, err error) {
 	return st.addMachine("", jobs)

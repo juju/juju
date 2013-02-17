@@ -50,3 +50,40 @@ func uintStr(i uint64) string {
 	}
 	return fmt.Sprintf("%d", i)
 }
+
+type constraintsDoc struct {
+	Id          string `bson:"_id"`
+	Constraints Constraints
+}
+
+func createConstraintsOp(st *State, id string, cons Constraints) txn.Op {
+	return txn.Op{
+		C:      st.constraints.Name,
+		Id:     id,
+		Assert: txn.DocMissing,
+		Insert: constraintsDoc{id, cons},
+	}
+}
+
+func readConstraints(st *State, id string) (Constraints, error) {
+	doc := constraintsDoc{}
+	if err := st.constraints.FindId(id).One(&doc); err == mgo.ErrNotFound {
+		return Constraints{}, notFoundf("constraints")
+	} else if err != nil {
+		return Constraints{}, err
+	}
+	return doc.Constraints, nil
+}
+
+func writeConstraints(st *State, id string, cons Constraints) error {
+	ops := []txn.Op{{
+		C:      st.constraints.Name,
+		Id:     id,
+		Assert: txn.DocExists,
+		Update: constraintsDoc{id, cons},
+	}}
+	if err := st.runner.Run(ops, "", nil); err != nil {
+		return fmt.Errorf("cannot set constraints: %v", err)
+	}
+	return nil
+}
