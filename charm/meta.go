@@ -68,7 +68,7 @@ func (m Meta) Hooks() map[string]bool {
 	for hookName := range m.Requires {
 		generateRelationHooks(hookName, allHooks)
 	}
-	for hookName := range m.Provides {
+	for hookName := range m.Peers {
 		generateRelationHooks(hookName, allHooks)
 	}
 	return allHooks

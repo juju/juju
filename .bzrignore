@@ -5,3 +5,4 @@ cmd/builddb/builddb
 cmd/charmd/charmd
 cmd/charmload/charmload
 ./tags
+./TAGS
