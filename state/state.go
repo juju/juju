@@ -107,6 +107,7 @@ type State struct {
 	relationScopes *mgo.Collection
 	services       *mgo.Collection
 	settings       *mgo.Collection
+	constraints    *mgo.Collection
 	units          *mgo.Collection
 	users          *mgo.Collection
 	presence       *mgo.Collection
@@ -144,13 +145,13 @@ func (st *State) SetEnvironConfig(cfg *config.Config) error {
 }
 
 // EnvironConstraints returns the current environment constraints.
-func (st *State) EnvironConstraints() (cons Constraints, err error) {
-	return readConstraints("e")
+func (st *State) EnvironConstraints() (Constraints, error) {
+	return readConstraints(st, "e")
 }
 
 // SetEnvironConstraints replaces the current environment constraints.
 func (st *State) SetEnvironConstraints(cons Constraints) error {
-	return writeConstraints("e", cons)
+	return writeConstraints(st, "e", cons)
 }
 
 // AddMachine adds a new machine configured to run the supplied jobs.

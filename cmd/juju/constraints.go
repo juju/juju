@@ -18,8 +18,11 @@ func (v *constraintsValue) String() string {
 }
 
 func (v *constraintsValue) Set(raw string) error {
-	args := strings.Split(raw, " ")
+	args := strings.Split(strings.TrimSpace(raw), " ")
 	for _, arg := range args {
+		if arg == "" {
+			continue
+		}
 		eq := strings.Index(arg, "=")
 		if eq <= 0 {
 			return fmt.Errorf("malformed constraint %q", arg)

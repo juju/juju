@@ -18,7 +18,9 @@ var constraintsValueTests = []struct {
 	{
 		summary: "nothing at all",
 		args:    []string{""},
-		err:     `malformed constraint ""`,
+	}, {
+		summary: "empty",
+		args:    []string{"     "},
 	}, {
 		summary: "complete nonsense",
 		args:    []string{"cheese"},
@@ -85,11 +87,11 @@ var constraintsValueTests = []struct {
 		err:     `bad "cpu-power" constraint: must be a non-negative integer`,
 	}, {
 		summary: "double set cpu-power together",
-		args:    []string{"cpu-power=300 cpu-power=1700"},
+		args:    []string{"  cpu-power=300 cpu-power=1700 "},
 		err:     `bad "cpu-power" constraint: already set`,
 	}, {
 		summary: "double set cpu-power separately",
-		args:    []string{"cpu-power=300", "cpu-power=1700"},
+		args:    []string{"cpu-power=300  ", "  cpu-power=1700"},
 		err:     `bad "cpu-power" constraint: already set`,
 	},
 
@@ -129,7 +131,7 @@ var constraintsValueTests = []struct {
 		err:     `bad "mem" constraint: must be a non-negative float with optional M/G/T/P suffix`,
 	}, {
 		summary: "double set mem together",
-		args:    []string{"mem=1G mem=2G"},
+		args:    []string{"mem=1G  mem=2G"},
 		err:     `bad "mem" constraint: already set`,
 	}, {
 		summary: "double set mem separately",
@@ -140,7 +142,7 @@ var constraintsValueTests = []struct {
 	// Everything at once.
 	{
 		summary: "kitchen sink together",
-		args:    []string{"mem=2T cpu-cores=4096 cpu-power=9001"},
+		args:    []string{" mem=2T    cpu-cores=4096 cpu-power=9001  "},
 	}, {
 		summary: "kitchen sink separately",
 		args:    []string{"mem=2T", "cpu-cores=4096", "cpu-power=9001"},

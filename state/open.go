@@ -85,28 +85,36 @@ func Open(info *Info) (*State, error) {
 // Initialize sets up an initial empty state and returns it.
 // This needs to be performed only once for a given environment.
 // It returns ErrUnauthorized if access is unauthorized.
-func Initialize(info *Info, cfg *config.Config) (*State, error) {
+func Initialize(info *Info, cfg *config.Config) (rst *State, err error) {
 	st, err := Open(info)
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		if err != nil {
+			st.Close()
+		}
+	}()
 	// A valid environment config is used as a signal that the
 	// state has already been initalized. If this is the case
 	// do nothing.
-	if _, err = st.EnvironConfig(); !IsNotFound(err) {
+	if _, err = st.EnvironConfig(); err == nil {
 		return st, nil
+	} else if !IsNotFound(err) {
+		return nil, err
 	}
 	log.Printf("state: initializing environment")
+	if cfg.AdminSecret() != "" {
+		return nil, fmt.Errorf("admin-secret should never be written to the state")
+	}
 	ops := []txn.Op{
 		createConstraintsOp(st, "e", Constraints{}),
 		createSettingsOp(st, "e", cfg.AllAttrs()),
 	}
 	if err := st.runner.Run(ops, "", nil); err == txn.ErrAborted {
-		// Whoops, it was actually already created; guess the original txn
-		// didn't complete before, but did just now to make way for this one.
+		// The config was created in the meantime.
 		return st, nil
 	} else if err != nil {
-		st.Close()
 		return nil, err
 	}
 	return st, nil

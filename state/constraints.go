@@ -2,6 +2,8 @@ package state
 
 import (
 	"fmt"
+	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/txn"
 	"strings"
 )
 
@@ -52,8 +54,19 @@ func uintStr(i uint64) string {
 }
 
 type constraintsDoc struct {
-	Id          string `bson:"_id"`
-	Constraints Constraints
+	Id       string `bson:"_id"`
+	CpuCores *uint64
+	CpuPower *uint64
+	Mem      *uint64
+}
+
+func newConstraintsDoc(id string, cons Constraints) constraintsDoc {
+	return constraintsDoc{
+		Id:       id,
+		CpuCores: cons.CpuCores,
+		CpuPower: cons.CpuPower,
+		Mem:      cons.Mem,
+	}
 }
 
 func createConstraintsOp(st *State, id string, cons Constraints) txn.Op {
@@ -61,7 +74,7 @@ func createConstraintsOp(st *State, id string, cons Constraints) txn.Op {
 		C:      st.constraints.Name,
 		Id:     id,
 		Assert: txn.DocMissing,
-		Insert: constraintsDoc{id, cons},
+		Insert: newConstraintsDoc(id, cons),
 	}
 }
 
@@ -72,7 +85,11 @@ func readConstraints(st *State, id string) (Constraints, error) {
 	} else if err != nil {
 		return Constraints{}, err
 	}
-	return doc.Constraints, nil
+	return Constraints{
+		CpuCores: doc.CpuCores,
+		CpuPower: doc.CpuPower,
+		Mem:      doc.Mem,
+	}, nil
 }
 
 func writeConstraints(st *State, id string, cons Constraints) error {
@@ -80,10 +97,19 @@ func writeConstraints(st *State, id string, cons Constraints) error {
 		C:      st.constraints.Name,
 		Id:     id,
 		Assert: txn.DocExists,
-		Update: constraintsDoc{id, cons},
+		Update: newConstraintsDoc(id, cons),
 	}}
 	if err := st.runner.Run(ops, "", nil); err != nil {
 		return fmt.Errorf("cannot set constraints: %v", err)
 	}
 	return nil
+}
+
+func deleteConstraintsOp(st *State, id string) txn.Op {
+	return txn.Op{
+		C:      st.constraints.Name,
+		Id:     id,
+		Assert: txn.DocExists,
+		Remove: true,
+	}
 }

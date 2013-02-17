@@ -2,6 +2,7 @@ package uniter_test
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker/uniter"
@@ -92,7 +93,7 @@ func (s *RelationerSuite) TestEnterLeaveScope(c *C) {
 	}
 
 	// u/0 leaves scope; u/1 observes it.
-	hi := hook.Info{Kind: hook.RelationBroken}
+	hi := hook.Info{Kind: hooks.RelationBroken}
 	_, err = r.PrepareHook(hi)
 	c.Assert(err, IsNil)
 	err = r.CommitHook(hi)
@@ -134,12 +135,12 @@ func (s *RelationerSuite) TestStartStopHooks(c *C) {
 	err = ru1.EnterScope(settings)
 	c.Assert(err, IsNil)
 	s.assertHook(c, hook.Info{
-		Kind:       hook.RelationJoined,
+		Kind:       hooks.RelationJoined,
 		RemoteUnit: "u/1",
 		Members:    map[string]map[string]interface{}{"u/1": settings},
 	})
 	s.assertHook(c, hook.Info{
-		Kind:       hook.RelationChanged,
+		Kind:       hooks.RelationChanged,
 		RemoteUnit: "u/1",
 		Members:    map[string]map[string]interface{}{"u/1": settings},
 	})
@@ -168,12 +169,12 @@ func (s *RelationerSuite) TestStartStopHooks(c *C) {
 	r.StartHooks()
 	defer stopHooks(c, r)
 	s.assertHook(c, hook.Info{
-		Kind:       hook.RelationDeparted,
+		Kind:       hooks.RelationDeparted,
 		RemoteUnit: "u/1",
 		Members:    map[string]map[string]interface{}{},
 	})
 	s.assertHook(c, hook.Info{
-		Kind:          hook.RelationJoined,
+		Kind:          hooks.RelationJoined,
 		ChangeVersion: 1,
 		RemoteUnit:    "u/2",
 		Members: map[string]map[string]interface{}{
@@ -181,7 +182,7 @@ func (s *RelationerSuite) TestStartStopHooks(c *C) {
 		},
 	})
 	s.assertHook(c, hook.Info{
-		Kind:          hook.RelationChanged,
+		Kind:          hooks.RelationChanged,
 		ChangeVersion: 1,
 		RemoteUnit:    "u/2",
 		Members: map[string]map[string]interface{}{
@@ -205,7 +206,7 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 
 	// Check preparing an invalid hook changes nothing.
 	changed := hook.Info{
-		Kind:          hook.RelationChanged,
+		Kind:          hooks.RelationChanged,
 		RemoteUnit:    "u/1",
 		ChangeVersion: 7,
 		Members: map[string]map[string]interface{}{
@@ -220,7 +221,7 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 	// Check preparing a valid hook updates the context, but not persistent
 	// relation state.
 	joined := hook.Info{
-		Kind:       hook.RelationJoined,
+		Kind:       hooks.RelationJoined,
 		RemoteUnit: "u/1",
 		Members: map[string]map[string]interface{}{
 			"u/1": {"private-address": "u-1.example.com"},
@@ -303,7 +304,7 @@ func (s *RelationerSuite) TestSetDying(c *C) {
 	r.StartHooks()
 	defer stopHooks(c, r)
 	s.assertHook(c, hook.Info{
-		Kind:       hook.RelationJoined,
+		Kind:       hooks.RelationJoined,
 		RemoteUnit: "u/1",
 		Members: map[string]map[string]interface{}{
 			"u/1": settings,
@@ -323,12 +324,12 @@ func (s *RelationerSuite) TestSetDying(c *C) {
 	// ...but the hook stream continues, sending the required changed hook for
 	// u/1 before moving on to a departed, despite the fact that its pinger is
 	// still running, and closing with a broken.
-	s.assertHook(c, hook.Info{Kind: hook.RelationChanged, RemoteUnit: "u/1"})
-	s.assertHook(c, hook.Info{Kind: hook.RelationDeparted, RemoteUnit: "u/1"})
-	s.assertHook(c, hook.Info{Kind: hook.RelationBroken})
+	s.assertHook(c, hook.Info{Kind: hooks.RelationChanged, RemoteUnit: "u/1"})
+	s.assertHook(c, hook.Info{Kind: hooks.RelationDeparted, RemoteUnit: "u/1"})
+	s.assertHook(c, hook.Info{Kind: hooks.RelationBroken})
 
 	// Check that the relation state has been broken.
-	err = s.dir.State().Validate(hook.Info{Kind: hook.RelationBroken})
+	err = s.dir.State().Validate(hook.Info{Kind: hooks.RelationBroken})
 	c.Assert(err, ErrorMatches, ".*: relation is broken and cannot be changed further")
 }
 

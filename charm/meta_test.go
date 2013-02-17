@@ -225,3 +225,33 @@ func (s *MetaSuite) TestIfaceExpander(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(v, DeepEquals, map[string]interface{}{"interface": "http", "limit": int64(1), "optional": false, "scope": string(charm.ScopeGlobal)})
 }
+
+func (s *MetaSuite) TestMetaHooks(c *C) {
+	meta, err := charm.ReadMeta(repoMeta("wordpress"))
+	c.Assert(err, IsNil)
+	hooks := meta.Hooks()
+	expectedHooks := map[string]bool{
+		"install":                       true,
+		"start":                         true,
+		"config-changed":                true,
+		"upgrade-charm":                 true,
+		"stop":                          true,
+		"cache-relation-joined":         true,
+		"cache-relation-changed":        true,
+		"cache-relation-departed":       true,
+		"cache-relation-broken":         true,
+		"db-relation-joined":            true,
+		"db-relation-changed":           true,
+		"db-relation-departed":          true,
+		"db-relation-broken":            true,
+		"logging-dir-relation-joined":   true,
+		"logging-dir-relation-changed":  true,
+		"logging-dir-relation-departed": true,
+		"logging-dir-relation-broken":   true,
+		"url-relation-joined":           true,
+		"url-relation-changed":          true,
+		"url-relation-departed":         true,
+		"url-relation-broken":           true,
+	}
+	c.Assert(hooks, DeepEquals, expectedHooks)
+}
