@@ -54,15 +54,13 @@ func uintStr(i uint64) string {
 }
 
 type constraintsDoc struct {
-	Id       string `bson:"_id"`
 	CpuCores *uint64
 	CpuPower *uint64
 	Mem      *uint64
 }
 
-func newConstraintsDoc(id string, cons Constraints) constraintsDoc {
+func newConstraintsDoc(cons Constraints) constraintsDoc {
 	return constraintsDoc{
-		Id:       id,
 		CpuCores: cons.CpuCores,
 		CpuPower: cons.CpuPower,
 		Mem:      cons.Mem,
@@ -74,7 +72,7 @@ func createConstraintsOp(st *State, id string, cons Constraints) txn.Op {
 		C:      st.constraints.Name,
 		Id:     id,
 		Assert: txn.DocMissing,
-		Insert: newConstraintsDoc(id, cons),
+		Insert: newConstraintsDoc(cons),
 	}
 }
 
@@ -97,19 +95,10 @@ func writeConstraints(st *State, id string, cons Constraints) error {
 		C:      st.constraints.Name,
 		Id:     id,
 		Assert: txn.DocExists,
-		Update: newConstraintsDoc(id, cons),
+		Update: D{{"$set", newConstraintsDoc(cons)}},
 	}}
 	if err := st.runner.Run(ops, "", nil); err != nil {
 		return fmt.Errorf("cannot set constraints: %v", err)
 	}
 	return nil
-}
-
-func deleteConstraintsOp(st *State, id string) txn.Op {
-	return txn.Op{
-		C:      st.constraints.Name,
-		Id:     id,
-		Assert: txn.DocExists,
-		Remove: true,
-	}
 }

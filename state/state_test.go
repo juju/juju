@@ -455,6 +455,46 @@ func (s *StateSuite) TestEnvironConfigWithAdminSecret(c *C) {
 	c.Assert(err, ErrorMatches, "admin-secret should never be written to the state")
 }
 
+func (s *StateSuite) TestEnvironConstraints(c *C) {
+	// Environ constraints are not available before initialization.
+	_, err := s.State.EnvironConstraints()
+	c.Assert(state.IsNotFound(err), Equals, true)
+	m := map[string]interface{}{
+		"type":            "dummy",
+		"name":            "lisboa",
+		"authorized-keys": "i-am-a-key",
+		"ca-cert":         testing.CACert,
+		"ca-private-key":  "",
+	}
+	cfg, err := config.New(m)
+	c.Assert(err, IsNil)
+	st, err := state.Initialize(state.TestingStateInfo(), cfg)
+	c.Assert(err, IsNil)
+	st.Close()
+
+	// Environ constraints start out empty (for now).
+	cons0 := state.Constraints{}
+	cons1, err := s.State.EnvironConstraints()
+	c.Assert(err, IsNil)
+	c.Assert(cons1, DeepEquals, cons0)
+
+	// Environ constraints can be set.
+	cons2 := state.Constraints{Mem: uint64p(1024)}
+	err = s.State.SetEnvironConstraints(cons2)
+	c.Assert(err, IsNil)
+	cons3, err := s.State.EnvironConstraints()
+	c.Assert(err, IsNil)
+	c.Assert(cons3, DeepEquals, cons2)
+
+	// Environ constraints are completely overwritten when re-set.
+	cons4 := state.Constraints{CpuPower: uint64p(250)}
+	err = s.State.SetEnvironConstraints(cons4)
+	c.Assert(err, IsNil)
+	cons5, err := s.State.EnvironConstraints()
+	c.Assert(err, IsNil)
+	c.Assert(cons5, DeepEquals, cons4)
+}
+
 var machinesWatchTests = []struct {
 	summary string
 	test    func(*C, *state.State)
