@@ -163,6 +163,10 @@ func (s *Service) removeOps(asserts D) []txn.Op {
 		C:      s.st.settings.Name,
 		Id:     s.globalKey(),
 		Remove: true,
+	}, {
+		C:      s.st.constraints.Name,
+		Id:     s.globalKey(),
+		Remove: true,
 	}}
 }
 
@@ -467,4 +471,14 @@ func (s *Service) Config() (config *Settings, err error) {
 		return nil, fmt.Errorf("cannot get configuration of service %q: %v", s, err)
 	}
 	return config, nil
+}
+
+// Constraints returns the current service constraints.
+func (s *Service) Constraints() (Constraints, error) {
+	return readConstraints(s.st, s.globalKey())
+}
+
+// SetConstraints replaces the current service constraints.
+func (s *Service) SetConstraints(cons Constraints) error {
+	return writeConstraints(s.st, s.globalKey(), cons)
 }

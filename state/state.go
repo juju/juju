@@ -353,16 +353,15 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 		Life:          Alive,
 	}
 	svc := newService(st, svcDoc)
-	ops := []txn.Op{{
-		C:      st.settings.Name,
-		Id:     svc.globalKey(),
-		Insert: D{},
-	}, {
-		C:      st.services.Name,
-		Id:     name,
-		Assert: txn.DocMissing,
-		Insert: svcDoc,
-	}}
+	ops := []txn.Op{
+		createConstraintsOp(st, svc.globalKey(), Constraints{}),
+		createSettingsOp(st, svc.globalKey(), map[string]interface{}{}),
+		{
+			C:      st.services.Name,
+			Id:     name,
+			Assert: txn.DocMissing,
+			Insert: svcDoc,
+		}}
 	// Collect peer relation addition operations.
 	for relName, rel := range peers {
 		relId, err := st.sequence("relation")
