@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"syscall"
 )
 
 // storageBackend provides HTTP access to a defined path.
