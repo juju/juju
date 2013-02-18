@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"launchpad.net/juju-core/log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -112,14 +113,15 @@ func (dir *Dir) SetDiskRevision(revision int) error {
 func (dir *Dir) BundleTo(w io.Writer) (err error) {
 	zipw := zip.NewWriter(w)
 	defer zipw.Close()
-	zp := zipPacker{zipw, dir.Path}
+	zp := zipPacker{zipw, dir.Path, dir.Meta().Hooks()}
 	zp.AddRevision(dir.revision)
 	return filepath.Walk(dir.Path, zp.WalkFunc())
 }
 
 type zipPacker struct {
 	*zip.Writer
-	root string
+	root  string
+	hooks map[string]bool
 }
 
 func (zp *zipPacker) WalkFunc() filepath.WalkFunc {
@@ -179,6 +181,13 @@ func (zp *zipPacker) visit(path string, fi os.FileInfo, err error) error {
 		perm = 0777
 	} else if mode&0100 != 0 {
 		perm = 0755
+	}
+	if filepath.Dir(relpath) == "hooks" {
+		hookName := filepath.Base(relpath)
+		if _, ok := zp.hooks[hookName]; !fi.IsDir() && ok && mode&0100 == 0 {
+			log.Printf("charm: WARNING: making %q executable in charm", path)
+			perm = perm | 0100
+		}
 	}
 	h.SetMode(mode&^0777 | perm)
 
