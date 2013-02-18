@@ -22,12 +22,15 @@ func (c *StatusCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *StatusCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
 	addEnvironFlags(&c.EnvName, f)
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
 		"json": cmd.FormatJson,
 	})
+}
+
+func (c *StatusCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}

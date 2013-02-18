@@ -21,8 +21,11 @@ func (c *DestroyMachineCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *DestroyMachineCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *DestroyMachineCommand) SetFlags(f *gnuflag.FlagSet) {
 	addEnvironFlags(&c.EnvName, f)
+}
+
+func (c *DestroyMachineCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}

@@ -30,8 +30,11 @@ func (c *RelationIdsCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *RelationIdsCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *RelationIdsCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+}
+
+func (c *RelationIdsCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}

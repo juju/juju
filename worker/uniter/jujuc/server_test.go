@@ -24,9 +24,12 @@ func (c *RpcCommand) Info() *cmd.Info {
 	return &cmd.Info{"remote", "", "act at a distance", "blah doc"}
 }
 
-func (c *RpcCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *RpcCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Value, "value", "", "doc")
 	f.BoolVar(&c.Slow, "slow", false, "doc")
+}
+
+func (c *RpcCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}

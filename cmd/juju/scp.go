@@ -19,8 +19,11 @@ func (c *SCPCommand) Info() *cmd.Info {
 	return &cmd.Info{"scp", "", "launch a scp command to copy files to/from remote machine(s)", ""}
 }
 
-func (c *SCPCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *SCPCommand) SetFlags(f *gnuflag.FlagSet) {
 	addEnvironFlags(&c.EnvName, f)
+}
+
+func (c *SCPCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}

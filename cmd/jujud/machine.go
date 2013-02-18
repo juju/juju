@@ -30,10 +30,13 @@ func (a *MachineAgent) Info() *cmd.Info {
 	return &cmd.Info{"machine", "", "run a juju machine agent", ""}
 }
 
-// Init initializes the command for running.
-func (a *MachineAgent) Init(f *gnuflag.FlagSet, args []string) error {
+func (a *MachineAgent) SetFlags(f *gnuflag.FlagSet) {
 	a.Conf.addFlags(f)
 	f.StringVar(&a.MachineId, "machine-id", "", "id of the machine to run")
+}
+
+// Init initializes the command for running.
+func (a *MachineAgent) Init(f *gnuflag.FlagSet, args []string) error {
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}

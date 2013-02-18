@@ -24,9 +24,12 @@ func (c *JujuLogCommand) Info() *cmd.Info {
 	return &cmd.Info{"juju-log", "<message>", "write a message to the juju log", ""}
 }
 
-func (c *JujuLogCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *JujuLogCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Debug, "debug", false, "log at debug level")
 	f.StringVar(&c.Level, "l", "INFO", "Send log message at the given level")
+}
+
+func (c *JujuLogCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}

@@ -92,11 +92,14 @@ func (c *SuperCommand) Info() *Info {
 	return &Info{c.Name, "<command> ...", c.Purpose, strings.Join(docParts, "\n\n")}
 }
 
-// Init initializes the command for running.
-func (c *SuperCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *SuperCommand) SetFlags(f *gnuflag.FlagSet) {
 	if c.Log != nil {
 		c.Log.AddFlags(f)
 	}
+}
+
+// Init initializes the command for running.
+func (c *SuperCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	if err := f.Parse(false, args); err != nil {
 		return err
 	}
@@ -108,6 +111,8 @@ func (c *SuperCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	if c.subcmd, found = c.subcmds[subargs[0]]; !found {
 		return fmt.Errorf("unrecognized command: %s %s", c.Info().Name, subargs[0])
 	}
+	c.subcmd.SetFlags(f)
+	// TODO: move the parse here too...
 	return c.subcmd.Init(f, subargs[1:])
 }
 

@@ -16,8 +16,11 @@ func (c *OutputCommand) Info() *cmd.Info {
 	return &cmd.Info{"output", "<something>", "I like to output", "output"}
 }
 
-func (c *OutputCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *OutputCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+}
+
+func (c *OutputCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}

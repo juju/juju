@@ -18,8 +18,11 @@ func (c *UnexposeCommand) Info() *cmd.Info {
 	return &cmd.Info{"unexpose", "", "unexpose a service", ""}
 }
 
-func (c *UnexposeCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *UnexposeCommand) SetFlags(f *gnuflag.FlagSet) {
 	addEnvironFlags(&c.EnvName, f)
+}
+
+func (c *UnexposeCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}

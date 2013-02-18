@@ -21,12 +21,15 @@ func (c *GetCommand) Info() *cmd.Info {
 	return &cmd.Info{"get", "", "get service config options", ""}
 }
 
-func (c *GetCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *GetCommand) SetFlags(f *gnuflag.FlagSet) {
 	addEnvironFlags(&c.EnvName, f)
 	// TODO(dfc) add json formatting ?
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
 	})
+}
+
+func (c *GetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	// TODO(dfc) add --schema-only
 	if err := f.Parse(true, args); err != nil {
 		return err

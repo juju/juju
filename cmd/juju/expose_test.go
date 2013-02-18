@@ -1,10 +1,8 @@
 package main
 
 import (
-	"bytes"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -15,10 +13,7 @@ type ExposeSuite struct {
 var _ = Suite(&ExposeSuite{})
 
 func runExpose(c *C, args ...string) error {
-	com := &ExposeCommand{}
-	err := com.Init(newFlagSet(), args)
-	c.Assert(err, IsNil)
-	return com.Run(&cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}})
+	return testing.RunCommand(c, &ExposeCommand{}, args)
 }
 
 func (s *ExposeSuite) assertExposed(c *C, service string) {

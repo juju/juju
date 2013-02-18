@@ -17,8 +17,11 @@ func (c *GenerateConfigCommand) Info() *cmd.Info {
 	return &cmd.Info{"generate-config", "", "generate boilerplate configuration for juju environments", ""}
 }
 
-func (c *GenerateConfigCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *GenerateConfigCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.WriteFile, "w", false, "write to environments.yaml file if it doesn't already exist")
+}
+
+func (c *GenerateConfigCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}

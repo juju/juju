@@ -15,8 +15,11 @@ func (v *VersionCommand) Info() *cmd.Info {
 	return &cmd.Info{"version", "", "print the current version", ""}
 }
 
-func (v *VersionCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (v *VersionCommand) SetFlags(f *gnuflag.FlagSet) {
 	v.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+}
+
+func (v *VersionCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}

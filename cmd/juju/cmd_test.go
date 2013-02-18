@@ -5,15 +5,15 @@ import (
 	"os"
 	"reflect"
 
-	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/dummy"
-	"launchpad.net/juju-core/juju/testing"
+	juju_testing "launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/testing"
 )
 
 type CmdSuite struct {
-	testing.JujuConnSuite
+	juju_testing.JujuConnSuite
 	home fakeHome
 }
 
@@ -51,14 +51,10 @@ func (s *CmdSuite) TearDownTest(c *C) {
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-func newFlagSet() *gnuflag.FlagSet {
-	return gnuflag.NewFlagSet("", gnuflag.ContinueOnError)
-}
-
 // testInit checks that a command initialises correctly
 // with the given set of arguments.
 func testInit(c *C, com cmd.Command, args []string, errPat string) {
-	err := com.Init(newFlagSet(), args)
+	err := testing.InitCommand(com, args)
 	if errPat != "" {
 		c.Assert(err, ErrorMatches, errPat)
 	} else {
@@ -120,7 +116,7 @@ func runCommand(com cmd.Command, args ...string) (opc chan dummy.Operation, errc
 		// signal that we're done with this ops channel.
 		defer dummy.Listen(nil)
 
-		err := com.Init(newFlagSet(), args)
+		err := testing.InitCommand(com, args)
 		if err != nil {
 			errc <- err
 			return
@@ -187,7 +183,7 @@ func initExpectations(com *DeployCommand) {
 
 func initDeployCommand(args ...string) (*DeployCommand, error) {
 	com := &DeployCommand{}
-	return com, com.Init(newFlagSet(), args)
+	return com, testing.InitCommand(com, args)
 }
 
 func (*CmdSuite) TestDeployCommandInit(c *C) {
@@ -232,7 +228,7 @@ func (*CmdSuite) TestDeployCommandInit(c *C) {
 
 func initAddUnitCommand(args ...string) (*AddUnitCommand, error) {
 	com := &AddUnitCommand{}
-	return com, com.Init(newFlagSet(), args)
+	return com, testing.InitCommand(com, args)
 }
 
 func (*CmdSuite) TestAddUnitCommandInit(c *C) {
@@ -251,7 +247,7 @@ func (*CmdSuite) TestAddUnitCommandInit(c *C) {
 
 func initExposeCommand(args ...string) (*ExposeCommand, error) {
 	com := &ExposeCommand{}
-	return com, com.Init(newFlagSet(), args)
+	return com, testing.InitCommand(com, args)
 }
 
 func (*CmdSuite) TestExposeCommandInit(c *C) {
@@ -264,7 +260,7 @@ func (*CmdSuite) TestExposeCommandInit(c *C) {
 
 func initUnexposeCommand(args ...string) (*UnexposeCommand, error) {
 	com := &UnexposeCommand{}
-	return com, com.Init(newFlagSet(), args)
+	return com, testing.InitCommand(com, args)
 }
 
 func (*CmdSuite) TestUnexposeCommandInit(c *C) {
@@ -277,7 +273,7 @@ func (*CmdSuite) TestUnexposeCommandInit(c *C) {
 
 func initSSHCommand(args ...string) (*SSHCommand, error) {
 	com := &SSHCommand{}
-	return com, com.Init(newFlagSet(), args)
+	return com, testing.InitCommand(com, args)
 }
 
 func (*CmdSuite) TestSSHCommandInit(c *C) {
@@ -288,7 +284,7 @@ func (*CmdSuite) TestSSHCommandInit(c *C) {
 
 func initSCPCommand(args ...string) (*SCPCommand, error) {
 	com := &SCPCommand{}
-	return com, com.Init(newFlagSet(), args)
+	return com, testing.InitCommand(com, args)
 }
 
 func (*CmdSuite) TestSCPCommandInit(c *C) {
@@ -303,7 +299,7 @@ func (*CmdSuite) TestSCPCommandInit(c *C) {
 
 func initGetCommand(args ...string) (*GetCommand, error) {
 	com := &GetCommand{}
-	return com, com.Init(newFlagSet(), args)
+	return com, testing.InitCommand(com, args)
 }
 
 func (*CmdSuite) TestGetCommandInit(c *C) {
@@ -314,7 +310,7 @@ func (*CmdSuite) TestGetCommandInit(c *C) {
 
 func initSetCommand(args ...string) (*SetCommand, error) {
 	com := &SetCommand{}
-	return com, com.Init(newFlagSet(), args)
+	return com, testing.InitCommand(com, args)
 }
 
 func (*CmdSuite) TestSetCommandInit(c *C) {
@@ -352,7 +348,7 @@ func (*CmdSuite) TestSetCommandInit(c *C) {
 
 func initDestroyUnitCommand(args ...string) (*DestroyUnitCommand, error) {
 	com := &DestroyUnitCommand{}
-	return com, com.Init(newFlagSet(), args)
+	return com, testing.InitCommand(com, args)
 }
 
 func (*CmdSuite) TestDestroyUnitCommandInit(c *C) {

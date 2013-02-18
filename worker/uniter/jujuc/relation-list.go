@@ -29,8 +29,11 @@ func (c *RelationListCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *RelationListCommand) Init(f *gnuflag.FlagSet, args []string) (err error) {
+func (c *RelationListCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+}
+
+func (c *RelationListCommand) Init(f *gnuflag.FlagSet, args []string) (err error) {
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}

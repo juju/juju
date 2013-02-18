@@ -20,8 +20,11 @@ func (c *DestroyRelationCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *DestroyRelationCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *DestroyRelationCommand) SetFlags(f *gnuflag.FlagSet) {
 	addEnvironFlags(&c.EnvName, f)
+}
+
+func (c *DestroyRelationCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}

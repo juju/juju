@@ -49,8 +49,11 @@ func (c *RemoteCommand) Info() *cmd.Info {
 		"remote", "", "test jujuc", "here is some documentation"}
 }
 
-func (c *RemoteCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *RemoteCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.msg, "error", "", "if set, fail")
+}
+
+func (c *RemoteCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}

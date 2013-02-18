@@ -24,8 +24,11 @@ func (c *RelationSetCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *RelationSetCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *RelationSetCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(newRelationIdValue(c.ctx, &c.RelationId), "r", "specify a relation by id")
+}
+
+func (c *RelationSetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}

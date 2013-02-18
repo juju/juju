@@ -29,14 +29,18 @@ func (c *UpgradeJujuCommand) Info() *cmd.Info {
 	return &cmd.Info{"upgrade-juju", "", "upgrade the tools in a juju environment", ""}
 }
 
-func (c *UpgradeJujuCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *UpgradeJujuCommand) SetFlags(f *gnuflag.FlagSet) {
 	addEnvironFlags(&c.EnvName, f)
+}
+
+func (c *UpgradeJujuCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	var vers string
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools")
 	f.StringVar(&vers, "version", "", "version to upgrade to (defaults to highest available version with the current major version number)")
 	f.BoolVar(&c.BumpVersion, "bump-version", false, "upload the tools with a higher build number if necessary, and use that version (overrides --version)")
 	f.BoolVar(&c.Development, "dev", false, "allow development versions to be chosen")
 
+	// FIXME: closure should work fine here...
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}

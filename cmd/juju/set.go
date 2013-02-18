@@ -25,9 +25,12 @@ func (c *SetCommand) Info() *cmd.Info {
 	return &cmd.Info{"set", "", "set service config options", ""}
 }
 
-func (c *SetCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *SetCommand) SetFlags(f *gnuflag.FlagSet) {
 	addEnvironFlags(&c.EnvName, f)
 	f.Var(&c.Config, "config", "path to yaml-formatted service config")
+}
+
+func (c *SetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}

@@ -19,9 +19,12 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 	return &cmd.Info{"bootstrap", "", "start up an environment from scratch", ""}
 }
 
-func (c *BootstrapCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	addEnvironFlags(&c.EnvName, f)
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
+}
+
+func (c *BootstrapCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}

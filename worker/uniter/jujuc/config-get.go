@@ -24,8 +24,11 @@ func (c *ConfigGetCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *ConfigGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *ConfigGetCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+}
+
+func (c *ConfigGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}

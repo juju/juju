@@ -36,10 +36,13 @@ func (c *TestCommand) Info() *cmd.Info {
 	return &cmd.Info{c.Name, "<something>", c.Name + " the juju", c.Name + "-doc"}
 }
 
-func (c *TestCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *TestCommand) SetFlags(f *gnuflag.FlagSet) {
 	if !c.Minimal {
 		f.StringVar(&c.Option, "option", "", "option-doc")
 	}
+}
+
+func (c *TestCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}
