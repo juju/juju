@@ -191,7 +191,7 @@ var scenarioStatus = &api.Status{
 // setUpScenario makes an environment scenario suitable for
 // testing most kinds of access scenario. It returns
 // a list of all the entities in the scenario.
-// 
+//
 // When the scenario is initialized, we have:
 // user-admin
 // user-other
