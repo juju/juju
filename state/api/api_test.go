@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"fmt"
+	"io"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/rpc"
@@ -554,7 +555,12 @@ func (s *suite) TestStop(c *C) {
 	c.Logf("srv stopped")
 
 	_, err = st.Machine(stm.Id())
-	c.Assert(err, Equals, rpc.ErrShutdown)
+	// The client has not necessarily seen the server
+	// shutdown yet, so there are two possible
+	// errors.
+	if err != rpc.ErrShutdown && err != io.ErrUnexpectedEOF {
+		c.Fatalf("unexpected error from request: %v", err)
+	}
 
 	// Check it can be stopped twice.
 	err = srv.Stop()
