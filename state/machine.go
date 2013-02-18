@@ -325,12 +325,10 @@ func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
 	return p, nil
 }
 
-// InstanceId returns the provider specific instance id for this machine.
-func (m *Machine) InstanceId() (InstanceId, error) {
-	if m.doc.InstanceId == "" {
-		return "", NotFoundf("instance id for machine %v", m)
-	}
-	return m.doc.InstanceId, nil
+// InstanceId returns the provider specific instance id for this machine
+// and whether it has been set.
+func (m *Machine) InstanceId() (InstanceId, bool) {
+	return m.doc.InstanceId, m.doc.InstanceId != ""
 }
 
 // Units returns all the units that have been assigned to the machine.
