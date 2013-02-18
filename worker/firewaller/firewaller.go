@@ -264,9 +264,9 @@ func (fw *Firewaller) reconcileInstances() error {
 		} else if err != nil {
 			return err
 		}
-		instanceId, err := m.InstanceId()
-		if err != nil {
-			return err
+		instanceId, ok := m.InstanceId()
+		if !ok {
+			return fmt.Errorf("instance id for %v not found", m)
 		}
 		instances, err := fw.environ.Instances([]state.InstanceId{instanceId})
 		if err == environs.ErrNoInstances {
@@ -435,9 +435,9 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	if err != nil {
 		return err
 	}
-	instanceId, err := m.InstanceId()
-	if err != nil {
-		return err
+	instanceId, ok := m.InstanceId()
+	if !ok {
+		return fmt.Errorf("instance id for machine %v not found", m)
 	}
 	instances, err := fw.environ.Instances([]state.InstanceId{instanceId})
 	if err != nil {

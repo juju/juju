@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"launchpad.net/goyaml"
+	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/schema"
 	"strings"
 )
@@ -43,6 +44,34 @@ type Meta struct {
 	Peers       map[string]Relation `bson:",omitempty"`
 	Format      int                 `bson:",omitempty"`
 	OldRevision int                 `bson:",omitempty"` // Obsolete
+}
+
+func generateRelationHooks(relName string, allHooks map[string]bool) {
+	for _, hookName := range hooks.RelationHooks() {
+		allHooks[fmt.Sprintf("%s-%s", relName, hookName)] = true
+	}
+}
+
+// Hooks returns a map of all possible valid hooks, taking relations
+// into account. It's a map to enable fast lookups, and the value is
+// always true.
+func (m Meta) Hooks() map[string]bool {
+	allHooks := make(map[string]bool)
+	// Unit hooks
+	for _, hookName := range hooks.UnitHooks() {
+		allHooks[string(hookName)] = true
+	}
+	// Relation hooks
+	for hookName := range m.Provides {
+		generateRelationHooks(hookName, allHooks)
+	}
+	for hookName := range m.Requires {
+		generateRelationHooks(hookName, allHooks)
+	}
+	for hookName := range m.Peers {
+		generateRelationHooks(hookName, allHooks)
+	}
+	return allHooks
 }
 
 // ReadMeta reads the content of a metadata.yaml file and returns
