@@ -2,6 +2,7 @@ package api
 import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/rpc"
+	"launchpad.net/juju-core/log"
 	"errors"
 )
 
@@ -19,6 +20,8 @@ func (e *Error) Error() string {
 func (e *Error) ErrorCode() string {
 	return e.Code
 }
+
+var _ rpc.ErrorCoder = (*Error)(nil)
 
 var (
 	errBadId       = errors.New("id not found")
@@ -51,6 +54,12 @@ const (
 )
 
 func serverError(err error) error {
+	err1 := serverError1(err)
+	log.Printf("error %#v -> %#v", err, err1)
+	return err1
+}
+
+func serverError1(err error) error {
 	code := singletonErrorCodes[err]
 	switch {
 	case code != "":
@@ -81,6 +90,7 @@ func ErrCode(err error) string {
 // clientError maps errors returned from an RPC call into local errors with
 // appropriate values.
 func clientError(err error) error {
+	log.Printf("clientError %#v", err)
 	rerr, ok := err.(*rpc.ServerError)
 	if !ok {
 		return err

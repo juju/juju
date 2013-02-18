@@ -2,7 +2,7 @@ package api_test
 
 import (
 	"fmt"
-	"io"
+	"errors"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/rpc"
@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	coretesting "launchpad.net/juju-core/testing"
 	"net"
+	"io"
 	stdtesting "testing"
 )
 
@@ -411,6 +412,7 @@ func (s *suite) TestMachineInstanceId(c *C) {
 
 	// ... so login as the machine.
 	st := s.openAs(c, stm.EntityName())
+	defer st.Close()
 
 	m, err = st.Machine(stm.Id())
 	c.Assert(err, IsNil)
@@ -442,6 +444,7 @@ func (s *suite) TestMachineRefresh(c *C) {
 	c.Assert(err, IsNil)
 
 	st := s.openAs(c, stm.EntityName())
+	defer st.Close()
 	m, err := st.Machine(stm.Id())
 	c.Assert(err, IsNil)
 
@@ -470,6 +473,7 @@ func (s *suite) TestMachineSetPassword(c *C) {
 	setDefaultPassword(c, stm)
 
 	st := s.openAs(c, stm.EntityName())
+	defer st.Close()
 	m, err := st.Machine(stm.Id())
 	c.Assert(err, IsNil)
 
@@ -488,6 +492,7 @@ func (s *suite) TestMachineEntityName(c *C) {
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, stm)
 	st := s.openAs(c, "machine-0")
+	defer st.Close()
 	m, err := st.Machine("0")
 	c.Assert(err, IsNil)
 	c.Assert(m.EntityName(), Equals, "machine-0")
@@ -496,6 +501,7 @@ func (s *suite) TestMachineEntityName(c *C) {
 func (s *suite) TestUnitRefresh(c *C) {
 	s.setUpScenario(c)
 	st := s.openAs(c, "unit-wordpress-0")
+	defer st.Close()
 
 	u, err := st.Unit("wordpress/0")
 	c.Assert(err, IsNil)
@@ -522,11 +528,16 @@ func (s *suite) TestUnitRefresh(c *C) {
 }
 
 func (s *suite) TestErrors(c *C) {
+	stm, err := s.State.AddMachine(state.JobHostUnits)
+	c.Assert(err, IsNil)
+	setDefaultPassword(c, stm)
+	st := s.openAs(c, stm.EntityName())
+	defer st.Close()
 	// By testing this single call, we test that the
 	// error transformation function is correctly called
 	// on error returns from the API server. The transformation
 	// function itself is tested below.
-	_, err := s.APIState.Machine("99")
+	_, err = st.Machine("99")
 	c.Assert(api.ErrCode(err), Equals, api.CodeNotFound)
 }
 
@@ -561,7 +572,7 @@ var errorTransformTests = []struct {
 	err: api.ErrPerm,
 	code: api.CodeUnauthorized,
 }, {
-	err: api.NotLoggedIn,
+	err: api.ErrNotLoggedIn,
 	code: api.CodeUnauthorized,
 }, {
 	err: &state.NotAssignedError{&state.Unit{}},	// too sleazy?!
@@ -576,7 +587,7 @@ func (s *suite) TestErrorTransform(c *C) {
 		err1 := api.ServerError(t.err)
 		c.Assert(err1.Error(), Equals, t.err.Error())
 		if t.code != "" {
-			c.Assert(err1.(rpc.ErrorCoder).Code(), Equals, t.code)
+			c.Assert(api.ErrCode(err1), Equals, t.code)
 		} else {
 			c.Assert(err1, Equals, t.err)
 		}
@@ -588,6 +599,7 @@ func (s *suite) TestUnitEntityName(c *C) {
 
 	s.setUpScenario(c)
 	st := s.openAs(c, "unit-wordpress-0")
+	defer st.Close()
 	u, err := st.Unit("wordpress/0")
 	c.Assert(err, IsNil)
 	c.Assert(u.EntityName(), Equals, "unit-wordpress-0")

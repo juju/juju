@@ -135,6 +135,7 @@ type serverReq struct {
 type serverResp struct {
 	RequestId uint64
 	Error     string      `json:",omitempty"`
+	ErrorCode string 	`json:",omitempty"`
 	Response  interface{} `json:",omitempty"`
 }
 
@@ -173,6 +174,7 @@ func (c *serverCodec) WriteResponse(resp *rpc.Response, body interface{}) error 
 	return websocket.JSON.Send(c.conn, &serverResp{
 		RequestId: resp.RequestId,
 		Error:     resp.Error,
+		ErrorCode: resp.ErrorCode,
 		Response:  body,
 	})
 }

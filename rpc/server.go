@@ -150,6 +150,7 @@ func (csrv *codecServer) setError(resp *Response, err error) {
 	err = csrv.transformErrors(err)
 	resp.Error = err.Error()
 	if err, ok := err.(ErrorCoder); ok {
+		log.Printf("rpc: setting error code to %q", err.ErrorCode())
 		resp.ErrorCode = err.ErrorCode()
 	} else {
 		resp.ErrorCode = ""
