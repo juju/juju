@@ -277,6 +277,34 @@ func (*suite) TestErrorCode(c *C) {
 	c.Assert(err, IsNil)
 }
 
+func (*suite) TestTransformErrors(c *C) {
+	root := &TRoot{
+		errorInst: &ErrorMethods{&codedError{"message", "code"}},
+	}
+	tfErr := func(err error) error {
+		c.Check(err, NotNil)
+		e := err.(*codedError)
+		return &codedError{
+			m: "transformed " + e.m,
+			code: "transformed " + e.code,
+		}
+	}
+	client, srvDone := newRPCClientServer(c, root, tfErr)
+	err := client.Call("ErrorMethods", "", "Call", nil, nil)
+	c.Assert(err, DeepEquals, &rpc.ServerError{
+		Message: "transformed message",
+		Code: "transformed code",
+	})
+
+	root.errorInst.err = nil
+	err = client.Call("ErrorMethods", "", "Call", nil, nil)
+	c.Assert(err, IsNil)
+
+	client.Close()
+	err = chanReadError(c, srvDone, "server done")
+	c.Assert(err, IsNil)
+}
+
 func (*suite) TestServerWaitsForOutstandingCalls(c *C) {
 	ready := make(chan struct{})
 	start := make(chan string)
