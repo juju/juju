@@ -2,6 +2,7 @@ package api
 import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/rpc"
+	"errors"
 )
 
 // Error is the type of error returned by any call

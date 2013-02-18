@@ -39,7 +39,7 @@ func NewServer(s *state.State, addr string, cert, key []byte) (*Server, error) {
 		state: s,
 		addr:  lis.Addr(),
 	}
-	srv.rpcSrv, err = rpc.NewServer(&srvRoot{})
+	srv.rpcSrv, err = rpc.NewServer(&srvRoot{}, serverError)
 	lis = tls.NewListener(lis, &tls.Config{
 		Certificates: []tls.Certificate{tlsCert},
 	})

@@ -2,7 +2,6 @@ package api
 
 import (
 	"code.google.com/p/go.net/websocket"
-	"errors"
 	"fmt"
 	"launchpad.net/juju-core/state"
 	"sync"
@@ -139,7 +138,7 @@ func (r *srvRoot) User(name string) (*srvUser, error) {
 	// the administrator.
 	e := r.user.entity()
 	if e == nil {
-		return nil, serverError(errNotLoggedIn) XXXX
+		return nil, errNotLoggedIn
 	}
 	if e.EntityName() != name {
 		return nil, errPerm
