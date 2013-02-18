@@ -78,9 +78,9 @@ func NewServer(rootValue interface{}, transformErrors func(error) error) (*Serve
 		transformErrors = func(e error) error { return e }
 	}
 	srv := &Server{
-		root:   reflect.ValueOf(rootValue),
-		obtain: make(map[string]*obtainer),
-		action: make(map[reflect.Type]map[string]*action),
+		root:            reflect.ValueOf(rootValue),
+		obtain:          make(map[string]*obtainer),
+		action:          make(map[reflect.Type]map[string]*action),
 		transformErrors: transformErrors,
 	}
 	rt := srv.root.Type()

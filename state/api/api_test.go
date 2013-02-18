@@ -1,8 +1,9 @@
 package api_test
 
 import (
-	"fmt"
 	"errors"
+	"fmt"
+	"io"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/rpc"
@@ -10,7 +11,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	coretesting "launchpad.net/juju-core/testing"
 	"net"
-	"io"
 	stdtesting "testing"
 )
 
@@ -318,17 +318,17 @@ var badLoginTests = []struct {
 	entityName string
 	password   string
 	err        string
-	code string
+	code       string
 }{{
 	entityName: "user-admin",
 	password:   "wrong password",
 	err:        "invalid entity name or password",
-	code: api.CodeUnauthorized,
+	code:       api.CodeUnauthorized,
 }, {
 	entityName: "user-foo",
 	password:   "password",
 	err:        "invalid entity name or password",
-	code: api.CodeUnauthorized,
+	code:       api.CodeUnauthorized,
 }, {
 	entityName: "bar",
 	password:   "password",
@@ -542,43 +542,43 @@ func (s *suite) TestErrors(c *C) {
 }
 
 var errorTransformTests = []struct {
-	err error
+	err  error
 	code string
 }{{
-	err: state.NotFoundf("hello"),
+	err:  state.NotFoundf("hello"),
 	code: api.CodeNotFound,
 }, {
-	err: 	state.ErrUnauthorized,
+	err:  state.ErrUnauthorized,
 	code: api.CodeUnauthorized,
 }, {
-	err: state.ErrCannotEnterScopeYet,
+	err:  state.ErrCannotEnterScopeYet,
 	code: api.CodeCannotEnterScopeYet,
 }, {
-	err: state.ErrCannotEnterScope,
+	err:  state.ErrCannotEnterScope,
 	code: api.CodeCannotEnterScope,
 }, {
-	err: state.ErrExcessiveContention,
+	err:  state.ErrExcessiveContention,
 	code: api.CodeExcessiveContention,
 }, {
-	err: state.ErrUnitHasSubordinates,
+	err:  state.ErrUnitHasSubordinates,
 	code: api.CodeUnitHasSubordinates,
 }, {
-	err: api.ErrBadId,
+	err:  api.ErrBadId,
 	code: api.CodeNotFound,
 }, {
-	err: api.ErrBadCreds,
+	err:  api.ErrBadCreds,
 	code: api.CodeUnauthorized,
 }, {
-	err: api.ErrPerm,
+	err:  api.ErrPerm,
 	code: api.CodeUnauthorized,
 }, {
-	err: api.ErrNotLoggedIn,
+	err:  api.ErrNotLoggedIn,
 	code: api.CodeUnauthorized,
 }, {
-	err: &state.NotAssignedError{&state.Unit{}},	// too sleazy?!
+	err:  &state.NotAssignedError{&state.Unit{}}, // too sleazy?!
 	code: api.CodeNotAssigned,
 }, {
-	err: errors.New("an error"),
+	err:  errors.New("an error"),
 	code: "",
 }}
 

@@ -288,7 +288,7 @@ func (*suite) TestTransformErrors(c *C) {
 		c.Check(err, NotNil)
 		if e, ok := err.(*codedError); ok {
 			return &codedError{
-				m: "transformed: " + e.m,
+				m:    "transformed: " + e.m,
 				code: "transformed: " + e.code,
 			}
 		}
@@ -298,7 +298,7 @@ func (*suite) TestTransformErrors(c *C) {
 	err := client.Call("ErrorMethods", "", "Call", nil, nil)
 	c.Assert(err, DeepEquals, &rpc.ServerError{
 		Message: "transformed: message",
-		Code: "transformed: code",
+		Code:    "transformed: code",
 	})
 
 	root.errorInst.err = nil

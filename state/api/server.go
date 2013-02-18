@@ -135,7 +135,7 @@ type serverReq struct {
 type serverResp struct {
 	RequestId uint64
 	Error     string      `json:",omitempty"`
-	ErrorCode string 	`json:",omitempty"`
+	ErrorCode string      `json:",omitempty"`
 	Response  interface{} `json:",omitempty"`
 }
 

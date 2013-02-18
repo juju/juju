@@ -144,6 +144,7 @@ func (s *MachineSuite) TestManageEnviron(c *C) {
 	go func() {
 		done <- a.Run(nil)
 	}()
+	defer a.Stop()
 
 	// Check that the provisioner and firewaller are alive by doing
 	// a rudimentary check that it responds to state changes.

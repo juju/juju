@@ -1,16 +1,17 @@
 package api
+
 import (
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/rpc"
-	"launchpad.net/juju-core/log"
 	"errors"
+	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/rpc"
+	"launchpad.net/juju-core/state"
 )
 
 // Error is the type of error returned by any call
 // to the state API.
 type Error struct {
 	Message string
-	Code string
+	Code    string
 }
 
 func (e *Error) Error() string {
@@ -30,27 +31,27 @@ var (
 	errNotLoggedIn = errors.New("not logged in")
 )
 
-var singletonErrorCodes = map[error] string {
-	state.ErrUnauthorized: CodeUnauthorized,
+var singletonErrorCodes = map[error]string{
+	state.ErrUnauthorized:        CodeUnauthorized,
 	state.ErrCannotEnterScopeYet: CodeCannotEnterScopeYet,
-	state.ErrCannotEnterScope: CodeCannotEnterScope,
+	state.ErrCannotEnterScope:    CodeCannotEnterScope,
 	state.ErrExcessiveContention: CodeExcessiveContention,
 	state.ErrUnitHasSubordinates: CodeUnitHasSubordinates,
-	errBadId: CodeNotFound,
-	errBadCreds: CodeUnauthorized,
-	errPerm: CodeUnauthorized,
-	errNotLoggedIn: CodeUnauthorized,
+	errBadId:                     CodeNotFound,
+	errBadCreds:                  CodeUnauthorized,
+	errPerm:                      CodeUnauthorized,
+	errNotLoggedIn:               CodeUnauthorized,
 }
 
 // The Code constants hold error codes for some kinds of error.
 const (
-	CodeNotFound = "not found"
-	CodeUnauthorized = "unauthorized access"
-	CodeCannotEnterScope = "cannot enter scope"
+	CodeNotFound            = "not found"
+	CodeUnauthorized        = "unauthorized access"
+	CodeCannotEnterScope    = "cannot enter scope"
 	CodeCannotEnterScopeYet = "cannot enter scope yet"
 	CodeExcessiveContention = "excessive contention"
 	CodeUnitHasSubordinates = "unit has subordinates"
-	CodeNotAssigned = "not assigned"
+	CodeNotAssigned         = "not assigned"
 )
 
 func serverError(err error) error {
@@ -71,7 +72,7 @@ func serverError1(err error) error {
 	if code != "" {
 		return &Error{
 			Message: err.Error(),
-			Code: code,
+			Code:    code,
 		}
 	}
 	return err
@@ -101,6 +102,6 @@ func clientError(err error) error {
 	// know that we're using the rpc package.
 	return &Error{
 		Message: rerr.Message,
-		Code: rerr.Code,
+		Code:    rerr.Code,
 	}
 }
