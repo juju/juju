@@ -511,6 +511,14 @@ func (s *suite) TestUnitRefresh(c *C) {
 	c.Assert(deployer, Equals, "")
 }
 
+func (s *suite) TestErrors(c *C) {
+	// By testing this single call, we test the path
+	// from XXX
+	_, err := s.APIConn.Machine("99")
+	c.Assert(api.ErrCode(err), Equals, api.CodeNotFound)
+
+	_, err = 
+
 func (s *suite) TestUnitEntityName(c *C) {
 	c.Assert(api.UnitEntityName("wordpress/2"), Equals, "unit-wordpress-2")
 

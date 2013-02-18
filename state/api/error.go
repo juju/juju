@@ -19,12 +19,23 @@ func (e *Error) ErrorCode() string {
 	return e.Code
 }
 
+var (
+	errBadId       = errors.New("id not found")
+	errBadCreds    = errors.New("invalid entity name or password")
+	errPerm        = errors.New("permission denied")
+	errNotLoggedIn = errors.New("not logged in")
+)
+
 var singletonErrorCodes = map[error] string {
 	state.ErrUnauthorized: CodeUnauthorized,
 	state.ErrCannotEnterScopeYet: CodeCannotEnterScopeYet,
 	state.ErrCannotEnterScope: CodeCannotEnterScope,
 	state.ErrExcessiveContention: CodeExcessiveContention,
 	state.ErrUnitHasSubordinates: CodeUnitHasSubordinates,
+	errBadId: CodeNotFound,
+	errBadCreds: CodeUnauthorized,
+	errPerm: CodeUnauthorized,
+	errNotLoggedIn: CodeUnauthorized,
 }
 
 // The Code constants hold error codes for some kinds of error.
@@ -48,7 +59,7 @@ func serverError(err error) error {
 		code = CodeNotAssigned
 	}
 	if code != "" {
-		return &rpc.ServerError{
+		return &Error{
 			Message: err.Error(),
 			Code: code,
 		}

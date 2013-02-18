@@ -12,13 +12,6 @@ import (
 // has been updated to set passwords appropriately.
 var AuthenticationEnabled = false
 
-var (
-	errBadId       = errors.New("id not found")
-	errBadCreds    = errors.New("invalid entity name or password")
-	errNotLoggedIn = errors.New("not logged in")
-	errPerm        = errors.New("permission denied")
-)
-
 // srvRoot represents a single client's connection to the state.
 type srvRoot struct {
 	admin  *srvAdmin
@@ -146,7 +139,7 @@ func (r *srvRoot) User(name string) (*srvUser, error) {
 	// the administrator.
 	e := r.user.entity()
 	if e == nil {
-		return nil, errNotLoggedIn
+		return nil, serverError(errNotLoggedIn) XXXX
 	}
 	if e.EntityName() != name {
 		return nil, errPerm
