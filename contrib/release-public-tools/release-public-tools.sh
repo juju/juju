@@ -48,5 +48,5 @@ esac
 
 TOOLS=${WORK}/juju-${VERSION}-${SERIES}-${ARCH}.tgz
 dpkg-deb -x ${WORK}/juju.deb ${WORK}/juju
-tar cvfz $TOOLS -C ${WORK}/juju/usr/bin jujuc jujud
+tar cvfz $TOOLS -C ${WORK}/juju/usr/bin jujud
 s3up --public ${TOOLS} juju-dist/tools/
