@@ -3,12 +3,15 @@ package charm_test
 import (
 	"archive/zip"
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/testing"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 )
 
@@ -100,6 +103,56 @@ func (s *DirSuite) TestBundleTo(c *C) {
 	c.Assert(emptyf.Mode()&os.ModeType, Equals, os.ModeDir)
 	// Despite it being 0750, we pack and unpack it as 0755.
 	c.Assert(emptyf.Mode()&0777, Equals, os.FileMode(0755))
+}
+
+// Bug #864164: Must complain if charm hooks aren't executable
+func (s *DirSuite) TestBundleToWithNonExecutableHooks(c *C) {
+	orig := log.Target
+	log.Target = c
+	defer func() { log.Target = orig }()
+	hooks := []string{"install", "start", "config-changed", "upgrade-charm", "stop"}
+	for _, relName := range []string{"foo", "bar", "self"} {
+		for _, kind := range []string{"joined", "changed", "departed", "broken"} {
+			hooks = append(hooks, relName+"-relation-"+kind)
+		}
+	}
+
+	dir := testing.Charms.Dir("all-hooks")
+	path := filepath.Join(c.MkDir(), "bundle.charm")
+	file, err := os.Create(path)
+	c.Assert(err, IsNil)
+	err = dir.BundleTo(file)
+	file.Close()
+	c.Assert(err, IsNil)
+
+	tlog := c.GetTestLog()
+	for _, hook := range hooks {
+		fullpath := filepath.Join(dir.Path, "hooks", hook)
+		exp := fmt.Sprintf(`^(.|\n)*JUJU charm: WARNING: making "%s" executable in charm(.|\n)*$`, fullpath)
+		c.Assert(tlog, Matches, exp, Commentf("hook %q was not made executable", fullpath))
+	}
+
+	// Expand it and check the hooks' permissions
+	// (But do not use ExpandTo(), just use the raw zip)
+	f, err := os.Open(path)
+	c.Assert(err, IsNil)
+	defer f.Close()
+	fi, err := f.Stat()
+	c.Assert(err, IsNil)
+	size := fi.Size()
+	zipr, err := zip.NewReader(f, size)
+	c.Assert(err, IsNil)
+	allhooks := dir.Meta().Hooks()
+	for _, zfile := range zipr.File {
+		cleanName := filepath.Clean(zfile.Name)
+		if strings.HasPrefix(cleanName, "hooks") {
+			hookName := filepath.Base(cleanName)
+			if _, ok := allhooks[hookName]; ok {
+				perms := zfile.Mode()
+				c.Assert(perms&0100 != 0, Equals, true, Commentf("hook %q is not executable", hookName))
+			}
+		}
+	}
 }
 
 func (s *DirSuite) TestBundleToWithBadType(c *C) {

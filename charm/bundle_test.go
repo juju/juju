@@ -1,15 +1,19 @@
 package charm_test
 
 import (
+	"archive/zip"
 	"bytes"
 	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
+	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/testing"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
+	"syscall"
 )
 
 type BundleSuite struct {
@@ -59,6 +63,68 @@ func (s *BundleSuite) TestExpandTo(c *C) {
 	dir, err := charm.ReadDir(path)
 	c.Assert(err, IsNil)
 	checkDummy(c, dir, path)
+}
+
+func (s *BundleSuite) prepareBundle(c *C, charmDir *charm.Dir, bundlePath string) {
+	file, err := os.Create(bundlePath)
+	c.Assert(err, IsNil)
+	defer file.Close()
+	zipw := zip.NewWriter(file)
+	defer zipw.Close()
+
+	h := &zip.FileHeader{Name: "revision"}
+	h.SetMode(syscall.S_IFREG | 0644)
+	w, err := zipw.CreateHeader(h)
+	c.Assert(err, IsNil)
+	_, err = w.Write([]byte(strconv.Itoa(charmDir.Revision())))
+
+	h = &zip.FileHeader{Name: "metadata.yaml", Method: zip.Deflate}
+	h.SetMode(0644)
+	w, err = zipw.CreateHeader(h)
+	c.Assert(err, IsNil)
+	data, err := goyaml.Marshal(charmDir.Meta())
+	c.Assert(err, IsNil)
+	_, err = w.Write(data)
+	c.Assert(err, IsNil)
+
+	for name := range charmDir.Meta().Hooks() {
+		hookName := filepath.Join("hooks", name)
+		h = &zip.FileHeader{
+			Name:   hookName,
+			Method: zip.Deflate,
+		}
+		// Force it non-executable
+		h.SetMode(0644)
+		w, err := zipw.CreateHeader(h)
+		c.Assert(err, IsNil)
+		_, err = w.Write([]byte("not important"))
+		c.Assert(err, IsNil)
+	}
+}
+
+func (s *BundleSuite) TestExpandToSetsHooksExecutable(c *C) {
+	charmDir := testing.Charms.ClonedDir(c.MkDir(), "all-hooks")
+	// Bundle manually, so we can check ExpandTo(), unaffected
+	// by BundleTo()'s behavior
+	bundlePath := filepath.Join(c.MkDir(), "bundle.charm")
+	s.prepareBundle(c, charmDir, bundlePath)
+	bundle, err := charm.ReadBundle(bundlePath)
+	c.Assert(err, IsNil)
+
+	path := filepath.Join(c.MkDir(), "charm")
+	err = bundle.ExpandTo(path)
+	c.Assert(err, IsNil)
+
+	_, err = charm.ReadDir(path)
+	c.Assert(err, IsNil)
+
+	for name := range bundle.Meta().Hooks() {
+		hookName := string(name)
+		info, err := os.Stat(filepath.Join(path, "hooks", hookName))
+		c.Assert(err, IsNil)
+		perm := info.Mode() & 0777
+		c.Assert(perm&0100 != 0, Equals, true, Commentf("hook %q is not executable", hookName))
+	}
 }
 
 func (s *BundleSuite) TestBundleFileModes(c *C) {
