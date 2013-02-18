@@ -20,8 +20,11 @@ func (c *AddRelationCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *AddRelationCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *AddRelationCommand) SetFlags(f *gnuflag.FlagSet) {
 	addEnvironFlags(&c.EnvName, f)
+}
+
+func (c *AddRelationCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}

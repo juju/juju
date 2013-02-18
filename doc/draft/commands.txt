@@ -1,0 +1,51 @@
+Commands and Sub-commands
+=========================
+
+The base Command interface is found in `cmd/cmd.go`.
+
+Commands need to provide an Info() method that returns an Info struct.
+
+The info struct contains: name, args, purpose and a detailed description.
+
+
+juju
+====
+
+Supercommands are commands that have subcommands.  Subcommands are registered
+using the Register method.
+
+
+When the super command is initialized, it adds the logging flags to the
+flagset ("log-file", "v", "verbose", "debug")
+
+If there are no args after the flags are parsed, the default behaviour is to
+error out (TODO: change this to output the help subcommand).
+
+If the command isn't found, it outputs unrecognized command.  It would also be
+helpful here to reference 'arg[0] help commands' to see what commands there
+are.
+
+If the subcommand is found, it is initialized with the flagset (as parsed for
+the logging flags) and the extra args.
+
+When the subcommand is added, it calls the Init method of the command.  It is
+up to the Init method to set all the params in the command object to what it
+needs to run the command.
+
+The Run method is passed the command context, which encapsulates the current
+working directory, stdin, stdout and stderr.
+
+
+Still looking for how --help works...
+
+First thought is that f.Parse() returns an error... maybe not... cause that
+would just be weird.  Ah fark, yep, that is what it does... - return false, ErrHelp
+
+
+
+TODO: adding the help command.
+
+* Need to add a help command object
+* Need to add a default command option to the super command
+* Need to add a topic registry to the help command
+

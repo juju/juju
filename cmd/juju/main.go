@@ -38,7 +38,7 @@ func Main(args []string) {
 	juju.Register(&ExposeCommand{})
 	juju.Register(&GenerateConfigCommand{})
 	juju.Register(&GetCommand{})
-	juju.Register(&HelpCommand{})
+	juju.Register(&HelpCommand{Parent: juju})
 	juju.Register(&ResolvedCommand{})
 	juju.Register(&SetCommand{})
 	juju.Register(&SCPCommand{})

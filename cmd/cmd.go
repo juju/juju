@@ -22,8 +22,10 @@ type Command interface {
 	// Info returns information about the Command.
 	Info() *Info
 
-	// Init initializes the Command before running. The command may add options
-	// to f before processing args.
+	// Add command specific flags to the flag set.
+	SetFlags(f *gnuflag.FlagSet)
+
+	// Init initializes the Command before running.
 	Init(f *gnuflag.FlagSet, args []string) error
 
 	// Run will execute the Command as directed by the options and positional
@@ -100,6 +102,7 @@ func (i *Info) Help(f *gnuflag.FlagSet) []byte {
 func Main(c Command, ctx *Context, args []string) int {
 	f := gnuflag.NewFlagSet(c.Info().Name, gnuflag.ContinueOnError)
 	f.SetOutput(ioutil.Discard)
+	c.SetFlags(f)
 	if err := c.Init(f, args); err != nil {
 		if err == gnuflag.ErrHelp {
 			ctx.Stderr.Write(c.Info().Help(f))

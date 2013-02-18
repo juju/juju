@@ -18,6 +18,8 @@ type SuperCommand struct {
 	Log     *Log
 	subcmds map[string]Command
 	subcmd  Command
+	// TODO: why is the subcmd a Command and not a *Command?
+	help *Command
 }
 
 // Register makes a subcommand available for use on the command line. The
@@ -39,6 +41,9 @@ func (c *SuperCommand) insert(subcmd Command) {
 		panic(fmt.Sprintf("command already registered: %s", name))
 	}
 	c.subcmds[name] = subcmd
+	if name == "help" {
+		c.help = &subcmd
+	}
 }
 
 type alias struct {
@@ -92,6 +97,12 @@ func (c *SuperCommand) Info() *Info {
 	return &Info{c.Name, "<command> ...", c.Purpose, strings.Join(docParts, "\n\n")}
 }
 
+// Return a pointer to a command if we have it.
+func (c *SuperCommand) GetCommand(name string) (Command, bool) {
+	command, found := c.subcmds[name]
+	return command, found
+}
+
 // Init initializes the command for running.
 func (c *SuperCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	if c.Log != nil {
@@ -102,13 +113,21 @@ func (c *SuperCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	}
 	subargs := f.Args()
 	if len(subargs) == 0 {
-		return fmt.Errorf("no command specified")
+		// If there are no args specified, and we have a help command, call
+		// that with no args.
+		if c.help == nil {
+			return fmt.Errorf("no command specified")
+		} else {
+			c.subcmd = *c.help
+		}
+	} else {
+		found := false
+		if c.subcmd, found = c.subcmds[subargs[0]]; !found {
+			return fmt.Errorf("unrecognized command: %s %s", c.Info().Name, subargs[0])
+		}
+		subargs = subargs[1:]
 	}
-	found := false
-	if c.subcmd, found = c.subcmds[subargs[0]]; !found {
-		return fmt.Errorf("unrecognized command: %s %s", c.Info().Name, subargs[0])
-	}
-	return c.subcmd.Init(f, subargs[1:])
+	return c.subcmd.Init(f, subargs)
 }
 
 // Run executes the subcommand that was selected in Init.
