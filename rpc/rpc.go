@@ -31,6 +31,10 @@ type Server struct {
 	// object of that type, with information about each
 	// method.
 	action map[reflect.Type]map[string]*action
+
+	// transformErrors is used to process all errors sent to
+	// the client.
+	transformErrors func(error) error
 }
 
 // NewServer returns a new server that will serve requests
@@ -65,11 +69,19 @@ type Server struct {
 //	Method(T) (R, error)
 //	Method(T) error
 //
-func NewServer(rootValue interface{}) (*Server, error) {
+// If transformErrors is non-nil, it will be called on all returned
+// non-nil errors, for example to transform the errors into ServerErrors
+// with specified codes.  There will be a panic if transformErrors
+// returns nil.
+func NewServer(rootValue interface{}, transformErrors func(error) error) (*Server, error) {
+	if transformErrors == nil {
+		transformErrors = func(e error) error { return e }
+	}
 	srv := &Server{
 		root:   reflect.ValueOf(rootValue),
 		obtain: make(map[string]*obtainer),
 		action: make(map[reflect.Type]map[string]*action),
+		transformErrors: transformErrors,
 	}
 	rt := srv.root.Type()
 	for i := 0; i < rt.NumMethod(); i++ {

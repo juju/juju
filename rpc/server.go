@@ -157,6 +157,7 @@ func (csrv *codecServer) runRequest(reqId uint64, objId string, o *obtainer, a *
 		RequestId: reqId,
 	}
 	if err != nil {
+		err = csrv.transformErrors(err)
 		resp.Error = err.Error()
 		if err, ok := err.(ErrorCoder); ok {
 			resp.ErrorCode = err.ErrorCode()
