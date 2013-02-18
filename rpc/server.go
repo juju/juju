@@ -110,7 +110,7 @@ func (srv *Server) serve(root reflect.Value, codec ServerCodec) error {
 			resp := &Response{
 				RequestId: req.RequestId,
 			}
-			resp.Error = err.Error()
+			csrv.setError(resp, err)
 			if err := codec.WriteResponse(resp, struct{}{}); err != nil {
 				return err
 			}
@@ -146,6 +146,16 @@ func (csrv *codecServer) findRequest(req *Request) (*obtainer, *action, error) {
 	return o, a, nil
 }
 
+func (csrv *codecServer) setError(resp *Response, err error) {
+	err = csrv.transformErrors(err)
+	resp.Error = err.Error()
+	if err, ok := err.(ErrorCoder); ok {
+		resp.ErrorCode = err.ErrorCode()
+	} else {
+		resp.ErrorCode = ""
+	}
+}
+
 // runRequest runs the given request and sends the reply.
 func (csrv *codecServer) runRequest(reqId uint64, objId string, o *obtainer, a *action, arg reflect.Value) {
 	defer csrv.pending.Done()
@@ -157,11 +167,7 @@ func (csrv *codecServer) runRequest(reqId uint64, objId string, o *obtainer, a *
 		RequestId: reqId,
 	}
 	if err != nil {
-		err = csrv.transformErrors(err)
-		resp.Error = err.Error()
-		if err, ok := err.(ErrorCoder); ok {
-			resp.ErrorCode = err.ErrorCode()
-		}
+		csrv.setError(resp, err)
 		rvi = struct{}{}
 	} else if rv.IsValid() {
 		rvi = rv.Interface()

@@ -76,6 +76,9 @@ func (r *TRoot) DelayedMethods(id string) (*DelayedMethods, error) {
 }
 
 func (r *TRoot) ErrorMethods(id string) (*ErrorMethods, error) {
+	if r.errorInst == nil {
+		return nil, fmt.Errorf("no error methods")
+	}
 	return r.errorInst, nil
 }
 
@@ -283,22 +286,30 @@ func (*suite) TestTransformErrors(c *C) {
 	}
 	tfErr := func(err error) error {
 		c.Check(err, NotNil)
-		e := err.(*codedError)
-		return &codedError{
-			m: "transformed " + e.m,
-			code: "transformed " + e.code,
+		if e, ok := err.(*codedError); ok {
+			return &codedError{
+				m: "transformed: " + e.m,
+				code: "transformed: " + e.code,
+			}
 		}
+		return fmt.Errorf("transformed: %v", err)
 	}
 	client, srvDone := newRPCClientServer(c, root, tfErr)
 	err := client.Call("ErrorMethods", "", "Call", nil, nil)
 	c.Assert(err, DeepEquals, &rpc.ServerError{
-		Message: "transformed message",
-		Code: "transformed code",
+		Message: "transformed: message",
+		Code: "transformed: code",
 	})
 
 	root.errorInst.err = nil
 	err = client.Call("ErrorMethods", "", "Call", nil, nil)
 	c.Assert(err, IsNil)
+
+	root.errorInst = nil
+	err = client.Call("ErrorMethods", "", "Call", nil, nil)
+	c.Assert(err, DeepEquals, &rpc.ServerError{
+		Message: "transformed: no error methods",
+	})
 
 	client.Close()
 	err = chanReadError(c, srvDone, "server done")
@@ -417,7 +428,7 @@ func (*suite) TestBadCall(c *C) {
 }
 
 func (*suite) TestErrorAfterClientClose(c *C) {
-	client, srvDone := newRPCClientServer(c, &TRoot{})
+	client, srvDone := newRPCClientServer(c, &TRoot{}, nil)
 	err := client.Close()
 	c.Assert(err, IsNil)
 	err = client.Call("Foo", "", "Bar", nil, nil)
