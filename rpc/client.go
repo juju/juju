@@ -150,9 +150,6 @@ func (client *Client) input() {
 		response = Response{}
 		err = client.codec.ReadResponseHeader(&response)
 		if err != nil {
-			if err == io.EOF && !client.closing {
-				err = io.ErrUnexpectedEOF
-			}
 			break
 		}
 		reqId := response.RequestId
@@ -189,6 +186,13 @@ func (client *Client) input() {
 	client.mutex.Lock()
 	client.shutdown = true
 	closing := client.closing
+	if err == io.EOF {
+		if closing {
+			err = ErrShutdown
+		} else {
+			err = io.ErrUnexpectedEOF
+		}
+	}
 	for _, call := range client.pending {
 		call.Error = err
 		call.done()

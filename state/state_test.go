@@ -39,7 +39,7 @@ func (s *StateSuite) TestStateInfo(c *C) {
 
 func (s *StateSuite) TestIsNotFound(c *C) {
 	err1 := fmt.Errorf("unrelated error")
-	err2 := &state.NotFoundError{}
+	err2 := state.NotFoundf("foo")
 	c.Assert(state.IsNotFound(err1), Equals, false)
 	c.Assert(state.IsNotFound(err2), Equals, true)
 }
