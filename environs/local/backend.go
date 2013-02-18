@@ -119,12 +119,3 @@ func listen(dataPath, environName, ip string, port int) (net.Listener, error) {
 
 	return listener, nil
 }
-
-// isNotExist checks if a returned error shows that a file 
-// does not exist.
-func isNotExist(err error) bool {
-	if err, ok := err.(*os.PathError); ok && (os.IsNotExist(err.Err) || err.Err == syscall.ENOTDIR) {
-		return true
-	}
-	return false
-}
