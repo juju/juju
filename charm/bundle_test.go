@@ -74,7 +74,7 @@ func (s *BundleSuite) TestBundleFileModes(c *C) {
 	}
 	for _, m := range modes {
 		err := os.Chmod(filepath.Join(srcPath, m.path), m.mode)
-                c.Assert(err, IsNil)
+		c.Assert(err, IsNil)
 	}
 
 	// Bundle and extract the charm to a new directory.
