@@ -82,37 +82,35 @@ func (s *ConfigSuite) TestGetConfig(c *C) {
 }
 
 var setTests = []struct {
+	about string
 	args     []string               // command to be executed
-	expected map[string]interface{} // resulting configuration of the dummy service.
+	expect map[string]interface{} // resulting configuration of the dummy service.
 	err      string                 // error regex
 }{{
-		// invalid option
-		[]string{"foo", "bar"},
-		nil,
-		"error: invalid option: \"foo\"\n",
+		about: "invalid option",
+		args: []string{"foo", "bar"},
+		err: "error: invalid option: \"foo\"\n",
 	}, {
-		// whack option
-		[]string{"=bar"},
-		nil,
-		"error: invalid option: \"=bar\"\n",
+		about: "whack option",
+		args: []string{"=bar"},
+		err: "error: invalid option: \"=bar\"\n",
 	}, {
-		// --config missing
-		[]string{"--config", "missing.yaml"},
-		nil,
-		"error.*no such file or directory\n",
+		about: "--config missing",
+		args: []string{"--config", "missing.yaml"},
+		err: "error.*no such file or directory\n",
 	}, {
-		// set with options
-		[]string{"outlook=positive"},
-		XXXX
+		about: "set with options",
+		args: []string{"username=hello"},
+		expect: map[string]interface{}{
+			"username": "hello",
+		},
 	}, {
-		// --config $FILE test
-		[]string{"--config", "testconfig.yaml"},
-		map[string]interface{}{
-			"title":       "My Title",
+		about: "--config $FILE test",
+		args: []string{"--config", "testconfig.yaml"},
+		expect: map[string]interface{}{
 			"username":    "admin001",
 			"skill-level": int64(9000), // yaml int types are int64
 		},
-		"",
 	},
 }
 
@@ -120,22 +118,20 @@ func (s *ConfigSuite) TestSetConfig(c *C) {
 	sch := s.AddTestingCharm(c, "dummy")
 	svc, err := s.State.AddService("dummy-service", sch)
 	c.Assert(err, IsNil)
-			cfg0, err := svc.Config()
-			c.Assert(err, IsNil)
-			c.Logf("initial config: %#v", cfg0.Map())
 	dir := c.MkDir()
 	setupConfigfile(c, dir)
-	for _, t := range setTests {
+	for i, t := range setTests {
 		args := append([]string{"dummy-service"}, t.args...)
-		c.Logf("%s", args)
+		c.Logf("test %d. %s", i, t.about)
 		ctx := &cmd.Context{dir, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}}
 		code := cmd.Main(&SetCommand{}, ctx, args)
-		if code != 0 {
+		if t.err != "" {
+			c.Assert(code, Not(Equals), 0)
 			c.Assert(ctx.Stderr.(*bytes.Buffer).String(), Matches, t.err)
 		} else {
 			cfg, err := svc.Config()
 			c.Assert(err, IsNil)
-			c.Assert(cfg.Map(), DeepEquals, t.expected)
+			c.Assert(cfg.Map(), DeepEquals, t.expect)
 		}
 	}
 }
