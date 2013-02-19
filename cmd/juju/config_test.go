@@ -85,13 +85,7 @@ var setTests = []struct {
 	args     []string               // command to be executed
 	expected map[string]interface{} // resulting configuration of the dummy service.
 	err      string                 // error regex
-}{
-	{
-		// unnown option
-		[]string{"foo=bar"},
-		nil,
-		"error: Unknown configuration option: \"foo\"\n",
-	}, {
+}{{
 		// invalid option
 		[]string{"foo", "bar"},
 		nil,
@@ -102,39 +96,14 @@ var setTests = []struct {
 		nil,
 		"error: invalid option: \"=bar\"\n",
 	}, {
-		// set outlook
-		[]string{"outlook=positive"},
-		map[string]interface{}{
-			"outlook": "positive",
-		},
-		"",
-	}, {
-		// unset outlook and set title
-		[]string{"outlook=", "title=sir"},
-		map[string]interface{}{
-			"title": "sir",
-		},
-		"",
-	}, {
-		// set a default value
-		[]string{"username=admin001"},
-		map[string]interface{}{
-			"username": "admin001",
-			"title":    "sir",
-		},
-		"",
-	}, {
-		// unset a default value, set a different default
-		[]string{"username=", "title=My Title"},
-		map[string]interface{}{
-			"title": "My Title",
-		},
-		"",
-	}, {
 		// --config missing
 		[]string{"--config", "missing.yaml"},
 		nil,
 		"error.*no such file or directory\n",
+	}, {
+		// set with options
+		[]string{"outlook=positive"},
+		XXXX
 	}, {
 		// --config $FILE test
 		[]string{"--config", "testconfig.yaml"},
@@ -151,6 +120,9 @@ func (s *ConfigSuite) TestSetConfig(c *C) {
 	sch := s.AddTestingCharm(c, "dummy")
 	svc, err := s.State.AddService("dummy-service", sch)
 	c.Assert(err, IsNil)
+			cfg0, err := svc.Config()
+			c.Assert(err, IsNil)
+			c.Logf("initial config: %#v", cfg0.Map())
 	dir := c.MkDir()
 	setupConfigfile(c, dir)
 	for _, t := range setTests {
