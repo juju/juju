@@ -1,21 +1,21 @@
 package local
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"launchpad.net/juju-core/environs"
 	"net/http"
 	"sort"
 	"strings"
-
-	"launchpad.net/juju-core/environs"
 )
 
 // storage implements the environs.Storage interface.
 type storage struct {
 	baseURL string
 }
+
+var _ environs.Storage = (*storage)(nil)
 
 // newStorage returns a new local storage.
 func newStorage(address string, port int, environName string) *storage {
@@ -58,14 +58,14 @@ func (s *storage) List(prefix string) ([]string, error) {
 		return nil, err
 	}
 	if resp.StatusCode != 200 {
-		return nil, errors.New(resp.Status)
+		return nil, fmt.Errorf("%d %s", resp.StatusCode, resp.Status)
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
-	if string(body) == "" {
+	if len(body) == 0 {
 		return nil, nil
 	}
 	names := strings.Split(string(body), "\n")
@@ -73,13 +73,13 @@ func (s *storage) List(prefix string) ([]string, error) {
 	return names, nil
 }
 
-// URL returns a URL that can be used to access the given storage file.
+// URL returns an URL that can be used to access the given storage file.
 func (s *storage) URL(name string) (string, error) {
 	return fmt.Sprintf("%s/%s", s.baseURL, name), nil
 }
 
 // Put reads from r and writes to the given storage file.
-// The length must give the total length of the file.
+// The length must be set to the total length of the file.
 func (s *storage) Put(name string, r io.Reader, length int64) error {
 	url, err := s.URL(name)
 	if err != nil {
@@ -95,7 +95,7 @@ func (s *storage) Put(name string, r io.Reader, length int64) error {
 		return err
 	}
 	if resp.StatusCode != 201 {
-		return errors.New(resp.Status)
+		return fmt.Errorf("%d %s", resp.StatusCode, resp.Status)
 	}
 	return nil
 }
@@ -117,7 +117,7 @@ func (s *storage) Remove(name string) error {
 		return err
 	}
 	if resp.StatusCode != 200 {
-		return errors.New(resp.Status)
+		return fmt.Errorf("%d %s", resp.StatusCode, resp.Status)
 	}
 	return nil
 }

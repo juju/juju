@@ -5,11 +5,10 @@ import (
 	"io"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"net/http"
-
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/local"
 	"launchpad.net/juju-core/trivial"
+	"net/http"
 )
 
 type storageSuite struct{}
@@ -18,11 +17,17 @@ var _ = Suite(&storageSuite{})
 
 var noRetry = trivial.AttemptStrategy{}
 
+// TestPersistence and the helpers are borrowed from environs/jujutest
+// te check the storage behavior before integration. It will later
+// be removed again.
 func (s *storageSuite) TestPersistence(c *C) {
-	listener, err := local.Listen(c.MkDir(), environName, "127.0.0.1", 60006)
+	// Non-standard port to avoid conflict with not-yet full 
+	// closed listener in backend test.
+	portNo := 60007
+	listener, err := local.Listen(c.MkDir(), environName, "127.0.0.1", portNo)
 	c.Assert(err, IsNil)
 	defer listener.Close()
-	storage := local.NewStorage("127.0.0.1", 60006, environName)
+	storage := local.NewStorage("127.0.0.1", portNo, environName)
 
 	names := []string{
 		"aa",
@@ -37,7 +42,7 @@ func (s *storageSuite) TestPersistence(c *C) {
 	checkList(c, storage, "a", []string{"aa"})
 	checkList(c, storage, "zzz/", []string{"zzz/aa", "zzz/bb"})
 
-	storage2 := local.NewStorage("127.0.0.1", 60006, environName)
+	storage2 := local.NewStorage("127.0.0.1", portNo, environName)
 	for _, name := range names {
 		checkFileHasContents(c, storage2, name, []byte(name), noRetry)
 	}
