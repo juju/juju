@@ -416,6 +416,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 		err := unit.Refresh()
 		c.Logf("refreshed; err %v", err)
 		if state.IsNotFound(err) {
+			c.Logf("unit has been removed")
 			break
 		}
 		c.Assert(err, IsNil)
@@ -427,6 +428,12 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 			break
 		}
 		c.Assert(err, Equals, state.ErrHasAssignedUnits)
+		time.Sleep(5 * time.Second)
+		err = m1.Refresh()
+		if state.IsNotFound(err) {
+			break
+		}
+		c.Assert(err, IsNil)
 	}
 	c.Logf("waiting for instance to be removed")
 	t.assertStopInstance(c, conn.Environ, instId1)
