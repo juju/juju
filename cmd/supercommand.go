@@ -19,8 +19,7 @@ type SuperCommand struct {
 	subcmds map[string]Command
 	flags   *gnuflag.FlagSet
 	subcmd  Command
-	// TODO: why is the subcmd a Command and not a *Command?
-	help *Command
+	help    Command
 }
 
 // Register makes a subcommand available for use on the command line. The
@@ -43,7 +42,7 @@ func (c *SuperCommand) insert(subcmd Command) {
 	}
 	c.subcmds[name] = subcmd
 	if name == "help" {
-		c.help = &subcmd
+		c.help = subcmd
 	}
 }
 
@@ -122,7 +121,7 @@ func (c *SuperCommand) Init(args []string) error {
 		if c.help == nil {
 			return fmt.Errorf("no command specified")
 		} else {
-			c.subcmd = *c.help
+			c.subcmd = c.help
 		}
 	} else {
 		found := false
