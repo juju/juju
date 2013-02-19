@@ -61,12 +61,12 @@ func (s *SuperCommandSuite) TestRegister(c *C) {
 func (s *SuperCommandSuite) TestGetCommand(c *C) {
 	jc := &cmd.SuperCommand{Name: "jujutest"}
 	jc.Register(&TestCommand{Name: "flip"})
-	c, found := jc.GetCommand("flip")
+	cmd, found := jc.GetCommand("flip")
 	c.Assert(found, Equals, true)
-	c.Assert(c, IsNotNil)
-	c, found = jc.GetCommand("not-found")
+	c.Assert(cmd, NotNil)
+	cmd, found = jc.GetCommand("not-found")
 	c.Assert(found, Equals, false)
-	c.Assert(c, IsNil)
+	c.Assert(cmd, IsNil)
 }
 
 func (s *SuperCommandSuite) TestRegisterAlias(c *C) {
