@@ -5,15 +5,15 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
-	jujutesting "launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"strings"
 )
 
 type UpgradeJujuSuite struct {
-	jujutesting.JujuConnSuite
+	testing.JujuConnSuite
 }
 
 var _ = Suite(&UpgradeJujuSuite{})
@@ -183,7 +183,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *C) {
 
 		// Run the command
 		com := &UpgradeJujuCommand{}
-		err = testing.InitCommand(com, test.args)
+		err = coretesting.InitCommand(com, test.args)
 		if test.expectInitErr != "" {
 			c.Check(err, ErrorMatches, test.expectInitErr)
 			continue
@@ -230,7 +230,7 @@ func (s *UpgradeJujuSuite) Reset(c *C) {
 
 func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealPutTools(c *C) {
 	s.Reset(c)
-	err := testing.RunCommand(c, &UpgradeJujuCommand{}, []string{"--upload-tools", "--dev"})
+	err := coretesting.RunCommand(c, &UpgradeJujuCommand{}, []string{"--upload-tools", "--dev"})
 	c.Assert(err, IsNil)
 	p := environs.ToolsStoragePath(version.Current)
 	r, err := s.Conn.Environ.Storage().Get(p)

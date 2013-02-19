@@ -98,11 +98,15 @@ func (c *SuperCommand) Info() *Info {
 	return &Info{c.Name, "<command> ...", c.Purpose, strings.Join(docParts, "\n\n")}
 }
 
+// GetCommand looks up the subcommand map for the command identified by the
+// name parameter.  Returns (Command, true) if found, and (nil, false) if not.
 func (c *SuperCommand) GetCommand(name string) (Command, bool) {
 	command, found := c.subcmds[name]
 	return command, found
 }
 
+// SetFlags adds the options that apply to all commands, particularly those
+// due to logging.
 func (c *SuperCommand) SetFlags(f *gnuflag.FlagSet) {
 	if c.Log != nil {
 		c.Log.AddFlags(f)

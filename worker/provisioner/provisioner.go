@@ -190,12 +190,9 @@ func (p *Provisioner) findUnknownInstances() ([]environs.Instance, error) {
 		if m.Life() == state.Dead {
 			continue
 		}
-		instId, err := m.InstanceId()
-		if state.IsNotFound(err) {
+		instId, ok := m.InstanceId()
+		if !ok {
 			continue
-		}
-		if err != nil {
-			return nil, err
 		}
 		delete(instances, instId)
 	}
@@ -225,13 +222,10 @@ func (p *Provisioner) pendingOrDead(ids []string) (pending, dead []*state.Machin
 		case state.Dying:
 			continue
 		}
-		instId, err := m.InstanceId()
-		if state.IsNotFound(err) {
+		instId, ok := m.InstanceId()
+		if !ok {
 			pending = append(pending, m)
 			continue
-		}
-		if err != nil {
-			return nil, nil, err
 		}
 		log.Printf("worker/provisioner: machine %v already started as instance %q", m, instId)
 	}
@@ -308,12 +302,9 @@ func (p *Provisioner) instanceForMachine(m *state.Machine) (environs.Instance, e
 	if ok {
 		return inst, nil
 	}
-	instId, err := m.InstanceId()
-	if state.IsNotFound(err) {
+	instId, ok := m.InstanceId()
+	if !ok {
 		panic("cannot have unset instance ids here")
-	}
-	if err != nil {
-		return nil, err
 	}
 	// TODO(dfc): Ask for all instances at once.
 	insts, err := p.environ.Instances([]state.InstanceId{instId})
