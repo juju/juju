@@ -488,8 +488,8 @@ func bundleTools(w io.Writer, forceVersion *version.Number) (version.Binary, err
 	defer os.RemoveAll(dir)
 
 	cmds := [][]string{
-		{"go", "install", "launchpad.net/juju-core/cmd/jujud", "launchpad.net/juju-core/cmd/jujuc"},
-		{"strip", dir + "/jujud", dir + "/jujuc"},
+		{"go", "install", "launchpad.net/juju-core/cmd/jujud"},
+		{"strip", dir + "/jujud"},
 	}
 	env := setenv(os.Environ(), "GOBIN="+dir)
 	for _, args := range cmds {

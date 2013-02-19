@@ -304,7 +304,6 @@ func (s *agentSuite) proposeVersion(c *C, vers version.Number, development bool)
 func (s *agentSuite) uploadTools(c *C, vers version.Binary) *state.Tools {
 	tgz := coretesting.TarGz(
 		coretesting.NewTarFile("juju", 0777, "juju contents "+vers.String()),
-		coretesting.NewTarFile("jujuc", 0777, "jujuc contents "+vers.String()),
 		coretesting.NewTarFile("jujud", 0777, "jujud contents "+vers.String()),
 	)
 	storage := s.Conn.Environ.Storage()
