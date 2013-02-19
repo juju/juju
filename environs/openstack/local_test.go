@@ -263,6 +263,8 @@ var instanceGathering = []struct {
 }
 
 func (s *localLiveSuite) TestInstancesGathering(c *C) {
+	s.BootstrapOnce(c)
+
 	inst0, err := s.Env.StartInstance("100", testing.InvalidStateInfo("100"), testing.InvalidAPIInfo("100"), nil)
 	c.Assert(err, IsNil)
 	id0 := inst0.Id()
