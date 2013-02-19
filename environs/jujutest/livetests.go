@@ -404,15 +404,25 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	// Now remove the unit and its assigned machine and
 	// check that the PA removes it.
 	c.Logf("removing unit")
-	err = unit.EnsureDead()
-	c.Assert(err, IsNil)
-	err = unit.Remove()
-	c.Assert(err, IsNil)
-	err = m1.EnsureDead()
-	c.Assert(err, IsNil)
-	err = m1.Remove()
+	err = unit.Destroy()
 	c.Assert(err, IsNil)
 
+	// Wait until unit is dead
+	uwatch := unit.Watch()
+	for unit.Life() != state.Dead{
+		<-uwatch.Changes()
+		err := unit.Refresh()
+		c.Assert(err, IsNil)
+	}
+	err = uwatch.Stop()
+	c.Check(err, IsNil)
+	for {
+		err := m1.Destroy()
+		if err == nil {
+			break
+		}
+		c.Assert(err, Equals, state.ErrHasAssignedUnits)
+	}
 	c.Logf("waiting for instance to be removed")
 	t.assertStopInstance(c, conn.Environ, instId1)
 }

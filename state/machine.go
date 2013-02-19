@@ -1,6 +1,7 @@
 package state
 
 import (
+	"errors"
 	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
@@ -166,6 +167,8 @@ func (m *Machine) EnsureDead() error {
 	return m.advanceLifecycle(Dead)
 }
 
+var ErrHasAssignedUnits = errors.New("machine cannot be destroyed because it has assigned units")
+
 // advanceLifecycle ensures that the machine's lifecycle is no earlier
 // than the supplied value. If the machine already has that lifecycle
 // value, or a later one, no changes will be made to remote state. If
@@ -242,7 +245,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 			}
 		}
 		if len(m.doc.Principals) != 0 {
-			return fmt.Errorf("machine %s has unit %q assigned", m.doc.Id, m.doc.Principals[0])
+			return ErrHasAssignedUnits
 		}
 		// Run the transaction...
 		if err := m.st.runner.Run([]txn.Op{op}, "", nil); err != txn.ErrAborted {

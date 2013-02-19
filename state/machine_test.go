@@ -41,9 +41,9 @@ func (s *MachineSuite) TestLifeJobHostUnits(c *C) {
 	err = unit.AssignToMachine(s.machine)
 	c.Assert(err, IsNil)
 	err = s.machine.Destroy()
-	c.Assert(err, ErrorMatches, `machine 0 has unit "wordpress/0" assigned`)
+	c.Assert(err, Equals, state.ErrHasAssignedUnits)
 	err = s.machine.EnsureDead()
-	c.Assert(err, ErrorMatches, `machine 0 has unit "wordpress/0" assigned`)
+	c.Assert(err, Equals, state.ErrHasAssignedUnits)
 	c.Assert(s.machine.Life(), Equals, state.Alive)
 
 	// Once no unit is assigned, lifecycle can advance.
