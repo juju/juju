@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/statecmd"
 	"launchpad.net/juju-core/state/api"
 	coretesting "launchpad.net/juju-core/testing"
 	"net"
@@ -382,6 +383,24 @@ func (s *suite) TestClientSetConfig(c *C) {
 	c.Assert(conf.Map(), DeepEquals, map[string]interface{}{
 		"title": "xxx",
 		"username": "yyy",
+	})
+}
+
+func (s *suite) TestClientSetConfigYAML(c *C) {
+	dummy, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
+	c.Assert(err, IsNil)
+	rpcClient := api.RPCClient(s.APIState)
+	p := statecmd.SetConfigParams{
+		ServiceName: "dummy",
+		Config: "title: aaa\nusername: bbb",
+	}
+	err = rpcClient.Call("Client", "", "SetConfig", p, nil)
+	c.Assert(err, IsNil)
+	conf, err := dummy.Config()
+	c.Assert(err, IsNil)
+	c.Assert(conf.Map(), DeepEquals, map[string]interface{}{
+		"title": "aaa",
+		"username": "bbb",
 	})
 }
 
