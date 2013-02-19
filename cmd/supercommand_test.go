@@ -58,6 +58,17 @@ func (s *SuperCommandSuite) TestRegister(c *C) {
 	c.Assert(badCall, PanicMatches, "command already registered: flap")
 }
 
+func (s *SuperCommandSuite) TestGetCommand(c *C) {
+	jc := &cmd.SuperCommand{Name: "jujutest"}
+	jc.Register(&TestCommand{Name: "flip"})
+	c, found := jc.GetCommand("flip")
+	c.Assert(found, Equals, true)
+	c.Assert(c, IsNotNil)
+	c, found = jc.GetCommand("not-found")
+	c.Assert(found, Equals, false)
+	c.Assert(c, IsNil)
+}
+
 func (s *SuperCommandSuite) TestRegisterAlias(c *C) {
 	jc := &cmd.SuperCommand{Name: "jujutest"}
 	jc.Register(&TestCommand{Name: "flip"}, "flap", "flop")
