@@ -10,10 +10,6 @@ import (
 	"launchpad.net/juju-core/cmd"
 )
 
-func dummyFlagSet() *gnuflag.FlagSet {
-	return gnuflag.NewFlagSet("", gnuflag.ContinueOnError)
-}
-
 func dummyContext(c *C) *cmd.Context {
 	return &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}}
 }
@@ -42,11 +38,8 @@ func (c *TestCommand) SetFlags(f *gnuflag.FlagSet) {
 	}
 }
 
-func (c *TestCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	return cmd.CheckEmpty(f.Args())
+func (c *TestCommand) Init(args []string) error {
+	return cmd.CheckEmpty(args)
 }
 
 func (c *TestCommand) Run(ctx *cmd.Context) error {

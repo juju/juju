@@ -25,11 +25,7 @@ func (c *ResolvedCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Retry, "retry", false, "")
 }
 
-func (c *ResolvedCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	args = f.Args()
+func (c *ResolvedCommand) Init(args []string) error {
 	if len(args) > 0 {
 		c.UnitName = args[0]
 		if !state.IsUnitName(c.UnitName) {

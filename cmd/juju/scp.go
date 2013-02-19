@@ -23,15 +23,12 @@ func (c *SCPCommand) SetFlags(f *gnuflag.FlagSet) {
 	addEnvironFlags(&c.EnvName, f)
 }
 
-func (c *SCPCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	switch len(f.Args()) {
+func (c *SCPCommand) Init(args []string) error {
+	switch len(args) {
 	case 0, 1:
 		return errors.New("at least two arguments required")
 	default:
-		c.Args = f.Args()
+		c.Args = args
 	}
 	return nil
 }

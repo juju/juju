@@ -30,11 +30,7 @@ func (c *SetCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(&c.Config, "config", "path to yaml-formatted service config")
 }
 
-func (c *SetCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	args = f.Args()
+func (c *SetCommand) Init(args []string) error {
 	if len(args) == 0 || len(strings.Split(args[0], "=")) > 1 {
 		return errors.New("no service name specified")
 	}

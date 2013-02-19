@@ -29,11 +29,7 @@ func (c *JujuLogCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Level, "l", "INFO", "Send log message at the given level")
 }
 
-func (c *JujuLogCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	args = f.Args()
+func (c *JujuLogCommand) Init(args []string) error {
 	if args == nil {
 		return errors.New("no message specified")
 	}

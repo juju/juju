@@ -28,17 +28,14 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // Init initializes the command for running.
-func (c *BootstrapCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
+func (c *BootstrapCommand) Init(args []string) error {
 	if c.InstanceId == "" {
 		return requiredError("instance-id")
 	}
 	if len(c.EnvConfig) == 0 {
 		return requiredError("env-config")
 	}
-	return c.Conf.checkArgs(f.Args())
+	return c.Conf.checkArgs(args)
 }
 
 // Run initializes state for an environment.

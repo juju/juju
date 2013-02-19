@@ -53,11 +53,8 @@ func (c *RemoteCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.msg, "error", "", "if set, fail")
 }
 
-func (c *RemoteCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	return cmd.CheckEmpty(f.Args())
+func (c *RemoteCommand) Init(args []string) error {
+	return cmd.CheckEmpty(args)
 }
 
 func (c *RemoteCommand) Run(ctx *cmd.Context) error {

@@ -17,7 +17,10 @@ func NewFlagSet() *gnuflag.FlagSet {
 func InitCommand(c cmd.Command, args []string) error {
 	f := NewFlagSet()
 	c.SetFlags(f)
-	return c.Init(f, args)
+	if err := cmd.ParseArgs(c, f, args); err != nil {
+		return err
+	}
+	return c.Init(f.Args())
 }
 
 func RunCommand(c *C, com cmd.Command, args []string) error {

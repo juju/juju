@@ -29,12 +29,8 @@ func (c *GetCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 }
 
-func (c *GetCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *GetCommand) Init(args []string) error {
 	// TODO(dfc) add --schema-only
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	args = f.Args()
 	if len(args) == 0 {
 		return errors.New("no service name specified")
 	}

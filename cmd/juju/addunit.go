@@ -25,11 +25,7 @@ func (c *AddUnitCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.NumUnits, "num-units", 1, "")
 }
 
-func (c *AddUnitCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	args = f.Args()
+func (c *AddUnitCommand) Init(args []string) error {
 	switch len(args) {
 	case 1:
 		c.ServiceName = args[0]

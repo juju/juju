@@ -25,11 +25,7 @@ func (c *DestroyMachineCommand) SetFlags(f *gnuflag.FlagSet) {
 	addEnvironFlags(&c.EnvName, f)
 }
 
-func (c *DestroyMachineCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	args = f.Args()
+func (c *DestroyMachineCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no machines specified")
 	}

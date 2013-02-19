@@ -58,12 +58,8 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.RepoPath, "repository", os.Getenv("JUJU_REPOSITORY"), "local charm repository")
 }
 
-func (c *DeployCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *DeployCommand) Init(args []string) error {
 	// TODO --constraints
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	args = f.Args()
 	switch len(args) {
 	case 2:
 		if !state.IsServiceName(args[1]) {

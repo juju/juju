@@ -25,11 +25,7 @@ func (c *DestroyServiceCommand) SetFlags(f *gnuflag.FlagSet) {
 	addEnvironFlags(&c.EnvName, f)
 }
 
-func (c *DestroyServiceCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	args = f.Args()
+func (c *DestroyServiceCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no service specified")
 	}

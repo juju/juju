@@ -24,11 +24,7 @@ func (c *DestroyRelationCommand) SetFlags(f *gnuflag.FlagSet) {
 	addEnvironFlags(&c.EnvName, f)
 }
 
-func (c *DestroyRelationCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	args = f.Args()
+func (c *DestroyRelationCommand) Init(args []string) error {
 	if len(args) != 2 {
 		return fmt.Errorf("a relation must involve two services")
 	}

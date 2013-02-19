@@ -31,11 +31,7 @@ func (c *portCommand) SetFlags(f *gnuflag.FlagSet) {
 	// No extra flags.
 }
 
-func (c *portCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	args = f.Args()
+func (c *portCommand) Init(args []string) error {
 	if args == nil {
 		return errors.New("no port specified")
 	}

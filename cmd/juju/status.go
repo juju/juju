@@ -30,11 +30,8 @@ func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 }
 
-func (c *StatusCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	return cmd.CheckEmpty(f.Args())
+func (c *StatusCommand) Init(args []string) error {
+	return cmd.CheckEmpty(args)
 }
 
 func (c *StatusCommand) Run(ctx *cmd.Context) error {

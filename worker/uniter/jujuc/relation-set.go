@@ -28,14 +28,10 @@ func (c *RelationSetCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(newRelationIdValue(c.ctx, &c.RelationId), "r", "specify a relation by id")
 }
 
-func (c *RelationSetCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
+func (c *RelationSetCommand) Init(args []string) error {
 	if c.RelationId == -1 {
 		return fmt.Errorf("no relation id specified")
 	}
-	args = f.Args()
 	if len(args) == 0 {
 		return fmt.Errorf(`expected "key=value" parameters, got nothing`)
 	}

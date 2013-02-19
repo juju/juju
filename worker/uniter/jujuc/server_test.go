@@ -29,11 +29,8 @@ func (c *RpcCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Slow, "slow", false, "doc")
 }
 
-func (c *RpcCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	return cmd.CheckEmpty(f.Args())
+func (c *RpcCommand) Init(args []string) error {
+	return cmd.CheckEmpty(args)
 }
 
 func (c *RpcCommand) Run(ctx *cmd.Context) error {

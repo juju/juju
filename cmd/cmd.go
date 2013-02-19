@@ -26,7 +26,7 @@ type Command interface {
 	SetFlags(f *gnuflag.FlagSet)
 
 	// Init initializes the Command before running.
-	Init(f *gnuflag.FlagSet, args []string) error
+	Init(args []string) error
 
 	// Run will execute the Command as directed by the options and positional
 	// arguments passed to Init.
@@ -96,6 +96,27 @@ func (i *Info) Help(f *gnuflag.FlagSet) []byte {
 	return buf.Bytes()
 }
 
+// We encapsulate the parsing of the args so this function can be called from
+// the testing module too.
+func ParseArgs(c Command, f *gnuflag.FlagSet, args []string) error {
+	// If the command is a SuperCommand, we want to parse the args with
+	// allowIntersperse=false (i.e. the first parameter to Parse.  This will
+	// mean that the args may contain other options that haven't been defined
+	// yet, and that only options that relate to the SuperCommand itself can
+	// come prior to the subcommand name.
+	var allowIntersperse bool
+	switch c.(type) {
+	case *SuperCommand:
+		allowIntersperse = false
+	default:
+		allowIntersperse = true
+	}
+	if err := f.Parse(allowIntersperse, args); err != nil {
+		return err
+	}
+	return nil
+}
+
 // Main runs the given Command in the supplied Context with the given
 // arguments, which should not include the command name. It returns a code
 // suitable for passing to os.Exit.
@@ -103,11 +124,15 @@ func Main(c Command, ctx *Context, args []string) int {
 	f := gnuflag.NewFlagSet(c.Info().Name, gnuflag.ContinueOnError)
 	f.SetOutput(ioutil.Discard)
 	c.SetFlags(f)
-	if err := c.Init(f, args); err != nil {
+	if err := ParseArgs(c, f, args); err != nil {
 		if err == gnuflag.ErrHelp {
 			ctx.Stderr.Write(c.Info().Help(f))
 			return 0
 		}
+		fmt.Fprintf(ctx.Stderr, "error: %v\n", err)
+		return 2
+	}
+	if err := c.Init(f.Args()); err != nil {
 		fmt.Fprintf(ctx.Stderr, "error: %v\n", err)
 		return 2
 	}

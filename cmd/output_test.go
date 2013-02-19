@@ -20,11 +20,8 @@ func (c *OutputCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 }
 
-func (c *OutputCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	return cmd.CheckEmpty(f.Args())
+func (c *OutputCommand) Init(args []string) error {
+	return cmd.CheckEmpty(args)
 }
 
 func (c *OutputCommand) Run(ctx *cmd.Context) error {
