@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/statecmd"
 	"sync"
 )
 
@@ -187,6 +188,10 @@ func (c *srvClient) Status() (Status, error) {
 		}
 	}
 	return status, nil
+}
+
+func (c *srvClient) SetConfig(p statecmd.SetConfigParams) error {
+	return statecmd.SetConfig(c.root.srv.state, p)
 }
 
 type rpcCreds struct {

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"launchpad.net/juju-core/rpc"
+	"launchpad.net/juju-core/state/statecmd"
 	"strings"
 )
 
@@ -44,6 +45,16 @@ func (c *Client) Status() (*Status, error) {
 		return nil, rpcError(err)
 	}
 	return &s, nil
+}
+
+// SetConfig sets configuration options on a service.
+func (c *Client) SetConfig(service string, options map[string]string) error {
+	p := statecmd.SetConfigParams{
+		ServiceName: service,
+		Options: options,
+	}
+	err := c.st.client.Call("Client", "", "SetConfig", p, nil)
+	return rpcError(err)
 }
 
 // Machine returns a reference to the machine with the given id.

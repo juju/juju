@@ -61,6 +61,11 @@ var operationPermTests = []struct {
 	op:    opClientStatus,
 	allow: []string{"user-admin", "user-other"},
 },
+// {
+// 	about: "Client.SetConfig",
+// 	op:  opSetConfig,
+// 	allow: []string{"user-admin", "user-other"},
+// },
 }
 
 // allowed returns the set of allowed entities given an allow list and a
@@ -362,6 +367,22 @@ func (s *suite) TestClientStatus(c *C) {
 	status, err := s.APIState.Client().Status()
 	c.Assert(err, IsNil)
 	c.Assert(status, DeepEquals, scenarioStatus)
+}
+
+func (s *suite) TestClientSetConfig(c *C) {
+	dummy, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
+	c.Assert(err, IsNil)
+	err = s.APIState.Client().SetConfig("dummy", map[string]string{
+		"title": "xxx",
+		"username": "yyy",
+	})
+	c.Assert(err, IsNil)
+	conf, err := dummy.Config()
+	c.Assert(err, IsNil)
+	c.Assert(conf.Map(), DeepEquals, map[string]interface{}{
+		"title": "xxx",
+		"username": "yyy",
+	})
 }
 
 func (s *suite) TestMachineLogin(c *C) {
