@@ -1,10 +1,11 @@
 package statecmd_test
+
 import (
-	stdtesting "testing"
-	coretesting "launchpad.net/juju-core/testing"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state/statecmd"
+	coretesting "launchpad.net/juju-core/testing"
+	stdtesting "testing"
 )
 
 type ConfigSuite struct {
@@ -19,10 +20,10 @@ var _ = Suite(&ConfigSuite{})
 
 // TODO(rog) make these tests independent of one another.
 var setTests = []struct {
-	about string
+	about  string
 	params statecmd.SetConfigParams
 	expect map[string]interface{} // resulting configuration of the dummy service.
-	err      string                 // error regex
+	err    string                 // error regex
 }{
 	{
 		about: "unknown service name",
@@ -34,9 +35,9 @@ var setTests = []struct {
 		},
 		err: `service "unknown-service" not found`,
 	}, {
-		about: "no config or options",
+		about:  "no config or options",
 		params: statecmd.SetConfigParams{},
-		err: "no options to set",
+		err:    "no options to set",
 	}, {
 		about: "bad configuration",
 		params: statecmd.SetConfigParams{
@@ -49,7 +50,7 @@ var setTests = []struct {
 			Config: "{}",
 		},
 		err: "no options to set",
-	},  {
+	}, {
 		about: "unknown option",
 		params: statecmd.SetConfigParams{
 			ServiceName: "dummy-service",
@@ -75,7 +76,7 @@ var setTests = []struct {
 			ServiceName: "dummy-service",
 			Options: map[string]string{
 				"outlook": "",
-				"title": "sir",
+				"title":   "sir",
 			},
 		},
 		expect: map[string]interface{}{
@@ -99,7 +100,7 @@ var setTests = []struct {
 			ServiceName: "dummy-service",
 			Options: map[string]string{
 				"username": "",
-				"title": "My Title",
+				"title":    "My Title",
 			},
 		},
 		expect: map[string]interface{}{
@@ -109,7 +110,7 @@ var setTests = []struct {
 		about: "yaml config",
 		params: statecmd.SetConfigParams{
 			ServiceName: "dummy-service",
-			Config: "skill-level: 9000\nusername: admin001\n\n",
+			Config:      "skill-level: 9000\nusername: admin001\n\n",
 		},
 		expect: map[string]interface{}{
 			"title":       "My Title",
