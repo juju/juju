@@ -37,8 +37,15 @@ func (s *DirSuite) TestReadDirWithoutConfig(c *C) {
 }
 
 func (s *DirSuite) TestBundleTo(c *C) {
-	dir := testing.Charms.Dir("dummy")
-	path := filepath.Join(c.MkDir(), "bundle.charm")
+	baseDir := c.MkDir()
+	charmDir := testing.Charms.ClonedDirPath(baseDir, "dummy")
+	var haveSymlinks = true
+	if err := os.Symlink("../target", filepath.Join(charmDir, "hooks/symlink")); err != nil {
+		haveSymlinks = false
+	}
+	dir, err := charm.ReadDir(charmDir)
+	c.Assert(err, IsNil)
+	path := filepath.Join(baseDir, "bundle.charm")
 	file, err := os.Create(path)
 	c.Assert(err, IsNil)
 	err = dir.BundleTo(file)
@@ -90,14 +97,18 @@ func (s *DirSuite) TestBundleTo(c *C) {
 	// Despite it being 0751, we pack and unpack it as 0755.
 	c.Assert(instf.Mode()&0777, Equals, os.FileMode(0755))
 
-	c.Assert(symf, NotNil)
-	c.Assert(symf.Mode()&0777, Equals, os.FileMode(0777))
-	reader, err = symf.Open()
-	c.Assert(err, IsNil)
-	data, err = ioutil.ReadAll(reader)
-	reader.Close()
-	c.Assert(err, IsNil)
-	c.Assert(string(data), Equals, "../target")
+	if haveSymlinks {
+		c.Assert(symf, NotNil)
+		c.Assert(symf.Mode()&0777, Equals, os.FileMode(0777))
+		reader, err = symf.Open()
+		c.Assert(err, IsNil)
+		data, err = ioutil.ReadAll(reader)
+		reader.Close()
+		c.Assert(err, IsNil)
+		c.Assert(string(data), Equals, "../target")
+	} else {
+		c.Assert(symf, IsNil)
+	}
 
 	c.Assert(emptyf, NotNil)
 	c.Assert(emptyf.Mode()&os.ModeType, Equals, os.ModeDir)
