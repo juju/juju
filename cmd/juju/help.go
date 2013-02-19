@@ -25,19 +25,15 @@ func (c *HelpCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *HelpCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *HelpCommand) Init(args []string) error {
 	// This flag parsing is primarily to get the --help option.
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	args = f.Args()
 	switch len(args) {
 	case 0:
 		// do nothing
 	case 1:
 		c.Subcommand = args[0]
 	default:
-		return fmt.Errorf("extra argument to command help: %q", args[2])
+		return fmt.Errorf("extra argument to command help: %q", args[1])
 	}
 	return nil
 }
