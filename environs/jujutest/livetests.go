@@ -409,13 +409,15 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 
 	// Wait until unit is dead
 	uwatch := unit.Watch()
+	defer uwatch.Stop()
 	for unit.Life() != state.Dead{
 		<-uwatch.Changes()
 		err := unit.Refresh()
+		if state.IsNotFound(err) {
+			break
+		}
 		c.Assert(err, IsNil)
 	}
-	err = uwatch.Stop()
-	c.Check(err, IsNil)
 	for {
 		err := m1.Destroy()
 		if err == nil {
