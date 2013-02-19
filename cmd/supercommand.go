@@ -17,6 +17,7 @@ type SuperCommand struct {
 	Doc     string
 	Log     *Log
 	subcmds map[string]Command
+	flags   *gnuflag.FlagSet
 	subcmd  Command
 	// TODO: why is the subcmd a Command and not a *Command?
 	help *Command
@@ -97,22 +98,21 @@ func (c *SuperCommand) Info() *Info {
 	return &Info{c.Name, "<command> ...", c.Purpose, strings.Join(docParts, "\n\n")}
 }
 
-// Return a pointer to a command if we have it.
 func (c *SuperCommand) GetCommand(name string) (Command, bool) {
 	command, found := c.subcmds[name]
 	return command, found
 }
 
-// Init initializes the command for running.
-func (c *SuperCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *SuperCommand) SetFlags(f *gnuflag.FlagSet) {
 	if c.Log != nil {
 		c.Log.AddFlags(f)
 	}
-	if err := f.Parse(false, args); err != nil {
-		return err
-	}
-	subargs := f.Args()
-	if len(subargs) == 0 {
+	c.flags = f
+}
+
+// Init initializes the command for running.
+func (c *SuperCommand) Init(args []string) error {
+	if len(args) == 0 {
 		// If there are no args specified, and we have a help command, call
 		// that with no args.
 		if c.help == nil {
@@ -122,12 +122,16 @@ func (c *SuperCommand) Init(f *gnuflag.FlagSet, args []string) error {
 		}
 	} else {
 		found := false
-		if c.subcmd, found = c.subcmds[subargs[0]]; !found {
-			return fmt.Errorf("unrecognized command: %s %s", c.Info().Name, subargs[0])
+		if c.subcmd, found = c.subcmds[args[0]]; !found {
+			return fmt.Errorf("unrecognized command: %s %s", c.Info().Name, args[0])
 		}
-		subargs = subargs[1:]
+		args = args[1:]
 	}
-	return c.subcmd.Init(f, subargs)
+	c.subcmd.SetFlags(c.flags)
+	if err := c.flags.Parse(true, args); err != nil {
+		return err
+	}
+	return c.subcmd.Init(c.flags.Args())
 }
 
 // Run executes the subcommand that was selected in Init.

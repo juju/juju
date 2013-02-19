@@ -27,11 +27,11 @@ func badPort(value interface{}) error {
 	return fmt.Errorf(`port must be in the range [1, 65535]; got "%v"`, value)
 }
 
-func (c *portCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	args = f.Args()
+func (c *portCommand) SetFlags(f *gnuflag.FlagSet) {
+	// No extra flags.
+}
+
+func (c *portCommand) Init(args []string) error {
 	if args == nil {
 		return errors.New("no port specified")
 	}

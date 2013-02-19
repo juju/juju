@@ -24,12 +24,11 @@ func (c *UnitGetCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *UnitGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *UnitGetCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	args = f.Args()
+}
+
+func (c *UnitGetCommand) Init(args []string) error {
 	if args == nil {
 		return errors.New("no setting specified")
 	}

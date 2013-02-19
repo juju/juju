@@ -53,7 +53,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *C, args ...string) (*agent.Conf
 	err := conf.Write()
 	c.Assert(err, IsNil)
 	cmd := &BootstrapCommand{}
-	err = initCmd(cmd, append([]string{"--data-dir", s.dataDir}, args...))
+	err = testing.InitCommand(cmd, append([]string{"--data-dir", s.dataDir}, args...))
 	return conf, cmd, err
 }
 
