@@ -95,8 +95,7 @@ func (c *SSHCommon) machinePublicAddress(id string) (string, error) {
 	// wait for instance id
 	w := machine.Watch()
 	for _ = range w.Changes() {
-		instid, ok := machine.InstanceId()
-		if ok {
+		if instid, ok := machine.InstanceId(); ok {
 			w.Stop()
 			inst, err := c.Environ.Instances([]state.InstanceId{instid})
 			if err != nil {
@@ -104,6 +103,9 @@ func (c *SSHCommon) machinePublicAddress(id string) (string, error) {
 			}
 			return inst[0].WaitDNSName()
 		}
+		// BUG(dfc) this does not refresh the machine, so
+		// this loop will loop forever if it gets to this point.
+		// https://bugs.launchpad.net/juju-core/+bug/1130051
 	}
 	// oops, watcher closed before we could get an answer
 	return "", w.Stop()

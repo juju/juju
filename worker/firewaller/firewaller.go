@@ -266,6 +266,7 @@ func (fw *Firewaller) reconcileInstances() error {
 		}
 		instanceId, ok := m.InstanceId()
 		if !ok {
+			// TODO(rog) use state.NotFoundf
 			return fmt.Errorf("instance id for %v not found", m)
 		}
 		instances, err := fw.environ.Instances([]state.InstanceId{instanceId})
@@ -439,6 +440,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	}
 	instanceId, ok := m.InstanceId()
 	if !ok {
+		// TODO(rog) use state.NotFoundf
 		return fmt.Errorf("instance id for machine %v not found", m)
 	}
 	instances, err := fw.environ.Instances([]state.InstanceId{instanceId})
