@@ -82,36 +82,42 @@ func (s *ConfigSuite) TestGetConfig(c *C) {
 }
 
 var setTests = []struct {
-	about string
-	args     []string               // command to be executed
+	about  string
+	args   []string               // command to be executed
 	expect map[string]interface{} // resulting configuration of the dummy service.
-	err      string                 // error regex
+	err    string                 // error regex
 }{{
-		about: "invalid option",
-		args: []string{"foo", "bar"},
-		err: "error: invalid option: \"foo\"\n",
-	}, {
-		about: "whack option",
-		args: []string{"=bar"},
-		err: "error: invalid option: \"=bar\"\n",
-	}, {
-		about: "--config missing",
-		args: []string{"--config", "missing.yaml"},
-		err: "error.*no such file or directory\n",
-	}, {
-		about: "set with options",
-		args: []string{"username=hello"},
-		expect: map[string]interface{}{
-			"username": "hello",
-		},
-	}, {
-		about: "--config $FILE test",
-		args: []string{"--config", "testconfig.yaml"},
-		expect: map[string]interface{}{
-			"username":    "admin001",
-			"skill-level": int64(9000), // yaml int types are int64
-		},
+	about: "invalid option",
+	args:  []string{"foo", "bar"},
+	err:   "error: invalid option: \"foo\"\n",
+}, {
+	about: "whack option",
+	args:  []string{"=bar"},
+	err:   "error: invalid option: \"=bar\"\n",
+}, {
+	about: "--config missing",
+	args:  []string{"--config", "missing.yaml"},
+	err:   "error.*no such file or directory\n",
+}, {
+	about: "set with options",
+	args:  []string{"username=hello"},
+	expect: map[string]interface{}{
+		"username": "hello",
 	},
+}, {
+	about: "set with option values containing =",
+	args:  []string{"username=hello=foo"},
+	expect: map[string]interface{}{
+		"username": "hello=foo",
+	},
+}, {
+	about: "--config $FILE test",
+	args:  []string{"--config", "testconfig.yaml"},
+	expect: map[string]interface{}{
+		"username":    "admin001",
+		"skill-level": int64(9000), // yaml int types are int64
+	},
+},
 }
 
 func (s *ConfigSuite) TestSetConfig(c *C) {
@@ -126,9 +132,10 @@ func (s *ConfigSuite) TestSetConfig(c *C) {
 		ctx := &cmd.Context{dir, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}}
 		code := cmd.Main(&SetCommand{}, ctx, args)
 		if t.err != "" {
-			c.Assert(code, Not(Equals), 0)
+			c.Check(code, Not(Equals), 0)
 			c.Assert(ctx.Stderr.(*bytes.Buffer).String(), Matches, t.err)
 		} else {
+			c.Check(code, Equals, 0)
 			cfg, err := svc.Config()
 			c.Assert(err, IsNil)
 			c.Assert(cfg.Map(), DeepEquals, t.expect)

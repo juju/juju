@@ -6,10 +6,9 @@ import (
 	"strings"
 
 	"launchpad.net/gnuflag"
-	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state/statecmd"
 )
 
 // SetCommand updates the configuration of a service
@@ -44,18 +43,17 @@ func (c *SetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 
 // Run updates the configuration of a service
 func (c *SetCommand) Run(ctx *cmd.Context) error {
-	var unvalidated = make(map[string]string)
-	var remove []string
 	contents, err := c.Config.Read(ctx)
 	if err != nil && err != cmd.ErrNoPath {
 		return err
 	}
-	if len(contents) > 0 {
-		if err := goyaml.Unmarshal(contents, &unvalidated); err != nil {
-			return err
+	var options map[string]string
+	if len(contents) == 0 {
+		if len(c.Options) == 0 {
+			// nothing to do.
+			return nil
 		}
-	} else {
-		unvalidated, remove, err = parse(c.Options)
+		options, err = parse(c.Options)
 		if err != nil {
 			return err
 		}
@@ -65,68 +63,24 @@ func (c *SetCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer conn.Close()
-	srv, err := conn.State.Service(c.ServiceName)
-	if err != nil {
-		return err
-	}
-	charm, _, err := srv.Charm()
-	if err != nil {
-		return err
-	}
-	// 1. Validate will convert this partial configuration
-	// into a full configuration by inserting charm defaults
-	// for missing values.
-	validated, err := charm.Config().Validate(unvalidated)
-	if err != nil {
-		return err
-	}
-	// 2. strip out the additional default keys added in the previous step.
-	validated = strip(validated, unvalidated)
-	cfg, err := srv.Config()
-	if err != nil {
-		return err
-	}
-	// 3. Update any keys that remain after validation and filtering.
-	if len(validated) > 0 {
-		log.Debugf("cmd/juju: updating configuration items: %v", validated)
-		cfg.Update(validated)
-	}
-	// 4. Delete any removed keys.
-	if len(remove) > 0 {
-		log.Debugf("cmd/juju: removing configuration items: %v", remove)
-		for _, k := range remove {
-			cfg.Delete(k)
-		}
-	}
-	_, err = cfg.Write()
-	return err
+	return statecmd.SetConfig(conn.State, statecmd.SetConfigParams{
+		ServiceName: c.ServiceName,
+		Options:     options,
+		Config:      string(contents),
+	})
 }
 
 // parse parses the option k=v strings into a map of options to be
 // updated in the config. Keys with empty values are returned separately
 // and should be removed.
-func parse(options []string) (kv map[string]string, del []string, err error) {
-	kv = make(map[string]string)
+func parse(options []string) (map[string]string, error) {
+	kv := make(map[string]string)
 	for _, o := range options {
-		s := strings.Split(o, "=")
+		s := strings.SplitN(o, "=", 2)
 		if len(s) != 2 || s[0] == "" {
-			return nil, nil, fmt.Errorf("invalid option: %q", o)
+			return nil, fmt.Errorf("invalid option: %q", o)
 		}
-		if len(s[1]) > 0 {
-			kv[s[0]] = s[1]
-		} else {
-			del = append(del, s[0])
-		}
+		kv[s[0]] = s[1]
 	}
-	return
-}
-
-// strip removes from validated, any keys which are not also present in unvalidated.
-func strip(validated map[string]interface{}, unvalidated map[string]string) map[string]interface{} {
-	for k := range validated {
-		if _, ok := unvalidated[k]; !ok {
-			delete(validated, k)
-		}
-	}
-	return validated
+	return kv, nil
 }
