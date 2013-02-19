@@ -130,8 +130,8 @@ func (s *StateSuite) TestInjectMachine(c *C) {
 	m, err := s.State.InjectMachine(state.InstanceId("i-mindustrious"), state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, IsNil)
 	c.Assert(m.Jobs(), DeepEquals, []state.MachineJob{state.JobHostUnits, state.JobManageEnviron})
-	instanceId, err := m.InstanceId()
-	c.Assert(err, IsNil)
+	instanceId, ok := m.InstanceId()
+	c.Assert(ok, Equals, true)
 	c.Assert(instanceId, Equals, state.InstanceId("i-mindustrious"))
 }
 
@@ -166,8 +166,8 @@ func (s *StateSuite) TestAllMachines(c *C) {
 	ms, _ := s.State.AllMachines()
 	for i, m := range ms {
 		c.Assert(m.Id(), Equals, strconv.Itoa(i))
-		instId, err := m.InstanceId()
-		c.Assert(err, IsNil)
+		instId, ok := m.InstanceId()
+		c.Assert(ok, Equals, true)
 		c.Assert(string(instId), Equals, fmt.Sprintf("foo-%d", i))
 		tools, err := m.AgentTools()
 		c.Check(err, IsNil)
