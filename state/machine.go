@@ -94,10 +94,10 @@ func (m *Machine) Jobs() []MachineJob {
 }
 
 // AgentTools returns the tools that the agent is currently running.
-// It returns a *NotFoundError if the tools have not yet been set.
+// It returns an error that satisfies IsNotFound if the tools have not yet been set.
 func (m *Machine) AgentTools() (*Tools, error) {
 	if m.doc.Tools == nil {
-		return nil, notFoundf("agent tools for machine %v", m)
+		return nil, NotFoundf("agent tools for machine %v", m)
 	}
 	tools := *m.doc.Tools
 	return &tools, nil
@@ -273,12 +273,13 @@ func (m *Machine) Remove() (err error) {
 }
 
 // Refresh refreshes the contents of the machine from the underlying
-// state. It returns a NotFoundError if the machine has been removed.
+// state. It returns an error that satisfies IsNotFound if the machine has
+// been removed.
 func (m *Machine) Refresh() error {
 	doc := machineDoc{}
 	err := m.st.machines.FindId(m.doc.Id).One(&doc)
 	if err == mgo.ErrNotFound {
-		return notFoundf("machine %v", m)
+		return NotFoundf("machine %v", m)
 	}
 	if err != nil {
 		return fmt.Errorf("cannot refresh machine %v: %v", m, err)
