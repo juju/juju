@@ -7,8 +7,8 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/statecmd"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
 	"net"
 	stdtesting "testing"
@@ -61,12 +61,11 @@ var operationPermTests = []struct {
 	about: "Client.Status",
 	op:    opClientStatus,
 	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.SetConfig",
+	op:    opClientSetConfig,
+	allow: []string{"user-admin", "user-other"},
 },
-// {
-// 	about: "Client.SetConfig",
-// 	op:  opSetConfig,
-// 	allow: []string{"user-admin", "user-other"},
-// },
 }
 
 // allowed returns the set of allowed entities given an allow list and a
@@ -176,6 +175,13 @@ func opClientStatus(c *C, st *api.State) (func(), error) {
 	c.Assert(err, IsNil)
 	c.Assert(status, DeepEquals, scenarioStatus)
 	return func() {}, nil
+}
+
+func opClientSetConfig(c *C, st *api.State) (func(), error) {
+	err := st.Client().SetConfig("wordpress", map[string]string{
+		"blog-title": "foo",
+	})
+	return func() {}, err
 }
 
 // scenarioStatus describes the expected state
@@ -374,14 +380,14 @@ func (s *suite) TestClientSetConfig(c *C) {
 	dummy, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, IsNil)
 	err = s.APIState.Client().SetConfig("dummy", map[string]string{
-		"title": "xxx",
+		"title":    "xxx",
 		"username": "yyy",
 	})
 	c.Assert(err, IsNil)
 	conf, err := dummy.Config()
 	c.Assert(err, IsNil)
 	c.Assert(conf.Map(), DeepEquals, map[string]interface{}{
-		"title": "xxx",
+		"title":    "xxx",
 		"username": "yyy",
 	})
 }
@@ -392,14 +398,14 @@ func (s *suite) TestClientSetConfigYAML(c *C) {
 	rpcClient := api.RPCClient(s.APIState)
 	p := statecmd.SetConfigParams{
 		ServiceName: "dummy",
-		Config: "title: aaa\nusername: bbb",
+		Config:      "title: aaa\nusername: bbb",
 	}
 	err = rpcClient.Call("Client", "", "SetConfig", p, nil)
 	c.Assert(err, IsNil)
 	conf, err := dummy.Config()
 	c.Assert(err, IsNil)
 	c.Assert(conf.Map(), DeepEquals, map[string]interface{}{
-		"title": "aaa",
+		"title":    "aaa",
 		"username": "bbb",
 	})
 }

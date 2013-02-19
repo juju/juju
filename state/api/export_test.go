@@ -1,4 +1,5 @@
 package api
+
 import "launchpad.net/juju-core/rpc"
 
 // RPCClient returns the RPC client for the state, so that testing

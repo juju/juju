@@ -51,7 +51,7 @@ func (c *Client) Status() (*Status, error) {
 func (c *Client) SetConfig(service string, options map[string]string) error {
 	p := statecmd.SetConfigParams{
 		ServiceName: service,
-		Options: options,
+		Options:     options,
 	}
 	err := c.st.client.Call("Client", "", "SetConfig", p, nil)
 	return rpcError(err)
