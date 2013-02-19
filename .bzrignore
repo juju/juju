@@ -1,7 +1,7 @@
 cmd/juju/juju
-cmd/jujuc/jujuc
 cmd/jujud/jujud
 cmd/builddb/builddb
 cmd/charmd/charmd
 cmd/charmload/charmload
 ./tags
+./TAGS

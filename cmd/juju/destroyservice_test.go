@@ -24,7 +24,7 @@ func runDestroyService(c *C, args ...string) error {
 
 func (s *DestroyServiceSuite) TestSuccess(c *C) {
 	// Destroy a service that exists.
-	testing.Charms.BundlePath(s.seriesPath, "series", "riak")
+	testing.Charms.BundlePath(s.seriesPath, "riak")
 	err := runDeploy(c, "local:riak", "riak")
 	c.Assert(err, IsNil)
 	err = runDestroyService(c, "riak")

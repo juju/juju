@@ -2,6 +2,7 @@ package hook_test
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/worker/uniter/hook"
 	"testing"
 )
@@ -19,27 +20,27 @@ var validateTests = []struct {
 	err  string
 }{
 	{
-		hook.Info{Kind: hook.RelationJoined},
+		hook.Info{Kind: hooks.RelationJoined},
 		`"relation-joined" hook requires a remote unit`,
 	}, {
-		hook.Info{Kind: hook.RelationChanged},
+		hook.Info{Kind: hooks.RelationChanged},
 		`"relation-changed" hook requires a remote unit`,
 	}, {
-		hook.Info{Kind: hook.RelationDeparted},
+		hook.Info{Kind: hooks.RelationDeparted},
 		`"relation-departed" hook requires a remote unit`,
 	}, {
-		hook.Info{Kind: hook.Kind("grok")},
+		hook.Info{Kind: hooks.Kind("grok")},
 		`unknown hook kind "grok"`,
 	},
-	{hook.Info{Kind: hook.Install}, ""},
-	{hook.Info{Kind: hook.Start}, ""},
-	{hook.Info{Kind: hook.ConfigChanged}, ""},
-	{hook.Info{Kind: hook.UpgradeCharm}, ""},
-	{hook.Info{Kind: hook.Stop}, ""},
-	{hook.Info{Kind: hook.RelationJoined, RemoteUnit: "x"}, ""},
-	{hook.Info{Kind: hook.RelationChanged, RemoteUnit: "x"}, ""},
-	{hook.Info{Kind: hook.RelationDeparted, RemoteUnit: "x"}, ""},
-	{hook.Info{Kind: hook.RelationBroken}, ""},
+	{hook.Info{Kind: hooks.Install}, ""},
+	{hook.Info{Kind: hooks.Start}, ""},
+	{hook.Info{Kind: hooks.ConfigChanged}, ""},
+	{hook.Info{Kind: hooks.UpgradeCharm}, ""},
+	{hook.Info{Kind: hooks.Stop}, ""},
+	{hook.Info{Kind: hooks.RelationJoined, RemoteUnit: "x"}, ""},
+	{hook.Info{Kind: hooks.RelationChanged, RemoteUnit: "x"}, ""},
+	{hook.Info{Kind: hooks.RelationDeparted, RemoteUnit: "x"}, ""},
+	{hook.Info{Kind: hooks.RelationBroken}, ""},
 }
 
 func (s *InfoSuite) TestValidate(c *C) {

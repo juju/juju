@@ -48,7 +48,7 @@ func (s *UniterSuite) SetUpSuite(c *C) {
 	toolsDir := environs.AgentToolsDir(s.dataDir, "unit-u-0")
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, IsNil)
-	cmd := exec.Command("go", "build", "launchpad.net/juju-core/cmd/jujuc")
+	cmd := exec.Command("go", "build", "launchpad.net/juju-core/cmd/jujud")
 	cmd.Dir = toolsDir
 	out, err := cmd.CombinedOutput()
 	c.Logf(string(out))
@@ -737,7 +737,7 @@ func (s *UniterSuite) TestSubordinateDying(c *C) {
 	defer os.RemoveAll(ctx.path)
 
 	// Create the subordinate service.
-	dir := coretesting.Charms.ClonedDir(c.MkDir(), "series", "logging")
+	dir := coretesting.Charms.ClonedDir(c.MkDir(), "logging")
 	curl, err := charm.ParseURL("cs:series/logging")
 	c.Assert(err, IsNil)
 	curl = curl.WithRevision(dir.Revision())
@@ -793,7 +793,7 @@ var charmHooks = []string{
 }
 
 func (s createCharm) step(c *C, ctx *context) {
-	base := coretesting.Charms.ClonedDirPath(c.MkDir(), "series", "wordpress")
+	base := coretesting.Charms.ClonedDirPath(c.MkDir(), "wordpress")
 	for _, name := range charmHooks {
 		path := filepath.Join(base, "hooks", name)
 		good := true

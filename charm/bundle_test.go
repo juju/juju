@@ -1,15 +1,19 @@
 package charm_test
 
 import (
+	"archive/zip"
 	"bytes"
 	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
+	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/testing"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
+	"syscall"
 )
 
 type BundleSuite struct {
@@ -20,7 +24,7 @@ type BundleSuite struct {
 var _ = Suite(&BundleSuite{})
 
 func (s *BundleSuite) SetUpSuite(c *C) {
-	s.bundlePath = testing.Charms.BundlePath(c.MkDir(), "series", "dummy")
+	s.bundlePath = testing.Charms.BundlePath(c.MkDir(), "dummy")
 }
 
 func (s *BundleSuite) TestReadBundle(c *C) {
@@ -30,7 +34,7 @@ func (s *BundleSuite) TestReadBundle(c *C) {
 }
 
 func (s *BundleSuite) TestReadBundleWithoutConfig(c *C) {
-	path := testing.Charms.BundlePath(c.MkDir(), "series", "varnish")
+	path := testing.Charms.BundlePath(c.MkDir(), "varnish")
 	bundle, err := charm.ReadBundle(path)
 	c.Assert(err, IsNil)
 
@@ -61,9 +65,71 @@ func (s *BundleSuite) TestExpandTo(c *C) {
 	checkDummy(c, dir, path)
 }
 
+func (s *BundleSuite) prepareBundle(c *C, charmDir *charm.Dir, bundlePath string) {
+	file, err := os.Create(bundlePath)
+	c.Assert(err, IsNil)
+	defer file.Close()
+	zipw := zip.NewWriter(file)
+	defer zipw.Close()
+
+	h := &zip.FileHeader{Name: "revision"}
+	h.SetMode(syscall.S_IFREG | 0644)
+	w, err := zipw.CreateHeader(h)
+	c.Assert(err, IsNil)
+	_, err = w.Write([]byte(strconv.Itoa(charmDir.Revision())))
+
+	h = &zip.FileHeader{Name: "metadata.yaml", Method: zip.Deflate}
+	h.SetMode(0644)
+	w, err = zipw.CreateHeader(h)
+	c.Assert(err, IsNil)
+	data, err := goyaml.Marshal(charmDir.Meta())
+	c.Assert(err, IsNil)
+	_, err = w.Write(data)
+	c.Assert(err, IsNil)
+
+	for name := range charmDir.Meta().Hooks() {
+		hookName := filepath.Join("hooks", name)
+		h = &zip.FileHeader{
+			Name:   hookName,
+			Method: zip.Deflate,
+		}
+		// Force it non-executable
+		h.SetMode(0644)
+		w, err := zipw.CreateHeader(h)
+		c.Assert(err, IsNil)
+		_, err = w.Write([]byte("not important"))
+		c.Assert(err, IsNil)
+	}
+}
+
+func (s *BundleSuite) TestExpandToSetsHooksExecutable(c *C) {
+	charmDir := testing.Charms.ClonedDir(c.MkDir(), "all-hooks")
+	// Bundle manually, so we can check ExpandTo(), unaffected
+	// by BundleTo()'s behavior
+	bundlePath := filepath.Join(c.MkDir(), "bundle.charm")
+	s.prepareBundle(c, charmDir, bundlePath)
+	bundle, err := charm.ReadBundle(bundlePath)
+	c.Assert(err, IsNil)
+
+	path := filepath.Join(c.MkDir(), "charm")
+	err = bundle.ExpandTo(path)
+	c.Assert(err, IsNil)
+
+	_, err = charm.ReadDir(path)
+	c.Assert(err, IsNil)
+
+	for name := range bundle.Meta().Hooks() {
+		hookName := string(name)
+		info, err := os.Stat(filepath.Join(path, "hooks", hookName))
+		c.Assert(err, IsNil)
+		perm := info.Mode() & 0777
+		c.Assert(perm&0100 != 0, Equals, true, Commentf("hook %q is not executable", hookName))
+	}
+}
+
 func (s *BundleSuite) TestBundleFileModes(c *C) {
 	// Apply subtler mode differences than can be expressed in Bazaar.
-	srcPath := testing.Charms.ClonedDirPath(c.MkDir(), "series", "dummy")
+	srcPath := testing.Charms.ClonedDirPath(c.MkDir(), "dummy")
 	modes := []struct {
 		path string
 		mode os.FileMode
@@ -74,9 +140,7 @@ func (s *BundleSuite) TestBundleFileModes(c *C) {
 	}
 	for _, m := range modes {
 		err := os.Chmod(filepath.Join(srcPath, m.path), m.mode)
-		if err != nil {
-			panic(err)
-		}
+		c.Assert(err, IsNil)
 	}
 	var haveSymlinks = true
 	if err := os.Symlink("../target", filepath.Join(srcPath, "hooks/symlink")); err != nil {
@@ -118,7 +182,7 @@ func (s *BundleSuite) TestBundleFileModes(c *C) {
 }
 
 func (s *BundleSuite) TestBundleRevisionFile(c *C) {
-	charmDir := testing.Charms.ClonedDirPath(c.MkDir(), "series", "dummy")
+	charmDir := testing.Charms.ClonedDirPath(c.MkDir(), "dummy")
 	revPath := filepath.Join(charmDir, "revision")
 
 	// Missing revision file
@@ -166,7 +230,7 @@ func (s *BundleSuite) TestBundleSetRevision(c *C) {
 }
 
 func (s *BundleSuite) TestExpandToWithBadLink(c *C) {
-	charmDir := testing.Charms.ClonedDirPath(c.MkDir(), "series", "dummy")
+	charmDir := testing.Charms.ClonedDirPath(c.MkDir(), "dummy")
 	badLink := filepath.Join(charmDir, "hooks", "badlink")
 
 	// Symlink targeting a path outside of the charm.
