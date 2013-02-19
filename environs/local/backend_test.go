@@ -104,15 +104,15 @@ type listTest struct {
 var listTests = []listTest{
 	{
 		prefix: "foo",
-		found:  []string{"foo"},
+		found:  []string{"foo", "inner/foo"},
 	},
 	{
 		prefix: "ba",
-		found:  []string{"bar", "baz"},
+		found:  []string{"bar", "baz", "inner/bar"},
 	},
 	{
 		prefix: "",
-		found:  []string{"bar", "baz", "foo", "yadda"},
+		found:  []string{"bar", "baz", "foo", "inner/bar", "inner/foo", "yadda"},
 	},
 	{
 		prefix: "zzz",
@@ -162,8 +162,8 @@ var putTests = []putTest{
 		status: 301,
 	},
 	{
-		name:    "cambridge",
-		content: "this is the sent file 'cambridge'",
+		name:    "deep/cambridge",
+		content: "this is the sent file 'deep/cambridge'",
 	},
 }
 
@@ -180,6 +180,7 @@ func (s *backendSuite) TestPut(c *C) {
 			return
 		}
 		c.Assert(err, IsNil)
+		c.Assert(resp.StatusCode, Equals, 201)
 
 		fp := filepath.Join(s.dataDir, environName, pt.name)
 		b, err := ioutil.ReadFile(fp)
@@ -202,6 +203,10 @@ var removeTests = []removeTest{
 		content: "the quick brown fox jumps over the lazy dog",
 	},
 	{
+		name:    "quick/brown/fox",
+		content: "the quick brown fox jumps over the lazy dog",
+	},
+	{
 		name: "dog",
 	},
 }
@@ -210,7 +215,10 @@ func (s *backendSuite) TestRemove(c *C) {
 	// Test removing a file in the storage.
 	check := func(rt removeTest) {
 		fp := filepath.Join(s.dataDir, environName, rt.name)
-		err := ioutil.WriteFile(fp, []byte(rt.content), 0644)
+		dir, _ := filepath.Split(fp)
+		err := os.MkdirAll(dir, 0777)
+		c.Assert(err, IsNil)
+		err = ioutil.WriteFile(fp, []byte(rt.content), 0644)
 		c.Assert(err, IsNil)
 
 		url := fmt.Sprintf("http://localhost:60006/%s/%s", environName, rt.name)
@@ -241,4 +249,11 @@ func createTestData(c *C, dataDir string) {
 	writeData(dir, "bar", "this is file 'bar'")
 	writeData(dir, "baz", "this is file 'baz'")
 	writeData(dir, "yadda", "this is file 'yadda'")
+
+	dir = filepath.Join(dataDir, environName, "inner")
+	err := os.MkdirAll(dir, 0777)
+	c.Assert(err, IsNil)
+
+	writeData(dir, "foo", "this is inner file 'foo'")
+	writeData(dir, "bar", "this is inner file 'bar'")
 }

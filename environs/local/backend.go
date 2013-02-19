@@ -50,18 +50,11 @@ func (s *storageBackend) handleGet(w http.ResponseWriter, req *http.Request) {
 
 // handleList returns the names in the storage to the client.
 func (s *storageBackend) handleList(w http.ResponseWriter, req *http.Request) {
-	fis, err := ioutil.ReadDir(s.path)
+	prefix := req.URL.Path[:len(req.URL.Path)-1]
+	names, err := readDirs(s.path, prefix, len(s.path)+1)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("404 %v", err), http.StatusNotFound)
 		return
-	}
-	prefix := req.URL.Path[:len(req.URL.Path)-1]
-	names := []string{}
-	for _, fi := range fis {
-		name := fi.Name()
-		if strings.HasPrefix(name, prefix) {
-			names = append(names, name)
-		}
 	}
 	sort.Strings(names)
 	data := []byte(strings.Join(names, "\n"))
@@ -69,9 +62,41 @@ func (s *storageBackend) handleList(w http.ResponseWriter, req *http.Request) {
 	w.Write(data)
 }
 
+// readDirs reads the directory hierarchy and compares the found
+// names with the given prefix.
+func readDirs(dir, prefix string, start int) ([]string, error) {
+	names := []string{}
+	fis, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	for _, fi := range fis {
+		name := fi.Name()
+		if fi.IsDir() {
+			dnames, err := readDirs(filepath.Join(dir, name), prefix, start)
+			if err != nil {
+				return nil, err
+			}
+			names = append(names, dnames...)
+			continue
+		}
+		if strings.HasPrefix(name, prefix) {
+			fullname := filepath.Join(dir, name)[start:]
+			names = append(names, fullname)
+		}
+	}
+	return names, nil
+}
+
 // handlePut stores data from the client in the storage.
 func (s *storageBackend) handlePut(w http.ResponseWriter, req *http.Request) {
 	fp := filepath.Join(s.path, req.URL.Path)
+	dir, _ := filepath.Split(fp)
+	err := os.MkdirAll(dir, 0777)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("403 %v", err), http.StatusForbidden)
+		return
+	}
 	out, err := os.Create(fp)
 	defer out.Close()
 	if err != nil {
@@ -83,7 +108,7 @@ func (s *storageBackend) handlePut(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, fmt.Sprintf("403 %v", err), http.StatusForbidden)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusCreated)
 }
 
 // handleDelete removes data from the storage.
