@@ -1,4 +1,5 @@
 package state
+import "time"
 
 type (
 	CharmDoc    charmDoc
@@ -11,6 +12,16 @@ type (
 func (doc *MachineDoc) String() string {
 	m := &Machine{doc: machineDoc(*doc)}
 	return m.String()
+}
+
+var oldDialTimeout = dialTimeout
+
+func SetDialTimeout(d time.Duration) {
+	if d == 0 {
+		dialTimeout = oldDialTimeout
+	} else {
+		dialTimeout = d
+	}
 }
 
 func init() {
