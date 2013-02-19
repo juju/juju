@@ -111,16 +111,16 @@ var listTests = []listTest{
 		found:  []string{"bar", "baz"},
 	},
 	{
-		prefix: "",
-		found:  []string{"bar", "baz", "foo", "yadda"},
+		prefix: "inner/",
+		found:  []string{"inner/bar", "inner/baz", "inner/foo"},
 	},
 	{
 		prefix: "inner/ba",
 		found:  []string{"inner/bar", "inner/baz"},
 	},
 	{
-		prefix: "inner/",
-		found:  []string{"inner/bar", "inner/baz", "inner/foo", "inner/yadda"},
+		prefix: "",
+		found:  []string{"bar", "baz", "foo", "inner/bar", "inner/baz", "inner/foo", "yadda"},
 	},
 	{
 		prefix: "zzz",
@@ -265,5 +265,4 @@ func createTestData(c *C, dataDir string) {
 	writeData(dir, "foo", "this is inner file 'foo'")
 	writeData(dir, "bar", "this is inner file 'bar'")
 	writeData(dir, "baz", "this is inner file 'baz'")
-	writeData(dir, "yadda", "this is inner file 'yadda'")
 }

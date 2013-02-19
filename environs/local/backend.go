@@ -52,7 +52,7 @@ func (s *storageBackend) handleGet(w http.ResponseWriter, req *http.Request) {
 func (s *storageBackend) handleList(w http.ResponseWriter, req *http.Request) {
 	fp := filepath.Join(s.path, req.URL.Path)
 	dir, prefix := filepath.Split(fp)
-	names, err := readDir(dir, prefix, len(s.path)+1)
+	names, err := readDirs(dir, prefix[:len(prefix)-1], len(s.path)+1)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("404 %v", err), http.StatusNotFound)
 		return
@@ -63,10 +63,9 @@ func (s *storageBackend) handleList(w http.ResponseWriter, req *http.Request) {
 	w.Write(data)
 }
 
-// readDir reads the directory and compares the found file
+// readDirs reads the directory hierarchy and compares the found
 // names with the given prefix.
-func readDir(dir, prefix string, start int) ([]string, error) {
-	prefix = prefix[:len(prefix)-1]
+func readDirs(dir, prefix string, start int) ([]string, error) {
 	names := []string{}
 	fis, err := ioutil.ReadDir(dir)
 	if err != nil {
@@ -74,11 +73,16 @@ func readDir(dir, prefix string, start int) ([]string, error) {
 	}
 	for _, fi := range fis {
 		name := fi.Name()
-		if fi.IsDir() {
-			continue
-		}
 		if strings.HasPrefix(name, prefix) {
-			fullname := filepath.Join(dir[start:], name)
+			if fi.IsDir() {
+				dnames, err := readDirs(filepath.Join(dir, name), prefix, start)
+				if err != nil {
+					return nil, err
+				}
+				names = append(names, dnames...)
+				continue
+			}
+			fullname := filepath.Join(dir, name)[start:]
 			names = append(names, fullname)
 		}
 	}
