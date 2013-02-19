@@ -106,12 +106,12 @@ func (c *RemoteCommand) Info() *cmd.Info {
 		"remote", "", "test jujuc", "here is some documentation"}
 }
 
-func (c *RemoteCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *RemoteCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.msg, "error", "", "if set, fail")
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	return cmd.CheckEmpty(f.Args())
+}
+
+func (c *RemoteCommand) Init(args []string) error {
+	return cmd.CheckEmpty(args)
 }
 
 func (c *RemoteCommand) Run(ctx *cmd.Context) error {
