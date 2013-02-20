@@ -120,7 +120,6 @@ var setTests = []struct {
 	},
 }
 
-
 func (s *ConfigSuite) TestServiceSet(c *C) {
 	sch := s.AddTestingCharm(c, "dummy")
 	svc, err := s.State.AddService("dummy-service", sch)
@@ -139,49 +138,48 @@ func (s *ConfigSuite) TestServiceSet(c *C) {
 	}
 }
 
-
 var getTests = []struct {
-	about    string
-	params   statecmd.ServiceGetParams // parameters to ServiceGet call.
-	expect   statecmd.ServiceGetResults
-	err      string
+	about  string
+	params statecmd.ServiceGetParams // parameters to ServiceGet call.
+	expect statecmd.ServiceGetResults
+	err    string
 }{
 	{
 		about: "unknown service name",
 		params: statecmd.ServiceGetParams{
 			ServiceName: "unknown-service",
 		},
-	        expect: statecmd.ServiceGetResults{},
-		err: `service "unknown-service" not found`,
+		expect: statecmd.ServiceGetResults{},
+		err:    `service "unknown-service" not found`,
 	},
 	{
 		about: "unknown service name",
 		params: statecmd.ServiceGetParams{
 			ServiceName: "dummy-service",
 		},
-	        expect: statecmd.ServiceGetResults{
+		expect: statecmd.ServiceGetResults{
 			Service: "dummy-service",
-			Charm: "dummy",
-		        Settings: map[string] interface{}{
-				"outlook":map[string] interface {} {
-					"description":"No default outlook.",
-					"type":"string",
-					"value": nil,
+			Charm:   "dummy",
+			Settings: map[string]interface{}{
+				"outlook": map[string]interface{}{
+					"description": "No default outlook.",
+					"type":        "string",
+					"value":       nil,
 				},
-				"username":map[string] interface {} {
-					"description":"The name of the initial account (given admin permissions).",
-					"type":"string",
-					"value": nil,
+				"username": map[string]interface{}{
+					"description": "The name of the initial account (given admin permissions).",
+					"type":        "string",
+					"value":       nil,
 				},
-				"skill-level":map[string] interface {} {
-					"description":"A number indicating skill.",
-					"type":"int",
-					"value": nil,
+				"skill-level": map[string]interface{}{
+					"description": "A number indicating skill.",
+					"type":        "int",
+					"value":       nil,
 				},
-				"title":map[string] interface {} {
-					"description":"A descriptive title used for the service.",
-					"type":"string",
-					"value": nil,
+				"title": map[string]interface{}{
+					"description": "A descriptive title used for the service.",
+					"type":        "string",
+					"value":       nil,
 				},
 			},
 		},

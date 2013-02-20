@@ -13,7 +13,6 @@ import (
 	"launchpad.net/juju-core/state"
 )
 
-
 // Parameters for making the GetConfig call.
 type ServiceGetParams struct {
 	ServiceName string
@@ -21,9 +20,9 @@ type ServiceGetParams struct {
 
 // Return struct for ServiceGet call.
 type ServiceGetResults struct {
-	Service string
-	Charm	string
-	Settings map[string] interface{}
+	Service  string
+	Charm    string
+	Settings map[string]interface{}
 }
 
 func ServiceGet(st *state.State, p ServiceGetParams, results *ServiceGetResults) error {
@@ -48,12 +47,11 @@ func ServiceGet(st *state.State, p ServiceGetParams, results *ServiceGetResults)
 	return nil
 }
 
-
 // Merge service settings and charm schema.
-func merge(serviceCfg map[string] interface{}, charmCfg map[string] charm.Option) map[string] interface{} {
-	results := make(map[string] interface{})
+func merge(serviceCfg map[string]interface{}, charmCfg map[string]charm.Option) map[string]interface{} {
+	results := make(map[string]interface{})
 	for k, v := range charmCfg {
-		m := map[string] interface{} {
+		m := map[string]interface{}{
 			"description": v.Description,
 			"type":        v.Type,
 		}
