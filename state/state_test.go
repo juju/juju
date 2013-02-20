@@ -1126,6 +1126,16 @@ func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *C) {
 	c.Assert(err, IsNil)
 }
 
+func (s *StateSuite) TestOpenBadAddress(c *C) {
+	info := state.TestingStateInfo()
+	info.Addrs = []string{"0.1.2.3:1234"}
+	state.SetDialTimeout(1 * time.Millisecond)
+	defer state.SetDialTimeout(0)
+
+	err := tryOpenState(info)
+	c.Assert(err, ErrorMatches, "no reachable servers")
+}
+
 func testSetPassword(c *C, getEntity func() (state.AuthEntity, error)) {
 	e, err := getEntity()
 	c.Assert(err, IsNil)
