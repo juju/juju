@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
@@ -43,7 +44,20 @@ func (c *HelpCommand) commands() string {
 }
 
 func (c *HelpCommand) global_options() string {
-	return "todo: global_options"
+	buf := &bytes.Buffer{}
+	fmt.Fprintf(buf, `Global Options
+
+These options may be used with any command, and may appear in front of any
+command.
+
+`)
+
+	f := gnuflag.NewFlagSet("", gnuflag.ContinueOnError)
+	c.Parent.SetFlags(f)
+	f.SetOutput(buf)
+	f.PrintDefaults()
+
+	return buf.String()
 }
 
 func (c *HelpCommand) topic_list() string {
@@ -73,9 +87,13 @@ func (c *HelpCommand) get_topic_text(name string) (string, bool) {
 }
 
 func (c *HelpCommand) Info() *cmd.Info {
-	return cmd.NewInfo(
-		"help", "[topic]", "show help on a command or other topic", helpDoc,
-	)
+	return &cmd.Info{
+		Name:    "help",
+		Args:    "[topic]",
+		Purpose: "show help on a command or other topic",
+		Doc:     helpDoc,
+		Aliases: []string{"?"},
+	}
 }
 
 func (c *HelpCommand) SetFlags(f *gnuflag.FlagSet) {}
