@@ -140,11 +140,11 @@ func (s *MachineSuite) TestManageEnviron(c *C) {
 	dummy.Listen(op)
 
 	a := s.newAgent(c, m)
+	defer a.Stop()
 	done := make(chan error)
 	go func() {
 		done <- a.Run(nil)
 	}()
-	defer a.Stop()
 
 	// Check that the provisioner and firewaller are alive by doing
 	// a rudimentary check that it responds to state changes.
