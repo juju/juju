@@ -15,7 +15,11 @@ type ExposeCommand struct {
 }
 
 func (c *ExposeCommand) Info() *cmd.Info {
-	return cmd.NewInfo("expose", "", "expose a service", "")
+	return &cmd.Info{
+		Name:    "expose",
+		Args:    "<service>",
+		Purpose: "expose a service",
+	}
 }
 
 func (c *ExposeCommand) SetFlags(f *gnuflag.FlagSet) {

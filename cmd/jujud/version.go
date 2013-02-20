@@ -12,7 +12,10 @@ type VersionCommand struct {
 }
 
 func (v *VersionCommand) Info() *cmd.Info {
-	return cmd.NewInfo("version", "", "print the current version", "")
+	return &cmd.Info{
+		Name:    "version",
+		Purpose: "print the current version",
+	}
 }
 
 func (v *VersionCommand) SetFlags(f *gnuflag.FlagSet) {

@@ -84,7 +84,12 @@ func (c *SuperCommand) Info() *Info {
 	if cmds := c.describeCommands(); cmds != "" {
 		docParts = append(docParts, cmds)
 	}
-	return NewInfo(c.Name, "<command> ...", c.Purpose, strings.Join(docParts, "\n\n"))
+	return &Info{
+		Name:    c.Name,
+		Args:    "<command> ...",
+		Purpose: c.Purpose,
+		Doc:     strings.Join(docParts, "\n\n"),
+	}
 }
 
 // SetFlags adds the options that apply to all commands, particularly those

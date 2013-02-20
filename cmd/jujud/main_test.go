@@ -102,8 +102,11 @@ here is some documentation
 `
 
 func (c *RemoteCommand) Info() *cmd.Info {
-	return cmd.NewInfo(
-		"remote", "", "test jujuc", "here is some documentation")
+	return &cmd.Info{
+		Name:    "remote",
+		Purpose: "test jujuc",
+		Doc:     "here is some documentation",
+	}
 }
 
 func (c *RemoteCommand) SetFlags(f *gnuflag.FlagSet) {

@@ -17,11 +17,12 @@ func NewConfigGetCommand(ctx Context) cmd.Command {
 }
 
 func (c *ConfigGetCommand) Info() *cmd.Info {
-	return cmd.NewInfo(
-		"config-get", "[<key>]",
-		"print service configuration",
-		"If a key is given, only the value for that key will be printed.",
-	)
+	return &cmd.Info{
+		Name:    "config-get",
+		Args:    "[<key>]",
+		Purpose: "print service configuration",
+		Doc:     "If a key is given, only the value for that key will be printed.",
+	}
 }
 
 func (c *ConfigGetCommand) SetFlags(f *gnuflag.FlagSet) {

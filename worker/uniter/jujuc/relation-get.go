@@ -29,9 +29,12 @@ If no key is given, or if the key is "-", all keys and values will be printed.
 		args = "[<key> [<unit id>]]"
 		doc += fmt.Sprintf("Current default unit id is %q.", name)
 	}
-	return cmd.NewInfo(
-		"relation-get", args, "get relation settings", doc,
-	)
+	return &cmd.Info{
+		Name:    "relation-get",
+		Args:    args,
+		Purpose: "get relation settings",
+		Doc:     doc,
+	}
 }
 
 func (c *RelationGetCommand) SetFlags(f *gnuflag.FlagSet) {
