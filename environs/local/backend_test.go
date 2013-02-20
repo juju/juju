@@ -52,42 +52,62 @@ type getTest struct {
 
 var getTests = []getTest{
 	{
+		// Get existing file.
 		name:    "foo",
 		content: "this is file 'foo'",
 	},
 	{
+		// Get existing file.
 		name:    "bar",
 		content: "this is file 'bar'",
 	},
 	{
+		// Get existing file.
 		name:    "baz",
 		content: "this is file 'baz'",
 	},
 	{
+		// Get existing file.
 		name:    "yadda",
 		content: "this is file 'yadda'",
 	},
 	{
+		// Get existing file from nested directory.
 		name:    "inner/fooin",
 		content: "this is inner file 'fooin'",
 	},
 	{
+		// Get existing file from nested directory.
 		name:    "inner/barin",
 		content: "this is inner file 'barin'",
 	},
 	{
+		// Get non-existing file.
 		name:   "dummy",
 		status: 404,
 	},
 	{
+		// Get non-existing file from nested directory.
 		name:   "inner/dummy",
 		status: 404,
 	},
 	{
+		// Get with a relative path ".." based on the
+		// root is passed without relation to the handler
+		// function.
 		name:   "../dummy",
 		status: 404,
 	},
 	{
+		// Get with a relative path ".." based on the
+		// root is passed without relation to the handler
+		// function.
+		name:    "../foo",
+		content: "this is file 'foo'",
+	},
+	{
+		// Get on a directory returns a 404 as it is
+		// no file.
 		name:   "inner",
 		status: 404,
 	},
@@ -122,30 +142,44 @@ type listTest struct {
 
 var listTests = []listTest{
 	{
+		// List with a full filename.
 		prefix: "foo",
 		found:  []string{"foo"},
 	},
 	{
+		// List with a prefix matching two files.
 		prefix: "ba",
 		found:  []string{"bar", "baz"},
 	},
 	{
+		// List the contents of a directory.
 		prefix: "inner/",
 		found:  []string{"inner/barin", "inner/bazin", "inner/fooin"},
 	},
 	{
+		// List with a prefix matching two files in
+		// a directory.
 		prefix: "inner/ba",
 		found:  []string{"inner/barin", "inner/bazin"},
 	},
 	{
+		// List with no prefix also lists the contents of all
+		// directories.
 		prefix: "",
 		found:  []string{"bar", "baz", "foo", "inner/barin", "inner/bazin", "inner/fooin", "yadda"},
 	},
 	{
+		// List with a non-matching prefix returns an empty
+		// body which is evaluated to a slice with an empty
+		// string in the test (simplification).
 		prefix: "zzz",
 		found:  []string{""},
 	},
 	{
+		// List with a relative path ".." based on the
+		// root is passed without relation to the handler
+		// function. So returns the contents of all
+		// directories.
 		prefix: "../",
 		found:  []string{"bar", "baz", "foo", "inner/barin", "inner/bazin", "inner/fooin", "yadda"},
 	},
@@ -181,14 +215,19 @@ type putTest struct {
 
 var putTests = []putTest{
 	{
+		// Put a file in the root directory.
 		name:    "porterhouse",
 		content: "this is the sent file 'porterhouse'",
 	},
 	{
+		// Put a file with a relative path ".." is resolved
+		// a redirect 301 by the Go HTTP daemon. The handler
+		// doesn't get aware of it.
 		name:   "../no-way",
 		status: 301,
 	},
 	{
+		// Put a file in a nested directory.
 		name:    "deep/cambridge",
 		content: "this is the sent file 'deep/cambridge'",
 	},
@@ -227,17 +266,23 @@ type removeTest struct {
 
 var removeTests = []removeTest{
 	{
+		// Delete a file in the root directory.
 		name:    "fox",
 		content: "the quick brown fox jumps over the lazy dog",
 	},
 	{
+		// Delete a file in a nested directory.
 		name:    "quick/brown/fox",
 		content: "the quick brown fox jumps over the lazy dog",
 	},
 	{
+		// Delete a non-existing file leads to no error.
 		name: "dog",
 	},
 	{
+		// Delete a file with a relative path ".." is resolved
+		// a redirect 301 by the Go HTTP daemon. The handler
+		// doesn't get aware of it.
 		name:   "../something",
 		status: 301,
 	},
