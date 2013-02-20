@@ -23,18 +23,18 @@ type SuperCommand struct {
 
 // Register makes a subcommand available for use on the command line. The
 // command will be available via its own name, and via any supplied aliases.
-func (c *SuperCommand) Register(subcmd Command, aliases ...string) {
+func (c *SuperCommand) Register(subcmd Command) {
 	if c.subcmds == nil {
 		c.subcmds = make(map[string]Command)
 	}
-	c.insert(subcmd)
-	for _, name := range aliases {
-		c.insert(&alias{subcmd, name})
+	info := subcmd.Info()
+	c.insert(info.Name, subcmd)
+	for _, name := range info.Aliases {
+		c.insert(name, &alias{subcmd, name})
 	}
 }
 
-func (c *SuperCommand) insert(subcmd Command) {
-	name := subcmd.Info().Name
+func (c *SuperCommand) insert(name string, subcmd Command) {
 	_, found := c.subcmds[name]
 	if found {
 		panic(fmt.Sprintf("command already registered: %s", name))
