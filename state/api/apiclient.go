@@ -118,11 +118,8 @@ func (m *Machine) String() string {
 }
 
 // InstanceId returns the provider specific instance id for this machine.
-func (m *Machine) InstanceId() (string, error) {
-	if m.doc.InstanceId == "" {
-		return "", fmt.Errorf("instance id for machine %v not found", m.id)
-	}
-	return m.doc.InstanceId, nil
+func (m *Machine) InstanceId() (string, bool) {
+	return m.doc.InstanceId, m.doc.InstanceId != ""
 }
 
 // SetPassword sets the password for the machine's agent.

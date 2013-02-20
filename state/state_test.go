@@ -39,7 +39,7 @@ func (s *StateSuite) TestStateInfo(c *C) {
 
 func (s *StateSuite) TestIsNotFound(c *C) {
 	err1 := fmt.Errorf("unrelated error")
-	err2 := &state.NotFoundError{}
+	err2 := state.NotFoundf("foo")
 	c.Assert(state.IsNotFound(err1), Equals, false)
 	c.Assert(state.IsNotFound(err2), Equals, true)
 }
@@ -130,8 +130,8 @@ func (s *StateSuite) TestInjectMachine(c *C) {
 	m, err := s.State.InjectMachine(state.InstanceId("i-mindustrious"), state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, IsNil)
 	c.Assert(m.Jobs(), DeepEquals, []state.MachineJob{state.JobHostUnits, state.JobManageEnviron})
-	instanceId, err := m.InstanceId()
-	c.Assert(err, IsNil)
+	instanceId, ok := m.InstanceId()
+	c.Assert(ok, Equals, true)
 	c.Assert(instanceId, Equals, state.InstanceId("i-mindustrious"))
 }
 
@@ -166,8 +166,8 @@ func (s *StateSuite) TestAllMachines(c *C) {
 	ms, _ := s.State.AllMachines()
 	for i, m := range ms {
 		c.Assert(m.Id(), Equals, strconv.Itoa(i))
-		instId, err := m.InstanceId()
-		c.Assert(err, IsNil)
+		instId, ok := m.InstanceId()
+		c.Assert(ok, Equals, true)
 		c.Assert(string(instId), Equals, fmt.Sprintf("foo-%d", i))
 		tools, err := m.AgentTools()
 		c.Check(err, IsNil)
@@ -1250,7 +1250,8 @@ func (s *StateSuite) TestSetAdminMongoPassword(c *C) {
 }
 
 func (s *StateSuite) TestAuthEntity(c *C) {
-	for _, name := range []string{"", "machine", "-foo", "foo-", "---"} {
+	bad := []string{"", "machine", "-foo", "foo-", "---", "machine-jim", "unit-123", "unit-foo"}
+	for _, name := range bad {
 		e, err := s.State.AuthEntity(name)
 		c.Check(e, IsNil)
 		c.Assert(err, ErrorMatches, `invalid entity name ".*"`)
@@ -1266,6 +1267,11 @@ func (s *StateSuite) TestAuthEntity(c *C) {
 	c.Assert(err, ErrorMatches, `unit "foo/654" not found`)
 	c.Assert(state.IsNotFound(err), Equals, true)
 
+	e, err = s.State.AuthEntity("unit-foo-bar-654")
+	c.Check(e, IsNil)
+	c.Assert(err, ErrorMatches, `unit "foo-bar/654" not found`)
+	c.Assert(state.IsNotFound(err), Equals, true)
+
 	e, err = s.State.AuthEntity("user-arble")
 	c.Check(e, IsNil)
 	c.Assert(err, ErrorMatches, `user "arble" not found`)
@@ -1279,7 +1285,7 @@ func (s *StateSuite) TestAuthEntity(c *C) {
 	c.Assert(e, FitsTypeOf, m)
 	c.Assert(e.EntityName(), Equals, m.EntityName())
 
-	svc, err := s.State.AddService("s1", s.AddTestingCharm(c, "dummy"))
+	svc, err := s.State.AddService("ser-vice1", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, IsNil)
 	u, err := svc.AddUnit()
 	c.Assert(err, IsNil)

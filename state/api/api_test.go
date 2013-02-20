@@ -1,7 +1,9 @@
 package api_test
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/rpc"
@@ -98,6 +100,7 @@ func (s *suite) TestOperationPerm(c *C) {
 				c.Check(err, IsNil)
 			} else {
 				c.Check(err, ErrorMatches, "permission denied")
+				c.Check(api.ErrCode(err), Equals, api.CodeUnauthorized)
 			}
 			reset()
 			st.Close()
@@ -139,8 +142,8 @@ func opGetMachine1(c *C, st *api.State) (func(), error) {
 	if err != nil {
 		c.Check(m, IsNil)
 	} else {
-		name, err := m.InstanceId()
-		c.Assert(err, IsNil)
+		name, ok := m.InstanceId()
+		c.Assert(ok, Equals, true)
 		c.Assert(name, Equals, "i-machine-1")
 	}
 	return func() {}, err
@@ -191,7 +194,7 @@ var scenarioStatus = &api.Status{
 // setUpScenario makes an environment scenario suitable for
 // testing most kinds of access scenario. It returns
 // a list of all the entities in the scenario.
-// 
+//
 // When the scenario is initialized, we have:
 // user-admin
 // user-other
@@ -316,14 +319,17 @@ var badLoginTests = []struct {
 	entityName string
 	password   string
 	err        string
+	code       string
 }{{
 	entityName: "user-admin",
 	password:   "wrong password",
 	err:        "invalid entity name or password",
+	code:       api.CodeUnauthorized,
 }, {
 	entityName: "user-foo",
 	password:   "password",
 	err:        "invalid entity name or password",
+	code:       api.CodeUnauthorized,
 }, {
 	entityName: "bar",
 	password:   "password",
@@ -344,15 +350,19 @@ func (s *suite) TestBadLogin(c *C) {
 
 			_, err = st.Machine("0")
 			c.Assert(err, ErrorMatches, "not logged in")
+			c.Assert(api.ErrCode(err), Equals, api.CodeUnauthorized)
 
 			_, err = st.Unit("foo/0")
 			c.Assert(err, ErrorMatches, "not logged in")
+			c.Assert(api.ErrCode(err), Equals, api.CodeUnauthorized)
 
 			err = st.Login(t.entityName, t.password)
 			c.Assert(err, ErrorMatches, t.err)
+			c.Assert(api.ErrCode(err), Equals, t.code)
 
 			_, err = st.Machine("0")
 			c.Assert(err, ErrorMatches, "not logged in")
+			c.Assert(api.ErrCode(err), Equals, api.CodeUnauthorized)
 		}()
 	}
 }
@@ -385,8 +395,8 @@ func (s *suite) TestMachineLogin(c *C) {
 	m, err := st.Machine(stm.Id())
 	c.Assert(err, IsNil)
 
-	instId, err := m.InstanceId()
-	c.Assert(err, IsNil)
+	instId, ok := m.InstanceId()
+	c.Assert(ok, Equals, true)
 	c.Assert(instId, Equals, "i-foo")
 }
 
@@ -398,30 +408,32 @@ func (s *suite) TestMachineInstanceId(c *C) {
 	// Normal users can't access Machines...
 	m, err := s.APIState.Machine(stm.Id())
 	c.Assert(err, ErrorMatches, "permission denied")
+	c.Assert(api.ErrCode(err), Equals, api.CodeUnauthorized)
 	c.Assert(m, IsNil)
 
 	// ... so login as the machine.
 	st := s.openAs(c, stm.EntityName())
+	defer st.Close()
 
 	m, err = st.Machine(stm.Id())
 	c.Assert(err, IsNil)
 
-	instId, err := m.InstanceId()
+	instId, ok := m.InstanceId()
 	c.Check(instId, Equals, "")
-	c.Check(err, ErrorMatches, "instance id for machine 0 not found")
+	c.Check(ok, Equals, false)
 
 	err = stm.SetInstanceId("foo")
 	c.Assert(err, IsNil)
 
-	instId, err = m.InstanceId()
+	instId, ok = m.InstanceId()
 	c.Check(instId, Equals, "")
-	c.Check(err, ErrorMatches, "instance id for machine 0 not found")
+	c.Check(ok, Equals, false)
 
 	err = m.Refresh()
 	c.Assert(err, IsNil)
 
-	instId, err = m.InstanceId()
-	c.Assert(err, IsNil)
+	instId, ok = m.InstanceId()
+	c.Check(ok, Equals, true)
 	c.Assert(instId, Equals, "foo")
 }
 
@@ -433,25 +445,26 @@ func (s *suite) TestMachineRefresh(c *C) {
 	c.Assert(err, IsNil)
 
 	st := s.openAs(c, stm.EntityName())
+	defer st.Close()
 	m, err := st.Machine(stm.Id())
 	c.Assert(err, IsNil)
 
-	instId, err := m.InstanceId()
-	c.Assert(err, IsNil)
+	instId, ok := m.InstanceId()
+	c.Assert(ok, Equals, true)
 	c.Assert(instId, Equals, "foo")
 
 	err = stm.SetInstanceId("bar")
 	c.Assert(err, IsNil)
 
-	instId, err = m.InstanceId()
-	c.Assert(err, IsNil)
+	instId, ok = m.InstanceId()
+	c.Assert(ok, Equals, true)
 	c.Assert(instId, Equals, "foo")
 
 	err = m.Refresh()
 	c.Assert(err, IsNil)
 
-	instId, err = m.InstanceId()
-	c.Assert(err, IsNil)
+	instId, ok = m.InstanceId()
+	c.Assert(ok, Equals, true)
 	c.Assert(instId, Equals, "bar")
 }
 
@@ -461,6 +474,7 @@ func (s *suite) TestMachineSetPassword(c *C) {
 	setDefaultPassword(c, stm)
 
 	st := s.openAs(c, stm.EntityName())
+	defer st.Close()
 	m, err := st.Machine(stm.Id())
 	c.Assert(err, IsNil)
 
@@ -479,6 +493,7 @@ func (s *suite) TestMachineEntityName(c *C) {
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, stm)
 	st := s.openAs(c, "machine-0")
+	defer st.Close()
 	m, err := st.Machine("0")
 	c.Assert(err, IsNil)
 	c.Assert(m.EntityName(), Equals, "machine-0")
@@ -545,6 +560,7 @@ func chanRead(c *C, ch <-chan struct{}, what string) (ok bool) {
 func (s *suite) TestUnitRefresh(c *C) {
 	s.setUpScenario(c)
 	st := s.openAs(c, "unit-wordpress-0")
+	defer st.Close()
 
 	u, err := st.Unit("wordpress/0")
 	c.Assert(err, IsNil)
@@ -570,11 +586,82 @@ func (s *suite) TestUnitRefresh(c *C) {
 	c.Assert(deployer, Equals, "")
 }
 
+func (s *suite) TestErrors(c *C) {
+	stm, err := s.State.AddMachine(state.JobHostUnits)
+	c.Assert(err, IsNil)
+	setDefaultPassword(c, stm)
+	st := s.openAs(c, stm.EntityName())
+	defer st.Close()
+	// By testing this single call, we test that the
+	// error transformation function is correctly called
+	// on error returns from the API server. The transformation
+	// function itself is tested below.
+	_, err = st.Machine("99")
+	c.Assert(api.ErrCode(err), Equals, api.CodeNotFound)
+}
+
+var errorTransformTests = []struct {
+	err  error
+	code string
+}{{
+	err:  state.NotFoundf("hello"),
+	code: api.CodeNotFound,
+}, {
+	err:  state.ErrUnauthorized,
+	code: api.CodeUnauthorized,
+}, {
+	err:  state.ErrCannotEnterScopeYet,
+	code: api.CodeCannotEnterScopeYet,
+}, {
+	err:  state.ErrCannotEnterScope,
+	code: api.CodeCannotEnterScope,
+}, {
+	err:  state.ErrExcessiveContention,
+	code: api.CodeExcessiveContention,
+}, {
+	err:  state.ErrUnitHasSubordinates,
+	code: api.CodeUnitHasSubordinates,
+}, {
+	err:  api.ErrBadId,
+	code: api.CodeNotFound,
+}, {
+	err:  api.ErrBadCreds,
+	code: api.CodeUnauthorized,
+}, {
+	err:  api.ErrPerm,
+	code: api.CodeUnauthorized,
+}, {
+	err:  api.ErrNotLoggedIn,
+	code: api.CodeUnauthorized,
+}, {
+	err:  api.ErrUnknownWatcher,
+	code: api.CodeNotFound,
+}, {
+	err:  &state.NotAssignedError{&state.Unit{}}, // too sleazy?!
+	code: api.CodeNotAssigned,
+}, {
+	err:  errors.New("an error"),
+	code: "",
+}}
+
+func (s *suite) TestErrorTransform(c *C) {
+	for _, t := range errorTransformTests {
+		err1 := api.ServerError(t.err)
+		c.Assert(err1.Error(), Equals, t.err.Error())
+		if t.code != "" {
+			c.Assert(api.ErrCode(err1), Equals, t.code)
+		} else {
+			c.Assert(err1, Equals, t.err)
+		}
+	}
+}
+
 func (s *suite) TestUnitEntityName(c *C) {
 	c.Assert(api.UnitEntityName("wordpress/2"), Equals, "unit-wordpress-2")
 
 	s.setUpScenario(c)
 	st := s.openAs(c, "unit-wordpress-0")
+	defer st.Close()
 	u, err := st.Unit("wordpress/0")
 	c.Assert(err, IsNil)
 	c.Assert(u.EntityName(), Equals, "unit-wordpress-0")
@@ -613,7 +700,12 @@ func (s *suite) TestStop(c *C) {
 	c.Logf("srv stopped")
 
 	_, err = st.Machine(stm.Id())
-	c.Assert(err, Equals, rpc.ErrShutdown)
+	// The client has not necessarily seen the server
+	// shutdown yet, so there are two possible
+	// errors.
+	if err != rpc.ErrShutdown && err != io.ErrUnexpectedEOF {
+		c.Fatalf("unexpected error from request: %v", err)
+	}
 
 	// Check it can be stopped twice.
 	err = srv.Stop()

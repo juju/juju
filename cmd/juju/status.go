@@ -117,13 +117,11 @@ func fetchAllServices(st *state.State) (map[string]*state.Service, error) {
 func processMachines(machines map[string]*state.Machine, instances map[state.InstanceId]environs.Instance) (map[string]interface{}, error) {
 	r := make(map[string]interface{})
 	for _, m := range machines {
-		instid, err := m.InstanceId()
-		if err, ok := err.(*state.NotFoundError); ok {
+		instid, ok := m.InstanceId()
+		if !ok {
 			r[m.Id()] = map[string]interface{}{
 				"instance-id": "pending",
 			}
-		} else if err != nil {
-			return nil, err
 		} else {
 			instance, ok := instances[instid]
 			if !ok {

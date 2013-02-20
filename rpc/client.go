@@ -66,10 +66,19 @@ type Call struct {
 // ServerError represents an error returned from an RPC server.
 type ServerError struct {
 	Message string
+	Code    string
 }
 
 func (e *ServerError) Error() string {
-	return "server error: " + e.Message
+	m := "server error: " + e.Message
+	if e.Code != "" {
+		m += " (" + e.Code + ")"
+	}
+	return m
+}
+
+func (e *ServerError) ErrorCode() string {
+	return e.Code
 }
 
 func (client *Client) Close() error {
@@ -89,7 +98,7 @@ func (client *Client) send(call *Call) {
 
 	// Register this call.
 	client.mutex.Lock()
-	if client.shutdown {
+	if client.shutdown || client.closing {
 		call.Error = ErrShutdown
 		client.mutex.Unlock()
 		call.done()
@@ -141,9 +150,6 @@ func (client *Client) input() {
 		response = Response{}
 		err = client.codec.ReadResponseHeader(&response)
 		if err != nil {
-			if err == io.EOF && !client.closing {
-				err = io.ErrUnexpectedEOF
-			}
 			break
 		}
 		reqId := response.RequestId
@@ -164,7 +170,10 @@ func (client *Client) input() {
 			// We've got an error response. Give this to the request;
 			// any subsequent requests will get the ReadResponseBody
 			// error if there is one.
-			call.Error = &ServerError{response.Error}
+			call.Error = &ServerError{
+				Message: response.Error,
+				Code:    response.ErrorCode,
+			}
 			err = client.readBody(nil)
 			call.done()
 		default:
@@ -177,6 +186,13 @@ func (client *Client) input() {
 	client.mutex.Lock()
 	client.shutdown = true
 	closing := client.closing
+	if err == io.EOF {
+		if closing {
+			err = ErrShutdown
+		} else {
+			err = io.ErrUnexpectedEOF
+		}
+	}
 	for _, call := range client.pending {
 		call.Error = err
 		call.done()

@@ -140,6 +140,8 @@ func (s *MachineSuite) TestManageEnviron(c *C) {
 	dummy.Listen(op)
 
 	a := s.newAgent(c, m)
+	// Make sure the agent is stopped even if the test fails.
+	defer a.Stop()
 	done := make(chan error)
 	go func() {
 		done <- a.Run(nil)
@@ -169,11 +171,10 @@ func (s *MachineSuite) TestManageEnviron(c *C) {
 	for _ = range w.Changes() {
 		err = m1.Refresh()
 		c.Assert(err, IsNil)
-		_, err := m1.InstanceId()
-		if state.IsNotFound(err) {
+		_, ok := m1.InstanceId()
+		if !ok {
 			continue
 		}
-		c.Assert(err, IsNil)
 		break
 	}
 	err = units[0].OpenPort("tcp", 999)
@@ -232,8 +233,8 @@ func (s *MachineSuite) TestServeAPI(c *C) {
 	m, err := st.Machine(stm.Id())
 	c.Assert(err, IsNil)
 
-	instId, err := m.InstanceId()
-	c.Assert(err, IsNil)
+	instId, ok := m.InstanceId()
+	c.Assert(ok, Equals, true)
 	c.Assert(instId, Equals, "ardbeg-0")
 
 	err = a.Stop()

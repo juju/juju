@@ -111,7 +111,7 @@ func rpcError(err error) error {
 }
 
 func (s *State) Close() error {
-	return s.conn.Close()
+	return s.client.Close()
 }
 
 type clientReq struct {
@@ -125,6 +125,7 @@ type clientReq struct {
 type clientResp struct {
 	RequestId uint64
 	Error     string
+	ErrorCode string
 	Response  json.RawMessage
 }
 
@@ -154,6 +155,7 @@ func (c *clientCodec) ReadResponseHeader(resp *rpc.Response) error {
 	}
 	resp.RequestId = c.resp.RequestId
 	resp.Error = c.resp.Error
+	resp.ErrorCode = c.resp.ErrorCode
 	return nil
 }
 

@@ -39,7 +39,7 @@ func NewServer(s *state.State, addr string, cert, key []byte) (*Server, error) {
 		state: s,
 		addr:  lis.Addr(),
 	}
-	srv.rpcSrv, err = rpc.NewServer(&srvRoot{})
+	srv.rpcSrv, err = rpc.NewServer(&srvRoot{}, serverError)
 	lis = tls.NewListener(lis, &tls.Config{
 		Certificates: []tls.Certificate{tlsCert},
 	})
@@ -149,6 +149,7 @@ type serverReq struct {
 type serverResp struct {
 	RequestId uint64
 	Error     string      `json:",omitempty"`
+	ErrorCode string      `json:",omitempty"`
 	Response  interface{} `json:",omitempty"`
 }
 
@@ -187,6 +188,7 @@ func (c *serverCodec) WriteResponse(resp *rpc.Response, body interface{}) error 
 	r := &serverResp{
 		RequestId: resp.RequestId,
 		Error:     resp.Error,
+		ErrorCode: resp.ErrorCode,
 		Response:  body,
 	}
 	if logRequests {

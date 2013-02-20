@@ -43,7 +43,7 @@ func (st *State) AddUser(name, password string) (*User, error) {
 func (st *State) getUser(name string, udoc *userDoc) error {
 	err := st.users.Find(D{{"_id", name}}).One(udoc)
 	if err == mgo.ErrNotFound {
-		err = notFoundf("user %q", name)
+		err = NotFoundf("user %q", name)
 	}
 	return err
 }

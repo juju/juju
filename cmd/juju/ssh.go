@@ -95,8 +95,8 @@ func (c *SSHCommon) machinePublicAddress(id string) (string, error) {
 	// wait for instance id
 	w := machine.Watch()
 	for _ = range w.Changes() {
-		instid, err := machine.InstanceId()
-		if err == nil {
+		instid, ok := machine.InstanceId()
+		if ok {
 			w.Stop()
 			inst, err := c.Environ.Instances([]state.InstanceId{instid})
 			if err != nil {

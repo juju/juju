@@ -2,7 +2,6 @@ package api
 
 import (
 	"code.google.com/p/go.net/websocket"
-	"errors"
 	"fmt"
 	"launchpad.net/juju-core/state"
 	"sync"
@@ -13,14 +12,6 @@ import (
 // TODO(rog) remove this when the rest of the system
 // has been updated to set passwords appropriately.
 var AuthenticationEnabled = false
-
-var (
-	errBadId       = errors.New("id not found")
-	errBadCreds    = errors.New("invalid entity name or password")
-	errNotLoggedIn = errors.New("not logged in")
-	errPerm        = errors.New("permission denied")
-	errUnknownWatcher = errors.New("unknown watcher id")
-)
 
 // srvRoot represents a single client's connection to the state.
 type srvRoot struct {
