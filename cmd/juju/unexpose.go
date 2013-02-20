@@ -19,7 +19,6 @@ func (c *UnexposeCommand) Info() *cmd.Info {
 		Name:    "unexpose",
 		Args:    "<service>",
 		Purpose: "unexpose a service",
-		Aliases: []string{"hide"},
 	}
 }
 
