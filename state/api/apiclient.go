@@ -167,11 +167,11 @@ func (w *EntityWatcher) loop() error {
 	callWatch := func(request string) error {
 		return w.st.call("EntityWatcher", id.EntityWatcherId, request, nil, nil)
 	}
-	// When the watcher has been stopped, we send a stop
+	// When the EntityWatcher has been stopped, we send a stop
 	// request to the server, which will remove the watcher
-	// and return an error to any currently outstanding call
+	// and return a CodeStopped error to any currently outstanding call
 	// to Next. If a call to Next happens just after the watcher
-	// has been stopped, we'll get a watcher-not-found error.
+	// has been stopped, we'll get a CodeNotFound error;
 	// Either way we'll return, wait for the stop request to
 	// complete, and the watcher will die with all resources
 	// cleaned up.
@@ -179,8 +179,7 @@ func (w *EntityWatcher) loop() error {
 	go func() {
 		defer w.wg.Done()
 		<-w.tomb.Dying()
-		err := callWatch("Stop")
-		if err != nil {
+		if err := callWatch("Stop"); err != nil {
 			log.Printf("state/api: error trying to stop watcher: %v", err)
 		}
 	}()
@@ -189,9 +188,10 @@ func (w *EntityWatcher) loop() error {
 		case <-w.tomb.Dying():
 			return nil
 		case w.out <- struct{}{}:
+			// Note that because the change notification
 		}
 		if err := callWatch("Next"); err != nil {
-			if ErrCode(err) == CodeStopped {
+			if code := ErrCode(err); code == CodeStopped || code == CodeNotFound {
 				err = nil
 			}
 			return err

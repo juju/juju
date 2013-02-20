@@ -176,7 +176,7 @@ type srvEntityWatcher struct {
 }
 
 func (w srvEntityWatcher) Next() error {
-	if _, ok := <-w.srvWatcher.w.(*state.EntityWatcher).Changes(); ok {
+	if _, ok := <-w.w.(*state.EntityWatcher).Changes(); ok {
 		return nil
 	}
 	err := w.w.Err()
