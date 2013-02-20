@@ -28,14 +28,14 @@ func (s *ToolsSuite) SetUpTest(c *C) {
 }
 
 func (s *ToolsSuite) TestEnsureJujucSymlinks(c *C) {
-	jujucPath := filepath.Join(s.toolsDir, "jujuc")
-	err := ioutil.WriteFile(jujucPath, []byte("assume sane"), 0755)
+	jujudPath := filepath.Join(s.toolsDir, "jujud")
+	err := ioutil.WriteFile(jujudPath, []byte("assume sane"), 0755)
 	c.Assert(err, IsNil)
 
 	assertLink := func(path string) time.Time {
 		target, err := os.Readlink(path)
 		c.Assert(err, IsNil)
-		c.Assert(target, Equals, "./jujuc")
+		c.Assert(target, Equals, "./jujud")
 		fi, err := os.Lstat(path)
 		c.Assert(err, IsNil)
 		return fi.ModTime()

@@ -2,10 +2,10 @@ package cmd_test
 
 import (
 	"io/ioutil"
-	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/testing"
 	"path/filepath"
 )
 
@@ -28,7 +28,7 @@ func (s *LogSuite) TearDownTest(c *C) {
 
 func (s *LogSuite) TestAddFlags(c *C) {
 	l := &cmd.Log{}
-	f := gnuflag.NewFlagSet("", gnuflag.ContinueOnError)
+	f := testing.NewFlagSet()
 	l.AddFlags(f)
 
 	err := f.Parse(false, []string{})

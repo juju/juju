@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
-	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/state"
@@ -15,12 +13,6 @@ import (
 )
 
 func TestPackage(t *testing.T) { TestingT(t) }
-
-func dummyFlagSet() *gnuflag.FlagSet {
-	f := gnuflag.NewFlagSet("", gnuflag.ContinueOnError)
-	f.SetOutput(ioutil.Discard)
-	return f
-}
 
 func dummyContext(c *C) *cmd.Context {
 	return &cmd.Context{c.MkDir(), nil, &bytes.Buffer{}, &bytes.Buffer{}}
