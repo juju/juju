@@ -158,14 +158,12 @@ func (s *ProvisionerSuite) checkInstanceId(c *C, m *state.Machine, inst environs
 	for a := veryShortAttempt.Start(); a.Next(); {
 		err := m.Refresh()
 		c.Assert(err, IsNil)
-		_, ok := m.InstanceId()
-		if !ok {
-			if inst == nil {
-				return
-			}
-			continue
+		if _, ok := m.InstanceId(); ok {
+			break
 		}
-		break
+		if inst == nil {
+			return
+		}
 	}
 	id, ok := m.InstanceId()
 	c.Assert(ok, Equals, true)

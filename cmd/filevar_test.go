@@ -1,10 +1,10 @@
 package cmd_test
 
 import (
-	"io/ioutil"
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/testing"
 	"os"
 )
 
@@ -49,8 +49,7 @@ func (s *FileVarSuite) TestInvalidFileVar(c *C) {
 
 func fs() (*gnuflag.FlagSet, *cmd.FileVar) {
 	var config cmd.FileVar
-	fs := gnuflag.NewFlagSet("", gnuflag.ContinueOnError)
-	fs.SetOutput(ioutil.Discard)
+	fs := testing.NewFlagSet()
 	fs.Var(&config, "config", "the config")
 	return fs, &config
 }

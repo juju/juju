@@ -119,10 +119,10 @@ func readRequests(conn *websocket.Conn, c chan<- serverReq) {
 			var m json.RawMessage
 			err = websocket.JSON.Receive(conn, &m)
 			if err == nil {
-				log.Printf("api: <- %s", m)
+				log.Debugf("api: <- %s", m)
 				err = json.Unmarshal(m, &req)
 			} else {
-				log.Printf("api: <- error: %v", err)
+				log.Debugf("api: <- error: %v", err)
 			}
 		} else {
 			err = websocket.JSON.Receive(conn, &req)
@@ -194,10 +194,10 @@ func (c *serverCodec) WriteResponse(resp *rpc.Response, body interface{}) error 
 	if logRequests {
 		data, err := json.Marshal(r)
 		if err != nil {
-			log.Printf("api: -> marshal error: %v", err)
+			log.Debugf("api: -> marshal error: %v", err)
 			return err
 		}
-		log.Printf("api: -> %s", data)
+		log.Debugf("api: -> %s", data)
 	}
 	return websocket.JSON.Send(c.conn, r)
 }

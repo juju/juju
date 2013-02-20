@@ -117,7 +117,8 @@ func (m *Machine) String() string {
 	return m.id
 }
 
-// InstanceId returns the provider specific instance id for this machine.
+// InstanceId returns the provider specific instance id for this machine
+// and whether it has been set.
 func (m *Machine) InstanceId() (string, bool) {
 	return m.doc.InstanceId, m.doc.InstanceId != ""
 }

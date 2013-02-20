@@ -19,13 +19,13 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 	return &cmd.Info{"bootstrap", "", "start up an environment from scratch", ""}
 }
 
-func (c *BootstrapCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	addEnvironFlags(&c.EnvName, f)
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	return cmd.CheckEmpty(f.Args())
+}
+
+func (c *BootstrapCommand) Init(args []string) error {
+	return cmd.CheckEmpty(args)
 }
 
 // Run connects to the environment specified on the command line and bootstraps

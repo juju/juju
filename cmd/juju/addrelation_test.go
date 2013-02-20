@@ -1,9 +1,7 @@
 package main
 
 import (
-	"bytes"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -14,11 +12,7 @@ type AddRelationSuite struct {
 var _ = Suite(&AddRelationSuite{})
 
 func runAddRelation(c *C, args ...string) error {
-	com := &AddRelationCommand{}
-	if err := com.Init(newFlagSet(), args); err != nil {
-		return err
-	}
-	return com.Run(&cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}})
+	return testing.RunCommand(c, &AddRelationCommand{}, args)
 }
 
 var msWpAlreadyExists = `cannot add relation "wp:db ms:server": relation already exists`
