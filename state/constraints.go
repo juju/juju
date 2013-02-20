@@ -2,6 +2,8 @@ package state
 
 import (
 	"fmt"
+	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/txn"
 	"strings"
 )
 
@@ -49,4 +51,54 @@ func uintStr(i uint64) string {
 		return ""
 	}
 	return fmt.Sprintf("%d", i)
+}
+
+type constraintsDoc struct {
+	CpuCores *uint64
+	CpuPower *uint64
+	Mem      *uint64
+}
+
+func newConstraintsDoc(cons Constraints) constraintsDoc {
+	return constraintsDoc{
+		CpuCores: cons.CpuCores,
+		CpuPower: cons.CpuPower,
+		Mem:      cons.Mem,
+	}
+}
+
+func createConstraintsOp(st *State, id string, cons Constraints) txn.Op {
+	return txn.Op{
+		C:      st.constraints.Name,
+		Id:     id,
+		Assert: txn.DocMissing,
+		Insert: newConstraintsDoc(cons),
+	}
+}
+
+func readConstraints(st *State, id string) (Constraints, error) {
+	doc := constraintsDoc{}
+	if err := st.constraints.FindId(id).One(&doc); err == mgo.ErrNotFound {
+		return Constraints{}, NotFoundf("constraints")
+	} else if err != nil {
+		return Constraints{}, err
+	}
+	return Constraints{
+		CpuCores: doc.CpuCores,
+		CpuPower: doc.CpuPower,
+		Mem:      doc.Mem,
+	}, nil
+}
+
+func writeConstraints(st *State, id string, cons Constraints) error {
+	ops := []txn.Op{{
+		C:      st.constraints.Name,
+		Id:     id,
+		Assert: txn.DocExists,
+		Update: D{{"$set", newConstraintsDoc(cons)}},
+	}}
+	if err := st.runner.Run(ops, "", nil); err != nil {
+		return fmt.Errorf("cannot set constraints: %v", err)
+	}
+	return nil
 }
