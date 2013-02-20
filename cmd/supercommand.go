@@ -46,8 +46,14 @@ func (c *SuperCommand) insert(name string, subcmd Command) {
 	}
 }
 
-// describeCommands returns a short description of each registered subcommand.
-func (c *SuperCommand) describeCommands() string {
+// DescribeCommands returns a short description of each registered subcommand.
+func (c *SuperCommand) DescribeCommands(simple bool) string {
+	var lineFormat = "    %-*s - %s"
+	var outputFormat = "commands:\n%s"
+	if simple {
+		lineFormat = "%-*s  %s"
+		outputFormat = "%s"
+	}
 	cmds := make([]string, len(c.subcmds))
 	if len(cmds) == 0 {
 		return ""
@@ -68,9 +74,9 @@ func (c *SuperCommand) describeCommands() string {
 		if name != info.Name {
 			purpose = "alias for " + info.Name
 		}
-		cmds[i] = fmt.Sprintf("    %-*s - %s", longest, name, purpose)
+		cmds[i] = fmt.Sprintf(lineFormat, longest, name, purpose)
 	}
-	return fmt.Sprintf("commands:\n%s", strings.Join(cmds, "\n"))
+	return fmt.Sprintf(outputFormat, strings.Join(cmds, "\n"))
 }
 
 // Info returns a description of the currently selected subcommand, or of the
@@ -85,7 +91,7 @@ func (c *SuperCommand) Info() *Info {
 	if doc := strings.TrimSpace(c.Doc); doc != "" {
 		docParts = append(docParts, doc)
 	}
-	if cmds := c.describeCommands(); cmds != "" {
+	if cmds := c.DescribeCommands(false); cmds != "" {
 		docParts = append(docParts, cmds)
 	}
 	return NewInfo(c.Name, "<command> ...", c.Purpose, strings.Join(docParts, "\n\n"))

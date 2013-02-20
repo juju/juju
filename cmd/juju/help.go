@@ -39,7 +39,7 @@ func (c *HelpCommand) make_topics() {
 }
 
 func (c *HelpCommand) commands() string {
-	return "todo: global_options"
+	return c.Parent.DescribeCommands(true)
 }
 
 func (c *HelpCommand) global_options() string {
@@ -73,9 +73,9 @@ func (c *HelpCommand) get_topic_text(name string) (string, bool) {
 }
 
 func (c *HelpCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return cmd.NewInfo(
 		"help", "[topic]", "show help on a command or other topic", helpDoc,
-	}
+	)
 }
 
 func (c *HelpCommand) SetFlags(f *gnuflag.FlagSet) {}
