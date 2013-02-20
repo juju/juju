@@ -20,7 +20,7 @@ var _ environs.Storage = (*storage)(nil)
 // newStorage returns a new local storage.
 func newStorage(address string, port int, environName string) *storage {
 	return &storage{
-		baseURL: fmt.Sprintf("http://%s:%d/%s", address, port, environName),
+		baseURL: fmt.Sprintf("http://%s:%d", address, port),
 	}
 }
 

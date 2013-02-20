@@ -26,12 +26,15 @@ type backendSuite struct {
 
 var _ = Suite(&backendSuite{})
 
-const environName = "test-environ"
+const (
+	environName = "test-environ"
+	portNo      = 60006
+)
 
 func (s *backendSuite) SetUpSuite(c *C) {
 	var err error
 	s.dataDir = c.MkDir()
-	s.listener, err = local.Listen(s.dataDir, environName, "127.0.0.1", 60006)
+	s.listener, err = local.Listen(s.dataDir, environName, "127.0.0.1", portNo)
 	c.Assert(err, IsNil)
 
 	createTestData(c, s.dataDir)
@@ -65,11 +68,27 @@ var getTests = []getTest{
 		content: "this is file 'yadda'",
 	},
 	{
+		name:    "inner/fooin",
+		content: "this is inner file 'fooin'",
+	},
+	{
+		name:    "inner/barin",
+		content: "this is inner file 'barin'",
+	},
+	{
 		name:   "dummy",
 		status: 404,
 	},
 	{
+		name:   "inner/dummy",
+		status: 404,
+	},
+	{
 		name:   "../dummy",
+		status: 404,
+	},
+	{
+		name:   "inner",
 		status: 404,
 	},
 }
@@ -77,7 +96,7 @@ var getTests = []getTest{
 func (s *backendSuite) TestGet(c *C) {
 	// Test retrieving a file from a storage.
 	check := func(gt getTest) {
-		url := fmt.Sprintf("http://localhost:60006/%s/%s", environName, gt.name)
+		url := fmt.Sprintf("http://localhost:%d/%s", portNo, gt.name)
 		resp, err := http.Get(url)
 		if gt.status != 0 {
 			c.Assert(resp.StatusCode, Equals, gt.status)
@@ -112,15 +131,15 @@ var listTests = []listTest{
 	},
 	{
 		prefix: "inner/",
-		found:  []string{"inner/bar", "inner/baz", "inner/foo"},
+		found:  []string{"inner/barin", "inner/bazin", "inner/fooin"},
 	},
 	{
 		prefix: "inner/ba",
-		found:  []string{"inner/bar", "inner/baz"},
+		found:  []string{"inner/barin", "inner/bazin"},
 	},
 	{
 		prefix: "",
-		found:  []string{"bar", "baz", "foo", "inner/bar", "inner/baz", "inner/foo", "yadda"},
+		found:  []string{"bar", "baz", "foo", "inner/barin", "inner/bazin", "inner/fooin", "yadda"},
 	},
 	{
 		prefix: "zzz",
@@ -128,14 +147,14 @@ var listTests = []listTest{
 	},
 	{
 		prefix: "../",
-		status: 404,
+		found:  []string{"bar", "baz", "foo", "inner/barin", "inner/bazin", "inner/fooin", "yadda"},
 	},
 }
 
 func (s *backendSuite) TestList(c *C) {
 	// Test listing file of a storage.
 	check := func(lt listTest) {
-		url := fmt.Sprintf("http://localhost:60006/%s/%s*", environName, lt.prefix)
+		url := fmt.Sprintf("http://localhost:%d/%s*", portNo, lt.prefix)
 		resp, err := http.Get(url)
 		if lt.status != 0 {
 			c.Assert(resp.StatusCode, Equals, lt.status)
@@ -178,7 +197,7 @@ var putTests = []putTest{
 func (s *backendSuite) TestPut(c *C) {
 	// Test sending a file to the storage.
 	check := func(pt putTest) {
-		url := fmt.Sprintf("http://localhost:60006/%s/%s", environName, pt.name)
+		url := fmt.Sprintf("http://localhost:%d/%s", portNo, pt.name)
 		req, err := http.NewRequest("PUT", url, bytes.NewBufferString(pt.content))
 		c.Assert(err, IsNil)
 		req.Header.Set("Content-Type", "application/octet-stream")
@@ -203,6 +222,7 @@ func (s *backendSuite) TestPut(c *C) {
 type removeTest struct {
 	name    string
 	content string
+	status  int
 }
 
 var removeTests = []removeTest{
@@ -217,6 +237,10 @@ var removeTests = []removeTest{
 	{
 		name: "dog",
 	},
+	{
+		name:   "../something",
+		status: 301,
+	},
 }
 
 func (s *backendSuite) TestRemove(c *C) {
@@ -229,10 +253,14 @@ func (s *backendSuite) TestRemove(c *C) {
 		err = ioutil.WriteFile(fp, []byte(rt.content), 0644)
 		c.Assert(err, IsNil)
 
-		url := fmt.Sprintf("http://localhost:60006/%s/%s", environName, rt.name)
+		url := fmt.Sprintf("http://localhost:%d/%s", portNo, rt.name)
 		req, err := http.NewRequest("DELETE", url, nil)
 		c.Assert(err, IsNil)
 		resp, err := http.DefaultClient.Do(req)
+		if rt.status != 0 {
+			c.Assert(resp.StatusCode, Equals, rt.status)
+			return
+		}
 		c.Assert(err, IsNil)
 		c.Assert(resp.StatusCode, Equals, 200)
 
@@ -262,7 +290,7 @@ func createTestData(c *C, dataDir string) {
 	err := os.MkdirAll(dir, 0777)
 	c.Assert(err, IsNil)
 
-	writeData(dir, "foo", "this is inner file 'foo'")
-	writeData(dir, "bar", "this is inner file 'bar'")
-	writeData(dir, "baz", "this is inner file 'baz'")
+	writeData(dir, "fooin", "this is inner file 'fooin'")
+	writeData(dir, "barin", "this is inner file 'barin'")
+	writeData(dir, "bazin", "this is inner file 'bazin'")
 }

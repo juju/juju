@@ -15,7 +15,6 @@ import (
 // storageBackend provides HTTP access to a defined path.
 type storageBackend struct {
 	environName string
-	uri         string
 	path        string
 }
 
@@ -95,18 +94,18 @@ func (s *storageBackend) handlePut(w http.ResponseWriter, req *http.Request) {
 	dir, _ := filepath.Split(fp)
 	err := os.MkdirAll(dir, 0777)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("403 %v", err), http.StatusForbidden)
+		http.Error(w, fmt.Sprintf("500 %v", err), http.StatusInternalServerError)
 		return
 	}
 	out, err := os.Create(fp)
-	defer out.Close()
 	if err != nil {
-		http.Error(w, fmt.Sprintf("403 %v", err), http.StatusForbidden)
+		http.Error(w, fmt.Sprintf("500 %v", err), http.StatusInternalServerError)
 		return
 	}
+	defer out.Close()
 	_, err = io.Copy(out, req.Body)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("403 %v", err), http.StatusForbidden)
+		http.Error(w, fmt.Sprintf("500 %v", err), http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -127,7 +126,6 @@ func (s *storageBackend) handleDelete(w http.ResponseWriter, req *http.Request) 
 func listen(dataPath, environName, ip string, port int) (net.Listener, error) {
 	backend := &storageBackend{
 		environName: environName,
-		uri:         fmt.Sprintf("/%s/", environName),
 		path:        filepath.Join(dataPath, environName),
 	}
 	if err := os.MkdirAll(backend.path, 0777); err != nil {
@@ -138,7 +136,7 @@ func listen(dataPath, environName, ip string, port int) (net.Listener, error) {
 		return nil, fmt.Errorf("cannot start listener: %v", err)
 	}
 	mux := http.NewServeMux()
-	mux.Handle(backend.uri, http.StripPrefix(backend.uri, backend))
+	mux.Handle("/", backend)
 
 	go http.Serve(listener, mux)
 
