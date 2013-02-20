@@ -120,6 +120,7 @@ var setTests = []struct {
 	},
 }
 
+
 func (s *ConfigSuite) TestServiceSet(c *C) {
 	sch := s.AddTestingCharm(c, "dummy")
 	svc, err := s.State.AddService("dummy-service", sch)
@@ -134,6 +135,72 @@ func (s *ConfigSuite) TestServiceSet(c *C) {
 			cfg, err := svc.Config()
 			c.Assert(err, IsNil)
 			c.Assert(cfg.Map(), DeepEquals, t.expect)
+		}
+	}
+}
+
+
+var getTests = []struct {
+	about    string
+	params   statecmd.ServiceGetParams // parameters to ServiceGet call.
+	expect   statecmd.ServiceGetResults
+	err      string
+}{
+	{
+		about: "unknown service name",
+		params: statecmd.ServiceGetParams{
+			ServiceName: "unknown-service",
+		},
+	        expect: statecmd.ServiceGetResults{},
+		err: `service "unknown-service" not found`,
+	},
+	{
+		about: "unknown service name",
+		params: statecmd.ServiceGetParams{
+			ServiceName: "dummy-service",
+		},
+	        expect: statecmd.ServiceGetResults{
+			Service: "dummy-service",
+			Charm: "dummy",
+		        Settings: map[string] interface{}{
+				"outlook":map[string] interface {} {
+					"description":"No default outlook.",
+					"type":"string",
+					"value": nil,
+				},
+				"username":map[string] interface {} {
+					"description":"The name of the initial account (given admin permissions).",
+					"type":"string",
+					"value": nil,
+				},
+				"skill-level":map[string] interface {} {
+					"description":"A number indicating skill.",
+					"type":"int",
+					"value": nil,
+				},
+				"title":map[string] interface {} {
+					"description":"A descriptive title used for the service.",
+					"type":"string",
+					"value": nil,
+				},
+			},
+		},
+	},
+}
+
+func (s *ConfigSuite) TestServiceGet(c *C) {
+	var results statecmd.ServiceGetResults
+	sch := s.AddTestingCharm(c, "dummy")
+	_, err := s.State.AddService("dummy-service", sch)
+	c.Assert(err, IsNil)
+	for i, t := range getTests {
+		c.Logf("test %d. %s", i, t.about)
+		err = statecmd.ServiceGet(s.State, t.params, &results)
+		if t.err != "" {
+			c.Check(err, ErrorMatches, t.err)
+		} else {
+			c.Assert(err, IsNil)
+			c.Assert(results, DeepEquals, t.expect)
 		}
 	}
 }
