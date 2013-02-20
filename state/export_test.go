@@ -15,11 +15,11 @@ func (doc *MachineDoc) String() string {
 	return m.String()
 }
 
-var oldDialTimeout = dialTimeout
+var defaultDialTimeout = dialTimeout
 
 func SetDialTimeout(d time.Duration) {
 	if d == 0 {
-		dialTimeout = oldDialTimeout
+		dialTimeout = defaultDialTimeout
 	} else {
 		dialTimeout = d
 	}
