@@ -98,7 +98,7 @@ func Initialize(info *Info, cfg *config.Config) (rst *State, err error) {
 	// A valid environment config is used as a signal that the
 	// state has already been initalized. If this is the case
 	// do nothing.
-	if _, err = st.EnvironConfig(); err == nil {
+	if _, err := st.EnvironConfig(); err == nil {
 		return st, nil
 	} else if !IsNotFound(err) {
 		return nil, err

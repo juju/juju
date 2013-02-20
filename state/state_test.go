@@ -485,6 +485,7 @@ func (s *StateSuite) TestEnvironConstraints(c *C) {
 	cons3, err := s.State.EnvironConstraints()
 	c.Assert(err, IsNil)
 	c.Assert(cons3, DeepEquals, cons2)
+	c.Assert(cons3, Not(Equals), cons2)
 
 	// Environ constraints are completely overwritten when re-set.
 	cons4 := state.Constraints{CpuPower: uint64p(250)}
@@ -493,6 +494,7 @@ func (s *StateSuite) TestEnvironConstraints(c *C) {
 	cons5, err := s.State.EnvironConstraints()
 	c.Assert(err, IsNil)
 	c.Assert(cons5, DeepEquals, cons4)
+	c.Assert(cons5, Not(Equals), cons4)
 }
 
 var machinesWatchTests = []struct {
