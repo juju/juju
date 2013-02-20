@@ -102,6 +102,9 @@ func (i *Info) Help(f *gnuflag.FlagSet) []byte {
 	if i.Doc != "" {
 		fmt.Fprintf(buf, "\n%s\n", strings.TrimSpace(i.Doc))
 	}
+	if len(i.Aliases) > 0 {
+		fmt.Fprintf(buf, "\naliases: %s\n", strings.Join(i.Aliases, ", "))
+	}
 	return buf.Bytes()
 }
 

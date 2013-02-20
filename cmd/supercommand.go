@@ -30,7 +30,7 @@ func (c *SuperCommand) Register(subcmd Command) {
 	info := subcmd.Info()
 	c.insert(info.Name, subcmd)
 	for _, name := range info.Aliases {
-		c.insert(name, &alias{subcmd, name})
+		c.insert(name, subcmd)
 	}
 }
 
@@ -40,16 +40,6 @@ func (c *SuperCommand) insert(name string, subcmd Command) {
 		panic(fmt.Sprintf("command already registered: %s", name))
 	}
 	c.subcmds[name] = subcmd
-}
-
-type alias struct {
-	Command
-	name string
-}
-
-func (a *alias) Info() *Info {
-	info := a.Command.Info()
-	return &Info{a.name, info.Args, "alias for " + info.Name, info.Doc, nil}
 }
 
 // describeCommands returns a short description of each registered subcommand.
@@ -69,7 +59,11 @@ func (c *SuperCommand) describeCommands() string {
 	}
 	sort.Strings(cmds)
 	for i, name := range cmds {
-		purpose := c.subcmds[name].Info().Purpose
+		info := c.subcmds[name].Info()
+		purpose := info.Purpose
+		if name != info.Name {
+			purpose = "alias for " + info.Name
+		}
 		cmds[i] = fmt.Sprintf("    %-*s - %s", longest, name, purpose)
 	}
 	return fmt.Sprintf("commands:\n%s", strings.Join(cmds, "\n"))
