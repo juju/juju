@@ -28,12 +28,11 @@ func (c *SSHCommand) Info() *cmd.Info {
 	return &cmd.Info{"ssh", "", "launch an ssh shell on a given unit or machine", ""}
 }
 
-func (c *SSHCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *SSHCommand) SetFlags(f *gnuflag.FlagSet) {
 	addEnvironFlags(&c.EnvName, f)
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	args = f.Args()
+}
+
+func (c *SSHCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.New("no service name specified")
 	}

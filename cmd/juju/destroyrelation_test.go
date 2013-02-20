@@ -1,9 +1,7 @@
 package main
 
 import (
-	"bytes"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -14,11 +12,7 @@ type DestroyRelationSuite struct {
 var _ = Suite(&DestroyRelationSuite{})
 
 func runDestroyRelation(c *C, args ...string) error {
-	com := &DestroyRelationCommand{}
-	if err := com.Init(newFlagSet(), args); err != nil {
-		return err
-	}
-	return com.Run(&cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}})
+	return testing.RunCommand(c, &DestroyRelationCommand{}, args)
 }
 
 func (s *DestroyRelationSuite) TestDestroyRelation(c *C) {

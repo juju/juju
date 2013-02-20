@@ -34,17 +34,16 @@ If no key is given, or if the key is "-", all keys and values will be printed.
 	}
 }
 
-func (c *RelationGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *RelationGetCommand) SetFlags(f *gnuflag.FlagSet) {
 	// TODO FWER implement --format shell lp:1033511
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	f.Var(newRelationIdValue(c.ctx, &c.RelationId), "r", "specify a relation by id")
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
+}
+
+func (c *RelationGetCommand) Init(args []string) error {
 	if c.RelationId == -1 {
 		return fmt.Errorf("no relation id specified")
 	}
-	args = f.Args()
 	c.Key = ""
 	if len(args) > 0 {
 		if c.Key = args[0]; c.Key == "-" {
