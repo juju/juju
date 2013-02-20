@@ -37,6 +37,8 @@ type Info struct {
 	Password string
 }
 
+var dialTimeout = 10 * time.Minute
+
 // Open connects to the server described by the given
 // info, waits for it to be initialized, and returns a new State
 // representing the environment connected to.
@@ -71,9 +73,12 @@ func Open(info *Info) (*State, error) {
 	}
 	session, err := mgo.DialWithInfo(&mgo.DialInfo{
 		Addrs:   info.Addrs,
-		Timeout: 10 * time.Minute,
+		Timeout: dialTimeout,
 		Dial:    dial,
 	})
+	if err != nil {
+		return nil, err
+	}
 	st, err := newState(session, info)
 	if err != nil {
 		session.Close()
