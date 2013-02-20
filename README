@@ -63,7 +63,11 @@ the public bucket which juju uses when deploying itself:
 
     http://juju-dist.s3.amazonaws.com/tools/mongo-2.2.0-precise-amd64.tgz
 
-Change the Ubuntu series name and architecture to match your system.
+Change the Ubuntu series name and architecture to match your system.  Note
+that using --upload-tools requires that your development architecture must
+match a supported architecture for the tools in the above bucket.  Currently
+that is only amd64 so currently you can only develop on 64-bit machines, even
+if you can install mongo locally on your 32-bit machine.
 
 Getting juju-core
 =================
@@ -118,3 +122,13 @@ a set of tools from source and upload them to the environment as part of the
 bootstrap process.
 
     juju bootstrap -e your-environment --upload-tools {--debug}
+
+Warts
+=====
+
+* If you have used the Python version of Juju, you cannot re-use the
+  control-bucket on S3 for Go Juju.  Change the bucket name in your
+  environments.yaml.
+
+* juju-origin is not supported so it must be removed from the environment you
+  define in environments.yaml.
