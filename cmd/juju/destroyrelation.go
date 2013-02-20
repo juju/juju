@@ -17,7 +17,7 @@ func (c *DestroyRelationCommand) Info() *cmd.Info {
 	return cmd.NewInfo(
 		"destroy-relation", "<service1>[:<relation name1>] <service2>[:<relation name2>]",
 		"destroy a relation between two services", "",
-	)
+		"remove-relation")
 }
 
 func (c *DestroyRelationCommand) SetFlags(f *gnuflag.FlagSet) {
