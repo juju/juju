@@ -59,27 +59,29 @@ func uintStr(i uint64) string {
 // each of which must contain only spaces and name=value pairs. If any
 // name is specified more than once, an error is returned.
 func ParseConstraints(args ...string) (Constraints, error) {
-	cons := &Constraints{}
+	cons := Constraints{}
 	for _, arg := range args {
 		raws := strings.Split(strings.TrimSpace(arg), " ")
 		for _, raw := range raws {
-			if err := cons.set(raw); err != nil {
+			if raw == "" {
+				continue
+			}
+			if err := cons.setRaw(raw); err != nil {
 				return Constraints{}, err
 			}
 		}
 	}
-	return *cons, nil
+	return cons, nil
 }
 
-func (c *Constraints) set(raw string) (err error) {
-	if raw == "" {
-		return nil
-	}
+// setRaw interprets a name=value string and sets the supplied value.
+func (c *Constraints) setRaw(raw string) error {
 	eq := strings.Index(raw, "=")
 	if eq <= 0 {
 		return fmt.Errorf("malformed constraint %q", raw)
 	}
 	name, str := raw[:eq], raw[eq+1:]
+	var err error
 	switch name {
 	case "cpu-cores":
 		err = c.setCpuCores(str)
