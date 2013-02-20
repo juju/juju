@@ -18,7 +18,7 @@ type GetCommand struct {
 }
 
 func (c *GetCommand) Info() *cmd.Info {
-	return &cmd.Info{"get", "", "get service config options", ""}
+	return cmd.NewInfo("get", "", "get service config options", "")
 }
 
 func (c *GetCommand) SetFlags(f *gnuflag.FlagSet) {

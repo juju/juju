@@ -12,11 +12,11 @@ type DestroyEnvironmentCommand struct {
 }
 
 func (c *DestroyEnvironmentCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return cmd.NewInfo(
 		"destroy-environment", "[options]",
 		"terminate all machines and other associated resources for an environment",
 		"",
-	}
+	)
 }
 
 func (c *DestroyEnvironmentCommand) SetFlags(f *gnuflag.FlagSet) {

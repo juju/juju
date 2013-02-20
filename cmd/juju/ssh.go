@@ -25,7 +25,7 @@ type SSHCommon struct {
 }
 
 func (c *SSHCommand) Info() *cmd.Info {
-	return &cmd.Info{"ssh", "", "launch an ssh shell on a given unit or machine", ""}
+	return cmd.NewInfo("ssh", "", "launch an ssh shell on a given unit or machine", "")
 }
 
 func (c *SSHCommand) SetFlags(f *gnuflag.FlagSet) {

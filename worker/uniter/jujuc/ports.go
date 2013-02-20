@@ -62,10 +62,10 @@ func (c *portCommand) Run(_ *cmd.Context) error {
 	return c.action(c)
 }
 
-var openPortInfo = &cmd.Info{
+var openPortInfo = cmd.NewInfo(
 	"open-port", portFormat, "register a port to open",
 	"The port will only be open while the service is exposed.",
-}
+)
 
 func NewOpenPortCommand(ctx Context) cmd.Command {
 	return &portCommand{
@@ -76,9 +76,9 @@ func NewOpenPortCommand(ctx Context) cmd.Command {
 	}
 }
 
-var closePortInfo = &cmd.Info{
+var closePortInfo = cmd.NewInfo(
 	"close-port", portFormat, "ensure a port is always closed", "",
-}
+)
 
 func NewClosePortCommand(ctx Context) cmd.Command {
 	return &portCommand{

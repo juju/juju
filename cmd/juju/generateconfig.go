@@ -14,7 +14,7 @@ type GenerateConfigCommand struct {
 }
 
 func (c *GenerateConfigCommand) Info() *cmd.Info {
-	return &cmd.Info{"generate-config", "", "generate boilerplate configuration for juju environments", ""}
+	return cmd.NewInfo("init", "", "generate boilerplate configuration for juju environments", "", "generate-config")
 }
 
 func (c *GenerateConfigCommand) SetFlags(f *gnuflag.FlagSet) {

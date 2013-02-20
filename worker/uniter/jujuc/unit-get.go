@@ -19,9 +19,9 @@ func NewUnitGetCommand(ctx Context) cmd.Command {
 }
 
 func (c *UnitGetCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return cmd.NewInfo(
 		"unit-get", "<setting>", "print public-address or private-address", "",
-	}
+	)
 }
 
 func (c *UnitGetCommand) SetFlags(f *gnuflag.FlagSet) {

@@ -22,7 +22,7 @@ type SetCommand struct {
 }
 
 func (c *SetCommand) Info() *cmd.Info {
-	return &cmd.Info{"set", "", "set service config options", ""}
+	return cmd.NewInfo("set", "", "set service config options", "")
 }
 
 func (c *SetCommand) SetFlags(f *gnuflag.FlagSet) {

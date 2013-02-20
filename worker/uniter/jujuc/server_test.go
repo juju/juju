@@ -21,7 +21,7 @@ type RpcCommand struct {
 }
 
 func (c *RpcCommand) Info() *cmd.Info {
-	return &cmd.Info{"remote", "", "act at a distance", "blah doc"}
+	return cmd.NewInfo("remote", "", "act at a distance", "blah doc")
 }
 
 func (c *RpcCommand) SetFlags(f *gnuflag.FlagSet) {

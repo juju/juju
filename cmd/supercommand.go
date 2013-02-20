@@ -49,7 +49,7 @@ type alias struct {
 
 func (a *alias) Info() *Info {
 	info := a.Command.Info()
-	return &Info{a.name, info.Args, "alias for " + info.Name, info.Doc}
+	return &Info{a.name, info.Args, "alias for " + info.Name, info.Doc, nil}
 }
 
 // describeCommands returns a short description of each registered subcommand.
@@ -90,7 +90,7 @@ func (c *SuperCommand) Info() *Info {
 	if cmds := c.describeCommands(); cmds != "" {
 		docParts = append(docParts, cmds)
 	}
-	return &Info{c.Name, "<command> ...", c.Purpose, strings.Join(docParts, "\n\n")}
+	return &Info{c.Name, "<command> ...", c.Purpose, strings.Join(docParts, "\n\n"), nil}
 }
 
 // SetFlags adds the options that apply to all commands, particularly those
