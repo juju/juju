@@ -19,9 +19,9 @@ func NewRelationSetCommand(ctx Context) cmd.Command {
 }
 
 func (c *RelationSetCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return cmd.NewInfo(
 		"relation-set", "key=value [key=value ...]", "set relation settings", "",
-	}
+	)
 }
 
 func (c *RelationSetCommand) SetFlags(f *gnuflag.FlagSet) {

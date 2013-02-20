@@ -18,7 +18,7 @@ type BootstrapCommand struct {
 
 // Info returns a decription of the command.
 func (c *BootstrapCommand) Info() *cmd.Info {
-	return &cmd.Info{"bootstrap-state", "", "initialize juju state.", ""}
+	return cmd.NewInfo("bootstrap-state", "", "initialize juju state.", "")
 }
 
 func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {

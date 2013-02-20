@@ -16,7 +16,7 @@ type SCPCommand struct {
 }
 
 func (c *SCPCommand) Info() *cmd.Info {
-	return &cmd.Info{"scp", "", "launch a scp command to copy files to/from remote machine(s)", ""}
+	return cmd.NewInfo("scp", "", "launch a scp command to copy files to/from remote machine(s)", "")
 }
 
 func (c *SCPCommand) SetFlags(f *gnuflag.FlagSet) {

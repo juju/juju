@@ -16,7 +16,7 @@ type BootstrapCommand struct {
 }
 
 func (c *BootstrapCommand) Info() *cmd.Info {
-	return &cmd.Info{"bootstrap", "", "start up an environment from scratch", ""}
+	return cmd.NewInfo("bootstrap", "", "start up an environment from scratch", "")
 }
 
 func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {

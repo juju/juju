@@ -21,7 +21,7 @@ func NewJujuLogCommand(ctx Context) cmd.Command {
 }
 
 func (c *JujuLogCommand) Info() *cmd.Info {
-	return &cmd.Info{"juju-log", "<message>", "write a message to the juju log", ""}
+	return cmd.NewInfo("juju-log", "<message>", "write a message to the juju log", "")
 }
 
 func (c *JujuLogCommand) SetFlags(f *gnuflag.FlagSet) {

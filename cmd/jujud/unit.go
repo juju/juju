@@ -19,7 +19,7 @@ type UnitAgent struct {
 
 // Info returns usage information for the command.
 func (a *UnitAgent) Info() *cmd.Info {
-	return &cmd.Info{"unit", "", "run a juju unit agent", ""}
+	return cmd.NewInfo("unit", "", "run a juju unit agent", "")
 }
 
 func (a *UnitAgent) SetFlags(f *gnuflag.FlagSet) {

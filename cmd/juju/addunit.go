@@ -16,7 +16,7 @@ type AddUnitCommand struct {
 }
 
 func (c *AddUnitCommand) Info() *cmd.Info {
-	return &cmd.Info{"add-unit", "", "add a service unit", ""}
+	return cmd.NewInfo("add-unit", "", "add a service unit", "")
 }
 
 func (c *AddUnitCommand) SetFlags(f *gnuflag.FlagSet) {

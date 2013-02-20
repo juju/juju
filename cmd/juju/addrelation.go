@@ -14,10 +14,10 @@ type AddRelationCommand struct {
 }
 
 func (c *AddRelationCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return cmd.NewInfo(
 		"add-relation", "<service1>[:<relation name1>] <service2>[:<relation name2>]",
 		"add a relation between two services", "",
-	}
+	)
 }
 
 func (c *AddRelationCommand) SetFlags(f *gnuflag.FlagSet) {
