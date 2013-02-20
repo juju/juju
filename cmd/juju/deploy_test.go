@@ -1,13 +1,11 @@
 package main
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
@@ -108,10 +106,7 @@ type DeploySuite struct {
 var _ = Suite(&DeploySuite{})
 
 func runDeploy(c *C, args ...string) error {
-	com := &DeployCommand{}
-	err := com.Init(newFlagSet(), args)
-	c.Assert(err, IsNil)
-	return com.Run(&cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}})
+	return coretesting.RunCommand(c, &DeployCommand{}, args)
 }
 
 var initErrorTests = []struct {
@@ -136,8 +131,7 @@ var initErrorTests = []struct {
 func (s *DeploySuite) TestInitErrors(c *C) {
 	for i, t := range initErrorTests {
 		c.Logf("test %d", i)
-		com := &DeployCommand{}
-		err := com.Init(newFlagSet(), t.args)
+		err := coretesting.InitCommand(&DeployCommand{}, t.args)
 		c.Assert(err, ErrorMatches, t.err)
 	}
 }

@@ -111,6 +111,7 @@ type State struct {
 	relationScopes *mgo.Collection
 	services       *mgo.Collection
 	settings       *mgo.Collection
+	constraints    *mgo.Collection
 	units          *mgo.Collection
 	users          *mgo.Collection
 	presence       *mgo.Collection
@@ -145,6 +146,16 @@ func (st *State) SetEnvironConfig(cfg *config.Config) error {
 	settings.Update(cfg.AllAttrs())
 	_, err = settings.Write()
 	return err
+}
+
+// EnvironConstraints returns the current environment constraints.
+func (st *State) EnvironConstraints() (Constraints, error) {
+	return readConstraints(st, "e")
+}
+
+// SetEnvironConstraints replaces the current environment constraints.
+func (st *State) SetEnvironConstraints(cons Constraints) error {
+	return writeConstraints(st, "e", cons)
 }
 
 // AddMachine adds a new machine configured to run the supplied jobs.
@@ -346,16 +357,15 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 		Life:          Alive,
 	}
 	svc := newService(st, svcDoc)
-	ops := []txn.Op{{
-		C:      st.settings.Name,
-		Id:     svc.globalKey(),
-		Insert: D{},
-	}, {
-		C:      st.services.Name,
-		Id:     name,
-		Assert: txn.DocMissing,
-		Insert: svcDoc,
-	}}
+	ops := []txn.Op{
+		createConstraintsOp(st, svc.globalKey(), Constraints{}),
+		createSettingsOp(st, svc.globalKey(), map[string]interface{}{}),
+		{
+			C:      st.services.Name,
+			Id:     name,
+			Assert: txn.DocMissing,
+			Insert: svcDoc,
+		}}
 	// Collect peer relation addition operations.
 	for relName, rel := range peers {
 		relId, err := st.sequence("relation")

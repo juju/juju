@@ -19,14 +19,13 @@ func (c *AddUnitCommand) Info() *cmd.Info {
 	return &cmd.Info{"add-unit", "", "add a service unit", ""}
 }
 
-func (c *AddUnitCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *AddUnitCommand) SetFlags(f *gnuflag.FlagSet) {
 	addEnvironFlags(&c.EnvName, f)
 	f.IntVar(&c.NumUnits, "n", 1, "number of service units to add")
 	f.IntVar(&c.NumUnits, "num-units", 1, "")
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	args = f.Args()
+}
+
+func (c *AddUnitCommand) Init(args []string) error {
 	switch len(args) {
 	case 1:
 		c.ServiceName = args[0]
