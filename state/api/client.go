@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
-	"errors"
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/rpc"
@@ -91,23 +90,7 @@ func Open(info *Info) (*State, error) {
 
 func (s *State) call(objType, id, request string, params, response interface{}) error {
 	err := s.client.Call(objType, id, request, params, response)
-	return rpcError(err)
-}
-
-// rpcError maps errors returned from an RPC call into local errors with
-// appropriate values.
-// TODO(rog): implement NotFoundError, etc.
-func rpcError(err error) error {
-	if err == nil {
-		return nil
-	}
-	rerr, ok := err.(*rpc.ServerError)
-	if !ok {
-		return err
-	}
-	// TODO(rog) map errors into known error types, possibly introducing
-	// error codes to do so.
-	return errors.New(rerr.Message)
+	return clientError(err)
 }
 
 func (s *State) Close() error {

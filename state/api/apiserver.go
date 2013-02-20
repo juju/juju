@@ -181,7 +181,7 @@ func (w srvEntityWatcher) Next() error {
 	}
 	err := w.w.Err()
 	if err == nil {
-		err = fmt.Errorf("watcher was stopped")
+		err = errStoppedWatcher
 	}
 	return err
 }

@@ -350,7 +350,7 @@ func (s *suite) TestBadLogin(c *C) {
 
 			_, err = st.Machine("0")
 			c.Assert(err, ErrorMatches, "not logged in")
-			c.Assert(api.ErrCode(err), Equals, api.CodeUnauthorized)
+			c.Assert(api.ErrCode(err), Equals, api.CodeUnauthorized, Commentf("error %#v", err))
 
 			_, err = st.Unit("foo/0")
 			c.Assert(err, ErrorMatches, "not logged in")
@@ -533,16 +533,16 @@ func (s *suite) TestMachineWatch(c *C) {
 	// Next event.
 	ok = chanRead(c, w0.Changes(), "watcher 0")
 	c.Assert(ok, Equals, true)
-
 	ok = chanRead(c, w1.Changes(), "watcher 1")
 	c.Assert(ok, Equals, true)
 
 	err = w0.Stop()
 	c.Check(err, IsNil)
+	err = w1.Stop()
+	c.Check(err, IsNil)
 
 	ok = chanRead(c, w0.Changes(), "watcher 0")
 	c.Assert(ok, Equals, false)
-
 	ok = chanRead(c, w1.Changes(), "watcher 1")
 	c.Assert(ok, Equals, false)
 }
@@ -640,6 +640,9 @@ var errorTransformTests = []struct {
 	err:  &state.NotAssignedError{&state.Unit{}}, // too sleazy?!
 	code: api.CodeNotAssigned,
 }, {
+	err: api.ErrStoppedWatcher,
+	code: api.CodeStopped,
+}, {
 	err:  errors.New("an error"),
 	code: "",
 }}
@@ -697,7 +700,6 @@ func (s *suite) TestStop(c *C) {
 
 	err = srv.Stop()
 	c.Assert(err, IsNil)
-	c.Logf("srv stopped")
 
 	_, err = st.Machine(stm.Id())
 	// The client has not necessarily seen the server

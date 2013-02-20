@@ -7,4 +7,5 @@ var (
 	ErrPerm        = errPerm
 	ErrNotLoggedIn = errNotLoggedIn
 	ErrUnknownWatcher = errUnknownWatcher
+	ErrStoppedWatcher = errStoppedWatcher
 )

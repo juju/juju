@@ -160,7 +160,6 @@ func newEntityWatcher(st *State, etype, id string) *EntityWatcher {
 
 func (w *EntityWatcher) loop() error {
 	var id rpcEntityWatcherId
-	log.Printf("calling Watch")
 	err := w.st.call(w.etype, w.eid, "Watch", nil, &id)
 	if err != nil {
 		return err
@@ -186,17 +185,15 @@ func (w *EntityWatcher) loop() error {
 		}
 	}()
 	for {
-		log.Printf("sending change notification")
 		select {
 		case <-w.tomb.Dying():
 			return nil
 		case w.out <- struct{}{}:
 		}
-		log.Printf("calling Next")
 		if err := callWatch("Next"); err != nil {
-
-TODO: error codes.
-then we can make this check for the right error reliably.
+			if ErrCode(err) == CodeStopped {
+				err = nil
+			}
 			return err
 		}
 	}
