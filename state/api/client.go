@@ -62,7 +62,7 @@ func Open(info *Info) (*State, error) {
 	}
 	var conn *websocket.Conn
 	for a := openAttempt.Start(); a.Next(); {
-		log.Printf("state/api: dialling %q", cfg.Location)
+		log.Printf("state/api: dialing %q", cfg.Location)
 		conn, err = websocket.DialConfig(cfg)
 		if err == nil {
 			break
