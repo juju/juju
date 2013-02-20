@@ -4,9 +4,9 @@ import (
 	"code.google.com/p/go.net/websocket"
 	"fmt"
 	"launchpad.net/juju-core/state"
-	"sync"
 	statewatcher "launchpad.net/juju-core/state/watcher"
 	"strconv"
+	"sync"
 )
 
 // TODO(rog) remove this when the rest of the system
@@ -15,10 +15,10 @@ var AuthenticationEnabled = false
 
 // srvRoot represents a single client's connection to the state.
 type srvRoot struct {
-	admin *srvAdmin
-	client *srvClient
-	srv   *Server
-	conn  *websocket.Conn
+	admin    *srvAdmin
+	client   *srvClient
+	srv      *Server
+	conn     *websocket.Conn
 	watchers *watchers
 
 	user authUser
@@ -56,8 +56,8 @@ type srvClient struct {
 
 func newStateServer(srv *Server, conn *websocket.Conn) *srvRoot {
 	r := &srvRoot{
-		srv:  srv,
-		conn: conn,
+		srv:      srv,
+		conn:     conn,
 		watchers: newWatchers(),
 	}
 	r.admin = &srvAdmin{
@@ -390,11 +390,12 @@ type watcher interface {
 	Stop() error
 	Err() error
 }
+
 // watchers holds all the watchers for a connection.
 type watchers struct {
-	mu sync.Mutex
+	mu    sync.Mutex
 	maxId uint64
-	ws map[string] *srvWatcher
+	ws    map[string]*srvWatcher
 }
 
 // srvWatcher holds the details of a watcher.
@@ -402,7 +403,7 @@ type watchers struct {
 // for all watchers.
 type srvWatcher struct {
 	ws *watchers
-	w watcher
+	w  watcher
 	id string
 }
 
@@ -416,7 +417,7 @@ func (w *srvWatcher) Stop() error {
 
 func newWatchers() *watchers {
 	return &watchers{
-		ws: make(map[string] *srvWatcher),
+		ws: make(map[string]*srvWatcher),
 	}
 }
 
@@ -437,8 +438,8 @@ func (ws *watchers) register(w watcher) *srvWatcher {
 	sw := &srvWatcher{
 		ws: ws,
 		id: strconv.FormatUint(ws.maxId, 10),
-		w: w,
+		w:  w,
 	}
-	ws.ws[sw.id]= sw
+	ws.ws[sw.id] = sw
 	return sw
 }

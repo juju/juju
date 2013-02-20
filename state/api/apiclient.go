@@ -135,25 +135,25 @@ func (m *Machine) Watch() *EntityWatcher {
 }
 
 type EntityWatcher struct {
-	tomb tomb.Tomb
-	wg sync.WaitGroup
-	st *State
+	tomb  tomb.Tomb
+	wg    sync.WaitGroup
+	st    *State
 	etype string
-	eid string
-	out chan struct{}
+	eid   string
+	out   chan struct{}
 }
 
 func newEntityWatcher(st *State, etype, id string) *EntityWatcher {
 	w := &EntityWatcher{
-		st: st,
+		st:    st,
 		etype: etype,
-		eid: id,
-		out: make(chan struct{}),
+		eid:   id,
+		out:   make(chan struct{}),
 	}
 	go func() {
 		defer w.tomb.Done()
 		defer close(w.out)
-		defer w.wg.Wait()		// Wait for watcher to be stopped.
+		defer w.wg.Wait() // Wait for watcher to be stopped.
 		w.tomb.Kill(w.loop())
 	}()
 	return w

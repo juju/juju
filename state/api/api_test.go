@@ -518,7 +518,7 @@ func (s *suite) TestMachineWatch(c *C) {
 	c.Assert(ok, Equals, true)
 
 	// No subsequent event until something changes.
-	select{
+	select {
 	case <-w0.Changes():
 		c.Fatalf("unexpected value on watcher 0")
 	case <-w1.Changes():
@@ -548,7 +548,7 @@ func (s *suite) TestMachineWatch(c *C) {
 }
 
 func chanRead(c *C, ch <-chan struct{}, what string) (ok bool) {
-	select{
+	select {
 	case _, ok := <-ch:
 		return ok
 	case <-time.After(10 * time.Second):
@@ -640,7 +640,7 @@ var errorTransformTests = []struct {
 	err:  &state.NotAssignedError{&state.Unit{}}, // too sleazy?!
 	code: api.CodeNotAssigned,
 }, {
-	err: api.ErrStoppedWatcher,
+	err:  api.ErrStoppedWatcher,
 	code: api.CodeStopped,
 }, {
 	err:  errors.New("an error"),

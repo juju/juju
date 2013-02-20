@@ -24,10 +24,10 @@ func (e *Error) ErrorCode() string {
 var _ rpc.ErrorCoder = (*Error)(nil)
 
 var (
-	errBadId       = errors.New("id not found")
-	errBadCreds    = errors.New("invalid entity name or password")
-	errPerm        = errors.New("permission denied")
-	errNotLoggedIn = errors.New("not logged in")
+	errBadId          = errors.New("id not found")
+	errBadCreds       = errors.New("invalid entity name or password")
+	errPerm           = errors.New("permission denied")
+	errNotLoggedIn    = errors.New("not logged in")
 	errUnknownWatcher = errors.New("unknown watcher id")
 	errStoppedWatcher = errors.New("watcher has been stopped")
 )
@@ -42,8 +42,8 @@ var singletonErrorCodes = map[error]string{
 	errBadCreds:                  CodeUnauthorized,
 	errPerm:                      CodeUnauthorized,
 	errNotLoggedIn:               CodeUnauthorized,
-	errUnknownWatcher: CodeNotFound,
-	errStoppedWatcher: CodeStopped,
+	errUnknownWatcher:            CodeNotFound,
+	errStoppedWatcher:            CodeStopped,
 }
 
 // The Code constants hold error codes for some kinds of error.
@@ -55,7 +55,7 @@ const (
 	CodeExcessiveContention = "excessive contention"
 	CodeUnitHasSubordinates = "unit has subordinates"
 	CodeNotAssigned         = "not assigned"
-	CodeStopped = "stopped"
+	CodeStopped             = "stopped"
 )
 
 func serverError(err error) error {
