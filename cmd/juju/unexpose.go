@@ -18,12 +18,11 @@ func (c *UnexposeCommand) Info() *cmd.Info {
 	return &cmd.Info{"unexpose", "", "unexpose a service", ""}
 }
 
-func (c *UnexposeCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *UnexposeCommand) SetFlags(f *gnuflag.FlagSet) {
 	addEnvironFlags(&c.EnvName, f)
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	args = f.Args()
+}
+
+func (c *UnexposeCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.New("no service name specified")
 	}

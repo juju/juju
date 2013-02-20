@@ -135,8 +135,8 @@ func (s *SSHCommonSuite) addUnit(srv *state.Service, m *state.Machine, c *C) {
 	err = u.AssignToMachine(m)
 	c.Assert(err, IsNil)
 	// fudge unit.SetPublicAddress
-	id, err := m.InstanceId()
-	c.Assert(err, IsNil)
+	id, ok := m.InstanceId()
+	c.Assert(ok, Equals, true)
 	insts, err := s.Conn.Environ.Instances([]state.InstanceId{id})
 	c.Assert(err, IsNil)
 	addr, err := insts[0].WaitDNSName()

@@ -21,21 +21,21 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 	return &cmd.Info{"bootstrap-state", "", "initialize juju state.", ""}
 }
 
-// Init initializes the command for running.
-func (c *BootstrapCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.Conf.addFlags(f)
 	f.StringVar(&c.InstanceId, "instance-id", "", "instance id of this machine")
 	yamlBase64Var(f, &c.EnvConfig, "env-config", "", "initial environment configuration (yaml, base64 encoded)")
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
+}
+
+// Init initializes the command for running.
+func (c *BootstrapCommand) Init(args []string) error {
 	if c.InstanceId == "" {
 		return requiredError("instance-id")
 	}
 	if len(c.EnvConfig) == 0 {
 		return requiredError("env-config")
 	}
-	return c.Conf.checkArgs(f.Args())
+	return c.Conf.checkArgs(args)
 }
 
 // Run initializes state for an environment.

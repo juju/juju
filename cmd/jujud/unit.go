@@ -22,20 +22,20 @@ func (a *UnitAgent) Info() *cmd.Info {
 	return &cmd.Info{"unit", "", "run a juju unit agent", ""}
 }
 
-// Init initializes the command for running.
-func (a *UnitAgent) Init(f *gnuflag.FlagSet, args []string) error {
+func (a *UnitAgent) SetFlags(f *gnuflag.FlagSet) {
 	a.Conf.addFlags(f)
 	f.StringVar(&a.UnitName, "unit-name", "", "name of the unit to run")
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
+}
+
+// Init initializes the command for running.
+func (a *UnitAgent) Init(args []string) error {
 	if a.UnitName == "" {
 		return requiredError("unit-name")
 	}
 	if !state.IsUnitName(a.UnitName) {
 		return fmt.Errorf(`--unit-name option expects "<service>/<n>" argument`)
 	}
-	return a.Conf.checkArgs(f.Args())
+	return a.Conf.checkArgs(args)
 }
 
 // Stop stops the unit agent.
