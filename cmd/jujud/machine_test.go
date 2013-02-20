@@ -140,6 +140,7 @@ func (s *MachineSuite) TestManageEnviron(c *C) {
 	dummy.Listen(op)
 
 	a := s.newAgent(c, m)
+	// Make sure the agent is stopped even if the test fails.
 	defer a.Stop()
 	done := make(chan error)
 	go func() {
