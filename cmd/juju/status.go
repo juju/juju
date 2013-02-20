@@ -22,16 +22,16 @@ func (c *StatusCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *StatusCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
 	addEnvironFlags(&c.EnvName, f)
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
 		"json": cmd.FormatJson,
 	})
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	return cmd.CheckEmpty(f.Args())
+}
+
+func (c *StatusCommand) Init(args []string) error {
+	return cmd.CheckEmpty(args)
 }
 
 func (c *StatusCommand) Run(ctx *cmd.Context) error {
@@ -117,13 +117,11 @@ func fetchAllServices(st *state.State) (map[string]*state.Service, error) {
 func processMachines(machines map[string]*state.Machine, instances map[state.InstanceId]environs.Instance) (map[string]interface{}, error) {
 	r := make(map[string]interface{})
 	for _, m := range machines {
-		instid, err := m.InstanceId()
-		if err, ok := err.(*state.NotFoundError); ok {
+		instid, ok := m.InstanceId()
+		if !ok {
 			r[m.Id()] = map[string]interface{}{
 				"instance-id": "pending",
 			}
-		} else if err != nil {
-			return nil, err
 		} else {
 			instance, ok := instances[instid]
 			if !ok {
