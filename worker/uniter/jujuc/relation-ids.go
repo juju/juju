@@ -30,12 +30,11 @@ func (c *RelationIdsCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *RelationIdsCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *RelationIdsCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	args = f.Args()
+}
+
+func (c *RelationIdsCommand) Init(args []string) error {
 	if r, found := c.ctx.HookRelation(); found {
 		c.Name = r.Name()
 	}

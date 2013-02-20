@@ -4,6 +4,7 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
 
@@ -152,7 +153,7 @@ func (s *RelationSetSuite) TestInit(c *C) {
 		hctx := s.GetHookContext(c, t.ctxrelid, "")
 		com, err := jujuc.NewCommand(hctx, "relation-set")
 		c.Assert(err, IsNil)
-		err = com.Init(dummyFlagSet(), t.args)
+		err = testing.InitCommand(com, t.args)
 		if t.err == "" {
 			c.Assert(err, IsNil)
 			rset := com.(*jujuc.RelationSetCommand)
