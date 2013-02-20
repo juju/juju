@@ -24,8 +24,19 @@ type SSHCommon struct {
 	*juju.Conn
 }
 
+const sshDoc = `
+Launch an ssh shell on the machine identified by the <service> parameter.
+<service> can be either a machine id or a service name.  Any extra parameters
+are treated as extra parameters for the ssh command.
+`
+
 func (c *SSHCommand) Info() *cmd.Info {
-	return cmd.NewInfo("ssh", "", "launch an ssh shell on a given unit or machine", "")
+	return &cmd.Info{
+		Name:    "ssh",
+		Args:    "<service> [<ssh args>...]",
+		Purpose: "launch an ssh shell on a given unit or machine",
+		Doc:     sshDoc,
+	}
 }
 
 func (c *SSHCommand) SetFlags(f *gnuflag.FlagSet) {

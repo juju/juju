@@ -28,9 +28,15 @@ type TestCommand struct {
 
 func (c *TestCommand) Info() *cmd.Info {
 	if c.Minimal {
-		return cmd.NewInfo(c.Name, "", "", "")
+		return &cmd.Info{Name: c.Name}
 	}
-	return cmd.NewInfo(c.Name, "<something>", c.Name+" the juju", c.Name+"-doc", c.Aliases...)
+	return &cmd.Info{
+		Name:    c.Name,
+		Args:    "<something>",
+		Purpose: c.Name + " the juju",
+		Doc:     c.Name + "-doc",
+		Aliases: c.Aliases,
+	}
 }
 
 func (c *TestCommand) SetFlags(f *gnuflag.FlagSet) {

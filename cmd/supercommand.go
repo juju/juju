@@ -94,7 +94,12 @@ func (c *SuperCommand) Info() *Info {
 	if cmds := c.DescribeCommands(false); cmds != "" {
 		docParts = append(docParts, cmds)
 	}
-	return NewInfo(c.Name, "<command> ...", c.Purpose, strings.Join(docParts, "\n\n"))
+	return &Info{
+		Name:    c.Name,
+		Args:    "<command> ...",
+		Purpose: c.Purpose,
+		Doc:     strings.Join(docParts, "\n\n"),
+	}
 }
 
 // GetCommand looks up the subcommand map for the command identified by the

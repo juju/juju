@@ -144,7 +144,6 @@ var commandNames = []string{
 	"expose",
 	"generate-config",
 	"get",
-	"hide",
 	"init",
 	"remove-relation",
 	"remove-unit",

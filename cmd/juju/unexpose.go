@@ -15,7 +15,11 @@ type UnexposeCommand struct {
 }
 
 func (c *UnexposeCommand) Info() *cmd.Info {
-	return cmd.NewInfo("unexpose", "", "unexpose a service", "", "hide")
+	return &cmd.Info{
+		Name:    "unexpose",
+		Args:    "<service>",
+		Purpose: "unexpose a service",
+	}
 }
 
 func (c *UnexposeCommand) SetFlags(f *gnuflag.FlagSet) {

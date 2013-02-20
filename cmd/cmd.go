@@ -70,12 +70,6 @@ type Info struct {
 	Aliases []string
 }
 
-// NewInfo returns a new Info struct.  Aliases are passed through as extra
-// parameters.
-func NewInfo(name string, args string, purpose string, doc string, aliases ...string) *Info {
-	return &Info{name, args, purpose, doc, aliases}
-}
-
 // Help renders i's content, along with documentation for any
 // flags defined in f. It calls f.SetOutput(ioutil.Discard).
 func (i *Info) Help(f *gnuflag.FlagSet) []byte {

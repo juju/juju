@@ -25,9 +25,12 @@ func (c *RelationIdsCommand) Info() *cmd.Info {
 		args = "[<name>]"
 		doc = fmt.Sprintf("Current default relation name is %q.", r.Name())
 	}
-	return cmd.NewInfo(
-		"relation-ids", args, "list all relation ids with the given relation name", doc,
-	)
+	return &cmd.Info{
+		Name:    "relation-ids",
+		Args:    args,
+		Purpose: "list all relation ids with the given relation name",
+		Doc:     doc,
+	}
 }
 
 func (c *RelationIdsCommand) SetFlags(f *gnuflag.FlagSet) {

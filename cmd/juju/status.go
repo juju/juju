@@ -17,9 +17,12 @@ type StatusCommand struct {
 var statusDoc = "This command will report on the runtime state of various system entities."
 
 func (c *StatusCommand) Info() *cmd.Info {
-	return cmd.NewInfo(
-		"status", "", "output status information about an environment", statusDoc, "stat",
-	)
+	return &cmd.Info{
+		Name:    "status",
+		Purpose: "output status information about an environment",
+		Doc:     statusDoc,
+		Aliases: []string{"stat"},
+	}
 }
 
 func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
