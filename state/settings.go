@@ -163,7 +163,7 @@ func (c *Settings) Write() ([]ItemChange, error) {
 	}}
 	err := c.st.runner.Run(ops, "", nil)
 	if err == txn.ErrAborted {
-		return nil, notFoundf("settings")
+		return nil, NotFoundf("settings")
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot write settings: %v", err)
@@ -194,7 +194,7 @@ func (c *Settings) Read() error {
 	if err == mgo.ErrNotFound {
 		c.disk = nil
 		c.core = make(map[string]interface{})
-		return notFoundf("settings")
+		return NotFoundf("settings")
 	}
 	if err != nil {
 		return fmt.Errorf("cannot read settings: %v", err)
@@ -245,7 +245,7 @@ func createSettings(st *State, key string, values map[string]interface{}) (*Sett
 func removeSettings(st *State, key string) error {
 	err := st.settings.RemoveId(key)
 	if err == mgo.ErrNotFound {
-		return notFoundf("settings")
+		return NotFoundf("settings")
 	}
 	return nil
 }

@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"path/filepath"
 )
@@ -87,6 +88,5 @@ func (s *ConfigGetSuite) TestUnknownArg(c *C) {
 	hctx := s.GetHookContext(c, -1, "")
 	com, err := jujuc.NewCommand(hctx, "config-get")
 	c.Assert(err, IsNil)
-	err = com.Init(dummyFlagSet(), []string{"multiple", "keys"})
-	c.Assert(err, ErrorMatches, `unrecognized args: \["keys"\]`)
+	testing.TestInit(c, com, []string{"multiple", "keys"}, `unrecognized args: \["keys"\]`)
 }

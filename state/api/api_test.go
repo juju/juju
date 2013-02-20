@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"fmt"
+	"io"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/rpc"
@@ -138,8 +139,8 @@ func opGetMachine1(c *C, st *api.State) (func(), error) {
 	if err != nil {
 		c.Check(m, IsNil)
 	} else {
-		name, err := m.InstanceId()
-		c.Assert(err, IsNil)
+		name, ok := m.InstanceId()
+		c.Assert(ok, Equals, true)
 		c.Assert(name, Equals, "i-machine-1")
 	}
 	return func() {}, err
@@ -384,8 +385,8 @@ func (s *suite) TestMachineLogin(c *C) {
 	m, err := st.Machine(stm.Id())
 	c.Assert(err, IsNil)
 
-	instId, err := m.InstanceId()
-	c.Assert(err, IsNil)
+	instId, ok := m.InstanceId()
+	c.Assert(ok, Equals, true)
 	c.Assert(instId, Equals, "i-foo")
 }
 
@@ -405,22 +406,22 @@ func (s *suite) TestMachineInstanceId(c *C) {
 	m, err = st.Machine(stm.Id())
 	c.Assert(err, IsNil)
 
-	instId, err := m.InstanceId()
+	instId, ok := m.InstanceId()
 	c.Check(instId, Equals, "")
-	c.Check(err, ErrorMatches, "instance id for machine 0 not found")
+	c.Check(ok, Equals, false)
 
 	err = stm.SetInstanceId("foo")
 	c.Assert(err, IsNil)
 
-	instId, err = m.InstanceId()
+	instId, ok = m.InstanceId()
 	c.Check(instId, Equals, "")
-	c.Check(err, ErrorMatches, "instance id for machine 0 not found")
+	c.Check(ok, Equals, false)
 
 	err = m.Refresh()
 	c.Assert(err, IsNil)
 
-	instId, err = m.InstanceId()
-	c.Assert(err, IsNil)
+	instId, ok = m.InstanceId()
+	c.Check(ok, Equals, true)
 	c.Assert(instId, Equals, "foo")
 }
 
@@ -435,22 +436,22 @@ func (s *suite) TestMachineRefresh(c *C) {
 	m, err := st.Machine(stm.Id())
 	c.Assert(err, IsNil)
 
-	instId, err := m.InstanceId()
-	c.Assert(err, IsNil)
+	instId, ok := m.InstanceId()
+	c.Assert(ok, Equals, true)
 	c.Assert(instId, Equals, "foo")
 
 	err = stm.SetInstanceId("bar")
 	c.Assert(err, IsNil)
 
-	instId, err = m.InstanceId()
-	c.Assert(err, IsNil)
+	instId, ok = m.InstanceId()
+	c.Assert(ok, Equals, true)
 	c.Assert(instId, Equals, "foo")
 
 	err = m.Refresh()
 	c.Assert(err, IsNil)
 
-	instId, err = m.InstanceId()
-	c.Assert(err, IsNil)
+	instId, ok = m.InstanceId()
+	c.Assert(ok, Equals, true)
 	c.Assert(instId, Equals, "bar")
 }
 
@@ -554,7 +555,12 @@ func (s *suite) TestStop(c *C) {
 	c.Logf("srv stopped")
 
 	_, err = st.Machine(stm.Id())
-	c.Assert(err, Equals, rpc.ErrShutdown)
+	// The client has not necessarily seen the server
+	// shutdown yet, so there are two possible
+	// errors.
+	if err != rpc.ErrShutdown && err != io.ErrUnexpectedEOF {
+		c.Fatalf("unexpected error from request: %v", err)
+	}
 
 	// Check it can be stopped twice.
 	err = srv.Stop()

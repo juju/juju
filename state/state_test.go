@@ -39,7 +39,7 @@ func (s *StateSuite) TestStateInfo(c *C) {
 
 func (s *StateSuite) TestIsNotFound(c *C) {
 	err1 := fmt.Errorf("unrelated error")
-	err2 := &state.NotFoundError{}
+	err2 := state.NotFoundf("foo")
 	c.Assert(state.IsNotFound(err1), Equals, false)
 	c.Assert(state.IsNotFound(err2), Equals, true)
 }
@@ -130,8 +130,8 @@ func (s *StateSuite) TestInjectMachine(c *C) {
 	m, err := s.State.InjectMachine(state.InstanceId("i-mindustrious"), state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, IsNil)
 	c.Assert(m.Jobs(), DeepEquals, []state.MachineJob{state.JobHostUnits, state.JobManageEnviron})
-	instanceId, err := m.InstanceId()
-	c.Assert(err, IsNil)
+	instanceId, ok := m.InstanceId()
+	c.Assert(ok, Equals, true)
 	c.Assert(instanceId, Equals, state.InstanceId("i-mindustrious"))
 }
 
@@ -166,8 +166,8 @@ func (s *StateSuite) TestAllMachines(c *C) {
 	ms, _ := s.State.AllMachines()
 	for i, m := range ms {
 		c.Assert(m.Id(), Equals, strconv.Itoa(i))
-		instId, err := m.InstanceId()
-		c.Assert(err, IsNil)
+		instId, ok := m.InstanceId()
+		c.Assert(ok, Equals, true)
 		c.Assert(string(instId), Equals, fmt.Sprintf("foo-%d", i))
 		tools, err := m.AgentTools()
 		c.Check(err, IsNil)
@@ -485,6 +485,7 @@ func (s *StateSuite) TestEnvironConstraints(c *C) {
 	cons3, err := s.State.EnvironConstraints()
 	c.Assert(err, IsNil)
 	c.Assert(cons3, DeepEquals, cons2)
+	c.Assert(cons3, Not(Equals), cons2)
 
 	// Environ constraints are completely overwritten when re-set.
 	cons4 := state.Constraints{CpuPower: uint64p(250)}
@@ -493,6 +494,7 @@ func (s *StateSuite) TestEnvironConstraints(c *C) {
 	cons5, err := s.State.EnvironConstraints()
 	c.Assert(err, IsNil)
 	c.Assert(cons5, DeepEquals, cons4)
+	c.Assert(cons5, Not(Equals), cons4)
 }
 
 var machinesWatchTests = []struct {
@@ -1164,6 +1166,16 @@ func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *C) {
 	info.EntityName, info.Password = "", ""
 	err = tryOpenState(info)
 	c.Assert(err, IsNil)
+}
+
+func (s *StateSuite) TestOpenBadAddress(c *C) {
+	info := state.TestingStateInfo()
+	info.Addrs = []string{"0.1.2.3:1234"}
+	state.SetDialTimeout(1 * time.Millisecond)
+	defer state.SetDialTimeout(0)
+
+	err := tryOpenState(info)
+	c.Assert(err, ErrorMatches, "no reachable servers")
 }
 
 func testSetPassword(c *C, getEntity func() (state.AuthEntity, error)) {

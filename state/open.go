@@ -37,6 +37,8 @@ type Info struct {
 	Password string
 }
 
+var dialTimeout = 10 * time.Minute
+
 // Open connects to the server described by the given
 // info, waits for it to be initialized, and returns a new State
 // representing the environment connected to.
@@ -71,9 +73,12 @@ func Open(info *Info) (*State, error) {
 	}
 	session, err := mgo.DialWithInfo(&mgo.DialInfo{
 		Addrs:   info.Addrs,
-		Timeout: 10 * time.Minute,
+		Timeout: dialTimeout,
 		Dial:    dial,
 	})
+	if err != nil {
+		return nil, err
+	}
 	st, err := newState(session, info)
 	if err != nil {
 		session.Close()
@@ -98,7 +103,7 @@ func Initialize(info *Info, cfg *config.Config) (rst *State, err error) {
 	// A valid environment config is used as a signal that the
 	// state has already been initalized. If this is the case
 	// do nothing.
-	if _, err = st.EnvironConfig(); err == nil {
+	if _, err := st.EnvironConfig(); err == nil {
 		return st, nil
 	} else if !IsNotFound(err) {
 		return nil, err

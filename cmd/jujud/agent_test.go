@@ -3,8 +3,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
-	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
@@ -178,27 +176,21 @@ func taskSlice(tasks []*testTask) []task {
 
 type acCreator func() (cmd.Command, *AgentConf)
 
-func initCmd(c cmd.Command, args []string) error {
-	f := gnuflag.NewFlagSet("", gnuflag.ContinueOnError)
-	f.SetOutput(ioutil.Discard)
-	return c.Init(f, args)
-}
-
 // CheckAgentCommand is a utility function for verifying that common agent
 // options are handled by a Command; it returns an instance of that
 // command pre-parsed, with any mandatory flags added.
 func CheckAgentCommand(c *C, create acCreator, args []string) cmd.Command {
 	com, conf := create()
-	err := initCmd(com, args)
+	err := coretesting.InitCommand(com, args)
 	c.Assert(conf.dataDir, Equals, "/var/lib/juju")
 	badArgs := append(args, "--data-dir", "")
 	com, conf = create()
-	err = initCmd(com, badArgs)
+	err = coretesting.InitCommand(com, badArgs)
 	c.Assert(err, ErrorMatches, "--data-dir option must be set")
 
 	args = append(args, "--data-dir", "jd")
 	com, conf = create()
-	c.Assert(initCmd(com, args), IsNil)
+	c.Assert(coretesting.InitCommand(com, args), IsNil)
 	c.Assert(conf.dataDir, Equals, "jd")
 	return com
 }
@@ -209,7 +201,7 @@ func ParseAgentCommand(ac cmd.Command, args []string) error {
 	common := []string{
 		"--data-dir", "jd",
 	}
-	return initCmd(ac, append(common, args...))
+	return coretesting.InitCommand(ac, append(common, args...))
 }
 
 type runner interface {
@@ -285,7 +277,7 @@ func (s *agentSuite) primeAgent(c *C, entityName, password string) (*agent.Conf,
 // arguments as provided.
 func (s *agentSuite) initAgent(c *C, a cmd.Command, args ...string) {
 	args = append([]string{"--data-dir", s.DataDir()}, args...)
-	err := initCmd(a, args)
+	err := coretesting.InitCommand(a, args)
 	c.Assert(err, IsNil)
 }
 
@@ -304,7 +296,6 @@ func (s *agentSuite) proposeVersion(c *C, vers version.Number, development bool)
 func (s *agentSuite) uploadTools(c *C, vers version.Binary) *state.Tools {
 	tgz := coretesting.TarGz(
 		coretesting.NewTarFile("juju", 0777, "juju contents "+vers.String()),
-		coretesting.NewTarFile("jujuc", 0777, "jujuc contents "+vers.String()),
 		coretesting.NewTarFile("jujud", 0777, "jujud contents "+vers.String()),
 	)
 	storage := s.Conn.Environ.Storage()

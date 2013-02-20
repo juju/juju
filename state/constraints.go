@@ -79,7 +79,7 @@ func createConstraintsOp(st *State, id string, cons Constraints) txn.Op {
 func readConstraints(st *State, id string) (Constraints, error) {
 	doc := constraintsDoc{}
 	if err := st.constraints.FindId(id).One(&doc); err == mgo.ErrNotFound {
-		return Constraints{}, notFoundf("constraints")
+		return Constraints{}, NotFoundf("constraints")
 	} else if err != nil {
 		return Constraints{}, err
 	}

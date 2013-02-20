@@ -6,6 +6,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 	stdlog "log"
 )
@@ -74,8 +75,7 @@ func (s *JujuLogSuite) TestRequiresMessage(c *C) {
 	ctx := &Context{}
 	com, err := jujuc.NewCommand(ctx, "juju-log")
 	c.Assert(err, IsNil)
-	err = com.Init(dummyFlagSet(), nil)
-	c.Assert(err, ErrorMatches, "no message specified")
+	testing.TestInit(c, com, nil, "no message specified")
 }
 
 func (s *JujuLogSuite) TestLogLevel(c *C) {
@@ -83,11 +83,9 @@ func (s *JujuLogSuite) TestLogLevel(c *C) {
 	com, err := jujuc.NewCommand(ctx, "juju-log")
 	c.Assert(err, IsNil)
 	// missing log level argument
-	err = com.Init(dummyFlagSet(), []string{"-l"})
-	c.Assert(err, ErrorMatches, "flag needs an argument.*")
+	testing.TestInit(c, com, []string{"-l"}, "flag needs an argument.*")
 	com, err = jujuc.NewCommand(ctx, "juju-log")
 	c.Assert(err, IsNil)
 	// valid log level
-	err = com.Init(dummyFlagSet(), []string{"-l", "FATAL"})
-	c.Assert(err, ErrorMatches, "no message specified")
+	testing.TestInit(c, com, []string{"-l", "FATAL"}, "no message specified")
 }

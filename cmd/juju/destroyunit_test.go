@@ -1,10 +1,8 @@
 package main
 
 import (
-	"bytes"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 )
@@ -16,10 +14,7 @@ type DestroyUnitSuite struct {
 var _ = Suite(&DestroyUnitSuite{})
 
 func runDestroyUnit(c *C, args ...string) error {
-	com := &DestroyUnitCommand{}
-	err := com.Init(newFlagSet(), args)
-	c.Assert(err, IsNil)
-	return com.Run(&cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}})
+	return testing.RunCommand(c, &DestroyUnitCommand{}, args)
 }
 
 func (s *DestroyUnitSuite) TestDestroyUnit(c *C) {
