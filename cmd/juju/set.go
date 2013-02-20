@@ -63,7 +63,7 @@ func (c *SetCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer conn.Close()
-	return statecmd.SetConfig(conn.State, statecmd.SetConfigParams{
+	return statecmd.ServiceSet(conn.State, statecmd.ServiceSetParams{
 		ServiceName: c.ServiceName,
 		Options:     options,
 		Config:      string(contents),

@@ -1,23 +1,30 @@
+// The statecmd package is a temporary package
+// to put code that's used by both cmd/juju and state/api.
+// It is intended to wither away to nothing as functionality
+// gets absorbed into state and state/api as appropriate
+// when the command-line commands can invoking the
+// API directly.
 package statecmd
 
 import (
 	"errors"
 	"launchpad.net/goyaml"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 )
 
-// SetConfigParams holds the parameters for a SetConfig
+// ServiceSetParams holds the parameters for a ServiceSet
 // command. Either Options or Config will contain the configuration data.
-type SetConfigParams struct {
+type ServiceSetParams struct {
 	ServiceName string
 	Options     map[string]string
-	Config      string
+	// Alternative form for options, in yaml format. If non-empty,
+	// it overrides Options.
+	Config string
 }
 
-// SetConfig changes a service's configuration values.
+// ServiceSet changes a service's configuration values.
 // Values set to the empty string will be deleted.
-func SetConfig(st *state.State, p SetConfigParams) error {
+func ServiceSet(st *state.State, p ServiceSetParams) error {
 	var options map[string]string
 	if len(p.Config) > 0 {
 		if err := goyaml.Unmarshal([]byte(p.Config), &options); err != nil {
@@ -38,7 +45,6 @@ func SetConfig(st *state.State, p SetConfigParams) error {
 			unvalidated[k] = v
 		}
 	}
-	log.Printf("remove: %q; unvalidated: %q", remove, unvalidated)
 	srv, err := st.Service(p.ServiceName)
 	if err != nil {
 		return err
@@ -62,12 +68,10 @@ func SetConfig(st *state.State, p SetConfigParams) error {
 	}
 	// 3. Update any keys that remain after validation and filtering.
 	if len(validated) > 0 {
-		log.Debugf("state/statecmd: updating configuration items: %v", validated)
 		cfg.Update(validated)
 	}
 	// 4. Delete any removed keys.
 	if len(remove) > 0 {
-		log.Debugf("state/statecmd: removing configuration items: %v", remove)
 		for _, k := range remove {
 			cfg.Delete(k)
 		}

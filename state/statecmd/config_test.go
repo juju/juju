@@ -21,13 +21,13 @@ var _ = Suite(&ConfigSuite{})
 // TODO(rog) make these tests independent of one another.
 var setTests = []struct {
 	about  string
-	params statecmd.SetConfigParams
-	expect map[string]interface{} // resulting configuration of the dummy service.
-	err    string                 // error regex
+	params statecmd.ServiceSetParams // parameters to ServiceSet call.
+	expect map[string]interface{}    // resulting configuration of the dummy service.
+	err    string                    // error regex
 }{
 	{
 		about: "unknown service name",
-		params: statecmd.SetConfigParams{
+		params: statecmd.ServiceSetParams{
 			ServiceName: "unknown-service",
 			Options: map[string]string{
 				"foo": "bar",
@@ -36,23 +36,23 @@ var setTests = []struct {
 		err: `service "unknown-service" not found`,
 	}, {
 		about:  "no config or options",
-		params: statecmd.SetConfigParams{},
+		params: statecmd.ServiceSetParams{},
 		err:    "no options to set",
 	}, {
 		about: "bad configuration",
-		params: statecmd.SetConfigParams{
+		params: statecmd.ServiceSetParams{
 			Config: "345",
 		},
 		err: "no options to set",
 	}, {
 		about: "config with no options",
-		params: statecmd.SetConfigParams{
+		params: statecmd.ServiceSetParams{
 			Config: "{}",
 		},
 		err: "no options to set",
 	}, {
 		about: "unknown option",
-		params: statecmd.SetConfigParams{
+		params: statecmd.ServiceSetParams{
 			ServiceName: "dummy-service",
 			Options: map[string]string{
 				"foo": "bar",
@@ -61,7 +61,7 @@ var setTests = []struct {
 		err: `Unknown configuration option: "foo"`,
 	}, {
 		about: "set outlook",
-		params: statecmd.SetConfigParams{
+		params: statecmd.ServiceSetParams{
 			ServiceName: "dummy-service",
 			Options: map[string]string{
 				"outlook": "positive",
@@ -72,7 +72,7 @@ var setTests = []struct {
 		},
 	}, {
 		about: "unset outlook and set title",
-		params: statecmd.SetConfigParams{
+		params: statecmd.ServiceSetParams{
 			ServiceName: "dummy-service",
 			Options: map[string]string{
 				"outlook": "",
@@ -84,7 +84,7 @@ var setTests = []struct {
 		},
 	}, {
 		about: "set a default value",
-		params: statecmd.SetConfigParams{
+		params: statecmd.ServiceSetParams{
 			ServiceName: "dummy-service",
 			Options: map[string]string{
 				"username": "admin001",
@@ -96,7 +96,7 @@ var setTests = []struct {
 		},
 	}, {
 		about: "unset a default value, set a different default",
-		params: statecmd.SetConfigParams{
+		params: statecmd.ServiceSetParams{
 			ServiceName: "dummy-service",
 			Options: map[string]string{
 				"username": "",
@@ -108,7 +108,7 @@ var setTests = []struct {
 		},
 	}, {
 		about: "yaml config",
-		params: statecmd.SetConfigParams{
+		params: statecmd.ServiceSetParams{
 			ServiceName: "dummy-service",
 			Config:      "skill-level: 9000\nusername: admin001\n\n",
 		},
@@ -120,13 +120,13 @@ var setTests = []struct {
 	},
 }
 
-func (s *ConfigSuite) TestSetConfig(c *C) {
+func (s *ConfigSuite) TestServiceSet(c *C) {
 	sch := s.AddTestingCharm(c, "dummy")
 	svc, err := s.State.AddService("dummy-service", sch)
 	c.Assert(err, IsNil)
 	for i, t := range setTests {
 		c.Logf("test %d. %s", i, t.about)
-		err = statecmd.SetConfig(s.State, t.params)
+		err = statecmd.ServiceSet(s.State, t.params)
 		if t.err != "" {
 			c.Check(err, ErrorMatches, t.err)
 		} else {
