@@ -202,13 +202,12 @@ func panicWrite(name string, cert, key []byte) error {
 // If the bootstrap node is configured to require a public IP address (the default),
 // bootstrapping fails if an address cannot be allocated.
 func (s *localLiveSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
-	s.Service.Nova.RegisterControlPoint(
+	defer s.Service.Nova.RegisterControlPoint(
 		"addFloatingIP",
 		func(sc testservices.ServiceControl, args ...interface{}) error {
 			return fmt.Errorf("failed on purpose")
 		},
-	)
-	defer s.Service.Nova.RegisterControlPoint("addFloatingIP", nil)
+	)()
 	writeablePublicStorage := openstack.WritablePublicStorage(s.Env)
 	putFakeTools(c, writeablePublicStorage)
 
@@ -221,13 +220,18 @@ func (s *localLiveSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
 // bootstrapping should occur without any attempt to allocate a public address.
 func (s *localLiveSuite) TestBootstrapWithoutPublicIP(c *C) {
 	openstack.SetExposeBootstrapNode(s.Env, false)
-	s.Service.Nova.RegisterControlPoint(
+	defer s.Service.Nova.RegisterControlPoint(
 		"addFloatingIP",
 		func(sc testservices.ServiceControl, args ...interface{}) error {
 			return fmt.Errorf("add floating IP should not have been called")
 		},
-	)
-	defer s.Service.Nova.RegisterControlPoint("addFloatingIP", nil)
+	)()
+	defer s.Service.Nova.RegisterControlPoint(
+		"addServerFloatingIP",
+		func(sc testservices.ServiceControl, args ...interface{}) error {
+			return fmt.Errorf("add server floating IP should not have been called")
+		},
+	)()
 	writeablePublicStorage := openstack.WritablePublicStorage(s.Env)
 	putFakeTools(c, writeablePublicStorage)
 
