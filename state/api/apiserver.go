@@ -183,8 +183,12 @@ func (c *srvClient) Status() (Status, error) {
 }
 
 // GetConfig returns the requested service's configuration.
-func (c *srvClient) ServiceGet(p statecmd.ServiceGetParams) (*statecmd.ServiceGetResults, error) {
-	return statecmd.ServiceGet(c.root.srv.state, p)
+type rpcServiceGet struct {
+	Service string
+}
+
+func (c *srvClient) ServiceGet(args rpcServiceGet) (*statecmd.ServiceGetResults, error) {
+	return statecmd.ServiceGet(c.root.srv.state, statecmd.ServiceGetParams{ServiceName: args.Service})
 }
 
 type rpcCreds struct {
