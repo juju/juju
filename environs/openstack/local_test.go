@@ -37,7 +37,6 @@ type localLiveSuite struct {
 	Mux        *http.ServeMux
 	oldHandler http.Handler
 
-	Env     environs.Environ
 	Service *openstackservice.Openstack
 }
 
@@ -54,21 +53,6 @@ func (s *localLiveSuite) SetUpSuite(c *C) {
 	s.cred.URL = s.Server.URL
 	s.Service = openstackservice.New(s.cred)
 	s.Service.SetupHTTP(s.Mux)
-
-	attrs := makeTestConfig()
-	attrs["admin-secret"] = "secret"
-	attrs["username"] = s.cred.User
-	attrs["password"] = s.cred.Secrets
-	attrs["region"] = s.cred.Region
-	attrs["auth-url"] = s.cred.URL
-	attrs["tenant-name"] = s.cred.TenantName
-	attrs["default-image-id"] = testImageId
-	if e, err := environs.NewFromAttrs(attrs); err != nil {
-		c.Fatalf("cannot create local test environment: %s", err.Error())
-	} else {
-		s.Env = e
-		putFakeTools(c, openstack.WritablePublicStorage(s.Env))
-	}
 
 	s.LiveTests.SetUpSuite(c)
 }
@@ -199,6 +183,24 @@ func panicWrite(name string, cert, key []byte) error {
 	panic("writeCertAndKey called unexpectedly")
 }
 
+func testEnv(c *C, cred *identity.Credentials) environs.Environ {
+	attrs := makeTestConfig()
+	attrs["admin-secret"] = "secret"
+	attrs["username"] = cred.User
+	attrs["password"] = cred.Secrets
+	attrs["region"] = cred.Region
+	attrs["auth-url"] = cred.URL
+	attrs["tenant-name"] = cred.TenantName
+	attrs["default-image-id"] = testImageId
+	e, err := environs.NewFromAttrs(attrs)
+	if err != nil {
+		c.Fatalf("cannot create local test environment: %s", err.Error())
+	}
+	writeablePublicStorage := openstack.WritablePublicStorage(e)
+	putFakeTools(c, writeablePublicStorage)
+	return e
+}
+
 // If the bootstrap node is configured to require a public IP address (the default),
 // bootstrapping fails if an address cannot be allocated.
 func (s *localLiveSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
@@ -208,18 +210,17 @@ func (s *localLiveSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
 			return fmt.Errorf("failed on purpose")
 		},
 	)()
-	writeablePublicStorage := openstack.WritablePublicStorage(s.Env)
-	putFakeTools(c, writeablePublicStorage)
-
-	err := environs.Bootstrap(s.Env, true, panicWrite)
+	e := testEnv(c, s.cred)
+	err := environs.Bootstrap(e, true, panicWrite)
 	c.Assert(err, ErrorMatches, ".*cannot allocate a public IP as needed.*")
-	defer s.Env.Destroy(nil)
+	defer ResetEnvironment(e)
 }
 
 // If the bootstrap node is configured not to require a public IP address,
 // bootstrapping should occur without any attempt to allocate a public address.
 func (s *localLiveSuite) TestBootstrapWithoutPublicIP(c *C) {
-	openstack.SetExposeBootstrapNode(s.Env, false)
+	e := testEnv(c, s.cred)
+	openstack.SetExposeBootstrapNode(e, false)
 	defer s.Service.Nova.RegisterControlPoint(
 		"addFloatingIP",
 		func(sc testservices.ServiceControl, args ...interface{}) error {
@@ -232,12 +233,15 @@ func (s *localLiveSuite) TestBootstrapWithoutPublicIP(c *C) {
 			return fmt.Errorf("add server floating IP should not have been called")
 		},
 	)()
-	writeablePublicStorage := openstack.WritablePublicStorage(s.Env)
-	putFakeTools(c, writeablePublicStorage)
 
-	err := environs.Bootstrap(s.Env, true, panicWrite)
+	err := environs.Bootstrap(e, true, panicWrite)
 	c.Assert(err, IsNil)
-	defer s.Env.Destroy(nil)
+	defer ResetEnvironment(e)
+}
+
+func ResetEnvironment(e environs.Environ) {
+	e.Destroy(nil)
+	openstack.DeleteStorageContent(openstack.WritablePublicStorage(e))
 }
 
 var instanceGathering = []struct {
