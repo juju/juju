@@ -179,7 +179,8 @@ func (f *filter) loop(unitName string) (err error) {
 	configw := f.service.WatchConfig()
 	defer watcher.Stop(configw, &f.tomb)
 	relationsw := f.service.WatchRelations()
-	defer watcher.Stop(relationsw, &f.tomb)
+	// relationsw can be recreated when sending upgrades
+	defer func() { watcher.Stop(relationsw, &f.tomb) }()
 
 	// Config events cannot be meaningfully discarded until one is available;
 	// once we receive the initial change, we unblock discard requests by
@@ -218,8 +219,11 @@ func (f *filter) loop(unitName string) (err error) {
 			discardConfig = f.discardConfig
 		case ids, ok := <-relationsw.Changes():
 			log.Debugf("filter: got relations change")
-			if !ok {
-				return watcher.MustErr(relationsw)
+			if !ok && relationsw.Err() == nil {
+				// It was stopped cleanly, so restart it
+				relationsw = f.service.WatchRelations()
+			} else {
+				return relationsw.Err()
 			}
 			f.relationsChanged(ids)
 
@@ -228,6 +232,10 @@ func (f *filter) loop(unitName string) (err error) {
 			log.Debugf("worker/uniter/filter: sent upgrade event")
 			f.upgradeRequested.url = f.upgrade.URL()
 			f.outUpgrade = nil
+			// To avoid missing any changes to relations, we need
+			// to restart the watcher after an upgrade is triggered
+			// (it'll get recreated above).
+			relationsw.Stop()
 		case f.outResolved <- f.resolved:
 			log.Debugf("worker/uniter/filter: sent resolved event")
 			f.outResolved = nil
