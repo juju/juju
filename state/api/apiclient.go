@@ -1,9 +1,7 @@
 package api
 
 import (
-	"errors"
 	"fmt"
-	"launchpad.net/juju-core/rpc"
 	"strings"
 )
 
@@ -41,7 +39,7 @@ func (c *Client) Status() (*Status, error) {
 	var s Status
 	err := c.st.client.Call("Client", "", "Status", nil, &s)
 	if err != nil {
-		return nil, rpcError(err)
+		return nil, clientError(err)
 	}
 	return &s, nil
 }
@@ -85,7 +83,7 @@ func (st *State) Login(entityName, password string) error {
 		EntityName: entityName,
 		Password:   password,
 	}, nil)
-	return rpcError(err)
+	return clientError(err)
 }
 
 // Id returns the machine id.
@@ -110,7 +108,7 @@ func MachineEntityName(id string) string {
 // state. TODO(rog) It returns a NotFoundError if the machine has been removed.
 func (m *Machine) Refresh() error {
 	err := m.st.client.Call("Machine", m.id, "Get", nil, &m.doc)
-	return rpcError(err)
+	return clientError(err)
 }
 
 // String returns the machine's id.
@@ -129,14 +127,14 @@ func (m *Machine) SetPassword(password string) error {
 	err := m.st.client.Call("Machine", m.id, "SetPassword", &rpcPassword{
 		Password: password,
 	}, nil)
-	return rpcError(err)
+	return clientError(err)
 }
 
 // Refresh refreshes the contents of the Unit from the underlying
 // state. TODO(rog) It returns a NotFoundError if the unit has been removed.
 func (u *Unit) Refresh() error {
 	err := u.st.client.Call("Unit", u.name, "Get", nil, &u.doc)
-	return rpcError(err)
+	return clientError(err)
 }
 
 // SetPassword sets the password for the unit's agent.
@@ -144,7 +142,7 @@ func (u *Unit) SetPassword(password string) error {
 	err := u.st.client.Call("Unit", u.name, "SetPassword", &rpcPassword{
 		Password: password,
 	}, nil)
-	return rpcError(err)
+	return clientError(err)
 }
 
 // UnitEntityName returns the entity name for the
@@ -164,20 +162,4 @@ func (u *Unit) EntityName() string {
 // the unit. If no such entity can be determined, false is returned.
 func (u *Unit) DeployerName() (string, bool) {
 	return u.doc.DeployerName, u.doc.DeployerName != ""
-}
-
-// rpcError maps errors returned from an RPC call into local errors with
-// appropriate values.
-// TODO(rog): implement NotFoundError, etc.
-func rpcError(err error) error {
-	if err == nil {
-		return nil
-	}
-	rerr, ok := err.(*rpc.ServerError)
-	if !ok {
-		return err
-	}
-	// TODO(rog) map errors into known error types, possibly introducing
-	// error codes to do so.
-	return errors.New(rerr.Message)
 }

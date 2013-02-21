@@ -144,12 +144,14 @@ var commandNames = []string{
 	"expose",
 	"generate-config", // alias for init
 	"get",
+	"get-constraints",
 	"init",
 	"remove-relation", // alias for destory-relation
 	"remove-unit",     // alias for destroy-unit
 	"resolved",
 	"scp",
 	"set",
+	"set-constraints",
 	"ssh",
 	"stat", // alias for status
 	"status",
