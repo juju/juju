@@ -26,22 +26,22 @@ type ServiceGetResults struct {
 }
 
 // ServiceGet returns the configuration for the named service.
-func ServiceGet(st *state.State, p ServiceGetParams) (*ServiceGetResults, error) {
+func ServiceGet(st *state.State, p ServiceGetParams) (ServiceGetResults, error) {
 	svc, err := st.Service(p.ServiceName)
 	if err != nil {
-		return nil, err
+		return ServiceGetResults{}, err
 	}
 	svcfg, err := svc.Config()
 	if err != nil {
-		return nil, err
+		return ServiceGetResults{}, err
 	}
 	charm, _, err := svc.Charm()
 	if err != nil {
-		return nil, err
+		return ServiceGetResults{}, err
 	}
 	chcfg := charm.Config().Options
 
-	return &ServiceGetResults{
+	return ServiceGetResults{
 		Service:  p.ServiceName,
 		Charm:    charm.Meta().Name,
 		Settings: merge(svcfg.Map(), chcfg),
