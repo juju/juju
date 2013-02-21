@@ -39,14 +39,14 @@ func (s *StateSuite) TestStateInfo(c *C) {
 
 func (s *StateSuite) TestIsNotFound(c *C) {
 	err1 := fmt.Errorf("unrelated error")
-	err2 := &state.NotFoundError{}
+	err2 := state.NotFoundf("foo")
 	c.Assert(state.IsNotFound(err1), Equals, false)
 	c.Assert(state.IsNotFound(err2), Equals, true)
 }
 
 func (s *StateSuite) TestAddCharm(c *C) {
 	// Check that adding charms from scratch works correctly.
-	ch := testing.Charms.Dir("series", "dummy")
+	ch := testing.Charms.Dir("dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:series/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
@@ -130,32 +130,9 @@ func (s *StateSuite) TestInjectMachine(c *C) {
 	m, err := s.State.InjectMachine(state.InstanceId("i-mindustrious"), state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, IsNil)
 	c.Assert(m.Jobs(), DeepEquals, []state.MachineJob{state.JobHostUnits, state.JobManageEnviron})
-	instanceId, err := m.InstanceId()
-	c.Assert(err, IsNil)
+	instanceId, ok := m.InstanceId()
+	c.Assert(ok, Equals, true)
 	c.Assert(instanceId, Equals, state.InstanceId("i-mindustrious"))
-}
-
-func (s *StateSuite) TestRemoveMachine(c *C) {
-	machine, err := s.State.AddMachine(state.JobHostUnits)
-	c.Assert(err, IsNil)
-	_, err = s.State.AddMachine(state.JobHostUnits)
-	c.Assert(err, IsNil)
-	err = s.State.RemoveMachine(machine.Id())
-	c.Assert(err, ErrorMatches, "cannot remove machine 0: machine is not dead")
-	err = machine.EnsureDead()
-	c.Assert(err, IsNil)
-	err = s.State.RemoveMachine(machine.Id())
-	c.Assert(err, IsNil)
-
-	machines, err := s.State.AllMachines()
-	c.Assert(err, IsNil)
-	c.Assert(machines, HasLen, 1)
-	c.Assert(machines[0].Id(), Equals, "1")
-
-	// Removing a non-existing machine has to fail.
-	// BUG(aram): use error strings from state.
-	err = s.State.RemoveMachine(machine.Id())
-	c.Assert(err, ErrorMatches, "cannot remove machine 0: .*")
 }
 
 func (s *StateSuite) TestReadMachine(c *C) {
@@ -182,15 +159,15 @@ func (s *StateSuite) TestAllMachines(c *C) {
 		c.Assert(err, IsNil)
 		err = m.SetAgentTools(newTools("7.8.9-foo-bar", "http://arble.tgz"))
 		c.Assert(err, IsNil)
-		err = m.EnsureDying()
+		err = m.Destroy()
 		c.Assert(err, IsNil)
 	}
 	s.AssertMachineCount(c, numInserts)
 	ms, _ := s.State.AllMachines()
 	for i, m := range ms {
 		c.Assert(m.Id(), Equals, strconv.Itoa(i))
-		instId, err := m.InstanceId()
-		c.Assert(err, IsNil)
+		instId, ok := m.InstanceId()
+		c.Assert(ok, Equals, true)
 		c.Assert(string(instId), Equals, fmt.Sprintf("foo-%d", i))
 		tools, err := m.AgentTools()
 		c.Check(err, IsNil)
@@ -202,7 +179,7 @@ func (s *StateSuite) TestAllMachines(c *C) {
 func (s *StateSuite) TestAddService(c *C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddService("haha/borken", charm)
-	c.Assert(err, ErrorMatches, `"haha/borken" is not a valid service name`)
+	c.Assert(err, ErrorMatches, `cannot add service "haha/borken": invalid name`)
 	_, err = s.State.Service("haha/borken")
 	c.Assert(err, ErrorMatches, `"haha/borken" is not a valid service name`)
 
@@ -478,6 +455,48 @@ func (s *StateSuite) TestEnvironConfigWithAdminSecret(c *C) {
 	c.Assert(err, ErrorMatches, "admin-secret should never be written to the state")
 }
 
+func (s *StateSuite) TestEnvironConstraints(c *C) {
+	// Environ constraints are not available before initialization.
+	_, err := s.State.EnvironConstraints()
+	c.Assert(state.IsNotFound(err), Equals, true)
+	m := map[string]interface{}{
+		"type":            "dummy",
+		"name":            "lisboa",
+		"authorized-keys": "i-am-a-key",
+		"ca-cert":         testing.CACert,
+		"ca-private-key":  "",
+	}
+	cfg, err := config.New(m)
+	c.Assert(err, IsNil)
+	st, err := state.Initialize(state.TestingStateInfo(), cfg)
+	c.Assert(err, IsNil)
+	st.Close()
+
+	// Environ constraints start out empty (for now).
+	cons0 := state.Constraints{}
+	cons1, err := s.State.EnvironConstraints()
+	c.Assert(err, IsNil)
+	c.Assert(cons1, DeepEquals, cons0)
+
+	// Environ constraints can be set.
+	cons2 := state.Constraints{Mem: uint64p(1024)}
+	err = s.State.SetEnvironConstraints(cons2)
+	c.Assert(err, IsNil)
+	cons3, err := s.State.EnvironConstraints()
+	c.Assert(err, IsNil)
+	c.Assert(cons3, DeepEquals, cons2)
+	c.Assert(cons3, Not(Equals), cons2)
+
+	// Environ constraints are completely overwritten when re-set.
+	cons4 := state.Constraints{CpuPower: uint64p(250)}
+	err = s.State.SetEnvironConstraints(cons4)
+	c.Assert(err, IsNil)
+	cons5, err := s.State.EnvironConstraints()
+	c.Assert(err, IsNil)
+	c.Assert(cons5, DeepEquals, cons4)
+	c.Assert(cons5, Not(Equals), cons4)
+}
+
 var machinesWatchTests = []struct {
 	summary string
 	test    func(*C, *state.State)
@@ -519,7 +538,7 @@ var machinesWatchTests = []struct {
 		func(c *C, s *state.State) {
 			m3, err := s.Machine("3")
 			c.Assert(err, IsNil)
-			err = m3.EnsureDying()
+			err = m3.Destroy()
 			c.Assert(err, IsNil)
 		},
 		[]string{"3"},
@@ -537,9 +556,11 @@ var machinesWatchTests = []struct {
 		func(c *C, s *state.State) {
 			m0, err := s.Machine("0")
 			c.Assert(err, IsNil)
-			err = m0.EnsureDying()
+			err = m0.Destroy()
 			c.Assert(err, IsNil)
-			err = s.RemoveMachine("3")
+			m3, err := s.Machine("3")
+			c.Assert(err, IsNil)
+			err = m3.Remove()
 			c.Assert(err, IsNil)
 		},
 		[]string{"0"},
@@ -554,7 +575,7 @@ var machinesWatchTests = []struct {
 			c.Assert(err, IsNil)
 			err = m2.EnsureDead()
 			c.Assert(err, IsNil)
-			err = s.RemoveMachine("2")
+			err = m2.Remove()
 			c.Assert(err, IsNil)
 		},
 		[]string{"0", "2"},
@@ -585,7 +606,7 @@ var machinesWatchTests = []struct {
 			for i := 10; i < len(machines); i++ {
 				err = machines[i].EnsureDead()
 				c.Assert(err, IsNil)
-				err = s.RemoveMachine(machines[i].Id())
+				err = machines[i].Remove()
 				c.Assert(err, IsNil)
 			}
 		},
@@ -602,7 +623,7 @@ var machinesWatchTests = []struct {
 			c.Assert(err, IsNil)
 			err = m.EnsureDead()
 			c.Assert(err, IsNil)
-			err = s.RemoveMachine(m.Id())
+			err = m.Remove()
 			c.Assert(err, IsNil)
 
 			_, err = s.AddMachine(state.JobHostUnits)
@@ -618,7 +639,7 @@ var machinesWatchTests = []struct {
 			err = m.EnsureDead()
 			c.Assert(err, IsNil)
 			s.Sync()
-			err = s.RemoveMachine(m.Id())
+			err = m.Remove()
 			c.Assert(err, IsNil)
 			s.Sync()
 		},
@@ -1095,27 +1116,30 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *C) {
 	m2, err := s.State.Machine(m1.Id())
 	c.Assert(m1, DeepEquals, m2)
 
-	charm1 := s.AddTestingCharm(c, "dummy")
+	charm1 := s.AddTestingCharm(c, "wordpress")
 	charm2, err := s.State.Charm(charm1.URL())
 	c.Assert(err, IsNil)
 	c.Assert(charm1, DeepEquals, charm2)
 
-	service1, err := s.State.AddService("dummy", charm1)
+	wordpress1, err := s.State.AddService("wordpress", charm1)
 	c.Assert(err, IsNil)
-	service2, err := s.State.Service("dummy")
+	wordpress2, err := s.State.Service("wordpress")
 	c.Assert(err, IsNil)
-	c.Assert(service1, DeepEquals, service2)
+	c.Assert(wordpress1, DeepEquals, wordpress2)
 
-	unit1, err := service1.AddUnit()
+	unit1, err := wordpress1.AddUnit()
 	c.Assert(err, IsNil)
-	unit2, err := s.State.Unit("dummy/0")
+	unit2, err := s.State.Unit("wordpress/0")
 	c.Assert(err, IsNil)
 	c.Assert(unit1, DeepEquals, unit2)
 
-	peer := state.Endpoint{"dummy", "ifce", "name", state.RolePeer, charm.ScopeGlobal}
-	relation1, err := s.State.AddRelation(peer)
+	_, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
 	c.Assert(err, IsNil)
-	relation2, err := s.State.EndpointsRelation(peer)
+	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
+	c.Assert(err, IsNil)
+	relation1, err := s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	relation2, err := s.State.EndpointsRelation(eps...)
 	c.Assert(relation1, DeepEquals, relation2)
 	relation3, err := s.State.Relation(relation1.Id())
 	c.Assert(relation1, DeepEquals, relation3)
@@ -1144,7 +1168,17 @@ func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func testSetPassword(c *C, getEntity func() (entity, error)) {
+func (s *StateSuite) TestOpenBadAddress(c *C) {
+	info := state.TestingStateInfo()
+	info.Addrs = []string{"0.1.2.3:1234"}
+	state.SetDialTimeout(1 * time.Millisecond)
+	defer state.SetDialTimeout(0)
+
+	err := tryOpenState(info)
+	c.Assert(err, ErrorMatches, "no reachable servers")
+}
+
+func testSetPassword(c *C, getEntity func() (state.AuthEntity, error)) {
 	e, err := getEntity()
 	c.Assert(err, IsNil)
 
@@ -1168,9 +1202,11 @@ func testSetPassword(c *C, getEntity func() (entity, error)) {
 	c.Assert(err, IsNil)
 	c.Assert(e2.PasswordValid("bar"), Equals, true)
 
-	testWhenDying(c, e, noErr, notAliveErr, func() error {
-		return e.SetPassword("arble")
-	})
+	if le, ok := e.(lifer); ok {
+		testWhenDying(c, le, noErr, notAliveErr, func() error {
+			return e.SetPassword("arble")
+		})
+	}
 }
 
 type entity interface {
@@ -1263,4 +1299,59 @@ func (s *StateSuite) TestSetAdminMongoPassword(c *C) {
 	info.Password = ""
 	err = tryOpenState(info)
 	c.Assert(err, IsNil)
+}
+
+func (s *StateSuite) TestAuthEntity(c *C) {
+	bad := []string{"", "machine", "-foo", "foo-", "---", "machine-jim", "unit-123", "unit-foo"}
+	for _, name := range bad {
+		e, err := s.State.AuthEntity(name)
+		c.Check(e, IsNil)
+		c.Assert(err, ErrorMatches, `invalid entity name ".*"`)
+	}
+
+	e, err := s.State.AuthEntity("machine-1234")
+	c.Check(e, IsNil)
+	c.Assert(err, ErrorMatches, `machine 1234 not found`)
+	c.Assert(state.IsNotFound(err), Equals, true)
+
+	e, err = s.State.AuthEntity("unit-foo-654")
+	c.Check(e, IsNil)
+	c.Assert(err, ErrorMatches, `unit "foo/654" not found`)
+	c.Assert(state.IsNotFound(err), Equals, true)
+
+	e, err = s.State.AuthEntity("unit-foo-bar-654")
+	c.Check(e, IsNil)
+	c.Assert(err, ErrorMatches, `unit "foo-bar/654" not found`)
+	c.Assert(state.IsNotFound(err), Equals, true)
+
+	e, err = s.State.AuthEntity("user-arble")
+	c.Check(e, IsNil)
+	c.Assert(err, ErrorMatches, `user "arble" not found`)
+	c.Assert(state.IsNotFound(err), Equals, true)
+
+	m, err := s.State.AddMachine(state.JobHostUnits)
+	c.Assert(err, IsNil)
+
+	e, err = s.State.AuthEntity(m.EntityName())
+	c.Assert(err, IsNil)
+	c.Assert(e, FitsTypeOf, m)
+	c.Assert(e.EntityName(), Equals, m.EntityName())
+
+	svc, err := s.State.AddService("ser-vice1", s.AddTestingCharm(c, "dummy"))
+	c.Assert(err, IsNil)
+	u, err := svc.AddUnit()
+	c.Assert(err, IsNil)
+
+	e, err = s.State.AuthEntity(u.EntityName())
+	c.Assert(err, IsNil)
+	c.Assert(e, FitsTypeOf, u)
+	c.Assert(e.EntityName(), Equals, u.EntityName())
+
+	user, err := s.State.AddUser("arble", "pass")
+	c.Assert(err, IsNil)
+
+	e, err = s.State.AuthEntity(user.EntityName())
+	c.Assert(err, IsNil)
+	c.Assert(e, FitsTypeOf, user)
+	c.Assert(e.EntityName(), Equals, user.EntityName())
 }

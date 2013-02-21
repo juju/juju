@@ -11,6 +11,7 @@ import (
 // be available to the juju command.
 import (
 	_ "launchpad.net/juju-core/environs/ec2"
+	_ "launchpad.net/juju-core/environs/openstack"
 )
 
 var jujuDoc = `
@@ -25,22 +26,36 @@ https://juju.ubuntu.com/
 // provides an entry point for testing with arbitrary command line arguments.
 func Main(args []string) {
 	juju := &cmd.SuperCommand{Name: "juju", Doc: jujuDoc, Log: &cmd.Log{}}
-	juju.Register(&AddRelationCommand{})
-	juju.Register(&AddUnitCommand{})
+
+	// Register creation commands.
 	juju.Register(&BootstrapCommand{})
 	juju.Register(&DeployCommand{})
-	juju.Register(&DestroyEnvironmentCommand{})
+	juju.Register(&AddRelationCommand{})
+	juju.Register(&AddUnitCommand{})
+
+	// Register destruction commands.
+	juju.Register(&DestroyMachineCommand{}, "terminate-machine")
 	juju.Register(&DestroyRelationCommand{}, "remove-relation")
+	juju.Register(&DestroyServiceCommand{})
 	juju.Register(&DestroyUnitCommand{}, "remove-unit")
-	juju.Register(&ExposeCommand{})
-	juju.Register(&GetCommand{})
-	juju.Register(&ResolvedCommand{})
-	juju.Register(&SetCommand{})
+	juju.Register(&DestroyEnvironmentCommand{})
+
+	// Register error resolution commands.
+	juju.Register(&StatusCommand{})
 	juju.Register(&SCPCommand{})
 	juju.Register(&SSHCommand{})
-	juju.Register(&StatusCommand{})
+	juju.Register(&ResolvedCommand{})
+
+	// Register configuration commands.
+	juju.Register(&GenerateConfigCommand{})
+	juju.Register(&GetCommand{})
+	juju.Register(&SetCommand{})
+	juju.Register(&GetConstraintsCommand{})
+	juju.Register(&SetConstraintsCommand{})
+	juju.Register(&ExposeCommand{})
 	juju.Register(&UnexposeCommand{})
 	juju.Register(&UpgradeJujuCommand{})
+
 	os.Exit(cmd.Main(juju, cmd.DefaultContext(), args[1:]))
 }
 

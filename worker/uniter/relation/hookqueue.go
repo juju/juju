@@ -1,6 +1,7 @@
 package relation
 
 import (
+	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/worker/uniter/hook"
@@ -66,7 +67,7 @@ type unitInfo struct {
 	// hookKind holds the current idea of the next hook that should
 	// be run for the unit, and is empty if and only if the unit
 	// is not queued.
-	hookKind hook.Kind
+	hookKind hooks.Kind
 
 	// prev and next define the position in the queue of the
 	// unit's next hook.
@@ -177,10 +178,10 @@ func (q *AliveHookQueue) update(ruc state.RelationUnitsChange) {
 		if !found {
 			info = &unitInfo{unit: unit}
 			q.info[unit] = info
-			q.queue(unit, hook.RelationJoined)
-		} else if info.hookKind != hook.RelationJoined {
+			q.queue(unit, hooks.RelationJoined)
+		} else if info.hookKind != hooks.RelationJoined {
 			if settings.Version != info.version {
-				q.queue(unit, hook.RelationChanged)
+				q.queue(unit, hooks.RelationChanged)
 			} else {
 				q.unqueue(unit)
 			}
@@ -190,10 +191,10 @@ func (q *AliveHookQueue) update(ruc state.RelationUnitsChange) {
 	}
 
 	for _, unit := range ruc.Departed {
-		if q.info[unit].hookKind == hook.RelationJoined {
+		if q.info[unit].hookKind == hooks.RelationJoined {
 			q.unqueue(unit)
 		} else {
-			q.queue(unit, hook.RelationDeparted)
+			q.queue(unit, hooks.RelationDeparted)
 		}
 	}
 }
@@ -204,7 +205,7 @@ func (q *AliveHookQueue) pop() {
 		panic("queue is empty")
 	}
 	if q.changedPending != "" {
-		if q.info[q.changedPending].hookKind == hook.RelationChanged {
+		if q.info[q.changedPending].hookKind == hooks.RelationChanged {
 			// We just ran this very hook; no sense keeping it queued.
 			q.unqueue(q.changedPending)
 		}
@@ -212,10 +213,10 @@ func (q *AliveHookQueue) pop() {
 	} else {
 		old := *q.head
 		q.unqueue(q.head.unit)
-		if old.hookKind == hook.RelationJoined {
+		if old.hookKind == hooks.RelationJoined {
 			q.changedPending = old.unit
 			q.info[old.unit].joined = true
-		} else if old.hookKind == hook.RelationDeparted {
+		} else if old.hookKind == hooks.RelationDeparted {
 			delete(q.info, old.unit)
 		}
 	}
@@ -227,10 +228,10 @@ func (q *AliveHookQueue) next() hook.Info {
 		panic("queue is empty")
 	}
 	var unit string
-	var kind hook.Kind
+	var kind hooks.Kind
 	if q.changedPending != "" {
 		unit = q.changedPending
-		kind = hook.RelationChanged
+		kind = hooks.RelationChanged
 	} else {
 		unit = q.head.unit
 		kind = q.head.hookKind
@@ -242,9 +243,9 @@ func (q *AliveHookQueue) next() hook.Info {
 			members[unit] = info.settings
 		}
 	}
-	if kind == hook.RelationJoined {
+	if kind == hooks.RelationJoined {
 		members[unit] = q.info[unit].settings
-	} else if kind == hook.RelationDeparted {
+	} else if kind == hooks.RelationDeparted {
 		delete(members, unit)
 	}
 	return hook.Info{
@@ -259,7 +260,7 @@ func (q *AliveHookQueue) next() hook.Info {
 // queue sets the next hook to be run for the named unit, and places it
 // at the tail of the queue if it is not already queued. It will panic
 // if the unit is not in q.info.
-func (q *AliveHookQueue) queue(unit string, kind hook.Kind) {
+func (q *AliveHookQueue) queue(unit string, kind hooks.Kind) {
 	// If the unit is not in the queue, place it at the tail.
 	info := q.info[unit]
 	if info.hookKind == "" {
@@ -346,7 +347,7 @@ func (q *DyingHookQueue) loop() {
 		select {
 		case <-q.tomb.Dying():
 			return
-		case q.out <- q.hookInfo(hook.RelationChanged, q.changedPending):
+		case q.out <- q.hookInfo(hooks.RelationChanged, q.changedPending):
 		}
 	}
 
@@ -360,7 +361,7 @@ func (q *DyingHookQueue) loop() {
 		select {
 		case <-q.tomb.Dying():
 			return
-		case q.out <- q.hookInfo(hook.RelationDeparted, unit):
+		case q.out <- q.hookInfo(hooks.RelationDeparted, unit):
 		}
 	}
 
@@ -368,7 +369,7 @@ func (q *DyingHookQueue) loop() {
 	select {
 	case <-q.tomb.Dying():
 		return
-	case q.out <- hook.Info{Kind: hook.RelationBroken, RelationId: q.relationId}:
+	case q.out <- hook.Info{Kind: hooks.RelationBroken, RelationId: q.relationId}:
 	}
 	q.tomb.Kill(nil)
 	return
@@ -376,7 +377,7 @@ func (q *DyingHookQueue) loop() {
 
 // hookInfo updates the queue's internal membership state according to the
 // supplied information, and returns a hook.Info reflecting that change.
-func (q *DyingHookQueue) hookInfo(kind hook.Kind, unit string) hook.Info {
+func (q *DyingHookQueue) hookInfo(kind hooks.Kind, unit string) hook.Info {
 	hi := hook.Info{
 		Kind:          kind,
 		RelationId:    q.relationId,

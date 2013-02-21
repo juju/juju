@@ -42,7 +42,7 @@ func build() error {
 	if err != nil {
 		return err
 	}
-	service, err := conn.AddService("builddb", ch)
+	service, err := conn.State.AddService("builddb", ch)
 	if err != nil {
 		return err
 	}

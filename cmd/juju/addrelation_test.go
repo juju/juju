@@ -1,9 +1,7 @@
 package main
 
 import (
-	"bytes"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -14,11 +12,7 @@ type AddRelationSuite struct {
 var _ = Suite(&AddRelationSuite{})
 
 func runAddRelation(c *C, args ...string) error {
-	com := &AddRelationCommand{}
-	if err := com.Init(newFlagSet(), args); err != nil {
-		return err
-	}
-	return com.Run(&cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}})
+	return testing.RunCommand(c, &AddRelationCommand{}, args)
 }
 
 var msWpAlreadyExists = `cannot add relation "wp:db ms:server": relation already exists`
@@ -128,16 +122,16 @@ var addRelationTests = []struct {
 }
 
 func (s *AddRelationSuite) TestAddRelation(c *C) {
-	testing.Charms.BundlePath(s.seriesPath, "series", "wordpress")
+	testing.Charms.BundlePath(s.seriesPath, "wordpress")
 	err := runDeploy(c, "local:wordpress", "wp")
 	c.Assert(err, IsNil)
-	testing.Charms.BundlePath(s.seriesPath, "series", "mysql")
+	testing.Charms.BundlePath(s.seriesPath, "mysql")
 	err = runDeploy(c, "local:mysql", "ms")
 	c.Assert(err, IsNil)
-	testing.Charms.BundlePath(s.seriesPath, "series", "riak")
+	testing.Charms.BundlePath(s.seriesPath, "riak")
 	err = runDeploy(c, "local:riak", "rk")
 	c.Assert(err, IsNil)
-	testing.Charms.BundlePath(s.seriesPath, "series", "logging")
+	testing.Charms.BundlePath(s.seriesPath, "logging")
 	err = runDeploy(c, "local:logging", "lg")
 	c.Assert(err, IsNil)
 

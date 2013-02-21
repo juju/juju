@@ -3,12 +3,15 @@ package charm_test
 import (
 	"archive/zip"
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/testing"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 )
 
@@ -17,14 +20,14 @@ type DirSuite struct{}
 var _ = Suite(&DirSuite{})
 
 func (s *DirSuite) TestReadDir(c *C) {
-	path := testing.Charms.DirPath("series", "dummy")
+	path := testing.Charms.DirPath("dummy")
 	dir, err := charm.ReadDir(path)
 	c.Assert(err, IsNil)
 	checkDummy(c, dir, path)
 }
 
 func (s *DirSuite) TestReadDirWithoutConfig(c *C) {
-	path := testing.Charms.DirPath("series", "varnish")
+	path := testing.Charms.DirPath("varnish")
 	dir, err := charm.ReadDir(path)
 	c.Assert(err, IsNil)
 
@@ -34,8 +37,15 @@ func (s *DirSuite) TestReadDirWithoutConfig(c *C) {
 }
 
 func (s *DirSuite) TestBundleTo(c *C) {
-	dir := testing.Charms.Dir("series", "dummy")
-	path := filepath.Join(c.MkDir(), "bundle.charm")
+	baseDir := c.MkDir()
+	charmDir := testing.Charms.ClonedDirPath(baseDir, "dummy")
+	var haveSymlinks = true
+	if err := os.Symlink("../target", filepath.Join(charmDir, "hooks/symlink")); err != nil {
+		haveSymlinks = false
+	}
+	dir, err := charm.ReadDir(charmDir)
+	c.Assert(err, IsNil)
+	path := filepath.Join(baseDir, "bundle.charm")
 	file, err := os.Create(path)
 	c.Assert(err, IsNil)
 	err = dir.BundleTo(file)
@@ -87,14 +97,18 @@ func (s *DirSuite) TestBundleTo(c *C) {
 	// Despite it being 0751, we pack and unpack it as 0755.
 	c.Assert(instf.Mode()&0777, Equals, os.FileMode(0755))
 
-	c.Assert(symf, NotNil)
-	c.Assert(symf.Mode()&0777, Equals, os.FileMode(0777))
-	reader, err = symf.Open()
-	c.Assert(err, IsNil)
-	data, err = ioutil.ReadAll(reader)
-	reader.Close()
-	c.Assert(err, IsNil)
-	c.Assert(string(data), Equals, "../target")
+	if haveSymlinks {
+		c.Assert(symf, NotNil)
+		c.Assert(symf.Mode()&0777, Equals, os.FileMode(0777))
+		reader, err = symf.Open()
+		c.Assert(err, IsNil)
+		data, err = ioutil.ReadAll(reader)
+		reader.Close()
+		c.Assert(err, IsNil)
+		c.Assert(string(data), Equals, "../target")
+	} else {
+		c.Assert(symf, IsNil)
+	}
 
 	c.Assert(emptyf, NotNil)
 	c.Assert(emptyf.Mode()&os.ModeType, Equals, os.ModeDir)
@@ -102,8 +116,58 @@ func (s *DirSuite) TestBundleTo(c *C) {
 	c.Assert(emptyf.Mode()&0777, Equals, os.FileMode(0755))
 }
 
+// Bug #864164: Must complain if charm hooks aren't executable
+func (s *DirSuite) TestBundleToWithNonExecutableHooks(c *C) {
+	orig := log.Target
+	log.Target = c
+	defer func() { log.Target = orig }()
+	hooks := []string{"install", "start", "config-changed", "upgrade-charm", "stop"}
+	for _, relName := range []string{"foo", "bar", "self"} {
+		for _, kind := range []string{"joined", "changed", "departed", "broken"} {
+			hooks = append(hooks, relName+"-relation-"+kind)
+		}
+	}
+
+	dir := testing.Charms.Dir("all-hooks")
+	path := filepath.Join(c.MkDir(), "bundle.charm")
+	file, err := os.Create(path)
+	c.Assert(err, IsNil)
+	err = dir.BundleTo(file)
+	file.Close()
+	c.Assert(err, IsNil)
+
+	tlog := c.GetTestLog()
+	for _, hook := range hooks {
+		fullpath := filepath.Join(dir.Path, "hooks", hook)
+		exp := fmt.Sprintf(`^(.|\n)*JUJU charm: WARNING: making "%s" executable in charm(.|\n)*$`, fullpath)
+		c.Assert(tlog, Matches, exp, Commentf("hook %q was not made executable", fullpath))
+	}
+
+	// Expand it and check the hooks' permissions
+	// (But do not use ExpandTo(), just use the raw zip)
+	f, err := os.Open(path)
+	c.Assert(err, IsNil)
+	defer f.Close()
+	fi, err := f.Stat()
+	c.Assert(err, IsNil)
+	size := fi.Size()
+	zipr, err := zip.NewReader(f, size)
+	c.Assert(err, IsNil)
+	allhooks := dir.Meta().Hooks()
+	for _, zfile := range zipr.File {
+		cleanName := filepath.Clean(zfile.Name)
+		if strings.HasPrefix(cleanName, "hooks") {
+			hookName := filepath.Base(cleanName)
+			if _, ok := allhooks[hookName]; ok {
+				perms := zfile.Mode()
+				c.Assert(perms&0100 != 0, Equals, true, Commentf("hook %q is not executable", hookName))
+			}
+		}
+	}
+}
+
 func (s *DirSuite) TestBundleToWithBadType(c *C) {
-	charmDir := testing.Charms.ClonedDirPath(c.MkDir(), "series", "dummy")
+	charmDir := testing.Charms.ClonedDirPath(c.MkDir(), "dummy")
 	badFile := filepath.Join(charmDir, "hooks", "badfile")
 
 	// Symlink targeting a path outside of the charm.
@@ -140,7 +204,7 @@ func (s *DirSuite) TestBundleToWithBadType(c *C) {
 }
 
 func (s *DirSuite) TestDirRevisionFile(c *C) {
-	charmDir := testing.Charms.ClonedDirPath(c.MkDir(), "series", "dummy")
+	charmDir := testing.Charms.ClonedDirPath(c.MkDir(), "dummy")
 	revPath := filepath.Join(charmDir, "revision")
 
 	// Missing revision file
@@ -171,7 +235,7 @@ func (s *DirSuite) TestDirRevisionFile(c *C) {
 }
 
 func (s *DirSuite) TestDirSetRevision(c *C) {
-	dir := testing.Charms.ClonedDir(c.MkDir(), "series", "dummy")
+	dir := testing.Charms.ClonedDir(c.MkDir(), "dummy")
 	c.Assert(dir.Revision(), Equals, 1)
 	dir.SetRevision(42)
 	c.Assert(dir.Revision(), Equals, 42)
@@ -185,7 +249,7 @@ func (s *DirSuite) TestDirSetRevision(c *C) {
 }
 
 func (s *DirSuite) TestDirSetDiskRevision(c *C) {
-	charmDir := testing.Charms.ClonedDirPath(c.MkDir(), "series", "dummy")
+	charmDir := testing.Charms.ClonedDirPath(c.MkDir(), "dummy")
 	dir, err := charm.ReadDir(charmDir)
 	c.Assert(err, IsNil)
 

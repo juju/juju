@@ -61,7 +61,7 @@ func (s *DeployerSuite) TestDeployRecallRemovePrincipals(c *C) {
 	s.waitFor(c, isDeployed(mgr, u0.Name(), u1.Name()))
 
 	// Cause a unit to become Dying, and check no change.
-	err = u1.EnsureDying()
+	err = u1.Destroy()
 	c.Assert(err, IsNil)
 	s.waitFor(c, isDeployed(mgr, u0.Name(), u1.Name()))
 
@@ -102,7 +102,7 @@ func (s *DeployerSuite) TestRemoveNonAlivePrincipals(c *C) {
 	c.Assert(err, IsNil)
 	err = u1.AssignToMachine(m)
 	c.Assert(err, IsNil)
-	err = u1.EnsureDying()
+	err = u1.Destroy()
 	c.Assert(err, IsNil)
 
 	// When the deployer is started, in each case (1) no unit agent is deployed
@@ -158,7 +158,7 @@ func (s *DeployerSuite) TestDeployRecallRemoveSubordinates(c *C) {
 	s.waitFor(c, isDeployed(mgr, sub0.Name(), sub1.Name()))
 
 	// Set one to Dying; check nothing happens.
-	err = sub1.EnsureDying()
+	err = sub1.Destroy()
 	c.Assert(err, IsNil)
 	s.State.StartSync()
 	c.Assert(isRemoved(s.State, sub1.Name())(c), Equals, false)
@@ -184,7 +184,7 @@ func (s *DeployerSuite) TestNonAliveSubordinates(c *C) {
 	c.Assert(err, IsNil)
 	sub1, err := s.State.Unit("subsvc1/0")
 	c.Assert(err, IsNil)
-	err = sub1.EnsureDying()
+	err = sub1.Destroy()
 	c.Assert(err, IsNil)
 
 	// When we start a new deployer, neither unit will be deployed and

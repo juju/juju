@@ -78,21 +78,25 @@ func IsMachineId(name string) bool {
 	return validMachine.MatchString(name)
 }
 
-// NotFoundError represents the error that something is not found.
-type NotFoundError struct {
+// notFoundError represents the error that something is not found.
+type notFoundError struct {
 	msg string
 }
 
-func (e *NotFoundError) Error() string {
+func (e *notFoundError) Error() string {
 	return e.msg
 }
 
-func notFoundf(format string, args ...interface{}) error {
-	return &NotFoundError{fmt.Sprintf(format+" not found", args...)}
+// NotFoundf returns a error for which IsNotFound returns
+// true. The message for the error is made up from the given
+// arguments formatted as with fmt.Sprintf, with the
+// string " not found" appended.
+func NotFoundf(format string, args ...interface{}) error {
+	return &notFoundError{fmt.Sprintf(format+" not found", args...)}
 }
 
 func IsNotFound(err error) bool {
-	_, ok := err.(*NotFoundError)
+	_, ok := err.(*notFoundError)
 	return ok
 }
 
@@ -107,7 +111,9 @@ type State struct {
 	relationScopes *mgo.Collection
 	services       *mgo.Collection
 	settings       *mgo.Collection
+	constraints    *mgo.Collection
 	units          *mgo.Collection
+	users          *mgo.Collection
 	presence       *mgo.Collection
 	cleanups       *mgo.Collection
 	runner         *txn.Runner
@@ -140,6 +146,16 @@ func (st *State) SetEnvironConfig(cfg *config.Config) error {
 	settings.Update(cfg.AllAttrs())
 	_, err = settings.Write()
 	return err
+}
+
+// EnvironConstraints returns the current environment constraints.
+func (st *State) EnvironConstraints() (Constraints, error) {
+	return readConstraints(st, "e")
+}
+
+// SetEnvironConstraints replaces the current environment constraints.
+func (st *State) SetEnvironConstraints(cons Constraints) error {
+	return writeConstraints(st, "e", cons)
 }
 
 // AddMachine adds a new machine configured to run the supplied jobs.
@@ -209,33 +225,6 @@ func onAbort(txnErr, err error) error {
 	return txnErr
 }
 
-// RemoveMachine removes the machine with the the given id.
-func (st *State) RemoveMachine(id string) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot remove machine %s", id)
-	m, err := st.Machine(id)
-	if err != nil {
-		return err
-	}
-	if m.doc.Life != Dead {
-		return fmt.Errorf("machine is not dead")
-	}
-	sel := D{
-		{"_id", id},
-		{"life", Dead},
-	}
-	ops := []txn.Op{{
-		C:      st.machines.Name,
-		Id:     id,
-		Assert: sel,
-		Remove: true,
-	}}
-	if err := st.runner.Run(ops, "", nil); err != nil {
-		// If aborted, the machine is either dead or recreated.
-		return onAbort(err, nil)
-	}
-	return nil
-}
-
 // AllMachines returns all machines in the environment
 // ordered by id.
 func (st *State) AllMachines() (machines []*Machine, err error) {
@@ -268,12 +257,50 @@ func (st *State) Machine(id string) (*Machine, error) {
 	sel := D{{"_id", id}}
 	err := st.machines.Find(sel).One(mdoc)
 	if err == mgo.ErrNotFound {
-		return nil, notFoundf("machine %s", id)
+		return nil, NotFoundf("machine %s", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get machine %s: %v", id, err)
 	}
 	return newMachine(st, mdoc), nil
+}
+
+// AuthEntity represents an entity that has
+// a password that can be authenticated against.
+type AuthEntity interface {
+	EntityName() string
+	SetPassword(pass string) error
+	PasswordValid(pass string) bool
+	Refresh() error
+}
+
+// AuthEntity returns the entity for the given name.
+func (st *State) AuthEntity(entityName string) (AuthEntity, error) {
+	i := strings.Index(entityName, "-")
+	if i <= 0 || i >= len(entityName)-1 {
+		return nil, fmt.Errorf("invalid entity name %q", entityName)
+	}
+	prefix, id := entityName[0:i], entityName[i+1:]
+	switch prefix {
+	case "machine":
+		if !IsMachineId(id) {
+			return nil, fmt.Errorf("invalid entity name %q", entityName)
+		}
+		return st.Machine(id)
+	case "unit":
+		i := strings.LastIndex(id, "-")
+		if i == -1 {
+			return nil, fmt.Errorf("invalid entity name %q", entityName)
+		}
+		name := id[:i] + "/" + id[i+1:]
+		if !IsUnitName(name) {
+			return nil, fmt.Errorf("invalid entity name %q", entityName)
+		}
+		return st.Unit(name)
+	case "user":
+		return st.User(id)
+	}
+	return nil, fmt.Errorf("invalid entity name %q", entityName)
 }
 
 // AddCharm adds the ch charm with curl to the state.  bundleUrl must be
@@ -299,7 +326,7 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	cdoc := &charmDoc{}
 	err := st.charms.Find(D{{"_id", curl}}).One(cdoc)
 	if err == mgo.ErrNotFound {
-		return nil, notFoundf("charm %q", curl)
+		return nil, NotFoundf("charm %q", curl)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get charm %q: %v", curl, err)
@@ -307,30 +334,72 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	return newCharm(st, cdoc)
 }
 
-// AddService creates a new service state with the given unique name
-// and the charm state.
+// AddService creates a new service, running the supplied charm, with the
+// supplied name (which must be unique). If the charm defines peer relations,
+// they will be created automatically.
 func (st *State) AddService(name string, ch *Charm) (service *Service, err error) {
+	defer trivial.ErrorContextf(&err, "cannot add service %q", name)
+	// Sanity checks.
 	if !IsServiceName(name) {
-		return nil, fmt.Errorf("%q is not a valid service name", name)
+		return nil, fmt.Errorf("invalid name")
 	}
-	sdoc := &serviceDoc{
-		Name:     name,
-		CharmURL: ch.URL(),
-		Life:     Alive,
+	if exists, err := isNotDead(st.services, name); err != nil {
+		return nil, err
+	} else if exists {
+		return nil, fmt.Errorf("service already exists")
 	}
-	svc := newService(st, sdoc)
-	ops := []txn.Op{{
-		C:      st.settings.Name,
-		Id:     svc.globalKey(),
-		Insert: D{},
-	}, {
-		C:      st.services.Name,
-		Id:     name,
-		Assert: txn.DocMissing,
-		Insert: sdoc,
-	}}
-	if err := st.runner.Run(ops, "", nil); err != nil {
-		return nil, fmt.Errorf("cannot add service %q: %v", name, onAbort(err, fmt.Errorf("duplicate service name")))
+	// Create the service addition operations.
+	peers := ch.Meta().Peers
+	svcDoc := &serviceDoc{
+		Name:          name,
+		CharmURL:      ch.URL(),
+		RelationCount: len(peers),
+		Life:          Alive,
+	}
+	svc := newService(st, svcDoc)
+	ops := []txn.Op{
+		createConstraintsOp(st, svc.globalKey(), Constraints{}),
+		createSettingsOp(st, svc.globalKey(), map[string]interface{}{}),
+		{
+			C:      st.services.Name,
+			Id:     name,
+			Assert: txn.DocMissing,
+			Insert: svcDoc,
+		}}
+	// Collect peer relation addition operations.
+	for relName, rel := range peers {
+		relId, err := st.sequence("relation")
+		if err != nil {
+			return nil, err
+		}
+		eps := []Endpoint{{
+			ServiceName:   name,
+			Interface:     rel.Interface,
+			RelationName:  relName,
+			RelationRole:  RolePeer,
+			RelationScope: rel.Scope,
+		}}
+		relKey := relationKey(eps)
+		relDoc := &relationDoc{
+			Key:       relKey,
+			Id:        relId,
+			Endpoints: eps,
+			Life:      Alive,
+		}
+		ops = append(ops, txn.Op{
+			C:      st.relations.Name,
+			Id:     relKey,
+			Assert: txn.DocMissing,
+			Insert: relDoc,
+		})
+	}
+	// Run the transaction; happily, there's never any reason to retry,
+	// because all the possible failed assertions imply that the service
+	// already exists.
+	if err := st.runner.Run(ops, "", nil); err == txn.ErrAborted {
+		return nil, fmt.Errorf("service already exists")
+	} else if err != nil {
+		return nil, err
 	}
 	// Refresh to pick the txn-revno.
 	if err = svc.Refresh(); err != nil {
@@ -348,7 +417,7 @@ func (st *State) Service(name string) (service *Service, err error) {
 	sel := D{{"_id", name}}
 	err = st.services.Find(sel).One(sdoc)
 	if err == mgo.ErrNotFound {
-		return nil, notFoundf("service %q", name)
+		return nil, NotFoundf("service %q", name)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get service %q: %v", name, err)
@@ -482,70 +551,91 @@ func (st *State) endpoints(name string, filter func(ep Endpoint) bool) ([]Endpoi
 }
 
 // AddRelation creates a new relation with the given endpoints.
-func (st *State) AddRelation(endpoints ...Endpoint) (r *Relation, err error) {
-	defer trivial.ErrorContextf(&err, "cannot add relation %q", relationKey(endpoints))
-	switch len(endpoints) {
-	case 1:
-		if endpoints[0].RelationRole != RolePeer {
-			return nil, fmt.Errorf("single endpoint must be a peer relation")
+func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
+	key := relationKey(eps)
+	defer trivial.ErrorContextf(&err, "cannot add relation %q", key)
+	// Enforce basic endpoint sanity. The epCount restrictions may be relaxed
+	// in the future; if so, this method is likely to need significant rework.
+	if len(eps) != 2 {
+		return nil, fmt.Errorf("relation must have two endpoints")
+	}
+	if !eps[0].CanRelateTo(eps[1]) {
+		return nil, fmt.Errorf("endpoints do not relate")
+	}
+	// If either endpoint has container scope, so must the other.
+	if eps[0].RelationScope == charm.ScopeContainer {
+		eps[1].RelationScope = charm.ScopeContainer
+	} else if eps[1].RelationScope == charm.ScopeContainer {
+		eps[0].RelationScope = charm.ScopeContainer
+	}
+	// We only get a unique relation id once, to save on roundtrips. If it's
+	// -1, we haven't got it yet (we don't get it at this stage, because we
+	// still don't know whether it's sane to even attempt creation).
+	id := -1
+	// If a service's charm is upgraded while we're trying to add a relation,
+	// we'll need to re-validate service sanity. This is probably relatively
+	// rare, so we only try 3 times.
+	for attempt := 0; attempt < 3; attempt++ {
+		// Perform initial relation sanity check.
+		if exists, err := isNotDead(st.relations, key); err != nil {
+			return nil, err
+		} else if exists {
+			return nil, fmt.Errorf("relation already exists")
 		}
-	case 2:
-		if !endpoints[0].CanRelateTo(endpoints[1]) {
-			return nil, fmt.Errorf("endpoints do not relate")
-		}
-	default:
-		return nil, fmt.Errorf("cannot relate %d endpoints", len(endpoints))
-	}
-
-	ops := []txn.Op{}
-	var scope charm.RelationScope
-	for _, v := range endpoints {
-		if v.RelationScope == charm.ScopeContainer {
-			scope = charm.ScopeContainer
-		}
-		ops = append(ops, txn.Op{
-			C:      st.services.Name,
-			Id:     v.ServiceName,
-			Assert: isAliveDoc,
-			Update: D{{"$inc", D{{"relationcount", 1}}}},
-		})
-	}
-	if scope == charm.ScopeContainer {
-		for i := range endpoints {
-			endpoints[i].RelationScope = scope
-		}
-	}
-	id, err := st.sequence("relation")
-	if err != nil {
-		return nil, err
-	}
-	doc := relationDoc{
-		Key:       relationKey(endpoints),
-		Id:        id,
-		Endpoints: endpoints,
-		Life:      Alive,
-	}
-	ops = append(ops, txn.Op{
-		C:      st.relations.Name,
-		Id:     doc.Key,
-		Assert: txn.DocMissing,
-		Insert: doc,
-	})
-	err = st.runner.Run(ops, "", nil)
-	if err == txn.ErrAborted {
-		for _, ep := range endpoints {
+		// Collect per-service operations, checking sanity as we go.
+		var ops []txn.Op
+		for _, ep := range eps {
 			svc, err := st.Service(ep.ServiceName)
-			if IsNotFound(err) || svc.Life() != Alive {
-				return nil, fmt.Errorf("service %q is not alive", ep.ServiceName)
+			if IsNotFound(err) {
+				return nil, fmt.Errorf("service %q does not exist", ep.ServiceName)
 			} else if err != nil {
+				return nil, err
+			} else if svc.doc.Life != Alive {
+				return nil, fmt.Errorf("service %q is not alive", ep.ServiceName)
+			}
+			ch, _, err := svc.Charm()
+			if err != nil {
+				return nil, err
+			}
+			if !ep.ImplementedBy(ch) {
+				return nil, fmt.Errorf("%q does not implement %q", ep.ServiceName, ep)
+			}
+			ops = append(ops, txn.Op{
+				C:      st.services.Name,
+				Id:     ep.ServiceName,
+				Assert: D{{"life", Alive}, {"charmurl", ch.URL()}},
+				Update: D{{"$inc", D{{"relationcount", 1}}}},
+			})
+		}
+		// Create a new unique id if that has not already been done, and add
+		// an operation to create the relation document.
+		if id == -1 {
+			var err error
+			if id, err = st.sequence("relation"); err != nil {
 				return nil, err
 			}
 		}
-		return nil, fmt.Errorf("relation already exists")
-	} else if err != nil {
-		return nil, err
+		doc := relationDoc{
+			Key:       key,
+			Id:        id,
+			Endpoints: eps,
+			Life:      Alive,
+		}
+		ops = append(ops, txn.Op{
+			C:      st.relations.Name,
+			Id:     doc.Key,
+			Assert: txn.DocMissing,
+			Insert: doc,
+		})
+		// Run the transaction, and retry on abort.
+		if err = st.runner.Run(ops, "", nil); err == txn.ErrAborted {
+			continue
+		} else if err != nil {
+			return nil, err
+		}
+		return &Relation{st, doc}, nil
 	}
-	return newRelation(st, &doc), nil
+	return nil, ErrExcessiveContention
 }
 
 // EndpointsRelation returns the existing relation with the given endpoints.
@@ -554,7 +644,7 @@ func (st *State) EndpointsRelation(endpoints ...Endpoint) (*Relation, error) {
 	key := relationKey(endpoints)
 	err := st.relations.Find(D{{"_id", key}}).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, notFoundf("relation %q", key)
+		return nil, NotFoundf("relation %q", key)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get relation %q: %v", key, err)
@@ -567,7 +657,7 @@ func (st *State) Relation(id int) (*Relation, error) {
 	doc := relationDoc{}
 	err := st.relations.Find(D{{"id", id}}).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, notFoundf("relation %d", id)
+		return nil, NotFoundf("relation %d", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get relation %d: %v", id, err)
@@ -583,7 +673,7 @@ func (st *State) Unit(name string) (*Unit, error) {
 	doc := unitDoc{}
 	err := st.units.FindId(name).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, notFoundf("unit %q", name)
+		return nil, NotFoundf("unit %q", name)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get unit %q: %v", name, err)

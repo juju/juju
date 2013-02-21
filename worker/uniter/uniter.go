@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	corecharm "launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
@@ -151,7 +152,7 @@ func (u *Uniter) Wait() error {
 // value of Started.
 func (u *Uniter) writeState(op Op, step OpStep, hi *hook.Info, url *corecharm.URL) error {
 	s := State{
-		Started:  op == RunHook && hi.Kind == hook.Start || u.s != nil && u.s.Started,
+		Started:  op == RunHook && hi.Kind == hooks.Start || u.s != nil && u.s.Started,
 		Op:       op,
 		OpStep:   step,
 		Hook:     hi,
@@ -213,9 +214,9 @@ func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
 		hi = &hook.Info{}
 		switch reason {
 		case Install:
-			hi.Kind = hook.Install
+			hi.Kind = hooks.Install
 		case Upgrade:
-			hi.Kind = hook.UpgradeCharm
+			hi.Kind = hooks.UpgradeCharm
 		}
 	}
 	return u.writeState(RunHook, status, hi, nil)
@@ -294,14 +295,14 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 		if err := u.relationers[hi.RelationId].CommitHook(hi); err != nil {
 			return err
 		}
-		if hi.Kind == hook.RelationBroken {
+		if hi.Kind == hooks.RelationBroken {
 			delete(u.relationers, hi.RelationId)
 		}
 	}
 	if err := u.charm.Snapshotf("Completed %q hook.", hi.Kind); err != nil {
 		return err
 	}
-	if hi.Kind == hook.ConfigChanged {
+	if hi.Kind == hooks.ConfigChanged {
 		u.ranConfigChanged = true
 	}
 	if err := u.writeState(Continue, Pending, &hi, nil); err != nil {
@@ -406,7 +407,7 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 		}
 	}
 	if !keepAlive {
-		if err := u.unit.EnsureDying(); err != nil {
+		if err := u.unit.Destroy(); err != nil {
 			return nil, err
 		}
 	}

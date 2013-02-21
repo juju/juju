@@ -14,22 +14,24 @@ var configChecker = schema.StrictFieldMap(
 		"password":          schema.String(),
 		"tenant-name":       schema.String(),
 		"auth-url":          schema.String(),
-		"auth-method":       schema.String(),
+		"auth-mode":         schema.String(),
 		"region":            schema.String(),
 		"control-bucket":    schema.String(),
 		"public-bucket":     schema.String(),
 		"public-bucket-url": schema.String(),
+		"default-image-id":  schema.String(),
 	},
 	schema.Defaults{
 		"username":          "",
 		"password":          "",
 		"tenant-name":       "",
 		"auth-url":          "",
-		"auth-method":       string(AuthUserPass),
+		"auth-mode":         string(AuthUserPass),
 		"region":            "",
 		"control-bucket":    "",
 		"public-bucket":     "juju-dist",
 		"public-bucket-url": "",
+		"default-image-id":  "",
 	},
 )
 
@@ -58,8 +60,8 @@ func (c *environConfig) authURL() string {
 	return c.attrs["auth-url"].(string)
 }
 
-func (c *environConfig) authMethod() string {
-	return c.attrs["auth-method"].(string)
+func (c *environConfig) authMode() string {
+	return c.attrs["auth-mode"].(string)
 }
 
 func (c *environConfig) controlBucket() string {
@@ -74,6 +76,10 @@ func (c *environConfig) publicBucketURL() string {
 	return c.attrs["public-bucket-url"].(string)
 }
 
+func (c *environConfig) defaultImageId() string {
+	return c.attrs["default-image-id"].(string)
+}
+
 func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
 	valid, err := p.Validate(cfg, nil)
 	if err != nil {
@@ -82,11 +88,11 @@ func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
 	return &environConfig{valid, valid.UnknownAttrs()}, nil
 }
 
-type AuthMethod string
+type AuthMode string
 
 const (
-	AuthLegacy   AuthMethod = "legacy"
-	AuthUserPass AuthMethod = "userpass"
+	AuthLegacy   AuthMode = "legacy"
+	AuthUserPass AuthMode = "userpass"
 )
 
 func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
@@ -96,12 +102,12 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 	}
 	ecfg := &environConfig{cfg, v.(map[string]interface{})}
 
-	authMethod := ecfg.authMethod()
-	switch AuthMethod(authMethod) {
+	authMode := ecfg.authMode()
+	switch AuthMode(authMode) {
 	case AuthLegacy:
 	case AuthUserPass:
 	default:
-		return nil, fmt.Errorf("invalid authorization method: %q", authMethod)
+		return nil, fmt.Errorf("invalid authorization mode: %q", authMode)
 	}
 
 	if ecfg.authURL() != "" {

@@ -2,6 +2,7 @@ package uniter
 
 import (
 	"fmt"
+	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker/uniter/hook"
 	"launchpad.net/juju-core/worker/uniter/relation"
@@ -123,7 +124,7 @@ func (r *Relationer) PrepareHook(hi hook.Info) (hookName string, err error) {
 		return
 	}
 	r.ctx.UpdateMembers(hi.Members)
-	if hi.Kind == hook.RelationDeparted {
+	if hi.Kind == hooks.RelationDeparted {
 		r.ctx.DeleteMember(hi.RemoteUnit)
 	} else if hi.RemoteUnit != "" {
 		r.ctx.UpdateMembers(SettingsMap{hi.RemoteUnit: nil})
@@ -137,7 +138,7 @@ func (r *Relationer) CommitHook(hi hook.Info) error {
 	if r.IsImplicit() {
 		panic("implicit relations must not run hooks")
 	}
-	if hi.Kind == hook.RelationBroken {
+	if hi.Kind == hooks.RelationBroken {
 		return r.die()
 	}
 	return r.dir.Write(hi)

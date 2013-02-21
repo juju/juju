@@ -20,18 +20,18 @@ func (c *DestroyUnitCommand) Info() *cmd.Info {
 	return &cmd.Info{"destroy-unit", "<unit> [...]", "destroy service units", ""}
 }
 
-func (c *DestroyUnitCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *DestroyUnitCommand) SetFlags(f *gnuflag.FlagSet) {
 	addEnvironFlags(&c.EnvName, f)
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	c.UnitNames = f.Args()
+}
+
+func (c *DestroyUnitCommand) Init(args []string) error {
+	c.UnitNames = args
 	if len(c.UnitNames) == 0 {
 		return errors.New("no units specified")
 	}
 	for _, name := range c.UnitNames {
 		if !state.IsUnitName(name) {
-			return fmt.Errorf("invalid unit name: %q", name)
+			return fmt.Errorf("invalid unit name %q", name)
 		}
 	}
 	return nil

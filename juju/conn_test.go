@@ -314,7 +314,7 @@ func (s *ConnSuite) TestPutBundledCharm(c *C) {
 	w, err := os.Create(filepath.Join(dir, "riak.charm"))
 	c.Assert(err, IsNil)
 	defer w.Close()
-	charmDir := coretesting.Charms.Dir("series", "riak")
+	charmDir := coretesting.Charms.Dir("riak")
 	err = charmDir.BundleTo(w)
 	c.Assert(err, IsNil)
 
@@ -377,43 +377,11 @@ func (s *ConnSuite) TestPutCharmUpload(c *C) {
 	c.Assert(sch.Revision(), Equals, rev+1)
 }
 
-func (s *ConnSuite) TestAddService(c *C) {
-	curl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "riak")
-	sch, err := s.conn.PutCharm(curl, s.repo, false)
-	c.Assert(err, IsNil)
-
-	svc, err := s.conn.AddService("testriak", sch)
-	c.Assert(err, IsNil)
-
-	// Check that the peer relation has been made.
-	relations, err := svc.Relations()
-	c.Assert(relations, HasLen, 1)
-	ep, err := relations[0].Endpoint("testriak")
-	c.Assert(err, IsNil)
-	c.Assert(ep, Equals, state.Endpoint{
-		ServiceName:   "testriak",
-		Interface:     "riak",
-		RelationName:  "ring",
-		RelationRole:  state.RolePeer,
-		RelationScope: charm.ScopeGlobal,
-	})
-}
-
-func (s *ConnSuite) TestAddServiceDefaultName(c *C) {
-	curl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "riak")
-	sch, err := s.conn.PutCharm(curl, s.repo, false)
-	c.Assert(err, IsNil)
-
-	svc, err := s.conn.AddService("", sch)
-	c.Assert(err, IsNil)
-	c.Assert(svc.Name(), Equals, "riak")
-}
-
 func (s *ConnSuite) TestAddUnits(c *C) {
 	curl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "riak")
 	sch, err := s.conn.PutCharm(curl, s.repo, false)
 	c.Assert(err, IsNil)
-	svc, err := s.conn.AddService("testriak", sch)
+	svc, err := s.conn.State.AddService("testriak", sch)
 	c.Assert(err, IsNil)
 	units, err := s.conn.AddUnits(svc, 2)
 	c.Assert(err, IsNil)
@@ -427,12 +395,12 @@ func (s *ConnSuite) TestAddUnits(c *C) {
 }
 
 func (s *ConnSuite) TestDestroyPrincipalUnits(c *C) {
-	// Create 3 principal units.
+	// Create 5 principal units.
 	curl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "wordpress")
 	sch, err := s.conn.PutCharm(curl, s.repo, false)
-	wordpress, err := s.conn.AddService("wordpress", sch)
+	wordpress, err := s.conn.State.AddService("wordpress", sch)
 	c.Assert(err, IsNil)
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 5; i++ {
 		_, err = wordpress.AddUnit()
 		c.Assert(err, IsNil)
 	}
@@ -443,38 +411,40 @@ func (s *ConnSuite) TestDestroyPrincipalUnits(c *C) {
 	s.assertUnitLife(c, "wordpress/0", state.Dying)
 	s.assertUnitLife(c, "wordpress/1", state.Dying)
 
-	// Try to destroy the remaining one along with a pre-destroyed one; check
-	// it fails.
+	// Try to destroy an Alive one and a Dying one; check
+	// it destroys the Alive one and ignores the Dying one.
 	err = s.conn.DestroyUnits("wordpress/2", "wordpress/0")
-	c.Assert(err, ErrorMatches, `cannot destroy units: unit "wordpress/0" is not alive`)
-	s.assertUnitLife(c, "wordpress/2", state.Alive)
-
-	// Try to destroy the remaining one along with a nonexistent one; check it
-	// fails.
-	err = s.conn.DestroyUnits("wordpress/2", "boojum/123")
-	c.Assert(err, ErrorMatches, `cannot destroy units: unit "boojum/123" is not alive`)
-	s.assertUnitLife(c, "wordpress/2", state.Alive)
-
-	// Destroy the remaining unit on its own, accidentally specifying it twice;
-	// this should work.
-	err = s.conn.DestroyUnits("wordpress/2", "wordpress/2")
 	c.Assert(err, IsNil)
 	s.assertUnitLife(c, "wordpress/2", state.Dying)
+
+	// Try to destroy an Alive one along with a nonexistent one; check that
+	// the valid instruction is followed but the invalid one is warned about.
+	err = s.conn.DestroyUnits("boojum/123", "wordpress/3")
+	c.Assert(err, ErrorMatches, `some units were not destroyed: unit "boojum/123" does not exist`)
+	s.assertUnitLife(c, "wordpress/3", state.Dying)
+
+	// Make one Dead, and destroy an Alive one alongside it; check no errors.
+	wp0, err := s.conn.State.Unit("wordpress/0")
+	c.Assert(err, IsNil)
+	err = wp0.EnsureDead()
+	c.Assert(err, IsNil)
+	err = s.conn.DestroyUnits("wordpress/0", "wordpress/4")
+	c.Assert(err, IsNil)
+	s.assertUnitLife(c, "wordpress/0", state.Dead)
+	s.assertUnitLife(c, "wordpress/4", state.Dying)
 }
 
 func (s *ConnSuite) TestDestroySubordinateUnits(c *C) {
 	// Create a principal and a subordinate.
 	wpcurl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "wordpress")
 	wpsch, err := s.conn.PutCharm(wpcurl, s.repo, false)
-	wordpress, err := s.conn.AddService("wordpress", wpsch)
+	wordpress, err := s.conn.State.AddService("wordpress", wpsch)
 	c.Assert(err, IsNil)
 	wordpress0, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
-	err = wordpress0.SetPrivateAddress("meh")
-	c.Assert(err, IsNil)
 	lgcurl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "logging")
 	lgsch, err := s.conn.PutCharm(lgcurl, s.repo, false)
-	_, err = s.conn.AddService("logging", lgsch)
+	_, err = s.conn.State.AddService("logging", lgsch)
 	c.Assert(err, IsNil)
 	eps, err := s.conn.State.InferEndpoints([]string{"logging", "wordpress"})
 	c.Assert(err, IsNil)
@@ -487,19 +457,14 @@ func (s *ConnSuite) TestDestroySubordinateUnits(c *C) {
 
 	// Try to destroy the subordinate alone; check it fails.
 	err = s.conn.DestroyUnits("logging/0")
-	c.Assert(err, ErrorMatches, `cannot destroy units: unit "logging/0" is a subordinate`)
+	c.Assert(err, ErrorMatches, `no units were destroyed: unit "logging/0" is a subordinate`)
 	s.assertUnitLife(c, "logging/0", state.Alive)
 
-	// Try to destroy the principal and the subordinate together; check it fails.
+	// Try to destroy the principal and the subordinate together; check it warns
+	// about the subordinate, but destroys the one it can. (The principal unit
+	// agent will be resposible for destroying the subordinate.)
 	err = s.conn.DestroyUnits("wordpress/0", "logging/0")
-	c.Assert(err, ErrorMatches, `cannot destroy units: unit "logging/0" is a subordinate`)
-	s.assertUnitLife(c, "wordpress/0", state.Alive)
-	s.assertUnitLife(c, "logging/0", state.Alive)
-
-	// Destroy the principal; check the subordinate does not become Dying. (This
-	// is the unit agent's responsibility.)
-	err = s.conn.DestroyUnits("wordpress/0")
-	c.Assert(err, IsNil)
+	c.Assert(err, ErrorMatches, `some units were not destroyed: unit "logging/0" is a subordinate`)
 	s.assertUnitLife(c, "wordpress/0", state.Dying)
 	s.assertUnitLife(c, "logging/0", state.Alive)
 }
@@ -511,11 +476,48 @@ func (s *ConnSuite) assertUnitLife(c *C, name string, life state.Life) {
 	c.Assert(unit.Life(), Equals, life)
 }
 
+func (s *ConnSuite) TestDestroyMachines(c *C) {
+	m0, err := s.conn.State.AddMachine(state.JobManageEnviron)
+	c.Assert(err, IsNil)
+	m1, err := s.conn.State.AddMachine(state.JobHostUnits)
+	c.Assert(err, IsNil)
+	m2, err := s.conn.State.AddMachine(state.JobHostUnits)
+	c.Assert(err, IsNil)
+
+	curl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "wordpress")
+	sch, err := s.conn.PutCharm(curl, s.repo, false)
+	wordpress, err := s.conn.State.AddService("wordpress", sch)
+	c.Assert(err, IsNil)
+	u, err := wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	err = u.AssignToMachine(m1)
+	c.Assert(err, IsNil)
+
+	err = s.conn.DestroyMachines("0", "1", "2")
+	c.Assert(err, ErrorMatches, `some machines were not destroyed: machine 0 is required by the environment; machine 1 has unit "wordpress/0" assigned`)
+	assertLife := func(m *state.Machine, life state.Life) {
+		err := m.Refresh()
+		c.Assert(err, IsNil)
+		c.Assert(m.Life(), Equals, life)
+	}
+	assertLife(m0, state.Alive)
+	assertLife(m1, state.Alive)
+	assertLife(m2, state.Dying)
+
+	err = u.UnassignFromMachine()
+	c.Assert(err, IsNil)
+	err = s.conn.DestroyMachines("0", "1", "2")
+	c.Assert(err, ErrorMatches, `some machines were not destroyed: machine 0 is required by the environment`)
+	assertLife(m0, state.Alive)
+	assertLife(m1, state.Dying)
+	assertLife(m2, state.Dying)
+}
+
 func (s *ConnSuite) TestResolved(c *C) {
 	curl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "riak")
 	sch, err := s.conn.PutCharm(curl, s.repo, false)
 	c.Assert(err, IsNil)
-	svc, err := s.conn.AddService("testriak", sch)
+	svc, err := s.conn.State.AddService("testriak", sch)
 	c.Assert(err, IsNil)
 	us, err := s.conn.AddUnits(svc, 1)
 	c.Assert(err, IsNil)

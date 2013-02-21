@@ -8,6 +8,7 @@ import (
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/trivial"
+	"sort"
 	"strconv"
 )
 
@@ -162,6 +163,10 @@ func (s *Service) removeOps(asserts D) []txn.Op {
 		C:      s.st.settings.Name,
 		Id:     s.globalKey(),
 		Remove: true,
+	}, {
+		C:      s.st.constraints.Name,
+		Id:     s.globalKey(),
+		Remove: true,
 	}}
 }
 
@@ -241,6 +246,7 @@ func (s *Service) Endpoints() (eps []Endpoint, err error) {
 			Scope:     charm.ScopeGlobal,
 		},
 	})
+	sort.Sort(epSlice(eps))
 	return eps, nil
 }
 
@@ -282,11 +288,12 @@ func (s *Service) String() string {
 }
 
 // Refresh refreshes the contents of the Service from the underlying
-// state. It returns a NotFoundError if the service has been removed.
+// state. It returns an error that satisfies IsNotFound if the service has
+// been removed.
 func (s *Service) Refresh() error {
 	err := s.st.services.FindId(s.doc.Name).One(&s.doc)
 	if err == mgo.ErrNotFound {
-		return notFoundf("service %q", s)
+		return NotFoundf("service %q", s)
 	}
 	if err != nil {
 		return fmt.Errorf("cannot refresh service %q: %v", s, err)
@@ -299,7 +306,7 @@ func (s *Service) newUnitName() (string, error) {
 	change := mgo.Change{Update: D{{"$inc", D{{"unitseq", 1}}}}}
 	result := serviceDoc{}
 	if _, err := s.st.services.Find(D{{"_id", s.doc.Name}}).Apply(change, &result); err == mgo.ErrNotFound {
-		return "", notFoundf("service %q", s)
+		return "", NotFoundf("service %q", s)
 	} else if err != nil {
 		return "", fmt.Errorf("cannot increment unit sequence: %v", err)
 	}
@@ -309,14 +316,9 @@ func (s *Service) newUnitName() (string, error) {
 
 // addUnitOps returns a unique name for a new unit, and a list of txn operations
 // necessary to create that unit. The principalName param must be non-empty if
-// and only if s is a subordinate service. If s is a subordinate and strictSubordinates
-// is true, the returned ops will assert that no unit of s is already a subordinate
-// of the principal unit.
-func (s *Service) addUnitOps(principalName string, strictSubordinates bool) (string, []txn.Op, error) {
-	// NOTE: strictSubordinates is a temporary parameter, which allows us to use
-	// this method to simplify AddUnitSubordinateTo. When AUST is removed, the
-	// parameter should be dropped, and subordinates should always be created
-	// "strictly".
+// and only if s is a subordinate service. Only one subordinate of a given
+// service will be assigned to a given principal.
+func (s *Service) addUnitOps(principalName string) (string, []txn.Op, error) {
 	ch, _, err := s.Charm()
 	if err != nil {
 		return "", nil, err
@@ -349,16 +351,12 @@ func (s *Service) addUnitOps(principalName string, strictSubordinates bool) (str
 		Update: D{{"$inc", D{{"unitcount", 1}}}},
 	}}
 	if principalName != "" {
-		assert := isAliveDoc
-		if strictSubordinates {
-			assert = append(assert, bson.DocElem{
-				"subordinates", D{{"$not", bson.RegEx{Pattern: "^" + s.doc.Name + "/"}}},
-			})
-		}
 		ops = append(ops, txn.Op{
-			C:      s.st.units.Name,
-			Id:     principalName,
-			Assert: assert,
+			C:  s.st.units.Name,
+			Id: principalName,
+			Assert: append(isAliveDoc, bson.DocElem{
+				"subordinates", D{{"$not", bson.RegEx{Pattern: "^" + s.doc.Name + "/"}}},
+			}),
 			Update: D{{"$addToSet", D{{"subordinates", name}}}},
 		})
 	}
@@ -368,7 +366,7 @@ func (s *Service) addUnitOps(principalName string, strictSubordinates bool) (str
 // AddUnit adds a new principal unit to the service.
 func (s *Service) AddUnit() (unit *Unit, err error) {
 	defer trivial.ErrorContextf(&err, "cannot add unit to service %q", s)
-	name, ops, err := s.addUnitOps("", false)
+	name, ops, err := s.addUnitOps("")
 	if err != nil {
 		return nil, err
 	}
@@ -386,36 +384,6 @@ func (s *Service) AddUnit() (unit *Unit, err error) {
 }
 
 var ErrExcessiveContention = errors.New("state changing too quickly; try again soon")
-
-// RemoveUnit removes the given unit from s.
-func (s *Service) RemoveUnit(u *Unit) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot remove unit %q", u)
-	if u.doc.Life != Dead {
-		return errors.New("unit is not dead")
-	}
-	if u.doc.Service != s.doc.Name {
-		return fmt.Errorf("unit is not assigned to service %q", s)
-	}
-	svc := &Service{s.st, s.doc}
-	unit := &Unit{u.st, u.doc}
-	for i := 0; i < 5; i++ {
-		ops := svc.removeUnitOps(unit)
-		if err := svc.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
-			return err
-		}
-		if err := unit.Refresh(); IsNotFound(err) {
-			return nil
-		} else if err != nil {
-			return err
-		}
-		if err := svc.Refresh(); IsNotFound(err) {
-			return nil
-		} else if err != nil {
-			return err
-		}
-	}
-	return ErrExcessiveContention
-}
 
 func (s *Service) removeUnitOps(u *Unit) []txn.Op {
 	var ops []txn.Op
@@ -504,4 +472,14 @@ func (s *Service) Config() (config *Settings, err error) {
 		return nil, fmt.Errorf("cannot get configuration of service %q: %v", s, err)
 	}
 	return config, nil
+}
+
+// Constraints returns the current service constraints.
+func (s *Service) Constraints() (Constraints, error) {
+	return readConstraints(s.st, s.globalKey())
+}
+
+// SetConstraints replaces the current service constraints.
+func (s *Service) SetConstraints(cons Constraints) error {
+	return writeConstraints(s.st, s.globalKey(), cons)
 }

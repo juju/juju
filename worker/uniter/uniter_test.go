@@ -48,7 +48,7 @@ func (s *UniterSuite) SetUpSuite(c *C) {
 	toolsDir := environs.AgentToolsDir(s.dataDir, "unit-u-0")
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, IsNil)
-	cmd := exec.Command("go", "build", "launchpad.net/juju-core/cmd/jujuc")
+	cmd := exec.Command("go", "build", "launchpad.net/juju-core/cmd/jujud")
 	cmd.Dir = toolsDir
 	out, err := cmd.CombinedOutput()
 	c.Logf(string(out))
@@ -100,6 +100,7 @@ type context struct {
 	svc           *state.Service
 	unit          *state.Unit
 	uniter        *uniter.Uniter
+	relatedSvc    *state.Service
 	relation      *state.Relation
 	relationUnits map[string]*state.RelationUnit
 	subordinate   *state.Unit
@@ -620,48 +621,48 @@ var uniterTests = []uniterTest{
 		"simple joined/changed/departed",
 		quickStartRelation{},
 		addRelationUnit{},
-		waitHooks{"my-relation-joined u/2 my:0", "my-relation-changed u/2 my:0"},
-		changeRelationUnit{"u/1"},
-		waitHooks{"my-relation-changed u/1 my:0"},
-		removeRelationUnit{"u/2"},
-		waitHooks{"my-relation-departed u/2 my:0"},
+		waitHooks{"db-relation-joined mysql/1 db:0", "db-relation-changed mysql/1 db:0"},
+		changeRelationUnit{"mysql/0"},
+		waitHooks{"db-relation-changed mysql/0 db:0"},
+		removeRelationUnit{"mysql/1"},
+		waitHooks{"db-relation-departed mysql/1 db:0"},
 		verifyRunning{},
 	), ut(
 		"relation becomes dying; unit is not last remaining member",
 		quickStartRelation{},
 		relationDying,
-		waitHooks{"my-relation-departed u/1 my:0", "my-relation-broken my:0"},
+		waitHooks{"db-relation-departed mysql/0 db:0", "db-relation-broken db:0"},
 		verifyRunning{},
 		relationState{life: state.Dying},
-		removeRelationUnit{"u/1"},
+		removeRelationUnit{"mysql/0"},
 		relationState{removed: true},
 		verifyRunning{},
 	), ut(
 		"relation becomes dying; unit is last remaining member",
 		quickStartRelation{},
-		removeRelationUnit{"u/1"},
-		waitHooks{"my-relation-departed u/1 my:0"},
+		removeRelationUnit{"mysql/0"},
+		waitHooks{"db-relation-departed mysql/0 db:0"},
 		relationDying,
-		waitHooks{"my-relation-broken my:0"},
+		waitHooks{"db-relation-broken db:0"},
 		verifyRunning{},
 		relationState{removed: true},
 	), ut(
 		"service becomes dying while in a relation",
 		quickStartRelation{},
 		serviceDying,
-		waitHooks{"my-relation-departed u/1 my:0", "my-relation-broken my:0", "stop"},
+		waitHooks{"db-relation-departed mysql/0 db:0", "db-relation-broken db:0", "stop"},
 		waitUniterDead{},
 		relationState{life: state.Dying},
-		removeRelationUnit{"u/1"},
+		removeRelationUnit{"mysql/0"},
 		relationState{removed: true},
 	), ut(
 		"unit becomes dying while in a relation",
 		quickStartRelation{},
 		unitDying,
-		waitHooks{"my-relation-departed u/1 my:0", "my-relation-broken my:0", "stop"},
+		waitHooks{"db-relation-departed mysql/0 db:0", "db-relation-broken db:0", "stop"},
 		waitUniterDead{},
 		relationState{life: state.Alive},
-		removeRelationUnit{"u/1"},
+		removeRelationUnit{"mysql/0"},
 		relationState{life: state.Alive},
 	), ut(
 		"unit becomes dead while in a relation",
@@ -736,7 +737,7 @@ func (s *UniterSuite) TestSubordinateDying(c *C) {
 	defer os.RemoveAll(ctx.path)
 
 	// Create the subordinate service.
-	dir := coretesting.Charms.ClonedDir(c.MkDir(), "series", "logging")
+	dir := coretesting.Charms.ClonedDir(c.MkDir(), "logging")
 	curl, err := charm.ParseURL("cs:series/logging")
 	c.Assert(err, IsNil)
 	curl = curl.WithRevision(dir.Revision())
@@ -787,12 +788,12 @@ type createCharm struct {
 
 var charmHooks = []string{
 	"install", "start", "config-changed", "upgrade-charm", "stop",
-	"my-relation-joined", "my-relation-changed", "my-relation-departed",
-	"my-relation-broken",
+	"db-relation-joined", "db-relation-changed", "db-relation-departed",
+	"db-relation-broken",
 }
 
 func (s createCharm) step(c *C, ctx *context) {
-	base := coretesting.Charms.ClonedDirPath(c.MkDir(), "series", "wordpress")
+	base := coretesting.Charms.ClonedDirPath(c.MkDir(), "wordpress")
 	for _, name := range charmHooks {
 		path := filepath.Join(base, "hooks", name)
 		good := true
@@ -1037,7 +1038,7 @@ func (s quickStartRelation) step(c *C, ctx *context) {
 	step(c, ctx, quickStart{})
 	step(c, ctx, addRelation{})
 	step(c, ctx, addRelationUnit{})
-	step(c, ctx, waitHooks{"my-relation-joined u/1 my:0", "my-relation-changed u/1 my:0"})
+	step(c, ctx, waitHooks{"db-relation-joined mysql/0 db:0", "db-relation-changed mysql/0 db:0"})
 	step(c, ctx, verifyRunning{})
 }
 
@@ -1241,17 +1242,22 @@ func (s addRelation) step(c *C, ctx *context) {
 	if ctx.relation != nil {
 		panic("don't add two relations!")
 	}
-	ep := state.Endpoint{"u", "ifce", "my", state.RolePeer, charm.ScopeGlobal}
-	rel, err := ctx.st.AddRelation(ep)
+	if ctx.relatedSvc == nil {
+		var err error
+		ctx.relatedSvc, err = ctx.st.AddService("mysql", ctx.s.AddTestingCharm(c, "mysql"))
+		c.Assert(err, IsNil)
+	}
+	eps, err := ctx.st.InferEndpoints([]string{"u", "mysql"})
 	c.Assert(err, IsNil)
-	ctx.relation = rel
+	ctx.relation, err = ctx.st.AddRelation(eps...)
+	c.Assert(err, IsNil)
 	ctx.relationUnits = map[string]*state.RelationUnit{}
 }
 
 type addRelationUnit struct{}
 
 func (s addRelationUnit) step(c *C, ctx *context) {
-	u, err := ctx.svc.AddUnit()
+	u, err := ctx.relatedSvc.AddUnit()
 	c.Assert(err, IsNil)
 	ru, err := ctx.relation.Unit(u)
 	c.Assert(err, IsNil)
@@ -1382,9 +1388,7 @@ type removeSubordinate struct{}
 func (removeSubordinate) step(c *C, ctx *context) {
 	err := ctx.subordinate.EnsureDead()
 	c.Assert(err, IsNil)
-	svc, err := ctx.subordinate.Service()
-	c.Assert(err, IsNil)
-	err = svc.RemoveUnit(ctx.subordinate)
+	err = ctx.subordinate.Remove()
 	c.Assert(err, IsNil)
 	ctx.subordinate = nil
 }
@@ -1445,7 +1449,7 @@ var relationDying = custom{func(c *C, ctx *context) {
 }}
 
 var unitDying = custom{func(c *C, ctx *context) {
-	c.Assert(ctx.unit.EnsureDying(), IsNil)
+	c.Assert(ctx.unit.Destroy(), IsNil)
 }}
 
 var unitDead = custom{func(c *C, ctx *context) {
@@ -1453,7 +1457,7 @@ var unitDead = custom{func(c *C, ctx *context) {
 }}
 
 var subordinateDying = custom{func(c *C, ctx *context) {
-	c.Assert(ctx.subordinate.EnsureDying(), IsNil)
+	c.Assert(ctx.subordinate.Destroy(), IsNil)
 }}
 
 func curl(revision int) *charm.URL {

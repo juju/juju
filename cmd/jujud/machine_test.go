@@ -91,7 +91,7 @@ func (s *MachineSuite) TestWithDeadMachine(c *C) {
 	c.Assert(err, IsNil)
 
 	// try again with the machine removed.
-	err = s.State.RemoveMachine(m.Id())
+	err = m.Remove()
 	c.Assert(err, IsNil)
 	a = s.newAgent(c, m)
 	err = runWithTimeout(a)
@@ -118,7 +118,7 @@ func (s *MachineSuite) TestHostUnits(c *C) {
 	c.Assert(err, IsNil)
 	mgr.waitDeployed(c, u0.Name())
 
-	err = u0.EnsureDying()
+	err = u0.Destroy()
 	c.Assert(err, IsNil)
 	mgr.waitDeployed(c, u0.Name())
 
@@ -140,6 +140,8 @@ func (s *MachineSuite) TestManageEnviron(c *C) {
 	dummy.Listen(op)
 
 	a := s.newAgent(c, m)
+	// Make sure the agent is stopped even if the test fails.
+	defer a.Stop()
 	done := make(chan error)
 	go func() {
 		done <- a.Run(nil)
@@ -151,7 +153,7 @@ func (s *MachineSuite) TestManageEnviron(c *C) {
 	// Add one unit to a service; it should get allocated a machine
 	// and then its ports should be opened.
 	charm := s.AddTestingCharm(c, "dummy")
-	svc, err := s.Conn.AddService("test-service", charm)
+	svc, err := s.State.AddService("test-service", charm)
 	c.Assert(err, IsNil)
 	err = svc.SetExposed()
 	c.Assert(err, IsNil)
@@ -169,12 +171,9 @@ func (s *MachineSuite) TestManageEnviron(c *C) {
 	for _ = range w.Changes() {
 		err = m1.Refresh()
 		c.Assert(err, IsNil)
-		_, err := m1.InstanceId()
-		if state.IsNotFound(err) {
-			continue
+		if _, ok := m1.InstanceId(); ok {
+			break
 		}
-		c.Assert(err, IsNil)
-		break
 	}
 	err = units[0].OpenPort("tcp", 999)
 	c.Assert(err, IsNil)
@@ -215,11 +214,11 @@ func addAPIInfo(conf *agent.Conf, m *state.Machine) {
 }
 
 func (s *MachineSuite) TestServeAPI(c *C) {
-	m, conf, _ := s.primeAgent(c, state.JobServeAPI)
-	addAPIInfo(conf, m)
+	stm, conf, _ := s.primeAgent(c, state.JobServeAPI)
+	addAPIInfo(conf, stm)
 	err := conf.Write()
 	c.Assert(err, IsNil)
-	a := s.newAgent(c, m)
+	a := s.newAgent(c, stm)
 	done := make(chan error)
 	go func() {
 		done <- a.Run(nil)
@@ -228,8 +227,12 @@ func (s *MachineSuite) TestServeAPI(c *C) {
 	st, err := api.Open(conf.APIInfo)
 	c.Assert(err, IsNil)
 	defer st.Close()
-	instId, err := st.Request(m.Id())
+
+	m, err := st.Machine(stm.Id())
 	c.Assert(err, IsNil)
+
+	instId, ok := m.InstanceId()
+	c.Assert(ok, Equals, true)
 	c.Assert(instId, Equals, "ardbeg-0")
 
 	err = a.Stop()

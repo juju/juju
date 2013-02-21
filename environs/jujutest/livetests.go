@@ -343,13 +343,13 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	m0, err := conn.State.Machine("0")
 	c.Assert(err, IsNil)
 
-	instId0, err := m0.InstanceId()
-	c.Assert(err, IsNil)
+	instId0, ok := m0.InstanceId()
+	c.Assert(ok, Equals, true)
 
 	// Check that the API connection is working.
-	apiInstId0, err := apiConn.State.Request("0")
+	status, err := apiConn.State.Client().Status()
 	c.Assert(err, IsNil)
-	c.Assert(apiInstId0, Equals, string(instId0))
+	c.Assert(status.Machines["0"].InstanceId, Equals, string(instId0))
 
 	mw0 := newMachineToolWaiter(m0)
 	defer mw0.Stop()
@@ -363,7 +363,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	sch, err := conn.PutCharm(url, &charm.LocalRepository{repoDir}, false)
 
 	c.Assert(err, IsNil)
-	svc, err := conn.AddService("", sch)
+	svc, err := conn.State.AddService("dummy", sch)
 	c.Assert(err, IsNil)
 	units, err := conn.AddUnits(svc, 1)
 	c.Assert(err, IsNil)
@@ -381,8 +381,8 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 
 	err = m1.Refresh()
 	c.Assert(err, IsNil)
-	instId1, err := m1.InstanceId()
-	c.Assert(err, IsNil)
+	instId1, ok := m1.InstanceId()
+	c.Assert(ok, Equals, true)
 	uw := newUnitToolWaiter(unit)
 	defer uw.Stop()
 	utools := waitAgentTools(c, uw, version.Current)
@@ -406,11 +406,11 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	c.Logf("removing unit")
 	err = unit.EnsureDead()
 	c.Assert(err, IsNil)
-	err = svc.RemoveUnit(unit)
+	err = unit.Remove()
 	c.Assert(err, IsNil)
 	err = m1.EnsureDead()
 	c.Assert(err, IsNil)
-	err = conn.State.RemoveMachine(mid1)
+	err = m1.Remove()
 	c.Assert(err, IsNil)
 
 	c.Logf("waiting for instance to be removed")
@@ -559,11 +559,10 @@ func (t *LiveTests) assertStartInstance(c *C, m *state.Machine) {
 	for a := waitAgent.Start(); a.Next(); {
 		err := m.Refresh()
 		c.Assert(err, IsNil)
-		instId, err := m.InstanceId()
-		if state.IsNotFound(err) {
+		instId, ok := m.InstanceId()
+		if !ok {
 			continue
 		}
-		c.Assert(err, IsNil)
 		_, err = t.Env.Instances([]state.InstanceId{instId})
 		c.Assert(err, IsNil)
 		return
@@ -598,14 +597,14 @@ func assertInstanceId(c *C, m *state.Machine, inst environs.Instance) {
 	for a := waitAgent.Start(); a.Next(); {
 		err := m.Refresh()
 		c.Assert(err, IsNil)
-		gotId, err = m.InstanceId()
-		if state.IsNotFound(err) {
+		var ok bool
+		gotId, ok = m.InstanceId()
+		if !ok {
 			if inst == nil {
 				return
 			}
 			continue
 		}
-		c.Assert(err, IsNil)
 		break
 	}
 	c.Assert(err, IsNil)
