@@ -52,7 +52,7 @@ type EnvironmentInfo struct {
 
 // EnvironmentInfo returns details about the Juju environment.
 func (c *Client) EnvironmentInfo() (*EnvironmentInfo, error) {
-	var info = new(EnvironmentInfo)
+	info := new(EnvironmentInfo)
 	err := c.st.client.Call("Client", "", "EnvironmentInfo", nil, info)
 	if err != nil {
 		return nil, clientError(err)
