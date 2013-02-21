@@ -433,6 +433,21 @@ func (u *Uniter) addRelation(rel *state.Relation, dir *relation.StateDir) error 
 			if !ok {
 				return watcher.MustErr(w)
 			}
+			// Make sure the relation is implemented by the service's endpoints
+			svc, err := u.unit.Service()
+			if err != nil {
+				return err
+			}
+			sch, _, err := svc.Charm()
+			if err != nil {
+				return err
+			}
+			if ep, err := rel.Endpoint(u.unit.ServiceName()); err != nil {
+				return err
+			} else if !ep.ImplementedBy(sch) {
+				log.Printf("worker/uniter: ignoring not implemented relation endpoint %q", ep)
+				continue
+			}
 			if err := r.Join(); err == state.ErrCannotEnterScopeYet {
 				log.Printf("worker/uniter: cannot enter scope for relation %q; waiting for subordinate to be removed", rel)
 				continue
