@@ -113,7 +113,7 @@ Proposing
 =========
 
 All code review is done on rietveld (http://code.google.com/p/rietveld/), not
-launchpad.
+on launchpad.
 
 Note: If this is your first time using `lbox` you will also be prompted to visit
 lauchpad to authorise an oauth token for `lbox`
