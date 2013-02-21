@@ -506,6 +506,11 @@ func (e *NotAssignedError) Error() string {
 	return fmt.Sprintf("unit %q is not assigned to a machine", e.Unit)
 }
 
+func IsNotAssigned(err error) bool {
+	_, ok := err.(*NotAssignedError)
+	return ok
+}
+
 // AssignedMachineId returns the id of the assigned machine.
 func (u *Unit) AssignedMachineId() (id string, err error) {
 	if u.IsPrincipal() {
