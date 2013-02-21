@@ -25,26 +25,27 @@ type ServiceGetResults struct {
 	Settings map[string]interface{}
 }
 
-func ServiceGet(st *state.State, p ServiceGetParams, results *ServiceGetResults) error {
+// ServiceGet returns the configuration for the named service.
+func ServiceGet(st *state.State, p ServiceGetParams) (*ServiceGetResults, error) {
 	svc, err := st.Service(p.ServiceName)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	svcfg, err := svc.Config()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	charm, _, err := svc.Charm()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	chcfg := charm.Config().Options
 
-	results.Settings = merge(svcfg.Map(), chcfg)
-	results.Service = p.ServiceName
-	results.Charm = charm.Meta().Name
-
-	return nil
+	return &ServiceGetResults{
+		Service:  p.ServiceName,
+		Charm:    charm.Meta().Name,
+		Settings: merge(svcfg.Map(), chcfg),
+	}, nil
 }
 
 // Merge service settings and charm schema.

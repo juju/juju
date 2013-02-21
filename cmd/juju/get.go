@@ -49,9 +49,8 @@ func (c *GetCommand) Run(ctx *cmd.Context) error {
 	params := statecmd.ServiceGetParams{
 		ServiceName: c.ServiceName,
 	}
-	var results statecmd.ServiceGetResults
 
-	err = statecmd.ServiceGet(conn.State, params, &results)
+	results, err := statecmd.ServiceGet(conn.State, params)
 	if err != nil {
 		return err
 	}

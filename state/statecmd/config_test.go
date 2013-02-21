@@ -128,7 +128,7 @@ func (s *ConfigSuite) TestServiceSet(c *C) {
 		c.Logf("test %d. %s", i, t.about)
 		err = statecmd.ServiceSet(s.State, t.params)
 		if t.err != "" {
-			c.Check(err, ErrorMatches, t.err)
+			c.Assert(err, ErrorMatches, t.err)
 		} else {
 			c.Assert(err, IsNil)
 			cfg, err := svc.Config()
@@ -141,7 +141,7 @@ func (s *ConfigSuite) TestServiceSet(c *C) {
 var getTests = []struct {
 	about  string
 	params statecmd.ServiceGetParams // parameters to ServiceGet call.
-	expect statecmd.ServiceGetResults
+	expect *statecmd.ServiceGetResults
 	err    string
 }{
 	{
@@ -149,15 +149,14 @@ var getTests = []struct {
 		params: statecmd.ServiceGetParams{
 			ServiceName: "unknown-service",
 		},
-		expect: statecmd.ServiceGetResults{},
 		err:    `service "unknown-service" not found`,
 	},
 	{
-		about: "unknown service name",
+		about: "deployed service",
 		params: statecmd.ServiceGetParams{
 			ServiceName: "dummy-service",
 		},
-		expect: statecmd.ServiceGetResults{
+		expect: &statecmd.ServiceGetResults{
 			Service: "dummy-service",
 			Charm:   "dummy",
 			Settings: map[string]interface{}{
@@ -187,15 +186,14 @@ var getTests = []struct {
 }
 
 func (s *ConfigSuite) TestServiceGet(c *C) {
-	var results statecmd.ServiceGetResults
 	sch := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddService("dummy-service", sch)
 	c.Assert(err, IsNil)
 	for i, t := range getTests {
 		c.Logf("test %d. %s", i, t.about)
-		err = statecmd.ServiceGet(s.State, t.params, &results)
+		results, err := statecmd.ServiceGet(s.State, t.params)
 		if t.err != "" {
-			c.Check(err, ErrorMatches, t.err)
+			c.Assert(err, ErrorMatches, t.err)
 		} else {
 			c.Assert(err, IsNil)
 			c.Assert(results, DeepEquals, t.expect)
