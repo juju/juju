@@ -83,3 +83,8 @@ func FindInstanceSpec(e environs.Environ, series, arch, flavor string) (imageId,
 	}
 	return
 }
+
+func SetExposeBootstrapNode(e environs.Environ, expose bool) {
+	env := e.(*environ)
+	env.ecfg().attrs["expose-bootstrap-node"] = expose
+}

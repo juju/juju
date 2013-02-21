@@ -40,13 +40,16 @@ type configTest struct {
 	publicBucket  string
 	pbucketURL    string
 	imageId       string
-	username      string
-	password      string
-	tenantName    string
-	authMode      string
-	authURL       string
-	firewallMode  config.FirewallMode
-	err           string
+	// exposeBootstrapNode is true by default.
+	// bools default to false so invert the attribute
+	internalBootstrapNode bool
+	username              string
+	password              string
+	tenantName            string
+	authMode              string
+	authURL               string
+	firewallMode          config.FirewallMode
+	err                   string
 }
 
 type attrs map[string]interface{}
@@ -126,6 +129,7 @@ func (t configTest) check(c *C) {
 	if t.imageId != "" {
 		c.Assert(ecfg.defaultImageId(), Equals, t.imageId)
 	}
+	c.Assert(ecfg.exposeBootstrapNode(), Equals, !t.internalBootstrapNode)
 }
 
 func (s *ConfigSuite) SetUpTest(c *C) {
@@ -238,6 +242,16 @@ var configTests = []configTest{
 			"default-image-id": "image-id",
 		},
 		imageId: "image-id",
+	}, {
+		summary: "default expose bootstrap node",
+		// Bootstrap node is visible by default.
+		internalBootstrapNode: false,
+	}, {
+		summary: "expose bootstrap node",
+		config: attrs{
+			"expose-bootstrap-node": false,
+		},
+		internalBootstrapNode: true,
 	}, {
 		summary: "public bucket URL",
 		config: attrs{

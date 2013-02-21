@@ -199,7 +199,9 @@ func panicWrite(name string, cert, key []byte) error {
 	panic("writeCertAndKey called unexpectedly")
 }
 
-func (s *localLiveSuite) TestBootstrapFailsWithoutPublicIP(c *C) {
+// If the bootstrap node is configured to require a public IP address (the default),
+// bootstrapping fails if an address cannot be allocated.
+func (s *localLiveSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
 	s.Service.Nova.RegisterControlPoint(
 		"addFloatingIP",
 		func(sc testservices.ServiceControl, args ...interface{}) error {
@@ -212,6 +214,25 @@ func (s *localLiveSuite) TestBootstrapFailsWithoutPublicIP(c *C) {
 
 	err := environs.Bootstrap(s.Env, true, panicWrite)
 	c.Assert(err, ErrorMatches, ".*cannot allocate a public IP as needed.*")
+	defer s.Env.Destroy(nil)
+}
+
+// If the bootstrap node is configured not to require a public IP address,
+// bootstrapping should occur without any attempt to allocate a public address.
+func (s *localLiveSuite) TestBootstrapWithoutPublicIP(c *C) {
+	openstack.SetExposeBootstrapNode(s.Env, false)
+	s.Service.Nova.RegisterControlPoint(
+		"addFloatingIP",
+		func(sc testservices.ServiceControl, args ...interface{}) error {
+			return fmt.Errorf("add floating IP should not have been called")
+		},
+	)
+	defer s.Service.Nova.RegisterControlPoint("addFloatingIP", nil)
+	writeablePublicStorage := openstack.WritablePublicStorage(s.Env)
+	putFakeTools(c, writeablePublicStorage)
+
+	err := environs.Bootstrap(s.Env, true, panicWrite)
+	c.Assert(err, IsNil)
 	defer s.Env.Destroy(nil)
 }
 

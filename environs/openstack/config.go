@@ -10,28 +10,30 @@ import (
 
 var configChecker = schema.StrictFieldMap(
 	schema.Fields{
-		"username":          schema.String(),
-		"password":          schema.String(),
-		"tenant-name":       schema.String(),
-		"auth-url":          schema.String(),
-		"auth-mode":         schema.String(),
-		"region":            schema.String(),
-		"control-bucket":    schema.String(),
-		"public-bucket":     schema.String(),
-		"public-bucket-url": schema.String(),
-		"default-image-id":  schema.String(),
+		"username":              schema.String(),
+		"password":              schema.String(),
+		"tenant-name":           schema.String(),
+		"auth-url":              schema.String(),
+		"auth-mode":             schema.String(),
+		"region":                schema.String(),
+		"control-bucket":        schema.String(),
+		"public-bucket":         schema.String(),
+		"public-bucket-url":     schema.String(),
+		"default-image-id":      schema.String(),
+		"expose-bootstrap-node": schema.Bool(),
 	},
 	schema.Defaults{
-		"username":          "",
-		"password":          "",
-		"tenant-name":       "",
-		"auth-url":          "",
-		"auth-mode":         string(AuthUserPass),
-		"region":            "",
-		"control-bucket":    "",
-		"public-bucket":     "juju-dist",
-		"public-bucket-url": "",
-		"default-image-id":  "",
+		"username":              "",
+		"password":              "",
+		"tenant-name":           "",
+		"auth-url":              "",
+		"auth-mode":             string(AuthUserPass),
+		"region":                "",
+		"control-bucket":        "",
+		"public-bucket":         "juju-dist",
+		"public-bucket-url":     "",
+		"default-image-id":      "",
+		"expose-bootstrap-node": true,
 	},
 )
 
@@ -78,6 +80,10 @@ func (c *environConfig) publicBucketURL() string {
 
 func (c *environConfig) defaultImageId() string {
 	return c.attrs["default-image-id"].(string)
+}
+
+func (c *environConfig) exposeBootstrapNode() bool {
+	return c.attrs["expose-bootstrap-node"].(bool)
 }
 
 func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
