@@ -267,11 +267,6 @@ func (s *Service) Endpoint(relationName string) (Endpoint, error) {
 // SetCharm changes the charm for the service. New units will be started with
 // this charm, and existing units will be upgraded to use it. If force is true,
 // units will be upgraded even if they are in an error state.
-//
-// A sanity check is performed:
-// * The new charm must still implement the local endpoints of every
-//   relation the service is in, otherwise return an error.
-//
 func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 	ops := []txn.Op{{
 		C:      s.st.services.Name,
