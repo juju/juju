@@ -2,7 +2,7 @@
 // to put code that's used by both cmd/juju and state/api.
 // It is intended to wither away to nothing as functionality
 // gets absorbed into state and state/api as appropriate
-// when the command-line commands can invoking the
+// when the command-line commands can invoke the
 // API directly.
 package statecmd
 
@@ -13,7 +13,7 @@ import (
 	"launchpad.net/juju-core/state"
 )
 
-// Parameters for making the GetConfig call.
+// Parameters for making the ServiceGet call.
 type ServiceGetParams struct {
 	ServiceName string
 }
