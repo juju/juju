@@ -50,10 +50,6 @@ var runMainTests = []struct {
 	out     string
 }{
 	{
-		summary: "missing command",
-		code:    2,
-		out:     "error: no command specified\n",
-	}, {
 		summary: "unknown command",
 		args:    []string{"discombobulate"},
 		code:    2,
@@ -132,6 +128,7 @@ func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *C) {
 }
 
 var commandNames = []string{
+	"?", // alias for help
 	"add-relation",
 	"add-unit",
 	"bootstrap",
@@ -145,6 +142,7 @@ var commandNames = []string{
 	"generate-config", // alias for init
 	"get",
 	"get-constraints",
+	"help",
 	"init",
 	"remove-relation", // alias for destory-relation
 	"remove-unit",     // alias for destroy-unit
