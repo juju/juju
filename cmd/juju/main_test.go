@@ -142,18 +142,20 @@ var commandNames = []string{
 	"destroy-service",
 	"destroy-unit",
 	"expose",
-	"generate-config",
+	"generate-config", // alias for init
 	"get",
+	"get-constraints",
 	"init",
-	"remove-relation",
-	"remove-unit",
+	"remove-relation", // alias for destory-relation
+	"remove-unit",     // alias for destroy-unit
 	"resolved",
 	"scp",
 	"set",
+	"set-constraints",
 	"ssh",
-	"stat",
+	"stat", // alias for status
 	"status",
-	"terminate-machine",
+	"terminate-machine", // alias for destroy-machine
 	"unexpose",
 	"upgrade-juju",
 }

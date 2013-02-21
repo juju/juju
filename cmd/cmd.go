@@ -66,7 +66,7 @@ type Info struct {
 	// Doc is the long documentation for the Command.
 	Doc string
 
-	// Aliases are other ways to call the Command.
+	// Aliases are other names for the Command.
 	Aliases []string
 }
 

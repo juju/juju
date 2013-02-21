@@ -36,8 +36,7 @@ func (c *SuperCommand) Register(subcmd Command) {
 }
 
 func (c *SuperCommand) insert(name string, subcmd Command) {
-	_, found := c.subcmds[name]
-	if found {
+	if _, found := c.subcmds[name]; found {
 		panic(fmt.Sprintf("command already registered: %s", name))
 	}
 	c.subcmds[name] = subcmd

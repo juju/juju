@@ -26,26 +26,37 @@ https://juju.ubuntu.com/
 // provides an entry point for testing with arbitrary command line arguments.
 func Main(args []string) {
 	juju := &cmd.SuperCommand{Name: "juju", Doc: jujuDoc, Log: &cmd.Log{}}
-	juju.Register(&AddRelationCommand{})
-	juju.Register(&AddUnitCommand{})
+
+	// Register creation commands.
 	juju.Register(&BootstrapCommand{})
 	juju.Register(&DeployCommand{})
-	juju.Register(&DestroyEnvironmentCommand{})
+	juju.Register(&AddRelationCommand{})
+	juju.Register(&AddUnitCommand{})
+
+	// Register destruction commands.
 	juju.Register(&DestroyMachineCommand{})
 	juju.Register(&DestroyRelationCommand{})
 	juju.Register(&DestroyServiceCommand{})
 	juju.Register(&DestroyUnitCommand{})
-	juju.Register(&ExposeCommand{})
+	juju.Register(&DestroyEnvironmentCommand{})
+
+	// Register error resolution commands.
+	juju.Register(&StatusCommand{})
+	juju.Register(&SCPCommand{})
+	juju.Register(&SSHCommand{})
+	juju.Register(&ResolvedCommand{})
+
+	// Register configuration commands.
 	juju.Register(&GenerateConfigCommand{})
 	juju.Register(&GetCommand{})
 	juju.Register(&HelpCommand{Parent: juju})
-	juju.Register(&ResolvedCommand{})
 	juju.Register(&SetCommand{})
-	juju.Register(&SCPCommand{})
-	juju.Register(&SSHCommand{})
-	juju.Register(&StatusCommand{})
+	juju.Register(&GetConstraintsCommand{})
+	juju.Register(&SetConstraintsCommand{})
+	juju.Register(&ExposeCommand{})
 	juju.Register(&UnexposeCommand{})
 	juju.Register(&UpgradeJujuCommand{})
+
 	os.Exit(cmd.Main(juju, cmd.DefaultContext(), args[1:]))
 }
 
