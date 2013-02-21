@@ -149,7 +149,7 @@ var getTests = []struct {
 		params: statecmd.ServiceGetParams{
 			ServiceName: "unknown-service",
 		},
-		err:    `service "unknown-service" not found`,
+		err: `service "unknown-service" not found`,
 	},
 	{
 		about: "deployed service",
