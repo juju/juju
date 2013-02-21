@@ -1,7 +1,10 @@
 package api
 
 import (
+	"errors"
 	"fmt"
+	"launchpad.net/juju-core/rpc"
+	"launchpad.net/juju-core/state/statecmd"
 	"strings"
 )
 
@@ -42,6 +45,17 @@ func (c *Client) Status() (*Status, error) {
 		return nil, clientError(err)
 	}
 	return &s, nil
+}
+
+// ServiceGet returns the configuration for the named service.
+func (c *Client) ServiceGet(service string) (*statecmd.ServiceGetResults, error) {
+	var results statecmd.ServiceGetResults
+	params := statecmd.ServiceGetParams{ServiceName: service}
+	err := c.st.client.Call("Client", "", "ServiceGet", params, &results)
+	if err != nil {
+		return nil, rpcError(err)
+	}
+	return &results, nil
 }
 
 // Machine returns a reference to the machine with the given id.
@@ -162,4 +176,20 @@ func (u *Unit) EntityName() string {
 // the unit. If no such entity can be determined, false is returned.
 func (u *Unit) DeployerName() (string, bool) {
 	return u.doc.DeployerName, u.doc.DeployerName != ""
+}
+
+// rpcError maps errors returned from an RPC call into local errors with
+// appropriate values.
+// TODO(rog): implement NotFoundError, etc.
+func rpcError(err error) error {
+	if err == nil {
+		return nil
+	}
+	rerr, ok := err.(*rpc.ServerError)
+	if !ok {
+		return err
+	}
+	// TODO(rog) map errors into known error types, possibly introducing
+	// error codes to do so.
+	return errors.New(rerr.Message)
 }

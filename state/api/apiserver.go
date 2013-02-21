@@ -4,6 +4,7 @@ import (
 	"code.google.com/p/go.net/websocket"
 	"fmt"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/statecmd"
 	"sync"
 )
 
@@ -179,6 +180,11 @@ func (c *srvClient) Status() (Status, error) {
 		}
 	}
 	return status, nil
+}
+
+// GetConfig returns the requested service's configuration.
+func (c *srvClient) ServiceGet(p statecmd.ServiceGetParams) (*statecmd.ServiceGetResults, error) {
+	return statecmd.ServiceGet(c.root.srv.state, p)
 }
 
 type rpcCreds struct {
