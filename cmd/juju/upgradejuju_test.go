@@ -230,7 +230,7 @@ func (s *UpgradeJujuSuite) Reset(c *C) {
 
 func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealPutTools(c *C) {
 	s.Reset(c)
-	err := coretesting.RunCommand(c, &UpgradeJujuCommand{}, []string{"--upload-tools", "--dev"})
+	_, err := coretesting.RunCommand(c, &UpgradeJujuCommand{}, []string{"--upload-tools", "--dev"})
 	c.Assert(err, IsNil)
 	p := environs.ToolsStoragePath(version.Current)
 	r, err := s.Conn.Environ.Storage().Get(p)
