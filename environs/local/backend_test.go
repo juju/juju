@@ -44,13 +44,14 @@ func (s *backendSuite) TearDownSuite(c *C) {
 	s.listener.Close()
 }
 
-type getTest struct {
+type testCase struct {
 	name    string
 	content string
+	found   []string
 	status  int
 }
 
-var getTests = []getTest{
+var getTests = []testCase{
 	{
 		// Get existing file.
 		name:    "foo",
@@ -93,21 +94,21 @@ var getTests = []getTest{
 	},
 	{
 		// Get with a relative path ".." based on the
-		// root is passed without relation to the handler
+		// root is passed without invoking the handler
 		// function.
 		name:   "../dummy",
 		status: 404,
 	},
 	{
 		// Get with a relative path ".." based on the
-		// root is passed without relation to the handler
+		// root is passed without invoking the handler
 		// function.
 		name:    "../foo",
 		content: "this is file 'foo'",
 	},
 	{
 		// Get on a directory returns a 404 as it is
-		// no file.
+		// not a file.
 		name:   "inner",
 		status: 404,
 	},
@@ -115,105 +116,93 @@ var getTests = []getTest{
 
 func (s *backendSuite) TestGet(c *C) {
 	// Test retrieving a file from a storage.
-	check := func(gt getTest) {
-		url := fmt.Sprintf("http://localhost:%d/%s", portNo, gt.name)
+	check := func(tc testCase) {
+		url := fmt.Sprintf("http://localhost:%d/%s", portNo, tc.name)
 		resp, err := http.Get(url)
-		if gt.status != 0 {
-			c.Assert(resp.StatusCode, Equals, gt.status)
+		c.Assert(err, IsNil)
+		if tc.status != 0 {
+			c.Assert(resp.StatusCode, Equals, tc.status)
 			return
 		}
-		c.Assert(err, IsNil)
 		defer resp.Body.Close()
 		var buf bytes.Buffer
 		_, err = buf.ReadFrom(resp.Body)
 		c.Assert(err, IsNil)
-		c.Assert(buf.String(), Equals, gt.content)
+		c.Assert(buf.String(), Equals, tc.content)
 	}
-	for _, gt := range getTests {
-		check(gt)
+	for _, tc := range getTests {
+		check(tc)
 	}
 }
 
-type listTest struct {
-	prefix string
-	found  []string
-	status int
-}
-
-var listTests = []listTest{
+var listTests = []testCase{
 	{
 		// List with a full filename.
-		prefix: "foo",
-		found:  []string{"foo"},
+		name:  "foo",
+		found: []string{"foo"},
 	},
 	{
-		// List with a prefix matching two files.
-		prefix: "ba",
-		found:  []string{"bar", "baz"},
+		// List with a name matching two files.
+		name:  "ba",
+		found: []string{"bar", "baz"},
 	},
 	{
 		// List the contents of a directory.
-		prefix: "inner/",
-		found:  []string{"inner/barin", "inner/bazin", "inner/fooin"},
+		name:  "inner/",
+		found: []string{"inner/barin", "inner/bazin", "inner/fooin"},
 	},
 	{
-		// List with a prefix matching two files in
+		// List with a name matching two files in
 		// a directory.
-		prefix: "inner/ba",
-		found:  []string{"inner/barin", "inner/bazin"},
+		name:  "inner/ba",
+		found: []string{"inner/barin", "inner/bazin"},
 	},
 	{
-		// List with no prefix also lists the contents of all
+		// List with no name also lists the contents of all
 		// directories.
-		prefix: "",
-		found:  []string{"bar", "baz", "foo", "inner/barin", "inner/bazin", "inner/fooin", "yadda"},
+		name:  "",
+		found: []string{"bar", "baz", "foo", "inner/barin", "inner/bazin", "inner/fooin", "yadda"},
 	},
 	{
-		// List with a non-matching prefix returns an empty
+		// List with a non-matching name returns an empty
 		// body which is evaluated to a slice with an empty
 		// string in the test (simplification).
-		prefix: "zzz",
-		found:  []string{""},
+		name:  "zzz",
+		found: []string{""},
 	},
 	{
 		// List with a relative path ".." based on the
-		// root is passed without relation to the handler
+		// root is passed without invoking the handler
 		// function. So returns the contents of all
 		// directories.
-		prefix: "../",
-		found:  []string{"bar", "baz", "foo", "inner/barin", "inner/bazin", "inner/fooin", "yadda"},
+		name:  "../",
+		found: []string{"bar", "baz", "foo", "inner/barin", "inner/bazin", "inner/fooin", "yadda"},
 	},
 }
 
 func (s *backendSuite) TestList(c *C) {
 	// Test listing file of a storage.
-	check := func(lt listTest) {
-		url := fmt.Sprintf("http://localhost:%d/%s*", portNo, lt.prefix)
+	check := func(tc testCase) {
+		url := fmt.Sprintf("http://localhost:%d/%s*", portNo, tc.name)
 		resp, err := http.Get(url)
-		if lt.status != 0 {
-			c.Assert(resp.StatusCode, Equals, lt.status)
+		c.Assert(err, IsNil)
+		if tc.status != 0 {
+			c.Assert(resp.StatusCode, Equals, tc.status)
 			return
 		}
-		c.Assert(err, IsNil)
 		defer resp.Body.Close()
 		var buf bytes.Buffer
 		_, err = buf.ReadFrom(resp.Body)
 		c.Assert(err, IsNil)
 		names := strings.Split(buf.String(), "\n")
-		c.Assert(names, DeepEquals, lt.found)
+		c.Assert(names, DeepEquals, tc.found)
 	}
-	for _, lt := range listTests {
-		check(lt)
+	for _, tc := range listTests {
+		check(tc)
 	}
 }
 
-type putTest struct {
-	name    string
-	content string
-	status  int
-}
-
-var putTests = []putTest{
+var putTests = []testCase{
 	{
 		// Put a file in the root directory.
 		name:    "porterhouse",
@@ -222,7 +211,7 @@ var putTests = []putTest{
 	{
 		// Put a file with a relative path ".." is resolved
 		// a redirect 301 by the Go HTTP daemon. The handler
-		// doesn't get aware of it.
+		// isn't aware of it.
 		name:   "../no-way",
 		status: 301,
 	},
@@ -235,36 +224,30 @@ var putTests = []putTest{
 
 func (s *backendSuite) TestPut(c *C) {
 	// Test sending a file to the storage.
-	check := func(pt putTest) {
-		url := fmt.Sprintf("http://localhost:%d/%s", portNo, pt.name)
-		req, err := http.NewRequest("PUT", url, bytes.NewBufferString(pt.content))
+	check := func(tc testCase) {
+		url := fmt.Sprintf("http://localhost:%d/%s", portNo, tc.name)
+		req, err := http.NewRequest("PUT", url, bytes.NewBufferString(tc.content))
 		c.Assert(err, IsNil)
 		req.Header.Set("Content-Type", "application/octet-stream")
 		resp, err := http.DefaultClient.Do(req)
-		if pt.status != 0 {
-			c.Assert(resp.StatusCode, Equals, pt.status)
+		c.Assert(err, IsNil)
+		if tc.status != 0 {
+			c.Assert(resp.StatusCode, Equals, tc.status)
 			return
 		}
-		c.Assert(err, IsNil)
 		c.Assert(resp.StatusCode, Equals, 201)
 
-		fp := filepath.Join(s.dataDir, environName, pt.name)
+		fp := filepath.Join(s.dataDir, environName, tc.name)
 		b, err := ioutil.ReadFile(fp)
 		c.Assert(err, IsNil)
-		c.Assert(string(b), Equals, pt.content)
+		c.Assert(string(b), Equals, tc.content)
 	}
-	for _, pt := range putTests {
-		check(pt)
+	for _, tc := range putTests {
+		check(tc)
 	}
 }
 
-type removeTest struct {
-	name    string
-	content string
-	status  int
-}
-
-var removeTests = []removeTest{
+var removeTests = []testCase{
 	{
 		// Delete a file in the root directory.
 		name:    "fox",
@@ -290,30 +273,30 @@ var removeTests = []removeTest{
 
 func (s *backendSuite) TestRemove(c *C) {
 	// Test removing a file in the storage.
-	check := func(rt removeTest) {
-		fp := filepath.Join(s.dataDir, environName, rt.name)
+	check := func(tc testCase) {
+		fp := filepath.Join(s.dataDir, environName, tc.name)
 		dir, _ := filepath.Split(fp)
 		err := os.MkdirAll(dir, 0777)
 		c.Assert(err, IsNil)
-		err = ioutil.WriteFile(fp, []byte(rt.content), 0644)
+		err = ioutil.WriteFile(fp, []byte(tc.content), 0644)
 		c.Assert(err, IsNil)
 
-		url := fmt.Sprintf("http://localhost:%d/%s", portNo, rt.name)
+		url := fmt.Sprintf("http://localhost:%d/%s", portNo, tc.name)
 		req, err := http.NewRequest("DELETE", url, nil)
 		c.Assert(err, IsNil)
 		resp, err := http.DefaultClient.Do(req)
-		if rt.status != 0 {
-			c.Assert(resp.StatusCode, Equals, rt.status)
+		c.Assert(err, IsNil)
+		if tc.status != 0 {
+			c.Assert(resp.StatusCode, Equals, tc.status)
 			return
 		}
-		c.Assert(err, IsNil)
 		c.Assert(resp.StatusCode, Equals, 200)
 
 		_, err = os.Stat(fp)
 		c.Assert(err, ErrorMatches, ".*: no such file or directory")
 	}
-	for _, rt := range removeTests {
-		check(rt)
+	for _, tc := range removeTests {
+		check(tc)
 	}
 }
 

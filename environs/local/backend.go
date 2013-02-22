@@ -12,7 +12,10 @@ import (
 	"strings"
 )
 
-// storageBackend provides HTTP access to a defined path.
+// storageBackend provides HTTP access to a defined path. The local
+// provider otimally would use a much simpler Storage, but this
+// code may be useful in storage-free environs. Here it requires
+// additional authentication work before it's viable.
 type storageBackend struct {
 	environName string
 	path        string
@@ -47,7 +50,7 @@ func (s *storageBackend) handleGet(w http.ResponseWriter, req *http.Request) {
 	w.Write(data)
 }
 
-// handleList returns the names in the storage to the client.
+// handleList returns the file names in the storage to the client.
 func (s *storageBackend) handleList(w http.ResponseWriter, req *http.Request) {
 	fp := filepath.Join(s.path, req.URL.Path)
 	dir, prefix := filepath.Split(fp)
@@ -103,15 +106,14 @@ func (s *storageBackend) handlePut(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	defer out.Close()
-	_, err = io.Copy(out, req.Body)
-	if err != nil {
+	if _, err := io.Copy(out, req.Body); err != nil {
 		http.Error(w, fmt.Sprintf("500 %v", err), http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
 }
 
-// handleDelete removes data from the storage.
+// handleDelete removes a file from the storage.
 func (s *storageBackend) handleDelete(w http.ResponseWriter, req *http.Request) {
 	fp := filepath.Join(s.path, req.URL.Path)
 	if err := os.Remove(fp); err != nil && !os.IsNotExist(err) {

@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/version"
 )
 
 type BootstrapCommand struct {
@@ -54,7 +55,9 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer st.Close()
-	m, err := st.InjectMachine(state.InstanceId(c.InstanceId), state.JobManageEnviron, state.JobServeAPI)
+	m, err := st.InjectMachine(
+		version.Current.Series, state.InstanceId(c.InstanceId),
+		state.JobManageEnviron, state.JobServeAPI)
 	if err != nil {
 		return err
 	}

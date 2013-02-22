@@ -177,6 +177,7 @@ func (a *MachineAgent) maybeRunAPIServerOnce(conf *agent.Conf) error {
 	select {
 	case <-a.tomb.Dying():
 	case <-srv.Dead():
+		log.Printf("jujud: API server has died: %v", srv.Stop())
 	}
 	return srv.Stop()
 }

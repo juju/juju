@@ -62,7 +62,7 @@ func Open(info *Info) (*State, error) {
 	}
 	var conn *websocket.Conn
 	for a := openAttempt.Start(); a.Next(); {
-		log.Printf("state/api: dialling %q", cfg.Location)
+		log.Printf("state/api: dialing %q", cfg.Location)
 		conn, err = websocket.DialConfig(cfg)
 		if err == nil {
 			break
@@ -103,6 +103,7 @@ type clientReq struct {
 type clientResp struct {
 	RequestId uint64
 	Error     string
+	ErrorCode string
 	Response  json.RawMessage
 }
 
@@ -132,6 +133,7 @@ func (c *clientCodec) ReadResponseHeader(resp *rpc.Response) error {
 	}
 	resp.RequestId = c.resp.RequestId
 	resp.Error = c.resp.Error
+	resp.ErrorCode = c.resp.ErrorCode
 	return nil
 }
 
