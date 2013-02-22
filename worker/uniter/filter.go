@@ -140,8 +140,8 @@ func (f *filter) WantUpgradeEvent(url *charm.URL, mustForce bool) {
 	}
 }
 
-// WantAllRelationsEvents indicates that the filter should send all
-// pending relation changes.
+// WantAllRelationsEvents indicates that the filter should send an
+// event for every known relation.
 func (f *filter) WantAllRelationsEvents() {
 	select {
 	case <-f.tomb.Dying():
