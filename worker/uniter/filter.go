@@ -36,8 +36,9 @@ type filter struct {
 
 	// The want* chans are used to indicate that the filter should send
 	// events if it has them available.
-	wantUpgrade  chan serviceCharm
-	wantResolved chan struct{}
+	wantUpgrade      chan serviceCharm
+	wantResolved     chan struct{}
+	wantAllRelations chan struct{}
 
 	// discardConfig is used to indicate that any pending config event
 	// should be discarded.
@@ -59,19 +60,20 @@ type filter struct {
 // supplied unit.
 func newFilter(st *state.State, unitName string) (*filter, error) {
 	f := &filter{
-		st:             st,
-		outUnitDying:   make(chan struct{}),
-		outConfig:      make(chan struct{}),
-		outConfigOn:    make(chan struct{}),
-		outUpgrade:     make(chan *state.Charm),
-		outUpgradeOn:   make(chan *state.Charm),
-		outResolved:    make(chan state.ResolvedMode),
-		outResolvedOn:  make(chan state.ResolvedMode),
-		outRelations:   make(chan []int),
-		outRelationsOn: make(chan []int),
-		wantResolved:   make(chan struct{}),
-		wantUpgrade:    make(chan serviceCharm),
-		discardConfig:  make(chan struct{}),
+		st:               st,
+		outUnitDying:     make(chan struct{}),
+		outConfig:        make(chan struct{}),
+		outConfigOn:      make(chan struct{}),
+		outUpgrade:       make(chan *state.Charm),
+		outUpgradeOn:     make(chan *state.Charm),
+		outResolved:      make(chan state.ResolvedMode),
+		outResolvedOn:    make(chan state.ResolvedMode),
+		outRelations:     make(chan []int),
+		outRelationsOn:   make(chan []int),
+		wantResolved:     make(chan struct{}),
+		wantAllRelations: make(chan struct{}),
+		wantUpgrade:      make(chan serviceCharm),
+		discardConfig:    make(chan struct{}),
 	}
 	go func() {
 		defer f.tomb.Done()
@@ -138,6 +140,15 @@ func (f *filter) WantUpgradeEvent(url *charm.URL, mustForce bool) {
 	}
 }
 
+// WantAllRelationsEvents indicates that the filter should send all
+// pending relation changes.
+func (f *filter) WantAllRelationsEvents() {
+	select {
+	case <-f.tomb.Dying():
+	case f.wantAllRelations <- nothing:
+	}
+}
+
 // WantResolvedEvent indicates that the filter should send a resolved event
 // if one is available.
 func (f *filter) WantResolvedEvent() {
@@ -179,7 +190,7 @@ func (f *filter) loop(unitName string) (err error) {
 	configw := f.service.WatchConfig()
 	defer watcher.Stop(configw, &f.tomb)
 	relationsw := f.service.WatchRelations()
-	// relationsw can be recreated when sending upgrades
+	// relationsw can get restarted, so we need to bind its current value here
 	defer func() { watcher.Stop(relationsw, &f.tomb) }()
 
 	// Config events cannot be meaningfully discarded until one is available;
@@ -219,11 +230,8 @@ func (f *filter) loop(unitName string) (err error) {
 			discardConfig = f.discardConfig
 		case ids, ok := <-relationsw.Changes():
 			log.Debugf("filter: got relations change")
-			if !ok && relationsw.Err() == nil {
-				// It was stopped cleanly, so restart it
-				relationsw = f.service.WatchRelations()
-			} else {
-				return relationsw.Err()
+			if !ok {
+				return watcher.MustErr(relationsw)
 			}
 			f.relationsChanged(ids)
 
@@ -232,10 +240,6 @@ func (f *filter) loop(unitName string) (err error) {
 			log.Debugf("worker/uniter/filter: sent upgrade event")
 			f.upgradeRequested.url = f.upgrade.URL()
 			f.outUpgrade = nil
-			// To avoid missing any changes to relations, we need
-			// to restart the watcher after an upgrade is triggered
-			// (it'll get recreated above).
-			relationsw.Stop()
 		case f.outResolved <- f.resolved:
 			log.Debugf("worker/uniter/filter: sent resolved event")
 			f.outResolved = nil
@@ -259,6 +263,11 @@ func (f *filter) loop(unitName string) (err error) {
 			if f.resolved != state.ResolvedNone {
 				f.outResolved = f.outResolvedOn
 			}
+		case <-f.wantAllRelations:
+			log.Debugf("worker/uniter/filter: want all relations events")
+			// restart the relations watcher
+			watcher.Stop(relationsw, &f.tomb)
+			relationsw = f.service.WatchRelations()
 		case <-discardConfig:
 			log.Debugf("filter: discarded config event")
 			f.outConfig = nil
