@@ -181,8 +181,8 @@ func (c *srvClient) Status() (Status, error) {
 	return status, nil
 }
 
-// EnvironmentInfo retrieves details (default series and type) on the current
-// environment.
+// EnvironmentInfo returns information about the current environment (default
+// series and type).
 func (c *srvClient) EnvironmentInfo() (EnvironmentInfo, error) {
 	conf, err := c.root.srv.state.EnvironConfig()
 	if err != nil {
