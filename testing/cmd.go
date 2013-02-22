@@ -30,12 +30,18 @@ func InitCommand(c cmd.Command, args []string) error {
 // RunCommand will run a command with the specified args.  The returned error
 // may come from either the parsing of the args, the command initialisation or
 // the actual running of the command.  Access to the resulting output streams
-// is not provided with this function.
-func RunCommand(c *C, com cmd.Command, args []string) error {
+// is provided through the returned context instance.
+func RunCommand(c *C, com cmd.Command, args []string) (*cmd.Context, error) {
 	if err := InitCommand(com, args); err != nil {
-		return err
+		return nil, err
 	}
-	return com.Run(&cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}})
+	var context = &cmd.Context{
+		Dir:    c.MkDir(),
+		Stdin:  &bytes.Buffer{},
+		Stdout: &bytes.Buffer{},
+		Stderr: &bytes.Buffer{},
+	}
+	return context, com.Run(context)
 }
 
 // TestInit checks that a command initialises correctly with the given set of

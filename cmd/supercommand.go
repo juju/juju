@@ -12,14 +12,15 @@ import (
 // the subcommand are passed down to it, and to Run a SuperCommand is to run
 // its selected subcommand.
 type SuperCommand struct {
-	Name    string
-	Purpose string
-	Doc     string
-	Log     *Log
-	subcmds map[string]Command
-	flags   *gnuflag.FlagSet
-	subcmd  Command
-	help    Command
+	Name      string
+	Purpose   string
+	Doc       string
+	Log       *Log
+	subcmds   map[string]Command
+	flags     *gnuflag.FlagSet
+	subcmd    Command
+	help      Command
+	show_help bool
 }
 
 // Register makes a subcommand available for use on the command line. The
@@ -113,6 +114,11 @@ func (c *SuperCommand) GetCommand(name string) (Command, bool) {
 func (c *SuperCommand) SetFlags(f *gnuflag.FlagSet) {
 	if c.Log != nil {
 		c.Log.AddFlags(f)
+	}
+	// If we have a help command, register the flag for help.  This stops the
+	// gnuflag code from returning the ErrHelp error.
+	if c.help != nil {
+
 	}
 	c.flags = f
 }

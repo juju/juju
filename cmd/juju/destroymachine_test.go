@@ -13,7 +13,8 @@ type DestroyMachineSuite struct {
 var _ = Suite(&DestroyMachineSuite{})
 
 func runDestroyMachine(c *C, args ...string) error {
-	return testing.RunCommand(c, &DestroyMachineCommand{}, args)
+	_, err := testing.RunCommand(c, &DestroyMachineCommand{}, args)
+	return err
 }
 
 func (s *DestroyMachineSuite) TestDestroyMachine(c *C) {
