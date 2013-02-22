@@ -5,7 +5,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
-	"launchpad.net/goose/testservices"
+	"launchpad.net/goose/testservices/hook"
 	"launchpad.net/goose/testservices/openstackservice"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/openstack"
@@ -202,7 +202,7 @@ func panicWrite(name string, cert, key []byte) error {
 func (s *localLiveSuite) TestBootstrapFailsWithoutPublicIP(c *C) {
 	s.Service.Nova.RegisterControlPoint(
 		"addFloatingIP",
-		func(sc testservices.ServiceControl, args ...interface{}) error {
+		func(sc hook.ServiceControl, args ...interface{}) error {
 			return fmt.Errorf("failed on purpose")
 		},
 	)

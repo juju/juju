@@ -275,7 +275,7 @@ func (s *ServiceSuite) TestAddUnit(c *C) {
 	c.Assert(unitOne.SubordinateNames(), HasLen, 0)
 
 	// Assign the principal unit to a machine.
-	m, err := s.State.AddMachine(state.JobHostUnits)
+	m, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	err = unitZero.AssignToMachine(m)
 	c.Assert(err, IsNil)
