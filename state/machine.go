@@ -47,6 +47,7 @@ func (job MachineJob) String() string {
 // machineDoc represents the internal state of a machine in MongoDB.
 type machineDoc struct {
 	Id           string `bson:"_id"`
+	Series       string
 	InstanceId   InstanceId
 	Principals   []string
 	Life         Life
@@ -63,6 +64,10 @@ func newMachine(st *State, doc *machineDoc) *Machine {
 // Id returns the machine id.
 func (m *Machine) Id() string {
 	return m.doc.Id
+}
+
+func (m *Machine) Series() string {
+	return m.doc.Series
 }
 
 // globalKey returns the global database key for the machine.

@@ -18,13 +18,13 @@ var _ = Suite(&MachineSuite{})
 func (s *MachineSuite) SetUpTest(c *C) {
 	s.ConnSuite.SetUpTest(c)
 	var err error
-	s.machine, err = s.State.AddMachine(state.JobHostUnits)
+	s.machine, err = s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 }
 
 func (s *MachineSuite) TestLifeJobManageEnviron(c *C) {
 	// A JobManageEnviron machine must never advance lifecycle.
-	m, err := s.State.AddMachine(state.JobManageEnviron)
+	m, err := s.State.AddMachine("series", state.JobManageEnviron)
 	c.Assert(err, IsNil)
 	err = m.Destroy()
 	c.Assert(err, ErrorMatches, "machine 1 is required by the environment")
@@ -57,7 +57,7 @@ func (s *MachineSuite) TestLifeJobHostUnits(c *C) {
 	c.Assert(s.machine.Life(), Equals, state.Dead)
 
 	// A machine that has never had units assigned can advance lifecycle.
-	m, err := s.State.AddMachine(state.JobHostUnits)
+	m, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	err = m.Destroy()
 	c.Assert(err, IsNil)
@@ -147,7 +147,7 @@ func (s *MachineSuite) TestMachineWaitAgentAlive(c *C) {
 }
 
 func (s *MachineSuite) TestMachineInstanceId(c *C) {
-	machine, err := s.State.AddMachine(state.JobHostUnits)
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	err = s.machines.Update(
 		D{{"_id", machine.Id()}},
@@ -162,7 +162,7 @@ func (s *MachineSuite) TestMachineInstanceId(c *C) {
 }
 
 func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *C) {
-	machine, err := s.State.AddMachine(state.JobHostUnits)
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	err = s.machines.Update(
 		D{{"_id", machine.Id()}},
@@ -184,7 +184,7 @@ func (s *MachineSuite) TestMachineInstanceIdMissing(c *C) {
 }
 
 func (s *MachineSuite) TestMachineInstanceIdBlank(c *C) {
-	machine, err := s.State.AddMachine(state.JobHostUnits)
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	err = s.machines.Update(
 		D{{"_id", machine.Id()}},
@@ -211,7 +211,7 @@ func (s *MachineSuite) TestMachineSetInstanceId(c *C) {
 }
 
 func (s *MachineSuite) TestMachineRefresh(c *C) {
-	m0, err := s.State.AddMachine(state.JobHostUnits)
+	m0, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	oldId, _ := m0.InstanceId()
 
@@ -255,9 +255,9 @@ func (s *MachineSuite) TestMachinePrincipalUnits(c *C) {
 	// tells us the right thing.
 
 	m1 := s.machine
-	m2, err := s.State.AddMachine(state.JobHostUnits)
+	m2, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	m3, err := s.State.AddMachine(state.JobHostUnits)
+	m3, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 
 	dummy := s.AddTestingCharm(c, "dummy")
