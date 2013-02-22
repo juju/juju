@@ -490,8 +490,8 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	authModeCfg = AuthMode(ecfg.authMode())
 	e.ecfgUnlocked = ecfg
 
-	novaClient := e.client(ecfg, authModeCfg)
-	e.novaUnlocked = nova.New(novaClient)
+	client := e.client(ecfg, authModeCfg)
+	e.novaUnlocked = nova.New(client)
 
 	// create new storage instances, existing instances continue
 	// to reference their existing configuration.
@@ -500,7 +500,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 		// this is possibly just a hack - if the ACL is swift.Private,
 		// the machine won't be able to get the tools (401 error)
 		containerACL: swift.PublicRead,
-		swift:        swift.New(e.client(ecfg, authModeCfg))}
+		swift:        swift.New(client)}
 	if ecfg.publicBucket() != "" && ecfg.publicBucketURL() != "" {
 		e.publicStorageUnlocked = &storage{
 			containerName: ecfg.publicBucket(),

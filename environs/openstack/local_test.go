@@ -5,7 +5,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
-	"launchpad.net/goose/testservices"
+	"launchpad.net/goose/testservices/hook"
 	"launchpad.net/goose/testservices/openstackservice"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/openstack"
@@ -206,7 +206,7 @@ func testEnv(c *C, cred *identity.Credentials) environs.Environ {
 func (s *localLiveSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
 	defer s.Service.Nova.RegisterControlPoint(
 		"addFloatingIP",
-		func(sc testservices.ServiceControl, args ...interface{}) error {
+		func(sc hook.ServiceControl, args ...interface{}) error {
 			return fmt.Errorf("failed on purpose")
 		},
 	)()
