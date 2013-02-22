@@ -265,7 +265,7 @@ func (f *filter) loop(unitName string) (err error) {
 			}
 		case <-f.wantAllRelations:
 			log.Debugf("worker/uniter/filter: want all relations events")
-			// restart the relations watcher
+			// Restart the relations watcher.
 			watcher.Stop(relationsw, &f.tomb)
 			relationsw = f.service.WatchRelations()
 		case <-discardConfig:
