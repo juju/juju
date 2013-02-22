@@ -51,9 +51,7 @@ func (r *Relationer) Join() error {
 	if !ok {
 		return fmt.Errorf("cannot enter scope: private-address not set")
 	}
-	if err := r.dir.Ensure(); err != nil {
-		return err
-	}
+	// No need to check the r.dir exists yet
 	return r.ru.EnterScope(map[string]interface{}{"private-address": address})
 }
 
@@ -121,6 +119,10 @@ func (r *Relationer) PrepareHook(hi hook.Info) (hookName string, err error) {
 		panic("implicit relations must not run hooks")
 	}
 	if err = r.dir.State().Validate(hi); err != nil {
+		return
+	}
+	// We are about to use the dir, ensure it's there
+	if err = r.dir.Ensure(); err != nil {
 		return
 	}
 	r.ctx.UpdateMembers(hi.Members)

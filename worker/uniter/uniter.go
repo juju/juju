@@ -315,6 +315,7 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 // restoreRelations reconciles the supplied relation state dirs with the
 // remote state of the corresponding relations.
 func (u *Uniter) restoreRelations() error {
+	// TODO: Get these from state, not from disk
 	dirs, err := relation.ReadAllStateDirs(u.relationsDir)
 	if err != nil {
 		return err
@@ -376,6 +377,18 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 		if rel.Life() != state.Alive {
 			continue
 		}
+		// Make sure we ignore relations not implemented by the unit's charm
+		ch, err := corecharm.ReadDir(u.charm.Path())
+		if err != nil {
+			// possibly even panic?
+			return nil, err
+		}
+		if ep, err := rel.Endpoint(u.unit.ServiceName()); err != nil {
+			return nil, err
+		} else if !ep.ImplementedBy(ch) {
+			log.Printf("worker/uniter: ignoring not implemented relation endpoint %q", ep)
+			continue
+		}
 		dir, err := relation.ReadStateDir(u.relationsDir, id)
 		if err != nil {
 			return nil, err
@@ -432,21 +445,6 @@ func (u *Uniter) addRelation(rel *state.Relation, dir *relation.StateDir) error 
 		case _, ok := <-w.Changes():
 			if !ok {
 				return watcher.MustErr(w)
-			}
-			// Make sure the relation is implemented by the service's endpoints
-			svc, err := u.unit.Service()
-			if err != nil {
-				return err
-			}
-			sch, _, err := svc.Charm()
-			if err != nil {
-				return err
-			}
-			if ep, err := rel.Endpoint(u.unit.ServiceName()); err != nil {
-				return err
-			} else if !ep.ImplementedBy(sch) {
-				log.Printf("worker/uniter: ignoring not implemented relation endpoint %q", ep)
-				continue
 			}
 			if err := r.Join(); err == state.ErrCannotEnterScopeYet {
 				log.Printf("worker/uniter: cannot enter scope for relation %q; waiting for subordinate to be removed", rel)

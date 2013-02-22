@@ -327,6 +327,11 @@ func (s *FilterSuite) TestRelationsEvents(c *C) {
 	assertChange([]int{0, 1})
 	assertNoChange()
 
+	// Request all relations events; no changes should happen
+	f.WantAllRelationsEvents()
+	assertChange([]int{0, 1})
+	assertNoChange()
+
 	// Add another relation, and change another's Life (by entering scope before
 	// Destroy, thereby setting the relation to Dying); check event.
 	s.addRelation(c)
