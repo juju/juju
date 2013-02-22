@@ -373,6 +373,14 @@ func (s *suite) TestClientStatus(c *C) {
 	c.Assert(status, DeepEquals, scenarioStatus)
 }
 
+func (s *suite) TestClientEnvironmentInfo(c *C) {
+	conf, _ := s.State.EnvironConfig()
+	info, err := s.APIState.Client().EnvironmentInfo()
+	c.Assert(err, IsNil)
+	c.Assert(info.DefaultSeries, Equals, conf.DefaultSeries())
+	c.Assert(info.ProviderType, Equals, conf.Type())
+}
+
 func (s *suite) TestMachineLogin(c *C) {
 	stm, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
