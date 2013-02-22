@@ -17,12 +17,12 @@ func (c *GenerateConfigCommand) Info() *cmd.Info {
 	return &cmd.Info{"generate-config", "", "generate boilerplate configuration for juju environments", ""}
 }
 
-func (c *GenerateConfigCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *GenerateConfigCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.WriteFile, "w", false, "write to environments.yaml file if it doesn't already exist")
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	return cmd.CheckEmpty(f.Args())
+}
+
+func (c *GenerateConfigCommand) Init(args []string) error {
+	return cmd.CheckEmpty(args)
 }
 
 // Run checks to see if there is already an environments.yaml file. In one does not exist already,

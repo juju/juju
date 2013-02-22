@@ -76,6 +76,9 @@ func (r *TRoot) DelayedMethods(id string) (*DelayedMethods, error) {
 }
 
 func (r *TRoot) ErrorMethods(id string) (*ErrorMethods, error) {
+	if r.errorInst == nil {
+		return nil, fmt.Errorf("no error methods")
+	}
 	return r.errorInst, nil
 }
 
@@ -161,7 +164,7 @@ func (*suite) TestRPC(c *C) {
 		simple: make(map[string]*SimpleMethods),
 	}
 	root.simple["a99"] = &SimpleMethods{root: root, id: "a99"}
-	client, srvDone := newRPCClientServer(c, root)
+	client, srvDone := newRPCClientServer(c, root, nil)
 	for narg := 0; narg < 2; narg++ {
 		for nret := 0; nret < 2; nret++ {
 			for nerr := 0; nerr < 2; nerr++ {
@@ -224,7 +227,7 @@ func (*suite) TestConcurrentCalls(c *C) {
 		},
 	}
 
-	client, srvDone := newRPCClientServer(c, root)
+	client, srvDone := newRPCClientServer(c, root, nil)
 	call := func(id string, done chan<- struct{}) {
 		var r stringVal
 		err := client.Call("DelayedMethods", id, "Delay", nil, &r)
@@ -268,10 +271,46 @@ func (*suite) TestErrorCode(c *C) {
 	root := &TRoot{
 		errorInst: &ErrorMethods{&codedError{"message", "code"}},
 	}
-	client, srvDone := newRPCClientServer(c, root)
+	client, srvDone := newRPCClientServer(c, root, nil)
 	err := client.Call("ErrorMethods", "", "Call", nil, nil)
-	c.Assert(err, ErrorMatches, "server error: message")
+	c.Assert(err, ErrorMatches, `server error: message \(code\)`)
 	c.Assert(err.(rpc.ErrorCoder).ErrorCode(), Equals, "code")
+	client.Close()
+	err = chanReadError(c, srvDone, "server done")
+	c.Assert(err, IsNil)
+}
+
+func (*suite) TestTransformErrors(c *C) {
+	root := &TRoot{
+		errorInst: &ErrorMethods{&codedError{"message", "code"}},
+	}
+	tfErr := func(err error) error {
+		c.Check(err, NotNil)
+		if e, ok := err.(*codedError); ok {
+			return &codedError{
+				m:    "transformed: " + e.m,
+				code: "transformed: " + e.code,
+			}
+		}
+		return fmt.Errorf("transformed: %v", err)
+	}
+	client, srvDone := newRPCClientServer(c, root, tfErr)
+	err := client.Call("ErrorMethods", "", "Call", nil, nil)
+	c.Assert(err, DeepEquals, &rpc.ServerError{
+		Message: "transformed: message",
+		Code:    "transformed: code",
+	})
+
+	root.errorInst.err = nil
+	err = client.Call("ErrorMethods", "", "Call", nil, nil)
+	c.Assert(err, IsNil)
+
+	root.errorInst = nil
+	err = client.Call("ErrorMethods", "", "Call", nil, nil)
+	c.Assert(err, DeepEquals, &rpc.ServerError{
+		Message: "transformed: no error methods",
+	})
+
 	client.Close()
 	err = chanReadError(c, srvDone, "server done")
 	c.Assert(err, IsNil)
@@ -288,7 +327,7 @@ func (*suite) TestServerWaitsForOutstandingCalls(c *C) {
 			},
 		},
 	}
-	client, srvDone := newRPCClientServer(c, root)
+	client, srvDone := newRPCClientServer(c, root, nil)
 	done := make(chan struct{})
 	go func() {
 		var r stringVal
@@ -326,7 +365,7 @@ func (*suite) TestCompatibility(c *C) {
 	a0 := &SimpleMethods{root: root, id: "a0"}
 	root.simple["a0"] = a0
 
-	client, srvDone := newRPCClientServer(c, root)
+	client, srvDone := newRPCClientServer(c, root, nil)
 	call := func(method string, arg, ret interface{}) (passedArg interface{}) {
 		root.calls = nil
 		err := client.Call("SimpleMethods", "a0", method, arg, ret)
@@ -372,7 +411,7 @@ func (*suite) TestBadCall(c *C) {
 	}
 	a0 := &SimpleMethods{root: root, id: "a0"}
 	root.simple["a0"] = a0
-	client, srvDone := newRPCClientServer(c, root)
+	client, srvDone := newRPCClientServer(c, root, nil)
 
 	err := client.Call("BadSomething", "a0", "No", nil, nil)
 	c.Assert(err, ErrorMatches, `server error: unknown object type "BadSomething"`)
@@ -384,6 +423,16 @@ func (*suite) TestBadCall(c *C) {
 	c.Assert(err, ErrorMatches, "server error: unknown SimpleMethods id")
 
 	client.Close()
+	err = chanReadError(c, srvDone, "server done")
+	c.Assert(err, IsNil)
+}
+
+func (*suite) TestErrorAfterClientClose(c *C) {
+	client, srvDone := newRPCClientServer(c, &TRoot{}, nil)
+	err := client.Close()
+	c.Assert(err, IsNil)
+	err = client.Call("Foo", "", "Bar", nil, nil)
+	c.Assert(err, Equals, rpc.ErrShutdown)
 	err = chanReadError(c, srvDone, "server done")
 	c.Assert(err, IsNil)
 }
@@ -401,8 +450,8 @@ func chanReadError(c *C, ch <-chan error, what string) error {
 // newRPCClientServer starts an RPC server serving a connection from a
 // single client.  When the server has finished serving the connection,
 // it sends a value on done.
-func newRPCClientServer(c *C, root interface{}) (client *rpc.Client, done <-chan error) {
-	srv, err := rpc.NewServer(&TRoot{})
+func newRPCClientServer(c *C, root interface{}, tfErr func(error) error) (client *rpc.Client, done <-chan error) {
+	srv, err := rpc.NewServer(&TRoot{}, tfErr)
 	c.Assert(err, IsNil)
 
 	l, err := net.Listen("tcp", ":0")
