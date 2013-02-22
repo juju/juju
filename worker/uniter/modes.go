@@ -141,6 +141,9 @@ func ModeUpgrading(sch *state.Charm) Mode {
 		} else if err != nil {
 			return nil, err
 		}
+		// We're upgrading, so let the uniter have a chance to
+		// handle the relations for the new unit
+		u.f.WantAllRelationsEvents()
 		return ModeContinue, nil
 	}
 }

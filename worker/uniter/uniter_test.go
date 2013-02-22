@@ -319,7 +319,7 @@ var uniterTests = []uniterTest{
 	ut(
 		"steady state config change with config-get verification",
 		createCharm{
-			customize: func(c *C, path string) {
+			customize: func(c *C, path string, ctx *context) {
 				appendHook(c, path, "config-changed", "config-get --format yaml --output config.out")
 			},
 		},
@@ -520,7 +520,7 @@ var uniterTests = []uniterTest{
 	), ut(
 		`upgrade: conflicting directories`,
 		createCharm{
-			customize: func(c *C, path string) {
+			customize: func(c *C, path string, ctx *context) {
 				err := os.Mkdir(filepath.Join(path, "data"), 0755)
 				c.Assert(err, IsNil)
 				appendHook(c, path, "start", "echo DATA > data/newfile")
@@ -536,7 +536,7 @@ var uniterTests = []uniterTest{
 
 		createCharm{
 			revision: 1,
-			customize: func(c *C, path string) {
+			customize: func(c *C, path string, ctx *context) {
 				data := filepath.Join(path, "data")
 				err := ioutil.WriteFile(data, []byte("<nelson>ha ha</nelson>"), 0644)
 				c.Assert(err, IsNil)
@@ -563,7 +563,7 @@ var uniterTests = []uniterTest{
 		startUpgradeError{},
 		createCharm{
 			revision: 2,
-			customize: func(c *C, path string) {
+			customize: func(c *C, path string, ctx *context) {
 				otherdata := filepath.Join(path, "otherdata")
 				err := ioutil.WriteFile(otherdata, []byte("blah"), 0644)
 				c.Assert(err, IsNil)
@@ -614,6 +614,26 @@ var uniterTests = []uniterTest{
 		unitDead,
 		waitUniterDead{},
 		waitHooks{},
+	), ut(
+		// TODO: if this starts failing the scheduler is
+		// doing upgradeCharm before addRelation (?!)
+		"ignore unknown relations until upgrade is done",
+		quickStart{},
+		createCharm{
+			revision: 2,
+			customize: func(c *C, path string, ctx *context) {
+				renameRelation(c, path, "db", "db2")
+				hpath := filepath.Join(path, "hooks", "db2-relation-joined")
+				ctx.writeHook(c, hpath, true)
+			},
+		},
+		serveCharm{},
+		upgradeCharm{revision: 2},
+		addRelation{},
+		addRelationUnit{},
+		waitHooks{"upgrade-charm", "config-changed"},
+		waitHooks{"db2-relation-joined mysql/0 db2:0"},
+		verifyCharm{revision: 2},
 	),
 
 	// Relations.
@@ -783,7 +803,7 @@ func step(c *C, ctx *context, s stepper) {
 type createCharm struct {
 	revision  int
 	badHooks  []string
-	customize func(*C, string)
+	customize func(*C, string, *context)
 }
 
 var charmHooks = []string{
@@ -805,7 +825,7 @@ func (s createCharm) step(c *C, ctx *context) {
 		ctx.writeHook(c, path, good)
 	}
 	if s.customize != nil {
-		s.customize(c, base)
+		s.customize(c, base, ctx)
 	}
 	dir, err := charm.ReadDir(base)
 	c.Assert(err, IsNil)
@@ -1199,7 +1219,7 @@ type startUpgradeError struct{}
 func (s startUpgradeError) step(c *C, ctx *context) {
 	steps := []stepper{
 		createCharm{
-			customize: func(c *C, path string) {
+			customize: func(c *C, path string, ctx *context) {
 				appendHook(c, path, "start", "echo STARTDATA > data")
 			},
 		},
@@ -1213,7 +1233,7 @@ func (s startUpgradeError) step(c *C, ctx *context) {
 
 		createCharm{
 			revision: 1,
-			customize: func(c *C, path string) {
+			customize: func(c *C, path string, ctx *context) {
 				data := filepath.Join(path, "data")
 				err := ioutil.WriteFile(data, []byte("<nelson>ha ha</nelson>"), 0644)
 				c.Assert(err, IsNil)
@@ -1470,5 +1490,37 @@ func appendHook(c *C, charm, name, data string) {
 	c.Assert(err, IsNil)
 	defer f.Close()
 	_, err = f.Write([]byte(data))
+	c.Assert(err, IsNil)
+}
+
+func renameRelation(c *C, charmPath, oldName, newName string) {
+	path := filepath.Join(charmPath, "metadata.yaml")
+	f, err := os.Open(path)
+	c.Assert(err, IsNil)
+	defer f.Close()
+	meta, err := charm.ReadMeta(f)
+	c.Assert(err, IsNil)
+
+	replace := func(what map[string]charm.Relation) bool {
+		for relName, relation := range what {
+			if relName == oldName {
+				what[newName] = relation
+				delete(what, oldName)
+				return true
+			}
+		}
+		return false
+	}
+	replaced := replace(meta.Provides) || replace(meta.Requires) || replace(meta.Peers)
+	c.Assert(replaced, Equals, true, Commentf("charm %q does not implement relation %q", charmPath, oldName))
+
+	newmeta, err := goyaml.Marshal(meta)
+	c.Assert(err, IsNil)
+	ioutil.WriteFile(path, newmeta, 0644)
+
+	f, err = os.Open(path)
+	c.Assert(err, IsNil)
+	defer f.Close()
+	meta, err = charm.ReadMeta(f)
 	c.Assert(err, IsNil)
 }
