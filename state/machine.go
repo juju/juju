@@ -66,6 +66,7 @@ func (m *Machine) Id() string {
 	return m.doc.Id
 }
 
+// Series returns the operating system series running on the machine.
 func (m *Machine) Series() string {
 	return m.doc.Series
 }

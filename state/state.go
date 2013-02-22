@@ -158,13 +158,14 @@ func (st *State) SetEnvironConstraints(cons Constraints) error {
 	return writeConstraints(st, "e", cons)
 }
 
-// AddMachine adds a new machine configured to run the supplied jobs.
+// AddMachine adds a new machine configured to run the supplied jobs on the
+// supplied series.
 func (st *State) AddMachine(series string, jobs ...MachineJob) (m *Machine, err error) {
 	return st.addMachine(series, "", jobs)
 }
 
 // InjectMachine adds a new machine, corresponding to an existing provider
-// instance, configured to run the supplied jobs.
+// instance, configured to run the supplied jobs on the supplied series.
 func (st *State) InjectMachine(series string, instanceId InstanceId, jobs ...MachineJob) (m *Machine, err error) {
 	if instanceId == "" {
 		return nil, fmt.Errorf("cannot inject a machine without an instance id")
