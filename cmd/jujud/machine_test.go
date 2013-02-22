@@ -23,7 +23,7 @@ var _ = Suite(&MachineSuite{})
 // machine agent's directory.  It returns the new machine, the
 // agent's configuration and the tools currently running.
 func (s *MachineSuite) primeAgent(c *C, jobs ...state.MachineJob) (*state.Machine, *agent.Conf, *state.Tools) {
-	m, err := s.State.InjectMachine("ardbeg-0", jobs...)
+	m, err := s.State.InjectMachine("series", "ardbeg-0", jobs...)
 	c.Assert(err, IsNil)
 	err = m.SetMongoPassword("machine-password")
 	c.Assert(err, IsNil)
@@ -140,6 +140,8 @@ func (s *MachineSuite) TestManageEnviron(c *C) {
 	dummy.Listen(op)
 
 	a := s.newAgent(c, m)
+	// Make sure the agent is stopped even if the test fails.
+	defer a.Stop()
 	done := make(chan error)
 	go func() {
 		done <- a.Run(nil)

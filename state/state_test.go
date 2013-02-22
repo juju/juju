@@ -86,48 +86,60 @@ func (s *StateSuite) TestJobString(c *C) {
 	}
 }
 
-func (s *StateSuite) TestAddMachine(c *C) {
-	_, err := s.State.AddMachine()
+func (s *StateSuite) TestAddMachineErrors(c *C) {
+	_, err := s.State.AddMachine("")
+	c.Assert(err, ErrorMatches, "cannot add a new machine: no series specified")
+	_, err = s.State.AddMachine("series")
 	c.Assert(err, ErrorMatches, "cannot add a new machine: no jobs specified")
-	m0, err := s.State.AddMachine(state.JobHostUnits, state.JobHostUnits)
+	_, err = s.State.AddMachine("series", state.JobHostUnits, state.JobHostUnits)
 	c.Assert(err, ErrorMatches, "cannot add a new machine: duplicate job: .*")
-	c.Assert(m0, IsNil)
-	m0, err = s.State.AddMachine(state.JobHostUnits)
+}
+
+func (s *StateSuite) TestAddMachines(c *C) {
+	oneJob := []state.MachineJob{state.JobHostUnits}
+	m0, err := s.State.AddMachine("series", oneJob...)
 	c.Assert(err, IsNil)
-	c.Assert(m0.Id(), Equals, "0")
+	check := func(m *state.Machine, id, series string, jobs []state.MachineJob) {
+		c.Assert(m.Id(), Equals, id)
+		c.Assert(m.Series(), Equals, series)
+		c.Assert(m.Jobs(), DeepEquals, jobs)
+	}
+	check(m0, "0", "series", oneJob)
 	m0, err = s.State.Machine("0")
 	c.Assert(err, IsNil)
-	c.Assert(m0.Id(), Equals, "0")
-	c.Assert(m0.Jobs(), DeepEquals, []state.MachineJob{state.JobHostUnits})
+	check(m0, "0", "series", oneJob)
 
 	allJobs := []state.MachineJob{
 		state.JobHostUnits,
 		state.JobManageEnviron,
 		state.JobServeAPI,
 	}
-	m1, err := s.State.AddMachine(allJobs...)
+	m1, err := s.State.AddMachine("blahblah", allJobs...)
 	c.Assert(err, IsNil)
-	c.Assert(m1.Id(), Equals, "1")
-	c.Assert(m1.Jobs(), DeepEquals, allJobs)
+	check(m1, "1", "blahblah", allJobs)
 
-	m0, err = s.State.Machine("1")
+	m1, err = s.State.Machine("1")
 	c.Assert(err, IsNil)
-	c.Assert(m0.Id(), Equals, "1")
-	c.Assert(m0.Jobs(), DeepEquals, allJobs)
+	check(m1, "1", "blahblah", allJobs)
 
-	machines, err := s.State.AllMachines()
+	m, err := s.State.AllMachines()
 	c.Assert(err, IsNil)
-	c.Assert(machines, HasLen, 2)
-	c.Assert(machines[0].Id(), Equals, "0")
-	c.Assert(machines[1].Id(), Equals, "1")
+	c.Assert(m, HasLen, 2)
+	check(m[0], "0", "series", oneJob)
+	check(m[1], "1", "blahblah", allJobs)
+}
+
+func (s *StateSuite) TestInjectMachineErrors(c *C) {
+	_, err := s.State.InjectMachine("", state.InstanceId("i-minvalid"), state.JobHostUnits)
+	c.Assert(err, ErrorMatches, "cannot add a new machine: no series specified")
+	_, err = s.State.InjectMachine("series", state.InstanceId(""), state.JobHostUnits)
+	c.Assert(err, ErrorMatches, "cannot inject a machine without an instance id")
+	_, err = s.State.InjectMachine("series", state.InstanceId("i-mlazy"))
+	c.Assert(err, ErrorMatches, "cannot add a new machine: no jobs specified")
 }
 
 func (s *StateSuite) TestInjectMachine(c *C) {
-	_, err := s.State.InjectMachine(state.InstanceId(""), state.JobHostUnits)
-	c.Assert(err, ErrorMatches, "cannot inject a machine without an instance id")
-	_, err = s.State.InjectMachine(state.InstanceId("i-mlazy"))
-	c.Assert(err, ErrorMatches, "cannot add a new machine: no jobs specified")
-	m, err := s.State.InjectMachine(state.InstanceId("i-mindustrious"), state.JobHostUnits, state.JobManageEnviron)
+	m, err := s.State.InjectMachine("series", state.InstanceId("i-mindustrious"), state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, IsNil)
 	c.Assert(m.Jobs(), DeepEquals, []state.MachineJob{state.JobHostUnits, state.JobManageEnviron})
 	instanceId, ok := m.InstanceId()
@@ -136,7 +148,7 @@ func (s *StateSuite) TestInjectMachine(c *C) {
 }
 
 func (s *StateSuite) TestReadMachine(c *C) {
-	machine, err := s.State.AddMachine(state.JobHostUnits)
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	expectedId := machine.Id()
 	machine, err = s.State.Machine(expectedId)
@@ -153,7 +165,7 @@ func (s *StateSuite) TestMachineNotFound(c *C) {
 func (s *StateSuite) TestAllMachines(c *C) {
 	numInserts := 42
 	for i := 0; i < numInserts; i++ {
-		m, err := s.State.AddMachine(state.JobHostUnits)
+		m, err := s.State.AddMachine("series", state.JobHostUnits)
 		c.Assert(err, IsNil)
 		err = m.SetInstanceId(state.InstanceId(fmt.Sprintf("foo-%d", i)))
 		c.Assert(err, IsNil)
@@ -455,6 +467,48 @@ func (s *StateSuite) TestEnvironConfigWithAdminSecret(c *C) {
 	c.Assert(err, ErrorMatches, "admin-secret should never be written to the state")
 }
 
+func (s *StateSuite) TestEnvironConstraints(c *C) {
+	// Environ constraints are not available before initialization.
+	_, err := s.State.EnvironConstraints()
+	c.Assert(state.IsNotFound(err), Equals, true)
+	m := map[string]interface{}{
+		"type":            "dummy",
+		"name":            "lisboa",
+		"authorized-keys": "i-am-a-key",
+		"ca-cert":         testing.CACert,
+		"ca-private-key":  "",
+	}
+	cfg, err := config.New(m)
+	c.Assert(err, IsNil)
+	st, err := state.Initialize(state.TestingStateInfo(), cfg)
+	c.Assert(err, IsNil)
+	st.Close()
+
+	// Environ constraints start out empty (for now).
+	cons0 := state.Constraints{}
+	cons1, err := s.State.EnvironConstraints()
+	c.Assert(err, IsNil)
+	c.Assert(cons1, DeepEquals, cons0)
+
+	// Environ constraints can be set.
+	cons2 := state.Constraints{Mem: uint64p(1024)}
+	err = s.State.SetEnvironConstraints(cons2)
+	c.Assert(err, IsNil)
+	cons3, err := s.State.EnvironConstraints()
+	c.Assert(err, IsNil)
+	c.Assert(cons3, DeepEquals, cons2)
+	c.Assert(cons3, Not(Equals), cons2)
+
+	// Environ constraints are completely overwritten when re-set.
+	cons4 := state.Constraints{CpuPower: uint64p(250)}
+	err = s.State.SetEnvironConstraints(cons4)
+	c.Assert(err, IsNil)
+	cons5, err := s.State.EnvironConstraints()
+	c.Assert(err, IsNil)
+	c.Assert(cons5, DeepEquals, cons4)
+	c.Assert(cons5, Not(Equals), cons4)
+}
+
 var machinesWatchTests = []struct {
 	summary string
 	test    func(*C, *state.State)
@@ -467,14 +521,14 @@ var machinesWatchTests = []struct {
 	}, {
 		"Add a machine",
 		func(c *C, s *state.State) {
-			_, err := s.AddMachine(state.JobHostUnits)
+			_, err := s.AddMachine("series", state.JobHostUnits)
 			c.Assert(err, IsNil)
 		},
 		[]string{"0"},
 	}, {
 		"Ignore unrelated changes",
 		func(c *C, s *state.State) {
-			_, err := s.AddMachine(state.JobHostUnits)
+			_, err := s.AddMachine("series", state.JobHostUnits)
 			c.Assert(err, IsNil)
 			m0, err := s.Machine("0")
 			c.Assert(err, IsNil)
@@ -485,9 +539,9 @@ var machinesWatchTests = []struct {
 	}, {
 		"Add two machines at once",
 		func(c *C, s *state.State) {
-			_, err := s.AddMachine(state.JobHostUnits)
+			_, err := s.AddMachine("series", state.JobHostUnits)
 			c.Assert(err, IsNil)
-			_, err = s.AddMachine(state.JobHostUnits)
+			_, err = s.AddMachine("series", state.JobHostUnits)
 			c.Assert(err, IsNil)
 		},
 		[]string{"2", "3"},
@@ -540,7 +594,7 @@ var machinesWatchTests = []struct {
 	}, {
 		"Added and Dead machines at once",
 		func(c *C, s *state.State) {
-			_, err := s.AddMachine(state.JobHostUnits)
+			_, err := s.AddMachine("series", state.JobHostUnits)
 			c.Assert(err, IsNil)
 			m1, err := s.Machine("1")
 			c.Assert(err, IsNil)
@@ -554,7 +608,7 @@ var machinesWatchTests = []struct {
 			machines := [20]*state.Machine{}
 			var err error
 			for i := 0; i < len(machines); i++ {
-				machines[i], err = s.AddMachine(state.JobHostUnits)
+				machines[i], err = s.AddMachine("series", state.JobHostUnits)
 				c.Assert(err, IsNil)
 			}
 			for i := 0; i < len(machines); i++ {
@@ -572,26 +626,26 @@ var machinesWatchTests = []struct {
 	}, {
 		"Do not report never-seen and removed or dead",
 		func(c *C, s *state.State) {
-			m, err := s.AddMachine(state.JobHostUnits)
+			m, err := s.AddMachine("series", state.JobHostUnits)
 			c.Assert(err, IsNil)
 			err = m.EnsureDead()
 			c.Assert(err, IsNil)
 
-			m, err = s.AddMachine(state.JobHostUnits)
+			m, err = s.AddMachine("series", state.JobHostUnits)
 			c.Assert(err, IsNil)
 			err = m.EnsureDead()
 			c.Assert(err, IsNil)
 			err = m.Remove()
 			c.Assert(err, IsNil)
 
-			_, err = s.AddMachine(state.JobHostUnits)
+			_, err = s.AddMachine("series", state.JobHostUnits)
 			c.Assert(err, IsNil)
 		},
 		[]string{"27"},
 	}, {
 		"Take into account what's already in the queue",
 		func(c *C, s *state.State) {
-			m, err := s.AddMachine(state.JobHostUnits)
+			m, err := s.AddMachine("series", state.JobHostUnits)
 			c.Assert(err, IsNil)
 			s.Sync()
 			err = m.EnsureDead()
@@ -1069,7 +1123,7 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *C) {
 	// before, so this testing at least ensures we're conscious
 	// about such changes.
 
-	m1, err := s.State.AddMachine(state.JobHostUnits)
+	m1, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	m2, err := s.State.Machine(m1.Id())
 	c.Assert(m1, DeepEquals, m2)
@@ -1287,7 +1341,7 @@ func (s *StateSuite) TestAuthEntity(c *C) {
 	c.Assert(err, ErrorMatches, `user "arble" not found`)
 	c.Assert(state.IsNotFound(err), Equals, true)
 
-	m, err := s.State.AddMachine(state.JobHostUnits)
+	m, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 
 	e, err = s.State.AuthEntity(m.EntityName())
