@@ -14,10 +14,6 @@ import (
 
 func TestPackage(t *testing.T) { TestingT(t) }
 
-func dummyContext(c *C) *cmd.Context {
-	return &cmd.Context{c.MkDir(), nil, &bytes.Buffer{}, &bytes.Buffer{}}
-}
-
 func bufferString(w io.Writer) string {
 	return w.(*bytes.Buffer).String()
 }

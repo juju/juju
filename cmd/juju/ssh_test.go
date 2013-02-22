@@ -106,7 +106,7 @@ func (s *SSHSuite) TestSSHCommand(c *C) {
 
 	for _, t := range sshTests {
 		c.Logf("testing juju ssh %s", t.args)
-		ctx := &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}}
+		ctx := coretesting.Context(c)
 		code := cmd.Main(&SSHCommand{}, ctx, t.args)
 		c.Check(code, Equals, 0)
 		c.Check(ctx.Stderr.(*bytes.Buffer).String(), Equals, "")

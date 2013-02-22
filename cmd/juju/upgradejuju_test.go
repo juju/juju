@@ -3,7 +3,6 @@ package main
 import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -188,7 +187,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *C) {
 			c.Check(err, ErrorMatches, test.expectInitErr)
 			continue
 		}
-		err = com.Run(&cmd.Context{c.MkDir(), nil, ioutil.Discard, ioutil.Discard})
+		err = com.Run(coretesting.Context(c))
 		if test.expectErr != "" {
 			c.Check(err, ErrorMatches, test.expectErr)
 			continue
