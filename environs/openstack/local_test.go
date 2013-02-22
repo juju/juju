@@ -216,26 +216,31 @@ func (s *localLiveSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
 	defer ResetEnvironment(e)
 }
 
-// If the bootstrap node is configured not to require a public IP address,
-// bootstrapping should occur without any attempt to allocate a public address.
-func (s *localLiveSuite) TestBootstrapWithoutPublicIP(c *C) {
+// If the environment is configured not to require a public IP address for nodes,
+// bootstrapping and starting an instance should occur without any attempt to allocate a public address.
+func (s *localLiveSuite) TestStartInstanceWithoutPublicIP(c *C) {
 	e := testEnv(c, s.cred)
-	openstack.SetExposeBootstrapNode(e, false)
+	openstack.SetUseFloatingIP(e, false)
 	defer s.Service.Nova.RegisterControlPoint(
 		"addFloatingIP",
-		func(sc testservices.ServiceControl, args ...interface{}) error {
+		func(sc hook.ServiceControl, args ...interface{}) error {
 			return fmt.Errorf("add floating IP should not have been called")
 		},
 	)()
 	defer s.Service.Nova.RegisterControlPoint(
 		"addServerFloatingIP",
-		func(sc testservices.ServiceControl, args ...interface{}) error {
+		func(sc hook.ServiceControl, args ...interface{}) error {
 			return fmt.Errorf("add server floating IP should not have been called")
 		},
 	)()
-
 	err := environs.Bootstrap(e, true, panicWrite)
 	c.Assert(err, IsNil)
+	inst, err := e.StartInstance("100", testing.InvalidStateInfo("100"), testing.InvalidAPIInfo("100"), nil)
+	c.Assert(err, IsNil)
+	defer func() {
+		err := e.StopInstances([]environs.Instance{inst})
+		c.Assert(err, IsNil)
+	}()
 	defer ResetEnvironment(e)
 }
 

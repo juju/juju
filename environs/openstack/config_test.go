@@ -40,16 +40,16 @@ type configTest struct {
 	publicBucket  string
 	pbucketURL    string
 	imageId       string
-	// exposeBootstrapNode is true by default.
+	// useFloatingIP is true by default.
 	// bools default to false so invert the attribute
-	internalBootstrapNode bool
-	username              string
-	password              string
-	tenantName            string
-	authMode              string
-	authURL               string
-	firewallMode          config.FirewallMode
-	err                   string
+	internalIPOnly bool
+	username       string
+	password       string
+	tenantName     string
+	authMode       string
+	authURL        string
+	firewallMode   config.FirewallMode
+	err            string
 }
 
 type attrs map[string]interface{}
@@ -129,7 +129,7 @@ func (t configTest) check(c *C) {
 	if t.imageId != "" {
 		c.Assert(ecfg.defaultImageId(), Equals, t.imageId)
 	}
-	c.Assert(ecfg.exposeBootstrapNode(), Equals, !t.internalBootstrapNode)
+	c.Assert(ecfg.useFloatingIP(), Equals, !t.internalIPOnly)
 }
 
 func (s *ConfigSuite) SetUpTest(c *C) {
@@ -243,15 +243,15 @@ var configTests = []configTest{
 		},
 		imageId: "image-id",
 	}, {
-		summary: "default expose bootstrap node",
-		// Bootstrap node is visible by default.
-		internalBootstrapNode: false,
+		summary: "default use floating ip",
+		// Use floating IP's by default.
+		internalIPOnly: false,
 	}, {
-		summary: "expose bootstrap node",
+		summary: "use floating ip",
 		config: attrs{
-			"expose-bootstrap-node": false,
+			"use-floating-ip": false,
 		},
-		internalBootstrapNode: true,
+		internalIPOnly: true,
 	}, {
 		summary: "public bucket URL",
 		config: attrs{

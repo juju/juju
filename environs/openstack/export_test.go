@@ -84,7 +84,7 @@ func FindInstanceSpec(e environs.Environ, series, arch, flavor string) (imageId,
 	return
 }
 
-func SetExposeBootstrapNode(e environs.Environ, expose bool) {
+func SetUseFloatingIP(e environs.Environ, val bool) {
 	env := e.(*environ)
-	env.ecfg().attrs["expose-bootstrap-node"] = expose
+	env.ecfg().attrs["use-floating-ip"] = val
 }

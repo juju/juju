@@ -61,10 +61,10 @@ func (p environProvider) BoilerplateConfig() string {
 ## https://juju.ubuntu.com/get-started/openstack/
 openstack:
   type: openstack
-  # Specifies whether the bootstap node(s) are accessible via a public IP address.
+  # Specifies whether the nodes are accessible via a public IP address.
   # For installations where IP addresses have limited availability, ssh tunnelling
   # may be a preferred connection option.
-  expose-bootstrap-node: false
+  use-floating-ip: false
   admin-secret: {{rand}}
   # Globally unique swift bucket name
   control-bucket: juju-{{rand}}
@@ -87,11 +87,11 @@ openstack:
 ## https://juju.ubuntu.com/get-started/hp-cloud/
 hpcloud:
   type: openstack
-  # Specifies whether the bootstap node(s) are accessible via a public IP address.
+  # Specifies whether the nodes are accessible via a public IP address.
   # For installations where IP addresses have limited availability, ssh tunnelling
   # may be a preferred connection option. HP Cloud seems to have lots of available
   # IP addresses.
-  # expose-bootstrap-node: false
+  # use-floating-ip: false
   admin-secret: {{rand}}
   # Globally unique swift bucket name
   control-bucket: juju-{{rand}}
@@ -379,7 +379,7 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 		config:          config,
 		stateServerCert: cert,
 		stateServerKey:  key,
-		withPublicIP:    e.ecfg().exposeBootstrapNode(),
+		withPublicIP:    e.ecfg().useFloatingIP(),
 	})
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
@@ -515,10 +515,11 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 
 func (e *environ) StartInstance(machineId string, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
 	return e.startInstance(&startInstanceParams{
-		machineId: machineId,
-		info:      info,
-		apiInfo:   apiInfo,
-		tools:     tools,
+		machineId:    machineId,
+		info:         info,
+		apiInfo:      apiInfo,
+		tools:        tools,
+		withPublicIP: e.ecfg().useFloatingIP(),
 	})
 }
 
