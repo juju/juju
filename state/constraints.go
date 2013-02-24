@@ -15,6 +15,10 @@ import (
 // existing one satisfies the requirements.
 type Constraints struct {
 
+	// Arch, if not nil or empty, indicates that a machine must run the named
+	// architecture.
+	Arch *string `json:"arch,omitempty" yaml:"arch,omitempty"`
+
 	// CpuCores, if not nil, indicates that a machine must have at least that
 	// number of effective cores available.
 	CpuCores *uint64 `json:"cpu-cores,omitempty" yaml:"cpu-cores,omitempty"`
@@ -32,6 +36,9 @@ type Constraints struct {
 // String expresses a Constraints in the language in which it was specified.
 func (c Constraints) String() string {
 	var strs []string
+	if c.Arch != nil {
+		strs = append(strs, "arch="+*c.Arch)
+	}
 	if c.CpuCores != nil {
 		strs = append(strs, "cpu-cores="+uintStr(*c.CpuCores))
 	}
@@ -83,6 +90,8 @@ func (c *Constraints) setRaw(raw string) error {
 	name, str := raw[:eq], raw[eq+1:]
 	var err error
 	switch name {
+	case "arch":
+		err = c.setArch(str)
 	case "cpu-cores":
 		err = c.setCpuCores(str)
 	case "cpu-power":
@@ -95,6 +104,20 @@ func (c *Constraints) setRaw(raw string) error {
 	if err != nil {
 		return fmt.Errorf("bad %q constraint: %v", name, err)
 	}
+	return nil
+}
+
+func (c *Constraints) setArch(str string) error {
+	if c.Arch != nil {
+		return fmt.Errorf("already set")
+	}
+	switch str {
+	case "":
+	case "amd64", "i386", "arm":
+	default:
+		return fmt.Errorf("%q not recognized", str)
+	}
+	c.Arch = &str
 	return nil
 }
 
@@ -157,6 +180,7 @@ var mbSuffixes = map[string]float64{
 
 // constraintsDoc is the mongodb representation of a Constraints.
 type constraintsDoc struct {
+	Arch     *string
 	CpuCores *uint64
 	CpuPower *uint64
 	Mem      *uint64
@@ -164,6 +188,7 @@ type constraintsDoc struct {
 
 func newConstraintsDoc(cons Constraints) constraintsDoc {
 	return constraintsDoc{
+		Arch:     cons.Arch,
 		CpuCores: cons.CpuCores,
 		CpuPower: cons.CpuPower,
 		Mem:      cons.Mem,
@@ -187,6 +212,7 @@ func readConstraints(st *State, id string) (Constraints, error) {
 		return Constraints{}, err
 	}
 	return Constraints{
+		Arch:     doc.Arch,
 		CpuCores: doc.CpuCores,
 		CpuPower: doc.CpuPower,
 		Mem:      doc.Mem,

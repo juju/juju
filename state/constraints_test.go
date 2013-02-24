@@ -36,6 +36,37 @@ var parseConstraintsTests = []struct {
 		err:     `unknown constraint "cheese"`,
 	},
 
+	// "arch" in detail.
+	{
+		summary: "set arch empty",
+		args:    []string{"arch="},
+	}, {
+		summary: "set arch 1",
+		args:    []string{"arch=amd64"},
+	}, {
+		summary: "set arch 1",
+		args:    []string{"arch=i386"},
+	}, {
+		summary: "set arch 1",
+		args:    []string{"arch=arm"},
+	}, {
+		summary: "set nonsense arch 1",
+		args:    []string{"arch=cheese"},
+		err:     `bad "arch" constraint: "cheese" not recognized`,
+	}, {
+		summary: "set nonsense arch 2",
+		args:    []string{"arch=123.45"},
+		err:     `bad "arch" constraint: "123.45" not recognized`,
+	}, {
+		summary: "double set arch together",
+		args:    []string{"arch=amd64 arch=amd64"},
+		err:     `bad "arch" constraint: already set`,
+	}, {
+		summary: "double set arch separately",
+		args:    []string{"arch=arm", "arch="},
+		err:     `bad "arch" constraint: already set`,
+	},
+
 	// "cpu-cores" in detail.
 	{
 		summary: "set cpu-cores empty",
@@ -143,10 +174,10 @@ var parseConstraintsTests = []struct {
 	// Everything at once.
 	{
 		summary: "kitchen sink together",
-		args:    []string{" mem=2T    cpu-cores=4096 cpu-power=9001  "},
+		args:    []string{" mem=2T  arch=i386  cpu-cores=4096 cpu-power=9001  "},
 	}, {
 		summary: "kitchen sink separately",
-		args:    []string{"mem=2T", "cpu-cores=4096", "cpu-power=9001"},
+		args:    []string{"mem=2T", "cpu-cores=4096", "cpu-power=9001", "arch=arm"},
 	},
 }
 
@@ -170,8 +201,14 @@ func uint64p(i uint64) *uint64 {
 	return &i
 }
 
+func strp(s string) *string {
+	return &s
+}
+
 var constraintsRoundtripTests = []state.Constraints{
 	{},
+	// {Arch: strp("")}, goyaml bug lp:1132537
+	{Arch: strp("amd64")},
 	{CpuCores: uint64p(0)},
 	{CpuCores: uint64p(128)},
 	{CpuPower: uint64p(0)},
@@ -179,6 +216,7 @@ var constraintsRoundtripTests = []state.Constraints{
 	{Mem: uint64p(0)},
 	{Mem: uint64p(98765)},
 	{
+		Arch:     strp("i386"),
 		CpuCores: uint64p(4096),
 		CpuPower: uint64p(9001),
 		Mem:      uint64p(18000000000),
@@ -211,9 +249,20 @@ func (s *ConstraintsSuite) TestRoundtripYaml(c *C) {
 		c.Logf("test %d", i)
 		data, err := goyaml.Marshal(t)
 		c.Assert(err, IsNil)
+		c.Logf("%s", data)
 		var cons state.Constraints
 		err = goyaml.Unmarshal(data, &cons)
 		c.Assert(err, IsNil)
 		c.Assert(cons, DeepEquals, t)
 	}
+}
+
+func (s *ConstraintsSuite) TestGoyamlRoundtripBug1132537(c *C) {
+	var val struct{ Hello *string }
+	err := goyaml.Unmarshal([]byte(`hello: ""`), &val)
+	c.Assert(err, IsNil)
+
+	// A failure here indicates that goyaml bug lp:1132537 is fixed; please
+	// delete this test and uncomment the flagged constraintsRoundtripTests.
+	c.Assert(val.Hello, IsNil)
 }
