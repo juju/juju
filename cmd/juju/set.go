@@ -23,7 +23,7 @@ type SetCommand struct {
 func (c *SetCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "set",
-		Args:    "<service> <config option> [<config option>...]",
+		Args:    "<service> name=value ...",
 		Purpose: "set service config options",
 		Doc:     "Set one or more configuration options for the specified service.",
 	}

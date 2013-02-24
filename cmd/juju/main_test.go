@@ -146,7 +146,7 @@ var commandNames = []string{
 	"get",
 	"get-constraints",
 	"init",
-	"remove-relation", // alias for destory-relation
+	"remove-relation", // alias for destroy-relation
 	"remove-unit",     // alias for destroy-unit
 	"resolved",
 	"scp",

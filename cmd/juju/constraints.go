@@ -18,7 +18,7 @@ type GetConstraintsCommand struct {
 func (c *GetConstraintsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "get-constraints",
-		Args:    "[<service> [<constraints>...]",
+		Args:    "[<service>]",
 		Purpose: "view constraints",
 	}
 }
@@ -78,7 +78,7 @@ type SetConstraintsCommand struct {
 func (c *SetConstraintsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "set-constraints",
-		Args:    "[key=[value],...]",
+		Args:    "[key=[value] ...]",
 		Purpose: "replace constraints",
 	}
 }
