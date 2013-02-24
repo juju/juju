@@ -204,12 +204,13 @@ func testEnv(c *C, cred *identity.Credentials) environs.Environ {
 // If the bootstrap node is configured to require a public IP address (the default),
 // bootstrapping fails if an address cannot be allocated.
 func (s *localLiveSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
-	defer s.Service.Nova.RegisterControlPoint(
+	cleanup := s.Service.Nova.RegisterControlPoint(
 		"addFloatingIP",
 		func(sc hook.ServiceControl, args ...interface{}) error {
 			return fmt.Errorf("failed on purpose")
 		},
-	)()
+	)
+	defer cleanup()
 	e := testEnv(c, s.cred)
 	err := environs.Bootstrap(e, true, panicWrite)
 	c.Assert(err, ErrorMatches, ".*cannot allocate a public IP as needed.*")
@@ -221,18 +222,20 @@ func (s *localLiveSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
 func (s *localLiveSuite) TestStartInstanceWithoutPublicIP(c *C) {
 	e := testEnv(c, s.cred)
 	openstack.SetUseFloatingIP(e, false)
-	defer s.Service.Nova.RegisterControlPoint(
+	cleanup := s.Service.Nova.RegisterControlPoint(
 		"addFloatingIP",
 		func(sc hook.ServiceControl, args ...interface{}) error {
 			return fmt.Errorf("add floating IP should not have been called")
 		},
-	)()
-	defer s.Service.Nova.RegisterControlPoint(
+	)
+	defer cleanup()
+	cleanup = s.Service.Nova.RegisterControlPoint(
 		"addServerFloatingIP",
 		func(sc hook.ServiceControl, args ...interface{}) error {
 			return fmt.Errorf("add server floating IP should not have been called")
 		},
-	)()
+	)
+	defer cleanup()
 	err := environs.Bootstrap(e, true, panicWrite)
 	c.Assert(err, IsNil)
 	inst, err := e.StartInstance("100", testing.InvalidStateInfo("100"), testing.InvalidAPIInfo("100"), nil)

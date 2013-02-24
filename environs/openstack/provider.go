@@ -628,7 +628,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	var publicIP *nova.FloatingIP
 	if scfg.withPublicIP {
 		if fip, err := e.allocatePublicIP(); err != nil {
-			return nil, fmt.Errorf("cannot allocate a public IP as needed")
+			return nil, fmt.Errorf("cannot allocate a public IP as needed: %v", err)
 		} else {
 			publicIP = fip
 			log.Printf("environs/openstack: allocated public IP %s", publicIP.IP)
