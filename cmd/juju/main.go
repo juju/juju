@@ -47,7 +47,7 @@ func Main(args []string) {
 	juju.Register(&ResolvedCommand{})
 
 	// Register configuration commands.
-	juju.Register(&GenerateConfigCommand{})
+	juju.Register(&InitCommand{})
 	juju.Register(&GetCommand{})
 	juju.Register(&SetCommand{})
 	juju.Register(&GetConstraintsCommand{})
