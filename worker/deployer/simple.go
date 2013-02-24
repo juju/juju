@@ -8,7 +8,6 @@ import (
 	"regexp"
 	"strings"
 
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -66,8 +65,8 @@ func (mgr *SimpleManager) DeployUnit(unitName, initialPassword string) (err erro
 
 	// Link the current tools for use by the new agent.
 	entityName := state.UnitEntityName(unitName)
-	_, err = environs.ChangeAgentTools(mgr.DataDir, entityName, version.Current)
-	toolsDir := environs.AgentToolsDir(mgr.DataDir, entityName)
+	_, err = agent.ChangeAgentTools(mgr.DataDir, entityName, version.Current)
+	toolsDir := agent.AgentToolsDir(mgr.DataDir, entityName)
 	defer removeOnErr(&err, toolsDir)
 
 	info := *mgr.StateInfo
@@ -110,11 +109,11 @@ func (mgr *SimpleManager) RecallUnit(unitName string) error {
 		return err
 	}
 	entityName := state.UnitEntityName(unitName)
-	agentDir := environs.AgentDir(mgr.DataDir, entityName)
+	agentDir := agent.AgentDir(mgr.DataDir, entityName)
 	if err := os.RemoveAll(agentDir); err != nil {
 		return err
 	}
-	toolsDir := environs.AgentToolsDir(mgr.DataDir, entityName)
+	toolsDir := agent.AgentToolsDir(mgr.DataDir, entityName)
 	return os.Remove(toolsDir)
 }
 

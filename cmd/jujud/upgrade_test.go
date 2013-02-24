@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
@@ -95,7 +96,7 @@ func (s *UpgraderSuite) TestUpgrader(c *C) {
 	// uploader isn't trying to fetch them.
 	resp, err := http.Get(currentTools.URL)
 	c.Assert(err, IsNil)
-	err = environs.UnpackTools(s.DataDir(), currentTools, resp.Body)
+	err = agent.UnpackTools(s.DataDir(), currentTools, resp.Body)
 	c.Assert(err, IsNil)
 	s.removeVersion(c, currentTools.Binary)
 
@@ -121,7 +122,7 @@ func (s *UpgraderSuite) TestUpgrader(c *C) {
 		}
 		if test.current != "" {
 			version.Current = version.MustParseBinary(test.current)
-			currentTools, err = environs.ReadTools(s.DataDir(), version.Current)
+			currentTools, err = agent.ReadTools(s.DataDir(), version.Current)
 			c.Assert(err, IsNil)
 		}
 		if u == nil {
@@ -143,7 +144,7 @@ func (s *UpgraderSuite) TestUpgrader(c *C) {
 			c.Check(ug.AgentName, Equals, "testagent")
 
 			// Check that the upgraded version was really downloaded.
-			data, err := ioutil.ReadFile(filepath.Join(environs.ToolsDir(s.DataDir(), tools.Binary), "jujud"))
+			data, err := ioutil.ReadFile(filepath.Join(agent.ToolsDir(s.DataDir(), tools.Binary), "jujud"))
 			c.Assert(err, IsNil)
 			c.Assert(string(data), Equals, "jujud contents "+tools.Binary.String())
 
@@ -245,7 +246,7 @@ func (s *UpgraderSuite) TestUpgraderReadyErrorUpgrade(c *C) {
 	}
 	err := ug.ChangeAgentTools()
 	c.Assert(err, IsNil)
-	d := environs.AgentToolsDir(s.DataDir(), "foo")
+	d := agent.AgentToolsDir(s.DataDir(), "foo")
 	data, err := ioutil.ReadFile(filepath.Join(d, "jujud"))
 	c.Assert(err, IsNil)
 	c.Assert(string(data), Equals, "jujud contents 2.0.2-foo-bar")

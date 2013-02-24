@@ -6,7 +6,7 @@ import (
 	corecharm "launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
@@ -108,7 +108,7 @@ func (u *Uniter) init(name string) (err error) {
 		return err
 	}
 	ename := u.unit.EntityName()
-	u.toolsDir = environs.AgentToolsDir(u.dataDir, ename)
+	u.toolsDir = agent.AgentToolsDir(u.dataDir, ename)
 	if err := EnsureJujucSymlinks(u.toolsDir); err != nil {
 		return err
 	}
