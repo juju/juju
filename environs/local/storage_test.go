@@ -16,7 +16,7 @@ var _ = Suite(&storageSuite{})
 // TestPersistence tests the adding, reading, listing and removing
 // of files from the local storage.
 func (s *storageSuite) TestPersistence(c *C) {
-	// Non-standard port to avoid conflict with not-yet full 
+	// Non-standard port to avoid conflict with not-yet full
 	// closed listener in backend test.
 	portNo := 60007
 	listener, err := local.Listen(c.MkDir(), environName, "127.0.0.1", portNo)
