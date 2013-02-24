@@ -13,9 +13,8 @@ type DestroyEnvironmentCommand struct {
 
 func (c *DestroyEnvironmentCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		"destroy-environment", "[options]",
-		"terminate all machines and other associated resources for an environment",
-		"",
+		Name:    "destroy-environment",
+		Purpose: "terminate all machines and other associated resources for an environment",
 	}
 }
 

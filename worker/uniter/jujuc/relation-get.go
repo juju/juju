@@ -30,7 +30,10 @@ If no key is given, or if the key is "-", all keys and values will be printed.
 		doc += fmt.Sprintf("Current default unit id is %q.", name)
 	}
 	return &cmd.Info{
-		"relation-get", args, "get relation settings", doc,
+		Name:    "relation-get",
+		Args:    args,
+		Purpose: "get relation settings",
+		Doc:     doc,
 	}
 }
 
