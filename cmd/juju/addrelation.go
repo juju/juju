@@ -15,8 +15,9 @@ type AddRelationCommand struct {
 
 func (c *AddRelationCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		"add-relation", "<service1>[:<relation name1>] <service2>[:<relation name2>]",
-		"add a relation between two services", "",
+		Name:    "add-relation",
+		Args:    "<service1>[:<relation name1>] <service2>[:<relation name2>]",
+		Purpose: "add a relation between two services",
 	}
 }
 

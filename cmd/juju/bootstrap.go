@@ -16,7 +16,10 @@ type BootstrapCommand struct {
 }
 
 func (c *BootstrapCommand) Info() *cmd.Info {
-	return &cmd.Info{"bootstrap", "", "start up an environment from scratch", ""}
+	return &cmd.Info{
+		Name:    "bootstrap",
+		Purpose: "start up an environment from scratch",
+	}
 }
 
 func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -42,7 +45,7 @@ func (c *BootstrapCommand) Run(context *cmd.Context) error {
 	out := context.Stderr
 	fmt.Fprintln(out, "No juju environment configuration file exists.")
 	fmt.Fprintln(out, "Please create a configuration by running:")
-	fmt.Fprintln(out, "    juju generate-config -w")
+	fmt.Fprintln(out, "    juju init -w")
 	fmt.Fprintln(out, "then edit the file to configure your juju environment.")
 	fmt.Fprintln(out, "You can then re-run bootstrap.")
 	return err

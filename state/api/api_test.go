@@ -198,24 +198,24 @@ var scenarioStatus = &api.Status{
 // user-admin
 // user-other
 // machine-0
-//	instance-id="i-machine-0"
-//	jobs=manage-environ
+//  instance-id="i-machine-0"
+//  jobs=manage-environ
 // machine-1
-//	instance-id="i-machine-1"
-//	jobs=host-units
+//  instance-id="i-machine-1"
+//  jobs=host-units
 // machine-2
-//	instance-id="i-machine-2"
-//	jobs=host-units
+//  instance-id="i-machine-2"
+//  jobs=host-units
 // service-wordpress
 // service-logging
 // unit-wordpress-0
 //     deployer-name=machine-1
 // unit-logging-0
-//	deployer-name=unit-wordpress-0
+//  deployer-name=unit-wordpress-0
 // unit-wordpress-1
 //     deployer-name=machine-2
 // unit-logging-1
-//	deployer-name=unit-wordpress-1
+//  deployer-name=unit-wordpress-1
 //
 // The passwords for all returned entities are
 // set to the entity name with a " password" suffix.
@@ -239,7 +239,7 @@ func (s *suite) setUpScenario(c *C) (entities []string) {
 	setDefaultPassword(c, u)
 	add(u)
 
-	m, err := s.State.AddMachine(state.JobManageEnviron)
+	m, err := s.State.AddMachine("series", state.JobManageEnviron)
 	c.Assert(err, IsNil)
 	c.Assert(m.EntityName(), Equals, "machine-0")
 	err = m.SetInstanceId(state.InstanceId("i-" + m.EntityName()))
@@ -265,7 +265,7 @@ func (s *suite) setUpScenario(c *C) (entities []string) {
 		setDefaultPassword(c, wu)
 		add(wu)
 
-		m, err := s.State.AddMachine(state.JobHostUnits)
+		m, err := s.State.AddMachine("series", state.JobHostUnits)
 		c.Assert(err, IsNil)
 		c.Assert(m.EntityName(), Equals, fmt.Sprintf("machine-%d", i+1))
 		err = m.SetInstanceId(state.InstanceId("i-" + m.EntityName()))
@@ -373,8 +373,16 @@ func (s *suite) TestClientStatus(c *C) {
 	c.Assert(status, DeepEquals, scenarioStatus)
 }
 
+func (s *suite) TestClientEnvironmentInfo(c *C) {
+	conf, _ := s.State.EnvironConfig()
+	info, err := s.APIState.Client().EnvironmentInfo()
+	c.Assert(err, IsNil)
+	c.Assert(info.DefaultSeries, Equals, conf.DefaultSeries())
+	c.Assert(info.ProviderType, Equals, conf.Type())
+}
+
 func (s *suite) TestMachineLogin(c *C) {
-	stm, err := s.State.AddMachine(state.JobHostUnits)
+	stm, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	err = stm.SetPassword("machine-password")
 	c.Assert(err, IsNil)
@@ -400,7 +408,7 @@ func (s *suite) TestMachineLogin(c *C) {
 }
 
 func (s *suite) TestMachineInstanceId(c *C) {
-	stm, err := s.State.AddMachine(state.JobHostUnits)
+	stm, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, stm)
 
@@ -437,7 +445,7 @@ func (s *suite) TestMachineInstanceId(c *C) {
 }
 
 func (s *suite) TestMachineRefresh(c *C) {
-	stm, err := s.State.AddMachine(state.JobHostUnits)
+	stm, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, stm)
 	err = stm.SetInstanceId("foo")
@@ -468,7 +476,7 @@ func (s *suite) TestMachineRefresh(c *C) {
 }
 
 func (s *suite) TestMachineSetPassword(c *C) {
-	stm, err := s.State.AddMachine(state.JobHostUnits)
+	stm, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, stm)
 
@@ -488,7 +496,7 @@ func (s *suite) TestMachineSetPassword(c *C) {
 func (s *suite) TestMachineEntityName(c *C) {
 	c.Assert(api.MachineEntityName("2"), Equals, "machine-2")
 
-	stm, err := s.State.AddMachine(state.JobHostUnits)
+	stm, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, stm)
 	st := s.openAs(c, "machine-0")
@@ -528,7 +536,7 @@ func (s *suite) TestUnitRefresh(c *C) {
 }
 
 func (s *suite) TestErrors(c *C) {
-	stm, err := s.State.AddMachine(state.JobHostUnits)
+	stm, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, stm)
 	st := s.openAs(c, stm.EntityName())
@@ -611,7 +619,7 @@ func (s *suite) TestStop(c *C) {
 	srv, err := api.NewServer(s.State, "localhost:0", []byte(coretesting.ServerCert), []byte(coretesting.ServerKey))
 	c.Assert(err, IsNil)
 
-	stm, err := s.State.AddMachine(state.JobHostUnits)
+	stm, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	err = stm.SetInstanceId("foo")
 	c.Assert(err, IsNil)
