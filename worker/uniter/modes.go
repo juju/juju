@@ -141,6 +141,11 @@ func ModeUpgrading(sch *state.Charm) Mode {
 		} else if err != nil {
 			return nil, err
 		}
+		// Now the upgrade is complete, we'll need to check all
+		// relations again: some might previously have been skipped
+		// (if they involved endpoints only implemented in the new
+		// charm).
+		u.f.WantAllRelationsEvents()
 		return ModeContinue, nil
 	}
 }

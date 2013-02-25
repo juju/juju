@@ -144,7 +144,8 @@ func (s *UpgraderSuite) TestUpgrader(c *C) {
 			c.Check(ug.AgentName, Equals, "testagent")
 
 			// Check that the upgraded version was really downloaded.
-			data, err := ioutil.ReadFile(filepath.Join(agent.ToolsDir(s.DataDir(), tools.Binary), "jujud"))
+			path := agent.SharedToolsDir(s.DataDir(), tools.Binary)
+			data, err := ioutil.ReadFile(filepath.Join(path, "jujud"))
 			c.Assert(err, IsNil)
 			c.Assert(string(data), Equals, "jujud contents "+tools.Binary.String())
 
@@ -246,7 +247,7 @@ func (s *UpgraderSuite) TestUpgraderReadyErrorUpgrade(c *C) {
 	}
 	err := ug.ChangeAgentTools()
 	c.Assert(err, IsNil)
-	d := agent.AgentToolsDir(s.DataDir(), "foo")
+	d := agent.ToolsDir(s.DataDir(), "foo")
 	data, err := ioutil.ReadFile(filepath.Join(d, "jujud"))
 	c.Assert(err, IsNil)
 	c.Assert(string(data), Equals, "jujud contents 2.0.2-foo-bar")

@@ -41,13 +41,13 @@ var parseConstraintsTests = []struct {
 		summary: "set arch empty",
 		args:    []string{"arch="},
 	}, {
-		summary: "set arch 1",
+		summary: "set arch amd64",
 		args:    []string{"arch=amd64"},
 	}, {
-		summary: "set arch 1",
+		summary: "set arch i386",
 		args:    []string{"arch=i386"},
 	}, {
-		summary: "set arch 1",
+		summary: "set arch arm",
 		args:    []string{"arch=arm"},
 	}, {
 		summary: "set nonsense arch 1",

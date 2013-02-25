@@ -16,7 +16,11 @@ type ResolvedCommand struct {
 }
 
 func (c *ResolvedCommand) Info() *cmd.Info {
-	return &cmd.Info{"resolved", "<unit>", "marks unit errors resolved", ""}
+	return &cmd.Info{
+		Name:    "resolved",
+		Args:    "<unit>",
+		Purpose: "marks unit errors resolved",
+	}
 }
 
 func (c *ResolvedCommand) SetFlags(f *gnuflag.FlagSet) {

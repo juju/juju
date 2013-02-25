@@ -34,10 +34,10 @@ func Main(args []string) {
 	juju.Register(&AddUnitCommand{})
 
 	// Register destruction commands.
-	juju.Register(&DestroyMachineCommand{}, "terminate-machine")
-	juju.Register(&DestroyRelationCommand{}, "remove-relation")
+	juju.Register(&DestroyMachineCommand{})
+	juju.Register(&DestroyRelationCommand{})
 	juju.Register(&DestroyServiceCommand{})
-	juju.Register(&DestroyUnitCommand{}, "remove-unit")
+	juju.Register(&DestroyUnitCommand{})
 	juju.Register(&DestroyEnvironmentCommand{})
 
 	// Register error resolution commands.
@@ -47,7 +47,7 @@ func Main(args []string) {
 	juju.Register(&ResolvedCommand{})
 
 	// Register configuration commands.
-	juju.Register(&GenerateConfigCommand{})
+	juju.Register(&InitCommand{})
 	juju.Register(&GetCommand{})
 	juju.Register(&SetCommand{})
 	juju.Register(&GetConstraintsCommand{})

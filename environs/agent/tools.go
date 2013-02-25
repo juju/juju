@@ -17,23 +17,22 @@ import (
 
 const urlFile = "downloaded-url.txt"
 
-// ToolsDir returns the directory that is used to
+// SharedToolsDir returns the directory that is used to
 // store binaries for the given version of the juju tools
 // within the dataDir directory.
-func ToolsDir(dataDir string, vers version.Binary) string {
+func SharedToolsDir(dataDir string, vers version.Binary) string {
 	return path.Join(dataDir, "tools", vers.String())
 }
 
-// AgentToolsDir returns the directory that is used
-// to store binaries for the tools used by the given agent
-// within the given dataDir directory.
+// ToolsDir returns the directory that is used/ to store binaries for
+// the tools used by the given agent within the given dataDir directory.
 // Conventionally it is a symbolic link to the actual tools directory.
-func AgentToolsDir(dataDir, agentName string) string {
+func ToolsDir(dataDir, agentName string) string {
 	return path.Join(dataDir, "tools", agentName)
 }
 
-// AgentDir returns the agent-specific data directory.
-func AgentDir(dataDir, agentName string) string {
+// Dir returns the agent-specific data directory.
+func Dir(dataDir, agentName string) string {
 	return path.Join(dataDir, "agents", agentName)
 }
 
@@ -86,17 +85,16 @@ func UnpackTools(dataDir string, tools *state.Tools, r io.Reader) (err error) {
 		return err
 	}
 
-	err = os.Rename(dir, ToolsDir(dataDir, tools.Binary))
+	err = os.Rename(dir, SharedToolsDir(dataDir, tools.Binary))
 	// If we've failed to rename the directory, it may be because
 	// the directory already exists - if ReadTools succeeds, we
 	// assume all's ok.
 	if err != nil {
-		_, err := ReadTools(dataDir, tools.Binary)
-		if err == nil {
+		if _, err := ReadTools(dataDir, tools.Binary); err == nil {
 			return nil
 		}
 	}
-	return nil
+	return err
 }
 
 func removeAll(dir string) {
@@ -120,7 +118,7 @@ func writeFile(name string, mode os.FileMode, r io.Reader) error {
 // ReadTools checks that the tools for the given version exist
 // in the dataDir directory, and returns a Tools instance describing them.
 func ReadTools(dataDir string, vers version.Binary) (*state.Tools, error) {
-	dir := ToolsDir(dataDir, vers)
+	dir := SharedToolsDir(dataDir, vers)
 	urlData, err := ioutil.ReadFile(filepath.Join(dir, urlFile))
 	if err != nil {
 		return nil, fmt.Errorf("cannot read URL in tools directory: %v", err)
@@ -145,12 +143,12 @@ func ChangeAgentTools(dataDir string, agentName string, vers version.Binary) (*s
 	if err != nil {
 		return nil, err
 	}
-	tmpName := AgentToolsDir(dataDir, "tmplink-"+agentName)
+	tmpName := ToolsDir(dataDir, "tmplink-"+agentName)
 	err = os.Symlink(tools.Binary.String(), tmpName)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create tools symlink: %v", err)
 	}
-	err = os.Rename(tmpName, AgentToolsDir(dataDir, agentName))
+	err = os.Rename(tmpName, ToolsDir(dataDir, agentName))
 	if err != nil {
 		return nil, fmt.Errorf("cannot update tools symlink: %v", err)
 	}

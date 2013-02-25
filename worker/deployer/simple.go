@@ -66,7 +66,7 @@ func (mgr *SimpleManager) DeployUnit(unitName, initialPassword string) (err erro
 	// Link the current tools for use by the new agent.
 	entityName := state.UnitEntityName(unitName)
 	_, err = agent.ChangeAgentTools(mgr.DataDir, entityName, version.Current)
-	toolsDir := agent.AgentToolsDir(mgr.DataDir, entityName)
+	toolsDir := agent.ToolsDir(mgr.DataDir, entityName)
 	defer removeOnErr(&err, toolsDir)
 
 	info := *mgr.StateInfo
@@ -109,11 +109,11 @@ func (mgr *SimpleManager) RecallUnit(unitName string) error {
 		return err
 	}
 	entityName := state.UnitEntityName(unitName)
-	agentDir := agent.AgentDir(mgr.DataDir, entityName)
+	agentDir := agent.Dir(mgr.DataDir, entityName)
 	if err := os.RemoveAll(agentDir); err != nil {
 		return err
 	}
-	toolsDir := agent.AgentToolsDir(mgr.DataDir, entityName)
+	toolsDir := agent.ToolsDir(mgr.DataDir, entityName)
 	return os.Remove(toolsDir)
 }
 
