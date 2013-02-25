@@ -504,7 +504,7 @@ var steadyUpgradeTests = []uniterTest{
 		verifyRunning{},
 	),
 	ut(
-		// This test does and add-relation as quickly as possible
+		// This test does an add-relation as quickly as possible
 		// after an upgrade-charm, in the hope that the scheduler will
 		// deliver the events in the wrong order. The observed
 		// behaviour should be the same in either case.
