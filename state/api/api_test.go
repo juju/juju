@@ -61,6 +61,10 @@ var operationPermTests = []struct {
 	about: "Client.Status",
 	op:    opClientStatus,
 	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.ServiceGet",
+	op:    opClientServiceGet,
+	allow: []string{"user-admin", "user-other"},
 },
 }
 
@@ -171,6 +175,16 @@ func opClientStatus(c *C, st *api.State) (func(), error) {
 	}
 	c.Assert(err, IsNil)
 	c.Assert(status, DeepEquals, scenarioStatus)
+	return func() {}, nil
+}
+
+func opClientServiceGet(c *C, st *api.State) (func(), error) {
+	service, err := st.Client().ServiceGet("wordpress")
+	if err != nil {
+		return func() {}, err
+	}
+	c.Assert(err, IsNil)
+	c.Assert(service, DeepEquals, scenarioStatus)
 	return func() {}, nil
 }
 

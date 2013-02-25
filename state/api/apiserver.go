@@ -182,14 +182,8 @@ func (c *srvClient) Status() (Status, error) {
 	return status, nil
 }
 
-// GetConfig returns the requested service's configuration.
-type rpcServiceGet struct {
-	Service string
-}
-
-func (c *srvClient) ServiceGet(args rpcServiceGet) (statecmd.ServiceGetResults, error) {
-	return statecmd.ServiceGet(c.root.srv.state,
-		statecmd.ServiceGetParams{ServiceName: args.Service})
+func (c *srvClient) ServiceGet(args statecmd.ServiceGetParams) (statecmd.ServiceGetResults, error) {
+	return statecmd.ServiceGet(c.root.srv.state, args)
 }
 
 // EnvironmentInfo returns information about the current environment (default
