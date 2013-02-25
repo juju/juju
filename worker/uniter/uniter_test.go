@@ -37,6 +37,7 @@ type UniterSuite struct {
 	coretesting.HTTPSuite
 	dataDir  string
 	oldLcAll string
+	unitDir  string
 }
 
 var _ = Suite(&UniterSuite{})
@@ -55,6 +56,7 @@ func (s *UniterSuite) SetUpSuite(c *C) {
 	c.Assert(err, IsNil)
 	s.oldLcAll = os.Getenv("LC_ALL")
 	os.Setenv("LC_ALL", "en_US")
+	s.unitDir = filepath.Join(s.dataDir, "agents", "unit-u-0")
 }
 
 func (s *UniterSuite) TearDownSuite(c *C) {
@@ -184,7 +186,7 @@ func (ctx *context) matchLogHooks(c *C) (match bool, overshoot bool) {
 	return true, len(actual) > len(ctx.hooks)
 }
 
-var uniterTests = []uniterTest{
+var startupTests = []uniterTest{
 	// Check conditions that can cause the uniter to fail to start.
 	ut(
 		"unable to create state dir",
@@ -198,7 +200,13 @@ var uniterTests = []uniterTest{
 		startUniter{},
 		waitUniterDead{`failed to initialize uniter for unit "u/0": unit "u/0" not found`},
 	),
+}
 
+func (s *UniterSuite) TestUniterStartup(c *C) {
+	s.runUniterTests(c, startupTests)
+}
+
+var bootstrapTests = []uniterTest{
 	// Check error conditions during unit bootstrap phase.
 	ut(
 		"insane deployment",
@@ -215,7 +223,15 @@ var uniterTests = []uniterTest{
 		}},
 		createUniter{},
 		waitUniterDead{`ModeInstalling cs:series/wordpress-0: failed to download charm .* 404 Not Found`},
-	), ut(
+	),
+}
+
+func (s *UniterSuite) TestUniterBootstrap(c *C) {
+	s.runUniterTests(c, bootstrapTests)
+}
+
+var installHookTests = []uniterTest{
+	ut(
 		"install hook fail and resolve",
 		startupError{"install"},
 		verifyWaiting{},
@@ -244,7 +260,15 @@ var uniterTests = []uniterTest{
 			status: state.UnitStarted,
 		},
 		waitHooks{"install", "config-changed", "start"},
-	), ut(
+	),
+}
+
+func (s *UniterSuite) TestUniterInstallHook(c *C) {
+	s.runUniterTests(c, installHookTests)
+}
+
+var startHookTests = []uniterTest{
+	ut(
 		"start hook fail and resolve",
 		startupError{"start"},
 		verifyWaiting{},
@@ -275,7 +299,15 @@ var uniterTests = []uniterTest{
 		},
 		waitHooks{"start", "config-changed"},
 		verifyRunning{},
-	), ut(
+	),
+}
+
+func (s *UniterSuite) TestUniterStartHook(c *C) {
+	s.runUniterTests(c, startHookTests)
+}
+
+var configChangedHookTests = []uniterTest{
+	ut(
 		"config-changed hook fail and resolve",
 		startupError{"config-changed"},
 		verifyWaiting{},
@@ -314,8 +346,6 @@ var uniterTests = []uniterTest{
 		waitHooks{"config-changed", "start"},
 		verifyRunning{},
 	),
-
-	// Steady state changes.
 	ut(
 		"steady state config change with config-get verification",
 		createCharm{
@@ -338,8 +368,13 @@ var uniterTests = []uniterTest{
 		assertYaml{"charm/config.out", map[string]interface{}{
 			"blog-title": "Goodness Gracious Me",
 		}},
-	),
+	)}
 
+func (s *UniterSuite) TestUniterConfigChangedHook(c *C) {
+	s.runUniterTests(c, configChangedHookTests)
+}
+
+var dyingReactionTests = []uniterTest{
 	// Reaction to entity deaths.
 	ut(
 		"steady state service dying",
@@ -384,8 +419,14 @@ var uniterTests = []uniterTest{
 		waitUniterDead{},
 		waitHooks{},
 	),
+}
 
-	// Upgrade scenarios.
+func (s *UniterSuite) TestUniterDyingReaction(c *C) {
+	s.runUniterTests(c, dyingReactionTests)
+}
+
+var steadyUpgradeTests = []uniterTest{
+	// Upgrade scenarios from steady state.
 	ut(
 		"steady state upgrade",
 		quickStart{},
@@ -461,7 +502,38 @@ var uniterTests = []uniterTest{
 		},
 		waitHooks{"upgrade-charm", "config-changed"},
 		verifyRunning{},
-	), ut(
+	),
+	ut(
+		// This test does and add-relation as quickly as possible
+		// after an upgrade-charm, in the hope that the scheduler will
+		// deliver the events in the wrong order. The observed
+		// behaviour should be the same in either case.
+		"ignore unknown relations until upgrade is done",
+		quickStart{},
+		createCharm{
+			revision: 2,
+			customize: func(c *C, ctx *context, path string) {
+				renameRelation(c, path, "db", "db2")
+				hpath := filepath.Join(path, "hooks", "db2-relation-joined")
+				ctx.writeHook(c, hpath, true)
+			},
+		},
+		serveCharm{},
+		upgradeCharm{revision: 2},
+		addRelation{},
+		addRelationUnit{},
+		waitHooks{"upgrade-charm", "config-changed", "db2-relation-joined mysql/0 db2:0"},
+		verifyCharm{revision: 2},
+	),
+}
+
+func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *C) {
+	s.runUniterTests(c, steadyUpgradeTests)
+}
+
+var errorUpgradeTests = []uniterTest{
+	// Upgrade scenarios from error state.
+	ut(
 		"error state unforced upgrade (ignored until started state)",
 		startupError{"start"},
 		createCharm{revision: 1},
@@ -503,7 +575,16 @@ var uniterTests = []uniterTest{
 		},
 		waitHooks{"config-changed"},
 		verifyRunning{},
-	), ut(
+	),
+}
+
+func (s *UniterSuite) TestUniterErrorStateUpgrade(c *C) {
+	s.runUniterTests(c, errorUpgradeTests)
+}
+
+var upgradeConflictsTests = []uniterTest{
+	// Upgrade scenarios - handling conflicts.
+	ut(
 		"upgrade: conflicting files",
 		startUpgradeError{},
 
@@ -614,29 +695,14 @@ var uniterTests = []uniterTest{
 		unitDead,
 		waitUniterDead{},
 		waitHooks{},
-	), ut(
-		// This test does and add-relation as quickly as possible
-		// after an upgrade-charm, in the hope that the scheduler will
-		// deliver the events in the wrong order. The observed
-		// behaviour should be the same in either case.
-		"ignore unknown relations until upgrade is done",
-		quickStart{},
-		createCharm{
-			revision: 2,
-			customize: func(c *C, ctx *context, path string) {
-				renameRelation(c, path, "db", "db2")
-				hpath := filepath.Join(path, "hooks", "db2-relation-joined")
-				ctx.writeHook(c, hpath, true)
-			},
-		},
-		serveCharm{},
-		upgradeCharm{revision: 2},
-		addRelation{},
-		addRelationUnit{},
-		waitHooks{"upgrade-charm", "config-changed", "db2-relation-joined mysql/0 db2:0"},
-		verifyCharm{revision: 2},
 	),
+}
 
+func (s *UniterSuite) TestUniterUpgradeConflicts(c *C) {
+	s.runUniterTests(c, upgradeConflictsTests)
+}
+
+var relationsTests = []uniterTest{
 	// Relations.
 	ut(
 		"simple joined/changed/departed",
@@ -697,7 +763,13 @@ var uniterTests = []uniterTest{
 		// --force` to cause the unit to leave any relation scopes it may be
 		// in -- but it's worth noting here all the same.
 	),
+}
 
+func (s *UniterSuite) TestUniterRelations(c *C) {
+	s.runUniterTests(c, relationsTests)
+}
+
+var subordinatesTests = []uniterTest{
 	// Subordinates.
 	ut(
 		"unit becomes dying while subordinates exist",
@@ -725,25 +797,27 @@ var uniterTests = []uniterTest{
 	),
 }
 
-func (s *UniterSuite) TestUniter(c *C) {
-	unitDir := filepath.Join(s.dataDir, "agents", "unit-u-0")
+func (s *UniterSuite) TestUniterSubordinates(c *C) {
+	s.runUniterTests(c, subordinatesTests)
+}
+
+func (s *UniterSuite) runUniterTests(c *C, uniterTests []uniterTest) {
 	for i, t := range uniterTests {
-		if i != 0 {
-			s.Reset(c)
-			coretesting.Server.Flush()
-			err := os.RemoveAll(unitDir)
-			c.Assert(err, IsNil)
-		}
 		c.Logf("\ntest %d: %s\n", i, t.summary)
 		ctx := &context{
 			s:       s,
 			st:      s.State,
 			id:      i,
-			path:    unitDir,
+			path:    s.unitDir,
 			dataDir: s.dataDir,
 			charms:  coretesting.ResponseMap{},
 		}
 		ctx.run(c, t.steps)
+
+		s.Reset(c)
+		coretesting.Server.Flush()
+		err := os.RemoveAll(s.unitDir)
+		c.Assert(err, IsNil)
 	}
 }
 
