@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/goyaml"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/trivial"
@@ -50,7 +49,7 @@ type Conf struct {
 // ReadConf reads configuration data for the given
 // entity from the given data directory.
 func ReadConf(dataDir, entityName string) (*Conf, error) {
-	dir := environs.AgentDir(dataDir, entityName)
+	dir := Dir(dataDir, entityName)
 	data, err := ioutil.ReadFile(filepath.Join(dir, "agent.conf"))
 	if err != nil {
 		return nil, err
@@ -96,7 +95,7 @@ func (c *Conf) EntityName() string {
 
 // Dir returns the agent's directory.
 func (c *Conf) Dir() string {
-	return environs.AgentDir(c.DataDir, c.EntityName())
+	return Dir(c.DataDir, c.EntityName())
 }
 
 // Check checks that the configuration has all the required elements.
