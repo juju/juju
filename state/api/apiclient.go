@@ -53,9 +53,25 @@ func (c *Client) ServiceGet(service string) (*statecmd.ServiceGetResults, error)
 	params := statecmd.ServiceGetParams{ServiceName: service}
 	err := c.st.client.Call("Client", "", "ServiceGet", params, &results)
 	if err != nil {
-		return nil, rpcError(err)
+		return nil, clientError(err)
 	}
 	return &results, nil
+}
+
+// EnvironmentInfo holds information about the Juju environment.
+type EnvironmentInfo struct {
+	DefaultSeries string
+	ProviderType  string
+}
+
+// EnvironmentInfo returns details about the Juju environment.
+func (c *Client) EnvironmentInfo() (*EnvironmentInfo, error) {
+	info := new(EnvironmentInfo)
+	err := c.st.client.Call("Client", "", "EnvironmentInfo", nil, info)
+	if err != nil {
+		return nil, clientError(err)
+	}
+	return info, nil
 }
 
 // Machine returns a reference to the machine with the given id.

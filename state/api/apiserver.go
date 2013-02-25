@@ -188,7 +188,22 @@ type rpcServiceGet struct {
 }
 
 func (c *srvClient) ServiceGet(args rpcServiceGet) (statecmd.ServiceGetResults, error) {
-	return statecmd.ServiceGet(c.root.srv.state, statecmd.ServiceGetParams{ServiceName: args.Service})
+	return statecmd.ServiceGet(c.root.srv.state,
+		statecmd.ServiceGetParams{ServiceName: args.Service})
+}
+
+// EnvironmentInfo returns information about the current environment (default
+// series and type).
+func (c *srvClient) EnvironmentInfo() (EnvironmentInfo, error) {
+	conf, err := c.root.srv.state.EnvironConfig()
+	if err != nil {
+		return EnvironmentInfo{}, err
+	}
+	info := EnvironmentInfo{
+		DefaultSeries: conf.DefaultSeries(),
+		ProviderType:  conf.Type(),
+	}
+	return info, nil
 }
 
 type rpcCreds struct {

@@ -17,7 +17,12 @@ type DestroyUnitCommand struct {
 }
 
 func (c *DestroyUnitCommand) Info() *cmd.Info {
-	return &cmd.Info{"destroy-unit", "<unit> [...]", "destroy service units", ""}
+	return &cmd.Info{
+		Name:    "destroy-unit",
+		Args:    "<unit> [...]",
+		Purpose: "destroy service units",
+		Aliases: []string{"remove-unit"},
+	}
 }
 
 func (c *DestroyUnitCommand) SetFlags(f *gnuflag.FlagSet) {

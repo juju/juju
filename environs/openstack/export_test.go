@@ -83,3 +83,8 @@ func FindInstanceSpec(e environs.Environ, series, arch, flavor string) (imageId,
 	}
 	return
 }
+
+func SetUseFloatingIP(e environs.Environ, val bool) {
+	env := e.(*environ)
+	env.ecfg().attrs["use-floating-ip"] = val
+}

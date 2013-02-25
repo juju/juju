@@ -5,7 +5,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
-	"launchpad.net/goose/testservices"
+	"launchpad.net/goose/testservices/hook"
 	"launchpad.net/goose/testservices/openstackservice"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/openstack"
@@ -37,7 +37,6 @@ type localLiveSuite struct {
 	Mux        *http.ServeMux
 	oldHandler http.Handler
 
-	Env     environs.Environ
 	Service *openstackservice.Openstack
 }
 
@@ -54,21 +53,6 @@ func (s *localLiveSuite) SetUpSuite(c *C) {
 	s.cred.URL = s.Server.URL
 	s.Service = openstackservice.New(s.cred)
 	s.Service.SetupHTTP(s.Mux)
-
-	attrs := makeTestConfig()
-	attrs["admin-secret"] = "secret"
-	attrs["username"] = s.cred.User
-	attrs["password"] = s.cred.Secrets
-	attrs["region"] = s.cred.Region
-	attrs["auth-url"] = s.cred.URL
-	attrs["tenant-name"] = s.cred.TenantName
-	attrs["default-image-id"] = testImageId
-	if e, err := environs.NewFromAttrs(attrs); err != nil {
-		c.Fatalf("cannot create local test environment: %s", err.Error())
-	} else {
-		s.Env = e
-		putFakeTools(c, openstack.WritablePublicStorage(s.Env))
-	}
 
 	s.LiveTests.SetUpSuite(c)
 }
@@ -199,20 +183,73 @@ func panicWrite(name string, cert, key []byte) error {
 	panic("writeCertAndKey called unexpectedly")
 }
 
-func (s *localLiveSuite) TestBootstrapFailsWithoutPublicIP(c *C) {
-	s.Service.Nova.RegisterControlPoint(
+func testEnv(c *C, cred *identity.Credentials) environs.Environ {
+	attrs := makeTestConfig()
+	attrs["admin-secret"] = "secret"
+	attrs["username"] = cred.User
+	attrs["password"] = cred.Secrets
+	attrs["region"] = cred.Region
+	attrs["auth-url"] = cred.URL
+	attrs["tenant-name"] = cred.TenantName
+	attrs["default-image-id"] = testImageId
+	e, err := environs.NewFromAttrs(attrs)
+	if err != nil {
+		c.Fatalf("cannot create local test environment: %s", err.Error())
+	}
+	writeablePublicStorage := openstack.WritablePublicStorage(e)
+	putFakeTools(c, writeablePublicStorage)
+	return e
+}
+
+// If the bootstrap node is configured to require a public IP address (the default),
+// bootstrapping fails if an address cannot be allocated.
+func (s *localLiveSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
+	cleanup := s.Service.Nova.RegisterControlPoint(
 		"addFloatingIP",
-		func(sc testservices.ServiceControl, args ...interface{}) error {
+		func(sc hook.ServiceControl, args ...interface{}) error {
 			return fmt.Errorf("failed on purpose")
 		},
 	)
-	defer s.Service.Nova.RegisterControlPoint("addFloatingIP", nil)
-	writeablePublicStorage := openstack.WritablePublicStorage(s.Env)
-	putFakeTools(c, writeablePublicStorage)
-
-	err := environs.Bootstrap(s.Env, true, panicWrite)
+	defer cleanup()
+	e := testEnv(c, s.cred)
+	err := environs.Bootstrap(e, true, panicWrite)
 	c.Assert(err, ErrorMatches, ".*cannot allocate a public IP as needed.*")
-	defer s.Env.Destroy(nil)
+	defer ResetEnvironment(e)
+}
+
+// If the environment is configured not to require a public IP address for nodes,
+// bootstrapping and starting an instance should occur without any attempt to allocate a public address.
+func (s *localLiveSuite) TestStartInstanceWithoutPublicIP(c *C) {
+	e := testEnv(c, s.cred)
+	openstack.SetUseFloatingIP(e, false)
+	cleanup := s.Service.Nova.RegisterControlPoint(
+		"addFloatingIP",
+		func(sc hook.ServiceControl, args ...interface{}) error {
+			return fmt.Errorf("add floating IP should not have been called")
+		},
+	)
+	defer cleanup()
+	cleanup = s.Service.Nova.RegisterControlPoint(
+		"addServerFloatingIP",
+		func(sc hook.ServiceControl, args ...interface{}) error {
+			return fmt.Errorf("add server floating IP should not have been called")
+		},
+	)
+	defer cleanup()
+	err := environs.Bootstrap(e, true, panicWrite)
+	c.Assert(err, IsNil)
+	inst, err := e.StartInstance("100", testing.InvalidStateInfo("100"), testing.InvalidAPIInfo("100"), nil)
+	c.Assert(err, IsNil)
+	defer func() {
+		err := e.StopInstances([]environs.Instance{inst})
+		c.Assert(err, IsNil)
+	}()
+	defer ResetEnvironment(e)
+}
+
+func ResetEnvironment(e environs.Environ) {
+	e.Destroy(nil)
+	openstack.DeleteStorageContent(openstack.WritablePublicStorage(e))
 }
 
 var instanceGathering = []struct {

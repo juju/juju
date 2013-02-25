@@ -16,7 +16,11 @@ type GetConstraintsCommand struct {
 }
 
 func (c *GetConstraintsCommand) Info() *cmd.Info {
-	return &cmd.Info{"get-constraints", "", "view constraints", ""}
+	return &cmd.Info{
+		Name:    "get-constraints",
+		Args:    "[<service>]",
+		Purpose: "view constraints",
+	}
 }
 
 func formatConstraints(value interface{}) ([]byte, error) {
@@ -72,7 +76,11 @@ type SetConstraintsCommand struct {
 }
 
 func (c *SetConstraintsCommand) Info() *cmd.Info {
-	return &cmd.Info{"set-constraints", "[key=[value],...]", "replace constraints", ""}
+	return &cmd.Info{
+		Name:    "set-constraints",
+		Args:    "[key=[value] ...]",
+		Purpose: "replace constraints",
+	}
 }
 
 func (c *SetConstraintsCommand) SetFlags(f *gnuflag.FlagSet) {
