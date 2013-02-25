@@ -10,10 +10,10 @@ import (
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/openstack"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"net/http"
 	"net/http/httptest"
-	"launchpad.net/juju-core/state"
 )
 
 // Register tests to run against a test Openstack instance (service doubles).
@@ -39,7 +39,7 @@ type localServer struct {
 	Server     *httptest.Server
 	Mux        *http.ServeMux
 	oldHandler http.Handler
-	Service *openstackservice.Openstack
+	Service    *openstackservice.Openstack
 }
 
 func (s *localServer) start(c *C, cred *identity.Credentials) {
