@@ -20,6 +20,7 @@ var configChecker = schema.StrictFieldMap(
 		"public-bucket":     schema.String(),
 		"public-bucket-url": schema.String(),
 		"default-image-id":  schema.String(),
+		"use-floating-ip":   schema.Bool(),
 	},
 	schema.Defaults{
 		"username":          "",
@@ -32,6 +33,7 @@ var configChecker = schema.StrictFieldMap(
 		"public-bucket":     "juju-dist",
 		"public-bucket-url": "",
 		"default-image-id":  "",
+		"use-floating-ip":   true,
 	},
 )
 
@@ -78,6 +80,10 @@ func (c *environConfig) publicBucketURL() string {
 
 func (c *environConfig) defaultImageId() string {
 	return c.attrs["default-image-id"].(string)
+}
+
+func (c *environConfig) useFloatingIP() bool {
+	return c.attrs["use-floating-ip"].(bool)
 }
 
 func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {

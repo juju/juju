@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/firewaller"
 	"reflect"
 	stdtesting "testing"
@@ -302,7 +303,7 @@ func (s *FirewallerSuite) TestStartWithState(c *C) {
 }
 
 func (s *FirewallerSuite) TestStartWithPartialState(c *C) {
-	m, err := s.State.AddMachine(state.JobHostUnits)
+	m, err := s.State.AddMachine(version.Current.Series, state.JobHostUnits)
 	c.Assert(err, IsNil)
 	inst := s.startInstance(c, m)
 
@@ -329,7 +330,7 @@ func (s *FirewallerSuite) TestStartWithPartialState(c *C) {
 }
 
 func (s *FirewallerSuite) TestStartWithUnexposedService(c *C) {
-	m, err := s.State.AddMachine(state.JobHostUnits)
+	m, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	inst := s.startInstance(c, m)
 
@@ -608,7 +609,7 @@ func (s *FirewallerSuite) TestGlobalModeStartWithUnexposedService(c *C) {
 	restore := s.setGlobalMode(c)
 	defer restore(c)
 
-	m, err := s.State.AddMachine(state.JobHostUnits)
+	m, err := s.State.AddMachine(version.Current.Series, state.JobHostUnits)
 	c.Assert(err, IsNil)
 	s.startInstance(c, m)
 

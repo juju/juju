@@ -20,7 +20,9 @@ func NewUnitGetCommand(ctx Context) cmd.Command {
 
 func (c *UnitGetCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		"unit-get", "<setting>", "print public-address or private-address", "",
+		Name:    "unit-get",
+		Args:    "<setting>",
+		Purpose: "print public-address or private-address",
 	}
 }
 
