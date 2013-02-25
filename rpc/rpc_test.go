@@ -437,6 +437,25 @@ func (*suite) TestErrorAfterClientClose(c *C) {
 	c.Assert(err, IsNil)
 }
 
+type TKillerRoot struct {
+	killed bool
+	TRoot
+}
+
+func (r *TKillerRoot) Kill() {
+	r.killed = true
+}
+
+func (*suite) TestRootIsKilled(c *C) {
+	root := &TKillerRoot{}
+	client, srvDone := newRPCClientServer(c, root, nil)
+	err := client.Close()
+	c.Assert(err, IsNil)
+	err = chanReadError(c, srvDone, "server done")
+	c.Assert(err, IsNil)
+	c.Assert(root.killed, Equals, true)
+}
+
 func chanReadError(c *C, ch <-chan error, what string) error {
 	select {
 	case e := <-ch:
@@ -451,7 +470,7 @@ func chanReadError(c *C, ch <-chan error, what string) error {
 // single client.  When the server has finished serving the connection,
 // it sends a value on done.
 func newRPCClientServer(c *C, root interface{}, tfErr func(error) error) (client *rpc.Client, done <-chan error) {
-	srv, err := rpc.NewServer(&TRoot{}, tfErr)
+	srv, err := rpc.NewServer(root, tfErr)
 	c.Assert(err, IsNil)
 
 	l, err := net.Listen("tcp", ":0")
