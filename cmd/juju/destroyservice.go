@@ -16,8 +16,10 @@ type DestroyServiceCommand struct {
 
 func (c *DestroyServiceCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		"destroy-service", "<service>", "destroy a service",
-		"Destroying a service will destroy all its units and relations.",
+		Name:    "destroy-service",
+		Args:    "<service>",
+		Purpose: "destroy a service",
+		Doc:     "Destroying a service will destroy all its units and relations.",
 	}
 }
 

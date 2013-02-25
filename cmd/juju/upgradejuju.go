@@ -27,7 +27,10 @@ type UpgradeJujuCommand struct {
 var putTools = environs.PutTools
 
 func (c *UpgradeJujuCommand) Info() *cmd.Info {
-	return &cmd.Info{"upgrade-juju", "", "upgrade the tools in a juju environment", ""}
+	return &cmd.Info{
+		Name:    "upgrade-juju",
+		Purpose: "upgrade the tools in a juju environment",
+	}
 }
 
 func (c *UpgradeJujuCommand) SetFlags(f *gnuflag.FlagSet) {
