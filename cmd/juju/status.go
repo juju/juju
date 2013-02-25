@@ -228,11 +228,11 @@ func processStatus(r map[string]interface{}, s status) {
 	}
 }
 
-type agent interface {
+type agentAliver interface {
 	AgentAlive() (bool, error)
 }
 
-func processAgentStatus(r map[string]interface{}, a agent) {
+func processAgentStatus(r map[string]interface{}, a agentAliver) {
 	if alive, err := a.AgentAlive(); err == nil && alive {
 		r["agent-state"] = "running"
 	}
