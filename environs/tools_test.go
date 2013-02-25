@@ -95,7 +95,7 @@ func (t *ToolsSuite) TestPutGetTools(c *C) {
 		err = get(dataDir, tools)
 		c.Assert(err, IsNil)
 
-		dir := agent.ToolsDir(dataDir, version.Current)
+		dir := agent.SharedToolsDir(dataDir, version.Current)
 		// Verify that each tool executes and produces some
 		// characteristic output.
 		for i, test := range commandTests {
@@ -177,7 +177,7 @@ func getToolsWithTar(dataDir string, tools *state.Tools) error {
 	}
 	defer resp.Body.Close()
 
-	dir := agent.ToolsDir(dataDir, tools.Binary)
+	dir := agent.SharedToolsDir(dataDir, tools.Binary)
 	err = os.MkdirAll(dir, 0755)
 	if err != nil {
 		return err

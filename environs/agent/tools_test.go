@@ -117,7 +117,7 @@ func (t *ToolsSuite) TestReadToolsErrors(c *C) {
 	c.Assert(tools, IsNil)
 	c.Assert(err, ErrorMatches, "cannot read URL in tools directory: .*")
 
-	dir := agent.ToolsDir(t.dataDir, vers)
+	dir := agent.SharedToolsDir(t.dataDir, vers)
 	err = os.MkdirAll(dir, 0755)
 	c.Assert(err, IsNil)
 
@@ -146,7 +146,7 @@ func (t *ToolsSuite) TestChangeAgentTools(c *C) {
 	c.Assert(*gotTools, Equals, *tools)
 
 	assertDirNames(c, t.toolsDir(), []string{"1.2.3-foo-bar", "testagent"})
-	assertDirNames(c, agent.AgentToolsDir(t.dataDir, "testagent"), []string{"jujuc", "jujud", urlFile})
+	assertDirNames(c, agent.ToolsDir(t.dataDir, "testagent"), []string{"jujuc", "jujud", urlFile})
 
 	// Upgrade again to check that the link replacement logic works ok.
 	files2 := []*testing.TarFile{
@@ -165,13 +165,12 @@ func (t *ToolsSuite) TestChangeAgentTools(c *C) {
 	c.Assert(*gotTools, Equals, *tools2)
 
 	assertDirNames(c, t.toolsDir(), []string{"1.2.3-foo-bar", "1.2.4-foo-bar", "testagent"})
-	assertDirNames(c, agent.AgentToolsDir(t.dataDir, "testagent"), []string{"foo", "bar", urlFile})
+	assertDirNames(c, agent.ToolsDir(t.dataDir, "testagent"), []string{"foo", "bar", urlFile})
 }
 
-func (t *ToolsSuite) TestToolsDir(c *C) {
-	c.Assert(agent.ToolsDir("/var/lib/juju", version.MustParseBinary("1.2.3-precise-amd64")),
-		Equals,
-		"/var/lib/juju/tools/1.2.3-precise-amd64")
+func (t *ToolsSuite) TestSharedToolsDir(c *C) {
+	dir := agent.SharedToolsDir("/var/lib/juju", version.MustParseBinary("1.2.3-precise-amd64"))
+	c.Assert(dir, Equals, "/var/lib/juju/tools/1.2.3-precise-amd64")
 }
 
 // assertToolsContents asserts that the directory for the tools
@@ -182,7 +181,7 @@ func (t *ToolsSuite) assertToolsContents(c *C, tools *state.Tools, files []*test
 		wantNames = append(wantNames, f.Header.Name)
 	}
 	wantNames = append(wantNames, urlFile)
-	dir := agent.ToolsDir(t.dataDir, tools.Binary)
+	dir := agent.SharedToolsDir(t.dataDir, tools.Binary)
 	assertDirNames(c, dir, wantNames)
 	assertFileContents(c, dir, urlFile, tools.URL, 0200)
 	for _, f := range files {

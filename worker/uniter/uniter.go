@@ -108,7 +108,7 @@ func (u *Uniter) init(name string) (err error) {
 		return err
 	}
 	ename := u.unit.EntityName()
-	u.toolsDir = agent.AgentToolsDir(u.dataDir, ename)
+	u.toolsDir = agent.ToolsDir(u.dataDir, ename)
 	if err := EnsureJujucSymlinks(u.toolsDir); err != nil {
 		return err
 	}

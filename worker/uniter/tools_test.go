@@ -20,10 +20,10 @@ var _ = Suite(&ToolsSuite{})
 
 func (s *ToolsSuite) SetUpTest(c *C) {
 	s.dataDir = c.MkDir()
-	s.toolsDir = agent.ToolsDir(s.dataDir, version.Current)
+	s.toolsDir = agent.SharedToolsDir(s.dataDir, version.Current)
 	err := os.MkdirAll(s.toolsDir, 0755)
 	c.Assert(err, IsNil)
-	err = os.Symlink(s.toolsDir, agent.AgentToolsDir(s.dataDir, "unit-u-123"))
+	err = os.Symlink(s.toolsDir, agent.ToolsDir(s.dataDir, "unit-u-123"))
 	c.Assert(err, IsNil)
 }
 
