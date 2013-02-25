@@ -18,7 +18,10 @@ var statusDoc = "This command will report on the runtime state of various system
 
 func (c *StatusCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		"status", "", "output status information about an environment", statusDoc,
+		Name:    "status",
+		Purpose: "output status information about an environment",
+		Doc:     statusDoc,
+		Aliases: []string{"stat"},
 	}
 }
 

@@ -10,16 +10,16 @@ import (
 	"strings"
 )
 
-type GenerateConfigSuite struct {
+type InitSuite struct {
 }
 
-var _ = Suite(&GenerateConfigSuite{})
+var _ = Suite(&InitSuite{})
 
-func (*GenerateConfigSuite) TestBoilerPlateEnvironment(c *C) {
+func (*InitSuite) TestBoilerPlateEnvironment(c *C) {
 	defer makeFakeHome(c, "empty").restore()
 	// run without an environments.yaml
 	ctx := &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}}
-	code := cmd.Main(&GenerateConfigCommand{}, ctx, []string{"-w"})
+	code := cmd.Main(&InitCommand{}, ctx, []string{"-w"})
 	c.Check(code, Equals, 0)
 	outStr := ctx.Stdout.(*bytes.Buffer).String()
 	strippedOut := strings.Replace(outStr, "\n", "", -1)
@@ -31,7 +31,7 @@ func (*GenerateConfigSuite) TestBoilerPlateEnvironment(c *C) {
 	c.Assert(strippedData, Matches, ".*## This is the Juju config file, which you can use.*")
 }
 
-func (*GenerateConfigSuite) TestExistingEnvironmentNotOverwritten(c *C) {
+func (*InitSuite) TestExistingEnvironmentNotOverwritten(c *C) {
 	defer makeFakeHome(c, "existing").restore()
 	env := `
 environments:
@@ -45,7 +45,7 @@ environments:
 	c.Assert(err, IsNil)
 
 	ctx := &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}}
-	code := cmd.Main(&GenerateConfigCommand{}, ctx, []string{"-w"})
+	code := cmd.Main(&InitCommand{}, ctx, []string{"-w"})
 	c.Check(code, Equals, 0)
 	errOut := ctx.Stdout.(*bytes.Buffer).String()
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
@@ -57,7 +57,7 @@ environments:
 
 // Without the write (-w) option, any existing environmens.yaml file is preserved and the boilerplate is
 // written to stdout.
-func (*GenerateConfigSuite) TestPrintBoilerplate(c *C) {
+func (*InitSuite) TestPrintBoilerplate(c *C) {
 	defer makeFakeHome(c, "existing").restore()
 	env := `
 environments:
@@ -71,7 +71,7 @@ environments:
 	c.Assert(err, IsNil)
 
 	ctx := &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}}
-	code := cmd.Main(&GenerateConfigCommand{}, ctx, nil)
+	code := cmd.Main(&InitCommand{}, ctx, nil)
 	c.Check(code, Equals, 0)
 	errOut := ctx.Stdout.(*bytes.Buffer).String()
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
