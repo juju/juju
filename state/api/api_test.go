@@ -186,14 +186,14 @@ func opClientServiceGet(c *C, st *api.State) (func(), error) {
 	}
 	c.Assert(err, IsNil)
 	c.Assert(service, DeepEquals,
-                &statecmd.ServiceGetResults{
-                        Service:"wordpress",
-                        Charm:"wordpress",
-                        Settings:map[string]interface {}{
-                            "blog-title":map[string]interface{}{
-                                "type":"string",
-                                "value":interface {}(nil),
-                                "description":"A descriptive title used for the blog."}}})
+		&statecmd.ServiceGetResults{
+			Service: "wordpress",
+			Charm:   "wordpress",
+			Settings: map[string]interface{}{
+				"blog-title": map[string]interface{}{
+					"type":        "string",
+					"value":       interface{}(nil),
+					"description": "A descriptive title used for the blog."}}})
 	return func() {}, nil
 }
 
