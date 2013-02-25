@@ -1,9 +1,7 @@
 package api
 
 import (
-	"errors"
 	"fmt"
-	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state/statecmd"
 	"strings"
 )
@@ -192,20 +190,4 @@ func (u *Unit) EntityName() string {
 // the unit. If no such entity can be determined, false is returned.
 func (u *Unit) DeployerName() (string, bool) {
 	return u.doc.DeployerName, u.doc.DeployerName != ""
-}
-
-// rpcError maps errors returned from an RPC call into local errors with
-// appropriate values.
-// TODO(rog): implement NotFoundError, etc.
-func rpcError(err error) error {
-	if err == nil {
-		return nil
-	}
-	rerr, ok := err.(*rpc.ServerError)
-	if !ok {
-		return err
-	}
-	// TODO(rog) map errors into known error types, possibly introducing
-	// error codes to do so.
-	return errors.New(rerr.Message)
 }
