@@ -99,7 +99,7 @@ func (s *RelationerSuite) TestEnterLeaveScope(c *C) {
 	_, err = r.PrepareHook(hi)
 	c.Assert(err, IsNil)
 
-	// Verify PrepareHook created the dir
+	// Verify PrepareHook created the dir.
 	fi, err := os.Stat(filepath.Join(s.dirPath, strconv.Itoa(s.rel.Id())))
 	c.Assert(err, IsNil)
 	c.Assert(fi.IsDir(), Equals, true)
@@ -352,7 +352,7 @@ func (s *RelationerSuite) assertNoHook(c *C) {
 
 func (s *RelationerSuite) assertHook(c *C, expect hook.Info) {
 	s.State.StartSync()
-	// We're no longer doing this in Join, so we must do it here
+	// We must ensure the local state dir exists first.
 	c.Assert(s.dir.Ensure(), IsNil)
 	select {
 	case hi, ok := <-s.hooks:

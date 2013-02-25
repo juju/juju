@@ -315,7 +315,7 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 // restoreRelations reconciles the supplied relation state dirs with the
 // remote state of the corresponding relations.
 func (u *Uniter) restoreRelations() error {
-	// TODO: Get these from state, not from disk
+	// TODO(dimitern): Get these from state, not from disk.
 	dirs, err := relation.ReadAllStateDirs(u.relationsDir)
 	if err != nil {
 		return err
