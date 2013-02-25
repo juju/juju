@@ -38,6 +38,17 @@ func Context(c *C) *cmd.Context {
 	}
 }
 
+// ContextForDir creates a simple command execution context with the current
+// dir set to the specified directory.
+func ContextForDir(c *C, dir string) *cmd.Context {
+	return &cmd.Context{
+		Dir:    dir,
+		Stdin:  &bytes.Buffer{},
+		Stdout: &bytes.Buffer{},
+		Stderr: &bytes.Buffer{},
+	}
+}
+
 // RunCommand will run a command with the specified args.  The returned error
 // may come from either the parsing of the args, the command initialisation or
 // the actual running of the command.  Access to the resulting output streams

@@ -41,7 +41,6 @@ type Context struct {
 	Stdin  io.Reader
 	Stdout io.Writer
 	Stderr io.Writer
-	Flags  *gnuflag.FlagSet
 }
 
 // AbsPath returns an absolute representation of path, with relative paths
