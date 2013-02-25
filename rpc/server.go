@@ -95,7 +95,6 @@ func (srv *Server) ServeCodec(codec ServerCodec, root interface{}) error {
 		codec:  codec,
 		root:   reflect.ValueOf(root),
 	}
-	// TODO(rog) allow concurrent requests.
 	if csrv.root.Type() != srv.root.Type() {
 		panic(fmt.Errorf("rpc: unexpected type of root value; got %s, want %s", csrv.root.Type(), srv.root.Type()))
 	}
