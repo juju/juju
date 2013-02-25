@@ -61,6 +61,10 @@ func (p environProvider) BoilerplateConfig() string {
 ## https://juju.ubuntu.com/get-started/openstack/
 openstack:
   type: openstack
+  # Specifies whether the nodes are accessible via a public IP address.
+  # For installations where IP addresses have limited availability, ssh tunnelling
+  # may be a preferred connection option.
+  use-floating-ip: false
   admin-secret: {{rand}}
   # Globally unique swift bucket name
   control-bucket: juju-{{rand}}
@@ -83,6 +87,11 @@ openstack:
 ## https://juju.ubuntu.com/get-started/hp-cloud/
 hpcloud:
   type: openstack
+  # Specifies whether the nodes are accessible via a public IP address.
+  # For installations where IP addresses have limited availability, ssh tunnelling
+  # may be a preferred connection option. HP Cloud seems to have lots of available
+  # IP addresses.
+  # use-floating-ip: false
   admin-secret: {{rand}}
   # Globally unique swift bucket name
   control-bucket: juju-{{rand}}
@@ -370,7 +379,7 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 		config:          config,
 		stateServerCert: cert,
 		stateServerKey:  key,
-		withPublicIP:    true,
+		withPublicIP:    e.ecfg().useFloatingIP(),
 	})
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
@@ -506,10 +515,11 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 
 func (e *environ) StartInstance(machineId string, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
 	return e.startInstance(&startInstanceParams{
-		machineId: machineId,
-		info:      info,
-		apiInfo:   apiInfo,
-		tools:     tools,
+		machineId:    machineId,
+		info:         info,
+		apiInfo:      apiInfo,
+		tools:        tools,
+		withPublicIP: e.ecfg().useFloatingIP(),
 	})
 }
 
@@ -618,7 +628,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	var publicIP *nova.FloatingIP
 	if scfg.withPublicIP {
 		if fip, err := e.allocatePublicIP(); err != nil {
-			return nil, fmt.Errorf("cannot allocate a public IP as needed")
+			return nil, fmt.Errorf("cannot allocate a public IP as needed: %v", err)
 		} else {
 			publicIP = fip
 			log.Printf("environs/openstack: allocated public IP %s", publicIP.IP)

@@ -13,7 +13,12 @@ type OutputCommand struct {
 }
 
 func (c *OutputCommand) Info() *cmd.Info {
-	return &cmd.Info{"output", "<something>", "I like to output", "output"}
+	return &cmd.Info{
+		Name:    "output",
+		Args:    "<something>",
+		Purpose: "I like to output",
+		Doc:     "output",
+	}
 }
 
 func (c *OutputCommand) SetFlags(f *gnuflag.FlagSet) {

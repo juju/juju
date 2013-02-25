@@ -60,7 +60,7 @@ func (s *SuperCommandSuite) TestRegister(c *C) {
 
 func (s *SuperCommandSuite) TestRegisterAlias(c *C) {
 	jc := &cmd.SuperCommand{Name: "jujutest"}
-	jc.Register(&TestCommand{Name: "flip"}, "flap", "flop")
+	jc.Register(&TestCommand{Name: "flip", Aliases: []string{"flap", "flop"}})
 
 	info := jc.Info()
 	c.Assert(info.Doc, Equals, `commands:

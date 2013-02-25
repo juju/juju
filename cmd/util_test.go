@@ -23,13 +23,20 @@ type TestCommand struct {
 	Name    string
 	Option  string
 	Minimal bool
+	Aliases []string
 }
 
 func (c *TestCommand) Info() *cmd.Info {
 	if c.Minimal {
-		return &cmd.Info{c.Name, "", "", ""}
+		return &cmd.Info{Name: c.Name}
 	}
-	return &cmd.Info{c.Name, "<something>", c.Name + " the juju", c.Name + "-doc"}
+	return &cmd.Info{
+		Name:    c.Name,
+		Args:    "<something>",
+		Purpose: c.Name + " the juju",
+		Doc:     c.Name + "-doc",
+		Aliases: c.Aliases,
+	}
 }
 
 func (c *TestCommand) SetFlags(f *gnuflag.FlagSet) {

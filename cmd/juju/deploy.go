@@ -44,7 +44,10 @@ mysql-33 becomes cs:precise/mysql-33).
 
 func (c *DeployCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		"deploy", "<charm name> [<service name>]", "deploy a new service", deployDoc,
+		Name:    "deploy",
+		Args:    "<charm name> [<service name>]",
+		Purpose: "deploy a new service",
+		Doc:     deployDoc,
 	}
 }
 

@@ -27,7 +27,10 @@ type MachineAgent struct {
 
 // Info returns usage information for the command.
 func (a *MachineAgent) Info() *cmd.Info {
-	return &cmd.Info{"machine", "", "run a juju machine agent", ""}
+	return &cmd.Info{
+		Name:    "machine",
+		Purpose: "run a juju machine agent",
+	}
 }
 
 func (a *MachineAgent) SetFlags(f *gnuflag.FlagSet) {
