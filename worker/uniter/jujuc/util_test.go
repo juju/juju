@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"sort"

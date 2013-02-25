@@ -131,6 +131,7 @@ func (s *ConfigSuite) TestSetConfig(c *C) {
 		args := append([]string{"dummy-service"}, t.args...)
 		c.Logf("test %d. %s", i, t.about)
 		ctx := coretesting.Context(c)
+		ctx.Dir = dir
 		code := cmd.Main(&SetCommand{}, ctx, args)
 		if t.err != "" {
 			c.Check(code, Not(Equals), 0)
@@ -146,6 +147,7 @@ func (s *ConfigSuite) TestSetConfig(c *C) {
 
 func setupConfigfile(c *C, dir string) {
 	ctx := coretesting.Context(c)
+	ctx.Dir = dir
 	path := ctx.AbsPath("testconfig.yaml")
 	file, err := os.Create(path)
 	c.Assert(err, IsNil)

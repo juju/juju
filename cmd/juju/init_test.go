@@ -1,9 +1,8 @@
 package main
 
 import (
-	"io/ioutil"
-
 	"bytes"
+	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
