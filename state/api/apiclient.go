@@ -40,8 +40,7 @@ type Status struct {
 // Status returns the status of the juju environment.
 func (c *Client) Status() (*Status, error) {
 	var s Status
-	err := c.st.call("Client", "", "Status", nil, &s)
-	if err != nil {
+	if err := c.st.call("Client", "", "Status", nil, &s); err != nil {
 		return nil, err
 	}
 	return &s, nil
@@ -161,8 +160,7 @@ func newEntityWatcher(st *State, etype, id string) *EntityWatcher {
 
 func (w *EntityWatcher) loop() error {
 	var id rpcEntityWatcherId
-	err := w.st.call(w.etype, w.eid, "Watch", nil, &id)
-	if err != nil {
+	if err := w.st.call(w.etype, w.eid, "Watch", nil, &id); err != nil {
 		return err
 	}
 	callWatch := func(request string) error {
@@ -187,9 +185,12 @@ func (w *EntityWatcher) loop() error {
 	for {
 		select {
 		case <-w.tomb.Dying():
-			return nil
+			return tomb.ErrDying
 		case w.out <- struct{}{}:
 			// Note that because the change notification
+			// contains no information, there's no point in
+			// calling Next again until we have sent a notification
+			// on w.out.
 		}
 		if err := callWatch("Next"); err != nil {
 			if code := ErrCode(err); code == CodeStopped || code == CodeNotFound {

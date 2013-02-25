@@ -105,6 +105,8 @@ func (r *srvRoot) requireClient() error {
 	return nil
 }
 
+// Machine returns returns an object that provides
+// API access to methods on a state.Machine.
 func (r *srvRoot) Machine(id string) (*srvMachine, error) {
 	if err := r.requireAgent(); err != nil {
 		return nil, err
@@ -119,6 +121,8 @@ func (r *srvRoot) Machine(id string) (*srvMachine, error) {
 	}, nil
 }
 
+// Unit returns returns an object that provides
+// API access to methods on a state.Unit.
 func (r *srvRoot) Unit(name string) (*srvUnit, error) {
 	if err := r.requireAgent(); err != nil {
 		return nil, err
@@ -133,6 +137,8 @@ func (r *srvRoot) Unit(name string) (*srvUnit, error) {
 	}, nil
 }
 
+// User returns returns an object that provides
+// API access to methods on a state.User.
 func (r *srvRoot) User(name string) (*srvUser, error) {
 	// Any user is allowed to access their own user object.
 	// We check at this level rather than at the operation
@@ -157,6 +163,10 @@ func (r *srvRoot) User(name string) (*srvUser, error) {
 	}, nil
 }
 
+// EntityWatcher returns an object that provides
+// API access to methods on a state.EntityWatcher.
+// Each client has its own current set of watchers, stored
+// in r.watchers.
 func (r *srvRoot) EntityWatcher(id string) (srvEntityWatcher, error) {
 	if err := r.requireAgent(); err != nil {
 		return srvEntityWatcher{}, err
@@ -171,21 +181,8 @@ func (r *srvRoot) EntityWatcher(id string) (srvEntityWatcher, error) {
 	return srvEntityWatcher{w}, nil
 }
 
-type srvEntityWatcher struct {
-	*srvWatcher
-}
-
-func (w srvEntityWatcher) Next() error {
-	if _, ok := <-w.w.(*state.EntityWatcher).Changes(); ok {
-		return nil
-	}
-	err := w.w.Err()
-	if err == nil {
-		err = errStoppedWatcher
-	}
-	return err
-}
-
+// Client returns an object that provides access
+// to methods accessible to non-agent clients.
 func (r *srvRoot) Client(id string) (*srvClient, error) {
 	if err := r.requireClient(); err != nil {
 		return nil, err
@@ -195,6 +192,24 @@ func (r *srvRoot) Client(id string) (*srvClient, error) {
 		return nil, errBadId
 	}
 	return r.client, nil
+}
+
+type srvEntityWatcher struct {
+	*srvWatcher
+}
+
+// Next returns when a change has occurred to the
+// entity being watched since the most recent call to Next
+// or the Watch call that created the EntityWatcher.
+func (w srvEntityWatcher) Next() error {
+	if _, ok := <-w.w.(*state.EntityWatcher).Changes(); ok {
+		return nil
+	}
+	err := w.w.Err()
+	if err == nil {
+		err = errStoppedWatcher
+	}
+	return err
 }
 
 func (c *srvClient) Status() (Status, error) {
@@ -386,6 +401,7 @@ func isAgent(e state.AuthEntity) bool {
 	return !isUser
 }
 
+// watcher represents the interface provided by state watchers.
 type watcher interface {
 	Stop() error
 	Err() error
@@ -398,15 +414,18 @@ type watchers struct {
 	ws    map[string]*srvWatcher
 }
 
-// srvWatcher holds the details of a watcher.
-// It also implements the Stop RPC method
-// for all watchers.
+// srvWatcher holds the details of a watcher.  It also implements the
+// Stop RPC method for all watchers.
 type srvWatcher struct {
 	ws *watchers
 	w  watcher
 	id string
 }
 
+// Stop stops the given watcher. It causes any outstanding
+// Next calls to return a CodeStopped error.
+// Any subsequent Next calls will return a CodeNotFound
+// error because the watcher will no longer exist.
 func (w *srvWatcher) Stop() error {
 	err := w.w.Stop()
 	w.ws.mu.Lock()
