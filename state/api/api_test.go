@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
 	"net"
 	stdtesting "testing"
@@ -184,7 +185,15 @@ func opClientServiceGet(c *C, st *api.State) (func(), error) {
 		return func() {}, err
 	}
 	c.Assert(err, IsNil)
-	c.Assert(service, DeepEquals, scenarioStatus)
+	c.Assert(service, DeepEquals,
+                &statecmd.ServiceGetResults{
+                        Service:"wordpress",
+                        Charm:"wordpress",
+                        Settings:map[string]interface {}{
+                            "blog-title":map[string]interface{}{
+                                "type":"string",
+                                "value":interface {}(nil),
+                                "description":"A descriptive title used for the blog."}}})
 	return func() {}, nil
 }
 
