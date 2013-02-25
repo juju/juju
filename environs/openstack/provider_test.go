@@ -15,8 +15,8 @@ func Test(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Error setting up test suite: %s", err.Error())
 		}
-		registerOpenStackTests(cred)
+		registerLiveTests(cred)
 	}
-	registerServiceDoubleTests()
+	registerLocalTests()
 	TestingT(t)
 }
