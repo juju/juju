@@ -15,8 +15,10 @@ type DestroyRelationCommand struct {
 
 func (c *DestroyRelationCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		"destroy-relation", "<service1>[:<relation name1>] <service2>[:<relation name2>]",
-		"destroy a relation between two services", "",
+		Name:    "destroy-relation",
+		Args:    "<service1>[:<relation name1>] <service2>[:<relation name2>]",
+		Purpose: "destroy a relation between two services",
+		Aliases: []string{"remove-relation"},
 	}
 }
 

@@ -78,7 +78,7 @@ func newFilter(st *state.State, unitName string) (*filter, error) {
 	go func() {
 		defer f.tomb.Done()
 		err := f.loop(unitName)
-		log.Printf("worker/uniter: filter error: %v", err)
+		log.Printf("worker/uniter/filter: error: %v", err)
 		f.tomb.Kill(err)
 	}()
 	return f, nil
@@ -229,7 +229,7 @@ func (f *filter) loop(unitName string) (err error) {
 			f.outConfig = f.outConfigOn
 			discardConfig = f.discardConfig
 		case ids, ok := <-relationsw.Changes():
-			log.Debugf("filter: got relations change")
+			log.Debugf("worker/uniter/filter: got relations change")
 			if !ok {
 				return watcher.MustErr(relationsw)
 			}
@@ -244,10 +244,10 @@ func (f *filter) loop(unitName string) (err error) {
 			log.Debugf("worker/uniter/filter: sent resolved event")
 			f.outResolved = nil
 		case f.outConfig <- nothing:
-			log.Debugf("filter: sent config event")
+			log.Debugf("worker/uniter/filter: sent config event")
 			f.outConfig = nil
 		case f.outRelations <- f.relations:
-			log.Debugf("filter: sent relations event")
+			log.Debugf("worker/uniter/filter: sent relations event")
 			f.outRelations = nil
 			f.relations = nil
 
@@ -269,7 +269,7 @@ func (f *filter) loop(unitName string) (err error) {
 			watcher.Stop(relationsw, &f.tomb)
 			relationsw = f.service.WatchRelations()
 		case <-discardConfig:
-			log.Debugf("filter: discarded config event")
+			log.Debugf("worker/uniter/filter: discarded config event")
 			f.outConfig = nil
 		}
 	}
@@ -287,11 +287,11 @@ func (f *filter) unitChanged() error {
 	if f.life != f.unit.Life() {
 		switch f.life = f.unit.Life(); f.life {
 		case state.Dying:
-			log.Printf("worker/uniter: unit is dying")
+			log.Printf("worker/uniter/filter: unit is dying")
 			close(f.outUnitDying)
 			f.outUpgrade = nil
 		case state.Dead:
-			log.Printf("worker/uniter: unit is dead")
+			log.Printf("worker/uniter/filter: unit is dead")
 			return worker.ErrDead
 		}
 	}
