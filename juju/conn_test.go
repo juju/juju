@@ -477,11 +477,11 @@ func (s *ConnSuite) assertUnitLife(c *C, name string, life state.Life) {
 }
 
 func (s *ConnSuite) TestDestroyMachines(c *C) {
-	m0, err := s.conn.State.AddMachine(state.JobManageEnviron)
+	m0, err := s.conn.State.AddMachine("series", state.JobManageEnviron)
 	c.Assert(err, IsNil)
-	m1, err := s.conn.State.AddMachine(state.JobHostUnits)
+	m1, err := s.conn.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	m2, err := s.conn.State.AddMachine(state.JobHostUnits)
+	m2, err := s.conn.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 
 	curl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "wordpress")

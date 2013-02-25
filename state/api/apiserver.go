@@ -181,6 +181,20 @@ func (c *srvClient) Status() (Status, error) {
 	return status, nil
 }
 
+// EnvironmentInfo returns information about the current environment (default
+// series and type).
+func (c *srvClient) EnvironmentInfo() (EnvironmentInfo, error) {
+	conf, err := c.root.srv.state.EnvironConfig()
+	if err != nil {
+		return EnvironmentInfo{}, err
+	}
+	info := EnvironmentInfo{
+		DefaultSeries: conf.DefaultSeries(),
+		ProviderType:  conf.Type(),
+	}
+	return info, nil
+}
+
 type rpcCreds struct {
 	EntityName string
 	Password   string

@@ -60,7 +60,7 @@ func (s *DestroyMachineSuite) TestDestroyMachine(c *C) {
 	// machine complains only about the JMA machine.
 	err = m0.EnsureDead()
 	c.Assert(err, IsNil)
-	m1, err := s.State.AddMachine(state.JobManageEnviron)
+	m1, err := s.State.AddMachine("series", state.JobManageEnviron)
 	c.Assert(err, IsNil)
 	err = runDestroyMachine(c, "0", "1")
 	c.Assert(err, ErrorMatches, `some machines were not destroyed: machine 1 is required by the environment`)

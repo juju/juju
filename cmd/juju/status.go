@@ -59,16 +59,9 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	result := m()
-
-	result["machines"], err = processMachines(machines, instances)
-	if err != nil {
-		return err
-	}
-
-	result["services"], err = processServices(services)
-	if err != nil {
-		return err
+	result := map[string]interface{}{
+		"machines": checkError(processMachines(machines, instances)),
+		"services": checkError(processServices(services)),
 	}
 
 	return c.out.Write(ctx, result)

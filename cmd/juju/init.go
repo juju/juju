@@ -8,12 +8,12 @@ import (
 	"os"
 )
 
-// GenerateConfigCommand is used to write out a boilerplate environments.yaml file.
-type GenerateConfigCommand struct {
+// InitCommand is used to write out a boilerplate environments.yaml file.
+type InitCommand struct {
 	WriteFile bool
 }
 
-func (c *GenerateConfigCommand) Info() *cmd.Info {
+func (c *InitCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "init",
 		Purpose: "generate boilerplate configuration for juju environments",
@@ -21,17 +21,17 @@ func (c *GenerateConfigCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *GenerateConfigCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *InitCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.WriteFile, "w", false, "write to environments.yaml file if it doesn't already exist")
 }
 
-func (c *GenerateConfigCommand) Init(args []string) error {
+func (c *InitCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
 // Run checks to see if there is already an environments.yaml file. In one does not exist already,
 // a boilerplate version is created so that the user can edit it to get started.
-func (c *GenerateConfigCommand) Run(context *cmd.Context) error {
+func (c *InitCommand) Run(context *cmd.Context) error {
 	out := context.Stdout
 	config := environs.BoilerplateConfig()
 	if !c.WriteFile {
