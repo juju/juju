@@ -141,8 +141,10 @@ func ModeUpgrading(sch *state.Charm) Mode {
 		} else if err != nil {
 			return nil, err
 		}
-		// We're upgrading, so let the uniter have a chance to
-		// handle the relations for the new unit
+		// Now the upgrade is complete, we'll need to check all
+		// relations again: some might previously have been skipped
+		// (if they involved endpoints only implemented in the new
+		// charm).
 		u.f.WantAllRelationsEvents()
 		return ModeContinue, nil
 	}

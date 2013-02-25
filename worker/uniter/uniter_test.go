@@ -185,7 +185,6 @@ func (ctx *context) matchLogHooks(c *C) (match bool, overshoot bool) {
 }
 
 var uniterTests = []uniterTest{
-
 	// Check conditions that can cause the uniter to fail to start.
 	ut(
 		"unable to create state dir",
@@ -320,7 +319,7 @@ var uniterTests = []uniterTest{
 	ut(
 		"steady state config change with config-get verification",
 		createCharm{
-			customize: func(c *C, path string, ctx *context) {
+			customize: func(c *C, ctx *context, path string) {
 				appendHook(c, path, "config-changed", "config-get --format yaml --output config.out")
 			},
 		},
@@ -521,7 +520,7 @@ var uniterTests = []uniterTest{
 	), ut(
 		`upgrade: conflicting directories`,
 		createCharm{
-			customize: func(c *C, path string, ctx *context) {
+			customize: func(c *C, ctx *context, path string) {
 				err := os.Mkdir(filepath.Join(path, "data"), 0755)
 				c.Assert(err, IsNil)
 				appendHook(c, path, "start", "echo DATA > data/newfile")
@@ -537,7 +536,7 @@ var uniterTests = []uniterTest{
 
 		createCharm{
 			revision: 1,
-			customize: func(c *C, path string, ctx *context) {
+			customize: func(c *C, ctx *context, path string) {
 				data := filepath.Join(path, "data")
 				err := ioutil.WriteFile(data, []byte("<nelson>ha ha</nelson>"), 0644)
 				c.Assert(err, IsNil)
@@ -564,7 +563,7 @@ var uniterTests = []uniterTest{
 		startUpgradeError{},
 		createCharm{
 			revision: 2,
-			customize: func(c *C, path string, ctx *context) {
+			customize: func(c *C, ctx *context, path string) {
 				otherdata := filepath.Join(path, "otherdata")
 				err := ioutil.WriteFile(otherdata, []byte("blah"), 0644)
 				c.Assert(err, IsNil)
@@ -616,13 +615,15 @@ var uniterTests = []uniterTest{
 		waitUniterDead{},
 		waitHooks{},
 	), ut(
-		// TODO: if this starts failing the scheduler is
-		// doing upgradeCharm before addRelation (?!)
+		// This test does and add-relation as quickly as possible
+		// after an upgrade-charm, in the hope that the scheduler will
+		// deliver the events in the wrong order. The observed
+		// behaviour should be the same in either case.
 		"ignore unknown relations until upgrade is done",
 		quickStart{},
 		createCharm{
 			revision: 2,
-			customize: func(c *C, path string, ctx *context) {
+			customize: func(c *C, ctx *context, path string) {
 				renameRelation(c, path, "db", "db2")
 				hpath := filepath.Join(path, "hooks", "db2-relation-joined")
 				ctx.writeHook(c, hpath, true)
@@ -632,8 +633,7 @@ var uniterTests = []uniterTest{
 		upgradeCharm{revision: 2},
 		addRelation{},
 		addRelationUnit{},
-		waitHooks{"upgrade-charm", "config-changed"},
-		waitHooks{"db2-relation-joined mysql/0 db2:0"},
+		waitHooks{"upgrade-charm", "config-changed", "db2-relation-joined mysql/0 db2:0"},
 		verifyCharm{revision: 2},
 	),
 
@@ -804,7 +804,7 @@ func step(c *C, ctx *context, s stepper) {
 type createCharm struct {
 	revision  int
 	badHooks  []string
-	customize func(*C, string, *context)
+	customize func(*C, *context, string)
 }
 
 var charmHooks = []string{
@@ -826,7 +826,7 @@ func (s createCharm) step(c *C, ctx *context) {
 		ctx.writeHook(c, path, good)
 	}
 	if s.customize != nil {
-		s.customize(c, base, ctx)
+		s.customize(c, ctx, base)
 	}
 	dir, err := charm.ReadDir(base)
 	c.Assert(err, IsNil)
@@ -1220,7 +1220,7 @@ type startUpgradeError struct{}
 func (s startUpgradeError) step(c *C, ctx *context) {
 	steps := []stepper{
 		createCharm{
-			customize: func(c *C, path string, ctx *context) {
+			customize: func(c *C, ctx *context, path string) {
 				appendHook(c, path, "start", "echo STARTDATA > data")
 			},
 		},
@@ -1234,7 +1234,7 @@ func (s startUpgradeError) step(c *C, ctx *context) {
 
 		createCharm{
 			revision: 1,
-			customize: func(c *C, path string, ctx *context) {
+			customize: func(c *C, ctx *context, path string) {
 				data := filepath.Join(path, "data")
 				err := ioutil.WriteFile(data, []byte("<nelson>ha ha</nelson>"), 0644)
 				c.Assert(err, IsNil)

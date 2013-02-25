@@ -380,13 +380,12 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 		// Make sure we ignore relations not implemented by the unit's charm
 		ch, err := corecharm.ReadDir(u.charm.Path())
 		if err != nil {
-			// possibly even panic?
 			return nil, err
 		}
 		if ep, err := rel.Endpoint(u.unit.ServiceName()); err != nil {
 			return nil, err
 		} else if !ep.ImplementedBy(ch) {
-			log.Printf("worker/uniter: ignoring not implemented relation endpoint %q", ep)
+			log.Printf("worker/uniter: skipping relation with unknown endpoint %q", ep)
 			continue
 		}
 		dir, err := relation.ReadStateDir(u.relationsDir, id)
