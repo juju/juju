@@ -42,11 +42,11 @@ type Config struct {
 // are translated into the "ca-cert" and "ca-private-key" values.  If
 // not specified, authorized SSH keys and CA details will be read from:
 //
-//  ~/.ssh/id_dsa.pub
-//  ~/.ssh/id_rsa.pub
-//  ~/.ssh/identity.pub
-//  ~/.juju/<name>-cert.pem
-//  ~/.juju/<name>-private-key.pem
+//     ~/.ssh/id_dsa.pub
+//     ~/.ssh/id_rsa.pub
+//     ~/.ssh/identity.pub
+//     ~/.juju/<name>-cert.pem
+//     ~/.juju/<name>-private-key.pem
 //
 // The required keys (after any files have been read) are "name",
 // "type" and "authorized-keys", all of type string.  Additional keys
@@ -106,11 +106,13 @@ func New(attrs map[string]interface{}) (*Config, error) {
 		}
 	}
 
-	// Check that the agent version parses ok if set.
+	// Check that the agent version parses ok if set explicitly; otherwise set it.
 	if v, ok := c.m["agent-version"].(string); ok {
 		if _, err := version.Parse(v); err != nil {
 			return nil, fmt.Errorf("invalid agent version in environment configuration: %q", v)
 		}
+	} else {
+		c.m["agent-version"] = version.Current.Number.String()
 	}
 
 	// Check firewall mode.
@@ -296,7 +298,7 @@ var defaults = schema.Defaults{
 	"authorized-keys":           "",
 	"authorized-keys-path":      "",
 	"firewall-mode":             FwDefault,
-	"agent-version":             version.Current.Number.String(),
+	"agent-version":             schema.Omit,
 	"development":               false,
 	"admin-secret":              "",
 	"ca-cert":                   schema.Omit,
