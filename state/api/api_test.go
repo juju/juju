@@ -508,11 +508,12 @@ func (s *suite) TestMachineEntityName(c *C) {
 }
 
 func (s *suite) TestMachineWatch(c *C) {
-	stm, err := s.State.AddMachine(state.JobHostUnits)
+	stm, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, stm)
 
 	st := s.openAs(c, stm.EntityName())
+	defer st.Close()
 	m, err := st.Machine(stm.Id())
 	c.Assert(err, IsNil)
 	w0 := m.Watch()
@@ -553,6 +554,52 @@ func (s *suite) TestMachineWatch(c *C) {
 	c.Assert(ok, Equals, false)
 	ok = chanRead(c, w1.Changes(), "watcher 1")
 	c.Assert(ok, Equals, false)
+}
+
+func (s *suite) TestServerStopsOutstandingWatchMethod(c *C) {
+	// Start our own instance of the server so we have
+	// a handle on it to stop it.
+	srv, err := api.NewServer(s.State, "localhost:0", []byte(coretesting.ServerCert), []byte(coretesting.ServerKey))
+	c.Assert(err, IsNil)
+
+	stm, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	err = stm.SetPassword("password")
+	c.Assert(err, IsNil)
+
+	// Note we can't use openAs because we're
+	// not connecting to s.APIConn.
+	st, err := api.Open(&api.Info{
+		EntityName: stm.EntityName(),
+		Password:   "password",
+		Addrs:      []string{srv.Addr()},
+		CACert:     []byte(coretesting.CACert),
+	})
+	c.Assert(err, IsNil)
+	defer st.Close()
+
+	m, err := st.Machine(stm.Id())
+	c.Assert(err, IsNil)
+	c.Assert(m.Id(), Equals, stm.Id())
+
+	w := m.Watch()
+
+	// Initial event.
+	ok := chanRead(c, w.Changes(), "watcher 0")
+	c.Assert(ok, Equals, true)
+
+	// Wait long enough for the Next request to be sent
+	// so it's blocking on the server side. 
+	time.Sleep(50 * time.Millisecond)
+	c.Logf("stopping server")
+	err = srv.Stop()
+	c.Assert(err, IsNil)
+
+	c.Logf("server stopped")
+	ok = chanRead(c, w.Changes(), "watcher 0")
+	c.Assert(ok, Equals, false)
+
+	c.Assert(api.ErrCode(w.Err()), Equals, api.CodeStopped)
 }
 
 func chanRead(c *C, ch <-chan struct{}, what string) (ok bool) {
@@ -679,7 +726,7 @@ func (s *suite) TestUnitEntityName(c *C) {
 }
 
 func (s *suite) TestStop(c *C) {
-	// Start our own instance of the server so have
+	// Start our own instance of the server so we have
 	// a handle on it to stop it.
 	srv, err := api.NewServer(s.State, "localhost:0", []byte(coretesting.ServerCert), []byte(coretesting.ServerKey))
 	c.Assert(err, IsNil)

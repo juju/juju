@@ -3,6 +3,7 @@ package api
 import (
 	"code.google.com/p/go.net/websocket"
 	"fmt"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	statewatcher "launchpad.net/juju-core/state/watcher"
 	"strconv"
@@ -69,6 +70,15 @@ func newStateServer(srv *Server, conn *websocket.Conn) *srvRoot {
 	return r
 }
 
+// Kill implements rpc.Killer.  It cleans up any resources that need
+// cleaning up to ensure that all outstanding requests return.
+func (r *srvRoot) Kill() {
+	r.watchers.stopAll()
+}
+
+// Admin returns an object that provides API access
+// to methods that can be called even when not
+// authenticated.
 func (r *srvRoot) Admin(id string) (*srvAdmin, error) {
 	if id != "" {
 		// Safeguard id for possible future use.
@@ -475,4 +485,15 @@ func (ws *watchers) register(w watcher) *srvWatcher {
 	}
 	ws.ws[sw.id] = sw
 	return sw
+}
+
+func (ws *watchers) stopAll() {
+	ws.mu.Lock()
+	defer ws.mu.Unlock()
+	for _, w := range ws.ws {
+		if err := w.w.Stop(); err != nil {
+			log.Printf("state/api: error stopping %T watcher: %v", w, err)
+		}
+	}
+	ws.ws = make(map[string]*srvWatcher)
 }

@@ -182,16 +182,16 @@ func (w *EntityWatcher) loop() error {
 	callWatch := func(request string) error {
 		return w.st.call("EntityWatcher", id.EntityWatcherId, request, nil, nil)
 	}
-	// When the EntityWatcher has been stopped, we send a stop
-	// request to the server, which will remove the watcher
-	// and return a CodeStopped error to any currently outstanding call
-	// to Next. If a call to Next happens just after the watcher
-	// has been stopped, we'll get a CodeNotFound error;
-	// Either way we'll return, wait for the stop request to
-	// complete, and the watcher will die with all resources
-	// cleaned up.
 	w.wg.Add(1)
 	go func() {
+		// When the EntityWatcher has been stopped, we send a
+		// Stop request to the server, which will remove the
+		// watcher and return a CodeStopped error to any
+		// currently outstanding call to Next.  If a call to
+		// Next happens just after the watcher has been stopped,
+		// we'll get a CodeNotFound error; Either way we'll
+		// return, wait for the stop request to complete, and
+		// the watcher will die with all resources cleaned up.
 		defer w.wg.Done()
 		<-w.tomb.Dying()
 		if err := callWatch("Stop"); err != nil {
@@ -210,7 +210,14 @@ func (w *EntityWatcher) loop() error {
 		}
 		if err := callWatch("Next"); err != nil {
 			if code := ErrCode(err); code == CodeStopped || code == CodeNotFound {
-				err = nil
+				if w.tomb.Err() != tomb.ErrStillAlive {
+					// The watcher has been stopped at the client end, so we're
+					// expecting one of the above two kinds of error.
+					// We might see the same errors if the server itself
+					// has been shut down, in which case we leave them
+					// untouched.
+					err = tomb.ErrDying
+				}
 			}
 			return err
 		}
