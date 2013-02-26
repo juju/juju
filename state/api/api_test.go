@@ -9,7 +9,6 @@ import (
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
 	"net"
 	stdtesting "testing"
@@ -63,8 +62,12 @@ var operationPermTests = []struct {
 	op:    opClientStatus,
 	allow: []string{"user-admin", "user-other"},
 }, {
-	about: "Client.SetConfig",
-	op:    opClientSetConfig,
+	about: "Client.ServiceSet",
+	op:    opClientServiceSet,
+	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.ServiceSetYAML",
+	op:    opClientServiceSetYAML,
 	allow: []string{"user-admin", "user-other"},
 },
 }
@@ -179,10 +182,15 @@ func opClientStatus(c *C, st *api.State) (func(), error) {
 	return func() {}, nil
 }
 
-func opClientSetConfig(c *C, st *api.State) (func(), error) {
-	err := st.Client().SetConfig("wordpress", map[string]string{
+func opClientServiceSet(c *C, st *api.State) (func(), error) {
+	err := st.Client().ServiceSet("wordpress", map[string]string{
 		"blog-title": "foo",
 	})
+	return func() {}, err
+}
+
+func opClientServiceSetYAML(c *C, st *api.State) (func(), error) {
+	err := st.Client().ServiceSetYAML("wordpress", `"blog-title": "foo"`)
 	return func() {}, err
 }
 
@@ -385,10 +393,10 @@ func (s *suite) TestClientStatus(c *C) {
 	c.Assert(status, DeepEquals, scenarioStatus)
 }
 
-func (s *suite) TestClientSetConfig(c *C) {
+func (s *suite) TestClientServerSet(c *C) {
 	dummy, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, IsNil)
-	err = s.APIState.Client().SetConfig("dummy", map[string]string{
+	err = s.APIState.Client().ServiceSet("dummy", map[string]string{
 		"title":    "xxx",
 		"username": "yyy",
 	})
@@ -401,15 +409,10 @@ func (s *suite) TestClientSetConfig(c *C) {
 	})
 }
 
-func (s *suite) TestClientSetConfigYAML(c *C) {
+func (s *suite) TestClientServiceSetYAML(c *C) {
 	dummy, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, IsNil)
-	rpcClient := api.RPCClient(s.APIState)
-	p := statecmd.SetConfigParams{
-		ServiceName: "dummy",
-		Config:      "title: aaa\nusername: bbb",
-	}
-	err = rpcClient.Call("Client", "", "SetConfig", p, nil)
+	err = s.APIState.Client().ServiceSetYAML("dummy", "title: aaa\nusername: bbb")
 	c.Assert(err, IsNil)
 	conf, err := dummy.Config()
 	c.Assert(err, IsNil)

@@ -2,7 +2,6 @@ package api
 
 import (
 	"fmt"
-	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state/statecmd"
 	"strings"
 )
@@ -46,13 +45,24 @@ func (c *Client) Status() (*Status, error) {
 	return &s, nil
 }
 
-// SetConfig sets configuration options on a service.
-func (c *Client) SetConfig(service string, options map[string]string) error {
-	p := statecmd.SetConfigParams{
+// ServiceSet sets configuration options on a service.
+func (c *Client) ServiceSet(service string, options map[string]string) error {
+	p := statecmd.ServiceSetParams{
 		ServiceName: service,
 		Options:     options,
 	}
-	err := c.st.client.Call("Client", "", "SetConfig", p, nil)
+	err := c.st.client.Call("Client", "", "ServiceSet", p, nil)
+	return clientError(err)
+}
+
+// ServiceSetYAML sets configuration options on a service
+// given options in YAML format.
+func (c *Client) ServiceSetYAML(service string, yaml string) error {
+	p := statecmd.ServiceSetYAMLParams{
+		ServiceName: service,
+		Config:      yaml,
+	}
+	err := c.st.client.Call("Client", "", "ServiceSetYAML", p, nil)
 	return clientError(err)
 }
 
@@ -71,7 +81,6 @@ func (c *Client) EnvironmentInfo() (*EnvironmentInfo, error) {
 	}
 	return info, nil
 }
-
 
 // Machine returns a reference to the machine with the given id.
 func (st *State) Machine(id string) (*Machine, error) {

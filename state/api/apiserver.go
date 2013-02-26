@@ -182,8 +182,12 @@ func (c *srvClient) Status() (Status, error) {
 	return status, nil
 }
 
-func (c *srvClient) SetConfig(p statecmd.SetConfigParams) error {
-	return statecmd.SetConfig(c.root.srv.state, p)
+func (c *srvClient) ServiceSet(p statecmd.ServiceSetParams) error {
+	return statecmd.ServiceSet(c.root.srv.state, p)
+}
+
+func (c *srvClient) ServiceSetYAML(p statecmd.ServiceSetYAMLParams) error {
+	return statecmd.ServiceSetYAML(c.root.srv.state, p)
 }
 
 // EnvironmentInfo returns information about the current environment (default
