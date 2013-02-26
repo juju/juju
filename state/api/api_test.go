@@ -212,7 +212,9 @@ var expectedWordpressConfig = statecmd.ServiceGetResults{
 		"blog-title": map[string]interface{}{
 			"type":        "string",
 			"value":       nil,
-			"description": "A descriptive title used for the blog."}}}
+			"description": "A descriptive title used for the blog."},
+	},
+}
 
 // setUpScenario makes an environment scenario suitable for
 // testing most kinds of access scenario. It returns
