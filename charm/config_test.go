@@ -222,19 +222,19 @@ func (s *ConfigSuite) TestConvert(c *C) {
 	// Check whether float errors are caught.
 	input["agility-ratio"] = "foo"
 	output, err = config.Convert(input)
-	c.Assert(err, ErrorMatches, `cannot convert: type of "agility-ratio" has changed`)
+	c.Assert(err, ErrorMatches, `unexpected type in service configuration "agility-ratio"="foo"; expected float`)
 	input["agility-ratio"] = 0.5
 
 	// Check whether int errors are caught.
 	input["skill-level"] = "foo"
 	output, err = config.Convert(input)
-	c.Assert(err, ErrorMatches, `cannot convert: type of "skill-level" has changed`)
+	c.Assert(err, ErrorMatches, `unexpected type in service configuration "skill-level"="foo"; expected int`)
 	input["skill-level"] = int64(7)
 
 	// Check whether boolean errors are caught.
 	input["reticulate-splines"] = "maybe"
 	output, err = config.Convert(input)
-	c.Assert(err, ErrorMatches, `cannot convert: type of "reticulate-splines" has changed`)
+	c.Assert(err, ErrorMatches, `unexpected type in service configuration "reticulate-splines"="maybe"; expected boolean`)
 	input["reticulate-splines"] = false
 
 	// Now try to set a value outside the expected - should be ignored

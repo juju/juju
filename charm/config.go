@@ -119,15 +119,15 @@ func (c *Config) Validate(values map[string]string) (processed map[string]interf
 
 // Convert converts the given config values such that they match the
 // existing schema. Unknown values are silently ignored.
-func (c *Config) Convert(values map[string]interface{}) (converted map[string]interface{}, err error) {
-	converted = make(map[string]interface{})
+func (c *Config) Convert(values map[string]interface{}) (map[string]interface{}, error) {
+	converted := make(map[string]interface{})
 	for k, v := range values {
 		opt, ok := c.Options[k]
 		if !ok {
 			continue
 		}
 		if reflect.TypeOf(v).Kind() != validTypes[opt.Type] {
-			return nil, fmt.Errorf("cannot convert: type of %q has changed", k)
+			return nil, fmt.Errorf("unexpected type in service configuration %q=%#v; expected %s", k, v, opt.Type)
 		}
 		converted[k] = v
 	}
