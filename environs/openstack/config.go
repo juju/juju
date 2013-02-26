@@ -10,30 +10,32 @@ import (
 
 var configChecker = schema.StrictFieldMap(
 	schema.Fields{
-		"username":          schema.String(),
-		"password":          schema.String(),
-		"tenant-name":       schema.String(),
-		"auth-url":          schema.String(),
-		"auth-mode":         schema.String(),
-		"region":            schema.String(),
-		"control-bucket":    schema.String(),
-		"public-bucket":     schema.String(),
-		"public-bucket-url": schema.String(),
-		"default-image-id":  schema.String(),
-		"use-floating-ip":   schema.Bool(),
+		"username":              schema.String(),
+		"password":              schema.String(),
+		"tenant-name":           schema.String(),
+		"auth-url":              schema.String(),
+		"auth-mode":             schema.String(),
+		"region":                schema.String(),
+		"control-bucket":        schema.String(),
+		"public-bucket":         schema.String(),
+		"public-bucket-url":     schema.String(),
+		"default-image-id":      schema.String(),
+		"default-instance-type": schema.String(),
+		"use-floating-ip":       schema.Bool(),
 	},
 	schema.Defaults{
-		"username":          "",
-		"password":          "",
-		"tenant-name":       "",
-		"auth-url":          "",
-		"auth-mode":         string(AuthUserPass),
-		"region":            "",
-		"control-bucket":    "",
-		"public-bucket":     "juju-dist",
-		"public-bucket-url": "",
-		"default-image-id":  "",
-		"use-floating-ip":   true,
+		"username":              "",
+		"password":              "",
+		"tenant-name":           "",
+		"auth-url":              "",
+		"auth-mode":             string(AuthUserPass),
+		"region":                "",
+		"control-bucket":        "",
+		"public-bucket":         "juju-dist",
+		"public-bucket-url":     "",
+		"default-image-id":      "",
+		"default-instance-type": "",
+		"use-floating-ip":       true,
 	},
 )
 
@@ -80,6 +82,10 @@ func (c *environConfig) publicBucketURL() string {
 
 func (c *environConfig) defaultImageId() string {
 	return c.attrs["default-image-id"].(string)
+}
+
+func (c *environConfig) defaultInstanceType() string {
+	return c.attrs["default-instance-type"].(string)
 }
 
 func (c *environConfig) useFloatingIP() bool {

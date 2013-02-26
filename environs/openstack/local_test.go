@@ -123,6 +123,7 @@ func testConfig(cred *identity.Credentials) map[string]interface{} {
 	attrs["auth-url"] = cred.URL
 	attrs["tenant-name"] = cred.TenantName
 	attrs["default-image-id"] = testImageId
+	attrs["default-instance-type"] = "m1.small"
 	return attrs
 }
 

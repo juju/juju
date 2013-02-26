@@ -87,6 +87,7 @@ func (t *LiveTests) SetUpSuite(c *C) {
 	attrs["tenant-name"] = t.cred.TenantName
 	attrs["public-bucket-url"] = publicBucketURL
 	attrs["default-image-id"] = testImageId
+	attrs["default-instance-type"] = "m1.small"
 	t.Config = attrs
 	t.LiveTests = jujutest.LiveTests{
 		Config:         attrs,
@@ -141,7 +142,8 @@ func putFakeTools(c *C, s environs.StorageWriter) {
 }
 
 func (t *LiveTests) TestFindImageSpec(c *C) {
-	imageId, flavorId, err := openstack.FindInstanceSpec(t.Env, "precise", "amd64", "m1.small")
+	instanceType := openstack.DefaultInstanceType(t.Env)
+	imageId, flavorId, err := openstack.FindInstanceSpec(t.Env, "precise", "amd64", instanceType)
 	c.Assert(err, IsNil)
 	// For now, the imageId always comes from the environment config.
 	c.Assert(imageId, Equals, testImageId)

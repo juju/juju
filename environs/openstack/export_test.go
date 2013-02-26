@@ -88,3 +88,8 @@ func SetUseFloatingIP(e environs.Environ, val bool) {
 	env := e.(*environ)
 	env.ecfg().attrs["use-floating-ip"] = val
 }
+
+func DefaultInstanceType(e environs.Environ) string {
+	ecfg := e.(*environ).ecfg()
+	return ecfg.defaultInstanceType()
+}
