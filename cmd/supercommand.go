@@ -79,6 +79,22 @@ func (c *SuperCommand) DescribeCommands(simple bool) string {
 	return fmt.Sprintf(outputFormat, strings.Join(cmds, "\n"))
 }
 
+// Supercommand help becomes more interesting if there is a help command.
+func (c *SuperCommand) Help(i *Info, f *gnuflag.FlagSet) []byte {
+	if c.help == nil {
+		return CommandBase.Help(i, f)
+	}
+	// Now we can do special magic, since we know that if there is a
+	// subcommand specified that it is valid, and if there is no subcommand,
+	// then we just do the default help.
+	if c.subcmd != nil {
+		c.help.Subcommand = c.subcmd.Info().Name
+	}
+	ctx = &cmd.Context{Stdout: &bytes.buffer{}}
+	c.help.Run(ctx)
+	return ctx.Stdout.Bytes()
+}
+
 // Info returns a description of the currently selected subcommand, or of the
 // SuperCommand itself if no subcommand has been specified.
 func (c *SuperCommand) Info() *Info {
