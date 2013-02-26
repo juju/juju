@@ -189,3 +189,58 @@ func (s *ConfigSuite) TestValidate(c *C) {
 	c.Assert(output, IsNil)
 	c.Assert(err, ErrorMatches, `Unknown configuration option: "bad"`)
 }
+
+func (s *ConfigSuite) TestConvert(c *C) {
+	config, err := charm.ReadConfig(bytes.NewBuffer([]byte(sampleConfig)))
+	c.Assert(err, IsNil)
+
+	input := map[string]interface{}{
+		"title":   "Helpful Title",
+		"outlook": "Peachy",
+	}
+
+	// This should include only explicitly set valid values per the schema, no defaults
+	expected := map[string]interface{}{
+		"title":   "Helpful Title",
+		"outlook": "Peachy",
+	}
+
+	output, err := config.Convert(input)
+	c.Assert(err, IsNil)
+	c.Assert(output, DeepEquals, expected)
+
+	// Check whether float/int conversion is working.
+	input["agility-ratio"] = 0.5
+	// Integers are always int64 in YAML, which input is usually coming from.
+	input["skill-level"] = int64(7)
+	expected["agility-ratio"] = 0.5
+	expected["skill-level"] = int64(7)
+	output, err = config.Convert(input)
+	c.Assert(err, IsNil)
+	c.Assert(output, DeepEquals, expected)
+
+	// Check whether float errors are caught.
+	input["agility-ratio"] = "foo"
+	output, err = config.Convert(input)
+	c.Assert(err, ErrorMatches, `cannot convert: type of "agility-ratio" has changed`)
+	input["agility-ratio"] = 0.5
+
+	// Check whether int errors are caught.
+	input["skill-level"] = "foo"
+	output, err = config.Convert(input)
+	c.Assert(err, ErrorMatches, `cannot convert: type of "skill-level" has changed`)
+	input["skill-level"] = int64(7)
+
+	// Check whether boolean errors are caught.
+	input["reticulate-splines"] = "maybe"
+	output, err = config.Convert(input)
+	c.Assert(err, ErrorMatches, `cannot convert: type of "reticulate-splines" has changed`)
+	input["reticulate-splines"] = false
+
+	// Now try to set a value outside the expected - should be ignored
+	input["bad"] = "value"
+	output, err = config.Convert(input)
+	c.Assert(err, IsNil)
+	_, ok := output["bad"]
+	c.Assert(ok, Equals, false)
+}
