@@ -101,7 +101,7 @@ var setCharmConfigTests = []struct {
 		startconfig: stringConfig,
 		startvalues: map[string]interface{}{"key": "value"},
 		endconfig:   floatConfig,
-		err:         `cannot convert: type of "key" has changed`,
+		err:         `unexpected type in service configuration "key"="value"; expected float`,
 	},
 }
 
