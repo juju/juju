@@ -10,6 +10,7 @@ import (
 
 // DestroyServiceCommand causes an existing service to be destroyed.
 type DestroyServiceCommand struct {
+	cmd.CommandBase
 	EnvName     string
 	ServiceName string
 }

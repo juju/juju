@@ -10,6 +10,7 @@ import (
 
 // DestroyMachineCommand causes an existing machine to be destroyed.
 type DestroyMachineCommand struct {
+	cmd.CommandBase
 	EnvName    string
 	MachineIds []string
 }

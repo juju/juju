@@ -10,6 +10,7 @@ import (
 
 // GetConstraintsCommand shows the constraints for a service or environment.
 type GetConstraintsCommand struct {
+	cmd.CommandBase
 	EnvName     string
 	ServiceName string
 	out         cmd.Output
@@ -70,6 +71,7 @@ func (c *GetConstraintsCommand) Run(ctx *cmd.Context) (err error) {
 
 // SetConstraintsCommand shows the constraints for a service or environment.
 type SetConstraintsCommand struct {
+	cmd.CommandBase
 	EnvName     string
 	ServiceName string
 	Constraints state.Constraints

@@ -12,6 +12,7 @@ import (
 
 // DestroyUnitCommand is responsible for destroying service units.
 type DestroyUnitCommand struct {
+	cmd.CommandBase
 	EnvName   string
 	UnitNames []string
 }

@@ -13,6 +13,7 @@ import (
 
 // UpgradeJujuCommand upgrades the agents in a juju installation.
 type UpgradeJujuCommand struct {
+	cmd.CommandBase
 	EnvName      string
 	UploadTools  bool
 	BumpVersion  bool

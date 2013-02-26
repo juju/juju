@@ -10,6 +10,7 @@ import (
 )
 
 type StatusCommand struct {
+	cmd.CommandBase
 	EnvName string
 	out     cmd.Output
 }
@@ -31,10 +32,6 @@ func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
 		"yaml": cmd.FormatYaml,
 		"json": cmd.FormatJson,
 	})
-}
-
-func (c *StatusCommand) Init(args []string) error {
-	return cmd.CheckEmpty(args)
 }
 
 func (c *StatusCommand) Run(ctx *cmd.Context) error {

@@ -10,6 +10,7 @@ import (
 
 // JujuLogCommand implements the juju-log command.
 type JujuLogCommand struct {
+	cmd.CommandBase
 	ctx     Context
 	Message string
 	Debug   bool

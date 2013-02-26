@@ -18,6 +18,7 @@ type SSHCommand struct {
 
 // SSHCommon provides common methods for SSHCommand and SCPCommand.
 type SSHCommon struct {
+	cmd.CommandBase
 	EnvName string
 	Target  string
 	Args    []string
@@ -39,7 +40,7 @@ func (c *SSHCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *SSHCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *SSHCommon) SetFlags(f *gnuflag.FlagSet) {
 	addEnvironFlags(&c.EnvName, f)
 }
 
