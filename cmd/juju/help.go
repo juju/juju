@@ -15,6 +15,7 @@ type topic struct {
 }
 
 type HelpCommand struct {
+	cmd.CommandBase
 	Subcommand string
 	Parent     *cmd.SuperCommand
 	topics     map[string]topic
@@ -96,8 +97,6 @@ func (c *HelpCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *HelpCommand) SetFlags(f *gnuflag.FlagSet) {}
-
 func (c *HelpCommand) Init(args []string) error {
 	if c.topics == nil {
 		c.make_topics()
@@ -115,24 +114,21 @@ func (c *HelpCommand) Init(args []string) error {
 }
 
 func (c *HelpCommand) Run(ctx *cmd.Context) error {
-	// Is there a reason why help was written to stderr instead of stdout?
 	if c.Subcommand == "" {
 		text, _ := c.get_topic_text("basics")
-		fmt.Fprintf(ctx.Stderr, "%s\n", text)
+		fmt.Fprintf(ctx.Stdout, "%s\n", text)
 	} else {
 		if command, found := c.Parent.GetCommand(c.Subcommand); found {
-			// TODO: Why Stderr and not Stdout?
-			// FIXME: this is bollocks
 			info := command.Info()
 			f := gnuflag.NewFlagSet(info.Name, gnuflag.ContinueOnError)
 			command.SetFlags(f)
-			ctx.Stderr.Write(info.Help(f))
+			ctx.Stdout.Write(info.Help(f))
 		} else {
 			// Look in the topics
 			if text, found := c.get_topic_text(c.Subcommand); found {
-				fmt.Fprintf(ctx.Stderr, "%s\n", text)
+				fmt.Fprintf(ctx.Stdout, "%s\n", text)
 			} else {
-				fmt.Fprintf(ctx.Stderr, "Unknown command or topic for %s\n", c.Subcommand)
+				return fmt.Errorf("Unknown command or topic for %s\n", c.Subcommand)
 			}
 		}
 	}
