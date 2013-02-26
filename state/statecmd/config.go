@@ -24,7 +24,7 @@ type ServiceSetParams struct {
 // configuration data in YAML format.
 type ServiceSetYAMLParams struct {
 	ServiceName string
-	Config string
+	Config      string
 }
 
 // ServiceSet changes a service's configuration values.
@@ -36,6 +36,9 @@ func ServiceSet(st *state.State, p ServiceSetParams) error {
 // ServiceSetYAML is like ServiceSet except that the
 // configuration data is specified in YAML format.
 func ServiceSetYAML(st *state.State, p ServiceSetYAMLParams) error {
+	// TODO(rog) should this function interpret null as delete?
+	// If so, we need to sort out some goyaml issues first.
+	// (see https://bugs.launchpad.net/goyaml/+bug/1133337)
 	var options map[string]string
 	if err := goyaml.Unmarshal([]byte(p.Config), &options); err != nil {
 		return err
