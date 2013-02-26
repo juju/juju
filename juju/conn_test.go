@@ -299,7 +299,7 @@ func (s *ConnSuite) TestNewConnFromState(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(conn.Environ.Name(), Equals, "erewhemos")
 }
-	
+
 func (s *ConnSuite) TestPutCharmBasic(c *C) {
 	curl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "riak")
 	curl.Revision = -1 // make sure we trigger the repo.Latest logic.

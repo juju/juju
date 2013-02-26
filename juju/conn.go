@@ -93,7 +93,7 @@ func NewConnFromState(st *state.State) (*Conn, error) {
 	}
 	return &Conn{
 		Environ: environ,
-		State: st,
+		State:   st,
 	}, nil
 }
 
