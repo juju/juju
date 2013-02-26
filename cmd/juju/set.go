@@ -13,6 +13,7 @@ import (
 
 // SetCommand updates the configuration of a service
 type SetCommand struct {
+	cmd.CommandBase
 	EnvName     string
 	ServiceName string
 	// either Options or Config will contain the configuration data

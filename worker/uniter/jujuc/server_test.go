@@ -16,6 +16,7 @@ import (
 )
 
 type RpcCommand struct {
+	cmd.CommandBase
 	Value string
 	Slow  bool
 }

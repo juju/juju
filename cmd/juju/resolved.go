@@ -10,6 +10,7 @@ import (
 
 // ResolvedCommand marks a unit in an error state as ready to continue.
 type ResolvedCommand struct {
+	cmd.CommandBase
 	EnvName  string
 	UnitName string
 	Retry    bool

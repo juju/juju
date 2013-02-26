@@ -8,6 +8,7 @@ import (
 
 // DestroyEnvironmentCommand destroys an environment.
 type DestroyEnvironmentCommand struct {
+	cmd.CommandBase
 	EnvName string
 }
 
@@ -20,10 +21,6 @@ func (c *DestroyEnvironmentCommand) Info() *cmd.Info {
 
 func (c *DestroyEnvironmentCommand) SetFlags(f *gnuflag.FlagSet) {
 	addEnvironFlags(&c.EnvName, f)
-}
-
-func (c *DestroyEnvironmentCommand) Init(args []string) error {
-	return cmd.CheckEmpty(args)
 }
 
 func (c *DestroyEnvironmentCommand) Run(_ *cmd.Context) error {

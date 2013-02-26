@@ -9,6 +9,7 @@ import (
 
 // UnitGetCommand implements the unit-get command.
 type UnitGetCommand struct {
+	cmd.CommandBase
 	ctx Context
 	Key string
 	out cmd.Output

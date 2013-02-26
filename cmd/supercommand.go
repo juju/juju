@@ -12,15 +12,15 @@ import (
 // the subcommand are passed down to it, and to Run a SuperCommand is to run
 // its selected subcommand.
 type SuperCommand struct {
-	Name      string
-	Purpose   string
-	Doc       string
-	Log       *Log
-	subcmds   map[string]Command
-	flags     *gnuflag.FlagSet
-	subcmd    Command
-	help      Command
-	show_help bool
+	Command
+	Name    string
+	Purpose string
+	Doc     string
+	Log     *Log
+	subcmds map[string]Command
+	flags   *gnuflag.FlagSet
+	subcmd  Command
+	help    Command
 }
 
 // Register makes a subcommand available for use on the command line. The

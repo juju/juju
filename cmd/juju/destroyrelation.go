@@ -9,6 +9,7 @@ import (
 
 // DestroyRelationCommand causes an existing service relation to be shut down.
 type DestroyRelationCommand struct {
+	cmd.CommandBase
 	EnvName   string
 	Endpoints []string
 }

@@ -12,6 +12,7 @@ import (
 )
 
 type DeployCommand struct {
+	cmd.CommandBase
 	EnvName      string
 	CharmName    string
 	ServiceName  string

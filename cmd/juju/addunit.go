@@ -10,6 +10,7 @@ import (
 
 // AddUnitCommand is responsible adding additional units to a service.
 type AddUnitCommand struct {
+	cmd.CommandBase
 	EnvName     string
 	ServiceName string
 	NumUnits    int
