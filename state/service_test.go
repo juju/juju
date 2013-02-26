@@ -154,6 +154,14 @@ func (s *ServiceSuite) TestSetCharmConfig(c *C) {
 	}
 }
 
+func (s *ServiceSuite) TestSettingsRefCountWorks(c *C) {
+	oldCh := s.AddConfigCharm(c, "wordpress", emptyConfig, 1)
+	//newCh := s.AddConfigCharm(c, "wordpress", emptyConfig, 2)
+	svcName := "mywp"
+	_, err := state.ServiceSettingsRefCount(s.State, svcName, oldCh.URL())
+	c.Assert(state.IsNotFound(err), Equals, true)
+}
+
 func jujuInfoEp(serviceName string) state.Endpoint {
 	return state.Endpoint{
 		ServiceName:   serviceName,
