@@ -49,7 +49,15 @@ func makeTestConfig() map[string]interface{} {
 // Register tests to run against a real Openstack instance.
 func registerLiveTests(cred *identity.Credentials) {
 	Suite(&LiveTests{
-		cred: cred,
+		cred:    cred,
+		Attempt: *openstack.ShortAttempt,
+		// TODO: Bug #1133263, once the infrastructure is set up,
+		//       enable The state tests on openstack
+		CanOpenState: false,
+		// TODO: Bug #1133272, enabling this requires mapping from
+		//       'series' to an image id, when we have support, set
+		//       this flag to True.
+		HasProvisioner: false,
 	})
 }
 
