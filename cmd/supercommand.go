@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"launchpad.net/gnuflag"
 	"sort"
@@ -12,7 +13,7 @@ import (
 // the subcommand are passed down to it, and to Run a SuperCommand is to run
 // its selected subcommand.
 type SuperCommand struct {
-	Command
+	CommandBase
 	Name    string
 	Purpose string
 	Doc     string
@@ -82,17 +83,19 @@ func (c *SuperCommand) DescribeCommands(simple bool) string {
 // Supercommand help becomes more interesting if there is a help command.
 func (c *SuperCommand) Help(i *Info, f *gnuflag.FlagSet) []byte {
 	if c.help == nil {
-		return CommandBase.Help(i, f)
+		return c.CommandBase.Help(i, f)
 	}
 	// Now we can do special magic, since we know that if there is a
 	// subcommand specified that it is valid, and if there is no subcommand,
 	// then we just do the default help.
+	init_args := []string{}
 	if c.subcmd != nil {
-		c.help.Subcommand = c.subcmd.Info().Name
+		init_args = []string{c.subcmd.Info().Name}
 	}
-	ctx = &cmd.Context{Stdout: &bytes.buffer{}}
+	ctx := &Context{Stdout: &bytes.Buffer{}}
+	c.help.Init(init_args) // need to initialize the topics
 	c.help.Run(ctx)
-	return ctx.Stdout.Bytes()
+	return ctx.Stdout.(*bytes.Buffer).Bytes()
 }
 
 // Info returns a description of the currently selected subcommand, or of the

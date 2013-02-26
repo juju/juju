@@ -120,6 +120,7 @@ func (c *HelpCommand) Run(ctx *cmd.Context) error {
 	} else {
 		if command, found := c.Parent.GetCommand(c.Subcommand); found {
 			info := command.Info()
+			info.Name = fmt.Sprintf("%s %s", c.Parent.Name, info.Name)
 			f := gnuflag.NewFlagSet(info.Name, gnuflag.ContinueOnError)
 			command.SetFlags(f)
 			ctx.Stdout.Write(info.Help(f))
