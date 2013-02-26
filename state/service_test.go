@@ -51,7 +51,107 @@ func (s *ServiceSuite) TestServiceCharm(c *C) {
 	err = s.mysql.Destroy()
 	c.Assert(err, IsNil)
 	err = s.mysql.SetCharm(wp, true)
-	c.Assert(err, ErrorMatches, notAliveErr)
+	c.Assert(err, ErrorMatches, `service "mysql" is not alive`)
+}
+
+var stringConfig = `
+options:
+  key: {default: My Key, description: Desc, type: string}
+`
+var emptyConfig = `
+options: {}
+`
+var floatConfig = `
+options:
+  key: {default: 0.42, description: Float key, type: float}
+`
+
+var setCharmConfigTests = []struct {
+	summary     string
+	startconfig string
+	startvalues map[string]interface{}
+	endconfig   string
+	endvalues   map[string]interface{}
+	err         string
+}{
+	{
+		summary:     "add float key to empty config",
+		startconfig: emptyConfig,
+		endconfig:   floatConfig,
+	}, {
+		summary:     "add string key to empty config",
+		startconfig: emptyConfig,
+		endconfig:   stringConfig,
+	}, {
+		summary:     "remove string key",
+		startconfig: stringConfig,
+		startvalues: map[string]interface{}{"key": "value"},
+		endconfig:   emptyConfig,
+	}, {
+		summary:     "remove float key",
+		startconfig: floatConfig,
+		startvalues: map[string]interface{}{"key": 123.45},
+		endconfig:   emptyConfig,
+	}, {
+		summary:     "change key type without values",
+		startconfig: stringConfig,
+		endconfig:   floatConfig,
+	}, {
+		summary:     "change key type with values",
+		startconfig: stringConfig,
+		startvalues: map[string]interface{}{"key": "value"},
+		endconfig:   floatConfig,
+		err:         `cannot convert: type of "key" has changed`,
+	},
+}
+
+func (s *ServiceSuite) TestSetCharmConfig(c *C) {
+	charms := map[string]*state.Charm{
+		stringConfig: s.AddConfigCharm(c, "wordpress", stringConfig, 1),
+		emptyConfig:  s.AddConfigCharm(c, "wordpress", emptyConfig, 2),
+		floatConfig:  s.AddConfigCharm(c, "wordpress", floatConfig, 3),
+	}
+
+	for i, t := range setCharmConfigTests {
+		c.Logf("test %d: %s", i, t.summary)
+
+		origCh := charms[t.startconfig]
+		svc, err := s.State.AddService("wordpress", origCh)
+		c.Assert(err, IsNil)
+		cfg, err := svc.Config()
+		c.Assert(err, IsNil)
+		cfg.Update(t.startvalues)
+		_, err = cfg.Write()
+		c.Assert(err, IsNil)
+
+		newCh := charms[t.endconfig]
+		err = svc.SetCharm(newCh, false)
+		var expectVals map[string]interface{}
+		var expectCh *state.Charm
+		if t.err != "" {
+			c.Assert(err, ErrorMatches, t.err)
+			expectCh = origCh
+			expectVals = t.startvalues
+		} else {
+			c.Assert(err, IsNil)
+			expectCh = newCh
+			expectVals = t.endvalues
+		}
+
+		sch, _, err := svc.Charm()
+		c.Assert(err, IsNil)
+		c.Assert(sch.URL(), DeepEquals, expectCh.URL())
+		cfg, err = svc.Config()
+		c.Assert(err, IsNil)
+		if len(expectVals) == 0 {
+			c.Assert(cfg.Map(), HasLen, 0)
+		} else {
+			c.Assert(cfg.Map(), DeepEquals, expectVals)
+		}
+
+		err = svc.Destroy()
+		c.Assert(err, IsNil)
+	}
 }
 
 func jujuInfoEp(serviceName string) state.Endpoint {
