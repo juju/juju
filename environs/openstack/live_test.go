@@ -47,7 +47,7 @@ func makeTestConfig() map[string]interface{} {
 }
 
 // Register tests to run against a real Openstack instance.
-func registerOpenStackTests(cred *identity.Credentials) {
+func registerLiveTests(cred *identity.Credentials) {
 	Suite(&LiveTests{
 		cred: cred,
 	})
