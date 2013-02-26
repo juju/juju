@@ -66,6 +66,17 @@ func (c *Client) ServiceSetYAML(service string, yaml string) error {
 	return clientError(err)
 }
 
+// ServiceGet returns the configuration for the named service.
+func (c *Client) ServiceGet(service string) (*statecmd.ServiceGetResults, error) {
+	var results statecmd.ServiceGetResults
+	params := statecmd.ServiceGetParams{ServiceName: service}
+	err := c.st.client.Call("Client", "", "ServiceGet", params, &results)
+	if err != nil {
+		return nil, clientError(err)
+	}
+	return &results, nil
+}
+
 // EnvironmentInfo holds information about the Juju environment.
 type EnvironmentInfo struct {
 	DefaultSeries string

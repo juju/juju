@@ -192,6 +192,10 @@ func (c *srvClient) ServiceSetYAML(p statecmd.ServiceSetYAMLParams) error {
 	return statecmd.ServiceSetYAML(c.root.srv.state, p)
 }
 
+func (c *srvClient) ServiceGet(args statecmd.ServiceGetParams) (statecmd.ServiceGetResults, error) {
+	return statecmd.ServiceGet(c.root.srv.state, args)
+}
+
 // EnvironmentInfo returns information about the current environment (default
 // series and type).
 func (c *srvClient) EnvironmentInfo() (EnvironmentInfo, error) {
