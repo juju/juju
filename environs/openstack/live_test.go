@@ -15,10 +15,8 @@ import (
 	"strings"
 )
 
-// uniqueName is generated afresh for every test run, so that
+// generate a different bucket name for each config instance, so that
 // we are not polluted by previous test state.
-var uniqueName = randomName()
-
 func randomName() string {
 	buf := make([]byte, 8)
 	_, err := io.ReadFull(rand.Reader, buf)
@@ -38,10 +36,10 @@ func makeTestConfig() map[string]interface{} {
 	//  secret-key: $OS_PASSWORD
 	//
 	attrs := map[string]interface{}{
-		"name":           "sample-" + uniqueName,
+		"name":           "sample-" + randomName(),
 		"type":           "openstack",
 		"auth-mode":      "userpass",
-		"control-bucket": "juju-test-" + uniqueName,
+		"control-bucket": "juju-test-" + randomName(),
 		"ca-cert":        coretesting.CACert,
 		"ca-private-key": coretesting.CAKey,
 	}
@@ -49,7 +47,7 @@ func makeTestConfig() map[string]interface{} {
 }
 
 // Register tests to run against a real Openstack instance.
-func registerOpenStackTests(cred *identity.Credentials) {
+func registerLiveTests(cred *identity.Credentials) {
 	Suite(&LiveTests{
 		cred: cred,
 	})
@@ -75,10 +73,10 @@ const (
 func (t *LiveTests) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
 	// Get an authenticated Goose client to extract some configuration parameters for the test environment.
-	client := client.NewClient(t.cred, identity.AuthUserPass, nil)
-	err := client.Authenticate()
+	cl := client.NewClient(t.cred, identity.AuthUserPass, nil)
+	err := cl.Authenticate()
 	c.Assert(err, IsNil)
-	publicBucketURL, err := client.MakeServiceURL("object-store", nil)
+	publicBucketURL, err := cl.MakeServiceURL("object-store", nil)
 	c.Assert(err, IsNil)
 	attrs := makeTestConfig()
 	attrs["admin-secret"] = "secret"
@@ -96,18 +94,15 @@ func (t *LiveTests) SetUpSuite(c *C) {
 		CanOpenState:   false, // no state; local tests (unless -live is passed)
 		HasProvisioner: false, // don't deploy anything
 	}
-	e, err := environs.NewFromAttrs(t.Config)
-	c.Assert(err, IsNil)
-
+	t.LiveTests.SetUpSuite(c)
 	// Environ.PublicStorage() is read only.
 	// For testing, we create a specific storage instance which is authorised to write to
 	// the public storage bucket so that we can upload files for testing.
-	t.writeablePublicStorage = openstack.WritablePublicStorage(e)
+	t.writeablePublicStorage = openstack.WritablePublicStorage(t.Env)
 	// Put some fake tools in place so that tests that are simply
 	// starting instances without any need to check if those instances
 	// are running will find them in the public bucket.
 	putFakeTools(c, t.writeablePublicStorage)
-	t.LiveTests.SetUpSuite(c)
 }
 
 func (t *LiveTests) TearDownSuite(c *C) {

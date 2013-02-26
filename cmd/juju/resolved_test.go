@@ -1,9 +1,7 @@
 package main
 
 import (
-	"bytes"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 )
@@ -15,11 +13,7 @@ type ResolvedSuite struct {
 var _ = Suite(&ResolvedSuite{})
 
 func runResolved(c *C, args []string) error {
-	com := &ResolvedCommand{}
-	if err := com.Init(newFlagSet(), args); err != nil {
-		return err
-	}
-	return com.Run(&cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}})
+	return testing.RunCommand(c, &ResolvedCommand{}, args)
 }
 
 var resolvedTests = []struct {

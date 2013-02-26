@@ -441,7 +441,7 @@ func (test configTest) check(c *C, h fakeHome) {
 		c.Assert(err, IsNil)
 		c.Assert(cfg.AgentVersion(), Equals, vers)
 	} else {
-		c.Assert(cfg.AgentVersion(), Equals, version.Number{})
+		c.Assert(cfg.AgentVersion(), Equals, version.Current.Number)
 	}
 
 	dev, _ := test.attrs["development"].(bool)
@@ -529,7 +529,9 @@ func (*ConfigSuite) TestConfigAttrs(c *C) {
 	cfg, err := config.New(attrs)
 	c.Assert(err, IsNil)
 
-	attrs["development"] = false // This attribute is added if not set.
+	// These attributes are added if not set.
+	attrs["development"] = false
+	attrs["agent-version"] = version.Current.Number.String()
 	c.Assert(cfg.AllAttrs(), DeepEquals, attrs)
 	c.Assert(cfg.UnknownAttrs(), DeepEquals, map[string]interface{}{"unknown": "my-unknown"})
 

@@ -26,7 +26,7 @@ func (s *MachinerSuite) TestNotFound(c *C) {
 }
 
 func (s *MachinerSuite) TestRunStop(c *C) {
-	m, err := s.State.AddMachine(state.JobHostUnits)
+	m, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	mr := machiner.NewMachiner(s.State, m.Id())
 	c.Assert(mr.Stop(), IsNil)
@@ -35,7 +35,7 @@ func (s *MachinerSuite) TestRunStop(c *C) {
 }
 
 func (s *MachinerSuite) TestSetDead(c *C) {
-	m, err := s.State.AddMachine(state.JobHostUnits)
+	m, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	mr := machiner.NewMachiner(s.State, m.Id())
 	defer mr.Stop()

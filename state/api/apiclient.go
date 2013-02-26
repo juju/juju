@@ -1,7 +1,6 @@
 package api
 
 import (
-	"errors"
 	"fmt"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state/statecmd"
@@ -42,7 +41,7 @@ func (c *Client) Status() (*Status, error) {
 	var s Status
 	err := c.st.client.Call("Client", "", "Status", nil, &s)
 	if err != nil {
-		return nil, rpcError(err)
+		return nil, clientError(err)
 	}
 	return &s, nil
 }
@@ -54,8 +53,25 @@ func (c *Client) SetConfig(service string, options map[string]string) error {
 		Options:     options,
 	}
 	err := c.st.client.Call("Client", "", "SetConfig", p, nil)
-	return rpcError(err)
+	return clientError(err)
 }
+
+// EnvironmentInfo holds information about the Juju environment.
+type EnvironmentInfo struct {
+	DefaultSeries string
+	ProviderType  string
+}
+
+// EnvironmentInfo returns details about the Juju environment.
+func (c *Client) EnvironmentInfo() (*EnvironmentInfo, error) {
+	info := new(EnvironmentInfo)
+	err := c.st.client.Call("Client", "", "EnvironmentInfo", nil, info)
+	if err != nil {
+		return nil, clientError(err)
+	}
+	return info, nil
+}
+
 
 // Machine returns a reference to the machine with the given id.
 func (st *State) Machine(id string) (*Machine, error) {
@@ -96,7 +112,7 @@ func (st *State) Login(entityName, password string) error {
 		EntityName: entityName,
 		Password:   password,
 	}, nil)
-	return rpcError(err)
+	return clientError(err)
 }
 
 // Id returns the machine id.
@@ -121,7 +137,7 @@ func MachineEntityName(id string) string {
 // state. TODO(rog) It returns a NotFoundError if the machine has been removed.
 func (m *Machine) Refresh() error {
 	err := m.st.client.Call("Machine", m.id, "Get", nil, &m.doc)
-	return rpcError(err)
+	return clientError(err)
 }
 
 // String returns the machine's id.
@@ -129,12 +145,10 @@ func (m *Machine) String() string {
 	return m.id
 }
 
-// InstanceId returns the provider specific instance id for this machine.
-func (m *Machine) InstanceId() (string, error) {
-	if m.doc.InstanceId == "" {
-		return "", fmt.Errorf("instance id for machine %v not found", m.id)
-	}
-	return m.doc.InstanceId, nil
+// InstanceId returns the provider specific instance id for this machine
+// and whether it has been set.
+func (m *Machine) InstanceId() (string, bool) {
+	return m.doc.InstanceId, m.doc.InstanceId != ""
 }
 
 // SetPassword sets the password for the machine's agent.
@@ -142,14 +156,14 @@ func (m *Machine) SetPassword(password string) error {
 	err := m.st.client.Call("Machine", m.id, "SetPassword", &rpcPassword{
 		Password: password,
 	}, nil)
-	return rpcError(err)
+	return clientError(err)
 }
 
 // Refresh refreshes the contents of the Unit from the underlying
 // state. TODO(rog) It returns a NotFoundError if the unit has been removed.
 func (u *Unit) Refresh() error {
 	err := u.st.client.Call("Unit", u.name, "Get", nil, &u.doc)
-	return rpcError(err)
+	return clientError(err)
 }
 
 // SetPassword sets the password for the unit's agent.
@@ -157,7 +171,7 @@ func (u *Unit) SetPassword(password string) error {
 	err := u.st.client.Call("Unit", u.name, "SetPassword", &rpcPassword{
 		Password: password,
 	}, nil)
-	return rpcError(err)
+	return clientError(err)
 }
 
 // UnitEntityName returns the entity name for the
@@ -177,20 +191,4 @@ func (u *Unit) EntityName() string {
 // the unit. If no such entity can be determined, false is returned.
 func (u *Unit) DeployerName() (string, bool) {
 	return u.doc.DeployerName, u.doc.DeployerName != ""
-}
-
-// rpcError maps errors returned from an RPC call into local errors with
-// appropriate values.
-// TODO(rog): implement NotFoundError, etc.
-func rpcError(err error) error {
-	if err == nil {
-		return nil
-	}
-	rerr, ok := err.(*rpc.ServerError)
-	if !ok {
-		return err
-	}
-	// TODO(rog) map errors into known error types, possibly introducing
-	// error codes to do so.
-	return errors.New(rerr.Message)
 }

@@ -2,7 +2,6 @@ package api
 
 import (
 	"code.google.com/p/go.net/websocket"
-	"errors"
 	"fmt"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/statecmd"
@@ -12,13 +11,6 @@ import (
 // TODO(rog) remove this when the rest of the system
 // has been updated to set passwords appropriately.
 var AuthenticationEnabled = false
-
-var (
-	errBadId       = errors.New("id not found")
-	errBadCreds    = errors.New("invalid entity name or password")
-	errNotLoggedIn = errors.New("not logged in")
-	errPerm        = errors.New("permission denied")
-)
 
 // srvRoot represents a single client's connection to the state.
 type srvRoot struct {
@@ -192,6 +184,20 @@ func (c *srvClient) Status() (Status, error) {
 
 func (c *srvClient) SetConfig(p statecmd.SetConfigParams) error {
 	return statecmd.SetConfig(c.root.srv.state, p)
+}
+
+// EnvironmentInfo returns information about the current environment (default
+// series and type).
+func (c *srvClient) EnvironmentInfo() (EnvironmentInfo, error) {
+	conf, err := c.root.srv.state.EnvironConfig()
+	if err != nil {
+		return EnvironmentInfo{}, err
+	}
+	info := EnvironmentInfo{
+		DefaultSeries: conf.DefaultSeries(),
+		ProviderType:  conf.Type(),
+	}
+	return info, nil
 }
 
 type rpcCreds struct {

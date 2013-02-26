@@ -13,15 +13,20 @@ type OutputCommand struct {
 }
 
 func (c *OutputCommand) Info() *cmd.Info {
-	return &cmd.Info{"output", "<something>", "I like to output", "output"}
+	return &cmd.Info{
+		Name:    "output",
+		Args:    "<something>",
+		Purpose: "I like to output",
+		Doc:     "output",
+	}
 }
 
-func (c *OutputCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *OutputCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	return cmd.CheckEmpty(f.Args())
+}
+
+func (c *OutputCommand) Init(args []string) error {
+	return cmd.CheckEmpty(args)
 }
 
 func (c *OutputCommand) Run(ctx *cmd.Context) error {

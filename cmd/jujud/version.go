@@ -12,15 +12,18 @@ type VersionCommand struct {
 }
 
 func (v *VersionCommand) Info() *cmd.Info {
-	return &cmd.Info{"version", "", "print the current version", ""}
+	return &cmd.Info{
+		Name:    "version",
+		Purpose: "print the current version",
+	}
 }
 
-func (v *VersionCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (v *VersionCommand) SetFlags(f *gnuflag.FlagSet) {
 	v.out.AddFlags(f, "smart", cmd.DefaultFormatters)
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	return cmd.CheckEmpty(f.Args())
+}
+
+func (v *VersionCommand) Init(args []string) error {
+	return cmd.CheckEmpty(args)
 }
 
 func (v *VersionCommand) Run(ctxt *cmd.Context) error {

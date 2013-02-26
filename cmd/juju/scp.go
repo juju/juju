@@ -16,19 +16,23 @@ type SCPCommand struct {
 }
 
 func (c *SCPCommand) Info() *cmd.Info {
-	return &cmd.Info{"scp", "", "launch a scp command to copy files to/from remote machine(s)", ""}
+	return &cmd.Info{
+		Name:    "scp",
+		Args:    "<from> <to>",
+		Purpose: "launch a scp command to copy files to/from remote machine(s)",
+	}
 }
 
-func (c *SCPCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *SCPCommand) SetFlags(f *gnuflag.FlagSet) {
 	addEnvironFlags(&c.EnvName, f)
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	switch len(f.Args()) {
+}
+
+func (c *SCPCommand) Init(args []string) error {
+	switch len(args) {
 	case 0, 1:
 		return errors.New("at least two arguments required")
 	default:
-		c.Args = f.Args()
+		c.Args = args
 	}
 	return nil
 }

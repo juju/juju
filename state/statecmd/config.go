@@ -1,31 +1,52 @@
+// The statecmd package is a temporary package
+// to put code that's used by both cmd/juju and state/api.
+// It is intended to wither away to nothing as functionality
+// gets absorbed into state and state/api as appropriate
+// when the command-line commands can invoking the
+// API directly.
 package statecmd
 
 import (
 	"errors"
 	"launchpad.net/goyaml"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 )
 
-// SetConfigParams holds the parameters for a SetConfig
-// command. Either Options or Config will contain the configuration data.
-type SetConfigParams struct {
+// ServiceSetParams holds the parameters for a ServiceSet
+// command. Options contains the configuration data.
+type ServiceSetParams struct {
 	ServiceName string
 	Options     map[string]string
+}
+
+// ServiceSetYAMLParams holds the parameters for
+// a ServiceSetYAML command. Config contains the
+// configuration data in YAML format.
+type ServiceSetYAMLParams struct {
+	ServiceName string
 	Config      string
 }
 
-// SetConfig changes a service's configuration values.
+// ServiceSet changes a service's configuration values.
 // Values set to the empty string will be deleted.
-func SetConfig(st *state.State, p SetConfigParams) error {
+func ServiceSet(st *state.State, p ServiceSetParams) error {
+	return serviceSet(st, p.ServiceName, p.Options)
+}
+
+// ServiceSetYAML is like ServiceSet except that the
+// configuration data is specified in YAML format.
+func ServiceSetYAML(st *state.State, p ServiceSetYAMLParams) error {
+	// TODO(rog) should this function interpret null as delete?
+	// If so, we need to sort out some goyaml issues first.
+	// (see https://bugs.launchpad.net/goyaml/+bug/1133337)
 	var options map[string]string
-	if len(p.Config) > 0 {
-		if err := goyaml.Unmarshal([]byte(p.Config), &options); err != nil {
-			return err
-		}
-	} else {
-		options = p.Options
+	if err := goyaml.Unmarshal([]byte(p.Config), &options); err != nil {
+		return err
 	}
+	return serviceSet(st, p.ServiceName, options)
+}
+
+func serviceSet(st *state.State, svcName string, options map[string]string) error {
 	if len(options) == 0 {
 		return errors.New("no options to set")
 	}
@@ -38,8 +59,7 @@ func SetConfig(st *state.State, p SetConfigParams) error {
 			unvalidated[k] = v
 		}
 	}
-	log.Printf("remove: %q; unvalidated: %q", remove, unvalidated)
-	srv, err := st.Service(p.ServiceName)
+	srv, err := st.Service(svcName)
 	if err != nil {
 		return err
 	}
@@ -62,12 +82,10 @@ func SetConfig(st *state.State, p SetConfigParams) error {
 	}
 	// 3. Update any keys that remain after validation and filtering.
 	if len(validated) > 0 {
-		log.Debugf("state/statecmd: updating configuration items: %v", validated)
 		cfg.Update(validated)
 	}
 	// 4. Delete any removed keys.
 	if len(remove) > 0 {
-		log.Debugf("state/statecmd: removing configuration items: %v", remove)
 		for _, k := range remove {
 			cfg.Delete(k)
 		}

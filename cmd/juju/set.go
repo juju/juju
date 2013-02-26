@@ -21,16 +21,20 @@ type SetCommand struct {
 }
 
 func (c *SetCommand) Info() *cmd.Info {
-	return &cmd.Info{"set", "", "set service config options", ""}
+	return &cmd.Info{
+		Name:    "set",
+		Args:    "<service> name=value ...",
+		Purpose: "set service config options",
+		Doc:     "Set one or more configuration options for the specified service.",
+	}
 }
 
-func (c *SetCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *SetCommand) SetFlags(f *gnuflag.FlagSet) {
 	addEnvironFlags(&c.EnvName, f)
 	f.Var(&c.Config, "config", "path to yaml-formatted service config")
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	args = f.Args()
+}
+
+func (c *SetCommand) Init(args []string) error {
 	if len(args) == 0 || len(strings.Split(args[0], "=")) > 1 {
 		return errors.New("no service name specified")
 	}
@@ -63,7 +67,7 @@ func (c *SetCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer conn.Close()
-	return statecmd.SetConfig(conn.State, statecmd.SetConfigParams{
+	return statecmd.ServiceSet(conn.State, statecmd.ServiceSetParams{
 		ServiceName: c.ServiceName,
 		Options:     options,
 		Config:      string(contents),

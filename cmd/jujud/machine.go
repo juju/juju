@@ -27,20 +27,23 @@ type MachineAgent struct {
 
 // Info returns usage information for the command.
 func (a *MachineAgent) Info() *cmd.Info {
-	return &cmd.Info{"machine", "", "run a juju machine agent", ""}
+	return &cmd.Info{
+		Name:    "machine",
+		Purpose: "run a juju machine agent",
+	}
+}
+
+func (a *MachineAgent) SetFlags(f *gnuflag.FlagSet) {
+	a.Conf.addFlags(f)
+	f.StringVar(&a.MachineId, "machine-id", "", "id of the machine to run")
 }
 
 // Init initializes the command for running.
-func (a *MachineAgent) Init(f *gnuflag.FlagSet, args []string) error {
-	a.Conf.addFlags(f)
-	f.StringVar(&a.MachineId, "machine-id", "", "id of the machine to run")
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
+func (a *MachineAgent) Init(args []string) error {
 	if !state.IsMachineId(a.MachineId) {
 		return fmt.Errorf("--machine-id option must be set, and expects a non-negative integer")
 	}
-	return a.Conf.checkArgs(f.Args())
+	return a.Conf.checkArgs(args)
 }
 
 // Stop stops the machine agent.
@@ -177,6 +180,7 @@ func (a *MachineAgent) maybeRunAPIServerOnce(conf *agent.Conf) error {
 	select {
 	case <-a.tomb.Dying():
 	case <-srv.Dead():
+		log.Printf("jujud: API server has died: %v", srv.Stop())
 	}
 	return srv.Stop()
 }

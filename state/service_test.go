@@ -275,7 +275,7 @@ func (s *ServiceSuite) TestAddUnit(c *C) {
 	c.Assert(unitOne.SubordinateNames(), HasLen, 0)
 
 	// Assign the principal unit to a machine.
-	m, err := s.State.AddMachine(state.JobHostUnits)
+	m, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	err = unitZero.AssignToMachine(m)
 	c.Assert(err, IsNil)
@@ -503,6 +503,46 @@ func (s *ServiceSuite) TestServiceConfig(c *C) {
 	err = env.Read()
 	c.Assert(err, IsNil)
 	c.Assert(env.Map(), DeepEquals, map[string]interface{}{"spam": "spam", "eggs": "spam", "chaos": "emeralds"})
+}
+
+func (s *ServiceSuite) TestConstraints(c *C) {
+	// Constraints are initially empty (for now).
+	cons0 := state.Constraints{}
+	cons1, err := s.mysql.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(cons1, DeepEquals, cons0)
+
+	// Constraints can be set.
+	cons2 := state.Constraints{Mem: uint64p(4096)}
+	err = s.mysql.SetConstraints(cons2)
+	cons3, err := s.mysql.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(cons3, DeepEquals, cons2)
+
+	// Constraints are completely overwritten when re-set.
+	cons4 := state.Constraints{CpuPower: uint64p(750)}
+	err = s.mysql.SetConstraints(cons4)
+	c.Assert(err, IsNil)
+	cons5, err := s.mysql.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(cons5, DeepEquals, cons4)
+
+	// Destroy the existing service; there's no way to directly assert
+	// that the constraints are deleted...
+	err = s.mysql.Destroy()
+	c.Assert(err, IsNil)
+	err = s.mysql.Refresh()
+	c.Assert(state.IsNotFound(err), Equals, true)
+
+	// ...but we can check that old constraints do not affect new services
+	// with matching names.
+	ch, _, err := s.mysql.Charm()
+	c.Assert(err, IsNil)
+	mysql, err := s.State.AddService(s.mysql.Name(), ch)
+	c.Assert(err, IsNil)
+	cons6, err := mysql.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(cons6, DeepEquals, cons0)
 }
 
 type unitSlice []*state.Unit

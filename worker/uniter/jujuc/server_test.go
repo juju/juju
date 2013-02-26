@@ -21,16 +21,20 @@ type RpcCommand struct {
 }
 
 func (c *RpcCommand) Info() *cmd.Info {
-	return &cmd.Info{"remote", "", "act at a distance", "blah doc"}
+	return &cmd.Info{
+		Name:    "remote",
+		Purpose: "act at a distance",
+		Doc:     "blah doc",
+	}
 }
 
-func (c *RpcCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *RpcCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Value, "value", "", "doc")
 	f.BoolVar(&c.Slow, "slow", false, "doc")
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	return cmd.CheckEmpty(f.Args())
+}
+
+func (c *RpcCommand) Init(args []string) error {
+	return cmd.CheckEmpty(args)
 }
 
 func (c *RpcCommand) Run(ctx *cmd.Context) error {
