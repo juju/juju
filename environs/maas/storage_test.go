@@ -69,28 +69,20 @@ func (s *StorageSuite) TestNamingPrefixIsConsistentForEnvironment(c *C) {
 	c.Check(stor1.namingPrefix, Equals, stor2.namingPrefix)
 }
 
-func (s *StorageSuite) TestAddressFileObjectComputesFileURL(c *C) {
+func (s *StorageSuite) TestRetrieveFileObjectReturnsFileURL(c *C) {
 	c.Assert("TEST THIS", IsNil)
 }
 
-func (s *StorageSuite) TestAddressFileObjectEscapesPrefix(c *C) {
+func (s *StorageSuite) TestRetrieveFileObjectEscapesPrefix(c *C) {
 	const name = "a/b c"
 	c.Assert("TEST THIS", IsNil)
 }
 
-func (s *StorageSuite) TestAddressFileObjectEscapesName(c *C) {
+func (s *StorageSuite) TestRetrieveFileObjectEscapesName(c *C) {
 	c.Assert("TEST THIS", IsNil)
 }
 
-func (s *StorageSuite) TestComposeAnonymousFileURLComputesFileURL(c *C) {
-	c.Assert("TEST THIS", IsNil)
-}
-
-func (s *StorageSuite) TestComposeAnonymousFileURLEscapesPrefix(c *C) {
-	c.Assert("TEST THIS", IsNil)
-}
-
-func (s *StorageSuite) TestComposeAnonymousFileURLEscapesName(c *C) {
+func (s *StorageSuite) TestRetrieveFileObjectReturnsFileContents(c *C) {
 	c.Assert("TEST THIS", IsNil)
 }
 
