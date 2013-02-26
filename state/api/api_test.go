@@ -185,15 +185,7 @@ func opClientServiceGet(c *C, st *api.State) (func(), error) {
 		return func() {}, err
 	}
 	c.Assert(err, IsNil)
-	c.Assert(service, DeepEquals,
-		&statecmd.ServiceGetResults{
-			Service: "wordpress",
-			Charm:   "wordpress",
-			Settings: map[string]interface{}{
-				"blog-title": map[string]interface{}{
-					"type":        "string",
-					"value":       interface{}(nil),
-					"description": "A descriptive title used for the blog."}}})
+	c.Assert(service, DeepEquals, &expectedWordpressConfig)
 	return func() {}, nil
 }
 
@@ -212,6 +204,15 @@ var scenarioStatus = &api.Status{
 		},
 	},
 }
+
+var expectedWordpressConfig = statecmd.ServiceGetResults{
+	Service: "wordpress",
+	Charm:   "wordpress",
+	Settings: map[string]interface{}{
+		"blog-title": map[string]interface{}{
+			"type":        "string",
+			"value":       nil,
+			"description": "A descriptive title used for the blog."}}}
 
 // setUpScenario makes an environment scenario suitable for
 // testing most kinds of access scenario. It returns
@@ -679,6 +680,13 @@ func (s *suite) TestStop(c *C) {
 	// Check it can be stopped twice.
 	err = srv.Stop()
 	c.Assert(err, IsNil)
+}
+
+func (s *suite) TestClientServiceGet(c *C) {
+	s.setUpScenario(c)
+	config, err := s.APIState.Client().ServiceGet("wordpress")
+	c.Assert(err, IsNil)
+	c.Assert(config, DeepEquals, &expectedWordpressConfig)
 }
 
 // openAs connects to the API state as the given entity
