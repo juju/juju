@@ -294,6 +294,12 @@ func (s *ConnSuite) TearDownSuite(c *C) {
 	s.MgoSuite.TearDownSuite(c)
 }
 
+func (s *ConnSuite) TestNewConnFromState(c *C) {
+	conn, err := juju.NewConnFromState(s.conn.State)
+	c.Assert(err, IsNil)
+	c.Assert(conn.Environ.Name(), Equals, "erewhemos")
+}
+	
 func (s *ConnSuite) TestPutCharmBasic(c *C) {
 	curl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "riak")
 	curl.Revision = -1 // make sure we trigger the repo.Latest logic.
