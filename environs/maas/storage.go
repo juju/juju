@@ -1,9 +1,14 @@
 package maas
 
 import (
+	"bytes"
+	"encoding/base64"
+	"fmt"
 	"io"
+	"io/ioutil"
 	"launchpad.net/gomaasapi"
 	"launchpad.net/juju-core/environs"
+	"net/url"
 	"path/filepath"
 	"sync"
 )
@@ -25,10 +30,17 @@ type maasStorage struct {
 
 var _ environs.Storage = (*maasStorage)(nil)
 
-// Compose a prefix for all files stored by this environment.
+// composeNamingPrefix generates a consistent naming prefix for all files
+// stored by this environment.
 func composeNamingPrefix(env *maasEnviron) string {
-	prefix := filepath.Join("juju/", env.Name())
-	return filepath.ToSlash(prefix)
+	// Slashes are problematic as path separators: file names are
+	// sometimes included in URL paths, where we'd need to escape them
+	// but standard URL-escaping won't do so.  We can't escape them before
+	// they go into the URLs because subsequent URL escaping would escape
+	// the percentage signs in the escaping itself.
+	// Use a different separator instead.
+	separator := ".-."
+	return "juju" + separator + env.Name() + separator
 }
 
 func NewStorage(env *maasEnviron) environs.Storage {
@@ -43,9 +55,45 @@ func NewStorage(env *maasEnviron) environs.Storage {
 	return storage
 }
 
-func (*maasStorage) Get(name string) (io.ReadCloser, error) {
-	panic("Not implemented.")
-	// TODO: If the name does not exist, return *NotFoundError.
+// addressFileObject returns the URL where the named file's details can be
+// retrieved from the MAAS API.
+func (stor *maasStorage) addressFileObject(filename string) gomaasapi.MAASObject {
+	fullName := filepath.Join(stor.namingPrefix, filename)
+	return stor.maasClientUnlocked.GetSubObject(fullName)
+}
+
+// composeAnonymousFileURL returns the URL where the named file's contents can
+// be downloaded, anonymously, from the MAAS API.
+func (stor *maasStorage) composeAnonymousFileURL(filename string) url.URL {
+	stor.Lock()
+	defer stor.Unlock()
+
+	result := *stor.maasClientUnlocked.URL()
+	query := result.Query()
+	query.Add("filename", filepath.Join(stor.namingPrefix, filename))
+	result.RawQuery = query.Encode()
+	return result
+}
+
+func (stor *maasStorage) Get(name string) (io.ReadCloser, error) {
+	fileObj, err := stor.addressFileObject(name).Get()
+	if err != nil {
+		serverErr, ok := err.(gomaasapi.ServerError)
+		if ok && serverErr.StatusCode == 404 {
+			msg := fmt.Errorf("file %s not found", name)
+			return nil, environs.NotFoundError{msg}
+		}
+		return nil, fmt.Errorf("could not access file '%s': %v", name, err)
+	}
+	data, err := fileObj.GetField("content")
+	if err != nil {
+		return nil, fmt.Errorf("could not extract file content for %s: %v", name, err)
+	}
+	buf, err := base64.StdEncoding.DecodeString(data)
+	if err != nil {
+		return nil, fmt.Errorf("bad data in file '%s': %v", name, err)
+	}
+	return ioutil.NopCloser(bytes.NewReader(buf)), nil
 }
 
 func (*maasStorage) List(prefix string) ([]string, error) {

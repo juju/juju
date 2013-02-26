@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"math/rand"
 	"net/http"
+	"path/filepath"
 )
 
 type StorageSuite struct {
@@ -15,26 +16,34 @@ type StorageSuite struct {
 
 var _ = Suite(new(StorageSuite))
 
-// FakeStoredFile creates a file directly in the (simulated) MAAS file store.
+// makeStorage creates a MAAS storage object for the running test.
+func (s *StorageSuite) makeStorage(name string) *maasStorage {
+	maasobj := s.testMAASObject.MAASObject
+	env := maasEnviron{name: name, maasClientUnlocked: &maasobj}
+	return NewStorage(&env).(*maasStorage)
+}
+
+// fakeStoredFile creates a file directly in the (simulated) MAAS file store.
 // It will contain an arbitrary amount of random data.  The contents are also
 // returned.
 //
 // If you want properly random data here, initialize the randomizer first.
 // Or don't, if you want consistent (and debuggable) results.
-func (s *StorageSuite) FakeStoredFile(name string) []byte {
+func (s *StorageSuite) fakeStoredFile(storage environs.Storage, name string) []byte {
 	length := rand.Intn(10)
 	data := make([]byte, length)
 	for index := range data {
 		data[index] = byte(rand.Intn(256))
 	}
-	s.testMAASObject.TestServer.NewFile(name, data)
+	fullPath := filepath.Join(storage.(*maasStorage).namingPrefix, name)
+	s.testMAASObject.TestServer.NewFile(fullPath, data)
 	return data
 }
 
 func (s *StorageSuite) TestGetRetrievesFile(c *C) {
 	const filename = "stored-data"
-	storage := NewStorage(s.environ)
-	contents := s.FakeStoredFile(filename)
+	storage := s.makeStorage("get-retrieves-file")
+	contents := s.fakeStoredFile(storage, filename)
 	buf := make([]byte, len(contents)+1)
 
 	reader, err := storage.Get(filename)
@@ -46,6 +55,43 @@ func (s *StorageSuite) TestGetRetrievesFile(c *C) {
 	c.Check(numBytes, Equals, len(contents))
 	c.Check(buf[:numBytes], DeepEquals, contents)
 	c.Check(buf[numBytes], Equals, 0)
+}
+
+func (s *StorageSuite) TestNamingPrefixDiffersBetweenEnvironments(c *C) {
+	storA := s.makeStorage("A")
+	storB := s.makeStorage("B")
+	c.Check(storA.namingPrefix, Not(Equals), storB.namingPrefix)
+}
+
+func (s *StorageSuite) TestNamingPrefixIsConsistentForEnvironment(c *C) {
+	stor1 := s.makeStorage("name")
+	stor2 := s.makeStorage("name")
+	c.Check(stor1.namingPrefix, Equals, stor2.namingPrefix)
+}
+
+func (s *StorageSuite) TestAddressFileObjectComputesFileURL(c *C) {
+	c.Assert("TEST THIS", IsNil)
+}
+
+func (s *StorageSuite) TestAddressFileObjectEscapesPrefix(c *C) {
+	const name = "a/b c"
+	c.Assert("TEST THIS", IsNil)
+}
+
+func (s *StorageSuite) TestAddressFileObjectEscapesName(c *C) {
+	c.Assert("TEST THIS", IsNil)
+}
+
+func (s *StorageSuite) TestComposeAnonymousFileURLComputesFileURL(c *C) {
+	c.Assert("TEST THIS", IsNil)
+}
+
+func (s *StorageSuite) TestComposeAnonymousFileURLEscapesPrefix(c *C) {
+	c.Assert("TEST THIS", IsNil)
+}
+
+func (s *StorageSuite) TestComposeAnonymousFileURLEscapesName(c *C) {
+	c.Assert("TEST THIS", IsNil)
 }
 
 func (s *StorageSuite) TestGetReturnsNotFoundErrorIfNotFound(c *C) {
@@ -66,7 +112,7 @@ func (s *StorageSuite) TestListReturnsAllFilesIfPrefixEmpty(c *C) {
 	storage := NewStorage(s.environ)
 	files := []string{"1a", "2b", "3c"}
 	for _, name := range files {
-		s.FakeStoredFile(name)
+		s.fakeStoredFile(storage, name)
 	}
 
 	listing, err := storage.List("")
@@ -78,7 +124,7 @@ func (s *StorageSuite) TestListSortsResults(c *C) {
 	storage := NewStorage(s.environ)
 	files := []string{"4d", "1a", "3c", "2b"}
 	for _, name := range files {
-		s.FakeStoredFile(name)
+		s.fakeStoredFile(storage, name)
 	}
 
 	listing, err := storage.List("")
@@ -88,7 +134,7 @@ func (s *StorageSuite) TestListSortsResults(c *C) {
 
 func (s *StorageSuite) TestListReturnsNoFilesIfNoFilesMatchPrefix(c *C) {
 	storage := NewStorage(s.environ)
-	s.FakeStoredFile("foo")
+	s.fakeStoredFile(storage, "foo")
 
 	listing, err := storage.List("bar")
 	c.Assert(err, IsNil)
@@ -97,8 +143,8 @@ func (s *StorageSuite) TestListReturnsNoFilesIfNoFilesMatchPrefix(c *C) {
 
 func (s *StorageSuite) TestListReturnsOnlyFilesWithMatchingPrefix(c *C) {
 	storage := NewStorage(s.environ)
-	s.FakeStoredFile("abc")
-	s.FakeStoredFile("xyz")
+	s.fakeStoredFile(storage, "abc")
+	s.fakeStoredFile(storage, "xyz")
 
 	listing, err := storage.List("x")
 	c.Assert(err, IsNil)
@@ -107,8 +153,8 @@ func (s *StorageSuite) TestListReturnsOnlyFilesWithMatchingPrefix(c *C) {
 
 func (s *StorageSuite) TestListMatchesPrefixOnly(c *C) {
 	storage := NewStorage(s.environ)
-	s.FakeStoredFile("abc")
-	s.FakeStoredFile("xabc")
+	s.fakeStoredFile(storage, "abc")
+	s.fakeStoredFile(storage, "xabc")
 
 	listing, err := storage.List("a")
 	c.Assert(err, IsNil)
@@ -117,7 +163,7 @@ func (s *StorageSuite) TestListMatchesPrefixOnly(c *C) {
 
 func (s *StorageSuite) TestListOperatesOnFlatNamespace(c *C) {
 	storage := NewStorage(s.environ)
-	s.FakeStoredFile("a/b/c/d")
+	s.fakeStoredFile(storage, "a/b/c/d")
 
 	listing, err := storage.List("a/b")
 	c.Assert(err, IsNil)
@@ -144,7 +190,7 @@ func getURL(fileURL string) ([]byte, error) {
 func (s *StorageSuite) TestURLReturnsURLCorrespondingToFile(c *C) {
 	const filename = "my-file.txt"
 	storage := NewStorage(s.environ)
-	contents := s.FakeStoredFile(filename)
+	contents := s.fakeStoredFile(storage, filename)
 
 	fileURL, err := storage.URL(filename)
 	c.Assert(err, IsNil)
@@ -175,7 +221,7 @@ func (s *StorageSuite) TestPutStoresRetrievableFile(c *C) {
 func (s *StorageSuite) TestPutOverwritesFile(c *C) {
 	const filename = "foo.bar"
 	storage := NewStorage(s.environ)
-	s.FakeStoredFile(filename)
+	s.fakeStoredFile(storage, filename)
 	newContents := []byte("Overwritten")
 
 	err := storage.Put(filename, bytes.NewReader(newContents), int64(len(newContents)))
@@ -235,8 +281,8 @@ func (s *StorageSuite) TestPutToExistingFileTruncatesAtGivenLength(c *C) {
 
 func (s *StorageSuite) TestRemoveDeletesFile(c *C) {
 	const filename = "doomed.txt"
-	s.FakeStoredFile(filename)
 	storage := NewStorage(s.environ)
+	s.fakeStoredFile(storage, filename)
 
 	err := storage.Remove(filename)
 	c.Assert(err, IsNil)
@@ -251,8 +297,8 @@ func (s *StorageSuite) TestRemoveDeletesFile(c *C) {
 
 func (s *StorageSuite) TestRemoveIsIdempotent(c *C) {
 	const filename = "half-a-file"
-	s.FakeStoredFile(filename)
 	storage := NewStorage(s.environ)
+	s.fakeStoredFile(storage, filename)
 
 	err := storage.Remove(filename)
 	c.Assert(err, IsNil)
