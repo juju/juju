@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
 	"strings"
 	stdtesting "testing"
 )
@@ -50,6 +49,26 @@ var runMainTests = []struct {
 	out     string
 }{
 	{
+		summary: "no params shows help",
+		args:    []string{},
+		code:    0,
+		out:     strings.TrimLeft(help_basics, "\n"),
+	}, {
+		summary: "juju help is the same as juju",
+		args:    []string{"help"},
+		code:    0,
+		out:     strings.TrimLeft(help_basics, "\n"),
+	}, {
+		summary: "juju --help works too",
+		args:    []string{"--help"},
+		code:    0,
+		out:     strings.TrimLeft(help_basics, "\n"),
+	}, {
+		summary: "juju help basics is the same as juju",
+		args:    []string{"help", "basics"},
+		code:    0,
+		out:     strings.TrimLeft(help_basics, "\n"),
+	}, {
 		summary: "unknown command",
 		args:    []string{"discombobulate"},
 		code:    2,
@@ -158,30 +177,20 @@ var commandNames = []string{
 	"upgrade-juju",
 }
 
-func (s *MainSuite) TestHelp(c *C) {
+func (s *MainSuite) TestHelpCommands(c *C) {
 	// Check that we have correctly registered all the commands
 	// by checking the help output.
-
-	out := badrun(c, 0, "-help")
+	out := badrun(c, 0, "help", "commands")
 	lines := strings.Split(out, "\n")
-	c.Assert(lines[0], Matches, `usage: juju .*`)
-	for ; len(lines) > 0; lines = lines[1:] {
-		if lines[0] == "commands:" {
-			break
-		}
-	}
-	c.Assert(lines, Not(HasLen), 0)
-
 	var names []string
-	for lines = lines[1:]; len(lines) > 0; lines = lines[1:] {
-		f := strings.Fields(lines[0])
+	for _, line := range lines {
+		f := strings.Fields(line)
 		if len(f) == 0 {
 			continue
 		}
-		c.Assert(f, Not(HasLen), 0)
 		names = append(names, f[0])
 	}
-	sort.Strings(names)
+	// The names should be output in alphabetical order, so don't sort.
 	c.Assert(names, DeepEquals, commandNames)
 }
 
