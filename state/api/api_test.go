@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
 	"net"
 	stdtesting "testing"
@@ -60,6 +61,10 @@ var operationPermTests = []struct {
 }, {
 	about: "Client.Status",
 	op:    opClientStatus,
+	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.ServiceGet",
+	op:    opClientServiceGet,
 	allow: []string{"user-admin", "user-other"},
 },
 }
@@ -174,6 +179,16 @@ func opClientStatus(c *C, st *api.State) (func(), error) {
 	return func() {}, nil
 }
 
+func opClientServiceGet(c *C, st *api.State) (func(), error) {
+	service, err := st.Client().ServiceGet("wordpress")
+	if err != nil {
+		return func() {}, err
+	}
+	c.Assert(err, IsNil)
+	c.Assert(service, DeepEquals, &expectedWordpressConfig)
+	return func() {}, nil
+}
+
 // scenarioStatus describes the expected state
 // of the juju environment set up by setUpScenario.
 var scenarioStatus = &api.Status{
@@ -187,6 +202,17 @@ var scenarioStatus = &api.Status{
 		"2": {
 			InstanceId: "i-machine-2",
 		},
+	},
+}
+
+var expectedWordpressConfig = statecmd.ServiceGetResults{
+	Service: "wordpress",
+	Charm:   "wordpress",
+	Settings: map[string]interface{}{
+		"blog-title": map[string]interface{}{
+			"type":        "string",
+			"value":       nil,
+			"description": "A descriptive title used for the blog."},
 	},
 }
 
@@ -656,6 +682,13 @@ func (s *suite) TestStop(c *C) {
 	// Check it can be stopped twice.
 	err = srv.Stop()
 	c.Assert(err, IsNil)
+}
+
+func (s *suite) TestClientServiceGet(c *C) {
+	s.setUpScenario(c)
+	config, err := s.APIState.Client().ServiceGet("wordpress")
+	c.Assert(err, IsNil)
+	c.Assert(config, DeepEquals, &expectedWordpressConfig)
 }
 
 // openAs connects to the API state as the given entity
