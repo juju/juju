@@ -18,9 +18,9 @@ func Test(t *stdtesting.T) {
 
 var _ = Suite(&ConfigSuite{})
 
-// TODO(rog) make these tests independent of one another.
-var setTests = []struct {
+var serviceSetTests = []struct {
 	about  string
+	initial map[string]interface{}
 	params statecmd.ServiceSetParams // parameters to ServiceSet call.
 	expect map[string]interface{}    // resulting configuration of the dummy service.
 	err    string                    // error regex
@@ -38,18 +38,6 @@ var setTests = []struct {
 		about:  "no config or options",
 		params: statecmd.ServiceSetParams{},
 		err:    "no options to set",
-	}, {
-		about: "bad configuration",
-		params: statecmd.ServiceSetParams{
-			Config: "345",
-		},
-		err: "no options to set",
-	}, {
-		about: "config with no options",
-		params: statecmd.ServiceSetParams{
-			Config: "{}",
-		},
-		err: "no options to set",
 	}, {
 		about: "unknown option",
 		params: statecmd.ServiceSetParams{
@@ -72,6 +60,9 @@ var setTests = []struct {
 		},
 	}, {
 		about: "unset outlook and set title",
+		initial: map[string]interface{}{
+			"outlook": "positive",
+		},
 		params: statecmd.ServiceSetParams{
 			ServiceName: "dummy-service",
 			Options: map[string]string{
@@ -84,6 +75,9 @@ var setTests = []struct {
 		},
 	}, {
 		about: "set a default value",
+		initial: map[string]interface{}{
+			"title": "sir",
+		},
 		params: statecmd.ServiceSetParams{
 			ServiceName: "dummy-service",
 			Options: map[string]string{
@@ -96,6 +90,10 @@ var setTests = []struct {
 		},
 	}, {
 		about: "unset a default value, set a different default",
+		initial: map[string]interface{}{
+			"username": "admin001",
+			"title":    "sir",
+		},
 		params: statecmd.ServiceSetParams{
 			ServiceName: "dummy-service",
 			Options: map[string]string{
@@ -106,26 +104,22 @@ var setTests = []struct {
 		expect: map[string]interface{}{
 			"title": "My Title",
 		},
-	}, {
-		about: "yaml config",
-		params: statecmd.ServiceSetParams{
-			ServiceName: "dummy-service",
-			Config:      "skill-level: 9000\nusername: admin001\n\n",
-		},
-		expect: map[string]interface{}{
-			"title":       "My Title",
-			"username":    "admin001",
-			"skill-level": int64(9000), // yaml int types are int64
-		},
 	},
 }
 
 func (s *ConfigSuite) TestServiceSet(c *C) {
 	sch := s.AddTestingCharm(c, "dummy")
-	svc, err := s.State.AddService("dummy-service", sch)
-	c.Assert(err, IsNil)
-	for i, t := range setTests {
+	for i, t := range serviceSetTests {
 		c.Logf("test %d. %s", i, t.about)
+		svc, err := s.State.AddService("dummy-service", sch)
+		c.Assert(err, IsNil)
+		if t.initial != nil {
+			cfg, err := svc.Config()
+			c.Assert(err, IsNil)
+			cfg.Update(t.initial)
+			_, err = cfg.Write()
+			c.Assert(err, IsNil)
+		}
 		err = statecmd.ServiceSet(s.State, t.params)
 		if t.err != "" {
 			c.Assert(err, ErrorMatches, t.err)
@@ -135,8 +129,64 @@ func (s *ConfigSuite) TestServiceSet(c *C) {
 			c.Assert(err, IsNil)
 			c.Assert(cfg.Map(), DeepEquals, t.expect)
 		}
+		err = svc.Destroy()
+		c.Assert(err, IsNil)
 	}
 }
+//
+//// TODO(rog) make these tests independent of one another.
+//var setTests = []struct {
+//	about  string
+//	params statecmd.ServiceSetParams // parameters to ServiceSet call.
+//	expect map[string]interface{}    // resulting configuration of the dummy service.
+//	err    string                    // error regex
+//}{ {
+//		about: "bad configuration",
+//		params: statecmd.ServiceSetParams{
+//			Config: "345",
+//		},
+//		err: "no options to set",
+//	}, {
+//		about: "config with no options",
+//		params: statecmd.ServiceSetParams{
+//			Config: "{}",
+//		},
+//		err: "no options to set",
+//	}, {
+//		about: "yaml config",
+//		initial: map[string]interface{
+//			"title":    "sir",
+//		},
+//		params: statecmd.ServiceSetParams{
+//			ServiceName: "dummy-service",
+//			Config:      "skill-level: 9000\nusername: admin001\n\n",
+//		},
+//		expect: map[string]interface{}{
+//			"title":       "My Title",
+//			"username":    "admin001",
+//			"skill-level": int64(9000), // yaml int types are int64
+//		},
+//	},
+//}
+//
+//
+//func (s *ConfigSuite) TestServiceSetYAML(c *C) {
+//	sch := s.AddTestingCharm(c, "dummy")
+//	svc, err := s.State.AddService("dummy-service", sch)
+//	c.Assert(err, IsNil)
+//	for i, t := range setTests {
+//		c.Logf("test %d. %s", i, t.about)
+//		err = statecmd.ServiceSet(s.State, t.params)
+//		if t.err != "" {
+//			c.Assert(err, ErrorMatches, t.err)
+//		} else {
+//			c.Assert(err, IsNil)
+//			cfg, err := svc.Config()
+//			c.Assert(err, IsNil)
+//			c.Assert(cfg.Map(), DeepEquals, t.expect)
+//		}
+//	}
+//}
 
 var getTests = []struct {
 	about  string
