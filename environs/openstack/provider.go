@@ -501,11 +501,22 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 		// the machine won't be able to get the tools (401 error)
 		containerACL: swift.PublicRead,
 		swift:        swift.New(client)}
-	if ecfg.publicBucket() != "" && ecfg.publicBucketURL() != "" {
-		e.publicStorageUnlocked = &storage{
-			containerName: ecfg.publicBucket(),
-			containerACL:  swift.PublicRead,
-			swift:         swift.New(e.publicClient(ecfg))}
+	if ecfg.publicBucket() != "" {
+		// If no public bucket URL is specified, we will instead create the public bucket
+		// using the user's credentials on the authenticated client.
+		if ecfg.publicBucketURL() == "" {
+			e.publicStorageUnlocked = &storage{
+				containerName: ecfg.publicBucket(),
+				// this is possibly just a hack - if the ACL is swift.Private,
+				// the machine won't be able to get the tools (401 error)
+				containerACL: swift.PublicRead,
+				swift:        swift.New(client)}
+		} else {
+			e.publicStorageUnlocked = &storage{
+				containerName: ecfg.publicBucket(),
+				containerACL:  swift.PublicRead,
+				swift:         swift.New(e.publicClient(ecfg))}
+		}
 	} else {
 		e.publicStorageUnlocked = nil
 	}
@@ -755,6 +766,9 @@ func (e *environ) collectInstances(ids []state.InstanceId, out map[state.Instanc
 }
 
 func (e *environ) Instances(ids []state.InstanceId) ([]environs.Instance, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
 	missing := ids
 	found := make(map[state.InstanceId]environs.Instance)
 	// Make a series of requests to cope with eventual consistency.
