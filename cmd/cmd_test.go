@@ -30,7 +30,7 @@ func (s *CmdSuite) TestInfo(c *C) {
 	f := testing.NewFlagSet()
 	var ignored string
 	f.StringVar(&ignored, "option", "", "option-doc")
-	help = full.Info().Help(f)
+	help = full.Help(full.Info(), f)
 	c.Assert(string(help), Equals, fullHelp)
 
 	optionInfo := full.Info()
@@ -97,8 +97,8 @@ func (s *CmdSuite) TestMainHelp(c *C) {
 		ctx := testing.Context(c)
 		result := cmd.Main(&TestCommand{Name: "verb"}, ctx, []string{arg})
 		c.Assert(result, Equals, 0)
-		c.Assert(bufferString(ctx.Stdout), Equals, "")
-		c.Assert(bufferString(ctx.Stderr), Equals, fullHelp)
+		c.Assert(bufferString(ctx.Stdout), Equals, fullHelp)
+		c.Assert(bufferString(ctx.Stderr), Equals, "")
 	}
 }
 
