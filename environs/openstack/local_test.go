@@ -107,6 +107,8 @@ func (s *localLiveSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
 	c.Logf("Running live tests using openstack service test double")
 
+	s.testImageId = "1"
+	s.testFlavor = "m1.small"
 	s.srv.start(c, s.cred)
 	s.LiveTests.SetUpSuite(c)
 }
@@ -146,7 +148,8 @@ func testConfig(cred *identity.Credentials) map[string]interface{} {
 	attrs["region"] = cred.Region
 	attrs["auth-url"] = cred.URL
 	attrs["tenant-name"] = cred.TenantName
-	attrs["default-image-id"] = testImageId
+	attrs["default-image-id"] = "1"
+	attrs["default-instance-type"] = "m1.small"
 	return attrs
 }
 
