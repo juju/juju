@@ -2,7 +2,6 @@ package api
 
 import (
 	"errors"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
 )
@@ -25,10 +24,12 @@ func (e *Error) ErrorCode() string {
 var _ rpc.ErrorCoder = (*Error)(nil)
 
 var (
-	errBadId       = errors.New("id not found")
-	errBadCreds    = errors.New("invalid entity name or password")
-	errPerm        = errors.New("permission denied")
-	errNotLoggedIn = errors.New("not logged in")
+	errBadId          = errors.New("id not found")
+	errBadCreds       = errors.New("invalid entity name or password")
+	errPerm           = errors.New("permission denied")
+	errNotLoggedIn    = errors.New("not logged in")
+	errUnknownWatcher = errors.New("unknown watcher id")
+	errStoppedWatcher = errors.New("watcher has been stopped")
 )
 
 var singletonErrorCodes = map[error]string{
@@ -41,6 +42,8 @@ var singletonErrorCodes = map[error]string{
 	errBadCreds:                  CodeUnauthorized,
 	errPerm:                      CodeUnauthorized,
 	errNotLoggedIn:               CodeUnauthorized,
+	errUnknownWatcher:            CodeNotFound,
+	errStoppedWatcher:            CodeStopped,
 }
 
 // The Code constants hold error codes for some kinds of error.
@@ -52,15 +55,10 @@ const (
 	CodeExcessiveContention = "excessive contention"
 	CodeUnitHasSubordinates = "unit has subordinates"
 	CodeNotAssigned         = "not assigned"
+	CodeStopped             = "stopped"
 )
 
 func serverError(err error) error {
-	err1 := serverError1(err)
-	log.Printf("error %#v -> %#v", err, err1)
-	return err1
-}
-
-func serverError1(err error) error {
 	code := singletonErrorCodes[err]
 	switch {
 	case code != "":
@@ -82,7 +80,7 @@ func serverError1(err error) error {
 // the given error, or the empty string if there
 // is none.
 func ErrCode(err error) string {
-	if err := err.(rpc.ErrorCoder); err != nil {
+	if err, _ := err.(rpc.ErrorCoder); err != nil {
 		return err.ErrorCode()
 	}
 	return ""
@@ -91,7 +89,6 @@ func ErrCode(err error) string {
 // clientError maps errors returned from an RPC call into local errors with
 // appropriate values.
 func clientError(err error) error {
-	log.Printf("clientError %#v", err)
 	rerr, ok := err.(*rpc.ServerError)
 	if !ok {
 		return err

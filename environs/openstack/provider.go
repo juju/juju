@@ -73,6 +73,7 @@ openstack:
   # override if your workstation is running a different series to which you are deploying
   # default-series: precise
   default-image-id: c876e5fe-abb0-41f0-8f29-f0b47481f523
+  default-instance-type: "m1.small"
   # The following are used for userpass authentication (the default)
   auth-mode: userpass
   # Usually set via the env variable OS_USERNAME, but can be specified here
@@ -99,7 +100,8 @@ hpcloud:
   auth-url: https://yourkeystoneurl:35357/v2.0/
   # override if your workstation is running a different series to which you are deploying
   # default-series: precise
-  default-image-id: 75845
+  default-image-id: "75845"
+  default-instance-type: "standard.xsmall"
   # The following are used for userpass authentication (the default)
   auth-mode: userpass
   # Usually set via the env variable OS_USERNAME, but can be specified here
@@ -662,7 +664,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 		series: scfg.tools.Series,
 		arch:   scfg.tools.Arch,
 		region: e.ecfg().region(),
-		flavor: "m1.small",
+		flavor: e.ecfg().defaultInstanceType(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image satisfying constraints: %v", err)
