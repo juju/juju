@@ -317,15 +317,14 @@ func (s *Store) ListCounters(keyPrefix []string) ([]Counter, error) {
 	// For a search key "a:b:" matching a key "a:b:c:d:e:", this map function emits "a:b:c:*".
 	// For a search key "a:b:" matching a key "a:b:c:", it emits "a:b:c:".
 	// For a search key "a:b:" matching a key "a:b:", it emits "a:b:".
-	mapf := fmt.Sprintf(""+
-		"function() {"+
-		"    var k = this.k;"+
-		"    var i = k.indexOf(':', %d)+1;"+
-		"    if (k.length == %d) { return; }"+
-		"    if (k.length > i)  { k = k.substr(0, i)+'*'; }"+
-		"    emit(k, this.c);"+
-		"}",
-		len(skey), len(skey))
+	mapf := fmt.Sprintf(`
+		function() {
+		    var k = this.k;
+		    var i = k.indexOf(':', %d)+1;
+		    if (k.length == %d) { return; }
+		    if (k.length > i)  { k = k.substr(0, i)+'*'; }
+		    emit(k, this.c);
+		}`, len(skey), len(skey))
 	reducef := "function(key, values) { return Array.sum(values); }"
 	job := mgo.MapReduce{Map: mapf, Reduce: reducef}
 
