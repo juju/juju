@@ -93,3 +93,9 @@ func DefaultInstanceType(e environs.Environ) string {
 	ecfg := e.(*environ).ecfg()
 	return ecfg.defaultInstanceType()
 }
+
+// ImageDetails specify parameters used to start a test machine for the live tests.
+type ImageDetails struct {
+	Flavor  string
+	ImageId string
+}
