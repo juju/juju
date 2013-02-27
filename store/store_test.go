@@ -597,6 +597,62 @@ func (s *StoreSuite) TestCounterTokenUniqueness(c *C) {
 	c.Assert(sum, Equals, int64(10))
 }
 
+
+func (s *StoreSuite) TestCounterList(c *C) {
+	incs := [][]string{
+		{"c", "b", "a"}, // Assign internal id c < id b < id a, to make sorting slightly trickier.
+		{"a"},
+		{"a", "c"},
+		{"a", "b"},
+		{"a", "b", "c"},
+		{"a", "b", "c"},
+		{"a", "b", "e"},
+		{"a", "b", "d"},
+		{"a", "f", "g"},
+		{"a", "f", "h"},
+		{"a", "i"},
+		{"a", "i", "j"},
+		{"k", "l"},
+	}
+	for _, key := range incs {
+		err := s.store.IncCounter(key)
+		c.Assert(err, IsNil)
+	}
+
+	tests := []struct{ prefix []string; result []store.Counter }{
+		{
+			[]string{"a"},
+			[]store.Counter{
+				{[]string{"a", "b"}, 4, true},
+				{[]string{"a", "f"}, 2, true},
+				{[]string{"a", "b"}, 1, false},
+				{[]string{"a", "c"}, 1, false},
+				{[]string{"a", "i"}, 1, false},
+				{[]string{"a", "i"}, 1, true},
+			},
+		}, {
+			[]string{"a", "b"},
+			[]store.Counter{
+				{[]string{"a", "b", "c"}, 2, false},
+				{[]string{"a", "b", "d"}, 1, false},
+				{[]string{"a", "b", "e"}, 1, false},
+			},
+		},
+	}
+
+	// Use a different store to exercise cache filling.
+	st, err := store.Open(s.Addr)
+	c.Assert(err, IsNil)
+	defer st.Close()
+
+	for i := range tests {
+		result, err := st.ListCounters(tests[i].prefix)
+		c.Assert(err, IsNil)
+		c.Assert(result, DeepEquals, tests[i].result)
+	}
+}
+
+
 func (s *TrivialSuite) TestEventString(c *C) {
 	c.Assert(store.EventPublished, Matches, "published")
 	c.Assert(store.EventPublishError, Matches, "publish-error")

@@ -190,6 +190,47 @@ func (s *StoreSuite) TestStatsCounter(c *C) {
 	}
 }
 
+func (s *StoreSuite) TestStatsCounterList(c *C) {
+	incs := [][]string{
+		{"a"},
+		{"a", "b"},
+		{"a", "b", "c"},
+		{"a", "b", "c"},
+		{"a", "b", "d"},
+		{"a", "b", "e"},
+		{"a", "f", "g"},
+		{"a", "f", "h"},
+		{"a", "i"},
+		{"j", "k"},
+	}
+	for _, key := range incs {
+		err := s.store.IncCounter(key)
+		c.Assert(err, IsNil)
+	}
+
+	server, _ := s.prepareServer(c)
+
+	tests := [][]string{
+		{"a", "a  1\n"},
+		{"a:*", "a:b:*  4\na:f:*  2\na:b    1\na:i    1\n"},
+		{"a:b:*", "a:b:c  2\na:b:d  1\na:b:e  1\n"},
+	}
+
+	for i := range tests {
+		req, err := http.NewRequest("GET", "/stats/counter/"+tests[i][0], nil)
+		c.Assert(err, IsNil)
+		req.Form = url.Values{"list": []string{"1"}}
+		rec := httptest.NewRecorder()
+		server.ServeHTTP(rec, req)
+
+		data, err := ioutil.ReadAll(rec.Body)
+		c.Assert(string(data), Equals, tests[i][1])
+
+		c.Assert(rec.Header().Get("Content-Type"), Equals, "text/plain")
+		c.Assert(rec.Header().Get("Content-Length"), Equals, strconv.Itoa(len(tests[i][1])))
+	}
+}
+
 func (s *StoreSuite) TestBlitzKey(c *C) {
 	server, _ := s.prepareServer(c)
 
