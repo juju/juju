@@ -523,7 +523,7 @@ func (s *StoreSuite) TestCountersTokenCaching(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(sum, Equals, int64(0))
 
-	const genSize = 512
+	const genSize = 1024
 
 	// All of these will be cached, as we have two generations
 	// of genSize entries each.

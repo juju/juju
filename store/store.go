@@ -381,7 +381,7 @@ func (s sortableCounters) Less(i, j int) bool {
 	if s[i].Count != s[j].Count {
 		return s[j].Count < s[i].Count
 	}
-	// Then smaller keys first.
+	// Then smaller/shorter keys first.
 	ki := s[i].Key
 	kj := s[j].Key
 	for n := range ki {
@@ -391,6 +391,9 @@ func (s sortableCounters) Less(i, j int) bool {
 		if ki[n] != kj[n] {
 			return ki[n] < kj[n]
 		}
+	}
+	if len(ki) < len(kj) {
+		return true
 	}
 	// Then full keys first.
 	return !s[i].Prefix && s[j].Prefix

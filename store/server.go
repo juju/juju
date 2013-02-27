@@ -197,6 +197,7 @@ func (s *Server) serveStatsList(w http.ResponseWriter, r *http.Request, prefix [
 	if err != nil {
 		log.Printf("store: cannot list counter: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
 	// First build keys and figure max key length.
@@ -227,7 +228,7 @@ func (s *Server) serveStatsList(w http.ResponseWriter, r *http.Request, prefix [
 
 	// Then join all keys and counts in a single formatted buffer.
 	spaces := make([]byte, maxKeyLength+2)
-	for i := 0; i < len(spaces); i++ {
+	for i := range spaces {
 		spaces[i] = ' '
 	}
 	for i := range result {
