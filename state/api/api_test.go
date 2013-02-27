@@ -187,16 +187,31 @@ func opClientStatus(c *C, st *api.State) (func(), error) {
 	return func() {}, nil
 }
 
+func resetBlogTitle(c *C, st *api.State) func() {
+	return func() {
+		err := st.Client().ServiceSet("wordpress", map[string]string{
+			"blog-title": "",
+		})
+		c.Assert(err, IsNil)
+	}
+}
+
 func opClientServiceSet(c *C, st *api.State) (func(), error) {
 	err := st.Client().ServiceSet("wordpress", map[string]string{
 		"blog-title": "foo",
 	})
-	return func() {}, err
+	if err != nil {
+		return func() {}, err
+	}
+	return resetBlogTitle(c, st), nil
 }
 
 func opClientServiceSetYAML(c *C, st *api.State) (func(), error) {
 	err := st.Client().ServiceSetYAML("wordpress", `"blog-title": "foo"`)
-	return func() {}, err
+	if err != nil {
+		return func() {}, err
+	}
+	return resetBlogTitle(c, st), nil
 }
 
 func opClientServiceGet(c *C, st *api.State) (func(), error) {
