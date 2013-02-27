@@ -214,7 +214,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 	info.EntityName = m.EntityName()
 	info.Password = "foo1"
 	err = tryOpenState(info)
-	c.Assert(err, Equals, state.ErrUnauthorized)
+	c.Assert(state.IsUnauthorizedError(err), Equals, true)
 
 	// Connect as the machine entity.
 	info.EntityName = m.EntityName()
