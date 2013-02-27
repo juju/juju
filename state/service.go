@@ -323,7 +323,7 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 		return nil, err
 	}
 	// Decrement ref count on current charm (possibly deleting it).
-	decOps, err := settingsDecRefOps(s.st, s.doc.Name, s.doc.CharmURL) // current charm
+	decOps, err := settingsDecRefOps(s.st, s.doc.Name, s.doc.CharmURL)
 	if err != nil {
 		return nil, err
 	}
