@@ -116,7 +116,7 @@ func (r *srvRoot) requireClient() error {
 	return nil
 }
 
-// Machine returns returns an object that provides
+// Machine returns an object that provides
 // API access to methods on a state.Machine.
 func (r *srvRoot) Machine(id string) (*srvMachine, error) {
 	if err := r.requireAgent(); err != nil {
@@ -132,7 +132,7 @@ func (r *srvRoot) Machine(id string) (*srvMachine, error) {
 	}, nil
 }
 
-// Unit returns returns an object that provides
+// Unit returns an object that provides
 // API access to methods on a state.Unit.
 func (r *srvRoot) Unit(name string) (*srvUnit, error) {
 	if err := r.requireAgent(); err != nil {
@@ -148,7 +148,7 @@ func (r *srvRoot) Unit(name string) (*srvUnit, error) {
 	}, nil
 }
 
-// User returns returns an object that provides
+// User returns an object that provides
 // API access to methods on a state.User.
 func (r *srvRoot) User(name string) (*srvUser, error) {
 	// Any user is allowed to access their own user object.
