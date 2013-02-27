@@ -9,6 +9,7 @@ import (
 	"launchpad.net/gomaasapi"
 	"launchpad.net/juju-core/environs"
 	"net/url"
+	"sort"
 	"strings"
 	"sync"
 )
@@ -134,8 +135,8 @@ func (stor *maasStorage) extractFilenames(listResult gomaasapi.JSONObject) ([]st
 		filename = filename[len(stor.namingPrefix):]
 		result[index] = filename
 	}
+	sort.Strings(result)
 	return result, nil
-	// TODO: List in "alphabetical" order.  Slashes are not special; treat as letters.
 }
 
 func (stor *maasStorage) List(prefix string) ([]string, error) {
