@@ -679,7 +679,7 @@ func (s *suite) TestServerStopsOutstandingWatchMethod(c *C) {
 	c.Assert(ok, Equals, true)
 
 	// Wait long enough for the Next request to be sent
-	// so it's blocking on the server side. 
+	// so it's blocking on the server side.
 	time.Sleep(50 * time.Millisecond)
 	c.Logf("stopping server")
 	err = srv.Stop()
