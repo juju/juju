@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
 	"net"
 	stdtesting "testing"
@@ -61,6 +62,18 @@ var operationPermTests = []struct {
 }, {
 	about: "Client.Status",
 	op:    opClientStatus,
+	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.ServiceSet",
+	op:    opClientServiceSet,
+	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.ServiceSetYAML",
+	op:    opClientServiceSetYAML,
+	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.ServiceGet",
+	op:    opClientServiceGet,
 	allow: []string{"user-admin", "user-other"},
 },
 }
@@ -175,6 +188,43 @@ func opClientStatus(c *C, st *api.State) (func(), error) {
 	return func() {}, nil
 }
 
+func resetBlogTitle(c *C, st *api.State) func() {
+	return func() {
+		err := st.Client().ServiceSet("wordpress", map[string]string{
+			"blog-title": "",
+		})
+		c.Assert(err, IsNil)
+	}
+}
+
+func opClientServiceSet(c *C, st *api.State) (func(), error) {
+	err := st.Client().ServiceSet("wordpress", map[string]string{
+		"blog-title": "foo",
+	})
+	if err != nil {
+		return func() {}, err
+	}
+	return resetBlogTitle(c, st), nil
+}
+
+func opClientServiceSetYAML(c *C, st *api.State) (func(), error) {
+	err := st.Client().ServiceSetYAML("wordpress", `"blog-title": "foo"`)
+	if err != nil {
+		return func() {}, err
+	}
+	return resetBlogTitle(c, st), nil
+}
+
+func opClientServiceGet(c *C, st *api.State) (func(), error) {
+	service, err := st.Client().ServiceGet("wordpress")
+	if err != nil {
+		return func() {}, err
+	}
+	c.Assert(err, IsNil)
+	c.Assert(service, DeepEquals, &expectedWordpressConfig)
+	return func() {}, nil
+}
+
 // scenarioStatus describes the expected state
 // of the juju environment set up by setUpScenario.
 var scenarioStatus = &api.Status{
@@ -188,6 +238,17 @@ var scenarioStatus = &api.Status{
 		"2": {
 			InstanceId: "i-machine-2",
 		},
+	},
+}
+
+var expectedWordpressConfig = statecmd.ServiceGetResults{
+	Service: "wordpress",
+	Charm:   "wordpress",
+	Settings: map[string]interface{}{
+		"blog-title": map[string]interface{}{
+			"type":        "string",
+			"value":       nil,
+			"description": "A descriptive title used for the blog."},
 	},
 }
 
@@ -372,6 +433,35 @@ func (s *suite) TestClientStatus(c *C) {
 	status, err := s.APIState.Client().Status()
 	c.Assert(err, IsNil)
 	c.Assert(status, DeepEquals, scenarioStatus)
+}
+
+func (s *suite) TestClientServerSet(c *C) {
+	dummy, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
+	c.Assert(err, IsNil)
+	err = s.APIState.Client().ServiceSet("dummy", map[string]string{
+		"title":    "xxx",
+		"username": "yyy",
+	})
+	c.Assert(err, IsNil)
+	conf, err := dummy.Config()
+	c.Assert(err, IsNil)
+	c.Assert(conf.Map(), DeepEquals, map[string]interface{}{
+		"title":    "xxx",
+		"username": "yyy",
+	})
+}
+
+func (s *suite) TestClientServiceSetYAML(c *C) {
+	dummy, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
+	c.Assert(err, IsNil)
+	err = s.APIState.Client().ServiceSetYAML("dummy", "title: aaa\nusername: bbb")
+	c.Assert(err, IsNil)
+	conf, err := dummy.Config()
+	c.Assert(err, IsNil)
+	c.Assert(conf.Map(), DeepEquals, map[string]interface{}{
+		"title":    "aaa",
+		"username": "bbb",
+	})
 }
 
 func (s *suite) TestClientEnvironmentInfo(c *C) {
@@ -767,6 +857,13 @@ func (s *suite) TestStop(c *C) {
 	// Check it can be stopped twice.
 	err = srv.Stop()
 	c.Assert(err, IsNil)
+}
+
+func (s *suite) TestClientServiceGet(c *C) {
+	s.setUpScenario(c)
+	config, err := s.APIState.Client().ServiceGet("wordpress")
+	c.Assert(err, IsNil)
+	c.Assert(config, DeepEquals, &expectedWordpressConfig)
 }
 
 // openAs connects to the API state as the given entity
