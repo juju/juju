@@ -63,7 +63,7 @@ func (s *StorageSuite) TestGetRetrievesFile(c *C) {
 	c.Assert(err, IsNil)
 	c.Check(numBytes, Equals, len(content))
 	c.Check(buf[:numBytes], DeepEquals, content)
-	c.Check(buf[numBytes], Equals, 0)
+	c.Check(buf[numBytes], Equals, uint8(0))
 }
 
 func (s *StorageSuite) TestNamingPrefixDiffersBetweenEnvironments(c *C) {
