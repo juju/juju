@@ -156,7 +156,7 @@ func (s *ServiceSuite) TestSetCharmConfig(c *C) {
 
 func (s *ServiceSuite) TestSettingsRefCountWorks(c *C) {
 	oldCh := s.AddConfigCharm(c, "wordpress", emptyConfig, 1)
-	//newCh := s.AddConfigCharm(c, "wordpress", emptyConfig, 2)
+	newCh := s.AddConfigCharm(c, "wordpress", emptyConfig, 2)
 	svcName := "mywp"
 
 	assertNoRef := func(sch *state.Charm) {
@@ -170,13 +170,56 @@ func (s *ServiceSuite) TestSettingsRefCountWorks(c *C) {
 	}
 
 	assertNoRef(oldCh)
-	svc, err := s.State.AddService("wordpress", oldCh)
+	assertNoRef(newCh)
+
+	svc, err := s.State.AddService(svcName, oldCh)
 	c.Assert(err, IsNil)
-	assertNoRef(oldCh)
+	assertRef(oldCh, 1)
+	assertNoRef(newCh)
 
 	err = svc.SetCharm(oldCh, false)
 	c.Assert(err, IsNil)
 	assertRef(oldCh, 1)
+	assertNoRef(newCh)
+
+	err = svc.SetCharm(newCh, false)
+	c.Assert(err, IsNil)
+	assertNoRef(oldCh)
+	assertRef(newCh, 1)
+
+	err = svc.SetCharm(oldCh, false)
+	c.Assert(err, IsNil)
+	assertRef(oldCh, 1)
+	assertNoRef(newCh)
+
+	u, err := svc.AddUnit()
+	c.Assert(err, IsNil)
+	uch, err := u.Charm()
+	c.Assert(err, ErrorMatches, `charm URL of unit "mywp/0" not found`)
+	assertRef(oldCh, 1)
+	assertNoRef(newCh)
+
+	err = u.SetCharm(oldCh)
+	c.Assert(err, IsNil)
+	uch, err = u.Charm()
+	c.Assert(uch, DeepEquals, oldCh)
+	assertRef(oldCh, 2)
+	assertNoRef(newCh)
+
+	err = u.EnsureDead()
+	c.Assert(err, IsNil)
+	assertRef(oldCh, 2)
+	assertNoRef(newCh)
+
+	err = u.Remove()
+	c.Assert(err, IsNil)
+	assertRef(oldCh, 1)
+	assertNoRef(newCh)
+
+	err = svc.Destroy()
+	c.Assert(err, IsNil)
+	assertNoRef(oldCh)
+	assertNoRef(newCh)
 }
 
 func jujuInfoEp(serviceName string) state.Endpoint {
