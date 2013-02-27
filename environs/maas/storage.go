@@ -9,7 +9,7 @@ import (
 	"launchpad.net/gomaasapi"
 	"launchpad.net/juju-core/environs"
 	"net/url"
-	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -39,7 +39,7 @@ func composeNamingPrefix(env *maasEnviron) string {
 	// they go into the URLs because subsequent URL escaping would escape
 	// the percentage signs in the escaping itself.
 	// Use a different separator instead.
-	separator := ".-."
+	const separator = "__"
 	return "juju" + separator + env.Name() + separator
 }
 
@@ -55,35 +55,49 @@ func NewStorage(env *maasEnviron) environs.Storage {
 	return storage
 }
 
-// addressFileObject returns the URL where the named file's details can be
-// retrieved from the MAAS API.
-func (stor *maasStorage) addressFileObject(filename string) gomaasapi.MAASObject {
-	fullName := filepath.Join(stor.namingPrefix, filename)
-	return stor.maasClientUnlocked.GetSubObject(fullName)
-}
-
-// composeAnonymousFileURL returns the URL where the named file's contents can
-// be downloaded, anonymously, from the MAAS API.
-func (stor *maasStorage) composeAnonymousFileURL(filename string) url.URL {
+// getSnapshot returns a consistent copy of a maasStorage.  Use this if you
+// need a consistent view of the object's entire state, without having to
+// lock the object the whole time.
+//
+// An easy mistake to make with "defer" is to keep holding a lock without
+// realizing it, while you go on to block on http requests or other slow
+// things that don't actually require the lock.  In most cases you can just
+// create a snapshot first (releasing the lock immediately) and then do the
+// rest of the work with the snapshot.
+func (stor *maasStorage) getSnapshot() *maasStorage {
 	stor.Lock()
 	defer stor.Unlock()
 
-	result := *stor.maasClientUnlocked.URL()
-	query := result.Query()
-	query.Add("filename", filepath.Join(stor.namingPrefix, filename))
-	result.RawQuery = query.Encode()
-	return result
+	return &maasStorage{
+		namingPrefix: stor.namingPrefix,
+		environUnlocked: stor.environUnlocked,
+		maasClientUnlocked: stor.maasClientUnlocked,
+		}
 }
 
-func (stor *maasStorage) Get(name string) (io.ReadCloser, error) {
-	fileObj, err := stor.addressFileObject(name).Get()
+// retrieveFileObject retrieves the information of the named file, including
+// its download URL and its contents, as a MAASObject.
+func (stor *maasStorage) retrieveFileObject(name string) (gomaasapi.MAASObject, error) {
+	snapshot := stor.getSnapshot()
+	fullName := snapshot.namingPrefix + name
+	obj, err := snapshot.maasClientUnlocked.GetSubObject(fullName).Get()
 	if err != nil {
+		noObj := gomaasapi.MAASObject{}
 		serverErr, ok := err.(gomaasapi.ServerError)
 		if ok && serverErr.StatusCode == 404 {
 			msg := fmt.Errorf("file %s not found", name)
-			return nil, environs.NotFoundError{msg}
+			return noObj, environs.NotFoundError{msg}
 		}
-		return nil, fmt.Errorf("could not access file '%s': %v", name, err)
+		msg := fmt.Errorf("could not access file '%s': %v", name, err)
+		return noObj, msg
+	}
+	return obj, nil
+}
+
+func (stor *maasStorage) Get(name string) (io.ReadCloser, error) {
+	fileObj, err := stor.retrieveFileObject(name)
+	if err != nil {
+		return nil, err
 	}
 	data, err := fileObj.GetField("content")
 	if err != nil {
@@ -96,9 +110,42 @@ func (stor *maasStorage) Get(name string) (io.ReadCloser, error) {
 	return ioutil.NopCloser(bytes.NewReader(buf)), nil
 }
 
-func (*maasStorage) List(prefix string) ([]string, error) {
-	panic("Not implemented.")
+// extractFilenames returns the filenames from a "list" operation on the
+// MAAS API, sorted by name.
+func (stor *maasStorage) extractFilenames(listResult gomaasapi.JSONObject) ([]string, error) {
+	list, err := listResult.GetArray()
+	if err != nil {
+		return nil, err
+	}
+	result := make([]string, len(list))
+	for index, entry := range list {
+		file, err := entry.GetMap()
+		if err != nil {
+			return nil, err
+		}
+		filename, err := file["filename"].GetString()
+		if err != nil {
+			return nil, err
+		}
+		if !strings.HasPrefix(filename, stor.namingPrefix) {
+			msg := fmt.Errorf("unexpected filename '%s' lacks environment prefix '%s'", filename, stor.namingPrefix)
+			return nil, msg
+		}
+		filename = filename[len(stor.namingPrefix):]
+		result[index] = filename
+	}
+	return result, nil
 	// TODO: List in "alphabetical" order.  Slashes are not special; treat as letters.
+}
+
+func (stor *maasStorage) List(prefix string) ([]string, error) {
+	snapshot := stor.getSnapshot()
+	params := make(url.Values)
+	obj, err := snapshot.maasClientUnlocked.CallGet("list", params)
+	if err != nil {
+		return nil, err
+	}
+	return snapshot.extractFilenames(obj)
 }
 
 func (*maasStorage) URL(name string) (string, error) {

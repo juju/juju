@@ -2,12 +2,13 @@ package maas
 
 import (
 	"bytes"
+	"encoding/base64"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
+	"launchpad.net/gomaasapi"
 	"launchpad.net/juju-core/environs"
 	"math/rand"
 	"net/http"
-	"path/filepath"
 )
 
 type StorageSuite struct {
@@ -23,28 +24,36 @@ func (s *StorageSuite) makeStorage(name string) *maasStorage {
 	return NewStorage(&env).(*maasStorage)
 }
 
+// makeRandomBytes returns an array of arbitrary byte values.
+func makeRandomBytes(length int) []byte {
+	data := make([]byte, length)
+	for index := range data {
+		data[index] = byte(rand.Intn(256))
+	}
+	return data
+}
+
 // fakeStoredFile creates a file directly in the (simulated) MAAS file store.
 // It will contain an arbitrary amount of random data.  The contents are also
 // returned.
 //
 // If you want properly random data here, initialize the randomizer first.
 // Or don't, if you want consistent (and debuggable) results.
-func (s *StorageSuite) fakeStoredFile(storage environs.Storage, name string) []byte {
-	length := rand.Intn(10)
-	data := make([]byte, length)
-	for index := range data {
-		data[index] = byte(rand.Intn(256))
-	}
-	fullPath := filepath.Join(storage.(*maasStorage).namingPrefix, name)
-	s.testMAASObject.TestServer.NewFile(fullPath, data)
-	return data
+func (s *StorageSuite) fakeStoredFile(storage environs.Storage, name string) gomaasapi.MAASObject {
+	data := makeRandomBytes(rand.Intn(10))
+	fullName := storage.(*maasStorage).namingPrefix + name
+	return s.testMAASObject.TestServer.NewFile(fullName, data)
 }
 
 func (s *StorageSuite) TestGetRetrievesFile(c *C) {
 	const filename = "stored-data"
 	storage := s.makeStorage("get-retrieves-file")
-	contents := s.fakeStoredFile(storage, filename)
-	buf := make([]byte, len(contents)+1)
+	file := s.fakeStoredFile(storage, filename)
+	base64Content, err := file.GetField("content")
+	c.Assert(err, IsNil)
+	content, err := base64.StdEncoding.DecodeString(base64Content)
+	c.Assert(err, IsNil)
+	buf := make([]byte, len(content)+1)
 
 	reader, err := storage.Get(filename)
 	c.Assert(err, IsNil)
@@ -52,8 +61,8 @@ func (s *StorageSuite) TestGetRetrievesFile(c *C) {
 
 	numBytes, err := reader.Read(buf)
 	c.Assert(err, IsNil)
-	c.Check(numBytes, Equals, len(contents))
-	c.Check(buf[:numBytes], DeepEquals, contents)
+	c.Check(numBytes, Equals, len(content))
+	c.Check(buf[:numBytes], DeepEquals, content)
 	c.Check(buf[numBytes], Equals, 0)
 }
 
@@ -69,21 +78,58 @@ func (s *StorageSuite) TestNamingPrefixIsConsistentForEnvironment(c *C) {
 	c.Check(stor1.namingPrefix, Equals, stor2.namingPrefix)
 }
 
-func (s *StorageSuite) TestRetrieveFileObjectReturnsFileURL(c *C) {
-	c.Assert("TEST THIS", IsNil)
+func (s *StorageSuite) TestRetrieveFileObjectReturnsFileObject(c *C) {
+	const filename = "myfile"
+	stor := s.makeStorage("rfo-test")
+	file := s.fakeStoredFile(stor, filename)
+	fileURI, err := file.GetField("anon_resource_uri")
+	c.Assert(err, IsNil)
+	fileContent, err := file.GetField("content")
+	c.Assert(err, IsNil)
+
+	obj, err := stor.retrieveFileObject(filename)
+	c.Assert(err, IsNil)
+
+	uri, err := obj.GetField("anon_resource_uri")
+	c.Assert(err, IsNil)
+	c.Check(uri, Equals, fileURI)
+	content, err := obj.GetField("content")
+	c.Check(content, Equals, fileContent)
 }
 
-func (s *StorageSuite) TestRetrieveFileObjectEscapesPrefix(c *C) {
-	const name = "a/b c"
-	c.Assert("TEST THIS", IsNil)
+func (s *StorageSuite) TestRetrieveFileObjectReturnsHTTPFailure(c *C) {
+	stor := s.makeStorage("rfo-test")
+	_, err := stor.retrieveFileObject("nonexistent-file")
+	c.Assert(err, NotNil)
+	c.Check(err.(*gomaasapi.ServerError).StatusCode, Equals, 404)
 }
 
 func (s *StorageSuite) TestRetrieveFileObjectEscapesName(c *C) {
-	c.Assert("TEST THIS", IsNil)
+	const filename = "a/b c?d%e"
+	stor := s.makeStorage("rfo-test")
+	file := s.fakeStoredFile(stor, filename)
+	fileContent, err := file.GetField("content")
+	c.Assert(err, IsNil)
+
+	obj, err := stor.retrieveFileObject(filename)
+	c.Assert(err, IsNil)
+
+	content, err := obj.GetField("content")
+	c.Check(content, Equals, fileContent)
 }
 
-func (s *StorageSuite) TestRetrieveFileObjectReturnsFileContents(c *C) {
-	c.Assert("TEST THIS", IsNil)
+func (s *StorageSuite) TestRetrieveFileObjectEscapesPrefix(c *C) {
+	const filename = "myfile"
+	stor := s.makeStorage("&?%!")
+	file := s.fakeStoredFile(stor, filename)
+	fileContent, err := file.GetField("content")
+	c.Assert(err, IsNil)
+
+	obj, err := stor.retrieveFileObject(filename)
+	c.Assert(err, IsNil)
+
+	content, err := obj.GetField("content")
+	c.Check(content, Equals, fileContent)
 }
 
 func (s *StorageSuite) TestGetReturnsNotFoundErrorIfNotFound(c *C) {
@@ -182,15 +228,17 @@ func getURL(fileURL string) ([]byte, error) {
 func (s *StorageSuite) TestURLReturnsURLCorrespondingToFile(c *C) {
 	const filename = "my-file.txt"
 	storage := NewStorage(s.environ)
-	contents := s.fakeStoredFile(storage, filename)
+	file := s.fakeStoredFile(storage, filename)
+	content, err := file.GetField("content")
+	c.Assert(err, IsNil)
 
 	fileURL, err := storage.URL(filename)
 	c.Assert(err, IsNil)
-	c.Check(fileURL, NotNil)
 
+	c.Check(fileURL, NotNil)
 	body, err := getURL(fileURL)
 	c.Assert(err, IsNil)
-	c.Check(body, DeepEquals, contents)
+	c.Check(body, DeepEquals, content)
 }
 
 func (s *StorageSuite) TestPutStoresRetrievableFile(c *C) {
