@@ -16,6 +16,30 @@ import (
 	"net/http/httptest"
 )
 
+type ProviderSuite struct{}
+
+var _ = Suite(&ProviderSuite{})
+
+func (s *ProviderSuite) TestMetadata(c *C) {
+	openstack.UseTestMetadata(true)
+	defer openstack.UseTestMetadata(false)
+
+	p, err := environs.Provider("openstack")
+	c.Assert(err, IsNil)
+
+	addr, err := p.PublicAddress()
+	c.Assert(err, IsNil)
+	c.Assert(addr, Equals, "public.dummy.address.example.com")
+
+	addr, err = p.PrivateAddress()
+	c.Assert(err, IsNil)
+	c.Assert(addr, Equals, "private.dummy.address.example.com")
+
+	id, err := p.InstanceId()
+	c.Assert(err, IsNil)
+	c.Assert(id, Equals, state.InstanceId("d8e02d56-2648-49a3-bf97-6be8f1204f38"))
+}
+
 // Register tests to run against a test Openstack instance (service doubles).
 func registerLocalTests() {
 	cred := &identity.Credentials{
