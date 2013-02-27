@@ -2,19 +2,53 @@ package statecmd_test
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
-	stdtesting "testing"
+	//stdtesting "testing"
 )
 
 type ResolvedSuite struct {
 	testing.JujuConnSuite
+	conn *juju.Conn
+	repo *charm.LocalRepository
 }
 
-func Test(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
+func panicWrite(name string, cert, key []byte) error {
+	panic("writeCertAndKey called unexpectedly")
 }
+
+
+func (s *ResolvedSuite) SetUpTest(c *C) {
+	attrs := map[string]interface{}{
+		"name":            "erewhemos",
+		"type":            "dummy",
+		"state-server":    true,
+		"authorized-keys": "i-am-a-key",
+		"admin-secret":    "deploy-test-secret",
+		"ca-cert":         coretesting.CACert,
+		"ca-private-key":  coretesting.CAKey,
+	}
+	environ, err := environs.NewFromAttrs(attrs)
+	c.Assert(err, IsNil)
+	err = environs.Bootstrap(environ, false, panicWrite)
+	c.Assert(err, IsNil)
+	s.conn, err = juju.NewConn(environ)
+	c.Assert(err, IsNil)
+	s.repo = &charm.LocalRepository{Path: c.MkDir()}
+}
+
+func (s *ResolvedSuite) TearDownTest(c *C) {
+	c.Assert(s.Conn.Close(), IsNil)
+	s.Conn = nil
+}
+//func Test(t *stdtesting.T) {
+//	coretesting.MgoTestPackage(t)
+//}
 
 var _ = Suite(&ResolvedSuite{})
 
@@ -28,24 +62,24 @@ func (s *ResolvedSuite) TestResolved(c *C) {
 	c.Assert(err, IsNil)
 	u := us[0]
 
-	err = statecmd.Resolved(u, false)
+	err = statecmd.MarkResolved(u, false)
 	c.Assert(err, ErrorMatches, `unit "testriak/0" is not in an error state`)
-	err = statecmd.Resolved(u, true)
+	err = statecmd.MarkResolved(u, true)
 	c.Assert(err, ErrorMatches, `unit "testriak/0" is not in an error state`)
 
 	err = u.SetStatus(state.UnitError, "gaaah")
 	c.Assert(err, IsNil)
-	err = statecmd.Resolved(u, false)
+	err = statecmd.MarkResolved(u, false)
 	c.Assert(err, IsNil)
-	err = statecmd.Resolved(u, true)
+	err = statecmd.MarkResolved(u, true)
 	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "testriak/0": already resolved`)
 	c.Assert(u.Resolved(), Equals, state.ResolvedNoHooks)
 
 	err = u.ClearResolved()
 	c.Assert(err, IsNil)
-	err = statecmd.Resolved(u, true)
+	err = statecmd.MarkResolved(u, true)
 	c.Assert(err, IsNil)
-	err = jujstatecmd.Resolved(u, false)
+	err = statecmd.MarkResolved(u, false)
 	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "testriak/0": already resolved`)
 	c.Assert(u.Resolved(), Equals, state.ResolvedRetryHooks)
 }

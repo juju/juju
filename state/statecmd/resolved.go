@@ -17,12 +17,11 @@ type ResolvedResults struct {
 	Settings map[string]interface{}
 }
 
-// Resolved marks the unit as having had any previous state transition
-// problems resolved, and informs the unit that it may attempt to
-// reestablish normal workflow. The retryHooks parameter informs
-// whether to attempt to reexecute previous failed hooks or to continue
-// as if they had succeeded before.
-func resolved(unit *state.Unit, retryHooks bool) error {
+// Marks the unit as having had any previous state transition problems
+// resolved, and informs the unit that it may attempt to reestablish normal
+// workflow. The retryHooks parameter informs whether to attempt to reexecute
+// previous failed hooks or to continue as if they had succeeded before.
+func MarkResolved(unit *state.Unit, retryHooks bool) error {
 	status, _, err := unit.Status()
 	if err != nil {
 		return err
@@ -42,5 +41,5 @@ func Resolved(st *state.State, p ResolvedParams) error {
 	if err != nil {
 		return err
 	}
-	return resolved(unit, p.Retry)
+	return MarkResolved(unit, p.Retry)
 }
