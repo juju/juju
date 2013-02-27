@@ -163,7 +163,7 @@ func (s *StoreSuite) TestRootRedirect(c *C) {
 }
 
 func (s *StoreSuite) TestStatsCounter(c *C) {
-	for _, key := range [][]string{{"a", "b"}, {"a", "b"}, {"a"}} {
+	for _, key := range [][]string{{"a", "b"}, {"a", "b"}, {"a", "c"}, {"a"}} {
 		err := s.store.IncCounter(key)
 		c.Assert(err, IsNil)
 	}
@@ -171,9 +171,10 @@ func (s *StoreSuite) TestStatsCounter(c *C) {
 	server, _ := s.prepareServer(c)
 
 	expected := map[string]string{
-		"a:b": "2",
-		"a:*": "3",
-		"a":   "1",
+		"a:b":   "2",
+		"a:b:*": "0",
+		"a:*":   "3",
+		"a":     "1",
 	}
 
 	for counter, n := range expected {

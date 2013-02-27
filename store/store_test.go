@@ -464,8 +464,8 @@ func (s *StoreSuite) TestCounters(c *C) {
 		{[]string{"a", "b", "c"}, false, 10},
 		{[]string{"a", "b"}, false, 7},
 		{[]string{"a", "z", "b"}, false, 3},
-		{[]string{"a", "b", "c"}, true, 10},
-		{[]string{"a", "b"}, true, 17},
+		{[]string{"a", "b", "c"}, true, 0},
+		{[]string{"a", "b"}, true, 10},
 		{[]string{"a"}, true, 20},
 		{[]string{"b"}, true, 0},
 	}
