@@ -31,10 +31,12 @@ func SetDialTimeout(d time.Duration) {
 func ServiceSettingsRefCount(st *State, serviceName string, curl *charm.URL) (int, error) {
 	key := serviceSettingsKey(serviceName, curl)
 	var doc settingsRefsDoc
-	if err := st.settingsrefs.FindId(key).One(&doc); err != nil {
-		return 0, err
+	for i := 0; i < 5; i++ {
+		if err := st.settingsrefs.FindId(key).One(&doc); err == nil {
+			return doc.RefCount, nil
+		}
 	}
-	return doc.RefCount, nil
+	return 0, ErrExcessiveContention
 }
 
 func init() {
