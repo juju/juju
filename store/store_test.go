@@ -597,7 +597,6 @@ func (s *StoreSuite) TestCounterTokenUniqueness(c *C) {
 	c.Assert(sum, Equals, int64(10))
 }
 
-
 func (s *StoreSuite) TestCounterList(c *C) {
 	incs := [][]string{
 		{"c", "b", "a"}, // Assign internal id c < id b < id a, to make sorting slightly trickier.
@@ -619,7 +618,10 @@ func (s *StoreSuite) TestCounterList(c *C) {
 		c.Assert(err, IsNil)
 	}
 
-	tests := []struct{ prefix []string; result []store.Counter }{
+	tests := []struct {
+		prefix []string
+		result []store.Counter
+	}{
 		{
 			[]string{"a"},
 			[]store.Counter{
@@ -651,7 +653,6 @@ func (s *StoreSuite) TestCounterList(c *C) {
 		c.Assert(result, DeepEquals, tests[i].result)
 	}
 }
-
 
 func (s *TrivialSuite) TestEventString(c *C) {
 	c.Assert(store.EventPublished, Matches, "published")

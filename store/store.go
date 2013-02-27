@@ -374,11 +374,11 @@ func (s *Store) ListCounters(keyPrefix []string) ([]Counter, error) {
 
 type sortableCounters []Counter
 
-func (s sortableCounters) Len() int       { return len(s) }
-func (s sortableCounters) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s sortableCounters) Len() int      { return len(s) }
+func (s sortableCounters) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 func (s sortableCounters) Less(i, j int) bool {
 	// Larger counts first.
-	if (s[i].Count != s[j].Count) {
+	if s[i].Count != s[j].Count {
 		return s[j].Count < s[i].Count
 	}
 	// Then smaller keys first.

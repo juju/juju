@@ -202,7 +202,10 @@ func (s *Server) serveStatsList(w http.ResponseWriter, r *http.Request, prefix [
 	// First build keys and figure max key length.
 	var buf []byte
 	var maxKeyLength int
-	type resultItem struct { key string; count int64 }
+	type resultItem struct {
+		key   string
+		count int64
+	}
 	var result []resultItem
 	for i := range entries {
 		entry := &entries[i]
