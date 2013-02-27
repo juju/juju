@@ -1,6 +1,7 @@
 package state
 
 import (
+	"labix.org/v2/mgo"
 	"launchpad.net/juju-core/charm"
 	"time"
 )
@@ -31,12 +32,10 @@ func SetDialTimeout(d time.Duration) {
 func ServiceSettingsRefCount(st *State, serviceName string, curl *charm.URL) (int, error) {
 	key := serviceSettingsKey(serviceName, curl)
 	var doc settingsRefsDoc
-	for i := 0; i < 5; i++ {
-		if err := st.settingsrefs.FindId(key).One(&doc); err == nil {
-			return doc.RefCount, nil
-		}
+	if err := st.settingsrefs.FindId(key).One(&doc); err == nil {
+		return doc.RefCount, nil
 	}
-	return 0, ErrExcessiveContention
+	return 0, mgo.ErrNotFound
 }
 
 func init() {

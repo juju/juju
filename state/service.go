@@ -290,6 +290,8 @@ func (s *Service) convertConfig(ch *Charm) (map[string]interface{}, txn.Op, erro
 	return newcfg, orig.assertUnchangedOp(), nil
 }
 
+// changeCharmOps returns the operations necessary to set a service's
+// charm URL to a new value.
 func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 	// Build the new service config.
 	newcfg, assertOrigSettingsOp, err := s.convertConfig(ch)
@@ -322,7 +324,7 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 		return nil, err
 	}
 
-	// Build and run the transaction.
+	// Build the transaction.
 	differentCharm := D{{"charmurl", D{{"$ne", ch.URL()}}}}
 	ops := []txn.Op{
 		assertOrigSettingsOp,
@@ -594,6 +596,10 @@ func (s *Service) SetConstraints(cons Constraints) error {
 	return writeConstraints(s.st, s.globalKey(), cons)
 }
 
+// settingsIncRefOp returns an operation that increments the refcount
+// of the service settings identified by serviceName and curl. If
+// canCreate is false, a missing document will be treated as an error;
+// otherwise, it will be created with a refcount of 1.
 func settingsIncRefOp(st *State, serviceName string, curl *charm.URL, canCreate bool) (txn.Op, error) {
 	key := serviceSettingsKey(serviceName, curl)
 	if count, err := st.settingsrefs.FindId(key).Count(); err != nil {
@@ -617,6 +623,10 @@ func settingsIncRefOp(st *State, serviceName string, curl *charm.URL, canCreate 
 	}, nil
 }
 
+// settingsDecRefOps returns a list of operations that decrement the
+// refcount of the service settings identified by serviceName and
+// curl. If the refcount is set to zero, the appropriate setting and
+// refcount documents will both be deleted.
 func settingsDecRefOps(st *State, serviceName string, curl *charm.URL) ([]txn.Op, error) {
 	key := serviceSettingsKey(serviceName, curl)
 	var doc settingsRefsDoc
@@ -643,8 +653,8 @@ func settingsDecRefOps(st *State, serviceName string, curl *charm.URL) ([]txn.Op
 	}}, nil
 }
 
-// settingsRefsDoc holds the number of units using the settings
-// document identified by the same service settings id.
+// settingsRefsDoc holds the number of units and services using the settings
+// document identified by this document's id.
 type settingsRefsDoc struct {
 	RefCount int
 }

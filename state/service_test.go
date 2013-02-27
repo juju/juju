@@ -2,6 +2,7 @@ package state_test
 
 import (
 	"fmt"
+	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state"
@@ -161,7 +162,7 @@ func (s *ServiceSuite) TestSettingsRefCountWorks(c *C) {
 
 	assertNoRef := func(sch *state.Charm) {
 		_, err := state.ServiceSettingsRefCount(s.State, svcName, sch.URL())
-		c.Assert(err, Equals, state.ErrExcessiveContention)
+		c.Assert(err, Equals, mgo.ErrNotFound)
 	}
 	assertRef := func(sch *state.Charm, refcount int) {
 		rc, err := state.ServiceSettingsRefCount(s.State, svcName, sch.URL())
