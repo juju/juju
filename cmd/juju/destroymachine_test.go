@@ -1,9 +1,7 @@
 package main
 
 import (
-	"bytes"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 )
@@ -15,11 +13,7 @@ type DestroyMachineSuite struct {
 var _ = Suite(&DestroyMachineSuite{})
 
 func runDestroyMachine(c *C, args ...string) error {
-	com := &DestroyMachineCommand{}
-	if err := com.Init(newFlagSet(), args); err != nil {
-		return err
-	}
-	return com.Run(&cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}})
+	return testing.RunCommand(c, &DestroyMachineCommand{}, args)
 }
 
 func (s *DestroyMachineSuite) TestDestroyMachine(c *C) {
@@ -65,7 +59,7 @@ func (s *DestroyMachineSuite) TestDestroyMachine(c *C) {
 	// machine complains only about the JMA machine.
 	err = m0.EnsureDead()
 	c.Assert(err, IsNil)
-	m1, err := s.State.AddMachine(state.JobManageEnviron)
+	m1, err := s.State.AddMachine("series", state.JobManageEnviron)
 	c.Assert(err, IsNil)
 	err = runDestroyMachine(c, "0", "1")
 	c.Assert(err, ErrorMatches, `some machines were not destroyed: machine 1 is required by the environment`)

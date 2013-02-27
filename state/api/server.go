@@ -39,7 +39,7 @@ func NewServer(s *state.State, addr string, cert, key []byte) (*Server, error) {
 		state: s,
 		addr:  lis.Addr(),
 	}
-	srv.rpcSrv, err = rpc.NewServer(&srvRoot{})
+	srv.rpcSrv, err = rpc.NewServer(&srvRoot{}, serverError)
 	lis = tls.NewListener(lis, &tls.Config{
 		Certificates: []tls.Certificate{tlsCert},
 	})
@@ -107,12 +107,26 @@ func (srv *Server) serveConn(conn *websocket.Conn) error {
 	}, newStateServer(srv, conn))
 }
 
+var logRequests = true
+
 func readRequests(conn *websocket.Conn, c chan<- serverReq) {
 	defer close(c)
 	var req serverReq
 	for {
+		var err error
 		req = serverReq{} // avoid any potential cross-message contamination.
-		err := websocket.JSON.Receive(conn, &req)
+		if logRequests {
+			var m json.RawMessage
+			err = websocket.JSON.Receive(conn, &m)
+			if err == nil {
+				log.Debugf("api: <- %s", m)
+				err = json.Unmarshal(m, &req)
+			} else {
+				log.Debugf("api: <- error: %v", err)
+			}
+		} else {
+			err = websocket.JSON.Receive(conn, &req)
+		}
 		if err == io.EOF {
 			break
 		}
@@ -135,6 +149,7 @@ type serverReq struct {
 type serverResp struct {
 	RequestId uint64
 	Error     string      `json:",omitempty"`
+	ErrorCode string      `json:",omitempty"`
 	Response  interface{} `json:",omitempty"`
 }
 
@@ -170,9 +185,19 @@ func (c *serverCodec) ReadRequestBody(body interface{}) error {
 }
 
 func (c *serverCodec) WriteResponse(resp *rpc.Response, body interface{}) error {
-	return websocket.JSON.Send(c.conn, &serverResp{
+	r := &serverResp{
 		RequestId: resp.RequestId,
 		Error:     resp.Error,
+		ErrorCode: resp.ErrorCode,
 		Response:  body,
-	})
+	}
+	if logRequests {
+		data, err := json.Marshal(r)
+		if err != nil {
+			log.Debugf("api: -> marshal error: %v", err)
+			return err
+		}
+		log.Debugf("api: -> %s", data)
+	}
+	return websocket.JSON.Send(c.conn, r)
 }

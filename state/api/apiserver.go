@@ -2,22 +2,15 @@ package api
 
 import (
 	"code.google.com/p/go.net/websocket"
-	"errors"
 	"fmt"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/statecmd"
 	"sync"
 )
 
 // TODO(rog) remove this when the rest of the system
 // has been updated to set passwords appropriately.
 var AuthenticationEnabled = false
-
-var (
-	errBadId       = errors.New("id not found")
-	errBadCreds    = errors.New("invalid entity name or password")
-	errNotLoggedIn = errors.New("not logged in")
-	errPerm        = errors.New("permission denied")
-)
 
 // srvRoot represents a single client's connection to the state.
 type srvRoot struct {
@@ -187,6 +180,34 @@ func (c *srvClient) Status() (Status, error) {
 		}
 	}
 	return status, nil
+}
+
+// ServiceSet implements the server side of Client.ServerSet.
+func (c *srvClient) ServiceSet(p statecmd.ServiceSetParams) error {
+	return statecmd.ServiceSet(c.root.srv.state, p)
+}
+
+// ServiceSetYAML implements the server side of Client.ServerSetYAML.
+func (c *srvClient) ServiceSetYAML(p statecmd.ServiceSetYAMLParams) error {
+	return statecmd.ServiceSetYAML(c.root.srv.state, p)
+}
+
+func (c *srvClient) ServiceGet(args statecmd.ServiceGetParams) (statecmd.ServiceGetResults, error) {
+	return statecmd.ServiceGet(c.root.srv.state, args)
+}
+
+// EnvironmentInfo returns information about the current environment (default
+// series and type).
+func (c *srvClient) EnvironmentInfo() (EnvironmentInfo, error) {
+	conf, err := c.root.srv.state.EnvironConfig()
+	if err != nil {
+		return EnvironmentInfo{}, err
+	}
+	info := EnvironmentInfo{
+		DefaultSeries: conf.DefaultSeries(),
+		ProviderType:  conf.Type(),
+	}
+	return info, nil
 }
 
 type rpcCreds struct {

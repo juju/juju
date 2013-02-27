@@ -3,6 +3,7 @@ package jujuc_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
 
@@ -56,7 +57,7 @@ func (s *PortsSuite) TestBadArgs(c *C) {
 			hctx := s.GetHookContext(c, -1, "")
 			com, err := jujuc.NewCommand(hctx, name)
 			c.Assert(err, IsNil)
-			err = com.Init(dummyFlagSet(), t.args)
+			err = testing.InitCommand(com, t.args)
 			c.Assert(err, ErrorMatches, t.err)
 		}
 	}
@@ -66,7 +67,8 @@ func (s *PortsSuite) TestHelp(c *C) {
 	hctx := s.GetHookContext(c, -1, "")
 	open, err := jujuc.NewCommand(hctx, "open-port")
 	c.Assert(err, IsNil)
-	c.Assert(string(open.Info().Help(dummyFlagSet())), Equals, `
+	flags := testing.NewFlagSet()
+	c.Assert(string(open.Info().Help(flags)), Equals, `
 usage: open-port <port>[/<protocol>]
 purpose: register a port to open
 
@@ -75,7 +77,7 @@ The port will only be open while the service is exposed.
 
 	close, err := jujuc.NewCommand(hctx, "close-port")
 	c.Assert(err, IsNil)
-	c.Assert(string(close.Info().Help(dummyFlagSet())), Equals, `
+	c.Assert(string(close.Info().Help(flags)), Equals, `
 usage: close-port <port>[/<protocol>]
 purpose: ensure a port is always closed
 `[1:])

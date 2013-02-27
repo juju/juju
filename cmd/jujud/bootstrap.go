@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/version"
 )
 
 type BootstrapCommand struct {
@@ -18,24 +19,27 @@ type BootstrapCommand struct {
 
 // Info returns a decription of the command.
 func (c *BootstrapCommand) Info() *cmd.Info {
-	return &cmd.Info{"bootstrap-state", "", "initialize juju state.", ""}
+	return &cmd.Info{
+		Name:    "bootstrap-state",
+		Purpose: "initialize juju state",
+	}
 }
 
-// Init initializes the command for running.
-func (c *BootstrapCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.Conf.addFlags(f)
 	f.StringVar(&c.InstanceId, "instance-id", "", "instance id of this machine")
 	yamlBase64Var(f, &c.EnvConfig, "env-config", "", "initial environment configuration (yaml, base64 encoded)")
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
+}
+
+// Init initializes the command for running.
+func (c *BootstrapCommand) Init(args []string) error {
 	if c.InstanceId == "" {
 		return requiredError("instance-id")
 	}
 	if len(c.EnvConfig) == 0 {
 		return requiredError("env-config")
 	}
-	return c.Conf.checkArgs(f.Args())
+	return c.Conf.checkArgs(args)
 }
 
 // Run initializes state for an environment.
@@ -54,7 +58,9 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer st.Close()
-	m, err := st.InjectMachine(state.InstanceId(c.InstanceId), state.JobManageEnviron, state.JobServeAPI)
+	m, err := st.InjectMachine(
+		version.Current.Series, state.InstanceId(c.InstanceId),
+		state.JobManageEnviron, state.JobServeAPI)
 	if err != nil {
 		return err
 	}

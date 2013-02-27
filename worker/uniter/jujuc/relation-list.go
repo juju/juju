@@ -25,16 +25,18 @@ func (c *RelationListCommand) Info() *cmd.Info {
 		doc = fmt.Sprintf("Current default relation id is %q.", r.FakeId())
 	}
 	return &cmd.Info{
-		"relation-list", args, "list relation units", doc,
+		Name:    "relation-list",
+		Args:    args,
+		Purpose: "list relation units",
+		Doc:     doc,
 	}
 }
 
-func (c *RelationListCommand) Init(f *gnuflag.FlagSet, args []string) (err error) {
+func (c *RelationListCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	args = f.Args()
+}
+
+func (c *RelationListCommand) Init(args []string) (err error) {
 	v := newRelationIdValue(c.ctx, &c.RelationId)
 	if len(args) > 0 {
 		if err := v.Set(args[0]); err != nil {

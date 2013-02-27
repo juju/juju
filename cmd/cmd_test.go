@@ -4,11 +4,12 @@ import (
 	"bytes"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/testing"
 	"path/filepath"
-	"testing"
+	stdtesting "testing"
 )
 
-func Test(t *testing.T) { TestingT(t) }
+func Test(t *stdtesting.T) { TestingT(t) }
 
 type CmdSuite struct{}
 
@@ -22,11 +23,11 @@ func (s *CmdSuite) TestContext(c *C) {
 
 func (s *CmdSuite) TestInfo(c *C) {
 	minimal := &TestCommand{Name: "verb", Minimal: true}
-	help := minimal.Info().Help(dummyFlagSet())
+	help := minimal.Info().Help(testing.NewFlagSet())
 	c.Assert(string(help), Equals, minimalHelp)
 
 	full := &TestCommand{Name: "verb"}
-	f := dummyFlagSet()
+	f := testing.NewFlagSet()
 	var ignored string
 	f.StringVar(&ignored, "option", "", "option-doc")
 	help = full.Info().Help(f)

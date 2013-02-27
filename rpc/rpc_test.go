@@ -41,7 +41,7 @@ type stringVal struct {
 	Val string
 }
 
-type TRoot struct {
+type Root struct {
 	mu        sync.Mutex
 	calls     []*callInfo
 	returnErr bool
@@ -50,14 +50,14 @@ type TRoot struct {
 	errorInst *ErrorMethods
 }
 
-func (r *TRoot) callError(rcvr interface{}, name string, arg interface{}) error {
+func (r *Root) callError(rcvr interface{}, name string, arg interface{}) error {
 	if r.returnErr {
 		return &callError{rcvr, name, arg}
 	}
 	return nil
 }
 
-func (r *TRoot) SimpleMethods(id string) (*SimpleMethods, error) {
+func (r *Root) SimpleMethods(id string) (*SimpleMethods, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if a := r.simple[id]; a != nil {
@@ -66,7 +66,7 @@ func (r *TRoot) SimpleMethods(id string) (*SimpleMethods, error) {
 	return nil, fmt.Errorf("unknown SimpleMethods id")
 }
 
-func (r *TRoot) DelayedMethods(id string) (*DelayedMethods, error) {
+func (r *Root) DelayedMethods(id string) (*DelayedMethods, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if a := r.delayed[id]; a != nil {
@@ -75,18 +75,21 @@ func (r *TRoot) DelayedMethods(id string) (*DelayedMethods, error) {
 	return nil, fmt.Errorf("unknown DelayedMethods id")
 }
 
-func (r *TRoot) ErrorMethods(id string) (*ErrorMethods, error) {
+func (r *Root) ErrorMethods(id string) (*ErrorMethods, error) {
+	if r.errorInst == nil {
+		return nil, fmt.Errorf("no error methods")
+	}
 	return r.errorInst, nil
 }
 
-func (t *TRoot) called(rcvr interface{}, method string, arg interface{}) {
+func (t *Root) called(rcvr interface{}, method string, arg interface{}) {
 	t.mu.Lock()
 	t.calls = append(t.calls, &callInfo{rcvr, method, arg})
 	t.mu.Unlock()
 }
 
 type SimpleMethods struct {
-	root *TRoot
+	root *Root
 	id   string
 }
 
@@ -157,11 +160,11 @@ func (e *ErrorMethods) Call() error {
 }
 
 func (*suite) TestRPC(c *C) {
-	root := &TRoot{
+	root := &Root{
 		simple: make(map[string]*SimpleMethods),
 	}
 	root.simple["a99"] = &SimpleMethods{root: root, id: "a99"}
-	client, srvDone := newRPCClientServer(c, root)
+	client, srvDone := newRPCClientServer(c, root, nil)
 	for narg := 0; narg < 2; narg++ {
 		for nret := 0; nret < 2; nret++ {
 			for nerr := 0; nerr < 2; nerr++ {
@@ -178,7 +181,7 @@ func (*suite) TestRPC(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (root *TRoot) testCall(c *C, client *rpc.Client, narg, nret int, retErr, testErr bool) {
+func (root *Root) testCall(c *C, client *rpc.Client, narg, nret int, retErr, testErr bool) {
 	root.calls = nil
 	root.returnErr = testErr
 	e := ""
@@ -217,14 +220,14 @@ func (*suite) TestConcurrentCalls(c *C) {
 	ready1 := make(chan struct{})
 	ready2 := make(chan struct{})
 
-	root := &TRoot{
+	root := &Root{
 		delayed: map[string]*DelayedMethods{
 			"1": {ready: ready1, done: start1},
 			"2": {ready: ready2, done: start2},
 		},
 	}
 
-	client, srvDone := newRPCClientServer(c, root)
+	client, srvDone := newRPCClientServer(c, root, nil)
 	call := func(id string, done chan<- struct{}) {
 		var r stringVal
 		err := client.Call("DelayedMethods", id, "Delay", nil, &r)
@@ -265,13 +268,49 @@ func (e *codedError) ErrorCode() string {
 }
 
 func (*suite) TestErrorCode(c *C) {
-	root := &TRoot{
+	root := &Root{
 		errorInst: &ErrorMethods{&codedError{"message", "code"}},
 	}
-	client, srvDone := newRPCClientServer(c, root)
+	client, srvDone := newRPCClientServer(c, root, nil)
 	err := client.Call("ErrorMethods", "", "Call", nil, nil)
-	c.Assert(err, ErrorMatches, "server error: message")
+	c.Assert(err, ErrorMatches, `server error: message \(code\)`)
 	c.Assert(err.(rpc.ErrorCoder).ErrorCode(), Equals, "code")
+	client.Close()
+	err = chanReadError(c, srvDone, "server done")
+	c.Assert(err, IsNil)
+}
+
+func (*suite) TestTransformErrors(c *C) {
+	root := &Root{
+		errorInst: &ErrorMethods{&codedError{"message", "code"}},
+	}
+	tfErr := func(err error) error {
+		c.Check(err, NotNil)
+		if e, ok := err.(*codedError); ok {
+			return &codedError{
+				m:    "transformed: " + e.m,
+				code: "transformed: " + e.code,
+			}
+		}
+		return fmt.Errorf("transformed: %v", err)
+	}
+	client, srvDone := newRPCClientServer(c, root, tfErr)
+	err := client.Call("ErrorMethods", "", "Call", nil, nil)
+	c.Assert(err, DeepEquals, &rpc.ServerError{
+		Message: "transformed: message",
+		Code:    "transformed: code",
+	})
+
+	root.errorInst.err = nil
+	err = client.Call("ErrorMethods", "", "Call", nil, nil)
+	c.Assert(err, IsNil)
+
+	root.errorInst = nil
+	err = client.Call("ErrorMethods", "", "Call", nil, nil)
+	c.Assert(err, DeepEquals, &rpc.ServerError{
+		Message: "transformed: no error methods",
+	})
+
 	client.Close()
 	err = chanReadError(c, srvDone, "server done")
 	c.Assert(err, IsNil)
@@ -280,7 +319,7 @@ func (*suite) TestErrorCode(c *C) {
 func (*suite) TestServerWaitsForOutstandingCalls(c *C) {
 	ready := make(chan struct{})
 	start := make(chan string)
-	root := &TRoot{
+	root := &Root{
 		delayed: map[string]*DelayedMethods{
 			"1": {
 				ready: ready,
@@ -288,7 +327,7 @@ func (*suite) TestServerWaitsForOutstandingCalls(c *C) {
 			},
 		},
 	}
-	client, srvDone := newRPCClientServer(c, root)
+	client, srvDone := newRPCClientServer(c, root, nil)
 	done := make(chan struct{})
 	go func() {
 		var r stringVal
@@ -320,13 +359,13 @@ func chanRead(c *C, ch <-chan struct{}, what string) {
 }
 
 func (*suite) TestCompatibility(c *C) {
-	root := &TRoot{
+	root := &Root{
 		simple: make(map[string]*SimpleMethods),
 	}
 	a0 := &SimpleMethods{root: root, id: "a0"}
 	root.simple["a0"] = a0
 
-	client, srvDone := newRPCClientServer(c, root)
+	client, srvDone := newRPCClientServer(c, root, nil)
 	call := func(method string, arg, ret interface{}) (passedArg interface{}) {
 		root.calls = nil
 		err := client.Call("SimpleMethods", "a0", method, arg, ret)
@@ -367,12 +406,12 @@ func (*suite) TestCompatibility(c *C) {
 }
 
 func (*suite) TestBadCall(c *C) {
-	root := &TRoot{
+	root := &Root{
 		simple: make(map[string]*SimpleMethods),
 	}
 	a0 := &SimpleMethods{root: root, id: "a0"}
 	root.simple["a0"] = a0
-	client, srvDone := newRPCClientServer(c, root)
+	client, srvDone := newRPCClientServer(c, root, nil)
 
 	err := client.Call("BadSomething", "a0", "No", nil, nil)
 	c.Assert(err, ErrorMatches, `server error: unknown object type "BadSomething"`)
@@ -389,13 +428,32 @@ func (*suite) TestBadCall(c *C) {
 }
 
 func (*suite) TestErrorAfterClientClose(c *C) {
-	client, srvDone := newRPCClientServer(c, &TRoot{})
+	client, srvDone := newRPCClientServer(c, &Root{}, nil)
 	err := client.Close()
 	c.Assert(err, IsNil)
 	err = client.Call("Foo", "", "Bar", nil, nil)
 	c.Assert(err, Equals, rpc.ErrShutdown)
 	err = chanReadError(c, srvDone, "server done")
 	c.Assert(err, IsNil)
+}
+
+type KillerRoot struct {
+	killed bool
+	Root
+}
+
+func (r *KillerRoot) Kill() {
+	r.killed = true
+}
+
+func (*suite) TestRootIsKilled(c *C) {
+	root := &KillerRoot{}
+	client, srvDone := newRPCClientServer(c, root, nil)
+	err := client.Close()
+	c.Assert(err, IsNil)
+	err = chanReadError(c, srvDone, "server done")
+	c.Assert(err, IsNil)
+	c.Assert(root.killed, Equals, true)
 }
 
 func chanReadError(c *C, ch <-chan error, what string) error {
@@ -411,8 +469,8 @@ func chanReadError(c *C, ch <-chan error, what string) error {
 // newRPCClientServer starts an RPC server serving a connection from a
 // single client.  When the server has finished serving the connection,
 // it sends a value on done.
-func newRPCClientServer(c *C, root interface{}) (client *rpc.Client, done <-chan error) {
-	srv, err := rpc.NewServer(&TRoot{})
+func newRPCClientServer(c *C, root interface{}, tfErr func(error) error) (client *rpc.Client, done <-chan error) {
+	srv, err := rpc.NewServer(root, tfErr)
 	c.Assert(err, IsNil)
 
 	l, err := net.Listen("tcp", ":0")

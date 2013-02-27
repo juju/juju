@@ -163,6 +163,10 @@ func (s *Service) removeOps(asserts D) []txn.Op {
 		C:      s.st.settings.Name,
 		Id:     s.globalKey(),
 		Remove: true,
+	}, {
+		C:      s.st.constraints.Name,
+		Id:     s.globalKey(),
+		Remove: true,
 	}}
 }
 
@@ -284,11 +288,12 @@ func (s *Service) String() string {
 }
 
 // Refresh refreshes the contents of the Service from the underlying
-// state. It returns a NotFoundError if the service has been removed.
+// state. It returns an error that satisfies IsNotFound if the service has
+// been removed.
 func (s *Service) Refresh() error {
 	err := s.st.services.FindId(s.doc.Name).One(&s.doc)
 	if err == mgo.ErrNotFound {
-		return notFoundf("service %q", s)
+		return NotFoundf("service %q", s)
 	}
 	if err != nil {
 		return fmt.Errorf("cannot refresh service %q: %v", s, err)
@@ -301,7 +306,7 @@ func (s *Service) newUnitName() (string, error) {
 	change := mgo.Change{Update: D{{"$inc", D{{"unitseq", 1}}}}}
 	result := serviceDoc{}
 	if _, err := s.st.services.Find(D{{"_id", s.doc.Name}}).Apply(change, &result); err == mgo.ErrNotFound {
-		return "", notFoundf("service %q", s)
+		return "", NotFoundf("service %q", s)
 	} else if err != nil {
 		return "", fmt.Errorf("cannot increment unit sequence: %v", err)
 	}
@@ -467,4 +472,14 @@ func (s *Service) Config() (config *Settings, err error) {
 		return nil, fmt.Errorf("cannot get configuration of service %q: %v", s, err)
 	}
 	return config, nil
+}
+
+// Constraints returns the current service constraints.
+func (s *Service) Constraints() (Constraints, error) {
+	return readConstraints(s.st, s.globalKey())
+}
+
+// SetConstraints replaces the current service constraints.
+func (s *Service) SetConstraints(cons Constraints) error {
+	return writeConstraints(s.st, s.globalKey(), cons)
 }

@@ -61,6 +61,10 @@ func (p environProvider) BoilerplateConfig() string {
 ## https://juju.ubuntu.com/get-started/openstack/
 openstack:
   type: openstack
+  # Specifies whether the nodes are accessible via a public IP address.
+  # For installations where IP addresses have limited availability, ssh tunnelling
+  # may be a preferred connection option.
+  use-floating-ip: false
   admin-secret: {{rand}}
   # Globally unique swift bucket name
   control-bucket: juju-{{rand}}
@@ -69,6 +73,7 @@ openstack:
   # override if your workstation is running a different series to which you are deploying
   # default-series: precise
   default-image-id: c876e5fe-abb0-41f0-8f29-f0b47481f523
+  default-instance-type: "m1.small"
   # The following are used for userpass authentication (the default)
   auth-mode: userpass
   # Usually set via the env variable OS_USERNAME, but can be specified here
@@ -83,6 +88,11 @@ openstack:
 ## https://juju.ubuntu.com/get-started/hp-cloud/
 hpcloud:
   type: openstack
+  # Specifies whether the nodes are accessible via a public IP address.
+  # For installations where IP addresses have limited availability, ssh tunnelling
+  # may be a preferred connection option. HP Cloud seems to have lots of available
+  # IP addresses.
+  # use-floating-ip: false
   admin-secret: {{rand}}
   # Globally unique swift bucket name
   control-bucket: juju-{{rand}}
@@ -90,7 +100,8 @@ hpcloud:
   auth-url: https://yourkeystoneurl:35357/v2.0/
   # override if your workstation is running a different series to which you are deploying
   # default-series: precise
-  default-image-id: 75845
+  default-image-id: "75845"
+  default-instance-type: "standard.xsmall"
   # The following are used for userpass authentication (the default)
   auth-mode: userpass
   # Usually set via the env variable OS_USERNAME, but can be specified here
@@ -370,7 +381,7 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 		config:          config,
 		stateServerCert: cert,
 		stateServerKey:  key,
-		withPublicIP:    true,
+		withPublicIP:    e.ecfg().useFloatingIP(),
 	})
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
@@ -481,8 +492,8 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	authModeCfg = AuthMode(ecfg.authMode())
 	e.ecfgUnlocked = ecfg
 
-	novaClient := e.client(ecfg, authModeCfg)
-	e.novaUnlocked = nova.New(novaClient)
+	client := e.client(ecfg, authModeCfg)
+	e.novaUnlocked = nova.New(client)
 
 	// create new storage instances, existing instances continue
 	// to reference their existing configuration.
@@ -491,12 +502,23 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 		// this is possibly just a hack - if the ACL is swift.Private,
 		// the machine won't be able to get the tools (401 error)
 		containerACL: swift.PublicRead,
-		swift:        swift.New(e.client(ecfg, authModeCfg))}
-	if ecfg.publicBucket() != "" && ecfg.publicBucketURL() != "" {
-		e.publicStorageUnlocked = &storage{
-			containerName: ecfg.publicBucket(),
-			containerACL:  swift.PublicRead,
-			swift:         swift.New(e.publicClient(ecfg))}
+		swift:        swift.New(client)}
+	if ecfg.publicBucket() != "" {
+		// If no public bucket URL is specified, we will instead create the public bucket
+		// using the user's credentials on the authenticated client.
+		if ecfg.publicBucketURL() == "" {
+			e.publicStorageUnlocked = &storage{
+				containerName: ecfg.publicBucket(),
+				// this is possibly just a hack - if the ACL is swift.Private,
+				// the machine won't be able to get the tools (401 error)
+				containerACL: swift.PublicRead,
+				swift:        swift.New(client)}
+		} else {
+			e.publicStorageUnlocked = &storage{
+				containerName: ecfg.publicBucket(),
+				containerACL:  swift.PublicRead,
+				swift:         swift.New(e.publicClient(ecfg))}
+		}
 	} else {
 		e.publicStorageUnlocked = nil
 	}
@@ -506,10 +528,11 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 
 func (e *environ) StartInstance(machineId string, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
 	return e.startInstance(&startInstanceParams{
-		machineId: machineId,
-		info:      info,
-		apiInfo:   apiInfo,
-		tools:     tools,
+		machineId:    machineId,
+		info:         info,
+		apiInfo:      apiInfo,
+		tools:        tools,
+		withPublicIP: e.ecfg().useFloatingIP(),
 	})
 }
 
@@ -618,7 +641,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	var publicIP *nova.FloatingIP
 	if scfg.withPublicIP {
 		if fip, err := e.allocatePublicIP(); err != nil {
-			return nil, fmt.Errorf("cannot allocate a public IP as needed")
+			return nil, fmt.Errorf("cannot allocate a public IP as needed: %v", err)
 		} else {
 			publicIP = fip
 			log.Printf("environs/openstack: allocated public IP %s", publicIP.IP)
@@ -641,7 +664,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 		series: scfg.tools.Series,
 		arch:   scfg.tools.Arch,
 		region: e.ecfg().region(),
-		flavor: "m1.small",
+		flavor: e.ecfg().defaultInstanceType(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image satisfying constraints: %v", err)
@@ -745,6 +768,9 @@ func (e *environ) collectInstances(ids []state.InstanceId, out map[state.Instanc
 }
 
 func (e *environ) Instances(ids []state.InstanceId) ([]environs.Instance, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
 	missing := ids
 	found := make(map[state.InstanceId]environs.Instance)
 	// Make a series of requests to cope with eventual consistency.

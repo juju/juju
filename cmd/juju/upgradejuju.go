@@ -21,28 +21,30 @@ type UpgradeJujuCommand struct {
 	conn         *juju.Conn
 	toolsList    *environs.ToolsList
 	agentVersion version.Number
+	vers         string
 }
 
 var putTools = environs.PutTools
 
 func (c *UpgradeJujuCommand) Info() *cmd.Info {
-	return &cmd.Info{"upgrade-juju", "", "upgrade the tools in a juju environment", ""}
+	return &cmd.Info{
+		Name:    "upgrade-juju",
+		Purpose: "upgrade the tools in a juju environment",
+	}
 }
 
-func (c *UpgradeJujuCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *UpgradeJujuCommand) SetFlags(f *gnuflag.FlagSet) {
 	addEnvironFlags(&c.EnvName, f)
-	var vers string
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools")
-	f.StringVar(&vers, "version", "", "version to upgrade to (defaults to highest available version with the current major version number)")
+	f.StringVar(&c.vers, "version", "", "version to upgrade to (defaults to highest available version with the current major version number)")
 	f.BoolVar(&c.BumpVersion, "bump-version", false, "upload the tools with a higher build number if necessary, and use that version (overrides --version)")
 	f.BoolVar(&c.Development, "dev", false, "allow development versions to be chosen")
+}
 
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	if vers != "" {
+func (c *UpgradeJujuCommand) Init(args []string) error {
+	if c.vers != "" {
 		var err error
-		c.Version, err = version.Parse(vers)
+		c.Version, err = version.Parse(c.vers)
 		if err != nil {
 			return err
 		}
@@ -50,8 +52,7 @@ func (c *UpgradeJujuCommand) Init(f *gnuflag.FlagSet, args []string) error {
 			return fmt.Errorf("cannot upgrade to version 0.0.0")
 		}
 	}
-
-	return cmd.CheckEmpty(f.Args())
+	return cmd.CheckEmpty(args)
 }
 
 // Run changes the version proposed for the juju tools.

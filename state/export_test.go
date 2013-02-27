@@ -1,5 +1,7 @@
 package state
 
+import "time"
+
 type (
 	CharmDoc    charmDoc
 	MachineDoc  machineDoc
@@ -11,6 +13,16 @@ type (
 func (doc *MachineDoc) String() string {
 	m := &Machine{doc: machineDoc(*doc)}
 	return m.String()
+}
+
+var defaultDialTimeout = dialTimeout
+
+func SetDialTimeout(d time.Duration) {
+	if d == 0 {
+		dialTimeout = defaultDialTimeout
+	} else {
+		dialTimeout = d
+	}
 }
 
 func init() {

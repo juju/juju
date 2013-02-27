@@ -16,17 +16,19 @@ type DestroyMachineCommand struct {
 
 func (c *DestroyMachineCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		"destroy-machine", "<machine> [, ...]", "destroy machines",
-		"Machines that have assigned units, or are responsible for the environment, cannot be destroyed.",
+		Name:    "destroy-machine",
+		Args:    "<machine> ...",
+		Purpose: "destroy machines",
+		Doc:     "Machines that have assigned units, or are responsible for the environment, cannot be destroyed.",
+		Aliases: []string{"terminate-machine"},
 	}
 }
 
-func (c *DestroyMachineCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *DestroyMachineCommand) SetFlags(f *gnuflag.FlagSet) {
 	addEnvironFlags(&c.EnvName, f)
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	args = f.Args()
+}
+
+func (c *DestroyMachineCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no machines specified")
 	}

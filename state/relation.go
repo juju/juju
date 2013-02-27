@@ -55,12 +55,13 @@ func (r *Relation) String() string {
 }
 
 // Refresh refreshes the contents of the relation from the underlying
-// state. It returns a NotFoundError if the relation has been removed.
+// state. It returns an error that satisfies IsNotFound if the relation has been
+// removed.
 func (r *Relation) Refresh() error {
 	doc := relationDoc{}
 	err := r.st.relations.FindId(r.doc.Key).One(&doc)
 	if err == mgo.ErrNotFound {
-		return notFoundf("relation %v", r)
+		return NotFoundf("relation %v", r)
 	}
 	if err != nil {
 		return fmt.Errorf("cannot refresh relation %v: %v", r, err)
@@ -69,7 +70,7 @@ func (r *Relation) Refresh() error {
 		// The relation has been destroyed and recreated. This is *not* the
 		// same relation; if we pretend it is, we run the risk of violating
 		// the lifecycle-only-advances guarantee.
-		return notFoundf("relation %v", r)
+		return NotFoundf("relation %v", r)
 	}
 	r.doc = doc
 	return nil

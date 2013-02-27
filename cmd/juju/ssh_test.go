@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/version"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -117,7 +118,7 @@ func (s *SSHSuite) TestSSHCommand(c *C) {
 func (s *SSHCommonSuite) makeMachines(n int, c *C) []*state.Machine {
 	var machines = make([]*state.Machine, n)
 	for i := 0; i < n; i++ {
-		m, err := s.State.AddMachine(state.JobHostUnits)
+		m, err := s.State.AddMachine(version.Current.Series, state.JobHostUnits)
 		c.Assert(err, IsNil)
 		// must set an instance id as the ssh command uses that as a signal the machine
 		// has been provisioned
@@ -135,8 +136,8 @@ func (s *SSHCommonSuite) addUnit(srv *state.Service, m *state.Machine, c *C) {
 	err = u.AssignToMachine(m)
 	c.Assert(err, IsNil)
 	// fudge unit.SetPublicAddress
-	id, err := m.InstanceId()
-	c.Assert(err, IsNil)
+	id, ok := m.InstanceId()
+	c.Assert(ok, Equals, true)
 	insts, err := s.Conn.Environ.Instances([]state.InstanceId{id})
 	c.Assert(err, IsNil)
 	addr, err := insts[0].WaitDNSName()
