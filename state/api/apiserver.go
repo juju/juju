@@ -3,8 +3,11 @@ package api
 import (
 	"code.google.com/p/go.net/websocket"
 	"fmt"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/statecmd"
+	statewatcher "launchpad.net/juju-core/state/watcher"
+	"strconv"
 	"sync"
 )
 
@@ -14,10 +17,11 @@ var AuthenticationEnabled = false
 
 // srvRoot represents a single client's connection to the state.
 type srvRoot struct {
-	admin  *srvAdmin
-	client *srvClient
-	srv    *Server
-	conn   *websocket.Conn
+	admin    *srvAdmin
+	client   *srvClient
+	srv      *Server
+	conn     *websocket.Conn
+	watchers *watchers
 
 	user authUser
 }
@@ -54,8 +58,9 @@ type srvClient struct {
 
 func newStateServer(srv *Server, conn *websocket.Conn) *srvRoot {
 	r := &srvRoot{
-		srv:  srv,
-		conn: conn,
+		srv:      srv,
+		conn:     conn,
+		watchers: newWatchers(),
 	}
 	r.admin = &srvAdmin{
 		root: r,
@@ -66,6 +71,15 @@ func newStateServer(srv *Server, conn *websocket.Conn) *srvRoot {
 	return r
 }
 
+// Kill implements rpc.Killer.  It cleans up any resources that need
+// cleaning up to ensure that all outstanding requests return.
+func (r *srvRoot) Kill() {
+	r.watchers.stopAll()
+}
+
+// Admin returns an object that provides API access
+// to methods that can be called even when not
+// authenticated.
 func (r *srvRoot) Admin(id string) (*srvAdmin, error) {
 	if id != "" {
 		// Safeguard id for possible future use.
@@ -102,6 +116,8 @@ func (r *srvRoot) requireClient() error {
 	return nil
 }
 
+// Machine returns an object that provides
+// API access to methods on a state.Machine.
 func (r *srvRoot) Machine(id string) (*srvMachine, error) {
 	if err := r.requireAgent(); err != nil {
 		return nil, err
@@ -116,6 +132,8 @@ func (r *srvRoot) Machine(id string) (*srvMachine, error) {
 	}, nil
 }
 
+// Unit returns an object that provides
+// API access to methods on a state.Unit.
 func (r *srvRoot) Unit(name string) (*srvUnit, error) {
 	if err := r.requireAgent(); err != nil {
 		return nil, err
@@ -130,6 +148,8 @@ func (r *srvRoot) Unit(name string) (*srvUnit, error) {
 	}, nil
 }
 
+// User returns an object that provides
+// API access to methods on a state.User.
 func (r *srvRoot) User(name string) (*srvUser, error) {
 	// Any user is allowed to access their own user object.
 	// We check at this level rather than at the operation
@@ -154,6 +174,26 @@ func (r *srvRoot) User(name string) (*srvUser, error) {
 	}, nil
 }
 
+// EntityWatcher returns an object that provides
+// API access to methods on a state.EntityWatcher.
+// Each client has its own current set of watchers, stored
+// in r.watchers.
+func (r *srvRoot) EntityWatcher(id string) (srvEntityWatcher, error) {
+	if err := r.requireAgent(); err != nil {
+		return srvEntityWatcher{}, err
+	}
+	w := r.watchers.get(id)
+	if w == nil {
+		return srvEntityWatcher{}, errUnknownWatcher
+	}
+	if _, ok := w.w.(*state.EntityWatcher); !ok {
+		return srvEntityWatcher{}, errUnknownWatcher
+	}
+	return srvEntityWatcher{w}, nil
+}
+
+// Client returns an object that provides access
+// to methods accessible to non-agent clients.
 func (r *srvRoot) Client(id string) (*srvClient, error) {
 	if err := r.requireClient(); err != nil {
 		return nil, err
@@ -163,6 +203,24 @@ func (r *srvRoot) Client(id string) (*srvClient, error) {
 		return nil, errBadId
 	}
 	return r.client, nil
+}
+
+type srvEntityWatcher struct {
+	*srvWatcher
+}
+
+// Next returns when a change has occurred to the
+// entity being watched since the most recent call to Next
+// or the Watch call that created the EntityWatcher.
+func (w srvEntityWatcher) Next() error {
+	if _, ok := <-w.w.(*state.EntityWatcher).Changes(); ok {
+		return nil
+	}
+	err := w.w.Err()
+	if err == nil {
+		err = errStoppedWatcher
+	}
+	return err
 }
 
 func (c *srvClient) Status() (Status, error) {
@@ -231,6 +289,20 @@ func (m *srvMachine) Get() (info rpcMachine) {
 	instId, _ := m.m.InstanceId()
 	info.InstanceId = string(instId)
 	return
+}
+
+type rpcEntityWatcherId struct {
+	EntityWatcherId string
+}
+
+func (m *srvMachine) Watch() (rpcEntityWatcherId, error) {
+	w := m.m.Watch()
+	if _, ok := <-w.Changes(); !ok {
+		return rpcEntityWatcherId{}, statewatcher.MustErr(w)
+	}
+	return rpcEntityWatcherId{
+		EntityWatcherId: m.root.watchers.register(w).id,
+	}, nil
 }
 
 type rpcPassword struct {
@@ -366,4 +438,77 @@ func isMachineWithJob(e state.AuthEntity, j state.MachineJob) bool {
 func isAgent(e state.AuthEntity) bool {
 	_, isUser := e.(*state.User)
 	return !isUser
+}
+
+// watcher represents the interface provided by state watchers.
+type watcher interface {
+	Stop() error
+	Err() error
+}
+
+// watchers holds all the watchers for a connection.
+type watchers struct {
+	mu    sync.Mutex
+	maxId uint64
+	ws    map[string]*srvWatcher
+}
+
+// srvWatcher holds the details of a watcher.  It also implements the
+// Stop RPC method for all watchers.
+type srvWatcher struct {
+	ws *watchers
+	w  watcher
+	id string
+}
+
+// Stop stops the given watcher. It causes any outstanding
+// Next calls to return a CodeStopped error.
+// Any subsequent Next calls will return a CodeNotFound
+// error because the watcher will no longer exist.
+func (w *srvWatcher) Stop() error {
+	err := w.w.Stop()
+	w.ws.mu.Lock()
+	defer w.ws.mu.Unlock()
+	delete(w.ws.ws, w.id)
+	return err
+}
+
+func newWatchers() *watchers {
+	return &watchers{
+		ws: make(map[string]*srvWatcher),
+	}
+}
+
+// get returns the srvWatcher registered with the given
+// id, or nil if there is no such watcher.
+func (ws *watchers) get(id string) *srvWatcher {
+	ws.mu.Lock()
+	defer ws.mu.Unlock()
+	return ws.ws[id]
+}
+
+// register records the given watcher and returns
+// a srvWatcher instance for it.
+func (ws *watchers) register(w watcher) *srvWatcher {
+	ws.mu.Lock()
+	defer ws.mu.Unlock()
+	ws.maxId++
+	sw := &srvWatcher{
+		ws: ws,
+		id: strconv.FormatUint(ws.maxId, 10),
+		w:  w,
+	}
+	ws.ws[sw.id] = sw
+	return sw
+}
+
+func (ws *watchers) stopAll() {
+	ws.mu.Lock()
+	defer ws.mu.Unlock()
+	for _, w := range ws.ws {
+		if err := w.w.Stop(); err != nil {
+			log.Printf("state/api: error stopping %T watcher: %v", w, err)
+		}
+	}
+	ws.ws = make(map[string]*srvWatcher)
 }
