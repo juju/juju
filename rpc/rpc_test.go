@@ -41,7 +41,7 @@ type stringVal struct {
 	Val string
 }
 
-type TRoot struct {
+type Root struct {
 	mu        sync.Mutex
 	calls     []*callInfo
 	returnErr bool
@@ -50,14 +50,14 @@ type TRoot struct {
 	errorInst *ErrorMethods
 }
 
-func (r *TRoot) callError(rcvr interface{}, name string, arg interface{}) error {
+func (r *Root) callError(rcvr interface{}, name string, arg interface{}) error {
 	if r.returnErr {
 		return &callError{rcvr, name, arg}
 	}
 	return nil
 }
 
-func (r *TRoot) SimpleMethods(id string) (*SimpleMethods, error) {
+func (r *Root) SimpleMethods(id string) (*SimpleMethods, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if a := r.simple[id]; a != nil {
@@ -66,7 +66,7 @@ func (r *TRoot) SimpleMethods(id string) (*SimpleMethods, error) {
 	return nil, fmt.Errorf("unknown SimpleMethods id")
 }
 
-func (r *TRoot) DelayedMethods(id string) (*DelayedMethods, error) {
+func (r *Root) DelayedMethods(id string) (*DelayedMethods, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if a := r.delayed[id]; a != nil {
@@ -75,21 +75,21 @@ func (r *TRoot) DelayedMethods(id string) (*DelayedMethods, error) {
 	return nil, fmt.Errorf("unknown DelayedMethods id")
 }
 
-func (r *TRoot) ErrorMethods(id string) (*ErrorMethods, error) {
+func (r *Root) ErrorMethods(id string) (*ErrorMethods, error) {
 	if r.errorInst == nil {
 		return nil, fmt.Errorf("no error methods")
 	}
 	return r.errorInst, nil
 }
 
-func (t *TRoot) called(rcvr interface{}, method string, arg interface{}) {
+func (t *Root) called(rcvr interface{}, method string, arg interface{}) {
 	t.mu.Lock()
 	t.calls = append(t.calls, &callInfo{rcvr, method, arg})
 	t.mu.Unlock()
 }
 
 type SimpleMethods struct {
-	root *TRoot
+	root *Root
 	id   string
 }
 
@@ -160,7 +160,7 @@ func (e *ErrorMethods) Call() error {
 }
 
 func (*suite) TestRPC(c *C) {
-	root := &TRoot{
+	root := &Root{
 		simple: make(map[string]*SimpleMethods),
 	}
 	root.simple["a99"] = &SimpleMethods{root: root, id: "a99"}
@@ -181,7 +181,7 @@ func (*suite) TestRPC(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (root *TRoot) testCall(c *C, client *rpc.Client, narg, nret int, retErr, testErr bool) {
+func (root *Root) testCall(c *C, client *rpc.Client, narg, nret int, retErr, testErr bool) {
 	root.calls = nil
 	root.returnErr = testErr
 	e := ""
@@ -220,7 +220,7 @@ func (*suite) TestConcurrentCalls(c *C) {
 	ready1 := make(chan struct{})
 	ready2 := make(chan struct{})
 
-	root := &TRoot{
+	root := &Root{
 		delayed: map[string]*DelayedMethods{
 			"1": {ready: ready1, done: start1},
 			"2": {ready: ready2, done: start2},
@@ -268,7 +268,7 @@ func (e *codedError) ErrorCode() string {
 }
 
 func (*suite) TestErrorCode(c *C) {
-	root := &TRoot{
+	root := &Root{
 		errorInst: &ErrorMethods{&codedError{"message", "code"}},
 	}
 	client, srvDone := newRPCClientServer(c, root, nil)
@@ -281,7 +281,7 @@ func (*suite) TestErrorCode(c *C) {
 }
 
 func (*suite) TestTransformErrors(c *C) {
-	root := &TRoot{
+	root := &Root{
 		errorInst: &ErrorMethods{&codedError{"message", "code"}},
 	}
 	tfErr := func(err error) error {
@@ -319,7 +319,7 @@ func (*suite) TestTransformErrors(c *C) {
 func (*suite) TestServerWaitsForOutstandingCalls(c *C) {
 	ready := make(chan struct{})
 	start := make(chan string)
-	root := &TRoot{
+	root := &Root{
 		delayed: map[string]*DelayedMethods{
 			"1": {
 				ready: ready,
@@ -359,7 +359,7 @@ func chanRead(c *C, ch <-chan struct{}, what string) {
 }
 
 func (*suite) TestCompatibility(c *C) {
-	root := &TRoot{
+	root := &Root{
 		simple: make(map[string]*SimpleMethods),
 	}
 	a0 := &SimpleMethods{root: root, id: "a0"}
@@ -406,7 +406,7 @@ func (*suite) TestCompatibility(c *C) {
 }
 
 func (*suite) TestBadCall(c *C) {
-	root := &TRoot{
+	root := &Root{
 		simple: make(map[string]*SimpleMethods),
 	}
 	a0 := &SimpleMethods{root: root, id: "a0"}
@@ -428,7 +428,7 @@ func (*suite) TestBadCall(c *C) {
 }
 
 func (*suite) TestErrorAfterClientClose(c *C) {
-	client, srvDone := newRPCClientServer(c, &TRoot{}, nil)
+	client, srvDone := newRPCClientServer(c, &Root{}, nil)
 	err := client.Close()
 	c.Assert(err, IsNil)
 	err = client.Call("Foo", "", "Bar", nil, nil)
@@ -437,17 +437,17 @@ func (*suite) TestErrorAfterClientClose(c *C) {
 	c.Assert(err, IsNil)
 }
 
-type TKillerRoot struct {
+type KillerRoot struct {
 	killed bool
-	TRoot
+	Root
 }
 
-func (r *TKillerRoot) Kill() {
+func (r *KillerRoot) Kill() {
 	r.killed = true
 }
 
 func (*suite) TestRootIsKilled(c *C) {
-	root := &TKillerRoot{}
+	root := &KillerRoot{}
 	client, srvDone := newRPCClientServer(c, root, nil)
 	err := client.Close()
 	c.Assert(err, IsNil)
