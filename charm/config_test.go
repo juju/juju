@@ -190,57 +190,67 @@ func (s *ConfigSuite) TestValidate(c *C) {
 	c.Assert(err, ErrorMatches, `Unknown configuration option: "bad"`)
 }
 
+var convertTests = []struct {
+	summary string
+	input   map[string]interface{}
+	expect  map[string]interface{}
+	err     string
+}{{
+	// Schema defaults are ignored.
+	summary: "valid strings",
+	input: map[string]interface{}{
+		"title":   "Helpful Title",
+		"outlook": "Peachy",
+	},
+	expect: map[string]interface{}{
+		"title":   "Helpful Title",
+		"outlook": "Peachy",
+	},
+}, {
+	// Integers are always int64 in YAML, where the input is usually coming from.
+	summary: "valid integers and floats",
+	input: map[string]interface{}{
+		"agility-ratio": 0.5,
+		"skill-level":   int64(7),
+	},
+	expect: map[string]interface{}{
+		"agility-ratio": 0.5,
+		"skill-level":   int64(7),
+	},
+}, {
+	summary: "valid booleans",
+	input:   map[string]interface{}{"reticulate-splines": true},
+	expect:  map[string]interface{}{"reticulate-splines": true},
+}, {
+	summary: "invalid type error with floats",
+	input:   map[string]interface{}{"agility-ratio": "bar"},
+	err:     `unexpected type in service configuration "agility-ratio"="bar"; expected float`,
+}, {
+	summary: "invalid type error with integers",
+	input:   map[string]interface{}{"skill-level": "foo"},
+	err:     `unexpected type in service configuration "skill-level"="foo"; expected int`,
+}, {
+	summary: "invalid type error with booleans",
+	input:   map[string]interface{}{"reticulate-splines": "maybe"},
+	err:     `unexpected type in service configuration "reticulate-splines"="maybe"; expected boolean`,
+}, {
+	summary: "with value not in the schema (ignored)",
+	input:   map[string]interface{}{"bad": "value"},
+	expect:  map[string]interface{}{},
+}}
+
 func (s *ConfigSuite) TestConvert(c *C) {
 	config, err := charm.ReadConfig(bytes.NewBuffer([]byte(sampleConfig)))
 	c.Assert(err, IsNil)
 
-	input := map[string]interface{}{
-		"title":   "Helpful Title",
-		"outlook": "Peachy",
+	for i, t := range convertTests {
+		c.Logf("test %d: %s", i, t.summary)
+		output, err := config.Convert(t.input)
+		if t.err != "" {
+			c.Assert(err, ErrorMatches, t.err)
+		} else {
+			c.Assert(err, IsNil)
+			c.Assert(output, DeepEquals, t.expect)
+		}
 	}
-
-	// This should include only explicitly set valid values per the schema, no defaults
-	expected := map[string]interface{}{
-		"title":   "Helpful Title",
-		"outlook": "Peachy",
-	}
-
-	output, err := config.Convert(input)
-	c.Assert(err, IsNil)
-	c.Assert(output, DeepEquals, expected)
-
-	// Check whether float/int conversion is working.
-	input["agility-ratio"] = 0.5
-	// Integers are always int64 in YAML, which input is usually coming from.
-	input["skill-level"] = int64(7)
-	expected["agility-ratio"] = 0.5
-	expected["skill-level"] = int64(7)
-	output, err = config.Convert(input)
-	c.Assert(err, IsNil)
-	c.Assert(output, DeepEquals, expected)
-
-	// Check whether float errors are caught.
-	input["agility-ratio"] = "foo"
-	output, err = config.Convert(input)
-	c.Assert(err, ErrorMatches, `unexpected type in service configuration "agility-ratio"="foo"; expected float`)
-	input["agility-ratio"] = 0.5
-
-	// Check whether int errors are caught.
-	input["skill-level"] = "foo"
-	output, err = config.Convert(input)
-	c.Assert(err, ErrorMatches, `unexpected type in service configuration "skill-level"="foo"; expected int`)
-	input["skill-level"] = int64(7)
-
-	// Check whether boolean errors are caught.
-	input["reticulate-splines"] = "maybe"
-	output, err = config.Convert(input)
-	c.Assert(err, ErrorMatches, `unexpected type in service configuration "reticulate-splines"="maybe"; expected boolean`)
-	input["reticulate-splines"] = false
-
-	// Now try to set a value outside the expected - should be ignored
-	input["bad"] = "value"
-	output, err = config.Convert(input)
-	c.Assert(err, IsNil)
-	_, ok := output["bad"]
-	c.Assert(ok, Equals, false)
 }
