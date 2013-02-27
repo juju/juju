@@ -47,7 +47,7 @@ func makeTestConfig() map[string]interface{} {
 }
 
 // Register tests to run against a real Openstack instance.
-func registerLiveTests(cred *identity.Credentials) {
+func registerLiveTests(cred *identity.Credentials, testImageDetails openstack.ImageDetails) {
 	Suite(&LiveTests{
 		cred:    cred,
 		Attempt: *openstack.ShortAttempt,
@@ -58,6 +58,8 @@ func registerLiveTests(cred *identity.Credentials) {
 		//       'series' to an image id, when we have support, set
 		//       this flag to True.
 		HasProvisioner: false,
+		testImageId: testImageDetails.ImageId,
+		testFlavor:  testImageDetails.Flavor,
 	})
 }
 
@@ -68,15 +70,10 @@ type LiveTests struct {
 	coretesting.LoggingSuite
 	jujutest.LiveTests
 	cred                   *identity.Credentials
+	testImageId            string
+	testFlavor             string
 	writeablePublicStorage environs.Storage
 }
-
-const (
-	// TODO (wallyworld) - ideally, something like http://cloud-images.ubuntu.com would have images we could use
-	// but until it does, we allow a default image id to be specified.
-	// This is an existing image on Canonistack - smoser-cloud-images/ubuntu-quantal-12.10-i386-server-20121017
-	testImageId = "0f602ea9-c09e-440c-9e29-cfae5635afa3"
-)
 
 func (t *LiveTests) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
@@ -94,7 +91,8 @@ func (t *LiveTests) SetUpSuite(c *C) {
 	attrs["auth-url"] = t.cred.URL
 	attrs["tenant-name"] = t.cred.TenantName
 	attrs["public-bucket-url"] = publicBucketURL
-	attrs["default-image-id"] = testImageId
+	attrs["default-image-id"] = t.testImageId
+	attrs["default-instance-type"] = t.testFlavor
 	t.Config = attrs
 	t.LiveTests = jujutest.LiveTests{
 		Config:         attrs,
@@ -149,10 +147,10 @@ func putFakeTools(c *C, s environs.StorageWriter) {
 }
 
 func (t *LiveTests) TestFindImageSpec(c *C) {
-	imageId, flavorId, err := openstack.FindInstanceSpec(t.Env, "precise", "amd64", "m1.small")
+	instanceType := openstack.DefaultInstanceType(t.Env)
+	imageId, flavorId, err := openstack.FindInstanceSpec(t.Env, "precise", "amd64", instanceType)
 	c.Assert(err, IsNil)
-	// For now, the imageId always comes from the environment config.
-	c.Assert(imageId, Equals, testImageId)
+	c.Assert(imageId, Equals, t.testImageId)
 	c.Assert(flavorId, Not(Equals), "")
 }
 
