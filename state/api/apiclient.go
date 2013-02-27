@@ -45,6 +45,27 @@ func (c *Client) Status() (*Status, error) {
 	return &s, nil
 }
 
+// ServiceSet sets configuration options on a service.
+func (c *Client) ServiceSet(service string, options map[string]string) error {
+	p := statecmd.ServiceSetParams{
+		ServiceName: service,
+		Options:     options,
+	}
+	err := c.st.client.Call("Client", "", "ServiceSet", p, nil)
+	return clientError(err)
+}
+
+// ServiceSetYAML sets configuration options on a service
+// given options in YAML format.
+func (c *Client) ServiceSetYAML(service string, yaml string) error {
+	p := statecmd.ServiceSetYAMLParams{
+		ServiceName: service,
+		Config:      yaml,
+	}
+	err := c.st.client.Call("Client", "", "ServiceSetYAML", p, nil)
+	return clientError(err)
+}
+
 // ServiceGet returns the configuration for the named service.
 func (c *Client) ServiceGet(service string) (*statecmd.ServiceGetResults, error) {
 	var results statecmd.ServiceGetResults

@@ -182,6 +182,16 @@ func (c *srvClient) Status() (Status, error) {
 	return status, nil
 }
 
+// ServiceSet implements the server side of Client.ServerSet.
+func (c *srvClient) ServiceSet(p statecmd.ServiceSetParams) error {
+	return statecmd.ServiceSet(c.root.srv.state, p)
+}
+
+// ServiceSetYAML implements the server side of Client.ServerSetYAML.
+func (c *srvClient) ServiceSetYAML(p statecmd.ServiceSetYAMLParams) error {
+	return statecmd.ServiceSetYAML(c.root.srv.state, p)
+}
+
 func (c *srvClient) ServiceGet(args statecmd.ServiceGetParams) (statecmd.ServiceGetResults, error) {
 	return statecmd.ServiceGet(c.root.srv.state, args)
 }

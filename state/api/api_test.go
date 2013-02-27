@@ -63,6 +63,14 @@ var operationPermTests = []struct {
 	op:    opClientStatus,
 	allow: []string{"user-admin", "user-other"},
 }, {
+	about: "Client.ServiceSet",
+	op:    opClientServiceSet,
+	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.ServiceSetYAML",
+	op:    opClientServiceSetYAML,
+	allow: []string{"user-admin", "user-other"},
+}, {
 	about: "Client.ServiceGet",
 	op:    opClientServiceGet,
 	allow: []string{"user-admin", "user-other"},
@@ -177,6 +185,33 @@ func opClientStatus(c *C, st *api.State) (func(), error) {
 	c.Assert(err, IsNil)
 	c.Assert(status, DeepEquals, scenarioStatus)
 	return func() {}, nil
+}
+
+func resetBlogTitle(c *C, st *api.State) func() {
+	return func() {
+		err := st.Client().ServiceSet("wordpress", map[string]string{
+			"blog-title": "",
+		})
+		c.Assert(err, IsNil)
+	}
+}
+
+func opClientServiceSet(c *C, st *api.State) (func(), error) {
+	err := st.Client().ServiceSet("wordpress", map[string]string{
+		"blog-title": "foo",
+	})
+	if err != nil {
+		return func() {}, err
+	}
+	return resetBlogTitle(c, st), nil
+}
+
+func opClientServiceSetYAML(c *C, st *api.State) (func(), error) {
+	err := st.Client().ServiceSetYAML("wordpress", `"blog-title": "foo"`)
+	if err != nil {
+		return func() {}, err
+	}
+	return resetBlogTitle(c, st), nil
 }
 
 func opClientServiceGet(c *C, st *api.State) (func(), error) {
@@ -397,6 +432,35 @@ func (s *suite) TestClientStatus(c *C) {
 	status, err := s.APIState.Client().Status()
 	c.Assert(err, IsNil)
 	c.Assert(status, DeepEquals, scenarioStatus)
+}
+
+func (s *suite) TestClientServerSet(c *C) {
+	dummy, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
+	c.Assert(err, IsNil)
+	err = s.APIState.Client().ServiceSet("dummy", map[string]string{
+		"title":    "xxx",
+		"username": "yyy",
+	})
+	c.Assert(err, IsNil)
+	conf, err := dummy.Config()
+	c.Assert(err, IsNil)
+	c.Assert(conf.Map(), DeepEquals, map[string]interface{}{
+		"title":    "xxx",
+		"username": "yyy",
+	})
+}
+
+func (s *suite) TestClientServiceSetYAML(c *C) {
+	dummy, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
+	c.Assert(err, IsNil)
+	err = s.APIState.Client().ServiceSetYAML("dummy", "title: aaa\nusername: bbb")
+	c.Assert(err, IsNil)
+	conf, err := dummy.Config()
+	c.Assert(err, IsNil)
+	c.Assert(conf.Map(), DeepEquals, map[string]interface{}{
+		"title":    "aaa",
+		"username": "bbb",
+	})
 }
 
 func (s *suite) TestClientEnvironmentInfo(c *C) {
