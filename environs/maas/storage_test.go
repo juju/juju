@@ -97,11 +97,11 @@ func (s *StorageSuite) TestRetrieveFileObjectReturnsFileObject(c *C) {
 	c.Check(content, Equals, fileContent)
 }
 
-func (s *StorageSuite) TestRetrieveFileObjectReturnsHTTPFailure(c *C) {
+func (s *StorageSuite) TestRetrieveFileObjectReturnsNotFound(c *C) {
 	stor := s.makeStorage("rfo-test")
 	_, err := stor.retrieveFileObject("nonexistent-file")
 	c.Assert(err, NotNil)
-	c.Check(err.(*gomaasapi.ServerError).StatusCode, Equals, 404)
+	c.Check(err, FitsTypeOf, environs.NotFoundError{})
 }
 
 func (s *StorageSuite) TestRetrieveFileObjectEscapesName(c *C) {

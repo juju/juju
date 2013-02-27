@@ -86,7 +86,7 @@ func (stor *maasStorage) retrieveFileObject(name string) (gomaasapi.MAASObject, 
 		noObj := gomaasapi.MAASObject{}
 		serverErr, ok := err.(gomaasapi.ServerError)
 		if ok && serverErr.StatusCode == 404 {
-			msg := fmt.Errorf("file %s not found", name)
+			msg := fmt.Errorf("file '%s' not found", name)
 			return noObj, environs.NotFoundError{msg}
 		}
 		msg := fmt.Errorf("could not access file '%s': %v", name, err)
@@ -152,9 +152,18 @@ func (stor *maasStorage) List(prefix string) ([]string, error) {
 	return snapshot.extractFilenames(obj)
 }
 
-func (*maasStorage) URL(name string) (string, error) {
-	panic("Not implemented.")
-	// TODO: Return URL for the given storage file.
+func (stor *maasStorage) URL(name string) (string, error) {
+	fileObj, err := stor.retrieveFileObject(name)
+	if err != nil {
+		return "", err
+	}
+	url, err := fileObj.GetField("anon_resource_uri")
+	if err != nil {
+		msg := fmt.Errorf("could not get file's download URL (may be an outdated MAAS): %s", err)
+		return "", msg
+	}
+
+	return url, nil
 }
 
 func (*maasStorage) Put(name string, r io.Reader, length int64) error {
