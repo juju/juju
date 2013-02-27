@@ -189,7 +189,7 @@ func (s *ConfigSuite) TestServiceSet(c *C) {
 var getTests = []struct {
 	about  string
 	params statecmd.ServiceGetParams // parameters to ServiceGet call.
-	expect *statecmd.ServiceGetResults
+	expect statecmd.ServiceGetResults
 	err    string
 }{
 	{
@@ -204,7 +204,7 @@ var getTests = []struct {
 		params: statecmd.ServiceGetParams{
 			ServiceName: "dummy-service",
 		},
-		expect: &statecmd.ServiceGetResults{
+		expect: statecmd.ServiceGetResults{
 			Service: "dummy-service",
 			Charm:   "dummy",
 			Settings: map[string]interface{}{

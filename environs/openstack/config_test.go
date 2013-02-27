@@ -40,6 +40,7 @@ type configTest struct {
 	publicBucket  string
 	pbucketURL    string
 	imageId       string
+	instanceType  string
 	// useFloatingIP is true by default.
 	// bools default to false so invert the attribute
 	internalIPOnly bool
@@ -128,6 +129,9 @@ func (t configTest) check(c *C) {
 	}
 	if t.imageId != "" {
 		c.Assert(ecfg.defaultImageId(), Equals, t.imageId)
+	}
+	if t.instanceType != "" {
+		c.Assert(ecfg.defaultInstanceType(), Equals, t.instanceType)
 	}
 	c.Assert(ecfg.useFloatingIP(), Equals, !t.internalIPOnly)
 }
@@ -242,6 +246,12 @@ var configTests = []configTest{
 			"default-image-id": "image-id",
 		},
 		imageId: "image-id",
+	}, {
+		summary: "instance type",
+		config: attrs{
+			"default-instance-type": "instance-type",
+		},
+		instanceType: "instance-type",
 	}, {
 		summary: "default use floating ip",
 		// Use floating IP's by default.
