@@ -175,6 +175,7 @@ func (s *StoreSuite) TestStatsCounter(c *C) {
 		"a:b:*": "0",
 		"a:*":   "3",
 		"a":     "1",
+		"a:b:c": "0",
 	}
 
 	for counter, n := range expected {
