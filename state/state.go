@@ -365,7 +365,7 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	svc := newService(st, svcDoc)
 	ops := []txn.Op{
 		createConstraintsOp(st, svc.globalKey(), Constraints{}),
-		createSettingsOp(st, svc.settingsKey(), map[string]interface{}{}),
+		createSettingsOp(st, svc.settingsKey(), nil),
 		{
 			C:      st.settingsrefs.Name,
 			Id:     svc.settingsKey(),

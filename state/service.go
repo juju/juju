@@ -278,6 +278,9 @@ func (s *Service) Endpoint(relationName string) (Endpoint, error) {
 	return Endpoint{}, fmt.Errorf("service %q has no %q relation", s, relationName)
 }
 
+// convertConfig takes the given charm's config and converts the
+// current service's charm config to the new one (if possible,
+// otherwise returns an error).
 func (s *Service) convertConfig(ch *Charm) (map[string]interface{}, txn.Op, error) {
 	orig, err := s.Config()
 	if err != nil {
@@ -314,11 +317,12 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 		}
 	}
 
-	// Maintain service settings refcounts.
-	incOp, err := settingsIncRefOp(s.st, s.doc.Name, ch.URL(), true) // new charm
+	// Increment ref count on new charm.
+	incOp, err := settingsIncRefOp(s.st, s.doc.Name, ch.URL(), true)
 	if err != nil {
 		return nil, err
 	}
+	// Decrement ref count on current charm (possibly deleting it).
 	decOps, err := settingsDecRefOps(s.st, s.doc.Name, s.doc.CharmURL) // current charm
 	if err != nil {
 		return nil, err
@@ -344,12 +348,6 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 // this charm, and existing units will be upgraded to use it. If force is true,
 // units will be upgraded even if they are in an error state.
 func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
-	defer func() {
-		if err == nil {
-			s.doc.CharmURL = ch.URL()
-			s.doc.ForceCharm = force
-		}
-	}()
 	for i := 0; i < 5; i++ {
 		var ops []txn.Op
 		// Make sure the service doesn't have this charm already.
@@ -372,7 +370,11 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 			}
 		}
 
-		if err := s.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+		if err := s.st.runner.Run(ops, "", nil); err == nil {
+			s.doc.CharmURL = ch.URL()
+			s.doc.ForceCharm = force
+			return nil
+		} else if err != txn.ErrAborted {
 			return err
 		}
 
@@ -655,6 +657,10 @@ func settingsDecRefOps(st *State, serviceName string, curl *charm.URL) ([]txn.Op
 
 // settingsRefsDoc holds the number of units and services using the settings
 // document identified by this document's id.
+//
+// Note: We're not using the settingsDoc for this because changing
+// just the ref count is not considered a change worth reporting
+// to watchers and firing config-changed hooks.
 type settingsRefsDoc struct {
 	RefCount int
 }

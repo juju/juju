@@ -74,6 +74,9 @@ func (s *ConnSuite) AddTestingCharm(c *C, name string) *state.Charm {
 	return s.addCharm(c, testing.Charms.Dir(name))
 }
 
+// AddConfigCharm clones a testing charm, replaces it's config with
+// the given YAML string and adds it to the state, using the given
+// revision.
 func (s *ConnSuite) AddConfigCharm(c *C, name, configYaml string, revision int) *state.Charm {
 	path := testing.Charms.ClonedDirPath(c.MkDir(), name)
 	config := filepath.Join(path, "config.yaml")
