@@ -58,8 +58,8 @@ func registerLiveTests(cred *identity.Credentials, testImageDetails openstack.Im
 		//       'series' to an image id, when we have support, set
 		//       this flag to True.
 		HasProvisioner: false,
-		testImageId: testImageDetails.ImageId,
-		testFlavor:  testImageDetails.Flavor,
+		testImageId:    testImageDetails.ImageId,
+		testFlavor:     testImageDetails.Flavor,
 	})
 }
 
