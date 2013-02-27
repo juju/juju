@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"launchpad.net/juju-core/state/statecmd"
 	"strings"
 )
 
@@ -42,6 +43,17 @@ func (c *Client) Status() (*Status, error) {
 		return nil, clientError(err)
 	}
 	return &s, nil
+}
+
+// ServiceGet returns the configuration for the named service.
+func (c *Client) ServiceGet(service string) (*statecmd.ServiceGetResults, error) {
+	var results statecmd.ServiceGetResults
+	params := statecmd.ServiceGetParams{ServiceName: service}
+	err := c.st.client.Call("Client", "", "ServiceGet", params, &results)
+	if err != nil {
+		return nil, clientError(err)
+	}
+	return &results, nil
 }
 
 // EnvironmentInfo holds information about the Juju environment.

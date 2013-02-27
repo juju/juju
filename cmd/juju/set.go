@@ -67,11 +67,18 @@ func (c *SetCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer conn.Close()
-	return statecmd.ServiceSet(conn.State, statecmd.ServiceSetParams{
-		ServiceName: c.ServiceName,
-		Options:     options,
-		Config:      string(contents),
-	})
+	if len(contents) == 0 {
+		err = statecmd.ServiceSet(conn.State, statecmd.ServiceSetParams{
+			ServiceName: c.ServiceName,
+			Options:     options,
+		})
+	} else {
+		err = statecmd.ServiceSetYAML(conn.State, statecmd.ServiceSetYAMLParams{
+			ServiceName: c.ServiceName,
+			Config:      string(contents),
+		})
+	}
+	return err
 }
 
 // parse parses the option k=v strings into a map of options to be
