@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
@@ -10,8 +9,7 @@ import (
 
 // DestroyServiceCommand causes an existing service to be destroyed.
 type DestroyServiceCommand struct {
-	cmd.CommandBase
-	EnvName     string
+	EnvCommandBase
 	ServiceName string
 }
 
@@ -22,10 +20,6 @@ func (c *DestroyServiceCommand) Info() *cmd.Info {
 		Purpose: "destroy a service",
 		Doc:     "Destroying a service will destroy all its units and relations.",
 	}
-}
-
-func (c *DestroyServiceCommand) SetFlags(f *gnuflag.FlagSet) {
-	addEnvironFlags(&c.EnvName, f)
 }
 
 func (c *DestroyServiceCommand) Init(args []string) error {

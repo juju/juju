@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
@@ -10,8 +9,7 @@ import (
 
 // DestroyMachineCommand causes an existing machine to be destroyed.
 type DestroyMachineCommand struct {
-	cmd.CommandBase
-	EnvName    string
+	EnvCommandBase
 	MachineIds []string
 }
 
@@ -23,10 +21,6 @@ func (c *DestroyMachineCommand) Info() *cmd.Info {
 		Doc:     "Machines that have assigned units, or are responsible for the environment, cannot be destroyed.",
 		Aliases: []string{"terminate-machine"},
 	}
-}
-
-func (c *DestroyMachineCommand) SetFlags(f *gnuflag.FlagSet) {
-	addEnvironFlags(&c.EnvName, f)
 }
 
 func (c *DestroyMachineCommand) Init(args []string) error {
