@@ -91,7 +91,12 @@ func (j *Jujuc) Main(req Request, resp *Response) error {
 		return badReqErrorf("%s", err)
 	}
 	var stdin, stdout, stderr bytes.Buffer
-	ctx := &cmd.Context{req.Dir, &stdin, &stdout, &stderr}
+	ctx := &cmd.Context{
+		Dir:    req.Dir,
+		Stdin:  &stdin,
+		Stdout: &stdout,
+		Stderr: &stderr,
+	}
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	log.Printf("worker/uniter/jujuc: running hook %q %q", req.CommandName, req.Args)

@@ -33,7 +33,6 @@ var (
 )
 
 var singletonErrorCodes = map[error]string{
-	state.ErrUnauthorized:        CodeUnauthorized,
 	state.ErrCannotEnterScopeYet: CodeCannotEnterScopeYet,
 	state.ErrCannotEnterScope:    CodeCannotEnterScope,
 	state.ErrExcessiveContention: CodeExcessiveContention,
@@ -62,6 +61,8 @@ func serverError(err error) error {
 	code := singletonErrorCodes[err]
 	switch {
 	case code != "":
+	case state.IsUnauthorizedError(err):
+		code = CodeUnauthorized
 	case state.IsNotFound(err):
 		code = CodeNotFound
 	case state.IsNotAssigned(err):
