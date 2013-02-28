@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"launchpad.net/juju-core/environs/local"
@@ -19,39 +19,23 @@ func TestLocal(t *testing.T) {
 	TestingT(t)
 }
 
-type backendSuite struct {
-	listener net.Listener
-	dataDir  string
-}
+type backendSuite struct{}
 
 var _ = Suite(&backendSuite{})
 
 const environName = "test-environ"
 
-var portNo int = 60005
+var (
+	currentPortMu sync.Mutex
+	currentPortNo int = 60005
+)
 
 // nextPortNo increases the global port number and returns it.
 func nextPortNo() int {
-	portNo++
-	return portNo
-}
-
-// actPortNo returns the actual global port number.
-func actPortNo() int {
-	return portNo
-}
-
-func (s *backendSuite) SetUpSuite(c *C) {
-	var err error
-	s.dataDir = c.MkDir()
-	s.listener, err = local.Listen(s.dataDir, environName, "127.0.0.1", nextPortNo())
-	c.Assert(err, IsNil)
-
-	createTestData(c, s.dataDir)
-}
-
-func (s *backendSuite) TearDownSuite(c *C) {
-	s.listener.Close()
+	currentPortMu.Lock()
+	defer currentPortMu.Unlock()
+	currentPortNo++
+	return currentPortNo
 }
 
 type testCase struct {
@@ -126,8 +110,16 @@ var getTests = []testCase{
 
 func (s *backendSuite) TestGet(c *C) {
 	// Test retrieving a file from a storage.
+	portNo := nextPortNo()
+	dataDir := c.MkDir()
+	listener, err := local.Listen(dataDir, environName, "127.0.0.1", portNo)
+	c.Assert(err, IsNil)
+	defer listener.Close()
+
+	createTestData(c, dataDir)
+
 	check := func(tc testCase) {
-		url := fmt.Sprintf("http://localhost:%d/%s", actPortNo(), tc.name)
+		url := fmt.Sprintf("http://localhost:%d/%s", portNo, tc.name)
 		resp, err := http.Get(url)
 		c.Assert(err, IsNil)
 		if tc.status != 0 {
@@ -192,8 +184,16 @@ var listTests = []testCase{
 
 func (s *backendSuite) TestList(c *C) {
 	// Test listing file of a storage.
+	portNo := nextPortNo()
+	dataDir := c.MkDir()
+	listener, err := local.Listen(dataDir, environName, "127.0.0.1", portNo)
+	c.Assert(err, IsNil)
+	defer listener.Close()
+
+	createTestData(c, dataDir)
+
 	check := func(tc testCase) {
-		url := fmt.Sprintf("http://localhost:%d/%s*", actPortNo(), tc.name)
+		url := fmt.Sprintf("http://localhost:%d/%s*", portNo, tc.name)
 		resp, err := http.Get(url)
 		c.Assert(err, IsNil)
 		if tc.status != 0 {
@@ -234,8 +234,16 @@ var putTests = []testCase{
 
 func (s *backendSuite) TestPut(c *C) {
 	// Test sending a file to the storage.
+	portNo := nextPortNo()
+	dataDir := c.MkDir()
+	listener, err := local.Listen(dataDir, environName, "127.0.0.1", portNo)
+	c.Assert(err, IsNil)
+	defer listener.Close()
+
+	createTestData(c, dataDir)
+
 	check := func(tc testCase) {
-		url := fmt.Sprintf("http://localhost:%d/%s", actPortNo(), tc.name)
+		url := fmt.Sprintf("http://localhost:%d/%s", portNo, tc.name)
 		req, err := http.NewRequest("PUT", url, bytes.NewBufferString(tc.content))
 		c.Assert(err, IsNil)
 		req.Header.Set("Content-Type", "application/octet-stream")
@@ -247,7 +255,7 @@ func (s *backendSuite) TestPut(c *C) {
 		}
 		c.Assert(resp.StatusCode, Equals, 201)
 
-		fp := filepath.Join(s.dataDir, environName, tc.name)
+		fp := filepath.Join(dataDir, environName, tc.name)
 		b, err := ioutil.ReadFile(fp)
 		c.Assert(err, IsNil)
 		c.Assert(string(b), Equals, tc.content)
@@ -283,15 +291,23 @@ var removeTests = []testCase{
 
 func (s *backendSuite) TestRemove(c *C) {
 	// Test removing a file in the storage.
+	portNo := nextPortNo()
+	dataDir := c.MkDir()
+	listener, err := local.Listen(dataDir, environName, "127.0.0.1", portNo)
+	c.Assert(err, IsNil)
+	defer listener.Close()
+
+	createTestData(c, dataDir)
+
 	check := func(tc testCase) {
-		fp := filepath.Join(s.dataDir, environName, tc.name)
+		fp := filepath.Join(dataDir, environName, tc.name)
 		dir, _ := filepath.Split(fp)
 		err := os.MkdirAll(dir, 0777)
 		c.Assert(err, IsNil)
 		err = ioutil.WriteFile(fp, []byte(tc.content), 0644)
 		c.Assert(err, IsNil)
 
-		url := fmt.Sprintf("http://localhost:%d/%s", actPortNo(), tc.name)
+		url := fmt.Sprintf("http://localhost:%d/%s", portNo, tc.name)
 		req, err := http.NewRequest("DELETE", url, nil)
 		c.Assert(err, IsNil)
 		resp, err := http.DefaultClient.Do(req)
