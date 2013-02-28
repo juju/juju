@@ -165,12 +165,7 @@ func DefaultContext() *Context {
 	if err != nil {
 		panic(err)
 	}
-	return &Context{
-		Dir:    abs,
-		Stdin:  os.Stdin,
-		Stdout: os.Stdout,
-		Stderr: os.Stderr,
-	}
+	return &Context{abs, os.Stdin, os.Stdout, os.Stderr}
 }
 
 // CheckEmpty is a utility function that returns an error if args is not empty.

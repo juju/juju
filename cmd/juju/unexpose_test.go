@@ -13,8 +13,7 @@ type UnexposeSuite struct {
 var _ = Suite(&UnexposeSuite{})
 
 func runUnexpose(c *C, args ...string) error {
-	_, err := testing.RunCommand(c, &UnexposeCommand{}, args)
-	return err
+	return testing.RunCommand(c, &UnexposeCommand{}, args)
 }
 
 func (s *UnexposeSuite) assertExposed(c *C, service string, expected bool) {

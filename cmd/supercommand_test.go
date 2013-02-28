@@ -99,7 +99,7 @@ func (s *SuperCommandSuite) TestLogging(c *C) {
 	}()
 	jc := &cmd.SuperCommand{Name: "jujutest", Log: &cmd.Log{}}
 	jc.Register(&TestCommand{Name: "blah"})
-	ctx := testing.Context(c)
+	ctx := dummyContext(c)
 	code := cmd.Main(jc, ctx, []string{"blah", "--option", "error", "--debug"})
 	c.Assert(code, Equals, 1)
 	c.Assert(bufferString(ctx.Stderr), Matches, `.* JUJU jujutest blah command failed: BAM!

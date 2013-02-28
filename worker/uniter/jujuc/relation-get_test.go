@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"path/filepath"
 )
@@ -166,7 +165,7 @@ func (s *RelationGetSuite) TestRelationGet(c *C) {
 		hctx := s.GetHookContext(c, t.relid, t.unit)
 		com, err := jujuc.NewCommand(hctx, "relation-get")
 		c.Assert(err, IsNil)
-		ctx := testing.Context(c)
+		ctx := dummyContext(c)
 		code := cmd.Main(com, ctx, t.args)
 		c.Assert(code, Equals, t.code)
 		if code == 0 {
@@ -231,7 +230,7 @@ func (s *RelationGetSuite) TestHelp(c *C) {
 		hctx := s.GetHookContext(c, t.relid, t.unit)
 		com, err := jujuc.NewCommand(hctx, "relation-get")
 		c.Assert(err, IsNil)
-		ctx := testing.Context(c)
+		ctx := dummyContext(c)
 		code := cmd.Main(com, ctx, []string{"--help"})
 		c.Assert(code, Equals, 0)
 		c.Assert(bufferString(ctx.Stdout), Equals, "")
@@ -248,7 +247,7 @@ func (s *RelationGetSuite) TestOutputPath(c *C) {
 	hctx := s.GetHookContext(c, 1, "m/0")
 	com, err := jujuc.NewCommand(hctx, "relation-get")
 	c.Assert(err, IsNil)
-	ctx := testing.Context(c)
+	ctx := dummyContext(c)
 	code := cmd.Main(com, ctx, []string{"--output", "some-file", "pew"})
 	c.Assert(code, Equals, 0)
 	c.Assert(bufferString(ctx.Stderr), Equals, "")

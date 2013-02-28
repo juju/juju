@@ -13,8 +13,7 @@ type ResolvedSuite struct {
 var _ = Suite(&ResolvedSuite{})
 
 func runResolved(c *C, args []string) error {
-	_, err := testing.RunCommand(c, &ResolvedCommand{}, args)
-	return err
+	return testing.RunCommand(c, &ResolvedCommand{}, args)
 }
 
 var resolvedTests = []struct {

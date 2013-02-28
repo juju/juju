@@ -1,12 +1,12 @@
 package main
 
 import (
-	"bytes"
 	"io/ioutil"
+
+	"bytes"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/testing"
 	"strings"
 )
 
@@ -18,7 +18,7 @@ var _ = Suite(&InitSuite{})
 func (*InitSuite) TestBoilerPlateEnvironment(c *C) {
 	defer makeFakeHome(c, "empty").restore()
 	// run without an environments.yaml
-	ctx := testing.Context(c)
+	ctx := &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}}
 	code := cmd.Main(&InitCommand{}, ctx, []string{"-w"})
 	c.Check(code, Equals, 0)
 	outStr := ctx.Stdout.(*bytes.Buffer).String()
@@ -44,7 +44,7 @@ environments:
 	_, err := environs.WriteEnvirons(environpath, env)
 	c.Assert(err, IsNil)
 
-	ctx := testing.Context(c)
+	ctx := &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}}
 	code := cmd.Main(&InitCommand{}, ctx, []string{"-w"})
 	c.Check(code, Equals, 0)
 	errOut := ctx.Stdout.(*bytes.Buffer).String()
@@ -70,7 +70,7 @@ environments:
 	_, err := environs.WriteEnvirons(environpath, env)
 	c.Assert(err, IsNil)
 
-	ctx := testing.Context(c)
+	ctx := &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}}
 	code := cmd.Main(&InitCommand{}, ctx, nil)
 	c.Check(code, Equals, 0)
 	errOut := ctx.Stdout.(*bytes.Buffer).String()
