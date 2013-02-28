@@ -14,7 +14,8 @@ type DestroyUnitSuite struct {
 var _ = Suite(&DestroyUnitSuite{})
 
 func runDestroyUnit(c *C, args ...string) error {
-	return testing.RunCommand(c, &DestroyUnitCommand{}, args)
+	_, err := testing.RunCommand(c, &DestroyUnitCommand{}, args)
+	return err
 }
 
 func (s *DestroyUnitSuite) TestDestroyUnit(c *C) {
