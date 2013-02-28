@@ -3,10 +3,10 @@ package statecmd_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
 	//stdtesting "testing"
@@ -18,10 +18,12 @@ type ResolvedSuite struct {
 	repo *charm.LocalRepository
 }
 
+// Ensure our test suite satisfies Suite
+var _ = Suite(&ResolvedSuite{})
+
 func panicWrite(name string, cert, key []byte) error {
 	panic("writeCertAndKey called unexpectedly")
 }
-
 
 func (s *ResolvedSuite) SetUpTest(c *C) {
 	attrs := map[string]interface{}{
@@ -43,16 +45,11 @@ func (s *ResolvedSuite) SetUpTest(c *C) {
 }
 
 func (s *ResolvedSuite) TearDownTest(c *C) {
-	c.Assert(s.Conn.Close(), IsNil)
+	c.Assert(s.conn.Close(), IsNil)
 	s.Conn = nil
 }
-//func Test(t *stdtesting.T) {
-//	coretesting.MgoTestPackage(t)
-//}
 
-var _ = Suite(&ResolvedSuite{})
-
-func (s *ResolvedSuite) TestResolved(c *C) {
+func (s *ResolvedSuite) TestMarkResolved(c *C) {
 	curl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "riak")
 	sch, err := s.conn.PutCharm(curl, s.repo, false)
 	c.Assert(err, IsNil)

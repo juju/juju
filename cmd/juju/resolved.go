@@ -51,7 +51,7 @@ func (c *ResolvedCommand) Run(_ *cmd.Context) error {
 	defer conn.Close()
 	params := statecmd.ResolvedParams{
 		UnitName: c.UnitName,
-                Retry: c.Retry,
+		Retry:    c.Retry,
 	}
-        return statecmd.Resolved(conn.State, params)
+	return statecmd.Resolved(conn.State, params)
 }
