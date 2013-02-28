@@ -13,26 +13,40 @@ import (
 )
 
 // ServiceSetParams holds the parameters for a ServiceSet
-// command. Either Options or Config will contain the configuration data.
+// command. Options contains the configuration data.
 type ServiceSetParams struct {
 	ServiceName string
 	Options     map[string]string
-	// Alternative form for options, in yaml format. If non-empty,
-	// it overrides Options.
-	Config string
+}
+
+// ServiceSetYAMLParams holds the parameters for
+// a ServiceSetYAML command. Config contains the
+// configuration data in YAML format.
+type ServiceSetYAMLParams struct {
+	ServiceName string
+	Config      string
 }
 
 // ServiceSet changes a service's configuration values.
 // Values set to the empty string will be deleted.
 func ServiceSet(st *state.State, p ServiceSetParams) error {
+	return serviceSet(st, p.ServiceName, p.Options)
+}
+
+// ServiceSetYAML is like ServiceSet except that the
+// configuration data is specified in YAML format.
+func ServiceSetYAML(st *state.State, p ServiceSetYAMLParams) error {
+	// TODO(rog) should this function interpret null as delete?
+	// If so, we need to sort out some goyaml issues first.
+	// (see https://bugs.launchpad.net/goyaml/+bug/1133337)
 	var options map[string]string
-	if len(p.Config) > 0 {
-		if err := goyaml.Unmarshal([]byte(p.Config), &options); err != nil {
-			return err
-		}
-	} else {
-		options = p.Options
+	if err := goyaml.Unmarshal([]byte(p.Config), &options); err != nil {
+		return err
 	}
+	return serviceSet(st, p.ServiceName, options)
+}
+
+func serviceSet(st *state.State, svcName string, options map[string]string) error {
 	if len(options) == 0 {
 		return errors.New("no options to set")
 	}
@@ -45,7 +59,7 @@ func ServiceSet(st *state.State, p ServiceSetParams) error {
 			unvalidated[k] = v
 		}
 	}
-	srv, err := st.Service(p.ServiceName)
+	srv, err := st.Service(svcName)
 	if err != nil {
 		return err
 	}
