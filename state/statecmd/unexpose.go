@@ -12,7 +12,7 @@ type ServiceUnexposeParams struct {
 }
 
 // ServiceUnexpose changes the juju-managed firewall to unexpose any ports that
-// were also explicitly marked by units as open.  It returns any errors or nil.
+// were also explicitly marked by units as open.  It returns an error or nil.
 func ServiceUnexpose(state *state.State, args ServiceUnexposeParams) error {
 	svc, err := state.Service(args.ServiceName)
 	if err != nil {

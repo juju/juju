@@ -79,6 +79,17 @@ func (c *Client) ServiceGet(service string) (*statecmd.ServiceGetResults, error)
 	return &results, nil
 }
 
+// ServiceUnexpose changes the juju-managed firewall to unexpose any ports that
+// were also explicitly marked by units as open.  It returns an error or nil.
+func (c *Client) ServiceUnexpose(service string) error {
+	params := statecmd.ServiceUnexposeParams{ServiceName: service}
+	err := c.st.client.Call("Client", "", "ServiceUnexpose", params, nil)
+	if err != nil {
+		return clientError(err)
+	}
+	return nil
+}
+
 // EnvironmentInfo holds information about the Juju environment.
 type EnvironmentInfo struct {
 	DefaultSeries string
