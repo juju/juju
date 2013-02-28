@@ -80,8 +80,7 @@ func (c *Client) ServiceGet(service string) (*statecmd.ServiceGetResults, error)
 }
 
 // ServiceExpose changes the juju-managed firewall to expose any ports that
-// were also explicitly marked by units as open.  It returns any errors or
-// nil.
+// were also explicitly marked by units as open.
 func (c *Client) ServiceExpose(service string) error {
 	params := statecmd.ServiceExposeParams{ServiceName: service}
 	err := c.st.client.Call("Client", "", "ServiceExpose", params, nil)
