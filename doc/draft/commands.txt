@@ -1,51 +1,54 @@
 Commands and Sub-commands
 =========================
 
-The base Command interface is found in `cmd/cmd.go`.
+The base `Command` interface is found in `cmd/cmd.go`.
 
-Commands need to provide an Info() method that returns an Info struct.
+Commands need to provide an `Info` method that returns an Info struct.
 
 The info struct contains: name, args, purpose and a detailed description.
+This information is used to provide the default help for the command.
+
+In the same package, there is `CommandBase` whose purpose is to be composed
+into new commands, and provides a default no-op SetFlags implementation, a
+default Init method that checks for no extra args, and a default Help method.
 
 
-juju
-====
+Supercommands
+=============
 
-Supercommands are commands that have subcommands.  Subcommands are registered
-using the Register method.
+`Supercommand`s are commands that do many things, and have "sub-commands" that
+provide this functionality.  Git and Bazaar are common examples of
+"supercommands".  Subcommands must also provide the `Command` interface, and
+are registered using the `Register` method.  The name and aliases are
+registered with the supercommand.  If there is a duplicate name registered,
+the whole thing panics.
 
+The 'help' subcommand
+---------------------
 
-When the super command is initialized, it adds the logging flags to the
-flagset ("log-file", "v", "verbose", "debug")
+Help is a little special, as it needs access to all the commands from the
+supercommand, since it is the Info from the command itself that generates the
+help.
 
-If there are no args after the flags are parsed, the default behaviour is to
-error out (TODO: change this to output the help subcommand).
+Help topics have also been added, where a topic is something that you can get
+help on, but is not a sub-command itself.
 
-If the command isn't found, it outputs unrecognized command.  It would also be
-helpful here to reference 'arg[0] help commands' to see what commands there
-are.
+For example:
+  juju help commands
 
-If the subcommand is found, it is initialized with the flagset (as parsed for
-the logging flags) and the extra args.
-
-When the subcommand is added, it calls the Init method of the command.  It is
-up to the Init method to set all the params in the command object to what it
-needs to run the command.
-
-The Run method is passed the command context, which encapsulates the current
-working directory, stdin, stdout and stderr.
+Will list all the commands, but `juju commands` isn't valid.
 
 
-Still looking for how --help works...
+Execution
+=========
 
-First thought is that f.Parse() returns an error... maybe not... cause that
-would just be weird.  Ah fark, yep, that is what it does... - return false, ErrHelp
+The `Main` method in the cmd package handles the execution of a command.
 
+A new `gnuflag.FlagSet` is created and passed to the command in `SetFlags`.
+This is for the command to register the flags that it knows how to handle.
 
+The args are then parsed, and passed through to the `Init` method for the
+command to decide what to do with the positional arguments.
 
-TODO: adding the help command.
-
-* Need to add a help command object
-* Need to add a default command option to the super command
-* Need to add a topic registry to the help command
-
+The command is then `Run` and passed in an execution `Context` that defines
+the standard input and output streams, and has the current working directory.

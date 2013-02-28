@@ -10,8 +10,7 @@ import (
 
 // GetConstraintsCommand shows the constraints for a service or environment.
 type GetConstraintsCommand struct {
-	cmd.CommandBase
-	EnvName     string
+	EnvCommandBase
 	ServiceName string
 	out         cmd.Output
 }
@@ -29,7 +28,7 @@ func formatConstraints(value interface{}) ([]byte, error) {
 }
 
 func (c *GetConstraintsCommand) SetFlags(f *gnuflag.FlagSet) {
-	addEnvironFlags(&c.EnvName, f)
+	c.EnvCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "constraints", map[string]cmd.Formatter{
 		"constraints": formatConstraints,
 		"yaml":        cmd.FormatYaml,
@@ -71,8 +70,7 @@ func (c *GetConstraintsCommand) Run(ctx *cmd.Context) (err error) {
 
 // SetConstraintsCommand shows the constraints for a service or environment.
 type SetConstraintsCommand struct {
-	cmd.CommandBase
-	EnvName     string
+	EnvCommandBase
 	ServiceName string
 	Constraints state.Constraints
 }
@@ -86,7 +84,7 @@ func (c *SetConstraintsCommand) Info() *cmd.Info {
 }
 
 func (c *SetConstraintsCommand) SetFlags(f *gnuflag.FlagSet) {
-	addEnvironFlags(&c.EnvName, f)
+	c.EnvCommandBase.SetFlags(f)
 	f.StringVar(&c.ServiceName, "s", "", "set service constraints")
 	f.StringVar(&c.ServiceName, "service", "", "")
 }

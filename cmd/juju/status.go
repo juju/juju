@@ -10,9 +10,8 @@ import (
 )
 
 type StatusCommand struct {
-	cmd.CommandBase
-	EnvName string
-	out     cmd.Output
+	EnvCommandBase
+	out cmd.Output
 }
 
 var statusDoc = "This command will report on the runtime state of various system entities."
@@ -27,7 +26,7 @@ func (c *StatusCommand) Info() *cmd.Info {
 }
 
 func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
-	addEnvironFlags(&c.EnvName, f)
+	c.EnvCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
 		"json": cmd.FormatJson,
@@ -225,11 +224,11 @@ func processStatus(r map[string]interface{}, s status) {
 	}
 }
 
-type agent interface {
+type agentAliver interface {
 	AgentAlive() (bool, error)
 }
 
-func processAgentStatus(r map[string]interface{}, a agent) {
+func processAgentStatus(r map[string]interface{}, a agentAliver) {
 	if alive, err := a.AgentAlive(); err == nil && alive {
 		r["agent-state"] = "running"
 	}

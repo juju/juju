@@ -9,9 +9,11 @@ import (
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
 	"net"
 	stdtesting "testing"
+	"time"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -60,6 +62,18 @@ var operationPermTests = []struct {
 }, {
 	about: "Client.Status",
 	op:    opClientStatus,
+	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.ServiceSet",
+	op:    opClientServiceSet,
+	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.ServiceSetYAML",
+	op:    opClientServiceSetYAML,
+	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.ServiceGet",
+	op:    opClientServiceGet,
 	allow: []string{"user-admin", "user-other"},
 },
 }
@@ -174,6 +188,43 @@ func opClientStatus(c *C, st *api.State) (func(), error) {
 	return func() {}, nil
 }
 
+func resetBlogTitle(c *C, st *api.State) func() {
+	return func() {
+		err := st.Client().ServiceSet("wordpress", map[string]string{
+			"blog-title": "",
+		})
+		c.Assert(err, IsNil)
+	}
+}
+
+func opClientServiceSet(c *C, st *api.State) (func(), error) {
+	err := st.Client().ServiceSet("wordpress", map[string]string{
+		"blog-title": "foo",
+	})
+	if err != nil {
+		return func() {}, err
+	}
+	return resetBlogTitle(c, st), nil
+}
+
+func opClientServiceSetYAML(c *C, st *api.State) (func(), error) {
+	err := st.Client().ServiceSetYAML("wordpress", `"blog-title": "foo"`)
+	if err != nil {
+		return func() {}, err
+	}
+	return resetBlogTitle(c, st), nil
+}
+
+func opClientServiceGet(c *C, st *api.State) (func(), error) {
+	service, err := st.Client().ServiceGet("wordpress")
+	if err != nil {
+		return func() {}, err
+	}
+	c.Assert(err, IsNil)
+	c.Assert(service, DeepEquals, &expectedWordpressConfig)
+	return func() {}, nil
+}
+
 // scenarioStatus describes the expected state
 // of the juju environment set up by setUpScenario.
 var scenarioStatus = &api.Status{
@@ -187,6 +238,17 @@ var scenarioStatus = &api.Status{
 		"2": {
 			InstanceId: "i-machine-2",
 		},
+	},
+}
+
+var expectedWordpressConfig = statecmd.ServiceGetResults{
+	Service: "wordpress",
+	Charm:   "wordpress",
+	Settings: map[string]interface{}{
+		"blog-title": map[string]interface{}{
+			"type":        "string",
+			"value":       nil,
+			"description": "A descriptive title used for the blog."},
 	},
 }
 
@@ -349,7 +411,7 @@ func (s *suite) TestBadLogin(c *C) {
 
 			_, err = st.Machine("0")
 			c.Assert(err, ErrorMatches, "not logged in")
-			c.Assert(api.ErrCode(err), Equals, api.CodeUnauthorized)
+			c.Assert(api.ErrCode(err), Equals, api.CodeUnauthorized, Commentf("error %#v", err))
 
 			_, err = st.Unit("foo/0")
 			c.Assert(err, ErrorMatches, "not logged in")
@@ -371,6 +433,35 @@ func (s *suite) TestClientStatus(c *C) {
 	status, err := s.APIState.Client().Status()
 	c.Assert(err, IsNil)
 	c.Assert(status, DeepEquals, scenarioStatus)
+}
+
+func (s *suite) TestClientServerSet(c *C) {
+	dummy, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
+	c.Assert(err, IsNil)
+	err = s.APIState.Client().ServiceSet("dummy", map[string]string{
+		"title":    "xxx",
+		"username": "yyy",
+	})
+	c.Assert(err, IsNil)
+	conf, err := dummy.Config()
+	c.Assert(err, IsNil)
+	c.Assert(conf.Map(), DeepEquals, map[string]interface{}{
+		"title":    "xxx",
+		"username": "yyy",
+	})
+}
+
+func (s *suite) TestClientServiceSetYAML(c *C) {
+	dummy, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
+	c.Assert(err, IsNil)
+	err = s.APIState.Client().ServiceSetYAML("dummy", "title: aaa\nusername: bbb")
+	c.Assert(err, IsNil)
+	conf, err := dummy.Config()
+	c.Assert(err, IsNil)
+	c.Assert(conf.Map(), DeepEquals, map[string]interface{}{
+		"title":    "aaa",
+		"username": "bbb",
+	})
 }
 
 func (s *suite) TestClientEnvironmentInfo(c *C) {
@@ -506,6 +597,111 @@ func (s *suite) TestMachineEntityName(c *C) {
 	c.Assert(m.EntityName(), Equals, "machine-0")
 }
 
+func (s *suite) TestMachineWatch(c *C) {
+	stm, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	setDefaultPassword(c, stm)
+
+	st := s.openAs(c, stm.EntityName())
+	defer st.Close()
+	m, err := st.Machine(stm.Id())
+	c.Assert(err, IsNil)
+	w0 := m.Watch()
+	w1 := m.Watch()
+
+	// Initial event.
+	ok := chanRead(c, w0.Changes(), "watcher 0")
+	c.Assert(ok, Equals, true)
+
+	ok = chanRead(c, w1.Changes(), "watcher 1")
+	c.Assert(ok, Equals, true)
+
+	// No subsequent event until something changes.
+	select {
+	case <-w0.Changes():
+		c.Fatalf("unexpected value on watcher 0")
+	case <-w1.Changes():
+		c.Fatalf("unexpected value on watcher 1")
+	case <-time.After(20 * time.Millisecond):
+	}
+
+	err = stm.SetInstanceId("foo")
+	c.Assert(err, IsNil)
+	s.State.StartSync()
+
+	// Next event.
+	ok = chanRead(c, w0.Changes(), "watcher 0")
+	c.Assert(ok, Equals, true)
+	ok = chanRead(c, w1.Changes(), "watcher 1")
+	c.Assert(ok, Equals, true)
+
+	err = w0.Stop()
+	c.Check(err, IsNil)
+	err = w1.Stop()
+	c.Check(err, IsNil)
+
+	ok = chanRead(c, w0.Changes(), "watcher 0")
+	c.Assert(ok, Equals, false)
+	ok = chanRead(c, w1.Changes(), "watcher 1")
+	c.Assert(ok, Equals, false)
+}
+
+func (s *suite) TestServerStopsOutstandingWatchMethod(c *C) {
+	// Start our own instance of the server so we have
+	// a handle on it to stop it.
+	srv, err := api.NewServer(s.State, "localhost:0", []byte(coretesting.ServerCert), []byte(coretesting.ServerKey))
+	c.Assert(err, IsNil)
+
+	stm, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	err = stm.SetPassword("password")
+	c.Assert(err, IsNil)
+
+	// Note we can't use openAs because we're
+	// not connecting to s.APIConn.
+	st, err := api.Open(&api.Info{
+		EntityName: stm.EntityName(),
+		Password:   "password",
+		Addrs:      []string{srv.Addr()},
+		CACert:     []byte(coretesting.CACert),
+	})
+	c.Assert(err, IsNil)
+	defer st.Close()
+
+	m, err := st.Machine(stm.Id())
+	c.Assert(err, IsNil)
+	c.Assert(m.Id(), Equals, stm.Id())
+
+	w := m.Watch()
+
+	// Initial event.
+	ok := chanRead(c, w.Changes(), "watcher 0")
+	c.Assert(ok, Equals, true)
+
+	// Wait long enough for the Next request to be sent
+	// so it's blocking on the server side.
+	time.Sleep(50 * time.Millisecond)
+	c.Logf("stopping server")
+	err = srv.Stop()
+	c.Assert(err, IsNil)
+
+	c.Logf("server stopped")
+	ok = chanRead(c, w.Changes(), "watcher 0")
+	c.Assert(ok, Equals, false)
+
+	c.Assert(api.ErrCode(w.Err()), Equals, api.CodeStopped)
+}
+
+func chanRead(c *C, ch <-chan struct{}, what string) (ok bool) {
+	select {
+	case _, ok := <-ch:
+		return ok
+	case <-time.After(10 * time.Second):
+		c.Fatalf("timed out reading from %s", what)
+	}
+	panic("unreachable")
+}
+
 func (s *suite) TestUnitRefresh(c *C) {
 	s.setUpScenario(c)
 	st := s.openAs(c, "unit-wordpress-0")
@@ -583,8 +779,14 @@ var errorTransformTests = []struct {
 	err:  api.ErrNotLoggedIn,
 	code: api.CodeUnauthorized,
 }, {
+	err:  api.ErrUnknownWatcher,
+	code: api.CodeNotFound,
+}, {
 	err:  &state.NotAssignedError{&state.Unit{}}, // too sleazy?!
 	code: api.CodeNotAssigned,
+}, {
+	err:  api.ErrStoppedWatcher,
+	code: api.CodeStopped,
 }, {
 	err:  errors.New("an error"),
 	code: "",
@@ -614,7 +816,7 @@ func (s *suite) TestUnitEntityName(c *C) {
 }
 
 func (s *suite) TestStop(c *C) {
-	// Start our own instance of the server so have
+	// Start our own instance of the server so we have
 	// a handle on it to stop it.
 	srv, err := api.NewServer(s.State, "localhost:0", []byte(coretesting.ServerCert), []byte(coretesting.ServerKey))
 	c.Assert(err, IsNil)
@@ -643,7 +845,6 @@ func (s *suite) TestStop(c *C) {
 
 	err = srv.Stop()
 	c.Assert(err, IsNil)
-	c.Logf("srv stopped")
 
 	_, err = st.Machine(stm.Id())
 	// The client has not necessarily seen the server
@@ -656,6 +857,13 @@ func (s *suite) TestStop(c *C) {
 	// Check it can be stopped twice.
 	err = srv.Stop()
 	c.Assert(err, IsNil)
+}
+
+func (s *suite) TestClientServiceGet(c *C) {
+	s.setUpScenario(c)
+	config, err := s.APIState.Client().ServiceGet("wordpress")
+	c.Assert(err, IsNil)
+	c.Assert(config, DeepEquals, &expectedWordpressConfig)
 }
 
 // openAs connects to the API state as the given entity

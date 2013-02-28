@@ -83,3 +83,19 @@ func FindInstanceSpec(e environs.Environ, series, arch, flavor string) (imageId,
 	}
 	return
 }
+
+func SetUseFloatingIP(e environs.Environ, val bool) {
+	env := e.(*environ)
+	env.ecfg().attrs["use-floating-ip"] = val
+}
+
+func DefaultInstanceType(e environs.Environ) string {
+	ecfg := e.(*environ).ecfg()
+	return ecfg.defaultInstanceType()
+}
+
+// ImageDetails specify parameters used to start a test machine for the live tests.
+type ImageDetails struct {
+	Flavor  string
+	ImageId string
+}

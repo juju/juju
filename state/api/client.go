@@ -88,6 +88,11 @@ func Open(info *Info) (*State, error) {
 	return st, nil
 }
 
+func (s *State) call(objType, id, request string, params, response interface{}) error {
+	err := s.client.Call(objType, id, request, params, response)
+	return clientError(err)
+}
+
 func (s *State) Close() error {
 	return s.client.Close()
 }
