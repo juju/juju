@@ -134,11 +134,6 @@ func (c *SuperCommand) SetFlags(f *gnuflag.FlagSet) {
 	if c.Log != nil {
 		c.Log.AddFlags(f)
 	}
-	// If we have a help command, register the flag for help.  This stops the
-	// gnuflag code from returning the ErrHelp error.
-	if c.help != nil {
-
-	}
 	c.flags = f
 }
 
