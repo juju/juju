@@ -148,7 +148,7 @@ func (s *UnitSuite) TestUnitCharm(c *C) {
 	err = s.unit.EnsureDead()
 	c.Assert(err, IsNil)
 	err = s.unit.SetCharm(s.charm)
-	c.Assert(err, ErrorMatches, `cannot set charm for unit "wordpress/0": not found or not alive`)
+	c.Assert(err, ErrorMatches, `cannot set charm for unit "wordpress/0": unit is dead`)
 }
 
 func (s *UnitSuite) TestEntityName(c *C) {
