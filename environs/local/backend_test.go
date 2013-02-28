@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -30,12 +31,17 @@ var (
 	currentPortNo int = 60005
 )
 
-// nextPortNo increases the global port number and returns it.
-func nextPortNo() int {
+// nextTestSet returns a new port number, listener and data directory.
+func nextTestSet(c *C) (int, net.Listener, string) {
 	currentPortMu.Lock()
 	defer currentPortMu.Unlock()
+
 	currentPortNo++
-	return currentPortNo
+	dataDir := c.MkDir()
+	listener, err := local.Listen(dataDir, environName, "127.0.0.1", currentPortNo)
+	c.Assert(err, IsNil)
+
+	return currentPortNo, listener, dataDir
 }
 
 type testCase struct {
@@ -110,10 +116,7 @@ var getTests = []testCase{
 
 func (s *backendSuite) TestGet(c *C) {
 	// Test retrieving a file from a storage.
-	portNo := nextPortNo()
-	dataDir := c.MkDir()
-	listener, err := local.Listen(dataDir, environName, "127.0.0.1", portNo)
-	c.Assert(err, IsNil)
+	portNo, listener, dataDir := nextTestSet(c)
 	defer listener.Close()
 
 	createTestData(c, dataDir)
@@ -184,10 +187,7 @@ var listTests = []testCase{
 
 func (s *backendSuite) TestList(c *C) {
 	// Test listing file of a storage.
-	portNo := nextPortNo()
-	dataDir := c.MkDir()
-	listener, err := local.Listen(dataDir, environName, "127.0.0.1", portNo)
-	c.Assert(err, IsNil)
+	portNo, listener, dataDir := nextTestSet(c)
 	defer listener.Close()
 
 	createTestData(c, dataDir)
@@ -234,10 +234,7 @@ var putTests = []testCase{
 
 func (s *backendSuite) TestPut(c *C) {
 	// Test sending a file to the storage.
-	portNo := nextPortNo()
-	dataDir := c.MkDir()
-	listener, err := local.Listen(dataDir, environName, "127.0.0.1", portNo)
-	c.Assert(err, IsNil)
+	portNo, listener, dataDir := nextTestSet(c)
 	defer listener.Close()
 
 	createTestData(c, dataDir)
@@ -291,10 +288,7 @@ var removeTests = []testCase{
 
 func (s *backendSuite) TestRemove(c *C) {
 	// Test removing a file in the storage.
-	portNo := nextPortNo()
-	dataDir := c.MkDir()
-	listener, err := local.Listen(dataDir, environName, "127.0.0.1", portNo)
-	c.Assert(err, IsNil)
+	portNo, listener, dataDir := nextTestSet(c)
 	defer listener.Close()
 
 	createTestData(c, dataDir)
