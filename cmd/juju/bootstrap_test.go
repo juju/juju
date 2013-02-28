@@ -91,7 +91,7 @@ func (*BootstrapSuite) TestBootstrapCommand(c *C) {
 func (*BootstrapSuite) TestMissingEnvironment(c *C) {
 	defer makeFakeHome(c, "empty").restore()
 	// bootstrap without an environments.yaml
-	ctx := testing.Context(c)
+	ctx := &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}}
 	code := cmd.Main(&BootstrapCommand{}, ctx, nil)
 	c.Check(code, Equals, 1)
 	errStr := ctx.Stderr.(*bytes.Buffer).String()

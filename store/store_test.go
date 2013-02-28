@@ -464,8 +464,8 @@ func (s *StoreSuite) TestCounters(c *C) {
 		{[]string{"a", "b", "c"}, false, 10},
 		{[]string{"a", "b"}, false, 7},
 		{[]string{"a", "z", "b"}, false, 3},
-		{[]string{"a", "b", "c"}, true, 0},
-		{[]string{"a", "b"}, true, 10},
+		{[]string{"a", "b", "c"}, true, 10},
+		{[]string{"a", "b"}, true, 17},
 		{[]string{"a"}, true, 20},
 		{[]string{"b"}, true, 0},
 	}
@@ -523,7 +523,7 @@ func (s *StoreSuite) TestCountersTokenCaching(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(sum, Equals, int64(0))
 
-	const genSize = 1024
+	const genSize = 512
 
 	// All of these will be cached, as we have two generations
 	// of genSize entries each.
@@ -595,63 +595,6 @@ func (s *StoreSuite) TestCounterTokenUniqueness(c *C) {
 	sum, err := s.store.SumCounter([]string{"a"}, false)
 	c.Assert(err, IsNil)
 	c.Assert(sum, Equals, int64(10))
-}
-
-func (s *StoreSuite) TestCounterList(c *C) {
-	incs := [][]string{
-		{"c", "b", "a"}, // Assign internal id c < id b < id a, to make sorting slightly trickier.
-		{"a"},
-		{"a", "c"},
-		{"a", "b"},
-		{"a", "b", "c"},
-		{"a", "b", "c"},
-		{"a", "b", "e"},
-		{"a", "b", "d"},
-		{"a", "f", "g"},
-		{"a", "f", "h"},
-		{"a", "i"},
-		{"a", "i", "j"},
-		{"k", "l"},
-	}
-	for _, key := range incs {
-		err := s.store.IncCounter(key)
-		c.Assert(err, IsNil)
-	}
-
-	tests := []struct {
-		prefix []string
-		result []store.Counter
-	}{
-		{
-			[]string{"a"},
-			[]store.Counter{
-				{[]string{"a", "b"}, 4, true},
-				{[]string{"a", "f"}, 2, true},
-				{[]string{"a", "b"}, 1, false},
-				{[]string{"a", "c"}, 1, false},
-				{[]string{"a", "i"}, 1, false},
-				{[]string{"a", "i"}, 1, true},
-			},
-		}, {
-			[]string{"a", "b"},
-			[]store.Counter{
-				{[]string{"a", "b", "c"}, 2, false},
-				{[]string{"a", "b", "d"}, 1, false},
-				{[]string{"a", "b", "e"}, 1, false},
-			},
-		},
-	}
-
-	// Use a different store to exercise cache filling.
-	st, err := store.Open(s.Addr)
-	c.Assert(err, IsNil)
-	defer st.Close()
-
-	for i := range tests {
-		result, err := st.ListCounters(tests[i].prefix)
-		c.Assert(err, IsNil)
-		c.Assert(result, DeepEquals, tests[i].result)
-	}
 }
 
 func (s *TrivialSuite) TestEventString(c *C) {

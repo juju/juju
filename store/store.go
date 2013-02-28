@@ -16,7 +16,6 @@ import (
 	"launchpad.net/juju-core/log"
 	"sort"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -46,10 +45,8 @@ type Store struct {
 
 	// Cache for statistics key words (two generations).
 	cacheMu       sync.RWMutex
-	statsIdNew    map[string]int
-	statsIdOld    map[string]int
-	statsTokenNew map[int]string
-	statsTokenOld map[int]string
+	statsTokenNew map[string]int
+	statsTokenOld map[string]int
 }
 
 // Open creates a new session with the store. It connects to the MongoDB
@@ -133,7 +130,10 @@ func (s *Store) statsKey(session *storeSession, key []string, write bool) (strin
 		err = nil
 		id, found := s.statsTokenId(key[i])
 		if !found {
-			var t tokenId
+			var t struct {
+				Id    int    "_id"
+				Token string "t"
+			}
 			err = tokens.Find(bson.D{{"t", key[i]}}).One(&t)
 			if err == mgo.ErrNotFound {
 				if !write {
@@ -163,12 +163,7 @@ func (s *Store) statsKey(session *storeSession, key []string, write bool) (strin
 	return string(skey), nil
 }
 
-const statsTokenCacheSize = 1024
-
-type tokenId struct {
-	Id    int    "_id"
-	Token string "t"
-}
+const statsTokenCacheSize = 512
 
 // cacheStatsTokenId adds the id for token into the cache.
 // The cache has two generations so that the least frequently used
@@ -177,45 +172,25 @@ func (s *Store) cacheStatsTokenId(token string, id int) {
 	s.cacheMu.Lock()
 	defer s.cacheMu.Unlock()
 	// Can't possibly be >, but reviews want it for defensiveness.
-	if len(s.statsIdNew) >= statsTokenCacheSize {
-		s.statsIdOld = s.statsIdNew
-		s.statsIdNew = nil
+	if len(s.statsTokenNew) >= statsTokenCacheSize {
 		s.statsTokenOld = s.statsTokenNew
 		s.statsTokenNew = nil
 	}
-	if s.statsIdNew == nil {
-		s.statsIdNew = make(map[string]int, statsTokenCacheSize)
-		s.statsTokenNew = make(map[int]string, statsTokenCacheSize)
+	if s.statsTokenNew == nil {
+		s.statsTokenNew = make(map[string]int, statsTokenCacheSize)
 	}
-	s.statsIdNew[token] = id
-	s.statsTokenNew[id] = token
+	s.statsTokenNew[token] = id
 }
 
 // statsTokenId returns the id for token from the cache, if found.
 func (s *Store) statsTokenId(token string) (id int, found bool) {
 	s.cacheMu.RLock()
-	id, found = s.statsIdNew[token]
+	id, found = s.statsTokenNew[token]
 	if found {
 		s.cacheMu.RUnlock()
 		return
 	}
-	id, found = s.statsIdOld[token]
-	s.cacheMu.RUnlock()
-	if found {
-		s.cacheStatsTokenId(token, id)
-	}
-	return
-}
-
-// statsIdToken returns the token for id from the cache, if found.
-func (s *Store) statsIdToken(id int) (token string, found bool) {
-	s.cacheMu.RLock()
-	token, found = s.statsTokenNew[id]
-	if found {
-		s.cacheMu.RUnlock()
-		return
-	}
-	token, found = s.statsTokenOld[id]
+	id, found = s.statsTokenOld[token]
 	s.cacheMu.RUnlock()
 	if found {
 		s.cacheStatsTokenId(token, id)
@@ -244,8 +219,7 @@ func (s *Store) IncCounter(key []string) error {
 }
 
 // SumCounter returns the sum of all the counters that exactly match key,
-// or that are prefixed by it if prefix is true. In the latter case, a key
-// that matches the prefix exactly won't be included in the sum.
+// or that are prefixed by it if prefix is true.
 func (s *Store) SumCounter(key []string, prefix bool) (count int64, err error) {
 	session := s.session.Copy()
 	defer session.Close()
@@ -260,7 +234,7 @@ func (s *Store) SumCounter(key []string, prefix bool) (count int64, err error) {
 
 	var regex string
 	if prefix {
-		regex = "^" + skey + ".+"
+		regex = "^" + skey
 	} else {
 		regex = "^" + skey + "$"
 	}
@@ -276,125 +250,6 @@ func (s *Store) SumCounter(key []string, prefix bool) (count int64, err error) {
 		return result[0].Value, err
 	}
 	return 0, err
-}
-
-type Counter struct {
-	Key    []string
-	Count  int64
-	Prefix bool
-}
-
-// ListCounters returns a list of all keys directly under the provided prefix,
-// and a prefix-aggregated view of deeper keys.
-//
-// For example, given the following counts:
-//
-//     {"a", "b"}: 1,
-//     {"a", "c"}: 3
-//     {"a", "c", "d"}: 5
-//     {"a", "c", "e"}: 7
-//
-// The following key prefixes will present the respective list results:
-//
-//          {"a"} => {{"a", "b"}, 1, false}, {{"a", "c"}, 3, false}, {{"a", "c"}, 12, true}
-//     {"a", "c"} => {{"a", "c", "d"}, 3, false}, {"a", "c", "e"}, 5, false}
-//
-func (s *Store) ListCounters(keyPrefix []string) ([]Counter, error) {
-	session := s.session.Copy()
-	defer session.Close()
-
-	tokensColl := session.StatTokens()
-	countersColl := session.StatCounters()
-
-	skey, err := s.statsKey(session, keyPrefix, false)
-	if err == ErrNotFound {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	regex := "^" + skey + ".+"
-
-	// For a search key "a:b:" matching a key "a:b:c:d:e:", this map function emits "a:b:c:*".
-	// For a search key "a:b:" matching a key "a:b:c:", it emits "a:b:c:".
-	mapf := fmt.Sprintf(`
-		function() {
-		    var k = this.k;
-		    var i = k.indexOf(':', %d)+1;
-		    if (k.length > i)  { k = k.substr(0, i)+'*'; }
-		    emit(k, this.c);
-		}`, len(skey))
-	reducef := "function(key, values) { return Array.sum(values); }"
-	job := mgo.MapReduce{Map: mapf, Reduce: reducef}
-
-	var result []struct {
-		Key   string `bson:"_id"`
-		Value int64
-	}
-	_, err = countersColl.Find(bson.D{{"k", bson.D{{"$regex", regex}}}}).MapReduce(&job, &result)
-	if err != nil {
-		return nil, err
-	}
-	var counters []Counter
-	for i := range result {
-		ids := strings.Split(result[i].Key, ":")
-		tokens := make([]string, 0, len(ids))
-		for i := 0; i < len(ids)-1; i++ {
-			if ids[i] == "*" {
-				continue
-			}
-			id, err := strconv.ParseInt(ids[i], 32, 32)
-			if err != nil {
-				return nil, fmt.Errorf("store: invalid id: %q", ids[i])
-			}
-			token, found := s.statsIdToken(int(id))
-			if !found {
-				var t tokenId
-				err = tokensColl.FindId(id).One(&t)
-				if err == mgo.ErrNotFound {
-					return nil, fmt.Errorf("store: internal error; token id not found: %d", id)
-				}
-				s.cacheStatsTokenId(t.Token, t.Id)
-				token = t.Token
-			}
-			tokens = append(tokens, token)
-		}
-		counter := Counter{
-			Key:    tokens,
-			Count:  result[i].Value,
-			Prefix: len(ids) > 0 && ids[len(ids)-1] == "*",
-		}
-		counters = append(counters, counter)
-	}
-	sort.Sort(sortableCounters(counters))
-	return counters, nil
-}
-
-type sortableCounters []Counter
-
-func (s sortableCounters) Len() int      { return len(s) }
-func (s sortableCounters) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
-func (s sortableCounters) Less(i, j int) bool {
-	// Larger counts first.
-	if s[i].Count != s[j].Count {
-		return s[j].Count < s[i].Count
-	}
-	// Then smaller/shorter keys first.
-	ki := s[i].Key
-	kj := s[j].Key
-	for n := range ki {
-		if n >= len(kj) {
-			return false
-		}
-		if ki[n] != kj[n] {
-			return ki[n] < kj[n]
-		}
-	}
-	if len(ki) < len(kj) {
-		return true
-	}
-	// Then full keys first.
-	return !s[i].Prefix && s[j].Prefix
 }
 
 // A CharmPublisher is responsible for importing a charm dir onto the store.

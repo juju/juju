@@ -12,8 +12,7 @@ type AddRelationSuite struct {
 var _ = Suite(&AddRelationSuite{})
 
 func runAddRelation(c *C, args ...string) error {
-	_, err := testing.RunCommand(c, &AddRelationCommand{}, args)
-	return err
+	return testing.RunCommand(c, &AddRelationCommand{}, args)
 }
 
 var msWpAlreadyExists = `cannot add relation "wp:db ms:server": relation already exists`

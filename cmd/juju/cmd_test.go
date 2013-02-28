@@ -198,7 +198,7 @@ func (*CmdSuite) TestDeployCommandInit(c *C) {
 	}
 
 	// test relative --config path
-	ctx := coretesting.Context(c)
+	ctx := &cmd.Context{c.MkDir(), nil, nil, nil}
 	expected := []byte("test: data")
 	path := ctx.AbsPath("testconfig.yaml")
 	file, err := os.Create(path)
@@ -323,7 +323,7 @@ func (*CmdSuite) TestSetCommandInit(c *C) {
 
 	// test --config path
 	expected := []byte("this: is some test data")
-	ctx := coretesting.Context(c)
+	ctx := &cmd.Context{c.MkDir(), nil, nil, nil}
 	path := ctx.AbsPath("testconfig.yaml")
 	file, err := os.Create(path)
 	c.Assert(err, IsNil)

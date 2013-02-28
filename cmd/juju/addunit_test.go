@@ -13,8 +13,7 @@ type AddUnitSuite struct {
 var _ = Suite(&AddUnitSuite{})
 
 func runAddUnit(c *C, args ...string) error {
-	_, err := testing.RunCommand(c, &AddUnitCommand{}, args)
-	return err
+	return testing.RunCommand(c, &AddUnitCommand{}, args)
 }
 
 func (s *AddUnitSuite) TestAddUnit(c *C) {

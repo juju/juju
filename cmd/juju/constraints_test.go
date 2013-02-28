@@ -6,7 +6,6 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
-	coretesting "launchpad.net/juju-core/testing"
 )
 
 type ConstraintsCommandsSuite struct {
@@ -16,7 +15,7 @@ type ConstraintsCommandsSuite struct {
 var _ = Suite(&ConstraintsCommandsSuite{})
 
 func runCmdLine(c *C, com cmd.Command, args ...string) (code int, stdout, stderr string) {
-	ctx := coretesting.Context(c)
+	ctx := &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}}
 	code = cmd.Main(com, ctx, args)
 	stdout = ctx.Stdout.(*bytes.Buffer).String()
 	stderr = ctx.Stderr.(*bytes.Buffer).String()

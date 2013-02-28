@@ -29,7 +29,7 @@ func (s *PortsSuite) TestOpenClose(c *C) {
 	for _, t := range portsTests {
 		com, err := jujuc.NewCommand(hctx, t.cmd[0])
 		c.Assert(err, IsNil)
-		ctx := testing.Context(c)
+		ctx := dummyContext(c)
 		code := cmd.Main(com, ctx, t.cmd[1:])
 		c.Assert(code, Equals, 0)
 		c.Assert(bufferString(ctx.Stdout), Equals, "")

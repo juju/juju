@@ -250,10 +250,7 @@ func (u *Unit) Remove() (err error) {
 	}
 	unit := &Unit{u.st, u.doc}
 	for i := 0; i < 5; i++ {
-		ops, err := svc.removeUnitOps(unit)
-		if err != nil {
-			return err
-		}
+		ops := svc.removeUnitOps(unit)
 		if err := svc.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
 			return err
 		}
@@ -438,54 +435,17 @@ func (u *Unit) Charm() (ch *Charm, err error) {
 
 // SetCharm marks the unit as currently using the supplied charm.
 func (u *Unit) SetCharm(ch *Charm) (err error) {
-	defer func() {
-		if err == nil {
-			u.doc.CharmURL = ch.URL()
-		}
-	}()
-	for i := 0; i < 5; i++ {
-		if notDead, err := isNotDead(u.st.units, u.doc.Name); err != nil {
-			return err
-		} else if !notDead {
-			return fmt.Errorf("cannot set charm for unit %q: unit is dead", u)
-		}
-		sel := D{{"_id", u.doc.Name}, {"charmurl", ch.URL()}}
-		if count, err := u.st.units.Find(sel).Count(); err != nil {
-			return err
-		} else if count == 1 {
-			// Already set.
-			return nil
-		}
-
-		// Maintain new charm settings refcount.
-		incOp, err := settingsIncRefOp(u.st, u.doc.Service, ch.URL(), false)
-		if err != nil {
-			return err
-		}
-
-		// Set the new charm URL.
-		differentCharm := D{{"charmurl", D{{"$ne", ch.URL()}}}}
-		ops := []txn.Op{
-			incOp,
-			{
-				C:      u.st.units.Name,
-				Id:     u.doc.Name,
-				Assert: append(notDeadDoc, differentCharm...),
-				Update: D{{"$set", D{{"charmurl", ch.URL()}}}},
-			}}
-		if u.doc.CharmURL != nil {
-			// Maintain current charm settings refcount.
-			decOps, err := settingsDecRefOps(u.st, u.doc.Service, u.doc.CharmURL)
-			if err != nil {
-				return err
-			}
-			ops = append(ops, decOps...)
-		}
-		if err := u.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
-			return err
-		}
+	ops := []txn.Op{{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: notDeadDoc,
+		Update: D{{"$set", D{{"charmurl", ch.URL()}}}},
+	}}
+	if err := u.st.runner.Run(ops, "", nil); err != nil {
+		return fmt.Errorf("cannot set charm for unit %q: %v", u, onAbort(err, errNotAlive))
 	}
-	return ErrExcessiveContention
+	u.doc.CharmURL = ch.URL()
+	return nil
 }
 
 // AgentAlive returns whether the respective remote agent is alive.

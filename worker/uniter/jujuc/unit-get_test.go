@@ -37,7 +37,7 @@ func (s *UnitGetSuite) createCommand(c *C) cmd.Command {
 func (s *UnitGetSuite) TestOutputFormat(c *C) {
 	for _, t := range unitGetTests {
 		com := s.createCommand(c)
-		ctx := testing.Context(c)
+		ctx := dummyContext(c)
 		code := cmd.Main(com, ctx, t.args)
 		c.Assert(code, Equals, 0)
 		c.Assert(bufferString(ctx.Stderr), Equals, "")
@@ -47,7 +47,7 @@ func (s *UnitGetSuite) TestOutputFormat(c *C) {
 
 func (s *UnitGetSuite) TestHelp(c *C) {
 	com := s.createCommand(c)
-	ctx := testing.Context(c)
+	ctx := dummyContext(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, Equals, 0)
 	c.Assert(bufferString(ctx.Stdout), Equals, "")
@@ -64,7 +64,7 @@ options:
 
 func (s *UnitGetSuite) TestOutputPath(c *C) {
 	com := s.createCommand(c)
-	ctx := testing.Context(c)
+	ctx := dummyContext(c)
 	code := cmd.Main(com, ctx, []string{"--output", "some-file", "private-address"})
 	c.Assert(code, Equals, 0)
 	c.Assert(bufferString(ctx.Stderr), Equals, "")

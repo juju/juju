@@ -25,7 +25,7 @@ func (s *RelationSetSuite) TestHelp(c *C) {
 		hctx := s.GetHookContext(c, t.relid, "")
 		com, err := jujuc.NewCommand(hctx, "relation-set")
 		c.Assert(err, IsNil)
-		ctx := testing.Context(c)
+		ctx := dummyContext(c)
 		code := cmd.Main(com, ctx, []string{"--help"})
 		c.Assert(code, Equals, 0)
 		c.Assert(bufferString(ctx.Stdout), Equals, "")
@@ -198,7 +198,7 @@ func (s *RelationSetSuite) TestRun(c *C) {
 		rset := com.(*jujuc.RelationSetCommand)
 		rset.RelationId = 1
 		rset.Settings = t.change
-		ctx := testing.Context(c)
+		ctx := dummyContext(c)
 		err = com.Run(ctx)
 		c.Assert(err, IsNil)
 

@@ -156,22 +156,17 @@ func (s *Server) serveStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	key := strings.Split(base, ":")
-	r.ParseForm()
-	listing := r.Form.Get("list") == "1"
 	prefix := false
 	if key[len(key)-1] == "*" {
 		prefix = true
 		key = key[:len(key)-1]
-		if len(key) == 0 && !listing {
+		if len(key) == 0 {
 			// No point in counting something unknown.
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
 	}
-	if listing && prefix {
-		s.serveStatsList(w, r, key)
-		return
-	}
+	r.ParseForm()
 	sum, err := s.store.SumCounter(key, prefix)
 	if err != nil {
 		log.Printf("store: cannot sum counter: %v", err)
@@ -179,69 +174,9 @@ func (s *Server) serveStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data := []byte(strconv.FormatInt(sum, 10))
-	if listing {
-		// Listing a single item.. silly, but whatever.
-		data = []byte(base + "  " + string(data) + "\n")
-	}
 	w.Header().Set("Content-Type", "text/plain")
 	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 	_, err = w.Write(data)
-	if err != nil {
-		log.Printf("store: cannot write content: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
-	}
-}
-
-func (s *Server) serveStatsList(w http.ResponseWriter, r *http.Request, prefix []string) {
-	entries, err := s.store.ListCounters(prefix)
-	if err != nil {
-		log.Printf("store: cannot list counter: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	// First build keys and figure max key length.
-	var buf []byte
-	var maxKeyLength int
-	type resultItem struct {
-		key   string
-		count int64
-	}
-	var result []resultItem
-	for i := range entries {
-		entry := &entries[i]
-		for j := range entry.Key {
-			buf = append(buf, entry.Key[j]...)
-			buf = append(buf, ':')
-		}
-		if entry.Prefix {
-			buf = append(buf, '*')
-		} else {
-			buf = buf[:len(buf)-1]
-		}
-		if maxKeyLength < len(buf) {
-			maxKeyLength = len(buf)
-		}
-		result = append(result, resultItem{string(buf), entry.Count})
-		buf = buf[:0]
-	}
-
-	// Then join all keys and counts in a single formatted buffer.
-	spaces := make([]byte, maxKeyLength+2)
-	for i := range spaces {
-		spaces[i] = ' '
-	}
-	for i := range result {
-		item := &result[i]
-		buf = append(buf, item.key...)
-		buf = append(buf, spaces[len(item.key):]...)
-		buf = strconv.AppendInt(buf, item.count, 10)
-		buf = append(buf, '\n')
-	}
-
-	w.Header().Set("Content-Type", "text/plain")
-	w.Header().Set("Content-Length", strconv.Itoa(len(buf)))
-	_, err = w.Write(buf)
 	if err != nil {
 		log.Printf("store: cannot write content: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)

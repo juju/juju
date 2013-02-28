@@ -148,7 +148,7 @@ func (s *UnitSuite) TestUnitCharm(c *C) {
 	err = s.unit.EnsureDead()
 	c.Assert(err, IsNil)
 	err = s.unit.SetCharm(s.charm)
-	c.Assert(err, ErrorMatches, `cannot set charm for unit "wordpress/0": unit is dead`)
+	c.Assert(err, ErrorMatches, `cannot set charm for unit "wordpress/0": not found or not alive`)
 }
 
 func (s *UnitSuite) TestEntityName(c *C) {
@@ -214,7 +214,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 	info.EntityName = m.EntityName()
 	info.Password = "foo1"
 	err = tryOpenState(info)
-	c.Assert(state.IsUnauthorizedError(err), Equals, true)
+	c.Assert(err, Equals, state.ErrUnauthorized)
 
 	// Connect as the machine entity.
 	info.EntityName = m.EntityName()
