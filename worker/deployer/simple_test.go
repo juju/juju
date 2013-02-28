@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
@@ -89,7 +88,7 @@ func (fix *SimpleToolsFixture) SetUp(c *C, dataDir string) {
 	fix.dataDir = dataDir
 	fix.initDir = c.MkDir()
 	fix.logDir = c.MkDir()
-	toolsDir := environs.ToolsDir(fix.dataDir, version.Current)
+	toolsDir := agent.SharedToolsDir(fix.dataDir, version.Current)
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, IsNil)
 	jujudPath := filepath.Join(toolsDir, "jujud")
@@ -140,8 +139,8 @@ func (fix *SimpleToolsFixture) getManager(c *C, deployerName string) *deployer.S
 func (fix *SimpleToolsFixture) paths(entityName, xName string) (confPath, agentDir, toolsDir string) {
 	confName := fmt.Sprintf("jujud-%s:%s.conf", xName, entityName)
 	confPath = filepath.Join(fix.initDir, confName)
-	agentDir = environs.AgentDir(fix.dataDir, entityName)
-	toolsDir = environs.AgentToolsDir(fix.dataDir, entityName)
+	agentDir = agent.Dir(fix.dataDir, entityName)
+	toolsDir = agent.ToolsDir(fix.dataDir, entityName)
 	return
 }
 

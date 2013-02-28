@@ -17,11 +17,12 @@ import (
 
 type RelationerSuite struct {
 	testing.JujuConnSuite
-	hooks chan hook.Info
-	svc   *state.Service
-	rel   *state.Relation
-	ru    *state.RelationUnit
-	dir   *relation.StateDir
+	hooks   chan hook.Info
+	svc     *state.Service
+	rel     *state.Relation
+	ru      *state.RelationUnit
+	dir     *relation.StateDir
+	dirPath string
 }
 
 var _ = Suite(&RelationerSuite{})
@@ -36,7 +37,8 @@ func (s *RelationerSuite) SetUpTest(c *C) {
 	c.Assert(rels, HasLen, 1)
 	s.rel = rels[0]
 	s.ru = s.AddRelationUnit(c, "u/0")
-	s.dir, err = relation.ReadStateDir(c.MkDir(), s.rel.Id())
+	s.dirPath = c.MkDir()
+	s.dir, err = relation.ReadStateDir(s.dirPath, s.rel.Id())
 	c.Assert(err, IsNil)
 	s.hooks = make(chan hook.Info)
 }
@@ -96,6 +98,12 @@ func (s *RelationerSuite) TestEnterLeaveScope(c *C) {
 	hi := hook.Info{Kind: hooks.RelationBroken}
 	_, err = r.PrepareHook(hi)
 	c.Assert(err, IsNil)
+
+	// Verify PrepareHook created the dir.
+	fi, err := os.Stat(filepath.Join(s.dirPath, strconv.Itoa(s.rel.Id())))
+	c.Assert(err, IsNil)
+	c.Assert(fi.IsDir(), Equals, true)
+
 	err = r.CommitHook(hi)
 	c.Assert(err, IsNil)
 	s.State.StartSync()
@@ -344,6 +352,8 @@ func (s *RelationerSuite) assertNoHook(c *C) {
 
 func (s *RelationerSuite) assertHook(c *C, expect hook.Info) {
 	s.State.StartSync()
+	// We must ensure the local state dir exists first.
+	c.Assert(s.dir.Ensure(), IsNil)
 	select {
 	case hi, ok := <-s.hooks:
 		c.Assert(ok, Equals, true)
@@ -396,12 +406,11 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *C) {
 	r := uniter.NewRelationer(ru, dir, hooks)
 	c.Assert(r.IsImplicit(), Equals, true)
 
-	// Join the relationer; check the dir was created and scope was entered.
+	// Join the relationer; the dir won't be created until necessary
 	err = r.Join()
 	c.Assert(err, IsNil)
-	fi, err := os.Stat(filepath.Join(relsDir, strconv.Itoa(rel.Id())))
-	c.Assert(err, IsNil)
-	c.Assert(fi.IsDir(), Equals, true)
+	_, err = os.Stat(filepath.Join(relsDir, strconv.Itoa(rel.Id())))
+	c.Assert(err, NotNil)
 	sub, err := logging.Unit("logging/0")
 	c.Assert(err, IsNil)
 	err = sub.SetPrivateAddress("blah")

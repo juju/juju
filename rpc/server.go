@@ -69,6 +69,13 @@ type ErrorCoder interface {
 	ErrorCode() string
 }
 
+// Killer represents a type that can be asked to
+// abort any outstanding requests. The Kill
+// method should return immediately.
+type Killer interface {
+	Kill()
+}
+
 // ServeCodec runs the server on a single connection.  ServeCodec
 // blocks, serving the connection until the client hangs up.  The caller
 // typically invokes ServeCodec in a go statement.  The given
@@ -77,27 +84,33 @@ type ErrorCoder interface {
 // nil, the original root value passed to NewServer will
 // be used instead.
 //
-// ServeCodec will only return when all its outstanding calls have
+// ServeCodec stops serving requests when it receives an error
+// reading a request. Before returning, if rootValue implements
+// the Killer interface, its Kill method will be called.
+// ServeCodec will then return only when all its outstanding calls have
 // completed.
-func (srv *Server) ServeCodec(codec ServerCodec, rootValue interface{}) error {
-	return srv.serve(reflect.ValueOf(rootValue), codec)
-}
-
-func (srv *Server) serve(root reflect.Value, codec ServerCodec) error {
-	// TODO(rog) allow concurrent requests.
-	if root.Type() != srv.root.Type() {
-		panic(fmt.Errorf("rpc: unexpected type of root value; got %s, want %s", root.Type(), srv.root.Type()))
-	}
+func (srv *Server) ServeCodec(codec ServerCodec, root interface{}) error {
 	csrv := &codecServer{
 		Server: srv,
 		codec:  codec,
-		root:   root,
+		root:   reflect.ValueOf(root),
+	}
+	if csrv.root.Type() != srv.root.Type() {
+		panic(fmt.Errorf("rpc: unexpected type of root value; got %s, want %s", csrv.root.Type(), srv.root.Type()))
 	}
 	defer csrv.pending.Wait()
+	err := csrv.serve()
+	if killer, ok := root.(Killer); ok {
+		killer.Kill()
+	}
+	return err
+}
+
+func (csrv *codecServer) serve() error {
 	var req Request
 	for {
 		req = Request{}
-		err := codec.ReadRequestHeader(&req)
+		err := csrv.codec.ReadRequestHeader(&req)
 		if err != nil {
 			if err == io.EOF {
 				return nil
@@ -106,12 +119,12 @@ func (srv *Server) serve(root reflect.Value, codec ServerCodec) error {
 		}
 		o, a, err := csrv.findRequest(&req)
 		if err != nil {
-			_ = codec.ReadRequestBody(&struct{}{})
+			_ = csrv.codec.ReadRequestBody(&struct{}{})
 			resp := &Response{
 				RequestId: req.RequestId,
 			}
 			csrv.setError(resp, err)
-			if err := codec.WriteResponse(resp, struct{}{}); err != nil {
+			if err := csrv.codec.WriteResponse(resp, struct{}{}); err != nil {
 				return err
 			}
 			continue
