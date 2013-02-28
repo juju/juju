@@ -26,15 +26,25 @@ type backendSuite struct {
 
 var _ = Suite(&backendSuite{})
 
-const (
-	environName = "test-environ"
-	portNo      = 60006
-)
+const environName = "test-environ"
+
+var portNo int = 60005
+
+// nextPortNo increases the global port number and returns it.
+func nextPortNo() int {
+	portNo++
+	return portNo
+}
+
+// actPortNo returns the actual global port number.
+func actPortNo() int {
+	return portNo
+}
 
 func (s *backendSuite) SetUpSuite(c *C) {
 	var err error
 	s.dataDir = c.MkDir()
-	s.listener, err = local.Listen(s.dataDir, environName, "127.0.0.1", portNo)
+	s.listener, err = local.Listen(s.dataDir, environName, "127.0.0.1", nextPortNo())
 	c.Assert(err, IsNil)
 
 	createTestData(c, s.dataDir)
@@ -117,7 +127,7 @@ var getTests = []testCase{
 func (s *backendSuite) TestGet(c *C) {
 	// Test retrieving a file from a storage.
 	check := func(tc testCase) {
-		url := fmt.Sprintf("http://localhost:%d/%s", portNo, tc.name)
+		url := fmt.Sprintf("http://localhost:%d/%s", actPortNo(), tc.name)
 		resp, err := http.Get(url)
 		c.Assert(err, IsNil)
 		if tc.status != 0 {
@@ -183,7 +193,7 @@ var listTests = []testCase{
 func (s *backendSuite) TestList(c *C) {
 	// Test listing file of a storage.
 	check := func(tc testCase) {
-		url := fmt.Sprintf("http://localhost:%d/%s*", portNo, tc.name)
+		url := fmt.Sprintf("http://localhost:%d/%s*", actPortNo(), tc.name)
 		resp, err := http.Get(url)
 		c.Assert(err, IsNil)
 		if tc.status != 0 {
@@ -225,7 +235,7 @@ var putTests = []testCase{
 func (s *backendSuite) TestPut(c *C) {
 	// Test sending a file to the storage.
 	check := func(tc testCase) {
-		url := fmt.Sprintf("http://localhost:%d/%s", portNo, tc.name)
+		url := fmt.Sprintf("http://localhost:%d/%s", actPortNo(), tc.name)
 		req, err := http.NewRequest("PUT", url, bytes.NewBufferString(tc.content))
 		c.Assert(err, IsNil)
 		req.Header.Set("Content-Type", "application/octet-stream")
@@ -281,7 +291,7 @@ func (s *backendSuite) TestRemove(c *C) {
 		err = ioutil.WriteFile(fp, []byte(tc.content), 0644)
 		c.Assert(err, IsNil)
 
-		url := fmt.Sprintf("http://localhost:%d/%s", portNo, tc.name)
+		url := fmt.Sprintf("http://localhost:%d/%s", actPortNo(), tc.name)
 		req, err := http.NewRequest("DELETE", url, nil)
 		c.Assert(err, IsNil)
 		resp, err := http.DefaultClient.Do(req)

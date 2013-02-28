@@ -16,13 +16,10 @@ var _ = Suite(&storageSuite{})
 // TestPersistence tests the adding, reading, listing and removing
 // of files from the local storage.
 func (s *storageSuite) TestPersistence(c *C) {
-	// Non-standard port to avoid conflict with not-yet full
-	// closed listener in backend test.
-	portNo := 60007
-	listener, err := local.Listen(c.MkDir(), environName, "127.0.0.1", portNo)
+	listener, err := local.Listen(c.MkDir(), environName, "127.0.0.1", nextPortNo())
 	c.Assert(err, IsNil)
 	defer listener.Close()
-	storage := local.NewStorage("127.0.0.1", portNo)
+	storage := local.NewStorage("127.0.0.1", actPortNo())
 
 	names := []string{
 		"aa",
@@ -37,7 +34,7 @@ func (s *storageSuite) TestPersistence(c *C) {
 	checkList(c, storage, "a", []string{"aa"})
 	checkList(c, storage, "zzz/", []string{"zzz/aa", "zzz/bb"})
 
-	storage2 := local.NewStorage("127.0.0.1", portNo)
+	storage2 := local.NewStorage("127.0.0.1", actPortNo())
 	for _, name := range names {
 		checkFileHasContents(c, storage2, name, []byte(name))
 	}
