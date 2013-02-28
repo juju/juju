@@ -149,9 +149,15 @@ var (
 )
 
 // unauthorizedError represents the error that an operation is unauthorized.
+// Use IsUnauthorized() to determine if the error was related to authorization failure.
 type unauthorizedError struct {
 	msg string
 	error
+}
+
+func IsUnauthorizedError(err error) bool {
+	_, ok := err.(*unauthorizedError)
+	return ok
 }
 
 func (e *unauthorizedError) Error() string {
@@ -165,11 +171,6 @@ func (e *unauthorizedError) Error() string {
 // It is mainly used for testing.
 func Unauthorizedf(format string, args ...interface{}) error {
 	return &unauthorizedError{fmt.Sprintf(format, args...), nil}
-}
-
-func IsUnauthorizedError(err error) bool {
-	_, ok := err.(*unauthorizedError)
-	return ok
 }
 
 func maybeUnauthorized(err error, msg string) error {
