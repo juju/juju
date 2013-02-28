@@ -8,6 +8,7 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju/testing"
+	coretesting "launchpad.net/juju-core/testing"
 )
 
 // juju get and set tests (because one needs the other)
@@ -61,7 +62,7 @@ func (s *ConfigSuite) TestGetConfig(c *C) {
 	_, err := s.State.AddService("dummy-service", sch)
 	c.Assert(err, IsNil)
 	for _, t := range getTests {
-		ctx := &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}}
+		ctx := coretesting.Context(c)
 		code := cmd.Main(&GetCommand{}, ctx, []string{t.service})
 		c.Check(code, Equals, 0)
 		c.Assert(ctx.Stderr.(*bytes.Buffer).String(), Equals, "")
@@ -129,7 +130,7 @@ func (s *ConfigSuite) TestSetConfig(c *C) {
 	for i, t := range setTests {
 		args := append([]string{"dummy-service"}, t.args...)
 		c.Logf("test %d. %s", i, t.about)
-		ctx := &cmd.Context{dir, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}}
+		ctx := coretesting.ContextForDir(c, dir)
 		code := cmd.Main(&SetCommand{}, ctx, args)
 		if t.err != "" {
 			c.Check(code, Not(Equals), 0)
@@ -144,7 +145,7 @@ func (s *ConfigSuite) TestSetConfig(c *C) {
 }
 
 func setupConfigfile(c *C, dir string) {
-	ctx := &cmd.Context{dir, nil, nil, nil}
+	ctx := coretesting.ContextForDir(c, dir)
 	path := ctx.AbsPath("testconfig.yaml")
 	file, err := os.Create(path)
 	c.Assert(err, IsNil)

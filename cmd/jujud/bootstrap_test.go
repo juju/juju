@@ -145,7 +145,7 @@ func testOpenState(c *C, info *state.Info, expectErr error) {
 		st.Close()
 	}
 	if expectErr != nil {
-		c.Assert(err, Equals, expectErr)
+		c.Assert(state.IsUnauthorizedError(err), Equals, true)
 	} else {
 		c.Assert(err, IsNil)
 	}
@@ -177,7 +177,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *C) {
 		Addrs:  []string{testing.MgoAddr},
 		CACert: []byte(testing.CACert),
 	}
-	testOpenState(c, info, state.ErrUnauthorized)
+	testOpenState(c, info, state.Unauthorizedf("some auth problem"))
 
 	info.EntityName, info.Password = "machine-0", "foo"
 	testOpenState(c, info, nil)
