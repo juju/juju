@@ -104,6 +104,32 @@ func (u *Unit) Service() (*Service, error) {
 	return u.st.Service(u.doc.Service)
 }
 
+// ServiceConfig returns the contents of this unit's service configuration.
+func (u *Unit) ServiceConfig() (map[string]interface{}, error) {
+	if u.doc.CharmURL == nil {
+		return nil, fmt.Errorf("unit charm not set")
+	}
+	settings, err := readSettings(u.st, "s#"+u.doc.Service)
+	if err != nil {
+		return nil, err
+	}
+	charm, err := u.st.Charm(u.doc.CharmURL)
+	if err != nil {
+		return nil, err
+	}
+	cfg, err := charm.Config().Validate(nil)
+	if err != nil {
+		return nil, err
+	}
+	m := settings.Map()
+	for k, v := range cfg {
+		if _, ok := m[k]; !ok {
+			m[k] = v
+		}
+	}
+	return m, nil
+}
+
 // ServiceName returns the service name.
 func (u *Unit) ServiceName() string {
 	return u.doc.Service

@@ -136,11 +136,6 @@ func ModeUpgrading(curl *charm.URL) Mode {
 		} else if err != nil {
 			return nil, err
 		}
-		// Now the upgrade is complete, we'll need to check all
-		// relations again: some might previously have been skipped
-		// (if they involved endpoints only implemented in the new
-		// charm).
-		u.f.WantAllRelationsEvents()
 		return ModeContinue, nil
 	}
 }
@@ -234,7 +229,9 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 	if err != nil {
 		return nil, err
 	}
-	u.f.WantUpgradeEvent(url, false)
+	u.f.WantUpgradeEvent(false)
+	// TODO: is this needed here?
+	u.f.SetCharm(url)
 	for _, r := range u.relationers {
 		r.StartHooks()
 	}
@@ -347,7 +344,9 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 		return nil, err
 	}
 	u.f.WantResolvedEvent()
-	u.f.WantUpgradeEvent(url, true)
+	u.f.WantUpgradeEvent(true)
+	// TODO: is this needed here?
+	u.f.SetCharm(url)
 	for {
 		select {
 		case <-u.tomb.Dying():
@@ -387,7 +386,9 @@ func ModeConflicted(curl *charm.URL) Mode {
 			return nil, err
 		}
 		u.f.WantResolvedEvent()
-		u.f.WantUpgradeEvent(curl, true)
+		u.f.WantUpgradeEvent(true)
+		// TODO: is this needed here?
+		u.f.SetCharm(curl)
 		for {
 			select {
 			case <-u.tomb.Dying():

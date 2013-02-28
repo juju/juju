@@ -205,6 +205,8 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason Op) error {
 		}
 	}
 	log.Printf("worker/uniter: charm %q is deployed", curl)
+	// TODO: this is here, right?
+	u.f.SetCharm(curl)
 	if err := u.unit.SetCharmURL(curl); err != nil {
 		return err
 	}
@@ -245,17 +247,11 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 		}
 	}
 	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
-	hctx := &HookContext{
-		service:        u.service,
-		unit:           u.unit,
-		id:             hctxId,
-		relationId:     relationId,
-		remoteUnitName: hi.RemoteUnit,
-		relations:      map[int]*ContextRelation{},
-	}
+	ctxRelations := map[int]*ContextRelation{}
 	for id, r := range u.relationers {
-		hctx.relations[id] = r.Context()
+		ctxRelations[id] = r.Context()
 	}
+	hctx := NewHookContext(u.unit, hctxId, relationId, hi.RemoteUnit, ctxRelations)
 
 	// Prepare server.
 	getCmd := func(ctxId, cmdName string) (cmd.Command, error) {
