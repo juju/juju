@@ -485,36 +485,43 @@ func (s *suite) TestClientServiceSetYAML(c *C) {
 }
 
 var clientCharmInfoTests = []struct {
-	about    string
-	url      string
-	err      string
-	expected api.CharmInfo
+	about string
+	url   string
+	err   string
 }{
 	{
-		about:    "retrieves charm info",
-		url:      "local:series/dummy-1",
-		expected: api.CharmInfo{},
+		about: "retrieves charm info",
+		url:   "local:series/dummy-1",
 	},
 	{
 		about: "invalid URL",
 		url:   "not-valid",
-		err:   `charm URL has invalid schema: \"not-valid\"`,
+		err:   `charm URL has invalid schema: "not-valid"`,
 	},
 	{
 		about: "unknown charm",
 		url:   "cs:precise/does-not-exist",
-		err:   ``,
+		err:   `charm "cs:precise/does-not-exist" not found`,
 	},
 }
 
 func (s *suite) TestClientCharmInfo(c *C) {
-	charm := s.AddTestingCharm(c, "local:series/dummy-1")
-	c.Logf("PIPPO =========== %s", charm.URL())
-
-	_, err := s.APIState.Client().CharmInfo("local:series/dummy-1")
-	c.Assert(err, IsNil)
-	// c.Assert(info.DefaultSeries, Equals, conf.DefaultSeries())
-	// c.Assert(info.ProviderType, Equals, conf.Type())
+	charm := s.AddTestingCharm(c, "dummy")
+	for i, t := range clientCharmInfoTests {
+		c.Logf("test %d. %s", i, t.about)
+		info, err := s.APIState.Client().CharmInfo(t.url)
+		if t.err == "" {
+			c.Assert(err, IsNil)
+			meta := charm.Meta()
+			c.Assert(info.Name, Equals, meta.Name)
+			c.Assert(info.Revision, Equals, charm.Revision())
+			c.Assert(info.Subordinate, Equals, meta.Subordinate)
+			c.Assert(info.URL, Equals, charm.URL().String())
+			c.Assert(info.Config, DeepEquals, charm.Config())
+		} else {
+			c.Assert(err, ErrorMatches, t.err)
+		}
+	}
 }
 
 func (s *suite) TestClientEnvironmentInfo(c *C) {
