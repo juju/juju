@@ -6,15 +6,15 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
 )
 
 type BootstrapCommand struct {
-	Conf       AgentConf
-	InstanceId string
-	EnvConfig  map[string]interface{}
+	Conf      AgentConf
+	EnvConfig map[string]interface{}
 }
 
 // Info returns a decription of the command.
@@ -27,15 +27,11 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 
 func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.Conf.addFlags(f)
-	f.StringVar(&c.InstanceId, "instance-id", "", "instance id of this machine")
 	yamlBase64Var(f, &c.EnvConfig, "env-config", "", "initial environment configuration (yaml, base64 encoded)")
 }
 
 // Init initializes the command for running.
 func (c *BootstrapCommand) Init(args []string) error {
-	if c.InstanceId == "" {
-		return requiredError("instance-id")
-	}
 	if len(c.EnvConfig) == 0 {
 		return requiredError("env-config")
 	}
@@ -51,6 +47,15 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+	provider, err := environs.Provider(cfg.Type())
+	if err != nil {
+		return err
+	}
+	instanceId, err := provider.InstanceId()
+	if err != nil {
+		return err
+	}
+
 	// There is no entity that's created at init time.
 	c.Conf.StateInfo.EntityName = ""
 	st, err := state.Initialize(c.Conf.StateInfo, cfg)
@@ -58,8 +63,9 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer st.Close()
-	m, err := st.InjectMachine(
-		version.Current.Series, state.InstanceId(c.InstanceId),
+
+	// TODO: we need to be able to customize machine jobs, not just hardcode these.
+	m, err := st.InjectMachine(version.Current.Series, instanceId,
 		state.JobManageEnviron, state.JobServeAPI)
 	if err != nil {
 		return err
