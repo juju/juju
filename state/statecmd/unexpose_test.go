@@ -13,11 +13,11 @@ type UnexposeSuite struct {
 var _ = Suite(&UnexposeSuite{})
 
 var serviceUnexposeTests = []struct {
-	about            string
-	service          string
-	err              string
-	initialExposure  bool
-	expectedExposure bool
+	about    string
+	service  string
+	err      string
+	initial  bool
+	expected bool
 }{
 	{
 		about:   "unknown service name",
@@ -25,16 +25,16 @@ var serviceUnexposeTests = []struct {
 		err:     `service "unknown-service" not found`,
 	},
 	{
-		about:            "unexpose a service",
-		service:          "dummy-service",
-		initialExposure:  true,
-		expectedExposure: false,
+		about:    "unexpose a service",
+		service:  "dummy-service",
+		initial:  true,
+		expected: false,
 	},
 	{
-		about:            "unexpose an already unexposed service",
-		service:          "dummy-service",
-		initialExposure:  false,
-		expectedExposure: false,
+		about:    "unexpose an already unexposed service",
+		service:  "dummy-service",
+		initial:  false,
+		expected: false,
 	},
 }
 
@@ -44,16 +44,16 @@ func (s *UnexposeSuite) TestServiceUnexpose(c *C) {
 		c.Logf("test %d. %s", i, t.about)
 		svc, err := s.State.AddService("dummy-service", charm)
 		c.Assert(err, IsNil)
-		if t.initialExposure {
+		if t.initial {
 			svc.SetExposed()
 		}
-		c.Assert(svc.IsExposed(), Equals, t.initialExposure)
+		c.Assert(svc.IsExposed(), Equals, t.initial)
 		params := statecmd.ServiceUnexposeParams{ServiceName: t.service}
 		err = statecmd.ServiceUnexpose(s.State, params)
 		if t.err == "" {
 			c.Assert(err, IsNil)
 			svc.Refresh()
-			c.Assert(svc.IsExposed(), Equals, t.expectedExposure)
+			c.Assert(svc.IsExposed(), Equals, t.expected)
 		} else {
 			c.Assert(err, ErrorMatches, t.err)
 		}
