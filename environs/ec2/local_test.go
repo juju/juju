@@ -20,6 +20,30 @@ import (
 	"strings"
 )
 
+type ProviderSuite struct{}
+
+var _ = Suite(&ProviderSuite{})
+
+func (s *ProviderSuite) TestMetadata(c *C) {
+	ec2.UseTestMetadata(true)
+	defer ec2.UseTestMetadata(false)
+
+	p, err := environs.Provider("ec2")
+	c.Assert(err, IsNil)
+
+	addr, err := p.PublicAddress()
+	c.Assert(err, IsNil)
+	c.Assert(addr, Equals, "public.dummy.address.example.com")
+
+	addr, err = p.PrivateAddress()
+	c.Assert(err, IsNil)
+	c.Assert(addr, Equals, "private.dummy.address.example.com")
+
+	id, err := p.InstanceId()
+	c.Assert(err, IsNil)
+	c.Assert(id, Equals, state.InstanceId("dummy.instance.id"))
+}
+
 func registerLocalTests() {
 	// N.B. Make sure the region we use here
 	// has entries in the images/query txt files.
@@ -180,7 +204,6 @@ type localServerSuite struct {
 func (t *localServerSuite) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
 	ec2.UseTestImageData(true)
-	ec2.UseTestMetadata(true)
 	t.Tests.SetUpSuite(c)
 	ec2.ShortTimeouts(true)
 }
@@ -188,7 +211,6 @@ func (t *localServerSuite) SetUpSuite(c *C) {
 func (t *localServerSuite) TearDownSuite(c *C) {
 	t.Tests.TearDownSuite(c)
 	ec2.ShortTimeouts(false)
-	ec2.UseTestMetadata(false)
 	ec2.UseTestImageData(false)
 	t.LoggingSuite.TearDownSuite(c)
 }
@@ -269,14 +291,6 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	// TODO check for provisioning agent
 	// TODO check for machine agent
 
-	p := t.env.Provider()
-	addr, err := p.PublicAddress()
-	c.Assert(err, IsNil)
-	c.Assert(addr, Equals, "public.dummy.address.example.com")
-	addr, err = p.PrivateAddress()
-	c.Assert(err, IsNil)
-	c.Assert(addr, Equals, "private.dummy.address.example.com")
-
 	err = t.env.Destroy(append(insts, inst1))
 	c.Assert(err, IsNil)
 
@@ -352,14 +366,12 @@ type localNonUSEastSuite struct {
 func (t *localNonUSEastSuite) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
 	ec2.UseTestImageData(true)
-	ec2.UseTestMetadata(true)
 	t.tests.SetUpSuite(c)
 	ec2.ShortTimeouts(true)
 }
 
 func (t *localNonUSEastSuite) TearDownSuite(c *C) {
 	ec2.ShortTimeouts(false)
-	ec2.UseTestMetadata(false)
 	ec2.UseTestImageData(false)
 	t.LoggingSuite.TearDownSuite(c)
 }
