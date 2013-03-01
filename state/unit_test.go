@@ -2,6 +2,7 @@ package state_test
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state"
 	"sort"
 	"strconv"
@@ -128,27 +129,34 @@ func (s *UnitSuite) TestGetSetStatus(c *C) {
 }
 
 func (s *UnitSuite) TestUnitCharm(c *C) {
-	_, err := s.unit.Charm()
-	c.Assert(err, ErrorMatches, `charm URL of unit "wordpress/0" not found`)
+	curl, ok := s.unit.CharmURL()
+	c.Assert(ok, Equals, false)
+	c.Assert(curl, IsNil)
 
-	err = s.unit.SetCharm(s.charm)
+	err := s.unit.SetCharmURL(nil)
+	c.Assert(err, ErrorMatches, "cannot set nil charm url")
+
+	err = s.unit.SetCharmURL(charm.MustParseURL("cs:missing/one-1"))
+	c.Assert(err, ErrorMatches, `unknown charm url "cs:missing/one-1"`)
+
+	err = s.unit.SetCharmURL(s.charm.URL())
 	c.Assert(err, IsNil)
-	ch, err := s.unit.Charm()
-	c.Assert(err, IsNil)
-	c.Assert(ch.URL(), DeepEquals, s.charm.URL())
+	curl, ok = s.unit.CharmURL()
+	c.Assert(ok, Equals, true)
+	c.Assert(curl, DeepEquals, s.charm.URL())
 
 	err = s.unit.Destroy()
 	c.Assert(err, IsNil)
-	err = s.unit.SetCharm(s.charm)
+	err = s.unit.SetCharmURL(s.charm.URL())
 	c.Assert(err, IsNil)
-	ch, err = s.unit.Charm()
-	c.Assert(err, IsNil)
-	c.Assert(ch.URL(), DeepEquals, s.charm.URL())
+	curl, ok = s.unit.CharmURL()
+	c.Assert(ok, Equals, true)
+	c.Assert(curl, DeepEquals, s.charm.URL())
 
 	err = s.unit.EnsureDead()
 	c.Assert(err, IsNil)
-	err = s.unit.SetCharm(s.charm)
-	c.Assert(err, ErrorMatches, `cannot set charm for unit "wordpress/0": not found or not alive`)
+	err = s.unit.SetCharmURL(s.charm.URL())
+	c.Assert(err, ErrorMatches, `unit "wordpress/0" is dead`)
 }
 
 func (s *UnitSuite) TestEntityName(c *C) {
