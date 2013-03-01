@@ -484,6 +484,39 @@ func (s *suite) TestClientServiceSetYAML(c *C) {
 	})
 }
 
+var clientCharmInfoTests = []struct {
+	about    string
+	url      string
+	err      string
+	expected api.CharmInfo
+}{
+	{
+		about:    "retrieves charm info",
+		url:      "local:series/dummy-1",
+		expected: api.CharmInfo{},
+	},
+	{
+		about: "invalid URL",
+		url:   "not-valid",
+		err:   `charm URL has invalid schema: \"not-valid\"`,
+	},
+	{
+		about: "unknown charm",
+		url:   "cs:precise/does-not-exist",
+		err:   ``,
+	},
+}
+
+func (s *suite) TestClientCharmInfo(c *C) {
+	charm := s.AddTestingCharm(c, "local:series/dummy-1")
+	c.Logf("PIPPO =========== %s", charm.URL())
+
+	_, err := s.APIState.Client().CharmInfo("local:series/dummy-1")
+	c.Assert(err, IsNil)
+	// c.Assert(info.DefaultSeries, Equals, conf.DefaultSeries())
+	// c.Assert(info.ProviderType, Equals, conf.Type())
+}
+
 func (s *suite) TestClientEnvironmentInfo(c *C) {
 	conf, _ := s.State.EnvironConfig()
 	info, err := s.APIState.Client().EnvironmentInfo()

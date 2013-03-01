@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/statecmd"
 	"launchpad.net/tomb"
@@ -107,7 +108,7 @@ type CharmInfo struct {
 	Revision    int
 	Subordinate bool
 	URL         string
-	// Config
+	Config      *charm.Config
 	// Peers
 	// Provides
 	// Requires
@@ -116,6 +117,17 @@ type CharmInfo struct {
 // CharmInfoParams stores parameters for making the CharmInfo call.
 type CharmInfoParams struct {
 	CharmURL string
+}
+
+// CharmInfo returns information about the requested charm.
+func (c *Client) CharmInfo(charmURL string) (*CharmInfo, error) {
+	params := CharmInfoParams{CharmURL: charmURL}
+	info := new(CharmInfo)
+	err := c.st.client.Call("Client", "", "CharmInfo", params, info)
+	if err != nil {
+		return nil, clientError(err)
+	}
+	return info, nil
 }
 
 // EnvironmentInfo holds information about the Juju environment.
