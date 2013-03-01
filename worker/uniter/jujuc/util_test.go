@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"sort"
@@ -13,10 +12,6 @@ import (
 )
 
 func TestPackage(t *testing.T) { TestingT(t) }
-
-func dummyContext(c *C) *cmd.Context {
-	return &cmd.Context{c.MkDir(), nil, &bytes.Buffer{}, &bytes.Buffer{}}
-}
 
 func bufferString(w io.Writer) string {
 	return w.(*bytes.Buffer).String()
