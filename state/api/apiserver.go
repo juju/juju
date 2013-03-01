@@ -285,6 +285,9 @@ func (c *srvClient) CharmInfo(args CharmInfoParams) (CharmInfo, error) {
 		Subordinate: meta.Subordinate,
 		URL:         curl.String(),
 		Config:      charm.Config(),
+		Peers:       meta.Peers,
+		Provides:    meta.Provides,
+		Requires:    meta.Requires,
 	}
 	return info, nil
 }

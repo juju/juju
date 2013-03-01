@@ -109,9 +109,9 @@ type CharmInfo struct {
 	Subordinate bool
 	URL         string
 	Config      *charm.Config
-	// Peers
-	// Provides
-	// Requires
+	Peers       map[string]charm.Relation
+	Provides    map[string]charm.Relation
+	Requires    map[string]charm.Relation
 }
 
 // CharmInfoParams stores parameters for making the CharmInfo call.

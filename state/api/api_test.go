@@ -491,7 +491,7 @@ var clientCharmInfoTests = []struct {
 }{
 	{
 		about: "retrieves charm info",
-		url:   "local:series/dummy-1",
+		url:   "local:series/wordpress-3",
 	},
 	{
 		about: "invalid URL",
@@ -506,7 +506,8 @@ var clientCharmInfoTests = []struct {
 }
 
 func (s *suite) TestClientCharmInfo(c *C) {
-	charm := s.AddTestingCharm(c, "dummy")
+	// Use wordpress for tests so that we can compare Provides and Requires.
+	charm := s.AddTestingCharm(c, "wordpress")
 	for i, t := range clientCharmInfoTests {
 		c.Logf("test %d. %s", i, t.about)
 		info, err := s.APIState.Client().CharmInfo(t.url)
@@ -518,6 +519,9 @@ func (s *suite) TestClientCharmInfo(c *C) {
 			c.Assert(info.Subordinate, Equals, meta.Subordinate)
 			c.Assert(info.URL, Equals, charm.URL().String())
 			c.Assert(info.Config, DeepEquals, charm.Config())
+			c.Assert(info.Peers, DeepEquals, meta.Peers)
+			c.Assert(info.Provides, DeepEquals, meta.Provides)
+			c.Assert(info.Requires, DeepEquals, meta.Requires)
 		} else {
 			c.Assert(err, ErrorMatches, t.err)
 		}
