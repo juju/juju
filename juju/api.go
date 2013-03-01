@@ -29,7 +29,7 @@ func NewAPIConn(environ environs.Environ) (*APIConn, error) {
 	info.Password = password
 
 	st, err := api.Open(info)
-	// TODO(rog): handle ErrUnauthorized when the API handles passwords.
+	// TODO(rog): handle errUnauthorized when the API handles passwords.
 	if err != nil {
 		return nil, err
 	}

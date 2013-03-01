@@ -752,7 +752,7 @@ var errorTransformTests = []struct {
 	err:  state.NotFoundf("hello"),
 	code: api.CodeNotFound,
 }, {
-	err:  state.ErrUnauthorized,
+	err:  state.Unauthorizedf("hello"),
 	code: api.CodeUnauthorized,
 }, {
 	err:  state.ErrCannotEnterScopeYet,
