@@ -101,6 +101,23 @@ func (c *Client) ServiceUnexpose(service string) error {
 	return nil
 }
 
+// CharmInfo holds information about a charm.
+type CharmInfo struct {
+	Name        string
+	Revision    int
+	Subordinate bool
+	URL         string
+	// Config
+	// Peers
+	// Provides
+	// Requires
+}
+
+// CharmInfoParams stores parameters for making the CharmInfo call.
+type CharmInfoParams struct {
+	CharmURL string
+}
+
 // EnvironmentInfo holds information about the Juju environment.
 type EnvironmentInfo struct {
 	DefaultSeries string

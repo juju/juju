@@ -3,6 +3,7 @@ package api
 import (
 	"code.google.com/p/go.net/websocket"
 	"fmt"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/statecmd"
@@ -265,6 +266,26 @@ func (c *srvClient) ServiceExpose(args statecmd.ServiceExposeParams) error {
 // were also explicitly marked by units as open.
 func (c *srvClient) ServiceUnexpose(args statecmd.ServiceUnexposeParams) error {
 	return statecmd.ServiceUnexpose(c.root.srv.state, args)
+}
+
+// CharmInfo returns information about the requested charm.
+func (c *srvClient) CharmInfo(args CharmInfoParams) (CharmInfo, error) {
+	curl, err := charm.ParseURL(args.CharmURL)
+	if err != nil {
+		return CharmInfo{}, err
+	}
+	charm, err := c.root.srv.state.Charm(curl)
+	if err != nil {
+		return CharmInfo{}, err
+	}
+	meta := charm.Meta()
+	info := CharmInfo{
+		Name:        meta.Name,
+		Revision:    charm.Revision(),
+		Subordinate: meta.Subordinate,
+		URL:         curl.String(),
+	}
+	return info, nil
 }
 
 // EnvironmentInfo returns information about the current environment (default
