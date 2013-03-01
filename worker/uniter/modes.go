@@ -225,13 +225,7 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 	if err = u.unit.SetStatus(state.UnitStarted, ""); err != nil {
 		return nil, err
 	}
-	url, err := ucharm.ReadCharmURL(u.charm)
-	if err != nil {
-		return nil, err
-	}
 	u.f.WantUpgradeEvent(false)
-	// TODO: is this needed here?
-	u.f.SetCharm(url)
 	for _, r := range u.relationers {
 		r.StartHooks()
 	}
@@ -339,14 +333,8 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 	if err = u.unit.SetStatus(state.UnitError, msg); err != nil {
 		return nil, err
 	}
-	url, err := ucharm.ReadCharmURL(u.charm)
-	if err != nil {
-		return nil, err
-	}
 	u.f.WantResolvedEvent()
 	u.f.WantUpgradeEvent(true)
-	// TODO: is this needed here?
-	u.f.SetCharm(url)
 	for {
 		select {
 		case <-u.tomb.Dying():
@@ -387,8 +375,6 @@ func ModeConflicted(curl *charm.URL) Mode {
 		}
 		u.f.WantResolvedEvent()
 		u.f.WantUpgradeEvent(true)
-		// TODO: is this needed here?
-		u.f.SetCharm(curl)
 		for {
 			select {
 			case <-u.tomb.Dying():

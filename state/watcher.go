@@ -1010,8 +1010,10 @@ type ConfigWatcher struct {
 	*settingsWatcher
 }
 
+// WatchServiceConfig returns a watcher for observing changes to
+// unit's service configuration.
 func (u *Unit) WatchServiceConfig() *ConfigWatcher {
-	// TODO: Will use a better way to get the key in a follow-up.
+	// TODO(dimitern): Will use a better way to get the key in a follow-up.
 	return &ConfigWatcher{newSettingsWatcher(u.st, "s#"+u.doc.Service)}
 }
 

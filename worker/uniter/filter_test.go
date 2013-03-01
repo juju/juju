@@ -301,6 +301,24 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	c.Assert(err, IsNil)
 	assertChange()
 	assertNoChange()
+
+	// Check setting an invalid charm URL does not send events.
+	err = f.SetCharm(charm.MustParseURL("cs:missing/one-1"))
+	c.Assert(err, ErrorMatches, `unknown charm url "cs:missing/one-1"`)
+	assertNoChange()
+
+	// Check with a nil charm URL, again no changes.
+	err = f.SetCharm(nil)
+	c.Assert(err, ErrorMatches, "cannot set nil charm url")
+	assertNoChange()
+
+	// Check with a vaild charm URL + discard.
+	newCh := s.AddTestingCharmRevision(c, "wordpress", 2)
+	err = f.SetCharm(newCh.URL())
+	c.Assert(err, IsNil)
+	f.DiscardConfigEvent()
+	s.State.Sync()
+	assertNoChange()
 }
 
 func (s *FilterSuite) TestRelationsEvents(c *C) {

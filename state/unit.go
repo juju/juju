@@ -117,6 +117,7 @@ func (u *Unit) ServiceConfig() (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+	// We pass nil here, because we need just the config defaults.
 	cfg, err := charm.Config().Validate(nil)
 	if err != nil {
 		return nil, err

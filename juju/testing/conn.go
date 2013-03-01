@@ -206,7 +206,12 @@ func (s *JujuConnSuite) WriteConfig(config string) {
 
 func (s *JujuConnSuite) AddTestingCharm(c *C, name string) *state.Charm {
 	ch := testing.Charms.Dir(name)
-	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
+	return s.AddTestingCharmRevision(c, name, ch.Revision())
+}
+
+func (s *JujuConnSuite) AddTestingCharmRevision(c *C, name string, revision int) *state.Charm {
+	ch := testing.Charms.Dir(name)
+	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, revision)
 	curl := charm.MustParseURL("local:series/" + ident)
 	repo, err := charm.InferRepository(curl, testing.Charms.Path)
 	c.Assert(err, IsNil)

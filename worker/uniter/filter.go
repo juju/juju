@@ -44,6 +44,9 @@ type filter struct {
 	// should be discarded.
 	discardConfig chan struct{}
 
+	// charmChanged is used to report back the error when setting a charm URL.
+	charmChanged chan error
+
 	// The following fields hold state that is collected while running,
 	// and used to detect interesting changes to express as events.
 	unit             *state.Unit
@@ -74,6 +77,7 @@ func newFilter(st *state.State, unitName string) (*filter, error) {
 		setCharm:          make(chan *charm.URL),
 		wantResolved:      make(chan struct{}),
 		discardConfig:     make(chan struct{}),
+		charmChanged:      make(chan error),
 	}
 	go func() {
 		defer f.tomb.Done()
@@ -129,6 +133,8 @@ func (f *filter) RelationsEvents() <-chan []int {
 	return f.outRelationsOn
 }
 
+// WantUpgradeEvent controls whether the filter will generate upgrade
+// events for unforced service charm changes.
 func (f *filter) WantUpgradeEvent(mustForce bool) {
 	select {
 	case <-f.tomb.Dying():
@@ -136,11 +142,38 @@ func (f *filter) WantUpgradeEvent(mustForce bool) {
 	}
 }
 
-func (f *filter) SetCharm(curl *charm.URL) {
-	select {
-	case <-f.tomb.Dying():
-	case f.setCharm <- curl:
+// SetCharm notifies the filter that the unit is running a new
+// charm. It causes the unit's charm URL to be set in state, and the
+// following changes to the filter's behaviour:
+//
+// * Upgrade events will only be generated for charms different to
+//   that supplied;
+// * A fresh event will be generated for every relation
+//   known to the service;
+// * A fresh configuration event will be generated, and subsequent
+//   events will only be sent in response to changes in the version
+//   of the service's settings that is specific to that charm.
+//
+// SetCharm blocks until the charm URL is set in state, returning any
+// error that occurred.
+//
+// TODO(dimitern): Once we have per-charm service settings in a coming
+// follow-up the described behavior will match.
+func (f *filter) SetCharm(curl *charm.URL) error {
+	for {
+		select {
+		case <-f.tomb.Dying():
+			return tomb.ErrDying
+		case f.setCharm <- curl:
+		}
+		select {
+		case <-f.tomb.Dying():
+			return tomb.ErrDying
+		case err := <-f.charmChanged:
+			return err
+		}
 	}
+	panic("unreachable")
 }
 
 // WantResolvedEvent indicates that the filter should send a resolved event
@@ -184,8 +217,9 @@ func (f *filter) loop(unitName string) (err error) {
 	// configw and relationsw can get restarted, so we need to bind
 	// their current values in the defer calls.
 	var configw *state.ConfigWatcher
+	var configChanges <-chan *state.Settings
 	if _, ok := f.unit.CharmURL(); ok {
-		configw = f.unit.WatchServiceConfig()
+		configChanges = configw.Changes()
 	}
 	defer func() {
 		if configw != nil {
@@ -222,8 +256,7 @@ func (f *filter) loop(unitName string) (err error) {
 			if err = f.serviceChanged(); err != nil {
 				return err
 			}
-			// TODO: configw may be nil, so panic here - how can we get around it?
-		case _, ok = <-configw.Changes():
+		case _, ok = <-configChanges:
 			log.Debugf("worker/uniter/filter: got config change")
 			if !ok {
 				return watcher.MustErr(configw)
@@ -257,16 +290,25 @@ func (f *filter) loop(unitName string) (err error) {
 		// Handle explicit requests.
 		case curl := <-f.setCharm:
 			log.Debugf("worker/uniter/filter: changing charm to %q", curl)
-			// We need to restart the config watcher after setting the charm.
+			// We need to restart the config watcher after setting the
+			// charm, because service config settings are distinct for
+			// different service charms.
 			if configw != nil {
 				watcher.Stop(configw, &f.tomb)
 			}
-			if err := f.unit.SetCharmURL(curl); err != nil {
-				return err
-			}
 			configw = f.unit.WatchServiceConfig()
+			if err := f.unit.SetCharmURL(curl); err != nil {
+				f.charmChanged <- err
+				return err
+			} else {
+				f.charmChanged <- nil
+			}
+			configChanges = configw.Changes()
 
-			// Restart the relations watcher.
+			// Restart the relations watcher, in order to generate
+			// fresh events for every relation, so that
+			// previously-ignored events (i.e. those not applicable to
+			// the previous charm) can be handled.
 			watcher.Stop(relationsw, &f.tomb)
 			relationsw = f.service.WatchRelations()
 

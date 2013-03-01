@@ -205,11 +205,12 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason Op) error {
 		}
 	}
 	log.Printf("worker/uniter: charm %q is deployed", curl)
-	// TODO: this is here, right?
-	u.f.SetCharm(curl)
-	if err := u.unit.SetCharmURL(curl); err != nil {
+	// Set the new charm URL - this returns once it's done and stored.
+	if err := u.f.SetCharm(curl); err != nil {
 		return err
 	}
+	// Refresh to get the new URL.
+	u.unit.Refresh()
 	status := Queued
 	if hi != nil {
 		// If a hook operation was interrupted, restore it.
