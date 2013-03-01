@@ -76,13 +76,18 @@ func (stor *maasStorage) getSnapshot() *maasStorage {
 	}
 }
 
+// addressFileObject creates a MAASObject pointing to a given file.
+// Takes out a lock on the storage object to get a consistent view.
+func (stor *maasStorage) addressFileObject(name string) gomaasapi.MAASObject {
+	snapshot := stor.getSnapshot()
+	fullName := snapshot.namingPrefix + name
+	return snapshot.maasClientUnlocked.GetSubObject(fullName)
+}
+
 // retrieveFileObject retrieves the information of the named file, including
 // its download URL and its contents, as a MAASObject.
 func (stor *maasStorage) retrieveFileObject(name string) (gomaasapi.MAASObject, error) {
-	snapshot := stor.getSnapshot()
-	fullName := snapshot.namingPrefix + name
-	subObj := snapshot.maasClientUnlocked.GetSubObject(fullName)
-	obj, err := subObj.Get()
+	obj, err := stor.addressFileObject(name).Get()
 	if err != nil {
 		noObj := gomaasapi.MAASObject{}
 		serverErr, ok := err.(gomaasapi.ServerError)
