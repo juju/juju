@@ -81,7 +81,8 @@ func (stor *maasStorage) getSnapshot() *maasStorage {
 func (stor *maasStorage) retrieveFileObject(name string) (gomaasapi.MAASObject, error) {
 	snapshot := stor.getSnapshot()
 	fullName := snapshot.namingPrefix + name
-	obj, err := snapshot.maasClientUnlocked.GetSubObject(fullName).Get()
+	subObj := snapshot.maasClientUnlocked.GetSubObject(fullName)
+	obj, err := subObj.Get()
 	if err != nil {
 		noObj := gomaasapi.MAASObject{}
 		serverErr, ok := err.(gomaasapi.ServerError)
@@ -157,13 +158,14 @@ func (stor *maasStorage) URL(name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	url, err := fileObj.GetField("anon_resource_uri")
+	path, err := fileObj.GetField("anon_resource_uri")
 	if err != nil {
 		msg := fmt.Errorf("could not get file's download URL (may be an outdated MAAS): %s", err)
 		return "", msg
 	}
 
-	return url, nil
+	fullURL := fileObj.GetSubObject(path).URL()
+	return fullURL.String(), nil
 }
 
 func (*maasStorage) Put(name string, r io.Reader, length int64) error {

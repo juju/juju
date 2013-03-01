@@ -208,7 +208,8 @@ func (s *StorageSuite) TestListOperatesOnFlatNamespace(c *C) {
 	c.Check(listing, DeepEquals, []string{"a/b/c/d"})
 }
 
-func getURL(fileURL string) ([]byte, error) {
+// getFileAtURL requests, and returns, the file at the given URL.
+func getFileAtURL(fileURL string) ([]byte, error) {
 	request, err := http.NewRequest("GET", fileURL, nil)
 	if err != nil {
 		return nil, err
@@ -227,18 +228,19 @@ func getURL(fileURL string) ([]byte, error) {
 
 func (s *StorageSuite) TestURLReturnsURLCorrespondingToFile(c *C) {
 	const filename = "my-file.txt"
-	storage := NewStorage(s.environ)
+	storage := NewStorage(s.environ).(*maasStorage)
 	file := s.fakeStoredFile(storage, filename)
-	content, err := file.GetField("content")
+	// The file contains an anon_resource_uri, which consists of a path
+	// only.  anonURL will be the file's full URL.
+	anonURI, err := file.GetField("anon_resource_uri")
+	anonURL := storage.maasClientUnlocked.GetSubObject(anonURI).URL()
 	c.Assert(err, IsNil)
 
 	fileURL, err := storage.URL(filename)
 	c.Assert(err, IsNil)
 
 	c.Check(fileURL, NotNil)
-	body, err := getURL(fileURL)
-	c.Assert(err, IsNil)
-	c.Check(body, DeepEquals, content)
+	c.Check(fileURL, Equals, anonURL.String())
 }
 
 func (s *StorageSuite) TestPutStoresRetrievableFile(c *C) {
