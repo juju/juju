@@ -83,6 +83,10 @@ var operationPermTests = []struct {
 	about: "Client.ServiceUnexpose",
 	op:    opClientServiceUnexpose,
 	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.CharmInfo",
+	op:    opClientCharmInfo,
+	allow: []string{"user-admin", "user-other"},
 },
 }
 
@@ -183,6 +187,17 @@ func opMachine1SetPassword(c *C, st *api.State) (func(), error) {
 	return func() {
 		setDefaultPassword(c, m)
 	}, nil
+}
+
+func opClientCharmInfo(c *C, st *api.State) (func(), error) {
+	info, err := st.Client().CharmInfo("local:series/wordpress-3")
+	if err != nil {
+		c.Check(info, IsNil)
+		return func() {}, err
+	}
+	c.Assert(err, IsNil)
+	c.Assert(info.Name, Equals, "wordpress")
+	return func() {}, nil
 }
 
 func opClientStatus(c *C, st *api.State) (func(), error) {
