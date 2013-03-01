@@ -3,11 +3,9 @@ package state
 import (
 	"labix.org/v2/mgo"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/tomb"
 	"strings"
-	"fmt"
 )
 
 // commonWatcher is part of all client watchers.

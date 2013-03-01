@@ -822,7 +822,3 @@ func (st *State) Cleanup() error {
 	}
 	return nil
 }
-
-func (st *State) Watch() *StateWatcher {
-	return newStateWatcher(st)
-}
