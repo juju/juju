@@ -30,18 +30,28 @@ type MachineInfo struct {
 	InstanceId string
 }
 
-func (i *MachineInfo) EntityId() interface{} {
-	return i.Id
-}
-
-func (i *MachineInfo) EntityKind() string {
-	return "machine"
-}
+func (i *MachineInfo) EntityId() interface{} { return i.Id }
+func (i *MachineInfo) EntityKind() string { return "machine" }
 
 type ServiceInfo struct {
 	Name          string `bson:"_id"`
 	Exposed       bool
 }
+
+func (i *ServiceInfo) EntityId() interface{} { return i.Name }
+func (i *ServiceInfo) EntityKind() string { return "service" }
+
+type UnitInfo struct {
+	Name          string `bson:"_id"`
+	Service        string
+}
+
+func (i *UnitInfo) EntityId() interface{} { return i.Name }
+func (i *UnitInfo) EntityKind() string { return "service" }
+
+func (i *ServiceInfo) EntityId() interface{} { return i.Name }
+func (i *ServiceInfo) EntityKind() string { return "service" }
+
 
 // infoEntityId returns the entity id of the given entity document.
 func infoEntityId(st *state.State, info EntityInfo) entityId {
@@ -119,6 +129,7 @@ func (a *allInfo) delete(id entityId) {
 func (a *allInfo) update(id entityId) error {
 	info := a.newInfo[id.collection]()
 	collection := infoCollection(a.st, info)
+	// TODO(rog) investigate ways that this can be made more efficient.
 	if err := collection.FindId(info.EntityId()).One(info); err != nil {
 		if IsNotFound(err) {
 			// The document has been removed since the change notification arrived.
@@ -130,11 +141,14 @@ func (a *allInfo) update(id entityId) error {
 		return fmt.Errorf("cannot get %v from %s: %v", id.id, collection.Name, err)
 	}
 	if elem := a.entities[id]; elem != nil {
-		// We already know about the entity; update its doc.
-		// TODO(rog) move to front only when the information that
-		// we send to clients changes, ignoring the change otherwise.
-		a.latestRevno++
 		entry := elem.Value.(*entityEntry)
+		// Nothing has changed, so change nothing.
+		// TODO(rog) do the comparison more efficiently.
+		if reflect.DeepEqual(info, entry.info) {
+			return nil
+		}
+		// We already know about the entity; update its doc.
+		a.latestRevno++
 		entry.revno = a.latestRevno
 		entry.info = info
 		a.list.MoveToFront(elem)
@@ -156,31 +170,66 @@ func (a *allInfo) getAll() error {
 	}
 }
 
+var kindOrder = []string{
+	"service",
+	"relation",
+	"machine",
+	"unit",
+}
+
 func (a *allInfo) changesSince(revno int64) ([]Delta, int64) {
+	// Extract all deltas into categorised slices, then
+	// build up an overall slice that sends creates before
+	// deletes, and orders parents before children
+	// on creation, and children before parents on deletion
+	// (see kindOrder above).
+	e := a.list.Front()
+	for ; e != nil; e = e.Next() {
+		entry := e.Value.(*entityEntry)
+		if entry.revno <= revno {
+			break
+		}
+	}
+	if e != nil {
+		// We've found an element that we've already seen.
+		e = e.Prev()
+	} else {
+		// We haven't seen any elements, so we want all of them.
+		e = e.list.Back()
+	}
+	if e == nil {
+		// Common case: nothing new to see - let's be efficient.
+		return nil, revno
+	}
 	deltas := map[bool]{
 		false: make(map[string][]Delta),
 		true: make(map[string][]Delta),
 	}
-	iter := func(f func(entry *entityEntry)) {
-		for e := a.list.Front(); e != nil; e = e.Next() {
-			entry := e.Value.(*entityEntry)
-			if entry.revno <= revno {
-				break
-			}
-			m := deltas[entry.removed][entry.info.EntityKind()]
-			if m == nil {
-				m = 
-			switch 
-			f(entry)
+	n := 0
+	// Iterate from oldest to newest.
+	for ; e != nil; e = e.Prev() {
+		entry := e.Value.(*entityEntry)
+		if entry.revno <= revno {
+			break
 		}
-	}
-	
-		// TODO(rog) 
-		changes = append(changes, Delta{
+		m := deltas[entry.removed]
+		kind := entry.info.EntityKind()
+		m[kind] = append(m[kind], Delta{
 			Removed: entry.removed,
 			Entity: entry.info,
 		})
+		n++
 	}
+	changes := make([]Delta, 0, n)
+	// Changes in parent-to-child order
+	for _, kind := range kindOrder {
+		changes = append(changes, deltas[false][kind])
+	}
+	// Removals in child-to-parent order.
+	for i := len(kindOrder)-1; i >= 0; i-- {
+		changes = append(changes, deltas[true][kind])
+	}
+	return changes, a.list.Front().Value.(*entityEntry).revno
 }
 
 func (w *StateWatcher) loop() error {
@@ -197,7 +246,7 @@ func (w *StateWatcher) loop() error {
 		return err
 	}
 	// TODO(rog) make this a collection of outstanding requests.
-	var currentRequest *getRequest
+	var currentReq *getRequest
 
 	in := make(chan watcher.Change)
 	w.st.watcher.WatchCollection(w.st.machines.Name, in)
@@ -206,6 +255,8 @@ func (w *StateWatcher) loop() error {
 	defer w.st.watcher.UnwatchCollection(w.st.services.Name, in)
 	w.st.watcher.WatchCollection(w.st.units.Name, in)
 	defer w.st.watcher.UnwatchCollection(w.st.units.Name, in)
+	w.st.watcher.WatchCollection(w.st.relations.Name, in)
+	defer w.st.watcher.UnwatchCollection(w.st.relations.Name, in)
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -215,11 +266,24 @@ func (w *StateWatcher) loop() error {
 				return err
 			}
 		case req := <-w.request:
-			if currentRequest != nil {
+			if currentReq != nil {
 				// TODO(rog) relax this
 				panic("cannot have two outstanding get requests")
 			}
+			currentReq = req
 		}
+		// Satisfy any request that can be satisfied.
+		if currentReq == nil {
+			continue
+		}
+		changes, revno := all.changesSince(currentReq.revno)
+		if len(changes) == nil {
+			continue
+		}
+		currentReq.revno = revno
+		currentReq.changes = changes
+		currentReq.reply <- true
+		currentReq = nil
 	}
 	panic("unreachable")
 }
@@ -237,7 +301,8 @@ type getRequest struct {
 }
 
 // Get retrieves all changes that have happened since
-// the given revision number. It also returns the
+// the given revision number, blocking until there
+// are some changes available. It also returns the
 // revision number of the latest change.
 func (w *StateWatcher) Get(revno int64) ([]Delta, int64, error) {
 	// TODO allow several concurrent Gets on the
@@ -299,10 +364,3 @@ func (d *Delta) MarshalJSON() ([]byte, error) {
 //	}
 //	
 //}
-
-
-func (w *StateWatcher) Get(
-
-func (w *StateWatcher) Changes() <-chan watcher.Change {
-	return w.out
-}
