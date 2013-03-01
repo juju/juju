@@ -1,13 +1,10 @@
 package state_test
 
 import (
-	"fmt"
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
-	"net/url"
 	stdtesting "testing"
 )
 
@@ -59,12 +56,5 @@ func (cs *ConnSuite) TearDownTest(c *C) {
 }
 
 func (s *ConnSuite) AddTestingCharm(c *C, name string) *state.Charm {
-	ch := testing.Charms.Dir(name)
-	ident := fmt.Sprintf("%s-%d", name, ch.Revision())
-	curl := charm.MustParseURL("local:series/" + ident)
-	bundleURL, err := url.Parse("http://bundles.example.com/" + ident)
-	c.Assert(err, IsNil)
-	sch, err := s.State.AddCharm(ch, curl, bundleURL, ident+"-sha256")
-	c.Assert(err, IsNil)
-	return sch
+	return state.AddTestingCharm(c, s.State, name)
 }

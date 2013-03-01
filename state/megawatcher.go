@@ -1,15 +1,16 @@
 package state
+
 import (
 	"container/list"
 	"fmt"
-	"reflect"
 	"labix.org/v2/mgo"
+	"reflect"
 )
 
 // entityId holds the mongo identifier of an entity.
 type entityId struct {
 	collection string
-	id interface{}
+	id         interface{}
 }
 
 // entityEntry holds an entry in the linked list
@@ -20,9 +21,9 @@ type entityEntry struct {
 	// we can unconditionally move a newly fetched entity
 	// to the front of the list without worrying if the revno
 	// has changed since the watcher reported it.
-	revno int64
+	revno   int64
 	removed bool
-	info EntityInfo
+	info    EntityInfo
 }
 
 // allInfo holds a list of all entities known
@@ -32,10 +33,10 @@ type allInfo struct {
 	// newInfo describes how to create a new entity
 	// info value given the name of the collection it's
 	// stored in.
-	newInfo map[string] func() EntityInfo
+	newInfo     map[string]func() EntityInfo
 	latestRevno int64
-	entities map[entityId] *list.Element
-	list *list.List
+	entities    map[entityId]*list.Element
+	list        *list.List
 }
 
 // newAllInfo returns an allInfo instance holding
@@ -43,13 +44,13 @@ type allInfo struct {
 // in the environment.
 func newAllInfo(st *State) (*allInfo, error) {
 	all := &allInfo{
-		st: st,
-		entities: make(map[entityId] *list.Element),
-		newInfo: map[string] func() EntityInfo {
-			st.machines.Name: func() EntityInfo {return new(MachineInfo)},
-			st.units.Name: func() EntityInfo {return new(UnitInfo)},
-			st.services.Name: func() EntityInfo {return new(ServiceInfo)},
-			st.relations.Name: func() EntityInfo {return new(RelationInfo)},
+		st:       st,
+		entities: make(map[entityId]*list.Element),
+		newInfo: map[string]func() EntityInfo{
+			st.machines.Name:  func() EntityInfo { return new(MachineInfo) },
+			st.units.Name:     func() EntityInfo { return new(UnitInfo) },
+			st.services.Name:  func() EntityInfo { return new(ServiceInfo) },
+			st.relations.Name: func() EntityInfo { return new(RelationInfo) },
 		},
 		list: list.New(),
 	}
@@ -63,7 +64,7 @@ func newAllInfo(st *State) (*allInfo, error) {
 func (a *allInfo) add(info EntityInfo) {
 	a.latestRevno++
 	entry := &entityEntry{
-		info: info,
+		info:  info,
 		revno: a.latestRevno,
 	}
 	a.entities[infoEntityId(a.st, info)] = a.list.PushFront(entry)
@@ -192,7 +193,7 @@ func (a *allInfo) changesSince(revno int64) ([]Delta, int64) {
 	}
 	deltas := map[bool]map[string][]Delta{
 		false: make(map[string][]Delta),
-		true: make(map[string][]Delta),
+		true:  make(map[string][]Delta),
 	}
 	n := 0
 	// Iterate from oldest to newest.
@@ -215,7 +216,7 @@ func (a *allInfo) changesSince(revno int64) ([]Delta, int64) {
 		changes = append(changes, deltas[false][kind]...)
 	}
 	// Removals in child-to-parent order.
-	for i := len(entityKinds)-1; i >= 0; i-- {
+	for i := len(entityKinds) - 1; i >= 0; i-- {
 		kind := entityKinds[i]
 		changes = append(changes, deltas[true][kind]...)
 	}
@@ -226,7 +227,7 @@ func (a *allInfo) changesSince(revno int64) ([]Delta, int64) {
 func infoEntityId(st *State, info EntityInfo) entityId {
 	return entityId{
 		collection: collectionForInfo(st, info).Name,
-		id: info.EntityId(),
+		id:         info.EntityId(),
 	}
 }
 
@@ -264,32 +265,32 @@ var (
 // MachineInfo holds the information about a Machine
 // that is watched by StateWatcher.
 type MachineInfo struct {
-	Id           string `bson:"_id"`
+	Id         string `bson:"_id"`
 	InstanceId string
 }
 
 func (i *MachineInfo) EntityId() interface{} { return i.Id }
-func (i *MachineInfo) EntityKind() string { return "machine" }
+func (i *MachineInfo) EntityKind() string    { return "machine" }
 
 type ServiceInfo struct {
-	Name          string `bson:"_id"`
-	Exposed       bool
+	Name    string `bson:"_id"`
+	Exposed bool
 }
 
 func (i *ServiceInfo) EntityId() interface{} { return i.Name }
-func (i *ServiceInfo) EntityKind() string { return "service" }
+func (i *ServiceInfo) EntityKind() string    { return "service" }
 
 type UnitInfo struct {
-	Name          string `bson:"_id"`
-	Service        string
+	Name    string `bson:"_id"`
+	Service string
 }
 
 func (i *UnitInfo) EntityId() interface{} { return i.Name }
-func (i *UnitInfo) EntityKind() string { return "service" }
+func (i *UnitInfo) EntityKind() string    { return "service" }
 
 type RelationInfo struct {
-	Key       string `bson:"_id"`
+	Key string `bson:"_id"`
 }
 
 func (i *RelationInfo) EntityId() interface{} { return i.Key }
-func (i *RelationInfo) EntityKind() string { return "service" }
+func (i *RelationInfo) EntityKind() string    { return "service" }
