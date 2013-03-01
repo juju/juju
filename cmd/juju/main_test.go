@@ -147,7 +147,6 @@ func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *C) {
 }
 
 var commandNames = []string{
-	"?", // alias for help
 	"add-relation",
 	"add-unit",
 	"bootstrap",

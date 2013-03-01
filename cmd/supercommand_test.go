@@ -18,21 +18,22 @@ type SuperCommandSuite struct{}
 
 var _ = Suite(&SuperCommandSuite{})
 
+const helpText = "\n    help\\s+- show help on a command or other topic"
+const helpCommandsText = "commands:" + helpText
+
 func (s *SuperCommandSuite) TestDispatch(c *C) {
 	jc := &cmd.SuperCommand{Name: "jujutest"}
-	err := testing.InitCommand(jc, []string{})
-	c.Assert(err, ErrorMatches, `no command specified`)
 	info := jc.Info()
 	c.Assert(info.Name, Equals, "jujutest")
 	c.Assert(info.Args, Equals, "<command> ...")
-	c.Assert(info.Doc, Equals, "")
+	c.Assert(info.Doc, Matches, helpCommandsText)
 
-	jc, _, err = initDefenestrate([]string{"discombobulate"})
+	jc, _, err := initDefenestrate([]string{"discombobulate"})
 	c.Assert(err, ErrorMatches, "unrecognized command: jujutest discombobulate")
 	info = jc.Info()
 	c.Assert(info.Name, Equals, "jujutest")
 	c.Assert(info.Args, Equals, "<command> ...")
-	c.Assert(info.Doc, Equals, "commands:\n    defenestrate - defenestrate the juju")
+	c.Assert(info.Doc, Matches, "commands:\n    defenestrate - defenestrate the juju"+helpText)
 
 	jc, tc, err := initDefenestrate([]string{"defenestrate"})
 	c.Assert(err, IsNil)
@@ -58,17 +59,6 @@ func (s *SuperCommandSuite) TestRegister(c *C) {
 	c.Assert(badCall, PanicMatches, "command already registered: flap")
 }
 
-func (s *SuperCommandSuite) TestGetCommand(c *C) {
-	jc := &cmd.SuperCommand{Name: "jujutest"}
-	jc.Register(&TestCommand{Name: "flip"})
-	cmd, found := jc.GetCommand("flip")
-	c.Assert(found, Equals, true)
-	c.Assert(cmd, NotNil)
-	cmd, found = jc.GetCommand("not-found")
-	c.Assert(found, Equals, false)
-	c.Assert(cmd, IsNil)
-}
-
 func (s *SuperCommandSuite) TestRegisterAlias(c *C) {
 	jc := &cmd.SuperCommand{Name: "jujutest"}
 	jc.Register(&TestCommand{Name: "flip", Aliases: []string{"flap", "flop"}})
@@ -77,7 +67,8 @@ func (s *SuperCommandSuite) TestRegisterAlias(c *C) {
 	c.Assert(info.Doc, Equals, `commands:
     flap - alias for flip
     flip - flip the juju
-    flop - alias for flip`)
+    flop - alias for flip
+    help - show help on a command or other topic`)
 }
 
 var commandsDoc = `commands:
@@ -91,16 +82,18 @@ func (s *SuperCommandSuite) TestInfo(c *C) {
 	info := jc.Info()
 	c.Assert(info.Name, Equals, "jujutest")
 	c.Assert(info.Purpose, Equals, "to be purposeful")
-	c.Assert(info.Doc, Equals, jc.Doc)
+	// info doc starts with the jc.Doc and ends with the help command
+	c.Assert(info.Doc, Matches, jc.Doc+"(.|\n)*")
+	c.Assert(info.Doc, Matches, "(.|\n)*"+helpCommandsText)
 
 	jc.Register(&TestCommand{Name: "flip"})
 	jc.Register(&TestCommand{Name: "flapbabble"})
 	info = jc.Info()
-	c.Assert(info.Doc, Equals, jc.Doc+"\n\n"+commandsDoc)
+	c.Assert(info.Doc, Matches, jc.Doc+"\n\n"+commandsDoc+helpText)
 
 	jc.Doc = ""
 	info = jc.Info()
-	c.Assert(info.Doc, Equals, commandsDoc)
+	c.Assert(info.Doc, Matches, commandsDoc+helpText)
 }
 
 func (s *SuperCommandSuite) TestLogging(c *C) {
