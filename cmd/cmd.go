@@ -31,9 +31,6 @@ type Command interface {
 	// Run will execute the Command as directed by the options and positional
 	// arguments passed to Init.
 	Run(ctx *Context) error
-
-	// Help returns the help string for the Command.
-	Help(i *Info, f *gnuflag.FlagSet) []byte
 }
 
 // CommandBase provides the default implementation for SetFlags, Init, and Help.
@@ -45,11 +42,6 @@ func (c *CommandBase) SetFlags(f *gnuflag.FlagSet) {}
 // Init in the simplest case makes sure there are no args.
 func (c *CommandBase) Init(args []string) error {
 	return CheckEmpty(args)
-}
-
-// Help by default prints out the generated help from the Info.
-func (c *CommandBase) Help(i *Info, f *gnuflag.FlagSet) []byte {
-	return i.Help(f)
 }
 
 // Context represents the run context of a Command. Command implementations
@@ -139,7 +131,7 @@ func ParseArgs(c Command, f *gnuflag.FlagSet, args []string) error {
 // return code.
 func handleCommandError(c Command, ctx *Context, err error, f *gnuflag.FlagSet) (int, bool) {
 	if err == gnuflag.ErrHelp {
-		ctx.Stderr.Write(c.Help(c.Info(), f))
+		ctx.Stderr.Write(c.Info().Help(f))
 		return 0, true
 	}
 	if err != nil {
