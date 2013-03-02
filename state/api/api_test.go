@@ -79,6 +79,10 @@ var operationPermTests = []struct {
 	about: "Client.ServiceExpose",
 	op:    opClientServiceExpose,
 	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.ServiceAddUnit",
+	op:    opClientServiceAddUnit,
+	allow: []string{"user-admin", "user-other"},
 },
 }
 
@@ -234,6 +238,17 @@ func opClientServiceExpose(c *C, st *api.State) (func(), error) {
 	// This test only shows that the call is made without error, ensuring the
 	// signatures match.
 	err := st.Client().ServiceExpose("wordpress")
+	if err != nil {
+		return func() {}, err
+	}
+	c.Assert(err, IsNil)
+	return func() {}, nil
+}
+
+func opClientServiceAddUnit(c *C, st *api.State) (func(), error) {
+	// This test only shows that the call is made without error, ensuring the
+	// signatures match.
+	err := st.Client().ServiceAddUnit("wordpress", 1)
 	if err != nil {
 		return func() {}, err
 	}

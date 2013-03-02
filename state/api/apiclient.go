@@ -90,6 +90,19 @@ func (c *Client) ServiceExpose(service string) error {
 	return nil
 }
 
+// ServiceAddUnit adds a given number of units to a service.
+func (c *Client) ServiceAddUnit(service string, numUnits int) error {
+	params := statecmd.ServiceAddUnitParams{
+		ServiceName: service,
+		NumUnits: numUnits
+	}
+	err := c.st.client.Call("Client", "", "ServiceAddUnit", params, nil)
+	if err != nill {
+		return clientError(err)
+	}
+	return nil
+}
+
 // EnvironmentInfo holds information about the Juju environment.
 type EnvironmentInfo struct {
 	DefaultSeries string

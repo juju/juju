@@ -261,6 +261,11 @@ func (c *srvClient) ServiceExpose(args statecmd.ServiceExposeParams) error {
 	return statecmd.ServiceExpose(c.root.srv.state, args)
 }
 
+// ServiceAddUnit adds a given number of units to a service.
+func (c *srvClient) ServiceAddUnit(args statecmd.ServiceAddUnitParams) error {
+	return statecmd.ServiceAddUnit(c.root.srv.state, args)
+}
+
 // EnvironmentInfo returns information about the current environment (default
 // series and type).
 func (c *srvClient) EnvironmentInfo() (EnvironmentInfo, error) {
