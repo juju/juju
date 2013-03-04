@@ -55,6 +55,12 @@ func (t *Tests) TestBootstrapWithoutAdminSecret(c *C) {
 	c.Assert(err, ErrorMatches, ".*admin-secret is required for bootstrap")
 }
 
+func (t *Tests) TestProviderAssignmentPolicy(c *C) {
+	e := t.Open(c)
+	policy := e.AssignmentPolicy()
+	c.Assert(policy, FitsTypeOf, state.AssignUnused)
+}
+
 func (t *Tests) TestStartStop(c *C) {
 	e := t.Open(c)
 

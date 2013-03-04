@@ -63,10 +63,10 @@ func (p environProvider) BoilerplateConfig() string {
 ## https://juju.ubuntu.com/get-started/openstack/
 openstack:
   type: openstack
-  # Specifies whether the nodes are accessible via a public IP address.
-  # For installations where IP addresses have limited availability, ssh tunnelling
-  # may be a preferred connection option.
-  use-floating-ip: false
+  # Specifies whether the use of a floating IP address is required to give the nodes
+  # a public IP address. Some installations assign public IP addresses by default without
+  # requiring a floating IP address.
+  # use-floating-ip: false
   admin-secret: {{rand}}
   # Globally unique swift bucket name
   control-bucket: juju-{{rand}}
@@ -90,11 +90,10 @@ openstack:
 ## https://juju.ubuntu.com/get-started/hp-cloud/
 hpcloud:
   type: openstack
-  # Specifies whether the nodes are accessible via a public IP address.
-  # For installations where IP addresses have limited availability, ssh tunnelling
-  # may be a preferred connection option. HP Cloud seems to have lots of available
-  # IP addresses.
-  # use-floating-ip: false
+  # Specifies whether the use of a floating IP address is required to give the nodes
+  # a public IP address. Some installations assign public IP addresses by default without
+  # requiring a floating IP address.
+  use-floating-ip: false
   admin-secret: {{rand}}
   # Globally unique swift bucket name
   control-bucket: juju-{{rand}}

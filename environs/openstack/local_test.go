@@ -14,9 +14,6 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 	"net/http"
 	"net/http/httptest"
-
-//	"launchpad.net/juju-core/trivial"
-//	"launchpad.net/goyaml"
 )
 
 type ProviderSuite struct{}
@@ -322,6 +319,8 @@ func (s *localServerSuite) TestInstancesGathering(c *C) {
 	}
 }
 
+// TODO (wallyworld) - this test was copied from the ec2 provider.
+// It should be moved to environs.jujutests.Tests.
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	policy := t.env.AssignmentPolicy()
 	c.Assert(policy, Equals, state.AssignUnused)
