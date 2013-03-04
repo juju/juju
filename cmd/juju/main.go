@@ -30,7 +30,7 @@ func Main(args []string) {
 		Log:       &cmd.Log{},
 		HelpTopic: "basics",
 	}
-	juju.AddHelpTopic("basics", "Basic commands", help_basics)
+	juju.AddHelpTopic("basics", "Basic commands", helpBasics)
 
 	// Register creation commands.
 	juju.Register(&BootstrapCommand{})

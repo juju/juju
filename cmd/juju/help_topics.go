@@ -1,6 +1,6 @@
 package main
 
-const help_basics = `
+const helpBasics = `
 Juju -- devops distilled
 https://juju.ubuntu.com/
 

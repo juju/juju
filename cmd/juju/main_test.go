@@ -52,22 +52,22 @@ var runMainTests = []struct {
 		summary: "no params shows help",
 		args:    []string{},
 		code:    0,
-		out:     strings.TrimLeft(help_basics, "\n"),
+		out:     strings.TrimLeft(helpBasics, "\n"),
 	}, {
 		summary: "juju help is the same as juju",
 		args:    []string{"help"},
 		code:    0,
-		out:     strings.TrimLeft(help_basics, "\n"),
+		out:     strings.TrimLeft(helpBasics, "\n"),
 	}, {
 		summary: "juju --help works too",
 		args:    []string{"--help"},
 		code:    0,
-		out:     strings.TrimLeft(help_basics, "\n"),
+		out:     strings.TrimLeft(helpBasics, "\n"),
 	}, {
 		summary: "juju help basics is the same as juju",
 		args:    []string{"help", "basics"},
 		code:    0,
-		out:     strings.TrimLeft(help_basics, "\n"),
+		out:     strings.TrimLeft(helpBasics, "\n"),
 	}, {
 		summary: "unknown command",
 		args:    []string{"discombobulate"},
