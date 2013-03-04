@@ -37,7 +37,13 @@ func echo(s string) func() string {
 
 const helpPurpose = "show help on a command or other topic"
 
-func (c *SuperCommand) initializeHelp() {
+// Because Go doesn't have constructors that initialize the object into a
+// ready state.
+func (c *SuperCommand) init() {
+	if c.subcmds != nil {
+		return
+	}
+	c.subcmds = make(map[string]Command)
 	c.topics = map[string]topic{
 		"commands": {
 			short: "Basic help for all commands",
@@ -55,9 +61,7 @@ func (c *SuperCommand) initializeHelp() {
 }
 
 func (c *SuperCommand) AddHelpTopic(name, short, long string) {
-	if c.topics == nil {
-		c.initializeHelp()
-	}
+	c.init()
 	if _, found := c.topics[name]; found || name == "help" {
 		panic(fmt.Sprintf("help topic already added: %s", name))
 	}
@@ -67,9 +71,7 @@ func (c *SuperCommand) AddHelpTopic(name, short, long string) {
 // Register makes a subcommand available for use on the command line. The
 // command will be available via its own name, and via any supplied aliases.
 func (c *SuperCommand) Register(subcmd Command) {
-	if c.subcmds == nil {
-		c.subcmds = make(map[string]Command)
-	}
+	c.init()
 	info := subcmd.Info()
 	c.insert(info.Name, subcmd)
 	for _, name := range info.Aliases {
@@ -245,9 +247,7 @@ See also: topics
 
 // Init initializes the command for running.
 func (c *SuperCommand) Init(args []string) error {
-	if c.topics == nil {
-		c.initializeHelp()
-	}
+	c.init()
 	if len(args) == 0 {
 		c.showHelp = true
 		return nil
