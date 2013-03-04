@@ -19,23 +19,16 @@ type topic struct {
 // its selected subcommand.
 type SuperCommand struct {
 	CommandBase
-	Name      string
-	Purpose   string
-	Doc       string
-	Log       *Log
-	HelpTopic string
-	subcmds   map[string]Command
-	flags     *gnuflag.FlagSet
-	subcmd    Command
-	showHelp  bool
-	topics    map[string]topic
+	Name     string
+	Purpose  string
+	Doc      string
+	Log      *Log
+	subcmds  map[string]Command
+	flags    *gnuflag.FlagSet
+	subcmd   Command
+	showHelp bool
+	topics   map[string]topic
 }
-
-func echo(s string) func() string {
-	return func() string { return s }
-}
-
-const helpPurpose = "show help on a command or other topic"
 
 // Because Go doesn't have constructors that initialize the object into a
 // ready state.
@@ -43,7 +36,11 @@ func (c *SuperCommand) init() {
 	if c.subcmds != nil {
 		return
 	}
-	c.subcmds = make(map[string]Command)
+	c.subcmds = map[string]Command{
+		"help": &helpCommand{
+			super: c,
+		},
+	}
 	c.topics = map[string]topic{
 		"commands": {
 			short: "Basic help for all commands",
@@ -60,9 +57,15 @@ func (c *SuperCommand) init() {
 	}
 }
 
+func echo(s string) func() string {
+	return func() string { return s }
+}
+
+const helpPurpose = "show help on a command or other topic"
+
 func (c *SuperCommand) AddHelpTopic(name, short, long string) {
 	c.init()
-	if _, found := c.topics[name]; found || name == "help" {
+	if _, found := c.topics[name]; found {
 		panic(fmt.Sprintf("help topic already added: %s", name))
 	}
 	c.topics[name] = topic{short, echo(long)}
@@ -129,10 +132,9 @@ func (c *SuperCommand) describeCommands(simple bool) string {
 		lineFormat = "%-*s  %s"
 		outputFormat = "%s"
 	}
-	cmds := make([]string, len(c.subcmds)+1)
-	cmds[0] = "help"
-	i := 1
-	longest := len(cmds[0])
+	cmds := make([]string, len(c.subcmds))
+	i := 0
+	longest := 0
 	for name := range c.subcmds {
 		if len(name) > longest {
 			longest = len(name)
@@ -142,10 +144,6 @@ func (c *SuperCommand) describeCommands(simple bool) string {
 	}
 	sort.Strings(cmds)
 	for i, name := range cmds {
-		if name == "help" {
-			cmds[i] = fmt.Sprintf(lineFormat, longest, name, helpPurpose)
-			continue
-		}
 		info := c.subcmds[name].Info()
 		purpose := info.Purpose
 		if name != info.Name {
@@ -198,74 +196,16 @@ func (c *SuperCommand) getTopicText(name string) (string, bool) {
 	return "", false
 }
 
-func (c *SuperCommand) help(ctx *Context) error {
-	// If we have a subcommand specified, then show the help for that subcommand.
-	if c.subcmd != nil {
-		info := c.subcmd.Info()
-		info.Name = fmt.Sprintf("%s %s", c.Name, info.Name)
-		f := gnuflag.NewFlagSet(info.Name, gnuflag.ContinueOnError)
-		c.subcmd.SetFlags(f)
-		ctx.Stdout.Write(info.Help(f))
-		return nil
-	}
-	// If we are asked for help on help, then fake up an Info.
-	if c.HelpTopic == "help" || c.HelpTopic == "--help" {
-		info := Info{
-			Name:    c.Name + " help",
-			Args:    "[topic]",
-			Purpose: helpPurpose,
-			Doc: `
-See also: topics
-`,
-		}
-		f := gnuflag.NewFlagSet(info.Name, gnuflag.ContinueOnError)
-		ctx.Stdout.Write(info.Help(f))
-		return nil
-	}
-	// If there is no help topic specified, print basic usage.
-	if c.HelpTopic == "" {
-		info := c.Info()
-		f := gnuflag.NewFlagSet(info.Name, gnuflag.ContinueOnError)
-		c.SetFlags(f)
-		ctx.Stdout.Write(info.Help(f))
-		return nil
-	}
-	// If there is a help topic specified, look for that.
-	if topic, found := c.topics[c.HelpTopic]; found {
-		fmt.Fprintf(ctx.Stdout, "%s\n", strings.TrimSpace(topic.long()))
-	} else {
-		return fmt.Errorf("Unknown command or topic for %s\n", c.HelpTopic)
-	}
-	return nil
-}
-
 // Init initializes the command for running.
 func (c *SuperCommand) Init(args []string) error {
 	c.init()
 	if len(args) == 0 {
-		c.showHelp = true
+		c.subcmd = c.subcmds["help"]
 		return nil
 	}
 
 	found := false
-	if args[0] == "help" {
-		c.showHelp = true
-		switch len(args) {
-		case 1:
-			// Nothing else to do.
-		case 2:
-			{
-				if c.subcmd, found = c.subcmds[args[1]]; !found {
-					// If the requested help isn't a subcommand, treat it as the topic.
-					c.HelpTopic = args[1]
-				}
-			}
-		default:
-			return fmt.Errorf("extra argument to command help: %q", args[2])
-		}
-		return nil
-	}
-	// Not help, so look for the command.
+	// Look for the command.
 	if c.subcmd, found = c.subcmds[args[0]]; !found {
 		return fmt.Errorf("unrecognized command: %s %s", c.Info().Name, args[0])
 	}
@@ -274,10 +214,8 @@ func (c *SuperCommand) Init(args []string) error {
 	if err := c.flags.Parse(true, args); err != nil {
 		return err
 	}
-	// If --help was specified, we don't want to initialize the subcommand as
-	// it is likely to return  errors.
 	if c.showHelp {
-		return nil
+		return gnuflag.ErrHelp
 	}
 	return c.subcmd.Init(c.flags.Args())
 }
@@ -289,11 +227,70 @@ func (c *SuperCommand) Run(ctx *Context) error {
 			return err
 		}
 	}
-	if c.showHelp {
-		return c.help(ctx)
-	}
 	if c.subcmd == nil {
 		panic("Run: missing subcommand; Init failed or not called")
 	}
 	return c.subcmd.Run(ctx)
+}
+
+type helpCommand struct {
+	CommandBase
+	super *SuperCommand
+	topic string
+}
+
+func (c *helpCommand) Info() *Info {
+	return &Info{
+		Name:    "help",
+		Args:    "[topic]",
+		Purpose: helpPurpose,
+		Doc: `
+See also: topics
+`,
+	}
+}
+
+func (c *helpCommand) Init(args []string) error {
+	switch len(args) {
+	case 0:
+	case 1:
+		c.topic = args[0]
+	default:
+		return fmt.Errorf("extra arguments to command help: %q", args[2:])
+	}
+	return nil
+}
+
+func (c *helpCommand) Run(ctx *Context) error {
+	// If there is no help topic specified, print basic usage.
+	if c.topic == "" {
+		if _, ok := c.super.topics["basics"]; ok {
+			c.topic = "basics"
+		} else {
+			// At this point, "help" is selected as the SuperCommand's
+			// sub-command, but we want the info to be printed
+			// as if there was nothing selected.
+			c.super.subcmd = nil
+
+			info := c.super.Info()
+			f := gnuflag.NewFlagSet(info.Name, gnuflag.ContinueOnError)
+			c.SetFlags(f)
+			ctx.Stdout.Write(info.Help(f))
+			return nil
+		}
+	}
+	if helpcmd, ok := c.super.subcmds[c.topic]; ok {
+		info := helpcmd.Info()
+		info.Name = fmt.Sprintf("%s %s", c.super.Name, info.Name)
+		f := gnuflag.NewFlagSet(info.Name, gnuflag.ContinueOnError)
+		helpcmd.SetFlags(f)
+		ctx.Stdout.Write(info.Help(f))
+		return nil
+	}
+	topic, ok := c.super.topics[c.topic]
+	if !ok {
+		return fmt.Errorf("Unknown command or topic for %s", c.topic)
+	}
+	fmt.Fprintf(ctx.Stdout, "%s\n", strings.TrimSpace(topic.long()))
+	return nil
 }
