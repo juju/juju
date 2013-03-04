@@ -3,6 +3,7 @@ package api
 import (
 	"code.google.com/p/go.net/websocket"
 	"fmt"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/statecmd"
@@ -265,6 +266,22 @@ func (c *srvClient) ServiceExpose(args statecmd.ServiceExposeParams) error {
 // were also explicitly marked by units as open.
 func (c *srvClient) ServiceUnexpose(args statecmd.ServiceUnexposeParams) error {
 	return statecmd.ServiceUnexpose(c.root.srv.state, args)
+}
+
+// ServiceDeploy fetchs the charm from the charm store and deploys it.  Local
+// charms are not supported.
+func (c *srvClient) ServiceDeploy(args statecmd.ServiceDeployParams) error {
+	conf, err := c.root.srv.state.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	curl, err := charm.InferURL(args.charmName, conf.DefaultSeries())
+	if err != nil {
+		return err
+	}
+
+	return statecmd.ServiceDeploy(c.root.conn, curl, charm.Store(), false,
+		args.serviceName, args.numUnits)
 }
 
 // EnvironmentInfo returns information about the current environment (default

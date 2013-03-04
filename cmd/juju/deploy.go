@@ -105,25 +105,9 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	ch, err := conn.PutCharm(curl, repo, c.BumpRevision)
-	if err != nil {
-		return err
-	}
 	if c.Config.Path != "" {
 		// TODO many dependencies :(
 		return errors.New("state.Service.SetConfig not implemented (format 2...)")
 	}
-	svcName := c.ServiceName
-	if svcName == "" {
-		svcName = curl.Name
-	}
-	svc, err := conn.State.AddService(svcName, ch)
-	if err != nil {
-		return err
-	}
-	if ch.Meta().Subordinate {
-		return nil
-	}
-	_, err = conn.AddUnits(svc, c.NumUnits)
-	return err
+	return ServiceDeploy(conn, curl, repo, bumpRevision, c.ServiceName, c.NumUnits)
 }
