@@ -25,10 +25,9 @@ https://juju.ubuntu.com/
 // provides an entry point for testing with arbitrary command line arguments.
 func Main(args []string) {
 	juju := &cmd.SuperCommand{
-		Name:      "juju",
-		Doc:       jujuDoc,
-		Log:       &cmd.Log{},
-		HelpTopic: "basics",
+		Name: "juju",
+		Doc:  jujuDoc,
+		Log:  &cmd.Log{},
 	}
 	juju.AddHelpTopic("basics", "Basic commands", helpBasics)
 

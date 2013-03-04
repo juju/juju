@@ -27,7 +27,6 @@ type SuperCommand struct {
 	flags    *gnuflag.FlagSet
 	subcmd   Command
 	showHelp bool
-	topics   map[string]topic
 }
 
 // Because Go doesn't have constructors that initialize the object into a
@@ -36,39 +35,18 @@ func (c *SuperCommand) init() {
 	if c.subcmds != nil {
 		return
 	}
+	help := &helpCommand{
+		super: c,
+	}
+	help.init()
 	c.subcmds = map[string]Command{
-		"help": &helpCommand{
-			super: c,
-		},
-	}
-	c.topics = map[string]topic{
-		"commands": {
-			short: "Basic help for all commands",
-			long:  func() string { return c.describeCommands(true) },
-		},
-		"global-options": {
-			short: "Options common to all commands",
-			long:  func() string { return c.globalOptions() },
-		},
-		"topics": {
-			short: "Topic list",
-			long:  func() string { return c.topicList() },
-		},
+		"help": help,
 	}
 }
-
-func echo(s string) func() string {
-	return func() string { return s }
-}
-
-const helpPurpose = "show help on a command or other topic"
 
 func (c *SuperCommand) AddHelpTopic(name, short, long string) {
 	c.init()
-	if _, found := c.topics[name]; found {
-		panic(fmt.Sprintf("help topic already added: %s", name))
-	}
-	c.topics[name] = topic{short, echo(long)}
+	c.subcmds["help"].(*helpCommand).addTopic(name, short, long)
 }
 
 // Register makes a subcommand available for use on the command line. The
@@ -87,41 +65,6 @@ func (c *SuperCommand) insert(name string, subcmd Command) {
 		panic(fmt.Sprintf("command already registered: %s", name))
 	}
 	c.subcmds[name] = subcmd
-}
-
-func (c *SuperCommand) globalOptions() string {
-	buf := &bytes.Buffer{}
-	fmt.Fprintf(buf, `Global Options
-
-These options may be used with any command, and may appear in front of any
-command.
-
-`)
-
-	f := gnuflag.NewFlagSet("", gnuflag.ContinueOnError)
-	c.SetFlags(f)
-	f.SetOutput(buf)
-	f.PrintDefaults()
-	return buf.String()
-}
-
-func (c *SuperCommand) topicList() string {
-	topics := make([]string, len(c.topics))
-	i := 0
-	longest := 0
-	for name := range c.topics {
-		if len(name) > longest {
-			longest = len(name)
-		}
-		topics[i] = name
-		i++
-	}
-	sort.Strings(topics)
-	for i, name := range topics {
-		shortHelp := c.topics[name].short
-		topics[i] = fmt.Sprintf("%-*s  %s", longest, name, shortHelp)
-	}
-	return fmt.Sprintf("%s", strings.Join(topics, "\n"))
 }
 
 // describeCommands returns a short description of each registered subcommand.
@@ -177,6 +120,8 @@ func (c *SuperCommand) Info() *Info {
 	}
 }
 
+const helpPurpose = "show help on a command or other topic"
+
 // SetFlags adds the options that apply to all commands, particularly those
 // due to logging.
 func (c *SuperCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -187,13 +132,6 @@ func (c *SuperCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.showHelp, "help", false, "")
 
 	c.flags = f
-}
-
-func (c *SuperCommand) getTopicText(name string) (string, bool) {
-	if topic, found := c.topics[name]; found {
-		return strings.TrimSpace(topic.long()), true
-	}
-	return "", false
 }
 
 // Init initializes the command for running.
@@ -235,8 +173,72 @@ func (c *SuperCommand) Run(ctx *Context) error {
 
 type helpCommand struct {
 	CommandBase
-	super *SuperCommand
-	topic string
+	super  *SuperCommand
+	topic  string
+	topics map[string]topic
+}
+
+func (c *helpCommand) init() {
+	c.topics = map[string]topic{
+		"commands": {
+			short: "Basic help for all commands",
+			long:  func() string { return c.super.describeCommands(true) },
+		},
+		"global-options": {
+			short: "Options common to all commands",
+			long:  func() string { return c.globalOptions() },
+		},
+		"topics": {
+			short: "Topic list",
+			long:  func() string { return c.topicList() },
+		},
+	}
+}
+
+func echo(s string) func() string {
+	return func() string { return s }
+}
+
+func (c *helpCommand) addTopic(name, short, long string) {
+	if _, found := c.topics[name]; found {
+		panic(fmt.Sprintf("help topic already added: %s", name))
+	}
+	c.topics[name] = topic{short, echo(long)}
+}
+
+func (c *helpCommand) globalOptions() string {
+	buf := &bytes.Buffer{}
+	fmt.Fprintf(buf, `Global Options
+
+These options may be used with any command, and may appear in front of any
+command.
+
+`)
+
+	f := gnuflag.NewFlagSet("", gnuflag.ContinueOnError)
+	c.super.SetFlags(f)
+	f.SetOutput(buf)
+	f.PrintDefaults()
+	return buf.String()
+}
+
+func (c *helpCommand) topicList() string {
+	topics := make([]string, len(c.topics))
+	i := 0
+	longest := 0
+	for name := range c.topics {
+		if len(name) > longest {
+			longest = len(name)
+		}
+		topics[i] = name
+		i++
+	}
+	sort.Strings(topics)
+	for i, name := range topics {
+		shortHelp := c.topics[name].short
+		topics[i] = fmt.Sprintf("%-*s  %s", longest, name, shortHelp)
+	}
+	return fmt.Sprintf("%s", strings.Join(topics, "\n"))
 }
 
 func (c *helpCommand) Info() *Info {
@@ -264,7 +266,7 @@ func (c *helpCommand) Init(args []string) error {
 func (c *helpCommand) Run(ctx *Context) error {
 	// If there is no help topic specified, print basic usage.
 	if c.topic == "" {
-		if _, ok := c.super.topics["basics"]; ok {
+		if _, ok := c.topics["basics"]; ok {
 			c.topic = "basics"
 		} else {
 			// At this point, "help" is selected as the SuperCommand's
@@ -287,7 +289,7 @@ func (c *helpCommand) Run(ctx *Context) error {
 		ctx.Stdout.Write(info.Help(f))
 		return nil
 	}
-	topic, ok := c.super.topics[c.topic]
+	topic, ok := c.topics[c.topic]
 	if !ok {
 		return fmt.Errorf("Unknown command or topic for %s", c.topic)
 	}
