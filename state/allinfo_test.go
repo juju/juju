@@ -169,6 +169,22 @@ func (s *AllInfoSuite) TestNewAllInfo(c *C) {
 	c.Assert(gotEntities, DeepEquals, expectEntities)
 }
 
+func (s *AllInfoSuite) TestAdd(c *C) {
+}
+
+func (s *AllInfoSuite) TestUpdate(c *C) {
+}
+
+func (s *AllInfoSuite) TestChangesSince(c *C) {
+}
+
+func (s *AllInfoSuite) TestAdd(c *C) {
+}
+
+func (s *AllInfoSuite) TestAdd(c *C) {
+}
+
+
 func AddTestingCharm(c *C, st *State, name string) *Charm {
 	ch := testing.Charms.Dir(name)
 	ident := fmt.Sprintf("%s-%d", name, ch.Revision())
