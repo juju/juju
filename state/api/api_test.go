@@ -75,6 +75,10 @@ var operationPermTests = []struct {
 	about: "Client.ServiceGet",
 	op:    opClientServiceGet,
 	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.Resolved",
+	op:    opClientResolved,
+	allow: []string{"user-admin", "user-other"},
 },
 }
 
@@ -223,6 +227,24 @@ func opClientServiceGet(c *C, st *api.State) (func(), error) {
 	c.Assert(err, IsNil)
 	c.Assert(service, DeepEquals, &expectedWordpressConfig)
 	return func() {}, nil
+}
+
+func opClientResolved(c *C, st *api.State) (func(), error) {
+        err := st.Client().Resolved("wordpress/0", false)
+        // There are several scenarios in which this test is called, one is
+        // that the user is not authorized.  In that case we want to exit now,
+        // letting the error percolate out so the caller knows that the
+        // permission error was correctly generated.
+        if err != nil && err.Error() == "permission denied" {
+            return func() {}, err
+        }
+        // Otherwise, the user was authorized, but we expect an error anyway
+        // because the unit is not in an error state when we tried to resolve
+        // the error.  Therefore, since it is complaining it means that the
+        // call to Resolved worked, so we're happy.
+	c.Assert(err, Not(IsNil))
+        c.Assert(err.Error(), Equals, "unit \"wordpress/0\" is not in an error state")
+        return func() {}, nil
 }
 
 // scenarioStatus describes the expected state
@@ -864,6 +886,25 @@ func (s *suite) TestClientServiceGet(c *C) {
 	config, err := s.APIState.Client().ServiceGet("wordpress")
 	c.Assert(err, IsNil)
 	c.Assert(config, DeepEquals, &expectedWordpressConfig)
+}
+
+func (s *suite) TestClientUnitResolved(c *C) {
+	// Setup:
+	s.setUpScenario(c)
+	u, err := s.State.Unit("wordpress/0")
+	c.Assert(err, IsNil)
+	err = u.SetStatus(state.UnitError, "gaaah")
+	c.Assert(err, IsNil)
+	// Code under test:
+	err = s.APIState.Client().Resolved("wordpress/0", false)
+	c.Assert(err, IsNil)
+        // Freshen the unit's state.
+        err = u.Refresh()
+	c.Assert(err, IsNil)
+        // And now the actual test assertions: we set the unit as resolved via
+        // the API so it should have a resolved mode set.
+        mode := u.Resolved()
+	c.Assert(mode, Equals, state.ResolvedNoHooks)
 }
 
 // openAs connects to the API state as the given entity

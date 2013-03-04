@@ -57,6 +57,16 @@ func (c *Client) ServiceSet(service string, options map[string]string) error {
 	return clientError(err)
 }
 
+// Resolved clears errors on a unit.
+func (c *Client) Resolved(unit string, retry bool) error {
+	p := statecmd.ResolvedParams{
+		UnitName: unit,
+		Retry: retry,
+	}
+	err := c.st.client.Call("Client", "", "Resolved", p, nil)
+	return clientError(err)
+}
+
 // ServiceSetYAML sets configuration options on a service
 // given options in YAML format.
 func (c *Client) ServiceSetYAML(service string, yaml string) error {

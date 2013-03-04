@@ -254,6 +254,11 @@ func (c *srvClient) ServiceGet(args statecmd.ServiceGetParams) (statecmd.Service
 	return statecmd.ServiceGet(c.root.srv.state, args)
 }
 
+// Resolved implements the server side of Client.ServerSet.
+func (c *srvClient) Resolved(p statecmd.ResolvedParams) error {
+	return statecmd.Resolved(c.root.srv.state, p)
+}
+
 // EnvironmentInfo returns information about the current environment (default
 // series and type).
 func (c *srvClient) EnvironmentInfo() (EnvironmentInfo, error) {
