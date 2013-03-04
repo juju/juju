@@ -43,7 +43,7 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 	}
 	info.Password = password
 	st, err := state.Open(info)
-	if err == state.ErrUnauthorized {
+	if state.IsUnauthorizedError(err) {
 		// We can't connect with the administrator password,;
 		// perhaps this was the first connection and the
 		// password has not been changed yet.
@@ -54,7 +54,7 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 		// initialized and the initial password set.
 		for a := redialStrategy.Start(); a.Next(); {
 			st, err = state.Open(info)
-			if err != state.ErrUnauthorized {
+			if !state.IsUnauthorizedError(err) {
 				break
 			}
 		}

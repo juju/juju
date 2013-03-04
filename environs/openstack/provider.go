@@ -3,6 +3,7 @@
 package openstack
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -73,6 +74,7 @@ openstack:
   # override if your workstation is running a different series to which you are deploying
   # default-series: precise
   default-image-id: c876e5fe-abb0-41f0-8f29-f0b47481f523
+  default-instance-type: "m1.small"
   # The following are used for userpass authentication (the default)
   auth-mode: userpass
   # Usually set via the env variable OS_USERNAME, but can be specified here
@@ -99,7 +101,8 @@ hpcloud:
   auth-url: https://yourkeystoneurl:35357/v2.0/
   # override if your workstation is running a different series to which you are deploying
   # default-series: precise
-  default-image-id: 75845
+  default-image-id: "75845"
+  default-instance-type: "standard.xsmall"
   # The following are used for userpass authentication (the default)
   auth-mode: userpass
   # Usually set via the env variable OS_USERNAME, but can be specified here
@@ -148,6 +151,74 @@ func (p environProvider) PublicAddress() (string, error) {
 
 func (p environProvider) PrivateAddress() (string, error) {
 	return fetchMetadata("local-hostname")
+}
+
+func (p environProvider) InstanceId() (state.InstanceId, error) {
+	str, err := fetchInstanceUUID()
+	return state.InstanceId(str), err
+}
+
+// metadataHost holds the address of the instance metadata service.
+// It is a variable so that tests can change it to refer to a local
+// server when needed.
+var metadataHost = "http://169.254.169.254"
+
+// fetchMetadata fetches a single atom of data from the openstack instance metadata service.
+// http://docs.amazonwebservices.com/AWSEC2/latest/UserGuide/AESDG-chapter-instancedata.html
+// (the same specs is implemented in OpenStack, hence the reference)
+func fetchMetadata(name string) (value string, err error) {
+	uri := fmt.Sprintf("%s/2011-01-01/meta-data/%s", metadataHost, name)
+	data, err := retryGet(uri)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(data)), nil
+}
+
+// fetchInstanceUUID fetches the openstack instance UUID, which is not at all
+// the same thing as the "instance-id" in the ec2-style metadata. This only
+// works on openstack Folsom or later.
+func fetchInstanceUUID() (string, error) {
+	uri := fmt.Sprintf("%s/2012-08-10/meta-data.json", metadataHost)
+	data, err := retryGet(uri)
+	if err != nil {
+		return "", err
+	}
+	var uuid struct {
+		Uuid string
+	}
+	if err := json.Unmarshal(data, &uuid); err != nil {
+		return "", err
+	}
+	if uuid.Uuid == "" {
+		return "", fmt.Errorf("no instance UUID found")
+	}
+	return uuid.Uuid, nil
+}
+
+func retryGet(uri string) (data []byte, err error) {
+	for a := shortAttempt.Start(); a.Next(); {
+		var resp *http.Response
+		resp, err = http.Get(uri)
+		if err != nil {
+			continue
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			err = fmt.Errorf("bad http response %v", resp.Status)
+			continue
+		}
+		var data []byte
+		data, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			continue
+		}
+		return data, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("cannot get %q: %v", uri, err)
+	}
+	return
 }
 
 type environ struct {
@@ -559,16 +630,12 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 		APIInfo:         scfg.apiInfo,
 		StateServerCert: scfg.stateServerCert,
 		StateServerKey:  scfg.stateServerKey,
-		// This is a horrible hack, which only works on folsom or
-		// later and we'd really like to have a better way
-		InstanceIdAccessor: `$(curl http://169.254.169.254/openstack/2012-08-10/meta_data.json|python -c 'import json,sys;print json.loads(sys.stdin.read())["uuid"]')`,
-		ProviderType:       "openstack",
-		DataDir:            "/var/lib/juju",
-		Tools:              scfg.tools,
-		MongoURL:           scfg.mongoURL,
-		MachineId:          scfg.machineId,
-		AuthorizedKeys:     e.ecfg().AuthorizedKeys(),
-		Config:             scfg.config,
+		DataDir:         "/var/lib/juju",
+		Tools:           scfg.tools,
+		MongoURL:        scfg.mongoURL,
+		MachineId:       scfg.machineId,
+		AuthorizedKeys:  e.ecfg().AuthorizedKeys(),
+		Config:          scfg.config,
 	}
 	cloudcfg, err := cloudinit.New(cfg)
 	if err != nil {
@@ -662,7 +729,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 		series: scfg.tools.Series,
 		arch:   scfg.tools.Arch,
 		region: e.ecfg().region(),
-		flavor: "m1.small",
+		flavor: e.ecfg().defaultInstanceType(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image satisfying constraints: %v", err)
@@ -1075,38 +1142,4 @@ func (e *environ) terminateInstances(ids []state.InstanceId) error {
 		}
 	}
 	return firstErr
-}
-
-// metadataHost holds the address of the instance metadata service.
-// It is a variable so that tests can change it to refer to a local
-// server when needed.
-var metadataHost = "http://169.254.169.254"
-
-// fetchMetadata fetches a single atom of data from the openstack instance metadata service.
-// http://docs.amazonwebservices.com/AWSEC2/latest/UserGuide/AESDG-chapter-instancedata.html
-// (the same specs is implemented in OpenStack, hence the reference)
-func fetchMetadata(name string) (value string, err error) {
-	uri := fmt.Sprintf("%s/2011-01-01/meta-data/%s", metadataHost, name)
-	for a := shortAttempt.Start(); a.Next(); {
-		var resp *http.Response
-		resp, err = http.Get(uri)
-		if err != nil {
-			continue
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			err = fmt.Errorf("bad http response %v", resp.Status)
-			continue
-		}
-		var data []byte
-		data, err = ioutil.ReadAll(resp.Body)
-		if err != nil {
-			continue
-		}
-		return strings.TrimSpace(string(data)), nil
-	}
-	if err != nil {
-		return "", fmt.Errorf("cannot get %q: %v", uri, err)
-	}
-	return
 }

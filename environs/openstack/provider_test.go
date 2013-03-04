@@ -7,18 +7,49 @@ import (
 	"launchpad.net/goose/nova"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/openstack"
+	"reflect"
 	"testing"
 )
 
-var live = flag.Bool("live", false, "Include live OpenStack (Canonistack) tests")
+// Out-of-the-box, we support live testing using Canonistack or HP Cloud.
+var testConstraints = map[string]openstack.ImageDetails{
+	"canonistack": openstack.ImageDetails{
+		Flavor: "m1.tiny", ImageId: "c876e5fe-abb0-41f0-8f29-f0b47481f523"},
+	"hpcloud": openstack.ImageDetails{
+		Flavor: "standard.xsmall", ImageId: "75845"},
+}
+
+var live = flag.Bool("live", false, "Include live OpenStack tests")
+var vendor = flag.String("vendor", "", "The Openstack vendor to test against")
+var imageId = flag.String("image", "", "The image id for which a test service is to be started")
+var flavor = flag.String("flavor", "", "The flavor of the test service")
 
 func Test(t *testing.T) {
 	if *live {
+		// We can either specify a vendor, or imageId and flavor separately.
+		var testImageDetails openstack.ImageDetails
+		if *vendor != "" {
+			var ok bool
+			if testImageDetails, ok = testConstraints[*vendor]; !ok {
+				keys := reflect.ValueOf(testConstraints).MapKeys()
+				t.Fatalf("Unknown vendor %s. Must be one of %s", *vendor, keys)
+			}
+		} else {
+			if *imageId == "" {
+				t.Fatalf("Must specify image id to use for test instance, "+
+					"eg %s for Canonistack", "-image c876e5fe-abb0-41f0-8f29-f0b47481f523")
+			}
+			if *flavor == "" {
+				t.Fatalf("Must specify flavor to use for test instance, "+
+					"eg %s for Canonistack", "-flavor m1.tiny")
+			}
+			testImageDetails = openstack.ImageDetails{*flavor, *imageId}
+		}
 		cred, err := identity.CompleteCredentialsFromEnv()
 		if err != nil {
 			t.Fatalf("Error setting up test suite: %s", err.Error())
 		}
-		registerLiveTests(cred)
+		registerLiveTests(cred, testImageDetails)
 	}
 	registerLocalTests()
 	TestingT(t)

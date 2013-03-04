@@ -63,7 +63,7 @@ func (s *SCPSuite) TestSCPCommand(c *C) {
 
 	for _, t := range scpTests {
 		c.Logf("testing juju scp %s", t.args)
-		ctx := &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}}
+		ctx := coretesting.Context(c)
 		code := cmd.Main(&SCPCommand{}, ctx, t.args)
 		c.Check(code, Equals, 0)
 		c.Check(ctx.Stderr.(*bytes.Buffer).String(), Equals, "")

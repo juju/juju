@@ -4,6 +4,7 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
 
@@ -101,7 +102,7 @@ func (s *RelationIdsSuite) TestRelationIds(c *C) {
 		hctx := s.GetHookContext(c, t.relid, "")
 		com, err := jujuc.NewCommand(hctx, "relation-ids")
 		c.Assert(err, IsNil)
-		ctx := dummyContext(c)
+		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, t.args)
 		c.Assert(code, Equals, t.code)
 		if code == 0 {
@@ -141,7 +142,7 @@ options:
 		hctx := s.GetHookContext(c, relid, "")
 		com, err := jujuc.NewCommand(hctx, "relation-ids")
 		c.Assert(err, IsNil)
-		ctx := dummyContext(c)
+		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, []string{"--help"})
 		c.Assert(code, Equals, 0)
 		c.Assert(bufferString(ctx.Stdout), Equals, "")

@@ -6,6 +6,7 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/state/statecmd"
 )
 
 // ExposeCommand is responsible exposing services.
@@ -42,9 +43,9 @@ func (c *ExposeCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer conn.Close()
-	svc, err := conn.State.Service(c.ServiceName)
-	if err != nil {
-		return err
+
+	params := statecmd.ServiceExposeParams{
+		ServiceName: c.ServiceName,
 	}
-	return svc.SetExposed()
+	return statecmd.ServiceExpose(conn.State, params)
 }
