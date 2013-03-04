@@ -15,6 +15,7 @@ type FilterSuite struct {
 	wordpress  *state.Service
 	unit       *state.Unit
 	mysqlcharm *state.Charm
+	wpcharm    *state.Charm
 }
 
 var _ = Suite(&FilterSuite{})
@@ -22,7 +23,8 @@ var _ = Suite(&FilterSuite{})
 func (s *FilterSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
 	var err error
-	s.wordpress, err = s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.wpcharm = s.AddTestingCharm(c, "wordpress")
+	s.wordpress, err = s.State.AddService("wordpress", s.wpcharm)
 	c.Assert(err, IsNil)
 	s.unit, err = s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
@@ -240,7 +242,17 @@ func (s *FilterSuite) TestCharmEvents(c *C) {
 func (s *FilterSuite) TestConfigEvents(c *C) {
 	f, err := newFilter(s.State, s.unit.Name())
 	c.Assert(err, IsNil)
-	defer f.Stop()
+
+	// Ensure no charm URL is set and then set it to trigger config events.
+	_, ok := s.unit.CharmURL()
+	c.Assert(ok, Equals, false)
+	err = f.SetCharm(s.wpcharm.URL())
+	c.Assert(err, IsNil)
+
+	// Make sure the charm URL is set now.
+	s.unit.Refresh()
+	_, ok = s.unit.CharmURL()
+	c.Assert(ok, Equals, true)
 
 	// Initial event.
 	assertChange := func() {
@@ -253,6 +265,7 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 		}
 	}
 	assertChange()
+
 	assertNoChange := func() {
 		s.State.StartSync()
 		select {
@@ -285,9 +298,9 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 
 	// Check that a filter's initial event works with DiscardConfigEvent
 	// as expected.
+	f.Stop()
 	f, err = newFilter(s.State, s.unit.Name())
 	c.Assert(err, IsNil)
-	defer f.Stop()
 	f.DiscardConfigEvent()
 	s.State.Sync()
 	assertNoChange()
@@ -307,18 +320,21 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	c.Assert(err, ErrorMatches, `unknown charm url "cs:missing/one-1"`)
 	assertNoChange()
 
+	// Filter died after the error, so restart it.
+	f.Stop()
+	f, err = newFilter(s.State, s.unit.Name())
+	c.Assert(err, IsNil)
+
 	// Check with a nil charm URL, again no changes.
 	err = f.SetCharm(nil)
 	c.Assert(err, ErrorMatches, "cannot set nil charm url")
 	assertNoChange()
 
-	// Check with a vaild charm URL + discard.
-	newCh := s.AddTestingCharmRevision(c, "wordpress", 2)
-	err = f.SetCharm(newCh.URL())
+	// Filter died after the error, so restart it.
+	f.Stop()
+	f, err = newFilter(s.State, s.unit.Name())
 	c.Assert(err, IsNil)
-	f.DiscardConfigEvent()
-	s.State.Sync()
-	assertNoChange()
+	defer f.Stop()
 }
 
 func (s *FilterSuite) TestRelationsEvents(c *C) {
@@ -350,12 +366,6 @@ func (s *FilterSuite) TestRelationsEvents(c *C) {
 	}
 	assertChange([]int{0, 1})
 	assertNoChange()
-
-	// TODO: remove if safe
-	// Request all relations events; no changes should happen
-	//f.WantAllRelationsEvents()
-	//assertChange([]int{0, 1})
-	//assertNoChange()
 
 	// Add another relation, and change another's Life (by entering scope before
 	// Destroy, thereby setting the relation to Dying); check event.
