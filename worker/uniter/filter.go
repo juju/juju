@@ -206,7 +206,6 @@ func (f *filter) loop(unitName string) (err error) {
 	if err != nil {
 		return err
 	}
-	f.upgradeRequested.url, _ = f.service.CharmURL()
 	if err = f.serviceChanged(); err != nil {
 		return err
 	}
@@ -218,9 +217,10 @@ func (f *filter) loop(unitName string) (err error) {
 	// their current values in the defer calls.
 	var configw *state.ConfigWatcher
 	var configChanges <-chan *state.Settings
-	if _, ok := f.unit.CharmURL(); ok {
+	if curl, ok := f.unit.CharmURL(); ok {
 		configw = f.unit.WatchServiceConfig()
 		configChanges = configw.Changes()
+		f.upgradeRequested.url = curl
 	}
 	defer func() {
 		if configw != nil {
@@ -395,6 +395,11 @@ func (f *filter) upgradeChanged() (err error) {
 		f.outUpgrade = nil
 		return nil
 	}
+	if f.upgradeRequested.url == nil {
+		log.Debugf("worker/uniter/filter: charm check skipped, no yet installed.")
+		f.outUpgrade = nil
+		return nil
+	}
 	if *f.upgradeAvailable.url != *f.upgradeRequested.url {
 		if f.upgradeAvailable.force || !f.upgradeRequested.force {
 			log.Debugf("worker/uniter/filter: preparing new upgrade event")
@@ -406,6 +411,7 @@ func (f *filter) upgradeChanged() (err error) {
 		}
 	}
 	log.Debugf("worker/uniter/filter: no new charm event")
+	f.outUpgrade = nil
 	return nil
 }
 
