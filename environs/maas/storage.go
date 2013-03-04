@@ -179,7 +179,7 @@ func (stor *maasStorage) URL(name string) (string, error) {
 }
 
 func (stor *maasStorage) Put(name string, r io.Reader, length int64) error {
-	data, err := ioutil.ReadAll(r)
+	data, err := ioutil.ReadAll(io.LimitReader(r, length))
 	if err != nil {
 		return err
 	}
