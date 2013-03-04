@@ -155,6 +155,11 @@ func (environProvider) PrivateAddress() (string, error) {
 	return fetchMetadata("local-hostname")
 }
 
+func (environProvider) InstanceId() (state.InstanceId, error) {
+	str, err := fetchMetadata("instance-id")
+	return state.InstanceId(str), err
+}
+
 func (e *environ) Config() *config.Config {
 	return e.ecfg().Config
 }
@@ -377,21 +382,19 @@ func (e *environ) StartInstance(machineId string, info *state.Info, apiInfo *api
 
 func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 	cfg := &cloudinit.MachineConfig{
-		StateServer:        scfg.stateServer,
-		StateInfo:          scfg.info,
-		APIInfo:            scfg.apiInfo,
-		MongoPort:          mgoPort,
-		APIPort:            apiPort,
-		StateServerCert:    scfg.stateServerCert,
-		StateServerKey:     scfg.stateServerKey,
-		InstanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
-		ProviderType:       "ec2",
-		DataDir:            "/var/lib/juju",
-		Tools:              scfg.tools,
-		MongoURL:           scfg.mongoURL,
-		MachineId:          scfg.machineId,
-		AuthorizedKeys:     e.ecfg().AuthorizedKeys(),
-		Config:             scfg.config,
+		StateServer:     scfg.stateServer,
+		StateInfo:       scfg.info,
+		APIInfo:         scfg.apiInfo,
+		MongoPort:       mgoPort,
+		APIPort:         apiPort,
+		StateServerCert: scfg.stateServerCert,
+		StateServerKey:  scfg.stateServerKey,
+		DataDir:         "/var/lib/juju",
+		Tools:           scfg.tools,
+		MongoURL:        scfg.mongoURL,
+		MachineId:       scfg.machineId,
+		AuthorizedKeys:  e.ecfg().AuthorizedKeys(),
+		Config:          scfg.config,
 	}
 	cloudcfg, err := cloudinit.New(cfg)
 	if err != nil {

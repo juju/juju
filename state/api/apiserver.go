@@ -250,6 +250,7 @@ func (c *srvClient) ServiceSetYAML(p statecmd.ServiceSetYAMLParams) error {
 	return statecmd.ServiceSetYAML(c.root.srv.state, p)
 }
 
+// ServiceGet returns the configuration for a service.
 func (c *srvClient) ServiceGet(args statecmd.ServiceGetParams) (statecmd.ServiceGetResults, error) {
 	return statecmd.ServiceGet(c.root.srv.state, args)
 }
@@ -257,6 +258,18 @@ func (c *srvClient) ServiceGet(args statecmd.ServiceGetParams) (statecmd.Service
 // Resolved implements the server side of Client.ServerSet.
 func (c *srvClient) Resolved(p statecmd.ResolvedParams) error {
 	return statecmd.Resolved(c.root.srv.state, p)
+}
+
+// ServiceExpose changes the juju-managed firewall to expose any ports that
+// were also explicitly marked by units as open.
+func (c *srvClient) ServiceExpose(args statecmd.ServiceExposeParams) error {
+	return statecmd.ServiceExpose(c.root.srv.state, args)
+}
+
+// ServiceUnexpose changes the juju-managed firewall to unexpose any ports that
+// were also explicitly marked by units as open.
+func (c *srvClient) ServiceUnexpose(args statecmd.ServiceUnexposeParams) error {
+	return statecmd.ServiceUnexpose(c.root.srv.state, args)
 }
 
 // EnvironmentInfo returns information about the current environment (default
