@@ -44,7 +44,7 @@ func (c *SuperCommand) initializeHelp() {
 			long:  func() string { return c.describeCommands(true) },
 		},
 		"global-options": {
-			short: "Options that control how Juju runs",
+			short: "Options common to all commands",
 			long:  func() string { return c.globalOptions() },
 		},
 		"topics": {
