@@ -15,9 +15,6 @@ import (
 type StateWatcher struct {
 	all *allWatcher
 
-	mu  sync.Mutex
-	err error
-
 	// The following fields are maintained by the allWatcher
 	// goroutine.
 	revno   int64
@@ -37,19 +34,7 @@ func (w *StateWatcher) Stop() error {
 		return nil
 	case <-w.all.tomb.Dead():
 	}
-	w.mu.Lock()
-	err := w.all.tomb.Err()
-	w.err = err
-	w.mu.Unlock()
-	return err
-}
-
-// Err returns 
-func (w *StateWatcher) Err() error {
-	w.mu.Lock()
-	err := w.err
-	w.mu.Unlock()
-	return err
+	return w.all.tomb.Err()
 }
 
 // Get retrieves all changes that have happened since the given revision
@@ -72,7 +57,7 @@ func (w *StateWatcher) Next() ([]Delta, error) {
 	return req.changes, nil
 }
 
-// allWatcher holds a record of all current state and replies to
+// allWatcher holds a shared record of all current state and replies to
 // requests from StateWatches to tell them when it changes.
 type allWatcher struct {
 	tomb    tomb.Tomb
