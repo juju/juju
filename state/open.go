@@ -214,7 +214,6 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 			return nil, fmt.Errorf("cannot create database index: %v", err)
 		}
 	}
-	st.allWatcher = newAllWatcher(st)
 	return st, nil
 }
 

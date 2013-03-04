@@ -35,6 +35,12 @@ func (s *AllInfoSuite) SetUpTest(c *C) {
 	s.State = state
 }
 
+func (s *AllInfoSuite) TearDownTest(c *C) {
+	s.State.Close()
+	s.MgoSuite.TearDownTest(c)
+	s.LoggingSuite.TearDownTest(c)
+}
+
 type entityInfoSlice []EntityInfo
 
 func (s entityInfoSlice) Len() int      { return len(s) }
@@ -160,11 +166,6 @@ func (s *AllInfoSuite) TestNewAllInfo(c *C) {
 	for _, e := range gotEntities {
 		c.Logf("%#v %#v\n", e.EntityKind(), e.EntityId())
 	}
-	c.Logf("--------------------------- got")
-	spew.Dump(gotEntities)
-	c.Logf("--------------------------- expect")
-	spew.Dump(expectEntities)
-	c.Logf("---------------------------")
 	c.Assert(gotEntities, DeepEquals, expectEntities)
 }
 
