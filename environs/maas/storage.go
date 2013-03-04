@@ -168,13 +168,17 @@ func (stor *maasStorage) URL(name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	path, err := fileObj.GetField("anon_resource_uri")
+	uri, err := fileObj.GetField("anon_resource_uri")
 	if err != nil {
 		msg := fmt.Errorf("could not get file's download URL (may be an outdated MAAS): %s", err)
 		return "", msg
 	}
 
-	fullURL := fileObj.GetSubObject(path).URL()
+	partialURL, err := url.Parse(uri)
+	if err != nil {
+		return "", err
+	}
+	fullURL := fileObj.URL().ResolveReference(partialURL)
 	return fullURL.String(), nil
 }
 
