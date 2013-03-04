@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
-	//launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/tomb"
 	"strconv"
 	"sync"
@@ -257,7 +257,7 @@ func (w *Watcher) flush() {
 // handle deals with requests delivered by the public API
 // onto the background watcher goroutine.
 func (w *Watcher) handle(req interface{}) {
-	//log.Debugf("state/presence: got request: %#v", req)
+	log.Debugf("state/presence: got request: %#v", req)
 	switch r := req.(type) {
 	case reqSync:
 		w.next = time.After(0)
@@ -311,7 +311,7 @@ type pingInfo struct {
 // queues events to observing channels. It fetches the last two time
 // slots and compares the union of both to the in-memory state.
 func (w *Watcher) sync() error {
-	//log.Debugf("state/presence: synchronizing watcher knowledge with database...")
+	log.Debugf("state/presence: synchronizing watcher knowledge with database...")
 	slot := timeSlot(time.Now(), w.delta)
 	var ping []pingInfo
 	err := w.pings.Find(bson.D{{"$or", []pingInfo{{Slot: slot}, {Slot: slot - period}}}}).All(&ping)
@@ -336,7 +336,7 @@ func (w *Watcher) sync() error {
 				}
 				seq := k + i
 				dead[seq] = true
-				//log.Debugf("state/presence: found seq=%d dead", seq)
+				log.Debugf("state/presence: found seq=%d dead", seq)
 			}
 		}
 	}
@@ -366,7 +366,7 @@ func (w *Watcher) sync() error {
 				}
 				err := w.beings.Find(bson.D{{"_id", seq}}).One(&being)
 				if err == mgo.ErrNotFound {
-					//log.Printf("state/presence: found seq=%d unowned", seq)
+					log.Printf("state/presence: found seq=%d unowned", seq)
 					continue
 				} else if err != nil {
 					return err
@@ -383,7 +383,7 @@ func (w *Watcher) sync() error {
 				if cur > 0 || dead[seq] {
 					continue
 				}
-				//log.Debugf("state/presence: found seq=%d alive with key %q", seq, being.Key)
+				log.Debugf("state/presence: found seq=%d alive with key %q", seq, being.Key)
 				for _, ch := range w.watches[being.Key] {
 					w.pending = append(w.pending, event{ch, being.Key, true})
 				}
@@ -439,7 +439,7 @@ func (p *Pinger) Start() error {
 	if err := p.prepare(); err != nil {
 		return err
 	}
-	//log.Debugf("state/presence: starting pinger for %q with seq=%d", p.beingKey, p.beingSeq)
+	log.Debugf("state/presence: starting pinger for %q with seq=%d", p.beingKey, p.beingSeq)
 	if err := p.ping(); err != nil {
 		return err
 	}
@@ -458,7 +458,7 @@ func (p *Pinger) Stop() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.started {
-		//log.Debugf("state/presence: stopping pinger for %q with seq=%d", p.beingKey, p.beingSeq)
+		log.Debugf("state/presence: stopping pinger for %q with seq=%d", p.beingKey, p.beingSeq)
 	}
 	p.tomb.Kill(nil)
 	err := p.tomb.Wait()
@@ -473,10 +473,10 @@ func (p *Pinger) Kill() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.started {
-		//log.Debugf("state/presence: killing pinger for %q (was started)", p.beingKey)
+		log.Debugf("state/presence: killing pinger for %q (was started)", p.beingKey)
 		return p.killStarted()
 	}
-	//log.Debugf("state/presence: killing pinger for %q (was stopped)", p.beingKey)
+	log.Debugf("state/presence: killing pinger for %q (was stopped)", p.beingKey)
 	return p.killStopped()
 }
 
@@ -552,7 +552,7 @@ func (p *Pinger) prepare() error {
 // ping records updates the current time slot with the
 // sequence in use by the pinger.
 func (p *Pinger) ping() error {
-	//log.Debugf("state/presence: pinging %q with seq=%d", p.beingKey, p.beingSeq)
+	log.Debugf("state/presence: pinging %q with seq=%d", p.beingKey, p.beingSeq)
 	if p.delta == 0 {
 		delta, err := clockDelta(p.base)
 		if err != nil {
@@ -634,7 +634,7 @@ func fakeTimeSlot(offset int) {
 	}
 	fakeOffset = offset
 	fakeMutex.Unlock()
-	//log.Printf("state/presence: Faking presence to time slot %d", offset)
+	log.Printf("state/presence: Faking presence to time slot %d", offset)
 }
 
 // realTimeSlot disables the hardcoding introduced by fakeTimeSlot.
@@ -643,7 +643,7 @@ func realTimeSlot() {
 	fakeNow = time.Time{}
 	fakeOffset = 0
 	fakeMutex.Unlock()
-	//log.Printf("state/presence: Not faking presence time. Real time slot in use.")
+	log.Printf("state/presence: Not faking presence time. Real time slot in use.")
 }
 
 func seqsC(base *mgo.Collection) *mgo.Collection {
