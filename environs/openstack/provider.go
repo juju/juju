@@ -156,7 +156,7 @@ func (p environProvider) PrivateAddress() (string, error) {
 func (p environProvider) InstanceId() (state.InstanceId, error) {
 	str, err := fetchInstanceUUID()
 	if err != nil {
-		str, err = fetchInstanceId()
+		str, err = fetchLegacyId()
 	}
 	return state.InstanceId(str), err
 }
@@ -203,14 +203,14 @@ func fetchInstanceUUID() (string, error) {
 	return uuid.Uuid, nil
 }
 
-// fetchInstanceId fetches the openstack instance Id, which is derived
+// fetchLegacyId fetches the openstack numeric instance Id, which is derived
 // from the "instance-id" in the ec2-style metadata. The ec2 id contains
 // the numeric instance id encoded as hex with a "i-" prefix.
 // This numeric id is required for older versions of Openstack which do
 // not yet support providing UUID's via the metadata. HP Cloud is one such case.
 // Even though using the numeric id is deprecated in favour of using UUID, where
 // UUID is not yet supported, we need to revert to numeric id.
-func fetchInstanceId() (string, error) {
+func fetchLegacyId() (string, error) {
 	instId, err := fetchMetadata("instance-id")
 	if err != nil {
 		return "", err
