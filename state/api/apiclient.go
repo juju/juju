@@ -61,7 +61,7 @@ func (c *Client) ServiceSet(service string, options map[string]string) error {
 func (c *Client) Resolved(unit string, retry bool) error {
 	p := statecmd.ResolvedParams{
 		UnitName: unit,
-		Retry: retry,
+		Retry:    retry,
 	}
 	err := c.st.client.Call("Client", "", "Resolved", p, nil)
 	return clientError(err)

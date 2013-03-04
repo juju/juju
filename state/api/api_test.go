@@ -261,21 +261,21 @@ func opClientServiceUnexpose(c *C, st *api.State) (func(), error) {
 }
 
 func opClientResolved(c *C, st *api.State) (func(), error) {
-        err := st.Client().Resolved("wordpress/0", false)
-        // There are several scenarios in which this test is called, one is
-        // that the user is not authorized.  In that case we want to exit now,
-        // letting the error percolate out so the caller knows that the
-        // permission error was correctly generated.
-        if err != nil && err.Error() == "permission denied" {
-            return func() {}, err
-        }
-        // Otherwise, the user was authorized, but we expect an error anyway
-        // because the unit is not in an error state when we tried to resolve
-        // the error.  Therefore, since it is complaining it means that the
-        // call to Resolved worked, so we're happy.
+	err := st.Client().Resolved("wordpress/0", false)
+	// There are several scenarios in which this test is called, one is
+	// that the user is not authorized.  In that case we want to exit now,
+	// letting the error percolate out so the caller knows that the
+	// permission error was correctly generated.
+	if err != nil && err.Error() == "permission denied" {
+		return func() {}, err
+	}
+	// Otherwise, the user was authorized, but we expect an error anyway
+	// because the unit is not in an error state when we tried to resolve
+	// the error.  Therefore, since it is complaining it means that the
+	// call to Resolved worked, so we're happy.
 	c.Assert(err, Not(IsNil))
-        c.Assert(err.Error(), Equals, "unit \"wordpress/0\" is not in an error state")
-        return func() {}, nil
+	c.Assert(err.Error(), Equals, "unit \"wordpress/0\" is not in an error state")
+	return func() {}, nil
 }
 
 // scenarioStatus describes the expected state
@@ -953,12 +953,12 @@ func (s *suite) TestClientUnitResolved(c *C) {
 	// Code under test:
 	err = s.APIState.Client().Resolved("wordpress/0", false)
 	c.Assert(err, IsNil)
-        // Freshen the unit's state.
-        err = u.Refresh()
+	// Freshen the unit's state.
+	err = u.Refresh()
 	c.Assert(err, IsNil)
-        // And now the actual test assertions: we set the unit as resolved via
-        // the API so it should have a resolved mode set.
-        mode := u.Resolved()
+	// And now the actual test assertions: we set the unit as resolved via
+	// the API so it should have a resolved mode set.
+	mode := u.Resolved()
 	c.Assert(mode, Equals, state.ResolvedNoHooks)
 }
 
