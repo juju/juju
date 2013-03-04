@@ -1371,3 +1371,9 @@ func (s *StateSuite) TestAuthEntity(c *C) {
 	c.Assert(e, FitsTypeOf, user)
 	c.Assert(e.EntityName(), Equals, user.EntityName())
 }
+
+type annotator interface {
+	SetAnnotation(key, value string) error
+	Annotation(key string) string
+	RemoveAnnotation(key string) error
+}
