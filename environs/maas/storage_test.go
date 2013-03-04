@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"sync"
 )
 
@@ -117,16 +118,16 @@ func (s *StorageSuite) TestRetrieveFileObjectReturnsNotFound(c *C) {
 
 func (s *StorageSuite) TestRetrieveFileObjectEscapesName(c *C) {
 	const filename = "a/b c?d%e"
+	data := []byte("File contents here")
 	stor := s.makeStorage("rfo-test")
-	file := s.fakeStoredFile(stor, filename)
-	fileContent, err := file.GetField("content")
+	err := stor.Put(filename, bytes.NewReader(data), int64(len(data)))
 	c.Assert(err, IsNil)
 
 	obj, err := stor.retrieveFileObject(filename)
 	c.Assert(err, IsNil)
 
 	content, err := obj.GetField("content")
-	c.Check(content, Equals, fileContent)
+	c.Check(content, Equals, data)
 }
 
 func (s *StorageSuite) TestRetrieveFileObjectEscapesPrefix(c *C) {
@@ -241,10 +242,14 @@ func (s *StorageSuite) TestURLReturnsURLCorrespondingToFile(c *C) {
 	const filename = "my-file.txt"
 	storage := NewStorage(s.environ).(*maasStorage)
 	file := s.fakeStoredFile(storage, filename)
-	// The file contains an anon_resource_uri, which consists of a path
-	// only.  anonURL will be the file's full URL.
+	// The file contains an anon_resource_uri, which lacks a network part
+	// (but will probably contain a query part).  anonURL will be the
+	// file's full URL.
 	anonURI, err := file.GetField("anon_resource_uri")
-	anonURL := storage.maasClientUnlocked.GetSubObject(anonURI).URL()
+	c.Assert(err, IsNil)
+	parsedURI, err := url.Parse(anonURI)
+	c.Assert(err, IsNil)
+	anonURL := storage.maasClientUnlocked.URL().ResolveReference(parsedURI)
 	c.Assert(err, IsNil)
 
 	fileURL, err := storage.URL(filename)
