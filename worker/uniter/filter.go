@@ -219,6 +219,7 @@ func (f *filter) loop(unitName string) (err error) {
 	var configw *state.ConfigWatcher
 	var configChanges <-chan *state.Settings
 	if _, ok := f.unit.CharmURL(); ok {
+		configw = f.unit.WatchServiceConfig()
 		configChanges = configw.Changes()
 	}
 	defer func() {
@@ -298,6 +299,7 @@ func (f *filter) loop(unitName string) (err error) {
 			}
 			configw = f.unit.WatchServiceConfig()
 			if err := f.unit.SetCharmURL(curl); err != nil {
+				log.Debugf("worker/uniter/filter: failed setting charm url %q: %v", curl, err)
 				f.charmChanged <- err
 				return err
 			} else {
