@@ -31,14 +31,7 @@ var _ environs.Storage = (*maasStorage)(nil)
 // composeNamingPrefix generates a consistent naming prefix for all files
 // stored by this environment.
 func composeNamingPrefix(env *maasEnviron) string {
-	// Slashes are problematic as path separators: file names are
-	// sometimes included in URL paths, where we'd need to escape them
-	// but standard URL-escaping won't do so.  We can't escape them before
-	// they go into the URLs because subsequent URL escaping would escape
-	// the percentage signs in the escaping itself.
-	// Use a different separator instead.
-	const separator = "__"
-	return "juju" + separator + env.Name() + separator
+	return "juju/" + env.Name() + "/"
 }
 
 func NewStorage(env *maasEnviron) environs.Storage {
