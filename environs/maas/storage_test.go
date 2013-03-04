@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"math/rand"
 	"net/http"
+	"sync"
 )
 
 type StorageSuite struct {
@@ -45,6 +46,30 @@ func (s *StorageSuite) fakeStoredFile(storage environs.Storage, name string) gom
 	return s.testMAASObject.TestServer.NewFile(fullName, data)
 }
 
+func (s *StorageSuite) TestNamingPrefixDiffersBetweenEnvironments(c *C) {
+	storA := s.makeStorage("A")
+	storB := s.makeStorage("B")
+	c.Check(storA.namingPrefix, Not(Equals), storB.namingPrefix)
+}
+
+func (s *StorageSuite) TestNamingPrefixIsConsistentForEnvironment(c *C) {
+	stor1 := s.makeStorage("name")
+	stor2 := s.makeStorage("name")
+	c.Check(stor1.namingPrefix, Equals, stor2.namingPrefix)
+}
+
+func (s *StorageSuite) TestGetSnapshotCreatesClone(c *C) {
+	original := s.makeStorage("storage-name")
+	snapshot := original.getSnapshot()
+	c.Check(snapshot.namingPrefix, Equals, original.namingPrefix)
+	c.Check(snapshot.environUnlocked, Equals, original.environUnlocked)
+	c.Check(snapshot.maasClientUnlocked.URL().String(), Equals, original.maasClientUnlocked.URL().String())
+	// Snapshotting locks the original internally, but does not leave
+	// either the original or the snapshot locked.
+	c.Check(original.Mutex, Equals, sync.Mutex{})
+	c.Check(snapshot.Mutex, Equals, sync.Mutex{})
+}
+
 func (s *StorageSuite) TestGetRetrievesFile(c *C) {
 	const filename = "stored-data"
 	storage := s.makeStorage("get-retrieves-file")
@@ -62,18 +87,6 @@ func (s *StorageSuite) TestGetRetrievesFile(c *C) {
 	c.Assert(err, IsNil)
 	c.Check(len(buf), Equals, len(content))
 	c.Check(buf, DeepEquals, content)
-}
-
-func (s *StorageSuite) TestNamingPrefixDiffersBetweenEnvironments(c *C) {
-	storA := s.makeStorage("A")
-	storB := s.makeStorage("B")
-	c.Check(storA.namingPrefix, Not(Equals), storB.namingPrefix)
-}
-
-func (s *StorageSuite) TestNamingPrefixIsConsistentForEnvironment(c *C) {
-	stor1 := s.makeStorage("name")
-	stor2 := s.makeStorage("name")
-	c.Check(stor1.namingPrefix, Equals, stor2.namingPrefix)
 }
 
 func (s *StorageSuite) TestRetrieveFileObjectReturnsFileObject(c *C) {
