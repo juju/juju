@@ -178,8 +178,17 @@ func (stor *maasStorage) URL(name string) (string, error) {
 	return fullURL.String(), nil
 }
 
-func (*maasStorage) Put(name string, r io.Reader, length int64) error {
-	panic("Not implemented.")
+func (stor *maasStorage) Put(name string, r io.Reader, length int64) error {
+	data, err := ioutil.ReadAll(r)
+	if err != nil {
+		return err
+	}
+	snapshot := stor.getSnapshot()
+	fullName := snapshot.namingPrefix + name
+	params := url.Values{"filename": {fullName}}
+	files := map[string][]byte{"file": data}
+	_, err = snapshot.maasClientUnlocked.CallPostFiles("add", params, files)
+	return err
 }
 
 func (*maasStorage) Remove(name string) error {
