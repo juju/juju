@@ -1062,3 +1062,24 @@ func (s *ServiceSuite) TestWatchConfig(c *C) {
 	case <-time.After(100 * time.Millisecond):
 	}
 }
+
+func (s *ServiceSuite) TestSetAnnotation(c *C) {
+	err := s.mysql.SetAnnotation("mykey", "myvalue")
+	c.Assert(err, IsNil)
+	c.Assert(s.mysql.Annotations()["mykey"], Equals, "myvalue")
+}
+
+func (s *ServiceSuite) TestAnnotation(c *C) {
+	err := s.mysql.SetAnnotation("mykey", "myvalue")
+	c.Assert(err, IsNil)
+	c.Assert(s.mysql.Annotation("mykey"), Equals, "myvalue")
+}
+
+func (s *ServiceSuite) TestRemoveAnnotation(c *C) {
+	err := s.mysql.SetAnnotation("mykey", "myvalue")
+	c.Assert(err, IsNil)
+	err = s.mysql.RemoveAnnotation("mykey")
+	c.Assert(err, IsNil)
+	c.Assert(s.mysql.Annotation("mykey"), Equals, "")
+	c.Assert(s.mysql.Annotations()["mykey"], Equals, "")
+}

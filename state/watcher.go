@@ -203,7 +203,7 @@ func newServiceUnitsWatcher(svc *Service) *ServiceUnitsWatcher {
 		commonWatcher: commonWatcher{st: svc.st},
 		known:         make(map[string]Life),
 		out:           make(chan []string),
-		service:       &Service{svc.st, svc.doc}, // Copy so it may be freely refreshed.
+		service:       &Service{st: svc.st, doc: svc.doc}, // Copy so it may be freely refreshed.
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -309,7 +309,7 @@ func newServiceRelationsWatcher(s *Service) *ServiceRelationsWatcher {
 		commonWatcher: commonWatcher{st: s.st},
 		out:           make(chan []int),
 		known:         make(map[string]relationDoc),
-		service:       &Service{s.st, s.doc}, // Copy so it may be freely refreshed
+		service:       &Service{st: s.st, doc: s.doc}, // Copy so it may be freely refreshed
 	}
 	go func() {
 		defer w.tomb.Done()
