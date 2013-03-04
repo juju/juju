@@ -27,8 +27,8 @@ type filter struct {
 	// to the client.
 	outConfig      chan struct{}
 	outConfigOn    chan struct{}
-	outUpgrade     chan *state.Charm
-	outUpgradeOn   chan *state.Charm
+	outUpgrade     chan *charm.URL
+	outUpgradeOn   chan *charm.URL
 	outResolved    chan state.ResolvedMode
 	outResolvedOn  chan state.ResolvedMode
 	outRelations   chan []int
@@ -52,7 +52,7 @@ type filter struct {
 	service          *state.Service
 	upgradeRequested serviceCharm
 	upgradeAvailable serviceCharm
-	upgrade          *state.Charm
+	upgrade          *charm.URL
 	relations        []int
 }
 
@@ -64,8 +64,8 @@ func newFilter(st *state.State, unitName string) (*filter, error) {
 		outUnitDying:     make(chan struct{}),
 		outConfig:        make(chan struct{}),
 		outConfigOn:      make(chan struct{}),
-		outUpgrade:       make(chan *state.Charm),
-		outUpgradeOn:     make(chan *state.Charm),
+		outUpgrade:       make(chan *charm.URL),
+		outUpgradeOn:     make(chan *charm.URL),
 		outResolved:      make(chan state.ResolvedMode),
 		outResolvedOn:    make(chan state.ResolvedMode),
 		outRelations:     make(chan []int),
@@ -102,10 +102,10 @@ func (f *filter) UnitDying() <-chan struct{} {
 	return f.outUnitDying
 }
 
-// UpgradeEvents returns a channel that will receive a new charm whenever an
+// UpgradeEvents returns a channel that will receive a new charm URL whenever an
 // upgrade is indicated. Events should not be read until the baseline state
 // has been specified by calling WantUpgradeEvent.
-func (f *filter) UpgradeEvents() <-chan *state.Charm {
+func (f *filter) UpgradeEvents() <-chan *charm.URL {
 	return f.outUpgradeOn
 }
 
@@ -238,7 +238,7 @@ func (f *filter) loop(unitName string) (err error) {
 		// Send events on active out chans.
 		case f.outUpgrade <- f.upgrade:
 			log.Debugf("worker/uniter/filter: sent upgrade event")
-			f.upgradeRequested.url = f.upgrade.URL()
+			f.upgradeRequested.url = f.upgrade
 			f.outUpgrade = nil
 		case f.outResolved <- f.resolved:
 			log.Debugf("worker/uniter/filter: sent resolved event")
@@ -337,10 +337,8 @@ func (f *filter) upgradeChanged() (err error) {
 	if *f.upgradeAvailable.url != *f.upgradeRequested.url {
 		if f.upgradeAvailable.force || !f.upgradeRequested.force {
 			log.Debugf("worker/uniter/filter: preparing new upgrade event")
-			if f.upgrade == nil || *f.upgrade.URL() != *f.upgradeAvailable.url {
-				if f.upgrade, err = f.st.Charm(f.upgradeAvailable.url); err != nil {
-					return err
-				}
+			if f.upgrade == nil || *f.upgrade != *f.upgradeAvailable.url {
+				f.upgrade = f.upgradeAvailable.url
 			}
 			f.outUpgrade = f.outUpgradeOn
 			return nil
