@@ -16,6 +16,6 @@ func ServiceAddUnit(state *state.State, args ServiceAddUnitParams) error {
 	if err != nil {
 		return err
 	}
-	_, err = conn.AddUnits(service, args.NumUnits)
+	_, err = service.AddUnits(service, args.NumUnits)
 	return err
 }
