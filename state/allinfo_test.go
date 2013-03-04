@@ -170,7 +170,7 @@ func (s *AllInfoSuite) TestNewAllInfo(c *C) {
 
 // assertContents checks that the given allWatcher
 // has the given contents, in oldest-to-newest order.
-func (*AllInfoSuite) assertContents(c *C, a *allInfo, entries []entityEntry) {
+func (*AllInfoSuite) assertContents(c *C, a *allInfo, latestRevno int64, entries []entityEntry) {
 	i := 0
 	for e := a.list.Back(); e != nil; e = e.Next() {
 		c.Assert(i, Not(Equals), len(entries))
@@ -180,33 +180,31 @@ func (*AllInfoSuite) assertContents(c *C, a *allInfo, entries []entityEntry) {
 		i++
 	}
 	c.Assert(a.entities, HasLen, len(entries))
+	c.Assert(a.latestRevno, Equals, latestRevno)
 }
 
 func (s *AllInfoSuite) TestAdd(c *C) {
 	a, err := newAllInfo(s.State)
 	c.Assert(err, IsNil)
-	c.Assert(a.list.Len(), Equals, 0)
-	c.Assert(a.entities, HasLen, 0)
-	c.Assert(a.latestRevno, Equals, int64(0))
+	s.assertContents(c, a, 0, nil)
 
 	a.add(&MachineInfo{
 		Id:         "0",
 		InstanceId: "i-0",
 	})
-	s.assertContents(c, a, []entityEntry{{
+	s.assertContents(c, a, 1, []entityEntry{{
 		revno: 1,
 		info: &MachineInfo{
 			Id:         "0",
 			InstanceId: "i-0",
 		},
 	}})
-	c.Assert(a.latestRevno, Equals, int64(1))
 
 	a.add(&ServiceInfo{
 		Name:    "wordpress",
 		Exposed: true,
 	})
-	s.assertContents(c, a, []entityEntry{{
+	s.assertContents(c, a, 2, []entityEntry{{
 		revno: 1,
 		info: &MachineInfo{
 			Id:         "0",
@@ -219,13 +217,112 @@ func (s *AllInfoSuite) TestAdd(c *C) {
 			Exposed: true,
 		},
 	}})
-	c.Assert(a.latestRevno, Equals, int64(2))
 }
 
-func (s *AllInfoSuite) TestUpdate(c *C) {
+func (s *AllInfoSuite) TestUpdateNonExistingEntry(c *C) {
+	a, err := newAllInfo(s.State)
+	c.Assert(err, IsNil)
+	err = a.update(entityId{
+		collection: s.State.machines.Name,
+		id:         "99",
+	})
+	c.Assert(err, IsNil)
+	s.assertContents(c, a, 0, nil)
+}
+
+func (s *AllInfoSuite) TestUpdateAddChangeRemove(c *C) {
+	a, err := newAllInfo(s.State)
+	c.Assert(err, IsNil)
+
+	m0, err := s.State.AddMachine("series", JobManageEnviron)
+	c.Assert(err, IsNil)
+	err = m0.SetInstanceId("i-0")
+	c.Assert(err, IsNil)
+
+	m1, err := s.State.AddMachine("series", JobManageEnviron)
+	c.Assert(err, IsNil)
+	err = m1.SetInstanceId("i-1")
+	c.Assert(err, IsNil)
+
+	// Add first machine.
+	err = a.update(entityId{
+		collection: s.State.machines.Name,
+		id:         "0",
+	})
+	c.Assert(err, IsNil)
+	s.assertContents(c, a, 1, []entityEntry{{
+		revno: 1,
+		info: &MachineInfo{
+			Id:         "0",
+			InstanceId: "i-0",
+		},
+	}})
+
+	// Add second machine.
+	err = a.update(entityId{
+		collection: s.State.machines.Name,
+		id:         "1",
+	})
+	c.Assert(err, IsNil)
+	s.assertContents(c, a, 2, []entityEntry{{
+		revno: 1,
+		info: &MachineInfo{
+			Id:         "0",
+			InstanceId: "i-0",
+		},
+	}, {
+		revno: 2,
+		info: &MachineInfo{
+			Id:         "1",
+			InstanceId: "i-1",
+		},
+	}})
+
+	// Update first machine.
+	err = m0.SetInstanceId("i-0-new")
+	c.Assert(err, IsNil)
+	err = a.update(entityId{
+		collection: s.State.machines.Name,
+		id:         "0",
+	})
+	c.Assert(err, IsNil)
+	s.assertContents(c, a, 3, []entityEntry{{
+		revno: 2,
+		info: &MachineInfo{
+			Id:         "1",
+			InstanceId: "i-1",
+		},
+	}, {
+		revno: 3,
+		info: &MachineInfo{
+			Id:         "0",
+			InstanceId: "i-0-new",
+		},
+	}})
+
+	// Update second machine with no changes.
+	err = a.update(entityId{
+		collection: s.State.machines.Name,
+		id:         "1",
+	})
+	c.Assert(err, IsNil)
+	s.assertContents(c, a, 3, []entityEntry{{
+		revno: 2,
+		info: &MachineInfo{
+			Id:         "1",
+			InstanceId: "i-1",
+		},
+	}, {
+		revno: 3,
+		info: &MachineInfo{
+			Id:         "0",
+			InstanceId: "i-0-new",
+		},
+	}})
 }
 
 func (s *AllInfoSuite) TestChangesSince(c *C) {
+
 }
 
 func AddTestingCharm(c *C, st *State, name string) *Charm {

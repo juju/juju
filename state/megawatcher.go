@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"labix.org/v2/mgo"
 	"reflect"
+	"launchpad.net/juju-core/log"
 )
 
 // entityId holds the mongo identifier of an entity.
@@ -79,8 +80,9 @@ func (a *allInfo) update(id entityId) error {
 	info := a.newInfo[id.collection]()
 	collection := collectionForInfo(a.st, info)
 	// TODO(rog) investigate ways that this can be made more efficient.
-	if err := collection.FindId(info.EntityId()).One(info); err != nil {
-		if IsNotFound(err) {
+	if err := collection.FindId(id.id).One(info); err != nil {
+		if err == mgo.ErrNotFound {
+			log.Printf("id %#v not found", id)
 			// The document has been removed since the change notification arrived.
 			if elem := a.entities[id]; elem != nil {
 				elem.Value.(*entityEntry).removed = true
