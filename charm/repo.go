@@ -89,12 +89,14 @@ func (s *store) Latest(curl *URL) (int, error) {
 // verify returns an error unless a file exists at path with a hex-encoded
 // SHA256 matching digest.
 func verify(path, digest string) error {
-	b, err := ioutil.ReadFile(path)
+	f, err := os.Open(path)
 	if err != nil {
 		return err
 	}
 	h := sha256.New()
-	h.Write(b)
+	if _, err := io.Copy(h, f); err != nil {
+		return err
+	}
 	if hex.EncodeToString(h.Sum(nil)) != digest {
 		return fmt.Errorf("bad SHA256 of %q", path)
 	}
