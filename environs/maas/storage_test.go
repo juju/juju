@@ -53,17 +53,15 @@ func (s *StorageSuite) TestGetRetrievesFile(c *C) {
 	c.Assert(err, IsNil)
 	content, err := base64.StdEncoding.DecodeString(base64Content)
 	c.Assert(err, IsNil)
-	buf := make([]byte, len(content)+1)
 
 	reader, err := storage.Get(filename)
 	c.Assert(err, IsNil)
 	defer reader.Close()
 
-	numBytes, err := reader.Read(buf)
+	buf, err := ioutil.ReadAll(reader)
 	c.Assert(err, IsNil)
-	c.Check(numBytes, Equals, len(content))
-	c.Check(buf[:numBytes], DeepEquals, content)
-	c.Check(buf[numBytes], Equals, uint8(0))
+	c.Check(len(buf), Equals, len(content))
+	c.Check(buf, DeepEquals, content)
 }
 
 func (s *StorageSuite) TestNamingPrefixDiffersBetweenEnvironments(c *C) {
@@ -246,16 +244,16 @@ func (s *StorageSuite) TestURLReturnsURLCorrespondingToFile(c *C) {
 func (s *StorageSuite) TestPutStoresRetrievableFile(c *C) {
 	const filename = "broken-toaster.jpg"
 	contents := []byte("Contents here")
+	length := int64(len(contents))
 	storage := NewStorage(s.environ)
 
-	err := storage.Put(filename, bytes.NewReader(contents), int64(len(contents)))
+	err := storage.Put(filename, bytes.NewReader(contents), length)
 
-	buf := make([]byte, len(contents))
 	reader, err := storage.Get(filename)
 	c.Assert(err, IsNil)
 	defer reader.Close()
 
-	_, err = reader.Read(buf)
+	buf, err := ioutil.ReadAll(reader)
 	c.Assert(err, IsNil)
 	c.Check(buf, DeepEquals, contents)
 }
@@ -269,13 +267,13 @@ func (s *StorageSuite) TestPutOverwritesFile(c *C) {
 	err := storage.Put(filename, bytes.NewReader(newContents), int64(len(newContents)))
 	c.Assert(err, IsNil)
 
-	buf := make([]byte, len(newContents))
 	reader, err := storage.Get(filename)
 	c.Assert(err, IsNil)
 	defer reader.Close()
 
-	_, err = reader.Read(buf)
+	buf, err := ioutil.ReadAll(reader)
 	c.Assert(err, IsNil)
+	c.Check(len(buf), Equals, len(newContents))
 	c.Check(buf, DeepEquals, newContents)
 }
 
@@ -288,14 +286,13 @@ func (s *StorageSuite) TestPutStopsAtGivenLength(c *C) {
 	err := storage.Put(filename, bytes.NewReader(contents), length)
 	c.Assert(err, IsNil)
 
-	buf := make([]byte, length+1)
 	reader, err := storage.Get(filename)
 	c.Assert(err, IsNil)
 	defer reader.Close()
 
-	numBytes, err := reader.Read(buf)
+	buf, err := ioutil.ReadAll(reader)
 	c.Assert(err, IsNil)
-	c.Check(numBytes, Equals, length)
+	c.Check(len(buf), Equals, length)
 }
 
 func (s *StorageSuite) TestPutToExistingFileTruncatesAtGivenLength(c *C) {
@@ -309,16 +306,14 @@ func (s *StorageSuite) TestPutToExistingFileTruncatesAtGivenLength(c *C) {
 	err = storage.Put(filename, bytes.NewReader(newContents), int64(len(newContents)))
 	c.Assert(err, IsNil)
 
-	buf := make([]byte, len(newContents)+1)
 	reader, err := storage.Get(filename)
 	c.Assert(err, IsNil)
 	defer reader.Close()
 
-	numBytes, err := reader.Read(buf)
+	buf, err := ioutil.ReadAll(reader)
 	c.Assert(err, IsNil)
-	c.Check(numBytes, Equals, len(newContents))
-	c.Check(buf[:len(newContents)], DeepEquals, newContents)
-	c.Check(buf[len(newContents)], Equals, 0)
+	c.Check(len(buf), Equals, len(newContents))
+	c.Check(buf, DeepEquals, newContents)
 }
 
 func (s *StorageSuite) TestRemoveDeletesFile(c *C) {
