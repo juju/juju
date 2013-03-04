@@ -43,7 +43,7 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 	}
 	info.Password = password
 	st, err := state.Open(info)
-	if err == state.ErrUnauthorized {
+	if state.IsUnauthorizedError(err) {
 		// We can't connect with the administrator password,;
 		// perhaps this was the first connection and the
 		// password has not been changed yet.
@@ -54,7 +54,7 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 		// initialized and the initial password set.
 		for a := redialStrategy.Start(); a.Next(); {
 			st, err = state.Open(info)
-			if err != state.ErrUnauthorized {
+			if !state.IsUnauthorizedError(err) {
 				break
 			}
 		}
@@ -76,6 +76,25 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 		return nil, fmt.Errorf("unable to push secrets: %v", err)
 	}
 	return conn, nil
+}
+
+// NewConnFromState returns a Conn that uses an Environ
+// made by reading the environment configuration.
+// The resulting Conn uses the given State - closing
+// it will close that State.
+func NewConnFromState(st *state.State) (*Conn, error) {
+	cfg, err := st.EnvironConfig()
+	if err != nil {
+		return nil, err
+	}
+	environ, err := environs.New(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &Conn{
+		Environ: environ,
+		State:   st,
+	}, nil
 }
 
 // NewConnFromName returns a Conn pointing at the environName environment, or the

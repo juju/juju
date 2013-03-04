@@ -6,6 +6,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
@@ -78,7 +79,7 @@ func (*BootstrapSuite) TestBootstrapCommand(c *C) {
 	c.Assert(err, IsNil)
 	defer resp.Body.Close()
 
-	err = environs.UnpackTools(c.MkDir(), tools, resp.Body)
+	err = agent.UnpackTools(c.MkDir(), tools, resp.Body)
 	c.Assert(err, IsNil)
 
 	// bootstrap with broken environment
@@ -90,7 +91,7 @@ func (*BootstrapSuite) TestBootstrapCommand(c *C) {
 func (*BootstrapSuite) TestMissingEnvironment(c *C) {
 	defer makeFakeHome(c, "empty").restore()
 	// bootstrap without an environments.yaml
-	ctx := &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}}
+	ctx := testing.Context(c)
 	code := cmd.Main(&BootstrapCommand{}, ctx, nil)
 	c.Check(code, Equals, 1)
 	errStr := ctx.Stderr.(*bytes.Buffer).String()

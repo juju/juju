@@ -27,8 +27,8 @@ type filter struct {
 	// to the client.
 	outConfig      chan struct{}
 	outConfigOn    chan struct{}
-	outUpgrade     chan *state.Charm
-	outUpgradeOn   chan *state.Charm
+	outUpgrade     chan *charm.URL
+	outUpgradeOn   chan *charm.URL
 	outResolved    chan state.ResolvedMode
 	outResolvedOn  chan state.ResolvedMode
 	outRelations   chan []int
@@ -52,7 +52,7 @@ type filter struct {
 	service          *state.Service
 	upgradeRequested serviceCharm
 	upgradeAvailable serviceCharm
-	upgrade          *state.Charm
+	upgrade          *charm.URL
 	relations        []int
 }
 
@@ -64,8 +64,8 @@ func newFilter(st *state.State, unitName string) (*filter, error) {
 		outUnitDying:     make(chan struct{}),
 		outConfig:        make(chan struct{}),
 		outConfigOn:      make(chan struct{}),
-		outUpgrade:       make(chan *state.Charm),
-		outUpgradeOn:     make(chan *state.Charm),
+		outUpgrade:       make(chan *charm.URL),
+		outUpgradeOn:     make(chan *charm.URL),
 		outResolved:      make(chan state.ResolvedMode),
 		outResolvedOn:    make(chan state.ResolvedMode),
 		outRelations:     make(chan []int),
@@ -78,7 +78,7 @@ func newFilter(st *state.State, unitName string) (*filter, error) {
 	go func() {
 		defer f.tomb.Done()
 		err := f.loop(unitName)
-		log.Printf("worker/uniter: filter error: %v", err)
+		log.Printf("worker/uniter/filter: error: %v", err)
 		f.tomb.Kill(err)
 	}()
 	return f, nil
@@ -102,10 +102,10 @@ func (f *filter) UnitDying() <-chan struct{} {
 	return f.outUnitDying
 }
 
-// UpgradeEvents returns a channel that will receive a new charm whenever an
+// UpgradeEvents returns a channel that will receive a new charm URL whenever an
 // upgrade is indicated. Events should not be read until the baseline state
 // has been specified by calling WantUpgradeEvent.
-func (f *filter) UpgradeEvents() <-chan *state.Charm {
+func (f *filter) UpgradeEvents() <-chan *charm.URL {
 	return f.outUpgradeOn
 }
 
@@ -229,7 +229,7 @@ func (f *filter) loop(unitName string) (err error) {
 			f.outConfig = f.outConfigOn
 			discardConfig = f.discardConfig
 		case ids, ok := <-relationsw.Changes():
-			log.Debugf("filter: got relations change")
+			log.Debugf("worker/uniter/filter: got relations change")
 			if !ok {
 				return watcher.MustErr(relationsw)
 			}
@@ -238,16 +238,16 @@ func (f *filter) loop(unitName string) (err error) {
 		// Send events on active out chans.
 		case f.outUpgrade <- f.upgrade:
 			log.Debugf("worker/uniter/filter: sent upgrade event")
-			f.upgradeRequested.url = f.upgrade.URL()
+			f.upgradeRequested.url = f.upgrade
 			f.outUpgrade = nil
 		case f.outResolved <- f.resolved:
 			log.Debugf("worker/uniter/filter: sent resolved event")
 			f.outResolved = nil
 		case f.outConfig <- nothing:
-			log.Debugf("filter: sent config event")
+			log.Debugf("worker/uniter/filter: sent config event")
 			f.outConfig = nil
 		case f.outRelations <- f.relations:
-			log.Debugf("filter: sent relations event")
+			log.Debugf("worker/uniter/filter: sent relations event")
 			f.outRelations = nil
 			f.relations = nil
 
@@ -269,7 +269,7 @@ func (f *filter) loop(unitName string) (err error) {
 			watcher.Stop(relationsw, &f.tomb)
 			relationsw = f.service.WatchRelations()
 		case <-discardConfig:
-			log.Debugf("filter: discarded config event")
+			log.Debugf("worker/uniter/filter: discarded config event")
 			f.outConfig = nil
 		}
 	}
@@ -287,11 +287,11 @@ func (f *filter) unitChanged() error {
 	if f.life != f.unit.Life() {
 		switch f.life = f.unit.Life(); f.life {
 		case state.Dying:
-			log.Printf("worker/uniter: unit is dying")
+			log.Printf("worker/uniter/filter: unit is dying")
 			close(f.outUnitDying)
 			f.outUpgrade = nil
 		case state.Dead:
-			log.Printf("worker/uniter: unit is dead")
+			log.Printf("worker/uniter/filter: unit is dead")
 			return worker.ErrDead
 		}
 	}
@@ -337,10 +337,8 @@ func (f *filter) upgradeChanged() (err error) {
 	if *f.upgradeAvailable.url != *f.upgradeRequested.url {
 		if f.upgradeAvailable.force || !f.upgradeRequested.force {
 			log.Debugf("worker/uniter/filter: preparing new upgrade event")
-			if f.upgrade == nil || *f.upgrade.URL() != *f.upgradeAvailable.url {
-				if f.upgrade, err = f.st.Charm(f.upgradeAvailable.url); err != nil {
-					return err
-				}
+			if f.upgrade == nil || *f.upgrade != *f.upgradeAvailable.url {
+				f.upgrade = f.upgradeAvailable.url
 			}
 			f.outUpgrade = f.outUpgradeOn
 			return nil

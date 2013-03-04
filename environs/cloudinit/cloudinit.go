@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/cloudinit"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
@@ -37,13 +36,6 @@ type MachineConfig struct {
 	// by the API server. It must be non-zero
 	// if StateServer is true.
 	APIPort int
-
-	// InstanceIdAccessor holds bash code that evaluates to the current instance id.
-	InstanceIdAccessor string
-
-	// ProviderType identifies the provider type so the host
-	// knows which kind of provider to use.
-	ProviderType string
 
 	// StateInfo holds the means for the new instance to communicate with the
 	// juju state. Unless the new machine is running a state server (StateServer is
@@ -147,7 +139,6 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 		addScripts(c,
 			cfg.jujuTools()+"/jujud bootstrap-state"+
 				" --data-dir "+shquote(cfg.DataDir)+
-				" --instance-id "+cfg.InstanceIdAccessor+
 				" --env-config "+shquote(base64yaml(cfg.Config))+
 				debugFlag,
 			"rm -rf "+shquote(acfg.Dir()),
@@ -224,7 +215,7 @@ func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, entityName, a
 	// Make the agent run via a symbolic link to the actual tools
 	// directory, so it can upgrade itself without needing to change
 	// the upstart script.
-	toolsDir := environs.AgentToolsDir(cfg.DataDir, entityName)
+	toolsDir := agent.ToolsDir(cfg.DataDir, entityName)
 	// TODO(dfc) ln -nfs, so it doesn't fail if for some reason that the target already exists
 	addScripts(c, fmt.Sprintf("ln -s %v %s", cfg.Tools.Binary, shquote(toolsDir)))
 
@@ -295,7 +286,7 @@ func versionDir(toolsURL string) string {
 }
 
 func (cfg *MachineConfig) jujuTools() string {
-	return environs.ToolsDir(cfg.DataDir, cfg.Tools.Binary)
+	return agent.SharedToolsDir(cfg.DataDir, cfg.Tools.Binary)
 }
 
 func (cfg *MachineConfig) stateHostAddrs() []string {
@@ -335,9 +326,6 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 	if !state.IsMachineId(cfg.MachineId) {
 		return fmt.Errorf("invalid machine id")
 	}
-	if cfg.ProviderType == "" {
-		return fmt.Errorf("missing provider type")
-	}
 	if cfg.DataDir == "" {
 		return fmt.Errorf("missing var directory")
 	}
@@ -360,9 +348,6 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		return fmt.Errorf("missing API CA certificate")
 	}
 	if cfg.StateServer {
-		if cfg.InstanceIdAccessor == "" {
-			return fmt.Errorf("missing instance id accessor")
-		}
 		if cfg.Config == nil {
 			return fmt.Errorf("missing environment configuration")
 		}

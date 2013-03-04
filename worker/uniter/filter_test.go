@@ -202,7 +202,7 @@ func (s *FilterSuite) TestCharmEvents(c *C) {
 		s.State.Sync()
 		select {
 		case upgradeCharm := <-f.UpgradeEvents():
-			c.Assert(upgradeCharm.URL(), DeepEquals, url)
+			c.Assert(upgradeCharm, DeepEquals, url)
 		case <-time.After(50 * time.Millisecond):
 			c.Fatalf("timed out")
 		}

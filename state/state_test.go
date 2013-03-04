@@ -411,6 +411,7 @@ func (s *StateSuite) TestEnvironConfig(c *C) {
 		"type":                      "test",
 		"authorized-keys":           "i-am-a-key",
 		"default-series":            "precise",
+		"agent-version":             "1.2.3",
 		"development":               true,
 		"firewall-mode":             "",
 		"admin-secret":              "",
@@ -853,6 +854,7 @@ func (s *StateSuite) TestInitialize(c *C) {
 		"name":                      "lisboa",
 		"authorized-keys":           "i-am-a-key",
 		"default-series":            "precise",
+		"agent-version":             "1.2.3",
 		"development":               true,
 		"firewall-mode":             "",
 		"admin-secret":              "",
@@ -876,6 +878,7 @@ func (s *StateSuite) TestDoubleInitialize(c *C) {
 		"name":                      "lisboa",
 		"authorized-keys":           "i-am-a-key",
 		"default-series":            "precise",
+		"agent-version":             "1.2.3",
 		"development":               true,
 		"firewall-mode":             "",
 		"admin-secret":              "",
@@ -899,6 +902,7 @@ func (s *StateSuite) TestDoubleInitialize(c *C) {
 		"authorized-keys":           "i-am-not-an-animal",
 		"default-series":            "xanadu",
 		"development":               false,
+		"agent-version":             "3.4.5",
 		"firewall-mode":             "",
 		"admin-secret":              "",
 		"ca-cert":                   testing.CACert,
@@ -1169,11 +1173,11 @@ func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *C) {
 	info := state.TestingStateInfo()
 	info.EntityName, info.Password = "arble", "bar"
 	err := tryOpenState(info)
-	c.Assert(err, Equals, state.ErrUnauthorized)
+	c.Assert(state.IsUnauthorizedError(err), Equals, true)
 
 	info.EntityName, info.Password = "arble", ""
 	err = tryOpenState(info)
-	c.Assert(err, Equals, state.ErrUnauthorized)
+	c.Assert(state.IsUnauthorizedError(err), Equals, true)
 
 	info.EntityName, info.Password = "", ""
 	err = tryOpenState(info)
@@ -1249,7 +1253,7 @@ func testSetMongoPassword(c *C, getEntity func(st *state.State) (entity, error))
 	info.EntityName = ent.EntityName()
 	info.Password = "bar"
 	err = tryOpenState(info)
-	c.Assert(err, Equals, state.ErrUnauthorized)
+	c.Assert(state.IsUnauthorizedError(err), Equals, true)
 
 	// Check that we can log in with the correct password.
 	info.Password = "foo"
@@ -1267,7 +1271,7 @@ func testSetMongoPassword(c *C, getEntity func(st *state.State) (entity, error))
 	// Check that we cannot log in with the old password.
 	info.Password = "foo"
 	err = tryOpenState(info)
-	c.Assert(err, Equals, state.ErrUnauthorized)
+	c.Assert(state.IsUnauthorizedError(err), Equals, true)
 
 	// Check that we can log in with the correct password.
 	info.Password = "bar"
@@ -1295,7 +1299,7 @@ func (s *StateSuite) TestSetAdminMongoPassword(c *C) {
 	defer s.State.SetAdminMongoPassword("")
 	info := state.TestingStateInfo()
 	err = tryOpenState(info)
-	c.Assert(err, Equals, state.ErrUnauthorized)
+	c.Assert(state.IsUnauthorizedError(err), Equals, true)
 
 	info.Password = "foo"
 	err = tryOpenState(info)
