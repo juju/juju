@@ -262,6 +262,12 @@ func (c *srvClient) ServiceExpose(args statecmd.ServiceExposeParams) error {
 }
 
 // ServiceAddUnit adds a given number of units to a service.
+// ServiceUnexpose changes the juju-managed firewall to unexpose any ports that
+// were also explicitly marked by units as open.
+func (c *srvClient) ServiceUnexpose(args statecmd.ServiceUnexposeParams) error {
+	return statecmd.ServiceUnexpose(c.root.srv.state, args)
+}
+
 func (c *srvClient) ServiceAddUnit(args statecmd.ServiceAddUnitParams) error {
 	return statecmd.ServiceAddUnit(c.root.srv.state, args)
 }

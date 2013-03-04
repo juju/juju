@@ -3,6 +3,7 @@
 package statecmd
 
 import (
+	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 )
 
@@ -12,6 +13,10 @@ type ServiceAddUnitParams struct {
 }
 
 func ServiceAddUnit(state *state.State, args ServiceAddUnitParams) error {
+	conn, err := juju.NewConnFromState(state)
+	if err != nil {
+		return err
+	}
 	service, err := state.Service(args.ServiceName)
 	if err != nil {
 		return err

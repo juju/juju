@@ -80,6 +80,10 @@ var operationPermTests = []struct {
 	op:    opClientServiceExpose,
 	allow: []string{"user-admin", "user-other"},
 }, {
+	about: "Client.ServiceUnexpose",
+	op:    opClientServiceUnexpose,
+	allow: []string{"user-admin", "user-other"},
+}, {
 	about: "Client.ServiceAddUnit",
 	op:    opClientServiceAddUnit,
 	allow: []string{"user-admin", "user-other"},
@@ -245,8 +249,19 @@ func opClientServiceExpose(c *C, st *api.State) (func(), error) {
 	return func() {}, nil
 }
 
+func opClientServiceUnexpose(c *C, st *api.State) (func(), error) {
+	// This test only checks that the call is made without error, ensuring the
+	// signatures match.
+	err := st.Client().ServiceUnexpose("wordpress")
+	if err != nil {
+		return func() {}, err
+	}
+	c.Assert(err, IsNil)
+	return func() {}, nil
+}
+
 func opClientServiceAddUnit(c *C, st *api.State) (func(), error) {
-	// This test only shows that the call is made without error, ensuring the
+	// This test only checks that the call is made without error, ensuring the
 	// signatures match.
 	err := st.Client().ServiceAddUnit("wordpress", 1)
 	if err != nil {
@@ -906,6 +921,19 @@ func (s *suite) TestClientServiceExpose(c *C) {
 	err = service.Refresh()
 	c.Assert(err, IsNil)
 	c.Assert(service.IsExposed(), Equals, true)
+}
+
+func (s *suite) TestClientServiceUnexpose(c *C) {
+	s.setUpScenario(c)
+	serviceName := "wordpress"
+	service, err := s.State.Service(serviceName)
+	c.Assert(err, IsNil)
+	service.SetExposed()
+	c.Assert(service.IsExposed(), Equals, true)
+	err = s.APIState.Client().ServiceUnexpose(serviceName)
+	c.Assert(err, IsNil)
+	service.Refresh()
+	c.Assert(service.IsExposed(), Equals, false)
 }
 
 // openAs connects to the API state as the given entity
