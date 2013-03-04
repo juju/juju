@@ -16,11 +16,11 @@ type entityId struct {
 // entityEntry holds an entry in the linked list of all entities known
 // to a StateWatcher.
 type entityEntry struct {
-	// The revno holds the local idea of the latest change.  It is
-	// not the same as the transaction revno - this means we can
-	// unconditionally move a newly fetched entity to the front of
-	// the list without worrying if the revno has changed since the
-	// watcher reported it.
+	// The revno holds the local idea of the latest change to the
+	// given entity.  It is not the same as the transaction revno -
+	// this means we can unconditionally move a newly fetched entity
+	// to the front of the list without worrying if the revno has
+	// changed since the watcher reported it.
 	revno int64
 
 	// removed marks whether the entity has been removed.

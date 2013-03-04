@@ -2,7 +2,6 @@ package state
 
 import (
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/testing"
@@ -169,7 +168,58 @@ func (s *AllInfoSuite) TestNewAllInfo(c *C) {
 	c.Assert(gotEntities, DeepEquals, expectEntities)
 }
 
+// assertContents checks that the given allWatcher
+// has the given contents, in oldest-to-newest order.
+func (*AllInfoSuite) assertContents(c *C, a *allInfo, entries []entityEntry) {
+	i := 0
+	for e := a.list.Back(); e != nil; e = e.Next() {
+		c.Assert(i, Not(Equals), len(entries))
+		entry := e.Value.(*entityEntry)
+		c.Assert(entry, DeepEquals, &entries[i])
+		c.Assert(a.entities[infoEntityId(a.st, entry.info)], Equals, e)
+		i++
+	}
+	c.Assert(a.entities, HasLen, len(entries))
+}
+
 func (s *AllInfoSuite) TestAdd(c *C) {
+	a, err := newAllInfo(s.State)
+	c.Assert(err, IsNil)
+	c.Assert(a.list.Len(), Equals, 0)
+	c.Assert(a.entities, HasLen, 0)
+	c.Assert(a.latestRevno, Equals, int64(0))
+
+	a.add(&MachineInfo{
+		Id:         "0",
+		InstanceId: "i-0",
+	})
+	s.assertContents(c, a, []entityEntry{{
+		revno: 1,
+		info: &MachineInfo{
+			Id:         "0",
+			InstanceId: "i-0",
+		},
+	}})
+	c.Assert(a.latestRevno, Equals, int64(1))
+
+	a.add(&ServiceInfo{
+		Name:    "wordpress",
+		Exposed: true,
+	})
+	s.assertContents(c, a, []entityEntry{{
+		revno: 1,
+		info: &MachineInfo{
+			Id:         "0",
+			InstanceId: "i-0",
+		},
+	}, {
+		revno: 2,
+		info: &ServiceInfo{
+			Name:    "wordpress",
+			Exposed: true,
+		},
+	}})
+	c.Assert(a.latestRevno, Equals, int64(2))
 }
 
 func (s *AllInfoSuite) TestUpdate(c *C) {
@@ -177,13 +227,6 @@ func (s *AllInfoSuite) TestUpdate(c *C) {
 
 func (s *AllInfoSuite) TestChangesSince(c *C) {
 }
-
-func (s *AllInfoSuite) TestAdd(c *C) {
-}
-
-func (s *AllInfoSuite) TestAdd(c *C) {
-}
-
 
 func AddTestingCharm(c *C, st *State, name string) *Charm {
 	ch := testing.Charms.Dir(name)
