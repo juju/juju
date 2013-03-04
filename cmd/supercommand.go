@@ -86,12 +86,6 @@ func (c *SuperCommand) insert(name string, subcmd Command) {
 	c.subcmds[name] = subcmd
 }
 
-func (c *SuperCommand) addDefaultTopics() {
-	if c.topics == nil {
-		c.topics = make(map[string]topic)
-	}
-}
-
 func (c *SuperCommand) globalOptions() string {
 	buf := &bytes.Buffer{}
 	fmt.Fprintf(buf, `Global Options
@@ -121,13 +115,13 @@ func (c *SuperCommand) topicList() string {
 	}
 	sort.Strings(topics)
 	for i, name := range topics {
-		short_help := c.topics[name].short
-		topics[i] = fmt.Sprintf("%-*s  %s", longest, name, short_help)
+		shortHelp := c.topics[name].short
+		topics[i] = fmt.Sprintf("%-*s  %s", longest, name, shortHelp)
 	}
 	return fmt.Sprintf("%s", strings.Join(topics, "\n"))
 }
 
-// DescribeCommands returns a short description of each registered subcommand.
+// describeCommands returns a short description of each registered subcommand.
 func (c *SuperCommand) describeCommands(simple bool) string {
 	var lineFormat = "    %-*s - %s"
 	var outputFormat = "commands:\n%s"
@@ -138,7 +132,7 @@ func (c *SuperCommand) describeCommands(simple bool) string {
 	cmds := make([]string, len(c.subcmds)+1)
 	cmds[0] = "help"
 	i := 1
-	longest := 4 // len("help")
+	longest := len(cmds[0])
 	for name := range c.subcmds {
 		if len(name) > longest {
 			longest = len(name)
@@ -191,8 +185,8 @@ func (c *SuperCommand) SetFlags(f *gnuflag.FlagSet) {
 	if c.Log != nil {
 		c.Log.AddFlags(f)
 	}
-	f.BoolVar(&c.showHelp, "h", false, "")
-	f.BoolVar(&c.showHelp, "help", false, helpPurpose)
+	f.BoolVar(&c.showHelp, "h", false, helpPurpose)
+	f.BoolVar(&c.showHelp, "help", false, "")
 
 	c.flags = f
 }
