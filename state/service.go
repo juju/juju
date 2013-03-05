@@ -16,6 +16,7 @@ import (
 type Service struct {
 	st  *State
 	doc serviceDoc
+	annotator
 }
 
 // serviceDoc represents the internal state of a service in MongoDB.
@@ -29,15 +30,31 @@ type serviceDoc struct {
 	RelationCount int
 	Exposed       bool
 	TxnRevno      int64 `bson:"txn-revno"`
+	Annotations   map[string]string
 }
 
 func newService(st *State, doc *serviceDoc) *Service {
-	return &Service{st: st, doc: *doc}
+	svc := &Service{
+		st:  st,
+		doc: *doc,
+		annotator: annotator{
+			st:   st,
+			coll: st.services.Name,
+			id:   doc.Name,
+		},
+	}
+	svc.annotator.annotations = &svc.doc.Annotations
+	return svc
 }
 
 // Name returns the service name.
 func (s *Service) Name() string {
 	return s.doc.Name
+}
+
+// Annotations returns the service annotations.
+func (s *Service) Annotations() map[string]string {
+	return s.doc.Annotations
 }
 
 // globalKey returns the global database key for the service.
@@ -63,7 +80,7 @@ func (s *Service) Destroy() (err error) {
 			s.doc.Life = Dying
 		}
 	}()
-	svc := &Service{s.st, s.doc}
+	svc := &Service{st: s.st, doc: s.doc}
 	for i := 0; i < 5; i++ {
 		ops, err := svc.destroyOps()
 		switch {
