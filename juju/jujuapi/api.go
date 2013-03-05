@@ -1,4 +1,4 @@
-package juju
+package jujuapi
 
 import (
 	"fmt"

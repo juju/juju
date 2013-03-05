@@ -1,4 +1,4 @@
-package juju_test
+package jujuapi
 
 import (
 	. "launchpad.net/gocheck"
@@ -32,7 +32,9 @@ func (*NewAPIConnSuite) TestNewConn(c *C) {
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
-	err = environs.Bootstrap(env, false, panicWrite)
+	err = environs.Bootstrap(env, false, func(name string, cert, key []byte) error {
+		panic("writeCertAndKey called unexpectedly")
+	})
 	c.Assert(err, IsNil)
 
 	conn, err := juju.NewConn(env)

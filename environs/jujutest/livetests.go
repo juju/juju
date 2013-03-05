@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/juju/jujuapi"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
@@ -328,7 +329,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	defer conn.Close()
 
 	c.Logf("opening API connection")
-	apiConn, err := juju.NewAPIConn(t.Env)
+	apiConn, err := jujuapi.NewAPIConn(t.Env)
 	c.Assert(err, IsNil)
 	defer conn.Close()
 
