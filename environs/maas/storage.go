@@ -81,9 +81,7 @@ func (stor *maasStorage) extractFilenames(listResult gomaasapi.JSONObject) ([]st
 
 func (stor *maasStorage) List(prefix string) ([]string, error) {
 	params := make(url.Values)
-	if len(prefix) > 0 {
-		params.Add("prefix", prefix)
-	}
+	params.Add("prefix", prefix)
 	snapshot := stor.getSnapshot()
 	obj, err := snapshot.maasClientUnlocked.CallGet("list", params)
 	if err != nil {
