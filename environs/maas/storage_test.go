@@ -112,8 +112,11 @@ func (s *StorageSuite) TestRetrieveFileObjectEscapesName(c *C) {
 	obj, err := stor.retrieveFileObject(filename)
 	c.Assert(err, IsNil)
 
-	content, err := obj.GetField("content")
-	c.Check(content, Equals, data)
+	base64Content, err := obj.GetField("content")
+	c.Assert(err, IsNil)
+	content, err := base64.StdEncoding.DecodeString(base64Content)
+	c.Assert(err, IsNil)
+	c.Check(content, DeepEquals, data)
 }
 
 func (s *StorageSuite) TestFileContentsAreBinary(c *C) {
