@@ -50,10 +50,18 @@ func (st *State) getUser(name string, udoc *userDoc) error {
 
 // User returns the state user for the given name,
 func (st *State) User(name string) (*User, error) {
-	u := &User{st: st}
+	u := &User{
+		st: st,
+		annotator: annotator{
+			st:   st,
+			coll: st.users.Name,
+			id:   name,
+		},
+	}
 	if err := st.getUser(name, &u.doc); err != nil {
 		return nil, err
 	}
+	u.annotator.annotations = &u.doc.Annotations
 	return u, nil
 }
 
@@ -61,16 +69,23 @@ func (st *State) User(name string) (*User, error) {
 type User struct {
 	st  *State
 	doc userDoc
+	annotator
 }
 
 type userDoc struct {
 	Name         string `bson:"_id_"`
 	PasswordHash string
+	Annotations  map[string]string
 }
 
 // Name returns the user name,
 func (u *User) Name() string {
 	return u.doc.Name
+}
+
+// Annotations returns the user annotations.
+func (u *User) Annotations() map[string]string {
+	return u.doc.Annotations
 }
 
 // EntityName returns the entity name for

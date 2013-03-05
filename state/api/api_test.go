@@ -308,7 +308,7 @@ var scenarioStatus = &api.Status{
 // environment manager (bootstrap machine), so is
 // hopefully easier to remember as such.
 func (s *suite) setUpScenario(c *C) (entities []string) {
-	add := func(e state.AuthEntity) {
+	add := func(e state.Entity) {
 		entities = append(entities, e.EntityName())
 	}
 	u, err := s.State.User("admin")
@@ -382,9 +382,10 @@ func (s *suite) setUpScenario(c *C) (entities []string) {
 	return
 }
 
-// AuthEntity is the same as state.AuthEntity but
-// without PasswordValid, which is implemented
-// by state entities but not by api entities.
+// AuthEntity is the same as state.Entity but
+// without PasswordValid and annotations handling
+// which are implemented by state entities but not
+// by api entities.
 type AuthEntity interface {
 	EntityName() string
 	SetPassword(pass string) error
