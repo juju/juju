@@ -8,102 +8,85 @@ type annotator interface {
 	Annotation(key string) string
 	Annotations() map[string]string
 	Refresh() error
-	RemoveAnnotation(key string) error
 	SetAnnotation(key, value string) error
 }
 
-func testSetAnnotation(c *C, entity annotator) {
-	err := entity.SetAnnotation("mykey", "myvalue")
-	c.Assert(err, IsNil)
-	// The value stored in the annotator changed.
-	c.Assert(entity.Annotations()["mykey"], Equals, "myvalue")
-	err = entity.Refresh()
-	c.Assert(err, IsNil)
-	// The value stored in MongoDB changed.
-	c.Assert(entity.Annotations()["mykey"], Equals, "myvalue")
-}
-
-func testMultipleSetAnnotation(c *C, entity annotator) {
-	err := entity.SetAnnotation("mykey", "myvalue")
-	c.Assert(err, IsNil)
-	err = entity.SetAnnotation("another-key", "another-value")
-	c.Assert(err, IsNil)
-	annotations := entity.Annotations()
-	expected := map[string]string{
-		"mykey":       "myvalue",
-		"another-key": "another-value",
-	}
-	c.Assert(annotations, DeepEquals, expected)
-}
-
-func testSetInvalidAnnotation(c *C, entity annotator) {
-	err := entity.SetAnnotation("invalid.key", "myvalue")
-	c.Assert(err, ErrorMatches, `invalid key "invalid.key"`)
-}
-
-func testAnnotation(c *C, entity annotator) {
-	err := entity.SetAnnotation("mykey", "myvalue")
-	c.Assert(err, IsNil)
-	c.Assert(entity.Annotation("mykey"), Equals, "myvalue")
-}
-
-func testNonExistentAnnotation(c *C, entity annotator) {
-	c.Assert(entity.Annotation("does-not-exist"), Equals, "")
-}
-
-func testRemoveAnnotation(c *C, entity annotator) {
-	err := entity.SetAnnotation("mykey", "myvalue")
-	c.Assert(err, IsNil)
-	err = entity.RemoveAnnotation("mykey")
-	c.Assert(err, IsNil)
-	c.Assert(entity.Annotation("mykey"), Equals, "")
-	c.Assert(entity.Annotations()["mykey"], Equals, "")
-}
-
-func testRemoveNonExistentAnnotation(c *C, entity annotator) {
-	err := entity.RemoveAnnotation("does-not-exist")
-	c.Assert(err, IsNil)
+var annotatorTests = []struct {
+	about    string
+	initial  map[string]string
+	input    map[string]string
+	expected map[string]string
+	err      string
+}{
+	{
+		about:    "test setting an annotation",
+		input:    map[string]string{"mykey": "myvalue"},
+		expected: map[string]string{"mykey": "myvalue"},
+	},
+	{
+		about:    "test setting multiple annotations",
+		input:    map[string]string{"key1": "value1", "key2": "value2"},
+		expected: map[string]string{"key1": "value1", "key2": "value2"},
+	},
+	{
+		about:    "test overriding annotations",
+		initial:  map[string]string{"mykey": "myvalue"},
+		input:    map[string]string{"mykey": "another-value"},
+		expected: map[string]string{"mykey": "another-value"},
+	},
+	{
+		about: "test setting an invalid annotation",
+		input: map[string]string{"invalid.key": "myvalue"},
+		err:   `invalid key "invalid.key"`,
+	},
+	{
+		about:    "test returning a non existent annotation",
+		expected: map[string]string{},
+	},
+	{
+		about:    "test removing an annotation",
+		initial:  map[string]string{"mykey": "myvalue"},
+		input:    map[string]string{"mykey": ""},
+		expected: map[string]string{},
+	},
+	{
+		about:    "test removing a non existent annotation",
+		input:    map[string]string{"mykey": ""},
+		expected: map[string]string{},
+	},
 }
 
 func testAnnotator(c *C, getEntity func() (annotator, error)) {
-	tests := []struct {
-		about string
-		test  func(c *C, entity annotator)
-	}{
-		{
-			about: "test setting an annotation",
-			test:  testSetAnnotation,
-		},
-		{
-			about: "test setting multiple annotations",
-			test:  testMultipleSetAnnotation,
-		},
-		{
-			about: "test setting an invalid annotation",
-			test:  testSetInvalidAnnotation,
-		},
-		{
-			about: "test returning annotations",
-			test:  testAnnotation,
-		},
-		{
-			about: "test returning a non existent annotation",
-			test:  testNonExistentAnnotation,
-		},
-		{
-			about: "test removing an annotation",
-			test:  testRemoveAnnotation,
-		},
-		{
-			about: "test removing a non existent annotation",
-			test:  testRemoveNonExistentAnnotation,
-		},
-	}
-	for i, t := range tests {
+loop:
+	for i, t := range annotatorTests {
 		c.Logf("test %d. %s", i, t.about)
 		entity, err := getEntity()
 		c.Assert(err, IsNil)
-		t.test(c, entity)
+		for key, value := range t.initial {
+			err := entity.SetAnnotation(key, value)
+			c.Assert(err, IsNil)
+		}
+		for key, value := range t.input {
+			err := entity.SetAnnotation(key, value)
+			if t.err != "" {
+				c.Assert(err, ErrorMatches, t.err)
+				continue loop
+			}
+		}
+		c.Assert(err, IsNil)
+		// Retrieving single values works as expected.
+		for key, value := range t.input {
+			c.Assert(entity.Annotation(key), Equals, value)
+		}
+		// The value stored in the annotator changed.
+		c.Assert(entity.Annotations(), DeepEquals, t.expected)
+		err = entity.Refresh()
+		c.Assert(err, IsNil)
+		// The value stored in MongoDB changed.
+		c.Assert(entity.Annotations(), DeepEquals, t.expected)
+		// Clean up existing annotations.
+		for key := range t.expected {
+			err = entity.SetAnnotation(key, "")
+		}
 	}
-
 }

@@ -60,8 +60,15 @@ type machineDoc struct {
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {
-	ann := annotator{st: st, coll: st.machines.Name, id: doc.Id}
-	machine := &Machine{st: st, doc: *doc, annotator: ann}
+	machine := &Machine{
+		st:  st,
+		doc: *doc,
+		annotator: annotator{
+			st:   st,
+			coll: st.machines.Name,
+			id:   doc.Id,
+		},
+	}
 	machine.annotator.annotations = &machine.doc.Annotations
 	return machine
 }

@@ -34,8 +34,15 @@ type serviceDoc struct {
 }
 
 func newService(st *State, doc *serviceDoc) *Service {
-	ann := annotator{st: st, coll: st.services.Name, id: doc.Name}
-	svc := &Service{st: st, doc: *doc, annotator: ann}
+	svc := &Service{
+		st:  st,
+		doc: *doc,
+		annotator: annotator{
+			st:   st,
+			coll: st.services.Name,
+			id:   doc.Name,
+		},
+	}
 	svc.annotator.annotations = &svc.doc.Annotations
 	return svc
 }
