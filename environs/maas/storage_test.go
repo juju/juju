@@ -43,26 +43,12 @@ func makeRandomBytes(length int) []byte {
 // Or don't, if you want consistent (and debuggable) results.
 func (s *StorageSuite) fakeStoredFile(storage environs.Storage, name string) gomaasapi.MAASObject {
 	data := makeRandomBytes(rand.Intn(10))
-	fullName := storage.(*maasStorage).namingPrefix + name
-	return s.testMAASObject.TestServer.NewFile(fullName, data)
-}
-
-func (s *StorageSuite) TestNamingPrefixDiffersBetweenEnvironments(c *C) {
-	storA := s.makeStorage("A")
-	storB := s.makeStorage("B")
-	c.Check(storA.namingPrefix, Not(Equals), storB.namingPrefix)
-}
-
-func (s *StorageSuite) TestNamingPrefixIsConsistentForEnvironment(c *C) {
-	stor1 := s.makeStorage("name")
-	stor2 := s.makeStorage("name")
-	c.Check(stor1.namingPrefix, Equals, stor2.namingPrefix)
+	return s.testMAASObject.TestServer.NewFile(name, data)
 }
 
 func (s *StorageSuite) TestGetSnapshotCreatesClone(c *C) {
 	original := s.makeStorage("storage-name")
 	snapshot := original.getSnapshot()
-	c.Check(snapshot.namingPrefix, Equals, original.namingPrefix)
 	c.Check(snapshot.environUnlocked, Equals, original.environUnlocked)
 	c.Check(snapshot.maasClientUnlocked.URL().String(), Equals, original.maasClientUnlocked.URL().String())
 	// Snapshotting locks the original internally, but does not leave
