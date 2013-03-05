@@ -1063,60 +1063,8 @@ func (s *ServiceSuite) TestWatchConfig(c *C) {
 	}
 }
 
-func (s *ServiceSuite) TestSetAnnotation(c *C) {
-	err := s.mysql.SetAnnotation("mykey", "myvalue")
-	c.Assert(err, IsNil)
-	c.Assert(s.mysql.Annotations()["mykey"], Equals, "myvalue")
-	svc, err := s.State.Service("mysql")
-	c.Assert(err, IsNil)
-	c.Assert(svc.Annotations()["mykey"], Equals, "myvalue")
+func (s *ServiceSuite) TestAnnotatorForService(c *C) {
+	testAnnotator(c, func() (annotator, error) {
+		return s.State.Service("mysql")
+	})
 }
-
-func (s *ServiceSuite) TestMultipleSetAnnotation(c *C) {
-	err := s.mysql.SetAnnotation("mykey", "myvalue")
-	c.Assert(err, IsNil)
-	err = s.mysql.SetAnnotation("another-key", "another-value")
-	c.Assert(err, IsNil)
-	annotations := s.mysql.Annotations()
-	expected := map[string]string{
-		"mykey":       "myvalue",
-		"another-key": "another-value",
-	}
-	c.Assert(annotations, DeepEquals, expected)
-}
-
-func (s *ServiceSuite) TestSetInvalidAnnotation(c *C) {
-	err := s.mysql.SetAnnotation("invalid.key", "myvalue")
-	c.Assert(err, ErrorMatches, `invalid key "invalid.key"`)
-}
-
-func (s *ServiceSuite) TestAnnotation(c *C) {
-	err := s.mysql.SetAnnotation("mykey", "myvalue")
-	c.Assert(err, IsNil)
-	c.Assert(s.mysql.Annotation("mykey"), Equals, "myvalue")
-}
-
-func (s *ServiceSuite) TestNonExistentAnnotation(c *C) {
-	c.Assert(s.mysql.Annotation("does-not-exist"), Equals, "")
-}
-
-func (s *ServiceSuite) TestRemoveAnnotation(c *C) {
-	err := s.mysql.SetAnnotation("mykey", "myvalue")
-	c.Assert(err, IsNil)
-	err = s.mysql.RemoveAnnotation("mykey")
-	c.Assert(err, IsNil)
-	c.Assert(s.mysql.Annotation("mykey"), Equals, "")
-	c.Assert(s.mysql.Annotations()["mykey"], Equals, "")
-}
-
-func (s *ServiceSuite) TestRemoveNonExistentAnnotation(c *C) {
-	err := s.mysql.RemoveAnnotation("does-not-exist")
-	c.Assert(err, IsNil)
-}
-
-// TODO: refactor tests.
-// func (s *ServiceSuite) TestAnnotatorForService(c *C) {
-// 	TestAnnotator(c, func() (annotator, error) {
-// 		return s.State.Service("mysql")
-// 	})
-// }
