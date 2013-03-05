@@ -63,11 +63,11 @@ loop:
 		entity, err := getEntity()
 		c.Assert(err, IsNil)
 		for key, value := range t.initial {
-			err = entity.SetAnnotation(key, value)
+			err := entity.SetAnnotation(key, value)
 			c.Assert(err, IsNil)
 		}
 		for key, value := range t.input {
-			err = entity.SetAnnotation(key, value)
+			err := entity.SetAnnotation(key, value)
 			if t.err != "" {
 				c.Assert(err, ErrorMatches, t.err)
 				continue loop
