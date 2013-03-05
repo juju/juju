@@ -243,57 +243,40 @@ func (s *Store) IncCounter(key []string) error {
 	return err
 }
 
-// SumCounter returns the sum of all the counters that exactly match key,
-// or that are prefixed by it if prefix is true. In the latter case, a key
-// that matches the prefix exactly won't be included in the sum.
-func (s *Store) SumCounter(key []string, prefix bool) (count int64, err error) {
-	session := s.session.Copy()
-	defer session.Close()
-
-	skey, err := s.statsKey(session, key, false)
-	if err == ErrNotFound {
-		return 0, nil
-	}
-	if err != nil {
-		return 0, err
-	}
-
-	var regex string
-	if prefix {
-		regex = "^" + skey + ".+"
-	} else {
-		regex = "^" + skey + "$"
-	}
-
-	job := mgo.MapReduce{
-		Map:    "function() { emit('count', this.c); }",
-		Reduce: "function(key, values) { return Array.sum(values); }",
-	}
-	var result []struct{ Value int64 }
-	counters := session.StatCounters()
-	_, err = counters.Find(bson.D{{"k", bson.D{{"$regex", regex}}}}).MapReduce(&job, &result)
-	if len(result) > 0 {
-		return result[0].Value, err
-	}
-	return 0, err
-}
-
+// CounterRequest represents a request to aggregate counter values.
 type CounterRequest struct {
-	Key    []string
+	// Key and Prefix determine the counter keys to match.
+	// If Prefix is false, Key must match exactly. Otherwise, counters
+	// must begin with Key and have at least one more key token.
+	Key []string  
 	Prefix bool
+
+	// If List is true, matching counters are aggregated under their
+	// prefixes instead of being returned as a single overall sum.
+	//
+	// For example, given the following counts:
+	//
+	//   {"a", "b"}: 1,
+	//   {"a", "c"}: 3
+	//   {"a", "c", "d"}: 5
+	//   {"a", "c", "e"}: 7
+	//
+	// and assuming that Prefix is true, the following keys will
+	// present the respective results if List is true:
+	//
+	//        {"a"} => {{"a", "b"}, 1, false},
+	//                 {{"a", "c"}, 3, false},
+	//                 {{"a", "c"}, 12, true}
+	//   {"a", "c"} => {{"a", "c", "d"}, 3, false},
+	//                 {{"a", "c", "e"}, 5, false}
+	//
+	// If List is false, the same key prefixes will present:
+	//
+	//        {"a"} => {{"a"}, 16, true}
+	//   {"a", "c"} => {{"a", "c"}, 12, false}
+	//
 	List   bool
-	By     CounterBy
-	Limit  int
 }
-
-type CounterBy int
-
-const (
-	ByTotal CounterBy = iota
-	ByDay
-	ByWeek
-	ByMonth
-)
 
 type Counter struct {
 	Key    []string
@@ -301,21 +284,7 @@ type Counter struct {
 	Prefix bool
 }
 
-// Counters returns a list of all keys directly under the provided prefix,
-// and a prefix-aggregated view of deeper keys.
-//
-// For example, given the following counts:
-//
-//     {"a", "b"}: 1,
-//     {"a", "c"}: 3
-//     {"a", "c", "d"}: 5
-//     {"a", "c", "e"}: 7
-//
-// The following key prefixes will present the respective list results:
-//
-//          {"a"} => {{"a", "b"}, 1, false}, {{"a", "c"}, 3, false}, {{"a", "c"}, 12, true}
-//     {"a", "c"} => {{"a", "c", "d"}, 3, false}, {"a", "c", "e"}, 5, false}
-//
+// Counters aggregates and returns counter values according to the provided request.
 func (s *Store) Counters(req *CounterRequest) ([]Counter, error) {
 	session := s.session.Copy()
 	defer session.Close()
@@ -323,26 +292,51 @@ func (s *Store) Counters(req *CounterRequest) ([]Counter, error) {
 	tokensColl := session.StatTokens()
 	countersColl := session.StatCounters()
 
-	skey, err := s.statsKey(session, req.Key, false)
+	searchKey, err := s.statsKey(session, req.Key, false)
 	if err == ErrNotFound {
+		if !req.List {
+			return []Counter{{Key: req.Key, Prefix: req.Prefix, Count: 0}}, nil
+		}
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	regex := "^" + skey + ".+"
+	var regex string
+	if req.Prefix {
+		regex = "^" + searchKey + ".+"
+	} else {
+		regex = "^" + searchKey + "$"
+	}
 
-	// For a search key "a:b:" matching a key "a:b:c:d:e:", this map function emits "a:b:c:*".
-	// For a search key "a:b:" matching a key "a:b:c:", it emits "a:b:c:".
-	mapf := fmt.Sprintf(`
-		function() {
-		    var k = this.k;
-		    var i = k.indexOf(':', %d)+1;
-		    if (k.length > i)  { k = k.substr(0, i)+'*'; }
-		    emit(k, this.c);
-		}`, len(skey))
-	reducef := "function(key, values) { return Array.sum(values); }"
-	job := mgo.MapReduce{Map: mapf, Reduce: reducef}
+	// This reduce function simply sums, for each emitted key, all the values found under it.
+	job := mgo.MapReduce{Reduce: "function(key, values) { return Array.sum(values); }"}
+	if req.List && req.Prefix {
+		// For a search key "a:b:" matching a key "a:b:c:d:e:", this map function emits "a:b:c:*".
+		// For a search key "a:b:" matching a key "a:b:c:", it emits "a:b:c:".
+		// For a search key "a:b:" matching a key "a:b:", it emits "a:b:".
+		job.Scope = bson.D{{"searchKeyLen", len(searchKey)}}
+		job.Map = `
+			function() {
+				var k = this.k;
+				var i = k.indexOf(':', searchKeyLen)+1;
+				if (k.length > i)  { k = k.substr(0, i)+'*'; }
+				emit(k, this.c);
+			}`
+	} else {
+		// For a search key "a:b:" matching a key "a:b:c:d:e:", this map function emits "a:b:*".
+		// For a search key "a:b:" matching a key "a:b:c:", it also emits "a:b:*".
+		// For a search key "a:b:" matching a key "a:b:", it emits "a:b:".
+		emitKey := searchKey
+		if req.Prefix {
+			emitKey += "*"
+		}
+		job.Scope = bson.D{{"emitKey", emitKey}}
+		job.Map = `
+			function() {
+				emit(emitKey, this.c);
+			}`
+	}
 
 	var result []struct {
 		Key   string `bson:"_id"`
@@ -383,7 +377,11 @@ func (s *Store) Counters(req *CounterRequest) ([]Counter, error) {
 		}
 		counters = append(counters, counter)
 	}
-	sort.Sort(sortableCounters(counters))
+	if !req.List && len(counters) == 0 {
+		counters = []Counter{{Key: req.Key, Prefix: req.Prefix, Count: 0}}
+	} else if len(counters) > 1 {
+		sort.Sort(sortableCounters(counters))
+	}
 	return counters, nil
 }
 

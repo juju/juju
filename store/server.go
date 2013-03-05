@@ -155,48 +155,24 @@ func (s *Server) serveStats(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
-	key := strings.Split(base, ":")
 	r.ParseForm()
-	listing := r.Form.Get("list") == "1"
-	prefix := false
-	if key[len(key)-1] == "*" {
-		prefix = true
-		key = key[:len(key)-1]
-		if len(key) == 0 && !listing {
+	req := CounterRequest{
+		Key: strings.Split(base, ":"),
+		List: r.Form.Get("list") == "1",
+	}
+	if req.Key[len(req.Key)-1] == "*" {
+		req.Prefix = true
+		req.Key = req.Key[:len(req.Key)-1]
+		if len(req.Key) == 0 && !req.List {
 			// No point in counting something unknown.
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
 	}
-	if listing && prefix {
-		s.serveStatsList(w, r, key)
-		return
-	}
-	sum, err := s.store.SumCounter(key, prefix)
-	if err != nil {
-		log.Printf("store: cannot sum counter: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	data := []byte(strconv.FormatInt(sum, 10))
-	if listing {
-		// Listing a single item.. silly, but whatever.
-		data = []byte(base + "  " + string(data) + "\n")
-	}
-	w.Header().Set("Content-Type", "text/plain")
-	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
-	_, err = w.Write(data)
-	if err != nil {
-		log.Printf("store: cannot write content: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
-	}
-}
 
-func (s *Server) serveStatsList(w http.ResponseWriter, r *http.Request, prefix []string) {
-	req := &CounterRequest{Key: prefix, Prefix: true, List: true}
-	entries, err := s.store.Counters(req)
+	entries, err := s.store.Counters(&req)
 	if err != nil {
-		log.Printf("store: cannot list counter: %v", err)
+		log.Printf("store: cannot query counters: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -234,10 +210,14 @@ func (s *Server) serveStatsList(w http.ResponseWriter, r *http.Request, prefix [
 	}
 	for i := range result {
 		item := &result[i]
-		buf = append(buf, item.key...)
-		buf = append(buf, spaces[len(item.key):]...)
+		if req.List {
+			buf = append(buf, item.key...)
+			buf = append(buf, spaces[len(item.key):]...)
+		}
 		buf = strconv.AppendInt(buf, item.count, 10)
-		buf = append(buf, '\n')
+		if req.List {
+			buf = append(buf, '\n')
+		}
 	}
 
 	w.Header().Set("Content-Type", "text/plain")
