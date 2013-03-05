@@ -169,6 +169,10 @@ func (stor *maasStorage) Put(name string, r io.Reader, length int64) error {
 	return err
 }
 
-func (*maasStorage) Remove(name string) error {
-	panic("Not implemented.")
+func (stor *maasStorage) Remove(name string) error {
+	// The only thing that can go wrong here, really, is that the file
+	// does not exist.  But deletion is idempotent: deleting a file that
+	// is no longer there anyway is success, not failure.
+	stor.getSnapshot().maasClientUnlocked.GetSubObject(name).Delete()
+	return nil
 }
