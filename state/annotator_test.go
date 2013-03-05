@@ -47,7 +47,7 @@ func testAnnotation(c *C, entity annotator) {
 	c.Assert(entity.Annotation("mykey"), Equals, "myvalue")
 }
 
-func testNonExistantAnnotation(c *C, entity annotator) {
+func testNonExistentAnnotation(c *C, entity annotator) {
 	c.Assert(entity.Annotation("does-not-exist"), Equals, "")
 }
 
@@ -60,7 +60,7 @@ func testRemoveAnnotation(c *C, entity annotator) {
 	c.Assert(entity.Annotations()["mykey"], Equals, "")
 }
 
-func testRemoveNonExistantAnnotation(c *C, entity annotator) {
+func testRemoveNonExistentAnnotation(c *C, entity annotator) {
 	err := entity.RemoveAnnotation("does-not-exist")
 	c.Assert(err, IsNil)
 }
@@ -87,16 +87,16 @@ func testAnnotator(c *C, getEntity func() (annotator, error)) {
 			test:  testAnnotation,
 		},
 		{
-			about: "test returning a non existant annotation",
-			test:  testNonExistantAnnotation,
+			about: "test returning a non existent annotation",
+			test:  testNonExistentAnnotation,
 		},
 		{
 			about: "test removing an annotation",
 			test:  testRemoveAnnotation,
 		},
 		{
-			about: "test removing a non existant annotation",
-			test:  testRemoveNonExistantAnnotation,
+			about: "test removing a non existent annotation",
+			test:  testRemoveNonExistentAnnotation,
 		},
 	}
 	for i, t := range tests {

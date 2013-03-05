@@ -696,7 +696,7 @@ type UnitsWatcher struct {
 
 // WatchSubordinateUnits returns a UnitsWatcher tracking the unit's subordinate units.
 func (u *Unit) WatchSubordinateUnits() *UnitsWatcher {
-	u = &Unit{u.st, u.doc}
+	u = &Unit{st: u.st, doc: u.doc}
 	coll := u.st.units.Name
 	getUnits := func() ([]string, error) {
 		if err := u.Refresh(); err != nil {
@@ -710,7 +710,7 @@ func (u *Unit) WatchSubordinateUnits() *UnitsWatcher {
 // WatchPrincipalUnits returns a UnitsWatcher tracking the machine's principal
 // units.
 func (m *Machine) WatchPrincipalUnits() *UnitsWatcher {
-	m = &Machine{m.st, m.doc}
+	m = &Machine{st: m.st, doc: m.doc}
 	coll := m.st.machines.Name
 	getUnits := func() ([]string, error) {
 		if err := m.Refresh(); err != nil {
@@ -1102,7 +1102,7 @@ func newMachineUnitsWatcher(m *Machine) *MachineUnitsWatcher {
 		out:           make(chan []string),
 		in:            make(chan watcher.Change),
 		known:         make(map[string]Life),
-		machine:       &Machine{m.st, m.doc}, // Copy so it may be freely refreshed
+		machine:       &Machine{st: m.st, doc: m.doc}, // Copy so it may be freely refreshed
 	}
 	go func() {
 		defer w.tomb.Done()
