@@ -107,6 +107,17 @@ type EnvironmentInfo struct {
 	ProviderType  string
 }
 
+// Annotations holds annotations associated with an entity.
+type Annotations struct {
+	Annotations map[string]string
+}
+
+// Annotation holds a key/value pair representing a single annotation.
+type Annotation struct {
+	Key   string
+	Value string
+}
+
 // EnvironmentInfo returns details about the Juju environment.
 func (c *Client) EnvironmentInfo() (*EnvironmentInfo, error) {
 	info := new(EnvironmentInfo)
