@@ -101,6 +101,22 @@ func (c *Client) ServiceUnexpose(service string) error {
 	return nil
 }
 
+// ServiceDeploy obtains the charm, either locally or from the charm store,
+// and deploys it.
+func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int, config string) error {
+	params := statecmd.ServiceDeployParams{
+		charmUrl:    charmUrl,
+		serviceName: serviceName,
+		numUnits:    numUnits,
+		config:      config,
+	}
+	err := c.st.client.Call("Client", "", "ServiceDeploy", params, nill)
+	if err != nil {
+		return clientError(err)
+	}
+	return nil
+}
+
 // EnvironmentInfo holds information about the Juju environment.
 type EnvironmentInfo struct {
 	DefaultSeries string

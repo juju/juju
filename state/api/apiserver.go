@@ -6,6 +6,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/jujuapi"
 	"launchpad.net/juju-core/state/statecmd"
 	statewatcher "launchpad.net/juju-core/state/watcher"
 	"strconv"

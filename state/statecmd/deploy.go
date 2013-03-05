@@ -11,7 +11,7 @@ import (
 
 // ServiceDeployParams are parameters for making the ServiceDeploy call.
 type ServiceDeployParams struct {
-	charmName   string
+	charmUrl    string
 	serviceName string
 	numUnits    int
 	config      string
