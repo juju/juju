@@ -13,7 +13,8 @@ type ExposeSuite struct {
 var _ = Suite(&ExposeSuite{})
 
 func runExpose(c *C, args ...string) error {
-	return testing.RunCommand(c, &ExposeCommand{}, args)
+	_, err := testing.RunCommand(c, &ExposeCommand{}, args)
+	return err
 }
 
 func (s *ExposeSuite) assertExposed(c *C, service string) {

@@ -75,6 +75,14 @@ var operationPermTests = []struct {
 	about: "Client.ServiceGet",
 	op:    opClientServiceGet,
 	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.ServiceExpose",
+	op:    opClientServiceExpose,
+	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.ServiceUnexpose",
+	op:    opClientServiceUnexpose,
+	allow: []string{"user-admin", "user-other"},
 },
 }
 
@@ -216,12 +224,35 @@ func opClientServiceSetYAML(c *C, st *api.State) (func(), error) {
 }
 
 func opClientServiceGet(c *C, st *api.State) (func(), error) {
-	service, err := st.Client().ServiceGet("wordpress")
+	// This test only shows that the call is made without error, ensuring the
+	// signatures match.
+	_, err := st.Client().ServiceGet("wordpress")
 	if err != nil {
 		return func() {}, err
 	}
 	c.Assert(err, IsNil)
-	c.Assert(service, DeepEquals, &expectedWordpressConfig)
+	return func() {}, nil
+}
+
+func opClientServiceExpose(c *C, st *api.State) (func(), error) {
+	// This test only shows that the call is made without error, ensuring the
+	// signatures match.
+	err := st.Client().ServiceExpose("wordpress")
+	if err != nil {
+		return func() {}, err
+	}
+	c.Assert(err, IsNil)
+	return func() {}, nil
+}
+
+func opClientServiceUnexpose(c *C, st *api.State) (func(), error) {
+	// This test only checks that the call is made without error, ensuring the
+	// signatures match.
+	err := st.Client().ServiceUnexpose("wordpress")
+	if err != nil {
+		return func() {}, err
+	}
+	c.Assert(err, IsNil)
 	return func() {}, nil
 }
 
@@ -238,17 +269,6 @@ var scenarioStatus = &api.Status{
 		"2": {
 			InstanceId: "i-machine-2",
 		},
-	},
-}
-
-var expectedWordpressConfig = statecmd.ServiceGetResults{
-	Service: "wordpress",
-	Charm:   "wordpress",
-	Settings: map[string]interface{}{
-		"blog-title": map[string]interface{}{
-			"type":        "string",
-			"value":       nil,
-			"description": "A descriptive title used for the blog."},
 	},
 }
 
@@ -752,7 +772,7 @@ var errorTransformTests = []struct {
 	err:  state.NotFoundf("hello"),
 	code: api.CodeNotFound,
 }, {
-	err:  state.ErrUnauthorized,
+	err:  state.Unauthorizedf("hello"),
 	code: api.CodeUnauthorized,
 }, {
 	err:  state.ErrCannotEnterScopeYet,
@@ -863,7 +883,42 @@ func (s *suite) TestClientServiceGet(c *C) {
 	s.setUpScenario(c)
 	config, err := s.APIState.Client().ServiceGet("wordpress")
 	c.Assert(err, IsNil)
-	c.Assert(config, DeepEquals, &expectedWordpressConfig)
+	c.Assert(config, DeepEquals, &statecmd.ServiceGetResults{
+		Service: "wordpress",
+		Charm:   "wordpress",
+		Settings: map[string]interface{}{
+			"blog-title": map[string]interface{}{
+				"type":        "string",
+				"value":       nil,
+				"description": "A descriptive title used for the blog."},
+		},
+	})
+}
+
+func (s *suite) TestClientServiceExpose(c *C) {
+	s.setUpScenario(c)
+	serviceName := "wordpress"
+	service, err := s.State.Service(serviceName)
+	c.Assert(err, IsNil)
+	c.Assert(service.IsExposed(), Equals, false)
+	err = s.APIState.Client().ServiceExpose(serviceName)
+	c.Assert(err, IsNil)
+	err = service.Refresh()
+	c.Assert(err, IsNil)
+	c.Assert(service.IsExposed(), Equals, true)
+}
+
+func (s *suite) TestClientServiceUnexpose(c *C) {
+	s.setUpScenario(c)
+	serviceName := "wordpress"
+	service, err := s.State.Service(serviceName)
+	c.Assert(err, IsNil)
+	service.SetExposed()
+	c.Assert(service.IsExposed(), Equals, true)
+	err = s.APIState.Client().ServiceUnexpose(serviceName)
+	c.Assert(err, IsNil)
+	service.Refresh()
+	c.Assert(service.IsExposed(), Equals, false)
 }
 
 // openAs connects to the API state as the given entity

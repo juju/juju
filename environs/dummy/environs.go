@@ -388,6 +388,10 @@ func (*environProvider) PrivateAddress() (string, error) {
 	return "private.dummy.address.example.com", nil
 }
 
+func (*environProvider) InstanceId() (state.InstanceId, error) {
+	return state.InstanceId("dummy.instance.id"), nil
+}
+
 func (*environProvider) BoilerplateConfig() string {
 	return `
 ## Fake configuration for dummy provider.

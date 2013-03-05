@@ -205,7 +205,7 @@ func (c *Conf) OpenState() (st *state.State, newPassword string, err error) {
 		if err == nil {
 			return st, "", nil
 		}
-		if err != state.ErrUnauthorized {
+		if !state.IsUnauthorizedError(err) {
 			return nil, "", err
 		}
 		// Access isn't authorized even though we have a password
