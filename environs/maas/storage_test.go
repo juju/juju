@@ -123,14 +123,12 @@ func (s *StorageSuite) TestFileContentsAreBinary(c *C) {
 
 	err := stor.Put(filename, bytes.NewReader(data), int64(len(data)))
 	c.Assert(err, IsNil)
-	obj, err := stor.retrieveFileObject(filename)
+	file, err := stor.Get(filename)
+	c.Assert(err, IsNil)
+	content, err := ioutil.ReadAll(file)
 	c.Assert(err, IsNil)
 
-	attrs, err := obj.GetMap()
-	c.Assert(err, IsNil)
-	content, err := attrs["content"].GetBytes()
-	c.Assert(err, IsNil)
-	c.Check(content, Equals, data)
+	c.Check(content, DeepEquals, data)
 }
 
 func (s *StorageSuite) TestGetReturnsNotFoundErrorIfNotFound(c *C) {
