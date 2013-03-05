@@ -282,23 +282,22 @@ func (c *srvClient) EnvironmentInfo() (EnvironmentInfo, error) {
 }
 
 // GetAnnotations returns annotations about a given entity.
-// func (c *srvClient) GetAnnotations(id string) (Annotations, error) {
-// 	state := c.root.srv.state
-// 	switch coll {
-// 	case "machine":
-// 		entity, err := state.Machine(id)
-// 	case "service":
-// 		entity, err := state.Service(id)
-// 	case "unit":
-// 		entity, err := state.Unit(id)
-// 	default:
-// 		err := fmt.Errorf("invalid collection type %q", coll)
-// 	}
-// 	if err != nil {
-// 		return Annotations{}, err
-// 	}
-// 	return entity.Annotations(), nil
-// }
+func (c *srvClient) GetAnnotations(params GetAnnotationsParams) (Annotations, error) {
+	entity, err := c.root.srv.state.Entity(params.Id)
+	if err != nil {
+		return Annotations{}, err
+	}
+	return Annotations{Annotations: entity.Annotations()}, nil
+}
+
+// SetAnnotation store an annotation about a given entity.
+func (c *srvClient) SetAnnotation(params SetAnnotationParams) error {
+	entity, err := c.root.srv.state.Entity(params.Id)
+	if err != nil {
+		return err
+	}
+	return entity.SetAnnotation(params.Key, params.Value)
+}
 
 type rpcCreds struct {
 	EntityName string

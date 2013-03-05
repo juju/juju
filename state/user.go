@@ -58,10 +58,11 @@ func (st *State) User(name string) (*User, error) {
 			id:   name,
 		},
 	}
+	u.annotator.annotations = &u.doc.Annotations
 	if err := st.getUser(name, &u.doc); err != nil {
 		return nil, err
 	}
-	u.annotator.annotations = &u.doc.Annotations
+
 	return u, nil
 }
 

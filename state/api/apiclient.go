@@ -112,8 +112,14 @@ type Annotations struct {
 	Annotations map[string]string
 }
 
-// Annotation holds a key/value pair representing a single annotation.
-type Annotation struct {
+// GetAnnotationsParams stores parameters for making the GetAnnotations call.
+type GetAnnotationsParams struct {
+	Id string
+}
+
+// SetAnnotationParams stores parameters for making the SetAnnotation call.
+type SetAnnotationParams struct {
+	Id    string
 	Key   string
 	Value string
 }

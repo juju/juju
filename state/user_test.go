@@ -55,3 +55,11 @@ func (s *UserSuite) TestName(c *C) {
 	c.Assert(u.Name(), Equals, "someuser")
 	c.Assert(u.EntityName(), Equals, "user-someuser")
 }
+
+func (s *UserSuite) TestAnnotatorForUser(c *C) {
+	u, err := s.State.AddUser("user", "password")
+	c.Assert(err, IsNil)
+	testAnnotator(c, func() (annotator, error) {
+		return s.State.User(u.Name())
+	})
+}
