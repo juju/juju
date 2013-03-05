@@ -35,10 +35,6 @@ type entityEntry struct {
 // allInfo holds a list of all entities known
 // to a StateWatcher.
 type allInfo struct {
-	st *State
-	// newInfo describes how to create a new entity info value given
-	// the name of the collection it's stored in.
-	newInfo     map[string]func() EntityInfo
 	latestRevno int64
 	entities    map[entityId]*list.Element
 	list        *list.List
@@ -46,101 +42,63 @@ type allInfo struct {
 
 // newAllInfo returns an allInfo instance holding information about the
 // current state of all entities in the environment.
-func newAllInfo(st *State) (*allInfo, error) {
+func newAllInfo() (*allInfo, error) {
 	all := &allInfo{
 		st:       st,
 		entities: make(map[entityId]*list.Element),
-		newInfo: map[string]func() EntityInfo{
-			st.machines.Name:  func() EntityInfo { return new(MachineInfo) },
-			st.units.Name:     func() EntityInfo { return new(UnitInfo) },
-			st.services.Name:  func() EntityInfo { return new(ServiceInfo) },
-			st.relations.Name: func() EntityInfo { return new(RelationInfo) },
-		},
 		list: list.New(),
-	}
-	if err := all.getAll(); err != nil {
-		return nil, err
 	}
 	return all, nil
 }
 
-// add adds a new entity to the list.
-func (a *allInfo) add(info EntityInfo) {
+// add adds a new entity with the given id and associated
+// information to the list.
+func (a *allInfo) add(id entityId, info EntityInfo) {
 	a.latestRevno++
 	entry := &entityEntry{
 		info:  info,
 		revno: a.latestRevno,
 	}
-	a.entities[infoEntityId(a.st, info)] = a.list.PushFront(entry)
+	a.entities[id] = a.list.PushFront(entry)
 }
 
-// update updates information on the entity with the given id by
-// retrieving its information from mongo.
-func (a *allInfo) update(id entityId) error {
-	info := a.newInfo[id.collection]()
-	collection := collectionForInfo(a.st, info)
-	// TODO(rog) investigate ways that this can be made more efficient.
-	if err := collection.FindId(id.id).One(info); err != nil {
-		if err == mgo.ErrNotFound {
-			log.Printf("id %#v not found", id)
-			// The document has been removed since the change notification arrived.
-			if elem := a.entities[id]; elem != nil {
-				elem.Value.(*entityEntry).removed = true
-			}
-			return nil
-		}
-		return fmt.Errorf("cannot get %v from %s: %v", id.id, collection.Name, err)
+// delete deletes the entry with the given entity id.
+func (a *allInfo) delete(id entityId) {
+	elem := a.entities[id]
+	if elem == nil {
+		return
 	}
+	delete(a.entities, id)
+	a.list.Remove(elem)
+}
+
+// maekRemoved marks that the entity with the given id has
+// been removed from the state.
+func (a *allInfo) maekRemoved(id entityId) {
 	if elem := a.entities[id]; elem != nil {
-		entry := elem.Value.(*entityEntry)
-		// Nothing has changed, so change nothing.
-		// TODO(rog) do the comparison more efficiently.
-		if reflect.DeepEqual(info, entry.info) {
-			return nil
-		}
-		// We already know about the entity; update its doc.
-		a.latestRevno++
-		entry.revno = a.latestRevno
-		entry.info = info
-		a.list.MoveToFront(elem)
-	} else {
-		a.add(info)
+		elem.Value.(*entityEntry).removed = true
 	}
-	return nil
 }
 
-// getAllCollection fetches all the items in the given collection
-// into the given slice.
-func (a *allInfo) getAllCollection(c *mgo.Collection, into interface{}) error {
-	err := c.Find(nil).All(into)
-	if err != nil {
-		return fmt.Errorf("cannot get all %s: %v", c.Name, err)
-	}
-	infos := reflect.ValueOf(into).Elem()
-	for i := 0; i < infos.Len(); i++ {
-		info := infos.Index(i).Addr().Interface().(EntityInfo)
+// update updates the information for the entity with
+// the given id.
+func (a *allInfo) update(id entityId, info EntityInfo) {
+	elem := a.entities[id]
+	if elem == nil {
 		a.add(info)
+		return
 	}
-	return nil
-}
-
-// getAll retrieves information about all known
-// entities from mongo.
-func (a *allInfo) getAll() error {
-	// TODO(rog) fetch collections concurrently?
-	if err := a.getAllCollection(a.st.machines, new([]MachineInfo)); err != nil {
-		return err
+	entry := elem.Value.(*entityEntry)
+	// Nothing has changed, so change nothing.
+	// TODO(rog) do the comparison more efficiently.
+	if reflect.DeepEqual(info, entry.info) {
+		return
 	}
-	if err := a.getAllCollection(a.st.relations, new([]RelationInfo)); err != nil {
-		return err
-	}
-	if err := a.getAllCollection(a.st.units, new([]UnitInfo)); err != nil {
-		return err
-	}
-	if err := a.getAllCollection(a.st.services, new([]ServiceInfo)); err != nil {
-		return err
-	}
-	return nil
+	// We already know about the entity; update its doc.
+	a.latestRevno++
+	entry.revno = a.latestRevno
+	entry.info = info
+	a.list.MoveToFront(elem)
 }
 
 // The entity kinds are in parent-child order.
@@ -161,18 +119,16 @@ type Delta struct {
 }
 
 // changesSince returns any changes that have occurred since
-// the given revno.
+// the given revno, oldest first.
 func (a *allInfo) changesSince(revno int64) []Delta {
-	// Extract all deltas into categorised slices, then build up an
-	// overall slice that sends creates before deletes, and orders
-	// parents before children on creation, and children before
-	// parents on deletion (see kindOrder above).
 	e := a.list.Front()
+	n := 0
 	for ; e != nil; e = e.Next() {
 		entry := e.Value.(*entityEntry)
 		if entry.revno <= revno {
 			break
 		}
+		n++
 	}
 	if e != nil {
 		// We've found an element that we've already seen.
@@ -180,69 +136,17 @@ func (a *allInfo) changesSince(revno int64) []Delta {
 	} else {
 		// We haven't seen any elements, so we want all of them.
 		e = a.list.Back()
-	}
-	if e == nil {
-		// Common case: nothing new to see - let's be efficient.
-		return nil
-	}
-	// map from isRemoved to kind to list of deltas.
-	deltas := map[bool]map[string][]Delta{
-		false: make(map[string][]Delta), // Changed/new entries.
-		true:  make(map[string][]Delta), // Removed entries.
-	}
-	n := 0
-	// Iterate from oldest to newest, stopping at the first entry
-	// we've already seen.
-	for ; e != nil; e = e.Prev() {
-		entry := e.Value.(*entityEntry)
-		if entry.revno <= revno {
-			break
-		}
-		m := deltas[entry.removed]
-		kind := entry.info.EntityKind()
-		m[kind] = append(m[kind], Delta{
-			Remove: entry.removed,
-			Entity: entry.info,
-		})
 		n++
 	}
 	changes := make([]Delta, 0, n)
-	// Changes in parent-to-child order
-	for _, kind := range entityKinds {
-		changes = append(changes, deltas[false][kind]...)
-	}
-	// Removals in child-to-parent order.
-	for i := len(entityKinds) - 1; i >= 0; i-- {
-		kind := entityKinds[i]
-		changes = append(changes, deltas[true][kind]...)
+	for ; e != nil; e = e.Prev() {
+		entry := e.Value.(*entityEntry)
+		changes = append(changes, Delta{
+			Remove: entry.removed,
+			Entity: entry.info,
+		})
 	}
 	return changes
-}
-
-// infoEntityId returns the entity id of the given entity document.
-func infoEntityId(st *State, info EntityInfo) entityId {
-	return entityId{
-		collection: collectionForInfo(st, info).Name,
-		id:         info.EntityId(),
-	}
-}
-
-// collectionForInfo returns the collection that holds the
-// given kind of entity info. This isn't defined on
-// EntityInfo because we don't want to require all
-// entities to hold a pointer to the state.
-func collectionForInfo(st *State, i EntityInfo) *mgo.Collection {
-	switch i.(type) {
-	case *MachineInfo:
-		return st.machines
-	case *RelationInfo:
-		return st.relations
-	case *ServiceInfo:
-		return st.services
-	case *UnitInfo:
-		return st.units
-	}
-	panic(fmt.Errorf("unknown entity type %T", i))
 }
 
 // EntityInfo is implemented by all entity Info types.
