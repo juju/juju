@@ -3,6 +3,7 @@ package apiserver
 import (
 	"code.google.com/p/go.net/websocket"
 	"fmt"
+	_ "launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -15,7 +16,6 @@ import (
 // TODO(rog) remove this when the rest of the system
 // has been updated to set passwords appropriately.
 var AuthenticationEnabled = false
-
 
 // srvRoot represents a single client's connection to the state.
 type srvRoot struct {

@@ -325,7 +325,6 @@ func (u *Unit) DeployerName() (string, bool) {
 	return u.doc.DeployerName, u.doc.DeployerName != ""
 }
 
-
 type RpcCreds struct {
 	EntityName string
 	Password   string

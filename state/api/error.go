@@ -33,7 +33,6 @@ const (
 	CodeStopped             = "stopped"
 )
 
-
 // ErrCode returns the error code associated with
 // the given error, or the empty string if there
 // is none.

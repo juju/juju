@@ -1,8 +1,9 @@
 package apiserver
+
 import (
+	"errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"errors"
 )
 
 var (
@@ -19,12 +20,12 @@ var singletonErrorCodes = map[error]string{
 	state.ErrCannotEnterScope:    api.CodeCannotEnterScope,
 	state.ErrExcessiveContention: api.CodeExcessiveContention,
 	state.ErrUnitHasSubordinates: api.CodeUnitHasSubordinates,
-	errBadId:          api.CodeNotFound,
-	errBadCreds:       api.CodeUnauthorized,
-	errPerm:           api.CodeUnauthorized,
-	errNotLoggedIn:    api.CodeUnauthorized,
-	errUnknownWatcher: api.CodeNotFound,
-	errStoppedWatcher: api.CodeStopped,
+	errBadId:                     api.CodeNotFound,
+	errBadCreds:                  api.CodeUnauthorized,
+	errPerm:                      api.CodeUnauthorized,
+	errNotLoggedIn:               api.CodeUnauthorized,
+	errUnknownWatcher:            api.CodeNotFound,
+	errStoppedWatcher:            api.CodeStopped,
 }
 
 func serverError(err error) error {
