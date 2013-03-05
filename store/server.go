@@ -193,7 +193,8 @@ func (s *Server) serveStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) serveStatsList(w http.ResponseWriter, r *http.Request, prefix []string) {
-	entries, err := s.store.ListCounters(prefix)
+	req := &CounterRequest{Key: prefix, Prefix: true, List: true}
+	entries, err := s.store.Counters(req)
 	if err != nil {
 		log.Printf("store: cannot list counter: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)

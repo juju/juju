@@ -278,13 +278,30 @@ func (s *Store) SumCounter(key []string, prefix bool) (count int64, err error) {
 	return 0, err
 }
 
+type CounterRequest struct {
+	Key    []string
+	Prefix bool
+	List   bool
+	By     CounterBy
+	Limit  int
+}
+
+type CounterBy int
+
+const (
+	ByTotal CounterBy = iota
+	ByDay
+	ByWeek
+	ByMonth
+)
+
 type Counter struct {
 	Key    []string
 	Count  int64
 	Prefix bool
 }
 
-// ListCounters returns a list of all keys directly under the provided prefix,
+// Counters returns a list of all keys directly under the provided prefix,
 // and a prefix-aggregated view of deeper keys.
 //
 // For example, given the following counts:
@@ -299,14 +316,14 @@ type Counter struct {
 //          {"a"} => {{"a", "b"}, 1, false}, {{"a", "c"}, 3, false}, {{"a", "c"}, 12, true}
 //     {"a", "c"} => {{"a", "c", "d"}, 3, false}, {"a", "c", "e"}, 5, false}
 //
-func (s *Store) ListCounters(keyPrefix []string) ([]Counter, error) {
+func (s *Store) Counters(req *CounterRequest) ([]Counter, error) {
 	session := s.session.Copy()
 	defer session.Close()
 
 	tokensColl := session.StatTokens()
 	countersColl := session.StatCounters()
 
-	skey, err := s.statsKey(session, keyPrefix, false)
+	skey, err := s.statsKey(session, req.Key, false)
 	if err == ErrNotFound {
 		return nil, nil
 	}
@@ -361,8 +378,8 @@ func (s *Store) ListCounters(keyPrefix []string) ([]Counter, error) {
 		}
 		counter := Counter{
 			Key:    tokens,
-			Count:  result[i].Value,
 			Prefix: len(ids) > 0 && ids[len(ids)-1] == "*",
+			Count:  result[i].Value,
 		}
 		counters = append(counters, counter)
 	}

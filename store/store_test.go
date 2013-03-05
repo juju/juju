@@ -597,7 +597,7 @@ func (s *StoreSuite) TestCounterTokenUniqueness(c *C) {
 	c.Assert(sum, Equals, int64(10))
 }
 
-func (s *StoreSuite) TestCounterList(c *C) {
+func (s *StoreSuite) TestListCounters(c *C) {
 	incs := [][]string{
 		{"c", "b", "a"}, // Assign internal id c < id b < id a, to make sorting slightly trickier.
 		{"a"},
@@ -648,7 +648,8 @@ func (s *StoreSuite) TestCounterList(c *C) {
 	defer st.Close()
 
 	for i := range tests {
-		result, err := st.ListCounters(tests[i].prefix)
+		req := &store.CounterRequest{Key: tests[i].prefix, Prefix: true, List: true}
+		result, err := st.Counters(req)
 		c.Assert(err, IsNil)
 		c.Assert(result, DeepEquals, tests[i].result)
 	}
