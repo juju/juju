@@ -2,7 +2,6 @@ package api
 
 import (
 	"launchpad.net/juju-core/rpc"
-	"launchpad.net/juju-core/state"
 )
 
 // Error is the type of error returned by any call
@@ -34,12 +33,6 @@ const (
 	CodeStopped             = "stopped"
 )
 
-var SingletonErrorCodes = map[error]string{
-	state.ErrCannotEnterScopeYet: CodeCannotEnterScopeYet,
-	state.ErrCannotEnterScope:    CodeCannotEnterScope,
-	state.ErrExcessiveContention: CodeExcessiveContention,
-	state.ErrUnitHasSubordinates: CodeUnitHasSubordinates,
-}
 
 // ErrCode returns the error code associated with
 // the given error, or the empty string if there

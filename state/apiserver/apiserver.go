@@ -1,8 +1,7 @@
-package server
+package apiserver
 
 import (
 	"code.google.com/p/go.net/websocket"
-	"errors"
 	"fmt"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -17,46 +16,6 @@ import (
 // has been updated to set passwords appropriately.
 var AuthenticationEnabled = false
 
-var (
-	ErrBadId          = errors.New("id not found")
-	ErrBadCreds       = errors.New("invalid entity name or password")
-	ErrPerm           = errors.New("permission denied")
-	ErrNotLoggedIn    = errors.New("not logged in")
-	ErrUnknownWatcher = errors.New("unknown watcher id")
-	ErrStoppedWatcher = errors.New("watcher has been stopped")
-)
-
-var singletonErrorCodes = map[error]string{
-	ErrBadId:          api.CodeNotFound,
-	ErrBadCreds:       api.CodeUnauthorized,
-	ErrPerm:           api.CodeUnauthorized,
-	ErrNotLoggedIn:    api.CodeUnauthorized,
-	ErrUnknownWatcher: api.CodeNotFound,
-	ErrStoppedWatcher: api.CodeStopped,
-}
-
-
-func ServerError(err error) error {
-	code := singletonErrorCodes[err]
-	switch {
-	case code != "":
-	case state.IsUnauthorizedError(err):
-		code = api.CodeUnauthorized
-	case state.IsNotFound(err):
-		code = api.CodeNotFound
-	case state.IsNotAssigned(err):
-		code = api.CodeNotAssigned
-	case api.SingletonErrorCodes[err] != "":
-		code = api.SingletonErrorCodes[err]
-	}
-	if code != "" {
-		return &api.Error{
-			Message: err.Error(),
-			Code:    code,
-		}
-	}
-	return err
-}
 
 // srvRoot represents a single client's connection to the state.
 type srvRoot struct {
@@ -126,7 +85,7 @@ func (r *srvRoot) Kill() {
 func (r *srvRoot) Admin(id string) (*srvAdmin, error) {
 	if id != "" {
 		// Safeguard id for possible future use.
-		return nil, ErrBadId
+		return nil, errBadId
 	}
 	return r.admin, nil
 }
@@ -138,10 +97,10 @@ func (r *srvRoot) Admin(id string) (*srvAdmin, error) {
 func (r *srvRoot) requireAgent() error {
 	e := r.user.entity()
 	if e == nil {
-		return ErrNotLoggedIn
+		return errNotLoggedIn
 	}
 	if !isAgent(e) {
-		return ErrPerm
+		return errPerm
 	}
 	return nil
 }
@@ -151,10 +110,10 @@ func (r *srvRoot) requireAgent() error {
 func (r *srvRoot) requireClient() error {
 	e := r.user.entity()
 	if e == nil {
-		return ErrNotLoggedIn
+		return errNotLoggedIn
 	}
 	if isAgent(e) {
-		return ErrPerm
+		return errPerm
 	}
 	return nil
 }
@@ -202,10 +161,10 @@ func (r *srvRoot) User(name string) (*srvUser, error) {
 	// the administrator.
 	e := r.user.entity()
 	if e == nil {
-		return nil, ErrNotLoggedIn
+		return nil, errNotLoggedIn
 	}
 	if e.EntityName() != name {
-		return nil, ErrPerm
+		return nil, errPerm
 	}
 	u, err := r.srv.state.User(name)
 	if err != nil {
@@ -227,10 +186,10 @@ func (r *srvRoot) EntityWatcher(id string) (srvEntityWatcher, error) {
 	}
 	w := r.watchers.get(id)
 	if w == nil {
-		return srvEntityWatcher{}, ErrUnknownWatcher
+		return srvEntityWatcher{}, errUnknownWatcher
 	}
 	if _, ok := w.w.(*state.EntityWatcher); !ok {
-		return srvEntityWatcher{}, ErrUnknownWatcher
+		return srvEntityWatcher{}, errUnknownWatcher
 	}
 	return srvEntityWatcher{w}, nil
 }
@@ -243,7 +202,7 @@ func (r *srvRoot) Client(id string) (*srvClient, error) {
 	}
 	if id != "" {
 		// Safeguard id for possible future use.
-		return nil, ErrBadId
+		return nil, errBadId
 	}
 	return r.client, nil
 }
@@ -261,7 +220,7 @@ func (w srvEntityWatcher) Next() error {
 	}
 	err := w.w.Err()
 	if err == nil {
-		err = ErrStoppedWatcher
+		err = errStoppedWatcher
 	}
 	return err
 }
@@ -366,7 +325,7 @@ func (m *srvMachine) SetPassword(p api.RpcPassword) error {
 	allow := e.EntityName() == m.m.EntityName() ||
 		isMachineWithJob(e, state.JobManageEnviron)
 	if !allow {
-		return ErrPerm
+		return errPerm
 	}
 	return setPassword(m.m, p.Password)
 }
@@ -392,7 +351,7 @@ func (u *srvUnit) SetPassword(p api.RpcPassword) error {
 		allow = ok && ename == deployerName
 	}
 	if !allow {
-		return ErrPerm
+		return errPerm
 	}
 	return setPassword(u.u, p.Password)
 }
@@ -432,7 +391,7 @@ func (u *authUser) login(st *state.State, entityName, password string) error {
 	// we don't allow unauthenticated users to find information
 	// about existing entities.
 	if err != nil || !entity.PasswordValid(password) {
-		return ErrBadCreds
+		return errBadCreds
 	}
 	u._entity = entity
 	return nil

@@ -1,4 +1,4 @@
-package api_test
+package apiserver_test
 
 import (
 	"errors"
@@ -9,7 +9,7 @@ import (
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/api/server"
+	"launchpad.net/juju-core/state/apiserver"
 	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
 	"net"
@@ -29,7 +29,7 @@ type suite struct {
 var _ = Suite(&suite{})
 
 func init() {
-	server.AuthenticationEnabled = true
+	apiserver.AuthenticationEnabled = true
 }
 
 var operationPermTests = []struct {
@@ -670,7 +670,7 @@ func (s *suite) TestMachineWatch(c *C) {
 func (s *suite) TestServerStopsOutstandingWatchMethod(c *C) {
 	// Start our own instance of the server so we have
 	// a handle on it to stop it.
-	srv, err := server.NewServer(s.State, "localhost:0", []byte(coretesting.ServerCert), []byte(coretesting.ServerKey))
+	srv, err := apiserver.NewServer(s.State, "localhost:0", []byte(coretesting.ServerCert), []byte(coretesting.ServerKey))
 	c.Assert(err, IsNil)
 
 	stm, err := s.State.AddMachine("series", state.JobHostUnits)
@@ -760,7 +760,7 @@ func (s *suite) TestErrors(c *C) {
 	defer st.Close()
 	// By testing this single call, we test that the
 	// error transformation function is correctly called
-	// on error returns from the API server. The transformation
+	// on error returns from the API apiserver. The transformation
 	// function itself is tested below.
 	_, err = st.Machine("99")
 	c.Assert(api.ErrCode(err), Equals, api.CodeNotFound)
@@ -788,25 +788,25 @@ var errorTransformTests = []struct {
 	err:  state.ErrUnitHasSubordinates,
 	code: api.CodeUnitHasSubordinates,
 }, {
-	err:  server.ErrBadId,
+	err:  apiserver.ErrBadId,
 	code: api.CodeNotFound,
 }, {
-	err:  server.ErrBadCreds,
+	err:  apiserver.ErrBadCreds,
 	code: api.CodeUnauthorized,
 }, {
-	err:  server.ErrPerm,
+	err:  apiserver.ErrPerm,
 	code: api.CodeUnauthorized,
 }, {
-	err:  server.ErrNotLoggedIn,
+	err:  apiserver.ErrNotLoggedIn,
 	code: api.CodeUnauthorized,
 }, {
-	err:  server.ErrUnknownWatcher,
+	err:  apiserver.ErrUnknownWatcher,
 	code: api.CodeNotFound,
 }, {
 	err:  &state.NotAssignedError{&state.Unit{}}, // too sleazy?!
 	code: api.CodeNotAssigned,
 }, {
-	err:  server.ErrStoppedWatcher,
+	err:  apiserver.ErrStoppedWatcher,
 	code: api.CodeStopped,
 }, {
 	err:  errors.New("an error"),
@@ -815,7 +815,7 @@ var errorTransformTests = []struct {
 
 func (s *suite) TestErrorTransform(c *C) {
 	for _, t := range errorTransformTests {
-		err1 := server.ServerError(t.err)
+		err1 := apiserver.ServerError(t.err)
 		c.Assert(err1.Error(), Equals, t.err.Error())
 		if t.code != "" {
 			c.Assert(api.ErrCode(err1), Equals, t.code)
@@ -839,7 +839,7 @@ func (s *suite) TestUnitEntityName(c *C) {
 func (s *suite) TestStop(c *C) {
 	// Start our own instance of the server so we have
 	// a handle on it to stop it.
-	srv, err := server.NewServer(s.State, "localhost:0", []byte(coretesting.ServerCert), []byte(coretesting.ServerKey))
+	srv, err := apiserver.NewServer(s.State, "localhost:0", []byte(coretesting.ServerCert), []byte(coretesting.ServerKey))
 	c.Assert(err, IsNil)
 
 	stm, err := s.State.AddMachine("series", state.JobHostUnits)
