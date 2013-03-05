@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/server"
 	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
 	"net"
@@ -28,7 +29,7 @@ type suite struct {
 var _ = Suite(&suite{})
 
 func init() {
-	api.AuthenticationEnabled = true
+	server.AuthenticationEnabled = true
 }
 
 var operationPermTests = []struct {
@@ -669,7 +670,7 @@ func (s *suite) TestMachineWatch(c *C) {
 func (s *suite) TestServerStopsOutstandingWatchMethod(c *C) {
 	// Start our own instance of the server so we have
 	// a handle on it to stop it.
-	srv, err := api.NewServer(s.State, "localhost:0", []byte(coretesting.ServerCert), []byte(coretesting.ServerKey))
+	srv, err := server.NewServer(s.State, "localhost:0", []byte(coretesting.ServerCert), []byte(coretesting.ServerKey))
 	c.Assert(err, IsNil)
 
 	stm, err := s.State.AddMachine("series", state.JobHostUnits)
@@ -787,25 +788,25 @@ var errorTransformTests = []struct {
 	err:  state.ErrUnitHasSubordinates,
 	code: api.CodeUnitHasSubordinates,
 }, {
-	err:  api.ErrBadId,
+	err:  server.ErrBadId,
 	code: api.CodeNotFound,
 }, {
-	err:  api.ErrBadCreds,
+	err:  server.ErrBadCreds,
 	code: api.CodeUnauthorized,
 }, {
-	err:  api.ErrPerm,
+	err:  server.ErrPerm,
 	code: api.CodeUnauthorized,
 }, {
-	err:  api.ErrNotLoggedIn,
+	err:  server.ErrNotLoggedIn,
 	code: api.CodeUnauthorized,
 }, {
-	err:  api.ErrUnknownWatcher,
+	err:  server.ErrUnknownWatcher,
 	code: api.CodeNotFound,
 }, {
 	err:  &state.NotAssignedError{&state.Unit{}}, // too sleazy?!
 	code: api.CodeNotAssigned,
 }, {
-	err:  api.ErrStoppedWatcher,
+	err:  server.ErrStoppedWatcher,
 	code: api.CodeStopped,
 }, {
 	err:  errors.New("an error"),
@@ -814,7 +815,7 @@ var errorTransformTests = []struct {
 
 func (s *suite) TestErrorTransform(c *C) {
 	for _, t := range errorTransformTests {
-		err1 := api.ServerError(t.err)
+		err1 := server.ServerError(t.err)
 		c.Assert(err1.Error(), Equals, t.err.Error())
 		if t.code != "" {
 			c.Assert(api.ErrCode(err1), Equals, t.code)
@@ -838,7 +839,7 @@ func (s *suite) TestUnitEntityName(c *C) {
 func (s *suite) TestStop(c *C) {
 	// Start our own instance of the server so we have
 	// a handle on it to stop it.
-	srv, err := api.NewServer(s.State, "localhost:0", []byte(coretesting.ServerCert), []byte(coretesting.ServerKey))
+	srv, err := server.NewServer(s.State, "localhost:0", []byte(coretesting.ServerCert), []byte(coretesting.ServerKey))
 	c.Assert(err, IsNil)
 
 	stm, err := s.State.AddMachine("series", state.JobHostUnits)

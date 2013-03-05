@@ -28,6 +28,7 @@ import (
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/server"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
@@ -119,7 +120,7 @@ type environState struct {
 	storage       *storage
 	publicStorage *storage
 	httpListener  net.Listener
-	apiServer     *api.Server
+	apiServer     *server.Server
 	apiState      *state.State
 }
 
@@ -475,7 +476,7 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 		if err != nil {
 			panic(err)
 		}
-		e.state.apiServer, err = api.NewServer(st, "localhost:0", []byte(testing.ServerCert), []byte(testing.ServerKey))
+		e.state.apiServer, err = server.NewServer(st, "localhost:0", []byte(testing.ServerCert), []byte(testing.ServerKey))
 		if err != nil {
 			panic(err)
 		}

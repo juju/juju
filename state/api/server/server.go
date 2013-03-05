@@ -1,4 +1,4 @@
-package api
+package server
 
 import (
 	"code.google.com/p/go.net/websocket"
@@ -39,7 +39,7 @@ func NewServer(s *state.State, addr string, cert, key []byte) (*Server, error) {
 		state: s,
 		addr:  lis.Addr(),
 	}
-	srv.rpcSrv, err = rpc.NewServer(&srvRoot{}, serverError)
+	srv.rpcSrv, err = rpc.NewServer(&srvRoot{}, ServerError)
 	lis = tls.NewListener(lis, &tls.Config{
 		Certificates: []tls.Certificate{tlsCert},
 	})

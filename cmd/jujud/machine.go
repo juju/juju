@@ -9,7 +9,7 @@ import (
 	_ "launchpad.net/juju-core/environs/openstack"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/server"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/firewaller"
 	"launchpad.net/juju-core/worker/provisioner"
@@ -174,7 +174,7 @@ func (a *MachineAgent) maybeRunAPIServerOnce(conf *agent.Conf) error {
 		return &fatalError{"configuration does not have state server cert/key"}
 	}
 	log.Printf("cmd/jujud: running API server job")
-	srv, err := api.NewServer(st, fmt.Sprintf(":%d", conf.APIPort), conf.StateServerCert, conf.StateServerKey)
+	srv, err := server.NewServer(st, fmt.Sprintf(":%d", conf.APIPort), conf.StateServerCert, conf.StateServerKey)
 	if err != nil {
 		return err
 	}

@@ -1,7 +1,6 @@
 package api
 
 import (
-	"errors"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
 )
@@ -23,28 +22,6 @@ func (e *Error) ErrorCode() string {
 
 var _ rpc.ErrorCoder = (*Error)(nil)
 
-var (
-	errBadId          = errors.New("id not found")
-	errBadCreds       = errors.New("invalid entity name or password")
-	errPerm           = errors.New("permission denied")
-	errNotLoggedIn    = errors.New("not logged in")
-	errUnknownWatcher = errors.New("unknown watcher id")
-	errStoppedWatcher = errors.New("watcher has been stopped")
-)
-
-var singletonErrorCodes = map[error]string{
-	state.ErrCannotEnterScopeYet: CodeCannotEnterScopeYet,
-	state.ErrCannotEnterScope:    CodeCannotEnterScope,
-	state.ErrExcessiveContention: CodeExcessiveContention,
-	state.ErrUnitHasSubordinates: CodeUnitHasSubordinates,
-	errBadId:                     CodeNotFound,
-	errBadCreds:                  CodeUnauthorized,
-	errPerm:                      CodeUnauthorized,
-	errNotLoggedIn:               CodeUnauthorized,
-	errUnknownWatcher:            CodeNotFound,
-	errStoppedWatcher:            CodeStopped,
-}
-
 // The Code constants hold error codes for some kinds of error.
 const (
 	CodeNotFound            = "not found"
@@ -57,24 +34,11 @@ const (
 	CodeStopped             = "stopped"
 )
 
-func serverError(err error) error {
-	code := singletonErrorCodes[err]
-	switch {
-	case code != "":
-	case state.IsUnauthorizedError(err):
-		code = CodeUnauthorized
-	case state.IsNotFound(err):
-		code = CodeNotFound
-	case state.IsNotAssigned(err):
-		code = CodeNotAssigned
-	}
-	if code != "" {
-		return &Error{
-			Message: err.Error(),
-			Code:    code,
-		}
-	}
-	return err
+var SingletonErrorCodes = map[error]string{
+	state.ErrCannotEnterScopeYet: CodeCannotEnterScopeYet,
+	state.ErrCannotEnterScope:    CodeCannotEnterScope,
+	state.ErrExcessiveContention: CodeExcessiveContention,
+	state.ErrUnitHasSubordinates: CodeUnitHasSubordinates,
 }
 
 // ErrCode returns the error code associated with
