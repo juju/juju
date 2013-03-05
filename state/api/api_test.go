@@ -196,7 +196,9 @@ func opClientCharmInfo(c *C, st *api.State) (func(), error) {
 		return func() {}, err
 	}
 	c.Assert(err, IsNil)
+	c.Assert(info.URL, Equals, "local:series/wordpress-3")
 	c.Assert(info.Name, Equals, "wordpress")
+	c.Assert(info.Revision, Equals, 3)
 	return func() {}, nil
 }
 
@@ -515,8 +517,8 @@ var clientCharmInfoTests = []struct {
 	},
 	{
 		about: "unknown charm",
-		url:   "cs:precise/does-not-exist",
-		err:   `charm "cs:precise/does-not-exist" not found`,
+		url:   "cs:missing/one-1",
+		err:   `charm "cs:missing/one-1" not found`,
 	},
 }
 
