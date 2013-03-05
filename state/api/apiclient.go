@@ -13,7 +13,7 @@ import (
 type Machine struct {
 	st  *State
 	id  string
-	doc RpcMachine
+	doc RPCMachine
 }
 
 // Client represents the client-accessible part of the state.
@@ -133,7 +133,7 @@ func (st *State) Machine(id string) (*Machine, error) {
 type Unit struct {
 	st   *State
 	name string
-	doc  RpcUnit
+	doc  RPCUnit
 }
 
 // Unit returns a unit by name.
@@ -152,7 +152,7 @@ func (st *State) Unit(name string) (*Unit, error) {
 // Subsequent requests on the state will act as that entity.
 // This method is usually called automatically by Open.
 func (st *State) Login(entityName, password string) error {
-	return st.call("Admin", "", "Login", &RpcCreds{
+	return st.call("Admin", "", "Login", &RPCCreds{
 		EntityName: entityName,
 		Password:   password,
 	}, nil)
@@ -195,7 +195,7 @@ func (m *Machine) InstanceId() (string, bool) {
 
 // SetPassword sets the password for the machine's agent.
 func (m *Machine) SetPassword(password string) error {
-	return m.st.call("Machine", m.id, "SetPassword", &RpcPassword{
+	return m.st.call("Machine", m.id, "SetPassword", &RPCPassword{
 		Password: password,
 	}, nil)
 }
@@ -230,7 +230,7 @@ func newEntityWatcher(st *State, etype, id string) *EntityWatcher {
 }
 
 func (w *EntityWatcher) loop() error {
-	var id RpcEntityWatcherId
+	var id RPCEntityWatcherId
 	if err := w.st.call(w.etype, w.eid, "Watch", nil, &id); err != nil {
 		return err
 	}
@@ -301,7 +301,7 @@ func (u *Unit) Refresh() error {
 
 // SetPassword sets the password for the unit's agent.
 func (u *Unit) SetPassword(password string) error {
-	return u.st.call("Unit", u.name, "SetPassword", &RpcPassword{
+	return u.st.call("Unit", u.name, "SetPassword", &RPCPassword{
 		Password: password,
 	}, nil)
 }
@@ -325,29 +325,29 @@ func (u *Unit) DeployerName() (string, bool) {
 	return u.doc.DeployerName, u.doc.DeployerName != ""
 }
 
-type RpcCreds struct {
+type RPCCreds struct {
 	EntityName string
 	Password   string
 }
 
-type RpcMachine struct {
+type RPCMachine struct {
 	InstanceId string
 }
 
-type RpcEntityWatcherId struct {
+type RPCEntityWatcherId struct {
 	EntityWatcherId string
 }
 
-type RpcPassword struct {
+type RPCPassword struct {
 	Password string
 }
 
-type RpcUnit struct {
+type RPCUnit struct {
 	DeployerName string
 	// TODO(rog) other unit attributes.
 }
 
-type RpcUser struct {
+type RPCUser struct {
 	// This is a placeholder for any information
 	// that may be associated with a user in the
 	// future.

@@ -286,23 +286,23 @@ func (c *srvClient) EnvironmentInfo() (api.EnvironmentInfo, error) {
 // Login logs in with the provided credentials.
 // All subsequent requests on the connection will
 // act as the authenticated user.
-func (a *srvAdmin) Login(c api.RpcCreds) error {
+func (a *srvAdmin) Login(c api.RPCCreds) error {
 	return a.root.user.login(a.root.srv.state, c.EntityName, c.Password)
 }
 
 // Get retrieves all the details of a machine.
-func (m *srvMachine) Get() (info api.RpcMachine) {
+func (m *srvMachine) Get() (info api.RPCMachine) {
 	instId, _ := m.m.InstanceId()
 	info.InstanceId = string(instId)
 	return
 }
 
-func (m *srvMachine) Watch() (api.RpcEntityWatcherId, error) {
+func (m *srvMachine) Watch() (api.RPCEntityWatcherId, error) {
 	w := m.m.Watch()
 	if _, ok := <-w.Changes(); !ok {
-		return api.RpcEntityWatcherId{}, statewatcher.MustErr(w)
+		return api.RPCEntityWatcherId{}, statewatcher.MustErr(w)
 	}
-	return api.RpcEntityWatcherId{
+	return api.RPCEntityWatcherId{
 		EntityWatcherId: m.root.watchers.register(w).id,
 	}, nil
 }
@@ -317,7 +317,7 @@ func setPassword(e state.AuthEntity, password string) error {
 }
 
 // SetPassword sets the machine's password.
-func (m *srvMachine) SetPassword(p api.RpcPassword) error {
+func (m *srvMachine) SetPassword(p api.RPCPassword) error {
 	// Allow:
 	// - the machine itself.
 	// - the environment manager.
@@ -331,15 +331,15 @@ func (m *srvMachine) SetPassword(p api.RpcPassword) error {
 }
 
 // Get retrieves all the details of a unit.
-func (u *srvUnit) Get() (api.RpcUnit, error) {
-	var ru api.RpcUnit
+func (u *srvUnit) Get() (api.RPCUnit, error) {
+	var ru api.RPCUnit
 	ru.DeployerName, _ = u.u.DeployerName()
 	// TODO add other unit attributes
 	return ru, nil
 }
 
 // SetPassword sets the unit's password.
-func (u *srvUnit) SetPassword(p api.RpcPassword) error {
+func (u *srvUnit) SetPassword(p api.RPCPassword) error {
 	ename := u.root.user.entity().EntityName()
 	// Allow:
 	// - the unit itself.
@@ -357,13 +357,13 @@ func (u *srvUnit) SetPassword(p api.RpcPassword) error {
 }
 
 // SetPassword sets the user's password.
-func (u *srvUser) SetPassword(p api.RpcPassword) error {
+func (u *srvUser) SetPassword(p api.RPCPassword) error {
 	return setPassword(u.u, p.Password)
 }
 
 // Get retrieves all details of a user.
-func (u *srvUser) Get() (api.RpcUser, error) {
-	return api.RpcUser{}, nil
+func (u *srvUser) Get() (api.RPCUser, error) {
+	return api.RPCUser{}, nil
 }
 
 // authUser holds login details. It's ok to call
