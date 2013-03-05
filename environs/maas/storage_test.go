@@ -48,8 +48,9 @@ func (s *StorageSuite) TestGetSnapshotCreatesClone(c *C) {
 	c.Check(snapshot.maasClientUnlocked.URL().String(), Equals, original.maasClientUnlocked.URL().String())
 	// Snapshotting locks the original internally, but does not leave
 	// either the original or the snapshot locked.
-	c.Check(original.Mutex, Equals, sync.Mutex{})
-	c.Check(snapshot.Mutex, Equals, sync.Mutex{})
+	unlockedMutexValue := sync.Mutex{}
+	c.Check(original.Mutex, Equals, unlockedMutexValue)
+	c.Check(snapshot.Mutex, Equals, unlockedMutexValue)
 }
 
 func (s *StorageSuite) TestListReturnsEmptyIfNoFilesStored(c *C) {
