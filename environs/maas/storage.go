@@ -59,9 +59,9 @@ func (stor *maasStorage) getSnapshot() *maasStorage {
 // addressFileObject creates a MAASObject pointing to a given file.
 // Takes out a lock on the storage object to get a consistent view.
 func (stor *maasStorage) addressFileObject(name string) gomaasapi.MAASObject {
-	snapshot := stor.getSnapshot()
-	fullName := snapshot.namingPrefix + name
-	return snapshot.maasClientUnlocked.GetSubObject(fullName)
+	stor.Lock()
+	defer stor.Unlock()
+	return stor.maasClientUnlocked.GetSubObject(name)
 }
 
 // retrieveFileObject retrieves the information of the named file, including
@@ -162,10 +162,9 @@ func (stor *maasStorage) Put(name string, r io.Reader, length int64) error {
 	if err != nil {
 		return err
 	}
-	snapshot := stor.getSnapshot()
-	fullName := snapshot.namingPrefix + name
-	params := url.Values{"filename": {fullName}}
+	params := url.Values{"filename": {name}}
 	files := map[string][]byte{"file": data}
+	snapshot := stor.getSnapshot()
 	_, err = snapshot.maasClientUnlocked.CallPostFiles("add", params, files)
 	return err
 }
