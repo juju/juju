@@ -1,23 +1,17 @@
 package maas
 
 import (
-	"fmt"
 	"io"
 	"launchpad.net/gomaasapi"
 	"launchpad.net/juju-core/environs"
 	"net/url"
 	"sort"
-	"strings"
 	"sync"
 )
 
 type maasStorage struct {
 	// Mutex protects the "*Unlocked" fields.
 	sync.Mutex
-
-	// Prefix for all files relevant to this Storage.  Immutable, so
-	// no need to lock.
-	namingPrefix string
 
 	// The Environ that this Storage is for.
 	environUnlocked *maasEnviron
@@ -28,12 +22,6 @@ type maasStorage struct {
 
 var _ environs.Storage = (*maasStorage)(nil)
 
-// composeNamingPrefix generates a consistent naming prefix for all files
-// stored by this environment.
-func composeNamingPrefix(env *maasEnviron) string {
-	return "juju/" + env.Name() + "/"
-}
-
 func NewStorage(env *maasEnviron) environs.Storage {
 	env.ecfgMutex.Lock()
 	defer env.ecfgMutex.Unlock()
@@ -42,7 +30,6 @@ func NewStorage(env *maasEnviron) environs.Storage {
 	storage := new(maasStorage)
 	storage.environUnlocked = env
 	storage.maasClientUnlocked = filesClient
-	storage.namingPrefix = composeNamingPrefix(env)
 	return storage
 }
 
@@ -60,7 +47,6 @@ func (stor *maasStorage) getSnapshot() *maasStorage {
 	defer stor.Unlock()
 
 	return &maasStorage{
-		namingPrefix:       stor.namingPrefix,
 		environUnlocked:    stor.environUnlocked,
 		maasClientUnlocked: stor.maasClientUnlocked,
 	}
@@ -87,11 +73,6 @@ func (stor *maasStorage) extractFilenames(listResult gomaasapi.JSONObject) ([]st
 		if err != nil {
 			return nil, err
 		}
-		if !strings.HasPrefix(filename, stor.namingPrefix) {
-			msg := fmt.Errorf("unexpected filename '%s' lacks environment prefix '%s'", filename, stor.namingPrefix)
-			return nil, msg
-		}
-		filename = filename[len(stor.namingPrefix):]
 		result[index] = filename
 	}
 	sort.Strings(result)
@@ -99,11 +80,11 @@ func (stor *maasStorage) extractFilenames(listResult gomaasapi.JSONObject) ([]st
 }
 
 func (stor *maasStorage) List(prefix string) ([]string, error) {
-	snapshot := stor.getSnapshot()
 	params := make(url.Values)
 	if len(prefix) > 0 {
-		params.Add("prefix", snapshot.namingPrefix+prefix)
+		params.Add("prefix", prefix)
 	}
+	snapshot := stor.getSnapshot()
 	obj, err := snapshot.maasClientUnlocked.CallGet("list", params)
 	if err != nil {
 		return nil, err
