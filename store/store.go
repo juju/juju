@@ -248,7 +248,7 @@ type CounterRequest struct {
 	// Key and Prefix determine the counter keys to match.
 	// If Prefix is false, Key must match exactly. Otherwise, counters
 	// must begin with Key and have at least one more key token.
-	Key []string  
+	Key    []string
 	Prefix bool
 
 	// If List is true, matching counters are aggregated under their
@@ -275,7 +275,7 @@ type CounterRequest struct {
 	//        {"a"} => {{"a"}, 16, true}
 	//   {"a", "c"} => {{"a", "c"}, 12, false}
 	//
-	List   bool
+	List bool
 }
 
 type Counter struct {

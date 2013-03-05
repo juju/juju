@@ -157,7 +157,7 @@ func (s *Server) serveStats(w http.ResponseWriter, r *http.Request) {
 	}
 	r.ParseForm()
 	req := CounterRequest{
-		Key: strings.Split(base, ":"),
+		Key:  strings.Split(base, ":"),
 		List: r.Form.Get("list") == "1",
 	}
 	if req.Key[len(req.Key)-1] == "*" {
