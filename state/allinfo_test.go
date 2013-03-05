@@ -321,8 +321,16 @@ func (s *AllInfoSuite) TestUpdateAddChangeRemove(c *C) {
 	}})
 }
 
+type changesSinceTests []struct {
+	
+
 func (s *AllInfoSuite) TestChangesSince(c *C) {
 
+	setUpScenario
+	run changes (slice of one of update or remove
+
+	nothing there -> nothing
+	add something -> added
 }
 
 func AddTestingCharm(c *C, st *State, name string) *Charm {
