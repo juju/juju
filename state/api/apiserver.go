@@ -240,6 +240,25 @@ func (c *srvClient) Status() (Status, error) {
 	return status, nil
 }
 
+type rpcAllWatcherId struct {
+	AllWatcherId string
+}
+
+func (c *srvClient) WatchAll() (rpcAllWatcherId, error) {
+	w := c.State.Watch()
+	return rpcAllWatcherId{
+		AllWatcherId: c.root.watchers.register(w).id,
+	}, nil
+}
+
+type srvClientAllWatcher struct {
+	w *state.StateWatcher
+}
+
+func (aw *srvClientAllWatcher) Next() (*[]state.Delta, error) {
+	return aw.w.Next()
+}
+
 // ServiceSet implements the server side of Client.ServerSet.
 func (c *srvClient) ServiceSet(p statecmd.ServiceSetParams) error {
 	return statecmd.ServiceSet(c.root.srv.state, p)
