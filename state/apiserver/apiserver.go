@@ -270,6 +270,7 @@ func (c *srvClient) ServiceUnexpose(args params.ServiceUnexpose) error {
 	return statecmd.ServiceUnexpose(c.root.srv.state, args)
 }
 
+// ServiceAddUnits adds a given number of units to a service.
 func (c *srvClient) ServiceAddUnits(args params.ServiceAddUnits) error {
 	return statecmd.ServiceAddUnits(c.root.srv.state, args)
 }
