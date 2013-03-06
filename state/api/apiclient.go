@@ -114,16 +114,11 @@ type CharmInfo struct {
 	Requires    map[string]charm.Relation
 }
 
-// CharmInfoParams stores parameters for making the CharmInfo call.
-type CharmInfoParams struct {
-	CharmURL string
-}
-
 // CharmInfo returns information about the requested charm.
 func (c *Client) CharmInfo(charmURL string) (*CharmInfo, error) {
-	params := CharmInfoParams{CharmURL: charmURL}
+	args := params.CharmInfo{CharmURL: charmURL}
 	info := new(CharmInfo)
-	err := c.st.client.Call("Client", "", "CharmInfo", params, info)
+	err := c.st.client.Call("Client", "", "CharmInfo", args, info)
 	if err != nil {
 		return nil, clientError(err)
 	}

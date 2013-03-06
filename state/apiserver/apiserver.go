@@ -271,7 +271,7 @@ func (c *srvClient) ServiceUnexpose(args params.ServiceUnexpose) error {
 }
 
 // CharmInfo returns information about the requested charm.
-func (c *srvClient) CharmInfo(args CharmInfoParams) (CharmInfo, error) {
+func (c *srvClient) CharmInfo(args params.CharmInfo) (CharmInfo, error) {
 	curl, err := charm.ParseURL(args.CharmURL)
 	if err != nil {
 		return CharmInfo{}, err
