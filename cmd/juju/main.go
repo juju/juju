@@ -64,6 +64,7 @@ func main() {
 }
 
 func addEnvironFlags(name *string, f *gnuflag.FlagSet) {
-	f.StringVar(name, "e", "", "juju environment to operate in")
-	f.StringVar(name, "environment", "", "")
+	defaultEnv := os.Getenv("JUJU_ENV")
+	f.StringVar(name, "e", defaultEnv, "juju environment to operate in")
+	f.StringVar(name, "environment", defaultEnv, "")
 }

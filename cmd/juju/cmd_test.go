@@ -102,6 +102,14 @@ func (*CmdSuite) TestEnvironmentInit(c *C) {
 		testInit(c, com, append(args, "--environment", "walthamstow"), "")
 		assertConnName(c, com, "walthamstow")
 
+		// JUJU_ENV is the final place the environment can be overriden
+		com, args = cmdFunc()
+		oldenv := os.Getenv("JUJU_ENV")
+		os.Setenv("JUJU_ENV", "walthamstow")
+		testInit(c, com, args, "")
+		os.Setenv("JUJU_ENV", oldenv)
+		assertConnName(c, com, "walthamstow")
+
 		com, args = cmdFunc()
 		testInit(c, com, append(args, "hotdog"), "unrecognized args.*")
 	}
