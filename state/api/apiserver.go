@@ -272,7 +272,8 @@ func (c *srvClient) ServiceUnexpose(args statecmd.ServiceUnexposeParams) error {
 // ServiceDeploy fetchs the charm from the charm store and deploys it.  Local
 // charms are not supported.
 func (c *srvClient) ServiceDeploy(args statecmd.ServiceDeployParams) error {
-	conf, err := c.root.srv.state.EnvironConfig()
+	state := c.root.srv.state
+	conf, err := state.EnvironConfig()
 	if err != nil {
 		return err
 	}
@@ -280,8 +281,11 @@ func (c *srvClient) ServiceDeploy(args statecmd.ServiceDeployParams) error {
 	if err != nil {
 		return err
 	}
-
-	return statecmd.ServiceDeploy(c.root.conn, curl, charm.Store(), false,
+	conn, err := juju.NewConnFromState(state)
+	if err != nil {
+		return err
+	}
+	return statecmd.ServiceDeploy(conn, curl, charm.Store(), false,
 		args.serviceName, args.numUnits)
 }
 

@@ -25,23 +25,13 @@ var serviceDeployTests = []struct {
 	deployed     bool
 }{
 	{
-		about:   "unknown service name",
-		service: "unknown-service",
-		err:     `service "unknown-service" not found`,
-	},
-	{
-		about:   "expose a service",
-		service: "dummy-service",
-		exposed: true,
-	},
-	{
-		about:   "expose an already exposed service",
-		service: "exposed-service",
-		exposed: true,
+		about:    "unknown charm",
+		charmURL: "local:missing-charm",
+		err:      `charm "local:missing-charm" not found`,
 	},
 }
 
-func (s *ExposeSuite) TestServiceExpose(c *C) {
+func (s *DeploySuite) TestServiceDeploy(c *C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	serviceNames := []string{"dummy-service", "exposed-service"}
 	svcs := make([]*state.Service, len(serviceNames))
@@ -55,11 +45,10 @@ func (s *ExposeSuite) TestServiceExpose(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(svcs[1].IsExposed(), Equals, true)
 
-	for i, t := range serviceExposeTests {
+	for i, t := range serviceDeployTests {
 		c.Logf("test %d. %s", i, t.about)
-		err = statecmd.ServiceExpose(s.State, statecmd.ServiceExposeParams{
-			ServiceName: t.service,
-		})
+
+		err = statecmd.ServiceDeploy(conn, curl, repo, bumpRevision, serviceName, numUnits)
 		if t.err != "" {
 			c.Assert(err, ErrorMatches, t.err)
 		} else {

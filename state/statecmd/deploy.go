@@ -3,7 +3,6 @@
 package statecmd
 
 import (
-	"code.google.com/p/go.net/websocket"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
@@ -21,15 +20,14 @@ type ServiceDeployParams struct {
 func ServiceDeploy(conn *juju.Conn, curl *charm.URL, repo charm.Repository,
 	bumpRevision bool, serviceName string, numUnits int) error {
 	charm, err := conn.PutCharm(curl, repo, bumpRevision)
-	state = conn.State
 	if err != nil {
 		return err
 	}
-	svcName := serviceName
-	if svcName == "" {
-		svcName = curl.Name
+	state := conn.State
+	if serviceName == "" {
+		serviceName = curl.Name
 	}
-	svc, err := state.AddService(svcName, charm)
+	svc, err := state.AddService(serviceName, charm)
 	if err != nil {
 		return err
 	}
