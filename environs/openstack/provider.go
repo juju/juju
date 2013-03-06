@@ -168,7 +168,7 @@ var metadataHost = "http://169.254.169.254"
 
 // metadataJSON holds the path of the instance's JSON metadata.
 // It is a variable so that tests can change it when needed.
-var metadataJSON = "2012-08-10/meta-data.json"
+var metadataJSON = "2012-08-10/meta_data.json"
 
 // fetchMetadata fetches a single atom of data from the openstack instance metadata service.
 // http://docs.amazonwebservices.com/AWSEC2/latest/UserGuide/AESDG-chapter-instancedata.html
