@@ -29,11 +29,11 @@ func (s *ProviderSuite) TestMetadata(c *C) {
 
 	addr, err := p.PublicAddress()
 	c.Assert(err, IsNil)
-	c.Assert(addr, Equals, "public.dummy.address.example.com")
+	c.Assert(addr, Equals, "203.1.1.2")
 
 	addr, err = p.PrivateAddress()
 	c.Assert(err, IsNil)
-	c.Assert(addr, Equals, "private.dummy.address.example.com")
+	c.Assert(addr, Equals, "10.1.1.2")
 
 	id, err := p.InstanceId()
 	c.Assert(err, IsNil)
