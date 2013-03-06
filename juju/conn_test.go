@@ -54,17 +54,6 @@ func (*NewConnSuite) TestNewConnWithoutAdminSecret(c *C) {
 	c.Assert(err, ErrorMatches, "cannot connect without admin-secret")
 }
 
-const homeConfig = `
-default:
-    erewhemos
-environments:
-    erewhemos:
-        type: dummy
-        state-server: true
-        authorized-keys: i-am-a-key
-        admin-secret: conn-from-name-secret
-`
-
 func (*NewConnSuite) TestNewConnFromNameGetUnbootstrapped(c *C) {
 	defer coretesting.MakeSampleHome(c).Restore()
 
@@ -95,8 +84,17 @@ func (self *NewConnSuite) TestNewConnFromNameNotSetGetsDefault(c *C) {
 	conn, err := juju.NewConnFromName("")
 	c.Assert(err, IsNil)
 	defer conn.Close()
-	c.Assert(conn.Environ.Name(), Equals, "erewhemos")
-	c.Assert(conn.State, NotNil)
+	c.Assert(conn.Environ.Name(), Equals, coretesting.SampleEnvName)
+}
+
+func (self *NewConnSuite) TestNewConnFromNameNotDefault(c *C) {
+	defer coretesting.MakeMultipleEnvHome(c).Restore()
+	// The default environment is "erewhemos", so make sure we get what we ask for.
+	self.bootstrapEnv(c, "erewhemos-2")
+	conn, err := juju.NewConnFromName("erewhemos-2")
+	c.Assert(err, IsNil)
+	defer conn.Close()
+	c.Assert(conn.Environ.Name(), Equals, "erewhemos-2")
 }
 
 func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *C) {

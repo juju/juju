@@ -77,5 +77,9 @@ func (h FakeHome) Restore() {
 }
 
 func MakeSampleHome(c *C) FakeHome {
-	return MakeFakeHome(c, MultipleEnvConfig, SampleCertName)
+	return MakeFakeHome(c, SingleEnvConfig, SampleCertName)
+}
+
+func MakeMultipleEnvHome(c *C) FakeHome {
+	return MakeFakeHome(c, MultipleEnvConfig, SampleCertName, "erewhemos-2")
 }
