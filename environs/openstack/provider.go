@@ -186,7 +186,7 @@ func fetchMetadata(name string) (value string, err error) {
 // the same thing as the "instance-id" in the ec2-style metadata. This only
 // works on openstack Folsom or later.
 func fetchInstanceUUID() (string, error) {
-	uri := fmt.Sprintf("%s/%s", metadataHost, metadataJSON)
+	uri := fmt.Sprintf("%s/openstack/%s", metadataHost, metadataJSON)
 	data, err := retryGet(uri)
 	if err != nil {
 		return "", err
