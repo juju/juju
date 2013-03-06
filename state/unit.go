@@ -126,18 +126,16 @@ func (u *Unit) ServiceConfig() (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	// We pass nil here, because we need just the config defaults.
+	// Build a dictionary containing charm defaults, and overwrite any
+	// values that have actually been set.
 	cfg, err := charm.Config().Validate(nil)
 	if err != nil {
 		return nil, err
 	}
-	m := settings.Map()
-	for k, v := range cfg {
-		if _, ok := m[k]; !ok {
-			m[k] = v
-		}
+	for k, v := range settings.Map() {
+		cfg[k] = v
 	}
-	return m, nil
+	return cfg, nil
 }
 
 // ServiceName returns the service name.
