@@ -281,16 +281,11 @@ func (c *srvClient) CharmInfo(args params.CharmInfo) (api.CharmInfo, error) {
 	if err != nil {
 		return api.CharmInfo{}, err
 	}
-	meta := charm.Meta()
 	info := api.CharmInfo{
-		Name:        meta.Name,
-		Revision:    charm.Revision(),
-		Subordinate: meta.Subordinate,
-		URL:         curl.String(),
-		Config:      charm.Config(),
-		Peers:       meta.Peers,
-		Provides:    meta.Provides,
-		Requires:    meta.Requires,
+		Revision: charm.Revision(),
+		URL:      curl.String(),
+		Config:   charm.Config(),
+		Meta:     charm.Meta(),
 	}
 	return info, nil
 }

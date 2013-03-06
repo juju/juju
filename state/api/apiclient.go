@@ -104,14 +104,10 @@ func (c *Client) ServiceUnexpose(service string) error {
 
 // CharmInfo holds information about a charm.
 type CharmInfo struct {
-	Name        string
-	Revision    int
-	Subordinate bool
-	URL         string
-	Config      *charm.Config
-	Peers       map[string]charm.Relation
-	Provides    map[string]charm.Relation
-	Requires    map[string]charm.Relation
+	Revision int
+	URL      string
+	Config   *charm.Config
+	Meta     *charm.Meta
 }
 
 // CharmInfo returns information about the requested charm.

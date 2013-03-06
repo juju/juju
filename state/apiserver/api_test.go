@@ -198,7 +198,7 @@ func opClientCharmInfo(c *C, st *api.State) (func(), error) {
 	}
 	c.Assert(err, IsNil)
 	c.Assert(info.URL, Equals, "local:series/wordpress-3")
-	c.Assert(info.Name, Equals, "wordpress")
+	c.Assert(info.Meta.Name, Equals, "wordpress")
 	c.Assert(info.Revision, Equals, 3)
 	return func() {}, nil
 }
@@ -529,20 +529,18 @@ func (s *suite) TestClientCharmInfo(c *C) {
 	for i, t := range clientCharmInfoTests {
 		c.Logf("test %d. %s", i, t.about)
 		info, err := s.APIState.Client().CharmInfo(t.url)
-		if t.err == "" {
-			c.Assert(err, IsNil)
-			meta := charm.Meta()
-			c.Assert(info.Name, Equals, meta.Name)
-			c.Assert(info.Revision, Equals, charm.Revision())
-			c.Assert(info.Subordinate, Equals, meta.Subordinate)
-			c.Assert(info.URL, Equals, charm.URL().String())
-			c.Assert(info.Config, DeepEquals, charm.Config())
-			c.Assert(info.Peers, DeepEquals, meta.Peers)
-			c.Assert(info.Provides, DeepEquals, meta.Provides)
-			c.Assert(info.Requires, DeepEquals, meta.Requires)
-		} else {
+		if t.err != "" {
 			c.Assert(err, ErrorMatches, t.err)
+			continue
 		}
+		c.Assert(err, IsNil)
+		expected := &api.CharmInfo{
+			Revision: charm.Revision(),
+			URL:      charm.URL().String(),
+			Config:   charm.Config(),
+			Meta:     charm.Meta(),
+		}
+		c.Assert(info, DeepEquals, expected)
 	}
 }
 
