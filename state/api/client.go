@@ -97,6 +97,13 @@ func (s *State) Close() error {
 	return s.client.Close()
 }
 
+// RPCClient returns the RPC client for the state, so that testing
+// functions can tickle parts of the API that the conventional entry
+// points don't reach. This is exported for testing purposes only.
+func (s *State) RPCClient() *rpc.Client {
+	return s.client
+}
+
 type clientReq struct {
 	RequestId uint64
 	Type      string

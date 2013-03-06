@@ -4,6 +4,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/statecmd"
 )
 
@@ -53,7 +54,7 @@ func (s *ExposeSuite) TestServiceExpose(c *C) {
 
 	for i, t := range serviceExposeTests {
 		c.Logf("test %d. %s", i, t.about)
-		err = statecmd.ServiceExpose(s.State, statecmd.ServiceExposeParams{
+		err = statecmd.ServiceExpose(s.State, params.ServiceExpose{
 			ServiceName: t.service,
 		})
 		if t.err != "" {

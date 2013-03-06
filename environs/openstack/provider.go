@@ -146,11 +146,11 @@ func (p environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}
 }
 
 func (p environProvider) PublicAddress() (string, error) {
-	return fetchMetadata("public-hostname")
+	return fetchMetadata("public-ipv4")
 }
 
 func (p environProvider) PrivateAddress() (string, error) {
-	return fetchMetadata("local-hostname")
+	return fetchMetadata("local-ipv4")
 }
 
 func (p environProvider) InstanceId() (state.InstanceId, error) {
