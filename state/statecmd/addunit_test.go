@@ -3,18 +3,18 @@ package statecmd_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/statecmd"
 )
 
-type AddUnitSuite struct {
+type AddUnitsSuite struct {
 	testing.JujuConnSuite
 }
 
 // Run-time check to ensure AddUnitSuite implements the Suite interface.
-var _ = Suite(&AddUnitSuite{})
+var _ = Suite(&AddUnitsSuite{})
 
-var addUnitTests = []struct {
+var addUnitsTests = []struct {
 	about         string
 	service       string
 	numUnits      int
@@ -28,46 +28,48 @@ var addUnitTests = []struct {
 		err:      `service "unknown-service" not found`,
 	},
 	{
-		about: "add negative units",
+		about: "add zero units",
 		service: "dummy-service",
-		numUnits: -1,
+		numUnits: 0,
 		err: `must add at least one unit`,
 	},
 	{
 		about: "add one unit",
 		service: "dummy-service",
 		numUnits: 1,
-		expectedUnits: 2,
+		expectedUnits: 1,
 	},
 	{
 		about: "add multiple units",
 		service: "dummy-service",
 		numUnits: 5,
-		expectedUnits: 7,
+		expectedUnits: 6,
 	},
 }
 
-func (s *AddUnitSuite) TestServiceAddUnit(c *C) {
+func (s *AddUnitsSuite) TestServiceAddUnits(c *C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	svc, err = s.State.AddService("dummy-service", charm)
-	c.Assert(err, isNil)
+	svc, err := s.State.AddService("dummy-service", charm)
+	c.Assert(err, IsNil)
 
-	for i, t := range addUnitTests {
+	for i, t := range addUnitsTests {
 		c.Logf("test %d. %s", i, t.about)
-		err = statecmd.ServiceAddUnits(s.State, statecmd.ServiceAddUnitParams{
+		err = statecmd.ServiceAddUnits(s.State, params.ServiceAddUnits{
 			ServiceName: t.service,
 			NumUnits: t.numUnits,
 		})
 		if t.err != "" {
 			c.Assert(err, ErrorMatches, t.err)
 		} else {
-			c.assert(err, IsNil)
+			c.Assert(err, IsNil)
 			service, err :=  s.State.Service(t.service)
 			c.Assert(err, IsNil)
-			c.Assert(len(service.AllUnits()), Equals, t.expectedUnits)
+			unitCount, err := service.AllUnits()
+			c.Assert(err, IsNil)
+			c.Assert(len(unitCount), Equals, t.expectedUnits)
 		}
 	}
 
 	err = svc.Destroy()
-	c.Assert(err, isNil)
+	c.Assert(err, IsNil)
 }

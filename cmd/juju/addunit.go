@@ -2,10 +2,10 @@ package main
 
 import (
 	"errors"
-
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/statecmd"
 )
 
@@ -53,9 +53,9 @@ func (c *AddUnitCommand) Run(_ *cmd.Context) error {
 	}
 	defer conn.Close()
 
-	params := statecmd.AddUnitsParams{
+	params := params.ServiceAddUnits{
 		ServiceName: c.ServiceName,
 		NumUnits: c.NumUnits,
 	}
-	return statecmd.AddUnits(conn.State, params)
+	return statecmd.ServiceAddUnits(conn.State, params)
 }

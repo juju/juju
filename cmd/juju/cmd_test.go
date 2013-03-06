@@ -237,10 +237,10 @@ func (*CmdSuite) TestAddUnitCommandInit(c *C) {
 	c.Assert(err, ErrorMatches, "no service specified")
 
 	// bad unit count
-	_, err = initAddUnitCommand("service-name", "--num-units", "0")
-	c.Assert(err, ErrorMatches, "must add at least one unit")
-	_, err = initAddUnitCommand("service-name", "-n", "0")
-	c.Assert(err, ErrorMatches, "must add at least one unit")
+	_, errc := runCommand(new(AddUnitCommand), "service-name", "--num-units", "0")
+	c.Assert(<-errc, ErrorMatches, "must add at least one unit")
+	_, errc = runCommand(new(AddUnitCommand),"service-name", "-n", "0")
+	c.Assert(<-errc, ErrorMatches, "must add at least one unit")
 
 	// environment tested elsewhere
 }

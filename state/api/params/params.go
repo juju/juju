@@ -1,6 +1,6 @@
 package params
 
-// ServiceExpose are parameters for making the ServiceExpose call.
+// ServiceExpose holds the parameters for making the ServiceExpose call.
 type ServiceExpose struct {
 	ServiceName string
 }
