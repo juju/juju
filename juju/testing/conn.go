@@ -8,7 +8,6 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/juju/jujuapi"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
@@ -35,7 +34,7 @@ type JujuConnSuite struct {
 	testing.MgoSuite
 	Conn     *juju.Conn
 	State    *state.State
-	APIConn  *jujuapi.APIConn
+	APIConn  *juju.APIConn
 	APIState *api.State
 	RootDir  string // The faked-up root directory.
 	oldHome  string
@@ -158,7 +157,7 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	s.Conn = conn
 	s.State = conn.State
 
-	apiConn, err := jujuapi.NewAPIConn(environ)
+	apiConn, err := juju.NewAPIConn(environ)
 	c.Assert(err, IsNil)
 	s.APIConn = apiConn
 	s.APIState = apiConn.State
