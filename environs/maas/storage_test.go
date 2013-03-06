@@ -1,10 +1,15 @@
 package maas
 
 import (
+	"bytes"
+	"encoding/base64"
+	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/gomaasapi"
 	"launchpad.net/juju-core/environs"
 	"math/rand"
+	"net/http"
+	"net/url"
 	"sync"
 )
 
@@ -51,6 +56,90 @@ func (s *StorageSuite) TestGetSnapshotCreatesClone(c *C) {
 	unlockedMutexValue := sync.Mutex{}
 	c.Check(original.Mutex, Equals, unlockedMutexValue)
 	c.Check(snapshot.Mutex, Equals, unlockedMutexValue)
+}
+
+func (s *StorageSuite) TestGetRetrievesFile(c *C) {
+	const filename = "stored-data"
+	storage := s.makeStorage("get-retrieves-file")
+	file := s.fakeStoredFile(storage, filename)
+	base64Content, err := file.GetField("content")
+	c.Assert(err, IsNil)
+	content, err := base64.StdEncoding.DecodeString(base64Content)
+	c.Assert(err, IsNil)
+
+	reader, err := storage.Get(filename)
+	c.Assert(err, IsNil)
+	defer reader.Close()
+
+	buf, err := ioutil.ReadAll(reader)
+	c.Assert(err, IsNil)
+	c.Check(len(buf), Equals, len(content))
+	c.Check(buf, DeepEquals, content)
+}
+
+func (s *StorageSuite) TestRetrieveFileObjectReturnsFileObject(c *C) {
+	const filename = "myfile"
+	stor := s.makeStorage("rfo-test")
+	file := s.fakeStoredFile(stor, filename)
+	fileURI, err := file.GetField("anon_resource_uri")
+	c.Assert(err, IsNil)
+	fileContent, err := file.GetField("content")
+	c.Assert(err, IsNil)
+
+	obj, err := stor.retrieveFileObject(filename)
+	c.Assert(err, IsNil)
+
+	uri, err := obj.GetField("anon_resource_uri")
+	c.Assert(err, IsNil)
+	c.Check(uri, Equals, fileURI)
+	content, err := obj.GetField("content")
+	c.Check(content, Equals, fileContent)
+}
+
+func (s *StorageSuite) TestRetrieveFileObjectReturnsNotFound(c *C) {
+	stor := s.makeStorage("rfo-test")
+	_, err := stor.retrieveFileObject("nonexistent-file")
+	c.Assert(err, NotNil)
+	c.Check(err, FitsTypeOf, environs.NotFoundError{})
+}
+
+func (s *StorageSuite) TestRetrieveFileObjectEscapesName(c *C) {
+	const filename = "#a?b c&d%e!"
+	data := []byte("File contents here")
+	stor := s.makeStorage("rfo-test")
+	err := stor.Put(filename, bytes.NewReader(data), int64(len(data)))
+	c.Assert(err, IsNil)
+
+	obj, err := stor.retrieveFileObject(filename)
+	c.Assert(err, IsNil)
+
+	base64Content, err := obj.GetField("content")
+	c.Assert(err, IsNil)
+	content, err := base64.StdEncoding.DecodeString(base64Content)
+	c.Assert(err, IsNil)
+	c.Check(content, DeepEquals, data)
+}
+
+func (s *StorageSuite) TestFileContentsAreBinary(c *C) {
+	const filename = "myfile.bin"
+	data := []byte{0, 1, 255, 2, 254, 3}
+	stor := s.makeStorage("binary-test")
+
+	err := stor.Put(filename, bytes.NewReader(data), int64(len(data)))
+	c.Assert(err, IsNil)
+	file, err := stor.Get(filename)
+	c.Assert(err, IsNil)
+	content, err := ioutil.ReadAll(file)
+	c.Assert(err, IsNil)
+
+	c.Check(content, DeepEquals, data)
+}
+
+func (s *StorageSuite) TestGetReturnsNotFoundErrorIfNotFound(c *C) {
+	const filename = "lost-data"
+	storage := NewStorage(s.environ)
+	_, err := storage.Get(filename)
+	c.Assert(err, FitsTypeOf, environs.NotFoundError{})
 }
 
 func (s *StorageSuite) TestListReturnsEmptyIfNoFilesStored(c *C) {
@@ -121,3 +210,143 @@ func (s *StorageSuite) TestListOperatesOnFlatNamespace(c *C) {
 	c.Assert(err, IsNil)
 	c.Check(listing, DeepEquals, []string{"a/b/c/d"})
 }
+
+// getFileAtURL requests, and returns, the file at the given URL.
+func getFileAtURL(fileURL string) ([]byte, error) {
+	response, err := http.Get(fileURL)
+	if err != nil {
+		return nil, err
+	}
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
+	}
+	return body, nil
+}
+
+func (s *StorageSuite) TestURLReturnsURLCorrespondingToFile(c *C) {
+	const filename = "my-file.txt"
+	storage := NewStorage(s.environ).(*maasStorage)
+	file := s.fakeStoredFile(storage, filename)
+	// The file contains an anon_resource_uri, which lacks a network part
+	// (but will probably contain a query part).  anonURL will be the
+	// file's full URL.
+	anonURI, err := file.GetField("anon_resource_uri")
+	c.Assert(err, IsNil)
+	parsedURI, err := url.Parse(anonURI)
+	c.Assert(err, IsNil)
+	anonURL := storage.maasClientUnlocked.URL().ResolveReference(parsedURI)
+	c.Assert(err, IsNil)
+
+	fileURL, err := storage.URL(filename)
+	c.Assert(err, IsNil)
+
+	c.Check(fileURL, NotNil)
+	c.Check(fileURL, Equals, anonURL.String())
+}
+
+func (s *StorageSuite) TestPutStoresRetrievableFile(c *C) {
+	const filename = "broken-toaster.jpg"
+	contents := []byte("Contents here")
+	length := int64(len(contents))
+	storage := NewStorage(s.environ)
+
+	err := storage.Put(filename, bytes.NewReader(contents), length)
+
+	reader, err := storage.Get(filename)
+	c.Assert(err, IsNil)
+	defer reader.Close()
+
+	buf, err := ioutil.ReadAll(reader)
+	c.Assert(err, IsNil)
+	c.Check(buf, DeepEquals, contents)
+}
+
+func (s *StorageSuite) TestPutOverwritesFile(c *C) {
+	const filename = "foo.bar"
+	storage := NewStorage(s.environ)
+	s.fakeStoredFile(storage, filename)
+	newContents := []byte("Overwritten")
+
+	err := storage.Put(filename, bytes.NewReader(newContents), int64(len(newContents)))
+	c.Assert(err, IsNil)
+
+	reader, err := storage.Get(filename)
+	c.Assert(err, IsNil)
+	defer reader.Close()
+
+	buf, err := ioutil.ReadAll(reader)
+	c.Assert(err, IsNil)
+	c.Check(len(buf), Equals, len(newContents))
+	c.Check(buf, DeepEquals, newContents)
+}
+
+func (s *StorageSuite) TestPutStopsAtGivenLength(c *C) {
+	const filename = "xyzzyz.2.xls"
+	const length = 5
+	contents := []byte("abcdefghijklmnopqrstuvwxyz")
+	storage := NewStorage(s.environ)
+
+	err := storage.Put(filename, bytes.NewReader(contents), length)
+	c.Assert(err, IsNil)
+
+	reader, err := storage.Get(filename)
+	c.Assert(err, IsNil)
+	defer reader.Close()
+
+	buf, err := ioutil.ReadAll(reader)
+	c.Assert(err, IsNil)
+	c.Check(len(buf), Equals, length)
+}
+
+func (s *StorageSuite) TestPutToExistingFileTruncatesAtGivenLength(c *C) {
+	const filename = "a-file-which-is-mine"
+	oldContents := []byte("abcdefghijklmnopqrstuvwxyz")
+	newContents := []byte("xyz")
+	storage := NewStorage(s.environ)
+	err := storage.Put(filename, bytes.NewReader(oldContents), int64(len(oldContents)))
+	c.Assert(err, IsNil)
+
+	err = storage.Put(filename, bytes.NewReader(newContents), int64(len(newContents)))
+	c.Assert(err, IsNil)
+
+	reader, err := storage.Get(filename)
+	c.Assert(err, IsNil)
+	defer reader.Close()
+
+	buf, err := ioutil.ReadAll(reader)
+	c.Assert(err, IsNil)
+	c.Check(len(buf), Equals, len(newContents))
+	c.Check(buf, DeepEquals, newContents)
+}
+
+// These tests not satisfied yet.  Coming in next branch!
+/*
+func (s *StorageSuite) TestRemoveDeletesFile(c *C) {
+	const filename = "doomed.txt"
+	storage := NewStorage(s.environ)
+	s.fakeStoredFile(storage, filename)
+
+	err := storage.Remove(filename)
+	c.Assert(err, IsNil)
+
+	_, err = storage.Get(filename)
+	c.Assert(err, FitsTypeOf, environs.NotFoundError{})
+
+	listing, err := storage.List(filename)
+	c.Assert(err, IsNil)
+	c.Assert(listing, DeepEquals, []string{})
+}
+
+func (s *StorageSuite) TestRemoveIsIdempotent(c *C) {
+	const filename = "half-a-file"
+	storage := NewStorage(s.environ)
+	s.fakeStoredFile(storage, filename)
+
+	err := storage.Remove(filename)
+	c.Assert(err, IsNil)
+
+	err = storage.Remove(filename)
+	c.Assert(err, IsNil)
+}
+*/
