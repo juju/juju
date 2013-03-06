@@ -192,6 +192,21 @@ func (r *srvRoot) EntityWatcher(id string) (srvEntityWatcher, error) {
 	return srvEntityWatcher{w}, nil
 }
 
+func (r *srvRoot) AllWatcher(id string) (srvClientAllWatcher, error) {
+	if err := r.requireClient(); err != nil {
+		return srvClientAllWatcher{}, err
+	}
+	w := r.watchers.get(id)
+	if w == nil {
+		return srvClientAllWatcher{}, errUnknownWatcher
+	}
+	if _, ok := w.w.(*state.StateWatcher); !ok {
+		return srvClientAllWatcher{}, errUnknownWatcher
+	}
+	return srvClientAllWatcher{w}, nil
+
+}
+
 // Client returns an object that provides access
 // to methods accessible to non-agent clients.
 func (r *srvRoot) Client(id string) (*srvClient, error) {
@@ -245,18 +260,25 @@ type rpcAllWatcherId struct {
 }
 
 func (c *srvClient) WatchAll() (rpcAllWatcherId, error) {
-	w := c.State.Watch()
+	w := c.root.srv.state.Watch()
 	return rpcAllWatcherId{
 		AllWatcherId: c.root.watchers.register(w).id,
 	}, nil
 }
 
 type srvClientAllWatcher struct {
-	w *state.StateWatcher
+	*srvWatcher
 }
 
-func (aw *srvClientAllWatcher) Next() (*[]state.Delta, error) {
-	return aw.w.Next()
+type rpcAllWatcherNext struct {
+	Deltas []state.Delta
+}
+
+func (aw srvClientAllWatcher) Next() (rpcAllWatcherNext, error) {
+	deltas, err := aw.w.(*state.StateWatcher).Next()
+	return rpcAllWatcherNext{
+		Deltas: *deltas,
+	}, err
 }
 
 // ServiceSet implements the server side of Client.ServerSet.

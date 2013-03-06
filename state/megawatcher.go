@@ -91,9 +91,14 @@ func newStateWatcher(st *State) *StateWatcher {
 	return &StateWatcher{}
 }
 
+func (w *StateWatcher) Err() error {
+	return nil
+}
+
 // Stop stops the watcher.
 func (w *StateWatcher) Stop() error {
 	// This may not need to do anything at all.
+	return nil
 }
 
 // Next retrieves all changes that have happened since the given revision
@@ -103,15 +108,15 @@ func (w *StateWatcher) Next() (*[]Delta, error) {
 	// This is a stub to make progress with the higher level coding.
 	return &[]Delta{
 		Delta{
-			Remove: false,
-			Entity: &state.ServiceInfo{
+			Removed: false,
+			Entity: &ServiceInfo{
 				Name:    "Example",
 				Exposed: true,
 			},
 		},
 		Delta{
-			Remove: true,
-			Entity: &state.UnitInfo{
+			Removed: true,
+			Entity: &UnitInfo{
 				Name:    "MyUnit",
 				Service: "Example",
 			},
