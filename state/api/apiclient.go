@@ -107,6 +107,16 @@ type EnvironmentInfo struct {
 	ProviderType  string
 }
 
+// EnvironmentInfo returns details about the Juju environment.
+func (c *Client) EnvironmentInfo() (*EnvironmentInfo, error) {
+	info := new(EnvironmentInfo)
+	err := c.st.client.Call("Client", "", "EnvironmentInfo", nil, info)
+	if err != nil {
+		return nil, clientError(err)
+	}
+	return info, nil
+}
+
 // Annotations holds annotations associated with an entity.
 type Annotations struct {
 	Annotations map[string]string
@@ -122,16 +132,6 @@ type SetAnnotationParams struct {
 	Id    string
 	Key   string
 	Value string
-}
-
-// EnvironmentInfo returns details about the Juju environment.
-func (c *Client) EnvironmentInfo() (*EnvironmentInfo, error) {
-	info := new(EnvironmentInfo)
-	err := c.st.client.Call("Client", "", "EnvironmentInfo", nil, info)
-	if err != nil {
-		return nil, clientError(err)
-	}
-	return info, nil
 }
 
 // Machine returns a reference to the machine with the given id.

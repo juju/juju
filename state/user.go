@@ -50,19 +50,10 @@ func (st *State) getUser(name string, udoc *userDoc) error {
 
 // User returns the state user for the given name,
 func (st *State) User(name string) (*User, error) {
-	u := &User{
-		st: st,
-		annotator: annotator{
-			st:   st,
-			coll: st.users.Name,
-			id:   name,
-		},
-	}
-	u.annotator.annotations = &u.doc.Annotations
+	u := &User{st: st}
 	if err := st.getUser(name, &u.doc); err != nil {
 		return nil, err
 	}
-
 	return u, nil
 }
 
@@ -70,13 +61,11 @@ func (st *State) User(name string) (*User, error) {
 type User struct {
 	st  *State
 	doc userDoc
-	annotator
 }
 
 type userDoc struct {
 	Name         string `bson:"_id_"`
 	PasswordHash string
-	Annotations  map[string]string
 }
 
 // Name returns the user name,
@@ -84,15 +73,22 @@ func (u *User) Name() string {
 	return u.doc.Name
 }
 
-// Annotations returns the user annotations.
-func (u *User) Annotations() map[string]string {
-	return u.doc.Annotations
-}
-
 // EntityName returns the entity name for
 // the user ("user-$username")
 func (u *User) EntityName() string {
 	return "user-" + u.doc.Name
+}
+
+// Annotations currently just returns an empty map. Implemented here so that
+// a user can be used as an Entity.
+func (u *User) Annotations() map[string]string {
+	return map[string]string{}
+}
+
+// SetAnnotation currently just returns an error. Implemented here so that
+// a user can be used as an Entity.
+func (u *User) SetAnnotation(key, value string) error {
+	return fmt.Errorf("cannot set annotation of user")
 }
 
 // SetPassword sets the password associated with the user.

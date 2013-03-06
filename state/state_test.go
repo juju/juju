@@ -1318,7 +1318,7 @@ func (s *StateSuite) TestSetAdminMongoPassword(c *C) {
 }
 
 func (s *StateSuite) TestEntity(c *C) {
-	bad := []string{"", "machine", "-foo", "foo-", "---", "machine-jim", "unit-123", "unit-foo"}
+	bad := []string{"", "machine", "-foo", "foo-", "---", "machine-jim", "unit-123", "unit-foo", "service-", "service-foo/bar"}
 	for _, name := range bad {
 		e, err := s.State.Entity(name)
 		c.Check(e, IsNil)
@@ -1355,6 +1355,12 @@ func (s *StateSuite) TestEntity(c *C) {
 
 	svc, err := s.State.AddService("ser-vice1", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, IsNil)
+
+	service, err := s.State.Entity(svc.EntityName())
+	c.Assert(err, IsNil)
+	c.Assert(service, FitsTypeOf, svc)
+	c.Assert(service.EntityName(), Equals, svc.EntityName())
+
 	u, err := svc.AddUnit()
 	c.Assert(err, IsNil)
 
