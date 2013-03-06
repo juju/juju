@@ -6,52 +6,44 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 )
-
-// ServiceDeployParams are parameters for making the ServiceDeploy call.
-type ServiceDeployParams struct {
-	serviceName string
-	config      map[string]string
-	configYAML  string // Takes precedence over config if both are present.
-	charmUrl    string
-	numUnits    int
-}
 
 // ServiceDeploy deploys the named service
 // Only one of the parameters `config` and `configYAML` should be provided. If
 // both are given then configYAML takes precedence.
 func ServiceDeploy(conn *juju.Conn, curl *charm.URL, repo charm.Repository,
 	bumpRevision bool, serviceName string, numUnits int,
-	config map[string]string, configYAML string) (state.Service, error) {
+	config map[string]string, configYAML string) (*state.Service, error) {
 	charm, err := conn.PutCharm(curl, repo, bumpRevision)
 	if err != nil {
-		return nil, err
+		return &state.Service{}, err
 	}
 	if serviceName == "" {
 		serviceName = curl.Name
 	}
 	svc, err := conn.State.AddService(serviceName, charm)
 	if err != nil {
-		return nil, err
+		return &state.Service{}, err
 	}
 
-	if configYAML {
-		args := ServiceSetYAMLParams{
+	if configYAML != "" {
+		args := params.ServiceSetYAML{
 			ServiceName: serviceName,
 			Config:      configYAML,
 		}
-		err = statecmd.ServiceSetYAML(conn.State, args)
+		err = ServiceSetYAML(conn.State, args)
 		if err != nil {
-			return err
+			return &state.Service{}, err
 		}
-	} else if config {
-		args := ServiceSetParams{
+	} else if config != nil {
+		args := params.ServiceSet{
 			ServiceName: serviceName,
 			Options:     config,
 		}
-		err = statecmd.ServiceSet(conn.State, args)
+		err = ServiceSet(conn.State, args)
 		if err != nil {
-			return err
+			return &state.Service{}, err
 		}
 	}
 

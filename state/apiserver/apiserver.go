@@ -3,10 +3,12 @@ package apiserver
 import (
 	"code.google.com/p/go.net/websocket"
 	"fmt"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/statecmd"
 	statewatcher "launchpad.net/juju-core/state/watcher"
 	"strconv"
@@ -243,41 +245,41 @@ func (c *srvClient) Status() (api.Status, error) {
 }
 
 // ServiceSet implements the server side of Client.ServerSet.
-func (c *srvClient) ServiceSet(p statecmd.ServiceSetParams) error {
+func (c *srvClient) ServiceSet(p params.ServiceSet) error {
 	return statecmd.ServiceSet(c.root.srv.state, p)
 }
 
 // ServiceSetYAML implements the server side of Client.ServerSetYAML.
-func (c *srvClient) ServiceSetYAML(p statecmd.ServiceSetYAMLParams) error {
+func (c *srvClient) ServiceSetYAML(p params.ServiceSetYAML) error {
 	return statecmd.ServiceSetYAML(c.root.srv.state, p)
 }
 
 // ServiceGet returns the configuration for a service.
-func (c *srvClient) ServiceGet(args statecmd.ServiceGetParams) (statecmd.ServiceGetResults, error) {
+func (c *srvClient) ServiceGet(args params.ServiceGet) (params.ServiceGetResults, error) {
 	return statecmd.ServiceGet(c.root.srv.state, args)
 }
 
 // ServiceExpose changes the juju-managed firewall to expose any ports that
 // were also explicitly marked by units as open.
-func (c *srvClient) ServiceExpose(args statecmd.ServiceExposeParams) error {
+func (c *srvClient) ServiceExpose(args params.ServiceExpose) error {
 	return statecmd.ServiceExpose(c.root.srv.state, args)
 }
 
 // ServiceUnexpose changes the juju-managed firewall to unexpose any ports that
 // were also explicitly marked by units as open.
-func (c *srvClient) ServiceUnexpose(args statecmd.ServiceUnexposeParams) error {
+func (c *srvClient) ServiceUnexpose(args params.ServiceUnexpose) error {
 	return statecmd.ServiceUnexpose(c.root.srv.state, args)
 }
 
 // ServiceDeploy fetches the charm from the charm store and deploys it.  Local
 // charms are not supported.
-func (c *srvClient) ServiceDeploy(args statecmd.ServiceDeployParams) error {
+func (c *srvClient) ServiceDeploy(args params.ServiceDeploy) error {
 	state := c.root.srv.state
 	conf, err := state.EnvironConfig()
 	if err != nil {
 		return err
 	}
-	curl, err := charm.InferURL(args.charmName, conf.DefaultSeries())
+	curl, err := charm.InferURL(args.CharmUrl, conf.DefaultSeries())
 	if err != nil {
 		return err
 	}
@@ -285,11 +287,11 @@ func (c *srvClient) ServiceDeploy(args statecmd.ServiceDeployParams) error {
 	if err != nil {
 		return err
 	}
-	if args.numUnits == nil {
-		args.numUnits = 1
+	if args.NumUnits == 0 {
+		args.NumUnits = 1
 	}
 	_, err = statecmd.ServiceDeploy(conn, curl, charm.Store(), false,
-		args.serviceName, args.numUnits, args.config, args.configYAML)
+		args.ServiceName, args.NumUnits, args.Config, args.ConfigYAML)
 	return err
 }
 
@@ -310,23 +312,23 @@ func (c *srvClient) EnvironmentInfo() (api.EnvironmentInfo, error) {
 // Login logs in with the provided credentials.
 // All subsequent requests on the connection will
 // act as the authenticated user.
-func (a *srvAdmin) Login(c api.RPCCreds) error {
+func (a *srvAdmin) Login(c params.Creds) error {
 	return a.root.user.login(a.root.srv.state, c.EntityName, c.Password)
 }
 
 // Get retrieves all the details of a machine.
-func (m *srvMachine) Get() (info api.RPCMachine) {
+func (m *srvMachine) Get() (info params.Machine) {
 	instId, _ := m.m.InstanceId()
 	info.InstanceId = string(instId)
 	return
 }
 
-func (m *srvMachine) Watch() (api.RPCEntityWatcherId, error) {
+func (m *srvMachine) Watch() (params.EntityWatcherId, error) {
 	w := m.m.Watch()
 	if _, ok := <-w.Changes(); !ok {
-		return api.RPCEntityWatcherId{}, statewatcher.MustErr(w)
+		return params.EntityWatcherId{}, statewatcher.MustErr(w)
 	}
-	return api.RPCEntityWatcherId{
+	return params.EntityWatcherId{
 		EntityWatcherId: m.root.watchers.register(w).id,
 	}, nil
 }
@@ -341,7 +343,7 @@ func setPassword(e state.AuthEntity, password string) error {
 }
 
 // SetPassword sets the machine's password.
-func (m *srvMachine) SetPassword(p api.RPCPassword) error {
+func (m *srvMachine) SetPassword(p params.Password) error {
 	// Allow:
 	// - the machine itself.
 	// - the environment manager.
@@ -355,15 +357,15 @@ func (m *srvMachine) SetPassword(p api.RPCPassword) error {
 }
 
 // Get retrieves all the details of a unit.
-func (u *srvUnit) Get() (api.RPCUnit, error) {
-	var ru api.RPCUnit
+func (u *srvUnit) Get() (params.Unit, error) {
+	var ru params.Unit
 	ru.DeployerName, _ = u.u.DeployerName()
 	// TODO add other unit attributes
 	return ru, nil
 }
 
 // SetPassword sets the unit's password.
-func (u *srvUnit) SetPassword(p api.RPCPassword) error {
+func (u *srvUnit) SetPassword(p params.Password) error {
 	ename := u.root.user.entity().EntityName()
 	// Allow:
 	// - the unit itself.
@@ -381,13 +383,13 @@ func (u *srvUnit) SetPassword(p api.RPCPassword) error {
 }
 
 // SetPassword sets the user's password.
-func (u *srvUser) SetPassword(p api.RPCPassword) error {
+func (u *srvUser) SetPassword(p params.Password) error {
 	return setPassword(u.u, p.Password)
 }
 
 // Get retrieves all details of a user.
-func (u *srvUser) Get() (api.RPCUser, error) {
-	return api.RPCUser{}, nil
+func (u *srvUser) Get() (params.User, error) {
+	return params.User{}, nil
 }
 
 // authUser holds login details. It's ok to call

@@ -3,11 +3,13 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/statecmd"
 	"os"
 )
 
@@ -105,7 +107,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	var configYAML string
+	var configYAML []byte
 	if c.Config.Path != "" {
 		f, err := os.Open(c.Config.Path)
 		if err != nil {
@@ -117,7 +119,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 			return err
 		}
 	}
-	_, err = ServiceDeploy(conn, curl, repo, bumpRevision, c.ServiceName,
-		c.NumUnits, nil, configYAML)
+	_, err = statecmd.ServiceDeploy(conn, curl, repo, c.BumpRevision,
+		c.ServiceName, c.NumUnits, nil, string(configYAML))
 	return err
 }
