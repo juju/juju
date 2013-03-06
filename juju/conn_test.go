@@ -72,28 +72,31 @@ func (*NewConnSuite) TestNewConnFromNameGetUnbootstrapped(c *C) {
 	c.Assert(err, ErrorMatches, "dummy environment not bootstrapped")
 }
 
-func (*NewConnSuite) TestNewConnFromName(c *C) {
-	defer coretesting.MakeFakeHome(c, homeConfig, "erewhemos").Restore()
-
-	environ, err := environs.NewFromName("")
+func (*NewConnSuite) bootstrapEnv(c *C, envName string) {
+	environ, err := environs.NewFromName(envName)
+	c.Assert(err, IsNil)
 	err = environs.Bootstrap(environ, false, panicWrite)
 	c.Assert(err, IsNil)
+}
 
+func (self *NewConnSuite) TestConnMultipleCloseOk(c *C) {
+	defer coretesting.MakeFakeHome(c, homeConfig, "erewhemos").Restore()
+	self.bootstrapEnv(c, "")
+	// Error return from here is tested in TestNewConnFromName.
+	conn, _ := juju.NewConnFromName("")
+	conn.Close()
+	conn.Close()
+	conn.Close()
+}
+
+func (self *NewConnSuite) TestNewConnFromName(c *C) {
+	defer coretesting.MakeFakeHome(c, homeConfig, "erewhemos").Restore()
+	self.bootstrapEnv(c, "")
 	conn, err := juju.NewConnFromName("")
 	c.Assert(err, IsNil)
 	defer conn.Close()
 	c.Assert(conn.Environ.Name(), Equals, "erewhemos")
 	c.Assert(conn.State, NotNil)
-
-	// Reset the admin password so the state db can be reused.
-	//err = conn.State.SetAdminMongoPassword("")
-	//c.Assert(err, IsNil)
-	// Close the conn (thereby closing its state) a couple of times to
-	// verify that multiple closes will not panic. We ignore the error,
-	// as the underlying State will return an error the second
-	// time.
-	conn.Close()
-	conn.Close()
 }
 
 func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *C) {
