@@ -1,20 +1,20 @@
-package state_test
+package params_test
 
 import (
 	"encoding/json"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/params.api/params"
 )
 
 var marshalTestCases = []struct {
 	about  string
-	input  state.Delta
+	input  params.Delta
 	output string
 }{{
 	about: "MachineInfo Delta",
-	input: state.Delta{
+	input: params.Delta{
 		Removed: false,
-		Entity: &state.MachineInfo{
+		Entity: &params.MachineInfo{
 			Id:         "Benji",
 			InstanceId: "Shazam",
 		},
@@ -22,9 +22,9 @@ var marshalTestCases = []struct {
 	output: `["machine","change",{"Id":"Benji","InstanceId":"Shazam"}]`,
 }, {
 	about: "ServiceInfo Delta",
-	input: state.Delta{
+	input: params.Delta{
 		Removed: false,
-		Entity: &state.ServiceInfo{
+		Entity: &params.ServiceInfo{
 			Name:    "Benji",
 			Exposed: true,
 		},
@@ -32,9 +32,9 @@ var marshalTestCases = []struct {
 	output: `["service","change",{"Name":"Benji","Exposed":true}]`,
 }, {
 	about: "UnitInfo Delta",
-	input: state.Delta{
+	input: params.Delta{
 		Removed: false,
-		Entity: &state.UnitInfo{
+		Entity: &params.UnitInfo{
 			Name:    "Benji",
 			Service: "Shazam",
 		},
@@ -42,18 +42,18 @@ var marshalTestCases = []struct {
 	output: `["unit","change",{"Name":"Benji","Service":"Shazam"}]`,
 }, {
 	about: "RelationInfo Delta",
-	input: state.Delta{
+	input: params.Delta{
 		Removed: false,
-		Entity: &state.RelationInfo{
+		Entity: &params.RelationInfo{
 			Key: "Benji",
 		},
 	},
 	output: `["relation","change",{"Key":"Benji"}]`,
 }, {
 	about: "Delta Removed True",
-	input: state.Delta{
+	input: params.Delta{
 		Removed: true,
-		Entity: &state.RelationInfo{
+		Entity: &params.RelationInfo{
 			Key: "Benji",
 		},
 	},
