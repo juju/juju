@@ -212,12 +212,7 @@ func (s *StorageSuite) TestListOperatesOnFlatNamespace(c *C) {
 
 // getFileAtURL requests, and returns, the file at the given URL.
 func getFileAtURL(fileURL string) ([]byte, error) {
-	request, err := http.NewRequest("GET", fileURL, nil)
-	if err != nil {
-		return nil, err
-	}
-	client := http.Client{}
-	response, err := client.Do(request)
+	response, err := http.Get(fileURL)
 	if err != nil {
 		return nil, err
 	}
