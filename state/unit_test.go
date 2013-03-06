@@ -2,6 +2,7 @@ package state_test
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state"
 	"sort"
 	"strconv"
@@ -128,27 +129,34 @@ func (s *UnitSuite) TestGetSetStatus(c *C) {
 }
 
 func (s *UnitSuite) TestUnitCharm(c *C) {
-	_, err := s.unit.Charm()
-	c.Assert(err, ErrorMatches, `charm URL of unit "wordpress/0" not found`)
+	curl, ok := s.unit.CharmURL()
+	c.Assert(ok, Equals, false)
+	c.Assert(curl, IsNil)
 
-	err = s.unit.SetCharm(s.charm)
+	err := s.unit.SetCharmURL(nil)
+	c.Assert(err, ErrorMatches, "cannot set nil charm url")
+
+	err = s.unit.SetCharmURL(charm.MustParseURL("cs:missing/one-1"))
+	c.Assert(err, ErrorMatches, `unknown charm url "cs:missing/one-1"`)
+
+	err = s.unit.SetCharmURL(s.charm.URL())
 	c.Assert(err, IsNil)
-	ch, err := s.unit.Charm()
-	c.Assert(err, IsNil)
-	c.Assert(ch.URL(), DeepEquals, s.charm.URL())
+	curl, ok = s.unit.CharmURL()
+	c.Assert(ok, Equals, true)
+	c.Assert(curl, DeepEquals, s.charm.URL())
 
 	err = s.unit.Destroy()
 	c.Assert(err, IsNil)
-	err = s.unit.SetCharm(s.charm)
+	err = s.unit.SetCharmURL(s.charm.URL())
 	c.Assert(err, IsNil)
-	ch, err = s.unit.Charm()
-	c.Assert(err, IsNil)
-	c.Assert(ch.URL(), DeepEquals, s.charm.URL())
+	curl, ok = s.unit.CharmURL()
+	c.Assert(ok, Equals, true)
+	c.Assert(curl, DeepEquals, s.charm.URL())
 
 	err = s.unit.EnsureDead()
 	c.Assert(err, IsNil)
-	err = s.unit.SetCharm(s.charm)
-	c.Assert(err, ErrorMatches, `cannot set charm for unit "wordpress/0": not found or not alive`)
+	err = s.unit.SetCharmURL(s.charm.URL())
+	c.Assert(err, ErrorMatches, `unit "wordpress/0" is dead`)
 }
 
 func (s *UnitSuite) TestEntityName(c *C) {
@@ -166,7 +174,7 @@ func (s *UnitSuite) TestSetMongoPassword(c *C) {
 }
 
 func (s *UnitSuite) TestSetPassword(c *C) {
-	testSetPassword(c, func() (entity, error) {
+	testSetPassword(c, func() (state.AuthEntity, error) {
 		return s.State.Unit(s.unit.Name())
 	})
 }
@@ -198,7 +206,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 
 	// Add a new machine, assign the units to it
 	// and set its password.
-	m, err := st.AddMachine(state.JobHostUnits)
+	m, err := st.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	unit, err := st.Unit(s.unit.Name())
 	c.Assert(err, IsNil)
@@ -214,7 +222,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 	info.EntityName = m.EntityName()
 	info.Password = "foo1"
 	err = tryOpenState(info)
-	c.Assert(err, Equals, state.ErrUnauthorized)
+	c.Assert(state.IsUnauthorizedError(err), Equals, true)
 
 	// Connect as the machine entity.
 	info.EntityName = m.EntityName()
@@ -687,4 +695,10 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 		c.Fatalf("got unexpected change: %#v, %v", got, ok)
 	case <-time.After(100 * time.Millisecond):
 	}
+}
+
+func (s *UnitSuite) TestAnnotatorForUnit(c *C) {
+	testAnnotator(c, func() (annotator, error) {
+		return s.State.Unit("wordpress/0")
+	})
 }

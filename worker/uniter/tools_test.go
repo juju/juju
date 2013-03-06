@@ -3,7 +3,7 @@ package uniter_test
 import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
@@ -20,22 +20,22 @@ var _ = Suite(&ToolsSuite{})
 
 func (s *ToolsSuite) SetUpTest(c *C) {
 	s.dataDir = c.MkDir()
-	s.toolsDir = environs.ToolsDir(s.dataDir, version.Current)
+	s.toolsDir = agent.SharedToolsDir(s.dataDir, version.Current)
 	err := os.MkdirAll(s.toolsDir, 0755)
 	c.Assert(err, IsNil)
-	err = os.Symlink(s.toolsDir, environs.AgentToolsDir(s.dataDir, "unit-u-123"))
+	err = os.Symlink(s.toolsDir, agent.ToolsDir(s.dataDir, "unit-u-123"))
 	c.Assert(err, IsNil)
 }
 
 func (s *ToolsSuite) TestEnsureJujucSymlinks(c *C) {
-	jujucPath := filepath.Join(s.toolsDir, "jujuc")
-	err := ioutil.WriteFile(jujucPath, []byte("assume sane"), 0755)
+	jujudPath := filepath.Join(s.toolsDir, "jujud")
+	err := ioutil.WriteFile(jujudPath, []byte("assume sane"), 0755)
 	c.Assert(err, IsNil)
 
 	assertLink := func(path string) time.Time {
 		target, err := os.Readlink(path)
 		c.Assert(err, IsNil)
-		c.Assert(target, Equals, "./jujuc")
+		c.Assert(target, Equals, "./jujud")
 		fi, err := os.Lstat(path)
 		c.Assert(err, IsNil)
 		return fi.ModTime()

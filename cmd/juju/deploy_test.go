@@ -1,13 +1,11 @@
 package main
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
@@ -48,21 +46,21 @@ func (s *repoSuite) TearDownTest(c *C) {
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-func (s *repoSuite) assertService(c *C, name string, expectCurl *charm.URL, unitCount, relCount int) []*state.Relation {
-	srv, err := s.State.Service(name)
+func (s *repoSuite) assertService(c *C, name string, expectCurl *charm.URL, unitCount, relCount int) (*state.Service, []*state.Relation) {
+	svc, err := s.State.Service(name)
 	c.Assert(err, IsNil)
-	ch, _, err := srv.Charm()
+	ch, _, err := svc.Charm()
 	c.Assert(err, IsNil)
 	c.Assert(ch.URL(), DeepEquals, expectCurl)
 	s.assertCharmUploaded(c, expectCurl)
-	units, err := srv.AllUnits()
+	units, err := svc.AllUnits()
 	c.Assert(err, IsNil)
 	c.Assert(units, HasLen, unitCount)
 	s.assertUnitMachines(c, units)
-	rels, err := srv.Relations()
+	rels, err := svc.Relations()
 	c.Assert(err, IsNil)
 	c.Assert(rels, HasLen, relCount)
-	return rels
+	return svc, rels
 }
 
 func (s *repoSuite) assertCharmUploaded(c *C, curl *charm.URL) {
@@ -108,10 +106,8 @@ type DeploySuite struct {
 var _ = Suite(&DeploySuite{})
 
 func runDeploy(c *C, args ...string) error {
-	com := &DeployCommand{}
-	err := com.Init(newFlagSet(), args)
-	c.Assert(err, IsNil)
-	return com.Run(&cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}})
+	_, err := coretesting.RunCommand(c, &DeployCommand{}, args)
+	return err
 }
 
 var initErrorTests = []struct {
@@ -136,14 +132,13 @@ var initErrorTests = []struct {
 func (s *DeploySuite) TestInitErrors(c *C) {
 	for i, t := range initErrorTests {
 		c.Logf("test %d", i)
-		com := &DeployCommand{}
-		err := com.Init(newFlagSet(), t.args)
+		err := coretesting.InitCommand(&DeployCommand{}, t.args)
 		c.Assert(err, ErrorMatches, t.err)
 	}
 }
 
 func (s *DeploySuite) TestCharmDir(c *C) {
-	coretesting.Charms.ClonedDirPath(s.seriesPath, "series", "dummy")
+	coretesting.Charms.ClonedDirPath(s.seriesPath, "dummy")
 	err := runDeploy(c, "local:dummy")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
@@ -151,7 +146,7 @@ func (s *DeploySuite) TestCharmDir(c *C) {
 }
 
 func (s *DeploySuite) TestUpgradeCharmDir(c *C) {
-	dirPath := coretesting.Charms.ClonedDirPath(s.seriesPath, "series", "dummy")
+	dirPath := coretesting.Charms.ClonedDirPath(s.seriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "-u")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-2")
@@ -163,7 +158,7 @@ func (s *DeploySuite) TestUpgradeCharmDir(c *C) {
 }
 
 func (s *DeploySuite) TestCharmBundle(c *C) {
-	coretesting.Charms.BundlePath(s.seriesPath, "series", "dummy")
+	coretesting.Charms.BundlePath(s.seriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "some-service-name")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
@@ -171,7 +166,7 @@ func (s *DeploySuite) TestCharmBundle(c *C) {
 }
 
 func (s *DeploySuite) TestCannotUpgradeCharmBundle(c *C) {
-	coretesting.Charms.BundlePath(s.seriesPath, "series", "dummy")
+	coretesting.Charms.BundlePath(s.seriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "-u")
 	c.Assert(err, ErrorMatches, `cannot increment version of charm "local:precise/dummy-1": not a directory`)
 	// Verify state not touched...
@@ -183,11 +178,11 @@ func (s *DeploySuite) TestCannotUpgradeCharmBundle(c *C) {
 }
 
 func (s *DeploySuite) TestAddsPeerRelations(c *C) {
-	coretesting.Charms.BundlePath(s.seriesPath, "series", "riak")
+	coretesting.Charms.BundlePath(s.seriesPath, "riak")
 	err := runDeploy(c, "local:riak")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/riak-7")
-	rels := s.assertService(c, "riak", curl, 1, 1)
+	_, rels := s.assertService(c, "riak", curl, 1, 1)
 	rel := rels[0]
 	ep, err := rel.Endpoint("riak")
 	c.Assert(err, IsNil)
@@ -197,7 +192,7 @@ func (s *DeploySuite) TestAddsPeerRelations(c *C) {
 }
 
 func (s *DeploySuite) TestNumUnits(c *C) {
-	coretesting.Charms.BundlePath(s.seriesPath, "series", "dummy")
+	coretesting.Charms.BundlePath(s.seriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "-n", "13")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
@@ -205,7 +200,7 @@ func (s *DeploySuite) TestNumUnits(c *C) {
 }
 
 func (s *DeploySuite) TestSubordinateCharm(c *C) {
-	coretesting.Charms.BundlePath(s.seriesPath, "series", "logging")
+	coretesting.Charms.BundlePath(s.seriesPath, "logging")
 	err := runDeploy(c, "local:logging")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/logging-1")

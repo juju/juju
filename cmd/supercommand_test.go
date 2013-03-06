@@ -4,13 +4,14 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/testing"
 )
 
 func initDefenestrate(args []string) (*cmd.SuperCommand, *TestCommand, error) {
 	jc := &cmd.SuperCommand{Name: "jujutest"}
 	tc := &TestCommand{Name: "defenestrate"}
 	jc.Register(tc)
-	return jc, tc, jc.Init(dummyFlagSet(), args)
+	return jc, tc, testing.InitCommand(jc, args)
 }
 
 type SuperCommandSuite struct{}
@@ -19,7 +20,7 @@ var _ = Suite(&SuperCommandSuite{})
 
 func (s *SuperCommandSuite) TestDispatch(c *C) {
 	jc := &cmd.SuperCommand{Name: "jujutest"}
-	err := jc.Init(dummyFlagSet(), []string{})
+	err := testing.InitCommand(jc, []string{})
 	c.Assert(err, ErrorMatches, `no command specified`)
 	info := jc.Info()
 	c.Assert(info.Name, Equals, "jujutest")
@@ -59,7 +60,7 @@ func (s *SuperCommandSuite) TestRegister(c *C) {
 
 func (s *SuperCommandSuite) TestRegisterAlias(c *C) {
 	jc := &cmd.SuperCommand{Name: "jujutest"}
-	jc.Register(&TestCommand{Name: "flip"}, "flap", "flop")
+	jc.Register(&TestCommand{Name: "flip", Aliases: []string{"flap", "flop"}})
 
 	info := jc.Info()
 	c.Assert(info.Doc, Equals, `commands:
@@ -98,7 +99,7 @@ func (s *SuperCommandSuite) TestLogging(c *C) {
 	}()
 	jc := &cmd.SuperCommand{Name: "jujutest", Log: &cmd.Log{}}
 	jc.Register(&TestCommand{Name: "blah"})
-	ctx := dummyContext(c)
+	ctx := testing.Context(c)
 	code := cmd.Main(jc, ctx, []string{"blah", "--option", "error", "--debug"})
 	c.Assert(code, Equals, 1)
 	c.Assert(bufferString(ctx.Stderr), Matches, `.* JUJU jujutest blah command failed: BAM!

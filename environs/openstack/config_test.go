@@ -39,13 +39,18 @@ type configTest struct {
 	controlBucket string
 	publicBucket  string
 	pbucketURL    string
-	username      string
-	password      string
-	tenantName    string
-	authMethod    string
-	authURL       string
-	firewallMode  config.FirewallMode
-	err           string
+	imageId       string
+	instanceType  string
+	// useFloatingIP is true by default.
+	// bools default to false so invert the attribute
+	internalIPOnly bool
+	username       string
+	password       string
+	tenantName     string
+	authMode       string
+	authURL        string
+	firewallMode   config.FirewallMode
+	err            string
 }
 
 type attrs map[string]interface{}
@@ -122,6 +127,13 @@ func (t configTest) check(c *C) {
 	if t.firewallMode != "" {
 		c.Assert(ecfg.FirewallMode(), Equals, t.firewallMode)
 	}
+	if t.imageId != "" {
+		c.Assert(ecfg.defaultImageId(), Equals, t.imageId)
+	}
+	if t.instanceType != "" {
+		c.Assert(ecfg.defaultInstanceType(), Equals, t.instanceType)
+	}
+	c.Assert(ecfg.useFloatingIP(), Equals, !t.internalIPOnly)
 }
 
 func (s *ConfigSuite) SetUpTest(c *C) {
@@ -191,11 +203,11 @@ var configTests = []configTest{
 		},
 		err: ".*expected string, got 666",
 	}, {
-		summary: "invalid authorization method",
+		summary: "invalid authorization mode",
 		config: attrs{
-			"auth-method": "invalid-method",
+			"auth-mode": "invalid-mode",
 		},
-		err: ".*invalid authorization method.*",
+		err: ".*invalid authorization mode.*",
 	}, {
 		summary: "invalid auth-url format",
 		config: attrs{
@@ -220,14 +232,36 @@ var configTests = []configTest{
 			"username":    "jujuer",
 			"password":    "open sesame",
 			"tenant-name": "juju tenant",
-			"auth-method": "legacy",
+			"auth-mode":   "legacy",
 			"auth-url":    "http://some/url",
 		},
 		username:   "jujuer",
 		password:   "open sesame",
 		tenantName: "juju tenant",
 		authURL:    "http://some/url",
-		authMethod: "legacy",
+		authMode:   "legacy",
+	}, {
+		summary: "image id",
+		config: attrs{
+			"default-image-id": "image-id",
+		},
+		imageId: "image-id",
+	}, {
+		summary: "instance type",
+		config: attrs{
+			"default-instance-type": "instance-type",
+		},
+		instanceType: "instance-type",
+	}, {
+		summary: "default use floating ip",
+		// Use floating IP's by default.
+		internalIPOnly: false,
+	}, {
+		summary: "use floating ip",
+		config: attrs{
+			"use-floating-ip": false,
+		},
+		internalIPOnly: true,
 	}, {
 		summary: "public bucket URL",
 		config: attrs{
@@ -360,8 +394,8 @@ func (s *ConfigSuite) TestCredentialsFromEnv(c *C) {
 	c.Assert(ecfg.tenantName(), Equals, "sometenant")
 }
 
-func (s *ConfigSuite) TestDefaultAuthorisationMethod(c *C) {
-	// Specify a basic configuration without authorization method.
+func (s *ConfigSuite) TestDefaultAuthorisationMode(c *C) {
+	// Specify a basic configuration without authorization mode.
 	envs := attrs{
 		"environments": attrs{
 			"testenv": attrs{
@@ -376,5 +410,5 @@ func (s *ConfigSuite) TestDefaultAuthorisationMethod(c *C) {
 	c.Check(err, IsNil)
 	e, err := es.Open("testenv")
 	ecfg := e.(*environ).ecfg()
-	c.Assert(ecfg.authMethod(), Equals, string(AuthUserPass))
+	c.Assert(ecfg.authMode(), Equals, string(AuthUserPass))
 }

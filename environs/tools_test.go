@@ -1,11 +1,11 @@
 package environs_test
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
@@ -14,7 +14,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
 	"strings"
 )
 
@@ -54,6 +53,13 @@ func toolsStoragePath(vers string) string {
 	})
 }
 
+func mongoStoragePath(series, arch string) string {
+	return environs.MongoStoragePath(version.Binary{
+		Series: series,
+		Arch:   arch,
+	})
+}
+
 var _ = Suite(&ToolsSuite{})
 
 const urlFile = "downloaded-url.txt"
@@ -64,15 +70,12 @@ var commandTests = []struct {
 }{
 	// TODO(niemeyer): Reintroduce this once we start deploying to the public bucket.
 	//{
-	//	[]string{"juju", "arble"},
-	//	"error: unrecognized command: juju arble\n",
+	//  []string{"juju", "arble"},
+	//  "error: unrecognized command: juju arble\n",
 	//},
 	{
 		[]string{"jujud", "arble"},
 		"error: unrecognized command: jujud arble\n",
-	}, {
-		[]string{"jujuc"},
-		"(.|\n)*error: jujuc should not be called directly\n",
 	},
 }
 
@@ -92,7 +95,7 @@ func (t *ToolsSuite) TestPutGetTools(c *C) {
 		err = get(dataDir, tools)
 		c.Assert(err, IsNil)
 
-		dir := environs.ToolsDir(dataDir, version.Current)
+		dir := agent.SharedToolsDir(dataDir, version.Current)
 		// Verify that each tool executes and produces some
 		// characteristic output.
 		for i, test := range commandTests {
@@ -142,103 +145,13 @@ func (t *ToolsSuite) TestUploadBadBuild(c *C) {
 	c.Assert(err, ErrorMatches, `build command "go" failed: exit status 1; can't load package:(.|\n)*`)
 }
 
-var unpackToolsBadDataTests = []struct {
-	data []byte
-	err  string
-}{
-	{
-		testing.TarGz(testing.NewTarFile("bar", os.ModeDir, "")),
-		"bad file type.*",
-	}, {
-		testing.TarGz(testing.NewTarFile("../../etc/passwd", 0755, "")),
-		"bad name.*",
-	}, {
-		testing.TarGz(testing.NewTarFile(`\ini.sys`, 0755, "")),
-		"bad name.*",
-	}, {
-		[]byte("x"),
-		"unexpected EOF",
-	}, {
-		gzyesses,
-		"archive/tar: invalid tar header",
-	},
-}
-
-func (t *ToolsSuite) TestUnpackToolsBadData(c *C) {
-	for i, test := range unpackToolsBadDataTests {
-		c.Logf("test %d", i)
-		tools := &state.Tools{
-			URL:    "http://foo/bar",
-			Binary: version.MustParseBinary("1.2.3-foo-bar"),
-		}
-		err := environs.UnpackTools(t.dataDir, tools, bytes.NewReader(test.data))
-		c.Assert(err, ErrorMatches, test.err)
-		assertDirNames(c, t.toolsDir(), []string{})
-	}
-}
-
 func (t *ToolsSuite) toolsDir() string {
 	return filepath.Join(t.dataDir, "tools")
-}
-
-func (t *ToolsSuite) TestUnpackToolsContents(c *C) {
-	files := []*testing.TarFile{
-		testing.NewTarFile("bar", 0755, "bar contents"),
-		testing.NewTarFile("foo", 0755, "foo contents"),
-	}
-	tools := &state.Tools{
-		URL:    "http://foo/bar",
-		Binary: version.MustParseBinary("1.2.3-foo-bar"),
-	}
-
-	err := environs.UnpackTools(t.dataDir, tools, bytes.NewReader(testing.TarGz(files...)))
-	c.Assert(err, IsNil)
-	assertDirNames(c, t.toolsDir(), []string{"1.2.3-foo-bar"})
-	t.assertToolsContents(c, tools, files)
-
-	// Try to unpack the same version of tools again - it should succeed,
-	// leaving the original version around.
-	tools2 := &state.Tools{
-		URL:    "http://arble",
-		Binary: version.MustParseBinary("1.2.3-foo-bar"),
-	}
-	files2 := []*testing.TarFile{
-		testing.NewTarFile("bar", 0755, "bar2 contents"),
-		testing.NewTarFile("x", 0755, "x contents"),
-	}
-	err = environs.UnpackTools(t.dataDir, tools2, bytes.NewReader(testing.TarGz(files2...)))
-	c.Assert(err, IsNil)
-	assertDirNames(c, t.toolsDir(), []string{"1.2.3-foo-bar"})
-	t.assertToolsContents(c, tools, files)
-}
-
-func (t *ToolsSuite) TestReadToolsErrors(c *C) {
-	vers := version.MustParseBinary("1.2.3-precise-amd64")
-	tools, err := environs.ReadTools(t.dataDir, vers)
-	c.Assert(tools, IsNil)
-	c.Assert(err, ErrorMatches, "cannot read URL in tools directory: .*")
-
-	dir := environs.ToolsDir(t.dataDir, vers)
-	err = os.MkdirAll(dir, 0755)
-	c.Assert(err, IsNil)
-
-	err = ioutil.WriteFile(filepath.Join(dir, urlFile), []byte(" \t\n"), 0644)
-	c.Assert(err, IsNil)
-
-	tools, err = environs.ReadTools(t.dataDir, vers)
-	c.Assert(tools, IsNil)
-	c.Assert(err, ErrorMatches, "empty URL in tools directory.*")
 }
 
 func (t *ToolsSuite) TestToolsStoragePath(c *C) {
 	c.Assert(environs.ToolsStoragePath(binaryVersion("1.2.3-precise-amd64")),
 		Equals, "tools/juju-1.2.3-precise-amd64.tgz")
-}
-
-func (t *ToolsSuite) TestToolsDir(c *C) {
-	c.Assert(environs.ToolsDir("/var/lib/juju", binaryVersion("1.2.3-precise-amd64")),
-		Equals,
-		"/var/lib/juju/tools/1.2.3-precise-amd64")
 }
 
 // getTools downloads and unpacks the given tools.
@@ -251,7 +164,7 @@ func getTools(dataDir string, tools *state.Tools) error {
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("bad http status: %v", resp.Status)
 	}
-	return environs.UnpackTools(dataDir, tools, resp.Body)
+	return agent.UnpackTools(dataDir, tools, resp.Body)
 }
 
 // getToolsWithTar is the same as getTools but uses tar
@@ -264,7 +177,7 @@ func getToolsWithTar(dataDir string, tools *state.Tools) error {
 	}
 	defer resp.Body.Close()
 
-	dir := environs.ToolsDir(dataDir, tools.Binary)
+	dir := agent.SharedToolsDir(dataDir, tools.Binary)
 	err = os.MkdirAll(dir, 0755)
 	if err != nil {
 		return err
@@ -280,103 +193,6 @@ func getToolsWithTar(dataDir string, tools *state.Tools) error {
 	return ioutil.WriteFile(filepath.Join(cmd.Dir, urlFile), []byte(tools.URL), 0644)
 }
 
-// assertToolsContents asserts that the directory for the tools
-// has the given contents.
-func (t *ToolsSuite) assertToolsContents(c *C, tools *state.Tools, files []*testing.TarFile) {
-	var wantNames []string
-	for _, f := range files {
-		wantNames = append(wantNames, f.Header.Name)
-	}
-	wantNames = append(wantNames, urlFile)
-	dir := environs.ToolsDir(t.dataDir, tools.Binary)
-	assertDirNames(c, dir, wantNames)
-	assertFileContents(c, dir, urlFile, tools.URL, 0200)
-	for _, f := range files {
-		assertFileContents(c, dir, f.Header.Name, f.Contents, 0400)
-	}
-	gotTools, err := environs.ReadTools(t.dataDir, tools.Binary)
-	c.Assert(err, IsNil)
-	c.Assert(*gotTools, Equals, *tools)
-}
-
-// assertFileContents asserts that the given file in the
-// given directory has the given contents.
-func assertFileContents(c *C, dir, file, contents string, mode os.FileMode) {
-	file = filepath.Join(dir, file)
-	info, err := os.Stat(file)
-	c.Assert(err, IsNil)
-	c.Assert(info.Mode()&(os.ModeType|mode), Equals, mode)
-	data, err := ioutil.ReadFile(file)
-	c.Assert(err, IsNil)
-	c.Assert(string(data), Equals, contents)
-}
-
-// assertDirNames asserts that the given directory
-// holds the given file or directory names.
-func assertDirNames(c *C, dir string, names []string) {
-	f, err := os.Open(dir)
-	c.Assert(err, IsNil)
-	defer f.Close()
-	dnames, err := f.Readdirnames(0)
-	c.Assert(err, IsNil)
-	sort.Strings(dnames)
-	sort.Strings(names)
-	c.Assert(dnames, DeepEquals, names)
-}
-
-func (t *ToolsSuite) TestChangeAgentTools(c *C) {
-	files := []*testing.TarFile{
-		testing.NewTarFile("jujuc", 0755, "juju executable"),
-		testing.NewTarFile("jujud", 0755, "jujuc executable"),
-	}
-	tools := &state.Tools{
-		URL:    "http://foo/bar1",
-		Binary: version.MustParseBinary("1.2.3-foo-bar"),
-	}
-	err := environs.UnpackTools(t.dataDir, tools, bytes.NewReader(testing.TarGz(files...)))
-	c.Assert(err, IsNil)
-
-	gotTools, err := environs.ChangeAgentTools(t.dataDir, "testagent", tools.Binary)
-	c.Assert(err, IsNil)
-	c.Assert(*gotTools, Equals, *tools)
-
-	assertDirNames(c, t.toolsDir(), []string{"1.2.3-foo-bar", "testagent"})
-	assertDirNames(c, environs.AgentToolsDir(t.dataDir, "testagent"), []string{"jujuc", "jujud", urlFile})
-
-	// Upgrade again to check that the link replacement logic works ok.
-	files2 := []*testing.TarFile{
-		testing.NewTarFile("foo", 0755, "foo content"),
-		testing.NewTarFile("bar", 0755, "bar content"),
-	}
-	tools2 := &state.Tools{
-		URL:    "http://foo/bar2",
-		Binary: version.MustParseBinary("1.2.4-foo-bar"),
-	}
-	err = environs.UnpackTools(t.dataDir, tools2, bytes.NewReader(testing.TarGz(files2...)))
-	c.Assert(err, IsNil)
-
-	gotTools, err = environs.ChangeAgentTools(t.dataDir, "testagent", tools2.Binary)
-	c.Assert(err, IsNil)
-	c.Assert(*gotTools, Equals, *tools2)
-
-	assertDirNames(c, t.toolsDir(), []string{"1.2.3-foo-bar", "1.2.4-foo-bar", "testagent"})
-	assertDirNames(c, environs.AgentToolsDir(t.dataDir, "testagent"), []string{"foo", "bar", urlFile})
-}
-
-// gzyesses holds the result of running:
-// yes | head -17000 | gzip
-var gzyesses = []byte{
-	0x1f, 0x8b, 0x08, 0x00, 0x29, 0xae, 0x1a, 0x50,
-	0x00, 0x03, 0xed, 0xc2, 0x31, 0x0d, 0x00, 0x00,
-	0x00, 0x02, 0xa0, 0xdf, 0xc6, 0xb6, 0xb7, 0x87,
-	0x63, 0xd0, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x38, 0x31, 0x53, 0xad, 0x03,
-	0x8d, 0xd0, 0x84, 0x00, 0x00,
-}
-
 type toolsSpec struct {
 	version string
 	os      string
@@ -384,6 +200,7 @@ type toolsSpec struct {
 }
 
 var findToolsTests = []struct {
+	summary        string         // a summary of the test purpose.
 	version        version.Number // version to assume is current for the test.
 	flags          environs.ToolsSearchFlags
 	contents       []string // names in private storage.
@@ -391,13 +208,13 @@ var findToolsTests = []struct {
 	expect         string   // the name we expect to find (if no error).
 	err            string   // the error we expect to find (if not blank).
 }{{
-	// current version should be satisfied by current tools path.
+	summary:  "current version should be satisfied by current tools path",
 	version:  version.Current.Number,
 	flags:    environs.CompatVersion,
 	contents: []string{environs.ToolsStoragePath(version.Current)},
 	expect:   environs.ToolsStoragePath(version.Current),
 }, {
-	// highest version of tools is chosen.
+	summary: "highest version of tools is chosen",
 	version: version.MustParse("0.0.0"),
 	flags:   environs.HighestVersion | environs.DevVersion | environs.CompatVersion,
 	contents: []string{
@@ -406,7 +223,7 @@ var findToolsTests = []struct {
 	},
 	expect: toolsStoragePath("0.1.9"),
 }, {
-	// fall back to public storage when nothing found in private.
+	summary: "fall back to public storage when nothing found in private",
 	version: version.MustParse("1.0.2"),
 	flags:   environs.DevVersion | environs.CompatVersion,
 	contents: []string{
@@ -418,7 +235,7 @@ var findToolsTests = []struct {
 	},
 	expect: "public-" + toolsStoragePath("1.0.1"),
 }, {
-	// always use private storage in preference to public storage.
+	summary: "always use private storage in preference to public storage",
 	version: version.MustParse("1.9.0"),
 	flags:   environs.DevVersion | environs.CompatVersion,
 	contents: []string{
@@ -429,7 +246,7 @@ var findToolsTests = []struct {
 	},
 	expect: toolsStoragePath("1.0.2"),
 }, {
-	// mismatching series or architecture is ignored.
+	summary: "mismatching series or architecture is ignored",
 	version: version.MustParse("1.0.0"),
 	flags:   environs.CompatVersion,
 	contents: []string{
@@ -468,7 +285,7 @@ func putNames(c *C, env environs.Environ, private, public []string) {
 
 func (t *ToolsSuite) TestFindTools(c *C) {
 	for i, tt := range findToolsTests {
-		c.Logf("test %d", i)
+		c.Logf("Test %d: %s", i, tt.summary)
 		putNames(c, t.env, tt.contents, tt.publicContents)
 		vers := version.Binary{
 			Number: tt.version,
@@ -483,6 +300,69 @@ func (t *ToolsSuite) TestFindTools(c *C) {
 			assertURLContents(c, tools.URL, tt.expect)
 		}
 		t.env.Destroy(nil)
+	}
+}
+
+var mongoURLTests = []struct {
+	summary        string   // a summary of the test purpose.
+	contents       []string // names in private storage.
+	publicContents []string // names in public storage.
+	expect         string   // the name we expect to find (if no error).
+	urlpart        string   // part of the url we expect to find (if not blank).
+}{{
+	summary:  "grab mongo from private storage if it exists there",
+	contents: []string{environs.MongoStoragePath(version.Current)},
+	expect:   environs.MongoStoragePath(version.Current),
+}, {
+	summary: "fall back to public storage when nothing found in private",
+	contents: []string{
+		environs.MongoStoragePath(version.Binary{
+			Series: "foo",
+			Arch:   version.Current.Arch}),
+	},
+	publicContents: []string{
+		environs.MongoStoragePath(version.Current),
+	},
+	expect: "public-" + environs.MongoStoragePath(version.Current),
+}, {
+	summary: "if nothing in public or private storage, fall back to copy in ec2",
+	contents: []string{
+		environs.ToolsStoragePath(version.Binary{
+			Series: "foo",
+			Arch:   version.Current.Arch,
+		}),
+		environs.ToolsStoragePath(version.Binary{
+			Series: version.Current.Series,
+			Arch:   "foo",
+		}),
+	},
+	publicContents: []string{
+		environs.MongoStoragePath(version.Binary{
+			Series: "foo",
+			Arch:   version.Current.Arch,
+		}),
+	},
+	urlpart: "http://juju-dist.s3.amazonaws.com",
+},
+}
+
+func (t *ToolsSuite) TestMongoURL(c *C) {
+	for i, tt := range mongoURLTests {
+		c.Logf("Test %d: %s", i, tt.summary)
+		putNames(c, t.env, tt.contents, tt.publicContents)
+		vers := version.Binary{
+			Series: version.Current.Series,
+			Arch:   version.Current.Arch,
+		}
+		mongoURL := environs.MongoURL(t.env, vers)
+		if tt.expect != "" {
+			assertURLContents(c, mongoURL, tt.expect)
+		}
+		if tt.urlpart != "" {
+			c.Assert(mongoURL, Matches, tt.urlpart+".*")
+		}
+		t.env.Destroy(nil)
+		dummy.ResetPublicStorage(t.env)
 	}
 }
 

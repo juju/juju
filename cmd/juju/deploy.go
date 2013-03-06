@@ -44,11 +44,14 @@ mysql-33 becomes cs:precise/mysql-33).
 
 func (c *DeployCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		"deploy", "<charm name> [<service name>]", "deploy a new service", deployDoc,
+		Name:    "deploy",
+		Args:    "<charm name> [<service name>]",
+		Purpose: "deploy a new service",
+		Doc:     deployDoc,
 	}
 }
 
-func (c *DeployCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	addEnvironFlags(&c.EnvName, f)
 	f.IntVar(&c.NumUnits, "n", 1, "number of service units to deploy for principal charms")
 	f.IntVar(&c.NumUnits, "num-units", 1, "")
@@ -56,11 +59,10 @@ func (c *DeployCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	f.BoolVar(&c.BumpRevision, "upgrade", false, "")
 	f.Var(&c.Config, "config", "path to yaml-formatted service config")
 	f.StringVar(&c.RepoPath, "repository", os.Getenv("JUJU_REPOSITORY"), "local charm repository")
+}
+
+func (c *DeployCommand) Init(args []string) error {
 	// TODO --constraints
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	args = f.Args()
 	switch len(args) {
 	case 2:
 		if !state.IsServiceName(args[1]) {

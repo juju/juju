@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"path/filepath"
 )
@@ -40,7 +41,7 @@ func (s *ConfigGetSuite) TestOutputFormat(c *C) {
 		hctx := s.GetHookContext(c, -1, "")
 		com, err := jujuc.NewCommand(hctx, "config-get")
 		c.Assert(err, IsNil)
-		ctx := dummyContext(c)
+		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, t.args)
 		c.Assert(code, Equals, 0)
 		c.Assert(bufferString(ctx.Stderr), Equals, "")
@@ -52,7 +53,7 @@ func (s *ConfigGetSuite) TestHelp(c *C) {
 	hctx := s.GetHookContext(c, -1, "")
 	com, err := jujuc.NewCommand(hctx, "config-get")
 	c.Assert(err, IsNil)
-	ctx := dummyContext(c)
+	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, Equals, 0)
 	c.Assert(bufferString(ctx.Stdout), Equals, "")
@@ -73,7 +74,7 @@ func (s *ConfigGetSuite) TestOutputPath(c *C) {
 	hctx := s.GetHookContext(c, -1, "")
 	com, err := jujuc.NewCommand(hctx, "config-get")
 	c.Assert(err, IsNil)
-	ctx := dummyContext(c)
+	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--output", "some-file", "monsters"})
 	c.Assert(code, Equals, 0)
 	c.Assert(bufferString(ctx.Stderr), Equals, "")
@@ -87,6 +88,5 @@ func (s *ConfigGetSuite) TestUnknownArg(c *C) {
 	hctx := s.GetHookContext(c, -1, "")
 	com, err := jujuc.NewCommand(hctx, "config-get")
 	c.Assert(err, IsNil)
-	err = com.Init(dummyFlagSet(), []string{"multiple", "keys"})
-	c.Assert(err, ErrorMatches, `unrecognized args: \["keys"\]`)
+	testing.TestInit(c, com, []string{"multiple", "keys"}, `unrecognized args: \["keys"\]`)
 }

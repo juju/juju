@@ -2,10 +2,10 @@ package cmd_test
 
 import (
 	"io/ioutil"
-	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/testing"
 	"path/filepath"
 )
 
@@ -28,7 +28,7 @@ func (s *LogSuite) TearDownTest(c *C) {
 
 func (s *LogSuite) TestAddFlags(c *C) {
 	l := &cmd.Log{}
-	f := gnuflag.NewFlagSet("", gnuflag.ContinueOnError)
+	f := testing.NewFlagSet()
 	l.AddFlags(f)
 
 	err := f.Parse(false, []string{})
@@ -61,7 +61,7 @@ func (s *LogSuite) TestStart(c *C) {
 		{"foo", false, false, NotNil},
 	} {
 		l := &cmd.Log{t.path, t.verbose, t.debug}
-		ctx := dummyContext(c)
+		ctx := testing.Context(c)
 		err := l.Start(ctx)
 		c.Assert(err, IsNil)
 		c.Assert(log.Target, t.target)
@@ -71,7 +71,7 @@ func (s *LogSuite) TestStart(c *C) {
 
 func (s *LogSuite) TestStderr(c *C) {
 	l := &cmd.Log{Verbose: true}
-	ctx := dummyContext(c)
+	ctx := testing.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, IsNil)
 	log.Printf("hello")
@@ -80,7 +80,7 @@ func (s *LogSuite) TestStderr(c *C) {
 
 func (s *LogSuite) TestRelPathLog(c *C) {
 	l := &cmd.Log{Path: "foo.log"}
-	ctx := dummyContext(c)
+	ctx := testing.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, IsNil)
 	log.Printf("hello")
@@ -93,7 +93,7 @@ func (s *LogSuite) TestRelPathLog(c *C) {
 func (s *LogSuite) TestAbsPathLog(c *C) {
 	path := filepath.Join(c.MkDir(), "foo.log")
 	l := &cmd.Log{Path: path}
-	ctx := dummyContext(c)
+	ctx := testing.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, IsNil)
 	log.Printf("hello")

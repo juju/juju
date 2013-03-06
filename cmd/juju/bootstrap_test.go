@@ -1,15 +1,18 @@
 package main
 
 import (
+	"bytes"
 	"io/ioutil"
-	"net/http"
-	"os"
-
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
+	"net/http"
+	"os"
+	"strings"
 )
 
 type BootstrapSuite struct {
@@ -76,11 +79,22 @@ func (*BootstrapSuite) TestBootstrapCommand(c *C) {
 	c.Assert(err, IsNil)
 	defer resp.Body.Close()
 
-	err = environs.UnpackTools(c.MkDir(), tools, resp.Body)
+	err = agent.UnpackTools(c.MkDir(), tools, resp.Body)
 	c.Assert(err, IsNil)
 
 	// bootstrap with broken environment
 	opc, errc = runCommand(new(BootstrapCommand), "-e", "brokenenv")
 	c.Check(<-errc, ErrorMatches, "dummy.Bootstrap is broken")
 	c.Check(<-opc, IsNil)
+}
+
+func (*BootstrapSuite) TestMissingEnvironment(c *C) {
+	defer makeFakeHome(c, "empty").restore()
+	// bootstrap without an environments.yaml
+	ctx := testing.Context(c)
+	code := cmd.Main(&BootstrapCommand{}, ctx, nil)
+	c.Check(code, Equals, 1)
+	errStr := ctx.Stderr.(*bytes.Buffer).String()
+	strippedErr := strings.Replace(errStr, "\n", "", -1)
+	c.Assert(strippedErr, Matches, ".*No juju environment configuration file exists.*")
 }

@@ -2,6 +2,7 @@ package uniter
 
 import (
 	"fmt"
+	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker/uniter/hook"
 	"launchpad.net/juju-core/worker/uniter/relation"
@@ -41,7 +42,7 @@ func (r *Relationer) IsImplicit() bool {
 
 // Join initializes local state and causes the unit to enter its relation
 // scope, allowing its counterpart units to detect its presence and settings
-// changes.
+// changes. Local state directory is not created until needed.
 func (r *Relationer) Join() error {
 	if r.dying {
 		panic("dying relationer must not join!")
@@ -49,9 +50,6 @@ func (r *Relationer) Join() error {
 	address, ok := r.ru.PrivateAddress()
 	if !ok {
 		return fmt.Errorf("cannot enter scope: private-address not set")
-	}
-	if err := r.dir.Ensure(); err != nil {
-		return err
 	}
 	return r.ru.EnterScope(map[string]interface{}{"private-address": address})
 }
@@ -122,8 +120,12 @@ func (r *Relationer) PrepareHook(hi hook.Info) (hookName string, err error) {
 	if err = r.dir.State().Validate(hi); err != nil {
 		return
 	}
+	// We are about to use the dir, ensure it's there.
+	if err = r.dir.Ensure(); err != nil {
+		return
+	}
 	r.ctx.UpdateMembers(hi.Members)
-	if hi.Kind == hook.RelationDeparted {
+	if hi.Kind == hooks.RelationDeparted {
 		r.ctx.DeleteMember(hi.RemoteUnit)
 	} else if hi.RemoteUnit != "" {
 		r.ctx.UpdateMembers(SettingsMap{hi.RemoteUnit: nil})
@@ -137,7 +139,7 @@ func (r *Relationer) CommitHook(hi hook.Info) error {
 	if r.IsImplicit() {
 		panic("implicit relations must not run hooks")
 	}
-	if hi.Kind == hook.RelationBroken {
+	if hi.Kind == hooks.RelationBroken {
 		return r.die()
 	}
 	return r.dir.Write(hi)

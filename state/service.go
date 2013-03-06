@@ -16,6 +16,7 @@ import (
 type Service struct {
 	st  *State
 	doc serviceDoc
+	annotator
 }
 
 // serviceDoc represents the internal state of a service in MongoDB.
@@ -29,15 +30,31 @@ type serviceDoc struct {
 	RelationCount int
 	Exposed       bool
 	TxnRevno      int64 `bson:"txn-revno"`
+	Annotations   map[string]string
 }
 
 func newService(st *State, doc *serviceDoc) *Service {
-	return &Service{st: st, doc: *doc}
+	svc := &Service{
+		st:  st,
+		doc: *doc,
+		annotator: annotator{
+			st:   st,
+			coll: st.services.Name,
+			id:   doc.Name,
+		},
+	}
+	svc.annotator.annotations = &svc.doc.Annotations
+	return svc
 }
 
 // Name returns the service name.
 func (s *Service) Name() string {
 	return s.doc.Name
+}
+
+// Annotations returns the service annotations.
+func (s *Service) Annotations() map[string]string {
+	return s.doc.Annotations
 }
 
 // globalKey returns the global database key for the service.
@@ -63,7 +80,7 @@ func (s *Service) Destroy() (err error) {
 			s.doc.Life = Dying
 		}
 	}()
-	svc := &Service{s.st, s.doc}
+	svc := &Service{st: s.st, doc: s.doc}
 	for i := 0; i < 5; i++ {
 		ops, err := svc.destroyOps()
 		switch {
@@ -161,6 +178,10 @@ func (s *Service) removeOps(asserts D) []txn.Op {
 		Remove: true,
 	}, {
 		C:      s.st.settings.Name,
+		Id:     s.globalKey(),
+		Remove: true,
+	}, {
+		C:      s.st.constraints.Name,
 		Id:     s.globalKey(),
 		Remove: true,
 	}}
@@ -284,11 +305,12 @@ func (s *Service) String() string {
 }
 
 // Refresh refreshes the contents of the Service from the underlying
-// state. It returns a NotFoundError if the service has been removed.
+// state. It returns an error that satisfies IsNotFound if the service has
+// been removed.
 func (s *Service) Refresh() error {
 	err := s.st.services.FindId(s.doc.Name).One(&s.doc)
 	if err == mgo.ErrNotFound {
-		return notFoundf("service %q", s)
+		return NotFoundf("service %q", s)
 	}
 	if err != nil {
 		return fmt.Errorf("cannot refresh service %q: %v", s, err)
@@ -301,7 +323,7 @@ func (s *Service) newUnitName() (string, error) {
 	change := mgo.Change{Update: D{{"$inc", D{{"unitseq", 1}}}}}
 	result := serviceDoc{}
 	if _, err := s.st.services.Find(D{{"_id", s.doc.Name}}).Apply(change, &result); err == mgo.ErrNotFound {
-		return "", notFoundf("service %q", s)
+		return "", NotFoundf("service %q", s)
 	} else if err != nil {
 		return "", fmt.Errorf("cannot increment unit sequence: %v", err)
 	}
@@ -311,14 +333,9 @@ func (s *Service) newUnitName() (string, error) {
 
 // addUnitOps returns a unique name for a new unit, and a list of txn operations
 // necessary to create that unit. The principalName param must be non-empty if
-// and only if s is a subordinate service. If s is a subordinate and strictSubordinates
-// is true, the returned ops will assert that no unit of s is already a subordinate
-// of the principal unit.
-func (s *Service) addUnitOps(principalName string, strictSubordinates bool) (string, []txn.Op, error) {
-	// NOTE: strictSubordinates is a temporary parameter, which allows us to use
-	// this method to simplify AddUnitSubordinateTo. When AUST is removed, the
-	// parameter should be dropped, and subordinates should always be created
-	// "strictly".
+// and only if s is a subordinate service. Only one subordinate of a given
+// service will be assigned to a given principal.
+func (s *Service) addUnitOps(principalName string) (string, []txn.Op, error) {
 	ch, _, err := s.Charm()
 	if err != nil {
 		return "", nil, err
@@ -351,16 +368,12 @@ func (s *Service) addUnitOps(principalName string, strictSubordinates bool) (str
 		Update: D{{"$inc", D{{"unitcount", 1}}}},
 	}}
 	if principalName != "" {
-		assert := isAliveDoc
-		if strictSubordinates {
-			assert = append(assert, bson.DocElem{
-				"subordinates", D{{"$not", bson.RegEx{Pattern: "^" + s.doc.Name + "/"}}},
-			})
-		}
 		ops = append(ops, txn.Op{
-			C:      s.st.units.Name,
-			Id:     principalName,
-			Assert: assert,
+			C:  s.st.units.Name,
+			Id: principalName,
+			Assert: append(isAliveDoc, bson.DocElem{
+				"subordinates", D{{"$not", bson.RegEx{Pattern: "^" + s.doc.Name + "/"}}},
+			}),
 			Update: D{{"$addToSet", D{{"subordinates", name}}}},
 		})
 	}
@@ -370,7 +383,7 @@ func (s *Service) addUnitOps(principalName string, strictSubordinates bool) (str
 // AddUnit adds a new principal unit to the service.
 func (s *Service) AddUnit() (unit *Unit, err error) {
 	defer trivial.ErrorContextf(&err, "cannot add unit to service %q", s)
-	name, ops, err := s.addUnitOps("", false)
+	name, ops, err := s.addUnitOps("")
 	if err != nil {
 		return nil, err
 	}
@@ -476,4 +489,14 @@ func (s *Service) Config() (config *Settings, err error) {
 		return nil, fmt.Errorf("cannot get configuration of service %q: %v", s, err)
 	}
 	return config, nil
+}
+
+// Constraints returns the current service constraints.
+func (s *Service) Constraints() (Constraints, error) {
+	return readConstraints(s.st, s.globalKey())
+}
+
+// SetConstraints replaces the current service constraints.
+func (s *Service) SetConstraints(cons Constraints) error {
+	return writeConstraints(s.st, s.globalKey(), cons)
 }

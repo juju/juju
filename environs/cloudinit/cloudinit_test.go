@@ -47,16 +47,15 @@ type cloudinitTest struct {
 // output to see if it looks correct.
 var cloudinitTests = []cloudinitTest{{
 	cfg: cloudinit.MachineConfig{
-		InstanceIdAccessor: "$instance_id",
-		MachineId:          "0",
-		ProviderType:       "ec2",
-		AuthorizedKeys:     "sshkey1",
-		Tools:              newSimpleTools("1.2.3-linux-amd64"),
-		StateServer:        true,
-		StateServerCert:    serverCert,
-		StateServerKey:     serverKey,
-		MongoPort:          37017,
-		APIPort:            17070,
+		MachineId:       "0",
+		AuthorizedKeys:  "sshkey1",
+		Tools:           newSimpleTools("1.2.3-linux-amd64"),
+		MongoURL:        "http://juju-dist.host.com/mongodb.tar.gz",
+		StateServer:     true,
+		StateServerCert: serverCert,
+		StateServerKey:  serverKey,
+		MongoPort:       37017,
+		APIPort:         17070,
 		StateInfo: &state.Info{
 			Password: "arble",
 			CACert:   []byte("CA CERT\n" + testing.CACert),
@@ -78,7 +77,7 @@ echo -n 'http://foo\.com/tools/juju1\.2\.3-linux-amd64\.tgz' > \$bin/downloaded-
 echo 'SERVER CERT\\n[^']*SERVER KEY\\n[^']*' > '/var/lib/juju/server\.pem'
 chmod 600 '/var/lib/juju/server\.pem'
 mkdir -p /opt
-wget --no-verbose -O - 'http://juju-dist\.s3\.amazonaws\.com/tools/mongo-2\.2\.0-linux-amd64\.tgz' \| tar xz -C /opt
+wget --no-verbose -O - 'http://juju-dist\.host\.com/mongodb\.tar\.gz' \| tar xz -C /opt
 mkdir -p /var/lib/juju/db/journal
 dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.0
 dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.1
@@ -88,7 +87,7 @@ start juju-db
 mkdir -p '/var/lib/juju/agents/bootstrap'
 echo 'datadir: /var/lib/juju\\nstateservercert:\\n[^']+stateserverkey:\\n[^']+mongoport: 37017\\napiport: 17070\\noldpassword: arble\\nstateinfo:\\n  addrs:\\n  - localhost:37017\\n  cacert:\\n[^']+  entityname: bootstrap\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - localhost:17070\\n  cacert:\\n[^']+  entityname: bootstrap\\n  password: ""\\n' > '/var/lib/juju/agents/bootstrap/agent\.conf'
 chmod 600 '/var/lib/juju/agents/bootstrap/agent\.conf'
-/var/lib/juju/tools/1\.2\.3-linux-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --instance-id \$instance_id --env-config '[^']*' --debug
+/var/lib/juju/tools/1\.2\.3-linux-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --debug
 rm -rf '/var/lib/juju/agents/bootstrap'
 mkdir -p '/var/lib/juju/agents/machine-0'
 echo 'datadir: /var/lib/juju\\nstateservercert:\\n[^']+stateserverkey:\\n[^']+mongoport: 37017\\napiport: 17070\\noldpassword: arble\\nstateinfo:\\n  addrs:\\n  - localhost:37017\\n  cacert:\\n[^']+  entityname: machine-0\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - localhost:17070\\n  cacert:\\n[^']+  entityname: machine-0\\n  password: ""\\n' > '/var/lib/juju/agents/machine-0/agent\.conf'
@@ -101,7 +100,6 @@ start jujud-machine-0
 	{
 		cfg: cloudinit.MachineConfig{
 			MachineId:      "99",
-			ProviderType:   "ec2",
 			AuthorizedKeys: "sshkey1",
 			DataDir:        "/var/lib/juju",
 			StateServer:    false,
@@ -267,12 +265,6 @@ var verifyTests = []struct {
 	{"invalid machine id", func(cfg *cloudinit.MachineConfig) {
 		cfg.MachineId = "-1"
 	}},
-	{"missing provider type", func(cfg *cloudinit.MachineConfig) {
-		cfg.ProviderType = ""
-	}},
-	{"missing instance id accessor", func(cfg *cloudinit.MachineConfig) {
-		cfg.InstanceIdAccessor = ""
-	}},
 	{"missing environment configuration", func(cfg *cloudinit.MachineConfig) {
 		cfg.Config = nil
 	}},
@@ -377,16 +369,14 @@ var verifyTests = []struct {
 // checked for by NewCloudInit.
 func (*cloudinitSuite) TestCloudInitVerify(c *C) {
 	cfg := &cloudinit.MachineConfig{
-		StateServer:        true,
-		StateServerCert:    serverCert,
-		StateServerKey:     serverKey,
-		MongoPort:          1234,
-		APIPort:            1235,
-		InstanceIdAccessor: "$instance_id",
-		ProviderType:       "ec2",
-		MachineId:          "99",
-		Tools:              newSimpleTools("9.9.9-linux-arble"),
-		AuthorizedKeys:     "sshkey1",
+		StateServer:     true,
+		StateServerCert: serverCert,
+		StateServerKey:  serverKey,
+		MongoPort:       1234,
+		APIPort:         1235,
+		MachineId:       "99",
+		Tools:           newSimpleTools("9.9.9-linux-arble"),
+		AuthorizedKeys:  "sshkey1",
 		StateInfo: &state.Info{
 			Addrs:  []string{"host:98765"},
 			CACert: []byte(testing.CACert),

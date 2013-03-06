@@ -17,38 +17,28 @@ type SuperCommand struct {
 	Doc     string
 	Log     *Log
 	subcmds map[string]Command
+	flags   *gnuflag.FlagSet
 	subcmd  Command
 }
 
 // Register makes a subcommand available for use on the command line. The
 // command will be available via its own name, and via any supplied aliases.
-func (c *SuperCommand) Register(subcmd Command, aliases ...string) {
+func (c *SuperCommand) Register(subcmd Command) {
 	if c.subcmds == nil {
 		c.subcmds = make(map[string]Command)
 	}
-	c.insert(subcmd)
-	for _, name := range aliases {
-		c.insert(&alias{subcmd, name})
+	info := subcmd.Info()
+	c.insert(info.Name, subcmd)
+	for _, name := range info.Aliases {
+		c.insert(name, subcmd)
 	}
 }
 
-func (c *SuperCommand) insert(subcmd Command) {
-	name := subcmd.Info().Name
-	_, found := c.subcmds[name]
-	if found {
+func (c *SuperCommand) insert(name string, subcmd Command) {
+	if _, found := c.subcmds[name]; found {
 		panic(fmt.Sprintf("command already registered: %s", name))
 	}
 	c.subcmds[name] = subcmd
-}
-
-type alias struct {
-	Command
-	name string
-}
-
-func (a *alias) Info() *Info {
-	info := a.Command.Info()
-	return &Info{a.name, info.Args, "alias for " + info.Name, info.Doc}
 }
 
 // describeCommands returns a short description of each registered subcommand.
@@ -68,7 +58,11 @@ func (c *SuperCommand) describeCommands() string {
 	}
 	sort.Strings(cmds)
 	for i, name := range cmds {
-		purpose := c.subcmds[name].Info().Purpose
+		info := c.subcmds[name].Info()
+		purpose := info.Purpose
+		if name != info.Name {
+			purpose = "alias for " + info.Name
+		}
 		cmds[i] = fmt.Sprintf("    %-*s - %s", longest, name, purpose)
 	}
 	return fmt.Sprintf("commands:\n%s", strings.Join(cmds, "\n"))
@@ -89,26 +83,38 @@ func (c *SuperCommand) Info() *Info {
 	if cmds := c.describeCommands(); cmds != "" {
 		docParts = append(docParts, cmds)
 	}
-	return &Info{c.Name, "<command> ...", c.Purpose, strings.Join(docParts, "\n\n")}
+	return &Info{
+		Name:    c.Name,
+		Args:    "<command> ...",
+		Purpose: c.Purpose,
+		Doc:     strings.Join(docParts, "\n\n"),
+	}
 }
 
-// Init initializes the command for running.
-func (c *SuperCommand) Init(f *gnuflag.FlagSet, args []string) error {
+// SetFlags adds the options that apply to all commands, particularly those
+// due to logging.
+func (c *SuperCommand) SetFlags(f *gnuflag.FlagSet) {
 	if c.Log != nil {
 		c.Log.AddFlags(f)
 	}
-	if err := f.Parse(false, args); err != nil {
-		return err
-	}
-	subargs := f.Args()
-	if len(subargs) == 0 {
+	c.flags = f
+}
+
+// Init initializes the command for running.
+func (c *SuperCommand) Init(args []string) error {
+	if len(args) == 0 {
 		return fmt.Errorf("no command specified")
 	}
 	found := false
-	if c.subcmd, found = c.subcmds[subargs[0]]; !found {
-		return fmt.Errorf("unrecognized command: %s %s", c.Info().Name, subargs[0])
+	if c.subcmd, found = c.subcmds[args[0]]; !found {
+		return fmt.Errorf("unrecognized command: %s %s", c.Info().Name, args[0])
 	}
-	return c.subcmd.Init(f, subargs[1:])
+	c.subcmd.SetFlags(c.flags)
+	if err := c.flags.Parse(true, args); err != nil {
+		return err
+	}
+	subargs := c.flags.Args()
+	return c.subcmd.Init(subargs[1:])
 }
 
 // Run executes the subcommand that was selected in Init.

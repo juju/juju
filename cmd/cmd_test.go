@@ -4,29 +4,30 @@ import (
 	"bytes"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/testing"
 	"path/filepath"
-	"testing"
+	stdtesting "testing"
 )
 
-func Test(t *testing.T) { TestingT(t) }
+func Test(t *stdtesting.T) { TestingT(t) }
 
 type CmdSuite struct{}
 
 var _ = Suite(&CmdSuite{})
 
 func (s *CmdSuite) TestContext(c *C) {
-	ctx := dummyContext(c)
+	ctx := testing.Context(c)
 	c.Assert(ctx.AbsPath("/foo/bar"), Equals, "/foo/bar")
 	c.Assert(ctx.AbsPath("foo/bar"), Equals, filepath.Join(ctx.Dir, "foo/bar"))
 }
 
 func (s *CmdSuite) TestInfo(c *C) {
 	minimal := &TestCommand{Name: "verb", Minimal: true}
-	help := minimal.Info().Help(dummyFlagSet())
+	help := minimal.Info().Help(testing.NewFlagSet())
 	c.Assert(string(help), Equals, minimalHelp)
 
 	full := &TestCommand{Name: "verb"}
-	f := dummyFlagSet()
+	f := testing.NewFlagSet()
 	var ignored string
 	f.StringVar(&ignored, "option", "", "option-doc")
 	help = full.Info().Help(f)
@@ -48,7 +49,7 @@ var initErrorTests = []struct {
 
 func (s *CmdSuite) TestMainInitError(c *C) {
 	for _, t := range initErrorTests {
-		ctx := dummyContext(c)
+		ctx := testing.Context(c)
 		result := cmd.Main(t.c, ctx, []string{"--unknown"})
 		c.Assert(result, Equals, 2)
 		c.Assert(bufferString(ctx.Stdout), Equals, "")
@@ -58,7 +59,7 @@ func (s *CmdSuite) TestMainInitError(c *C) {
 }
 
 func (s *CmdSuite) TestMainRunError(c *C) {
-	ctx := dummyContext(c)
+	ctx := testing.Context(c)
 	result := cmd.Main(&TestCommand{Name: "verb"}, ctx, []string{"--option", "error"})
 	c.Assert(result, Equals, 1)
 	c.Assert(bufferString(ctx.Stdout), Equals, "")
@@ -66,7 +67,7 @@ func (s *CmdSuite) TestMainRunError(c *C) {
 }
 
 func (s *CmdSuite) TestMainRunSilentError(c *C) {
-	ctx := dummyContext(c)
+	ctx := testing.Context(c)
 	result := cmd.Main(&TestCommand{Name: "verb"}, ctx, []string{"--option", "silent-error"})
 	c.Assert(result, Equals, 1)
 	c.Assert(bufferString(ctx.Stdout), Equals, "")
@@ -74,7 +75,7 @@ func (s *CmdSuite) TestMainRunSilentError(c *C) {
 }
 
 func (s *CmdSuite) TestMainSuccess(c *C) {
-	ctx := dummyContext(c)
+	ctx := testing.Context(c)
 	result := cmd.Main(&TestCommand{Name: "verb"}, ctx, []string{"--option", "success!"})
 	c.Assert(result, Equals, 0)
 	c.Assert(bufferString(ctx.Stdout), Equals, "success!\n")
@@ -83,7 +84,7 @@ func (s *CmdSuite) TestMainSuccess(c *C) {
 
 func (s *CmdSuite) TestStdin(c *C) {
 	const phrase = "Do you, Juju?"
-	ctx := dummyContext(c)
+	ctx := testing.Context(c)
 	ctx.Stdin = bytes.NewBuffer([]byte(phrase))
 	result := cmd.Main(&TestCommand{Name: "verb"}, ctx, []string{"--option", "echo"})
 	c.Assert(result, Equals, 0)
@@ -93,7 +94,7 @@ func (s *CmdSuite) TestStdin(c *C) {
 
 func (s *CmdSuite) TestMainHelp(c *C) {
 	for _, arg := range []string{"-h", "--help"} {
-		ctx := dummyContext(c)
+		ctx := testing.Context(c)
 		result := cmd.Main(&TestCommand{Name: "verb"}, ctx, []string{arg})
 		c.Assert(result, Equals, 0)
 		c.Assert(bufferString(ctx.Stdout), Equals, "")

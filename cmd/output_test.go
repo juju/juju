@@ -4,6 +4,7 @@ import (
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/testing"
 )
 
 // OutputCommand is a command that uses the output.go formatters.
@@ -13,15 +14,20 @@ type OutputCommand struct {
 }
 
 func (c *OutputCommand) Info() *cmd.Info {
-	return &cmd.Info{"output", "<something>", "I like to output", "output"}
+	return &cmd.Info{
+		Name:    "output",
+		Args:    "<something>",
+		Purpose: "I like to output",
+		Doc:     "output",
+	}
 }
 
-func (c *OutputCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *OutputCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	return cmd.CheckEmpty(f.Args())
+}
+
+func (c *OutputCommand) Init(args []string) error {
+	return cmd.CheckEmpty(args)
 }
 
 func (c *OutputCommand) Run(ctx *cmd.Context) error {
@@ -97,7 +103,7 @@ func (s *CmdSuite) TestOutputFormat(c *C) {
 		}
 		for i, t := range tests {
 			c.Logf("  test %d", i)
-			ctx := dummyContext(c)
+			ctx := testing.Context(c)
 			result := cmd.Main(&OutputCommand{value: t.value}, ctx, args)
 			c.Assert(result, Equals, 0)
 			c.Assert(bufferString(ctx.Stdout), Equals, t.output)
@@ -105,7 +111,7 @@ func (s *CmdSuite) TestOutputFormat(c *C) {
 		}
 	}
 
-	ctx := dummyContext(c)
+	ctx := testing.Context(c)
 	result := cmd.Main(&OutputCommand{}, ctx, []string{"--format", "cuneiform"})
 	c.Assert(result, Equals, 2)
 	c.Assert(bufferString(ctx.Stdout), Equals, "")
@@ -117,7 +123,7 @@ func (s *CmdSuite) TestOutputFormat(c *C) {
 // this argument format.
 // LP #1059921
 func (s *CmdSuite) TestFormatAlternativeSyntax(c *C) {
-	ctx := dummyContext(c)
+	ctx := testing.Context(c)
 	result := cmd.Main(&OutputCommand{}, ctx, []string{"--format=json"})
 	c.Assert(result, Equals, 0)
 	c.Assert(bufferString(ctx.Stdout), Equals, "null\n")

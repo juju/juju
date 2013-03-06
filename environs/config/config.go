@@ -42,11 +42,11 @@ type Config struct {
 // are translated into the "ca-cert" and "ca-private-key" values.  If
 // not specified, authorized SSH keys and CA details will be read from:
 //
-//	~/.ssh/id_dsa.pub
-//	~/.ssh/id_rsa.pub
-//	~/.ssh/identity.pub
-//	~/.juju/<name>-cert.pem
-//	~/.juju/<name>-private-key.pem
+//     ~/.ssh/id_dsa.pub
+//     ~/.ssh/id_rsa.pub
+//     ~/.ssh/identity.pub
+//     ~/.juju/<name>-cert.pem
+//     ~/.juju/<name>-private-key.pem
 //
 // The required keys (after any files have been read) are "name",
 // "type" and "authorized-keys", all of type string.  Additional keys
@@ -106,11 +106,13 @@ func New(attrs map[string]interface{}) (*Config, error) {
 		}
 	}
 
-	// Check that the agent version parses ok if set.
+	// Check that the agent version parses ok if set explicitly; otherwise set it.
 	if v, ok := c.m["agent-version"].(string); ok {
 		if _, err := version.Parse(v); err != nil {
 			return nil, fmt.Errorf("invalid agent version in environment configuration: %q", v)
 		}
+	} else {
+		c.m["agent-version"] = version.Current.Number.String()
 	}
 
 	// Check firewall mode.
@@ -224,12 +226,8 @@ func (c *Config) FirewallMode() FirewallMode {
 }
 
 // AgentVersion returns the proposed version number for the agent tools.
-// It returns the zero version if unset.
 func (c *Config) AgentVersion() version.Number {
-	v, ok := c.m["agent-version"].(string)
-	if !ok {
-		return version.Number{}
-	}
+	v := c.m["agent-version"].(string)
 	n, err := version.Parse(v)
 	if err != nil {
 		panic(err) // We should have checked it earlier.

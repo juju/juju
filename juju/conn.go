@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/trivial"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -42,7 +43,7 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 	}
 	info.Password = password
 	st, err := state.Open(info)
-	if err == state.ErrUnauthorized {
+	if state.IsUnauthorizedError(err) {
 		// We can't connect with the administrator password,;
 		// perhaps this was the first connection and the
 		// password has not been changed yet.
@@ -53,7 +54,7 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 		// initialized and the initial password set.
 		for a := redialStrategy.Start(); a.Next(); {
 			st, err = state.Open(info)
-			if err != state.ErrUnauthorized {
+			if !state.IsUnauthorizedError(err) {
 				break
 			}
 		}
@@ -75,6 +76,25 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 		return nil, fmt.Errorf("unable to push secrets: %v", err)
 	}
 	return conn, nil
+}
+
+// NewConnFromState returns a Conn that uses an Environ
+// made by reading the environment configuration.
+// The resulting Conn uses the given State - closing
+// it will close that State.
+func NewConnFromState(st *state.State) (*Conn, error) {
+	cfg, err := st.EnvironConfig()
+	if err != nil {
+		return nil, err
+	}
+	environ, err := environs.New(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &Conn{
+		Environ: environ,
+		State:   st,
+	}, nil
 }
 
 // NewConnFromName returns a Conn pointing at the environName environment, or the
@@ -222,6 +242,7 @@ func (conn *Conn) AddUnits(svc *state.Service, n int) ([]*state.Unit, error) {
 		if err != nil {
 			return nil, fmt.Errorf("cannot add unit %d/%d to service %q: %v", i+1, n, svc.Name(), err)
 		}
+		// TODO lp:1101139 (units are not assigned transactionally)
 		if err := conn.State.AssignUnit(unit, policy); err != nil {
 			return nil, err
 		}
@@ -230,31 +251,60 @@ func (conn *Conn) AddUnits(svc *state.Service, n int) ([]*state.Unit, error) {
 	return units, nil
 }
 
-// DestroyUnits removes the specified units from the state.
+// DestroyMachines destroys the specified machines.
+func (conn *Conn) DestroyMachines(ids ...string) (err error) {
+	var errs []string
+	for _, id := range ids {
+		machine, err := conn.State.Machine(id)
+		switch {
+		case state.IsNotFound(err):
+			err = fmt.Errorf("machine %s does not exist", id)
+		case err != nil:
+		case machine.Life() != state.Alive:
+			continue
+		default:
+			err = machine.Destroy()
+		}
+		if err != nil {
+			errs = append(errs, err.Error())
+		}
+	}
+	return destroyErr("machines", ids, errs)
+}
+
+// DestroyUnits destroys the specified units.
 func (conn *Conn) DestroyUnits(names ...string) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot destroy units")
-	var units []*state.Unit
+	var errs []string
 	for _, name := range names {
 		unit, err := conn.State.Unit(name)
 		switch {
 		case state.IsNotFound(err):
-			return fmt.Errorf("unit %q is not alive", name)
+			err = fmt.Errorf("unit %q does not exist", name)
 		case err != nil:
-			return err
 		case unit.Life() != state.Alive:
-			return fmt.Errorf("unit %q is not alive", name)
+			continue
 		case unit.IsPrincipal():
-			units = append(units, unit)
+			err = unit.Destroy()
 		default:
-			return fmt.Errorf("unit %q is a subordinate", name)
+			err = fmt.Errorf("unit %q is a subordinate", name)
+		}
+		if err != nil {
+			errs = append(errs, err.Error())
 		}
 	}
-	for _, unit := range units {
-		if err := unit.Destroy(); err != nil {
-			return err
-		}
+	return destroyErr("units", names, errs)
+}
+
+func destroyErr(desc string, ids, errs []string) error {
+	if len(errs) == 0 {
+		return nil
 	}
-	return nil
+	msg := "some %s were not destroyed"
+	if len(errs) == len(ids) {
+		msg = "no %s were destroyed"
+	}
+	msg = fmt.Sprintf(msg, desc)
+	return fmt.Errorf("%s: %s", msg, strings.Join(errs, "; "))
 }
 
 // Resolved marks the unit as having had any previous state transition

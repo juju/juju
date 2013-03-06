@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/worker/uniter/hook"
 	"launchpad.net/juju-core/worker/uniter/relation"
 	"os"
@@ -106,96 +107,96 @@ var writeTests = []struct {
 	// Verify that valid changes work.
 	{
 		hooks: []hook.Info{
-			{Kind: hook.RelationChanged, RelationId: 123, RemoteUnit: "foo/1", ChangeVersion: 1},
+			{Kind: hooks.RelationChanged, RelationId: 123, RemoteUnit: "foo/1", ChangeVersion: 1},
 		},
 		members: msi{"foo/1": 1, "foo/2": 0},
 	}, {
 		hooks: []hook.Info{
-			{Kind: hook.RelationJoined, RelationId: 123, RemoteUnit: "foo/3"},
+			{Kind: hooks.RelationJoined, RelationId: 123, RemoteUnit: "foo/3"},
 		},
 		members: msi{"foo/1": 0, "foo/2": 0, "foo/3": 0},
 		pending: "foo/3",
 	}, {
 		hooks: []hook.Info{
-			{Kind: hook.RelationJoined, RelationId: 123, RemoteUnit: "foo/3"},
-			{Kind: hook.RelationChanged, RelationId: 123, RemoteUnit: "foo/3"},
+			{Kind: hooks.RelationJoined, RelationId: 123, RemoteUnit: "foo/3"},
+			{Kind: hooks.RelationChanged, RelationId: 123, RemoteUnit: "foo/3"},
 		},
 		members: msi{"foo/1": 0, "foo/2": 0, "foo/3": 0},
 	}, {
 		hooks: []hook.Info{
-			{Kind: hook.RelationDeparted, RelationId: 123, RemoteUnit: "foo/1"},
+			{Kind: hooks.RelationDeparted, RelationId: 123, RemoteUnit: "foo/1"},
 		},
 		members: msi{"foo/2": 0},
 	}, {
 		hooks: []hook.Info{
-			{Kind: hook.RelationDeparted, RelationId: 123, RemoteUnit: "foo/1"},
-			{Kind: hook.RelationJoined, RelationId: 123, RemoteUnit: "foo/1"},
+			{Kind: hooks.RelationDeparted, RelationId: 123, RemoteUnit: "foo/1"},
+			{Kind: hooks.RelationJoined, RelationId: 123, RemoteUnit: "foo/1"},
 		},
 		members: msi{"foo/1": 0, "foo/2": 0},
 		pending: "foo/1",
 	}, {
 		hooks: []hook.Info{
-			{Kind: hook.RelationDeparted, RelationId: 123, RemoteUnit: "foo/1"},
-			{Kind: hook.RelationJoined, RelationId: 123, RemoteUnit: "foo/1"},
-			{Kind: hook.RelationChanged, RelationId: 123, RemoteUnit: "foo/1"},
+			{Kind: hooks.RelationDeparted, RelationId: 123, RemoteUnit: "foo/1"},
+			{Kind: hooks.RelationJoined, RelationId: 123, RemoteUnit: "foo/1"},
+			{Kind: hooks.RelationChanged, RelationId: 123, RemoteUnit: "foo/1"},
 		},
 		members: msi{"foo/1": 0, "foo/2": 0},
 	}, {
 		hooks: []hook.Info{
-			{Kind: hook.RelationDeparted, RelationId: 123, RemoteUnit: "foo/1"},
-			{Kind: hook.RelationDeparted, RelationId: 123, RemoteUnit: "foo/2"},
-			{Kind: hook.RelationBroken, RelationId: 123},
+			{Kind: hooks.RelationDeparted, RelationId: 123, RemoteUnit: "foo/1"},
+			{Kind: hooks.RelationDeparted, RelationId: 123, RemoteUnit: "foo/2"},
+			{Kind: hooks.RelationBroken, RelationId: 123},
 		},
 		deleted: true,
 	},
 	// Verify detection of various error conditions.
 	{
 		hooks: []hook.Info{
-			{Kind: hook.RelationJoined, RelationId: 456, RemoteUnit: "foo/1"},
+			{Kind: hooks.RelationJoined, RelationId: 456, RemoteUnit: "foo/1"},
 		},
 		err: "expected relation 123, got relation 456",
 	}, {
 		hooks: []hook.Info{
-			{Kind: hook.RelationJoined, RelationId: 123, RemoteUnit: "foo/3"},
-			{Kind: hook.RelationJoined, RelationId: 123, RemoteUnit: "foo/4"},
+			{Kind: hooks.RelationJoined, RelationId: 123, RemoteUnit: "foo/3"},
+			{Kind: hooks.RelationJoined, RelationId: 123, RemoteUnit: "foo/4"},
 		},
 		members: msi{"foo/1": 0, "foo/2": 0, "foo/3": 0},
 		pending: "foo/3",
 		err:     `expected "relation-changed" for "foo/3"`,
 	}, {
 		hooks: []hook.Info{
-			{Kind: hook.RelationJoined, RelationId: 123, RemoteUnit: "foo/3"},
-			{Kind: hook.RelationChanged, RelationId: 123, RemoteUnit: "foo/1"},
+			{Kind: hooks.RelationJoined, RelationId: 123, RemoteUnit: "foo/3"},
+			{Kind: hooks.RelationChanged, RelationId: 123, RemoteUnit: "foo/1"},
 		},
 		members: msi{"foo/1": 0, "foo/2": 0, "foo/3": 0},
 		pending: "foo/3",
 		err:     `expected "relation-changed" for "foo/3"`,
 	}, {
 		hooks: []hook.Info{
-			{Kind: hook.RelationJoined, RelationId: 123, RemoteUnit: "foo/1"},
+			{Kind: hooks.RelationJoined, RelationId: 123, RemoteUnit: "foo/1"},
 		},
 		err: "unit already joined",
 	}, {
 		hooks: []hook.Info{
-			{Kind: hook.RelationChanged, RelationId: 123, RemoteUnit: "foo/3"},
+			{Kind: hooks.RelationChanged, RelationId: 123, RemoteUnit: "foo/3"},
 		},
 		err: "unit has not joined",
 	}, {
 		hooks: []hook.Info{
-			{Kind: hook.RelationDeparted, RelationId: 123, RemoteUnit: "foo/3"},
+			{Kind: hooks.RelationDeparted, RelationId: 123, RemoteUnit: "foo/3"},
 		},
 		err: "unit has not joined",
 	}, {
 		hooks: []hook.Info{
-			{Kind: hook.RelationBroken, RelationId: 123},
+			{Kind: hooks.RelationBroken, RelationId: 123},
 		},
 		err: `cannot run "relation-broken" while units still present`,
 	}, {
 		hooks: []hook.Info{
-			{Kind: hook.RelationDeparted, RelationId: 123, RemoteUnit: "foo/1"},
-			{Kind: hook.RelationDeparted, RelationId: 123, RemoteUnit: "foo/2"},
-			{Kind: hook.RelationBroken, RelationId: 123},
-			{Kind: hook.RelationJoined, RelationId: 123, RemoteUnit: "foo/1"},
+			{Kind: hooks.RelationDeparted, RelationId: 123, RemoteUnit: "foo/1"},
+			{Kind: hooks.RelationDeparted, RelationId: 123, RemoteUnit: "foo/2"},
+			{Kind: hooks.RelationBroken, RelationId: 123},
+			{Kind: hooks.RelationJoined, RelationId: 123, RemoteUnit: "foo/1"},
 		},
 		err:     `relation is broken and cannot be changed further`,
 		deleted: true,

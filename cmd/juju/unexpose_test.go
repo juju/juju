@@ -1,10 +1,8 @@
 package main
 
 import (
-	"bytes"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -15,10 +13,8 @@ type UnexposeSuite struct {
 var _ = Suite(&UnexposeSuite{})
 
 func runUnexpose(c *C, args ...string) error {
-	com := &UnexposeCommand{}
-	err := com.Init(newFlagSet(), args)
-	c.Assert(err, IsNil)
-	return com.Run(&cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}})
+	_, err := testing.RunCommand(c, &UnexposeCommand{}, args)
+	return err
 }
 
 func (s *UnexposeSuite) assertExposed(c *C, service string, expected bool) {
@@ -29,7 +25,7 @@ func (s *UnexposeSuite) assertExposed(c *C, service string, expected bool) {
 }
 
 func (s *UnexposeSuite) TestUnexpose(c *C) {
-	testing.Charms.BundlePath(s.seriesPath, "series", "dummy")
+	testing.Charms.BundlePath(s.seriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "some-service-name")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")

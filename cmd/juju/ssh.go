@@ -24,16 +24,26 @@ type SSHCommon struct {
 	*juju.Conn
 }
 
+const sshDoc = `
+Launch an ssh shell on the machine identified by the <service> parameter.
+<service> can be either a machine id or a service name.  Any extra parameters
+are treated as extra parameters for the ssh command.
+`
+
 func (c *SSHCommand) Info() *cmd.Info {
-	return &cmd.Info{"ssh", "", "launch an ssh shell on a given unit or machine", ""}
+	return &cmd.Info{
+		Name:    "ssh",
+		Args:    "<service> [<ssh args>...]",
+		Purpose: "launch an ssh shell on a given unit or machine",
+		Doc:     sshDoc,
+	}
 }
 
-func (c *SSHCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *SSHCommand) SetFlags(f *gnuflag.FlagSet) {
 	addEnvironFlags(&c.EnvName, f)
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	args = f.Args()
+}
+
+func (c *SSHCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.New("no service name specified")
 	}
@@ -95,8 +105,7 @@ func (c *SSHCommon) machinePublicAddress(id string) (string, error) {
 	// wait for instance id
 	w := machine.Watch()
 	for _ = range w.Changes() {
-		instid, err := machine.InstanceId()
-		if err == nil {
+		if instid, ok := machine.InstanceId(); ok {
 			w.Stop()
 			inst, err := c.Environ.Instances([]state.InstanceId{instid})
 			if err != nil {
@@ -104,6 +113,9 @@ func (c *SSHCommon) machinePublicAddress(id string) (string, error) {
 			}
 			return inst[0].WaitDNSName()
 		}
+		// BUG(dfc) this does not refresh the machine, so
+		// this loop will loop forever if it gets to this point.
+		// https://bugs.launchpad.net/juju-core/+bug/1130051
 	}
 	// oops, watcher closed before we could get an answer
 	return "", w.Stop()

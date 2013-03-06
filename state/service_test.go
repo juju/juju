@@ -275,7 +275,7 @@ func (s *ServiceSuite) TestAddUnit(c *C) {
 	c.Assert(unitOne.SubordinateNames(), HasLen, 0)
 
 	// Assign the principal unit to a machine.
-	m, err := s.State.AddMachine(state.JobHostUnits)
+	m, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	err = unitZero.AssignToMachine(m)
 	c.Assert(err, IsNil)
@@ -417,11 +417,11 @@ func (s *ServiceSuite) TestLifeWithUnits(c *C) {
 }
 
 func (s *ServiceSuite) TestLifeWithRemovableRelations(c *C) {
-	wordpress, err := s.State.AddService("wordpress", s.charm)
+	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
-	ep1 := state.Endpoint{"mysql", "ifce", "blah1", state.RoleProvider, charm.ScopeGlobal}
-	ep2 := state.Endpoint{"wordpress", "ifce", "blah1", state.RoleRequirer, charm.ScopeGlobal}
-	rel, err := s.State.AddRelation(ep1, ep2)
+	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
+	c.Assert(err, IsNil)
+	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, IsNil)
 
 	// Destroy a service with no units in relation scope; check service and
@@ -435,11 +435,11 @@ func (s *ServiceSuite) TestLifeWithRemovableRelations(c *C) {
 }
 
 func (s *ServiceSuite) TestLifeWithReferencedRelations(c *C) {
-	wordpress, err := s.State.AddService("wordpress", s.charm)
+	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
-	ep1 := state.Endpoint{"mysql", "ifce", "blah1", state.RoleProvider, charm.ScopeGlobal}
-	ep2 := state.Endpoint{"wordpress", "ifce", "blah1", state.RoleRequirer, charm.ScopeGlobal}
-	rel, err := s.State.AddRelation(ep1, ep2)
+	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
+	c.Assert(err, IsNil)
+	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, IsNil)
 
 	// Join a unit to the wordpress side to keep the relation alive.
@@ -458,9 +458,12 @@ func (s *ServiceSuite) TestLifeWithReferencedRelations(c *C) {
 	c.Assert(rel.Life(), Equals, state.Dying)
 
 	// Check that no new relations can be added.
-	ep3 := state.Endpoint{"mysql", "ifce", "blah2", state.RolePeer, charm.ScopeGlobal}
-	_, err = s.State.AddRelation(ep3)
-	c.Assert(err, ErrorMatches, `cannot add relation "mysql:blah2": service "mysql" is not alive`)
+	_, err = s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
+	c.Assert(err, IsNil)
+	eps, err = s.State.InferEndpoints([]string{"logging", "mysql"})
+	c.Assert(err, IsNil)
+	_, err = s.State.AddRelation(eps...)
+	c.Assert(err, ErrorMatches, `cannot add relation "logging:info mysql:juju-info": service "mysql" is not alive`)
 
 	// Leave scope on the counterpart side; check the service and relation
 	// are both removed.
@@ -500,6 +503,46 @@ func (s *ServiceSuite) TestServiceConfig(c *C) {
 	err = env.Read()
 	c.Assert(err, IsNil)
 	c.Assert(env.Map(), DeepEquals, map[string]interface{}{"spam": "spam", "eggs": "spam", "chaos": "emeralds"})
+}
+
+func (s *ServiceSuite) TestConstraints(c *C) {
+	// Constraints are initially empty (for now).
+	cons0 := state.Constraints{}
+	cons1, err := s.mysql.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(cons1, DeepEquals, cons0)
+
+	// Constraints can be set.
+	cons2 := state.Constraints{Mem: uint64p(4096)}
+	err = s.mysql.SetConstraints(cons2)
+	cons3, err := s.mysql.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(cons3, DeepEquals, cons2)
+
+	// Constraints are completely overwritten when re-set.
+	cons4 := state.Constraints{CpuPower: uint64p(750)}
+	err = s.mysql.SetConstraints(cons4)
+	c.Assert(err, IsNil)
+	cons5, err := s.mysql.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(cons5, DeepEquals, cons4)
+
+	// Destroy the existing service; there's no way to directly assert
+	// that the constraints are deleted...
+	err = s.mysql.Destroy()
+	c.Assert(err, IsNil)
+	err = s.mysql.Refresh()
+	c.Assert(state.IsNotFound(err), Equals, true)
+
+	// ...but we can check that old constraints do not affect new services
+	// with matching names.
+	ch, _, err := s.mysql.Charm()
+	c.Assert(err, IsNil)
+	mysql, err := s.State.AddService(s.mysql.Name(), ch)
+	c.Assert(err, IsNil)
+	cons6, err := mysql.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(cons6, DeepEquals, cons0)
 }
 
 type unitSlice []*state.Unit
@@ -765,79 +808,72 @@ func (s *ServiceSuite) TestWatchUnits(c *C) {
 }
 
 func (s *ServiceSuite) TestWatchRelations(c *C) {
-	relationsWatcher := s.mysql.WatchRelations()
-	defer func() {
-		c.Assert(relationsWatcher.Stop(), IsNil)
-	}()
+	w := s.mysql.WatchRelations()
+	defer func() { c.Assert(w.Stop(), IsNil) }()
 
-	assertChange := func(want []int) {
-		var got []int
-		for {
-			select {
-			case new := <-relationsWatcher.Changes():
-				got = append(got, new...)
-				if len(got) < len(want) {
-					continue
-				}
-				sort.Ints(got)
-				sort.Ints(want)
-				c.Assert(got, DeepEquals, want)
-				return
-			case <-time.After(500 * time.Millisecond):
-				c.Fatalf("expected %#v, got nothing", want)
-			}
-		}
-	}
 	assertNoChange := func() {
+		s.State.StartSync()
 		select {
-		case got := <-relationsWatcher.Changes():
+		case got := <-w.Changes():
 			c.Fatalf("expected nothing, got %#v", got)
 		case <-time.After(100 * time.Millisecond):
 		}
 	}
+	assertChange := func(want ...int) {
+		s.State.Sync()
+		select {
+		case got, ok := <-w.Changes():
+			c.Assert(ok, Equals, true)
+			if len(want) == 0 {
+				c.Assert(got, HasLen, 0)
+			} else {
+				sort.Ints(got)
+				sort.Ints(want)
+				c.Assert(got, DeepEquals, want)
+			}
+		case <-time.After(500 * time.Millisecond):
+			c.Fatalf("expected %#v, got nothing", want)
+		}
+		assertNoChange()
+	}
 
 	// Check initial event, and lack of followup.
-	s.State.StartSync()
-	assertChange(nil)
-	assertNoChange()
-
-	// Add a couple of services, check no changes.
-	_, err := s.State.AddService("wp1", s.charm)
-	c.Assert(err, IsNil)
-	_, err = s.State.AddService("wp2", s.charm)
-	c.Assert(err, IsNil)
-	s.State.StartSync()
-	assertNoChange()
+	assertChange()
 
 	// Add a relation; check change.
-	mysqlep := state.Endpoint{"mysql", "ifce", "foo", state.RoleProvider, charm.ScopeGlobal}
-	wp1ep := state.Endpoint{"wp1", "ifce", "bar", state.RoleRequirer, charm.ScopeGlobal}
-	rel, err := s.State.AddRelation(mysqlep, wp1ep)
+	mysqlep, err := s.mysql.Endpoint("server")
 	c.Assert(err, IsNil)
-	s.State.StartSync()
-	assertChange([]int{0})
-	assertNoChange()
+	wpch := s.AddTestingCharm(c, "wordpress")
+	wpi := 0
+	addRelation := func() *state.Relation {
+		name := fmt.Sprintf("wp%d", wpi)
+		wpi++
+		wp, err := s.State.AddService(name, wpch)
+		c.Assert(err, IsNil)
+		wpep, err := wp.Endpoint("db")
+		c.Assert(err, IsNil)
+		rel, err := s.State.AddRelation(mysqlep, wpep)
+		c.Assert(err, IsNil)
+		return rel
+	}
+	rel0 := addRelation()
+	assertChange(0)
 
 	// Add another relation; check change.
-	wp2ep := state.Endpoint{"wp2", "ifce", "baz", state.RoleRequirer, charm.ScopeGlobal}
-	_, err = s.State.AddRelation(mysqlep, wp2ep)
-	c.Assert(err, IsNil)
-	s.State.StartSync()
-	assertChange([]int{1})
-	assertNoChange()
+	addRelation()
+	assertChange(1)
 
 	// Destroy a relation; check change.
-	err = rel.Destroy()
+	err = rel0.Destroy()
 	c.Assert(err, IsNil)
-	s.State.StartSync()
-	assertChange([]int{0})
+	assertChange(0)
 
 	// Stop watcher; check change chan is closed.
-	err = relationsWatcher.Stop()
+	err = w.Stop()
 	c.Assert(err, IsNil)
 	assertClosed := func() {
 		select {
-		case _, ok := <-relationsWatcher.Changes():
+		case _, ok := <-w.Changes():
 			c.Assert(ok, Equals, false)
 		default:
 			c.Fatalf("Changes not closed")
@@ -846,77 +882,30 @@ func (s *ServiceSuite) TestWatchRelations(c *C) {
 	assertClosed()
 
 	// Add a new relation; start a new watcher; check initial event.
-	_, err = s.State.AddRelation(mysqlep, wp1ep)
-	c.Assert(err, IsNil)
-	s.State.StartSync()
-	relationsWatcher = s.mysql.WatchRelations()
-	s.State.StartSync()
-	select {
-	case got := <-relationsWatcher.Changes():
-		sort.Ints(got)
-		c.Assert(got, DeepEquals, []int{1, 2})
-	case <-time.After(500 * time.Millisecond):
-		c.Fatalf("expected %#v, got nothing", []int{1, 2})
-	}
-	assertNoChange()
+	rel2 := addRelation()
+	w = s.mysql.WatchRelations()
+	assertChange(1, 2)
 
-	relations := make([]*state.Relation, 5)
-	endpoints := make([]state.Endpoint, 5)
-	for i := 0; i < 5; i++ {
-		_, err := s.State.AddService("hadoop"+fmt.Sprint(i), s.charm)
-		c.Assert(err, IsNil)
-		endpoints[i] = state.Endpoint{"hadoop" + fmt.Sprint(i), "ifce", "spam" + fmt.Sprint(i), state.RoleRequirer, charm.ScopeGlobal}
-		relations[i], err = s.State.AddRelation(mysqlep, endpoints[i])
-		c.Assert(err, IsNil)
-	}
-	err = relations[4].Destroy()
-	c.Assert(err, IsNil)
-	s.State.StartSync()
-	assertChange([]int{3, 4, 5, 6})
-	assertNoChange()
-
-	// Add units to a couple of relations to block their destruction...
+	// Add a unit to the new relation; check no change.
 	unit, err := s.mysql.AddUnit()
 	c.Assert(err, IsNil)
-	ru0, err := relations[0].Unit(unit)
+	ru2, err := rel2.Unit(unit)
 	c.Assert(err, IsNil)
-	err = ru0.EnterScope(nil)
+	err = ru2.EnterScope(nil)
 	c.Assert(err, IsNil)
-	ru1, err := relations[1].Unit(unit)
-	c.Assert(err, IsNil)
-	err = ru1.EnterScope(nil)
-	c.Assert(err, IsNil)
-
-	// ...and start destroying those relations, and check the change is observed.
-	err = relations[0].Destroy()
-	c.Assert(err, IsNil)
-	err = relations[1].Destroy()
-	c.Assert(err, IsNil)
-	s.State.StartSync()
-	assertChange([]int{3, 4})
 	assertNoChange()
 
-	// Remove all remaining relations, check changes detected.
-	err = relations[2].Destroy()
+	// Destroy the relation with the unit in scope, and add another; check
+	// changes.
+	err = rel2.Destroy()
 	c.Assert(err, IsNil)
-	err = relations[3].Destroy()
-	c.Assert(err, IsNil)
-	err = ru0.LeaveScope()
-	c.Assert(err, IsNil)
-	err = ru1.LeaveScope()
-	c.Assert(err, IsNil)
-	s.State.StartSync()
-	assertChange([]int{3, 4, 5, 6})
-	assertNoChange()
+	addRelation()
+	assertChange(2, 3)
 
-	// Add a final relation.
-	_, err = s.State.AddService("postgresql", s.charm)
-	ep := state.Endpoint{"postgresql", "ifce", "spam", state.RoleRequirer, charm.ScopeGlobal}
-	_, err = s.State.AddRelation(mysqlep, ep)
+	// Leave scope, destroying the relation, and check that change as well.
+	err = ru2.LeaveScope()
 	c.Assert(err, IsNil)
-	s.State.StartSync()
-	assertChange([]int{8})
-	assertNoChange()
+	assertChange(2)
 }
 
 func removeAllUnits(c *C, s *state.Service) {
@@ -1072,4 +1061,10 @@ func (s *ServiceSuite) TestWatchConfig(c *C) {
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}
+}
+
+func (s *ServiceSuite) TestAnnotatorForService(c *C) {
+	testAnnotator(c, func() (annotator, error) {
+		return s.State.Service("mysql")
+	})
 }

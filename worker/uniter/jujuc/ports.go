@@ -27,11 +27,11 @@ func badPort(value interface{}) error {
 	return fmt.Errorf(`port must be in the range [1, 65535]; got "%v"`, value)
 }
 
-func (c *portCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	args = f.Args()
+func (c *portCommand) SetFlags(f *gnuflag.FlagSet) {
+	// No extra flags.
+}
+
+func (c *portCommand) Init(args []string) error {
 	if args == nil {
 		return errors.New("no port specified")
 	}
@@ -63,8 +63,10 @@ func (c *portCommand) Run(_ *cmd.Context) error {
 }
 
 var openPortInfo = &cmd.Info{
-	"open-port", portFormat, "register a port to open",
-	"The port will only be open while the service is exposed.",
+	Name:    "open-port",
+	Args:    portFormat,
+	Purpose: "register a port to open",
+	Doc:     "The port will only be open while the service is exposed.",
 }
 
 func NewOpenPortCommand(ctx Context) cmd.Command {
@@ -77,7 +79,9 @@ func NewOpenPortCommand(ctx Context) cmd.Command {
 }
 
 var closePortInfo = &cmd.Info{
-	"close-port", portFormat, "ensure a port is always closed", "",
+	Name:    "close-port",
+	Args:    portFormat,
+	Purpose: "ensure a port is always closed",
 }
 
 func NewClosePortCommand(ctx Context) cmd.Command {

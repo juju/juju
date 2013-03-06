@@ -106,6 +106,26 @@ func (inst *instance) WaitDNSName() (string, error) {
 	return "", fmt.Errorf("timed out trying to get DNS address for %v", inst.Id())
 }
 
+func (p environProvider) BoilerplateConfig() string {
+	return `
+## https://juju.ubuntu.com/get-started/amazon/
+amazon:
+  type: ec2
+  admin-secret: {{rand}}
+  # globally unique S3 bucket name
+  control-bucket: juju-{{rand}}
+  # override if your workstation is running a different series to which you are deploying
+  # default-series: precise
+  # region defaults to us-east-1, override if required
+  # region: us-east-1
+  # Usually set via the env variable AWS_ACCESS_KEY_ID, but can be specified here
+  # access-key: <secret>
+  # Usually set via the env variable AWS_SECRET_ACCESS_KEY, but can be specified here
+  # secret-key: <secret>
+
+`[1:]
+}
+
 func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	log.Printf("environs/ec2: opening environment %q", cfg.Name())
 	e := new(environ)
@@ -133,6 +153,11 @@ func (environProvider) PublicAddress() (string, error) {
 
 func (environProvider) PrivateAddress() (string, error) {
 	return fetchMetadata("local-hostname")
+}
+
+func (environProvider) InstanceId() (state.InstanceId, error) {
+	str, err := fetchMetadata("instance-id")
+	return state.InstanceId(str), err
 }
 
 func (e *environ) Config() *config.Config {
@@ -256,6 +281,10 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 	if !hasCert {
 		return fmt.Errorf("no CA certificate in environment configuration")
 	}
+	v := version.Current
+	v.Series = tools.Series
+	v.Arch = tools.Arch
+	mongoURL := environs.MongoURL(e, v)
 	inst, err := e.startInstance(&startInstanceParams{
 		machineId: "0",
 		info: &state.Info{
@@ -267,6 +296,7 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 			CACert:   caCert,
 		},
 		tools:           tools,
+		mongoURL:        mongoURL,
 		stateServer:     true,
 		config:          config,
 		stateServerCert: cert,
@@ -352,20 +382,19 @@ func (e *environ) StartInstance(machineId string, info *state.Info, apiInfo *api
 
 func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 	cfg := &cloudinit.MachineConfig{
-		StateServer:        scfg.stateServer,
-		StateInfo:          scfg.info,
-		APIInfo:            scfg.apiInfo,
-		MongoPort:          mgoPort,
-		APIPort:            apiPort,
-		StateServerCert:    scfg.stateServerCert,
-		StateServerKey:     scfg.stateServerKey,
-		InstanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
-		ProviderType:       "ec2",
-		DataDir:            "/var/lib/juju",
-		Tools:              scfg.tools,
-		MachineId:          scfg.machineId,
-		AuthorizedKeys:     e.ecfg().AuthorizedKeys(),
-		Config:             scfg.config,
+		StateServer:     scfg.stateServer,
+		StateInfo:       scfg.info,
+		APIInfo:         scfg.apiInfo,
+		MongoPort:       mgoPort,
+		APIPort:         apiPort,
+		StateServerCert: scfg.stateServerCert,
+		StateServerKey:  scfg.stateServerKey,
+		DataDir:         "/var/lib/juju",
+		Tools:           scfg.tools,
+		MongoURL:        scfg.mongoURL,
+		MachineId:       scfg.machineId,
+		AuthorizedKeys:  e.ecfg().AuthorizedKeys(),
+		Config:          scfg.config,
 	}
 	cloudcfg, err := cloudinit.New(cfg)
 	if err != nil {
@@ -385,6 +414,7 @@ type startInstanceParams struct {
 	info            *state.Info
 	apiInfo         *api.Info
 	tools           *state.Tools
+	mongoURL        string
 	stateServer     bool
 	config          *config.Config
 	stateServerCert []byte
