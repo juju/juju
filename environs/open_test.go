@@ -3,13 +3,17 @@ package environs_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
-	_ "launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/testing"
 )
 
 type OpenSuite struct{}
 
 var _ = Suite(&OpenSuite{})
+
+func (OpenSuite) TearDownTest(c *C) {
+	dummy.Reset()
+}
 
 func (OpenSuite) TestNewDummyEnviron(c *C) {
 	// matches *Settings.Map()
@@ -37,4 +41,40 @@ func (OpenSuite) TestNewUnknownEnviron(c *C) {
 	})
 	c.Assert(err, ErrorMatches, "no registered provider for.*")
 	c.Assert(env, IsNil)
+}
+
+func (OpenSuite) TestNewFromNameNoDefault(c *C) {
+	defer testing.MakeFakeHome(c, `
+environments:
+    erewhemos:
+        type: dummy
+        state-server: true
+        authorized-keys: i-am-a-key
+        admin-secret: conn-from-name-secret
+    erewhemos-2:
+        type: dummy
+        state-server: true
+        authorized-keys: i-am-a-key
+        admin-secret: conn-from-name-secret
+`, "erewhemos").Restore()
+
+	_, err := environs.NewFromName("")
+	c.Assert(err, ErrorMatches, "no default environment found")
+}
+
+func (OpenSuite) TestNewFromNameGetDefault(c *C) {
+	defer testing.MakeFakeHome(c, `
+default:
+    erewhemos
+environments:
+    erewhemos:
+        type: dummy
+        state-server: true
+        authorized-keys: i-am-a-key
+        admin-secret: conn-from-name-secret
+`, "erewhemos").Restore()
+
+	e, err := environs.NewFromName("")
+	c.Assert(err, IsNil)
+	c.Assert(e.Name(), Equals, "erewhemos")
 }

@@ -1,0 +1,44 @@
+package testing
+
+import (
+	"io/ioutil"
+	. "launchpad.net/gocheck"
+	"os"
+	"path/filepath"
+)
+
+type FakeHome string
+
+func MakeFakeHome(c *C, config string, certNames ...string) FakeHome {
+	oldHome := os.Getenv("HOME")
+	os.Setenv("HOME", c.MkDir())
+
+	err := os.Mkdir(HomePath(".juju"), 0755)
+	c.Assert(err, IsNil)
+
+	envs := HomePath(".juju", "environments.yaml")
+	err = ioutil.WriteFile(envs, []byte(config), 0644)
+
+	for _, name := range certNames {
+		err := ioutil.WriteFile(HomePath(".juju", name+"-cert.pem"), []byte(CACert), 0600)
+		c.Assert(err, IsNil)
+		err = ioutil.WriteFile(HomePath(".juju", name+"-private-key.pem"), []byte(CAKey), 0600)
+		c.Assert(err, IsNil)
+	}
+
+	err = os.Mkdir(HomePath(".ssh"), 0777)
+	c.Assert(err, IsNil)
+	err = ioutil.WriteFile(HomePath(".ssh", "id_rsa.pub"), []byte("auth key\n"), 0666)
+	c.Assert(err, IsNil)
+
+	return FakeHome(oldHome)
+}
+
+func HomePath(names ...string) string {
+	all := append([]string{os.Getenv("HOME")}, names...)
+	return filepath.Join(all...)
+}
+
+func (h FakeHome) Restore() {
+	os.Setenv("HOME", string(h))
+}
