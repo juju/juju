@@ -3,72 +3,80 @@ package params_test
 import (
 	"encoding/json"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/params.api/params"
+	"launchpad.net/juju-core/state/api/params"
+	"testing"
 )
 
-var marshalTestCases = []struct {
-	about  string
-	input  params.Delta
-	output string
-}{{
-	about: "MachineInfo Delta",
-	input: params.Delta{
-		Removed: false,
-		Entity: &params.MachineInfo{
-			Id:         "Benji",
-			InstanceId: "Shazam",
-		},
-	},
-	output: `["machine","change",{"Id":"Benji","InstanceId":"Shazam"}]`,
-}, {
-	about: "ServiceInfo Delta",
-	input: params.Delta{
-		Removed: false,
-		Entity: &params.ServiceInfo{
-			Name:    "Benji",
-			Exposed: true,
-		},
-	},
-	output: `["service","change",{"Name":"Benji","Exposed":true}]`,
-}, {
-	about: "UnitInfo Delta",
-	input: params.Delta{
-		Removed: false,
-		Entity: &params.UnitInfo{
-			Name:    "Benji",
-			Service: "Shazam",
-		},
-	},
-	output: `["unit","change",{"Name":"Benji","Service":"Shazam"}]`,
-}, {
-	about: "RelationInfo Delta",
-	input: params.Delta{
-		Removed: false,
-		Entity: &params.RelationInfo{
-			Key: "Benji",
-		},
-	},
-	output: `["relation","change",{"Key":"Benji"}]`,
-}, {
-	about: "Delta Removed True",
-	input: params.Delta{
-		Removed: true,
-		Entity: &params.RelationInfo{
-			Key: "Benji",
-		},
-	},
-	output: `["relation","remove",{"Key":"Benji"}]`,
-},
+// TestPackage integrates the tests into gotest.
+func TestPackage(t *testing.T) {
+	TestingT(t)
 }
 
 type MarshalSuite struct{}
 
 var _ = Suite(&MarshalSuite{})
 
+var marshalTestCases = []struct {
+	about string
+	// Value holds a real Go struct.
+	value params.Delta
+	// JSON document.
+	json string
+}{{
+	about: "MachineInfo Delta",
+	value: params.Delta{
+		Removed: false,
+		Entity: &params.MachineInfo{
+			Id:         "Benji",
+			InstanceId: "Shazam",
+		},
+	},
+	json: `["machine","change",{"Id":"Benji","InstanceId":"Shazam"}]`,
+}, {
+	about: "ServiceInfo Delta",
+	value: params.Delta{
+		Removed: false,
+		Entity: &params.ServiceInfo{
+			Name:    "Benji",
+			Exposed: true,
+		},
+	},
+	json: `["service","change",{"Name":"Benji","Exposed":true}]`,
+}, {
+	about: "UnitInfo Delta",
+	value: params.Delta{
+		Removed: false,
+		Entity: &params.UnitInfo{
+			Name:    "Benji",
+			Service: "Shazam",
+		},
+	},
+	json: `["unit","change",{"Name":"Benji","Service":"Shazam"}]`,
+}, {
+	about: "RelationInfo Delta",
+	value: params.Delta{
+		Removed: false,
+		Entity: &params.RelationInfo{
+			Key: "Benji",
+		},
+	},
+	json: `["relation","change",{"Key":"Benji"}]`,
+}, {
+	about: "Delta Removed True",
+	value: params.Delta{
+		Removed: true,
+		Entity: &params.RelationInfo{
+			Key: "Benji",
+		},
+	},
+	json: `["relation","remove",{"Key":"Benji"}]`,
+},
+}
+
 func (s *MarshalSuite) TestDeltaMarshalJSON(c *C) {
 	for _, t := range marshalTestCases {
 		c.Log(t.about)
-		output, err := t.input.MarshalJSON()
+		output, err := t.value.MarshalJSON()
 		c.Check(err, IsNil)
 		// We check unmarshalled output both to reduce the fragility of the
 		// tests (because ordering in the maps can change) and to verify that
@@ -77,8 +85,39 @@ func (s *MarshalSuite) TestDeltaMarshalJSON(c *C) {
 		err = json.Unmarshal(output, &unmarshalledOutput)
 		c.Check(err, IsNil)
 		var expected interface{}
-		err = json.Unmarshal([]byte(t.output), &expected)
+		err = json.Unmarshal([]byte(t.json), &expected)
 		c.Check(err, IsNil)
 		c.Check(unmarshalledOutput, DeepEquals, expected)
 	}
+}
+
+func (s *MarshalSuite) TestDeltaUnmarshalJSON(c *C) {
+	for _, t := range marshalTestCases {
+		c.Log(t.about)
+		var unmarshalled params.Delta
+		err := json.Unmarshal([]byte(t.json), &unmarshalled)
+		c.Check(err, IsNil)
+		c.Check(unmarshalled, DeepEquals, t.value)
+	}
+}
+
+func (s *MarshalSuite) TestDeltaMarshalJSONCardinality(c *C) {
+	c.Check(
+		json.Unmarshal([]byte(`[1,2]`), new(params.Delta)),
+		ErrorMatches,
+		"Expected 3 elements in top-level of JSON but got 2")
+}
+
+func (s *MarshalSuite) TestDeltaMarshalJSONUnknownOperation(c *C) {
+	c.Check(
+		json.Unmarshal([]byte(`["relation","masticate",{}]`), new(params.Delta)),
+		ErrorMatches,
+		`Unexpected operation "masticate"`)
+}
+
+func (s *MarshalSuite) TestDeltaMarshalJSONUnknownEntity(c *C) {
+	c.Check(
+		json.Unmarshal([]byte(`["qwan","change",{}]`), new(params.Delta)),
+		ErrorMatches,
+		`Unexpected entity name "qwan"`)
 }

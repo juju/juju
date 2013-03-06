@@ -114,6 +114,53 @@ func (d *Delta) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// var newEntityInfo = map[string]func() *EntityInfo{
+// 	"machine":  func() *MachineInfo { return new(MachineInfo) },
+// 	"service":  func() *ServiceInfo { return new(ServiceInfo) },
+// 	"unit":     func() *UnitInfo { return new(UnitInfo) },
+// 	"relation": func() *RelationInfo { return new(RelationInfo) },
+// }
+
+func (d *Delta) UnmarshalJSON(data []byte) error {
+	var elements []json.RawMessage
+	if err := json.Unmarshal(data, &elements); err != nil {
+		return err
+	}
+	if len(elements) != 3 {
+		return fmt.Errorf(
+			"Expected 3 elements in top-level of JSON but got %d",
+			len(elements))
+	}
+	var entityKind, operation string
+	if err := json.Unmarshal(elements[0], &entityKind); err != nil {
+		return err
+	}
+	if err := json.Unmarshal(elements[1], &operation); err != nil {
+		return err
+	}
+	if operation == "remove" {
+		d.Removed = true
+	} else if operation != "change" {
+		return fmt.Errorf("Unexpected operation %#v", operation)
+	}
+	switch entityKind {
+	case "machine":
+		d.Entity = new(MachineInfo)
+	case "service":
+		d.Entity = new(ServiceInfo)
+	case "unit":
+		d.Entity = new(UnitInfo)
+	case "relation":
+		d.Entity = new(RelationInfo)
+	default:
+		return fmt.Errorf("Unexpected entity name %#v", entityKind)
+	}
+	if err := json.Unmarshal(elements[2], &d.Entity); err != nil {
+		return err
+	}
+	return nil
+}
+
 // EntityInfo is implemented by all entity Info types.
 type EntityInfo interface {
 	// EntityId returns the collection-specific identifier for the entity.
