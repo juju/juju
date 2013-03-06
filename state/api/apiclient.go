@@ -13,7 +13,7 @@ import (
 type Machine struct {
 	st  *State
 	id  string
-	doc rpcMachine
+	doc RPCMachine
 }
 
 // Client represents the client-accessible part of the state.
@@ -171,7 +171,7 @@ func (st *State) Machine(id string) (*Machine, error) {
 type Unit struct {
 	st   *State
 	name string
-	doc  rpcUnit
+	doc  RPCUnit
 }
 
 // Unit returns a unit by name.
@@ -190,7 +190,7 @@ func (st *State) Unit(name string) (*Unit, error) {
 // Subsequent requests on the state will act as that entity.
 // This method is usually called automatically by Open.
 func (st *State) Login(entityName, password string) error {
-	return st.call("Admin", "", "Login", &rpcCreds{
+	return st.call("Admin", "", "Login", &RPCCreds{
 		EntityName: entityName,
 		Password:   password,
 	}, nil)
@@ -233,7 +233,7 @@ func (m *Machine) InstanceId() (string, bool) {
 
 // SetPassword sets the password for the machine's agent.
 func (m *Machine) SetPassword(password string) error {
-	return m.st.call("Machine", m.id, "SetPassword", &rpcPassword{
+	return m.st.call("Machine", m.id, "SetPassword", &RPCPassword{
 		Password: password,
 	}, nil)
 }
@@ -268,7 +268,7 @@ func newEntityWatcher(st *State, etype, id string) *EntityWatcher {
 }
 
 func (w *EntityWatcher) loop() error {
-	var id rpcEntityWatcherId
+	var id RPCEntityWatcherId
 	if err := w.st.call(w.etype, w.eid, "Watch", nil, &id); err != nil {
 		return err
 	}
@@ -339,7 +339,7 @@ func (u *Unit) Refresh() error {
 
 // SetPassword sets the password for the unit's agent.
 func (u *Unit) SetPassword(password string) error {
-	return u.st.call("Unit", u.name, "SetPassword", &rpcPassword{
+	return u.st.call("Unit", u.name, "SetPassword", &RPCPassword{
 		Password: password,
 	}, nil)
 }
@@ -361,4 +361,38 @@ func (u *Unit) EntityName() string {
 // the unit. If no such entity can be determined, false is returned.
 func (u *Unit) DeployerName() (string, bool) {
 	return u.doc.DeployerName, u.doc.DeployerName != ""
+}
+
+// RPCCreds is used in the API protocol.
+type RPCCreds struct {
+	EntityName string
+	Password   string
+}
+
+// RPCMachine is used in the API protocol.
+type RPCMachine struct {
+	InstanceId string
+}
+
+// RPCEntityWatcherId is used in the API protocol.
+type RPCEntityWatcherId struct {
+	EntityWatcherId string
+}
+
+// RPCPassword is used in the API protocol.
+type RPCPassword struct {
+	Password string
+}
+
+// RPCUnit is used in the API protocol.
+type RPCUnit struct {
+	DeployerName string
+	// TODO(rog) other unit attributes.
+}
+
+// RPCUser is used in the API protocol.
+type RPCUser struct {
+	// This is a placeholder for any information
+	// that may be associated with a user in the
+	// future.
 }
