@@ -3,6 +3,7 @@ package apiserver
 import (
 	"code.google.com/p/go.net/websocket"
 	"fmt"
+	"launchpad.net/juju-core/charm"
 	_ "launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -271,17 +272,17 @@ func (c *srvClient) ServiceUnexpose(args params.ServiceUnexpose) error {
 }
 
 // CharmInfo returns information about the requested charm.
-func (c *srvClient) CharmInfo(args params.CharmInfo) (CharmInfo, error) {
+func (c *srvClient) CharmInfo(args params.CharmInfo) (api.CharmInfo, error) {
 	curl, err := charm.ParseURL(args.CharmURL)
 	if err != nil {
-		return CharmInfo{}, err
+		return api.CharmInfo{}, err
 	}
 	charm, err := c.root.srv.state.Charm(curl)
 	if err != nil {
-		return CharmInfo{}, err
+		return api.CharmInfo{}, err
 	}
 	meta := charm.Meta()
-	info := CharmInfo{
+	info := api.CharmInfo{
 		Name:        meta.Name,
 		Revision:    charm.Revision(),
 		Subordinate: meta.Subordinate,
