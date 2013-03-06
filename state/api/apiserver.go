@@ -290,7 +290,7 @@ func (c *srvClient) GetAnnotations(params GetAnnotationsParams) (Annotations, er
 	return Annotations{Annotations: entity.Annotations()}, nil
 }
 
-// SetAnnotation store an annotation about a given entity.
+// SetAnnotation stores an annotation about a given entity.
 func (c *srvClient) SetAnnotation(params SetAnnotationParams) error {
 	entity, err := c.root.srv.state.Entity(params.Id)
 	if err != nil {
