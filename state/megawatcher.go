@@ -2,10 +2,7 @@ package state
 
 import (
 	"container/list"
-	"fmt"
-	"labix.org/v2/mgo"
 	"reflect"
-	"launchpad.net/juju-core/log"
 )
 
 // entityId holds the mongo identifier of an entity.
@@ -42,24 +39,30 @@ type allInfo struct {
 
 // newAllInfo returns an allInfo instance holding information about the
 // current state of all entities in the environment.
-func newAllInfo() (*allInfo, error) {
+func newAllInfo() *allInfo {
 	all := &allInfo{
-		st:       st,
 		entities: make(map[entityId]*list.Element),
-		list: list.New(),
+		list:     list.New(),
 	}
-	return all, nil
+	return all
 }
 
 // add adds a new entity with the given id and associated
 // information to the list.
 func (a *allInfo) add(id entityId, info EntityInfo) {
+	if a.entities[id] != nil {
+		panic("adding new entry with duplicate id")
+	}
+	n := a.list.Len()
 	a.latestRevno++
 	entry := &entityEntry{
 		info:  info,
 		revno: a.latestRevno,
 	}
 	a.entities[id] = a.list.PushFront(entry)
+	if a.list.Len() != n+1 || len(a.entities) != n+1 {
+		panic("huh?!")
+	}
 }
 
 // delete deletes the entry with the given entity id.
@@ -72,11 +75,15 @@ func (a *allInfo) delete(id entityId) {
 	a.list.Remove(elem)
 }
 
-// maekRemoved marks that the entity with the given id has
+// markRemoved marks that the entity with the given id has
 // been removed from the state.
-func (a *allInfo) maekRemoved(id entityId) {
+func (a *allInfo) markRemoved(id entityId) {
 	if elem := a.entities[id]; elem != nil {
-		elem.Value.(*entityEntry).removed = true
+		entry := elem.Value.(*entityEntry)
+		a.latestRevno++
+		entry.revno = a.latestRevno
+		entry.removed = true
+		a.list.MoveToFront(elem)
 	}
 }
 
@@ -85,7 +92,7 @@ func (a *allInfo) maekRemoved(id entityId) {
 func (a *allInfo) update(id entityId, info EntityInfo) {
 	elem := a.entities[id]
 	if elem == nil {
-		a.add(info)
+		a.add(id, info)
 		return
 	}
 	entry := elem.Value.(*entityEntry)

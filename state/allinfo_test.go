@@ -1,12 +1,10 @@
 package state
 
 import (
+	"container/list"
 	"fmt"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/testing"
-	"net/url"
-	"sort"
 )
 
 type AllInfoSuite struct {
@@ -18,24 +16,27 @@ var _ = Suite(&AllInfoSuite{})
 // assertContents checks that the given allWatcher
 // has the given contents, in oldest-to-newest order.
 func (*AllInfoSuite) assertContents(c *C, a *allInfo, latestRevno int64, entries []entityEntry) {
-	i := 0
-	for e := a.list.Back(); e != nil; e = e.Next() {
-		c.Assert(i, Not(Equals), len(entries))
-		entry := e.Value.(*entityEntry)
-		c.Assert(entry, DeepEquals, &entries[i])
-		c.Assert(a.entities[infoEntityId(a.st, entry.info)], Equals, e)
-		i++
+	var gotEntries []entityEntry
+	var gotElems []*list.Element
+	c.Assert(a.list.Len(), Equals, len(entries))
+	for e := a.list.Back(); e != nil; e = e.Prev() {
+		gotEntries = append(gotEntries, *e.Value.(*entityEntry))
+		gotElems = append(gotElems, e)
+	}
+
+	c.Assert(gotEntries, DeepEquals, entries)
+	for i, ent := range entries {
+		c.Assert(a.entities[entityIdForInfo(ent.info)], Equals, gotElems[i])
 	}
 	c.Assert(a.entities, HasLen, len(entries))
 	c.Assert(a.latestRevno, Equals, latestRevno)
 }
 
 func (s *AllInfoSuite) TestAdd(c *C) {
-	a, err := newAllInfo()
-	c.Assert(err, IsNil)
+	a := newAllInfo()
 	s.assertContents(c, a, 0, nil)
 
-	a.add(&MachineInfo{
+	allInfoAdd(a, &MachineInfo{
 		Id:         "0",
 		InstanceId: "i-0",
 	})
@@ -47,7 +48,7 @@ func (s *AllInfoSuite) TestAdd(c *C) {
 		},
 	}})
 
-	a.add(&ServiceInfo{
+	allInfoAdd(a, &ServiceInfo{
 		Name:    "wordpress",
 		Exposed: true,
 	})
@@ -66,31 +67,25 @@ func (s *AllInfoSuite) TestAdd(c *C) {
 	}})
 }
 
-
-var updateTests []struct {
-	about string
-	add []EntityInfo
+var updateTests = []struct {
+	about  string
+	add    []EntityInfo
 	update EntityInfo
 	result []entityEntry
-} {{
+}{{
 	about: "update an entity that's not currently there",
 	update: &MachineInfo{
-		Id: "0",
+		Id:         "0",
 		InstanceId: "i-0",
 	},
-	result: []entityEntry{
+	result: []entityEntry{{
 		revno: 1,
 		info: &MachineInfo{
-			Id: "0",
+			Id:         "0",
 			InstanceId: "i-0",
 		},
-	},
+	}},
 },
-}
-
-func idForInfo(info EntityInfo) (id entityId) {
-	id.id = info.EntityId
-	id.collection = info.EntityKind
 }
 
 func (s *AllInfoSuite) TestUpdate(c *C) {
@@ -98,33 +93,36 @@ func (s *AllInfoSuite) TestUpdate(c *C) {
 		a := newAllInfo()
 		c.Logf("test %d. %s", i, test.about)
 		for _, info := range test.add {
-			allInfoAdd(info)
+			allInfoAdd(a, info)
 		}
-		a.update(test.update)
+		a.update(entityIdForInfo(test.update), test.update)
 		s.assertContents(c, a, test.result[len(test.result)-1].revno, test.result)
 	}
 }
 
-func allInfoAdd(a *allInfo, info EntityInfo) {
-	a.add(entityId{
+func entityIdForInfo(info EntityInfo) entityId {
+	return entityId{
 		collection: info.EntityKind(),
-		id: info.EntityId(),
-	}, info)
+		id:         info.EntityId(),
+	}
+}
+
+func allInfoAdd(a *allInfo, info EntityInfo) {
+	a.add(entityIdForInfo(info), info)
 }
 
 func (s *AllInfoSuite) TestMarkRemoved(c *C) {
 	a := newAllInfo()
-	allInfoAdd(&MachineInfo{
-		Id: "0",
-		InstanceId: "i-0",
-	})
+	allInfoAdd(a, &MachineInfo{Id: "0"})
+	allInfoAdd(a, &MachineInfo{Id: "1"})
 	a.markRemoved(entityId{"machine", "0"})
-	s.assertContents(c, a, 1, []entityEntry{&MachineInfo{
-		revno: 1,
+	s.assertContents(c, a, 3, []entityEntry{{
+		revno: 2,
+		info:  &MachineInfo{Id: "1"},
+	}, {
+		revno:   3,
 		removed: true,
-		info: &MachineInfo{
-		Id: "0",
-		InstanceId: "i-0",
+		info:    &MachineInfo{Id: "0"},
 	}})
 }
 
@@ -134,67 +132,49 @@ func (s *AllInfoSuite) TestMarkRemovedNonExistent(c *C) {
 	s.assertContents(c, a, 0, nil)
 }
 
-func (s *AllInfoSuite)TestDelete(c *C) {
+func (s *AllInfoSuite) TestDelete(c *C) {
 	a := newAllInfo()
-	allInfoAdd(&MachineInfo{
-		Id: "0",
-		InstanceId: "i-0",
-	})
+	allInfoAdd(a, &MachineInfo{Id: "0"})
 	a.delete(entityId{"machine", "0"})
 	s.assertContents(c, a, 1, nil)
 }
 
-type changesSinceTests []struct {
-	revno int64
-	deltas []Delta
-} {{
-}}
-
-
-
 func (s *AllInfoSuite) TestChangesSince(c *C) {
+	a := newAllInfo()
+	var deltas []Delta
 	for i := 0; i < 3; i++ {
-		allInfo.Add(&MachineInfo{Id: "0"})
-		
-	allInfoAdd(&MachineInfo{
-		Id: "0",
-		InstanceId: "i-0",
-	})
-	allInfoAdd(&MachineInfo{
-		Id: "1",
-		InstanceId: "i-1",
-	})
-	allInfoAdd(&ServiceInfo{
-		Name: "wordpress",
-		Exposed: true,
-	})
-	allInfoAdd(&ServiceInfo{
-		Name: "logging",
-		Exposed: true,
-	})
-	allInfoAdd(&UnitInfo{
-		Name: "wordpress/0",
-		Service: "wordpress",
-	})
-	allInfoAdd(&UnitInfo{
+		m := &MachineInfo{Id: fmt.Sprint(i)}
+		allInfoAdd(a, m)
+		deltas = append(deltas, Delta{Entity: m})
+	}
+	for i := 0; i < 3; i++ {
+		c.Logf("test %d", i)
+		c.Assert(a.changesSince(int64(i)), DeepEquals, deltas[i:])
+	}
 
-	
-	machine 0
-	machine 1
-	service wordpress
-	service logging
-	unit wordpress/0
-	unit logging/0
-	relation
-}
+	c.Assert(a.changesSince(-1), DeepEquals, deltas)
+	c.Assert(a.changesSince(99), HasLen, 0)
 
-func AddTestingCharm(c *C, st *State, name string) *Charm {
-	ch := testing.Charms.Dir(name)
-	ident := fmt.Sprintf("%s-%d", name, ch.Revision())
-	curl := charm.MustParseURL("local:series/" + ident)
-	bundleURL, err := url.Parse("http://bundles.example.com/" + ident)
-	c.Assert(err, IsNil)
-	sch, err := st.AddCharm(ch, curl, bundleURL, ident+"-sha256")
-	c.Assert(err, IsNil)
-	return sch
+	rev := a.latestRevno
+	m1 := &MachineInfo{
+		Id:         "1",
+		InstanceId: "foo",
+	}
+	a.update(entityIdForInfo(m1), m1)
+	c.Assert(a.changesSince(rev), DeepEquals, []Delta{{Entity: m1}})
+
+	m0 := &MachineInfo{Id: "0"}
+	a.markRemoved(entityIdForInfo(m0))
+	c.Assert(a.changesSince(rev), DeepEquals, []Delta{{
+		Entity: m1,
+	}, {
+		Remove: true,
+		Entity: m0,
+	}})
+
+	c.Assert(a.changesSince(rev+1), DeepEquals, []Delta{{
+		Remove: true,
+		Entity: m0,
+	}})
+
 }
