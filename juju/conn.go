@@ -100,6 +100,11 @@ func NewConnFromState(st *state.State) (*Conn, error) {
 // NewConnFromName returns a Conn pointing at the environName environment, or the
 // default environment if not specified.
 func NewConnFromName(environName string) (*Conn, error) {
+	if environName == "" {
+		// Only look in the environment if the requested name is empty, as the
+		// command line has precedence.
+		environName = os.Getenv("JUJU_ENV")
+	}
 	environ, err := environs.NewFromName(environName)
 	if err != nil {
 		return nil, err
