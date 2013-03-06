@@ -270,6 +270,10 @@ func (c *srvClient) ServiceUnexpose(args params.ServiceUnexpose) error {
 	return statecmd.ServiceUnexpose(c.root.srv.state, args)
 }
 
+func (c *srvClient) ServiceAddUnits(args params.ServiceAddUnits) error {
+	return statecmd.ServiceAddUnits(c.root.srv.state, args)
+}
+
 // EnvironmentInfo returns information about the current environment (default
 // series and type).
 func (c *srvClient) EnvironmentInfo() (api.EnvironmentInfo, error) {

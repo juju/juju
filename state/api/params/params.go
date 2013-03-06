@@ -37,8 +37,8 @@ type ServiceUnexpose struct {
 	ServiceName string
 }
 
-// ServiceAddUnit holds parameters for the AddUnits call.
-type ServiceAddUnit struct {
+// ServiceAddUnits holds parameters for the AddUnits call.
+type ServiceAddUnits struct {
 	ServiceName string
 	NumUnits int
 }

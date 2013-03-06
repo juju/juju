@@ -8,7 +8,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 )
 
-func ServiceAddUnit(state *state.State, args params.ServiceAddUnit) error {
+func ServiceAddUnits(state *state.State, args params.ServiceAddUnits) error {
 	conn, err := juju.NewConnFromState(state)
 	if err != nil {
 		return err

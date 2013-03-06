@@ -102,12 +102,12 @@ func (c *Client) ServiceUnexpose(service string) error {
 }
 
 // ServiceAddUnit adds a given number of units to a service.
-func (c *Client) ServiceAddUnit(service string, numUnits int) error {
-	params := params.ServiceAddUnit{
+func (c *Client) ServiceAddUnits(service string, numUnits int) error {
+	params := params.ServiceAddUnits{
 		ServiceName: service,
 		NumUnits: numUnits,
 	}
-	err := c.st.client.Call("Client", "", "ServiceAddUnit", params, nil)
+	err := c.st.client.Call("Client", "", "ServiceAddUnits", params, nil)
 	if err != nil {
 		return clientError(err)
 	}

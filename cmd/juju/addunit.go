@@ -53,9 +53,9 @@ func (c *AddUnitCommand) Run(_ *cmd.Context) error {
 	}
 	defer conn.Close()
 
-	params := statecmd.AddUnitParams{
+	params := statecmd.AddUnitsParams{
 		ServiceName: c.ServiceName,
 		NumUnits: c.NumUnits,
 	}
-	return statecmd.AddUnit(conn.State, params)
+	return statecmd.AddUnits(conn.State, params)
 }
