@@ -84,6 +84,10 @@ var operationPermTests = []struct {
 	about: "Client.ServiceUnexpose",
 	op:    opClientServiceUnexpose,
 	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.CharmInfo",
+	op:    opClientCharmInfo,
+	allow: []string{"user-admin", "user-other"},
 },
 }
 
@@ -184,6 +188,19 @@ func opMachine1SetPassword(c *C, st *api.State) (func(), error) {
 	return func() {
 		setDefaultPassword(c, m)
 	}, nil
+}
+
+func opClientCharmInfo(c *C, st *api.State) (func(), error) {
+	info, err := st.Client().CharmInfo("local:series/wordpress-3")
+	if err != nil {
+		c.Check(info, IsNil)
+		return func() {}, err
+	}
+	c.Assert(err, IsNil)
+	c.Assert(info.URL, Equals, "local:series/wordpress-3")
+	c.Assert(info.Meta.Name, Equals, "wordpress")
+	c.Assert(info.Revision, Equals, 3)
+	return func() {}, nil
 }
 
 func opClientStatus(c *C, st *api.State) (func(), error) {
@@ -483,6 +500,48 @@ func (s *suite) TestClientServiceSetYAML(c *C) {
 		"title":    "aaa",
 		"username": "bbb",
 	})
+}
+
+var clientCharmInfoTests = []struct {
+	about string
+	url   string
+	err   string
+}{
+	{
+		about: "retrieves charm info",
+		url:   "local:series/wordpress-3",
+	},
+	{
+		about: "invalid URL",
+		url:   "not-valid",
+		err:   `charm URL has invalid schema: "not-valid"`,
+	},
+	{
+		about: "unknown charm",
+		url:   "cs:missing/one-1",
+		err:   `charm "cs:missing/one-1" not found`,
+	},
+}
+
+func (s *suite) TestClientCharmInfo(c *C) {
+	// Use wordpress for tests so that we can compare Provides and Requires.
+	charm := s.AddTestingCharm(c, "wordpress")
+	for i, t := range clientCharmInfoTests {
+		c.Logf("test %d. %s", i, t.about)
+		info, err := s.APIState.Client().CharmInfo(t.url)
+		if t.err != "" {
+			c.Assert(err, ErrorMatches, t.err)
+			continue
+		}
+		c.Assert(err, IsNil)
+		expected := &api.CharmInfo{
+			Revision: charm.Revision(),
+			URL:      charm.URL().String(),
+			Config:   charm.Config(),
+			Meta:     charm.Meta(),
+		}
+		c.Assert(info, DeepEquals, expected)
+	}
 }
 
 func (s *suite) TestClientEnvironmentInfo(c *C) {
