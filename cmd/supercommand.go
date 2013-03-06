@@ -152,10 +152,13 @@ func (c *SuperCommand) Init(args []string) error {
 	if err := c.flags.Parse(true, args); err != nil {
 		return err
 	}
+	args = c.flags.Args()
 	if c.showHelp {
-		return gnuflag.ErrHelp
+		// We want to treat help for the command the same way we would if we went "help foo".
+		args = []string{c.subcmd.Info().Name}
+		c.subcmd = c.subcmds["help"]
 	}
-	return c.subcmd.Init(c.flags.Args())
+	return c.subcmd.Init(args)
 }
 
 // Run executes the subcommand that was selected in Init.
