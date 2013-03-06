@@ -54,6 +54,24 @@ func (*NewConnSuite) TestNewConnWithoutAdminSecret(c *C) {
 	c.Assert(err, ErrorMatches, "cannot connect without admin-secret")
 }
 
+const homeConfig = `
+default:
+    erewhemos
+environments:
+    erewhemos:
+        type: dummy
+        state-server: true
+        authorized-keys: i-am-a-key
+        admin-secret: conn-from-name-secret
+`
+
+func (*NewConnSuite) TestNewConnFromNameGetUnbootstrapped(c *C) {
+	defer coretesting.MakeFakeHome(c, homeConfig, "erewhemos").Restore()
+
+	_, err := juju.NewConnFromName("")
+	c.Assert(err, ErrorMatches, "dummy environment not bootstrapped")
+}
+
 func (*NewConnSuite) TestNewConnFromName(c *C) {
 	home := c.MkDir()
 	defer os.Setenv("HOME", os.Getenv("HOME"))
@@ -81,11 +99,6 @@ environments:
 	c.Assert(err, IsNil)
 	err = ioutil.WriteFile(filepath.Join(home, ".juju", "erewhemos-private-key.pem"), []byte(coretesting.CAKey), 0600)
 	c.Assert(err, IsNil)
-
-	// Just run through a few operations on the dummy provider and verify that
-	// they behave as expected.
-	conn, err = juju.NewConnFromName("")
-	c.Assert(err, ErrorMatches, "dummy environment not bootstrapped")
 
 	environ, err := environs.NewFromName("")
 	c.Assert(err, IsNil)
