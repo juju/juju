@@ -7,6 +7,38 @@ import (
 	"path/filepath"
 )
 
+const SampleEnvName = "erewhemos"
+const EnvDefault = "default:\n  " + SampleEnvName + "\n"
+
+const SingleEnvConfigNoDefault = `
+environments:
+    erewhemos:
+        type: dummy
+        state-server: true
+        authorized-keys: i-am-a-key
+        admin-secret: conn-from-name-secret
+`
+
+const SingleEnvConfig = EnvDefault + SingleEnvConfigNoDefault
+
+const MultipleEnvConfigNoDefault = `
+environments:
+    erewhemos:
+        type: dummy
+        state-server: true
+        authorized-keys: i-am-a-key
+        admin-secret: conn-from-name-secret
+    erewhemos-2:
+        type: dummy
+        state-server: true
+        authorized-keys: i-am-a-key
+        admin-secret: conn-from-name-secret
+`
+
+const MultipleEnvConfig = EnvDefault + MultipleEnvConfigNoDefault
+
+const SampleCertName = "erewhemos"
+
 type FakeHome string
 
 func MakeFakeHome(c *C, config string, certNames ...string) FakeHome {

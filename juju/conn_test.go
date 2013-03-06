@@ -82,14 +82,14 @@ func (*NewConnSuite) bootstrapEnv(c *C, envName string) {
 func (self *NewConnSuite) TestConnMultipleCloseOk(c *C) {
 	defer coretesting.MakeFakeHome(c, homeConfig, "erewhemos").Restore()
 	self.bootstrapEnv(c, "")
-	// Error return from here is tested in TestNewConnFromName.
+	// Error return from here is tested in TestNewConnFromNameNotSetGetsDefault.
 	conn, _ := juju.NewConnFromName("")
 	conn.Close()
 	conn.Close()
 	conn.Close()
 }
 
-func (self *NewConnSuite) TestNewConnFromName(c *C) {
+func (self *NewConnSuite) TestNewConnFromNameNotSetGetsDefault(c *C) {
 	defer coretesting.MakeFakeHome(c, homeConfig, "erewhemos").Restore()
 	self.bootstrapEnv(c, "")
 	conn, err := juju.NewConnFromName("")

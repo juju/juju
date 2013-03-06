@@ -44,35 +44,14 @@ func (OpenSuite) TestNewUnknownEnviron(c *C) {
 }
 
 func (OpenSuite) TestNewFromNameNoDefault(c *C) {
-	defer testing.MakeFakeHome(c, `
-environments:
-    erewhemos:
-        type: dummy
-        state-server: true
-        authorized-keys: i-am-a-key
-        admin-secret: conn-from-name-secret
-    erewhemos-2:
-        type: dummy
-        state-server: true
-        authorized-keys: i-am-a-key
-        admin-secret: conn-from-name-secret
-`, "erewhemos").Restore()
+	defer testing.MakeFakeHome(c, testing.MultipleEnvConfigNoDefault, testing.SampleCertName).Restore()
 
 	_, err := environs.NewFromName("")
 	c.Assert(err, ErrorMatches, "no default environment found")
 }
 
 func (OpenSuite) TestNewFromNameGetDefault(c *C) {
-	defer testing.MakeFakeHome(c, `
-default:
-    erewhemos
-environments:
-    erewhemos:
-        type: dummy
-        state-server: true
-        authorized-keys: i-am-a-key
-        admin-secret: conn-from-name-secret
-`, "erewhemos").Restore()
+	defer testing.MakeFakeHome(c, testing.SingleEnvConfig, testing.SampleCertName).Restore()
 
 	e, err := environs.NewFromName("")
 	c.Assert(err, IsNil)
