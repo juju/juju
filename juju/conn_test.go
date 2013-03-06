@@ -21,9 +21,18 @@ func Test(t *stdtesting.T) {
 
 type NewConnSuite struct {
 	coretesting.LoggingSuite
+	oldJujuEnv string
 }
 
 var _ = Suite(&NewConnSuite{})
+
+func (self *NewConnSuite) SetUpSuite(c *C) {
+	self.oldJujuEnv = os.Getenv("JUJU_ENV")
+}
+
+func (self *NewConnSuite) TearDownSuite(c *C) {
+	os.Setenv("JUJU_ENV", self.oldJujuEnv)
+}
 
 func (cs *NewConnSuite) TearDownTest(c *C) {
 	dummy.Reset()
@@ -61,16 +70,16 @@ func (*NewConnSuite) TestNewConnFromNameGetUnbootstrapped(c *C) {
 	c.Assert(err, ErrorMatches, "dummy environment not bootstrapped")
 }
 
-func (*NewConnSuite) bootstrapEnv(c *C, envName string) {
+func bootstrapEnv(c *C, envName string) {
 	environ, err := environs.NewFromName(envName)
 	c.Assert(err, IsNil)
 	err = environs.Bootstrap(environ, false, panicWrite)
 	c.Assert(err, IsNil)
 }
 
-func (self *NewConnSuite) TestConnMultipleCloseOk(c *C) {
+func (*NewConnSuite) TestConnMultipleCloseOk(c *C) {
 	defer coretesting.MakeSampleHome(c).Restore()
-	self.bootstrapEnv(c, "")
+	bootstrapEnv(c, "")
 	// Error return from here is tested in TestNewConnFromNameNotSetGetsDefault.
 	conn, _ := juju.NewConnFromName("")
 	conn.Close()
@@ -78,23 +87,39 @@ func (self *NewConnSuite) TestConnMultipleCloseOk(c *C) {
 	conn.Close()
 }
 
-func (self *NewConnSuite) TestNewConnFromNameNotSetGetsDefault(c *C) {
+func (*NewConnSuite) TestNewConnFromNameNotSetGetsDefault(c *C) {
 	defer coretesting.MakeSampleHome(c).Restore()
-	self.bootstrapEnv(c, "")
+	bootstrapEnv(c, "")
 	conn, err := juju.NewConnFromName("")
 	c.Assert(err, IsNil)
 	defer conn.Close()
 	c.Assert(conn.Environ.Name(), Equals, coretesting.SampleEnvName)
 }
 
-func (self *NewConnSuite) TestNewConnFromNameNotDefault(c *C) {
+func (*NewConnSuite) TestNewConnFromNameNotDefault(c *C) {
 	defer coretesting.MakeMultipleEnvHome(c).Restore()
 	// The default environment is "erewhemos", so make sure we get what we ask for.
-	self.bootstrapEnv(c, "erewhemos-2")
-	conn, err := juju.NewConnFromName("erewhemos-2")
+	const envName = "erewhemos-2"
+	bootstrapEnv(c, envName)
+	conn, err := juju.NewConnFromName(envName)
 	c.Assert(err, IsNil)
 	defer conn.Close()
-	c.Assert(conn.Environ.Name(), Equals, "erewhemos-2")
+	c.Assert(conn.Environ.Name(), Equals, envName)
+}
+
+func (*NewConnSuite) TestNewConnFromNameRespectsJujuEnv(c *C) {
+	// We need to bootstrap the environment we are ultimately going to get the
+	// connection for or it all goes horribly wrong.  Asking for "" will
+	// respect the environment variable and give us the envName specified in
+	// the environment variable.
+	defer coretesting.MakeMultipleEnvHome(c).Restore()
+	const envName = "erewhemos-2"
+	os.Setenv("JUJU_ENV", envName)
+	bootstrapEnv(c, envName)
+	conn, err := juju.NewConnFromName("")
+	c.Assert(err, IsNil)
+	defer conn.Close()
+	c.Assert(conn.Environ.Name(), Equals, envName)
 }
 
 func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *C) {
