@@ -88,3 +88,42 @@ the working tree to use that.  Commits are now on that new branch, and push
 sends it to launchpad to the `new-work` branch.
 
 Everything else works the same.
+
+
+Useful aliases
+==============
+
+  $ bzr alias commit="commit --strict"
+
+This will mean that whenever you use commit, it adds the `--strict` flag.
+What this means is that it will not allow you to commit if there are unknown
+files.  This is very useful when you create new files but forget to add them
+prior to commit.
+
+If you do have unknown files and want to override the strict behaviour for one
+commit, then you can go...
+
+  $ bzr commit --no-strict -m "Blah blah"
+
+
+Another useful alias is:
+
+  $ bzr alias ll="log --line -r-10..-1"
+
+Will give you something like the following:
+
+{{{
+$ bzr ll
+956: Tim Penhey 2013-03-06 Add some documentation around lightweight checkout usage.
+955: Dave Cheney 2013-03-05 [merge] environs/ec2: try to get tests working on raring
+954: Roger Peppe 2013-03-04 [merge] juju: add NewConnFromState
+953: Dimiter Naydenov 2013-03-01 [merge] state, uniter: Units now use charm URLs
+952: Francesco Banconi 2013-03-01 [merge] Implement the API unexpose command.
+951: William Reade 2013-03-01 [merge] environs: drop InstanceIdAccessor hack
+950: Brad Crittenden 2013-02-28 [merge] Add the 'expose' command to the API.
+949: John A Meinel 2013-02-28 [merge] revert only r943
+948: William Reade 2013-02-28 [merge] history: rewind
+947: Ian Booth 2013-02-28 [merge] Better unauthorised errors
+}}}
+
+
