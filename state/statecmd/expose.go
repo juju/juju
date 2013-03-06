@@ -4,16 +4,12 @@ package statecmd
 
 import (
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 )
-
-// ServiceExposeParams are parameters for making the ServiceExpose call.
-type ServiceExposeParams struct {
-	ServiceName string
-}
 
 // ServiceExpose changes the juju-managed firewall to expose any ports that
 // were also explicitly marked by units as open.
-func ServiceExpose(state *state.State, args ServiceExposeParams) error {
+func ServiceExpose(state *state.State, args params.ServiceExpose) error {
 	svc, err := state.Service(args.ServiceName)
 	if err != nil {
 		return err
