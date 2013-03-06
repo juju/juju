@@ -203,7 +203,7 @@ func newServiceUnitsWatcher(svc *Service) *ServiceUnitsWatcher {
 		commonWatcher: commonWatcher{st: svc.st},
 		known:         make(map[string]Life),
 		out:           make(chan []string),
-		service:       &Service{svc.st, svc.doc}, // Copy so it may be freely refreshed.
+		service:       &Service{st: svc.st, doc: svc.doc}, // Copy so it may be freely refreshed.
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -309,7 +309,7 @@ func newServiceRelationsWatcher(s *Service) *ServiceRelationsWatcher {
 		commonWatcher: commonWatcher{st: s.st},
 		out:           make(chan []int),
 		known:         make(map[string]relationDoc),
-		service:       &Service{s.st, s.doc}, // Copy so it may be freely refreshed
+		service:       &Service{st: s.st, doc: s.doc}, // Copy so it may be freely refreshed
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -696,7 +696,7 @@ type UnitsWatcher struct {
 
 // WatchSubordinateUnits returns a UnitsWatcher tracking the unit's subordinate units.
 func (u *Unit) WatchSubordinateUnits() *UnitsWatcher {
-	u = &Unit{u.st, u.doc}
+	u = &Unit{st: u.st, doc: u.doc}
 	coll := u.st.units.Name
 	getUnits := func() ([]string, error) {
 		if err := u.Refresh(); err != nil {
@@ -710,7 +710,7 @@ func (u *Unit) WatchSubordinateUnits() *UnitsWatcher {
 // WatchPrincipalUnits returns a UnitsWatcher tracking the machine's principal
 // units.
 func (m *Machine) WatchPrincipalUnits() *UnitsWatcher {
-	m = &Machine{m.st, m.doc}
+	m = &Machine{st: m.st, doc: m.doc}
 	coll := m.st.machines.Name
 	getUnits := func() ([]string, error) {
 		if err := m.Refresh(); err != nil {
@@ -1105,7 +1105,7 @@ func newMachineUnitsWatcher(m *Machine) *MachineUnitsWatcher {
 		out:           make(chan []string),
 		in:            make(chan watcher.Change),
 		known:         make(map[string]Life),
-		machine:       &Machine{m.st, m.doc}, // Copy so it may be freely refreshed
+		machine:       &Machine{st: m.st, doc: m.doc}, // Copy so it may be freely refreshed
 	}
 	go func() {
 		defer w.tomb.Done()

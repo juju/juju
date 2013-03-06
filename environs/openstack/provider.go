@@ -21,6 +21,7 @@ import (
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -62,10 +63,10 @@ func (p environProvider) BoilerplateConfig() string {
 ## https://juju.ubuntu.com/get-started/openstack/
 openstack:
   type: openstack
-  # Specifies whether the nodes are accessible via a public IP address.
-  # For installations where IP addresses have limited availability, ssh tunnelling
-  # may be a preferred connection option.
-  use-floating-ip: false
+  # Specifies whether the use of a floating IP address is required to give the nodes
+  # a public IP address. Some installations assign public IP addresses by default without
+  # requiring a floating IP address.
+  # use-floating-ip: false
   admin-secret: {{rand}}
   # Globally unique swift bucket name
   control-bucket: juju-{{rand}}
@@ -89,11 +90,10 @@ openstack:
 ## https://juju.ubuntu.com/get-started/hp-cloud/
 hpcloud:
   type: openstack
-  # Specifies whether the nodes are accessible via a public IP address.
-  # For installations where IP addresses have limited availability, ssh tunnelling
-  # may be a preferred connection option. HP Cloud seems to have lots of available
-  # IP addresses.
-  # use-floating-ip: false
+  # Specifies whether the use of a floating IP address is required to give the nodes
+  # a public IP address. Some installations assign public IP addresses by default without
+  # requiring a floating IP address.
+  use-floating-ip: false
   admin-secret: {{rand}}
   # Globally unique swift bucket name
   control-bucket: juju-{{rand}}
@@ -146,15 +146,18 @@ func (p environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}
 }
 
 func (p environProvider) PublicAddress() (string, error) {
-	return fetchMetadata("public-hostname")
+	return fetchMetadata("public-ipv4")
 }
 
 func (p environProvider) PrivateAddress() (string, error) {
-	return fetchMetadata("local-hostname")
+	return fetchMetadata("local-ipv4")
 }
 
 func (p environProvider) InstanceId() (state.InstanceId, error) {
 	str, err := fetchInstanceUUID()
+	if err != nil {
+		str, err = fetchLegacyId()
+	}
 	return state.InstanceId(str), err
 }
 
@@ -163,11 +166,15 @@ func (p environProvider) InstanceId() (state.InstanceId, error) {
 // server when needed.
 var metadataHost = "http://169.254.169.254"
 
+// metadataJSON holds the path of the instance's JSON metadata.
+// It is a variable so that tests can change it when needed.
+var metadataJSON = "2012-08-10/meta-data.json"
+
 // fetchMetadata fetches a single atom of data from the openstack instance metadata service.
 // http://docs.amazonwebservices.com/AWSEC2/latest/UserGuide/AESDG-chapter-instancedata.html
-// (the same specs is implemented in OpenStack, hence the reference)
+// (the same specs is implemented in ec2, hence the reference)
 func fetchMetadata(name string) (value string, err error) {
-	uri := fmt.Sprintf("%s/2011-01-01/meta-data/%s", metadataHost, name)
+	uri := fmt.Sprintf("%s/latest/meta-data/%s", metadataHost, name)
 	data, err := retryGet(uri)
 	if err != nil {
 		return "", err
@@ -179,7 +186,7 @@ func fetchMetadata(name string) (value string, err error) {
 // the same thing as the "instance-id" in the ec2-style metadata. This only
 // works on openstack Folsom or later.
 func fetchInstanceUUID() (string, error) {
-	uri := fmt.Sprintf("%s/2012-08-10/meta-data.json", metadataHost)
+	uri := fmt.Sprintf("%s/%s", metadataHost, metadataJSON)
 	data, err := retryGet(uri)
 	if err != nil {
 		return "", err
@@ -194,6 +201,29 @@ func fetchInstanceUUID() (string, error) {
 		return "", fmt.Errorf("no instance UUID found")
 	}
 	return uuid.Uuid, nil
+}
+
+// fetchLegacyId fetches the openstack numeric instance Id, which is derived
+// from the "instance-id" in the ec2-style metadata. The ec2 id contains
+// the numeric instance id encoded as hex with a "i-" prefix.
+// This numeric id is required for older versions of Openstack which do
+// not yet support providing UUID's via the metadata. HP Cloud is one such case.
+// Even though using the numeric id is deprecated in favour of using UUID, where
+// UUID is not yet supported, we need to revert to numeric id.
+func fetchLegacyId() (string, error) {
+	instId, err := fetchMetadata("instance-id")
+	if err != nil {
+		return "", err
+	}
+	if strings.Index(instId, "i-") >= 0 {
+		hex := strings.SplitAfter(instId, "i-")[1]
+		id, err := strconv.ParseInt("0x"+hex, 0, 32)
+		if err != nil {
+			return "", err
+		}
+		instId = fmt.Sprintf("%d", id)
+	}
+	return instId, nil
 }
 
 func retryGet(uri string) (data []byte, err error) {
@@ -910,7 +940,7 @@ func (e *environ) Destroy(ensureInsts []environs.Instance) error {
 }
 
 func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
-	panic("AssignmentPolicy not implemented")
+	return state.AssignUnused
 }
 
 func (e *environ) globalGroupName() string {

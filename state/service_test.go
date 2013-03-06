@@ -1065,3 +1065,9 @@ func (s *ServiceSuite) TestWatchServiceConfig(c *C) {
 	case <-time.After(100 * time.Millisecond):
 	}
 }
+
+func (s *ServiceSuite) TestAnnotatorForService(c *C) {
+	testAnnotator(c, func() (annotator, error) {
+		return s.State.Service("mysql")
+	})
+}
