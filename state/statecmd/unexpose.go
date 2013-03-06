@@ -3,6 +3,7 @@
 package statecmd
 
 import (
+	_ "launchpad.net/juju-core/juju" // TODO(rog) remove this
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 )
