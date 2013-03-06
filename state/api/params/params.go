@@ -114,13 +114,6 @@ func (d *Delta) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// var newEntityInfo = map[string]func() *EntityInfo{
-// 	"machine":  func() *MachineInfo { return new(MachineInfo) },
-// 	"service":  func() *ServiceInfo { return new(ServiceInfo) },
-// 	"unit":     func() *UnitInfo { return new(UnitInfo) },
-// 	"relation": func() *RelationInfo { return new(RelationInfo) },
-// }
-
 func (d *Delta) UnmarshalJSON(data []byte) error {
 	var elements []json.RawMessage
 	if err := json.Unmarshal(data, &elements); err != nil {
