@@ -301,11 +301,6 @@ func (c *srvClient) SetAnnotation(params api.SetAnnotationParams) error {
 	return entity.SetAnnotation(params.Key, params.Value)
 }
 
-type rpcCreds struct {
-	EntityName string
-	Password   string
-}
-
 // Login logs in with the provided credentials.
 // All subsequent requests on the connection will
 // act as the authenticated user.
