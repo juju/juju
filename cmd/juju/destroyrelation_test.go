@@ -12,7 +12,8 @@ type DestroyRelationSuite struct {
 var _ = Suite(&DestroyRelationSuite{})
 
 func runDestroyRelation(c *C, args ...string) error {
-	return testing.RunCommand(c, &DestroyRelationCommand{}, args)
+	_, err := testing.RunCommand(c, &DestroyRelationCommand{}, args)
+	return err
 }
 
 func (s *DestroyRelationSuite) TestDestroyRelation(c *C) {

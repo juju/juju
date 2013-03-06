@@ -3,13 +3,14 @@ package uniter
 import (
 	"errors"
 	"fmt"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/worker"
-	"launchpad.net/juju-core/worker/uniter/charm"
+	ucharm "launchpad.net/juju-core/worker/uniter/charm"
 	"launchpad.net/juju-core/worker/uniter/hook"
 	"launchpad.net/tomb"
 )
@@ -57,11 +58,8 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 		if u.s, err = u.sf.Read(); err == ErrNoStateFile {
 			// When no state exists, start from scratch.
 			log.Printf("worker/uniter: charm is not deployed")
-			sch, _, err := u.service.Charm()
-			if err != nil {
-				return nil, err
-			}
-			return ModeInstalling(sch), nil
+			curl, _ := u.service.CharmURL()
+			return ModeInstalling(curl), nil
 		} else if err != nil {
 			return nil, err
 		}
@@ -105,26 +103,23 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 	}
 
 	// Resume interrupted deployment operations.
-	sch, err := u.st.Charm(u.s.CharmURL)
-	if err != nil {
-		return nil, err
-	}
+	curl := u.s.CharmURL
 	if u.s.Op == Install {
 		log.Printf("worker/uniter: resuming charm install")
-		return ModeInstalling(sch), nil
+		return ModeInstalling(curl), nil
 	} else if u.s.Op == Upgrade {
 		log.Printf("worker/uniter: resuming charm upgrade")
-		return ModeUpgrading(sch), nil
+		return ModeUpgrading(curl), nil
 	}
 	panic(fmt.Errorf("unhandled uniter operation %q", u.s.Op))
 }
 
 // ModeInstalling is responsible for the initial charm deployment.
-func ModeInstalling(sch *state.Charm) Mode {
-	name := fmt.Sprintf("ModeInstalling %s", sch.URL())
+func ModeInstalling(curl *charm.URL) Mode {
+	name := fmt.Sprintf("ModeInstalling %s", curl)
 	return func(u *Uniter) (next Mode, err error) {
 		defer modeContext(name, &err)()
-		if err = u.deploy(sch, Install); err != nil {
+		if err = u.deploy(curl, Install); err != nil {
 			return nil, err
 		}
 		return ModeContinue, nil
@@ -132,12 +127,12 @@ func ModeInstalling(sch *state.Charm) Mode {
 }
 
 // ModeUpgrading is responsible for upgrading the charm.
-func ModeUpgrading(sch *state.Charm) Mode {
-	name := fmt.Sprintf("ModeUpgrading %s", sch.URL())
+func ModeUpgrading(curl *charm.URL) Mode {
+	name := fmt.Sprintf("ModeUpgrading %s", curl)
 	return func(u *Uniter) (next Mode, err error) {
 		defer modeContext(name, &err)()
-		if err = u.deploy(sch, Upgrade); err == charm.ErrConflict {
-			return ModeConflicted(sch), nil
+		if err = u.deploy(curl, Upgrade); err == ucharm.ErrConflict {
+			return ModeConflicted(curl), nil
 		} else if err != nil {
 			return nil, err
 		}
@@ -235,7 +230,7 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 	if err = u.unit.SetStatus(state.UnitStarted, ""); err != nil {
 		return nil, err
 	}
-	url, err := charm.ReadCharmURL(u.charm)
+	url, err := ucharm.ReadCharmURL(u.charm)
 	if err != nil {
 		return nil, err
 	}
@@ -280,8 +275,8 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 				r.StartHooks()
 			}
 			continue
-		case upgrade := <-u.f.UpgradeEvents():
-			return ModeUpgrading(upgrade), nil
+		case curl := <-u.f.UpgradeEvents():
+			return ModeUpgrading(curl), nil
 		}
 		if err := u.runHook(hi); err == errHookFailed {
 			return ModeHookError, nil
@@ -347,7 +342,7 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 	if err = u.unit.SetStatus(state.UnitError, msg); err != nil {
 		return nil, err
 	}
-	url, err := charm.ReadCharmURL(u.charm)
+	url, err := ucharm.ReadCharmURL(u.charm)
 	if err != nil {
 		return nil, err
 	}
@@ -375,8 +370,8 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 				return nil, err
 			}
 			return ModeContinue, nil
-		case upgrade := <-u.f.UpgradeEvents():
-			return ModeUpgrading(upgrade), nil
+		case curl := <-u.f.UpgradeEvents():
+			return ModeUpgrading(curl), nil
 		}
 	}
 	panic("unreachable")
@@ -385,14 +380,14 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 // ModeConflicted is responsible for watching and responding to:
 // * user resolution of charm upgrade conflicts
 // * forced charm upgrade requests
-func ModeConflicted(sch *state.Charm) Mode {
+func ModeConflicted(curl *charm.URL) Mode {
 	return func(u *Uniter) (next Mode, err error) {
 		defer modeContext("ModeConflicted", &err)()
 		if err = u.unit.SetStatus(state.UnitError, "upgrade failed"); err != nil {
 			return nil, err
 		}
 		u.f.WantResolvedEvent()
-		u.f.WantUpgradeEvent(sch.URL(), true)
+		u.f.WantUpgradeEvent(curl, true)
 		for {
 			select {
 			case <-u.tomb.Dying():
@@ -405,12 +400,12 @@ func ModeConflicted(sch *state.Charm) Mode {
 				if err != nil {
 					return nil, err
 				}
-				return ModeUpgrading(sch), nil
-			case upgrade := <-u.f.UpgradeEvents():
+				return ModeUpgrading(curl), nil
+			case curl := <-u.f.UpgradeEvents():
 				if err := u.charm.Revert(); err != nil {
 					return nil, err
 				}
-				return ModeUpgrading(upgrade), nil
+				return ModeUpgrading(curl), nil
 			}
 		}
 		panic("unreachable")

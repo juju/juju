@@ -13,7 +13,8 @@ type DestroyServiceSuite struct {
 var _ = Suite(&DestroyServiceSuite{})
 
 func runDestroyService(c *C, args ...string) error {
-	return testing.RunCommand(c, &DestroyServiceCommand{}, args)
+	_, err := testing.RunCommand(c, &DestroyServiceCommand{}, args)
+	return err
 }
 
 func (s *DestroyServiceSuite) TestSuccess(c *C) {
