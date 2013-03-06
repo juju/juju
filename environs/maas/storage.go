@@ -86,6 +86,7 @@ func (stor *maasStorage) retrieveFileObject(name string) (gomaasapi.MAASObject, 
 	return obj, nil
 }
 
+// Get is specified in the Storage interface.
 func (stor *maasStorage) Get(name string) (io.ReadCloser, error) {
 	fileObj, err := stor.retrieveFileObject(name)
 	if err != nil {
@@ -125,6 +126,7 @@ func (stor *maasStorage) extractFilenames(listResult gomaasapi.JSONObject) ([]st
 	return result, nil
 }
 
+// List is specified in the Storage interface.
 func (stor *maasStorage) List(prefix string) ([]string, error) {
 	params := make(url.Values)
 	if len(prefix) > 0 {
@@ -138,6 +140,7 @@ func (stor *maasStorage) List(prefix string) ([]string, error) {
 	return snapshot.extractFilenames(obj)
 }
 
+// URL is specified in the Storage interface.
 func (stor *maasStorage) URL(name string) (string, error) {
 	fileObj, err := stor.retrieveFileObject(name)
 	if err != nil {
@@ -157,6 +160,7 @@ func (stor *maasStorage) URL(name string) (string, error) {
 	return fullURL.String(), nil
 }
 
+// Put is specified in the Storage interface.
 func (stor *maasStorage) Put(name string, r io.Reader, length int64) error {
 	data, err := ioutil.ReadAll(io.LimitReader(r, length))
 	if err != nil {
@@ -169,6 +173,7 @@ func (stor *maasStorage) Put(name string, r io.Reader, length int64) error {
 	return err
 }
 
+// Remove is specified in the Storage interface.
 func (*maasStorage) Remove(name string) error {
 	panic("Not implemented.")
 }
