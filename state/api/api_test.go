@@ -471,22 +471,6 @@ func (s *suite) TestClientServerSet(c *C) {
 	})
 }
 
-func (s *suite) TestStateWatch(c *C) {
-	s.setUpScenario(c)
-	c.Logf("watching")
-	w := s.State.Watch()
-	go func(){
-		time.Sleep(10 * time.Second)
-		err := w.Stop()
-		c.Check(err, IsNil)
-	}()
-	for ch := range w.Changes() {
-		c.Logf("got change %#v", ch)
-	}
-	c.Logf("eof")
-	time.Sleep(200 * time.Millisecond)
-}
-
 func (s *suite) TestClientServiceSetYAML(c *C) {
 	dummy, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, IsNil)
