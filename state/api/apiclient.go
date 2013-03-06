@@ -3,7 +3,7 @@ package api
 import (
 	"fmt"
 	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/state/statecmd"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/tomb"
 	"strings"
 	"sync"
@@ -13,7 +13,7 @@ import (
 type Machine struct {
 	st  *State
 	id  string
-	doc RPCMachine
+	doc params.Machine
 }
 
 // Client represents the client-accessible part of the state.
@@ -49,7 +49,7 @@ func (c *Client) Status() (*Status, error) {
 
 // ServiceSet sets configuration options on a service.
 func (c *Client) ServiceSet(service string, options map[string]string) error {
-	p := statecmd.ServiceSetParams{
+	p := params.ServiceSet{
 		ServiceName: service,
 		Options:     options,
 	}
@@ -60,7 +60,7 @@ func (c *Client) ServiceSet(service string, options map[string]string) error {
 // ServiceSetYAML sets configuration options on a service
 // given options in YAML format.
 func (c *Client) ServiceSetYAML(service string, yaml string) error {
-	p := statecmd.ServiceSetYAMLParams{
+	p := params.ServiceSetYAML{
 		ServiceName: service,
 		Config:      yaml,
 	}
@@ -69,9 +69,9 @@ func (c *Client) ServiceSetYAML(service string, yaml string) error {
 }
 
 // ServiceGet returns the configuration for the named service.
-func (c *Client) ServiceGet(service string) (*statecmd.ServiceGetResults, error) {
-	var results statecmd.ServiceGetResults
-	params := statecmd.ServiceGetParams{ServiceName: service}
+func (c *Client) ServiceGet(service string) (*params.ServiceGetResults, error) {
+	var results params.ServiceGetResults
+	params := params.ServiceGet{ServiceName: service}
 	err := c.st.client.Call("Client", "", "ServiceGet", params, &results)
 	if err != nil {
 		return nil, clientError(err)
@@ -82,7 +82,7 @@ func (c *Client) ServiceGet(service string) (*statecmd.ServiceGetResults, error)
 // ServiceExpose changes the juju-managed firewall to expose any ports that
 // were also explicitly marked by units as open.
 func (c *Client) ServiceExpose(service string) error {
-	params := statecmd.ServiceExposeParams{ServiceName: service}
+	params := params.ServiceExpose{ServiceName: service}
 	err := c.st.client.Call("Client", "", "ServiceExpose", params, nil)
 	if err != nil {
 		return clientError(err)
@@ -93,7 +93,7 @@ func (c *Client) ServiceExpose(service string) error {
 // ServiceUnexpose changes the juju-managed firewall to unexpose any ports that
 // were also explicitly marked by units as open.
 func (c *Client) ServiceUnexpose(service string) error {
-	params := statecmd.ServiceUnexposeParams{ServiceName: service}
+	params := params.ServiceUnexpose{ServiceName: service}
 	err := c.st.client.Call("Client", "", "ServiceUnexpose", params, nil)
 	if err != nil {
 		return clientError(err)
@@ -103,12 +103,12 @@ func (c *Client) ServiceUnexpose(service string) error {
 
 // ServiceAddUnit adds a given number of units to a service.
 func (c *Client) ServiceAddUnit(service string, numUnits int) error {
-	params := statecmd.ServiceAddUnitParams{
+	params := params.ServiceAddUnit{
 		ServiceName: service,
-		NumUnits: numUnits
+		NumUnits: numUnits,
 	}
 	err := c.st.client.Call("Client", "", "ServiceAddUnit", params, nil)
-	if err != nill {
+	if err != nil {
 		return clientError(err)
 	}
 	return nil
@@ -146,7 +146,7 @@ func (st *State) Machine(id string) (*Machine, error) {
 type Unit struct {
 	st   *State
 	name string
-	doc  RPCUnit
+	doc  params.Unit
 }
 
 // Unit returns a unit by name.
@@ -165,7 +165,7 @@ func (st *State) Unit(name string) (*Unit, error) {
 // Subsequent requests on the state will act as that entity.
 // This method is usually called automatically by Open.
 func (st *State) Login(entityName, password string) error {
-	return st.call("Admin", "", "Login", &RPCCreds{
+	return st.call("Admin", "", "Login", &params.Creds{
 		EntityName: entityName,
 		Password:   password,
 	}, nil)
@@ -208,7 +208,7 @@ func (m *Machine) InstanceId() (string, bool) {
 
 // SetPassword sets the password for the machine's agent.
 func (m *Machine) SetPassword(password string) error {
-	return m.st.call("Machine", m.id, "SetPassword", &RPCPassword{
+	return m.st.call("Machine", m.id, "SetPassword", &params.Password{
 		Password: password,
 	}, nil)
 }
@@ -243,7 +243,7 @@ func newEntityWatcher(st *State, etype, id string) *EntityWatcher {
 }
 
 func (w *EntityWatcher) loop() error {
-	var id RPCEntityWatcherId
+	var id params.EntityWatcherId
 	if err := w.st.call(w.etype, w.eid, "Watch", nil, &id); err != nil {
 		return err
 	}
@@ -314,7 +314,7 @@ func (u *Unit) Refresh() error {
 
 // SetPassword sets the password for the unit's agent.
 func (u *Unit) SetPassword(password string) error {
-	return u.st.call("Unit", u.name, "SetPassword", &RPCPassword{
+	return u.st.call("Unit", u.name, "SetPassword", &params.Password{
 		Password: password,
 	}, nil)
 }

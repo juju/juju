@@ -5,14 +5,10 @@ package statecmd
 import (
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 )
 
-type ServiceAddUnitParams struct {
-	ServiceName string
-	NumUnits int
-}
-
-func ServiceAddUnit(state *state.State, args ServiceAddUnitParams) error {
+func ServiceAddUnit(state *state.State, args params.ServiceAddUnit) error {
 	conn, err := juju.NewConnFromState(state)
 	if err != nil {
 		return err
@@ -21,6 +17,6 @@ func ServiceAddUnit(state *state.State, args ServiceAddUnitParams) error {
 	if err != nil {
 		return err
 	}
-	_, err = service.AddUnits(service, args.NumUnits)
+	_, err = conn.AddUnits(service, args.NumUnits)
 	return err
 }

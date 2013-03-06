@@ -9,8 +9,8 @@ import (
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
-	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
 	"net"
 	stdtesting "testing"
@@ -899,7 +899,7 @@ func (s *suite) TestClientServiceGet(c *C) {
 	s.setUpScenario(c)
 	config, err := s.APIState.Client().ServiceGet("wordpress")
 	c.Assert(err, IsNil)
-	c.Assert(config, DeepEquals, &statecmd.ServiceGetResults{
+	c.Assert(config, DeepEquals, &params.ServiceGetResults{
 		Service: "wordpress",
 		Charm:   "wordpress",
 		Settings: map[string]interface{}{
