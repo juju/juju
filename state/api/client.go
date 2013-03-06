@@ -1,4 +1,4 @@
-package jujuapi
+package api
 
 import (
 	"code.google.com/p/go.net/websocket"
@@ -95,6 +95,13 @@ func (s *State) call(objType, id, request string, params, response interface{}) 
 
 func (s *State) Close() error {
 	return s.client.Close()
+}
+
+// RPCClient returns the RPC client for the state, so that testing
+// functions can tickle parts of the API that the conventional entry
+// points don't reach. This is exported for testing purposes only.
+func (s *State) RPCClient() *rpc.Client {
+	return s.client
 }
 
 type clientReq struct {

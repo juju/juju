@@ -1,4 +1,4 @@
-package jujuapi
+package apiserver
 
 import (
 	"code.google.com/p/go.net/websocket"
