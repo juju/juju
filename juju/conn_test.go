@@ -66,7 +66,7 @@ environments:
 `
 
 func (*NewConnSuite) TestNewConnFromNameGetUnbootstrapped(c *C) {
-	defer coretesting.MakeFakeHome(c, homeConfig, "erewhemos").Restore()
+	defer coretesting.MakeSampleHome(c).Restore()
 
 	_, err := juju.NewConnFromName("")
 	c.Assert(err, ErrorMatches, "dummy environment not bootstrapped")
@@ -80,7 +80,7 @@ func (*NewConnSuite) bootstrapEnv(c *C, envName string) {
 }
 
 func (self *NewConnSuite) TestConnMultipleCloseOk(c *C) {
-	defer coretesting.MakeFakeHome(c, homeConfig, "erewhemos").Restore()
+	defer coretesting.MakeSampleHome(c).Restore()
 	self.bootstrapEnv(c, "")
 	// Error return from here is tested in TestNewConnFromNameNotSetGetsDefault.
 	conn, _ := juju.NewConnFromName("")
@@ -90,7 +90,7 @@ func (self *NewConnSuite) TestConnMultipleCloseOk(c *C) {
 }
 
 func (self *NewConnSuite) TestNewConnFromNameNotSetGetsDefault(c *C) {
-	defer coretesting.MakeFakeHome(c, homeConfig, "erewhemos").Restore()
+	defer coretesting.MakeSampleHome(c).Restore()
 	self.bootstrapEnv(c, "")
 	conn, err := juju.NewConnFromName("")
 	c.Assert(err, IsNil)

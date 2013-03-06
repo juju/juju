@@ -10,6 +10,7 @@ import (
 const SampleEnvName = "erewhemos"
 const EnvDefault = "default:\n  " + SampleEnvName + "\n"
 
+// Environment names below are explicit as it makes them more readable.
 const SingleEnvConfigNoDefault = `
 environments:
     erewhemos:
@@ -73,4 +74,8 @@ func HomePath(names ...string) string {
 
 func (h FakeHome) Restore() {
 	os.Setenv("HOME", string(h))
+}
+
+func MakeSampleHome(c *C) FakeHome {
+	return MakeFakeHome(c, MultipleEnvConfig, SampleCertName)
 }
