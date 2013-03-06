@@ -320,8 +320,6 @@ func (s *StorageSuite) TestPutToExistingFileTruncatesAtGivenLength(c *C) {
 	c.Check(buf, DeepEquals, newContents)
 }
 
-// These tests not satisfied yet.  Coming in next branch!
-/*
 func (s *StorageSuite) TestRemoveDeletesFile(c *C) {
 	const filename = "doomed.txt"
 	storage := NewStorage(s.environ)
@@ -349,4 +347,3 @@ func (s *StorageSuite) TestRemoveIsIdempotent(c *C) {
 	err = storage.Remove(filename)
 	c.Assert(err, IsNil)
 }
-*/
