@@ -1,10 +1,12 @@
-package api
+package apiserver
 
 import (
 	"code.google.com/p/go.net/websocket"
 	"fmt"
+	_ "launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/statecmd"
 	statewatcher "launchpad.net/juju-core/state/watcher"
 	"strconv"
@@ -223,17 +225,17 @@ func (w srvEntityWatcher) Next() error {
 	return err
 }
 
-func (c *srvClient) Status() (Status, error) {
+func (c *srvClient) Status() (api.Status, error) {
 	ms, err := c.root.srv.state.AllMachines()
 	if err != nil {
-		return Status{}, err
+		return api.Status{}, err
 	}
-	status := Status{
-		Machines: make(map[string]MachineInfo),
+	status := api.Status{
+		Machines: make(map[string]api.MachineInfo),
 	}
 	for _, m := range ms {
 		instId, _ := m.InstanceId()
-		status.Machines[m.Id()] = MachineInfo{
+		status.Machines[m.Id()] = api.MachineInfo{
 			InstanceId: string(instId),
 		}
 	}
@@ -269,57 +271,40 @@ func (c *srvClient) ServiceUnexpose(args statecmd.ServiceUnexposeParams) error {
 
 // EnvironmentInfo returns information about the current environment (default
 // series and type).
-func (c *srvClient) EnvironmentInfo() (EnvironmentInfo, error) {
+func (c *srvClient) EnvironmentInfo() (api.EnvironmentInfo, error) {
 	conf, err := c.root.srv.state.EnvironConfig()
 	if err != nil {
-		return EnvironmentInfo{}, err
+		return api.EnvironmentInfo{}, err
 	}
-	info := EnvironmentInfo{
+	info := api.EnvironmentInfo{
 		DefaultSeries: conf.DefaultSeries(),
 		ProviderType:  conf.Type(),
 	}
 	return info, nil
 }
 
-type rpcCreds struct {
-	EntityName string
-	Password   string
-}
-
 // Login logs in with the provided credentials.
 // All subsequent requests on the connection will
 // act as the authenticated user.
-func (a *srvAdmin) Login(c rpcCreds) error {
+func (a *srvAdmin) Login(c api.RPCCreds) error {
 	return a.root.user.login(a.root.srv.state, c.EntityName, c.Password)
 }
 
-type rpcMachine struct {
-	InstanceId string
-}
-
 // Get retrieves all the details of a machine.
-func (m *srvMachine) Get() (info rpcMachine) {
+func (m *srvMachine) Get() (info api.RPCMachine) {
 	instId, _ := m.m.InstanceId()
 	info.InstanceId = string(instId)
 	return
 }
 
-type rpcEntityWatcherId struct {
-	EntityWatcherId string
-}
-
-func (m *srvMachine) Watch() (rpcEntityWatcherId, error) {
+func (m *srvMachine) Watch() (api.RPCEntityWatcherId, error) {
 	w := m.m.Watch()
 	if _, ok := <-w.Changes(); !ok {
-		return rpcEntityWatcherId{}, statewatcher.MustErr(w)
+		return api.RPCEntityWatcherId{}, statewatcher.MustErr(w)
 	}
-	return rpcEntityWatcherId{
+	return api.RPCEntityWatcherId{
 		EntityWatcherId: m.root.watchers.register(w).id,
 	}, nil
-}
-
-type rpcPassword struct {
-	Password string
 }
 
 func setPassword(e state.AuthEntity, password string) error {
@@ -332,7 +317,7 @@ func setPassword(e state.AuthEntity, password string) error {
 }
 
 // SetPassword sets the machine's password.
-func (m *srvMachine) SetPassword(p rpcPassword) error {
+func (m *srvMachine) SetPassword(p api.RPCPassword) error {
 	// Allow:
 	// - the machine itself.
 	// - the environment manager.
@@ -346,15 +331,15 @@ func (m *srvMachine) SetPassword(p rpcPassword) error {
 }
 
 // Get retrieves all the details of a unit.
-func (u *srvUnit) Get() (rpcUnit, error) {
-	var ru rpcUnit
+func (u *srvUnit) Get() (api.RPCUnit, error) {
+	var ru api.RPCUnit
 	ru.DeployerName, _ = u.u.DeployerName()
 	// TODO add other unit attributes
 	return ru, nil
 }
 
 // SetPassword sets the unit's password.
-func (u *srvUnit) SetPassword(p rpcPassword) error {
+func (u *srvUnit) SetPassword(p api.RPCPassword) error {
 	ename := u.root.user.entity().EntityName()
 	// Allow:
 	// - the unit itself.
@@ -371,25 +356,14 @@ func (u *srvUnit) SetPassword(p rpcPassword) error {
 	return setPassword(u.u, p.Password)
 }
 
-type rpcUnit struct {
-	DeployerName string
-	// TODO(rog) other unit attributes.
-}
-
 // SetPassword sets the user's password.
-func (u *srvUser) SetPassword(p rpcPassword) error {
+func (u *srvUser) SetPassword(p api.RPCPassword) error {
 	return setPassword(u.u, p.Password)
 }
 
-type rpcUser struct {
-	// This is a placeholder for any information
-	// that may be associated with a user in the
-	// future.
-}
-
 // Get retrieves all details of a user.
-func (u *srvUser) Get() (rpcUser, error) {
-	return rpcUser{}, nil
+func (u *srvUser) Get() (api.RPCUser, error) {
+	return api.RPCUser{}, nil
 }
 
 // authUser holds login details. It's ok to call
