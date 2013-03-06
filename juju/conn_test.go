@@ -73,48 +73,21 @@ func (*NewConnSuite) TestNewConnFromNameGetUnbootstrapped(c *C) {
 }
 
 func (*NewConnSuite) TestNewConnFromName(c *C) {
-	home := c.MkDir()
-	defer os.Setenv("HOME", os.Getenv("HOME"))
-	os.Setenv("HOME", home)
-	conn, err := juju.NewConnFromName("")
-	c.Assert(conn, IsNil)
-	c.Assert(err, ErrorMatches, ".*: no such file or directory")
-
-	if err := os.Mkdir(filepath.Join(home, ".juju"), 0755); err != nil {
-		c.Fatal("Could not create directory structure")
-	}
-	envs := filepath.Join(home, ".juju", "environments.yaml")
-	err = ioutil.WriteFile(envs, []byte(`
-default:
-    erewhemos
-environments:
-    erewhemos:
-        type: dummy
-        state-server: true
-        authorized-keys: i-am-a-key
-        admin-secret: conn-from-name-secret
-`), 0644)
-
-	err = ioutil.WriteFile(filepath.Join(home, ".juju", "erewhemos-cert.pem"), []byte(coretesting.CACert), 0600)
-	c.Assert(err, IsNil)
-	err = ioutil.WriteFile(filepath.Join(home, ".juju", "erewhemos-private-key.pem"), []byte(coretesting.CAKey), 0600)
-	c.Assert(err, IsNil)
+	defer coretesting.MakeFakeHome(c, homeConfig, "erewhemos").Restore()
 
 	environ, err := environs.NewFromName("")
-	c.Assert(err, IsNil)
 	err = environs.Bootstrap(environ, false, panicWrite)
 	c.Assert(err, IsNil)
 
-	conn, err = juju.NewConnFromName("")
+	conn, err := juju.NewConnFromName("")
 	c.Assert(err, IsNil)
 	defer conn.Close()
-	c.Assert(conn.Environ, NotNil)
 	c.Assert(conn.Environ.Name(), Equals, "erewhemos")
 	c.Assert(conn.State, NotNil)
 
 	// Reset the admin password so the state db can be reused.
-	err = conn.State.SetAdminMongoPassword("")
-	c.Assert(err, IsNil)
+	//err = conn.State.SetAdminMongoPassword("")
+	//c.Assert(err, IsNil)
 	// Close the conn (thereby closing its state) a couple of times to
 	// verify that multiple closes will not panic. We ignore the error,
 	// as the underlying State will return an error the second
