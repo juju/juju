@@ -285,8 +285,8 @@ func (c *srvClient) EnvironmentInfo() (api.EnvironmentInfo, error) {
 }
 
 // GetAnnotations returns annotations about a given entity.
-func (c *srvClient) GetAnnotations(params api.GetAnnotationsParams) (api.Annotations, error) {
-	entity, err := c.root.srv.state.Entity(params.Id)
+func (c *srvClient) GetAnnotations(args params.GetAnnotations) (api.Annotations, error) {
+	entity, err := c.root.srv.state.Entity(args.Id)
 	if err != nil {
 		return api.Annotations{}, err
 	}
@@ -294,12 +294,12 @@ func (c *srvClient) GetAnnotations(params api.GetAnnotationsParams) (api.Annotat
 }
 
 // SetAnnotation stores an annotation about a given entity.
-func (c *srvClient) SetAnnotation(params api.SetAnnotationParams) error {
-	entity, err := c.root.srv.state.Entity(params.Id)
+func (c *srvClient) SetAnnotation(args params.SetAnnotation) error {
+	entity, err := c.root.srv.state.Entity(args.Id)
 	if err != nil {
 		return err
 	}
-	return entity.SetAnnotation(params.Key, params.Value)
+	return entity.SetAnnotation(args.Key, args.Value)
 }
 
 // Login logs in with the provided credentials.

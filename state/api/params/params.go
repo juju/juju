@@ -70,3 +70,15 @@ type User struct {
 	// that may be associated with a user in the
 	// future.
 }
+
+// GetAnnotations stores parameters for making the GetAnnotations call.
+type GetAnnotations struct {
+	Id string
+}
+
+// SetAnnotation stores parameters for making the SetAnnotation call.
+type SetAnnotation struct {
+	Id    string
+	Key   string
+	Value string
+}
