@@ -6,6 +6,7 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/statecmd"
 )
 
@@ -44,7 +45,7 @@ func (c *ExposeCommand) Run(_ *cmd.Context) error {
 	}
 	defer conn.Close()
 
-	params := statecmd.ServiceExposeParams{
+	params := params.ServiceExpose{
 		ServiceName: c.ServiceName,
 	}
 	return statecmd.ServiceExpose(conn.State, params)
