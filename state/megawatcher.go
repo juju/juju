@@ -8,13 +8,14 @@ import (
 
 // Delta holds details of a change to the environment.
 type Delta struct {
-	// If Remove is true, the entity has been removed;
+	// If Removed is true, the entity has been removed;
 	// otherwise it has been created or changed.
-	Remove bool
+	Removed bool
 	// Entity holds data about the entity that has changed.
 	Entity EntityInfo
 }
 
+// MarshalJSON implements json.Unmarshaller.
 func (d *Delta) MarshalJSON() ([]byte, error) {
 	b, err := json.Marshal(d.Entity)
 	if err != nil {
@@ -23,7 +24,7 @@ func (d *Delta) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	buf.WriteByte('[')
 	c := "change"
-	if d.Remove {
+	if d.Removed {
 		c = "remove"
 	}
 	fmt.Fprintf(&buf, "%q,%q,", d.Entity.EntityKind(), c)

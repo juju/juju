@@ -13,7 +13,7 @@ var marshalTestCases = []struct {
 }{{
 	about: "MachineInfo Delta",
 	input: state.Delta{
-		Remove: false,
+		Removed: false,
 		Entity: &state.MachineInfo{
 			Id:         "Benji",
 			InstanceId: "Shazam",
@@ -23,7 +23,7 @@ var marshalTestCases = []struct {
 }, {
 	about: "ServiceInfo Delta",
 	input: state.Delta{
-		Remove: false,
+		Removed: false,
 		Entity: &state.ServiceInfo{
 			Name:    "Benji",
 			Exposed: true,
@@ -33,7 +33,7 @@ var marshalTestCases = []struct {
 }, {
 	about: "UnitInfo Delta",
 	input: state.Delta{
-		Remove: false,
+		Removed: false,
 		Entity: &state.UnitInfo{
 			Name:    "Benji",
 			Service: "Shazam",
@@ -43,16 +43,16 @@ var marshalTestCases = []struct {
 }, {
 	about: "RelationInfo Delta",
 	input: state.Delta{
-		Remove: false,
+		Removed: false,
 		Entity: &state.RelationInfo{
 			Key: "Benji",
 		},
 	},
 	output: `["relation","change",{"Key":"Benji"}]`,
 }, {
-	about: "Delta Remove True",
+	about: "Delta Removed True",
 	input: state.Delta{
-		Remove: true,
+		Removed: true,
 		Entity: &state.RelationInfo{
 			Key: "Benji",
 		},
