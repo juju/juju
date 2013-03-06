@@ -285,8 +285,12 @@ func (c *srvClient) ServiceDeploy(args statecmd.ServiceDeployParams) error {
 	if err != nil {
 		return err
 	}
-	return statecmd.ServiceDeploy(conn, curl, charm.Store(), false,
-		args.serviceName, args.numUnits)
+	if args.numUnits == nil {
+		args.numUnits = 1
+	}
+	_, err = statecmd.ServiceDeploy(conn, curl, charm.Store(), false,
+		args.serviceName, args.numUnits, args.config, args.configYAML)
+	return err
 }
 
 // EnvironmentInfo returns information about the current environment (default

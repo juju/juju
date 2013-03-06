@@ -105,9 +105,19 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+	var configYAML string
 	if c.Config.Path != "" {
-		// TODO many dependencies :(
-		return errors.New("state.Service.SetConfig not implemented (format 2...)")
+		f, err := os.Open(c.Config.Path)
+		if err != nil {
+			return err
+		}
+		configYAML, err = ioutil.ReadAll(f)
+		f.Close()
+		if err != nil {
+			return err
+		}
 	}
-	return ServiceDeploy(conn, curl, repo, bumpRevision, c.ServiceName, c.NumUnits)
+	_, err = ServiceDeploy(conn, curl, repo, bumpRevision, c.ServiceName,
+		c.NumUnits, nil, configYAML)
+	return err
 }
