@@ -22,7 +22,6 @@ type entityEntry struct {
 	revno int64
 
 	// removed marks whether the entity has been removed.
-	// The entry will be deleted when its ref count drops to zero.
 	removed bool
 
 	// info holds the actual information on the entity.
@@ -53,16 +52,12 @@ func (a *allInfo) add(id entityId, info EntityInfo) {
 	if a.entities[id] != nil {
 		panic("adding new entry with duplicate id")
 	}
-	n := a.list.Len()
 	a.latestRevno++
 	entry := &entityEntry{
 		info:  info,
 		revno: a.latestRevno,
 	}
 	a.entities[id] = a.list.PushFront(entry)
-	if a.list.Len() != n+1 || len(a.entities) != n+1 {
-		panic("huh?!")
-	}
 }
 
 // delete deletes the entry with the given entity id.
@@ -106,14 +101,6 @@ func (a *allInfo) update(id entityId, info EntityInfo) {
 	entry.revno = a.latestRevno
 	entry.info = info
 	a.list.MoveToFront(elem)
-}
-
-// The entity kinds are in parent-child order.
-var entityKinds = []string{
-	"service",
-	"relation",
-	"machine",
-	"unit",
 }
 
 // Delta holds details of a change to the environment.
