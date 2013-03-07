@@ -28,3 +28,14 @@ func (s *metadataSuite) TestVFSNoFile(c *C) {
 	c.Assert(f, IsNil)
 	c.Assert(os.IsNotExist(err), Equals, true)
 }
+
+func (s *metadataSuite) TestVFSStat(c *C) {
+	vfs := NewVFS([]FileContent{{"a", "a-content"}})
+	f, err := vfs.Open("a")
+	c.Assert(err, IsNil)
+	c.Assert(f, NotNil)
+	fi, err := f.Stat()
+	c.Assert(err, IsNil)
+	c.Assert(fi, NotNil)
+
+}
