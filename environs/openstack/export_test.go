@@ -1,40 +1,33 @@
 package openstack
 
 import (
-	"bytes"
 	"fmt"
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/trivial"
 	"net/http"
-	"os"
 )
-
-type VirtualFile struct {
-	bytes.Reader
-}
-
-var _ http.File = (*VirtualFile)(nil)
-
-func (f *VirtualFile) Close() error {
-	return nil
-}
-
-func (f *VirtualFile) Readdir(count int) ([]os.FileInfo, error) {
-	return nil, nil
-}
-
-func (f *VirtualFile) Stat() (os.FileInfo, error) {
-	return nil, fmt.Errorf("Can't stat VirtualFile")
-}
 
 func init() {
 	http.DefaultTransport.(*http.Transport).RegisterProtocol("file", http.NewFileTransport(http.Dir("testdata")))
 }
 
 var origMetadataHost = metadataHost
+
+var metadataContent = `{"uuid": "d8e02d56-2648-49a3-bf97-6be8f1204f38",` +
+	`"availability_zone": "nova", "hostname": "test.novalocal", ` +
+	`"launch_index": 0, "meta": {"priority": "low", "role": "webserver"}, ` +
+	`"public_keys": {"mykey": "ssh-rsa fake-key\n"}, "name": "test"}`
+
+var metadataTestingBase = []jujutest.FileContent{
+	{"latest/meta-data/instance-id", "i-000abc"},
+	{"latest/meta-data/local-ipv4", "203.1.1.2"},
+	{"latest/meta-data/public-ipv4", "10.1.1.2"},
+	{"latest/openstack/2012-08-10/meta_data.json", metadataContent},
+}
 
 func UseTestMetadata(local bool) {
 	if local {
