@@ -19,7 +19,7 @@ import (
 // jobs on the local system.
 type SimpleContext struct {
 
-	// Addresser is used to get the current state server addresses at the time
+	// Addrser is used to get the current state server addresses at the time
 	// the given unit is deployed.
 	addresser Addresser
 
@@ -78,7 +78,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	defer removeOnErr(&err, toolsDir)
 
 	info := state.Info{
-		Addrs:      ctx.addresser.Addrs(),
+		Addrs:      ctx.addresser.Addresses(),
 		EntityName: entityName,
 		CACert:     ctx.caCert,
 	}

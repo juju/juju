@@ -2,7 +2,7 @@ package deployer
 
 type fakeAddresser struct{}
 
-func (*fakeAddresser) Addrs() []string {
+func (*fakeAddresser) Addresses() []string {
 	return []string{"s1:123", "s2:123"}
 }
 
