@@ -12,7 +12,6 @@ import (
 	"os"
 )
 
-
 type VirtualFile struct {
 	bytes.Reader
 }
