@@ -40,3 +40,8 @@ func (*maasEnvironProvider) PublicAddress() (string, error) {
 func (*maasEnvironProvider) PrivateAddress() (string, error) {
 	panic("Not implemented.")
 }
+
+// InstanceId is specified in the EnvironProvider interface.
+func (*maasEnvironProvider) InstanceId() (state.InstanceId, error) {
+	panic("Not implemented.")
+}
