@@ -40,6 +40,11 @@ func (s *UnitSuite) TestService(c *C) {
 	c.Assert(svc.Name(), Equals, s.unit.ServiceName())
 }
 
+func (s *UnitSuite) TestServiceConfig(c *C) {
+	_, err := s.unit.ServiceConfig()
+	c.Assert(err, ErrorMatches, "unit charm not set")
+}
+
 func (s *UnitSuite) TestGetSetPublicAddress(c *C) {
 	address, ok := s.unit.PublicAddress()
 	c.Assert(ok, Equals, false)
