@@ -21,14 +21,22 @@ func (*maasEnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return NewEnviron(cfg)
 }
 
+// BoilerplateConfig is specified in the EnvironProvider interface.
+func (*maasEnvironProvider) BoilerplateConfig() string {
+	panic("Not implemented.")
+}
+
+// SecretAttrs is specified in the EnvironProvider interface.
 func (*maasEnvironProvider) SecretAttrs(*config.Config) (map[string]interface{}, error) {
 	panic("Not implemented.")
 }
 
+// PublicAddress is specified in the EnvironProvider interface.
 func (*maasEnvironProvider) PublicAddress() (string, error) {
 	panic("Not implemented.")
 }
 
+// PrivateAddress is specified in the EnvironProvider interface.
 func (*maasEnvironProvider) PrivateAddress() (string, error) {
 	panic("Not implemented.")
 }
