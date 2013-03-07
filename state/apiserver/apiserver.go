@@ -295,6 +295,25 @@ func (c *srvClient) ServiceDeploy(args params.ServiceDeploy) error {
 	return err
 }
 
+// CharmInfo returns information about the requested charm.
+func (c *srvClient) CharmInfo(args params.CharmInfo) (api.CharmInfo, error) {
+	curl, err := charm.ParseURL(args.CharmURL)
+	if err != nil {
+		return api.CharmInfo{}, err
+	}
+	charm, err := c.root.srv.state.Charm(curl)
+	if err != nil {
+		return api.CharmInfo{}, err
+	}
+	info := api.CharmInfo{
+		Revision: charm.Revision(),
+		URL:      curl.String(),
+		Config:   charm.Config(),
+		Meta:     charm.Meta(),
+	}
+	return info, nil
+}
+
 // EnvironmentInfo returns information about the current environment (default
 // series and type).
 func (c *srvClient) EnvironmentInfo() (api.EnvironmentInfo, error) {
