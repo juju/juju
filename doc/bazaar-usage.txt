@@ -4,7 +4,7 @@ Bazaar Basics
 An alternative to using `cobzr` is to use the normal `bzr` with light-weight
 checkouts (see `bzr help checkouts`).
 
-The fisrt step is to create a repository that contains the juju-core trunk and
+The first step is to create a repository that contains the juju-core trunk and
 other working branches.
 
 
@@ -54,7 +54,7 @@ Making pushes easier
 You can specify information in the bazaar locations file which it uses to
 determine the locations of the public and push locations for a branch.
 
-Inside you're ~/.bazaar/locations.conf file, add the following (not including
+Inside your ~/.bazaar/locations.conf file, add the following (not including
 the curly braces).
 
 {{{

@@ -59,14 +59,14 @@ conflicts ready for you to fix the conflicts.
 Useful aliases
 ==============
 
-  bzr alias pipes="show-pipeline"
+  $ bzr alias pipes="show-pipeline"
 
 Show the branches in the pipeline.  All branches are considered a pipeline
 with one branch, so you can run this on any branch (actually a lightweight
 checkout). The current pipe is shown with an `*` at the start of the line.
 
-  bzr alias next="switch-pipe :next"
-  bzr alias prev="switch-pipe :prev"
+  $ bzr alias next="switch-pipe :next"
+  $ bzr alias prev="switch-pipe :prev"
 
 These two aliases allow you to move around the pipeline using:
 
@@ -74,12 +74,12 @@ These two aliases allow you to move around the pipeline using:
   $ bzr prev   # move to the previous branch in the pipeline
 
 
-  bzr alias pdiff="diff -r branch::prev"
+  $ bzr alias pdiff="diff -r branch::prev"
 
 Show me the differences that this branch has introduced compared to the
 previous branch in the pipeline.
 
-  bzr alias unpumped="missing --mine :next"
+  $ bzr alias unpumped="missing --mine :next"
 
 Show the revisions that are in the current branch that are not yet in the next
 branch in the pipeline.
