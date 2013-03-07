@@ -52,7 +52,7 @@ func (c *AddUnitCommand) Run(_ *cmd.Context) error {
 
 	params := params.ServiceAddUnits{
 		ServiceName: c.ServiceName,
-		NumUnits: c.NumUnits,
+		NumUnits:    c.NumUnits,
 	}
 	return statecmd.ServiceAddUnits(conn.State, params)
 }

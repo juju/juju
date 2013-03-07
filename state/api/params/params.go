@@ -40,7 +40,7 @@ type ServiceUnexpose struct {
 // ServiceAddUnits holds parameters for the AddUnits call.
 type ServiceAddUnits struct {
 	ServiceName string
-	NumUnits int
+	NumUnits    int
 }
 
 // Creds holds credentials for identifying an entity.

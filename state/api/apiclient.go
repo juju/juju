@@ -125,7 +125,7 @@ func (c *Client) CharmInfo(charmURL string) (*CharmInfo, error) {
 func (c *Client) ServiceAddUnits(service string, numUnits int) error {
 	params := params.ServiceAddUnits{
 		ServiceName: service,
-		NumUnits: numUnits,
+		NumUnits:    numUnits,
 	}
 	err := c.st.client.Call("Client", "", "ServiceAddUnits", params, nil)
 	if err != nil {
