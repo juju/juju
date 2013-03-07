@@ -36,7 +36,6 @@ type filter struct {
 
 	// The want* chans are used to indicate that the filter should send
 	// events if it has them available.
-	setCharm          chan *charm.URL // Request to upgrade to a charm URL
 	wantForcedUpgrade chan bool
 	wantResolved      chan struct{}
 
@@ -44,8 +43,17 @@ type filter struct {
 	// should be discarded.
 	discardConfig chan struct{}
 
-	// charmChanged is used to report back the error when setting a charm URL.
-	charmChanged chan error
+	// setCharm is used to request that the unit's charm URL be set to
+	// a new value. This must be done on the filter's goroutine, so
+	// that config watches can be stopped and restarted pointing to
+	// the new charm URL. If we don't stop the watch before the
+	// (potentially) last reference to that settings document is
+	// removed, we'll see spurious errors (and even in the best case,
+	// we risk getting notifications for the wrong settings version).
+	setCharm chan *charm.URL
+
+	// charmChanged is used to report back after setting a charm URL.
+	charmChanged chan struct{}
 
 	// The following fields hold state that is collected while running,
 	// and used to detect interesting changes to express as events.
@@ -53,7 +61,7 @@ type filter struct {
 	life             state.Life
 	resolved         state.ResolvedMode
 	service          *state.Service
-	upgradeRequested serviceCharm
+	upgradeFrom      serviceCharm
 	upgradeAvailable serviceCharm
 	upgrade          *charm.URL
 	relations        []int
@@ -74,10 +82,10 @@ func newFilter(st *state.State, unitName string) (*filter, error) {
 		outRelations:      make(chan []int),
 		outRelationsOn:    make(chan []int),
 		wantForcedUpgrade: make(chan bool),
-		setCharm:          make(chan *charm.URL),
 		wantResolved:      make(chan struct{}),
 		discardConfig:     make(chan struct{}),
-		charmChanged:      make(chan error),
+		setCharm:          make(chan *charm.URL),
+		charmChanged:      make(chan struct{}),
 	}
 	go func() {
 		defer f.tomb.Done()
@@ -160,18 +168,16 @@ func (f *filter) WantUpgradeEvent(mustForce bool) {
 // TODO(dimitern): Once we have per-charm service settings in a coming
 // follow-up the described behavior will match.
 func (f *filter) SetCharm(curl *charm.URL) error {
-	for {
-		select {
-		case <-f.tomb.Dying():
-			return tomb.ErrDying
-		case f.setCharm <- curl:
-		}
-		select {
-		case <-f.tomb.Dying():
-			return tomb.ErrDying
-		case err := <-f.charmChanged:
-			return err
-		}
+	select {
+	case <-f.tomb.Dying():
+		return tomb.ErrDying
+	case f.setCharm <- curl:
+	}
+	select {
+	case <-f.tomb.Dying():
+		return tomb.ErrDying
+	case <-f.charmChanged:
+		return nil
 	}
 	panic("unreachable")
 }
@@ -220,7 +226,7 @@ func (f *filter) loop(unitName string) (err error) {
 	if curl, ok := f.unit.CharmURL(); ok {
 		configw = f.unit.WatchServiceConfig()
 		configChanges = configw.Changes()
-		f.upgradeRequested.url = curl
+		f.upgradeFrom.url = curl
 	}
 	defer func() {
 		if configw != nil {
@@ -275,7 +281,7 @@ func (f *filter) loop(unitName string) (err error) {
 		// Send events on active out chans.
 		case f.outUpgrade <- f.upgrade:
 			log.Debugf("worker/uniter/filter: sent upgrade event")
-			f.upgradeRequested.url = f.upgrade
+			f.upgradeFrom.url = f.upgrade
 			f.outUpgrade = nil
 		case f.outResolved <- f.resolved:
 			log.Debugf("worker/uniter/filter: sent resolved event")
@@ -300,11 +306,9 @@ func (f *filter) loop(unitName string) (err error) {
 			configw = f.unit.WatchServiceConfig()
 			if err := f.unit.SetCharmURL(curl); err != nil {
 				log.Debugf("worker/uniter/filter: failed setting charm url %q: %v", curl, err)
-				f.charmChanged <- err
 				return err
-			} else {
-				f.charmChanged <- nil
 			}
+			f.charmChanged <- nothing
 			configChanges = configw.Changes()
 
 			// Restart the relations watcher, in order to generate
@@ -314,13 +318,13 @@ func (f *filter) loop(unitName string) (err error) {
 			watcher.Stop(relationsw, &f.tomb)
 			relationsw = f.service.WatchRelations()
 
-			f.upgradeRequested.url = curl
+			f.upgradeFrom.url = curl
 			if err = f.upgradeChanged(); err != nil {
 				return err
 			}
 		case force := <-f.wantForcedUpgrade:
 			log.Debugf("worker/uniter/filter: want forced upgrade %v", force)
-			f.upgradeRequested.force = force
+			f.upgradeFrom.force = force
 			if err = f.upgradeChanged(); err != nil {
 				return err
 			}
@@ -395,13 +399,13 @@ func (f *filter) upgradeChanged() (err error) {
 		f.outUpgrade = nil
 		return nil
 	}
-	if f.upgradeRequested.url == nil {
+	if f.upgradeFrom.url == nil {
 		log.Debugf("worker/uniter/filter: charm check skipped, no yet installed.")
 		f.outUpgrade = nil
 		return nil
 	}
-	if *f.upgradeAvailable.url != *f.upgradeRequested.url {
-		if f.upgradeAvailable.force || !f.upgradeRequested.force {
+	if *f.upgradeAvailable.url != *f.upgradeFrom.url {
+		if f.upgradeAvailable.force || !f.upgradeFrom.force {
 			log.Debugf("worker/uniter/filter: preparing new upgrade event")
 			if f.upgrade == nil || *f.upgrade != *f.upgradeAvailable.url {
 				f.upgrade = f.upgradeAvailable.url

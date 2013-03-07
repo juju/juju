@@ -616,6 +616,9 @@ func (s *HookContextSuite) SetUpTest(c *C) {
 	s.service, err = s.State.AddService("u", sch)
 	c.Assert(err, IsNil)
 	s.unit = s.AddUnit(c, s.service)
+	// Note: The unit must always have a charm URL set, because this
+	// happens as part of the installation process (that happens
+	// before the initial install hook).
 	err = s.unit.SetCharmURL(sch.URL())
 	c.Assert(err, IsNil)
 	s.relch = s.AddTestingCharm(c, "mysql")

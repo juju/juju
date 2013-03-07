@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker"
+	"launchpad.net/tomb"
 	"time"
 )
 
@@ -189,8 +190,6 @@ func (s *FilterSuite) TestCharmEvents(c *C) {
 
 	// Request an event relative to the existing state; nothing.
 	f.WantUpgradeEvent(false)
-	// TODO: is this needed here?
-	f.SetCharm(oldCharm.URL())
 	assertNoChange()
 
 	// Change the service in an irrelevant way; no events.
@@ -217,15 +216,11 @@ func (s *FilterSuite) TestCharmEvents(c *C) {
 	// Request a change relative to the original state, unforced;
 	// same event is sent.
 	f.WantUpgradeEvent(false)
-	// TODO: is this needed here?
-	f.SetCharm(oldCharm.URL())
 	assertChange(newCharm.URL())
 	assertNoChange()
 
 	// Request a forced change relative to the initial state; no change...
 	f.WantUpgradeEvent(true)
-	// TODO: is this needed here?
-	f.SetCharm(oldCharm.URL())
 	assertNoChange()
 
 	// ...and still no change when we have a forced upgrade to that state...
@@ -243,11 +238,21 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	f, err := newFilter(s.State, s.unit.Name())
 	c.Assert(err, IsNil)
 
+	assertNoChange := func() {
+		s.State.StartSync()
+		select {
+		case <-f.ConfigEvents():
+			c.Fatalf("unexpected config event")
+		case <-time.After(50 * time.Millisecond):
+		}
+	}
+
 	// Ensure no charm URL is set and then set it to trigger config events.
 	_, ok := s.unit.CharmURL()
 	c.Assert(ok, Equals, false)
 	err = f.SetCharm(s.wpcharm.URL())
 	c.Assert(err, IsNil)
+	assertNoChange()
 
 	// Make sure the charm URL is set now.
 	s.unit.Refresh()
@@ -265,15 +270,6 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 		}
 	}
 	assertChange()
-
-	assertNoChange := func() {
-		s.State.StartSync()
-		select {
-		case <-f.ConfigEvents():
-			c.Fatalf("unexpected config event")
-		case <-time.After(50 * time.Millisecond):
-		}
-	}
 	assertNoChange()
 
 	// Change the config; new event received.
@@ -301,6 +297,7 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	f.Stop()
 	f, err = newFilter(s.State, s.unit.Name())
 	c.Assert(err, IsNil)
+	defer f.Stop()
 	f.DiscardConfigEvent()
 	s.State.Sync()
 	assertNoChange()
@@ -314,27 +311,47 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	c.Assert(err, IsNil)
 	assertChange()
 	assertNoChange()
+}
+
+func (s *FilterSuite) TestCharmConfigEvents(c *C) {
+	f, err := newFilter(s.State, s.unit.Name())
+	c.Assert(err, IsNil)
+
+	assertNoChange := func() {
+		s.State.StartSync()
+		select {
+		case <-f.ConfigEvents():
+			c.Fatalf("unexpected config event")
+		case <-time.After(50 * time.Millisecond):
+		}
+	}
+	assertDead := func(f *filter) {
+		select {
+		case <-f.Dead():
+		case <-time.After(50 * time.Millisecond):
+			c.Fatalf("filter did not die")
+		}
+	}
 
 	// Check setting an invalid charm URL does not send events.
 	err = f.SetCharm(charm.MustParseURL("cs:missing/one-1"))
-	c.Assert(err, ErrorMatches, `unknown charm url "cs:missing/one-1"`)
+	c.Assert(err, Equals, tomb.ErrDying)
 	assertNoChange()
-
-	// Filter died after the error, so restart it.
-	f.Stop()
-	f, err = newFilter(s.State, s.unit.Name())
-	c.Assert(err, IsNil)
-
-	// Check with a nil charm URL, again no changes.
-	err = f.SetCharm(nil)
-	c.Assert(err, ErrorMatches, "cannot set nil charm url")
-	assertNoChange()
+	assertDead(f)
 
 	// Filter died after the error, so restart it.
 	f.Stop()
 	f, err = newFilter(s.State, s.unit.Name())
 	c.Assert(err, IsNil)
 	defer f.Stop()
+
+	// Check with a nil charm URL, again no changes.
+	err = f.SetCharm(nil)
+	c.Assert(err, Equals, tomb.ErrDying)
+	assertNoChange()
+	assertDead(f)
+
+	// TODO: add discard + nochange test
 }
 
 func (s *FilterSuite) TestRelationsEvents(c *C) {
