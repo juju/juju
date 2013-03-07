@@ -124,7 +124,7 @@ type Annotations struct {
 
 // GetAnnotations returns annotations about a given entity.
 func (c *Client) GetAnnotations(id string) (*Annotations, error) {
-	args := params.GetAnnotations{Id: id}
+	args := params.GetAnnotations{id}
 	ann := new(Annotations)
 	err := c.st.client.Call("Client", "", "GetAnnotations", args, ann)
 	if err != nil {
@@ -135,7 +135,7 @@ func (c *Client) GetAnnotations(id string) (*Annotations, error) {
 
 // SetAnnotation stores an annotation about a given entity.
 func (c *Client) SetAnnotation(id, key, value string) error {
-	args := params.SetAnnotation{Id: id, Key: key, Value: value}
+	args := params.SetAnnotation{id, key, value}
 	err := c.st.client.Call("Client", "", "SetAnnotation", args, nil)
 	if err != nil {
 		return clientError(err)
