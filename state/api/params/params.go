@@ -71,6 +71,18 @@ type User struct {
 	// future.
 }
 
+// GetAnnotations stores parameters for making the GetAnnotations call.
+type GetAnnotations struct {
+	Id string
+}
+
+// SetAnnotation stores parameters for making the SetAnnotation call.
+type SetAnnotation struct {
+	Id    string
+	Key   string
+	Value string
+}
+
 // CharmInfo stores parameters for a CharmInfo call.
 type CharmInfo struct {
 	CharmURL string

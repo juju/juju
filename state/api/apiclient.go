@@ -137,6 +137,32 @@ func (c *Client) EnvironmentInfo() (*EnvironmentInfo, error) {
 	return info, nil
 }
 
+// Annotations holds annotations associated with an entity.
+type Annotations struct {
+	Annotations map[string]string
+}
+
+// GetAnnotations returns annotations about a given entity.
+func (c *Client) GetAnnotations(id string) (*Annotations, error) {
+	args := params.GetAnnotations{id}
+	ann := new(Annotations)
+	err := c.st.client.Call("Client", "", "GetAnnotations", args, ann)
+	if err != nil {
+		return nil, clientError(err)
+	}
+	return ann, nil
+}
+
+// SetAnnotation stores an annotation about a given entity.
+func (c *Client) SetAnnotation(id, key, value string) error {
+	args := params.SetAnnotation{id, key, value}
+	err := c.st.client.Call("Client", "", "SetAnnotation", args, nil)
+	if err != nil {
+		return clientError(err)
+	}
+	return nil
+}
+
 // Machine returns a reference to the machine with the given id.
 func (st *State) Machine(id string) (*Machine, error) {
 	m := &Machine{

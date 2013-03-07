@@ -85,6 +85,14 @@ var operationPermTests = []struct {
 	op:    opClientServiceUnexpose,
 	allow: []string{"user-admin", "user-other"},
 }, {
+	about: "Client.GetAnnotations",
+	op:    opClientGetAnnotations,
+	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.SetAnnotation",
+	op:    opClientSetAnnotation,
+	allow: []string{"user-admin", "user-other"},
+}, {
 	about: "Client.CharmInfo",
 	op:    opClientCharmInfo,
 	allow: []string{"user-admin", "user-other"},
@@ -274,6 +282,25 @@ func opClientServiceUnexpose(c *C, st *api.State) (func(), error) {
 	return func() {}, nil
 }
 
+func opClientGetAnnotations(c *C, st *api.State) (func(), error) {
+	ann, err := st.Client().GetAnnotations("service-wordpress")
+	if err != nil {
+		return func() {}, err
+	}
+	c.Assert(err, IsNil)
+	c.Assert(ann.Annotations, DeepEquals, make(map[string]string))
+	return func() {}, nil
+}
+
+func opClientSetAnnotation(c *C, st *api.State) (func(), error) {
+	err := st.Client().SetAnnotation("service-wordpress", "key", "value")
+	if err != nil {
+		return func() {}, err
+	}
+	c.Assert(err, IsNil)
+	return func() {}, nil
+}
+
 // scenarioStatus describes the expected state
 // of the juju environment set up by setUpScenario.
 var scenarioStatus = &api.Status{
@@ -326,7 +353,7 @@ var scenarioStatus = &api.Status{
 // environment manager (bootstrap machine), so is
 // hopefully easier to remember as such.
 func (s *suite) setUpScenario(c *C) (entities []string) {
-	add := func(e state.AuthEntity) {
+	add := func(e state.Entity) {
 		entities = append(entities, e.EntityName())
 	}
 	u, err := s.State.User("admin")
@@ -400,9 +427,10 @@ func (s *suite) setUpScenario(c *C) (entities []string) {
 	return
 }
 
-// AuthEntity is the same as state.AuthEntity but
-// without PasswordValid, which is implemented
-// by state entities but not by api entities.
+// AuthEntity is the same as state.Entity but
+// without PasswordValid and annotations handling
+// which are implemented by state entities but not
+// by api entities.
 type AuthEntity interface {
 	EntityName() string
 	SetPassword(pass string) error
@@ -550,6 +578,92 @@ func (s *suite) TestClientEnvironmentInfo(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(info.DefaultSeries, Equals, conf.DefaultSeries())
 	c.Assert(info.ProviderType, Equals, conf.Type())
+}
+
+var clientAnnotationsTests = []struct {
+	about    string
+	initial  map[string]string
+	input    map[string]string
+	expected map[string]string
+	err      string
+}{
+	{
+		about:    "test setting an annotation",
+		input:    map[string]string{"mykey": "myvalue"},
+		expected: map[string]string{"mykey": "myvalue"},
+	},
+	{
+		about:    "test setting multiple annotations",
+		input:    map[string]string{"key1": "value1", "key2": "value2"},
+		expected: map[string]string{"key1": "value1", "key2": "value2"},
+	},
+	{
+		about:    "test overriding annotations",
+		initial:  map[string]string{"mykey": "myvalue"},
+		input:    map[string]string{"mykey": "another-value"},
+		expected: map[string]string{"mykey": "another-value"},
+	},
+	{
+		about: "test setting an invalid annotation",
+		input: map[string]string{"invalid.key": "myvalue"},
+		err:   `invalid key "invalid.key"`,
+	},
+}
+
+func (s *suite) TestClientAnnotations(c *C) {
+	// Set up entities.
+	service, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
+	c.Assert(err, IsNil)
+	unit, err := service.AddUnit()
+	c.Assert(err, IsNil)
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	entities := []state.Entity{service, unit, machine}
+	for i, t := range clientAnnotationsTests {
+	loop:
+		for _, entity := range entities {
+			id := entity.EntityName()
+			c.Logf("test %d. %s. entity %s", i, t.about, id)
+			// Set initial entity annotations.
+			for key, value := range t.initial {
+				err := entity.SetAnnotation(key, value)
+				c.Assert(err, IsNil)
+			}
+			// Add annotations using the API call.
+			for key, value := range t.input {
+				err := s.APIState.Client().SetAnnotation(id, key, value)
+				if t.err != "" {
+					c.Assert(err, ErrorMatches, t.err)
+					continue loop
+				}
+				c.Assert(err, IsNil)
+			}
+			// Annotations are correctly set.
+			entity.Refresh()
+			c.Assert(entity.Annotations(), DeepEquals, t.expected)
+			// Retrieve annotations using the API call.
+			ann, err := s.APIState.Client().GetAnnotations(id)
+			c.Assert(err, IsNil)
+			// Annotations are correctly returned.
+			entity.Refresh()
+			c.Assert(ann.Annotations, DeepEquals, entity.Annotations())
+			// Clean up annotations on the current entity.
+			for key := range entity.Annotations() {
+				err = entity.SetAnnotation(key, "")
+			}
+		}
+	}
+}
+
+func (s *suite) TestClientAnnotationsBadEntity(c *C) {
+	bad := []string{"", "machine", "-foo", "foo-", "---", "machine-jim", "unit-123", "unit-foo", "service-", "service-foo/bar"}
+	expected := `invalid entity name ".*"`
+	for _, id := range bad {
+		err := s.APIState.Client().SetAnnotation(id, "mykey", "myvalue")
+		c.Assert(err, ErrorMatches, expected)
+		_, err = s.APIState.Client().GetAnnotations(id)
+		c.Assert(err, ErrorMatches, expected)
+	}
 }
 
 func (s *suite) TestMachineLogin(c *C) {

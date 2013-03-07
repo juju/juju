@@ -64,6 +64,10 @@ func jujuInfoEp(serviceName string) state.Endpoint {
 	}
 }
 
+func (s *ServiceSuite) TestEntityName(c *C) {
+	c.Assert(s.mysql.EntityName(), Equals, "service-mysql")
+}
+
 func (s *ServiceSuite) TestMysqlEndpoints(c *C) {
 	_, err := s.mysql.Endpoint("mysql")
 	c.Assert(err, ErrorMatches, `service "mysql" has no "mysql" relation`)

@@ -52,6 +52,25 @@ func (s *Service) Name() string {
 	return s.doc.Name
 }
 
+// EntityName returns a name identifying the service that is safe to use
+// as a file name.  The returned name will be different from other
+// EntityName values returned by any other entities from the same state.
+func (s *Service) EntityName() string {
+	return "service-" + s.Name()
+}
+
+// PasswordValid currently just returns false. Implemented here so that
+// a service can be used as an Entity.
+func (s *Service) PasswordValid(password string) bool {
+	return false
+}
+
+// SetPassword currently just returns an error. Implemented here so that
+// a service can be used as an Entity.
+func (s *Service) SetPassword(password string) error {
+	return fmt.Errorf("cannot set password of service")
+}
+
 // Annotations returns the service annotations.
 func (s *Service) Annotations() map[string]string {
 	return s.doc.Annotations
