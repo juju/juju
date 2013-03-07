@@ -271,6 +271,11 @@ func (c *srvClient) ServiceUnexpose(args params.ServiceUnexpose) error {
 	return statecmd.ServiceUnexpose(c.root.srv.state, args)
 }
 
+// ServiceAddUnits adds a given number of units to a service.
+func (c *srvClient) ServiceAddUnits(args params.ServiceAddUnits) error {
+	return statecmd.ServiceAddUnits(c.root.srv.state, args)
+}
+
 // CharmInfo returns information about the requested charm.
 func (c *srvClient) CharmInfo(args params.CharmInfo) (api.CharmInfo, error) {
 	curl, err := charm.ParseURL(args.CharmURL)

@@ -2,10 +2,11 @@ package main
 
 import (
 	"errors"
-
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/statecmd"
 )
 
 // AddUnitCommand is responsible adding additional units to a service.
@@ -37,9 +38,6 @@ func (c *AddUnitCommand) Init(args []string) error {
 	default:
 		return cmd.CheckEmpty(args[1:])
 	}
-	if c.NumUnits < 1 {
-		return errors.New("must add at least one unit")
-	}
 	return nil
 }
 
@@ -51,11 +49,10 @@ func (c *AddUnitCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer conn.Close()
-	service, err := conn.State.Service(c.ServiceName)
-	if err != nil {
-		return err
-	}
-	_, err = conn.AddUnits(service, c.NumUnits)
-	return err
 
+	params := params.ServiceAddUnits{
+		ServiceName: c.ServiceName,
+		NumUnits: c.NumUnits,
+	}
+	return statecmd.ServiceAddUnits(conn.State, params)
 }

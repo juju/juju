@@ -121,6 +121,19 @@ func (c *Client) CharmInfo(charmURL string) (*CharmInfo, error) {
 	return info, nil
 }
 
+// ServiceAddUnit adds a given number of units to a service.
+func (c *Client) ServiceAddUnits(service string, numUnits int) error {
+	params := params.ServiceAddUnits{
+		ServiceName: service,
+		NumUnits: numUnits,
+	}
+	err := c.st.client.Call("Client", "", "ServiceAddUnits", params, nil)
+	if err != nil {
+		return clientError(err)
+	}
+	return nil
+}
+
 // EnvironmentInfo holds information about the Juju environment.
 type EnvironmentInfo struct {
 	DefaultSeries string
@@ -343,4 +356,38 @@ func (u *Unit) EntityName() string {
 // the unit. If no such entity can be determined, false is returned.
 func (u *Unit) DeployerName() (string, bool) {
 	return u.doc.DeployerName, u.doc.DeployerName != ""
+}
+
+// RPCCreds is used in the API protocol.
+type RPCCreds struct {
+	EntityName string
+	Password   string
+}
+
+// RPCMachine is used in the API protocol.
+type RPCMachine struct {
+	InstanceId string
+}
+
+// RPCEntityWatcherId is used in the API protocol.
+type RPCEntityWatcherId struct {
+	EntityWatcherId string
+}
+
+// RPCPassword is used in the API protocol.
+type RPCPassword struct {
+	Password string
+}
+
+// RPCUnit is used in the API protocol.
+type RPCUnit struct {
+	DeployerName string
+	// TODO(rog) other unit attributes.
+}
+
+// RPCUser is used in the API protocol.
+type RPCUser struct {
+	// This is a placeholder for any information
+	// that may be associated with a user in the
+	// future.
 }
