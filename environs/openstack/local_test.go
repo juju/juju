@@ -20,6 +20,14 @@ type ProviderSuite struct{}
 
 var _ = Suite(&ProviderSuite{})
 
+func (s *ProviderSuite) SetUpTest(c *C) {
+	openstack.ShortTimeouts(true)
+}
+
+func (s *ProviderSuite) TearDownTest(c *C) {
+	openstack.ShortTimeouts(false)
+}
+
 func (s *ProviderSuite) TestMetadata(c *C) {
 	openstack.UseTestMetadata(openstack.MetadataTestingBase)
 	defer openstack.UseTestMetadata(nil)
