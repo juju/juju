@@ -86,8 +86,8 @@ func (a annotator) Annotation(key string) (string, error) {
 	return ann[key], nil
 }
 
-// AnnotationRemoveOps returns an operation to remove a given annotation document from MongoDB.
-func AnnotationRemoveOps(st *State, id string) txn.Op {
+// annotationRemoveOps returns an operation to remove a given annotation document from MongoDB.
+func annotationRemoveOps(st *State, id string) txn.Op {
 	return txn.Op{
 		C:      st.annotations.Name,
 		Id:     id,
