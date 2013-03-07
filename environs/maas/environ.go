@@ -23,6 +23,7 @@ type maasEnviron struct {
 
 	ecfgUnlocked       *maasEnvironConfig
 	maasClientUnlocked *gomaasapi.MAASObject
+	storageUnlocked    environs.Storage
 }
 
 var _ environs.Environ = (*maasEnviron)(nil)
@@ -38,6 +39,7 @@ func NewEnviron(cfg *config.Config) (*maasEnviron, error) {
 	if err != nil {
 		return nil, err
 	}
+	env.storageUnlocked = NewStorage(env)
 	return env, nil
 }
 
@@ -306,8 +308,10 @@ func (environ *maasEnviron) AllInstances() ([]environs.Instance, error) {
 	return environ.instances(nil)
 }
 
-func (*maasEnviron) Storage() environs.Storage {
-	panic("Not implemented.")
+func (env *maasEnviron) Storage() environs.Storage {
+	env.ecfgMutex.Lock()
+	defer env.ecfgMutex.Unlock()
+	return env.storageUnlocked
 }
 
 func (*maasEnviron) PublicStorage() environs.StorageReader {
