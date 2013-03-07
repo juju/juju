@@ -102,22 +102,16 @@ func (s *MarshalSuite) TestDeltaUnmarshalJSON(c *C) {
 }
 
 func (s *MarshalSuite) TestDeltaMarshalJSONCardinality(c *C) {
-	c.Check(
-		json.Unmarshal([]byte(`[1,2]`), new(params.Delta)),
-		ErrorMatches,
-		"Expected 3 elements in top-level of JSON but got 2")
+	err := json.Unmarshal([]byte(`[1,2]`), new(params.Delta))
+	c.Check(err, ErrorMatches, "Expected 3 elements in top-level of JSON but got 2")
 }
 
 func (s *MarshalSuite) TestDeltaMarshalJSONUnknownOperation(c *C) {
-	c.Check(
-		json.Unmarshal([]byte(`["relation","masticate",{}]`), new(params.Delta)),
-		ErrorMatches,
-		`Unexpected operation "masticate"`)
+	err := json.Unmarshal([]byte(`["relation","masticate",{}]`), new(params.Delta))
+	c.Check(err, ErrorMatches, `Unexpected operation "masticate"`)
 }
 
 func (s *MarshalSuite) TestDeltaMarshalJSONUnknownEntity(c *C) {
-	c.Check(
-		json.Unmarshal([]byte(`["qwan","change",{}]`), new(params.Delta)),
-		ErrorMatches,
-		`Unexpected entity name "qwan"`)
+	err := json.Unmarshal([]byte(`["qwan","change",{}]`), new(params.Delta))
+	c.Check(err, ErrorMatches, `Unexpected entity name "qwan"`)
 }

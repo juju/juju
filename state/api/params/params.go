@@ -96,7 +96,7 @@ type Delta struct {
 	Entity EntityInfo
 }
 
-// MarshalJSON implements json.Unmarshaller.
+// MarshalJSON implements json.Marshaler.
 func (d *Delta) MarshalJSON() ([]byte, error) {
 	b, err := json.Marshal(d.Entity)
 	if err != nil {
@@ -114,6 +114,7 @@ func (d *Delta) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// UnmarshalJSON implements json.Unmarshaler.
 func (d *Delta) UnmarshalJSON(data []byte) error {
 	var elements []json.RawMessage
 	if err := json.Unmarshal(data, &elements); err != nil {
@@ -134,7 +135,7 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 	if operation == "remove" {
 		d.Removed = true
 	} else if operation != "change" {
-		return fmt.Errorf("Unexpected operation %#v", operation)
+		return fmt.Errorf("Unexpected operation %q", operation)
 	}
 	switch entityKind {
 	case "machine":
@@ -146,7 +147,7 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 	case "relation":
 		d.Entity = new(RelationInfo)
 	default:
-		return fmt.Errorf("Unexpected entity name %#v", entityKind)
+		return fmt.Errorf("Unexpected entity name %q", entityKind)
 	}
 	if err := json.Unmarshal(elements[2], &d.Entity); err != nil {
 		return err

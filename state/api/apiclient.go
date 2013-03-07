@@ -128,22 +128,21 @@ func (c *Client) EnvironmentInfo() (*EnvironmentInfo, error) {
 	return info, clientError(err)
 }
 
+// AllWatcher holds information allowing us to get Deltas describing changes
+// to the entire environment.
 type AllWatcher struct {
 	client *Client
 	id     *string
 }
 
 func newAllWatcher(client *Client, id *string) *AllWatcher {
-	return &AllWatcher{
-		client: client,
-		id:     id,
-	}
+	return &AllWatcher{client, id}
 }
 
-func (watcher *AllWatcher) Next() (*[]params.Delta, error) {
+func (watcher *AllWatcher) Next() ([]params.Delta, error) {
 	info := new(params.AllWatcherNext)
 	err := watcher.client.st.client.Call("AllWatcher", *watcher.id, "Next", nil, info)
-	return &info.Deltas, clientError(err)
+	return info.Deltas, clientError(err)
 }
 
 func (watcher *AllWatcher) Stop() error {

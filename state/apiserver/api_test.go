@@ -1008,7 +1008,7 @@ func (s *suite) TestClientWatchAll(c *C) {
 	c.Assert(err, IsNil)
 	// This is the part that most clearly is tied to the fact that we are
 	// testing a stub.
-	c.Assert(deltas, DeepEquals, &state.StubNextDelta)
+	c.Assert(deltas, DeepEquals, state.StubNextDelta)
 	// We set stopped to True before attempting the Stop so that we do not try
 	// calling Stop twice in the case of an error.
 	stopped = true
