@@ -41,6 +41,15 @@ func (s *UnitSuite) TestService(c *C) {
 }
 
 func (s *UnitSuite) TestServiceConfig(c *C) {
+	scfg, err := s.service.Config()
+	c.Assert(err, IsNil)
+	scfg.Update(map[string]interface{}{
+		"foo":        "bar",
+		"blog-title": "no title",
+	})
+	_, err = scfg.Write()
+	c.Assert(err, IsNil)
+
 	unit, err := s.service.AddUnit()
 
 	_, err = unit.ServiceConfig()
@@ -51,7 +60,7 @@ func (s *UnitSuite) TestServiceConfig(c *C) {
 
 	cfg, err := unit.ServiceConfig()
 	c.Assert(err, IsNil)
-	c.Assert(cfg, DeepEquals, map[string]interface{}{"blog-title": "My Title"})
+	c.Assert(cfg, DeepEquals, scfg.Map())
 }
 
 func (s *UnitSuite) TestGetSetPublicAddress(c *C) {
