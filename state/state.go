@@ -284,6 +284,11 @@ type Entity interface {
 
 // Entity returns the entity for the given name.
 func (st *State) Entity(entityName string) (Entity, error) {
+	if entityName == "environment" {
+		// The environment is an entity capable of storing annotations,
+		// and the only entity whose name does not contain a "-".
+		return st.GetEnvironment(), nil
+	}
 	i := strings.Index(entityName, "-")
 	if i <= 0 || i >= len(entityName)-1 {
 		return nil, fmt.Errorf("invalid entity name %q", entityName)
