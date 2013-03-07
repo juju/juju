@@ -60,7 +60,7 @@ func (c *Client) ServiceSet(service string, options map[string]string) error {
 
 // Resolved clears errors on a unit.
 func (c *Client) Resolved(unit string, retry bool) error {
-	p := statecmd.ResolvedParams{
+	p := params.Resolved{
 		UnitName: unit,
 		Retry:    retry,
 	}

@@ -260,8 +260,8 @@ func (c *srvClient) ServiceGet(args params.ServiceGet) (params.ServiceGetResults
 }
 
 // Resolved implements the server side of Client.Resolved.
-func (c *srvClient) Resolved(p statecmd.ResolvedParams) error {
-      return statecmd.Resolved(c.root.srv.state, p)
+func (c *srvClient) Resolved(p params.Resolved) error {
+	return statecmd.Resolved(c.root.srv.state, p)
 }
 
 // ServiceExpose changes the juju-managed firewall to expose any ports that

@@ -3,18 +3,8 @@ package statecmd
 import (
 	"fmt"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 )
-
-type ResolvedParams struct {
-	UnitName string
-	Retry    bool
-}
-
-type ResolvedResults struct {
-	Service  string
-	Charm    string
-	Settings map[string]interface{}
-}
 
 // MarkResolved marks a unit as having had any previous state transition
 // problems resolved, and informs the unit that it may attempt to reestablish
@@ -36,7 +26,7 @@ func MarkResolved(unit *state.Unit, retryHooks bool) error {
 	return unit.SetResolved(mode)
 }
 
-func Resolved(st *state.State, p ResolvedParams) error {
+func Resolved(st *state.State, p params.Resolved) error {
 	unit, err := st.Unit(p.UnitName)
 	if err != nil {
 		return err

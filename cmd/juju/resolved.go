@@ -6,6 +6,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/statecmd"
 )
 
@@ -49,7 +50,7 @@ func (c *ResolvedCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer conn.Close()
-	params := statecmd.ResolvedParams{
+	params := params.Resolved{
 		UnitName: c.UnitName,
 		Retry:    c.Retry,
 	}
