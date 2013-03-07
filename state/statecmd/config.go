@@ -10,32 +10,18 @@ import (
 	"errors"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 )
-
-// ServiceSetParams holds the parameters for a ServiceSet
-// command. Options contains the configuration data.
-type ServiceSetParams struct {
-	ServiceName string
-	Options     map[string]string
-}
-
-// ServiceSetYAMLParams holds the parameters for
-// a ServiceSetYAML command. Config contains the
-// configuration data in YAML format.
-type ServiceSetYAMLParams struct {
-	ServiceName string
-	Config      string
-}
 
 // ServiceSet changes a service's configuration values.
 // Values set to the empty string will be deleted.
-func ServiceSet(st *state.State, p ServiceSetParams) error {
+func ServiceSet(st *state.State, p params.ServiceSet) error {
 	return serviceSet(st, p.ServiceName, p.Options)
 }
 
 // ServiceSetYAML is like ServiceSet except that the
 // configuration data is specified in YAML format.
-func ServiceSetYAML(st *state.State, p ServiceSetYAMLParams) error {
+func ServiceSetYAML(st *state.State, p params.ServiceSetYAML) error {
 	// TODO(rog) should this function interpret null as delete?
 	// If so, we need to sort out some goyaml issues first.
 	// (see https://bugs.launchpad.net/goyaml/+bug/1133337)

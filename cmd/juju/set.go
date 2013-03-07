@@ -8,6 +8,7 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/statecmd"
 )
 
@@ -68,12 +69,12 @@ func (c *SetCommand) Run(ctx *cmd.Context) error {
 	}
 	defer conn.Close()
 	if len(contents) == 0 {
-		err = statecmd.ServiceSet(conn.State, statecmd.ServiceSetParams{
+		err = statecmd.ServiceSet(conn.State, params.ServiceSet{
 			ServiceName: c.ServiceName,
 			Options:     options,
 		})
 	} else {
-		err = statecmd.ServiceSetYAML(conn.State, statecmd.ServiceSetYAMLParams{
+		err = statecmd.ServiceSetYAML(conn.State, params.ServiceSetYAML{
 			ServiceName: c.ServiceName,
 			Config:      string(contents),
 		})

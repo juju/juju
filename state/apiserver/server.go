@@ -1,4 +1,4 @@
-package api
+package apiserver
 
 import (
 	"code.google.com/p/go.net/websocket"

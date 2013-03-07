@@ -3,6 +3,7 @@ package statecmd_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/statecmd"
 )
 
@@ -48,7 +49,7 @@ func (s *UnexposeSuite) TestServiceUnexpose(c *C) {
 			svc.SetExposed()
 		}
 		c.Assert(svc.IsExposed(), Equals, t.initial)
-		params := statecmd.ServiceUnexposeParams{ServiceName: t.service}
+		params := params.ServiceUnexpose{ServiceName: t.service}
 		err = statecmd.ServiceUnexpose(s.State, params)
 		if t.err == "" {
 			c.Assert(err, IsNil)
