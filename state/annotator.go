@@ -82,3 +82,11 @@ func (a annotator) Annotation(key string) (string, error) {
 	}
 	return ann[key], nil
 }
+
+func (a annotator) RemoveOps() txn.Op {
+	return txn.Op{
+		C:      a.st.annotations.Name,
+		Id:     a.entityName,
+		Remove: true,
+	}
+}

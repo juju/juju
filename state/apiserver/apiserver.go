@@ -310,7 +310,11 @@ func (c *srvClient) GetAnnotations(args params.GetAnnotations) (api.Annotations,
 	if err != nil {
 		return api.Annotations{}, err
 	}
-	return api.Annotations{Annotations: entity.Annotations()}, nil
+	ann, err := entity.Annotations()
+	if err != nil {
+		return api.Annotations{}, err
+	}
+	return api.Annotations{Annotations: ann}, nil
 }
 
 // SetAnnotation stores an annotation about a given entity.
