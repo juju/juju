@@ -5,7 +5,8 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/statecmd"
-	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/juju/testing"
+	coretesting "launchpad.net/juju-core/testing"
 )
 
 type ResolvedSuite struct {
@@ -22,6 +23,7 @@ func panicWrite(name string, cert, key []byte) error {
 
 func (s *ResolvedSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
+	s.repo = &charm.LocalRepository{Path: c.MkDir()}
 }
 
 func (s *ResolvedSuite) TearDownTest(c *C) {
@@ -29,7 +31,7 @@ func (s *ResolvedSuite) TearDownTest(c *C) {
 }
 
 func (s *ResolvedSuite) TestMarkResolved(c *C) {
-	curl := testing.Charms.ClonedURL(s.repo.Path, "series", "riak")
+	curl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "riak")
 	sch, err := s.Conn.PutCharm(curl, s.repo, false)
 	c.Assert(err, IsNil)
 	svc, err := s.Conn.State.AddService("testriak", sch)
