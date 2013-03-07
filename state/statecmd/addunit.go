@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 )
 
+// ServiceAddUnits adds a given number of units to a service.
 func ServiceAddUnits(state *state.State, args params.ServiceAddUnits) error {
 	conn, err := juju.NewConnFromState(state)
 	if err != nil {
