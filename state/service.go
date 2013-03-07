@@ -30,20 +30,15 @@ type serviceDoc struct {
 	RelationCount int
 	Exposed       bool
 	TxnRevno      int64 `bson:"txn-revno"`
-	Annotations   map[string]string
 }
 
 func newService(st *State, doc *serviceDoc) *Service {
 	svc := &Service{
-		st:  st,
-		doc: *doc,
-		annotator: annotator{
-			st:   st,
-			coll: st.services.Name,
-			id:   doc.Name,
-		},
+		st:        st,
+		doc:       *doc,
+		annotator: annotator{st: st},
 	}
-	svc.annotator.annotations = &svc.doc.Annotations
+	svc.annotator.entityName = svc.EntityName()
 	return svc
 }
 
@@ -69,11 +64,6 @@ func (s *Service) PasswordValid(password string) bool {
 // a service can be used as an Entity.
 func (s *Service) SetPassword(password string) error {
 	return fmt.Errorf("cannot set password of service")
-}
-
-// Annotations returns the service annotations.
-func (s *Service) Annotations() map[string]string {
-	return s.doc.Annotations
 }
 
 // globalKey returns the global database key for the service.

@@ -116,6 +116,7 @@ type State struct {
 	users          *mgo.Collection
 	presence       *mgo.Collection
 	cleanups       *mgo.Collection
+	annotations    *mgo.Collection
 	runner         *txn.Runner
 	watcher        *watcher.Watcher
 	pwatcher       *presence.Watcher
@@ -278,7 +279,7 @@ type Entity interface {
 	PasswordValid(pass string) bool
 	Refresh() error
 	SetAnnotation(key, value string) error
-	Annotations() map[string]string
+	Annotations() (map[string]string, error)
 }
 
 // Entity returns the entity for the given name.

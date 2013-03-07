@@ -81,8 +81,8 @@ func (u *User) EntityName() string {
 
 // Annotations currently just returns an empty map. Implemented here so that
 // a user can be used as an Entity.
-func (u *User) Annotations() map[string]string {
-	return map[string]string{}
+func (u *User) Annotations() (map[string]string, error) {
+	return map[string]string{}, nil
 }
 
 // SetAnnotation currently just returns an error. Implemented here so that
