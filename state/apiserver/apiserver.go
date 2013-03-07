@@ -270,9 +270,9 @@ type srvClientAllWatcher struct {
 	*srvWatcher
 }
 
-func (aw srvClientAllWatcher) Next() (params.AllWatcherNext, error) {
+func (aw srvClientAllWatcher) Next() (params.AllWatcherNextResults, error) {
 	deltas, err := aw.w.(*state.StateWatcher).Next()
-	return params.AllWatcherNext{
+	return params.AllWatcherNextResults{
 		Deltas: deltas,
 	}, err
 }

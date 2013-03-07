@@ -140,7 +140,7 @@ func newAllWatcher(client *Client, id *string) *AllWatcher {
 }
 
 func (watcher *AllWatcher) Next() ([]params.Delta, error) {
-	info := new(params.AllWatcherNext)
+	info := new(params.AllWatcherNextResults)
 	err := watcher.client.st.client.Call("AllWatcher", *watcher.id, "Next", nil, info)
 	return info.Deltas, clientError(err)
 }

@@ -64,8 +64,8 @@ type AllWatcherId struct {
 	AllWatcherId string
 }
 
-// AllWatcherNext holds deltas returned from calling AllWatcher.Next().
-type AllWatcherNext struct {
+// AllWatcherNextResults holds deltas returned from calling AllWatcher.Next().
+type AllWatcherNextResults struct {
 	Deltas []Delta
 }
 

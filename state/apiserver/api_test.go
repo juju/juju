@@ -997,22 +997,16 @@ func (s *suite) TestClientServiceUnexpose(c *C) {
 // state/megawatcher.go is implemented.
 func (s *suite) TestClientWatchAll(c *C) {
 	watcher, err := s.APIState.Client().WatchAll()
-	stopped := false
-	defer func() {
-		if !stopped {
-			watcher.Stop()
-		}
-	}()
 	c.Assert(err, IsNil)
+	defer func() {
+		err := watcher.Stop()
+		c.Assert(err, IsNil)
+	}()
 	deltas, err := watcher.Next()
 	c.Assert(err, IsNil)
 	// This is the part that most clearly is tied to the fact that we are
 	// testing a stub.
 	c.Assert(deltas, DeepEquals, state.StubNextDelta)
-	// We set stopped to True before attempting the Stop so that we do not try
-	// calling Stop twice in the case of an error.
-	stopped = true
-	c.Assert(watcher.Stop(), IsNil)
 }
 
 // openAs connects to the API state as the given entity
