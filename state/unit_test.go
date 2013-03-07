@@ -41,8 +41,17 @@ func (s *UnitSuite) TestService(c *C) {
 }
 
 func (s *UnitSuite) TestServiceConfig(c *C) {
-	_, err := s.unit.ServiceConfig()
+	unit, err := s.service.AddUnit()
+
+	_, err = unit.ServiceConfig()
 	c.Assert(err, ErrorMatches, "unit charm not set")
+
+	err = unit.SetCharmURL(s.charm.URL())
+	c.Assert(err, IsNil)
+
+	cfg, err := unit.ServiceConfig()
+	c.Assert(err, IsNil)
+	c.Assert(cfg, DeepEquals, map[string]interface{}{"blog-title": "My Title"})
 }
 
 func (s *UnitSuite) TestGetSetPublicAddress(c *C) {
