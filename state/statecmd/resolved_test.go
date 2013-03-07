@@ -9,7 +9,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
-	//stdtesting "testing"
 )
 
 type ResolvedSuite struct {

@@ -291,8 +291,8 @@ func opClientResolved(c *C, st *api.State) (func(), error) {
 	// because the unit is not in an error state when we tried to resolve
 	// the error.  Therefore, since it is complaining it means that the
 	// call to Resolved worked, so we're happy.
-	c.Assert(err, Not(IsNil))
-	c.Assert(err.Error(), Equals, "unit \"wordpress/0\" is not in an error state")
+	c.Assert(err, NotNil)
+	c.Assert(err.Error(), Equals, `unit "wordpress/0" is not in an error state`)
 	return func() {}, nil
 }
 

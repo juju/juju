@@ -9,8 +9,7 @@ import (
 // MarkResolved marks a unit as having had any previous state transition
 // problems resolved, and informs the unit that it may attempt to reestablish
 // normal workflow. The retryHooks parameter informs whether to attempt to
-// reexecute previous failed hooks or to continue as if they had succeeded
-// before.
+// retry previous failed hooks or to continue as if they had succeeded before.
 func MarkResolved(unit *state.Unit, retryHooks bool) error {
 	status, _, err := unit.Status()
 	if err != nil {
