@@ -71,8 +71,8 @@ loop:
 				c.Assert(err, ErrorMatches, t.err)
 				continue loop
 			}
+			c.Assert(err, IsNil)
 		}
-		c.Assert(err, IsNil)
 		// Retrieving single values works as expected.
 		for key, value := range t.input {
 			v, err := entity.Annotation(key)

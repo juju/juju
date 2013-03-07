@@ -282,7 +282,7 @@ func (m *Machine) Remove() (err error) {
 		Id:     m.doc.Id,
 		Remove: true,
 	}}
-	ops = append(ops, m.annotator.RemoveOps())
+	ops = append(ops, AnnotationRemoveOps(m.st, m.EntityName()))
 	return m.st.runner.Run(ops, "", nil)
 }
 

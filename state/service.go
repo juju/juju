@@ -180,7 +180,7 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 // removeOps returns the operations required to remove the service. Supplied
 // asserts will be included in the operation on the service document.
 func (s *Service) removeOps(asserts D) []txn.Op {
-	return []txn.Op{{
+	ops := []txn.Op{{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
 		Assert: asserts,
@@ -193,7 +193,8 @@ func (s *Service) removeOps(asserts D) []txn.Op {
 		C:      s.st.constraints.Name,
 		Id:     s.globalKey(),
 		Remove: true,
-	}, s.annotator.RemoveOps()}
+	}}
+	return append(ops, AnnotationRemoveOps(s.st, s.EntityName()))
 }
 
 // IsExposed returns whether this service is exposed. The explicitly open
@@ -448,7 +449,7 @@ func (s *Service) removeUnitOps(u *Unit) []txn.Op {
 	} else {
 		svcOp.Assert = D{{"life", Dying}, {"unitcount", D{{"$gt", 1}}}}
 	}
-	return append(ops, svcOp, u.annotator.RemoveOps())
+	return append(ops, svcOp, AnnotationRemoveOps(s.st, u.EntityName()))
 }
 
 // Unit returns the service's unit with name.

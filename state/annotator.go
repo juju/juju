@@ -15,8 +15,8 @@ type annDoc struct {
 
 // annotator stores information required to query MongoDB.
 type annotator struct {
-	entityName string
 	st         *State
+	entityName string
 }
 
 // SetAnnotation adds a key/value pair to annotations in MongoDB.
@@ -31,7 +31,7 @@ func (a *annotator) SetAnnotation(key, value string) error {
 		ops := []txn.Op{{
 			C:      coll,
 			Id:     id,
-			Assert: isAliveDoc,
+			Assert: txn.DocExists,
 			Update: D{{"$unset", D{{"annotations." + key, true}}}},
 		}}
 		if err := a.st.runner.Run(ops, "", nil); err != nil {
@@ -39,22 +39,25 @@ func (a *annotator) SetAnnotation(key, value string) error {
 		}
 	} else {
 		// Set a key/value pair in MongoDB.
-		doc := &annDoc{
-			EntityName:  id,
-			Annotations: map[string]string{key: value},
+		var op txn.Op
+		if count, err := a.st.annotations.FindId(id).Count(); err != nil {
+			return err
+		} else if count != 0 {
+			op = txn.Op{
+				C:      coll,
+				Id:     id,
+				Assert: txn.DocExists,
+				Update: D{{"$set", D{{"annotations." + key, value}}}},
+			}
+		} else {
+			op = txn.Op{
+				C:      coll,
+				Id:     id,
+				Assert: txn.DocMissing,
+				Insert: &annDoc{id, map[string]string{key: value}},
+			}
 		}
-		ops := []txn.Op{{
-			C:      coll,
-			Id:     id,
-			Assert: txn.DocMissing,
-			Insert: doc,
-		}, {
-			C:      coll,
-			Id:     id,
-			Assert: isAliveDoc,
-			Update: D{{"$set", D{{"annotations." + key, value}}}},
-		}}
-		if err := a.st.runner.Run(ops, "", nil); err != nil {
+		if err := a.st.runner.Run([]txn.Op{op}, "", nil); err != nil {
 			return fmt.Errorf("cannot set annotation %q = %q on %s: %v", key, value, id, onAbort(err, errNotAlive))
 		}
 	}
@@ -83,10 +86,11 @@ func (a annotator) Annotation(key string) (string, error) {
 	return ann[key], nil
 }
 
-func (a annotator) RemoveOps() txn.Op {
+// AnnotationRemoveOps returns an operation to remove a given annotation document from MongoDB.
+func AnnotationRemoveOps(st *State, id string) txn.Op {
 	return txn.Op{
-		C:      a.st.annotations.Name,
-		Id:     a.entityName,
+		C:      st.annotations.Name,
+		Id:     id,
 		Remove: true,
 	}
 }

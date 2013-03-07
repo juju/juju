@@ -641,15 +641,16 @@ func (s *suite) TestClientAnnotations(c *C) {
 			}
 			// Annotations are correctly set.
 			entity.Refresh()
-			c.Assert(entity.Annotations(), DeepEquals, t.expected)
+			dbann, err := entity.Annotations()
+			c.Assert(err, IsNil)
+			c.Assert(dbann, DeepEquals, t.expected)
 			// Retrieve annotations using the API call.
 			ann, err := s.APIState.Client().GetAnnotations(id)
 			c.Assert(err, IsNil)
 			// Annotations are correctly returned.
-			entity.Refresh()
-			c.Assert(ann.Annotations, DeepEquals, entity.Annotations())
+			c.Assert(ann.Annotations, DeepEquals, dbann)
 			// Clean up annotations on the current entity.
-			for key := range entity.Annotations() {
+			for key := range dbann {
 				err = entity.SetAnnotation(key, "")
 			}
 		}

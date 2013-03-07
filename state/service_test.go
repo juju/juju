@@ -1072,3 +1072,11 @@ func (s *ServiceSuite) TestAnnotatorForService(c *C) {
 		return s.State.Service("mysql")
 	})
 }
+
+func (s *ServiceSuite) TestAnnotationRemovalForService(c *C) {
+	s.mysql.SetAnnotation("mykey", "myvalue")
+	s.mysql.Destroy()
+	ann, err := s.mysql.Annotations()
+	c.Assert(err, IsNil)
+	c.Assert(ann, DeepEquals, make(map[string]string))
+}
