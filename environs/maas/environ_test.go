@@ -172,7 +172,6 @@ func (suite *EnvironSuite) TestStopInstancesStopsInstances(c *C) {
 }
 
 func (suite *EnvironSuite) TestBootstrap(c *C) {
-	env := suite.environ
 	config, err := config.New(map[string]interface{}{
 		// TODO: Whittle this down to what's actually relevant.
 		"name":                 "bootstrap-test",
@@ -188,6 +187,8 @@ func (suite *EnvironSuite) TestBootstrap(c *C) {
 		"ca-cert":              testing.CACert,
 		"ca-private-key":       testing.CAKey,
 	})
+	c.Assert(err, IsNil)
+	env, err := NewEnviron(config)
 	c.Assert(err, IsNil)
 	env.ecfgUnlocked = &maasEnvironConfig{Config: config}
 
