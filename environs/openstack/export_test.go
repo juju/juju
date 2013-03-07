@@ -42,12 +42,16 @@ type ProxyRoundTripper struct {
 var _ http.RoundTripper = (*ProxyRoundTripper)(nil)
 
 func (prt *ProxyRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	if prt.sub == nil {
+		panic("An attempt was made to request file content without having" +
+			" the virtual filesystem initialized.")
+	}
 	return prt.sub.RoundTrip(req)
 }
 
 func UseTestMetadata(metadata []jujutest.FileContent) {
 	if len(metadata) != 0 {
-		fileRoundTripper.sub = http.NewFileTransport(jujutest.NewVFS(metadata))
+		fileRoundTripper.sub = jujutest.NewVirtualRoundTripper(metadata)
 		metadataHost = "file:"
 	} else {
 		fileRoundTripper.sub = nil
