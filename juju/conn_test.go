@@ -26,14 +26,6 @@ type NewConnSuite struct {
 
 var _ = Suite(&NewConnSuite{})
 
-func (self *NewConnSuite) SetUpSuite(c *C) {
-	self.oldJujuEnv = os.Getenv("JUJU_ENV")
-}
-
-func (self *NewConnSuite) TearDownSuite(c *C) {
-	os.Setenv("JUJU_ENV", self.oldJujuEnv)
-}
-
 func (cs *NewConnSuite) TearDownTest(c *C) {
 	dummy.Reset()
 	cs.LoggingSuite.TearDownTest(c)
@@ -102,21 +94,6 @@ func (*NewConnSuite) TestNewConnFromNameNotDefault(c *C) {
 	const envName = "erewhemos-2"
 	bootstrapEnv(c, envName)
 	conn, err := juju.NewConnFromName(envName)
-	c.Assert(err, IsNil)
-	defer conn.Close()
-	c.Assert(conn.Environ.Name(), Equals, envName)
-}
-
-func (*NewConnSuite) TestNewConnFromNameRespectsJujuEnv(c *C) {
-	// We need to bootstrap the environment we are ultimately going to get the
-	// connection for or it all goes horribly wrong.  Asking for "" will
-	// respect the environment variable and give us the envName specified in
-	// the environment variable.
-	defer coretesting.MakeMultipleEnvHome(c).Restore()
-	const envName = "erewhemos-2"
-	os.Setenv("JUJU_ENV", envName)
-	bootstrapEnv(c, envName)
-	conn, err := juju.NewConnFromName("")
 	c.Assert(err, IsNil)
 	defer conn.Close()
 	c.Assert(conn.Environ.Name(), Equals, envName)
