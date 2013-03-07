@@ -122,11 +122,11 @@ func (env *maasEnviron) startBootstrapNode(tools *state.Tools, cert, key []byte,
 	mongoURL := env.getMongoURL(tools)
 	stateInfo := state.Info{
 		Password: trivial.PasswordHash(password),
-		CACert: caCert,
+		CACert:   caCert,
 	}
 	apiInfo := api.Info{
 		Password: trivial.PasswordHash(password),
-		CACert: caCert,
+		CACert:   caCert,
 	}
 	// TODO: mongoURL, cert/key, and config need to go into the userdata somehow.
 	unused(mongoURL, cert, key, config)
