@@ -19,16 +19,15 @@ func (w *StateWatcher) Err() error {
 
 // Stop stops the watcher.
 func (w *StateWatcher) Stop() error {
-	// This may not need to do anything at all.
 	return nil
 }
 
 // Next retrieves all changes that have happened since the given revision
 // number, blocking until there are some changes available.  It also
 // returns the revision number of the latest change.
-func (w *StateWatcher) Next() (*[]params.Delta, error) {
+func (w *StateWatcher) Next() ([]params.Delta, error) {
 	// This is a stub to make progress with the higher level coding.
-	return &[]params.Delta{
+	return []params.Delta{
 		params.Delta{
 			Removed: false,
 			Entity: &params.ServiceInfo{

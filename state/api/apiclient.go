@@ -84,10 +84,7 @@ func (c *Client) ServiceGet(service string) (*params.ServiceGetResults, error) {
 func (c *Client) ServiceExpose(service string) error {
 	params := params.ServiceExpose{ServiceName: service}
 	err := c.st.client.Call("Client", "", "ServiceExpose", params, nil)
-	if err != nil {
-		return clientError(err)
-	}
-	return nil
+	return clientError(err)
 }
 
 // ServiceUnexpose changes the juju-managed firewall to unexpose any ports that
@@ -95,10 +92,7 @@ func (c *Client) ServiceExpose(service string) error {
 func (c *Client) ServiceUnexpose(service string) error {
 	params := params.ServiceUnexpose{ServiceName: service}
 	err := c.st.client.Call("Client", "", "ServiceUnexpose", params, nil)
-	if err != nil {
-		return clientError(err)
-	}
-	return nil
+	return clientError(err)
 }
 
 // EnvironmentInfo holds information about the Juju environment.
@@ -111,10 +105,46 @@ type EnvironmentInfo struct {
 func (c *Client) EnvironmentInfo() (*EnvironmentInfo, error) {
 	info := new(EnvironmentInfo)
 	err := c.st.client.Call("Client", "", "EnvironmentInfo", nil, info)
+	return info, clientError(err)
+}
+
+type AllWatcher struct {
+	client *Client
+	id     *string
+}
+
+func newAllWatcher(client *Client, id *string) *AllWatcher {
+	return &AllWatcher{
+		client: client,
+		id:     id,
+	}
+}
+
+func (watcher *AllWatcher) Next() (*[]params.Delta, error) {
+	info := new(params.AllWatcherNext)
+	err := watcher.client.st.client.Call("AllWatcher", *watcher.id, "Next", nil, info)
+	return &info.Deltas, clientError(err)
+}
+
+func (watcher *AllWatcher) Stop() error {
+	return clientError(
+		watcher.client.st.client.Call("AllWatcher", *watcher.id, "Stop", nil, nil))
+}
+
+// WatchAll holds the id of the newly-created AllWatcher.
+type WatchAll struct {
+	AllWatcherId string
+}
+
+// WatchAll returns an AllWatcher, from which you can request the Next
+// collection of Deltas.
+func (c *Client) WatchAll() (*AllWatcher, error) {
+	info := new(WatchAll)
+	err := c.st.client.Call("Client", "", "WatchAll", nil, info)
 	if err != nil {
 		return nil, clientError(err)
 	}
-	return info, nil
+	return newAllWatcher(c, &info.AllWatcherId), nil
 }
 
 // Machine returns a reference to the machine with the given id.

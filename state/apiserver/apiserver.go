@@ -272,8 +272,12 @@ type srvClientAllWatcher struct {
 func (aw srvClientAllWatcher) Next() (params.AllWatcherNext, error) {
 	deltas, err := aw.w.(*state.StateWatcher).Next()
 	return params.AllWatcherNext{
-		Deltas: *deltas,
+		Deltas: deltas,
 	}, err
+}
+
+func (aw srvClientAllWatcher) Stop() error {
+	return aw.w.(*state.StateWatcher).Stop()
 }
 
 // ServiceSet implements the server side of Client.ServerSet.
