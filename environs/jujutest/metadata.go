@@ -10,6 +10,7 @@ import (
 
 type VirtualFile struct {
 	*bytes.Reader
+	fc *FileContent
 }
 
 var _ http.File = (*VirtualFile)(nil)
@@ -23,7 +24,7 @@ func (f *VirtualFile) Readdir(count int) ([]os.FileInfo, error) {
 }
 
 func (f *VirtualFile) Stat() (os.FileInfo, error) {
-	return nil, fmt.Errorf("Can't stat VirtualFile")
+	return &VirtualFileInfo{f.fc}, nil
 }
 
 type FileContent struct {
@@ -43,7 +44,7 @@ func (vfs *VirtualFileSystem) Open(name string) (http.File, error) {
 		if fc.Name == name {
 			reader := bytes.NewReader([]byte(fc.Content))
 			fmt.Fprintf(os.Stderr, "Found %s\n", name)
-			return &VirtualFile{reader}, nil
+			return &VirtualFile{reader, &fc}, nil
 		}
 	}
 	fmt.Fprintf(os.Stderr, "ErrNotExist: %s\n", name)
@@ -73,7 +74,7 @@ func (fi *VirtualFileInfo) ModTime() time.Time {
 }
 
 func (fi *VirtualFileInfo) Mode() os.FileMode {
-	return nil
+	return 0660
 }
 
 func (fi *VirtualFileInfo) IsDir() bool {

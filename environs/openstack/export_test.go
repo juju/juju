@@ -28,10 +28,15 @@ var metadataTestingBase = []jujutest.FileContent{
 	{"/latest/openstack/2012-08-10/meta_data.json", metadataContent},
 }
 
+var installed = false
+
 func UseTestMetadata(local bool) {
 	if local {
 		vfs := jujutest.NewVFS(metadataTestingBase)
-		http.DefaultTransport.(*http.Transport).RegisterProtocol("file", http.NewFileTransport(vfs))
+		if !installed {
+			http.DefaultTransport.(*http.Transport).RegisterProtocol("file", http.NewFileTransport(vfs))
+			installed = true
+		}
 		metadataHost = "file:"
 	} else {
 		metadataHost = origMetadataHost

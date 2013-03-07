@@ -37,5 +37,6 @@ func (s *metadataSuite) TestVFSStat(c *C) {
 	fi, err := f.Stat()
 	c.Assert(err, IsNil)
 	c.Assert(fi, NotNil)
+	c.Assert(fi.Size(), Equals, int64(len("a-content")))
 
 }
