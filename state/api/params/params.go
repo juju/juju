@@ -202,3 +202,8 @@ type RelationInfo struct {
 
 func (i *RelationInfo) EntityId() interface{} { return i.Key }
 func (i *RelationInfo) EntityKind() string    { return "relation" }
+
+// CharmInfo stores parameters for a CharmInfo call.
+type CharmInfo struct {
+	CharmURL string
+}
