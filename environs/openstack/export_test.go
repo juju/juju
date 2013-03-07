@@ -1,6 +1,7 @@
 package openstack
 
 import (
+	"bytes"
 	"fmt"
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
@@ -8,7 +9,27 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/trivial"
 	"net/http"
+	"os"
 )
+
+
+type VirtualFile struct {
+	bytes.Reader
+}
+
+var _ http.File = (*VirtualFile)(nil)
+
+func (f *VirtualFile) Close() error {
+	return nil
+}
+
+func (f *VirtualFile) Readdir(count int) ([]os.FileInfo, error) {
+	return nil, nil
+}
+
+func (f *VirtualFile) Stat() (os.FileInfo, error) {
+	return nil, fmt.Errorf("Can't stat VirtualFile")
+}
 
 func init() {
 	http.DefaultTransport.(*http.Transport).RegisterProtocol("file", http.NewFileTransport(http.Dir("testdata")))
