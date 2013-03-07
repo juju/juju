@@ -76,3 +76,8 @@ type User struct {
 	// that may be associated with a user in the
 	// future.
 }
+
+// CharmInfo stores parameters for a CharmInfo call.
+type CharmInfo struct {
+	CharmURL string
+}

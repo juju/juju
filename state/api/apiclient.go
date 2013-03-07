@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/tomb"
@@ -99,6 +100,25 @@ func (c *Client) ServiceUnexpose(service string) error {
 		return clientError(err)
 	}
 	return nil
+}
+
+// CharmInfo holds information about a charm.
+type CharmInfo struct {
+	Revision int
+	URL      string
+	Config   *charm.Config
+	Meta     *charm.Meta
+}
+
+// CharmInfo returns information about the requested charm.
+func (c *Client) CharmInfo(charmURL string) (*CharmInfo, error) {
+	args := params.CharmInfo{CharmURL: charmURL}
+	info := new(CharmInfo)
+	err := c.st.client.Call("Client", "", "CharmInfo", args, info)
+	if err != nil {
+		return nil, clientError(err)
+	}
+	return info, nil
 }
 
 // ServiceAddUnit adds a given number of units to a service.
