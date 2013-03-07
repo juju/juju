@@ -2,7 +2,6 @@ package jujutest
 
 import (
 	"bytes"
-	"fmt"
 	"net/http"
 	"os"
 	"time"
@@ -39,15 +38,12 @@ type VirtualFileSystem struct {
 var _ http.FileSystem = (*VirtualFileSystem)(nil)
 
 func (vfs *VirtualFileSystem) Open(name string) (http.File, error) {
-	fmt.Fprintf(os.Stderr, "VFS Request for %s\n", name)
 	for _, fc := range vfs.contents {
 		if fc.Name == name {
 			reader := bytes.NewReader([]byte(fc.Content))
-			fmt.Fprintf(os.Stderr, "Found %s\n", name)
 			return &VirtualFile{reader, &fc}, nil
 		}
 	}
-	fmt.Fprintf(os.Stderr, "ErrNotExist: %s\n", name)
 	return nil, &os.PathError{Op: "Open", Path: name, Err: os.ErrNotExist}
 }
 

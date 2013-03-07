@@ -31,6 +31,8 @@ var MetadataTestingBase = []jujutest.FileContent{
 	{"/openstack/2012-08-10/meta_data.json", metadataContent},
 }
 
+// This is the same as MetadataTestingBase, but it doesn't have the openstack
+// 2012-08-08 API
 var MetadataHP = MetadataTestingBase[:len(MetadataTestingBase)-1]
 
 type ProxyRoundTripper struct {
