@@ -4,6 +4,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state"
 )
 
 type maasEnvironProvider struct{}
@@ -38,5 +39,10 @@ func (*maasEnvironProvider) PublicAddress() (string, error) {
 
 // PrivateAddress is specified in the EnvironProvider interface.
 func (*maasEnvironProvider) PrivateAddress() (string, error) {
+	panic("Not implemented.")
+}
+
+// InstanceId is specified in the EnvironProvider interface.
+func (*maasEnvironProvider) InstanceId() (state.InstanceId, error) {
 	panic("Not implemented.")
 }
