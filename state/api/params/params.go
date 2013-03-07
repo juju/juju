@@ -82,3 +82,8 @@ type SetAnnotation struct {
 	Key   string
 	Value string
 }
+
+// CharmInfo stores parameters for a CharmInfo call.
+type CharmInfo struct {
+	CharmURL string
+}
