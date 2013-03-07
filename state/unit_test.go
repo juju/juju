@@ -696,3 +696,9 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 	case <-time.After(100 * time.Millisecond):
 	}
 }
+
+func (s *UnitSuite) TestAnnotatorForUnit(c *C) {
+	testAnnotator(c, func() (annotator, error) {
+		return s.State.Unit("wordpress/0")
+	})
+}
