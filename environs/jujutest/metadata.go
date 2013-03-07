@@ -25,8 +25,8 @@ var _ http.RoundTripper = (*VirtualRoundTripper)(nil)
 func (v *VirtualRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	res := &http.Response{Proto: "HTTP/1.0",
 		ProtoMajor: 1,
-		Header: make(http.Header),
-		Close: true,
+		Header:     make(http.Header),
+		Close:      true,
 	}
 	for _, fc := range v.contents {
 		if fc.Name == req.URL.Path {
