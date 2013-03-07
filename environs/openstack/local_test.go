@@ -21,8 +21,8 @@ type ProviderSuite struct{}
 var _ = Suite(&ProviderSuite{})
 
 func (s *ProviderSuite) TestMetadata(c *C) {
-	openstack.UseTestMetadata(true)
-	defer openstack.UseTestMetadata(false)
+	openstack.UseTestMetadata(openstack.MetadataTestingBase)
+	defer openstack.UseTestMetadata(nil)
 
 	p, err := environs.Provider("openstack")
 	c.Assert(err, IsNil)
@@ -41,12 +41,8 @@ func (s *ProviderSuite) TestMetadata(c *C) {
 }
 
 func (s *ProviderSuite) TestLegacyInstanceId(c *C) {
-	openstack.UseTestMetadata(true)
-	openstack.UseMetadataJSON("invalid.json")
-	defer func() {
-		openstack.UseTestMetadata(false)
-		openstack.UseMetadataJSON("")
-	}()
+	openstack.UseTestMetadata(openstack.MetadataHP)
+	defer openstack.UseTestMetadata(nil)
 
 	p, err := environs.Provider("openstack")
 	c.Assert(err, IsNil)

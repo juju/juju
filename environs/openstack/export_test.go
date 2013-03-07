@@ -11,7 +11,10 @@ import (
 	"net/http"
 )
 
+var fileRoundTripper = &ProxyRoundTripper{}
+
 func init() {
+	http.DefaultTransport.(*http.Transport).RegisterProtocol("file", fileRoundTripper)
 }
 
 var origMetadataHost = metadataHost
@@ -21,35 +24,32 @@ var metadataContent = `{"uuid": "d8e02d56-2648-49a3-bf97-6be8f1204f38",` +
 	`"launch_index": 0, "meta": {"priority": "low", "role": "webserver"}, ` +
 	`"public_keys": {"mykey": "ssh-rsa fake-key\n"}, "name": "test"}`
 
-var metadataTestingBase = []jujutest.FileContent{
+var MetadataTestingBase = []jujutest.FileContent{
 	{"/latest/meta-data/instance-id", "i-000abc"},
-	{"/latest/meta-data/local-ipv4", "203.1.1.2"},
-	{"/latest/meta-data/public-ipv4", "10.1.1.2"},
-	{"/latest/openstack/2012-08-10/meta_data.json", metadataContent},
+	{"/latest/meta-data/local-ipv4", "10.1.1.2"},
+	{"/latest/meta-data/public-ipv4", "203.1.1.2"},
+	{"/openstack/2012-08-10/meta_data.json", metadataContent},
 }
 
-var installed = false
+var MetadataHP = MetadataTestingBase[:len(MetadataTestingBase)-1]
 
-func UseTestMetadata(local bool) {
-	if local {
-		vfs := jujutest.NewVFS(metadataTestingBase)
-		if !installed {
-			http.DefaultTransport.(*http.Transport).RegisterProtocol("file", http.NewFileTransport(vfs))
-			installed = true
-		}
+type ProxyRoundTripper struct {
+	sub http.RoundTripper
+}
+
+var _ http.RoundTripper = (*ProxyRoundTripper)(nil)
+
+func (prt *ProxyRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	return prt.sub.RoundTrip(req)
+}
+
+func UseTestMetadata(metadata []jujutest.FileContent) {
+	if len(metadata) != 0 {
+		fileRoundTripper.sub = http.NewFileTransport(jujutest.NewVFS(metadata))
 		metadataHost = "file:"
 	} else {
+		fileRoundTripper.sub = nil
 		metadataHost = origMetadataHost
-	}
-}
-
-var origMetadataJSON = metadataJSON
-
-func UseMetadataJSON(path string) {
-	if path != "" {
-		metadataJSON = path
-	} else {
-		metadataJSON = origMetadataJSON
 	}
 }
 
