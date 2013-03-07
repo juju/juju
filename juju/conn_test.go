@@ -21,7 +21,6 @@ func Test(t *stdtesting.T) {
 
 type NewConnSuite struct {
 	coretesting.LoggingSuite
-	oldJujuEnv string
 }
 
 var _ = Suite(&NewConnSuite{})
