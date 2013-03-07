@@ -8,7 +8,7 @@ type Environment struct {
 	annotator
 }
 
-// GetEnv returns the environment entity.
+// GetEnvironment returns the environment entity.
 func (st *State) GetEnvironment() *Environment {
 	env := &Environment{
 		st:        st,
