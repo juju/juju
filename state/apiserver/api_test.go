@@ -84,6 +84,10 @@ var operationPermTests = []struct {
 	about: "Client.ServiceUnexpose",
 	op:    opClientServiceUnexpose,
 	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.WatchAll",
+	op:    opClientWatchAll,
+	allow: []string{"user-admin", "user-other"},
 },
 }
 
@@ -255,6 +259,14 @@ func opClientServiceUnexpose(c *C, st *api.State) (func(), error) {
 	}
 	c.Assert(err, IsNil)
 	return func() {}, nil
+}
+
+func opClientWatchAll(c *C, st *api.State) (func(), error) {
+	watcher, err := st.Client().WatchAll()
+	if err == nil {
+		watcher.Stop()
+	}
+	return func() {}, err
 }
 
 // scenarioStatus describes the expected state
@@ -920,6 +932,28 @@ func (s *suite) TestClientServiceUnexpose(c *C) {
 	c.Assert(err, IsNil)
 	service.Refresh()
 	c.Assert(service.IsExposed(), Equals, false)
+}
+
+// This test will be thrown away, at least in part, once the stub code in
+// state/megawatcher.go is implemented.
+func (s *suite) TestClientWatchAll(c *C) {
+	watcher, err := s.APIState.Client().WatchAll()
+	stopped := false
+	defer func() {
+		if !stopped {
+			watcher.Stop()
+		}
+	}()
+	c.Assert(err, IsNil)
+	deltas, err := watcher.Next()
+	c.Assert(err, IsNil)
+	// This is the part that most clearly is tied to the fact that we are
+	// testing a stub.
+	c.Assert(deltas, DeepEquals, &state.StubNextDelta)
+	// We set stopped to True before attempting the Stop so that we do not try
+	// calling Stop twice in the case of an error.
+	stopped = true
+	c.Assert(watcher.Stop(), IsNil)
 }
 
 // openAs connects to the API state as the given entity

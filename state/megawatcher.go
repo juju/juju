@@ -22,25 +22,27 @@ func (w *StateWatcher) Stop() error {
 	return nil
 }
 
+var StubNextDelta = []params.Delta{
+	params.Delta{
+		Removed: false,
+		Entity: &params.ServiceInfo{
+			Name:    "Example",
+			Exposed: true,
+		},
+	},
+	params.Delta{
+		Removed: true,
+		Entity: &params.UnitInfo{
+			Name:    "MyUnit",
+			Service: "Example",
+		},
+	},
+}
+
 // Next retrieves all changes that have happened since the given revision
 // number, blocking until there are some changes available.  It also
 // returns the revision number of the latest change.
 func (w *StateWatcher) Next() ([]params.Delta, error) {
 	// This is a stub to make progress with the higher level coding.
-	return []params.Delta{
-		params.Delta{
-			Removed: false,
-			Entity: &params.ServiceInfo{
-				Name:    "Example",
-				Exposed: true,
-			},
-		},
-		params.Delta{
-			Removed: true,
-			Entity: &params.UnitInfo{
-				Name:    "MyUnit",
-				Service: "Example",
-			},
-		},
-	}, nil
+	return StubNextDelta, nil
 }
