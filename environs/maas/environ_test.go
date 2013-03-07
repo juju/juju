@@ -6,6 +6,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/testing"
 )
 
 type EnvironSuite struct {
@@ -168,4 +169,30 @@ func (suite *EnvironSuite) TestStopInstancesStopsInstances(c *C) {
 	operations := suite.testMAASObject.TestServer.NodeOperations()
 	expectedOperations := map[string][]string{"test1": {"stop"}, "test2": {"stop"}}
 	c.Check(operations, DeepEquals, expectedOperations)
+}
+
+func (suite *EnvironSuite) TestBootstrap(c *C) {
+	env := suite.environ
+	config, err := config.New(map[string]interface{}{
+		// TODO: Whittle this down to what's actually relevant.
+		"name":                 "bootstrap-test",
+		"type":                 "maas",
+		"region":               "test",
+		"control-bucket":       "test-bucket",
+		"public-bucket":        "public-tools",
+		"public-bucket-region": "test",
+		"admin-secret":         "local-secret",
+		"access-key":           "x",
+		"secret-key":           "x",
+		"authorized-keys":      "foo",
+		"ca-cert":              testing.CACert,
+		"ca-private-key":       testing.CAKey,
+	})
+	c.Assert(err, IsNil)
+	env.ecfgUnlocked = &maasEnvironConfig{Config: config}
+
+	err = env.Bootstrap(true, []byte{}, []byte{})
+	c.Assert(err, IsNil)
+
+	// TODO: Verify a simile of success.
 }
