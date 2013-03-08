@@ -166,73 +166,76 @@ func (s *FilterSuite) TestResolvedEvents(c *C) {
 	assertNoChange()
 }
 
-func (s *FilterSuite) TestCharmEvents(c *C) {
-	oldCharm := s.AddTestingCharm(c, "upgrade1")
-	svc, err := s.State.AddService("upgradetest", oldCharm)
-	c.Assert(err, IsNil)
-	unit, err := svc.AddUnit()
-	c.Assert(err, IsNil)
-
-	f, err := newFilter(s.State, unit.Name())
-	c.Assert(err, IsNil)
-	defer f.Stop()
-
-	// No initial event is sent.
-	assertNoChange := func() {
-		s.State.StartSync()
-		select {
-		case sch := <-f.UpgradeEvents():
-			c.Fatalf("unexpected %#v", sch)
-		case <-time.After(50 * time.Millisecond):
-		}
-	}
-	assertNoChange()
-
-	// Request an event relative to the existing state; nothing.
-	f.WantUpgradeEvent(false)
-	assertNoChange()
-
-	// Change the service in an irrelevant way; no events.
-	err = svc.SetExposed()
-	c.Assert(err, IsNil)
-	assertNoChange()
-
-	// Change the service's charm; new event received.
-	newCharm := s.AddTestingCharm(c, "upgrade2")
-	err = svc.SetCharm(newCharm, false)
-	c.Assert(err, IsNil)
-	assertChange := func(url *charm.URL) {
-		s.State.Sync()
-		select {
-		case upgradeCharm := <-f.UpgradeEvents():
-			c.Assert(upgradeCharm, DeepEquals, url)
-		case <-time.After(50 * time.Millisecond):
-			c.Fatalf("timed out")
-		}
-	}
-	assertChange(newCharm.URL())
-	assertNoChange()
-
-	// Request a change relative to the original state, unforced;
-	// same event is sent.
-	f.WantUpgradeEvent(false)
-	assertChange(newCharm.URL())
-	assertNoChange()
-
-	// Request a forced change relative to the initial state; no change...
-	f.WantUpgradeEvent(true)
-	assertNoChange()
-
-	// ...and still no change when we have a forced upgrade to that state...
-	err = svc.SetCharm(oldCharm, true)
-	c.Assert(err, IsNil)
-	assertNoChange()
-
-	// ...but a *forced* change to a different charm does generate an event.
-	err = svc.SetCharm(newCharm, true)
-	assertChange(newCharm.URL())
-	assertNoChange()
+func (s *FilterSuite) TestUpgradeEvents(c *C) {
 }
+
+// func (s *FilterSuite) TestCharmEvents(c *C) {
+// 	oldCharm := s.AddTestingCharm(c, "upgrade1")
+// 	svc, err := s.State.AddService("upgradetest", oldCharm)
+// 	c.Assert(err, IsNil)
+// 	unit, err := svc.AddUnit()
+// 	c.Assert(err, IsNil)
+
+// 	f, err := newFilter(s.State, unit.Name())
+// 	c.Assert(err, IsNil)
+// 	defer f.Stop()
+
+// 	// No initial event is sent.
+// 	assertNoChange := func() {
+// 		s.State.StartSync()
+// 		select {
+// 		case sch := <-f.UpgradeEvents():
+// 			c.Fatalf("unexpected %#v", sch)
+// 		case <-time.After(50 * time.Millisecond):
+// 		}
+// 	}
+// 	assertNoChange()
+
+// 	// Request an event relative to the existing state; nothing.
+// 	f.WantUpgradeEvent(false)
+// 	assertNoChange()
+
+// 	// Change the service in an irrelevant way; no events.
+// 	err = svc.SetExposed()
+// 	c.Assert(err, IsNil)
+// 	assertNoChange()
+
+// 	// Change the service's charm; new event received.
+// 	newCharm := s.AddTestingCharm(c, "upgrade2")
+// 	err = svc.SetCharm(newCharm, false)
+// 	c.Assert(err, IsNil)
+// 	assertChange := func(url *charm.URL) {
+// 		s.State.Sync()
+// 		select {
+// 		case upgradeCharm := <-f.UpgradeEvents():
+// 			c.Assert(upgradeCharm, DeepEquals, url)
+// 		case <-time.After(50 * time.Millisecond):
+// 			c.Fatalf("timed out")
+// 		}
+// 	}
+// 	assertChange(newCharm.URL())
+// 	assertNoChange()
+
+// 	// Request a change relative to the original state, unforced;
+// 	// same event is sent.
+// 	f.WantUpgradeEvent(false)
+// 	assertChange(newCharm.URL())
+// 	assertNoChange()
+
+// 	// Request a forced change relative to the initial state; no change...
+// 	f.WantUpgradeEvent(true)
+// 	assertNoChange()
+
+// 	// ...and still no change when we have a forced upgrade to that state...
+// 	err = svc.SetCharm(oldCharm, true)
+// 	c.Assert(err, IsNil)
+// 	assertNoChange()
+
+// 	// ...but a *forced* change to a different charm does generate an event.
+// 	err = svc.SetCharm(newCharm, true)
+// 	assertChange(newCharm.URL())
+// 	assertNoChange()
+// }
 
 func (s *FilterSuite) TestConfigEvents(c *C) {
 	f, err := newFilter(s.State, s.unit.Name())
