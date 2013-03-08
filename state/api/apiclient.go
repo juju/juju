@@ -182,10 +182,10 @@ func (c *Client) GetAnnotations(id string) (*Annotations, error) {
 	return ann, nil
 }
 
-// SetAnnotation stores an annotation about a given entity.
-func (c *Client) SetAnnotation(id, key, value string) error {
-	args := params.SetAnnotation{id, key, value}
-	err := c.st.client.Call("Client", "", "SetAnnotation", args, nil)
+// SetAnnotations stores annotations about a given entity.
+func (c *Client) SetAnnotations(id string, pairs map[string]string) error {
+	args := params.SetAnnotations{id, pairs}
+	err := c.st.client.Call("Client", "", "SetAnnotations", args, nil)
 	if err != nil {
 		return clientError(err)
 	}

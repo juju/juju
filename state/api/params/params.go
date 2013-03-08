@@ -92,11 +92,10 @@ type GetAnnotations struct {
 	Id string
 }
 
-// SetAnnotation stores parameters for making the SetAnnotation call.
-type SetAnnotation struct {
+// SetAnnotations stores parameters for making the SetAnnotations call.
+type SetAnnotations struct {
 	Id    string
-	Key   string
-	Value string
+	Pairs map[string]string
 }
 
 // Delta holds details of a change to the environment.

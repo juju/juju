@@ -354,13 +354,19 @@ func (c *srvClient) GetAnnotations(args params.GetAnnotations) (api.Annotations,
 	return api.Annotations{Annotations: ann}, nil
 }
 
-// SetAnnotation stores an annotation about a given entity.
-func (c *srvClient) SetAnnotation(args params.SetAnnotation) error {
+// SetAnnotations stores annotations about a given entity.
+func (c *srvClient) SetAnnotations(args params.SetAnnotations) error {
 	entity, err := c.root.srv.state.Entity(args.Id)
 	if err != nil {
 		return err
 	}
-	return entity.SetAnnotation(args.Key, args.Value)
+	for key, value := range args.Pairs {
+		err := entity.SetAnnotation(key, value)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Login logs in with the provided credentials.
