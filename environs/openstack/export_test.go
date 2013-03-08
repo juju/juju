@@ -11,13 +11,13 @@ import (
 	"net/http"
 )
 
-// This provides the content for code accessing file:///... URLs. This allows
+// This provides the content for code accessing test:///... URLs. This allows
 // us to set the responses for things like the Metadata server, by pointing
-// metadata requests at file:///... rather than http://169.254.169.254
-var fileRoundTripper = &jujutest.ProxyRoundTripper{}
+// metadata requests at test:///... rather than http://169.254.169.254
+var testRoundTripper = &jujutest.ProxyRoundTripper{}
 
 func init() {
-	http.DefaultTransport.(*http.Transport).RegisterProtocol("file", fileRoundTripper)
+	http.DefaultTransport.(*http.Transport).RegisterProtocol("test", testRoundTripper)
 }
 
 var origMetadataHost = metadataHost
@@ -44,10 +44,10 @@ var MetadataHP = MetadataTestingBase[:len(MetadataTestingBase)-1]
 // Set Metadata requests to be served by the filecontent supplied.
 func UseTestMetadata(metadata []jujutest.FileContent) {
 	if len(metadata) != 0 {
-		fileRoundTripper.Sub = jujutest.NewVirtualRoundTripper(metadata)
-		metadataHost = "file:"
+		testRoundTripper.Sub = jujutest.NewVirtualRoundTripper(metadata)
+		metadataHost = "test:"
 	} else {
-		fileRoundTripper.Sub = nil
+		testRoundTripper.Sub = nil
 		metadataHost = origMetadataHost
 	}
 }

@@ -8,8 +8,8 @@ import (
 // VirtualRoundTripper can be used to provide "http" responses without actually
 // starting an HTTP server. It is used by calling:
 // vfs := NewVirtualRoundTripper([]FileContent{<file contents>})
-// http.DefaultTransport.(*http.Transport).RegisterProtocol("file", vfs)
-// At which point requests to file:///foo will pull out the virtual content of
+// http.DefaultTransport.(*http.Transport).RegisterProtocol("test", vfs)
+// At which point requests to test:///foo will pull out the virtual content of
 // the file named 'foo' passed into the RoundTripper constructor.
 type VirtualRoundTripper struct {
 	contents []FileContent
