@@ -13,6 +13,8 @@ type topic struct {
 	long  func() string
 }
 
+// SuperCommandParams provides a way to have default parameter to the
+// `NewSuperCommand` call.
 type SuperCommandParams struct {
 	Name    string
 	Purpose string
@@ -20,6 +22,8 @@ type SuperCommandParams struct {
 	Log     *Log
 }
 
+// NewSuperCommand creates and initializes a new `SuperCommand`, and returns
+// the fully initialized structure.
 func NewSuperCommand(params SuperCommandParams) *SuperCommand {
 	command := &SuperCommand{
 		Name:    params.Name,

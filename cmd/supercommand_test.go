@@ -77,7 +77,9 @@ var commandsDoc = `commands:
 
 func (s *SuperCommandSuite) TestInfo(c *C) {
 	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{
-		Name: "jujutest", Purpose: "to be purposeful", Doc: "doc\nblah\ndoc",
+		Name:    "jujutest",
+		Purpose: "to be purposeful",
+		Doc:     "doc\nblah\ndoc",
 	})
 	info := jc.Info()
 	c.Assert(info.Name, Equals, "jujutest")

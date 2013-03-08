@@ -82,7 +82,11 @@ func jujuCMain(commandName string, args []string) (code int, err error) {
 // Main registers subcommands for the jujud executable, and hands over control
 // to the cmd package.
 func jujuDMain(args []string) (code int, err error) {
-	jujud := cmd.NewSuperCommand(cmd.SuperCommandParams{Name: "jujud", Doc: jujudDoc, Log: &cmd.Log{}})
+	jujud := cmd.NewSuperCommand(cmd.SuperCommandParams{
+		Name: "jujud",
+		Doc:  jujudDoc,
+		Log:  &cmd.Log{},
+	})
 	jujud.Register(&BootstrapCommand{})
 	jujud.Register(&MachineAgent{})
 	jujud.Register(&UnitAgent{})
