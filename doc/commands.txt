@@ -23,6 +23,22 @@ are registered using the `Register` method.  The name and aliases are
 registered with the supercommand.  If there is a duplicate name registered,
 the whole thing panics.
 
+Supercommands need to be created with the `NewSuperCommand` function in order
+to provide a fully constructed object.
+
+The 'help' subcommand
+---------------------
+
+All supercommand instances get a help command.  This provides the basic help
+functionality to get all the registered commands, with the addition of also
+being able to provide non-command help topics which can be added.
+
+Help topics have a `name` which is what is matched from the command line, a
+`short` one line description that is shown when `<cmd> help topics` is called,
+and a `long` text that is output when the topic is requested.
+
+Topics are added using the `AddHelpTopic` method.
+
 
 Execution
 =========
