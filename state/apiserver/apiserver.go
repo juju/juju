@@ -246,12 +246,12 @@ func (c *srvClient) Status() (api.Status, error) {
 
 // ServiceSet implements the server side of Client.ServerSet.
 func (c *srvClient) ServiceSet(p params.ServiceSet) error {
-	return statecmd.ServiceSet(c.root.srv.state, p)
+	return juju.ServiceSet(c.root.srv.state, p)
 }
 
 // ServiceSetYAML implements the server side of Client.ServerSetYAML.
 func (c *srvClient) ServiceSetYAML(p params.ServiceSetYAML) error {
-	return statecmd.ServiceSetYAML(c.root.srv.state, p)
+	return juju.ServiceSetYAML(c.root.srv.state, p)
 }
 
 // ServiceGet returns the configuration for a service.
@@ -270,6 +270,8 @@ func (c *srvClient) ServiceExpose(args params.ServiceExpose) error {
 func (c *srvClient) ServiceUnexpose(args params.ServiceUnexpose) error {
 	return statecmd.ServiceUnexpose(c.root.srv.state, args)
 }
+
+var CharmStore charm.Repository = charm.Store()
 
 // ServiceDeploy fetches the charm from the charm store and deploys it.  Local
 // charms are not supported.
@@ -290,8 +292,22 @@ func (c *srvClient) ServiceDeploy(args params.ServiceDeploy) error {
 	if args.NumUnits == 0 {
 		args.NumUnits = 1
 	}
-	_, err = statecmd.ServiceDeploy(conn, curl, charm.Store(), false,
-		args.ServiceName, args.NumUnits, args.Config, args.ConfigYAML)
+	charm, err := conn.PutCharm(curl, CharmStore, false)
+	if err != nil {
+		return err
+	}
+	serviceName := args.ServiceName
+	if serviceName == "" {
+		serviceName = curl.Name
+	}
+	deploy_args := juju.DeployServiceParams{
+		Charm:       charm,
+		ServiceName: serviceName,
+		NumUnits:    args.NumUnits,
+		Config:      args.Config,
+		ConfigYAML:  args.ConfigYAML,
+	}
+	_, err = conn.DeployService(deploy_args)
 	return err
 }
 

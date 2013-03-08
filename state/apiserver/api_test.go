@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
@@ -278,15 +279,31 @@ func opClientServiceUnexpose(c *C, st *api.State) (func(), error) {
 	return func() {}, nil
 }
 
-func opClientServiceDeploy(c *C, st *api.State) (func(), error) {
+func opClientServiceDeploy(c *C, st *api.State, mst *state.State) (func(), error) {
 	// This test only checks that the call is made without error, ensuring the
 	// signatures match.
-	err := st.Client().ServiceDeploy("wordpress")
+	// We are cheating and using a local repo only.
+
+	// Set the CharmStore to the test repository.
+	serviceName := "riak"
+	charmName := "local:series/" + serviceName
+	curl := charm.MustParseURL(charmName)
+	repo, err := charm.InferRepository(curl, coretesting.Charms.Path)
+	originalServerCharmStore := apiserver.CharmStore
+	apiserver.CharmStore = repo
+
+	err = st.Client().ServiceDeploy(charmName, "", 1, "")
 	if err != nil {
 		return func() {}, err
 	}
-	c.Assert(err, IsNil)
-	return func() {}, nil
+	// Return undo function to restore state.
+	// call "ensuredead"? or destroy?
+	return func() {
+		apiserver.CharmStore = originalServerCharmStore
+		service := mst.Service("wordpress")
+		//err := service.Destroy()
+		//c.Assert(err, IsNil)
+	}, nil
 }
 
 // scenarioStatus describes the expected state
@@ -995,6 +1012,19 @@ func (s *suite) TestClientServiceUnexpose(c *C) {
 	service.Refresh()
 	c.Assert(service.IsExposed(), Equals, false)
 }
+
+//func (s *suite) TestClientServiceDeploy(c *C) {
+//	s.setUpScenario(c)
+//	serviceName := "wordpress"
+//	service, err := s.State.Service(serviceName)
+//	c.Assert(err, IsNil)
+//	service.SetExposed()
+//	c.Assert(service.IsExposed(), Equals, true)
+//	err = s.APIState.Client().ServiceUnexpose(serviceName)
+//	c.Assert(err, IsNil)
+//	service.Refresh()
+//	c.Assert(service.IsExposed(), Equals, false)
+//}
 
 // openAs connects to the API state as the given entity
 // with the default password for that entity.

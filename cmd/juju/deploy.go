@@ -9,7 +9,6 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/statecmd"
 	"os"
 )
 
@@ -119,7 +118,20 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 			return err
 		}
 	}
-	_, err = statecmd.ServiceDeploy(conn, curl, repo, c.BumpRevision,
-		c.ServiceName, c.NumUnits, nil, string(configYAML))
+	charm, err := conn.PutCharm(curl, repo, c.BumpRevision)
+	if err != nil {
+		return err
+	}
+	serviceName := c.ServiceName
+	if serviceName == "" {
+		serviceName = curl.Name
+	}
+	args := juju.DeployServiceParams{
+		Charm:       charm,
+		ServiceName: serviceName,
+		NumUnits:    c.NumUnits,
+		ConfigYAML:  string(configYAML),
+	}
+	_, err = conn.DeployService(args)
 	return err
 }

@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/trivial"
@@ -280,6 +281,7 @@ func (s *ConnSuite) TearDownTest(c *C) {
 	c.Check(err, IsNil)
 	s.conn.Close()
 	s.conn = nil
+	dummy.Reset()
 	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }
@@ -549,4 +551,44 @@ func (s *ConnSuite) TestResolved(c *C) {
 	err = s.conn.Resolved(u, false)
 	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "testriak/0": already resolved`)
 	c.Assert(u.Resolved(), Equals, state.ResolvedRetryHooks)
+}
+
+type DeployLocalSuite struct {
+	testing.JujuConnSuite
+	repo          *charm.LocalRepository
+	defaultSeries string
+	seriesPath    string
+	charmUrl      *charm.URL
+}
+
+// Run-time check to ensure DeployLocalSuite implements the Suite
+// interface.
+var _ = Suite(&DeployLocalSuite{})
+
+func (s *DeployLocalSuite) SetUpTest(c *C) {
+	s.JujuConnSuite.SetUpTest(c)
+	repoPath := c.MkDir()
+	s.defaultSeries = "precise"
+	s.repo = &charm.LocalRepository{Path: repoPath}
+	s.seriesPath = filepath.Join(repoPath, s.defaultSeries)
+	err := os.Mkdir(s.seriesPath, 0777)
+	c.Assert(err, IsNil)
+	coretesting.Charms.BundlePath(s.seriesPath, "mysql")
+	s.charmUrl, err = charm.InferURL("local:mysql", s.defaultSeries)
+	c.Assert(err, IsNil)
+}
+
+func (s *DeployLocalSuite) TestSetNumUnits(c *C) {
+	charm, err := s.Conn.PutCharm(s.charmUrl, s.repo, false)
+	c.Assert(err, IsNil)
+	args := juju.DeployServiceParams{
+		Charm:       charm,
+		NumUnits:    3,
+		ServiceName: "bob",
+	}
+	svc, err := s.Conn.DeployService(args)
+	c.Assert(err, IsNil)
+	units, err := svc.AllUnits()
+	c.Assert(err, IsNil)
+	c.Assert(len(units), Equals, 3)
 }
