@@ -5,9 +5,8 @@ import (
 )
 
 type annotator interface {
-	Annotation(key string) string
-	Annotations() map[string]string
-	Refresh() error
+	Annotation(key string) (string, error)
+	Annotations() (map[string]string, error)
 	SetAnnotation(key, value string) error
 }
 
@@ -72,18 +71,18 @@ loop:
 				c.Assert(err, ErrorMatches, t.err)
 				continue loop
 			}
+			c.Assert(err, IsNil)
 		}
-		c.Assert(err, IsNil)
 		// Retrieving single values works as expected.
 		for key, value := range t.input {
-			c.Assert(entity.Annotation(key), Equals, value)
+			v, err := entity.Annotation(key)
+			c.Assert(err, IsNil)
+			c.Assert(v, Equals, value)
 		}
-		// The value stored in the annotator changed.
-		c.Assert(entity.Annotations(), DeepEquals, t.expected)
-		err = entity.Refresh()
-		c.Assert(err, IsNil)
 		// The value stored in MongoDB changed.
-		c.Assert(entity.Annotations(), DeepEquals, t.expected)
+		ann, err := entity.Annotations()
+		c.Assert(err, IsNil)
+		c.Assert(ann, DeepEquals, t.expected)
 		// Clean up existing annotations.
 		for key := range t.expected {
 			err = entity.SetAnnotation(key, "")

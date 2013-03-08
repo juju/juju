@@ -64,6 +64,10 @@ func jujuInfoEp(serviceName string) state.Endpoint {
 	}
 }
 
+func (s *ServiceSuite) TestEntityName(c *C) {
+	c.Assert(s.mysql.EntityName(), Equals, "service-mysql")
+}
+
 func (s *ServiceSuite) TestMysqlEndpoints(c *C) {
 	_, err := s.mysql.Endpoint("mysql")
 	c.Assert(err, ErrorMatches, `service "mysql" has no "mysql" relation`)
@@ -1067,4 +1071,12 @@ func (s *ServiceSuite) TestAnnotatorForService(c *C) {
 	testAnnotator(c, func() (annotator, error) {
 		return s.State.Service("mysql")
 	})
+}
+
+func (s *ServiceSuite) TestAnnotationRemovalForService(c *C) {
+	s.mysql.SetAnnotation("mykey", "myvalue")
+	s.mysql.Destroy()
+	ann, err := s.mysql.Annotations()
+	c.Assert(err, IsNil)
+	c.Assert(ann, DeepEquals, make(map[string]string))
 }

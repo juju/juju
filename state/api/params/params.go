@@ -87,6 +87,18 @@ type User struct {
 	// future.
 }
 
+// GetAnnotations stores parameters for making the GetAnnotations call.
+type GetAnnotations struct {
+	Id string
+}
+
+// SetAnnotation stores parameters for making the SetAnnotation call.
+type SetAnnotation struct {
+	Id    string
+	Key   string
+	Value string
+}
+
 // Delta holds details of a change to the environment.
 type Delta struct {
 	// If Removed is true, the entity has been removed;

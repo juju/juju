@@ -79,6 +79,18 @@ func (u *User) EntityName() string {
 	return "user-" + u.doc.Name
 }
 
+// Annotations currently just returns an empty map. Implemented here so that
+// a user can be used as an Entity.
+func (u *User) Annotations() (map[string]string, error) {
+	return map[string]string{}, nil
+}
+
+// SetAnnotation currently just returns an error. Implemented here so that
+// a user can be used as an Entity.
+func (u *User) SetAnnotation(key, value string) error {
+	return fmt.Errorf("cannot set annotation of user")
+}
+
 // SetPassword sets the password associated with the user.
 func (u *User) SetPassword(password string) error {
 	hp := trivial.PasswordHash(password)

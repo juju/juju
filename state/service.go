@@ -30,20 +30,15 @@ type serviceDoc struct {
 	RelationCount int
 	Exposed       bool
 	TxnRevno      int64 `bson:"txn-revno"`
-	Annotations   map[string]string
 }
 
 func newService(st *State, doc *serviceDoc) *Service {
 	svc := &Service{
-		st:  st,
-		doc: *doc,
-		annotator: annotator{
-			st:   st,
-			coll: st.services.Name,
-			id:   doc.Name,
-		},
+		st:        st,
+		doc:       *doc,
+		annotator: annotator{st: st},
 	}
-	svc.annotator.annotations = &svc.doc.Annotations
+	svc.annotator.entityName = svc.EntityName()
 	return svc
 }
 
@@ -52,9 +47,23 @@ func (s *Service) Name() string {
 	return s.doc.Name
 }
 
-// Annotations returns the service annotations.
-func (s *Service) Annotations() map[string]string {
-	return s.doc.Annotations
+// EntityName returns a name identifying the service that is safe to use
+// as a file name.  The returned name will be different from other
+// EntityName values returned by any other entities from the same state.
+func (s *Service) EntityName() string {
+	return "service-" + s.Name()
+}
+
+// PasswordValid currently just returns false. Implemented here so that
+// a service can be used as an Entity.
+func (s *Service) PasswordValid(password string) bool {
+	return false
+}
+
+// SetPassword currently just returns an error. Implemented here so that
+// a service can be used as an Entity.
+func (s *Service) SetPassword(password string) error {
+	return fmt.Errorf("cannot set password of service")
 }
 
 // globalKey returns the global database key for the service.
@@ -171,7 +180,7 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 // removeOps returns the operations required to remove the service. Supplied
 // asserts will be included in the operation on the service document.
 func (s *Service) removeOps(asserts D) []txn.Op {
-	return []txn.Op{{
+	ops := []txn.Op{{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
 		Assert: asserts,
@@ -185,6 +194,7 @@ func (s *Service) removeOps(asserts D) []txn.Op {
 		Id:     s.globalKey(),
 		Remove: true,
 	}}
+	return append(ops, annotationRemoveOps(s.st, s.EntityName()))
 }
 
 // IsExposed returns whether this service is exposed. The explicitly open
@@ -439,7 +449,7 @@ func (s *Service) removeUnitOps(u *Unit) []txn.Op {
 	} else {
 		svcOp.Assert = D{{"life", Dying}, {"unitcount", D{{"$gt", 1}}}}
 	}
-	return append(ops, svcOp)
+	return append(ops, svcOp, annotationRemoveOps(s.st, u.EntityName()))
 }
 
 // Unit returns the service's unit with name.

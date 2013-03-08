@@ -56,31 +56,21 @@ type machineDoc struct {
 	TxnRevno     int64  `bson:"txn-revno"`
 	Jobs         []MachineJob
 	PasswordHash string
-	Annotations  map[string]string
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {
 	machine := &Machine{
-		st:  st,
-		doc: *doc,
-		annotator: annotator{
-			st:   st,
-			coll: st.machines.Name,
-			id:   doc.Id,
-		},
+		st:        st,
+		doc:       *doc,
+		annotator: annotator{st: st},
 	}
-	machine.annotator.annotations = &machine.doc.Annotations
+	machine.annotator.entityName = machine.EntityName()
 	return machine
 }
 
 // Id returns the machine id.
 func (m *Machine) Id() string {
 	return m.doc.Id
-}
-
-// Annotations returns the machine annotations.
-func (m *Machine) Annotations() map[string]string {
-	return m.doc.Annotations
 }
 
 // Series returns the operating system series running on the machine.
@@ -292,6 +282,7 @@ func (m *Machine) Remove() (err error) {
 		Id:     m.doc.Id,
 		Remove: true,
 	}}
+	ops = append(ops, annotationRemoveOps(m.st, m.EntityName()))
 	return m.st.runner.Run(ops, "", nil)
 }
 
