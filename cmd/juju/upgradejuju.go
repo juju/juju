@@ -13,7 +13,7 @@ import (
 
 // UpgradeJujuCommand upgrades the agents in a juju installation.
 type UpgradeJujuCommand struct {
-	EnvName      string
+	EnvCommandBase
 	UploadTools  bool
 	BumpVersion  bool
 	Version      version.Number
@@ -34,7 +34,7 @@ func (c *UpgradeJujuCommand) Info() *cmd.Info {
 }
 
 func (c *UpgradeJujuCommand) SetFlags(f *gnuflag.FlagSet) {
-	addEnvironFlags(&c.EnvName, f)
+	c.EnvCommandBase.SetFlags(f)
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools")
 	f.StringVar(&c.vers, "version", "", "version to upgrade to (defaults to highest available version with the current major version number)")
 	f.BoolVar(&c.BumpVersion, "bump-version", false, "upload the tools with a higher build number if necessary, and use that version (overrides --version)")

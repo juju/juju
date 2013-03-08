@@ -8,6 +8,7 @@ import (
 
 // VersionCommand is a cmd.Command that prints the current version.
 type VersionCommand struct {
+	cmd.CommandBase
 	out cmd.Output
 }
 

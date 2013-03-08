@@ -10,8 +10,8 @@ import (
 )
 
 type StatusCommand struct {
-	EnvName string
-	out     cmd.Output
+	EnvCommandBase
+	out cmd.Output
 }
 
 var statusDoc = "This command will report on the runtime state of various system entities."
@@ -26,15 +26,11 @@ func (c *StatusCommand) Info() *cmd.Info {
 }
 
 func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
-	addEnvironFlags(&c.EnvName, f)
+	c.EnvCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
 		"json": cmd.FormatJson,
 	})
-}
-
-func (c *StatusCommand) Init(args []string) error {
-	return cmd.CheckEmpty(args)
 }
 
 func (c *StatusCommand) Run(ctx *cmd.Context) error {

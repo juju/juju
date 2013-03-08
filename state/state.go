@@ -121,6 +121,10 @@ type State struct {
 	pwatcher       *presence.Watcher
 }
 
+func (st *State) Watch() *StateWatcher {
+	return newStateWatcher(st)
+}
+
 func (st *State) EnvironConfig() (*config.Config, error) {
 	settings, err := readSettings(st, "e")
 	if err != nil {
