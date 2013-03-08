@@ -44,6 +44,7 @@ type Meta struct {
 	Peers       map[string]Relation `bson:",omitempty"`
 	Format      int                 `bson:",omitempty"`
 	OldRevision int                 `bson:",omitempty"` // Obsolete
+	Categories  []string            `bson:",omitempty"`
 }
 
 func generateRelationHooks(relName string, allHooks map[string]bool) {
@@ -74,6 +75,18 @@ func (m Meta) Hooks() map[string]bool {
 	return allHooks
 }
 
+func parseCategories(categories interface{}) []string{
+	if categories == nil{
+	    return nil
+	}
+	slice := categories.([]interface{})
+	result := make([]string, 0, len(slice))
+	for _, cat := range slice {
+	  result = append(result, cat.(string))
+	}
+	return result
+}
+
 // ReadMeta reads the content of a metadata.yaml file and returns
 // its representation.
 func ReadMeta(r io.Reader) (meta *Meta, err error) {
@@ -101,6 +114,7 @@ func ReadMeta(r io.Reader) (meta *Meta, err error) {
 	meta.Requires = parseRelations(m["requires"])
 	meta.Peers = parseRelations(m["peers"])
 	meta.Format = int(m["format"].(int64))
+	meta.Categories = parseCategories(m["categories"])
 	if subordinate := m["subordinate"]; subordinate != nil {
 		meta.Subordinate = subordinate.(bool)
 	}
@@ -269,6 +283,7 @@ var charmSchema = schema.FieldMap(
 		"revision":    schema.Int(), // Obsolete
 		"format":      schema.Int(),
 		"subordinate": schema.Bool(),
+		"categories":  schema.List(schema.String()),
 	},
 	schema.Defaults{
 		"provides":    schema.Omit,
@@ -277,5 +292,6 @@ var charmSchema = schema.FieldMap(
 		"revision":    schema.Omit,
 		"format":      1,
 		"subordinate": schema.Omit,
+		"categories": schema.Omit,
 	},
 )
