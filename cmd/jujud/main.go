@@ -10,8 +10,7 @@ import (
 )
 
 // When we import an environment provider implementation
-// here, it will register itself with environs, and hence
-// be available to the juju command.
+// here, it will register itself with environs.
 import (
 	_ "launchpad.net/juju-core/environs/ec2"
 	_ "launchpad.net/juju-core/environs/openstack"
