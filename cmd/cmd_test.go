@@ -97,8 +97,8 @@ func (s *CmdSuite) TestMainHelp(c *C) {
 		ctx := testing.Context(c)
 		result := cmd.Main(&TestCommand{Name: "verb"}, ctx, []string{arg})
 		c.Assert(result, Equals, 0)
-		c.Assert(bufferString(ctx.Stdout), Equals, "")
-		c.Assert(bufferString(ctx.Stderr), Equals, fullHelp)
+		c.Assert(bufferString(ctx.Stdout), Equals, fullHelp)
+		c.Assert(bufferString(ctx.Stderr), Equals, "")
 	}
 }
 

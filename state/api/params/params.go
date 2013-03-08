@@ -43,6 +43,12 @@ type ServiceUnexpose struct {
 	ServiceName string
 }
 
+// ServiceAddUnits holds parameters for the AddUnits call.
+type ServiceAddUnits struct {
+	ServiceName string
+	NumUnits    int
+}
+
 // Creds holds credentials for identifying an entity.
 type Creds struct {
 	EntityName string
@@ -87,15 +93,20 @@ type User struct {
 	// future.
 }
 
+// GetAnnotationsResults holds annotations associated with an entity.
+type GetAnnotationsResults struct {
+	Annotations map[string]string
+}
+
 // GetAnnotations stores parameters for making the GetAnnotations call.
 type GetAnnotations struct {
-	Id string
+	EntityId string
 }
 
 // SetAnnotations stores parameters for making the SetAnnotations call.
 type SetAnnotations struct {
-	Id    string
-	Pairs map[string]string
+	EntityId string
+	Pairs    map[string]string
 }
 
 // Delta holds details of a change to the environment.

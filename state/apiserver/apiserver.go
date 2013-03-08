@@ -308,6 +308,11 @@ func (c *srvClient) ServiceUnexpose(args params.ServiceUnexpose) error {
 	return statecmd.ServiceUnexpose(c.root.srv.state, args)
 }
 
+// ServiceAddUnits adds a given number of units to a service.
+func (c *srvClient) ServiceAddUnits(args params.ServiceAddUnits) error {
+	return statecmd.ServiceAddUnits(c.root.srv.state, args)
+}
+
 // CharmInfo returns information about the requested charm.
 func (c *srvClient) CharmInfo(args params.CharmInfo) (api.CharmInfo, error) {
 	curl, err := charm.ParseURL(args.CharmURL)
@@ -342,21 +347,21 @@ func (c *srvClient) EnvironmentInfo() (api.EnvironmentInfo, error) {
 }
 
 // GetAnnotations returns annotations about a given entity.
-func (c *srvClient) GetAnnotations(args params.GetAnnotations) (api.Annotations, error) {
-	entity, err := c.root.srv.state.Entity(args.Id)
+func (c *srvClient) GetAnnotations(args params.GetAnnotations) (params.GetAnnotationsResults, error) {
+	entity, err := c.root.srv.state.Entity(args.EntityId)
 	if err != nil {
-		return api.Annotations{}, err
+		return params.GetAnnotationsResults{}, err
 	}
 	ann, err := entity.Annotations()
 	if err != nil {
-		return api.Annotations{}, err
+		return params.GetAnnotationsResults{}, err
 	}
-	return api.Annotations{Annotations: ann}, nil
+	return params.GetAnnotationsResults{Annotations: ann}, nil
 }
 
 // SetAnnotations stores annotations about a given entity.
 func (c *srvClient) SetAnnotations(args params.SetAnnotations) error {
-	entity, err := c.root.srv.state.Entity(args.Id)
+	entity, err := c.root.srv.state.Entity(args.EntityId)
 	if err != nil {
 		return err
 	}
