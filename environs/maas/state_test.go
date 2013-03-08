@@ -12,6 +12,12 @@ type StateSuite struct {
 var _ = Suite(new(StateSuite))
 
 func (suite *StateSuite) TestLoadStateReturnsNotFoundForMissingFile(c *C) {
-	_, err := suite.environ.loadState()
+	serverURL := suite.testMAASObject.URL().String()
+	config := getTestConfig("loadState-test", serverURL, "a:b:c", "foo")
+	env, err := NewEnviron(config)
+	c.Assert(err, IsNil)
+
+	_, err = env.loadState()
+
 	c.Check(err, FitsTypeOf, environs.NotFoundError{})
 }
