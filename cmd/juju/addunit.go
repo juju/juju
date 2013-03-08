@@ -38,6 +38,9 @@ func (c *AddUnitCommand) Init(args []string) error {
 	default:
 		return cmd.CheckEmpty(args[1:])
 	}
+	if c.NumUnits < 1 {
+		return errors.New("must add at least one unit")
+	}
 	return nil
 }
 
