@@ -68,7 +68,7 @@ func (env *maasEnviron) quiesceStateFile() error {
 		// being destroyed after all.
 		return fmt.Errorf("environment is already bootstrapped")
 	}
-	if _, notFound := err.(environs.NotFoundError); !notFound {
+	if _, notFound := err.(*environs.NotFoundError); !notFound {
 		return fmt.Errorf("cannot query old bootstrap state: %v", err)
 	}
 	// Got to this point?  Then the error was "not found," which is the
