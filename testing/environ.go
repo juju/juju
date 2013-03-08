@@ -42,6 +42,13 @@ const SampleCertName = "erewhemos"
 
 type FakeHome string
 
+// MakeFakeHome creates a new temporary directory through the test checker,
+// and overrides the HOME environment variable to point to this new temporary
+// directory.
+//
+// A new ~/.juju/environments.yaml file is created with the content of the
+// `config` parameter, and CAKeys are written for each of the 'certNames'
+// specified.
 func MakeFakeHome(c *C, config string, certNames ...string) FakeHome {
 	oldHome := os.Getenv("HOME")
 	os.Setenv("HOME", c.MkDir())
