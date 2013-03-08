@@ -250,6 +250,36 @@ func (s *MainSuite) TestHelpTopics(c *C) {
 	c.Assert(names, DeepEquals, topicNames)
 }
 
+var globalFlags = []string{
+	"--debug .*",
+	"-h, --help .*",
+	"--log-file .*",
+	"-v, --verbose .*",
+}
+
+func (s *MainSuite) TestHelpGlobalOptions(c *C) {
+	// Check that we have correctly registered all the topics
+	// by checking the help output.
+	out := badrun(c, 0, "help", "global-options")
+	c.Assert(out, Matches, `Global Options
+
+These options may be used with any command, and may appear in front of any
+command\.(.|\n)*`)
+	lines := strings.Split(out, "\n")
+	var flags []string
+	for _, line := range lines {
+		f := strings.Fields(line)
+		if len(f) == 0 || line[0] != '-' {
+			continue
+		}
+		flags = append(flags, line)
+	}
+	c.Assert(len(flags), Equals, len(globalFlags))
+	for i, line := range flags {
+		c.Assert(line, Matches, globalFlags[i])
+	}
+}
+
 type fakeHome string
 
 func makeFakeHome(c *C, certNames ...string) fakeHome {
