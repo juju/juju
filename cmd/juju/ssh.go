@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/log"
@@ -18,9 +17,9 @@ type SSHCommand struct {
 
 // SSHCommon provides common methods for SSHCommand and SCPCommand.
 type SSHCommon struct {
-	EnvName string
-	Target  string
-	Args    []string
+	EnvCommandBase
+	Target string
+	Args   []string
 	*juju.Conn
 }
 
@@ -37,10 +36,6 @@ func (c *SSHCommand) Info() *cmd.Info {
 		Purpose: "launch an ssh shell on a given unit or machine",
 		Doc:     sshDoc,
 	}
-}
-
-func (c *SSHCommand) SetFlags(f *gnuflag.FlagSet) {
-	addEnvironFlags(&c.EnvName, f)
 }
 
 func (c *SSHCommand) Init(args []string) error {
