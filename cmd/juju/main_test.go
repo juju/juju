@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
 	_ "launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/testing"
@@ -42,6 +44,17 @@ func badrun(c *C, exit int, cmd ...string) string {
 	return string(output)
 }
 
+func deployHelpText() string {
+	buff := &bytes.Buffer{}
+	dc := &DeployCommand{}
+	info := dc.Info()
+	info.Name = "juju deploy"
+	f := gnuflag.NewFlagSet(info.Name, gnuflag.ContinueOnError)
+	dc.SetFlags(f)
+	buff.Write(info.Help(f))
+	return buff.String()
+}
+
 var runMainTests = []struct {
 	summary string
 	args    []string
@@ -71,8 +84,23 @@ var runMainTests = []struct {
 	}, {
 		summary: "juju help foo doesn't exist",
 		args:    []string{"help", "foo"},
-		code:    2,
+		code:    1,
 		out:     "error: unknown command or topic for foo\n",
+	}, {
+		summary: "juju help deploy shows the default help without global options",
+		args:    []string{"help", "deploy"},
+		code:    0,
+		out:     deployHelpText(),
+	}, {
+		summary: "juju --help deploy shows the same help as 'help deploy'",
+		args:    []string{"--help", "deploy"},
+		code:    0,
+		out:     deployHelpText(),
+	}, {
+		summary: "juju deploy --help shows the same help as 'help deploy'",
+		args:    []string{"deploy", "--help"},
+		code:    0,
+		out:     deployHelpText(),
 	}, {
 		summary: "unknown command",
 		args:    []string{"discombobulate"},
