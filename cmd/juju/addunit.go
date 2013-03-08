@@ -11,7 +11,7 @@ import (
 
 // AddUnitCommand is responsible adding additional units to a service.
 type AddUnitCommand struct {
-	EnvName     string
+	EnvCommandBase
 	ServiceName string
 	NumUnits    int
 }
@@ -24,7 +24,7 @@ func (c *AddUnitCommand) Info() *cmd.Info {
 }
 
 func (c *AddUnitCommand) SetFlags(f *gnuflag.FlagSet) {
-	addEnvironFlags(&c.EnvName, f)
+	c.EnvCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "number of service units to add")
 	f.IntVar(&c.NumUnits, "num-units", 1, "")
 }

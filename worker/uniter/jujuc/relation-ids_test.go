@@ -145,8 +145,8 @@ options:
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, []string{"--help"})
 		c.Assert(code, Equals, 0)
-		c.Assert(bufferString(ctx.Stdout), Equals, "")
 		expect := fmt.Sprintf(template, t.usage, t.doc)
-		c.Assert(bufferString(ctx.Stderr), Equals, expect)
+		c.Assert(bufferString(ctx.Stdout), Equals, expect)
+		c.Assert(bufferString(ctx.Stderr), Equals, "")
 	}
 }

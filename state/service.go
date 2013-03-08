@@ -75,7 +75,7 @@ var errRefresh = errors.New("cannot determine relation destruction operations; p
 func (s *Service) Destroy() (err error) {
 	defer trivial.ErrorContextf(&err, "cannot destroy service %q", s)
 	defer func() {
-		if err != nil {
+		if err == nil {
 			// This is a white lie; the document might actually be removed.
 			s.doc.Life = Dying
 		}

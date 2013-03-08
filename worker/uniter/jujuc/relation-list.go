@@ -8,6 +8,7 @@ import (
 
 // RelationListCommand implements the relation-list command.
 type RelationListCommand struct {
+	cmd.CommandBase
 	ctx        Context
 	RelationId int
 	out        cmd.Output
