@@ -1,8 +1,8 @@
 package state
 
 import (
-	"launchpad.net/juju-core/state/api/params"
 	"container/list"
+	"launchpad.net/juju-core/state/api/params"
 	"reflect"
 )
 
