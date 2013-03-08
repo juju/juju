@@ -89,8 +89,8 @@ var operationPermTests = []struct {
 	op:    opClientGetAnnotations,
 	allow: []string{"user-admin", "user-other"},
 }, {
-	about: "Client.SetAnnotation",
-	op:    opClientSetAnnotation,
+	about: "Client.SetAnnotations",
+	op:    opClientSetAnnotations,
 	allow: []string{"user-admin", "user-other"},
 }, {
 	about: "Client.WatchAll",
@@ -296,8 +296,9 @@ func opClientGetAnnotations(c *C, st *api.State) (func(), error) {
 	return func() {}, nil
 }
 
-func opClientSetAnnotation(c *C, st *api.State) (func(), error) {
-	err := st.Client().SetAnnotation("service-wordpress", "key", "value")
+func opClientSetAnnotations(c *C, st *api.State) (func(), error) {
+	pairs := map[string]string{"key1": "value1", "key2": "value2"}
+	err := st.Client().SetAnnotations("service-wordpress", pairs)
 	if err != nil {
 		return func() {}, err
 	}
@@ -633,7 +634,6 @@ func (s *suite) TestClientAnnotations(c *C) {
 	environment := s.State.GetEnvironment()
 	entities := []state.Entity{service, unit, machine, environment}
 	for i, t := range clientAnnotationsTests {
-	loop:
 		for _, entity := range entities {
 			id := entity.EntityName()
 			c.Logf("test %d. %s. entity %s", i, t.about, id)
@@ -643,14 +643,12 @@ func (s *suite) TestClientAnnotations(c *C) {
 				c.Assert(err, IsNil)
 			}
 			// Add annotations using the API call.
-			for key, value := range t.input {
-				err := s.APIState.Client().SetAnnotation(id, key, value)
-				if t.err != "" {
-					c.Assert(err, ErrorMatches, t.err)
-					continue loop
-				}
-				c.Assert(err, IsNil)
+			err := s.APIState.Client().SetAnnotations(id, t.input)
+			if t.err != "" {
+				c.Assert(err, ErrorMatches, t.err)
+				continue
 			}
+			c.Assert(err, IsNil)
 			// Annotations are correctly set.
 			entity.Refresh()
 			dbann, err := entity.Annotations()
