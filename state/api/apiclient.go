@@ -166,14 +166,9 @@ func (c *Client) WatchAll() (*AllWatcher, error) {
 	return newAllWatcher(c, &info.AllWatcherId), nil
 }
 
-// Annotations holds annotations associated with an entity.
-type Annotations struct {
-	Annotations map[string]string
-}
-
-// GetAnnotations returns annotations about a given entity.
-func (c *Client) GetAnnotations(id string) (*Annotations, error) {
-	args := params.GetAnnotations{id}
+// GetAnnotations returns annotations that have been set on the given entity.
+func (c *Client) GetAnnotations(entityId string) (map[string]string, error) {
+	args := params.GetAnnotations{entityId}
 	ann := new(Annotations)
 	err := c.st.client.Call("Client", "", "GetAnnotations", args, ann)
 	if err != nil {
@@ -182,9 +177,11 @@ func (c *Client) GetAnnotations(id string) (*Annotations, error) {
 	return ann, nil
 }
 
-// SetAnnotation stores an annotation about a given entity.
-func (c *Client) SetAnnotation(id, key, value string) error {
-	args := params.SetAnnotation{id, key, value}
+// SetAnnotation sets the annotation with the given key on the given entity to
+// the given value. Currently annotations are supported on machines, services,
+// units and the environment itself.
+func (c *Client) SetAnnotation(entityId, key, value string) error {
+	args := params.SetAnnotation{entityId, key, value}
 	err := c.st.client.Call("Client", "", "SetAnnotation", args, nil)
 	if err != nil {
 		return clientError(err)

@@ -342,17 +342,17 @@ func (c *srvClient) EnvironmentInfo() (api.EnvironmentInfo, error) {
 }
 
 // GetAnnotations returns annotations about a given entity.
-func (c *srvClient) GetAnnotations(args params.GetAnnotations) (api.Annotations, error) {
-	entity, err := c.root.srv.state.Entity(args.Id)
+func (c *srvClient) GetAnnotations(args params.GetAnnotations) (params.GetAnnotationsResults, error) {
+	entity, err := c.root.srv.state.Entity(args.EntityId)
 	if err != nil {
-		return api.Annotations{}, err
+		return params.GetAnnotationsResults{}, err
 	}
-	return api.Annotations{Annotations: entity.Annotations()}, nil
+	return params.GetAnnotationsResults{Annotations: entity.Annotations()}, nil
 }
 
 // SetAnnotation stores an annotation about a given entity.
 func (c *srvClient) SetAnnotation(args params.SetAnnotation) error {
-	entity, err := c.root.srv.state.Entity(args.Id)
+	entity, err := c.root.srv.state.Entity(args.EntityId)
 	if err != nil {
 		return err
 	}

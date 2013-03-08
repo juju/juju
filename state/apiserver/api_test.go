@@ -302,7 +302,9 @@ func opClientSetAnnotation(c *C, st *api.State) (func(), error) {
 		return func() {}, err
 	}
 	c.Assert(err, IsNil)
-	return func() {}, nil
+	return func() {
+		st.Client().SetAnnotation("service-wordpress", "key", "")
+	}, nil
 }
 
 func opClientWatchAll(c *C, st *api.State) (func(), error) {
@@ -650,18 +652,21 @@ func (s *suite) TestClientAnnotations(c *C) {
 				}
 				c.Assert(err, IsNil)
 			}
-			// Annotations are correctly set.
-			entity.Refresh()
+			// Check annotations are correctly set.
+			err := entity.Refresh()
+			c.Assert(err, IsNil)
 			c.Assert(entity.Annotations(), DeepEquals, t.expected)
 			// Retrieve annotations using the API call.
 			ann, err := s.APIState.Client().GetAnnotations(id)
 			c.Assert(err, IsNil)
-			// Annotations are correctly returned.
-			entity.Refresh()
+			// Check annotations are correctly returned.
+			err = entity.Refresh()
+			c.Assert(err, IsNil)
 			c.Assert(ann.Annotations, DeepEquals, entity.Annotations())
 			// Clean up annotations on the current entity.
 			for key := range entity.Annotations() {
 				err = entity.SetAnnotation(key, "")
+				c.Assert(err, IsNil)
 			}
 		}
 	}
