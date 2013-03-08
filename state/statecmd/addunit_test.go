@@ -31,7 +31,7 @@ var addUnitsTests = []struct {
 		about:    "add zero units",
 		service:  "dummy-service",
 		numUnits: 0,
-		err:      `must add at least one unit`,
+		err:      "must add at least one unit",
 	},
 	{
 		about:         "add one unit",
