@@ -359,6 +359,9 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	if !IsServiceName(name) {
 		return nil, fmt.Errorf("invalid name")
 	}
+	if ch == nil {
+		return nil, fmt.Errorf("charm is nil")
+	}
 	if exists, err := isNotDead(st.services, name); err != nil {
 		return nil, err
 	} else if exists {
