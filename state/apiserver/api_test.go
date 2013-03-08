@@ -93,6 +93,10 @@ var operationPermTests = []struct {
 	op:    opClientSetAnnotation,
 	allow: []string{"user-admin", "user-other"},
 }, {
+	about: "Client.ServiceAddUnits",
+	op:    opClientServiceAddUnits,
+	allow: []string{"user-admin", "user-other"},
+}, {
 	about: "Client.WatchAll",
 	op:    opClientWatchAll,
 	allow: []string{"user-admin", "user-other"},
@@ -292,12 +296,25 @@ func opClientGetAnnotations(c *C, st *api.State) (func(), error) {
 		return func() {}, err
 	}
 	c.Assert(err, IsNil)
-	c.Assert(ann.Annotations, DeepEquals, make(map[string]string))
+	c.Assert(ann, DeepEquals, make(map[string]string))
 	return func() {}, nil
 }
 
 func opClientSetAnnotation(c *C, st *api.State) (func(), error) {
 	err := st.Client().SetAnnotation("service-wordpress", "key", "value")
+	if err != nil {
+		return func() {}, err
+	}
+	c.Assert(err, IsNil)
+	return func() {
+		st.Client().SetAnnotation("service-wordpress", "key", "")
+	}, nil
+}
+
+func opClientServiceAddUnits(c *C, st *api.State) (func(), error) {
+	// This test only checks that the call is made without error, ensuring the
+	// signatures match.
+	err := st.Client().ServiceAddUnits("wordpress", 1)
 	if err != nil {
 		return func() {}, err
 	}
@@ -651,19 +668,24 @@ func (s *suite) TestClientAnnotations(c *C) {
 				}
 				c.Assert(err, IsNil)
 			}
-			// Annotations are correctly set.
-			entity.Refresh()
+			// Check annotations are correctly set.
+			err := entity.Refresh()
+			c.Assert(err, IsNil)
 			dbann, err := entity.Annotations()
 			c.Assert(err, IsNil)
 			c.Assert(dbann, DeepEquals, t.expected)
 			// Retrieve annotations using the API call.
 			ann, err := s.APIState.Client().GetAnnotations(id)
 			c.Assert(err, IsNil)
-			// Annotations are correctly returned.
+			// Check annotations are correctly returned.
 			c.Assert(ann.Annotations, DeepEquals, dbann)
+			err = entity.Refresh()
+			c.Assert(err, IsNil)
+			c.Assert(ann, DeepEquals, entity.Annotations())
 			// Clean up annotations on the current entity.
 			for key := range dbann {
 				err = entity.SetAnnotation(key, "")
+				c.Assert(err, IsNil)
 			}
 		}
 	}
