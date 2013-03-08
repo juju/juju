@@ -94,12 +94,12 @@ type GetAnnotationsResults struct {
 
 // GetAnnotations stores parameters for making the GetAnnotations call.
 type GetAnnotations struct {
-	EmtityId string
+	EntityId string
 }
 
 // SetAnnotation stores parameters for making the SetAnnotation call.
 type SetAnnotation struct {
-	EmtityId string
+	EntityId string
 	Key      string
 	Value    string
 }
