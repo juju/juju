@@ -24,7 +24,12 @@ https://juju.ubuntu.com/
 // to the cmd package. This function is not redundant with main, because it
 // provides an entry point for testing with arbitrary command line arguments.
 func Main(args []string) {
-	juju := &cmd.SuperCommand{Name: "juju", Doc: jujuDoc, Log: &cmd.Log{}}
+	juju := cmd.NewSuperCommand(cmd.SuperCommandParams{
+		Name: "juju",
+		Doc:  jujuDoc,
+		Log:  &cmd.Log{},
+	})
+	juju.AddHelpTopic("basics", "Basic commands", helpBasics)
 
 	// Register creation commands.
 	juju.Register(&BootstrapCommand{})
