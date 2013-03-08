@@ -568,17 +568,22 @@ func (s *WatcherSuite) TestUnwatchCollectionWithOutstandingRequest(c *C) {
 	s.w.WatchCollection("testA", chA)
 	chB := make(chan watcher.Change)
 	s.w.Watch("testB", 1, -1, chB)
-	s.insert(c, "testA", 1)
+	revnoA := s.insert(c, "testA", 1)
+	s.insert(c, "testA", 2)
 	// By inserting this *after* the testA document, we ensure that
 	// the watcher will try to send on chB after sending on chA.
 	// The original bug that this test guards against meant that the
 	// UnwatchCollection did not correctly cancel the outstanding
 	// request, so the loop would never get around to sending on
 	// chB.
-	revno := s.insert(c, "testB", 1)
+	revnoB := s.insert(c, "testB", 1)
 	s.w.StartSync()
+	// When we receive the first change on chA, we know that
+	// the watcher is trying to send changes on all the
+	// watcher channels (2 changes on chA and 1 change on chB).
+	assertChange(c, chA, watcher.Change{"testA", 1, revnoA})
 	s.w.UnwatchCollection("testA", chA)
-	assertChange(c, chB, watcher.Change{"testB", 1, revno})
+	assertChange(c, chB, watcher.Change{"testB", 1, revnoB})
 }
 
 func (s *WatcherSuite) TestNonMutatingTxn(c *C) {
