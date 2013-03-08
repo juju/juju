@@ -434,6 +434,31 @@ func (s *ServiceSuite) TestLifeWithRemovableRelations(c *C) {
 	c.Assert(state.IsNotFound(err), Equals, true)
 }
 
+func (s *ServiceSuite) TestDestroyNeverHadUnits(c *C) {
+	err := s.mysql.Destroy()
+	c.Assert(err, IsNil)
+	c.Assert(s.mysql.Life(), Equals, state.Dying)
+	err = s.mysql.Refresh()
+	c.Assert(state.IsNotFound(err), Equals, true)
+}
+
+func (s *ServiceSuite) TestDestroyHaveNoUnits(c *C) {
+	unit, err := s.mysql.AddUnit()
+	c.Assert(err, IsNil)
+	err = unit.EnsureDead()
+	c.Assert(err, IsNil)
+	err = unit.Remove()
+	c.Assert(err, IsNil)
+	err = unit.Refresh()
+	c.Assert(state.IsNotFound(err), Equals, true)
+
+	err = s.mysql.Destroy()
+	c.Assert(err, IsNil)
+	c.Assert(s.mysql.Life(), Equals, state.Dying)
+	err = s.mysql.Refresh()
+	c.Assert(state.IsNotFound(err), Equals, true)
+}
+
 func (s *ServiceSuite) TestLifeWithReferencedRelations(c *C) {
 	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
