@@ -616,3 +616,9 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	c.Assert(err, IsNil)
 	assertChange("mysql/1", "logging/0")
 }
+
+func (s *MachineSuite) TestAnnotatorForMachine(c *C) {
+	testAnnotator(c, func() (annotator, error) {
+		return s.State.Machine(s.machine.Id())
+	})
+}

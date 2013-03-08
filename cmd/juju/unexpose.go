@@ -4,6 +4,8 @@ import (
 	"errors"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/statecmd"
 )
 
 // UnexposeCommand is responsible exposing services.
@@ -36,9 +38,6 @@ func (c *UnexposeCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer conn.Close()
-	svc, err := conn.State.Service(c.ServiceName)
-	if err != nil {
-		return err
-	}
-	return svc.ClearExposed()
+	params := params.ServiceUnexpose{ServiceName: c.ServiceName}
+	return statecmd.ServiceUnexpose(conn.State, params)
 }
