@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -37,10 +36,7 @@ func nextTestSet(c *C) (int, net.Listener, string) {
 	dataDir := c.MkDir()
 	listener, err := local.Listen(dataDir, environName, "127.0.0.1", 0)
 	c.Assert(err, IsNil)
-	_, ports, err := net.SplitHostPort(listener.Addr().String())
-	c.Assert(err, IsNil)
-	port, err := strconv.Atoi(ports)
-	c.Assert(err, IsNil)
+	port := listener.Addr().(*net.TCPAddr).Port
 
 	return port, listener, dataDir
 }
