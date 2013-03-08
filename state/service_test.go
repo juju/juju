@@ -442,7 +442,7 @@ func (s *ServiceSuite) TestDestroyNeverHadUnits(c *C) {
 	c.Assert(state.IsNotFound(err), Equals, true)
 }
 
-func (s *ServiceSuite) TestDestroyHaveNoUnits(c *C) {
+func (s *ServiceSuite) TestDestroyOnceHadUnits(c *C) {
 	unit, err := s.mysql.AddUnit()
 	c.Assert(err, IsNil)
 	err = unit.EnsureDead()
