@@ -12,7 +12,7 @@ import (
 
 // GetCommand retrieves the configuration of a service.
 type GetCommand struct {
-	EnvName     string
+	EnvCommandBase
 	ServiceName string
 	out         cmd.Output
 }
@@ -26,7 +26,7 @@ func (c *GetCommand) Info() *cmd.Info {
 }
 
 func (c *GetCommand) SetFlags(f *gnuflag.FlagSet) {
-	addEnvironFlags(&c.EnvName, f)
+	c.EnvCommandBase.SetFlags(f)
 	// TODO(dfc) add json formatting ?
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,

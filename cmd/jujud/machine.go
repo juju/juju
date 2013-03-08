@@ -21,6 +21,7 @@ var retryDelay = 3 * time.Second
 
 // MachineAgent is a cmd.Command responsible for running a machine agent.
 type MachineAgent struct {
+	cmd.CommandBase
 	tomb      tomb.Tomb
 	Conf      AgentConf
 	MachineId string

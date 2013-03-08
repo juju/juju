@@ -15,6 +15,7 @@ func bufferString(stream io.Writer) string {
 
 // TestCommand is used by several different tests.
 type TestCommand struct {
+	cmd.CommandBase
 	Name    string
 	Option  string
 	Minimal bool

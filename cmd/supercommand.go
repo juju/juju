@@ -12,6 +12,7 @@ import (
 // the subcommand are passed down to it, and to Run a SuperCommand is to run
 // its selected subcommand.
 type SuperCommand struct {
+	CommandBase
 	Name    string
 	Purpose string
 	Doc     string
