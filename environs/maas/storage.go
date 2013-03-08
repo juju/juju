@@ -68,7 +68,7 @@ func (stor *maasStorage) addressFileObject(name string) gomaasapi.MAASObject {
 // its download URL and its contents, as a MAASObject.
 //
 // This may return many different errors, but specifically, it returns
-// environs.NotFoundError if the file did not exist.
+// (a pointer to) environs.NotFoundError if the file did not exist.
 //
 // The function takes out a lock on the storage object.
 func (stor *maasStorage) retrieveFileObject(name string) (gomaasapi.MAASObject, error) {
@@ -78,7 +78,7 @@ func (stor *maasStorage) retrieveFileObject(name string) (gomaasapi.MAASObject, 
 		serverErr, ok := err.(gomaasapi.ServerError)
 		if ok && serverErr.StatusCode == 404 {
 			msg := fmt.Errorf("file '%s' not found", name)
-			return noObj, environs.NotFoundError{msg}
+			return noObj, &environs.NotFoundError{msg}
 		}
 		msg := fmt.Errorf("could not access file '%s': %v", name, err)
 		return noObj, msg

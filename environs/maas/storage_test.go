@@ -96,11 +96,11 @@ func (s *StorageSuite) TestRetrieveFileObjectReturnsFileObject(c *C) {
 	c.Check(content, Equals, fileContent)
 }
 
-func (s *StorageSuite) TestRetrieveFileObjectReturnsNotFound(c *C) {
+func (s *StorageSuite) TestRetrieveFileObjectReturnsNotFoundForMissingFile(c *C) {
 	stor := s.makeStorage("rfo-test")
 	_, err := stor.retrieveFileObject("nonexistent-file")
 	c.Assert(err, NotNil)
-	c.Check(err, FitsTypeOf, environs.NotFoundError{})
+	c.Check(err, FitsTypeOf, &environs.NotFoundError{})
 }
 
 func (s *StorageSuite) TestRetrieveFileObjectEscapesName(c *C) {
@@ -139,7 +139,7 @@ func (s *StorageSuite) TestGetReturnsNotFoundErrorIfNotFound(c *C) {
 	const filename = "lost-data"
 	storage := NewStorage(s.environ)
 	_, err := storage.Get(filename)
-	c.Assert(err, FitsTypeOf, environs.NotFoundError{})
+	c.Assert(err, FitsTypeOf, &environs.NotFoundError{})
 }
 
 func (s *StorageSuite) TestListReturnsEmptyIfNoFilesStored(c *C) {
@@ -329,7 +329,7 @@ func (s *StorageSuite) TestRemoveDeletesFile(c *C) {
 	c.Assert(err, IsNil)
 
 	_, err = storage.Get(filename)
-	c.Assert(err, FitsTypeOf, environs.NotFoundError{})
+	c.Assert(err, FitsTypeOf, &environs.NotFoundError{})
 
 	listing, err := storage.List(filename)
 	c.Assert(err, IsNil)

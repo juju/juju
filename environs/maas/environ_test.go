@@ -1,11 +1,13 @@
 package maas
 
 import (
+	"bytes"
 	. "launchpad.net/gocheck"
 	"launchpad.net/gomaasapi"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/testing"
 )
 
 type EnvironSuite struct {
@@ -14,6 +16,7 @@ type EnvironSuite struct {
 
 var _ = Suite(new(EnvironSuite))
 
+// getTestConfig creates a customized sample MAAS provider configuration.
 func getTestConfig(name, server, oauth, secret string) *config.Config {
 	ecfg, err := newConfig(map[string]interface{}{
 		"name":         name,
@@ -25,6 +28,29 @@ func getTestConfig(name, server, oauth, secret string) *config.Config {
 		panic(err)
 	}
 	return ecfg.Config
+}
+
+// makeEnviron creates a functional maasEnviron for a test.  Its configuration
+// is a bit arbitrary and none of the test code's business.
+func (suite *EnvironSuite) makeEnviron() *maasEnviron {
+	config, err := config.New(map[string]interface{}{
+		"name":            suite.environ.Name(),
+		"type":            "maas",
+		"admin-secret":    "local-secret",
+		"authorized-keys": "foo",
+		"ca-cert":         testing.CACert,
+		"ca-private-key":  testing.CAKey,
+		"maas-oauth":      "a:b:c",
+		"maas-server":     suite.testMAASObject.URL().String(),
+	})
+	if err != nil {
+		panic(err)
+	}
+	env, err := NewEnviron(config)
+	if err != nil {
+		panic(err)
+	}
+	return env
 }
 
 func (EnvironSuite) TestSetConfigUpdatesConfig(c *C) {
@@ -168,4 +194,42 @@ func (suite *EnvironSuite) TestStopInstancesStopsInstances(c *C) {
 	operations := suite.testMAASObject.TestServer.NodeOperations()
 	expectedOperations := map[string][]string{"test1": {"stop"}, "test2": {"stop"}}
 	c.Check(operations, DeepEquals, expectedOperations)
+}
+
+func (suite *EnvironSuite) TestQuiesceStateFileIsHappyWithoutStateFile(c *C) {
+	err := suite.makeEnviron().quiesceStateFile()
+	c.Check(err, IsNil)
+}
+
+func (suite *EnvironSuite) TestQuiesceStateFileFailsWithStateFile(c *C) {
+	env := suite.makeEnviron()
+	err := env.saveState(&bootstrapState{})
+	c.Assert(err, IsNil)
+
+	err = env.quiesceStateFile()
+
+	c.Check(err, Not(IsNil))
+}
+
+func (suite *EnvironSuite) TestQuiesceStateFileFailsOnBrokenStateFile(c *C) {
+	const content = "@#$(*&Y%!"
+	reader := bytes.NewReader([]byte(content))
+	env := suite.makeEnviron()
+	err := env.Storage().Put(stateFile, reader, int64(len(content)))
+	c.Assert(err, IsNil)
+
+	err = env.quiesceStateFile()
+
+	c.Check(err, Not(IsNil))
+}
+
+func (suite *EnvironSuite) TestBootstrap(c *C) {
+	env := suite.makeEnviron()
+
+	err := env.Bootstrap(true, []byte{}, []byte{})
+	// TODO: Get this to succeed.
+	unused(err)
+	// c.Assert(err, IsNil)
+
+	// TODO: Verify a simile of success.
 }
