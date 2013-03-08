@@ -86,11 +86,16 @@ func (s *MainSuite) TestParseErrors(c *C) {
 		"toastie")
 }
 
-func (s *MainSuite) TestProvidersAreRegisters(c *C) {
-	// check that ec2 and openstack providers are registered
-	for _, name := range []string{"ec2", "openstack"} {
+var expectedProviders = []string{
+	"ec2",
+	"openstack",
+}
+
+func (s *MainSuite) TestProvidersAreRegistered(c *C) {
+	// check that all the expected providers are registered
+	for _, name := range expectedProviders {
 		_, err := environs.Provider(name)
-		c.Error(err, IsNil)
+		c.Assert(err, IsNil)
 	}
 }
 
