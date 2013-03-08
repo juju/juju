@@ -103,6 +103,7 @@ func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int
 		ServiceName: serviceName,
 		ConfigYAML:  configYAML,
 		CharmUrl:    charmUrl,
+		NumUnits:    numUnits,
 	}
 	err := c.st.client.Call("Client", "", "ServiceDeploy", params, nil)
 	if err != nil {
@@ -112,24 +113,6 @@ func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int
 }
 
 // CharmInfo holds information about a charm.
-type CharmInfo struct {
-	Revision int
-	URL      string
-	Config   *charm.Config
-	Meta     *charm.Meta
-}
-
-// CharmInfo returns information about the requested charm.
-func (c *Client) CharmInfo(charmURL string) (*CharmInfo, error) {
-	args := params.CharmInfo{CharmURL: charmURL}
-	info := new(CharmInfo)
-	err := c.st.client.Call("Client", "", "CharmInfo", args, info)
-	if err != nil {
-		return nil, clientError(err)
-	}
-	return info, nil
-}
-
 // ServiceAddUnit adds a given number of units to a service.
 func (c *Client) ServiceAddUnits(service string, numUnits int) error {
 	params := params.ServiceAddUnits{

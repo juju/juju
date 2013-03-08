@@ -314,6 +314,27 @@ func opClientServiceUnexpose(c *C, st *api.State, mst *state.State) (func(), err
 	return func() {}, nil
 }
 
+func opClientGetAnnotations(c *C, st *api.State, mst *state.State) (func(), error) {
+	ann, err := st.Client().GetAnnotations("service-wordpress")
+	if err != nil {
+		return func() {}, err
+	}
+	c.Assert(err, IsNil)
+	c.Assert(ann, DeepEquals, make(map[string]string))
+	return func() {}, nil
+}
+
+func opClientSetAnnotation(c *C, st *api.State, mst *state.State) (func(), error) {
+	err := st.Client().SetAnnotation("service-wordpress", "key", "value")
+	if err != nil {
+		return func() {}, err
+	}
+	c.Assert(err, IsNil)
+	return func() {
+		st.Client().SetAnnotation("service-wordpress", "key", "")
+	}, nil
+}
+
 func opClientServiceDeploy(c *C, st *api.State, mst *state.State) (func(), error) {
 	// This test only checks that the call is made without error, ensuring the
 	// signatures match.
@@ -331,6 +352,12 @@ func opClientServiceDeploy(c *C, st *api.State, mst *state.State) (func(), error
 	if err != nil {
 		return func() {}, err
 	}
+	return func() {
+		apiserver.CharmStore = originalServerCharmStore
+		service, err := mst.Service(serviceName)
+		c.Assert(err, IsNil)
+		removeServiceAndUnits(c, service)
+	}, nil
 }
 
 func opClientServiceAddUnits(c *C, st *api.State, mst *state.State) (func(), error) {
