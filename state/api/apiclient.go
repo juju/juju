@@ -115,6 +115,19 @@ func (c *Client) CharmInfo(charmURL string) (*CharmInfo, error) {
 	return info, nil
 }
 
+// ServiceAddUnit adds a given number of units to a service.
+func (c *Client) ServiceAddUnits(service string, numUnits int) error {
+	params := params.ServiceAddUnits{
+		ServiceName: service,
+		NumUnits:    numUnits,
+	}
+	err := c.st.client.Call("Client", "", "ServiceAddUnits", params, nil)
+	if err != nil {
+		return clientError(err)
+	}
+	return nil
+}
+
 // EnvironmentInfo holds information about the Juju environment.
 type EnvironmentInfo struct {
 	DefaultSeries string
