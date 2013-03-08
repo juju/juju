@@ -563,6 +563,24 @@ Loop2:
 	c.Assert(seen[chB], IsNil)
 }
 
+func (s *WatcherSuite) TestUnwatchCollectionWithOutstandingRequest(c *C) {
+	chA := make(chan watcher.Change)
+	s.w.WatchCollection("testA", chA)
+	chB := make(chan watcher.Change)
+	s.w.Watch("testB", 1, -1, chB)
+	s.insert(c, "testA", 1)
+	// By inserting this *after* the testA document, we ensure that
+	// the watcher will try to send on chB after sending on chA.
+	// The original bug that this test guards against meant that the
+	// UnwatchCollection did not correctly cancel the outstanding
+	// request, so the loop would never get around to sending on
+	// chB.
+	revno := s.insert(c, "testB", 1)
+	s.w.StartSync()
+	s.w.UnwatchCollection("testA", chA)
+	assertChange(c, chB, watcher.Change{"testB", 1, revno})
+}
+
 func (s *WatcherSuite) TestNonMutatingTxn(c *C) {
 	chA1 := make(chan watcher.Change)
 	chA := make(chan watcher.Change)
