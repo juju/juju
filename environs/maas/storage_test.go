@@ -347,3 +347,24 @@ func (s *StorageSuite) TestRemoveIsIdempotent(c *C) {
 	err = storage.Remove(filename)
 	c.Assert(err, IsNil)
 }
+
+func (s *StorageSuite) TestNamesMayHaveSlashes(c *C) {
+	const filename = "name/with/slashes"
+	content := []byte("File contents")
+	storage := NewStorage(s.environ)
+
+	err := storage.Put(filename, bytes.NewReader(content), int64(len(content)))
+	c.Assert(err, IsNil)
+
+	// There's not much we can say about the anonymous URL, except that
+	// we get one.
+	_, err = storage.URL(filename)
+	c.Assert(err, IsNil)
+
+	reader, err := storage.Get(filename)
+	c.Assert(err, IsNil)
+	defer reader.Close()
+	data, err := ioutil.ReadAll(reader)
+	c.Assert(err, IsNil)
+	c.Check(data, DeepEquals, content)
+}
