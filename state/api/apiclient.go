@@ -386,37 +386,3 @@ func (u *Unit) EntityName() string {
 func (u *Unit) DeployerName() (string, bool) {
 	return u.doc.DeployerName, u.doc.DeployerName != ""
 }
-
-// RPCCreds is used in the API protocol.
-type RPCCreds struct {
-	EntityName string
-	Password   string
-}
-
-// RPCMachine is used in the API protocol.
-type RPCMachine struct {
-	InstanceId string
-}
-
-// RPCEntityWatcherId is used in the API protocol.
-type RPCEntityWatcherId struct {
-	EntityWatcherId string
-}
-
-// RPCPassword is used in the API protocol.
-type RPCPassword struct {
-	Password string
-}
-
-// RPCUnit is used in the API protocol.
-type RPCUnit struct {
-	DeployerName string
-	// TODO(rog) other unit attributes.
-}
-
-// RPCUser is used in the API protocol.
-type RPCUser struct {
-	// This is a placeholder for any information
-	// that may be associated with a user in the
-	// future.
-}
