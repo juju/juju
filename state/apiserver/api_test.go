@@ -327,7 +327,7 @@ func opClientServiceDeploy(c *C, st *api.State, mst *state.State) (func(), error
 	}, nil
 }
 
-func opClientWatchAll(c *C, st *api.State) (func(), error) {
+func opClientWatchAll(c *C, st *api.State, mst *state.State) (func(), error) {
 	watcher, err := st.Client().WatchAll()
 	if err == nil {
 		watcher.Stop()
