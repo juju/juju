@@ -30,7 +30,7 @@ func (s *CmdSuite) TestInfo(c *C) {
 	f := testing.NewFlagSet()
 	var ignored string
 	f.StringVar(&ignored, "option", "", "option-doc")
-	help = full.Help(full.Info(), f)
+	help = full.Info().Help(f)
 	c.Assert(string(help), Equals, fullHelp)
 
 	optionInfo := full.Info()

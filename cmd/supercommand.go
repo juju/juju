@@ -13,6 +13,23 @@ type topic struct {
 	long  func() string
 }
 
+type SuperCommandParams struct {
+	Name    string
+	Purpose string
+	Doc     string
+	Log     *Log
+}
+
+func NewSuperCommand(params SuperCommandParams) *SuperCommand {
+	command := &SuperCommand{
+		Name:    params.Name,
+		Purpose: params.Purpose,
+		Doc:     params.Doc,
+		Log:     params.Log}
+	command.init()
+	return command
+}
+
 // SuperCommand is a Command that selects a subcommand and assumes its
 // properties; any command line arguments that were not used in selecting
 // the subcommand are passed down to it, and to Run a SuperCommand is to run
@@ -45,14 +62,12 @@ func (c *SuperCommand) init() {
 }
 
 func (c *SuperCommand) AddHelpTopic(name, short, long string) {
-	c.init()
 	c.subcmds["help"].(*helpCommand).addTopic(name, short, long)
 }
 
 // Register makes a subcommand available for use on the command line. The
 // command will be available via its own name, and via any supplied aliases.
 func (c *SuperCommand) Register(subcmd Command) {
-	c.init()
 	info := subcmd.Info()
 	c.insert(info.Name, subcmd)
 	for _, name := range info.Aliases {
@@ -136,7 +151,6 @@ func (c *SuperCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init initializes the command for running.
 func (c *SuperCommand) Init(args []string) error {
-	c.init()
 	if len(args) == 0 {
 		c.subcmd = c.subcmds["help"]
 		return nil

@@ -8,7 +8,7 @@ import (
 )
 
 func initDefenestrate(args []string) (*cmd.SuperCommand, *TestCommand, error) {
-	jc := &cmd.SuperCommand{Name: "jujutest"}
+	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{Name: "jujutest"})
 	tc := &TestCommand{Name: "defenestrate"}
 	jc.Register(tc)
 	return jc, tc, testing.InitCommand(jc, args)
@@ -22,7 +22,7 @@ const helpText = "\n    help\\s+- show help on a command or other topic"
 const helpCommandsText = "commands:" + helpText
 
 func (s *SuperCommandSuite) TestDispatch(c *C) {
-	jc := &cmd.SuperCommand{Name: "jujutest"}
+	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{Name: "jujutest"})
 	info := jc.Info()
 	c.Assert(info.Name, Equals, "jujutest")
 	c.Assert(info.Args, Equals, "<command> ...")
@@ -52,7 +52,7 @@ func (s *SuperCommandSuite) TestDispatch(c *C) {
 }
 
 func (s *SuperCommandSuite) TestRegister(c *C) {
-	jc := &cmd.SuperCommand{Name: "jujutest"}
+	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{Name: "jujutest"})
 	jc.Register(&TestCommand{Name: "flip"})
 	jc.Register(&TestCommand{Name: "flap"})
 	badCall := func() { jc.Register(&TestCommand{Name: "flap"}) }
@@ -60,7 +60,7 @@ func (s *SuperCommandSuite) TestRegister(c *C) {
 }
 
 func (s *SuperCommandSuite) TestRegisterAlias(c *C) {
-	jc := &cmd.SuperCommand{Name: "jujutest"}
+	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{Name: "jujutest"})
 	jc.Register(&TestCommand{Name: "flip", Aliases: []string{"flap", "flop"}})
 
 	info := jc.Info()
@@ -76,9 +76,9 @@ var commandsDoc = `commands:
     flip       - flip the juju`
 
 func (s *SuperCommandSuite) TestInfo(c *C) {
-	jc := &cmd.SuperCommand{
+	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name: "jujutest", Purpose: "to be purposeful", Doc: "doc\nblah\ndoc",
-	}
+	})
 	info := jc.Info()
 	c.Assert(info.Name, Equals, "jujutest")
 	c.Assert(info.Purpose, Equals, "to be purposeful")
@@ -101,7 +101,7 @@ func (s *SuperCommandSuite) TestLogging(c *C) {
 	defer func() {
 		log.Target, log.Debug = target, debug
 	}()
-	jc := &cmd.SuperCommand{Name: "jujutest", Log: &cmd.Log{}}
+	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{Name: "jujutest", Log: &cmd.Log{}})
 	jc.Register(&TestCommand{Name: "blah"})
 	ctx := testing.Context(c)
 	code := cmd.Main(jc, ctx, []string{"blah", "--option", "error", "--debug"})
