@@ -9,6 +9,7 @@ import (
 
 // RelationIdsCommand implements the relation-ids command.
 type RelationIdsCommand struct {
+	cmd.CommandBase
 	ctx  Context
 	Name string
 	out  cmd.Output
