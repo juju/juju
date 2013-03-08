@@ -173,14 +173,14 @@ func (suite *EnvironSuite) TestStopInstancesStopsInstances(c *C) {
 
 func (suite *EnvironSuite) TestBootstrap(c *C) {
 	config, err := config.New(map[string]interface{}{
-		"name":                 suite.environ.Name(),
-		"type":                 "maas",
-		"admin-secret":         "local-secret",
-		"authorized-keys":      "foo",
-		"ca-cert":              testing.CACert,
-		"ca-private-key":       testing.CAKey,
-		"maas-oauth":           "a:b:c",
-		"maas-server":          suite.testMAASObject.URL().String(),
+		"name":            suite.environ.Name(),
+		"type":            "maas",
+		"admin-secret":    "local-secret",
+		"authorized-keys": "foo",
+		"ca-cert":         testing.CACert,
+		"ca-private-key":  testing.CAKey,
+		"maas-oauth":      "a:b:c",
+		"maas-server":     suite.testMAASObject.URL().String(),
 	})
 	c.Assert(err, IsNil)
 	env, err := NewEnviron(config)
