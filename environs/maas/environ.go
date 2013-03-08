@@ -115,7 +115,7 @@ func unused(...interface{}) {}
 func (env *maasEnviron) startBootstrapNode(tools *state.Tools, cert, key []byte, password string) (environs.Instance, error) {
 	config, err := environs.BootstrapConfig(env.Provider(), env.Config(), tools)
 	if err != nil {
-		return nil, fmt.Errorf("unable to determine inital configuration: %v", err)
+		return nil, fmt.Errorf("unable to determine initial configuration: %v", err)
 	}
 	caCert, hasCert := env.Config().CACert()
 	if !hasCert {
@@ -173,8 +173,6 @@ func (env *maasEnviron) Bootstrap(uploadTools bool, stateServerCert, stateServer
 	// TODO make safe in the case of racing Bootstraps
 	// If two Bootstraps are called concurrently, there's
 	// no way to make sure that only one succeeds.
-	// Perhaps consider using SimpleDB for state storage
-	// which would enable that possibility.
 
 	return nil
 }
