@@ -146,11 +146,9 @@ func (p environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}
 }
 
 func (p environProvider) PublicAddress() (string, error) {
-	addr, err := fetchMetadata("public-ipv4")
-	if err != nil {
+	if addr, err := fetchMetadata("public-ipv4"); err != nil {
 		return "", err
-	}
-	if addr != "" {
+	} else if addr != "" {
 		return addr, nil
 	}
 	return p.PrivateAddress()

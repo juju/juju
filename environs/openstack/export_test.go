@@ -11,7 +11,10 @@ import (
 	"net/http"
 )
 
-var fileRoundTripper = &ProxyRoundTripper{}
+// This provides the content for code accessing file:///... URLs. This allows
+// us to set the responses for things like the Metadata server, by pointing
+// metadata requests at file:///... rather than http://169.254.169.254
+var fileRoundTripper = &jujutest.ProxyRoundTripper{}
 
 func init() {
 	http.DefaultTransport.(*http.Transport).RegisterProtocol("file", fileRoundTripper)
@@ -24,6 +27,9 @@ var metadataContent = `{"uuid": "d8e02d56-2648-49a3-bf97-6be8f1204f38",` +
 	`"launch_index": 0, "meta": {"priority": "low", "role": "webserver"}, ` +
 	`"public_keys": {"mykey": "ssh-rsa fake-key\n"}, "name": "test"}`
 
+// A group of canned responses for the "metadata server". These match
+// reasonably well with the results of making those requests on a Folsom+
+// Openstack service
 var MetadataTestingBase = []jujutest.FileContent{
 	{"/latest/meta-data/instance-id", "i-000abc"},
 	{"/latest/meta-data/local-ipv4", "10.1.1.2"},
@@ -32,29 +38,16 @@ var MetadataTestingBase = []jujutest.FileContent{
 }
 
 // This is the same as MetadataTestingBase, but it doesn't have the openstack
-// 2012-08-08 API
+// 2012-08-08 API. This matches what is available in HP Cloud.
 var MetadataHP = MetadataTestingBase[:len(MetadataTestingBase)-1]
 
-type ProxyRoundTripper struct {
-	sub http.RoundTripper
-}
-
-var _ http.RoundTripper = (*ProxyRoundTripper)(nil)
-
-func (prt *ProxyRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	if prt.sub == nil {
-		panic("An attempt was made to request file content without having" +
-			" the virtual filesystem initialized.")
-	}
-	return prt.sub.RoundTrip(req)
-}
-
+// Set Metadata requests to be served by the filecontent supplied.
 func UseTestMetadata(metadata []jujutest.FileContent) {
 	if len(metadata) != 0 {
-		fileRoundTripper.sub = jujutest.NewVirtualRoundTripper(metadata)
+		fileRoundTripper.Sub = jujutest.NewVirtualRoundTripper(metadata)
 		metadataHost = "file:"
 	} else {
-		fileRoundTripper.sub = nil
+		fileRoundTripper.Sub = nil
 		metadataHost = origMetadataHost
 	}
 }
