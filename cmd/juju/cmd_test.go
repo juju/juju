@@ -238,7 +238,7 @@ func (*CmdSuite) TestAddUnitCommandInit(c *C) {
 	_, err := initAddUnitCommand()
 	c.Assert(err, ErrorMatches, "no service specified")
 
-	// bad unit count	
+	// bad unit count
 	_, err = initDeployCommand("charm-name", "--num-units", "0")
 	c.Assert(err, ErrorMatches, "must deploy at least one unit")
 	_, err = initDeployCommand("charm-name", "-n", "0")
