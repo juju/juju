@@ -669,8 +669,6 @@ func (s *suite) TestClientAnnotations(c *C) {
 				c.Assert(err, IsNil)
 			}
 			// Check annotations are correctly set.
-			err := entity.Refresh()
-			c.Assert(err, IsNil)
 			dbann, err := entity.Annotations()
 			c.Assert(err, IsNil)
 			c.Assert(dbann, DeepEquals, t.expected)
@@ -678,10 +676,7 @@ func (s *suite) TestClientAnnotations(c *C) {
 			ann, err := s.APIState.Client().GetAnnotations(id)
 			c.Assert(err, IsNil)
 			// Check annotations are correctly returned.
-			c.Assert(ann.Annotations, DeepEquals, dbann)
-			err = entity.Refresh()
-			c.Assert(err, IsNil)
-			c.Assert(ann, DeepEquals, entity.Annotations())
+			c.Assert(ann, DeepEquals, dbann)
 			// Clean up annotations on the current entity.
 			for key := range dbann {
 				err = entity.SetAnnotation(key, "")
