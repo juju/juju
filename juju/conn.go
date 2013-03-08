@@ -78,6 +78,25 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 	return conn, nil
 }
 
+// NewConnFromState returns a Conn that uses an Environ
+// made by reading the environment configuration.
+// The resulting Conn uses the given State - closing
+// it will close that State.
+func NewConnFromState(st *state.State) (*Conn, error) {
+	cfg, err := st.EnvironConfig()
+	if err != nil {
+		return nil, err
+	}
+	environ, err := environs.New(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &Conn{
+		Environ: environ,
+		State:   st,
+	}, nil
+}
+
 // NewConnFromName returns a Conn pointing at the environName environment, or the
 // default environment if not specified.
 func NewConnFromName(environName string) (*Conn, error) {

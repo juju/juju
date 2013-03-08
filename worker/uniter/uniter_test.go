@@ -1168,11 +1168,11 @@ func (s waitUnit) step(c *C, ctx *context) {
 				c.Logf("want resolved mode %q, got %q; still waiting", s.resolved, resolved)
 				continue
 			}
-			ch, err := ctx.unit.Charm()
-			if err != nil || *ch.URL() != *curl(s.charm) {
+			url, ok := ctx.unit.CharmURL()
+			if !ok || *url != *curl(s.charm) {
 				var got string
-				if ch != nil {
-					got = ch.URL().String()
+				if ok {
+					got = url.String()
 				}
 				c.Logf("want unit charm %q, got %q; still waiting", curl(s.charm), got)
 				continue
@@ -1270,9 +1270,9 @@ func (s verifyCharm) step(c *C, ctx *context) {
 		c.Assert(string(content), Equals, strconv.Itoa(s.revision))
 		err = ctx.unit.Refresh()
 		c.Assert(err, IsNil)
-		ch, err := ctx.unit.Charm()
-		c.Assert(err, IsNil)
-		c.Assert(ch.URL(), DeepEquals, curl(s.revision))
+		url, ok := ctx.unit.CharmURL()
+		c.Assert(ok, Equals, true)
+		c.Assert(url, DeepEquals, curl(s.revision))
 	}
 
 	// Before we try to check the git status, make sure expected hooks are all

@@ -165,9 +165,9 @@ func (u *Uniter) writeState(op Op, step OpStep, hi *hook.Info, url *corecharm.UR
 	return nil
 }
 
-// deploy deploys the supplied charm, and sets follow-up hook operation state
+// deploy deploys the supplied charm URL, and sets follow-up hook operation state
 // as indicated by reason.
-func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
+func (u *Uniter) deploy(curl *corecharm.URL, reason Op) error {
 	if reason != Install && reason != Upgrade {
 		panic(fmt.Errorf("%q is not a deploy operation", reason))
 	}
@@ -180,29 +180,32 @@ func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
 		// started upgrading, to ensure we still return to the correct state.
 		hi = u.s.Hook
 	}
-	url := sch.URL()
 	if u.s == nil || u.s.OpStep != Done {
-		log.Printf("worker/uniter: fetching charm %q", url)
+		log.Printf("worker/uniter: fetching charm %q", curl)
+		sch, err := u.st.Charm(curl)
+		if err != nil {
+			return err
+		}
 		bun, err := u.bundles.Read(sch, u.tomb.Dying())
 		if err != nil {
 			return err
 		}
-		if err = u.deployer.Stage(bun, url); err != nil {
+		if err = u.deployer.Stage(bun, curl); err != nil {
 			return err
 		}
-		log.Printf("worker/uniter: deploying charm %q", url)
-		if err = u.writeState(reason, Pending, hi, url); err != nil {
+		log.Printf("worker/uniter: deploying charm %q", curl)
+		if err = u.writeState(reason, Pending, hi, curl); err != nil {
 			return err
 		}
 		if err = u.deployer.Deploy(u.charm); err != nil {
 			return err
 		}
-		if err = u.writeState(reason, Done, hi, url); err != nil {
+		if err = u.writeState(reason, Done, hi, curl); err != nil {
 			return err
 		}
 	}
-	log.Printf("worker/uniter: charm %q is deployed", url)
-	if err := u.unit.SetCharm(sch); err != nil {
+	log.Printf("worker/uniter: charm %q is deployed", curl)
+	if err := u.unit.SetCharmURL(curl); err != nil {
 		return err
 	}
 	status := Queued
