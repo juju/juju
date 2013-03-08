@@ -33,6 +33,25 @@ func init() {
 	apiserver.AuthenticationEnabled = true
 }
 
+func removeServiceAndUnits(c *C, service *state.Service) {
+	// Destroy all units for the service.
+	units, err := service.AllUnits()
+	c.Assert(err, IsNil)
+	for _, unit := range units {
+		err = unit.EnsureDead()
+		c.Assert(err, IsNil)
+		err = unit.Remove()
+		c.Assert(err, IsNil)
+	}
+	err = service.Refresh()
+	c.Assert(err, IsNil)
+	err = service.Destroy()
+	c.Assert(err, IsNil)
+
+	err = service.Refresh()
+	c.Assert(state.IsNotFound(err), Equals, true)
+}
+
 var operationPermTests = []struct {
 	about string
 	// op performs the operation to be tested using the given state
@@ -302,23 +321,7 @@ func opClientServiceDeploy(c *C, st *api.State, mst *state.State) (func(), error
 		service, err := mst.Service(serviceName)
 		c.Assert(err, IsNil)
 
-		// Destroy all units for the service.
-		units, err := service.AllUnits()
-		c.Assert(err, IsNil)
-		for _, unit := range units {
-			err = unit.EnsureDead()
-			c.Assert(err, IsNil)
-			err = unit.Remove()
-			c.Assert(err, IsNil)
-		}
-		err = service.Refresh()
-		c.Assert(err, IsNil)
-		err = service.Destroy()
-		c.Assert(err, IsNil)
-
-		err = service.Refresh()
-		c.Assert(state.IsNotFound(err), Equals, true)
-
+		removeServiceAndUnits(c, service)
 	}, nil
 }
 
@@ -1029,24 +1032,52 @@ func (s *suite) TestClientServiceUnexpose(c *C) {
 	c.Assert(service.IsExposed(), Equals, false)
 }
 
+var serviceDeployTests = []struct {
+	about            string
+	serviceName      string
+	charmUrl         string
+	numUnits         int
+	expectedNumUnits int
+}{{
+	about:            "Normal deploy",
+	serviceName:      "mywordpress",
+	charmUrl:         "local:series/wordpress",
+	expectedNumUnits: 1,
+}, {
+	about:            "Two units",
+	serviceName:      "mywordpress",
+	charmUrl:         "local:series/wordpress",
+	numUnits:         2,
+	expectedNumUnits: 2,
+},
+}
+
 func (s *suite) TestClientServiceDeploy(c *C) {
 	s.setUpScenario(c)
 
-	serviceName := "mywordpress"
-	charmUrl := "local:series/wordpress"
-	parsedUrl := charm.MustParseURL(charmUrl)
-	repo, err := charm.InferRepository(parsedUrl, coretesting.Charms.Path)
-	originalServerCharmStore := apiserver.CharmStore
-	apiserver.CharmStore = repo
-
-	_, err = s.State.Service(serviceName)
-	c.Assert(err, NotNil)
-	err = s.APIState.Client().ServiceDeploy(charmUrl, serviceName, 1, "")
-	c.Assert(err, IsNil)
-	_, err = s.State.Service(serviceName)
-	c.Assert(err, IsNil)
-
-	apiserver.CharmStore = originalServerCharmStore
+	for i, test := range serviceDeployTests {
+		c.Logf("test %d; %s", i, test.about)
+		parsedUrl := charm.MustParseURL(test.charmUrl)
+		localRepo, err := charm.InferRepository(parsedUrl,
+			coretesting.Charms.Path)
+		// Monkey-patch server repository.
+		originalServerCharmStore := apiserver.CharmStore
+		apiserver.CharmStore = localRepo
+		_, err = s.State.Service(test.serviceName)
+		c.Assert(err, NotNil)
+		err = s.APIState.Client().ServiceDeploy(
+			test.charmUrl, test.serviceName, test.numUnits, "")
+		c.Assert(err, IsNil)
+		service, err := s.State.Service(test.serviceName)
+		c.Assert(err, IsNil)
+		units, err := service.AllUnits()
+		c.Assert(err, IsNil)
+		c.Assert(units, HasLen, test.expectedNumUnits)
+		// Clean up.
+		removeServiceAndUnits(c, service)
+		// Restore server repository.
+		apiserver.CharmStore = originalServerCharmStore
+	}
 }
 
 // openAs connects to the API state as the given entity
