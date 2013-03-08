@@ -292,7 +292,7 @@ func opClientGetAnnotations(c *C, st *api.State) (func(), error) {
 		return func() {}, err
 	}
 	c.Assert(err, IsNil)
-	c.Assert(ann.Annotations, DeepEquals, make(map[string]string))
+	c.Assert(ann, DeepEquals, make(map[string]string))
 	return func() {}, nil
 }
 
@@ -662,7 +662,7 @@ func (s *suite) TestClientAnnotations(c *C) {
 			// Check annotations are correctly returned.
 			err = entity.Refresh()
 			c.Assert(err, IsNil)
-			c.Assert(ann.Annotations, DeepEquals, entity.Annotations())
+			c.Assert(ann, DeepEquals, entity.Annotations())
 			// Clean up annotations on the current entity.
 			for key := range entity.Annotations() {
 				err = entity.SetAnnotation(key, "")
