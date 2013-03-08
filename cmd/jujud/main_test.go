@@ -8,6 +8,7 @@ import (
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"os"
@@ -83,6 +84,14 @@ func (s *MainSuite) TestParseErrors(c *C) {
 	checkMessage(c, msga, "machine",
 		"--machine-id", "42",
 		"toastie")
+}
+
+func (s *MainSuite) TestProvidersAreRegisters(c *C) {
+	// check that ec2 and openstack providers are registered
+	for _, name := range []string{"ec2", "openstack"} {
+		_, err := environs.Provider(name)
+		c.Error(err, IsNil)
+	}
 }
 
 type RemoteCommand struct {
