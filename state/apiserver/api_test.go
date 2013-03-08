@@ -308,7 +308,8 @@ func opClientSetAnnotations(c *C, st *api.State) (func(), error) {
 	}
 	c.Assert(err, IsNil)
 	return func() {
-		st.Client().SetAnnotation("service-wordpress", "key", "")
+		pairs := map[string]string{"key1": "", "key2": ""}
+		st.Client().SetAnnotations("service-wordpress", pairs)
 	}, nil
 }
 
