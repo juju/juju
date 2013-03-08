@@ -16,5 +16,5 @@ type EnvCommandBase struct {
 func (c *EnvCommandBase) SetFlags(f *gnuflag.FlagSet) {
 	defaultEnv := os.Getenv("JUJU_ENV")
 	f.StringVar(&c.EnvName, "e", defaultEnv, "juju environment to operate in")
-	f.StringVar(&c.EnvName, "environment", "", "")
+	f.StringVar(&c.EnvName, "environment", defaultEnv, "")
 }
