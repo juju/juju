@@ -240,8 +240,8 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 	return st, nil
 }
 
-// Addrs returns the list of addresses used to connect to the state.
-func (st *State) Addrs() (addrs []string) {
+// Addresses returns the list of addresses used to connect to the state.
+func (st *State) Addresses() (addrs []string) {
 	return append(addrs, st.info.Addrs...)
 }
 

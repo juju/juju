@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -26,22 +27,22 @@ var _ = Suite(&backendSuite{})
 
 const environName = "test-environ"
 
-var (
-	currentPortMu sync.Mutex
-	currentPortNo int = 60005
-)
+var testSetMu sync.Mutex
 
 // nextTestSet returns a new port number, listener and data directory.
 func nextTestSet(c *C) (int, net.Listener, string) {
-	currentPortMu.Lock()
-	defer currentPortMu.Unlock()
+	testSetMu.Lock()
+	defer testSetMu.Unlock()
 
-	currentPortNo++
 	dataDir := c.MkDir()
-	listener, err := local.Listen(dataDir, environName, "127.0.0.1", currentPortNo)
+	listener, err := local.Listen(dataDir, environName, "127.0.0.1", 0)
+	c.Assert(err, IsNil)
+	_, ports, err := net.SplitHostPort(listener.Addr().String())
+	c.Assert(err, IsNil)
+	port, err := strconv.Atoi(ports)
 	c.Assert(err, IsNil)
 
-	return currentPortNo, listener, dataDir
+	return port, listener, dataDir
 }
 
 type testCase struct {

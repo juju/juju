@@ -5,6 +5,7 @@ import (
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/trivial"
 	"net/http"
 )
@@ -20,6 +21,16 @@ func UseTestMetadata(local bool) {
 		metadataHost = "file:"
 	} else {
 		metadataHost = origMetadataHost
+	}
+}
+
+var origMetadataJSON = metadataJSON
+
+func UseMetadataJSON(path string) {
+	if path != "" {
+		metadataJSON = path
+	} else {
+		metadataJSON = origMetadataJSON
 	}
 }
 
@@ -98,4 +109,16 @@ func DefaultInstanceType(e environs.Environ) string {
 type ImageDetails struct {
 	Flavor  string
 	ImageId string
+}
+
+type BootstrapState struct {
+	StateInstances []state.InstanceId
+}
+
+func LoadState(e environs.Environ) (*BootstrapState, error) {
+	s, err := e.(*environ).loadState()
+	if err != nil {
+		return nil, err
+	}
+	return &BootstrapState{s.StateInstances}, nil
 }

@@ -241,24 +241,19 @@ func openState(c *agent.Conf, a Agent) (_ *state.State, _ AgentState, err error)
 	return st, entity, nil
 }
 
-// newDeployManager gives the tests the opportunity to create a deployer.Manager
+// newDeployContext gives the tests the opportunity to create a deployer.Context
 // that can be used for testing so as to avoid (1) deploying units to the system
 // running the tests and (2) get access to the *State used internally, so that
-// tests can be run without waiting for the 5s watcher refresh time we would
-// otherwise be restricted to. When not testing, st is unused.
-var newDeployManager = func(st *state.State, info *state.Info, dataDir string) deployer.Manager {
-	// TODO: pick manager kind based on entity name? (once we have a
-	// container manager for prinicpal units, that is; for now, there
+// tests can be run without waiting for the 5s watcher refresh time to which we would
+// otherwise be restricted.
+var newDeployContext = func(st *state.State, dataDir string, deployerName string) deployer.Context {
+	// TODO: pick context kind based on entity name? (once we have a
+	// container context for principal units, that is; for now, there
 	// is no distinction between principal and subordinate deployments)
-	return deployer.NewSimpleManager(info, dataDir)
+	return deployer.NewSimpleContext(dataDir, st.CACert(), deployerName, st)
 }
 
 func newDeployer(st *state.State, w *state.UnitsWatcher, dataDir string) *deployer.Deployer {
-	info := &state.Info{
-		EntityName: w.EntityName(),
-		Addrs:      st.Addrs(),
-		CACert:     st.CACert(),
-	}
-	mgr := newDeployManager(st, info, dataDir)
-	return deployer.NewDeployer(st, mgr, w)
+	ctx := newDeployContext(st, dataDir, w.EntityName())
+	return deployer.NewDeployer(st, ctx, w)
 }

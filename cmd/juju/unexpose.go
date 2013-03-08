@@ -2,15 +2,15 @@ package main
 
 import (
 	"errors"
-
-	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/statecmd"
 )
 
 // UnexposeCommand is responsible exposing services.
 type UnexposeCommand struct {
-	EnvName     string
+	EnvCommandBase
 	ServiceName string
 }
 
@@ -20,10 +20,6 @@ func (c *UnexposeCommand) Info() *cmd.Info {
 		Args:    "<service>",
 		Purpose: "unexpose a service",
 	}
-}
-
-func (c *UnexposeCommand) SetFlags(f *gnuflag.FlagSet) {
-	addEnvironFlags(&c.EnvName, f)
 }
 
 func (c *UnexposeCommand) Init(args []string) error {
@@ -42,9 +38,6 @@ func (c *UnexposeCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer conn.Close()
-	svc, err := conn.State.Service(c.ServiceName)
-	if err != nil {
-		return err
-	}
-	return svc.ClearExposed()
+	params := params.ServiceUnexpose{ServiceName: c.ServiceName}
+	return statecmd.ServiceUnexpose(conn.State, params)
 }
