@@ -131,7 +131,7 @@ func ParseArgs(c Command, f *gnuflag.FlagSet, args []string) error {
 // return code.
 func handleCommandError(c Command, ctx *Context, err error, f *gnuflag.FlagSet) (int, bool) {
 	if err == gnuflag.ErrHelp {
-		ctx.Stderr.Write(c.Info().Help(f))
+		ctx.Stdout.Write(c.Info().Help(f))
 		return 0, true
 	}
 	if err != nil {
