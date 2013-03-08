@@ -169,12 +169,12 @@ func (c *Client) WatchAll() (*AllWatcher, error) {
 // GetAnnotations returns annotations that have been set on the given entity.
 func (c *Client) GetAnnotations(entityId string) (map[string]string, error) {
 	args := params.GetAnnotations{entityId}
-	ann := make(map[string]string)
-	err := c.st.client.Call("Client", "", "GetAnnotations", args, &ann)
+	ann := new(params.GetAnnotationsResults)
+	err := c.st.client.Call("Client", "", "GetAnnotations", args, ann)
 	if err != nil {
 		return nil, clientError(err)
 	}
-	return ann, nil
+	return ann.Annotations, nil
 }
 
 // SetAnnotation sets the annotation with the given key on the given entity to
