@@ -87,6 +87,7 @@ func (s *MainSuite) TestParseErrors(c *C) {
 }
 
 type RemoteCommand struct {
+	cmd.CommandBase
 	msg string
 }
 

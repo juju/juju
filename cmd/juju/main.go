@@ -1,7 +1,6 @@
 package main
 
 import (
-	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"os"
 )
@@ -61,10 +60,4 @@ func Main(args []string) {
 
 func main() {
 	Main(os.Args)
-}
-
-func addEnvironFlags(name *string, f *gnuflag.FlagSet) {
-	defaultEnv := os.Getenv("JUJU_ENV")
-	f.StringVar(name, "e", defaultEnv, "juju environment to operate in")
-	f.StringVar(name, "environment", defaultEnv, "")
 }

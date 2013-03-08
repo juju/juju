@@ -33,6 +33,17 @@ type Command interface {
 	Run(ctx *Context) error
 }
 
+// CommandBase provides the default implementation for SetFlags, Init, and Help.
+type CommandBase struct{}
+
+// SetFlags does nothing in the simplest case.
+func (c *CommandBase) SetFlags(f *gnuflag.FlagSet) {}
+
+// Init in the simplest case makes sure there are no args.
+func (c *CommandBase) Init(args []string) error {
+	return CheckEmpty(args)
+}
+
 // Context represents the run context of a Command. Command implementations
 // should interpret file names relative to Dir (see AbsPath below), and print
 // output and errors to Stdout and Stderr respectively.

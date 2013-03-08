@@ -10,7 +10,7 @@ import (
 
 // ResolvedCommand marks a unit in an error state as ready to continue.
 type ResolvedCommand struct {
-	EnvName  string
+	EnvCommandBase
 	UnitName string
 	Retry    bool
 }
@@ -24,7 +24,7 @@ func (c *ResolvedCommand) Info() *cmd.Info {
 }
 
 func (c *ResolvedCommand) SetFlags(f *gnuflag.FlagSet) {
-	addEnvironFlags(&c.EnvName, f)
+	c.EnvCommandBase.SetFlags(f)
 	f.BoolVar(&c.Retry, "r", false, "re-execute failed hooks")
 	f.BoolVar(&c.Retry, "retry", false, "")
 }
