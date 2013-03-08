@@ -354,7 +354,7 @@ func (c *srvClient) GetAnnotations(args params.GetAnnotations) (params.GetAnnota
 	}
 	ann, err := entity.Annotations()
 	if err != nil {
-		return arams.GetAnnotationsResults{}, err
+		return params.GetAnnotationsResults{}, err
 	}
 	return params.GetAnnotationsResults{Annotations: ann}, nil
 }
