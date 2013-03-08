@@ -4,3 +4,4 @@ summary: "Sample charm described in format 2"
 description: |
         That's a boring charm that is described in
         terms of format 2.
+categories: ["database"]

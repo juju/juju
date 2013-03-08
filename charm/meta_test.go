@@ -47,6 +47,12 @@ func (s *MetaSuite) TestReadMetaVersion2(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(meta.Name, Equals, "format2")
 	c.Assert(meta.Format, Equals, 2)
+	c.Assert(meta.Categories, HasLen, 0)
+}
+
+func (s *MetaSuite) TestReadCategory(c *C) {
+	meta, err := charm.ReadMeta(repoMeta("category"))
+	c.Assert(err, IsNil)
 	c.Assert(meta.Categories, DeepEquals, []string{"database"})
 }
 
