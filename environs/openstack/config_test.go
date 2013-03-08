@@ -41,14 +41,14 @@ type configTest struct {
 	pbucketURL    string
 	imageId       string
 	instanceType  string
-	useFloatingIP  bool
-	username       string
-	password       string
-	tenantName     string
-	authMode       string
-	authURL        string
-	firewallMode   config.FirewallMode
-	err            string
+	useFloatingIP bool
+	username      string
+	password      string
+	tenantName    string
+	authMode      string
+	authURL       string
+	firewallMode  config.FirewallMode
+	err           string
 }
 
 type attrs map[string]interface{}

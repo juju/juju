@@ -230,7 +230,7 @@ func (s *localLiveSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
 	defer cleanup()
 	// Create a config that matches s.Config but with use-floating-ip set to true
 	newconfig := make(map[string]interface{}, len(s.Config))
-	for k,v := range s.Config {
+	for k, v := range s.Config {
 		newconfig[k] = v
 	}
 	newconfig["use-floating-ip"] = true
