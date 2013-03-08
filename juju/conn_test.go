@@ -55,60 +55,48 @@ func (*NewConnSuite) TestNewConnWithoutAdminSecret(c *C) {
 	c.Assert(err, ErrorMatches, "cannot connect without admin-secret")
 }
 
-func (*NewConnSuite) TestNewConnFromName(c *C) {
-	home := c.MkDir()
-	defer os.Setenv("HOME", os.Getenv("HOME"))
-	os.Setenv("HOME", home)
-	conn, err := juju.NewConnFromName("")
-	c.Assert(conn, IsNil)
-	c.Assert(err, ErrorMatches, ".*: no such file or directory")
+func (*NewConnSuite) TestNewConnFromNameGetUnbootstrapped(c *C) {
+	defer coretesting.MakeSampleHome(c).Restore()
 
-	if err := os.Mkdir(filepath.Join(home, ".juju"), 0755); err != nil {
-		c.Fatal("Could not create directory structure")
-	}
-	envs := filepath.Join(home, ".juju", "environments.yaml")
-	err = ioutil.WriteFile(envs, []byte(`
-default:
-    erewhemos
-environments:
-    erewhemos:
-        type: dummy
-        state-server: true
-        authorized-keys: i-am-a-key
-        admin-secret: conn-from-name-secret
-`), 0644)
-
-	err = ioutil.WriteFile(filepath.Join(home, ".juju", "erewhemos-cert.pem"), []byte(coretesting.CACert), 0600)
-	c.Assert(err, IsNil)
-	err = ioutil.WriteFile(filepath.Join(home, ".juju", "erewhemos-private-key.pem"), []byte(coretesting.CAKey), 0600)
-	c.Assert(err, IsNil)
-
-	// Just run through a few operations on the dummy provider and verify that
-	// they behave as expected.
-	conn, err = juju.NewConnFromName("")
+	_, err := juju.NewConnFromName("")
 	c.Assert(err, ErrorMatches, "dummy environment not bootstrapped")
+}
 
-	environ, err := environs.NewFromName("")
+func bootstrapEnv(c *C, envName string) {
+	environ, err := environs.NewFromName(envName)
 	c.Assert(err, IsNil)
 	err = environs.Bootstrap(environ, false, panicWrite)
 	c.Assert(err, IsNil)
+}
 
-	conn, err = juju.NewConnFromName("")
+func (*NewConnSuite) TestConnMultipleCloseOk(c *C) {
+	defer coretesting.MakeSampleHome(c).Restore()
+	bootstrapEnv(c, "")
+	// Error return from here is tested in TestNewConnFromNameNotSetGetsDefault.
+	conn, _ := juju.NewConnFromName("")
+	conn.Close()
+	conn.Close()
+	conn.Close()
+}
+
+func (*NewConnSuite) TestNewConnFromNameNotSetGetsDefault(c *C) {
+	defer coretesting.MakeSampleHome(c).Restore()
+	bootstrapEnv(c, "")
+	conn, err := juju.NewConnFromName("")
 	c.Assert(err, IsNil)
 	defer conn.Close()
-	c.Assert(conn.Environ, NotNil)
-	c.Assert(conn.Environ.Name(), Equals, "erewhemos")
-	c.Assert(conn.State, NotNil)
+	c.Assert(conn.Environ.Name(), Equals, coretesting.SampleEnvName)
+}
 
-	// Reset the admin password so the state db can be reused.
-	err = conn.State.SetAdminMongoPassword("")
+func (*NewConnSuite) TestNewConnFromNameNotDefault(c *C) {
+	defer coretesting.MakeMultipleEnvHome(c).Restore()
+	// The default environment is "erewhemos", so make sure we get what we ask for.
+	const envName = "erewhemos-2"
+	bootstrapEnv(c, envName)
+	conn, err := juju.NewConnFromName(envName)
 	c.Assert(err, IsNil)
-	// Close the conn (thereby closing its state) a couple of times to
-	// verify that multiple closes will not panic. We ignore the error,
-	// as the underlying State will return an error the second
-	// time.
-	conn.Close()
-	conn.Close()
+	defer conn.Close()
+	c.Assert(conn.Environ.Name(), Equals, envName)
 }
 
 func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *C) {

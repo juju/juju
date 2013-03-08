@@ -109,6 +109,10 @@ var operationPermTests = []struct {
 	op:    opClientServiceDeploy,
 	allow: []string{"user-admin", "user-other"},
 }, {
+	about: "Client.WatchAll",
+	op:    opClientWatchAll,
+	allow: []string{"user-admin", "user-other"},
+}, {
 	about: "Client.CharmInfo",
 	op:    opClientCharmInfo,
 	allow: []string{"user-admin", "user-other"},
@@ -315,14 +319,20 @@ func opClientServiceDeploy(c *C, st *api.State, mst *state.State) (func(), error
 	if err != nil {
 		return func() {}, err
 	}
-
 	return func() {
 		apiserver.CharmStore = originalServerCharmStore
 		service, err := mst.Service(serviceName)
 		c.Assert(err, IsNil)
-
 		removeServiceAndUnits(c, service)
 	}, nil
+}
+
+func opClientWatchAll(c *C, st *api.State) (func(), error) {
+	watcher, err := st.Client().WatchAll()
+	if err == nil {
+		watcher.Stop()
+	}
+	return func() {}, err
 }
 
 // scenarioStatus describes the expected state
@@ -1078,6 +1088,22 @@ func (s *suite) TestClientServiceDeploy(c *C) {
 		// Restore server repository.
 		apiserver.CharmStore = originalServerCharmStore
 	}
+}
+
+// This test will be thrown away, at least in part, once the stub code in
+// state/megawatcher.go is implemented.
+func (s *suite) TestClientWatchAll(c *C) {
+	watcher, err := s.APIState.Client().WatchAll()
+	c.Assert(err, IsNil)
+	defer func() {
+		err := watcher.Stop()
+		c.Assert(err, IsNil)
+	}()
+	deltas, err := watcher.Next()
+	c.Assert(err, IsNil)
+	// This is the part that most clearly is tied to the fact that we are
+	// testing a stub.
+	c.Assert(deltas, DeepEquals, state.StubNextDelta)
 }
 
 // openAs connects to the API state as the given entity

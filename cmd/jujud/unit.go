@@ -12,6 +12,7 @@ import (
 
 // UnitAgent is a cmd.Command responsible for running a unit agent.
 type UnitAgent struct {
+	cmd.CommandBase
 	tomb     tomb.Tomb
 	Conf     AgentConf
 	UnitName string

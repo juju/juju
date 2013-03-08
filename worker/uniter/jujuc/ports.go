@@ -13,6 +13,7 @@ const portFormat = "<port>[/<protocol>]"
 
 // portCommand implements the open-port and close-port commands.
 type portCommand struct {
+	cmd.CommandBase
 	info     *cmd.Info
 	action   func(*portCommand) error
 	Protocol string

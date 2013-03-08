@@ -13,7 +13,7 @@ import (
 
 // SetCommand updates the configuration of a service
 type SetCommand struct {
-	EnvName     string
+	EnvCommandBase
 	ServiceName string
 	// either Options or Config will contain the configuration data
 	Options []string
@@ -30,7 +30,7 @@ func (c *SetCommand) Info() *cmd.Info {
 }
 
 func (c *SetCommand) SetFlags(f *gnuflag.FlagSet) {
-	addEnvironFlags(&c.EnvName, f)
+	c.EnvCommandBase.SetFlags(f)
 	f.Var(&c.Config, "config", "path to yaml-formatted service config")
 }
 

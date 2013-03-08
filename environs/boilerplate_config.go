@@ -20,6 +20,10 @@ var configHeader = `## This is the Juju config file, which you can use to specif
 
 ## Values in <brackets> below need to be filled in by the user.
 
+## The default environment is chosen when one is not specified using either:
+##   -e, --environment command line parameter
+##   JUJU_ENV environment variable
+## If both -e and JUJU_ENV are specified, the command line parameter has precedence.
 default: amazon
 
 environments:

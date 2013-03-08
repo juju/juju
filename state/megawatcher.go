@@ -1,83 +1,48 @@
 package state
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
+	"launchpad.net/juju-core/state/api/params"
 )
 
-// Delta holds details of a change to the environment.
-type Delta struct {
-	// If Removed is true, the entity has been removed;
-	// otherwise it has been created or changed.
-	Removed bool
-	// Entity holds data about the entity that has changed.
-	Entity EntityInfo
+// StateWatcher watches any changes to the state.
+type StateWatcher struct {
+	// TODO: hold the last revid that the StateWatcher saw.
 }
 
-// MarshalJSON implements json.Unmarshaller.
-func (d *Delta) MarshalJSON() ([]byte, error) {
-	b, err := json.Marshal(d.Entity)
-	if err != nil {
-		return nil, err
-	}
-	var buf bytes.Buffer
-	buf.WriteByte('[')
-	c := "change"
-	if d.Removed {
-		c = "remove"
-	}
-	fmt.Fprintf(&buf, "%q,%q,", d.Entity.EntityKind(), c)
-	buf.Write(b)
-	buf.WriteByte(']')
-	return buf.Bytes(), nil
+func newStateWatcher(st *State) *StateWatcher {
+	return &StateWatcher{}
 }
 
-// EntityInfo is implemented by all entity Info types.
-type EntityInfo interface {
-	// EntityId returns the collection-specific identifier for the entity.
-	EntityId() interface{}
-	// EntityKind returns the kind of entity (for example "machine",
-	// "service", ...)
-	EntityKind() string
+func (w *StateWatcher) Err() error {
+	return nil
 }
 
-var (
-	_ EntityInfo = (*MachineInfo)(nil)
-	_ EntityInfo = (*ServiceInfo)(nil)
-	_ EntityInfo = (*UnitInfo)(nil)
-	_ EntityInfo = (*RelationInfo)(nil)
-)
-
-// MachineInfo holds the information about a Machine
-// that is watched by StateWatcher.
-type MachineInfo struct {
-	Id         string `bson:"_id"`
-	InstanceId string
+// Stop stops the watcher.
+func (w *StateWatcher) Stop() error {
+	return nil
 }
 
-func (i *MachineInfo) EntityId() interface{} { return i.Id }
-func (i *MachineInfo) EntityKind() string    { return "machine" }
-
-type ServiceInfo struct {
-	Name    string `bson:"_id"`
-	Exposed bool
+var StubNextDelta = []params.Delta{
+	params.Delta{
+		Removed: false,
+		Entity: &params.ServiceInfo{
+			Name:    "Example",
+			Exposed: true,
+		},
+	},
+	params.Delta{
+		Removed: true,
+		Entity: &params.UnitInfo{
+			Name:    "MyUnit",
+			Service: "Example",
+		},
+	},
 }
 
-func (i *ServiceInfo) EntityId() interface{} { return i.Name }
-func (i *ServiceInfo) EntityKind() string    { return "service" }
-
-type UnitInfo struct {
-	Name    string `bson:"_id"`
-	Service string
+// Next retrieves all changes that have happened since the given revision
+// number, blocking until there are some changes available.  It also
+// returns the revision number of the latest change.
+func (w *StateWatcher) Next() ([]params.Delta, error) {
+	// This is a stub to make progress with the higher level coding.
+	return StubNextDelta, nil
 }
-
-func (i *UnitInfo) EntityId() interface{} { return i.Name }
-func (i *UnitInfo) EntityKind() string    { return "unit" }
-
-type RelationInfo struct {
-	Key string `bson:"_id"`
-}
-
-func (i *RelationInfo) EntityId() interface{} { return i.Key }
-func (i *RelationInfo) EntityKind() string    { return "relation" }
