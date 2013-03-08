@@ -28,8 +28,7 @@ func (s *RelationSetSuite) TestHelp(c *C) {
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, []string{"--help"})
 		c.Assert(code, Equals, 0)
-		c.Assert(bufferString(ctx.Stdout), Equals, "")
-		c.Assert(bufferString(ctx.Stderr), Equals, fmt.Sprintf(`
+		c.Assert(bufferString(ctx.Stdout), Equals, fmt.Sprintf(`
 usage: relation-set [options] key=value [key=value ...]
 purpose: set relation settings
 
@@ -37,6 +36,7 @@ options:
 -r  (= %s)
     specify a relation by id
 `[1:], t.expect))
+		c.Assert(bufferString(ctx.Stderr), Equals, "")
 	}
 }
 

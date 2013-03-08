@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"fmt"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -36,31 +37,31 @@ func (s *AllInfoSuite) TestAdd(c *C) {
 	a := newAllInfo()
 	s.assertContents(c, a, 0, nil)
 
-	allInfoAdd(a, &MachineInfo{
+	allInfoAdd(a, &params.MachineInfo{
 		Id:         "0",
 		InstanceId: "i-0",
 	})
 	s.assertContents(c, a, 1, []entityEntry{{
 		revno: 1,
-		info: &MachineInfo{
+		info: &params.MachineInfo{
 			Id:         "0",
 			InstanceId: "i-0",
 		},
 	}})
 
-	allInfoAdd(a, &ServiceInfo{
+	allInfoAdd(a, &params.ServiceInfo{
 		Name:    "wordpress",
 		Exposed: true,
 	})
 	s.assertContents(c, a, 2, []entityEntry{{
 		revno: 1,
-		info: &MachineInfo{
+		info: &params.MachineInfo{
 			Id:         "0",
 			InstanceId: "i-0",
 		},
 	}, {
 		revno: 2,
-		info: &ServiceInfo{
+		info: &params.ServiceInfo{
 			Name:    "wordpress",
 			Exposed: true,
 		},
@@ -69,18 +70,18 @@ func (s *AllInfoSuite) TestAdd(c *C) {
 
 var updateTests = []struct {
 	about  string
-	add    []EntityInfo
-	update EntityInfo
+	add    []params.EntityInfo
+	update params.EntityInfo
 	result []entityEntry
 }{{
 	about: "update an entity that's not currently there",
-	update: &MachineInfo{
+	update: &params.MachineInfo{
 		Id:         "0",
 		InstanceId: "i-0",
 	},
 	result: []entityEntry{{
 		revno: 1,
-		info: &MachineInfo{
+		info: &params.MachineInfo{
 			Id:         "0",
 			InstanceId: "i-0",
 		},
@@ -100,29 +101,29 @@ func (s *AllInfoSuite) TestUpdate(c *C) {
 	}
 }
 
-func entityIdForInfo(info EntityInfo) entityId {
+func entityIdForInfo(info params.EntityInfo) entityId {
 	return entityId{
 		collection: info.EntityKind(),
 		id:         info.EntityId(),
 	}
 }
 
-func allInfoAdd(a *allInfo, info EntityInfo) {
+func allInfoAdd(a *allInfo, info params.EntityInfo) {
 	a.add(entityIdForInfo(info), info)
 }
 
 func (s *AllInfoSuite) TestMarkRemoved(c *C) {
 	a := newAllInfo()
-	allInfoAdd(a, &MachineInfo{Id: "0"})
-	allInfoAdd(a, &MachineInfo{Id: "1"})
+	allInfoAdd(a, &params.MachineInfo{Id: "0"})
+	allInfoAdd(a, &params.MachineInfo{Id: "1"})
 	a.markRemoved(entityId{"machine", "0"})
 	s.assertContents(c, a, 3, []entityEntry{{
 		revno: 2,
-		info:  &MachineInfo{Id: "1"},
+		info:  &params.MachineInfo{Id: "1"},
 	}, {
 		revno:   3,
 		removed: true,
-		info:    &MachineInfo{Id: "0"},
+		info:    &params.MachineInfo{Id: "0"},
 	}})
 }
 
@@ -134,7 +135,7 @@ func (s *AllInfoSuite) TestMarkRemovedNonExistent(c *C) {
 
 func (s *AllInfoSuite) TestDelete(c *C) {
 	a := newAllInfo()
-	allInfoAdd(a, &MachineInfo{Id: "0"})
+	allInfoAdd(a, &params.MachineInfo{Id: "0"})
 	a.delete(entityId{"machine", "0"})
 	s.assertContents(c, a, 1, nil)
 }
@@ -143,7 +144,7 @@ func (s *AllInfoSuite) TestChangesSince(c *C) {
 	a := newAllInfo()
 	var deltas []Delta
 	for i := 0; i < 3; i++ {
-		m := &MachineInfo{Id: fmt.Sprint(i)}
+		m := &params.MachineInfo{Id: fmt.Sprint(i)}
 		allInfoAdd(a, m)
 		deltas = append(deltas, Delta{Entity: m})
 	}
@@ -156,14 +157,14 @@ func (s *AllInfoSuite) TestChangesSince(c *C) {
 	c.Assert(a.changesSince(99), HasLen, 0)
 
 	rev := a.latestRevno
-	m1 := &MachineInfo{
+	m1 := &params.MachineInfo{
 		Id:         "1",
 		InstanceId: "foo",
 	}
 	a.update(entityIdForInfo(m1), m1)
 	c.Assert(a.changesSince(rev), DeepEquals, []Delta{{Entity: m1}})
 
-	m0 := &MachineInfo{Id: "0"}
+	m0 := &params.MachineInfo{Id: "0"}
 	a.markRemoved(entityIdForInfo(m0))
 	c.Assert(a.changesSince(rev), DeepEquals, []Delta{{
 		Entity: m1,

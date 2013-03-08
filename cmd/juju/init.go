@@ -10,6 +10,7 @@ import (
 
 // InitCommand is used to write out a boilerplate environments.yaml file.
 type InitCommand struct {
+	cmd.CommandBase
 	WriteFile bool
 }
 
@@ -23,10 +24,6 @@ func (c *InitCommand) Info() *cmd.Info {
 
 func (c *InitCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.WriteFile, "w", false, "write to environments.yaml file if it doesn't already exist")
-}
-
-func (c *InitCommand) Init(args []string) error {
-	return cmd.CheckEmpty(args)
 }
 
 // Run checks to see if there is already an environments.yaml file. In one does not exist already,

@@ -1,9 +1,53 @@
 package state
 
 import (
+	"launchpad.net/juju-core/state/api/params"
 	"container/list"
 	"reflect"
 )
+
+// StateWatcher watches any changes to the state.
+type StateWatcher struct {
+	// TODO: hold the last revid that the StateWatcher saw.
+}
+
+func newStateWatcher(st *State) *StateWatcher {
+	return &StateWatcher{}
+}
+
+func (w *StateWatcher) Err() error {
+	return nil
+}
+
+// Stop stops the watcher.
+func (w *StateWatcher) Stop() error {
+	return nil
+}
+
+var StubNextDelta = []params.Delta{
+	params.Delta{
+		Removed: false,
+		Entity: &params.ServiceInfo{
+			Name:    "Example",
+			Exposed: true,
+		},
+	},
+	params.Delta{
+		Removed: true,
+		Entity: &params.UnitInfo{
+			Name:    "MyUnit",
+			Service: "Example",
+		},
+	},
+}
+
+// Next retrieves all changes that have happened since the given revision
+// number, blocking until there are some changes available.  It also
+// returns the revision number of the latest change.
+func (w *StateWatcher) Next() ([]params.Delta, error) {
+	// This is a stub to make progress with the higher level coding.
+	return StubNextDelta, nil
+}
 
 // entityId holds the mongo identifier of an entity.
 type entityId struct {
@@ -25,7 +69,7 @@ type entityEntry struct {
 	removed bool
 
 	// info holds the actual information on the entity.
-	info EntityInfo
+	info params.EntityInfo
 }
 
 // allInfo holds a list of all entities known
@@ -48,7 +92,7 @@ func newAllInfo() *allInfo {
 
 // add adds a new entity with the given id and associated
 // information to the list.
-func (a *allInfo) add(id entityId, info EntityInfo) {
+func (a *allInfo) add(id entityId, info params.EntityInfo) {
 	if a.entities[id] != nil {
 		panic("adding new entry with duplicate id")
 	}
@@ -84,7 +128,7 @@ func (a *allInfo) markRemoved(id entityId) {
 
 // update updates the information for the entity with
 // the given id.
-func (a *allInfo) update(id entityId, info EntityInfo) {
+func (a *allInfo) update(id entityId, info params.EntityInfo) {
 	elem := a.entities[id]
 	if elem == nil {
 		a.add(id, info)
@@ -109,7 +153,7 @@ type Delta struct {
 	// otherwise it has been created or changed.
 	Remove bool
 	// Entity holds data about the entity that has changed.
-	Entity EntityInfo
+	Entity params.EntityInfo
 }
 
 // changesSince returns any changes that have occurred since
@@ -142,51 +186,3 @@ func (a *allInfo) changesSince(revno int64) []Delta {
 	}
 	return changes
 }
-
-// EntityInfo is implemented by all entity Info types.
-type EntityInfo interface {
-	// EntityId returns the collection-specific identifier for the entity.
-	EntityId() interface{}
-	// EntityKind returns the kind of entity (for example "machine", "service", ...)
-	EntityKind() string
-}
-
-var (
-	_ EntityInfo = (*MachineInfo)(nil)
-	_ EntityInfo = (*ServiceInfo)(nil)
-	_ EntityInfo = (*UnitInfo)(nil)
-	_ EntityInfo = (*RelationInfo)(nil)
-)
-
-// MachineInfo holds the information about a Machine
-// that is watched by StateWatcher.
-type MachineInfo struct {
-	Id         string `bson:"_id"`
-	InstanceId string
-}
-
-func (i *MachineInfo) EntityId() interface{} { return i.Id }
-func (i *MachineInfo) EntityKind() string    { return "machine" }
-
-type ServiceInfo struct {
-	Name    string `bson:"_id"`
-	Exposed bool
-}
-
-func (i *ServiceInfo) EntityId() interface{} { return i.Name }
-func (i *ServiceInfo) EntityKind() string    { return "service" }
-
-type UnitInfo struct {
-	Name    string `bson:"_id"`
-	Service string
-}
-
-func (i *UnitInfo) EntityId() interface{} { return i.Name }
-func (i *UnitInfo) EntityKind() string    { return "service" }
-
-type RelationInfo struct {
-	Key string `bson:"_id"`
-}
-
-func (i *RelationInfo) EntityId() interface{} { return i.Key }
-func (i *RelationInfo) EntityKind() string    { return "service" }

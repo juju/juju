@@ -2,14 +2,13 @@ package main
 
 import (
 	"fmt"
-	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 )
 
 // DestroyRelationCommand causes an existing service relation to be shut down.
 type DestroyRelationCommand struct {
-	EnvName   string
+	EnvCommandBase
 	Endpoints []string
 }
 
@@ -20,10 +19,6 @@ func (c *DestroyRelationCommand) Info() *cmd.Info {
 		Purpose: "destroy a relation between two services",
 		Aliases: []string{"remove-relation"},
 	}
-}
-
-func (c *DestroyRelationCommand) SetFlags(f *gnuflag.FlagSet) {
-	addEnvironFlags(&c.EnvName, f)
 }
 
 func (c *DestroyRelationCommand) Init(args []string) error {
