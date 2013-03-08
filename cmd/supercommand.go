@@ -308,7 +308,7 @@ func (c *helpCommand) Run(ctx *Context) error {
 	}
 	topic, ok := c.topics[c.topic]
 	if !ok {
-		return fmt.Errorf("Unknown command or topic for %s", c.topic)
+		return fmt.Errorf("unknown command or topic for %s", c.topic)
 	}
 	fmt.Fprintf(ctx.Stdout, "%s\n", strings.TrimSpace(topic.long()))
 	return nil

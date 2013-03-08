@@ -69,6 +69,11 @@ var runMainTests = []struct {
 		code:    0,
 		out:     strings.TrimLeft(helpBasics, "\n"),
 	}, {
+		summary: "juju help foo doesn't exist",
+		args:    []string{"help", "foo"},
+		code:    2,
+		out:     "error: unknown command or topic for foo\n",
+	}, {
 		summary: "unknown command",
 		args:    []string{"discombobulate"},
 		code:    2,
@@ -191,6 +196,30 @@ func (s *MainSuite) TestHelpCommands(c *C) {
 	}
 	// The names should be output in alphabetical order, so don't sort.
 	c.Assert(names, DeepEquals, commandNames)
+}
+
+var topicNames = []string{
+	"basics",
+	"commands",
+	"global-options",
+	"topics",
+}
+
+func (s *MainSuite) TestHelpTopics(c *C) {
+	// Check that we have correctly registered all the topics
+	// by checking the help output.
+	out := badrun(c, 0, "help", "topics")
+	lines := strings.Split(out, "\n")
+	var names []string
+	for _, line := range lines {
+		f := strings.Fields(line)
+		if len(f) == 0 {
+			continue
+		}
+		names = append(names, f[0])
+	}
+	// The names should be output in alphabetical order, so don't sort.
+	c.Assert(names, DeepEquals, topicNames)
 }
 
 type fakeHome string
