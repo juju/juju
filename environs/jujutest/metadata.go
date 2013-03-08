@@ -34,7 +34,6 @@ func (prt *ProxyRoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 	return prt.Sub.RoundTrip(req)
 }
 
-
 // A simple content structure to pass data into VirtualRoundTripper. When using
 // VRT, requests that match 'Name' will be served the value in 'Content'
 type FileContent struct {
