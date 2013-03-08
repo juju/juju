@@ -228,7 +228,15 @@ func (s *localLiveSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
 		},
 	)
 	defer cleanup()
-	err := environs.Bootstrap(s.Env, true, panicWrite)
+	// Create a config that matches s.Config but with use-floating-ip set to true
+	newconfig := make(map[string]interface{}, len(s.Config))
+	for k,v := range s.Config {
+		newconfig[k] = v
+	}
+	newconfig["use-floating-ip"] = true
+	env, err := environs.NewFromAttrs(newconfig)
+	c.Assert(err, IsNil)
+	err = environs.Bootstrap(env, true, panicWrite)
 	c.Assert(err, ErrorMatches, ".*cannot allocate a public IP as needed.*")
 }
 
