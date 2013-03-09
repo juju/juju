@@ -4,7 +4,7 @@ import (
 	"code.google.com/p/go.net/websocket"
 	"fmt"
 	"launchpad.net/juju-core/charm"
-	_ "launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -283,12 +283,12 @@ func (aw srvClientAllWatcher) Stop() error {
 
 // ServiceSet implements the server side of Client.ServerSet.
 func (c *srvClient) ServiceSet(p params.ServiceSet) error {
-	return statecmd.ServiceSet(c.root.srv.state, p)
+	return juju.ServiceSet(c.root.srv.state, p)
 }
 
 // ServiceSetYAML implements the server side of Client.ServerSetYAML.
 func (c *srvClient) ServiceSetYAML(p params.ServiceSetYAML) error {
-	return statecmd.ServiceSetYAML(c.root.srv.state, p)
+	return juju.ServiceSetYAML(c.root.srv.state, p)
 }
 
 // ServiceGet returns the configuration for a service.
@@ -306,6 +306,46 @@ func (c *srvClient) ServiceExpose(args params.ServiceExpose) error {
 // were also explicitly marked by units as open.
 func (c *srvClient) ServiceUnexpose(args params.ServiceUnexpose) error {
 	return statecmd.ServiceUnexpose(c.root.srv.state, args)
+}
+
+var CharmStore charm.Repository = charm.Store()
+
+// ServiceDeploy fetches the charm from the charm store and deploys it.  Local
+// charms are not supported.
+func (c *srvClient) ServiceDeploy(args params.ServiceDeploy) error {
+	state := c.root.srv.state
+	conf, err := state.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	curl, err := charm.InferURL(args.CharmUrl, conf.DefaultSeries())
+	if err != nil {
+		return err
+	}
+	conn, err := juju.NewConnFromState(state)
+	if err != nil {
+		return err
+	}
+	if args.NumUnits == 0 {
+		args.NumUnits = 1
+	}
+	charm, err := conn.PutCharm(curl, CharmStore, false)
+	if err != nil {
+		return err
+	}
+	serviceName := args.ServiceName
+	if serviceName == "" {
+		serviceName = curl.Name
+	}
+	deployArgs := juju.DeployServiceParams{
+		Charm:       charm,
+		ServiceName: serviceName,
+		NumUnits:    args.NumUnits,
+		Config:      args.Config,
+		ConfigYAML:  args.ConfigYAML,
+	}
+	_, err = conn.DeployService(deployArgs)
+	return err
 }
 
 // ServiceAddUnits adds a given number of units to a service.
