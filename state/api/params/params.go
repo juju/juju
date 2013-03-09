@@ -6,6 +6,15 @@ import (
 	"fmt"
 )
 
+// ServiceDeploy holds the parameters for making the ServiceDeploy call.
+type ServiceDeploy struct {
+	ServiceName string
+	Config      map[string]string
+	ConfigYAML  string // Takes precedence over config if both are present.
+	CharmUrl    string
+	NumUnits    int
+}
+
 // ServiceExpose holds the parameters for making the ServiceExpose call.
 type ServiceExpose struct {
 	ServiceName string

@@ -96,6 +96,36 @@ func (c *Client) ServiceUnexpose(service string) error {
 	return clientError(err)
 }
 
+// ServiceDeploy obtains the charm, either locally or from the charm store,
+// and deploys it.
+func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int, configYAML string) error {
+	params := params.ServiceDeploy{
+		ServiceName: serviceName,
+		ConfigYAML:  configYAML,
+		CharmUrl:    charmUrl,
+		NumUnits:    numUnits,
+	}
+	err := c.st.client.Call("Client", "", "ServiceDeploy", params, nil)
+	if err != nil {
+		return clientError(err)
+	}
+	return nil
+}
+
+// CharmInfo holds information about a charm.
+// ServiceAddUnit adds a given number of units to a service.
+func (c *Client) ServiceAddUnits(service string, numUnits int) error {
+	params := params.ServiceAddUnits{
+		ServiceName: service,
+		NumUnits:    numUnits,
+	}
+	err := c.st.client.Call("Client", "", "ServiceAddUnits", params, nil)
+	if err != nil {
+		return clientError(err)
+	}
+	return nil
+}
+
 // CharmInfo holds information about a charm.
 type CharmInfo struct {
 	Revision int
@@ -113,19 +143,6 @@ func (c *Client) CharmInfo(charmURL string) (*CharmInfo, error) {
 		return nil, clientError(err)
 	}
 	return info, nil
-}
-
-// ServiceAddUnit adds a given number of units to a service.
-func (c *Client) ServiceAddUnits(service string, numUnits int) error {
-	params := params.ServiceAddUnits{
-		ServiceName: service,
-		NumUnits:    numUnits,
-	}
-	err := c.st.client.Call("Client", "", "ServiceAddUnits", params, nil)
-	if err != nil {
-		return clientError(err)
-	}
-	return nil
 }
 
 // EnvironmentInfo holds information about the Juju environment.
