@@ -3,8 +3,8 @@ package ec2
 import (
 	"fmt"
 	"io"
-	"launchpad.net/juju-core/environs/jujutest"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/environs/jujutest"
 	"net/http"
 	"os"
 	"path/filepath"
