@@ -108,12 +108,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	}
 	var configYAML []byte
 	if c.Config.Path != "" {
-		f, err := os.Open(c.Config.Path)
-		if err != nil {
-			return err
-		}
-		configYAML, err = ioutil.ReadAll(f)
-		f.Close()
+		configYAML, err = ioutil.ReadFile(c.Config.Path)
 		if err != nil {
 			return err
 		}

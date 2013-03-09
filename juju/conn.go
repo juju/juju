@@ -185,37 +185,33 @@ type DeployServiceParams struct {
 	NumUnits    int
 	// Config is used only by the API.
 	Config map[string]string
-	// ConfigYAML akes precedence over Config if both are provided.
+	// ConfigYAML takes precedence over Config if both are provided.
 	ConfigYAML string
 }
 
 // DeployService takes a charm and various parameters and deploys it.
 func (conn *Conn) DeployService(args DeployServiceParams) (*state.Service, error) {
-	if args.Charm == nil {
-		panic("Charm is nil")
-	}
+
 	svc, err := conn.State.AddService(args.ServiceName, args.Charm)
 	if err != nil {
-		return &state.Service{}, err
+		return nil, err
 	}
 
 	if args.ConfigYAML != "" {
-		ss_args := params.ServiceSetYAML{
+		ssArgs := params.ServiceSetYAML{
 			ServiceName: args.ServiceName,
 			Config:      args.ConfigYAML,
 		}
-		err = ServiceSetYAML(conn.State, ss_args)
-		if err != nil {
-			return &state.Service{}, err
+		if err := ServiceSetYAML(conn.State, ssArgs); err != nil {
+			return nil, err
 		}
 	} else if args.Config != nil {
-		ss_args := params.ServiceSet{
+		ssArgs := params.ServiceSet{
 			ServiceName: args.ServiceName,
 			Options:     args.Config,
 		}
-		err = ServiceSet(conn.State, ss_args)
-		if err != nil {
-			return &state.Service{}, err
+		if err := ServiceSet(conn.State, ssArgs); err != nil {
+			return nil, err
 		}
 	}
 
@@ -223,7 +219,10 @@ func (conn *Conn) DeployService(args DeployServiceParams) (*state.Service, error
 		return svc, nil
 	}
 	_, err = conn.AddUnits(svc, args.NumUnits)
-	return svc, err
+	if err != nil {
+		return nil, err
+	}
+	return svc, nil
 }
 
 func (conn *Conn) addCharm(curl *charm.URL, ch charm.Charm) (*state.Charm, error) {

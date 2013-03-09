@@ -67,18 +67,17 @@ func (c *SetCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer conn.Close()
+
 	if len(contents) == 0 {
-		err = juju.ServiceSet(conn.State, params.ServiceSet{
+		return juju.ServiceSet(conn.State, params.ServiceSet{
 			ServiceName: c.ServiceName,
 			Options:     options,
 		})
-	} else {
-		err = juju.ServiceSetYAML(conn.State, params.ServiceSetYAML{
-			ServiceName: c.ServiceName,
-			Config:      string(contents),
-		})
 	}
-	return err
+	return juju.ServiceSetYAML(conn.State, params.ServiceSetYAML{
+		ServiceName: c.ServiceName,
+		Config:      string(contents),
+	})
 }
 
 // parse parses the option k=v strings into a map of options to be

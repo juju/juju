@@ -337,14 +337,14 @@ func (c *srvClient) ServiceDeploy(args params.ServiceDeploy) error {
 	if serviceName == "" {
 		serviceName = curl.Name
 	}
-	deploy_args := juju.DeployServiceParams{
+	deployArgs := juju.DeployServiceParams{
 		Charm:       charm,
 		ServiceName: serviceName,
 		NumUnits:    args.NumUnits,
 		Config:      args.Config,
 		ConfigYAML:  args.ConfigYAML,
 	}
-	_, err = conn.DeployService(deploy_args)
+	_, err = conn.DeployService(deployArgs)
 	return err
 }
 

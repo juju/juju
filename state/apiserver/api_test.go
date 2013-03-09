@@ -43,6 +43,7 @@ func removeServiceAndUnits(c *C, service *state.Service) {
 		err = unit.Remove()
 		c.Assert(err, IsNil)
 	}
+	// TODO: Calling Refresh is required due to LP bug #1152717 - remove when fixed.
 	err = service.Refresh()
 	c.Assert(err, IsNil)
 	err = service.Destroy()

@@ -549,8 +549,6 @@ type DeployLocalSuite struct {
 	charmUrl      *charm.URL
 }
 
-// Run-time check to ensure DeployLocalSuite implements the Suite
-// interface.
 var _ = Suite(&DeployLocalSuite{})
 
 func (s *DeployLocalSuite) SetUpTest(c *C) {
