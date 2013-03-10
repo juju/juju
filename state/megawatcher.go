@@ -2,7 +2,9 @@ package state
 
 import (
 	"container/list"
+	"labix.org/v2/mgo"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/tomb"
 	"reflect"
 )
 
@@ -49,10 +51,61 @@ func (w *StateWatcher) Next() ([]params.Delta, error) {
 	return StubNextDelta, nil
 }
 
+// allWatcher holds a shared record of all current state and replies to
+// requests from StateWatches to tell them when it changes.
+// TODO(rog) complete this type and its methods.
+type allWatcher struct {
+	tomb tomb.Tomb
+
+	// backing knows how to fetch information from
+	// the underlying state.
+	backing allWatcherBacking
+
+	// all holds information on everything the allWatcher cares about.
+	all *allInfo
+}
+
+// allWatcherBacking is the interface required
+// by the allWatcher to access the underlying state.
+// It is an interface for testing purposes.
+// TODO(rog) complete this type and its methods.
+type allWatcherBacking interface {
+	// fetch retrieves information about the entity with
+	// the given id. It returns mgo.ErrNotFound if the
+	// entity does not exist.
+	fetch(id entityId) (params.EntityInfo, error)
+}
+
 // entityId holds the mongo identifier of an entity.
 type entityId struct {
 	collection string
 	id         interface{}
+}
+
+// newAllWatcher returns a new allWatcher that retrieves information
+// using the given backing. It does not start it running.
+func newAllWatcher(backing allWatcherBacking) *allWatcher {
+	return &allWatcher{
+		backing: backing,
+		all:     newAllInfo(),
+	}
+}
+
+// changed updates the allWatcher's idea of the current state
+// in response to the given change.
+func (aw *allWatcher) changed(id entityId) error {
+	// TODO(rog) investigate ways that this can be made more efficient
+	// than simply fetching each entity in turn.
+	info, err := aw.backing.fetch(id)
+	if err == mgo.ErrNotFound {
+		aw.all.markRemoved(id)
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	aw.all.update(id, info)
+	return nil
 }
 
 // entityEntry holds an entry in the linked list of all entities known

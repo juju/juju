@@ -6,17 +6,19 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
+	"labix.org/v2/mgo"
+	"errors"
 )
 
-type AllInfoSuite struct {
+type allInfoSuite struct {
 	testing.LoggingSuite
 }
 
-var _ = Suite(&AllInfoSuite{})
+var _ = Suite(&allInfoSuite{})
 
-// assertContents checks that the given allWatcher
+// assertAllInfoContents checks that the given allWatcher
 // has the given contents, in oldest-to-newest order.
-func (*AllInfoSuite) assertContents(c *C, a *allInfo, latestRevno int64, entries []entityEntry) {
+func assertAllInfoContents(c *C, a *allInfo, latestRevno int64, entries []entityEntry) {
 	var gotEntries []entityEntry
 	var gotElems []*list.Element
 	c.Assert(a.list.Len(), Equals, len(entries))
@@ -24,7 +26,6 @@ func (*AllInfoSuite) assertContents(c *C, a *allInfo, latestRevno int64, entries
 		gotEntries = append(gotEntries, *e.Value.(*entityEntry))
 		gotElems = append(gotElems, e)
 	}
-
 	c.Assert(gotEntries, DeepEquals, entries)
 	for i, ent := range entries {
 		c.Assert(a.entities[entityIdForInfo(ent.info)], Equals, gotElems[i])
@@ -33,15 +34,15 @@ func (*AllInfoSuite) assertContents(c *C, a *allInfo, latestRevno int64, entries
 	c.Assert(a.latestRevno, Equals, latestRevno)
 }
 
-func (s *AllInfoSuite) TestAdd(c *C) {
+func (s *allInfoSuite) TestAdd(c *C) {
 	a := newAllInfo()
-	s.assertContents(c, a, 0, nil)
+	assertAllInfoContents(c, a, 0, nil)
 
 	allInfoAdd(a, &params.MachineInfo{
 		Id:         "0",
 		InstanceId: "i-0",
 	})
-	s.assertContents(c, a, 1, []entityEntry{{
+	assertAllInfoContents(c, a, 1, []entityEntry{{
 		revno: 1,
 		info: &params.MachineInfo{
 			Id:         "0",
@@ -53,7 +54,7 @@ func (s *AllInfoSuite) TestAdd(c *C) {
 		Name:    "wordpress",
 		Exposed: true,
 	})
-	s.assertContents(c, a, 2, []entityEntry{{
+	assertAllInfoContents(c, a, 2, []entityEntry{{
 		revno: 1,
 		info: &params.MachineInfo{
 			Id:         "0",
@@ -89,7 +90,7 @@ var updateTests = []struct {
 },
 }
 
-func (s *AllInfoSuite) TestUpdate(c *C) {
+func (s *allInfoSuite) TestUpdate(c *C) {
 	for i, test := range updateTests {
 		a := newAllInfo()
 		c.Logf("test %d. %s", i, test.about)
@@ -97,7 +98,7 @@ func (s *AllInfoSuite) TestUpdate(c *C) {
 			allInfoAdd(a, info)
 		}
 		a.update(entityIdForInfo(test.update), test.update)
-		s.assertContents(c, a, test.result[len(test.result)-1].revno, test.result)
+		assertAllInfoContents(c, a, test.result[len(test.result)-1].revno, test.result)
 	}
 }
 
@@ -112,12 +113,12 @@ func allInfoAdd(a *allInfo, info params.EntityInfo) {
 	a.add(entityIdForInfo(info), info)
 }
 
-func (s *AllInfoSuite) TestMarkRemoved(c *C) {
+func (s *allInfoSuite) TestMarkRemoved(c *C) {
 	a := newAllInfo()
 	allInfoAdd(a, &params.MachineInfo{Id: "0"})
 	allInfoAdd(a, &params.MachineInfo{Id: "1"})
 	a.markRemoved(entityId{"machine", "0"})
-	s.assertContents(c, a, 3, []entityEntry{{
+	assertAllInfoContents(c, a, 3, []entityEntry{{
 		revno: 2,
 		info:  &params.MachineInfo{Id: "1"},
 	}, {
@@ -127,20 +128,20 @@ func (s *AllInfoSuite) TestMarkRemoved(c *C) {
 	}})
 }
 
-func (s *AllInfoSuite) TestMarkRemovedNonExistent(c *C) {
+func (s *allInfoSuite) TestMarkRemovedNonExistent(c *C) {
 	a := newAllInfo()
 	a.markRemoved(entityId{"machine", "0"})
-	s.assertContents(c, a, 0, nil)
+	assertAllInfoContents(c, a, 0, nil)
 }
 
-func (s *AllInfoSuite) TestDelete(c *C) {
+func (s *allInfoSuite) TestDelete(c *C) {
 	a := newAllInfo()
 	allInfoAdd(a, &params.MachineInfo{Id: "0"})
 	a.delete(entityId{"machine", "0"})
-	s.assertContents(c, a, 1, nil)
+	assertAllInfoContents(c, a, 1, nil)
 }
 
-func (s *AllInfoSuite) TestChangesSince(c *C) {
+func (s *allInfoSuite) TestChangesSince(c *C) {
 	a := newAllInfo()
 	var deltas []Delta
 	for i := 0; i < 3; i++ {
@@ -178,4 +179,77 @@ func (s *AllInfoSuite) TestChangesSince(c *C) {
 		Entity: m0,
 	}})
 
+}
+
+type allWatcherSuite struct {
+	testing.LoggingSuite
+}
+
+var _ = Suite(&allWatcherSuite{})
+
+func (*allWatcherSuite) TestFetchErrorReturn(c *C) {
+	expectErr := errors.New("some error")
+	b := &allWatcherTestBacking{
+		fetchFunc: func(id entityId) (params.EntityInfo, error) {
+			return nil, expectErr
+		},
+	}
+	aw := newAllWatcher(b)
+	err := aw.changed(entityId{})
+	c.Assert(err, Equals, expectErr)
+}
+
+func (*allWatcherSuite) TestFetchNotFoundWithNoEntity(c *C) {
+	b := &allWatcherTestBacking{
+		fetchFunc: fetchFromMap(nil),
+	}
+	aw := newAllWatcher(b)
+	err := aw.changed(entityId{"machine", "1"})
+	c.Assert(err, IsNil)
+	assertAllInfoContents(c, aw.all, 0, nil)
+}
+
+func (*allWatcherSuite) TestFetchNotFoundMarksRemoved(c *C) {
+	m := &params.MachineInfo{Id: "99"}
+	b := &allWatcherTestBacking{
+		fetchFunc: fetchFromMap(nil),
+	}
+	aw := newAllWatcher(b)
+
+	id := entityIdForInfo(m)
+	aw.all.add(id, m)
+	aw.changed(id)
+	assertAllInfoContents(c, aw.all, 2, []entityEntry{{
+		revno: 2,
+		removed: true,
+		info: &params.MachineInfo{
+			Id:         "99",
+		},
+	}})
+}
+
+type entityMap map[entityId] params.EntityInfo
+
+func (em entityMap) add(infos []params.EntityInfo) entityMap {
+	for _, info := range infos {
+		em[entityIdForInfo(info)] = info
+	}
+	return em
+}
+
+func fetchFromMap(em entityMap) func(entityId) (params.EntityInfo, error) {
+	return func(id entityId) (params.EntityInfo, error) {
+		if info, ok := em[id]; ok {
+			return info, nil;
+		}
+		return nil, mgo.ErrNotFound
+	}
+}
+
+type allWatcherTestBacking struct {
+	fetchFunc func(id entityId) (params.EntityInfo, error)
+}
+
+func (b *allWatcherTestBacking) fetch(id entityId) (params.EntityInfo, error) {
+	return b.fetchFunc(id)
 }
