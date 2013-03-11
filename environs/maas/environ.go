@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
+	"net/url"
 	"sync"
 	"time"
 )
@@ -130,9 +131,10 @@ func (env *maasEnviron) startBootstrapNode(tools *state.Tools, cert, key []byte,
 		Password: trivial.PasswordHash(password),
 		CACert:   caCert,
 	}
-	// TODO: mongoURL, cert/key, and config need to go into the userdata somehow.
+	// TODO: Obtain userdata based on mongoURL cert/key, and config
 	unused(mongoURL, cert, key, config)
-	inst, err := env.StartInstance("0", &stateInfo, &apiInfo, tools)
+	var userdata []byte
+	inst, err := env.gimmeNode("0", &stateInfo, &apiInfo, tools, userdata)
 	if err != nil {
 		return nil, fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
@@ -217,18 +219,77 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
+// nonNilError is a placeholder for an error.  It is not nil, but it's not an
+// actual error either.  This should never be returned from anywhere.
+var nonNilError = fmt.Errorf("(Not a real error)")
+
+// acquireNode allocates a node from the MAAS.
+func (environ *maasEnviron) acquireNode() (gomaasapi.MAASObject, error) {
+	retry := trivial.AttemptStrategy{
+		Total: 5 * time.Second,
+		Delay: 200 * time.Millisecond,
+	}
+	var result gomaasapi.JSONObject
+	var err error = nonNilError
+	for a := retry.Start(); a.Next() && err != nil; {
+		client := environ.maasClientUnlocked.GetSubObject("nodes/")
+		result, err = client.CallPost("acquire", nil)
+	}
+	if err != nil {
+		return gomaasapi.MAASObject{}, err
+	}
+	node, err := result.GetMAASObject()
+	if err != nil {
+		msg := fmt.Errorf("unexpected result from 'acquire' on MAAS API: %v", err)
+		return gomaasapi.MAASObject{}, msg
+	}
+	return node, nil
+}
+
+// startNode installs and boots a node.
+func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, tools *state.Tools, userdata []byte) error {
+	retry := trivial.AttemptStrategy{
+		Total: 5 * time.Second,
+		Delay: 200 * time.Millisecond,
+	}
+	params := url.Values{
+		"distro_series": {tools.Series},
+// TODO: How do we pass user_data!?
+		//"user_data": {userdata},
+	}
+	var err error = nonNilError
+	for a := retry.Start(); a.Next() && err != nil; {
+		_, err = node.CallPost("start", params)
+	}
+	return err
+}
+
+// gimmeNode allocates and starts a MAAS node.  It is used both for the
+// implementation of StartInstance, and to initialize the bootstrap node.
+func (environ *maasEnviron) gimmeNode(machineId string, stateInfo *state.Info, apiInfo *api.Info, tools *state.Tools, userdata []byte) (*maasInstance, error) {
+
+	log.Printf("environs/maas: starting machine %s in $q running tools version %q from %q", machineId, environ.name, tools.Binary, tools.URL)
+
+	node, err := environ.acquireNode()
+	if err != nil {
+		return nil, fmt.Errorf("cannot run instances: %v", err)
+	}
+
+	err = environ.startNode(node, tools, userdata)
+	if err != nil {
+// TODO: Attempt to release node, since we've already acquired it!
+		return nil, fmt.Errorf("cannot start instance: %v", err)
+	}
+	instance := maasInstance{&node, environ}
+	log.Printf("environs/maas: started instance %q", instance.Id())
+	return &instance, nil
+}
+
 // StartInstance is specified in the Environ interface.
 func (environ *maasEnviron) StartInstance(machineId string, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
-	node, err := environ.maasClientUnlocked.GetSubObject(machineId).Get()
-	if err != nil {
-		return nil, err
-	}
-	_, err = node.CallPost("start", nil)
-	if err != nil {
-		return nil, err
-	}
-	instance := &maasInstance{maasObject: &node, environ: environ}
-	return instance, nil
+	// TODO: Obtain userdata.
+	var userdata []byte
+	return environ.gimmeNode(machineId, info, apiInfo, tools, userdata)
 }
 
 // StopInstances is specified in the Environ interface.
