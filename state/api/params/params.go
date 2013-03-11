@@ -6,6 +6,15 @@ import (
 	"fmt"
 )
 
+// ServiceDeploy holds the parameters for making the ServiceDeploy call.
+type ServiceDeploy struct {
+	ServiceName string
+	Config      map[string]string
+	ConfigYAML  string // Takes precedence over config if both are present.
+	CharmUrl    string
+	NumUnits    int
+}
+
 // ServiceExpose holds the parameters for making the ServiceExpose call.
 type ServiceExpose struct {
 	ServiceName string
@@ -41,6 +50,12 @@ type ServiceGetResults struct {
 // ServiceUnexpose holds parameters for the ServiceUnexpose call.
 type ServiceUnexpose struct {
 	ServiceName string
+}
+
+// ServiceAddUnits holds parameters for the AddUnits call.
+type ServiceAddUnits struct {
+	ServiceName string
+	NumUnits    int
 }
 
 // Creds holds credentials for identifying an entity.
@@ -85,6 +100,23 @@ type User struct {
 	// This is a placeholder for any information
 	// that may be associated with a user in the
 	// future.
+}
+
+// GetAnnotationsResults holds annotations associated with an entity.
+type GetAnnotationsResults struct {
+	Annotations map[string]string
+}
+
+// GetAnnotations stores parameters for making the GetAnnotations call.
+type GetAnnotations struct {
+	EntityId string
+}
+
+// SetAnnotation stores parameters for making the SetAnnotation call.
+type SetAnnotation struct {
+	EntityId string
+	Key      string
+	Value    string
 }
 
 // Delta holds details of a change to the environment.

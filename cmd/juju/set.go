@@ -9,12 +9,11 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/statecmd"
 )
 
 // SetCommand updates the configuration of a service
 type SetCommand struct {
-	EnvName     string
+	EnvCommandBase
 	ServiceName string
 	// either Options or Config will contain the configuration data
 	Options []string
@@ -31,7 +30,7 @@ func (c *SetCommand) Info() *cmd.Info {
 }
 
 func (c *SetCommand) SetFlags(f *gnuflag.FlagSet) {
-	addEnvironFlags(&c.EnvName, f)
+	c.EnvCommandBase.SetFlags(f)
 	f.Var(&c.Config, "config", "path to yaml-formatted service config")
 }
 
@@ -68,18 +67,17 @@ func (c *SetCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer conn.Close()
+
 	if len(contents) == 0 {
-		err = statecmd.ServiceSet(conn.State, params.ServiceSet{
+		return juju.ServiceSet(conn.State, params.ServiceSet{
 			ServiceName: c.ServiceName,
 			Options:     options,
 		})
-	} else {
-		err = statecmd.ServiceSetYAML(conn.State, params.ServiceSetYAML{
-			ServiceName: c.ServiceName,
-			Config:      string(contents),
-		})
 	}
-	return err
+	return juju.ServiceSetYAML(conn.State, params.ServiceSetYAML{
+		ServiceName: c.ServiceName,
+		Config:      string(contents),
+	})
 }
 
 // parse parses the option k=v strings into a map of options to be

@@ -146,7 +146,12 @@ func (p environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}
 }
 
 func (p environProvider) PublicAddress() (string, error) {
-	return fetchMetadata("public-ipv4")
+	if addr, err := fetchMetadata("public-ipv4"); err != nil {
+		return "", err
+	} else if addr != "" {
+		return addr, nil
+	}
+	return p.PrivateAddress()
 }
 
 func (p environProvider) PrivateAddress() (string, error) {
@@ -166,10 +171,6 @@ func (p environProvider) InstanceId() (state.InstanceId, error) {
 // server when needed.
 var metadataHost = "http://169.254.169.254"
 
-// metadataJSON holds the path of the instance's JSON metadata.
-// It is a variable so that tests can change it when needed.
-var metadataJSON = "2012-08-10/meta_data.json"
-
 // fetchMetadata fetches a single atom of data from the openstack instance metadata service.
 // http://docs.amazonwebservices.com/AWSEC2/latest/UserGuide/AESDG-chapter-instancedata.html
 // (the same specs is implemented in ec2, hence the reference)
@@ -186,7 +187,7 @@ func fetchMetadata(name string) (value string, err error) {
 // the same thing as the "instance-id" in the ec2-style metadata. This only
 // works on openstack Folsom or later.
 func fetchInstanceUUID() (string, error) {
-	uri := fmt.Sprintf("%s/openstack/%s", metadataHost, metadataJSON)
+	uri := fmt.Sprintf("%s/openstack/2012-08-10/meta_data.json", metadataHost)
 	data, err := retryGet(uri)
 	if err != nil {
 		return "", err

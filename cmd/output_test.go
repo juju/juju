@@ -9,6 +9,7 @@ import (
 
 // OutputCommand is a command that uses the output.go formatters.
 type OutputCommand struct {
+	cmd.CommandBase
 	out   cmd.Output
 	value interface{}
 }
