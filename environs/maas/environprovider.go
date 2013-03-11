@@ -28,8 +28,14 @@ func (*maasEnvironProvider) BoilerplateConfig() string {
 }
 
 // SecretAttrs is specified in the EnvironProvider interface.
-func (*maasEnvironProvider) SecretAttrs(*config.Config) (map[string]interface{}, error) {
-	panic("Not implemented.")
+func (prov *maasEnvironProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
+	secretAttrs := make(map[string]interface{})
+	maasCfg, err := prov.newConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	secretAttrs["maas-oauth"] = maasCfg.MAASOAuth()
+	return secretAttrs, nil
 }
 
 // PublicAddress is specified in the EnvironProvider interface.
