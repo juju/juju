@@ -74,10 +74,10 @@ func (s *UtilSuite) TestUserData(c *C) {
 	unzipped, err := trivial.Gunzip(result)
 	c.Assert(err, IsNil)
 
-	x := make(map[interface{}]interface{})
-	err = goyaml.Unmarshal(unzipped, &x)
+	config := make(map[interface{}]interface{})
+	err = goyaml.Unmarshal(unzipped, &config)
 	c.Assert(err, IsNil)
 
 	// Just check that the cloudinit config looks good.
-	c.Check(x["apt_upgrade"], Equals, true)
+	c.Check(config["apt_upgrade"], Equals, true)
 }
