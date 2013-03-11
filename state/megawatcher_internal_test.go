@@ -200,8 +200,8 @@ func (*allWatcherSuite) TestChangedFetchErrorReturn(c *C) {
 
 var allWatcherChangedTests = []struct {
 	about string
-	inBacking []params.EntityInfo
 	add []params.EntityInfo
+	inBacking []params.EntityInfo
 	change entityId
 	expectRevno int64
 	expectContents []entityEntry
@@ -220,6 +220,28 @@ var allWatcherChangedTests = []struct {
 			Id:         "1",
 		},
 	}},
+}, {
+	about: "entity is updated if it's there",
+	add: []params.EntityInfo{
+		&params.MachineInfo{
+			Id: "1",
+		},
+	},
+	inBacking: []params.EntityInfo{
+		&params.MachineInfo{
+			Id: "1",
+			InstanceId: "i-1",
+		},
+	},
+	change: entityId{"machine", "1"},
+	expectRevno: 2,
+	expectContents: []entityEntry{{
+		revno: 2,
+		info:  &params.MachineInfo{
+			Id: "1",
+			InstanceId: "i-1",
+		},
+	}},
 }}
 
 func (*allWatcherSuite) TestChanged(c *C) {
@@ -236,25 +258,6 @@ func (*allWatcherSuite) TestChanged(c *C) {
 		c.Assert(err, IsNil)
 		assertAllInfoContents(c, aw.all, test.expectRevno, test.expectContents)
 	}
-}
-
-func (*allWatcherSuite) TestFetchNotFoundMarksRemoved(c *C) {
-	m := &params.MachineInfo{Id: "99"}
-	b := &allWatcherTestBacking{
-		fetchFunc: fetchFromMap(nil),
-	}
-	aw := newAllWatcher(b)
-
-	id := entityIdForInfo(m)
-	aw.all.add(id, m)
-	aw.changed(id)
-	assertAllInfoContents(c, aw.all, 2, []entityEntry{{
-		revno: 2,
-		removed: true,
-		info: &params.MachineInfo{
-			Id:         "99",
-		},
-	}})
 }
 
 type entityMap map[entityId] params.EntityInfo
