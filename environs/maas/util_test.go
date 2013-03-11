@@ -78,6 +78,6 @@ func (s *UtilSuite) TestUserData(c *C) {
 	err = goyaml.Unmarshal(unzipped, &x)
 	c.Assert(err, IsNil)
 
-	// Just check that the cloudinit looks good.
+	// Just check that the cloudinit config looks good.
 	c.Check(x["apt_upgrade"], Equals, true)
 }
