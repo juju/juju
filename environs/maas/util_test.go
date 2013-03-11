@@ -50,16 +50,16 @@ func (s *UtilSuite) TestUserData(c *C) {
 	c.Assert(err, IsNil)
 
 	cfg := &cloudinit.MachineConfig{
-		MachineId:       "99",
+		MachineId:       "10",
 		Tools:           tools,
 		StateServerCert: []byte(testing.ServerCert),
 		StateServerKey:  []byte(testing.ServerKey),
 		StateInfo: &state.Info{
-			Password: "arble",
+			Password: "pw1",
 			CACert:   []byte("CA CERT\n" + testing.CACert),
 		},
 		APIInfo: &api.Info{
-			Password: "bletch",
+			Password: "pw2",
 			CACert:   []byte("CA CERT\n" + testing.CACert),
 		},
 		DataDir:     jujuDataDir,
