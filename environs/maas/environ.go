@@ -15,6 +15,12 @@ import (
 	"time"
 )
 
+const (
+	mgoPort     = 37017
+	apiPort     = 17070
+	jujuDataDir = "/var/lib/juju"
+)
+
 type maasEnviron struct {
 	name string
 
