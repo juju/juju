@@ -647,7 +647,7 @@ func (s *suite) TestClientAnnotations(c *C) {
 	c.Assert(err, IsNil)
 	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	environment := s.State.GetEnvironment()
+	environment := s.State.Environment()
 	entities := []state.Entity{service, unit, machine, environment}
 	for i, t := range clientAnnotationsTests {
 	loop:

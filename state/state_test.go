@@ -1379,7 +1379,7 @@ func (s *StateSuite) TestEntity(c *C) {
 
 	e, err = s.State.Entity("environment")
 	c.Assert(err, IsNil)
-	env := s.State.GetEnvironment()
+	env := s.State.Environment()
 	c.Assert(e, FitsTypeOf, env)
 	c.Assert(e.EntityName(), Equals, env.EntityName())
 }

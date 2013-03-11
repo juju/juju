@@ -1100,7 +1100,8 @@ func (s *ServiceSuite) TestAnnotatorForService(c *C) {
 
 func (s *ServiceSuite) TestAnnotationRemovalForService(c *C) {
 	s.mysql.SetAnnotation("mykey", "myvalue")
-	s.mysql.Destroy()
+	err := s.mysql.Destroy()
+	c.Assert(err, IsNil)
 	ann, err := s.mysql.Annotations()
 	c.Assert(err, IsNil)
 	c.Assert(ann, DeepEquals, make(map[string]string))

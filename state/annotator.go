@@ -7,8 +7,11 @@ import (
 	"strings"
 )
 
-// annDoc represents the internal state of annotations for an Entity in MongoDB.
-type annDoc struct {
+// annotatorDoc represents the internal state of annotations for an Entity in
+// MongoDB. Note that the annotations map is not maintained in local storage
+// due to the fact that it is not accessed directly, but through
+// Annotations/Annotation below.
+type annotatorDoc struct {
 	EntityName  string `bson:"_id"`
 	Annotations map[string]string
 }
@@ -54,11 +57,11 @@ func (a *annotator) SetAnnotation(key, value string) error {
 				C:      coll,
 				Id:     id,
 				Assert: txn.DocMissing,
-				Insert: &annDoc{id, map[string]string{key: value}},
+				Insert: &annotatorDoc{id, map[string]string{key: value}},
 			}
 		}
 		if err := a.st.runner.Run([]txn.Op{op}, "", nil); err != nil {
-			return fmt.Errorf("cannot set annotation %q = %q on %s: %v", key, value, id, onAbort(err, errNotAlive))
+			return fmt.Errorf("cannot set annotation %q = %q on %s: %v", key, value, id, err)
 		}
 	}
 	return nil
@@ -66,13 +69,14 @@ func (a *annotator) SetAnnotation(key, value string) error {
 
 // Annotations returns all the annotations corresponding to an entity.
 func (a annotator) Annotations() (map[string]string, error) {
-	doc := new(annDoc)
+	doc := new(annotatorDoc)
 	err := a.st.annotations.FindId(a.entityName).One(doc)
 	if err == mgo.ErrNotFound {
-		return make(map[string]string), nil
+		// Returning an empty map if there are no annotations.
+		return nil, nil
 	}
 	if err != nil {
-		return make(map[string]string), err
+		return nil, err
 	}
 	return doc.Annotations, nil
 }
@@ -83,6 +87,7 @@ func (a annotator) Annotation(key string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// Returning an empty string if the requested annotation is not found.
 	return ann[key], nil
 }
 

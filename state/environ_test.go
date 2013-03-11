@@ -14,7 +14,7 @@ var _ = Suite(&EnvironSuite{})
 
 func (s *EnvironSuite) SetUpTest(c *C) {
 	s.ConnSuite.SetUpTest(c)
-	s.env = s.State.GetEnvironment()
+	s.env = s.State.Environment()
 }
 
 func (s *EnvironSuite) TestEntityName(c *C) {
@@ -35,6 +35,6 @@ func (s *EnvironSuite) TestRefresh(c *C) {
 
 func (s *ServiceSuite) TestAnnotatorForEnvironment(c *C) {
 	testAnnotator(c, func() (annotator, error) {
-		return s.State.GetEnvironment(), nil
+		return s.State.Environment(), nil
 	})
 }

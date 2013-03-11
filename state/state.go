@@ -291,7 +291,7 @@ func (st *State) Entity(entityName string) (Entity, error) {
 	if entityName == "environment" {
 		// The environment is an entity capable of storing annotations,
 		// and the only entity whose name does not contain a "-".
-		return st.GetEnvironment(), nil
+		return st.Environment(), nil
 	}
 	i := strings.Index(entityName, "-")
 	if i <= 0 || i >= len(entityName)-1 {
