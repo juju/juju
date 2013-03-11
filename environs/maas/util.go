@@ -1,7 +1,10 @@
 package maas
 
 import (
+	"launchpad.net/juju-core/environs/cloudinit"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/trivial"
 	"net/url"
 	"strings"
 )
@@ -23,4 +26,19 @@ func getSystemIdValues(instanceIds []state.InstanceId) url.Values {
 		values.Add("id", extractSystemId(instanceId))
 	}
 	return values
+}
+
+// userData returns a zipped cloudinit config.
+func userData(cfg *cloudinit.MachineConfig) ([]byte, error) {
+	cloudcfg, err := cloudinit.New(cfg)
+	if err != nil {
+		return nil, err
+	}
+	data, err := cloudcfg.Render()
+	if err != nil {
+		return nil, err
+	}
+	cdata := trivial.Gzip(data)
+	log.Debugf("environs/maas: maas user data; %d bytes", len(cdata))
+	return cdata, nil
 }
