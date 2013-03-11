@@ -178,7 +178,6 @@ func (s *allInfoSuite) TestChangesSince(c *C) {
 		Remove: true,
 		Entity: m0,
 	}})
-
 }
 
 type allWatcherSuite struct {
@@ -187,7 +186,7 @@ type allWatcherSuite struct {
 
 var _ = Suite(&allWatcherSuite{})
 
-func (*allWatcherSuite) TestFetchErrorReturn(c *C) {
+func (*allWatcherSuite) TestChangedFetchErrorReturn(c *C) {
 	expectErr := errors.New("some error")
 	b := &allWatcherTestBacking{
 		fetchFunc: func(id entityId) (params.EntityInfo, error) {
@@ -199,14 +198,44 @@ func (*allWatcherSuite) TestFetchErrorReturn(c *C) {
 	c.Assert(err, Equals, expectErr)
 }
 
-func (*allWatcherSuite) TestFetchNotFoundWithNoEntity(c *C) {
-	b := &allWatcherTestBacking{
-		fetchFunc: fetchFromMap(nil),
+var allWatcherChangedTests = []struct {
+	about string
+	inBacking []params.EntityInfo
+	add []params.EntityInfo
+	change entityId
+	expectRevno int64
+	expectContents []entityEntry
+} {{
+	about: "no entity",
+	change: entityId{"machine", "1"},
+}, {
+	about: "entity is marked as removed if it's not there",
+	add: []params.EntityInfo{&params.MachineInfo{Id: "1"}},
+	change: entityId{"machine", "1"},
+	expectRevno: 2,
+	expectContents: []entityEntry{{
+		revno: 2,
+		removed: true,
+		info: &params.MachineInfo{
+			Id:         "1",
+		},
+	}},
+}}
+
+func (*allWatcherSuite) TestChanged(c *C) {
+	for i, test := range allWatcherChangedTests {
+		c.Logf("test %d. %s", i, test.about)
+		b := &allWatcherTestBacking{
+			fetchFunc: fetchFromMap(entityMap{}.add(test.inBacking)),
+		}
+		aw := newAllWatcher(b)
+		for _, info := range test.add {
+			allInfoAdd(aw.all, info)
+		}
+		err := aw.changed(test.change)
+		c.Assert(err, IsNil)
+		assertAllInfoContents(c, aw.all, test.expectRevno, test.expectContents)
 	}
-	aw := newAllWatcher(b)
-	err := aw.changed(entityId{"machine", "1"})
-	c.Assert(err, IsNil)
-	assertAllInfoContents(c, aw.all, 0, nil)
 }
 
 func (*allWatcherSuite) TestFetchNotFoundMarksRemoved(c *C) {

@@ -172,6 +172,9 @@ func (a *allInfo) delete(id entityId) {
 func (a *allInfo) markRemoved(id entityId) {
 	if elem := a.entities[id]; elem != nil {
 		entry := elem.Value.(*entityEntry)
+		if entry.removed {
+			return
+		}
 		a.latestRevno++
 		entry.revno = a.latestRevno
 		entry.removed = true
