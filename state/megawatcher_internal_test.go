@@ -2,12 +2,12 @@ package state
 
 import (
 	"container/list"
+	"errors"
 	"fmt"
+	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
-	"labix.org/v2/mgo"
-	"errors"
 )
 
 type allInfoSuite struct {
@@ -21,7 +21,7 @@ var _ = Suite(&allInfoSuite{})
 func assertAllInfoContents(c *C, a *allInfo, latestRevno int64, entries []entityEntry) {
 	var gotEntries []entityEntry
 	var gotElems []*list.Element
-	c.Assert(a.list.Len(), Equals, len(entries))
+	c.Check(a.list.Len(), Equals, len(entries))
 	for e := a.list.Back(); e != nil; e = e.Prev() {
 		gotEntries = append(gotEntries, *e.Value.(*entityEntry))
 		gotElems = append(gotElems, e)
@@ -34,27 +34,44 @@ func assertAllInfoContents(c *C, a *allInfo, latestRevno int64, entries []entity
 	c.Assert(a.latestRevno, Equals, latestRevno)
 }
 
-func (s *allInfoSuite) TestAdd(c *C) {
-	a := newAllInfo()
-	assertAllInfoContents(c, a, 0, nil)
-
-	allInfoAdd(a, &params.MachineInfo{
-		Id:         "0",
-		InstanceId: "i-0",
-	})
-	assertAllInfoContents(c, a, 1, []entityEntry{{
+var allInfoChangeMethodTests = []struct {
+	about          string
+	change         func(all *allInfo)
+	expectRevno    int64
+	expectContents []entityEntry
+}{{
+	about:  "empty at first",
+	change: func(*allInfo) {},
+}, {
+	about: "add single entry",
+	change: func(all *allInfo) {
+		allInfoAdd(all, &params.MachineInfo{
+			Id:         "0",
+			InstanceId: "i-0",
+		})
+	},
+	expectRevno: 1,
+	expectContents: []entityEntry{{
 		revno: 1,
 		info: &params.MachineInfo{
 			Id:         "0",
 			InstanceId: "i-0",
 		},
-	}})
-
-	allInfoAdd(a, &params.ServiceInfo{
-		Name:    "wordpress",
-		Exposed: true,
-	})
-	assertAllInfoContents(c, a, 2, []entityEntry{{
+	}},
+}, {
+	about: "add two entries",
+	change: func(all *allInfo) {
+		allInfoAdd(all, &params.MachineInfo{
+			Id:         "0",
+			InstanceId: "i-0",
+		})
+		allInfoAdd(all, &params.ServiceInfo{
+			Name:    "wordpress",
+			Exposed: true,
+		})
+	},
+	expectRevno: 2,
+	expectContents: []entityEntry{{
 		revno: 1,
 		info: &params.MachineInfo{
 			Id:         "0",
@@ -66,39 +83,78 @@ func (s *allInfoSuite) TestAdd(c *C) {
 			Name:    "wordpress",
 			Exposed: true,
 		},
-	}})
-}
-
-var updateTests = []struct {
-	about  string
-	add    []params.EntityInfo
-	update params.EntityInfo
-	result []entityEntry
-}{{
+	}},
+}, {
 	about: "update an entity that's not currently there",
-	update: &params.MachineInfo{
-		Id:         "0",
-		InstanceId: "i-0",
+	change: func(all *allInfo) {
+		m := &params.MachineInfo{Id: "1"}
+		all.update(entityIdForInfo(m), m)
 	},
-	result: []entityEntry{{
+	expectRevno: 1,
+	expectContents: []entityEntry{{
 		revno: 1,
+		info:  &params.MachineInfo{Id: "1"},
+	}},
+}, {
+	about: "mark removed on existing entry",
+	change: func(all *allInfo) {
+		allInfoAdd(all, &params.MachineInfo{Id: "0"})
+		allInfoAdd(all, &params.MachineInfo{Id: "1"})
+		all.markRemoved(entityId{"machine", "0"})
+	},
+	expectRevno: 3,
+	expectContents: []entityEntry{{
+		revno: 2,
+		info:  &params.MachineInfo{Id: "1"},
+	}, {
+		revno:   3,
+		removed: true,
+		info:    &params.MachineInfo{Id: "0"},
+	}},
+}, {
+	about: "mark removed on nonexistent entry",
+	change: func(all *allInfo) {
+		all.markRemoved(entityId{"machine", "0"})
+	},
+}, {
+	about: "mark removed on already marked entry",
+	change: func(all *allInfo) {
+		allInfoAdd(all, &params.MachineInfo{Id: "0"})
+		allInfoAdd(all, &params.MachineInfo{Id: "1"})
+		all.markRemoved(entityId{"machine", "0"})
+		all.update(entityId{"machine", "1"}, &params.MachineInfo{
+			Id:         "1",
+			InstanceId: "i-1",
+		})
+		all.markRemoved(entityId{"machine", "0"})
+	},
+	expectRevno: 4,
+	expectContents: []entityEntry{{
+		revno:   3,
+		removed: true,
+		info:    &params.MachineInfo{Id: "0"},
+	}, {
+		revno: 4,
 		info: &params.MachineInfo{
-			Id:         "0",
-			InstanceId: "i-0",
+			Id:         "1",
+			InstanceId: "i-1",
 		},
 	}},
-},
-}
+}, {
+	about: "delete entry",
+	change: func(all *allInfo) {
+		allInfoAdd(all, &params.MachineInfo{Id: "0"})
+		all.delete(entityId{"machine", "0"})
+	},
+	expectRevno: 1,
+}}
 
-func (s *allInfoSuite) TestUpdate(c *C) {
-	for i, test := range updateTests {
-		a := newAllInfo()
+func (s *allInfoSuite) TestAllInfoChangeMethods(c *C) {
+	for i, test := range allInfoChangeMethodTests {
+		all := newAllInfo()
 		c.Logf("test %d. %s", i, test.about)
-		for _, info := range test.add {
-			allInfoAdd(a, info)
-		}
-		a.update(entityIdForInfo(test.update), test.update)
-		assertAllInfoContents(c, a, test.result[len(test.result)-1].revno, test.result)
+		test.change(all)
+		assertAllInfoContents(c, all, test.expectRevno, test.expectContents)
 	}
 }
 
@@ -107,38 +163,6 @@ func entityIdForInfo(info params.EntityInfo) entityId {
 		collection: info.EntityKind(),
 		id:         info.EntityId(),
 	}
-}
-
-func allInfoAdd(a *allInfo, info params.EntityInfo) {
-	a.add(entityIdForInfo(info), info)
-}
-
-func (s *allInfoSuite) TestMarkRemoved(c *C) {
-	a := newAllInfo()
-	allInfoAdd(a, &params.MachineInfo{Id: "0"})
-	allInfoAdd(a, &params.MachineInfo{Id: "1"})
-	a.markRemoved(entityId{"machine", "0"})
-	assertAllInfoContents(c, a, 3, []entityEntry{{
-		revno: 2,
-		info:  &params.MachineInfo{Id: "1"},
-	}, {
-		revno:   3,
-		removed: true,
-		info:    &params.MachineInfo{Id: "0"},
-	}})
-}
-
-func (s *allInfoSuite) TestMarkRemovedNonExistent(c *C) {
-	a := newAllInfo()
-	a.markRemoved(entityId{"machine", "0"})
-	assertAllInfoContents(c, a, 0, nil)
-}
-
-func (s *allInfoSuite) TestDelete(c *C) {
-	a := newAllInfo()
-	allInfoAdd(a, &params.MachineInfo{Id: "0"})
-	a.delete(entityId{"machine", "0"})
-	assertAllInfoContents(c, a, 1, nil)
 }
 
 func (s *allInfoSuite) TestChangesSince(c *C) {
@@ -180,6 +204,10 @@ func (s *allInfoSuite) TestChangesSince(c *C) {
 	}})
 }
 
+func allInfoAdd(a *allInfo, info params.EntityInfo) {
+	a.add(entityIdForInfo(info), info)
+}
+
 type allWatcherSuite struct {
 	testing.LoggingSuite
 }
@@ -199,25 +227,25 @@ func (*allWatcherSuite) TestChangedFetchErrorReturn(c *C) {
 }
 
 var allWatcherChangedTests = []struct {
-	about string
-	add []params.EntityInfo
-	inBacking []params.EntityInfo
-	change entityId
-	expectRevno int64
+	about          string
+	add            []params.EntityInfo
+	inBacking      []params.EntityInfo
+	change         entityId
+	expectRevno    int64
 	expectContents []entityEntry
-} {{
-	about: "no entity",
+}{{
+	about:  "no entity",
 	change: entityId{"machine", "1"},
 }, {
-	about: "entity is marked as removed if it's not there",
-	add: []params.EntityInfo{&params.MachineInfo{Id: "1"}},
-	change: entityId{"machine", "1"},
+	about:       "entity is marked as removed if it's not there",
+	add:         []params.EntityInfo{&params.MachineInfo{Id: "1"}},
+	change:      entityId{"machine", "1"},
 	expectRevno: 2,
 	expectContents: []entityEntry{{
-		revno: 2,
+		revno:   2,
 		removed: true,
 		info: &params.MachineInfo{
-			Id:         "1",
+			Id: "1",
 		},
 	}},
 }, {
@@ -225,7 +253,7 @@ var allWatcherChangedTests = []struct {
 	inBacking: []params.EntityInfo{
 		&params.MachineInfo{Id: "1"},
 	},
-	change: entityId{"machine", "1"},
+	change:      entityId{"machine", "1"},
 	expectRevno: 1,
 	expectContents: []entityEntry{{
 		revno: 1,
@@ -238,16 +266,16 @@ var allWatcherChangedTests = []struct {
 	},
 	inBacking: []params.EntityInfo{
 		&params.MachineInfo{
-			Id: "1",
+			Id:         "1",
 			InstanceId: "i-1",
 		},
 	},
-	change: entityId{"machine", "1"},
+	change:      entityId{"machine", "1"},
 	expectRevno: 2,
 	expectContents: []entityEntry{{
 		revno: 2,
-		info:  &params.MachineInfo{
-			Id: "1",
+		info: &params.MachineInfo{
+			Id:         "1",
 			InstanceId: "i-1",
 		},
 	}},
@@ -269,7 +297,7 @@ func (*allWatcherSuite) TestChanged(c *C) {
 	}
 }
 
-type entityMap map[entityId] params.EntityInfo
+type entityMap map[entityId]params.EntityInfo
 
 func (em entityMap) add(infos []params.EntityInfo) entityMap {
 	for _, info := range infos {
@@ -281,7 +309,7 @@ func (em entityMap) add(infos []params.EntityInfo) entityMap {
 func fetchFromMap(em entityMap) func(entityId) (params.EntityInfo, error) {
 	return func(id entityId) (params.EntityInfo, error) {
 		if info, ok := em[id]; ok {
-			return info, nil;
+			return info, nil
 		}
 		return nil, mgo.ErrNotFound
 	}
@@ -293,4 +321,8 @@ type allWatcherTestBacking struct {
 
 func (b *allWatcherTestBacking) fetch(id entityId) (params.EntityInfo, error) {
 	return b.fetchFunc(id)
+}
+
+func (b *allWatcherTestBacking) entityIdForInfo(info params.EntityInfo) entityId {
+	return entityIdForInfo(info)
 }
