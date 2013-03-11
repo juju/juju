@@ -221,11 +221,20 @@ var allWatcherChangedTests = []struct {
 		},
 	}},
 }, {
+	about: "entity is added if it's not there",
+	inBacking: []params.EntityInfo{
+		&params.MachineInfo{Id: "1"},
+	},
+	change: entityId{"machine", "1"},
+	expectRevno: 1,
+	expectContents: []entityEntry{{
+		revno: 1,
+		info:  &params.MachineInfo{Id: "1"},
+	}},
+}, {
 	about: "entity is updated if it's there",
 	add: []params.EntityInfo{
-		&params.MachineInfo{
-			Id: "1",
-		},
+		&params.MachineInfo{Id: "1"},
 	},
 	inBacking: []params.EntityInfo{
 		&params.MachineInfo{
