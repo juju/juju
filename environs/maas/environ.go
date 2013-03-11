@@ -313,7 +313,7 @@ func (env *maasEnviron) Storage() environs.Storage {
 }
 
 func (*maasEnviron) PublicStorage() environs.StorageReader {
-	panic("Not implemented.")
+	return nil
 }
 
 func (environ *maasEnviron) Destroy([]environs.Instance) error {
