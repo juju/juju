@@ -24,10 +24,10 @@ func getMapKeys(original map[string]interface{}) []string {
 
 func (suite *EnvironProviderSuite) TestSecretAttrsReturnsSensitiveMAASAttributes(c *C) {
 	attrs := map[string]interface{}{
-		"maas-oauth": "a:b:c",
+		"maas-oauth":  "a:b:c",
 		"maas-server": "http://maas.example.com/maas/api/1.0/",
-		"name": "wheee",
-		"type": "maas",
+		"name":        "wheee",
+		"type":        "maas",
 	}
 	config, err := config.New(attrs)
 	c.Assert(err, IsNil)
