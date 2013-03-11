@@ -358,8 +358,9 @@ func (s *StorageSuite) TestNamesMayHaveSlashes(c *C) {
 
 	// There's not much we can say about the anonymous URL, except that
 	// we get one.
-	_, err = storage.URL(filename)
+	anonURL, err := storage.URL(filename)
 	c.Assert(err, IsNil)
+	c.Check(anonURL, Matches, "http[s]*://.*")
 
 	reader, err := storage.Get(filename)
 	c.Assert(err, IsNil)
