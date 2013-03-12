@@ -102,6 +102,14 @@ func (*CmdSuite) TestEnvironmentInit(c *C) {
 		testInit(c, com, append(args, "--environment", "walthamstow"), "")
 		assertConnName(c, com, "walthamstow")
 
+		// JUJU_ENV is the final place the environment can be overriden
+		com, args = cmdFunc()
+		oldenv := os.Getenv("JUJU_ENV")
+		os.Setenv("JUJU_ENV", "walthamstow")
+		testInit(c, com, args, "")
+		os.Setenv("JUJU_ENV", oldenv)
+		assertConnName(c, com, "walthamstow")
+
 		com, args = cmdFunc()
 		testInit(c, com, append(args, "hotdog"), "unrecognized args.*")
 	}
@@ -198,7 +206,7 @@ func (*CmdSuite) TestDeployCommandInit(c *C) {
 	}
 
 	// test relative --config path
-	ctx := &cmd.Context{c.MkDir(), nil, nil, nil}
+	ctx := coretesting.Context(c)
 	expected := []byte("test: data")
 	path := ctx.AbsPath("testconfig.yaml")
 	file, err := os.Create(path)
@@ -217,12 +225,6 @@ func (*CmdSuite) TestDeployCommandInit(c *C) {
 	_, err = initDeployCommand()
 	c.Assert(err, ErrorMatches, "no charm specified")
 
-	// bad unit count
-	_, err = initDeployCommand("charm-name", "--num-units", "0")
-	c.Assert(err, ErrorMatches, "must deploy at least one unit")
-	_, err = initDeployCommand("charm-name", "-n", "0")
-	c.Assert(err, ErrorMatches, "must deploy at least one unit")
-
 	// environment tested elsewhere
 }
 
@@ -237,10 +239,10 @@ func (*CmdSuite) TestAddUnitCommandInit(c *C) {
 	c.Assert(err, ErrorMatches, "no service specified")
 
 	// bad unit count
-	_, err = initAddUnitCommand("service-name", "--num-units", "0")
-	c.Assert(err, ErrorMatches, "must add at least one unit")
-	_, err = initAddUnitCommand("service-name", "-n", "0")
-	c.Assert(err, ErrorMatches, "must add at least one unit")
+	_, err = initDeployCommand("charm-name", "--num-units", "0")
+	c.Assert(err, ErrorMatches, "must deploy at least one unit")
+	_, err = initDeployCommand("charm-name", "-n", "0")
+	c.Assert(err, ErrorMatches, "must deploy at least one unit")
 
 	// environment tested elsewhere
 }
@@ -323,7 +325,7 @@ func (*CmdSuite) TestSetCommandInit(c *C) {
 
 	// test --config path
 	expected := []byte("this: is some test data")
-	ctx := &cmd.Context{c.MkDir(), nil, nil, nil}
+	ctx := coretesting.Context(c)
 	path := ctx.AbsPath("testconfig.yaml")
 	file, err := os.Create(path)
 	c.Assert(err, IsNil)

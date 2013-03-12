@@ -41,7 +41,7 @@ func (s *ConfigGetSuite) TestOutputFormat(c *C) {
 		hctx := s.GetHookContext(c, -1, "")
 		com, err := jujuc.NewCommand(hctx, "config-get")
 		c.Assert(err, IsNil)
-		ctx := dummyContext(c)
+		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, t.args)
 		c.Assert(code, Equals, 0)
 		c.Assert(bufferString(ctx.Stderr), Equals, "")
@@ -53,11 +53,10 @@ func (s *ConfigGetSuite) TestHelp(c *C) {
 	hctx := s.GetHookContext(c, -1, "")
 	com, err := jujuc.NewCommand(hctx, "config-get")
 	c.Assert(err, IsNil)
-	ctx := dummyContext(c)
+	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, Equals, 0)
-	c.Assert(bufferString(ctx.Stdout), Equals, "")
-	c.Assert(bufferString(ctx.Stderr), Equals, `usage: config-get [options] [<key>]
+	c.Assert(bufferString(ctx.Stdout), Equals, `usage: config-get [options] [<key>]
 purpose: print service configuration
 
 options:
@@ -68,13 +67,14 @@ options:
 
 If a key is given, only the value for that key will be printed.
 `)
+	c.Assert(bufferString(ctx.Stderr), Equals, "")
 }
 
 func (s *ConfigGetSuite) TestOutputPath(c *C) {
 	hctx := s.GetHookContext(c, -1, "")
 	com, err := jujuc.NewCommand(hctx, "config-get")
 	c.Assert(err, IsNil)
-	ctx := dummyContext(c)
+	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--output", "some-file", "monsters"})
 	c.Assert(code, Equals, 0)
 	c.Assert(bufferString(ctx.Stderr), Equals, "")

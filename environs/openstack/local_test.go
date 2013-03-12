@@ -16,6 +16,72 @@ import (
 	"net/http/httptest"
 )
 
+type ProviderSuite struct{}
+
+var _ = Suite(&ProviderSuite{})
+
+func (s *ProviderSuite) SetUpTest(c *C) {
+	openstack.ShortTimeouts(true)
+}
+
+func (s *ProviderSuite) TearDownTest(c *C) {
+	openstack.ShortTimeouts(false)
+}
+
+func (s *ProviderSuite) TestMetadata(c *C) {
+	openstack.UseTestMetadata(openstack.MetadataTestingBase)
+	defer openstack.UseTestMetadata(nil)
+
+	p, err := environs.Provider("openstack")
+	c.Assert(err, IsNil)
+
+	addr, err := p.PublicAddress()
+	c.Assert(err, IsNil)
+	c.Assert(addr, Equals, "203.1.1.2")
+
+	addr, err = p.PrivateAddress()
+	c.Assert(err, IsNil)
+	c.Assert(addr, Equals, "10.1.1.2")
+
+	id, err := p.InstanceId()
+	c.Assert(err, IsNil)
+	c.Assert(id, Equals, state.InstanceId("d8e02d56-2648-49a3-bf97-6be8f1204f38"))
+}
+
+func (s *ProviderSuite) TestPublicFallbackToPrivate(c *C) {
+	openstack.UseTestMetadata([]jujutest.FileContent{
+		{"/latest/meta-data/public-ipv4", "203.1.1.2"},
+		{"/latest/meta-data/local-ipv4", "10.1.1.2"},
+	})
+	defer openstack.UseTestMetadata(nil)
+	p, err := environs.Provider("openstack")
+	c.Assert(err, IsNil)
+
+	addr, err := p.PublicAddress()
+	c.Assert(err, IsNil)
+	c.Assert(addr, Equals, "203.1.1.2")
+
+	openstack.UseTestMetadata([]jujutest.FileContent{
+		{"/latest/meta-data/local-ipv4", "10.1.1.2"},
+		{"/latest/meta-data/public-ipv4", ""},
+	})
+	addr, err = p.PublicAddress()
+	c.Assert(err, IsNil)
+	c.Assert(addr, Equals, "10.1.1.2")
+}
+
+func (s *ProviderSuite) TestLegacyInstanceId(c *C) {
+	openstack.UseTestMetadata(openstack.MetadataHP)
+	defer openstack.UseTestMetadata(nil)
+
+	p, err := environs.Provider("openstack")
+	c.Assert(err, IsNil)
+
+	id, err := p.InstanceId()
+	c.Assert(err, IsNil)
+	c.Assert(id, Equals, state.InstanceId("2748"))
+}
+
 // Register tests to run against a test Openstack instance (service doubles).
 func registerLocalTests() {
 	cred := &identity.Credentials{
@@ -77,6 +143,7 @@ type localServerSuite struct {
 	jujutest.Tests
 	cred *identity.Credentials
 	srv  localServer
+	env  environs.Environ
 }
 
 func (s *localLiveSuite) SetUpSuite(c *C) {
@@ -138,6 +205,7 @@ func (s *localServerSuite) SetUpTest(c *C) {
 	s.Tests.SetUpTest(c)
 	writeablePublicStorage := openstack.WritablePublicStorage(s.Env)
 	putFakeTools(c, writeablePublicStorage)
+	s.env = s.Tests.Env
 }
 
 func (s *localServerSuite) TearDownTest(c *C) {
@@ -160,7 +228,15 @@ func (s *localLiveSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
 		},
 	)
 	defer cleanup()
-	err := environs.Bootstrap(s.Env, true, panicWrite)
+	// Create a config that matches s.Config but with use-floating-ip set to true
+	newconfig := make(map[string]interface{}, len(s.Config))
+	for k, v := range s.Config {
+		newconfig[k] = v
+	}
+	newconfig["use-floating-ip"] = true
+	env, err := environs.NewFromAttrs(newconfig)
+	c.Assert(err, IsNil)
+	err = environs.Bootstrap(env, true, panicWrite)
 	c.Assert(err, ErrorMatches, ".*cannot allocate a public IP as needed.*")
 }
 
@@ -275,4 +351,49 @@ func (s *localServerSuite) TestInstancesGathering(c *C) {
 			}
 		}
 	}
+}
+
+// TODO (wallyworld) - this test was copied from the ec2 provider.
+// It should be moved to environs.jujutests.Tests.
+func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
+	policy := t.env.AssignmentPolicy()
+	c.Assert(policy, Equals, state.AssignUnused)
+
+	err := environs.Bootstrap(t.env, true, panicWrite)
+	c.Assert(err, IsNil)
+
+	// check that the state holds the id of the bootstrap machine.
+	stateData, err := openstack.LoadState(t.env)
+	c.Assert(err, IsNil)
+	c.Assert(stateData.StateInstances, HasLen, 1)
+
+	insts, err := t.env.Instances(stateData.StateInstances)
+	c.Assert(err, IsNil)
+	c.Assert(insts, HasLen, 1)
+	c.Check(insts[0].Id(), Equals, stateData.StateInstances[0])
+
+	info, apiInfo, err := t.env.StateInfo()
+	c.Assert(err, IsNil)
+	c.Assert(info, NotNil)
+
+	bootstrapDNS, err := insts[0].DNSName()
+	c.Assert(err, IsNil)
+	c.Assert(bootstrapDNS, Not(Equals), "")
+
+	// TODO(wallyworld) - 2013-03-01 bug=1137005
+	// The nova test double needs to be updated to support retrieving instance userData.
+	// Until then, we can't check the cloud init script was generated correctly.
+
+	// check that a new instance will be started with a machine agent,
+	// and without a provisioning agent.
+	info.EntityName = "machine-1"
+	apiInfo.EntityName = "machine-1"
+	inst1, err := t.env.StartInstance("1", info, apiInfo, nil)
+	c.Assert(err, IsNil)
+
+	err = t.env.Destroy(append(insts, inst1))
+	c.Assert(err, IsNil)
+
+	_, err = openstack.LoadState(t.env)
+	c.Assert(err, NotNil)
 }

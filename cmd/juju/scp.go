@@ -5,7 +5,6 @@ import (
 	"os/exec"
 	"strings"
 
-	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 )
@@ -21,10 +20,6 @@ func (c *SCPCommand) Info() *cmd.Info {
 		Args:    "<from> <to>",
 		Purpose: "launch a scp command to copy files to/from remote machine(s)",
 	}
-}
-
-func (c *SCPCommand) SetFlags(f *gnuflag.FlagSet) {
-	addEnvironFlags(&c.EnvName, f)
 }
 
 func (c *SCPCommand) Init(args []string) error {

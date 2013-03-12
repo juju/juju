@@ -64,6 +64,10 @@ func jujuInfoEp(serviceName string) state.Endpoint {
 	}
 }
 
+func (s *ServiceSuite) TestEntityName(c *C) {
+	c.Assert(s.mysql.EntityName(), Equals, "service-mysql")
+}
+
 func (s *ServiceSuite) TestMysqlEndpoints(c *C) {
 	_, err := s.mysql.Endpoint("mysql")
 	c.Assert(err, ErrorMatches, `service "mysql" has no "mysql" relation`)
@@ -431,6 +435,31 @@ func (s *ServiceSuite) TestLifeWithRemovableRelations(c *C) {
 	err = wordpress.Refresh()
 	c.Assert(state.IsNotFound(err), Equals, true)
 	err = rel.Refresh()
+	c.Assert(state.IsNotFound(err), Equals, true)
+}
+
+func (s *ServiceSuite) TestDestroyNeverHadUnits(c *C) {
+	err := s.mysql.Destroy()
+	c.Assert(err, IsNil)
+	c.Assert(s.mysql.Life(), Equals, state.Dying)
+	err = s.mysql.Refresh()
+	c.Assert(state.IsNotFound(err), Equals, true)
+}
+
+func (s *ServiceSuite) TestDestroyOnceHadUnits(c *C) {
+	unit, err := s.mysql.AddUnit()
+	c.Assert(err, IsNil)
+	err = unit.EnsureDead()
+	c.Assert(err, IsNil)
+	err = unit.Remove()
+	c.Assert(err, IsNil)
+	err = unit.Refresh()
+	c.Assert(state.IsNotFound(err), Equals, true)
+
+	err = s.mysql.Destroy()
+	c.Assert(err, IsNil)
+	c.Assert(s.mysql.Life(), Equals, state.Dying)
+	err = s.mysql.Refresh()
 	c.Assert(state.IsNotFound(err), Equals, true)
 }
 
@@ -1061,4 +1090,10 @@ func (s *ServiceSuite) TestWatchConfig(c *C) {
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}
+}
+
+func (s *ServiceSuite) TestAnnotatorForService(c *C) {
+	testAnnotator(c, func() (annotator, error) {
+		return s.State.Service("mysql")
+	})
 }

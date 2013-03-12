@@ -69,12 +69,12 @@ func (s *StoreSuite) TestServerCharmInfo(c *C) {
 // It retries a few times as they are generally collected in background.
 func (s *StoreSuite) checkCounterSum(c *C, key []string, prefix bool, expected int64) {
 	var sum int64
-	var err error
 	for retry := 0; retry < 10; retry++ {
 		time.Sleep(1e8)
-		sum, err = s.store.SumCounter(key, prefix)
+		req := store.CounterRequest{Key: key, Prefix: prefix}
+		cs, err := s.store.Counters(&req)
 		c.Assert(err, IsNil)
-		if sum == expected {
+		if sum = cs[0].Count; sum == expected {
 			if expected == 0 && retry < 2 {
 				continue // Wait a bit to make sure.
 			}
@@ -163,7 +163,7 @@ func (s *StoreSuite) TestRootRedirect(c *C) {
 }
 
 func (s *StoreSuite) TestStatsCounter(c *C) {
-	for _, key := range [][]string{{"a", "b"}, {"a", "b"}, {"a"}} {
+	for _, key := range [][]string{{"a", "b"}, {"a", "b"}, {"a", "c"}, {"a"}} {
 		err := s.store.IncCounter(key)
 		c.Assert(err, IsNil)
 	}
@@ -171,9 +171,11 @@ func (s *StoreSuite) TestStatsCounter(c *C) {
 	server, _ := s.prepareServer(c)
 
 	expected := map[string]string{
-		"a:b": "2",
-		"a:*": "3",
-		"a":   "1",
+		"a:b":   "2",
+		"a:b:*": "0",
+		"a:*":   "3",
+		"a":     "1",
+		"a:b:c": "0",
 	}
 
 	for counter, n := range expected {
@@ -187,6 +189,47 @@ func (s *StoreSuite) TestStatsCounter(c *C) {
 
 		c.Assert(rec.Header().Get("Content-Type"), Equals, "text/plain")
 		c.Assert(rec.Header().Get("Content-Length"), Equals, strconv.Itoa(len(n)))
+	}
+}
+
+func (s *StoreSuite) TestStatsCounterList(c *C) {
+	incs := [][]string{
+		{"a"},
+		{"a", "b"},
+		{"a", "b", "c"},
+		{"a", "b", "c"},
+		{"a", "b", "d"},
+		{"a", "b", "e"},
+		{"a", "f", "g"},
+		{"a", "f", "h"},
+		{"a", "i"},
+		{"j", "k"},
+	}
+	for _, key := range incs {
+		err := s.store.IncCounter(key)
+		c.Assert(err, IsNil)
+	}
+
+	server, _ := s.prepareServer(c)
+
+	tests := [][]string{
+		{"a", "a  1\n"},
+		{"a:*", "a:b:*  4\na:f:*  2\na:b    1\na:i    1\n"},
+		{"a:b:*", "a:b:c  2\na:b:d  1\na:b:e  1\n"},
+	}
+
+	for i := range tests {
+		req, err := http.NewRequest("GET", "/stats/counter/"+tests[i][0], nil)
+		c.Assert(err, IsNil)
+		req.Form = url.Values{"list": []string{"1"}}
+		rec := httptest.NewRecorder()
+		server.ServeHTTP(rec, req)
+
+		data, err := ioutil.ReadAll(rec.Body)
+		c.Assert(string(data), Equals, tests[i][1])
+
+		c.Assert(rec.Header().Get("Content-Type"), Equals, "text/plain")
+		c.Assert(rec.Header().Get("Content-Length"), Equals, strconv.Itoa(len(tests[i][1])))
 	}
 }
 

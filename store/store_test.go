@@ -438,10 +438,11 @@ func (s *StoreSuite) TestLogCharmEvent(c *C) {
 	c.Assert(event, IsNil)
 }
 
-func (s *StoreSuite) TestCounters(c *C) {
-	sum, err := s.store.SumCounter([]string{"a"}, false)
+func (s *StoreSuite) TestSumCounters(c *C) {
+	req := store.CounterRequest{Key: []string{"a"}}
+	cs, err := s.store.Counters(&req)
 	c.Assert(err, IsNil)
-	c.Assert(sum, Equals, int64(0))
+	c.Assert(cs, DeepEquals, []store.Counter{{Key: req.Key, Count: 0}})
 
 	for i := 0; i < 10; i++ {
 		err := s.store.IncCounter([]string{"a", "b", "c"})
@@ -464,17 +465,19 @@ func (s *StoreSuite) TestCounters(c *C) {
 		{[]string{"a", "b", "c"}, false, 10},
 		{[]string{"a", "b"}, false, 7},
 		{[]string{"a", "z", "b"}, false, 3},
-		{[]string{"a", "b", "c"}, true, 10},
-		{[]string{"a", "b"}, true, 17},
+		{[]string{"a", "b", "c"}, true, 0},
+		{[]string{"a", "b", "c", "d"}, false, 0},
+		{[]string{"a", "b"}, true, 10},
 		{[]string{"a"}, true, 20},
 		{[]string{"b"}, true, 0},
 	}
 
 	for _, t := range tests {
 		c.Logf("Test: %#v\n", t)
-		sum, err := s.store.SumCounter(t.key, t.prefix)
+		req = store.CounterRequest{Key: t.key, Prefix: t.prefix}
+		cs, err := s.store.Counters(&req)
 		c.Assert(err, IsNil)
-		c.Assert(sum, Equals, t.result)
+		c.Assert(cs, DeepEquals, []store.Counter{{Key: t.key, Prefix: t.prefix, Count: t.result}})
 	}
 
 	// High-level interface works. Now check that the data is
@@ -497,20 +500,22 @@ func (s *StoreSuite) TestCounters(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(docs2, Equals, docs1+1)
 
-	sum, err = s.store.SumCounter([]string{"a", "b", "c"}, false)
+	req = store.CounterRequest{Key: []string{"a", "b", "c"}}
+	cs, err = s.store.Counters(&req)
 	c.Assert(err, IsNil)
-	c.Assert(sum, Equals, int64(11))
+	c.Assert(cs, DeepEquals, []store.Counter{{Key: req.Key, Count: 11}})
 
-	sum, err = s.store.SumCounter([]string{"a"}, true)
+	req = store.CounterRequest{Key: []string{"a"}, Prefix: true}
+	cs, err = s.store.Counters(&req)
 	c.Assert(err, IsNil)
-	c.Assert(sum, Equals, int64(21))
+	c.Assert(cs, DeepEquals, []store.Counter{{Key: req.Key, Prefix: true, Count: 21}})
 }
 
 func (s *StoreSuite) TestCountersReadOnlySum(c *C) {
 	// Summing up an unknown key shouldn't add the key to the database.
-	sum, err := s.store.SumCounter([]string{"a", "b", "c"}, false)
+	req := store.CounterRequest{Key: []string{"a", "b", "c"}}
+	_, err := s.store.Counters(&req)
 	c.Assert(err, IsNil)
-	c.Assert(sum, Equals, int64(0))
 
 	tokens := s.Session.DB("juju").C("stat.tokens")
 	n, err := tokens.Count()
@@ -519,11 +524,15 @@ func (s *StoreSuite) TestCountersReadOnlySum(c *C) {
 }
 
 func (s *StoreSuite) TestCountersTokenCaching(c *C) {
-	sum, err := s.store.SumCounter([]string{"a"}, false)
-	c.Assert(err, IsNil)
-	c.Assert(sum, Equals, int64(0))
+	assertSum := func(i int, want int64) {
+		req := store.CounterRequest{Key: []string{strconv.Itoa(i)}}
+		cs, err := s.store.Counters(&req)
+		c.Assert(err, IsNil)
+		c.Assert(cs[0].Count, Equals, want)
+	}
+	assertSum(100000, 0)
 
-	const genSize = 512
+	const genSize = 1024
 
 	// All of these will be cached, as we have two generations
 	// of genSize entries each.
@@ -548,32 +557,24 @@ func (s *StoreSuite) TestCountersTokenCaching(c *C) {
 	// We can consult the counters for the cached entries still.
 	// First, check that the newest generation is good.
 	for i := genSize; i < genSize*2; i++ {
-		n, err := s.store.SumCounter([]string{strconv.Itoa(i)}, false)
-		c.Assert(err, IsNil)
-		c.Assert(n, Equals, int64(1))
+		assertSum(i, 1)
 	}
 
 	// Now, we can still access a single entry of the older generation,
 	// but this will cause the generations to flip and thus the rest
 	// of the old generation will go away as the top half of the
 	// entries is turned into the old generation.
-	n, err := s.store.SumCounter([]string{"0"}, false)
-	c.Assert(err, IsNil)
-	c.Assert(n, Equals, int64(1))
+	assertSum(0, 1)
 
 	// Now we've lost access to the rest of the old generation.
 	for i := 1; i < genSize; i++ {
-		n, err := s.store.SumCounter([]string{strconv.Itoa(i)}, false)
-		c.Assert(err, IsNil)
-		c.Assert(n, Equals, int64(0))
+		assertSum(i, 0)
 	}
 
 	// But we still have all of the top half available since it was
 	// moved into the old generation.
 	for i := genSize; i < genSize*2; i++ {
-		n, err := s.store.SumCounter([]string{strconv.Itoa(i)}, false)
-		c.Assert(err, IsNil)
-		c.Assert(n, Equals, int64(1))
+		assertSum(i, 1)
 	}
 }
 
@@ -592,9 +593,71 @@ func (s *StoreSuite) TestCounterTokenUniqueness(c *C) {
 	}
 	wg1.Wait()
 
-	sum, err := s.store.SumCounter([]string{"a"}, false)
+	req := store.CounterRequest{Key: []string{"a"}}
+	cs, err := s.store.Counters(&req)
 	c.Assert(err, IsNil)
-	c.Assert(sum, Equals, int64(10))
+	c.Assert(cs[0].Count, Equals, int64(10))
+}
+
+func (s *StoreSuite) TestListCounters(c *C) {
+	incs := [][]string{
+		{"c", "b", "a"}, // Assign internal id c < id b < id a, to make sorting slightly trickier.
+		{"a"},
+		{"a", "c"},
+		{"a", "b"},
+		{"a", "b", "c"},
+		{"a", "b", "c"},
+		{"a", "b", "e"},
+		{"a", "b", "d"},
+		{"a", "f", "g"},
+		{"a", "f", "h"},
+		{"a", "i"},
+		{"a", "i", "j"},
+		{"k", "l"},
+	}
+	for _, key := range incs {
+		err := s.store.IncCounter(key)
+		c.Assert(err, IsNil)
+	}
+
+	tests := []struct {
+		prefix []string
+		result []store.Counter
+	}{
+		{
+			[]string{"a"},
+			[]store.Counter{
+				{[]string{"a", "b"}, 4, true},
+				{[]string{"a", "f"}, 2, true},
+				{[]string{"a", "b"}, 1, false},
+				{[]string{"a", "c"}, 1, false},
+				{[]string{"a", "i"}, 1, false},
+				{[]string{"a", "i"}, 1, true},
+			},
+		}, {
+			[]string{"a", "b"},
+			[]store.Counter{
+				{[]string{"a", "b", "c"}, 2, false},
+				{[]string{"a", "b", "d"}, 1, false},
+				{[]string{"a", "b", "e"}, 1, false},
+			},
+		}, {
+			[]string{"z"},
+			[]store.Counter(nil),
+		},
+	}
+
+	// Use a different store to exercise cache filling.
+	st, err := store.Open(s.Addr)
+	c.Assert(err, IsNil)
+	defer st.Close()
+
+	for i := range tests {
+		req := &store.CounterRequest{Key: tests[i].prefix, Prefix: true, List: true}
+		result, err := st.Counters(req)
+		c.Assert(err, IsNil)
+		c.Assert(result, DeepEquals, tests[i].result)
+	}
 }
 
 func (s *TrivialSuite) TestEventString(c *C) {

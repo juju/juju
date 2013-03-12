@@ -42,7 +42,7 @@ var dialTimeout = 10 * time.Minute
 // Open connects to the server described by the given
 // info, waits for it to be initialized, and returns a new State
 // representing the environment connected to.
-// It returns ErrUnauthorized if access is unauthorized.
+// It returns unauthorizedError if access is unauthorized.
 func Open(info *Info) (*State, error) {
 	log.Printf("state: opening state; mongo addresses: %q; entity %q", info.Addrs, info.EntityName)
 	if len(info.Addrs) == 0 {
@@ -89,7 +89,7 @@ func Open(info *Info) (*State, error) {
 
 // Initialize sets up an initial empty state and returns it.
 // This needs to be performed only once for a given environment.
-// It returns ErrUnauthorized if access is unauthorized.
+// It returns unauthorizedError if access is unauthorized.
 func Initialize(info *Info, cfg *config.Config) (rst *State, err error) {
 	st, err := Open(info)
 	if err != nil {
@@ -148,7 +148,30 @@ var (
 	logSizeTests = 1000000
 )
 
-var ErrUnauthorized = errors.New("unauthorized access")
+// unauthorizedError represents the error that an operation is unauthorized.
+// Use IsUnauthorized() to determine if the error was related to authorization failure.
+type unauthorizedError struct {
+	msg string
+	error
+}
+
+func IsUnauthorizedError(err error) bool {
+	_, ok := err.(*unauthorizedError)
+	return ok
+}
+
+func (e *unauthorizedError) Error() string {
+	if e.error != nil {
+		return fmt.Sprintf("%s: %v", e.msg, e.error.Error())
+	}
+	return e.msg
+}
+
+// Unauthorizedf returns an error for which IsUnauthorizedError returns true.
+// It is mainly used for testing.
+func Unauthorizedf(format string, args ...interface{}) error {
+	return &unauthorizedError{fmt.Sprintf(format, args...), nil}
+}
 
 func maybeUnauthorized(err error, msg string) error {
 	if err == nil {
@@ -157,10 +180,10 @@ func maybeUnauthorized(err error, msg string) error {
 	// Unauthorized access errors have no error code,
 	// just a simple error string.
 	if err.Error() == "auth fails" {
-		return ErrUnauthorized
+		return &unauthorizedError{msg, err}
 	}
 	if err, ok := err.(*mgo.QueryError); ok && err.Code == 10057 {
-		return ErrUnauthorized
+		return &unauthorizedError{msg, err}
 	}
 	return fmt.Errorf("%s: %v", msg, err)
 }
@@ -217,8 +240,8 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 	return st, nil
 }
 
-// Addrs returns the list of addresses used to connect to the state.
-func (st *State) Addrs() (addrs []string) {
+// Addresses returns the list of addresses used to connect to the state.
+func (st *State) Addresses() (addrs []string) {
 	return append(addrs, st.info.Addrs...)
 }
 

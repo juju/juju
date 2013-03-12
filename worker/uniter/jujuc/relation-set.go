@@ -9,6 +9,7 @@ import (
 
 // RelationSetCommand implements the relation-set command.
 type RelationSetCommand struct {
+	cmd.CommandBase
 	ctx        Context
 	RelationId int
 	Settings   map[string]string

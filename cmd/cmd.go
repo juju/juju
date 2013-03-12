@@ -33,6 +33,17 @@ type Command interface {
 	Run(ctx *Context) error
 }
 
+// CommandBase provides the default implementation for SetFlags, Init, and Help.
+type CommandBase struct{}
+
+// SetFlags does nothing in the simplest case.
+func (c *CommandBase) SetFlags(f *gnuflag.FlagSet) {}
+
+// Init in the simplest case makes sure there are no args.
+func (c *CommandBase) Init(args []string) error {
+	return CheckEmpty(args)
+}
+
 // Context represents the run context of a Command. Command implementations
 // should interpret file names relative to Dir (see AbsPath below), and print
 // output and errors to Stdout and Stderr respectively.
@@ -120,7 +131,7 @@ func ParseArgs(c Command, f *gnuflag.FlagSet, args []string) error {
 // return code.
 func handleCommandError(c Command, ctx *Context, err error, f *gnuflag.FlagSet) (int, bool) {
 	if err == gnuflag.ErrHelp {
-		ctx.Stderr.Write(c.Info().Help(f))
+		ctx.Stdout.Write(c.Info().Help(f))
 		return 0, true
 	}
 	if err != nil {
@@ -165,7 +176,12 @@ func DefaultContext() *Context {
 	if err != nil {
 		panic(err)
 	}
-	return &Context{abs, os.Stdin, os.Stdout, os.Stderr}
+	return &Context{
+		Dir:    abs,
+		Stdin:  os.Stdin,
+		Stdout: os.Stdout,
+		Stderr: os.Stderr,
+	}
 }
 
 // CheckEmpty is a utility function that returns an error if args is not empty.

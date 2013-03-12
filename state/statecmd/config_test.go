@@ -2,8 +2,10 @@ package statecmd_test
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
 	stdtesting "testing"
@@ -19,15 +21,15 @@ func Test(t *stdtesting.T) {
 
 var _ = Suite(&ConfigSuite{})
 
-func serviceSet(p statecmd.ServiceSetParams) func(st *state.State) error {
+func serviceSet(p params.ServiceSet) func(st *state.State) error {
 	return func(st *state.State) error {
-		return statecmd.ServiceSet(st, p)
+		return juju.ServiceSet(st, p)
 	}
 }
 
-func serviceSetYAML(p statecmd.ServiceSetYAMLParams) func(st *state.State) error {
+func serviceSetYAML(p params.ServiceSetYAML) func(st *state.State) error {
 	return func(st *state.State) error {
-		return statecmd.ServiceSetYAML(st, p)
+		return juju.ServiceSetYAML(st, p)
 	}
 }
 
@@ -40,7 +42,7 @@ var serviceSetTests = []struct {
 }{
 	{
 		about: "unknown service name",
-		set: serviceSet(statecmd.ServiceSetParams{
+		set: serviceSet(params.ServiceSet{
 			ServiceName: "unknown-service",
 			Options: map[string]string{
 				"foo": "bar",
@@ -49,11 +51,11 @@ var serviceSetTests = []struct {
 		err: `service "unknown-service" not found`,
 	}, {
 		about: "no config or options",
-		set:   serviceSet(statecmd.ServiceSetParams{}),
+		set:   serviceSet(params.ServiceSet{}),
 		err:   "no options to set",
 	}, {
 		about: "unknown option",
-		set: serviceSet(statecmd.ServiceSetParams{
+		set: serviceSet(params.ServiceSet{
 			ServiceName: "dummy-service",
 			Options: map[string]string{
 				"foo": "bar",
@@ -62,7 +64,7 @@ var serviceSetTests = []struct {
 		err: `Unknown configuration option: "foo"`,
 	}, {
 		about: "set outlook",
-		set: serviceSet(statecmd.ServiceSetParams{
+		set: serviceSet(params.ServiceSet{
 			ServiceName: "dummy-service",
 			Options: map[string]string{
 				"outlook": "positive",
@@ -76,7 +78,7 @@ var serviceSetTests = []struct {
 		initial: map[string]interface{}{
 			"outlook": "positive",
 		},
-		set: serviceSet(statecmd.ServiceSetParams{
+		set: serviceSet(params.ServiceSet{
 			ServiceName: "dummy-service",
 			Options: map[string]string{
 				"outlook": "",
@@ -91,7 +93,7 @@ var serviceSetTests = []struct {
 		initial: map[string]interface{}{
 			"title": "sir",
 		},
-		set: serviceSet(statecmd.ServiceSetParams{
+		set: serviceSet(params.ServiceSet{
 			ServiceName: "dummy-service",
 			Options: map[string]string{
 				"username": "admin001",
@@ -107,7 +109,7 @@ var serviceSetTests = []struct {
 			"username": "admin001",
 			"title":    "sir",
 		},
-		set: serviceSet(statecmd.ServiceSetParams{
+		set: serviceSet(params.ServiceSet{
 			ServiceName: "dummy-service",
 			Options: map[string]string{
 				"username": "",
@@ -119,13 +121,13 @@ var serviceSetTests = []struct {
 		},
 	}, {
 		about: "bad configuration",
-		set: serviceSetYAML(statecmd.ServiceSetYAMLParams{
+		set: serviceSetYAML(params.ServiceSetYAML{
 			Config: "345",
 		}),
 		err: "no options to set",
 	}, {
 		about: "config with no options",
-		set: serviceSetYAML(statecmd.ServiceSetYAMLParams{
+		set: serviceSetYAML(params.ServiceSetYAML{
 			Config: "{}",
 		}),
 		err: "no options to set",
@@ -134,7 +136,7 @@ var serviceSetTests = []struct {
 		initial: map[string]interface{}{
 			"title": "sir",
 		},
-		set: serviceSetYAML(statecmd.ServiceSetYAMLParams{
+		set: serviceSetYAML(params.ServiceSetYAML{
 			ServiceName: "dummy-service",
 			Config:      "skill-level: 9000\nusername: admin001\n\n",
 		}),
@@ -149,7 +151,7 @@ var serviceSetTests = []struct {
 			"title":    "sir",
 			"username": "foo",
 		},
-		set: serviceSetYAML(statecmd.ServiceSetYAMLParams{
+		set: serviceSetYAML(params.ServiceSetYAML{
 			ServiceName: "dummy-service",
 			Config:      "title: ''\n",
 		}),
@@ -188,23 +190,23 @@ func (s *ConfigSuite) TestServiceSet(c *C) {
 
 var getTests = []struct {
 	about  string
-	params statecmd.ServiceGetParams // parameters to ServiceGet call.
-	expect statecmd.ServiceGetResults
+	params params.ServiceGet // parameters to ServiceGet call.
+	expect params.ServiceGetResults
 	err    string
 }{
 	{
 		about: "unknown service name",
-		params: statecmd.ServiceGetParams{
+		params: params.ServiceGet{
 			ServiceName: "unknown-service",
 		},
 		err: `service "unknown-service" not found`,
 	},
 	{
 		about: "deployed service",
-		params: statecmd.ServiceGetParams{
+		params: params.ServiceGet{
 			ServiceName: "dummy-service",
 		},
-		expect: statecmd.ServiceGetResults{
+		expect: params.ServiceGetResults{
 			Service: "dummy-service",
 			Charm:   "dummy",
 			Settings: map[string]interface{}{

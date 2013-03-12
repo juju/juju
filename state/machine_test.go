@@ -111,7 +111,7 @@ func (s *MachineSuite) TestSetMongoPassword(c *C) {
 }
 
 func (s *MachineSuite) TestSetPassword(c *C) {
-	testSetPassword(c, func() (state.AuthEntity, error) {
+	testSetPassword(c, func() (state.Entity, error) {
 		return s.State.Machine(s.machine.Id())
 	})
 }
@@ -615,4 +615,10 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	err = mysql1.UnassignFromMachine()
 	c.Assert(err, IsNil)
 	assertChange("mysql/1", "logging/0")
+}
+
+func (s *MachineSuite) TestAnnotatorForMachine(c *C) {
+	testAnnotator(c, func() (annotator, error) {
+		return s.State.Machine(s.machine.Id())
+	})
 }
