@@ -325,7 +325,7 @@ func opClientResolved(c *C, st *api.State, _ *state.State) (func(), error) {
 	// that the user is not authorized.  In that case we want to exit now,
 	// letting the error percolate out so the caller knows that the
 	// permission error was correctly generated.
-	if err != nil && err.Error() == "permission denied" {
+	if err != nil && api.ErrCode(err) == api.CodeUnauthorized {
 		return func() {}, err
 	}
 	// Otherwise, the user was authorized, but we expect an error anyway
