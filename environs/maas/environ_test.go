@@ -207,7 +207,7 @@ func (suite *EnvironSuite) TestStopInstancesStopsAndReleasesInstances(c *C) {
 
 	c.Check(err, IsNil)
 	operations := suite.testMAASObject.TestServer.NodeOperations()
-	expectedOperations := map[string][]string{"test1": {"stop", "release"}, "test2": {"stop", "release"}}
+	expectedOperations := map[string][]string{"test1": {"release"}, "test2": {"release"}}
 	c.Check(operations, DeepEquals, expectedOperations)
 }
 

@@ -243,19 +243,12 @@ func (environ *maasEnviron) StopInstances(instances []environs.Instance) error {
 	if len(instances) == 0 {
 		return nil
 	}
-	// Tell MAAS to shut down then release each of the instances.  If
-	// there are errors, return only the first one (but shut down and
-	// release all instances regardless).
+	// Tell MAAS to release each of the instances.  If there are errors,
+	// return only the first one (but release all instances regardless).
+	// Note that releasing instances also turns them off.
 	var firstErr error
 	for _, instance := range instances {
-		// Stop instance first as it requires the user to have
-		// ownership of the instance.
-		err := environ.stopInstance(instance)
-		if firstErr == nil {
-			firstErr = err
-		}
-		// After the instance has been stopped, release the instance.
-		err = environ.releaseInstance(instance)
+		err := environ.releaseInstance(instance)
 		if firstErr == nil {
 			firstErr = err
 		}
