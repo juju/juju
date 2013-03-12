@@ -381,14 +381,17 @@ func (environ *maasEnviron) AllInstances() ([]environs.Instance, error) {
 	return environ.instances(nil)
 }
 
+// Storage is defined by the Environ interface.
 func (env *maasEnviron) Storage() environs.Storage {
 	env.ecfgMutex.Lock()
 	defer env.ecfgMutex.Unlock()
 	return env.storageUnlocked
 }
 
-func (*maasEnviron) PublicStorage() environs.StorageReader {
-	panic("Not implemented.")
+// PublicStorage is defined by the Environ interface.
+func (env *maasEnviron) PublicStorage() environs.StorageReader {
+	// MAAS does not have a shared storage.
+	return environs.EmptyStorage
 }
 
 func (environ *maasEnviron) Destroy([]environs.Instance) error {
