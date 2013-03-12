@@ -61,7 +61,7 @@ var originalLongAttempt = longAttempt
 func ShortTimeouts(short bool) {
 	if short {
 		shortAttempt = trivial.AttemptStrategy{
-			Total: 0.25e9,
+			Total: 0.10e9,
 			Delay: 0.01e9,
 		}
 		longAttempt = shortAttempt
