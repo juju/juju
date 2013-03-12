@@ -79,8 +79,8 @@ func (t *LiveTests) BootstrapOnce(c *C) {
 	if t.bootstrapped {
 		return
 	}
-        // We only build and upload tools if there will be a state agent that
-        // we could connect to (actual live tests, rather than local-only)
+	// We only build and upload tools if there will be a state agent that
+	// we could connect to (actual live tests, rather than local-only)
 	err := environs.Bootstrap(t.Env, t.CanOpenState, panicWrite)
 	c.Assert(err, IsNil)
 	t.bootstrapped = true
