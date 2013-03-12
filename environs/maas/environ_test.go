@@ -175,10 +175,12 @@ func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
 	resourceURI, err := node.GetField("resource_uri")
 	c.Assert(err, IsNil)
 	env := suite.makeEnviron()
+	tools, err := environs.PutTools(env.Storage(), nil)
+	c.Assert(err, IsNil)
 
-	instance, err := env.StartInstance(resourceURI, nil, nil, nil)
+	instance, err := env.StartInstance("99", nil, nil, tools)
+	c.Assert(err, IsNil)
 
-	c.Check(err, IsNil)
 	c.Check(string(instance.Id()), Equals, resourceURI)
 	operations := suite.testMAASObject.TestServer.NodeOperations()
 	actions, found := operations["test"]
