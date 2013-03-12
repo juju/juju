@@ -98,6 +98,10 @@ var operationPermTests = []struct {
 	op:    opClientServiceGet,
 	allow: []string{"user-admin", "user-other"},
 }, {
+	about: "Client.Resolved",
+	op:    opClientResolved,
+	allow: []string{"user-admin", "user-other"},
+}, {
 	about: "Client.ServiceExpose",
 	op:    opClientServiceExpose,
 	allow: []string{"user-admin", "user-other"},
@@ -312,6 +316,24 @@ func opClientServiceUnexpose(c *C, st *api.State, mst *state.State) (func(), err
 		return func() {}, err
 	}
 	c.Assert(err, IsNil)
+	return func() {}, nil
+}
+
+func opClientResolved(c *C, st *api.State, _ *state.State) (func(), error) {
+	err := st.Client().Resolved("wordpress/0", false)
+	// There are several scenarios in which this test is called, one is
+	// that the user is not authorized.  In that case we want to exit now,
+	// letting the error percolate out so the caller knows that the
+	// permission error was correctly generated.
+	if err != nil && api.ErrCode(err) == api.CodeUnauthorized {
+		return func() {}, err
+	}
+	// Otherwise, the user was authorized, but we expect an error anyway
+	// because the unit is not in an error state when we tried to resolve
+	// the error.  Therefore, since it is complaining it means that the
+	// call to Resolved worked, so we're happy.
+	c.Assert(err, NotNil)
+	c.Assert(err.Error(), Equals, `unit "wordpress/0" is not in an error state`)
 	return func() {}, nil
 }
 
@@ -1175,6 +1197,25 @@ func (s *suite) TestClientServiceUnexpose(c *C) {
 	c.Assert(err, IsNil)
 	service.Refresh()
 	c.Assert(service.IsExposed(), Equals, false)
+}
+
+func (s *suite) TestClientUnitResolved(c *C) {
+	// Setup:
+	s.setUpScenario(c)
+	u, err := s.State.Unit("wordpress/0")
+	c.Assert(err, IsNil)
+	err = u.SetStatus(state.UnitError, "gaaah")
+	c.Assert(err, IsNil)
+	// Code under test:
+	err = s.APIState.Client().Resolved("wordpress/0", false)
+	c.Assert(err, IsNil)
+	// Freshen the unit's state.
+	err = u.Refresh()
+	c.Assert(err, IsNil)
+	// And now the actual test assertions: we set the unit as resolved via
+	// the API so it should have a resolved mode set.
+	mode := u.Resolved()
+	c.Assert(mode, Equals, state.ResolvedNoHooks)
 }
 
 var serviceDeployTests = []struct {

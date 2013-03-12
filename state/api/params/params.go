@@ -52,6 +52,19 @@ type ServiceUnexpose struct {
 	ServiceName string
 }
 
+// Resolved holds parameters for the Resolved call.
+type Resolved struct {
+	UnitName string
+	Retry    bool
+}
+
+// ResolvedResults holds results of the Resolved call.
+type ResolvedResults struct {
+	Service  string
+	Charm    string
+	Settings map[string]interface{}
+}
+
 // ServiceAddUnits holds parameters for the AddUnits call.
 type ServiceAddUnits struct {
 	ServiceName string
