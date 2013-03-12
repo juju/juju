@@ -24,6 +24,17 @@ func (t *timer) String() string {
 
 var stack []*timer
 
+// Start a timer, used for tracking time spent.
+// Generally used with either defer, as in:
+//  defer trivial.Timeit("my func")()
+// Which will track how much time is spent in your function. Or
+// if you want to track the time spent in a function you are calling
+// then you would use:
+//  toc := trivial.Timeit("anotherFunc()")
+//  anotherFunc()
+//  toc()
+// This tracks nested calls by indenting the output, and will print out the
+// full stack of timing when we reach the top of the stack.
 func Timeit(action string) func() {
 	cur := &timer{action: action, start: time.Now(), depth: len(stack)}
 	if len(stack) != 0 {
