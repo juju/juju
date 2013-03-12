@@ -264,9 +264,8 @@ func (s *MetaSuite) TestMetaHooks(c *C) {
 	c.Assert(hooks, DeepEquals, expectedHooks)
 }
 
-func (s *MetaSuite) TestBSONRoundTripEmpty(c *C){
-	var empty_input = charm.Meta{
-	}
+func (s *MetaSuite) TestBSONRoundTripEmpty(c *C) {
+	var empty_input = charm.Meta{}
 	data, err := bson.Marshal(empty_input)
 	c.Assert(err, IsNil)
 	var empty_output charm.Meta
@@ -275,38 +274,38 @@ func (s *MetaSuite) TestBSONRoundTripEmpty(c *C){
 	c.Assert(empty_input, DeepEquals, empty_output)
 }
 
-func (s *MetaSuite) TestBSONRoundTrip(c *C){
+func (s *MetaSuite) TestBSONRoundTrip(c *C) {
 	var input = charm.Meta{
-		Name: "Foo",
-		Summary: "Bar",
+		Name:        "Foo",
+		Summary:     "Bar",
 		Description: "Baz",
 		Subordinate: true,
-		Provides: map[string]charm.Relation {
-			"qux": charm.Relation{
+		Provides: map[string]charm.Relation{
+			"qux": {
 				Interface: "quxx",
-				Optional: true,
-				Limit: 42,
-				Scope: "quxxx",
+				Optional:  true,
+				Limit:     42,
+				Scope:     "quxxx",
 			},
 		},
-		Requires: map[string]charm.Relation {
-			"qux": charm.Relation{
+		Requires: map[string]charm.Relation{
+			"qux": {
 				Interface: "quxx",
-				Optional: true,
-				Limit: 42,
-				Scope: "quxxx",
+				Optional:  true,
+				Limit:     42,
+				Scope:     "quxxx",
 			},
 		},
-		Peers: map[string]charm.Relation {
-			"qux": charm.Relation{
+		Peers: map[string]charm.Relation{
+			"qux": {
 				Interface: "quxx",
-				Optional: true,
-				Limit: 42,
-				Scope: "quxxx",
+				Optional:  true,
+				Limit:     42,
+				Scope:     "quxxx",
 			},
 		},
-		Categories: []string{"quxxxx", "quxxxxx"},
-		Format: 10,
+		Categories:  []string{"quxxxx", "quxxxxx"},
+		Format:      10,
 		OldRevision: 11,
 	}
 	data, err := bson.Marshal(input)

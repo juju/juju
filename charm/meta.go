@@ -75,14 +75,14 @@ func (m Meta) Hooks() map[string]bool {
 	return allHooks
 }
 
-func parseCategories(categories interface{}) []string{
-	if categories == nil{
-	    return nil
+func parseCategories(categories interface{}) []string {
+	if categories == nil {
+		return nil
 	}
 	slice := categories.([]interface{})
 	result := make([]string, 0, len(slice))
 	for _, cat := range slice {
-	  result = append(result, cat.(string))
+		result = append(result, cat.(string))
 	}
 	return result
 }
@@ -292,6 +292,6 @@ var charmSchema = schema.FieldMap(
 		"revision":    schema.Omit,
 		"format":      1,
 		"subordinate": schema.Omit,
-		"categories": schema.Omit,
+		"categories":  schema.Omit,
 	},
 )
