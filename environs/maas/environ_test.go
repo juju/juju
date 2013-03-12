@@ -197,7 +197,7 @@ func (suite *EnvironSuite) TestStopInstancesReturnsIfParameterEmpty(c *C) {
 	c.Check(operations, DeepEquals, map[string][]string{})
 }
 
-func (suite *EnvironSuite) TestStopInstancesStopsInstances(c *C) {
+func (suite *EnvironSuite) TestStopInstancesStopsAndReleasesInstances(c *C) {
 	instance1 := suite.getInstance("test1")
 	instance2 := suite.getInstance("test2")
 	suite.getInstance("test3")
@@ -207,7 +207,7 @@ func (suite *EnvironSuite) TestStopInstancesStopsInstances(c *C) {
 
 	c.Check(err, IsNil)
 	operations := suite.testMAASObject.TestServer.NodeOperations()
-	expectedOperations := map[string][]string{"test1": {"stop"}, "test2": {"stop"}}
+	expectedOperations := map[string][]string{"test1": {"stop", "release"}, "test2": {"stop", "release"}}
 	c.Check(operations, DeepEquals, expectedOperations)
 }
 
