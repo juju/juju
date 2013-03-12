@@ -31,8 +31,6 @@ func (imageSuite) TearDownSuite(c *C) {
 	UseTestImageData(nil)
 }
 
-// N.B. the image IDs in this test will need updating
-// if the image directory is regenerated.
 var imageTests = []struct {
 	constraint instanceConstraint
 	imageId    string
