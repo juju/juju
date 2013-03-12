@@ -162,9 +162,11 @@ func (suite *EnvironSuite) TestStorageReturnsStorage(c *C) {
 	c.Check(specificStorage.environUnlocked, Equals, env)
 }
 
-func (suite *EnvironSuite) TestPublicStorageIsNotImplemented(c *C) {
+func (suite *EnvironSuite) TestPublicStorageReturnsEmptyStorage(c *C) {
 	env := suite.makeEnviron()
-	c.Check(env.PublicStorage(), IsNil)
+	storage := env.PublicStorage()
+	c.Assert(storage, NotNil)
+	c.Check(storage, Equals, environs.EmptyStorage)
 }
 
 func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
