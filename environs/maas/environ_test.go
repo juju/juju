@@ -152,6 +152,21 @@ func (suite *EnvironSuite) TestInstancesReturnsErrorIfPartialInstances(c *C) {
 	c.Check(string(instances[0].Id()), Equals, resourceURI1)
 }
 
+func (suite *EnvironSuite) TestStorageReturnsStorage(c *C) {
+	env := suite.makeEnviron()
+	storage := env.Storage()
+	c.Check(storage, NotNil)
+	// The Storage object is really a maasStorage.
+	specificStorage := storage.(*maasStorage)
+	// Its environment pointer refers back to its environment.
+	c.Check(specificStorage.environUnlocked, Equals, env)
+}
+
+func (suite *EnvironSuite) TestPublicStorageIsNotImplemented(c *C) {
+	env := suite.makeEnviron()
+	c.Check(env.PublicStorage(), IsNil)
+}
+
 func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
 	input := `{"system_id": "test"}`
 	node := suite.testMAASObject.TestServer.NewNode(input)
