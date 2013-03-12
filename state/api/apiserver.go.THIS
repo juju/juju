@@ -1,14 +1,10 @@
-package apiserver
+package api
 
 import (
 	"code.google.com/p/go.net/websocket"
 	"fmt"
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/statecmd"
 	statewatcher "launchpad.net/juju-core/state/watcher"
 	"strconv"
@@ -196,21 +192,6 @@ func (r *srvRoot) EntityWatcher(id string) (srvEntityWatcher, error) {
 	return srvEntityWatcher{w}, nil
 }
 
-func (r *srvRoot) AllWatcher(id string) (srvClientAllWatcher, error) {
-	if err := r.requireClient(); err != nil {
-		return srvClientAllWatcher{}, err
-	}
-	w := r.watchers.get(id)
-	if w == nil {
-		return srvClientAllWatcher{}, errUnknownWatcher
-	}
-	if _, ok := w.w.(*state.StateWatcher); !ok {
-		return srvClientAllWatcher{}, errUnknownWatcher
-	}
-	return srvClientAllWatcher{w}, nil
-
-}
-
 // Client returns an object that provides access
 // to methods accessible to non-agent clients.
 func (r *srvRoot) Client(id string) (*srvClient, error) {
@@ -242,203 +223,111 @@ func (w srvEntityWatcher) Next() error {
 	return err
 }
 
-func (c *srvClient) Status() (api.Status, error) {
+func (c *srvClient) Status() (Status, error) {
 	ms, err := c.root.srv.state.AllMachines()
 	if err != nil {
-		return api.Status{}, err
+		return Status{}, err
 	}
-	status := api.Status{
-		Machines: make(map[string]api.MachineInfo),
+	status := Status{
+		Machines: make(map[string]MachineInfo),
 	}
 	for _, m := range ms {
 		instId, _ := m.InstanceId()
-		status.Machines[m.Id()] = api.MachineInfo{
+		status.Machines[m.Id()] = MachineInfo{
 			InstanceId: string(instId),
 		}
 	}
 	return status, nil
 }
 
-func (c *srvClient) WatchAll() (params.AllWatcherId, error) {
-	w := c.root.srv.state.Watch()
-	return params.AllWatcherId{
-		AllWatcherId: c.root.watchers.register(w).id,
-	}, nil
-}
-
-type srvClientAllWatcher struct {
-	*srvWatcher
-}
-
-func (aw srvClientAllWatcher) Next() (params.AllWatcherNextResults, error) {
-	deltas, err := aw.w.(*state.StateWatcher).Next()
-	return params.AllWatcherNextResults{
-		Deltas: deltas,
-	}, err
-}
-
-func (aw srvClientAllWatcher) Stop() error {
-	return aw.w.(*state.StateWatcher).Stop()
-}
-
 // ServiceSet implements the server side of Client.ServerSet.
-func (c *srvClient) ServiceSet(p params.ServiceSet) error {
-	return juju.ServiceSet(c.root.srv.state, p)
+func (c *srvClient) ServiceSet(p statecmd.ServiceSetParams) error {
+	return statecmd.ServiceSet(c.root.srv.state, p)
 }
 
 // ServiceSetYAML implements the server side of Client.ServerSetYAML.
-func (c *srvClient) ServiceSetYAML(p params.ServiceSetYAML) error {
-	return juju.ServiceSetYAML(c.root.srv.state, p)
+func (c *srvClient) ServiceSetYAML(p statecmd.ServiceSetYAMLParams) error {
+	return statecmd.ServiceSetYAML(c.root.srv.state, p)
 }
 
 // ServiceGet returns the configuration for a service.
-func (c *srvClient) ServiceGet(args params.ServiceGet) (params.ServiceGetResults, error) {
+func (c *srvClient) ServiceGet(args statecmd.ServiceGetParams) (statecmd.ServiceGetResults, error) {
 	return statecmd.ServiceGet(c.root.srv.state, args)
 }
 
-// Resolved implements the server side of Client.Resolved.
-func (c *srvClient) Resolved(p params.Resolved) error {
+// Resolved implements the server side of Client.ServerSet.
+func (c *srvClient) Resolved(p statecmd.ResolvedParams) error {
 	return statecmd.Resolved(c.root.srv.state, p)
 }
 
 // ServiceExpose changes the juju-managed firewall to expose any ports that
 // were also explicitly marked by units as open.
-func (c *srvClient) ServiceExpose(args params.ServiceExpose) error {
+func (c *srvClient) ServiceExpose(args statecmd.ServiceExposeParams) error {
 	return statecmd.ServiceExpose(c.root.srv.state, args)
 }
 
 // ServiceUnexpose changes the juju-managed firewall to unexpose any ports that
 // were also explicitly marked by units as open.
-func (c *srvClient) ServiceUnexpose(args params.ServiceUnexpose) error {
+func (c *srvClient) ServiceUnexpose(args statecmd.ServiceUnexposeParams) error {
 	return statecmd.ServiceUnexpose(c.root.srv.state, args)
-}
-
-var CharmStore charm.Repository = charm.Store()
-
-// ServiceDeploy fetches the charm from the charm store and deploys it.  Local
-// charms are not supported.
-func (c *srvClient) ServiceDeploy(args params.ServiceDeploy) error {
-	state := c.root.srv.state
-	conf, err := state.EnvironConfig()
-	if err != nil {
-		return err
-	}
-	curl, err := charm.InferURL(args.CharmUrl, conf.DefaultSeries())
-	if err != nil {
-		return err
-	}
-	conn, err := juju.NewConnFromState(state)
-	if err != nil {
-		return err
-	}
-	if args.NumUnits == 0 {
-		args.NumUnits = 1
-	}
-	charm, err := conn.PutCharm(curl, CharmStore, false)
-	if err != nil {
-		return err
-	}
-	serviceName := args.ServiceName
-	if serviceName == "" {
-		serviceName = curl.Name
-	}
-	deployArgs := juju.DeployServiceParams{
-		Charm:       charm,
-		ServiceName: serviceName,
-		NumUnits:    args.NumUnits,
-		Config:      args.Config,
-		ConfigYAML:  args.ConfigYAML,
-	}
-	_, err = conn.DeployService(deployArgs)
-	return err
-}
-
-// ServiceAddUnits adds a given number of units to a service.
-func (c *srvClient) ServiceAddUnits(args params.ServiceAddUnits) error {
-	return statecmd.ServiceAddUnits(c.root.srv.state, args)
-}
-
-// ServiceDestroy destroys a given service.
-func (c *srvClient) ServiceDestroy(args params.ServiceDestroy) error {
-	return statecmd.ServiceDestroy(c.root.srv.state, args)
-}
-
-// CharmInfo returns information about the requested charm.
-func (c *srvClient) CharmInfo(args params.CharmInfo) (api.CharmInfo, error) {
-	curl, err := charm.ParseURL(args.CharmURL)
-	if err != nil {
-		return api.CharmInfo{}, err
-	}
-	charm, err := c.root.srv.state.Charm(curl)
-	if err != nil {
-		return api.CharmInfo{}, err
-	}
-	info := api.CharmInfo{
-		Revision: charm.Revision(),
-		URL:      curl.String(),
-		Config:   charm.Config(),
-		Meta:     charm.Meta(),
-	}
-	return info, nil
 }
 
 // EnvironmentInfo returns information about the current environment (default
 // series and type).
-func (c *srvClient) EnvironmentInfo() (api.EnvironmentInfo, error) {
+func (c *srvClient) EnvironmentInfo() (EnvironmentInfo, error) {
 	conf, err := c.root.srv.state.EnvironConfig()
 	if err != nil {
-		return api.EnvironmentInfo{}, err
+		return EnvironmentInfo{}, err
 	}
-	info := api.EnvironmentInfo{
+	info := EnvironmentInfo{
 		DefaultSeries: conf.DefaultSeries(),
 		ProviderType:  conf.Type(),
 	}
 	return info, nil
 }
 
-// GetAnnotations returns annotations about a given entity.
-func (c *srvClient) GetAnnotations(args params.GetAnnotations) (params.GetAnnotationsResults, error) {
-	entity, err := c.root.srv.state.Entity(args.EntityId)
-	if err != nil {
-		return params.GetAnnotationsResults{}, err
-	}
-	return params.GetAnnotationsResults{Annotations: entity.Annotations()}, nil
-}
-
-// SetAnnotation stores an annotation about a given entity.
-func (c *srvClient) SetAnnotation(args params.SetAnnotation) error {
-	entity, err := c.root.srv.state.Entity(args.EntityId)
-	if err != nil {
-		return err
-	}
-	return entity.SetAnnotation(args.Key, args.Value)
+type rpcCreds struct {
+	EntityName string
+	Password   string
 }
 
 // Login logs in with the provided credentials.
 // All subsequent requests on the connection will
 // act as the authenticated user.
-func (a *srvAdmin) Login(c params.Creds) error {
+func (a *srvAdmin) Login(c rpcCreds) error {
 	return a.root.user.login(a.root.srv.state, c.EntityName, c.Password)
 }
 
+type rpcMachine struct {
+	InstanceId string
+}
+
 // Get retrieves all the details of a machine.
-func (m *srvMachine) Get() (info params.Machine) {
+func (m *srvMachine) Get() (info rpcMachine) {
 	instId, _ := m.m.InstanceId()
 	info.InstanceId = string(instId)
 	return
 }
 
-func (m *srvMachine) Watch() (params.EntityWatcherId, error) {
+type rpcEntityWatcherId struct {
+	EntityWatcherId string
+}
+
+func (m *srvMachine) Watch() (rpcEntityWatcherId, error) {
 	w := m.m.Watch()
 	if _, ok := <-w.Changes(); !ok {
-		return params.EntityWatcherId{}, statewatcher.MustErr(w)
+		return rpcEntityWatcherId{}, statewatcher.MustErr(w)
 	}
-	return params.EntityWatcherId{
+	return rpcEntityWatcherId{
 		EntityWatcherId: m.root.watchers.register(w).id,
 	}, nil
 }
 
-func setPassword(e state.Entity, password string) error {
+type rpcPassword struct {
+	Password string
+}
+
+func setPassword(e state.AuthEntity, password string) error {
 	// Catch expected common case of mispelled
 	// or missing Password parameter.
 	if password == "" {
@@ -448,7 +337,7 @@ func setPassword(e state.Entity, password string) error {
 }
 
 // SetPassword sets the machine's password.
-func (m *srvMachine) SetPassword(p params.Password) error {
+func (m *srvMachine) SetPassword(p rpcPassword) error {
 	// Allow:
 	// - the machine itself.
 	// - the environment manager.
@@ -462,15 +351,15 @@ func (m *srvMachine) SetPassword(p params.Password) error {
 }
 
 // Get retrieves all the details of a unit.
-func (u *srvUnit) Get() (params.Unit, error) {
-	var ru params.Unit
+func (u *srvUnit) Get() (rpcUnit, error) {
+	var ru rpcUnit
 	ru.DeployerName, _ = u.u.DeployerName()
 	// TODO add other unit attributes
 	return ru, nil
 }
 
 // SetPassword sets the unit's password.
-func (u *srvUnit) SetPassword(p params.Password) error {
+func (u *srvUnit) SetPassword(p rpcPassword) error {
 	ename := u.root.user.entity().EntityName()
 	// Allow:
 	// - the unit itself.
@@ -487,28 +376,39 @@ func (u *srvUnit) SetPassword(p params.Password) error {
 	return setPassword(u.u, p.Password)
 }
 
+type rpcUnit struct {
+	DeployerName string
+	// TODO(rog) other unit attributes.
+}
+
 // SetPassword sets the user's password.
-func (u *srvUser) SetPassword(p params.Password) error {
+func (u *srvUser) SetPassword(p rpcPassword) error {
 	return setPassword(u.u, p.Password)
 }
 
+type rpcUser struct {
+	// This is a placeholder for any information
+	// that may be associated with a user in the
+	// future.
+}
+
 // Get retrieves all details of a user.
-func (u *srvUser) Get() (params.User, error) {
-	return params.User{}, nil
+func (u *srvUser) Get() (rpcUser, error) {
+	return rpcUser{}, nil
 }
 
 // authUser holds login details. It's ok to call
 // its methods concurrently.
 type authUser struct {
 	mu      sync.Mutex
-	_entity state.Entity // logged-in entity (access only when mu is locked)
+	_entity state.AuthEntity // logged-in entity (access only when mu is locked)
 }
 
 // login authenticates as entity with the given name,.
 func (u *authUser) login(st *state.State, entityName, password string) error {
 	u.mu.Lock()
 	defer u.mu.Unlock()
-	entity, err := st.Entity(entityName)
+	entity, err := st.AuthEntity(entityName)
 	if err != nil && !state.IsNotFound(err) {
 		return err
 	}
@@ -531,7 +431,7 @@ func (u *authUser) login(st *state.State, entityName, password string) error {
 // entity returns the currently logged-in entity, or nil if not
 // currently logged on.  The returned entity should not be modified
 // because it may be used concurrently.
-func (u *authUser) entity() state.Entity {
+func (u *authUser) entity() state.AuthEntity {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	return u._entity
@@ -539,7 +439,7 @@ func (u *authUser) entity() state.Entity {
 
 // isMachineWithJob returns whether the given entity is a machine that
 // is configured to run the given job.
-func isMachineWithJob(e state.Entity, j state.MachineJob) bool {
+func isMachineWithJob(e state.AuthEntity, j state.MachineJob) bool {
 	m, ok := e.(*state.Machine)
 	if !ok {
 		return false
@@ -553,7 +453,7 @@ func isMachineWithJob(e state.Entity, j state.MachineJob) bool {
 }
 
 // isAgent returns whether the given entity is an agent.
-func isAgent(e state.Entity) bool {
+func isAgent(e state.AuthEntity) bool {
 	_, isUser := e.(*state.User)
 	return !isUser
 }
