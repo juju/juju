@@ -156,7 +156,9 @@ func (suite *EnvironSuite) TestStorageReturnsStorage(c *C) {
 	env := suite.makeEnviron()
 	storage := env.Storage()
 	c.Check(storage, NotNil)
+	// The Storage object is really a maasStorage.
 	specificStorage := storage.(*maasStorage)
+	// Its environment pointer refers back to its environment.
 	c.Check(specificStorage.environUnlocked, Equals, env)
 }
 
