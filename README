@@ -40,14 +40,14 @@ exist, and be writable by you. For example
 will define and create `$HOME/work` as your local `GOPATH`. The `go` tool itself
 will create three subdirectories inside your `GOPATH` when required; `src`, `pkg`
 and `bin`, which hold the source of Go programs, compiled packages and compiled
-binaries, respectively. You should add `$GOPATH/bin` to your `PATH`.
+binaries, respectively.
 
-Setting `GOPATH` correctly is critical when developing Go programs. `GOPATH`
-should be exported as part of your login script. You can check your `GOPATH`
-with to `go` tool itself.
+Setting `GOPATH` correctly is critical when developing Go programs. Set and
+export it as part of your login script.
 
-    % go env | grep GOPATH
-    GOPATH="/home/dfc/work"
+Add `$GOPATH/bin` to your `PATH`, so you can run the go programs you install:
+
+    PATH="$PATH:$GOPATH/bin"
 
 Other prerequisites
 -------------------

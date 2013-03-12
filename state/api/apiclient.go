@@ -95,10 +95,7 @@ func (c *Client) ServiceGet(service string) (*params.ServiceGetResults, error) {
 func (c *Client) ServiceExpose(service string) error {
 	params := params.ServiceExpose{ServiceName: service}
 	err := c.st.client.Call("Client", "", "ServiceExpose", params, nil)
-	if err != nil {
-		return clientError(err)
-	}
-	return nil
+	return clientError(err)
 }
 
 // ServiceUnexpose changes the juju-managed firewall to unexpose any ports that
@@ -106,6 +103,33 @@ func (c *Client) ServiceExpose(service string) error {
 func (c *Client) ServiceUnexpose(service string) error {
 	params := params.ServiceUnexpose{ServiceName: service}
 	err := c.st.client.Call("Client", "", "ServiceUnexpose", params, nil)
+	return clientError(err)
+}
+
+// ServiceDeploy obtains the charm, either locally or from the charm store,
+// and deploys it.
+func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int, configYAML string) error {
+	params := params.ServiceDeploy{
+		ServiceName: serviceName,
+		ConfigYAML:  configYAML,
+		CharmUrl:    charmUrl,
+		NumUnits:    numUnits,
+	}
+	err := c.st.client.Call("Client", "", "ServiceDeploy", params, nil)
+	if err != nil {
+		return clientError(err)
+	}
+	return nil
+}
+
+// CharmInfo holds information about a charm.
+// ServiceAddUnit adds a given number of units to a service.
+func (c *Client) ServiceAddUnits(service string, numUnits int) error {
+	params := params.ServiceAddUnits{
+		ServiceName: service,
+		NumUnits:    numUnits,
+	}
+	err := c.st.client.Call("Client", "", "ServiceAddUnits", params, nil)
 	if err != nil {
 		return clientError(err)
 	}
@@ -141,10 +165,68 @@ type EnvironmentInfo struct {
 func (c *Client) EnvironmentInfo() (*EnvironmentInfo, error) {
 	info := new(EnvironmentInfo)
 	err := c.st.client.Call("Client", "", "EnvironmentInfo", nil, info)
+	return info, clientError(err)
+}
+
+// AllWatcher holds information allowing us to get Deltas describing changes
+// to the entire environment.
+type AllWatcher struct {
+	client *Client
+	id     *string
+}
+
+func newAllWatcher(client *Client, id *string) *AllWatcher {
+	return &AllWatcher{client, id}
+}
+
+func (watcher *AllWatcher) Next() ([]params.Delta, error) {
+	info := new(params.AllWatcherNextResults)
+	err := watcher.client.st.client.Call("AllWatcher", *watcher.id, "Next", nil, info)
+	return info.Deltas, clientError(err)
+}
+
+func (watcher *AllWatcher) Stop() error {
+	return clientError(
+		watcher.client.st.client.Call("AllWatcher", *watcher.id, "Stop", nil, nil))
+}
+
+// WatchAll holds the id of the newly-created AllWatcher.
+type WatchAll struct {
+	AllWatcherId string
+}
+
+// WatchAll returns an AllWatcher, from which you can request the Next
+// collection of Deltas.
+func (c *Client) WatchAll() (*AllWatcher, error) {
+	info := new(WatchAll)
+	err := c.st.client.Call("Client", "", "WatchAll", nil, info)
 	if err != nil {
 		return nil, clientError(err)
 	}
-	return info, nil
+	return newAllWatcher(c, &info.AllWatcherId), nil
+}
+
+// GetAnnotations returns annotations that have been set on the given entity.
+func (c *Client) GetAnnotations(entityId string) (map[string]string, error) {
+	args := params.GetAnnotations{entityId}
+	ann := new(params.GetAnnotationsResults)
+	err := c.st.client.Call("Client", "", "GetAnnotations", args, ann)
+	if err != nil {
+		return nil, clientError(err)
+	}
+	return ann.Annotations, nil
+}
+
+// SetAnnotation sets the annotation with the given key on the given entity to
+// the given value. Currently annotations are supported on machines, services,
+// units and the environment itself.
+func (c *Client) SetAnnotation(entityId, key, value string) error {
+	args := params.SetAnnotation{entityId, key, value}
+	err := c.st.client.Call("Client", "", "SetAnnotation", args, nil)
+	if err != nil {
+		return clientError(err)
+	}
+	return nil
 }
 
 // Machine returns a reference to the machine with the given id.

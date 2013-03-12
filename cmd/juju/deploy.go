@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
@@ -12,7 +13,7 @@ import (
 )
 
 type DeployCommand struct {
-	EnvName      string
+	EnvCommandBase
 	CharmName    string
 	ServiceName  string
 	Config       cmd.FileVar
@@ -52,7 +53,7 @@ func (c *DeployCommand) Info() *cmd.Info {
 }
 
 func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
-	addEnvironFlags(&c.EnvName, f)
+	c.EnvCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "number of service units to deploy for principal charms")
 	f.IntVar(&c.NumUnits, "num-units", 1, "")
 	f.BoolVar(&c.BumpRevision, "u", false, "increment local charm directory revision")
@@ -105,25 +106,27 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	ch, err := conn.PutCharm(curl, repo, c.BumpRevision)
-	if err != nil {
-		return err
-	}
+	var configYAML []byte
 	if c.Config.Path != "" {
-		// TODO many dependencies :(
-		return errors.New("state.Service.SetConfig not implemented (format 2...)")
+		configYAML, err = ioutil.ReadFile(c.Config.Path)
+		if err != nil {
+			return err
+		}
 	}
-	svcName := c.ServiceName
-	if svcName == "" {
-		svcName = curl.Name
-	}
-	svc, err := conn.State.AddService(svcName, ch)
+	charm, err := conn.PutCharm(curl, repo, c.BumpRevision)
 	if err != nil {
 		return err
 	}
-	if ch.Meta().Subordinate {
-		return nil
+	serviceName := c.ServiceName
+	if serviceName == "" {
+		serviceName = curl.Name
 	}
-	_, err = conn.AddUnits(svc, c.NumUnits)
+	args := juju.DeployServiceParams{
+		Charm:       charm,
+		ServiceName: serviceName,
+		NumUnits:    c.NumUnits,
+		ConfigYAML:  string(configYAML),
+	}
+	_, err = conn.DeployService(args)
 	return err
 }

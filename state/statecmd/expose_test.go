@@ -12,7 +12,6 @@ type ExposeSuite struct {
 	testing.JujuConnSuite
 }
 
-// Run-time check to ensure ExposeSuite implements the Suite interface.
 var _ = Suite(&ExposeSuite{})
 
 var serviceExposeTests = []struct {
