@@ -2,19 +2,19 @@ package statecmd_test
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/statecmd"
-	"launchpad.net/juju-core/juju/testing"
 )
 
 type ResolvedSuite struct {
-        testing.JujuConnSuite
+	testing.JujuConnSuite
 }
 
 var _ = Suite(&ResolvedSuite{})
 
 func (s *ResolvedSuite) TestMarkResolved(c *C) {
-        sch := s.AddTestingCharm(c, "riak")
+	sch := s.AddTestingCharm(c, "riak")
 	svc, err := s.Conn.State.AddService("testriak", sch)
 	c.Assert(err, IsNil)
 	us, err := s.Conn.AddUnits(svc, 1)

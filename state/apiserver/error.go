@@ -47,4 +47,3 @@ func serverError(err error) error {
 	}
 	return err
 }
-
