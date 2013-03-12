@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/trivial"
 	"net/http"
+        "time"
 )
 
 // This provides the content for code accessing test:///... URLs. This allows
@@ -61,8 +62,8 @@ var originalLongAttempt = longAttempt
 func ShortTimeouts(short bool) {
 	if short {
 		shortAttempt = trivial.AttemptStrategy{
-			Total: 0.10e9,
-			Delay: 0.01e9,
+			Total: 100 * time.Millisecond,
+			Delay: 10 * time.Millisecond,
 		}
 		longAttempt = shortAttempt
 	} else {
