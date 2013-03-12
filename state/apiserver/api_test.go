@@ -319,7 +319,7 @@ func opClientServiceUnexpose(c *C, st *api.State, mst *state.State) (func(), err
 	return func() {}, nil
 }
 
-func opClientResolved(c *C, st *api.State) (func(), error) {
+func opClientResolved(c *C, st *api.State, _ *state.State) (func(), error) {
 	err := st.Client().Resolved("wordpress/0", false)
 	// There are several scenarios in which this test is called, one is
 	// that the user is not authorized.  In that case we want to exit now,
