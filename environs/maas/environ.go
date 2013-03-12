@@ -243,11 +243,12 @@ func (environ *maasEnviron) StopInstances(instances []environs.Instance) error {
 	if len(instances) == 0 {
 		return nil
 	}
-	// Tell MAAS to shut down each of the instances.  If there are errors,
-	// return only the first one (but shut down all instances regardless).
+	// Tell MAAS to release each of the instances.  If there are errors,
+	// return only the first one (but release all instances regardless).
+	// Note that releasing instances also turns them off.
 	var firstErr error
 	for _, instance := range instances {
-		err := environ.stopInstance(instance)
+		err := environ.releaseInstance(instance)
 		if firstErr == nil {
 			firstErr = err
 		}
@@ -261,6 +262,21 @@ func (environ *maasEnviron) stopInstance(inst environs.Instance) error {
 	maasInst := inst.(*maasInstance)
 	maasObj := maasInst.maasObject
 	_, err := maasObj.CallPost("stop", nil)
+	if err != nil {
+		log.Debugf("environs/maas: error stopping instance %v", maasInst)
+	}
+
+	return err
+}
+
+// releaseInstance releases a single instance.
+func (environ *maasEnviron) releaseInstance(inst environs.Instance) error {
+	maasInst := inst.(*maasInstance)
+	maasObj := maasInst.maasObject
+	_, err := maasObj.CallPost("release", nil)
+	if err != nil {
+		log.Debugf("environs/maas: error releasing instance %v", maasInst)
+	}
 	return err
 }
 
