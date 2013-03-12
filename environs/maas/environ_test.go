@@ -172,9 +172,11 @@ func (suite *EnvironSuite) TestPublicStorageReturnsEmptyStorage(c *C) {
 func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
 	input := `{"system_id": "test"}`
 	node := suite.testMAASObject.TestServer.NewNode(input)
-	resourceURI, _ := node.GetField("resource_uri")
+	resourceURI, err := node.GetField("resource_uri")
+	c.Assert(err, IsNil)
+	env := suite.makeEnviron()
 
-	instance, err := suite.environ.StartInstance(resourceURI, nil, nil, nil)
+	instance, err := env.StartInstance(resourceURI, nil, nil, nil)
 
 	c.Check(err, IsNil)
 	c.Check(string(instance.Id()), Equals, resourceURI)
