@@ -9,7 +9,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/trivial"
 	"net/http"
-        "time"
+	"time"
 )
 
 // This provides the content for code accessing test:///... URLs. This allows
