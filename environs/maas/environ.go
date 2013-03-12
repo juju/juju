@@ -321,8 +321,8 @@ func (env *maasEnviron) Storage() environs.Storage {
 
 // PublicStorage is defined by the Environ interface.
 func (env *maasEnviron) PublicStorage() environs.StorageReader {
-	// MAAS does not have separate public and private storage.
-	return env.Storage()
+	// MAAS does not have a shared storage.
+	return environs.EmptyStorage
 }
 
 func (environ *maasEnviron) Destroy([]environs.Instance) error {
