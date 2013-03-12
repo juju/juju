@@ -284,7 +284,7 @@ func (environ *maasEnviron) obtainNode(machineId string, stateInfo *state.Info, 
 
 	err = environ.startNode(node, tools, userdata)
 	if err != nil {
-		StopInstances([]environs.Instance{instance})
+		environ.StopInstances([]environs.Instance{&instance})
 		return nil, fmt.Errorf("cannot start instance: %v", err)
 	}
 	log.Printf("environs/maas: started instance %q", instance.Id())
@@ -293,6 +293,14 @@ func (environ *maasEnviron) obtainNode(machineId string, stateInfo *state.Info, 
 
 // StartInstance is specified in the Environ interface.
 func (environ *maasEnviron) StartInstance(machineId string, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
+	if tools == nil {
+		flags := environs.HighestVersion | environs.CompatVersion
+		var err error
+		tools, err = environs.FindTools(environ, version.Current, flags)
+		if err != nil {
+			return nil, err
+		}
+	}
 	// TODO: Obtain userdata.
 	var userdata []byte
 	return environ.obtainNode(machineId, info, apiInfo, tools, userdata)
@@ -380,7 +388,7 @@ func (env *maasEnviron) Storage() environs.Storage {
 }
 
 func (*maasEnviron) PublicStorage() environs.StorageReader {
-	return nil
+	panic("Not implemented.")
 }
 
 func (environ *maasEnviron) Destroy([]environs.Instance) error {
