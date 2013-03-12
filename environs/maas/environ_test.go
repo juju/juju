@@ -162,9 +162,14 @@ func (suite *EnvironSuite) TestStorageReturnsStorage(c *C) {
 	c.Check(specificStorage.environUnlocked, Equals, env)
 }
 
-func (suite *EnvironSuite) TestPublicStorageIsNotImplemented(c *C) {
+func (suite *EnvironSuite) TestPublicStorageReturnsStorage(c *C) {
 	env := suite.makeEnviron()
-	c.Check(env.PublicStorage(), IsNil)
+	storage := env.PublicStorage()
+	c.Check(storage, NotNil)
+	// The Storage object is really a maasStorage.
+	specificStorage := storage.(*maasStorage)
+	// Its environment pointer refers back to its environment.
+	c.Check(specificStorage.environUnlocked, Equals, env)
 }
 
 func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
