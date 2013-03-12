@@ -134,7 +134,7 @@ func (env *maasEnviron) startBootstrapNode(tools *state.Tools, cert, key []byte,
 	// TODO: Obtain userdata based on mongoURL cert/key, and config
 	unused(mongoURL, cert, key, config)
 	var userdata []byte
-	inst, err := env.gimmeNode("0", &stateInfo, &apiInfo, tools, userdata)
+	inst, err := env.obtainNode("0", &stateInfo, &apiInfo, tools, userdata)
 	if err != nil {
 		return nil, fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
@@ -264,9 +264,9 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, tools *state.To
 	return err
 }
 
-// gimmeNode allocates and starts a MAAS node.  It is used both for the
+// obtainNode allocates and starts a MAAS node.  It is used both for the
 // implementation of StartInstance, and to initialize the bootstrap node.
-func (environ *maasEnviron) gimmeNode(machineId string, stateInfo *state.Info, apiInfo *api.Info, tools *state.Tools, userdata []byte) (*maasInstance, error) {
+func (environ *maasEnviron) obtainNode(machineId string, stateInfo *state.Info, apiInfo *api.Info, tools *state.Tools, userdata []byte) (*maasInstance, error) {
 
 	log.Printf("environs/maas: starting machine %s in $q running tools version %q from %q", machineId, environ.name, tools.Binary, tools.URL)
 
@@ -274,13 +274,13 @@ func (environ *maasEnviron) gimmeNode(machineId string, stateInfo *state.Info, a
 	if err != nil {
 		return nil, fmt.Errorf("cannot run instances: %v", err)
 	}
+	instance := maasInstance{&node, environ}
 
 	err = environ.startNode(node, tools, userdata)
 	if err != nil {
-// TODO: Attempt to release node, since we've already acquired it!
+		StopInstances([]environs.Instance{instance})
 		return nil, fmt.Errorf("cannot start instance: %v", err)
 	}
-	instance := maasInstance{&node, environ}
 	log.Printf("environs/maas: started instance %q", instance.Id())
 	return &instance, nil
 }
@@ -289,7 +289,7 @@ func (environ *maasEnviron) gimmeNode(machineId string, stateInfo *state.Info, a
 func (environ *maasEnviron) StartInstance(machineId string, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
 	// TODO: Obtain userdata.
 	var userdata []byte
-	return environ.gimmeNode(machineId, info, apiInfo, tools, userdata)
+	return environ.obtainNode(machineId, info, apiInfo, tools, userdata)
 }
 
 // StopInstances is specified in the Environ interface.
