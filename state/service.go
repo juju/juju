@@ -163,17 +163,13 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 		hasLastRefs := D{{"life", Alive}, {"unitcount", 0}, {"relationcount", removeCount}}
 		return append(ops, s.removeOps(hasLastRefs)...), nil
 	}
-	// If any units of the service exist, or if any known relation was not
-	// removed (because it had units in scope, or because it was Dying, which
-	// implies the same condition), service removal will be handled as a
-	// consequence of the removal of the last unit or relation referencing it.
-	notLastRefs := D{
-		{"life", Alive},
-		{"$or", []D{
-			{{"unitcount", D{{"$gt", 0}}}},
-			{{"relationcount", s.doc.RelationCount}},
-		}},
-	}
+	// In all other cases, service removal will be handled as a consequence
+	// of the removal of the last unit or relation referencing it. It is not
+	// simple, and maybe not possible, to build a set of assertions that
+	// correctly handle all possible underlying state changes in terms of
+	// unit and relation count alone, so we fall back to asserting that the
+	// service document has not changed since it was last inspected.
+	notLastRefs := D{{"txn-revno", s.doc.TxnRevno}}
 	update := D{{"$set", D{{"life", Dying}}}}
 	if removeCount != 0 {
 		decref := D{{"$inc", D{{"relationcount", -removeCount}}}}

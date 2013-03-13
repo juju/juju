@@ -463,6 +463,23 @@ func (s *ServiceSuite) TestDestroyOnceHadUnits(c *C) {
 	c.Assert(state.IsNotFound(err), Equals, true)
 }
 
+func (s *ServiceSuite) TestDestroyStaleUnitCount(c *C) {
+	unit, err := s.mysql.AddUnit()
+	c.Assert(err, IsNil)
+	err = s.mysql.Refresh()
+	c.Assert(err, IsNil)
+	err = unit.EnsureDead()
+	c.Assert(err, IsNil)
+	err = unit.Remove()
+	c.Assert(err, IsNil)
+
+	err = s.mysql.Destroy()
+	c.Assert(err, IsNil)
+	c.Assert(s.mysql.Life(), Equals, state.Dying)
+	err = s.mysql.Refresh()
+	c.Assert(state.IsNotFound(err), Equals, true)
+}
+
 func (s *ServiceSuite) TestLifeWithReferencedRelations(c *C) {
 	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
