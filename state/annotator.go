@@ -82,12 +82,12 @@ func (a annotator) Annotations() (map[string]string, error) {
 }
 
 // Annotation returns the annotation value corresponding to the given key.
+// If the requested annotation is not found, an empty string is returned.
 func (a annotator) Annotation(key string) (string, error) {
 	ann, err := a.Annotations()
 	if err != nil {
 		return "", err
 	}
-	// Returning an empty string if the requested annotation is not found.
 	return ann[key], nil
 }
 

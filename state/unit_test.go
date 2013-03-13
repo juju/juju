@@ -704,8 +704,9 @@ func (s *UnitSuite) TestAnnotatorForUnit(c *C) {
 }
 
 func (s *UnitSuite) TestAnnotationRemovalForUnit(c *C) {
-	s.unit.SetAnnotation("mykey", "myvalue")
-	err := s.unit.EnsureDead()
+	err := s.unit.SetAnnotation("mykey", "myvalue")
+	c.Assert(err, IsNil)
+	err = s.unit.EnsureDead()
 	c.Assert(err, IsNil)
 	err = s.unit.Remove()
 	c.Assert(err, IsNil)

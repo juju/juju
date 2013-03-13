@@ -624,8 +624,9 @@ func (s *MachineSuite) TestAnnotatorForMachine(c *C) {
 }
 
 func (s *MachineSuite) TestAnnotationRemovalForMachine(c *C) {
-	s.machine.SetAnnotation("mykey", "myvalue")
-	err := s.machine.EnsureDead()
+	err := s.machine.SetAnnotation("mykey", "myvalue")
+	c.Assert(err, IsNil)
+	err = s.machine.EnsureDead()
 	c.Assert(err, IsNil)
 	err = s.machine.Remove()
 	c.Assert(err, IsNil)

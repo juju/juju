@@ -8,8 +8,8 @@ type Environment struct {
 	annotator
 }
 
-// GetEnvironment returns the environment entity.
-func (st *State) GetEnvironment() *Environment {
+// Environment returns the environment entity.
+func (st *State) Environment() *Environment {
 	env := &Environment{
 		st:        st,
 		annotator: annotator{st: st},
