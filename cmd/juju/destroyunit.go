@@ -3,8 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-
-	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
@@ -12,7 +10,7 @@ import (
 
 // DestroyUnitCommand is responsible for destroying service units.
 type DestroyUnitCommand struct {
-	EnvName   string
+	EnvCommandBase
 	UnitNames []string
 }
 
@@ -23,10 +21,6 @@ func (c *DestroyUnitCommand) Info() *cmd.Info {
 		Purpose: "destroy service units",
 		Aliases: []string{"remove-unit"},
 	}
-}
-
-func (c *DestroyUnitCommand) SetFlags(f *gnuflag.FlagSet) {
-	addEnvironFlags(&c.EnvName, f)
 }
 
 func (c *DestroyUnitCommand) Init(args []string) error {

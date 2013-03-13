@@ -5,8 +5,6 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/agent"
-	_ "launchpad.net/juju-core/environs/ec2"
-	_ "launchpad.net/juju-core/environs/openstack"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/apiserver"
@@ -21,6 +19,7 @@ var retryDelay = 3 * time.Second
 
 // MachineAgent is a cmd.Command responsible for running a machine agent.
 type MachineAgent struct {
+	cmd.CommandBase
 	tomb      tomb.Tomb
 	Conf      AgentConf
 	MachineId string

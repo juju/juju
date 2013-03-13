@@ -29,8 +29,8 @@ func (s *ProviderSuite) TearDownTest(c *C) {
 }
 
 func (s *ProviderSuite) TestMetadata(c *C) {
-	openstack.UseTestMetadata(true)
-	defer openstack.UseTestMetadata(false)
+	openstack.UseTestMetadata(openstack.MetadataTestingBase)
+	defer openstack.UseTestMetadata(nil)
 
 	p, err := environs.Provider("openstack")
 	c.Assert(err, IsNil)
@@ -48,13 +48,31 @@ func (s *ProviderSuite) TestMetadata(c *C) {
 	c.Assert(id, Equals, state.InstanceId("d8e02d56-2648-49a3-bf97-6be8f1204f38"))
 }
 
+func (s *ProviderSuite) TestPublicFallbackToPrivate(c *C) {
+	openstack.UseTestMetadata([]jujutest.FileContent{
+		{"/latest/meta-data/public-ipv4", "203.1.1.2"},
+		{"/latest/meta-data/local-ipv4", "10.1.1.2"},
+	})
+	defer openstack.UseTestMetadata(nil)
+	p, err := environs.Provider("openstack")
+	c.Assert(err, IsNil)
+
+	addr, err := p.PublicAddress()
+	c.Assert(err, IsNil)
+	c.Assert(addr, Equals, "203.1.1.2")
+
+	openstack.UseTestMetadata([]jujutest.FileContent{
+		{"/latest/meta-data/local-ipv4", "10.1.1.2"},
+		{"/latest/meta-data/public-ipv4", ""},
+	})
+	addr, err = p.PublicAddress()
+	c.Assert(err, IsNil)
+	c.Assert(addr, Equals, "10.1.1.2")
+}
+
 func (s *ProviderSuite) TestLegacyInstanceId(c *C) {
-	openstack.UseTestMetadata(true)
-	openstack.UseMetadataJSON("invalid.json")
-	defer func() {
-		openstack.UseTestMetadata(false)
-		openstack.UseMetadataJSON("")
-	}()
+	openstack.UseTestMetadata(openstack.MetadataHP)
+	defer openstack.UseTestMetadata(nil)
 
 	p, err := environs.Provider("openstack")
 	c.Assert(err, IsNil)
@@ -200,7 +218,7 @@ func panicWrite(name string, cert, key []byte) error {
 	panic("writeCertAndKey called unexpectedly")
 }
 
-// If the bootstrap node is configured to require a public IP address (the default),
+// If the bootstrap node is configured to require a public IP address,
 // bootstrapping fails if an address cannot be allocated.
 func (s *localLiveSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
 	cleanup := s.srv.Service.Nova.RegisterControlPoint(
@@ -210,7 +228,15 @@ func (s *localLiveSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
 		},
 	)
 	defer cleanup()
-	err := environs.Bootstrap(s.Env, true, panicWrite)
+	// Create a config that matches s.Config but with use-floating-ip set to true
+	newconfig := make(map[string]interface{}, len(s.Config))
+	for k, v := range s.Config {
+		newconfig[k] = v
+	}
+	newconfig["use-floating-ip"] = true
+	env, err := environs.NewFromAttrs(newconfig)
+	c.Assert(err, IsNil)
+	err = environs.Bootstrap(env, s.CanOpenState, panicWrite)
 	c.Assert(err, ErrorMatches, ".*cannot allocate a public IP as needed.*")
 }
 
@@ -232,7 +258,7 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *C) {
 		},
 	)
 	defer cleanup()
-	err := environs.Bootstrap(s.Env, true, panicWrite)
+	err := environs.Bootstrap(s.Env, false, panicWrite)
 	c.Assert(err, IsNil)
 	inst, err := s.Env.StartInstance("100", testing.InvalidStateInfo("100"), testing.InvalidAPIInfo("100"), nil)
 	c.Assert(err, IsNil)
@@ -333,7 +359,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	policy := t.env.AssignmentPolicy()
 	c.Assert(policy, Equals, state.AssignUnused)
 
-	err := environs.Bootstrap(t.env, true, panicWrite)
+	err := environs.Bootstrap(t.env, false, panicWrite)
 	c.Assert(err, IsNil)
 
 	// check that the state holds the id of the bootstrap machine.

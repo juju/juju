@@ -274,17 +274,19 @@ func (st *State) Machine(id string) (*Machine, error) {
 	return newMachine(st, mdoc), nil
 }
 
-// AuthEntity represents an entity that has
-// a password that can be authenticated against.
-type AuthEntity interface {
+// Entity represents an entity capabable of handling password authentication
+// and annotations.
+type Entity interface {
 	EntityName() string
 	SetPassword(pass string) error
 	PasswordValid(pass string) bool
 	Refresh() error
+	SetAnnotation(key, value string) error
+	Annotations() map[string]string
 }
 
-// AuthEntity returns the entity for the given name.
-func (st *State) AuthEntity(entityName string) (AuthEntity, error) {
+// Entity returns the entity for the given name.
+func (st *State) Entity(entityName string) (Entity, error) {
 	i := strings.Index(entityName, "-")
 	if i <= 0 || i >= len(entityName)-1 {
 		return nil, fmt.Errorf("invalid entity name %q", entityName)
@@ -308,6 +310,11 @@ func (st *State) AuthEntity(entityName string) (AuthEntity, error) {
 		return st.Unit(name)
 	case "user":
 		return st.User(id)
+	case "service":
+		if !IsServiceName(id) {
+			return nil, fmt.Errorf("invalid entity name %q", entityName)
+		}
+		return st.Service(id)
 	}
 	return nil, fmt.Errorf("invalid entity name %q", entityName)
 }
@@ -351,6 +358,9 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	// Sanity checks.
 	if !IsServiceName(name) {
 		return nil, fmt.Errorf("invalid name")
+	}
+	if ch == nil {
+		return nil, fmt.Errorf("charm is nil")
 	}
 	if exists, err := isNotDead(st.services, name); err != nil {
 		return nil, err

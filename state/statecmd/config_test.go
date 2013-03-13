@@ -2,6 +2,7 @@ package statecmd_test
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -22,13 +23,13 @@ var _ = Suite(&ConfigSuite{})
 
 func serviceSet(p params.ServiceSet) func(st *state.State) error {
 	return func(st *state.State) error {
-		return statecmd.ServiceSet(st, p)
+		return juju.ServiceSet(st, p)
 	}
 }
 
 func serviceSetYAML(p params.ServiceSetYAML) func(st *state.State) error {
 	return func(st *state.State) error {
-		return statecmd.ServiceSetYAML(st, p)
+		return juju.ServiceSetYAML(st, p)
 	}
 }
 
