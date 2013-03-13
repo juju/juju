@@ -5,6 +5,8 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/statecmd"
 )
 
 // DestroyServiceCommand causes an existing service to be destroyed.
@@ -39,9 +41,9 @@ func (c *DestroyServiceCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer conn.Close()
-	svc, err := conn.State.Service(c.ServiceName)
-	if err != nil {
-		return err
+
+	params := params.ServiceDestroy{
+		ServiceName: c.ServiceName,
 	}
-	return svc.Destroy()
+	return statecmd.ServiceDestroy(conn.State, params)
 }

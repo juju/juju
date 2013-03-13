@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
@@ -105,25 +106,27 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	ch, err := conn.PutCharm(curl, repo, c.BumpRevision)
-	if err != nil {
-		return err
-	}
+	var configYAML []byte
 	if c.Config.Path != "" {
-		// TODO many dependencies :(
-		return errors.New("state.Service.SetConfig not implemented (format 2...)")
+		configYAML, err = ioutil.ReadFile(c.Config.Path)
+		if err != nil {
+			return err
+		}
 	}
-	svcName := c.ServiceName
-	if svcName == "" {
-		svcName = curl.Name
-	}
-	svc, err := conn.State.AddService(svcName, ch)
+	charm, err := conn.PutCharm(curl, repo, c.BumpRevision)
 	if err != nil {
 		return err
 	}
-	if ch.Meta().Subordinate {
-		return nil
+	serviceName := c.ServiceName
+	if serviceName == "" {
+		serviceName = curl.Name
 	}
-	_, err = conn.AddUnits(svc, c.NumUnits)
+	args := juju.DeployServiceParams{
+		Charm:       charm,
+		ServiceName: serviceName,
+		NumUnits:    c.NumUnits,
+		ConfigYAML:  string(configYAML),
+	}
+	_, err = conn.DeployService(args)
 	return err
 }

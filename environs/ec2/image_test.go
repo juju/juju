@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/environs/jujutest"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -14,36 +15,42 @@ type imageSuite struct{}
 
 var _ = Suite(imageSuite{})
 
+var imagesData = []jujutest.FileContent{
+	{"/query/precise/server/released.current.txt", "" +
+		"precise\tserver\trelease\t20121201\tebs\tamd64\teu-west-1\tami-00000016\taki-00000016\t\tparavirtual\n" +
+		"precise\tserver\trelease\t20121201\tebs\ti386\tap-northeast-1\tami-00000023\taki-00000023\t\tparavirtual\n" +
+		"precise\tserver\trelease\t20121201\tebs\tamd64\tap-northeast-1\tami-00000026\taki-00000026\t\tparavirtual\n" +
+		""},
+}
+
 func (imageSuite) SetUpSuite(c *C) {
-	UseTestImageData(true)
+	UseTestImageData(imagesData)
 }
 
 func (imageSuite) TearDownSuite(c *C) {
-	UseTestImageData(false)
+	UseTestImageData(nil)
 }
 
-// N.B. the image IDs in this test will need updating
-// if the image directory is regenerated.
 var imageTests = []struct {
 	constraint instanceConstraint
 	imageId    string
 	err        string
 }{
 	{instanceConstraint{
-		series: "natty",
+		series: "precise",
 		arch:   "amd64",
 		region: "eu-west-1",
-	}, "ami-69b28a1d", ""},
+	}, "ami-00000016", ""},
 	{instanceConstraint{
-		series: "natty",
+		series: "precise",
 		arch:   "i386",
 		region: "ap-northeast-1",
-	}, "ami-843b8a85", ""},
+	}, "ami-00000023", ""},
 	{instanceConstraint{
-		series: "natty",
+		series: "precise",
 		arch:   "amd64",
 		region: "ap-northeast-1",
-	}, "ami-8c3b8a8d", ""},
+	}, "ami-00000026", ""},
 	{instanceConstraint{
 		series: "zingy",
 		arch:   "amd64",

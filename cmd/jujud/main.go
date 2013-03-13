@@ -9,6 +9,13 @@ import (
 	"path/filepath"
 )
 
+// When we import an environment provider implementation
+// here, it will register itself with environs.
+import (
+	_ "launchpad.net/juju-core/environs/ec2"
+	_ "launchpad.net/juju-core/environs/openstack"
+)
+
 var jujudDoc = `
 juju provides easy, intelligent service orchestration on top of environments
 such as OpenStack, Amazon AWS, or bare metal. jujud is a component of juju.

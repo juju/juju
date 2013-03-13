@@ -11,7 +11,6 @@ type AddUnitsSuite struct {
 	testing.JujuConnSuite
 }
 
-// Run-time check to ensure AddUnitSuite implements the Suite interface.
 var _ = Suite(&AddUnitsSuite{})
 
 var addUnitsTests = []struct {
