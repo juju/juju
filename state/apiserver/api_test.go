@@ -126,6 +126,10 @@ var operationPermTests = []struct {
 	op:    opClientServiceAddUnits,
 	allow: []string{"user-admin", "user-other"},
 }, {
+	about: "Client.ServiceDestroyUnits",
+	op:    opClientServiceDestroyUnits,
+	allow: []string{"user-admin", "user-other"},
+}, {
 	about: "Client.WatchAll",
 	op:    opClientWatchAll,
 	allow: []string{"user-admin", "user-other"},
@@ -387,6 +391,22 @@ func opClientServiceAddUnits(c *C, st *api.State, mst *state.State) (func(), err
 	// This test only checks that the call is made without error, ensuring the
 	// signatures match.
 	err := st.Client().ServiceAddUnits("wordpress", 1)
+	if err != nil {
+		return func() {}, err
+	}
+	c.Assert(err, IsNil)
+	return func() {}, nil
+}
+
+func opClientServiceDestroyUnits(c *C, st *api.State, mst *state.State) (func(), error) {
+	// This test only checks that the call is made without error, ensuring the
+	// signatures match.
+	// We can't remove the last unit so we have to add one first.
+	err := st.Client().ServiceAddUnits("wordpress", 1)
+	if err != nil {
+		return func() {}, err
+	}
+	err = st.Client().ServiceDestroyUnits([]string{"wordpress/0"})
 	if err != nil {
 		return func() {}, err
 	}

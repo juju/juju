@@ -71,6 +71,11 @@ type ServiceAddUnits struct {
 	NumUnits    int
 }
 
+// ServiceDestroyUnits holds parameters for the DestroyUnits call.
+type ServiceDestroyUnits struct {
+	UnitNames []string
+}
+
 // Creds holds credentials for identifying an entity.
 type Creds struct {
 	EntityName string

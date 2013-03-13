@@ -122,8 +122,7 @@ func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int
 	return nil
 }
 
-// CharmInfo holds information about a charm.
-// ServiceAddUnit adds a given number of units to a service.
+// ServiceAddUnits adds a given number of units to a service.
 func (c *Client) ServiceAddUnits(service string, numUnits int) error {
 	params := params.ServiceAddUnits{
 		ServiceName: service,
@@ -134,6 +133,13 @@ func (c *Client) ServiceAddUnits(service string, numUnits int) error {
 		return clientError(err)
 	}
 	return nil
+}
+
+// ServiceDestroyUnits decreases the number of units dedicated to a service.
+func (c *Client) ServiceDestroyUnits(unitNames []string) error {
+	params := params.ServiceDestroyUnits{unitNames}
+	err := c.st.client.Call("Client", "", "ServiceDestroyUnits", params, nil)
+	return clientError(err)
 }
 
 // CharmInfo holds information about a charm.

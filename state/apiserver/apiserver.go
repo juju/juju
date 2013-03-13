@@ -358,6 +358,11 @@ func (c *srvClient) ServiceAddUnits(args params.ServiceAddUnits) error {
 	return statecmd.ServiceAddUnits(c.root.srv.state, args)
 }
 
+// ServiceDestroyUnits removes a given number of units from a service.
+func (c *srvClient) ServiceDestroyUnits(args params.ServiceDestroyUnits) error {
+	return statecmd.ServiceDestroyUnits(c.root.srv.state, args)
+}
+
 // CharmInfo returns information about the requested charm.
 func (c *srvClient) CharmInfo(args params.CharmInfo) (api.CharmInfo, error) {
 	curl, err := charm.ParseURL(args.CharmURL)
