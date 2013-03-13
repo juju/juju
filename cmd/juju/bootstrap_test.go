@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
@@ -11,6 +12,7 @@ import (
 	"launchpad.net/juju-core/version"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -40,6 +42,24 @@ func (s *BootstrapSuite) TearDownTest(c *C) {
 	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 	dummy.Reset()
+}
+
+func (*BootstrapSuite) TestWriteCertAndKeyToHome(c *C) {
+	defer testing.MakeFakeHome(c, envConfig, "brokenenv").Restore()
+
+	cert := []byte("a cert")
+	key := []byte("a key")
+	err := writeCertAndKeyToHome("foo", cert, key)
+	c.Assert(err, IsNil)
+
+	// Check that the generated CA key has been written correctly.
+	caCertPEM, err := ioutil.ReadFile(filepath.Join(os.Getenv("HOME"), ".juju", "foo-cert.pem"))
+	c.Assert(err, IsNil)
+	c.Assert(string(caCertPEM), Equals, "a cert")
+
+	caKeyPEM, err := ioutil.ReadFile(filepath.Join(os.Getenv("HOME"), ".juju", "foo-private-key.pem"))
+	c.Assert(err, IsNil)
+	c.Assert(string(caKeyPEM), Equals, "a key")
 }
 
 func (*BootstrapSuite) TestBootstrapCommand(c *C) {

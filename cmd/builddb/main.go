@@ -28,7 +28,8 @@ func build() error {
 	if err != nil {
 		return err
 	}
-	err = environs.Bootstrap(environ, true, nil)
+	// TODO: what about environments without certs here?
+	err = environs.Bootstrap(environ, true)
 	if err != nil {
 		return err
 	}
