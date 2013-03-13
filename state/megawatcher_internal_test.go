@@ -301,7 +301,7 @@ func (*allWatcherSuite) TestHandle(c *C) {
 	aw := newAllWatcher(&allWatcherTestBacking{})
 
 	// Add request from first watcher.
-	w0 := &StateWatcher{aw: aw}
+	w0 := &StateWatcher{}
 	req0 := &allRequest{
 		w:     w0,
 		reply: make(chan bool, 1),
@@ -322,7 +322,7 @@ func (*allWatcherSuite) TestHandle(c *C) {
 	})
 
 	// Add request from second watcher.
-	w1 := &StateWatcher{aw: aw}
+	w1 := &StateWatcher{}
 	req2 := &allRequest{
 		w:     w1,
 		reply: make(chan bool, 1),
