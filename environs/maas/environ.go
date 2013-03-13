@@ -225,10 +225,6 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-// nonNilError is a placeholder for an error.  It is not nil, but it's not an
-// actual error either.  This should never be returned from anywhere.
-var nonNilError = fmt.Errorf("(Not a real error)")
-
 // acquireNode allocates a node from the MAAS.
 func (environ *maasEnviron) acquireNode() (gomaasapi.MAASObject, error) {
 	retry := trivial.AttemptStrategy{
@@ -236,7 +232,9 @@ func (environ *maasEnviron) acquireNode() (gomaasapi.MAASObject, error) {
 		Delay: 200 * time.Millisecond,
 	}
 	var result gomaasapi.JSONObject
-	var err error = nonNilError
+	// Initialize err to a non-nil value as a sentinel for the following
+	// loop.
+	var err error = fmt.Errorf("(no error)")
 	for a := retry.Start(); a.Next() && err != nil; {
 		client := environ.maasClientUnlocked.GetSubObject("nodes/")
 		result, err = client.CallPost("acquire", nil)
@@ -263,7 +261,9 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, tools *state.To
 // TODO: How do we pass user_data!?
 		//"user_data": {userdata},
 	}
-	var err error = nonNilError
+	// Initialize err to a non-nil value as a sentinel for the following
+	// loop.
+	var err error = fmt.Errorf("(no error)")
 	for a := retry.Start(); a.Next() && err != nil; {
 		_, err = node.CallPost("start", params)
 	}
