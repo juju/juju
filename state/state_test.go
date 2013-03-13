@@ -195,6 +195,10 @@ func (s *StateSuite) TestAddService(c *C) {
 	_, err = s.State.Service("haha/borken")
 	c.Assert(err, ErrorMatches, `"haha/borken" is not a valid service name`)
 
+	// set that a nil charm is handled correctly
+	_, err = s.State.AddService("umadbro", nil)
+	c.Assert(err, ErrorMatches, `cannot add service "umadbro": charm is nil`)
+
 	wordpress, err := s.State.AddService("wordpress", charm)
 	c.Assert(err, IsNil)
 	c.Assert(wordpress.Name(), Equals, "wordpress")
