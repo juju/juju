@@ -6,6 +6,15 @@ import (
 	"fmt"
 )
 
+// ServiceDeploy holds the parameters for making the ServiceDeploy call.
+type ServiceDeploy struct {
+	ServiceName string
+	Config      map[string]string
+	ConfigYAML  string // Takes precedence over config if both are present.
+	CharmUrl    string
+	NumUnits    int
+}
+
 // ServiceExpose holds the parameters for making the ServiceExpose call.
 type ServiceExpose struct {
 	ServiceName string
@@ -43,10 +52,28 @@ type ServiceUnexpose struct {
 	ServiceName string
 }
 
+// Resolved holds parameters for the Resolved call.
+type Resolved struct {
+	UnitName string
+	Retry    bool
+}
+
+// ResolvedResults holds results of the Resolved call.
+type ResolvedResults struct {
+	Service  string
+	Charm    string
+	Settings map[string]interface{}
+}
+
 // ServiceAddUnits holds parameters for the AddUnits call.
 type ServiceAddUnits struct {
 	ServiceName string
 	NumUnits    int
+}
+
+// ServiceDestroy holds the parameters for making the ServiceDestroy call.
+type ServiceDestroy struct {
+	ServiceName string
 }
 
 // Creds holds credentials for identifying an entity.

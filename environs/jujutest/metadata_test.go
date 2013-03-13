@@ -12,9 +12,9 @@ type metadataSuite struct{}
 var _ = Suite(&metadataSuite{})
 
 func (s *metadataSuite) TestVirtualRoundTripper(c *C) {
-	a_content := "a-content"
+	aContent := "a-content"
 	vrt := NewVirtualRoundTripper([]FileContent{
-		{"a", a_content},
+		{"a", aContent},
 		{"b", "b-content"},
 	})
 	c.Assert(vrt, NotNil)
@@ -23,8 +23,8 @@ func (s *metadataSuite) TestVirtualRoundTripper(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(resp, NotNil)
 	content, err := ioutil.ReadAll(resp.Body)
-	c.Assert(string(content), Equals, a_content)
-	c.Assert(resp.ContentLength, Equals, int64(len(a_content)))
+	c.Assert(string(content), Equals, aContent)
+	c.Assert(resp.ContentLength, Equals, int64(len(aContent)))
 	c.Assert(resp.StatusCode, Equals, http.StatusOK)
 	c.Assert(resp.Status, Equals, "200 OK")
 }
