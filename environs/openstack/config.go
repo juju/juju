@@ -35,7 +35,7 @@ var configChecker = schema.StrictFieldMap(
 		"public-bucket-url":     "",
 		"default-image-id":      "",
 		"default-instance-type": "",
-		"use-floating-ip":       true,
+		"use-floating-ip":       false,
 	},
 )
 

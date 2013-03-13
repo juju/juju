@@ -115,6 +115,19 @@ func (c *Client) CharmInfo(charmURL string) (*CharmInfo, error) {
 	return info, nil
 }
 
+// ServiceAddUnit adds a given number of units to a service.
+func (c *Client) ServiceAddUnits(service string, numUnits int) error {
+	params := params.ServiceAddUnits{
+		ServiceName: service,
+		NumUnits:    numUnits,
+	}
+	err := c.st.client.Call("Client", "", "ServiceAddUnits", params, nil)
+	if err != nil {
+		return clientError(err)
+	}
+	return nil
+}
+
 // EnvironmentInfo holds information about the Juju environment.
 type EnvironmentInfo struct {
 	DefaultSeries string
@@ -164,6 +177,29 @@ func (c *Client) WatchAll() (*AllWatcher, error) {
 		return nil, clientError(err)
 	}
 	return newAllWatcher(c, &info.AllWatcherId), nil
+}
+
+// GetAnnotations returns annotations that have been set on the given entity.
+func (c *Client) GetAnnotations(entityId string) (map[string]string, error) {
+	args := params.GetAnnotations{entityId}
+	ann := new(params.GetAnnotationsResults)
+	err := c.st.client.Call("Client", "", "GetAnnotations", args, ann)
+	if err != nil {
+		return nil, clientError(err)
+	}
+	return ann.Annotations, nil
+}
+
+// SetAnnotation sets the annotation with the given key on the given entity to
+// the given value. Currently annotations are supported on machines, services,
+// units and the environment itself.
+func (c *Client) SetAnnotation(entityId, key, value string) error {
+	args := params.SetAnnotation{entityId, key, value}
+	err := c.st.client.Call("Client", "", "SetAnnotation", args, nil)
+	if err != nil {
+		return clientError(err)
+	}
+	return nil
 }
 
 // Machine returns a reference to the machine with the given id.
