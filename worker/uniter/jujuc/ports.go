@@ -30,7 +30,7 @@ func badPort(value interface{}) error {
 }
 
 func (c *portCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.formatFlag, "format", "", "Deprecated format flag")
+	f.StringVar(&c.formatFlag, "format", "", "deprecated format flag")
 }
 
 func (c *portCommand) Init(args []string) error {

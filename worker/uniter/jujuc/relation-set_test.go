@@ -33,6 +33,8 @@ usage: relation-set [options] key=value [key=value ...]
 purpose: set relation settings
 
 options:
+--format (= "")
+    deprecated format flag
 -r  (= %s)
     specify a relation by id
 `[1:], t.expect))
