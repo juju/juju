@@ -233,6 +233,27 @@ func (suite *EnvironSuite) TestQuiesceStateFileFailsWithStateFile(c *C) {
 	c.Check(err, Not(IsNil))
 }
 
+func (suite *EnvironSuite) TestDestroy(c *C) {
+	env := suite.makeEnviron()
+	suite.getInstance("test1")
+	instance := suite.getInstance("test2")
+	data := makeRandomBytes(10)
+	suite.testMAASObject.TestServer.NewFile("filename", data)
+
+	err := env.Destroy([]environs.Instance{instance})
+
+	c.Check(err, IsNil)
+	// Instances have been stopped.
+	operations := suite.testMAASObject.TestServer.NodeOperations()
+	expectedOperations := map[string][]string{"test1": {"release"}, "test2": {"release"}}
+	c.Check(operations, DeepEquals, expectedOperations)
+	storage := NewStorage(env)
+	// Files have been cleaned up.
+	listing, err := storage.List("")
+	c.Assert(err, IsNil)
+	c.Assert(listing, DeepEquals, []string{})
+}
+
 func (suite *EnvironSuite) TestQuiesceStateFileFailsOnBrokenStateFile(c *C) {
 	const content = "@#$(*&Y%!"
 	reader := bytes.NewReader([]byte(content))

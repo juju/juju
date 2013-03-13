@@ -179,3 +179,33 @@ func (stor *maasStorage) Remove(name string) error {
 	stor.getSnapshot().maasClientUnlocked.GetSubObject(name).Delete()
 	return nil
 }
+
+func (stor *maasStorage) deleteAll() error {
+	names, err := stor.List("")
+	if err != nil {
+		return err
+	}
+	// Remove all the objects in parallel so that we incur less round-trips.
+	// If we're in danger of having hundreds of objects,
+	// we'll want to change this to limit the number
+	// of concurrent operations.
+	var wg sync.WaitGroup
+	wg.Add(len(names))
+	errc := make(chan error, len(names))
+	for _, name := range names {
+		name := name
+		go func() {
+			if err := stor.Remove(name); err != nil {
+				errc <- err
+			}
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+	select {
+	case err := <-errc:
+		return fmt.Errorf("cannot delete all provider state: %v", err)
+	default:
+	}
+	return nil
+}
