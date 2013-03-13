@@ -2,12 +2,12 @@ package state
 
 import (
 	"container/list"
+	"errors"
 	"fmt"
+	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
-	"labix.org/v2/mgo"
-	"errors"
 )
 
 type allInfoSuite struct {
@@ -199,25 +199,25 @@ func (*allWatcherSuite) TestChangedFetchErrorReturn(c *C) {
 }
 
 var allWatcherChangedTests = []struct {
-	about string
-	add []params.EntityInfo
-	inBacking []params.EntityInfo
-	change entityId
-	expectRevno int64
+	about          string
+	add            []params.EntityInfo
+	inBacking      []params.EntityInfo
+	change         entityId
+	expectRevno    int64
 	expectContents []entityEntry
-} {{
-	about: "no entity",
+}{{
+	about:  "no entity",
 	change: entityId{"machine", "1"},
 }, {
-	about: "entity is marked as removed if it's not there",
-	add: []params.EntityInfo{&params.MachineInfo{Id: "1"}},
-	change: entityId{"machine", "1"},
+	about:       "entity is marked as removed if it's not there",
+	add:         []params.EntityInfo{&params.MachineInfo{Id: "1"}},
+	change:      entityId{"machine", "1"},
 	expectRevno: 2,
 	expectContents: []entityEntry{{
-		revno: 2,
+		revno:   2,
 		removed: true,
 		info: &params.MachineInfo{
-			Id:         "1",
+			Id: "1",
 		},
 	}},
 }, {
@@ -225,7 +225,7 @@ var allWatcherChangedTests = []struct {
 	inBacking: []params.EntityInfo{
 		&params.MachineInfo{Id: "1"},
 	},
-	change: entityId{"machine", "1"},
+	change:      entityId{"machine", "1"},
 	expectRevno: 1,
 	expectContents: []entityEntry{{
 		revno: 1,
@@ -238,16 +238,16 @@ var allWatcherChangedTests = []struct {
 	},
 	inBacking: []params.EntityInfo{
 		&params.MachineInfo{
-			Id: "1",
+			Id:         "1",
 			InstanceId: "i-1",
 		},
 	},
-	change: entityId{"machine", "1"},
+	change:      entityId{"machine", "1"},
 	expectRevno: 2,
 	expectContents: []entityEntry{{
 		revno: 2,
-		info:  &params.MachineInfo{
-			Id: "1",
+		info: &params.MachineInfo{
+			Id:         "1",
 			InstanceId: "i-1",
 		},
 	}},
@@ -269,7 +269,7 @@ func (*allWatcherSuite) TestChanged(c *C) {
 	}
 }
 
-type entityMap map[entityId] params.EntityInfo
+type entityMap map[entityId]params.EntityInfo
 
 func (em entityMap) add(infos []params.EntityInfo) entityMap {
 	for _, info := range infos {
@@ -281,7 +281,7 @@ func (em entityMap) add(infos []params.EntityInfo) entityMap {
 func fetchFromMap(em entityMap) func(entityId) (params.EntityInfo, error) {
 	return func(id entityId) (params.EntityInfo, error) {
 		if info, ok := em[id]; ok {
-			return info, nil;
+			return info, nil
 		}
 		return nil, mgo.ErrNotFound
 	}
