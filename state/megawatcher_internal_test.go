@@ -52,7 +52,8 @@ var allInfoChangeMethodTests = []struct {
 	},
 	expectRevno: 1,
 	expectContents: []entityEntry{{
-		revno: 1,
+		creationRevno: 1,
+		revno:         1,
 		info: &params.MachineInfo{
 			Id:         "0",
 			InstanceId: "i-0",
@@ -72,13 +73,15 @@ var allInfoChangeMethodTests = []struct {
 	},
 	expectRevno: 2,
 	expectContents: []entityEntry{{
-		revno: 1,
+		creationRevno: 1,
+		revno:         1,
 		info: &params.MachineInfo{
 			Id:         "0",
 			InstanceId: "i-0",
 		},
 	}, {
-		revno: 2,
+		creationRevno: 2,
+		revno:         2,
 		info: &params.ServiceInfo{
 			Name:    "wordpress",
 			Exposed: true,
@@ -92,8 +95,9 @@ var allInfoChangeMethodTests = []struct {
 	},
 	expectRevno: 1,
 	expectContents: []entityEntry{{
-		revno: 1,
-		info:  &params.MachineInfo{Id: "1"},
+		creationRevno: 1,
+		revno:         1,
+		info:          &params.MachineInfo{Id: "1"},
 	}},
 }, {
 	about: "mark removed on existing entry",
@@ -104,12 +108,14 @@ var allInfoChangeMethodTests = []struct {
 	},
 	expectRevno: 3,
 	expectContents: []entityEntry{{
-		revno: 2,
-		info:  &params.MachineInfo{Id: "1"},
+		creationRevno: 2,
+		revno:         2,
+		info:          &params.MachineInfo{Id: "1"},
 	}, {
-		revno:   3,
-		removed: true,
-		info:    &params.MachineInfo{Id: "0"},
+		creationRevno: 1,
+		revno:         3,
+		removed:       true,
+		info:          &params.MachineInfo{Id: "0"},
 	}},
 }, {
 	about: "mark removed on nonexistent entry",
@@ -130,11 +136,13 @@ var allInfoChangeMethodTests = []struct {
 	},
 	expectRevno: 4,
 	expectContents: []entityEntry{{
-		revno:   3,
-		removed: true,
-		info:    &params.MachineInfo{Id: "0"},
+		creationRevno: 1,
+		revno:         3,
+		removed:       true,
+		info:          &params.MachineInfo{Id: "0"},
 	}, {
-		revno: 4,
+		creationRevno: 2,
+		revno:         4,
 		info: &params.MachineInfo{
 			Id:         "1",
 			InstanceId: "i-1",
@@ -167,11 +175,11 @@ func entityIdForInfo(info params.EntityInfo) entityId {
 
 func (s *allInfoSuite) TestChangesSince(c *C) {
 	a := newAllInfo()
-	var deltas []Delta
+	var deltas []params.Delta
 	for i := 0; i < 3; i++ {
 		m := &params.MachineInfo{Id: fmt.Sprint(i)}
 		allInfoAdd(a, m)
-		deltas = append(deltas, Delta{Entity: m})
+		deltas = append(deltas, params.Delta{Entity: m})
 	}
 	for i := 0; i < 3; i++ {
 		c.Logf("test %d", i)
@@ -187,20 +195,20 @@ func (s *allInfoSuite) TestChangesSince(c *C) {
 		InstanceId: "foo",
 	}
 	a.update(entityIdForInfo(m1), m1)
-	c.Assert(a.changesSince(rev), DeepEquals, []Delta{{Entity: m1}})
+	c.Assert(a.changesSince(rev), DeepEquals, []params.Delta{{Entity: m1}})
 
 	m0 := &params.MachineInfo{Id: "0"}
 	a.markRemoved(entityIdForInfo(m0))
-	c.Assert(a.changesSince(rev), DeepEquals, []Delta{{
+	c.Assert(a.changesSince(rev), DeepEquals, []params.Delta{{
 		Entity: m1,
 	}, {
-		Remove: true,
-		Entity: m0,
+		Removed: true,
+		Entity:  m0,
 	}})
 
-	c.Assert(a.changesSince(rev+1), DeepEquals, []Delta{{
-		Remove: true,
-		Entity: m0,
+	c.Assert(a.changesSince(rev+1), DeepEquals, []params.Delta{{
+		Removed: true,
+		Entity:  m0,
 	}})
 }
 
@@ -242,8 +250,9 @@ var allWatcherChangedTests = []struct {
 	change:      entityId{"machine", "1"},
 	expectRevno: 2,
 	expectContents: []entityEntry{{
-		revno:   2,
-		removed: true,
+		creationRevno: 1,
+		revno:         2,
+		removed:       true,
 		info: &params.MachineInfo{
 			Id: "1",
 		},
@@ -256,8 +265,9 @@ var allWatcherChangedTests = []struct {
 	change:      entityId{"machine", "1"},
 	expectRevno: 1,
 	expectContents: []entityEntry{{
-		revno: 1,
-		info:  &params.MachineInfo{Id: "1"},
+		creationRevno: 1,
+		revno:         1,
+		info:          &params.MachineInfo{Id: "1"},
 	}},
 }, {
 	about: "entity is updated if it's there",
@@ -273,7 +283,8 @@ var allWatcherChangedTests = []struct {
 	change:      entityId{"machine", "1"},
 	expectRevno: 2,
 	expectContents: []entityEntry{{
-		revno: 2,
+		creationRevno: 1,
+		revno:         2,
 		info: &params.MachineInfo{
 			Id:         "1",
 			InstanceId: "i-1",
