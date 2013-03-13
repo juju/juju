@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
@@ -44,9 +43,7 @@ func (s *BootstrapSuite) TearDownTest(c *C) {
 }
 
 func (*BootstrapSuite) TestBootstrapCommand(c *C) {
-	defer makeFakeHome(c, "brokenenv").restore()
-	err := ioutil.WriteFile(homePath(".juju", "environments.yaml"), []byte(envConfig), 0666)
-	c.Assert(err, IsNil)
+	defer testing.MakeFakeHome(c, envConfig, "brokenenv").Restore()
 
 	// normal bootstrap
 	opc, errc := runCommand(new(BootstrapCommand))
@@ -55,9 +52,9 @@ func (*BootstrapSuite) TestBootstrapCommand(c *C) {
 
 	// Check that the CA certificate and key have been automatically generated
 	// for the environment.
-	_, err = os.Stat(homePath(".juju", "peckham-cert.pem"))
+	_, err := os.Stat(testing.HomePath(".juju", "peckham-cert.pem"))
 	c.Assert(err, IsNil)
-	_, err = os.Stat(homePath(".juju", "peckham-private-key.pem"))
+	_, err = os.Stat(testing.HomePath(".juju", "peckham-private-key.pem"))
 	c.Assert(err, IsNil)
 
 	// bootstrap with tool uploading - checking that a file
@@ -89,7 +86,7 @@ func (*BootstrapSuite) TestBootstrapCommand(c *C) {
 }
 
 func (*BootstrapSuite) TestMissingEnvironment(c *C) {
-	defer makeFakeHome(c, "empty").restore()
+	defer testing.MakeFakeHomeNoEnvironments(c, "empty").Restore()
 	// bootstrap without an environments.yaml
 	ctx := testing.Context(c)
 	code := cmd.Main(&BootstrapCommand{}, ctx, nil)
