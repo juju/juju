@@ -218,7 +218,7 @@ func panicWrite(name string, cert, key []byte) error {
 	panic("writeCertAndKey called unexpectedly")
 }
 
-// If the bootstrap node is configured to require a public IP address (the default),
+// If the bootstrap node is configured to require a public IP address,
 // bootstrapping fails if an address cannot be allocated.
 func (s *localLiveSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
 	cleanup := s.srv.Service.Nova.RegisterControlPoint(
@@ -236,7 +236,7 @@ func (s *localLiveSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
 	newconfig["use-floating-ip"] = true
 	env, err := environs.NewFromAttrs(newconfig)
 	c.Assert(err, IsNil)
-	err = environs.Bootstrap(env, true, panicWrite)
+	err = environs.Bootstrap(env, s.CanOpenState, panicWrite)
 	c.Assert(err, ErrorMatches, ".*cannot allocate a public IP as needed.*")
 }
 
@@ -258,7 +258,7 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *C) {
 		},
 	)
 	defer cleanup()
-	err := environs.Bootstrap(s.Env, true, panicWrite)
+	err := environs.Bootstrap(s.Env, false, panicWrite)
 	c.Assert(err, IsNil)
 	inst, err := s.Env.StartInstance("100", testing.InvalidStateInfo("100"), testing.InvalidAPIInfo("100"), nil)
 	c.Assert(err, IsNil)
@@ -359,7 +359,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	policy := t.env.AssignmentPolicy()
 	c.Assert(policy, Equals, state.AssignUnused)
 
-	err := environs.Bootstrap(t.env, true, panicWrite)
+	err := environs.Bootstrap(t.env, false, panicWrite)
 	c.Assert(err, IsNil)
 
 	// check that the state holds the id of the bootstrap machine.

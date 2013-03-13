@@ -87,7 +87,7 @@ func (s *MachineSuite) TestMachineSetAgentAlive(c *C) {
 
 	pinger, err := s.machine.SetAgentAlive()
 	c.Assert(err, IsNil)
-	c.Assert(pinger, Not(IsNil))
+	c.Assert(pinger, NotNil)
 	defer pinger.Stop()
 
 	s.State.Sync()
