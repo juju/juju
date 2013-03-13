@@ -297,6 +297,119 @@ func (*allWatcherSuite) TestChanged(c *C) {
 	}
 }
 
+func (*allWatcherSuite) TestHandle(c *C) {
+	aw := newAllWatcher(&allWatcherTestBacking{})
+
+	// Add request from first watcher.
+	w0 := &StateWatcher{aw: aw}
+	req0 := &allRequest{
+		w: w0,
+		reply: make(chan bool, 1),
+	}
+	aw.handle(req0)
+	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest) {
+		w0: {req0},
+	})
+
+	// Add second request from first watcher.
+	req1 := &allRequest{
+		w: w0,
+		reply: make(chan bool, 1),
+	}
+	aw.handle(req1)
+	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest) {
+		w0: {req1, req0},
+	})
+
+	// Add request from second watcher.
+	w1 := &StateWatcher{aw: aw}
+	req2 := &allRequest{
+		w: w1,
+		reply: make(chan bool, 1)
+	}
+	aw.handle(req1)
+	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest) {
+		w0: {req1, req0},
+		w1: {req2},
+	})
+
+	// Stop first watcher.
+	req3 := &allRequest{
+		w: w0,
+	}
+	aw.handle(req3)
+	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest) {
+		w1: {req2},
+	})
+	assertReplied(c, false, req0)
+	assertReplied(c, false, req1)
+
+	// Stop second watcher.
+	
+}
+
+func (*allWatcherSuite) TestHandleStop(c *C) {
+	aw := newAllWatcher(&allWatcherTestBacking{})
+	w0 := &StateWatcher{aw: aw}
+	req0 := &allRequest{
+		w: w0,
+		reply: make(chan bool, 1),
+	}
+	aw.handle(req0)
+
+	req1 := &allRequest{
+		w: w0,
+		reply: make(chan bool, 1),
+	}
+	aw.handle(req0)
+
+	w1 := &StateWatcher{aw: aw}
+	req2 := &allRequest{
+		w: w1,
+		reply: make(chan bool, 1)
+	}
+	aw.handle(req1)
+	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest) {
+		w0: {req1, req0},
+		w1: {req2},
+	}
+}
+	
+
+func assertNotReplied(c *C, req *allRequest) {
+	select {
+	case v := <-req.reply:
+		c.Fatalf("request was unexpectedly replied to (got %v)", v)
+	default:
+	}
+}
+
+func assertReplied(c *C, val bool, req *allRequest) {
+	select {
+	case v := <-req.reply:
+		c.Assert(v, Equals, val)
+	default:
+		c.Fatalf("request was not replied to")
+	}
+}
+
+func assertWaitingRequests(c *C, aw *allWatcher, waiting map[*StateWatcher][]*allRequest) {
+	c.Assert(aw.reqs, HasLen, len(reqs))
+	for w, reqs := range waiting {
+		i := 0
+		for req := aw.waiting[w]; ; req = req.next {
+			if i >= len(reqs) {
+				c.Assert(req, Equals, nil)
+				break
+			}
+			c.Assert(req, Equals, reqs[i]
+			assertNothingInChan(req.reply)
+			i++
+		}
+	}
+}
+
+
 type entityMap map[entityId]params.EntityInfo
 
 func (em entityMap) add(infos []params.EntityInfo) entityMap {

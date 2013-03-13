@@ -10,7 +10,7 @@ import (
 
 // StateWatcher watches any changes to the state.
 type StateWatcher struct {
-	all *allWatcher
+	aw *allWatcher
 
 	// The following fields are maintained by the allWatcher
 	// goroutine.
@@ -107,10 +107,6 @@ type allRequest struct {
 	// If the reply is false, the watcher has been stopped.
 	reply chan bool
 
-	// On reply, changes will hold changes that have occurred since
-	// the last replied-to Next request.
-	changes []params.Delta
-
 	// next points to the next request in the list of outstanding
 	// requests on a given watcher.  It is used only by the central
 	// allWatcher goroutine.
@@ -139,7 +135,7 @@ func (aw *allWatcher) handle(req *allRequest) {
 			req.reply <- false
 		}
 		delete(aw.waiting, req.w)
-		aw.leave(req.w)
+		req.w.stopped = true
 		return
 	}
 	// Add request to head of list.
@@ -164,26 +160,6 @@ func (aw *allWatcher) changed(id entityId) error {
 	return nil
 }
 
-// leave is called when the given watcher leaves.  It decrements the reference
-// counts of any entities that have been seen by the watcher.
-func (aw *allWatcher) leave(w *StateWatcher) {
-	for e := aw.all.list.Front(); e != nil; {
-		prev := e.Prev()
-		entry := e.Value.(*entityEntry)
-		if entry.creationRevno <= w.revno {
-			// The watcher has seen this entry.
-			if entry.removed && entry.revno <= w.revno {
-				// The entity has been removed and the
-				// watcher has already been informed of that,
-				// so its refcount has already been decremented.
-				continue
-			}
-			aw.all.decRef(entry, aw.backing.entityIdForInfo(entry.info))
-		}
-		e = prev
-	}
-}
-
 // entityEntry holds an entry in the linked list of all entities known
 // to a StateWatcher.
 type entityEntry struct {
@@ -193,14 +169,6 @@ type entityEntry struct {
 	// to the front of the list without worrying if the revno has
 	// changed since the watcher reported it.
 	revno int64
-
-	// creationRevno holds the revision number when the
-	// entity was created.
-	creationRevno int64
-
-	// refCount holds a count of the number of watchers that
-	// have seen this entity.
-	refCount int
 
 	// removed marks whether the entity has been removed.
 	removed bool
@@ -239,26 +207,6 @@ func (a *allInfo) add(id entityId, info params.EntityInfo) {
 		revno: a.latestRevno,
 	}
 	a.entities[id] = a.list.PushFront(entry)
-}
-
-// decRef decrements the reference count of an entry within the list by
-// the given count, removing it if drops to zero.
-func (a *allInfo) decRef(entry *entityEntry, id entityId) {
-	if entry.refCount--; entry.refCount > 0 {
-		return
-	}
-	if entry.refCount < 0 {
-		panic("negative reference count")
-	}
-	elem := a.entities[id]
-	if elem == nil {
-		panic("delete of non-existent entry")
-	}
-	if !elem.Value.(*entityEntry).removed {
-		panic("deleting entry that has not been marked as removed")
-	}
-	delete(a.entities, id)
-	a.list.Remove(elem)
 }
 
 // delete deletes the entry with the given entity id.
