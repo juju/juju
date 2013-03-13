@@ -42,22 +42,19 @@ const SampleCertName = "erewhemos"
 
 type FakeHome string
 
-// MakeFakeHome creates a new temporary directory through the test checker,
-// and overrides the HOME environment variable to point to this new temporary
-// directory.
+// MakeFakeHomeNoEnvironments creates a new temporary directory through the
+// test checker, and overrides the HOME environment variable to point to this
+// new temporary directory.
 //
-// A new ~/.juju/environments.yaml file is created with the content of the
-// `config` parameter, and CAKeys are written for each of the 'certNames'
-// specified.
-func MakeFakeHome(c *C, config string, certNames ...string) FakeHome {
+// No ~/.juju/environments.yaml exists, but CAKeys are written for each of the
+// 'certNames' specified, and the id_rsa.pub file is written to to the .ssh
+// dir.
+func MakeFakeHomeNoEnvironments(c *C, certNames ...string) FakeHome {
 	oldHome := os.Getenv("HOME")
 	os.Setenv("HOME", c.MkDir())
 
 	err := os.Mkdir(HomePath(".juju"), 0755)
 	c.Assert(err, IsNil)
-
-	envs := HomePath(".juju", "environments.yaml")
-	err = ioutil.WriteFile(envs, []byte(config), 0644)
 
 	for _, name := range certNames {
 		err := ioutil.WriteFile(HomePath(".juju", name+"-cert.pem"), []byte(CACert), 0600)
@@ -72,6 +69,23 @@ func MakeFakeHome(c *C, config string, certNames ...string) FakeHome {
 	c.Assert(err, IsNil)
 
 	return FakeHome(oldHome)
+}
+
+// MakeFakeHome creates a new temporary directory through the test checker,
+// and overrides the HOME environment variable to point to this new temporary
+// directory.
+//
+// A new ~/.juju/environments.yaml file is created with the content of the
+// `config` parameter, and CAKeys are written for each of the 'certNames'
+// specified.
+func MakeFakeHome(c *C, config string, certNames ...string) FakeHome {
+	fake := MakeFakeHomeNoEnvironments(c, certNames...)
+
+	envs := HomePath(".juju", "environments.yaml")
+	err := ioutil.WriteFile(envs, []byte(config), 0644)
+	c.Assert(err, IsNil)
+
+	return fake
 }
 
 func HomePath(names ...string) string {
