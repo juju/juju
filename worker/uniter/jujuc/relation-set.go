@@ -51,7 +51,10 @@ func (c *RelationSetCommand) Init(args []string) error {
 }
 
 func (c *RelationSetCommand) Run(ctx *cmd.Context) (err error) {
-	// TODO: write a deprecated warning... but where?
+	if c.formatFlag != "" {
+		msg := fmt.Sprintf("--format flag deprecated for command %q", c.Info().Name)
+		ctx.Stderr.Write([]byte(msg))
+	}
 	r, found := c.ctx.Relation(c.RelationId)
 	if !found {
 		return fmt.Errorf("unknown relation id")

@@ -44,8 +44,11 @@ func (c *JujuLogCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *JujuLogCommand) Run(_ *cmd.Context) error {
-	// TODO: write a deprecated warning... but where?
+func (c *JujuLogCommand) Run(ctx *cmd.Context) error {
+	if c.formatFlag != "" {
+		msg := fmt.Sprintf("--format flag deprecated for command %q", c.Info().Name)
+		ctx.Stderr.Write([]byte(msg))
+	}
 	badge := c.ctx.UnitName()
 	if r, found := c.ctx.HookRelation(); found {
 		badge = badge + " " + r.FakeId()

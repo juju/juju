@@ -14,10 +14,11 @@ const portFormat = "<port>[/<protocol>]"
 // portCommand implements the open-port and close-port commands.
 type portCommand struct {
 	cmd.CommandBase
-	info     *cmd.Info
-	action   func(*portCommand) error
-	Protocol string
-	Port     int
+	info       *cmd.Info
+	action     func(*portCommand) error
+	Protocol   string
+	Port       int
+	formatFlag string // deprecated
 }
 
 func (c *portCommand) Info() *cmd.Info {
@@ -29,7 +30,7 @@ func badPort(value interface{}) error {
 }
 
 func (c *portCommand) SetFlags(f *gnuflag.FlagSet) {
-	// No extra flags.
+	f.StringVar(&c.formatFlag, "format", "", "Deprecated format flag")
 }
 
 func (c *portCommand) Init(args []string) error {
@@ -59,7 +60,11 @@ func (c *portCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args[1:])
 }
 
-func (c *portCommand) Run(_ *cmd.Context) error {
+func (c *portCommand) Run(ctx *cmd.Context) error {
+	if c.formatFlag != "" {
+		msg := fmt.Sprintf("--format flag deprecated for command %q", c.Info().Name)
+		ctx.Stderr.Write([]byte(msg))
+	}
 	return c.action(c)
 }
 
