@@ -170,13 +170,18 @@ func (suite *EnvironSuite) TestPublicStorageReturnsEmptyStorage(c *C) {
 }
 
 func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
-	input := `{"system_id": "test"}`
+	const input = `{"system_id": "test"}`
+	const machineID = "99"
 	node := suite.testMAASObject.TestServer.NewNode(input)
-	resourceURI, _ := node.GetField("resource_uri")
+	resourceURI, err := node.GetField("resource_uri")
+	c.Assert(err, IsNil)
+	env := suite.makeEnviron()
+	tools, err := environs.PutTools(env.Storage(), nil)
+	c.Assert(err, IsNil)
 
-	instance, err := suite.environ.StartInstance(resourceURI, nil, nil, nil)
+	instance, err := env.StartInstance(machineID, nil, nil, tools)
+	c.Assert(err, IsNil)
 
-	c.Check(err, IsNil)
 	c.Check(string(instance.Id()), Equals, resourceURI)
 	operations := suite.testMAASObject.TestServer.NodeOperations()
 	actions, found := operations["test"]
@@ -240,13 +245,18 @@ func (suite *EnvironSuite) TestQuiesceStateFileFailsOnBrokenStateFile(c *C) {
 	c.Check(err, Not(IsNil))
 }
 
-func (suite *EnvironSuite) TestBootstrap(c *C) {
+func (suite *EnvironSuite) TestBootstrapSucceeds(c *C) {
 	env := suite.makeEnviron()
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "thenode"}`)
 
 	err := env.Bootstrap(true, []byte{}, []byte{})
-	// TODO: Get this to succeed.
-	unused(err)
-	// c.Assert(err, IsNil)
+	c.Assert(err, IsNil)
+}
 
-	// TODO: Verify a simile of success.
+func (suite *EnvironSuite) TestBootstrapFailsIfNoNodes(c *C) {
+	env := suite.makeEnviron()
+	err := env.Bootstrap(true, []byte{}, []byte{})
+	// Since there are no nodes, the attempt to allocate one returns a
+	// 409: Conflict.
+	c.Check(err, ErrorMatches, ".*409.*")
 }
