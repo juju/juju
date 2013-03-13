@@ -119,6 +119,7 @@ func newAllWatcher(backing allWatcherBacking) *allWatcher {
 	return &allWatcher{
 		backing: backing,
 		all:     newAllInfo(),
+		waiting: make(map[*StateWatcher]*allRequest),
 	}
 }
 
