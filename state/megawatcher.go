@@ -253,18 +253,9 @@ func (a *allInfo) update(id entityId, info params.EntityInfo) {
 	a.list.MoveToFront(elem)
 }
 
-// Delta holds details of a change to the environment.
-type Delta struct {
-	// If Remove is true, the entity has been removed;
-	// otherwise it has been created or changed.
-	Remove bool
-	// Entity holds data about the entity that has changed.
-	Entity params.EntityInfo
-}
-
 // changesSince returns any changes that have occurred since
 // the given revno, oldest first.
-func (a *allInfo) changesSince(revno int64) []Delta {
+func (a *allInfo) changesSince(revno int64) []params.Delta {
 	e := a.list.Front()
 	n := 0
 	for ; e != nil; e = e.Next() {
@@ -282,12 +273,12 @@ func (a *allInfo) changesSince(revno int64) []Delta {
 		e = a.list.Back()
 		n++
 	}
-	changes := make([]Delta, 0, n)
+	changes := make([]params.Delta, 0, n)
 	for ; e != nil; e = e.Prev() {
 		entry := e.Value.(*entityEntry)
-		changes = append(changes, Delta{
-			Remove: entry.removed,
-			Entity: entry.info,
+		changes = append(changes, params.Delta{
+			Removed: entry.removed,
+			Entity:  entry.info,
 		})
 	}
 	return changes
