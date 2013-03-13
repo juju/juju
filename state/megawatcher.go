@@ -10,11 +10,8 @@ import (
 
 // StateWatcher watches any changes to the state.
 type StateWatcher struct {
-	aw *allWatcher
-
 	// The following fields are maintained by the allWatcher
 	// goroutine.
-	revno   int64
 	stopped bool
 }
 
