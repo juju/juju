@@ -38,7 +38,7 @@ var FormatJson = json.Marshal
 
 // FormatSmart marshals value into a []byte according to the following rules:
 //   * string:        untouched
-//   * bool:          converted to `true` or `false`
+//   * bool:          converted to `True` or `False` (to match pyjuju)
 //   * int or float:  converted to sensible strings
 //   * []string:      joined by `\n`s into a single string
 //   * anything else: delegate to FormatYaml
@@ -54,7 +54,12 @@ func FormatSmart(value interface{}) ([]byte, error) {
 		if v.Type().Elem().Kind() == reflect.String {
 			return []byte(strings.Join(value.([]string), "\n")), nil
 		}
-	case reflect.Map, reflect.Bool, reflect.Float32, reflect.Float64:
+	case reflect.Bool:
+		if value.(bool) {
+			return []byte("True"), nil
+		}
+		return []byte("False"), nil
+	case reflect.Map, reflect.Float32, reflect.Float64:
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 	default:
