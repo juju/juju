@@ -1220,7 +1220,6 @@ func (s *suite) TestClientServiceDestroy(c *C) {
 	serviceName := "wordpress"
 	service, err := s.State.Service(serviceName)
 	c.Assert(err, IsNil)
-	c.Assert(service.IsExposed(), Equals, false)
 	// Code under test:
 	err = s.APIState.Client().ServiceDestroy(serviceName)
 	c.Assert(err, IsNil)

@@ -140,11 +140,7 @@ func (c *Client) ServiceDestroy(service string) error {
 	params := params.ServiceDestroy{
 		ServiceName: service,
 	}
-	err := c.st.client.Call("Client", "", "ServiceDestroy", params, nil)
-	if err != nil {
-		return clientError(err)
-	}
-	return nil
+	return clientError(c.st.client.Call("Client", "", "ServiceDestroy", params, nil))
 }
 
 // CharmInfo holds information about a charm.

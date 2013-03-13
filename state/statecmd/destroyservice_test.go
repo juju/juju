@@ -35,7 +35,7 @@ var serviceDestroyTests = []struct {
 	},
 }
 
-func (s *ExposeSuite) TestServiceDestroy(c *C) {
+func (s *DestroySuite) TestServiceDestroy(c *C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	svc, err := s.State.AddService("dummy-service", charm)
 	c.Assert(err, IsNil)
