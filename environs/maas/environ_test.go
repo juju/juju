@@ -245,12 +245,18 @@ func (suite *EnvironSuite) TestQuiesceStateFileFailsOnBrokenStateFile(c *C) {
 	c.Check(err, Not(IsNil))
 }
 
-func (suite *EnvironSuite) TestBootstrap(c *C) {
+func (suite *EnvironSuite) TestBootstrapSucceeds(c *C) {
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "thenode"}`)
 
 	err := env.Bootstrap(true, []byte{}, []byte{})
 	c.Assert(err, IsNil)
+}
 
-	// TODO: Verify a simile of success.
+func (suite *EnvironSuite) TestBootstrapFailsIfNoNodes(c *C) {
+	env := suite.makeEnviron()
+	err := env.Bootstrap(true, []byte{}, []byte{})
+	// Since there are no nodes, the attempt to allocate one returns a
+	// 409: Conflict.
+	c.Check(err, ErrorMatches, ".*409.*")
 }
