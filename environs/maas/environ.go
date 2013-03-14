@@ -193,7 +193,7 @@ func (env *maasEnviron) Bootstrap(uploadTools bool, stateServerCert, stateServer
 
 // StateInfo is specified in the Environ interface.
 func (env *maasEnviron) StateInfo() (*state.Info, *api.Info, error) {
-	// This code is cargo-clulted from the openstack/ec2 providers.
+	// This code is cargo-culted from the openstack/ec2 providers.
 	// It's a bit unclear what the "longAttempt" loop is actually for
 	// but this should probably be refactored outside of the provider
 	// code.
