@@ -18,7 +18,7 @@ func (s *VersionSuite) TestVersion(c *C) {
 		Stdout: &stdout,
 		Stderr: &stderr,
 	}
-	code := cmd.Main(&VersionCommand{}, ctx, nil)
+	code := cmd.Main(&cmd.VersionCommand{}, ctx, nil)
 	c.Check(code, Equals, 0)
 	c.Assert(stderr.String(), Equals, "")
 	c.Assert(stdout.String(), Equals, version.Current.String()+"\n")
@@ -30,7 +30,7 @@ func (s *VersionSuite) TestVersionExtraArgs(c *C) {
 		Stdout: &stdout,
 		Stderr: &stderr,
 	}
-	code := cmd.Main(&VersionCommand{}, ctx, []string{"foo"})
+	code := cmd.Main(&cmd.VersionCommand{}, ctx, []string{"foo"})
 	c.Check(code, Equals, 2)
 	c.Assert(stdout.String(), Equals, "")
 	c.Assert(stderr.String(), Matches, "error: unrecognized args.*\n")
@@ -42,7 +42,7 @@ func (s *VersionSuite) TestVersionJson(c *C) {
 		Stdout: &stdout,
 		Stderr: &stderr,
 	}
-	code := cmd.Main(&VersionCommand{}, ctx, []string{"--format", "json"})
+	code := cmd.Main(&cmd.VersionCommand{}, ctx, []string{"--format", "json"})
 	c.Check(code, Equals, 0)
 	c.Assert(stderr.String(), Equals, "")
 	c.Assert(stdout.String(), Equals, fmt.Sprintf("%q", version.Current.String())+"\n")
