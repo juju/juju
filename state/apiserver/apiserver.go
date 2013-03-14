@@ -358,7 +358,7 @@ func (c *srvClient) AddServiceUnits(args params.AddServiceUnits) error {
 	return statecmd.AddServiceUnits(c.root.srv.state, args)
 }
 
-// DestroyServiceUnits removes a given number of units from a service.
+// DestroyServiceUnits removes a given set of service units.
 func (c *srvClient) DestroyServiceUnits(args params.DestroyServiceUnits) error {
 	return statecmd.DestroyServiceUnits(c.root.srv.state, args)
 }
