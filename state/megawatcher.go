@@ -3,6 +3,7 @@ package state
 import (
 	"container/list"
 	"labix.org/v2/mgo"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/tomb"
 	"reflect"
@@ -150,12 +151,16 @@ func (aw *allWatcher) handle(req *allRequest) {
 
 // respond responds to all outstanding requests that are satisfiable.
 func (aw *allWatcher) respond() {
+	log.Printf("respond")
 	for w, req := range aw.waiting {
 		revno := w.revno
 		changes := aw.all.changesSince(revno)
+		log.Printf("looking for changes since %d", revno)
 		if len(changes) == 0 {
+			log.Printf("no changes")
 			continue
 		}
+		log.Printf("got %+v", changes)
 		req.changes = changes
 		w.revno = aw.all.latestRevno
 		req.reply <- true
@@ -167,6 +172,7 @@ func (aw *allWatcher) respond() {
 		}
 		aw.seen(revno)
 	}
+	log.Printf("responded")
 }
 
 // changed updates the allWatcher's idea of the current state
@@ -190,14 +196,17 @@ func (aw *allWatcher) changed(id entityId) error {
 // all entities newer than the given revno.  We assume it has already
 // seen all the older entities.
 func (aw *allWatcher) seen(revno int64) {
+	log.Printf("seen %d", revno)
 	for e := aw.all.list.Front(); e != nil; {
-		prev := e.Prev()
+		next := e.Next()
 		entry := e.Value.(*entityEntry)
+		action := "nothing"
 		if entry.creationRevno > revno {
 			if !entry.removed {
 				// This is a new entity that hasn't been seen yet,
 				// so increment the entry's refCount.	
 				entry.refCount++
+				action = "inc ref"
 			}
 		} else if entry.removed {
 			// This is an entity that we previously saw, but
@@ -205,17 +214,22 @@ func (aw *allWatcher) seen(revno int64) {
 			// the entry nothing else is waiting to be notified that it's
 			// gone.
 			aw.all.decRef(entry, aw.backing.entityIdForInfo(entry.info))
+			action = "dec ref"
 		}
-		e = prev
+		log.Printf("entry %#v: %s", entry.info, action)
+		e = next
 	}
+	log.Printf("done seen")
 }
 
 // leave is called when the given watcher leaves.  It decrements the reference
 // counts of any entities that have been seen by the watcher.
 func (aw *allWatcher) leave(w *StateWatcher) {
+	log.Printf("leaving, revno %d, checking %d entries", w.revno, aw.all.list.Len())
 	for e := aw.all.list.Front(); e != nil; {
-		prev := e.Prev()
+		next := e.Next()
 		entry := e.Value.(*entityEntry)
+		log.Printf("checking entry %+v; info %#v", entry, entry.info)
 		if entry.creationRevno <= w.revno {
 			// The watcher has seen this entry.
 			if entry.removed && entry.revno <= w.revno {
@@ -224,9 +238,11 @@ func (aw *allWatcher) leave(w *StateWatcher) {
 				// so its refcount has already been decremented.
 				continue
 			}
+			log.Printf("decref")
 			aw.all.decRef(entry, aw.backing.entityIdForInfo(entry.info))
 		}
-		e = prev
+		log.Printf("checked entry")
+		e = next
 	}
 }
 

@@ -555,6 +555,123 @@ func (*allWatcherSuite) TestHandleStopNoDecRefIfNotSeen(c *C) {
 //	
 //}
 
+var respondTestChanges = []func(all *allInfo){
+	func(all *allInfo) {
+		allInfoAdd(all, &params.MachineInfo{Id: "0"})
+	},
+	func(all *allInfo) {
+		allInfoAdd(all, &params.MachineInfo{Id: "1"})
+	},
+	func(all *allInfo) {
+		all.markRemoved(entityId{"machine", "0"})
+	},
+	func(all *allInfo) {
+		all.update(entityId{"machine", "1"}, &params.MachineInfo{
+			Id: "1",
+			InstanceId: "i-1",
+		})
+	},
+}
+
+var (
+	respondTestFinalState = []entityEntry{{
+		creationRevno: 2,
+		revno: 4,
+		info: &params.MachineInfo{
+			Id:         "1",
+			InstanceId: "i-1",
+		},
+	}}
+	respondTestFinalRevno = respondTestFinalState[0].revno
+)
+
+func (*allWatcherSuite) TestRespondResults(c *C) {
+	// We test the response results by interleaving notional
+	// Next requests in all possible combinations
+	// after each change in respondTestChanges
+	// and checking that the view of the world as seen
+	// by the watcher matches the actual current state.
+
+	// We decide whether if we call respond by
+	// inspecting a number n - bit i of n determines whether
+	// a request will be responded to after running respondTestChanges[n].
+
+	for n := 0; n < 1<<uint(len(respondTestChanges)); n++ {
+		aw := newAllWatcher(&allWatcherTestBacking{})
+		c.Logf("test %d. (%0*b)", n, len(respondTestChanges), n)
+		w := &StateWatcher{}
+		wstate := make(watcherState)
+		req := &allRequest{
+			w: w,
+			reply: make(chan bool, 1),
+		}
+		// Add the request, ready to be responded to.
+		aw.handle(req)
+		assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
+			w: {req},
+		})
+		// Make each change in turn, and respond if n dictates it.
+		for i, change := range respondTestChanges {
+			c.Logf("change %d", i)
+			change(aw.all)
+			if n & (1 << uint(i)) == 0 {
+				continue
+			}
+			aw.respond()
+			select {
+			case ok := <-req.reply:
+				c.Assert(ok, Equals, true)
+				c.Assert(len(req.changes) > 0, Equals, true)
+				wstate.update(req.changes)
+				req = &allRequest{
+					w: w,
+					reply: make(chan bool, 1),
+				}
+				aw.handle(req)
+				assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
+					w: {req},
+				})
+			default:
+			}
+			wstate.check(c, aw.all)
+		}
+		// Stop the watcher and check that all ref counts end up at zero
+		// and removed objects are deleted.
+		aw.handle(&allRequest{w: w})
+		assertReplied(c, false, req)
+		assertAllInfoContents(c, aw.all, respondTestFinalRevno, respondTestFinalState)
+	}
+}
+
+
+// watcherState represents a StateWatcher client's
+// current view of the state. It holds the last delta that a given
+// state watcher has seen for each entity.
+type watcherState map[entityId] params.Delta
+
+func (s watcherState) update(changes []params.Delta) {
+	for _, d := range changes {
+		id := entityIdForInfo(d.Entity)
+		if d.Removed {
+			delete(s, id)
+		} else {
+			s[id] = d
+		}
+	}
+}
+
+// check checks that the watcher state matches that
+// held in current.
+func (s watcherState) check(c *C, current *allInfo) {
+	currentEntities := make(watcherState)
+	for id, elem := range current.entities {
+		entry := elem.Value.(*entityEntry)
+		if !entry.removed {
+			currentEntities[id] = params.Delta{Entity: entry.info}
+		}
+	}
+	c.Assert(s, DeepEquals, currentEntities)
+}
 
 func assertNotReplied(c *C, req *allRequest) {
 	select {
