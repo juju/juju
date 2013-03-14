@@ -240,6 +240,7 @@ func (s *FilterSuite) TestUpgradeEvents(c *C) {
 func (s *FilterSuite) TestConfigEvents(c *C) {
 	f, err := newFilter(s.State, s.unit.Name())
 	c.Assert(err, IsNil)
+	defer f.Stop()
 
 	assertNoChange := func() {
 		s.State.StartSync()
@@ -250,19 +251,6 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 		}
 	}
 
-	// Ensure no charm URL is set and then set it to trigger config events.
-	_, ok := s.unit.CharmURL()
-	c.Assert(ok, Equals, false)
-	err = f.SetCharm(s.wpcharm.URL())
-	c.Assert(err, IsNil)
-	assertNoChange()
-
-	// Make sure the charm URL is set now.
-	s.unit.Refresh()
-	_, ok = s.unit.CharmURL()
-	c.Assert(ok, Equals, true)
-
-	// Initial event.
 	assertChange := func() {
 		s.State.Sync()
 		select {
@@ -272,8 +260,19 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 			c.Fatalf("timed out")
 		}
 	}
+
+	// Ensure no charm URL is set and then set it to trigger config events.
+	_, ok := s.unit.CharmURL()
+	c.Assert(ok, Equals, false)
+	err = f.SetCharm(s.wpcharm.URL())
+	c.Assert(err, IsNil)
 	assertChange()
 	assertNoChange()
+
+	// Make sure the charm URL is set now.
+	s.unit.Refresh()
+	_, ok = s.unit.CharmURL()
+	c.Assert(ok, Equals, true)
 
 	// Change the config; new event received.
 	node, err := s.wordpress.Config()
@@ -297,7 +296,6 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 
 	// Check that a filter's initial event works with DiscardConfigEvent
 	// as expected.
-	f.Stop()
 	f, err = newFilter(s.State, s.unit.Name())
 	c.Assert(err, IsNil)
 	defer f.Stop()
