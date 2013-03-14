@@ -8,7 +8,6 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -171,32 +170,31 @@ func (suite *EnvironSuite) TestPublicStorageReturnsEmptyStorage(c *C) {
 	c.Check(storage, Equals, environs.EmptyStorage)
 }
 
+// fakeWriteCertAndKey is a stub for the writeCertAndKey to Bootstrap() that
+// always returns an error.  It should never be called.
+func fakeWriteCertAndKey(name string, cert, key []byte) error {
+	return fmt.Errorf("unexpected call to writeCertAndKey")
+}
+
 func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
-	const input = `{"system_id": "test"}`
-	const machineID = "99"
-	node := suite.testMAASObject.TestServer.NewNode(input)
-	resourceURI, err := node.GetField("resource_uri")
-	c.Assert(err, IsNil)
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node1", "hostname": "host1"}`)
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node2", "hostname": "host2"}`)
 	env := suite.makeEnviron()
-	tools, err := environs.PutTools(env.Storage(), nil)
+	err := environs.Bootstrap(env, true, fakeWriteCertAndKey)
+	stateInfo, apiInfo, err := env.StateInfo()
 	c.Assert(err, IsNil)
-	stateInfo := state.Info{
-		CACert:     []byte{1, 2, 3},
-		Addrs:      []string{machineID},
-		EntityName: state.MachineEntityName(machineID),
-	}
-	apiInfo := api.Info{
-		CACert:     []byte{7, 8, 9},
-		Addrs:      []string{machineID},
-		EntityName: state.MachineEntityName(machineID),
-	}
+	stateInfo.EntityName = "machine-1"
+	apiInfo.EntityName = "machine-1"
 
-	instance, err := env.StartInstance(machineID, &stateInfo, &apiInfo, tools)
+	instance, err := env.StartInstance("1", stateInfo, apiInfo, nil)
 	c.Assert(err, IsNil)
+	c.Check(instance, NotNil)
 
-	c.Check(string(instance.Id()), Equals, resourceURI)
 	operations := suite.testMAASObject.TestServer.NodeOperations()
-	actions, found := operations["test"]
+	actions, found := operations["node1"]
+	c.Check(found, Equals, true)
+	c.Check(actions, DeepEquals, []string{"start"})
+	actions, found = operations["node2"]
 	c.Check(found, Equals, true)
 	c.Check(actions, DeepEquals, []string{"start"})
 }
@@ -299,12 +297,6 @@ func (suite *EnvironSuite) TestBootstrapFailsIfNoNodes(c *C) {
 	// Since there are no nodes, the attempt to allocate one returns a
 	// 409: Conflict.
 	c.Check(err, ErrorMatches, ".*409.*")
-}
-
-// fakeWriteCertAndKey is a stub for the writeCertAndKey to Bootstrap() that
-// always returns an error.  It should never be called.
-func fakeWriteCertAndKey(name string, cert, key []byte) error {
-	return fmt.Errorf("unexpected call to writeCertAndKey")
 }
 
 func (suite *EnvironSuite) TestBootstrapIntegratesWithEnvirons(c *C) {
