@@ -38,8 +38,8 @@ func (c *DestroyUnitCommand) Init(args []string) error {
 	return nil
 }
 
-// DestroyUnitCommand connects to the environment specified on the command line
-// and calls destroys units therein.
+// Run connects to the environment specified on the command line and destroys
+// units therein.
 func (c *DestroyUnitCommand) Run(_ *cmd.Context) (err error) {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {

@@ -129,10 +129,7 @@ func (c *Client) ServiceAddUnits(service string, numUnits int) error {
 		NumUnits:    numUnits,
 	}
 	err := c.st.client.Call("Client", "", "ServiceAddUnits", params, nil)
-	if err != nil {
-		return clientError(err)
-	}
-	return nil
+        return clientError(err)
 }
 
 // ServiceDestroyUnits decreases the number of units dedicated to a service.
