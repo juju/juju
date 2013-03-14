@@ -120,7 +120,7 @@ func (*BootstrapSuite) TestRunGeneratesCertificate(c *C) {
 	c.Assert(info.Size() > 0, Equals, true)
 
 	// Check that the environment validates the cert and key.
-	env, err := environs.NewFromName(envName)
+	_, err = environs.NewFromName(envName)
 	c.Assert(err, IsNil)
 }
 
