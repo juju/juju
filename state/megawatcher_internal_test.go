@@ -166,6 +166,10 @@ func (s *allInfoSuite) TestAllInfoChangeMethods(c *C) {
 	}
 }
 
+func (s *allInfoSuite) TestDecRef(c *c) {
+	...
+}
+
 func entityIdForInfo(info params.EntityInfo) entityId {
 	return entityId{
 		collection: info.EntityKind(),
@@ -361,6 +365,11 @@ func (*allWatcherSuite) TestHandle(c *C) {
 	assertWaitingRequests(c, aw, nil)
 	assertReplied(c, false, req2)
 }
+
+func (*allWatcherSuite) TestRespond(c *C) {
+	...
+}
+
 
 func assertNotReplied(c *C, req *allRequest) {
 	select {
