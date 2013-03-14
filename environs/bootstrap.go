@@ -6,7 +6,7 @@ import (
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/environs/config"
 	"os"
-	"path/filepath"
+	"path"
 	"time"
 )
 
@@ -59,7 +59,7 @@ func Bootstrap(environ Environ, uploadTools bool, writeCertAndKey func(environNa
 }
 
 func writeCertAndKeyToHome(name string, cert, key []byte) error {
-	path := filepath.Join(os.Getenv("HOME"), ".juju", name)
+	path := path.Join(os.Getenv("HOME"), ".juju", name)
 	if err := ioutil.WriteFile(path+"-cert.pem", cert, 0644); err != nil {
 		return err
 	}
