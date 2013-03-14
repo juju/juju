@@ -363,6 +363,11 @@ func (c *srvClient) ServiceDestroy(args params.ServiceDestroy) error {
 	return statecmd.ServiceDestroy(c.root.srv.state, args)
 }
 
+// DestroyRelation destroys the relation between the named endpoints.
+func (c *srvClient) DestroyRelation(args params.DestroyRelation) error {
+	return statecmd.DestroyRelation(c.root.srv.state, args)
+}
+
 // CharmInfo returns information about the requested charm.
 func (c *srvClient) CharmInfo(args params.CharmInfo) (api.CharmInfo, error) {
 	curl, err := charm.ParseURL(args.CharmURL)

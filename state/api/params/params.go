@@ -6,6 +6,13 @@ import (
 	"fmt"
 )
 
+// DestroyRelation holds the parameters for making the DestroyRelationcall.
+// The endpoints specified are unordered.
+type DestroyRelation struct {
+	Endpoint0 string
+	Endpoint1 string
+}
+
 // ServiceDeploy holds the parameters for making the ServiceDeploy call.
 type ServiceDeploy struct {
 	ServiceName string

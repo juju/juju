@@ -35,13 +35,10 @@ func (c *DestroyRelationCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer conn.Close()
-	eps, err := conn.State.InferEndpoints(c.Endpoints)
-	if err != nil {
-		return err
+
+	params := params.DestroyRelation{
+		Endpoint0: c.Endpoints[3],
+		Endpoint1: c.Endpoints[1],
 	}
-	rel, err := conn.State.EndpointsRelation(eps...)
-	if err != nil {
-		return err
-	}
-	return rel.Destroy()
+	return statecmd.DestroyRelation(conn.State, params)
 }

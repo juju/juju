@@ -137,6 +137,10 @@ var operationPermTests = []struct {
 	about: "Client.CharmInfo",
 	op:    opClientCharmInfo,
 	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.DestroyRelation",
+	op:    opClientDestroyRelation,
+	allow: []string{"user-admin", "user-other"},
 },
 }
 
@@ -245,10 +249,17 @@ func opClientCharmInfo(c *C, st *api.State, mst *state.State) (func(), error) {
 		c.Check(info, IsNil)
 		return func() {}, err
 	}
-	c.Assert(err, IsNil)
 	c.Assert(info.URL, Equals, "local:series/wordpress-3")
 	c.Assert(info.Meta.Name, Equals, "wordpress")
 	c.Assert(info.Revision, Equals, 3)
+	return func() {}, nil
+}
+
+func opClientDestroyRelation(c *C, st *api.State, mst *state.State) (func(), error) {
+	err := st.Client().DestroyRelation("wordpress", "logging")
+	if err != nil {
+		return func() {}, err
+	}
 	return func() {}, nil
 }
 
@@ -258,7 +269,6 @@ func opClientStatus(c *C, st *api.State, mst *state.State) (func(), error) {
 		c.Check(status, IsNil)
 		return func() {}, err
 	}
-	c.Assert(err, IsNil)
 	c.Assert(status, DeepEquals, scenarioStatus)
 	return func() {}, nil
 }
@@ -297,7 +307,6 @@ func opClientServiceGet(c *C, st *api.State, mst *state.State) (func(), error) {
 	if err != nil {
 		return func() {}, err
 	}
-	c.Assert(err, IsNil)
 	return func() {}, nil
 }
 
@@ -308,7 +317,6 @@ func opClientServiceExpose(c *C, st *api.State, mst *state.State) (func(), error
 	if err != nil {
 		return func() {}, err
 	}
-	c.Assert(err, IsNil)
 	return func() {}, nil
 }
 
@@ -319,7 +327,6 @@ func opClientServiceUnexpose(c *C, st *api.State, mst *state.State) (func(), err
 	if err != nil {
 		return func() {}, err
 	}
-	c.Assert(err, IsNil)
 	return func() {}, nil
 }
 
@@ -346,7 +353,6 @@ func opClientGetAnnotations(c *C, st *api.State, mst *state.State) (func(), erro
 	if err != nil {
 		return func() {}, err
 	}
-	c.Assert(err, IsNil)
 	c.Assert(ann, DeepEquals, make(map[string]string))
 	return func() {}, nil
 }
@@ -356,7 +362,6 @@ func opClientSetAnnotation(c *C, st *api.State, mst *state.State) (func(), error
 	if err != nil {
 		return func() {}, err
 	}
-	c.Assert(err, IsNil)
 	return func() {
 		st.Client().SetAnnotation("service-wordpress", "key", "")
 	}, nil
@@ -394,7 +399,6 @@ func opClientServiceAddUnits(c *C, st *api.State, mst *state.State) (func(), err
 	if err != nil {
 		return func() {}, err
 	}
-	c.Assert(err, IsNil)
 	return func() {}, nil
 }
 
@@ -405,7 +409,6 @@ func opClientServiceDestroy(c *C, st *api.State, mst *state.State) (func(), erro
 	if err != nil {
 		return func() {}, err
 	}
-	c.Assert(err, IsNil)
 	return func() {}, nil
 }
 
@@ -1292,6 +1295,57 @@ func (s *suite) TestClientServiceDeploy(c *C) {
 		removeServiceAndUnits(c, service)
 		// Restore server repository.
 		apiserver.CharmStore = originalServerCharmStore
+	}
+}
+
+var destroyRelationTests = []struct {
+	about     string
+	endpoints []string
+	err       string
+}{{
+	about:     "Successful destroy",
+	endpoints: []string{"wordpress", "logging"},
+}, {
+	about:     "No relation",
+	endpoints: []string{"wordpress", "logging"},
+	//err:       "no relation found",
+},
+}
+
+func (s *suite) TestClientDestroyRelation(c *C) {
+	s.setUpScenario(c)
+	for i, test := range destroyRelationTests {
+		c.Logf("test %d; %s", i, test.about)
+
+		for j := 0; j < len(test.endpoints); j++ {
+			service, err := s.State.Service(test.endpoints[j])
+			c.Assert(err, IsNil)
+			rels, err := service.Relations()
+			c.Assert(err, IsNil)
+			c.Logf("rels %s", rels)
+			c.Logf("rels %d", rels)
+			c.Assert(rels, HasLen, 1)
+		}
+
+		err := s.APIState.Client().DestroyRelation(
+			test.endpoints[0], test.endpoints[1])
+		if test.err != "" {
+			c.Assert(err, ErrorMatches, test.err)
+			continue
+		}
+		c.Assert(err, IsNil)
+
+		for j := 0; j < len(test.endpoints); j++ {
+			service, err := s.State.Service(test.endpoints[j])
+			c.Assert(err, IsNil)
+			rels, err := service.Relations()
+			c.Assert(err, IsNil)
+			// When relations are destroyed they don't go away immediately but
+			// instead are set to 'Dying'.
+			for _, rel := range rels {
+				c.Assert(rel.Life(), Equals, state.Dying)
+			}
+		}
 	}
 }
 
