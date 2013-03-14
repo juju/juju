@@ -627,19 +627,19 @@ func (s *StoreSuite) TestListCounters(c *C) {
 		{
 			[]string{"a"},
 			[]store.Counter{
-				{[]string{"a", "b"}, 4, true},
-				{[]string{"a", "f"}, 2, true},
-				{[]string{"a", "b"}, 1, false},
-				{[]string{"a", "c"}, 1, false},
-				{[]string{"a", "i"}, 1, false},
-				{[]string{"a", "i"}, 1, true},
+				{Key: []string{"a", "b"}, Prefix: true, Count: 4},
+				{Key: []string{"a", "f"}, Prefix: true, Count: 2},
+				{Key: []string{"a", "b"}, Prefix: false, Count: 1},
+				{Key: []string{"a", "c"}, Prefix: false, Count: 1},
+				{Key: []string{"a", "i"}, Prefix: false, Count: 1},
+				{Key: []string{"a", "i"}, Prefix: true, Count: 1},
 			},
 		}, {
 			[]string{"a", "b"},
 			[]store.Counter{
-				{[]string{"a", "b", "c"}, 2, false},
-				{[]string{"a", "b", "d"}, 1, false},
-				{[]string{"a", "b", "e"}, 1, false},
+				{Key: []string{"a", "b", "c"}, Prefix: false, Count: 2},
+				{Key: []string{"a", "b", "d"}, Prefix: false, Count: 1},
+				{Key: []string{"a", "b", "e"}, Prefix: false, Count: 1},
 			},
 		}, {
 			[]string{"z"},
@@ -657,6 +657,115 @@ func (s *StoreSuite) TestListCounters(c *C) {
 		result, err := st.Counters(req)
 		c.Assert(err, IsNil)
 		c.Assert(result, DeepEquals, tests[i].result)
+	}
+}
+
+func (s *StoreSuite) TestListCountersBy(c *C) {
+	incs := []struct {
+		key []string
+		day int
+	}{
+		{[]string{"a"}, 1},
+		{[]string{"a"}, 1},
+		{[]string{"b"}, 1},
+		{[]string{"a", "b"}, 1},
+		{[]string{"a", "c"}, 1},
+		{[]string{"a"}, 3},
+		{[]string{"a", "b"}, 3},
+		{[]string{"b"}, 9},
+		{[]string{"b"}, 9},
+		{[]string{"a", "c", "d"}, 9},
+		{[]string{"a", "c", "e"}, 9},
+		{[]string{"a", "c", "f"}, 9},
+	}
+
+	day := func(i int) time.Time {
+		return time.Date(2012, time.May, i, 0, 0, 0, 0, time.UTC)
+	}
+
+	counters := s.Session.DB("juju").C("stat.counters")
+	for i, inc := range incs {
+		err := s.store.IncCounter(inc.key)
+		c.Assert(err, IsNil)
+
+		// Hack time so counters are assigned to 2012-05-<day>
+		filter := bson.M{"t": bson.M{"$gt": store.TimeToStamp(time.Date(2013, time.January, 1, 0, 0, 0, 0, time.UTC))}}
+		stamp := store.TimeToStamp(day(inc.day))
+		stamp += int32(i) * 60 // Make every entry unique.
+		err = counters.Update(filter, bson.D{{"$set", bson.D{{"t", stamp}}}})
+		c.Check(err, IsNil)
+	}
+
+	tests := []struct {
+		request store.CounterRequest
+		result []store.Counter
+	}{
+		{
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: false,
+				List:   false,
+				By:     store.ByDay,
+			},
+			[]store.Counter{
+				{Key: []string{"a"}, Prefix: false, Count: 2, Time: day(1)},
+				{Key: []string{"a"}, Prefix: false, Count: 1, Time: day(3)},
+			},
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: true,
+				List:   false,
+				By:     store.ByDay,
+			},
+			[]store.Counter{
+				{Key: []string{"a"}, Prefix: true, Count: 2, Time: day(1)},
+				{Key: []string{"a"}, Prefix: true, Count: 1, Time: day(3)},
+				{Key: []string{"a"}, Prefix: true, Count: 3, Time: day(9)},
+			},
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: true,
+				List:   true,
+				By:     store.ByDay,
+			},
+			[]store.Counter{
+				{Key: []string{"a", "b"}, Prefix: false, Count: 1, Time: day(1)},
+				{Key: []string{"a", "c"}, Prefix: false, Count: 1, Time: day(1)},
+				{Key: []string{"a", "b"}, Prefix: false, Count: 1, Time: day(3)},
+				{Key: []string{"a", "c"}, Prefix: true, Count: 3, Time: day(9)},
+			},
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: true,
+				List:   false,
+				By:     store.ByWeek,
+			},
+			[]store.Counter{
+				{Key: []string{"a"}, Prefix: true, Count: 3, Time: day(6)},
+				{Key: []string{"a"}, Prefix: true, Count: 3, Time: day(13)},
+			},
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: true,
+				List:   true,
+				By:     store.ByWeek,
+			},
+			[]store.Counter{
+				{Key: []string{"a", "b"}, Prefix: false, Count: 2, Time: day(6)},
+				{Key: []string{"a", "c"}, Prefix: false, Count: 1, Time: day(6)},
+				{Key: []string{"a", "c"}, Prefix: true, Count: 3, Time: day(13)},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		result, err := s.store.Counters(&test.request)
+		c.Assert(err, IsNil)
+		c.Assert(result, DeepEquals, test.result)
 	}
 }
 

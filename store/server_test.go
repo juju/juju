@@ -3,6 +3,7 @@ package store_test
 import (
 	"encoding/json"
 	"io/ioutil"
+	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/store"
@@ -10,6 +11,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -230,6 +232,161 @@ func (s *StoreSuite) TestStatsCounterList(c *C) {
 
 		c.Assert(rec.Header().Get("Content-Type"), Equals, "text/plain")
 		c.Assert(rec.Header().Get("Content-Length"), Equals, strconv.Itoa(len(tests[i][1])))
+	}
+}
+
+
+func (s *StoreSuite) TestStatsCounterListBy(c *C) {
+	incs := [][]string{
+		{"a"},
+		{"a", "b"},
+		{"a", "b", "c"},
+		{"a", "b", "c"},
+		{"a", "b", "d"},
+		{"a", "b", "e"},
+		{"a", "f", "g"},
+		{"a", "f", "h"},
+		{"a", "i"},
+		{"j", "k"},
+	}
+	for _, key := range incs {
+		err := s.store.IncCounter(key)
+		c.Assert(err, IsNil)
+	}
+
+	server, _ := s.prepareServer(c)
+
+	tests := [][]string{
+		{"a", "a  1\n"},
+		{"a:*", "a:b:*  4\na:f:*  2\na:b    1\na:i    1\n"},
+		{"a:b:*", "a:b:c  2\na:b:d  1\na:b:e  1\n"},
+	}
+
+	for i := range tests {
+		req, err := http.NewRequest("GET", "/stats/counter/"+tests[i][0], nil)
+		c.Assert(err, IsNil)
+		req.Form = url.Values{"list": []string{"1"}}
+		rec := httptest.NewRecorder()
+		server.ServeHTTP(rec, req)
+
+		data, err := ioutil.ReadAll(rec.Body)
+		c.Assert(string(data), Equals, tests[i][1])
+
+		c.Assert(rec.Header().Get("Content-Type"), Equals, "text/plain")
+		c.Assert(rec.Header().Get("Content-Length"), Equals, strconv.Itoa(len(tests[i][1])))
+	}
+}
+
+func (s *StoreSuite) TestStatsCounterBy(c *C) {
+	incs := []struct {
+		key []string
+		day int
+	}{
+		{[]string{"a"}, 1},
+		{[]string{"a"}, 1},
+		{[]string{"b"}, 1},
+		{[]string{"a", "b"}, 1},
+		{[]string{"a", "c"}, 1},
+		{[]string{"a"}, 3},
+		{[]string{"a", "b"}, 3},
+		{[]string{"b"}, 9},
+		{[]string{"b"}, 9},
+		{[]string{"a", "c", "d"}, 9},
+		{[]string{"a", "c", "e"}, 9},
+		{[]string{"a", "c", "f"}, 9},
+	}
+
+	day := func(i int) time.Time {
+		return time.Date(2012, time.May, i, 0, 0, 0, 0, time.UTC)
+	}
+
+	server, _ := s.prepareServer(c)
+
+	counters := s.Session.DB("juju").C("stat.counters")
+	for i, inc := range incs {
+		err := s.store.IncCounter(inc.key)
+		c.Assert(err, IsNil)
+
+		// Hack time so counters are assigned to 2012-05-<day>
+		filter := bson.M{"t": bson.M{"$gt": store.TimeToStamp(time.Date(2013, time.January, 1, 0, 0, 0, 0, time.UTC))}}
+		stamp := store.TimeToStamp(day(inc.day))
+		stamp += int32(i) * 60 // Make every entry unique.
+		err = counters.Update(filter, bson.D{{"$set", bson.D{{"t", stamp}}}})
+		c.Check(err, IsNil)
+	}
+
+	tests := []struct {
+		request store.CounterRequest
+		result string
+	}{
+		{
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: false,
+				List:   false,
+				By:     store.ByDay,
+			},
+			"2012-05-01  2\n2012-05-03  1\n",
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: true,
+				List:   false,
+				By:     store.ByDay,
+			},
+			"2012-05-01  2\n2012-05-03  1\n2012-05-09  3\n",
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: true,
+				List:   true,
+				By:     store.ByDay,
+			},
+			"a:b    2012-05-01  1\na:c    2012-05-01  1\na:b    2012-05-03  1\na:c:*  2012-05-09  3\n",
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: true,
+				List:   false,
+				By:     store.ByWeek,
+			},
+			"2012-05-06  3\n2012-05-13  3\n",
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: true,
+				List:   true,
+				By:     store.ByWeek,
+			},
+			"a:b    2012-05-06  2\na:c    2012-05-06  1\na:c:*  2012-05-13  3\n",
+		},
+	}
+
+	for _, test := range tests {
+		path := "/stats/counter/"+strings.Join(test.request.Key, ":")
+		if test.request.Prefix {
+			path += ":*"
+		}
+		req, err := http.NewRequest("GET", path, nil)
+		req.Form = url.Values{}
+		c.Assert(err, IsNil)
+		if test.request.List {
+			req.Form.Set("list", "1")
+		}
+		switch test.request.By {
+		case store.ByDay:
+			req.Form.Set("by", "day")
+		case store.ByWeek:
+			req.Form.Set("by", "week")
+		}
+		rec := httptest.NewRecorder()
+		server.ServeHTTP(rec, req)
+
+		data, err := ioutil.ReadAll(rec.Body)
+		c.Assert(string(data), Equals, test.result)
+
+		c.Assert(rec.Header().Get("Content-Type"), Equals, "text/plain")
+		c.Assert(rec.Header().Get("Content-Length"), Equals, strconv.Itoa(len(test.result)))
 	}
 }
 
