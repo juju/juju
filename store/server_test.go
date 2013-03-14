@@ -235,7 +235,6 @@ func (s *StoreSuite) TestStatsCounterList(c *C) {
 	}
 }
 
-
 func (s *StoreSuite) TestStatsCounterListBy(c *C) {
 	incs := [][]string{
 		{"a"},
@@ -317,7 +316,7 @@ func (s *StoreSuite) TestStatsCounterBy(c *C) {
 
 	tests := []struct {
 		request store.CounterRequest
-		result string
+		result  string
 	}{
 		{
 			store.CounterRequest{
@@ -363,7 +362,7 @@ func (s *StoreSuite) TestStatsCounterBy(c *C) {
 	}
 
 	for _, test := range tests {
-		path := "/stats/counter/"+strings.Join(test.request.Key, ":")
+		path := "/stats/counter/" + strings.Join(test.request.Key, ":")
 		if test.request.Prefix {
 			path += ":*"
 		}

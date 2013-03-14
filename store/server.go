@@ -174,7 +174,7 @@ func (s *Server) serveStats(w http.ResponseWriter, r *http.Request) {
 	req := CounterRequest{
 		Key:  strings.Split(base, ":"),
 		List: r.Form.Get("list") == "1",
-		By: by,
+		By:   by,
 	}
 	if req.Key[len(req.Key)-1] == "*" {
 		req.Prefix = true

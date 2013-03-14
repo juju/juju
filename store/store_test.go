@@ -698,7 +698,7 @@ func (s *StoreSuite) TestListCountersBy(c *C) {
 
 	tests := []struct {
 		request store.CounterRequest
-		result []store.Counter
+		result  []store.Counter
 	}{
 		{
 			store.CounterRequest{

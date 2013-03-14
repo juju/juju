@@ -392,7 +392,7 @@ func (s *Store) Counters(req *CounterRequest) ([]Counter, error) {
 				stamp = stamp * 86400
 			case ByWeek:
 				// The +1 puts it at the end of the period.
-				stamp = (stamp+1) * 604800
+				stamp = (stamp + 1) * 604800
 			}
 			when = time.Unix(counterEpoch+stamp, 0).In(time.UTC)
 		}
@@ -422,7 +422,7 @@ func (s *Store) Counters(req *CounterRequest) ([]Counter, error) {
 			Key:    tokens,
 			Prefix: len(ids) > 0 && ids[len(ids)-1] == "*",
 			Count:  result[i].Value,
-			Time: when,
+			Time:   when,
 		}
 		counters = append(counters, counter)
 	}
