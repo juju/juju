@@ -99,9 +99,10 @@ type allRequest struct {
 	// w holds the StateWatcher that has originated the request.
 	w *StateWatcher
 
-	// reply receives a message when deltas are ready.  If it is
-	// nil, the watcher will be stopped.
-	// If the reply is false, the watcher has been stopped.
+	// reply receives a message when deltas are ready.  If reply is
+	// nil, the StateWatcher will be stopped.  If the reply is true,
+	// the request has been processed; if false, the StateWatcher
+	// has been stopped,
 	reply chan bool
 
 	// next points to the next request in the list of outstanding
