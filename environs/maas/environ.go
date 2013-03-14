@@ -424,7 +424,7 @@ func (environ *maasEnviron) Destroy(ensureInsts []environs.Instance) error {
 	// Add any instances we've been told about but haven't yet shown
 	// up in the instance list.
 	for _, inst := range ensureInsts {
-		id := state.InstanceId(inst.(*maasInstance).Id())
+		id := inst.Id()
 		if !found[id] {
 			insts = append(insts, inst)
 			found[id] = true

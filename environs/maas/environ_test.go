@@ -239,6 +239,7 @@ func (suite *EnvironSuite) TestDestroy(c *C) {
 	instance := suite.getInstance("test2")
 	data := makeRandomBytes(10)
 	suite.testMAASObject.TestServer.NewFile("filename", data)
+	storage := env.Storage()
 
 	err := env.Destroy([]environs.Instance{instance})
 
@@ -247,11 +248,10 @@ func (suite *EnvironSuite) TestDestroy(c *C) {
 	operations := suite.testMAASObject.TestServer.NodeOperations()
 	expectedOperations := map[string][]string{"test1": {"release"}, "test2": {"release"}}
 	c.Check(operations, DeepEquals, expectedOperations)
-	storage := NewStorage(env)
 	// Files have been cleaned up.
 	listing, err := storage.List("")
 	c.Assert(err, IsNil)
-	c.Assert(listing, DeepEquals, []string{})
+	c.Check(listing, DeepEquals, []string{})
 }
 
 func (suite *EnvironSuite) TestQuiesceStateFileFailsOnBrokenStateFile(c *C) {

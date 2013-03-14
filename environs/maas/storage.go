@@ -195,10 +195,10 @@ func (stor *maasStorage) deleteAll() error {
 	for _, name := range names {
 		name := name
 		go func() {
+			defer wg.Done()
 			if err := stor.Remove(name); err != nil {
 				errc <- err
 			}
-			wg.Done()
 		}()
 	}
 	wg.Wait()
