@@ -47,8 +47,7 @@ func (c *JujuLogCommand) Init(args []string) error {
 
 func (c *JujuLogCommand) Run(ctx *cmd.Context) error {
 	if c.formatFlag != "" {
-		msg := fmt.Sprintf("--format flag deprecated for command %q", c.Info().Name)
-		ctx.Stderr.Write([]byte(msg))
+		fmt.Fprintf(ctx.Stderr, "--format flag deprecated for command %q", c.Info().Name)
 	}
 	badge := c.ctx.UnitName()
 	if r, found := c.ctx.HookRelation(); found {

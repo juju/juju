@@ -52,8 +52,7 @@ func (c *RelationSetCommand) Init(args []string) error {
 
 func (c *RelationSetCommand) Run(ctx *cmd.Context) (err error) {
 	if c.formatFlag != "" {
-		msg := fmt.Sprintf("--format flag deprecated for command %q", c.Info().Name)
-		ctx.Stderr.Write([]byte(msg))
+		fmt.Fprintf(ctx.Stderr, "--format flag deprecated for command %q", c.Info().Name)
 	}
 	r, found := c.ctx.Relation(c.RelationId)
 	if !found {

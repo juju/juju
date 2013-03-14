@@ -62,8 +62,7 @@ func (c *portCommand) Init(args []string) error {
 
 func (c *portCommand) Run(ctx *cmd.Context) error {
 	if c.formatFlag != "" {
-		msg := fmt.Sprintf("--format flag deprecated for command %q", c.Info().Name)
-		ctx.Stderr.Write([]byte(msg))
+		fmt.Fprintf(ctx.Stderr, "--format flag deprecated for command %q", c.Info().Name)
 	}
 	return c.action(c)
 }
