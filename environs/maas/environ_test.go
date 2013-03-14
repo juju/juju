@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -178,8 +179,10 @@ func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
 	env := suite.makeEnviron()
 	tools, err := environs.PutTools(env.Storage(), nil)
 	c.Assert(err, IsNil)
+	stateInfo := state.Info{CACert: []byte{1, 2, 3}}
+	apiInfo := api.Info{CACert: []byte{7, 8, 9}}
 
-	instance, err := env.StartInstance(machineID, nil, nil, tools)
+	instance, err := env.StartInstance(machineID, &stateInfo, &apiInfo, tools)
 	c.Assert(err, IsNil)
 
 	c.Check(string(instance.Id()), Equals, resourceURI)
@@ -248,14 +251,18 @@ func (suite *EnvironSuite) TestQuiesceStateFileFailsOnBrokenStateFile(c *C) {
 func (suite *EnvironSuite) TestBootstrapSucceeds(c *C) {
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "thenode"}`)
+	cert := []byte{1, 2, 3}
+	key := []byte{4, 5, 6}
 
-	err := env.Bootstrap(true, []byte{}, []byte{})
+	err := env.Bootstrap(true, cert, key)
 	c.Assert(err, IsNil)
 }
 
 func (suite *EnvironSuite) TestBootstrapFailsIfNoNodes(c *C) {
 	env := suite.makeEnviron()
-	err := env.Bootstrap(true, []byte{}, []byte{})
+	cert := []byte{1, 2, 3}
+	key := []byte{4, 5, 6}
+	err := env.Bootstrap(true, cert, key)
 	// Since there are no nodes, the attempt to allocate one returns a
 	// 409: Conflict.
 	c.Check(err, ErrorMatches, ".*409.*")
