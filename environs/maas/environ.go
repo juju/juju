@@ -1,6 +1,7 @@
 package maas
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"launchpad.net/gomaasapi"
@@ -342,16 +343,17 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, tools *state.To
 		Total: 5 * time.Second,
 		Delay: 200 * time.Millisecond,
 	}
+	userDataParam := base64.StdEncoding.EncodeToString(userdata)
 	params := url.Values{
 		"distro_series": {tools.Series},
 		// userdata is actually binary data, but so are strings in Go.
 		// Casting it will not produce text (probably not valid UTF-8)
 		// but reading it as binary data should work.
-		"user_data": {string(userdata)},
+		"user_data": {userDataParam},
 	}
 	// Initialize err to a non-nil value as a sentinel for the following
 	// loop.
-	var err error = fmt.Errorf("(no error)")
+	err := fmt.Errorf("(no error)")
 	for a := retry.Start(); a.Next() && err != nil; {
 		_, err = node.CallPost("start", params)
 	}
