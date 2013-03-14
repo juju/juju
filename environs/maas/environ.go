@@ -193,6 +193,10 @@ func (env *maasEnviron) Bootstrap(uploadTools bool, stateServerCert, stateServer
 
 // StateInfo is specified in the Environ interface.
 func (env *maasEnviron) StateInfo() (*state.Info, *api.Info, error) {
+	// This code is cargo-clulted from the openstack/ec2 providers.
+	// It's a bit unclear what the "longAttempt" loop is actually for
+	// but this should probably be refactored outside of the provider
+	// code.
 	st, err := env.loadState()
 	if err != nil {
 		return nil, nil, err
@@ -217,7 +221,7 @@ func (env *maasEnviron) StateInfo() (*state.Info, *api.Info, error) {
 			if inst == nil {
 				continue
 			}
-			name, err := inst.(*maasInstance).DNSName()
+			name, err := inst.DNSName()
 			if err != nil {
 				continue
 			}

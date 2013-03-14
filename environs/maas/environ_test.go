@@ -229,7 +229,7 @@ func (suite *EnvironSuite) TestQuiesceStateFileFailsWithStateFile(c *C) {
 func (suite *EnvironSuite) TestStateInfo(c *C) {
 	env := suite.makeEnviron()
 	hostname := "test"
-	input := `{"system_id": "test", "hostname": "` + hostname + `"}`
+	input := `{"system_id": "system_id", "hostname": "` + hostname + `"}`
 	node := suite.testMAASObject.TestServer.NewNode(input)
 	instance := &maasInstance{&node, suite.environ}
 	err := env.saveState(&bootstrapState{StateInstances: []state.InstanceId{instance.Id()}})
@@ -240,6 +240,14 @@ func (suite *EnvironSuite) TestStateInfo(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(stateInfo.Addrs, DeepEquals, []string{hostname + mgoPortSuffix})
 	c.Assert(apiInfo.Addrs, DeepEquals, []string{hostname + apiPortSuffix})
+}
+
+func (suite *EnvironSuite) TestStateInfoFailsIfNoStateInstances(c *C) {
+	env := suite.makeEnviron()
+
+	_, _, err := env.StateInfo()
+
+	c.Check(err, FitsTypeOf, &environs.NotFoundError{})
 }
 
 func (suite *EnvironSuite) TestQuiesceStateFileFailsOnBrokenStateFile(c *C) {
