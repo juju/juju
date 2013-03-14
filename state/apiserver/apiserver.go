@@ -353,14 +353,14 @@ func (c *srvClient) ServiceDeploy(args params.ServiceDeploy) error {
 	return err
 }
 
-// ServiceAddUnits adds a given number of units to a service.
-func (c *srvClient) ServiceAddUnits(args params.ServiceAddUnits) error {
-	return statecmd.ServiceAddUnits(c.root.srv.state, args)
+// AddServiceUnits adds a given number of units to a service.
+func (c *srvClient) AddServiceUnits(args params.AddServiceUnits) error {
+	return statecmd.AddServiceUnits(c.root.srv.state, args)
 }
 
-// ServiceDestroyUnits removes a given number of units from a service.
-func (c *srvClient) ServiceDestroyUnits(args params.ServiceDestroyUnits) error {
-	return statecmd.ServiceDestroyUnits(c.root.srv.state, args)
+// DestroyServiceUnits removes a given number of units from a service.
+func (c *srvClient) DestroyServiceUnits(args params.DestroyServiceUnits) error {
+	return statecmd.DestroyServiceUnits(c.root.srv.state, args)
 }
 
 // CharmInfo returns information about the requested charm.

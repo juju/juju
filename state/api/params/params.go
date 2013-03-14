@@ -65,14 +65,14 @@ type ResolvedResults struct {
 	Settings map[string]interface{}
 }
 
-// ServiceAddUnits holds parameters for the AddUnits call.
-type ServiceAddUnits struct {
+// AddServiceUnits holds parameters for the AddUnits call.
+type AddServiceUnits struct {
 	ServiceName string
 	NumUnits    int
 }
 
-// ServiceDestroyUnits holds parameters for the DestroyUnits call.
-type ServiceDestroyUnits struct {
+// DestroyServiceUnits holds parameters for the DestroyUnits call.
+type DestroyServiceUnits struct {
 	UnitNames []string
 }
 

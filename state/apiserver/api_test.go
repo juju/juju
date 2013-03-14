@@ -122,12 +122,12 @@ var operationPermTests = []struct {
 	op:    opClientSetAnnotation,
 	allow: []string{"user-admin", "user-other"},
 }, {
-	about: "Client.ServiceAddUnits",
-	op:    opClientServiceAddUnits,
+	about: "Client.AddServiceUnits",
+	op:    opClientAddServiceUnits,
 	allow: []string{"user-admin", "user-other"},
 }, {
-	about: "Client.ServiceDestroyUnits",
-	op:    opClientServiceDestroyUnits,
+	about: "Client.DestroyServiceUnits",
+	op:    opClientDestroyServiceUnits,
 	allow: []string{"user-admin", "user-other"},
 }, {
 	about: "Client.WatchAll",
@@ -387,10 +387,10 @@ func opClientServiceDeploy(c *C, st *api.State, mst *state.State) (func(), error
 	}, nil
 }
 
-func opClientServiceAddUnits(c *C, st *api.State, mst *state.State) (func(), error) {
+func opClientAddServiceUnits(c *C, st *api.State, mst *state.State) (func(), error) {
 	// This test only checks that the call is made without error, ensuring the
 	// signatures match.
-	err := st.Client().ServiceAddUnits("wordpress", 1)
+	err := st.Client().AddServiceUnits("wordpress", 1)
 	if err != nil {
 		return func() {}, err
 	}
@@ -398,14 +398,14 @@ func opClientServiceAddUnits(c *C, st *api.State, mst *state.State) (func(), err
 	return func() {}, nil
 }
 
-func opClientServiceDestroyUnits(c *C, st *api.State, mst *state.State) (func(), error) {
-	err := st.Client().ServiceDestroyUnits([]string{"wordpress/0"})
+func opClientDestroyServiceUnits(c *C, st *api.State, mst *state.State) (func(), error) {
+	err := st.Client().DestroyServiceUnits([]string{"wordpress/0"})
 	if err != nil {
 		return func() {}, err
 	}
 	c.Assert(err, IsNil)
 	return func() {
-		_ = st.Client().ServiceAddUnits("wordpress", 1)
+		_ = st.Client().AddServiceUnits("wordpress", 1)
 	}, nil
 }
 

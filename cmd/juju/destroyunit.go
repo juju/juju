@@ -46,8 +46,8 @@ func (c *DestroyUnitCommand) Run(_ *cmd.Context) (err error) {
 		return err
 	}
 	defer conn.Close()
-	params := params.ServiceDestroyUnits{
+	params := params.DestroyServiceUnits{
 		UnitNames: c.UnitNames,
 	}
-	return statecmd.ServiceDestroyUnits(conn.State, params)
+	return statecmd.DestroyServiceUnits(conn.State, params)
 }

@@ -122,20 +122,20 @@ func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int
 	return nil
 }
 
-// ServiceAddUnits adds a given number of units to a service.
-func (c *Client) ServiceAddUnits(service string, numUnits int) error {
-	params := params.ServiceAddUnits{
+// AddServiceUnits adds a given number of units to a service.
+func (c *Client) AddServiceUnits(service string, numUnits int) error {
+	params := params.AddServiceUnits{
 		ServiceName: service,
 		NumUnits:    numUnits,
 	}
-	err := c.st.client.Call("Client", "", "ServiceAddUnits", params, nil)
+	err := c.st.client.Call("Client", "", "AddServiceUnits", params, nil)
         return clientError(err)
 }
 
-// ServiceDestroyUnits decreases the number of units dedicated to a service.
-func (c *Client) ServiceDestroyUnits(unitNames []string) error {
-	params := params.ServiceDestroyUnits{unitNames}
-	err := c.st.client.Call("Client", "", "ServiceDestroyUnits", params, nil)
+// DestroyServiceUnits decreases the number of units dedicated to a service.
+func (c *Client) DestroyServiceUnits(unitNames []string) error {
+	params := params.DestroyServiceUnits{unitNames}
+	err := c.st.client.Call("Client", "", "DestroyServiceUnits", params, nil)
 	return clientError(err)
 }
 
