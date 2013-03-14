@@ -323,7 +323,8 @@ func (a *allInfo) delete(id entityId) {
 }
 
 // markRemoved marks that the entity with the given id has
-// been removed from the state.
+// been removed from the state. If nothing has seen the
+// entity, then we delete it immediately.
 func (a *allInfo) markRemoved(id entityId) {
 	if elem := a.entities[id]; elem != nil {
 		entry := elem.Value.(*entityEntry)
@@ -331,6 +332,10 @@ func (a *allInfo) markRemoved(id entityId) {
 			return
 		}
 		a.latestRevno++
+		if entry.refCount == 0 {
+			a.delete(id)
+			return
+		}
 		entry.revno = a.latestRevno
 		entry.removed = true
 		a.list.MoveToFront(elem)
@@ -381,6 +386,11 @@ func (a *allInfo) changesSince(revno int64) []params.Delta {
 	changes := make([]params.Delta, 0, n)
 	for ; e != nil; e = e.Prev() {
 		entry := e.Value.(*entityEntry)
+		if entry.removed && entry.creationRevno > revno {
+			// Don't include entries that have been created
+			// and removed since the revno.
+			continue
+		}
 		changes = append(changes, params.Delta{
 			Removed: entry.removed,
 			Entity:  entry.info,

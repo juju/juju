@@ -104,6 +104,7 @@ var allInfoChangeMethodTests = []struct {
 	change: func(all *allInfo) {
 		allInfoAdd(all, &params.MachineInfo{Id: "0"})
 		allInfoAdd(all, &params.MachineInfo{Id: "1"})
+		allInfoIncRef(all, entityId{"machine", "0"})
 		all.markRemoved(entityId{"machine", "0"})
 	},
 	expectRevno: 3,
@@ -114,6 +115,7 @@ var allInfoChangeMethodTests = []struct {
 	}, {
 		creationRevno: 1,
 		revno:         3,
+		refCount: 1,
 		removed:       true,
 		info:          &params.MachineInfo{Id: "0"},
 	}},
@@ -127,6 +129,7 @@ var allInfoChangeMethodTests = []struct {
 	change: func(all *allInfo) {
 		allInfoAdd(all, &params.MachineInfo{Id: "0"})
 		allInfoAdd(all, &params.MachineInfo{Id: "1"})
+		allInfoIncRef(all, entityId{"machine", "0"})
 		all.markRemoved(entityId{"machine", "0"})
 		all.update(entityId{"machine", "1"}, &params.MachineInfo{
 			Id:         "1",
@@ -138,6 +141,7 @@ var allInfoChangeMethodTests = []struct {
 	expectContents: []entityEntry{{
 		creationRevno: 1,
 		revno:         3,
+		refCount: 1,
 		removed:       true,
 		info:          &params.MachineInfo{Id: "0"},
 	}, {
@@ -148,6 +152,13 @@ var allInfoChangeMethodTests = []struct {
 			InstanceId: "i-1",
 		},
 	}},
+}, {
+	about: "mark removed on entry with zero ref count",
+	change: func(all *allInfo) {
+		allInfoAdd(all, &params.MachineInfo{Id: "0"})
+		all.markRemoved(entityId{"machine", "0"})
+	},
+	expectRevno: 2,
 }, {
 	about: "delete entry",
 	change: func(all *allInfo) {
@@ -205,20 +216,24 @@ func entityIdForInfo(info params.EntityInfo) entityId {
 
 func (s *allInfoSuite) TestChangesSince(c *C) {
 	a := newAllInfo()
+	// Add three entries.
 	var deltas []params.Delta
 	for i := 0; i < 3; i++ {
 		m := &params.MachineInfo{Id: fmt.Sprint(i)}
 		allInfoAdd(a, m)
 		deltas = append(deltas, params.Delta{Entity: m})
 	}
+	// Check that the deltas from each revno are as expected.
 	for i := 0; i < 3; i++ {
 		c.Logf("test %d", i)
 		c.Assert(a.changesSince(int64(i)), DeepEquals, deltas[i:])
 	}
 
+	// Check boundary cases.
 	c.Assert(a.changesSince(-1), DeepEquals, deltas)
 	c.Assert(a.changesSince(99), HasLen, 0)
 
+	// Update one machine and check we see the changes.
 	rev := a.latestRevno
 	m1 := &params.MachineInfo{
 		Id:         "1",
@@ -227,8 +242,23 @@ func (s *allInfoSuite) TestChangesSince(c *C) {
 	a.update(entityIdForInfo(m1), m1)
 	c.Assert(a.changesSince(rev), DeepEquals, []params.Delta{{Entity: m1}})
 
+	// Make sure the machine isn't simply removed from
+	// the list when it's marked as removed.
+	allInfoIncRef(a, entityId{"machine", "0"})
+
+	// Remove another machine and check we see it's removed.
 	m0 := &params.MachineInfo{Id: "0"}
 	a.markRemoved(entityIdForInfo(m0))
+
+	// Check that something that never saw m0 does not get
+	// informed of its removal (even those the removed entity
+	// is still in the list.
+	c.Assert(a.changesSince(0), DeepEquals, []params.Delta{{
+		Entity: &params.MachineInfo{Id: "2"},
+	}, {
+		Entity: m1,
+	}})
+
 	c.Assert(a.changesSince(rev), DeepEquals, []params.Delta{{
 		Entity: m1,
 	}, {
@@ -240,6 +270,7 @@ func (s *allInfoSuite) TestChangesSince(c *C) {
 		Removed: true,
 		Entity:  m0,
 	}})
+
 }
 
 func allInfoAdd(a *allInfo, info params.EntityInfo) {
@@ -287,6 +318,7 @@ var allWatcherChangedTests = []struct {
 	expectContents: []entityEntry{{
 		creationRevno: 1,
 		revno:         2,
+		refCount: 1,
 		removed:       true,
 		info: &params.MachineInfo{
 			Id: "1",
@@ -319,6 +351,7 @@ var allWatcherChangedTests = []struct {
 	expectRevno: 2,
 	expectContents: []entityEntry{{
 		creationRevno: 1,
+		refCount: 1,
 		revno:         2,
 		info: &params.MachineInfo{
 			Id:         "1",
@@ -336,6 +369,7 @@ func (*allWatcherSuite) TestChanged(c *C) {
 		aw := newAllWatcher(b)
 		for _, info := range test.add {
 			allInfoAdd(aw.all, info)
+			allInfoIncRef(aw.all, entityIdForInfo(info))
 		}
 		err := aw.changed(test.change)
 		c.Assert(err, IsNil)
@@ -397,7 +431,7 @@ func (*allWatcherSuite) TestHandle(c *C) {
 	assertReplied(c, false, req2)
 }
 
-func (*allWatcherSuite) TestHandleStopNoDecRefIfNewer(c *C) {
+func (*allWatcherSuite) TestHandleStopNoDecRefIfMoreRecentlyCreated(c *C) {
 	// If the StateWatcher hasn't seen the item, then
 	// we shouldn't decrement its ref count when it is stopped.
 	aw := newAllWatcher(&allWatcherTestBacking{})
@@ -417,21 +451,72 @@ func (*allWatcherSuite) TestHandleStopNoDecRefIfNewer(c *C) {
 	}})
 }
 
-type allWatcherRespondTest struct {
-	about          string
-	add            []params.EntityInfo
-	inBacking      []params.EntityInfo
-	change         entityId
-	expectRevno    int64
-	expectContents []entityEntry
+func (*allWatcherSuite) TestHandleStopNoDecRefIfAlreadySeenRemoved(c *C) {
+	// If the StateWatcher has already seen the item
+	// removed, then we shouldn't decrement its ref count when it is stopped.
+	aw := newAllWatcher(&allWatcherTestBacking{})
+	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
+	allInfoIncRef(aw.all, entityId{"machine", "0"})
+	aw.all.markRemoved(entityId{"machine", "0"})
+	w := &StateWatcher{}
+	// Stop the watcher.
+	aw.handle(&allRequest{w: w})
+	assertAllInfoContents(c, aw.all, 2, []entityEntry{{
+		creationRevno: 1,
+		revno: 2,
+		refCount: 1,
+		removed: true,
+		info: &params.MachineInfo{
+			Id:         "0",
+		},
+	}})
 }
 
-type allWatcherTestRequest struct {
-	// watcher identifies the StateWatcher making the request.
-	watcher int
-	// watcherRevno is the revno that the StateWatcher is currently at.
-	watcherRevno int64
+func (*allWatcherSuite) TestHandleStopDecRefIfAlreadySeenAndNotRemoved(c *C) {
+	// If the StateWatcher has already seen the item
+	// removed, then we shouldn't decrement its ref count when it is stopped.
+	aw := newAllWatcher(&allWatcherTestBacking{})
+	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
+	allInfoIncRef(aw.all, entityId{"machine", "0"})
+	w := &StateWatcher{}
+	// Stop the watcher.
+	aw.handle(&allRequest{w: w})
+	assertAllInfoContents(c, aw.all, 1, []entityEntry{{
+		creationRevno: 1,
+		revno: 1,
+		refCount: 1,
+		info: &params.MachineInfo{
+			Id:         "0",
+		},
+	}})
 }
+//
+//func (*allWatcherSuite) TestRespond(c *C) {
+//	ws := make([]*StateWatcher, 3)
+//	for i := range ws {
+//		ws[i] = &StateWatcher{}
+//	}
+//	
+//
+//keep a map for each watcher containing the watcher's currently
+//known status of item.
+//
+//
+//type allWatcherRespondTest struct {
+//	about          string
+//	add            []params.EntityInfo
+//	inBacking      []params.EntityInfo
+//	change         entityId
+//	expectRevno    int64
+//	expectContents []entityEntry
+//}
+//
+//type allWatcherTestRequest struct {
+//	// watcher identifies the StateWatcher making the request.
+//	watcher int
+//	// watcherRevno is the revno that the StateWatcher is currently at.
+//	watcherRevno int64
+//}
 
 //var allWatcherRespondTests = []struct {
 //	about          string
