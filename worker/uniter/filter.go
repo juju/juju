@@ -421,7 +421,7 @@ func (f *filter) upgradeChanged() (err error) {
 			return nil
 		}
 	}
-	log.Debugf("worker/uniter/filter: no new charm event; f.upgrade: %v; f.upgradeAvailable: (%v %v); f.upgradeFrom: (%v %v)", f.upgrade, f.upgradeAvailable.force, f.upgradeAvailable.url, f.upgradeFrom.force, f.upgradeFrom.url)
+	log.Debugf("worker/uniter/filter: no new charm event")
 	f.outUpgrade = nil
 	return nil
 }
