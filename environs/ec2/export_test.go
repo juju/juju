@@ -58,7 +58,7 @@ func BucketStorage(b *s3.Bucket) environs.Storage {
 var testRoundTripper = &jujutest.ProxyRoundTripper{}
 
 func init() {
-	// Prepare mock http transport for overriding metadata and images output in tests 
+	// Prepare mock http transport for overriding metadata and images output in tests
 	http.DefaultTransport.(*http.Transport).RegisterProtocol("test", testRoundTripper)
 }
 
