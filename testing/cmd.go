@@ -55,8 +55,8 @@ func Stdout(ctx *cmd.Context) string {
 	return ctx.Stdout.(*bytes.Buffer).String()
 }
 
-// Stdout takes a command Context that we assume has been created in this
-// package, and gets the content of the Stdout buffer as a string.
+// Stderr takes a command Context that we assume has been created in this
+// package, and gets the content of the Stderr buffer as a string.
 func Stderr(ctx *cmd.Context) string {
 	return ctx.Stderr.(*bytes.Buffer).String()
 }
