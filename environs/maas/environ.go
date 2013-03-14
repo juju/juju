@@ -131,8 +131,8 @@ func (env *maasEnviron) makeMachineConfig(machineID string, stateInfo *state.Inf
 	return &cloudinit.MachineConfig{
 		// Fixed entries.
 		MongoPort: mgoPort,
-		APIPort: apiPort,
-		DataDir: jujuDataDir,
+		APIPort:   apiPort,
+		DataDir:   jujuDataDir,
 
 		// Entries based purely on what's in the environment.
 		AuthorizedKeys: env.ecfg().AuthorizedKeys(),
@@ -140,8 +140,8 @@ func (env *maasEnviron) makeMachineConfig(machineID string, stateInfo *state.Inf
 		// Parameter entries.
 		MachineId: machineID,
 		StateInfo: stateInfo,
-		APIInfo: apiInfo,
-		Tools: tools,
+		APIInfo:   apiInfo,
+		Tools:     tools,
 	}
 }
 
