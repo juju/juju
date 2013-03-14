@@ -82,6 +82,16 @@ func checkCertificate(environ environs.Environ) error {
 	return generateCertificate(environ)
 }
 
+func uploadTools(environ environs.Environs) error {
+	tools, err = environs.PutTools(environ.Storage(), nil)
+	if err != nil {
+		return fmt.Errorf("cannot upload tools: %v", err)
+	}
+	_ = tools
+	// TODO: set the agent_version and default_Series, and arch
+	return nil
+}
+
 // Run connects to the environment specified on the command line and bootstraps
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.
@@ -103,5 +113,11 @@ func (c *BootstrapCommand) Run(context *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	return environs.Bootstrap(environ, c.UploadTools)
+
+	if c.Uploadtools {
+		if err = uploadTools(environ); err != nil {
+			return err
+		}
+	}
+	return environs.Bootstrap(environ)
 }

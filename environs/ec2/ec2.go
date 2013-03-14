@@ -236,7 +236,7 @@ func (e *environ) PublicStorage() environs.StorageReader {
 	return e.publicStorageUnlocked
 }
 
-func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
+func (e *environ) Bootstrap(cert, key []byte) error {
 	password := e.Config().AdminSecret()
 	if password == "" {
 		return fmt.Errorf("admin-secret is required for bootstrap")
@@ -259,20 +259,15 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 		return fmt.Errorf("cannot query old bootstrap state: %v", err)
 	}
 	var tools *state.Tools
-	if uploadTools {
-		tools, err = environs.PutTools(e.Storage(), nil)
-		if err != nil {
-			return fmt.Errorf("cannot upload tools: %v", err)
-		}
-	} else {
-		flags := environs.HighestVersion | environs.CompatVersion
-		v := version.Current
-		v.Series = e.Config().DefaultSeries()
-		tools, err = environs.FindTools(e, v, flags)
-		if err != nil {
-			return fmt.Errorf("cannot find tools: %v", err)
-		}
+
+	flags := environs.CompatVersion
+	v := version.Current
+	v.Series = e.Config().DefaultSeries()
+	tools, err = environs.FindTools(e, v, flags)
+	if err != nil {
+		return fmt.Errorf("cannot find tools: %v", err)
 	}
+
 	config, err := environs.BootstrapConfig(providerInstance, e.Config(), tools)
 	if err != nil {
 		return fmt.Errorf("unable to determine inital configuration: %v", err)
@@ -281,6 +276,7 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 	if !hasCert {
 		return fmt.Errorf("no CA certificate in environment configuration")
 	}
+
 	v := version.Current
 	v.Series = tools.Series
 	v.Arch = tools.Arch

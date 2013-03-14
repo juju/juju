@@ -136,9 +136,7 @@ type Environ interface {
 	Name() string
 
 	// Bootstrap initializes the state for the environment, possibly
-	// starting one or more instances.  If uploadTools is true, the
-	// current version of the juju tools will be uploaded and used
-	// on the environment's instances.  If the configuration's
+	// starting one or more instances.  If the configuration's
 	// AdminSecret is non-empty, the adminstrator password on the
 	// newly bootstrapped state will be set to a hash of it (see
 	// trivial.PasswordHash), When first connecting to the
@@ -148,7 +146,7 @@ type Environ interface {
 	// The stateServerCertand stateServerKey parameters hold
 	// both the certificate and the respective private key to be
 	// used by the initial state server, in PEM format.
-	Bootstrap(uploadTools bool, stateServerCert, stateServerKey []byte) error
+	Bootstrap(stateServerCert, stateServerKey []byte) error
 
 	// StateInfo returns information on the state initialized
 	// by Bootstrap.

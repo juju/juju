@@ -54,20 +54,6 @@ func (s *bootstrapSuite) TestBootstrapKeyGeneration(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *bootstrapSuite) TestBootstrapUploadTools(c *C) {
-	env := newEnviron("foo", useDefaultKeys)
-	err := environs.Bootstrap(env, false)
-	c.Assert(err, IsNil)
-	c.Assert(env.bootstrapCount, Equals, 1)
-	c.Assert(env.uploadTools, Equals, false)
-
-	env = newEnviron("foo", useDefaultKeys)
-	err = environs.Bootstrap(env, true)
-	c.Assert(err, IsNil)
-	c.Assert(env.bootstrapCount, Equals, 1)
-	c.Assert(env.uploadTools, Equals, true)
-}
-
 type bootstrapEnviron struct {
 	name             string
 	cfg              *config.Config
@@ -75,7 +61,6 @@ type bootstrapEnviron struct {
 
 	// The following fields are filled in when Bootstrap is called.
 	bootstrapCount int
-	uploadTools    bool
 	certPEM        []byte
 	keyPEM         []byte
 }
@@ -106,9 +91,8 @@ func (e *bootstrapEnviron) Name() string {
 	return e.name
 }
 
-func (e *bootstrapEnviron) Bootstrap(uploadTools bool, certPEM, keyPEM []byte) error {
+func (e *bootstrapEnviron) Bootstrap(certPEM, keyPEM []byte) error {
 	e.bootstrapCount++
-	e.uploadTools = uploadTools
 	e.certPEM = certPEM
 	e.keyPEM = keyPEM
 	return nil

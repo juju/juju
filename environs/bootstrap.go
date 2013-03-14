@@ -12,10 +12,7 @@ import (
 // will be called to save them.  If writeCertFile is nil, the generated
 // certificate and key will be saved to ~/.juju/<environ-name>-cert.pem
 // and ~/.juju/<environ-name>-private-key.pem.
-//
-// If uploadTools is true, the current version of the juju tools will be
-// uploaded, as documented in Environ.Bootstrap.
-func Bootstrap(environ Environ, uploadTools bool) error {
+func Bootstrap(environ Environ) error {
 	cfg := environ.Config()
 	caCert, hasCACert := cfg.CACert()
 	caKey, hasCAKey := cfg.CAPrivateKey()
@@ -31,5 +28,5 @@ func Bootstrap(environ Environ, uploadTools bool) error {
 	if err != nil {
 		return fmt.Errorf("cannot generate bootstrap certificate: %v", err)
 	}
-	return environ.Bootstrap(uploadTools, cert, key)
+	return environ.Bootstrap(cert, key)
 }
