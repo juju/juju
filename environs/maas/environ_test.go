@@ -181,13 +181,13 @@ func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
 	tools, err := environs.PutTools(env.Storage(), nil)
 	c.Assert(err, IsNil)
 	stateInfo := state.Info{
-		CACert: []byte{1, 2, 3},
-		Addrs: []string{machineID},
+		CACert:     []byte{1, 2, 3},
+		Addrs:      []string{machineID},
 		EntityName: state.MachineEntityName(machineID),
 	}
 	apiInfo := api.Info{
-		CACert: []byte{7, 8, 9},
-		Addrs: []string{machineID},
+		CACert:     []byte{7, 8, 9},
+		Addrs:      []string{machineID},
 		EntityName: state.MachineEntityName(machineID),
 	}
 
