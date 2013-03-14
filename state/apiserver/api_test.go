@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
+	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
 	"net"
 	stdtesting "testing"
@@ -399,14 +400,19 @@ func opClientAddServiceUnits(c *C, st *api.State, mst *state.State) (func(), err
 }
 
 func opClientDestroyServiceUnits(c *C, st *api.State, mst *state.State) (func(), error) {
-	err := st.Client().DestroyServiceUnits([]string{"wordpress/0"})
+	err := statecmd.AddServiceUnits(mst, params.AddServiceUnits{"wordpress", 1})
 	if err != nil {
 		return func() {}, err
 	}
+	newUnitName := []string{"wordpress/1"}
+	err = st.Client().DestroyServiceUnits(newUnitName)
+	if err != nil {
+		return func() {
+			_ = statecmd.DestroyServiceUnits(mst, params.DestroyServiceUnits{newUnitName})
+		}, err
+	}
 	c.Assert(err, IsNil)
-	return func() {
-		_ = st.Client().AddServiceUnits("wordpress", 1)
-	}, nil
+	return func() {}, err
 }
 
 func opClientWatchAll(c *C, st *api.State, mst *state.State) (func(), error) {
