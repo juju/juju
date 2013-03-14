@@ -161,8 +161,8 @@ var allInfoChangeMethodTests = []struct {
 		m := &params.MachineInfo{Id: "0"}
 		id := entityIdForInfo(m)
 		allInfoAdd(all, m)
+		allInfoIncRef(all, id)
 		entry := all.entities[id].Value.(*entityEntry)
-		entry.refCount++
 		all.decRef(entry, id)
 	},
 	expectRevno: 1,
@@ -244,6 +244,11 @@ func (s *allInfoSuite) TestChangesSince(c *C) {
 
 func allInfoAdd(a *allInfo, info params.EntityInfo) {
 	a.add(entityIdForInfo(info), info)
+}
+
+func allInfoIncRef(a *allInfo, id entityId) {
+	entry := a.entities[id].Value.(*entityEntry)
+	entry.refCount++
 }
 
 type allWatcherSuite struct {
@@ -392,9 +397,58 @@ func (*allWatcherSuite) TestHandle(c *C) {
 	assertReplied(c, false, req2)
 }
 
-func (*allWatcherSuite) TestRespond(c *C) {
-	// implement
+func (*allWatcherSuite) TestHandleStopNoDecRefIfNewer(c *C) {
+	// If the StateWatcher hasn't seen the item, then
+	// we shouldn't decrement its ref count when it is stopped.
+	aw := newAllWatcher(&allWatcherTestBacking{})
+	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
+	allInfoIncRef(aw.all, entityId{"machine", "0"})
+	w := &StateWatcher{}
+
+	// Stop the watcher.
+	aw.handle(&allRequest{w: w})
+	assertAllInfoContents(c, aw.all, 1, []entityEntry{{
+		creationRevno: 1,
+		revno: 1,
+		refCount: 1,
+		info: &params.MachineInfo{
+			Id:         "0",
+		},
+	}})
 }
+
+type allWatcherRespondTest struct {
+	about          string
+	add            []params.EntityInfo
+	inBacking      []params.EntityInfo
+	change         entityId
+	expectRevno    int64
+	expectContents []entityEntry
+}
+
+type allWatcherTestRequest struct {
+	// watcher identifies the StateWatcher making the request.
+	watcher int
+	// watcherRevno is the revno that the StateWatcher is currently at.
+	watcherRevno int64
+}
+
+//var allWatcherRespondTests = []struct {
+//	about          string
+//	change func(all *allInfo)
+//	
+//}{
+//
+//some stuff in backing
+//mutate the allwatcher
+//call respond
+//check that waiting requests 
+//
+//
+//remove(
+//func (*allWatcherSuite) TestRespond(c *C) {
+//	
+//}
 
 
 func assertNotReplied(c *C, req *allRequest) {

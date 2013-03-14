@@ -248,7 +248,11 @@ type entityEntry struct {
 	removed bool
 
 	// refCount holds a count of the number of watchers that
-	// have seen this entity.
+	// have seen this entity. When the entity is marked as removed,
+	// the ref count is decremented whenever a StateWatcher that
+	// has previously seen the entry now sees that it has been removed;
+	// the entry will be deleted when all such StateWatchers have
+	// been notified.
 	refCount int
 
 	// info holds the actual information on the entity.
