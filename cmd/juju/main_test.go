@@ -206,6 +206,7 @@ var commandNames = []string{
 	"terminate-machine", // alias for destroy-machine
 	"unexpose",
 	"upgrade-juju",
+	"version",
 }
 
 func (s *MainSuite) TestHelpCommands(c *C) {
