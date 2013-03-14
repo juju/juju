@@ -22,6 +22,14 @@ const (
 	jujuDataDir = "/var/lib/juju"
 )
 
+var mgoPortSuffix = fmt.Sprintf(":%d", mgoPort)
+var apiPortSuffix = fmt.Sprintf(":%d", apiPort)
+
+var longAttempt = trivial.AttemptStrategy{
+	Total: 3 * time.Minute,
+	Delay: 1 * time.Second,
+}
+
 type maasEnviron struct {
 	name string
 
@@ -186,8 +194,55 @@ func (env *maasEnviron) Bootstrap(uploadTools bool, stateServerCert, stateServer
 }
 
 // StateInfo is specified in the Environ interface.
-func (*maasEnviron) StateInfo() (*state.Info, *api.Info, error) {
-	panic("Not implemented.")
+func (env *maasEnviron) StateInfo() (*state.Info, *api.Info, error) {
+	// This code is cargo-culted from the openstack/ec2 providers.
+	// It's a bit unclear what the "longAttempt" loop is actually for
+	// but this should probably be refactored outside of the provider
+	// code.
+	st, err := env.loadState()
+	if err != nil {
+		return nil, nil, err
+	}
+	cert, hasCert := env.Config().CACert()
+	if !hasCert {
+		return nil, nil, fmt.Errorf("no CA certificate in environment configuration")
+	}
+	var stateAddrs []string
+	var apiAddrs []string
+	// Wait for the DNS names of any of the instances
+	// to become available.
+	log.Printf("environs/maas: waiting for DNS name(s) of state server instances %v", st.StateInstances)
+	for a := longAttempt.Start(); len(stateAddrs) == 0 && a.Next(); {
+		insts, err := env.Instances(st.StateInstances)
+		if err != nil && err != environs.ErrPartialInstances {
+			log.Debugf("error getting state instance: %v", err.Error())
+			return nil, nil, err
+		}
+		log.Debugf("started processing instances: %#v", insts)
+		for _, inst := range insts {
+			if inst == nil {
+				continue
+			}
+			name, err := inst.DNSName()
+			if err != nil {
+				continue
+			}
+			if name != "" {
+				stateAddrs = append(stateAddrs, name+mgoPortSuffix)
+				apiAddrs = append(apiAddrs, name+apiPortSuffix)
+			}
+		}
+	}
+	if len(stateAddrs) == 0 {
+		return nil, nil, fmt.Errorf("timed out waiting for mgo address from %v", st.StateInstances)
+	}
+	return &state.Info{
+			Addrs:  stateAddrs,
+			CACert: cert,
+		}, &api.Info{
+			Addrs:  apiAddrs,
+			CACert: cert,
+		}, nil
 }
 
 // ecfg returns the environment's maasEnvironConfig, and protects it with a
