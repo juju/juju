@@ -75,7 +75,7 @@ environments:
 }
 
 func (suite) TestInvalidEnv(c *C) {
-	defer testing.MakeFakeHome(c, "", "only").Restore()
+	defer testing.MakeFakeHomeNoEnvironments(c, "only").Restore()
 	for i, t := range invalidEnvTests {
 		c.Logf("running test %v", i)
 		es, err := environs.ReadEnvironsBytes([]byte(t.env))
@@ -131,7 +131,7 @@ environments:
 }
 
 func (suite) TestConfig(c *C) {
-	defer testing.MakeFakeHome(c, "", "only", "valid", "one", "two").Restore()
+	defer testing.MakeFakeHomeNoEnvironments(c, "only", "valid", "one", "two").Restore()
 	for i, t := range configTests {
 		c.Logf("running test %v", i)
 		es, err := environs.ReadEnvironsBytes([]byte(t.env))
@@ -141,7 +141,7 @@ func (suite) TestConfig(c *C) {
 }
 
 func (suite) TestDefaultConfigFile(c *C) {
-	defer testing.MakeFakeHome(c, "", "only").Restore()
+	defer testing.MakeFakeHomeNoEnvironments(c, "only").Restore()
 
 	env := `
 environments:
@@ -163,7 +163,7 @@ environments:
 }
 
 func (suite) TestNamedConfigFile(c *C) {
-	defer testing.MakeFakeHome(c, "", "only").Restore()
+	defer testing.MakeFakeHomeNoEnvironments(c, "only").Restore()
 
 	env := `
 environments:
@@ -185,7 +185,7 @@ environments:
 }
 
 func (suite) TestWriteConfigNoHome(c *C) {
-	defer testing.MakeFakeHome(c, "").Restore()
+	defer testing.MakeFakeHomeNoEnvironments(c).Restore()
 	os.Setenv("HOME", "")
 
 	env := `
@@ -220,7 +220,7 @@ func (suite) TestConfigRoundTrip(c *C) {
 }
 
 func (suite) TestBootstrapConfig(c *C) {
-	defer testing.MakeFakeHome(c, "", "bladaam").Restore()
+	defer testing.MakeFakeHomeNoEnvironments(c, "bladaam").Restore()
 	cfg, err := config.New(map[string]interface{}{
 		"name":            "bladaam",
 		"type":            "dummy",
