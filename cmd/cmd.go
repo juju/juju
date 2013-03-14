@@ -158,7 +158,7 @@ func Main(c Command, ctx *Context, args []string) int {
 	}
 	if err := c.Run(ctx); err != nil {
 		if err != ErrSilent {
-			log.Printf("%s command failed: %s\n", c.Info().Name, err)
+			log.Errf("%s command failed: %s\n", c.Info().Name, err)
 			fmt.Fprintf(ctx.Stderr, "error: %v\n", err)
 		}
 		return 1

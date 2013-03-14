@@ -188,7 +188,7 @@ func (csrv *codecServer) runRequest(reqId uint64, objId string, o *obtainer, a *
 		rvi = struct{}{}
 	}
 	if err := csrv.codec.WriteResponse(resp, rvi); err != nil {
-		log.Printf("rpc: error writing response %#v: %v", rvi, err)
+		log.Errf("rpc: error writing response %#v: %v", rvi, err)
 	}
 }
 

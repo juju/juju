@@ -201,7 +201,7 @@ func (client *Client) input() {
 	client.mutex.Unlock()
 	client.sending.Unlock()
 	if err != io.EOF && !closing {
-		log.Printf("rpc: client protocol error: %v", err)
+		log.Errf("rpc: client protocol error: %v", err)
 	}
 }
 
@@ -212,7 +212,7 @@ func (call *Call) done() {
 	default:
 		// We don't want to block here.  It is the caller's responsibility to make
 		// sure the channel has enough buffer space. See comment in Go().
-		log.Printf("rpc: discarding Call reply due to insufficient Done chan capacity")
+		log.Warningf("rpc: discarding Call reply due to insufficient Done chan capacity")
 	}
 }
 

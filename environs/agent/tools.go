@@ -102,7 +102,7 @@ func removeAll(dir string) {
 	if err == nil || os.IsNotExist(err) {
 		return
 	}
-	log.Printf("environs: cannot remove %q: %v", dir, err)
+	log.Warningf("environs: cannot remove %q: %v", dir, err)
 }
 
 func writeFile(name string, mode os.FileMode, r io.Reader) error {

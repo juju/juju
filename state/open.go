@@ -44,7 +44,7 @@ var dialTimeout = 10 * time.Minute
 // representing the environment connected to.
 // It returns unauthorizedError if access is unauthorized.
 func Open(info *Info) (*State, error) {
-	log.Printf("state: opening state; mongo addresses: %q; entity %q", info.Addrs, info.EntityName)
+	log.Infof("state: opening state; mongo addresses: %q; entity %q", info.Addrs, info.EntityName)
 	if len(info.Addrs) == 0 {
 		return nil, errors.New("no mongo addresses")
 	}
@@ -62,13 +62,13 @@ func Open(info *Info) (*State, error) {
 		ServerName: "anything",
 	}
 	dial := func(addr net.Addr) (net.Conn, error) {
-		log.Printf("state: connecting to %v", addr)
+		log.Infof("state: connecting to %v", addr)
 		c, err := tls.Dial("tcp", addr.String(), tlsConfig)
 		if err != nil {
-			log.Printf("state: connection failed: %v", err)
+			log.Errf("state: connection failed: %v", err)
 			return nil, err
 		}
-		log.Printf("state: connection established")
+		log.Infof("state: connection established")
 		return c, err
 	}
 	session, err := mgo.DialWithInfo(&mgo.DialInfo{
@@ -108,7 +108,7 @@ func Initialize(info *Info, cfg *config.Config) (rst *State, err error) {
 	} else if !IsNotFound(err) {
 		return nil, err
 	}
-	log.Printf("state: initializing environment")
+	log.Infof("state: initializing environment")
 	if cfg.AdminSecret() != "" {
 		return nil, fmt.Errorf("admin-secret should never be written to the state")
 	}

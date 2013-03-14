@@ -57,7 +57,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	if err := a.Conf.read(state.MachineEntityName(a.MachineId)); err != nil {
 		return err
 	}
-	defer log.Printf("cmd/jujud: machine agent exiting")
+	defer log.Noticef("cmd/jujud: machine agent exiting")
 	defer a.tomb.Done()
 
 	// We run the API server worker first, because we may
@@ -101,7 +101,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 
 func (a *MachineAgent) RunOnce(st *state.State, e AgentState) error {
 	m := e.(*state.Machine)
-	log.Printf("cmd/jujud: jobs for machine agent: %v", m.Jobs())
+	log.Infof("cmd/jujud: jobs for machine agent: %v", m.Jobs())
 	tasks := []task{NewUpgrader(st, m, a.Conf.DataDir)}
 	for _, j := range m.Jobs() {
 		switch j {
@@ -116,7 +116,7 @@ func (a *MachineAgent) RunOnce(st *state.State, e AgentState) error {
 			// Ignore because it's started independently.
 			continue
 		default:
-			log.Printf("cmd/jujud: ignoring unknown job %q", j)
+			log.Infof("cmd/jujud: ignoring unknown job %q", j)
 		}
 	}
 	return runTasks(a.tomb.Dying(), tasks...)
@@ -172,7 +172,7 @@ func (a *MachineAgent) maybeRunAPIServerOnce(conf *agent.Conf) error {
 	if len(conf.StateServerCert) == 0 || len(conf.StateServerKey) == 0 {
 		return &fatalError{"configuration does not have state server cert/key"}
 	}
-	log.Printf("cmd/jujud: running API server job")
+	log.Infof("cmd/jujud: running API server job")
 	srv, err := apiserver.NewServer(st, fmt.Sprintf(":%d", conf.APIPort), conf.StateServerCert, conf.StateServerKey)
 	if err != nil {
 		return err
@@ -180,7 +180,7 @@ func (a *MachineAgent) maybeRunAPIServerOnce(conf *agent.Conf) error {
 	select {
 	case <-a.tomb.Dying():
 	case <-srv.Dead():
-		log.Printf("jujud: API server has died: %v", srv.Stop())
+		log.Noticef("jujud: API server has died: %v", srv.Stop())
 	}
 	return srv.Stop()
 }

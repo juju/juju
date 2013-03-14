@@ -625,7 +625,7 @@ func (ws *watchers) stopAll() {
 	defer ws.mu.Unlock()
 	for _, w := range ws.ws {
 		if err := w.w.Stop(); err != nil {
-			log.Printf("state/api: error stopping %T watcher: %v", w, err)
+			log.Infof("state/api: error stopping %T watcher: %v", w, err)
 		}
 	}
 	ws.ws = make(map[string]*srvWatcher)

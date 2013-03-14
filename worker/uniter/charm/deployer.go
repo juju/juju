@@ -86,12 +86,12 @@ func (d *Deployer) Stage(bun *charm.Bundle, url *charm.URL) error {
 func (d *Deployer) Deploy(target *GitDir) (err error) {
 	defer func() {
 		if err == ErrConflict {
-			log.Printf("worker/uniter/charm: charm deployment completed with conflicts")
+			log.Warningf("worker/uniter/charm: charm deployment completed with conflicts")
 		} else if err != nil {
 			err = fmt.Errorf("charm deployment failed: %s", err)
-			log.Printf("worker/uniter/charm: %v", err)
+			log.Errf("worker/uniter/charm: %v", err)
 		} else {
-			log.Printf("worker/uniter/charm: charm deployment succeeded")
+			log.Infof("worker/uniter/charm: charm deployment succeeded")
 		}
 	}()
 	if exists, err := d.current.Exists(); err != nil {
@@ -111,7 +111,7 @@ func (d *Deployer) Deploy(target *GitDir) (err error) {
 // target.
 func (d *Deployer) install(target *GitDir) error {
 	defer d.collectOrphans()
-	log.Printf("worker/uniter/charm: preparing new charm deployment")
+	log.Infof("worker/uniter/charm: preparing new charm deployment")
 	url, err := ReadCharmURL(d.current)
 	if err != nil {
 		return err
@@ -130,14 +130,14 @@ func (d *Deployer) install(target *GitDir) error {
 	if err = repo.Snapshotf("Deployed charm %q.", url); err != nil {
 		return err
 	}
-	log.Printf("worker/uniter/charm: deploying charm")
+	log.Infof("worker/uniter/charm: deploying charm")
 	return os.Rename(path, target.Path())
 }
 
 // upgrade pulls from current into target. If target has local changes, but
 // no conflicts, it will be snapshotted before any changes are made.
 func (d *Deployer) upgrade(target *GitDir) error {
-	log.Printf("worker/uniter/charm: preparing charm upgrade")
+	log.Infof("worker/uniter/charm: preparing charm upgrade")
 	url, err := ReadCharmURL(d.current)
 	if err != nil {
 		return err
@@ -151,13 +151,13 @@ func (d *Deployer) upgrade(target *GitDir) error {
 		if conflicted, err := target.Conflicted(); err != nil {
 			return err
 		} else if !conflicted {
-			log.Printf("worker/uniter/charm: snapshotting dirty charm before upgrade")
+			log.Infof("worker/uniter/charm: snapshotting dirty charm before upgrade")
 			if err = target.Snapshotf("Pre-upgrade snapshot."); err != nil {
 				return err
 			}
 		}
 	}
-	log.Printf("worker/uniter/charm: deploying charm")
+	log.Infof("worker/uniter/charm: deploying charm")
 	if err := target.Pull(d.current); err != nil {
 		return err
 	}
@@ -174,7 +174,7 @@ func (d *Deployer) collectOrphans() {
 	filepath.Walk(d.path, func(path string, fi os.FileInfo, err error) error {
 		if err != nil && path != d.path && path != current {
 			if err = os.RemoveAll(path); err != nil {
-				log.Printf("worker/uniter/charm: failed to remove orphan repo at %s: %s", path, err)
+				log.Warningf("worker/uniter/charm: failed to remove orphan repo at %s: %s", path, err)
 			}
 		}
 		return err

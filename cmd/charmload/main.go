@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	log.Target = stdlog.New(os.Stdout, "", stdlog.LstdFlags)
+	log.Local = stdlog.New(os.Stdout, "", stdlog.LstdFlags)
 	err := load()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)

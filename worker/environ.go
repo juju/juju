@@ -29,7 +29,7 @@ func WaitForEnviron(w *state.EnvironConfigWatcher, dying <-chan struct{}) (envir
 			if err == nil {
 				return environ, nil
 			}
-			log.Printf("worker: loaded invalid environment configuration: %v", err)
+			log.Errf("worker: loaded invalid environment configuration: %v", err)
 			loadedInvalid()
 		}
 	}

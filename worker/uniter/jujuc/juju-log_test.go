@@ -18,11 +18,11 @@ type JujuLogSuite struct {
 var _ = Suite(&JujuLogSuite{})
 
 func pushLog(debug bool) (buf *bytes.Buffer, pop func()) {
-	oldTarget, oldDebug := log.Target, log.Debug
+	oldTarget, oldDebug := log.Local, log.Debug
 	buf = new(bytes.Buffer)
-	log.Target, log.Debug = stdlog.New(buf, "", 0), debug
+	log.Local, log.Debug = stdlog.New(buf, "JUJU:", 0), debug
 	return buf, func() {
-		log.Target, log.Debug = oldTarget, oldDebug
+		log.Local, log.Debug = oldTarget, oldDebug
 	}
 }
 
@@ -31,10 +31,10 @@ var commonLogTests = []struct {
 	debugFlag    bool
 	target       string
 }{
-	{false, false, "JUJU"},
+	{false, false, "JUJU:INFO:"},
 	{false, true, ""},
-	{true, false, "JUJU"},
-	{true, true, "JUJU:DEBUG"},
+	{true, false, "JUJU:INFO:"},
+	{true, true, "JUJU:DEBUG:"},
 }
 
 func assertLogs(c *C, ctx jujuc.Context, badge string) {

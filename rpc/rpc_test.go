@@ -539,17 +539,17 @@ func (c *generalClientCodec) WriteRequest(req *rpc.Request, x interface{}) error
 	if reflect.ValueOf(x).Kind() != reflect.Struct {
 		panic(fmt.Errorf("WriteRequest bad param; want struct got %T (%#v)", x, x))
 	}
-	log.Printf("send client request header: %#v", req)
+	log.Infof("send client request header: %#v", req)
 	if err := c.enc.Encode(req); err != nil {
 		return err
 	}
-	log.Printf("send client request body: %#v", x)
+	log.Infof("send client request body: %#v", x)
 	return c.enc.Encode(x)
 }
 
 func (c *generalClientCodec) ReadResponseHeader(resp *rpc.Response) error {
 	err := c.dec.Decode(resp)
-	log.Printf("got response header %#v", resp)
+	log.Infof("got response header %#v", resp)
 	return err
 }
 
@@ -562,9 +562,9 @@ func (c *generalClientCodec) ReadResponseBody(r interface{}) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("got response body: %q", m)
+	log.Infof("got response body: %q", m)
 	err = json.Unmarshal(m, r)
-	log.Printf("unmarshalled into %#v", r)
+	log.Infof("unmarshalled into %#v", r)
 	return err
 }
 

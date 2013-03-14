@@ -98,17 +98,38 @@ func (s *SuperCommandSuite) TestInfo(c *C) {
 	c.Assert(info.Doc, Matches, commandsDoc+helpText)
 }
 
-func (s *SuperCommandSuite) TestLogging(c *C) {
-	target, debug := log.Target, log.Debug
+func (s *SuperCommandSuite) TestLocalLogging(c *C) {
+	target, debug := log.Local, log.Debug
 	defer func() {
-		log.Target, log.Debug = target, debug
+		log.Local, log.Debug = target, debug
 	}()
 	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{Name: "jujutest", Log: &cmd.Log{}})
 	jc.Register(&TestCommand{Name: "blah"})
 	ctx := testing.Context(c)
 	code := cmd.Main(jc, ctx, []string{"blah", "--option", "error", "--debug"})
 	c.Assert(code, Equals, 1)
-	c.Assert(bufferString(ctx.Stderr), Matches, `.* JUJU jujutest blah command failed: BAM!
+	c.Assert(bufferString(ctx.Stderr), Matches, `\[JUJU\]jujutest:blah:.* ERROR: jujutest blah command failed: BAM!
 error: BAM!
 `)
+}
+
+func (s *SuperCommandSuite) TestSyslogLogging(c *C) {
+	target, debug := log.SysLog, log.Debug
+	defer func() {
+		log.SysLog, log.Debug = target, debug
+	}()
+	done := make(chan string)
+	serverAddr := cmd.StartTestSysLogServer(done)
+
+	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{Name: "jujutest", Log: &cmd.Log{ServerAddr: serverAddr}})
+	jc.Register(&TestCommand{Name: "blah"})
+	ctx := testing.Context(c)
+	code := cmd.Main(jc, ctx, []string{"blah", "--option", "error", "--debug"})
+	c.Assert(code, Equals, 1)
+	rcvd := <-done
+
+	expected := "<3>[JUJU]jujutest:blah: jujutest blah command failed: BAM!\n"
+	if rcvd != expected {
+		c.Fatalf("s.Info() = '%q', but wanted '%q'", rcvd, expected)
+	}
 }

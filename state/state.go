@@ -809,7 +809,7 @@ func (st *State) Cleanup() error {
 			c = st.settings
 			sel = D{{"_id", D{{"$regex", "^" + doc.Prefix}}}}
 		default:
-			log.Printf("state: WARNING: ignoring unknown cleanup kind %q", doc.Kind)
+			log.Warningf("state: ignoring unknown cleanup kind %q", doc.Kind)
 			continue
 		}
 		if count, err := c.Find(sel).Count(); err != nil {

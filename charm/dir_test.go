@@ -118,9 +118,9 @@ func (s *DirSuite) TestBundleTo(c *C) {
 
 // Bug #864164: Must complain if charm hooks aren't executable
 func (s *DirSuite) TestBundleToWithNonExecutableHooks(c *C) {
-	orig := log.Target
-	log.Target = c
-	defer func() { log.Target = orig }()
+	orig := log.Local
+	log.Local = c
+	defer func() { log.Local = orig }()
 	hooks := []string{"install", "start", "config-changed", "upgrade-charm", "stop"}
 	for _, relName := range []string{"foo", "bar", "self"} {
 		for _, kind := range []string{"joined", "changed", "departed", "broken"} {
@@ -139,7 +139,7 @@ func (s *DirSuite) TestBundleToWithNonExecutableHooks(c *C) {
 	tlog := c.GetTestLog()
 	for _, hook := range hooks {
 		fullpath := filepath.Join(dir.Path, "hooks", hook)
-		exp := fmt.Sprintf(`^(.|\n)*JUJU charm: WARNING: making "%s" executable in charm(.|\n)*$`, fullpath)
+		exp := fmt.Sprintf(`^(.|\n)*WARNING: charm: making "%s" executable in charm(.|\n)*$`, fullpath)
 		c.Assert(tlog, Matches, exp, Commentf("hook %q was not made executable", fullpath))
 	}
 
