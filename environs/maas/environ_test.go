@@ -2,6 +2,7 @@ package maas
 
 import (
 	"bytes"
+	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/gomaasapi"
 	"launchpad.net/juju-core/environs"
@@ -179,8 +180,16 @@ func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
 	env := suite.makeEnviron()
 	tools, err := environs.PutTools(env.Storage(), nil)
 	c.Assert(err, IsNil)
-	stateInfo := state.Info{CACert: []byte{1, 2, 3}}
-	apiInfo := api.Info{CACert: []byte{7, 8, 9}}
+	stateInfo := state.Info{
+		CACert: []byte{1, 2, 3},
+		Addrs: []string{machineID},
+		EntityName: state.MachineEntityName(machineID),
+	}
+	apiInfo := api.Info{
+		CACert: []byte{7, 8, 9},
+		Addrs: []string{machineID},
+		EntityName: state.MachineEntityName(machineID),
+	}
 
 	instance, err := env.StartInstance(machineID, &stateInfo, &apiInfo, tools)
 	c.Assert(err, IsNil)
@@ -290,4 +299,19 @@ func (suite *EnvironSuite) TestBootstrapFailsIfNoNodes(c *C) {
 	// Since there are no nodes, the attempt to allocate one returns a
 	// 409: Conflict.
 	c.Check(err, ErrorMatches, ".*409.*")
+}
+
+// fakeWriteCertAndKey is a stub for the writeCertAndKey to Bootstrap() that
+// always returns an error.  It should never be called.
+func fakeWriteCertAndKey(name string, cert, key []byte) error {
+	return fmt.Errorf("unexpected call to writeCertAndKey")
+}
+
+func (suite *EnvironSuite) TestBootstrapIntegratesWithEnvirons(c *C) {
+	env := suite.makeEnviron()
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "bootstrapnode"}`)
+
+	// environs.Bootstrap calls Environ.Bootstrap.  This works.
+	err := environs.Bootstrap(env, true, fakeWriteCertAndKey)
+	c.Assert(err, IsNil)
 }
