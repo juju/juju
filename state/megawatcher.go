@@ -10,7 +10,9 @@ import (
 
 // StateWatcher watches any changes to the state.
 type StateWatcher struct {
-	// TODO: hold the last revid that the StateWatcher saw.
+	// The following fields are maintained by the allWatcher
+	// goroutine.
+	stopped bool
 }
 
 func newStateWatcher(st *State) *StateWatcher {
@@ -63,6 +65,10 @@ type allWatcher struct {
 
 	// all holds information on everything the allWatcher cares about.
 	all *allInfo
+
+	// Each entry in the waiting map holds a linked list of Next requests
+	// outstanding for the associated StateWatcher.
+	waiting map[*StateWatcher]*allRequest
 }
 
 // allWatcherBacking is the interface required
@@ -70,6 +76,10 @@ type allWatcher struct {
 // It is an interface for testing purposes.
 // TODO(rog) complete this type and its methods.
 type allWatcherBacking interface {
+	// entityIdForInfo returns the entity id corresponding
+	// to the given entity info.
+	entityIdForInfo(info params.EntityInfo) entityId
+
 	// fetch retrieves information about the entity with
 	// the given id. It returns mgo.ErrNotFound if the
 	// entity does not exist.
@@ -82,13 +92,54 @@ type entityId struct {
 	id         interface{}
 }
 
+// allRequest holds a request from the StateWatcher to the
+// allWatcher for some changes. The request will be
+// replied to when some changes are available.
+type allRequest struct {
+	// w holds the StateWatcher that has originated the request.
+	w *StateWatcher
+
+	// reply receives a message when deltas are ready.  If reply is
+	// nil, the StateWatcher will be stopped.  If the reply is true,
+	// the request has been processed; if false, the StateWatcher
+	// has been stopped,
+	reply chan bool
+
+	// next points to the next request in the list of outstanding
+	// requests on a given watcher.  It is used only by the central
+	// allWatcher goroutine.
+	next *allRequest
+}
+
 // newAllWatcher returns a new allWatcher that retrieves information
 // using the given backing. It does not start it running.
 func newAllWatcher(backing allWatcherBacking) *allWatcher {
 	return &allWatcher{
 		backing: backing,
 		all:     newAllInfo(),
+		waiting: make(map[*StateWatcher]*allRequest),
 	}
+}
+
+// handle processes a request from a StateWatcher to the allWatcher.
+func (aw *allWatcher) handle(req *allRequest) {
+	if req.w.stopped {
+		// The watcher has previously been stopped.
+		req.reply <- false
+		return
+	}
+	if req.reply == nil {
+		// This is a request to stop the watcher.
+		for req := aw.waiting[req.w]; req != nil; req = req.next {
+			req.reply <- false
+		}
+		delete(aw.waiting, req.w)
+		req.w.stopped = true
+		return
+	}
+	// Add request to head of list.
+	req.next = aw.waiting[req.w]
+	aw.waiting[req.w] = req
 }
 
 // changed updates the allWatcher's idea of the current state
