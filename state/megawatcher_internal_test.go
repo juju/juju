@@ -155,7 +155,37 @@ var allInfoChangeMethodTests = []struct {
 		all.delete(entityId{"machine", "0"})
 	},
 	expectRevno: 1,
-}}
+}, {
+	about: "decref of non-removed entity",
+	change: func(all *allInfo) {
+		m := &params.MachineInfo{Id: "0"}
+		id := entityIdForInfo(m)
+		allInfoAdd(all, m)
+		entry := all.entities[id].Value.(*entityEntry)
+		entry.refCount++
+		all.decRef(entry, id)
+	},
+	expectRevno: 1,
+	expectContents: []entityEntry{{
+		creationRevno: 1,
+		revno:         1,
+		refCount: 0,
+		info:          &params.MachineInfo{Id: "0"},
+	}},
+}, {
+	about: "decref of removed entity",
+	change: func(all *allInfo) {
+		m := &params.MachineInfo{Id: "0"}
+		id := entityIdForInfo(m)
+		allInfoAdd(all, m)
+		entry := all.entities[id].Value.(*entityEntry)
+		entry.refCount++
+		all.markRemoved(id)
+		all.decRef(entry, id)
+	},
+	expectRevno: 2,
+},
+}
 
 func (s *allInfoSuite) TestAllInfoChangeMethods(c *C) {
 	for i, test := range allInfoChangeMethodTests {
@@ -164,10 +194,6 @@ func (s *allInfoSuite) TestAllInfoChangeMethods(c *C) {
 		test.change(all)
 		assertAllInfoContents(c, all, test.expectRevno, test.expectContents)
 	}
-}
-
-func (s *allInfoSuite) TestDecRef(c *c) {
-	...
 }
 
 func entityIdForInfo(info params.EntityInfo) entityId {
@@ -367,7 +393,7 @@ func (*allWatcherSuite) TestHandle(c *C) {
 }
 
 func (*allWatcherSuite) TestRespond(c *C) {
-	...
+	// implement
 }
 
 

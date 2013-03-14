@@ -289,7 +289,7 @@ func (a *allInfo) add(id entityId, info params.EntityInfo) {
 }
 
 // decRef decrements the reference count of an entry within the list,
-// removing it if drops to zero.
+// deleting it if it becomes zero and the entry is removed.
 func (a *allInfo) decRef(entry *entityEntry, id entityId) {
 	if entry.refCount--; entry.refCount > 0 {
 		return
@@ -297,12 +297,12 @@ func (a *allInfo) decRef(entry *entityEntry, id entityId) {
 	if entry.refCount < 0 {
 		panic("negative reference count")
 	}
+	if !entry.removed {
+		return
+	}
 	elem := a.entities[id]
 	if elem == nil {
 		panic("delete of non-existent entry")
-	}
-	if !elem.Value.(*entityEntry).removed {
-		panic("deleting entry that has not been marked as removed")
 	}
 	delete(a.entities, id)
 	a.list.Remove(elem)
