@@ -1,10 +1,9 @@
-package main
+package cmd
 
 import (
 	"bytes"
 	"fmt"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/version"
 )
 
@@ -14,11 +13,11 @@ var _ = Suite(&VersionSuite{})
 
 func (s *VersionSuite) TestVersion(c *C) {
 	var stdout, stderr bytes.Buffer
-	ctx := &cmd.Context{
+	ctx := &Context{
 		Stdout: &stdout,
 		Stderr: &stderr,
 	}
-	code := cmd.Main(&cmd.VersionCommand{}, ctx, nil)
+	code := Main(&VersionCommand{}, ctx, nil)
 	c.Check(code, Equals, 0)
 	c.Assert(stderr.String(), Equals, "")
 	c.Assert(stdout.String(), Equals, version.Current.String()+"\n")
@@ -26,11 +25,11 @@ func (s *VersionSuite) TestVersion(c *C) {
 
 func (s *VersionSuite) TestVersionExtraArgs(c *C) {
 	var stdout, stderr bytes.Buffer
-	ctx := &cmd.Context{
+	ctx := &Context{
 		Stdout: &stdout,
 		Stderr: &stderr,
 	}
-	code := cmd.Main(&cmd.VersionCommand{}, ctx, []string{"foo"})
+	code := Main(&VersionCommand{}, ctx, []string{"foo"})
 	c.Check(code, Equals, 2)
 	c.Assert(stdout.String(), Equals, "")
 	c.Assert(stderr.String(), Matches, "error: unrecognized args.*\n")
@@ -38,11 +37,11 @@ func (s *VersionSuite) TestVersionExtraArgs(c *C) {
 
 func (s *VersionSuite) TestVersionJson(c *C) {
 	var stdout, stderr bytes.Buffer
-	ctx := &cmd.Context{
+	ctx := &Context{
 		Stdout: &stdout,
 		Stderr: &stderr,
 	}
-	code := cmd.Main(&cmd.VersionCommand{}, ctx, []string{"--format", "json"})
+	code := Main(&VersionCommand{}, ctx, []string{"--format", "json"})
 	c.Check(code, Equals, 0)
 	c.Assert(stderr.String(), Equals, "")
 	c.Assert(stdout.String(), Equals, fmt.Sprintf("%q", version.Current.String())+"\n")
