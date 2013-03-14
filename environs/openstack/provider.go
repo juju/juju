@@ -3,6 +3,7 @@
 package openstack
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -20,6 +21,7 @@ import (
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -61,6 +63,10 @@ func (p environProvider) BoilerplateConfig() string {
 ## https://juju.ubuntu.com/get-started/openstack/
 openstack:
   type: openstack
+  # Specifies whether the use of a floating IP address is required to give the nodes
+  # a public IP address. Some installations assign public IP addresses by default without
+  # requiring a floating IP address.
+  # use-floating-ip: false
   admin-secret: {{rand}}
   # Globally unique swift bucket name
   control-bucket: juju-{{rand}}
@@ -69,6 +75,7 @@ openstack:
   # override if your workstation is running a different series to which you are deploying
   # default-series: precise
   default-image-id: c876e5fe-abb0-41f0-8f29-f0b47481f523
+  default-instance-type: "m1.small"
   # The following are used for userpass authentication (the default)
   auth-mode: userpass
   # Usually set via the env variable OS_USERNAME, but can be specified here
@@ -83,6 +90,10 @@ openstack:
 ## https://juju.ubuntu.com/get-started/hp-cloud/
 hpcloud:
   type: openstack
+  # Specifies whether the use of a floating IP address is required to give the nodes
+  # a public IP address. Some installations assign public IP addresses by default without
+  # requiring a floating IP address.
+  use-floating-ip: false
   admin-secret: {{rand}}
   # Globally unique swift bucket name
   control-bucket: juju-{{rand}}
@@ -90,7 +101,8 @@ hpcloud:
   auth-url: https://yourkeystoneurl:35357/v2.0/
   # override if your workstation is running a different series to which you are deploying
   # default-series: precise
-  default-image-id: 75845
+  default-image-id: "75845"
+  default-instance-type: "standard.xsmall"
   # The following are used for userpass authentication (the default)
   auth-mode: userpass
   # Usually set via the env variable OS_USERNAME, but can be specified here
@@ -134,11 +146,110 @@ func (p environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}
 }
 
 func (p environProvider) PublicAddress() (string, error) {
-	return fetchMetadata("public-hostname")
+	if addr, err := fetchMetadata("public-ipv4"); err != nil {
+		return "", err
+	} else if addr != "" {
+		return addr, nil
+	}
+	return p.PrivateAddress()
 }
 
 func (p environProvider) PrivateAddress() (string, error) {
-	return fetchMetadata("local-hostname")
+	return fetchMetadata("local-ipv4")
+}
+
+func (p environProvider) InstanceId() (state.InstanceId, error) {
+	str, err := fetchInstanceUUID()
+	if err != nil {
+		str, err = fetchLegacyId()
+	}
+	return state.InstanceId(str), err
+}
+
+// metadataHost holds the address of the instance metadata service.
+// It is a variable so that tests can change it to refer to a local
+// server when needed.
+var metadataHost = "http://169.254.169.254"
+
+// fetchMetadata fetches a single atom of data from the openstack instance metadata service.
+// http://docs.amazonwebservices.com/AWSEC2/latest/UserGuide/AESDG-chapter-instancedata.html
+// (the same specs is implemented in ec2, hence the reference)
+func fetchMetadata(name string) (value string, err error) {
+	uri := fmt.Sprintf("%s/latest/meta-data/%s", metadataHost, name)
+	data, err := retryGet(uri)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(data)), nil
+}
+
+// fetchInstanceUUID fetches the openstack instance UUID, which is not at all
+// the same thing as the "instance-id" in the ec2-style metadata. This only
+// works on openstack Folsom or later.
+func fetchInstanceUUID() (string, error) {
+	uri := fmt.Sprintf("%s/openstack/2012-08-10/meta_data.json", metadataHost)
+	data, err := retryGet(uri)
+	if err != nil {
+		return "", err
+	}
+	var uuid struct {
+		Uuid string
+	}
+	if err := json.Unmarshal(data, &uuid); err != nil {
+		return "", err
+	}
+	if uuid.Uuid == "" {
+		return "", fmt.Errorf("no instance UUID found")
+	}
+	return uuid.Uuid, nil
+}
+
+// fetchLegacyId fetches the openstack numeric instance Id, which is derived
+// from the "instance-id" in the ec2-style metadata. The ec2 id contains
+// the numeric instance id encoded as hex with a "i-" prefix.
+// This numeric id is required for older versions of Openstack which do
+// not yet support providing UUID's via the metadata. HP Cloud is one such case.
+// Even though using the numeric id is deprecated in favour of using UUID, where
+// UUID is not yet supported, we need to revert to numeric id.
+func fetchLegacyId() (string, error) {
+	instId, err := fetchMetadata("instance-id")
+	if err != nil {
+		return "", err
+	}
+	if strings.Index(instId, "i-") >= 0 {
+		hex := strings.SplitAfter(instId, "i-")[1]
+		id, err := strconv.ParseInt("0x"+hex, 0, 32)
+		if err != nil {
+			return "", err
+		}
+		instId = fmt.Sprintf("%d", id)
+	}
+	return instId, nil
+}
+
+func retryGet(uri string) (data []byte, err error) {
+	for a := shortAttempt.Start(); a.Next(); {
+		var resp *http.Response
+		resp, err = http.Get(uri)
+		if err != nil {
+			continue
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			err = fmt.Errorf("bad http response %v", resp.Status)
+			continue
+		}
+		var data []byte
+		data, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			continue
+		}
+		return data, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("cannot get %q: %v", uri, err)
+	}
+	return
 }
 
 type environ struct {
@@ -370,7 +481,7 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 		config:          config,
 		stateServerCert: cert,
 		stateServerKey:  key,
-		withPublicIP:    true,
+		withPublicIP:    e.ecfg().useFloatingIP(),
 	})
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
@@ -481,8 +592,8 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	authModeCfg = AuthMode(ecfg.authMode())
 	e.ecfgUnlocked = ecfg
 
-	novaClient := e.client(ecfg, authModeCfg)
-	e.novaUnlocked = nova.New(novaClient)
+	client := e.client(ecfg, authModeCfg)
+	e.novaUnlocked = nova.New(client)
 
 	// create new storage instances, existing instances continue
 	// to reference their existing configuration.
@@ -491,12 +602,23 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 		// this is possibly just a hack - if the ACL is swift.Private,
 		// the machine won't be able to get the tools (401 error)
 		containerACL: swift.PublicRead,
-		swift:        swift.New(e.client(ecfg, authModeCfg))}
-	if ecfg.publicBucket() != "" && ecfg.publicBucketURL() != "" {
-		e.publicStorageUnlocked = &storage{
-			containerName: ecfg.publicBucket(),
-			containerACL:  swift.PublicRead,
-			swift:         swift.New(e.publicClient(ecfg))}
+		swift:        swift.New(client)}
+	if ecfg.publicBucket() != "" {
+		// If no public bucket URL is specified, we will instead create the public bucket
+		// using the user's credentials on the authenticated client.
+		if ecfg.publicBucketURL() == "" {
+			e.publicStorageUnlocked = &storage{
+				containerName: ecfg.publicBucket(),
+				// this is possibly just a hack - if the ACL is swift.Private,
+				// the machine won't be able to get the tools (401 error)
+				containerACL: swift.PublicRead,
+				swift:        swift.New(client)}
+		} else {
+			e.publicStorageUnlocked = &storage{
+				containerName: ecfg.publicBucket(),
+				containerACL:  swift.PublicRead,
+				swift:         swift.New(e.publicClient(ecfg))}
+		}
 	} else {
 		e.publicStorageUnlocked = nil
 	}
@@ -506,10 +628,11 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 
 func (e *environ) StartInstance(machineId string, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
 	return e.startInstance(&startInstanceParams{
-		machineId: machineId,
-		info:      info,
-		apiInfo:   apiInfo,
-		tools:     tools,
+		machineId:    machineId,
+		info:         info,
+		apiInfo:      apiInfo,
+		tools:        tools,
+		withPublicIP: e.ecfg().useFloatingIP(),
 	})
 }
 
@@ -538,16 +661,12 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 		APIInfo:         scfg.apiInfo,
 		StateServerCert: scfg.stateServerCert,
 		StateServerKey:  scfg.stateServerKey,
-		// This is a horrible hack, which only works on folsom or
-		// later and we'd really like to have a better way
-		InstanceIdAccessor: `$(curl http://169.254.169.254/openstack/2012-08-10/meta_data.json|python -c 'import json,sys;print json.loads(sys.stdin.read())["uuid"]')`,
-		ProviderType:       "openstack",
-		DataDir:            "/var/lib/juju",
-		Tools:              scfg.tools,
-		MongoURL:           scfg.mongoURL,
-		MachineId:          scfg.machineId,
-		AuthorizedKeys:     e.ecfg().AuthorizedKeys(),
-		Config:             scfg.config,
+		DataDir:         "/var/lib/juju",
+		Tools:           scfg.tools,
+		MongoURL:        scfg.mongoURL,
+		MachineId:       scfg.machineId,
+		AuthorizedKeys:  e.ecfg().AuthorizedKeys(),
+		Config:          scfg.config,
 	}
 	cloudcfg, err := cloudinit.New(cfg)
 	if err != nil {
@@ -618,7 +737,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	var publicIP *nova.FloatingIP
 	if scfg.withPublicIP {
 		if fip, err := e.allocatePublicIP(); err != nil {
-			return nil, fmt.Errorf("cannot allocate a public IP as needed")
+			return nil, fmt.Errorf("cannot allocate a public IP as needed: %v", err)
 		} else {
 			publicIP = fip
 			log.Printf("environs/openstack: allocated public IP %s", publicIP.IP)
@@ -641,7 +760,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 		series: scfg.tools.Series,
 		arch:   scfg.tools.Arch,
 		region: e.ecfg().region(),
-		flavor: "m1.small",
+		flavor: e.ecfg().defaultInstanceType(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image satisfying constraints: %v", err)
@@ -745,6 +864,9 @@ func (e *environ) collectInstances(ids []state.InstanceId, out map[state.Instanc
 }
 
 func (e *environ) Instances(ids []state.InstanceId) ([]environs.Instance, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
 	missing := ids
 	found := make(map[state.InstanceId]environs.Instance)
 	// Make a series of requests to cope with eventual consistency.
@@ -819,7 +941,7 @@ func (e *environ) Destroy(ensureInsts []environs.Instance) error {
 }
 
 func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
-	panic("AssignmentPolicy not implemented")
+	return state.AssignUnused
 }
 
 func (e *environ) globalGroupName() string {
@@ -1051,38 +1173,4 @@ func (e *environ) terminateInstances(ids []state.InstanceId) error {
 		}
 	}
 	return firstErr
-}
-
-// metadataHost holds the address of the instance metadata service.
-// It is a variable so that tests can change it to refer to a local
-// server when needed.
-var metadataHost = "http://169.254.169.254"
-
-// fetchMetadata fetches a single atom of data from the openstack instance metadata service.
-// http://docs.amazonwebservices.com/AWSEC2/latest/UserGuide/AESDG-chapter-instancedata.html
-// (the same specs is implemented in OpenStack, hence the reference)
-func fetchMetadata(name string) (value string, err error) {
-	uri := fmt.Sprintf("%s/2011-01-01/meta-data/%s", metadataHost, name)
-	for a := shortAttempt.Start(); a.Next(); {
-		var resp *http.Response
-		resp, err = http.Get(uri)
-		if err != nil {
-			continue
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			err = fmt.Errorf("bad http response %v", resp.Status)
-			continue
-		}
-		var data []byte
-		data, err = ioutil.ReadAll(resp.Body)
-		if err != nil {
-			continue
-		}
-		return strings.TrimSpace(string(data)), nil
-	}
-	if err != nil {
-		return "", fmt.Errorf("cannot get %q: %v", uri, err)
-	}
-	return
 }

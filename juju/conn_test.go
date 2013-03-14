@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/trivial"
@@ -54,60 +55,48 @@ func (*NewConnSuite) TestNewConnWithoutAdminSecret(c *C) {
 	c.Assert(err, ErrorMatches, "cannot connect without admin-secret")
 }
 
-func (*NewConnSuite) TestNewConnFromName(c *C) {
-	home := c.MkDir()
-	defer os.Setenv("HOME", os.Getenv("HOME"))
-	os.Setenv("HOME", home)
-	conn, err := juju.NewConnFromName("")
-	c.Assert(conn, IsNil)
-	c.Assert(err, ErrorMatches, ".*: no such file or directory")
+func (*NewConnSuite) TestNewConnFromNameGetUnbootstrapped(c *C) {
+	defer coretesting.MakeSampleHome(c).Restore()
 
-	if err := os.Mkdir(filepath.Join(home, ".juju"), 0755); err != nil {
-		c.Fatal("Could not create directory structure")
-	}
-	envs := filepath.Join(home, ".juju", "environments.yaml")
-	err = ioutil.WriteFile(envs, []byte(`
-default:
-    erewhemos
-environments:
-    erewhemos:
-        type: dummy
-        state-server: true
-        authorized-keys: i-am-a-key
-        admin-secret: conn-from-name-secret
-`), 0644)
-
-	err = ioutil.WriteFile(filepath.Join(home, ".juju", "erewhemos-cert.pem"), []byte(coretesting.CACert), 0600)
-	c.Assert(err, IsNil)
-	err = ioutil.WriteFile(filepath.Join(home, ".juju", "erewhemos-private-key.pem"), []byte(coretesting.CAKey), 0600)
-	c.Assert(err, IsNil)
-
-	// Just run through a few operations on the dummy provider and verify that
-	// they behave as expected.
-	conn, err = juju.NewConnFromName("")
+	_, err := juju.NewConnFromName("")
 	c.Assert(err, ErrorMatches, "dummy environment not bootstrapped")
+}
 
-	environ, err := environs.NewFromName("")
+func bootstrapEnv(c *C, envName string) {
+	environ, err := environs.NewFromName(envName)
 	c.Assert(err, IsNil)
 	err = environs.Bootstrap(environ, false, panicWrite)
 	c.Assert(err, IsNil)
+}
 
-	conn, err = juju.NewConnFromName("")
+func (*NewConnSuite) TestConnMultipleCloseOk(c *C) {
+	defer coretesting.MakeSampleHome(c).Restore()
+	bootstrapEnv(c, "")
+	// Error return from here is tested in TestNewConnFromNameNotSetGetsDefault.
+	conn, _ := juju.NewConnFromName("")
+	conn.Close()
+	conn.Close()
+	conn.Close()
+}
+
+func (*NewConnSuite) TestNewConnFromNameNotSetGetsDefault(c *C) {
+	defer coretesting.MakeSampleHome(c).Restore()
+	bootstrapEnv(c, "")
+	conn, err := juju.NewConnFromName("")
 	c.Assert(err, IsNil)
 	defer conn.Close()
-	c.Assert(conn.Environ, NotNil)
-	c.Assert(conn.Environ.Name(), Equals, "erewhemos")
-	c.Assert(conn.State, NotNil)
+	c.Assert(conn.Environ.Name(), Equals, coretesting.SampleEnvName)
+}
 
-	// Reset the admin password so the state db can be reused.
-	err = conn.State.SetAdminMongoPassword("")
+func (*NewConnSuite) TestNewConnFromNameNotDefault(c *C) {
+	defer coretesting.MakeMultipleEnvHome(c).Restore()
+	// The default environment is "erewhemos", so make sure we get what we ask for.
+	const envName = "erewhemos-2"
+	bootstrapEnv(c, envName)
+	conn, err := juju.NewConnFromName(envName)
 	c.Assert(err, IsNil)
-	// Close the conn (thereby closing its state) a couple of times to
-	// verify that multiple closes will not panic. We ignore the error,
-	// as the underlying State will return an error the second
-	// time.
-	conn.Close()
-	conn.Close()
+	defer conn.Close()
+	c.Assert(conn.Environ.Name(), Equals, envName)
 }
 
 func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *C) {
@@ -280,6 +269,7 @@ func (s *ConnSuite) TearDownTest(c *C) {
 	c.Check(err, IsNil)
 	s.conn.Close()
 	s.conn = nil
+	dummy.Reset()
 	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }
@@ -292,6 +282,12 @@ func (s *ConnSuite) SetUpSuite(c *C) {
 func (s *ConnSuite) TearDownSuite(c *C) {
 	s.LoggingSuite.TearDownSuite(c)
 	s.MgoSuite.TearDownSuite(c)
+}
+
+func (s *ConnSuite) TestNewConnFromState(c *C) {
+	conn, err := juju.NewConnFromState(s.conn.State)
+	c.Assert(err, IsNil)
+	c.Assert(conn.Environ.Name(), Equals, "erewhemos")
 }
 
 func (s *ConnSuite) TestPutCharmBasic(c *C) {
@@ -477,11 +473,11 @@ func (s *ConnSuite) assertUnitLife(c *C, name string, life state.Life) {
 }
 
 func (s *ConnSuite) TestDestroyMachines(c *C) {
-	m0, err := s.conn.State.AddMachine(state.JobManageEnviron)
+	m0, err := s.conn.State.AddMachine("series", state.JobManageEnviron)
 	c.Assert(err, IsNil)
-	m1, err := s.conn.State.AddMachine(state.JobHostUnits)
+	m1, err := s.conn.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	m2, err := s.conn.State.AddMachine(state.JobHostUnits)
+	m2, err := s.conn.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 
 	curl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "wordpress")
@@ -543,4 +539,42 @@ func (s *ConnSuite) TestResolved(c *C) {
 	err = s.conn.Resolved(u, false)
 	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "testriak/0": already resolved`)
 	c.Assert(u.Resolved(), Equals, state.ResolvedRetryHooks)
+}
+
+type DeployLocalSuite struct {
+	testing.JujuConnSuite
+	repo          *charm.LocalRepository
+	defaultSeries string
+	seriesPath    string
+	charmUrl      *charm.URL
+}
+
+var _ = Suite(&DeployLocalSuite{})
+
+func (s *DeployLocalSuite) SetUpTest(c *C) {
+	s.JujuConnSuite.SetUpTest(c)
+	repoPath := c.MkDir()
+	s.defaultSeries = "precise"
+	s.repo = &charm.LocalRepository{Path: repoPath}
+	s.seriesPath = filepath.Join(repoPath, s.defaultSeries)
+	err := os.Mkdir(s.seriesPath, 0777)
+	c.Assert(err, IsNil)
+	coretesting.Charms.BundlePath(s.seriesPath, "mysql")
+	s.charmUrl, err = charm.InferURL("local:mysql", s.defaultSeries)
+	c.Assert(err, IsNil)
+}
+
+func (s *DeployLocalSuite) TestSetNumUnits(c *C) {
+	charm, err := s.Conn.PutCharm(s.charmUrl, s.repo, false)
+	c.Assert(err, IsNil)
+	args := juju.DeployServiceParams{
+		Charm:       charm,
+		NumUnits:    3,
+		ServiceName: "bob",
+	}
+	svc, err := s.Conn.DeployService(args)
+	c.Assert(err, IsNil)
+	units, err := svc.AllUnits()
+	c.Assert(err, IsNil)
+	c.Assert(len(units), Equals, 3)
 }

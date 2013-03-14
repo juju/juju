@@ -16,12 +16,17 @@ import (
 )
 
 type RpcCommand struct {
+	cmd.CommandBase
 	Value string
 	Slow  bool
 }
 
 func (c *RpcCommand) Info() *cmd.Info {
-	return &cmd.Info{"remote", "", "act at a distance", "blah doc"}
+	return &cmd.Info{
+		Name:    "remote",
+		Purpose: "act at a distance",
+		Doc:     "blah doc",
+	}
 }
 
 func (c *RpcCommand) SetFlags(f *gnuflag.FlagSet) {

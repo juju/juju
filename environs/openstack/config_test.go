@@ -40,6 +40,8 @@ type configTest struct {
 	publicBucket  string
 	pbucketURL    string
 	imageId       string
+	instanceType  string
+	useFloatingIP bool
 	username      string
 	password      string
 	tenantName    string
@@ -126,6 +128,10 @@ func (t configTest) check(c *C) {
 	if t.imageId != "" {
 		c.Assert(ecfg.defaultImageId(), Equals, t.imageId)
 	}
+	if t.instanceType != "" {
+		c.Assert(ecfg.defaultInstanceType(), Equals, t.instanceType)
+	}
+	c.Assert(ecfg.useFloatingIP(), Equals, t.useFloatingIP)
 }
 
 func (s *ConfigSuite) SetUpTest(c *C) {
@@ -238,6 +244,22 @@ var configTests = []configTest{
 			"default-image-id": "image-id",
 		},
 		imageId: "image-id",
+	}, {
+		summary: "instance type",
+		config: attrs{
+			"default-instance-type": "instance-type",
+		},
+		instanceType: "instance-type",
+	}, {
+		summary: "default use floating ip",
+		// Do not use floating IP's by default.
+		useFloatingIP: false,
+	}, {
+		summary: "use floating ip",
+		config: attrs{
+			"use-floating-ip": true,
+		},
+		useFloatingIP: true,
 	}, {
 		summary: "public bucket URL",
 		config: attrs{

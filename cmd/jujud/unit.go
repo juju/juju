@@ -12,6 +12,7 @@ import (
 
 // UnitAgent is a cmd.Command responsible for running a unit agent.
 type UnitAgent struct {
+	cmd.CommandBase
 	tomb     tomb.Tomb
 	Conf     AgentConf
 	UnitName string
@@ -19,7 +20,10 @@ type UnitAgent struct {
 
 // Info returns usage information for the command.
 func (a *UnitAgent) Info() *cmd.Info {
-	return &cmd.Info{"unit", "", "run a juju unit agent", ""}
+	return &cmd.Info{
+		Name:    "unit",
+		Purpose: "run a juju unit agent",
+	}
 }
 
 func (a *UnitAgent) SetFlags(f *gnuflag.FlagSet) {

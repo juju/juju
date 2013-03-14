@@ -9,6 +9,7 @@ import (
 
 // RelationSetCommand implements the relation-set command.
 type RelationSetCommand struct {
+	cmd.CommandBase
 	ctx        Context
 	RelationId int
 	Settings   map[string]string
@@ -20,7 +21,9 @@ func NewRelationSetCommand(ctx Context) cmd.Command {
 
 func (c *RelationSetCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		"relation-set", "key=value [key=value ...]", "set relation settings", "",
+		Name:    "relation-set",
+		Args:    "key=value [key=value ...]",
+		Purpose: "set relation settings",
 	}
 }
 

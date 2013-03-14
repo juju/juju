@@ -2,25 +2,29 @@ package main
 
 import (
 	"errors"
-
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/statecmd"
 )
 
 // AddUnitCommand is responsible adding additional units to a service.
 type AddUnitCommand struct {
-	EnvName     string
+	EnvCommandBase
 	ServiceName string
 	NumUnits    int
 }
 
 func (c *AddUnitCommand) Info() *cmd.Info {
-	return &cmd.Info{"add-unit", "", "add a service unit", ""}
+	return &cmd.Info{
+		Name:    "add-unit",
+		Purpose: "add a service unit",
+	}
 }
 
 func (c *AddUnitCommand) SetFlags(f *gnuflag.FlagSet) {
-	addEnvironFlags(&c.EnvName, f)
+	c.EnvCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "number of service units to add")
 	f.IntVar(&c.NumUnits, "num-units", 1, "")
 }
@@ -48,11 +52,10 @@ func (c *AddUnitCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer conn.Close()
-	service, err := conn.State.Service(c.ServiceName)
-	if err != nil {
-		return err
-	}
-	_, err = conn.AddUnits(service, c.NumUnits)
-	return err
 
+	params := params.ServiceAddUnits{
+		ServiceName: c.ServiceName,
+		NumUnits:    c.NumUnits,
+	}
+	return statecmd.ServiceAddUnits(conn.State, params)
 }

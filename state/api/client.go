@@ -62,7 +62,7 @@ func Open(info *Info) (*State, error) {
 	}
 	var conn *websocket.Conn
 	for a := openAttempt.Start(); a.Next(); {
-		log.Printf("state/api: dialling %q", cfg.Location)
+		log.Printf("state/api: dialing %q", cfg.Location)
 		conn, err = websocket.DialConfig(cfg)
 		if err == nil {
 			break
@@ -88,8 +88,20 @@ func Open(info *Info) (*State, error) {
 	return st, nil
 }
 
+func (s *State) call(objType, id, request string, params, response interface{}) error {
+	err := s.client.Call(objType, id, request, params, response)
+	return clientError(err)
+}
+
 func (s *State) Close() error {
 	return s.client.Close()
+}
+
+// RPCClient returns the RPC client for the state, so that testing
+// functions can tickle parts of the API that the conventional entry
+// points don't reach. This is exported for testing purposes only.
+func (s *State) RPCClient() *rpc.Client {
+	return s.client
 }
 
 type clientReq struct {
@@ -103,6 +115,7 @@ type clientReq struct {
 type clientResp struct {
 	RequestId uint64
 	Error     string
+	ErrorCode string
 	Response  json.RawMessage
 }
 
@@ -132,6 +145,7 @@ func (c *clientCodec) ReadResponseHeader(resp *rpc.Response) error {
 	}
 	resp.RequestId = c.resp.RequestId
 	resp.Error = c.resp.Error
+	resp.ErrorCode = c.resp.ErrorCode
 	return nil
 }
 

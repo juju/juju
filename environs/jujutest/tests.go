@@ -11,6 +11,7 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/trivial"
 	"net/http"
+	"sort"
 )
 
 // Tests is a gocheck suite containing tests verifying juju functionality
@@ -53,6 +54,12 @@ func (t *Tests) TestBootstrapWithoutAdminSecret(c *C) {
 	c.Assert(err, IsNil)
 	err = environs.Bootstrap(env, false, panicWrite)
 	c.Assert(err, ErrorMatches, ".*admin-secret is required for bootstrap")
+}
+
+func (t *Tests) TestProviderAssignmentPolicy(c *C) {
+	e := t.Open(c)
+	policy := e.AssignmentPolicy()
+	c.Assert(policy, FitsTypeOf, state.AssignUnused)
 }
 
 func (t *Tests) TestStartStop(c *C) {
@@ -180,7 +187,19 @@ func (t *Tests) TestPersistence(c *C) {
 func checkList(c *C, storage environs.StorageReader, prefix string, names []string) {
 	lnames, err := storage.List(prefix)
 	c.Assert(err, IsNil)
-	c.Assert(lnames, DeepEquals, names)
+	// TODO(dfc) gocheck should grow an SliceEquals checker.
+	expected := copyslice(lnames)
+	sort.Strings(expected)
+	actual := copyslice(names)
+	sort.Strings(actual)
+	c.Assert(expected, DeepEquals, actual)
+}
+
+// copyslice returns a copy of the slice
+func copyslice(s []string) []string {
+	r := make([]string, len(s))
+	copy(r, s)
+	return r
 }
 
 func checkPutFile(c *C, storage environs.StorageWriter, name string, contents []byte) {

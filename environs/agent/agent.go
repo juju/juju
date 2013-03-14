@@ -4,12 +4,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/goyaml"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/trivial"
 	"os"
-	"path/filepath"
+	"path"
 	"regexp"
 )
 
@@ -50,8 +49,8 @@ type Conf struct {
 // ReadConf reads configuration data for the given
 // entity from the given data directory.
 func ReadConf(dataDir, entityName string) (*Conf, error) {
-	dir := environs.AgentDir(dataDir, entityName)
-	data, err := ioutil.ReadFile(filepath.Join(dir, "agent.conf"))
+	dir := Dir(dataDir, entityName)
+	data, err := ioutil.ReadFile(path.Join(dir, "agent.conf"))
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +77,7 @@ func requiredError(what string) error {
 
 // File returns the path of the given file in the agent's directory.
 func (c *Conf) File(name string) string {
-	return filepath.Join(c.Dir(), name)
+	return path.Join(c.Dir(), name)
 }
 
 func (c *Conf) confFile() string {
@@ -96,7 +95,7 @@ func (c *Conf) EntityName() string {
 
 // Dir returns the agent's directory.
 func (c *Conf) Dir() string {
-	return environs.AgentDir(c.DataDir, c.EntityName())
+	return Dir(c.DataDir, c.EntityName())
 }
 
 // Check checks that the configuration has all the required elements.
@@ -206,7 +205,7 @@ func (c *Conf) OpenState() (st *state.State, newPassword string, err error) {
 		if err == nil {
 			return st, "", nil
 		}
-		if err != state.ErrUnauthorized {
+		if !state.IsUnauthorizedError(err) {
 			return nil, "", err
 		}
 		// Access isn't authorized even though we have a password

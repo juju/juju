@@ -9,6 +9,7 @@ import (
 
 // RelationIdsCommand implements the relation-ids command.
 type RelationIdsCommand struct {
+	cmd.CommandBase
 	ctx  Context
 	Name string
 	out  cmd.Output
@@ -26,7 +27,10 @@ func (c *RelationIdsCommand) Info() *cmd.Info {
 		doc = fmt.Sprintf("Current default relation name is %q.", r.Name())
 	}
 	return &cmd.Info{
-		"relation-ids", args, "list all relation ids with the given relation name", doc,
+		Name:    "relation-ids",
+		Args:    args,
+		Purpose: "list all relation ids with the given relation name",
+		Doc:     doc,
 	}
 }
 

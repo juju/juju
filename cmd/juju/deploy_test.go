@@ -106,7 +106,8 @@ type DeploySuite struct {
 var _ = Suite(&DeploySuite{})
 
 func runDeploy(c *C, args ...string) error {
-	return coretesting.RunCommand(c, &DeployCommand{}, args)
+	_, err := coretesting.RunCommand(c, &DeployCommand{}, args)
+	return err
 }
 
 var initErrorTests = []struct {

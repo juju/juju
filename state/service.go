@@ -16,6 +16,7 @@ import (
 type Service struct {
 	st  *State
 	doc serviceDoc
+	annotator
 }
 
 // serviceDoc represents the internal state of a service in MongoDB.
@@ -29,15 +30,50 @@ type serviceDoc struct {
 	RelationCount int
 	Exposed       bool
 	TxnRevno      int64 `bson:"txn-revno"`
+	Annotations   map[string]string
 }
 
 func newService(st *State, doc *serviceDoc) *Service {
-	return &Service{st: st, doc: *doc}
+	svc := &Service{
+		st:  st,
+		doc: *doc,
+		annotator: annotator{
+			st:   st,
+			coll: st.services.Name,
+			id:   doc.Name,
+		},
+	}
+	svc.annotator.annotations = &svc.doc.Annotations
+	return svc
 }
 
 // Name returns the service name.
 func (s *Service) Name() string {
 	return s.doc.Name
+}
+
+// EntityName returns a name identifying the service that is safe to use
+// as a file name.  The returned name will be different from other
+// EntityName values returned by any other entities from the same state.
+func (s *Service) EntityName() string {
+	return "service-" + s.Name()
+}
+
+// PasswordValid currently just returns false. Implemented here so that
+// a service can be used as an Entity.
+func (s *Service) PasswordValid(password string) bool {
+	return false
+}
+
+// SetPassword currently just returns an error. Implemented here so that
+// a service can be used as an Entity.
+func (s *Service) SetPassword(password string) error {
+	return fmt.Errorf("cannot set password of service")
+}
+
+// Annotations returns the service annotations.
+func (s *Service) Annotations() map[string]string {
+	return s.doc.Annotations
 }
 
 // globalKey returns the global database key for the service.
@@ -58,12 +94,12 @@ var errRefresh = errors.New("cannot determine relation destruction operations; p
 func (s *Service) Destroy() (err error) {
 	defer trivial.ErrorContextf(&err, "cannot destroy service %q", s)
 	defer func() {
-		if err != nil {
+		if err == nil {
 			// This is a white lie; the document might actually be removed.
 			s.doc.Life = Dying
 		}
 	}()
-	svc := &Service{s.st, s.doc}
+	svc := &Service{st: s.st, doc: s.doc}
 	for i := 0; i < 5; i++ {
 		ops, err := svc.destroyOps()
 		switch {
@@ -161,6 +197,10 @@ func (s *Service) removeOps(asserts D) []txn.Op {
 		Remove: true,
 	}, {
 		C:      s.st.settings.Name,
+		Id:     s.globalKey(),
+		Remove: true,
+	}, {
+		C:      s.st.constraints.Name,
 		Id:     s.globalKey(),
 		Remove: true,
 	}}
@@ -468,4 +508,14 @@ func (s *Service) Config() (config *Settings, err error) {
 		return nil, fmt.Errorf("cannot get configuration of service %q: %v", s, err)
 	}
 	return config, nil
+}
+
+// Constraints returns the current service constraints.
+func (s *Service) Constraints() (Constraints, error) {
+	return readConstraints(s.st, s.globalKey())
+}
+
+// SetConstraints replaces the current service constraints.
+func (s *Service) SetConstraints(cons Constraints) error {
+	return writeConstraints(s.st, s.globalKey(), cons)
 }

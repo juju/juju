@@ -9,8 +9,8 @@ import (
 )
 
 var configHeader = `## This is the Juju config file, which you can use to specify multiple environments in which to deploy.
-## By default we ship AWS (default), HP Cloud, OpenStack.
-## See http://juju.ubuntu.com/docs for more information
+## By default Juju ships AWS (default), HP Cloud, OpenStack.
+## See https://juju.ubuntu.com/docs for more information
 
 ## An environment configuration must always specify at least the following information:
 ##
@@ -20,6 +20,10 @@ var configHeader = `## This is the Juju config file, which you can use to specif
 
 ## Values in <brackets> below need to be filled in by the user.
 
+## The default environment is chosen when one is not specified using either:
+##   -e, --environment command line parameter
+##   JUJU_ENV environment variable
+## If both -e and JUJU_ENV are specified, the command line parameter has precedence.
 default: amazon
 
 environments:

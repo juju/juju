@@ -10,6 +10,7 @@ import (
 
 // JujuLogCommand implements the juju-log command.
 type JujuLogCommand struct {
+	cmd.CommandBase
 	ctx     Context
 	Message string
 	Debug   bool
@@ -21,7 +22,11 @@ func NewJujuLogCommand(ctx Context) cmd.Command {
 }
 
 func (c *JujuLogCommand) Info() *cmd.Info {
-	return &cmd.Info{"juju-log", "<message>", "write a message to the juju log", ""}
+	return &cmd.Info{
+		Name:    "juju-log",
+		Args:    "<message>",
+		Purpose: "write a message to the juju log",
+	}
 }
 
 func (c *JujuLogCommand) SetFlags(f *gnuflag.FlagSet) {

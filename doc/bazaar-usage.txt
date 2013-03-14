@@ -1,0 +1,129 @@
+Bazaar Basics
+=============
+
+An alternative to using `cobzr` is to use the normal `bzr` with light-weight
+checkouts (see `bzr help checkouts`).
+
+The first step is to create a repository that contains the juju-core trunk and
+other working branches.
+
+
+The Repository
+==============
+
+See `bzr help repositories` for more info on repositories.
+
+For this example, we'll use ~/src as a location for the repository.
+
+  $ cd ~/src
+  $ bzr init-repo juju-core
+
+This will create a repository that has working trees (the actual files and
+directories - see `bzr help working-trees`.
+
+Now put trunk in there:
+
+  $ cd juju-core
+  $ bzr branch lp:juju-core trunk
+
+
+Working in $GOPATH
+==================
+
+Now that we have trunk of juju-core elsewhere, we now need to use it inside
+$GOPATH.
+
+These steps assume that you have juju-core already available in $GOPATH/src.
+
+  $ cd $GOPATH/src/launchpad.net/juju-core
+  $ bzr reconfigure --lightweight-checkout --bind-to ~/src/juju-core/trunk
+
+Now when you look at that branch, you should see the following
+
+  $ bzr info
+  Lightweight checkout (format: 2a)
+  Location:
+    light checkout root: .
+     checkout of branch: /home/<you>/src/juju-core/trunk
+      shared repository: /home/<you>/src/juju-core
+
+
+Making pushes easier
+====================
+
+You can specify information in the bazaar locations file which it uses to
+determine the locations of the public and push locations for a branch.
+
+Inside your ~/.bazaar/locations.conf file, add the following (not including
+the curly braces).
+
+{{{
+[/home/eric/src]
+public_branch = bzr+ssh://bazaar.launchpad.net/~eric-the-viking
+public_branch:policy = appendpath
+push_location = lp:~eric-the-viking
+push_location:policy = appendpath
+}}}
+
+And replace 'eric' with your login id, and 'eric-the-viking' with your
+launchpad id.
+
+The `appendpath` policy means that the directories under ~/src are added to
+the path, so ~/src/juju-core/trunk would be pushed to (by default)
+lp:~eric-the-viking/juju-core/trunk.  What this means is that when you create
+a new branch `new-work`, and go `bzr push` it goes to
+`lp:~eric-the-viking/juju-core/new-work`.
+
+
+Making a branch to work in
+==========================
+
+Inside the $GOPATH/src/launchpad.net/juju-core directory, you can create a new
+branch to work on using:
+
+  $ bzr switch -b new-work
+
+This creates a new branch in `~/src/juju-core` called `new-work` and switches
+the working tree to use that.  Commits are now on that new branch, and push
+sends it to launchpad to the `new-work` branch.
+
+Everything else works the same.
+
+
+Useful aliases
+==============
+
+  $ bzr alias commit="commit --strict"
+
+This will mean that whenever you use commit, it adds the `--strict` flag.
+What this means is that it will not allow you to commit if there are unknown
+files.  This is very useful when you create new files but forget to add them
+prior to commit.
+
+If you do have unknown files and want to override the strict behaviour for one
+commit, then you can go...
+
+  $ bzr commit --no-strict -m "Blah blah"
+
+
+Another useful alias is:
+
+  $ bzr alias ll="log --line -r-10..-1"
+
+Will give you something like the following:
+
+{{{
+$ bzr ll
+956: Tim Penhey 2013-03-06 Add some documentation around lightweight checkout usage.
+955: Dave Cheney 2013-03-05 [merge] environs/ec2: try to get tests working on raring
+954: Roger Peppe 2013-03-04 [merge] juju: add NewConnFromState
+953: Dimiter Naydenov 2013-03-01 [merge] state, uniter: Units now use charm URLs
+952: Francesco Banconi 2013-03-01 [merge] Implement the API unexpose command.
+951: William Reade 2013-03-01 [merge] environs: drop InstanceIdAccessor hack
+950: Brad Crittenden 2013-02-28 [merge] Add the 'expose' command to the API.
+949: John A Meinel 2013-02-28 [merge] revert only r943
+948: William Reade 2013-02-28 [merge] history: rewind
+947: Ian Booth 2013-02-28 [merge] Better unauthorised errors
+}}}
+
+

@@ -5,6 +5,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/log"
 	"os"
+	modpath "path"
 	"path/filepath"
 	"time"
 )
@@ -189,7 +190,7 @@ func (d *Deployer) newDir(prefix string) (string, error) {
 	var err error
 	var path string
 	for i := 0; i < 10; i++ {
-		path = filepath.Join(d.path, fmt.Sprintf("%s-%d", prefix, i))
+		path = modpath.Join(d.path, fmt.Sprintf("%s-%d", prefix, i))
 		if err = os.Mkdir(path, 0755); err == nil {
 			return path, nil
 		} else if !os.IsExist(err) {

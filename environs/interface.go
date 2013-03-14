@@ -39,6 +39,9 @@ type EnvironProvider interface {
 
 	// PrivateAddress returns this machine's private host name.
 	PrivateAddress() (string, error)
+
+	// InstanceId returns this machine's instance id.
+	InstanceId() (state.InstanceId, error)
 }
 
 var ErrNoDNSName = errors.New("DNS name not allocated")

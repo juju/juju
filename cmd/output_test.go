@@ -4,16 +4,23 @@ import (
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/testing"
 )
 
 // OutputCommand is a command that uses the output.go formatters.
 type OutputCommand struct {
+	cmd.CommandBase
 	out   cmd.Output
 	value interface{}
 }
 
 func (c *OutputCommand) Info() *cmd.Info {
-	return &cmd.Info{"output", "<something>", "I like to output", "output"}
+	return &cmd.Info{
+		Name:    "output",
+		Args:    "<something>",
+		Purpose: "I like to output",
+		Doc:     "output",
+	}
 }
 
 func (c *OutputCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -42,8 +49,8 @@ var outputTests = map[string][]struct {
 		{1, "1\n"},
 		{-1, "-1\n"},
 		{1.1, "1.1\n"},
-		{true, "true\n"},
-		{false, "false\n"},
+		{true, "True\n"},
+		{false, "False\n"},
 		{"hello", "hello\n"},
 		{"\n\n\n", "\n\n\n\n"},
 		{"foo: bar", "foo: bar\n"},
@@ -54,8 +61,8 @@ var outputTests = map[string][]struct {
 		{1, "1\n"},
 		{-1, "-1\n"},
 		{1.1, "1.1\n"},
-		{true, "true\n"},
-		{false, "false\n"},
+		{true, "True\n"},
+		{false, "False\n"},
 		{"hello", "hello\n"},
 		{"\n\n\n", "\n\n\n\n"},
 		{"foo: bar", "foo: bar\n"},
@@ -97,7 +104,7 @@ func (s *CmdSuite) TestOutputFormat(c *C) {
 		}
 		for i, t := range tests {
 			c.Logf("  test %d", i)
-			ctx := dummyContext(c)
+			ctx := testing.Context(c)
 			result := cmd.Main(&OutputCommand{value: t.value}, ctx, args)
 			c.Assert(result, Equals, 0)
 			c.Assert(bufferString(ctx.Stdout), Equals, t.output)
@@ -105,7 +112,7 @@ func (s *CmdSuite) TestOutputFormat(c *C) {
 		}
 	}
 
-	ctx := dummyContext(c)
+	ctx := testing.Context(c)
 	result := cmd.Main(&OutputCommand{}, ctx, []string{"--format", "cuneiform"})
 	c.Assert(result, Equals, 2)
 	c.Assert(bufferString(ctx.Stdout), Equals, "")
@@ -117,7 +124,7 @@ func (s *CmdSuite) TestOutputFormat(c *C) {
 // this argument format.
 // LP #1059921
 func (s *CmdSuite) TestFormatAlternativeSyntax(c *C) {
-	ctx := dummyContext(c)
+	ctx := testing.Context(c)
 	result := cmd.Main(&OutputCommand{}, ctx, []string{"--format=json"})
 	c.Assert(result, Equals, 0)
 	c.Assert(bufferString(ctx.Stdout), Equals, "null\n")

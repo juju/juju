@@ -37,10 +37,12 @@ type Info struct {
 	Password string
 }
 
+var dialTimeout = 10 * time.Minute
+
 // Open connects to the server described by the given
 // info, waits for it to be initialized, and returns a new State
 // representing the environment connected to.
-// It returns ErrUnauthorized if access is unauthorized.
+// It returns unauthorizedError if access is unauthorized.
 func Open(info *Info) (*State, error) {
 	log.Printf("state: opening state; mongo addresses: %q; entity %q", info.Addrs, info.EntityName)
 	if len(info.Addrs) == 0 {
@@ -71,9 +73,12 @@ func Open(info *Info) (*State, error) {
 	}
 	session, err := mgo.DialWithInfo(&mgo.DialInfo{
 		Addrs:   info.Addrs,
-		Timeout: 10 * time.Minute,
+		Timeout: dialTimeout,
 		Dial:    dial,
 	})
+	if err != nil {
+		return nil, err
+	}
 	st, err := newState(session, info)
 	if err != nil {
 		session.Close()
@@ -84,25 +89,37 @@ func Open(info *Info) (*State, error) {
 
 // Initialize sets up an initial empty state and returns it.
 // This needs to be performed only once for a given environment.
-// It returns ErrUnauthorized if access is unauthorized.
-func Initialize(info *Info, cfg *config.Config) (*State, error) {
+// It returns unauthorizedError if access is unauthorized.
+func Initialize(info *Info, cfg *config.Config) (rst *State, err error) {
 	st, err := Open(info)
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		if err != nil {
+			st.Close()
+		}
+	}()
 	// A valid environment config is used as a signal that the
 	// state has already been initalized. If this is the case
 	// do nothing.
-	if _, err = st.EnvironConfig(); !IsNotFound(err) {
+	if _, err := st.EnvironConfig(); err == nil {
 		return st, nil
-	}
-	log.Printf("state: storing no-secrets environment configuration")
-	if _, err = createSettings(st, "e", nil); err != nil {
-		st.Close()
+	} else if !IsNotFound(err) {
 		return nil, err
 	}
-	if err = st.SetEnvironConfig(cfg); err != nil {
-		st.Close()
+	log.Printf("state: initializing environment")
+	if cfg.AdminSecret() != "" {
+		return nil, fmt.Errorf("admin-secret should never be written to the state")
+	}
+	ops := []txn.Op{
+		createConstraintsOp(st, "e", Constraints{}),
+		createSettingsOp(st, "e", cfg.AllAttrs()),
+	}
+	if err := st.runner.Run(ops, "", nil); err == txn.ErrAborted {
+		// The config was created in the meantime.
+		return st, nil
+	} else if err != nil {
 		return nil, err
 	}
 	return st, nil
@@ -131,7 +148,30 @@ var (
 	logSizeTests = 1000000
 )
 
-var ErrUnauthorized = errors.New("unauthorized access")
+// unauthorizedError represents the error that an operation is unauthorized.
+// Use IsUnauthorized() to determine if the error was related to authorization failure.
+type unauthorizedError struct {
+	msg string
+	error
+}
+
+func IsUnauthorizedError(err error) bool {
+	_, ok := err.(*unauthorizedError)
+	return ok
+}
+
+func (e *unauthorizedError) Error() string {
+	if e.error != nil {
+		return fmt.Sprintf("%s: %v", e.msg, e.error.Error())
+	}
+	return e.msg
+}
+
+// Unauthorizedf returns an error for which IsUnauthorizedError returns true.
+// It is mainly used for testing.
+func Unauthorizedf(format string, args ...interface{}) error {
+	return &unauthorizedError{fmt.Sprintf(format, args...), nil}
+}
 
 func maybeUnauthorized(err error, msg string) error {
 	if err == nil {
@@ -140,10 +180,10 @@ func maybeUnauthorized(err error, msg string) error {
 	// Unauthorized access errors have no error code,
 	// just a simple error string.
 	if err.Error() == "auth fails" {
-		return ErrUnauthorized
+		return &unauthorizedError{msg, err}
 	}
 	if err, ok := err.(*mgo.QueryError); ok && err.Code == 10057 {
-		return ErrUnauthorized
+		return &unauthorizedError{msg, err}
 	}
 	return fmt.Errorf("%s: %v", msg, err)
 }
@@ -173,6 +213,7 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 		relationScopes: db.C("relationscopes"),
 		services:       db.C("services"),
 		settings:       db.C("settings"),
+		constraints:    db.C("constraints"),
 		units:          db.C("units"),
 		users:          db.C("users"),
 		presence:       pdb.C("presence"),
@@ -199,8 +240,8 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 	return st, nil
 }
 
-// Addrs returns the list of addresses used to connect to the state.
-func (st *State) Addrs() (addrs []string) {
+// Addresses returns the list of addresses used to connect to the state.
+func (st *State) Addresses() (addrs []string) {
 	return append(addrs, st.info.Addrs...)
 }
 

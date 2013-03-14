@@ -6,7 +6,7 @@ import (
 	corecharm "launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
@@ -108,7 +108,7 @@ func (u *Uniter) init(name string) (err error) {
 		return err
 	}
 	ename := u.unit.EntityName()
-	u.toolsDir = environs.AgentToolsDir(u.dataDir, ename)
+	u.toolsDir = agent.ToolsDir(u.dataDir, ename)
 	if err := EnsureJujucSymlinks(u.toolsDir); err != nil {
 		return err
 	}
@@ -165,9 +165,9 @@ func (u *Uniter) writeState(op Op, step OpStep, hi *hook.Info, url *corecharm.UR
 	return nil
 }
 
-// deploy deploys the supplied charm, and sets follow-up hook operation state
+// deploy deploys the supplied charm URL, and sets follow-up hook operation state
 // as indicated by reason.
-func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
+func (u *Uniter) deploy(curl *corecharm.URL, reason Op) error {
 	if reason != Install && reason != Upgrade {
 		panic(fmt.Errorf("%q is not a deploy operation", reason))
 	}
@@ -180,29 +180,32 @@ func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
 		// started upgrading, to ensure we still return to the correct state.
 		hi = u.s.Hook
 	}
-	url := sch.URL()
 	if u.s == nil || u.s.OpStep != Done {
-		log.Printf("worker/uniter: fetching charm %q", url)
+		log.Printf("worker/uniter: fetching charm %q", curl)
+		sch, err := u.st.Charm(curl)
+		if err != nil {
+			return err
+		}
 		bun, err := u.bundles.Read(sch, u.tomb.Dying())
 		if err != nil {
 			return err
 		}
-		if err = u.deployer.Stage(bun, url); err != nil {
+		if err = u.deployer.Stage(bun, curl); err != nil {
 			return err
 		}
-		log.Printf("worker/uniter: deploying charm %q", url)
-		if err = u.writeState(reason, Pending, hi, url); err != nil {
+		log.Printf("worker/uniter: deploying charm %q", curl)
+		if err = u.writeState(reason, Pending, hi, curl); err != nil {
 			return err
 		}
 		if err = u.deployer.Deploy(u.charm); err != nil {
 			return err
 		}
-		if err = u.writeState(reason, Done, hi, url); err != nil {
+		if err = u.writeState(reason, Done, hi, curl); err != nil {
 			return err
 		}
 	}
-	log.Printf("worker/uniter: charm %q is deployed", url)
-	if err := u.unit.SetCharm(sch); err != nil {
+	log.Printf("worker/uniter: charm %q is deployed", curl)
+	if err := u.unit.SetCharmURL(curl); err != nil {
 		return err
 	}
 	status := Queued
@@ -315,6 +318,7 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 // restoreRelations reconciles the supplied relation state dirs with the
 // remote state of the corresponding relations.
 func (u *Uniter) restoreRelations() error {
+	// TODO(dimitern): Get these from state, not from disk.
 	dirs, err := relation.ReadAllStateDirs(u.relationsDir)
 	if err != nil {
 		return err
@@ -374,6 +378,17 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 			return nil, err
 		}
 		if rel.Life() != state.Alive {
+			continue
+		}
+		// Make sure we ignore relations not implemented by the unit's charm
+		ch, err := corecharm.ReadDir(u.charm.Path())
+		if err != nil {
+			return nil, err
+		}
+		if ep, err := rel.Endpoint(u.unit.ServiceName()); err != nil {
+			return nil, err
+		} else if !ep.ImplementedBy(ch) {
+			log.Printf("worker/uniter: skipping relation with unknown endpoint %q", ep)
 			continue
 		}
 		dir, err := relation.ReadStateDir(u.relationsDir, id)

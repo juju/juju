@@ -84,19 +84,28 @@ type unitDoc struct {
 	StatusInfo     string
 	TxnRevno       int64 `bson:"txn-revno"`
 	PasswordHash   string
+	Annotations    map[string]string
 }
 
 // Unit represents the state of a service unit.
 type Unit struct {
 	st  *State
 	doc unitDoc
+	annotator
 }
 
 func newUnit(st *State, udoc *unitDoc) *Unit {
-	return &Unit{
+	unit := &Unit{
 		st:  st,
 		doc: *udoc,
+		annotator: annotator{
+			st:   st,
+			coll: st.units.Name,
+			id:   udoc.Name,
+		},
 	}
+	unit.annotator.annotations = &unit.doc.Annotations
+	return unit
 }
 
 // Service returns the service.
@@ -117,6 +126,11 @@ func (u *Unit) String() string {
 // Name returns the unit name.
 func (u *Unit) Name() string {
 	return u.doc.Name
+}
+
+// Annotations returns the unit annotations.
+func (u *Unit) Annotations() map[string]string {
+	return u.doc.Annotations
 }
 
 // globalKey returns the global database key for the unit.
@@ -248,7 +262,7 @@ func (u *Unit) Remove() (err error) {
 	if err != nil {
 		return err
 	}
-	unit := &Unit{u.st, u.doc}
+	unit := &Unit{st: u.st, doc: u.doc}
 	for i := 0; i < 5; i++ {
 		ops := svc.removeUnitOps(unit)
 		if err := svc.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
@@ -425,27 +439,43 @@ func (u *Unit) OpenedPorts() []Port {
 	return ports
 }
 
-// Charm returns the charm this unit is currently using.
-func (u *Unit) Charm() (ch *Charm, err error) {
+// CharmURL returns the charm URL this unit is currently using.
+func (u *Unit) CharmURL() (*charm.URL, bool) {
 	if u.doc.CharmURL == nil {
-		return nil, fmt.Errorf("charm URL of unit %q not found", u)
+		return nil, false
 	}
-	return u.st.Charm(u.doc.CharmURL)
+	return u.doc.CharmURL, true
 }
 
-// SetCharm marks the unit as currently using the supplied charm.
-func (u *Unit) SetCharm(ch *Charm) (err error) {
+// SetCharmURL marks the unit as currently using the supplied charm URL.
+// An error will be returned if the unit is dead, or the charm URL not known.
+func (u *Unit) SetCharmURL(curl *charm.URL) error {
+	if curl == nil {
+		return fmt.Errorf("cannot set nil charm url")
+	}
 	ops := []txn.Op{{
+		// This will be replaced by a more stringent check in a follow-up.
+		C:      u.st.charms.Name,
+		Id:     curl,
+		Assert: txn.DocExists,
+	}, {
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: notDeadDoc,
-		Update: D{{"$set", D{{"charmurl", ch.URL()}}}},
+		Update: D{{"$set", D{{"charmurl", curl}}}},
 	}}
-	if err := u.st.runner.Run(ops, "", nil); err != nil {
-		return fmt.Errorf("cannot set charm for unit %q: %v", u, onAbort(err, errNotAlive))
+	if err := u.st.runner.Run(ops, "", nil); err == nil {
+		u.doc.CharmURL = curl
+		return nil
+	} else if err != txn.ErrAborted {
+		return err
 	}
-	u.doc.CharmURL = ch.URL()
-	return nil
+	if notDead, err := isNotDead(u.st.units, u.doc.Name); err != nil {
+		return err
+	} else if notDead {
+		return fmt.Errorf("unknown charm url %q", curl)
+	}
+	return fmt.Errorf("unit %q is dead", u)
 }
 
 // AgentAlive returns whether the respective remote agent is alive.
@@ -504,6 +534,11 @@ type NotAssignedError struct{ Unit *Unit }
 
 func (e *NotAssignedError) Error() string {
 	return fmt.Sprintf("unit %q is not assigned to a machine", e.Unit)
+}
+
+func IsNotAssigned(err error) bool {
+	_, ok := err.(*NotAssignedError)
+	return ok
 }
 
 // AssignedMachineId returns the id of the assigned machine.

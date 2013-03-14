@@ -111,6 +111,7 @@ type State struct {
 	relationScopes *mgo.Collection
 	services       *mgo.Collection
 	settings       *mgo.Collection
+	constraints    *mgo.Collection
 	units          *mgo.Collection
 	users          *mgo.Collection
 	presence       *mgo.Collection
@@ -118,6 +119,10 @@ type State struct {
 	runner         *txn.Runner
 	watcher        *watcher.Watcher
 	pwatcher       *presence.Watcher
+}
+
+func (st *State) Watch() *StateWatcher {
+	return newStateWatcher(st)
 }
 
 func (st *State) EnvironConfig() (*config.Config, error) {
@@ -147,23 +152,37 @@ func (st *State) SetEnvironConfig(cfg *config.Config) error {
 	return err
 }
 
-// AddMachine adds a new machine configured to run the supplied jobs.
-func (st *State) AddMachine(jobs ...MachineJob) (m *Machine, err error) {
-	return st.addMachine("", jobs)
+// EnvironConstraints returns the current environment constraints.
+func (st *State) EnvironConstraints() (Constraints, error) {
+	return readConstraints(st, "e")
+}
+
+// SetEnvironConstraints replaces the current environment constraints.
+func (st *State) SetEnvironConstraints(cons Constraints) error {
+	return writeConstraints(st, "e", cons)
+}
+
+// AddMachine adds a new machine configured to run the supplied jobs on the
+// supplied series.
+func (st *State) AddMachine(series string, jobs ...MachineJob) (m *Machine, err error) {
+	return st.addMachine(series, "", jobs)
 }
 
 // InjectMachine adds a new machine, corresponding to an existing provider
-// instance, configure to run the supplied jobs.
-func (st *State) InjectMachine(instanceId InstanceId, jobs ...MachineJob) (m *Machine, err error) {
+// instance, configured to run the supplied jobs on the supplied series.
+func (st *State) InjectMachine(series string, instanceId InstanceId, jobs ...MachineJob) (m *Machine, err error) {
 	if instanceId == "" {
 		return nil, fmt.Errorf("cannot inject a machine without an instance id")
 	}
-	return st.addMachine(instanceId, jobs)
+	return st.addMachine(series, instanceId, jobs)
 }
 
 // addMachine implements AddMachine and InjectMachine.
-func (st *State) addMachine(instanceId InstanceId, jobs []MachineJob) (m *Machine, err error) {
+func (st *State) addMachine(series string, instanceId InstanceId, jobs []MachineJob) (m *Machine, err error) {
 	defer trivial.ErrorContextf(&err, "cannot add a new machine")
+	if series == "" {
+		return nil, fmt.Errorf("no series specified")
+	}
 	if len(jobs) == 0 {
 		return nil, fmt.Errorf("no jobs specified")
 	}
@@ -180,9 +199,10 @@ func (st *State) addMachine(instanceId InstanceId, jobs []MachineJob) (m *Machin
 	}
 	id := strconv.Itoa(seq)
 	mdoc := machineDoc{
-		Id:   id,
-		Life: Alive,
-		Jobs: jobs,
+		Id:     id,
+		Series: series,
+		Life:   Alive,
+		Jobs:   jobs,
 	}
 	if instanceId != "" {
 		mdoc.InstanceId = instanceId
@@ -254,17 +274,19 @@ func (st *State) Machine(id string) (*Machine, error) {
 	return newMachine(st, mdoc), nil
 }
 
-// AuthEntity represents an entity that has
-// a password that can be authenticated against.
-type AuthEntity interface {
+// Entity represents an entity capabable of handling password authentication
+// and annotations.
+type Entity interface {
 	EntityName() string
 	SetPassword(pass string) error
 	PasswordValid(pass string) bool
 	Refresh() error
+	SetAnnotation(key, value string) error
+	Annotations() map[string]string
 }
 
-// AuthEntity returns the entity for the given name.
-func (st *State) AuthEntity(entityName string) (AuthEntity, error) {
+// Entity returns the entity for the given name.
+func (st *State) Entity(entityName string) (Entity, error) {
 	i := strings.Index(entityName, "-")
 	if i <= 0 || i >= len(entityName)-1 {
 		return nil, fmt.Errorf("invalid entity name %q", entityName)
@@ -288,6 +310,11 @@ func (st *State) AuthEntity(entityName string) (AuthEntity, error) {
 		return st.Unit(name)
 	case "user":
 		return st.User(id)
+	case "service":
+		if !IsServiceName(id) {
+			return nil, fmt.Errorf("invalid entity name %q", entityName)
+		}
+		return st.Service(id)
 	}
 	return nil, fmt.Errorf("invalid entity name %q", entityName)
 }
@@ -332,6 +359,9 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	if !IsServiceName(name) {
 		return nil, fmt.Errorf("invalid name")
 	}
+	if ch == nil {
+		return nil, fmt.Errorf("charm is nil")
+	}
 	if exists, err := isNotDead(st.services, name); err != nil {
 		return nil, err
 	} else if exists {
@@ -346,16 +376,15 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 		Life:          Alive,
 	}
 	svc := newService(st, svcDoc)
-	ops := []txn.Op{{
-		C:      st.settings.Name,
-		Id:     svc.globalKey(),
-		Insert: D{},
-	}, {
-		C:      st.services.Name,
-		Id:     name,
-		Assert: txn.DocMissing,
-		Insert: svcDoc,
-	}}
+	ops := []txn.Op{
+		createConstraintsOp(st, svc.globalKey(), Constraints{}),
+		createSettingsOp(st, svc.globalKey(), map[string]interface{}{}),
+		{
+			C:      st.services.Name,
+			Id:     name,
+			Assert: txn.DocMissing,
+			Insert: svcDoc,
+		}}
 	// Collect peer relation addition operations.
 	for relName, rel := range peers {
 		relId, err := st.sequence("relation")
@@ -692,9 +721,9 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 			return err
 		}
 		for {
-			// TODO(rog) take out a lease on the new machine
-			// so that we don't have a race here.
-			m, err := st.AddMachine(JobHostUnits)
+			// TODO(fwereade) totally remove this filthy and incorrect hack.
+			// Maybe u.AssignToNewMachine()? (should probably be internal...)
+			m, err := st.AddMachine(version.Current.Series, JobHostUnits)
 			if err != nil {
 				return err
 			}

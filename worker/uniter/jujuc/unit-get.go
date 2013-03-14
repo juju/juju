@@ -9,6 +9,7 @@ import (
 
 // UnitGetCommand implements the unit-get command.
 type UnitGetCommand struct {
+	cmd.CommandBase
 	ctx Context
 	Key string
 	out cmd.Output
@@ -20,7 +21,9 @@ func NewUnitGetCommand(ctx Context) cmd.Command {
 
 func (c *UnitGetCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		"unit-get", "<setting>", "print public-address or private-address", "",
+		Name:    "unit-get",
+		Args:    "<setting>",
+		Purpose: "print public-address or private-address",
 	}
 }
 

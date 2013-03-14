@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/provisioner"
 	stdtesting "testing"
 )
@@ -181,7 +182,7 @@ func (s *ProvisionerSuite) TestSimple(c *C) {
 	defer s.stopProvisioner(c, p)
 
 	// place a new machine into the state
-	m, err := s.State.AddMachine(state.JobHostUnits)
+	m, err := s.State.AddMachine(version.Current.Series, state.JobHostUnits)
 	c.Assert(err, IsNil)
 
 	s.checkStartInstance(c, m, "pork")
@@ -201,7 +202,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurWithAnInvalidEnvironment(
 	defer s.stopProvisioner(c, p)
 
 	// try to create a machine
-	_, err = s.State.AddMachine(state.JobHostUnits)
+	_, err = s.State.AddMachine(version.Current.Series, state.JobHostUnits)
 	c.Assert(err, IsNil)
 
 	// the PA should not create it
@@ -216,7 +217,7 @@ func (s *ProvisionerSuite) TestProvisioningOccursWithFixedEnvironment(c *C) {
 	defer s.stopProvisioner(c, p)
 
 	// try to create a machine
-	m, err := s.State.AddMachine(state.JobHostUnits)
+	m, err := s.State.AddMachine(version.Current.Series, state.JobHostUnits)
 	c.Assert(err, IsNil)
 
 	// the PA should not create it
@@ -233,7 +234,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesOccurAfterInvalidEnvironmentPubli
 	defer s.stopProvisioner(c, p)
 
 	// place a new machine into the state
-	m, err := s.State.AddMachine(state.JobHostUnits)
+	m, err := s.State.AddMachine(version.Current.Series, state.JobHostUnits)
 	c.Assert(err, IsNil)
 
 	s.checkStartInstance(c, m, "pork")
@@ -242,7 +243,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesOccurAfterInvalidEnvironmentPubli
 	c.Assert(err, IsNil)
 
 	// create a second machine
-	m, err = s.State.AddMachine(state.JobHostUnits)
+	m, err = s.State.AddMachine(version.Current.Series, state.JobHostUnits)
 	c.Assert(err, IsNil)
 
 	// the PA should create it using the old environment
@@ -255,7 +256,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterRe
 	// the PA is restarted in this test. tf. Methods like Fatalf and Assert should not be used.
 
 	// create a machine
-	m, err := s.State.AddMachine(state.JobHostUnits)
+	m, err := s.State.AddMachine(version.Current.Series, state.JobHostUnits)
 	c.Check(err, IsNil)
 
 	s.checkStartInstance(c, m, "pork")
@@ -283,13 +284,13 @@ func (s *ProvisionerSuite) TestProvisioningStopsUnknownInstances(c *C) {
 	// the PA is restarted in this test. Methods like Fatalf and Assert should not be used.
 
 	// create a machine
-	m, err := s.State.AddMachine(state.JobHostUnits)
+	m, err := s.State.AddMachine(version.Current.Series, state.JobHostUnits)
 	c.Check(err, IsNil)
 
 	s.checkStartInstance(c, m, "pork")
 
 	// create a second machine
-	m, err = s.State.AddMachine(state.JobHostUnits)
+	m, err = s.State.AddMachine(version.Current.Series, state.JobHostUnits)
 	c.Check(err, IsNil)
 
 	s.checkStartInstance(c, m, "pork")
@@ -317,7 +318,7 @@ func (s *ProvisionerSuite) TestProvisioningStopsOnlyUnknownInstances(c *C) {
 	// the PA is restarted in this test. Methods like Fatalf and Assert should not be used.
 
 	// create a machine
-	m, err := s.State.AddMachine(state.JobHostUnits)
+	m, err := s.State.AddMachine(version.Current.Series, state.JobHostUnits)
 	c.Check(err, IsNil)
 
 	s.checkStartInstance(c, m, "pork")
@@ -341,7 +342,7 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	defer s.stopProvisioner(c, p)
 
 	// place a new machine into the state
-	m, err := s.State.AddMachine(state.JobHostUnits)
+	m, err := s.State.AddMachine(version.Current.Series, state.JobHostUnits)
 	c.Assert(err, IsNil)
 
 	s.checkStartInstance(c, m, "pork")
@@ -352,7 +353,7 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	s.State.StartSync()
 
 	// create a second machine
-	m, err = s.State.AddMachine(state.JobHostUnits)
+	m, err = s.State.AddMachine(version.Current.Series, state.JobHostUnits)
 	c.Assert(err, IsNil)
 
 	// the PA should create it using the old environment
@@ -383,7 +384,7 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	}
 
 	// create a third machine
-	m, err = s.State.AddMachine(state.JobHostUnits)
+	m, err = s.State.AddMachine(version.Current.Series, state.JobHostUnits)
 	c.Assert(err, IsNil)
 
 	// the PA should create it using the new environment

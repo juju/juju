@@ -23,7 +23,7 @@ var _ = Suite(&MachineSuite{})
 // machine agent's directory.  It returns the new machine, the
 // agent's configuration and the tools currently running.
 func (s *MachineSuite) primeAgent(c *C, jobs ...state.MachineJob) (*state.Machine, *agent.Conf, *state.Tools) {
-	m, err := s.State.InjectMachine("ardbeg-0", jobs...)
+	m, err := s.State.InjectMachine("series", "ardbeg-0", jobs...)
 	c.Assert(err, IsNil)
 	err = m.SetMongoPassword("machine-password")
 	c.Assert(err, IsNil)
@@ -101,7 +101,7 @@ func (s *MachineSuite) TestWithDeadMachine(c *C) {
 func (s *MachineSuite) TestHostUnits(c *C) {
 	m, conf, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
-	mgr, reset := patchDeployManager(c, conf.StateInfo, conf.DataDir)
+	ctx, reset := patchDeployContext(c, conf.StateInfo, conf.DataDir)
 	defer reset()
 	go func() { c.Check(a.Run(nil), IsNil) }()
 	defer func() { c.Check(a.Stop(), IsNil) }()
@@ -112,23 +112,23 @@ func (s *MachineSuite) TestHostUnits(c *C) {
 	c.Assert(err, IsNil)
 	u1, err := svc.AddUnit()
 	c.Assert(err, IsNil)
-	mgr.waitDeployed(c)
+	ctx.waitDeployed(c)
 
 	err = u0.AssignToMachine(m)
 	c.Assert(err, IsNil)
-	mgr.waitDeployed(c, u0.Name())
+	ctx.waitDeployed(c, u0.Name())
 
 	err = u0.Destroy()
 	c.Assert(err, IsNil)
-	mgr.waitDeployed(c, u0.Name())
+	ctx.waitDeployed(c, u0.Name())
 
 	err = u1.AssignToMachine(m)
 	c.Assert(err, IsNil)
-	mgr.waitDeployed(c, u0.Name(), u1.Name())
+	ctx.waitDeployed(c, u0.Name(), u1.Name())
 
 	err = u0.EnsureDead()
 	c.Assert(err, IsNil)
-	mgr.waitDeployed(c, u1.Name())
+	ctx.waitDeployed(c, u1.Name())
 
 	err = u0.Refresh()
 	c.Assert(state.IsNotFound(err), Equals, true)
@@ -140,6 +140,8 @@ func (s *MachineSuite) TestManageEnviron(c *C) {
 	dummy.Listen(op)
 
 	a := s.newAgent(c, m)
+	// Make sure the agent is stopped even if the test fails.
+	defer a.Stop()
 	done := make(chan error)
 	go func() {
 		done <- a.Run(nil)

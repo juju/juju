@@ -8,6 +8,7 @@ import (
 
 // RelationListCommand implements the relation-list command.
 type RelationListCommand struct {
+	cmd.CommandBase
 	ctx        Context
 	RelationId int
 	out        cmd.Output
@@ -25,7 +26,10 @@ func (c *RelationListCommand) Info() *cmd.Info {
 		doc = fmt.Sprintf("Current default relation id is %q.", r.FakeId())
 	}
 	return &cmd.Info{
-		"relation-list", args, "list relation units", doc,
+		Name:    "relation-list",
+		Args:    args,
+		Purpose: "list relation units",
+		Doc:     doc,
 	}
 }
 

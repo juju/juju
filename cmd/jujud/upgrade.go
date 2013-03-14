@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"launchpad.net/juju-core/downloader"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
@@ -42,7 +43,7 @@ func (e *UpgradeReadyError) Error() string {
 
 // ChangeAgentTools does the actual agent upgrade.
 func (e *UpgradeReadyError) ChangeAgentTools() error {
-	tools, err := environs.ChangeAgentTools(e.DataDir, e.AgentName, e.NewTools.Binary)
+	tools, err := agent.ChangeAgentTools(e.DataDir, e.AgentName, e.NewTools.Binary)
 	if err != nil {
 		return err
 	}
@@ -89,7 +90,7 @@ func (u *Upgrader) Wait() error {
 
 func (u *Upgrader) run() error {
 	// Let the state know the version that is currently running.
-	currentTools, err := environs.ReadTools(u.dataDir, version.Current)
+	currentTools, err := agent.ReadTools(u.dataDir, version.Current)
 	if err != nil {
 		// Don't abort everything because we can't find the tools directory.
 		// The problem should sort itself out as we will immediately
@@ -174,7 +175,7 @@ func (u *Upgrader) run() error {
 			}
 			binary := version.Current
 			binary.Number = vers
-			if tools, err := environs.ReadTools(u.dataDir, binary); err == nil {
+			if tools, err := agent.ReadTools(u.dataDir, binary); err == nil {
 				// The perfect tools have already been downloaded, so use them.
 				return u.upgradeReady(currentTools, tools)
 			}
@@ -201,7 +202,7 @@ func (u *Upgrader) run() error {
 				}
 				log.Printf("cmd/jujud: upgrader cannot find exact tools match for %s; using %s instead", binary, tools.Binary)
 			}
-			if tools, err := environs.ReadTools(u.dataDir, tools.Binary); err == nil {
+			if tools, err := agent.ReadTools(u.dataDir, tools.Binary); err == nil {
 				// The best available tools have already been downloaded, so use them.
 				return u.upgradeReady(currentTools, tools)
 			}
@@ -218,7 +219,7 @@ func (u *Upgrader) run() error {
 				noDelay()
 				break
 			}
-			err := environs.UnpackTools(u.dataDir, tools, status.File)
+			err := agent.UnpackTools(u.dataDir, tools, status.File)
 			status.File.Close()
 			if err := os.Remove(status.File.Name()); err != nil {
 				log.Printf("cmd/jujud: upgrader cannot remove temporary download file: %v", err)

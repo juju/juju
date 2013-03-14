@@ -13,6 +13,7 @@ const portFormat = "<port>[/<protocol>]"
 
 // portCommand implements the open-port and close-port commands.
 type portCommand struct {
+	cmd.CommandBase
 	info     *cmd.Info
 	action   func(*portCommand) error
 	Protocol string
@@ -63,8 +64,10 @@ func (c *portCommand) Run(_ *cmd.Context) error {
 }
 
 var openPortInfo = &cmd.Info{
-	"open-port", portFormat, "register a port to open",
-	"The port will only be open while the service is exposed.",
+	Name:    "open-port",
+	Args:    portFormat,
+	Purpose: "register a port to open",
+	Doc:     "The port will only be open while the service is exposed.",
 }
 
 func NewOpenPortCommand(ctx Context) cmd.Command {
@@ -77,7 +80,9 @@ func NewOpenPortCommand(ctx Context) cmd.Command {
 }
 
 var closePortInfo = &cmd.Info{
-	"close-port", portFormat, "ensure a port is always closed", "",
+	Name:    "close-port",
+	Args:    portFormat,
+	Purpose: "ensure a port is always closed",
 }
 
 func NewClosePortCommand(ctx Context) cmd.Command {
