@@ -11,7 +11,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/trivial"
 	"os"
-	"path/filepath"
+	"path"
 )
 
 // BundlesDir is responsible for storing and retrieving charm bundles
@@ -87,11 +87,11 @@ func (d *BundlesDir) download(sch *state.Charm, abort <-chan struct{}) (err erro
 // bundlePath returns the path to the location where the verified charm
 // bundle identified by sch will be, or has been, saved.
 func (d *BundlesDir) bundlePath(sch *state.Charm) string {
-	return filepath.Join(d.path, charm.Quote(sch.URL().String()))
+	return path.Join(d.path, charm.Quote(sch.URL().String()))
 }
 
 // downloadsPath returns the path to the directory into which charms are
 // downloaded.
 func (d *BundlesDir) downloadsPath() string {
-	return filepath.Join(d.path, "downloads")
+	return path.Join(d.path, "downloads")
 }

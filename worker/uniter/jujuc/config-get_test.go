@@ -21,7 +21,7 @@ var configGetTests = []struct {
 	args []string
 	out  string
 }{
-	{[]string{"monsters"}, "false\n"},
+	{[]string{"monsters"}, "False\n"},
 	{[]string{"--format", "yaml", "monsters"}, "false\n"},
 	{[]string{"--format", "json", "monsters"}, "false\n"},
 	{[]string{"spline-reticulation"}, "45\n"},
@@ -81,7 +81,7 @@ func (s *ConfigGetSuite) TestOutputPath(c *C) {
 	c.Assert(bufferString(ctx.Stdout), Equals, "")
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "some-file"))
 	c.Assert(err, IsNil)
-	c.Assert(string(content), Equals, "false\n")
+	c.Assert(string(content), Equals, "False\n")
 }
 
 func (s *ConfigGetSuite) TestUnknownArg(c *C) {
