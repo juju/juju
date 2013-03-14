@@ -73,11 +73,7 @@ func checkCertificate(environ environs.Environ) error {
 		// All is good in the world.
 		return nil
 	}
-
-	if !hasCACert && hasCAKey {
-		return fmt.Errorf("environment configuration with CA private key but no certificate")
-	}
-
+	// It is not possible to create an environment that has a private key, but no certificate.
 	if hasCACert && !hasCAKey {
 		return fmt.Errorf("environment configuration with a certificate but no CA private key")
 	}
@@ -90,21 +86,21 @@ func checkCertificate(environ environs.Environ) error {
 // the user is informed how to create one.
 func (c *BootstrapCommand) Run(context *cmd.Context) error {
 	environ, err := environs.NewFromName(c.EnvName)
-	if err == nil {
-		err = checkCertificate(environ)
-		if err != nil {
-			return err
+	if err != nil {
+		if os.IsNotExist(err) {
+			out := context.Stderr
+			fmt.Fprintln(out, "No juju environment configuration file exists.")
+			fmt.Fprintln(out, "Please create a configuration by running:")
+			fmt.Fprintln(out, "    juju init -w")
+			fmt.Fprintln(out, "then edit the file to configure your juju environment.")
+			fmt.Fprintln(out, "You can then re-run bootstrap.")
 		}
-		return environs.Bootstrap(environ, c.UploadTools)
-	}
-	if !os.IsNotExist(err) {
 		return err
 	}
-	out := context.Stderr
-	fmt.Fprintln(out, "No juju environment configuration file exists.")
-	fmt.Fprintln(out, "Please create a configuration by running:")
-	fmt.Fprintln(out, "    juju init -w")
-	fmt.Fprintln(out, "then edit the file to configure your juju environment.")
-	fmt.Fprintln(out, "You can then re-run bootstrap.")
-	return err
+
+	err = checkCertificate(environ)
+	if err != nil {
+		return err
+	}
+	return environs.Bootstrap(environ, c.UploadTools)
 }
