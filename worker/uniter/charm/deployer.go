@@ -5,7 +5,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/log"
 	"os"
-	"path"
+	modpath "path"
 	"path/filepath"
 	"time"
 )
@@ -22,7 +22,7 @@ type Deployer struct {
 func NewDeployer(path string) *Deployer {
 	return &Deployer{
 		path:    path,
-		current: NewGitDir(path.Join(path, "current")),
+		current: NewGitDir(filepath.Join(path, "current")),
 	}
 }
 
@@ -76,7 +76,7 @@ func (d *Deployer) Stage(bun *charm.Bundle, url *charm.URL) error {
 	}
 
 	// Atomically rename fresh repository to current.
-	tmplink := path.Join(path, "tmplink")
+	tmplink := filepath.Join(path, "tmplink")
 	if err = os.Symlink(path, tmplink); err != nil {
 		return err
 	}
@@ -190,7 +190,7 @@ func (d *Deployer) newDir(prefix string) (string, error) {
 	var err error
 	var path string
 	for i := 0; i < 10; i++ {
-		path = path.Join(d.path, fmt.Sprintf("%s-%d", prefix, i))
+		path = modpath.Join(d.path, fmt.Sprintf("%s-%d", prefix, i))
 		if err = os.Mkdir(path, 0755); err == nil {
 			return path, nil
 		} else if !os.IsExist(err) {
