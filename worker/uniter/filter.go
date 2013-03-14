@@ -265,12 +265,11 @@ func (f *filter) loop(unitName string) (err error) {
 			}
 		case _, ok = <-configChanges:
 			log.Debugf("worker/uniter/filter: got config change")
-			if !ok {
-				return watcher.MustErr(configw)
+			if ok {
+				log.Debugf("worker/uniter/filter: preparing new config event")
+				f.outConfig = f.outConfigOn
+				discardConfig = f.discardConfig
 			}
-			log.Debugf("worker/uniter/filter: preparing new config event")
-			f.outConfig = f.outConfigOn
-			discardConfig = f.discardConfig
 		case ids, ok := <-relationsw.Changes():
 			log.Debugf("worker/uniter/filter: got relations change")
 			if !ok {
