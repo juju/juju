@@ -76,6 +76,34 @@ func (*BootstrapSuite) TestCheckCertificateMissingKey(c *C) {
 	c.Assert(err, ErrorMatches, "environment configuration with a certificate but no CA private key")
 }
 
+func (*BootstrapSuite) TestGenerateCertificate(c *C) {
+	defer testing.MakeFakeHome(c, envConfig).Restore()
+	envName := "peckham"
+	env, err := environs.NewFromName(envName)
+	c.Assert(err, IsNil)
+
+	generateCertificate(env)
+
+	// Check that the generated CA key has been written correctly.
+	caCertPEM, err := ioutil.ReadFile(testing.HomePath(".juju", envName+"-cert.pem"))
+	c.Assert(err, IsNil)
+	caKeyPEM, err := ioutil.ReadFile(testing.HomePath(".juju", envName+"-private-key.pem"))
+	c.Assert(err, IsNil)
+
+	// Check that the cert and key have been set correctly in the configuration
+	cfgCertPEM, cfgCertOK := env.Config().CACert()
+	cfgKeyPEM, cfgKeyOK := env.Config().CAPrivateKey()
+	c.Assert(cfgCertOK, Equals, true)
+	c.Assert(cfgKeyOK, Equals, true)
+	c.Assert(cfgCertPEM, DeepEquals, caCertPEM)
+	c.Assert(cfgKeyPEM, DeepEquals, caKeyPEM)
+
+	// Check the common name of the generated cert
+	caCert, _, err := cert.ParseCertAndKey(cfgCertPEM, cfgKeyPEM)
+	c.Assert(err, IsNil)
+	c.Assert(caCert.Subject.CommonName, Equals, `juju-generated CA for environment peckham`)
+}
+
 func (*BootstrapSuite) TestRunGeneratesCertificate(c *C) {
 	defer testing.MakeFakeHome(c, envConfig).Restore()
 	envName := "peckham"
@@ -94,16 +122,6 @@ func (*BootstrapSuite) TestRunGeneratesCertificate(c *C) {
 	// Check that the environment validates the cert and key.
 	env, err := environs.NewFromName(envName)
 	c.Assert(err, IsNil)
-
-	cfgCertPEM, cfgCertOK := env.Config().CACert()
-	cfgKeyPEM, cfgKeyOK := env.Config().CAPrivateKey()
-	c.Assert(cfgCertOK, Equals, true)
-	c.Assert(cfgKeyOK, Equals, true)
-
-	// Check the common name of the generated cert
-	caCert, _, err := cert.ParseCertAndKey(cfgCertPEM, cfgKeyPEM)
-	c.Assert(err, IsNil)
-	c.Assert(caCert.Subject.CommonName, Equals, `juju-generated CA for environment peckham`)
 }
 
 func (*BootstrapSuite) TestBootstrapCommandNoParams(c *C) {

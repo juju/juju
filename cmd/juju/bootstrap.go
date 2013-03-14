@@ -43,7 +43,8 @@ func writeCertAndKeyToHome(name string, cert, key []byte) error {
 	return nil
 }
 
-func generateCertificate(environ environs.Environ, cfg *config.Config) error {
+func generateCertificate(environ environs.Environ) error {
+	cfg := environ.Config()
 	caCert, caKey, err := cert.NewCA(environ.Name(), time.Now().UTC().AddDate(10, 0, 0))
 	if err != nil {
 		return err
@@ -78,7 +79,7 @@ func checkCertificate(environ environs.Environ) error {
 		return fmt.Errorf("environment configuration with a certificate but no CA private key")
 	}
 
-	return generateCertificate(environ, cfg)
+	return generateCertificate(environ)
 }
 
 // Run connects to the environment specified on the command line and bootstraps
