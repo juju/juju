@@ -22,10 +22,6 @@ func (v *VersionCommand) SetFlags(f *gnuflag.FlagSet) {
 	v.out.AddFlags(f, "smart", DefaultFormatters)
 }
 
-func (v *VersionCommand) Init(args []string) error {
-	return CheckEmpty(args)
-}
-
 func (v *VersionCommand) Run(ctxt *Context) error {
 	return v.out.Write(ctxt, version.Current.String())
 }
