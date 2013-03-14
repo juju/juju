@@ -156,8 +156,8 @@ func (f *filter) WantUpgradeEvent(mustForce bool) {
 //
 // * Upgrade events will only be generated for charms different to
 //   that supplied;
-// * A fresh event will be generated for every relation
-//   known to the service;
+// * A fresh relations event will be generated containing every relation
+//   the service is participating in;
 // * A fresh configuration event will be generated, and subsequent
 //   events will only be sent in response to changes in the version
 //   of the service's settings that is specific to that charm.
@@ -265,11 +265,12 @@ func (f *filter) loop(unitName string) (err error) {
 			}
 		case _, ok = <-configChanges:
 			log.Debugf("worker/uniter/filter: got config change")
-			if ok {
-				log.Debugf("worker/uniter/filter: preparing new config event")
-				f.outConfig = f.outConfigOn
-				discardConfig = f.discardConfig
+			if !ok {
+				return watcher.MustErr(configw)
 			}
+			log.Debugf("worker/uniter/filter: preparing new config event")
+			f.outConfig = f.outConfigOn
+			discardConfig = f.discardConfig
 		case ids, ok := <-relationsw.Changes():
 			log.Debugf("worker/uniter/filter: got relations change")
 			if !ok {
@@ -280,7 +281,6 @@ func (f *filter) loop(unitName string) (err error) {
 		// Send events on active out chans.
 		case f.outUpgrade <- f.upgrade:
 			log.Debugf("worker/uniter/filter: sent upgrade event")
-			f.upgradeFrom.url = f.upgrade
 			f.outUpgrade = nil
 		case f.outResolved <- f.resolved:
 			log.Debugf("worker/uniter/filter: sent resolved event")
@@ -300,21 +300,29 @@ func (f *filter) loop(unitName string) (err error) {
 			// charm, because service config settings are distinct for
 			// different service charms.
 			if configw != nil {
-				watcher.Stop(configw, &f.tomb)
+				if err := configw.Stop(); err != nil {
+					return err
+				}
 			}
-			configw = f.unit.WatchServiceConfig()
 			if err := f.unit.SetCharmURL(curl); err != nil {
 				log.Debugf("worker/uniter/filter: failed setting charm url %q: %v", curl, err)
 				return err
 			}
-			f.charmChanged <- nothing
+			select {
+			case <-f.tomb.Dying():
+				return tomb.ErrDying
+			case f.charmChanged <- nothing:
+			}
+			configw = f.unit.WatchServiceConfig()
 			configChanges = configw.Changes()
 
 			// Restart the relations watcher, in order to generate
 			// fresh events for every relation, so that
 			// previously-ignored events (i.e. those not applicable to
 			// the previous charm) can be handled.
-			watcher.Stop(relationsw, &f.tomb)
+			if err := relationsw.Stop(); err != nil {
+				return err
+			}
 			relationsw = f.service.WatchRelations()
 
 			f.upgradeFrom.url = curl
@@ -399,7 +407,7 @@ func (f *filter) upgradeChanged() (err error) {
 		return nil
 	}
 	if f.upgradeFrom.url == nil {
-		log.Debugf("worker/uniter/filter: charm check skipped, no yet installed.")
+		log.Debugf("worker/uniter/filter: charm check skipped, not yet installed.")
 		f.outUpgrade = nil
 		return nil
 	}
@@ -413,7 +421,7 @@ func (f *filter) upgradeChanged() (err error) {
 			return nil
 		}
 	}
-	log.Debugf("worker/uniter/filter: no new charm event")
+	log.Debugf("worker/uniter/filter: no new charm event; f.upgrade: %v; f.upgradeAvailable: (%v %v); f.upgradeFrom: (%v %v)", f.upgrade, f.upgradeAvailable.force, f.upgradeAvailable.url, f.upgradeFrom.force, f.upgradeFrom.url)
 	f.outUpgrade = nil
 	return nil
 }

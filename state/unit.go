@@ -118,6 +118,7 @@ func (u *Unit) ServiceConfig() (map[string]interface{}, error) {
 	if u.doc.CharmURL == nil {
 		return nil, fmt.Errorf("unit charm not set")
 	}
+	// TODO(dimitern): Will use a better way to get the key in a follow-up.
 	settings, err := readSettings(u.st, "s#"+u.doc.Service)
 	if err != nil {
 		return nil, err

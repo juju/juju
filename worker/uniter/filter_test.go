@@ -166,82 +166,84 @@ func (s *FilterSuite) TestResolvedEvents(c *C) {
 	assertNoChange()
 }
 
-func (s *FilterSuite) TestUpgradeEvents(c *C) {
+func (s *FilterSuite) TestCharmUpgradeEvents(c *C) {
+	oldCharm := s.AddTestingCharm(c, "upgrade1")
+	svc, err := s.State.AddService("upgradetest", oldCharm)
+	c.Assert(err, IsNil)
+	unit, err := svc.AddUnit()
+	c.Assert(err, IsNil)
+
+	f, err := newFilter(s.State, unit.Name())
+	c.Assert(err, IsNil)
+	defer f.Stop()
+
+	// No initial event is sent.
+	assertNoChange := func() {
+		s.State.StartSync()
+		select {
+		case sch := <-f.UpgradeEvents():
+			c.Fatalf("unexpected %#v", sch)
+		case <-time.After(50 * time.Millisecond):
+		}
+	}
+	assertNoChange()
+
+	// Setting a charm generates no new events if it already matches.
+	err = f.SetCharm(oldCharm.URL())
+	c.Assert(err, IsNil)
+	assertNoChange()
+
+	// Explicitly request an event relative to the existing state; nothing.
+	f.WantUpgradeEvent(false)
+	assertNoChange()
+
+	// Change the service in an irrelevant way; no events.
+	err = svc.SetExposed()
+	c.Assert(err, IsNil)
+	assertNoChange()
+
+	// Change the service's charm; new event received.
+	newCharm := s.AddTestingCharm(c, "upgrade2")
+	err = svc.SetCharm(newCharm, false)
+	c.Assert(err, IsNil)
+	assertChange := func(url *charm.URL) {
+		s.State.Sync()
+		select {
+		case upgradeCharm := <-f.UpgradeEvents():
+			c.Assert(upgradeCharm, DeepEquals, url)
+		case <-time.After(50 * time.Millisecond):
+			c.Fatalf("timed out")
+		}
+	}
+	assertChange(newCharm.URL())
+	assertNoChange()
+
+	// Request a new upgrade *unforced* upgrade event, we should see one.
+	f.WantUpgradeEvent(false)
+	assertChange(newCharm.URL())
+	assertNoChange()
+
+	// Request only *forced* upgrade events; nothing.
+	f.WantUpgradeEvent(true)
+	assertNoChange()
+
+	// But when we have a forced upgrade to the same URL, no new event.
+	err = svc.SetCharm(oldCharm, true)
+	c.Assert(err, IsNil)
+	assertNoChange()
+
+	// ...but a *forced* change to a different URL should generate an event.
+	err = svc.SetCharm(newCharm, true)
+	assertChange(newCharm.URL())
+	assertNoChange()
 }
-
-// func (s *FilterSuite) TestCharmEvents(c *C) {
-// 	oldCharm := s.AddTestingCharm(c, "upgrade1")
-// 	svc, err := s.State.AddService("upgradetest", oldCharm)
-// 	c.Assert(err, IsNil)
-// 	unit, err := svc.AddUnit()
-// 	c.Assert(err, IsNil)
-
-// 	f, err := newFilter(s.State, unit.Name())
-// 	c.Assert(err, IsNil)
-// 	defer f.Stop()
-
-// 	// No initial event is sent.
-// 	assertNoChange := func() {
-// 		s.State.StartSync()
-// 		select {
-// 		case sch := <-f.UpgradeEvents():
-// 			c.Fatalf("unexpected %#v", sch)
-// 		case <-time.After(50 * time.Millisecond):
-// 		}
-// 	}
-// 	assertNoChange()
-
-// 	// Request an event relative to the existing state; nothing.
-// 	f.WantUpgradeEvent(false)
-// 	assertNoChange()
-
-// 	// Change the service in an irrelevant way; no events.
-// 	err = svc.SetExposed()
-// 	c.Assert(err, IsNil)
-// 	assertNoChange()
-
-// 	// Change the service's charm; new event received.
-// 	newCharm := s.AddTestingCharm(c, "upgrade2")
-// 	err = svc.SetCharm(newCharm, false)
-// 	c.Assert(err, IsNil)
-// 	assertChange := func(url *charm.URL) {
-// 		s.State.Sync()
-// 		select {
-// 		case upgradeCharm := <-f.UpgradeEvents():
-// 			c.Assert(upgradeCharm, DeepEquals, url)
-// 		case <-time.After(50 * time.Millisecond):
-// 			c.Fatalf("timed out")
-// 		}
-// 	}
-// 	assertChange(newCharm.URL())
-// 	assertNoChange()
-
-// 	// Request a change relative to the original state, unforced;
-// 	// same event is sent.
-// 	f.WantUpgradeEvent(false)
-// 	assertChange(newCharm.URL())
-// 	assertNoChange()
-
-// 	// Request a forced change relative to the initial state; no change...
-// 	f.WantUpgradeEvent(true)
-// 	assertNoChange()
-
-// 	// ...and still no change when we have a forced upgrade to that state...
-// 	err = svc.SetCharm(oldCharm, true)
-// 	c.Assert(err, IsNil)
-// 	assertNoChange()
-
-// 	// ...but a *forced* change to a different charm does generate an event.
-// 	err = svc.SetCharm(newCharm, true)
-// 	assertChange(newCharm.URL())
-// 	assertNoChange()
-// }
 
 func (s *FilterSuite) TestConfigEvents(c *C) {
 	f, err := newFilter(s.State, s.unit.Name())
 	c.Assert(err, IsNil)
 	defer f.Stop()
 
+	// Test no changes before the charm URL is set.
 	assertNoChange := func() {
 		s.State.StartSync()
 		select {
@@ -250,6 +252,7 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 		case <-time.After(50 * time.Millisecond):
 		}
 	}
+	assertNoChange()
 
 	assertChange := func() {
 		s.State.Sync()
@@ -259,20 +262,19 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 		case <-time.After(50 * time.Millisecond):
 			c.Fatalf("timed out")
 		}
+		assertNoChange()
 	}
 
-	// Ensure no charm URL is set and then set it to trigger config events.
-	_, ok := s.unit.CharmURL()
-	c.Assert(ok, Equals, false)
+	// Set the charm URL to trigger config events.
 	err = f.SetCharm(s.wpcharm.URL())
 	c.Assert(err, IsNil)
 	assertChange()
-	assertNoChange()
 
 	// Make sure the charm URL is set now.
 	s.unit.Refresh()
-	_, ok = s.unit.CharmURL()
+	curl, ok := s.unit.CharmURL()
 	c.Assert(ok, Equals, true)
+	c.Assert(curl, DeepEquals, s.wpcharm.URL())
 
 	// Change the config; new event received.
 	node, err := s.wordpress.Config()
@@ -281,7 +283,6 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	_, err = node.Write()
 	c.Assert(err, IsNil)
 	assertChange()
-	assertNoChange()
 
 	// Change the config a couple of times, then reset the events.
 	node.Set("title", "20,000 leagues in the cloud")
@@ -290,6 +291,7 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	node.Set("outlook", "precipitous")
 	_, err = node.Write()
 	c.Assert(err, IsNil)
+	// We make sure the event has come into the filter before we tell it to discard any received.
 	s.State.Sync()
 	f.DiscardConfigEvent()
 	assertNoChange()
@@ -300,7 +302,6 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	c.Assert(err, IsNil)
 	defer f.Stop()
 	f.DiscardConfigEvent()
-	s.State.Sync()
 	assertNoChange()
 
 	// Further changes are still collapsed as appropriate.
@@ -311,12 +312,12 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	_, err = node.Write()
 	c.Assert(err, IsNil)
 	assertChange()
-	assertNoChange()
 }
 
-func (s *FilterSuite) TestCharmConfigEvents(c *C) {
+func (s *FilterSuite) TestCharmErrorEvents(c *C) {
 	f, err := newFilter(s.State, s.unit.Name())
 	c.Assert(err, IsNil)
+	defer f.Stop()
 
 	assertNoChange := func() {
 		s.State.StartSync()
@@ -341,7 +342,6 @@ func (s *FilterSuite) TestCharmConfigEvents(c *C) {
 	assertDead(f)
 
 	// Filter died after the error, so restart it.
-	f.Stop()
 	f, err = newFilter(s.State, s.unit.Name())
 	c.Assert(err, IsNil)
 	defer f.Stop()
@@ -351,8 +351,6 @@ func (s *FilterSuite) TestCharmConfigEvents(c *C) {
 	c.Assert(err, Equals, tomb.ErrDying)
 	assertNoChange()
 	assertDead(f)
-
-	// TODO: add discard + nochange test
 }
 
 func (s *FilterSuite) TestRelationsEvents(c *C) {
@@ -381,9 +379,9 @@ func (s *FilterSuite) TestRelationsEvents(c *C) {
 		case <-time.After(50 * time.Millisecond):
 			c.Fatalf("timed out")
 		}
+		assertNoChange()
 	}
 	assertChange([]int{0, 1})
-	assertNoChange()
 
 	// Add another relation, and change another's Life (by entering scope before
 	// Destroy, thereby setting the relation to Dying); check event.
@@ -395,20 +393,22 @@ func (s *FilterSuite) TestRelationsEvents(c *C) {
 	err = rel0.Destroy()
 	c.Assert(err, IsNil)
 	assertChange([]int{0, 2})
-	assertNoChange()
 
 	// Remove a relation completely; check event.
 	err = rel1.Destroy()
 	c.Assert(err, IsNil)
 	assertChange([]int{1})
-	assertNoChange()
 
 	// Start a new filter, check initial event.
 	f, err = newFilter(s.State, s.unit.Name())
 	c.Assert(err, IsNil)
 	defer f.Stop()
 	assertChange([]int{0, 2})
-	assertNoChange()
+
+	// Check setting the charm URL generates all new relation events.
+	err = f.SetCharm(s.wpcharm.URL())
+	c.Assert(err, IsNil)
+	assertChange([]int{0, 2})
 }
 
 func (s *FilterSuite) addRelation(c *C) *state.Relation {
