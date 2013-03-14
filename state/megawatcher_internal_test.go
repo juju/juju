@@ -432,8 +432,8 @@ func (*allWatcherSuite) TestHandle(c *C) {
 }
 
 func (*allWatcherSuite) TestHandleStopNoDecRefIfMoreRecentlyCreated(c *C) {
-	// If the StateWatcher hasn't seen the item, then
-	// we shouldn't decrement its ref count when it is stopped.
+	// If the StateWatcher hasn't seen the item, then we shouldn't
+	// decrement its ref count when it is stopped.
 	aw := newAllWatcher(&allWatcherTestBacking{})
 	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
 	allInfoIncRef(aw.all, entityId{"machine", "0"})
@@ -452,8 +452,8 @@ func (*allWatcherSuite) TestHandleStopNoDecRefIfMoreRecentlyCreated(c *C) {
 }
 
 func (*allWatcherSuite) TestHandleStopNoDecRefIfAlreadySeenRemoved(c *C) {
-	// If the StateWatcher has already seen the item
-	// removed, then we shouldn't decrement its ref count when it is stopped.
+	// If the StateWatcher has already seen the item removed, then
+	// we shouldn't decrement its ref count when it is stopped.
 	aw := newAllWatcher(&allWatcherTestBacking{})
 	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
 	allInfoIncRef(aw.all, entityId{"machine", "0"})
@@ -473,8 +473,27 @@ func (*allWatcherSuite) TestHandleStopNoDecRefIfAlreadySeenRemoved(c *C) {
 }
 
 func (*allWatcherSuite) TestHandleStopDecRefIfAlreadySeenAndNotRemoved(c *C) {
-	// If the StateWatcher has already seen the item
-	// removed, then we shouldn't decrement its ref count when it is stopped.
+	// If the StateWatcher has already seen the item removed, then
+	// we should decrement its ref count when it is stopped.
+	aw := newAllWatcher(&allWatcherTestBacking{})
+	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
+	allInfoIncRef(aw.all, entityId{"machine", "0"})
+	w := &StateWatcher{}
+	w.revno = aw.all.latestRevno
+	// Stop the watcher.
+	aw.handle(&allRequest{w: w})
+	assertAllInfoContents(c, aw.all, 1, []entityEntry{{
+		creationRevno: 1,
+		revno: 1,
+		info: &params.MachineInfo{
+			Id:         "0",
+		},
+	}})
+}
+
+func (*allWatcherSuite) TestHandleStopNoDecRefIfNotSeen(c *C) {
+	// If the StateWatcher hasn't seen the item at all, it should
+	// leave the ref count untouched.
 	aw := newAllWatcher(&allWatcherTestBacking{})
 	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
 	allInfoIncRef(aw.all, entityId{"machine", "0"})
@@ -490,6 +509,7 @@ func (*allWatcherSuite) TestHandleStopDecRefIfAlreadySeenAndNotRemoved(c *C) {
 		},
 	}})
 }
+
 //
 //func (*allWatcherSuite) TestRespond(c *C) {
 //	ws := make([]*StateWatcher, 3)
