@@ -10,7 +10,7 @@ import (
 )
 
 type UnitSuite struct {
-	GitSuite testing.GitSuite
+	testing.GitSuite
 	agentSuite
 }
 

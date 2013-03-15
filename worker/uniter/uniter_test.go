@@ -44,7 +44,6 @@ type UniterSuite struct {
 var _ = Suite(&UniterSuite{})
 
 func (s *UniterSuite) SetUpSuite(c *C) {
-	s.GitSuite.SetUpSuite(c)
 	s.JujuConnSuite.SetUpSuite(c)
 	s.HTTPSuite.SetUpSuite(c)
 	s.dataDir = c.MkDir()
@@ -63,7 +62,6 @@ func (s *UniterSuite) SetUpSuite(c *C) {
 
 func (s *UniterSuite) TearDownSuite(c *C) {
 	os.Setenv("LC_ALL", s.oldLcAll)
-	s.GitSuite.TearDownSuite(c)
 }
 
 func (s *UniterSuite) SetUpTest(c *C) {
