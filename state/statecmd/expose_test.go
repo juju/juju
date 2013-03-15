@@ -4,6 +4,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/statecmd"
 )
 
@@ -11,7 +12,6 @@ type ExposeSuite struct {
 	testing.JujuConnSuite
 }
 
-// Run-time check to ensure ExposeSuite implements the Suite interface.
 var _ = Suite(&ExposeSuite{})
 
 var serviceExposeTests = []struct {
@@ -53,7 +53,7 @@ func (s *ExposeSuite) TestServiceExpose(c *C) {
 
 	for i, t := range serviceExposeTests {
 		c.Logf("test %d. %s", i, t.about)
-		err = statecmd.ServiceExpose(s.State, statecmd.ServiceExposeParams{
+		err = statecmd.ServiceExpose(s.State, params.ServiceExpose{
 			ServiceName: t.service,
 		})
 		if t.err != "" {

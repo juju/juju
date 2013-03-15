@@ -1,7 +1,6 @@
 package main
 
 import (
-	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"os"
 )
@@ -25,7 +24,12 @@ https://juju.ubuntu.com/
 // to the cmd package. This function is not redundant with main, because it
 // provides an entry point for testing with arbitrary command line arguments.
 func Main(args []string) {
-	juju := &cmd.SuperCommand{Name: "juju", Doc: jujuDoc, Log: &cmd.Log{}}
+	juju := cmd.NewSuperCommand(cmd.SuperCommandParams{
+		Name: "juju",
+		Doc:  jujuDoc,
+		Log:  &cmd.Log{},
+	})
+	juju.AddHelpTopic("basics", "Basic commands", helpBasics)
 
 	// Register creation commands.
 	juju.Register(&BootstrapCommand{})
@@ -56,14 +60,12 @@ func Main(args []string) {
 	juju.Register(&UnexposeCommand{})
 	juju.Register(&UpgradeJujuCommand{})
 
+	// register common commands
+	juju.Register(&cmd.VersionCommand{})
+
 	os.Exit(cmd.Main(juju, cmd.DefaultContext(), args[1:]))
 }
 
 func main() {
 	Main(os.Args)
-}
-
-func addEnvironFlags(name *string, f *gnuflag.FlagSet) {
-	f.StringVar(name, "e", "", "juju environment to operate in")
-	f.StringVar(name, "environment", "", "")
 }

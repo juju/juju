@@ -5,10 +5,9 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/agent"
-	_ "launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/apiserver"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/firewaller"
 	"launchpad.net/juju-core/worker/provisioner"
@@ -20,6 +19,7 @@ var retryDelay = 3 * time.Second
 
 // MachineAgent is a cmd.Command responsible for running a machine agent.
 type MachineAgent struct {
+	cmd.CommandBase
 	tomb      tomb.Tomb
 	Conf      AgentConf
 	MachineId string
@@ -173,7 +173,7 @@ func (a *MachineAgent) maybeRunAPIServerOnce(conf *agent.Conf) error {
 		return &fatalError{"configuration does not have state server cert/key"}
 	}
 	log.Printf("cmd/jujud: running API server job")
-	srv, err := api.NewServer(st, fmt.Sprintf(":%d", conf.APIPort), conf.StateServerCert, conf.StateServerKey)
+	srv, err := apiserver.NewServer(st, fmt.Sprintf(":%d", conf.APIPort), conf.StateServerCert, conf.StateServerKey)
 	if err != nil {
 		return err
 	}

@@ -174,7 +174,7 @@ func (s *UnitSuite) TestSetMongoPassword(c *C) {
 }
 
 func (s *UnitSuite) TestSetPassword(c *C) {
-	testSetPassword(c, func() (state.AuthEntity, error) {
+	testSetPassword(c, func() (state.Entity, error) {
 		return s.State.Unit(s.unit.Name())
 	})
 }
@@ -264,7 +264,7 @@ func (s *UnitSuite) TestUnitSetAgentAlive(c *C) {
 
 	pinger, err := s.unit.SetAgentAlive()
 	c.Assert(err, IsNil)
-	c.Assert(pinger, Not(IsNil))
+	c.Assert(pinger, NotNil)
 	defer pinger.Stop()
 
 	s.State.Sync()
@@ -695,4 +695,10 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 		c.Fatalf("got unexpected change: %#v, %v", got, ok)
 	case <-time.After(100 * time.Millisecond):
 	}
+}
+
+func (s *UnitSuite) TestAnnotatorForUnit(c *C) {
+	testAnnotator(c, func() (annotator, error) {
+		return s.State.Unit("wordpress/0")
+	})
 }

@@ -49,6 +49,18 @@ func ContextForDir(c *C, dir string) *cmd.Context {
 	}
 }
 
+// Stdout takes a command Context that we assume has been created in this
+// package, and gets the content of the Stdout buffer as a string.
+func Stdout(ctx *cmd.Context) string {
+	return ctx.Stdout.(*bytes.Buffer).String()
+}
+
+// Stderr takes a command Context that we assume has been created in this
+// package, and gets the content of the Stderr buffer as a string.
+func Stderr(ctx *cmd.Context) string {
+	return ctx.Stderr.(*bytes.Buffer).String()
+}
+
 // RunCommand will run a command with the specified args.  The returned error
 // may come from either the parsing of the args, the command initialisation or
 // the actual running of the command.  Access to the resulting output streams

@@ -200,6 +200,15 @@ type entityNamer interface {
 	EntityName() string
 }
 
+func (s *AssignSuite) TestAssignBadSeries(c *C) {
+	machine, err := s.State.AddMachine("burble", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	unit, err := s.wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	err = unit.AssignToMachine(machine)
+	c.Assert(err, ErrorMatches, `cannot assign unit "wordpress/0" to machine 0: series does not match`)
+}
+
 func (s *AssignSuite) TestAssignMachineWhenDying(c *C) {
 	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
@@ -311,30 +320,38 @@ func (s *AssignSuite) TestAssignUnitToUnusedMachine(c *C) {
 	c.Assert(err, IsNil)
 	err = m.Remove()
 	c.Assert(err, IsNil)
+}
 
-	// Try to assign another unit to an unused machine
-	// and check that we can't
-	newUnit, err = newService.AddUnit()
+func (s *AssignSuite) TestAssignToUnusedMachineNoneAvailable(c *C) {
+	// Try to assign a unit to an unused machine and check that we can't.
+	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
-	m, err = newUnit.AssignToUnusedMachine()
+	m, err := unit.AssignToUnusedMachine()
 	c.Assert(m, IsNil)
-	c.Assert(err, ErrorMatches, `all machines in use`)
+	c.Assert(err, ErrorMatches, `all eligible machines in use`)
 
 	// Add a dying machine and check that it is not chosen.
 	m, err = s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	err = m.Destroy()
 	c.Assert(err, IsNil)
-	m, err = newUnit.AssignToUnusedMachine()
+	m, err = unit.AssignToUnusedMachine()
 	c.Assert(m, IsNil)
-	c.Assert(err, ErrorMatches, `all machines in use`)
+	c.Assert(err, ErrorMatches, `all eligible machines in use`)
 
-	// Add another non-unit-hosting machine and check it is not chosen.
+	// Add a non-unit-hosting machine and check it is not chosen.
 	m, err = s.State.AddMachine("series", state.JobManageEnviron)
 	c.Assert(err, IsNil)
-	m, err = newUnit.AssignToUnusedMachine()
+	m, err = unit.AssignToUnusedMachine()
 	c.Assert(m, IsNil)
-	c.Assert(err, ErrorMatches, `all machines in use`)
+	c.Assert(err, ErrorMatches, `all eligible machines in use`)
+
+	// Add a machine with the wrong series and check it is not chosen.
+	m, err = s.State.AddMachine("anotherseries", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	m, err = unit.AssignToUnusedMachine()
+	c.Assert(m, IsNil)
+	c.Assert(err, ErrorMatches, `all eligible machines in use`)
 }
 
 func (s *AssignSuite) TestAssignUnitToUnusedMachineWithRemovedService(c *C) {
@@ -381,24 +398,6 @@ func (s *AssignSuite) TestAssignUnitToUnusedMachineWorksWithMachine0(c *C) {
 	c.Assert(assignedTo.Id(), Equals, "0")
 }
 
-func (s *AssignSuite) TestAssignUnitToUnusedMachineNoneAvailable(c *C) {
-	_, err := s.State.AddMachine("series", state.JobManageEnviron) // bootstrap machine
-	c.Assert(err, IsNil)
-	unit, err := s.wordpress.AddUnit()
-	c.Assert(err, IsNil)
-	// Check that assigning without unused machine fails.
-	m1, err := s.State.AddMachine("series", state.JobHostUnits)
-	c.Assert(err, IsNil)
-	err = unit.AssignToMachine(m1)
-	c.Assert(err, IsNil)
-
-	newUnit, err := s.wordpress.AddUnit()
-	c.Assert(err, IsNil)
-
-	_, err = newUnit.AssignToUnusedMachine()
-	c.Assert(err, ErrorMatches, `all machines in use`)
-}
-
 func (s *AssignSuite) TestAssignUnitBadPolicy(c *C) {
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
@@ -441,13 +440,15 @@ func (s *AssignSuite) TestAssignUnitUnusedPolicy(c *C) {
 		c.Assert(mid, Equals, strconv.Itoa(1+i))
 		assertMachineCount(c, s.State, i+2)
 
-		// Sanity check that the machine knows about its assigned unit.
+		// Sanity check that the machine knows about its assigned unit and was
+		// created with the appropriate series.
 		m, err := s.State.Machine(mid)
 		c.Assert(err, IsNil)
 		units, err := m.Units()
 		c.Assert(err, IsNil)
 		c.Assert(units, HasLen, 1)
 		c.Assert(units[0].Name(), Equals, unit.Name())
+		c.Assert(m.Series(), Equals, "series")
 	}
 
 	// Remove units from alternate machines.

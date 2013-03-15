@@ -69,12 +69,12 @@ func (s *StoreSuite) TestServerCharmInfo(c *C) {
 // It retries a few times as they are generally collected in background.
 func (s *StoreSuite) checkCounterSum(c *C, key []string, prefix bool, expected int64) {
 	var sum int64
-	var err error
 	for retry := 0; retry < 10; retry++ {
 		time.Sleep(1e8)
-		sum, err = s.store.SumCounter(key, prefix)
+		req := store.CounterRequest{Key: key, Prefix: prefix}
+		cs, err := s.store.Counters(&req)
 		c.Assert(err, IsNil)
-		if sum == expected {
+		if sum = cs[0].Count; sum == expected {
 			if expected == 0 && retry < 2 {
 				continue // Wait a bit to make sure.
 			}

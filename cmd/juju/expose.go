@@ -2,16 +2,15 @@ package main
 
 import (
 	"errors"
-
-	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/statecmd"
 )
 
 // ExposeCommand is responsible exposing services.
 type ExposeCommand struct {
-	EnvName     string
+	EnvCommandBase
 	ServiceName string
 }
 
@@ -21,10 +20,6 @@ func (c *ExposeCommand) Info() *cmd.Info {
 		Args:    "<service>",
 		Purpose: "expose a service",
 	}
-}
-
-func (c *ExposeCommand) SetFlags(f *gnuflag.FlagSet) {
-	addEnvironFlags(&c.EnvName, f)
 }
 
 func (c *ExposeCommand) Init(args []string) error {
@@ -44,7 +39,7 @@ func (c *ExposeCommand) Run(_ *cmd.Context) error {
 	}
 	defer conn.Close()
 
-	params := statecmd.ServiceExposeParams{
+	params := params.ServiceExpose{
 		ServiceName: c.ServiceName,
 	}
 	return statecmd.ServiceExpose(conn.State, params)

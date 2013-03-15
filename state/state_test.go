@@ -33,7 +33,7 @@ func (s *StateSuite) TestDialAgain(c *C) {
 
 func (s *StateSuite) TestStateInfo(c *C) {
 	info := state.TestingStateInfo()
-	c.Assert(s.State.Addrs(), DeepEquals, info.Addrs)
+	c.Assert(s.State.Addresses(), DeepEquals, info.Addrs)
 	c.Assert(s.State.CACert(), DeepEquals, info.CACert)
 }
 
@@ -194,6 +194,10 @@ func (s *StateSuite) TestAddService(c *C) {
 	c.Assert(err, ErrorMatches, `cannot add service "haha/borken": invalid name`)
 	_, err = s.State.Service("haha/borken")
 	c.Assert(err, ErrorMatches, `"haha/borken" is not a valid service name`)
+
+	// set that a nil charm is handled correctly
+	_, err = s.State.AddService("umadbro", nil)
+	c.Assert(err, ErrorMatches, `cannot add service "umadbro": charm is nil`)
 
 	wordpress, err := s.State.AddService("wordpress", charm)
 	c.Assert(err, IsNil)
@@ -1194,7 +1198,7 @@ func (s *StateSuite) TestOpenBadAddress(c *C) {
 	c.Assert(err, ErrorMatches, "no reachable servers")
 }
 
-func testSetPassword(c *C, getEntity func() (state.AuthEntity, error)) {
+func testSetPassword(c *C, getEntity func() (state.Entity, error)) {
 	e, err := getEntity()
 	c.Assert(err, IsNil)
 
@@ -1317,30 +1321,30 @@ func (s *StateSuite) TestSetAdminMongoPassword(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *StateSuite) TestAuthEntity(c *C) {
-	bad := []string{"", "machine", "-foo", "foo-", "---", "machine-jim", "unit-123", "unit-foo"}
+func (s *StateSuite) TestEntity(c *C) {
+	bad := []string{"", "machine", "-foo", "foo-", "---", "machine-jim", "unit-123", "unit-foo", "service-", "service-foo/bar"}
 	for _, name := range bad {
-		e, err := s.State.AuthEntity(name)
+		e, err := s.State.Entity(name)
 		c.Check(e, IsNil)
 		c.Assert(err, ErrorMatches, `invalid entity name ".*"`)
 	}
 
-	e, err := s.State.AuthEntity("machine-1234")
+	e, err := s.State.Entity("machine-1234")
 	c.Check(e, IsNil)
 	c.Assert(err, ErrorMatches, `machine 1234 not found`)
 	c.Assert(state.IsNotFound(err), Equals, true)
 
-	e, err = s.State.AuthEntity("unit-foo-654")
+	e, err = s.State.Entity("unit-foo-654")
 	c.Check(e, IsNil)
 	c.Assert(err, ErrorMatches, `unit "foo/654" not found`)
 	c.Assert(state.IsNotFound(err), Equals, true)
 
-	e, err = s.State.AuthEntity("unit-foo-bar-654")
+	e, err = s.State.Entity("unit-foo-bar-654")
 	c.Check(e, IsNil)
 	c.Assert(err, ErrorMatches, `unit "foo-bar/654" not found`)
 	c.Assert(state.IsNotFound(err), Equals, true)
 
-	e, err = s.State.AuthEntity("user-arble")
+	e, err = s.State.Entity("user-arble")
 	c.Check(e, IsNil)
 	c.Assert(err, ErrorMatches, `user "arble" not found`)
 	c.Assert(state.IsNotFound(err), Equals, true)
@@ -1348,17 +1352,23 @@ func (s *StateSuite) TestAuthEntity(c *C) {
 	m, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 
-	e, err = s.State.AuthEntity(m.EntityName())
+	e, err = s.State.Entity(m.EntityName())
 	c.Assert(err, IsNil)
 	c.Assert(e, FitsTypeOf, m)
 	c.Assert(e.EntityName(), Equals, m.EntityName())
 
 	svc, err := s.State.AddService("ser-vice1", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, IsNil)
+
+	service, err := s.State.Entity(svc.EntityName())
+	c.Assert(err, IsNil)
+	c.Assert(service, FitsTypeOf, svc)
+	c.Assert(service.EntityName(), Equals, svc.EntityName())
+
 	u, err := svc.AddUnit()
 	c.Assert(err, IsNil)
 
-	e, err = s.State.AuthEntity(u.EntityName())
+	e, err = s.State.Entity(u.EntityName())
 	c.Assert(err, IsNil)
 	c.Assert(e, FitsTypeOf, u)
 	c.Assert(e.EntityName(), Equals, u.EntityName())
@@ -1366,7 +1376,7 @@ func (s *StateSuite) TestAuthEntity(c *C) {
 	user, err := s.State.AddUser("arble", "pass")
 	c.Assert(err, IsNil)
 
-	e, err = s.State.AuthEntity(user.EntityName())
+	e, err = s.State.Entity(user.EntityName())
 	c.Assert(err, IsNil)
 	c.Assert(e, FitsTypeOf, user)
 	c.Assert(e.EntityName(), Equals, user.EntityName())

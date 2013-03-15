@@ -31,6 +31,7 @@ const (
 	// AssignLocal indicates that all service units should be assigned
 	// to machine 0.
 	AssignLocal AssignmentPolicy = "local"
+
 	// AssignUnused indicates that every service unit should be assigned
 	// to a dedicated machine, and that new machines should be launched
 	// if required.
@@ -70,6 +71,7 @@ type UnitSettings struct {
 type unitDoc struct {
 	Name           string `bson:"_id"`
 	Service        string
+	Series         string
 	CharmURL       *charm.URL
 	Principal      string
 	Subordinates   []string
@@ -84,19 +86,28 @@ type unitDoc struct {
 	StatusInfo     string
 	TxnRevno       int64 `bson:"txn-revno"`
 	PasswordHash   string
+	Annotations    map[string]string
 }
 
 // Unit represents the state of a service unit.
 type Unit struct {
 	st  *State
 	doc unitDoc
+	annotator
 }
 
 func newUnit(st *State, udoc *unitDoc) *Unit {
-	return &Unit{
+	unit := &Unit{
 		st:  st,
 		doc: *udoc,
+		annotator: annotator{
+			st:   st,
+			coll: st.units.Name,
+			id:   udoc.Name,
+		},
 	}
+	unit.annotator.annotations = &unit.doc.Annotations
+	return unit
 }
 
 // Service returns the service.
@@ -117,6 +128,11 @@ func (u *Unit) String() string {
 // Name returns the unit name.
 func (u *Unit) Name() string {
 	return u.doc.Name
+}
+
+// Annotations returns the unit annotations.
+func (u *Unit) Annotations() map[string]string {
+	return u.doc.Annotations
 }
 
 // globalKey returns the global database key for the unit.
@@ -248,7 +264,7 @@ func (u *Unit) Remove() (err error) {
 	if err != nil {
 		return err
 	}
-	unit := &Unit{u.st, u.doc}
+	unit := &Unit{st: u.st, doc: u.doc}
 	for i := 0; i < 5; i++ {
 		ops := svc.removeUnitOps(unit)
 		if err := svc.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
@@ -563,6 +579,9 @@ var (
 // - alreadyAssignedErr when the unit has already been assigned
 // - inUseErr when the machine already has a unit assigned (if unused is true)
 func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
+	if u.doc.Series != m.doc.Series {
+		return fmt.Errorf("series does not match")
+	}
 	if u.doc.MachineId != "" {
 		if u.doc.MachineId != m.Id() {
 			return alreadyAssignedErr
@@ -639,14 +658,18 @@ func (u *Unit) AssignToMachine(m *Machine) error {
 	return nil
 }
 
-var noUnusedMachines = errors.New("all machines in use")
+var noUnusedMachines = errors.New("all eligible machines in use")
 
 // AssignToUnusedMachine assigns u to a machine without other units.
 // If there are no unused machines besides machine 0, an error is returned.
 func (u *Unit) AssignToUnusedMachine() (m *Machine, err error) {
 	// Select all machines that can accept principal units but have none assigned.
-	sel := D{{"principals", D{{"$size", 0}}}, {"jobs", JobHostUnits}}
-	query := u.st.machines.Find(sel)
+	query := u.st.machines.Find(D{
+		{"life", Alive},
+		{"series", u.doc.Series},
+		{"jobs", JobHostUnits},
+		{"principals", D{{"$size", 0}}},
+	})
 
 	// TODO use Batch(1). See https://bugs.launchpad.net/mgo/+bug/1053509
 	// TODO(rog) Fix so this is more efficient when there are concurrent uses.

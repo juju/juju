@@ -5,14 +5,26 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/testing"
 	"time"
 )
 
 type UnitSuite struct {
+	testing.GitSuite
 	agentSuite
 }
 
 var _ = Suite(&UnitSuite{})
+
+func (s *UnitSuite) SetUpTest(c *C) {
+	s.GitSuite.SetUpTest(c)
+	s.agentSuite.SetUpTest(c)
+}
+
+func (s *UnitSuite) TearDownTest(c *C) {
+	s.agentSuite.TearDownTest(c)
+	s.GitSuite.TearDownTest(c)
+}
 
 // primeAgent creates a unit, and sets up the unit agent's directory.
 // It returns the new unit and the agent's configuration.
@@ -70,7 +82,7 @@ func (s *UnitSuite) TestParseUnknown(c *C) {
 func (s *UnitSuite) TestRunStop(c *C) {
 	unit, conf, _ := s.primeAgent(c)
 	a := s.newAgent(c, unit)
-	mgr, reset := patchDeployManager(c, conf.StateInfo, conf.DataDir)
+	ctx, reset := patchDeployContext(c, conf.StateInfo, conf.DataDir)
 	defer reset()
 	go func() { c.Check(a.Run(nil), IsNil) }()
 	defer func() { c.Check(a.Stop(), IsNil) }()
@@ -103,7 +115,7 @@ waitStarted:
 	}
 
 	// Check no subordinates have been deployed.
-	mgr.waitDeployed(c)
+	ctx.waitDeployed(c)
 
 	// Add a relation with a subordinate service and wait for the subordinate
 	// to be deployed...
@@ -113,14 +125,14 @@ waitStarted:
 	c.Assert(err, IsNil)
 	_, err = s.State.AddRelation(eps...)
 	c.Assert(err, IsNil)
-	mgr.waitDeployed(c, "logging/0")
+	ctx.waitDeployed(c, "logging/0")
 
 	// ...then kill the subordinate and wait for it to be recalled and removed.
 	logging0, err := s.State.Unit("logging/0")
 	c.Assert(err, IsNil)
 	err = logging0.EnsureDead()
 	c.Assert(err, IsNil)
-	mgr.waitDeployed(c)
+	ctx.waitDeployed(c)
 	err = logging0.Refresh()
 	c.Assert(state.IsNotFound(err), Equals, true)
 }
