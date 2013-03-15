@@ -153,6 +153,9 @@ func WriteEnvirons(path string, fileContents string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if err := os.MkdirAll(filepath.Dir(environsFilepath), 0755); err != nil {
+		return "", err
+	}
 	if err := ioutil.WriteFile(environsFilepath, []byte(fileContents), 0666); err != nil {
 		return "", err
 	}
