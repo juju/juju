@@ -33,7 +33,18 @@ func UploadTools(environ Environ) error {
 		return fmt.Errorf("cannot upload tools: %v", err)
 	}
 	_ = tools
-	// TODO: set the agent_version and default_Series, and arch
+	cfg := environ.Config()
+	m := cfg.AllAttrs()
+	m["agent-version"] = version.Current.Number.String()
+	m["default-series"] = tools.Series
+	cfg, err = config.New(m)
+	if err != nil {
+		return fmt.Errorf("cannot create environment configuration with defined version and series: %v", err)
+	}
+	if err = environ.SetConfig(cfg); err != nil {
+		return fmt.Errorf("cannot set environment configuration with version and series: %v", err)
+	}
+
 	return nil
 }
 
