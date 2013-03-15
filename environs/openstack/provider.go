@@ -416,6 +416,14 @@ func (e *environ) PublicStorage() environs.StorageReader {
 	return e.publicStorageUnlocked
 }
 
+func findTools(env *environ) (*state.Tools, error) {
+	flags := environs.CompatVersion
+	v := version.Current
+	v.Series = env.Config().DefaultSeries()
+	// TODO: set Arch based on constraints (when they are landed)
+	return environs.FindTools(env, v, flags)
+}
+
 func (e *environ) Bootstrap(cert, key []byte) error {
 	password := e.Config().AdminSecret()
 	if password == "" {
@@ -438,12 +446,8 @@ func (e *environ) Bootstrap(cert, key []byte) error {
 	if _, notFound := err.(*environs.NotFoundError); !notFound {
 		return fmt.Errorf("cannot query old bootstrap state: %v", err)
 	}
-	var tools *state.Tools
 
-	flags := environs.CompatVersion
-	v := version.Current
-	v.Series = e.Config().DefaultSeries()
-	tools, err = environs.FindTools(e, v, flags)
+	tools, err := findTools(e)
 	if err != nil {
 		return fmt.Errorf("cannot find tools: %v", err)
 	}
@@ -740,8 +744,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	}
 	if scfg.tools == nil {
 		var err error
-		flags := environs.HighestVersion | environs.CompatVersion
-		scfg.tools, err = environs.FindTools(e, version.Current, flags)
+		scfg.tools, err = findTools(e)
 		if err != nil {
 			return nil, err
 		}

@@ -237,7 +237,9 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	policy := t.env.AssignmentPolicy()
 	c.Assert(policy, Equals, state.AssignUnused)
 
-	err := environs.Bootstrap(t.env, true)
+	err := environs.UploadTools(t.env)
+	c.Assert(err, IsNil)
+	err = environs.Bootstrap(t.env)
 	c.Assert(err, IsNil)
 
 	// check that the state holds the id of the bootstrap machine.

@@ -232,7 +232,11 @@ func (s *localLiveSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
 	newconfig["use-floating-ip"] = true
 	env, err := environs.NewFromAttrs(newconfig)
 	c.Assert(err, IsNil)
-	err = environs.Bootstrap(env, s.CanOpenState)
+	if s.CanOpenState {
+		err = environs.UploadTools(env)
+		c.Assert(err, IsNil)
+	}
+	err = environs.Bootstrap(env)
 	c.Assert(err, ErrorMatches, ".*cannot allocate a public IP as needed.*")
 }
 
@@ -254,7 +258,7 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *C) {
 		},
 	)
 	defer cleanup()
-	err := environs.Bootstrap(s.Env, false)
+	err := environs.Bootstrap(s.Env)
 	c.Assert(err, IsNil)
 	inst, err := s.Env.StartInstance("100", testing.InvalidStateInfo("100"), testing.InvalidAPIInfo("100"), nil)
 	c.Assert(err, IsNil)
@@ -355,7 +359,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	policy := t.env.AssignmentPolicy()
 	c.Assert(policy, Equals, state.AssignUnused)
 
-	err := environs.Bootstrap(t.env, false)
+	err := environs.Bootstrap(t.env)
 	c.Assert(err, IsNil)
 
 	// check that the state holds the id of the bootstrap machine.

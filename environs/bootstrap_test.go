@@ -34,13 +34,13 @@ func (s *bootstrapSuite) TearDownTest(c *C) {
 
 func (s *bootstrapSuite) TestBootstrapNeedsConfigCert(c *C) {
 	env := newEnviron("bar", noKeysDefined)
-	err := environs.Bootstrap(env, false)
+	err := environs.Bootstrap(env)
 	c.Assert(err, ErrorMatches, "environment configuration missing CA certificate")
 }
 
 func (s *bootstrapSuite) TestBootstrapKeyGeneration(c *C) {
 	env := newEnviron("foo", useDefaultKeys)
-	err := environs.Bootstrap(env, false)
+	err := environs.Bootstrap(env)
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
 

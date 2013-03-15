@@ -12,7 +12,7 @@ import (
 // environment, and setting up everything necessary to continue working.
 type BootstrapCommand struct {
 	EnvCommandBase
-	UploadTools bool
+	uploadTools bool
 }
 
 func (c *BootstrapCommand) Info() *cmd.Info {
@@ -24,17 +24,7 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 
 func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
-	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
-}
-
-func uploadTools(environ environs.Environs) error {
-	tools, err = environs.PutTools(environ.Storage(), nil)
-	if err != nil {
-		return fmt.Errorf("cannot upload tools: %v", err)
-	}
-	_ = tools
-	// TODO: set the agent_version and default_Series, and arch
-	return nil
+	f.BoolVar(&c.uploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
 }
 
 // Run connects to the environment specified on the command line and bootstraps
@@ -60,8 +50,8 @@ func (c *BootstrapCommand) Run(context *cmd.Context) error {
 		return err
 	}
 
-	if c.Uploadtools {
-		if err = uploadTools(environ); err != nil {
+	if c.uploadTools {
+		if err = environs.UploadTools(environ); err != nil {
 			return err
 		}
 	}

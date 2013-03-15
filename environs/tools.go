@@ -25,6 +25,18 @@ type ToolsList struct {
 	Public  []*state.Tools
 }
 
+// UploadTools puts the tools into the environ's storage, and sets the default
+// series of the environment.
+func UploadTools(environ Environ) error {
+	tools, err := PutTools(environ.Storage(), nil)
+	if err != nil {
+		return fmt.Errorf("cannot upload tools: %v", err)
+	}
+	_ = tools
+	// TODO: set the agent_version and default_Series, and arch
+	return nil
+}
+
 // ListTools returns a ToolsList holding all the tools
 // available in the given environment that have the
 // given major version.
