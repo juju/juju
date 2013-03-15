@@ -9,6 +9,8 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
+	"runtime"
+	"time"
 	"sync"
 )
 
@@ -214,6 +216,23 @@ func entityIdForInfo(info params.EntityInfo) entityId {
 		collection: info.EntityKind(),
 		id:         info.EntityId(),
 	}
+}
+
+func (s *allInfoSuite) TestAllInfoMemory(c *C) {
+	a := newAllInfo()
+	var m0, m1 runtime.MemStats
+	t0 := time.Now()
+	runtime.ReadMemStats(&m0)
+	for i := 0; i < 100000; i++ {
+		allInfoAdd(a, &params.MachineInfo{Id: fmt.Sprint(i)})
+	}
+	for i := 0; i < 100000; i++ {
+		allInfoAdd(a, &params.UnitInfo{Name: fmt.Sprintf("service/%d", i)})
+	}
+	t1 := time.Now()
+	runtime.GC()
+	runtime.ReadMemStats(&m1)
+	c.Logf("total allocated: %v; total time %v\n", m1.Alloc - m0.Alloc, t1.Sub(t0))
 }
 
 func (s *allInfoSuite) TestChangesSince(c *C) {

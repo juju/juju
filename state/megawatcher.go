@@ -21,10 +21,6 @@ func newStateWatcher(st *State) *StateWatcher {
 	return &StateWatcher{}
 }
 
-func (w *StateWatcher) Err() error {
-	return nil
-}
-
 // Stop stops the watcher.
 func (w *StateWatcher) Stop() error {
 	return nil
