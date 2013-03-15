@@ -510,52 +510,7 @@ func (*allWatcherSuite) TestHandleStopNoDecRefIfNotSeen(c *C) {
 	}})
 }
 
-//
-//func (*allWatcherSuite) TestRespond(c *C) {
-//	ws := make([]*StateWatcher, 3)
-//	for i := range ws {
-//		ws[i] = &StateWatcher{}
-//	}
-//	
-//
-//keep a map for each watcher containing the watcher's currently
-//known status of item.
-//
-//
-//type allWatcherRespondTest struct {
-//	about          string
-//	add            []params.EntityInfo
-//	inBacking      []params.EntityInfo
-//	change         entityId
-//	expectRevno    int64
-//	expectContents []entityEntry
-//}
-//
-//type allWatcherTestRequest struct {
-//	// watcher identifies the StateWatcher making the request.
-//	watcher int
-//	// watcherRevno is the revno that the StateWatcher is currently at.
-//	watcherRevno int64
-//}
-
-//var allWatcherRespondTests = []struct {
-//	about          string
-//	change func(all *allInfo)
-//	
-//}{
-//
-//some stuff in backing
-//mutate the allwatcher
-//call respond
-//check that waiting requests 
-//
-//
-//remove(
-//func (*allWatcherSuite) TestRespond(c *C) {
-//	
-//}
-
-var respondTestChanges = []func(all *allInfo){
+var respondTestChanges = [...]func(all *allInfo){
 	func(all *allInfo) {
 		allInfoAdd(all, &params.MachineInfo{Id: "0"})
 	},
@@ -596,7 +551,8 @@ func (*allWatcherSuite) TestRespondResults(c *C) {
 	// - bit i of n determines whether a request will be responded
 	// to after running respondTestChanges[i].
 
-	for n := 0; n < 1<<uint(len(respondTestChanges)); n++ {
+	numCombinations := 1 << uint(len(respondTestChanges))
+	for n := 0; n < numCombinations; n++ {
 		aw := newAllWatcher(&allWatcherTestBacking{})
 		c.Logf("test %d. (%0*b)", n, len(respondTestChanges), n)
 		w := &StateWatcher{}
