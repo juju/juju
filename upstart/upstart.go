@@ -7,7 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"path/filepath"
+	"path"
 	"regexp"
 	"text/template"
 )
@@ -26,7 +26,7 @@ func NewService(name string) *Service {
 
 // confPath returns the path to the service's configuration file.
 func (s *Service) confPath() string {
-	return filepath.Join(s.InitDir, s.Name+".conf")
+	return path.Join(s.InitDir, s.Name+".conf")
 }
 
 // Installed returns whether the service configuration exists in the

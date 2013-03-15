@@ -13,6 +13,7 @@ type RelationSetCommand struct {
 	ctx        Context
 	RelationId int
 	Settings   map[string]string
+	formatFlag string // deprecated
 }
 
 func NewRelationSetCommand(ctx Context) cmd.Command {
@@ -29,6 +30,7 @@ func (c *RelationSetCommand) Info() *cmd.Info {
 
 func (c *RelationSetCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(newRelationIdValue(c.ctx, &c.RelationId), "r", "specify a relation by id")
+	f.StringVar(&c.formatFlag, "format", "", "deprecated format flag")
 }
 
 func (c *RelationSetCommand) Init(args []string) error {
@@ -49,6 +51,9 @@ func (c *RelationSetCommand) Init(args []string) error {
 }
 
 func (c *RelationSetCommand) Run(ctx *cmd.Context) (err error) {
+	if c.formatFlag != "" {
+		fmt.Fprintf(ctx.Stderr, "--format flag deprecated for command %q", c.Info().Name)
+	}
 	r, found := c.ctx.Relation(c.RelationId)
 	if !found {
 		return fmt.Errorf("unknown relation id")

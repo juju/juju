@@ -5,6 +5,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/log"
 	"os"
+	"path"
 	"path/filepath"
 	"time"
 )
@@ -48,15 +49,15 @@ func (d *Deployer) Stage(bun *charm.Bundle, url *charm.URL) error {
 
 	// Prepare a fresh repository for the update, using current's history
 	// if it exists.
-	path, err := d.newDir("update")
+	updatePath, err := d.newDir("update")
 	if err != nil {
 		return err
 	}
 	var repo *GitDir
 	if srcExists {
-		repo, err = d.current.Clone(path)
+		repo, err = d.current.Clone(updatePath)
 	} else {
-		repo = NewGitDir(path)
+		repo = NewGitDir(updatePath)
 		err = repo.Init()
 	}
 	if err != nil {
@@ -64,7 +65,7 @@ func (d *Deployer) Stage(bun *charm.Bundle, url *charm.URL) error {
 	}
 
 	// Write the desired new state and commit.
-	if err = bun.ExpandTo(path); err != nil {
+	if err = bun.ExpandTo(updatePath); err != nil {
 		return err
 	}
 	if err = WriteCharmURL(repo, url); err != nil {
@@ -75,8 +76,8 @@ func (d *Deployer) Stage(bun *charm.Bundle, url *charm.URL) error {
 	}
 
 	// Atomically rename fresh repository to current.
-	tmplink := filepath.Join(path, "tmplink")
-	if err = os.Symlink(path, tmplink); err != nil {
+	tmplink := filepath.Join(updatePath, "tmplink")
+	if err = os.Symlink(updatePath, tmplink); err != nil {
 		return err
 	}
 	return os.Rename(tmplink, d.current.Path())
@@ -116,11 +117,11 @@ func (d *Deployer) install(target *GitDir) error {
 	if err != nil {
 		return err
 	}
-	path, err := d.newDir("install")
+	installPath, err := d.newDir("install")
 	if err != nil {
 		return err
 	}
-	repo := NewGitDir(path)
+	repo := NewGitDir(installPath)
 	if err = repo.Init(); err != nil {
 		return err
 	}
@@ -131,7 +132,7 @@ func (d *Deployer) install(target *GitDir) error {
 		return err
 	}
 	log.Printf("worker/uniter/charm: deploying charm")
-	return os.Rename(path, target.Path())
+	return os.Rename(installPath, target.Path())
 }
 
 // upgrade pulls from current into target. If target has local changes, but
@@ -171,10 +172,10 @@ func (d *Deployer) collectOrphans() {
 	if err != nil {
 		return
 	}
-	filepath.Walk(d.path, func(path string, fi os.FileInfo, err error) error {
-		if err != nil && path != d.path && path != current {
-			if err = os.RemoveAll(path); err != nil {
-				log.Printf("worker/uniter/charm: failed to remove orphan repo at %s: %s", path, err)
+	filepath.Walk(d.path, func(repoPath string, fi os.FileInfo, err error) error {
+		if err != nil && repoPath != d.path && repoPath != current {
+			if err = os.RemoveAll(repoPath); err != nil {
+				log.Printf("worker/uniter/charm: failed to remove orphan repo at %s: %s", repoPath, err)
 			}
 		}
 		return err
@@ -187,14 +188,14 @@ func (d *Deployer) collectOrphans() {
 func (d *Deployer) newDir(prefix string) (string, error) {
 	prefix = prefix + time.Now().Format("-%Y%m%d-%H%M%S")
 	var err error
-	var path string
+	var prefixPath string
 	for i := 0; i < 10; i++ {
-		path = filepath.Join(d.path, fmt.Sprintf("%s-%d", prefix, i))
-		if err = os.Mkdir(path, 0755); err == nil {
-			return path, nil
+		prefixPath = path.Join(d.path, fmt.Sprintf("%s-%d", prefix, i))
+		if err = os.Mkdir(prefixPath, 0755); err == nil {
+			return prefixPath, nil
 		} else if !os.IsExist(err) {
 			break
 		}
 	}
-	return "", fmt.Errorf("failed to create %q: %v", path, err)
+	return "", fmt.Errorf("failed to create %q: %v", prefixPath, err)
 }
