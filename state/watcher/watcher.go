@@ -72,6 +72,21 @@ func (k watchKey) String() string {
 	return fmt.Sprintf("document %v in %s", k.id, coll)
 }
 
+// match returns whether the receiving watch key,
+// which may refer to a particular item or
+// an entire collection, matches k1, which refers
+// to a particular item.
+func (k watchKey) match(k1 watchKey) bool {
+	if k.c != k1.c {
+		return false
+	}
+	if k.id == nil {
+		// k refers to entire collection
+		return true
+	}
+	return k.id == k1.id
+}
+
 type watchInfo struct {
 	ch    chan<- Change
 	revno int64
@@ -293,13 +308,13 @@ func (w *Watcher) handle(req interface{}) {
 		}
 		for i := range w.requestEvents {
 			e := &w.requestEvents[i]
-			if e.key == r.key && e.ch == r.ch {
+			if r.key.match(e.key) && e.ch == r.ch {
 				e.ch = nil
 			}
 		}
 		for i := range w.syncEvents {
 			e := &w.syncEvents[i]
-			if e.key == r.key && e.ch == r.ch {
+			if r.key.match(e.key) && e.ch == r.ch {
 				e.ch = nil
 			}
 		}
