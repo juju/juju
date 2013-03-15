@@ -397,13 +397,13 @@ func (*allWatcherSuite) TestHandle(c *C) {
 	aw := newAllWatcher(newTestBacking(nil))
 
 	// Add request from first watcher.
-	w0 := &StateWatcher{}
+	w0 := &xStateWatcher{all: aw}
 	req0 := &allRequest{
 		w:     w0,
 		reply: make(chan bool, 1),
 	}
 	aw.handle(req0)
-	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
+	assertWaitingRequests(c, aw, map[*xStateWatcher][]*allRequest{
 		w0: {req0},
 	})
 
@@ -413,18 +413,18 @@ func (*allWatcherSuite) TestHandle(c *C) {
 		reply: make(chan bool, 1),
 	}
 	aw.handle(req1)
-	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
+	assertWaitingRequests(c, aw, map[*xStateWatcher][]*allRequest{
 		w0: {req1, req0},
 	})
 
 	// Add request from second watcher.
-	w1 := &StateWatcher{}
+	w1 := &xStateWatcher{all: aw}
 	req2 := &allRequest{
 		w:     w1,
 		reply: make(chan bool, 1),
 	}
 	aw.handle(req2)
-	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
+	assertWaitingRequests(c, aw, map[*xStateWatcher][]*allRequest{
 		w0: {req1, req0},
 		w1: {req2},
 	})
@@ -433,7 +433,7 @@ func (*allWatcherSuite) TestHandle(c *C) {
 	aw.handle(&allRequest{
 		w: w0,
 	})
-	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
+	assertWaitingRequests(c, aw, map[*xStateWatcher][]*allRequest{
 		w1: {req2},
 	})
 	assertReplied(c, false, req0)
@@ -453,7 +453,7 @@ func (*allWatcherSuite) TestHandleStopNoDecRefIfMoreRecentlyCreated(c *C) {
 	aw := newAllWatcher(newTestBacking(nil))
 	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
 	allInfoIncRef(aw.all, entityId{"machine", "0"})
-	w := &StateWatcher{}
+	w := &xStateWatcher{all: aw}
 
 	// Stop the watcher.
 	aw.handle(&allRequest{w: w})
@@ -474,7 +474,7 @@ func (*allWatcherSuite) TestHandleStopNoDecRefIfAlreadySeenRemoved(c *C) {
 	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
 	allInfoIncRef(aw.all, entityId{"machine", "0"})
 	aw.all.markRemoved(entityId{"machine", "0"})
-	w := &StateWatcher{}
+	w := &xStateWatcher{all: aw}
 	// Stop the watcher.
 	aw.handle(&allRequest{w: w})
 	assertAllInfoContents(c, aw.all, 2, []entityEntry{{
@@ -494,7 +494,7 @@ func (*allWatcherSuite) TestHandleStopDecRefIfAlreadySeenAndNotRemoved(c *C) {
 	aw := newAllWatcher(newTestBacking(nil))
 	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
 	allInfoIncRef(aw.all, entityId{"machine", "0"})
-	w := &StateWatcher{}
+	w := &xStateWatcher{all: aw}
 	w.revno = aw.all.latestRevno
 	// Stop the watcher.
 	aw.handle(&allRequest{w: w})
@@ -513,7 +513,7 @@ func (*allWatcherSuite) TestHandleStopNoDecRefIfNotSeen(c *C) {
 	aw := newAllWatcher(newTestBacking(nil))
 	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
 	allInfoIncRef(aw.all, entityId{"machine", "0"})
-	w := &StateWatcher{}
+	w := &xStateWatcher{all: aw}
 	// Stop the watcher.
 	aw.handle(&allRequest{w: w})
 	assertAllInfoContents(c, aw.all, 1, []entityEntry{{
@@ -567,12 +567,11 @@ func (*allWatcherSuite) TestRespondResults(c *C) {
 	// - bit i of n determines whether a request will be responded
 	// to after running respondTestChanges[i].
 
-	for n := 0; n < 1<<uint(len(respondTestChanges)); n++ {
 	numCombinations := 1 << uint(len(respondTestChanges))
 	for n := 0; n < numCombinations; n++ {
 		aw := newAllWatcher(newTestBacking(nil))
 		c.Logf("test %d. (%0*b)", n, len(respondTestChanges), n)
-		w := &StateWatcher{}
+		w := &xStateWatcher{all: aw}
 		wstate := make(watcherState)
 		req := &allRequest{
 			w:     w,
@@ -580,7 +579,7 @@ func (*allWatcherSuite) TestRespondResults(c *C) {
 		}
 		// Add the request, ready to be responded to.
 		aw.handle(req)
-		assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
+		assertWaitingRequests(c, aw, map[*xStateWatcher][]*allRequest{
 			w: {req},
 		})
 		// Make each change in turn, and respond if n dictates it.
@@ -601,7 +600,7 @@ func (*allWatcherSuite) TestRespondResults(c *C) {
 					reply: make(chan bool, 1),
 				}
 				aw.handle(req)
-				assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
+				assertWaitingRequests(c, aw, map[*xStateWatcher][]*allRequest{
 					w: {req},
 				})
 			default:
@@ -622,7 +621,7 @@ func (*allWatcherSuite) TestRespondMultiple(c *C) {
 
 	// Add one request and respond.
 	// It should see the above change.
-	w0 := &StateWatcher{}
+	w0 := &xStateWatcher{all: aw}
 	req0 := &allRequest{
 		w:     w0,
 		reply: make(chan bool, 1),
@@ -647,7 +646,7 @@ func (*allWatcherSuite) TestRespondMultiple(c *C) {
 	// The request from the first watcher should still not
 	// be replied to, but the later of the two requests from
 	// the second watcher should get a reply.
-	w1 := &StateWatcher{}
+	w1 := &xStateWatcher{all: aw}
 	req1 := &allRequest{
 		w:     w1,
 		reply: make(chan bool, 1),
@@ -658,7 +657,7 @@ func (*allWatcherSuite) TestRespondMultiple(c *C) {
 		reply: make(chan bool, 1),
 	}
 	aw.handle(req2)
-	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
+	assertWaitingRequests(c, aw, map[*xStateWatcher][]*allRequest{
 		w0: {req0},
 		w1: {req2, req1},
 	})
@@ -667,7 +666,7 @@ func (*allWatcherSuite) TestRespondMultiple(c *C) {
 	assertNotReplied(c, req1)
 	assertReplied(c, true, req2)
 	c.Assert(req2.changes, DeepEquals, []params.Delta{{Entity: &params.MachineInfo{Id: "0"}}})
-	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
+	assertWaitingRequests(c, aw, map[*xStateWatcher][]*allRequest{
 		w0: {req0},
 		w1: {req1},
 	})
@@ -744,7 +743,7 @@ func assertReplied(c *C, val bool, req *allRequest) {
 	}
 }
 
-func assertWaitingRequests(c *C, aw *allWatcher, waiting map[*StateWatcher][]*allRequest) {
+func assertWaitingRequests(c *C, aw *allWatcher, waiting map[*xStateWatcher][]*allRequest) {
 	c.Assert(aw.waiting, HasLen, len(waiting))
 	for w, reqs := range waiting {
 		i := 0

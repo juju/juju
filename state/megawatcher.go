@@ -2,6 +2,7 @@ package state
 
 import (
 	"container/list"
+	"fmt"
 	"labix.org/v2/mgo"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
@@ -10,12 +11,9 @@ import (
 )
 
 // StateWatcher watches any changes to the state.
-type StateWatcher struct {
-	// The following fields are maintained by the allWatcher
-	// goroutine.
-	revno   int64
-	stopped bool
-}
+// It's a stub type for the time being until allWatcher
+// is complete.
+type StateWatcher struct {}
 
 func newStateWatcher(st *State) *StateWatcher {
 	return &StateWatcher{}
@@ -51,6 +49,46 @@ func (w *StateWatcher) Next() ([]params.Delta, error) {
 	return StubNextDelta, nil
 }
 
+// StateWatcher watches any changes to the state.
+// TODO(rog) rename this to StateWatcher when allWatcher is complete.
+type xStateWatcher struct {
+	all *allWatcher
+	// The following fields are maintained by the allWatcher
+	// goroutine.
+	revno   int64
+	stopped bool
+}
+
+// Stop stops the watcher.
+func (w *xStateWatcher) Stop() error {
+	select {
+	case w.all.request <- &allRequest{w: w}:
+		return nil
+	case <-w.all.tomb.Dead():
+	}
+	return w.all.tomb.Err()
+}
+
+// Next retrieves all changes that have happened since the given revision
+// number, blocking until there are some changes available.  It also
+// returns the revision number of the latest change.
+func (w *xStateWatcher) Next() ([]params.Delta, error) {
+	req := &allRequest{
+		w:     w,
+		reply: make(chan bool),
+	}
+	select {
+	case w.all.request <- req:
+	case <-w.all.tomb.Dead():
+		return nil, w.all.tomb.Err()
+	}
+	if ok := <-req.reply; !ok {
+		// TODO better error?
+		return nil, fmt.Errorf("state watcher was stopped")
+	}
+	return req.changes, nil
+}
+
 // allWatcher holds a shared record of all current state and replies to
 // requests from StateWatches to tell them when it changes.
 // TODO(rog) complete this type and its methods.
@@ -69,7 +107,7 @@ type allWatcher struct {
 
 	// Each entry in the waiting map holds a linked list of Next requests
 	// outstanding for the associated StateWatcher.
-	waiting map[*StateWatcher]*allRequest
+	waiting map[*xStateWatcher]*allRequest
 }
 
 // allWatcherBacking is the interface required
@@ -110,7 +148,7 @@ type entityId struct {
 // replied to when some changes are available.
 type allRequest struct {
 	// w holds the StateWatcher that has originated the request.
-	w *StateWatcher
+	w *xStateWatcher
 
 	// reply receives a message when deltas are ready.  If reply is
 	// nil, the StateWatcher will be stopped.  If the reply is true,
@@ -135,7 +173,7 @@ func newAllWatcher(backing allWatcherBacking) *allWatcher {
 		backing: backing,
 		request: make(chan *allRequest),
 		all:     newAllInfo(),
-		waiting: make(map[*StateWatcher]*allRequest),
+		waiting: make(map[*xStateWatcher]*allRequest),
 	}
 }
 
@@ -268,7 +306,7 @@ func (aw *allWatcher) seen(revno int64) {
 
 // leave is called when the given watcher leaves.  It decrements the reference
 // counts of any entities that have been seen by the watcher.
-func (aw *allWatcher) leave(w *StateWatcher) {
+func (aw *allWatcher) leave(w *xStateWatcher) {
 	for e := aw.all.list.Front(); e != nil; {
 		next := e.Next()
 		entry := e.Value.(*entityEntry)
