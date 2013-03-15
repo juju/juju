@@ -115,7 +115,7 @@ var allInfoChangeMethodTests = []struct {
 	}, {
 		creationRevno: 1,
 		revno:         3,
-		refCount: 1,
+		refCount:      1,
 		removed:       true,
 		info:          &params.MachineInfo{Id: "0"},
 	}},
@@ -141,7 +141,7 @@ var allInfoChangeMethodTests = []struct {
 	expectContents: []entityEntry{{
 		creationRevno: 1,
 		revno:         3,
-		refCount: 1,
+		refCount:      1,
 		removed:       true,
 		info:          &params.MachineInfo{Id: "0"},
 	}, {
@@ -180,7 +180,7 @@ var allInfoChangeMethodTests = []struct {
 	expectContents: []entityEntry{{
 		creationRevno: 1,
 		revno:         1,
-		refCount: 0,
+		refCount:      0,
 		info:          &params.MachineInfo{Id: "0"},
 	}},
 }, {
@@ -318,7 +318,7 @@ var allWatcherChangedTests = []struct {
 	expectContents: []entityEntry{{
 		creationRevno: 1,
 		revno:         2,
-		refCount: 1,
+		refCount:      1,
 		removed:       true,
 		info: &params.MachineInfo{
 			Id: "1",
@@ -351,7 +351,7 @@ var allWatcherChangedTests = []struct {
 	expectRevno: 2,
 	expectContents: []entityEntry{{
 		creationRevno: 1,
-		refCount: 1,
+		refCount:      1,
 		revno:         2,
 		info: &params.MachineInfo{
 			Id:         "1",
@@ -443,10 +443,10 @@ func (*allWatcherSuite) TestHandleStopNoDecRefIfMoreRecentlyCreated(c *C) {
 	aw.handle(&allRequest{w: w})
 	assertAllInfoContents(c, aw.all, 1, []entityEntry{{
 		creationRevno: 1,
-		revno: 1,
-		refCount: 1,
+		revno:         1,
+		refCount:      1,
 		info: &params.MachineInfo{
-			Id:         "0",
+			Id: "0",
 		},
 	}})
 }
@@ -463,11 +463,11 @@ func (*allWatcherSuite) TestHandleStopNoDecRefIfAlreadySeenRemoved(c *C) {
 	aw.handle(&allRequest{w: w})
 	assertAllInfoContents(c, aw.all, 2, []entityEntry{{
 		creationRevno: 1,
-		revno: 2,
-		refCount: 1,
-		removed: true,
+		revno:         2,
+		refCount:      1,
+		removed:       true,
 		info: &params.MachineInfo{
-			Id:         "0",
+			Id: "0",
 		},
 	}})
 }
@@ -484,9 +484,9 @@ func (*allWatcherSuite) TestHandleStopDecRefIfAlreadySeenAndNotRemoved(c *C) {
 	aw.handle(&allRequest{w: w})
 	assertAllInfoContents(c, aw.all, 1, []entityEntry{{
 		creationRevno: 1,
-		revno: 1,
+		revno:         1,
 		info: &params.MachineInfo{
-			Id:         "0",
+			Id: "0",
 		},
 	}})
 }
@@ -502,10 +502,10 @@ func (*allWatcherSuite) TestHandleStopNoDecRefIfNotSeen(c *C) {
 	aw.handle(&allRequest{w: w})
 	assertAllInfoContents(c, aw.all, 1, []entityEntry{{
 		creationRevno: 1,
-		revno: 1,
-		refCount: 1,
+		revno:         1,
+		refCount:      1,
 		info: &params.MachineInfo{
-			Id:         "0",
+			Id: "0",
 		},
 	}})
 }
@@ -567,7 +567,7 @@ var respondTestChanges = []func(all *allInfo){
 	},
 	func(all *allInfo) {
 		all.update(entityId{"machine", "1"}, &params.MachineInfo{
-			Id: "1",
+			Id:         "1",
 			InstanceId: "i-1",
 		})
 	},
@@ -576,7 +576,7 @@ var respondTestChanges = []func(all *allInfo){
 var (
 	respondTestFinalState = []entityEntry{{
 		creationRevno: 2,
-		revno: 4,
+		revno:         4,
 		info: &params.MachineInfo{
 			Id:         "1",
 			InstanceId: "i-1",
@@ -586,15 +586,15 @@ var (
 )
 
 func (*allWatcherSuite) TestRespondResults(c *C) {
-	// We test the response results by interleaving notional
-	// Next requests in all possible combinations
-	// after each change in respondTestChanges
-	// and checking that the view of the world as seen
-	// by the watcher matches the actual current state.
+	// We test the response results for a single watcher by
+	// interleaving notional Next requests in all possible
+	// combinations after each change in respondTestChanges and
+	// checking that the view of the world as seen by the watcher
+	// matches the actual current state.
 
-	// We decide whether if we call respond by
-	// inspecting a number n - bit i of n determines whether
-	// a request will be responded to after running respondTestChanges[n].
+	// We decide whether if we call respond by inspecting a number n
+	// - bit i of n determines whether a request will be responded
+	// to after running respondTestChanges[i].
 
 	for n := 0; n < 1<<uint(len(respondTestChanges)); n++ {
 		aw := newAllWatcher(&allWatcherTestBacking{})
@@ -602,7 +602,7 @@ func (*allWatcherSuite) TestRespondResults(c *C) {
 		w := &StateWatcher{}
 		wstate := make(watcherState)
 		req := &allRequest{
-			w: w,
+			w:     w,
 			reply: make(chan bool, 1),
 		}
 		// Add the request, ready to be responded to.
@@ -614,7 +614,7 @@ func (*allWatcherSuite) TestRespondResults(c *C) {
 		for i, change := range respondTestChanges {
 			c.Logf("change %d", i)
 			change(aw.all)
-			if n & (1 << uint(i)) == 0 {
+			if n&(1<<uint(i)) == 0 {
 				continue
 			}
 			aw.respond()
@@ -624,7 +624,7 @@ func (*allWatcherSuite) TestRespondResults(c *C) {
 				c.Assert(len(req.changes) > 0, Equals, true)
 				wstate.update(req.changes)
 				req = &allRequest{
-					w: w,
+					w:     w,
 					reply: make(chan bool, 1),
 				}
 				aw.handle(req)
@@ -643,16 +643,92 @@ func (*allWatcherSuite) TestRespondResults(c *C) {
 	}
 }
 
+func (*allWatcherSuite) TestRespondMultiple(c *C) {
+	aw := newAllWatcher(&allWatcherTestBacking{})
+	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
+
+	// Add one request and respond.
+	// It should see the above change.
+	w0 := &StateWatcher{}
+	req0 := &allRequest{
+		w:     w0,
+		reply: make(chan bool, 1),
+	}
+	aw.handle(req0)
+	aw.respond()
+	assertReplied(c, true, req0)
+	c.Assert(req0.changes, DeepEquals, []params.Delta{{Entity: &params.MachineInfo{Id: "0"}}})
+	assertWaitingRequests(c, aw, nil)
+
+	// Add another request from the same watcher and respond.
+	// It should have no reply because nothing has changed.
+	req0 = &allRequest{
+		w:     w0,
+		reply: make(chan bool, 1),
+	}
+	aw.handle(req0)
+	aw.respond()
+	assertNotReplied(c, req0)
+
+	// Add two requests from another watcher and respond.
+	// The request from the first watcher should still not
+	// be replied to, but the later of the two requests from
+	// the second watcher should get a reply.
+	w1 := &StateWatcher{}
+	req1 := &allRequest{
+		w:     w1,
+		reply: make(chan bool, 1),
+	}
+	aw.handle(req1)
+	req2 := &allRequest{
+		w:     w1,
+		reply: make(chan bool, 1),
+	}
+	aw.handle(req2)
+	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
+		w0: {req0},
+		w1: {req2, req1},
+	})
+	aw.respond()
+	assertNotReplied(c, req0)
+	assertNotReplied(c, req1)
+	assertReplied(c, true, req2)
+	c.Assert(req2.changes, DeepEquals, []params.Delta{{Entity: &params.MachineInfo{Id: "0"}}})
+	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
+		w0: {req0},
+		w1: {req1},
+	})
+
+	// Check that nothing more gets responded to if we call respond again.
+	aw.respond()
+	assertNotReplied(c, req0)
+	assertNotReplied(c, req1)
+
+	// Now make a change and check that both waiting requests
+	// get serviced.
+	allInfoAdd(aw.all, &params.MachineInfo{Id: "1"})
+	aw.respond()
+	assertReplied(c, true, req0)
+	assertReplied(c, true, req1)
+	assertWaitingRequests(c, aw, nil)
+
+	deltas := []params.Delta{{Entity: &params.MachineInfo{Id: "1"}}}
+	c.Assert(req0.changes, DeepEquals, deltas)
+	c.Assert(req1.changes, DeepEquals, deltas)
+}
 
 // watcherState represents a StateWatcher client's
 // current view of the state. It holds the last delta that a given
 // state watcher has seen for each entity.
-type watcherState map[entityId] params.Delta
+type watcherState map[entityId]params.Delta
 
 func (s watcherState) update(changes []params.Delta) {
 	for _, d := range changes {
 		id := entityIdForInfo(d.Entity)
 		if d.Removed {
+			if _, ok := s[id]; !ok {
+				panic(fmt.Errorf("entity id %v removed when it wasn't there", id))
+			}
 			delete(s, id)
 		} else {
 			s[id] = d
