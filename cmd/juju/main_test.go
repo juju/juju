@@ -9,6 +9,7 @@ import (
 	. "launchpad.net/gocheck"
 	_ "launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/version"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -121,6 +122,11 @@ var runMainTests = []struct {
 		args:    []string{"--environment", "blah", "bootstrap"},
 		code:    2,
 		out:     "error: flag provided but not defined: --environment\n",
+	}, {
+		summary: "check version command registered properly",
+		args:    []string{"version"},
+		code:    0,
+		out:     version.Current.String() + "\n",
 	},
 }
 
