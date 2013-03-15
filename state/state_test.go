@@ -945,18 +945,35 @@ func (*StateSuite) TestSortPorts(c *C) {
 func (*StateSuite) TestNameChecks(c *C) {
 	assertService := func(s string, expect bool) {
 		c.Assert(state.IsServiceName(s), Equals, expect)
+                // Check that anything that is considered a valid service name
+                // is also (in)valid if a(n) (in)valid unit designator is added
+                // to it.
 		c.Assert(state.IsUnitName(s+"/0"), Equals, expect)
 		c.Assert(state.IsUnitName(s+"/99"), Equals, expect)
 		c.Assert(state.IsUnitName(s+"/-1"), Equals, false)
 		c.Assert(state.IsUnitName(s+"/blah"), Equals, false)
+		c.Assert(state.IsUnitName(s+"/"), Equals, false)
 	}
+        // Service names must be non-empty...
 	assertService("", false)
+        // must not consist entirely of numbers
 	assertService("33", false)
+        // may consist of a single word
 	assertService("wordpress", true)
+        // may contain hyphen-seperated words...
+	assertService("super-duper-wordpress", true)
+        // ...but those words must have at least one letter in them
+	assertService("super-1234-wordpress", false)
+        // may contain internal numbers.
 	assertService("w0rd-pre55", true)
-	assertService("foo2", true)
-	assertService("foo-2", false)
+        // must not begin with a number
+	assertService("3wordpress", false)
+        // but internal, hyphen-sperated words can begin with numbers
 	assertService("foo-2foo", true)
+        // and may end with a number...
+	assertService("foo2", true)
+        // ...unless that number is all by itself
+	assertService("foo-2", false)
 
 	assertMachine := func(s string, expect bool) {
 		c.Assert(state.IsMachineId(s), Equals, expect)
