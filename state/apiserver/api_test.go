@@ -1341,7 +1341,8 @@ func (s *suite) TestClientDestroyRelation(c *C) {
 			rels, err := service.Relations()
 			c.Assert(err, IsNil)
 			// When relations are destroyed they don't go away immediately but
-			// instead are set to 'Dying'.
+			// instead are set to 'Dying', due to references held by the user
+			// agent.
 			for _, rel := range rels {
 				c.Assert(rel.Life(), Equals, state.Dying)
 			}
