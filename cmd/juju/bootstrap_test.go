@@ -43,7 +43,7 @@ func (s *BootstrapSuite) TearDownTest(c *C) {
 }
 
 func (*BootstrapSuite) TestRunGeneratesCertificate(c *C) {
-	defer testing.MakeFakeHome(c, envConfig).Restore()
+	defer testing.MakeFakeHome(c, testing.PeckhamConfig).Restore()
 	envName := "peckham"
 	_, err := testing.RunCommand(c, new(BootstrapCommand), nil)
 	c.Assert(err, IsNil)
@@ -63,14 +63,14 @@ func (*BootstrapSuite) TestRunGeneratesCertificate(c *C) {
 }
 
 func (*BootstrapSuite) TestBootstrapCommandNoParams(c *C) {
-	defer testing.MakeFakeHome(c, envConfig).Restore()
+	defer testing.MakeFakeHome(c, testing.PeckhamConfig).Restore()
 	opc, errc := runCommand(new(BootstrapCommand))
 	c.Check(<-errc, IsNil)
 	c.Check((<-opc).(dummy.OpBootstrap).Env, Equals, "peckham")
 }
 
 func (*BootstrapSuite) TestBootstrapCommandUploadTools(c *C) {
-	defer testing.MakeFakeHome(c, envConfig).Restore()
+	defer testing.MakeFakeHome(c, testing.PeckhamConfig).Restore()
 	// bootstrap with tool uploading - checking that a file
 	// is uploaded should be sufficient, as the detailed semantics
 	// of UploadTools are tested in environs.
@@ -95,7 +95,7 @@ func (*BootstrapSuite) TestBootstrapCommandUploadTools(c *C) {
 }
 
 func (*BootstrapSuite) TestBootstrapCommandBrokenEnvironment(c *C) {
-	defer testing.MakeFakeHome(c, envConfig).Restore()
+	defer testing.MakeFakeHome(c, testing.PeckhamConfig).Restore()
 	opc, errc := runCommand(new(BootstrapCommand), "-e", "brokenenv")
 	c.Check(<-errc, ErrorMatches, "dummy.Bootstrap is broken")
 	c.Check(<-opc, IsNil)
