@@ -10,9 +10,27 @@ import (
 	"path/filepath"
 )
 
-type DeployerSuite struct{}
+type DeployerSuite struct {
+	testing.GitSuite
+}
 
 var _ = Suite(&DeployerSuite{})
+
+func (s *DeployerSuite) SetUpSuite(c *C) {
+	s.GitSuite.SetUpSuite(c)
+}
+
+func (s *DeployerSuite) TearDownSuite(c *C) {
+	s.GitSuite.TearDownSuite(c)
+}
+
+func (s *DeployerSuite) SetUpTest(c *C) {
+	s.GitSuite.SetUpTest(c)
+}
+
+func (s *DeployerSuite) TearDownTest(c *C) {
+	s.GitSuite.TearDownTest(c)
+}
 
 func (s *DeployerSuite) TestUnsetCharm(c *C) {
 	d := charm.NewDeployer(filepath.Join(c.MkDir(), "deployer"))
