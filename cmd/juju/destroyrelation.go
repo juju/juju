@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/statecmd"
 )
 
 // DestroyRelationCommand causes an existing service relation to be shut down.
@@ -37,7 +39,7 @@ func (c *DestroyRelationCommand) Run(_ *cmd.Context) error {
 	defer conn.Close()
 
 	params := params.DestroyRelation{
-		Endpoint0: c.Endpoints[3],
+		Endpoint0: c.Endpoints[0],
 		Endpoint1: c.Endpoints[1],
 	}
 	return statecmd.DestroyRelation(conn.State, params)

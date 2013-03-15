@@ -493,6 +493,9 @@ func (s *suite) setUpScenario(c *C) (entities []string) {
 	setDefaultPassword(c, m)
 	add(m)
 
+	_, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
+	c.Assert(err, IsNil)
+
 	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
 
@@ -1307,8 +1310,8 @@ var destroyRelationTests = []struct {
 	endpoints: []string{"wordpress", "logging"},
 }, {
 	about:     "No relation",
-	endpoints: []string{"wordpress", "logging"},
-	//err:       "no relation found",
+	endpoints: []string{"wordpress", "mysql"},
+	err:       `relation "wordpress:db mysql:server" not found`,
 },
 }
 
@@ -1316,16 +1319,6 @@ func (s *suite) TestClientDestroyRelation(c *C) {
 	s.setUpScenario(c)
 	for i, test := range destroyRelationTests {
 		c.Logf("test %d; %s", i, test.about)
-
-		for j := 0; j < len(test.endpoints); j++ {
-			service, err := s.State.Service(test.endpoints[j])
-			c.Assert(err, IsNil)
-			rels, err := service.Relations()
-			c.Assert(err, IsNil)
-			c.Logf("rels %s", rels)
-			c.Logf("rels %d", rels)
-			c.Assert(rels, HasLen, 1)
-		}
 
 		err := s.APIState.Client().DestroyRelation(
 			test.endpoints[0], test.endpoints[1])

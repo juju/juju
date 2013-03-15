@@ -1,9 +1,9 @@
 package statecmd_test
 
 import (
+	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/statecmd"
 )
@@ -41,27 +41,28 @@ var destroyRelationTests = []struct {
 
 func (s *DestroyRelationSuite) TestDestroyRelation(c *C) {
 	// Create some services.
-	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, IsNil)
-	wordpressEP, err := wordpress.Endpoint("db")
+	_, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
 
-	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
+	_, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
 	c.Assert(err, IsNil)
-	mysqlEP, err := mysql.Endpoint("server")
 
-	logging, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
+	_, err = s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
 	c.Assert(err, IsNil)
-	loggingEP, err := logging.Endpoint("server")
 
 	_, err = s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
 	c.Assert(err, IsNil)
 
 	// Add a relation between wordpress and mysql.
-	_, err = s.State.AddRelation(wordpressEP, mysqlEP)
+	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
 	c.Assert(err, IsNil)
+	_, err = s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+
 	// And a relation between wordpress and logging.
-	_, err = s.State.AddRelation(wordpressEP, loggingEP)
+	eps, err = s.State.InferEndpoints([]string{"wordpress", "logging"})
+	c.Assert(err, IsNil)
+	_, err = s.State.AddRelation(eps...)
 	c.Assert(err, IsNil)
 
 	for i, t := range destroyRelationTests {
@@ -74,12 +75,12 @@ func (s *DestroyRelationSuite) TestDestroyRelation(c *C) {
 			c.Assert(err, ErrorMatches, t.err)
 		} else {
 			c.Assert(err, IsNil)
-			for _, svc := range []*state.Service{wordpress, mysql} {
-				//svc.Refresh()
-				rels, err := svc.Relations()
-				c.Assert(err, IsNil)
-				c.Assert(rels, HasLen, 0)
-			}
+			// Show that the relation was removed.
+			eps, err := s.State.InferEndpoints([]string{t.endpoints[0], t.endpoints[1]})
+			_, err = s.State.EndpointsRelation(eps...)
+			expected := fmt.Sprintf("relation \"%s:.* %s:.*\" not found",
+				t.endpoints[0], t.endpoints[1])
+			c.Assert(err, ErrorMatches, expected)
 		}
 	}
 }
