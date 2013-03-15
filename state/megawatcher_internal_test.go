@@ -7,7 +7,9 @@ import (
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
+	"sync"
 )
 
 type allInfoSuite struct {
@@ -288,12 +290,20 @@ type allWatcherSuite struct {
 
 var _ = Suite(&allWatcherSuite{})
 
+type allWatcherErrorFetchBacking struct {
+	err error
+	*allWatcherTestBacking
+}
+
+func (b *allWatcherErrorFetchBacking) fetch(id entityId) (params.EntityInfo, error) {
+	return nil, b.err
+}
+
 func (*allWatcherSuite) TestChangedFetchErrorReturn(c *C) {
 	expectErr := errors.New("some error")
-	b := &allWatcherTestBacking{
-		fetchFunc: func(id entityId) (params.EntityInfo, error) {
-			return nil, expectErr
-		},
+	b := &allWatcherErrorFetchBacking{
+		err: expectErr,
+		allWatcherTestBacking: newTestBacking(nil),
 	}
 	aw := newAllWatcher(b)
 	err := aw.changed(entityId{})
@@ -363,9 +373,7 @@ var allWatcherChangedTests = []struct {
 func (*allWatcherSuite) TestChanged(c *C) {
 	for i, test := range allWatcherChangedTests {
 		c.Logf("test %d. %s", i, test.about)
-		b := &allWatcherTestBacking{
-			fetchFunc: fetchFromMap(entityMap{}.add(test.inBacking)),
-		}
+		b := newTestBacking(test.inBacking)
 		aw := newAllWatcher(b)
 		for _, info := range test.add {
 			allInfoAdd(aw.all, info)
@@ -378,7 +386,7 @@ func (*allWatcherSuite) TestChanged(c *C) {
 }
 
 func (*allWatcherSuite) TestHandle(c *C) {
-	aw := newAllWatcher(&allWatcherTestBacking{})
+	aw := newAllWatcher(newTestBacking(nil))
 
 	// Add request from first watcher.
 	w0 := &StateWatcher{}
@@ -434,7 +442,7 @@ func (*allWatcherSuite) TestHandle(c *C) {
 func (*allWatcherSuite) TestHandleStopNoDecRefIfMoreRecentlyCreated(c *C) {
 	// If the StateWatcher hasn't seen the item, then we shouldn't
 	// decrement its ref count when it is stopped.
-	aw := newAllWatcher(&allWatcherTestBacking{})
+	aw := newAllWatcher(newTestBacking(nil))
 	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
 	allInfoIncRef(aw.all, entityId{"machine", "0"})
 	w := &StateWatcher{}
@@ -454,7 +462,7 @@ func (*allWatcherSuite) TestHandleStopNoDecRefIfMoreRecentlyCreated(c *C) {
 func (*allWatcherSuite) TestHandleStopNoDecRefIfAlreadySeenRemoved(c *C) {
 	// If the StateWatcher has already seen the item removed, then
 	// we shouldn't decrement its ref count when it is stopped.
-	aw := newAllWatcher(&allWatcherTestBacking{})
+	aw := newAllWatcher(newTestBacking(nil))
 	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
 	allInfoIncRef(aw.all, entityId{"machine", "0"})
 	aw.all.markRemoved(entityId{"machine", "0"})
@@ -475,7 +483,7 @@ func (*allWatcherSuite) TestHandleStopNoDecRefIfAlreadySeenRemoved(c *C) {
 func (*allWatcherSuite) TestHandleStopDecRefIfAlreadySeenAndNotRemoved(c *C) {
 	// If the StateWatcher has already seen the item removed, then
 	// we should decrement its ref count when it is stopped.
-	aw := newAllWatcher(&allWatcherTestBacking{})
+	aw := newAllWatcher(newTestBacking(nil))
 	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
 	allInfoIncRef(aw.all, entityId{"machine", "0"})
 	w := &StateWatcher{}
@@ -494,7 +502,7 @@ func (*allWatcherSuite) TestHandleStopDecRefIfAlreadySeenAndNotRemoved(c *C) {
 func (*allWatcherSuite) TestHandleStopNoDecRefIfNotSeen(c *C) {
 	// If the StateWatcher hasn't seen the item at all, it should
 	// leave the ref count untouched.
-	aw := newAllWatcher(&allWatcherTestBacking{})
+	aw := newAllWatcher(newTestBacking(nil))
 	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
 	allInfoIncRef(aw.all, entityId{"machine", "0"})
 	w := &StateWatcher{}
@@ -597,7 +605,7 @@ func (*allWatcherSuite) TestRespondResults(c *C) {
 	// to after running respondTestChanges[i].
 
 	for n := 0; n < 1<<uint(len(respondTestChanges)); n++ {
-		aw := newAllWatcher(&allWatcherTestBacking{})
+		aw := newAllWatcher(newTestBacking(nil))
 		c.Logf("test %d. (%0*b)", n, len(respondTestChanges), n)
 		w := &StateWatcher{}
 		wstate := make(watcherState)
@@ -644,7 +652,7 @@ func (*allWatcherSuite) TestRespondResults(c *C) {
 }
 
 func (*allWatcherSuite) TestRespondMultiple(c *C) {
-	aw := newAllWatcher(&allWatcherTestBacking{})
+	aw := newAllWatcher(newTestBacking(nil))
 	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
 
 	// Add one request and respond.
@@ -801,13 +809,87 @@ func fetchFromMap(em entityMap) func(entityId) (params.EntityInfo, error) {
 }
 
 type allWatcherTestBacking struct {
-	fetchFunc func(id entityId) (params.EntityInfo, error)
+	mu       sync.Mutex
+	entities map[entityId]params.EntityInfo
+	watchc   chan<- watcher.Change
+	txnRevno int64
+}
+
+func newTestBacking(initial []params.EntityInfo) *allWatcherTestBacking {
+	b := &allWatcherTestBacking{
+		entities: make(map[entityId]params.EntityInfo),
+	}
+	for _, info := range initial {
+		b.entities[entityIdForInfo(info)] = info
+	}
+	return b
 }
 
 func (b *allWatcherTestBacking) fetch(id entityId) (params.EntityInfo, error) {
-	return b.fetchFunc(id)
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if info, ok := b.entities[id]; ok {
+		return info, nil
+	}
+	return nil, mgo.ErrNotFound
 }
 
 func (b *allWatcherTestBacking) entityIdForInfo(info params.EntityInfo) entityId {
 	return entityIdForInfo(info)
+}
+
+func (b *allWatcherTestBacking) watch(c chan<- watcher.Change) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.watchc != nil {
+		panic("test backing can only watch once")
+	}
+	b.watchc = c
+}
+
+func (b *allWatcherTestBacking) unwatch(c chan<- watcher.Change) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if c != b.watchc {
+		panic("unwatching wrong channel")
+	}
+	b.watchc = nil
+}
+
+func (b *allWatcherTestBacking) getAll(all *allInfo) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	for id, info := range b.entities {
+		all.update(id, info)
+	}
+	return nil
+}
+
+func (b *allWatcherTestBacking) updateEntity(info params.EntityInfo) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	id := b.entityIdForInfo(info)
+	b.entities[id] = info
+	b.txnRevno++
+	if b.watchc != nil {
+		b.watchc <- watcher.Change{
+			C:     id.collection,
+			Id:    id.id,
+			Revno: b.txnRevno, // This is actually ignored, but fill it in anyway.
+		}
+	}
+}
+
+func (b *allWatcherTestBacking) removeEntity(id entityId) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	delete(b.entities, id)
+	b.txnRevno++
+	if b.watchc != nil {
+		b.watchc <- watcher.Change{
+			C:     id.collection,
+			Id:    id.id,
+			Revno: -1,
+		}
+	}
 }

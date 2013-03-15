@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"labix.org/v2/mgo"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/tomb"
 	"reflect"
 )
@@ -64,6 +65,9 @@ type allWatcher struct {
 	// the underlying state.
 	backing allWatcherBacking
 
+	// request receives requests from StateWatcher clients.
+	request chan *allRequest
+
 	// all holds information on everything the allWatcher cares about.
 	all *allInfo
 
@@ -81,10 +85,22 @@ type allWatcherBacking interface {
 	// to the given entity info.
 	entityIdForInfo(info params.EntityInfo) entityId
 
+	// getAll retrieves information about all known entities in the state
+	// into the given allInfo.
+	getAll(all *allInfo) error
+
 	// fetch retrieves information about the entity with
 	// the given id. It returns mgo.ErrNotFound if the
 	// entity does not exist.
 	fetch(id entityId) (params.EntityInfo, error)
+
+	// watch watches for any changes and sends them
+	// on the given channel.
+	watch(in chan<- watcher.Change)
+
+	// unwatch stops watching for changes on the
+	// given channel.
+	unwatch(in chan<- watcher.Change)
 }
 
 // entityId holds the mongo identifier of an entity.
@@ -121,9 +137,53 @@ type allRequest struct {
 func newAllWatcher(backing allWatcherBacking) *allWatcher {
 	return &allWatcher{
 		backing: backing,
+		request: make(chan *allRequest),
 		all:     newAllInfo(),
 		waiting: make(map[*StateWatcher]*allRequest),
 	}
+}
+
+func (aw *allWatcher) run() {
+	defer aw.tomb.Done()
+	// TODO(rog) distinguish between temporary and permanent errors:
+	// if we get an error in loop, this logic kill the state's allWatcher
+	// forever. This currently fits the way we go about things,
+	// because we reconnect to the state on any error, but
+	// perhaps there are errors we could recover from.
+	aw.tomb.Kill(aw.loop())
+}
+
+func (aw *allWatcher) loop() error {
+	in := make(chan watcher.Change)
+	aw.backing.watch(in)
+	defer aw.backing.unwatch(in)
+	if err := aw.backing.getAll(aw.all); err != nil {
+		return err
+	}
+	for {
+		select {
+		case <-aw.tomb.Dying():
+			return tomb.ErrDying
+		case change := <-in:
+			id := entityId{
+				collection: change.C,
+				id:         change.Id,
+			}
+			if err := aw.changed(id); err != nil {
+				return err
+			}
+		case req := <-aw.request:
+			aw.handle(req)
+		}
+		aw.respond()
+	}
+	panic("unreachable")
+}
+
+// Stop stops the allWatcher.
+func (aw *allWatcher) Stop() error {
+	aw.tomb.Kill(nil)
+	return aw.tomb.Wait()
 }
 
 // handle processes a request from a StateWatcher to the allWatcher.
