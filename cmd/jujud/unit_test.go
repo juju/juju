@@ -5,14 +5,26 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/testing"
 	"time"
 )
 
 type UnitSuite struct {
+	testing.GitSuite
 	agentSuite
 }
 
 var _ = Suite(&UnitSuite{})
+
+func (s *UnitSuite) SetUpTest(c *C) {
+	s.GitSuite.SetUpTest(c)
+	s.agentSuite.SetUpTest(c)
+}
+
+func (s *UnitSuite) TearDownTest(c *C) {
+	s.agentSuite.TearDownTest(c)
+	s.GitSuite.TearDownTest(c)
+}
 
 // primeAgent creates a unit, and sets up the unit agent's directory.
 // It returns the new unit and the agent's configuration.

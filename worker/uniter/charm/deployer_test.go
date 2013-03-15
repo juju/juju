@@ -10,7 +10,9 @@ import (
 	"path/filepath"
 )
 
-type DeployerSuite struct{}
+type DeployerSuite struct {
+	testing.GitSuite
+}
 
 var _ = Suite(&DeployerSuite{})
 
