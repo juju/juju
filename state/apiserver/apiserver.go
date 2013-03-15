@@ -354,9 +354,14 @@ func (c *srvClient) ServiceDeploy(args params.ServiceDeploy) error {
 	return err
 }
 
-// ServiceAddUnits adds a given number of units to a service.
-func (c *srvClient) ServiceAddUnits(args params.ServiceAddUnits) error {
-	return statecmd.ServiceAddUnits(c.root.srv.state, args)
+// AddServiceUnits adds a given number of units to a service.
+func (c *srvClient) AddServiceUnits(args params.AddServiceUnits) error {
+	return statecmd.AddServiceUnits(c.root.srv.state, args)
+}
+
+// DestroyServiceUnits removes a given set of service units.
+func (c *srvClient) DestroyServiceUnits(args params.DestroyServiceUnits) error {
+	return statecmd.DestroyServiceUnits(c.root.srv.state, args)
 }
 
 // ServiceDestroy destroys a given service.
