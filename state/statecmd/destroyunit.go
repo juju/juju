@@ -14,6 +14,5 @@ func DestroyServiceUnits(state *state.State, args params.DestroyServiceUnits) er
 	if err != nil {
 		return err
 	}
-	err = conn.DestroyUnits(args.UnitNames...)
-	return err
+	return conn.DestroyUnits(args.UnitNames...)
 }
