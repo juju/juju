@@ -70,8 +70,7 @@ type FakeHome string
 // 'certNames' specified, and the id_rsa.pub file is written to to the .ssh
 // dir.
 func MakeFakeHomeNoEnvironments(c *C, certNames ...string) FakeHome {
-	oldHome := os.Getenv("HOME")
-	os.Setenv("HOME", c.MkDir())
+	fake := MakeEmptyFakeHome(c)
 
 	err := os.Mkdir(HomePath(".juju"), 0755)
 	c.Assert(err, IsNil)
@@ -88,7 +87,7 @@ func MakeFakeHomeNoEnvironments(c *C, certNames ...string) FakeHome {
 	err = ioutil.WriteFile(HomePath(".ssh", "id_rsa.pub"), []byte("auth key\n"), 0666)
 	c.Assert(err, IsNil)
 
-	return FakeHome(oldHome)
+	return fake
 }
 
 // MakeFakeHome creates a new temporary directory through the test checker,
@@ -106,6 +105,13 @@ func MakeFakeHome(c *C, config string, certNames ...string) FakeHome {
 	c.Assert(err, IsNil)
 
 	return fake
+}
+
+func MakeEmptyFakeHome(c *C) FakeHome {
+	oldHome := os.Getenv("HOME")
+	os.Setenv("HOME", c.MkDir())
+
+	return FakeHome(oldHome)
 }
 
 func HomePath(names ...string) string {
