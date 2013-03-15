@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path/filepath"
+	"path"
 	"regexp"
 	"strings"
 
@@ -94,9 +94,9 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	defer removeOnErr(&err, conf.Dir())
 
 	// Install an upstart job that runs the unit agent.
-	logPath := filepath.Join(ctx.logDir, entityName+".log")
+	logPath := path.Join(ctx.logDir, entityName+".log")
 	cmd := strings.Join([]string{
-		filepath.Join(toolsDir, "jujud"), "unit",
+		path.Join(toolsDir, "jujud"), "unit",
 		"--data-dir", conf.DataDir,
 		"--unit-name", unitName,
 		"--debug", // TODO: propagate debug state sensibly
