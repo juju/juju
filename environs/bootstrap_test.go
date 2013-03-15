@@ -44,9 +44,8 @@ func (s *bootstrapSuite) TestBootstrapKeyGeneration(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
 
-	// Don't need to check the error for reading this, we know it works as it
-	// is tested elsewhere.
-	caCertPEM, _ := ioutil.ReadFile(testing.HomePath(".juju", "foo-cert.pem"))
+	caCertPEM, err := ioutil.ReadFile(testing.HomePath(".juju", "foo-cert.pem"))
+	c.Assert(err, IsNil)
 
 	err = cert.Verify(env.certPEM, caCertPEM, time.Now())
 	c.Assert(err, IsNil)

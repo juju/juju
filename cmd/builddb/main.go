@@ -28,11 +28,6 @@ func build() error {
 	if err != nil {
 		return err
 	}
-	// TODO: what about environments without certs here?
-	err = environs.Bootstrap(environ, true)
-	if err != nil {
-		return err
-	}
 	conn, err := juju.NewConn(environ)
 	if err != nil {
 		return err
