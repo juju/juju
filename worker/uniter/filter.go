@@ -164,9 +164,6 @@ func (f *filter) WantUpgradeEvent(mustForce bool) {
 //
 // SetCharm blocks until the charm URL is set in state, returning any
 // error that occurred.
-//
-// TODO(dimitern): Once we have per-charm service settings in a coming
-// follow-up the described behavior will match.
 func (f *filter) SetCharm(curl *charm.URL) error {
 	select {
 	case <-f.tomb.Dying():
@@ -316,10 +313,7 @@ func (f *filter) loop(unitName string) (err error) {
 			configw = f.unit.WatchServiceConfig()
 			configChanges = configw.Changes()
 
-			// Restart the relations watcher, in order to generate
-			// fresh events for every relation, so that
-			// previously-ignored events (i.e. those not applicable to
-			// the previous charm) can be handled.
+			// Restart the relations watcher.
 			if err := relationsw.Stop(); err != nil {
 				return err
 			}

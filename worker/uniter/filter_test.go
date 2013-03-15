@@ -301,6 +301,7 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	f, err = newFilter(s.State, s.unit.Name())
 	c.Assert(err, IsNil)
 	defer f.Stop()
+	s.State.Sync()
 	f.DiscardConfigEvent()
 	assertNoChange()
 
