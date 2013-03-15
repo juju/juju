@@ -10,19 +10,11 @@ import (
 )
 
 type UnitSuite struct {
-	testing.GitSuite
+	GitSuite testing.GitSuite
 	agentSuite
 }
 
 var _ = Suite(&UnitSuite{})
-
-func (s *UnitSuite) SetUpSuite(c *C) {
-	s.agentSuite.SetUpSuite(c)
-}
-
-func (s *UnitSuite) TearDownSuite(c *C) {
-	s.agentSuite.TearDownSuite(c)
-}
 
 func (s *UnitSuite) SetUpTest(c *C) {
 	s.GitSuite.SetUpTest(c)

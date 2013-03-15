@@ -14,19 +14,11 @@ var curl = corecharm.MustParseURL("cs:series/blah-blah-123")
 
 type GitDirSuite struct {
 	testing.GitSuite
-	testing.LoggingSuite
-	oldLcAll string
+	LoggingSuite testing.LoggingSuite
+	oldLcAll     string
 }
 
 var _ = Suite(&GitDirSuite{})
-
-func (s *GitDirSuite) SetUpSuite(c *C) {
-	s.GitSuite.SetUpSuite(c)
-}
-
-func (s *GitDirSuite) TearDownSuite(c *C) {
-	s.GitSuite.TearDownSuite(c)
-}
 
 func (s *GitDirSuite) SetUpTest(c *C) {
 	s.GitSuite.SetUpTest(c)
