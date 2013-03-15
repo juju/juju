@@ -76,6 +76,11 @@ type DestroyServiceUnits struct {
 	UnitNames []string
 }
 
+// ServiceDestroy holds the parameters for making the ServiceDestroy call.
+type ServiceDestroy struct {
+	ServiceName string
+}
+
 // Creds holds credentials for identifying an entity.
 type Creds struct {
 	EntityName string

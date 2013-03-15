@@ -131,6 +131,10 @@ var operationPermTests = []struct {
 	op:    opClientDestroyServiceUnits,
 	allow: []string{"user-admin", "user-other"},
 }, {
+	about: "Client.ServiceDestroy",
+	op:    opClientServiceDestroy,
+	allow: []string{"user-admin", "user-other"},
+}, {
 	about: "Client.WatchAll",
 	op:    opClientWatchAll,
 	allow: []string{"user-admin", "user-other"},
@@ -413,6 +417,17 @@ func opClientDestroyServiceUnits(c *C, st *api.State, mst *state.State) (func(),
 	}
 	c.Assert(err, IsNil)
 	return func() {}, err
+}
+
+func opClientServiceDestroy(c *C, st *api.State, mst *state.State) (func(), error) {
+	// This test only checks that the call is made without error, ensuring the
+	// signatures match.
+	err := st.Client().ServiceDestroy("wordpress")
+	if err != nil {
+		return func() {}, err
+	}
+	c.Assert(err, IsNil)
+	return func() {}, nil
 }
 
 func opClientWatchAll(c *C, st *api.State, mst *state.State) (func(), error) {
@@ -1218,6 +1233,20 @@ func (s *suite) TestClientServiceUnexpose(c *C) {
 	c.Assert(err, IsNil)
 	service.Refresh()
 	c.Assert(service.IsExposed(), Equals, false)
+}
+
+func (s *suite) TestClientServiceDestroy(c *C) {
+	// Setup:
+	s.setUpScenario(c)
+	serviceName := "wordpress"
+	service, err := s.State.Service(serviceName)
+	c.Assert(err, IsNil)
+	// Code under test:
+	err = s.APIState.Client().ServiceDestroy(serviceName)
+	c.Assert(err, IsNil)
+	err = service.Refresh()
+	// The test actual assertion: the service should no-longer be Alive.
+	c.Assert(service.Life(), Not(Equals), state.Alive)
 }
 
 func (s *suite) TestClientUnitResolved(c *C) {

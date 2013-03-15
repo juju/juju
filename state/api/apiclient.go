@@ -139,6 +139,14 @@ func (c *Client) DestroyServiceUnits(unitNames []string) error {
 	return clientError(err)
 }
 
+// ServiceDestroy destroys a given service.
+func (c *Client) ServiceDestroy(service string) error {
+	params := params.ServiceDestroy{
+		ServiceName: service,
+	}
+	return clientError(c.st.client.Call("Client", "", "ServiceDestroy", params, nil))
+}
+
 // CharmInfo holds information about a charm.
 type CharmInfo struct {
 	Revision int

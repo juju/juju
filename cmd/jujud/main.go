@@ -97,7 +97,7 @@ func jujuDMain(args []string) (code int, err error) {
 	jujud.Register(&BootstrapCommand{})
 	jujud.Register(&MachineAgent{})
 	jujud.Register(&UnitAgent{})
-	jujud.Register(&VersionCommand{})
+	jujud.Register(&cmd.VersionCommand{})
 	code = cmd.Main(jujud, cmd.DefaultContext(), args[1:])
 	return code, nil
 }
