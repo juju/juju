@@ -721,9 +721,7 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 			return err
 		}
 		for {
-			// TODO(fwereade) totally remove this filthy and incorrect hack.
-			// Maybe u.AssignToNewMachine()? (should probably be internal...)
-			m, err := st.AddMachine(version.Current.Series, JobHostUnits)
+			m, err := st.AddMachine(u.doc.Series, JobHostUnits)
 			if err != nil {
 				return err
 			}

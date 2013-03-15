@@ -380,6 +380,7 @@ func (s *Service) addUnitOps(principalName string) (string, []txn.Op, error) {
 	udoc := &unitDoc{
 		Name:      name,
 		Service:   s.doc.Name,
+		Series:    ch.URL().Series,
 		Life:      Alive,
 		Status:    UnitPending,
 		Principal: principalName,
