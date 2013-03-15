@@ -119,7 +119,7 @@ func (fw *Firewaller) loop() error {
 // stop a watcher with logging of a possible error.
 func stop(what string, stopper watcher.Stopper) {
 	if err := stopper.Stop(); err != nil {
-		log.Errf("worker/firewaller: error stopping %s: %v", what, err)
+		log.Errorf("worker/firewaller: error stopping %s: %v", what, err)
 	}
 }
 
@@ -509,7 +509,7 @@ func (fw *Firewaller) forgetUnit(unitd *unitData) {
 	serviced := unitd.serviced
 	machined := unitd.machined
 	if err := unitd.Stop(); err != nil {
-		log.Errf("worker/firewaller: unit watcher %q returned error when stopping: %v", name, err)
+		log.Errorf("worker/firewaller: unit watcher %q returned error when stopping: %v", name, err)
 	}
 	// Clean up after stopping.
 	delete(fw.unitds, name)
@@ -518,7 +518,7 @@ func (fw *Firewaller) forgetUnit(unitd *unitData) {
 	if len(serviced.unitds) == 0 {
 		// Stop service data after all units are removed.
 		if err := serviced.Stop(); err != nil {
-			log.Errf("worker/firewaller: service watcher %q returned error when stopping: %v", serviced.service, err)
+			log.Errorf("worker/firewaller: service watcher %q returned error when stopping: %v", serviced.service, err)
 		}
 		delete(fw.serviceds, serviced.service.Name())
 	}

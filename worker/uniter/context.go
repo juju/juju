@@ -207,7 +207,7 @@ func (l *hookLogger) run() {
 		line, _, err := br.ReadLine()
 		if err != nil {
 			if err != io.EOF {
-				log.Errf("worker/uniter: cannot read hook output: %v", err)
+				log.Errorf("worker/uniter: cannot read hook output: %v", err)
 			}
 			break
 		}

@@ -79,7 +79,7 @@ func (srv *Server) run(lis net.Listener) {
 			return
 		}
 		if err := srv.serveConn(conn); err != nil {
-			log.Errf("state/api: error serving RPCs: %v", err)
+			log.Errorf("state/api: error serving RPCs: %v", err)
 		}
 	})
 	// The error from http.Serve is not interesting.
@@ -131,7 +131,7 @@ func readRequests(conn *websocket.Conn, c chan<- serverReq) {
 			break
 		}
 		if err != nil {
-			log.Errf("api: error receiving request: %v", err)
+			log.Errorf("api: error receiving request: %v", err)
 			break
 		}
 		c <- req

@@ -90,7 +90,7 @@ func (d *Deployer) Deploy(target *GitDir) (err error) {
 			log.Warningf("worker/uniter/charm: charm deployment completed with conflicts")
 		} else if err != nil {
 			err = fmt.Errorf("charm deployment failed: %s", err)
-			log.Errf("worker/uniter/charm: %v", err)
+			log.Errorf("worker/uniter/charm: %v", err)
 		} else {
 			log.Infof("worker/uniter/charm: charm deployment succeeded")
 		}

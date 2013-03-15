@@ -280,7 +280,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	}
 	log.Infof("worker/uniter: running %q hook", hookName)
 	if err := hctx.RunHook(hookName, u.charm.Path(), u.toolsDir, socketPath); err != nil {
-		log.Errf("worker/uniter: hook failed: %s", err)
+		log.Errorf("worker/uniter: hook failed: %s", err)
 		return errHookFailed
 	}
 	if err := u.writeState(RunHook, Done, &hi, nil); err != nil {

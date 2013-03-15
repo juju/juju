@@ -18,11 +18,11 @@ type JujuLogSuite struct {
 var _ = Suite(&JujuLogSuite{})
 
 func pushLog(debug bool) (buf *bytes.Buffer, pop func()) {
-	oldTarget, oldDebug := log.Local, log.Debug
+	oldTarget, oldDebug := log.Target, log.Debug
 	buf = new(bytes.Buffer)
-	log.Local, log.Debug = stdlog.New(buf, "JUJU:", 0), debug
+	log.Target, log.Debug = stdlog.New(buf, "JUJU:", 0), debug
 	return buf, func() {
-		log.Local, log.Debug = oldTarget, oldDebug
+		log.Target, log.Debug = oldTarget, oldDebug
 	}
 }
 

@@ -71,7 +71,7 @@ waiting:
 		select {
 		case info := <-done:
 			if info.err != nil {
-				log.Errf("cmd/jujud: %s: %v", tasks[info.index], info.err)
+				log.Errorf("cmd/jujud: %s: %v", tasks[info.index], info.err)
 				logged[info.index] = true
 				err = info.err
 				break waiting
@@ -85,7 +85,7 @@ waiting:
 	for i, t := range tasks {
 		err1 := t.Stop()
 		if !logged[i] && err1 != nil {
-			log.Errf("cmd/jujud: %s: %v", t, err1)
+			log.Errorf("cmd/jujud: %s: %v", t, err1)
 			logged[i] = true
 		}
 		if moreImportant(err1, err) {
@@ -144,7 +144,7 @@ func runLoop(runOnce func() error, stop <-chan struct{}) error {
 		if err == nil {
 			log.Alertf("cmd/jujud: agent died with no error")
 		} else {
-			log.Errf("cmd/jujud: %v", err)
+			log.Errorf("cmd/jujud: %v", err)
 		}
 		if !isleep(retryDelay, stop) {
 			return nil

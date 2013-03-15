@@ -201,7 +201,7 @@ func (client *Client) input() {
 	client.mutex.Unlock()
 	client.sending.Unlock()
 	if err != io.EOF && !closing {
-		log.Errf("rpc: client protocol error: %v", err)
+		log.Errorf("rpc: client protocol error: %v", err)
 	}
 }
 

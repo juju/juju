@@ -46,7 +46,7 @@ func (s *StoreSuite) SetUpTest(c *C) {
 	var err error
 	s.store, err = store.Open(s.Addr)
 	c.Assert(err, IsNil)
-	log.Local = c
+	log.Target = c
 	log.Debug = true
 }
 

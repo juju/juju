@@ -201,12 +201,12 @@ func (l *logRecorder) Output(calldepth int, s string) error {
 }
 
 func (s *RunHookSuite) TestRunHook(c *C) {
-	oldLogger := log.Local
+	oldLogger := log.Target
 	defer func() {
-		log.Local = oldLogger
+		log.Target = oldLogger
 	}()
-	logger := &logRecorder{c: c, prefix: "JUJU worker/uniter: HOOK "}
-	log.Local = logger
+	logger := &logRecorder{c: c, prefix: "INFO: worker/uniter: HOOK "}
+	log.Target = logger
 	for i, t := range runHookTests {
 		c.Logf("test %d: %s; perm %v", i, t.summary, t.spec.perm)
 		ctx := s.GetHookContext(c, t.relid, t.remote)

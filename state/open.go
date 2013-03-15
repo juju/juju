@@ -65,7 +65,7 @@ func Open(info *Info) (*State, error) {
 		log.Infof("state: connecting to %v", addr)
 		c, err := tls.Dial("tcp", addr.String(), tlsConfig)
 		if err != nil {
-			log.Errf("state: connection failed: %v", err)
+			log.Errorf("state: connection failed: %v", err)
 			return nil, err
 		}
 		log.Infof("state: connection established")

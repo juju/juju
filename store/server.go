@@ -102,7 +102,7 @@ func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 		_, err = w.Write(data)
 	}
 	if err != nil {
-		log.Errf("store: cannot write content: %v", err)
+		log.Errorf("store: cannot write content: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -124,7 +124,7 @@ func (s *Server) serveCharm(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		log.Errf("store: cannot open charm %q: %v", curl, err)
+		log.Errorf("store: cannot open charm %q: %v", curl, err)
 		return
 	}
 	if statsEnabled(r) {
@@ -136,7 +136,7 @@ func (s *Server) serveCharm(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Length", strconv.FormatInt(info.BundleSize(), 10))
 	_, err = io.Copy(w, rc)
 	if err != nil {
-		log.Errf("store: failed to stream charm %q: %v", curl, err)
+		log.Errorf("store: failed to stream charm %q: %v", curl, err)
 	}
 }
 
@@ -172,7 +172,7 @@ func (s *Server) serveStats(w http.ResponseWriter, r *http.Request) {
 
 	entries, err := s.store.Counters(&req)
 	if err != nil {
-		log.Errf("store: cannot query counters: %v", err)
+		log.Errorf("store: cannot query counters: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -224,7 +224,7 @@ func (s *Server) serveStats(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Length", strconv.Itoa(len(buf)))
 	_, err = w.Write(buf)
 	if err != nil {
-		log.Errf("store: cannot write content: %v", err)
+		log.Errorf("store: cannot write content: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 }

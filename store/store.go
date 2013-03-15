@@ -60,7 +60,7 @@ func Open(mongoAddr string) (store *Store, err error) {
 	store = &Store{}
 	session, err := mgo.Dial(mongoAddr)
 	if err != nil {
-		log.Errf("store: Error connecting to MongoDB: %v", err)
+		log.Errorf("store: Error connecting to MongoDB: %v", err)
 		return nil, err
 	}
 
@@ -101,7 +101,7 @@ func (s *Store) ensureIndexes() error {
 	for _, idx := range indexes {
 		err := idx.c.EnsureIndex(idx.i)
 		if err != nil {
-			log.Errf("store: Error ensuring stat.counters index: %v", err)
+			log.Errorf("store: Error ensuring stat.counters index: %v", err)
 			return err
 		}
 	}
@@ -530,7 +530,7 @@ func (w *charmWriter) Write(data []byte) (n int, err error) {
 		w.session = w.store.session.Copy()
 		w.file, err = w.session.CharmFS().Create("")
 		if err != nil {
-			log.Errf("store: Failed to create GridFS file: %v", err)
+			log.Errorf("store: Failed to create GridFS file: %v", err)
 			return 0, err
 		}
 		w.sha256 = sha256.New()
@@ -564,7 +564,7 @@ func (w *charmWriter) finish() error {
 	size := w.file.Size()
 	err := w.file.Close()
 	if err != nil {
-		log.Errf("store: Failed to close GridFS file: %v", err)
+		log.Errorf("store: Failed to close GridFS file: %v", err)
 		return err
 	}
 	charms := w.session.Charms()
@@ -581,7 +581,7 @@ func (w *charmWriter) finish() error {
 	}
 	if err = charms.Insert(&charm); err != nil {
 		err = maybeConflict(err)
-		log.Errf("store: Failed to insert new revision of charm %v: %v", w.urls, err)
+		log.Errorf("store: Failed to insert new revision of charm %v: %v", w.urls, err)
 		return err
 	}
 	return nil
@@ -650,7 +650,7 @@ func (s *Store) CharmInfo(url *charm.URL) (info *CharmInfo, err error) {
 	}
 	err = charms.Find(qdoc).Sort("-revision").One(&cdoc)
 	if err != nil {
-		log.Errf("store: Failed to find charm %s: %v", url, err)
+		log.Errorf("store: Failed to find charm %s: %v", url, err)
 		return nil, ErrNotFound
 	}
 	info = &CharmInfo{
@@ -676,7 +676,7 @@ func (s *Store) OpenCharm(url *charm.URL) (info *CharmInfo, rc io.ReadCloser, er
 	session := s.session.Copy()
 	file, err := session.CharmFS().OpenId(info.fileId)
 	if err != nil {
-		log.Errf("store: Failed to open GridFS file for charm %s: %v", url, err)
+		log.Errorf("store: Failed to open GridFS file for charm %s: %v", url, err)
 		session.Close()
 		return nil, nil, err
 	}
@@ -784,7 +784,7 @@ func (l *UpdateLock) tryLock() error {
 			l.locks.Remove(bson.D{{"_id", l.keys[j]}, {"time", l.time}})
 		}
 		err = maybeConflict(err)
-		log.Errf("store: Can't lock charms %v for updating: %v", l.keys, err)
+		log.Errorf("store: Can't lock charms %v for updating: %v", l.keys, err)
 		return err
 	}
 	return nil
@@ -926,7 +926,7 @@ func mustLackRevision(context string, urls ...*charm.URL) error {
 	for _, url := range urls {
 		if url.Revision != -1 {
 			err := fmt.Errorf("%s: got charm URL with revision: %s", context, url)
-			log.Errf("store: %v", err)
+			log.Errorf("store: %v", err)
 			return err
 		}
 	}

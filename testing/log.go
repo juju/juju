@@ -16,13 +16,13 @@ func (t *LoggingSuite) SetUpSuite(c *C)    {}
 func (t *LoggingSuite) TearDownSuite(c *C) {}
 
 func (t *LoggingSuite) SetUpTest(c *C) {
-	t.oldTarget = log.Local
+	t.oldTarget = log.Target
 	t.oldDebug = log.Debug
 	log.Debug = true
-	log.Local = c
+	log.Target = c
 }
 
 func (t *LoggingSuite) TearDownTest(c *C) {
-	log.Local = t.oldTarget
+	log.Target = t.oldTarget
 	log.Debug = t.oldDebug
 }

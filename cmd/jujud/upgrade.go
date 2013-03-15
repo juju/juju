@@ -146,7 +146,7 @@ func (u *Upgrader) run() error {
 			if environ == nil {
 				environ, err = environs.New(cfg)
 				if err != nil {
-					log.Errf("cmd/jujud: upgrader loaded invalid initial environment configuration: %v", err)
+					log.Errorf("cmd/jujud: upgrader loaded invalid initial environment configuration: %v", err)
 					break
 				}
 			} else {
@@ -186,7 +186,7 @@ func (u *Upgrader) run() error {
 			}
 			tools, err := environs.FindTools(environ, binary, flags)
 			if err != nil {
-				log.Errf("cmd/jujud: upgrader error finding tools for %v: %v", binary, err)
+				log.Errorf("cmd/jujud: upgrader error finding tools for %v: %v", binary, err)
 				noDelay()
 				// TODO(rog): poll until tools become available.
 				break
@@ -208,7 +208,7 @@ func (u *Upgrader) run() error {
 			tools := downloadTools
 			download, downloadTools, downloadDone = nil, nil, nil
 			if status.Err != nil {
-				log.Errf("cmd/jujud: upgrader download of %v failed: %v", tools.Binary, status.Err)
+				log.Errorf("cmd/jujud: upgrader download of %v failed: %v", tools.Binary, status.Err)
 				noDelay()
 				break
 			}
@@ -218,7 +218,7 @@ func (u *Upgrader) run() error {
 				log.Warningf("cmd/jujud: upgrader cannot remove temporary download file: %v", err)
 			}
 			if err != nil {
-				log.Errf("cmd/jujud: upgrader cannot unpack %v tools: %v", tools.Binary, err)
+				log.Errorf("cmd/jujud: upgrader cannot unpack %v tools: %v", tools.Binary, err)
 				noDelay()
 				break
 			}

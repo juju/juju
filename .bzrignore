@@ -1,0 +1,9 @@
+cmd/juju/juju
+cmd/jujud/jujud
+cmd/builddb/builddb
+cmd/charmd/charmd
+cmd/charmload/charmload
+./tags
+./TAGS
+.emacs.desktop
+.emacs.desktop.lock

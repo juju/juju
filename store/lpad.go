@@ -50,13 +50,13 @@ func PublishCharmsDistro(store *Store, apiBase lpad.APIBase) error {
 		burl, curl, err := uniqueNameURLs(tip.UniqueName)
 		if err != nil {
 			errs = append(errs, PublishBranchError{tip.UniqueName, err})
-			log.Errf("%v\n", err)
+			log.Errorf("%v\n", err)
 			continue
 		}
 		log.Infof("----- %s\n", burl)
 		if tip.Revision == "" {
 			errs = append(errs, PublishBranchError{burl, fmt.Errorf("branch has no revisions")})
-			log.Errf("branch has no revisions\n")
+			log.Errorf("branch has no revisions\n")
 			continue
 		}
 		// Charm is published in the personal URL and in any explicitly
@@ -76,7 +76,7 @@ func PublishCharmsDistro(store *Store, apiBase lpad.APIBase) error {
 		}
 		if err != nil {
 			errs = append(errs, PublishBranchError{burl, err})
-			log.Errf("%v\n", err)
+			log.Errorf("%v\n", err)
 		}
 	}
 	if errs != nil {

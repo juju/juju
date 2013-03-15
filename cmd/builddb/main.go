@@ -17,7 +17,7 @@ import (
 )
 
 func main() {
-	log.Local = corelog.New(os.Stdout, "", corelog.LstdFlags)
+	log.Target = corelog.New(os.Stdout, "", corelog.LstdFlags)
 	if err := build(); err != nil {
 		corelog.Fatalf("error: %v", err)
 	}

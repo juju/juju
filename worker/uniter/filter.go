@@ -78,7 +78,7 @@ func newFilter(st *state.State, unitName string) (*filter, error) {
 	go func() {
 		defer f.tomb.Done()
 		err := f.loop(unitName)
-		log.Errf("worker/uniter/filter: %v", err)
+		log.Errorf("worker/uniter/filter: %v", err)
 		f.tomb.Kill(err)
 	}()
 	return f, nil
