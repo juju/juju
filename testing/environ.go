@@ -40,6 +40,26 @@ const MultipleEnvConfig = EnvDefault + MultipleEnvConfigNoDefault
 
 const SampleCertName = "erewhemos"
 
+const PeckhamConfig = `
+default:
+    peckham
+environments:
+    peckham:
+        type: dummy
+        state-server: false
+        admin-secret: arble
+        authorized-keys: i-am-a-key
+    walthamstow:
+        type: dummy
+        state-server: false
+        authorized-keys: i-am-a-key
+    brokenenv:
+        type: dummy
+        broken: Bootstrap Destroy
+        state-server: false
+        authorized-keys: i-am-a-key
+`
+
 type FakeHome string
 
 // MakeFakeHomeNoEnvironments creates a new temporary directory through the
