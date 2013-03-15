@@ -51,6 +51,7 @@ func (s *UnitSuite) TestServiceConfig(c *C) {
 	c.Assert(err, IsNil)
 
 	unit, err := s.service.AddUnit()
+	c.Assert(err, IsNil)
 
 	_, err = unit.ServiceConfig()
 	c.Assert(err, ErrorMatches, "unit charm not set")

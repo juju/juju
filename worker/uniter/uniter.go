@@ -186,7 +186,9 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason Op) error {
 			return err
 		}
 		// Refresh to get the new URL.
-		u.unit.Refresh()
+		if err := u.unit.Refresh(); err != nil {
+			return err
+		}
 
 		log.Printf("worker/uniter: fetching charm %q", curl)
 		sch, err := u.st.Charm(curl)

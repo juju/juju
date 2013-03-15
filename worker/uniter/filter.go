@@ -44,7 +44,7 @@ type filter struct {
 	discardConfig chan struct{}
 
 	// setCharm is used to request that the unit's charm URL be set to
-	// a new value. This must be done on the filter's goroutine, so
+	// a new value. This must be done in the filter's goroutine, so
 	// that config watches can be stopped and restarted pointing to
 	// the new charm URL. If we don't stop the watch before the
 	// (potentially) last reference to that settings document is
@@ -216,8 +216,8 @@ func (f *filter) loop(unitName string) (err error) {
 	defer watcher.Stop(unitw, &f.tomb)
 	servicew := f.service.Watch()
 	defer watcher.Stop(servicew, &f.tomb)
-	// configw and relationsw can get restarted, so we need to bind
-	// their current values in the defer calls.
+	// configw and relationsw can get restarted, so we need to use
+	// their eventual values in the defer calls.
 	var configw *state.ConfigWatcher
 	var configChanges <-chan *state.Settings
 	if curl, ok := f.unit.CharmURL(); ok {
