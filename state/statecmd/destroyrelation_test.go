@@ -29,6 +29,10 @@ var destroyRelationTests = []struct {
 		endpoints: []string{"wordpress", "mysql"},
 	},
 	{
+		about:     "successfully destroy a relation, swapping the order.",
+		endpoints: []string{"logging", "wordpress"},
+	},
+	{
 		about:     "destroy an already destroyed relation",
 		endpoints: []string{"wordpress", "mysql"},
 		err:       `relation "wordpress:db mysql:server" not found`,
@@ -40,16 +44,24 @@ func (s *DestroyRelationSuite) TestDestroyRelation(c *C) {
 	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
 	wordpressEP, err := wordpress.Endpoint("db")
+	c.Assert(err, IsNil)
 
 	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
 	c.Assert(err, IsNil)
 	mysqlEP, err := mysql.Endpoint("server")
+
+	logging, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
+	c.Assert(err, IsNil)
+	loggingEP, err := logging.Endpoint("server")
 
 	_, err = s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
 	c.Assert(err, IsNil)
 
 	// Add a relation between wordpress and mysql.
 	_, err = s.State.AddRelation(wordpressEP, mysqlEP)
+	c.Assert(err, IsNil)
+	// And a relation between wordpress and logging.
+	_, err = s.State.AddRelation(wordpressEP, loggingEP)
 	c.Assert(err, IsNil)
 
 	for i, t := range destroyRelationTests {
