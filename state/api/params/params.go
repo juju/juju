@@ -228,10 +228,6 @@ type MachineInfo struct {
 	InstanceId string
 }
 
-func (m MachineInfo) String() string {
-	return fmt.Sprintf("machine{id %v; instance id %q}", m.Id, m.InstanceId)
-}
-
 func (i *MachineInfo) EntityId() interface{} { return i.Id }
 func (i *MachineInfo) EntityKind() string    { return "machine" }
 
