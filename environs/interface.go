@@ -148,7 +148,7 @@ type Environ interface {
 	// The stateServerCertand stateServerKey parameters hold
 	// both the certificate and the respective private key to be
 	// used by the initial state server, in PEM format.
-	Bootstrap(uploadTools bool, stateServerCert, stateServerKey []byte) error
+	Bootstrap(cons state.Constraints, uploadTools bool, stateServerCert, stateServerKey []byte) error
 
 	// StateInfo returns information on the state initialized
 	// by Bootstrap.

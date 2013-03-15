@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/state"
 	"os"
 	"path"
 	"time"
@@ -19,7 +20,7 @@ import (
 //
 // If uploadTools is true, the current version of the juju tools will be
 // uploaded, as documented in Environ.Bootstrap.
-func Bootstrap(environ Environ, uploadTools bool, writeCertAndKey func(environName string, cert, key []byte) error) error {
+func Bootstrap(environ Environ, cons state.Constraints, uploadTools bool, writeCertAndKey func(environName string, cert, key []byte) error) error {
 	if writeCertAndKey == nil {
 		writeCertAndKey = writeCertAndKeyToHome
 	}
@@ -55,7 +56,7 @@ func Bootstrap(environ Environ, uploadTools bool, writeCertAndKey func(environNa
 	if err != nil {
 		return fmt.Errorf("cannot generate bootstrap certificate: %v", err)
 	}
-	return environ.Bootstrap(uploadTools, cert, key)
+	return environ.Bootstrap(cons, uploadTools, cert, key)
 }
 
 func writeCertAndKeyToHome(name string, cert, key []byte) error {

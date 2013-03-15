@@ -5,6 +5,7 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/state"
 	"os"
 )
 
@@ -12,6 +13,7 @@ import (
 // environment, and setting up everything necessary to continue working.
 type BootstrapCommand struct {
 	EnvCommandBase
+	Constraints state.Constraints
 	UploadTools bool
 }
 
@@ -24,6 +26,7 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 
 func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
+	f.Var(state.ConstraintsValue{&c.Constraints}, "constraints", "set environment constraints")
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
 }
 
@@ -33,7 +36,7 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *BootstrapCommand) Run(context *cmd.Context) error {
 	environ, err := environs.NewFromName(c.EnvName)
 	if err == nil {
-		return environs.Bootstrap(environ, c.UploadTools, nil)
+		return environs.Bootstrap(environ, c.Constraints, c.UploadTools, nil)
 	}
 	if !os.IsNotExist(err) {
 		return err

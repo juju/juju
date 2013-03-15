@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"net/http"
@@ -42,13 +43,13 @@ func (s *BootstrapSuite) TearDownTest(c *C) {
 	dummy.Reset()
 }
 
-func (*BootstrapSuite) TestBootstrapCommand(c *C) {
+func (*BootstrapSuite) TestBasic(c *C) {
 	defer testing.MakeFakeHome(c, envConfig, "brokenenv").Restore()
-
-	// normal bootstrap
 	opc, errc := runCommand(new(BootstrapCommand))
 	c.Check(<-errc, IsNil)
-	c.Check((<-opc).(dummy.OpBootstrap).Env, Equals, "peckham")
+	opBootstrap := (<-opc).(dummy.OpBootstrap)
+	c.Check(opBootstrap.Env, Equals, "peckham")
+	c.Check(opBootstrap.Constraints, DeepEquals, state.Constraints{})
 
 	// Check that the CA certificate and key have been automatically generated
 	// for the environment.
@@ -56,38 +57,53 @@ func (*BootstrapSuite) TestBootstrapCommand(c *C) {
 	c.Assert(err, IsNil)
 	_, err = os.Stat(testing.HomePath(".juju", "peckham-private-key.pem"))
 	c.Assert(err, IsNil)
+}
 
-	// bootstrap with tool uploading - checking that a file
-	// is uploaded should be sufficient, as the detailed semantics
-	// of UploadTools are tested in environs.
-	opc, errc = runCommand(new(BootstrapCommand), "--upload-tools")
+func (*BootstrapSuite) TestConstraints(c *C) {
+	defer testing.MakeFakeHome(c, envConfig, "brokenenv").Restore()
+	scons := " cpu-cores=2   mem=4G"
+	cons, err := state.ParseConstraints(scons)
+	c.Assert(err, IsNil)
+	opc, errc := runCommand(new(BootstrapCommand), "--constraints", scons)
+	c.Check(<-errc, IsNil)
+	opBootstrap := (<-opc).(dummy.OpBootstrap)
+	c.Check(opBootstrap.Env, Equals, "peckham")
+	c.Check(opBootstrap.Constraints, DeepEquals, cons)
+}
+
+func (*BootstrapSuite) TestUploadTools(c *C) {
+	defer testing.MakeFakeHome(c, envConfig, "brokenenv").Restore()
+	opc, errc := runCommand(new(BootstrapCommand), "--upload-tools")
 	c.Check(<-errc, IsNil)
 	c.Check((<-opc).(dummy.OpPutFile).Env, Equals, "peckham")
-	c.Check((<-opc).(dummy.OpBootstrap).Env, Equals, "peckham")
+	opBootstrap := (<-opc).(dummy.OpBootstrap)
+	c.Check(opBootstrap.Env, Equals, "peckham")
+	c.Check(opBootstrap.Constraints, DeepEquals, state.Constraints{})
 
+	// Check that some file was uploaded and can be unpacked; detailed
+	// semantics tested elsewhere.
 	envs, err := environs.ReadEnvirons("")
 	c.Assert(err, IsNil)
 	env, err := envs.Open("peckham")
 	c.Assert(err, IsNil)
-
 	tools, err := environs.FindTools(env, version.Current, environs.CompatVersion)
 	c.Assert(err, IsNil)
 	resp, err := http.Get(tools.URL)
 	c.Assert(err, IsNil)
 	defer resp.Body.Close()
-
 	err = agent.UnpackTools(c.MkDir(), tools, resp.Body)
 	c.Assert(err, IsNil)
+}
 
-	// bootstrap with broken environment
-	opc, errc = runCommand(new(BootstrapCommand), "-e", "brokenenv")
+func (*BootstrapSuite) TestBrokenEnvironment(c *C) {
+	defer testing.MakeFakeHome(c, envConfig, "brokenenv").Restore()
+	opc, errc := runCommand(new(BootstrapCommand), "-e", "brokenenv")
 	c.Check(<-errc, ErrorMatches, "dummy.Bootstrap is broken")
 	c.Check(<-opc, IsNil)
 }
 
 func (*BootstrapSuite) TestMissingEnvironment(c *C) {
 	defer testing.MakeFakeHomeNoEnvironments(c, "empty").Restore()
-	// bootstrap without an environments.yaml
 	ctx := testing.Context(c)
 	code := cmd.Main(&BootstrapCommand{}, ctx, nil)
 	c.Check(code, Equals, 1)

@@ -59,7 +59,10 @@ type GenericOperation struct {
 	Env string
 }
 
-type OpBootstrap GenericOperation
+type OpBootstrap struct {
+	Env         string
+	Constraints state.Constraints
+}
 
 type OpDestroy GenericOperation
 
@@ -425,7 +428,7 @@ func (e *environ) Name() string {
 	return e.state.name
 }
 
-func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
+func (e *environ) Bootstrap(cons state.Constraints, uploadTools bool, cert, key []byte) error {
 	defer delay()
 	if err := e.checkBroken("Bootstrap"); err != nil {
 		return err
@@ -453,7 +456,7 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 	}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
-	e.state.ops <- OpBootstrap{Env: e.state.name}
+	e.state.ops <- OpBootstrap{Env: e.state.name, Constraints: cons}
 	if e.state.bootstrapped {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
@@ -465,6 +468,9 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 		}
 		st, err := state.Initialize(info, cfg)
 		if err != nil {
+			panic(err)
+		}
+		if err := st.SetEnvironConstraints(cons); err != nil {
 			panic(err)
 		}
 		if err := st.SetAdminMongoPassword(trivial.PasswordHash(password)); err != nil {

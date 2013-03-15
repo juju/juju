@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"os"
 	"path/filepath"
@@ -35,7 +36,7 @@ func (s *bootstrapSuite) TearDownTest(c *C) {
 
 func (s *bootstrapSuite) TestBootstrapKeyGeneration(c *C) {
 	env := newEnviron("foo", nil, nil)
-	err := environs.Bootstrap(env, false, nil)
+	err := environs.Bootstrap(env, state.Constraints{}, false, nil)
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
 	_, _, err = cert.ParseCertAndKey(env.certPEM, env.keyPEM)
@@ -72,7 +73,7 @@ func verifyCert(c *C, srvCertPEM, caCertPEM []byte) {
 func (s *bootstrapSuite) TestBootstrapFuncKeyGeneration(c *C) {
 	env := newEnviron("foo", nil, nil)
 	var savedCert, savedKey []byte
-	err := environs.Bootstrap(env, false, func(name string, cert, key []byte) error {
+	err := environs.Bootstrap(env, state.Constraints{}, false, func(name string, cert, key []byte) error {
 		savedCert = cert
 		savedKey = key
 		return nil
@@ -103,7 +104,7 @@ func panicWrite(name string, cert, key []byte) error {
 
 func (s *bootstrapSuite) TestBootstrapExistingKey(c *C) {
 	env := newEnviron("foo", []byte(testing.CACert), []byte(testing.CAKey))
-	err := environs.Bootstrap(env, false, panicWrite)
+	err := environs.Bootstrap(env, state.Constraints{}, false, panicWrite)
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
 
@@ -112,16 +113,32 @@ func (s *bootstrapSuite) TestBootstrapExistingKey(c *C) {
 
 func (s *bootstrapSuite) TestBootstrapUploadTools(c *C) {
 	env := newEnviron("foo", nil, nil)
-	err := environs.Bootstrap(env, false, nil)
+	err := environs.Bootstrap(env, state.Constraints{}, false, nil)
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
 	c.Assert(env.uploadTools, Equals, false)
 
 	env = newEnviron("foo", nil, nil)
-	err = environs.Bootstrap(env, true, nil)
+	err = environs.Bootstrap(env, state.Constraints{}, true, nil)
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
 	c.Assert(env.uploadTools, Equals, true)
+}
+
+func (s *bootstrapSuite) TestBootstrapConstraints(c *C) {
+	env := newEnviron("foo", nil, nil)
+	err := environs.Bootstrap(env, state.Constraints{}, false, nil)
+	c.Assert(err, IsNil)
+	c.Assert(env.bootstrapCount, Equals, 1)
+	c.Assert(env.constraints, DeepEquals, state.Constraints{})
+
+	env = newEnviron("foo", nil, nil)
+	cons, err := state.ParseConstraints("cpu-cores=2 mem=4G")
+	c.Assert(err, IsNil)
+	err = environs.Bootstrap(env, cons, false, nil)
+	c.Assert(err, IsNil)
+	c.Assert(env.bootstrapCount, Equals, 1)
+	c.Assert(env.constraints, DeepEquals, cons)
 }
 
 type bootstrapEnviron struct {
@@ -131,6 +148,7 @@ type bootstrapEnviron struct {
 
 	// The following fields are filled in when Bootstrap is called.
 	bootstrapCount int
+	constraints    state.Constraints
 	uploadTools    bool
 	certPEM        []byte
 	keyPEM         []byte
@@ -164,8 +182,9 @@ func (e *bootstrapEnviron) Name() string {
 	return e.name
 }
 
-func (e *bootstrapEnviron) Bootstrap(uploadTools bool, certPEM, keyPEM []byte) error {
+func (e *bootstrapEnviron) Bootstrap(cons state.Constraints, uploadTools bool, certPEM, keyPEM []byte) error {
 	e.bootstrapCount++
+	e.constraints = cons
 	e.uploadTools = uploadTools
 	e.certPEM = certPEM
 	e.keyPEM = keyPEM
