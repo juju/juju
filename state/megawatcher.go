@@ -2,7 +2,7 @@ package state
 
 import (
 	"container/list"
-	"fmt"
+	"errors"
 	"labix.org/v2/mgo"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
@@ -13,7 +13,7 @@ import (
 // StateWatcher watches any changes to the state.
 // It's a stub type for the time being until allWatcher
 // is complete.
-type StateWatcher struct {}
+type StateWatcher struct{}
 
 func newStateWatcher(st *State) *StateWatcher {
 	return &StateWatcher{}
@@ -69,6 +69,8 @@ func (w *xStateWatcher) Stop() error {
 	return w.all.tomb.Err()
 }
 
+var errWatcherStopped = errors.New("state watcher was stopped")
+
 // Next retrieves all changes that have happened since the given revision
 // number, blocking until there are some changes available.  It also
 // returns the revision number of the latest change.
@@ -80,11 +82,15 @@ func (w *xStateWatcher) Next() ([]params.Delta, error) {
 	select {
 	case w.all.request <- req:
 	case <-w.all.tomb.Dead():
-		return nil, w.all.tomb.Err()
+		err := w.all.tomb.Err()
+		if err == nil {
+			err = errWatcherStopped
+		}
+		return nil, err
 	}
 	if ok := <-req.reply; !ok {
 		// TODO better error?
-		return nil, fmt.Errorf("state watcher was stopped")
+		return nil, errWatcherStopped
 	}
 	return req.changes, nil
 }

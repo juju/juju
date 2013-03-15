@@ -9,9 +9,8 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
-	"runtime"
-	"time"
 	"sync"
+	"time"
 )
 
 type allInfoSuite struct {
@@ -216,23 +215,6 @@ func entityIdForInfo(info params.EntityInfo) entityId {
 		collection: info.EntityKind(),
 		id:         info.EntityId(),
 	}
-}
-
-func (s *allInfoSuite) TestAllInfoMemory(c *C) {
-	a := newAllInfo()
-	var m0, m1 runtime.MemStats
-	t0 := time.Now()
-	runtime.ReadMemStats(&m0)
-	for i := 0; i < 100000; i++ {
-		allInfoAdd(a, &params.MachineInfo{Id: fmt.Sprint(i)})
-	}
-	for i := 0; i < 100000; i++ {
-		allInfoAdd(a, &params.UnitInfo{Name: fmt.Sprintf("service/%d", i)})
-	}
-	t1 := time.Now()
-	runtime.GC()
-	runtime.ReadMemStats(&m1)
-	c.Logf("total allocated: %v; total time %v\n", m1.Alloc - m0.Alloc, t1.Sub(t0))
 }
 
 func (s *allInfoSuite) TestChangesSince(c *C) {
@@ -690,8 +672,117 @@ func (*allWatcherSuite) TestRespondMultiple(c *C) {
 }
 
 func (*allWatcherSuite) TestRunStop(c *C) {
-//	aw := newAllWatcher(newTestBacking(nil))
+	aw := newAllWatcher(newTestBacking(nil))
+	go aw.run()
+	w := &xStateWatcher{all: aw}
+	err := aw.Stop()
+	c.Assert(err, IsNil)
+	d, err := w.Next()
+	c.Assert(err, ErrorMatches, "state watcher was stopped")
+	c.Assert(d, HasLen, 0)
+}
 
+func (*allWatcherSuite) TestRun(c *C) {
+	b := newTestBacking([]params.EntityInfo{
+		&params.MachineInfo{Id: "0"},
+		&params.UnitInfo{Name: "wordpress/0"},
+		&params.ServiceInfo{Name: "wordpress"},
+	})
+	aw := newAllWatcher(b)
+	defer func() {
+		c.Check(aw.Stop(), IsNil)
+	}()
+	go aw.run()
+	w := &xStateWatcher{all: aw}
+	checkNext(c, w, []params.Delta{
+		{Entity: &params.MachineInfo{Id: "0"}},
+		{Entity: &params.UnitInfo{Name: "wordpress/0"}},
+		{Entity: &params.ServiceInfo{Name: "wordpress"}},
+	}, "")
+	b.updateEntity(&params.MachineInfo{Id: "0", InstanceId: "i-0"})
+	checkNext(c, w, []params.Delta{
+		{Entity: &params.MachineInfo{Id: "0", InstanceId: "i-0"}},
+	}, "")
+	b.deleteEntity(entityId{"machine", "0"})
+	checkNext(c, w, []params.Delta{
+		{Removed: true, Entity: &params.MachineInfo{Id: "0"}},
+	}, "")
+}
+
+func (*allWatcherSuite) TestStateWatcherStop(c *C) {
+	aw := newAllWatcher(newTestBacking(nil))
+	defer func() {
+		c.Check(aw.Stop(), IsNil)
+	}()
+	go aw.run()
+	w := &xStateWatcher{all: aw}
+	done := make(chan struct{})
+	go func() {
+		checkNext(c, w, nil, errWatcherStopped.Error())
+		done <- struct{}{}
+	}()
+	err := w.Stop()
+	c.Assert(err, IsNil)
+	<-done
+}
+
+func (*allWatcherSuite) TestStateWatcherStopBecauseAllWatcherError(c *C) {
+	b := newTestBacking([]params.EntityInfo{&params.MachineInfo{Id: "0"}})
+	aw := newAllWatcher(b)
+	go aw.run()
+	defer func() {
+		c.Check(aw.Stop(), ErrorMatches, "some error")
+	}()
+	w := &xStateWatcher{all: aw}
+	// Receive one delta to make sure that the allWatcher
+	// has seen the initial state.
+	checkNext(c, w, []params.Delta{{Entity: &params.MachineInfo{Id: "0"}}}, "")
+	c.Logf("setting fetch error")
+	b.setFetchError(errors.New("some error"))
+	c.Logf("updating entity")
+	b.updateEntity(&params.MachineInfo{Id: "1"})
+	checkNext(c, w, nil, "some error")
+}
+
+func checkNext(c *C, w *xStateWatcher, deltas []params.Delta, expectErr string) {
+	ch := make(chan []params.Delta)
+	go func() {
+		d, err := w.Next()
+		if expectErr != "" {
+			c.Check(err, ErrorMatches, expectErr)
+		} else {
+			c.Check(err, IsNil)
+		}
+		ch <- d
+	}()
+	select {
+	case d := <-ch:
+		checkDeltasEqual(c, d, deltas)
+	case <-time.After(1 * time.Second):
+		c.Errorf("no change received in sufficient time; expected %v", deltas)
+	}
+}
+
+// deltas are returns in arbitrary order, so we compare
+// them as sets.
+func checkDeltasEqual(c *C, d0, d1 []params.Delta) {
+	c.Check(deltaMap(d0), DeepEquals, deltaMap(d1))
+}
+
+func deltaMap(deltas []params.Delta) map[entityId]params.EntityInfo {
+	m := make(map[entityId]params.EntityInfo)
+	for _, d := range deltas {
+		id := entityIdForInfo(d.Entity)
+		if _, ok := m[id]; ok {
+			panic(fmt.Errorf("%v mentioned twice in delta set", id))
+		}
+		if d.Removed {
+			m[id] = nil
+		} else {
+			m[id] = d.Entity
+		}
+	}
+	return m
 }
 
 // watcherState represents a StateWatcher client's
@@ -756,24 +847,6 @@ func assertWaitingRequests(c *C, aw *allWatcher, waiting map[*xStateWatcher][]*a
 			assertNotReplied(c, req)
 			i++
 		}
-	}
-}
-
-type entityMap map[entityId]params.EntityInfo
-
-func (em entityMap) add(infos []params.EntityInfo) entityMap {
-	for _, info := range infos {
-		em[entityIdForInfo(info)] = info
-	}
-	return em
-}
-
-func fetchFromMap(em entityMap) func(entityId) (params.EntityInfo, error) {
-	return func(id entityId) (params.EntityInfo, error) {
-		if info, ok := em[id]; ok {
-			return info, nil
-		}
-		return nil, mgo.ErrNotFound
 	}
 }
 
@@ -859,7 +932,7 @@ func (b *allWatcherTestBacking) setFetchError(err error) {
 	b.fetchErr = err
 }
 
-func (b *allWatcherTestBacking) removeEntity(id entityId) {
+func (b *allWatcherTestBacking) deleteEntity(id entityId) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	delete(b.entities, id)
