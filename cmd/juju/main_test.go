@@ -9,6 +9,7 @@ import (
 	. "launchpad.net/gocheck"
 	_ "launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/version"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -121,6 +122,11 @@ var runMainTests = []struct {
 		args:    []string{"--environment", "blah", "bootstrap"},
 		code:    2,
 		out:     "error: flag provided but not defined: --environment\n",
+	}, {
+		summary: "check version command registered properly",
+		args:    []string{"version"},
+		code:    0,
+		out:     version.Current.String() + "\n",
 	},
 }
 
@@ -145,15 +151,14 @@ environments:
 // when environMethod is called.
 func breakJuju(c *C, environMethod string) (msg string) {
 	yaml := fmt.Sprintf(brokenConfig, environMethod)
-	err := ioutil.WriteFile(homePath(".juju", "environments.yaml"), []byte(yaml), 0666)
+	err := ioutil.WriteFile(testing.HomePath(".juju", "environments.yaml"), []byte(yaml), 0666)
 	c.Assert(err, IsNil)
 
 	return fmt.Sprintf("dummy.%s is broken", environMethod)
 }
 
 func (s *MainSuite) TestActualRunJujuArgsBeforeCommand(c *C) {
-	defer makeFakeHome(c, "one").restore()
-
+	defer testing.MakeFakeHomeNoEnvironments(c, "one").Restore()
 	// Check global args work when specified before command
 	msg := breakJuju(c, "Bootstrap")
 	logpath := filepath.Join(c.MkDir(), "log")
@@ -166,7 +171,7 @@ func (s *MainSuite) TestActualRunJujuArgsBeforeCommand(c *C) {
 }
 
 func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *C) {
-	defer makeFakeHome(c, "one").restore()
+	defer testing.MakeFakeHomeNoEnvironments(c, "one").Restore()
 
 	// Check global args work when specified after command
 	msg := breakJuju(c, "Bootstrap")
@@ -207,6 +212,7 @@ var commandNames = []string{
 	"terminate-machine", // alias for destroy-machine
 	"unexpose",
 	"upgrade-juju",
+	"version",
 }
 
 func (s *MainSuite) TestHelpCommands(c *C) {
@@ -278,37 +284,4 @@ command\.(.|\n)*`)
 	for i, line := range flags {
 		c.Assert(line, Matches, globalFlags[i])
 	}
-}
-
-type fakeHome string
-
-func makeFakeHome(c *C, certNames ...string) fakeHome {
-	oldHome := os.Getenv("HOME")
-	os.Setenv("HOME", c.MkDir())
-
-	err := os.Mkdir(homePath(".juju"), 0777)
-	c.Assert(err, IsNil)
-	for _, name := range certNames {
-		err := ioutil.WriteFile(homePath(".juju", name+"-cert.pem"), []byte(testing.CACert), 0666)
-		c.Assert(err, IsNil)
-
-		err = ioutil.WriteFile(homePath(".juju", name+"-private-key.pem"), []byte(testing.CAKey), 0666)
-		c.Assert(err, IsNil)
-	}
-
-	err = os.Mkdir(homePath(".ssh"), 0777)
-	c.Assert(err, IsNil)
-	err = ioutil.WriteFile(homePath(".ssh", "id_rsa.pub"), []byte("auth key\n"), 0666)
-	c.Assert(err, IsNil)
-
-	return fakeHome(oldHome)
-}
-
-func homePath(names ...string) string {
-	all := append([]string{os.Getenv("HOME")}, names...)
-	return filepath.Join(all...)
-}
-
-func (h fakeHome) restore() {
-	os.Setenv("HOME", string(h))
 }
