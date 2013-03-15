@@ -141,7 +141,7 @@ func (suite) TestConfig(c *C) {
 }
 
 func (suite) TestDefaultConfigFile(c *C) {
-	defer testing.MakeFakeHomeNoEnvironments(c, "only").Restore()
+	defer testing.MakeEmptyFakeHome(c).Restore()
 
 	env := `
 environments:

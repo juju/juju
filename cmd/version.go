@@ -1,32 +1,27 @@
-package main
+package cmd
 
 import (
 	"launchpad.net/gnuflag"
-	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/version"
 )
 
 // VersionCommand is a cmd.Command that prints the current version.
 type VersionCommand struct {
-	cmd.CommandBase
-	out cmd.Output
+	CommandBase
+	out Output
 }
 
-func (v *VersionCommand) Info() *cmd.Info {
-	return &cmd.Info{
+func (v *VersionCommand) Info() *Info {
+	return &Info{
 		Name:    "version",
 		Purpose: "print the current version",
 	}
 }
 
 func (v *VersionCommand) SetFlags(f *gnuflag.FlagSet) {
-	v.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	v.out.AddFlags(f, "smart", DefaultFormatters)
 }
 
-func (v *VersionCommand) Init(args []string) error {
-	return cmd.CheckEmpty(args)
-}
-
-func (v *VersionCommand) Run(ctxt *cmd.Context) error {
+func (v *VersionCommand) Run(ctxt *Context) error {
 	return v.out.Write(ctxt, version.Current.String())
 }

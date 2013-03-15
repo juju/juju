@@ -15,7 +15,7 @@ type InitSuite struct {
 var _ = Suite(&InitSuite{})
 
 func (*InitSuite) TestBoilerPlateEnvironment(c *C) {
-	defer testing.MakeFakeHomeNoEnvironments(c, "empty").Restore()
+	defer testing.MakeEmptyFakeHome(c).Restore()
 	// run without an environments.yaml
 	ctx := testing.Context(c)
 	code := cmd.Main(&InitCommand{}, ctx, []string{"-w"})

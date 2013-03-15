@@ -33,6 +33,8 @@ usage: relation-set [options] key=value [key=value ...]
 purpose: set relation settings
 
 options:
+--format (= "")
+    deprecated format flag
 -r  (= %s)
     specify a relation by id
 `[1:], t.expect))
@@ -206,4 +208,15 @@ func (s *RelationSetSuite) TestRun(c *C) {
 		c.Assert(hctx.rels[0].units["u/0"], DeepEquals, pristine)
 		c.Assert(hctx.rels[1].units["u/0"], DeepEquals, t.expect)
 	}
+}
+
+func (s *RelationSetSuite) TestRunDeprecationWarning(c *C) {
+	hctx := s.GetHookContext(c, 0, "")
+	com, _ := jujuc.NewCommand(hctx, "relation-set")
+	// The rel= is needed to make this a valid command.
+	ctx, err := testing.RunCommand(c, com, []string{"--format", "foo", "rel="})
+
+	c.Assert(err, IsNil)
+	c.Assert(testing.Stdout(ctx), Equals, "")
+	c.Assert(testing.Stderr(ctx), Equals, "--format flag deprecated for command \"relation-set\"")
 }

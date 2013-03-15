@@ -2,13 +2,17 @@ package state
 
 import (
 	"container/list"
+	"labix.org/v2/mgo"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/tomb"
 	"reflect"
 )
 
 // StateWatcher watches any changes to the state.
 type StateWatcher struct {
-	// TODO: hold the last revid that the StateWatcher saw.
+	// The following fields are maintained by the allWatcher
+	// goroutine.
+	stopped bool
 }
 
 func newStateWatcher(st *State) *StateWatcher {
@@ -49,10 +53,110 @@ func (w *StateWatcher) Next() ([]params.Delta, error) {
 	return StubNextDelta, nil
 }
 
+// allWatcher holds a shared record of all current state and replies to
+// requests from StateWatches to tell them when it changes.
+// TODO(rog) complete this type and its methods.
+type allWatcher struct {
+	tomb tomb.Tomb
+
+	// backing knows how to fetch information from
+	// the underlying state.
+	backing allWatcherBacking
+
+	// all holds information on everything the allWatcher cares about.
+	all *allInfo
+
+	// Each entry in the waiting map holds a linked list of Next requests
+	// outstanding for the associated StateWatcher.
+	waiting map[*StateWatcher]*allRequest
+}
+
+// allWatcherBacking is the interface required
+// by the allWatcher to access the underlying state.
+// It is an interface for testing purposes.
+// TODO(rog) complete this type and its methods.
+type allWatcherBacking interface {
+	// entityIdForInfo returns the entity id corresponding
+	// to the given entity info.
+	entityIdForInfo(info params.EntityInfo) entityId
+
+	// fetch retrieves information about the entity with
+	// the given id. It returns mgo.ErrNotFound if the
+	// entity does not exist.
+	fetch(id entityId) (params.EntityInfo, error)
+}
+
 // entityId holds the mongo identifier of an entity.
 type entityId struct {
 	collection string
 	id         interface{}
+}
+
+// allRequest holds a request from the StateWatcher to the
+// allWatcher for some changes. The request will be
+// replied to when some changes are available.
+type allRequest struct {
+	// w holds the StateWatcher that has originated the request.
+	w *StateWatcher
+
+	// reply receives a message when deltas are ready.  If reply is
+	// nil, the StateWatcher will be stopped.  If the reply is true,
+	// the request has been processed; if false, the StateWatcher
+	// has been stopped,
+	reply chan bool
+
+	// next points to the next request in the list of outstanding
+	// requests on a given watcher.  It is used only by the central
+	// allWatcher goroutine.
+	next *allRequest
+}
+
+// newAllWatcher returns a new allWatcher that retrieves information
+// using the given backing. It does not start it running.
+func newAllWatcher(backing allWatcherBacking) *allWatcher {
+	return &allWatcher{
+		backing: backing,
+		all:     newAllInfo(),
+		waiting: make(map[*StateWatcher]*allRequest),
+	}
+}
+
+// handle processes a request from a StateWatcher to the allWatcher.
+func (aw *allWatcher) handle(req *allRequest) {
+	if req.w.stopped {
+		// The watcher has previously been stopped.
+		req.reply <- false
+		return
+	}
+	if req.reply == nil {
+		// This is a request to stop the watcher.
+		for req := aw.waiting[req.w]; req != nil; req = req.next {
+			req.reply <- false
+		}
+		delete(aw.waiting, req.w)
+		req.w.stopped = true
+		return
+	}
+	// Add request to head of list.
+	req.next = aw.waiting[req.w]
+	aw.waiting[req.w] = req
+}
+
+// changed updates the allWatcher's idea of the current state
+// in response to the given change.
+func (aw *allWatcher) changed(id entityId) error {
+	// TODO(rog) investigate ways that this can be made more efficient
+	// than simply fetching each entity in turn.
+	info, err := aw.backing.fetch(id)
+	if err == mgo.ErrNotFound {
+		aw.all.markRemoved(id)
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	aw.all.update(id, info)
+	return nil
 }
 
 // entityEntry holds an entry in the linked list of all entities known
@@ -119,6 +223,9 @@ func (a *allInfo) delete(id entityId) {
 func (a *allInfo) markRemoved(id entityId) {
 	if elem := a.entities[id]; elem != nil {
 		entry := elem.Value.(*entityEntry)
+		if entry.removed {
+			return
+		}
 		a.latestRevno++
 		entry.revno = a.latestRevno
 		entry.removed = true
@@ -147,18 +254,9 @@ func (a *allInfo) update(id entityId, info params.EntityInfo) {
 	a.list.MoveToFront(elem)
 }
 
-// Delta holds details of a change to the environment.
-type Delta struct {
-	// If Remove is true, the entity has been removed;
-	// otherwise it has been created or changed.
-	Remove bool
-	// Entity holds data about the entity that has changed.
-	Entity params.EntityInfo
-}
-
 // changesSince returns any changes that have occurred since
 // the given revno, oldest first.
-func (a *allInfo) changesSince(revno int64) []Delta {
+func (a *allInfo) changesSince(revno int64) []params.Delta {
 	e := a.list.Front()
 	n := 0
 	for ; e != nil; e = e.Next() {
@@ -176,12 +274,12 @@ func (a *allInfo) changesSince(revno int64) []Delta {
 		e = a.list.Back()
 		n++
 	}
-	changes := make([]Delta, 0, n)
+	changes := make([]params.Delta, 0, n)
 	for ; e != nil; e = e.Prev() {
 		entry := e.Value.(*entityEntry)
-		changes = append(changes, Delta{
-			Remove: entry.removed,
-			Entity: entry.info,
+		changes = append(changes, params.Delta{
+			Removed: entry.removed,
+			Entity:  entry.info,
 		})
 	}
 	return changes
