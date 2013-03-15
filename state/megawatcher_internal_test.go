@@ -290,21 +290,10 @@ type allWatcherSuite struct {
 
 var _ = Suite(&allWatcherSuite{})
 
-type allWatcherErrorFetchBacking struct {
-	err error
-	*allWatcherTestBacking
-}
-
-func (b *allWatcherErrorFetchBacking) fetch(id entityId) (params.EntityInfo, error) {
-	return nil, b.err
-}
-
 func (*allWatcherSuite) TestChangedFetchErrorReturn(c *C) {
 	expectErr := errors.New("some error")
-	b := &allWatcherErrorFetchBacking{
-		err: expectErr,
-		allWatcherTestBacking: newTestBacking(nil),
-	}
+	b := newTestBacking(nil)
+	b.setFetchError(expectErr)
 	aw := newAllWatcher(b)
 	err := aw.changed(entityId{})
 	c.Assert(err, Equals, expectErr)
@@ -725,6 +714,11 @@ func (*allWatcherSuite) TestRespondMultiple(c *C) {
 	c.Assert(req1.changes, DeepEquals, deltas)
 }
 
+func (*allWatcherSuite) TestRunStop(c *C) {
+//	aw := newAllWatcher(newTestBacking(nil))
+
+}
+
 // watcherState represents a StateWatcher client's
 // current view of the state. It holds the last delta that a given
 // state watcher has seen for each entity.
@@ -810,6 +804,7 @@ func fetchFromMap(em entityMap) func(entityId) (params.EntityInfo, error) {
 
 type allWatcherTestBacking struct {
 	mu       sync.Mutex
+	fetchErr error
 	entities map[entityId]params.EntityInfo
 	watchc   chan<- watcher.Change
 	txnRevno int64
@@ -828,6 +823,9 @@ func newTestBacking(initial []params.EntityInfo) *allWatcherTestBacking {
 func (b *allWatcherTestBacking) fetch(id entityId) (params.EntityInfo, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if b.fetchErr != nil {
+		return nil, b.fetchErr
+	}
 	if info, ok := b.entities[id]; ok {
 		return info, nil
 	}
@@ -878,6 +876,12 @@ func (b *allWatcherTestBacking) updateEntity(info params.EntityInfo) {
 			Revno: b.txnRevno, // This is actually ignored, but fill it in anyway.
 		}
 	}
+}
+
+func (b *allWatcherTestBacking) setFetchError(err error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.fetchErr = err
 }
 
 func (b *allWatcherTestBacking) removeEntity(id entityId) {
