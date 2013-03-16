@@ -727,6 +727,18 @@ func (s *StoreSuite) TestListCountersBy(c *C) {
 			store.CounterRequest{
 				Key:    []string{"a"},
 				Prefix: true,
+				List:   false,
+				By:     store.ByDay,
+				Start:  day(3),
+			},
+			[]store.Counter{
+				{Key: []string{"a"}, Prefix: true, Count: 1, Time: day(3)},
+				{Key: []string{"a"}, Prefix: true, Count: 3, Time: day(9)},
+			},
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: true,
 				List:   true,
 				By:     store.ByDay,
 			},

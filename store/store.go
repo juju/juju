@@ -285,6 +285,10 @@ type CounterRequest struct {
 	// If unspecified, it defaults to ByAll, which aggregates all
 	// matching data points in a single entry.
 	By CounterRequestBy
+
+	// If Start is provided, only data points that occurred at
+	// the given time or afterwards are considered.
+	Start time.Time
 }
 
 type CounterRequestBy int
@@ -370,7 +374,13 @@ func (s *Store) Counters(req *CounterRequest) ([]Counter, error) {
 		Key   string `bson:"_id"`
 		Value int64
 	}
-	_, err = countersColl.Find(bson.D{{"k", bson.D{{"$regex", regex}}}}).MapReduce(&job, &result)
+	var query bson.D
+	if req.Start.IsZero() {
+		query = bson.D{{"k", bson.D{{"$regex", regex}}}}
+	} else {
+		query = bson.D{{"k", bson.D{{"$regex", regex}}}, {"t", bson.D{{"$gte", timeToStamp(req.Start)}}}}
+	}
+	_, err = countersColl.Find(query).MapReduce(&job, &result)
 	if err != nil {
 		return nil, err
 	}

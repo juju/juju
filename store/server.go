@@ -197,6 +197,15 @@ func (s *Server) serveStats(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(fmt.Sprintf("Invalid 'format' value: %q", v)))
 		return
 	}
+	if v := r.Form.Get("start"); v != "" {
+		var err error
+		req.Start, err = time.Parse("2006-01-02", v)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(fmt.Sprintf("Invalid 'start' value: %q", v)))
+			return
+		}
+	}
 	if req.Key[len(req.Key)-1] == "*" {
 		req.Prefix = true
 		req.Key = req.Key[:len(req.Key)-1]
