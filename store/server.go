@@ -171,23 +171,31 @@ func (s *Server) serveStats(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(fmt.Sprintf("Invalid 'by' value: %q", v)))
 		return
 	}
-	var sep string
-	var padding bool
-	switch v := r.Form.Get("format"); v {
-	case "", "text":
-		sep = "  "
-		padding = true
-	case "csv":
-		sep = ","
-	default:
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(fmt.Sprintf("Invalid 'format' value: %q", v)))
-		return
-	}
 	req := CounterRequest{
 		Key:  strings.Split(base, ":"),
 		List: r.Form.Get("list") == "1",
 		By:   by,
+	}
+	var (
+		sep     = ""
+		json    = false
+		padding = false
+		newline = req.List || req.By != ByAll
+	)
+	switch v := r.Form.Get("format"); v {
+	case "", "text":
+		sep = `  `
+		padding = true
+	case "csv":
+		sep = `,`
+	case "json":
+		sep = `","`
+		json = true
+		newline = false
+	default:
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("Invalid 'format' value: %q", v)))
+		return
 	}
 	if req.Key[len(req.Key)-1] == "*" {
 		req.Prefix = true
@@ -238,9 +246,18 @@ func (s *Server) serveStats(w http.ResponseWriter, r *http.Request) {
 	for i := range spaces {
 		spaces[i] = ' '
 	}
-	newline := req.List || req.By != ByAll
+	if json {
+		if len(result) == 0 {
+			buf = append(buf, `[]`...)
+		} else {
+			buf = append(buf, `[["`...)
+		}
+	}
 	for i := range result {
 		item := &result[i]
+		if json && i > 0 {
+			buf = append(buf, `"],["`...)
+		}
 		if req.List {
 			buf = append(buf, item.key...)
 			if padding {
@@ -256,6 +273,9 @@ func (s *Server) serveStats(w http.ResponseWriter, r *http.Request) {
 		if newline {
 			buf = append(buf, '\n')
 		}
+	}
+	if json && len(result) > 0 {
+		buf = append(buf, `"]]`...)
 	}
 
 	w.Header().Set("Content-Type", "text/plain")
