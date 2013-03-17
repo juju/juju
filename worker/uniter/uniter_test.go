@@ -33,6 +33,7 @@ func TestPackage(t *stdtesting.T) {
 }
 
 type UniterSuite struct {
+	coretesting.GitSuite
 	testing.JujuConnSuite
 	coretesting.HTTPSuite
 	dataDir  string
@@ -64,6 +65,7 @@ func (s *UniterSuite) TearDownSuite(c *C) {
 }
 
 func (s *UniterSuite) SetUpTest(c *C) {
+	s.GitSuite.SetUpTest(c)
 	s.JujuConnSuite.SetUpTest(c)
 	s.HTTPSuite.SetUpTest(c)
 }
@@ -71,6 +73,7 @@ func (s *UniterSuite) SetUpTest(c *C) {
 func (s *UniterSuite) TearDownTest(c *C) {
 	s.HTTPSuite.TearDownTest(c)
 	s.JujuConnSuite.TearDownTest(c)
+	s.GitSuite.TearDownTest(c)
 }
 
 func (s *UniterSuite) Reset(c *C) {
@@ -1282,11 +1285,11 @@ func (s verifyCharm) step(c *C, ctx *context) {
 	cmd.Dir = filepath.Join(ctx.path, "charm")
 	out, err := cmd.CombinedOutput()
 	c.Assert(err, IsNil)
-	cmp := Equals
+	cmp := Matches
 	if s.dirty {
-		cmp = Not(Equals)
+		cmp = Not(Matches)
 	}
-	c.Assert(string(out), cmp, "# On branch master\nnothing to commit (working directory clean)\n")
+	c.Assert(string(out), cmp, "# On branch master\nnothing to commit.*\n")
 }
 
 type startUpgradeError struct{}
