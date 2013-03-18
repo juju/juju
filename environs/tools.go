@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
@@ -15,7 +16,7 @@ import (
 	"strings"
 )
 
-var toolPrefix = "tools/juju-"
+const toolPrefix = "tools/juju-"
 
 // ToolsList holds a list of available tools.  Private tools take
 // precedence over public tools, even if they have a lower
@@ -32,10 +33,10 @@ func UploadTools(environ Environ) error {
 	if err != nil {
 		return fmt.Errorf("cannot upload tools: %v", err)
 	}
-	_ = tools
 	cfg := environ.Config()
 	m := cfg.AllAttrs()
-	m["agent-version"] = version.Current.Number.String()
+	// Specify the agent-version and default-series in the environment to match the tools.
+	m["agent-version"] = tools.Number.String()
 	m["default-series"] = tools.Series
 	cfg, err = config.New(m)
 	if err != nil {
