@@ -17,7 +17,7 @@ const (
 	CertExists  CreatedCert = false
 )
 
-func writeCertAndKeyToHome(name string, cert, key []byte) error {
+func WriteCertAndKeyToHome(name string, cert, key []byte) error {
 	path := filepath.Join(os.Getenv("HOME"), ".juju", name)
 	if err := ioutil.WriteFile(path+"-cert.pem", cert, 0644); err != nil {
 		return err
@@ -25,7 +25,7 @@ func writeCertAndKeyToHome(name string, cert, key []byte) error {
 	return ioutil.WriteFile(path+"-private-key.pem", key, 0600)
 }
 
-func generateCertificate(environ Environ) error {
+func generateCertificate(environ Environ, writeCertAndKey func(environName string, cert, key []byte) error) error {
 	cfg := environ.Config()
 	caCert, caKey, err := cert.NewCA(environ.Name(), time.Now().UTC().AddDate(10, 0, 0))
 	if err != nil {
@@ -41,7 +41,7 @@ func generateCertificate(environ Environ) error {
 	if err := environ.SetConfig(cfg); err != nil {
 		return fmt.Errorf("cannot set environment configuration with CA: %v", err)
 	}
-	if err := writeCertAndKeyToHome(environ.Name(), caCert, caKey); err != nil {
+	if err := writeCertAndKey(environ.Name(), caCert, caKey); err != nil {
 		return fmt.Errorf("cannot write CA certificate and key: %v", err)
 	}
 	return nil
@@ -50,7 +50,7 @@ func generateCertificate(environ Environ) error {
 // EnsureCertificate makes sure that there is a certificate and private key
 // for the specified environment.  If one does not exist, then a certificate
 // is generated.
-func EnsureCertificate(environ Environ) (CreatedCert, error) {
+func EnsureCertificate(environ Environ, writeCertAndKey func(environName string, cert, key []byte) error) (CreatedCert, error) {
 	cfg := environ.Config()
 	_, hasCACert := cfg.CACert()
 	_, hasCAKey := cfg.CAPrivateKey()
@@ -64,5 +64,5 @@ func EnsureCertificate(environ Environ) (CreatedCert, error) {
 		return CertExists, fmt.Errorf("environment configuration with a certificate but no CA private key")
 	}
 
-	return CertCreated, generateCertificate(environ)
+	return CertCreated, generateCertificate(environ, writeCertAndKey)
 }

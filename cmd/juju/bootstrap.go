@@ -45,7 +45,7 @@ func (c *BootstrapCommand) Run(context *cmd.Context) error {
 	}
 
 	// TODO: if in verbose mode, write out to Stdout if a new cert was created.
-	_, err = environs.EnsureCertificate(environ)
+	_, err = environs.EnsureCertificate(environ, environs.WriteCertAndKeyToHome)
 	if err != nil {
 		return err
 	}
