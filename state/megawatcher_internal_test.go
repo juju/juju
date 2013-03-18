@@ -7,35 +7,30 @@ import (
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/charm"
+	"net/url"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
 	"sync"
 	"time"
 )
 
+func AddTestingCharm(c *C, st *State, name string) *Charm {
+	ch := testing.Charms.Dir(name)
+	ident := fmt.Sprintf("%s-%d", name, ch.Revision())
+	curl := charm.MustParseURL("local:series/" + ident)
+	bundleURL, err := url.Parse("http://bundles.example.com/" + ident)
+	c.Assert(err, IsNil)
+	sch, err := st.AddCharm(ch, curl, bundleURL, ident+"-sha256")
+	c.Assert(err, IsNil)
+	return sch
+}
+
 type allInfoSuite struct {
 	testing.LoggingSuite
 }
 
 var _ = Suite(&allInfoSuite{})
-
-// assertAllInfoContents checks that the given allWatcher
-// has the given contents, in oldest-to-newest order.
-func assertAllInfoContents(c *C, a *allInfo, latestRevno int64, entries []entityEntry) {
-	var gotEntries []entityEntry
-	var gotElems []*list.Element
-	c.Check(a.list.Len(), Equals, len(entries))
-	for e := a.list.Back(); e != nil; e = e.Prev() {
-		gotEntries = append(gotEntries, *e.Value.(*entityEntry))
-		gotElems = append(gotElems, e)
-	}
-	c.Assert(gotEntries, DeepEquals, entries)
-	for i, ent := range entries {
-		c.Assert(a.entities[entityIdForInfo(ent.info)], Equals, gotElems[i])
-	}
-	c.Assert(a.entities, HasLen, len(entries))
-	c.Assert(a.latestRevno, Equals, latestRevno)
-}
 
 var allInfoChangeMethodTests = []struct {
 	about          string
@@ -778,6 +773,171 @@ func (*allWatcherSuite) TestStateWatcherStopBecauseAllWatcherError(c *C) {
 	c.Logf("updating entity")
 	b.updateEntity(&params.MachineInfo{Id: "1"})
 	checkNext(c, w, nil, "some error")
+}
+
+type allWatcherStateSuite struct {
+	testing.LoggingSuite
+	testing.MgoSuite
+	State *State
+}
+
+func (s *allWatcherStateSuite) SetUpSuite(c *C) {
+	s.LoggingSuite.SetUpSuite(c)
+	s.MgoSuite.SetUpSuite(c)
+}
+
+func (s *allWatcherStateSuite) TearDownSuite(c *C) {
+	s.MgoSuite.TearDownSuite(c)
+	s.LoggingSuite.TearDownSuite(c)
+}
+
+func (s *allWatcherStateSuite) SetUpTest(c *C) {
+	s.LoggingSuite.SetUpTest(c)
+	s.MgoSuite.SetUpTest(c)
+	state, err := Open(TestingStateInfo())
+	c.Assert(err, IsNil)
+
+	s.State = state
+}
+
+func (s *allWatcherStateSuite) TearDownTest(c *C) {
+	s.State.Close()
+	s.MgoSuite.TearDownTest(c)
+	s.LoggingSuite.TearDownTest(c)
+}
+
+var _ = Suite(&allWatcherStateSuite{})
+
+// setUpScenario adds some entities to the state so that
+// we can check that they all get pulled in by
+// allWatcherStateBacking.getAll.
+func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
+	add := func(e params.EntityInfo) {
+		entities = append(entities, e)
+	}
+	m, err := s.State.AddMachine("series", JobManageEnviron)
+	c.Assert(err, IsNil)
+	c.Assert(m.EntityName(), Equals, "machine-0")
+	err = m.SetInstanceId(InstanceId("i-" + m.EntityName()))
+	c.Assert(err, IsNil)
+	add(&params.MachineInfo{
+		Id:         "0",
+		InstanceId: "i-machine-0",
+	})
+
+	wordpress, err := s.State.AddService("wordpress", AddTestingCharm(c, s.State, "wordpress"))
+	c.Assert(err, IsNil)
+	err = wordpress.SetExposed()
+	c.Assert(err, IsNil)
+	add(&params.ServiceInfo{
+		Name:    "wordpress",
+		Exposed: true,
+	})
+
+	_, err = s.State.AddService("logging", AddTestingCharm(c, s.State, "logging"))
+	c.Assert(err, IsNil)
+	add(&params.ServiceInfo{
+		Name: "logging",
+	})
+
+	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
+	c.Assert(err, IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	add(&params.RelationInfo{
+		Key: "logging:logging-directory wordpress:logging-dir",
+	})
+
+	for i := 0; i < 2; i++ {
+		wu, err := wordpress.AddUnit()
+		c.Assert(err, IsNil)
+		c.Assert(wu.EntityName(), Equals, fmt.Sprintf("unit-wordpress-%d", i))
+		add(&params.UnitInfo{
+			Name:    fmt.Sprintf("wordpress/%d", i),
+			Service: "wordpress",
+		})
+
+		m, err := s.State.AddMachine("series", JobHostUnits)
+		c.Assert(err, IsNil)
+		c.Assert(m.EntityName(), Equals, fmt.Sprintf("machine-%d", i+1))
+		err = m.SetInstanceId(InstanceId("i-" + m.EntityName()))
+		c.Assert(err, IsNil)
+		add(&params.MachineInfo{
+			Id:         fmt.Sprint(i + 1),
+			InstanceId: "i-" + m.EntityName(),
+		})
+		err = wu.AssignToMachine(m)
+		c.Assert(err, IsNil)
+
+		deployer, ok := wu.DeployerName()
+		c.Assert(ok, Equals, true)
+		c.Assert(deployer, Equals, fmt.Sprintf("machine-%d", i+1))
+
+		wru, err := rel.Unit(wu)
+		c.Assert(err, IsNil)
+
+		// Create the subordinate unit as a side-effect of entering
+		// scope in the principal's relation-unit.
+		err = wru.EnterScope(nil)
+		c.Assert(err, IsNil)
+
+		lu, err := s.State.Unit(fmt.Sprintf("logging/%d", i))
+		c.Assert(err, IsNil)
+		c.Assert(lu.IsPrincipal(), Equals, false)
+		deployer, ok = lu.DeployerName()
+		c.Assert(ok, Equals, true)
+		c.Assert(deployer, Equals, fmt.Sprintf("unit-wordpress-%d", i))
+		add(&params.UnitInfo{
+			Name:    fmt.Sprintf("logging/%d", i),
+			Service: "logging",
+		})
+	}
+	return
+}
+
+func (s *allWatcherStateSuite) TestStateBackingGetAll(c *C) {
+	expectEntities := s.setUpScenario(c)
+	b := newAllWatcherStateBacking(s.State)
+	all := newAllInfo()
+	err := b.getAll(all)
+	c.Assert(err, IsNil)
+
+	assertAllInfoSortedContents(c, all, int64(len(expectEntities)), expectEntities)
+}
+
+func assertAllInfoContents(c *C, a *allInfo, latestRevno int64, entries []entityEntry) {
+	var gotEntries []entityEntry
+	var gotElems []*list.Element
+	c.Check(a.list.Len(), Equals, len(entries))
+	for e := a.list.Back(); e != nil; e = e.Prev() {
+		gotEntries = append(gotEntries, *e.Value.(*entityEntry))
+		gotElems = append(gotElems, e)
+	}
+	if sortEntries {
+		sort.Sort(entityInfoSlice(entries))
+		sort.Sort(entityInfoSlice(gotEntries))
+	}
+	c.Assert(gotEntries, DeepEquals, entries)
+	for i, ent := range entries {
+		c.Assert(a.entities[entityIdForInfo(ent.info)], Equals, gotElems[i])
+	}
+	c.Assert(a.entities, HasLen, len(entries))
+	c.Assert(a.latestRevno, Equals, latestRevno)
+}
+
+type entityInfoSlice []params.EntityInfo
+
+func (s entityInfoSlice) Len() int      { return len(s) }
+func (s entityInfoSlice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+func (s entityInfoSlice) Less(i, j int) bool {
+	if s[i].EntityKind() != s[j].EntityKind() {
+		return s[i].EntityKind() < s[j].EntityKind()
+	}
+	switch id := s[i].EntityId().(type) {
+	case string:
+		return id < s[j].EntityId().(string)
+	}
+	panic("unknown id type")
 }
 
 func checkNext(c *C, w *xStateWatcher, deltas []params.Delta, expectErr string) {
