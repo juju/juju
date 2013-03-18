@@ -232,10 +232,11 @@ type srvEntityWatcher struct {
 // entity being watched since the most recent call to Next
 // or the Watch call that created the EntityWatcher.
 func (w srvEntityWatcher) Next() error {
-	if _, ok := <-w.w.(*state.EntityWatcher).Changes(); ok {
+	ew := w.w.(*state.EntityWatcher)
+	if _, ok := <-ew.Changes(); ok {
 		return nil
 	}
-	err := w.w.Err()
+	err := ew.Err()
 	if err == nil {
 		err = errStoppedWatcher
 	}
@@ -566,7 +567,6 @@ func isAgent(e state.Entity) bool {
 // watcher represents the interface provided by state watchers.
 type watcher interface {
 	Stop() error
-	Err() error
 }
 
 // watchers holds all the watchers for a connection.
