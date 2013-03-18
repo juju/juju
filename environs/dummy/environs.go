@@ -67,12 +67,13 @@ type OpBootstrap struct {
 type OpDestroy GenericOperation
 
 type OpStartInstance struct {
-	Env       string
-	MachineId string
-	Instance  environs.Instance
-	Info      *state.Info
-	APIInfo   *api.Info
-	Secret    string
+	Env         string
+	MachineId   string
+	Instance    environs.Instance
+	Constraints state.Constraints
+	Info        *state.Info
+	APIInfo     *api.Info
+	Secret      string
 }
 
 type OpStopInstances struct {
@@ -545,7 +546,7 @@ func (e *environ) Destroy([]environs.Instance) error {
 	return nil
 }
 
-func (e *environ) StartInstance(machineId string, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId string, cons state.Constraints, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
 	defer delay()
 	log.Printf("environs/dummy: dummy startinstance, machine %s", machineId)
 	if err := e.checkBroken("StartInstance"); err != nil {
@@ -574,12 +575,13 @@ func (e *environ) StartInstance(machineId string, info *state.Info, apiInfo *api
 	e.state.insts[i.id] = i
 	e.state.maxId++
 	e.state.ops <- OpStartInstance{
-		Env:       e.state.name,
-		MachineId: machineId,
-		Instance:  i,
-		Info:      info,
-		APIInfo:   apiInfo,
-		Secret:    e.ecfg().secret(),
+		Env:         e.state.name,
+		MachineId:   machineId,
+		Constraints: cons,
+		Instance:    i,
+		Info:        info,
+		APIInfo:     apiInfo,
+		Secret:      e.ecfg().secret(),
 	}
 	return i, nil
 }

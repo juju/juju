@@ -372,12 +372,13 @@ func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
 	return state.AssignUnused
 }
 
-func (e *environ) StartInstance(machineId string, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId string, cons state.Constraints, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
 	return e.startInstance(&startInstanceParams{
-		machineId: machineId,
-		info:      info,
-		apiInfo:   apiInfo,
-		tools:     tools,
+		machineId:   machineId,
+		constraints: cons,
+		info:        info,
+		apiInfo:     apiInfo,
+		tools:       tools,
 	})
 }
 

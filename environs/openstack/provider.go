@@ -627,9 +627,10 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (e *environ) StartInstance(machineId string, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId string, cons state.Constraints, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
 	return e.startInstance(&startInstanceParams{
 		machineId:    machineId,
+		constraints:  cons,
 		info:         info,
 		apiInfo:      apiInfo,
 		tools:        tools,
@@ -746,6 +747,8 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 			log.Printf("environs/openstack: allocated public IP %s", publicIP.IP)
 		}
 	}
+	// TODO(fwereade): use scfg.constraints to pick instance spec before
+	// settling on tools.
 	if scfg.tools == nil {
 		var err error
 		flags := environs.HighestVersion | environs.CompatVersion

@@ -260,7 +260,7 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *C) {
 	defer cleanup()
 	err := environs.Bootstrap(s.Env, state.Constraints{}, false, panicWrite)
 	c.Assert(err, IsNil)
-	inst, err := s.Env.StartInstance("100", testing.InvalidStateInfo("100"), testing.InvalidAPIInfo("100"), nil)
+	inst, err := s.Env.StartInstance("100", state.Constraints{}, testing.InvalidStateInfo("100"), testing.InvalidAPIInfo("100"), nil)
 	c.Assert(err, IsNil)
 	err = s.Env.StopInstances([]environs.Instance{inst})
 	c.Assert(err, IsNil)
@@ -314,10 +314,10 @@ var instanceGathering = []struct {
 }
 
 func (s *localServerSuite) TestInstancesGathering(c *C) {
-	inst0, err := s.Env.StartInstance("100", testing.InvalidStateInfo("100"), testing.InvalidAPIInfo("100"), nil)
+	inst0, err := s.Env.StartInstance("100", state.Constraints{}, testing.InvalidStateInfo("100"), testing.InvalidAPIInfo("100"), nil)
 	c.Assert(err, IsNil)
 	id0 := inst0.Id()
-	inst1, err := s.Env.StartInstance("101", testing.InvalidStateInfo("101"), testing.InvalidAPIInfo("101"), nil)
+	inst1, err := s.Env.StartInstance("101", state.Constraints{}, testing.InvalidStateInfo("101"), testing.InvalidAPIInfo("101"), nil)
 	c.Assert(err, IsNil)
 	id1 := inst1.Id()
 	defer func() {
@@ -388,7 +388,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	// and without a provisioning agent.
 	info.EntityName = "machine-1"
 	apiInfo.EntityName = "machine-1"
-	inst1, err := t.env.StartInstance("1", info, apiInfo, nil)
+	inst1, err := t.env.StartInstance("1", state.Constraints{}, info, apiInfo, nil)
 	c.Assert(err, IsNil)
 
 	err = t.env.Destroy(append(insts, inst1))
