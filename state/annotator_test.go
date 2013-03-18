@@ -2,13 +2,8 @@ package state_test
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/state"
 )
-
-type annotator interface {
-	Annotation(key string) (string, error)
-	Annotations() (map[string]string, error)
-	SetAnnotation(key, value string) error
-}
 
 var annotatorTests = []struct {
 	about    string
@@ -55,7 +50,7 @@ var annotatorTests = []struct {
 	},
 }
 
-func testAnnotator(c *C, getEntity func() (annotator, error)) {
+func testAnnotator(c *C, getEntity func() (state.Annotator, error)) {
 loop:
 	for i, t := range annotatorTests {
 		c.Logf("test %d. %s", i, t.about)

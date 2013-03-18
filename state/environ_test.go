@@ -14,19 +14,19 @@ var _ = Suite(&EnvironSuite{})
 
 func (s *EnvironSuite) SetUpTest(c *C) {
 	s.ConnSuite.SetUpTest(c)
+	setUpEnvConfig(c)
 	env, err := s.State.Environment()
 	c.Assert(err, IsNil)
 	s.env = env
 }
 
 func (s *EnvironSuite) TestEntityName(c *C) {
-	c.Assert(s.env.EntityName(), Equals, "environment-test")
+	expected := "environment-" + envConfig["name"].(string)
+	c.Assert(s.env.EntityName(), Equals, expected)
 }
 
-func (s *ServiceSuite) TestAnnotatorForEnvironment(c *C) {
-	testAnnotator(c, func() (annotator, error) {
-		env, err := s.State.Environment()
-		c.Assert(err, IsNil)
-		return env, nil
+func (s *EnvironSuite) TestAnnotatorForEnvironment(c *C) {
+	testAnnotator(c, func() (state.Annotator, error) {
+		return s.State.Environment()
 	})
 }

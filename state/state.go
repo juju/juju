@@ -275,7 +275,7 @@ func (st *State) Machine(id string) (*Machine, error) {
 	return newMachine(st, mdoc), nil
 }
 
-// Authenticator represents entites capable of handling password 
+// Authenticator represents entites capable of handling password
 // authentication.
 type Authenticator interface {
 	Refresh() error
@@ -285,9 +285,9 @@ type Authenticator interface {
 
 // Annotator represents entities capable of handling annotations.
 type Annotator interface {
+	Annotation(key string) (string, error)
 	Annotations() (map[string]string, error)
 	SetAnnotation(key, value string) error
-	//SetAnnotations(map[string]string) error
 }
 
 // Authenticator attempts to return an Authenticator with the given name.
@@ -346,16 +346,11 @@ func (st *State) entity(entityName string) (interface{}, error) {
 		return st.Service(id)
 	case "environment":
 		conf, err := st.EnvironConfig()
-		// Invalid entity if environment is not found.
-		if err.Error() == "settings not found" {
-			return nil, fmt.Errorf("invalid entity name %q", entityName)
-		}
-		// Return other errors.
 		if err != nil {
 			return nil, err
 		}
-		fmt.Println(conf.Name())
-		// Invalid entity if not current environment.
+		// Return an invalid entity error if the requested environment is not
+		// the current one.
 		if id != conf.Name() {
 			return nil, fmt.Errorf("invalid entity name %q", entityName)
 		}

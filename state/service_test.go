@@ -1093,7 +1093,7 @@ func (s *ServiceSuite) TestWatchConfig(c *C) {
 }
 
 func (s *ServiceSuite) TestAnnotatorForService(c *C) {
-	testAnnotator(c, func() (annotator, error) {
+	testAnnotator(c, func() (state.Annotator, error) {
 		return s.State.Service("mysql")
 	})
 }
@@ -1105,5 +1105,5 @@ func (s *ServiceSuite) TestAnnotationRemovalForService(c *C) {
 	c.Assert(err, IsNil)
 	ann, err := s.mysql.Annotations()
 	c.Assert(err, IsNil)
-	c.Assert(ann, DeepEquals, make(map[string]string))
+	c.Assert(ann, IsNil)
 }

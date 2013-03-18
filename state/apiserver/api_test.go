@@ -418,7 +418,8 @@ var scenarioStatus = &api.Status{
 	},
 }
 
-type entityNamer interface {
+// namedEntity represents entities with a name unique to all entities.
+type namedEntity interface {
 	EntityName() string
 }
 
@@ -458,7 +459,7 @@ type entityNamer interface {
 // environment manager (bootstrap machine), so is
 // hopefully easier to remember as such.
 func (s *suite) setUpScenario(c *C) (entities []string) {
-	add := func(e entityNamer) {
+	add := func(e namedEntity) {
 		entities = append(entities, e.EntityName())
 	}
 	u, err := s.State.User("admin")
@@ -532,17 +533,17 @@ func (s *suite) setUpScenario(c *C) (entities []string) {
 	return
 }
 
-// AuthEntity is the same as state.Entity but
-// without PasswordValid and annotations handling
-// which are implemented by state entities but not
-// by api entities.
-type AuthEntity interface {
-	EntityName() string
+// namedAuthenticator is the same as state.Authenticator but without
+// PasswordValid which are implemented by state entities but not by api
+// entities. It also adds to state.Authenticator the ability to retrieve
+// the entity name.
+type namedAuthenticator interface {
 	SetPassword(pass string) error
 	Refresh() error
+	namedEntity
 }
 
-func setDefaultPassword(c *C, e AuthEntity) {
+func setDefaultPassword(c *C, e namedAuthenticator) {
 	err := e.SetPassword(e.EntityName() + " password")
 	c.Assert(err, IsNil)
 }
@@ -716,9 +717,11 @@ var clientAnnotationsTests = []struct {
 	},
 }
 
+// namedAnnotator adds to state.Annotator the ability to retrieve the entity
+// name.
 type namedAnnotator interface {
 	state.Annotator
-	entityNamer
+	namedEntity
 }
 
 func (s *suite) TestClientAnnotations(c *C) {

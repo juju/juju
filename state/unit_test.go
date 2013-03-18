@@ -698,7 +698,7 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 }
 
 func (s *UnitSuite) TestAnnotatorForUnit(c *C) {
-	testAnnotator(c, func() (annotator, error) {
+	testAnnotator(c, func() (state.Annotator, error) {
 		return s.State.Unit("wordpress/0")
 	})
 }
@@ -712,5 +712,5 @@ func (s *UnitSuite) TestAnnotationRemovalForUnit(c *C) {
 	c.Assert(err, IsNil)
 	ann, err := s.unit.Annotations()
 	c.Assert(err, IsNil)
-	c.Assert(ann, DeepEquals, make(map[string]string))
+	c.Assert(ann, IsNil)
 }

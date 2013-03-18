@@ -34,11 +34,10 @@ type serviceDoc struct {
 
 func newService(st *State, doc *serviceDoc) *Service {
 	svc := &Service{
-		st:        st,
-		doc:       *doc,
-		annotator: annotator{st: st},
+		st:  st,
+		doc: *doc,
 	}
-	svc.annotator.entityName = svc.EntityName()
+	svc.annotator = annotator{svc.globalKey(), svc.EntityName(), st}
 	return svc
 }
 
@@ -182,7 +181,7 @@ func (s *Service) removeOps(asserts D) []txn.Op {
 		Id:     s.globalKey(),
 		Remove: true,
 	}}
-	return append(ops, annotationRemoveOps(s.st, s.EntityName()))
+	return append(ops, annotationRemoveOps(s.st, s.globalKey()))
 }
 
 // IsExposed returns whether this service is exposed. The explicitly open
@@ -437,7 +436,7 @@ func (s *Service) removeUnitOps(u *Unit) []txn.Op {
 	} else {
 		svcOp.Assert = D{{"life", Dying}, {"unitcount", D{{"$gt", 1}}}}
 	}
-	return append(ops, svcOp, annotationRemoveOps(s.st, u.EntityName()))
+	return append(ops, svcOp, annotationRemoveOps(s.st, u.globalKey()))
 }
 
 // Unit returns the service's unit with name.

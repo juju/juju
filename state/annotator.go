@@ -12,16 +12,16 @@ import (
 // due to the fact that it is not accessed directly, but through
 // Annotations/Annotation below.
 type annotatorDoc struct {
-	GlobalKey   string
+	GlobalKey   string `bson:"_id"`
 	EntityName  string
 	Annotations map[string]string
 }
 
 // annotator stores information required to query MongoDB.
 type annotator struct {
-	st         *State
-	entityName string
 	globalKey  string
+	entityName string
+	st         *State
 }
 
 // SetAnnotation adds a key/value pair to annotations in MongoDB.
@@ -29,7 +29,7 @@ func (a *annotator) SetAnnotation(key, value string) error {
 	if strings.Contains(key, ".") {
 		return fmt.Errorf("invalid key %q", key)
 	}
-	id := a.entityName
+	id := a.globalKey
 	coll := a.st.annotations.Name
 	if value == "" {
 		// Delete a key/value pair in MongoDB.
@@ -59,7 +59,11 @@ func (a *annotator) SetAnnotation(key, value string) error {
 				C:      coll,
 				Id:     id,
 				Assert: txn.DocMissing,
-				Insert: &annotatorDoc{id, map[string]string{key: value}},
+				Insert: &annotatorDoc{
+					id,
+					a.entityName,
+					map[string]string{key: value},
+				},
 			}
 		}
 		if err := a.st.runner.Run([]txn.Op{op}, "", nil); err != nil {
@@ -72,7 +76,7 @@ func (a *annotator) SetAnnotation(key, value string) error {
 // Annotations returns all the annotations corresponding to an entity.
 func (a annotator) Annotations() (map[string]string, error) {
 	doc := new(annotatorDoc)
-	err := a.st.annotations.FindId(a.entityName).One(doc)
+	err := a.st.annotations.FindId(a.globalKey).One(doc)
 	if err == mgo.ErrNotFound {
 		// Returning an empty map if there are no annotations.
 		return nil, nil

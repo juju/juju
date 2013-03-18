@@ -618,7 +618,7 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 }
 
 func (s *MachineSuite) TestAnnotatorForMachine(c *C) {
-	testAnnotator(c, func() (annotator, error) {
+	testAnnotator(c, func() (state.Annotator, error) {
 		return s.State.Machine(s.machine.Id())
 	})
 }
@@ -632,5 +632,5 @@ func (s *MachineSuite) TestAnnotationRemovalForMachine(c *C) {
 	c.Assert(err, IsNil)
 	ann, err := s.machine.Annotations()
 	c.Assert(err, IsNil)
-	c.Assert(ann, DeepEquals, make(map[string]string))
+	c.Assert(ann, IsNil)
 }

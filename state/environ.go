@@ -2,9 +2,9 @@ package state
 
 // Environment represents the state of an environment.
 type Environment struct {
-	st *State
-	annotator
+	st   *State
 	name string
+	annotator
 }
 
 // Environment returns the environment entity.
@@ -14,11 +14,10 @@ func (st *State) Environment() (*Environment, error) {
 		return nil, err
 	}
 	env := &Environment{
-		st:        st,
-		annotator: annotator{st: st},
-		name:      conf.Name(),
+		st:   st,
+		name: conf.Name(),
 	}
-	env.annotator.entityName = env.EntityName()
+	env.annotator = annotator{env.globalKey(), env.EntityName(), st}
 	return env, nil
 }
 
@@ -27,4 +26,9 @@ func (st *State) Environment() (*Environment, error) {
 // by any other entities from the same state.
 func (e Environment) EntityName() string {
 	return "environment-" + e.name
+}
+
+// globalKey returns the global database key for the environment.
+func (e *Environment) globalKey() string {
+	return "e#" + e.name
 }

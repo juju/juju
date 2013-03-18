@@ -95,11 +95,10 @@ type Unit struct {
 
 func newUnit(st *State, udoc *unitDoc) *Unit {
 	unit := &Unit{
-		st:        st,
-		doc:       *udoc,
-		annotator: annotator{st: st},
+		st:  st,
+		doc: *udoc,
 	}
-	unit.annotator.entityName = unit.EntityName()
+	unit.annotator = annotator{unit.globalKey(), unit.EntityName(), st}
 	return unit
 }
 
