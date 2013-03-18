@@ -115,6 +115,32 @@ func (u *Unit) Service() (*Service, error) {
 	return u.st.Service(u.doc.Service)
 }
 
+// ServiceConfig returns the contents of this unit's service configuration.
+func (u *Unit) ServiceConfig() (map[string]interface{}, error) {
+	if u.doc.CharmURL == nil {
+		return nil, fmt.Errorf("unit charm not set")
+	}
+	// TODO(dimitern): Will use a better way to get the key in a follow-up.
+	settings, err := readSettings(u.st, "s#"+u.doc.Service)
+	if err != nil {
+		return nil, err
+	}
+	charm, err := u.st.Charm(u.doc.CharmURL)
+	if err != nil {
+		return nil, err
+	}
+	// Build a dictionary containing charm defaults, and overwrite any
+	// values that have actually been set.
+	cfg, err := charm.Config().Validate(nil)
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range settings.Map() {
+		cfg[k] = v
+	}
+	return cfg, nil
+}
+
 // ServiceName returns the service name.
 func (u *Unit) ServiceName() string {
 	return u.doc.Service
