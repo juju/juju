@@ -37,13 +37,12 @@ var instanceTypeData = map[string]float64{
 var getInstanceTypesTest = []struct {
 	info   string
 	cons   string
-	arches []string
 	itypes []string
+	arches []string
 }{
 	{
-		info:   "cpu-cores",
-		cons:   "cpu-cores=2",
-		arches: both,
+		info: "cpu-cores",
+		cons: "cpu-cores=2",
 		itypes: []string{
 			"c1.medium", "m1.large", "m1.xlarge", "c1.xlarge", "cc1.4xlarge",
 			"cc2.8xlarge",
@@ -51,44 +50,36 @@ var getInstanceTypesTest = []struct {
 	}, {
 		info:   "cpu-power",
 		cons:   "cpu-power=2000",
-		arches: both,
 		itypes: []string{"c1.xlarge", "cc1.4xlarge", "cc2.8xlarge"},
 	}, {
-		info:   "mem",
-		cons:   "mem=4G",
-		arches: both,
+		info: "mem",
+		cons: "mem=4G",
 		itypes: []string{
 			"m1.large", "m1.xlarge", "c1.xlarge", "cc1.4xlarge", "cc2.8xlarge",
 		},
 	}, {
 		info:   "arches filtered by constraint",
 		cons:   "arch=i386",
-		arches: both,
 		itypes: []string{"m1.small", "m1.medium", "c1.medium"},
-	}, {
-		info:   "arches filtered by availability",
 		arches: []string{"i386"},
-		itypes: []string{"m1.small", "m1.medium", "c1.medium"},
 	}, {
-		info:   "t1.micro filtered out when no cpu-power set",
-		arches: both,
+		info: "t1.micro filtered out when no cpu-power set",
 		itypes: []string{
 			"m1.small", "m1.medium", "c1.medium", "m1.large", "m1.xlarge",
 			"c1.xlarge", "cc1.4xlarge", "cc2.8xlarge",
 		},
 	}, {
-		info:   "t1.micro included when small cpu-power set",
-		cons:   "cpu-power=1",
-		arches: both,
+		info: "t1.micro included when small cpu-power set",
+		cons: "cpu-power=1",
 		itypes: []string{
 			"t1.micro", "m1.small", "m1.medium", "c1.medium", "m1.large",
 			"m1.xlarge", "c1.xlarge", "cc1.4xlarge", "cc2.8xlarge",
 		},
 	}, {
 		info:   "t1.micro included when small cpu-power set 2",
-		cons:   "cpu-power=1",
-		arches: []string{"i386"},
+		cons:   "cpu-power=1 arch=i386",
 		itypes: []string{"t1.micro", "m1.small", "m1.medium", "c1.medium"},
+		arches: []string{"i386"},
 	},
 }
 
@@ -97,11 +88,15 @@ func (s *instanceTypeSuite) TestGetInstanceTypes(c *C) {
 		c.Logf("test %d: %s", i, t.info)
 		cons, err := state.ParseConstraints(t.cons)
 		c.Assert(err, IsNil)
-		itypes, err := getInstanceTypes("test", cons, t.arches)
+		itypes, err := getInstanceTypes("test", cons)
 		c.Assert(err, IsNil)
 		names := make([]string, len(itypes))
 		for i, itype := range itypes {
-			c.Check(itype.arches, DeepEquals, filterArches(itype.arches, t.arches))
+			if len(t.arches) > 0 {
+				c.Check(itype.arches, DeepEquals, filterArches(itype.arches, t.arches))
+			} else {
+				c.Check(len(itype.arches) > 0, Equals, true)
+			}
 			names[i] = itype.name
 		}
 		c.Check(names, DeepEquals, t.itypes)
@@ -109,45 +104,41 @@ func (s *instanceTypeSuite) TestGetInstanceTypes(c *C) {
 }
 
 func (s *instanceTypeSuite) TestGetInstanceTypesErrors(c *C) {
-	_, err := getInstanceTypes("unknown-region", state.Constraints{}, both)
-	c.Assert(err, ErrorMatches, `no instance types found in unknown-region`)
+	_, err := getInstanceTypes("unknown-region", state.Constraints{})
+	c.Check(err, ErrorMatches, `no instance types found in unknown-region`)
 
-	cons, err := state.ParseConstraints("arch=i386")
+	cons, err := state.ParseConstraints("cpu-power=9001")
 	c.Assert(err, IsNil)
-	_, err = getInstanceTypes("test", cons, amd64)
-	c.Assert(err, ErrorMatches, `no suitable instance types found in test`)
+	_, err = getInstanceTypes("test", cons)
+	c.Check(err, ErrorMatches, `no instance types in test matching constraints "cpu-power=9001"`)
 
 	cons, err = state.ParseConstraints("arch=i386 mem=8G")
 	c.Assert(err, IsNil)
-	_, err = getInstanceTypes("test", cons, both)
-	c.Assert(err, ErrorMatches, `no suitable instance types found in test`)
+	_, err = getInstanceTypes("test", cons)
+	c.Check(err, ErrorMatches, `no instance types in test matching constraints "arch=i386 cpu-power=100 mem=8192M"`)
 }
 
 var instanceTypeMatchTests = []struct {
 	cons   string
-	arches []string
 	itype  string
-	match  []string
+	arches []string
 }{
-	{"", both, "m1.small", both},
-	{"", amd64, "m1.small", amd64},
-	{"", both, "m1.large", amd64},
-	{"cpu-power=100", both, "m1.small", both},
-	{"arch=amd64", both, "m1.small", amd64},
-	{"cpu-cores=3", both, "m1.xlarge", amd64},
-	{"cpu-power=", both, "t1.micro", both},
-	{"cpu-power=500", both, "c1.medium", both},
-	{"cpu-power=2000", both, "c1.xlarge", amd64},
-	{"cpu-power=2001", both, "cc1.4xlarge", amd64},
-	{"mem=2G", amd64, "m1.medium", amd64},
-	{"mem=2G", both, "m1.medium", both},
+	{"", "m1.small", both},
+	{"", "m1.large", amd64},
+	{"cpu-power=100", "m1.small", both},
+	{"arch=amd64", "m1.small", amd64},
+	{"cpu-cores=3", "m1.xlarge", amd64},
+	{"cpu-power=", "t1.micro", both},
+	{"cpu-power=500", "c1.medium", both},
+	{"cpu-power=2000", "c1.xlarge", amd64},
+	{"cpu-power=2001", "cc1.4xlarge", amd64},
+	{"mem=2G", "m1.medium", both},
 
-	{"", nil, "m1.small", nil},
-	{"arch=arm", amd64, "m1.small", nil},
-	{"cpu-power=100", amd64, "t1.micro", nil},
-	{"cpu-power=9001", amd64, "cc2.8xlarge", nil},
-	{"mem=1G", amd64, "t1.micro", nil},
-	{"arch=i386", both, "c1.xlarge", nil},
+	{"arch=arm", "m1.small", nil},
+	{"cpu-power=100", "t1.micro", nil},
+	{"cpu-power=9001", "cc2.8xlarge", nil},
+	{"mem=1G", "t1.micro", nil},
+	{"arch=i386", "c1.xlarge", nil},
 }
 
 func (s *instanceTypeSuite) TestMatch(c *C) {
@@ -162,11 +153,11 @@ func (s *instanceTypeSuite) TestMatch(c *C) {
 			}
 		}
 		c.Assert(itype.name, Not(Equals), "")
-		itype, match := itype.match(cons, t.arches)
-		if len(t.match) > 0 {
+		itype, match := itype.match(cons)
+		if len(t.arches) > 0 {
 			c.Check(match, Equals, true)
 			expect := itype
-			expect.arches = t.match
+			expect.arches = t.arches
 			c.Check(itype, DeepEquals, expect)
 		} else {
 			c.Check(match, Equals, false)
