@@ -1010,8 +1010,11 @@ type ConfigWatcher struct {
 	*settingsWatcher
 }
 
-func (s *Service) WatchConfig() *ConfigWatcher {
-	return &ConfigWatcher{newSettingsWatcher(s.st, "s#"+s.Name())}
+// WatchServiceConfig returns a watcher for observing changes to
+// unit's service configuration.
+func (u *Unit) WatchServiceConfig() *ConfigWatcher {
+	// TODO(dimitern): Will use a better way to get the key in a follow-up.
+	return &ConfigWatcher{newSettingsWatcher(u.st, "s#"+u.doc.Service)}
 }
 
 // EntityWatcher observes changes to a state entity.
