@@ -31,10 +31,10 @@ var commonLogTests = []struct {
 	debugFlag    bool
 	target       string
 }{
-	{false, false, "JUJU"},
+	{false, false, "INFO:"},
 	{false, true, ""},
-	{true, false, "JUJU"},
-	{true, true, "JUJU:DEBUG"},
+	{true, false, "INFO:"},
+	{true, true, "DEBUG:"},
 }
 
 func assertLogs(c *C, ctx jujuc.Context, badge string) {
