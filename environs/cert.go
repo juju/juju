@@ -22,10 +22,7 @@ func writeCertAndKeyToHome(name string, cert, key []byte) error {
 	if err := ioutil.WriteFile(path+"-cert.pem", cert, 0644); err != nil {
 		return err
 	}
-	if err := ioutil.WriteFile(path+"-private-key.pem", key, 0600); err != nil {
-		return err
-	}
-	return nil
+	return ioutil.WriteFile(path+"-private-key.pem", key, 0600)
 }
 
 func generateCertificate(environ Environ) error {
