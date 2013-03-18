@@ -18,9 +18,29 @@ type CmdSuite struct {
 
 var _ = Suite(&CmdSuite{})
 
+const envConfig = `
+default:
+    peckham
+environments:
+    peckham:
+        type: dummy
+        state-server: false
+        admin-secret: arble
+        authorized-keys: i-am-a-key
+    walthamstow:
+        type: dummy
+        state-server: false
+        authorized-keys: i-am-a-key
+    brokenenv:
+        type: dummy
+        broken: Bootstrap Destroy
+        state-server: false
+        authorized-keys: i-am-a-key
+`
+
 func (s *CmdSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.home = coretesting.MakeFakeHome(c, coretesting.PeckhamConfig, "peckham", "walthamstow", "brokenenv")
+	s.home = coretesting.MakeFakeHome(c, envConfig, "peckham", "walthamstow", "brokenenv")
 }
 
 func (s *CmdSuite) TearDownTest(c *C) {
