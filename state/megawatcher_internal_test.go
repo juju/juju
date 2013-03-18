@@ -935,6 +935,136 @@ func (s *allWatcherStateSuite) TestStateBackingGetAll(c *C) {
 	c.Assert(gotEntities, DeepEquals, expectEntities)
 }
 
+func (s *allWatcherStateSuite) TestStateBackingEntityIdForInfo(c *C) {
+	tests := []struct {
+		info       params.EntityInfo
+		collection *mgo.Collection
+		id         entityId
+	}{{
+		info:       &params.MachineInfo{Id: "1"},
+		collection: s.State.machines,
+	}, {
+		info:       &params.UnitInfo{Name: "wordpress/1"},
+		collection: s.State.units,
+	}, {
+		info:       &params.ServiceInfo{Name: "wordpress"},
+		collection: s.State.services,
+	}, {
+		info:       &params.RelationInfo{Key: "logging:logging-directory wordpress:logging-dir"},
+		collection: s.State.relations,
+	}}
+	b := newAllWatcherStateBacking(s.State)
+	for i, test := range tests {
+		c.Logf("test %d: %T", i, test.info)
+		id := b.entityIdForInfo(test.info)
+		c.Assert(id, Equals, entityId{
+			collection: test.collection.Name,
+			id:         test.info.EntityId(),
+		})
+	}
+}
+
+func (s *allWatcherStateSuite) TestStateBackingFetch(c *C) {
+	m, err := s.State.AddMachine("series", JobManageEnviron)
+	c.Assert(err, IsNil)
+	c.Assert(m.EntityName(), Equals, "machine-0")
+	err = m.SetInstanceId(InstanceId("i-0"))
+	c.Assert(err, IsNil)
+
+	b0 := newAllWatcherStateBacking(s.State)
+	testBackingFetch(c, b0)
+
+	// Test the test backing in the same way to
+	// make sure it agrees.
+	b1 := newTestBacking([]params.EntityInfo{
+		&params.MachineInfo{
+			Id:         "0",
+			InstanceId: "i-0",
+		},
+	})
+	testBackingFetch(c, b1)
+}
+
+//TestStateWatcher tests the integration of the state watcher
+// wiwith the state-based backing. Most of the logic is tested elsewhere -
+// this just tests end-to-end.
+func (s *allWatcherStateSuite) TestStateWatcher(c *C) {
+	m0, err := s.State.AddMachine("series", JobManageEnviron)
+	c.Assert(err, IsNil)
+	c.Assert(m0.Id(), Equals, "0")
+
+	m1, err := s.State.AddMachine("series", JobHostUnits)
+	c.Assert(err, IsNil)
+	c.Assert(m1.Id(), Equals, "1")
+
+	b := newAllWatcherStateBacking(s.State)
+	aw := newAllWatcher(b)
+	go aw.run()
+	defer aw.Stop()
+	w := &xStateWatcher{all: aw}
+	s.State.StartSync()
+	checkNext(c, w, []params.Delta{{
+		Entity: &params.MachineInfo{Id: "0"},
+	}, {
+		Entity: &params.MachineInfo{Id: "1"},
+	}}, "")
+
+	// Make some changes to the state.
+	err = m0.SetInstanceId("i-0")
+	c.Assert(err, IsNil)
+	err = m1.Destroy()
+	c.Assert(err, IsNil)
+	err = m1.EnsureDead()
+	c.Assert(err, IsNil)
+	err = m1.Remove()
+	c.Assert(err, IsNil)
+	m2, err := s.State.AddMachine("series", JobManageEnviron)
+	c.Assert(err, IsNil)
+	c.Assert(m2.Id(), Equals, "2")
+	s.State.StartSync()
+
+	// Check that we see the changes happen within a
+	// reasonable time.
+	var deltas []params.Delta
+	for {
+		d, err := getNext(c, w, 100*time.Millisecond)
+		if err == errTimeout {
+			break
+		}
+		c.Assert(err, IsNil)
+		deltas = append(deltas, d...)
+	}
+	checkDeltasEqual(c, deltas, []params.Delta{{
+		Removed: true,
+		Entity:  &params.MachineInfo{Id: "1"},
+	}, {
+		Entity: &params.MachineInfo{Id: "2"},
+	}, {
+		Entity: &params.MachineInfo{
+			Id:         "0",
+			InstanceId: "i-0",
+		},
+	}})
+
+	err = w.Stop()
+	c.Assert(err, IsNil)
+
+	_, err = w.Next()
+	c.Assert(err, ErrorMatches, "state watcher was stopped")
+}
+
+func testBackingFetch(c *C, b allWatcherBacking) {
+	m := &params.MachineInfo{Id: "0", InstanceId: "i-0"}
+	id0 := b.entityIdForInfo(m)
+	info, err := b.fetch(id0)
+	c.Assert(err, IsNil)
+	c.Assert(info, DeepEquals, m)
+
+	info, err = b.fetch(entityId{id0.collection, "99"})
+	c.Assert(err, Equals, mgo.ErrNotFound)
+	c.Assert(info, IsNil)
+}
+
 type entityInfoSlice []params.EntityInfo
 
 func (s entityInfoSlice) Len() int      { return len(s) }
@@ -966,23 +1096,31 @@ func assertAllInfoContents(c *C, a *allInfo, latestRevno int64, entries []entity
 	c.Assert(a.latestRevno, Equals, latestRevno)
 }
 
-func checkNext(c *C, w *xStateWatcher, deltas []params.Delta, expectErr string) {
-	ch := make(chan []params.Delta)
+var errTimeout = errors.New("no change received in sufficient time")
+
+func getNext(c *C, w *xStateWatcher, timeout time.Duration) ([]params.Delta, error) {
+	var deltas []params.Delta
+	var err error
+	ch := make(chan struct{}, 1)
 	go func() {
-		d, err := w.Next()
-		if expectErr != "" {
-			c.Check(err, ErrorMatches, expectErr)
-		} else {
-			c.Check(err, IsNil)
-		}
-		ch <- d
+		deltas, err = w.Next()
+		ch <- struct{}{}
 	}()
 	select {
-	case d := <-ch:
-		checkDeltasEqual(c, d, deltas)
+	case <-ch:
+		return deltas, err
 	case <-time.After(1 * time.Second):
-		c.Errorf("no change received in sufficient time; expected %v", deltas)
 	}
+	return nil, errTimeout
+}
+
+func checkNext(c *C, w *xStateWatcher, deltas []params.Delta, expectErr string) {
+	d, err := getNext(c, w, 1*time.Second)
+	if expectErr != "" {
+		c.Check(err, ErrorMatches, expectErr)
+		return
+	}
+	checkDeltasEqual(c, d, deltas)
 }
 
 // deltas are returns in arbitrary order, so we compare
