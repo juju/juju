@@ -197,6 +197,12 @@ func (aw *allWatcher) loop() error {
 	in := make(chan watcher.Change)
 	aw.backing.watch(in)
 	defer aw.backing.unwatch(in)
+	// We have no idea what changes the watcher might be trying to
+	// send us while getAll proceeds, but we don't mind, because
+	// allWatcher.changed is idempotent with respect to both updates
+	// and removals.
+	// TODO(rog) Perhaps find a way to avoid blocking all other
+	// watchers while getAll is running.
 	if err := aw.backing.getAll(aw.all); err != nil {
 		return err
 	}
