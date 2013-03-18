@@ -109,9 +109,9 @@ func (c *SetConstraintsCommand) Run(_ *cmd.Context) (err error) {
 	if c.ServiceName == "" {
 		return conn.State.SetEnvironConstraints(c.Constraints)
 	}
-        params := params.SetConstraints{
-            ServiceName: c.ServiceName,
-            Constraints: c.Constraints,
-        }
+	params := params.SetConstraints{
+		ServiceName: c.ServiceName,
+		Constraints: c.Constraints,
+	}
 	return statecmd.SetConstraints(conn.State, params)
 }

@@ -438,7 +438,7 @@ func opClientServiceDestroy(c *C, st *api.State, mst *state.State) (func(), erro
 func opClientSetConstraints(c *C, st *api.State, mst *state.State) (func(), error) {
 	// This test only checks that the call is made without error, ensuring the
 	// signatures match.
-        constraints := constraints.Value{}
+	constraints := constraints.Value{}
 	err := st.Client().SetConstraints("wordpress", constraints)
 	if err != nil {
 		return func() {}, err
