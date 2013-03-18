@@ -88,6 +88,22 @@ func UseTestImageData(content []jujutest.FileContent) {
 	}
 }
 
+var TestInstanceTypeContent = map[string]float64{
+	"m1.small":  0.060,
+	"m1.medium": 0.120,
+	"m1.large":  0.240,
+	"m1.xlarge": 0.480,
+	"t1.micro":  0.020,
+}
+
+func UseTestInstanceTypeData(content map[string]float64) {
+	if content != nil {
+		allRegionCosts["test"] = content
+	} else {
+		delete(allRegionCosts, "test")
+	}
+}
+
 var origMetadataHost = metadataHost
 
 func UseTestMetadata(content []jujutest.FileContent) {
