@@ -237,7 +237,6 @@ func (e *environ) PublicStorage() environs.StorageReader {
 }
 
 func (e *environ) Bootstrap(cons state.Constraints, uploadTools bool, cert, key []byte) error {
-	// TODO(fwereade): handle bootstrap constraints
 	password := e.Config().AdminSecret()
 	if password == "" {
 		return fmt.Errorf("admin-secret is required for bootstrap")
@@ -287,7 +286,8 @@ func (e *environ) Bootstrap(cons state.Constraints, uploadTools bool, cert, key 
 	v.Arch = tools.Arch
 	mongoURL := environs.MongoURL(e, v)
 	inst, err := e.startInstance(&startInstanceParams{
-		machineId: "0",
+		machineId:   "0",
+		constraints: cons,
 		info: &state.Info{
 			Password: trivial.PasswordHash(password),
 			CACert:   caCert,
@@ -412,6 +412,7 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 
 type startInstanceParams struct {
 	machineId       string
+	constraints     state.Constraints
 	info            *state.Info
 	apiInfo         *api.Info
 	tools           *state.Tools
@@ -434,15 +435,17 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 		}
 	}
 	log.Printf("environs/ec2: starting machine %s in %q running tools version %q from %q", scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
+	// TODO(fwereade): choose tools *after* getting an instance spec; take series
+	// from scfg and available arches from list of known and compatible tools.
 	spec, err := findInstanceSpec(&instanceConstraint{
-		series: scfg.tools.Series,
-		arch:   scfg.tools.Arch,
-		region: e.ecfg().region(),
+		region:      e.ecfg().region(),
+		series:      scfg.tools.Series,
+		arches:      []string{scfg.tools.Arch},
+		constraints: scfg.constraints,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("cannot find image satisfying constraints: %v", err)
+		return nil, err
 	}
-	// TODO quick sanity check that we can access the tools URL?
 	userData, err := e.userData(scfg)
 	if err != nil {
 		return nil, fmt.Errorf("cannot make user data: %v", err)
@@ -455,11 +458,11 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 
 	for a := shortAttempt.Start(); a.Next(); {
 		instances, err = e.ec2().RunInstances(&ec2.RunInstances{
-			ImageId:        spec.imageId,
+			ImageId:        spec.image.id,
 			MinCount:       1,
 			MaxCount:       1,
 			UserData:       userData,
-			InstanceType:   "m1.small",
+			InstanceType:   spec.instanceType,
 			SecurityGroups: groups,
 		})
 		if err == nil || ec2ErrCode(err) != "InvalidGroup.NotFound" {

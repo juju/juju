@@ -2,128 +2,323 @@ package ec2
 
 import (
 	"fmt"
-	"io"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs/jujutest"
-	"net/http"
-	"os"
-	"path/filepath"
-	"testing"
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/testing"
+	"strings"
 )
 
-type imageSuite struct{}
-
-var _ = Suite(imageSuite{})
-
-var imagesData = []jujutest.FileContent{
-	{"/query/precise/server/released.current.txt", "" +
-		"precise\tserver\trelease\t20121201\tebs\tamd64\teu-west-1\tami-00000016\taki-00000016\t\tparavirtual\n" +
-		"precise\tserver\trelease\t20121201\tebs\ti386\tap-northeast-1\tami-00000023\taki-00000023\t\tparavirtual\n" +
-		"precise\tserver\trelease\t20121201\tebs\tamd64\tap-northeast-1\tami-00000026\taki-00000026\t\tparavirtual\n" +
-		""},
+type imageSuite struct {
+	testing.LoggingSuite
 }
 
-func (imageSuite) SetUpSuite(c *C) {
+var _ = Suite(&imageSuite{})
+
+func (s *imageSuite) SetUpSuite(c *C) {
+	s.LoggingSuite.SetUpSuite(c)
 	UseTestImageData(imagesData)
 }
 
-func (imageSuite) TearDownSuite(c *C) {
+func (s *imageSuite) TearDownSuite(c *C) {
 	UseTestImageData(nil)
+	s.LoggingSuite.TearDownTest(c)
 }
 
-var imageTests = []struct {
-	constraint instanceConstraint
-	imageId    string
-	err        string
+var imagesData = []jujutest.FileContent{
+	{"/query/precise/server/released.current.txt", imagesFields(
+		"instance-store amd64 us-east-1 ami-00000011 paravirtual",
+		"ebs amd64 eu-west-1 ami-00000016 paravirtual",
+		"ebs i386 ap-northeast-1 ami-00000023 paravirtual",
+		"ebs amd64 ap-northeast-1 ami-00000026 paravirtual",
+		"ebs amd64 ap-northeast-1 ami-00000087 hvm",
+		"ebs amd64 test ami-00000033 paravirtual",
+		"ebs i386 test ami-00000034 paravirtual",
+		"ebs amd64 test ami-00000035 hvm",
+	)},
+	{"/query/quantal/server/released.current.txt", imagesFields(
+		"instance-store amd64 us-east-1 ami-00000011 paravirtual",
+		"ebs amd64 eu-west-1 ami-01000016 paravirtual",
+		"ebs i386 ap-northeast-1 ami-01000023 paravirtual",
+		"ebs amd64 ap-northeast-1 ami-01000026 paravirtual",
+		"ebs amd64 ap-northeast-1 ami-01000087 hvm",
+		"ebs i386 test ami-01000034 paravirtual",
+		"ebs amd64 test ami-01000035 hvm",
+	)},
+	{"/query/raring/server/released.current.txt", imagesFields(
+		"ebs i386 test ami-02000034 paravirtual",
+	)},
+}
+
+func imagesFields(srcs ...string) string {
+	strs := make([]string, len(srcs))
+	for i, src := range srcs {
+		parts := strings.Split(src, " ")
+		if len(parts) != 5 {
+			panic("bad clouddata field input")
+		}
+		args := make([]interface{}, len(parts))
+		for i, part := range parts {
+			args[i] = part
+		}
+		// Ignored fields are left empty for clarity's sake, and two additional
+		// tabs are tacked on to the end to verify extra columns are ignored.
+		strs[i] = fmt.Sprintf("\t\t\t\t%s\t%s\t%s\t%s\t\t\t%s\t\t\n", args...)
+	}
+	return strings.Join(strs, "")
+}
+
+var getImagesTests = []struct {
+	region string
+	series string
+	arches []string
+	images []image
+	err    string
 }{
-	{instanceConstraint{
+	{
+		region: "us-east-1",
 		series: "precise",
-		arch:   "amd64",
+		arches: both,
+		err:    `no "precise" images in us-east-1 with arches "amd64", "i386"`,
+	}, {
 		region: "eu-west-1",
-	}, "ami-00000016", ""},
-	{instanceConstraint{
 		series: "precise",
-		arch:   "i386",
+		arches: []string{"i386"},
+		err:    `no "precise" images in eu-west-1 with arches "i386"`,
+	}, {
 		region: "ap-northeast-1",
-	}, "ami-00000023", ""},
-	{instanceConstraint{
 		series: "precise",
-		arch:   "amd64",
+		arches: both,
+		images: []image{
+			{"ami-00000026", "amd64", false},
+			{"ami-00000087", "amd64", true},
+			{"ami-00000023", "i386", false},
+		},
+	}, {
 		region: "ap-northeast-1",
-	}, "ami-00000026", ""},
-	{instanceConstraint{
-		series: "zingy",
-		arch:   "amd64",
-		region: "eu-west-1",
-	}, "", "error getting instance types:.*"},
+		series: "precise",
+		arches: []string{"amd64"},
+		images: []image{
+			{"ami-00000026", "amd64", false},
+			{"ami-00000087", "amd64", true},
+		},
+	}, {
+		region: "ap-northeast-1",
+		series: "precise",
+		arches: []string{"i386"},
+		images: []image{
+			{"ami-00000023", "i386", false},
+		},
+	}, {
+		region: "ap-northeast-1",
+		series: "quantal",
+		arches: both,
+		images: []image{
+			{"ami-01000026", "amd64", false},
+			{"ami-01000087", "amd64", true},
+			{"ami-01000023", "i386", false},
+		},
+	},
 }
 
-func (imageSuite) TestFindInstanceSpec(c *C) {
-	for i, t := range imageTests {
+func (s *imageSuite) TestGetImages(c *C) {
+	for i, t := range getImagesTests {
 		c.Logf("test %d", i)
-		id, err := findInstanceSpec(&t.constraint)
+		images, err := getImages(t.region, t.series, t.arches)
 		if t.err != "" {
 			c.Check(err, ErrorMatches, t.err)
-			c.Check(id, IsNil)
 			continue
 		}
 		if !c.Check(err, IsNil) {
 			continue
 		}
-		if !c.Check(id, NotNil) {
-			continue
-		}
-		c.Check(id.imageId, Equals, t.imageId)
-		c.Check(id.arch, Equals, t.constraint.arch)
-		c.Check(id.series, Equals, t.constraint.series)
+		c.Check(images, DeepEquals, t.images)
 	}
 }
 
-// regenerate all data inside the images directory.
-// N.B. this second-guesses the logic inside images.go
-func RegenerateImages(t *testing.T) {
-	if err := os.RemoveAll(imagesRoot); err != nil {
-		t.Errorf("cannot remove old images: %v", err)
-		return
-	}
-	for _, variant := range []string{"desktop", "server"} {
-		for _, version := range []string{"daily", "released"} {
-			for _, release := range []string{"natty", "oneiric", "precise", "quantal"} {
-				s := fmt.Sprintf("query/%s/%s/%s.current.txt", release, variant, version)
-				t.Logf("regenerating images from %q", s)
-				err := copylocal(s)
-				if err != nil {
-					t.Logf("regenerate: %v", err)
-				}
-			}
-		}
+var imageMatchtests = []struct {
+	image image
+	itype instanceType
+	match bool
+}{
+	{
+		image: image{arch: "amd64"},
+		itype: instanceType{arches: []string{"amd64"}},
+		match: true,
+	}, {
+		image: image{arch: "amd64"},
+		itype: instanceType{arches: []string{"i386", "amd64"}},
+		match: true,
+	}, {
+		image: image{arch: "amd64", hvm: true},
+		itype: instanceType{arches: []string{"amd64"}, hvm: true},
+		match: true,
+	}, {
+		image: image{arch: "i386"},
+		itype: instanceType{arches: []string{"amd64"}},
+	}, {
+		image: image{arch: "amd64", hvm: true},
+		itype: instanceType{arches: []string{"amd64"}},
+	}, {
+		image: image{arch: "amd64"},
+		itype: instanceType{arches: []string{"amd64"}, hvm: true},
+	},
+}
+
+func (s *imageSuite) TestImageMatch(c *C) {
+	for i, t := range imageMatchtests {
+		c.Logf("test %d", i)
+		c.Check(t.image.match(t.itype), Equals, t.match)
 	}
 }
 
-var imagesRoot = "testdata"
+type specSuite struct {
+	testing.LoggingSuite
+}
 
-func copylocal(s string) error {
-	r, err := http.Get("http://uec-images.ubuntu.com/" + s)
-	if err != nil {
-		return fmt.Errorf("get %q: %v", s, err)
+var _ = Suite(&specSuite{})
+
+func (s *specSuite) SetUpSuite(c *C) {
+	s.LoggingSuite.SetUpSuite(c)
+	UseTestImageData(imagesData)
+	UseTestInstanceTypeData(instanceTypeData)
+}
+
+func (s *specSuite) TearDownSuite(c *C) {
+	UseTestInstanceTypeData(nil)
+	UseTestImageData(nil)
+	s.LoggingSuite.TearDownTest(c)
+}
+
+var findInstanceSpecTests = []struct {
+	series string
+	arches []string
+	cons   string
+	itype  string
+	image  string
+}{
+	{
+		series: "precise",
+		arches: both,
+		itype:  "m1.small",
+		image:  "ami-00000033",
+	}, {
+		series: "quantal",
+		arches: both,
+		itype:  "m1.small",
+		image:  "ami-01000034",
+	}, {
+		series: "precise",
+		arches: both,
+		cons:   "cpu-cores=4",
+		itype:  "m1.xlarge",
+		image:  "ami-00000033",
+	}, {
+		series: "precise",
+		arches: both,
+		cons:   "cpu-cores=2 arch=i386",
+		itype:  "c1.medium",
+		image:  "ami-00000034",
+	}, {
+		series: "precise",
+		arches: both,
+		cons:   "mem=10G",
+		itype:  "m1.xlarge",
+		image:  "ami-00000033",
+	}, {
+		series: "precise",
+		arches: both,
+		cons:   "mem=",
+		itype:  "m1.small",
+		image:  "ami-00000033",
+	}, {
+		series: "precise",
+		arches: both,
+		cons:   "cpu-power=",
+		itype:  "t1.micro",
+		image:  "ami-00000033",
+	}, {
+		series: "precise",
+		arches: both,
+		cons:   "cpu-power=800",
+		itype:  "m1.xlarge",
+		image:  "ami-00000033",
+	}, {
+		series: "precise",
+		arches: both,
+		cons:   "cpu-power=500 arch=i386",
+		itype:  "c1.medium",
+		image:  "ami-00000034",
+	}, {
+		series: "precise",
+		arches: []string{"i386"},
+		cons:   "cpu-power=400",
+		itype:  "c1.medium",
+		image:  "ami-00000034",
+	}, {
+		series: "quantal",
+		arches: both,
+		cons:   "arch=amd64",
+		itype:  "cc1.4xlarge",
+		image:  "ami-01000035",
+	},
+}
+
+func (s *specSuite) TestFindInstanceSpec(c *C) {
+	for i, t := range findInstanceSpecTests {
+		c.Logf("test %d", i)
+		cons, err := state.ParseConstraints(t.cons)
+		c.Assert(err, IsNil)
+		spec, err := findInstanceSpec(&instanceConstraint{
+			region:      "test",
+			series:      t.series,
+			arches:      t.arches,
+			constraints: cons,
+		})
+		c.Assert(err, IsNil)
+		c.Check(spec.instanceType, Equals, t.itype)
+		c.Check(spec.image.id, Equals, t.image)
 	}
-	defer r.Body.Close()
-	if r.StatusCode != 200 {
-		return fmt.Errorf("status on %q: %s", s, r.Status)
+}
+
+var findInstanceSpecErrorTests = []struct {
+	series string
+	arches []string
+	cons   string
+	err    string
+}{
+	{
+		series: "bad",
+		arches: both,
+		err:    `cannot get image data for "bad": .*`,
+	}, {
+		series: "precise",
+		arches: []string{"arm"},
+		err:    `no "precise" images in test with arches "arm"`,
+	}, {
+		series: "precise",
+		arches: both,
+		cons:   "cpu-power=9001",
+		err:    `no instance types in test matching constraints "cpu-power=9001"`,
+	}, {
+		series: "raring",
+		arches: both,
+		cons:   "mem=4G",
+		err:    `no "raring" images in test matching instance types "m1.large", "m1.xlarge", "c1.xlarge", "cc1.4xlarge", "cc2.8xlarge"`,
+	},
+}
+
+func (s *specSuite) TestFindInstanceSpecErrors(c *C) {
+	for i, t := range findInstanceSpecErrorTests {
+		c.Logf("test %d", i)
+		cons, err := state.ParseConstraints(t.cons)
+		c.Assert(err, IsNil)
+		_, err = findInstanceSpec(&instanceConstraint{
+			region:      "test",
+			series:      t.series,
+			arches:      t.arches,
+			constraints: cons,
+		})
+		c.Check(err, ErrorMatches, t.err)
 	}
-	path := filepath.Join(filepath.FromSlash(imagesRoot), filepath.FromSlash(s))
-	d, _ := filepath.Split(path)
-	if err := os.MkdirAll(d, 0777); err != nil {
-		return err
-	}
-	file, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-	_, err = io.Copy(file, r.Body)
-	if err != nil {
-		return fmt.Errorf("error copying image file: %v", err)
-	}
-	return nil
 }

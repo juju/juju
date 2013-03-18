@@ -17,13 +17,11 @@ type instanceType struct {
 	hvm      bool
 }
 
-// match returns true if itype can satisfy the supplied constraints and is
-// able to run on at least one of the supplied arches. If so, it returns a
-// copy of itype with its arches field filtered to contain only values that
-// are available and match the constraints.
-func (itype instanceType) match(cons state.Constraints, arches []string) (instanceType, bool) {
+// match returns true if itype can satisfy the supplied constraints. If so,
+// it also returns a copy of itype with any arches that do not match the
+// constraints filtered out.
+func (itype instanceType) match(cons state.Constraints) (instanceType, bool) {
 	nothing := instanceType{}
-	itype.arches = filterArches(itype.arches, arches)
 	if cons.Arch != nil {
 		itype.arches = filterArches(itype.arches, []string{*cons.Arch})
 	}
@@ -64,7 +62,7 @@ var defaultCpuPower uint64 = 100
 
 // getInstanceTypes returns all instance types matching cons and available
 // in region, sorted by increasing region-specific cost.
-func getInstanceTypes(region string, cons state.Constraints, arches []string) ([]instanceType, error) {
+func getInstanceTypes(region string, cons state.Constraints) ([]instanceType, error) {
 	if cons.CpuPower == nil {
 		cons.CpuPower = &defaultCpuPower
 	}
@@ -79,7 +77,7 @@ func getInstanceTypes(region string, cons state.Constraints, arches []string) ([
 		if !ok {
 			continue
 		}
-		itype, ok := itype.match(cons, arches)
+		itype, ok := itype.match(cons)
 		if !ok {
 			continue
 		}
@@ -87,7 +85,7 @@ func getInstanceTypes(region string, cons state.Constraints, arches []string) ([
 		itypes = append(itypes, itype)
 	}
 	if len(itypes) == 0 {
-		return nil, fmt.Errorf("no suitable instance types found in %s", region)
+		return nil, fmt.Errorf("no instance types in %s matching constraints %q", region, cons)
 	}
 	sort.Sort(byCost{itypes, costs})
 	return itypes, nil
