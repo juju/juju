@@ -562,8 +562,8 @@ func (e *environ) StartInstance(machineId string, info *state.Info, apiInfo *api
 	if apiInfo.EntityName != state.MachineEntityName(machineId) {
 		return nil, fmt.Errorf("entity name must match started machine")
 	}
-	if tools != nil && (strings.HasPrefix(tools.Series, "unknown") || strings.HasPrefix(tools.Arch, "unknown")) {
-		return nil, fmt.Errorf("cannot find image for %s-%s", tools.Series, tools.Arch)
+	if tools != nil && (strings.HasPrefix(tools.Series, "unknown")) {
+		return nil, fmt.Errorf("unknown series %q", tools.Series)
 	}
 	i := &instance{
 		state:     e.state,

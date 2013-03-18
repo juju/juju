@@ -754,8 +754,9 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	}
 	log.Printf("environs/openstack: starting machine %s in %q running tools version %q from %q",
 		scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
-	if strings.Contains(scfg.tools.Series, "unknown") || strings.Contains(scfg.tools.Arch, "unknown") {
-		return nil, fmt.Errorf("cannot find image for unknown series or architecture")
+	if strings.Contains(scfg.tools.Series, "unknown") {
+		// TODO(fwereade): this is somewhat crazy.
+		return nil, fmt.Errorf("cannot find image for %q", scfg.tools.Series)
 	}
 	spec, err := findInstanceSpec(e, &instanceConstraint{
 		series: scfg.tools.Series,
