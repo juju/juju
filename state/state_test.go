@@ -1428,6 +1428,9 @@ func (s *StateSuite) TestAuthenticator(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(e, FitsTypeOf, user)
 	c.Assert(e.EntityName(), Equals, user.EntityName())
+
+	_, err = getEntity("environment-" + envConfig["name"].(string))
+	c.Assert(err, ErrorMatches, `entity ".*" does not support authentication`)
 }
 
 func (s *StateSuite) TestAnnotator(c *C) {
@@ -1453,4 +1456,9 @@ func (s *StateSuite) TestAnnotator(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(e, FitsTypeOf, env)
 	c.Assert(e.EntityName(), Equals, env.EntityName())
+
+	user, err := s.State.AddUser("arble", "pass")
+	c.Assert(err, IsNil)
+	_, err = getEntity(user.EntityName())
+	c.Assert(err, ErrorMatches, `entity ".*" does not support annotations`)
 }
