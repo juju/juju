@@ -163,16 +163,25 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 		hasLastRefs := D{{"life", Alive}, {"unitcount", 0}, {"relationcount", removeCount}}
 		return append(ops, s.removeOps(hasLastRefs)...), nil
 	}
-	// If any units of the service exist, or if any known relation was not
-	// removed (because it had units in scope, or because it was Dying, which
-	// implies the same condition), service removal will be handled as a
-	// consequence of the removal of the last unit or relation referencing it.
+	// In all other cases, service removal will be handled as a consequence
+	// of the removal of the last unit or relation referencing it. If any
+	// relations have been removed, they'll be caught by the operations
+	// collected above; but if any has been added, we need to abort and add
+	// a destroy op for that relation too. In combination, it's enough to
+	// check for count equality: an add/remove will not touch the count, but
+	// will be caught by virtue of being a remove.
 	notLastRefs := D{
 		{"life", Alive},
-		{"$or", []D{
-			{{"unitcount", D{{"$gt", 0}}}},
-			{{"relationcount", s.doc.RelationCount}},
-		}},
+		{"relationcount", s.doc.RelationCount},
+	}
+	// With respect to unit count, a changing value doesn't matter, so long
+	// as the count's equality with zero does not change, because all we care
+	// about is that *some* unit is, or is not, keeping the service from
+	// being removed: the difference between 1 unit and 1000 is irrelevant.
+	if s.doc.UnitCount > 0 {
+		notLastRefs = append(notLastRefs, D{{"unitcount", D{{"$gt", 0}}}}...)
+	} else {
+		notLastRefs = append(notLastRefs, D{{"unitcount", 0}}...)
 	}
 	update := D{{"$set", D{{"life", Dying}}}}
 	if removeCount != 0 {
