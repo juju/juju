@@ -1084,12 +1084,15 @@ func (s *ServiceSuite) TestWatchService(c *C) {
 	}
 }
 
-func (s *ServiceSuite) TestWatchConfig(c *C) {
+func (s *ServiceSuite) TestWatchServiceConfig(c *C) {
 	config, err := s.mysql.Config()
 	c.Assert(err, IsNil)
 	c.Assert(config.Keys(), HasLen, 0)
 
-	configWatcher := s.mysql.WatchConfig()
+	u, err := s.mysql.AddUnit()
+	c.Assert(err, IsNil)
+
+	configWatcher := u.WatchServiceConfig()
 	defer func() {
 		c.Assert(configWatcher.Stop(), IsNil)
 	}()
