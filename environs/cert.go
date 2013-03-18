@@ -18,7 +18,12 @@ const (
 )
 
 func WriteCertAndKeyToHome(name string, cert, key []byte) error {
-	path := filepath.Join(os.Getenv("HOME"), ".juju", name)
+	// If the $HOME/.juju directory doesn't exist, create it.
+	jujuDir := filepath.Join(os.Getenv("HOME"), ".juju")
+	if err := os.MkdirAll(jujuDir, 0775); err != nil {
+		return err
+	}
+	path := filepath.Join(jujuDir, name)
 	if err := ioutil.WriteFile(path+"-cert.pem", cert, 0644); err != nil {
 		return err
 	}

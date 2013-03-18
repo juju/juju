@@ -14,7 +14,7 @@ type EnvironsCertSuite struct {
 var _ = Suite(&EnvironsCertSuite{})
 
 func (*EnvironsCertSuite) TestWriteCertAndKeyToHome(c *C) {
-	defer testing.MakeFakeHome(c, testing.PeckhamConfig).Restore()
+	defer testing.MakeEmptyFakeHome(c).Restore()
 
 	cert := []byte("a cert")
 	key := []byte("a key")
