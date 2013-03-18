@@ -1,13 +1,10 @@
 package state_test
 
 import (
-	"fmt"
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
-	"net/url"
 	stdtesting "testing"
 )
 

@@ -6,11 +6,12 @@ import (
 	"fmt"
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/charm"
-	"net/url"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
+	"net/url"
+	"sort"
 	"sync"
 	"time"
 )
@@ -902,27 +903,36 @@ func (s *allWatcherStateSuite) TestStateBackingGetAll(c *C) {
 	err := b.getAll(all)
 	c.Assert(err, IsNil)
 
-	assertAllInfoSortedContents(c, all, int64(len(expectEntities)), expectEntities)
-}
+	// Check that all the entities have been placed
+	// into the list; we can't use assertAllInfoContents
+	// here because we don't know the order that
+	// things were placed into the list.
+	var gotEntities entityInfoSlice
+	c.Check(all.latestRevno, Equals, int64(len(expectEntities)))
+	i := int64(0)
+	for e := all.list.Front(); e != nil; e = e.Next() {
+		entry := e.Value.(*entityEntry)
+		gotEntities = append(gotEntities, entry.info)
+		c.Check(entry.revno, Equals, all.latestRevno-i)
+		c.Check(entry.refCount, Equals, 0)
+		c.Check(entry.creationRevno, Equals, entry.revno)
+		c.Check(entry.removed, Equals, false)
+		i++
+		c.Assert(all.entities[b.entityIdForInfo(entry.info)], Equals, e)
+	}
+	c.Assert(len(all.entities), Equals, int(i))
 
-func assertAllInfoContents(c *C, a *allInfo, latestRevno int64, entries []entityEntry) {
-	var gotEntries []entityEntry
-	var gotElems []*list.Element
-	c.Check(a.list.Len(), Equals, len(entries))
-	for e := a.list.Back(); e != nil; e = e.Prev() {
-		gotEntries = append(gotEntries, *e.Value.(*entityEntry))
-		gotElems = append(gotElems, e)
+	sort.Sort(gotEntities)
+	sort.Sort(expectEntities)
+	c.Logf("got")
+	for _, e := range gotEntities {
+		c.Logf("\t%#v %#v", e.EntityKind(), e.EntityId())
 	}
-	if sortEntries {
-		sort.Sort(entityInfoSlice(entries))
-		sort.Sort(entityInfoSlice(gotEntries))
+	c.Logf("expected")
+	for _, e := range expectEntities {
+		c.Logf("\t%#v %#v", e.EntityKind(), e.EntityId())
 	}
-	c.Assert(gotEntries, DeepEquals, entries)
-	for i, ent := range entries {
-		c.Assert(a.entities[entityIdForInfo(ent.info)], Equals, gotElems[i])
-	}
-	c.Assert(a.entities, HasLen, len(entries))
-	c.Assert(a.latestRevno, Equals, latestRevno)
+	c.Assert(gotEntities, DeepEquals, expectEntities)
 }
 
 type entityInfoSlice []params.EntityInfo
@@ -938,6 +948,22 @@ func (s entityInfoSlice) Less(i, j int) bool {
 		return id < s[j].EntityId().(string)
 	}
 	panic("unknown id type")
+}
+
+func assertAllInfoContents(c *C, a *allInfo, latestRevno int64, entries []entityEntry) {
+	var gotEntries []entityEntry
+	var gotElems []*list.Element
+	c.Check(a.list.Len(), Equals, len(entries))
+	for e := a.list.Back(); e != nil; e = e.Prev() {
+		gotEntries = append(gotEntries, *e.Value.(*entityEntry))
+		gotElems = append(gotElems, e)
+	}
+	c.Assert(gotEntries, DeepEquals, entries)
+	for i, ent := range entries {
+		c.Assert(a.entities[entityIdForInfo(ent.info)], Equals, gotElems[i])
+	}
+	c.Assert(a.entities, HasLen, len(entries))
+	c.Assert(a.latestRevno, Equals, latestRevno)
 }
 
 func checkNext(c *C, w *xStateWatcher, deltas []params.Delta, expectErr string) {
