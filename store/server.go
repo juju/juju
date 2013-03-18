@@ -171,6 +171,19 @@ func (s *Server) serveStats(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(fmt.Sprintf("Invalid 'by' value: %q", v)))
 		return
 	}
+	var sep string
+	var padding bool
+	switch v := r.Form.Get("format"); v {
+	case "", "text":
+		sep = "  "
+		padding = true
+	case "csv":
+		sep = ","
+	default:
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("Invalid 'format' value: %q", v)))
+		return
+	}
 	req := CounterRequest{
 		Key:  strings.Split(base, ":"),
 		List: r.Form.Get("list") == "1",
@@ -221,7 +234,7 @@ func (s *Server) serveStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Then join all keys and counts in a single formatted buffer.
-	spaces := make([]byte, maxKeyLength+2)
+	spaces := make([]byte, maxKeyLength)
 	for i := range spaces {
 		spaces[i] = ' '
 	}
@@ -230,10 +243,14 @@ func (s *Server) serveStats(w http.ResponseWriter, r *http.Request) {
 		item := &result[i]
 		if req.List {
 			buf = append(buf, item.key...)
-			buf = append(buf, spaces[len(item.key):]...)
+			if padding {
+				buf = append(buf, spaces[len(item.key):]...)
+			}
+			buf = append(buf, sep...)
 		}
 		if req.By != ByAll {
-			buf = append(buf, item.time.Format("2006-01-02  ")...)
+			buf = append(buf, item.time.Format("2006-01-02")...)
+			buf = append(buf, sep...)
 		}
 		buf = strconv.AppendInt(buf, item.count, 10)
 		if newline {
