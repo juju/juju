@@ -275,24 +275,47 @@ func (st *State) Machine(id string) (*Machine, error) {
 	return newMachine(st, mdoc), nil
 }
 
-// Entity represents an entity capabable of handling password authentication
-// and annotations.
-type Entity interface {
-	EntityName() string
+// Authenticator represents entites capable of handling password 
+// authentication.
+type Authenticator interface {
+	Refresh() error
 	SetPassword(pass string) error
 	PasswordValid(pass string) bool
-	Refresh() error
-	SetAnnotation(key, value string) error
-	Annotations() (map[string]string, error)
 }
 
-// Entity returns the entity for the given name.
-func (st *State) Entity(entityName string) (Entity, error) {
-	if entityName == "environment" {
-		// The environment is an entity capable of storing annotations,
-		// and the only entity whose name does not contain a "-".
-		return st.Environment(), nil
+// Annotator represents entities capable of handling annotations.
+type Annotator interface {
+	Annotations() (map[string]string, error)
+	SetAnnotation(key, value string) error
+	//SetAnnotations(map[string]string) error
+}
+
+// Authenticator attempts to return an Authenticator with the given name.
+func (st *State) Authenticator(name string) (Authenticator, error) {
+	e, err := st.entity(name)
+	if err != nil {
+		return nil, err
 	}
+	if e, ok := e.(Authenticator); ok {
+		return e, nil
+	}
+	return nil, fmt.Errorf("entity %q does not support authentication", name)
+}
+
+// Annotator attempts to return an Annotator with the given name.
+func (st *State) Annotator(name string) (Annotator, error) {
+	e, err := st.entity(name)
+	if err != nil {
+		return nil, err
+	}
+	if e, ok := e.(Annotator); ok {
+		return e, nil
+	}
+	return nil, fmt.Errorf("entity %q does not support annotations", name)
+}
+
+// entity returns the entity for the given name.
+func (st *State) entity(entityName string) (interface{}, error) {
 	i := strings.Index(entityName, "-")
 	if i <= 0 || i >= len(entityName)-1 {
 		return nil, fmt.Errorf("invalid entity name %q", entityName)
@@ -321,6 +344,22 @@ func (st *State) Entity(entityName string) (Entity, error) {
 			return nil, fmt.Errorf("invalid entity name %q", entityName)
 		}
 		return st.Service(id)
+	case "environment":
+		conf, err := st.EnvironConfig()
+		// Invalid entity if environment is not found.
+		if err.Error() == "settings not found" {
+			return nil, fmt.Errorf("invalid entity name %q", entityName)
+		}
+		// Return other errors.
+		if err != nil {
+			return nil, err
+		}
+		fmt.Println(conf.Name())
+		// Invalid entity if not current environment.
+		if id != conf.Name() {
+			return nil, fmt.Errorf("invalid entity name %q", entityName)
+		}
+		return st.Environment()
 	}
 	return nil, fmt.Errorf("invalid entity name %q", entityName)
 }

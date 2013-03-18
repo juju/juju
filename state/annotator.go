@@ -12,7 +12,8 @@ import (
 // due to the fact that it is not accessed directly, but through
 // Annotations/Annotation below.
 type annotatorDoc struct {
-	EntityName  string `bson:"_id"`
+	GlobalKey   string
+	EntityName  string
 	Annotations map[string]string
 }
 
@@ -20,6 +21,7 @@ type annotatorDoc struct {
 type annotator struct {
 	st         *State
 	entityName string
+	globalKey  string
 }
 
 // SetAnnotation adds a key/value pair to annotations in MongoDB.

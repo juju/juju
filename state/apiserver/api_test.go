@@ -343,7 +343,7 @@ func opClientGetAnnotations(c *C, st *api.State, mst *state.State) (func(), erro
 		return func() {}, err
 	}
 	c.Assert(err, IsNil)
-	c.Assert(ann, DeepEquals, make(map[string]string))
+	c.Assert(ann, IsNil)
 	return func() {}, nil
 }
 
@@ -418,6 +418,10 @@ var scenarioStatus = &api.Status{
 	},
 }
 
+type entityNamer interface {
+	EntityName() string
+}
+
 // setUpScenario makes an environment scenario suitable for
 // testing most kinds of access scenario. It returns
 // a list of all the entities in the scenario.
@@ -454,7 +458,7 @@ var scenarioStatus = &api.Status{
 // environment manager (bootstrap machine), so is
 // hopefully easier to remember as such.
 func (s *suite) setUpScenario(c *C) (entities []string) {
-	add := func(e state.Entity) {
+	add := func(e entityNamer) {
 		entities = append(entities, e.EntityName())
 	}
 	u, err := s.State.User("admin")
@@ -679,6 +683,7 @@ func (s *suite) TestClientEnvironmentInfo(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(info.DefaultSeries, Equals, conf.DefaultSeries())
 	c.Assert(info.ProviderType, Equals, conf.Type())
+	c.Assert(info.Name, Equals, conf.Name())
 }
 
 var clientAnnotationsTests = []struct {
@@ -711,6 +716,11 @@ var clientAnnotationsTests = []struct {
 	},
 }
 
+type namedAnnotator interface {
+	state.Annotator
+	entityNamer
+}
+
 func (s *suite) TestClientAnnotations(c *C) {
 	// Set up entities.
 	service, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
@@ -719,8 +729,9 @@ func (s *suite) TestClientAnnotations(c *C) {
 	c.Assert(err, IsNil)
 	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	environment := s.State.Environment()
-	entities := []state.Entity{service, unit, machine, environment}
+	environment, err := s.State.Environment()
+	c.Assert(err, IsNil)
+	entities := []namedAnnotator{service, unit, machine, environment}
 	for i, t := range clientAnnotationsTests {
 	loop:
 		for _, entity := range entities {

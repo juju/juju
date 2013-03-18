@@ -54,18 +54,6 @@ func (s *Service) EntityName() string {
 	return "service-" + s.Name()
 }
 
-// PasswordValid currently just returns false. Implemented here so that
-// a service can be used as an Entity.
-func (s *Service) PasswordValid(password string) bool {
-	return false
-}
-
-// SetPassword currently just returns an error. Implemented here so that
-// a service can be used as an Entity.
-func (s *Service) SetPassword(password string) error {
-	return fmt.Errorf("cannot set password of service")
-}
-
 // globalKey returns the global database key for the service.
 func (s *Service) globalKey() string {
 	return "s#" + s.doc.Name
