@@ -1,6 +1,7 @@
 package state
 
 import (
+	"fmt"
 	"labix.org/v2/mgo"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state/watcher"
@@ -1012,9 +1013,12 @@ type ConfigWatcher struct {
 
 // WatchServiceConfig returns a watcher for observing changes to
 // unit's service configuration.
-func (u *Unit) WatchServiceConfig() *ConfigWatcher {
-	// TODO(dimitern): Will use a better way to get the key in a follow-up.
-	return &ConfigWatcher{newSettingsWatcher(u.st, "s#"+u.doc.Service)}
+func (u *Unit) WatchServiceConfig() (*ConfigWatcher, error) {
+	svc, err := u.Service()
+	if err != nil {
+		return nil, fmt.Errorf("unknown service of unit %q: %v", u, err)
+	}
+	return &ConfigWatcher{newSettingsWatcher(u.st, svc.settingsKey())}, nil
 }
 
 // EntityWatcher observes changes to a state entity.
