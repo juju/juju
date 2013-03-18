@@ -437,6 +437,7 @@ var steadyUpgradeTests = []uniterTest{
 		upgradeCharm{revision: 1},
 		waitUnit{
 			status: state.UnitStarted,
+			charm:  1,
 		},
 		waitHooks{"upgrade-charm", "config-changed"},
 		verifyCharm{revision: 1},
@@ -631,6 +632,7 @@ var upgradeConflictsTests = []uniterTest{
 		waitUnit{
 			status: state.UnitError,
 			info:   "upgrade failed",
+			charm:  1,
 		},
 		verifyWaiting{},
 		verifyCharm{dirty: true},
@@ -1325,6 +1327,7 @@ func (s startUpgradeError) step(c *C, ctx *context) {
 		waitUnit{
 			status: state.UnitError,
 			info:   "upgrade failed",
+			charm:  1,
 		},
 		verifyWaiting{},
 		verifyCharm{dirty: true},
