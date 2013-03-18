@@ -605,6 +605,7 @@ func (*allWatcherSuite) TestRespondResults(c *C) {
 				// Actually respond; then check that each watcher with
 				// an outstanding request now has an up to date view
 				// of the world.
+				aw.respond()
 				for wi, req := range reqs {
 					if req == nil {
 						continue
