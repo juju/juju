@@ -20,6 +20,35 @@ import (
 	"strings"
 )
 
+type ProviderSuite struct{}
+
+var _ = Suite(&ProviderSuite{})
+
+func (s *ProviderSuite) TestMetadata(c *C) {
+	metadataContent := []jujutest.FileContent{
+		{"/2011-01-01/meta-data/instance-id", "dummy.instance.id"},
+		{"/2011-01-01/meta-data/public-hostname", "public.dummy.address.invalid"},
+		{"/2011-01-01/meta-data/local-hostname", "private.dummy.address.invalid"},
+	}
+	ec2.UseTestMetadata(metadataContent)
+	defer ec2.UseTestMetadata(nil)
+
+	p, err := environs.Provider("ec2")
+	c.Assert(err, IsNil)
+
+	addr, err := p.PublicAddress()
+	c.Assert(err, IsNil)
+	c.Assert(addr, Equals, "public.dummy.address.invalid")
+
+	addr, err = p.PrivateAddress()
+	c.Assert(err, IsNil)
+	c.Assert(addr, Equals, "private.dummy.address.invalid")
+
+	id, err := p.InstanceId()
+	c.Assert(err, IsNil)
+	c.Assert(id, Equals, state.InstanceId("dummy.instance.id"))
+}
+
 func registerLocalTests() {
 	// N.B. Make sure the region we use here
 	// has entries in the images/query txt files.
@@ -76,7 +105,7 @@ type localLiveSuite struct {
 
 func (t *localLiveSuite) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
-	ec2.UseTestImageData(true)
+	ec2.UseTestImageData(ec2.TestImagesContent)
 	t.srv.startServer(c)
 	t.LiveTests.SetUpSuite(c)
 	t.env = t.LiveTests.Env
@@ -88,7 +117,7 @@ func (t *localLiveSuite) TearDownSuite(c *C) {
 	t.srv.stopServer(c)
 	t.env = nil
 	ec2.ShortTimeouts(false)
-	ec2.UseTestImageData(false)
+	ec2.UseTestImageData(nil)
 	t.LoggingSuite.TearDownSuite(c)
 }
 
@@ -179,8 +208,7 @@ type localServerSuite struct {
 
 func (t *localServerSuite) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
-	ec2.UseTestImageData(true)
-	ec2.UseTestMetadata(true)
+	ec2.UseTestImageData(ec2.TestImagesContent)
 	t.Tests.SetUpSuite(c)
 	ec2.ShortTimeouts(true)
 }
@@ -188,8 +216,7 @@ func (t *localServerSuite) SetUpSuite(c *C) {
 func (t *localServerSuite) TearDownSuite(c *C) {
 	t.Tests.TearDownSuite(c)
 	ec2.ShortTimeouts(false)
-	ec2.UseTestMetadata(false)
-	ec2.UseTestImageData(false)
+	ec2.UseTestImageData(nil)
 	t.LoggingSuite.TearDownSuite(c)
 }
 
@@ -269,14 +296,6 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	// TODO check for provisioning agent
 	// TODO check for machine agent
 
-	p := t.env.Provider()
-	addr, err := p.PublicAddress()
-	c.Assert(err, IsNil)
-	c.Assert(addr, Equals, "public.dummy.address.example.com")
-	addr, err = p.PrivateAddress()
-	c.Assert(err, IsNil)
-	c.Assert(addr, Equals, "private.dummy.address.example.com")
-
 	err = t.env.Destroy(append(insts, inst1))
 	c.Assert(err, IsNil)
 
@@ -351,16 +370,14 @@ type localNonUSEastSuite struct {
 
 func (t *localNonUSEastSuite) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
-	ec2.UseTestImageData(true)
-	ec2.UseTestMetadata(true)
+	ec2.UseTestImageData(ec2.TestImagesContent)
 	t.tests.SetUpSuite(c)
 	ec2.ShortTimeouts(true)
 }
 
 func (t *localNonUSEastSuite) TearDownSuite(c *C) {
 	ec2.ShortTimeouts(false)
-	ec2.UseTestMetadata(false)
-	ec2.UseTestImageData(false)
+	ec2.UseTestImageData(nil)
 	t.LoggingSuite.TearDownSuite(c)
 }
 

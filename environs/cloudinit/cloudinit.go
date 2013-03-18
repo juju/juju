@@ -37,13 +37,6 @@ type MachineConfig struct {
 	// if StateServer is true.
 	APIPort int
 
-	// InstanceIdAccessor holds bash code that evaluates to the current instance id.
-	InstanceIdAccessor string
-
-	// ProviderType identifies the provider type so the host
-	// knows which kind of provider to use.
-	ProviderType string
-
 	// StateInfo holds the means for the new instance to communicate with the
 	// juju state. Unless the new machine is running a state server (StateServer is
 	// set), there must be at least one state server address supplied.
@@ -146,7 +139,6 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 		addScripts(c,
 			cfg.jujuTools()+"/jujud bootstrap-state"+
 				" --data-dir "+shquote(cfg.DataDir)+
-				" --instance-id "+cfg.InstanceIdAccessor+
 				" --env-config "+shquote(base64yaml(cfg.Config))+
 				debugFlag,
 			"rm -rf "+shquote(acfg.Dir()),
@@ -334,9 +326,6 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 	if !state.IsMachineId(cfg.MachineId) {
 		return fmt.Errorf("invalid machine id")
 	}
-	if cfg.ProviderType == "" {
-		return fmt.Errorf("missing provider type")
-	}
 	if cfg.DataDir == "" {
 		return fmt.Errorf("missing var directory")
 	}
@@ -359,9 +348,6 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		return fmt.Errorf("missing API CA certificate")
 	}
 	if cfg.StateServer {
-		if cfg.InstanceIdAccessor == "" {
-			return fmt.Errorf("missing instance id accessor")
-		}
 		if cfg.Config == nil {
 			return fmt.Errorf("missing environment configuration")
 		}

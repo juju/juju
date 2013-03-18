@@ -165,9 +165,9 @@ func (u *Uniter) writeState(op Op, step OpStep, hi *hook.Info, url *corecharm.UR
 	return nil
 }
 
-// deploy deploys the supplied charm, and sets follow-up hook operation state
+// deploy deploys the supplied charm URL, and sets follow-up hook operation state
 // as indicated by reason.
-func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
+func (u *Uniter) deploy(curl *corecharm.URL, reason Op) error {
 	if reason != Install && reason != Upgrade {
 		panic(fmt.Errorf("%q is not a deploy operation", reason))
 	}
@@ -180,31 +180,40 @@ func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
 		// started upgrading, to ensure we still return to the correct state.
 		hi = u.s.Hook
 	}
-	url := sch.URL()
 	if u.s == nil || u.s.OpStep != Done {
-		log.Printf("worker/uniter: fetching charm %q", url)
+		// Set the new charm URL - this returns once it's done and stored.
+		if err := u.f.SetCharm(curl); err != nil {
+			return err
+		}
+		// Refresh to get the new URL.
+		if err := u.unit.Refresh(); err != nil {
+			return err
+		}
+
+		log.Printf("worker/uniter: fetching charm %q", curl)
+		sch, err := u.st.Charm(curl)
+		if err != nil {
+			return err
+		}
 		bun, err := u.bundles.Read(sch, u.tomb.Dying())
 		if err != nil {
 			return err
 		}
-		if err = u.deployer.Stage(bun, url); err != nil {
+		if err = u.deployer.Stage(bun, curl); err != nil {
 			return err
 		}
-		log.Printf("worker/uniter: deploying charm %q", url)
-		if err = u.writeState(reason, Pending, hi, url); err != nil {
+		log.Printf("worker/uniter: deploying charm %q", curl)
+		if err = u.writeState(reason, Pending, hi, curl); err != nil {
 			return err
 		}
 		if err = u.deployer.Deploy(u.charm); err != nil {
 			return err
 		}
-		if err = u.writeState(reason, Done, hi, url); err != nil {
+		if err = u.writeState(reason, Done, hi, curl); err != nil {
 			return err
 		}
 	}
-	log.Printf("worker/uniter: charm %q is deployed", url)
-	if err := u.unit.SetCharm(sch); err != nil {
-		return err
-	}
+	log.Printf("worker/uniter: charm %q is deployed", curl)
 	status := Queued
 	if hi != nil {
 		// If a hook operation was interrupted, restore it.
@@ -242,17 +251,11 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 		}
 	}
 	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
-	hctx := &HookContext{
-		service:        u.service,
-		unit:           u.unit,
-		id:             hctxId,
-		relationId:     relationId,
-		remoteUnitName: hi.RemoteUnit,
-		relations:      map[int]*ContextRelation{},
-	}
+	ctxRelations := map[int]*ContextRelation{}
 	for id, r := range u.relationers {
-		hctx.relations[id] = r.Context()
+		ctxRelations[id] = r.Context()
 	}
+	hctx := NewHookContext(u.unit, hctxId, relationId, hi.RemoteUnit, ctxRelations)
 
 	// Prepare server.
 	getCmd := func(ctxId, cmdName string) (cmd.Command, error) {

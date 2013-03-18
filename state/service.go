@@ -16,6 +16,7 @@ import (
 type Service struct {
 	st  *State
 	doc serviceDoc
+	annotator
 }
 
 // serviceDoc represents the internal state of a service in MongoDB.
@@ -29,15 +30,50 @@ type serviceDoc struct {
 	RelationCount int
 	Exposed       bool
 	TxnRevno      int64 `bson:"txn-revno"`
+	Annotations   map[string]string
 }
 
 func newService(st *State, doc *serviceDoc) *Service {
-	return &Service{st: st, doc: *doc}
+	svc := &Service{
+		st:  st,
+		doc: *doc,
+		annotator: annotator{
+			st:   st,
+			coll: st.services.Name,
+			id:   doc.Name,
+		},
+	}
+	svc.annotator.annotations = &svc.doc.Annotations
+	return svc
 }
 
 // Name returns the service name.
 func (s *Service) Name() string {
 	return s.doc.Name
+}
+
+// EntityName returns a name identifying the service that is safe to use
+// as a file name.  The returned name will be different from other
+// EntityName values returned by any other entities from the same state.
+func (s *Service) EntityName() string {
+	return "service-" + s.Name()
+}
+
+// PasswordValid currently just returns false. Implemented here so that
+// a service can be used as an Entity.
+func (s *Service) PasswordValid(password string) bool {
+	return false
+}
+
+// SetPassword currently just returns an error. Implemented here so that
+// a service can be used as an Entity.
+func (s *Service) SetPassword(password string) error {
+	return fmt.Errorf("cannot set password of service")
+}
+
+// Annotations returns the service annotations.
+func (s *Service) Annotations() map[string]string {
+	return s.doc.Annotations
 }
 
 // globalKey returns the global database key for the service.
@@ -58,12 +94,12 @@ var errRefresh = errors.New("cannot determine relation destruction operations; p
 func (s *Service) Destroy() (err error) {
 	defer trivial.ErrorContextf(&err, "cannot destroy service %q", s)
 	defer func() {
-		if err != nil {
+		if err == nil {
 			// This is a white lie; the document might actually be removed.
 			s.doc.Life = Dying
 		}
 	}()
-	svc := &Service{s.st, s.doc}
+	svc := &Service{st: s.st, doc: s.doc}
 	for i := 0; i < 5; i++ {
 		ops, err := svc.destroyOps()
 		switch {
@@ -127,16 +163,25 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 		hasLastRefs := D{{"life", Alive}, {"unitcount", 0}, {"relationcount", removeCount}}
 		return append(ops, s.removeOps(hasLastRefs)...), nil
 	}
-	// If any units of the service exist, or if any known relation was not
-	// removed (because it had units in scope, or because it was Dying, which
-	// implies the same condition), service removal will be handled as a
-	// consequence of the removal of the last unit or relation referencing it.
+	// In all other cases, service removal will be handled as a consequence
+	// of the removal of the last unit or relation referencing it. If any
+	// relations have been removed, they'll be caught by the operations
+	// collected above; but if any has been added, we need to abort and add
+	// a destroy op for that relation too. In combination, it's enough to
+	// check for count equality: an add/remove will not touch the count, but
+	// will be caught by virtue of being a remove.
 	notLastRefs := D{
 		{"life", Alive},
-		{"$or", []D{
-			{{"unitcount", D{{"$gt", 0}}}},
-			{{"relationcount", s.doc.RelationCount}},
-		}},
+		{"relationcount", s.doc.RelationCount},
+	}
+	// With respect to unit count, a changing value doesn't matter, so long
+	// as the count's equality with zero does not change, because all we care
+	// about is that *some* unit is, or is not, keeping the service from
+	// being removed: the difference between 1 unit and 1000 is irrelevant.
+	if s.doc.UnitCount > 0 {
+		notLastRefs = append(notLastRefs, D{{"unitcount", D{{"$gt", 0}}}}...)
+	} else {
+		notLastRefs = append(notLastRefs, D{{"unitcount", 0}}...)
 	}
 	update := D{{"$set", D{{"life", Dying}}}}
 	if removeCount != 0 {
@@ -335,6 +380,7 @@ func (s *Service) addUnitOps(principalName string) (string, []txn.Op, error) {
 	udoc := &unitDoc{
 		Name:      name,
 		Service:   s.doc.Name,
+		Series:    ch.URL().Series,
 		Life:      Alive,
 		Status:    UnitPending,
 		Principal: principalName,

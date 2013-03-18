@@ -6,11 +6,13 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/statecmd"
 )
 
 // ResolvedCommand marks a unit in an error state as ready to continue.
 type ResolvedCommand struct {
-	EnvName  string
+	EnvCommandBase
 	UnitName string
 	Retry    bool
 }
@@ -24,7 +26,7 @@ func (c *ResolvedCommand) Info() *cmd.Info {
 }
 
 func (c *ResolvedCommand) SetFlags(f *gnuflag.FlagSet) {
-	addEnvironFlags(&c.EnvName, f)
+	c.EnvCommandBase.SetFlags(f)
 	f.BoolVar(&c.Retry, "r", false, "re-execute failed hooks")
 	f.BoolVar(&c.Retry, "retry", false, "")
 }
@@ -48,9 +50,9 @@ func (c *ResolvedCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer conn.Close()
-	unit, err := conn.State.Unit(c.UnitName)
-	if err != nil {
-		return err
+	params := params.Resolved{
+		UnitName: c.UnitName,
+		Retry:    c.Retry,
 	}
-	return conn.Resolved(unit, c.Retry)
+	return statecmd.Resolved(conn.State, params)
 }

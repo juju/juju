@@ -57,9 +57,11 @@ func (t *Tools) SetBSON(raw bson.Raw) error {
 	return nil
 }
 
+const serviceSnippet = "[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*"
+
 var (
-	validService = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*$")
-	validUnit    = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*/[0-9]+$")
+	validService = regexp.MustCompile("^" + serviceSnippet + "$")
+	validUnit    = regexp.MustCompile("^" + serviceSnippet + "(-[a-z0-9]*[a-z][a-z0-9]*)*/[0-9]+$")
 	validMachine = regexp.MustCompile("^0$|^[1-9][0-9]*$")
 )
 
@@ -119,6 +121,10 @@ type State struct {
 	runner         *txn.Runner
 	watcher        *watcher.Watcher
 	pwatcher       *presence.Watcher
+}
+
+func (st *State) Watch() *StateWatcher {
+	return newStateWatcher(st)
 }
 
 func (st *State) EnvironConfig() (*config.Config, error) {
@@ -270,17 +276,19 @@ func (st *State) Machine(id string) (*Machine, error) {
 	return newMachine(st, mdoc), nil
 }
 
-// AuthEntity represents an entity that has
-// a password that can be authenticated against.
-type AuthEntity interface {
+// Entity represents an entity capabable of handling password authentication
+// and annotations.
+type Entity interface {
 	EntityName() string
 	SetPassword(pass string) error
 	PasswordValid(pass string) bool
 	Refresh() error
+	SetAnnotation(key, value string) error
+	Annotations() map[string]string
 }
 
-// AuthEntity returns the entity for the given name.
-func (st *State) AuthEntity(entityName string) (AuthEntity, error) {
+// Entity returns the entity for the given name.
+func (st *State) Entity(entityName string) (Entity, error) {
 	i := strings.Index(entityName, "-")
 	if i <= 0 || i >= len(entityName)-1 {
 		return nil, fmt.Errorf("invalid entity name %q", entityName)
@@ -304,6 +312,11 @@ func (st *State) AuthEntity(entityName string) (AuthEntity, error) {
 		return st.Unit(name)
 	case "user":
 		return st.User(id)
+	case "service":
+		if !IsServiceName(id) {
+			return nil, fmt.Errorf("invalid entity name %q", entityName)
+		}
+		return st.Service(id)
 	}
 	return nil, fmt.Errorf("invalid entity name %q", entityName)
 }
@@ -347,6 +360,9 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	// Sanity checks.
 	if !IsServiceName(name) {
 		return nil, fmt.Errorf("invalid name")
+	}
+	if ch == nil {
+		return nil, fmt.Errorf("charm is nil")
 	}
 	if exists, err := isNotDead(st.services, name); err != nil {
 		return nil, err
@@ -707,9 +723,7 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 			return err
 		}
 		for {
-			// TODO(fwereade) totally remove this filthy and incorrect hack.
-			// Maybe u.AssignToNewMachine()? (should probably be internal...)
-			m, err := st.AddMachine(version.Current.Series, JobHostUnits)
+			m, err := st.AddMachine(u.doc.Series, JobHostUnits)
 			if err != nil {
 				return err
 			}

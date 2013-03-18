@@ -88,8 +88,20 @@ func Open(info *Info) (*State, error) {
 	return st, nil
 }
 
+func (s *State) call(objType, id, request string, params, response interface{}) error {
+	err := s.client.Call(objType, id, request, params, response)
+	return clientError(err)
+}
+
 func (s *State) Close() error {
 	return s.client.Close()
+}
+
+// RPCClient returns the RPC client for the state, so that testing
+// functions can tickle parts of the API that the conventional entry
+// points don't reach. This is exported for testing purposes only.
+func (s *State) RPCClient() *rpc.Client {
+	return s.client
 }
 
 type clientReq struct {

@@ -3,7 +3,6 @@ package main
 import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -188,7 +187,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *C) {
 			c.Check(err, ErrorMatches, test.expectInitErr)
 			continue
 		}
-		err = com.Run(&cmd.Context{c.MkDir(), nil, ioutil.Discard, ioutil.Discard})
+		err = com.Run(coretesting.Context(c))
 		if test.expectErr != "" {
 			c.Check(err, ErrorMatches, test.expectErr)
 			continue
@@ -230,7 +229,7 @@ func (s *UpgradeJujuSuite) Reset(c *C) {
 
 func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealPutTools(c *C) {
 	s.Reset(c)
-	err := coretesting.RunCommand(c, &UpgradeJujuCommand{}, []string{"--upload-tools", "--dev"})
+	_, err := coretesting.RunCommand(c, &UpgradeJujuCommand{}, []string{"--upload-tools", "--dev"})
 	c.Assert(err, IsNil)
 	p := environs.ToolsStoragePath(version.Current)
 	r, err := s.Conn.Environ.Storage().Get(p)

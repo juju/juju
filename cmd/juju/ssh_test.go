@@ -9,7 +9,6 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/version"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -107,7 +106,7 @@ func (s *SSHSuite) TestSSHCommand(c *C) {
 
 	for _, t := range sshTests {
 		c.Logf("testing juju ssh %s", t.args)
-		ctx := &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}}
+		ctx := coretesting.Context(c)
 		code := cmd.Main(&SSHCommand{}, ctx, t.args)
 		c.Check(code, Equals, 0)
 		c.Check(ctx.Stderr.(*bytes.Buffer).String(), Equals, "")
@@ -118,7 +117,7 @@ func (s *SSHSuite) TestSSHCommand(c *C) {
 func (s *SSHCommonSuite) makeMachines(n int, c *C) []*state.Machine {
 	var machines = make([]*state.Machine, n)
 	for i := 0; i < n; i++ {
-		m, err := s.State.AddMachine(version.Current.Series, state.JobHostUnits)
+		m, err := s.State.AddMachine("series", state.JobHostUnits)
 		c.Assert(err, IsNil)
 		// must set an instance id as the ssh command uses that as a signal the machine
 		// has been provisioned

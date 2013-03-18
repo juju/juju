@@ -3,13 +3,16 @@ package juju
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/trivial"
 	"net/url"
 	"os"
@@ -43,7 +46,7 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 	}
 	info.Password = password
 	st, err := state.Open(info)
-	if err == state.ErrUnauthorized {
+	if state.IsUnauthorizedError(err) {
 		// We can't connect with the administrator password,;
 		// perhaps this was the first connection and the
 		// password has not been changed yet.
@@ -54,7 +57,7 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 		// initialized and the initial password set.
 		for a := redialStrategy.Start(); a.Next(); {
 			st, err = state.Open(info)
-			if err != state.ErrUnauthorized {
+			if !state.IsUnauthorizedError(err) {
 				break
 			}
 		}
@@ -76,6 +79,25 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 		return nil, fmt.Errorf("unable to push secrets: %v", err)
 	}
 	return conn, nil
+}
+
+// NewConnFromState returns a Conn that uses an Environ
+// made by reading the environment configuration.
+// The resulting Conn uses the given State - closing
+// it will close that State.
+func NewConnFromState(st *state.State) (*Conn, error) {
+	cfg, err := st.EnvironConfig()
+	if err != nil {
+		return nil, err
+	}
+	environ, err := environs.New(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &Conn{
+		Environ: environ,
+		State:   st,
+	}, nil
 }
 
 // NewConnFromName returns a Conn pointing at the environName environment, or the
@@ -153,6 +175,54 @@ func (conn *Conn) PutCharm(curl *charm.URL, repo charm.Repository, bumpRevision 
 		return sch, nil
 	}
 	return conn.addCharm(curl, ch)
+}
+
+// DeployServiceParams contains the arguments required to deploy the referenced
+// charm.
+type DeployServiceParams struct {
+	Charm       *state.Charm
+	ServiceName string
+	NumUnits    int
+	// Config is used only by the API.
+	Config map[string]string
+	// ConfigYAML takes precedence over Config if both are provided.
+	ConfigYAML string
+}
+
+// DeployService takes a charm and various parameters and deploys it.
+func (conn *Conn) DeployService(args DeployServiceParams) (*state.Service, error) {
+
+	svc, err := conn.State.AddService(args.ServiceName, args.Charm)
+	if err != nil {
+		return nil, err
+	}
+
+	if args.ConfigYAML != "" {
+		ssArgs := params.ServiceSetYAML{
+			ServiceName: args.ServiceName,
+			Config:      args.ConfigYAML,
+		}
+		if err := ServiceSetYAML(conn.State, ssArgs); err != nil {
+			return nil, err
+		}
+	} else if args.Config != nil {
+		ssArgs := params.ServiceSet{
+			ServiceName: args.ServiceName,
+			Options:     args.Config,
+		}
+		if err := ServiceSet(conn.State, ssArgs); err != nil {
+			return nil, err
+		}
+	}
+
+	if args.Charm.Meta().Subordinate {
+		return svc, nil
+	}
+	_, err = conn.AddUnits(svc, args.NumUnits)
+	if err != nil {
+		return nil, err
+	}
+	return svc, nil
 }
 
 func (conn *Conn) addCharm(curl *charm.URL, ch charm.Charm) (*state.Charm, error) {
@@ -306,4 +376,81 @@ func (conn *Conn) Resolved(unit *state.Unit, retryHooks bool) error {
 		mode = state.ResolvedRetryHooks
 	}
 	return unit.SetResolved(mode)
+}
+
+// ServiceSet changes a service's configuration values.
+// Values set to the empty string will be deleted.
+func ServiceSet(st *state.State, p params.ServiceSet) error {
+	return serviceSet(st, p.ServiceName, p.Options)
+}
+
+// ServiceSetYAML is like ServiceSet except that the
+// configuration data is specified in YAML format.
+func ServiceSetYAML(st *state.State, p params.ServiceSetYAML) error {
+	// TODO(rog) should this function interpret null as delete?
+	// If so, we need to sort out some goyaml issues first.
+	// (see https://bugs.launchpad.net/goyaml/+bug/1133337)
+	var options map[string]string
+	if err := goyaml.Unmarshal([]byte(p.Config), &options); err != nil {
+		return err
+	}
+	return serviceSet(st, p.ServiceName, options)
+}
+
+func serviceSet(st *state.State, svcName string, options map[string]string) error {
+	if len(options) == 0 {
+		return errors.New("no options to set")
+	}
+	unvalidated := make(map[string]string)
+	var remove []string
+	for k, v := range options {
+		if v == "" {
+			remove = append(remove, k)
+		} else {
+			unvalidated[k] = v
+		}
+	}
+	srv, err := st.Service(svcName)
+	if err != nil {
+		return err
+	}
+	charm, _, err := srv.Charm()
+	if err != nil {
+		return err
+	}
+	// 1. Validate will convert this partial configuration
+	// into a full configuration by inserting charm defaults
+	// for missing values.
+	validated, err := charm.Config().Validate(unvalidated)
+	if err != nil {
+		return err
+	}
+	// 2. strip out the additional default keys added in the previous step.
+	validated = strip(validated, unvalidated)
+	cfg, err := srv.Config()
+	if err != nil {
+		return err
+	}
+	// 3. Update any keys that remain after validation and filtering.
+	if len(validated) > 0 {
+		cfg.Update(validated)
+	}
+	// 4. Delete any removed keys.
+	if len(remove) > 0 {
+		for _, k := range remove {
+			cfg.Delete(k)
+		}
+	}
+	_, err = cfg.Write()
+	return err
+}
+
+// strip removes from validated, any keys which are not also present in unvalidated.
+func strip(validated map[string]interface{}, unvalidated map[string]string) map[string]interface{} {
+	for k := range validated {
+		if _, ok := unvalidated[k]; !ok {
+			delete(validated, k)
+		}
+	}
+	return validated
 }

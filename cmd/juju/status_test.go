@@ -41,7 +41,7 @@ var statusTests = []struct {
 	{
 		"simulate juju bootstrap by adding machine/0 to the state",
 		func(st *state.State, _ *juju.Conn, c *C) {
-			m, err := st.AddMachine(version.Current.Series, state.JobManageEnviron)
+			m, err := st.AddMachine("series", state.JobManageEnviron)
 			c.Assert(err, IsNil)
 			c.Assert(m.Id(), Equals, "0")
 		},
@@ -143,7 +143,7 @@ var statusTests = []struct {
 		"add three more machines for units",
 		func(st *state.State, conn *juju.Conn, c *C) {
 			for i := 1; i < 3; i++ {
-				m, err := st.AddMachine(version.Current.Series, state.JobHostUnits)
+				m, err := st.AddMachine("series", state.JobHostUnits)
 				c.Assert(err, IsNil)
 				c.Assert(m.Id(), Equals, strconv.Itoa(i))
 				inst, err := conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), testing.InvalidAPIInfo(m.Id()), nil)
@@ -248,7 +248,7 @@ func (s *StatusSuite) testStatus(format string, marshal func(v interface{}) ([]b
 	for _, t := range statusTests {
 		c.Logf("testing %s: %s", format, t.title)
 		t.prepare(s.State, s.Conn, c)
-		ctx := &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}}
+		ctx := coretesting.Context(c)
 		code := cmd.Main(&StatusCommand{}, ctx, []string{"--format", format})
 		c.Check(code, Equals, 0)
 		c.Assert(ctx.Stderr.(*bytes.Buffer).String(), Equals, "")

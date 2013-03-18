@@ -29,7 +29,7 @@ func (s *PortsSuite) TestOpenClose(c *C) {
 	for _, t := range portsTests {
 		com, err := jujuc.NewCommand(hctx, t.cmd[0])
 		c.Assert(err, IsNil)
-		ctx := dummyContext(c)
+		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, t.cmd[1:])
 		c.Assert(code, Equals, 0)
 		c.Assert(bufferString(ctx.Stdout), Equals, "")
@@ -81,4 +81,27 @@ The port will only be open while the service is exposed.
 usage: close-port <port>[/<protocol>]
 purpose: ensure a port is always closed
 `[1:])
+}
+
+// Since the deprecation warning gets output during Run, we really need
+// some valid commands to run
+var portsFormatDeprectaionTests = []struct {
+	cmd []string
+}{
+	{[]string{"open-port", "--format", "foo", "80"}},
+	{[]string{"close-port", "--format", "foo", "80/TCP"}},
+}
+
+func (s *PortsSuite) TestOpenCloseDeprecation(c *C) {
+	hctx := s.GetHookContext(c, -1, "")
+	for _, t := range portsFormatDeprectaionTests {
+		name := t.cmd[0]
+		com, err := jujuc.NewCommand(hctx, name)
+		c.Assert(err, IsNil)
+		ctx := testing.Context(c)
+		code := cmd.Main(com, ctx, t.cmd[1:])
+		c.Assert(code, Equals, 0)
+		c.Assert(testing.Stdout(ctx), Equals, "")
+		c.Assert(testing.Stderr(ctx), Equals, "--format flag deprecated for command \""+name+"\"")
+	}
 }

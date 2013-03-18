@@ -11,37 +11,26 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 )
 
-// Parameters for making the ServiceGet call.
-type ServiceGetParams struct {
-	ServiceName string
-}
-
-// Return struct for ServiceGet call.
-type ServiceGetResults struct {
-	Service  string
-	Charm    string
-	Settings map[string]interface{}
-}
-
 // ServiceGet returns the configuration for the named service.
-func ServiceGet(st *state.State, p ServiceGetParams) (ServiceGetResults, error) {
+func ServiceGet(st *state.State, p params.ServiceGet) (params.ServiceGetResults, error) {
 	svc, err := st.Service(p.ServiceName)
 	if err != nil {
-		return ServiceGetResults{}, err
+		return params.ServiceGetResults{}, err
 	}
 	svcfg, err := svc.Config()
 	if err != nil {
-		return ServiceGetResults{}, err
+		return params.ServiceGetResults{}, err
 	}
 	charm, _, err := svc.Charm()
 	if err != nil {
-		return ServiceGetResults{}, err
+		return params.ServiceGetResults{}, err
 	}
 	chcfg := charm.Config().Options
 
-	return ServiceGetResults{
+	return params.ServiceGetResults{
 		Service:  p.ServiceName,
 		Charm:    charm.Meta().Name,
 		Settings: merge(svcfg.Map(), chcfg),

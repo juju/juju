@@ -33,6 +33,7 @@ func TestPackage(t *stdtesting.T) {
 }
 
 type UniterSuite struct {
+	coretesting.GitSuite
 	testing.JujuConnSuite
 	coretesting.HTTPSuite
 	dataDir  string
@@ -64,6 +65,7 @@ func (s *UniterSuite) TearDownSuite(c *C) {
 }
 
 func (s *UniterSuite) SetUpTest(c *C) {
+	s.GitSuite.SetUpTest(c)
 	s.JujuConnSuite.SetUpTest(c)
 	s.HTTPSuite.SetUpTest(c)
 }
@@ -71,6 +73,7 @@ func (s *UniterSuite) SetUpTest(c *C) {
 func (s *UniterSuite) TearDownTest(c *C) {
 	s.HTTPSuite.TearDownTest(c)
 	s.JujuConnSuite.TearDownTest(c)
+	s.GitSuite.TearDownTest(c)
 }
 
 func (s *UniterSuite) Reset(c *C) {
@@ -434,6 +437,7 @@ var steadyUpgradeTests = []uniterTest{
 		upgradeCharm{revision: 1},
 		waitUnit{
 			status: state.UnitStarted,
+			charm:  1,
 		},
 		waitHooks{"upgrade-charm", "config-changed"},
 		verifyCharm{revision: 1},
@@ -628,6 +632,7 @@ var upgradeConflictsTests = []uniterTest{
 		waitUnit{
 			status: state.UnitError,
 			info:   "upgrade failed",
+			charm:  1,
 		},
 		verifyWaiting{},
 		verifyCharm{dirty: true},
@@ -1168,11 +1173,11 @@ func (s waitUnit) step(c *C, ctx *context) {
 				c.Logf("want resolved mode %q, got %q; still waiting", s.resolved, resolved)
 				continue
 			}
-			ch, err := ctx.unit.Charm()
-			if err != nil || *ch.URL() != *curl(s.charm) {
+			url, ok := ctx.unit.CharmURL()
+			if !ok || *url != *curl(s.charm) {
 				var got string
-				if ch != nil {
-					got = ch.URL().String()
+				if ok {
+					got = url.String()
 				}
 				c.Logf("want unit charm %q, got %q; still waiting", curl(s.charm), got)
 				continue
@@ -1270,9 +1275,9 @@ func (s verifyCharm) step(c *C, ctx *context) {
 		c.Assert(string(content), Equals, strconv.Itoa(s.revision))
 		err = ctx.unit.Refresh()
 		c.Assert(err, IsNil)
-		ch, err := ctx.unit.Charm()
-		c.Assert(err, IsNil)
-		c.Assert(ch.URL(), DeepEquals, curl(s.revision))
+		url, ok := ctx.unit.CharmURL()
+		c.Assert(ok, Equals, true)
+		c.Assert(url, DeepEquals, curl(s.revision))
 	}
 
 	// Before we try to check the git status, make sure expected hooks are all
@@ -1282,11 +1287,11 @@ func (s verifyCharm) step(c *C, ctx *context) {
 	cmd.Dir = filepath.Join(ctx.path, "charm")
 	out, err := cmd.CombinedOutput()
 	c.Assert(err, IsNil)
-	cmp := Equals
+	cmp := Matches
 	if s.dirty {
-		cmp = Not(Equals)
+		cmp = Not(Matches)
 	}
-	c.Assert(string(out), cmp, "# On branch master\nnothing to commit (working directory clean)\n")
+	c.Assert(string(out), cmp, "# On branch master\nnothing to commit.*\n")
 }
 
 type startUpgradeError struct{}
@@ -1322,6 +1327,7 @@ func (s startUpgradeError) step(c *C, ctx *context) {
 		waitUnit{
 			status: state.UnitError,
 			info:   "upgrade failed",
+			charm:  1,
 		},
 		verifyWaiting{},
 		verifyCharm{dirty: true},

@@ -2,6 +2,7 @@ package state_test
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state"
 	"sort"
 	"strconv"
@@ -37,6 +38,30 @@ func (s *UnitSuite) TestService(c *C) {
 	svc, err := s.unit.Service()
 	c.Assert(err, IsNil)
 	c.Assert(svc.Name(), Equals, s.unit.ServiceName())
+}
+
+func (s *UnitSuite) TestServiceConfig(c *C) {
+	scfg, err := s.service.Config()
+	c.Assert(err, IsNil)
+	scfg.Update(map[string]interface{}{
+		"foo":        "bar",
+		"blog-title": "no title",
+	})
+	_, err = scfg.Write()
+	c.Assert(err, IsNil)
+
+	unit, err := s.service.AddUnit()
+	c.Assert(err, IsNil)
+
+	_, err = unit.ServiceConfig()
+	c.Assert(err, ErrorMatches, "unit charm not set")
+
+	err = unit.SetCharmURL(s.charm.URL())
+	c.Assert(err, IsNil)
+
+	cfg, err := unit.ServiceConfig()
+	c.Assert(err, IsNil)
+	c.Assert(cfg, DeepEquals, scfg.Map())
 }
 
 func (s *UnitSuite) TestGetSetPublicAddress(c *C) {
@@ -128,27 +153,34 @@ func (s *UnitSuite) TestGetSetStatus(c *C) {
 }
 
 func (s *UnitSuite) TestUnitCharm(c *C) {
-	_, err := s.unit.Charm()
-	c.Assert(err, ErrorMatches, `charm URL of unit "wordpress/0" not found`)
+	curl, ok := s.unit.CharmURL()
+	c.Assert(ok, Equals, false)
+	c.Assert(curl, IsNil)
 
-	err = s.unit.SetCharm(s.charm)
+	err := s.unit.SetCharmURL(nil)
+	c.Assert(err, ErrorMatches, "cannot set nil charm url")
+
+	err = s.unit.SetCharmURL(charm.MustParseURL("cs:missing/one-1"))
+	c.Assert(err, ErrorMatches, `unknown charm url "cs:missing/one-1"`)
+
+	err = s.unit.SetCharmURL(s.charm.URL())
 	c.Assert(err, IsNil)
-	ch, err := s.unit.Charm()
-	c.Assert(err, IsNil)
-	c.Assert(ch.URL(), DeepEquals, s.charm.URL())
+	curl, ok = s.unit.CharmURL()
+	c.Assert(ok, Equals, true)
+	c.Assert(curl, DeepEquals, s.charm.URL())
 
 	err = s.unit.Destroy()
 	c.Assert(err, IsNil)
-	err = s.unit.SetCharm(s.charm)
+	err = s.unit.SetCharmURL(s.charm.URL())
 	c.Assert(err, IsNil)
-	ch, err = s.unit.Charm()
-	c.Assert(err, IsNil)
-	c.Assert(ch.URL(), DeepEquals, s.charm.URL())
+	curl, ok = s.unit.CharmURL()
+	c.Assert(ok, Equals, true)
+	c.Assert(curl, DeepEquals, s.charm.URL())
 
 	err = s.unit.EnsureDead()
 	c.Assert(err, IsNil)
-	err = s.unit.SetCharm(s.charm)
-	c.Assert(err, ErrorMatches, `cannot set charm for unit "wordpress/0": not found or not alive`)
+	err = s.unit.SetCharmURL(s.charm.URL())
+	c.Assert(err, ErrorMatches, `unit "wordpress/0" is dead`)
 }
 
 func (s *UnitSuite) TestEntityName(c *C) {
@@ -166,7 +198,7 @@ func (s *UnitSuite) TestSetMongoPassword(c *C) {
 }
 
 func (s *UnitSuite) TestSetPassword(c *C) {
-	testSetPassword(c, func() (state.AuthEntity, error) {
+	testSetPassword(c, func() (state.Entity, error) {
 		return s.State.Unit(s.unit.Name())
 	})
 }
@@ -214,7 +246,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 	info.EntityName = m.EntityName()
 	info.Password = "foo1"
 	err = tryOpenState(info)
-	c.Assert(err, Equals, state.ErrUnauthorized)
+	c.Assert(state.IsUnauthorizedError(err), Equals, true)
 
 	// Connect as the machine entity.
 	info.EntityName = m.EntityName()
@@ -256,7 +288,7 @@ func (s *UnitSuite) TestUnitSetAgentAlive(c *C) {
 
 	pinger, err := s.unit.SetAgentAlive()
 	c.Assert(err, IsNil)
-	c.Assert(pinger, Not(IsNil))
+	c.Assert(pinger, NotNil)
 	defer pinger.Stop()
 
 	s.State.Sync()
@@ -687,4 +719,10 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 		c.Fatalf("got unexpected change: %#v, %v", got, ok)
 	case <-time.After(100 * time.Millisecond):
 	}
+}
+
+func (s *UnitSuite) TestAnnotatorForUnit(c *C) {
+	testAnnotator(c, func() (annotator, error) {
+		return s.State.Unit("wordpress/0")
+	})
 }

@@ -8,7 +8,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/trivial"
 	"os"
-	"path/filepath"
+	"path"
 	"regexp"
 )
 
@@ -50,7 +50,7 @@ type Conf struct {
 // entity from the given data directory.
 func ReadConf(dataDir, entityName string) (*Conf, error) {
 	dir := Dir(dataDir, entityName)
-	data, err := ioutil.ReadFile(filepath.Join(dir, "agent.conf"))
+	data, err := ioutil.ReadFile(path.Join(dir, "agent.conf"))
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +77,7 @@ func requiredError(what string) error {
 
 // File returns the path of the given file in the agent's directory.
 func (c *Conf) File(name string) string {
-	return filepath.Join(c.Dir(), name)
+	return path.Join(c.Dir(), name)
 }
 
 func (c *Conf) confFile() string {
@@ -205,7 +205,7 @@ func (c *Conf) OpenState() (st *state.State, newPassword string, err error) {
 		if err == nil {
 			return st, "", nil
 		}
-		if err != state.ErrUnauthorized {
+		if !state.IsUnauthorizedError(err) {
 			return nil, "", err
 		}
 		// Access isn't authorized even though we have a password
