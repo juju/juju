@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
+	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
 	"net"
 	stdtesting "testing"
@@ -122,8 +123,12 @@ var operationPermTests = []struct {
 	op:    opClientSetAnnotation,
 	allow: []string{"user-admin", "user-other"},
 }, {
-	about: "Client.ServiceAddUnits",
-	op:    opClientServiceAddUnits,
+	about: "Client.AddServiceUnits",
+	op:    opClientAddServiceUnits,
+	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.DestroyServiceUnits",
+	op:    opClientDestroyServiceUnits,
 	allow: []string{"user-admin", "user-other"},
 }, {
 	about: "Client.ServiceDestroy",
@@ -387,15 +392,31 @@ func opClientServiceDeploy(c *C, st *api.State, mst *state.State) (func(), error
 	}, nil
 }
 
-func opClientServiceAddUnits(c *C, st *api.State, mst *state.State) (func(), error) {
+func opClientAddServiceUnits(c *C, st *api.State, mst *state.State) (func(), error) {
 	// This test only checks that the call is made without error, ensuring the
 	// signatures match.
-	err := st.Client().ServiceAddUnits("wordpress", 1)
+	err := st.Client().AddServiceUnits("wordpress", 1)
 	if err != nil {
 		return func() {}, err
 	}
 	c.Assert(err, IsNil)
 	return func() {}, nil
+}
+
+func opClientDestroyServiceUnits(c *C, st *api.State, mst *state.State) (func(), error) {
+	err := statecmd.AddServiceUnits(mst, params.AddServiceUnits{"wordpress", 1})
+	if err != nil {
+		return func() {}, err
+	}
+	newUnitName := []string{"wordpress/1"}
+	err = st.Client().DestroyServiceUnits(newUnitName)
+	if err != nil {
+		return func() {
+			_ = statecmd.DestroyServiceUnits(mst, params.DestroyServiceUnits{newUnitName})
+		}, err
+	}
+	c.Assert(err, IsNil)
+	return func() {}, err
 }
 
 func opClientServiceDestroy(c *C, st *api.State, mst *state.State) (func(), error) {
