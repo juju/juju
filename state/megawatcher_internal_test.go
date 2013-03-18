@@ -518,6 +518,9 @@ var respondTestChanges = [...]func(all *allInfo){
 		allInfoAdd(all, &params.MachineInfo{Id: "1"})
 	},
 	func(all *allInfo) {
+		allInfoAdd(all, &params.MachineInfo{Id: "2"})
+	},
+	func(all *allInfo) {
 		all.markRemoved(entityId{"machine", "0"})
 	},
 	func(all *allInfo) {
@@ -526,18 +529,20 @@ var respondTestChanges = [...]func(all *allInfo){
 			InstanceId: "i-1",
 		})
 	},
+	func(all *allInfo) {
+		all.markRemoved(entityId{"machine", "1"})
+	},
 }
 
 var (
 	respondTestFinalState = []entityEntry{{
-		creationRevno: 2,
-		revno:         4,
+		creationRevno: 3,
+		revno:         3,
 		info: &params.MachineInfo{
-			Id:         "1",
-			InstanceId: "i-1",
+			Id:         "2",
 		},
 	}}
-	respondTestFinalRevno = respondTestFinalState[0].revno
+	respondTestFinalRevno = int64(len(respondTestChanges))
 )
 
 func (*allWatcherSuite) TestRespondResults(c *C) {
@@ -552,50 +557,75 @@ func (*allWatcherSuite) TestRespondResults(c *C) {
 	// to after running respondTestChanges[i].
 
 	numCombinations := 1 << uint(len(respondTestChanges))
-	for n := 0; n < numCombinations; n++ {
-		aw := newAllWatcher(&allWatcherTestBacking{})
-		c.Logf("test %d. (%0*b)", n, len(respondTestChanges), n)
-		w := &StateWatcher{}
-		wstate := make(watcherState)
-		req := &allRequest{
-			w:     w,
-			reply: make(chan bool, 1),
-		}
-		// Add the request, ready to be responded to.
-		aw.handle(req)
-		assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
-			w: {req},
-		})
-		// Make each change in turn, and respond if n dictates it.
-		for i, change := range respondTestChanges {
-			c.Logf("change %d", i)
-			change(aw.all)
-			if n&(1<<uint(i)) == 0 {
-				continue
+	const wcount = 2
+	ns := make([]int, wcount)
+	for ns[0] = 0; ns[0] < numCombinations; ns[0]++ {
+		for ns[1] = 0; ns[1] < numCombinations; ns[1]++ {
+			aw := newAllWatcher(&allWatcherTestBacking{})
+			c.Logf("test %d,%d. (%0*b %0*b)", ns[0], ns[1], len(respondTestChanges), ns[0], len(respondTestChanges), ns[1])
+			var (
+				ws []*StateWatcher
+				wstates []watcherState
+				reqs []*allRequest
+			)
+			for i := 0; i < wcount; i++ {
+				ws = append(ws, &StateWatcher{})
+				wstates = append(wstates, make(watcherState))
+				reqs = append(reqs, nil)
 			}
-			aw.respond()
-			select {
-			case ok := <-req.reply:
-				c.Assert(ok, Equals, true)
-				c.Assert(len(req.changes) > 0, Equals, true)
-				wstate.update(req.changes)
-				req = &allRequest{
-					w:     w,
-					reply: make(chan bool, 1),
+			// Make each change in turn, and respond if n dictates it.
+			for i, change := range respondTestChanges {
+				c.Logf("change %d", i)
+				change(aw.all)
+				needRespond := false
+				for wi, n := range ns {
+					if n & (1 << uint(i)) != 0 {
+						needRespond = true
+						if reqs[wi] == nil {
+							reqs[wi] = &allRequest{
+								w:     ws[wi],
+								reply: make(chan bool, 1),
+							}
+							aw.handle(reqs[wi])
+						}
+					}
 				}
-				aw.handle(req)
-				assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
-					w: {req},
-				})
-			default:
+				if !needRespond {
+					continue
+				}
+				expectWaiting := make(map[*StateWatcher][]*allRequest)
+				for wi, w := range ws {
+					if reqs[wi] != nil {
+						expectWaiting[w] = []*allRequest{reqs[wi]}
+					}
+				}
+				assertWaitingRequests(c, aw, expectWaiting)
+				aw.respond()
+				for wi, req := range reqs {
+					if req == nil {
+						continue
+					}
+					select {
+					case ok := <-req.reply:
+						c.Assert(ok, Equals, true)
+						c.Assert(len(req.changes) > 0, Equals, true)
+						wstates[wi].update(req.changes)
+						reqs[wi] = nil
+					default:
+					}
+					wstates[wi].check(c, aw.all)
+				}
 			}
-			wstate.check(c, aw.all)
+			// Stop the watcher and check that all ref counts end up at zero
+			// and removed objects are deleted.
+			for wi, w := range ws {
+				aw.handle(&allRequest{w: w})
+				if reqs[wi] != nil {
+					assertReplied(c, false, reqs[wi])
+				}
+			}
+			assertAllInfoContents(c, aw.all, respondTestFinalRevno, respondTestFinalState)
 		}
-		// Stop the watcher and check that all ref counts end up at zero
-		// and removed objects are deleted.
-		aw.handle(&allRequest{w: w})
-		assertReplied(c, false, req)
-		assertAllInfoContents(c, aw.all, respondTestFinalRevno, respondTestFinalState)
 	}
 }
 

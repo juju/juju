@@ -202,7 +202,7 @@ func (aw *allWatcher) seen(revno int64) {
 		} else if entry.removed {
 			// This is an entity that we previously saw, but
 			// has now been removed, so decrement its refCount, removing
-			// the entity; nothing else is waiting to be notified that it's
+			// the entity if nothing else is waiting to be notified that it's
 			// gone.
 			aw.all.decRef(entry, aw.backing.entityIdForInfo(entry.info))
 		}
