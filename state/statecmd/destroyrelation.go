@@ -9,8 +9,7 @@ import (
 
 // DestroyRelation removes the relation between the specified endpoints.
 func DestroyRelation(state *state.State, args params.DestroyRelation) error {
-	endpoints := []string{args.Endpoint0, args.Endpoint1}
-	eps, err := state.InferEndpoints(endpoints)
+	eps, err := state.InferEndpoints(args.Endpoints)
 	if err != nil {
 		return err
 	}

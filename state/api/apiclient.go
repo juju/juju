@@ -90,11 +90,10 @@ func (c *Client) ServiceGet(service string) (*params.ServiceGetResults, error) {
 	return &results, nil
 }
 
-// DestroyRelation destroys the relation between the two named endpoints.
+// DestroyRelation removes the relation between the specified endpoints.
 func (c *Client) DestroyRelation(endpoint0, endpoint1 string) error {
 	params := params.DestroyRelation{
-		Endpoint0: endpoint0,
-		Endpoint1: endpoint1,
+		Endpoints: []string{endpoint0, endpoint1},
 	}
 	err := c.st.client.Call("Client", "", "DestroyRelation", params, nil)
 	return clientError(err)

@@ -1301,46 +1301,29 @@ func (s *suite) TestClientServiceDeploy(c *C) {
 	}
 }
 
-var destroyRelationTests = []struct {
-	about     string
-	endpoints []string
-	err       string
-}{{
-	about:     "Successful destroy",
-	endpoints: []string{"wordpress", "logging"},
-}, {
-	about:     "No relation",
-	endpoints: []string{"wordpress", "mysql"},
-	err:       `relation "wordpress:db mysql:server" not found`,
-},
-}
-
-func (s *suite) TestClientDestroyRelation(c *C) {
+func (s *suite) TestSuccessfulDestroyRelation(c *C) {
 	s.setUpScenario(c)
-	for i, test := range destroyRelationTests {
-		c.Logf("test %d; %s", i, test.about)
-
-		err := s.APIState.Client().DestroyRelation(
-			test.endpoints[0], test.endpoints[1])
-		if test.err != "" {
-			c.Assert(err, ErrorMatches, test.err)
-			continue
-		}
+	endpoints := []string{"wordpress", "logging"}
+	err := s.APIState.Client().DestroyRelation(endpoints[0], endpoints[1])
+	c.Assert(err, IsNil)
+	for _, endpoint := range endpoints {
+		service, err := s.State.Service(endpoint)
 		c.Assert(err, IsNil)
-
-		for j := 0; j < len(test.endpoints); j++ {
-			service, err := s.State.Service(test.endpoints[j])
-			c.Assert(err, IsNil)
-			rels, err := service.Relations()
-			c.Assert(err, IsNil)
-			// When relations are destroyed they don't go away immediately but
-			// instead are set to 'Dying', due to references held by the user
-			// agent.
-			for _, rel := range rels {
-				c.Assert(rel.Life(), Equals, state.Dying)
-			}
+		rels, err := service.Relations()
+		c.Assert(err, IsNil)
+		// When relations are destroyed they don't go away immediately but
+		// instead are set to 'Dying', due to references held by the user
+		// agent.
+		for _, rel := range rels {
+			c.Assert(rel.Life(), Equals, state.Dying)
 		}
 	}
+}
+
+func (s *suite) TestNoRelation(c *C) {
+	s.setUpScenario(c)
+	err := s.APIState.Client().DestroyRelation("wordpress", "mysql")
+	c.Assert(err, ErrorMatches, `relation "wordpress:db mysql:server" not found`)
 }
 
 // This test will be thrown away, at least in part, once the stub code in

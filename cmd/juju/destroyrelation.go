@@ -39,8 +39,7 @@ func (c *DestroyRelationCommand) Run(_ *cmd.Context) error {
 	defer conn.Close()
 
 	params := params.DestroyRelation{
-		Endpoint0: c.Endpoints[0],
-		Endpoint1: c.Endpoints[1],
+		Endpoints: c.Endpoints,
 	}
 	return statecmd.DestroyRelation(conn.State, params)
 }

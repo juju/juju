@@ -363,7 +363,7 @@ func (c *srvClient) ServiceDestroy(args params.ServiceDestroy) error {
 	return statecmd.ServiceDestroy(c.root.srv.state, args)
 }
 
-// DestroyRelation destroys the relation between the two endpoints.
+// DestroyRelation removes the relation between the specified endpoints.
 func (c *srvClient) DestroyRelation(args params.DestroyRelation) error {
 	return statecmd.DestroyRelation(c.root.srv.state, args)
 }
