@@ -539,22 +539,22 @@ var (
 		creationRevno: 3,
 		revno:         3,
 		info: &params.MachineInfo{
-			Id:         "2",
+			Id: "2",
 		},
 	}}
 	respondTestFinalRevno = int64(len(respondTestChanges))
 )
 
 func (*allWatcherSuite) TestRespondResults(c *C) {
-	// We test the response results for a single watcher by
+	// We test the response results for a pair of watchers by
 	// interleaving notional Next requests in all possible
 	// combinations after each change in respondTestChanges and
-	// checking that the view of the world as seen by the watcher
+	// checking that the view of the world as seen by the watchers
 	// matches the actual current state.
 
-	// We decide whether if we call respond by inspecting a number n
-	// - bit i of n determines whether a request will be responded
-	// to after running respondTestChanges[i].
+	// We decide whether if we make a request for a given
+	// watcher by inspecting a number n - bit i of n determines whether
+	// a request will be responded to after running respondTestChanges[i].
 
 	numCombinations := 1 << uint(len(respondTestChanges))
 	const wcount = 2
@@ -562,24 +562,25 @@ func (*allWatcherSuite) TestRespondResults(c *C) {
 	for ns[0] = 0; ns[0] < numCombinations; ns[0]++ {
 		for ns[1] = 0; ns[1] < numCombinations; ns[1]++ {
 			aw := newAllWatcher(&allWatcherTestBacking{})
-			c.Logf("test %d,%d. (%0*b %0*b)", ns[0], ns[1], len(respondTestChanges), ns[0], len(respondTestChanges), ns[1])
+			c.Logf("test %0*b", len(respondTestChanges), ns)
 			var (
-				ws []*StateWatcher
+				ws      []*StateWatcher
 				wstates []watcherState
-				reqs []*allRequest
+				reqs    []*allRequest
 			)
 			for i := 0; i < wcount; i++ {
 				ws = append(ws, &StateWatcher{})
 				wstates = append(wstates, make(watcherState))
 				reqs = append(reqs, nil)
 			}
-			// Make each change in turn, and respond if n dictates it.
+			// Make each change in turn, and make a request for each
+			// watcher if n and respond
 			for i, change := range respondTestChanges {
 				c.Logf("change %d", i)
 				change(aw.all)
 				needRespond := false
 				for wi, n := range ns {
-					if n & (1 << uint(i)) != 0 {
+					if n&(1<<uint(i)) != 0 {
 						needRespond = true
 						if reqs[wi] == nil {
 							reqs[wi] = &allRequest{
@@ -593,6 +594,7 @@ func (*allWatcherSuite) TestRespondResults(c *C) {
 				if !needRespond {
 					continue
 				}
+				// Check that the expected requests are pending.
 				expectWaiting := make(map[*StateWatcher][]*allRequest)
 				for wi, w := range ws {
 					if reqs[wi] != nil {
@@ -600,7 +602,9 @@ func (*allWatcherSuite) TestRespondResults(c *C) {
 					}
 				}
 				assertWaitingRequests(c, aw, expectWaiting)
-				aw.respond()
+				// Actually respond; then check that each watcher with
+				// an outstanding request now has an up to date view
+				// of the world.
 				for wi, req := range reqs {
 					if req == nil {
 						continue
@@ -613,6 +617,7 @@ func (*allWatcherSuite) TestRespondResults(c *C) {
 						reqs[wi] = nil
 					default:
 					}
+					c.Logf("check %d", wi)
 					wstates[wi].check(c, aw.all)
 				}
 			}

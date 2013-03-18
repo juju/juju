@@ -130,7 +130,9 @@ func newAllWatcher(backing allWatcherBacking) *allWatcher {
 func (aw *allWatcher) handle(req *allRequest) {
 	if req.w.stopped {
 		// The watcher has previously been stopped.
-		req.reply <- false
+		if req.reply != nil {
+			req.reply <- false
+		}
 		return
 	}
 	if req.reply == nil {
@@ -193,6 +195,9 @@ func (aw *allWatcher) seen(revno int64) {
 	for e := aw.all.list.Front(); e != nil; {
 		next := e.Next()
 		entry := e.Value.(*entityEntry)
+		if entry.revno <= revno {
+			break
+		}
 		if entry.creationRevno > revno {
 			if !entry.removed {
 				// This is a new entity that hasn't been seen yet,
@@ -222,6 +227,7 @@ func (aw *allWatcher) leave(w *StateWatcher) {
 				// The entity has been removed and the
 				// watcher has already been informed of that,
 				// so its refcount has already been decremented.
+				e = next
 				continue
 			}
 			aw.all.decRef(entry, aw.backing.entityIdForInfo(entry.info))
