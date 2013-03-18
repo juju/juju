@@ -81,7 +81,9 @@ func (t *LiveTests) BootstrapOnce(c *C) {
 	}
 	// We only build and upload tools if there will be a state agent that
 	// we could connect to (actual live tests, rather than local-only)
-	err := environs.Bootstrap(t.Env, state.Constraints{}, t.CanOpenState, panicWrite)
+	cons, err := state.ParseConstraints("mem=2G")
+	c.Assert(err, IsNil)
+	err = environs.Bootstrap(t.Env, cons, t.CanOpenState, panicWrite)
 	c.Assert(err, IsNil)
 	t.bootstrapped = true
 }
@@ -339,6 +341,11 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	cfg, err := conn.State.EnvironConfig()
 	c.Assert(err, IsNil)
 	c.Check(cfg.AgentVersion(), Equals, version.Current.Number)
+
+	// Check that the constraints have been set in the environment.
+	cons, err := conn.State.EnvironConstraints()
+	c.Assert(err, IsNil)
+	c.Assert(cons.String(), Equals, "mem=2048M")
 
 	// Wait for machine agent to come up on the bootstrap
 	// machine and find the deployed series from that.

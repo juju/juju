@@ -396,6 +396,7 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 		MachineId:       scfg.machineId,
 		AuthorizedKeys:  e.ecfg().AuthorizedKeys(),
 		Config:          scfg.config,
+		Constraints:     scfg.constraints,
 	}
 	cloudcfg, err := cloudinit.New(cfg)
 	if err != nil {
