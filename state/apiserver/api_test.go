@@ -570,7 +570,7 @@ func (s *suite) setUpScenario(c *C) (entities []string) {
 }
 
 // namedAuthenticator is the same as state.Authenticator but without
-// PasswordValid which are implemented by state entities but not by api
+// PasswordValid which is implemented by state entities but not by api
 // entities. It also adds to state.Authenticator the ability to retrieve
 // the entity name.
 type namedAuthenticator interface {
