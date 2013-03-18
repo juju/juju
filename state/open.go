@@ -38,6 +38,7 @@ type Info struct {
 }
 
 var dialTimeout = 10 * time.Minute
+var retryDelay = 1 * time.Second
 
 // Open connects to the server described by the given
 // info, waits for it to be initialized, and returns a new State
@@ -63,13 +64,19 @@ func Open(info *Info) (*State, error) {
 	}
 	dial := func(addr net.Addr) (net.Conn, error) {
 		log.Printf("state: connecting to %v", addr)
-		c, err := tls.Dial("tcp", addr.String(), tlsConfig)
+		c, err := net.Dial("tcp", addr.String())
 		if err != nil {
-			log.Printf("state: connection failed: %v", err)
+			log.Printf("state: connection failed, will retry in %v: %v", retryDelay, err)
+			time.Sleep(retryDelay)
+			return nil, err
+		}
+		cc := tls.Client(c, tlsConfig)
+		if err := cc.Handshake(); err != nil {
+			log.Printf("state: TLS handshake failed: %v", err)
 			return nil, err
 		}
 		log.Printf("state: connection established")
-		return c, err
+		return cc, nil
 	}
 	session, err := mgo.DialWithInfo(&mgo.DialInfo{
 		Addrs:   info.Addrs,
@@ -222,7 +229,7 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 	log := db.C("txns.log")
 	logInfo := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
 	// The lack of error code for this error was reported upstream:
-	//     https://jira.mongodb.org/browse/SERVER-6992
+	//     https://jira.klmongodb.org/browse/SERVER-6992
 	err := log.Create(&logInfo)
 	if err != nil && err.Error() != "collection already exists" {
 		return nil, maybeUnauthorized(err, "cannot create log collection")
