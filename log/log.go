@@ -52,8 +52,3 @@ func Debugf(format string, a ...interface{}) (err error) {
 	}
 	return nil
 }
-
-// Maintain compatibility with the old API until migration to new API is finished.
-func Printf(format string, a ...interface{}) (err error) {
-	return Infof(format, a...)
-}

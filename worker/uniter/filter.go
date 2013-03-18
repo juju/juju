@@ -78,7 +78,7 @@ func newFilter(st *state.State, unitName string) (*filter, error) {
 	go func() {
 		defer f.tomb.Done()
 		err := f.loop(unitName)
-		log.Printf("worker/uniter/filter: error: %v", err)
+		log.Errorf("worker/uniter/filter: %v", err)
 		f.tomb.Kill(err)
 	}()
 	return f, nil
@@ -287,11 +287,11 @@ func (f *filter) unitChanged() error {
 	if f.life != f.unit.Life() {
 		switch f.life = f.unit.Life(); f.life {
 		case state.Dying:
-			log.Printf("worker/uniter/filter: unit is dying")
+			log.Noticef("worker/uniter/filter: unit is dying")
 			close(f.outUnitDying)
 			f.outUpgrade = nil
 		case state.Dead:
-			log.Printf("worker/uniter/filter: unit is dead")
+			log.Noticef("worker/uniter/filter: unit is dead")
 			return worker.ErrDead
 		}
 	}
