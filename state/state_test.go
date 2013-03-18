@@ -1430,7 +1430,7 @@ func (s *StateSuite) TestAnnotator(c *C) {
 	c.Assert(service, FitsTypeOf, svc)
 	c.Assert(service.EntityName(), Equals, svc.EntityName())
 
-	e, err := getEntity("environment-test")
+	e, err := getEntity("environment-" + envConfig["name"].(string))
 	c.Assert(err, IsNil)
 	env, err := s.State.Environment()
 	c.Assert(err, IsNil)
