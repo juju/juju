@@ -11,6 +11,7 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/cert"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/presence"
@@ -113,7 +114,7 @@ func Initialize(info *Info, cfg *config.Config) (rst *State, err error) {
 		return nil, fmt.Errorf("admin-secret should never be written to the state")
 	}
 	ops := []txn.Op{
-		createConstraintsOp(st, "e", Constraints{}),
+		createConstraintsOp(st, "e", constraints.Value{}),
 		createSettingsOp(st, "e", cfg.AllAttrs()),
 	}
 	if err := st.runner.Run(ops, "", nil); err == txn.ErrAborted {
