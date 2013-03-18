@@ -122,18 +122,29 @@ func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int
 	return nil
 }
 
-// CharmInfo holds information about a charm.
-// ServiceAddUnit adds a given number of units to a service.
-func (c *Client) ServiceAddUnits(service string, numUnits int) error {
-	params := params.ServiceAddUnits{
+// AddServiceUnits adds a given number of units to a service.
+func (c *Client) AddServiceUnits(service string, numUnits int) error {
+	params := params.AddServiceUnits{
 		ServiceName: service,
 		NumUnits:    numUnits,
 	}
-	err := c.st.client.Call("Client", "", "ServiceAddUnits", params, nil)
-	if err != nil {
-		return clientError(err)
+	err := c.st.client.Call("Client", "", "AddServiceUnits", params, nil)
+	return clientError(err)
+}
+
+// DestroyServiceUnits decreases the number of units dedicated to a service.
+func (c *Client) DestroyServiceUnits(unitNames []string) error {
+	params := params.DestroyServiceUnits{unitNames}
+	err := c.st.client.Call("Client", "", "DestroyServiceUnits", params, nil)
+	return clientError(err)
+}
+
+// ServiceDestroy destroys a given service.
+func (c *Client) ServiceDestroy(service string) error {
+	params := params.ServiceDestroy{
+		ServiceName: service,
 	}
-	return nil
+	return clientError(c.st.client.Call("Client", "", "ServiceDestroy", params, nil))
 }
 
 // CharmInfo holds information about a charm.

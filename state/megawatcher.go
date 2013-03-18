@@ -2,13 +2,18 @@ package state
 
 import (
 	"container/list"
+	"labix.org/v2/mgo"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/tomb"
 	"reflect"
 )
 
 // StateWatcher watches any changes to the state.
 type StateWatcher struct {
-	// TODO: hold the last revid that the StateWatcher saw.
+	// The following fields are maintained by the allWatcher
+	// goroutine.
+	revno   int64
+	stopped bool
 }
 
 func newStateWatcher(st *State) *StateWatcher {
@@ -49,10 +54,186 @@ func (w *StateWatcher) Next() ([]params.Delta, error) {
 	return StubNextDelta, nil
 }
 
+// allWatcher holds a shared record of all current state and replies to
+// requests from StateWatches to tell them when it changes.
+// TODO(rog) complete this type and its methods.
+type allWatcher struct {
+	tomb tomb.Tomb
+
+	// backing knows how to fetch information from
+	// the underlying state.
+	backing allWatcherBacking
+
+	// all holds information on everything the allWatcher cares about.
+	all *allInfo
+
+	// Each entry in the waiting map holds a linked list of Next requests
+	// outstanding for the associated StateWatcher.
+	waiting map[*StateWatcher]*allRequest
+}
+
+// allWatcherBacking is the interface required
+// by the allWatcher to access the underlying state.
+// It is an interface for testing purposes.
+// TODO(rog) complete this type and its methods.
+type allWatcherBacking interface {
+	// entityIdForInfo returns the entity id corresponding
+	// to the given entity info.
+	entityIdForInfo(info params.EntityInfo) entityId
+
+	// fetch retrieves information about the entity with
+	// the given id. It returns mgo.ErrNotFound if the
+	// entity does not exist.
+	fetch(id entityId) (params.EntityInfo, error)
+}
+
 // entityId holds the mongo identifier of an entity.
 type entityId struct {
 	collection string
 	id         interface{}
+}
+
+// allRequest holds a request from the StateWatcher to the
+// allWatcher for some changes. The request will be
+// replied to when some changes are available.
+type allRequest struct {
+	// w holds the StateWatcher that has originated the request.
+	w *StateWatcher
+
+	// reply receives a message when deltas are ready.  If reply is
+	// nil, the StateWatcher will be stopped.  If the reply is true,
+	// the request has been processed; if false, the StateWatcher
+	// has been stopped,
+	reply chan bool
+
+	// On reply, changes will hold changes that have occurred since
+	// the last replied-to Next request.
+	changes []params.Delta
+
+	// next points to the next request in the list of outstanding
+	// requests on a given watcher.  It is used only by the central
+	// allWatcher goroutine.
+	next *allRequest
+}
+
+// newAllWatcher returns a new allWatcher that retrieves information
+// using the given backing. It does not start it running.
+func newAllWatcher(backing allWatcherBacking) *allWatcher {
+	return &allWatcher{
+		backing: backing,
+		all:     newAllInfo(),
+		waiting: make(map[*StateWatcher]*allRequest),
+	}
+}
+
+// handle processes a request from a StateWatcher to the allWatcher.
+func (aw *allWatcher) handle(req *allRequest) {
+	if req.w.stopped {
+		// The watcher has previously been stopped.
+		if req.reply != nil {
+			req.reply <- false
+		}
+		return
+	}
+	if req.reply == nil {
+		// This is a request to stop the watcher.
+		for req := aw.waiting[req.w]; req != nil; req = req.next {
+			req.reply <- false
+		}
+		delete(aw.waiting, req.w)
+		req.w.stopped = true
+		aw.leave(req.w)
+		return
+	}
+	// Add request to head of list.
+	req.next = aw.waiting[req.w]
+	aw.waiting[req.w] = req
+}
+
+// respond responds to all outstanding requests that are satisfiable.
+func (aw *allWatcher) respond() {
+	for w, req := range aw.waiting {
+		revno := w.revno
+		changes := aw.all.changesSince(revno)
+		if len(changes) == 0 {
+			continue
+		}
+		req.changes = changes
+		w.revno = aw.all.latestRevno
+		req.reply <- true
+		if req := req.next; req == nil {
+			// Last request for this watcher.
+			delete(aw.waiting, w)
+		} else {
+			aw.waiting[w] = req
+		}
+		aw.seen(revno)
+	}
+}
+
+// changed updates the allWatcher's idea of the current state
+// in response to the given change.
+func (aw *allWatcher) changed(id entityId) error {
+	// TODO(rog) investigate ways that this can be made more efficient
+	// than simply fetching each entity in turn.
+	info, err := aw.backing.fetch(id)
+	if err == mgo.ErrNotFound {
+		aw.all.markRemoved(id)
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	aw.all.update(id, info)
+	return nil
+}
+
+// seen states that a StateWatcher has just been given information about
+// all entities newer than the given revno.  We assume it has already
+// seen all the older entities.
+func (aw *allWatcher) seen(revno int64) {
+	for e := aw.all.list.Front(); e != nil; {
+		next := e.Next()
+		entry := e.Value.(*entityEntry)
+		if entry.revno <= revno {
+			break
+		}
+		if entry.creationRevno > revno {
+			if !entry.removed {
+				// This is a new entity that hasn't been seen yet,
+				// so increment the entry's refCount.	
+				entry.refCount++
+			}
+		} else if entry.removed {
+			// This is an entity that we previously saw, but
+			// has now been removed, so decrement its refCount, removing
+			// the entity if nothing else is waiting to be notified that it's
+			// gone.
+			aw.all.decRef(entry, aw.backing.entityIdForInfo(entry.info))
+		}
+		e = next
+	}
+}
+
+// leave is called when the given watcher leaves.  It decrements the reference
+// counts of any entities that have been seen by the watcher.
+func (aw *allWatcher) leave(w *StateWatcher) {
+	for e := aw.all.list.Front(); e != nil; {
+		next := e.Next()
+		entry := e.Value.(*entityEntry)
+		if entry.creationRevno <= w.revno {
+			// The watcher has seen this entry.
+			if entry.removed && entry.revno <= w.revno {
+				// The entity has been removed and the
+				// watcher has already been informed of that,
+				// so its refcount has already been decremented.
+				e = next
+				continue
+			}
+			aw.all.decRef(entry, aw.backing.entityIdForInfo(entry.info))
+		}
+		e = next
+	}
 }
 
 // entityEntry holds an entry in the linked list of all entities known
@@ -65,8 +246,20 @@ type entityEntry struct {
 	// changed since the watcher reported it.
 	revno int64
 
+	// creationRevno holds the revision number when the
+	// entity was created.
+	creationRevno int64
+
 	// removed marks whether the entity has been removed.
 	removed bool
+
+	// refCount holds a count of the number of watchers that
+	// have seen this entity. When the entity is marked as removed,
+	// the ref count is decremented whenever a StateWatcher that
+	// has previously seen the entry now sees that it has been removed;
+	// the entry will be deleted when all such StateWatchers have
+	// been notified.
+	refCount int
 
 	// info holds the actual information on the entity.
 	info params.EntityInfo
@@ -98,10 +291,31 @@ func (a *allInfo) add(id entityId, info params.EntityInfo) {
 	}
 	a.latestRevno++
 	entry := &entityEntry{
-		info:  info,
-		revno: a.latestRevno,
+		info:          info,
+		revno:         a.latestRevno,
+		creationRevno: a.latestRevno,
 	}
 	a.entities[id] = a.list.PushFront(entry)
+}
+
+// decRef decrements the reference count of an entry within the list,
+// deleting it if it becomes zero and the entry is removed.
+func (a *allInfo) decRef(entry *entityEntry, id entityId) {
+	if entry.refCount--; entry.refCount > 0 {
+		return
+	}
+	if entry.refCount < 0 {
+		panic("negative reference count")
+	}
+	if !entry.removed {
+		return
+	}
+	elem := a.entities[id]
+	if elem == nil {
+		panic("delete of non-existent entry")
+	}
+	delete(a.entities, id)
+	a.list.Remove(elem)
 }
 
 // delete deletes the entry with the given entity id.
@@ -115,11 +329,19 @@ func (a *allInfo) delete(id entityId) {
 }
 
 // markRemoved marks that the entity with the given id has
-// been removed from the state.
+// been removed from the state. If nothing has seen the
+// entity, then we delete it immediately.
 func (a *allInfo) markRemoved(id entityId) {
 	if elem := a.entities[id]; elem != nil {
 		entry := elem.Value.(*entityEntry)
+		if entry.removed {
+			return
+		}
 		a.latestRevno++
+		if entry.refCount == 0 {
+			a.delete(id)
+			return
+		}
 		entry.revno = a.latestRevno
 		entry.removed = true
 		a.list.MoveToFront(elem)
@@ -147,18 +369,9 @@ func (a *allInfo) update(id entityId, info params.EntityInfo) {
 	a.list.MoveToFront(elem)
 }
 
-// Delta holds details of a change to the environment.
-type Delta struct {
-	// If Remove is true, the entity has been removed;
-	// otherwise it has been created or changed.
-	Remove bool
-	// Entity holds data about the entity that has changed.
-	Entity params.EntityInfo
-}
-
 // changesSince returns any changes that have occurred since
 // the given revno, oldest first.
-func (a *allInfo) changesSince(revno int64) []Delta {
+func (a *allInfo) changesSince(revno int64) []params.Delta {
 	e := a.list.Front()
 	n := 0
 	for ; e != nil; e = e.Next() {
@@ -176,12 +389,17 @@ func (a *allInfo) changesSince(revno int64) []Delta {
 		e = a.list.Back()
 		n++
 	}
-	changes := make([]Delta, 0, n)
+	changes := make([]params.Delta, 0, n)
 	for ; e != nil; e = e.Prev() {
 		entry := e.Value.(*entityEntry)
-		changes = append(changes, Delta{
-			Remove: entry.removed,
-			Entity: entry.info,
+		if entry.removed && entry.creationRevno > revno {
+			// Don't include entries that have been created
+			// and removed since the revno.
+			continue
+		}
+		changes = append(changes, params.Delta{
+			Removed: entry.removed,
+			Entity:  entry.info,
 		})
 	}
 	return changes

@@ -27,9 +27,9 @@ func (s *RelationSuite) TestAddRelationErrors(c *C) {
 	c.Assert(err, IsNil)
 
 	// Check we can't add a relation with services that don't exist.
-	msep2 := mysqlEP
-	msep2.ServiceName = "yoursql"
-	_, err = s.State.AddRelation(msep2, wordpressEP)
+	yoursqlEP := mysqlEP
+	yoursqlEP.ServiceName = "yoursql"
+	_, err = s.State.AddRelation(yoursqlEP, wordpressEP)
 	c.Assert(err, ErrorMatches, `cannot add relation "wordpress:db yoursql:server": service "yoursql" does not exist`)
 	assertNoRelations(c, wordpress)
 	assertNoRelations(c, mysql)
@@ -61,6 +61,16 @@ func (s *RelationSuite) TestAddRelationErrors(c *C) {
 	_, err = s.State.AddRelation(mysqlEP, wordpressEP, riakEP)
 	c.Assert(err, ErrorMatches, `cannot add relation "wordpress:db mysql:server riak:ring": relation must have two endpoints`)
 	assertOneRelation(c, riak, 0, riakEP)
+	assertNoRelations(c, wordpress)
+	assertNoRelations(c, mysql)
+
+	// Check that a relation can't be added to a Dying service.
+	_, err = wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	err = wordpress.Destroy()
+	c.Assert(err, IsNil)
+	_, err = s.State.AddRelation(mysqlEP, wordpressEP)
+	c.Assert(err, ErrorMatches, `cannot add relation "wordpress:db mysql:server": service "wordpress" is not alive`)
 	assertNoRelations(c, wordpress)
 	assertNoRelations(c, mysql)
 }

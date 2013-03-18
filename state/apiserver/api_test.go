@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
+	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
 	"net"
 	stdtesting "testing"
@@ -122,8 +123,16 @@ var operationPermTests = []struct {
 	op:    opClientSetAnnotation,
 	allow: []string{"user-admin", "user-other"},
 }, {
-	about: "Client.ServiceAddUnits",
-	op:    opClientServiceAddUnits,
+	about: "Client.AddServiceUnits",
+	op:    opClientAddServiceUnits,
+	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.DestroyServiceUnits",
+	op:    opClientDestroyServiceUnits,
+	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.ServiceDestroy",
+	op:    opClientServiceDestroy,
 	allow: []string{"user-admin", "user-other"},
 }, {
 	about: "Client.WatchAll",
@@ -383,10 +392,37 @@ func opClientServiceDeploy(c *C, st *api.State, mst *state.State) (func(), error
 	}, nil
 }
 
-func opClientServiceAddUnits(c *C, st *api.State, mst *state.State) (func(), error) {
+func opClientAddServiceUnits(c *C, st *api.State, mst *state.State) (func(), error) {
 	// This test only checks that the call is made without error, ensuring the
 	// signatures match.
-	err := st.Client().ServiceAddUnits("wordpress", 1)
+	err := st.Client().AddServiceUnits("wordpress", 1)
+	if err != nil {
+		return func() {}, err
+	}
+	c.Assert(err, IsNil)
+	return func() {}, nil
+}
+
+func opClientDestroyServiceUnits(c *C, st *api.State, mst *state.State) (func(), error) {
+	err := statecmd.AddServiceUnits(mst, params.AddServiceUnits{"wordpress", 1})
+	if err != nil {
+		return func() {}, err
+	}
+	newUnitName := []string{"wordpress/1"}
+	err = st.Client().DestroyServiceUnits(newUnitName)
+	if err != nil {
+		return func() {
+			_ = statecmd.DestroyServiceUnits(mst, params.DestroyServiceUnits{newUnitName})
+		}, err
+	}
+	c.Assert(err, IsNil)
+	return func() {}, err
+}
+
+func opClientServiceDestroy(c *C, st *api.State, mst *state.State) (func(), error) {
+	// This test only checks that the call is made without error, ensuring the
+	// signatures match.
+	err := st.Client().ServiceDestroy("wordpress")
 	if err != nil {
 		return func() {}, err
 	}
@@ -1210,6 +1246,20 @@ func (s *suite) TestClientServiceUnexpose(c *C) {
 	c.Assert(err, IsNil)
 	service.Refresh()
 	c.Assert(service.IsExposed(), Equals, false)
+}
+
+func (s *suite) TestClientServiceDestroy(c *C) {
+	// Setup:
+	s.setUpScenario(c)
+	serviceName := "wordpress"
+	service, err := s.State.Service(serviceName)
+	c.Assert(err, IsNil)
+	// Code under test:
+	err = s.APIState.Client().ServiceDestroy(serviceName)
+	c.Assert(err, IsNil)
+	err = service.Refresh()
+	// The test actual assertion: the service should no-longer be Alive.
+	c.Assert(service.Life(), Not(Equals), state.Alive)
 }
 
 func (s *suite) TestClientUnitResolved(c *C) {

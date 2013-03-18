@@ -57,9 +57,11 @@ func (t *Tools) SetBSON(raw bson.Raw) error {
 	return nil
 }
 
+const serviceSnippet = "[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*"
+
 var (
-	validService = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*$")
-	validUnit    = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*/[0-9]+$")
+	validService = regexp.MustCompile("^" + serviceSnippet + "$")
+	validUnit    = regexp.MustCompile("^" + serviceSnippet + "(-[a-z0-9]*[a-z][a-z0-9]*)*/[0-9]+$")
 	validMachine = regexp.MustCompile("^0$|^[1-9][0-9]*$")
 )
 
@@ -761,9 +763,7 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 			return err
 		}
 		for {
-			// TODO(fwereade) totally remove this filthy and incorrect hack.
-			// Maybe u.AssignToNewMachine()? (should probably be internal...)
-			m, err := st.AddMachine(version.Current.Series, JobHostUnits)
+			m, err := st.AddMachine(u.doc.Series, JobHostUnits)
 			if err != nil {
 				return err
 			}
