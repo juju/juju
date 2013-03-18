@@ -417,7 +417,7 @@ func (e *environ) PublicStorage() environs.StorageReader {
 }
 
 func findTools(env *environ) (*state.Tools, error) {
-	flags := environs.CompatVersion
+	flags := environs.HighestVersion | environs.CompatVersion
 	v := version.Current
 	v.Series = env.Config().DefaultSeries()
 	// TODO: set Arch based on constraints (when they are landed)
@@ -744,7 +744,8 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	}
 	if scfg.tools == nil {
 		var err error
-		scfg.tools, err = findTools(e)
+		flags := environs.HighestVersion | environs.CompatVersion
+		scfg.tools, err = environs.FindTools(e, version.Current, flags)
 		if err != nil {
 			return nil, err
 		}

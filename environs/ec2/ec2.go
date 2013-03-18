@@ -237,7 +237,7 @@ func (e *environ) PublicStorage() environs.StorageReader {
 }
 
 func findTools(env *environ) (*state.Tools, error) {
-	flags := environs.CompatVersion
+	flags := environs.HighestVersion | environs.CompatVersion
 	v := version.Current
 	v.Series = env.Config().DefaultSeries()
 	// TODO: set Arch based on constraints (when they are landed)
@@ -280,7 +280,6 @@ func (e *environ) Bootstrap(cert, key []byte) error {
 	if !hasCert {
 		return fmt.Errorf("no CA certificate in environment configuration")
 	}
-
 	v := version.Current
 	v.Series = tools.Series
 	v.Arch = tools.Arch
@@ -426,7 +425,8 @@ type startInstanceParams struct {
 func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, error) {
 	if scfg.tools == nil {
 		var err error
-		scfg.tools, err = findTools(e)
+		flags := environs.HighestVersion | environs.CompatVersion
+		scfg.tools, err = environs.FindTools(e, version.Current, flags)
 		if err != nil {
 			return nil, err
 		}
