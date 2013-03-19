@@ -79,6 +79,24 @@ func ParseConstraints(args ...string) (Value, error) {
 	return cons, nil
 }
 
+// Constraints implements gnuflag.Value for a Constraints.
+type ConstraintsValue struct {
+	Target *Constraints
+}
+
+func (v ConstraintsValue) Set(s string) error {
+	cons, err := ParseConstraints(s)
+	if err != nil {
+		return err
+	}
+	*v.Target = cons
+	return nil
+}
+
+func (v ConstraintsValue) String() string {
+	return v.Target.String()
+}
+
 // setRaw interprets a name=value string and sets the supplied value.
 func (c *Value) setRaw(raw string) error {
 	eq := strings.Index(raw, "=")

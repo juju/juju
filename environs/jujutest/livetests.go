@@ -81,13 +81,9 @@ func (t *LiveTests) BootstrapOnce(c *C) {
 	}
 	// We only build and upload tools if there will be a state agent that
 	// we could connect to (actual live tests, rather than local-only)
-	err := environs.Bootstrap(t.Env, t.CanOpenState, panicWrite)
+	err := environs.Bootstrap(t.Env, state.Constraints{}, t.CanOpenState)
 	c.Assert(err, IsNil)
 	t.bootstrapped = true
-}
-
-func panicWrite(name string, cert, key []byte) error {
-	panic("writeCertAndKey called unexpectedly")
 }
 
 func (t *LiveTests) Destroy(c *C) {
@@ -305,7 +301,7 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 func (t *LiveTests) TestBootstrapMultiple(c *C) {
 	t.BootstrapOnce(c)
 
-	err := environs.Bootstrap(t.Env, false, panicWrite)
+	err := environs.Bootstrap(t.Env, state.Constraints{}, false)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	c.Logf("destroy env")
@@ -735,7 +731,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
 	err = storageCopy(dummyStorage, currentPath, envStorage, otherPath)
 	c.Assert(err, IsNil)
 
-	err = environs.Bootstrap(env, false, panicWrite)
+	err = environs.Bootstrap(env, state.Constraints{}, false)
 	c.Assert(err, IsNil)
 	defer env.Destroy(nil)
 

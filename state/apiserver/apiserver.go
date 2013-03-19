@@ -374,6 +374,11 @@ func (c *srvClient) SetConstraints(args params.SetConstraints) error {
 	return statecmd.SetConstraints(c.root.srv.state, args)
 }
 
+// DestroyRelation removes the relation between the specified endpoints.
+func (c *srvClient) DestroyRelation(args params.DestroyRelation) error {
+	return statecmd.DestroyRelation(c.root.srv.state, args)
+}
+
 // CharmInfo returns information about the requested charm.
 func (c *srvClient) CharmInfo(args params.CharmInfo) (api.CharmInfo, error) {
 	curl, err := charm.ParseURL(args.CharmURL)
@@ -635,7 +640,7 @@ func (ws *watchers) stopAll() {
 	defer ws.mu.Unlock()
 	for _, w := range ws.ws {
 		if err := w.w.Stop(); err != nil {
-			log.Printf("state/api: error stopping %T watcher: %v", w, err)
+			log.Errorf("state/api: error stopping %T watcher: %v", w, err)
 		}
 	}
 	ws.ws = make(map[string]*srvWatcher)

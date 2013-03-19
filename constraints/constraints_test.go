@@ -223,6 +223,17 @@ var constraintsRoundtripTests = []constraints.Value{
 	},
 }
 
+func (s *ConstraintsSuite) TestRoundtripGnuflagValue(c *C) {
+	for i, t := range constraintsRoundtripTests {
+		c.Logf("test %d", i)
+		var cons state.Constraints
+		val := state.ConstraintsValue{&cons}
+		err := val.Set(t.String())
+		c.Assert(err, IsNil)
+		c.Assert(cons, DeepEquals, t)
+	}
+}
+
 func (s *ConstraintsSuite) TestRoundtripString(c *C) {
 	for i, t := range constraintsRoundtripTests {
 		c.Logf("test %d", i)

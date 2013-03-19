@@ -7,6 +7,12 @@ import (
 	"launchpad.net/juju-core/constraints"
 )
 
+// DestroyRelation holds the parameters for making the DestroyRelation call.
+// The endpoints specified are unordered.
+type DestroyRelation struct {
+	Endpoints []string
+}
+
 // ServiceDeploy holds the parameters for making the ServiceDeploy call.
 type ServiceDeploy struct {
 	ServiceName string
