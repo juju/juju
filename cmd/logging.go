@@ -30,7 +30,7 @@ func (c *Log) Start(ctx *Context) (err error) {
 	log.Debug = c.Debug
 	log.Target = nil
 	var target io.Writer
-	prefix := "[JUJU]" + c.Prefix
+	prefix := "JUJU:" + c.Prefix
 	if c.Path != "" {
 		path := ctx.AbsPath(c.Path)
 		target, err = os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
@@ -41,7 +41,7 @@ func (c *Log) Start(ctx *Context) (err error) {
 		target = ctx.Stderr
 	}
 	if target != nil {
-		log.Target = stdlog.New(target, prefix+":", stdlog.LstdFlags)
+		log.Target = stdlog.New(target, prefix+": ", stdlog.LstdFlags)
 	}
 	return
 }
