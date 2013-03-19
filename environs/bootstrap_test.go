@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"time"
 )
@@ -34,13 +35,13 @@ func (s *bootstrapSuite) TearDownTest(c *C) {
 
 func (s *bootstrapSuite) TestBootstrapNeedsConfigCert(c *C) {
 	env := newEnviron("bar", noKeysDefined)
-	err := environs.Bootstrap(env, false)
+	err := environs.Bootstrap(env, state.Constraints{}, false)
 	c.Assert(err, ErrorMatches, "environment configuration missing CA certificate")
 }
 
 func (s *bootstrapSuite) TestBootstrapKeyGeneration(c *C) {
 	env := newEnviron("foo", useDefaultKeys)
-	err := environs.Bootstrap(env, false)
+	err := environs.Bootstrap(env, state.Constraints{}, false)
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
 
@@ -55,16 +56,32 @@ func (s *bootstrapSuite) TestBootstrapKeyGeneration(c *C) {
 
 func (s *bootstrapSuite) TestBootstrapUploadTools(c *C) {
 	env := newEnviron("foo", useDefaultKeys)
-	err := environs.Bootstrap(env, false)
+	err := environs.Bootstrap(env, state.Constraints{}, false)
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
 	c.Assert(env.uploadTools, Equals, false)
 
 	env = newEnviron("foo", useDefaultKeys)
-	err = environs.Bootstrap(env, true)
+	err = environs.Bootstrap(env, state.Constraints{}, true)
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
 	c.Assert(env.uploadTools, Equals, true)
+}
+
+func (s *bootstrapSuite) TestBootstrapConstraints(c *C) {
+	env := newEnviron("foo", useDefaultKeys)
+	err := environs.Bootstrap(env, state.Constraints{}, false)
+	c.Assert(err, IsNil)
+	c.Assert(env.bootstrapCount, Equals, 1)
+	c.Assert(env.constraints, DeepEquals, state.Constraints{})
+
+	env = newEnviron("foo", useDefaultKeys)
+	cons, err := state.ParseConstraints("cpu-cores=2 mem=4G")
+	c.Assert(err, IsNil)
+	err = environs.Bootstrap(env, cons, false)
+	c.Assert(err, IsNil)
+	c.Assert(env.bootstrapCount, Equals, 1)
+	c.Assert(env.constraints, DeepEquals, cons)
 }
 
 type bootstrapEnviron struct {
@@ -74,6 +91,7 @@ type bootstrapEnviron struct {
 
 	// The following fields are filled in when Bootstrap is called.
 	bootstrapCount int
+	constraints    state.Constraints
 	uploadTools    bool
 	certPEM        []byte
 	keyPEM         []byte
@@ -105,8 +123,9 @@ func (e *bootstrapEnviron) Name() string {
 	return e.name
 }
 
-func (e *bootstrapEnviron) Bootstrap(uploadTools bool, certPEM, keyPEM []byte) error {
+func (e *bootstrapEnviron) Bootstrap(cons state.Constraints, uploadTools bool, certPEM, keyPEM []byte) error {
 	e.bootstrapCount++
+	e.constraints = cons
 	e.uploadTools = uploadTools
 	e.certPEM = certPEM
 	e.keyPEM = keyPEM
