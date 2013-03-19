@@ -1,7 +1,6 @@
 package main
 
 import (
-	"io/ioutil"
 	"os"
 	"reflect"
 
@@ -14,7 +13,7 @@ import (
 
 type CmdSuite struct {
 	testing.JujuConnSuite
-	home fakeHome
+	home coretesting.FakeHome
 }
 
 var _ = Suite(&CmdSuite{})
@@ -41,13 +40,11 @@ environments:
 
 func (s *CmdSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.home = makeFakeHome(c, "peckham", "walthamstow", "brokenenv")
-	err := ioutil.WriteFile(homePath(".juju", "environments.yaml"), []byte(envConfig), 0666)
-	c.Assert(err, IsNil)
+	s.home = coretesting.MakeFakeHome(c, envConfig, "peckham", "walthamstow", "brokenenv")
 }
 
 func (s *CmdSuite) TearDownTest(c *C) {
-	s.home.restore()
+	s.home.Restore()
 	s.JujuConnSuite.TearDownTest(c)
 }
 
@@ -238,7 +235,7 @@ func (*CmdSuite) TestAddUnitCommandInit(c *C) {
 	_, err := initAddUnitCommand()
 	c.Assert(err, ErrorMatches, "no service specified")
 
-	// bad unit count	
+	// bad unit count
 	_, err = initDeployCommand("charm-name", "--num-units", "0")
 	c.Assert(err, ErrorMatches, "must deploy at least one unit")
 	_, err = initDeployCommand("charm-name", "-n", "0")

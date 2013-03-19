@@ -60,11 +60,14 @@ type machineDoc struct {
 
 func newMachine(st *State, doc *machineDoc) *Machine {
 	machine := &Machine{
-		st:        st,
-		doc:       *doc,
-		annotator: annotator{st: st},
+		st:  st,
+		doc: *doc,
 	}
-	machine.annotator.entityName = machine.EntityName()
+	machine.annotator = annotator{
+		machine.globalKey(),
+		machine.EntityName(),
+		st,
+	}
 	return machine
 }
 
@@ -282,7 +285,7 @@ func (m *Machine) Remove() (err error) {
 		Id:     m.doc.Id,
 		Remove: true,
 	}}
-	ops = append(ops, annotationRemoveOps(m.st, m.EntityName()))
+	ops = append(ops, annotationRemoveOps(m.st, m.globalKey()))
 	return m.st.runner.Run(ops, "", nil)
 }
 

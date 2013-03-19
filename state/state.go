@@ -57,9 +57,11 @@ func (t *Tools) SetBSON(raw bson.Raw) error {
 	return nil
 }
 
+const serviceSnippet = "[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*"
+
 var (
-	validService = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*$")
-	validUnit    = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*/[0-9]+$")
+	validService = regexp.MustCompile("^" + serviceSnippet + "$")
+	validUnit    = regexp.MustCompile("^" + serviceSnippet + "(-[a-z0-9]*[a-z][a-z0-9]*)*/[0-9]+$")
 	validMachine = regexp.MustCompile("^0$|^[1-9][0-9]*$")
 )
 
@@ -275,24 +277,47 @@ func (st *State) Machine(id string) (*Machine, error) {
 	return newMachine(st, mdoc), nil
 }
 
-// Entity represents an entity capabable of handling password authentication
-// and annotations.
-type Entity interface {
-	EntityName() string
+// Authenticator represents entites capable of handling password
+// authentication.
+type Authenticator interface {
+	Refresh() error
 	SetPassword(pass string) error
 	PasswordValid(pass string) bool
-	Refresh() error
-	SetAnnotation(key, value string) error
-	Annotations() (map[string]string, error)
 }
 
-// Entity returns the entity for the given name.
-func (st *State) Entity(entityName string) (Entity, error) {
-	if entityName == "environment" {
-		// The environment is an entity capable of storing annotations,
-		// and the only entity whose name does not contain a "-".
-		return st.GetEnvironment(), nil
+// Annotator represents entities capable of handling annotations.
+type Annotator interface {
+	Annotation(key string) (string, error)
+	Annotations() (map[string]string, error)
+	SetAnnotation(key, value string) error
+}
+
+// Authenticator attempts to return an Authenticator with the given name.
+func (st *State) Authenticator(name string) (Authenticator, error) {
+	e, err := st.entity(name)
+	if err != nil {
+		return nil, err
 	}
+	if e, ok := e.(Authenticator); ok {
+		return e, nil
+	}
+	return nil, fmt.Errorf("entity %q does not support authentication", name)
+}
+
+// Annotator attempts to return an Annotator with the given name.
+func (st *State) Annotator(name string) (Annotator, error) {
+	e, err := st.entity(name)
+	if err != nil {
+		return nil, err
+	}
+	if e, ok := e.(Annotator); ok {
+		return e, nil
+	}
+	return nil, fmt.Errorf("entity %q does not support annotations", name)
+}
+
+// entity returns the entity for the given name.
+func (st *State) entity(entityName string) (interface{}, error) {
 	i := strings.Index(entityName, "-")
 	if i <= 0 || i >= len(entityName)-1 {
 		return nil, fmt.Errorf("invalid entity name %q", entityName)
@@ -321,6 +346,17 @@ func (st *State) Entity(entityName string) (Entity, error) {
 			return nil, fmt.Errorf("invalid entity name %q", entityName)
 		}
 		return st.Service(id)
+	case "environment":
+		conf, err := st.EnvironConfig()
+		if err != nil {
+			return nil, err
+		}
+		// Return an invalid entity error if the requested environment is not
+		// the current one.
+		if id != conf.Name() {
+			return nil, fmt.Errorf("invalid entity name %q", entityName)
+		}
+		return st.Environment()
 	}
 	return nil, fmt.Errorf("invalid entity name %q", entityName)
 }
@@ -364,6 +400,9 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	// Sanity checks.
 	if !IsServiceName(name) {
 		return nil, fmt.Errorf("invalid name")
+	}
+	if ch == nil {
+		return nil, fmt.Errorf("charm is nil")
 	}
 	if exists, err := isNotDead(st.services, name); err != nil {
 		return nil, err
@@ -724,9 +763,7 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 			return err
 		}
 		for {
-			// TODO(fwereade) totally remove this filthy and incorrect hack.
-			// Maybe u.AssignToNewMachine()? (should probably be internal...)
-			m, err := st.AddMachine(version.Current.Series, JobHostUnits)
+			m, err := st.AddMachine(u.doc.Series, JobHostUnits)
 			if err != nil {
 				return err
 			}

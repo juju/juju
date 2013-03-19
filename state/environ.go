@@ -1,44 +1,34 @@
 package state
 
-import "fmt"
-
 // Environment represents the state of an environment.
 type Environment struct {
-	st *State
+	st   *State
+	name string
 	annotator
 }
 
-// GetEnvironment returns the environment entity.
-func (st *State) GetEnvironment() *Environment {
-	env := &Environment{
-		st:        st,
-		annotator: annotator{st: st},
+// Environment returns the environment entity.
+func (st *State) Environment() (*Environment, error) {
+	conf, err := st.EnvironConfig()
+	if err != nil {
+		return nil, err
 	}
-	env.annotator.entityName = env.EntityName()
-	return env
+	env := &Environment{
+		st:   st,
+		name: conf.Name(),
+	}
+	env.annotator = annotator{env.globalKey(), env.EntityName(), st}
+	return env, nil
 }
 
 // EntityName returns a name identifying the environment.
 // The returned name will be different from other EntityName values returned
 // by any other entities from the same state.
 func (e Environment) EntityName() string {
-	return "environment"
+	return "environment-" + e.name
 }
 
-// SetPassword currently just returns an error. Implemented here so that
-// an environment can be used as an Entity.
-func (e Environment) SetPassword(pass string) error {
-	return fmt.Errorf("cannot set password of environment")
-}
-
-// PasswordValid currently just returns false. Implemented here so that
-// an environment can be used as an Entity.
-func (e Environment) PasswordValid(pass string) bool {
-	return false
-}
-
-// Refresh currently just returns an error. Implemented here so that
-// an environment can be used as an Entity.
-func (e Environment) Refresh() error {
-	return fmt.Errorf("cannot refresh the environment")
+// globalKey returns the global database key for the environment.
+func (e *Environment) globalKey() string {
+	return "e#" + e.name
 }

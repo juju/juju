@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"io"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
+	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
 	"net"
 	stdtesting "testing"
@@ -32,12 +34,32 @@ func init() {
 	apiserver.AuthenticationEnabled = true
 }
 
+func removeServiceAndUnits(c *C, service *state.Service) {
+	// Destroy all units for the service.
+	units, err := service.AllUnits()
+	c.Assert(err, IsNil)
+	for _, unit := range units {
+		err = unit.EnsureDead()
+		c.Assert(err, IsNil)
+		err = unit.Remove()
+		c.Assert(err, IsNil)
+	}
+	// TODO: Calling Refresh is required due to LP bug #1152717 - remove when fixed.
+	err = service.Refresh()
+	c.Assert(err, IsNil)
+	err = service.Destroy()
+	c.Assert(err, IsNil)
+
+	err = service.Refresh()
+	c.Assert(state.IsNotFound(err), Equals, true)
+}
+
 var operationPermTests = []struct {
 	about string
 	// op performs the operation to be tested using the given state
 	// connection.  It returns a function that should be used to
 	// undo any changes made by the operation.
-	op    func(c *C, st *api.State) (reset func(), err error)
+	op    func(c *C, st *api.State, mst *state.State) (reset func(), err error)
 	allow []string
 	deny  []string
 }{{
@@ -77,12 +99,20 @@ var operationPermTests = []struct {
 	op:    opClientServiceGet,
 	allow: []string{"user-admin", "user-other"},
 }, {
+	about: "Client.Resolved",
+	op:    opClientResolved,
+	allow: []string{"user-admin", "user-other"},
+}, {
 	about: "Client.ServiceExpose",
 	op:    opClientServiceExpose,
 	allow: []string{"user-admin", "user-other"},
 }, {
 	about: "Client.ServiceUnexpose",
 	op:    opClientServiceUnexpose,
+	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.ServiceDeploy",
+	op:    opClientServiceDeploy,
 	allow: []string{"user-admin", "user-other"},
 }, {
 	about: "Client.GetAnnotations",
@@ -93,8 +123,16 @@ var operationPermTests = []struct {
 	op:    opClientSetAnnotations,
 	allow: []string{"user-admin", "user-other"},
 }, {
-	about: "Client.ServiceAddUnits",
-	op:    opClientServiceAddUnits,
+	about: "Client.AddServiceUnits",
+	op:    opClientAddServiceUnits,
+	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.DestroyServiceUnits",
+	op:    opClientDestroyServiceUnits,
+	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.ServiceDestroy",
+	op:    opClientServiceDestroy,
 	allow: []string{"user-admin", "user-other"},
 }, {
 	about: "Client.WatchAll",
@@ -137,7 +175,7 @@ func (s *suite) TestOperationPerm(c *C) {
 		for _, e := range entities {
 			c.Logf("test %d; %s; entity %q", i, t.about, e)
 			st := s.openAs(c, e)
-			reset, err := t.op(c, st)
+			reset, err := t.op(c, st, s.State)
 			if allow[e] {
 				c.Check(err, IsNil)
 			} else {
@@ -150,7 +188,7 @@ func (s *suite) TestOperationPerm(c *C) {
 	}
 }
 
-func opGetUnitWordpress0(c *C, st *api.State) (func(), error) {
+func opGetUnitWordpress0(c *C, st *api.State, mst *state.State) (func(), error) {
 	u, err := st.Unit("wordpress/0")
 	if err != nil {
 		c.Check(u, IsNil)
@@ -162,8 +200,8 @@ func opGetUnitWordpress0(c *C, st *api.State) (func(), error) {
 	return func() {}, err
 }
 
-func opUnitSetPassword(unitName string) func(c *C, st *api.State) (func(), error) {
-	return func(c *C, st *api.State) (func(), error) {
+func opUnitSetPassword(unitName string) func(c *C, st *api.State, mst *state.State) (func(), error) {
+	return func(c *C, st *api.State, mst *state.State) (func(), error) {
 		u, err := st.Unit(unitName)
 		if err != nil {
 			c.Check(u, IsNil)
@@ -179,7 +217,7 @@ func opUnitSetPassword(unitName string) func(c *C, st *api.State) (func(), error
 	}
 }
 
-func opGetMachine1(c *C, st *api.State) (func(), error) {
+func opGetMachine1(c *C, st *api.State, mst *state.State) (func(), error) {
 	m, err := st.Machine("1")
 	if err != nil {
 		c.Check(m, IsNil)
@@ -191,7 +229,7 @@ func opGetMachine1(c *C, st *api.State) (func(), error) {
 	return func() {}, err
 }
 
-func opMachine1SetPassword(c *C, st *api.State) (func(), error) {
+func opMachine1SetPassword(c *C, st *api.State, mst *state.State) (func(), error) {
 	m, err := st.Machine("1")
 	if err != nil {
 		c.Check(m, IsNil)
@@ -206,7 +244,7 @@ func opMachine1SetPassword(c *C, st *api.State) (func(), error) {
 	}, nil
 }
 
-func opClientCharmInfo(c *C, st *api.State) (func(), error) {
+func opClientCharmInfo(c *C, st *api.State, mst *state.State) (func(), error) {
 	info, err := st.Client().CharmInfo("local:series/wordpress-3")
 	if err != nil {
 		c.Check(info, IsNil)
@@ -219,7 +257,7 @@ func opClientCharmInfo(c *C, st *api.State) (func(), error) {
 	return func() {}, nil
 }
 
-func opClientStatus(c *C, st *api.State) (func(), error) {
+func opClientStatus(c *C, st *api.State, mst *state.State) (func(), error) {
 	status, err := st.Client().Status()
 	if err != nil {
 		c.Check(status, IsNil)
@@ -239,7 +277,7 @@ func resetBlogTitle(c *C, st *api.State) func() {
 	}
 }
 
-func opClientServiceSet(c *C, st *api.State) (func(), error) {
+func opClientServiceSet(c *C, st *api.State, mst *state.State) (func(), error) {
 	err := st.Client().ServiceSet("wordpress", map[string]string{
 		"blog-title": "foo",
 	})
@@ -249,7 +287,7 @@ func opClientServiceSet(c *C, st *api.State) (func(), error) {
 	return resetBlogTitle(c, st), nil
 }
 
-func opClientServiceSetYAML(c *C, st *api.State) (func(), error) {
+func opClientServiceSetYAML(c *C, st *api.State, mst *state.State) (func(), error) {
 	err := st.Client().ServiceSetYAML("wordpress", `"blog-title": "foo"`)
 	if err != nil {
 		return func() {}, err
@@ -257,7 +295,7 @@ func opClientServiceSetYAML(c *C, st *api.State) (func(), error) {
 	return resetBlogTitle(c, st), nil
 }
 
-func opClientServiceGet(c *C, st *api.State) (func(), error) {
+func opClientServiceGet(c *C, st *api.State, mst *state.State) (func(), error) {
 	// This test only shows that the call is made without error, ensuring the
 	// signatures match.
 	_, err := st.Client().ServiceGet("wordpress")
@@ -268,7 +306,7 @@ func opClientServiceGet(c *C, st *api.State) (func(), error) {
 	return func() {}, nil
 }
 
-func opClientServiceExpose(c *C, st *api.State) (func(), error) {
+func opClientServiceExpose(c *C, st *api.State, mst *state.State) (func(), error) {
 	// This test only shows that the call is made without error, ensuring the
 	// signatures match.
 	err := st.Client().ServiceExpose("wordpress")
@@ -279,7 +317,7 @@ func opClientServiceExpose(c *C, st *api.State) (func(), error) {
 	return func() {}, nil
 }
 
-func opClientServiceUnexpose(c *C, st *api.State) (func(), error) {
+func opClientServiceUnexpose(c *C, st *api.State, mst *state.State) (func(), error) {
 	// This test only checks that the call is made without error, ensuring the
 	// signatures match.
 	err := st.Client().ServiceUnexpose("wordpress")
@@ -290,17 +328,35 @@ func opClientServiceUnexpose(c *C, st *api.State) (func(), error) {
 	return func() {}, nil
 }
 
-func opClientGetAnnotations(c *C, st *api.State) (func(), error) {
+func opClientResolved(c *C, st *api.State, _ *state.State) (func(), error) {
+	err := st.Client().Resolved("wordpress/0", false)
+	// There are several scenarios in which this test is called, one is
+	// that the user is not authorized.  In that case we want to exit now,
+	// letting the error percolate out so the caller knows that the
+	// permission error was correctly generated.
+	if err != nil && api.ErrCode(err) == api.CodeUnauthorized {
+		return func() {}, err
+	}
+	// Otherwise, the user was authorized, but we expect an error anyway
+	// because the unit is not in an error state when we tried to resolve
+	// the error.  Therefore, since it is complaining it means that the
+	// call to Resolved worked, so we're happy.
+	c.Assert(err, NotNil)
+	c.Assert(err.Error(), Equals, `unit "wordpress/0" is not in an error state`)
+	return func() {}, nil
+}
+
+func opClientGetAnnotations(c *C, st *api.State, mst *state.State) (func(), error) {
 	ann, err := st.Client().GetAnnotations("service-wordpress")
 	if err != nil {
 		return func() {}, err
 	}
 	c.Assert(err, IsNil)
-	c.Assert(ann, DeepEquals, make(map[string]string))
+	c.Assert(ann, IsNil)
 	return func() {}, nil
 }
 
-func opClientSetAnnotations(c *C, st *api.State) (func(), error) {
+func opClientSetAnnotations(c *C, st *api.State, mst *state.State) (func(), error) {
 	pairs := map[string]string{"key1": "value1", "key2": "value2"}
 	err := st.Client().SetAnnotations("service-wordpress", pairs)
 	if err != nil {
@@ -313,10 +369,35 @@ func opClientSetAnnotations(c *C, st *api.State) (func(), error) {
 	}, nil
 }
 
-func opClientServiceAddUnits(c *C, st *api.State) (func(), error) {
+func opClientServiceDeploy(c *C, st *api.State, mst *state.State) (func(), error) {
 	// This test only checks that the call is made without error, ensuring the
 	// signatures match.
-	err := st.Client().ServiceAddUnits("wordpress", 1)
+	// We are cheating and using a local repo only.
+
+	// Set the CharmStore to the test repository.
+	serviceName := "mywordpress"
+	charmUrl := "local:series/wordpress"
+	parsedUrl := charm.MustParseURL(charmUrl)
+	repo, err := charm.InferRepository(parsedUrl, coretesting.Charms.Path)
+	originalServerCharmStore := apiserver.CharmStore
+	apiserver.CharmStore = repo
+
+	err = st.Client().ServiceDeploy(charmUrl, serviceName, 1, "")
+	if err != nil {
+		return func() {}, err
+	}
+	return func() {
+		apiserver.CharmStore = originalServerCharmStore
+		service, err := mst.Service(serviceName)
+		c.Assert(err, IsNil)
+		removeServiceAndUnits(c, service)
+	}, nil
+}
+
+func opClientAddServiceUnits(c *C, st *api.State, mst *state.State) (func(), error) {
+	// This test only checks that the call is made without error, ensuring the
+	// signatures match.
+	err := st.Client().AddServiceUnits("wordpress", 1)
 	if err != nil {
 		return func() {}, err
 	}
@@ -324,7 +405,34 @@ func opClientServiceAddUnits(c *C, st *api.State) (func(), error) {
 	return func() {}, nil
 }
 
-func opClientWatchAll(c *C, st *api.State) (func(), error) {
+func opClientDestroyServiceUnits(c *C, st *api.State, mst *state.State) (func(), error) {
+	err := statecmd.AddServiceUnits(mst, params.AddServiceUnits{"wordpress", 1})
+	if err != nil {
+		return func() {}, err
+	}
+	newUnitName := []string{"wordpress/1"}
+	err = st.Client().DestroyServiceUnits(newUnitName)
+	if err != nil {
+		return func() {
+			_ = statecmd.DestroyServiceUnits(mst, params.DestroyServiceUnits{newUnitName})
+		}, err
+	}
+	c.Assert(err, IsNil)
+	return func() {}, err
+}
+
+func opClientServiceDestroy(c *C, st *api.State, mst *state.State) (func(), error) {
+	// This test only checks that the call is made without error, ensuring the
+	// signatures match.
+	err := st.Client().ServiceDestroy("wordpress")
+	if err != nil {
+		return func() {}, err
+	}
+	c.Assert(err, IsNil)
+	return func() {}, nil
+}
+
+func opClientWatchAll(c *C, st *api.State, mst *state.State) (func(), error) {
 	watcher, err := st.Client().WatchAll()
 	if err == nil {
 		watcher.Stop()
@@ -346,6 +454,11 @@ var scenarioStatus = &api.Status{
 			InstanceId: "i-machine-2",
 		},
 	},
+}
+
+// namedEntity represents entities with a name unique to all entities.
+type namedEntity interface {
+	EntityName() string
 }
 
 // setUpScenario makes an environment scenario suitable for
@@ -384,7 +497,7 @@ var scenarioStatus = &api.Status{
 // environment manager (bootstrap machine), so is
 // hopefully easier to remember as such.
 func (s *suite) setUpScenario(c *C) (entities []string) {
-	add := func(e state.Entity) {
+	add := func(e namedEntity) {
 		entities = append(entities, e.EntityName())
 	}
 	u, err := s.State.User("admin")
@@ -458,17 +571,17 @@ func (s *suite) setUpScenario(c *C) (entities []string) {
 	return
 }
 
-// AuthEntity is the same as state.Entity but
-// without PasswordValid and annotations handling
-// which are implemented by state entities but not
-// by api entities.
-type AuthEntity interface {
-	EntityName() string
+// namedAuthenticator is the same as state.Authenticator but without
+// PasswordValid which is implemented by state entities but not by api
+// entities. It also adds to state.Authenticator the ability to retrieve
+// the entity name.
+type namedAuthenticator interface {
 	SetPassword(pass string) error
 	Refresh() error
+	namedEntity
 }
 
-func setDefaultPassword(c *C, e AuthEntity) {
+func setDefaultPassword(c *C, e namedAuthenticator) {
 	err := e.SetPassword(e.EntityName() + " password")
 	c.Assert(err, IsNil)
 }
@@ -609,6 +722,7 @@ func (s *suite) TestClientEnvironmentInfo(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(info.DefaultSeries, Equals, conf.DefaultSeries())
 	c.Assert(info.ProviderType, Equals, conf.Type())
+	c.Assert(info.Name, Equals, conf.Name())
 }
 
 var clientAnnotationsTests = []struct {
@@ -641,6 +755,13 @@ var clientAnnotationsTests = []struct {
 	},
 }
 
+// namedAnnotator adds to state.Annotator the ability to retrieve the entity
+// name.
+type namedAnnotator interface {
+	state.Annotator
+	namedEntity
+}
+
 func (s *suite) TestClientAnnotations(c *C) {
 	// Set up entities.
 	service, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
@@ -649,8 +770,9 @@ func (s *suite) TestClientAnnotations(c *C) {
 	c.Assert(err, IsNil)
 	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	environment := s.State.GetEnvironment()
-	entities := []state.Entity{service, unit, machine, environment}
+	environment, err := s.State.Environment()
+	c.Assert(err, IsNil)
+	entities := []namedAnnotator{service, unit, machine, environment}
 	for i, t := range clientAnnotationsTests {
 		for _, entity := range entities {
 			id := entity.EntityName()
@@ -1122,6 +1244,87 @@ func (s *suite) TestClientServiceUnexpose(c *C) {
 	c.Assert(err, IsNil)
 	service.Refresh()
 	c.Assert(service.IsExposed(), Equals, false)
+}
+
+func (s *suite) TestClientServiceDestroy(c *C) {
+	// Setup:
+	s.setUpScenario(c)
+	serviceName := "wordpress"
+	service, err := s.State.Service(serviceName)
+	c.Assert(err, IsNil)
+	// Code under test:
+	err = s.APIState.Client().ServiceDestroy(serviceName)
+	c.Assert(err, IsNil)
+	err = service.Refresh()
+	// The test actual assertion: the service should no-longer be Alive.
+	c.Assert(service.Life(), Not(Equals), state.Alive)
+}
+
+func (s *suite) TestClientUnitResolved(c *C) {
+	// Setup:
+	s.setUpScenario(c)
+	u, err := s.State.Unit("wordpress/0")
+	c.Assert(err, IsNil)
+	err = u.SetStatus(state.UnitError, "gaaah")
+	c.Assert(err, IsNil)
+	// Code under test:
+	err = s.APIState.Client().Resolved("wordpress/0", false)
+	c.Assert(err, IsNil)
+	// Freshen the unit's state.
+	err = u.Refresh()
+	c.Assert(err, IsNil)
+	// And now the actual test assertions: we set the unit as resolved via
+	// the API so it should have a resolved mode set.
+	mode := u.Resolved()
+	c.Assert(mode, Equals, state.ResolvedNoHooks)
+}
+
+var serviceDeployTests = []struct {
+	about            string
+	serviceName      string
+	charmUrl         string
+	numUnits         int
+	expectedNumUnits int
+}{{
+	about:            "Normal deploy",
+	serviceName:      "mywordpress",
+	charmUrl:         "local:series/wordpress",
+	expectedNumUnits: 1,
+}, {
+	about:            "Two units",
+	serviceName:      "mywordpress",
+	charmUrl:         "local:series/wordpress",
+	numUnits:         2,
+	expectedNumUnits: 2,
+},
+}
+
+func (s *suite) TestClientServiceDeploy(c *C) {
+	s.setUpScenario(c)
+
+	for i, test := range serviceDeployTests {
+		c.Logf("test %d; %s", i, test.about)
+		parsedUrl := charm.MustParseURL(test.charmUrl)
+		localRepo, err := charm.InferRepository(parsedUrl,
+			coretesting.Charms.Path)
+		// Monkey-patch server repository.
+		originalServerCharmStore := apiserver.CharmStore
+		apiserver.CharmStore = localRepo
+		_, err = s.State.Service(test.serviceName)
+		c.Assert(err, NotNil)
+		err = s.APIState.Client().ServiceDeploy(
+			test.charmUrl, test.serviceName, test.numUnits, "")
+		c.Assert(err, IsNil)
+		service, err := s.State.Service(test.serviceName)
+		c.Assert(err, IsNil)
+		units, err := service.AllUnits()
+		c.Assert(err, IsNil)
+		c.Assert(units, HasLen, test.expectedNumUnits)
+		// Clean up.
+		removeServiceAndUnits(c, service)
+		// Restore server repository.
+		apiserver.CharmStore = originalServerCharmStore
+	}
 }
 
 // This test will be thrown away, at least in part, once the stub code in

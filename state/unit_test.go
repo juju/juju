@@ -40,6 +40,30 @@ func (s *UnitSuite) TestService(c *C) {
 	c.Assert(svc.Name(), Equals, s.unit.ServiceName())
 }
 
+func (s *UnitSuite) TestServiceConfig(c *C) {
+	scfg, err := s.service.Config()
+	c.Assert(err, IsNil)
+	scfg.Update(map[string]interface{}{
+		"foo":        "bar",
+		"blog-title": "no title",
+	})
+	_, err = scfg.Write()
+	c.Assert(err, IsNil)
+
+	unit, err := s.service.AddUnit()
+	c.Assert(err, IsNil)
+
+	_, err = unit.ServiceConfig()
+	c.Assert(err, ErrorMatches, "unit charm not set")
+
+	err = unit.SetCharmURL(s.charm.URL())
+	c.Assert(err, IsNil)
+
+	cfg, err := unit.ServiceConfig()
+	c.Assert(err, IsNil)
+	c.Assert(cfg, DeepEquals, scfg.Map())
+}
+
 func (s *UnitSuite) TestGetSetPublicAddress(c *C) {
 	address, ok := s.unit.PublicAddress()
 	c.Assert(ok, Equals, false)
@@ -174,7 +198,7 @@ func (s *UnitSuite) TestSetMongoPassword(c *C) {
 }
 
 func (s *UnitSuite) TestSetPassword(c *C) {
-	testSetPassword(c, func() (state.Entity, error) {
+	testSetPassword(c, func() (state.Authenticator, error) {
 		return s.State.Unit(s.unit.Name())
 	})
 }
@@ -264,7 +288,7 @@ func (s *UnitSuite) TestUnitSetAgentAlive(c *C) {
 
 	pinger, err := s.unit.SetAgentAlive()
 	c.Assert(err, IsNil)
-	c.Assert(pinger, Not(IsNil))
+	c.Assert(pinger, NotNil)
 	defer pinger.Stop()
 
 	s.State.Sync()
@@ -698,16 +722,19 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 }
 
 func (s *UnitSuite) TestAnnotatorForUnit(c *C) {
-	testAnnotator(c, func() (annotator, error) {
+	testAnnotator(c, func() (state.Annotator, error) {
 		return s.State.Unit("wordpress/0")
 	})
 }
 
 func (s *UnitSuite) TestAnnotationRemovalForUnit(c *C) {
-	s.unit.SetAnnotation("mykey", "myvalue")
-	s.unit.EnsureDead()
-	s.unit.Remove()
+	err := s.unit.SetAnnotation("mykey", "myvalue")
+	c.Assert(err, IsNil)
+	err = s.unit.EnsureDead()
+	c.Assert(err, IsNil)
+	err = s.unit.Remove()
+	c.Assert(err, IsNil)
 	ann, err := s.unit.Annotations()
 	c.Assert(err, IsNil)
-	c.Assert(ann, DeepEquals, make(map[string]string))
+	c.Assert(ann, IsNil)
 }

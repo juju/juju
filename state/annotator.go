@@ -7,16 +7,21 @@ import (
 	"strings"
 )
 
-// annDoc represents the internal state of annotations for an Entity in MongoDB.
-type annDoc struct {
-	EntityName  string `bson:"_id"`
+// annotatorDoc represents the internal state of annotations for an Entity in
+// MongoDB. Note that the annotations map is not maintained in local storage
+// due to the fact that it is not accessed directly, but through
+// Annotations/Annotation below.
+type annotatorDoc struct {
+	GlobalKey   string `bson:"_id"`
+	EntityName  string
 	Annotations map[string]string
 }
 
 // annotator stores information required to query MongoDB.
 type annotator struct {
-	st         *State
+	globalKey  string
 	entityName string
+	st         *State
 }
 
 // SetAnnotation adds a key/value pair to annotations in MongoDB.
@@ -24,7 +29,7 @@ func (a *annotator) SetAnnotation(key, value string) error {
 	if strings.Contains(key, ".") {
 		return fmt.Errorf("invalid key %q", key)
 	}
-	id := a.entityName
+	id := a.globalKey
 	coll := a.st.annotations.Name
 	if value == "" {
 		// Delete a key/value pair in MongoDB.
@@ -54,11 +59,15 @@ func (a *annotator) SetAnnotation(key, value string) error {
 				C:      coll,
 				Id:     id,
 				Assert: txn.DocMissing,
-				Insert: &annDoc{id, map[string]string{key: value}},
+				Insert: &annotatorDoc{
+					id,
+					a.entityName,
+					map[string]string{key: value},
+				},
 			}
 		}
 		if err := a.st.runner.Run([]txn.Op{op}, "", nil); err != nil {
-			return fmt.Errorf("cannot set annotation %q = %q on %s: %v", key, value, id, onAbort(err, errNotAlive))
+			return fmt.Errorf("cannot set annotation %q = %q on %s: %v", key, value, id, err)
 		}
 	}
 	return nil
@@ -66,18 +75,20 @@ func (a *annotator) SetAnnotation(key, value string) error {
 
 // Annotations returns all the annotations corresponding to an entity.
 func (a annotator) Annotations() (map[string]string, error) {
-	doc := new(annDoc)
-	err := a.st.annotations.FindId(a.entityName).One(doc)
+	doc := new(annotatorDoc)
+	err := a.st.annotations.FindId(a.globalKey).One(doc)
 	if err == mgo.ErrNotFound {
-		return make(map[string]string), nil
+		// Returning an empty map if there are no annotations.
+		return nil, nil
 	}
 	if err != nil {
-		return make(map[string]string), err
+		return nil, err
 	}
 	return doc.Annotations, nil
 }
 
 // Annotation returns the annotation value corresponding to the given key.
+// If the requested annotation is not found, an empty string is returned.
 func (a annotator) Annotation(key string) (string, error) {
 	ann, err := a.Annotations()
 	if err != nil {

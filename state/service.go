@@ -34,11 +34,10 @@ type serviceDoc struct {
 
 func newService(st *State, doc *serviceDoc) *Service {
 	svc := &Service{
-		st:        st,
-		doc:       *doc,
-		annotator: annotator{st: st},
+		st:  st,
+		doc: *doc,
 	}
-	svc.annotator.entityName = svc.EntityName()
+	svc.annotator = annotator{svc.globalKey(), svc.EntityName(), st}
 	return svc
 }
 
@@ -52,18 +51,6 @@ func (s *Service) Name() string {
 // EntityName values returned by any other entities from the same state.
 func (s *Service) EntityName() string {
 	return "service-" + s.Name()
-}
-
-// PasswordValid currently just returns false. Implemented here so that
-// a service can be used as an Entity.
-func (s *Service) PasswordValid(password string) bool {
-	return false
-}
-
-// SetPassword currently just returns an error. Implemented here so that
-// a service can be used as an Entity.
-func (s *Service) SetPassword(password string) error {
-	return fmt.Errorf("cannot set password of service")
 }
 
 // globalKey returns the global database key for the service.
@@ -153,16 +140,25 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 		hasLastRefs := D{{"life", Alive}, {"unitcount", 0}, {"relationcount", removeCount}}
 		return append(ops, s.removeOps(hasLastRefs)...), nil
 	}
-	// If any units of the service exist, or if any known relation was not
-	// removed (because it had units in scope, or because it was Dying, which
-	// implies the same condition), service removal will be handled as a
-	// consequence of the removal of the last unit or relation referencing it.
+	// In all other cases, service removal will be handled as a consequence
+	// of the removal of the last unit or relation referencing it. If any
+	// relations have been removed, they'll be caught by the operations
+	// collected above; but if any has been added, we need to abort and add
+	// a destroy op for that relation too. In combination, it's enough to
+	// check for count equality: an add/remove will not touch the count, but
+	// will be caught by virtue of being a remove.
 	notLastRefs := D{
 		{"life", Alive},
-		{"$or", []D{
-			{{"unitcount", D{{"$gt", 0}}}},
-			{{"relationcount", s.doc.RelationCount}},
-		}},
+		{"relationcount", s.doc.RelationCount},
+	}
+	// With respect to unit count, a changing value doesn't matter, so long
+	// as the count's equality with zero does not change, because all we care
+	// about is that *some* unit is, or is not, keeping the service from
+	// being removed: the difference between 1 unit and 1000 is irrelevant.
+	if s.doc.UnitCount > 0 {
+		notLastRefs = append(notLastRefs, D{{"unitcount", D{{"$gt", 0}}}}...)
+	} else {
+		notLastRefs = append(notLastRefs, D{{"unitcount", 0}}...)
 	}
 	update := D{{"$set", D{{"life", Dying}}}}
 	if removeCount != 0 {
@@ -194,7 +190,7 @@ func (s *Service) removeOps(asserts D) []txn.Op {
 		Id:     s.globalKey(),
 		Remove: true,
 	}}
-	return append(ops, annotationRemoveOps(s.st, s.EntityName()))
+	return append(ops, annotationRemoveOps(s.st, s.globalKey()))
 }
 
 // IsExposed returns whether this service is exposed. The explicitly open
@@ -362,6 +358,7 @@ func (s *Service) addUnitOps(principalName string) (string, []txn.Op, error) {
 	udoc := &unitDoc{
 		Name:      name,
 		Service:   s.doc.Name,
+		Series:    ch.URL().Series,
 		Life:      Alive,
 		Status:    UnitPending,
 		Principal: principalName,
@@ -449,7 +446,7 @@ func (s *Service) removeUnitOps(u *Unit) []txn.Op {
 	} else {
 		svcOp.Assert = D{{"life", Dying}, {"unitcount", D{{"$gt", 1}}}}
 	}
-	return append(ops, svcOp, annotationRemoveOps(s.st, u.EntityName()))
+	return append(ops, svcOp, annotationRemoveOps(s.st, u.globalKey()))
 }
 
 // Unit returns the service's unit with name.

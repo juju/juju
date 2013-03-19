@@ -11,7 +11,6 @@ type AddUnitsSuite struct {
 	testing.JujuConnSuite
 }
 
-// Run-time check to ensure AddUnitSuite implements the Suite interface.
 var _ = Suite(&AddUnitsSuite{})
 
 var addUnitsTests = []struct {
@@ -47,14 +46,14 @@ var addUnitsTests = []struct {
 	},
 }
 
-func (s *AddUnitsSuite) TestServiceAddUnits(c *C) {
+func (s *AddUnitsSuite) TestAddServiceUnits(c *C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	svc, err := s.State.AddService("dummy-service", charm)
 	c.Assert(err, IsNil)
 
 	for i, t := range addUnitsTests {
 		c.Logf("test %d. %s", i, t.about)
-		err = statecmd.ServiceAddUnits(s.State, params.ServiceAddUnits{
+		err = statecmd.AddServiceUnits(s.State, params.AddServiceUnits{
 			ServiceName: t.service,
 			NumUnits:    t.numUnits,
 		})

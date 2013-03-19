@@ -87,7 +87,7 @@ func (s *MachineSuite) TestMachineSetAgentAlive(c *C) {
 
 	pinger, err := s.machine.SetAgentAlive()
 	c.Assert(err, IsNil)
-	c.Assert(pinger, Not(IsNil))
+	c.Assert(pinger, NotNil)
 	defer pinger.Stop()
 
 	s.State.Sync()
@@ -111,7 +111,7 @@ func (s *MachineSuite) TestSetMongoPassword(c *C) {
 }
 
 func (s *MachineSuite) TestSetPassword(c *C) {
-	testSetPassword(c, func() (state.Entity, error) {
+	testSetPassword(c, func() (state.Authenticator, error) {
 		return s.State.Machine(s.machine.Id())
 	})
 }
@@ -618,16 +618,19 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 }
 
 func (s *MachineSuite) TestAnnotatorForMachine(c *C) {
-	testAnnotator(c, func() (annotator, error) {
+	testAnnotator(c, func() (state.Annotator, error) {
 		return s.State.Machine(s.machine.Id())
 	})
 }
 
 func (s *MachineSuite) TestAnnotationRemovalForMachine(c *C) {
-	s.machine.SetAnnotation("mykey", "myvalue")
-	s.machine.EnsureDead()
-	s.machine.Remove()
+	err := s.machine.SetAnnotation("mykey", "myvalue")
+	c.Assert(err, IsNil)
+	err = s.machine.EnsureDead()
+	c.Assert(err, IsNil)
+	err = s.machine.Remove()
+	c.Assert(err, IsNil)
 	ann, err := s.machine.Annotations()
 	c.Assert(err, IsNil)
-	c.Assert(ann, DeepEquals, make(map[string]string))
+	c.Assert(ann, IsNil)
 }
