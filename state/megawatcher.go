@@ -13,47 +13,8 @@ import (
 )
 
 // StateWatcher watches any changes to the state.
-// It's a stub type for the time being until allWatcher
-// is complete.
-type StateWatcher struct{}
-
-func newStateWatcher(st *State) *StateWatcher {
-	return &StateWatcher{}
-}
-
-// Stop stops the watcher.
-func (w *StateWatcher) Stop() error {
-	return nil
-}
-
-var StubNextDelta = []params.Delta{
-	params.Delta{
-		Removed: false,
-		Entity: &params.ServiceInfo{
-			Name:    "Example",
-			Exposed: true,
-		},
-	},
-	params.Delta{
-		Removed: true,
-		Entity: &params.UnitInfo{
-			Name:    "MyUnit",
-			Service: "Example",
-		},
-	},
-}
-
-// Next retrieves all changes that have happened since the given revision
-// number, blocking until there are some changes available.  It also
-// returns the revision number of the latest change.
-func (w *StateWatcher) Next() ([]params.Delta, error) {
-	// This is a stub to make progress with the higher level coding.
-	return StubNextDelta, nil
-}
-
-// StateWatcher watches any changes to the state.
 // TODO(rog) rename this to StateWatcher when allWatcher is complete.
-type xStateWatcher struct {
+type StateWatcher struct {
 	all *allWatcher
 	// The following fields are maintained by the allWatcher
 	// goroutine.
@@ -61,8 +22,14 @@ type xStateWatcher struct {
 	stopped bool
 }
 
+func newStateWatcher(st *State) *StateWatcher {
+	return &StateWatcher{
+		all: st.allWatcher,
+	}
+}
+
 // Stop stops the watcher.
-func (w *xStateWatcher) Stop() error {
+func (w *StateWatcher) Stop() error {
 	select {
 	case w.all.request <- &allRequest{w: w}:
 		return nil
@@ -73,10 +40,9 @@ func (w *xStateWatcher) Stop() error {
 
 var errWatcherStopped = errors.New("state watcher was stopped")
 
-// Next retrieves all changes that have happened since the given revision
-// number, blocking until there are some changes available.  It also
-// returns the revision number of the latest change.
-func (w *xStateWatcher) Next() ([]params.Delta, error) {
+// Next retrieves all changes that have happened since the last
+// time it was called, blocking until there are some changes available.
+func (w *StateWatcher) Next() ([]params.Delta, error) {
 	req := &allRequest{
 		w:     w,
 		reply: make(chan bool),
@@ -115,7 +81,7 @@ type allWatcher struct {
 
 	// Each entry in the waiting map holds a linked list of Next requests
 	// outstanding for the associated StateWatcher.
-	waiting map[*xStateWatcher]*allRequest
+	waiting map[*StateWatcher]*allRequest
 }
 
 // allWatcherBacking is the interface required
@@ -156,7 +122,7 @@ type entityId struct {
 // replied to when some changes are available.
 type allRequest struct {
 	// w holds the StateWatcher that has originated the request.
-	w *xStateWatcher
+	w *StateWatcher
 
 	// reply receives a message when deltas are ready.  If reply is
 	// nil, the StateWatcher will be stopped.  If the reply is true,
@@ -181,7 +147,7 @@ func newAllWatcher(backing allWatcherBacking) *allWatcher {
 		backing: backing,
 		request: make(chan *allRequest),
 		all:     newAllInfo(),
-		waiting: make(map[*xStateWatcher]*allRequest),
+		waiting: make(map[*StateWatcher]*allRequest),
 	}
 }
 
@@ -325,7 +291,7 @@ func (aw *allWatcher) seen(revno int64) {
 
 // leave is called when the given watcher leaves.  It decrements the reference
 // counts of any entities that have been seen by the watcher.
-func (aw *allWatcher) leave(w *xStateWatcher) {
+func (aw *allWatcher) leave(w *StateWatcher) {
 	for e := aw.all.list.Front(); e != nil; {
 		next := e.Next()
 		entry := e.Value.(*entityEntry)
