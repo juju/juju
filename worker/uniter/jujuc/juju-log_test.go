@@ -17,12 +17,14 @@ type JujuLogSuite struct {
 
 var _ = Suite(&JujuLogSuite{})
 
-func pushLog(debug bool) (buf *bytes.Buffer, pop func()) {
-	oldTarget, oldDebug := log.Target, log.Debug
-	buf = new(bytes.Buffer)
-	log.Target, log.Debug = stdlog.New(buf, "", 0), debug
-	return buf, func() {
-		log.Target, log.Debug = oldTarget, oldDebug
+func pushLog(debug bool) (*bytes.Buffer, func()) {
+	oldTarget, oldDebug := log.Target(), log.Debug
+	var buf bytes.Buffer
+	log.SetTarget(stdlog.New(&buf, "", 0))
+	log.Debug = debug
+	return &buf, func() {
+		log.SetTarget(oldTarget)
+		log.Debug = oldDebug
 	}
 }
 

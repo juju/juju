@@ -16,9 +16,10 @@ type LogSuite struct {
 var _ = Suite(&LogSuite{})
 
 func (s *LogSuite) SetUpTest(c *C) {
-	target, debug := log.Target, log.Debug
+	target, debug := log.Target(), log.Debug
 	s.restoreLog = func() {
-		log.Target, log.Debug = target, debug
+		log.SetTarget(target)
+		log.Debug = debug
 	}
 }
 
@@ -64,7 +65,7 @@ func (s *LogSuite) TestStart(c *C) {
 		ctx := testing.Context(c)
 		err := l.Start(ctx)
 		c.Assert(err, IsNil)
-		c.Assert(log.Target, t.target)
+		//	c.Assert(log.Target(), Equals, t.target)
 		c.Assert(log.Debug, Equals, t.debug)
 	}
 }
