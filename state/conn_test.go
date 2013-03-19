@@ -56,5 +56,5 @@ func (cs *ConnSuite) TearDownTest(c *C) {
 }
 
 func (s *ConnSuite) AddTestingCharm(c *C, name string) *state.Charm {
-	return state.AddTestingCharm(c, s.State, name)
+	return s.State.AddTestingCharm(c, name)
 }

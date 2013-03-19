@@ -352,7 +352,7 @@ type allWatcherStateBacking struct {
 // type of value we use to store entity information
 // for that collection.
 type allWatcherStateCollection struct {
-	c *mgo.Collection
+	*mgo.Collection
 	// infoSliceType stores the type of a slice of the info type
 	// that we use for this collection.  In Go 1.1 we can change
 	// this to use the type itself, as we'll have reflect.SliceOf.
@@ -366,16 +366,16 @@ func newAllWatcherStateBacking(st *State) allWatcherBacking {
 		collectionByKind: make(map[string]allWatcherStateCollection),
 	}
 	collections := []allWatcherStateCollection{{
-		c:             st.machines,
+		Collection:    st.machines,
 		infoSliceType: reflect.TypeOf([]params.MachineInfo(nil)),
 	}, {
-		c:             st.units,
+		Collection:    st.units,
 		infoSliceType: reflect.TypeOf([]params.UnitInfo(nil)),
 	}, {
-		c:             st.services,
+		Collection:    st.services,
 		infoSliceType: reflect.TypeOf([]params.ServiceInfo(nil)),
 	}, {
-		c:             st.relations,
+		Collection:    st.relations,
 		infoSliceType: reflect.TypeOf([]params.RelationInfo(nil)),
 	}}
 	// Populate the collection maps from the above set of collections.
@@ -388,10 +388,10 @@ func newAllWatcherStateBacking(st *State) allWatcherBacking {
 			panic(fmt.Errorf("duplicate collection kind %q", kind))
 		}
 		b.collectionByKind[kind] = c
-		if _, ok := b.collectionByName[c.c.Name]; ok {
+		if _, ok := b.collectionByName[c.Name]; ok {
 			panic(fmt.Errorf("duplicate collection name %q", kind))
 		}
-		b.collectionByName[c.c.Name] = c
+		b.collectionByName[c.Name] = c
 	}
 	return b
 }
@@ -399,14 +399,14 @@ func newAllWatcherStateBacking(st *State) allWatcherBacking {
 // watch watches all the collections.
 func (b *allWatcherStateBacking) watch(in chan<- watcher.Change) {
 	for _, c := range b.collectionByName {
-		b.st.watcher.WatchCollection(c.c.Name, in)
+		b.st.watcher.WatchCollection(c.Name, in)
 	}
 }
 
 // watch unwatches all the collections.
 func (b *allWatcherStateBacking) unwatch(in chan<- watcher.Change) {
 	for _, c := range b.collectionByName {
-		b.st.watcher.UnwatchCollection(c.c.Name, in)
+		b.st.watcher.UnwatchCollection(c.Name, in)
 	}
 }
 
@@ -414,11 +414,9 @@ func (b *allWatcherStateBacking) unwatch(in chan<- watcher.Change) {
 func (b *allWatcherStateBacking) getAll(all *allInfo) error {
 	// TODO(rog) fetch collections concurrently?
 	for _, c := range b.collectionByName {
-		log.Printf("making new slice ptr from %v", c.infoSliceType)
 		infoSlicePtr := reflect.New(c.infoSliceType).Interface()
-		err := c.c.Find(nil).All(infoSlicePtr)
-		if err != nil {
-			return fmt.Errorf("cannot get all %s: %v", c.c.Name, err)
+		if err := c.Find(nil).All(infoSlicePtr); err != nil {
+			return fmt.Errorf("cannot get all %s: %v", c.Name, err)
 		}
 		infos := reflect.ValueOf(infoSlicePtr).Elem()
 		for i := 0; i < infos.Len(); i++ {
@@ -436,7 +434,7 @@ func (b *allWatcherStateBacking) fetch(id entityId) (params.EntityInfo, error) {
 		panic(fmt.Errorf("unknown collection %q in fetch request", id.collection))
 	}
 	info := reflect.New(c.infoSliceType.Elem()).Interface().(params.EntityInfo)
-	if err := c.c.FindId(id.id).One(info); err != nil {
+	if err := c.FindId(id.id).One(info); err != nil {
 		return nil, err
 	}
 	return info, nil
@@ -449,7 +447,7 @@ func (b *allWatcherStateBacking) entityIdForInfo(info params.EntityInfo) entityI
 		panic(fmt.Errorf("entity with unknown kind %q", info.EntityKind()))
 	}
 	return entityId{
-		collection: c.c.Name,
+		collection: c.Name,
 		id:         info.EntityId(),
 	}
 }

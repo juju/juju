@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-func AddTestingCharm(c *C, st *State, name string) *Charm {
+func (st *State) AddTestingCharm(c *C, name string) *Charm {
 	ch := testing.Charms.Dir(name)
 	ident := fmt.Sprintf("%s-%d", name, ch.Revision())
 	curl := charm.MustParseURL("local:series/" + ident)
@@ -826,7 +826,7 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 		InstanceId: "i-machine-0",
 	})
 
-	wordpress, err := s.State.AddService("wordpress", AddTestingCharm(c, s.State, "wordpress"))
+	wordpress, err := s.State.AddService("wordpress", s.State.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
 	err = wordpress.SetExposed()
 	c.Assert(err, IsNil)
@@ -835,7 +835,7 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 		Exposed: true,
 	})
 
-	_, err = s.State.AddService("logging", AddTestingCharm(c, s.State, "logging"))
+	_, err = s.State.AddService("logging", s.State.AddTestingCharm(c, "logging"))
 	c.Assert(err, IsNil)
 	add(&params.ServiceInfo{
 		Name: "logging",
