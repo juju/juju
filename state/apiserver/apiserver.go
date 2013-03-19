@@ -369,6 +369,11 @@ func (c *srvClient) ServiceDestroy(args params.ServiceDestroy) error {
 	return statecmd.ServiceDestroy(c.root.srv.state, args)
 }
 
+// AddRelation adds a relation between the specified endpoints.
+func (c *srvClient) AddRelation(args params.AddRelation) error {
+	return statecmd.AddRelation(c.root.srv.state, args)
+}
+
 // CharmInfo returns information about the requested charm.
 func (c *srvClient) CharmInfo(args params.CharmInfo) (api.CharmInfo, error) {
 	curl, err := charm.ParseURL(args.CharmURL)

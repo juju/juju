@@ -142,6 +142,10 @@ var operationPermTests = []struct {
 	about: "Client.CharmInfo",
 	op:    opClientCharmInfo,
 	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.AddRelation",
+	op:    opClientAddRelation,
+	allow: []string{"user-admin", "user-other"},
 },
 }
 
@@ -254,6 +258,14 @@ func opClientCharmInfo(c *C, st *api.State, mst *state.State) (func(), error) {
 	c.Assert(info.URL, Equals, "local:series/wordpress-3")
 	c.Assert(info.Meta.Name, Equals, "wordpress")
 	c.Assert(info.Revision, Equals, 3)
+	return func() {}, nil
+}
+
+func opClientAddRelation(c *C, st *api.State, mst *state.State) (func(), error) {
+	err := st.Client().AddRelation("wordpress", "logging")
+	if err != nil {
+		return func() {}, err
+	}
 	return func() {}, nil
 }
 
@@ -510,6 +522,9 @@ func (s *suite) setUpScenario(c *C) (entities []string) {
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, m)
 	add(m)
+
+	_, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
+	c.Assert(err, IsNil)
 
 	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
@@ -1313,6 +1328,22 @@ func (s *suite) TestClientServiceDeploy(c *C) {
 		removeServiceAndUnits(c, service)
 		// Restore server repository.
 		apiserver.CharmStore = originalServerCharmStore
+	}
+}
+
+func (s *suite) TestSuccessfulAddRelation(c *C) {
+	s.setUpScenario(c)
+	endpoints := []string{"wordpress", "mysql"}
+	err := s.APIState.Client().AddRelation(endpoints[0], endpoints[1])
+	c.Assert(err, IsNil)
+	for _, endpoint := range endpoints {
+		service, err := s.State.Service(endpoint)
+		c.Assert(err, IsNil)
+		rels, err := service.Relations()
+		c.Assert(err, IsNil)
+		for _, rel := range rels {
+			c.Assert(rel.Life(), Equals, state.Alive)
+		}
 	}
 }
 

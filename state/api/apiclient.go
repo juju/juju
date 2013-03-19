@@ -90,6 +90,15 @@ func (c *Client) ServiceGet(service string) (*params.ServiceGetResults, error) {
 	return &results, nil
 }
 
+// AddRelation adds a relation between the specified endpoints.
+func (c *Client) AddRelation(endpoint0, endpoint1 string) error {
+	params := params.AddRelation{
+		Endpoints: []string{endpoint0, endpoint1},
+	}
+	err := c.st.client.Call("Client", "", "AddRelation", params, nil)
+	return clientError(err)
+}
+
 // ServiceExpose changes the juju-managed firewall to expose any ports that
 // were also explicitly marked by units as open.
 func (c *Client) ServiceExpose(service string) error {

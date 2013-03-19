@@ -6,6 +6,12 @@ import (
 	"fmt"
 )
 
+// AddRelation holds the parameters for making the AddRelation call.
+// The endpoints specified are unordered.
+type AddRelation struct {
+	Endpoints []string
+}
+
 // ServiceDeploy holds the parameters for making the ServiceDeploy call.
 type ServiceDeploy struct {
 	ServiceName string
