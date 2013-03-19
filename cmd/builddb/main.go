@@ -50,7 +50,7 @@ func build() error {
 		return err
 	}
 
-	log.Printf("builddb: Waiting for unit to reach %q status...", state.UnitStarted)
+	log.Infof("builddb: Waiting for unit to reach %q status...", state.UnitStarted)
 	unit := units[0]
 	last, info, err := unit.Status()
 	if err != nil {
@@ -75,15 +75,15 @@ func build() error {
 	if !ok {
 		return fmt.Errorf("cannot retrieve files: build unit lacks a public-address")
 	}
-	log.Printf("builddb: Built files published at http://%s", addr)
-	log.Printf("builddb: Remember to destroy the environment when you're done...")
+	log.Noticef("builddb: Built files published at http://%s", addr)
+	log.Noticef("builddb: Remember to destroy the environment when you're done...")
 	return nil
 }
 
 func logStatus(status state.UnitStatus, info string) {
 	if info == "" {
-		log.Printf("builddb: Unit status is %q", status)
+		log.Infof("builddb: Unit status is %q", status)
 	} else {
-		log.Printf("builddb: Unit status is %q: %s", status, info)
+		log.Infof("builddb: Unit status is %q: %s", status, info)
 	}
 }

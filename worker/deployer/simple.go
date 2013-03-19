@@ -165,7 +165,7 @@ func (ctx *SimpleContext) upstartService(unitName string) *upstart.Service {
 func removeOnErr(err *error, path string) {
 	if *err != nil {
 		if e := os.Remove(path); e != nil {
-			log.Printf("installer: cannot remove %q: %v", path, e)
+			log.Warningf("installer: cannot remove %q: %v", path, e)
 		}
 	}
 }

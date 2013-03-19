@@ -57,7 +57,7 @@ func (c *JujuLogCommand) Run(ctx *cmd.Context) error {
 	if c.Debug {
 		log.Debugf("%s", msg)
 	} else {
-		log.Printf("%s", msg)
+		log.Infof("%s", msg)
 	}
 	return nil
 }

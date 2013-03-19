@@ -124,7 +124,7 @@ hpcloud:
 }
 
 func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	log.Printf("environs/openstack: opening environment %q", cfg.Name())
+	log.Infof("environs/openstack: opening environment %q", cfg.Name())
 	e := new(environ)
 	err := e.SetConfig(cfg)
 	if err != nil {
@@ -356,7 +356,7 @@ func (inst *instance) OpenPorts(machineId string, ports []state.Port) error {
 	if err := inst.e.openPortsInGroup(name, ports); err != nil {
 		return err
 	}
-	log.Printf("environs/openstack: opened ports in security group %s: %v", name, ports)
+	log.Infof("environs/openstack: opened ports in security group %s: %v", name, ports)
 	return nil
 }
 
@@ -369,7 +369,7 @@ func (inst *instance) ClosePorts(machineId string, ports []state.Port) error {
 	if err := inst.e.closePortsInGroup(name, ports); err != nil {
 		return err
 	}
-	log.Printf("environs/openstack: closed ports in security group %s: %v", name, ports)
+	log.Infof("environs/openstack: closed ports in security group %s: %v", name, ports)
 	return nil
 }
 
@@ -421,7 +421,7 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 	if password == "" {
 		return fmt.Errorf("admin-secret is required for bootstrap")
 	}
-	log.Printf("environs/openstack: bootstrapping environment %q", e.name)
+	log.Infof("environs/openstack: bootstrapping environment %q", e.name)
 	// If the state file exists, it might actually have just been
 	// removed by Destroy, and eventual consistency has not caught
 	// up yet, so we retry to verify if that is happening.
@@ -517,7 +517,7 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 	var apiAddrs []string
 	// Wait for the DNS names of any of the instances
 	// to become available.
-	log.Printf("environs/openstack: waiting for DNS name(s) of state server instances %v", st.StateInstances)
+	log.Infof("environs/openstack: waiting for DNS name(s) of state server instances %v", st.StateInstances)
 	for a := longAttempt.Start(); len(stateAddrs) == 0 && a.Next(); {
 		insts, err := e.Instances(st.StateInstances)
 		if err != nil && err != environs.ErrPartialInstances {
@@ -740,7 +740,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 			return nil, fmt.Errorf("cannot allocate a public IP as needed: %v", err)
 		} else {
 			publicIP = fip
-			log.Printf("environs/openstack: allocated public IP %s", publicIP.IP)
+			log.Infof("environs/openstack: allocated public IP %s", publicIP.IP)
 		}
 	}
 	if scfg.tools == nil {
@@ -751,7 +751,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 			return nil, err
 		}
 	}
-	log.Printf("environs/openstack: starting machine %s in %q running tools version %q from %q",
+	log.Infof("environs/openstack: starting machine %s in %q running tools version %q from %q",
 		scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
 	if strings.Contains(scfg.tools.Series, "unknown") || strings.Contains(scfg.tools.Arch, "unknown") {
 		return nil, fmt.Errorf("cannot find image for unknown series or architecture")
@@ -800,7 +800,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 		return nil, fmt.Errorf("cannot get started instance: %v", err)
 	}
 	inst := &instance{e, detail, ""}
-	log.Printf("environs/openstack: started instance %q", inst.Id())
+	log.Infof("environs/openstack: started instance %q", inst.Id())
 	if scfg.withPublicIP {
 		if err := e.assignPublicIP(publicIP, string(inst.Id())); err != nil {
 			if err := e.terminateInstances([]state.InstanceId{inst.Id()}); err != nil {
@@ -809,7 +809,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 			}
 			return nil, fmt.Errorf("cannot assign public address %s to instance %q: %v", publicIP.IP, inst.Id(), err)
 		}
-		log.Printf("environs/openstack: assigned public IP %s to %q", publicIP.IP, inst.Id())
+		log.Infof("environs/openstack: assigned public IP %s to %q", publicIP.IP, inst.Id())
 	}
 	return inst, nil
 }
@@ -907,7 +907,7 @@ func (e *environ) AllInstances() (insts []environs.Instance, err error) {
 }
 
 func (e *environ) Destroy(ensureInsts []environs.Instance) error {
-	log.Printf("environs/openstack: destroying environment %q", e.name)
+	log.Infof("environs/openstack: destroying environment %q", e.name)
 	insts, err := e.AllInstances()
 	if err != nil {
 		return fmt.Errorf("cannot get instances: %v", err)
@@ -1043,7 +1043,7 @@ func (e *environ) OpenPorts(ports []state.Port) error {
 	if err := e.openPortsInGroup(e.globalGroupName(), ports); err != nil {
 		return err
 	}
-	log.Printf("environs/openstack: opened ports in global group: %v", ports)
+	log.Infof("environs/openstack: opened ports in global group: %v", ports)
 	return nil
 }
 
@@ -1055,7 +1055,7 @@ func (e *environ) ClosePorts(ports []state.Port) error {
 	if err := e.closePortsInGroup(e.globalGroupName(), ports); err != nil {
 		return err
 	}
-	log.Printf("environs/openstack: closed ports in global group: %v", ports)
+	log.Infof("environs/openstack: closed ports in global group: %v", ports)
 	return nil
 }
 
