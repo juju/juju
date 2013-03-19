@@ -1,4 +1,4 @@
-// Code shared by the CLI and API for the SetContstraints function.
+// Code shared by the CLI and API for the SetConstraints function.
 
 package statecmd
 
@@ -8,7 +8,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 )
 
-// SetContstraints removes the specified units.
+// SetContstraints sets the constraints for a given service
 func SetConstraints(st *state.State, args params.SetConstraints) error {
 	conn, err := juju.NewConnFromState(st)
 	if err != nil {

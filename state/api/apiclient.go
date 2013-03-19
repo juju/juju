@@ -148,7 +148,7 @@ func (c *Client) ServiceDestroy(service string) error {
 	return clientError(c.st.client.Call("Client", "", "ServiceDestroy", params, nil))
 }
 
-// SetConstraints destroys a given service.
+// SetConstraints specifies the constraints for the given service.
 func (c *Client) SetConstraints(service string, constraints constraints.Value) error {
 	params := params.SetConstraints{
 		ServiceName: service,

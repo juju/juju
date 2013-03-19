@@ -369,7 +369,7 @@ func (c *srvClient) ServiceDestroy(args params.ServiceDestroy) error {
 	return statecmd.ServiceDestroy(c.root.srv.state, args)
 }
 
-// SetConstraints destroys a given service.
+// SetConstraints sets the constraints for a given service.
 func (c *srvClient) SetConstraints(args params.SetConstraints) error {
 	return statecmd.SetConstraints(c.root.srv.state, args)
 }

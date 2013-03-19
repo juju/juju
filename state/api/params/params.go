@@ -136,7 +136,7 @@ type GetAnnotations struct {
 	EntityId string
 }
 
-// SetConstraints stores parameters for making the GetAnnotations call.
+// SetConstraints stores parameters for making the SetConstraints call.
 type SetConstraints struct {
 	ServiceName string
 	Constraints constraints.Value
