@@ -40,6 +40,30 @@ func (s *UnitSuite) TestService(c *C) {
 	c.Assert(svc.Name(), Equals, s.unit.ServiceName())
 }
 
+func (s *UnitSuite) TestServiceConfig(c *C) {
+	scfg, err := s.service.Config()
+	c.Assert(err, IsNil)
+	scfg.Update(map[string]interface{}{
+		"foo":        "bar",
+		"blog-title": "no title",
+	})
+	_, err = scfg.Write()
+	c.Assert(err, IsNil)
+
+	unit, err := s.service.AddUnit()
+	c.Assert(err, IsNil)
+
+	_, err = unit.ServiceConfig()
+	c.Assert(err, ErrorMatches, "unit charm not set")
+
+	err = unit.SetCharmURL(s.charm.URL())
+	c.Assert(err, IsNil)
+
+	cfg, err := unit.ServiceConfig()
+	c.Assert(err, IsNil)
+	c.Assert(cfg, DeepEquals, scfg.Map())
+}
+
 func (s *UnitSuite) TestGetSetPublicAddress(c *C) {
 	address, ok := s.unit.PublicAddress()
 	c.Assert(ok, Equals, false)
@@ -264,7 +288,7 @@ func (s *UnitSuite) TestUnitSetAgentAlive(c *C) {
 
 	pinger, err := s.unit.SetAgentAlive()
 	c.Assert(err, IsNil)
-	c.Assert(pinger, Not(IsNil))
+	c.Assert(pinger, NotNil)
 	defer pinger.Stop()
 
 	s.State.Sync()

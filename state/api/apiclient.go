@@ -58,6 +58,16 @@ func (c *Client) ServiceSet(service string, options map[string]string) error {
 	return clientError(err)
 }
 
+// Resolved clears errors on a unit.
+func (c *Client) Resolved(unit string, retry bool) error {
+	p := params.Resolved{
+		UnitName: unit,
+		Retry:    retry,
+	}
+	err := c.st.client.Call("Client", "", "Resolved", p, nil)
+	return clientError(err)
+}
+
 // ServiceSetYAML sets configuration options on a service
 // given options in YAML format.
 func (c *Client) ServiceSetYAML(service string, yaml string) error {
@@ -112,18 +122,29 @@ func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int
 	return nil
 }
 
-// CharmInfo holds information about a charm.
-// ServiceAddUnit adds a given number of units to a service.
-func (c *Client) ServiceAddUnits(service string, numUnits int) error {
-	params := params.ServiceAddUnits{
+// AddServiceUnits adds a given number of units to a service.
+func (c *Client) AddServiceUnits(service string, numUnits int) error {
+	params := params.AddServiceUnits{
 		ServiceName: service,
 		NumUnits:    numUnits,
 	}
-	err := c.st.client.Call("Client", "", "ServiceAddUnits", params, nil)
-	if err != nil {
-		return clientError(err)
+	err := c.st.client.Call("Client", "", "AddServiceUnits", params, nil)
+	return clientError(err)
+}
+
+// DestroyServiceUnits decreases the number of units dedicated to a service.
+func (c *Client) DestroyServiceUnits(unitNames []string) error {
+	params := params.DestroyServiceUnits{unitNames}
+	err := c.st.client.Call("Client", "", "DestroyServiceUnits", params, nil)
+	return clientError(err)
+}
+
+// ServiceDestroy destroys a given service.
+func (c *Client) ServiceDestroy(service string) error {
+	params := params.ServiceDestroy{
+		ServiceName: service,
 	}
-	return nil
+	return clientError(c.st.client.Call("Client", "", "ServiceDestroy", params, nil))
 }
 
 // CharmInfo holds information about a charm.
@@ -352,7 +373,7 @@ func (w *EntityWatcher) loop() error {
 		defer w.wg.Done()
 		<-w.tomb.Dying()
 		if err := callWatch("Stop"); err != nil {
-			log.Printf("state/api: error trying to stop watcher: %v", err)
+			log.Errorf("state/api: error trying to stop watcher: %v", err)
 		}
 	}()
 	for {

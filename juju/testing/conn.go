@@ -150,7 +150,7 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	c.Assert(err, IsNil)
 	// sanity check we've got the correct environment.
 	c.Assert(environ.Name(), Equals, "dummyenv")
-	c.Assert(environs.Bootstrap(environ, false, panicWrite), IsNil)
+	c.Assert(environs.Bootstrap(environ, state.Constraints{}, false), IsNil)
 
 	conn, err := juju.NewConn(environ)
 	c.Assert(err, IsNil)
@@ -161,10 +161,6 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	c.Assert(err, IsNil)
 	s.APIConn = apiConn
 	s.APIState = apiConn.State
-}
-
-func panicWrite(name string, cert, key []byte) error {
-	panic("writeCertAndKey called unexpectedly")
 }
 
 func (s *JujuConnSuite) tearDownConn(c *C) {

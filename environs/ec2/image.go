@@ -66,7 +66,7 @@ func findInstanceSpec(spec *instanceConstraint) (*instanceSpec, error) {
 	for {
 		line, _, err := r.ReadLine()
 		if err != nil {
-			return nil, fmt.Errorf("cannot find matching image: %v", err)
+			return nil, fmt.Errorf("cannot find matching image: %v (%#v)", err, spec)
 		}
 		f := strings.Split(string(line), "\t")
 		if len(f) < colMax {

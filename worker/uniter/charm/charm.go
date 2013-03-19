@@ -11,7 +11,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/trivial"
 	"os"
-	"path/filepath"
+	"path"
 )
 
 // BundlesDir is responsible for storing and retrieving charm bundles
@@ -50,19 +50,19 @@ func (d *BundlesDir) download(sch *state.Charm, abort <-chan struct{}) (err erro
 		return err
 	}
 	burl := sch.BundleURL().String()
-	log.Printf("worker/uniter/charm: downloading %s from %s", sch.URL(), burl)
+	log.Infof("worker/uniter/charm: downloading %s from %s", sch.URL(), burl)
 	dl := downloader.New(burl, dir)
 	defer dl.Stop()
 	for {
 		select {
 		case <-abort:
-			log.Printf("worker/uniter/charm: download aborted")
+			log.Infof("worker/uniter/charm: download aborted")
 			return fmt.Errorf("aborted")
 		case st := <-dl.Done():
 			if st.Err != nil {
 				return st.Err
 			}
-			log.Printf("worker/uniter/charm: download complete")
+			log.Infof("worker/uniter/charm: download complete")
 			defer st.File.Close()
 			hash := sha256.New()
 			if _, err = io.Copy(hash, st.File); err != nil {
@@ -74,7 +74,7 @@ func (d *BundlesDir) download(sch *state.Charm, abort <-chan struct{}) (err erro
 					"expected sha256 %q, got %q", sch.BundleSha256(), actualSha256,
 				)
 			}
-			log.Printf("worker/uniter/charm: download verified")
+			log.Infof("worker/uniter/charm: download verified")
 			if err := os.MkdirAll(d.path, 0755); err != nil {
 				return err
 			}
@@ -87,11 +87,11 @@ func (d *BundlesDir) download(sch *state.Charm, abort <-chan struct{}) (err erro
 // bundlePath returns the path to the location where the verified charm
 // bundle identified by sch will be, or has been, saved.
 func (d *BundlesDir) bundlePath(sch *state.Charm) string {
-	return filepath.Join(d.path, charm.Quote(sch.URL().String()))
+	return path.Join(d.path, charm.Quote(sch.URL().String()))
 }
 
 // downloadsPath returns the path to the directory into which charms are
 // downloaded.
 func (d *BundlesDir) downloadsPath() string {
-	return filepath.Join(d.path, "downloads")
+	return path.Join(d.path, "downloads")
 }

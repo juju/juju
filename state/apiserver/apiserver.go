@@ -232,10 +232,11 @@ type srvEntityWatcher struct {
 // entity being watched since the most recent call to Next
 // or the Watch call that created the EntityWatcher.
 func (w srvEntityWatcher) Next() error {
-	if _, ok := <-w.w.(*state.EntityWatcher).Changes(); ok {
+	ew := w.w.(*state.EntityWatcher)
+	if _, ok := <-ew.Changes(); ok {
 		return nil
 	}
-	err := w.w.Err()
+	err := ew.Err()
 	if err == nil {
 		err = errStoppedWatcher
 	}
@@ -296,6 +297,11 @@ func (c *srvClient) ServiceGet(args params.ServiceGet) (params.ServiceGetResults
 	return statecmd.ServiceGet(c.root.srv.state, args)
 }
 
+// Resolved implements the server side of Client.Resolved.
+func (c *srvClient) Resolved(p params.Resolved) error {
+	return statecmd.Resolved(c.root.srv.state, p)
+}
+
 // ServiceExpose changes the juju-managed firewall to expose any ports that
 // were also explicitly marked by units as open.
 func (c *srvClient) ServiceExpose(args params.ServiceExpose) error {
@@ -348,9 +354,19 @@ func (c *srvClient) ServiceDeploy(args params.ServiceDeploy) error {
 	return err
 }
 
-// ServiceAddUnits adds a given number of units to a service.
-func (c *srvClient) ServiceAddUnits(args params.ServiceAddUnits) error {
-	return statecmd.ServiceAddUnits(c.root.srv.state, args)
+// AddServiceUnits adds a given number of units to a service.
+func (c *srvClient) AddServiceUnits(args params.AddServiceUnits) error {
+	return statecmd.AddServiceUnits(c.root.srv.state, args)
+}
+
+// DestroyServiceUnits removes a given set of service units.
+func (c *srvClient) DestroyServiceUnits(args params.DestroyServiceUnits) error {
+	return statecmd.DestroyServiceUnits(c.root.srv.state, args)
+}
+
+// ServiceDestroy destroys a given service.
+func (c *srvClient) ServiceDestroy(args params.ServiceDestroy) error {
+	return statecmd.ServiceDestroy(c.root.srv.state, args)
 }
 
 // CharmInfo returns information about the requested charm.
@@ -551,7 +567,6 @@ func isAgent(e state.Entity) bool {
 // watcher represents the interface provided by state watchers.
 type watcher interface {
 	Stop() error
-	Err() error
 }
 
 // watchers holds all the watchers for a connection.
@@ -615,7 +630,7 @@ func (ws *watchers) stopAll() {
 	defer ws.mu.Unlock()
 	for _, w := range ws.ws {
 		if err := w.w.Stop(); err != nil {
-			log.Printf("state/api: error stopping %T watcher: %v", w, err)
+			log.Errorf("state/api: error stopping %T watcher: %v", w, err)
 		}
 	}
 	ws.ws = make(map[string]*srvWatcher)

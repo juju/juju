@@ -20,7 +20,7 @@ var _ = Suite(&JujuLogSuite{})
 func pushLog(debug bool) (buf *bytes.Buffer, pop func()) {
 	oldTarget, oldDebug := log.Target, log.Debug
 	buf = new(bytes.Buffer)
-	log.Target, log.Debug = stdlog.New(buf, "", 0), debug
+	log.Target, log.Debug = stdlog.New(buf, "JUJU:", 0), debug
 	return buf, func() {
 		log.Target, log.Debug = oldTarget, oldDebug
 	}
@@ -31,10 +31,10 @@ var commonLogTests = []struct {
 	debugFlag    bool
 	target       string
 }{
-	{false, false, "JUJU"},
+	{false, false, "JUJU:INFO:"},
 	{false, true, ""},
-	{true, false, "JUJU"},
-	{true, true, "JUJU:DEBUG"},
+	{true, false, "JUJU:INFO:"},
+	{true, true, "JUJU:DEBUG:"},
 }
 
 func assertLogs(c *C, ctx jujuc.Context, badge string) {
@@ -71,21 +71,31 @@ func (s *JujuLogSuite) TestBadges(c *C) {
 	assertLogs(c, hctx, "u/0 peer1:1")
 }
 
-func (s *JujuLogSuite) TestRequiresMessage(c *C) {
+func newJujuLogCommand(c *C) cmd.Command {
 	ctx := &Context{}
 	com, err := jujuc.NewCommand(ctx, "juju-log")
 	c.Assert(err, IsNil)
+	return com
+}
+
+func (s *JujuLogSuite) TestRequiresMessage(c *C) {
+	com := newJujuLogCommand(c)
 	testing.TestInit(c, com, nil, "no message specified")
 }
 
-func (s *JujuLogSuite) TestLogLevel(c *C) {
-	ctx := &Context{}
-	com, err := jujuc.NewCommand(ctx, "juju-log")
-	c.Assert(err, IsNil)
-	// missing log level argument
+func (s *JujuLogSuite) TestLogInitMissingLevel(c *C) {
+	com := newJujuLogCommand(c)
 	testing.TestInit(c, com, []string{"-l"}, "flag needs an argument.*")
-	com, err = jujuc.NewCommand(ctx, "juju-log")
-	c.Assert(err, IsNil)
-	// valid log level
+}
+
+func (s *JujuLogSuite) TestLogInitMissingMessage(c *C) {
+	com := newJujuLogCommand(c)
 	testing.TestInit(c, com, []string{"-l", "FATAL"}, "no message specified")
+}
+
+func (s *JujuLogSuite) TestLogDeprecation(c *C) {
+	com := newJujuLogCommand(c)
+	ctx, err := testing.RunCommand(c, com, []string{"--format", "foo", "msg"})
+	c.Assert(err, IsNil)
+	c.Assert(testing.Stderr(ctx), Equals, "--format flag deprecated for command \"juju-log\"")
 }

@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
+	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
 	"net"
 	stdtesting "testing"
@@ -98,6 +99,10 @@ var operationPermTests = []struct {
 	op:    opClientServiceGet,
 	allow: []string{"user-admin", "user-other"},
 }, {
+	about: "Client.Resolved",
+	op:    opClientResolved,
+	allow: []string{"user-admin", "user-other"},
+}, {
 	about: "Client.ServiceExpose",
 	op:    opClientServiceExpose,
 	allow: []string{"user-admin", "user-other"},
@@ -118,8 +123,16 @@ var operationPermTests = []struct {
 	op:    opClientSetAnnotation,
 	allow: []string{"user-admin", "user-other"},
 }, {
-	about: "Client.ServiceAddUnits",
-	op:    opClientServiceAddUnits,
+	about: "Client.AddServiceUnits",
+	op:    opClientAddServiceUnits,
+	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.DestroyServiceUnits",
+	op:    opClientDestroyServiceUnits,
+	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.ServiceDestroy",
+	op:    opClientServiceDestroy,
 	allow: []string{"user-admin", "user-other"},
 }, {
 	about: "Client.WatchAll",
@@ -315,6 +328,24 @@ func opClientServiceUnexpose(c *C, st *api.State, mst *state.State) (func(), err
 	return func() {}, nil
 }
 
+func opClientResolved(c *C, st *api.State, _ *state.State) (func(), error) {
+	err := st.Client().Resolved("wordpress/0", false)
+	// There are several scenarios in which this test is called, one is
+	// that the user is not authorized.  In that case we want to exit now,
+	// letting the error percolate out so the caller knows that the
+	// permission error was correctly generated.
+	if err != nil && api.ErrCode(err) == api.CodeUnauthorized {
+		return func() {}, err
+	}
+	// Otherwise, the user was authorized, but we expect an error anyway
+	// because the unit is not in an error state when we tried to resolve
+	// the error.  Therefore, since it is complaining it means that the
+	// call to Resolved worked, so we're happy.
+	c.Assert(err, NotNil)
+	c.Assert(err.Error(), Equals, `unit "wordpress/0" is not in an error state`)
+	return func() {}, nil
+}
+
 func opClientGetAnnotations(c *C, st *api.State, mst *state.State) (func(), error) {
 	ann, err := st.Client().GetAnnotations("service-wordpress")
 	if err != nil {
@@ -361,10 +392,37 @@ func opClientServiceDeploy(c *C, st *api.State, mst *state.State) (func(), error
 	}, nil
 }
 
-func opClientServiceAddUnits(c *C, st *api.State, mst *state.State) (func(), error) {
+func opClientAddServiceUnits(c *C, st *api.State, mst *state.State) (func(), error) {
 	// This test only checks that the call is made without error, ensuring the
 	// signatures match.
-	err := st.Client().ServiceAddUnits("wordpress", 1)
+	err := st.Client().AddServiceUnits("wordpress", 1)
+	if err != nil {
+		return func() {}, err
+	}
+	c.Assert(err, IsNil)
+	return func() {}, nil
+}
+
+func opClientDestroyServiceUnits(c *C, st *api.State, mst *state.State) (func(), error) {
+	err := statecmd.AddServiceUnits(mst, params.AddServiceUnits{"wordpress", 1})
+	if err != nil {
+		return func() {}, err
+	}
+	newUnitName := []string{"wordpress/1"}
+	err = st.Client().DestroyServiceUnits(newUnitName)
+	if err != nil {
+		return func() {
+			_ = statecmd.DestroyServiceUnits(mst, params.DestroyServiceUnits{newUnitName})
+		}, err
+	}
+	c.Assert(err, IsNil)
+	return func() {}, err
+}
+
+func opClientServiceDestroy(c *C, st *api.State, mst *state.State) (func(), error) {
+	// This test only checks that the call is made without error, ensuring the
+	// signatures match.
+	err := st.Client().ServiceDestroy("wordpress")
 	if err != nil {
 		return func() {}, err
 	}
@@ -1175,6 +1233,39 @@ func (s *suite) TestClientServiceUnexpose(c *C) {
 	c.Assert(err, IsNil)
 	service.Refresh()
 	c.Assert(service.IsExposed(), Equals, false)
+}
+
+func (s *suite) TestClientServiceDestroy(c *C) {
+	// Setup:
+	s.setUpScenario(c)
+	serviceName := "wordpress"
+	service, err := s.State.Service(serviceName)
+	c.Assert(err, IsNil)
+	// Code under test:
+	err = s.APIState.Client().ServiceDestroy(serviceName)
+	c.Assert(err, IsNil)
+	err = service.Refresh()
+	// The test actual assertion: the service should no-longer be Alive.
+	c.Assert(service.Life(), Not(Equals), state.Alive)
+}
+
+func (s *suite) TestClientUnitResolved(c *C) {
+	// Setup:
+	s.setUpScenario(c)
+	u, err := s.State.Unit("wordpress/0")
+	c.Assert(err, IsNil)
+	err = u.SetStatus(state.UnitError, "gaaah")
+	c.Assert(err, IsNil)
+	// Code under test:
+	err = s.APIState.Client().Resolved("wordpress/0", false)
+	c.Assert(err, IsNil)
+	// Freshen the unit's state.
+	err = u.Refresh()
+	c.Assert(err, IsNil)
+	// And now the actual test assertions: we set the unit as resolved via
+	// the API so it should have a resolved mode set.
+	mode := u.Resolved()
+	c.Assert(mode, Equals, state.ResolvedNoHooks)
 }
 
 var serviceDeployTests = []struct {
