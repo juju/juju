@@ -134,18 +134,6 @@ type localLiveSuite struct {
 	srv localServer
 }
 
-// localServerSuite contains tests that run against an Openstack service double.
-// These tests can test things that would be unreasonably slow or expensive
-// to test on a live Openstack server. The service double is started and stopped for
-// each test.
-type localServerSuite struct {
-	coretesting.LoggingSuite
-	jujutest.Tests
-	cred *identity.Credentials
-	srv  localServer
-	env  environs.Environ
-}
-
 func (s *localLiveSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
 	c.Logf("Running live tests using openstack service test double")
@@ -170,6 +158,18 @@ func (s *localLiveSuite) SetUpTest(c *C) {
 func (s *localLiveSuite) TearDownTest(c *C) {
 	s.LiveTests.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
+}
+
+// localServerSuite contains tests that run against an Openstack service double.
+// These tests can test things that would be unreasonably slow or expensive
+// to test on a live Openstack server. The service double is started and stopped for
+// each test.
+type localServerSuite struct {
+	coretesting.LoggingSuite
+	jujutest.Tests
+	cred *identity.Credentials
+	srv  localServer
+	env  environs.Environ
 }
 
 func (s *localServerSuite) SetUpSuite(c *C) {
@@ -216,7 +216,7 @@ func (s *localServerSuite) TearDownTest(c *C) {
 
 // If the bootstrap node is configured to require a public IP address,
 // bootstrapping fails if an address cannot be allocated.
-func (s *localLiveSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
+func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
 	cleanup := s.srv.Service.Nova.RegisterControlPoint(
 		"addFloatingIP",
 		func(sc hook.ServiceControl, args ...interface{}) error {
@@ -232,7 +232,7 @@ func (s *localLiveSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
 	newconfig["use-floating-ip"] = true
 	env, err := environs.NewFromAttrs(newconfig)
 	c.Assert(err, IsNil)
-	err = environs.Bootstrap(env, s.CanOpenState)
+	err = environs.Bootstrap(env, false)
 	c.Assert(err, ErrorMatches, ".*cannot allocate a public IP as needed.*")
 }
 
