@@ -68,7 +68,7 @@ func (u *Uniter) loop(name string) (err error) {
 	if err = u.init(name); err != nil {
 		return err
 	}
-	log.Printf("worker/uniter: unit %q started", u.unit)
+	log.Noticef("worker/uniter: unit %q started", u.unit)
 
 	// Start filtering state change events for consumption by modes.
 	u.f, err = newFilter(u.st, name)
@@ -97,7 +97,7 @@ func (u *Uniter) loop(name string) (err error) {
 			mode, err = mode(u)
 		}
 	}
-	log.Printf("worker/uniter: unit %q shutting down: %s", u.unit, err)
+	log.Noticef("worker/uniter: unit %q shutting down: %s", u.unit, err)
 	return err
 }
 
@@ -190,7 +190,7 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason Op) error {
 			return err
 		}
 
-		log.Printf("worker/uniter: fetching charm %q", curl)
+		log.Infof("worker/uniter: fetching charm %q", curl)
 		sch, err := u.st.Charm(curl)
 		if err != nil {
 			return err
@@ -202,7 +202,7 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason Op) error {
 		if err = u.deployer.Stage(bun, curl); err != nil {
 			return err
 		}
-		log.Printf("worker/uniter: deploying charm %q", curl)
+		log.Infof("worker/uniter: deploying charm %q", curl)
 		if err = u.writeState(reason, Pending, hi, curl); err != nil {
 			return err
 		}
@@ -213,7 +213,7 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason Op) error {
 			return err
 		}
 	}
-	log.Printf("worker/uniter: charm %q is deployed", curl)
+	log.Infof("worker/uniter: charm %q is deployed", curl)
 	status := Queued
 	if hi != nil {
 		// If a hook operation was interrupted, restore it.
@@ -278,22 +278,22 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	if err := u.writeState(RunHook, Pending, &hi, nil); err != nil {
 		return err
 	}
-	log.Printf("worker/uniter: running %q hook", hookName)
+	log.Infof("worker/uniter: running %q hook", hookName)
 	if err := hctx.RunHook(hookName, u.charm.Path(), u.toolsDir, socketPath); err != nil {
-		log.Printf("worker/uniter: hook failed: %s", err)
+		log.Errorf("worker/uniter: hook failed: %s", err)
 		return errHookFailed
 	}
 	if err := u.writeState(RunHook, Done, &hi, nil); err != nil {
 		return err
 	}
-	log.Printf("worker/uniter: ran %q hook", hookName)
+	log.Infof("worker/uniter: ran %q hook", hookName)
 	return u.commitHook(hi)
 }
 
 // commitHook ensures that state is consistent with the supplied hook, and
 // that the fact of the hook's completion is persisted.
 func (u *Uniter) commitHook(hi hook.Info) error {
-	log.Printf("worker/uniter: committing %q hook", hi.Kind)
+	log.Infof("worker/uniter: committing %q hook", hi.Kind)
 	if hi.Kind.IsRelation() {
 		if err := u.relationers[hi.RelationId].CommitHook(hi); err != nil {
 			return err
@@ -311,7 +311,7 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 	if err := u.writeState(Continue, Pending, &hi, nil); err != nil {
 		return err
 	}
-	log.Printf("worker/uniter: committed %q hook", hi.Kind)
+	log.Infof("worker/uniter: committed %q hook", hi.Kind)
 	return nil
 }
 
@@ -388,7 +388,7 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 		if ep, err := rel.Endpoint(u.unit.ServiceName()); err != nil {
 			return nil, err
 		} else if !ep.ImplementedBy(ch) {
-			log.Printf("worker/uniter: skipping relation with unknown endpoint %q", ep)
+			log.Warningf("worker/uniter: skipping relation with unknown endpoint %q", ep)
 			continue
 		}
 		dir, err := relation.ReadStateDir(u.relationsDir, id)
@@ -432,7 +432,7 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 // addRelation causes the unit agent to join the supplied relation, and to
 // store persistent state in the supplied dir.
 func (u *Uniter) addRelation(rel *state.Relation, dir *relation.StateDir) error {
-	log.Printf("worker/uniter: joining relation %q", rel)
+	log.Infof("worker/uniter: joining relation %q", rel)
 	ru, err := rel.Unit(u.unit)
 	if err != nil {
 		return err
@@ -449,12 +449,12 @@ func (u *Uniter) addRelation(rel *state.Relation, dir *relation.StateDir) error 
 				return watcher.MustErr(w)
 			}
 			if err := r.Join(); err == state.ErrCannotEnterScopeYet {
-				log.Printf("worker/uniter: cannot enter scope for relation %q; waiting for subordinate to be removed", rel)
+				log.Infof("worker/uniter: cannot enter scope for relation %q; waiting for subordinate to be removed", rel)
 				continue
 			} else if err != nil {
 				return err
 			}
-			log.Printf("worker/uniter: joined relation %q", rel)
+			log.Infof("worker/uniter: joined relation %q", rel)
 			u.relationers[rel.Id()] = r
 			return nil
 		}

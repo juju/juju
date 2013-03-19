@@ -2,53 +2,25 @@ package environs
 
 import (
 	"fmt"
-	"io/ioutil"
 	"launchpad.net/juju-core/cert"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
-	"os"
-	"path"
 	"time"
 )
 
-// Bootstrap bootstraps the given environment.  If the environment does
-// not contain a CA certificate, a new certificate and key pair are
-// generated, added to the environment configuration, and writeCertAndKey
-// will be called to save them.  If writeCertFile is nil, the generated
-// certificate and key will be saved to ~/.juju/<environ-name>-cert.pem
-// and ~/.juju/<environ-name>-private-key.pem.
-//
-// If uploadTools is true, the current version of the juju tools will be
-// uploaded, as documented in Environ.Bootstrap.
-func Bootstrap(environ Environ, cons state.Constraints, uploadTools bool, writeCertAndKey func(environName string, cert, key []byte) error) error {
-	if writeCertAndKey == nil {
-		writeCertAndKey = writeCertAndKeyToHome
-	}
+// Bootstrap bootstraps the given environment. The supplied constraints are
+// used to provision the instance, and are also set within the bootstrapped
+// environment. The uploadTools parameter requires that the juju-core source
+// code be available within $GOPATH; if that is the case, that code will be
+// built locally and made available to the environment.
+func Bootstrap(environ Environ, cons state.Constraints, uploadTools bool) error {
 	cfg := environ.Config()
 	caCert, hasCACert := cfg.CACert()
 	caKey, hasCAKey := cfg.CAPrivateKey()
 	if !hasCACert {
-		if hasCAKey {
-			return fmt.Errorf("environment configuration with CA private key but no certificate")
-		}
-		var err error
-		caCert, caKey, err = cert.NewCA(environ.Name(), time.Now().UTC().AddDate(10, 0, 0))
-		if err != nil {
-			return err
-		}
-		m := cfg.AllAttrs()
-		m["ca-cert"] = string(caCert)
-		m["ca-private-key"] = string(caKey)
-		cfg, err = config.New(m)
-		if err != nil {
-			return fmt.Errorf("cannot create environment configuration with new CA: %v", err)
-		}
-		if err := environ.SetConfig(cfg); err != nil {
-			return fmt.Errorf("cannot set environment configuration with CA: %v", err)
-		}
-		if err := writeCertAndKey(environ.Name(), caCert, caKey); err != nil {
-			return fmt.Errorf("cannot write CA certificate and key: %v", err)
-		}
+		return fmt.Errorf("environment configuration missing CA certificate")
+	}
+	if !hasCAKey {
+		return fmt.Errorf("environment configuration missing CA private key")
 	}
 	// Generate a new key pair and certificate for
 	// the newly bootstrapped instance.
@@ -57,15 +29,4 @@ func Bootstrap(environ Environ, cons state.Constraints, uploadTools bool, writeC
 		return fmt.Errorf("cannot generate bootstrap certificate: %v", err)
 	}
 	return environ.Bootstrap(cons, uploadTools, cert, key)
-}
-
-func writeCertAndKeyToHome(name string, cert, key []byte) error {
-	path := path.Join(os.Getenv("HOME"), ".juju", name)
-	if err := ioutil.WriteFile(path+"-cert.pem", cert, 0644); err != nil {
-		return err
-	}
-	if err := ioutil.WriteFile(path+"-private-key.pem", key, 0600); err != nil {
-		return err
-	}
-	return nil
 }
