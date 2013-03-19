@@ -9,6 +9,7 @@ type Logger interface {
 	Output(calldepth int, s string) error
 }
 
+// nilLogger discards any output sent to its Output method.
 type nilLogger struct{}
 
 func (nilLogger) Output(int, string) error { return nil }
@@ -20,7 +21,7 @@ var (
 	}
 	Debug bool
 
-	// NilLogger is the default log target
+	// NilLogger is the default log target.
 	NilLogger = nilLogger{}
 )
 

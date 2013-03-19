@@ -19,7 +19,8 @@ import (
 func main() {
 	log.SetTarget(stdlog.New(os.Stdout, "", stdlog.LstdFlags))
 	if err := build(); err != nil {
-		stdlog.Fatalf("error: %v", err)
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
 	}
 }
 

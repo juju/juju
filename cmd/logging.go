@@ -28,7 +28,6 @@ func (c *Log) AddFlags(f *gnuflag.FlagSet) {
 // Start starts logging using the given Context.
 func (c *Log) Start(ctx *Context) (err error) {
 	log.Debug = c.Debug
-	log.SetTarget(log.NilLogger)
 	var target io.Writer
 	prefix := "JUJU:" + c.Prefix
 	if c.Path != "" {

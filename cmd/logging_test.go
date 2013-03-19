@@ -10,22 +10,10 @@ import (
 )
 
 type LogSuite struct {
-	restoreLog func()
+	testing.LoggingSuite
 }
 
 var _ = Suite(&LogSuite{})
-
-func (s *LogSuite) SetUpTest(c *C) {
-	target, debug := log.Target(), log.Debug
-	s.restoreLog = func() {
-		log.SetTarget(target)
-		log.Debug = debug
-	}
-}
-
-func (s *LogSuite) TearDownTest(c *C) {
-	s.restoreLog()
-}
 
 func (s *LogSuite) TestAddFlags(c *C) {
 	l := &cmd.Log{}
@@ -61,6 +49,9 @@ func (s *LogSuite) TestStart(c *C) {
 		{"foo", false, true, []interface{}{NotNil}},
 		{"foo", false, false, []interface{}{NotNil}},
 	} {
+		// commands always start with the log target set to NilLogger
+		log.SetTarget(log.NilLogger)
+
 		l := &cmd.Log{Prefix: "test", Path: t.path, Verbose: t.verbose, Debug: t.debug}
 		ctx := testing.Context(c)
 		err := l.Start(ctx)
