@@ -97,7 +97,7 @@ func (r *srvRoot) Admin(id string) (*srvAdmin, error) {
 // of the accessor functions (Machine, Unit, etc) which avoids us making
 // the check in every single request method.
 func (r *srvRoot) requireAgent() error {
-	e := r.user.entity()
+	e := r.user.authenticator()
 	if e == nil {
 		return errNotLoggedIn
 	}
@@ -110,7 +110,7 @@ func (r *srvRoot) requireAgent() error {
 // requireClient returns an error unless the current
 // client is a juju client user.
 func (r *srvRoot) requireClient() error {
-	e := r.user.entity()
+	e := r.user.authenticator()
 	if e == nil {
 		return errNotLoggedIn
 	}
@@ -161,7 +161,7 @@ func (r *srvRoot) User(name string) (*srvUser, error) {
 	// When we provide support for user administration,
 	// this will need to be changed to allow access to
 	// the administrator.
-	e := r.user.entity()
+	e := r.user.authenticator()
 	if e == nil {
 		return nil, errNotLoggedIn
 	}
@@ -463,7 +463,7 @@ func (m *srvMachine) SetPassword(p params.Password) error {
 	// Allow:
 	// - the machine itself.
 	// - the environment manager.
-	e := m.root.user.entity()
+	e := m.root.user.authenticator()
 	allow := m.root.user.entityName == m.m.EntityName() ||
 		isMachineWithJob(e, state.JobManageEnviron)
 	if !allow {
@@ -512,7 +512,7 @@ func (u *srvUser) Get() (params.User, error) {
 // its methods concurrently.
 type authUser struct {
 	mu         sync.Mutex
-	_entity    state.Authenticator // logged-in entity (access only when mu is locked)
+	entity     state.Authenticator // logged-in entity (access only when mu is locked)
 	entityName string
 }
 
@@ -526,7 +526,8 @@ func (u *authUser) login(st *state.State, entityName, password string) error {
 	}
 	// TODO(rog) remove
 	if !AuthenticationEnabled {
-		u._entity = entity
+		u.entity = entity
+		u.entityName = entityName
 		return nil
 	}
 	// We return the same error when an entity
@@ -536,18 +537,18 @@ func (u *authUser) login(st *state.State, entityName, password string) error {
 	if err != nil || !entity.PasswordValid(password) {
 		return errBadCreds
 	}
-	u._entity = entity
+	u.entity = entity
 	u.entityName = entityName
 	return nil
 }
 
-// entity returns the currently logged-in entity, or nil if not
-// currently logged on.  The returned entity should not be modified
+// authenticator returns the currently logged-in authenticator entity, or nil
+// if not currently logged on.  The returned entity should not be modified
 // because it may be used concurrently.
-func (u *authUser) entity() state.Authenticator {
+func (u *authUser) authenticator() state.Authenticator {
 	u.mu.Lock()
 	defer u.mu.Unlock()
-	return u._entity
+	return u.entity
 }
 
 // isMachineWithJob returns whether the given entity is a machine that

@@ -1358,7 +1358,7 @@ func setUpEnvConfig(c *C) {
 func (s *StateSuite) testEntity(c *C, getEntity func(string) (namedEntity, error)) {
 	e, err := getEntity("environment-foo")
 	c.Check(e, IsNil)
-	c.Assert(err, ErrorMatches, `settings not found`)
+	c.Assert(err, ErrorMatches, "settings not found")
 
 	setUpEnvConfig(c)
 
@@ -1429,8 +1429,12 @@ func (s *StateSuite) TestAuthenticator(c *C) {
 	c.Assert(e, FitsTypeOf, user)
 	c.Assert(e.EntityName(), Equals, user.EntityName())
 
-	_, err = getEntity("environment-" + envConfig["name"].(string))
-	c.Assert(err, ErrorMatches, `entity ".*" does not support authentication`)
+	_, err = getEntity("environment-test")
+	c.Assert(
+		err,
+		ErrorMatches,
+		`entity "environment-test" does not support authentication`,
+	)
 }
 
 func (s *StateSuite) TestAnnotator(c *C) {
@@ -1460,5 +1464,9 @@ func (s *StateSuite) TestAnnotator(c *C) {
 	user, err := s.State.AddUser("arble", "pass")
 	c.Assert(err, IsNil)
 	_, err = getEntity(user.EntityName())
-	c.Assert(err, ErrorMatches, `entity ".*" does not support annotations`)
+	c.Assert(
+		err,
+		ErrorMatches,
+		`entity "user-arble" does not support annotations`,
+	)
 }
