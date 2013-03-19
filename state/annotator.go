@@ -86,9 +86,6 @@ func (a *annotator) SetAnnotations(pairs map[string]string) error {
 			ops = append(ops, updateOp)
 		}
 	}
-	if len(ops) == 0 {
-		return nil
-	}
 	if err := a.st.runner.Run(ops, "", nil); err != nil {
 		return fmt.Errorf("cannot update annotations on %s: %v", id, err)
 	}
