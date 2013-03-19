@@ -24,51 +24,73 @@ type annotator struct {
 	st         *State
 }
 
-// SetAnnotation adds a key/value pair to annotations in MongoDB.
-func (a *annotator) SetAnnotation(key, value string) error {
-	if strings.Contains(key, ".") {
-		return fmt.Errorf("invalid key %q", key)
+// SetAnnotations adds key/value pairs to annotations in MongoDB.
+func (a *annotator) SetAnnotations(pairs map[string]string) error {
+	if len(pairs) == 0 {
+		return nil
+	}
+	// Collect in separate maps pairs to be inserted/updated or removed.
+	toRemove := make(map[string]bool)
+	toInsert := make(map[string]string)
+	toUpdate := make(map[string]string)
+	for key, value := range pairs {
+		if strings.Contains(key, ".") {
+			return fmt.Errorf("invalid key %q", key)
+		}
+		if value == "" {
+			toRemove["annotations."+key] = true
+		} else {
+			toInsert[key] = value
+			toUpdate["annotations."+key] = value
+		}
 	}
 	id := a.globalKey
 	coll := a.st.annotations.Name
-	if value == "" {
-		// Delete a key/value pair in MongoDB.
-		ops := []txn.Op{{
+	var ops []txn.Op
+
+	if count, err := a.st.annotations.FindId(id).Count(); err != nil {
+		return err
+	} else if count == 0 {
+		// The document is missing: no need to remove pairs.
+		// Insert pairs if required.
+		if len(toInsert) == 0 {
+			return nil
+		}
+		insertOp := txn.Op{
 			C:      coll,
 			Id:     id,
-			Assert: txn.DocExists,
-			Update: D{{"$unset", D{{"annotations." + key, true}}}},
-		}}
-		if err := a.st.runner.Run(ops, "", nil); err != nil {
-			return fmt.Errorf("cannot delete annotation %q on %s: %v", key, id, onAbort(err, errNotAlive))
+			Assert: txn.DocMissing,
+			Insert: &annotatorDoc{id, a.entityName, toInsert},
 		}
+		ops = append(ops, insertOp)
 	} else {
-		// Set a key/value pair in MongoDB.
-		var op txn.Op
-		if count, err := a.st.annotations.FindId(id).Count(); err != nil {
-			return err
-		} else if count != 0 {
-			op = txn.Op{
+		// The document exists.
+		if len(toRemove) != 0 {
+			// Remove pairs.
+			removeOp := txn.Op{
 				C:      coll,
 				Id:     id,
 				Assert: txn.DocExists,
-				Update: D{{"$set", D{{"annotations." + key, value}}}},
+				Update: D{{"$unset", toRemove}},
 			}
-		} else {
-			op = txn.Op{
+			ops = append(ops, removeOp)
+		}
+		if len(toUpdate) != 0 {
+			// Insert/update pairs.
+			updateOp := txn.Op{
 				C:      coll,
 				Id:     id,
-				Assert: txn.DocMissing,
-				Insert: &annotatorDoc{
-					id,
-					a.entityName,
-					map[string]string{key: value},
-				},
+				Assert: txn.DocExists,
+				Update: D{{"$set", toUpdate}},
 			}
+			ops = append(ops, updateOp)
 		}
-		if err := a.st.runner.Run([]txn.Op{op}, "", nil); err != nil {
-			return fmt.Errorf("cannot set annotation %q = %q on %s: %v", key, value, id, err)
-		}
+	}
+	if len(ops) == 0 {
+		return nil
+	}
+	if err := a.st.runner.Run(ops, "", nil); err != nil {
+		return fmt.Errorf("cannot update annotations on %s: %v", id, err)
 	}
 	return nil
 }
