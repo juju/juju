@@ -176,27 +176,6 @@ func (s *Server) serveStats(w http.ResponseWriter, r *http.Request) {
 		List: r.Form.Get("list") == "1",
 		By:   by,
 	}
-	var (
-		sep     = ""
-		json    = false
-		padding = false
-		newline = req.List || req.By != ByAll
-	)
-	switch v := r.Form.Get("format"); v {
-	case "", "text":
-		sep = `  `
-		padding = true
-	case "csv":
-		sep = `,`
-	case "json":
-		sep = `","`
-		json = true
-		newline = false
-	default:
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(fmt.Sprintf("Invalid 'format' value: %q", v)))
-		return
-	}
 	if req.Key[len(req.Key)-1] == "*" {
 		req.Prefix = true
 		req.Key = req.Key[:len(req.Key)-1]
@@ -206,6 +185,25 @@ func (s *Server) serveStats(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	var format func([]formatItem) []byte
+	switch v := r.Form.Get("format"); v {
+	case "":
+		if !req.List && req.By == ByAll {
+			format = formatCount
+		} else {
+			format = formatText
+		}
+	case "text":
+		format = formatText
+	case "csv":
+		format = formatCSV
+	case "json":
+		format = formatJSON
+	default:
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("Invalid 'format' value: %q", v)))
+		return
+	}
 
 	entries, err := s.store.Counters(&req)
 	if err != nil {
@@ -214,70 +212,26 @@ func (s *Server) serveStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// First build keys and figure max key length.
 	var buf []byte
-	var maxKeyLength int
-	type resultItem struct {
-		key   string
-		count int64
-		time  time.Time
-	}
-	var result []resultItem
+	var items []formatItem
 	for i := range entries {
 		entry := &entries[i]
-		for j := range entry.Key {
-			buf = append(buf, entry.Key[j]...)
-			buf = append(buf, ':')
+		if req.List {
+			for j := range entry.Key {
+				buf = append(buf, entry.Key[j]...)
+				buf = append(buf, ':')
+			}
+			if entry.Prefix {
+				buf = append(buf, '*')
+			} else {
+				buf = buf[:len(buf)-1]
+			}
 		}
-		if entry.Prefix {
-			buf = append(buf, '*')
-		} else {
-			buf = buf[:len(buf)-1]
-		}
-		if maxKeyLength < len(buf) {
-			maxKeyLength = len(buf)
-		}
-		result = append(result, resultItem{string(buf), entry.Count, entry.Time})
+		items = append(items, formatItem{string(buf), entry.Count, entry.Time})
 		buf = buf[:0]
 	}
 
-	// Then join all keys and counts in a single formatted buffer.
-	spaces := make([]byte, maxKeyLength)
-	for i := range spaces {
-		spaces[i] = ' '
-	}
-	if json {
-		if len(result) == 0 {
-			buf = append(buf, `[]`...)
-		} else {
-			buf = append(buf, `[["`...)
-		}
-	}
-	for i := range result {
-		item := &result[i]
-		if json && i > 0 {
-			buf = append(buf, `"],["`...)
-		}
-		if req.List {
-			buf = append(buf, item.key...)
-			if padding {
-				buf = append(buf, spaces[len(item.key):]...)
-			}
-			buf = append(buf, sep...)
-		}
-		if req.By != ByAll {
-			buf = append(buf, item.time.Format("2006-01-02")...)
-			buf = append(buf, sep...)
-		}
-		buf = strconv.AppendInt(buf, item.count, 10)
-		if newline {
-			buf = append(buf, '\n')
-		}
-	}
-	if json && len(result) > 0 {
-		buf = append(buf, `"]]`...)
-	}
-
+	buf = format(items)
 	w.Header().Set("Content-Type", "text/plain")
 	w.Header().Set("Content-Length", strconv.Itoa(len(buf)))
 	_, err = w.Write(buf)
@@ -292,4 +246,102 @@ func (s *Server) serveBlitzKey(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	w.Header().Set("Content-Length", "2")
 	w.Write([]byte("42"))
+}
+
+type formatItem struct {
+	key   string
+	count int64
+	time  time.Time
+}
+
+func (fi *formatItem) hasKey() bool {
+	return fi.key != ""
+}
+
+func (fi *formatItem) hasTime() bool {
+	return !fi.time.IsZero()
+}
+
+func (fi *formatItem) formatTime() string {
+	return fi.time.Format("2006-01-02")
+}
+
+func formatCount(items []formatItem) []byte {
+	return strconv.AppendInt(nil, items[0].count, 10)
+}
+
+func formatText(items []formatItem) []byte {
+	var maxKeyLength int
+	for i := range items {
+		if l := len(items[i].key); maxKeyLength < l {
+			maxKeyLength = l
+		}
+	}
+	spaces := make([]byte, maxKeyLength+2)
+	for i := range spaces {
+		spaces[i] = ' '
+	}
+	var buf []byte
+	for i := range items {
+		item := &items[i]
+		if item.hasKey() {
+			buf = append(buf, item.key...)
+			buf = append(buf, spaces[len(item.key):]...)
+		}
+		if item.hasTime() {
+			buf = append(buf, item.formatTime()...)
+			buf = append(buf, ' ', ' ')
+		}
+		buf = strconv.AppendInt(buf, item.count, 10)
+		buf = append(buf, '\n')
+	}
+	return buf
+}
+
+func formatCSV(items []formatItem) []byte {
+	var buf []byte
+	for i := range items {
+		item := &items[i]
+		if item.hasKey() {
+			buf = append(buf, item.key...)
+			buf = append(buf, ',')
+		}
+		if item.hasTime() {
+			buf = append(buf, item.formatTime()...)
+			buf = append(buf, ',')
+		}
+		buf = strconv.AppendInt(buf, item.count, 10)
+		buf = append(buf, '\n')
+	}
+	return buf
+}
+
+func formatJSON(items []formatItem) []byte {
+	if len(items) == 0 {
+		return []byte("[]")
+	}
+	var buf []byte
+	buf = append(buf, '[')
+	for i := range items {
+		item := &items[i]
+		if i == 0 {
+			buf = append(buf, '[')
+		} else {
+			buf = append(buf, ',', '[')
+		}
+		if item.hasKey() {
+			buf = append(buf, '"')
+			buf = append(buf, item.key...)
+			buf = append(buf, '"', ',')
+		}
+		if item.hasTime() {
+			buf = append(buf, '"')
+			buf = append(buf, item.formatTime()...)
+			buf = append(buf, '"', ',')
+		}
+		buf = strconv.AppendInt(buf, item.count, 10)
+		buf = append(buf, ']')
+	}
+	buf = append(buf, ']')
+	return buf
 }

@@ -221,7 +221,7 @@ func (s *StoreSuite) TestStatsCounterList(c *C) {
 		{"a:*", "", "a:b:*  4\na:f:*  2\na:b    1\na:i    1\n"},
 		{"a:b:*", "", "a:b:c  2\na:b:d  1\na:b:e  1\n"},
 		{"a:*", "csv", "a:b:*,4\na:f:*,2\na:b,1\na:i,1\n"},
-		{"a:*", "json", `[["a:b:*","4"],["a:f:*","2"],["a:b","1"],["a:i","1"]]`},
+		{"a:*", "json", `[["a:b:*",4],["a:f:*",2],["a:b",1],["a:i",1]]`},
 	}
 
 	for _, test := range tests {
@@ -311,7 +311,7 @@ func (s *StoreSuite) TestStatsCounterBy(c *C) {
 				By:     store.ByDay,
 			},
 			"json",
-			`[["2012-05-01","2"],["2012-05-03","1"]]`,
+			`[["2012-05-01",2],["2012-05-03",1]]`,
 		}, {
 			store.CounterRequest{
 				Key:    []string{"a"},
@@ -365,7 +365,7 @@ func (s *StoreSuite) TestStatsCounterBy(c *C) {
 				By:     store.ByWeek,
 			},
 			"json",
-			`[["a:b","2012-05-06","2"],["a:c","2012-05-06","1"],["a:c:*","2012-05-13","3"]]`,
+			`[["a:b","2012-05-06",2],["a:c","2012-05-06",1],["a:c:*","2012-05-13",3]]`,
 		},
 	}
 
