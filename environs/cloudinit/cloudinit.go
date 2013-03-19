@@ -1,6 +1,7 @@
 package cloudinit
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"launchpad.net/goyaml"
@@ -13,6 +14,8 @@ import (
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/upstart"
 	"path"
+	"text/template"
+	"strings"
 )
 
 // MachineConfig represents initialization information for a new juju machine.
@@ -119,7 +122,10 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 		debugFlag = " --debug"
 	}
 
+	var syslogConfTemplate string
+	log.Infof("-----------------------------------------------------------")
 	if cfg.StateServer {
+		log.Infof("sssssssssssssssss")
 		certKey := string(cfg.StateServerCert) + string(cfg.StateServerKey)
 		addFile(c, cfg.dataFile("server.pem"), certKey, 0600)
 		addScripts(c,
@@ -143,7 +149,65 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 				debugFlag,
 			"rm -rf "+shquote(acfg.Dir()),
 		)
+		syslogConfTemplate = `
+$ModLoad imfile
+
+$InputFilePollInterval 5
+$InputFileName /var/log/juju/{{machine}}.log
+$InputFileTag juju-{{machine}}:
+$InputFileStateFile {{machine}}
+$InputRunFileMonitor
+
+$ModLoad imudp
+$UDPServerRun 514
+
+:syslogtag, startswith, "juju-" /var/log/juju/all-machines.log
+& ~
+`
+	} else {
+		log.Infof("aaaaaaaaaaaaaaaaaa")
+		syslogConfTemplate = `
+$ModLoad imfile
+
+$InputFilePollInterval 5
+$InputFileName /var/log/juju/{{machine}}.log
+$InputFileTag juju-{{machine}}:
+$InputFileStateFile {{machine}}
+$InputRunFileMonitor
+
+:syslogtag, startswith, "juju-" @{{bootstrapIP}}:514
+& ~
+`
 	}
+	var machineName = func() string {
+		return state.MachineEntityName(cfg.MachineId)
+	}
+
+	var bootstrapIP = func() string {
+		return cfg.stateHostAddrs()[0]
+	}
+
+	t := template.New("")
+	t.Funcs(template.FuncMap{"machine": machineName})
+	t.Funcs(template.FuncMap{"bootstrapIP": bootstrapIP})
+	p, err := t.Parse(syslogConfTemplate)
+	if err != nil {
+		return nil, err
+	}
+	var confBuf bytes.Buffer
+	if err := p.Execute(&confBuf, nil); err != nil {
+		return nil, err
+	}
+	content := confBuf.String()
+	log.Infof("%s", content)
+	addScripts(c, "rm -f /etc/rsyslog.d/25-juju.conf")
+	for _, line := range strings.Split(content, "\n") {
+		addScripts(c,
+			fmt.Sprintf("echo %s >> /etc/rsyslog.d/25-juju.conf", shquote(line)),
+		)
+	}
+	c.AddRunCmd("restart rsyslog")
+	log.Infof("******************************************")
 
 	if _, err := addAgentToBoot(c, cfg, "machine",
 		state.MachineEntityName(cfg.MachineId),
