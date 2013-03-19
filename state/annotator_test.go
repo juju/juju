@@ -51,22 +51,16 @@ var annotatorTests = []struct {
 }
 
 func testAnnotator(c *C, getEntity func() (state.Annotator, error)) {
-loop:
 	for i, t := range annotatorTests {
 		c.Logf("test %d. %s", i, t.about)
 		entity, err := getEntity()
 		c.Assert(err, IsNil)
-		for key, value := range t.initial {
-			err := entity.SetAnnotation(key, value)
-			c.Assert(err, IsNil)
-		}
-		for key, value := range t.input {
-			err := entity.SetAnnotation(key, value)
-			if t.err != "" {
-				c.Assert(err, ErrorMatches, t.err)
-				continue loop
-			}
-			c.Assert(err, IsNil)
+		err = entity.SetAnnotations(t.initial)
+		c.Assert(err, IsNil)
+		err = entity.SetAnnotations(t.input)
+		if t.err != "" {
+			c.Assert(err, ErrorMatches, t.err)
+			continue
 		}
 		// Retrieving single values works as expected.
 		for key, value := range t.input {
@@ -79,8 +73,11 @@ loop:
 		c.Assert(err, IsNil)
 		c.Assert(ann, DeepEquals, t.expected)
 		// Clean up existing annotations.
+		cleanup := make(map[string]string)
 		for key := range t.expected {
-			err = entity.SetAnnotation(key, "")
+			cleanup[key] = ""
 		}
+		err = entity.SetAnnotations(cleanup)
+		c.Assert(err, IsNil)
 	}
 }

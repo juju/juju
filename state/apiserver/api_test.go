@@ -778,12 +778,10 @@ func (s *suite) TestClientAnnotations(c *C) {
 			id := entity.EntityName()
 			c.Logf("test %d. %s. entity %s", i, t.about, id)
 			// Set initial entity annotations.
-			for key, value := range t.initial {
-				err := entity.SetAnnotation(key, value)
-				c.Assert(err, IsNil)
-			}
+			err := entity.SetAnnotations(t.initial)
+			c.Assert(err, IsNil)
 			// Add annotations using the API call.
-			err := s.APIState.Client().SetAnnotations(id, t.input)
+			err = s.APIState.Client().SetAnnotations(id, t.input)
 			if t.err != "" {
 				c.Assert(err, ErrorMatches, t.err)
 				continue
@@ -798,10 +796,12 @@ func (s *suite) TestClientAnnotations(c *C) {
 			// Check annotations are correctly returned.
 			c.Assert(ann, DeepEquals, dbann)
 			// Clean up annotations on the current entity.
+			cleanup := make(map[string]string)
 			for key := range dbann {
-				err = entity.SetAnnotation(key, "")
-				c.Assert(err, IsNil)
+				cleanup[key] = ""
 			}
+			err = entity.SetAnnotations(cleanup)
+			c.Assert(err, IsNil)
 		}
 	}
 }

@@ -422,13 +422,7 @@ func (c *srvClient) SetAnnotations(args params.SetAnnotations) error {
 	if err != nil {
 		return err
 	}
-	for key, value := range args.Pairs {
-		err := entity.SetAnnotation(key, value)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return entity.SetAnnotations(args.Pairs)
 }
 
 // Login logs in with the provided credentials.

@@ -289,7 +289,7 @@ type Authenticator interface {
 type Annotator interface {
 	Annotation(key string) (string, error)
 	Annotations() (map[string]string, error)
-	SetAnnotation(key, value string) error
+	SetAnnotations(pairs map[string]string) error
 }
 
 // Authenticator attempts to return an Authenticator with the given name.
