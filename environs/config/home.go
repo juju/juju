@@ -9,8 +9,9 @@ import (
 // jujuHome stores the path to the juju configuration
 // folder defined by $JUJU_HOME or default ~/.juju.
 var (
-	jujuHomeMu sync.Mutex
-	jujuHome   string
+	jujuHomeMu   sync.Mutex
+	jujuHome     string
+	jujuHomeOrig string
 )
 
 func init() {
@@ -30,14 +31,14 @@ func JujuHomePath(names ...string) string {
 }
 
 // SetTestJujuHome allows to set the value of juju home for test
-// purposes. It returns the current juju home.
+// purposes. It returns the original juju home.
 func SetTestJujuHome(home string) string {
 	jujuHomeMu.Lock()
 	defer jujuHomeMu.Unlock()
 
-	current := jujuHome
 	jujuHome = home
-	return current
+	os.Setenv("JUJU_HOME", jujuHome)
+	return jujuHomeOrig
 }
 
 // RestoreJujuHome (re)initializes the juju home after it may
@@ -47,10 +48,25 @@ func RestoreJujuHome() string {
 	jujuHomeMu.Lock()
 	defer jujuHomeMu.Unlock()
 
-	jujuHome = os.Getenv("JUJU_HOME")
-	if jujuHome == "" {
-		home := os.Getenv("HOME")
-		jujuHome = filepath.Join(home, ".juju")
+	if jujuHomeOrig != "" {
+		// Restore the original juju home.
+		jujuHome = jujuHomeOrig
+	} else {
+		// Retrieve juju home either by the environment variable
+		// of derived from the home environment variable.
+		jujuHome = os.Getenv("JUJU_HOME")
+		if jujuHome == "" {
+			home := os.Getenv("HOME")
+			if home == "" {
+				panic("environs/config: neither $JUJU_HOME nor $HOME are set")
+			}
+			jujuHome = filepath.Join(home, ".juju")
+		}
 	}
+	if jujuHomeOrig == "" {
+		// Store the original juju home only once.
+		jujuHomeOrig = jujuHome
+	}
+	os.Setenv("JUJU_HOME", jujuHome)
 	return jujuHome
 }

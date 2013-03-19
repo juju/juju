@@ -8,13 +8,10 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/testing"
-	"os"
-	"path/filepath"
 	"time"
 )
 
 type bootstrapSuite struct {
-	oldHome string
 	testing.LoggingSuite
 }
 
@@ -22,15 +19,11 @@ var _ = Suite(&bootstrapSuite{})
 
 func (s *bootstrapSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
-	s.oldHome = os.Getenv("HOME")
-	home := c.MkDir()
-	os.Setenv("HOME", home)
-	err := os.Mkdir(filepath.Join(home, ".juju"), 0777)
-	c.Assert(err, IsNil)
+	config.SetTestJujuHome(c.MkDir())
 }
 
 func (s *bootstrapSuite) TearDownTest(c *C) {
-	os.Setenv("HOME", s.oldHome)
+	config.RestoreJujuHome()
 }
 
 func (s *bootstrapSuite) TestBootstrapKeyGeneration(c *C) {
@@ -42,9 +35,9 @@ func (s *bootstrapSuite) TestBootstrapKeyGeneration(c *C) {
 	c.Assert(err, IsNil)
 
 	// Check that the generated CA key has been written correctly.
-	caCertPEM, err := ioutil.ReadFile(filepath.Join(os.Getenv("HOME"), ".juju", "foo-cert.pem"))
+	caCertPEM, err := ioutil.ReadFile(config.JujuHomePath("foo-cert.pem"))
 	c.Assert(err, IsNil)
-	caKeyPEM, err := ioutil.ReadFile(filepath.Join(os.Getenv("HOME"), ".juju", "foo-private-key.pem"))
+	caKeyPEM, err := ioutil.ReadFile(config.JujuHomePath("foo-private-key.pem"))
 	c.Assert(err, IsNil)
 
 	// Check that the cert and key have been set correctly in the configuration

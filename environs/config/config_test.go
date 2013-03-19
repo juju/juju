@@ -561,11 +561,13 @@ func makeFakeHome(c *C, files []testFile) fakeHome {
 		c.Assert(err, IsNil)
 	}
 	os.Setenv("HOME", homeDir)
+	config.SetTestJujuHome(filepath.Join(homeDir, ".juju"))
 	return fakeHome{oldHome, files}
 }
 
 func (h fakeHome) restore() {
 	os.Setenv("HOME", h.oldHome)
+	config.RestoreJujuHome()
 }
 
 // fileContents returns the test file contents for the

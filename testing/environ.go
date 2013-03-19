@@ -3,6 +3,7 @@ package testing
 import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/environs/config"
 	"os"
 	"path/filepath"
 )
@@ -89,7 +90,11 @@ func MakeFakeHome(c *C, config string, certNames ...string) FakeHome {
 
 func MakeEmptyFakeHome(c *C) FakeHome {
 	oldHome := os.Getenv("HOME")
-	os.Setenv("HOME", c.MkDir())
+	fakeHome := c.MkDir()
+	os.Setenv("HOME", fakeHome)
+
+	// Set test juju home based on the new fake home.
+	config.SetTestJujuHome(filepath.Join(fakeHome, ".juju"))
 
 	return FakeHome(oldHome)
 }
@@ -101,6 +106,9 @@ func HomePath(names ...string) string {
 
 func (h FakeHome) Restore() {
 	os.Setenv("HOME", string(h))
+
+	// Restore also juju home.
+	config.RestoreJujuHome()
 }
 
 func MakeSampleHome(c *C) FakeHome {
