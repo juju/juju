@@ -18,7 +18,7 @@ type CmdSuite struct {
 
 var _ = Suite(&CmdSuite{})
 
-var envConfig = `
+const envConfig = `
 default:
     peckham
 environments:
