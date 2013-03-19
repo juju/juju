@@ -278,9 +278,10 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	// check that a new instance will be started without
 	// zookeeper, with a machine agent, and without a
 	// provisioning agent.
+	series = version.Current.Series
 	info.EntityName = "machine-1"
 	apiInfo.EntityName = "machine-1"
-	inst1, err := t.env.StartInstance("1", info, apiInfo, nil)
+	inst1, err := t.env.StartInstance("1", series, info, apiInfo)
 	c.Assert(err, IsNil)
 	inst = t.srv.ec2srv.Instance(string(inst1.Id()))
 	c.Assert(inst, NotNil)

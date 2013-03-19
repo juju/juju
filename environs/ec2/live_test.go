@@ -103,9 +103,15 @@ func (t *LiveTests) TearDownTest(c *C) {
 
 // TODO(niemeyer): Looks like many of those tests should be moved to jujutest.LiveTests.
 
-func (t *LiveTests) TestInstanceDNSName(c *C) {
-	inst, err := t.Env.StartInstance("30", testing.InvalidStateInfo("30"), testing.InvalidAPIInfo("30"), nil)
+func startInstance(c *C, env environ.Environment, id string) environs.Instance {
+	series = version.Current.Series
+	inst, err := env.StartInstance(id, series, testing.InvalidStateInfo(id), testing.InvalidAPIInfo(id))
 	c.Assert(err, IsNil)
+	return inst
+}
+
+func (t *LiveTests) TestInstanceDNSName(c *C) {
+	inst := startInstance(c, t.Env, "30")
 	defer t.Env.StopInstances([]environs.Instance{inst})
 	dns, err := inst.WaitDNSName()
 	// TODO(niemeyer): This assert sometimes fails with "no instances found"
@@ -155,16 +161,14 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 		})
 	c.Assert(err, IsNil)
 
-	inst0, err := t.Env.StartInstance("98", testing.InvalidStateInfo("98"), testing.InvalidAPIInfo("98"), nil)
-	c.Assert(err, IsNil)
+	inst0 := startInstance(c, t.Env, "98")
 	defer t.Env.StopInstances([]environs.Instance{inst0})
 
 	// Create a same-named group for the second instance
 	// before starting it, to check that it's reused correctly.
 	oldMachineGroup := createGroup(c, ec2conn, groups[2].Name, "old machine group")
 
-	inst1, err := t.Env.StartInstance("99", testing.InvalidStateInfo("99"), testing.InvalidAPIInfo("99"), nil)
-	c.Assert(err, IsNil)
+	inst1 := startInstance(c, t.Env, "99")
 	defer t.Env.StopInstances([]environs.Instance{inst1})
 
 	groupsResp, err := ec2conn.SecurityGroups(groups, nil)
@@ -295,13 +299,9 @@ func (t *LiveTests) TestStopInstances(c *C) {
 	// It would be nice if this test was in jujutest, but
 	// there's no way for jujutest to fabricate a valid-looking
 	// instance id.
-	inst0, err := t.Env.StartInstance("40", testing.InvalidStateInfo("40"), testing.InvalidAPIInfo("40"), nil)
-	c.Assert(err, IsNil)
-
+	inst0 := startInstance(c, t.Env, "40")
 	inst1 := ec2.FabricateInstance(inst0, "i-aaaaaaaa")
-
-	inst2, err := t.Env.StartInstance("41", testing.InvalidStateInfo("41"), testing.InvalidAPIInfo("41"), nil)
-	c.Assert(err, IsNil)
+	inst2 := startInstance(c, t.Env, "41")
 
 	err = t.Env.StopInstances([]environs.Instance{inst0, inst1, inst2})
 	c.Check(err, IsNil)

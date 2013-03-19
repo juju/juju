@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/version"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -121,7 +122,9 @@ func (s *SSHCommonSuite) makeMachines(n int, c *C) []*state.Machine {
 		c.Assert(err, IsNil)
 		// must set an instance id as the ssh command uses that as a signal the machine
 		// has been provisioned
-		inst, err := s.Conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), testing.InvalidAPIInfo(m.Id()), nil)
+		// TODO: get series from somewhere
+		series = version.Current.Series
+		inst, err := s.Conn.Environ.StartInstance(m.Id(), series, testing.InvalidStateInfo(m.Id()), testing.InvalidAPIInfo(m.Id()))
 		c.Assert(err, IsNil)
 		c.Assert(m.SetInstanceId(inst.Id()), IsNil)
 		machines[i] = m

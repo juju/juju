@@ -59,7 +59,9 @@ var statusTests = []struct {
 		func(st *state.State, conn *juju.Conn, c *C) {
 			m, err := st.Machine("0")
 			c.Assert(err, IsNil)
-			inst, err := conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), testing.InvalidAPIInfo(m.Id()), nil)
+			// TODO: get series from somewhere
+			series = version.Current.Series
+			inst, err := conn.Environ.StartInstance(m.Id(), series, testing.InvalidStateInfo(m.Id()), testing.InvalidAPIInfo(m.Id()))
 			c.Assert(err, IsNil)
 			err = m.SetInstanceId(inst.Id())
 			c.Assert(err, IsNil)
@@ -142,11 +144,13 @@ var statusTests = []struct {
 	{
 		"add three more machines for units",
 		func(st *state.State, conn *juju.Conn, c *C) {
+			// TODO: get series from somewhere
+			series = version.Current.Series
 			for i := 1; i < 3; i++ {
 				m, err := st.AddMachine("series", state.JobHostUnits)
 				c.Assert(err, IsNil)
 				c.Assert(m.Id(), Equals, strconv.Itoa(i))
-				inst, err := conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), testing.InvalidAPIInfo(m.Id()), nil)
+				inst, err := conn.Environ.StartInstance(m.Id(), series, testing.InvalidStateInfo(m.Id()), testing.InvalidAPIInfo(m.Id()))
 				c.Assert(err, IsNil)
 				err = m.SetInstanceId(inst.Id())
 				c.Assert(err, IsNil)

@@ -370,9 +370,10 @@ func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
 	return state.AssignUnused
 }
 
-func (e *environ) StartInstance(machineId string, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId string, series string, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
 	return e.startInstance(&startInstanceParams{
 		machineId: machineId,
+		series:    series,
 		info:      info,
 		apiInfo:   apiInfo,
 		tools:     tools,
@@ -410,6 +411,7 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 
 type startInstanceParams struct {
 	machineId       string
+	series          string
 	info            *state.Info
 	apiInfo         *api.Info
 	tools           *state.Tools
@@ -426,7 +428,11 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	if scfg.tools == nil {
 		var err error
 		flags := environs.HighestVersion | environs.CompatVersion
-		scfg.tools, err = environs.FindTools(e, version.Current, flags)
+		v := version.Current
+		if scfg.series != "" {
+			v.Series = scfg.series
+		}
+		scfg.tools, err = environs.FindTools(e, v, flags)
 		if err != nil {
 			return nil, err
 		}
