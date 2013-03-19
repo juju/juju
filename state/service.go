@@ -325,7 +325,8 @@ func (s *Service) Endpoint(relationName string) (Endpoint, error) {
 
 // convertConfig takes the given charm's config and converts the
 // current service's charm config to the new one (if possible,
-// otherwise returns an error).
+// otherwise returns an error). Also returns an assert op to
+// ensure the old settings haven't changed in the mean time.
 func (s *Service) convertConfig(ch *Charm) (map[string]interface{}, txn.Op, error) {
 	orig, err := s.Config()
 	if err != nil {
@@ -349,12 +350,15 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 
 	// Create or replace service settings.
 	var settingsOp txn.Op
+	// The key consists of the service name and the charm URL.
 	newkey := serviceSettingsKey(s.doc.Name, ch.URL())
 	if count, err := s.st.settings.FindId(newkey).Count(); err != nil {
 		return nil, err
 	} else if count == 0 {
+		// No settings for this key yet, create it.
 		settingsOp = createSettingsOp(s.st, newkey, newcfg)
 	} else {
+		// Settings exist, just replace them with the new ones.
 		var err error
 		settingsOp, _, err = replaceSettingsOp(s.st, newkey, newcfg)
 		if err != nil {
@@ -362,12 +366,14 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 		}
 	}
 
-	// Increment ref count on new charm.
+	// Increment the ref count with the new charm.
+	// This is the first time we use the new settings).
 	incOp, err := settingsIncRefOp(s.st, s.doc.Name, ch.URL(), true)
 	if err != nil {
 		return nil, err
 	}
-	// Decrement ref count on current charm (possibly deleting it).
+	// Decrement the ref count with the current charm.
+	// If this was the last reference to it, delete it.
 	decOps, err := settingsDecRefOps(s.st, s.doc.Name, s.doc.CharmURL) // current charm
 	if err != nil {
 		return nil, err
@@ -376,9 +382,13 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 	// Build the transaction.
 	differentCharm := D{{"charmurl", D{{"$ne", ch.URL()}}}}
 	ops := []txn.Op{
+		// Old settings shouldn't change
 		assertOrigSettingsOp,
+		// Create/replace with new settings.
 		settingsOp,
+		// Increment the ref count.
 		incOp,
+		// Update the charm URL and force flag (if relevant).
 		{
 			C:      s.st.services.Name,
 			Id:     s.doc.Name,
@@ -386,6 +396,7 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 			Update: D{{"$set", D{{"charmurl", ch.URL()}, {"forcecharm", force}}}},
 		},
 	}
+	// And finally, decrement the old settings.
 	return append(ops, decOps...), nil
 }
 
@@ -400,7 +411,7 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 		if count, err := s.st.services.Find(sel).Count(); err != nil {
 			return err
 		} else if count == 1 {
-			// Already set - just update force flag.
+			// Charm URL already set, just update the force flag.
 			sameCharm := D{{"charmurl", ch.URL()}}
 			ops = []txn.Op{{
 				C:      s.st.services.Name,
@@ -409,6 +420,7 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 				Update: D{{"$set", D{{"forcecharm", force}}}},
 			}}
 		} else {
+			// Change the charm URL.
 			ops, err = s.changeCharmOps(ch, force)
 			if err != nil {
 				return err
@@ -644,10 +656,10 @@ func (s *Service) SetConstraints(cons Constraints) error {
 	return writeConstraints(s.st, s.globalKey(), cons)
 }
 
-// settingsIncRefOp returns an operation that increments the refcount
+// settingsIncRefOp returns an operation that increments the ref count
 // of the service settings identified by serviceName and curl. If
 // canCreate is false, a missing document will be treated as an error;
-// otherwise, it will be created with a refcount of 1.
+// otherwise, it will be created with a ref count of 1.
 func settingsIncRefOp(st *State, serviceName string, curl *charm.URL, canCreate bool) (txn.Op, error) {
 	key := serviceSettingsKey(serviceName, curl)
 	if count, err := st.settingsrefs.FindId(key).Count(); err != nil {
@@ -672,9 +684,9 @@ func settingsIncRefOp(st *State, serviceName string, curl *charm.URL, canCreate 
 }
 
 // settingsDecRefOps returns a list of operations that decrement the
-// refcount of the service settings identified by serviceName and
-// curl. If the refcount is set to zero, the appropriate setting and
-// refcount documents will both be deleted.
+// ref count of the service settings identified by serviceName and
+// curl. If the ref count is set to zero, the appropriate setting and
+// ref count documents will both be deleted.
 func settingsDecRefOps(st *State, serviceName string, curl *charm.URL) ([]txn.Op, error) {
 	key := serviceSettingsKey(serviceName, curl)
 	var doc settingsRefsDoc
