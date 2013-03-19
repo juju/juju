@@ -19,22 +19,30 @@ var (
 		logger Logger
 	}
 	Debug bool
+
+	// NilLogger is the default log target
+	NilLogger = nilLogger{}
 )
 
 func init() {
-	SetTarget(nilLogger{})
+	SetTarget(NilLogger)
 }
 
+// Target returns the current log target.
 func Target() Logger {
 	target.Lock()
 	defer target.Unlock()
 	return target.logger
 }
 
-func SetTarget(logger Logger) {
+// SetTarget sets the logging target and returns the
+// previous value of the logging target.
+func SetTarget(logger Logger) (prev Logger) {
 	target.Lock()
 	defer target.Unlock()
+	prev = target.logger
 	target.logger = logger
+	return
 }
 
 // Errorf logs a message using the ERROR priority.

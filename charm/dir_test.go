@@ -118,9 +118,7 @@ func (s *DirSuite) TestBundleTo(c *C) {
 
 // Bug #864164: Must complain if charm hooks aren't executable
 func (s *DirSuite) TestBundleToWithNonExecutableHooks(c *C) {
-	orig := log.Target()
-	log.SetTarget(c)
-	defer func() { log.SetTarget(orig) }()
+	defer log.SetTarget(log.SetTarget(c))
 	hooks := []string{"install", "start", "config-changed", "upgrade-charm", "stop"}
 	for _, relName := range []string{"foo", "bar", "self"} {
 		for _, kind := range []string{"joined", "changed", "departed", "broken"} {
