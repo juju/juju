@@ -7,14 +7,18 @@ import (
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
-	"os"
-	"path/filepath"
 	"time"
 )
 
+const (
+	useDefaultKeys = true
+	noKeysDefined  = false
+)
+
 type bootstrapSuite struct {
-	oldHome string
+	home testing.FakeHome
 	testing.LoggingSuite
 }
 
@@ -22,106 +26,62 @@ var _ = Suite(&bootstrapSuite{})
 
 func (s *bootstrapSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
-	s.oldHome = os.Getenv("HOME")
-	home := c.MkDir()
-	os.Setenv("HOME", home)
-	err := os.Mkdir(filepath.Join(home, ".juju"), 0777)
-	c.Assert(err, IsNil)
+	s.home = testing.MakeFakeHomeNoEnvironments(c, "foo")
 }
 
 func (s *bootstrapSuite) TearDownTest(c *C) {
-	os.Setenv("HOME", s.oldHome)
+	s.home.Restore()
+}
+
+func (s *bootstrapSuite) TestBootstrapNeedsConfigCert(c *C) {
+	env := newEnviron("bar", noKeysDefined)
+	err := environs.Bootstrap(env, state.Constraints{}, false)
+	c.Assert(err, ErrorMatches, "environment configuration missing CA certificate")
 }
 
 func (s *bootstrapSuite) TestBootstrapKeyGeneration(c *C) {
-	env := newEnviron("foo", nil, nil)
-	err := environs.Bootstrap(env, false, nil)
-	c.Assert(err, IsNil)
-	c.Assert(env.bootstrapCount, Equals, 1)
-	_, _, err = cert.ParseCertAndKey(env.certPEM, env.keyPEM)
-	c.Assert(err, IsNil)
-
-	// Check that the generated CA key has been written correctly.
-	caCertPEM, err := ioutil.ReadFile(filepath.Join(os.Getenv("HOME"), ".juju", "foo-cert.pem"))
-	c.Assert(err, IsNil)
-	caKeyPEM, err := ioutil.ReadFile(filepath.Join(os.Getenv("HOME"), ".juju", "foo-private-key.pem"))
-	c.Assert(err, IsNil)
-
-	// Check that the cert and key have been set correctly in the configuration
-	cfgCertPEM, cfgCertOK := env.cfg.CACert()
-	cfgKeyPEM, cfgKeyOK := env.cfg.CAPrivateKey()
-	c.Assert(cfgCertOK, Equals, true)
-	c.Assert(cfgKeyOK, Equals, true)
-	c.Assert(cfgCertPEM, DeepEquals, caCertPEM)
-	c.Assert(cfgKeyPEM, DeepEquals, caKeyPEM)
-
-	caCert, _, err := cert.ParseCertAndKey(cfgCertPEM, cfgKeyPEM)
-	c.Assert(err, IsNil)
-	c.Assert(caCert.Subject.CommonName, Equals, `juju-generated CA for environment foo`)
-
-	verifyCert(c, env.certPEM, caCertPEM)
-}
-
-func verifyCert(c *C, srvCertPEM, caCertPEM []byte) {
-	err := cert.Verify(srvCertPEM, caCertPEM, time.Now())
-	c.Assert(err, IsNil)
-	err = cert.Verify(srvCertPEM, caCertPEM, time.Now().AddDate(9, 0, 0))
-	c.Assert(err, IsNil)
-}
-
-func (s *bootstrapSuite) TestBootstrapFuncKeyGeneration(c *C) {
-	env := newEnviron("foo", nil, nil)
-	var savedCert, savedKey []byte
-	err := environs.Bootstrap(env, false, func(name string, cert, key []byte) error {
-		savedCert = cert
-		savedKey = key
-		return nil
-	})
-	c.Assert(err, IsNil)
-	c.Assert(env.bootstrapCount, Equals, 1)
-	_, _, err = cert.ParseCertAndKey(env.certPEM, env.keyPEM)
-	c.Assert(err, IsNil)
-
-	// Check that the cert and key have been set correctly in the configuration
-	cfgCertPEM, cfgCertOK := env.cfg.CACert()
-	cfgKeyPEM, cfgKeyOK := env.cfg.CAPrivateKey()
-	c.Assert(cfgCertOK, Equals, true)
-	c.Assert(cfgKeyOK, Equals, true)
-	c.Assert(cfgCertPEM, DeepEquals, savedCert)
-	c.Assert(cfgKeyPEM, DeepEquals, savedKey)
-
-	caCert, _, err := cert.ParseCertAndKey(cfgCertPEM, cfgKeyPEM)
-	c.Assert(err, IsNil)
-	c.Assert(caCert.Subject.CommonName, Equals, `juju-generated CA for environment foo`)
-
-	verifyCert(c, env.certPEM, cfgCertPEM)
-}
-
-func panicWrite(name string, cert, key []byte) error {
-	panic("writeCertAndKey called unexpectedly")
-}
-
-func (s *bootstrapSuite) TestBootstrapExistingKey(c *C) {
-	env := newEnviron("foo", []byte(testing.CACert), []byte(testing.CAKey))
-	err := environs.Bootstrap(env, false, panicWrite)
+	env := newEnviron("foo", useDefaultKeys)
+	err := environs.Bootstrap(env, state.Constraints{}, false)
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
 
-	verifyCert(c, env.certPEM, []byte(testing.CACert))
+	caCertPEM, err := ioutil.ReadFile(testing.HomePath(".juju", "foo-cert.pem"))
+	c.Assert(err, IsNil)
+
+	err = cert.Verify(env.certPEM, caCertPEM, time.Now())
+	c.Assert(err, IsNil)
+	err = cert.Verify(env.certPEM, caCertPEM, time.Now().AddDate(9, 0, 0))
+	c.Assert(err, IsNil)
 }
 
 func (s *bootstrapSuite) TestBootstrapUploadTools(c *C) {
-	env := newEnviron("foo", nil, nil)
-	err := environs.Bootstrap(env, false, nil)
+	env := newEnviron("foo", useDefaultKeys)
+	err := environs.Bootstrap(env, state.Constraints{}, false)
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
 	c.Assert(env.uploadTools, Equals, false)
 
-	env = newEnviron("foo", nil, nil)
-	err = environs.Bootstrap(env, true, nil)
+	env = newEnviron("foo", useDefaultKeys)
+	err = environs.Bootstrap(env, state.Constraints{}, true)
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
 	c.Assert(env.uploadTools, Equals, true)
+}
+
+func (s *bootstrapSuite) TestBootstrapConstraints(c *C) {
+	env := newEnviron("foo", useDefaultKeys)
+	err := environs.Bootstrap(env, state.Constraints{}, false)
+	c.Assert(err, IsNil)
+	c.Assert(env.bootstrapCount, Equals, 1)
+	c.Assert(env.constraints, DeepEquals, state.Constraints{})
+
+	env = newEnviron("foo", useDefaultKeys)
+	cons, err := state.ParseConstraints("cpu-cores=2 mem=4G")
+	c.Assert(err, IsNil)
+	err = environs.Bootstrap(env, cons, false)
+	c.Assert(err, IsNil)
+	c.Assert(env.bootstrapCount, Equals, 1)
+	c.Assert(env.constraints, DeepEquals, cons)
 }
 
 type bootstrapEnviron struct {
@@ -131,12 +91,13 @@ type bootstrapEnviron struct {
 
 	// The following fields are filled in when Bootstrap is called.
 	bootstrapCount int
+	constraints    state.Constraints
 	uploadTools    bool
 	certPEM        []byte
 	keyPEM         []byte
 }
 
-func newEnviron(name string, caCertPEM, caKeyPEM []byte) *bootstrapEnviron {
+func newEnviron(name string, defaultKeys bool) *bootstrapEnviron {
 	m := map[string]interface{}{
 		"name":            name,
 		"type":            "test",
@@ -144,11 +105,9 @@ func newEnviron(name string, caCertPEM, caKeyPEM []byte) *bootstrapEnviron {
 		"ca-cert":         "",
 		"ca-private-key":  "",
 	}
-	if caCertPEM != nil {
-		m["ca-cert"] = string(caCertPEM)
-	}
-	if caKeyPEM != nil {
-		m["ca-private-key"] = string(caKeyPEM)
+	if defaultKeys {
+		m["ca-cert"] = testing.CACert
+		m["ca-private-key"] = testing.CAKey
 	}
 	cfg, err := config.New(m)
 	if err != nil {
@@ -164,8 +123,9 @@ func (e *bootstrapEnviron) Name() string {
 	return e.name
 }
 
-func (e *bootstrapEnviron) Bootstrap(uploadTools bool, certPEM, keyPEM []byte) error {
+func (e *bootstrapEnviron) Bootstrap(cons state.Constraints, uploadTools bool, certPEM, keyPEM []byte) error {
 	e.bootstrapCount++
+	e.constraints = cons
 	e.uploadTools = uploadTools
 	e.certPEM = certPEM
 	e.keyPEM = keyPEM
