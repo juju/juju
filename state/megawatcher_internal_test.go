@@ -7,7 +7,10 @@ import (
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
+	"sync"
+	"time"
 )
 
 type allInfoSuite struct {
@@ -290,11 +293,8 @@ var _ = Suite(&allWatcherSuite{})
 
 func (*allWatcherSuite) TestChangedFetchErrorReturn(c *C) {
 	expectErr := errors.New("some error")
-	b := &allWatcherTestBacking{
-		fetchFunc: func(id entityId) (params.EntityInfo, error) {
-			return nil, expectErr
-		},
-	}
+	b := newTestBacking(nil)
+	b.setFetchError(expectErr)
 	aw := newAllWatcher(b)
 	err := aw.changed(entityId{})
 	c.Assert(err, Equals, expectErr)
@@ -363,9 +363,7 @@ var allWatcherChangedTests = []struct {
 func (*allWatcherSuite) TestChanged(c *C) {
 	for i, test := range allWatcherChangedTests {
 		c.Logf("test %d. %s", i, test.about)
-		b := &allWatcherTestBacking{
-			fetchFunc: fetchFromMap(entityMap{}.add(test.inBacking)),
-		}
+		b := newTestBacking(test.inBacking)
 		aw := newAllWatcher(b)
 		for _, info := range test.add {
 			allInfoAdd(aw.all, info)
@@ -378,16 +376,16 @@ func (*allWatcherSuite) TestChanged(c *C) {
 }
 
 func (*allWatcherSuite) TestHandle(c *C) {
-	aw := newAllWatcher(&allWatcherTestBacking{})
+	aw := newAllWatcher(newTestBacking(nil))
 
 	// Add request from first watcher.
-	w0 := &StateWatcher{}
+	w0 := &xStateWatcher{all: aw}
 	req0 := &allRequest{
 		w:     w0,
 		reply: make(chan bool, 1),
 	}
 	aw.handle(req0)
-	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
+	assertWaitingRequests(c, aw, map[*xStateWatcher][]*allRequest{
 		w0: {req0},
 	})
 
@@ -397,18 +395,18 @@ func (*allWatcherSuite) TestHandle(c *C) {
 		reply: make(chan bool, 1),
 	}
 	aw.handle(req1)
-	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
+	assertWaitingRequests(c, aw, map[*xStateWatcher][]*allRequest{
 		w0: {req1, req0},
 	})
 
 	// Add request from second watcher.
-	w1 := &StateWatcher{}
+	w1 := &xStateWatcher{all: aw}
 	req2 := &allRequest{
 		w:     w1,
 		reply: make(chan bool, 1),
 	}
 	aw.handle(req2)
-	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
+	assertWaitingRequests(c, aw, map[*xStateWatcher][]*allRequest{
 		w0: {req1, req0},
 		w1: {req2},
 	})
@@ -417,7 +415,7 @@ func (*allWatcherSuite) TestHandle(c *C) {
 	aw.handle(&allRequest{
 		w: w0,
 	})
-	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
+	assertWaitingRequests(c, aw, map[*xStateWatcher][]*allRequest{
 		w1: {req2},
 	})
 	assertReplied(c, false, req0)
@@ -434,10 +432,10 @@ func (*allWatcherSuite) TestHandle(c *C) {
 func (*allWatcherSuite) TestHandleStopNoDecRefIfMoreRecentlyCreated(c *C) {
 	// If the StateWatcher hasn't seen the item, then we shouldn't
 	// decrement its ref count when it is stopped.
-	aw := newAllWatcher(&allWatcherTestBacking{})
+	aw := newAllWatcher(newTestBacking(nil))
 	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
 	allInfoIncRef(aw.all, entityId{"machine", "0"})
-	w := &StateWatcher{}
+	w := &xStateWatcher{all: aw}
 
 	// Stop the watcher.
 	aw.handle(&allRequest{w: w})
@@ -454,11 +452,11 @@ func (*allWatcherSuite) TestHandleStopNoDecRefIfMoreRecentlyCreated(c *C) {
 func (*allWatcherSuite) TestHandleStopNoDecRefIfAlreadySeenRemoved(c *C) {
 	// If the StateWatcher has already seen the item removed, then
 	// we shouldn't decrement its ref count when it is stopped.
-	aw := newAllWatcher(&allWatcherTestBacking{})
+	aw := newAllWatcher(newTestBacking(nil))
 	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
 	allInfoIncRef(aw.all, entityId{"machine", "0"})
 	aw.all.markRemoved(entityId{"machine", "0"})
-	w := &StateWatcher{}
+	w := &xStateWatcher{all: aw}
 	// Stop the watcher.
 	aw.handle(&allRequest{w: w})
 	assertAllInfoContents(c, aw.all, 2, []entityEntry{{
@@ -475,10 +473,10 @@ func (*allWatcherSuite) TestHandleStopNoDecRefIfAlreadySeenRemoved(c *C) {
 func (*allWatcherSuite) TestHandleStopDecRefIfAlreadySeenAndNotRemoved(c *C) {
 	// If the StateWatcher has already seen the item removed, then
 	// we should decrement its ref count when it is stopped.
-	aw := newAllWatcher(&allWatcherTestBacking{})
+	aw := newAllWatcher(newTestBacking(nil))
 	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
 	allInfoIncRef(aw.all, entityId{"machine", "0"})
-	w := &StateWatcher{}
+	w := &xStateWatcher{all: aw}
 	w.revno = aw.all.latestRevno
 	// Stop the watcher.
 	aw.handle(&allRequest{w: w})
@@ -494,10 +492,10 @@ func (*allWatcherSuite) TestHandleStopDecRefIfAlreadySeenAndNotRemoved(c *C) {
 func (*allWatcherSuite) TestHandleStopNoDecRefIfNotSeen(c *C) {
 	// If the StateWatcher hasn't seen the item at all, it should
 	// leave the ref count untouched.
-	aw := newAllWatcher(&allWatcherTestBacking{})
+	aw := newAllWatcher(newTestBacking(nil))
 	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
 	allInfoIncRef(aw.all, entityId{"machine", "0"})
-	w := &StateWatcher{}
+	w := &xStateWatcher{all: aw}
 	// Stop the watcher.
 	aw.handle(&allRequest{w: w})
 	assertAllInfoContents(c, aw.all, 1, []entityEntry{{
@@ -564,12 +562,12 @@ func (*allWatcherSuite) TestRespondResults(c *C) {
 			aw := newAllWatcher(&allWatcherTestBacking{})
 			c.Logf("test %0*b", len(respondTestChanges), ns)
 			var (
-				ws      []*StateWatcher
+				ws      []*xStateWatcher
 				wstates []watcherState
 				reqs    []*allRequest
 			)
 			for i := 0; i < wcount; i++ {
-				ws = append(ws, &StateWatcher{})
+				ws = append(ws, &xStateWatcher{})
 				wstates = append(wstates, make(watcherState))
 				reqs = append(reqs, nil)
 			}
@@ -595,7 +593,7 @@ func (*allWatcherSuite) TestRespondResults(c *C) {
 					continue
 				}
 				// Check that the expected requests are pending.
-				expectWaiting := make(map[*StateWatcher][]*allRequest)
+				expectWaiting := make(map[*xStateWatcher][]*allRequest)
 				for wi, w := range ws {
 					if reqs[wi] != nil {
 						expectWaiting[w] = []*allRequest{reqs[wi]}
@@ -636,12 +634,12 @@ func (*allWatcherSuite) TestRespondResults(c *C) {
 }
 
 func (*allWatcherSuite) TestRespondMultiple(c *C) {
-	aw := newAllWatcher(&allWatcherTestBacking{})
+	aw := newAllWatcher(newTestBacking(nil))
 	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
 
 	// Add one request and respond.
 	// It should see the above change.
-	w0 := &StateWatcher{}
+	w0 := &xStateWatcher{all: aw}
 	req0 := &allRequest{
 		w:     w0,
 		reply: make(chan bool, 1),
@@ -666,7 +664,7 @@ func (*allWatcherSuite) TestRespondMultiple(c *C) {
 	// The request from the first watcher should still not
 	// be replied to, but the later of the two requests from
 	// the second watcher should get a reply.
-	w1 := &StateWatcher{}
+	w1 := &xStateWatcher{all: aw}
 	req1 := &allRequest{
 		w:     w1,
 		reply: make(chan bool, 1),
@@ -677,7 +675,7 @@ func (*allWatcherSuite) TestRespondMultiple(c *C) {
 		reply: make(chan bool, 1),
 	}
 	aw.handle(req2)
-	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
+	assertWaitingRequests(c, aw, map[*xStateWatcher][]*allRequest{
 		w0: {req0},
 		w1: {req2, req1},
 	})
@@ -686,7 +684,7 @@ func (*allWatcherSuite) TestRespondMultiple(c *C) {
 	assertNotReplied(c, req1)
 	assertReplied(c, true, req2)
 	c.Assert(req2.changes, DeepEquals, []params.Delta{{Entity: &params.MachineInfo{Id: "0"}}})
-	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
+	assertWaitingRequests(c, aw, map[*xStateWatcher][]*allRequest{
 		w0: {req0},
 		w1: {req1},
 	})
@@ -707,6 +705,120 @@ func (*allWatcherSuite) TestRespondMultiple(c *C) {
 	deltas := []params.Delta{{Entity: &params.MachineInfo{Id: "1"}}}
 	c.Assert(req0.changes, DeepEquals, deltas)
 	c.Assert(req1.changes, DeepEquals, deltas)
+}
+
+func (*allWatcherSuite) TestRunStop(c *C) {
+	aw := newAllWatcher(newTestBacking(nil))
+	go aw.run()
+	w := &xStateWatcher{all: aw}
+	err := aw.Stop()
+	c.Assert(err, IsNil)
+	d, err := w.Next()
+	c.Assert(err, ErrorMatches, "state watcher was stopped")
+	c.Assert(d, HasLen, 0)
+}
+
+func (*allWatcherSuite) TestRun(c *C) {
+	b := newTestBacking([]params.EntityInfo{
+		&params.MachineInfo{Id: "0"},
+		&params.UnitInfo{Name: "wordpress/0"},
+		&params.ServiceInfo{Name: "wordpress"},
+	})
+	aw := newAllWatcher(b)
+	defer func() {
+		c.Check(aw.Stop(), IsNil)
+	}()
+	go aw.run()
+	w := &xStateWatcher{all: aw}
+	checkNext(c, w, []params.Delta{
+		{Entity: &params.MachineInfo{Id: "0"}},
+		{Entity: &params.UnitInfo{Name: "wordpress/0"}},
+		{Entity: &params.ServiceInfo{Name: "wordpress"}},
+	}, "")
+	b.updateEntity(&params.MachineInfo{Id: "0", InstanceId: "i-0"})
+	checkNext(c, w, []params.Delta{
+		{Entity: &params.MachineInfo{Id: "0", InstanceId: "i-0"}},
+	}, "")
+	b.deleteEntity(entityId{"machine", "0"})
+	checkNext(c, w, []params.Delta{
+		{Removed: true, Entity: &params.MachineInfo{Id: "0"}},
+	}, "")
+}
+
+func (*allWatcherSuite) TestStateWatcherStop(c *C) {
+	aw := newAllWatcher(newTestBacking(nil))
+	defer func() {
+		c.Check(aw.Stop(), IsNil)
+	}()
+	go aw.run()
+	w := &xStateWatcher{all: aw}
+	done := make(chan struct{})
+	go func() {
+		checkNext(c, w, nil, errWatcherStopped.Error())
+		done <- struct{}{}
+	}()
+	err := w.Stop()
+	c.Assert(err, IsNil)
+	<-done
+}
+
+func (*allWatcherSuite) TestStateWatcherStopBecauseAllWatcherError(c *C) {
+	b := newTestBacking([]params.EntityInfo{&params.MachineInfo{Id: "0"}})
+	aw := newAllWatcher(b)
+	go aw.run()
+	defer func() {
+		c.Check(aw.Stop(), ErrorMatches, "some error")
+	}()
+	w := &xStateWatcher{all: aw}
+	// Receive one delta to make sure that the allWatcher
+	// has seen the initial state.
+	checkNext(c, w, []params.Delta{{Entity: &params.MachineInfo{Id: "0"}}}, "")
+	c.Logf("setting fetch error")
+	b.setFetchError(errors.New("some error"))
+	c.Logf("updating entity")
+	b.updateEntity(&params.MachineInfo{Id: "1"})
+	checkNext(c, w, nil, "some error")
+}
+
+func checkNext(c *C, w *xStateWatcher, deltas []params.Delta, expectErr string) {
+	ch := make(chan []params.Delta)
+	go func() {
+		d, err := w.Next()
+		if expectErr != "" {
+			c.Check(err, ErrorMatches, expectErr)
+		} else {
+			c.Check(err, IsNil)
+		}
+		ch <- d
+	}()
+	select {
+	case d := <-ch:
+		checkDeltasEqual(c, d, deltas)
+	case <-time.After(1 * time.Second):
+		c.Errorf("no change received in sufficient time; expected %v", deltas)
+	}
+}
+
+// deltas are returns in arbitrary order, so we compare
+// them as sets.
+func checkDeltasEqual(c *C, d0, d1 []params.Delta) {
+	c.Check(deltaMap(d0), DeepEquals, deltaMap(d1))
+}
+
+func deltaMap(deltas []params.Delta) map[entityId]params.EntityInfo {
+	m := make(map[entityId]params.EntityInfo)
+	for _, d := range deltas {
+		id := entityIdForInfo(d.Entity)
+		if _, ok := m[id]; ok {
+			panic(fmt.Errorf("%v mentioned twice in delta set", id))
+		}
+		if d.Removed {
+			m[id] = nil
+		} else {
+			m[id] = d.Entity
+		}
+	}
+	return m
 }
 
 // watcherState represents a StateWatcher client's
@@ -758,7 +870,7 @@ func assertReplied(c *C, val bool, req *allRequest) {
 	}
 }
 
-func assertWaitingRequests(c *C, aw *allWatcher, waiting map[*StateWatcher][]*allRequest) {
+func assertWaitingRequests(c *C, aw *allWatcher, waiting map[*xStateWatcher][]*allRequest) {
 	c.Assert(aw.waiting, HasLen, len(waiting))
 	for w, reqs := range waiting {
 		i := 0
@@ -774,32 +886,98 @@ func assertWaitingRequests(c *C, aw *allWatcher, waiting map[*StateWatcher][]*al
 	}
 }
 
-type entityMap map[entityId]params.EntityInfo
-
-func (em entityMap) add(infos []params.EntityInfo) entityMap {
-	for _, info := range infos {
-		em[entityIdForInfo(info)] = info
-	}
-	return em
-}
-
-func fetchFromMap(em entityMap) func(entityId) (params.EntityInfo, error) {
-	return func(id entityId) (params.EntityInfo, error) {
-		if info, ok := em[id]; ok {
-			return info, nil
-		}
-		return nil, mgo.ErrNotFound
-	}
-}
-
 type allWatcherTestBacking struct {
-	fetchFunc func(id entityId) (params.EntityInfo, error)
+	mu       sync.Mutex
+	fetchErr error
+	entities map[entityId]params.EntityInfo
+	watchc   chan<- watcher.Change
+	txnRevno int64
+}
+
+func newTestBacking(initial []params.EntityInfo) *allWatcherTestBacking {
+	b := &allWatcherTestBacking{
+		entities: make(map[entityId]params.EntityInfo),
+	}
+	for _, info := range initial {
+		b.entities[entityIdForInfo(info)] = info
+	}
+	return b
 }
 
 func (b *allWatcherTestBacking) fetch(id entityId) (params.EntityInfo, error) {
-	return b.fetchFunc(id)
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.fetchErr != nil {
+		return nil, b.fetchErr
+	}
+	if info, ok := b.entities[id]; ok {
+		return info, nil
+	}
+	return nil, mgo.ErrNotFound
 }
 
 func (b *allWatcherTestBacking) entityIdForInfo(info params.EntityInfo) entityId {
 	return entityIdForInfo(info)
+}
+
+func (b *allWatcherTestBacking) watch(c chan<- watcher.Change) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.watchc != nil {
+		panic("test backing can only watch once")
+	}
+	b.watchc = c
+}
+
+func (b *allWatcherTestBacking) unwatch(c chan<- watcher.Change) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if c != b.watchc {
+		panic("unwatching wrong channel")
+	}
+	b.watchc = nil
+}
+
+func (b *allWatcherTestBacking) getAll(all *allInfo) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	for id, info := range b.entities {
+		all.update(id, info)
+	}
+	return nil
+}
+
+func (b *allWatcherTestBacking) updateEntity(info params.EntityInfo) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	id := b.entityIdForInfo(info)
+	b.entities[id] = info
+	b.txnRevno++
+	if b.watchc != nil {
+		b.watchc <- watcher.Change{
+			C:     id.collection,
+			Id:    id.id,
+			Revno: b.txnRevno, // This is actually ignored, but fill it in anyway.
+		}
+	}
+}
+
+func (b *allWatcherTestBacking) setFetchError(err error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.fetchErr = err
+}
+
+func (b *allWatcherTestBacking) deleteEntity(id entityId) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	delete(b.entities, id)
+	b.txnRevno++
+	if b.watchc != nil {
+		b.watchc <- watcher.Change{
+			C:     id.collection,
+			Id:    id.id,
+			Revno: -1,
+		}
+	}
 }

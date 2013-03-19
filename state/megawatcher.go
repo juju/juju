@@ -2,26 +2,21 @@ package state
 
 import (
 	"container/list"
+	"errors"
 	"labix.org/v2/mgo"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/tomb"
 	"reflect"
 )
 
 // StateWatcher watches any changes to the state.
-type StateWatcher struct {
-	// The following fields are maintained by the allWatcher
-	// goroutine.
-	revno   int64
-	stopped bool
-}
+// It's a stub type for the time being until allWatcher
+// is complete.
+type StateWatcher struct{}
 
 func newStateWatcher(st *State) *StateWatcher {
 	return &StateWatcher{}
-}
-
-func (w *StateWatcher) Err() error {
-	return nil
 }
 
 // Stop stops the watcher.
@@ -54,6 +49,52 @@ func (w *StateWatcher) Next() ([]params.Delta, error) {
 	return StubNextDelta, nil
 }
 
+// StateWatcher watches any changes to the state.
+// TODO(rog) rename this to StateWatcher when allWatcher is complete.
+type xStateWatcher struct {
+	all *allWatcher
+	// The following fields are maintained by the allWatcher
+	// goroutine.
+	revno   int64
+	stopped bool
+}
+
+// Stop stops the watcher.
+func (w *xStateWatcher) Stop() error {
+	select {
+	case w.all.request <- &allRequest{w: w}:
+		return nil
+	case <-w.all.tomb.Dead():
+	}
+	return w.all.tomb.Err()
+}
+
+var errWatcherStopped = errors.New("state watcher was stopped")
+
+// Next retrieves all changes that have happened since the given revision
+// number, blocking until there are some changes available.  It also
+// returns the revision number of the latest change.
+func (w *xStateWatcher) Next() ([]params.Delta, error) {
+	req := &allRequest{
+		w:     w,
+		reply: make(chan bool),
+	}
+	select {
+	case w.all.request <- req:
+	case <-w.all.tomb.Dead():
+		err := w.all.tomb.Err()
+		if err == nil {
+			err = errWatcherStopped
+		}
+		return nil, err
+	}
+	if ok := <-req.reply; !ok {
+		// TODO better error?
+		return nil, errWatcherStopped
+	}
+	return req.changes, nil
+}
+
 // allWatcher holds a shared record of all current state and replies to
 // requests from StateWatches to tell them when it changes.
 // TODO(rog) complete this type and its methods.
@@ -64,12 +105,15 @@ type allWatcher struct {
 	// the underlying state.
 	backing allWatcherBacking
 
+	// request receives requests from StateWatcher clients.
+	request chan *allRequest
+
 	// all holds information on everything the allWatcher cares about.
 	all *allInfo
 
 	// Each entry in the waiting map holds a linked list of Next requests
 	// outstanding for the associated StateWatcher.
-	waiting map[*StateWatcher]*allRequest
+	waiting map[*xStateWatcher]*allRequest
 }
 
 // allWatcherBacking is the interface required
@@ -81,10 +125,22 @@ type allWatcherBacking interface {
 	// to the given entity info.
 	entityIdForInfo(info params.EntityInfo) entityId
 
+	// getAll retrieves information about all known entities in the state
+	// into the given allInfo.
+	getAll(all *allInfo) error
+
 	// fetch retrieves information about the entity with
 	// the given id. It returns mgo.ErrNotFound if the
 	// entity does not exist.
 	fetch(id entityId) (params.EntityInfo, error)
+
+	// watch watches for any changes and sends them
+	// on the given channel.
+	watch(in chan<- watcher.Change)
+
+	// unwatch stops watching for changes on the
+	// given channel.
+	unwatch(in chan<- watcher.Change)
 }
 
 // entityId holds the mongo identifier of an entity.
@@ -98,7 +154,7 @@ type entityId struct {
 // replied to when some changes are available.
 type allRequest struct {
 	// w holds the StateWatcher that has originated the request.
-	w *StateWatcher
+	w *xStateWatcher
 
 	// reply receives a message when deltas are ready.  If reply is
 	// nil, the StateWatcher will be stopped.  If the reply is true,
@@ -121,9 +177,59 @@ type allRequest struct {
 func newAllWatcher(backing allWatcherBacking) *allWatcher {
 	return &allWatcher{
 		backing: backing,
+		request: make(chan *allRequest),
 		all:     newAllInfo(),
-		waiting: make(map[*StateWatcher]*allRequest),
+		waiting: make(map[*xStateWatcher]*allRequest),
 	}
+}
+
+func (aw *allWatcher) run() {
+	defer aw.tomb.Done()
+	// TODO(rog) distinguish between temporary and permanent errors:
+	// if we get an error in loop, this logic kill the state's allWatcher
+	// forever. This currently fits the way we go about things,
+	// because we reconnect to the state on any error, but
+	// perhaps there are errors we could recover from.
+	aw.tomb.Kill(aw.loop())
+}
+
+func (aw *allWatcher) loop() error {
+	in := make(chan watcher.Change)
+	aw.backing.watch(in)
+	defer aw.backing.unwatch(in)
+	// We have no idea what changes the watcher might be trying to
+	// send us while getAll proceeds, but we don't mind, because
+	// allWatcher.changed is idempotent with respect to both updates
+	// and removals.
+	// TODO(rog) Perhaps find a way to avoid blocking all other
+	// watchers while getAll is running.
+	if err := aw.backing.getAll(aw.all); err != nil {
+		return err
+	}
+	for {
+		select {
+		case <-aw.tomb.Dying():
+			return tomb.ErrDying
+		case change := <-in:
+			id := entityId{
+				collection: change.C,
+				id:         change.Id,
+			}
+			if err := aw.changed(id); err != nil {
+				return err
+			}
+		case req := <-aw.request:
+			aw.handle(req)
+		}
+		aw.respond()
+	}
+	panic("unreachable")
+}
+
+// Stop stops the allWatcher.
+func (aw *allWatcher) Stop() error {
+	aw.tomb.Kill(nil)
+	return aw.tomb.Wait()
 }
 
 // handle processes a request from a StateWatcher to the allWatcher.
@@ -201,7 +307,7 @@ func (aw *allWatcher) seen(revno int64) {
 		if entry.creationRevno > revno {
 			if !entry.removed {
 				// This is a new entity that hasn't been seen yet,
-				// so increment the entry's refCount.	
+				// so increment the entry's refCount.
 				entry.refCount++
 			}
 		} else if entry.removed {
@@ -217,7 +323,7 @@ func (aw *allWatcher) seen(revno int64) {
 
 // leave is called when the given watcher leaves.  It decrements the reference
 // counts of any entities that have been seen by the watcher.
-func (aw *allWatcher) leave(w *StateWatcher) {
+func (aw *allWatcher) leave(w *xStateWatcher) {
 	for e := aw.all.list.Front(); e != nil; {
 		next := e.Next()
 		entry := e.Value.(*entityEntry)
