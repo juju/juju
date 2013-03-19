@@ -66,6 +66,11 @@ var floatConfig = `
 options:
   key: {default: 0.42, description: Float key, type: float}
 `
+var newStringConfig = `
+options:
+  key: {default: My Key, description: Desc, type: string}
+  other: {default: None, description: My Other, type: string}
+`
 
 var setCharmConfigTests = []struct {
 	summary     string
@@ -83,6 +88,12 @@ var setCharmConfigTests = []struct {
 		summary:     "add string key to empty config",
 		startconfig: emptyConfig,
 		endconfig:   stringConfig,
+	}, {
+		summary:     "add string key and preserve existing values",
+		startconfig: stringConfig,
+		startvalues: map[string]interface{}{"key": "foo", "other": "bar"},
+		endconfig:   newStringConfig,
+		endvalues:   map[string]interface{}{"key": "foo", "other": "bar"},
 	}, {
 		summary:     "remove string key",
 		startconfig: stringConfig,
@@ -108,9 +119,10 @@ var setCharmConfigTests = []struct {
 
 func (s *ServiceSuite) TestSetCharmConfig(c *C) {
 	charms := map[string]*state.Charm{
-		stringConfig: s.AddConfigCharm(c, "wordpress", stringConfig, 1),
-		emptyConfig:  s.AddConfigCharm(c, "wordpress", emptyConfig, 2),
-		floatConfig:  s.AddConfigCharm(c, "wordpress", floatConfig, 3),
+		stringConfig:    s.AddConfigCharm(c, "wordpress", stringConfig, 1),
+		emptyConfig:     s.AddConfigCharm(c, "wordpress", emptyConfig, 2),
+		floatConfig:     s.AddConfigCharm(c, "wordpress", floatConfig, 3),
+		newStringConfig: s.AddConfigCharm(c, "wordpress", newStringConfig, 4),
 	}
 
 	for i, t := range setCharmConfigTests {
@@ -1260,6 +1272,12 @@ func (s *ServiceSuite) TestWatchServiceConfig(c *C) {
 	c.Assert(config.Keys(), HasLen, 0)
 
 	u, err := s.mysql.AddUnit()
+	c.Assert(err, IsNil)
+
+	_, err = u.WatchServiceConfig()
+	c.Assert(err, ErrorMatches, "unit charm not set")
+
+	err = u.SetCharmURL(s.charm.URL())
 	c.Assert(err, IsNil)
 
 	configWatcher, err := u.WatchServiceConfig()

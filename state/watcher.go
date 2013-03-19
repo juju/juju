@@ -1014,11 +1014,11 @@ type ConfigWatcher struct {
 // WatchServiceConfig returns a watcher for observing changes to
 // unit's service configuration.
 func (u *Unit) WatchServiceConfig() (*ConfigWatcher, error) {
-	svc, err := u.Service()
-	if err != nil {
-		return nil, fmt.Errorf("unknown service of unit %q: %v", u, err)
+	if u.doc.CharmURL == nil {
+		return nil, fmt.Errorf("unit charm not set")
 	}
-	return &ConfigWatcher{newSettingsWatcher(u.st, svc.settingsKey())}, nil
+	skey := serviceSettingsKey(u.doc.Service, u.doc.CharmURL)
+	return &ConfigWatcher{newSettingsWatcher(u.st, skey)}, nil
 }
 
 // EntityWatcher observes changes to a state entity.
