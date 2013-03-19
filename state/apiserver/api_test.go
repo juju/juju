@@ -146,6 +146,10 @@ var operationPermTests = []struct {
 	about: "Client.AddRelation",
 	op:    opClientAddRelation,
 	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.DestroyRelation",
+	op:    opClientDestroyRelation,
+	allow: []string{"user-admin", "user-other"},
 },
 }
 
@@ -254,7 +258,6 @@ func opClientCharmInfo(c *C, st *api.State, mst *state.State) (func(), error) {
 		c.Check(info, IsNil)
 		return func() {}, err
 	}
-	c.Assert(err, IsNil)
 	c.Assert(info.URL, Equals, "local:series/wordpress-3")
 	c.Assert(info.Meta.Name, Equals, "wordpress")
 	c.Assert(info.Revision, Equals, 3)
@@ -269,13 +272,20 @@ func opClientAddRelation(c *C, st *api.State, mst *state.State) (func(), error) 
 	return func() {}, nil
 }
 
+func opClientDestroyRelation(c *C, st *api.State, mst *state.State) (func(), error) {
+	err := st.Client().DestroyRelation("wordpress", "logging")
+	if err != nil {
+		return func() {}, err
+	}
+	return func() {}, nil
+}
+
 func opClientStatus(c *C, st *api.State, mst *state.State) (func(), error) {
 	status, err := st.Client().Status()
 	if err != nil {
 		c.Check(status, IsNil)
 		return func() {}, err
 	}
-	c.Assert(err, IsNil)
 	c.Assert(status, DeepEquals, scenarioStatus)
 	return func() {}, nil
 }
@@ -314,7 +324,6 @@ func opClientServiceGet(c *C, st *api.State, mst *state.State) (func(), error) {
 	if err != nil {
 		return func() {}, err
 	}
-	c.Assert(err, IsNil)
 	return func() {}, nil
 }
 
@@ -325,7 +334,6 @@ func opClientServiceExpose(c *C, st *api.State, mst *state.State) (func(), error
 	if err != nil {
 		return func() {}, err
 	}
-	c.Assert(err, IsNil)
 	return func() {}, nil
 }
 
@@ -336,7 +344,6 @@ func opClientServiceUnexpose(c *C, st *api.State, mst *state.State) (func(), err
 	if err != nil {
 		return func() {}, err
 	}
-	c.Assert(err, IsNil)
 	return func() {}, nil
 }
 
@@ -363,7 +370,6 @@ func opClientGetAnnotations(c *C, st *api.State, mst *state.State) (func(), erro
 	if err != nil {
 		return func() {}, err
 	}
-	c.Assert(err, IsNil)
 	c.Assert(ann, DeepEquals, make(map[string]string))
 	return func() {}, nil
 }
@@ -373,7 +379,6 @@ func opClientSetAnnotation(c *C, st *api.State, mst *state.State) (func(), error
 	if err != nil {
 		return func() {}, err
 	}
-	c.Assert(err, IsNil)
 	return func() {
 		st.Client().SetAnnotation("service-wordpress", "key", "")
 	}, nil
@@ -411,7 +416,6 @@ func opClientAddServiceUnits(c *C, st *api.State, mst *state.State) (func(), err
 	if err != nil {
 		return func() {}, err
 	}
-	c.Assert(err, IsNil)
 	return func() {}, nil
 }
 
@@ -438,7 +442,6 @@ func opClientServiceDestroy(c *C, st *api.State, mst *state.State) (func(), erro
 	if err != nil {
 		return func() {}, err
 	}
-	c.Assert(err, IsNil)
 	return func() {}, nil
 }
 
@@ -1345,6 +1348,31 @@ func (s *suite) TestSuccessfulAddRelation(c *C) {
 			c.Assert(rel.Life(), Equals, state.Alive)
 		}
 	}
+}
+
+func (s *suite) TestSuccessfulDestroyRelation(c *C) {
+	s.setUpScenario(c)
+	endpoints := []string{"wordpress", "logging"}
+	err := s.APIState.Client().DestroyRelation(endpoints[0], endpoints[1])
+	c.Assert(err, IsNil)
+	for _, endpoint := range endpoints {
+		service, err := s.State.Service(endpoint)
+		c.Assert(err, IsNil)
+		rels, err := service.Relations()
+		c.Assert(err, IsNil)
+		// When relations are destroyed they don't go away immediately but
+		// instead are set to 'Dying', due to references held by the user
+		// agent.
+		for _, rel := range rels {
+			c.Assert(rel.Life(), Equals, state.Dying)
+		}
+	}
+}
+
+func (s *suite) TestNoRelation(c *C) {
+	s.setUpScenario(c)
+	err := s.APIState.Client().DestroyRelation("wordpress", "mysql")
+	c.Assert(err, ErrorMatches, `relation "wordpress:db mysql:server" not found`)
 }
 
 // This test will be thrown away, at least in part, once the stub code in
