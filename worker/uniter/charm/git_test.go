@@ -13,13 +13,15 @@ import (
 var curl = corecharm.MustParseURL("cs:series/blah-blah-123")
 
 type GitDirSuite struct {
-	testing.LoggingSuite
-	oldLcAll string
+	testing.GitSuite
+	LoggingSuite testing.LoggingSuite
+	oldLcAll     string
 }
 
 var _ = Suite(&GitDirSuite{})
 
 func (s *GitDirSuite) SetUpTest(c *C) {
+	s.GitSuite.SetUpTest(c)
 	s.LoggingSuite.SetUpTest(c)
 	s.oldLcAll = os.Getenv("LC_ALL")
 	os.Setenv("LC_ALL", "en_US")
@@ -28,6 +30,7 @@ func (s *GitDirSuite) SetUpTest(c *C) {
 func (s *GitDirSuite) TearDownTest(c *C) {
 	os.Setenv("LC_ALL", s.oldLcAll)
 	s.LoggingSuite.TearDownTest(c)
+	s.GitSuite.TearDownTest(c)
 }
 
 func (s *GitDirSuite) TestCreate(c *C) {
