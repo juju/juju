@@ -73,14 +73,12 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	err = st.SetEnvironConstraints(c.Constraints)
-	if err != nil {
+	if err := st.SetEnvironConstraints(c.Constraints); err != nil {
 		return err
 	}
 
 	// Set up initial authentication.
-	_, err = st.AddUser("admin", c.Conf.OldPassword)
-	if err != nil {
+	if _, err := st.AddUser("admin", c.Conf.OldPassword); err != nil {
 		return err
 	}
 	if err := m.SetMongoPassword(c.Conf.OldPassword); err != nil {
