@@ -488,7 +488,7 @@ func (s *Store) CharmPublisher(urls []*charm.URL, digest string) (p *CharmPublis
 			newKey = true
 		}
 		if err != nil {
-			log.Infof("store: Unknown error looking for charm %s: %s", urlStr, err)
+			log.Errorf("store: Unknown error looking for charm %s: %s", urlStr, err)
 			return
 		}
 		if doc.Revision > maxRev {

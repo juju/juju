@@ -96,7 +96,7 @@ func (p *Provisioner) loop() error {
 				return watcher.MustErr(environWatcher)
 			}
 			if err := p.setConfig(cfg); err != nil {
-				log.Warningf("worker/provisioner: loaded invalid environment configuration: %v", err)
+				log.Errorf("worker/provisioner: loaded invalid environment configuration: %v", err)
 			}
 		case ids, ok := <-machinesWatcher.Changes():
 			if !ok {
@@ -227,7 +227,7 @@ func (p *Provisioner) pendingOrDead(ids []string) (pending, dead []*state.Machin
 			pending = append(pending, m)
 			continue
 		}
-		log.Noticef("worker/provisioner: machine %v already started as instance %q", m, instId)
+		log.Warningf("worker/provisioner: machine %v already started as instance %q", m, instId)
 	}
 	return
 }

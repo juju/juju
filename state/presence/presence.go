@@ -366,7 +366,7 @@ func (w *Watcher) sync() error {
 				}
 				err := w.beings.Find(bson.D{{"_id", seq}}).One(&being)
 				if err == mgo.ErrNotFound {
-					log.Warningf("state/presence: found seq=%d unowned", seq)
+					log.Debugf("state/presence: found seq=%d unowned", seq)
 					continue
 				} else if err != nil {
 					return err

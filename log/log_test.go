@@ -18,7 +18,7 @@ var _ = Suite(suite{})
 
 func (suite) TestLoggerDebugFlag(c *C) {
 	buf := &bytes.Buffer{}
-	log.Target = stdlog.New(buf, "[JUJU]", 0)
+	log.Target = stdlog.New(buf, "JUJU:", 0)
 	log.Debug = false
 	input := "Hello World"
 	log.Debugf(input)
@@ -26,23 +26,37 @@ func (suite) TestLoggerDebugFlag(c *C) {
 	buf.Reset()
 	log.Debug = true
 	log.Debugf(input)
-	c.Assert(buf.String(), Equals, "[JUJU]DEBUG: "+input+"\n")
+	c.Assert(buf.String(), Equals, "JUJU:DEBUG: "+input+"\n")
 }
 
-func (suite) TestLogger(c *C) {
+func (suite) TestInfoLogger(c *C) {
 	buf := &bytes.Buffer{}
-	log.Target = stdlog.New(buf, "[JUJU]", 0)
+	log.Target = stdlog.New(buf, "JUJU:", 0)
 	input := "Hello World"
 	log.Infof(input)
-	c.Assert(buf.String(), Equals, "[JUJU]INFO: "+input+"\n")
-	buf.Reset()
-	log.Warningf(input)
-	c.Assert(buf.String(), Equals, "[JUJU]WARNING: "+input+"\n")
-	buf.Reset()
-	log.Noticef(input)
-	c.Assert(buf.String(), Equals, "[JUJU]NOTICE: "+input+"\n")
-	buf.Reset()
+	c.Assert(buf.String(), Equals, "JUJU:INFO: "+input+"\n")
+}
+
+func (suite) TestErrorLogger(c *C) {
+	buf := &bytes.Buffer{}
+	log.Target = stdlog.New(buf, "JUJU:", 0)
+	input := "Hello World"
 	log.Errorf(input)
-	c.Assert(buf.String(), Equals, "[JUJU]ERROR: "+input+"\n")
-	buf.Reset()
+	c.Assert(buf.String(), Equals, "JUJU:ERROR: "+input+"\n")
+}
+
+func (suite) TestWarningLogger(c *C) {
+	buf := &bytes.Buffer{}
+	log.Target = stdlog.New(buf, "JUJU:", 0)
+	input := "Hello World"
+	log.Warningf(input)
+	c.Assert(buf.String(), Equals, "JUJU:WARNING: "+input+"\n")
+}
+
+func (suite) TestNoticeLogger(c *C) {
+	buf := &bytes.Buffer{}
+	log.Target = stdlog.New(buf, "JUJU:", 0)
+	input := "Hello World"
+	log.Noticef(input)
+	c.Assert(buf.String(), Equals, "JUJU:NOTICE: "+input+"\n")
 }

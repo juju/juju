@@ -79,8 +79,8 @@ func build() error {
 	if !ok {
 		return fmt.Errorf("cannot retrieve files: build unit lacks a public-address")
 	}
-	log.Infof("builddb: Built files published at http://%s", addr)
-	log.Infof("builddb: Remember to destroy the environment when you're done...")
+	log.Noticef("builddb: Built files published at http://%s", addr)
+	log.Noticef("builddb: Remember to destroy the environment when you're done...")
 	return nil
 }
 

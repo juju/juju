@@ -116,7 +116,7 @@ func (a *MachineAgent) RunOnce(st *state.State, e AgentState) error {
 			// Ignore because it's started independently.
 			continue
 		default:
-			log.Infof("cmd/jujud: ignoring unknown job %q", j)
+			log.Warningf("cmd/jujud: ignoring unknown job %q", j)
 		}
 	}
 	return runTasks(a.tomb.Dying(), tasks...)

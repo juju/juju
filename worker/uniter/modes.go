@@ -57,7 +57,7 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 		log.Infof("loading uniter state")
 		if u.s, err = u.sf.Read(); err == ErrNoStateFile {
 			// When no state exists, start from scratch.
-			log.Warningf("worker/uniter: charm is not deployed")
+			log.Infof("worker/uniter: charm is not deployed")
 			curl, _ := u.service.CharmURL()
 			return ModeInstalling(curl), nil
 		} else if err != nil {
