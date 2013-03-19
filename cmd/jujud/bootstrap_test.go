@@ -56,17 +56,8 @@ func (s *BootstrapSuite) initBootstrapCommand(c *C, args ...string) (*agent.Conf
 	return conf, cmd, err
 }
 
-func (s *BootstrapSuite) TestSetInstanceId(c *C) {
-	args := []string{
-		"--env-config", b64yaml{
-			"name":            "dummyenv",
-			"type":            "dummy",
-			"state-server":    false,
-			"authorized-keys": "i-am-a-key",
-			"ca-cert":         testing.CACert,
-		}.encode(),
-	}
-	_, cmd, err := s.initBootstrapCommand(c, args...)
+func (s *BootstrapSuite) TestInitializeEnvironment(c *C) {
+	_, cmd, err := s.initBootstrapCommand(c, "--env-config", testConfig)
 	c.Assert(err, IsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, IsNil)
@@ -84,19 +75,36 @@ func (s *BootstrapSuite) TestSetInstanceId(c *C) {
 	instid, ok := machines[0].InstanceId()
 	c.Assert(ok, Equals, true)
 	c.Assert(instid, Equals, state.InstanceId("dummy.instance.id"))
+
+	cons, err := st.EnvironConstraints()
+	c.Assert(err, IsNil)
+	c.Assert(cons, DeepEquals, state.Constraints{})
+}
+
+func (s *BootstrapSuite) TestSetConstraints(c *C) {
+	tcons := state.Constraints{Mem: uint64p(2048), CpuCores: uint64p(2)}
+	_, cmd, err := s.initBootstrapCommand(c, "--env-config", testConfig, "--constraints", tcons.String())
+	c.Assert(err, IsNil)
+	err = cmd.Run(nil)
+	c.Assert(err, IsNil)
+
+	st, err := state.Open(&state.Info{
+		Addrs:  []string{testing.MgoAddr},
+		CACert: []byte(testing.CACert),
+	})
+	c.Assert(err, IsNil)
+	defer st.Close()
+	cons, err := st.EnvironConstraints()
+	c.Assert(err, IsNil)
+	c.Assert(cons, DeepEquals, tcons)
+}
+
+func uint64p(v uint64) *uint64 {
+	return &v
 }
 
 func (s *BootstrapSuite) TestMachinerWorkers(c *C) {
-	args := []string{
-		"--env-config", b64yaml{
-			"name":            "dummyenv",
-			"type":            "dummy",
-			"state-server":    false,
-			"authorized-keys": "i-am-a-key",
-			"ca-cert":         testing.CACert,
-		}.encode(),
-	}
-	_, cmd, err := s.initBootstrapCommand(c, args...)
+	_, cmd, err := s.initBootstrapCommand(c, "--env-config", testConfig)
 	c.Assert(err, IsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, IsNil)
@@ -125,16 +133,7 @@ func testOpenState(c *C, info *state.Info, expectErr error) {
 }
 
 func (s *BootstrapSuite) TestInitialPassword(c *C) {
-	args := []string{
-		"--env-config", b64yaml{
-			"name":            "dummyenv",
-			"type":            "dummy",
-			"state-server":    false,
-			"authorized-keys": "i-am-a-key",
-			"ca-cert":         testing.CACert,
-		}.encode(),
-	}
-	conf, cmd, err := s.initBootstrapCommand(c, args...)
+	conf, cmd, err := s.initBootstrapCommand(c, "--env-config", testConfig)
 	c.Assert(err, IsNil)
 	conf.OldPassword = "foo"
 	err = conf.Write()
@@ -216,3 +215,11 @@ func (m b64yaml) encode() string {
 	}
 	return base64.StdEncoding.EncodeToString(data)
 }
+
+var testConfig = b64yaml{
+	"name":            "dummyenv",
+	"type":            "dummy",
+	"state-server":    false,
+	"authorized-keys": "i-am-a-key",
+	"ca-cert":         testing.CACert,
+}.encode()

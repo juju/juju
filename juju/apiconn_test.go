@@ -32,7 +32,7 @@ func (*NewAPIConnSuite) TestNewConn(c *C) {
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
-	err = environs.Bootstrap(env, false, panicWrite)
+	err = environs.Bootstrap(env, false)
 	c.Assert(err, IsNil)
 
 	conn, err := juju.NewConn(env)

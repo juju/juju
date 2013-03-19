@@ -100,7 +100,7 @@ func cleanTempFile(f *os.File) {
 	if f != nil {
 		f.Close()
 		if err := os.Remove(f.Name()); err != nil {
-			log.Printf("downloader: cannot remove temp file %q: %v", f.Name(), err)
+			log.Warningf("downloader: cannot remove temp file %q: %v", f.Name(), err)
 		}
 	}
 }
