@@ -15,7 +15,10 @@ func (doc *MachineDoc) String() string {
 	return m.String()
 }
 
-var defaultDialTimeout = dialTimeout
+var (
+	defaultDialTimeout = dialTimeout
+defaultRetryDelay = retryDelay
+)
 
 func SetDialTimeout(d time.Duration) {
 	if d == 0 {
@@ -24,6 +27,15 @@ func SetDialTimeout(d time.Duration) {
 		dialTimeout = d
 	}
 }
+
+func SetRetryDelay(d time.Duration) {
+        if d == 0 {
+                retryDelay = defaultRetryDelay
+        } else {
+                retryDelay = d
+        }
+}
+
 
 func init() {
 	logSize = logSizeTests
