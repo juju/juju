@@ -28,10 +28,6 @@ func build() error {
 	if err != nil {
 		return err
 	}
-	err = environs.Bootstrap(environ, true, nil)
-	if err != nil {
-		return err
-	}
 	conn, err := juju.NewConn(environ)
 	if err != nil {
 		return err

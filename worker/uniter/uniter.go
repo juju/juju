@@ -181,6 +181,15 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason Op) error {
 		hi = u.s.Hook
 	}
 	if u.s == nil || u.s.OpStep != Done {
+		// Set the new charm URL - this returns once it's done and stored.
+		if err := u.f.SetCharm(curl); err != nil {
+			return err
+		}
+		// Refresh to get the new URL.
+		if err := u.unit.Refresh(); err != nil {
+			return err
+		}
+
 		log.Infof("worker/uniter: fetching charm %q", curl)
 		sch, err := u.st.Charm(curl)
 		if err != nil {
@@ -205,9 +214,6 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason Op) error {
 		}
 	}
 	log.Infof("worker/uniter: charm %q is deployed", curl)
-	if err := u.unit.SetCharmURL(curl); err != nil {
-		return err
-	}
 	status := Queued
 	if hi != nil {
 		// If a hook operation was interrupted, restore it.
@@ -245,17 +251,11 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 		}
 	}
 	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
-	hctx := &HookContext{
-		service:        u.service,
-		unit:           u.unit,
-		id:             hctxId,
-		relationId:     relationId,
-		remoteUnitName: hi.RemoteUnit,
-		relations:      map[int]*ContextRelation{},
-	}
+	ctxRelations := map[int]*ContextRelation{}
 	for id, r := range u.relationers {
-		hctx.relations[id] = r.Context()
+		ctxRelations[id] = r.Context()
 	}
+	hctx := NewHookContext(u.unit, hctxId, relationId, hi.RemoteUnit, ctxRelations)
 
 	// Prepare server.
 	getCmd := func(ctxId, cmdName string) (cmd.Command, error) {

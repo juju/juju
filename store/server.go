@@ -2,12 +2,14 @@ package store
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/log"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Server is an http.Handler that serves the HTTP API of juju
@@ -156,14 +158,41 @@ func (s *Server) serveStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	r.ParseForm()
+	var by CounterRequestBy
+	switch v := r.Form.Get("by"); v {
+	case "":
+		by = ByAll
+	case "day":
+		by = ByDay
+	case "week":
+		by = ByWeek
+	default:
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("Invalid 'by' value: %q", v)))
+		return
+	}
+	var sep string
+	var padding bool
+	switch v := r.Form.Get("format"); v {
+	case "", "text":
+		sep = "  "
+		padding = true
+	case "csv":
+		sep = ","
+	default:
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("Invalid 'format' value: %q", v)))
+		return
+	}
 	req := CounterRequest{
 		Key:  strings.Split(base, ":"),
 		List: r.Form.Get("list") == "1",
+		By:   by,
 	}
 	if req.Key[len(req.Key)-1] == "*" {
 		req.Prefix = true
 		req.Key = req.Key[:len(req.Key)-1]
-		if len(req.Key) == 0 && !req.List {
+		if len(req.Key) == 0 {
 			// No point in counting something unknown.
 			w.WriteHeader(http.StatusForbidden)
 			return
@@ -183,6 +212,7 @@ func (s *Server) serveStats(w http.ResponseWriter, r *http.Request) {
 	type resultItem struct {
 		key   string
 		count int64
+		time  time.Time
 	}
 	var result []resultItem
 	for i := range entries {
@@ -199,23 +229,31 @@ func (s *Server) serveStats(w http.ResponseWriter, r *http.Request) {
 		if maxKeyLength < len(buf) {
 			maxKeyLength = len(buf)
 		}
-		result = append(result, resultItem{string(buf), entry.Count})
+		result = append(result, resultItem{string(buf), entry.Count, entry.Time})
 		buf = buf[:0]
 	}
 
 	// Then join all keys and counts in a single formatted buffer.
-	spaces := make([]byte, maxKeyLength+2)
+	spaces := make([]byte, maxKeyLength)
 	for i := range spaces {
 		spaces[i] = ' '
 	}
+	newline := req.List || req.By != ByAll
 	for i := range result {
 		item := &result[i]
 		if req.List {
 			buf = append(buf, item.key...)
-			buf = append(buf, spaces[len(item.key):]...)
+			if padding {
+				buf = append(buf, spaces[len(item.key):]...)
+			}
+			buf = append(buf, sep...)
+		}
+		if req.By != ByAll {
+			buf = append(buf, item.time.Format("2006-01-02")...)
+			buf = append(buf, sep...)
 		}
 		buf = strconv.AppendInt(buf, item.count, 10)
-		if req.List {
+		if newline {
 			buf = append(buf, '\n')
 		}
 	}
