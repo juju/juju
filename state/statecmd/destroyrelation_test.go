@@ -14,7 +14,7 @@ type DestroyRelationSuite struct {
 
 var _ = Suite(&DestroyRelationSuite{})
 
-func (s *DestroyRelationSuite) _setUpDestroyRelationScenario(c *C) {
+func (s *DestroyRelationSuite) setUpDestroyRelationScenario(c *C) {
 	// Create some services.
 	_, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
@@ -30,7 +30,7 @@ func (s *DestroyRelationSuite) _setUpDestroyRelationScenario(c *C) {
 }
 
 func (s *DestroyRelationSuite) TestNonExistentRelation(c *C) {
-	s._setUpDestroyRelationScenario(c)
+	s.setUpDestroyRelationScenario(c)
 	err := statecmd.DestroyRelation(s.State, params.DestroyRelation{
 		Endpoints: []string{"riak", "wordpress"},
 	})
@@ -38,7 +38,7 @@ func (s *DestroyRelationSuite) TestNonExistentRelation(c *C) {
 }
 
 func (s *DestroyRelationSuite) TestSuccessfullyDestroyRelation(c *C) {
-	s._setUpDestroyRelationScenario(c)
+	s.setUpDestroyRelationScenario(c)
 
 	// Add a relation between wordpress and mysql.
 	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
@@ -49,6 +49,7 @@ func (s *DestroyRelationSuite) TestSuccessfullyDestroyRelation(c *C) {
 	err = statecmd.DestroyRelation(s.State, params.DestroyRelation{
 		Endpoints: []string{"wordpress", "mysql"},
 	})
+	c.Assert(err, IsNil)
 
 	// Show that the relation was removed.
 	c.Assert(state.IsNotFound(rel.Refresh()), Equals, true)
@@ -58,7 +59,7 @@ func (s *DestroyRelationSuite) TestSuccessfullyDestroyRelationSwapped(c *C) {
 	// Show that the order of the services listed in the DestroyRelation call
 	// does not matter.  This is a repeat of the previous test with the service
 	// names swapped.
-	s._setUpDestroyRelationScenario(c)
+	s.setUpDestroyRelationScenario(c)
 
 	// Add a relation between wordpress and mysql.
 	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
@@ -69,13 +70,29 @@ func (s *DestroyRelationSuite) TestSuccessfullyDestroyRelationSwapped(c *C) {
 	err = statecmd.DestroyRelation(s.State, params.DestroyRelation{
 		Endpoints: []string{"mysql", "wordpress"},
 	})
+	c.Assert(err, IsNil)
 
 	// Show that the relation was removed.
 	c.Assert(state.IsNotFound(rel.Refresh()), Equals, true)
 }
 
+func (s *DestroyRelationSuite) TestCallWithOnlyOneEndpoint(c *C) {
+	s.setUpDestroyRelationScenario(c)
+
+	// Add a relation between wordpress and mysql.
+	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
+	c.Assert(err, IsNil)
+	_, err = s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+
+	err = statecmd.DestroyRelation(s.State, params.DestroyRelation{
+		Endpoints: []string{"wordpress"},
+	})
+	c.Assert(err, ErrorMatches, "a relation must involve two services")
+}
+
 func (s *DestroyRelationSuite) TestDestroyAlreadyDestroyedRelation(c *C) {
-	s._setUpDestroyRelationScenario(c)
+	s.setUpDestroyRelationScenario(c)
 
 	// Add a relation between wordpress and mysql.
 	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
@@ -86,6 +103,7 @@ func (s *DestroyRelationSuite) TestDestroyAlreadyDestroyedRelation(c *C) {
 	err = statecmd.DestroyRelation(s.State, params.DestroyRelation{
 		Endpoints: []string{"wordpress", "mysql"},
 	})
+	c.Assert(err, IsNil)
 
 	// Show that the relation was removed.
 	c.Assert(state.IsNotFound(rel.Refresh()), Equals, true)
