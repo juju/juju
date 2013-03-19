@@ -327,10 +327,31 @@ func (s *StoreSuite) TestStatsCounterBy(c *C) {
 				Prefix: true,
 				List:   false,
 				By:     store.ByDay,
-				Start:  time.Date(2012, 5, 3, 0, 0, 0, 0, time.UTC),
+				Start:  time.Date(2012, 5, 2, 0, 0, 0, 0, time.UTC),
 			},
 			"",
 			"2012-05-03  1\n2012-05-09  3\n",
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: true,
+				List:   false,
+				By:     store.ByDay,
+				Stop:   time.Date(2012, 5, 4, 0, 0, 0, 0, time.UTC),
+			},
+			"",
+			"2012-05-01  2\n2012-05-03  1\n",
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: true,
+				List:   false,
+				By:     store.ByDay,
+				Start:  time.Date(2012, 5, 3, 0, 0, 0, 0, time.UTC),
+				Stop:   time.Date(2012, 5, 3, 0, 0, 0, 0, time.UTC),
+			},
+			"",
+			"2012-05-03  1\n",
 		}, {
 			store.CounterRequest{
 				Key:    []string{"a"},
@@ -395,6 +416,9 @@ func (s *StoreSuite) TestStatsCounterBy(c *C) {
 		}
 		if !test.request.Start.IsZero() {
 			req.Form.Set("start", test.request.Start.Format("2006-01-02"))
+		}
+		if !test.request.Stop.IsZero() {
+			req.Form.Set("stop", test.request.Stop.Format("2006-01-02"))
 		}
 		switch test.request.By {
 		case store.ByDay:

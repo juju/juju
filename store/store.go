@@ -289,6 +289,10 @@ type CounterRequest struct {
 	// If Start is provided, only data points that occurred at
 	// the given time or afterwards are considered.
 	Start time.Time
+
+	// If Stop is provided, only data points that occurred at
+	// the given time or before are considered.
+	Stop time.Time
 }
 
 type CounterRequestBy int
@@ -374,11 +378,17 @@ func (s *Store) Counters(req *CounterRequest) ([]Counter, error) {
 		Key   string `bson:"_id"`
 		Value int64
 	}
-	var query bson.D
-	if req.Start.IsZero() {
+	var query, tquery bson.D
+	if !req.Start.IsZero() {
+		tquery = append(tquery, bson.DocElem{"$gte", timeToStamp(req.Start)})
+	}
+	if !req.Stop.IsZero() {
+		tquery = append(tquery, bson.DocElem{"$lte", timeToStamp(req.Stop)})
+	}
+	if len(tquery) == 0 {
 		query = bson.D{{"k", bson.D{{"$regex", regex}}}}
 	} else {
-		query = bson.D{{"k", bson.D{{"$regex", regex}}}, {"t", bson.D{{"$gte", timeToStamp(req.Start)}}}}
+		query = bson.D{{"k", bson.D{{"$regex", regex}}}, {"t", tquery}}
 	}
 	_, err = countersColl.Find(query).MapReduce(&job, &result)
 	if err != nil {
