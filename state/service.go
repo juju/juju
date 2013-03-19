@@ -190,7 +190,7 @@ func (s *Service) removeOps(asserts D) []txn.Op {
 		Id:     s.globalKey(),
 		Remove: true,
 	}}
-	return append(ops, annotationRemoveOps(s.st, s.globalKey()))
+	return append(ops, annotationRemoveOp(s.st, s.globalKey()))
 }
 
 // IsExposed returns whether this service is exposed. The explicitly open
@@ -446,7 +446,7 @@ func (s *Service) removeUnitOps(u *Unit) []txn.Op {
 	} else {
 		svcOp.Assert = D{{"life", Dying}, {"unitcount", D{{"$gt", 1}}}}
 	}
-	return append(ops, svcOp, annotationRemoveOps(s.st, u.globalKey()))
+	return append(ops, svcOp, annotationRemoveOp(s.st, u.globalKey()))
 }
 
 // Unit returns the service's unit with name.
