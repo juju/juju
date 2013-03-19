@@ -19,6 +19,8 @@ func (s *AddRelationSuite) _setUpAddRelationScenario(c *C) {
 	c.Assert(err, IsNil)
 	_, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
 	c.Assert(err, IsNil)
+	_, err = s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
+	c.Assert(err, IsNil)
 }
 
 func (s *AddRelationSuite) TestSuccessfullyAddRelation(c *C) {
@@ -34,6 +36,37 @@ func (s *AddRelationSuite) TestSuccessfullyAddRelation(c *C) {
 	mySvc, _ := s.State.Service("mysql")
 	relCount, err = mySvc.Relations()
 	c.Assert(len(relCount), Equals, 1)
+}
+
+func (s *AddRelationSuite) TestSuccessfullyAddRelationSwapped(c *C) {
+	s._setUpAddRelationScenario(c)
+	err := statecmd.AddRelation(s.State, params.AddRelation{
+		Endpoints: []string{"mysql", "wordpress"},
+	})
+	c.Assert(err, IsNil)
+	// Show that the relation was added.
+	wpSvc, _ := s.State.Service("wordpress")
+	relCount, err := wpSvc.Relations()
+	c.Assert(len(relCount), Equals, 1)
+	mySvc, _ := s.State.Service("mysql")
+	relCount, err = mySvc.Relations()
+	c.Assert(len(relCount), Equals, 1)
+}
+
+func (s *AddRelationSuite) TestCallWithOnlyOneEndpoint(c *C) {
+	s.setUpAddRelationScenario(c)
+	err := statecmd.AddRelation(s.State, params.AddRelation{
+		Endpoints: []string{"wordpress"},
+	})
+	c.Assert(err, ErrorMatches, "a relation must involve two services")
+}
+
+func (s *AddRelationSuite) TestCallWithOneEndpointTooMany(c *C) {
+	s.setUpAddRelationScenario(c)
+	err := statecmd.AddRelation(s.State, params.AddRelation{
+		Endpoints: []string{"wordpress", "mysql", "logging"},
+	})
+	c.Assert(err, ErrorMatches, "a relation must involve two services")
 }
 
 func (s *AddRelationSuite) TestAddAlreadyAddedRelation(c *C) {
