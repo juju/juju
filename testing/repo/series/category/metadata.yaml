@@ -1,7 +1,5 @@
-name: format2
-format: 2
-summary: "Sample charm described in format 2"
+name: categories
+summary: "Sample charm with a category"
 description: |
-        That's a boring charm that is described in
-        terms of format 2.
+        That's a boring charm that has a category.
 categories: ["database"]
