@@ -44,7 +44,7 @@ func (*NewConnSuite) TestNewConnWithoutAdminSecret(c *C) {
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
-	err = environs.Bootstrap(env, false)
+	err = environs.Bootstrap(env, state.Constraints{}, false)
 	c.Assert(err, IsNil)
 
 	delete(attrs, "admin-secret")
@@ -65,7 +65,7 @@ func (*NewConnSuite) TestNewConnFromNameGetUnbootstrapped(c *C) {
 func bootstrapEnv(c *C, envName string) {
 	environ, err := environs.NewFromName(envName)
 	c.Assert(err, IsNil)
-	err = environs.Bootstrap(environ, false)
+	err = environs.Bootstrap(environ, state.Constraints{}, false)
 	c.Assert(err, IsNil)
 }
 
@@ -112,7 +112,7 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *C) {
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
-	err = environs.Bootstrap(env, false)
+	err = environs.Bootstrap(env, state.Constraints{}, false)
 	c.Assert(err, IsNil)
 	info, _, err := env.StateInfo()
 	c.Assert(err, IsNil)
@@ -152,7 +152,7 @@ func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *C) {
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
-	err = environs.Bootstrap(env, false)
+	err = environs.Bootstrap(env, state.Constraints{}, false)
 	c.Assert(err, IsNil)
 
 	// Make a new Conn, which will push the secrets.
@@ -190,7 +190,7 @@ func (cs *NewConnSuite) TestConnWithPassword(c *C) {
 		"ca-private-key":  coretesting.CAKey,
 	})
 	c.Assert(err, IsNil)
-	err = environs.Bootstrap(env, false)
+	err = environs.Bootstrap(env, state.Constraints{}, false)
 	c.Assert(err, IsNil)
 
 	// Check that Bootstrap has correctly used a hash
@@ -248,7 +248,7 @@ func (s *ConnSuite) SetUpTest(c *C) {
 	}
 	environ, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
-	err = environs.Bootstrap(environ, false)
+	err = environs.Bootstrap(environ, state.Constraints{}, false)
 	c.Assert(err, IsNil)
 	s.conn, err = juju.NewConn(environ)
 	c.Assert(err, IsNil)

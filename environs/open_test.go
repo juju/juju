@@ -4,6 +4,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -28,7 +29,7 @@ func (OpenSuite) TestNewDummyEnviron(c *C) {
 	}
 	env, err := environs.NewFromAttrs(config)
 	c.Assert(err, IsNil)
-	c.Assert(env.Bootstrap(false, nil, nil), IsNil)
+	c.Assert(env.Bootstrap(state.Constraints{}, false, nil, nil), IsNil)
 }
 
 func (OpenSuite) TestNewUnknownEnviron(c *C) {

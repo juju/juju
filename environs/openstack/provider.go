@@ -416,7 +416,8 @@ func (e *environ) PublicStorage() environs.StorageReader {
 	return e.publicStorageUnlocked
 }
 
-func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
+func (e *environ) Bootstrap(cons state.Constraints, uploadTools bool, cert, key []byte) error {
+	// TODO(fwereade): handle bootstrap constraints
 	password := e.Config().AdminSecret()
 	if password == "" {
 		return fmt.Errorf("admin-secret is required for bootstrap")
