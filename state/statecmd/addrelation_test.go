@@ -13,7 +13,7 @@ type AddRelationSuite struct {
 
 var _ = Suite(&AddRelationSuite{})
 
-func (s *AddRelationSuite) _setUpAddRelationScenario(c *C) {
+func (s *AddRelationSuite) setUpAddRelationScenario(c *C) {
 	// Create some services.
 	_, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
@@ -24,7 +24,7 @@ func (s *AddRelationSuite) _setUpAddRelationScenario(c *C) {
 }
 
 func (s *AddRelationSuite) TestSuccessfullyAddRelation(c *C) {
-	s._setUpAddRelationScenario(c)
+	s.setUpAddRelationScenario(c)
 	err := statecmd.AddRelation(s.State, params.AddRelation{
 		Endpoints: []string{"wordpress", "mysql"},
 	})
@@ -39,7 +39,7 @@ func (s *AddRelationSuite) TestSuccessfullyAddRelation(c *C) {
 }
 
 func (s *AddRelationSuite) TestSuccessfullyAddRelationSwapped(c *C) {
-	s._setUpAddRelationScenario(c)
+	s.setUpAddRelationScenario(c)
 	err := statecmd.AddRelation(s.State, params.AddRelation{
 		Endpoints: []string{"mysql", "wordpress"},
 	})
@@ -70,7 +70,7 @@ func (s *AddRelationSuite) TestCallWithOneEndpointTooMany(c *C) {
 }
 
 func (s *AddRelationSuite) TestAddAlreadyAddedRelation(c *C) {
-	s._setUpAddRelationScenario(c)
+	s.setUpAddRelationScenario(c)
 	// Add a relation between wordpress and mysql.
 	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
 	c.Assert(err, IsNil)
