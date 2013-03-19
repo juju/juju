@@ -5,6 +5,7 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/state"
 	"os"
 )
 
@@ -12,6 +13,7 @@ import (
 // environment, and setting up everything necessary to continue working.
 type BootstrapCommand struct {
 	EnvCommandBase
+	Constraints state.Constraints
 	UploadTools bool
 }
 
@@ -24,6 +26,7 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 
 func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
+	f.Var(state.ConstraintsValue{&c.Constraints}, "constraints", "set environment constraints")
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
 }
 
@@ -43,11 +46,10 @@ func (c *BootstrapCommand) Run(context *cmd.Context) error {
 		}
 		return err
 	}
-
 	// TODO: if in verbose mode, write out to Stdout if a new cert was created.
 	_, err = environs.EnsureCertificate(environ, environs.WriteCertAndKeyToHome)
 	if err != nil {
 		return err
 	}
-	return environs.Bootstrap(environ, c.UploadTools)
+	return environs.Bootstrap(environ, c.Constraints, c.UploadTools)
 }
