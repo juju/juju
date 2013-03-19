@@ -417,7 +417,7 @@ func (c *srvClient) GetAnnotations(args params.GetAnnotations) (params.GetAnnota
 }
 
 // SetAnnotations stores annotations about a given entity.
-func (c *srvClient) SetAnnotation(args params.SetAnnotations) error {
+func (c *srvClient) SetAnnotations(args params.SetAnnotations) error {
 	entity, err := c.root.srv.state.Annotator(args.EntityId)
 	if err != nil {
 		return err
