@@ -264,7 +264,7 @@ func opClientCharmInfo(c *C, st *api.State, mst *state.State) (func(), error) {
 func opClientAddRelation(c *C, st *api.State, mst *state.State) (func(), error) {
 	err := st.Client().AddRelation("wordpress", "logging")
 	if err != nil {
-		return func() {}, err
+		return nil, err
 	}
 	return func() {}, nil
 }

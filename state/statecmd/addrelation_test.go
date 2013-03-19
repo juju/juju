@@ -47,5 +47,5 @@ func (s *AddRelationSuite) TestAddAlreadyAddedRelation(c *C) {
 	err = statecmd.AddRelation(s.State, params.AddRelation{
 		Endpoints: []string{"wordpress", "mysql"},
 	})
-	c.Assert(err, ErrorMatches, `cannot add relation \"wordpress:db mysql:server\": relation already exists`)
+	c.Assert(err, ErrorMatches, `cannot add relation "wordpress:db mysql:server": relation already exists`)
 }
