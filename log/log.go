@@ -13,17 +13,47 @@ var (
 	Debug  bool
 )
 
-// Printf logs the formatted message onto the Target Logger.
-func Printf(format string, v ...interface{}) {
+// Errorf logs a message using the ERROR priority.
+func Errorf(format string, a ...interface{}) (err error) {
 	if Target != nil {
-		Target.Output(2, "JUJU "+fmt.Sprintf(format, v...))
+		return Target.Output(2, "ERROR: "+fmt.Sprintf(format, a...))
 	}
+	return nil
 }
 
-// Debugf logs the formatted message onto the Target Logger
-// if Debug is true.
-func Debugf(format string, v ...interface{}) {
-	if Debug && Target != nil {
-		Target.Output(2, "JUJU:DEBUG "+fmt.Sprintf(format, v...))
+// Warningf logs a message using the WARNING priority.
+func Warningf(format string, a ...interface{}) (err error) {
+	if Target != nil {
+		return Target.Output(2, "WARNING: "+fmt.Sprintf(format, a...))
 	}
+	return nil
+}
+
+// Noticef logs a message using the NOTICE priority.
+func Noticef(format string, a ...interface{}) (err error) {
+	if Target != nil {
+		return Target.Output(2, "NOTICE: "+fmt.Sprintf(format, a...))
+	}
+	return nil
+}
+
+// Infof logs a message using the INFO priority.
+func Infof(format string, a ...interface{}) (err error) {
+	if Target != nil {
+		return Target.Output(2, "INFO: "+fmt.Sprintf(format, a...))
+	}
+	return nil
+}
+
+// Debugf logs a message using the DEBUG priority.
+func Debugf(format string, a ...interface{}) (err error) {
+	if Debug && Target != nil {
+		return Target.Output(2, "DEBUG: "+fmt.Sprintf(format, a...))
+	}
+	return nil
+}
+
+// Maintain compatibility with the old API until migration to new API is finished.
+func Printf(format string, a ...interface{}) (err error) {
+	return Infof(format, a...)
 }
