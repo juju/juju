@@ -190,7 +190,7 @@ func (s *Server) serveStats(w http.ResponseWriter, r *http.Request) {
 		req.Stop, err = time.Parse("2006-01-02", v)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(fmt.Sprintf("Invalid 'start' value: %q", v)))
+			w.Write([]byte(fmt.Sprintf("Invalid 'stop' value: %q", v)))
 			return
 		}
 		// Cover all timestamps within the stop day.
