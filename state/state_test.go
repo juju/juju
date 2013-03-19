@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
+	"net"
 	"net/url"
 	"sort"
 	"strconv"
@@ -1209,10 +1210,55 @@ func (s *StateSuite) TestOpenBadAddress(c *C) {
 	info := state.TestingStateInfo()
 	info.Addrs = []string{"0.1.2.3:1234"}
 	state.SetDialTimeout(1 * time.Millisecond)
-	defer state.SetDialTimeout(0)
+	defer state.SetDialTimeout(state.SetDialTimeout(1 * time.Millisecond))
+	defer state.SetRetryDelay(state.SetRetryDelay(1 * time.Millisecond))
 
 	err := tryOpenState(info)
 	c.Assert(err, ErrorMatches, "no reachable servers")
+}
+
+func (s *StateSuite) TestOpenDelaysRetryBadAddress(c *C) {
+	retryDelay := 200 * time.Millisecond
+	info := state.TestingStateInfo()
+	info.Addrs = []string{"0.1.2.3:1234"}
+	defer state.SetDialTimeout(state.SetDialTimeout(1 * time.Millisecond))
+	defer state.SetRetryDelay(state.SetRetryDelay(retryDelay))
+
+	t0 := time.Now()
+	err := tryOpenState(info)
+	c.Assert(err, ErrorMatches, "no reachable servers")
+	// tryOpenState should have delayed for at least RetryDelay
+	// internall mgo will try three times in a row before returning
+	// to the caller.
+	c.Assert(true, Equals, time.Since(t0) > 3*retryDelay)
+}
+
+func (s *StateSuite) TestOpenDoesNotDelayOnHandShakeFailure(c *C) {
+	retryDelay := 200 * time.Millisecond
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	c.Assert(err, IsNil)
+	defer l.Close()
+	go func() {
+		for {
+			conn, err := l.Accept()
+			if err != nil {
+				return
+			}
+			conn.Write([]byte("this is not a SSL handshake\nno sir\n"))
+			conn.Close()
+		}
+	}()
+	info := state.TestingStateInfo()
+	info.Addrs = []string{l.Addr().String()}
+	defer state.SetDialTimeout(state.SetDialTimeout(1 * time.Millisecond))
+	defer state.SetRetryDelay(state.SetRetryDelay(retryDelay))
+
+	t0 := time.Now()
+	err = tryOpenState(info)
+	c.Assert(err, ErrorMatches, "no reachable servers")
+	// tryOpenState should not have delayed because the socket
+	// connected, but ssl handshake failed
+	c.Assert(true, Equals, time.Since(t0) < 3*retryDelay)
 }
 
 func testSetPassword(c *C, getEntity func() (state.Entity, error)) {

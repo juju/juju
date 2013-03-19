@@ -38,7 +38,7 @@ type Info struct {
 }
 
 var dialTimeout = 10 * time.Minute
-var retryDelay = 1 * time.Second
+var retryDelay = 2 * time.Second
 
 // Open connects to the server described by the given
 // info, waits for it to be initialized, and returns a new State
@@ -66,7 +66,7 @@ func Open(info *Info) (*State, error) {
 		log.Printf("state: connecting to %v", addr)
 		c, err := net.Dial("tcp", addr.String())
 		if err != nil {
-			log.Printf("state: connection failed, will retry in %v: %v", retryDelay, err)
+			log.Printf("state: connection failed, paused for %v: %v", retryDelay, err)
 			time.Sleep(retryDelay)
 			return nil, err
 		}
