@@ -44,8 +44,25 @@ var annotatorTests = []struct {
 		expected: map[string]string{},
 	},
 	{
+		about:    "test removing multiple annotations",
+		initial:  map[string]string{"key1": "v1", "key2": "v2", "key3": "v3"},
+		input:    map[string]string{"key1": "", "key3": ""},
+		expected: map[string]string{"key2": "v2"},
+	},
+	{
+		about:    "test removing/adding annotations in the same transaction",
+		initial:  map[string]string{"key1": "value1"},
+		input:    map[string]string{"key1": "", "key2": "value2"},
+		expected: map[string]string{"key2": "value2"},
+	},
+	{
 		about:    "test removing a non existent annotation",
 		input:    map[string]string{"mykey": ""},
+		expected: map[string]string{},
+	},
+	{
+		about:    "test passing an empty map",
+		input:    map[string]string{},
 		expected: map[string]string{},
 	},
 }
