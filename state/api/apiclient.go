@@ -374,7 +374,7 @@ func (w *EntityWatcher) loop() error {
 		defer w.wg.Done()
 		<-w.tomb.Dying()
 		if err := callWatch("Stop"); err != nil {
-			log.Printf("state/api: error trying to stop watcher: %v", err)
+			log.Errorf("state/api: error trying to stop watcher: %v", err)
 		}
 	}()
 	for {
