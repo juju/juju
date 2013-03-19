@@ -50,16 +50,16 @@ func (s *LogSuite) TestStart(c *C) {
 		path    string
 		verbose bool
 		debug   bool
-		check 	[]interface{}
+		check   []interface{}
 	}{
-		{"", true, true, []interface{} {NotNil}},
-		{"", true, false, []interface{} {NotNil}},
-		{"", false, true, []interface{} {NotNil}},
-		{"", false, false, []interface{} {Equals, log.NilLogger}},
-		{"foo", true, true, []interface{} {NotNil}},
-		{"foo", true, false, []interface{} {NotNil}},
-		{"foo", false, true, []interface{} {NotNil}},
-		{"foo", false, false, []interface{} {NotNil}},
+		{"", true, true, []interface{}{NotNil}},
+		{"", true, false, []interface{}{NotNil}},
+		{"", false, true, []interface{}{NotNil}},
+		{"", false, false, []interface{}{Equals, log.NilLogger}},
+		{"foo", true, true, []interface{}{NotNil}},
+		{"foo", true, false, []interface{}{NotNil}},
+		{"foo", false, true, []interface{}{NotNil}},
+		{"foo", false, false, []interface{}{NotNil}},
 	} {
 		l := &cmd.Log{Prefix: "test", Path: t.path, Verbose: t.verbose, Debug: t.debug}
 		ctx := testing.Context(c)
