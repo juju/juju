@@ -79,12 +79,12 @@ var getImagesTests = []struct {
 		region: "us-east-1",
 		series: "precise",
 		arches: both,
-		err:    `no "precise" images in us-east-1 with arches "amd64", "i386"`,
+		err:    `no "precise" images in us-east-1 with arches \[amd64 i386\]`,
 	}, {
 		region: "eu-west-1",
 		series: "precise",
 		arches: []string{"i386"},
-		err:    `no "precise" images in eu-west-1 with arches "i386"`,
+		err:    `no "precise" images in eu-west-1 with arches \[i386\]`,
 	}, {
 		region: "ap-northeast-1",
 		series: "precise",
@@ -294,7 +294,7 @@ var findInstanceSpecErrorTests = []struct {
 	}, {
 		series: "precise",
 		arches: []string{"arm"},
-		err:    `no "precise" images in test with arches "arm"`,
+		err:    `no "precise" images in test with arches \[arm\]`,
 	}, {
 		series: "precise",
 		arches: both,
@@ -304,7 +304,7 @@ var findInstanceSpecErrorTests = []struct {
 		series: "raring",
 		arches: both,
 		cons:   "mem=4G",
-		err:    `no "raring" images in test matching instance types "m1.large", "m1.xlarge", "c1.xlarge", "cc1.4xlarge", "cc2.8xlarge"`,
+		err:    `no "raring" images in test matching instance types \[m1.large m1.xlarge c1.xlarge cc1.4xlarge cc2.8xlarge\]`,
 	},
 }
 

@@ -181,13 +181,16 @@ func (c *SuperCommand) Init(args []string) error {
 
 // Run executes the subcommand that was selected in Init.
 func (c *SuperCommand) Run(ctx *Context) error {
+	if c.subcmd == nil {
+		panic("Run: missing subcommand; Init failed or not called")
+	}
 	if c.Log != nil {
+		if c.Log.Prefix == "" {
+			c.Log.Prefix = c.Name + ":" + c.subcmd.Info().Name
+		}
 		if err := c.Log.Start(ctx); err != nil {
 			return err
 		}
-	}
-	if c.subcmd == nil {
-		panic("Run: missing subcommand; Init failed or not called")
 	}
 	return c.subcmd.Run(ctx)
 }

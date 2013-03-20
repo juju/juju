@@ -88,7 +88,7 @@ func NewServer(rootValue interface{}, transformErrors func(error) error) (*Serve
 		m := rt.Method(i)
 		o := srv.methodToObtainer(m)
 		if o == nil {
-			log.Printf("rpc: discarding obtainer method %#v", m)
+			log.Infof("rpc: discarding obtainer method %#v", m)
 			continue
 		}
 		actions := make(map[string]*action)
@@ -97,14 +97,14 @@ func NewServer(rootValue interface{}, transformErrors func(error) error) (*Serve
 			if a := srv.methodToAction(m); a != nil {
 				actions[m.Name] = a
 			} else {
-				log.Printf("rpc: discarding action method %#v", m)
+				log.Infof("rpc: discarding action method %#v", m)
 			}
 		}
 		if len(actions) > 0 {
 			srv.action[o.ret] = actions
 			srv.obtain[m.Name] = o
 		} else {
-			log.Printf("rpc: discarding obtainer %v because its result has no methods", m.Name)
+			log.Infof("rpc: discarding obtainer %v because its result has no methods", m.Name)
 		}
 	}
 	if len(srv.obtain) == 0 {

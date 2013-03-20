@@ -44,18 +44,31 @@ func (s *BootstrapSuite) TearDownTest(c *C) {
 }
 
 func (*BootstrapSuite) TestBasic(c *C) {
-	defer testing.MakeFakeHome(c, envConfig, "brokenenv").Restore()
+	defer testing.MakeFakeHome(c, envConfig).Restore()
 	opc, errc := runCommand(new(BootstrapCommand))
 	c.Check(<-errc, IsNil)
 	opBootstrap := (<-opc).(dummy.OpBootstrap)
 	c.Check(opBootstrap.Env, Equals, "peckham")
 	c.Check(opBootstrap.Constraints, DeepEquals, state.Constraints{})
+}
+
+func (*BootstrapSuite) TestRunGeneratesCertificate(c *C) {
+	defer testing.MakeFakeHome(c, envConfig).Restore()
+	envName := "peckham"
+	_, err := testing.RunCommand(c, new(BootstrapCommand), nil)
+	c.Assert(err, IsNil)
 
 	// Check that the CA certificate and key have been automatically generated
 	// for the environment.
-	_, err := os.Stat(testing.HomePath(".juju", "peckham-cert.pem"))
+	info, err := os.Stat(testing.HomePath(".juju", envName+"-cert.pem"))
 	c.Assert(err, IsNil)
-	_, err = os.Stat(testing.HomePath(".juju", "peckham-private-key.pem"))
+	c.Assert(info.Size() > 0, Equals, true)
+	info, err = os.Stat(testing.HomePath(".juju", envName+"-private-key.pem"))
+	c.Assert(err, IsNil)
+	c.Assert(info.Size() > 0, Equals, true)
+
+	// Check that the environment validates the cert and key.
+	_, err = environs.NewFromName(envName)
 	c.Assert(err, IsNil)
 }
 
@@ -72,7 +85,10 @@ func (*BootstrapSuite) TestConstraints(c *C) {
 }
 
 func (*BootstrapSuite) TestUploadTools(c *C) {
-	defer testing.MakeFakeHome(c, envConfig, "brokenenv").Restore()
+	defer testing.MakeFakeHome(c, envConfig).Restore()
+	// bootstrap with tool uploading - checking that a file
+	// is uploaded should be sufficient, as the detailed semantics
+	// of UploadTools are tested in environs.
 	opc, errc := runCommand(new(BootstrapCommand), "--upload-tools")
 	c.Check(<-errc, IsNil)
 	c.Check((<-opc).(dummy.OpPutFile).Env, Equals, "peckham")
@@ -96,7 +112,7 @@ func (*BootstrapSuite) TestUploadTools(c *C) {
 }
 
 func (*BootstrapSuite) TestBrokenEnvironment(c *C) {
-	defer testing.MakeFakeHome(c, envConfig, "brokenenv").Restore()
+	defer testing.MakeFakeHome(c, envConfig).Restore()
 	opc, errc := runCommand(new(BootstrapCommand), "-e", "brokenenv")
 	c.Check(<-errc, ErrorMatches, "dummy.Bootstrap is broken")
 	c.Check(<-opc, IsNil)
