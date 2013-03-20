@@ -283,6 +283,7 @@ type Authenticator interface {
 	Refresh() error
 	SetPassword(pass string) error
 	PasswordValid(pass string) bool
+	EntityName() string
 }
 
 // Annotator represents entities capable of handling annotations.
