@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/cloudinit"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
@@ -74,6 +75,9 @@ type MachineConfig struct {
 
 	// Config holds the initial environment configuration.
 	Config *config.Config
+
+	// Constraints holds the initial environment constraints.
+	Constraints constraints.Value
 }
 
 func addScripts(c *cloudinit.Config, scripts ...string) {
@@ -140,6 +144,7 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 			cfg.jujuTools()+"/jujud bootstrap-state"+
 				" --data-dir "+shquote(cfg.DataDir)+
 				" --env-config "+shquote(base64yaml(cfg.Config))+
+				" --constraints "+shquote(cfg.Constraints.String())+
 				debugFlag,
 			"rm -rf "+shquote(acfg.Dir()),
 		)

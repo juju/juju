@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
@@ -245,6 +246,8 @@ func (p *Provisioner) startMachines(machines []*state.Machine) error {
 func (p *Provisioner) startMachine(m *state.Machine) error {
 	// TODO(dfc) the state.Info passed to environ.StartInstance remains contentious
 	// however as the PA only knows one state.Info, and that info is used by MAs and
+	// UAs to locate the state for this environment, it is logical to use the same
+	// state.Info as the PA.
 	password, err := trivial.RandomPassword()
 	if err != nil {
 		return fmt.Errorf("cannot make password for new machine: %v", err)
@@ -252,8 +255,6 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 	if err := m.SetMongoPassword(password); err != nil {
 		return fmt.Errorf("cannot set password for new machine: %v", err)
 	}
-	// UAs to locate the ZK for this environment, it is logical to use the same
-	// state.Info as the PA.
 	info := *p.info
 	info.EntityName = m.EntityName()
 	info.Password = password
@@ -263,7 +264,7 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 	apiInfo.Password = password
 	// TODO: get series from where?
 	series := version.Current.Series
-	inst, err := p.environ.StartInstance(m.Id(), series, &info, &apiInfo)
+	inst, err := p.environ.StartInstance(m.Id(), series, constraints.Value{}, &info, &apiInfo)
 	if err != nil {
 		return fmt.Errorf("cannot start instance for new machine: %v", err)
 	}

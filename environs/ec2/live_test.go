@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	amzec2 "launchpad.net/goamz/ec2"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
@@ -103,7 +104,7 @@ func (t *LiveTests) TearDownTest(c *C) {
 
 // TODO(niemeyer): Looks like many of those tests should be moved to jujutest.LiveTests.
 
-func (t *LiveTests) TestInstanceDNSName(c *C) {
+func (t *LiveTests) TestInstanceAttributes(c *C) {
 	inst := testing.StartInstance(c, t.Env, "30")
 	defer t.Env.StopInstances([]environs.Instance{inst})
 	dns, err := inst.WaitDNSName()
@@ -117,6 +118,17 @@ func (t *LiveTests) TestInstanceDNSName(c *C) {
 
 	ec2inst := ec2.InstanceEC2(insts[0])
 	c.Assert(ec2inst.DNSName, Equals, dns)
+	c.Assert(ec2inst.InstanceType, Equals, "m1.small")
+}
+
+func (t *LiveTests) TestStartInstanceConstraints(c *C) {
+	cons, err := constraints.Parse("mem=2G")
+	c.Assert(err, IsNil)
+	inst, err := t.Env.StartInstance("31", cons, testing.InvalidStateInfo("31"), testing.InvalidAPIInfo("31"), nil)
+	c.Assert(err, IsNil)
+	defer t.Env.StopInstances([]environs.Instance{inst})
+	ec2inst := ec2.InstanceEC2(inst)
+	c.Assert(ec2inst.InstanceType, Equals, "m1.medium")
 }
 
 func (t *LiveTests) TestInstanceGroups(c *C) {

@@ -6,6 +6,7 @@ import (
 	"launchpad.net/goamz/aws"
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
@@ -236,6 +237,9 @@ func (e *environ) PublicStorage() environs.StorageReader {
 	return e.publicStorageUnlocked
 }
 
+// TODO(thumper): this code is duplicated in ec2 and openstack.  Ideally we
+// should refactor the tools selection criteria with the version that is in
+// environs. The constraints work will require this refactoring.
 func findTools(env *environ) (*state.Tools, error) {
 	flags := environs.HighestVersion | environs.CompatVersion
 	v := version.Current
@@ -244,8 +248,7 @@ func findTools(env *environ) (*state.Tools, error) {
 	return environs.FindTools(env, v, flags)
 }
 
-func (e *environ) Bootstrap(cons state.Constraints, cert, key []byte) error {
-	// TODO(fwereade): handle bootstrap constraints
+func (e *environ) Bootstrap(cons constraints.Value, cert, key []byte) error {
 	password := e.Config().AdminSecret()
 	if password == "" {
 		return fmt.Errorf("admin-secret is required for bootstrap")
@@ -286,7 +289,8 @@ func (e *environ) Bootstrap(cons state.Constraints, cert, key []byte) error {
 	v.Arch = tools.Arch
 	mongoURL := environs.MongoURL(e, v)
 	inst, err := e.startInstance(&startInstanceParams{
-		machineId: "0",
+		machineId:   "0",
+		constraints: cons,
 		info: &state.Info{
 			Password: trivial.PasswordHash(password),
 			CACert:   caCert,
@@ -371,12 +375,13 @@ func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
 	return state.AssignUnused
 }
 
-func (e *environ) StartInstance(machineId string, series string, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
 	return e.startInstance(&startInstanceParams{
-		machineId: machineId,
-		series:    series,
-		info:      info,
-		apiInfo:   apiInfo,
+		machineId:   machineId,
+		series:      series,
+		constraints: cons,
+		info:        info,
+		apiInfo:     apiInfo,
 	})
 }
 
@@ -395,6 +400,7 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 		MachineId:       scfg.machineId,
 		AuthorizedKeys:  e.ecfg().AuthorizedKeys(),
 		Config:          scfg.config,
+		Constraints:     scfg.constraints,
 	}
 	cloudcfg, err := cloudinit.New(cfg)
 	if err != nil {
@@ -412,6 +418,7 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 type startInstanceParams struct {
 	machineId       string
 	series          string
+	constraints     constraints.Value
 	info            *state.Info
 	apiInfo         *api.Info
 	tools           *state.Tools
@@ -425,6 +432,8 @@ type startInstanceParams struct {
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself.
 func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, error) {
+	// TODO(fwereade): choose tools *after* getting an instance spec; take series
+	// from scfg and available arches from list of known and compatible tools.
 	if scfg.tools == nil {
 		var err error
 		flags := environs.HighestVersion | environs.CompatVersion
@@ -439,14 +448,14 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	}
 	log.Infof("environs/ec2: starting machine %s in %q running tools version %q from %q", scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
 	spec, err := findInstanceSpec(&instanceConstraint{
-		series: scfg.tools.Series,
-		arch:   scfg.tools.Arch,
-		region: e.ecfg().region(),
+		region:      e.ecfg().region(),
+		series:      scfg.tools.Series,
+		arches:      []string{scfg.tools.Arch},
+		constraints: scfg.constraints,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("cannot find image satisfying constraints: %v", err)
+		return nil, err
 	}
-	// TODO quick sanity check that we can access the tools URL?
 	userData, err := e.userData(scfg)
 	if err != nil {
 		return nil, fmt.Errorf("cannot make user data: %v", err)
@@ -459,11 +468,11 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 
 	for a := shortAttempt.Start(); a.Next(); {
 		instances, err = e.ec2().RunInstances(&ec2.RunInstances{
-			ImageId:        spec.imageId,
+			ImageId:        spec.image.id,
 			MinCount:       1,
 			MaxCount:       1,
 			UserData:       userData,
-			InstanceType:   "m1.small",
+			InstanceType:   spec.instanceType,
 			SecurityGroups: groups,
 		})
 		if err == nil || ec2ErrCode(err) != "InvalidGroup.NotFound" {

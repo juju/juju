@@ -12,6 +12,7 @@ import (
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
@@ -416,6 +417,9 @@ func (e *environ) PublicStorage() environs.StorageReader {
 	return e.publicStorageUnlocked
 }
 
+// TODO(thumper): this code is duplicated in ec2 and openstack.  Ideally we
+// should refactor the tools selection criteria with the version that is in
+// environs. The constraints work will require this refactoring.
 func findTools(env *environ) (*state.Tools, error) {
 	flags := environs.HighestVersion | environs.CompatVersion
 	v := version.Current
@@ -424,8 +428,7 @@ func findTools(env *environ) (*state.Tools, error) {
 	return environs.FindTools(env, v, flags)
 }
 
-func (e *environ) Bootstrap(cons state.Constraints, cert, key []byte) error {
-	// TODO(fwereade): handle bootstrap constraints
+func (e *environ) Bootstrap(cons constraints.Value, cert, key []byte) error {
 	password := e.Config().AdminSecret()
 	if password == "" {
 		return fmt.Errorf("admin-secret is required for bootstrap")
@@ -479,6 +482,7 @@ func (e *environ) Bootstrap(cons state.Constraints, cert, key []byte) error {
 		mongoURL:        mongoURL,
 		stateServer:     true,
 		config:          config,
+		constraints:     cons,
 		stateServerCert: cert,
 		stateServerKey:  key,
 		withPublicIP:    e.ecfg().useFloatingIP(),
@@ -626,10 +630,11 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (e *environ) StartInstance(machineId string, series string, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
 	return e.startInstance(&startInstanceParams{
 		machineId:    machineId,
 		series:       series,
+		constraints:  cons,
 		info:         info,
 		apiInfo:      apiInfo,
 		withPublicIP: e.ecfg().useFloatingIP(),
@@ -645,6 +650,7 @@ type startInstanceParams struct {
 	mongoURL        string
 	stateServer     bool
 	config          *config.Config
+	constraints     constraints.Value
 	stateServerCert []byte
 	stateServerKey  []byte
 
@@ -668,6 +674,7 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 		MachineId:       scfg.machineId,
 		AuthorizedKeys:  e.ecfg().AuthorizedKeys(),
 		Config:          scfg.config,
+		Constraints:     scfg.constraints,
 	}
 	cloudcfg, err := cloudinit.New(cfg)
 	if err != nil {
@@ -744,6 +751,8 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 			log.Infof("environs/openstack: allocated public IP %s", publicIP.IP)
 		}
 	}
+	// TODO(fwereade): use scfg.constraints to pick instance spec before
+	// settling on tools.
 	if scfg.tools == nil {
 		var err error
 		flags := environs.HighestVersion | environs.CompatVersion
@@ -754,8 +763,9 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	}
 	log.Infof("environs/openstack: starting machine %s in %q running tools version %q from %q",
 		scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
-	if strings.Contains(scfg.tools.Series, "unknown") || strings.Contains(scfg.tools.Arch, "unknown") {
-		return nil, fmt.Errorf("cannot find image for unknown series or architecture")
+	if strings.Contains(scfg.tools.Series, "unknown") {
+		// TODO(fwereade): this is somewhat crazy.
+		return nil, fmt.Errorf("cannot find image for %q", scfg.tools.Series)
 	}
 	spec, err := findInstanceSpec(e, &instanceConstraint{
 		series: scfg.tools.Series,

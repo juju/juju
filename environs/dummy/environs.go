@@ -22,6 +22,7 @@ package dummy
 import (
 	"errors"
 	"fmt"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
@@ -61,18 +62,19 @@ type GenericOperation struct {
 
 type OpBootstrap struct {
 	Env         string
-	Constraints state.Constraints
+	Constraints constraints.Value
 }
 
 type OpDestroy GenericOperation
 
 type OpStartInstance struct {
-	Env       string
-	MachineId string
-	Instance  environs.Instance
-	Info      *state.Info
-	APIInfo   *api.Info
-	Secret    string
+	Env         string
+	MachineId   string
+	Instance    environs.Instance
+	Constraints constraints.Value
+	Info        *state.Info
+	APIInfo     *api.Info
+	Secret      string
 }
 
 type OpStopInstances struct {
@@ -428,7 +430,7 @@ func (e *environ) Name() string {
 	return e.state.name
 }
 
-func (e *environ) Bootstrap(cons state.Constraints, cert, key []byte) error {
+func (e *environ) Bootstrap(cons constraints.Value, cert, key []byte) error {
 	defer delay()
 	if err := e.checkBroken("Bootstrap"); err != nil {
 		return err
@@ -540,7 +542,7 @@ func (e *environ) Destroy([]environs.Instance) error {
 	return nil
 }
 
-func (e *environ) StartInstance(machineId string, series string, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
 	defer delay()
 	log.Infof("environs/dummy: dummy startinstance, machine %s", machineId)
 	if err := e.checkBroken("StartInstance"); err != nil {
@@ -558,7 +560,7 @@ func (e *environ) StartInstance(machineId string, series string, info *state.Inf
 		return nil, fmt.Errorf("entity name must match started machine")
 	}
 	if strings.HasPrefix(series, "unknown") {
-		return nil, fmt.Errorf("cannot find image for %s", series)
+		return nil, fmt.Errorf("unknown series %q", tools.Series)
 	}
 	i := &instance{
 		state:     e.state,
@@ -570,12 +572,13 @@ func (e *environ) StartInstance(machineId string, series string, info *state.Inf
 	e.state.insts[i.id] = i
 	e.state.maxId++
 	e.state.ops <- OpStartInstance{
-		Env:       e.state.name,
-		MachineId: machineId,
-		Instance:  i,
-		Info:      info,
-		APIInfo:   apiInfo,
-		Secret:    e.ecfg().secret(),
+		Env:         e.state.name,
+		MachineId:   machineId,
+		Constraints: cons,
+		Instance:    i,
+		Info:        info,
+		APIInfo:     apiInfo,
+		Secret:      e.ecfg().secret(),
 	}
 	return i, nil
 }

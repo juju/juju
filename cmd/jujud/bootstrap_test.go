@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
@@ -78,11 +79,11 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *C) {
 
 	cons, err := st.EnvironConstraints()
 	c.Assert(err, IsNil)
-	c.Assert(cons, DeepEquals, state.Constraints{})
+	c.Assert(cons, DeepEquals, constraints.Value{})
 }
 
 func (s *BootstrapSuite) TestSetConstraints(c *C) {
-	tcons := state.Constraints{Mem: uint64p(2048), CpuCores: uint64p(2)}
+	tcons := constraints.Value{Mem: uint64p(2048), CpuCores: uint64p(2)}
 	_, cmd, err := s.initBootstrapCommand(c, "--env-config", testConfig, "--constraints", tcons.String())
 	c.Assert(err, IsNil)
 	err = cmd.Run(nil)

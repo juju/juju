@@ -6,6 +6,7 @@ import (
 	"io"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju"
@@ -81,11 +82,13 @@ func (t *LiveTests) BootstrapOnce(c *C) {
 	}
 	// We only build and upload tools if there will be a state agent that
 	// we could connect to (actual live tests, rather than local-only)
+	cons, err := constraints.Parse("mem=2G")
+	c.Assert(err, IsNil)
 	if t.CanOpenState {
 		err := environs.UploadTools(t.Env)
 		c.Assert(err, IsNil)
 	}
-	err := environs.Bootstrap(t.Env, state.Constraints{})
+	err = environs.Bootstrap(t.Env, cons)
 	c.Assert(err, IsNil)
 	t.bootstrapped = true
 }
@@ -300,7 +303,7 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 func (t *LiveTests) TestBootstrapMultiple(c *C) {
 	t.BootstrapOnce(c)
 
-	err := environs.Bootstrap(t.Env, state.Constraints{})
+	err := environs.Bootstrap(t.Env, constraints.Value{})
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	c.Logf("destroy env")
@@ -334,6 +337,11 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	cfg, err := conn.State.EnvironConfig()
 	c.Assert(err, IsNil)
 	c.Check(cfg.AgentVersion(), Equals, version.Current.Number)
+
+	// Check that the constraints have been set in the environment.
+	cons, err := conn.State.EnvironConstraints()
+	c.Assert(err, IsNil)
+	c.Assert(cons.String(), Equals, "mem=2048M")
 
 	// Wait for machine agent to come up on the bootstrap
 	// machine and find the deployed series from that.
@@ -658,7 +666,7 @@ func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
 		c.Check(err, IsNil)
 	}
 	c.Assert(inst, IsNil)
-	c.Assert(err, ErrorMatches, "cannot find image.*")
+	c.Assert(err, ErrorMatches, `.*"unknownseries".*`)
 }
 
 func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
@@ -711,7 +719,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
 	err = storageCopy(dummyStorage, currentPath, envStorage, otherPath)
 	c.Assert(err, IsNil)
 
-	err = environs.Bootstrap(env, state.Constraints{})
+	err = environs.Bootstrap(env, constraints.Value{})
 	c.Assert(err, IsNil)
 	defer env.Destroy(nil)
 
