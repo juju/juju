@@ -468,8 +468,8 @@ func chanReadError(c *C, ch <-chan error, what string) error {
 
 // newRPCClientServer starts an RPC server serving a connection from a
 // single client.  When the server has finished serving the connection,
-// it sends a value on done.
-func newRPCClientServer(c *C, root interface{}, tfErr func(error) error) (client *rpc.Client, done <-chan error) {
+// it sends a value on the returned channel.
+func newRPCClientServer(c *C, root interface{}, tfErr func(error) error) (*rpc.Client, <-chan error) {
 	srv, err := rpc.NewServer(root, tfErr)
 	c.Assert(err, IsNil)
 
@@ -490,7 +490,7 @@ func newRPCClientServer(c *C, root interface{}, tfErr func(error) error) (client
 	}()
 	conn, err := net.Dial("tcp", l.Addr().String())
 	c.Assert(err, IsNil)
-	client = rpc.NewClientWithCodec(NewJSONClientCodec(conn))
+	client := rpc.NewClientWithCodec(NewJSONClientCodec(conn))
 	return client, srvDone
 }
 
