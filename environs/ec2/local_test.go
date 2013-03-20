@@ -239,7 +239,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 
 	err := environs.UploadTools(t.env)
 	c.Assert(err, IsNil)
-	err = environs.Bootstrap(t.env)
+	err = environs.Bootstrap(t.env, state.Constraints{})
 	c.Assert(err, IsNil)
 
 	// check that the state holds the id of the bootstrap machine.

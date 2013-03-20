@@ -84,7 +84,7 @@ func startMgoServer() error {
 			// mongodb has exited without being killed, so print the
 			// last few lines of its log output.
 			for _, line := range lines {
-				log.Printf("mongod: %s", line)
+				log.Infof("mongod: %s", line)
 			}
 		}
 		close(exited)
@@ -195,7 +195,7 @@ func MgoReset() {
 		// locked out of the database.  We restart it to regain
 		// access.  This should only happen when tests fail.
 		destroyMgoServer()
-		log.Printf("testing: restarting MongoDB server after unauthorized access")
+		log.Noticef("testing: restarting MongoDB server after unauthorized access")
 		if err := startMgoServer(); err != nil {
 			panic(err)
 		}

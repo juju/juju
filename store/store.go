@@ -56,11 +56,11 @@ type Store struct {
 // server at the given address (as expected by the Mongo function in the
 // labix.org/v2/mgo package).
 func Open(mongoAddr string) (store *Store, err error) {
-	log.Printf("store: Store opened. Connecting to: %s", mongoAddr)
+	log.Infof("store: Store opened. Connecting to: %s", mongoAddr)
 	store = &Store{}
 	session, err := mgo.Dial(mongoAddr)
 	if err != nil {
-		log.Printf("store: Error connecting to MongoDB: %v", err)
+		log.Errorf("store: Error connecting to MongoDB: %v", err)
 		return nil, err
 	}
 
@@ -101,7 +101,7 @@ func (s *Store) ensureIndexes() error {
 	for _, idx := range indexes {
 		err := idx.c.EnsureIndex(idx.i)
 		if err != nil {
-			log.Printf("store: Error ensuring stat.counters index: %v", err)
+			log.Errorf("store: Error ensuring stat.counters index: %v", err)
 			return err
 		}
 	}
@@ -517,7 +517,7 @@ func (p *CharmPublisher) Publish(charm CharmDir) error {
 // ErrRedundantUpdate is returned if all of the provided urls are
 // already associated to that digest.
 func (s *Store) CharmPublisher(urls []*charm.URL, digest string) (p *CharmPublisher, err error) {
-	log.Printf("store: Trying to add charms %v with key %q...", urls, digest)
+	log.Infof("store: Trying to add charms %v with key %q...", urls, digest)
 	if err = mustLackRevision("CharmPublisher", urls...); err != nil {
 		return
 	}
@@ -532,16 +532,16 @@ func (s *Store) CharmPublisher(urls []*charm.URL, digest string) (p *CharmPublis
 		urlStr := urls[i].String()
 		err = charms.Find(bson.D{{"urls", urlStr}}).Sort("-revision").One(&doc)
 		if err == mgo.ErrNotFound {
-			log.Printf("store: Charm %s not yet in the store.", urls[i])
+			log.Infof("store: Charm %s not yet in the store.", urls[i])
 			newKey = true
 			continue
 		}
 		if doc.Digest != digest {
-			log.Printf("store: Charm %s is out of date with revision key %q.", urlStr, digest)
+			log.Infof("store: Charm %s is out of date with revision key %q.", urlStr, digest)
 			newKey = true
 		}
 		if err != nil {
-			log.Printf("store: Unknown error looking for charm %s: %s", urlStr, err)
+			log.Errorf("store: Unknown error looking for charm %s: %s", urlStr, err)
 			return
 		}
 		if doc.Revision > maxRev {
@@ -549,12 +549,12 @@ func (s *Store) CharmPublisher(urls []*charm.URL, digest string) (p *CharmPublis
 		}
 	}
 	if !newKey {
-		log.Printf("store: All charms have revision key %q. Nothing to update.", digest)
+		log.Infof("store: All charms have revision key %q. Nothing to update.", digest)
 		err = ErrRedundantUpdate
 		return
 	}
 	revision := maxRev + 1
-	log.Printf("store: Preparing writer to add charms with revision %d.", revision)
+	log.Infof("store: Preparing writer to add charms with revision %d.", revision)
 	w := &charmWriter{
 		store:    s,
 		urls:     urls,
@@ -583,11 +583,11 @@ func (w *charmWriter) Write(data []byte) (n int, err error) {
 		w.session = w.store.session.Copy()
 		w.file, err = w.session.CharmFS().Create("")
 		if err != nil {
-			log.Printf("store: Failed to create GridFS file: %v", err)
+			log.Errorf("store: Failed to create GridFS file: %v", err)
 			return 0, err
 		}
 		w.sha256 = sha256.New()
-		log.Printf("store: Creating GridFS file with id %q...", w.file.Id().(bson.ObjectId).Hex())
+		log.Infof("store: Creating GridFS file with id %q...", w.file.Id().(bson.ObjectId).Hex())
 	}
 	_, err = w.sha256.Write(data)
 	if err != nil {
@@ -617,7 +617,7 @@ func (w *charmWriter) finish() error {
 	size := w.file.Size()
 	err := w.file.Close()
 	if err != nil {
-		log.Printf("store: Failed to close GridFS file: %v", err)
+		log.Errorf("store: Failed to close GridFS file: %v", err)
 		return err
 	}
 	charms := w.session.Charms()
@@ -634,7 +634,7 @@ func (w *charmWriter) finish() error {
 	}
 	if err = charms.Insert(&charm); err != nil {
 		err = maybeConflict(err)
-		log.Printf("store: Failed to insert new revision of charm %v: %v", w.urls, err)
+		log.Errorf("store: Failed to insert new revision of charm %v: %v", w.urls, err)
 		return err
 	}
 	return nil
@@ -703,7 +703,7 @@ func (s *Store) CharmInfo(url *charm.URL) (info *CharmInfo, err error) {
 	}
 	err = charms.Find(qdoc).Sort("-revision").One(&cdoc)
 	if err != nil {
-		log.Printf("store: Failed to find charm %s: %v", url, err)
+		log.Errorf("store: Failed to find charm %s: %v", url, err)
 		return nil, ErrNotFound
 	}
 	info = &CharmInfo{
@@ -729,7 +729,7 @@ func (s *Store) OpenCharm(url *charm.URL) (info *CharmInfo, rc io.ReadCloser, er
 	session := s.session.Copy()
 	file, err := session.CharmFS().OpenId(info.fileId)
 	if err != nil {
-		log.Printf("store: Failed to open GridFS file for charm %s: %v", url, err)
+		log.Errorf("store: Failed to open GridFS file for charm %s: %v", url, err)
 		session.Close()
 		return nil, nil, err
 	}
@@ -837,7 +837,7 @@ func (l *UpdateLock) tryLock() error {
 			l.locks.Remove(bson.D{{"_id", l.keys[j]}, {"time", l.time}})
 		}
 		err = maybeConflict(err)
-		log.Printf("store: Can't lock charms %v for updating: %v", l.keys, err)
+		log.Errorf("store: Can't lock charms %v for updating: %v", l.keys, err)
 		return err
 	}
 	return nil
@@ -931,7 +931,7 @@ type CharmEvent struct {
 
 // LogCharmEvent records an event related to one or more charm URLs.
 func (s *Store) LogCharmEvent(event *CharmEvent) (err error) {
-	log.Printf("store: Adding charm event for %v with key %q: %s", event.URLs, event.Digest, event.Kind)
+	log.Infof("store: Adding charm event for %v with key %q: %s", event.URLs, event.Digest, event.Kind)
 	if err = mustLackRevision("LogCharmEvent", event.URLs...); err != nil {
 		return
 	}
@@ -979,7 +979,7 @@ func mustLackRevision(context string, urls ...*charm.URL) error {
 	for _, url := range urls {
 		if url.Revision != -1 {
 			err := fmt.Errorf("%s: got charm URL with revision: %s", context, url)
-			log.Printf("store: %v", err)
+			log.Errorf("store: %v", err)
 			return err
 		}
 	}

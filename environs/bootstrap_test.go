@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"time"
 )
@@ -34,13 +35,13 @@ func (s *bootstrapSuite) TearDownTest(c *C) {
 
 func (s *bootstrapSuite) TestBootstrapNeedsConfigCert(c *C) {
 	env := newEnviron("bar", noKeysDefined)
-	err := environs.Bootstrap(env)
+	err := environs.Bootstrap(env, state.Constraints{})
 	c.Assert(err, ErrorMatches, "environment configuration missing CA certificate")
 }
 
 func (s *bootstrapSuite) TestBootstrapKeyGeneration(c *C) {
 	env := newEnviron("foo", useDefaultKeys)
-	err := environs.Bootstrap(env)
+	err := environs.Bootstrap(env, state.Constraints{})
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
 
@@ -53,6 +54,24 @@ func (s *bootstrapSuite) TestBootstrapKeyGeneration(c *C) {
 	c.Assert(err, IsNil)
 }
 
+func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *C) {
+	env := newEnviron("foo", useDefaultKeys)
+	err := environs.Bootstrap(env, state.Constraints{})
+	c.Assert(err, IsNil)
+	c.Assert(env.bootstrapCount, Equals, 1)
+	c.Assert(env.constraints, DeepEquals, state.Constraints{})
+}
+
+func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *C) {
+	env := newEnviron("foo", useDefaultKeys)
+	cons, err := state.ParseConstraints("cpu-cores=2 mem=4G")
+	c.Assert(err, IsNil)
+	err = environs.Bootstrap(env, cons)
+	c.Assert(err, IsNil)
+	c.Assert(env.bootstrapCount, Equals, 1)
+	c.Assert(env.constraints, DeepEquals, cons)
+}
+
 type bootstrapEnviron struct {
 	name             string
 	cfg              *config.Config
@@ -60,6 +79,7 @@ type bootstrapEnviron struct {
 
 	// The following fields are filled in when Bootstrap is called.
 	bootstrapCount int
+	constraints    state.Constraints
 	certPEM        []byte
 	keyPEM         []byte
 }
@@ -90,8 +110,9 @@ func (e *bootstrapEnviron) Name() string {
 	return e.name
 }
 
-func (e *bootstrapEnviron) Bootstrap(certPEM, keyPEM []byte) error {
+func (e *bootstrapEnviron) Bootstrap(cons state.Constraints, certPEM, keyPEM []byte) error {
 	e.bootstrapCount++
+	e.constraints = cons
 	e.certPEM = certPEM
 	e.keyPEM = keyPEM
 	return nil

@@ -214,65 +214,30 @@ func (s *StoreSuite) TestStatsCounterList(c *C) {
 
 	server, _ := s.prepareServer(c)
 
-	tests := [][]string{
-		{"a", "a  1\n"},
-		{"a:*", "a:b:*  4\na:f:*  2\na:b    1\na:i    1\n"},
-		{"a:b:*", "a:b:c  2\na:b:d  1\na:b:e  1\n"},
+	tests := []struct {
+		key, format, result string
+	}{
+		{"a", "", "a  1\n"},
+		{"a:*", "", "a:b:*  4\na:f:*  2\na:b    1\na:i    1\n"},
+		{"a:b:*", "", "a:b:c  2\na:b:d  1\na:b:e  1\n"},
+		{"a:*", "csv", "a:b:*,4\na:f:*,2\na:b,1\na:i,1\n"},
 	}
 
-	for i := range tests {
-		req, err := http.NewRequest("GET", "/stats/counter/"+tests[i][0], nil)
+	for _, test := range tests {
+		req, err := http.NewRequest("GET", "/stats/counter/"+test.key, nil)
 		c.Assert(err, IsNil)
 		req.Form = url.Values{"list": []string{"1"}}
+		if test.format != "" {
+			req.Form.Set("format", test.format)
+		}
 		rec := httptest.NewRecorder()
 		server.ServeHTTP(rec, req)
 
 		data, err := ioutil.ReadAll(rec.Body)
-		c.Assert(string(data), Equals, tests[i][1])
+		c.Assert(string(data), Equals, test.result)
 
 		c.Assert(rec.Header().Get("Content-Type"), Equals, "text/plain")
-		c.Assert(rec.Header().Get("Content-Length"), Equals, strconv.Itoa(len(tests[i][1])))
-	}
-}
-
-func (s *StoreSuite) TestStatsCounterListBy(c *C) {
-	incs := [][]string{
-		{"a"},
-		{"a", "b"},
-		{"a", "b", "c"},
-		{"a", "b", "c"},
-		{"a", "b", "d"},
-		{"a", "b", "e"},
-		{"a", "f", "g"},
-		{"a", "f", "h"},
-		{"a", "i"},
-		{"j", "k"},
-	}
-	for _, key := range incs {
-		err := s.store.IncCounter(key)
-		c.Assert(err, IsNil)
-	}
-
-	server, _ := s.prepareServer(c)
-
-	tests := [][]string{
-		{"a", "a  1\n"},
-		{"a:*", "a:b:*  4\na:f:*  2\na:b    1\na:i    1\n"},
-		{"a:b:*", "a:b:c  2\na:b:d  1\na:b:e  1\n"},
-	}
-
-	for i := range tests {
-		req, err := http.NewRequest("GET", "/stats/counter/"+tests[i][0], nil)
-		c.Assert(err, IsNil)
-		req.Form = url.Values{"list": []string{"1"}}
-		rec := httptest.NewRecorder()
-		server.ServeHTTP(rec, req)
-
-		data, err := ioutil.ReadAll(rec.Body)
-		c.Assert(string(data), Equals, tests[i][1])
-
-		c.Assert(rec.Header().Get("Content-Type"), Equals, "text/plain")
-		c.Assert(rec.Header().Get("Content-Length"), Equals, strconv.Itoa(len(tests[i][1])))
+		c.Assert(rec.Header().Get("Content-Length"), Equals, strconv.Itoa(len(test.result)))
 	}
 }
 
@@ -316,6 +281,7 @@ func (s *StoreSuite) TestStatsCounterBy(c *C) {
 
 	tests := []struct {
 		request store.CounterRequest
+		format  string
 		result  string
 	}{
 		{
@@ -325,7 +291,17 @@ func (s *StoreSuite) TestStatsCounterBy(c *C) {
 				List:   false,
 				By:     store.ByDay,
 			},
+			"",
 			"2012-05-01  2\n2012-05-03  1\n",
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: false,
+				List:   false,
+				By:     store.ByDay,
+			},
+			"csv",
+			"2012-05-01,2\n2012-05-03,1\n",
 		}, {
 			store.CounterRequest{
 				Key:    []string{"a"},
@@ -333,6 +309,7 @@ func (s *StoreSuite) TestStatsCounterBy(c *C) {
 				List:   false,
 				By:     store.ByDay,
 			},
+			"",
 			"2012-05-01  2\n2012-05-03  1\n2012-05-09  3\n",
 		}, {
 			store.CounterRequest{
@@ -341,6 +318,7 @@ func (s *StoreSuite) TestStatsCounterBy(c *C) {
 				List:   true,
 				By:     store.ByDay,
 			},
+			"",
 			"a:b    2012-05-01  1\na:c    2012-05-01  1\na:b    2012-05-03  1\na:c:*  2012-05-09  3\n",
 		}, {
 			store.CounterRequest{
@@ -349,6 +327,7 @@ func (s *StoreSuite) TestStatsCounterBy(c *C) {
 				List:   false,
 				By:     store.ByWeek,
 			},
+			"",
 			"2012-05-06  3\n2012-05-13  3\n",
 		}, {
 			store.CounterRequest{
@@ -357,7 +336,17 @@ func (s *StoreSuite) TestStatsCounterBy(c *C) {
 				List:   true,
 				By:     store.ByWeek,
 			},
+			"",
 			"a:b    2012-05-06  2\na:c    2012-05-06  1\na:c:*  2012-05-13  3\n",
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: true,
+				List:   true,
+				By:     store.ByWeek,
+			},
+			"csv",
+			"a:b,2012-05-06,2\na:c,2012-05-06,1\na:c:*,2012-05-13,3\n",
 		},
 	}
 
@@ -371,6 +360,9 @@ func (s *StoreSuite) TestStatsCounterBy(c *C) {
 		c.Assert(err, IsNil)
 		if test.request.List {
 			req.Form.Set("list", "1")
+		}
+		if test.format != "" {
+			req.Form.Set("format", test.format)
 		}
 		switch test.request.By {
 		case store.ByDay:

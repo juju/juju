@@ -59,7 +59,10 @@ type GenericOperation struct {
 	Env string
 }
 
-type OpBootstrap GenericOperation
+type OpBootstrap struct {
+	Env         string
+	Constraints state.Constraints
+}
 
 type OpDestroy GenericOperation
 
@@ -166,7 +169,7 @@ func init() {
 // operation listener.  All opened environments after Reset will share
 // the same underlying state.
 func Reset() {
-	log.Printf("environs/dummy: reset environment")
+	log.Infof("environs/dummy: reset environment")
 	p := &providerInstance
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -229,7 +232,7 @@ func newState(name string, ops chan<- Operation, fwmode config.FirewallMode) *en
 // that looks like a tools archive so Bootstrap can
 // find some tools and initialise the state correctly.
 func putFakeTools(s environs.StorageWriter) {
-	log.Printf("environs/dummy: putting fake tools")
+	log.Infof("environs/dummy: putting fake tools")
 	path := environs.ToolsStoragePath(version.Current)
 	toolsContents := "tools archive, honest guv"
 	err := s.Put(path, strings.NewReader(toolsContents), int64(len(toolsContents)))
@@ -425,7 +428,7 @@ func (e *environ) Name() string {
 	return e.state.name
 }
 
-func (e *environ) Bootstrap(cert, key []byte) error {
+func (e *environ) Bootstrap(cons state.Constraints, cert, key []byte) error {
 	defer delay()
 	if err := e.checkBroken("Bootstrap"); err != nil {
 		return err
@@ -448,7 +451,7 @@ func (e *environ) Bootstrap(cert, key []byte) error {
 
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
-	e.state.ops <- OpBootstrap{Env: e.state.name}
+	e.state.ops <- OpBootstrap{Env: e.state.name, Constraints: cons}
 	if e.state.bootstrapped {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
@@ -460,6 +463,9 @@ func (e *environ) Bootstrap(cert, key []byte) error {
 		}
 		st, err := state.Initialize(info, cfg)
 		if err != nil {
+			panic(err)
+		}
+		if err := st.SetEnvironConstraints(cons); err != nil {
 			panic(err)
 		}
 		if err := st.SetAdminMongoPassword(trivial.PasswordHash(password)); err != nil {
@@ -536,7 +542,7 @@ func (e *environ) Destroy([]environs.Instance) error {
 
 func (e *environ) StartInstance(machineId string, series string, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
 	defer delay()
-	log.Printf("environs/dummy: dummy startinstance, machine %s", machineId)
+	log.Infof("environs/dummy: dummy startinstance, machine %s", machineId)
 	if err := e.checkBroken("StartInstance"); err != nil {
 		return nil, err
 	}
@@ -697,7 +703,7 @@ func (inst *instance) WaitDNSName() (string, error) {
 
 func (inst *instance) OpenPorts(machineId string, ports []state.Port) error {
 	defer delay()
-	log.Printf("environs/dummy: openPorts %s, %#v", machineId, ports)
+	log.Infof("environs/dummy: openPorts %s, %#v", machineId, ports)
 	if inst.state.firewallMode != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for opening ports on instance: %q",
 			inst.state.firewallMode)
@@ -768,7 +774,7 @@ var providerDelay time.Duration
 // pause execution to simulate the latency of a real provider
 func delay() {
 	if providerDelay > 0 {
-		log.Printf("environs/dummy: pausing for %v", providerDelay)
+		log.Infof("environs/dummy: pausing for %v", providerDelay)
 		<-time.After(providerDelay)
 	}
 }

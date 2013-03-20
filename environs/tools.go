@@ -78,23 +78,23 @@ func listTools(store StorageReader, majorVersion int) ([]*state.Tools, error) {
 	var toolsList []*state.Tools
 	for _, name := range names {
 		if !strings.HasPrefix(name, toolPrefix) || !strings.HasSuffix(name, ".tgz") {
-			log.Printf("environs: unexpected tools file found %q", name)
+			log.Warningf("environs: unexpected tools file found %q", name)
 			continue
 		}
 		vers := name[len(toolPrefix) : len(name)-len(".tgz")]
 		var t state.Tools
 		t.Binary, err = version.ParseBinary(vers)
 		if err != nil {
-			log.Printf("environs: failed to parse %q: %v", vers, err)
+			log.Warningf("environs: failed to parse %q: %v", vers, err)
 			continue
 		}
 		if t.Major != majorVersion {
-			log.Printf("environs: tool %q found in wrong directory %q", name, dir)
+			log.Warningf("environs: tool %q found in wrong directory %q", name, dir)
 			continue
 		}
 		t.URL, err = store.URL(name)
 		if err != nil {
-			log.Printf("environs: cannot get URL for %q: %v", name, err)
+			log.Warningf("environs: cannot get URL for %q: %v", name, err)
 			continue
 		}
 		toolsList = append(toolsList, &t)
@@ -132,7 +132,7 @@ func PutTools(storage Storage, forceVersion *version.Number) (*state.Tools, erro
 		return nil, fmt.Errorf("cannot stat newly made tools archive: %v", err)
 	}
 	p := ToolsStoragePath(toolsVersion)
-	log.Printf("environs: putting tools %v (%dkB)", p, (fi.Size()+512)/1024)
+	log.Infof("environs: putting tools %v (%dkB)", p, (fi.Size()+512)/1024)
 	err = storage.Put(p, f, fi.Size())
 	if err != nil {
 		return nil, err
@@ -294,7 +294,7 @@ const (
 // returned.  If there's anything compatible in the environ's Storage,
 // it gets precedence over anything in its PublicStorage.
 func FindTools(env Environ, vers version.Binary, flags ToolsSearchFlags) (*state.Tools, error) {
-	log.Printf("environs: searching for tools compatible with version: %v\n", vers)
+	log.Infof("environs: searching for tools compatible with version: %v\n", vers)
 	toolsList, err := ListTools(env, vers.Major)
 	if err != nil {
 		return nil, err
