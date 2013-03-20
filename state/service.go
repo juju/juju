@@ -325,8 +325,8 @@ func (s *Service) Endpoint(relationName string) (Endpoint, error) {
 
 // convertConfig takes the given charm's config and converts the
 // current service's charm config to the new one (if possible,
-// otherwise returns an error). Also returns an assert op to
-// ensure the old settings haven't changed in the mean time.
+// otherwise returns an error). It also returns an assert op to
+// ensure the old settings haven't changed in the meantime.
 func (s *Service) convertConfig(ch *Charm) (map[string]interface{}, txn.Op, error) {
 	orig, err := s.Config()
 	if err != nil {
@@ -350,7 +350,6 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 
 	// Create or replace service settings.
 	var settingsOp txn.Op
-	// The key consists of the service name and the charm URL.
 	newkey := serviceSettingsKey(s.doc.Name, ch.URL())
 	if count, err := s.st.settings.FindId(newkey).Count(); err != nil {
 		return nil, err
@@ -366,14 +365,12 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 		}
 	}
 
-	// Increment the ref count with the new charm.
-	// This is the first time we use the new settings).
+	// The unit adds a reference to the new settings doc with this.
 	incOp, err := settingsIncRefOp(s.st, s.doc.Name, ch.URL(), true)
 	if err != nil {
 		return nil, err
 	}
-	// Decrement the ref count with the current charm.
-	// If this was the last reference to it, delete it.
+	// The service drops its reference to its old settings doc with this.
 	decOps, err := settingsDecRefOps(s.st, s.doc.Name, s.doc.CharmURL) // current charm
 	if err != nil {
 		return nil, err
@@ -411,7 +408,7 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 		if count, err := s.st.services.Find(sel).Count(); err != nil {
 			return err
 		} else if count == 1 {
-			// Charm URL already set, just update the force flag.
+			// Charm URL already set; just update the force flag.
 			sameCharm := D{{"charmurl", ch.URL()}}
 			ops = []txn.Op{{
 				C:      s.st.services.Name,
@@ -713,8 +710,13 @@ func settingsDecRefOps(st *State, serviceName string, curl *charm.URL) ([]txn.Op
 	}}, nil
 }
 
-// settingsRefsDoc holds the number of units and services using the settings
-// document identified by this document's id.
+// settingsRefsDoc holds the number of units and services using the
+// settings document identified by this document's id. Every time a
+// service upgrades its charm the settings doc ref count for the new
+// charm url is incremented. When a unit upgrades to the new charm,
+// the old service settings ref count is decremented and the ref count
+// of the new charm settings is incremented. The last unit to upgrade
+// is responsible for deleting the old settings doc.
 //
 // Note: We're not using the settingsDoc for this because changing
 // just the ref count is not considered a change worth reporting

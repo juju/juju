@@ -120,11 +120,7 @@ func (u *Unit) ServiceConfig() (map[string]interface{}, error) {
 	if u.doc.CharmURL == nil {
 		return nil, fmt.Errorf("unit charm not set")
 	}
-	svc, err := u.Service()
-	if err != nil {
-		return nil, err
-	}
-	settings, err := readSettings(u.st, svc.settingsKey())
+	settings, err := readSettings(u.st, serviceSettingsKey(u.doc.Service, u.doc.CharmURL))
 	if err != nil {
 		return nil, err
 	}
