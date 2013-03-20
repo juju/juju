@@ -103,15 +103,8 @@ func (t *LiveTests) TearDownTest(c *C) {
 
 // TODO(niemeyer): Looks like many of those tests should be moved to jujutest.LiveTests.
 
-func startInstance(c *C, env environ.Environment, id string) environs.Instance {
-	series = version.Current.Series
-	inst, err := env.StartInstance(id, series, testing.InvalidStateInfo(id), testing.InvalidAPIInfo(id))
-	c.Assert(err, IsNil)
-	return inst
-}
-
 func (t *LiveTests) TestInstanceDNSName(c *C) {
-	inst := startInstance(c, t.Env, "30")
+	inst := testing.StartInstance(c, t.Env, "30")
 	defer t.Env.StopInstances([]environs.Instance{inst})
 	dns, err := inst.WaitDNSName()
 	// TODO(niemeyer): This assert sometimes fails with "no instances found"
@@ -161,14 +154,14 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 		})
 	c.Assert(err, IsNil)
 
-	inst0 := startInstance(c, t.Env, "98")
+	inst0 := testing.StartInstance(c, t.Env, "98")
 	defer t.Env.StopInstances([]environs.Instance{inst0})
 
 	// Create a same-named group for the second instance
 	// before starting it, to check that it's reused correctly.
 	oldMachineGroup := createGroup(c, ec2conn, groups[2].Name, "old machine group")
 
-	inst1 := startInstance(c, t.Env, "99")
+	inst1 := testing.StartInstance(c, t.Env, "99")
 	defer t.Env.StopInstances([]environs.Instance{inst1})
 
 	groupsResp, err := ec2conn.SecurityGroups(groups, nil)
@@ -299,11 +292,11 @@ func (t *LiveTests) TestStopInstances(c *C) {
 	// It would be nice if this test was in jujutest, but
 	// there's no way for jujutest to fabricate a valid-looking
 	// instance id.
-	inst0 := startInstance(c, t.Env, "40")
+	inst0 := testing.StartInstance(c, t.Env, "40")
 	inst1 := ec2.FabricateInstance(inst0, "i-aaaaaaaa")
-	inst2 := startInstance(c, t.Env, "41")
+	inst2 := testing.StartInstance(c, t.Env, "41")
 
-	err = t.Env.StopInstances([]environs.Instance{inst0, inst1, inst2})
+	err := t.Env.StopInstances([]environs.Instance{inst0, inst1, inst2})
 	c.Check(err, IsNil)
 
 	var insts []environs.Instance

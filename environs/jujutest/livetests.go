@@ -96,17 +96,10 @@ func (t *LiveTests) Destroy(c *C) {
 	t.bootstrapped = false
 }
 
-func startInstance(c *C, env environ.Environment, id string) environs.Instance {
-	series = version.Current.Series
-	inst, err := env.StartInstance(id, series, testing.InvalidStateInfo(id), testing.InvalidAPIInfo(id))
-	c.Assert(err, IsNil)
-	return inst
-}
-
 // TestStartStop is similar to Tests.TestStartStop except
 // that it does not assume a pristine environment.
 func (t *LiveTests) TestStartStop(c *C) {
-	inst := startInstance(c, t.Env, "0")
+	inst := testing.StartInstance(c, t.Env, "0")
 	c.Assert(inst, NotNil)
 	id0 := inst.Id()
 
@@ -157,14 +150,14 @@ func (t *LiveTests) TestStartStop(c *C) {
 }
 
 func (t *LiveTests) TestPorts(c *C) {
-	inst1 := startInstance(c, t.Env, "1")
+	inst1 := testing.StartInstance(c, t.Env, "1")
 	c.Assert(inst1, NotNil)
 	defer t.Env.StopInstances([]environs.Instance{inst1})
 	ports, err := inst1.Ports("1")
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
 
-	inst2 := startInstance(c, t.Env, "2")
+	inst2 := testing.StartInstance(c, t.Env, "2")
 	c.Assert(inst2, NotNil)
 	ports, err = inst2.Ports("2")
 	c.Assert(err, IsNil)
@@ -258,13 +251,13 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 	c.Assert(err, IsNil)
 
 	// Create instances and check open ports on both instances.
-	inst1 := startInstance(c, t.Env, "1")
+	inst1 := testing.StartInstance(c, t.Env, "1")
 	defer t.Env.StopInstances([]environs.Instance{inst1})
 	ports, err := t.Env.Ports()
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
 
-	inst2 := startInstance(c, t.Env, "2")
+	inst2 := testing.StartInstance(c, t.Env, "2")
 	ports, err = t.Env.Ports()
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
@@ -659,25 +652,6 @@ attempt:
 // Check that we can't start an instance running tools
 // that correspond with no available platform.
 func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
-	vers := version.Current
-	// Note that we want this test to function correctly in the
-	// dummy environment, so to avoid enumerating all possible
-	// platforms in the dummy provider, it treats only series and/or
-	// architectures with the "unknown" prefix as invalid.
-	vers.Series = "unknownseries"
-	vers.Arch = "unknownarch"
-	name := environs.ToolsStoragePath(vers)
-	storage := t.Env.Storage()
-	checkPutFile(c, storage, name, []byte("fake tools on invalid series"))
-	defer storage.Remove(name)
-
-	url, err := storage.URL(name)
-	c.Assert(err, IsNil)
-	tools := &state.Tools{
-		Binary: vers,
-		URL:    url,
-	}
-
 	inst, err := t.Env.StartInstance("4", "unknownseries", testing.InvalidStateInfo("4"), testing.InvalidAPIInfo("4"))
 	if inst != nil {
 		err := t.Env.StopInstances([]environs.Instance{inst})

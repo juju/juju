@@ -376,7 +376,6 @@ func (e *environ) StartInstance(machineId string, series string, info *state.Inf
 		series:    series,
 		info:      info,
 		apiInfo:   apiInfo,
-		tools:     tools,
 	})
 }
 

@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/tomb"
 )
@@ -260,7 +261,9 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 	apiInfo := *p.apiInfo
 	apiInfo.EntityName = m.EntityName()
 	apiInfo.Password = password
-	inst, err := p.environ.StartInstance(m.Id(), &info, &apiInfo, nil)
+	// TODO: get series from where?
+	series := version.Current.Series
+	inst, err := p.environ.StartInstance(m.Id(), series, &info, &apiInfo)
 	if err != nil {
 		return fmt.Errorf("cannot start instance for new machine: %v", err)
 	}

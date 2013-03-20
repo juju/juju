@@ -625,18 +625,19 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (e *environ) StartInstance(machineId string, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId string, series string, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
 	return e.startInstance(&startInstanceParams{
 		machineId:    machineId,
+		series:       series,
 		info:         info,
 		apiInfo:      apiInfo,
-		tools:        tools,
 		withPublicIP: e.ecfg().useFloatingIP(),
 	})
 }
 
 type startInstanceParams struct {
 	machineId       string
+	series          string
 	info            *state.Info
 	apiInfo         *api.Info
 	tools           *state.Tools

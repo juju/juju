@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/version"
 	"os"
 	"path/filepath"
 )
@@ -62,6 +63,20 @@ func InvalidAPIInfo(machineId string) *api.Info {
 		Password:   "unimportant",
 		CACert:     []byte(testing.CACert),
 	}
+}
+
+// StartInstance is a test helper function that starts an instance on the
+// environment using the current series and invalid info states.
+func StartInstance(c *C, env environs.Environ, machineId string) environs.Instance {
+	series := version.Current.Series
+	inst, err := env.StartInstance(
+		machineId,
+		series,
+		InvalidStateInfo(machineId),
+		InvalidAPIInfo(machineId),
+	)
+	c.Assert(err, IsNil)
+	return inst
 }
 
 const AdminSecret = "dummy-secret"
