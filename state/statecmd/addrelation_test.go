@@ -30,12 +30,14 @@ func (s *AddRelationSuite) TestSuccessfullyAddRelation(c *C) {
 	})
 	c.Assert(err, IsNil)
 	// Show that the relation was added.
-	wpSvc, _ := s.State.Service("wordpress")
-	relCount, err := wpSvc.Relations()
-	c.Assert(len(relCount), Equals, 1)
-	mySvc, _ := s.State.Service("mysql")
-	relCount, err = mySvc.Relations()
-	c.Assert(len(relCount), Equals, 1)
+	wpSvc, err := s.State.Service("wordpress")
+	c.Assert(err, IsNil)
+	rels, err := wpSvc.Relations()
+	c.Assert(len(rels), Equals, 1)
+	mySvc, err := s.State.Service("mysql")
+	c.Assert(err, IsNil)
+	rels, err = mySvc.Relations()
+	c.Assert(len(rels), Equals, 1)
 }
 
 func (s *AddRelationSuite) TestSuccessfullyAddRelationSwapped(c *C) {
@@ -45,12 +47,14 @@ func (s *AddRelationSuite) TestSuccessfullyAddRelationSwapped(c *C) {
 	})
 	c.Assert(err, IsNil)
 	// Show that the relation was added.
-	wpSvc, _ := s.State.Service("wordpress")
-	relCount, err := wpSvc.Relations()
-	c.Assert(len(relCount), Equals, 1)
-	mySvc, _ := s.State.Service("mysql")
-	relCount, err = mySvc.Relations()
-	c.Assert(len(relCount), Equals, 1)
+	wpSvc, err := s.State.Service("wordpress")
+	c.Assert(err, IsNil)
+	rels, err := wpSvc.Relations()
+	c.Assert(len(rels), Equals, 1)
+	mySvc, err := s.State.Service("mysql")
+	c.Assert(err, IsNil)
+	rels, err = mySvc.Relations()
+	c.Assert(len(rels), Equals, 1)
 }
 
 func (s *AddRelationSuite) TestCallWithOnlyOneEndpoint(c *C) {
