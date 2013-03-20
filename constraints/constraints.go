@@ -31,6 +31,7 @@ type Value struct {
 	Mem *uint64 `json:"mem,omitempty" yaml:"mem,omitempty"`
 }
 
+// String expresses a constraints.Value in the language in which it was specified.
 func (c Value) String() string {
 	var strs []string
 	if c.Arch != nil {
