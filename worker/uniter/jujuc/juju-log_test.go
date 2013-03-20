@@ -20,7 +20,7 @@ var _ = Suite(&JujuLogSuite{})
 func pushLog(debug bool) (*bytes.Buffer, func()) {
 	oldTarget, oldDebug := log.Target(), log.Debug
 	var buf bytes.Buffer
-	log.SetTarget(stdlog.New(&buf, "", 0))
+	log.SetTarget(stdlog.New(&buf, "JUJU:", 0))
 	log.Debug = debug
 	return &buf, func() {
 		log.SetTarget(oldTarget)
@@ -33,10 +33,10 @@ var commonLogTests = []struct {
 	debugFlag    bool
 	target       string
 }{
-	{false, false, "INFO:"},
+	{false, false, "JUJU:INFO:"},
 	{false, true, ""},
-	{true, false, "INFO:"},
-	{true, true, "DEBUG:"},
+	{true, false, "JUJU:INFO:"},
+	{true, true, "JUJU:DEBUG:"},
 }
 
 func assertLogs(c *C, ctx jujuc.Context, badge string) {

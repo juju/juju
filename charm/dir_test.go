@@ -137,7 +137,7 @@ func (s *DirSuite) TestBundleToWithNonExecutableHooks(c *C) {
 	tlog := c.GetTestLog()
 	for _, hook := range hooks {
 		fullpath := filepath.Join(dir.Path, "hooks", hook)
-		exp := fmt.Sprintf(`^(.|\n)*INFO: charm: WARNING: making "%s" executable in charm(.|\n)*$`, fullpath)
+		exp := fmt.Sprintf(`^(.|\n)*WARNING: charm: making "%s" executable in charm(.|\n)*$`, fullpath)
 		c.Assert(tlog, Matches, exp, Commentf("hook %q was not made executable", fullpath))
 	}
 

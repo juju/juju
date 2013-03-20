@@ -66,7 +66,7 @@ func (s *LogSuite) TestStderr(c *C) {
 	ctx := testing.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, IsNil)
-	log.Printf("hello")
+	log.Infof("hello")
 	c.Assert(bufferString(ctx.Stderr), Matches, `JUJU:test:.* INFO: hello\n`)
 }
 
@@ -75,7 +75,7 @@ func (s *LogSuite) TestRelPathLog(c *C) {
 	ctx := testing.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, IsNil)
-	log.Printf("hello")
+	log.Infof("hello")
 	c.Assert(bufferString(ctx.Stderr), Equals, "")
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "foo.log"))
 	c.Assert(err, IsNil)
@@ -88,7 +88,7 @@ func (s *LogSuite) TestAbsPathLog(c *C) {
 	ctx := testing.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, IsNil)
-	log.Printf("hello")
+	log.Infof("hello")
 	c.Assert(bufferString(ctx.Stderr), Equals, "")
 	content, err := ioutil.ReadFile(path)
 	c.Assert(err, IsNil)

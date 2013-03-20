@@ -62,17 +62,17 @@ func Open(info *Info) (*State, error) {
 	}
 	var conn *websocket.Conn
 	for a := openAttempt.Start(); a.Next(); {
-		log.Printf("state/api: dialing %q", cfg.Location)
+		log.Infof("state/api: dialing %q", cfg.Location)
 		conn, err = websocket.DialConfig(cfg)
 		if err == nil {
 			break
 		}
-		log.Printf("state/api: %v", err)
+		log.Errorf("state/api: %v", err)
 	}
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("state/api: connection established")
+	log.Infof("state/api: connection established")
 
 	client := rpc.NewClientWithCodec(&clientCodec{conn: conn})
 	st := &State{

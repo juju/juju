@@ -262,7 +262,7 @@ func (conn *Conn) addCharm(curl *charm.URL, ch charm.Charm) (*state.Charm, error
 		return nil, err
 	}
 	storage := conn.Environ.Storage()
-	log.Printf("writing charm to storage [%d bytes]", size)
+	log.Infof("writing charm to storage [%d bytes]", size)
 	if err := storage.Put(name, f, size); err != nil {
 		return nil, fmt.Errorf("cannot put charm: %v", err)
 	}
@@ -274,7 +274,7 @@ func (conn *Conn) addCharm(curl *charm.URL, ch charm.Charm) (*state.Charm, error
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse storage URL: %v", err)
 	}
-	log.Printf("adding charm to state")
+	log.Infof("adding charm to state")
 	sch, err := conn.State.AddCharm(ch, curl, u, digest)
 	if err != nil {
 		return nil, fmt.Errorf("cannot add charm: %v", err)
