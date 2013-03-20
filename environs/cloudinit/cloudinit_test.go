@@ -89,6 +89,29 @@ echo 'datadir: /var/lib/juju\\nstateservercert:\\n[^']+stateserverkey:\\n[^']+mo
 chmod 600 '/var/lib/juju/agents/bootstrap/agent\.conf'
 /var/lib/juju/tools/1\.2\.3-linux-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --debug
 rm -rf '/var/lib/juju/agents/bootstrap'
+rm -f /etc/rsyslog.d/25-juju.conf
+echo '' >> /etc/rsyslog.d/25-juju.conf
+echo '\$ModLoad imfile' >> /etc/rsyslog.d/25-juju.conf
+echo '' >> /etc/rsyslog.d/25-juju.conf
+echo '\$InputFilePollInterval 5' >> /etc/rsyslog.d/25-juju.conf
+echo '\$InputFileName /var/log/juju/machine-0.log' >> /etc/rsyslog.d/25-juju.conf
+echo '\$InputFileTag local-juju-machine-0:' >> /etc/rsyslog.d/25-juju.conf
+echo '\$InputFileStateFile machine-0' >> /etc/rsyslog.d/25-juju.conf
+echo '\$InputRunFileMonitor' >> /etc/rsyslog.d/25-juju.conf
+echo '' >> /etc/rsyslog.d/25-juju.conf
+echo '\$ModLoad imudp' >> /etc/rsyslog.d/25-juju.conf
+echo '\$UDPServerRun 514' >> /etc/rsyslog.d/25-juju.conf
+echo '' >> /etc/rsyslog.d/25-juju.conf
+echo '# Messages received from remote rsyslog machines contain a leading space so we' >> /etc/rsyslog.d/25-juju.conf
+echo '# need to account for that.' >> /etc/rsyslog.d/25-juju.conf
+echo '\$template JujuLogFormatLocal,"%HOSTNAME%:%msg:::drop-last-lf%\\\\n"' >> /etc/rsyslog.d/25-juju.conf
+echo '\$template JujuLogFormat,\"%HOSTNAME%:%msg:1:2048:drop-last-lf%\\\\n\"' >> /etc/rsyslog.d/25-juju.conf
+echo '' >> /etc/rsyslog.d/25-juju.conf
+echo ':syslogtag, startswith, "juju-" /var/log/juju/all-machines.log;JujuLogFormat' >> /etc/rsyslog.d/25-juju.conf
+echo ':syslogtag, startswith, "local-juju-" /var/log/juju/all-machines.log;JujuLogFormatLocal' >> /etc/rsyslog.d/25-juju.conf
+echo '& ~' >> /etc/rsyslog.d/25-juju.conf
+echo '' >> /etc/rsyslog.d/25-juju.conf
+restart rsyslog
 mkdir -p '/var/lib/juju/agents/machine-0'
 echo 'datadir: /var/lib/juju\\nstateservercert:\\n[^']+stateserverkey:\\n[^']+mongoport: 37017\\napiport: 17070\\noldpassword: arble\\nstateinfo:\\n  addrs:\\n  - localhost:37017\\n  cacert:\\n[^']+  entityname: machine-0\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - localhost:17070\\n  cacert:\\n[^']+  entityname: machine-0\\n  password: ""\\n' > '/var/lib/juju/agents/machine-0/agent\.conf'
 chmod 600 '/var/lib/juju/agents/machine-0/agent\.conf'
@@ -124,6 +147,20 @@ bin='/var/lib/juju/tools/1\.2\.3-linux-amd64'
 mkdir -p \$bin
 wget --no-verbose -O - 'http://foo\.com/tools/juju1\.2\.3-linux-amd64\.tgz' \| tar xz -C \$bin
 echo -n 'http://foo\.com/tools/juju1\.2\.3-linux-amd64\.tgz' > \$bin/downloaded-url\.txt
+rm -f /etc/rsyslog.d/25-juju.conf
+echo '' >> /etc/rsyslog.d/25-juju.conf
+echo '\$ModLoad imfile' >> /etc/rsyslog.d/25-juju.conf
+echo '' >> /etc/rsyslog.d/25-juju.conf
+echo '\$InputFilePollInterval 5' >> /etc/rsyslog.d/25-juju.conf
+echo '\$InputFileName /var/log/juju/machine-99.log' >> /etc/rsyslog.d/25-juju.conf
+echo '\$InputFileTag juju-machine-99:' >> /etc/rsyslog.d/25-juju.conf
+echo '\$InputFileStateFile machine-99' >> /etc/rsyslog.d/25-juju.conf
+echo '\$InputRunFileMonitor' >> /etc/rsyslog.d/25-juju.conf
+echo '' >> /etc/rsyslog.d/25-juju.conf
+echo ':syslogtag, startswith, "juju-" @state-addr.example.com:514' >> /etc/rsyslog.d/25-juju.conf
+echo '& ~' >> /etc/rsyslog.d/25-juju.conf
+echo '' >> /etc/rsyslog.d/25-juju.conf
+restart rsyslog
 mkdir -p '/var/lib/juju/agents/machine-99'
 echo 'datadir: /var/lib/juju\\noldpassword: arble\\nstateinfo:\\n  addrs:\\n  - state-addr\.example\.com:12345\\n  cacert:\\n[^']+  entityname: machine-99\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - state-addr\.example\.com:54321\\n  cacert:\\n[^']+  entityname: machine-99\\n  password: ""\\n' > '/var/lib/juju/agents/machine-99/agent\.conf'
 chmod 600 '/var/lib/juju/agents/machine-99/agent\.conf'

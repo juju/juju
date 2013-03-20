@@ -14,8 +14,8 @@ import (
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/upstart"
 	"path"
-	"text/template"
 	"strings"
+	"text/template"
 )
 
 // MachineConfig represents initialization information for a new juju machine.
@@ -123,9 +123,7 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	}
 
 	var syslogConfTemplate string
-	log.Infof("-----------------------------------------------------------")
 	if cfg.StateServer {
-		log.Infof("sssssssssssssssss")
 		certKey := string(cfg.StateServerCert) + string(cfg.StateServerKey)
 		addFile(c, cfg.dataFile("server.pem"), certKey, 0600)
 		addScripts(c,
@@ -149,23 +147,31 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 				debugFlag,
 			"rm -rf "+shquote(acfg.Dir()),
 		)
+		// Generate the rsyslog configuration for the state server.
 		syslogConfTemplate = `
 $ModLoad imfile
 
 $InputFilePollInterval 5
 $InputFileName /var/log/juju/{{machine}}.log
-$InputFileTag juju-{{machine}}:
+$InputFileTag local-juju-{{machine}}:
 $InputFileStateFile {{machine}}
 $InputRunFileMonitor
 
 $ModLoad imudp
 $UDPServerRun 514
 
-:syslogtag, startswith, "juju-" /var/log/juju/all-machines.log
+# Messages received from remote rsyslog machines contain a leading space so we
+# need to account for that.
+$template JujuLogFormatLocal,"%HOSTNAME%:%msg:::drop-last-lf%\\n"
+$template JujuLogFormat,"%HOSTNAME%:%msg:1:2048:drop-last-lf%\\n"
+
+:syslogtag, startswith, "juju-" /var/log/juju/all-machines.log;JujuLogFormat
+:syslogtag, startswith, "local-juju-" /var/log/juju/all-machines.log;JujuLogFormatLocal
 & ~
 `
 	} else {
-		log.Infof("aaaaaaaaaaaaaaaaaa")
+		// Generate the rsyslog configuration for the node - messages are forwarded to the
+		// state server using UDP.
 		syslogConfTemplate = `
 $ModLoad imfile
 
@@ -184,12 +190,15 @@ $InputRunFileMonitor
 	}
 
 	var bootstrapIP = func() string {
-		return cfg.stateHostAddrs()[0]
+		addr := cfg.stateHostAddrs()[0]
+		parts := strings.Split(addr, ":")
+		return parts[0]
 	}
 
 	t := template.New("")
 	t.Funcs(template.FuncMap{"machine": machineName})
 	t.Funcs(template.FuncMap{"bootstrapIP": bootstrapIP})
+	// Process the rsyslog config template and echo to the conf file.
 	p, err := t.Parse(syslogConfTemplate)
 	if err != nil {
 		return nil, err
@@ -199,7 +208,6 @@ $InputRunFileMonitor
 		return nil, err
 	}
 	content := confBuf.String()
-	log.Infof("%s", content)
 	addScripts(c, "rm -f /etc/rsyslog.d/25-juju.conf")
 	for _, line := range strings.Split(content, "\n") {
 		addScripts(c,
@@ -207,7 +215,6 @@ $InputRunFileMonitor
 		)
 	}
 	c.AddRunCmd("restart rsyslog")
-	log.Infof("******************************************")
 
 	if _, err := addAgentToBoot(c, cfg, "machine",
 		state.MachineEntityName(cfg.MachineId),
