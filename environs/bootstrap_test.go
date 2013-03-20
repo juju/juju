@@ -44,8 +44,6 @@ func (s *bootstrapSuite) TestBootstrapKeyGeneration(c *C) {
 	err := environs.Bootstrap(env, state.Constraints{})
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
-	_, _, err = cert.ParseCertAndKey(env.certPEM, env.keyPEM)
-	c.Assert(err, IsNil)
 
 	caCertPEM, err := ioutil.ReadFile(config.JujuHomePath("foo-cert.pem"))
 	c.Assert(err, IsNil)
