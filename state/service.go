@@ -365,12 +365,12 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 		}
 	}
 
-	// The unit adds a reference to the new settings doc with this.
+	// Add or create a reference to the new settings doc.
 	incOp, err := settingsIncRefOp(s.st, s.doc.Name, ch.URL(), true)
 	if err != nil {
 		return nil, err
 	}
-	// The service drops its reference to its old settings doc with this.
+	// Drop the reference to the old settings doc.
 	decOps, err := settingsDecRefOps(s.st, s.doc.Name, s.doc.CharmURL) // current charm
 	if err != nil {
 		return nil, err
@@ -711,16 +711,18 @@ func settingsDecRefOps(st *State, serviceName string, curl *charm.URL) ([]txn.Op
 }
 
 // settingsRefsDoc holds the number of units and services using the
-// settings document identified by this document's id. Every time a
+// settings document identified by the document's id. Every time a
 // service upgrades its charm the settings doc ref count for the new
 // charm url is incremented. When a unit upgrades to the new charm,
 // the old service settings ref count is decremented and the ref count
-// of the new charm settings is incremented. The last unit to upgrade
-// is responsible for deleting the old settings doc.
+// of the new charm settings is incremented.
 //
 // Note: We're not using the settingsDoc for this because changing
 // just the ref count is not considered a change worth reporting
 // to watchers and firing config-changed hooks.
+//
+// There is and implicit _id field here, which mongo creates, which is
+// always the same as the settingsDoc's id.
 type settingsRefsDoc struct {
 	RefCount int
 }

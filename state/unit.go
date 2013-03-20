@@ -507,7 +507,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
 			return fmt.Errorf("unknown charm url %q", curl)
 		}
 
-		// Update new settings doc ref count.
+		// Add a reference to the service settings for the new charm.
 		incOp, err := settingsIncRefOp(u.st, u.doc.Service, curl, false)
 		if err != nil {
 			return err
@@ -524,7 +524,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
 				Update: D{{"$set", D{{"charmurl", curl}}}},
 			}}
 		if u.doc.CharmURL != nil {
-			// Update old settings doc ref count.
+			// Drop the reference to the old charm.
 			decOps, err := settingsDecRefOps(u.st, u.doc.Service, u.doc.CharmURL)
 			if err != nil {
 				return err
