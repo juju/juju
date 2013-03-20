@@ -14,7 +14,8 @@ type instanceType struct {
 	cpuCores uint64
 	cpuPower uint64
 	mem      uint64
-	hvm      bool
+	// hvm instance types must be launched with hvm images.
+	hvm bool
 }
 
 // match returns true if itype can satisfy the supplied constraints. If so,
