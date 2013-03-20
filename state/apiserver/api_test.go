@@ -1377,9 +1377,13 @@ func (s *suite) TestNoRelation(c *C) {
 	c.Assert(err, ErrorMatches, `relation "wordpress:db mysql:server" not found`)
 }
 
-// This test will be thrown away, at least in part, once the stub code in
-// state/megawatcher.go is implemented.
 func (s *suite) TestClientWatchAll(c *C) {
+	// A very simple end-to-end test, because
+	// all the logic is tested elsewhere.
+	m, err := s.State.AddMachine("series", state.JobManageEnviron)
+	c.Assert(err, IsNil)
+	err = m.SetInstanceId("i-0")
+	c.Assert(err, IsNil)
 	watcher, err := s.APIState.Client().WatchAll()
 	c.Assert(err, IsNil)
 	defer func() {
@@ -1388,9 +1392,12 @@ func (s *suite) TestClientWatchAll(c *C) {
 	}()
 	deltas, err := watcher.Next()
 	c.Assert(err, IsNil)
-	// This is the part that most clearly is tied to the fact that we are
-	// testing a stub.
-	c.Assert(deltas, DeepEquals, state.StubNextDelta)
+	c.Assert(deltas, DeepEquals, []params.Delta{{
+		Entity: &params.MachineInfo{
+			Id:         m.Id(),
+			InstanceId: "i-0",
+		},
+	}})
 }
 
 // openAs connects to the API state as the given entity

@@ -124,6 +124,7 @@ type State struct {
 	runner         *txn.Runner
 	watcher        *watcher.Watcher
 	pwatcher       *presence.Watcher
+	allWatcher     *allWatcher
 }
 
 func (st *State) Watch() *StateWatcher {
