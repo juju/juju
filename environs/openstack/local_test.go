@@ -232,10 +232,6 @@ func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
 	newconfig["use-floating-ip"] = true
 	env, err := environs.NewFromAttrs(newconfig)
 	c.Assert(err, IsNil)
-	if s.CanOpenState {
-		err = environs.UploadTools(env)
-		c.Assert(err, IsNil)
-	}
 	err = environs.Bootstrap(env, state.Constraints{})
 	c.Assert(err, ErrorMatches, ".*cannot allocate a public IP as needed.*")
 }

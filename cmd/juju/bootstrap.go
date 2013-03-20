@@ -57,5 +57,5 @@ func (c *BootstrapCommand) Run(context *cmd.Context) error {
 			return err
 		}
 	}
-	return environs.Bootstrap(environ, c.Constraints)
+	return environs.Bootstrap(environ, c.constraints)
 }
