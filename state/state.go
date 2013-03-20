@@ -113,14 +113,17 @@ type State struct {
 	relationScopes *mgo.Collection
 	services       *mgo.Collection
 	settings       *mgo.Collection
+	settingsrefs   *mgo.Collection
 	constraints    *mgo.Collection
 	units          *mgo.Collection
 	users          *mgo.Collection
 	presence       *mgo.Collection
 	cleanups       *mgo.Collection
+	annotations    *mgo.Collection
 	runner         *txn.Runner
 	watcher        *watcher.Watcher
 	pwatcher       *presence.Watcher
+	allWatcher     *allWatcher
 }
 
 func (st *State) Watch() *StateWatcher {
@@ -276,19 +279,48 @@ func (st *State) Machine(id string) (*Machine, error) {
 	return newMachine(st, mdoc), nil
 }
 
-// Entity represents an entity capabable of handling password authentication
-// and annotations.
-type Entity interface {
-	EntityName() string
+// Authenticator represents entites capable of handling password
+// authentication.
+type Authenticator interface {
+	Refresh() error
 	SetPassword(pass string) error
 	PasswordValid(pass string) bool
-	Refresh() error
-	SetAnnotation(key, value string) error
-	Annotations() map[string]string
+	EntityName() string
 }
 
-// Entity returns the entity for the given name.
-func (st *State) Entity(entityName string) (Entity, error) {
+// Annotator represents entities capable of handling annotations.
+type Annotator interface {
+	Annotation(key string) (string, error)
+	Annotations() (map[string]string, error)
+	SetAnnotation(key, value string) error
+}
+
+// Authenticator attempts to return an Authenticator with the given name.
+func (st *State) Authenticator(name string) (Authenticator, error) {
+	e, err := st.entity(name)
+	if err != nil {
+		return nil, err
+	}
+	if e, ok := e.(Authenticator); ok {
+		return e, nil
+	}
+	return nil, fmt.Errorf("entity %q does not support authentication", name)
+}
+
+// Annotator attempts to return an Annotator with the given name.
+func (st *State) Annotator(name string) (Annotator, error) {
+	e, err := st.entity(name)
+	if err != nil {
+		return nil, err
+	}
+	if e, ok := e.(Annotator); ok {
+		return e, nil
+	}
+	return nil, fmt.Errorf("entity %q does not support annotations", name)
+}
+
+// entity returns the entity for the given name.
+func (st *State) entity(entityName string) (interface{}, error) {
 	i := strings.Index(entityName, "-")
 	if i <= 0 || i >= len(entityName)-1 {
 		return nil, fmt.Errorf("invalid entity name %q", entityName)
@@ -317,6 +349,17 @@ func (st *State) Entity(entityName string) (Entity, error) {
 			return nil, fmt.Errorf("invalid entity name %q", entityName)
 		}
 		return st.Service(id)
+	case "environment":
+		conf, err := st.EnvironConfig()
+		if err != nil {
+			return nil, err
+		}
+		// Return an invalid entity error if the requested environment is not
+		// the current one.
+		if id != conf.Name() {
+			return nil, fmt.Errorf("invalid entity name %q", entityName)
+		}
+		return st.Environment()
 	}
 	return nil, fmt.Errorf("invalid entity name %q", entityName)
 }
@@ -380,7 +423,13 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	svc := newService(st, svcDoc)
 	ops := []txn.Op{
 		createConstraintsOp(st, svc.globalKey(), Constraints{}),
-		createSettingsOp(st, svc.globalKey(), map[string]interface{}{}),
+		createSettingsOp(st, svc.settingsKey(), nil),
+		{
+			C:      st.settingsrefs.Name,
+			Id:     svc.settingsKey(),
+			Assert: txn.DocMissing,
+			Insert: settingsRefsDoc{1},
+		},
 		{
 			C:      st.services.Name,
 			Id:     name,
@@ -809,7 +858,7 @@ func (st *State) Cleanup() error {
 			c = st.settings
 			sel = D{{"_id", D{{"$regex", "^" + doc.Prefix}}}}
 		default:
-			log.Printf("state: WARNING: ignoring unknown cleanup kind %q", doc.Kind)
+			log.Warningf("state: ignoring unknown cleanup kind %q", doc.Kind)
 			continue
 		}
 		if count, err := c.Find(sel).Count(); err != nil {

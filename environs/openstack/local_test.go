@@ -134,18 +134,6 @@ type localLiveSuite struct {
 	srv localServer
 }
 
-// localServerSuite contains tests that run against an Openstack service double.
-// These tests can test things that would be unreasonably slow or expensive
-// to test on a live Openstack server. The service double is started and stopped for
-// each test.
-type localServerSuite struct {
-	coretesting.LoggingSuite
-	jujutest.Tests
-	cred *identity.Credentials
-	srv  localServer
-	env  environs.Environ
-}
-
 func (s *localLiveSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
 	c.Logf("Running live tests using openstack service test double")
@@ -170,6 +158,18 @@ func (s *localLiveSuite) SetUpTest(c *C) {
 func (s *localLiveSuite) TearDownTest(c *C) {
 	s.LiveTests.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
+}
+
+// localServerSuite contains tests that run against an Openstack service double.
+// These tests can test things that would be unreasonably slow or expensive
+// to test on a live Openstack server. The service double is started and stopped for
+// each test.
+type localServerSuite struct {
+	coretesting.LoggingSuite
+	jujutest.Tests
+	cred *identity.Credentials
+	srv  localServer
+	env  environs.Environ
 }
 
 func (s *localServerSuite) SetUpSuite(c *C) {
@@ -214,13 +214,9 @@ func (s *localServerSuite) TearDownTest(c *C) {
 	s.LoggingSuite.TearDownTest(c)
 }
 
-func panicWrite(name string, cert, key []byte) error {
-	panic("writeCertAndKey called unexpectedly")
-}
-
 // If the bootstrap node is configured to require a public IP address,
 // bootstrapping fails if an address cannot be allocated.
-func (s *localLiveSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
+func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
 	cleanup := s.srv.Service.Nova.RegisterControlPoint(
 		"addFloatingIP",
 		func(sc hook.ServiceControl, args ...interface{}) error {
@@ -236,7 +232,7 @@ func (s *localLiveSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
 	newconfig["use-floating-ip"] = true
 	env, err := environs.NewFromAttrs(newconfig)
 	c.Assert(err, IsNil)
-	err = environs.Bootstrap(env, s.CanOpenState, panicWrite)
+	err = environs.Bootstrap(env, state.Constraints{})
 	c.Assert(err, ErrorMatches, ".*cannot allocate a public IP as needed.*")
 }
 
@@ -258,9 +254,9 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *C) {
 		},
 	)
 	defer cleanup()
-	err := environs.Bootstrap(s.Env, false, panicWrite)
+	err := environs.Bootstrap(s.Env, state.Constraints{})
 	c.Assert(err, IsNil)
-	inst, err := s.Env.StartInstance("100", testing.InvalidStateInfo("100"), testing.InvalidAPIInfo("100"), nil)
+	inst, err := s.Env.StartInstance("100", state.Constraints{}, testing.InvalidStateInfo("100"), testing.InvalidAPIInfo("100"), nil)
 	c.Assert(err, IsNil)
 	err = s.Env.StopInstances([]environs.Instance{inst})
 	c.Assert(err, IsNil)
@@ -314,10 +310,10 @@ var instanceGathering = []struct {
 }
 
 func (s *localServerSuite) TestInstancesGathering(c *C) {
-	inst0, err := s.Env.StartInstance("100", testing.InvalidStateInfo("100"), testing.InvalidAPIInfo("100"), nil)
+	inst0, err := s.Env.StartInstance("100", state.Constraints{}, testing.InvalidStateInfo("100"), testing.InvalidAPIInfo("100"), nil)
 	c.Assert(err, IsNil)
 	id0 := inst0.Id()
-	inst1, err := s.Env.StartInstance("101", testing.InvalidStateInfo("101"), testing.InvalidAPIInfo("101"), nil)
+	inst1, err := s.Env.StartInstance("101", state.Constraints{}, testing.InvalidStateInfo("101"), testing.InvalidAPIInfo("101"), nil)
 	c.Assert(err, IsNil)
 	id1 := inst1.Id()
 	defer func() {
@@ -359,7 +355,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	policy := t.env.AssignmentPolicy()
 	c.Assert(policy, Equals, state.AssignUnused)
 
-	err := environs.Bootstrap(t.env, false, panicWrite)
+	err := environs.Bootstrap(t.env, state.Constraints{})
 	c.Assert(err, IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
@@ -388,7 +384,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	// and without a provisioning agent.
 	info.EntityName = "machine-1"
 	apiInfo.EntityName = "machine-1"
-	inst1, err := t.env.StartInstance("1", info, apiInfo, nil)
+	inst1, err := t.env.StartInstance("1", state.Constraints{}, info, apiInfo, nil)
 	c.Assert(err, IsNil)
 
 	err = t.env.Destroy(append(insts, inst1))

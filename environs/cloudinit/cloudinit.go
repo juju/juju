@@ -74,6 +74,9 @@ type MachineConfig struct {
 
 	// Config holds the initial environment configuration.
 	Config *config.Config
+
+	// Constraints holds the initial environment constraints.
+	Constraints state.Constraints
 }
 
 func addScripts(c *cloudinit.Config, scripts ...string) {
@@ -140,6 +143,7 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 			cfg.jujuTools()+"/jujud bootstrap-state"+
 				" --data-dir "+shquote(cfg.DataDir)+
 				" --env-config "+shquote(base64yaml(cfg.Config))+
+				" --constraints "+shquote(cfg.Constraints.String())+
 				debugFlag,
 			"rm -rf "+shquote(acfg.Dir()),
 		)

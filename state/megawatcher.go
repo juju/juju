@@ -2,14 +2,19 @@ package state
 
 import (
 	"container/list"
+	"errors"
+	"fmt"
 	"labix.org/v2/mgo"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/tomb"
 	"reflect"
 )
 
 // StateWatcher watches any changes to the state.
+// TODO(rog) rename this to StateWatcher when allWatcher is complete.
 type StateWatcher struct {
+	all *allWatcher
 	// The following fields are maintained by the allWatcher
 	// goroutine.
 	revno   int64
@@ -17,41 +22,44 @@ type StateWatcher struct {
 }
 
 func newStateWatcher(st *State) *StateWatcher {
-	return &StateWatcher{}
-}
-
-func (w *StateWatcher) Err() error {
-	return nil
+	return &StateWatcher{
+		all: st.allWatcher,
+	}
 }
 
 // Stop stops the watcher.
 func (w *StateWatcher) Stop() error {
-	return nil
+	select {
+	case w.all.request <- &allRequest{w: w}:
+		return nil
+	case <-w.all.tomb.Dead():
+	}
+	return w.all.tomb.Err()
 }
 
-var StubNextDelta = []params.Delta{
-	params.Delta{
-		Removed: false,
-		Entity: &params.ServiceInfo{
-			Name:    "Example",
-			Exposed: true,
-		},
-	},
-	params.Delta{
-		Removed: true,
-		Entity: &params.UnitInfo{
-			Name:    "MyUnit",
-			Service: "Example",
-		},
-	},
-}
+var errWatcherStopped = errors.New("state watcher was stopped")
 
-// Next retrieves all changes that have happened since the given revision
-// number, blocking until there are some changes available.  It also
-// returns the revision number of the latest change.
+// Next retrieves all changes that have happened since the last
+// time it was called, blocking until there are some changes available.
 func (w *StateWatcher) Next() ([]params.Delta, error) {
-	// This is a stub to make progress with the higher level coding.
-	return StubNextDelta, nil
+	req := &allRequest{
+		w:     w,
+		reply: make(chan bool),
+	}
+	select {
+	case w.all.request <- req:
+	case <-w.all.tomb.Dead():
+		err := w.all.tomb.Err()
+		if err == nil {
+			err = errWatcherStopped
+		}
+		return nil, err
+	}
+	if ok := <-req.reply; !ok {
+		// TODO better error?
+		return nil, errWatcherStopped
+	}
+	return req.changes, nil
 }
 
 // allWatcher holds a shared record of all current state and replies to
@@ -63,6 +71,9 @@ type allWatcher struct {
 	// backing knows how to fetch information from
 	// the underlying state.
 	backing allWatcherBacking
+
+	// request receives requests from StateWatcher clients.
+	request chan *allRequest
 
 	// all holds information on everything the allWatcher cares about.
 	all *allInfo
@@ -81,10 +92,22 @@ type allWatcherBacking interface {
 	// to the given entity info.
 	entityIdForInfo(info params.EntityInfo) entityId
 
+	// getAll retrieves information about all known entities in the state
+	// into the given allInfo.
+	getAll(all *allInfo) error
+
 	// fetch retrieves information about the entity with
 	// the given id. It returns mgo.ErrNotFound if the
 	// entity does not exist.
 	fetch(id entityId) (params.EntityInfo, error)
+
+	// watch watches for any changes and sends them
+	// on the given channel.
+	watch(in chan<- watcher.Change)
+
+	// unwatch stops watching for changes on the
+	// given channel.
+	unwatch(in chan<- watcher.Change)
 }
 
 // entityId holds the mongo identifier of an entity.
@@ -121,9 +144,59 @@ type allRequest struct {
 func newAllWatcher(backing allWatcherBacking) *allWatcher {
 	return &allWatcher{
 		backing: backing,
+		request: make(chan *allRequest),
 		all:     newAllInfo(),
 		waiting: make(map[*StateWatcher]*allRequest),
 	}
+}
+
+func (aw *allWatcher) run() {
+	defer aw.tomb.Done()
+	// TODO(rog) distinguish between temporary and permanent errors:
+	// if we get an error in loop, this logic kill the state's allWatcher
+	// forever. This currently fits the way we go about things,
+	// because we reconnect to the state on any error, but
+	// perhaps there are errors we could recover from.
+	aw.tomb.Kill(aw.loop())
+}
+
+func (aw *allWatcher) loop() error {
+	in := make(chan watcher.Change)
+	aw.backing.watch(in)
+	defer aw.backing.unwatch(in)
+	// We have no idea what changes the watcher might be trying to
+	// send us while getAll proceeds, but we don't mind, because
+	// allWatcher.changed is idempotent with respect to both updates
+	// and removals.
+	// TODO(rog) Perhaps find a way to avoid blocking all other
+	// watchers while getAll is running.
+	if err := aw.backing.getAll(aw.all); err != nil {
+		return err
+	}
+	for {
+		select {
+		case <-aw.tomb.Dying():
+			return tomb.ErrDying
+		case change := <-in:
+			id := entityId{
+				collection: change.C,
+				id:         change.Id,
+			}
+			if err := aw.changed(id); err != nil {
+				return err
+			}
+		case req := <-aw.request:
+			aw.handle(req)
+		}
+		aw.respond()
+	}
+	panic("unreachable")
+}
+
+// Stop stops the allWatcher.
+func (aw *allWatcher) Stop() error {
+	aw.tomb.Kill(nil)
+	return aw.tomb.Wait()
 }
 
 // handle processes a request from a StateWatcher to the allWatcher.
@@ -233,6 +306,119 @@ func (aw *allWatcher) leave(w *StateWatcher) {
 			aw.all.decRef(entry, aw.backing.entityIdForInfo(entry.info))
 		}
 		e = next
+	}
+}
+
+// allWatcherStateBacking implements allWatcherBacking by
+// fetching entities from the State.
+type allWatcherStateBacking struct {
+	st *State
+	// collections
+	collectionByName map[string]allWatcherStateCollection
+	collectionByKind map[string]allWatcherStateCollection
+}
+
+// allWatcherStateCollection holds information about a
+// collection watched by an allWatcher and the
+// type of value we use to store entity information
+// for that collection.
+type allWatcherStateCollection struct {
+	*mgo.Collection
+	// infoSliceType stores the type of a slice of the info type
+	// that we use for this collection.  In Go 1.1 we can change
+	// this to use the type itself, as we'll have reflect.SliceOf.
+	infoSliceType reflect.Type
+}
+
+func newAllWatcherStateBacking(st *State) allWatcherBacking {
+	b := &allWatcherStateBacking{
+		st:               st,
+		collectionByName: make(map[string]allWatcherStateCollection),
+		collectionByKind: make(map[string]allWatcherStateCollection),
+	}
+	collections := []allWatcherStateCollection{{
+		Collection:    st.machines,
+		infoSliceType: reflect.TypeOf([]params.MachineInfo(nil)),
+	}, {
+		Collection:    st.units,
+		infoSliceType: reflect.TypeOf([]params.UnitInfo(nil)),
+	}, {
+		Collection:    st.services,
+		infoSliceType: reflect.TypeOf([]params.ServiceInfo(nil)),
+	}, {
+		Collection:    st.relations,
+		infoSliceType: reflect.TypeOf([]params.RelationInfo(nil)),
+	}}
+	// Populate the collection maps from the above set of collections.
+	for _, c := range collections {
+		// Create a new instance of the info type so we can
+		// find out its kind.
+		info := reflect.New(c.infoSliceType.Elem()).Interface().(params.EntityInfo)
+		kind := info.EntityKind()
+		if _, ok := b.collectionByKind[kind]; ok {
+			panic(fmt.Errorf("duplicate collection kind %q", kind))
+		}
+		b.collectionByKind[kind] = c
+		if _, ok := b.collectionByName[c.Name]; ok {
+			panic(fmt.Errorf("duplicate collection name %q", kind))
+		}
+		b.collectionByName[c.Name] = c
+	}
+	return b
+}
+
+// watch watches all the collections.
+func (b *allWatcherStateBacking) watch(in chan<- watcher.Change) {
+	for _, c := range b.collectionByName {
+		b.st.watcher.WatchCollection(c.Name, in)
+	}
+}
+
+// watch unwatches all the collections.
+func (b *allWatcherStateBacking) unwatch(in chan<- watcher.Change) {
+	for _, c := range b.collectionByName {
+		b.st.watcher.UnwatchCollection(c.Name, in)
+	}
+}
+
+// getAll fetches all items that we want to watch from the state.
+func (b *allWatcherStateBacking) getAll(all *allInfo) error {
+	// TODO(rog) fetch collections concurrently?
+	for _, c := range b.collectionByName {
+		infoSlicePtr := reflect.New(c.infoSliceType).Interface()
+		if err := c.Find(nil).All(infoSlicePtr); err != nil {
+			return fmt.Errorf("cannot get all %s: %v", c.Name, err)
+		}
+		infos := reflect.ValueOf(infoSlicePtr).Elem()
+		for i := 0; i < infos.Len(); i++ {
+			info := infos.Index(i).Addr().Interface().(params.EntityInfo)
+			all.add(b.entityIdForInfo(info), info)
+		}
+	}
+	return nil
+}
+
+func (b *allWatcherStateBacking) fetch(id entityId) (params.EntityInfo, error) {
+	c, ok := b.collectionByName[id.collection]
+	if !ok {
+		panic(fmt.Errorf("unknown collection %q in fetch request", id.collection))
+	}
+	info := reflect.New(c.infoSliceType.Elem()).Interface().(params.EntityInfo)
+	if err := c.FindId(id.id).One(info); err != nil {
+		return nil, err
+	}
+	return info, nil
+}
+
+// entityIdForInfo returns the entity id of the given entity document.
+func (b *allWatcherStateBacking) entityIdForInfo(info params.EntityInfo) entityId {
+	c, ok := b.collectionByKind[info.EntityKind()]
+	if !ok {
+		panic(fmt.Errorf("entity with unknown kind %q", info.EntityKind()))
+	}
+	return entityId{
+		collection: c.Name,
+		id:         info.EntityId(),
 	}
 }
 

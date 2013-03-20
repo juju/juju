@@ -44,7 +44,7 @@ var dialTimeout = 10 * time.Minute
 // representing the environment connected to.
 // It returns unauthorizedError if access is unauthorized.
 func Open(info *Info) (*State, error) {
-	log.Printf("state: opening state; mongo addresses: %q; entity %q", info.Addrs, info.EntityName)
+	log.Infof("state: opening state; mongo addresses: %q; entity %q", info.Addrs, info.EntityName)
 	if len(info.Addrs) == 0 {
 		return nil, errors.New("no mongo addresses")
 	}
@@ -62,13 +62,13 @@ func Open(info *Info) (*State, error) {
 		ServerName: "anything",
 	}
 	dial := func(addr net.Addr) (net.Conn, error) {
-		log.Printf("state: connecting to %v", addr)
+		log.Infof("state: connecting to %v", addr)
 		c, err := tls.Dial("tcp", addr.String(), tlsConfig)
 		if err != nil {
-			log.Printf("state: connection failed: %v", err)
+			log.Errorf("state: connection failed: %v", err)
 			return nil, err
 		}
-		log.Printf("state: connection established")
+		log.Infof("state: connection established")
 		return c, err
 	}
 	session, err := mgo.DialWithInfo(&mgo.DialInfo{
@@ -108,7 +108,7 @@ func Initialize(info *Info, cfg *config.Config) (rst *State, err error) {
 	} else if !IsNotFound(err) {
 		return nil, err
 	}
-	log.Printf("state: initializing environment")
+	log.Infof("state: initializing environment")
 	if cfg.AdminSecret() != "" {
 		return nil, fmt.Errorf("admin-secret should never be written to the state")
 	}
@@ -213,11 +213,13 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 		relationScopes: db.C("relationscopes"),
 		services:       db.C("services"),
 		settings:       db.C("settings"),
+		settingsrefs:   db.C("settingsrefs"),
 		constraints:    db.C("constraints"),
 		units:          db.C("units"),
 		users:          db.C("users"),
 		presence:       pdb.C("presence"),
 		cleanups:       db.C("cleanups"),
+		annotations:    db.C("annotations"),
 	}
 	log := db.C("txns.log")
 	logInfo := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
@@ -237,6 +239,8 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 			return nil, fmt.Errorf("cannot create database index: %v", err)
 		}
 	}
+	st.allWatcher = newAllWatcher(newAllWatcherStateBacking(st))
+	go st.allWatcher.run()
 	return st, nil
 }
 
@@ -253,8 +257,9 @@ func (st *State) CACert() (cert []byte) {
 func (st *State) Close() error {
 	err1 := st.watcher.Stop()
 	err2 := st.pwatcher.Stop()
+	err3 := st.allWatcher.Stop()
 	st.db.Session.Close()
-	for _, err := range []error{err1, err2} {
+	for _, err := range []error{err1, err2, err3} {
 		if err != nil {
 			return err
 		}
