@@ -103,8 +103,8 @@ func (t *LiveTests) TearDownTest(c *C) {
 
 // TODO(niemeyer): Looks like many of those tests should be moved to jujutest.LiveTests.
 
-func (t *LiveTests) TestInstanceDNSName(c *C) {
-	inst, err := t.Env.StartInstance("30", testing.InvalidStateInfo("30"), testing.InvalidAPIInfo("30"), nil)
+func (t *LiveTests) TestInstanceAttributes(c *C) {
+	inst, err := t.Env.StartInstance("30", state.Constraints{}, testing.InvalidStateInfo("30"), testing.InvalidAPIInfo("30"), nil)
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst})
 	dns, err := inst.WaitDNSName()
@@ -118,6 +118,17 @@ func (t *LiveTests) TestInstanceDNSName(c *C) {
 
 	ec2inst := ec2.InstanceEC2(insts[0])
 	c.Assert(ec2inst.DNSName, Equals, dns)
+	c.Assert(ec2inst.InstanceType, Equals, "m1.small")
+}
+
+func (t *LiveTests) TestStartInstanceConstraints(c *C) {
+	cons, err := state.ParseConstraints("mem=2G")
+	c.Assert(err, IsNil)
+	inst, err := t.Env.StartInstance("31", cons, testing.InvalidStateInfo("31"), testing.InvalidAPIInfo("31"), nil)
+	c.Assert(err, IsNil)
+	defer t.Env.StopInstances([]environs.Instance{inst})
+	ec2inst := ec2.InstanceEC2(inst)
+	c.Assert(ec2inst.InstanceType, Equals, "m1.medium")
 }
 
 func (t *LiveTests) TestInstanceGroups(c *C) {
@@ -155,7 +166,7 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 		})
 	c.Assert(err, IsNil)
 
-	inst0, err := t.Env.StartInstance("98", testing.InvalidStateInfo("98"), testing.InvalidAPIInfo("98"), nil)
+	inst0, err := t.Env.StartInstance("98", state.Constraints{}, testing.InvalidStateInfo("98"), testing.InvalidAPIInfo("98"), nil)
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst0})
 
@@ -163,7 +174,7 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	// before starting it, to check that it's reused correctly.
 	oldMachineGroup := createGroup(c, ec2conn, groups[2].Name, "old machine group")
 
-	inst1, err := t.Env.StartInstance("99", testing.InvalidStateInfo("99"), testing.InvalidAPIInfo("99"), nil)
+	inst1, err := t.Env.StartInstance("99", state.Constraints{}, testing.InvalidStateInfo("99"), testing.InvalidAPIInfo("99"), nil)
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst1})
 
@@ -295,12 +306,12 @@ func (t *LiveTests) TestStopInstances(c *C) {
 	// It would be nice if this test was in jujutest, but
 	// there's no way for jujutest to fabricate a valid-looking
 	// instance id.
-	inst0, err := t.Env.StartInstance("40", testing.InvalidStateInfo("40"), testing.InvalidAPIInfo("40"), nil)
+	inst0, err := t.Env.StartInstance("40", state.Constraints{}, testing.InvalidStateInfo("40"), testing.InvalidAPIInfo("40"), nil)
 	c.Assert(err, IsNil)
 
 	inst1 := ec2.FabricateInstance(inst0, "i-aaaaaaaa")
 
-	inst2, err := t.Env.StartInstance("41", testing.InvalidStateInfo("41"), testing.InvalidAPIInfo("41"), nil)
+	inst2, err := t.Env.StartInstance("41", state.Constraints{}, testing.InvalidStateInfo("41"), testing.InvalidAPIInfo("41"), nil)
 	c.Assert(err, IsNil)
 
 	err = t.Env.StopInstances([]environs.Instance{inst0, inst1, inst2})
