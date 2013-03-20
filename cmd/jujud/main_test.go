@@ -144,6 +144,7 @@ func run(c *C, sockPath string, contextId string, exit int, cmd ...string) strin
 	ps := exec.Command(os.Args[0], args...)
 	ps.Dir = c.MkDir()
 	ps.Env = []string{
+		fmt.Sprintf("JUJU_HOME=%s", c.MkDir()),
 		fmt.Sprintf("JUJU_AGENT_SOCKET=%s", sockPath),
 		fmt.Sprintf("JUJU_CONTEXT_ID=%s", contextId),
 		// Code that imports launchpad.net/juju-core/testing needs to

@@ -145,10 +145,13 @@ type Environ interface {
 	// environment via the juju package, the password hash will be
 	// automatically replaced by the real password.
 	//
+	// The supplied constraints are used to choose the initial instance
+	// specification, and will be stored in the new environment's state.
+	//
 	// The stateServerCertand stateServerKey parameters hold
 	// both the certificate and the respective private key to be
 	// used by the initial state server, in PEM format.
-	Bootstrap(uploadTools bool, stateServerCert, stateServerKey []byte) error
+	Bootstrap(cons state.Constraints, uploadTools bool, stateServerCert, stateServerKey []byte) error
 
 	// StateInfo returns information on the state initialized
 	// by Bootstrap.
