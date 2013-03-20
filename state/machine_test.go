@@ -633,5 +633,5 @@ func (s *MachineSuite) TestAnnotationRemovalForMachine(c *C) {
 	c.Assert(err, IsNil)
 	ann, err := s.machine.Annotations()
 	c.Assert(err, IsNil)
-	c.Assert(ann, IsNil)
+	c.Assert(ann, DeepEquals, make(map[string]string))
 }

@@ -17,7 +17,11 @@ func (st *State) Environment() (*Environment, error) {
 		st:   st,
 		name: conf.Name(),
 	}
-	env.annotator = annotator{env.globalKey(), env.EntityName(), st}
+	env.annotator = annotator{
+		globalKey:  env.globalKey(),
+		entityName: env.EntityName(),
+		st:         st,
+	}
 	return env, nil
 }
 

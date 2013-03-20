@@ -17,7 +17,8 @@ type annotatorDoc struct {
 	Annotations map[string]string
 }
 
-// annotator stores information required to query MongoDB.
+// annotator implements annotation-related methods
+// for any entity that wishes to use it.
 type annotator struct {
 	globalKey  string
 	entityName string
@@ -93,12 +94,12 @@ func (a *annotator) SetAnnotations(pairs map[string]string) error {
 }
 
 // Annotations returns all the annotations corresponding to an entity.
-func (a annotator) Annotations() (map[string]string, error) {
+func (a *annotator) Annotations() (map[string]string, error) {
 	doc := new(annotatorDoc)
 	err := a.st.annotations.FindId(a.globalKey).One(doc)
 	if err == mgo.ErrNotFound {
 		// Returning an empty map if there are no annotations.
-		return nil, nil
+		return make(map[string]string), nil
 	}
 	if err != nil {
 		return nil, err
@@ -108,7 +109,7 @@ func (a annotator) Annotations() (map[string]string, error) {
 
 // Annotation returns the annotation value corresponding to the given key.
 // If the requested annotation is not found, an empty string is returned.
-func (a annotator) Annotation(key string) (string, error) {
+func (a *annotator) Annotation(key string) (string, error) {
 	ann, err := a.Annotations()
 	if err != nil {
 		return "", err

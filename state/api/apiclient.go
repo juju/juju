@@ -90,6 +90,15 @@ func (c *Client) ServiceGet(service string) (*params.ServiceGetResults, error) {
 	return &results, nil
 }
 
+// DestroyRelation removes the relation between the specified endpoints.
+func (c *Client) DestroyRelation(endpoint0, endpoint1 string) error {
+	params := params.DestroyRelation{
+		Endpoints: []string{endpoint0, endpoint1},
+	}
+	err := c.st.client.Call("Client", "", "DestroyRelation", params, nil)
+	return clientError(err)
+}
+
 // ServiceExpose changes the juju-managed firewall to expose any ports that
 // were also explicitly marked by units as open.
 func (c *Client) ServiceExpose(service string) error {

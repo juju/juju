@@ -106,6 +106,7 @@ type localLiveSuite struct {
 func (t *localLiveSuite) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
 	ec2.UseTestImageData(ec2.TestImagesContent)
+	ec2.UseTestInstanceTypeData(ec2.TestInstanceTypeContent)
 	t.srv.startServer(c)
 	t.LiveTests.SetUpSuite(c)
 	t.env = t.LiveTests.Env
@@ -118,6 +119,7 @@ func (t *localLiveSuite) TearDownSuite(c *C) {
 	t.env = nil
 	ec2.ShortTimeouts(false)
 	ec2.UseTestImageData(nil)
+	ec2.UseTestInstanceTypeData(nil)
 	t.LoggingSuite.TearDownSuite(c)
 }
 
@@ -209,6 +211,7 @@ type localServerSuite struct {
 func (t *localServerSuite) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
 	ec2.UseTestImageData(ec2.TestImagesContent)
+	ec2.UseTestInstanceTypeData(ec2.TestInstanceTypeContent)
 	t.Tests.SetUpSuite(c)
 	ec2.ShortTimeouts(true)
 }
@@ -217,6 +220,7 @@ func (t *localServerSuite) TearDownSuite(c *C) {
 	t.Tests.TearDownSuite(c)
 	ec2.ShortTimeouts(false)
 	ec2.UseTestImageData(nil)
+	ec2.UseTestInstanceTypeData(nil)
 	t.LoggingSuite.TearDownSuite(c)
 }
 
@@ -237,7 +241,9 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	policy := t.env.AssignmentPolicy()
 	c.Assert(policy, Equals, state.AssignUnused)
 
-	err := environs.Bootstrap(t.env, true)
+	err := environs.UploadTools(t.env)
+	c.Assert(err, IsNil)
+	err = environs.Bootstrap(t.env, state.Constraints{})
 	c.Assert(err, IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
@@ -367,6 +373,7 @@ type localNonUSEastSuite struct {
 func (t *localNonUSEastSuite) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
 	ec2.UseTestImageData(ec2.TestImagesContent)
+	ec2.UseTestInstanceTypeData(ec2.TestInstanceTypeContent)
 	t.tests.SetUpSuite(c)
 	ec2.ShortTimeouts(true)
 }
@@ -374,6 +381,7 @@ func (t *localNonUSEastSuite) SetUpSuite(c *C) {
 func (t *localNonUSEastSuite) TearDownSuite(c *C) {
 	ec2.ShortTimeouts(false)
 	ec2.UseTestImageData(nil)
+	ec2.UseTestInstanceTypeData(nil)
 	t.LoggingSuite.TearDownSuite(c)
 }
 

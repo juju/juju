@@ -100,7 +100,11 @@ func newUnit(st *State, udoc *unitDoc) *Unit {
 		st:  st,
 		doc: *udoc,
 	}
-	unit.annotator = annotator{unit.globalKey(), unit.EntityName(), st}
+	unit.annotator = annotator{
+		globalKey:  unit.globalKey(),
+		entityName: unit.EntityName(),
+		st:         st,
+	}
 	return unit
 }
 
@@ -114,8 +118,7 @@ func (u *Unit) ServiceConfig() (map[string]interface{}, error) {
 	if u.doc.CharmURL == nil {
 		return nil, fmt.Errorf("unit charm not set")
 	}
-	// TODO(dimitern): Will use a better way to get the key in a follow-up.
-	settings, err := readSettings(u.st, "s#"+u.doc.Service)
+	settings, err := readSettings(u.st, serviceSettingsKey(u.doc.Service, u.doc.CharmURL))
 	if err != nil {
 		return nil, err
 	}
@@ -281,7 +284,10 @@ func (u *Unit) Remove() (err error) {
 	}
 	unit := &Unit{st: u.st, doc: u.doc}
 	for i := 0; i < 5; i++ {
-		ops := svc.removeUnitOps(unit)
+		ops, err := svc.removeUnitOps(unit)
+		if err != nil {
+			return err
+		}
 		if err := svc.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
 			return err
 		}
@@ -466,33 +472,63 @@ func (u *Unit) CharmURL() (*charm.URL, bool) {
 
 // SetCharmURL marks the unit as currently using the supplied charm URL.
 // An error will be returned if the unit is dead, or the charm URL not known.
-func (u *Unit) SetCharmURL(curl *charm.URL) error {
+func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
+	defer func() {
+		if err == nil {
+			u.doc.CharmURL = curl
+		}
+	}()
 	if curl == nil {
 		return fmt.Errorf("cannot set nil charm url")
 	}
-	ops := []txn.Op{{
-		// This will be replaced by a more stringent check in a follow-up.
-		C:      u.st.charms.Name,
-		Id:     curl,
-		Assert: txn.DocExists,
-	}, {
-		C:      u.st.units.Name,
-		Id:     u.doc.Name,
-		Assert: notDeadDoc,
-		Update: D{{"$set", D{{"charmurl", curl}}}},
-	}}
-	if err := u.st.runner.Run(ops, "", nil); err == nil {
-		u.doc.CharmURL = curl
-		return nil
-	} else if err != txn.ErrAborted {
-		return err
+	for i := 0; i < 5; i++ {
+		if notDead, err := isNotDead(u.st.units, u.doc.Name); err != nil {
+			return err
+		} else if !notDead {
+			return fmt.Errorf("unit %q is dead", u)
+		}
+		sel := D{{"_id", u.doc.Name}, {"charmurl", curl}}
+		if count, err := u.st.units.Find(sel).Count(); err != nil {
+			return err
+		} else if count == 1 {
+			// Already set
+			return nil
+		}
+		if count, err := u.st.charms.FindId(curl).Count(); err != nil {
+			return err
+		} else if count < 1 {
+			return fmt.Errorf("unknown charm url %q", curl)
+		}
+
+		// Add a reference to the service settings for the new charm.
+		incOp, err := settingsIncRefOp(u.st, u.doc.Service, curl, false)
+		if err != nil {
+			return err
+		}
+
+		// Set the new charm URL.
+		differentCharm := D{{"charmurl", D{{"$ne", curl}}}}
+		ops := []txn.Op{
+			incOp,
+			{
+				C:      u.st.units.Name,
+				Id:     u.doc.Name,
+				Assert: append(notDeadDoc, differentCharm...),
+				Update: D{{"$set", D{{"charmurl", curl}}}},
+			}}
+		if u.doc.CharmURL != nil {
+			// Drop the reference to the old charm.
+			decOps, err := settingsDecRefOps(u.st, u.doc.Service, u.doc.CharmURL)
+			if err != nil {
+				return err
+			}
+			ops = append(ops, decOps...)
+		}
+		if err := u.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+			return err
+		}
 	}
-	if notDead, err := isNotDead(u.st.units, u.doc.Name); err != nil {
-		return err
-	} else if notDead {
-		return fmt.Errorf("unknown charm url %q", curl)
-	}
-	return fmt.Errorf("unit %q is dead", u)
+	return ErrExcessiveContention
 }
 
 // AgentAlive returns whether the respective remote agent is alive.

@@ -165,7 +165,7 @@ func (r *srvRoot) User(name string) (*srvUser, error) {
 	if e == nil {
 		return nil, errNotLoggedIn
 	}
-	if r.user.entityName != name {
+	if e.EntityName() != name {
 		return nil, errPerm
 	}
 	u, err := r.srv.state.User(name)
@@ -369,6 +369,11 @@ func (c *srvClient) ServiceDestroy(args params.ServiceDestroy) error {
 	return statecmd.ServiceDestroy(c.root.srv.state, args)
 }
 
+// DestroyRelation removes the relation between the specified endpoints.
+func (c *srvClient) DestroyRelation(args params.DestroyRelation) error {
+	return statecmd.DestroyRelation(c.root.srv.state, args)
+}
+
 // CharmInfo returns information about the requested charm.
 func (c *srvClient) CharmInfo(args params.CharmInfo) (api.CharmInfo, error) {
 	curl, err := charm.ParseURL(args.CharmURL)
@@ -464,7 +469,7 @@ func (m *srvMachine) SetPassword(p params.Password) error {
 	// - the machine itself.
 	// - the environment manager.
 	e := m.root.user.authenticator()
-	allow := m.root.user.entityName == m.m.EntityName() ||
+	allow := e.EntityName() == m.m.EntityName() ||
 		isMachineWithJob(e, state.JobManageEnviron)
 	if !allow {
 		return errPerm
@@ -482,7 +487,7 @@ func (u *srvUnit) Get() (params.Unit, error) {
 
 // SetPassword sets the unit's password.
 func (u *srvUnit) SetPassword(p params.Password) error {
-	ename := u.root.user.entityName
+	ename := u.root.user.authenticator().EntityName()
 	// Allow:
 	// - the unit itself.
 	// - the machine responsible for unit, if unit is principal
@@ -511,9 +516,8 @@ func (u *srvUser) Get() (params.User, error) {
 // authUser holds login details. It's ok to call
 // its methods concurrently.
 type authUser struct {
-	mu         sync.Mutex
-	entity     state.Authenticator // logged-in entity (access only when mu is locked)
-	entityName string
+	mu     sync.Mutex
+	entity state.Authenticator // logged-in entity (access only when mu is locked)
 }
 
 // login authenticates as entity with the given name,.
@@ -527,7 +531,6 @@ func (u *authUser) login(st *state.State, entityName, password string) error {
 	// TODO(rog) remove
 	if !AuthenticationEnabled {
 		u.entity = entity
-		u.entityName = entityName
 		return nil
 	}
 	// We return the same error when an entity
@@ -538,7 +541,6 @@ func (u *authUser) login(st *state.State, entityName, password string) error {
 		return errBadCreds
 	}
 	u.entity = entity
-	u.entityName = entityName
 	return nil
 }
 

@@ -737,5 +737,5 @@ func (s *UnitSuite) TestAnnotationRemovalForUnit(c *C) {
 	c.Assert(err, IsNil)
 	ann, err := s.unit.Annotations()
 	c.Assert(err, IsNil)
-	c.Assert(ann, IsNil)
+	c.Assert(ann, DeepEquals, make(map[string]string))
 }
