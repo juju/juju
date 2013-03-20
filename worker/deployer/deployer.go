@@ -72,7 +72,7 @@ func (d *Deployer) Wait() error {
 // indicated by its state.
 func (d *Deployer) changed(unitName string) error {
 	// Determine unit life state, and whether we're responsible for it.
-	log.Printf("worker/deployer: checking unit %q", unitName)
+	log.Infof("worker/deployer: checking unit %q", unitName)
 	var life state.Life
 	responsible := false
 	unit, err := d.st.Unit(unitName)
@@ -116,7 +116,7 @@ func (d *Deployer) deploy(unit *state.Unit) error {
 	if d.deployed[unit.Name()] {
 		panic("must not re-deploy a deployed unit")
 	}
-	log.Printf("worker/deployer: deploying unit %q", unit)
+	log.Infof("worker/deployer: deploying unit %q", unit)
 	initialPassword, err := trivial.RandomPassword()
 	if err != nil {
 		return err
@@ -137,7 +137,7 @@ func (d *Deployer) recall(unitName string) error {
 	if !d.deployed[unitName] {
 		panic("must not recall a unit that is not deployed")
 	}
-	log.Printf("worker/deployer: recalling unit %q", unitName)
+	log.Infof("worker/deployer: recalling unit %q", unitName)
 	if err := d.ctx.RecallUnit(unitName); err != nil {
 		return err
 	}
@@ -153,7 +153,7 @@ func (d *Deployer) remove(unit *state.Unit) error {
 	} else if unit.Life() == state.Alive {
 		panic("must not remove an Alive unit")
 	}
-	log.Printf("worker/deployer: removing unit %q", unit)
+	log.Infof("worker/deployer: removing unit %q", unit)
 	if err := unit.EnsureDead(); err != nil {
 		return err
 	}

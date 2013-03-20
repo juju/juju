@@ -58,3 +58,10 @@ func (cs *ConnSuite) TearDownTest(c *C) {
 func (s *ConnSuite) AddTestingCharm(c *C, name string) *state.Charm {
 	return s.State.AddTestingCharm(c, name)
 }
+
+// AddConfigCharm clones a testing charm, replaces its config with
+// the given YAML string and adds it to the state, using the given
+// revision.
+func (s *ConnSuite) AddConfigCharm(c *C, name, configYaml string, revision int) *state.Charm {
+	return s.State.AddConfigCharm(c, name, configYaml, revision)
+}

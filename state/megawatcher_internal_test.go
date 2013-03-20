@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
@@ -11,14 +12,29 @@ import (
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
 	"net/url"
+	"path/filepath"
 	"sort"
 	"sync"
 	"time"
 )
 
 func (st *State) AddTestingCharm(c *C, name string) *Charm {
-	ch := testing.Charms.Dir(name)
-	ident := fmt.Sprintf("%s-%d", name, ch.Revision())
+	return addCharm(c, st, testing.Charms.Dir(name))
+}
+
+func (st *State) AddConfigCharm(c *C, name, configYaml string, revision int) *Charm {
+	path := testing.Charms.ClonedDirPath(c.MkDir(), name)
+	config := filepath.Join(path, "config.yaml")
+	err := ioutil.WriteFile(config, []byte(configYaml), 0644)
+	c.Assert(err, IsNil)
+	ch, err := charm.ReadDir(path)
+	c.Assert(err, IsNil)
+	ch.SetRevision(revision)
+	return addCharm(c, st, ch)
+}
+
+func addCharm(c *C, st *State, ch charm.Charm) *Charm {
+	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
 	curl := charm.MustParseURL("local:series/" + ident)
 	bundleURL, err := url.Parse("http://bundles.example.com/" + ident)
 	c.Assert(err, IsNil)
@@ -985,8 +1001,8 @@ func (s *allWatcherStateSuite) TestStateBackingFetch(c *C) {
 	testBackingFetch(c, b1)
 }
 
-//TestStateWatcher tests the integration of the state watcher
-// wiwith the state-based backing. Most of the logic is tested elsewhere -
+// TestStateWatcher tests the integration of the state watcher
+// with the state-based backing. Most of the logic is tested elsewhere -
 // this just tests end-to-end.
 func (s *allWatcherStateSuite) TestStateWatcher(c *C) {
 	m0, err := s.State.AddMachine("series", JobManageEnviron)

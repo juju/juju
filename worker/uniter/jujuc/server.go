@@ -99,8 +99,8 @@ func (j *Jujuc) Main(req Request, resp *Response) error {
 	}
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	log.Printf("worker/uniter/jujuc: running hook %q %q", req.CommandName, req.Args)
-	log.Printf("worker/uniter/jujuc: hook context id %q; dir %q", req.ContextId, req.Dir)
+	log.Infof("worker/uniter/jujuc: running hook %q %q", req.CommandName, req.Args)
+	log.Debugf("worker/uniter/jujuc: hook context id %q; dir %q", req.ContextId, req.Dir)
 	resp.Code = cmd.Main(c, ctx, req.Args)
 	resp.Stdout = stdout.Bytes()
 	resp.Stderr = stderr.Bytes()

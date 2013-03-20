@@ -11,6 +11,7 @@ import (
 // Log supplies the necessary functionality for Commands that wish to set up
 // logging.
 type Log struct {
+	Prefix  string
 	Path    string
 	Verbose bool
 	Debug   bool
@@ -27,7 +28,9 @@ func (c *Log) AddFlags(f *gnuflag.FlagSet) {
 // Start starts logging using the given Context.
 func (c *Log) Start(ctx *Context) (err error) {
 	log.Debug = c.Debug
+	log.Target = nil
 	var target io.Writer
+	prefix := "JUJU:" + c.Prefix
 	if c.Path != "" {
 		path := ctx.AbsPath(c.Path)
 		target, err = os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
@@ -38,9 +41,7 @@ func (c *Log) Start(ctx *Context) (err error) {
 		target = ctx.Stderr
 	}
 	if target != nil {
-		log.Target = stdlog.New(target, "", stdlog.LstdFlags)
-	} else {
-		log.Target = nil
+		log.Target = stdlog.New(target, prefix+": ", stdlog.LstdFlags)
 	}
 	return
 }

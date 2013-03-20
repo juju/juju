@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"labix.org/v2/mgo"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/tomb"
@@ -402,7 +401,6 @@ func (b *allWatcherStateBacking) getAll(all *allInfo) error {
 func (b *allWatcherStateBacking) fetch(id entityId) (params.EntityInfo, error) {
 	c, ok := b.collectionByName[id.collection]
 	if !ok {
-		log.Printf("collections: %+v", b.collectionByName)
 		panic(fmt.Errorf("unknown collection %q in fetch request", id.collection))
 	}
 	info := reflect.New(c.infoSliceType.Elem()).Interface().(params.EntityInfo)
