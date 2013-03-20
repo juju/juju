@@ -176,6 +176,26 @@ func (s *Server) serveStats(w http.ResponseWriter, r *http.Request) {
 		List: r.Form.Get("list") == "1",
 		By:   by,
 	}
+	if v := r.Form.Get("start"); v != "" {
+		var err error
+		req.Start, err = time.Parse("2006-01-02", v)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(fmt.Sprintf("Invalid 'start' value: %q", v)))
+			return
+		}
+	}
+	if v := r.Form.Get("stop"); v != "" {
+		var err error
+		req.Stop, err = time.Parse("2006-01-02", v)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(fmt.Sprintf("Invalid 'stop' value: %q", v)))
+			return
+		}
+		// Cover all timestamps within the stop day.
+		req.Stop = req.Stop.Add(24*time.Hour - 1*time.Second)
+	}
 	if req.Key[len(req.Key)-1] == "*" {
 		req.Prefix = true
 		req.Key = req.Key[:len(req.Key)-1]
