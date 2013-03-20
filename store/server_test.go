@@ -221,6 +221,7 @@ func (s *StoreSuite) TestStatsCounterList(c *C) {
 		{"a:*", "", "a:b:*  4\na:f:*  2\na:b    1\na:i    1\n"},
 		{"a:b:*", "", "a:b:c  2\na:b:d  1\na:b:e  1\n"},
 		{"a:*", "csv", "a:b:*,4\na:f:*,2\na:b,1\na:i,1\n"},
+		{"a:*", "json", `[["a:b:*",4],["a:f:*",2],["a:b",1],["a:i",1]]`},
 	}
 
 	for _, test := range tests {
@@ -305,12 +306,52 @@ func (s *StoreSuite) TestStatsCounterBy(c *C) {
 		}, {
 			store.CounterRequest{
 				Key:    []string{"a"},
+				Prefix: false,
+				List:   false,
+				By:     store.ByDay,
+			},
+			"json",
+			`[["2012-05-01",2],["2012-05-03",1]]`,
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
 				Prefix: true,
 				List:   false,
 				By:     store.ByDay,
 			},
 			"",
 			"2012-05-01  2\n2012-05-03  1\n2012-05-09  3\n",
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: true,
+				List:   false,
+				By:     store.ByDay,
+				Start:  time.Date(2012, 5, 2, 0, 0, 0, 0, time.UTC),
+			},
+			"",
+			"2012-05-03  1\n2012-05-09  3\n",
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: true,
+				List:   false,
+				By:     store.ByDay,
+				Stop:   time.Date(2012, 5, 4, 0, 0, 0, 0, time.UTC),
+			},
+			"",
+			"2012-05-01  2\n2012-05-03  1\n",
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: true,
+				List:   false,
+				By:     store.ByDay,
+				Start:  time.Date(2012, 5, 3, 0, 0, 0, 0, time.UTC),
+				Stop:   time.Date(2012, 5, 3, 0, 0, 0, 0, time.UTC),
+			},
+			"",
+			"2012-05-03  1\n",
 		}, {
 			store.CounterRequest{
 				Key:    []string{"a"},
@@ -347,6 +388,15 @@ func (s *StoreSuite) TestStatsCounterBy(c *C) {
 			},
 			"csv",
 			"a:b,2012-05-06,2\na:c,2012-05-06,1\na:c:*,2012-05-13,3\n",
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: true,
+				List:   true,
+				By:     store.ByWeek,
+			},
+			"json",
+			`[["a:b","2012-05-06",2],["a:c","2012-05-06",1],["a:c:*","2012-05-13",3]]`,
 		},
 	}
 
@@ -363,6 +413,12 @@ func (s *StoreSuite) TestStatsCounterBy(c *C) {
 		}
 		if test.format != "" {
 			req.Form.Set("format", test.format)
+		}
+		if !test.request.Start.IsZero() {
+			req.Form.Set("start", test.request.Start.Format("2006-01-02"))
+		}
+		if !test.request.Stop.IsZero() {
+			req.Form.Set("stop", test.request.Stop.Format("2006-01-02"))
 		}
 		switch test.request.By {
 		case store.ByDay:
