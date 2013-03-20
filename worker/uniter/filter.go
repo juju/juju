@@ -221,7 +221,10 @@ func (f *filter) loop(unitName string) (err error) {
 	var configw *state.ConfigWatcher
 	var configChanges <-chan *state.Settings
 	if curl, ok := f.unit.CharmURL(); ok {
-		configw = f.unit.WatchServiceConfig()
+		configw, err = f.unit.WatchServiceConfig()
+		if err != nil {
+			return err
+		}
 		configChanges = configw.Changes()
 		f.upgradeFrom.url = curl
 	}
@@ -310,7 +313,10 @@ func (f *filter) loop(unitName string) (err error) {
 				return tomb.ErrDying
 			case f.charmChanged <- nothing:
 			}
-			configw = f.unit.WatchServiceConfig()
+			configw, err = f.unit.WatchServiceConfig()
+			if err != nil {
+				return err
+			}
 			configChanges = configw.Changes()
 
 			// Restart the relations watcher.
