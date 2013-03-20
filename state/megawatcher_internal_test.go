@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
@@ -11,11 +12,10 @@ import (
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
 	"net/url"
+	"path/filepath"
 	"sort"
 	"sync"
 	"time"
-	"path/filepath"
-	"io/ioutil"
 )
 
 func (st *State) AddTestingCharm(c *C, name string) *Charm {
