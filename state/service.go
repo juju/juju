@@ -37,7 +37,11 @@ func newService(st *State, doc *serviceDoc) *Service {
 		st:  st,
 		doc: *doc,
 	}
-	svc.annotator = annotator{svc.globalKey(), svc.EntityName(), st}
+	svc.annotator = annotator{
+		globalKey:  svc.globalKey(),
+		entityName: svc.EntityName(),
+		st:         st,
+	}
 	return svc
 }
 

@@ -64,9 +64,9 @@ func newMachine(st *State, doc *machineDoc) *Machine {
 		doc: *doc,
 	}
 	machine.annotator = annotator{
-		machine.globalKey(),
-		machine.EntityName(),
-		st,
+		globalKey:  machine.globalKey(),
+		entityName: machine.EntityName(),
+		st:         st,
 	}
 	return machine
 }

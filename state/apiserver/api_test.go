@@ -352,7 +352,7 @@ func opClientGetAnnotations(c *C, st *api.State, mst *state.State) (func(), erro
 		return func() {}, err
 	}
 	c.Assert(err, IsNil)
-	c.Assert(ann, IsNil)
+	c.Assert(ann, DeepEquals, make(map[string]string))
 	return func() {}, nil
 }
 

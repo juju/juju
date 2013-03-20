@@ -100,7 +100,11 @@ func newUnit(st *State, udoc *unitDoc) *Unit {
 		st:  st,
 		doc: *udoc,
 	}
-	unit.annotator = annotator{unit.globalKey(), unit.EntityName(), st}
+	unit.annotator = annotator{
+		globalKey:  unit.globalKey(),
+		entityName: unit.EntityName(),
+		st:         st,
+	}
 	return unit
 }
 

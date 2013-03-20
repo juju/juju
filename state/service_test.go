@@ -1168,5 +1168,5 @@ func (s *ServiceSuite) TestAnnotationRemovalForService(c *C) {
 	c.Assert(err, IsNil)
 	ann, err := s.mysql.Annotations()
 	c.Assert(err, IsNil)
-	c.Assert(ann, IsNil)
+	c.Assert(ann, DeepEquals, make(map[string]string))
 }
