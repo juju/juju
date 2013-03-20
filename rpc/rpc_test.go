@@ -468,14 +468,13 @@ func chanReadError(c *C, ch <-chan error, what string) error {
 
 // newRPCClientServer starts an RPC server serving a connection from a
 // single client.  When the server has finished serving the connection,
-// it sends a value on done.
-func newRPCClientServer(c *C, root interface{}, tfErr func(error) error) (client *rpc.Client, done <-chan error) {
+// it sends a value on the returned channel.
+func newRPCClientServer(c *C, root interface{}, tfErr func(error) error) (*rpc.Client, <-chan error) {
 	srv, err := rpc.NewServer(root, tfErr)
 	c.Assert(err, IsNil)
 
 	l, err := net.Listen("tcp", ":0")
 	c.Assert(err, IsNil)
-	defer l.Close()
 
 	srvDone := make(chan error, 1)
 	go func() {
@@ -484,13 +483,14 @@ func newRPCClientServer(c *C, root interface{}, tfErr func(error) error) (client
 			srvDone <- err
 			return
 		}
+		defer l.Close()
 		err = srv.ServeCodec(NewJSONServerCodec(conn), root)
 		c.Logf("server status: %v", err)
 		srvDone <- err
 	}()
 	conn, err := net.Dial("tcp", l.Addr().String())
 	c.Assert(err, IsNil)
-	client = rpc.NewClientWithCodec(NewJSONClientCodec(conn))
+	client := rpc.NewClientWithCodec(NewJSONClientCodec(conn))
 	return client, srvDone
 }
 
@@ -539,17 +539,17 @@ func (c *generalClientCodec) WriteRequest(req *rpc.Request, x interface{}) error
 	if reflect.ValueOf(x).Kind() != reflect.Struct {
 		panic(fmt.Errorf("WriteRequest bad param; want struct got %T (%#v)", x, x))
 	}
-	log.Printf("send client request header: %#v", req)
+	log.Infof("send client request header: %#v", req)
 	if err := c.enc.Encode(req); err != nil {
 		return err
 	}
-	log.Printf("send client request body: %#v", x)
+	log.Infof("send client request body: %#v", x)
 	return c.enc.Encode(x)
 }
 
 func (c *generalClientCodec) ReadResponseHeader(resp *rpc.Response) error {
 	err := c.dec.Decode(resp)
-	log.Printf("got response header %#v", resp)
+	log.Infof("got response header %#v", resp)
 	return err
 }
 
@@ -562,9 +562,9 @@ func (c *generalClientCodec) ReadResponseBody(r interface{}) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("got response body: %q", m)
+	log.Infof("got response body: %q", m)
 	err = json.Unmarshal(m, r)
-	log.Printf("unmarshalled into %#v", r)
+	log.Infof("unmarshalled into %#v", r)
 	return err
 }
 

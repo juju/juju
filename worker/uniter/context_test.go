@@ -205,7 +205,7 @@ func (s *RunHookSuite) TestRunHook(c *C) {
 	defer func() {
 		log.Target = oldLogger
 	}()
-	logger := &logRecorder{c: c, prefix: "JUJU worker/uniter: HOOK "}
+	logger := &logRecorder{c: c, prefix: "INFO: worker/uniter: HOOK "}
 	log.Target = logger
 	for i, t := range runHookTests {
 		c.Logf("test %d: %s; perm %v", i, t.summary, t.spec.perm)
@@ -612,9 +612,15 @@ type HookContextSuite struct {
 func (s *HookContextSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
 	var err error
-	s.service, err = s.State.AddService("u", s.AddTestingCharm(c, "wordpress"))
+	sch := s.AddTestingCharm(c, "wordpress")
+	s.service, err = s.State.AddService("u", sch)
 	c.Assert(err, IsNil)
 	s.unit = s.AddUnit(c, s.service)
+	// Note: The unit must always have a charm URL set, because this
+	// happens as part of the installation process (that happens
+	// before the initial install hook).
+	err = s.unit.SetCharmURL(sch.URL())
+	c.Assert(err, IsNil)
 	s.relch = s.AddTestingCharm(c, "mysql")
 	s.relunits = map[int]*state.RelationUnit{}
 	s.relctxs = map[int]*uniter.ContextRelation{}
@@ -651,5 +657,5 @@ func (s *HookContextSuite) GetHookContext(c *C, relid int, remote string) *unite
 		_, found := s.relctxs[relid]
 		c.Assert(found, Equals, true)
 	}
-	return uniter.NewHookContext(s.service, s.unit, "TestCtx", relid, remote, s.relctxs)
+	return uniter.NewHookContext(s.unit, "TestCtx", relid, remote, s.relctxs)
 }

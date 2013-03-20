@@ -113,6 +113,7 @@ type State struct {
 	relationScopes *mgo.Collection
 	services       *mgo.Collection
 	settings       *mgo.Collection
+	settingsrefs   *mgo.Collection
 	constraints    *mgo.Collection
 	units          *mgo.Collection
 	users          *mgo.Collection
@@ -380,7 +381,13 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	svc := newService(st, svcDoc)
 	ops := []txn.Op{
 		createConstraintsOp(st, svc.globalKey(), Constraints{}),
-		createSettingsOp(st, svc.globalKey(), map[string]interface{}{}),
+		createSettingsOp(st, svc.settingsKey(), nil),
+		{
+			C:      st.settingsrefs.Name,
+			Id:     svc.settingsKey(),
+			Assert: txn.DocMissing,
+			Insert: settingsRefsDoc{1},
+		},
 		{
 			C:      st.services.Name,
 			Id:     name,
@@ -809,7 +816,7 @@ func (st *State) Cleanup() error {
 			c = st.settings
 			sel = D{{"_id", D{{"$regex", "^" + doc.Prefix}}}}
 		default:
-			log.Printf("state: WARNING: ignoring unknown cleanup kind %q", doc.Kind)
+			log.Warningf("state: ignoring unknown cleanup kind %q", doc.Kind)
 			continue
 		}
 		if count, err := c.Find(sel).Count(); err != nil {

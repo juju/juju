@@ -30,7 +30,7 @@ func NewServer(s *state.State, addr string, cert, key []byte) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("state/api: listening on %q", addr)
+	log.Infof("state/api: listening on %q", addr)
 	tlsCert, err := tls.X509KeyPair(cert, key)
 	if err != nil {
 		return nil, err
@@ -79,7 +79,7 @@ func (srv *Server) run(lis net.Listener) {
 			return
 		}
 		if err := srv.serveConn(conn); err != nil {
-			log.Printf("state/api: error serving RPCs: %v", err)
+			log.Errorf("state/api: error serving RPCs: %v", err)
 		}
 	})
 	// The error from http.Serve is not interesting.
@@ -131,7 +131,7 @@ func readRequests(conn *websocket.Conn, c chan<- serverReq) {
 			break
 		}
 		if err != nil {
-			log.Printf("api: error receiving request: %v", err)
+			log.Errorf("api: error receiving request: %v", err)
 			break
 		}
 		c <- req

@@ -384,7 +384,7 @@ func (w *Watcher) sync() error {
 				}
 			}
 			if len(d) == 0 || len(d) != len(r) {
-				log.Printf("state/watcher: changelog has invalid collection document: %#v", c)
+				log.Warningf("state/watcher: changelog has invalid collection document: %#v", c)
 				continue
 			}
 			for i := len(d) - 1; i >= 0; i-- {
@@ -395,7 +395,7 @@ func (w *Watcher) sync() error {
 				seen[key] = true
 				revno, ok := r[i].(int64)
 				if !ok {
-					log.Printf("state/watcher: changelog has revno with type %T: %#v", r[i], r[i])
+					log.Warningf("state/watcher: changelog has revno with type %T: %#v", r[i], r[i])
 					continue
 				}
 				if revno < 0 {

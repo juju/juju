@@ -53,7 +53,7 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 	if err := a.Conf.read(state.UnitEntityName(a.UnitName)); err != nil {
 		return err
 	}
-	defer log.Printf("cmd/jujud: unit agent exiting")
+	defer log.Noticef("cmd/jujud: unit agent exiting")
 	defer a.tomb.Done()
 	err := RunAgentLoop(a.Conf.Conf, a)
 	if ug, ok := err.(*UpgradeReadyError); ok {
