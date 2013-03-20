@@ -71,7 +71,7 @@ type OpStartInstance struct {
 	Env         string
 	MachineId   string
 	Instance    environs.Instance
-	Constraints state.Constraints
+	Constraints constraints.Value
 	Info        *state.Info
 	APIInfo     *api.Info
 	Secret      string
@@ -542,7 +542,7 @@ func (e *environ) Destroy([]environs.Instance) error {
 	return nil
 }
 
-func (e *environ) StartInstance(machineId string, cons state.Constraints, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId string, cons constraints.Value, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
 	defer delay()
 	log.Infof("environs/dummy: dummy startinstance, machine %s", machineId)
 	if err := e.checkBroken("StartInstance"); err != nil {

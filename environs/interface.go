@@ -172,7 +172,7 @@ type Environ interface {
 	// on the new machine are given by tools - if nil,
 	// the Environ will find a set of tools compatible with the
 	// current version.
-	StartInstance(machineId string, cons state.Constraints, info *state.Info, apiInfo *api.Info, tools *state.Tools) (Instance, error)
+	StartInstance(machineId string, cons constraints.Value, info *state.Info, apiInfo *api.Info, tools *state.Tools) (Instance, error)
 
 	// StopInstances shuts down the given instances.
 	StopInstances([]Instance) error

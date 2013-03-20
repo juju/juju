@@ -2,7 +2,7 @@ package ec2
 
 import (
 	"fmt"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/constraints"
 	"sort"
 )
 
@@ -21,7 +21,7 @@ type instanceType struct {
 // match returns true if itype can satisfy the supplied constraints. If so,
 // it also returns a copy of itype with any arches that do not match the
 // constraints filtered out.
-func (itype instanceType) match(cons state.Constraints) (instanceType, bool) {
+func (itype instanceType) match(cons constraints.Value) (instanceType, bool) {
 	nothing := instanceType{}
 	if cons.Arch != nil {
 		itype.arches = filterArches(itype.arches, []string{*cons.Arch})
@@ -62,7 +62,7 @@ var defaultCpuPower uint64 = 100
 
 // getInstanceTypes returns all instance types matching cons and available
 // in region, sorted by increasing region-specific cost.
-func getInstanceTypes(region string, cons state.Constraints) ([]instanceType, error) {
+func getInstanceTypes(region string, cons constraints.Value) ([]instanceType, error) {
 	if cons.CpuPower == nil {
 		v := defaultCpuPower
 		cons.CpuPower = &v

@@ -56,7 +56,7 @@ func (s *bootstrapSuite) TestBootstrapKeyGeneration(c *C) {
 
 func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *C) {
 	env := newEnviron("foo", useDefaultKeys)
-	err := environs.Bootstrap(env, state.Constraints{})
+	err := environs.Bootstrap(env, constraints.Value{})
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
 	c.Assert(env.constraints, DeepEquals, constraints.Value{})
@@ -64,7 +64,7 @@ func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *C) {
 
 func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *C) {
 	env := newEnviron("foo", useDefaultKeys)
-	cons, err := state.ParseConstraints("cpu-cores=2 mem=4G")
+	cons, err := constraints.Parse("cpu-cores=2 mem=4G")
 	c.Assert(err, IsNil)
 	err = environs.Bootstrap(env, cons)
 	c.Assert(err, IsNil)

@@ -6,6 +6,7 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
@@ -40,8 +41,8 @@ func mustNewConfig(m map[string]interface{}) *config.Config {
 
 var envConstraints = mustParseConstraints("mem=2G")
 
-func mustParseConstraints(s string) state.Constraints {
-	cons, err := state.ParseConstraints(s)
+func mustParseConstraints(s string) constraints.Value {
+	cons, err := constraints.Parse(s)
 	if err != nil {
 		panic(err)
 	}
