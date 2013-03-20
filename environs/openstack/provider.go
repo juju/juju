@@ -416,8 +416,18 @@ func (e *environ) PublicStorage() environs.StorageReader {
 	return e.publicStorageUnlocked
 }
 
-func (e *environ) Bootstrap(cons state.Constraints, uploadTools bool, cert, key []byte) error {
-	// TODO(fwereade): handle bootstrap constraints
+// TODO(thumper): this code is duplicated in ec2 and openstack.  Ideally we
+// should refactor the tools selection criteria with the version that is in
+// environs. The constraints work will require this refactoring.
+func findTools(env *environ) (*state.Tools, error) {
+	flags := environs.HighestVersion | environs.CompatVersion
+	v := version.Current
+	v.Series = env.Config().DefaultSeries()
+	// TODO: set Arch based on constraints (when they are landed)
+	return environs.FindTools(env, v, flags)
+}
+
+func (e *environ) Bootstrap(cons state.Constraints, cert, key []byte) error {
 	password := e.Config().AdminSecret()
 	if password == "" {
 		return fmt.Errorf("admin-secret is required for bootstrap")
@@ -439,21 +449,12 @@ func (e *environ) Bootstrap(cons state.Constraints, uploadTools bool, cert, key 
 	if _, notFound := err.(*environs.NotFoundError); !notFound {
 		return fmt.Errorf("cannot query old bootstrap state: %v", err)
 	}
-	var tools *state.Tools
-	if uploadTools {
-		tools, err = environs.PutTools(e.Storage(), nil)
-		if err != nil {
-			return fmt.Errorf("cannot upload tools: %v", err)
-		}
-	} else {
-		flags := environs.HighestVersion | environs.CompatVersion
-		v := version.Current
-		v.Series = e.Config().DefaultSeries()
-		tools, err = environs.FindTools(e, v, flags)
-		if err != nil {
-			return fmt.Errorf("cannot find tools: %v", err)
-		}
+
+	tools, err := findTools(e)
+	if err != nil {
+		return fmt.Errorf("cannot find tools: %v", err)
 	}
+
 	config, err := environs.BootstrapConfig(providerInstance, e.Config(), tools)
 	if err != nil {
 		return fmt.Errorf("unable to determine inital configuration: %v", err)
@@ -480,6 +481,7 @@ func (e *environ) Bootstrap(cons state.Constraints, uploadTools bool, cert, key 
 		mongoURL:        mongoURL,
 		stateServer:     true,
 		config:          config,
+		constraints:     cons,
 		stateServerCert: cert,
 		stateServerKey:  key,
 		withPublicIP:    e.ecfg().useFloatingIP(),
@@ -645,6 +647,7 @@ type startInstanceParams struct {
 	mongoURL        string
 	stateServer     bool
 	config          *config.Config
+	constraints     state.Constraints
 	stateServerCert []byte
 	stateServerKey  []byte
 
@@ -668,6 +671,7 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 		MachineId:       scfg.machineId,
 		AuthorizedKeys:  e.ecfg().AuthorizedKeys(),
 		Config:          scfg.config,
+		Constraints:     scfg.constraints,
 	}
 	cloudcfg, err := cloudinit.New(cfg)
 	if err != nil {
@@ -754,8 +758,9 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	}
 	log.Infof("environs/openstack: starting machine %s in %q running tools version %q from %q",
 		scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
-	if strings.Contains(scfg.tools.Series, "unknown") || strings.Contains(scfg.tools.Arch, "unknown") {
-		return nil, fmt.Errorf("cannot find image for unknown series or architecture")
+	if strings.Contains(scfg.tools.Series, "unknown") {
+		// TODO(fwereade): this is somewhat crazy.
+		return nil, fmt.Errorf("cannot find image for %q", scfg.tools.Series)
 	}
 	spec, err := findInstanceSpec(e, &instanceConstraint{
 		series: scfg.tools.Series,

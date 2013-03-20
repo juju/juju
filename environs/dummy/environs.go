@@ -428,7 +428,7 @@ func (e *environ) Name() string {
 	return e.state.name
 }
 
-func (e *environ) Bootstrap(cons state.Constraints, uploadTools bool, cert, key []byte) error {
+func (e *environ) Bootstrap(cons state.Constraints, cert, key []byte) error {
 	defer delay()
 	if err := e.checkBroken("Bootstrap"); err != nil {
 		return err
@@ -442,18 +442,13 @@ func (e *environ) Bootstrap(cons state.Constraints, uploadTools bool, cert, key 
 	}
 	var tools *state.Tools
 	var err error
-	if uploadTools {
-		tools, err = environs.PutTools(e.Storage(), nil)
-		if err != nil {
-			return err
-		}
-	} else {
-		flags := environs.HighestVersion | environs.CompatVersion
-		tools, err = environs.FindTools(e, version.Current, flags)
-		if err != nil {
-			return err
-		}
+
+	flags := environs.CompatVersion
+	tools, err = environs.FindTools(e, version.Current, flags)
+	if err != nil {
+		return err
 	}
+
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	e.state.ops <- OpBootstrap{Env: e.state.name, Constraints: cons}
@@ -562,8 +557,8 @@ func (e *environ) StartInstance(machineId string, info *state.Info, apiInfo *api
 	if apiInfo.EntityName != state.MachineEntityName(machineId) {
 		return nil, fmt.Errorf("entity name must match started machine")
 	}
-	if tools != nil && (strings.HasPrefix(tools.Series, "unknown") || strings.HasPrefix(tools.Arch, "unknown")) {
-		return nil, fmt.Errorf("cannot find image for %s-%s", tools.Series, tools.Arch)
+	if tools != nil && (strings.HasPrefix(tools.Series, "unknown")) {
+		return nil, fmt.Errorf("unknown series %q", tools.Series)
 	}
 	i := &instance{
 		state:     e.state,
