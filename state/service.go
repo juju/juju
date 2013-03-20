@@ -713,9 +713,11 @@ func settingsDecRefOps(st *State, serviceName string, curl *charm.URL) ([]txn.Op
 // settingsRefsDoc holds the number of units and services using the
 // settings document identified by the document's id. Every time a
 // service upgrades its charm the settings doc ref count for the new
-// charm url is incremented. When a unit upgrades to the new charm,
-// the old service settings ref count is decremented and the ref count
-// of the new charm settings is incremented.
+// charm url is incremented, and the old settings is ref count is
+// decremented. When a unit upgrades to the new charm, the old service
+// settings ref count is decremented and the ref count of the new
+// charm settings is incremented. The last unit upgrading to the new
+// charm is responsible for deleting the old charm's settings doc.
 //
 // Note: We're not using the settingsDoc for this because changing
 // just the ref count is not considered a change worth reporting
