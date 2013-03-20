@@ -40,10 +40,10 @@ func UploadTools(environ Environ) error {
 	m["default-series"] = tools.Series
 	cfg, err = config.New(m)
 	if err != nil {
-		return fmt.Errorf("cannot create environment configuration with defined version and series: %v", err)
+		return fmt.Errorf("cannot create environment configuration with defined version %q and series %q: %v", tools.Number.String(), tools.Series, err)
 	}
 	if err = environ.SetConfig(cfg); err != nil {
-		return fmt.Errorf("cannot set environment configuration with version and series: %v", err)
+		return fmt.Errorf("cannot set environment configuration with version %q and series %q: %v", tools.Number.String(), tools.Series, err)
 	}
 
 	return nil

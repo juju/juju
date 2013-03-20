@@ -416,6 +416,9 @@ func (e *environ) PublicStorage() environs.StorageReader {
 	return e.publicStorageUnlocked
 }
 
+// TODO(thumper): this code is duplicated in ec2 and openstack.  Ideally we
+// should refactor the tools selection criteria with the version that is in
+// environs. The constraints work will require this refactoring.
 func findTools(env *environ) (*state.Tools, error) {
 	flags := environs.HighestVersion | environs.CompatVersion
 	v := version.Current
