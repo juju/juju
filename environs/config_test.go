@@ -183,23 +183,6 @@ environments:
 	c.Assert(e.Name(), Equals, "only")
 }
 
-// TODO(mue) Handle unset $HOME and $JUJU_HOME status in environs/config.
-// func (suite) TestWriteConfigNoHome(c *C) {
-// 	defer testing.MakeFakeHomeNoEnvironments(c).Restore()
-// 	os.Setenv("HOME", "")
-
-// 	env := `
-// environments:
-//     only:
-//         type: dummy
-//         state-server: false
-//         authorized-keys: i-am-a-key
-// `
-// 	_, err := environs.WriteEnvirons("", env)
-// 	c.Assert(err, NotNil)
-// 	c.Assert(err.Error(), Equals, "$HOME not set")
-// }
-
 func (suite) TestConfigRoundTrip(c *C) {
 	cfg, err := config.New(map[string]interface{}{
 		"name":            "bladaam",
