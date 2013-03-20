@@ -560,7 +560,7 @@ func (e *environ) StartInstance(machineId string, series string, cons constraint
 		return nil, fmt.Errorf("entity name must match started machine")
 	}
 	if strings.HasPrefix(series, "unknown") {
-		return nil, fmt.Errorf("unknown series %q", tools.Series)
+		return nil, fmt.Errorf("unknown series %q", series)
 	}
 	i := &instance{
 		state:     e.state,

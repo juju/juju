@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/version"
 	"strings"
 )
 
@@ -124,7 +125,7 @@ func (t *LiveTests) TestInstanceAttributes(c *C) {
 func (t *LiveTests) TestStartInstanceConstraints(c *C) {
 	cons, err := constraints.Parse("mem=2G")
 	c.Assert(err, IsNil)
-	inst, err := t.Env.StartInstance("31", cons, testing.InvalidStateInfo("31"), testing.InvalidAPIInfo("31"), nil)
+	inst, err := t.Env.StartInstance("31", version.Current.Series, cons, testing.InvalidStateInfo("31"), testing.InvalidAPIInfo("31"))
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst})
 	ec2inst := ec2.InstanceEC2(inst)

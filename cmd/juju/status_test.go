@@ -8,7 +8,6 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"

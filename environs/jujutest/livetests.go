@@ -660,7 +660,7 @@ attempt:
 // Check that we can't start an instance running tools
 // that correspond with no available platform.
 func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
-	inst, err := t.Env.StartInstance("4", "unknownseries", testing.InvalidStateInfo("4"), testing.InvalidAPIInfo("4"))
+	inst, err := t.Env.StartInstance("4", "unknownseries", constraints.Value{}, testing.InvalidStateInfo("4"), testing.InvalidAPIInfo("4"))
 	if inst != nil {
 		err := t.Env.StopInstances([]environs.Instance{inst})
 		c.Check(err, IsNil)
