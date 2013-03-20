@@ -48,7 +48,6 @@ func (a *annotator) SetAnnotations(pairs map[string]string) error {
 	id := a.globalKey
 	coll := a.st.annotations.Name
 	var ops []txn.Op
-
 	if count, err := a.st.annotations.FindId(id).Count(); err != nil {
 		return err
 	} else if count == 0 {
