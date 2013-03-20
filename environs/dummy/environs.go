@@ -428,7 +428,7 @@ func (e *environ) Name() string {
 	return e.state.name
 }
 
-func (e *environ) Bootstrap(cons state.Constraints, uploadTools bool, cert, key []byte) error {
+func (e *environ) Bootstrap(cons state.Constraints, cert, key []byte) error {
 	defer delay()
 	if err := e.checkBroken("Bootstrap"); err != nil {
 		return err
@@ -442,18 +442,13 @@ func (e *environ) Bootstrap(cons state.Constraints, uploadTools bool, cert, key 
 	}
 	var tools *state.Tools
 	var err error
-	if uploadTools {
-		tools, err = environs.PutTools(e.Storage(), nil)
-		if err != nil {
-			return err
-		}
-	} else {
-		flags := environs.HighestVersion | environs.CompatVersion
-		tools, err = environs.FindTools(e, version.Current, flags)
-		if err != nil {
-			return err
-		}
+
+	flags := environs.CompatVersion
+	tools, err = environs.FindTools(e, version.Current, flags)
+	if err != nil {
+		return err
 	}
+
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	e.state.ops <- OpBootstrap{Env: e.state.name, Constraints: cons}
