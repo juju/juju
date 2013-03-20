@@ -22,16 +22,16 @@ func (s *instanceTypeSuite) TearDownSuite(c *C) {
 	s.LoggingSuite.TearDownTest(c)
 }
 
-var instanceTypeData = map[string]float64{
-	"m1.small":    0.060,
-	"m1.medium":   0.120,
-	"m1.large":    0.240,
-	"m1.xlarge":   0.480,
-	"t1.micro":    0.020,
-	"c1.medium":   0.145,
-	"c1.xlarge":   0.580,
-	"cc1.4xlarge": 1.300,
-	"cc2.8xlarge": 2.400,
+var instanceTypeData = map[string]uint64{
+	"m1.small":    60,
+	"m1.medium":   120,
+	"m1.large":    240,
+	"m1.xlarge":   480,
+	"t1.micro":    20,
+	"c1.medium":   145,
+	"c1.xlarge":   580,
+	"cc1.4xlarge": 1300,
+	"cc2.8xlarge": 2400,
 }
 
 var getInstanceTypesTest = []struct {
