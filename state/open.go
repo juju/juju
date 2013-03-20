@@ -214,11 +214,13 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 		relationScopes: db.C("relationscopes"),
 		services:       db.C("services"),
 		settings:       db.C("settings"),
+		settingsrefs:   db.C("settingsrefs"),
 		constraints:    db.C("constraints"),
 		units:          db.C("units"),
 		users:          db.C("users"),
 		presence:       pdb.C("presence"),
 		cleanups:       db.C("cleanups"),
+		annotations:    db.C("annotations"),
 	}
 	log := db.C("txns.log")
 	logInfo := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}

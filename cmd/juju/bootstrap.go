@@ -14,7 +14,7 @@ import (
 type BootstrapCommand struct {
 	EnvCommandBase
 	Constraints constraints.Value
-	UploadTools bool
+	uploadTools bool
 }
 
 func (c *BootstrapCommand) Info() *cmd.Info {
@@ -26,8 +26,8 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 
 func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
-	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "set environment constraints")
-	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
+	f.Var(constraints.ConstraintsValue{&c.constraints}, "constraints", "set environment constraints")
+	f.BoolVar(&c.uploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
 }
 
 // Run connects to the environment specified on the command line and bootstraps
@@ -51,5 +51,11 @@ func (c *BootstrapCommand) Run(context *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	return environs.Bootstrap(environ, c.Constraints, c.UploadTools)
+
+	if c.uploadTools {
+		if err = environs.UploadTools(environ); err != nil {
+			return err
+		}
+	}
+	return environs.Bootstrap(environ, c.constraints)
 }

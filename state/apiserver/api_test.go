@@ -474,6 +474,11 @@ var scenarioStatus = &api.Status{
 	},
 }
 
+// namedEntity represents entities with a name unique to all entities.
+type namedEntity interface {
+	EntityName() string
+}
+
 // setUpScenario makes an environment scenario suitable for
 // testing most kinds of access scenario. It returns
 // a list of all the entities in the scenario.
@@ -510,7 +515,7 @@ var scenarioStatus = &api.Status{
 // environment manager (bootstrap machine), so is
 // hopefully easier to remember as such.
 func (s *suite) setUpScenario(c *C) (entities []string) {
-	add := func(e state.Entity) {
+	add := func(e namedEntity) {
 		entities = append(entities, e.EntityName())
 	}
 	u, err := s.State.User("admin")
@@ -587,17 +592,17 @@ func (s *suite) setUpScenario(c *C) (entities []string) {
 	return
 }
 
-// AuthEntity is the same as state.Entity but
-// without PasswordValid and annotations handling
-// which are implemented by state entities but not
-// by api entities.
-type AuthEntity interface {
-	EntityName() string
+// namedAuthenticator is the same as state.Authenticator but without
+// PasswordValid which is implemented by state entities, not by api
+// entities. It also adds to state.Authenticator the ability to retrieve
+// the entity name.
+type namedAuthenticator interface {
 	SetPassword(pass string) error
 	Refresh() error
+	namedEntity
 }
 
-func setDefaultPassword(c *C, e AuthEntity) {
+func setDefaultPassword(c *C, e namedAuthenticator) {
 	err := e.SetPassword(e.EntityName() + " password")
 	c.Assert(err, IsNil)
 }
@@ -738,6 +743,7 @@ func (s *suite) TestClientEnvironmentInfo(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(info.DefaultSeries, Equals, conf.DefaultSeries())
 	c.Assert(info.ProviderType, Equals, conf.Type())
+	c.Assert(info.Name, Equals, conf.Name())
 }
 
 var clientAnnotationsTests = []struct {
@@ -770,6 +776,13 @@ var clientAnnotationsTests = []struct {
 	},
 }
 
+// namedAnnotator adds to state.Annotator the ability to retrieve the entity
+// name.
+type namedAnnotator interface {
+	state.Annotator
+	namedEntity
+}
+
 func (s *suite) TestClientAnnotations(c *C) {
 	// Set up entities.
 	service, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
@@ -778,7 +791,9 @@ func (s *suite) TestClientAnnotations(c *C) {
 	c.Assert(err, IsNil)
 	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	entities := []state.Entity{service, unit, machine}
+	environment, err := s.State.Environment()
+	c.Assert(err, IsNil)
+	entities := []namedAnnotator{service, unit, machine, environment}
 	for i, t := range clientAnnotationsTests {
 	loop:
 		for _, entity := range entities {
@@ -799,18 +814,16 @@ func (s *suite) TestClientAnnotations(c *C) {
 				c.Assert(err, IsNil)
 			}
 			// Check annotations are correctly set.
-			err := entity.Refresh()
+			dbann, err := entity.Annotations()
 			c.Assert(err, IsNil)
-			c.Assert(entity.Annotations(), DeepEquals, t.expected)
+			c.Assert(dbann, DeepEquals, t.expected)
 			// Retrieve annotations using the API call.
 			ann, err := s.APIState.Client().GetAnnotations(id)
 			c.Assert(err, IsNil)
 			// Check annotations are correctly returned.
-			err = entity.Refresh()
-			c.Assert(err, IsNil)
-			c.Assert(ann, DeepEquals, entity.Annotations())
+			c.Assert(ann, DeepEquals, dbann)
 			// Clean up annotations on the current entity.
-			for key := range entity.Annotations() {
+			for key := range dbann {
 				err = entity.SetAnnotation(key, "")
 				c.Assert(err, IsNil)
 			}
