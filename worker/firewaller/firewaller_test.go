@@ -2,11 +2,11 @@ package firewaller_test
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/firewaller"

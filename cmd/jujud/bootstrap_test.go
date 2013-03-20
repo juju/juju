@@ -4,8 +4,8 @@ import (
 	"encoding/base64"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
-	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 )

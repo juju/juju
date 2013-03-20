@@ -3,8 +3,8 @@ package ec2
 import (
 	"fmt"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/testing"
 	"strings"
 )
