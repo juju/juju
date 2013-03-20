@@ -573,7 +573,7 @@ func (s *Service) removeUnitOps(u *Unit) ([]txn.Op, error) {
 	} else {
 		svcOp.Assert = D{{"life", Dying}, {"unitcount", D{{"$gt", 1}}}}
 	}
-	return append(ops, svcOp, annotationRemoveOp(s.st, u.globalKey()))
+	return append(ops, svcOp, annotationRemoveOp(s.st, u.globalKey())), nil
 }
 
 // Unit returns the service's unit with name.
