@@ -236,7 +236,18 @@ func (e *environ) PublicStorage() environs.StorageReader {
 	return e.publicStorageUnlocked
 }
 
-func (e *environ) Bootstrap(cons state.Constraints, uploadTools bool, cert, key []byte) error {
+// TODO(thumper): this code is duplicated in ec2 and openstack.  Ideally we
+// should refactor the tools selection criteria with the version that is in
+// environs. The constraints work will require this refactoring.
+func findTools(env *environ) (*state.Tools, error) {
+	flags := environs.HighestVersion | environs.CompatVersion
+	v := version.Current
+	v.Series = env.Config().DefaultSeries()
+	// TODO: set Arch based on constraints (when they are landed)
+	return environs.FindTools(env, v, flags)
+}
+
+func (e *environ) Bootstrap(cons state.Constraints, cert, key []byte) error {
 	// TODO(fwereade): handle bootstrap constraints
 	password := e.Config().AdminSecret()
 	if password == "" {
@@ -259,21 +270,12 @@ func (e *environ) Bootstrap(cons state.Constraints, uploadTools bool, cert, key 
 	if _, notFound := err.(*environs.NotFoundError); !notFound {
 		return fmt.Errorf("cannot query old bootstrap state: %v", err)
 	}
-	var tools *state.Tools
-	if uploadTools {
-		tools, err = environs.PutTools(e.Storage(), nil)
-		if err != nil {
-			return fmt.Errorf("cannot upload tools: %v", err)
-		}
-	} else {
-		flags := environs.HighestVersion | environs.CompatVersion
-		v := version.Current
-		v.Series = e.Config().DefaultSeries()
-		tools, err = environs.FindTools(e, v, flags)
-		if err != nil {
-			return fmt.Errorf("cannot find tools: %v", err)
-		}
+
+	tools, err := findTools(e)
+	if err != nil {
+		return fmt.Errorf("cannot find tools: %v", err)
 	}
+
 	config, err := environs.BootstrapConfig(providerInstance, e.Config(), tools)
 	if err != nil {
 		return fmt.Errorf("unable to determine inital configuration: %v", err)
