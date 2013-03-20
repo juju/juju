@@ -38,6 +38,16 @@ func mustNewConfig(m map[string]interface{}) *config.Config {
 	return cfg
 }
 
+var envConstraints = mustParseConstraints("mem=2G")
+
+func mustParseConstraints(s string) state.Constraints {
+	cons, err := state.ParseConstraints(s)
+	if err != nil {
+		panic(err)
+	}
+	return cons
+}
+
 type cloudinitTest struct {
 	cfg           cloudinit.MachineConfig
 	expectScripts string
@@ -64,8 +74,9 @@ var cloudinitTests = []cloudinitTest{{
 			Password: "bletch",
 			CACert:   []byte("CA CERT\n" + testing.CACert),
 		},
-		Config:  envConfig,
-		DataDir: "/var/lib/juju",
+		Config:      envConfig,
+		Constraints: envConstraints,
+		DataDir:     "/var/lib/juju",
 	},
 	expectScripts: `
 mkdir -p /var/lib/juju
@@ -87,7 +98,7 @@ start juju-db
 mkdir -p '/var/lib/juju/agents/bootstrap'
 echo 'datadir: /var/lib/juju\\nstateservercert:\\n[^']+stateserverkey:\\n[^']+mongoport: 37017\\napiport: 17070\\noldpassword: arble\\nstateinfo:\\n  addrs:\\n  - localhost:37017\\n  cacert:\\n[^']+  entityname: bootstrap\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - localhost:17070\\n  cacert:\\n[^']+  entityname: bootstrap\\n  password: ""\\n' > '/var/lib/juju/agents/bootstrap/agent\.conf'
 chmod 600 '/var/lib/juju/agents/bootstrap/agent\.conf'
-/var/lib/juju/tools/1\.2\.3-linux-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --debug
+/var/lib/juju/tools/1\.2\.3-linux-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --constraints 'mem=2048M' --debug
 rm -rf '/var/lib/juju/agents/bootstrap'
 mkdir -p '/var/lib/juju/agents/machine-0'
 echo 'datadir: /var/lib/juju\\nstateservercert:\\n[^']+stateserverkey:\\n[^']+mongoport: 37017\\napiport: 17070\\noldpassword: arble\\nstateinfo:\\n  addrs:\\n  - localhost:37017\\n  cacert:\\n[^']+  entityname: machine-0\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - localhost:17070\\n  cacert:\\n[^']+  entityname: machine-0\\n  password: ""\\n' > '/var/lib/juju/agents/machine-0/agent\.conf'
