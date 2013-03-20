@@ -136,8 +136,8 @@ var operationPermTests = []struct {
 	op:    opClientServiceDestroy,
 	allow: []string{"user-admin", "user-other"},
 }, {
-	about: "Client.SetConstraints",
-	op:    opClientSetConstraints,
+	about: "Client.SetServiceConstraints",
+	op:    opClientSetServiceConstraints,
 	allow: []string{"user-admin", "user-other"},
 }, {
 	about: "Client.WatchAll",
@@ -438,11 +438,11 @@ func opClientServiceDestroy(c *C, st *api.State, mst *state.State) (func(), erro
 	return func() {}, nil
 }
 
-func opClientSetConstraints(c *C, st *api.State, mst *state.State) (func(), error) {
+func opClientSetServiceConstraints(c *C, st *api.State, mst *state.State) (func(), error) {
 	// This test only checks that the call is made without error, ensuring the
 	// signatures match.
 	constraints := constraints.Value{}
-	err := st.Client().SetConstraints("wordpress", constraints)
+	err := st.Client().SetServiceConstraints("wordpress", constraints)
 	if err != nil {
 		return func() {}, err
 	}

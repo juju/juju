@@ -157,13 +157,13 @@ func (c *Client) ServiceDestroy(service string) error {
 	return clientError(c.st.client.Call("Client", "", "ServiceDestroy", params, nil))
 }
 
-// SetConstraints specifies the constraints for the given service.
-func (c *Client) SetConstraints(service string, constraints constraints.Value) error {
-	params := params.SetConstraints{
+// SetServiceConstraints specifies the constraints for the given service.
+func (c *Client) SetServiceConstraints(service string, constraints constraints.Value) error {
+	params := params.SetServiceConstraints{
 		ServiceName: service,
 		Constraints: constraints,
 	}
-	return clientError(c.st.client.Call("Client", "", "SetConstraints", params, nil))
+	return clientError(c.st.client.Call("Client", "", "SetServiceConstraints", params, nil))
 }
 
 // CharmInfo holds information about a charm.

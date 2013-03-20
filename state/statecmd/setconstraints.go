@@ -8,8 +8,8 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 )
 
-// SetContstraints sets the constraints for a given service
-func SetConstraints(st *state.State, args params.SetConstraints) error {
+// SetServiceContstraints sets the constraints for a given service
+func SetServiceConstraints(st *state.State, args params.SetServiceConstraints) error {
 	conn, err := juju.NewConnFromState(st)
 	if err != nil {
 		return err
