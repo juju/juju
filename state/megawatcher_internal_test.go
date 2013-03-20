@@ -985,8 +985,8 @@ func (s *allWatcherStateSuite) TestStateBackingFetch(c *C) {
 	testBackingFetch(c, b1)
 }
 
-//TestStateWatcher tests the integration of the state watcher
-// wiwith the state-based backing. Most of the logic is tested elsewhere -
+// TestStateWatcher tests the integration of the state watcher
+// with the state-based backing. Most of the logic is tested elsewhere -
 // this just tests end-to-end.
 func (s *allWatcherStateSuite) TestStateWatcher(c *C) {
 	m0, err := s.State.AddMachine("series", JobManageEnviron)
