@@ -30,20 +30,18 @@ type serviceDoc struct {
 	RelationCount int
 	Exposed       bool
 	TxnRevno      int64 `bson:"txn-revno"`
-	Annotations   map[string]string
 }
 
 func newService(st *State, doc *serviceDoc) *Service {
 	svc := &Service{
 		st:  st,
 		doc: *doc,
-		annotator: annotator{
-			st:   st,
-			coll: st.services.Name,
-			id:   doc.Name,
-		},
 	}
-	svc.annotator.annotations = &svc.doc.Annotations
+	svc.annotator = annotator{
+		globalKey:  svc.globalKey(),
+		entityName: svc.EntityName(),
+		st:         st,
+	}
 	return svc
 }
 
@@ -57,23 +55,6 @@ func (s *Service) Name() string {
 // EntityName values returned by any other entities from the same state.
 func (s *Service) EntityName() string {
 	return "service-" + s.Name()
-}
-
-// PasswordValid currently just returns false. Implemented here so that
-// a service can be used as an Entity.
-func (s *Service) PasswordValid(password string) bool {
-	return false
-}
-
-// SetPassword currently just returns an error. Implemented here so that
-// a service can be used as an Entity.
-func (s *Service) SetPassword(password string) error {
-	return fmt.Errorf("cannot set password of service")
-}
-
-// Annotations returns the service annotations.
-func (s *Service) Annotations() map[string]string {
-	return s.doc.Annotations
 }
 
 // globalKey returns the global database key for the service.
@@ -209,7 +190,7 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 // removeOps returns the operations required to remove the service. Supplied
 // asserts will be included in the operation on the service document.
 func (s *Service) removeOps(asserts D) []txn.Op {
-	return []txn.Op{{
+	ops := []txn.Op{{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
 		Assert: asserts,
@@ -227,6 +208,7 @@ func (s *Service) removeOps(asserts D) []txn.Op {
 		Id:     s.settingsKey(),
 		Remove: true,
 	}}
+	return append(ops, annotationRemoveOp(s.st, s.globalKey()))
 }
 
 // IsExposed returns whether this service is exposed. The explicitly open
@@ -591,7 +573,7 @@ func (s *Service) removeUnitOps(u *Unit) ([]txn.Op, error) {
 	} else {
 		svcOp.Assert = D{{"life", Dying}, {"unitcount", D{{"$gt", 1}}}}
 	}
-	return append(ops, svcOp), nil
+	return append(ops, svcOp, annotationRemoveOp(s.st, u.globalKey())), nil
 }
 
 // Unit returns the service's unit with name.

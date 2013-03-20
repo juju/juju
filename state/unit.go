@@ -86,7 +86,6 @@ type unitDoc struct {
 	StatusInfo     string
 	TxnRevno       int64 `bson:"txn-revno"`
 	PasswordHash   string
-	Annotations    map[string]string
 }
 
 // Unit represents the state of a service unit.
@@ -100,13 +99,12 @@ func newUnit(st *State, udoc *unitDoc) *Unit {
 	unit := &Unit{
 		st:  st,
 		doc: *udoc,
-		annotator: annotator{
-			st:   st,
-			coll: st.units.Name,
-			id:   udoc.Name,
-		},
 	}
-	unit.annotator.annotations = &unit.doc.Annotations
+	unit.annotator = annotator{
+		globalKey:  unit.globalKey(),
+		entityName: unit.EntityName(),
+		st:         st,
+	}
 	return unit
 }
 
@@ -153,11 +151,6 @@ func (u *Unit) String() string {
 // Name returns the unit name.
 func (u *Unit) Name() string {
 	return u.doc.Name
-}
-
-// Annotations returns the unit annotations.
-func (u *Unit) Annotations() map[string]string {
-	return u.doc.Annotations
 }
 
 // globalKey returns the global database key for the unit.
