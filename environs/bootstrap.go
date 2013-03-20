@@ -3,19 +3,14 @@ package environs
 import (
 	"fmt"
 	"launchpad.net/juju-core/cert"
+	"launchpad.net/juju-core/state"
 	"time"
 )
 
-// Bootstrap bootstraps the given environment.  If the environment does
-// not contain a CA certificate, a new certificate and key pair are
-// generated, added to the environment configuration, and writeCertAndKey
-// will be called to save them.  If writeCertFile is nil, the generated
-// certificate and key will be saved to ~/.juju/<environ-name>-cert.pem
-// and ~/.juju/<environ-name>-private-key.pem.
-//
-// If uploadTools is true, the current version of the juju tools will be
-// uploaded, as documented in Environ.Bootstrap.
-func Bootstrap(environ Environ, uploadTools bool) error {
+// Bootstrap bootstraps the given environment. The supplied constraints are
+// used to provision the instance, and are also set within the bootstrapped
+// environment.
+func Bootstrap(environ Environ, cons state.Constraints) error {
 	cfg := environ.Config()
 	caCert, hasCACert := cfg.CACert()
 	caKey, hasCAKey := cfg.CAPrivateKey()
@@ -31,5 +26,5 @@ func Bootstrap(environ Environ, uploadTools bool) error {
 	if err != nil {
 		return fmt.Errorf("cannot generate bootstrap certificate: %v", err)
 	}
-	return environ.Bootstrap(uploadTools, cert, key)
+	return environ.Bootstrap(cons, cert, key)
 }

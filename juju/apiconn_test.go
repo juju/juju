@@ -5,6 +5,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 )
 
@@ -32,7 +33,7 @@ func (*NewAPIConnSuite) TestNewConn(c *C) {
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
-	err = environs.Bootstrap(env, false)
+	err = environs.Bootstrap(env, state.Constraints{})
 	c.Assert(err, IsNil)
 
 	conn, err := juju.NewConn(env)

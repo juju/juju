@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
+	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/testing"
@@ -47,6 +48,13 @@ func (s *MetaSuite) TestReadMetaVersion2(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(meta.Name, Equals, "format2")
 	c.Assert(meta.Format, Equals, 2)
+	c.Assert(meta.Categories, HasLen, 0)
+}
+
+func (s *MetaSuite) TestReadCategory(c *C) {
+	meta, err := charm.ReadMeta(repoMeta("category"))
+	c.Assert(err, IsNil)
+	c.Assert(meta.Categories, DeepEquals, []string{"database"})
 }
 
 func (s *MetaSuite) TestSubordinate(c *C) {
@@ -254,4 +262,56 @@ func (s *MetaSuite) TestMetaHooks(c *C) {
 		"url-relation-broken":           true,
 	}
 	c.Assert(hooks, DeepEquals, expectedHooks)
+}
+
+func (s *MetaSuite) TestBSONRoundTripEmpty(c *C) {
+	var empty_input = charm.Meta{}
+	data, err := bson.Marshal(empty_input)
+	c.Assert(err, IsNil)
+	var empty_output charm.Meta
+	err = bson.Unmarshal(data, &empty_output)
+	c.Assert(err, IsNil)
+	c.Assert(empty_input, DeepEquals, empty_output)
+}
+
+func (s *MetaSuite) TestBSONRoundTrip(c *C) {
+	var input = charm.Meta{
+		Name:        "Foo",
+		Summary:     "Bar",
+		Description: "Baz",
+		Subordinate: true,
+		Provides: map[string]charm.Relation{
+			"qux": {
+				Interface: "quxx",
+				Optional:  true,
+				Limit:     42,
+				Scope:     "quxxx",
+			},
+		},
+		Requires: map[string]charm.Relation{
+			"qux": {
+				Interface: "quxx",
+				Optional:  true,
+				Limit:     42,
+				Scope:     "quxxx",
+			},
+		},
+		Peers: map[string]charm.Relation{
+			"qux": {
+				Interface: "quxx",
+				Optional:  true,
+				Limit:     42,
+				Scope:     "quxxx",
+			},
+		},
+		Categories:  []string{"quxxxx", "quxxxxx"},
+		Format:      10,
+		OldRevision: 11,
+	}
+	data, err := bson.Marshal(input)
+	c.Assert(err, IsNil)
+	var output charm.Meta
+	err = bson.Unmarshal(data, &output)
+	c.Assert(err, IsNil)
+	c.Assert(input, DeepEquals, output)
 }
