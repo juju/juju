@@ -134,18 +134,6 @@ type localLiveSuite struct {
 	srv localServer
 }
 
-// localServerSuite contains tests that run against an Openstack service double.
-// These tests can test things that would be unreasonably slow or expensive
-// to test on a live Openstack server. The service double is started and stopped for
-// each test.
-type localServerSuite struct {
-	coretesting.LoggingSuite
-	jujutest.Tests
-	cred *identity.Credentials
-	srv  localServer
-	env  environs.Environ
-}
-
 func (s *localLiveSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
 	c.Logf("Running live tests using openstack service test double")
@@ -170,6 +158,18 @@ func (s *localLiveSuite) SetUpTest(c *C) {
 func (s *localLiveSuite) TearDownTest(c *C) {
 	s.LiveTests.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
+}
+
+// localServerSuite contains tests that run against an Openstack service double.
+// These tests can test things that would be unreasonably slow or expensive
+// to test on a live Openstack server. The service double is started and stopped for
+// each test.
+type localServerSuite struct {
+	coretesting.LoggingSuite
+	jujutest.Tests
+	cred *identity.Credentials
+	srv  localServer
+	env  environs.Environ
 }
 
 func (s *localServerSuite) SetUpSuite(c *C) {
@@ -216,7 +216,7 @@ func (s *localServerSuite) TearDownTest(c *C) {
 
 // If the bootstrap node is configured to require a public IP address,
 // bootstrapping fails if an address cannot be allocated.
-func (s *localLiveSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
+func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
 	cleanup := s.srv.Service.Nova.RegisterControlPoint(
 		"addFloatingIP",
 		func(sc hook.ServiceControl, args ...interface{}) error {
@@ -236,7 +236,7 @@ func (s *localLiveSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
 		err = environs.UploadTools(env)
 		c.Assert(err, IsNil)
 	}
-	err = environs.Bootstrap(env)
+	err = environs.Bootstrap(env, state.Constraints{})
 	c.Assert(err, ErrorMatches, ".*cannot allocate a public IP as needed.*")
 }
 
@@ -258,7 +258,7 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *C) {
 		},
 	)
 	defer cleanup()
-	err := environs.Bootstrap(s.Env)
+	err := environs.Bootstrap(s.Env, state.Constraints{})
 	c.Assert(err, IsNil)
 	inst, err := s.Env.StartInstance("100", testing.InvalidStateInfo("100"), testing.InvalidAPIInfo("100"), nil)
 	c.Assert(err, IsNil)
@@ -359,7 +359,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	policy := t.env.AssignmentPolicy()
 	c.Assert(policy, Equals, state.AssignUnused)
 
-	err := environs.Bootstrap(t.env)
+	err := environs.Bootstrap(t.env, state.Constraints{})
 	c.Assert(err, IsNil)
 
 	// check that the state holds the id of the bootstrap machine.

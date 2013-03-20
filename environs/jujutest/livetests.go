@@ -85,7 +85,7 @@ func (t *LiveTests) BootstrapOnce(c *C) {
 		err := environs.UploadTools(t.Env)
 		c.Assert(err, IsNil)
 	}
-	err := environs.Bootstrap(t.Env)
+	err := environs.Bootstrap(t.Env, state.Constraints{})
 	c.Assert(err, IsNil)
 	t.bootstrapped = true
 }
@@ -305,7 +305,7 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 func (t *LiveTests) TestBootstrapMultiple(c *C) {
 	t.BootstrapOnce(c)
 
-	err := environs.Bootstrap(t.Env)
+	err := environs.Bootstrap(t.Env, state.Constraints{})
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	c.Logf("destroy env")
@@ -735,7 +735,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
 	err = storageCopy(dummyStorage, currentPath, envStorage, otherPath)
 	c.Assert(err, IsNil)
 
-	err = environs.Bootstrap(env)
+	err = environs.Bootstrap(env, state.Constraints{})
 	c.Assert(err, IsNil)
 	defer env.Destroy(nil)
 

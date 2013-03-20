@@ -127,7 +127,7 @@ amazon:
 }
 
 func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	log.Printf("environs/ec2: opening environment %q", cfg.Name())
+	log.Infof("environs/ec2: opening environment %q", cfg.Name())
 	e := new(environ)
 	err := e.SetConfig(cfg)
 	if err != nil {
@@ -244,12 +244,13 @@ func findTools(env *environ) (*state.Tools, error) {
 	return environs.FindTools(env, v, flags)
 }
 
-func (e *environ) Bootstrap(cert, key []byte) error {
+func (e *environ) Bootstrap(cons state.Constraints, cert, key []byte) error {
+	// TODO(fwereade): handle bootstrap constraints
 	password := e.Config().AdminSecret()
 	if password == "" {
 		return fmt.Errorf("admin-secret is required for bootstrap")
 	}
-	log.Printf("environs/ec2: bootstrapping environment %q", e.name)
+	log.Infof("environs/ec2: bootstrapping environment %q", e.name)
 	// If the state file exists, it might actually have just been
 	// removed by Destroy, and eventual consistency has not caught
 	// up yet, so we retry to verify if that is happening.
@@ -335,7 +336,7 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 	var apiAddrs []string
 	// Wait for the DNS names of any of the instances
 	// to become available.
-	log.Printf("environs/ec2: waiting for DNS name(s) of state server instances %v", st.StateInstances)
+	log.Infof("environs/ec2: waiting for DNS name(s) of state server instances %v", st.StateInstances)
 	for a := longAttempt.Start(); len(stateAddrs) == 0 && a.Next(); {
 		insts, err := e.Instances(st.StateInstances)
 		if err != nil && err != environs.ErrPartialInstances {
@@ -431,7 +432,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 			return nil, err
 		}
 	}
-	log.Printf("environs/ec2: starting machine %s in %q running tools version %q from %q", scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
+	log.Infof("environs/ec2: starting machine %s in %q running tools version %q from %q", scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
 	spec, err := findInstanceSpec(&instanceConstraint{
 		series: scfg.tools.Series,
 		arch:   scfg.tools.Arch,
@@ -471,7 +472,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 		return nil, fmt.Errorf("expected 1 started instance, got %d", len(instances.Instances))
 	}
 	inst := &instance{e, &instances.Instances[0]}
-	log.Printf("environs/ec2: started instance %q", inst.Id())
+	log.Infof("environs/ec2: started instance %q", inst.Id())
 	return inst, nil
 }
 
@@ -577,7 +578,7 @@ func (e *environ) AllInstances() ([]environs.Instance, error) {
 }
 
 func (e *environ) Destroy(ensureInsts []environs.Instance) error {
-	log.Printf("environs/ec2: destroying environment %q", e.name)
+	log.Infof("environs/ec2: destroying environment %q", e.name)
 	insts, err := e.AllInstances()
 	if err != nil {
 		return fmt.Errorf("cannot get instances: %v", err)
@@ -679,7 +680,7 @@ func (e *environ) portsInGroup(name string) (ports []state.Port, err error) {
 	}
 	for _, p := range resp.Groups[0].IPPerms {
 		if len(p.SourceIPs) != 1 {
-			log.Printf("environs/ec2: unexpected IP permission found: %v", p)
+			log.Warningf("environs/ec2: unexpected IP permission found: %v", p)
 			continue
 		}
 		for i := p.FromPort; i <= p.ToPort; i++ {
@@ -701,7 +702,7 @@ func (e *environ) OpenPorts(ports []state.Port) error {
 	if err := e.openPortsInGroup(e.globalGroupName(), ports); err != nil {
 		return err
 	}
-	log.Printf("environs/ec2: opened ports in global group: %v", ports)
+	log.Infof("environs/ec2: opened ports in global group: %v", ports)
 	return nil
 }
 
@@ -713,7 +714,7 @@ func (e *environ) ClosePorts(ports []state.Port) error {
 	if err := e.closePortsInGroup(e.globalGroupName(), ports); err != nil {
 		return err
 	}
-	log.Printf("environs/ec2: closed ports in global group: %v", ports)
+	log.Infof("environs/ec2: closed ports in global group: %v", ports)
 	return nil
 }
 
@@ -785,7 +786,7 @@ func (inst *instance) OpenPorts(machineId string, ports []state.Port) error {
 	if err := inst.e.openPortsInGroup(name, ports); err != nil {
 		return err
 	}
-	log.Printf("environs/ec2: opened ports in security group %s: %v", name, ports)
+	log.Infof("environs/ec2: opened ports in security group %s: %v", name, ports)
 	return nil
 }
 
@@ -798,7 +799,7 @@ func (inst *instance) ClosePorts(machineId string, ports []state.Port) error {
 	if err := inst.e.closePortsInGroup(name, ports); err != nil {
 		return err
 	}
-	log.Printf("environs/ec2: closed ports in security group %s: %v", name, ports)
+	log.Infof("environs/ec2: closed ports in security group %s: %v", name, ports)
 	return nil
 }
 
