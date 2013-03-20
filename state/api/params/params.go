@@ -6,6 +6,12 @@ import (
 	"fmt"
 )
 
+// AddRelation holds the parameters for making the AddRelation call.
+// The endpoints specified are unordered.
+type AddRelation struct {
+	Endpoints []string
+}
+
 // DestroyRelation holds the parameters for making the DestroyRelation call.
 // The endpoints specified are unordered.
 type DestroyRelation struct {
