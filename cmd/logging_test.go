@@ -38,25 +38,25 @@ func (s *LogSuite) TestStart(c *C) {
 		path    string
 		verbose bool
 		debug   bool
-		check   []interface{}
+		check   Checker
 	}{
-		{"", true, true, []interface{}{NotNil}},
-		{"", true, false, []interface{}{NotNil}},
-		{"", false, true, []interface{}{NotNil}},
-		{"", false, false, []interface{}{Equals, log.NilLogger}},
-		{"foo", true, true, []interface{}{NotNil}},
-		{"foo", true, false, []interface{}{NotNil}},
-		{"foo", false, true, []interface{}{NotNil}},
-		{"foo", false, false, []interface{}{NotNil}},
+		{"", true, true, NotNil},
+		{"", true, false, NotNil},
+		{"", false, true, NotNil},
+		{"", false, false, IsNil},
+		{"foo", true, true, NotNil},
+		{"foo", true, false, NotNil},
+		{"foo", false, true, NotNil},
+		{"foo", false, false, NotNil},
 	} {
-		// commands always start with the log target set to NilLogger
-		log.SetTarget(log.NilLogger)
+		// commands always start with the log target set to its zero value.
+		log.SetTarget(nil)
 
 		l := &cmd.Log{Prefix: "test", Path: t.path, Verbose: t.verbose, Debug: t.debug}
 		ctx := testing.Context(c)
 		err := l.Start(ctx)
 		c.Assert(err, IsNil)
-		c.Assert(log.Target(), t.check[0].(Checker), t.check[1:]...)
+		c.Assert(log.Target(), t.check)
 		c.Assert(log.Debug, Equals, t.debug)
 	}
 }
