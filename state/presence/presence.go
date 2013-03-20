@@ -366,7 +366,7 @@ func (w *Watcher) sync() error {
 				}
 				err := w.beings.Find(bson.D{{"_id", seq}}).One(&being)
 				if err == mgo.ErrNotFound {
-					log.Printf("state/presence: found seq=%d unowned", seq)
+					log.Debugf("state/presence: found seq=%d unowned", seq)
 					continue
 				} else if err != nil {
 					return err
@@ -634,7 +634,7 @@ func fakeTimeSlot(offset int) {
 	}
 	fakeOffset = offset
 	fakeMutex.Unlock()
-	log.Printf("state/presence: Faking presence to time slot %d", offset)
+	log.Infof("state/presence: Faking presence to time slot %d", offset)
 }
 
 // realTimeSlot disables the hardcoding introduced by fakeTimeSlot.
@@ -643,7 +643,7 @@ func realTimeSlot() {
 	fakeNow = time.Time{}
 	fakeOffset = 0
 	fakeMutex.Unlock()
-	log.Printf("state/presence: Not faking presence time. Real time slot in use.")
+	log.Infof("state/presence: Not faking presence time. Real time slot in use.")
 }
 
 func seqsC(base *mgo.Collection) *mgo.Collection {

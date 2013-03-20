@@ -88,15 +88,17 @@ func UseTestImageData(content []jujutest.FileContent) {
 	}
 }
 
-var TestInstanceTypeContent = map[string]float64{
-	"m1.small":  0.060,
-	"m1.medium": 0.120,
-	"m1.large":  0.240,
-	"m1.xlarge": 0.480,
-	"t1.micro":  0.020,
+// TestInstanceTypeContent holds the cost in USDe-3/hour for each of the
+// few available instance types in  the convenient fictional "test" region.
+var TestInstanceTypeContent = map[string]uint64{
+	"m1.small":  60,
+	"m1.medium": 120,
+	"m1.large":  240,
+	"m1.xlarge": 480,
+	"t1.micro":  020,
 }
 
-func UseTestInstanceTypeData(content map[string]float64) {
+func UseTestInstanceTypeData(content map[string]uint64) {
 	if content != nil {
 		allRegionCosts["test"] = content
 	} else {

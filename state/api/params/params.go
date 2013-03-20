@@ -6,6 +6,12 @@ import (
 	"fmt"
 )
 
+// DestroyRelation holds the parameters for making the DestroyRelation call.
+// The endpoints specified are unordered.
+type DestroyRelation struct {
+	Endpoints []string
+}
+
 // ServiceDeploy holds the parameters for making the ServiceDeploy call.
 type ServiceDeploy struct {
 	ServiceName string
@@ -65,10 +71,15 @@ type ResolvedResults struct {
 	Settings map[string]interface{}
 }
 
-// ServiceAddUnits holds parameters for the AddUnits call.
-type ServiceAddUnits struct {
+// AddServiceUnits holds parameters for the AddUnits call.
+type AddServiceUnits struct {
 	ServiceName string
 	NumUnits    int
+}
+
+// DestroyServiceUnits holds parameters for the DestroyUnits call.
+type DestroyServiceUnits struct {
+	UnitNames []string
 }
 
 // ServiceDestroy holds the parameters for making the ServiceDestroy call.
