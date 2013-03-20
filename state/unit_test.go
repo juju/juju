@@ -198,7 +198,7 @@ func (s *UnitSuite) TestSetMongoPassword(c *C) {
 }
 
 func (s *UnitSuite) TestSetPassword(c *C) {
-	testSetPassword(c, func() (state.Entity, error) {
+	testSetPassword(c, func() (state.Authenticator, error) {
 		return s.State.Unit(s.unit.Name())
 	})
 }
@@ -722,7 +722,19 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 }
 
 func (s *UnitSuite) TestAnnotatorForUnit(c *C) {
-	testAnnotator(c, func() (annotator, error) {
+	testAnnotator(c, func() (state.Annotator, error) {
 		return s.State.Unit("wordpress/0")
 	})
+}
+
+func (s *UnitSuite) TestAnnotationRemovalForUnit(c *C) {
+	err := s.unit.SetAnnotation("mykey", "myvalue")
+	c.Assert(err, IsNil)
+	err = s.unit.EnsureDead()
+	c.Assert(err, IsNil)
+	err = s.unit.Remove()
+	c.Assert(err, IsNil)
+	ann, err := s.unit.Annotations()
+	c.Assert(err, IsNil)
+	c.Assert(ann, DeepEquals, make(map[string]string))
 }

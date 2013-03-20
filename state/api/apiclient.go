@@ -179,6 +179,7 @@ func (c *Client) CharmInfo(charmURL string) (*CharmInfo, error) {
 type EnvironmentInfo struct {
 	DefaultSeries string
 	ProviderType  string
+	Name          string
 }
 
 // EnvironmentInfo returns details about the Juju environment.
