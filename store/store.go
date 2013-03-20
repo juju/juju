@@ -286,12 +286,12 @@ type CounterRequest struct {
 	// matching data points in a single entry.
 	By CounterRequestBy
 
-	// If Start is provided, only data points that occurred at
-	// the given time or afterwards are considered.
+	// Start, if provided, changes the query so that only data points
+	// ocurring at the given time or afterwards are considered.
 	Start time.Time
 
-	// If Stop is provided, only data points that occurred at
-	// the given time or before are considered.
+	// Stop, if provided, changes the query so that only data points
+	// ocurring at the given time or before are considered.
 	Stop time.Time
 }
 
