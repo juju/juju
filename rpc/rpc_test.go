@@ -475,7 +475,6 @@ func newRPCClientServer(c *C, root interface{}, tfErr func(error) error) (client
 
 	l, err := net.Listen("tcp", ":0")
 	c.Assert(err, IsNil)
-	defer l.Close()
 
 	srvDone := make(chan error, 1)
 	go func() {
@@ -484,6 +483,7 @@ func newRPCClientServer(c *C, root interface{}, tfErr func(error) error) (client
 			srvDone <- err
 			return
 		}
+		defer l.Close()
 		err = srv.ServeCodec(NewJSONServerCodec(conn), root)
 		c.Logf("server status: %v", err)
 		srvDone <- err
