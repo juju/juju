@@ -96,7 +96,7 @@ func (c *SetConstraintsCommand) Init(args []string) (err error) {
 	if c.ServiceName != "" && !state.IsServiceName(c.ServiceName) {
 		return fmt.Errorf("invalid service name %q", c.ServiceName)
 	}
-	c.Constraints, err = constraints.ParseConstraints(args...)
+	c.Constraints, err = constraints.Parse(args...)
 	return err
 }
 

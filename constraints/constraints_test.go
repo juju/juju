@@ -184,14 +184,14 @@ var parseConstraintsTests = []struct {
 func (s *ConstraintsSuite) TestParseConstraints(c *C) {
 	for i, t := range parseConstraintsTests {
 		c.Logf("test %d: %s", i, t.summary)
-		cons0, err := constraints.ParseConstraints(t.args...)
+		cons0, err := constraints.Parse(t.args...)
 		if t.err == "" {
 			c.Assert(err, IsNil)
 		} else {
 			c.Assert(err, ErrorMatches, t.err)
 			continue
 		}
-		cons1, err := constraints.ParseConstraints(cons0.String())
+		cons1, err := constraints.Parse(cons0.String())
 		c.Assert(err, IsNil)
 		c.Assert(cons1, DeepEquals, cons0)
 	}
@@ -226,8 +226,8 @@ var constraintsRoundtripTests = []constraints.Value{
 func (s *ConstraintsSuite) TestRoundtripGnuflagValue(c *C) {
 	for i, t := range constraintsRoundtripTests {
 		c.Logf("test %d", i)
-		var cons state.Constraints
-		val := state.ConstraintsValue{&cons}
+		var cons constraints.Value
+		val := constraints.ConstraintsValue{&cons}
 		err := val.Set(t.String())
 		c.Assert(err, IsNil)
 		c.Assert(cons, DeepEquals, t)
@@ -237,7 +237,7 @@ func (s *ConstraintsSuite) TestRoundtripGnuflagValue(c *C) {
 func (s *ConstraintsSuite) TestRoundtripString(c *C) {
 	for i, t := range constraintsRoundtripTests {
 		c.Logf("test %d", i)
-		cons, err := constraints.ParseConstraints(t.String())
+		cons, err := constraints.Parse(t.String())
 		c.Assert(err, IsNil)
 		c.Assert(cons, DeepEquals, t)
 	}

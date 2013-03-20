@@ -60,10 +60,10 @@ func uintStr(i uint64) string {
 	return fmt.Sprintf("%d", i)
 }
 
-// ParseConstraints constructs a constraint.Value from the supplied arguments,
+// Parse constructs a constraint.Value from the supplied arguments,
 // each of which must contain only spaces and name=value pairs. If any
 // name is specified more than once, an error is returned.
-func ParseConstraints(args ...string) (Value, error) {
+func Parse(args ...string) (Value, error) {
 	cons := Value{}
 	for _, arg := range args {
 		raws := strings.Split(strings.TrimSpace(arg), " ")
@@ -81,11 +81,11 @@ func ParseConstraints(args ...string) (Value, error) {
 
 // Constraints implements gnuflag.Value for a Constraints.
 type ConstraintsValue struct {
-	Target *Constraints
+	Target *Value
 }
 
 func (v ConstraintsValue) Set(s string) error {
-	cons, err := ParseConstraints(s)
+	cons, err := Parse(s)
 	if err != nil {
 		return err
 	}

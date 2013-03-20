@@ -6,6 +6,7 @@ import (
 	"io"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju"
@@ -81,7 +82,7 @@ func (t *LiveTests) BootstrapOnce(c *C) {
 	}
 	// We only build and upload tools if there will be a state agent that
 	// we could connect to (actual live tests, rather than local-only)
-	err := environs.Bootstrap(t.Env, state.Constraints{}, t.CanOpenState)
+	err := environs.Bootstrap(t.Env, constraints.Value{}, t.CanOpenState)
 	c.Assert(err, IsNil)
 	t.bootstrapped = true
 }
@@ -301,7 +302,7 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 func (t *LiveTests) TestBootstrapMultiple(c *C) {
 	t.BootstrapOnce(c)
 
-	err := environs.Bootstrap(t.Env, state.Constraints{}, false)
+	err := environs.Bootstrap(t.Env, constraints.Value{}, false)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	c.Logf("destroy env")
@@ -731,7 +732,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
 	err = storageCopy(dummyStorage, currentPath, envStorage, otherPath)
 	c.Assert(err, IsNil)
 
-	err = environs.Bootstrap(env, state.Constraints{}, false)
+	err = environs.Bootstrap(env, constraints.Value{}, false)
 	c.Assert(err, IsNil)
 	defer env.Destroy(nil)
 

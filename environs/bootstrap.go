@@ -3,7 +3,7 @@ package environs
 import (
 	"fmt"
 	"launchpad.net/juju-core/cert"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/constraints"
 	"time"
 )
 
@@ -12,7 +12,7 @@ import (
 // environment. The uploadTools parameter requires that the juju-core source
 // code be available within $GOPATH; if that is the case, that code will be
 // built locally and made available to the environment.
-func Bootstrap(environ Environ, cons state.Constraints, uploadTools bool) error {
+func Bootstrap(environ Environ, cons constraints.Value, uploadTools bool) error {
 	cfg := environ.Config()
 	caCert, hasCACert := cfg.CACert()
 	caKey, hasCAKey := cfg.CAPrivateKey()

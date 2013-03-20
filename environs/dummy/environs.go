@@ -22,6 +22,7 @@ package dummy
 import (
 	"errors"
 	"fmt"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
@@ -61,7 +62,7 @@ type GenericOperation struct {
 
 type OpBootstrap struct {
 	Env         string
-	Constraints state.Constraints
+	Constraints constraints.Value
 }
 
 type OpDestroy GenericOperation
@@ -428,7 +429,7 @@ func (e *environ) Name() string {
 	return e.state.name
 }
 
-func (e *environ) Bootstrap(cons state.Constraints, uploadTools bool, cert, key []byte) error {
+func (e *environ) Bootstrap(cons constraints.Value, uploadTools bool, cert, key []byte) error {
 	defer delay()
 	if err := e.checkBroken("Bootstrap"); err != nil {
 		return err

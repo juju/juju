@@ -12,6 +12,7 @@ import (
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
@@ -416,7 +417,7 @@ func (e *environ) PublicStorage() environs.StorageReader {
 	return e.publicStorageUnlocked
 }
 
-func (e *environ) Bootstrap(cons state.Constraints, uploadTools bool, cert, key []byte) error {
+func (e *environ) Bootstrap(cons constraints.Value, uploadTools bool, cert, key []byte) error {
 	// TODO(fwereade): handle bootstrap constraints
 	password := e.Config().AdminSecret()
 	if password == "" {

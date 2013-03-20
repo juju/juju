@@ -9,6 +9,7 @@ import (
 	"launchpad.net/goamz/s3/s3test"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
@@ -237,7 +238,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	policy := t.env.AssignmentPolicy()
 	c.Assert(policy, Equals, state.AssignUnused)
 
-	err := environs.Bootstrap(t.env, state.Constraints{}, true)
+	err := environs.Bootstrap(t.env, constraints.Value{}, true)
 	c.Assert(err, IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
