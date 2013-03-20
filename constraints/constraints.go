@@ -32,19 +32,19 @@ type Value struct {
 }
 
 // String expresses a constraints.Value in the language in which it was specified.
-func (c Value) String() string {
+func (v Value) String() string {
 	var strs []string
-	if c.Arch != nil {
-		strs = append(strs, "arch="+*c.Arch)
+	if v.Arch != nil {
+		strs = append(strs, "arch="+*v.Arch)
 	}
-	if c.CpuCores != nil {
-		strs = append(strs, "cpu-cores="+uintStr(*c.CpuCores))
+	if v.CpuCores != nil {
+		strs = append(strs, "cpu-cores="+uintStr(*v.CpuCores))
 	}
-	if c.CpuPower != nil {
-		strs = append(strs, "cpu-power="+uintStr(*c.CpuPower))
+	if v.CpuPower != nil {
+		strs = append(strs, "cpu-power="+uintStr(*v.CpuPower))
 	}
-	if c.Mem != nil {
-		s := uintStr(*c.Mem)
+	if v.Mem != nil {
+		s := uintStr(*v.Mem)
 		if s != "" {
 			s += "M"
 		}
@@ -98,7 +98,7 @@ func (v ConstraintsValue) String() string {
 }
 
 // setRaw interprets a name=value string and sets the supplied value.
-func (c *Value) setRaw(raw string) error {
+func (v *Value) setRaw(raw string) error {
 	eq := strings.Index(raw, "=")
 	if eq <= 0 {
 		return fmt.Errorf("malformed constraint %q", raw)
@@ -107,13 +107,13 @@ func (c *Value) setRaw(raw string) error {
 	var err error
 	switch name {
 	case "arch":
-		err = c.setArch(str)
+		err = v.setArch(str)
 	case "cpu-cores":
-		err = c.setCpuCores(str)
+		err = v.setCpuCores(str)
 	case "cpu-power":
-		err = c.setCpuPower(str)
+		err = v.setCpuPower(str)
 	case "mem":
-		err = c.setMem(str)
+		err = v.setMem(str)
 	default:
 		return fmt.Errorf("unknown constraint %q", name)
 	}
@@ -123,8 +123,8 @@ func (c *Value) setRaw(raw string) error {
 	return nil
 }
 
-func (c *Value) setArch(str string) error {
-	if c.Arch != nil {
+func (v *Value) setArch(str string) error {
+	if v.Arch != nil {
 		return fmt.Errorf("already set")
 	}
 	switch str {
@@ -133,28 +133,28 @@ func (c *Value) setArch(str string) error {
 	default:
 		return fmt.Errorf("%q not recognized", str)
 	}
-	c.Arch = &str
+	v.Arch = &str
 	return nil
 }
 
-func (c *Value) setCpuCores(str string) (err error) {
-	if c.CpuCores != nil {
+func (v *Value) setCpuCores(str string) (err error) {
+	if v.CpuCores != nil {
 		return fmt.Errorf("already set")
 	}
-	c.CpuCores, err = parseUint64(str)
+	v.CpuCores, err = parseUint64(str)
 	return
 }
 
-func (c *Value) setCpuPower(str string) (err error) {
-	if c.CpuPower != nil {
+func (v *Value) setCpuPower(str string) (err error) {
+	if v.CpuPower != nil {
 		return fmt.Errorf("already set")
 	}
-	c.CpuPower, err = parseUint64(str)
+	v.CpuPower, err = parseUint64(str)
 	return
 }
 
-func (c *Value) setMem(str string) error {
-	if c.Mem != nil {
+func (v *Value) setMem(str string) error {
+	if v.Mem != nil {
 		return fmt.Errorf("already set")
 	}
 	var value uint64
@@ -171,7 +171,7 @@ func (c *Value) setMem(str string) error {
 		val *= mult
 		value = uint64(math.Ceil(val))
 	}
-	c.Mem = &value
+	v.Mem = &value
 	return nil
 }
 
