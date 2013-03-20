@@ -391,13 +391,13 @@ func (*allWatcherSuite) TestHandle(c *C) {
 	aw := newAllWatcher(newTestBacking(nil))
 
 	// Add request from first watcher.
-	w0 := &xStateWatcher{all: aw}
+	w0 := &StateWatcher{all: aw}
 	req0 := &allRequest{
 		w:     w0,
 		reply: make(chan bool, 1),
 	}
 	aw.handle(req0)
-	assertWaitingRequests(c, aw, map[*xStateWatcher][]*allRequest{
+	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
 		w0: {req0},
 	})
 
@@ -407,18 +407,18 @@ func (*allWatcherSuite) TestHandle(c *C) {
 		reply: make(chan bool, 1),
 	}
 	aw.handle(req1)
-	assertWaitingRequests(c, aw, map[*xStateWatcher][]*allRequest{
+	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
 		w0: {req1, req0},
 	})
 
 	// Add request from second watcher.
-	w1 := &xStateWatcher{all: aw}
+	w1 := &StateWatcher{all: aw}
 	req2 := &allRequest{
 		w:     w1,
 		reply: make(chan bool, 1),
 	}
 	aw.handle(req2)
-	assertWaitingRequests(c, aw, map[*xStateWatcher][]*allRequest{
+	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
 		w0: {req1, req0},
 		w1: {req2},
 	})
@@ -427,7 +427,7 @@ func (*allWatcherSuite) TestHandle(c *C) {
 	aw.handle(&allRequest{
 		w: w0,
 	})
-	assertWaitingRequests(c, aw, map[*xStateWatcher][]*allRequest{
+	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
 		w1: {req2},
 	})
 	assertReplied(c, false, req0)
@@ -447,7 +447,7 @@ func (*allWatcherSuite) TestHandleStopNoDecRefIfMoreRecentlyCreated(c *C) {
 	aw := newAllWatcher(newTestBacking(nil))
 	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
 	allInfoIncRef(aw.all, entityId{"machine", "0"})
-	w := &xStateWatcher{all: aw}
+	w := &StateWatcher{all: aw}
 
 	// Stop the watcher.
 	aw.handle(&allRequest{w: w})
@@ -468,7 +468,7 @@ func (*allWatcherSuite) TestHandleStopNoDecRefIfAlreadySeenRemoved(c *C) {
 	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
 	allInfoIncRef(aw.all, entityId{"machine", "0"})
 	aw.all.markRemoved(entityId{"machine", "0"})
-	w := &xStateWatcher{all: aw}
+	w := &StateWatcher{all: aw}
 	// Stop the watcher.
 	aw.handle(&allRequest{w: w})
 	assertAllInfoContents(c, aw.all, 2, []entityEntry{{
@@ -488,7 +488,7 @@ func (*allWatcherSuite) TestHandleStopDecRefIfAlreadySeenAndNotRemoved(c *C) {
 	aw := newAllWatcher(newTestBacking(nil))
 	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
 	allInfoIncRef(aw.all, entityId{"machine", "0"})
-	w := &xStateWatcher{all: aw}
+	w := &StateWatcher{all: aw}
 	w.revno = aw.all.latestRevno
 	// Stop the watcher.
 	aw.handle(&allRequest{w: w})
@@ -507,7 +507,7 @@ func (*allWatcherSuite) TestHandleStopNoDecRefIfNotSeen(c *C) {
 	aw := newAllWatcher(newTestBacking(nil))
 	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
 	allInfoIncRef(aw.all, entityId{"machine", "0"})
-	w := &xStateWatcher{all: aw}
+	w := &StateWatcher{all: aw}
 	// Stop the watcher.
 	aw.handle(&allRequest{w: w})
 	assertAllInfoContents(c, aw.all, 1, []entityEntry{{
@@ -574,12 +574,12 @@ func (*allWatcherSuite) TestRespondResults(c *C) {
 			aw := newAllWatcher(&allWatcherTestBacking{})
 			c.Logf("test %0*b", len(respondTestChanges), ns)
 			var (
-				ws      []*xStateWatcher
+				ws      []*StateWatcher
 				wstates []watcherState
 				reqs    []*allRequest
 			)
 			for i := 0; i < wcount; i++ {
-				ws = append(ws, &xStateWatcher{})
+				ws = append(ws, &StateWatcher{})
 				wstates = append(wstates, make(watcherState))
 				reqs = append(reqs, nil)
 			}
@@ -605,7 +605,7 @@ func (*allWatcherSuite) TestRespondResults(c *C) {
 					continue
 				}
 				// Check that the expected requests are pending.
-				expectWaiting := make(map[*xStateWatcher][]*allRequest)
+				expectWaiting := make(map[*StateWatcher][]*allRequest)
 				for wi, w := range ws {
 					if reqs[wi] != nil {
 						expectWaiting[w] = []*allRequest{reqs[wi]}
@@ -651,7 +651,7 @@ func (*allWatcherSuite) TestRespondMultiple(c *C) {
 
 	// Add one request and respond.
 	// It should see the above change.
-	w0 := &xStateWatcher{all: aw}
+	w0 := &StateWatcher{all: aw}
 	req0 := &allRequest{
 		w:     w0,
 		reply: make(chan bool, 1),
@@ -676,7 +676,7 @@ func (*allWatcherSuite) TestRespondMultiple(c *C) {
 	// The request from the first watcher should still not
 	// be replied to, but the later of the two requests from
 	// the second watcher should get a reply.
-	w1 := &xStateWatcher{all: aw}
+	w1 := &StateWatcher{all: aw}
 	req1 := &allRequest{
 		w:     w1,
 		reply: make(chan bool, 1),
@@ -687,7 +687,7 @@ func (*allWatcherSuite) TestRespondMultiple(c *C) {
 		reply: make(chan bool, 1),
 	}
 	aw.handle(req2)
-	assertWaitingRequests(c, aw, map[*xStateWatcher][]*allRequest{
+	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
 		w0: {req0},
 		w1: {req2, req1},
 	})
@@ -696,7 +696,7 @@ func (*allWatcherSuite) TestRespondMultiple(c *C) {
 	assertNotReplied(c, req1)
 	assertReplied(c, true, req2)
 	c.Assert(req2.changes, DeepEquals, []params.Delta{{Entity: &params.MachineInfo{Id: "0"}}})
-	assertWaitingRequests(c, aw, map[*xStateWatcher][]*allRequest{
+	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
 		w0: {req0},
 		w1: {req1},
 	})
@@ -722,7 +722,7 @@ func (*allWatcherSuite) TestRespondMultiple(c *C) {
 func (*allWatcherSuite) TestRunStop(c *C) {
 	aw := newAllWatcher(newTestBacking(nil))
 	go aw.run()
-	w := &xStateWatcher{all: aw}
+	w := &StateWatcher{all: aw}
 	err := aw.Stop()
 	c.Assert(err, IsNil)
 	d, err := w.Next()
@@ -741,7 +741,7 @@ func (*allWatcherSuite) TestRun(c *C) {
 		c.Check(aw.Stop(), IsNil)
 	}()
 	go aw.run()
-	w := &xStateWatcher{all: aw}
+	w := &StateWatcher{all: aw}
 	checkNext(c, w, []params.Delta{
 		{Entity: &params.MachineInfo{Id: "0"}},
 		{Entity: &params.UnitInfo{Name: "wordpress/0"}},
@@ -763,7 +763,7 @@ func (*allWatcherSuite) TestStateWatcherStop(c *C) {
 		c.Check(aw.Stop(), IsNil)
 	}()
 	go aw.run()
-	w := &xStateWatcher{all: aw}
+	w := &StateWatcher{all: aw}
 	done := make(chan struct{})
 	go func() {
 		checkNext(c, w, nil, errWatcherStopped.Error())
@@ -781,7 +781,7 @@ func (*allWatcherSuite) TestStateWatcherStopBecauseAllWatcherError(c *C) {
 	defer func() {
 		c.Check(aw.Stop(), ErrorMatches, "some error")
 	}()
-	w := &xStateWatcher{all: aw}
+	w := &StateWatcher{all: aw}
 	// Receive one delta to make sure that the allWatcher
 	// has seen the initial state.
 	checkNext(c, w, []params.Delta{{Entity: &params.MachineInfo{Id: "0"}}}, "")
@@ -1017,7 +1017,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *C) {
 	aw := newAllWatcher(b)
 	go aw.run()
 	defer aw.Stop()
-	w := &xStateWatcher{all: aw}
+	w := &StateWatcher{all: aw}
 	s.State.StartSync()
 	checkNext(c, w, []params.Delta{{
 		Entity: &params.MachineInfo{Id: "0"},
@@ -1114,7 +1114,7 @@ func assertAllInfoContents(c *C, a *allInfo, latestRevno int64, entries []entity
 
 var errTimeout = errors.New("no change received in sufficient time")
 
-func getNext(c *C, w *xStateWatcher, timeout time.Duration) ([]params.Delta, error) {
+func getNext(c *C, w *StateWatcher, timeout time.Duration) ([]params.Delta, error) {
 	var deltas []params.Delta
 	var err error
 	ch := make(chan struct{}, 1)
@@ -1130,7 +1130,7 @@ func getNext(c *C, w *xStateWatcher, timeout time.Duration) ([]params.Delta, err
 	return nil, errTimeout
 }
 
-func checkNext(c *C, w *xStateWatcher, deltas []params.Delta, expectErr string) {
+func checkNext(c *C, w *StateWatcher, deltas []params.Delta, expectErr string) {
 	d, err := getNext(c, w, 1*time.Second)
 	if expectErr != "" {
 		c.Check(err, ErrorMatches, expectErr)
@@ -1210,7 +1210,7 @@ func assertReplied(c *C, val bool, req *allRequest) {
 	}
 }
 
-func assertWaitingRequests(c *C, aw *allWatcher, waiting map[*xStateWatcher][]*allRequest) {
+func assertWaitingRequests(c *C, aw *allWatcher, waiting map[*StateWatcher][]*allRequest) {
 	c.Assert(aw.waiting, HasLen, len(waiting))
 	for w, reqs := range waiting {
 		i := 0
