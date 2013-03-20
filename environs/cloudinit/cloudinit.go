@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/cloudinit"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
@@ -76,7 +77,7 @@ type MachineConfig struct {
 	Config *config.Config
 
 	// Constraints holds the initial environment constraints.
-	Constraints state.Constraints
+	Constraints constraints.Value
 }
 
 func addScripts(c *cloudinit.Config, scripts ...string) {

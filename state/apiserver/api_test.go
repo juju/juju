@@ -6,6 +6,7 @@ import (
 	"io"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
@@ -133,6 +134,10 @@ var operationPermTests = []struct {
 }, {
 	about: "Client.ServiceDestroy",
 	op:    opClientServiceDestroy,
+	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.SetServiceConstraints",
+	op:    opClientSetServiceConstraints,
 	allow: []string{"user-admin", "user-other"},
 }, {
 	about: "Client.WatchAll",
@@ -430,6 +435,18 @@ func opClientServiceDestroy(c *C, st *api.State, mst *state.State) (func(), erro
 	if err != nil {
 		return func() {}, err
 	}
+	return func() {}, nil
+}
+
+func opClientSetServiceConstraints(c *C, st *api.State, mst *state.State) (func(), error) {
+	// This test only checks that the call is made without error, ensuring the
+	// signatures match.
+	constraints := constraints.Value{}
+	err := st.Client().SetServiceConstraints("wordpress", constraints)
+	if err != nil {
+		return func() {}, err
+	}
+	c.Assert(err, IsNil)
 	return func() {}, nil
 }
 

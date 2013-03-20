@@ -12,6 +12,7 @@ import (
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
@@ -427,7 +428,7 @@ func findTools(env *environ) (*state.Tools, error) {
 	return environs.FindTools(env, v, flags)
 }
 
-func (e *environ) Bootstrap(cons state.Constraints, cert, key []byte) error {
+func (e *environ) Bootstrap(cons constraints.Value, cert, key []byte) error {
 	password := e.Config().AdminSecret()
 	if password == "" {
 		return fmt.Errorf("admin-secret is required for bootstrap")
@@ -629,7 +630,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (e *environ) StartInstance(machineId string, cons state.Constraints, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId string, cons constraints.Value, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
 	return e.startInstance(&startInstanceParams{
 		machineId:    machineId,
 		constraints:  cons,
@@ -648,7 +649,7 @@ type startInstanceParams struct {
 	mongoURL        string
 	stateServer     bool
 	config          *config.Config
-	constraints     state.Constraints
+	constraints     constraints.Value
 	stateServerCert []byte
 	stateServerKey  []byte
 

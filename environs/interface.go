@@ -3,6 +3,7 @@ package environs
 import (
 	"errors"
 	"io"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -149,7 +150,7 @@ type Environ interface {
 	// The stateServerCertand stateServerKey parameters hold
 	// both the certificate and the respective private key to be
 	// used by the initial state server, in PEM format.
-	Bootstrap(cons state.Constraints, stateServerCert, stateServerKey []byte) error
+	Bootstrap(cons constraints.Value, stateServerCert, stateServerKey []byte) error
 
 	// StateInfo returns information on the state initialized
 	// by Bootstrap.
@@ -171,7 +172,7 @@ type Environ interface {
 	// on the new machine are given by tools - if nil,
 	// the Environ will find a set of tools compatible with the
 	// current version.
-	StartInstance(machineId string, cons state.Constraints, info *state.Info, apiInfo *api.Info, tools *state.Tools) (Instance, error)
+	StartInstance(machineId string, cons constraints.Value, info *state.Info, apiInfo *api.Info, tools *state.Tools) (Instance, error)
 
 	// StopInstances shuts down the given instances.
 	StopInstances([]Instance) error

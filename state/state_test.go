@@ -5,6 +5,7 @@ import (
 	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
@@ -490,13 +491,13 @@ func (s *StateSuite) TestEnvironConstraints(c *C) {
 	st.Close()
 
 	// Environ constraints start out empty (for now).
-	cons0 := state.Constraints{}
+	cons0 := constraints.Value{}
 	cons1, err := s.State.EnvironConstraints()
 	c.Assert(err, IsNil)
 	c.Assert(cons1, DeepEquals, cons0)
 
 	// Environ constraints can be set.
-	cons2 := state.Constraints{Mem: uint64p(1024)}
+	cons2 := constraints.Value{Mem: uint64p(1024)}
 	err = s.State.SetEnvironConstraints(cons2)
 	c.Assert(err, IsNil)
 	cons3, err := s.State.EnvironConstraints()
@@ -505,7 +506,7 @@ func (s *StateSuite) TestEnvironConstraints(c *C) {
 	c.Assert(cons3, Not(Equals), cons2)
 
 	// Environ constraints are completely overwritten when re-set.
-	cons4 := state.Constraints{CpuPower: uint64p(250)}
+	cons4 := constraints.Value{CpuPower: uint64p(250)}
 	err = s.State.SetEnvironConstraints(cons4)
 	c.Assert(err, IsNil)
 	cons5, err := s.State.EnvironConstraints()
