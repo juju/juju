@@ -17,8 +17,7 @@ import (
 
 // HookContext is the implementation of jujuc.Context.
 type HookContext struct {
-	service *state.Service
-	unit    *state.Unit
+	unit *state.Unit
 
 	// config holds the service configuration.
 	config map[string]interface{}
@@ -41,9 +40,8 @@ type HookContext struct {
 	relations map[int]*ContextRelation
 }
 
-func NewHookContext(service *state.Service, unit *state.Unit, id string, relationId int, remoteUnitName string, relations map[int]*ContextRelation) *HookContext {
+func NewHookContext(unit *state.Unit, id string, relationId int, remoteUnitName string, relations map[int]*ContextRelation) *HookContext {
 	return &HookContext{
-		service:        service,
 		unit:           unit,
 		id:             id,
 		relationId:     relationId,
@@ -74,31 +72,13 @@ func (ctx *HookContext) ClosePort(protocol string, port int) error {
 
 func (ctx *HookContext) Config() (map[string]interface{}, error) {
 	if ctx.config == nil {
-		settings, err := ctx.service.Config()
+		var err error
+		ctx.config, err = ctx.unit.ServiceConfig()
 		if err != nil {
 			return nil, err
 		}
-		charm, _, err := ctx.service.Charm()
-		if err != nil {
-			return nil, err
-		}
-		// TODO Remove this once state is fixed to report default values.
-		cfg, err := charm.Config().Validate(nil)
-		if err != nil {
-			return nil, err
-		}
-		ctx.config = merge(settings.Map(), cfg)
 	}
 	return ctx.config, nil
-}
-
-func merge(a, b map[string]interface{}) map[string]interface{} {
-	for k, v := range b {
-		if _, ok := a[k]; !ok {
-			a[k] = v
-		}
-	}
-	return a
 }
 
 func (ctx *HookContext) HookRelation() (jujuc.ContextRelation, bool) {
@@ -181,7 +161,7 @@ func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string)
 					"could not write settings from %q to relation %d: %v",
 					hookName, id, e,
 				)
-				log.Printf("worker/uniter: %v", e)
+				log.Errorf("worker/uniter: %v", e)
 				if err == nil {
 					err = e
 				}
@@ -207,7 +187,7 @@ func (l *hookLogger) run() {
 		line, _, err := br.ReadLine()
 		if err != nil {
 			if err != io.EOF {
-				log.Printf("worker/uniter: cannot read hook output: %v", err)
+				log.Errorf("worker/uniter: cannot read hook output: %v", err)
 			}
 			break
 		}
@@ -216,7 +196,7 @@ func (l *hookLogger) run() {
 			l.mu.Unlock()
 			return
 		}
-		log.Printf("worker/uniter: HOOK %s", line)
+		log.Infof("worker/uniter: HOOK %s", line)
 		l.mu.Unlock()
 	}
 }

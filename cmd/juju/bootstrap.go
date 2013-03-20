@@ -13,8 +13,8 @@ import (
 // environment, and setting up everything necessary to continue working.
 type BootstrapCommand struct {
 	EnvCommandBase
-	Constraints state.Constraints
-	UploadTools bool
+	constraints state.Constraints
+	uploadTools bool
 }
 
 func (c *BootstrapCommand) Info() *cmd.Info {
@@ -26,8 +26,8 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 
 func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
-	f.Var(state.ConstraintsValue{&c.Constraints}, "constraints", "set environment constraints")
-	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
+	f.Var(state.ConstraintsValue{&c.constraints}, "constraints", "set environment constraints")
+	f.BoolVar(&c.uploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
 }
 
 // Run connects to the environment specified on the command line and bootstraps
@@ -35,17 +35,27 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 // the user is informed how to create one.
 func (c *BootstrapCommand) Run(context *cmd.Context) error {
 	environ, err := environs.NewFromName(c.EnvName)
-	if err == nil {
-		return environs.Bootstrap(environ, c.Constraints, c.UploadTools, nil)
-	}
-	if !os.IsNotExist(err) {
+	if err != nil {
+		if os.IsNotExist(err) {
+			out := context.Stderr
+			fmt.Fprintln(out, "No juju environment configuration file exists.")
+			fmt.Fprintln(out, "Please create a configuration by running:")
+			fmt.Fprintln(out, "    juju init -w")
+			fmt.Fprintln(out, "then edit the file to configure your juju environment.")
+			fmt.Fprintln(out, "You can then re-run bootstrap.")
+		}
 		return err
 	}
-	out := context.Stderr
-	fmt.Fprintln(out, "No juju environment configuration file exists.")
-	fmt.Fprintln(out, "Please create a configuration by running:")
-	fmt.Fprintln(out, "    juju init -w")
-	fmt.Fprintln(out, "then edit the file to configure your juju environment.")
-	fmt.Fprintln(out, "You can then re-run bootstrap.")
-	return err
+	// TODO: if in verbose mode, write out to Stdout if a new cert was created.
+	_, err = environs.EnsureCertificate(environ, environs.WriteCertAndKeyToHome)
+	if err != nil {
+		return err
+	}
+
+	if c.uploadTools {
+		if err = environs.UploadTools(environ); err != nil {
+			return err
+		}
+	}
+	return environs.Bootstrap(environ, c.constraints)
 }

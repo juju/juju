@@ -38,9 +38,9 @@ func mustNewConfig(m map[string]interface{}) *config.Config {
 	return cfg
 }
 
-var envConstraints = mustConstraints("mem=2G")
+var envConstraints = mustParseConstraints("mem=2G")
 
-func mustConstraints(s string) state.Constraints {
+func mustParseConstraints(s string) state.Constraints {
 	cons, err := state.ParseConstraints(s)
 	if err != nil {
 		panic(err)

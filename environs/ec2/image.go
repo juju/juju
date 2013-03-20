@@ -44,9 +44,9 @@ func findInstanceSpec(ic *instanceConstraint) (*instanceSpec, error) {
 	}
 	names := make([]string, len(itypes))
 	for i, itype := range itypes {
-		names[i] = fmt.Sprintf("%q", itype.name)
+		names[i] = itype.name
 	}
-	return nil, fmt.Errorf("no %q images in %s matching instance types %s", ic.series, ic.region, strings.Join(names, ", "))
+	return nil, fmt.Errorf("no %q images in %s matching instance types %v", ic.series, ic.region, names)
 }
 
 // image holds the attributes that vary amongst relevant images for
@@ -54,7 +54,8 @@ func findInstanceSpec(ic *instanceConstraint) (*instanceSpec, error) {
 type image struct {
 	id   string
 	arch string
-	hvm  bool
+	// hvm is true when the image is built for an ec2 cluster instance type.
+	hvm bool
 }
 
 // match returns true if the image can run on the supplied instance type.
@@ -98,13 +99,15 @@ func getImages(region, series string, arches []string) ([]image, error) {
 	path := fmt.Sprintf("/query/%s/server/released.current.txt", series)
 	hclient := new(http.Client)
 	resp, err := hclient.Get(imagesHost + path)
-	if err == nil && resp.StatusCode != 200 {
-		err = fmt.Errorf("%s", resp.Status)
+	if err == nil {
+		defer resp.Body.Close()
+		if resp.StatusCode != 200 {
+			err = fmt.Errorf("%s", resp.Status)
+		}
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get image data for %q: %v", series, err)
 	}
-	defer resp.Body.Close()
 
 	var images []image
 	r := bufio.NewReader(resp.Body)
@@ -112,11 +115,7 @@ func getImages(region, series string, arches []string) ([]image, error) {
 		line, _, err := r.ReadLine()
 		if err == io.EOF {
 			if len(images) == 0 {
-				names := make([]string, len(arches))
-				for i, arch := range arches {
-					names[i] = fmt.Sprintf("%q", arch)
-				}
-				return nil, fmt.Errorf("no %q images in %s with arches %s", series, region, strings.Join(names, ", "))
+				return nil, fmt.Errorf("no %q images in %s with arches %v", series, region, arches)
 			}
 			sort.Sort(byArch(images))
 			return images, nil
