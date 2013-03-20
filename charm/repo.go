@@ -38,7 +38,8 @@ type store struct {
 
 const (
 	storeURL  = "https://store.juju.ubuntu.com"
-	cachePath = "$HOME/.juju/cache"
+	cachePath = "$JUJU_HOME/cache"
+	// cachePath = "$HOME/.juju/cache"
 )
 
 // Store returns a Repository that provides access to the juju charm store.

@@ -88,6 +88,24 @@ func UseTestImageData(content []jujutest.FileContent) {
 	}
 }
 
+// TestInstanceTypeContent holds the cost in USDe-3/hour for each of the
+// few available instance types in  the convenient fictional "test" region.
+var TestInstanceTypeContent = map[string]uint64{
+	"m1.small":  60,
+	"m1.medium": 120,
+	"m1.large":  240,
+	"m1.xlarge": 480,
+	"t1.micro":  020,
+}
+
+func UseTestInstanceTypeData(content map[string]uint64) {
+	if content != nil {
+		allRegionCosts["test"] = content
+	} else {
+		delete(allRegionCosts, "test")
+	}
+}
+
 var origMetadataHost = metadataHost
 
 func UseTestMetadata(content []jujutest.FileContent) {

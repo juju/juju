@@ -153,7 +153,7 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	c.Assert(err, IsNil)
 	// sanity check we've got the correct environment.
 	c.Assert(environ.Name(), Equals, "dummyenv")
-	c.Assert(environs.Bootstrap(environ, state.Constraints{}, false), IsNil)
+	c.Assert(environs.Bootstrap(environ, state.Constraints{}), IsNil)
 
 	conn, err := juju.NewConn(environ)
 	c.Assert(err, IsNil)

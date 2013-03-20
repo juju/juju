@@ -52,7 +52,7 @@ func (t *Tests) TestBootstrapWithoutAdminSecret(c *C) {
 	delete(m, "admin-secret")
 	env, err := environs.NewFromAttrs(m)
 	c.Assert(err, IsNil)
-	err = environs.Bootstrap(env, state.Constraints{}, false)
+	err = environs.Bootstrap(env, state.Constraints{})
 	c.Assert(err, ErrorMatches, ".*admin-secret is required for bootstrap")
 }
 
@@ -107,18 +107,18 @@ func (t *Tests) TestStartStop(c *C) {
 func (t *Tests) TestBootstrap(c *C) {
 	// TODO tests for Bootstrap(true)
 	e := t.Open(c)
-	err := environs.Bootstrap(e, state.Constraints{}, false)
+	err := environs.Bootstrap(e, state.Constraints{})
 	c.Assert(err, IsNil)
 
 	info, apiInfo, err := e.StateInfo()
 	c.Check(info.Addrs, Not(HasLen), 0)
 	c.Check(apiInfo.Addrs, Not(HasLen), 0)
 
-	err = environs.Bootstrap(e, state.Constraints{}, false)
+	err = environs.Bootstrap(e, state.Constraints{})
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	e2 := t.Open(c)
-	err = environs.Bootstrap(e2, state.Constraints{}, false)
+	err = environs.Bootstrap(e2, state.Constraints{})
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	info2, apiInfo2, err := e2.StateInfo()
@@ -131,10 +131,10 @@ func (t *Tests) TestBootstrap(c *C) {
 	// Open again because Destroy invalidates old environments.
 	e3 := t.Open(c)
 
-	err = environs.Bootstrap(e3, state.Constraints{}, false)
+	err = environs.Bootstrap(e3, state.Constraints{})
 	c.Assert(err, IsNil)
 
-	err = environs.Bootstrap(e3, state.Constraints{}, false)
+	err = environs.Bootstrap(e3, state.Constraints{})
 	c.Assert(err, NotNil)
 }
 
