@@ -80,6 +80,41 @@ func (s *MachineSuite) TestRemove(c *C) {
 	c.Assert(err, IsNil)
 }
 
+func (s *MachineSuite) TestDestroyMachines(c *C) {
+	m0 := s.machine
+	m1, err := s.State.AddMachine("series", state.JobManageEnviron)
+	c.Assert(err, IsNil)
+	m2, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+
+	sch := s.AddTestingCharm(c, "wordpress")
+	wordpress, err := s.State.AddService("wordpress", sch)
+	c.Assert(err, IsNil)
+	u, err := wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	err = u.AssignToMachine(m0)
+	c.Assert(err, IsNil)
+
+	err = s.State.DestroyMachines("0", "1", "2")
+	c.Assert(err, ErrorMatches, `some machines were not destroyed: machine 0 has unit "wordpress/0" assigned; machine 1 is required by the environment`)
+	assertLife := func(m *state.Machine, life state.Life) {
+		err := m.Refresh()
+		c.Assert(err, IsNil)
+		c.Assert(m.Life(), Equals, life)
+	}
+	assertLife(m0, state.Alive)
+	assertLife(m1, state.Alive)
+	assertLife(m2, state.Dying)
+
+	err = u.UnassignFromMachine()
+	c.Assert(err, IsNil)
+	err = s.State.DestroyMachines("0", "1", "2")
+	c.Assert(err, ErrorMatches, `some machines were not destroyed: machine 1 is required by the environment`)
+	assertLife(m0, state.Dying)
+	assertLife(m1, state.Alive)
+	assertLife(m2, state.Dying)
+}
+
 func (s *MachineSuite) TestMachineSetAgentAlive(c *C) {
 	alive, err := s.machine.AgentAlive()
 	c.Assert(err, IsNil)

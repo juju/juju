@@ -183,6 +183,75 @@ func (s *UnitSuite) TestUnitCharm(c *C) {
 	c.Assert(err, ErrorMatches, `unit "wordpress/0" is dead`)
 }
 
+func (s *UnitSuite) TestDestroyPrincipalUnits(c *C) {
+	for i := 0; i < 4; i++ {
+		_, err := s.service.AddUnit()
+		c.Assert(err, IsNil)
+	}
+
+	// Destroy 2 of them; check they become Dying.
+	err := s.State.DestroyUnits("wordpress/0", "wordpress/1")
+	c.Assert(err, IsNil)
+	s.assertUnitLife(c, "wordpress/0", state.Dying)
+	s.assertUnitLife(c, "wordpress/1", state.Dying)
+
+	// Try to destroy an Alive one and a Dying one; check
+	// it destroys the Alive one and ignores the Dying one.
+	err = s.State.DestroyUnits("wordpress/2", "wordpress/0")
+	c.Assert(err, IsNil)
+	s.assertUnitLife(c, "wordpress/2", state.Dying)
+
+	// Try to destroy an Alive one along with a nonexistent one; check that
+	// the valid instruction is followed but the invalid one is warned about.
+	err = s.State.DestroyUnits("boojum/123", "wordpress/3")
+	c.Assert(err, ErrorMatches, `some units were not destroyed: unit "boojum/123" does not exist`)
+	s.assertUnitLife(c, "wordpress/3", state.Dying)
+
+	// Make one Dead, and destroy an Alive one alongside it; check no errors.
+	wp0, err := s.State.Unit("wordpress/0")
+	c.Assert(err, IsNil)
+	err = wp0.EnsureDead()
+	c.Assert(err, IsNil)
+	err = s.State.DestroyUnits("wordpress/0", "wordpress/4")
+	c.Assert(err, IsNil)
+	s.assertUnitLife(c, "wordpress/0", state.Dead)
+	s.assertUnitLife(c, "wordpress/4", state.Dying)
+}
+
+func (s *UnitSuite) TestDestroySubordinateUnits(c *C) {
+	lgsch := s.AddTestingCharm(c, "logging")
+	_, err := s.State.AddService("logging", lgsch)
+	c.Assert(err, IsNil)
+	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
+	c.Assert(err, IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	ru, err := rel.Unit(s.unit)
+	c.Assert(err, IsNil)
+	err = ru.EnterScope(nil)
+	c.Assert(err, IsNil)
+
+	// Try to destroy the subordinate alone; check it fails.
+	err = s.State.DestroyUnits("logging/0")
+	c.Assert(err, ErrorMatches, `no units were destroyed: unit "logging/0" is a subordinate`)
+	s.assertUnitLife(c, "logging/0", state.Alive)
+
+	// Try to destroy the principal and the subordinate together; check it warns
+	// about the subordinate, but destroys the one it can. (The principal unit
+	// agent will be resposible for destroying the subordinate.)
+	err = s.State.DestroyUnits("wordpress/0", "logging/0")
+	c.Assert(err, ErrorMatches, `some units were not destroyed: unit "logging/0" is a subordinate`)
+	s.assertUnitLife(c, "wordpress/0", state.Dying)
+	s.assertUnitLife(c, "logging/0", state.Alive)
+}
+
+func (s *ConnSuite) assertUnitLife(c *C, name string, life state.Life) {
+	unit, err := s.State.Unit(name)
+	c.Assert(err, IsNil)
+	c.Assert(unit.Refresh(), IsNil)
+	c.Assert(unit.Life(), Equals, life)
+}
+
 func (s *UnitSuite) TestEntityName(c *C) {
 	c.Assert(s.unit.EntityName(), Equals, "unit-wordpress-0")
 }
