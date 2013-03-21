@@ -44,28 +44,28 @@ func logf(format string, a ...interface{}) error {
 
 // Errorf logs a message using the ERROR priority.
 func Errorf(format string, a ...interface{}) error {
-	return logf("ERROR: "+format, a...)
+	return logf("ERROR "+format, a...)
 }
 
 // Warningf logs a message using the WARNING priority.
 func Warningf(format string, a ...interface{}) error {
-	return logf("WARNING: "+format, a...)
+	return logf("WARNING "+format, a...)
 }
 
 // Noticef logs a message using the NOTICE priority.
 func Noticef(format string, a ...interface{}) error {
-	return logf("NOTICE: "+format, a...)
+	return logf("NOTICE "+format, a...)
 }
 
 // Infof logs a message using the INFO priority.
 func Infof(format string, a ...interface{}) error {
-	return logf("INFO: "+format, a...)
+	return logf("INFO "+format, a...)
 }
 
 // Debugf logs a message using the DEBUG priority.
 func Debugf(format string, a ...interface{}) (err error) {
 	if Debug {
-		return logf("DEBUG: "+format, a...)
+		return logf("DEBUG "+format, a...)
 	}
 	return nil
 }
