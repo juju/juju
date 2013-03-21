@@ -9,6 +9,7 @@ import (
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/presence"
@@ -158,12 +159,12 @@ func (st *State) SetEnvironConfig(cfg *config.Config) error {
 }
 
 // EnvironConstraints returns the current environment constraints.
-func (st *State) EnvironConstraints() (Constraints, error) {
+func (st *State) EnvironConstraints() (constraints.Value, error) {
 	return readConstraints(st, "e")
 }
 
 // SetEnvironConstraints replaces the current environment constraints.
-func (st *State) SetEnvironConstraints(cons Constraints) error {
+func (st *State) SetEnvironConstraints(cons constraints.Value) error {
 	return writeConstraints(st, "e", cons)
 }
 
@@ -422,7 +423,7 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	}
 	svc := newService(st, svcDoc)
 	ops := []txn.Op{
-		createConstraintsOp(st, svc.globalKey(), Constraints{}),
+		createConstraintsOp(st, svc.globalKey(), constraints.Value{}),
 		createSettingsOp(st, svc.settingsKey(), nil),
 		{
 			C:      st.settingsrefs.Name,

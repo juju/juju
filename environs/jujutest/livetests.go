@@ -6,6 +6,7 @@ import (
 	"io"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju"
@@ -81,7 +82,7 @@ func (t *LiveTests) BootstrapOnce(c *C) {
 	}
 	// We only build and upload tools if there will be a state agent that
 	// we could connect to (actual live tests, rather than local-only)
-	cons, err := state.ParseConstraints("mem=2G")
+	cons, err := constraints.Parse("mem=2G")
 	c.Assert(err, IsNil)
 	if t.CanOpenState {
 		err := environs.UploadTools(t.Env)
@@ -101,7 +102,7 @@ func (t *LiveTests) Destroy(c *C) {
 // TestStartStop is similar to Tests.TestStartStop except
 // that it does not assume a pristine environment.
 func (t *LiveTests) TestStartStop(c *C) {
-	inst, err := t.Env.StartInstance("0", state.Constraints{}, testing.InvalidStateInfo("0"), testing.InvalidAPIInfo("0"), nil)
+	inst, err := t.Env.StartInstance("0", constraints.Value{}, testing.InvalidStateInfo("0"), testing.InvalidAPIInfo("0"), nil)
 	c.Assert(err, IsNil)
 	c.Assert(inst, NotNil)
 	id0 := inst.Id()
@@ -153,7 +154,7 @@ func (t *LiveTests) TestStartStop(c *C) {
 }
 
 func (t *LiveTests) TestPorts(c *C) {
-	inst1, err := t.Env.StartInstance("1", state.Constraints{}, testing.InvalidStateInfo("1"), testing.InvalidAPIInfo("1"), nil)
+	inst1, err := t.Env.StartInstance("1", constraints.Value{}, testing.InvalidStateInfo("1"), testing.InvalidAPIInfo("1"), nil)
 	c.Assert(err, IsNil)
 	c.Assert(inst1, NotNil)
 	defer t.Env.StopInstances([]environs.Instance{inst1})
@@ -161,7 +162,7 @@ func (t *LiveTests) TestPorts(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
 
-	inst2, err := t.Env.StartInstance("2", state.Constraints{}, testing.InvalidStateInfo("2"), testing.InvalidAPIInfo("2"), nil)
+	inst2, err := t.Env.StartInstance("2", constraints.Value{}, testing.InvalidStateInfo("2"), testing.InvalidAPIInfo("2"), nil)
 	c.Assert(err, IsNil)
 	c.Assert(inst2, NotNil)
 	ports, err = inst2.Ports("2")
@@ -256,14 +257,14 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 	c.Assert(err, IsNil)
 
 	// Create instances and check open ports on both instances.
-	inst1, err := t.Env.StartInstance("1", state.Constraints{}, testing.InvalidStateInfo("1"), testing.InvalidAPIInfo("1"), nil)
+	inst1, err := t.Env.StartInstance("1", constraints.Value{}, testing.InvalidStateInfo("1"), testing.InvalidAPIInfo("1"), nil)
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst1})
 	ports, err := t.Env.Ports()
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
 
-	inst2, err := t.Env.StartInstance("2", state.Constraints{}, testing.InvalidStateInfo("2"), testing.InvalidAPIInfo("2"), nil)
+	inst2, err := t.Env.StartInstance("2", constraints.Value{}, testing.InvalidStateInfo("2"), testing.InvalidAPIInfo("2"), nil)
 	c.Assert(err, IsNil)
 	ports, err = t.Env.Ports()
 	c.Assert(err, IsNil)
@@ -307,7 +308,7 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 func (t *LiveTests) TestBootstrapMultiple(c *C) {
 	t.BootstrapOnce(c)
 
-	err := environs.Bootstrap(t.Env, state.Constraints{})
+	err := environs.Bootstrap(t.Env, constraints.Value{})
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	c.Logf("destroy env")
@@ -682,7 +683,7 @@ func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
 		URL:    url,
 	}
 
-	inst, err := t.Env.StartInstance("4", state.Constraints{}, testing.InvalidStateInfo("4"), testing.InvalidAPIInfo("4"), tools)
+	inst, err := t.Env.StartInstance("4", constraints.Value{}, testing.InvalidStateInfo("4"), testing.InvalidAPIInfo("4"), tools)
 	if inst != nil {
 		err := t.Env.StopInstances([]environs.Instance{inst})
 		c.Check(err, IsNil)
@@ -741,7 +742,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
 	err = storageCopy(dummyStorage, currentPath, envStorage, otherPath)
 	c.Assert(err, IsNil)
 
-	err = environs.Bootstrap(env, state.Constraints{})
+	err = environs.Bootstrap(env, constraints.Value{})
 	c.Assert(err, IsNil)
 	defer env.Destroy(nil)
 

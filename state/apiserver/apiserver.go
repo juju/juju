@@ -369,6 +369,11 @@ func (c *srvClient) ServiceDestroy(args params.ServiceDestroy) error {
 	return statecmd.ServiceDestroy(c.root.srv.state, args)
 }
 
+// SetServiceConstraints sets the constraints for a given service.
+func (c *srvClient) SetServiceConstraints(args params.SetServiceConstraints) error {
+	return statecmd.SetServiceConstraints(c.root.srv.state, args)
+}
+
 // DestroyRelation removes the relation between the specified endpoints.
 func (c *srvClient) DestroyRelation(args params.DestroyRelation) error {
 	return statecmd.DestroyRelation(c.root.srv.state, args)

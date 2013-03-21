@@ -128,9 +128,7 @@ func (s *StoreSuite) TestError(c *C) {
 }
 
 func (s *StoreSuite) TestWarning(c *C) {
-	orig := log.Target
-	log.Target = c
-	defer func() { log.Target = orig }()
+	defer log.SetTarget(log.SetTarget(c))
 	curl := charm.MustParseURL("cs:series/unwise")
 	expect := `.* WARNING: charm: charm store reports for "cs:series/unwise": foolishness` + "\n"
 	r, err := s.store.Latest(curl)

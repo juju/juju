@@ -99,9 +99,10 @@ func (s *SuperCommandSuite) TestInfo(c *C) {
 }
 
 func (s *SuperCommandSuite) TestLogging(c *C) {
-	target, debug := log.Target, log.Debug
+	target, debug := log.Target(), log.Debug
 	defer func() {
-		log.Target, log.Debug = target, debug
+		log.SetTarget(target)
+		log.Debug = debug
 	}()
 	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{Name: "jujutest", Log: &cmd.Log{}})
 	jc.Register(&TestCommand{Name: "blah"})

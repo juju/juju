@@ -7,6 +7,7 @@ import (
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/trivial"
 	"sort"
 	"strconv"
@@ -626,12 +627,12 @@ func (s *Service) Config() (config *Settings, err error) {
 }
 
 // Constraints returns the current service constraints.
-func (s *Service) Constraints() (Constraints, error) {
+func (s *Service) Constraints() (constraints.Value, error) {
 	return readConstraints(s.st, s.globalKey())
 }
 
 // SetConstraints replaces the current service constraints.
-func (s *Service) SetConstraints(cons Constraints) error {
+func (s *Service) SetConstraints(cons constraints.Value) error {
 	return writeConstraints(s.st, s.globalKey(), cons)
 }
 

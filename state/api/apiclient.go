@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/tomb"
@@ -154,6 +155,15 @@ func (c *Client) ServiceDestroy(service string) error {
 		ServiceName: service,
 	}
 	return clientError(c.st.client.Call("Client", "", "ServiceDestroy", params, nil))
+}
+
+// SetServiceConstraints specifies the constraints for the given service.
+func (c *Client) SetServiceConstraints(service string, constraints constraints.Value) error {
+	params := params.SetServiceConstraints{
+		ServiceName: service,
+		Constraints: constraints,
+	}
+	return clientError(c.st.client.Call("Client", "", "SetServiceConstraints", params, nil))
 }
 
 // CharmInfo holds information about a charm.

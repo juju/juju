@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/statecmd"
 )
 
 // GetConstraintsCommand shows the constraints for a service or environment.
@@ -24,7 +27,7 @@ func (c *GetConstraintsCommand) Info() *cmd.Info {
 }
 
 func formatConstraints(value interface{}) ([]byte, error) {
-	return []byte(value.(state.Constraints).String()), nil
+	return []byte(value.(constraints.Value).String()), nil
 }
 
 func (c *GetConstraintsCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -52,7 +55,7 @@ func (c *GetConstraintsCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 	defer conn.Close()
-	var cons state.Constraints
+	var cons constraints.Value
 	if c.ServiceName == "" {
 		cons, err = conn.State.EnvironConstraints()
 	} else {
@@ -72,7 +75,7 @@ func (c *GetConstraintsCommand) Run(ctx *cmd.Context) (err error) {
 type SetConstraintsCommand struct {
 	EnvCommandBase
 	ServiceName string
-	Constraints state.Constraints
+	Constraints constraints.Value
 }
 
 func (c *SetConstraintsCommand) Info() *cmd.Info {
@@ -93,7 +96,7 @@ func (c *SetConstraintsCommand) Init(args []string) (err error) {
 	if c.ServiceName != "" && !state.IsServiceName(c.ServiceName) {
 		return fmt.Errorf("invalid service name %q", c.ServiceName)
 	}
-	c.Constraints, err = state.ParseConstraints(args...)
+	c.Constraints, err = constraints.Parse(args...)
 	return err
 }
 
@@ -106,9 +109,9 @@ func (c *SetConstraintsCommand) Run(_ *cmd.Context) (err error) {
 	if c.ServiceName == "" {
 		return conn.State.SetEnvironConstraints(c.Constraints)
 	}
-	var svc *state.Service
-	if svc, err = conn.State.Service(c.ServiceName); err != nil {
-		return err
+	params := params.SetServiceConstraints{
+		ServiceName: c.ServiceName,
+		Constraints: c.Constraints,
 	}
-	return svc.SetConstraints(c.Constraints)
+	return statecmd.SetServiceConstraints(conn.State, params)
 }

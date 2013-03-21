@@ -3,14 +3,14 @@ package environs
 import (
 	"fmt"
 	"launchpad.net/juju-core/cert"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/constraints"
 	"time"
 )
 
 // Bootstrap bootstraps the given environment. The supplied constraints are
 // used to provision the instance, and are also set within the bootstrapped
 // environment.
-func Bootstrap(environ Environ, cons state.Constraints) error {
+func Bootstrap(environ Environ, cons constraints.Value) error {
 	cfg := environ.Config()
 	caCert, hasCACert := cfg.CACert()
 	caKey, hasCAKey := cfg.CAPrivateKey()

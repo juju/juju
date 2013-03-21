@@ -10,21 +10,10 @@ import (
 )
 
 type LogSuite struct {
-	restoreLog func()
+	testing.LoggingSuite
 }
 
 var _ = Suite(&LogSuite{})
-
-func (s *LogSuite) SetUpTest(c *C) {
-	target, debug := log.Target, log.Debug
-	s.restoreLog = func() {
-		log.Target, log.Debug = target, debug
-	}
-}
-
-func (s *LogSuite) TearDownTest(c *C) {
-	s.restoreLog()
-}
 
 func (s *LogSuite) TestAddFlags(c *C) {
 	l := &cmd.Log{}
@@ -49,7 +38,7 @@ func (s *LogSuite) TestStart(c *C) {
 		path    string
 		verbose bool
 		debug   bool
-		target  Checker
+		check   Checker
 	}{
 		{"", true, true, NotNil},
 		{"", true, false, NotNil},
@@ -60,11 +49,14 @@ func (s *LogSuite) TestStart(c *C) {
 		{"foo", false, true, NotNil},
 		{"foo", false, false, NotNil},
 	} {
+		// commands always start with the log target set to its zero value.
+		log.SetTarget(nil)
+
 		l := &cmd.Log{Prefix: "test", Path: t.path, Verbose: t.verbose, Debug: t.debug}
 		ctx := testing.Context(c)
 		err := l.Start(ctx)
 		c.Assert(err, IsNil)
-		c.Assert(log.Target, t.target)
+		c.Assert(log.Target(), t.check)
 		c.Assert(log.Debug, Equals, t.debug)
 	}
 }

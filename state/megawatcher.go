@@ -274,7 +274,7 @@ func (aw *allWatcher) seen(revno int64) {
 		if entry.creationRevno > revno {
 			if !entry.removed {
 				// This is a new entity that hasn't been seen yet,
-				// so increment the entry's refCount.	
+				// so increment the entry's refCount.
 				entry.refCount++
 			}
 		} else if entry.removed {
