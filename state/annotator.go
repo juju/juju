@@ -45,8 +45,13 @@ func (a *annotator) SetAnnotations(pairs map[string]string) error {
 			toUpdate["annotations."+key] = value
 		}
 	}
-	// Perform two attempts to update annotations in order to avoid possible
-	// race conditions when the document is missing.
+	// Two attempts should be enough to update annotations even with racing
+	// clients - if the document does not already exist, one of the clients
+	// will create it and the others will fail, then all the rest of the
+	// clients should succeed on their second attempt. If the referred-to
+	// entity has disappeared, and removed its annotations in the meantime,
+	// we consider that worthy of an error (will be fixed when new entities
+	// can never share names with old ones).
 	for i := 0; i < 2; i++ {
 		op, err := a.setAnnotationsOp(toInsert, toUpdate, toRemove)
 		if err != nil {
