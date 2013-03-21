@@ -26,7 +26,7 @@ func (suite) TestLoggerDebugFlag(c *C) {
 	buf.Reset()
 	log.Debug = true
 	log.Debugf(input)
-	c.Assert(buf.String(), Equals, "JUJU:DEBUG: "+input+"\n")
+	c.Assert(buf.String(), Equals, "JUJU:DEBUG "+input+"\n")
 }
 
 func (suite) TestInfoLogger(c *C) {
@@ -34,7 +34,7 @@ func (suite) TestInfoLogger(c *C) {
 	defer log.SetTarget(log.SetTarget(stdlog.New(&buf, "JUJU:", 0)))
 	input := "Hello World"
 	log.Infof(input)
-	c.Assert(buf.String(), Equals, "JUJU:INFO: "+input+"\n")
+	c.Assert(buf.String(), Equals, "JUJU:INFO "+input+"\n")
 }
 
 func (suite) TestErrorLogger(c *C) {
@@ -42,7 +42,7 @@ func (suite) TestErrorLogger(c *C) {
 	defer log.SetTarget(log.SetTarget(stdlog.New(&buf, "JUJU:", 0)))
 	input := "Hello World"
 	log.Errorf(input)
-	c.Assert(buf.String(), Equals, "JUJU:ERROR: "+input+"\n")
+	c.Assert(buf.String(), Equals, "JUJU:ERROR "+input+"\n")
 }
 
 func (suite) TestWarningLogger(c *C) {
@@ -50,7 +50,7 @@ func (suite) TestWarningLogger(c *C) {
 	defer log.SetTarget(log.SetTarget(stdlog.New(&buf, "JUJU:", 0)))
 	input := "Hello World"
 	log.Warningf(input)
-	c.Assert(buf.String(), Equals, "JUJU:WARNING: "+input+"\n")
+	c.Assert(buf.String(), Equals, "JUJU:WARNING "+input+"\n")
 }
 
 func (suite) TestNoticeLogger(c *C) {
@@ -58,5 +58,5 @@ func (suite) TestNoticeLogger(c *C) {
 	defer log.SetTarget(log.SetTarget(stdlog.New(&buf, "JUJU:", 0)))
 	input := "Hello World"
 	log.Noticef(input)
-	c.Assert(buf.String(), Equals, "JUJU:NOTICE: "+input+"\n")
+	c.Assert(buf.String(), Equals, "JUJU:NOTICE "+input+"\n")
 }
