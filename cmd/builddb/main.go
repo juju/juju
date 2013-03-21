@@ -7,7 +7,7 @@ import (
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
-	corelog "log"
+	stdlog "log"
 	"os"
 	"path/filepath"
 	"time"
@@ -17,9 +17,10 @@ import (
 )
 
 func main() {
-	log.Target = corelog.New(os.Stdout, "", corelog.LstdFlags)
+	log.SetTarget(stdlog.New(os.Stdout, "", stdlog.LstdFlags))
 	if err := build(); err != nil {
-		corelog.Fatalf("error: %v", err)
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
 	}
 }
 
