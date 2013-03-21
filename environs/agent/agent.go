@@ -201,7 +201,7 @@ func (c *Conf) WriteCommands() ([]string, error) {
 func (c *Conf) OpenState() (st *state.State, newPassword string, err error) {
 	info := *c.StateInfo
 	if info.Password != "" {
-		st, err := state.Open(&info, state.DefaultDialTimeout)
+		st, err := state.Open(&info, state.DefaultDialTimeout, state.DefaultRetryDelay)
 		if err == nil {
 			return st, "", nil
 		}
@@ -214,7 +214,7 @@ func (c *Conf) OpenState() (st *state.State, newPassword string, err error) {
 		// with the old password.
 	}
 	info.Password = c.OldPassword
-	st, err = state.Open(&info, state.DefaultDialTimeout)
+	st, err = state.Open(&info, state.DefaultDialTimeout, state.DefaultRetryDelay)
 	if err != nil {
 		return nil, "", err
 	}

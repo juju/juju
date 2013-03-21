@@ -118,7 +118,7 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *C) {
 	info, _, err := env.StateInfo()
 	c.Assert(err, IsNil)
 	info.Password = trivial.PasswordHash("side-effect secret")
-	st, err := state.Open(info, state.DefaultDialTimeout)
+	st, err := state.Open(info, state.DefaultDialTimeout, state.DefaultRetryDelay)
 	c.Assert(err, IsNil)
 
 	// Verify we have no secret in the environ config
@@ -199,7 +199,7 @@ func (cs *NewConnSuite) TestConnWithPassword(c *C) {
 	info, _, err := env.StateInfo()
 	c.Assert(err, IsNil)
 	info.Password = trivial.PasswordHash("nutkin")
-	st, err := state.Open(info, state.DefaultDialTimeout)
+	st, err := state.Open(info, state.DefaultDialTimeout, state.DefaultRetryDelay)
 	c.Assert(err, IsNil)
 	st.Close()
 
@@ -211,7 +211,7 @@ func (cs *NewConnSuite) TestConnWithPassword(c *C) {
 	// Check that the password has now been changed to the original
 	// admin password.
 	info.Password = "nutkin"
-	st1, err := state.Open(info, state.DefaultDialTimeout)
+	st1, err := state.Open(info, state.DefaultDialTimeout, state.DefaultRetryDelay)
 	c.Assert(err, IsNil)
 	st1.Close()
 

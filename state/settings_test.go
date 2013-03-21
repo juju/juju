@@ -36,7 +36,7 @@ func (s *SettingsSuite) TearDownSuite(c *C) {
 func (s *SettingsSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-	state, err := Open(TestingStateInfo(), TestingDialTimeout)
+	state, err := Open(TestingStateInfo(), TestingDialTimeout, TestingRetryDelay)
 	c.Assert(err, IsNil)
 
 	s.state = state

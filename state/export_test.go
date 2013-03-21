@@ -6,9 +6,15 @@ import (
 	"time"
 )
 
-// TestingDialTimeout controls how long calls to state.Open
-// will wait during testing.
-const TestingDialTimeout = 100 * time.Millisecond
+const (
+	// TestingDialTimeout controls how long calls to state.Open
+	// will wait during testing.
+	TestingDialTimeout = 100 * time.Millisecond
+
+	// TestingRetryDelay controls how long calls to state.Open
+	// will delay between retries.
+	TestingRetryDelay = 0
+)
 
 type (
 	CharmDoc    charmDoc
