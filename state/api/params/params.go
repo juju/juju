@@ -154,6 +154,11 @@ type SetServiceConstraints struct {
 	Constraints constraints.Value
 }
 
+// CharmInfo stores parameters for a CharmInfo call.
+type CharmInfo struct {
+	CharmURL string
+}
+
 // Delta holds details of a change to the environment.
 type Delta struct {
 	// If Removed is true, the entity has been removed;
@@ -271,7 +276,14 @@ type RelationInfo struct {
 func (i *RelationInfo) EntityId() interface{} { return i.Key }
 func (i *RelationInfo) EntityKind() string    { return "relation" }
 
-// CharmInfo stores parameters for a CharmInfo call.
-type CharmInfo struct {
-	CharmURL string
+type AnnotationInfo struct {
+	// TODO(rog) GlobalKey should not be necessary here, but
+	// is until there's a level of indirection between mgo documents
+	// and StateWatcher results.
+	GlobalKey   string `bson:"_id"`
+	EntityName  string
+	Annotations map[string]string
 }
+
+func (i *AnnotationInfo) EntityId() interface{} { return i.GlobalKey }
+func (i *AnnotationInfo) EntityKind() string { return "annotation" }
