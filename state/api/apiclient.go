@@ -248,12 +248,12 @@ func (c *Client) GetAnnotations(entityId string) (map[string]string, error) {
 	return ann.Annotations, nil
 }
 
-// SetAnnotation sets the annotation with the given key on the given entity to
-// the given value. Currently annotations are supported on machines, services,
+// SetAnnotations sets the annotation pairs on the given entity.
+// Currently annotations are supported on machines, services,
 // units and the environment itself.
-func (c *Client) SetAnnotation(entityId, key, value string) error {
-	args := params.SetAnnotation{entityId, key, value}
-	err := c.st.client.Call("Client", "", "SetAnnotation", args, nil)
+func (c *Client) SetAnnotations(entityId string, pairs map[string]string) error {
+	args := params.SetAnnotations{entityId, pairs}
+	err := c.st.client.Call("Client", "", "SetAnnotations", args, nil)
 	if err != nil {
 		return clientError(err)
 	}
