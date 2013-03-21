@@ -76,7 +76,7 @@ func (a *annotator) setAnnotationsOp(toInsert, toUpdate map[string]string, toRem
 		return txn.Op{}, err
 	} else if count == 0 {
 		// The document is missing: no need to remove pairs.
-		// Insert pairs if required.
+		// Insert pairs as required.
 		return txn.Op{
 			C:      coll,
 			Id:     id,
@@ -84,7 +84,7 @@ func (a *annotator) setAnnotationsOp(toInsert, toUpdate map[string]string, toRem
 			Insert: &annotatorDoc{id, a.entityName, toInsert},
 		}, nil
 	}
-	// The document exists.
+	// The document exists: update and remove pairs.
 	return txn.Op{
 		C:      coll,
 		Id:     id,
