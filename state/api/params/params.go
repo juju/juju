@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 )
 
@@ -231,6 +232,10 @@ type EntityInfo interface {
 	EntityKind() string
 }
 
+// IMPORTANT NOTE: the types below are direct subsets of the entity docs
+// held in mongo, as defined in the state package (serviceDoc,
+// machineDoc etc).
+
 var (
 	_ EntityInfo = (*MachineInfo)(nil)
 	_ EntityInfo = (*ServiceInfo)(nil)
@@ -249,8 +254,9 @@ func (i *MachineInfo) EntityId() interface{} { return i.Id }
 func (i *MachineInfo) EntityKind() string    { return "machine" }
 
 type ServiceInfo struct {
-	Name    string `bson:"_id"`
-	Exposed bool
+	Name     string `bson:"_id"`
+	Exposed  bool
+	CharmURL *charm.URL
 }
 
 func (i *ServiceInfo) EntityId() interface{} { return i.Name }
