@@ -326,6 +326,7 @@ func (*ConfigSuite) TestConfig(c *C) {
 	}
 	h := makeFakeHome(c, files)
 	defer h.restore()
+	version.Current.Series = "current-series"
 	for i, test := range configTests {
 		c.Logf("test %d. %s", i, test.about)
 		test.check(c, h)
@@ -450,7 +451,7 @@ func (test configTest) check(c *C, h fakeHome) {
 	if series, _ := test.attrs["default-series"].(string); series != "" {
 		c.Assert(cfg.DefaultSeries(), Equals, series)
 	} else {
-		c.Assert(cfg.DefaultSeries(), Equals, version.Current.Series)
+		c.Assert(cfg.DefaultSeries(), Equals, "precise")
 	}
 
 	if m, _ := test.attrs["firewall-mode"].(string); m != "" {
