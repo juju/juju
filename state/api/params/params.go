@@ -142,17 +142,16 @@ type GetAnnotations struct {
 	EntityId string
 }
 
+// SetAnnotations stores parameters for making the SetAnnotations call.
+type SetAnnotations struct {
+	EntityId string
+	Pairs    map[string]string
+}
+
 // SetServiceConstraints stores parameters for making the SetServiceConstraints call.
 type SetServiceConstraints struct {
 	ServiceName string
 	Constraints constraints.Value
-}
-
-// SetAnnotation stores parameters for making the SetAnnotation call.
-type SetAnnotation struct {
-	EntityId string
-	Key      string
-	Value    string
 }
 
 // Delta holds details of a change to the environment.
