@@ -11,6 +11,7 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/cert"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/presence"
@@ -113,7 +114,7 @@ func Initialize(info *Info, cfg *config.Config) (rst *State, err error) {
 		return nil, fmt.Errorf("admin-secret should never be written to the state")
 	}
 	ops := []txn.Op{
-		createConstraintsOp(st, "e", Constraints{}),
+		createConstraintsOp(st, "e", constraints.Value{}),
 		createSettingsOp(st, "e", cfg.AllAttrs()),
 	}
 	if err := st.runner.Run(ops, "", nil); err == txn.ErrAborted {
@@ -213,11 +214,13 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 		relationScopes: db.C("relationscopes"),
 		services:       db.C("services"),
 		settings:       db.C("settings"),
+		settingsrefs:   db.C("settingsrefs"),
 		constraints:    db.C("constraints"),
 		units:          db.C("units"),
 		users:          db.C("users"),
 		presence:       pdb.C("presence"),
 		cleanups:       db.C("cleanups"),
+		annotations:    db.C("annotations"),
 	}
 	log := db.C("txns.log")
 	logInfo := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
@@ -237,6 +240,8 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 			return nil, fmt.Errorf("cannot create database index: %v", err)
 		}
 	}
+	st.allWatcher = newAllWatcher(newAllWatcherStateBacking(st))
+	go st.allWatcher.run()
 	return st, nil
 }
 
@@ -253,8 +258,9 @@ func (st *State) CACert() (cert []byte) {
 func (st *State) Close() error {
 	err1 := st.watcher.Stop()
 	err2 := st.pwatcher.Stop()
+	err3 := st.allWatcher.Stop()
 	st.db.Session.Close()
-	for _, err := range []error{err1, err2} {
+	for _, err := range []error{err1, err2, err3} {
 		if err != nil {
 			return err
 		}

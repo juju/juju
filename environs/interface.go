@@ -3,6 +3,7 @@ package environs
 import (
 	"errors"
 	"io"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -136,19 +137,20 @@ type Environ interface {
 	Name() string
 
 	// Bootstrap initializes the state for the environment, possibly
-	// starting one or more instances.  If uploadTools is true, the
-	// current version of the juju tools will be uploaded and used
-	// on the environment's instances.  If the configuration's
+	// starting one or more instances.  If the configuration's
 	// AdminSecret is non-empty, the adminstrator password on the
 	// newly bootstrapped state will be set to a hash of it (see
 	// trivial.PasswordHash), When first connecting to the
 	// environment via the juju package, the password hash will be
 	// automatically replaced by the real password.
 	//
+	// The supplied constraints are used to choose the initial instance
+	// specification, and will be stored in the new environment's state.
+	//
 	// The stateServerCertand stateServerKey parameters hold
 	// both the certificate and the respective private key to be
 	// used by the initial state server, in PEM format.
-	Bootstrap(uploadTools bool, stateServerCert, stateServerKey []byte) error
+	Bootstrap(cons constraints.Value, stateServerCert, stateServerKey []byte) error
 
 	// StateInfo returns information on the state initialized
 	// by Bootstrap.
@@ -170,8 +172,7 @@ type Environ interface {
 	// on the new machine are given by tools - if nil,
 	// the Environ will find a set of tools compatible with the
 	// current version.
-	// TODO add arguments to specify type of new machine.
-	StartInstance(machineId string, info *state.Info, apiInfo *api.Info, tools *state.Tools) (Instance, error)
+	StartInstance(machineId string, cons constraints.Value, info *state.Info, apiInfo *api.Info, tools *state.Tools) (Instance, error)
 
 	// StopInstances shuts down the given instances.
 	StopInstances([]Instance) error

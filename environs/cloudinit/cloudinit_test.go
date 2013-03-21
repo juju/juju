@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
@@ -38,6 +39,16 @@ func mustNewConfig(m map[string]interface{}) *config.Config {
 	return cfg
 }
 
+var envConstraints = mustParseConstraints("mem=2G")
+
+func mustParseConstraints(s string) constraints.Value {
+	cons, err := constraints.Parse(s)
+	if err != nil {
+		panic(err)
+	}
+	return cons
+}
+
 type cloudinitTest struct {
 	cfg           cloudinit.MachineConfig
 	expectScripts string
@@ -64,8 +75,9 @@ var cloudinitTests = []cloudinitTest{{
 			Password: "bletch",
 			CACert:   []byte("CA CERT\n" + testing.CACert),
 		},
-		Config:  envConfig,
-		DataDir: "/var/lib/juju",
+		Config:      envConfig,
+		Constraints: envConstraints,
+		DataDir:     "/var/lib/juju",
 	},
 	expectScripts: `
 mkdir -p /var/lib/juju
@@ -87,7 +99,7 @@ start juju-db
 mkdir -p '/var/lib/juju/agents/bootstrap'
 echo 'datadir: /var/lib/juju\\nstateservercert:\\n[^']+stateserverkey:\\n[^']+mongoport: 37017\\napiport: 17070\\noldpassword: arble\\nstateinfo:\\n  addrs:\\n  - localhost:37017\\n  cacert:\\n[^']+  entityname: bootstrap\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - localhost:17070\\n  cacert:\\n[^']+  entityname: bootstrap\\n  password: ""\\n' > '/var/lib/juju/agents/bootstrap/agent\.conf'
 chmod 600 '/var/lib/juju/agents/bootstrap/agent\.conf'
-/var/lib/juju/tools/1\.2\.3-linux-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --debug
+/var/lib/juju/tools/1\.2\.3-linux-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --constraints 'mem=2048M' --debug
 rm -rf '/var/lib/juju/agents/bootstrap'
 cat > /etc/rsyslog.d/25-juju.conf << 'EOF'\\n\\n\$ModLoad imfile\\n\\n\$InputFilePollInterval 5\\n\$InputFileName /var/log/juju/machine-0.log\\n\$InputFileTag local-juju-machine-0:\\n\$InputFileStateFile machine-0\\n\$InputRunFileMonitor\\n\\n\$ModLoad imudp\\n\$UDPServerRun 514\\n\\n# Messages received from remote rsyslog machines contain a leading space so we\\n# need to account for that.\\n\$template JujuLogFormatLocal,\"%HOSTNAME%:%msg:::drop-last-lf%\\n\"\\n\$template JujuLogFormat,\"%HOSTNAME%:%msg:2:2048:drop-last-lf%\\n\"\\n\\n:syslogtag, startswith, \"juju-\" /var/log/juju/all-machines.log;JujuLogFormat\\n:syslogtag, startswith, \"local-juju-\" /var/log/juju/all-machines.log;JujuLogFormatLocal\\n& ~\\nEOF\\n
 restart rsyslog

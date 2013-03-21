@@ -4,7 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"launchpad.net/juju-core/constraints"
 )
+
+// DestroyRelation holds the parameters for making the DestroyRelation call.
+// The endpoints specified are unordered.
+type DestroyRelation struct {
+	Endpoints []string
+}
 
 // ServiceDeploy holds the parameters for making the ServiceDeploy call.
 type ServiceDeploy struct {
@@ -133,6 +140,12 @@ type GetAnnotationsResults struct {
 // GetAnnotations stores parameters for making the GetAnnotations call.
 type GetAnnotations struct {
 	EntityId string
+}
+
+// SetServiceConstraints stores parameters for making the SetServiceConstraints call.
+type SetServiceConstraints struct {
+	ServiceName string
+	Constraints constraints.Value
 }
 
 // SetAnnotation stores parameters for making the SetAnnotation call.
