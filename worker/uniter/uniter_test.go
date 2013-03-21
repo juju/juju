@@ -573,7 +573,7 @@ var errorUpgradeTests = []uniterTest{
 	//		waitHooks{},
 	//
 	//		**** The test fails here with charm revision 0, not 1.
-	//		verifyCharm{revision: 1},	
+	//		verifyCharm{revision: 1},
 	//		verifyWaiting{},
 	//
 	//		resolveError{state.ResolvedNoHooks},
