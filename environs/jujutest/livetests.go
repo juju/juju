@@ -657,8 +657,9 @@ attempt:
 	c.Check(err, IsNil)
 }
 
-// Check that we can't start an instance running tools
-// that correspond with no available platform.
+// Check that we can't start an instance running tools that correspond with no
+// available platform.  The first thing start instance should do is find
+// appropriate tools.
 func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
 	inst, err := t.Env.StartInstance("4", "unknownseries", constraints.Value{}, testing.InvalidStateInfo("4"), testing.InvalidAPIInfo("4"))
 	if inst != nil {
@@ -666,7 +667,9 @@ func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
 		c.Check(err, IsNil)
 	}
 	c.Assert(inst, IsNil)
-	c.Assert(err, ErrorMatches, `.*"unknownseries".*`)
+	var notFoundError *environs.NotFoundError
+	c.Assert(err, FitsTypeOf, notFoundError)
+	c.Assert(err, ErrorMatches, "no compatible tools found")
 }
 
 func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {

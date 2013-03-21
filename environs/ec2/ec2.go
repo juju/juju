@@ -290,6 +290,7 @@ func (e *environ) Bootstrap(cons constraints.Value, cert, key []byte) error {
 	mongoURL := environs.MongoURL(e, v)
 	inst, err := e.startInstance(&startInstanceParams{
 		machineId:   "0",
+		series:      tools.Series,
 		constraints: cons,
 		info: &state.Info{
 			Password: trivial.PasswordHash(password),
@@ -438,9 +439,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 		var err error
 		flags := environs.HighestVersion | environs.CompatVersion
 		v := version.Current
-		if scfg.series != "" {
-			v.Series = scfg.series
-		}
+		v.Series = scfg.series
 		scfg.tools, err = environs.FindTools(e, v, flags)
 		if err != nil {
 			return nil, err
@@ -449,7 +448,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	log.Infof("environs/ec2: starting machine %s in %q running tools version %q from %q", scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
 	spec, err := findInstanceSpec(&instanceConstraint{
 		region:      e.ecfg().region(),
-		series:      scfg.tools.Series,
+		series:      scfg.series,
 		arches:      []string{scfg.tools.Arch},
 		constraints: scfg.constraints,
 	})
