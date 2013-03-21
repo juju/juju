@@ -45,16 +45,41 @@ func (a *annotator) SetAnnotations(pairs map[string]string) error {
 			toUpdate["annotations."+key] = value
 		}
 	}
+	for i := 0; i < 3; i++ {
+		ops, err := a.setAnnotationsOps(toInsert, toUpdate, toRemove)
+		if err != nil {
+			return err
+		}
+		if len(ops) == 0 {
+			return nil
+		}
+		if err := a.st.runner.Run(ops, "", nil); err == nil {
+			return nil
+		} else if err != txn.ErrAborted {
+			return fmt.Errorf("cannot update annotations on %s: %v", a.globalKey, err)
+		}
+		if hasAnnotations, err := a.hasAnnotations(pairs); err != nil {
+			return err
+		} else if hasAnnotations {
+			return nil
+		}
+	}
+	return fmt.Errorf("cannot update annotations on %s: %v", a.globalKey, ErrExcessiveContention)
+}
+
+// setAnnotationsOps returns the operations required to insert, update or
+// remove annotations in MongoDB.
+func (a *annotator) setAnnotationsOps(toInsert, toUpdate map[string]string, toRemove map[string]bool) ([]txn.Op, error) {
 	id := a.globalKey
 	coll := a.st.annotations.Name
 	var ops []txn.Op
 	if count, err := a.st.annotations.FindId(id).Count(); err != nil {
-		return err
+		return nil, err
 	} else if count == 0 {
 		// The document is missing: no need to remove pairs.
 		// Insert pairs if required.
 		if len(toInsert) == 0 {
-			return nil
+			return ops, nil
 		}
 		insertOp := txn.Op{
 			C:      coll,
@@ -62,35 +87,44 @@ func (a *annotator) SetAnnotations(pairs map[string]string) error {
 			Assert: txn.DocMissing,
 			Insert: &annotatorDoc{id, a.entityName, toInsert},
 		}
-		ops = append(ops, insertOp)
-	} else {
-		// The document exists.
-		if len(toRemove) != 0 {
-			// Remove pairs.
-			removeOp := txn.Op{
-				C:      coll,
-				Id:     id,
-				Assert: txn.DocExists,
-				Update: D{{"$unset", toRemove}},
-			}
-			ops = append(ops, removeOp)
+		return append(ops, insertOp), nil
+	}
+	// The document exists.
+	if len(toRemove) != 0 {
+		// Remove pairs.
+		removeOp := txn.Op{
+			C:      coll,
+			Id:     id,
+			Assert: txn.DocExists,
+			Update: D{{"$unset", toRemove}},
 		}
-		if len(toUpdate) != 0 {
-			// Insert/update pairs.
-			updateOp := txn.Op{
-				C:      coll,
-				Id:     id,
-				Assert: txn.DocExists,
-				Update: D{{"$set", toUpdate}},
-			}
-			ops = append(ops, updateOp)
+		ops = append(ops, removeOp)
+	}
+	if len(toUpdate) != 0 {
+		// Insert/update pairs.
+		updateOp := txn.Op{
+			C:      coll,
+			Id:     id,
+			Assert: txn.DocExists,
+			Update: D{{"$set", toUpdate}},
+		}
+		ops = append(ops, updateOp)
+	}
+	return ops, nil
+}
+
+// hasAnnotations checks if the provided annotations already exist.
+func (a *annotator) hasAnnotations(pairs map[string]string) (bool, error) {
+	ann, err := a.Annotations()
+	if err != nil {
+		return false, err
+	}
+	for key, value := range pairs {
+		if ann[key] != value {
+			return false, nil
 		}
 	}
-	if err := a.st.runner.Run(ops, "", nil); err != nil {
-		// TODO(frankban) Bug #1156714: handle possible race conditions.
-		return fmt.Errorf("cannot update annotations on %s: %v", id, err)
-	}
-	return nil
+	return true, nil
 }
 
 // Annotations returns all the annotations corresponding to an entity.
