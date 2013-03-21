@@ -78,6 +78,9 @@ func (s *UniterSuite) TearDownTest(c *C) {
 
 func (s *UniterSuite) Reset(c *C) {
 	s.JujuConnSuite.Reset(c)
+	coretesting.Server.Flush()
+	err := os.RemoveAll(s.unitDir)
+	c.Assert(err, IsNil)
 }
 
 type uniterTest struct {
@@ -558,32 +561,35 @@ var errorUpgradeTests = []uniterTest{
 		waitHooks{"config-changed", "upgrade-charm", "config-changed"},
 		verifyCharm{revision: 1},
 		verifyRunning{},
+	), ut(
+		"error state forced upgrade",
+		startupError{"start"},
+		createCharm{revision: 1},
+		upgradeCharm{revision: 1, forced: true},
+		// It's not possible to tell directly from state when the upgrade is
+		// complete, because the new unit charm URL is set at the beginning
+		// of the process, not the end. However, it's still useful to wait
+		// until that point...
+		waitUnit{
+			status: state.UnitError,
+			info:   `hook failed: "start"`,
+			charm:  1,
+		},
+		// ...because the uniter *will* complete a started deployment even if
+		// we stop it from outside. So, by stopping and starting, we can be
+		// sure that the operation has completed and can safely verify that
+		// the charm state on disk is as we expect.
+		verifyWaiting{},
+		verifyCharm{revision: 1},
+
+		resolveError{state.ResolvedNoHooks},
+		waitUnit{
+			status: state.UnitStarted,
+			charm:  1,
+		},
+		waitHooks{"config-changed"},
+		verifyRunning{},
 	),
-	// TODO(dimitern) enable this test when it is consistently working again.
-	//	ut(
-	//		"error state forced upgrade",
-	//		startupError{"start"},
-	//		createCharm{revision: 1},
-	//		upgradeCharm{revision: 1, forced: true},
-	//		waitUnit{
-	//			status: state.UnitError,
-	//			info:   `hook failed: "start"`,
-	//			charm:  1,
-	//		},
-	//		waitHooks{},
-	//
-	//		**** The test fails here with charm revision 0, not 1.
-	//		verifyCharm{revision: 1},
-	//		verifyWaiting{},
-	//
-	//		resolveError{state.ResolvedNoHooks},
-	//		waitUnit{
-	//			status: state.UnitStarted,
-	//			charm:  1,
-	//		},
-	//		waitHooks{"config-changed"},
-	//		verifyRunning{},
-	//	),
 }
 
 func (s *UniterSuite) TestUniterErrorStateUpgrade(c *C) {
@@ -813,20 +819,18 @@ func (s *UniterSuite) TestUniterSubordinates(c *C) {
 func (s *UniterSuite) runUniterTests(c *C, uniterTests []uniterTest) {
 	for i, t := range uniterTests {
 		c.Logf("\ntest %d: %s\n", i, t.summary)
-		ctx := &context{
-			s:       s,
-			st:      s.State,
-			id:      i,
-			path:    s.unitDir,
-			dataDir: s.dataDir,
-			charms:  coretesting.ResponseMap{},
-		}
-		ctx.run(c, t.steps)
-
-		s.Reset(c)
-		coretesting.Server.Flush()
-		err := os.RemoveAll(s.unitDir)
-		c.Assert(err, IsNil)
+		func() {
+			defer s.Reset(c)
+			ctx := &context{
+				s:       s,
+				st:      s.State,
+				id:      i,
+				path:    s.unitDir,
+				dataDir: s.dataDir,
+				charms:  coretesting.ResponseMap{},
+			}
+			ctx.run(c, t.steps)
+		}()
 	}
 }
 
