@@ -63,7 +63,7 @@ var marshalTestCases = []struct {
 		Entity: &params.AnnotationInfo{
 			EntityName: "machine-0",
 			Annotations: map[string]string{
-				"foo": "bar",
+				"foo":   "bar",
 				"arble": "",
 			},
 		},
@@ -78,7 +78,7 @@ var marshalTestCases = []struct {
 		},
 	},
 	json: `["relation","remove",{"Key":"Benji"}]`,
-},}
+}}
 
 func (s *MarshalSuite) TestDeltaMarshalJSON(c *C) {
 	for _, t := range marshalTestCases {

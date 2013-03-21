@@ -289,4 +289,4 @@ type AnnotationInfo struct {
 }
 
 func (i *AnnotationInfo) EntityId() interface{} { return i.GlobalKey }
-func (i *AnnotationInfo) EntityKind() string { return "annotation" }
+func (i *AnnotationInfo) EntityKind() string    { return "annotation" }

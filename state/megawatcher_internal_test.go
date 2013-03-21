@@ -854,8 +854,8 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 	err = wordpress.SetAnnotations(pairs)
 	c.Assert(err, IsNil)
 	add(&params.AnnotationInfo{
-		GlobalKey: "s#wordpress",
-		EntityName: "service-wordpress",
+		GlobalKey:   "s#wordpress",
+		EntityName:  "service-wordpress",
 		Annotations: pairs,
 	})
 
@@ -885,8 +885,8 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 		err = wu.SetAnnotations(pairs)
 		c.Assert(err, IsNil)
 		add(&params.AnnotationInfo{
-			GlobalKey: fmt.Sprintf("u#wordpress/%d", i),
-			EntityName: fmt.Sprintf("unit-wordpress-%d", i),
+			GlobalKey:   fmt.Sprintf("u#wordpress/%d", i),
+			EntityName:  fmt.Sprintf("unit-wordpress-%d", i),
 			Annotations: pairs,
 		})
 
@@ -985,7 +985,7 @@ func (s *allWatcherStateSuite) TestStateBackingEntityIdForInfo(c *C) {
 		info:       &params.RelationInfo{Key: "logging:logging-directory wordpress:logging-dir"},
 		collection: s.State.relations,
 	}, {
-		info: &params.AnnotationInfo{GlobalKey: "m-0"},
+		info:       &params.AnnotationInfo{GlobalKey: "m-0"},
 		collection: s.State.annotations,
 	}}
 	b := newAllWatcherStateBacking(s.State)
