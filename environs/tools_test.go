@@ -79,6 +79,24 @@ var commandTests = []struct {
 	},
 }
 
+func (t *ToolsSuite) TestUploadTools(c *C) {
+	env, err := environs.NewFromAttrs(map[string]interface{}{
+		"name":            "upload-test",
+		"type":            "dummy",
+		"state-server":    false,
+		"authorized-keys": "i-am-a-key",
+		"agent-version":   "1.9.10", // Older than current version
+		"default-series":  "lucid",  // Real old series
+	})
+	c.Assert(err, IsNil)
+
+	err = environs.UploadTools(env)
+	c.Assert(err, IsNil)
+
+	c.Assert(env.Config().AgentVersion(), Equals, version.Current.Number)
+	c.Assert(env.Config().DefaultSeries(), Equals, version.Current.Series)
+}
+
 func (t *ToolsSuite) TestPutGetTools(c *C) {
 	tools, err := environs.PutTools(t.env.Storage(), nil)
 	c.Assert(err, IsNil)

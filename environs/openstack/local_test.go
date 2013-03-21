@@ -6,6 +6,7 @@ import (
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/testservices/hook"
 	"launchpad.net/goose/testservices/openstackservice"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/openstack"
@@ -232,7 +233,7 @@ func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
 	newconfig["use-floating-ip"] = true
 	env, err := environs.NewFromAttrs(newconfig)
 	c.Assert(err, IsNil)
-	err = environs.Bootstrap(env, state.Constraints{}, false)
+	err = environs.Bootstrap(env, constraints.Value{})
 	c.Assert(err, ErrorMatches, ".*cannot allocate a public IP as needed.*")
 }
 
@@ -254,9 +255,9 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *C) {
 		},
 	)
 	defer cleanup()
-	err := environs.Bootstrap(s.Env, state.Constraints{}, false)
+	err := environs.Bootstrap(s.Env, constraints.Value{})
 	c.Assert(err, IsNil)
-	inst, err := s.Env.StartInstance("100", testing.InvalidStateInfo("100"), testing.InvalidAPIInfo("100"), nil)
+	inst, err := s.Env.StartInstance("100", constraints.Value{}, testing.InvalidStateInfo("100"), testing.InvalidAPIInfo("100"), nil)
 	c.Assert(err, IsNil)
 	err = s.Env.StopInstances([]environs.Instance{inst})
 	c.Assert(err, IsNil)
@@ -310,10 +311,10 @@ var instanceGathering = []struct {
 }
 
 func (s *localServerSuite) TestInstancesGathering(c *C) {
-	inst0, err := s.Env.StartInstance("100", testing.InvalidStateInfo("100"), testing.InvalidAPIInfo("100"), nil)
+	inst0, err := s.Env.StartInstance("100", constraints.Value{}, testing.InvalidStateInfo("100"), testing.InvalidAPIInfo("100"), nil)
 	c.Assert(err, IsNil)
 	id0 := inst0.Id()
-	inst1, err := s.Env.StartInstance("101", testing.InvalidStateInfo("101"), testing.InvalidAPIInfo("101"), nil)
+	inst1, err := s.Env.StartInstance("101", constraints.Value{}, testing.InvalidStateInfo("101"), testing.InvalidAPIInfo("101"), nil)
 	c.Assert(err, IsNil)
 	id1 := inst1.Id()
 	defer func() {
@@ -355,7 +356,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	policy := t.env.AssignmentPolicy()
 	c.Assert(policy, Equals, state.AssignUnused)
 
-	err := environs.Bootstrap(t.env, state.Constraints{}, false)
+	err := environs.Bootstrap(t.env, constraints.Value{})
 	c.Assert(err, IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
@@ -384,7 +385,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	// and without a provisioning agent.
 	info.EntityName = "machine-1"
 	apiInfo.EntityName = "machine-1"
-	inst1, err := t.env.StartInstance("1", info, apiInfo, nil)
+	inst1, err := t.env.StartInstance("1", constraints.Value{}, info, apiInfo, nil)
 	c.Assert(err, IsNil)
 
 	err = t.env.Destroy(append(insts, inst1))

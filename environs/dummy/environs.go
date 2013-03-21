@@ -22,6 +22,7 @@ package dummy
 import (
 	"errors"
 	"fmt"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
@@ -61,18 +62,19 @@ type GenericOperation struct {
 
 type OpBootstrap struct {
 	Env         string
-	Constraints state.Constraints
+	Constraints constraints.Value
 }
 
 type OpDestroy GenericOperation
 
 type OpStartInstance struct {
-	Env       string
-	MachineId string
-	Instance  environs.Instance
-	Info      *state.Info
-	APIInfo   *api.Info
-	Secret    string
+	Env         string
+	MachineId   string
+	Instance    environs.Instance
+	Constraints constraints.Value
+	Info        *state.Info
+	APIInfo     *api.Info
+	Secret      string
 }
 
 type OpStopInstances struct {
@@ -428,7 +430,7 @@ func (e *environ) Name() string {
 	return e.state.name
 }
 
-func (e *environ) Bootstrap(cons state.Constraints, uploadTools bool, cert, key []byte) error {
+func (e *environ) Bootstrap(cons constraints.Value, cert, key []byte) error {
 	defer delay()
 	if err := e.checkBroken("Bootstrap"); err != nil {
 		return err
@@ -442,18 +444,13 @@ func (e *environ) Bootstrap(cons state.Constraints, uploadTools bool, cert, key 
 	}
 	var tools *state.Tools
 	var err error
-	if uploadTools {
-		tools, err = environs.PutTools(e.Storage(), nil)
-		if err != nil {
-			return err
-		}
-	} else {
-		flags := environs.HighestVersion | environs.CompatVersion
-		tools, err = environs.FindTools(e, version.Current, flags)
-		if err != nil {
-			return err
-		}
+
+	flags := environs.CompatVersion
+	tools, err = environs.FindTools(e, version.Current, flags)
+	if err != nil {
+		return err
 	}
+
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	e.state.ops <- OpBootstrap{Env: e.state.name, Constraints: cons}
@@ -545,7 +542,7 @@ func (e *environ) Destroy([]environs.Instance) error {
 	return nil
 }
 
-func (e *environ) StartInstance(machineId string, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId string, cons constraints.Value, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
 	defer delay()
 	log.Infof("environs/dummy: dummy startinstance, machine %s", machineId)
 	if err := e.checkBroken("StartInstance"); err != nil {
@@ -562,8 +559,8 @@ func (e *environ) StartInstance(machineId string, info *state.Info, apiInfo *api
 	if apiInfo.EntityName != state.MachineEntityName(machineId) {
 		return nil, fmt.Errorf("entity name must match started machine")
 	}
-	if tools != nil && (strings.HasPrefix(tools.Series, "unknown") || strings.HasPrefix(tools.Arch, "unknown")) {
-		return nil, fmt.Errorf("cannot find image for %s-%s", tools.Series, tools.Arch)
+	if tools != nil && (strings.HasPrefix(tools.Series, "unknown")) {
+		return nil, fmt.Errorf("unknown series %q", tools.Series)
 	}
 	i := &instance{
 		state:     e.state,
@@ -574,12 +571,13 @@ func (e *environ) StartInstance(machineId string, info *state.Info, apiInfo *api
 	e.state.insts[i.id] = i
 	e.state.maxId++
 	e.state.ops <- OpStartInstance{
-		Env:       e.state.name,
-		MachineId: machineId,
-		Instance:  i,
-		Info:      info,
-		APIInfo:   apiInfo,
-		Secret:    e.ecfg().secret(),
+		Env:         e.state.name,
+		MachineId:   machineId,
+		Constraints: cons,
+		Instance:    i,
+		Info:        info,
+		APIInfo:     apiInfo,
+		Secret:      e.ecfg().secret(),
 	}
 	return i, nil
 }

@@ -6,6 +6,7 @@ import (
 	"io"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
@@ -133,6 +134,10 @@ var operationPermTests = []struct {
 }, {
 	about: "Client.ServiceDestroy",
 	op:    opClientServiceDestroy,
+	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.SetServiceConstraints",
+	op:    opClientSetServiceConstraints,
 	allow: []string{"user-admin", "user-other"},
 }, {
 	about: "Client.WatchAll",
@@ -433,6 +438,18 @@ func opClientServiceDestroy(c *C, st *api.State, mst *state.State) (func(), erro
 	return func() {}, nil
 }
 
+func opClientSetServiceConstraints(c *C, st *api.State, mst *state.State) (func(), error) {
+	// This test only checks that the call is made without error, ensuring the
+	// signatures match.
+	constraints := constraints.Value{}
+	err := st.Client().SetServiceConstraints("wordpress", constraints)
+	if err != nil {
+		return func() {}, err
+	}
+	c.Assert(err, IsNil)
+	return func() {}, nil
+}
+
 func opClientWatchAll(c *C, st *api.State, mst *state.State) (func(), error) {
 	watcher, err := st.Client().WatchAll()
 	if err == nil {
@@ -455,6 +472,11 @@ var scenarioStatus = &api.Status{
 			InstanceId: "i-machine-2",
 		},
 	},
+}
+
+// namedEntity represents entities with a name unique to all entities.
+type namedEntity interface {
+	EntityName() string
 }
 
 // setUpScenario makes an environment scenario suitable for
@@ -493,7 +515,7 @@ var scenarioStatus = &api.Status{
 // environment manager (bootstrap machine), so is
 // hopefully easier to remember as such.
 func (s *suite) setUpScenario(c *C) (entities []string) {
-	add := func(e state.Entity) {
+	add := func(e namedEntity) {
 		entities = append(entities, e.EntityName())
 	}
 	u, err := s.State.User("admin")
@@ -570,17 +592,17 @@ func (s *suite) setUpScenario(c *C) (entities []string) {
 	return
 }
 
-// AuthEntity is the same as state.Entity but
-// without PasswordValid and annotations handling
-// which are implemented by state entities but not
-// by api entities.
-type AuthEntity interface {
-	EntityName() string
+// namedAuthenticator is the same as state.Authenticator but without
+// PasswordValid which is implemented by state entities, not by api
+// entities. It also adds to state.Authenticator the ability to retrieve
+// the entity name.
+type namedAuthenticator interface {
 	SetPassword(pass string) error
 	Refresh() error
+	namedEntity
 }
 
-func setDefaultPassword(c *C, e AuthEntity) {
+func setDefaultPassword(c *C, e namedAuthenticator) {
 	err := e.SetPassword(e.EntityName() + " password")
 	c.Assert(err, IsNil)
 }
@@ -721,6 +743,7 @@ func (s *suite) TestClientEnvironmentInfo(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(info.DefaultSeries, Equals, conf.DefaultSeries())
 	c.Assert(info.ProviderType, Equals, conf.Type())
+	c.Assert(info.Name, Equals, conf.Name())
 }
 
 var clientAnnotationsTests = []struct {
@@ -753,6 +776,13 @@ var clientAnnotationsTests = []struct {
 	},
 }
 
+// namedAnnotator adds to state.Annotator the ability to retrieve the entity
+// name.
+type namedAnnotator interface {
+	state.Annotator
+	namedEntity
+}
+
 func (s *suite) TestClientAnnotations(c *C) {
 	// Set up entities.
 	service, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
@@ -761,7 +791,9 @@ func (s *suite) TestClientAnnotations(c *C) {
 	c.Assert(err, IsNil)
 	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	entities := []state.Entity{service, unit, machine}
+	environment, err := s.State.Environment()
+	c.Assert(err, IsNil)
+	entities := []namedAnnotator{service, unit, machine, environment}
 	for i, t := range clientAnnotationsTests {
 	loop:
 		for _, entity := range entities {
@@ -782,18 +814,16 @@ func (s *suite) TestClientAnnotations(c *C) {
 				c.Assert(err, IsNil)
 			}
 			// Check annotations are correctly set.
-			err := entity.Refresh()
+			dbann, err := entity.Annotations()
 			c.Assert(err, IsNil)
-			c.Assert(entity.Annotations(), DeepEquals, t.expected)
+			c.Assert(dbann, DeepEquals, t.expected)
 			// Retrieve annotations using the API call.
 			ann, err := s.APIState.Client().GetAnnotations(id)
 			c.Assert(err, IsNil)
 			// Check annotations are correctly returned.
-			err = entity.Refresh()
-			c.Assert(err, IsNil)
-			c.Assert(ann, DeepEquals, entity.Annotations())
+			c.Assert(ann, DeepEquals, dbann)
 			// Clean up annotations on the current entity.
-			for key := range entity.Annotations() {
+			for key := range dbann {
 				err = entity.SetAnnotation(key, "")
 				c.Assert(err, IsNil)
 			}
@@ -1347,9 +1377,13 @@ func (s *suite) TestNoRelation(c *C) {
 	c.Assert(err, ErrorMatches, `relation "wordpress:db mysql:server" not found`)
 }
 
-// This test will be thrown away, at least in part, once the stub code in
-// state/megawatcher.go is implemented.
 func (s *suite) TestClientWatchAll(c *C) {
+	// A very simple end-to-end test, because
+	// all the logic is tested elsewhere.
+	m, err := s.State.AddMachine("series", state.JobManageEnviron)
+	c.Assert(err, IsNil)
+	err = m.SetInstanceId("i-0")
+	c.Assert(err, IsNil)
 	watcher, err := s.APIState.Client().WatchAll()
 	c.Assert(err, IsNil)
 	defer func() {
@@ -1358,9 +1392,12 @@ func (s *suite) TestClientWatchAll(c *C) {
 	}()
 	deltas, err := watcher.Next()
 	c.Assert(err, IsNil)
-	// This is the part that most clearly is tied to the fact that we are
-	// testing a stub.
-	c.Assert(deltas, DeepEquals, state.StubNextDelta)
+	c.Assert(deltas, DeepEquals, []params.Delta{{
+		Entity: &params.MachineInfo{
+			Id:         m.Id(),
+			InstanceId: "i-0",
+		},
+	}})
 }
 
 // openAs connects to the API state as the given entity

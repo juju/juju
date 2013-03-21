@@ -3,16 +3,14 @@ package environs
 import (
 	"fmt"
 	"launchpad.net/juju-core/cert"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/constraints"
 	"time"
 )
 
 // Bootstrap bootstraps the given environment. The supplied constraints are
 // used to provision the instance, and are also set within the bootstrapped
-// environment. The uploadTools parameter requires that the juju-core source
-// code be available within $GOPATH; if that is the case, that code will be
-// built locally and made available to the environment.
-func Bootstrap(environ Environ, cons state.Constraints, uploadTools bool) error {
+// environment.
+func Bootstrap(environ Environ, cons constraints.Value) error {
 	cfg := environ.Config()
 	caCert, hasCACert := cfg.CACert()
 	caKey, hasCAKey := cfg.CAPrivateKey()
@@ -28,5 +26,5 @@ func Bootstrap(environ Environ, cons state.Constraints, uploadTools bool) error 
 	if err != nil {
 		return fmt.Errorf("cannot generate bootstrap certificate: %v", err)
 	}
-	return environ.Bootstrap(cons, uploadTools, cert, key)
+	return environ.Bootstrap(cons, cert, key)
 }
