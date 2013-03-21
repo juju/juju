@@ -463,7 +463,7 @@ func (e *environ) Bootstrap(cons constraints.Value, cert, key []byte) error {
 		if err != nil {
 			return fmt.Errorf("cannot make bootstrap config: %v", err)
 		}
-		st, err := state.Initialize(info, cfg)
+		st, err := state.Initialize(info, cfg, state.DefaultDialTimeout)
 		if err != nil {
 			panic(err)
 		}
