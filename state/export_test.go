@@ -3,7 +3,12 @@ package state
 import (
 	"labix.org/v2/mgo"
 	"launchpad.net/juju-core/charm"
+	"time"
 )
+
+// TestingDialTimeout controls how long calls to state.Open
+// will wait during testing.
+const TestingDialTimeout = 100 * time.Millisecond
 
 type (
 	CharmDoc    charmDoc
