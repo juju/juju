@@ -326,7 +326,6 @@ func (*ConfigSuite) TestConfig(c *C) {
 	}
 	h := makeFakeHome(c, files)
 	defer h.restore()
-	version.Current.Series = "current-series"
 	for i, test := range configTests {
 		c.Logf("test %d. %s", i, test.about)
 		test.check(c, h)
