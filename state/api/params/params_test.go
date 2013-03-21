@@ -25,7 +25,6 @@ var marshalTestCases = []struct {
 }{{
 	about: "MachineInfo Delta",
 	value: params.Delta{
-		Removed: false,
 		Entity: &params.MachineInfo{
 			Id:         "Benji",
 			InstanceId: "Shazam",
@@ -35,7 +34,6 @@ var marshalTestCases = []struct {
 }, {
 	about: "ServiceInfo Delta",
 	value: params.Delta{
-		Removed: false,
 		Entity: &params.ServiceInfo{
 			Name:    "Benji",
 			Exposed: true,
@@ -45,7 +43,6 @@ var marshalTestCases = []struct {
 }, {
 	about: "UnitInfo Delta",
 	value: params.Delta{
-		Removed: false,
 		Entity: &params.UnitInfo{
 			Name:    "Benji",
 			Service: "Shazam",
@@ -55,12 +52,23 @@ var marshalTestCases = []struct {
 }, {
 	about: "RelationInfo Delta",
 	value: params.Delta{
-		Removed: false,
 		Entity: &params.RelationInfo{
 			Key: "Benji",
 		},
 	},
 	json: `["relation","change",{"Key":"Benji"}]`,
+}, {
+	about: "AnnotationInfo Delta",
+	value: params.Delta{
+		Entity: &params.AnnotationInfo{
+			EntityName: "machine-0",
+			Annotations: map[string]string{
+				"foo": "bar",
+				"arble": "",
+			},
+		},
+	},
+	json: `["annotation","change",{"EntityName":"machine-0","Annotations":{"foo":"bar","arble":""}}]`,
 }, {
 	about: "Delta Removed True",
 	value: params.Delta{
@@ -70,8 +78,7 @@ var marshalTestCases = []struct {
 		},
 	},
 	json: `["relation","remove",{"Key":"Benji"}]`,
-},
-}
+},}
 
 func (s *MarshalSuite) TestDeltaMarshalJSON(c *C) {
 	for _, t := range marshalTestCases {

@@ -348,6 +348,9 @@ func newAllWatcherStateBacking(st *State) allWatcherBacking {
 	}, {
 		Collection:    st.relations,
 		infoSliceType: reflect.TypeOf([]params.RelationInfo(nil)),
+	}, {
+		Collection: st.annotations,
+		infoSliceType: reflect.TypeOf([]params.AnnotationInfo(nil)),
 	}}
 	// Populate the collection maps from the above set of collections.
 	for _, c := range collections {

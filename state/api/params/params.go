@@ -218,6 +218,8 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 		d.Entity = new(UnitInfo)
 	case "relation":
 		d.Entity = new(RelationInfo)
+	case "annotation":
+		d.Entity = new(AnnotationInfo)
 	default:
 		return fmt.Errorf("Unexpected entity name %q", entityKind)
 	}
@@ -277,10 +279,11 @@ func (i *RelationInfo) EntityId() interface{} { return i.Key }
 func (i *RelationInfo) EntityKind() string    { return "relation" }
 
 type AnnotationInfo struct {
-	// TODO(rog) GlobalKey should not be necessary here, but
-	// is until there's a level of indirection between mgo documents
-	// and StateWatcher results.
-	GlobalKey   string `bson:"_id"`
+	// TODO(rog) GlobalKey should not be necessary here, but is
+	// until there's a level of indirection between mgo documents
+	// and StateWatcher results. We ensure that it's not serialised
+	// for the API by specifying the json tag.
+	GlobalKey   string `bson:"_id" json:"-"`
 	EntityName  string
 	Annotations map[string]string
 }
