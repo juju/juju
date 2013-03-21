@@ -559,16 +559,8 @@ func (e *environ) StartInstance(machineId string, series string, cons constraint
 	if apiInfo.EntityName != state.MachineEntityName(machineId) {
 		return nil, fmt.Errorf("entity name must match started machine")
 	}
-	flags := environs.CompatVersion
-	v := version.Current
-	v.Series = series
-	_, err := environs.FindTools(e, v, flags)
-	if err != nil {
-		return nil, err
-	}
-
 	if strings.HasPrefix(series, "unknown") {
-		return nil, fmt.Errorf("unknown series %q", series)
+		return nil, &environs.NotFoundError{fmt.Errorf("no compatible tools found")}
 	}
 	i := &instance{
 		state:     e.state,
