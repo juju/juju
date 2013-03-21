@@ -87,6 +87,7 @@ func (a *annotator) SetAnnotations(pairs map[string]string) error {
 		}
 	}
 	if err := a.st.runner.Run(ops, "", nil); err != nil {
+		// TODO(frankban) Bug #1156714: handle possible race conditions.
 		return fmt.Errorf("cannot update annotations on %s: %v", id, err)
 	}
 	return nil
