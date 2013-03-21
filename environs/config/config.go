@@ -71,7 +71,7 @@ func New(attrs map[string]interface{}) (*Config, error) {
 	}
 
 	if c.m["default-series"].(string) == "" {
-		c.m["default-series"] = version.Current.Series
+		c.m["default-series"] = defaults["default-series"]
 	}
 
 	// Load authorized-keys-path into authorized-keys if necessary.
@@ -294,7 +294,7 @@ var fields = schema.Fields{
 }
 
 var defaults = schema.Defaults{
-	"default-series":            version.Current.Series,
+	"default-series":            "precise",
 	"authorized-keys":           "",
 	"authorized-keys-path":      "",
 	"firewall-mode":             FwDefault,
