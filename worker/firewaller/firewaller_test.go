@@ -2,7 +2,6 @@ package firewaller_test
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/dummy"
@@ -128,9 +127,8 @@ func (s *FirewallerSuite) setGlobalMode(c *C) func(*C) {
 
 // startInstance starts a new instance for the given machine.
 func (s *FirewallerSuite) startInstance(c *C, m *state.Machine) environs.Instance {
-	inst, err := s.Conn.Environ.StartInstance(m.Id(), constraints.Value{}, testing.InvalidStateInfo(m.Id()), testing.InvalidAPIInfo(m.Id()), nil)
-	c.Assert(err, IsNil)
-	err = m.SetInstanceId(inst.Id())
+	inst := testing.StartInstance(c, s.Conn.Environ, m.Id())
+	err := m.SetInstanceId(inst.Id())
 	c.Assert(err, IsNil)
 	return inst
 }
