@@ -95,6 +95,7 @@ environments:
 `)
 
 func (s *JujuConnSuite) SetUpSuite(c *C) {
+	c.Assert(config.Init(), IsNil)
 	s.LoggingSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 }
@@ -138,7 +139,6 @@ func (s *JujuConnSuite) APIInfo(c *C) *api.Info {
 }
 
 func (s *JujuConnSuite) setUpConn(c *C) {
-	c.Assert(config.Init(), IsNil)
 	if s.RootDir != "" {
 		panic("JujuConnSuite.setUpConn without teardown")
 	}
