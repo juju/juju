@@ -201,7 +201,7 @@ func (l *logRecorder) Output(calldepth int, s string) error {
 }
 
 func (s *RunHookSuite) TestRunHook(c *C) {
-	logger := &logRecorder{c: c, prefix: "INFO: worker/uniter: HOOK "}
+	logger := &logRecorder{c: c, prefix: "INFO worker/uniter: HOOK "}
 	defer log.SetTarget(log.SetTarget(logger))
 	for i, t := range runHookTests {
 		c.Logf("test %d: %s; perm %v", i, t.summary, t.spec.perm)
