@@ -71,6 +71,7 @@ func (s *UniterSuite) SetUpTest(c *C) {
 }
 
 func (s *UniterSuite) TearDownTest(c *C) {
+	s.ResetContext(c)
 	s.HTTPSuite.TearDownTest(c)
 	s.JujuConnSuite.TearDownTest(c)
 	s.GitSuite.TearDownTest(c)
@@ -78,6 +79,10 @@ func (s *UniterSuite) TearDownTest(c *C) {
 
 func (s *UniterSuite) Reset(c *C) {
 	s.JujuConnSuite.Reset(c)
+	s.ResetContext(c)
+}
+
+func (s *UniterSuite) ResetContext(c *C) {
 	coretesting.Server.Flush()
 	err := os.RemoveAll(s.unitDir)
 	c.Assert(err, IsNil)
@@ -567,9 +572,10 @@ var errorUpgradeTests = []uniterTest{
 		createCharm{revision: 1},
 		upgradeCharm{revision: 1, forced: true},
 		// It's not possible to tell directly from state when the upgrade is
-		// complete, because the new unit charm URL is set at the beginning
-		// of the process, not the end. However, it's still useful to wait
-		// until that point...
+		// complete, because the new unit charm URL is set at the upgrade
+		// process's point of no return (before actually deploying, but after
+		// the charm has been downloaded and verified). However, it's still
+		// useful to wait until that point...
 		waitUnit{
 			status: state.UnitError,
 			info:   `hook failed: "start"`,
@@ -842,7 +848,6 @@ func (s *UniterSuite) TestSubordinateDying(c *C) {
 		dataDir: s.dataDir,
 		charms:  coretesting.ResponseMap{},
 	}
-	defer os.RemoveAll(ctx.path)
 
 	// Create the subordinate service.
 	dir := coretesting.Charms.ClonedDir(c.MkDir(), "logging")
