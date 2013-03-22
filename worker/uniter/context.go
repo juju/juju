@@ -114,7 +114,6 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 		"JUJU_CONTEXT_ID=" + ctx.id,
 		"JUJU_AGENT_SOCKET=" + socketPath,
 		"JUJU_UNIT_NAME=" + ctx.unit.Name(),
-		"JUJU_HOME=" + os.Getenv("JUJU_HOME"),
 	}
 	if r, found := ctx.HookRelation(); found {
 		vars = append(vars, "JUJU_RELATION="+r.Name())

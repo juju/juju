@@ -134,6 +134,10 @@ func (t configTest) check(c *C) {
 	c.Assert(ecfg.useFloatingIP(), Equals, t.useFloatingIP)
 }
 
+func (s *ConfigSuite) SetUpSuite(c *C) {
+	c.Assert(config.Init(), IsNil)
+}
+
 func (s *ConfigSuite) SetUpTest(c *C) {
 	s.savedVars = make(map[string]string)
 	for v, val := range envVars {

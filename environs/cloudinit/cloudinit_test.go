@@ -31,6 +31,10 @@ var envConfig = mustNewConfig(map[string]interface{}{
 })
 
 func mustNewConfig(m map[string]interface{}) *config.Config {
+	err := config.Init()
+	if err != nil {
+		panic(err)
+	}
 	cfg, err := config.New(m)
 	if err != nil {
 		panic(err)

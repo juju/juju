@@ -67,7 +67,7 @@ func InvalidAPIInfo(machineId string) *api.Info {
 
 const AdminSecret = "dummy-secret"
 
-var environment = []byte(`
+var envConfig = []byte(`
 environments:
     dummyenv:
         type: dummy
@@ -121,6 +121,7 @@ func (s *JujuConnSuite) APIInfo(c *C) *api.Info {
 }
 
 func (s *JujuConnSuite) setUpConn(c *C) {
+	c.Assert(config.Init(), IsNil)
 	if s.RootDir != "" {
 		panic("JujuConnSuite.setUpConn without teardown")
 	}
@@ -140,7 +141,7 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	c.Assert(err, IsNil)
 	config.SetTestJujuHome(jujuHome)
 
-	err = ioutil.WriteFile(config.JujuHomePath("environments.yaml"), environment, 0600)
+	err = ioutil.WriteFile(config.JujuHomePath("environments.yaml"), envConfig, 0600)
 	c.Assert(err, IsNil)
 
 	err = ioutil.WriteFile(config.JujuHomePath("dummyenv-cert.pem"), []byte(testing.CACert), 0666)

@@ -5,6 +5,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/environs/agent"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 )
@@ -20,6 +21,7 @@ type BootstrapSuite struct {
 var _ = Suite(&BootstrapSuite{})
 
 func (s *BootstrapSuite) SetUpSuite(c *C) {
+	c.Assert(config.Init(), IsNil)
 	s.LoggingSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 }

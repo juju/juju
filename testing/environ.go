@@ -94,6 +94,7 @@ func MakeEmptyFakeHome(c *C) FakeHome {
 	os.Setenv("HOME", fakeHome)
 
 	// Set test juju home based on the new fake home.
+	c.Assert(config.Init(), IsNil)
 	config.SetTestJujuHome(filepath.Join(fakeHome, ".juju"))
 
 	return FakeHome(oldHome)

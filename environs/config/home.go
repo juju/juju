@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"sync"
@@ -14,19 +15,39 @@ var (
 	jujuHomeOrig string
 )
 
-func init() {
-	RestoreJujuHome()
+// Init retrieves $JUJU_HOME or $HOME to set the juju home.
+// In case both variables aren't set an error is returned. 
+func Init() error {
+	jujuHomeMu.Lock()
+	defer jujuHomeMu.Unlock()
+
+	jujuHome = os.Getenv("JUJU_HOME")
+	if jujuHome == "" {
+		home := os.Getenv("HOME")
+		if home == "" {
+			return errors.New("cannot determine juju home, neither $JUJU_HOME nor $HOME are set")
+		}
+		jujuHome = filepath.Join(home, ".juju")
+	}
+	if jujuHomeOrig == "" {
+		// Store the original juju home only once.
+		jujuHomeOrig = jujuHome
+	}
+	return nil
 }
 
 // JujuHome returns the current juju home.
 func JujuHome() string {
+	if jujuHome == "" {
+		panic("juju home hasn't been initialized")
+	}
 	return jujuHome
 }
 
 // JujuHomePath returns the path to a file in the
 // current juju home.
 func JujuHomePath(names ...string) string {
-	all := append([]string{jujuHome}, names...)
+	all := append([]string{JujuHome()}, names...)
 	return filepath.Join(all...)
 }
 
@@ -36,6 +57,9 @@ func SetTestJujuHome(home string) string {
 	jujuHomeMu.Lock()
 	defer jujuHomeMu.Unlock()
 
+	if jujuHomeOrig == "" {
+		panic("juju home hasn't been initialized")
+	}
 	jujuHome = home
 	os.Setenv("JUJU_HOME", jujuHome)
 	return jujuHomeOrig
@@ -48,25 +72,10 @@ func RestoreJujuHome() string {
 	jujuHomeMu.Lock()
 	defer jujuHomeMu.Unlock()
 
-	if jujuHomeOrig != "" {
-		// Restore the original juju home.
-		jujuHome = jujuHomeOrig
-	} else {
-		// Retrieve juju home either by the environment variable
-		// of derived from the home environment variable.
-		jujuHome = os.Getenv("JUJU_HOME")
-		if jujuHome == "" {
-			home := os.Getenv("HOME")
-			if home == "" {
-				panic("environs/config: neither $JUJU_HOME nor $HOME are set")
-			}
-			jujuHome = filepath.Join(home, ".juju")
-		}
-	}
 	if jujuHomeOrig == "" {
-		// Store the original juju home only once.
-		jujuHomeOrig = jujuHome
+		panic("juju home hasn't been initialized")
 	}
+	jujuHome = jujuHomeOrig
 	os.Setenv("JUJU_HOME", jujuHome)
 	return jujuHome
 }
