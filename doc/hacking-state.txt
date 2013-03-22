@@ -31,7 +31,7 @@ The upshot of this is that it's not appropriate to call Refresh on any
 argument to a state method, including receivers; if you're in a context
 in which that would be helpful, you should clone the entity first. This
 is simple enough that there's no Clone() method, but it would be kinda
-nice to implement one in our Copious Free Time; I think there are
+nice to implement them in our Copious Free Time; I think there are
 places outside state that would also find it useful.
 
 care and feeding of mgo/txn
@@ -48,7 +48,8 @@ operations with the following critical properties:
 
   * transactions can apply to more than one document (this is rather
     the point of having them).
-  * transactions will complete, or not run at all.
+  * transactions will complete if every assert in the transaction
+    passes; they will not run at all if any assert fails.
   * multi-document transactions are *not* atomic; the operations are
     applied in the order specified by the list.
   * operations, and hence assertions, can only be applied to documents
@@ -70,24 +71,24 @@ following possible mongodb states on your code:
 Each of the above situations should generally be checked as part of
 preparing a new []txn.Op, but in some cases it's convenient to trust
 (to begin with) that the entity's in-memory state reflects reality.
-Regardless, your job is to build a list of operations with asserts
-that fail in the following situations:
+Regardless, your job is to build a list of operations which assert
+that:
 
-  * the transaction doesn't need to be applied
-  * the transaction is actively invalid
-  * facts on which the transaction list's form depends have changed
+  * the transaction still needs to be applied.
+  * the transaction is actively valid.
+  * facts on which the transaction list's form depends remain true.
 
 If you're really lucky you'll get to write a transaction in which
 the third requirement collapses to nothing, but that's not really
 the norm. In practice, you need to be prepared for the run to return
 txn.ErrAborted; if this happens, you need to check for previous success
 (and return nil) or for known cause of invalidity (and return an error
-describing it); if neither of these cases apply, you should assume it's
-an assertion of the third kind that failed, and in that case the right
-response is to rebuild an operation list based on the latest known
-state and try to run it again.
+describing it).
 
-If ErrAborteds just keep coming, there's an ErrExcessiveContention that
+If neither of these cases apply, you should assume it's an assertion
+failure of the third kind; in that case, you should build a new
+transaction based on more recent state and try again. If ErrAborteds
+just keep coming, give up; there's an ErrExcessiveContention that
 helps to describe the situation.
 
 watching entities, and select groups thereof
@@ -105,9 +106,10 @@ as follows:
 
   * single-document watchers: dead simple, they notify of every
     change to a given doc. SettingsWatcher bucks the convention of
-    EntityWatcher in that it sends whole *Settings~s down the channel
-    (we probably shouldn't do that, but I don't think there's time to
-    fix it right now).
+    EntityWatcher in that it reads whole *Settings~s to send down the
+    channel rather than just sending notifications (we probably
+    shouldn't do that, but I don't think there's time to fix it right
+    now).
   * entity group watchers: pretty simple, very common; they notify of
     every change to the Life field among a group of entities in the
     same collection, with group membership determined in a wide variety
@@ -117,19 +119,19 @@ as follows:
     several different collections, none of which have Life fields.
 
 Implementation of new watchers is not necessarily a simple task, unless
-it is so clearly analogous to an existing one as to leave you muttering
-and cursing about missing generics. Unless you already know exactly
-what you're doing, start a discussion about what you're trying to do
-before you embark on further work in this area.
+it's a genuinely trivial refactoring (or, given lack of generics, copy-
+and-paste job). Unless you already know exactly what you're doing,
+please start a discussion about what you're trying to do before you
+embark on further work in this area.
 
-transactions and refcounts
---------------------------
+transactions and reference counts
+---------------------------------
 
 As described above, it's difficult to assert things like "no units of
 service X exist". It can be done, but not without additional work, and
-we're generally using refcounts to enable this sort of thing.
+we're generally using reference counts to enable this sort of thing.
 
-In general, refcounts should not be stored within entities: refcount
+In general, reference counts should not be stored within entities: such
 changes are part of the operation of juju and are not important enough
 to be reflected as a constant stream of events. We didn't figure this
 out until recently, though, so relationDoc has a UnitCount, and
