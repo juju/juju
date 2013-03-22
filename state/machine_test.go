@@ -111,7 +111,7 @@ func (s *MachineSuite) TestSetMongoPassword(c *C) {
 }
 
 func (s *MachineSuite) TestSetPassword(c *C) {
-	testSetPassword(c, func() (state.Entity, error) {
+	testSetPassword(c, func() (state.Authenticator, error) {
 		return s.State.Machine(s.machine.Id())
 	})
 }
@@ -618,7 +618,20 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 }
 
 func (s *MachineSuite) TestAnnotatorForMachine(c *C) {
-	testAnnotator(c, func() (annotator, error) {
+	testAnnotator(c, func() (state.Annotator, error) {
 		return s.State.Machine(s.machine.Id())
 	})
+}
+
+func (s *MachineSuite) TestAnnotationRemovalForMachine(c *C) {
+	annotations := map[string]string{"mykey": "myvalue"}
+	err := s.machine.SetAnnotations(annotations)
+	c.Assert(err, IsNil)
+	err = s.machine.EnsureDead()
+	c.Assert(err, IsNil)
+	err = s.machine.Remove()
+	c.Assert(err, IsNil)
+	ann, err := s.machine.Annotations()
+	c.Assert(err, IsNil)
+	c.Assert(ann, DeepEquals, make(map[string]string))
 }

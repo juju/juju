@@ -43,7 +43,7 @@ func (s *UserSuite) TestSetPassword(c *C) {
 	u, err := s.State.AddUser("someuser", "")
 	c.Assert(err, IsNil)
 
-	testSetPassword(c, func() (state.Entity, error) {
+	testSetPassword(c, func() (state.Authenticator, error) {
 		return s.State.User(u.Name())
 	})
 }

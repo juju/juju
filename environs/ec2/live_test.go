@@ -7,12 +7,14 @@ import (
 	"io/ioutil"
 	amzec2 "launchpad.net/goamz/ec2"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/version"
 	"strings"
 )
 
@@ -104,8 +106,7 @@ func (t *LiveTests) TearDownTest(c *C) {
 // TODO(niemeyer): Looks like many of those tests should be moved to jujutest.LiveTests.
 
 func (t *LiveTests) TestInstanceAttributes(c *C) {
-	inst, err := t.Env.StartInstance("30", state.Constraints{}, testing.InvalidStateInfo("30"), testing.InvalidAPIInfo("30"), nil)
-	c.Assert(err, IsNil)
+	inst := testing.StartInstance(c, t.Env, "30")
 	defer t.Env.StopInstances([]environs.Instance{inst})
 	dns, err := inst.WaitDNSName()
 	// TODO(niemeyer): This assert sometimes fails with "no instances found"
@@ -122,9 +123,9 @@ func (t *LiveTests) TestInstanceAttributes(c *C) {
 }
 
 func (t *LiveTests) TestStartInstanceConstraints(c *C) {
-	cons, err := state.ParseConstraints("mem=2G")
+	cons, err := constraints.Parse("mem=2G")
 	c.Assert(err, IsNil)
-	inst, err := t.Env.StartInstance("31", cons, testing.InvalidStateInfo("31"), testing.InvalidAPIInfo("31"), nil)
+	inst, err := t.Env.StartInstance("31", version.Current.Series, cons, testing.InvalidStateInfo("31"), testing.InvalidAPIInfo("31"))
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst})
 	ec2inst := ec2.InstanceEC2(inst)
@@ -166,16 +167,14 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 		})
 	c.Assert(err, IsNil)
 
-	inst0, err := t.Env.StartInstance("98", state.Constraints{}, testing.InvalidStateInfo("98"), testing.InvalidAPIInfo("98"), nil)
-	c.Assert(err, IsNil)
+	inst0 := testing.StartInstance(c, t.Env, "98")
 	defer t.Env.StopInstances([]environs.Instance{inst0})
 
 	// Create a same-named group for the second instance
 	// before starting it, to check that it's reused correctly.
 	oldMachineGroup := createGroup(c, ec2conn, groups[2].Name, "old machine group")
 
-	inst1, err := t.Env.StartInstance("99", state.Constraints{}, testing.InvalidStateInfo("99"), testing.InvalidAPIInfo("99"), nil)
-	c.Assert(err, IsNil)
+	inst1 := testing.StartInstance(c, t.Env, "99")
 	defer t.Env.StopInstances([]environs.Instance{inst1})
 
 	groupsResp, err := ec2conn.SecurityGroups(groups, nil)
@@ -306,15 +305,11 @@ func (t *LiveTests) TestStopInstances(c *C) {
 	// It would be nice if this test was in jujutest, but
 	// there's no way for jujutest to fabricate a valid-looking
 	// instance id.
-	inst0, err := t.Env.StartInstance("40", state.Constraints{}, testing.InvalidStateInfo("40"), testing.InvalidAPIInfo("40"), nil)
-	c.Assert(err, IsNil)
-
+	inst0 := testing.StartInstance(c, t.Env, "40")
 	inst1 := ec2.FabricateInstance(inst0, "i-aaaaaaaa")
+	inst2 := testing.StartInstance(c, t.Env, "41")
 
-	inst2, err := t.Env.StartInstance("41", state.Constraints{}, testing.InvalidStateInfo("41"), testing.InvalidAPIInfo("41"), nil)
-	c.Assert(err, IsNil)
-
-	err = t.Env.StopInstances([]environs.Instance{inst0, inst1, inst2})
+	err := t.Env.StopInstances([]environs.Instance{inst0, inst1, inst2})
 	c.Check(err, IsNil)
 
 	var insts []environs.Instance

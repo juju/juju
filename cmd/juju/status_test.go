@@ -59,8 +59,7 @@ var statusTests = []struct {
 		func(st *state.State, conn *juju.Conn, c *C) {
 			m, err := st.Machine("0")
 			c.Assert(err, IsNil)
-			inst, err := conn.Environ.StartInstance(m.Id(), state.Constraints{}, testing.InvalidStateInfo(m.Id()), testing.InvalidAPIInfo(m.Id()), nil)
-			c.Assert(err, IsNil)
+			inst := testing.StartInstance(c, conn.Environ, m.Id())
 			err = m.SetInstanceId(inst.Id())
 			c.Assert(err, IsNil)
 		},
@@ -146,8 +145,7 @@ var statusTests = []struct {
 				m, err := st.AddMachine("series", state.JobHostUnits)
 				c.Assert(err, IsNil)
 				c.Assert(m.Id(), Equals, strconv.Itoa(i))
-				inst, err := conn.Environ.StartInstance(m.Id(), state.Constraints{}, testing.InvalidStateInfo(m.Id()), testing.InvalidAPIInfo(m.Id()), nil)
-				c.Assert(err, IsNil)
+				inst := testing.StartInstance(c, conn.Environ, m.Id())
 				err = m.SetInstanceId(inst.Id())
 				c.Assert(err, IsNil)
 			}

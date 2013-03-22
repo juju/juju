@@ -3,8 +3,8 @@ package ec2
 import (
 	"fmt"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/jujutest"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"strings"
 )
@@ -267,7 +267,7 @@ var findInstanceSpecTests = []struct {
 func (s *specSuite) TestFindInstanceSpec(c *C) {
 	for i, t := range findInstanceSpecTests {
 		c.Logf("test %d", i)
-		cons, err := state.ParseConstraints(t.cons)
+		cons, err := constraints.Parse(t.cons)
 		c.Assert(err, IsNil)
 		spec, err := findInstanceSpec(&instanceConstraint{
 			region:      "test",
@@ -311,7 +311,7 @@ var findInstanceSpecErrorTests = []struct {
 func (s *specSuite) TestFindInstanceSpecErrors(c *C) {
 	for i, t := range findInstanceSpecErrorTests {
 		c.Logf("test %d", i)
-		cons, err := state.ParseConstraints(t.cons)
+		cons, err := constraints.Parse(t.cons)
 		c.Assert(err, IsNil)
 		_, err = findInstanceSpec(&instanceConstraint{
 			region:      "test",

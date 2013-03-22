@@ -2,14 +2,8 @@ package state_test
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/state"
 )
-
-type annotator interface {
-	Annotation(key string) string
-	Annotations() map[string]string
-	Refresh() error
-	SetAnnotation(key, value string) error
-}
 
 var annotatorTests = []struct {
 	about    string
@@ -50,43 +44,57 @@ var annotatorTests = []struct {
 		expected: map[string]string{},
 	},
 	{
+		about:    "test removing multiple annotations",
+		initial:  map[string]string{"key1": "v1", "key2": "v2", "key3": "v3"},
+		input:    map[string]string{"key1": "", "key3": ""},
+		expected: map[string]string{"key2": "v2"},
+	},
+	{
+		about:    "test removing/adding annotations in the same transaction",
+		initial:  map[string]string{"key1": "value1"},
+		input:    map[string]string{"key1": "", "key2": "value2"},
+		expected: map[string]string{"key2": "value2"},
+	},
+	{
 		about:    "test removing a non existent annotation",
 		input:    map[string]string{"mykey": ""},
 		expected: map[string]string{},
 	},
+	{
+		about:    "test passing an empty map",
+		input:    map[string]string{},
+		expected: map[string]string{},
+	},
 }
 
-func testAnnotator(c *C, getEntity func() (annotator, error)) {
-loop:
+func testAnnotator(c *C, getEntity func() (state.Annotator, error)) {
 	for i, t := range annotatorTests {
 		c.Logf("test %d. %s", i, t.about)
 		entity, err := getEntity()
 		c.Assert(err, IsNil)
-		for key, value := range t.initial {
-			err := entity.SetAnnotation(key, value)
-			c.Assert(err, IsNil)
-		}
-		for key, value := range t.input {
-			err := entity.SetAnnotation(key, value)
-			if t.err != "" {
-				c.Assert(err, ErrorMatches, t.err)
-				continue loop
-			}
-		}
+		err = entity.SetAnnotations(t.initial)
 		c.Assert(err, IsNil)
+		err = entity.SetAnnotations(t.input)
+		if t.err != "" {
+			c.Assert(err, ErrorMatches, t.err)
+			continue
+		}
 		// Retrieving single values works as expected.
 		for key, value := range t.input {
-			c.Assert(entity.Annotation(key), Equals, value)
+			v, err := entity.Annotation(key)
+			c.Assert(err, IsNil)
+			c.Assert(v, Equals, value)
 		}
-		// The value stored in the annotator changed.
-		c.Assert(entity.Annotations(), DeepEquals, t.expected)
-		err = entity.Refresh()
-		c.Assert(err, IsNil)
 		// The value stored in MongoDB changed.
-		c.Assert(entity.Annotations(), DeepEquals, t.expected)
+		ann, err := entity.Annotations()
+		c.Assert(err, IsNil)
+		c.Assert(ann, DeepEquals, t.expected)
 		// Clean up existing annotations.
+		cleanup := make(map[string]string)
 		for key := range t.expected {
-			err = entity.SetAnnotation(key, "")
+			cleanup[key] = ""
 		}
+		err = entity.SetAnnotations(cleanup)
+		c.Assert(err, IsNil)
 	}
 }

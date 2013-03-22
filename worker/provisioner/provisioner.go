@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
@@ -260,7 +261,7 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 	apiInfo := *p.apiInfo
 	apiInfo.EntityName = m.EntityName()
 	apiInfo.Password = password
-	inst, err := p.environ.StartInstance(m.Id(), state.Constraints{}, &info, &apiInfo, nil)
+	inst, err := p.environ.StartInstance(m.Id(), m.Series(), constraints.Value{}, &info, &apiInfo)
 	if err != nil {
 		return fmt.Errorf("cannot start instance for new machine: %v", err)
 	}
