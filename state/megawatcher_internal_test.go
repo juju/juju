@@ -847,8 +847,9 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 	err = wordpress.SetExposed()
 	c.Assert(err, IsNil)
 	add(&params.ServiceInfo{
-		Name:    "wordpress",
-		Exposed: true,
+		Name:     "wordpress",
+		Exposed:  true,
+		CharmURL: serviceCharmURL(wordpress),
 	})
 	pairs := map[string]string{"x": "12", "y": "99"}
 	err = wordpress.SetAnnotations(pairs)
@@ -859,10 +860,11 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 		Annotations: pairs,
 	})
 
-	_, err = s.State.AddService("logging", s.State.AddTestingCharm(c, "logging"))
+	logging, err := s.State.AddService("logging", s.State.AddTestingCharm(c, "logging"))
 	c.Assert(err, IsNil)
 	add(&params.ServiceInfo{
-		Name: "logging",
+		Name:     "logging",
+		CharmURL: serviceCharmURL(logging),
 	})
 
 	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
@@ -926,6 +928,11 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 		})
 	}
 	return
+}
+
+func serviceCharmURL(svc *Service) *charm.URL {
+	url, _ := svc.CharmURL()
+	return url
 }
 
 func (s *allWatcherStateSuite) TestStateBackingGetAll(c *C) {
