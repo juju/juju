@@ -60,6 +60,9 @@ func Main(args []string) {
 	juju.Register(&UnexposeCommand{})
 	juju.Register(&UpgradeJujuCommand{})
 
+	// register common commands
+	juju.Register(&cmd.VersionCommand{})
+
 	os.Exit(cmd.Main(juju, cmd.DefaultContext(), args[1:]))
 }
 

@@ -9,6 +9,7 @@ import (
 	. "launchpad.net/gocheck"
 	_ "launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/version"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -121,6 +122,11 @@ var runMainTests = []struct {
 		args:    []string{"--environment", "blah", "bootstrap"},
 		code:    2,
 		out:     "error: flag provided but not defined: --environment\n",
+	}, {
+		summary: "check version command registered properly",
+		args:    []string{"version"},
+		code:    0,
+		out:     version.Current.String() + "\n",
 	},
 }
 
@@ -160,7 +166,7 @@ func (s *MainSuite) TestActualRunJujuArgsBeforeCommand(c *C) {
 	c.Assert(out, Equals, "error: "+msg+"\n")
 	content, err := ioutil.ReadFile(logpath)
 	c.Assert(err, IsNil)
-	fullmsg := fmt.Sprintf(`(.|\n)*JUJU juju bootstrap command failed: %s\n`, msg)
+	fullmsg := fmt.Sprintf(`.*\n.*ERROR JUJU:juju:bootstrap juju bootstrap command failed: %s\n`, msg)
 	c.Assert(string(content), Matches, fullmsg)
 }
 
@@ -174,7 +180,7 @@ func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *C) {
 	c.Assert(out, Equals, "error: "+msg+"\n")
 	content, err := ioutil.ReadFile(logpath)
 	c.Assert(err, IsNil)
-	fullmsg := fmt.Sprintf(`(.|\n)*JUJU juju bootstrap command failed: %s\n`, msg)
+	fullmsg := fmt.Sprintf(`.*\n.*ERROR JUJU:juju:bootstrap juju bootstrap command failed: %s\n`, msg)
 	c.Assert(string(content), Matches, fullmsg)
 }
 
@@ -206,6 +212,7 @@ var commandNames = []string{
 	"terminate-machine", // alias for destroy-machine
 	"unexpose",
 	"upgrade-juju",
+	"version",
 }
 
 func (s *MainSuite) TestHelpCommands(c *C) {

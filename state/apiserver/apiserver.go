@@ -97,7 +97,7 @@ func (r *srvRoot) Admin(id string) (*srvAdmin, error) {
 // of the accessor functions (Machine, Unit, etc) which avoids us making
 // the check in every single request method.
 func (r *srvRoot) requireAgent() error {
-	e := r.user.entity()
+	e := r.user.authenticator()
 	if e == nil {
 		return errNotLoggedIn
 	}
@@ -110,7 +110,7 @@ func (r *srvRoot) requireAgent() error {
 // requireClient returns an error unless the current
 // client is a juju client user.
 func (r *srvRoot) requireClient() error {
-	e := r.user.entity()
+	e := r.user.authenticator()
 	if e == nil {
 		return errNotLoggedIn
 	}
@@ -161,7 +161,7 @@ func (r *srvRoot) User(name string) (*srvUser, error) {
 	// When we provide support for user administration,
 	// this will need to be changed to allow access to
 	// the administrator.
-	e := r.user.entity()
+	e := r.user.authenticator()
 	if e == nil {
 		return nil, errNotLoggedIn
 	}
@@ -232,10 +232,11 @@ type srvEntityWatcher struct {
 // entity being watched since the most recent call to Next
 // or the Watch call that created the EntityWatcher.
 func (w srvEntityWatcher) Next() error {
-	if _, ok := <-w.w.(*state.EntityWatcher).Changes(); ok {
+	ew := w.w.(*state.EntityWatcher)
+	if _, ok := <-ew.Changes(); ok {
 		return nil
 	}
-	err := w.w.Err()
+	err := ew.Err()
 	if err == nil {
 		err = errStoppedWatcher
 	}
@@ -353,14 +354,29 @@ func (c *srvClient) ServiceDeploy(args params.ServiceDeploy) error {
 	return err
 }
 
-// ServiceAddUnits adds a given number of units to a service.
-func (c *srvClient) ServiceAddUnits(args params.ServiceAddUnits) error {
-	return statecmd.ServiceAddUnits(c.root.srv.state, args)
+// AddServiceUnits adds a given number of units to a service.
+func (c *srvClient) AddServiceUnits(args params.AddServiceUnits) error {
+	return statecmd.AddServiceUnits(c.root.srv.state, args)
+}
+
+// DestroyServiceUnits removes a given set of service units.
+func (c *srvClient) DestroyServiceUnits(args params.DestroyServiceUnits) error {
+	return statecmd.DestroyServiceUnits(c.root.srv.state, args)
 }
 
 // ServiceDestroy destroys a given service.
 func (c *srvClient) ServiceDestroy(args params.ServiceDestroy) error {
 	return statecmd.ServiceDestroy(c.root.srv.state, args)
+}
+
+// SetServiceConstraints sets the constraints for a given service.
+func (c *srvClient) SetServiceConstraints(args params.SetServiceConstraints) error {
+	return statecmd.SetServiceConstraints(c.root.srv.state, args)
+}
+
+// DestroyRelation removes the relation between the specified endpoints.
+func (c *srvClient) DestroyRelation(args params.DestroyRelation) error {
+	return statecmd.DestroyRelation(c.root.srv.state, args)
 }
 
 // CharmInfo returns information about the requested charm.
@@ -392,26 +408,31 @@ func (c *srvClient) EnvironmentInfo() (api.EnvironmentInfo, error) {
 	info := api.EnvironmentInfo{
 		DefaultSeries: conf.DefaultSeries(),
 		ProviderType:  conf.Type(),
+		Name:          conf.Name(),
 	}
 	return info, nil
 }
 
 // GetAnnotations returns annotations about a given entity.
 func (c *srvClient) GetAnnotations(args params.GetAnnotations) (params.GetAnnotationsResults, error) {
-	entity, err := c.root.srv.state.Entity(args.EntityId)
+	entity, err := c.root.srv.state.Annotator(args.EntityId)
 	if err != nil {
 		return params.GetAnnotationsResults{}, err
 	}
-	return params.GetAnnotationsResults{Annotations: entity.Annotations()}, nil
+	ann, err := entity.Annotations()
+	if err != nil {
+		return params.GetAnnotationsResults{}, err
+	}
+	return params.GetAnnotationsResults{Annotations: ann}, nil
 }
 
-// SetAnnotation stores an annotation about a given entity.
-func (c *srvClient) SetAnnotation(args params.SetAnnotation) error {
-	entity, err := c.root.srv.state.Entity(args.EntityId)
+// SetAnnotations stores annotations about a given entity.
+func (c *srvClient) SetAnnotations(args params.SetAnnotations) error {
+	entity, err := c.root.srv.state.Annotator(args.EntityId)
 	if err != nil {
 		return err
 	}
-	return entity.SetAnnotation(args.Key, args.Value)
+	return entity.SetAnnotations(args.Pairs)
 }
 
 // Login logs in with the provided credentials.
@@ -438,7 +459,7 @@ func (m *srvMachine) Watch() (params.EntityWatcherId, error) {
 	}, nil
 }
 
-func setPassword(e state.Entity, password string) error {
+func setPassword(e state.Authenticator, password string) error {
 	// Catch expected common case of mispelled
 	// or missing Password parameter.
 	if password == "" {
@@ -452,7 +473,7 @@ func (m *srvMachine) SetPassword(p params.Password) error {
 	// Allow:
 	// - the machine itself.
 	// - the environment manager.
-	e := m.root.user.entity()
+	e := m.root.user.authenticator()
 	allow := e.EntityName() == m.m.EntityName() ||
 		isMachineWithJob(e, state.JobManageEnviron)
 	if !allow {
@@ -471,7 +492,7 @@ func (u *srvUnit) Get() (params.Unit, error) {
 
 // SetPassword sets the unit's password.
 func (u *srvUnit) SetPassword(p params.Password) error {
-	ename := u.root.user.entity().EntityName()
+	ename := u.root.user.authenticator().EntityName()
 	// Allow:
 	// - the unit itself.
 	// - the machine responsible for unit, if unit is principal
@@ -500,21 +521,21 @@ func (u *srvUser) Get() (params.User, error) {
 // authUser holds login details. It's ok to call
 // its methods concurrently.
 type authUser struct {
-	mu      sync.Mutex
-	_entity state.Entity // logged-in entity (access only when mu is locked)
+	mu     sync.Mutex
+	entity state.Authenticator // logged-in entity (access only when mu is locked)
 }
 
 // login authenticates as entity with the given name,.
 func (u *authUser) login(st *state.State, entityName, password string) error {
 	u.mu.Lock()
 	defer u.mu.Unlock()
-	entity, err := st.Entity(entityName)
+	entity, err := st.Authenticator(entityName)
 	if err != nil && !state.IsNotFound(err) {
 		return err
 	}
 	// TODO(rog) remove
 	if !AuthenticationEnabled {
-		u._entity = entity
+		u.entity = entity
 		return nil
 	}
 	// We return the same error when an entity
@@ -524,22 +545,22 @@ func (u *authUser) login(st *state.State, entityName, password string) error {
 	if err != nil || !entity.PasswordValid(password) {
 		return errBadCreds
 	}
-	u._entity = entity
+	u.entity = entity
 	return nil
 }
 
-// entity returns the currently logged-in entity, or nil if not
-// currently logged on.  The returned entity should not be modified
+// authenticator returns the currently logged-in authenticator entity, or nil
+// if not currently logged on.  The returned entity should not be modified
 // because it may be used concurrently.
-func (u *authUser) entity() state.Entity {
+func (u *authUser) authenticator() state.Authenticator {
 	u.mu.Lock()
 	defer u.mu.Unlock()
-	return u._entity
+	return u.entity
 }
 
 // isMachineWithJob returns whether the given entity is a machine that
 // is configured to run the given job.
-func isMachineWithJob(e state.Entity, j state.MachineJob) bool {
+func isMachineWithJob(e state.Authenticator, j state.MachineJob) bool {
 	m, ok := e.(*state.Machine)
 	if !ok {
 		return false
@@ -553,7 +574,7 @@ func isMachineWithJob(e state.Entity, j state.MachineJob) bool {
 }
 
 // isAgent returns whether the given entity is an agent.
-func isAgent(e state.Entity) bool {
+func isAgent(e state.Authenticator) bool {
 	_, isUser := e.(*state.User)
 	return !isUser
 }
@@ -561,7 +582,6 @@ func isAgent(e state.Entity) bool {
 // watcher represents the interface provided by state watchers.
 type watcher interface {
 	Stop() error
-	Err() error
 }
 
 // watchers holds all the watchers for a connection.
@@ -625,7 +645,7 @@ func (ws *watchers) stopAll() {
 	defer ws.mu.Unlock()
 	for _, w := range ws.ws {
 		if err := w.w.Stop(); err != nil {
-			log.Printf("state/api: error stopping %T watcher: %v", w, err)
+			log.Errorf("state/api: error stopping %T watcher: %v", w, err)
 		}
 	}
 	ws.ws = make(map[string]*srvWatcher)

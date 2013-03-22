@@ -2,6 +2,7 @@ package jujuc
 
 import (
 	"errors"
+	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/log"
@@ -11,10 +12,11 @@ import (
 // JujuLogCommand implements the juju-log command.
 type JujuLogCommand struct {
 	cmd.CommandBase
-	ctx     Context
-	Message string
-	Debug   bool
-	Level   string // unused
+	ctx        Context
+	Message    string
+	Debug      bool
+	Level      string // unused
+	formatFlag string // deprecated
 }
 
 func NewJujuLogCommand(ctx Context) cmd.Command {
@@ -32,6 +34,7 @@ func (c *JujuLogCommand) Info() *cmd.Info {
 func (c *JujuLogCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Debug, "debug", false, "log at debug level")
 	f.StringVar(&c.Level, "l", "INFO", "Send log message at the given level")
+	f.StringVar(&c.formatFlag, "format", "", "deprecated format flag")
 }
 
 func (c *JujuLogCommand) Init(args []string) error {
@@ -42,7 +45,10 @@ func (c *JujuLogCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *JujuLogCommand) Run(_ *cmd.Context) error {
+func (c *JujuLogCommand) Run(ctx *cmd.Context) error {
+	if c.formatFlag != "" {
+		fmt.Fprintf(ctx.Stderr, "--format flag deprecated for command %q", c.Info().Name)
+	}
 	badge := c.ctx.UnitName()
 	if r, found := c.ctx.HookRelation(); found {
 		badge = badge + " " + r.FakeId()
@@ -51,7 +57,7 @@ func (c *JujuLogCommand) Run(_ *cmd.Context) error {
 	if c.Debug {
 		log.Debugf("%s", msg)
 	} else {
-		log.Printf("%s", msg)
+		log.Infof("%s", msg)
 	}
 	return nil
 }

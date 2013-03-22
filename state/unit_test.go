@@ -40,6 +40,30 @@ func (s *UnitSuite) TestService(c *C) {
 	c.Assert(svc.Name(), Equals, s.unit.ServiceName())
 }
 
+func (s *UnitSuite) TestServiceConfig(c *C) {
+	scfg, err := s.service.Config()
+	c.Assert(err, IsNil)
+	scfg.Update(map[string]interface{}{
+		"foo":        "bar",
+		"blog-title": "no title",
+	})
+	_, err = scfg.Write()
+	c.Assert(err, IsNil)
+
+	unit, err := s.service.AddUnit()
+	c.Assert(err, IsNil)
+
+	_, err = unit.ServiceConfig()
+	c.Assert(err, ErrorMatches, "unit charm not set")
+
+	err = unit.SetCharmURL(s.charm.URL())
+	c.Assert(err, IsNil)
+
+	cfg, err := unit.ServiceConfig()
+	c.Assert(err, IsNil)
+	c.Assert(cfg, DeepEquals, scfg.Map())
+}
+
 func (s *UnitSuite) TestGetSetPublicAddress(c *C) {
 	address, ok := s.unit.PublicAddress()
 	c.Assert(ok, Equals, false)
@@ -174,7 +198,7 @@ func (s *UnitSuite) TestSetMongoPassword(c *C) {
 }
 
 func (s *UnitSuite) TestSetPassword(c *C) {
-	testSetPassword(c, func() (state.Entity, error) {
+	testSetPassword(c, func() (state.Authenticator, error) {
 		return s.State.Unit(s.unit.Name())
 	})
 }
@@ -197,7 +221,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 	c.Assert(err, IsNil)
 
 	info := state.TestingStateInfo()
-	st, err := state.Open(info)
+	st, err := state.Open(info, state.TestingDialTimeout)
 	c.Assert(err, IsNil)
 	defer st.Close()
 	// Turn on fully-authenticated mode.
@@ -227,7 +251,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 	// Connect as the machine entity.
 	info.EntityName = m.EntityName()
 	info.Password = "foo"
-	st1, err := state.Open(info)
+	st1, err := state.Open(info, state.TestingDialTimeout)
 	c.Assert(err, IsNil)
 	defer st1.Close()
 
@@ -242,7 +266,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 	// that entity, change the password for a new unit.
 	info.EntityName = unit.EntityName()
 	info.Password = "bar"
-	st2, err := state.Open(info)
+	st2, err := state.Open(info, state.TestingDialTimeout)
 	c.Assert(err, IsNil)
 	defer st2.Close()
 
@@ -698,7 +722,20 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 }
 
 func (s *UnitSuite) TestAnnotatorForUnit(c *C) {
-	testAnnotator(c, func() (annotator, error) {
+	testAnnotator(c, func() (state.Annotator, error) {
 		return s.State.Unit("wordpress/0")
 	})
+}
+
+func (s *UnitSuite) TestAnnotationRemovalForUnit(c *C) {
+	annotations := map[string]string{"mykey": "myvalue"}
+	err := s.unit.SetAnnotations(annotations)
+	c.Assert(err, IsNil)
+	err = s.unit.EnsureDead()
+	c.Assert(err, IsNil)
+	err = s.unit.Remove()
+	c.Assert(err, IsNil)
+	ann, err := s.unit.Annotations()
+	c.Assert(err, IsNil)
+	c.Assert(ann, DeepEquals, make(map[string]string))
 }

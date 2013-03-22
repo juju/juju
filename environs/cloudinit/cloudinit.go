@@ -1,10 +1,12 @@
 package cloudinit
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/cloudinit"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
@@ -13,6 +15,8 @@ import (
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/upstart"
 	"path"
+	"strings"
+	"text/template"
 )
 
 // MachineConfig represents initialization information for a new juju machine.
@@ -74,6 +78,9 @@ type MachineConfig struct {
 
 	// Config holds the initial environment configuration.
 	Config *config.Config
+
+	// Constraints holds the initial environment constraints.
+	Constraints constraints.Value
 }
 
 func addScripts(c *cloudinit.Config, scripts ...string) {
@@ -90,6 +97,45 @@ func base64yaml(m *config.Config) string {
 	}
 	return base64.StdEncoding.EncodeToString(data)
 }
+
+// The rsyslog conf for state server nodes.
+// Messages are gathered from other nodes and accumulated in an all-machines.log file.
+const stateServerRsyslogTemplate = `
+$ModLoad imfile
+
+$InputFilePollInterval 5
+$InputFileName /var/log/juju/{{machine}}.log
+$InputFileTag local-juju-{{machine}}:
+$InputFileStateFile {{machine}}
+$InputRunFileMonitor
+
+$ModLoad imudp
+$UDPServerRun 514
+
+# Messages received from remote rsyslog machines contain a leading space so we
+# need to account for that.
+$template JujuLogFormatLocal,"%HOSTNAME%:%msg:::drop-last-lf%\n"
+$template JujuLogFormat,"%HOSTNAME%:%msg:2:2048:drop-last-lf%\n"
+
+:syslogtag, startswith, "juju-" /var/log/juju/all-machines.log;JujuLogFormat
+:syslogtag, startswith, "local-juju-" /var/log/juju/all-machines.log;JujuLogFormatLocal
+& ~
+`
+
+// The rsyslog conf for non-state server nodes.
+// Messages are forwarded to the state server node.
+const nodeRsyslogTemplate = `
+$ModLoad imfile
+
+$InputFilePollInterval 5
+$InputFileName /var/log/juju/{{machine}}.log
+$InputFileTag juju-{{machine}}:
+$InputFileStateFile {{machine}}
+$InputRunFileMonitor
+
+:syslogtag, startswith, "juju-" @{{bootstrapIP}}:514
+& ~
+`
 
 func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	if err := verifyConfig(cfg); err != nil {
@@ -119,6 +165,7 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 		debugFlag = " --debug"
 	}
 
+	var syslogConfTemplate string
 	if cfg.StateServer {
 		certKey := string(cfg.StateServerCert) + string(cfg.StateServerKey)
 		addFile(c, cfg.dataFile("server.pem"), certKey, 0600)
@@ -140,10 +187,41 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 			cfg.jujuTools()+"/jujud bootstrap-state"+
 				" --data-dir "+shquote(cfg.DataDir)+
 				" --env-config "+shquote(base64yaml(cfg.Config))+
+				" --constraints "+shquote(cfg.Constraints.String())+
 				debugFlag,
 			"rm -rf "+shquote(acfg.Dir()),
 		)
+		syslogConfTemplate = stateServerRsyslogTemplate
+	} else {
+		syslogConfTemplate = nodeRsyslogTemplate
 	}
+	var machineName = func() string {
+		return state.MachineEntityName(cfg.MachineId)
+	}
+
+	var bootstrapIP = func() string {
+		addr := cfg.stateHostAddrs()[0]
+		parts := strings.Split(addr, ":")
+		return parts[0]
+	}
+
+	t := template.New("")
+	t.Funcs(template.FuncMap{"machine": machineName})
+	t.Funcs(template.FuncMap{"bootstrapIP": bootstrapIP})
+	// Process the rsyslog config template and echo to the conf file.
+	p, err := t.Parse(syslogConfTemplate)
+	if err != nil {
+		return nil, err
+	}
+	var confBuf bytes.Buffer
+	if err := p.Execute(&confBuf, nil); err != nil {
+		return nil, err
+	}
+	content := confBuf.String()
+	addScripts(c,
+		fmt.Sprintf("cat > /etc/rsyslog.d/25-juju.conf << 'EOF'\n%sEOF\n", content),
+	)
+	c.AddRunCmd("restart rsyslog")
 
 	if _, err := addAgentToBoot(c, cfg, "machine",
 		state.MachineEntityName(cfg.MachineId),

@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/tomb"
@@ -90,6 +91,15 @@ func (c *Client) ServiceGet(service string) (*params.ServiceGetResults, error) {
 	return &results, nil
 }
 
+// DestroyRelation removes the relation between the specified endpoints.
+func (c *Client) DestroyRelation(endpoint0, endpoint1 string) error {
+	params := params.DestroyRelation{
+		Endpoints: []string{endpoint0, endpoint1},
+	}
+	err := c.st.client.Call("Client", "", "DestroyRelation", params, nil)
+	return clientError(err)
+}
+
 // ServiceExpose changes the juju-managed firewall to expose any ports that
 // were also explicitly marked by units as open.
 func (c *Client) ServiceExpose(service string) error {
@@ -122,17 +132,21 @@ func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int
 	return nil
 }
 
-// ServiceAddUnit adds a given number of units to a service.
-func (c *Client) ServiceAddUnits(service string, numUnits int) error {
-	params := params.ServiceAddUnits{
+// AddServiceUnits adds a given number of units to a service.
+func (c *Client) AddServiceUnits(service string, numUnits int) error {
+	params := params.AddServiceUnits{
 		ServiceName: service,
 		NumUnits:    numUnits,
 	}
-	err := c.st.client.Call("Client", "", "ServiceAddUnits", params, nil)
-	if err != nil {
-		return clientError(err)
-	}
-	return nil
+	err := c.st.client.Call("Client", "", "AddServiceUnits", params, nil)
+	return clientError(err)
+}
+
+// DestroyServiceUnits decreases the number of units dedicated to a service.
+func (c *Client) DestroyServiceUnits(unitNames []string) error {
+	params := params.DestroyServiceUnits{unitNames}
+	err := c.st.client.Call("Client", "", "DestroyServiceUnits", params, nil)
+	return clientError(err)
 }
 
 // ServiceDestroy destroys a given service.
@@ -141,6 +155,15 @@ func (c *Client) ServiceDestroy(service string) error {
 		ServiceName: service,
 	}
 	return clientError(c.st.client.Call("Client", "", "ServiceDestroy", params, nil))
+}
+
+// SetServiceConstraints specifies the constraints for the given service.
+func (c *Client) SetServiceConstraints(service string, constraints constraints.Value) error {
+	params := params.SetServiceConstraints{
+		ServiceName: service,
+		Constraints: constraints,
+	}
+	return clientError(c.st.client.Call("Client", "", "SetServiceConstraints", params, nil))
 }
 
 // CharmInfo holds information about a charm.
@@ -166,6 +189,7 @@ func (c *Client) CharmInfo(charmURL string) (*CharmInfo, error) {
 type EnvironmentInfo struct {
 	DefaultSeries string
 	ProviderType  string
+	Name          string
 }
 
 // EnvironmentInfo returns details about the Juju environment.
@@ -224,12 +248,12 @@ func (c *Client) GetAnnotations(entityId string) (map[string]string, error) {
 	return ann.Annotations, nil
 }
 
-// SetAnnotation sets the annotation with the given key on the given entity to
-// the given value. Currently annotations are supported on machines, services,
+// SetAnnotations sets the annotation pairs on the given entity.
+// Currently annotations are supported on machines, services,
 // units and the environment itself.
-func (c *Client) SetAnnotation(entityId, key, value string) error {
-	args := params.SetAnnotation{entityId, key, value}
-	err := c.st.client.Call("Client", "", "SetAnnotation", args, nil)
+func (c *Client) SetAnnotations(entityId string, pairs map[string]string) error {
+	args := params.SetAnnotations{entityId, pairs}
+	err := c.st.client.Call("Client", "", "SetAnnotations", args, nil)
 	if err != nil {
 		return clientError(err)
 	}
@@ -369,7 +393,7 @@ func (w *EntityWatcher) loop() error {
 		defer w.wg.Done()
 		<-w.tomb.Dying()
 		if err := callWatch("Stop"); err != nil {
-			log.Printf("state/api: error trying to stop watcher: %v", err)
+			log.Errorf("state/api: error trying to stop watcher: %v", err)
 		}
 	}()
 	for {

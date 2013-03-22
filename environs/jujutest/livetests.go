@@ -6,6 +6,7 @@ import (
 	"io"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju"
@@ -81,13 +82,15 @@ func (t *LiveTests) BootstrapOnce(c *C) {
 	}
 	// We only build and upload tools if there will be a state agent that
 	// we could connect to (actual live tests, rather than local-only)
-	err := environs.Bootstrap(t.Env, t.CanOpenState, panicWrite)
+	cons, err := constraints.Parse("mem=2G")
+	c.Assert(err, IsNil)
+	if t.CanOpenState {
+		err := environs.UploadTools(t.Env)
+		c.Assert(err, IsNil)
+	}
+	err = environs.Bootstrap(t.Env, cons)
 	c.Assert(err, IsNil)
 	t.bootstrapped = true
-}
-
-func panicWrite(name string, cert, key []byte) error {
-	panic("writeCertAndKey called unexpectedly")
 }
 
 func (t *LiveTests) Destroy(c *C) {
@@ -99,8 +102,7 @@ func (t *LiveTests) Destroy(c *C) {
 // TestStartStop is similar to Tests.TestStartStop except
 // that it does not assume a pristine environment.
 func (t *LiveTests) TestStartStop(c *C) {
-	inst, err := t.Env.StartInstance("0", testing.InvalidStateInfo("0"), testing.InvalidAPIInfo("0"), nil)
-	c.Assert(err, IsNil)
+	inst := testing.StartInstance(c, t.Env, "0")
 	c.Assert(inst, NotNil)
 	id0 := inst.Id()
 
@@ -151,16 +153,14 @@ func (t *LiveTests) TestStartStop(c *C) {
 }
 
 func (t *LiveTests) TestPorts(c *C) {
-	inst1, err := t.Env.StartInstance("1", testing.InvalidStateInfo("1"), testing.InvalidAPIInfo("1"), nil)
-	c.Assert(err, IsNil)
+	inst1 := testing.StartInstance(c, t.Env, "1")
 	c.Assert(inst1, NotNil)
 	defer t.Env.StopInstances([]environs.Instance{inst1})
 	ports, err := inst1.Ports("1")
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
 
-	inst2, err := t.Env.StartInstance("2", testing.InvalidStateInfo("2"), testing.InvalidAPIInfo("2"), nil)
-	c.Assert(err, IsNil)
+	inst2 := testing.StartInstance(c, t.Env, "2")
 	c.Assert(inst2, NotNil)
 	ports, err = inst2.Ports("2")
 	c.Assert(err, IsNil)
@@ -254,15 +254,13 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 	c.Assert(err, IsNil)
 
 	// Create instances and check open ports on both instances.
-	inst1, err := t.Env.StartInstance("1", testing.InvalidStateInfo("1"), testing.InvalidAPIInfo("1"), nil)
-	c.Assert(err, IsNil)
+	inst1 := testing.StartInstance(c, t.Env, "1")
 	defer t.Env.StopInstances([]environs.Instance{inst1})
 	ports, err := t.Env.Ports()
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
 
-	inst2, err := t.Env.StartInstance("2", testing.InvalidStateInfo("2"), testing.InvalidAPIInfo("2"), nil)
-	c.Assert(err, IsNil)
+	inst2 := testing.StartInstance(c, t.Env, "2")
 	ports, err = t.Env.Ports()
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
@@ -305,7 +303,7 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 func (t *LiveTests) TestBootstrapMultiple(c *C) {
 	t.BootstrapOnce(c)
 
-	err := environs.Bootstrap(t.Env, false, panicWrite)
+	err := environs.Bootstrap(t.Env, constraints.Value{})
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	c.Logf("destroy env")
@@ -339,6 +337,11 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	cfg, err := conn.State.EnvironConfig()
 	c.Assert(err, IsNil)
 	c.Check(cfg.AgentVersion(), Equals, version.Current.Number)
+
+	// Check that the constraints have been set in the environment.
+	cons, err := conn.State.EnvironConstraints()
+	c.Assert(err, IsNil)
+	c.Assert(cons.String(), Equals, "mem=2048M")
 
 	// Wait for machine agent to come up on the bootstrap
 	// machine and find the deployed series from that.
@@ -654,35 +657,19 @@ attempt:
 	c.Check(err, IsNil)
 }
 
-// Check that we can't start an instance running tools
-// that correspond with no available platform.
+// Check that we can't start an instance running tools that correspond with no
+// available platform.  The first thing start instance should do is find
+// appropriate tools.
 func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
-	vers := version.Current
-	// Note that we want this test to function correctly in the
-	// dummy environment, so to avoid enumerating all possible
-	// platforms in the dummy provider, it treats only series and/or
-	// architectures with the "unknown" prefix as invalid.
-	vers.Series = "unknownseries"
-	vers.Arch = "unknownarch"
-	name := environs.ToolsStoragePath(vers)
-	storage := t.Env.Storage()
-	checkPutFile(c, storage, name, []byte("fake tools on invalid series"))
-	defer storage.Remove(name)
-
-	url, err := storage.URL(name)
-	c.Assert(err, IsNil)
-	tools := &state.Tools{
-		Binary: vers,
-		URL:    url,
-	}
-
-	inst, err := t.Env.StartInstance("4", testing.InvalidStateInfo("4"), testing.InvalidAPIInfo("4"), tools)
+	inst, err := t.Env.StartInstance("4", "unknownseries", constraints.Value{}, testing.InvalidStateInfo("4"), testing.InvalidAPIInfo("4"))
 	if inst != nil {
 		err := t.Env.StopInstances([]environs.Instance{inst})
 		c.Check(err, IsNil)
 	}
 	c.Assert(inst, IsNil)
-	c.Assert(err, ErrorMatches, "cannot find image.*")
+	var notFoundError *environs.NotFoundError
+	c.Assert(err, FitsTypeOf, notFoundError)
+	c.Assert(err, ErrorMatches, "no compatible tools found")
 }
 
 func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
@@ -735,7 +722,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
 	err = storageCopy(dummyStorage, currentPath, envStorage, otherPath)
 	c.Assert(err, IsNil)
 
-	err = environs.Bootstrap(env, false, panicWrite)
+	err = environs.Bootstrap(env, constraints.Value{})
 	c.Assert(err, IsNil)
 	defer env.Destroy(nil)
 

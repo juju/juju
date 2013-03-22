@@ -5,6 +5,7 @@ import (
 	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
@@ -25,7 +26,7 @@ var _ = Suite(&StateSuite{})
 func (s *StateSuite) TestDialAgain(c *C) {
 	// Ensure idempotent operations on Dial are working fine.
 	for i := 0; i < 2; i++ {
-		st, err := state.Open(state.TestingStateInfo())
+		st, err := state.Open(state.TestingStateInfo(), state.TestingDialTimeout)
 		c.Assert(err, IsNil)
 		c.Assert(st.Close(), IsNil)
 	}
@@ -425,7 +426,7 @@ func (s *StateSuite) TestEnvironConfig(c *C) {
 	}
 	cfg, err := config.New(initial)
 	c.Assert(err, IsNil)
-	st, err := state.Initialize(state.TestingStateInfo(), cfg)
+	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialTimeout)
 	c.Assert(err, IsNil)
 	st.Close()
 	c.Assert(err, IsNil)
@@ -458,12 +459,12 @@ func (s *StateSuite) TestEnvironConfigWithAdminSecret(c *C) {
 	}
 	cfg, err := config.New(attrs)
 	c.Assert(err, IsNil)
-	_, err = state.Initialize(state.TestingStateInfo(), cfg)
+	_, err = state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialTimeout)
 	c.Assert(err, ErrorMatches, "admin-secret should never be written to the state")
 
 	delete(attrs, "admin-secret")
 	cfg, err = config.New(attrs)
-	st, err := state.Initialize(state.TestingStateInfo(), cfg)
+	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialTimeout)
 	c.Assert(err, IsNil)
 	st.Close()
 
@@ -485,18 +486,18 @@ func (s *StateSuite) TestEnvironConstraints(c *C) {
 	}
 	cfg, err := config.New(m)
 	c.Assert(err, IsNil)
-	st, err := state.Initialize(state.TestingStateInfo(), cfg)
+	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialTimeout)
 	c.Assert(err, IsNil)
 	st.Close()
 
 	// Environ constraints start out empty (for now).
-	cons0 := state.Constraints{}
+	cons0 := constraints.Value{}
 	cons1, err := s.State.EnvironConstraints()
 	c.Assert(err, IsNil)
 	c.Assert(cons1, DeepEquals, cons0)
 
 	// Environ constraints can be set.
-	cons2 := state.Constraints{Mem: uint64p(1024)}
+	cons2 := constraints.Value{Mem: uint64p(1024)}
 	err = s.State.SetEnvironConstraints(cons2)
 	c.Assert(err, IsNil)
 	cons3, err := s.State.EnvironConstraints()
@@ -505,7 +506,7 @@ func (s *StateSuite) TestEnvironConstraints(c *C) {
 	c.Assert(cons3, Not(Equals), cons2)
 
 	// Environ constraints are completely overwritten when re-set.
-	cons4 := state.Constraints{CpuPower: uint64p(250)}
+	cons4 := constraints.Value{CpuPower: uint64p(250)}
 	err = s.State.SetEnvironConstraints(cons4)
 	c.Assert(err, IsNil)
 	cons5, err := s.State.EnvironConstraints()
@@ -868,7 +869,7 @@ func (s *StateSuite) TestInitialize(c *C) {
 	}
 	cfg, err := config.New(m)
 	c.Assert(err, IsNil)
-	st, err := state.Initialize(state.TestingStateInfo(), cfg)
+	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialTimeout)
 	c.Assert(err, IsNil)
 	c.Assert(st, NotNil)
 	defer st.Close()
@@ -892,7 +893,7 @@ func (s *StateSuite) TestDoubleInitialize(c *C) {
 	}
 	cfg, err := config.New(m)
 	c.Assert(err, IsNil)
-	st, err := state.Initialize(state.TestingStateInfo(), cfg)
+	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialTimeout)
 	c.Assert(err, IsNil)
 	c.Assert(st, NotNil)
 	env1, err := st.EnvironConfig()
@@ -915,7 +916,7 @@ func (s *StateSuite) TestDoubleInitialize(c *C) {
 	}
 	cfg, err = config.New(m)
 	c.Assert(err, IsNil)
-	st, err = state.Initialize(state.TestingStateInfo(), cfg)
+	st, err = state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialTimeout)
 	c.Assert(err, IsNil)
 	c.Assert(st, NotNil)
 	env2, err := st.EnvironConfig()
@@ -945,18 +946,35 @@ func (*StateSuite) TestSortPorts(c *C) {
 func (*StateSuite) TestNameChecks(c *C) {
 	assertService := func(s string, expect bool) {
 		c.Assert(state.IsServiceName(s), Equals, expect)
+		// Check that anything that is considered a valid service name
+		// is also (in)valid if a(n) (in)valid unit designator is added
+		// to it.
 		c.Assert(state.IsUnitName(s+"/0"), Equals, expect)
 		c.Assert(state.IsUnitName(s+"/99"), Equals, expect)
 		c.Assert(state.IsUnitName(s+"/-1"), Equals, false)
 		c.Assert(state.IsUnitName(s+"/blah"), Equals, false)
+		c.Assert(state.IsUnitName(s+"/"), Equals, false)
 	}
+	// Service names must be non-empty...
 	assertService("", false)
+	// must not consist entirely of numbers
 	assertService("33", false)
+	// may consist of a single word
 	assertService("wordpress", true)
+	// may contain hyphen-seperated words...
+	assertService("super-duper-wordpress", true)
+	// ...but those words must have at least one letter in them
+	assertService("super-1234-wordpress", false)
+	// may contain internal numbers.
 	assertService("w0rd-pre55", true)
-	assertService("foo2", true)
-	assertService("foo-2", false)
+	// must not begin with a number
+	assertService("3wordpress", false)
+	// but internal, hyphen-sperated words can begin with numbers
 	assertService("foo-2foo", true)
+	// and may end with a number...
+	assertService("foo2", true)
+	// ...unless that number is all by itself
+	assertService("foo-2", false)
 
 	assertMachine := func(s string, expect bool) {
 		c.Assert(state.IsMachineId(s), Equals, expect)
@@ -1010,7 +1028,7 @@ func (s *StateSuite) TestWatchEnvironConfig(c *C) {
 		change, err := config.New(test)
 		c.Assert(err, IsNil)
 		if i == 0 {
-			st, err := state.Initialize(state.TestingStateInfo(), change)
+			st, err := state.Initialize(state.TestingStateInfo(), change, state.TestingDialTimeout)
 			c.Assert(err, IsNil)
 			st.Close()
 		} else {
@@ -1038,7 +1056,7 @@ func (s *StateSuite) TestWatchEnvironConfig(c *C) {
 func (s *StateSuite) TestWatchEnvironConfigAfterCreation(c *C) {
 	cfg, err := config.New(watchEnvironConfigTests[0])
 	c.Assert(err, IsNil)
-	st, err := state.Initialize(state.TestingStateInfo(), cfg)
+	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialTimeout)
 	c.Assert(err, IsNil)
 	st.Close()
 	s.State.Sync()
@@ -1063,7 +1081,7 @@ func (s *StateSuite) TestWatchEnvironConfigInvalidConfig(c *C) {
 	}
 	cfg1, err := config.New(m)
 	c.Assert(err, IsNil)
-	st, err := state.Initialize(state.TestingStateInfo(), cfg1)
+	st, err := state.Initialize(state.TestingStateInfo(), cfg1, state.TestingDialTimeout)
 	c.Assert(err, IsNil)
 	st.Close()
 
@@ -1166,7 +1184,7 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *C) {
 }
 
 func tryOpenState(info *state.Info) error {
-	st, err := state.Open(info)
+	st, err := state.Open(info, state.TestingDialTimeout)
 	if err == nil {
 		st.Close()
 	}
@@ -1191,14 +1209,14 @@ func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *C) {
 func (s *StateSuite) TestOpenBadAddress(c *C) {
 	info := state.TestingStateInfo()
 	info.Addrs = []string{"0.1.2.3:1234"}
-	state.SetDialTimeout(1 * time.Millisecond)
-	defer state.SetDialTimeout(0)
-
-	err := tryOpenState(info)
+	st, err := state.Open(info, 1*time.Millisecond)
+	if err == nil {
+		st.Close()
+	}
 	c.Assert(err, ErrorMatches, "no reachable servers")
 }
 
-func testSetPassword(c *C, getEntity func() (state.Entity, error)) {
+func testSetPassword(c *C, getEntity func() (state.Authenticator, error)) {
 	e, err := getEntity()
 	c.Assert(err, IsNil)
 
@@ -1240,7 +1258,7 @@ type entity interface {
 
 func testSetMongoPassword(c *C, getEntity func(st *state.State) (entity, error)) {
 	info := state.TestingStateInfo()
-	st, err := state.Open(info)
+	st, err := state.Open(info, state.TestingDialTimeout)
 	c.Assert(err, IsNil)
 	defer st.Close()
 	// Turn on fully-authenticated mode.
@@ -1261,7 +1279,7 @@ func testSetMongoPassword(c *C, getEntity func(st *state.State) (entity, error))
 
 	// Check that we can log in with the correct password.
 	info.Password = "foo"
-	st1, err := state.Open(info)
+	st1, err := state.Open(info, state.TestingDialTimeout)
 	c.Assert(err, IsNil)
 	defer st1.Close()
 
@@ -1321,63 +1339,135 @@ func (s *StateSuite) TestSetAdminMongoPassword(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *StateSuite) TestEntity(c *C) {
-	bad := []string{"", "machine", "-foo", "foo-", "---", "machine-jim", "unit-123", "unit-foo", "service-", "service-foo/bar"}
+type namedEntity interface {
+	EntityName() string
+}
+
+var envConfig = map[string]interface{}{
+	"name": "test",
+	"type": "test",
+}
+
+func setUpEnvConfig(c *C) {
+	cfg, err := config.New(envConfig)
+	c.Assert(err, IsNil)
+	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialTimeout)
+	c.Assert(err, IsNil)
+	st.Close()
+}
+
+func (s *StateSuite) testEntity(c *C, getEntity func(string) (namedEntity, error)) {
+	e, err := getEntity("environment-foo")
+	c.Check(e, IsNil)
+	c.Assert(err, ErrorMatches, "settings not found")
+
+	setUpEnvConfig(c)
+
+	bad := []string{"", "machine", "-foo", "foo-", "---", "machine-jim", "unit-123", "unit-foo", "service-", "service-foo/bar", "environment-foo"}
 	for _, name := range bad {
-		e, err := s.State.Entity(name)
+		c.Logf(name)
+		e, err := getEntity(name)
 		c.Check(e, IsNil)
 		c.Assert(err, ErrorMatches, `invalid entity name ".*"`)
 	}
 
-	e, err := s.State.Entity("machine-1234")
+	e, err = getEntity("machine-1234")
 	c.Check(e, IsNil)
 	c.Assert(err, ErrorMatches, `machine 1234 not found`)
 	c.Assert(state.IsNotFound(err), Equals, true)
 
-	e, err = s.State.Entity("unit-foo-654")
+	e, err = getEntity("unit-foo-654")
 	c.Check(e, IsNil)
 	c.Assert(err, ErrorMatches, `unit "foo/654" not found`)
 	c.Assert(state.IsNotFound(err), Equals, true)
 
-	e, err = s.State.Entity("unit-foo-bar-654")
+	e, err = getEntity("unit-foo-bar-654")
 	c.Check(e, IsNil)
 	c.Assert(err, ErrorMatches, `unit "foo-bar/654" not found`)
-	c.Assert(state.IsNotFound(err), Equals, true)
-
-	e, err = s.State.Entity("user-arble")
-	c.Check(e, IsNil)
-	c.Assert(err, ErrorMatches, `user "arble" not found`)
 	c.Assert(state.IsNotFound(err), Equals, true)
 
 	m, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 
-	e, err = s.State.Entity(m.EntityName())
+	e, err = getEntity(m.EntityName())
 	c.Assert(err, IsNil)
 	c.Assert(e, FitsTypeOf, m)
 	c.Assert(e.EntityName(), Equals, m.EntityName())
 
-	svc, err := s.State.AddService("ser-vice1", s.AddTestingCharm(c, "dummy"))
+	svc, err := s.State.AddService("ser-vice2", s.AddTestingCharm(c, "mysql"))
 	c.Assert(err, IsNil)
-
-	service, err := s.State.Entity(svc.EntityName())
-	c.Assert(err, IsNil)
-	c.Assert(service, FitsTypeOf, svc)
-	c.Assert(service.EntityName(), Equals, svc.EntityName())
-
 	u, err := svc.AddUnit()
 	c.Assert(err, IsNil)
 
-	e, err = s.State.Entity(u.EntityName())
+	e, err = getEntity(u.EntityName())
 	c.Assert(err, IsNil)
 	c.Assert(e, FitsTypeOf, u)
 	c.Assert(e.EntityName(), Equals, u.EntityName())
 
+	m.Destroy()
+	svc.Destroy()
+}
+
+func (s *StateSuite) TestAuthenticator(c *C) {
+	getEntity := func(name string) (namedEntity, error) {
+		e, err := s.State.Authenticator(name)
+		if err != nil {
+			return nil, err
+		}
+		return e.(namedEntity), nil
+	}
+	s.testEntity(c, getEntity)
+	e, err := getEntity("user-arble")
+	c.Check(e, IsNil)
+	c.Assert(err, ErrorMatches, `user "arble" not found`)
+	c.Assert(state.IsNotFound(err), Equals, true)
+
 	user, err := s.State.AddUser("arble", "pass")
 	c.Assert(err, IsNil)
 
-	e, err = s.State.Entity(user.EntityName())
+	e, err = getEntity(user.EntityName())
 	c.Assert(err, IsNil)
 	c.Assert(e, FitsTypeOf, user)
 	c.Assert(e.EntityName(), Equals, user.EntityName())
+
+	_, err = getEntity("environment-test")
+	c.Assert(
+		err,
+		ErrorMatches,
+		`entity "environment-test" does not support authentication`,
+	)
+}
+
+func (s *StateSuite) TestAnnotator(c *C) {
+	getEntity := func(name string) (namedEntity, error) {
+		e, err := s.State.Annotator(name)
+		if err != nil {
+			return nil, err
+		}
+		return e.(namedEntity), nil
+	}
+	s.testEntity(c, getEntity)
+	svc, err := s.State.AddService("ser-vice1", s.AddTestingCharm(c, "dummy"))
+	c.Assert(err, IsNil)
+
+	service, err := getEntity(svc.EntityName())
+	c.Assert(err, IsNil)
+	c.Assert(service, FitsTypeOf, svc)
+	c.Assert(service.EntityName(), Equals, svc.EntityName())
+
+	e, err := getEntity("environment-" + envConfig["name"].(string))
+	c.Assert(err, IsNil)
+	env, err := s.State.Environment()
+	c.Assert(err, IsNil)
+	c.Assert(e, FitsTypeOf, env)
+	c.Assert(e.EntityName(), Equals, env.EntityName())
+
+	user, err := s.State.AddUser("arble", "pass")
+	c.Assert(err, IsNil)
+	_, err = getEntity(user.EntityName())
+	c.Assert(
+		err,
+		ErrorMatches,
+		`entity "user-arble" does not support annotations`,
+	)
 }

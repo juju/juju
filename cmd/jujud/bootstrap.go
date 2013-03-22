@@ -6,6 +6,7 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
@@ -14,8 +15,9 @@ import (
 
 type BootstrapCommand struct {
 	cmd.CommandBase
-	Conf      AgentConf
-	EnvConfig map[string]interface{}
+	Conf        AgentConf
+	EnvConfig   map[string]interface{}
+	Constraints constraints.Value
 }
 
 // Info returns a decription of the command.
@@ -29,6 +31,7 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.Conf.addFlags(f)
 	yamlBase64Var(f, &c.EnvConfig, "env-config", "", "initial environment configuration (yaml, base64 encoded)")
+	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "initial environment constraints (space-separated strings)")
 }
 
 // Init initializes the command for running.
@@ -59,7 +62,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 
 	// There is no entity that's created at init time.
 	c.Conf.StateInfo.EntityName = ""
-	st, err := state.Initialize(c.Conf.StateInfo, cfg)
+	st, err := state.Initialize(c.Conf.StateInfo, cfg, state.DefaultDialTimeout)
 	if err != nil {
 		return err
 	}
@@ -71,8 +74,12 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	_, err = st.AddUser("admin", c.Conf.OldPassword)
-	if err != nil {
+	if err := st.SetEnvironConstraints(c.Constraints); err != nil {
+		return err
+	}
+
+	// Set up initial authentication.
+	if _, err := st.AddUser("admin", c.Conf.OldPassword); err != nil {
 		return err
 	}
 	if err := m.SetMongoPassword(c.Conf.OldPassword); err != nil {

@@ -11,11 +11,16 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/cert"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
 )
+
+// DefaultDialTimeout is the default amount of time to wait
+// when calling state.Open.
+const DefaultDialTimeout = 10 * time.Minute
 
 // Info encapsulates information about cluster of
 // servers holding juju state and can be used to make a
@@ -37,14 +42,12 @@ type Info struct {
 	Password string
 }
 
-var dialTimeout = 10 * time.Minute
-
 // Open connects to the server described by the given
 // info, waits for it to be initialized, and returns a new State
 // representing the environment connected to.
 // It returns unauthorizedError if access is unauthorized.
-func Open(info *Info) (*State, error) {
-	log.Printf("state: opening state; mongo addresses: %q; entity %q", info.Addrs, info.EntityName)
+func Open(info *Info, dialTimeout time.Duration) (*State, error) {
+	log.Infof("state: opening state; mongo addresses: %q; entity %q", info.Addrs, info.EntityName)
 	if len(info.Addrs) == 0 {
 		return nil, errors.New("no mongo addresses")
 	}
@@ -62,13 +65,13 @@ func Open(info *Info) (*State, error) {
 		ServerName: "anything",
 	}
 	dial := func(addr net.Addr) (net.Conn, error) {
-		log.Printf("state: connecting to %v", addr)
+		log.Infof("state: connecting to %v", addr)
 		c, err := tls.Dial("tcp", addr.String(), tlsConfig)
 		if err != nil {
-			log.Printf("state: connection failed: %v", err)
+			log.Errorf("state: connection failed: %v", err)
 			return nil, err
 		}
-		log.Printf("state: connection established")
+		log.Infof("state: connection established")
 		return c, err
 	}
 	session, err := mgo.DialWithInfo(&mgo.DialInfo{
@@ -90,8 +93,8 @@ func Open(info *Info) (*State, error) {
 // Initialize sets up an initial empty state and returns it.
 // This needs to be performed only once for a given environment.
 // It returns unauthorizedError if access is unauthorized.
-func Initialize(info *Info, cfg *config.Config) (rst *State, err error) {
-	st, err := Open(info)
+func Initialize(info *Info, cfg *config.Config, dialTimeout time.Duration) (rst *State, err error) {
+	st, err := Open(info, dialTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -108,12 +111,12 @@ func Initialize(info *Info, cfg *config.Config) (rst *State, err error) {
 	} else if !IsNotFound(err) {
 		return nil, err
 	}
-	log.Printf("state: initializing environment")
+	log.Infof("state: initializing environment")
 	if cfg.AdminSecret() != "" {
 		return nil, fmt.Errorf("admin-secret should never be written to the state")
 	}
 	ops := []txn.Op{
-		createConstraintsOp(st, "e", Constraints{}),
+		createConstraintsOp(st, "e", constraints.Value{}),
 		createSettingsOp(st, "e", cfg.AllAttrs()),
 	}
 	if err := st.runner.Run(ops, "", nil); err == txn.ErrAborted {
@@ -213,11 +216,13 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 		relationScopes: db.C("relationscopes"),
 		services:       db.C("services"),
 		settings:       db.C("settings"),
+		settingsrefs:   db.C("settingsrefs"),
 		constraints:    db.C("constraints"),
 		units:          db.C("units"),
 		users:          db.C("users"),
 		presence:       pdb.C("presence"),
 		cleanups:       db.C("cleanups"),
+		annotations:    db.C("annotations"),
 	}
 	log := db.C("txns.log")
 	logInfo := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
@@ -237,6 +242,8 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 			return nil, fmt.Errorf("cannot create database index: %v", err)
 		}
 	}
+	st.allWatcher = newAllWatcher(newAllWatcherStateBacking(st))
+	go st.allWatcher.run()
 	return st, nil
 }
 
@@ -253,8 +260,9 @@ func (st *State) CACert() (cert []byte) {
 func (st *State) Close() error {
 	err1 := st.watcher.Stop()
 	err2 := st.pwatcher.Stop()
+	err3 := st.allWatcher.Stop()
 	st.db.Session.Close()
-	for _, err := range []error{err1, err2} {
+	for _, err := range []error{err1, err2, err3} {
 		if err != nil {
 			return err
 		}

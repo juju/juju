@@ -1,10 +1,10 @@
-package state_test
+package constraints_test
 
 import (
 	"encoding/json"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/constraints"
 )
 
 type ConstraintsSuite struct{}
@@ -184,14 +184,14 @@ var parseConstraintsTests = []struct {
 func (s *ConstraintsSuite) TestParseConstraints(c *C) {
 	for i, t := range parseConstraintsTests {
 		c.Logf("test %d: %s", i, t.summary)
-		cons0, err := state.ParseConstraints(t.args...)
+		cons0, err := constraints.Parse(t.args...)
 		if t.err == "" {
 			c.Assert(err, IsNil)
 		} else {
 			c.Assert(err, ErrorMatches, t.err)
 			continue
 		}
-		cons1, err := state.ParseConstraints(cons0.String())
+		cons1, err := constraints.Parse(cons0.String())
 		c.Assert(err, IsNil)
 		c.Assert(cons1, DeepEquals, cons0)
 	}
@@ -205,7 +205,7 @@ func strp(s string) *string {
 	return &s
 }
 
-var constraintsRoundtripTests = []state.Constraints{
+var constraintsRoundtripTests = []constraints.Value{
 	{},
 	// {Arch: strp("")}, goyaml bug lp:1132537
 	{Arch: strp("amd64")},
@@ -223,10 +223,21 @@ var constraintsRoundtripTests = []state.Constraints{
 	},
 }
 
+func (s *ConstraintsSuite) TestRoundtripGnuflagValue(c *C) {
+	for i, t := range constraintsRoundtripTests {
+		c.Logf("test %d", i)
+		var cons constraints.Value
+		val := constraints.ConstraintsValue{&cons}
+		err := val.Set(t.String())
+		c.Assert(err, IsNil)
+		c.Assert(cons, DeepEquals, t)
+	}
+}
+
 func (s *ConstraintsSuite) TestRoundtripString(c *C) {
 	for i, t := range constraintsRoundtripTests {
 		c.Logf("test %d", i)
-		cons, err := state.ParseConstraints(t.String())
+		cons, err := constraints.Parse(t.String())
 		c.Assert(err, IsNil)
 		c.Assert(cons, DeepEquals, t)
 	}
@@ -237,7 +248,7 @@ func (s *ConstraintsSuite) TestRoundtripJson(c *C) {
 		c.Logf("test %d", i)
 		data, err := json.Marshal(t)
 		c.Assert(err, IsNil)
-		var cons state.Constraints
+		var cons constraints.Value
 		err = json.Unmarshal(data, &cons)
 		c.Assert(err, IsNil)
 		c.Assert(cons, DeepEquals, t)
@@ -250,7 +261,7 @@ func (s *ConstraintsSuite) TestRoundtripYaml(c *C) {
 		data, err := goyaml.Marshal(t)
 		c.Assert(err, IsNil)
 		c.Logf("%s", data)
-		var cons state.Constraints
+		var cons constraints.Value
 		err = goyaml.Unmarshal(data, &cons)
 		c.Assert(err, IsNil)
 		c.Assert(cons, DeepEquals, t)

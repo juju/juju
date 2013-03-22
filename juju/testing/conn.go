@@ -5,12 +5,14 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/version"
 	"os"
 	"path/filepath"
 )
@@ -62,6 +64,21 @@ func InvalidAPIInfo(machineId string) *api.Info {
 		Password:   "unimportant",
 		CACert:     []byte(testing.CACert),
 	}
+}
+
+// StartInstance is a test helper function that starts an instance on the
+// environment using the current series and invalid info states.
+func StartInstance(c *C, env environs.Environ, machineId string) environs.Instance {
+	series := version.Current.Series
+	inst, err := env.StartInstance(
+		machineId,
+		series,
+		constraints.Value{},
+		InvalidStateInfo(machineId),
+		InvalidAPIInfo(machineId),
+	)
+	c.Assert(err, IsNil)
+	return inst
 }
 
 const AdminSecret = "dummy-secret"
@@ -150,7 +167,7 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	c.Assert(err, IsNil)
 	// sanity check we've got the correct environment.
 	c.Assert(environ.Name(), Equals, "dummyenv")
-	c.Assert(environs.Bootstrap(environ, false, panicWrite), IsNil)
+	c.Assert(environs.Bootstrap(environ, constraints.Value{}), IsNil)
 
 	conn, err := juju.NewConn(environ)
 	c.Assert(err, IsNil)
@@ -161,10 +178,6 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	c.Assert(err, IsNil)
 	s.APIConn = apiConn
 	s.APIState = apiConn.State
-}
-
-func panicWrite(name string, cert, key []byte) error {
-	panic("writeCertAndKey called unexpectedly")
 }
 
 func (s *JujuConnSuite) tearDownConn(c *C) {

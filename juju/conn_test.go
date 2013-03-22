@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju"
@@ -44,7 +45,7 @@ func (*NewConnSuite) TestNewConnWithoutAdminSecret(c *C) {
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
-	err = environs.Bootstrap(env, false, panicWrite)
+	err = environs.Bootstrap(env, constraints.Value{})
 	c.Assert(err, IsNil)
 
 	delete(attrs, "admin-secret")
@@ -65,7 +66,7 @@ func (*NewConnSuite) TestNewConnFromNameGetUnbootstrapped(c *C) {
 func bootstrapEnv(c *C, envName string) {
 	environ, err := environs.NewFromName(envName)
 	c.Assert(err, IsNil)
-	err = environs.Bootstrap(environ, false, panicWrite)
+	err = environs.Bootstrap(environ, constraints.Value{})
 	c.Assert(err, IsNil)
 }
 
@@ -112,12 +113,12 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *C) {
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
-	err = environs.Bootstrap(env, false, panicWrite)
+	err = environs.Bootstrap(env, constraints.Value{})
 	c.Assert(err, IsNil)
 	info, _, err := env.StateInfo()
 	c.Assert(err, IsNil)
 	info.Password = trivial.PasswordHash("side-effect secret")
-	st, err := state.Open(info)
+	st, err := state.Open(info, state.DefaultDialTimeout)
 	c.Assert(err, IsNil)
 
 	// Verify we have no secret in the environ config
@@ -152,7 +153,7 @@ func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *C) {
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
-	err = environs.Bootstrap(env, false, panicWrite)
+	err = environs.Bootstrap(env, constraints.Value{})
 	c.Assert(err, IsNil)
 
 	// Make a new Conn, which will push the secrets.
@@ -178,10 +179,6 @@ func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func panicWrite(name string, cert, key []byte) error {
-	panic("writeCertAndKey called unexpectedly")
-}
-
 func (cs *NewConnSuite) TestConnWithPassword(c *C) {
 	env, err := environs.NewFromAttrs(map[string]interface{}{
 		"name":            "erewhemos",
@@ -194,7 +191,7 @@ func (cs *NewConnSuite) TestConnWithPassword(c *C) {
 		"ca-private-key":  coretesting.CAKey,
 	})
 	c.Assert(err, IsNil)
-	err = environs.Bootstrap(env, false, panicWrite)
+	err = environs.Bootstrap(env, constraints.Value{})
 	c.Assert(err, IsNil)
 
 	// Check that Bootstrap has correctly used a hash
@@ -202,7 +199,7 @@ func (cs *NewConnSuite) TestConnWithPassword(c *C) {
 	info, _, err := env.StateInfo()
 	c.Assert(err, IsNil)
 	info.Password = trivial.PasswordHash("nutkin")
-	st, err := state.Open(info)
+	st, err := state.Open(info, state.DefaultDialTimeout)
 	c.Assert(err, IsNil)
 	st.Close()
 
@@ -214,7 +211,7 @@ func (cs *NewConnSuite) TestConnWithPassword(c *C) {
 	// Check that the password has now been changed to the original
 	// admin password.
 	info.Password = "nutkin"
-	st1, err := state.Open(info)
+	st1, err := state.Open(info, state.DefaultDialTimeout)
 	c.Assert(err, IsNil)
 	st1.Close()
 
@@ -252,7 +249,7 @@ func (s *ConnSuite) SetUpTest(c *C) {
 	}
 	environ, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
-	err = environs.Bootstrap(environ, false, panicWrite)
+	err = environs.Bootstrap(environ, constraints.Value{})
 	c.Assert(err, IsNil)
 	s.conn, err = juju.NewConn(environ)
 	c.Assert(err, IsNil)

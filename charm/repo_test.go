@@ -128,11 +128,9 @@ func (s *StoreSuite) TestError(c *C) {
 }
 
 func (s *StoreSuite) TestWarning(c *C) {
-	orig := log.Target
-	log.Target = c
-	defer func() { log.Target = orig }()
+	defer log.SetTarget(log.SetTarget(c))
 	curl := charm.MustParseURL("cs:series/unwise")
-	expect := `.* JUJU charm: WARNING: charm store reports for "cs:series/unwise": foolishness` + "\n"
+	expect := `.* WARNING charm: charm store reports for "cs:series/unwise": foolishness` + "\n"
 	r, err := s.store.Latest(curl)
 	c.Assert(r, Equals, 23)
 	c.Assert(err, IsNil)
@@ -312,9 +310,9 @@ func (s *LocalRepoSuite) TestLogsErrors(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(ch.Revision(), Equals, 1)
 	c.Assert(c.GetTestLog(), Matches, `
-.* JUJU charm: WARNING: failed to load charm at ".*/series/blah": .*
-.* JUJU charm: WARNING: failed to load charm at ".*/series/blah.charm": .*
-.* JUJU charm: WARNING: failed to load charm at ".*/series/upgrade2": .*
+.* WARNING charm: failed to load charm at ".*/series/blah": .*
+.* WARNING charm: failed to load charm at ".*/series/blah.charm": .*
+.* WARNING charm: failed to load charm at ".*/series/upgrade2": .*
 `[1:])
 }
 

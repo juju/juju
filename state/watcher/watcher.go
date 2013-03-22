@@ -72,6 +72,21 @@ func (k watchKey) String() string {
 	return fmt.Sprintf("document %v in %s", k.id, coll)
 }
 
+// match returns whether the receiving watch key,
+// which may refer to a particular item or
+// an entire collection, matches k1, which refers
+// to a particular item.
+func (k watchKey) match(k1 watchKey) bool {
+	if k.c != k1.c {
+		return false
+	}
+	if k.id == nil {
+		// k refers to entire collection
+		return true
+	}
+	return k.id == k1.id
+}
+
 type watchInfo struct {
 	ch    chan<- Change
 	revno int64
@@ -293,13 +308,13 @@ func (w *Watcher) handle(req interface{}) {
 		}
 		for i := range w.requestEvents {
 			e := &w.requestEvents[i]
-			if e.key == r.key && e.ch == r.ch {
+			if r.key.match(e.key) && e.ch == r.ch {
 				e.ch = nil
 			}
 		}
 		for i := range w.syncEvents {
 			e := &w.syncEvents[i]
-			if e.key == r.key && e.ch == r.ch {
+			if r.key.match(e.key) && e.ch == r.ch {
 				e.ch = nil
 			}
 		}
@@ -369,7 +384,7 @@ func (w *Watcher) sync() error {
 				}
 			}
 			if len(d) == 0 || len(d) != len(r) {
-				log.Printf("state/watcher: changelog has invalid collection document: %#v", c)
+				log.Warningf("state/watcher: changelog has invalid collection document: %#v", c)
 				continue
 			}
 			for i := len(d) - 1; i >= 0; i-- {
@@ -380,7 +395,7 @@ func (w *Watcher) sync() error {
 				seen[key] = true
 				revno, ok := r[i].(int64)
 				if !ok {
-					log.Printf("state/watcher: changelog has revno with type %T: %#v", r[i], r[i])
+					log.Warningf("state/watcher: changelog has revno with type %T: %#v", r[i], r[i])
 					continue
 				}
 				if revno < 0 {

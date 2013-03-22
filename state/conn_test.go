@@ -1,13 +1,10 @@
 package state_test
 
 import (
-	"fmt"
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
-	"net/url"
 	stdtesting "testing"
 )
 
@@ -21,12 +18,13 @@ func TestPackage(t *stdtesting.T) {
 type ConnSuite struct {
 	testing.MgoSuite
 	testing.LoggingSuite
-	charms    *mgo.Collection
-	machines  *mgo.Collection
-	relations *mgo.Collection
-	services  *mgo.Collection
-	units     *mgo.Collection
-	State     *state.State
+	annotations *mgo.Collection
+	charms      *mgo.Collection
+	machines    *mgo.Collection
+	relations   *mgo.Collection
+	services    *mgo.Collection
+	units       *mgo.Collection
+	State       *state.State
 }
 
 func (cs *ConnSuite) SetUpSuite(c *C) {
@@ -42,13 +40,14 @@ func (cs *ConnSuite) TearDownSuite(c *C) {
 func (cs *ConnSuite) SetUpTest(c *C) {
 	cs.LoggingSuite.SetUpTest(c)
 	cs.MgoSuite.SetUpTest(c)
+	cs.annotations = cs.MgoSuite.Session.DB("juju").C("annotations")
 	cs.charms = cs.MgoSuite.Session.DB("juju").C("charms")
 	cs.machines = cs.MgoSuite.Session.DB("juju").C("machines")
 	cs.relations = cs.MgoSuite.Session.DB("juju").C("relations")
 	cs.services = cs.MgoSuite.Session.DB("juju").C("services")
 	cs.units = cs.MgoSuite.Session.DB("juju").C("units")
 	var err error
-	cs.State, err = state.Open(state.TestingStateInfo())
+	cs.State, err = state.Open(state.TestingStateInfo(), state.TestingDialTimeout)
 	c.Assert(err, IsNil)
 }
 
@@ -59,12 +58,12 @@ func (cs *ConnSuite) TearDownTest(c *C) {
 }
 
 func (s *ConnSuite) AddTestingCharm(c *C, name string) *state.Charm {
-	ch := testing.Charms.Dir(name)
-	ident := fmt.Sprintf("%s-%d", name, ch.Revision())
-	curl := charm.MustParseURL("local:series/" + ident)
-	bundleURL, err := url.Parse("http://bundles.example.com/" + ident)
-	c.Assert(err, IsNil)
-	sch, err := s.State.AddCharm(ch, curl, bundleURL, ident+"-sha256")
-	c.Assert(err, IsNil)
-	return sch
+	return s.State.AddTestingCharm(c, name)
+}
+
+// AddConfigCharm clones a testing charm, replaces its config with
+// the given YAML string and adds it to the state, using the given
+// revision.
+func (s *ConnSuite) AddConfigCharm(c *C, name, configYaml string, revision int) *state.Charm {
+	return s.State.AddConfigCharm(c, name, configYaml, revision)
 }
