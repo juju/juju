@@ -18,6 +18,10 @@ import (
 	"launchpad.net/juju-core/state/watcher"
 )
 
+// DefaultDialTimeout is the default amount of time to wait
+// when calling state.Open.
+const DefaultDialTimeout = 10 * time.Minute
+
 // Info encapsulates information about cluster of
 // servers holding juju state and can be used to make a
 // connection to that cluster.
@@ -38,13 +42,11 @@ type Info struct {
 	Password string
 }
 
-var dialTimeout = 10 * time.Minute
-
 // Open connects to the server described by the given
 // info, waits for it to be initialized, and returns a new State
 // representing the environment connected to.
 // It returns unauthorizedError if access is unauthorized.
-func Open(info *Info) (*State, error) {
+func Open(info *Info, dialTimeout time.Duration) (*State, error) {
 	log.Infof("state: opening state; mongo addresses: %q; entity %q", info.Addrs, info.EntityName)
 	if len(info.Addrs) == 0 {
 		return nil, errors.New("no mongo addresses")
@@ -91,8 +93,8 @@ func Open(info *Info) (*State, error) {
 // Initialize sets up an initial empty state and returns it.
 // This needs to be performed only once for a given environment.
 // It returns unauthorizedError if access is unauthorized.
-func Initialize(info *Info, cfg *config.Config) (rst *State, err error) {
-	st, err := Open(info)
+func Initialize(info *Info, cfg *config.Config, dialTimeout time.Duration) (rst *State, err error) {
+	st, err := Open(info, dialTimeout)
 	if err != nil {
 		return nil, err
 	}

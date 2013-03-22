@@ -811,7 +811,7 @@ func (s *allWatcherStateSuite) TearDownSuite(c *C) {
 func (s *allWatcherStateSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-	state, err := Open(TestingStateInfo())
+	state, err := Open(TestingStateInfo(), TestingDialTimeout)
 	c.Assert(err, IsNil)
 
 	s.State = state
@@ -847,14 +847,24 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 	err = wordpress.SetExposed()
 	c.Assert(err, IsNil)
 	add(&params.ServiceInfo{
-		Name:    "wordpress",
-		Exposed: true,
+		Name:     "wordpress",
+		Exposed:  true,
+		CharmURL: serviceCharmURL(wordpress),
+	})
+	pairs := map[string]string{"x": "12", "y": "99"}
+	err = wordpress.SetAnnotations(pairs)
+	c.Assert(err, IsNil)
+	add(&params.AnnotationInfo{
+		GlobalKey:   "s#wordpress",
+		EntityName:  "service-wordpress",
+		Annotations: pairs,
 	})
 
-	_, err = s.State.AddService("logging", s.State.AddTestingCharm(c, "logging"))
+	logging, err := s.State.AddService("logging", s.State.AddTestingCharm(c, "logging"))
 	c.Assert(err, IsNil)
 	add(&params.ServiceInfo{
-		Name: "logging",
+		Name:     "logging",
+		CharmURL: serviceCharmURL(logging),
 	})
 
 	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
@@ -872,6 +882,14 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 		add(&params.UnitInfo{
 			Name:    fmt.Sprintf("wordpress/%d", i),
 			Service: "wordpress",
+		})
+		pairs := map[string]string{"name": fmt.Sprintf("bar %d", i)}
+		err = wu.SetAnnotations(pairs)
+		c.Assert(err, IsNil)
+		add(&params.AnnotationInfo{
+			GlobalKey:   fmt.Sprintf("u#wordpress/%d", i),
+			EntityName:  fmt.Sprintf("unit-wordpress-%d", i),
+			Annotations: pairs,
 		})
 
 		m, err := s.State.AddMachine("series", JobHostUnits)
@@ -912,6 +930,11 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 	return
 }
 
+func serviceCharmURL(svc *Service) *charm.URL {
+	url, _ := svc.CharmURL()
+	return url
+}
+
 func (s *allWatcherStateSuite) TestStateBackingGetAll(c *C) {
 	expectEntities := s.setUpScenario(c)
 	b := newAllWatcherStateBacking(s.State)
@@ -942,11 +965,11 @@ func (s *allWatcherStateSuite) TestStateBackingGetAll(c *C) {
 	sort.Sort(expectEntities)
 	c.Logf("got")
 	for _, e := range gotEntities {
-		c.Logf("\t%#v %#v", e.EntityKind(), e.EntityId())
+		c.Logf("\t%#v %#v %#v", e.EntityKind(), e.EntityId(), e)
 	}
 	c.Logf("expected")
 	for _, e := range expectEntities {
-		c.Logf("\t%#v %#v", e.EntityKind(), e.EntityId())
+		c.Logf("\t%#v %#v %#v", e.EntityKind(), e.EntityId(), e)
 	}
 	c.Assert(gotEntities, DeepEquals, expectEntities)
 }
@@ -968,6 +991,9 @@ func (s *allWatcherStateSuite) TestStateBackingEntityIdForInfo(c *C) {
 	}, {
 		info:       &params.RelationInfo{Key: "logging:logging-directory wordpress:logging-dir"},
 		collection: s.State.relations,
+	}, {
+		info:       &params.AnnotationInfo{GlobalKey: "m-0"},
+		collection: s.State.annotations,
 	}}
 	b := newAllWatcherStateBacking(s.State)
 	for i, test := range tests {
