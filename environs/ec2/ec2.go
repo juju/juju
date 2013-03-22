@@ -290,6 +290,7 @@ func (e *environ) Bootstrap(cons constraints.Value, cert, key []byte) error {
 	mongoURL := environs.MongoURL(e, v)
 	inst, err := e.startInstance(&startInstanceParams{
 		machineId:   "0",
+		series:      tools.Series,
 		constraints: cons,
 		info: &state.Info{
 			Password: trivial.PasswordHash(password),
@@ -375,13 +376,13 @@ func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
 	return state.AssignUnused
 }
 
-func (e *environ) StartInstance(machineId string, cons constraints.Value, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
 	return e.startInstance(&startInstanceParams{
 		machineId:   machineId,
+		series:      series,
 		constraints: cons,
 		info:        info,
 		apiInfo:     apiInfo,
-		tools:       tools,
 	})
 }
 
@@ -417,6 +418,7 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 
 type startInstanceParams struct {
 	machineId       string
+	series          string
 	constraints     constraints.Value
 	info            *state.Info
 	apiInfo         *api.Info
@@ -436,7 +438,9 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	if scfg.tools == nil {
 		var err error
 		flags := environs.HighestVersion | environs.CompatVersion
-		scfg.tools, err = environs.FindTools(e, version.Current, flags)
+		v := version.Current
+		v.Series = scfg.series
+		scfg.tools, err = environs.FindTools(e, v, flags)
 		if err != nil {
 			return nil, err
 		}
@@ -444,7 +448,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	log.Infof("environs/ec2: starting machine %s in %q running tools version %q from %q", scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
 	spec, err := findInstanceSpec(&instanceConstraint{
 		region:      e.ecfg().region(),
-		series:      scfg.tools.Series,
+		series:      scfg.series,
 		arches:      []string{scfg.tools.Arch},
 		constraints: scfg.constraints,
 	})

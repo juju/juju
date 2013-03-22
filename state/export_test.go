@@ -6,6 +6,10 @@ import (
 	"time"
 )
 
+// TestingDialTimeout controls how long calls to state.Open
+// will wait during testing.
+const TestingDialTimeout = 100 * time.Millisecond
+
 type (
 	CharmDoc    charmDoc
 	MachineDoc  machineDoc
@@ -17,16 +21,6 @@ type (
 func (doc *MachineDoc) String() string {
 	m := &Machine{doc: machineDoc(*doc)}
 	return m.String()
-}
-
-var defaultDialTimeout = dialTimeout
-
-func SetDialTimeout(d time.Duration) {
-	if d == 0 {
-		dialTimeout = defaultDialTimeout
-	} else {
-		dialTimeout = d
-	}
 }
 
 func ServiceSettingsRefCount(st *State, serviceName string, curl *charm.URL) (int, error) {
