@@ -5,12 +5,14 @@ import (
 	"io"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/trivial"
 	"net/http"
+	"sort"
 )
 
 // Tests is a gocheck suite containing tests verifying juju functionality
@@ -51,8 +53,14 @@ func (t *Tests) TestBootstrapWithoutAdminSecret(c *C) {
 	delete(m, "admin-secret")
 	env, err := environs.NewFromAttrs(m)
 	c.Assert(err, IsNil)
-	err = environs.Bootstrap(env, false, panicWrite)
+	err = environs.Bootstrap(env, constraints.Value{})
 	c.Assert(err, ErrorMatches, ".*admin-secret is required for bootstrap")
+}
+
+func (t *Tests) TestProviderAssignmentPolicy(c *C) {
+	e := t.Open(c)
+	policy := e.AssignmentPolicy()
+	c.Assert(policy, FitsTypeOf, state.AssignUnused)
 }
 
 func (t *Tests) TestStartStop(c *C) {
@@ -62,13 +70,11 @@ func (t *Tests) TestStartStop(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(insts, HasLen, 0)
 
-	inst0, err := e.StartInstance("0", testing.InvalidStateInfo("0"), testing.InvalidAPIInfo("0"), nil)
-	c.Assert(err, IsNil)
+	inst0 := testing.StartInstance(c, e, "0")
 	c.Assert(inst0, NotNil)
 	id0 := inst0.Id()
 
-	inst1, err := e.StartInstance("1", testing.InvalidStateInfo("1"), testing.InvalidAPIInfo("1"), nil)
-	c.Assert(err, IsNil)
+	inst1 := testing.StartInstance(c, e, "1")
 	c.Assert(inst1, NotNil)
 	id1 := inst1.Id()
 
@@ -100,18 +106,18 @@ func (t *Tests) TestStartStop(c *C) {
 func (t *Tests) TestBootstrap(c *C) {
 	// TODO tests for Bootstrap(true)
 	e := t.Open(c)
-	err := environs.Bootstrap(e, false, panicWrite)
+	err := environs.Bootstrap(e, constraints.Value{})
 	c.Assert(err, IsNil)
 
 	info, apiInfo, err := e.StateInfo()
 	c.Check(info.Addrs, Not(HasLen), 0)
 	c.Check(apiInfo.Addrs, Not(HasLen), 0)
 
-	err = environs.Bootstrap(e, false, panicWrite)
+	err = environs.Bootstrap(e, constraints.Value{})
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	e2 := t.Open(c)
-	err = environs.Bootstrap(e2, false, panicWrite)
+	err = environs.Bootstrap(e2, constraints.Value{})
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	info2, apiInfo2, err := e2.StateInfo()
@@ -124,10 +130,10 @@ func (t *Tests) TestBootstrap(c *C) {
 	// Open again because Destroy invalidates old environments.
 	e3 := t.Open(c)
 
-	err = environs.Bootstrap(e3, false, panicWrite)
+	err = environs.Bootstrap(e3, constraints.Value{})
 	c.Assert(err, IsNil)
 
-	err = environs.Bootstrap(e3, false, panicWrite)
+	err = environs.Bootstrap(e3, constraints.Value{})
 	c.Assert(err, NotNil)
 }
 
@@ -180,7 +186,19 @@ func (t *Tests) TestPersistence(c *C) {
 func checkList(c *C, storage environs.StorageReader, prefix string, names []string) {
 	lnames, err := storage.List(prefix)
 	c.Assert(err, IsNil)
-	c.Assert(lnames, DeepEquals, names)
+	// TODO(dfc) gocheck should grow an SliceEquals checker.
+	expected := copyslice(lnames)
+	sort.Strings(expected)
+	actual := copyslice(names)
+	sort.Strings(actual)
+	c.Assert(expected, DeepEquals, actual)
+}
+
+// copyslice returns a copy of the slice
+func copyslice(s []string) []string {
+	r := make([]string, len(s))
+	copy(r, s)
+	return r
 }
 
 func checkPutFile(c *C, storage environs.StorageWriter, name string, contents []byte) {

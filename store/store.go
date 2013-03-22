@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/log"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -45,19 +46,21 @@ type Store struct {
 
 	// Cache for statistics key words (two generations).
 	cacheMu       sync.RWMutex
-	statsTokenNew map[string]int
-	statsTokenOld map[string]int
+	statsIdNew    map[string]int
+	statsIdOld    map[string]int
+	statsTokenNew map[int]string
+	statsTokenOld map[int]string
 }
 
 // Open creates a new session with the store. It connects to the MongoDB
 // server at the given address (as expected by the Mongo function in the
 // labix.org/v2/mgo package).
 func Open(mongoAddr string) (store *Store, err error) {
-	log.Printf("store: Store opened. Connecting to: %s", mongoAddr)
+	log.Infof("store: Store opened. Connecting to: %s", mongoAddr)
 	store = &Store{}
 	session, err := mgo.Dial(mongoAddr)
 	if err != nil {
-		log.Printf("store: Error connecting to MongoDB: %v", err)
+		log.Errorf("store: Error connecting to MongoDB: %v", err)
 		return nil, err
 	}
 
@@ -98,7 +101,7 @@ func (s *Store) ensureIndexes() error {
 	for _, idx := range indexes {
 		err := idx.c.EnsureIndex(idx.i)
 		if err != nil {
-			log.Printf("store: Error ensuring stat.counters index: %v", err)
+			log.Errorf("store: Error ensuring stat.counters index: %v", err)
 			return err
 		}
 	}
@@ -130,10 +133,7 @@ func (s *Store) statsKey(session *storeSession, key []string, write bool) (strin
 		err = nil
 		id, found := s.statsTokenId(key[i])
 		if !found {
-			var t struct {
-				Id    int    "_id"
-				Token string "t"
-			}
+			var t tokenId
 			err = tokens.Find(bson.D{{"t", key[i]}}).One(&t)
 			if err == mgo.ErrNotFound {
 				if !write {
@@ -163,7 +163,12 @@ func (s *Store) statsKey(session *storeSession, key []string, write bool) (strin
 	return string(skey), nil
 }
 
-const statsTokenCacheSize = 512
+const statsTokenCacheSize = 1024
+
+type tokenId struct {
+	Id    int    "_id"
+	Token string "t"
+}
 
 // cacheStatsTokenId adds the id for token into the cache.
 // The cache has two generations so that the least frequently used
@@ -172,25 +177,45 @@ func (s *Store) cacheStatsTokenId(token string, id int) {
 	s.cacheMu.Lock()
 	defer s.cacheMu.Unlock()
 	// Can't possibly be >, but reviews want it for defensiveness.
-	if len(s.statsTokenNew) >= statsTokenCacheSize {
+	if len(s.statsIdNew) >= statsTokenCacheSize {
+		s.statsIdOld = s.statsIdNew
+		s.statsIdNew = nil
 		s.statsTokenOld = s.statsTokenNew
 		s.statsTokenNew = nil
 	}
-	if s.statsTokenNew == nil {
-		s.statsTokenNew = make(map[string]int, statsTokenCacheSize)
+	if s.statsIdNew == nil {
+		s.statsIdNew = make(map[string]int, statsTokenCacheSize)
+		s.statsTokenNew = make(map[int]string, statsTokenCacheSize)
 	}
-	s.statsTokenNew[token] = id
+	s.statsIdNew[token] = id
+	s.statsTokenNew[id] = token
 }
 
 // statsTokenId returns the id for token from the cache, if found.
 func (s *Store) statsTokenId(token string) (id int, found bool) {
 	s.cacheMu.RLock()
-	id, found = s.statsTokenNew[token]
+	id, found = s.statsIdNew[token]
 	if found {
 		s.cacheMu.RUnlock()
 		return
 	}
-	id, found = s.statsTokenOld[token]
+	id, found = s.statsIdOld[token]
+	s.cacheMu.RUnlock()
+	if found {
+		s.cacheStatsTokenId(token, id)
+	}
+	return
+}
+
+// statsIdToken returns the token for id from the cache, if found.
+func (s *Store) statsIdToken(id int) (token string, found bool) {
+	s.cacheMu.RLock()
+	token, found = s.statsTokenNew[id]
+	if found {
+		s.cacheMu.RUnlock()
+		return
+	}
+	token, found = s.statsTokenOld[id]
 	s.cacheMu.RUnlock()
 	if found {
 		s.cacheStatsTokenId(token, id)
@@ -199,6 +224,10 @@ func (s *Store) statsTokenId(token string) (id int, found bool) {
 }
 
 var counterEpoch = time.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC).Unix()
+
+func timeToStamp(t time.Time) int32 {
+	return int32(t.Unix() - counterEpoch)
+}
 
 // IncCounter increases by one the counter associated with the composed key.
 func (s *Store) IncCounter(key []string) error {
@@ -214,42 +243,246 @@ func (s *Store) IncCounter(key []string) error {
 	// Round to the start of the minute so we get one document per minute at most.
 	t = t.Add(-time.Duration(t.Second()) * time.Second)
 	counters := session.StatCounters()
-	_, err = counters.Upsert(bson.D{{"k", skey}, {"t", int32(t.Unix() - counterEpoch)}}, bson.D{{"$inc", bson.D{{"c", 1}}}})
+	_, err = counters.Upsert(bson.D{{"k", skey}, {"t", timeToStamp(t)}}, bson.D{{"$inc", bson.D{{"c", 1}}}})
 	return err
 }
 
-// SumCounter returns the sum of all the counters that exactly match key,
-// or that are prefixed by it if prefix is true.
-func (s *Store) SumCounter(key []string, prefix bool) (count int64, err error) {
+// CounterRequest represents a request to aggregate counter values.
+type CounterRequest struct {
+	// Key and Prefix determine the counter keys to match.
+	// If Prefix is false, Key must match exactly. Otherwise, counters
+	// must begin with Key and have at least one more key token.
+	Key    []string
+	Prefix bool
+
+	// If List is true, matching counters are aggregated under their
+	// prefixes instead of being returned as a single overall sum.
+	//
+	// For example, given the following counts:
+	//
+	//   {"a", "b"}: 1,
+	//   {"a", "c"}: 3
+	//   {"a", "c", "d"}: 5
+	//   {"a", "c", "e"}: 7
+	//
+	// and assuming that Prefix is true, the following keys will
+	// present the respective results if List is true:
+	//
+	//        {"a"} => {{"a", "b"}, 1, false},
+	//                 {{"a", "c"}, 3, false},
+	//                 {{"a", "c"}, 12, true}
+	//   {"a", "c"} => {{"a", "c", "d"}, 3, false},
+	//                 {{"a", "c", "e"}, 5, false}
+	//
+	// If List is false, the same key prefixes will present:
+	//
+	//        {"a"} => {{"a"}, 16, true}
+	//   {"a", "c"} => {{"a", "c"}, 12, false}
+	//
+	List bool
+
+	// By defines the period covered by each aggregated data point.
+	// If unspecified, it defaults to ByAll, which aggregates all
+	// matching data points in a single entry.
+	By CounterRequestBy
+
+	// Start, if provided, changes the query so that only data points
+	// ocurring at the given time or afterwards are considered.
+	Start time.Time
+
+	// Stop, if provided, changes the query so that only data points
+	// ocurring at the given time or before are considered.
+	Stop time.Time
+}
+
+type CounterRequestBy int
+
+const (
+	ByAll CounterRequestBy = iota
+	ByDay
+	ByWeek
+)
+
+type Counter struct {
+	Key    []string
+	Prefix bool
+	Count  int64
+	Time   time.Time
+}
+
+// Counters aggregates and returns counter values according to the provided request.
+func (s *Store) Counters(req *CounterRequest) ([]Counter, error) {
 	session := s.session.Copy()
 	defer session.Close()
 
-	skey, err := s.statsKey(session, key, false)
+	tokensColl := session.StatTokens()
+	countersColl := session.StatCounters()
+
+	searchKey, err := s.statsKey(session, req.Key, false)
 	if err == ErrNotFound {
-		return 0, nil
+		if !req.List {
+			return []Counter{{Key: req.Key, Prefix: req.Prefix, Count: 0}}, nil
+		}
+		return nil, nil
 	}
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-
 	var regex string
-	if prefix {
-		regex = "^" + skey
+	if req.Prefix {
+		regex = "^" + searchKey + ".+"
 	} else {
-		regex = "^" + skey + "$"
+		regex = "^" + searchKey + "$"
 	}
 
-	job := mgo.MapReduce{
-		Map:    "function() { emit('count', this.c); }",
-		Reduce: "function(key, values) { return Array.sum(values); }",
+	// This reduce function simply sums, for each emitted key, all the values found under it.
+	job := mgo.MapReduce{Reduce: "function(key, values) { return Array.sum(values); }"}
+	var emit string
+	switch req.By {
+	case ByDay:
+		emit = "emit(k+'@'+NumberInt(this.t/86400), this.c);"
+	case ByWeek:
+		emit = "emit(k+'@'+NumberInt(this.t/604800), this.c);"
+	default:
+		emit = "emit(k, this.c);"
 	}
-	var result []struct{ Value int64 }
-	counters := session.StatCounters()
-	_, err = counters.Find(bson.D{{"k", bson.D{{"$regex", regex}}}}).MapReduce(&job, &result)
-	if len(result) > 0 {
-		return result[0].Value, err
+	if req.List && req.Prefix {
+		// For a search key "a:b:" matching a key "a:b:c:d:e:", this map function emits "a:b:c:*".
+		// For a search key "a:b:" matching a key "a:b:c:", it emits "a:b:c:".
+		// For a search key "a:b:" matching a key "a:b:", it emits "a:b:".
+		job.Scope = bson.D{{"searchKeyLen", len(searchKey)}}
+		job.Map = fmt.Sprintf(`
+			function() {
+				var k = this.k;
+				var i = k.indexOf(':', searchKeyLen)+1;
+				if (k.length > i)  { k = k.substr(0, i)+'*'; }
+				%s
+			}`, emit)
+	} else {
+		// For a search key "a:b:" matching a key "a:b:c:d:e:", this map function emits "a:b:*".
+		// For a search key "a:b:" matching a key "a:b:c:", it also emits "a:b:*".
+		// For a search key "a:b:" matching a key "a:b:", it emits "a:b:".
+		emitKey := searchKey
+		if req.Prefix {
+			emitKey += "*"
+		}
+		job.Scope = bson.D{{"emitKey", emitKey}}
+		job.Map = fmt.Sprintf(`
+			function() {
+				var k = emitKey;
+				%s
+			}`, emit)
 	}
-	return 0, err
+
+	var result []struct {
+		Key   string `bson:"_id"`
+		Value int64
+	}
+	var query, tquery bson.D
+	if !req.Start.IsZero() {
+		tquery = append(tquery, bson.DocElem{"$gte", timeToStamp(req.Start)})
+	}
+	if !req.Stop.IsZero() {
+		tquery = append(tquery, bson.DocElem{"$lte", timeToStamp(req.Stop)})
+	}
+	if len(tquery) == 0 {
+		query = bson.D{{"k", bson.D{{"$regex", regex}}}}
+	} else {
+		query = bson.D{{"k", bson.D{{"$regex", regex}}}, {"t", tquery}}
+	}
+	_, err = countersColl.Find(query).MapReduce(&job, &result)
+	if err != nil {
+		return nil, err
+	}
+	var counters []Counter
+	for i := range result {
+		key := result[i].Key
+		when := time.Time{}
+		if req.By != ByAll {
+			var stamp int64
+			if at := strings.Index(key, "@"); at != -1 && len(key) > at+1 {
+				stamp, _ = strconv.ParseInt(key[at+1:], 10, 32)
+				key = key[:at]
+			}
+			if stamp == 0 {
+				return nil, fmt.Errorf("internal error: bad aggregated key: %q", result[i].Key)
+			}
+			switch req.By {
+			case ByDay:
+				stamp = stamp * 86400
+			case ByWeek:
+				// The +1 puts it at the end of the period.
+				stamp = (stamp + 1) * 604800
+			}
+			when = time.Unix(counterEpoch+stamp, 0).In(time.UTC)
+		}
+		ids := strings.Split(key, ":")
+		tokens := make([]string, 0, len(ids))
+		for i := 0; i < len(ids)-1; i++ {
+			if ids[i] == "*" {
+				continue
+			}
+			id, err := strconv.ParseInt(ids[i], 32, 32)
+			if err != nil {
+				return nil, fmt.Errorf("store: invalid id: %q", ids[i])
+			}
+			token, found := s.statsIdToken(int(id))
+			if !found {
+				var t tokenId
+				err = tokensColl.FindId(id).One(&t)
+				if err == mgo.ErrNotFound {
+					return nil, fmt.Errorf("store: internal error; token id not found: %d", id)
+				}
+				s.cacheStatsTokenId(t.Token, t.Id)
+				token = t.Token
+			}
+			tokens = append(tokens, token)
+		}
+		counter := Counter{
+			Key:    tokens,
+			Prefix: len(ids) > 0 && ids[len(ids)-1] == "*",
+			Count:  result[i].Value,
+			Time:   when,
+		}
+		counters = append(counters, counter)
+	}
+	if !req.List && len(counters) == 0 {
+		counters = []Counter{{Key: req.Key, Prefix: req.Prefix, Count: 0}}
+	} else if len(counters) > 1 {
+		sort.Sort(sortableCounters(counters))
+	}
+	return counters, nil
+}
+
+type sortableCounters []Counter
+
+func (s sortableCounters) Len() int      { return len(s) }
+func (s sortableCounters) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+func (s sortableCounters) Less(i, j int) bool {
+	// Earlier times first.
+	if !s[i].Time.Equal(s[j].Time) {
+		return s[i].Time.Before(s[j].Time)
+	}
+	// Then larger counts first.
+	if s[i].Count != s[j].Count {
+		return s[j].Count < s[i].Count
+	}
+	// Then smaller/shorter keys first.
+	ki := s[i].Key
+	kj := s[j].Key
+	for n := range ki {
+		if n >= len(kj) {
+			return false
+		}
+		if ki[n] != kj[n] {
+			return ki[n] < kj[n]
+		}
+	}
+	if len(ki) < len(kj) {
+		return true
+	}
+	// Then full keys first.
+	return !s[i].Prefix && s[j].Prefix
 }
 
 // A CharmPublisher is responsible for importing a charm dir onto the store.
@@ -304,7 +537,7 @@ func (p *CharmPublisher) Publish(charm CharmDir) error {
 // ErrRedundantUpdate is returned if all of the provided urls are
 // already associated to that digest.
 func (s *Store) CharmPublisher(urls []*charm.URL, digest string) (p *CharmPublisher, err error) {
-	log.Printf("store: Trying to add charms %v with key %q...", urls, digest)
+	log.Infof("store: Trying to add charms %v with key %q...", urls, digest)
 	if err = mustLackRevision("CharmPublisher", urls...); err != nil {
 		return
 	}
@@ -319,16 +552,16 @@ func (s *Store) CharmPublisher(urls []*charm.URL, digest string) (p *CharmPublis
 		urlStr := urls[i].String()
 		err = charms.Find(bson.D{{"urls", urlStr}}).Sort("-revision").One(&doc)
 		if err == mgo.ErrNotFound {
-			log.Printf("store: Charm %s not yet in the store.", urls[i])
+			log.Infof("store: Charm %s not yet in the store.", urls[i])
 			newKey = true
 			continue
 		}
 		if doc.Digest != digest {
-			log.Printf("store: Charm %s is out of date with revision key %q.", urlStr, digest)
+			log.Infof("store: Charm %s is out of date with revision key %q.", urlStr, digest)
 			newKey = true
 		}
 		if err != nil {
-			log.Printf("store: Unknown error looking for charm %s: %s", urlStr, err)
+			log.Errorf("store: Unknown error looking for charm %s: %s", urlStr, err)
 			return
 		}
 		if doc.Revision > maxRev {
@@ -336,12 +569,12 @@ func (s *Store) CharmPublisher(urls []*charm.URL, digest string) (p *CharmPublis
 		}
 	}
 	if !newKey {
-		log.Printf("store: All charms have revision key %q. Nothing to update.", digest)
+		log.Infof("store: All charms have revision key %q. Nothing to update.", digest)
 		err = ErrRedundantUpdate
 		return
 	}
 	revision := maxRev + 1
-	log.Printf("store: Preparing writer to add charms with revision %d.", revision)
+	log.Infof("store: Preparing writer to add charms with revision %d.", revision)
 	w := &charmWriter{
 		store:    s,
 		urls:     urls,
@@ -370,11 +603,11 @@ func (w *charmWriter) Write(data []byte) (n int, err error) {
 		w.session = w.store.session.Copy()
 		w.file, err = w.session.CharmFS().Create("")
 		if err != nil {
-			log.Printf("store: Failed to create GridFS file: %v", err)
+			log.Errorf("store: Failed to create GridFS file: %v", err)
 			return 0, err
 		}
 		w.sha256 = sha256.New()
-		log.Printf("store: Creating GridFS file with id %q...", w.file.Id().(bson.ObjectId).Hex())
+		log.Infof("store: Creating GridFS file with id %q...", w.file.Id().(bson.ObjectId).Hex())
 	}
 	_, err = w.sha256.Write(data)
 	if err != nil {
@@ -404,7 +637,7 @@ func (w *charmWriter) finish() error {
 	size := w.file.Size()
 	err := w.file.Close()
 	if err != nil {
-		log.Printf("store: Failed to close GridFS file: %v", err)
+		log.Errorf("store: Failed to close GridFS file: %v", err)
 		return err
 	}
 	charms := w.session.Charms()
@@ -421,7 +654,7 @@ func (w *charmWriter) finish() error {
 	}
 	if err = charms.Insert(&charm); err != nil {
 		err = maybeConflict(err)
-		log.Printf("store: Failed to insert new revision of charm %v: %v", w.urls, err)
+		log.Errorf("store: Failed to insert new revision of charm %v: %v", w.urls, err)
 		return err
 	}
 	return nil
@@ -490,7 +723,7 @@ func (s *Store) CharmInfo(url *charm.URL) (info *CharmInfo, err error) {
 	}
 	err = charms.Find(qdoc).Sort("-revision").One(&cdoc)
 	if err != nil {
-		log.Printf("store: Failed to find charm %s: %v", url, err)
+		log.Errorf("store: Failed to find charm %s: %v", url, err)
 		return nil, ErrNotFound
 	}
 	info = &CharmInfo{
@@ -516,7 +749,7 @@ func (s *Store) OpenCharm(url *charm.URL) (info *CharmInfo, rc io.ReadCloser, er
 	session := s.session.Copy()
 	file, err := session.CharmFS().OpenId(info.fileId)
 	if err != nil {
-		log.Printf("store: Failed to open GridFS file for charm %s: %v", url, err)
+		log.Errorf("store: Failed to open GridFS file for charm %s: %v", url, err)
 		session.Close()
 		return nil, nil, err
 	}
@@ -624,7 +857,7 @@ func (l *UpdateLock) tryLock() error {
 			l.locks.Remove(bson.D{{"_id", l.keys[j]}, {"time", l.time}})
 		}
 		err = maybeConflict(err)
-		log.Printf("store: Can't lock charms %v for updating: %v", l.keys, err)
+		log.Errorf("store: Can't lock charms %v for updating: %v", l.keys, err)
 		return err
 	}
 	return nil
@@ -718,7 +951,7 @@ type CharmEvent struct {
 
 // LogCharmEvent records an event related to one or more charm URLs.
 func (s *Store) LogCharmEvent(event *CharmEvent) (err error) {
-	log.Printf("store: Adding charm event for %v with key %q: %s", event.URLs, event.Digest, event.Kind)
+	log.Infof("store: Adding charm event for %v with key %q: %s", event.URLs, event.Digest, event.Kind)
 	if err = mustLackRevision("LogCharmEvent", event.URLs...); err != nil {
 		return
 	}
@@ -766,7 +999,7 @@ func mustLackRevision(context string, urls ...*charm.URL) error {
 	for _, url := range urls {
 		if url.Revision != -1 {
 			err := fmt.Errorf("%s: got charm URL with revision: %s", context, url)
-			log.Printf("store: %v", err)
+			log.Errorf("store: %v", err)
 			return err
 		}
 	}

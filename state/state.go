@@ -9,6 +9,7 @@ import (
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/presence"
@@ -57,9 +58,11 @@ func (t *Tools) SetBSON(raw bson.Raw) error {
 	return nil
 }
 
+const serviceSnippet = "[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*"
+
 var (
-	validService = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*$")
-	validUnit    = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*/[0-9]+$")
+	validService = regexp.MustCompile("^" + serviceSnippet + "$")
+	validUnit    = regexp.MustCompile("^" + serviceSnippet + "(-[a-z0-9]*[a-z][a-z0-9]*)*/[0-9]+$")
 	validMachine = regexp.MustCompile("^0$|^[1-9][0-9]*$")
 )
 
@@ -78,21 +81,25 @@ func IsMachineId(name string) bool {
 	return validMachine.MatchString(name)
 }
 
-// NotFoundError represents the error that something is not found.
-type NotFoundError struct {
+// notFoundError represents the error that something is not found.
+type notFoundError struct {
 	msg string
 }
 
-func (e *NotFoundError) Error() string {
+func (e *notFoundError) Error() string {
 	return e.msg
 }
 
-func notFoundf(format string, args ...interface{}) error {
-	return &NotFoundError{fmt.Sprintf(format+" not found", args...)}
+// NotFoundf returns a error for which IsNotFound returns
+// true. The message for the error is made up from the given
+// arguments formatted as with fmt.Sprintf, with the
+// string " not found" appended.
+func NotFoundf(format string, args ...interface{}) error {
+	return &notFoundError{fmt.Sprintf(format+" not found", args...)}
 }
 
 func IsNotFound(err error) bool {
-	_, ok := err.(*NotFoundError)
+	_, ok := err.(*notFoundError)
 	return ok
 }
 
@@ -107,13 +114,21 @@ type State struct {
 	relationScopes *mgo.Collection
 	services       *mgo.Collection
 	settings       *mgo.Collection
+	settingsrefs   *mgo.Collection
+	constraints    *mgo.Collection
 	units          *mgo.Collection
 	users          *mgo.Collection
 	presence       *mgo.Collection
 	cleanups       *mgo.Collection
+	annotations    *mgo.Collection
 	runner         *txn.Runner
 	watcher        *watcher.Watcher
 	pwatcher       *presence.Watcher
+	allWatcher     *allWatcher
+}
+
+func (st *State) Watch() *StateWatcher {
+	return newStateWatcher(st)
 }
 
 func (st *State) EnvironConfig() (*config.Config, error) {
@@ -143,23 +158,37 @@ func (st *State) SetEnvironConfig(cfg *config.Config) error {
 	return err
 }
 
-// AddMachine adds a new machine configured to run the supplied jobs.
-func (st *State) AddMachine(jobs ...MachineJob) (m *Machine, err error) {
-	return st.addMachine("", jobs)
+// EnvironConstraints returns the current environment constraints.
+func (st *State) EnvironConstraints() (constraints.Value, error) {
+	return readConstraints(st, "e")
+}
+
+// SetEnvironConstraints replaces the current environment constraints.
+func (st *State) SetEnvironConstraints(cons constraints.Value) error {
+	return writeConstraints(st, "e", cons)
+}
+
+// AddMachine adds a new machine configured to run the supplied jobs on the
+// supplied series.
+func (st *State) AddMachine(series string, jobs ...MachineJob) (m *Machine, err error) {
+	return st.addMachine(series, "", jobs)
 }
 
 // InjectMachine adds a new machine, corresponding to an existing provider
-// instance, configure to run the supplied jobs.
-func (st *State) InjectMachine(instanceId InstanceId, jobs ...MachineJob) (m *Machine, err error) {
+// instance, configured to run the supplied jobs on the supplied series.
+func (st *State) InjectMachine(series string, instanceId InstanceId, jobs ...MachineJob) (m *Machine, err error) {
 	if instanceId == "" {
 		return nil, fmt.Errorf("cannot inject a machine without an instance id")
 	}
-	return st.addMachine(instanceId, jobs)
+	return st.addMachine(series, instanceId, jobs)
 }
 
 // addMachine implements AddMachine and InjectMachine.
-func (st *State) addMachine(instanceId InstanceId, jobs []MachineJob) (m *Machine, err error) {
+func (st *State) addMachine(series string, instanceId InstanceId, jobs []MachineJob) (m *Machine, err error) {
 	defer trivial.ErrorContextf(&err, "cannot add a new machine")
+	if series == "" {
+		return nil, fmt.Errorf("no series specified")
+	}
 	if len(jobs) == 0 {
 		return nil, fmt.Errorf("no jobs specified")
 	}
@@ -176,9 +205,10 @@ func (st *State) addMachine(instanceId InstanceId, jobs []MachineJob) (m *Machin
 	}
 	id := strconv.Itoa(seq)
 	mdoc := machineDoc{
-		Id:   id,
-		Life: Alive,
-		Jobs: jobs,
+		Id:     id,
+		Series: series,
+		Life:   Alive,
+		Jobs:   jobs,
 	}
 	if instanceId != "" {
 		mdoc.InstanceId = instanceId
@@ -242,7 +272,7 @@ func (st *State) Machine(id string) (*Machine, error) {
 	sel := D{{"_id", id}}
 	err := st.machines.Find(sel).One(mdoc)
 	if err == mgo.ErrNotFound {
-		return nil, notFoundf("machine %s", id)
+		return nil, NotFoundf("machine %s", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get machine %s: %v", id, err)
@@ -250,17 +280,48 @@ func (st *State) Machine(id string) (*Machine, error) {
 	return newMachine(st, mdoc), nil
 }
 
-// AuthEntity represents an entity that has
-// a password that can be authenticated against.
-type AuthEntity interface {
-	EntityName() string
+// Authenticator represents entites capable of handling password
+// authentication.
+type Authenticator interface {
+	Refresh() error
 	SetPassword(pass string) error
 	PasswordValid(pass string) bool
-	Refresh() error
+	EntityName() string
 }
 
-// AuthEntity returns the entity for the given name.
-func (st *State) AuthEntity(entityName string) (AuthEntity, error) {
+// Annotator represents entities capable of handling annotations.
+type Annotator interface {
+	Annotation(key string) (string, error)
+	Annotations() (map[string]string, error)
+	SetAnnotations(pairs map[string]string) error
+}
+
+// Authenticator attempts to return an Authenticator with the given name.
+func (st *State) Authenticator(name string) (Authenticator, error) {
+	e, err := st.entity(name)
+	if err != nil {
+		return nil, err
+	}
+	if e, ok := e.(Authenticator); ok {
+		return e, nil
+	}
+	return nil, fmt.Errorf("entity %q does not support authentication", name)
+}
+
+// Annotator attempts to return an Annotator with the given name.
+func (st *State) Annotator(name string) (Annotator, error) {
+	e, err := st.entity(name)
+	if err != nil {
+		return nil, err
+	}
+	if e, ok := e.(Annotator); ok {
+		return e, nil
+	}
+	return nil, fmt.Errorf("entity %q does not support annotations", name)
+}
+
+// entity returns the entity for the given name.
+func (st *State) entity(entityName string) (interface{}, error) {
 	i := strings.Index(entityName, "-")
 	if i <= 0 || i >= len(entityName)-1 {
 		return nil, fmt.Errorf("invalid entity name %q", entityName)
@@ -268,11 +329,38 @@ func (st *State) AuthEntity(entityName string) (AuthEntity, error) {
 	prefix, id := entityName[0:i], entityName[i+1:]
 	switch prefix {
 	case "machine":
+		if !IsMachineId(id) {
+			return nil, fmt.Errorf("invalid entity name %q", entityName)
+		}
 		return st.Machine(id)
 	case "unit":
-		return st.Unit(strings.Replace(id, "-", "/", -1))
+		i := strings.LastIndex(id, "-")
+		if i == -1 {
+			return nil, fmt.Errorf("invalid entity name %q", entityName)
+		}
+		name := id[:i] + "/" + id[i+1:]
+		if !IsUnitName(name) {
+			return nil, fmt.Errorf("invalid entity name %q", entityName)
+		}
+		return st.Unit(name)
 	case "user":
 		return st.User(id)
+	case "service":
+		if !IsServiceName(id) {
+			return nil, fmt.Errorf("invalid entity name %q", entityName)
+		}
+		return st.Service(id)
+	case "environment":
+		conf, err := st.EnvironConfig()
+		if err != nil {
+			return nil, err
+		}
+		// Return an invalid entity error if the requested environment is not
+		// the current one.
+		if id != conf.Name() {
+			return nil, fmt.Errorf("invalid entity name %q", entityName)
+		}
+		return st.Environment()
 	}
 	return nil, fmt.Errorf("invalid entity name %q", entityName)
 }
@@ -300,7 +388,7 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	cdoc := &charmDoc{}
 	err := st.charms.Find(D{{"_id", curl}}).One(cdoc)
 	if err == mgo.ErrNotFound {
-		return nil, notFoundf("charm %q", curl)
+		return nil, NotFoundf("charm %q", curl)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get charm %q: %v", curl, err)
@@ -317,6 +405,9 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	if !IsServiceName(name) {
 		return nil, fmt.Errorf("invalid name")
 	}
+	if ch == nil {
+		return nil, fmt.Errorf("charm is nil")
+	}
 	if exists, err := isNotDead(st.services, name); err != nil {
 		return nil, err
 	} else if exists {
@@ -331,16 +422,21 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 		Life:          Alive,
 	}
 	svc := newService(st, svcDoc)
-	ops := []txn.Op{{
-		C:      st.settings.Name,
-		Id:     svc.globalKey(),
-		Insert: D{},
-	}, {
-		C:      st.services.Name,
-		Id:     name,
-		Assert: txn.DocMissing,
-		Insert: svcDoc,
-	}}
+	ops := []txn.Op{
+		createConstraintsOp(st, svc.globalKey(), constraints.Value{}),
+		createSettingsOp(st, svc.settingsKey(), nil),
+		{
+			C:      st.settingsrefs.Name,
+			Id:     svc.settingsKey(),
+			Assert: txn.DocMissing,
+			Insert: settingsRefsDoc{1},
+		},
+		{
+			C:      st.services.Name,
+			Id:     name,
+			Assert: txn.DocMissing,
+			Insert: svcDoc,
+		}}
 	// Collect peer relation addition operations.
 	for relName, rel := range peers {
 		relId, err := st.sequence("relation")
@@ -392,7 +488,7 @@ func (st *State) Service(name string) (service *Service, err error) {
 	sel := D{{"_id", name}}
 	err = st.services.Find(sel).One(sdoc)
 	if err == mgo.ErrNotFound {
-		return nil, notFoundf("service %q", name)
+		return nil, NotFoundf("service %q", name)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get service %q: %v", name, err)
@@ -619,7 +715,7 @@ func (st *State) EndpointsRelation(endpoints ...Endpoint) (*Relation, error) {
 	key := relationKey(endpoints)
 	err := st.relations.Find(D{{"_id", key}}).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, notFoundf("relation %q", key)
+		return nil, NotFoundf("relation %q", key)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get relation %q: %v", key, err)
@@ -632,7 +728,7 @@ func (st *State) Relation(id int) (*Relation, error) {
 	doc := relationDoc{}
 	err := st.relations.Find(D{{"id", id}}).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, notFoundf("relation %d", id)
+		return nil, NotFoundf("relation %d", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get relation %d: %v", id, err)
@@ -648,7 +744,7 @@ func (st *State) Unit(name string) (*Unit, error) {
 	doc := unitDoc{}
 	err := st.units.FindId(name).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, notFoundf("unit %q", name)
+		return nil, NotFoundf("unit %q", name)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get unit %q: %v", name, err)
@@ -677,9 +773,7 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 			return err
 		}
 		for {
-			// TODO(rog) take out a lease on the new machine
-			// so that we don't have a race here.
-			m, err := st.AddMachine(JobHostUnits)
+			m, err := st.AddMachine(u.doc.Series, JobHostUnits)
 			if err != nil {
 				return err
 			}
@@ -765,7 +859,7 @@ func (st *State) Cleanup() error {
 			c = st.settings
 			sel = D{{"_id", D{{"$regex", "^" + doc.Prefix}}}}
 		default:
-			log.Printf("state: WARNING: ignoring unknown cleanup kind %q", doc.Kind)
+			log.Warningf("state: ignoring unknown cleanup kind %q", doc.Kind)
 			continue
 		}
 		if count, err := c.Find(sel).Count(); err != nil {

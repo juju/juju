@@ -4,8 +4,9 @@ import (
 	"errors"
 	"fmt"
 	corecharm "launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
@@ -67,7 +68,7 @@ func (u *Uniter) loop(name string) (err error) {
 	if err = u.init(name); err != nil {
 		return err
 	}
-	log.Printf("worker/uniter: unit %q started", u.unit)
+	log.Noticef("worker/uniter: unit %q started", u.unit)
 
 	// Start filtering state change events for consumption by modes.
 	u.f, err = newFilter(u.st, name)
@@ -96,7 +97,7 @@ func (u *Uniter) loop(name string) (err error) {
 			mode, err = mode(u)
 		}
 	}
-	log.Printf("worker/uniter: unit %q shutting down: %s", u.unit, err)
+	log.Noticef("worker/uniter: unit %q shutting down: %s", u.unit, err)
 	return err
 }
 
@@ -107,7 +108,7 @@ func (u *Uniter) init(name string) (err error) {
 		return err
 	}
 	ename := u.unit.EntityName()
-	u.toolsDir = environs.AgentToolsDir(u.dataDir, ename)
+	u.toolsDir = agent.ToolsDir(u.dataDir, ename)
 	if err := EnsureJujucSymlinks(u.toolsDir); err != nil {
 		return err
 	}
@@ -151,7 +152,7 @@ func (u *Uniter) Wait() error {
 // value of Started.
 func (u *Uniter) writeState(op Op, step OpStep, hi *hook.Info, url *corecharm.URL) error {
 	s := State{
-		Started:  op == RunHook && hi.Kind == hook.Start || u.s != nil && u.s.Started,
+		Started:  op == RunHook && hi.Kind == hooks.Start || u.s != nil && u.s.Started,
 		Op:       op,
 		OpStep:   step,
 		Hook:     hi,
@@ -164,9 +165,9 @@ func (u *Uniter) writeState(op Op, step OpStep, hi *hook.Info, url *corecharm.UR
 	return nil
 }
 
-// deploy deploys the supplied charm, and sets follow-up hook operation state
+// deploy deploys the supplied charm URL, and sets follow-up hook operation state
 // as indicated by reason.
-func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
+func (u *Uniter) deploy(curl *corecharm.URL, reason Op) error {
 	if reason != Install && reason != Upgrade {
 		panic(fmt.Errorf("%q is not a deploy operation", reason))
 	}
@@ -179,31 +180,43 @@ func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
 		// started upgrading, to ensure we still return to the correct state.
 		hi = u.s.Hook
 	}
-	url := sch.URL()
 	if u.s == nil || u.s.OpStep != Done {
-		log.Printf("worker/uniter: fetching charm %q", url)
+		// Get the new charm bundle before announcing intention to use it.
+		log.Infof("worker/uniter: fetching charm %q", curl)
+		sch, err := u.st.Charm(curl)
+		if err != nil {
+			return err
+		}
 		bun, err := u.bundles.Read(sch, u.tomb.Dying())
 		if err != nil {
 			return err
 		}
-		if err = u.deployer.Stage(bun, url); err != nil {
+		if err = u.deployer.Stage(bun, curl); err != nil {
 			return err
 		}
-		log.Printf("worker/uniter: deploying charm %q", url)
-		if err = u.writeState(reason, Pending, hi, url); err != nil {
+
+		// Set the new charm URL - this returns when the operation is complete,
+		// at which point we can refresh the local copy of the unit to get a
+		// version with the correct charm URL, and can go ahead and deploy
+		// the charm proper.
+		if err := u.f.SetCharm(curl); err != nil {
+			return err
+		}
+		if err := u.unit.Refresh(); err != nil {
+			return err
+		}
+		log.Infof("worker/uniter: deploying charm %q", curl)
+		if err = u.writeState(reason, Pending, hi, curl); err != nil {
 			return err
 		}
 		if err = u.deployer.Deploy(u.charm); err != nil {
 			return err
 		}
-		if err = u.writeState(reason, Done, hi, url); err != nil {
+		if err = u.writeState(reason, Done, hi, curl); err != nil {
 			return err
 		}
 	}
-	log.Printf("worker/uniter: charm %q is deployed", url)
-	if err := u.unit.SetCharm(sch); err != nil {
-		return err
-	}
+	log.Infof("worker/uniter: charm %q is deployed", curl)
 	status := Queued
 	if hi != nil {
 		// If a hook operation was interrupted, restore it.
@@ -213,9 +226,9 @@ func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
 		hi = &hook.Info{}
 		switch reason {
 		case Install:
-			hi.Kind = hook.Install
+			hi.Kind = hooks.Install
 		case Upgrade:
-			hi.Kind = hook.UpgradeCharm
+			hi.Kind = hooks.UpgradeCharm
 		}
 	}
 	return u.writeState(RunHook, status, hi, nil)
@@ -241,17 +254,11 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 		}
 	}
 	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
-	hctx := &HookContext{
-		service:        u.service,
-		unit:           u.unit,
-		id:             hctxId,
-		relationId:     relationId,
-		remoteUnitName: hi.RemoteUnit,
-		relations:      map[int]*ContextRelation{},
-	}
+	ctxRelations := map[int]*ContextRelation{}
 	for id, r := range u.relationers {
-		hctx.relations[id] = r.Context()
+		ctxRelations[id] = r.Context()
 	}
+	hctx := NewHookContext(u.unit, hctxId, relationId, hi.RemoteUnit, ctxRelations)
 
 	// Prepare server.
 	getCmd := func(ctxId, cmdName string) (cmd.Command, error) {
@@ -274,46 +281,47 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	if err := u.writeState(RunHook, Pending, &hi, nil); err != nil {
 		return err
 	}
-	log.Printf("worker/uniter: running %q hook", hookName)
+	log.Infof("worker/uniter: running %q hook", hookName)
 	if err := hctx.RunHook(hookName, u.charm.Path(), u.toolsDir, socketPath); err != nil {
-		log.Printf("worker/uniter: hook failed: %s", err)
+		log.Errorf("worker/uniter: hook failed: %s", err)
 		return errHookFailed
 	}
 	if err := u.writeState(RunHook, Done, &hi, nil); err != nil {
 		return err
 	}
-	log.Printf("worker/uniter: ran %q hook", hookName)
+	log.Infof("worker/uniter: ran %q hook", hookName)
 	return u.commitHook(hi)
 }
 
 // commitHook ensures that state is consistent with the supplied hook, and
 // that the fact of the hook's completion is persisted.
 func (u *Uniter) commitHook(hi hook.Info) error {
-	log.Printf("worker/uniter: committing %q hook", hi.Kind)
+	log.Infof("worker/uniter: committing %q hook", hi.Kind)
 	if hi.Kind.IsRelation() {
 		if err := u.relationers[hi.RelationId].CommitHook(hi); err != nil {
 			return err
 		}
-		if hi.Kind == hook.RelationBroken {
+		if hi.Kind == hooks.RelationBroken {
 			delete(u.relationers, hi.RelationId)
 		}
 	}
 	if err := u.charm.Snapshotf("Completed %q hook.", hi.Kind); err != nil {
 		return err
 	}
-	if hi.Kind == hook.ConfigChanged {
+	if hi.Kind == hooks.ConfigChanged {
 		u.ranConfigChanged = true
 	}
 	if err := u.writeState(Continue, Pending, &hi, nil); err != nil {
 		return err
 	}
-	log.Printf("worker/uniter: committed %q hook", hi.Kind)
+	log.Infof("worker/uniter: committed %q hook", hi.Kind)
 	return nil
 }
 
 // restoreRelations reconciles the supplied relation state dirs with the
 // remote state of the corresponding relations.
 func (u *Uniter) restoreRelations() error {
+	// TODO(dimitern): Get these from state, not from disk.
 	dirs, err := relation.ReadAllStateDirs(u.relationsDir)
 	if err != nil {
 		return err
@@ -375,6 +383,17 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 		if rel.Life() != state.Alive {
 			continue
 		}
+		// Make sure we ignore relations not implemented by the unit's charm
+		ch, err := corecharm.ReadDir(u.charm.Path())
+		if err != nil {
+			return nil, err
+		}
+		if ep, err := rel.Endpoint(u.unit.ServiceName()); err != nil {
+			return nil, err
+		} else if !ep.ImplementedBy(ch) {
+			log.Warningf("worker/uniter: skipping relation with unknown endpoint %q", ep)
+			continue
+		}
 		dir, err := relation.ReadStateDir(u.relationsDir, id)
 		if err != nil {
 			return nil, err
@@ -416,7 +435,7 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 // addRelation causes the unit agent to join the supplied relation, and to
 // store persistent state in the supplied dir.
 func (u *Uniter) addRelation(rel *state.Relation, dir *relation.StateDir) error {
-	log.Printf("worker/uniter: joining relation %q", rel)
+	log.Infof("worker/uniter: joining relation %q", rel)
 	ru, err := rel.Unit(u.unit)
 	if err != nil {
 		return err
@@ -433,12 +452,12 @@ func (u *Uniter) addRelation(rel *state.Relation, dir *relation.StateDir) error 
 				return watcher.MustErr(w)
 			}
 			if err := r.Join(); err == state.ErrCannotEnterScopeYet {
-				log.Printf("worker/uniter: cannot enter scope for relation %q; waiting for subordinate to be removed", rel)
+				log.Infof("worker/uniter: cannot enter scope for relation %q; waiting for subordinate to be removed", rel)
 				continue
 			} else if err != nil {
 				return err
 			}
-			log.Printf("worker/uniter: joined relation %q", rel)
+			log.Infof("worker/uniter: joined relation %q", rel)
 			u.relationers[rel.Id()] = r
 			return nil
 		}

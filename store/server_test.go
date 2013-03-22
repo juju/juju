@@ -3,6 +3,7 @@ package store_test
 import (
 	"encoding/json"
 	"io/ioutil"
+	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/store"
@@ -10,6 +11,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -69,12 +71,12 @@ func (s *StoreSuite) TestServerCharmInfo(c *C) {
 // It retries a few times as they are generally collected in background.
 func (s *StoreSuite) checkCounterSum(c *C, key []string, prefix bool, expected int64) {
 	var sum int64
-	var err error
 	for retry := 0; retry < 10; retry++ {
 		time.Sleep(1e8)
-		sum, err = s.store.SumCounter(key, prefix)
+		req := store.CounterRequest{Key: key, Prefix: prefix}
+		cs, err := s.store.Counters(&req)
 		c.Assert(err, IsNil)
-		if sum == expected {
+		if sum = cs[0].Count; sum == expected {
 			if expected == 0 && retry < 2 {
 				continue // Wait a bit to make sure.
 			}
@@ -163,7 +165,7 @@ func (s *StoreSuite) TestRootRedirect(c *C) {
 }
 
 func (s *StoreSuite) TestStatsCounter(c *C) {
-	for _, key := range [][]string{{"a", "b"}, {"a", "b"}, {"a"}} {
+	for _, key := range [][]string{{"a", "b"}, {"a", "b"}, {"a", "c"}, {"a"}} {
 		err := s.store.IncCounter(key)
 		c.Assert(err, IsNil)
 	}
@@ -171,9 +173,11 @@ func (s *StoreSuite) TestStatsCounter(c *C) {
 	server, _ := s.prepareServer(c)
 
 	expected := map[string]string{
-		"a:b": "2",
-		"a:*": "3",
-		"a":   "1",
+		"a:b":   "2",
+		"a:b:*": "0",
+		"a:*":   "3",
+		"a":     "1",
+		"a:b:c": "0",
 	}
 
 	for counter, n := range expected {
@@ -187,6 +191,249 @@ func (s *StoreSuite) TestStatsCounter(c *C) {
 
 		c.Assert(rec.Header().Get("Content-Type"), Equals, "text/plain")
 		c.Assert(rec.Header().Get("Content-Length"), Equals, strconv.Itoa(len(n)))
+	}
+}
+
+func (s *StoreSuite) TestStatsCounterList(c *C) {
+	incs := [][]string{
+		{"a"},
+		{"a", "b"},
+		{"a", "b", "c"},
+		{"a", "b", "c"},
+		{"a", "b", "d"},
+		{"a", "b", "e"},
+		{"a", "f", "g"},
+		{"a", "f", "h"},
+		{"a", "i"},
+		{"j", "k"},
+	}
+	for _, key := range incs {
+		err := s.store.IncCounter(key)
+		c.Assert(err, IsNil)
+	}
+
+	server, _ := s.prepareServer(c)
+
+	tests := []struct {
+		key, format, result string
+	}{
+		{"a", "", "a  1\n"},
+		{"a:*", "", "a:b:*  4\na:f:*  2\na:b    1\na:i    1\n"},
+		{"a:b:*", "", "a:b:c  2\na:b:d  1\na:b:e  1\n"},
+		{"a:*", "csv", "a:b:*,4\na:f:*,2\na:b,1\na:i,1\n"},
+		{"a:*", "json", `[["a:b:*",4],["a:f:*",2],["a:b",1],["a:i",1]]`},
+	}
+
+	for _, test := range tests {
+		req, err := http.NewRequest("GET", "/stats/counter/"+test.key, nil)
+		c.Assert(err, IsNil)
+		req.Form = url.Values{"list": []string{"1"}}
+		if test.format != "" {
+			req.Form.Set("format", test.format)
+		}
+		rec := httptest.NewRecorder()
+		server.ServeHTTP(rec, req)
+
+		data, err := ioutil.ReadAll(rec.Body)
+		c.Assert(string(data), Equals, test.result)
+
+		c.Assert(rec.Header().Get("Content-Type"), Equals, "text/plain")
+		c.Assert(rec.Header().Get("Content-Length"), Equals, strconv.Itoa(len(test.result)))
+	}
+}
+
+func (s *StoreSuite) TestStatsCounterBy(c *C) {
+	incs := []struct {
+		key []string
+		day int
+	}{
+		{[]string{"a"}, 1},
+		{[]string{"a"}, 1},
+		{[]string{"b"}, 1},
+		{[]string{"a", "b"}, 1},
+		{[]string{"a", "c"}, 1},
+		{[]string{"a"}, 3},
+		{[]string{"a", "b"}, 3},
+		{[]string{"b"}, 9},
+		{[]string{"b"}, 9},
+		{[]string{"a", "c", "d"}, 9},
+		{[]string{"a", "c", "e"}, 9},
+		{[]string{"a", "c", "f"}, 9},
+	}
+
+	day := func(i int) time.Time {
+		return time.Date(2012, time.May, i, 0, 0, 0, 0, time.UTC)
+	}
+
+	server, _ := s.prepareServer(c)
+
+	counters := s.Session.DB("juju").C("stat.counters")
+	for i, inc := range incs {
+		err := s.store.IncCounter(inc.key)
+		c.Assert(err, IsNil)
+
+		// Hack time so counters are assigned to 2012-05-<day>
+		filter := bson.M{"t": bson.M{"$gt": store.TimeToStamp(time.Date(2013, time.January, 1, 0, 0, 0, 0, time.UTC))}}
+		stamp := store.TimeToStamp(day(inc.day))
+		stamp += int32(i) * 60 // Make every entry unique.
+		err = counters.Update(filter, bson.D{{"$set", bson.D{{"t", stamp}}}})
+		c.Check(err, IsNil)
+	}
+
+	tests := []struct {
+		request store.CounterRequest
+		format  string
+		result  string
+	}{
+		{
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: false,
+				List:   false,
+				By:     store.ByDay,
+			},
+			"",
+			"2012-05-01  2\n2012-05-03  1\n",
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: false,
+				List:   false,
+				By:     store.ByDay,
+			},
+			"csv",
+			"2012-05-01,2\n2012-05-03,1\n",
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: false,
+				List:   false,
+				By:     store.ByDay,
+			},
+			"json",
+			`[["2012-05-01",2],["2012-05-03",1]]`,
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: true,
+				List:   false,
+				By:     store.ByDay,
+			},
+			"",
+			"2012-05-01  2\n2012-05-03  1\n2012-05-09  3\n",
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: true,
+				List:   false,
+				By:     store.ByDay,
+				Start:  time.Date(2012, 5, 2, 0, 0, 0, 0, time.UTC),
+			},
+			"",
+			"2012-05-03  1\n2012-05-09  3\n",
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: true,
+				List:   false,
+				By:     store.ByDay,
+				Stop:   time.Date(2012, 5, 4, 0, 0, 0, 0, time.UTC),
+			},
+			"",
+			"2012-05-01  2\n2012-05-03  1\n",
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: true,
+				List:   false,
+				By:     store.ByDay,
+				Start:  time.Date(2012, 5, 3, 0, 0, 0, 0, time.UTC),
+				Stop:   time.Date(2012, 5, 3, 0, 0, 0, 0, time.UTC),
+			},
+			"",
+			"2012-05-03  1\n",
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: true,
+				List:   true,
+				By:     store.ByDay,
+			},
+			"",
+			"a:b    2012-05-01  1\na:c    2012-05-01  1\na:b    2012-05-03  1\na:c:*  2012-05-09  3\n",
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: true,
+				List:   false,
+				By:     store.ByWeek,
+			},
+			"",
+			"2012-05-06  3\n2012-05-13  3\n",
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: true,
+				List:   true,
+				By:     store.ByWeek,
+			},
+			"",
+			"a:b    2012-05-06  2\na:c    2012-05-06  1\na:c:*  2012-05-13  3\n",
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: true,
+				List:   true,
+				By:     store.ByWeek,
+			},
+			"csv",
+			"a:b,2012-05-06,2\na:c,2012-05-06,1\na:c:*,2012-05-13,3\n",
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: true,
+				List:   true,
+				By:     store.ByWeek,
+			},
+			"json",
+			`[["a:b","2012-05-06",2],["a:c","2012-05-06",1],["a:c:*","2012-05-13",3]]`,
+		},
+	}
+
+	for _, test := range tests {
+		path := "/stats/counter/" + strings.Join(test.request.Key, ":")
+		if test.request.Prefix {
+			path += ":*"
+		}
+		req, err := http.NewRequest("GET", path, nil)
+		req.Form = url.Values{}
+		c.Assert(err, IsNil)
+		if test.request.List {
+			req.Form.Set("list", "1")
+		}
+		if test.format != "" {
+			req.Form.Set("format", test.format)
+		}
+		if !test.request.Start.IsZero() {
+			req.Form.Set("start", test.request.Start.Format("2006-01-02"))
+		}
+		if !test.request.Stop.IsZero() {
+			req.Form.Set("stop", test.request.Stop.Format("2006-01-02"))
+		}
+		switch test.request.By {
+		case store.ByDay:
+			req.Form.Set("by", "day")
+		case store.ByWeek:
+			req.Form.Set("by", "week")
+		}
+		rec := httptest.NewRecorder()
+		server.ServeHTTP(rec, req)
+
+		data, err := ioutil.ReadAll(rec.Body)
+		c.Assert(string(data), Equals, test.result)
+
+		c.Assert(rec.Header().Get("Content-Type"), Equals, "text/plain")
+		c.Assert(rec.Header().Get("Content-Length"), Equals, strconv.Itoa(len(test.result)))
 	}
 }
 

@@ -46,7 +46,7 @@ func (s *StoreSuite) SetUpTest(c *C) {
 	var err error
 	s.store, err = store.Open(s.Addr)
 	c.Assert(err, IsNil)
-	log.Target = c
+	log.SetTarget(c)
 	log.Debug = true
 }
 
@@ -111,7 +111,7 @@ func (s *StoreSuite) TestCharmPublisher(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(pub.Revision(), Equals, 0)
 
-	err = pub.Publish(testing.Charms.ClonedDir(c.MkDir(), "series", "dummy"))
+	err = pub.Publish(testing.Charms.ClonedDir(c.MkDir(), "dummy"))
 	c.Assert(err, IsNil)
 
 	for _, url := range urls {
@@ -438,10 +438,11 @@ func (s *StoreSuite) TestLogCharmEvent(c *C) {
 	c.Assert(event, IsNil)
 }
 
-func (s *StoreSuite) TestCounters(c *C) {
-	sum, err := s.store.SumCounter([]string{"a"}, false)
+func (s *StoreSuite) TestSumCounters(c *C) {
+	req := store.CounterRequest{Key: []string{"a"}}
+	cs, err := s.store.Counters(&req)
 	c.Assert(err, IsNil)
-	c.Assert(sum, Equals, int64(0))
+	c.Assert(cs, DeepEquals, []store.Counter{{Key: req.Key, Count: 0}})
 
 	for i := 0; i < 10; i++ {
 		err := s.store.IncCounter([]string{"a", "b", "c"})
@@ -464,17 +465,19 @@ func (s *StoreSuite) TestCounters(c *C) {
 		{[]string{"a", "b", "c"}, false, 10},
 		{[]string{"a", "b"}, false, 7},
 		{[]string{"a", "z", "b"}, false, 3},
-		{[]string{"a", "b", "c"}, true, 10},
-		{[]string{"a", "b"}, true, 17},
+		{[]string{"a", "b", "c"}, true, 0},
+		{[]string{"a", "b", "c", "d"}, false, 0},
+		{[]string{"a", "b"}, true, 10},
 		{[]string{"a"}, true, 20},
 		{[]string{"b"}, true, 0},
 	}
 
 	for _, t := range tests {
 		c.Logf("Test: %#v\n", t)
-		sum, err := s.store.SumCounter(t.key, t.prefix)
+		req = store.CounterRequest{Key: t.key, Prefix: t.prefix}
+		cs, err := s.store.Counters(&req)
 		c.Assert(err, IsNil)
-		c.Assert(sum, Equals, t.result)
+		c.Assert(cs, DeepEquals, []store.Counter{{Key: t.key, Prefix: t.prefix, Count: t.result}})
 	}
 
 	// High-level interface works. Now check that the data is
@@ -497,20 +500,22 @@ func (s *StoreSuite) TestCounters(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(docs2, Equals, docs1+1)
 
-	sum, err = s.store.SumCounter([]string{"a", "b", "c"}, false)
+	req = store.CounterRequest{Key: []string{"a", "b", "c"}}
+	cs, err = s.store.Counters(&req)
 	c.Assert(err, IsNil)
-	c.Assert(sum, Equals, int64(11))
+	c.Assert(cs, DeepEquals, []store.Counter{{Key: req.Key, Count: 11}})
 
-	sum, err = s.store.SumCounter([]string{"a"}, true)
+	req = store.CounterRequest{Key: []string{"a"}, Prefix: true}
+	cs, err = s.store.Counters(&req)
 	c.Assert(err, IsNil)
-	c.Assert(sum, Equals, int64(21))
+	c.Assert(cs, DeepEquals, []store.Counter{{Key: req.Key, Prefix: true, Count: 21}})
 }
 
 func (s *StoreSuite) TestCountersReadOnlySum(c *C) {
 	// Summing up an unknown key shouldn't add the key to the database.
-	sum, err := s.store.SumCounter([]string{"a", "b", "c"}, false)
+	req := store.CounterRequest{Key: []string{"a", "b", "c"}}
+	_, err := s.store.Counters(&req)
 	c.Assert(err, IsNil)
-	c.Assert(sum, Equals, int64(0))
 
 	tokens := s.Session.DB("juju").C("stat.tokens")
 	n, err := tokens.Count()
@@ -519,11 +524,15 @@ func (s *StoreSuite) TestCountersReadOnlySum(c *C) {
 }
 
 func (s *StoreSuite) TestCountersTokenCaching(c *C) {
-	sum, err := s.store.SumCounter([]string{"a"}, false)
-	c.Assert(err, IsNil)
-	c.Assert(sum, Equals, int64(0))
+	assertSum := func(i int, want int64) {
+		req := store.CounterRequest{Key: []string{strconv.Itoa(i)}}
+		cs, err := s.store.Counters(&req)
+		c.Assert(err, IsNil)
+		c.Assert(cs[0].Count, Equals, want)
+	}
+	assertSum(100000, 0)
 
-	const genSize = 512
+	const genSize = 1024
 
 	// All of these will be cached, as we have two generations
 	// of genSize entries each.
@@ -548,32 +557,24 @@ func (s *StoreSuite) TestCountersTokenCaching(c *C) {
 	// We can consult the counters for the cached entries still.
 	// First, check that the newest generation is good.
 	for i := genSize; i < genSize*2; i++ {
-		n, err := s.store.SumCounter([]string{strconv.Itoa(i)}, false)
-		c.Assert(err, IsNil)
-		c.Assert(n, Equals, int64(1))
+		assertSum(i, 1)
 	}
 
 	// Now, we can still access a single entry of the older generation,
 	// but this will cause the generations to flip and thus the rest
 	// of the old generation will go away as the top half of the
 	// entries is turned into the old generation.
-	n, err := s.store.SumCounter([]string{"0"}, false)
-	c.Assert(err, IsNil)
-	c.Assert(n, Equals, int64(1))
+	assertSum(0, 1)
 
 	// Now we've lost access to the rest of the old generation.
 	for i := 1; i < genSize; i++ {
-		n, err := s.store.SumCounter([]string{strconv.Itoa(i)}, false)
-		c.Assert(err, IsNil)
-		c.Assert(n, Equals, int64(0))
+		assertSum(i, 0)
 	}
 
 	// But we still have all of the top half available since it was
 	// moved into the old generation.
 	for i := genSize; i < genSize*2; i++ {
-		n, err := s.store.SumCounter([]string{strconv.Itoa(i)}, false)
-		c.Assert(err, IsNil)
-		c.Assert(n, Equals, int64(1))
+		assertSum(i, 1)
 	}
 }
 
@@ -592,9 +593,216 @@ func (s *StoreSuite) TestCounterTokenUniqueness(c *C) {
 	}
 	wg1.Wait()
 
-	sum, err := s.store.SumCounter([]string{"a"}, false)
+	req := store.CounterRequest{Key: []string{"a"}}
+	cs, err := s.store.Counters(&req)
 	c.Assert(err, IsNil)
-	c.Assert(sum, Equals, int64(10))
+	c.Assert(cs[0].Count, Equals, int64(10))
+}
+
+func (s *StoreSuite) TestListCounters(c *C) {
+	incs := [][]string{
+		{"c", "b", "a"}, // Assign internal id c < id b < id a, to make sorting slightly trickier.
+		{"a"},
+		{"a", "c"},
+		{"a", "b"},
+		{"a", "b", "c"},
+		{"a", "b", "c"},
+		{"a", "b", "e"},
+		{"a", "b", "d"},
+		{"a", "f", "g"},
+		{"a", "f", "h"},
+		{"a", "i"},
+		{"a", "i", "j"},
+		{"k", "l"},
+	}
+	for _, key := range incs {
+		err := s.store.IncCounter(key)
+		c.Assert(err, IsNil)
+	}
+
+	tests := []struct {
+		prefix []string
+		result []store.Counter
+	}{
+		{
+			[]string{"a"},
+			[]store.Counter{
+				{Key: []string{"a", "b"}, Prefix: true, Count: 4},
+				{Key: []string{"a", "f"}, Prefix: true, Count: 2},
+				{Key: []string{"a", "b"}, Prefix: false, Count: 1},
+				{Key: []string{"a", "c"}, Prefix: false, Count: 1},
+				{Key: []string{"a", "i"}, Prefix: false, Count: 1},
+				{Key: []string{"a", "i"}, Prefix: true, Count: 1},
+			},
+		}, {
+			[]string{"a", "b"},
+			[]store.Counter{
+				{Key: []string{"a", "b", "c"}, Prefix: false, Count: 2},
+				{Key: []string{"a", "b", "d"}, Prefix: false, Count: 1},
+				{Key: []string{"a", "b", "e"}, Prefix: false, Count: 1},
+			},
+		}, {
+			[]string{"z"},
+			[]store.Counter(nil),
+		},
+	}
+
+	// Use a different store to exercise cache filling.
+	st, err := store.Open(s.Addr)
+	c.Assert(err, IsNil)
+	defer st.Close()
+
+	for i := range tests {
+		req := &store.CounterRequest{Key: tests[i].prefix, Prefix: true, List: true}
+		result, err := st.Counters(req)
+		c.Assert(err, IsNil)
+		c.Assert(result, DeepEquals, tests[i].result)
+	}
+}
+
+func (s *StoreSuite) TestListCountersBy(c *C) {
+	incs := []struct {
+		key []string
+		day int
+	}{
+		{[]string{"a"}, 1},
+		{[]string{"a"}, 1},
+		{[]string{"b"}, 1},
+		{[]string{"a", "b"}, 1},
+		{[]string{"a", "c"}, 1},
+		{[]string{"a"}, 3},
+		{[]string{"a", "b"}, 3},
+		{[]string{"b"}, 9},
+		{[]string{"b"}, 9},
+		{[]string{"a", "c", "d"}, 9},
+		{[]string{"a", "c", "e"}, 9},
+		{[]string{"a", "c", "f"}, 9},
+	}
+
+	day := func(i int) time.Time {
+		return time.Date(2012, time.May, i, 0, 0, 0, 0, time.UTC)
+	}
+
+	counters := s.Session.DB("juju").C("stat.counters")
+	for i, inc := range incs {
+		err := s.store.IncCounter(inc.key)
+		c.Assert(err, IsNil)
+
+		// Hack time so counters are assigned to 2012-05-<day>
+		filter := bson.M{"t": bson.M{"$gt": store.TimeToStamp(time.Date(2013, time.January, 1, 0, 0, 0, 0, time.UTC))}}
+		stamp := store.TimeToStamp(day(inc.day))
+		stamp += int32(i) * 60 // Make every entry unique.
+		err = counters.Update(filter, bson.D{{"$set", bson.D{{"t", stamp}}}})
+		c.Check(err, IsNil)
+	}
+
+	tests := []struct {
+		request store.CounterRequest
+		result  []store.Counter
+	}{
+		{
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: false,
+				List:   false,
+				By:     store.ByDay,
+			},
+			[]store.Counter{
+				{Key: []string{"a"}, Prefix: false, Count: 2, Time: day(1)},
+				{Key: []string{"a"}, Prefix: false, Count: 1, Time: day(3)},
+			},
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: true,
+				List:   false,
+				By:     store.ByDay,
+			},
+			[]store.Counter{
+				{Key: []string{"a"}, Prefix: true, Count: 2, Time: day(1)},
+				{Key: []string{"a"}, Prefix: true, Count: 1, Time: day(3)},
+				{Key: []string{"a"}, Prefix: true, Count: 3, Time: day(9)},
+			},
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: true,
+				List:   false,
+				By:     store.ByDay,
+				Start:  day(2),
+			},
+			[]store.Counter{
+				{Key: []string{"a"}, Prefix: true, Count: 1, Time: day(3)},
+				{Key: []string{"a"}, Prefix: true, Count: 3, Time: day(9)},
+			},
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: true,
+				List:   false,
+				By:     store.ByDay,
+				Stop:   day(4),
+			},
+			[]store.Counter{
+				{Key: []string{"a"}, Prefix: true, Count: 2, Time: day(1)},
+				{Key: []string{"a"}, Prefix: true, Count: 1, Time: day(3)},
+			},
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: true,
+				List:   false,
+				By:     store.ByDay,
+				Start:  day(3),
+				Stop:   day(8),
+			},
+			[]store.Counter{
+				{Key: []string{"a"}, Prefix: true, Count: 1, Time: day(3)},
+			},
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: true,
+				List:   true,
+				By:     store.ByDay,
+			},
+			[]store.Counter{
+				{Key: []string{"a", "b"}, Prefix: false, Count: 1, Time: day(1)},
+				{Key: []string{"a", "c"}, Prefix: false, Count: 1, Time: day(1)},
+				{Key: []string{"a", "b"}, Prefix: false, Count: 1, Time: day(3)},
+				{Key: []string{"a", "c"}, Prefix: true, Count: 3, Time: day(9)},
+			},
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: true,
+				List:   false,
+				By:     store.ByWeek,
+			},
+			[]store.Counter{
+				{Key: []string{"a"}, Prefix: true, Count: 3, Time: day(6)},
+				{Key: []string{"a"}, Prefix: true, Count: 3, Time: day(13)},
+			},
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: true,
+				List:   true,
+				By:     store.ByWeek,
+			},
+			[]store.Counter{
+				{Key: []string{"a", "b"}, Prefix: false, Count: 2, Time: day(6)},
+				{Key: []string{"a", "c"}, Prefix: false, Count: 1, Time: day(6)},
+				{Key: []string{"a", "c"}, Prefix: true, Count: 3, Time: day(13)},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		result, err := s.store.Counters(&test.request)
+		c.Assert(err, IsNil)
+		c.Assert(result, DeepEquals, test.result)
+	}
 }
 
 func (s *TrivialSuite) TestEventString(c *C) {

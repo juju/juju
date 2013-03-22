@@ -4,19 +4,88 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goose/identity"
-	"launchpad.net/goose/nova"
-	"launchpad.net/goose/testservices"
+	"launchpad.net/goose/testservices/hook"
 	"launchpad.net/goose/testservices/openstackservice"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/openstack"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/version"
 	"net/http"
 	"net/http/httptest"
 )
 
+type ProviderSuite struct{}
+
+var _ = Suite(&ProviderSuite{})
+
+func (s *ProviderSuite) SetUpTest(c *C) {
+	openstack.ShortTimeouts(true)
+}
+
+func (s *ProviderSuite) TearDownTest(c *C) {
+	openstack.ShortTimeouts(false)
+}
+
+func (s *ProviderSuite) TestMetadata(c *C) {
+	openstack.UseTestMetadata(openstack.MetadataTestingBase)
+	defer openstack.UseTestMetadata(nil)
+
+	p, err := environs.Provider("openstack")
+	c.Assert(err, IsNil)
+
+	addr, err := p.PublicAddress()
+	c.Assert(err, IsNil)
+	c.Assert(addr, Equals, "203.1.1.2")
+
+	addr, err = p.PrivateAddress()
+	c.Assert(err, IsNil)
+	c.Assert(addr, Equals, "10.1.1.2")
+
+	id, err := p.InstanceId()
+	c.Assert(err, IsNil)
+	c.Assert(id, Equals, state.InstanceId("d8e02d56-2648-49a3-bf97-6be8f1204f38"))
+}
+
+func (s *ProviderSuite) TestPublicFallbackToPrivate(c *C) {
+	openstack.UseTestMetadata([]jujutest.FileContent{
+		{"/latest/meta-data/public-ipv4", "203.1.1.2"},
+		{"/latest/meta-data/local-ipv4", "10.1.1.2"},
+	})
+	defer openstack.UseTestMetadata(nil)
+	p, err := environs.Provider("openstack")
+	c.Assert(err, IsNil)
+
+	addr, err := p.PublicAddress()
+	c.Assert(err, IsNil)
+	c.Assert(addr, Equals, "203.1.1.2")
+
+	openstack.UseTestMetadata([]jujutest.FileContent{
+		{"/latest/meta-data/local-ipv4", "10.1.1.2"},
+		{"/latest/meta-data/public-ipv4", ""},
+	})
+	addr, err = p.PublicAddress()
+	c.Assert(err, IsNil)
+	c.Assert(addr, Equals, "10.1.1.2")
+}
+
+func (s *ProviderSuite) TestLegacyInstanceId(c *C) {
+	openstack.UseTestMetadata(openstack.MetadataHP)
+	defer openstack.UseTestMetadata(nil)
+
+	p, err := environs.Provider("openstack")
+	c.Assert(err, IsNil)
+
+	id, err := p.InstanceId()
+	c.Assert(err, IsNil)
+	c.Assert(id, Equals, state.InstanceId("2748"))
+}
+
 // Register tests to run against a test Openstack instance (service doubles).
-func registerServiceDoubleTests() {
+func registerLocalTests() {
 	cred := &identity.Credentials{
 		User:       "fred",
 		Secrets:    "secret",
@@ -28,191 +97,170 @@ func registerServiceDoubleTests() {
 			cred: cred,
 		},
 	})
+	Suite(&localServerSuite{
+		cred: cred,
+	})
 }
 
-type localLiveSuite struct {
-	LiveTests
-	// The following attributes are for using the service doubles.
+// localServer is used to spin up a local Openstack service double.
+type localServer struct {
 	Server     *httptest.Server
 	Mux        *http.ServeMux
 	oldHandler http.Handler
-
-	Env     environs.Environ
-	Service *openstackservice.Openstack
+	Service    *openstackservice.Openstack
 }
 
-func (s *localLiveSuite) SetUpSuite(c *C) {
-	c.Logf("Using openstack service test doubles")
-
-	openstack.ShortTimeouts(true)
+func (s *localServer) start(c *C, cred *identity.Credentials) {
 	// Set up the HTTP server.
 	s.Server = httptest.NewServer(nil)
 	s.oldHandler = s.Server.Config.Handler
 	s.Mux = http.NewServeMux()
 	s.Server.Config.Handler = s.Mux
-
-	s.cred.URL = s.Server.URL
-	s.Service = openstackservice.New(s.cred)
+	cred.URL = s.Server.URL
+	s.Service = openstackservice.New(cred)
 	s.Service.SetupHTTP(s.Mux)
-
-	attrs := makeTestConfig()
-	attrs["admin-secret"] = "secret"
-	attrs["username"] = s.cred.User
-	attrs["password"] = s.cred.Secrets
-	attrs["region"] = s.cred.Region
-	attrs["auth-url"] = s.cred.URL
-	attrs["tenant-name"] = s.cred.TenantName
-	attrs["default-image-id"] = testImageId
-	if e, err := environs.NewFromAttrs(attrs); err != nil {
-		c.Fatalf("cannot create local test environment: %s", err.Error())
-	} else {
-		s.Env = e
-		putFakeTools(c, openstack.WritablePublicStorage(s.Env))
-	}
-
-	s.LiveTests.SetUpSuite(c)
+	openstack.ShortTimeouts(true)
 }
 
-func (s *localLiveSuite) TearDownSuite(c *C) {
-	s.LiveTests.TearDownSuite(c)
+func (s *localServer) stop() {
 	s.Mux = nil
 	s.Server.Config.Handler = s.oldHandler
 	s.Server.Close()
 	openstack.ShortTimeouts(false)
 }
 
+// localLiveSuite runs tests from LiveTests using an Openstack service double.
+type localLiveSuite struct {
+	coretesting.LoggingSuite
+	LiveTests
+	srv localServer
+}
+
+func (s *localLiveSuite) SetUpSuite(c *C) {
+	s.LoggingSuite.SetUpSuite(c)
+	c.Logf("Running live tests using openstack service test double")
+
+	s.testImageId = "1"
+	s.testFlavor = "m1.small"
+	s.srv.start(c, s.cred)
+	s.LiveTests.SetUpSuite(c)
+}
+
+func (s *localLiveSuite) TearDownSuite(c *C) {
+	s.LiveTests.TearDownSuite(c)
+	s.srv.stop()
+	s.LoggingSuite.TearDownSuite(c)
+}
+
 func (s *localLiveSuite) SetUpTest(c *C) {
+	s.LoggingSuite.SetUpTest(c)
 	s.LiveTests.SetUpTest(c)
 }
 
 func (s *localLiveSuite) TearDownTest(c *C) {
 	s.LiveTests.TearDownTest(c)
+	s.LoggingSuite.TearDownTest(c)
 }
 
-// ported from lp:juju/juju/providers/openstack/tests/test_machine.py
-var addressTests = []struct {
-	summary  string
-	private  []nova.IPAddress
-	public   []nova.IPAddress
-	networks []string
-	expected string
-	failure  error
-}{
-	{
-		summary:  "missing",
-		expected: "",
-		failure:  environs.ErrNoDNSName,
-	},
-	{
-		summary:  "empty",
-		private:  []nova.IPAddress{},
-		networks: []string{"private"},
-		expected: "",
-		failure:  environs.ErrNoDNSName,
-	},
-	{
-		summary:  "private only",
-		private:  []nova.IPAddress{{4, "127.0.0.4"}},
-		networks: []string{"private"},
-		expected: "127.0.0.4",
-		failure:  nil,
-	},
-	{
-		summary:  "private plus (HP cloud)",
-		private:  []nova.IPAddress{{4, "127.0.0.4"}, {4, "8.8.4.4"}},
-		networks: []string{"private"},
-		expected: "8.8.4.4",
-		failure:  nil,
-	},
-	{
-		summary:  "public only",
-		public:   []nova.IPAddress{{4, "8.8.8.8"}},
-		networks: []string{"", "public"},
-		expected: "8.8.8.8",
-		failure:  nil,
-	},
-	{
-		summary:  "public and private",
-		private:  []nova.IPAddress{{4, "127.0.0.4"}},
-		public:   []nova.IPAddress{{4, "8.8.4.4"}},
-		networks: []string{"private", "public"},
-		expected: "8.8.4.4",
-		failure:  nil,
-	},
-	{
-		summary:  "public private plus",
-		private:  []nova.IPAddress{{4, "127.0.0.4"}, {4, "8.8.4.4"}},
-		public:   []nova.IPAddress{{4, "8.8.8.8"}},
-		networks: []string{"private", "public"},
-		expected: "8.8.8.8",
-		failure:  nil,
-	},
-	{
-		summary:  "custom only",
-		private:  []nova.IPAddress{{4, "127.0.0.2"}},
-		networks: []string{"special"},
-		expected: "127.0.0.2",
-		failure:  nil,
-	},
-	{
-		summary:  "custom and public",
-		private:  []nova.IPAddress{{4, "127.0.0.2"}},
-		public:   []nova.IPAddress{{4, "8.8.8.8"}},
-		networks: []string{"special", "public"},
-		expected: "8.8.8.8",
-		failure:  nil,
-	},
-	{
-		summary:  "non-IPv4",
-		private:  []nova.IPAddress{{6, "::dead:beef:f00d"}},
-		networks: []string{"private"},
-		expected: "",
-		failure:  environs.ErrNoDNSName,
-	},
+// localServerSuite contains tests that run against an Openstack service double.
+// These tests can test things that would be unreasonably slow or expensive
+// to test on a live Openstack server. The service double is started and stopped for
+// each test.
+type localServerSuite struct {
+	coretesting.LoggingSuite
+	jujutest.Tests
+	cred *identity.Credentials
+	srv  localServer
+	env  environs.Environ
 }
 
-func (s *LiveTests) TestGetServerAddresses(c *C) {
-	for i, t := range addressTests {
-		c.Logf("#%d. %s -> %s (%v)", i, t.summary, t.expected, t.failure)
-		addresses := make(map[string][]nova.IPAddress)
-		if t.private != nil {
-			if len(t.networks) < 1 {
-				addresses["private"] = t.private
-			} else {
-				addresses[t.networks[0]] = t.private
-			}
-		}
-		if t.public != nil {
-			if len(t.networks) < 2 {
-				addresses["public"] = t.public
-			} else {
-				addresses[t.networks[1]] = t.public
-			}
-		}
-		addr, err := openstack.InstanceAddress(addresses)
-		c.Assert(err, Equals, t.failure)
-		c.Assert(addr, Equals, t.expected)
+func (s *localServerSuite) SetUpSuite(c *C) {
+	s.LoggingSuite.SetUpSuite(c)
+	s.Tests.SetUpSuite(c)
+	c.Logf("Running local tests")
+}
+
+func (s *localServerSuite) TearDownSuite(c *C) {
+	s.Tests.TearDownSuite(c)
+	s.LoggingSuite.TearDownSuite(c)
+}
+
+func testConfig(cred *identity.Credentials) map[string]interface{} {
+	attrs := makeTestConfig()
+	attrs["admin-secret"] = "secret"
+	attrs["username"] = cred.User
+	attrs["password"] = cred.Secrets
+	attrs["region"] = cred.Region
+	attrs["auth-url"] = cred.URL
+	attrs["tenant-name"] = cred.TenantName
+	attrs["default-image-id"] = "1"
+	attrs["default-instance-type"] = "m1.small"
+	return attrs
+}
+
+func (s *localServerSuite) SetUpTest(c *C) {
+	s.LoggingSuite.SetUpTest(c)
+	s.srv.start(c, s.cred)
+	s.Tests = jujutest.Tests{
+		Config: testConfig(s.cred),
 	}
+	s.Tests.SetUpTest(c)
+	writeablePublicStorage := openstack.WritablePublicStorage(s.Env)
+	putFakeTools(c, writeablePublicStorage)
+	s.env = s.Tests.Env
 }
 
-func panicWrite(name string, cert, key []byte) error {
-	panic("writeCertAndKey called unexpectedly")
+func (s *localServerSuite) TearDownTest(c *C) {
+	s.Tests.TearDownTest(c)
+	s.srv.stop()
+	s.LoggingSuite.TearDownTest(c)
 }
 
-func (s *localLiveSuite) TestBootstrapFailsWithoutPublicIP(c *C) {
-	s.Service.Nova.RegisterControlPoint(
+// If the bootstrap node is configured to require a public IP address,
+// bootstrapping fails if an address cannot be allocated.
+func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
+	cleanup := s.srv.Service.Nova.RegisterControlPoint(
 		"addFloatingIP",
-		func(sc testservices.ServiceControl, args ...interface{}) error {
+		func(sc hook.ServiceControl, args ...interface{}) error {
 			return fmt.Errorf("failed on purpose")
 		},
 	)
-	defer s.Service.Nova.RegisterControlPoint("addFloatingIP", nil)
-	writeablePublicStorage := openstack.WritablePublicStorage(s.Env)
-	putFakeTools(c, writeablePublicStorage)
-
-	err := environs.Bootstrap(s.Env, true, panicWrite)
+	defer cleanup()
+	// Create a config that matches s.Config but with use-floating-ip set to true
+	newconfig := make(map[string]interface{}, len(s.Config))
+	for k, v := range s.Config {
+		newconfig[k] = v
+	}
+	newconfig["use-floating-ip"] = true
+	env, err := environs.NewFromAttrs(newconfig)
+	c.Assert(err, IsNil)
+	err = environs.Bootstrap(env, constraints.Value{})
 	c.Assert(err, ErrorMatches, ".*cannot allocate a public IP as needed.*")
-	defer s.Env.Destroy(nil)
+}
+
+// If the environment is configured not to require a public IP address for nodes,
+// bootstrapping and starting an instance should occur without any attempt to allocate a public address.
+func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *C) {
+	openstack.SetUseFloatingIP(s.Env, false)
+	cleanup := s.srv.Service.Nova.RegisterControlPoint(
+		"addFloatingIP",
+		func(sc hook.ServiceControl, args ...interface{}) error {
+			return fmt.Errorf("add floating IP should not have been called")
+		},
+	)
+	defer cleanup()
+	cleanup = s.srv.Service.Nova.RegisterControlPoint(
+		"addServerFloatingIP",
+		func(sc hook.ServiceControl, args ...interface{}) error {
+			return fmt.Errorf("add server floating IP should not have been called")
+		},
+	)
+	defer cleanup()
+	err := environs.Bootstrap(s.Env, constraints.Value{})
+	c.Assert(err, IsNil)
+	inst := testing.StartInstance(c, s.Env, "100")
+	err = s.Env.StopInstances([]environs.Instance{inst})
+	c.Assert(err, IsNil)
 }
 
 var instanceGathering = []struct {
@@ -262,12 +310,10 @@ var instanceGathering = []struct {
 	},
 }
 
-func (s *localLiveSuite) TestInstancesGathering(c *C) {
-	inst0, err := s.Env.StartInstance("100", testing.InvalidStateInfo("100"), testing.InvalidAPIInfo("100"), nil)
-	c.Assert(err, IsNil)
+func (s *localServerSuite) TestInstancesGathering(c *C) {
+	inst0 := testing.StartInstance(c, s.Env, "100")
 	id0 := inst0.Id()
-	inst1, err := s.Env.StartInstance("101", testing.InvalidStateInfo("101"), testing.InvalidAPIInfo("101"), nil)
-	c.Assert(err, IsNil)
+	inst1 := testing.StartInstance(c, s.Env, "101")
 	id1 := inst1.Id()
 	defer func() {
 		err := s.Env.StopInstances([]environs.Instance{inst0, inst1})
@@ -300,4 +346,50 @@ func (s *localLiveSuite) TestInstancesGathering(c *C) {
 			}
 		}
 	}
+}
+
+// TODO (wallyworld) - this test was copied from the ec2 provider.
+// It should be moved to environs.jujutests.Tests.
+func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
+	policy := t.env.AssignmentPolicy()
+	c.Assert(policy, Equals, state.AssignUnused)
+
+	err := environs.Bootstrap(t.env, constraints.Value{})
+	c.Assert(err, IsNil)
+
+	// check that the state holds the id of the bootstrap machine.
+	stateData, err := openstack.LoadState(t.env)
+	c.Assert(err, IsNil)
+	c.Assert(stateData.StateInstances, HasLen, 1)
+
+	insts, err := t.env.Instances(stateData.StateInstances)
+	c.Assert(err, IsNil)
+	c.Assert(insts, HasLen, 1)
+	c.Check(insts[0].Id(), Equals, stateData.StateInstances[0])
+
+	info, apiInfo, err := t.env.StateInfo()
+	c.Assert(err, IsNil)
+	c.Assert(info, NotNil)
+
+	bootstrapDNS, err := insts[0].DNSName()
+	c.Assert(err, IsNil)
+	c.Assert(bootstrapDNS, Not(Equals), "")
+
+	// TODO(wallyworld) - 2013-03-01 bug=1137005
+	// The nova test double needs to be updated to support retrieving instance userData.
+	// Until then, we can't check the cloud init script was generated correctly.
+
+	// check that a new instance will be started with a machine agent,
+	// and without a provisioning agent.
+	series := version.Current.Series
+	info.EntityName = "machine-1"
+	apiInfo.EntityName = "machine-1"
+	inst1, err := t.env.StartInstance("1", series, constraints.Value{}, info, apiInfo)
+	c.Assert(err, IsNil)
+
+	err = t.env.Destroy(append(insts, inst1))
+	c.Assert(err, IsNil)
+
+	_, err = openstack.LoadState(t.env)
+	c.Assert(err, NotNil)
 }

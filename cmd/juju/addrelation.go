@@ -2,30 +2,25 @@ package main
 
 import (
 	"fmt"
-	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 )
 
 // AddRelationCommand adds relations between service endpoints.
 type AddRelationCommand struct {
-	EnvName   string
+	EnvCommandBase
 	Endpoints []string
 }
 
 func (c *AddRelationCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		"add-relation", "<service1>[:<relation name1>] <service2>[:<relation name2>]",
-		"add a relation between two services", "",
+		Name:    "add-relation",
+		Args:    "<service1>[:<relation name1>] <service2>[:<relation name2>]",
+		Purpose: "add a relation between two services",
 	}
 }
 
-func (c *AddRelationCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	addEnvironFlags(&c.EnvName, f)
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	args = f.Args()
+func (c *AddRelationCommand) Init(args []string) error {
 	if len(args) != 2 {
 		return fmt.Errorf("a relation must involve two services")
 	}

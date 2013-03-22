@@ -10,28 +10,27 @@ import (
 )
 
 type StatusCommand struct {
-	EnvName string
-	out     cmd.Output
+	EnvCommandBase
+	out cmd.Output
 }
 
 var statusDoc = "This command will report on the runtime state of various system entities."
 
 func (c *StatusCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		"status", "", "output status information about an environment", statusDoc,
+		Name:    "status",
+		Purpose: "output status information about an environment",
+		Doc:     statusDoc,
+		Aliases: []string{"stat"},
 	}
 }
 
-func (c *StatusCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	addEnvironFlags(&c.EnvName, f)
+func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.EnvCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
 		"json": cmd.FormatJson,
 	})
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	return cmd.CheckEmpty(f.Args())
 }
 
 func (c *StatusCommand) Run(ctx *cmd.Context) error {
@@ -56,16 +55,9 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	result := m()
-
-	result["machines"], err = processMachines(machines, instances)
-	if err != nil {
-		return err
-	}
-
-	result["services"], err = processServices(services)
-	if err != nil {
-		return err
+	result := map[string]interface{}{
+		"machines": checkError(processMachines(machines, instances)),
+		"services": checkError(processServices(services)),
 	}
 
 	return c.out.Write(ctx, result)
@@ -117,13 +109,11 @@ func fetchAllServices(st *state.State) (map[string]*state.Service, error) {
 func processMachines(machines map[string]*state.Machine, instances map[state.InstanceId]environs.Instance) (map[string]interface{}, error) {
 	r := make(map[string]interface{})
 	for _, m := range machines {
-		instid, err := m.InstanceId()
-		if err, ok := err.(*state.NotFoundError); ok {
+		instid, ok := m.InstanceId()
+		if !ok {
 			r[m.Id()] = map[string]interface{}{
 				"instance-id": "pending",
 			}
-		} else if err != nil {
-			return nil, err
 		} else {
 			instance, ok := instances[instid]
 			if !ok {
@@ -234,11 +224,11 @@ func processStatus(r map[string]interface{}, s status) {
 	}
 }
 
-type agent interface {
+type agentAliver interface {
 	AgentAlive() (bool, error)
 }
 
-func processAgentStatus(r map[string]interface{}, a agent) {
+func processAgentStatus(r map[string]interface{}, a agentAliver) {
 	if alive, err := a.AgentAlive(); err == nil && alive {
 		r["agent-state"] = "running"
 	}

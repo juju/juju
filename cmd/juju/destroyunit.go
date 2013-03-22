@@ -3,29 +3,30 @@ package main
 import (
 	"errors"
 	"fmt"
-
-	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/statecmd"
 )
 
 // DestroyUnitCommand is responsible for destroying service units.
 type DestroyUnitCommand struct {
-	EnvName   string
+	EnvCommandBase
 	UnitNames []string
 }
 
 func (c *DestroyUnitCommand) Info() *cmd.Info {
-	return &cmd.Info{"destroy-unit", "<unit> [...]", "destroy service units", ""}
+	return &cmd.Info{
+		Name:    "destroy-unit",
+		Args:    "<unit> [...]",
+		Purpose: "destroy service units",
+		Aliases: []string{"remove-unit"},
+	}
 }
 
-func (c *DestroyUnitCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	addEnvironFlags(&c.EnvName, f)
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	c.UnitNames = f.Args()
+func (c *DestroyUnitCommand) Init(args []string) error {
+	c.UnitNames = args
 	if len(c.UnitNames) == 0 {
 		return errors.New("no units specified")
 	}
@@ -37,13 +38,16 @@ func (c *DestroyUnitCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	return nil
 }
 
-// Run connects to the environment specified on the command line
-// and calls conn.DestroyUnits.
+// Run connects to the environment specified on the command line and destroys
+// units therein.
 func (c *DestroyUnitCommand) Run(_ *cmd.Context) (err error) {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
-	return conn.DestroyUnits(c.UnitNames...)
+	params := params.DestroyServiceUnits{
+		UnitNames: c.UnitNames,
+	}
+	return statecmd.DestroyServiceUnits(conn.State, params)
 }

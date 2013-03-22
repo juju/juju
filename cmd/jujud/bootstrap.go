@@ -6,36 +6,40 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/version"
 )
 
 type BootstrapCommand struct {
-	Conf       AgentConf
-	InstanceId string
-	EnvConfig  map[string]interface{}
+	cmd.CommandBase
+	Conf        AgentConf
+	EnvConfig   map[string]interface{}
+	Constraints constraints.Value
 }
 
 // Info returns a decription of the command.
 func (c *BootstrapCommand) Info() *cmd.Info {
-	return &cmd.Info{"bootstrap-state", "", "initialize juju state.", ""}
+	return &cmd.Info{
+		Name:    "bootstrap-state",
+		Purpose: "initialize juju state",
+	}
+}
+
+func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.Conf.addFlags(f)
+	yamlBase64Var(f, &c.EnvConfig, "env-config", "", "initial environment configuration (yaml, base64 encoded)")
+	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "initial environment constraints (space-separated strings)")
 }
 
 // Init initializes the command for running.
-func (c *BootstrapCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	c.Conf.addFlags(f)
-	f.StringVar(&c.InstanceId, "instance-id", "", "instance id of this machine")
-	yamlBase64Var(f, &c.EnvConfig, "env-config", "", "initial environment configuration (yaml, base64 encoded)")
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	if c.InstanceId == "" {
-		return requiredError("instance-id")
-	}
+func (c *BootstrapCommand) Init(args []string) error {
 	if len(c.EnvConfig) == 0 {
 		return requiredError("env-config")
 	}
-	return c.Conf.checkArgs(f.Args())
+	return c.Conf.checkArgs(args)
 }
 
 // Run initializes state for an environment.
@@ -47,24 +51,42 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+	provider, err := environs.Provider(cfg.Type())
+	if err != nil {
+		return err
+	}
+	instanceId, err := provider.InstanceId()
+	if err != nil {
+		return err
+	}
+
 	// There is no entity that's created at init time.
 	c.Conf.StateInfo.EntityName = ""
-	st, err := state.Initialize(c.Conf.StateInfo, cfg)
+	st, err := state.Initialize(c.Conf.StateInfo, cfg, state.DefaultDialTimeout)
 	if err != nil {
 		return err
 	}
 	defer st.Close()
-	m, err := st.InjectMachine(state.InstanceId(c.InstanceId), state.JobManageEnviron, state.JobServeAPI)
+
+	// TODO: we need to be able to customize machine jobs, not just hardcode these.
+	m, err := st.InjectMachine(version.Current.Series, instanceId,
+		state.JobManageEnviron, state.JobServeAPI)
 	if err != nil {
 		return err
 	}
-	if c.Conf.OldPassword != "" {
-		if err := m.SetMongoPassword(c.Conf.OldPassword); err != nil {
-			return err
-		}
-		if err := st.SetAdminMongoPassword(c.Conf.OldPassword); err != nil {
-			return err
-		}
+	if err := st.SetEnvironConstraints(c.Constraints); err != nil {
+		return err
+	}
+
+	// Set up initial authentication.
+	if _, err := st.AddUser("admin", c.Conf.OldPassword); err != nil {
+		return err
+	}
+	if err := m.SetMongoPassword(c.Conf.OldPassword); err != nil {
+		return err
+	}
+	if err := st.SetAdminMongoPassword(c.Conf.OldPassword); err != nil {
+		return err
 	}
 	return nil
 }

@@ -15,10 +15,8 @@ import (
 	"strings"
 )
 
-// uniqueName is generated afresh for every test run, so that
+// generate a different bucket name for each config instance, so that
 // we are not polluted by previous test state.
-var uniqueName = randomName()
-
 func randomName() string {
 	buf := make([]byte, 8)
 	_, err := io.ReadFull(rand.Reader, buf)
@@ -38,10 +36,10 @@ func makeTestConfig() map[string]interface{} {
 	//  secret-key: $OS_PASSWORD
 	//
 	attrs := map[string]interface{}{
-		"name":           "sample-" + uniqueName,
+		"name":           "sample-" + randomName(),
 		"type":           "openstack",
 		"auth-mode":      "userpass",
-		"control-bucket": "juju-test-" + uniqueName,
+		"control-bucket": "juju-test-" + randomName(),
 		"ca-cert":        coretesting.CACert,
 		"ca-private-key": coretesting.CAKey,
 	}
@@ -49,9 +47,21 @@ func makeTestConfig() map[string]interface{} {
 }
 
 // Register tests to run against a real Openstack instance.
-func registerOpenStackTests(cred *identity.Credentials) {
+func registerLiveTests(cred *identity.Credentials, testImageDetails openstack.ImageDetails) {
 	Suite(&LiveTests{
 		cred: cred,
+		LiveTests: jujutest.LiveTests{
+			Attempt: *openstack.ShortAttempt,
+			// TODO: Bug #1133263, once the infrastructure is set up,
+			//       enable The state tests on openstack
+			CanOpenState: false,
+			// TODO: Bug #1133272, enabling this requires mapping from
+			//       'series' to an image id, when we have support, set
+			//       this flag to True.
+			HasProvisioner: false,
+		},
+		testImageId: testImageDetails.ImageId,
+		testFlavor:  testImageDetails.Flavor,
 	})
 }
 
@@ -62,23 +72,18 @@ type LiveTests struct {
 	coretesting.LoggingSuite
 	jujutest.LiveTests
 	cred                   *identity.Credentials
+	testImageId            string
+	testFlavor             string
 	writeablePublicStorage environs.Storage
 }
-
-const (
-	// TODO (wallyworld) - ideally, something like http://cloud-images.ubuntu.com would have images we could use
-	// but until it does, we allow a default image id to be specified.
-	// This is an existing image on Canonistack - smoser-cloud-images/ubuntu-quantal-12.10-i386-server-20121017
-	testImageId = "0f602ea9-c09e-440c-9e29-cfae5635afa3"
-)
 
 func (t *LiveTests) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
 	// Get an authenticated Goose client to extract some configuration parameters for the test environment.
-	client := client.NewClient(t.cred, identity.AuthUserPass, nil)
-	err := client.Authenticate()
+	cl := client.NewClient(t.cred, identity.AuthUserPass, nil)
+	err := cl.Authenticate()
 	c.Assert(err, IsNil)
-	publicBucketURL, err := client.MakeServiceURL("object-store", nil)
+	publicBucketURL, err := cl.MakeServiceURL("object-store", nil)
 	c.Assert(err, IsNil)
 	attrs := makeTestConfig()
 	attrs["admin-secret"] = "secret"
@@ -88,7 +93,8 @@ func (t *LiveTests) SetUpSuite(c *C) {
 	attrs["auth-url"] = t.cred.URL
 	attrs["tenant-name"] = t.cred.TenantName
 	attrs["public-bucket-url"] = publicBucketURL
-	attrs["default-image-id"] = testImageId
+	attrs["default-image-id"] = t.testImageId
+	attrs["default-instance-type"] = t.testFlavor
 	t.Config = attrs
 	t.LiveTests = jujutest.LiveTests{
 		Config:         attrs,
@@ -96,18 +102,15 @@ func (t *LiveTests) SetUpSuite(c *C) {
 		CanOpenState:   false, // no state; local tests (unless -live is passed)
 		HasProvisioner: false, // don't deploy anything
 	}
-	e, err := environs.NewFromAttrs(t.Config)
-	c.Assert(err, IsNil)
-
+	t.LiveTests.SetUpSuite(c)
 	// Environ.PublicStorage() is read only.
 	// For testing, we create a specific storage instance which is authorised to write to
 	// the public storage bucket so that we can upload files for testing.
-	t.writeablePublicStorage = openstack.WritablePublicStorage(e)
+	t.writeablePublicStorage = openstack.WritablePublicStorage(t.Env)
 	// Put some fake tools in place so that tests that are simply
 	// starting instances without any need to check if those instances
 	// are running will find them in the public bucket.
 	putFakeTools(c, t.writeablePublicStorage)
-	t.LiveTests.SetUpSuite(c)
 }
 
 func (t *LiveTests) TearDownSuite(c *C) {
@@ -146,10 +149,10 @@ func putFakeTools(c *C, s environs.StorageWriter) {
 }
 
 func (t *LiveTests) TestFindImageSpec(c *C) {
-	imageId, flavorId, err := openstack.FindInstanceSpec(t.Env, "precise", "amd64", "m1.small")
+	instanceType := openstack.DefaultInstanceType(t.Env)
+	imageId, flavorId, err := openstack.FindInstanceSpec(t.Env, "precise", "amd64", instanceType)
 	c.Assert(err, IsNil)
-	// For now, the imageId always comes from the environment config.
-	c.Assert(imageId, Equals, testImageId)
+	c.Assert(imageId, Equals, t.testImageId)
 	c.Assert(flavorId, Not(Equals), "")
 }
 
@@ -159,14 +162,4 @@ func (t *LiveTests) TestFindImageBadFlavor(c *C) {
 	c.Assert(ok, Equals, true)
 	c.Assert(imageId, Equals, "")
 	c.Assert(flavorId, Equals, "")
-}
-
-// The following tests need to be enabled once the coding is complete.
-
-func (s *LiveTests) TestGlobalPorts(c *C) {
-	c.Skip("Work in progress")
-}
-
-func (s *LiveTests) TestPorts(c *C) {
-	c.Skip("Work in progress")
 }

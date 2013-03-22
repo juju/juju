@@ -87,7 +87,7 @@ var sshTests = []struct {
 
 func (s *SSHSuite) TestSSHCommand(c *C) {
 	m := s.makeMachines(3, c)
-	ch := coretesting.Charms.Dir("series", "dummy")
+	ch := coretesting.Charms.Dir("dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:series/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
@@ -106,7 +106,7 @@ func (s *SSHSuite) TestSSHCommand(c *C) {
 
 	for _, t := range sshTests {
 		c.Logf("testing juju ssh %s", t.args)
-		ctx := &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}}
+		ctx := coretesting.Context(c)
 		code := cmd.Main(&SSHCommand{}, ctx, t.args)
 		c.Check(code, Equals, 0)
 		c.Check(ctx.Stderr.(*bytes.Buffer).String(), Equals, "")
@@ -117,12 +117,11 @@ func (s *SSHSuite) TestSSHCommand(c *C) {
 func (s *SSHCommonSuite) makeMachines(n int, c *C) []*state.Machine {
 	var machines = make([]*state.Machine, n)
 	for i := 0; i < n; i++ {
-		m, err := s.State.AddMachine(state.JobHostUnits)
+		m, err := s.State.AddMachine("series", state.JobHostUnits)
 		c.Assert(err, IsNil)
 		// must set an instance id as the ssh command uses that as a signal the machine
 		// has been provisioned
-		inst, err := s.Conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), testing.InvalidAPIInfo(m.Id()), nil)
-		c.Assert(err, IsNil)
+		inst := testing.StartInstance(c, s.Conn.Environ, m.Id())
 		c.Assert(m.SetInstanceId(inst.Id()), IsNil)
 		machines[i] = m
 	}
@@ -135,8 +134,8 @@ func (s *SSHCommonSuite) addUnit(srv *state.Service, m *state.Machine, c *C) {
 	err = u.AssignToMachine(m)
 	c.Assert(err, IsNil)
 	// fudge unit.SetPublicAddress
-	id, err := m.InstanceId()
-	c.Assert(err, IsNil)
+	id, ok := m.InstanceId()
+	c.Assert(ok, Equals, true)
 	insts, err := s.Conn.Environ.Instances([]state.InstanceId{id})
 	c.Assert(err, IsNil)
 	addr, err := insts[0].WaitDNSName()

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
@@ -96,7 +97,7 @@ func (p *Provisioner) loop() error {
 				return watcher.MustErr(environWatcher)
 			}
 			if err := p.setConfig(cfg); err != nil {
-				log.Printf("worker/provisioner: loaded invalid environment configuration: %v", err)
+				log.Errorf("worker/provisioner: loaded invalid environment configuration: %v", err)
 			}
 		case ids, ok := <-machinesWatcher.Changes():
 			if !ok {
@@ -190,12 +191,9 @@ func (p *Provisioner) findUnknownInstances() ([]environs.Instance, error) {
 		if m.Life() == state.Dead {
 			continue
 		}
-		instId, err := m.InstanceId()
-		if state.IsNotFound(err) {
+		instId, ok := m.InstanceId()
+		if !ok {
 			continue
-		}
-		if err != nil {
-			return nil, err
 		}
 		delete(instances, instId)
 	}
@@ -225,15 +223,12 @@ func (p *Provisioner) pendingOrDead(ids []string) (pending, dead []*state.Machin
 		case state.Dying:
 			continue
 		}
-		instId, err := m.InstanceId()
-		if state.IsNotFound(err) {
+		instId, ok := m.InstanceId()
+		if !ok {
 			pending = append(pending, m)
 			continue
 		}
-		if err != nil {
-			return nil, nil, err
-		}
-		log.Printf("worker/provisioner: machine %v already started as instance %q", m, instId)
+		log.Warningf("worker/provisioner: machine %v already started as instance %q", m, instId)
 	}
 	return
 }
@@ -250,6 +245,8 @@ func (p *Provisioner) startMachines(machines []*state.Machine) error {
 func (p *Provisioner) startMachine(m *state.Machine) error {
 	// TODO(dfc) the state.Info passed to environ.StartInstance remains contentious
 	// however as the PA only knows one state.Info, and that info is used by MAs and
+	// UAs to locate the state for this environment, it is logical to use the same
+	// state.Info as the PA.
 	password, err := trivial.RandomPassword()
 	if err != nil {
 		return fmt.Errorf("cannot make password for new machine: %v", err)
@@ -257,8 +254,6 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 	if err := m.SetMongoPassword(password); err != nil {
 		return fmt.Errorf("cannot set password for new machine: %v", err)
 	}
-	// UAs to locate the ZK for this environment, it is logical to use the same
-	// state.Info as the PA.
 	info := *p.info
 	info.EntityName = m.EntityName()
 	info.Password = password
@@ -266,7 +261,7 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 	apiInfo := *p.apiInfo
 	apiInfo.EntityName = m.EntityName()
 	apiInfo.Password = password
-	inst, err := p.environ.StartInstance(m.Id(), &info, &apiInfo, nil)
+	inst, err := p.environ.StartInstance(m.Id(), m.Series(), constraints.Value{}, &info, &apiInfo)
 	if err != nil {
 		return fmt.Errorf("cannot start instance for new machine: %v", err)
 	}
@@ -278,7 +273,7 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 	// populate the local cache
 	p.instances[m.Id()] = inst
 	p.machines[inst.Id()] = m.Id()
-	log.Printf("worker/provisioner: started machine %s as instance %s", m, inst.Id())
+	log.Noticef("worker/provisioner: started machine %s as instance %s", m, inst.Id())
 	return nil
 }
 
@@ -308,12 +303,9 @@ func (p *Provisioner) instanceForMachine(m *state.Machine) (environs.Instance, e
 	if ok {
 		return inst, nil
 	}
-	instId, err := m.InstanceId()
-	if state.IsNotFound(err) {
+	instId, ok := m.InstanceId()
+	if !ok {
 		panic("cannot have unset instance ids here")
-	}
-	if err != nil {
-		return nil, err
 	}
 	// TODO(dfc): Ask for all instances at once.
 	insts, err := p.environ.Instances([]state.InstanceId{instId})

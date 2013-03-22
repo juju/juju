@@ -44,7 +44,7 @@ var scpTests = []struct {
 
 func (s *SCPSuite) TestSCPCommand(c *C) {
 	m := s.makeMachines(3, c)
-	ch := coretesting.Charms.Dir("series", "dummy")
+	ch := coretesting.Charms.Dir("dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:series/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
@@ -63,7 +63,7 @@ func (s *SCPSuite) TestSCPCommand(c *C) {
 
 	for _, t := range scpTests {
 		c.Logf("testing juju scp %s", t.args)
-		ctx := &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}}
+		ctx := coretesting.Context(c)
 		code := cmd.Main(&SCPCommand{}, ctx, t.args)
 		c.Check(code, Equals, 0)
 		c.Check(ctx.Stderr.(*bytes.Buffer).String(), Equals, "")

@@ -1,25 +1,24 @@
 package main
 
 import (
-	"io/ioutil"
 	"os"
 	"reflect"
 
-	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju/testing"
+	coretesting "launchpad.net/juju-core/testing"
 )
 
 type CmdSuite struct {
 	testing.JujuConnSuite
-	home fakeHome
+	home coretesting.FakeHome
 }
 
 var _ = Suite(&CmdSuite{})
 
-var envConfig = `
+const envConfig = `
 default:
     peckham
 environments:
@@ -41,24 +40,18 @@ environments:
 
 func (s *CmdSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.home = makeFakeHome(c, "peckham", "walthamstow", "brokenenv")
-	err := ioutil.WriteFile(homePath(".juju", "environments.yaml"), []byte(envConfig), 0666)
-	c.Assert(err, IsNil)
+	s.home = coretesting.MakeFakeHome(c, envConfig, "peckham", "walthamstow", "brokenenv")
 }
 
 func (s *CmdSuite) TearDownTest(c *C) {
-	s.home.restore()
+	s.home.Restore()
 	s.JujuConnSuite.TearDownTest(c)
-}
-
-func newFlagSet() *gnuflag.FlagSet {
-	return gnuflag.NewFlagSet("", gnuflag.ContinueOnError)
 }
 
 // testInit checks that a command initialises correctly
 // with the given set of arguments.
 func testInit(c *C, com cmd.Command, args []string, errPat string) {
-	err := com.Init(newFlagSet(), args)
+	err := coretesting.InitCommand(com, args)
 	if errPat != "" {
 		c.Assert(err, ErrorMatches, errPat)
 	} else {
@@ -106,6 +99,14 @@ func (*CmdSuite) TestEnvironmentInit(c *C) {
 		testInit(c, com, append(args, "--environment", "walthamstow"), "")
 		assertConnName(c, com, "walthamstow")
 
+		// JUJU_ENV is the final place the environment can be overriden
+		com, args = cmdFunc()
+		oldenv := os.Getenv("JUJU_ENV")
+		os.Setenv("JUJU_ENV", "walthamstow")
+		testInit(c, com, args, "")
+		os.Setenv("JUJU_ENV", oldenv)
+		assertConnName(c, com, "walthamstow")
+
 		com, args = cmdFunc()
 		testInit(c, com, append(args, "hotdog"), "unrecognized args.*")
 	}
@@ -120,7 +121,7 @@ func runCommand(com cmd.Command, args ...string) (opc chan dummy.Operation, errc
 		// signal that we're done with this ops channel.
 		defer dummy.Listen(nil)
 
-		err := com.Init(newFlagSet(), args)
+		err := coretesting.InitCommand(com, args)
 		if err != nil {
 			errc <- err
 			return
@@ -187,7 +188,7 @@ func initExpectations(com *DeployCommand) {
 
 func initDeployCommand(args ...string) (*DeployCommand, error) {
 	com := &DeployCommand{}
-	return com, com.Init(newFlagSet(), args)
+	return com, coretesting.InitCommand(com, args)
 }
 
 func (*CmdSuite) TestDeployCommandInit(c *C) {
@@ -202,7 +203,7 @@ func (*CmdSuite) TestDeployCommandInit(c *C) {
 	}
 
 	// test relative --config path
-	ctx := &cmd.Context{c.MkDir(), nil, nil, nil}
+	ctx := coretesting.Context(c)
 	expected := []byte("test: data")
 	path := ctx.AbsPath("testconfig.yaml")
 	file, err := os.Create(path)
@@ -221,6 +222,19 @@ func (*CmdSuite) TestDeployCommandInit(c *C) {
 	_, err = initDeployCommand()
 	c.Assert(err, ErrorMatches, "no charm specified")
 
+	// environment tested elsewhere
+}
+
+func initAddUnitCommand(args ...string) (*AddUnitCommand, error) {
+	com := &AddUnitCommand{}
+	return com, coretesting.InitCommand(com, args)
+}
+
+func (*CmdSuite) TestAddUnitCommandInit(c *C) {
+	// missing args
+	_, err := initAddUnitCommand()
+	c.Assert(err, ErrorMatches, "no service specified")
+
 	// bad unit count
 	_, err = initDeployCommand("charm-name", "--num-units", "0")
 	c.Assert(err, ErrorMatches, "must deploy at least one unit")
@@ -230,28 +244,9 @@ func (*CmdSuite) TestDeployCommandInit(c *C) {
 	// environment tested elsewhere
 }
 
-func initAddUnitCommand(args ...string) (*AddUnitCommand, error) {
-	com := &AddUnitCommand{}
-	return com, com.Init(newFlagSet(), args)
-}
-
-func (*CmdSuite) TestAddUnitCommandInit(c *C) {
-	// missing args
-	_, err := initAddUnitCommand()
-	c.Assert(err, ErrorMatches, "no service specified")
-
-	// bad unit count
-	_, err = initAddUnitCommand("service-name", "--num-units", "0")
-	c.Assert(err, ErrorMatches, "must add at least one unit")
-	_, err = initAddUnitCommand("service-name", "-n", "0")
-	c.Assert(err, ErrorMatches, "must add at least one unit")
-
-	// environment tested elsewhere
-}
-
 func initExposeCommand(args ...string) (*ExposeCommand, error) {
 	com := &ExposeCommand{}
-	return com, com.Init(newFlagSet(), args)
+	return com, coretesting.InitCommand(com, args)
 }
 
 func (*CmdSuite) TestExposeCommandInit(c *C) {
@@ -264,7 +259,7 @@ func (*CmdSuite) TestExposeCommandInit(c *C) {
 
 func initUnexposeCommand(args ...string) (*UnexposeCommand, error) {
 	com := &UnexposeCommand{}
-	return com, com.Init(newFlagSet(), args)
+	return com, coretesting.InitCommand(com, args)
 }
 
 func (*CmdSuite) TestUnexposeCommandInit(c *C) {
@@ -277,7 +272,7 @@ func (*CmdSuite) TestUnexposeCommandInit(c *C) {
 
 func initSSHCommand(args ...string) (*SSHCommand, error) {
 	com := &SSHCommand{}
-	return com, com.Init(newFlagSet(), args)
+	return com, coretesting.InitCommand(com, args)
 }
 
 func (*CmdSuite) TestSSHCommandInit(c *C) {
@@ -288,7 +283,7 @@ func (*CmdSuite) TestSSHCommandInit(c *C) {
 
 func initSCPCommand(args ...string) (*SCPCommand, error) {
 	com := &SCPCommand{}
-	return com, com.Init(newFlagSet(), args)
+	return com, coretesting.InitCommand(com, args)
 }
 
 func (*CmdSuite) TestSCPCommandInit(c *C) {
@@ -303,7 +298,7 @@ func (*CmdSuite) TestSCPCommandInit(c *C) {
 
 func initGetCommand(args ...string) (*GetCommand, error) {
 	com := &GetCommand{}
-	return com, com.Init(newFlagSet(), args)
+	return com, coretesting.InitCommand(com, args)
 }
 
 func (*CmdSuite) TestGetCommandInit(c *C) {
@@ -314,7 +309,7 @@ func (*CmdSuite) TestGetCommandInit(c *C) {
 
 func initSetCommand(args ...string) (*SetCommand, error) {
 	com := &SetCommand{}
-	return com, com.Init(newFlagSet(), args)
+	return com, coretesting.InitCommand(com, args)
 }
 
 func (*CmdSuite) TestSetCommandInit(c *C) {
@@ -327,7 +322,7 @@ func (*CmdSuite) TestSetCommandInit(c *C) {
 
 	// test --config path
 	expected := []byte("this: is some test data")
-	ctx := &cmd.Context{c.MkDir(), nil, nil, nil}
+	ctx := coretesting.Context(c)
 	path := ctx.AbsPath("testconfig.yaml")
 	file, err := os.Create(path)
 	c.Assert(err, IsNil)
@@ -352,7 +347,7 @@ func (*CmdSuite) TestSetCommandInit(c *C) {
 
 func initDestroyUnitCommand(args ...string) (*DestroyUnitCommand, error) {
 	com := &DestroyUnitCommand{}
-	return com, com.Init(newFlagSet(), args)
+	return com, coretesting.InitCommand(com, args)
 }
 
 func (*CmdSuite) TestDestroyUnitCommandInit(c *C) {

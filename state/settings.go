@@ -163,7 +163,7 @@ func (c *Settings) Write() ([]ItemChange, error) {
 	}}
 	err := c.st.runner.Run(ops, "", nil)
 	if err == txn.ErrAborted {
-		return nil, notFoundf("settings")
+		return nil, NotFoundf("settings")
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot write settings: %v", err)
@@ -194,7 +194,7 @@ func (c *Settings) Read() error {
 	if err == mgo.ErrNotFound {
 		c.disk = nil
 		c.core = make(map[string]interface{})
-		return notFoundf("settings")
+		return NotFoundf("settings")
 	}
 	if err != nil {
 		return fmt.Errorf("cannot read settings: %v", err)
@@ -245,7 +245,7 @@ func createSettings(st *State, key string, values map[string]interface{}) (*Sett
 func removeSettings(st *State, key string) error {
 	err := st.settings.RemoveId(key)
 	if err == mgo.ErrNotFound {
-		return notFoundf("settings")
+		return NotFoundf("settings")
 	}
 	return nil
 }
@@ -265,14 +265,10 @@ func replaceSettingsOp(st *State, key string, values map[string]interface{}) (tx
 			deletes[k] = 1
 		}
 	}
-	op := txn.Op{
-		C:      st.settings.Name,
-		Id:     key,
-		Assert: D{{"txn-revno", s.txnRevno}},
-		Update: D{
-			{"$set", values},
-			{"$unset", deletes},
-		},
+	op := s.assertUnchangedOp()
+	op.Update = D{
+		{"$set", values},
+		{"$unset", deletes},
 	}
 	assertFailed := func() (bool, error) {
 		latest, err := readSettings(st, key)
@@ -282,4 +278,12 @@ func replaceSettingsOp(st *State, key string, values map[string]interface{}) (tx
 		return latest.txnRevno != s.txnRevno, nil
 	}
 	return op, assertFailed, nil
+}
+
+func (s *Settings) assertUnchangedOp() txn.Op {
+	return txn.Op{
+		C:      s.st.settings.Name,
+		Id:     s.key,
+		Assert: D{{"txn-revno", s.txnRevno}},
+	}
 }

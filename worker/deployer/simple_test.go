@@ -9,29 +9,28 @@ import (
 	"strings"
 
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/deployer"
 )
 
-type SimpleManagerSuite struct {
+type SimpleContextSuite struct {
 	SimpleToolsFixture
 }
 
-var _ = Suite(&SimpleManagerSuite{})
+var _ = Suite(&SimpleContextSuite{})
 
-func (s *SimpleManagerSuite) SetUpTest(c *C) {
+func (s *SimpleContextSuite) SetUpTest(c *C) {
 	s.SimpleToolsFixture.SetUp(c, c.MkDir())
 }
 
-func (s *SimpleManagerSuite) TearDownTest(c *C) {
+func (s *SimpleContextSuite) TearDownTest(c *C) {
 	s.SimpleToolsFixture.TearDown(c)
 }
 
-func (s *SimpleManagerSuite) TestDeployRecall(c *C) {
-	mgr0 := s.getManager(c, "test-entity-0")
+func (s *SimpleContextSuite) TestDeployRecall(c *C) {
+	mgr0 := s.getContext(c, "test-entity-0")
 	units, err := mgr0.DeployedUnits()
 	c.Assert(err, IsNil)
 	c.Assert(units, HasLen, 0)
@@ -54,12 +53,12 @@ func (s *SimpleManagerSuite) TestDeployRecall(c *C) {
 	s.checkUnitRemoved(c, "foo/123", "test-entity-0")
 }
 
-func (s *SimpleManagerSuite) TestIndependentManagers(c *C) {
-	mgr0 := s.getManager(c, "test-entity-0")
+func (s *SimpleContextSuite) TestIndependentManagers(c *C) {
+	mgr0 := s.getContext(c, "test-entity-0")
 	err := mgr0.DeployUnit("foo/123", "some-password")
 	c.Assert(err, IsNil)
 
-	mgr1 := s.getManager(c, "test-entity-1")
+	mgr1 := s.getContext(c, "test-entity-1")
 	units, err := mgr1.DeployedUnits()
 	c.Assert(err, IsNil)
 	c.Assert(units, HasLen, 0)
@@ -89,7 +88,7 @@ func (fix *SimpleToolsFixture) SetUp(c *C, dataDir string) {
 	fix.dataDir = dataDir
 	fix.initDir = c.MkDir()
 	fix.logDir = c.MkDir()
-	toolsDir := environs.ToolsDir(fix.dataDir, version.Current)
+	toolsDir := agent.SharedToolsDir(fix.dataDir, version.Current)
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, IsNil)
 	jujudPath := filepath.Join(toolsDir, "jujud")
@@ -124,24 +123,15 @@ func (fix *SimpleToolsFixture) assertUpstartCount(c *C, count int) {
 	c.Assert(fis, HasLen, count)
 }
 
-func (fix *SimpleToolsFixture) getManager(c *C, deployerName string) *deployer.SimpleManager {
-	return &deployer.SimpleManager{
-		StateInfo: &state.Info{
-			CACert:     []byte("test-cert"),
-			Addrs:      []string{"s1:123", "s2:123"},
-			EntityName: deployerName,
-		},
-		InitDir: fix.initDir,
-		DataDir: fix.dataDir,
-		LogDir:  fix.logDir,
-	}
+func (fix *SimpleToolsFixture) getContext(c *C, deployerName string) *deployer.SimpleContext {
+	return deployer.NewTestSimpleContext(deployerName, fix.initDir, fix.dataDir, fix.logDir)
 }
 
 func (fix *SimpleToolsFixture) paths(entityName, xName string) (confPath, agentDir, toolsDir string) {
 	confName := fmt.Sprintf("jujud-%s:%s.conf", xName, entityName)
 	confPath = filepath.Join(fix.initDir, confName)
-	agentDir = environs.AgentDir(fix.dataDir, entityName)
-	toolsDir = environs.AgentToolsDir(fix.dataDir, entityName)
+	agentDir = agent.Dir(fix.dataDir, entityName)
+	toolsDir = agent.ToolsDir(fix.dataDir, entityName)
 	return
 }
 

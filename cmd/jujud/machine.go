@@ -5,10 +5,9 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/agent"
-	_ "launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/apiserver"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/firewaller"
 	"launchpad.net/juju-core/worker/provisioner"
@@ -20,6 +19,7 @@ var retryDelay = 3 * time.Second
 
 // MachineAgent is a cmd.Command responsible for running a machine agent.
 type MachineAgent struct {
+	cmd.CommandBase
 	tomb      tomb.Tomb
 	Conf      AgentConf
 	MachineId string
@@ -27,20 +27,23 @@ type MachineAgent struct {
 
 // Info returns usage information for the command.
 func (a *MachineAgent) Info() *cmd.Info {
-	return &cmd.Info{"machine", "", "run a juju machine agent", ""}
+	return &cmd.Info{
+		Name:    "machine",
+		Purpose: "run a juju machine agent",
+	}
+}
+
+func (a *MachineAgent) SetFlags(f *gnuflag.FlagSet) {
+	a.Conf.addFlags(f)
+	f.StringVar(&a.MachineId, "machine-id", "", "id of the machine to run")
 }
 
 // Init initializes the command for running.
-func (a *MachineAgent) Init(f *gnuflag.FlagSet, args []string) error {
-	a.Conf.addFlags(f)
-	f.StringVar(&a.MachineId, "machine-id", "", "id of the machine to run")
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
+func (a *MachineAgent) Init(args []string) error {
 	if !state.IsMachineId(a.MachineId) {
 		return fmt.Errorf("--machine-id option must be set, and expects a non-negative integer")
 	}
-	return a.Conf.checkArgs(f.Args())
+	return a.Conf.checkArgs(args)
 }
 
 // Stop stops the machine agent.
@@ -54,7 +57,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	if err := a.Conf.read(state.MachineEntityName(a.MachineId)); err != nil {
 		return err
 	}
-	defer log.Printf("cmd/jujud: machine agent exiting")
+	defer log.Noticef("cmd/jujud: machine agent exiting")
 	defer a.tomb.Done()
 
 	// We run the API server worker first, because we may
@@ -98,7 +101,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 
 func (a *MachineAgent) RunOnce(st *state.State, e AgentState) error {
 	m := e.(*state.Machine)
-	log.Printf("cmd/jujud: jobs for machine agent: %v", m.Jobs())
+	log.Infof("cmd/jujud: jobs for machine agent: %v", m.Jobs())
 	tasks := []task{NewUpgrader(st, m, a.Conf.DataDir)}
 	for _, j := range m.Jobs() {
 		switch j {
@@ -113,7 +116,7 @@ func (a *MachineAgent) RunOnce(st *state.State, e AgentState) error {
 			// Ignore because it's started independently.
 			continue
 		default:
-			log.Printf("cmd/jujud: ignoring unknown job %q", j)
+			log.Warningf("cmd/jujud: ignoring unknown job %q", j)
 		}
 	}
 	return runTasks(a.tomb.Dying(), tasks...)
@@ -169,14 +172,15 @@ func (a *MachineAgent) maybeRunAPIServerOnce(conf *agent.Conf) error {
 	if len(conf.StateServerCert) == 0 || len(conf.StateServerKey) == 0 {
 		return &fatalError{"configuration does not have state server cert/key"}
 	}
-	log.Printf("cmd/jujud: running API server job")
-	srv, err := api.NewServer(st, fmt.Sprintf(":%d", conf.APIPort), conf.StateServerCert, conf.StateServerKey)
+	log.Infof("cmd/jujud: running API server job")
+	srv, err := apiserver.NewServer(st, fmt.Sprintf(":%d", conf.APIPort), conf.StateServerCert, conf.StateServerKey)
 	if err != nil {
 		return err
 	}
 	select {
 	case <-a.tomb.Dying():
 	case <-srv.Dead():
+		log.Noticef("jujud: API server has died: %v", srv.Stop())
 	}
 	return srv.Stop()
 }

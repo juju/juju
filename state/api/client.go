@@ -4,16 +4,17 @@ import (
 	"code.google.com/p/go.net/websocket"
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
-	"fmt"
+	"encoding/json"
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/trivial"
 	"time"
 )
 
 type State struct {
-	conn *websocket.Conn
+	client *rpc.Client
+	conn   *websocket.Conn
 }
 
 // Info encapsulates information about a server holding juju state and
@@ -27,7 +28,9 @@ type Info struct {
 	CACert []byte
 
 	// EntityName holds the name of the entity that is connecting.
-	// It should be empty when connecting as an administrator.
+	// If this and the password are empty, no login attempt will be made
+	// (this is to allow tests to access the API to check that operations
+	// fail when not logged in).
 	EntityName string
 
 	// Password holds the password for the administrator or connecting entity.
@@ -59,41 +62,96 @@ func Open(info *Info) (*State, error) {
 	}
 	var conn *websocket.Conn
 	for a := openAttempt.Start(); a.Next(); {
-		log.Printf("state/api: dialling %q", cfg.Location)
+		log.Infof("state/api: dialing %q", cfg.Location)
 		conn, err = websocket.DialConfig(cfg)
 		if err == nil {
 			break
 		}
-		log.Printf("state/api: %v", err)
+		log.Errorf("state/api: %v", err)
 	}
-	log.Printf("state/api: connection established")
 	if err != nil {
 		return nil, err
 	}
-	return &State{
-		conn: conn,
-	}, nil
+	log.Infof("state/api: connection established")
+
+	client := rpc.NewClientWithCodec(&clientCodec{conn: conn})
+	st := &State{
+		client: client,
+		conn:   conn,
+	}
+	if info.EntityName != "" || info.Password != "" {
+		if err := st.Login(info.EntityName, info.Password); err != nil {
+			conn.Close()
+			return nil, err
+		}
+	}
+	return st, nil
+}
+
+func (s *State) call(objType, id, request string, params, response interface{}) error {
+	err := s.client.Call(objType, id, request, params, response)
+	return clientError(err)
 }
 
 func (s *State) Close() error {
-	return s.conn.Close()
+	return s.client.Close()
 }
 
-// Request is a placeholder for an arbitrary operation in the state API.
-// Currently it simply returns the instance id of the machine with the
-// id given by the request.
-func (s *State) Request(req string) (string, error) {
-	err := websocket.JSON.Send(s.conn, rpcRequest{req})
-	if err != nil {
-		return "", fmt.Errorf("cannot send request: %v", err)
+// RPCClient returns the RPC client for the state, so that testing
+// functions can tickle parts of the API that the conventional entry
+// points don't reach. This is exported for testing purposes only.
+func (s *State) RPCClient() *rpc.Client {
+	return s.client
+}
+
+type clientReq struct {
+	RequestId uint64
+	Type      string
+	Id        string
+	Request   string
+	Params    interface{}
+}
+
+type clientResp struct {
+	RequestId uint64
+	Error     string
+	ErrorCode string
+	Response  json.RawMessage
+}
+
+type clientCodec struct {
+	conn *websocket.Conn
+	resp clientResp
+}
+
+func (c *clientCodec) Close() error {
+	return c.conn.Close()
+}
+
+func (c *clientCodec) WriteRequest(req *rpc.Request, p interface{}) error {
+	return websocket.JSON.Send(c.conn, &clientReq{
+		RequestId: req.RequestId,
+		Type:      req.Type,
+		Id:        req.Id,
+		Request:   req.Request,
+		Params:    p,
+	})
+}
+
+func (c *clientCodec) ReadResponseHeader(resp *rpc.Response) error {
+	c.resp = clientResp{}
+	if err := websocket.JSON.Receive(c.conn, &c.resp); err != nil {
+		return err
 	}
-	var resp rpcResponse
-	err = websocket.JSON.Receive(s.conn, &resp)
-	if err != nil {
-		return "", fmt.Errorf("cannot receive response: %v", err)
+	resp.RequestId = c.resp.RequestId
+	resp.Error = c.resp.Error
+	resp.ErrorCode = c.resp.ErrorCode
+	return nil
+}
+
+func (c *clientCodec) ReadResponseBody(body interface{}) error {
+	if body == nil {
+		return nil
 	}
-	if resp.Error != "" {
-		return "", errors.New(resp.Error)
-	}
-	return resp.Response, nil
+	return json.Unmarshal(c.resp.Response, body)
 }

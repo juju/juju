@@ -10,7 +10,9 @@ import (
 	"path/filepath"
 )
 
-type DeployerSuite struct{}
+type DeployerSuite struct {
+	testing.GitSuite
+}
 
 var _ = Suite(&DeployerSuite{})
 
@@ -172,7 +174,7 @@ func (s *DeployerSuite) TestConflict(c *C) {
 
 func (s *DeployerSuite) bundle(c *C, customize func(path string)) *corecharm.Bundle {
 	base := c.MkDir()
-	dirpath := testing.Charms.ClonedDirPath(base, "series", "dummy")
+	dirpath := testing.Charms.ClonedDirPath(base, "dummy")
 	customize(dirpath)
 	dir, err := corecharm.ReadDir(dirpath)
 	c.Assert(err, IsNil)

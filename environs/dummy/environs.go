@@ -22,12 +22,14 @@ package dummy
 import (
 	"errors"
 	"fmt"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/apiserver"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
@@ -58,17 +60,21 @@ type GenericOperation struct {
 	Env string
 }
 
-type OpBootstrap GenericOperation
+type OpBootstrap struct {
+	Env         string
+	Constraints constraints.Value
+}
 
 type OpDestroy GenericOperation
 
 type OpStartInstance struct {
-	Env       string
-	MachineId string
-	Instance  environs.Instance
-	Info      *state.Info
-	APIInfo   *api.Info
-	Secret    string
+	Env         string
+	MachineId   string
+	Instance    environs.Instance
+	Constraints constraints.Value
+	Info        *state.Info
+	APIInfo     *api.Info
+	Secret      string
 }
 
 type OpStopInstances struct {
@@ -119,9 +125,8 @@ type environState struct {
 	storage       *storage
 	publicStorage *storage
 	httpListener  net.Listener
-	apiServer     *api.Server
+	apiServer     *apiserver.Server
 	apiState      *state.State
-	apiAddr       string
 }
 
 // environ represents a client's connection to a given environment's
@@ -166,7 +171,7 @@ func init() {
 // operation listener.  All opened environments after Reset will share
 // the same underlying state.
 func Reset() {
-	log.Printf("environs/dummy: reset environment")
+	log.Infof("environs/dummy: reset environment")
 	p := &providerInstance
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -181,7 +186,13 @@ func Reset() {
 	}
 }
 
+// ResetPublicStorage clears the contents of the specified environment's public storage.
+func ResetPublicStorage(e environs.Environ) {
+	e.(*environ).state.publicStorage.files = make(map[string][]byte)
+}
+
 func (state *environState) destroy() {
+	state.storage.files = make(map[string][]byte)
 	if !state.bootstrapped {
 		return
 	}
@@ -199,7 +210,6 @@ func (state *environState) destroy() {
 		testing.MgoReset()
 	}
 	state.bootstrapped = false
-	state.storage.files = make(map[string][]byte)
 }
 
 // newState creates the state for a new environment with the
@@ -224,7 +234,7 @@ func newState(name string, ops chan<- Operation, fwmode config.FirewallMode) *en
 // that looks like a tools archive so Bootstrap can
 // find some tools and initialise the state correctly.
 func putFakeTools(s environs.StorageWriter) {
-	log.Printf("environs/dummy: putting fake tools")
+	log.Infof("environs/dummy: putting fake tools")
 	path := environs.ToolsStoragePath(version.Current)
 	toolsContents := "tools archive, honest guv"
 	err := s.Put(path, strings.NewReader(toolsContents), int64(len(toolsContents)))
@@ -384,6 +394,10 @@ func (*environProvider) PrivateAddress() (string, error) {
 	return "private.dummy.address.example.com", nil
 }
 
+func (*environProvider) InstanceId() (state.InstanceId, error) {
+	return state.InstanceId("dummy.instance.id"), nil
+}
+
 func (*environProvider) BoilerplateConfig() string {
 	return `
 ## Fake configuration for dummy provider.
@@ -416,7 +430,7 @@ func (e *environ) Name() string {
 	return e.state.name
 }
 
-func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
+func (e *environ) Bootstrap(cons constraints.Value, cert, key []byte) error {
 	defer delay()
 	if err := e.checkBroken("Bootstrap"); err != nil {
 		return err
@@ -430,21 +444,16 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 	}
 	var tools *state.Tools
 	var err error
-	if uploadTools {
-		tools, err = environs.PutTools(e.Storage(), nil)
-		if err != nil {
-			return err
-		}
-	} else {
-		flags := environs.HighestVersion | environs.CompatVersion
-		tools, err = environs.FindTools(e, version.Current, flags)
-		if err != nil {
-			return err
-		}
+
+	flags := environs.CompatVersion
+	tools, err = environs.FindTools(e, version.Current, flags)
+	if err != nil {
+		return err
 	}
+
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
-	e.state.ops <- OpBootstrap{Env: e.state.name}
+	e.state.ops <- OpBootstrap{Env: e.state.name, Constraints: cons}
 	if e.state.bootstrapped {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
@@ -454,15 +463,23 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 		if err != nil {
 			return fmt.Errorf("cannot make bootstrap config: %v", err)
 		}
-		st, err := state.Initialize(info, cfg)
+		st, err := state.Initialize(info, cfg, state.DefaultDialTimeout)
 		if err != nil {
 			panic(err)
 		}
-		if err := st.SetAdminMongoPassword(trivial.PasswordHash(password)); err != nil {
-			return err
+		if err := st.SetEnvironConstraints(cons); err != nil {
+			panic(err)
 		}
-		e.state.apiAddr = fmt.Sprintf("localhost:%d", testing.FindTCPPort())
-		e.state.apiServer, err = api.NewServer(st, e.state.apiAddr, []byte(testing.ServerCert), []byte(testing.ServerKey))
+		if err := st.SetAdminMongoPassword(trivial.PasswordHash(password)); err != nil {
+			panic(err)
+		}
+		// TODO(rog) use hash of password when the juju API connection
+		// logic is done.
+		_, err = st.AddUser("admin", password)
+		if err != nil {
+			panic(err)
+		}
+		e.state.apiServer, err = apiserver.NewServer(st, "localhost:0", []byte(testing.ServerCert), []byte(testing.ServerKey))
 		if err != nil {
 			panic(err)
 		}
@@ -485,7 +502,7 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 		return nil, nil, errors.New("dummy environment not bootstrapped")
 	}
 	return stateInfo(), &api.Info{
-		Addrs:  []string{e.state.apiAddr},
+		Addrs:  []string{e.state.apiServer.Addr()},
 		CACert: []byte(testing.CACert),
 	}, nil
 }
@@ -525,9 +542,9 @@ func (e *environ) Destroy([]environs.Instance) error {
 	return nil
 }
 
-func (e *environ) StartInstance(machineId string, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
 	defer delay()
-	log.Printf("environs/dummy: dummy startinstance, machine %s", machineId)
+	log.Infof("environs/dummy: dummy startinstance, machine %s", machineId)
 	if err := e.checkBroken("StartInstance"); err != nil {
 		return nil, err
 	}
@@ -542,24 +559,26 @@ func (e *environ) StartInstance(machineId string, info *state.Info, apiInfo *api
 	if apiInfo.EntityName != state.MachineEntityName(machineId) {
 		return nil, fmt.Errorf("entity name must match started machine")
 	}
-	if tools != nil && (strings.HasPrefix(tools.Series, "unknown") || strings.HasPrefix(tools.Arch, "unknown")) {
-		return nil, fmt.Errorf("cannot find image for %s-%s", tools.Series, tools.Arch)
+	if strings.HasPrefix(series, "unknown") {
+		return nil, &environs.NotFoundError{fmt.Errorf("no compatible tools found")}
 	}
 	i := &instance{
 		state:     e.state,
 		id:        state.InstanceId(fmt.Sprintf("%s-%d", e.state.name, e.state.maxId)),
 		ports:     make(map[state.Port]bool),
 		machineId: machineId,
+		series:    series,
 	}
 	e.state.insts[i.id] = i
 	e.state.maxId++
 	e.state.ops <- OpStartInstance{
-		Env:       e.state.name,
-		MachineId: machineId,
-		Instance:  i,
-		Info:      info,
-		APIInfo:   apiInfo,
-		Secret:    e.ecfg().secret(),
+		Env:         e.state.name,
+		MachineId:   machineId,
+		Constraints: cons,
+		Instance:    i,
+		Info:        info,
+		APIInfo:     apiInfo,
+		Secret:      e.ecfg().secret(),
 	}
 	return i, nil
 }
@@ -669,6 +688,7 @@ type instance struct {
 	ports     map[state.Port]bool
 	id        state.InstanceId
 	machineId string
+	series    string
 }
 
 func (inst *instance) Id() state.InstanceId {
@@ -686,7 +706,7 @@ func (inst *instance) WaitDNSName() (string, error) {
 
 func (inst *instance) OpenPorts(machineId string, ports []state.Port) error {
 	defer delay()
-	log.Printf("environs/dummy: openPorts %s, %#v", machineId, ports)
+	log.Infof("environs/dummy: openPorts %s, %#v", machineId, ports)
 	if inst.state.firewallMode != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for opening ports on instance: %q",
 			inst.state.firewallMode)
@@ -757,7 +777,7 @@ var providerDelay time.Duration
 // pause execution to simulate the latency of a real provider
 func delay() {
 	if providerDelay > 0 {
-		log.Printf("environs/dummy: pausing for %v", providerDelay)
+		log.Infof("environs/dummy: pausing for %v", providerDelay)
 		<-time.After(providerDelay)
 	}
 }

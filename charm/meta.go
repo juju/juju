@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"launchpad.net/goyaml"
+	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/schema"
 	"strings"
 )
@@ -43,6 +44,47 @@ type Meta struct {
 	Peers       map[string]Relation `bson:",omitempty"`
 	Format      int                 `bson:",omitempty"`
 	OldRevision int                 `bson:",omitempty"` // Obsolete
+	Categories  []string            `bson:",omitempty"`
+}
+
+func generateRelationHooks(relName string, allHooks map[string]bool) {
+	for _, hookName := range hooks.RelationHooks() {
+		allHooks[fmt.Sprintf("%s-%s", relName, hookName)] = true
+	}
+}
+
+// Hooks returns a map of all possible valid hooks, taking relations
+// into account. It's a map to enable fast lookups, and the value is
+// always true.
+func (m Meta) Hooks() map[string]bool {
+	allHooks := make(map[string]bool)
+	// Unit hooks
+	for _, hookName := range hooks.UnitHooks() {
+		allHooks[string(hookName)] = true
+	}
+	// Relation hooks
+	for hookName := range m.Provides {
+		generateRelationHooks(hookName, allHooks)
+	}
+	for hookName := range m.Requires {
+		generateRelationHooks(hookName, allHooks)
+	}
+	for hookName := range m.Peers {
+		generateRelationHooks(hookName, allHooks)
+	}
+	return allHooks
+}
+
+func parseCategories(categories interface{}) []string {
+	if categories == nil {
+		return nil
+	}
+	slice := categories.([]interface{})
+	result := make([]string, 0, len(slice))
+	for _, cat := range slice {
+		result = append(result, cat.(string))
+	}
+	return result
 }
 
 // ReadMeta reads the content of a metadata.yaml file and returns
@@ -72,6 +114,7 @@ func ReadMeta(r io.Reader) (meta *Meta, err error) {
 	meta.Requires = parseRelations(m["requires"])
 	meta.Peers = parseRelations(m["peers"])
 	meta.Format = int(m["format"].(int64))
+	meta.Categories = parseCategories(m["categories"])
 	if subordinate := m["subordinate"]; subordinate != nil {
 		meta.Subordinate = subordinate.(bool)
 	}
@@ -240,6 +283,7 @@ var charmSchema = schema.FieldMap(
 		"revision":    schema.Int(), // Obsolete
 		"format":      schema.Int(),
 		"subordinate": schema.Bool(),
+		"categories":  schema.List(schema.String()),
 	},
 	schema.Defaults{
 		"provides":    schema.Omit,
@@ -248,5 +292,6 @@ var charmSchema = schema.FieldMap(
 		"revision":    schema.Omit,
 		"format":      1,
 		"subordinate": schema.Omit,
+		"categories":  schema.Omit,
 	},
 )

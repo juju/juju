@@ -1,16 +1,18 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
 	_ "launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/version"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
 	"strings"
 	stdtesting "testing"
 )
@@ -43,6 +45,17 @@ func badrun(c *C, exit int, cmd ...string) string {
 	return string(output)
 }
 
+func deployHelpText() string {
+	buff := &bytes.Buffer{}
+	dc := &DeployCommand{}
+	info := dc.Info()
+	info.Name = "juju deploy"
+	f := gnuflag.NewFlagSet(info.Name, gnuflag.ContinueOnError)
+	dc.SetFlags(f)
+	buff.Write(info.Help(f))
+	return buff.String()
+}
+
 var runMainTests = []struct {
 	summary string
 	args    []string
@@ -50,9 +63,45 @@ var runMainTests = []struct {
 	out     string
 }{
 	{
-		summary: "missing command",
-		code:    2,
-		out:     "error: no command specified\n",
+		summary: "no params shows help",
+		args:    []string{},
+		code:    0,
+		out:     strings.TrimLeft(helpBasics, "\n"),
+	}, {
+		summary: "juju help is the same as juju",
+		args:    []string{"help"},
+		code:    0,
+		out:     strings.TrimLeft(helpBasics, "\n"),
+	}, {
+		summary: "juju --help works too",
+		args:    []string{"--help"},
+		code:    0,
+		out:     strings.TrimLeft(helpBasics, "\n"),
+	}, {
+		summary: "juju help basics is the same as juju",
+		args:    []string{"help", "basics"},
+		code:    0,
+		out:     strings.TrimLeft(helpBasics, "\n"),
+	}, {
+		summary: "juju help foo doesn't exist",
+		args:    []string{"help", "foo"},
+		code:    1,
+		out:     "error: unknown command or topic for foo\n",
+	}, {
+		summary: "juju help deploy shows the default help without global options",
+		args:    []string{"help", "deploy"},
+		code:    0,
+		out:     deployHelpText(),
+	}, {
+		summary: "juju --help deploy shows the same help as 'help deploy'",
+		args:    []string{"--help", "deploy"},
+		code:    0,
+		out:     deployHelpText(),
+	}, {
+		summary: "juju deploy --help shows the same help as 'help deploy'",
+		args:    []string{"deploy", "--help"},
+		code:    0,
+		out:     deployHelpText(),
 	}, {
 		summary: "unknown command",
 		args:    []string{"discombobulate"},
@@ -73,6 +122,11 @@ var runMainTests = []struct {
 		args:    []string{"--environment", "blah", "bootstrap"},
 		code:    2,
 		out:     "error: flag provided but not defined: --environment\n",
+	}, {
+		summary: "check version command registered properly",
+		args:    []string{"version"},
+		code:    0,
+		out:     version.Current.String() + "\n",
 	},
 }
 
@@ -97,15 +151,14 @@ environments:
 // when environMethod is called.
 func breakJuju(c *C, environMethod string) (msg string) {
 	yaml := fmt.Sprintf(brokenConfig, environMethod)
-	err := ioutil.WriteFile(homePath(".juju", "environments.yaml"), []byte(yaml), 0666)
+	err := ioutil.WriteFile(testing.HomePath(".juju", "environments.yaml"), []byte(yaml), 0666)
 	c.Assert(err, IsNil)
 
 	return fmt.Sprintf("dummy.%s is broken", environMethod)
 }
 
 func (s *MainSuite) TestActualRunJujuArgsBeforeCommand(c *C) {
-	defer makeFakeHome(c, "one").restore()
-
+	defer testing.MakeFakeHomeNoEnvironments(c, "one").Restore()
 	// Check global args work when specified before command
 	msg := breakJuju(c, "Bootstrap")
 	logpath := filepath.Join(c.MkDir(), "log")
@@ -113,12 +166,12 @@ func (s *MainSuite) TestActualRunJujuArgsBeforeCommand(c *C) {
 	c.Assert(out, Equals, "error: "+msg+"\n")
 	content, err := ioutil.ReadFile(logpath)
 	c.Assert(err, IsNil)
-	fullmsg := fmt.Sprintf(`(.|\n)*JUJU juju bootstrap command failed: %s\n`, msg)
+	fullmsg := fmt.Sprintf(`.*\n.*ERROR JUJU:juju:bootstrap juju bootstrap command failed: %s\n`, msg)
 	c.Assert(string(content), Matches, fullmsg)
 }
 
 func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *C) {
-	defer makeFakeHome(c, "one").restore()
+	defer testing.MakeFakeHomeNoEnvironments(c, "one").Restore()
 
 	// Check global args work when specified after command
 	msg := breakJuju(c, "Bootstrap")
@@ -127,7 +180,7 @@ func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *C) {
 	c.Assert(out, Equals, "error: "+msg+"\n")
 	content, err := ioutil.ReadFile(logpath)
 	c.Assert(err, IsNil)
-	fullmsg := fmt.Sprintf(`(.|\n)*JUJU juju bootstrap command failed: %s\n`, msg)
+	fullmsg := fmt.Sprintf(`.*\n.*ERROR JUJU:juju:bootstrap juju bootstrap command failed: %s\n`, msg)
 	c.Assert(string(content), Matches, fullmsg)
 }
 
@@ -142,76 +195,93 @@ var commandNames = []string{
 	"destroy-service",
 	"destroy-unit",
 	"expose",
-	"generate-config",
+	"generate-config", // alias for init
 	"get",
-	"remove-relation",
-	"remove-unit",
+	"get-constraints",
+	"help",
+	"init",
+	"remove-relation", // alias for destroy-relation
+	"remove-unit",     // alias for destroy-unit
 	"resolved",
 	"scp",
 	"set",
+	"set-constraints",
 	"ssh",
+	"stat", // alias for status
 	"status",
-	"terminate-machine",
+	"terminate-machine", // alias for destroy-machine
 	"unexpose",
 	"upgrade-juju",
+	"version",
 }
 
-func (s *MainSuite) TestHelp(c *C) {
+func (s *MainSuite) TestHelpCommands(c *C) {
 	// Check that we have correctly registered all the commands
 	// by checking the help output.
-
-	out := badrun(c, 0, "-help")
+	out := badrun(c, 0, "help", "commands")
 	lines := strings.Split(out, "\n")
-	c.Assert(lines[0], Matches, `usage: juju .*`)
-	for ; len(lines) > 0; lines = lines[1:] {
-		if lines[0] == "commands:" {
-			break
-		}
-	}
-	c.Assert(lines, Not(HasLen), 0)
-
 	var names []string
-	for lines = lines[1:]; len(lines) > 0; lines = lines[1:] {
-		f := strings.Fields(lines[0])
+	for _, line := range lines {
+		f := strings.Fields(line)
 		if len(f) == 0 {
 			continue
 		}
-		c.Assert(f, Not(HasLen), 0)
 		names = append(names, f[0])
 	}
-	sort.Strings(names)
+	// The names should be output in alphabetical order, so don't sort.
 	c.Assert(names, DeepEquals, commandNames)
 }
 
-type fakeHome string
+var topicNames = []string{
+	"basics",
+	"commands",
+	"global-options",
+	"topics",
+}
 
-func makeFakeHome(c *C, certNames ...string) fakeHome {
-	oldHome := os.Getenv("HOME")
-	os.Setenv("HOME", c.MkDir())
-
-	err := os.Mkdir(homePath(".juju"), 0777)
-	c.Assert(err, IsNil)
-	for _, name := range certNames {
-		err := ioutil.WriteFile(homePath(".juju", name+"-cert.pem"), []byte(testing.CACert), 0666)
-		c.Assert(err, IsNil)
-
-		err = ioutil.WriteFile(homePath(".juju", name+"-private-key.pem"), []byte(testing.CAKey), 0666)
-		c.Assert(err, IsNil)
+func (s *MainSuite) TestHelpTopics(c *C) {
+	// Check that we have correctly registered all the topics
+	// by checking the help output.
+	out := badrun(c, 0, "help", "topics")
+	lines := strings.Split(out, "\n")
+	var names []string
+	for _, line := range lines {
+		f := strings.Fields(line)
+		if len(f) == 0 {
+			continue
+		}
+		names = append(names, f[0])
 	}
-
-	err = os.Mkdir(homePath(".ssh"), 0777)
-	c.Assert(err, IsNil)
-	err = ioutil.WriteFile(homePath(".ssh", "id_rsa.pub"), []byte("auth key\n"), 0666)
-	c.Assert(err, IsNil)
-
-	return fakeHome(oldHome)
+	// The names should be output in alphabetical order, so don't sort.
+	c.Assert(names, DeepEquals, topicNames)
 }
 
-func homePath(names ...string) string {
-	all := append([]string{os.Getenv("HOME")}, names...)
-	return filepath.Join(all...)
+var globalFlags = []string{
+	"--debug .*",
+	"-h, --help .*",
+	"--log-file .*",
+	"-v, --verbose .*",
 }
 
-func (h fakeHome) restore() {
-	os.Setenv("HOME", string(h))
+func (s *MainSuite) TestHelpGlobalOptions(c *C) {
+	// Check that we have correctly registered all the topics
+	// by checking the help output.
+	out := badrun(c, 0, "help", "global-options")
+	c.Assert(out, Matches, `Global Options
+
+These options may be used with any command, and may appear in front of any
+command\.(.|\n)*`)
+	lines := strings.Split(out, "\n")
+	var flags []string
+	for _, line := range lines {
+		f := strings.Fields(line)
+		if len(f) == 0 || line[0] != '-' {
+			continue
+		}
+		flags = append(flags, line)
+	}
+	c.Assert(len(flags), Equals, len(globalFlags))
+	for i, line := range flags {
+		c.Assert(line, Matches, globalFlags[i])
+	}
 }

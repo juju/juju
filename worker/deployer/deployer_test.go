@@ -36,7 +36,7 @@ func (s *DeployerSuite) TearDownTest(c *C) {
 
 func (s *DeployerSuite) TestDeployRecallRemovePrincipals(c *C) {
 	// Create a machine, and a couple of units.
-	m, err := s.State.AddMachine(state.JobHostUnits)
+	m, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
@@ -46,36 +46,36 @@ func (s *DeployerSuite) TestDeployRecallRemovePrincipals(c *C) {
 	c.Assert(err, IsNil)
 
 	// Create a deployer acting on behalf of the machine.
-	mgr := s.getManager(c, m.EntityName())
-	dep := deployer.NewDeployer(s.State, mgr, m.WatchPrincipalUnits())
+	ctx := s.getContext(c, m.EntityName())
+	dep := deployer.NewDeployer(s.State, ctx, m.WatchPrincipalUnits())
 	defer stop(c, dep)
 
 	// Assign one unit, and wait for it to be deployed.
 	err = u0.AssignToMachine(m)
 	c.Assert(err, IsNil)
-	s.waitFor(c, isDeployed(mgr, u0.Name()))
+	s.waitFor(c, isDeployed(ctx, u0.Name()))
 
 	// Assign another unit, and wait for that to be deployed.
 	err = u1.AssignToMachine(m)
 	c.Assert(err, IsNil)
-	s.waitFor(c, isDeployed(mgr, u0.Name(), u1.Name()))
+	s.waitFor(c, isDeployed(ctx, u0.Name(), u1.Name()))
 
 	// Cause a unit to become Dying, and check no change.
 	err = u1.Destroy()
 	c.Assert(err, IsNil)
-	s.waitFor(c, isDeployed(mgr, u0.Name(), u1.Name()))
+	s.waitFor(c, isDeployed(ctx, u0.Name(), u1.Name()))
 
 	// Cause a unit to become Dead, and check that it is both recalled and
 	// removed from state.
 	err = u0.EnsureDead()
 	c.Assert(err, IsNil)
 	s.waitFor(c, isRemoved(s.State, u0.Name()))
-	s.waitFor(c, isDeployed(mgr, u1.Name()))
+	s.waitFor(c, isDeployed(ctx, u1.Name()))
 
 	// Remove the Dying unit from the machine, and check that it is recalled...
 	err = u1.UnassignFromMachine()
 	c.Assert(err, IsNil)
-	s.waitFor(c, isDeployed(mgr))
+	s.waitFor(c, isDeployed(ctx))
 
 	// ...and that the deployer, no longer bearing any responsibility for the
 	// Dying unit, does nothing further to it.
@@ -86,7 +86,7 @@ func (s *DeployerSuite) TestDeployRecallRemovePrincipals(c *C) {
 
 func (s *DeployerSuite) TestRemoveNonAlivePrincipals(c *C) {
 	// Create a machine, and a couple of units.
-	m, err := s.State.AddMachine(state.JobHostUnits)
+	m, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
@@ -107,12 +107,12 @@ func (s *DeployerSuite) TestRemoveNonAlivePrincipals(c *C) {
 
 	// When the deployer is started, in each case (1) no unit agent is deployed
 	// and (2) the non-Alive unit is been removed from state.
-	mgr := s.getManager(c, m.EntityName())
-	dep := deployer.NewDeployer(s.State, mgr, m.WatchPrincipalUnits())
+	ctx := s.getContext(c, m.EntityName())
+	dep := deployer.NewDeployer(s.State, ctx, m.WatchPrincipalUnits())
 	defer stop(c, dep)
 	s.waitFor(c, isRemoved(s.State, u0.Name()))
 	s.waitFor(c, isRemoved(s.State, u1.Name()))
-	s.waitFor(c, isDeployed(mgr))
+	s.waitFor(c, isDeployed(ctx))
 }
 
 func (s *DeployerSuite) prepareSubordinates(c *C) (*state.Unit, []*state.RelationUnit) {
@@ -139,8 +139,8 @@ func (s *DeployerSuite) prepareSubordinates(c *C) (*state.Unit, []*state.Relatio
 func (s *DeployerSuite) TestDeployRecallRemoveSubordinates(c *C) {
 	// Create a deployer acting on behalf of the principal.
 	u, rus := s.prepareSubordinates(c)
-	mgr := s.getManager(c, u.EntityName())
-	dep := deployer.NewDeployer(s.State, mgr, u.WatchSubordinateUnits())
+	ctx := s.getContext(c, u.EntityName())
+	dep := deployer.NewDeployer(s.State, ctx, u.WatchSubordinateUnits())
 	defer stop(c, dep)
 
 	// Add a subordinate, and wait for it to be deployed.
@@ -148,26 +148,26 @@ func (s *DeployerSuite) TestDeployRecallRemoveSubordinates(c *C) {
 	c.Assert(err, IsNil)
 	sub0, err := s.State.Unit("subsvc0/0")
 	c.Assert(err, IsNil)
-	s.waitFor(c, isDeployed(mgr, sub0.Name()))
+	s.waitFor(c, isDeployed(ctx, sub0.Name()))
 
 	// And another.
 	err = rus[1].EnterScope(nil)
 	c.Assert(err, IsNil)
 	sub1, err := s.State.Unit("subsvc1/0")
 	c.Assert(err, IsNil)
-	s.waitFor(c, isDeployed(mgr, sub0.Name(), sub1.Name()))
+	s.waitFor(c, isDeployed(ctx, sub0.Name(), sub1.Name()))
 
 	// Set one to Dying; check nothing happens.
 	err = sub1.Destroy()
 	c.Assert(err, IsNil)
 	s.State.StartSync()
 	c.Assert(isRemoved(s.State, sub1.Name())(c), Equals, false)
-	s.waitFor(c, isDeployed(mgr, sub0.Name(), sub1.Name()))
+	s.waitFor(c, isDeployed(ctx, sub0.Name(), sub1.Name()))
 
 	// Set the other to Dead; check it's recalled and removed.
 	err = sub0.EnsureDead()
 	c.Assert(err, IsNil)
-	s.waitFor(c, isDeployed(mgr, sub1.Name()))
+	s.waitFor(c, isDeployed(ctx, sub1.Name()))
 	s.waitFor(c, isRemoved(s.State, sub0.Name()))
 }
 
@@ -189,8 +189,8 @@ func (s *DeployerSuite) TestNonAliveSubordinates(c *C) {
 
 	// When we start a new deployer, neither unit will be deployed and
 	// both will be removed.
-	mgr := s.getManager(c, u.EntityName())
-	dep := deployer.NewDeployer(s.State, mgr, u.WatchSubordinateUnits())
+	ctx := s.getContext(c, u.EntityName())
+	dep := deployer.NewDeployer(s.State, ctx, u.WatchSubordinateUnits())
 	defer stop(c, dep)
 	s.waitFor(c, isRemoved(s.State, sub0.Name()))
 	s.waitFor(c, isRemoved(s.State, sub1.Name()))
@@ -215,10 +215,10 @@ func (s *DeployerSuite) waitFor(c *C, t func(c *C) bool) {
 	panic("unreachable")
 }
 
-func isDeployed(mgr deployer.Manager, expected ...string) func(*C) bool {
+func isDeployed(ctx deployer.Context, expected ...string) func(*C) bool {
 	return func(c *C) bool {
 		sort.Strings(expected)
-		current, err := mgr.DeployedUnits()
+		current, err := ctx.DeployedUnits()
 		c.Assert(err, IsNil)
 		sort.Strings(current)
 		return strings.Join(expected, ":") == strings.Join(current, ":")

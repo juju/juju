@@ -11,11 +11,16 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/cert"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
 )
+
+// DefaultDialTimeout is the default amount of time to wait
+// when calling state.Open.
+const DefaultDialTimeout = 10 * time.Minute
 
 // Info encapsulates information about cluster of
 // servers holding juju state and can be used to make a
@@ -40,9 +45,9 @@ type Info struct {
 // Open connects to the server described by the given
 // info, waits for it to be initialized, and returns a new State
 // representing the environment connected to.
-// It returns ErrUnauthorized if access is unauthorized.
-func Open(info *Info) (*State, error) {
-	log.Printf("state: opening state; mongo addresses: %q; entity %q", info.Addrs, info.EntityName)
+// It returns unauthorizedError if access is unauthorized.
+func Open(info *Info, dialTimeout time.Duration) (*State, error) {
+	log.Infof("state: opening state; mongo addresses: %q; entity %q", info.Addrs, info.EntityName)
 	if len(info.Addrs) == 0 {
 		return nil, errors.New("no mongo addresses")
 	}
@@ -60,20 +65,23 @@ func Open(info *Info) (*State, error) {
 		ServerName: "anything",
 	}
 	dial := func(addr net.Addr) (net.Conn, error) {
-		log.Printf("state: connecting to %v", addr)
+		log.Infof("state: connecting to %v", addr)
 		c, err := tls.Dial("tcp", addr.String(), tlsConfig)
 		if err != nil {
-			log.Printf("state: connection failed: %v", err)
+			log.Errorf("state: connection failed: %v", err)
 			return nil, err
 		}
-		log.Printf("state: connection established")
+		log.Infof("state: connection established")
 		return c, err
 	}
 	session, err := mgo.DialWithInfo(&mgo.DialInfo{
 		Addrs:   info.Addrs,
-		Timeout: 10 * time.Minute,
+		Timeout: dialTimeout,
 		Dial:    dial,
 	})
+	if err != nil {
+		return nil, err
+	}
 	st, err := newState(session, info)
 	if err != nil {
 		session.Close()
@@ -84,25 +92,37 @@ func Open(info *Info) (*State, error) {
 
 // Initialize sets up an initial empty state and returns it.
 // This needs to be performed only once for a given environment.
-// It returns ErrUnauthorized if access is unauthorized.
-func Initialize(info *Info, cfg *config.Config) (*State, error) {
-	st, err := Open(info)
+// It returns unauthorizedError if access is unauthorized.
+func Initialize(info *Info, cfg *config.Config, dialTimeout time.Duration) (rst *State, err error) {
+	st, err := Open(info, dialTimeout)
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		if err != nil {
+			st.Close()
+		}
+	}()
 	// A valid environment config is used as a signal that the
 	// state has already been initalized. If this is the case
 	// do nothing.
-	if _, err = st.EnvironConfig(); !IsNotFound(err) {
+	if _, err := st.EnvironConfig(); err == nil {
 		return st, nil
-	}
-	log.Printf("state: storing no-secrets environment configuration")
-	if _, err = createSettings(st, "e", nil); err != nil {
-		st.Close()
+	} else if !IsNotFound(err) {
 		return nil, err
 	}
-	if err = st.SetEnvironConfig(cfg); err != nil {
-		st.Close()
+	log.Infof("state: initializing environment")
+	if cfg.AdminSecret() != "" {
+		return nil, fmt.Errorf("admin-secret should never be written to the state")
+	}
+	ops := []txn.Op{
+		createConstraintsOp(st, "e", constraints.Value{}),
+		createSettingsOp(st, "e", cfg.AllAttrs()),
+	}
+	if err := st.runner.Run(ops, "", nil); err == txn.ErrAborted {
+		// The config was created in the meantime.
+		return st, nil
+	} else if err != nil {
 		return nil, err
 	}
 	return st, nil
@@ -120,6 +140,7 @@ var indexes = []struct {
 	{"units", []string{"service"}},
 	{"units", []string{"principal"}},
 	{"units", []string{"machineid"}},
+	{"users", []string{"name"}},
 }
 
 // The capped collection used for transaction logs defaults to 10MB.
@@ -130,7 +151,30 @@ var (
 	logSizeTests = 1000000
 )
 
-var ErrUnauthorized = errors.New("unauthorized access")
+// unauthorizedError represents the error that an operation is unauthorized.
+// Use IsUnauthorized() to determine if the error was related to authorization failure.
+type unauthorizedError struct {
+	msg string
+	error
+}
+
+func IsUnauthorizedError(err error) bool {
+	_, ok := err.(*unauthorizedError)
+	return ok
+}
+
+func (e *unauthorizedError) Error() string {
+	if e.error != nil {
+		return fmt.Sprintf("%s: %v", e.msg, e.error.Error())
+	}
+	return e.msg
+}
+
+// Unauthorizedf returns an error for which IsUnauthorizedError returns true.
+// It is mainly used for testing.
+func Unauthorizedf(format string, args ...interface{}) error {
+	return &unauthorizedError{fmt.Sprintf(format, args...), nil}
+}
 
 func maybeUnauthorized(err error, msg string) error {
 	if err == nil {
@@ -139,10 +183,10 @@ func maybeUnauthorized(err error, msg string) error {
 	// Unauthorized access errors have no error code,
 	// just a simple error string.
 	if err.Error() == "auth fails" {
-		return ErrUnauthorized
+		return &unauthorizedError{msg, err}
 	}
 	if err, ok := err.(*mgo.QueryError); ok && err.Code == 10057 {
-		return ErrUnauthorized
+		return &unauthorizedError{msg, err}
 	}
 	return fmt.Errorf("%s: %v", msg, err)
 }
@@ -172,10 +216,13 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 		relationScopes: db.C("relationscopes"),
 		services:       db.C("services"),
 		settings:       db.C("settings"),
+		settingsrefs:   db.C("settingsrefs"),
+		constraints:    db.C("constraints"),
 		units:          db.C("units"),
 		users:          db.C("users"),
 		presence:       pdb.C("presence"),
 		cleanups:       db.C("cleanups"),
+		annotations:    db.C("annotations"),
 	}
 	log := db.C("txns.log")
 	logInfo := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
@@ -195,11 +242,13 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 			return nil, fmt.Errorf("cannot create database index: %v", err)
 		}
 	}
+	st.allWatcher = newAllWatcher(newAllWatcherStateBacking(st))
+	go st.allWatcher.run()
 	return st, nil
 }
 
-// Addrs returns the list of addresses used to connect to the state.
-func (st *State) Addrs() (addrs []string) {
+// Addresses returns the list of addresses used to connect to the state.
+func (st *State) Addresses() (addrs []string) {
 	return append(addrs, st.info.Addrs...)
 }
 
@@ -211,8 +260,9 @@ func (st *State) CACert() (cert []byte) {
 func (st *State) Close() error {
 	err1 := st.watcher.Stop()
 	err2 := st.pwatcher.Stop()
+	err3 := st.allWatcher.Stop()
 	st.db.Session.Close()
-	for _, err := range []error{err1, err2} {
+	for _, err := range []error{err1, err2, err3} {
 		if err != nil {
 			return err
 		}

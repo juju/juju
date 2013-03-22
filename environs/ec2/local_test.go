@@ -9,6 +9,7 @@ import (
 	"launchpad.net/goamz/s3/s3test"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
@@ -19,6 +20,35 @@ import (
 	"regexp"
 	"strings"
 )
+
+type ProviderSuite struct{}
+
+var _ = Suite(&ProviderSuite{})
+
+func (s *ProviderSuite) TestMetadata(c *C) {
+	metadataContent := []jujutest.FileContent{
+		{"/2011-01-01/meta-data/instance-id", "dummy.instance.id"},
+		{"/2011-01-01/meta-data/public-hostname", "public.dummy.address.invalid"},
+		{"/2011-01-01/meta-data/local-hostname", "private.dummy.address.invalid"},
+	}
+	ec2.UseTestMetadata(metadataContent)
+	defer ec2.UseTestMetadata(nil)
+
+	p, err := environs.Provider("ec2")
+	c.Assert(err, IsNil)
+
+	addr, err := p.PublicAddress()
+	c.Assert(err, IsNil)
+	c.Assert(addr, Equals, "public.dummy.address.invalid")
+
+	addr, err = p.PrivateAddress()
+	c.Assert(err, IsNil)
+	c.Assert(addr, Equals, "private.dummy.address.invalid")
+
+	id, err := p.InstanceId()
+	c.Assert(err, IsNil)
+	c.Assert(id, Equals, state.InstanceId("dummy.instance.id"))
+}
 
 func registerLocalTests() {
 	// N.B. Make sure the region we use here
@@ -76,7 +106,8 @@ type localLiveSuite struct {
 
 func (t *localLiveSuite) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
-	ec2.UseTestImageData(true)
+	ec2.UseTestImageData(ec2.TestImagesContent)
+	ec2.UseTestInstanceTypeData(ec2.TestInstanceTypeContent)
 	t.srv.startServer(c)
 	t.LiveTests.SetUpSuite(c)
 	t.env = t.LiveTests.Env
@@ -88,7 +119,8 @@ func (t *localLiveSuite) TearDownSuite(c *C) {
 	t.srv.stopServer(c)
 	t.env = nil
 	ec2.ShortTimeouts(false)
-	ec2.UseTestImageData(false)
+	ec2.UseTestImageData(nil)
+	ec2.UseTestInstanceTypeData(nil)
 	t.LoggingSuite.TearDownSuite(c)
 }
 
@@ -179,8 +211,8 @@ type localServerSuite struct {
 
 func (t *localServerSuite) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
-	ec2.UseTestImageData(true)
-	ec2.UseTestMetadata(true)
+	ec2.UseTestImageData(ec2.TestImagesContent)
+	ec2.UseTestInstanceTypeData(ec2.TestInstanceTypeContent)
 	t.Tests.SetUpSuite(c)
 	ec2.ShortTimeouts(true)
 }
@@ -188,8 +220,8 @@ func (t *localServerSuite) SetUpSuite(c *C) {
 func (t *localServerSuite) TearDownSuite(c *C) {
 	t.Tests.TearDownSuite(c)
 	ec2.ShortTimeouts(false)
-	ec2.UseTestMetadata(false)
-	ec2.UseTestImageData(false)
+	ec2.UseTestImageData(nil)
+	ec2.UseTestInstanceTypeData(nil)
 	t.LoggingSuite.TearDownSuite(c)
 }
 
@@ -206,26 +238,24 @@ func (t *localServerSuite) TearDownTest(c *C) {
 	t.LoggingSuite.TearDownTest(c)
 }
 
-func panicWrite(name string, cert, key []byte) error {
-	panic("writeCertAndKey called unexpectedly")
-}
-
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	policy := t.env.AssignmentPolicy()
 	c.Assert(policy, Equals, state.AssignUnused)
 
-	err := environs.Bootstrap(t.env, true, panicWrite)
+	err := environs.UploadTools(t.env)
+	c.Assert(err, IsNil)
+	err = environs.Bootstrap(t.env, constraints.Value{})
 	c.Assert(err, IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
-	state, err := ec2.LoadState(t.env)
+	bootstrapState, err := ec2.LoadState(t.env)
 	c.Assert(err, IsNil)
-	c.Assert(state.StateInstances, HasLen, 1)
+	c.Assert(bootstrapState.StateInstances, HasLen, 1)
 
-	insts, err := t.env.Instances(state.StateInstances)
+	insts, err := t.env.Instances(bootstrapState.StateInstances)
 	c.Assert(err, IsNil)
 	c.Assert(insts, HasLen, 1)
-	c.Check(insts[0].Id(), Equals, state.StateInstances[0])
+	c.Check(insts[0].Id(), Equals, bootstrapState.StateInstances[0])
 
 	info, apiInfo, err := t.env.StateInfo()
 	c.Assert(err, IsNil)
@@ -253,9 +283,10 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	// check that a new instance will be started without
 	// zookeeper, with a machine agent, and without a
 	// provisioning agent.
+	series := version.Current.Series
 	info.EntityName = "machine-1"
 	apiInfo.EntityName = "machine-1"
-	inst1, err := t.env.StartInstance("1", info, apiInfo, nil)
+	inst1, err := t.env.StartInstance("1", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, IsNil)
 	inst = t.srv.ec2srv.Instance(string(inst1.Id()))
 	c.Assert(inst, NotNil)
@@ -268,14 +299,6 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	CheckPackage(c, x, "zookeeperd", false)
 	// TODO check for provisioning agent
 	// TODO check for machine agent
-
-	p := t.env.Provider()
-	addr, err := p.PublicAddress()
-	c.Assert(err, IsNil)
-	c.Assert(addr, Equals, "public.dummy.address.example.com")
-	addr, err = p.PrivateAddress()
-	c.Assert(err, IsNil)
-	c.Assert(addr, Equals, "private.dummy.address.example.com")
 
 	err = t.env.Destroy(append(insts, inst1))
 	c.Assert(err, IsNil)
@@ -351,16 +374,16 @@ type localNonUSEastSuite struct {
 
 func (t *localNonUSEastSuite) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
-	ec2.UseTestImageData(true)
-	ec2.UseTestMetadata(true)
+	ec2.UseTestImageData(ec2.TestImagesContent)
+	ec2.UseTestInstanceTypeData(ec2.TestInstanceTypeContent)
 	t.tests.SetUpSuite(c)
 	ec2.ShortTimeouts(true)
 }
 
 func (t *localNonUSEastSuite) TearDownSuite(c *C) {
 	ec2.ShortTimeouts(false)
-	ec2.UseTestMetadata(false)
-	ec2.UseTestImageData(false)
+	ec2.UseTestImageData(nil)
+	ec2.UseTestInstanceTypeData(nil)
 	t.LoggingSuite.TearDownSuite(c)
 }
 

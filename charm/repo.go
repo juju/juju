@@ -68,7 +68,7 @@ func (s *store) info(curl *URL) (rev int, digest string, err error) {
 		return
 	}
 	for _, w := range info.Warnings {
-		log.Printf("charm: WARNING: charm store reports for %q: %s", key, w)
+		log.Warningf("charm: charm store reports for %q: %s", key, w)
 	}
 	if info.Errors != nil {
 		err = fmt.Errorf(
@@ -89,12 +89,15 @@ func (s *store) Latest(curl *URL) (int, error) {
 // verify returns an error unless a file exists at path with a hex-encoded
 // SHA256 matching digest.
 func verify(path, digest string) error {
-	b, err := ioutil.ReadFile(path)
+	f, err := os.Open(path)
 	if err != nil {
 		return err
 	}
+	defer f.Close()
 	h := sha256.New()
-	h.Write(b)
+	if _, err := io.Copy(h, f); err != nil {
+		return err
+	}
 	if hex.EncodeToString(h.Sum(nil)) != digest {
 		return fmt.Errorf("bad SHA256 of %q", path)
 	}
@@ -210,7 +213,7 @@ func (r *LocalRepository) Get(curl *URL) (Charm, error) {
 		}
 		chPath := filepath.Join(path, info.Name())
 		if ch, err := Read(chPath); err != nil {
-			log.Printf("charm: WARNING: failed to load charm at %q: %s", chPath, err)
+			log.Warningf("charm: failed to load charm at %q: %s", chPath, err)
 		} else if ch.Meta().Name == curl.Name {
 			if ch.Revision() == curl.Revision {
 				return ch, nil

@@ -2,12 +2,14 @@ package store
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/log"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Server is an http.Handler that serves the HTTP API of juju
@@ -102,7 +104,7 @@ func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 		_, err = w.Write(data)
 	}
 	if err != nil {
-		log.Printf("store: cannot write content: %v", err)
+		log.Errorf("store: cannot write content: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -124,7 +126,7 @@ func (s *Server) serveCharm(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		log.Printf("store: cannot open charm %q: %v", curl, err)
+		log.Errorf("store: cannot open charm %q: %v", curl, err)
 		return
 	}
 	if statsEnabled(r) {
@@ -136,7 +138,7 @@ func (s *Server) serveCharm(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Length", strconv.FormatInt(info.BundleSize(), 10))
 	_, err = io.Copy(w, rc)
 	if err != nil {
-		log.Printf("store: failed to stream charm %q: %v", curl, err)
+		log.Errorf("store: failed to stream charm %q: %v", curl, err)
 	}
 }
 
@@ -155,30 +157,106 @@ func (s *Server) serveStats(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
-	key := strings.Split(base, ":")
-	prefix := false
-	if key[len(key)-1] == "*" {
-		prefix = true
-		key = key[:len(key)-1]
-		if len(key) == 0 {
+	r.ParseForm()
+	var by CounterRequestBy
+	switch v := r.Form.Get("by"); v {
+	case "":
+		by = ByAll
+	case "day":
+		by = ByDay
+	case "week":
+		by = ByWeek
+	default:
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("Invalid 'by' value: %q", v)))
+		return
+	}
+	req := CounterRequest{
+		Key:  strings.Split(base, ":"),
+		List: r.Form.Get("list") == "1",
+		By:   by,
+	}
+	if v := r.Form.Get("start"); v != "" {
+		var err error
+		req.Start, err = time.Parse("2006-01-02", v)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(fmt.Sprintf("Invalid 'start' value: %q", v)))
+			return
+		}
+	}
+	if v := r.Form.Get("stop"); v != "" {
+		var err error
+		req.Stop, err = time.Parse("2006-01-02", v)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(fmt.Sprintf("Invalid 'stop' value: %q", v)))
+			return
+		}
+		// Cover all timestamps within the stop day.
+		req.Stop = req.Stop.Add(24*time.Hour - 1*time.Second)
+	}
+	if req.Key[len(req.Key)-1] == "*" {
+		req.Prefix = true
+		req.Key = req.Key[:len(req.Key)-1]
+		if len(req.Key) == 0 {
 			// No point in counting something unknown.
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
 	}
-	r.ParseForm()
-	sum, err := s.store.SumCounter(key, prefix)
+	var format func([]formatItem) []byte
+	switch v := r.Form.Get("format"); v {
+	case "":
+		if !req.List && req.By == ByAll {
+			format = formatCount
+		} else {
+			format = formatText
+		}
+	case "text":
+		format = formatText
+	case "csv":
+		format = formatCSV
+	case "json":
+		format = formatJSON
+	default:
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("Invalid 'format' value: %q", v)))
+		return
+	}
+
+	entries, err := s.store.Counters(&req)
 	if err != nil {
-		log.Printf("store: cannot sum counter: %v", err)
+		log.Errorf("store: cannot query counters: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	data := []byte(strconv.FormatInt(sum, 10))
+
+	var buf []byte
+	var items []formatItem
+	for i := range entries {
+		entry := &entries[i]
+		if req.List {
+			for j := range entry.Key {
+				buf = append(buf, entry.Key[j]...)
+				buf = append(buf, ':')
+			}
+			if entry.Prefix {
+				buf = append(buf, '*')
+			} else {
+				buf = buf[:len(buf)-1]
+			}
+		}
+		items = append(items, formatItem{string(buf), entry.Count, entry.Time})
+		buf = buf[:0]
+	}
+
+	buf = format(items)
 	w.Header().Set("Content-Type", "text/plain")
-	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
-	_, err = w.Write(data)
+	w.Header().Set("Content-Length", strconv.Itoa(len(buf)))
+	_, err = w.Write(buf)
 	if err != nil {
-		log.Printf("store: cannot write content: %v", err)
+		log.Errorf("store: cannot write content: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 }
@@ -188,4 +266,102 @@ func (s *Server) serveBlitzKey(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	w.Header().Set("Content-Length", "2")
 	w.Write([]byte("42"))
+}
+
+type formatItem struct {
+	key   string
+	count int64
+	time  time.Time
+}
+
+func (fi *formatItem) hasKey() bool {
+	return fi.key != ""
+}
+
+func (fi *formatItem) hasTime() bool {
+	return !fi.time.IsZero()
+}
+
+func (fi *formatItem) formatTime() string {
+	return fi.time.Format("2006-01-02")
+}
+
+func formatCount(items []formatItem) []byte {
+	return strconv.AppendInt(nil, items[0].count, 10)
+}
+
+func formatText(items []formatItem) []byte {
+	var maxKeyLength int
+	for i := range items {
+		if l := len(items[i].key); maxKeyLength < l {
+			maxKeyLength = l
+		}
+	}
+	spaces := make([]byte, maxKeyLength+2)
+	for i := range spaces {
+		spaces[i] = ' '
+	}
+	var buf []byte
+	for i := range items {
+		item := &items[i]
+		if item.hasKey() {
+			buf = append(buf, item.key...)
+			buf = append(buf, spaces[len(item.key):]...)
+		}
+		if item.hasTime() {
+			buf = append(buf, item.formatTime()...)
+			buf = append(buf, ' ', ' ')
+		}
+		buf = strconv.AppendInt(buf, item.count, 10)
+		buf = append(buf, '\n')
+	}
+	return buf
+}
+
+func formatCSV(items []formatItem) []byte {
+	var buf []byte
+	for i := range items {
+		item := &items[i]
+		if item.hasKey() {
+			buf = append(buf, item.key...)
+			buf = append(buf, ',')
+		}
+		if item.hasTime() {
+			buf = append(buf, item.formatTime()...)
+			buf = append(buf, ',')
+		}
+		buf = strconv.AppendInt(buf, item.count, 10)
+		buf = append(buf, '\n')
+	}
+	return buf
+}
+
+func formatJSON(items []formatItem) []byte {
+	if len(items) == 0 {
+		return []byte("[]")
+	}
+	var buf []byte
+	buf = append(buf, '[')
+	for i := range items {
+		item := &items[i]
+		if i == 0 {
+			buf = append(buf, '[')
+		} else {
+			buf = append(buf, ',', '[')
+		}
+		if item.hasKey() {
+			buf = append(buf, '"')
+			buf = append(buf, item.key...)
+			buf = append(buf, '"', ',')
+		}
+		if item.hasTime() {
+			buf = append(buf, '"')
+			buf = append(buf, item.formatTime()...)
+			buf = append(buf, '"', ',')
+		}
+		buf = strconv.AppendInt(buf, item.count, 10)
+		buf = append(buf, ']')
+	}
+	buf = append(buf, ']')
+	return buf
 }

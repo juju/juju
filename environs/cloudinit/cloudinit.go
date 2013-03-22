@@ -1,11 +1,12 @@
 package cloudinit
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/cloudinit"
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
@@ -14,6 +15,8 @@ import (
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/upstart"
 	"path"
+	"strings"
+	"text/template"
 )
 
 // MachineConfig represents initialization information for a new juju machine.
@@ -38,13 +41,6 @@ type MachineConfig struct {
 	// if StateServer is true.
 	APIPort int
 
-	// InstanceIdAccessor holds bash code that evaluates to the current instance id.
-	InstanceIdAccessor string
-
-	// ProviderType identifies the provider type so the host
-	// knows which kind of provider to use.
-	ProviderType string
-
 	// StateInfo holds the means for the new instance to communicate with the
 	// juju state. Unless the new machine is running a state server (StateServer is
 	// set), there must be at least one state server address supplied.
@@ -61,6 +57,9 @@ type MachineConfig struct {
 
 	// Tools is juju tools to be used on the new machine.
 	Tools *state.Tools
+
+	// MongoURL is used to retrieve the mongodb tarball.
+	MongoURL string
 
 	// DataDir holds the directory that juju state will be put in the new
 	// machine.
@@ -79,6 +78,9 @@ type MachineConfig struct {
 
 	// Config holds the initial environment configuration.
 	Config *config.Config
+
+	// Constraints holds the initial environment constraints.
+	Constraints constraints.Value
 }
 
 func addScripts(c *cloudinit.Config, scripts ...string) {
@@ -95,6 +97,45 @@ func base64yaml(m *config.Config) string {
 	}
 	return base64.StdEncoding.EncodeToString(data)
 }
+
+// The rsyslog conf for state server nodes.
+// Messages are gathered from other nodes and accumulated in an all-machines.log file.
+const stateServerRsyslogTemplate = `
+$ModLoad imfile
+
+$InputFilePollInterval 5
+$InputFileName /var/log/juju/{{machine}}.log
+$InputFileTag local-juju-{{machine}}:
+$InputFileStateFile {{machine}}
+$InputRunFileMonitor
+
+$ModLoad imudp
+$UDPServerRun 514
+
+# Messages received from remote rsyslog machines contain a leading space so we
+# need to account for that.
+$template JujuLogFormatLocal,"%HOSTNAME%:%msg:::drop-last-lf%\n"
+$template JujuLogFormat,"%HOSTNAME%:%msg:2:2048:drop-last-lf%\n"
+
+:syslogtag, startswith, "juju-" /var/log/juju/all-machines.log;JujuLogFormat
+:syslogtag, startswith, "local-juju-" /var/log/juju/all-machines.log;JujuLogFormatLocal
+& ~
+`
+
+// The rsyslog conf for non-state server nodes.
+// Messages are forwarded to the state server node.
+const nodeRsyslogTemplate = `
+$ModLoad imfile
+
+$InputFilePollInterval 5
+$InputFileName /var/log/juju/{{machine}}.log
+$InputFileTag juju-{{machine}}:
+$InputFileStateFile {{machine}}
+$InputRunFileMonitor
+
+:syslogtag, startswith, "juju-" @{{bootstrapIP}}:514
+& ~
+`
 
 func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	if err := verifyConfig(cfg); err != nil {
@@ -124,15 +165,13 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 		debugFlag = " --debug"
 	}
 
+	var syslogConfTemplate string
 	if cfg.StateServer {
 		certKey := string(cfg.StateServerCert) + string(cfg.StateServerKey)
 		addFile(c, cfg.dataFile("server.pem"), certKey, 0600)
-		// TODO The public bucket must come from the environment configuration.
-		b := cfg.Tools.Binary
-		url := fmt.Sprintf("http://juju-dist.s3.amazonaws.com/tools/mongo-2.2.0-%s-%s.tgz", b.Series, b.Arch)
 		addScripts(c,
 			"mkdir -p /opt",
-			fmt.Sprintf("wget --no-verbose -O - %s | tar xz -C /opt", shquote(url)),
+			fmt.Sprintf("wget --no-verbose -O - %s | tar xz -C /opt", shquote(cfg.MongoURL)),
 		)
 		if err := addMongoToBoot(c, cfg); err != nil {
 			return nil, err
@@ -147,12 +186,42 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 		addScripts(c,
 			cfg.jujuTools()+"/jujud bootstrap-state"+
 				" --data-dir "+shquote(cfg.DataDir)+
-				" --instance-id "+cfg.InstanceIdAccessor+
 				" --env-config "+shquote(base64yaml(cfg.Config))+
+				" --constraints "+shquote(cfg.Constraints.String())+
 				debugFlag,
 			"rm -rf "+shquote(acfg.Dir()),
 		)
+		syslogConfTemplate = stateServerRsyslogTemplate
+	} else {
+		syslogConfTemplate = nodeRsyslogTemplate
 	}
+	var machineName = func() string {
+		return state.MachineEntityName(cfg.MachineId)
+	}
+
+	var bootstrapIP = func() string {
+		addr := cfg.stateHostAddrs()[0]
+		parts := strings.Split(addr, ":")
+		return parts[0]
+	}
+
+	t := template.New("")
+	t.Funcs(template.FuncMap{"machine": machineName})
+	t.Funcs(template.FuncMap{"bootstrapIP": bootstrapIP})
+	// Process the rsyslog config template and echo to the conf file.
+	p, err := t.Parse(syslogConfTemplate)
+	if err != nil {
+		return nil, err
+	}
+	var confBuf bytes.Buffer
+	if err := p.Execute(&confBuf, nil); err != nil {
+		return nil, err
+	}
+	content := confBuf.String()
+	addScripts(c,
+		fmt.Sprintf("cat > /etc/rsyslog.d/25-juju.conf << 'EOF'\n%sEOF\n", content),
+	)
+	c.AddRunCmd("restart rsyslog")
 
 	if _, err := addAgentToBoot(c, cfg, "machine",
 		state.MachineEntityName(cfg.MachineId),
@@ -224,7 +293,7 @@ func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, entityName, a
 	// Make the agent run via a symbolic link to the actual tools
 	// directory, so it can upgrade itself without needing to change
 	// the upstart script.
-	toolsDir := environs.AgentToolsDir(cfg.DataDir, entityName)
+	toolsDir := agent.ToolsDir(cfg.DataDir, entityName)
 	// TODO(dfc) ln -nfs, so it doesn't fail if for some reason that the target already exists
 	addScripts(c, fmt.Sprintf("ln -s %v %s", cfg.Tools.Binary, shquote(toolsDir)))
 
@@ -295,7 +364,7 @@ func versionDir(toolsURL string) string {
 }
 
 func (cfg *MachineConfig) jujuTools() string {
-	return environs.ToolsDir(cfg.DataDir, cfg.Tools.Binary)
+	return agent.SharedToolsDir(cfg.DataDir, cfg.Tools.Binary)
 }
 
 func (cfg *MachineConfig) stateHostAddrs() []string {
@@ -335,9 +404,6 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 	if !state.IsMachineId(cfg.MachineId) {
 		return fmt.Errorf("invalid machine id")
 	}
-	if cfg.ProviderType == "" {
-		return fmt.Errorf("missing provider type")
-	}
 	if cfg.DataDir == "" {
 		return fmt.Errorf("missing var directory")
 	}
@@ -360,9 +426,6 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		return fmt.Errorf("missing API CA certificate")
 	}
 	if cfg.StateServer {
-		if cfg.InstanceIdAccessor == "" {
-			return fmt.Errorf("missing instance id accessor")
-		}
 		if cfg.Config == nil {
 			return fmt.Errorf("missing environment configuration")
 		}

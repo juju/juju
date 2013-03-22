@@ -9,9 +9,11 @@ import (
 
 // RelationSetCommand implements the relation-set command.
 type RelationSetCommand struct {
+	cmd.CommandBase
 	ctx        Context
 	RelationId int
 	Settings   map[string]string
+	formatFlag string // deprecated
 }
 
 func NewRelationSetCommand(ctx Context) cmd.Command {
@@ -20,19 +22,21 @@ func NewRelationSetCommand(ctx Context) cmd.Command {
 
 func (c *RelationSetCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		"relation-set", "key=value [key=value ...]", "set relation settings", "",
+		Name:    "relation-set",
+		Args:    "key=value [key=value ...]",
+		Purpose: "set relation settings",
 	}
 }
 
-func (c *RelationSetCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *RelationSetCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(newRelationIdValue(c.ctx, &c.RelationId), "r", "specify a relation by id")
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
+	f.StringVar(&c.formatFlag, "format", "", "deprecated format flag")
+}
+
+func (c *RelationSetCommand) Init(args []string) error {
 	if c.RelationId == -1 {
 		return fmt.Errorf("no relation id specified")
 	}
-	args = f.Args()
 	if len(args) == 0 {
 		return fmt.Errorf(`expected "key=value" parameters, got nothing`)
 	}
@@ -47,6 +51,9 @@ func (c *RelationSetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 }
 
 func (c *RelationSetCommand) Run(ctx *cmd.Context) (err error) {
+	if c.formatFlag != "" {
+		fmt.Fprintf(ctx.Stderr, "--format flag deprecated for command %q", c.Info().Name)
+	}
 	r, found := c.ctx.Relation(c.RelationId)
 	if !found {
 		return fmt.Errorf("unknown relation id")

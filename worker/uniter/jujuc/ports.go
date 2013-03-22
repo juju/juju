@@ -13,10 +13,12 @@ const portFormat = "<port>[/<protocol>]"
 
 // portCommand implements the open-port and close-port commands.
 type portCommand struct {
-	info     *cmd.Info
-	action   func(*portCommand) error
-	Protocol string
-	Port     int
+	cmd.CommandBase
+	info       *cmd.Info
+	action     func(*portCommand) error
+	Protocol   string
+	Port       int
+	formatFlag string // deprecated
 }
 
 func (c *portCommand) Info() *cmd.Info {
@@ -27,11 +29,11 @@ func badPort(value interface{}) error {
 	return fmt.Errorf(`port must be in the range [1, 65535]; got "%v"`, value)
 }
 
-func (c *portCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	args = f.Args()
+func (c *portCommand) SetFlags(f *gnuflag.FlagSet) {
+	f.StringVar(&c.formatFlag, "format", "", "deprecated format flag")
+}
+
+func (c *portCommand) Init(args []string) error {
 	if args == nil {
 		return errors.New("no port specified")
 	}
@@ -58,13 +60,18 @@ func (c *portCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	return cmd.CheckEmpty(args[1:])
 }
 
-func (c *portCommand) Run(_ *cmd.Context) error {
+func (c *portCommand) Run(ctx *cmd.Context) error {
+	if c.formatFlag != "" {
+		fmt.Fprintf(ctx.Stderr, "--format flag deprecated for command %q", c.Info().Name)
+	}
 	return c.action(c)
 }
 
 var openPortInfo = &cmd.Info{
-	"open-port", portFormat, "register a port to open",
-	"The port will only be open while the service is exposed.",
+	Name:    "open-port",
+	Args:    portFormat,
+	Purpose: "register a port to open",
+	Doc:     "The port will only be open while the service is exposed.",
 }
 
 func NewOpenPortCommand(ctx Context) cmd.Command {
@@ -77,7 +84,9 @@ func NewOpenPortCommand(ctx Context) cmd.Command {
 }
 
 var closePortInfo = &cmd.Info{
-	"close-port", portFormat, "ensure a port is always closed", "",
+	Name:    "close-port",
+	Args:    portFormat,
+	Purpose: "ensure a port is always closed",
 }
 
 func NewClosePortCommand(ctx Context) cmd.Command {

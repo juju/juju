@@ -2,6 +2,7 @@ package uniter_test
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker/uniter"
@@ -16,11 +17,12 @@ import (
 
 type RelationerSuite struct {
 	testing.JujuConnSuite
-	hooks chan hook.Info
-	svc   *state.Service
-	rel   *state.Relation
-	ru    *state.RelationUnit
-	dir   *relation.StateDir
+	hooks   chan hook.Info
+	svc     *state.Service
+	rel     *state.Relation
+	ru      *state.RelationUnit
+	dir     *relation.StateDir
+	dirPath string
 }
 
 var _ = Suite(&RelationerSuite{})
@@ -35,7 +37,8 @@ func (s *RelationerSuite) SetUpTest(c *C) {
 	c.Assert(rels, HasLen, 1)
 	s.rel = rels[0]
 	s.ru = s.AddRelationUnit(c, "u/0")
-	s.dir, err = relation.ReadStateDir(c.MkDir(), s.rel.Id())
+	s.dirPath = c.MkDir()
+	s.dir, err = relation.ReadStateDir(s.dirPath, s.rel.Id())
 	c.Assert(err, IsNil)
 	s.hooks = make(chan hook.Info)
 }
@@ -92,9 +95,15 @@ func (s *RelationerSuite) TestEnterLeaveScope(c *C) {
 	}
 
 	// u/0 leaves scope; u/1 observes it.
-	hi := hook.Info{Kind: hook.RelationBroken}
+	hi := hook.Info{Kind: hooks.RelationBroken}
 	_, err = r.PrepareHook(hi)
 	c.Assert(err, IsNil)
+
+	// Verify PrepareHook created the dir.
+	fi, err := os.Stat(filepath.Join(s.dirPath, strconv.Itoa(s.rel.Id())))
+	c.Assert(err, IsNil)
+	c.Assert(fi.IsDir(), Equals, true)
+
 	err = r.CommitHook(hi)
 	c.Assert(err, IsNil)
 	s.State.StartSync()
@@ -134,12 +143,12 @@ func (s *RelationerSuite) TestStartStopHooks(c *C) {
 	err = ru1.EnterScope(settings)
 	c.Assert(err, IsNil)
 	s.assertHook(c, hook.Info{
-		Kind:       hook.RelationJoined,
+		Kind:       hooks.RelationJoined,
 		RemoteUnit: "u/1",
 		Members:    map[string]map[string]interface{}{"u/1": settings},
 	})
 	s.assertHook(c, hook.Info{
-		Kind:       hook.RelationChanged,
+		Kind:       hooks.RelationChanged,
 		RemoteUnit: "u/1",
 		Members:    map[string]map[string]interface{}{"u/1": settings},
 	})
@@ -168,12 +177,12 @@ func (s *RelationerSuite) TestStartStopHooks(c *C) {
 	r.StartHooks()
 	defer stopHooks(c, r)
 	s.assertHook(c, hook.Info{
-		Kind:       hook.RelationDeparted,
+		Kind:       hooks.RelationDeparted,
 		RemoteUnit: "u/1",
 		Members:    map[string]map[string]interface{}{},
 	})
 	s.assertHook(c, hook.Info{
-		Kind:          hook.RelationJoined,
+		Kind:          hooks.RelationJoined,
 		ChangeVersion: 1,
 		RemoteUnit:    "u/2",
 		Members: map[string]map[string]interface{}{
@@ -181,7 +190,7 @@ func (s *RelationerSuite) TestStartStopHooks(c *C) {
 		},
 	})
 	s.assertHook(c, hook.Info{
-		Kind:          hook.RelationChanged,
+		Kind:          hooks.RelationChanged,
 		ChangeVersion: 1,
 		RemoteUnit:    "u/2",
 		Members: map[string]map[string]interface{}{
@@ -205,7 +214,7 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 
 	// Check preparing an invalid hook changes nothing.
 	changed := hook.Info{
-		Kind:          hook.RelationChanged,
+		Kind:          hooks.RelationChanged,
 		RemoteUnit:    "u/1",
 		ChangeVersion: 7,
 		Members: map[string]map[string]interface{}{
@@ -220,7 +229,7 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 	// Check preparing a valid hook updates the context, but not persistent
 	// relation state.
 	joined := hook.Info{
-		Kind:       hook.RelationJoined,
+		Kind:       hooks.RelationJoined,
 		RemoteUnit: "u/1",
 		Members: map[string]map[string]interface{}{
 			"u/1": {"private-address": "u-1.example.com"},
@@ -303,7 +312,7 @@ func (s *RelationerSuite) TestSetDying(c *C) {
 	r.StartHooks()
 	defer stopHooks(c, r)
 	s.assertHook(c, hook.Info{
-		Kind:       hook.RelationJoined,
+		Kind:       hooks.RelationJoined,
 		RemoteUnit: "u/1",
 		Members: map[string]map[string]interface{}{
 			"u/1": settings,
@@ -323,12 +332,12 @@ func (s *RelationerSuite) TestSetDying(c *C) {
 	// ...but the hook stream continues, sending the required changed hook for
 	// u/1 before moving on to a departed, despite the fact that its pinger is
 	// still running, and closing with a broken.
-	s.assertHook(c, hook.Info{Kind: hook.RelationChanged, RemoteUnit: "u/1"})
-	s.assertHook(c, hook.Info{Kind: hook.RelationDeparted, RemoteUnit: "u/1"})
-	s.assertHook(c, hook.Info{Kind: hook.RelationBroken})
+	s.assertHook(c, hook.Info{Kind: hooks.RelationChanged, RemoteUnit: "u/1"})
+	s.assertHook(c, hook.Info{Kind: hooks.RelationDeparted, RemoteUnit: "u/1"})
+	s.assertHook(c, hook.Info{Kind: hooks.RelationBroken})
 
 	// Check that the relation state has been broken.
-	err = s.dir.State().Validate(hook.Info{Kind: hook.RelationBroken})
+	err = s.dir.State().Validate(hook.Info{Kind: hooks.RelationBroken})
 	c.Assert(err, ErrorMatches, ".*: relation is broken and cannot be changed further")
 }
 
@@ -343,6 +352,8 @@ func (s *RelationerSuite) assertNoHook(c *C) {
 
 func (s *RelationerSuite) assertHook(c *C, expect hook.Info) {
 	s.State.StartSync()
+	// We must ensure the local state dir exists first.
+	c.Assert(s.dir.Ensure(), IsNil)
 	select {
 	case hi, ok := <-s.hooks:
 		c.Assert(ok, Equals, true)
@@ -395,12 +406,11 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *C) {
 	r := uniter.NewRelationer(ru, dir, hooks)
 	c.Assert(r.IsImplicit(), Equals, true)
 
-	// Join the relationer; check the dir was created and scope was entered.
+	// Join the relationer; the dir won't be created until necessary
 	err = r.Join()
 	c.Assert(err, IsNil)
-	fi, err := os.Stat(filepath.Join(relsDir, strconv.Itoa(rel.Id())))
-	c.Assert(err, IsNil)
-	c.Assert(fi.IsDir(), Equals, true)
+	_, err = os.Stat(filepath.Join(relsDir, strconv.Itoa(rel.Id())))
+	c.Assert(err, NotNil)
 	sub, err := logging.Unit("logging/0")
 	c.Assert(err, IsNil)
 	err = sub.SetPrivateAddress("blah")

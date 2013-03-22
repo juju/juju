@@ -15,13 +15,13 @@ compatible with GOPATH. While it is possible to manage bzr branches manually,
 the remainder of this document will assume cobzr is in use as practiced by the
 juju-core team.
 
-To install `cobzr`, 
+To install `cobzr`,
 
     go get launchpad.net/cobzr
 
 TODO(dfc) document PPA version
 
-It is recommended to use alias `cobzr` to `bzr`. 
+It is recommended to use alias `cobzr` to `bzr`.
 
     alias bzr=cobzr
 
@@ -46,7 +46,7 @@ Branching
 All changes to `juju-core` must be performed on a branch, that branch reviewed,
 then submitted. An overview of the commands used to do so follows. These
 examples use the `bzr` command, which is assumed to be aliased to `cobzr`, as
-described above. It is also assumed that your working directory is 
+described above. It is also assumed that your working directory is
 $GOPATH/src/launchpad.net/juju-core.
 
 First, create a branch for your change using the following command
@@ -58,10 +58,6 @@ your local workspace. Importantly this will not switch to this branch immediatel
 so to switch to this branch use the following
 
     bzr switch add-CONTRIBUTING
-
-Alternatively, you can combine the two operations using the `-b` flag
-
-    bzr branch -b lp:juju-core/ add-CONTRIBUTING
 
 At this point your previous branch will be stashed and the working copy updated
 to match the state of the `add-CONTRIBUTING` branch. You must ensure any
@@ -89,13 +85,13 @@ a single `go test` test per package, the usual `go test -v` flags are less
 useful. As a replacement the following commands produce more output from
 `gocheck`.
 
-    go test -gocheck.v 
+    go test -gocheck.v
 
 is similar to `go test -v` and outputs the name of each test as it is run as
 well as any logging statements. It is important to note that these statements
 are buffered until the test completes.
 
-    go test -gocheck.vv 
+    go test -gocheck.vv
 
 extends the previous example by outputting any logging data immediately, rather
 than waiting for the test to complete. By default `gocheck` will run all tests
@@ -116,8 +112,8 @@ is not recursive, the following commands are equal, and will produce no output.
 Proposing
 =========
 
-All code review is done on rietveld (http://code.google.com/p/rietveld/), not 
-launchpad.
+All code review is done on rietveld (http://code.google.com/p/rietveld/), not
+on launchpad.
 
 Note: If this is your first time using `lbox` you will also be prompted to visit
 lauchpad to authorise an oauth token for `lbox`
@@ -161,7 +157,7 @@ By default, lbox creates a new bug in launchpad for each proposed branch, and
 assigns the branch to it. If you wish to assign it to an existing bug instead,
 use the `-bug` flag to link the branch inside launchpad.
 
-    lbox propose -bug 1234567 
+    lbox propose -bug 1234567
 
 There is currently a bug with `lbox` when linking a branch to a bug which sets
 the milestone field to the last milestone defined on the project. Generally

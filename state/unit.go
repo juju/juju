@@ -31,6 +31,7 @@ const (
 	// AssignLocal indicates that all service units should be assigned
 	// to machine 0.
 	AssignLocal AssignmentPolicy = "local"
+
 	// AssignUnused indicates that every service unit should be assigned
 	// to a dedicated machine, and that new machines should be launched
 	// if required.
@@ -70,6 +71,7 @@ type UnitSettings struct {
 type unitDoc struct {
 	Name           string `bson:"_id"`
 	Service        string
+	Series         string
 	CharmURL       *charm.URL
 	Principal      string
 	Subordinates   []string
@@ -90,18 +92,50 @@ type unitDoc struct {
 type Unit struct {
 	st  *State
 	doc unitDoc
+	annotator
 }
 
 func newUnit(st *State, udoc *unitDoc) *Unit {
-	return &Unit{
+	unit := &Unit{
 		st:  st,
 		doc: *udoc,
 	}
+	unit.annotator = annotator{
+		globalKey:  unit.globalKey(),
+		entityName: unit.EntityName(),
+		st:         st,
+	}
+	return unit
 }
 
 // Service returns the service.
 func (u *Unit) Service() (*Service, error) {
 	return u.st.Service(u.doc.Service)
+}
+
+// ServiceConfig returns the contents of this unit's service configuration.
+func (u *Unit) ServiceConfig() (map[string]interface{}, error) {
+	if u.doc.CharmURL == nil {
+		return nil, fmt.Errorf("unit charm not set")
+	}
+	settings, err := readSettings(u.st, serviceSettingsKey(u.doc.Service, u.doc.CharmURL))
+	if err != nil {
+		return nil, err
+	}
+	charm, err := u.st.Charm(u.doc.CharmURL)
+	if err != nil {
+		return nil, err
+	}
+	// Build a dictionary containing charm defaults, and overwrite any
+	// values that have actually been set.
+	cfg, err := charm.Config().Validate(nil)
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range settings.Map() {
+		cfg[k] = v
+	}
+	return cfg, nil
 }
 
 // ServiceName returns the service name.
@@ -130,10 +164,10 @@ func (u *Unit) Life() Life {
 }
 
 // AgentTools returns the tools that the agent is currently running.
-// It returns a *NotFoundError if the tools have not yet been set.
+// It an error that satisfies IsNotFound if the tools have not yet been set.
 func (u *Unit) AgentTools() (*Tools, error) {
 	if u.doc.Tools == nil {
-		return nil, notFoundf("agent tools for unit %q", u)
+		return nil, NotFoundf("agent tools for unit %q", u)
 	}
 	tools := *u.doc.Tools
 	return &tools, nil
@@ -248,9 +282,12 @@ func (u *Unit) Remove() (err error) {
 	if err != nil {
 		return err
 	}
-	unit := &Unit{u.st, u.doc}
+	unit := &Unit{st: u.st, doc: u.doc}
 	for i := 0; i < 5; i++ {
-		ops := svc.removeUnitOps(unit)
+		ops, err := svc.removeUnitOps(unit)
+		if err != nil {
+			return err
+		}
 		if err := svc.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
 			return err
 		}
@@ -308,11 +345,11 @@ func (u *Unit) PrivateAddress() (string, bool) {
 }
 
 // Refresh refreshes the contents of the Unit from the underlying
-// state. It returns a NotFoundError if the unit has been removed.
+// state. It an error that satisfies IsNotFound if the unit has been removed.
 func (u *Unit) Refresh() error {
 	err := u.st.units.FindId(u.doc.Name).One(&u.doc)
 	if err == mgo.ErrNotFound {
-		return notFoundf("unit %q", u)
+		return NotFoundf("unit %q", u)
 	}
 	if err != nil {
 		return fmt.Errorf("cannot refresh unit %q: %v", u, err)
@@ -425,27 +462,73 @@ func (u *Unit) OpenedPorts() []Port {
 	return ports
 }
 
-// Charm returns the charm this unit is currently using.
-func (u *Unit) Charm() (ch *Charm, err error) {
+// CharmURL returns the charm URL this unit is currently using.
+func (u *Unit) CharmURL() (*charm.URL, bool) {
 	if u.doc.CharmURL == nil {
-		return nil, fmt.Errorf("charm URL of unit %q not found", u)
+		return nil, false
 	}
-	return u.st.Charm(u.doc.CharmURL)
+	return u.doc.CharmURL, true
 }
 
-// SetCharm marks the unit as currently using the supplied charm.
-func (u *Unit) SetCharm(ch *Charm) (err error) {
-	ops := []txn.Op{{
-		C:      u.st.units.Name,
-		Id:     u.doc.Name,
-		Assert: notDeadDoc,
-		Update: D{{"$set", D{{"charmurl", ch.URL()}}}},
-	}}
-	if err := u.st.runner.Run(ops, "", nil); err != nil {
-		return fmt.Errorf("cannot set charm for unit %q: %v", u, onAbort(err, errNotAlive))
+// SetCharmURL marks the unit as currently using the supplied charm URL.
+// An error will be returned if the unit is dead, or the charm URL not known.
+func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
+	defer func() {
+		if err == nil {
+			u.doc.CharmURL = curl
+		}
+	}()
+	if curl == nil {
+		return fmt.Errorf("cannot set nil charm url")
 	}
-	u.doc.CharmURL = ch.URL()
-	return nil
+	for i := 0; i < 5; i++ {
+		if notDead, err := isNotDead(u.st.units, u.doc.Name); err != nil {
+			return err
+		} else if !notDead {
+			return fmt.Errorf("unit %q is dead", u)
+		}
+		sel := D{{"_id", u.doc.Name}, {"charmurl", curl}}
+		if count, err := u.st.units.Find(sel).Count(); err != nil {
+			return err
+		} else if count == 1 {
+			// Already set
+			return nil
+		}
+		if count, err := u.st.charms.FindId(curl).Count(); err != nil {
+			return err
+		} else if count < 1 {
+			return fmt.Errorf("unknown charm url %q", curl)
+		}
+
+		// Add a reference to the service settings for the new charm.
+		incOp, err := settingsIncRefOp(u.st, u.doc.Service, curl, false)
+		if err != nil {
+			return err
+		}
+
+		// Set the new charm URL.
+		differentCharm := D{{"charmurl", D{{"$ne", curl}}}}
+		ops := []txn.Op{
+			incOp,
+			{
+				C:      u.st.units.Name,
+				Id:     u.doc.Name,
+				Assert: append(notDeadDoc, differentCharm...),
+				Update: D{{"$set", D{{"charmurl", curl}}}},
+			}}
+		if u.doc.CharmURL != nil {
+			// Drop the reference to the old charm.
+			decOps, err := settingsDecRefOps(u.st, u.doc.Service, u.doc.CharmURL)
+			if err != nil {
+				return err
+			}
+			ops = append(ops, decOps...)
+		}
+		if err := u.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+			return err
+		}
+	}
+	return ErrExcessiveContention
 }
 
 // AgentAlive returns whether the respective remote agent is alive.
@@ -506,6 +589,11 @@ func (e *NotAssignedError) Error() string {
 	return fmt.Sprintf("unit %q is not assigned to a machine", e.Unit)
 }
 
+func IsNotAssigned(err error) bool {
+	_, ok := err.(*NotAssignedError)
+	return ok
+}
+
 // AssignedMachineId returns the id of the assigned machine.
 func (u *Unit) AssignedMachineId() (id string, err error) {
 	if u.IsPrincipal() {
@@ -517,7 +605,7 @@ func (u *Unit) AssignedMachineId() (id string, err error) {
 	pudoc := unitDoc{}
 	err = u.st.units.Find(D{{"_id", u.doc.Principal}}).One(&pudoc)
 	if err == mgo.ErrNotFound {
-		return "", notFoundf("cannot get machine id of unit %q: principal %q", u, u.doc.Principal)
+		return "", NotFoundf("cannot get machine id of unit %q: principal %q", u, u.doc.Principal)
 	} else if err != nil {
 		return "", err
 	}
@@ -542,6 +630,9 @@ var (
 // - alreadyAssignedErr when the unit has already been assigned
 // - inUseErr when the machine already has a unit assigned (if unused is true)
 func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
+	if u.doc.Series != m.doc.Series {
+		return fmt.Errorf("series does not match")
+	}
 	if u.doc.MachineId != "" {
 		if u.doc.MachineId != m.Id() {
 			return alreadyAssignedErr
@@ -618,14 +709,18 @@ func (u *Unit) AssignToMachine(m *Machine) error {
 	return nil
 }
 
-var noUnusedMachines = errors.New("all machines in use")
+var noUnusedMachines = errors.New("all eligible machines in use")
 
 // AssignToUnusedMachine assigns u to a machine without other units.
 // If there are no unused machines besides machine 0, an error is returned.
 func (u *Unit) AssignToUnusedMachine() (m *Machine, err error) {
 	// Select all machines that can accept principal units but have none assigned.
-	sel := D{{"principals", D{{"$size", 0}}}, {"jobs", JobHostUnits}}
-	query := u.st.machines.Find(sel)
+	query := u.st.machines.Find(D{
+		{"life", Alive},
+		{"series", u.doc.Series},
+		{"jobs", JobHostUnits},
+		{"principals", D{{"$size", 0}}},
+	})
 
 	// TODO use Batch(1). See https://bugs.launchpad.net/mgo/+bug/1053509
 	// TODO(rog) Fix so this is more efficient when there are concurrent uses.
@@ -671,7 +766,7 @@ func (u *Unit) UnassignFromMachine() (err error) {
 	}
 	err = u.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, onAbort(err, notFoundf("machine")))
+		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, onAbort(err, NotFoundf("machine")))
 	}
 	u.doc.MachineId = ""
 	return nil
@@ -686,7 +781,7 @@ func (u *Unit) SetPublicAddress(address string) (err error) {
 		Update: D{{"$set", D{{"publicaddress", address}}}},
 	}}
 	if err := u.st.runner.Run(ops, "", nil); err != nil {
-		return fmt.Errorf("cannot set public address of unit %q: %v", u, onAbort(err, notFoundf("machine")))
+		return fmt.Errorf("cannot set public address of unit %q: %v", u, onAbort(err, NotFoundf("machine")))
 	}
 	u.doc.PublicAddress = address
 	return nil
@@ -702,7 +797,7 @@ func (u *Unit) SetPrivateAddress(address string) error {
 	}}
 	err := u.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot set private address of unit %q: %v", u, notFoundf("unit"))
+		return fmt.Errorf("cannot set private address of unit %q: %v", u, NotFoundf("unit"))
 	}
 	u.doc.PrivateAddress = address
 	return nil
@@ -756,7 +851,7 @@ func (u *Unit) ClearResolved() error {
 	}}
 	err := u.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot clear resolved mode for unit %q: %v", u, notFoundf("unit"))
+		return fmt.Errorf("cannot clear resolved mode for unit %q: %v", u, NotFoundf("unit"))
 	}
 	u.doc.Resolved = ResolvedNone
 	return nil

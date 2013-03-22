@@ -7,6 +7,7 @@ import (
 
 // ConfigGetCommand implements the config-get command.
 type ConfigGetCommand struct {
+	cmd.CommandBase
 	ctx Context
 	Key string // The key to show. If empty, show all.
 	out cmd.Output
@@ -18,18 +19,18 @@ func NewConfigGetCommand(ctx Context) cmd.Command {
 
 func (c *ConfigGetCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		"config-get", "[<key>]",
-		"print service configuration",
-		"If a key is given, only the value for that key will be printed.",
+		Name:    "config-get",
+		Args:    "[<key>]",
+		Purpose: "print service configuration",
+		Doc:     "If a key is given, only the value for that key will be printed.",
 	}
 }
 
-func (c *ConfigGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *ConfigGetCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
-	if err := f.Parse(true, args); err != nil {
-		return err
-	}
-	args = f.Args()
+}
+
+func (c *ConfigGetCommand) Init(args []string) error {
 	if args == nil {
 		return nil
 	}

@@ -127,9 +127,8 @@ func (s *FirewallerSuite) setGlobalMode(c *C) func(*C) {
 
 // startInstance starts a new instance for the given machine.
 func (s *FirewallerSuite) startInstance(c *C, m *state.Machine) environs.Instance {
-	inst, err := s.Conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), testing.InvalidAPIInfo(m.Id()), nil)
-	c.Assert(err, IsNil)
-	err = m.SetInstanceId(inst.Id())
+	inst := testing.StartInstance(c, s.Conn.Environ, m.Id())
+	err := m.SetInstanceId(inst.Id())
 	c.Assert(err, IsNil)
 	return inst
 }
@@ -302,7 +301,7 @@ func (s *FirewallerSuite) TestStartWithState(c *C) {
 }
 
 func (s *FirewallerSuite) TestStartWithPartialState(c *C) {
-	m, err := s.State.AddMachine(state.JobHostUnits)
+	m, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	inst := s.startInstance(c, m)
 
@@ -329,7 +328,7 @@ func (s *FirewallerSuite) TestStartWithPartialState(c *C) {
 }
 
 func (s *FirewallerSuite) TestStartWithUnexposedService(c *C) {
-	m, err := s.State.AddMachine(state.JobHostUnits)
+	m, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	inst := s.startInstance(c, m)
 
@@ -608,7 +607,7 @@ func (s *FirewallerSuite) TestGlobalModeStartWithUnexposedService(c *C) {
 	restore := s.setGlobalMode(c)
 	defer restore(c)
 
-	m, err := s.State.AddMachine(state.JobHostUnits)
+	m, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	s.startInstance(c, m)
 

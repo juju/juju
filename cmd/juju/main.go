@@ -1,7 +1,6 @@
 package main
 
 import (
-	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"os"
 )
@@ -25,34 +24,48 @@ https://juju.ubuntu.com/
 // to the cmd package. This function is not redundant with main, because it
 // provides an entry point for testing with arbitrary command line arguments.
 func Main(args []string) {
-	juju := &cmd.SuperCommand{Name: "juju", Doc: jujuDoc, Log: &cmd.Log{}}
-	juju.Register(&AddRelationCommand{})
-	juju.Register(&AddUnitCommand{})
+	juju := cmd.NewSuperCommand(cmd.SuperCommandParams{
+		Name: "juju",
+		Doc:  jujuDoc,
+		Log:  &cmd.Log{},
+	})
+	juju.AddHelpTopic("basics", "Basic commands", helpBasics)
+
+	// Register creation commands.
 	juju.Register(&BootstrapCommand{})
 	juju.Register(&DeployCommand{})
-	juju.Register(&DestroyEnvironmentCommand{})
-	juju.Register(&DestroyMachineCommand{}, "terminate-machine")
-	juju.Register(&DestroyRelationCommand{}, "remove-relation")
+	juju.Register(&AddRelationCommand{})
+	juju.Register(&AddUnitCommand{})
+
+	// Register destruction commands.
+	juju.Register(&DestroyMachineCommand{})
+	juju.Register(&DestroyRelationCommand{})
 	juju.Register(&DestroyServiceCommand{})
-	juju.Register(&DestroyUnitCommand{}, "remove-unit")
-	juju.Register(&ExposeCommand{})
-	juju.Register(&GenerateConfigCommand{})
-	juju.Register(&GetCommand{})
-	juju.Register(&ResolvedCommand{})
-	juju.Register(&SetCommand{})
+	juju.Register(&DestroyUnitCommand{})
+	juju.Register(&DestroyEnvironmentCommand{})
+
+	// Register error resolution commands.
+	juju.Register(&StatusCommand{})
 	juju.Register(&SCPCommand{})
 	juju.Register(&SSHCommand{})
-	juju.Register(&StatusCommand{})
+	juju.Register(&ResolvedCommand{})
+
+	// Register configuration commands.
+	juju.Register(&InitCommand{})
+	juju.Register(&GetCommand{})
+	juju.Register(&SetCommand{})
+	juju.Register(&GetConstraintsCommand{})
+	juju.Register(&SetConstraintsCommand{})
+	juju.Register(&ExposeCommand{})
 	juju.Register(&UnexposeCommand{})
 	juju.Register(&UpgradeJujuCommand{})
+
+	// register common commands
+	juju.Register(&cmd.VersionCommand{})
+
 	os.Exit(cmd.Main(juju, cmd.DefaultContext(), args[1:]))
 }
 
 func main() {
 	Main(os.Args)
-}
-
-func addEnvironFlags(name *string, f *gnuflag.FlagSet) {
-	f.StringVar(name, "e", "", "juju environment to operate in")
-	f.StringVar(name, "environment", "", "")
 }

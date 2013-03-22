@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
+	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/testing"
@@ -13,7 +14,7 @@ import (
 )
 
 func repoMeta(name string) io.Reader {
-	charmDir := testing.Charms.DirPath("series", name)
+	charmDir := testing.Charms.DirPath(name)
 	file, err := os.Open(filepath.Join(charmDir, "metadata.yaml"))
 	if err != nil {
 		panic(err)
@@ -47,6 +48,13 @@ func (s *MetaSuite) TestReadMetaVersion2(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(meta.Name, Equals, "format2")
 	c.Assert(meta.Format, Equals, 2)
+	c.Assert(meta.Categories, HasLen, 0)
+}
+
+func (s *MetaSuite) TestReadCategory(c *C) {
+	meta, err := charm.ReadMeta(repoMeta("category"))
+	c.Assert(err, IsNil)
+	c.Assert(meta.Categories, DeepEquals, []string{"database"})
 }
 
 func (s *MetaSuite) TestSubordinate(c *C) {
@@ -224,4 +232,86 @@ func (s *MetaSuite) TestIfaceExpander(c *C) {
 	v, err = e.Coerce(map[string]interface{}{"interface": "http"}, path)
 	c.Assert(err, IsNil)
 	c.Assert(v, DeepEquals, map[string]interface{}{"interface": "http", "limit": int64(1), "optional": false, "scope": string(charm.ScopeGlobal)})
+}
+
+func (s *MetaSuite) TestMetaHooks(c *C) {
+	meta, err := charm.ReadMeta(repoMeta("wordpress"))
+	c.Assert(err, IsNil)
+	hooks := meta.Hooks()
+	expectedHooks := map[string]bool{
+		"install":                       true,
+		"start":                         true,
+		"config-changed":                true,
+		"upgrade-charm":                 true,
+		"stop":                          true,
+		"cache-relation-joined":         true,
+		"cache-relation-changed":        true,
+		"cache-relation-departed":       true,
+		"cache-relation-broken":         true,
+		"db-relation-joined":            true,
+		"db-relation-changed":           true,
+		"db-relation-departed":          true,
+		"db-relation-broken":            true,
+		"logging-dir-relation-joined":   true,
+		"logging-dir-relation-changed":  true,
+		"logging-dir-relation-departed": true,
+		"logging-dir-relation-broken":   true,
+		"url-relation-joined":           true,
+		"url-relation-changed":          true,
+		"url-relation-departed":         true,
+		"url-relation-broken":           true,
+	}
+	c.Assert(hooks, DeepEquals, expectedHooks)
+}
+
+func (s *MetaSuite) TestBSONRoundTripEmpty(c *C) {
+	var empty_input = charm.Meta{}
+	data, err := bson.Marshal(empty_input)
+	c.Assert(err, IsNil)
+	var empty_output charm.Meta
+	err = bson.Unmarshal(data, &empty_output)
+	c.Assert(err, IsNil)
+	c.Assert(empty_input, DeepEquals, empty_output)
+}
+
+func (s *MetaSuite) TestBSONRoundTrip(c *C) {
+	var input = charm.Meta{
+		Name:        "Foo",
+		Summary:     "Bar",
+		Description: "Baz",
+		Subordinate: true,
+		Provides: map[string]charm.Relation{
+			"qux": {
+				Interface: "quxx",
+				Optional:  true,
+				Limit:     42,
+				Scope:     "quxxx",
+			},
+		},
+		Requires: map[string]charm.Relation{
+			"qux": {
+				Interface: "quxx",
+				Optional:  true,
+				Limit:     42,
+				Scope:     "quxxx",
+			},
+		},
+		Peers: map[string]charm.Relation{
+			"qux": {
+				Interface: "quxx",
+				Optional:  true,
+				Limit:     42,
+				Scope:     "quxxx",
+			},
+		},
+		Categories:  []string{"quxxxx", "quxxxxx"},
+		Format:      10,
+		OldRevision: 11,
+	}
+	data, err := bson.Marshal(input)
+	c.Assert(err, IsNil)
+	var output charm.Meta
+	err = bson.Unmarshal(data, &output)
+	c.Assert(err, IsNil)
+	c.Assert(input, DeepEquals, output)
 }
