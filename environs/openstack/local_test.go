@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/version"
 	"net/http"
 	"net/http/httptest"
 )
@@ -257,8 +258,7 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *C) {
 	defer cleanup()
 	err := environs.Bootstrap(s.Env, constraints.Value{})
 	c.Assert(err, IsNil)
-	inst, err := s.Env.StartInstance("100", constraints.Value{}, testing.InvalidStateInfo("100"), testing.InvalidAPIInfo("100"), nil)
-	c.Assert(err, IsNil)
+	inst := testing.StartInstance(c, s.Env, "100")
 	err = s.Env.StopInstances([]environs.Instance{inst})
 	c.Assert(err, IsNil)
 }
@@ -311,11 +311,9 @@ var instanceGathering = []struct {
 }
 
 func (s *localServerSuite) TestInstancesGathering(c *C) {
-	inst0, err := s.Env.StartInstance("100", constraints.Value{}, testing.InvalidStateInfo("100"), testing.InvalidAPIInfo("100"), nil)
-	c.Assert(err, IsNil)
+	inst0 := testing.StartInstance(c, s.Env, "100")
 	id0 := inst0.Id()
-	inst1, err := s.Env.StartInstance("101", constraints.Value{}, testing.InvalidStateInfo("101"), testing.InvalidAPIInfo("101"), nil)
-	c.Assert(err, IsNil)
+	inst1 := testing.StartInstance(c, s.Env, "101")
 	id1 := inst1.Id()
 	defer func() {
 		err := s.Env.StopInstances([]environs.Instance{inst0, inst1})
@@ -383,9 +381,10 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 
 	// check that a new instance will be started with a machine agent,
 	// and without a provisioning agent.
+	series := version.Current.Series
 	info.EntityName = "machine-1"
 	apiInfo.EntityName = "machine-1"
-	inst1, err := t.env.StartInstance("1", constraints.Value{}, info, apiInfo, nil)
+	inst1, err := t.env.StartInstance("1", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, IsNil)
 
 	err = t.env.Destroy(append(insts, inst1))
