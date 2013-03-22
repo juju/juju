@@ -12,6 +12,7 @@ import (
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
@@ -427,7 +428,7 @@ func findTools(env *environ) (*state.Tools, error) {
 	return environs.FindTools(env, v, flags)
 }
 
-func (e *environ) Bootstrap(cons state.Constraints, cert, key []byte) error {
+func (e *environ) Bootstrap(cons constraints.Value, cert, key []byte) error {
 	password := e.Config().AdminSecret()
 	if password == "" {
 		return fmt.Errorf("admin-secret is required for bootstrap")
@@ -469,6 +470,7 @@ func (e *environ) Bootstrap(cons state.Constraints, cert, key []byte) error {
 	mongoURL := environs.MongoURL(e, v)
 	inst, err := e.startInstance(&startInstanceParams{
 		machineId: "0",
+		series:    tools.Series,
 		info: &state.Info{
 			Password: trivial.PasswordHash(password),
 			CACert:   caCert,
@@ -629,25 +631,27 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (e *environ) StartInstance(machineId string, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
 	return e.startInstance(&startInstanceParams{
 		machineId:    machineId,
+		series:       series,
+		constraints:  cons,
 		info:         info,
 		apiInfo:      apiInfo,
-		tools:        tools,
 		withPublicIP: e.ecfg().useFloatingIP(),
 	})
 }
 
 type startInstanceParams struct {
 	machineId       string
+	series          string
 	info            *state.Info
 	apiInfo         *api.Info
 	tools           *state.Tools
 	mongoURL        string
 	stateServer     bool
 	config          *config.Config
-	constraints     state.Constraints
+	constraints     constraints.Value
 	stateServerCert []byte
 	stateServerKey  []byte
 
@@ -748,10 +752,14 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 			log.Infof("environs/openstack: allocated public IP %s", publicIP.IP)
 		}
 	}
+	// TODO(fwereade): use scfg.constraints to pick instance spec before
+	// settling on tools.
 	if scfg.tools == nil {
 		var err error
 		flags := environs.HighestVersion | environs.CompatVersion
-		scfg.tools, err = environs.FindTools(e, version.Current, flags)
+		v := version.Current
+		v.Series = scfg.series
+		scfg.tools, err = environs.FindTools(e, v, flags)
 		if err != nil {
 			return nil, err
 		}

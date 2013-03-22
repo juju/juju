@@ -88,7 +88,7 @@ func (s *ProvisionerSuite) checkStartInstance(c *C, m *state.Machine, secret str
 
 				// Check we can connect to the state with
 				// the machine's entity name and password.
-				st, err := state.Open(o.Info)
+				st, err := state.Open(o.Info, state.DefaultDialTimeout)
 				c.Assert(err, IsNil)
 				st.Close()
 

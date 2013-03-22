@@ -9,6 +9,7 @@ import (
 	"launchpad.net/goamz/s3/s3test"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
@@ -243,18 +244,18 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 
 	err := environs.UploadTools(t.env)
 	c.Assert(err, IsNil)
-	err = environs.Bootstrap(t.env, state.Constraints{})
+	err = environs.Bootstrap(t.env, constraints.Value{})
 	c.Assert(err, IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
-	state, err := ec2.LoadState(t.env)
+	bootstrapState, err := ec2.LoadState(t.env)
 	c.Assert(err, IsNil)
-	c.Assert(state.StateInstances, HasLen, 1)
+	c.Assert(bootstrapState.StateInstances, HasLen, 1)
 
-	insts, err := t.env.Instances(state.StateInstances)
+	insts, err := t.env.Instances(bootstrapState.StateInstances)
 	c.Assert(err, IsNil)
 	c.Assert(insts, HasLen, 1)
-	c.Check(insts[0].Id(), Equals, state.StateInstances[0])
+	c.Check(insts[0].Id(), Equals, bootstrapState.StateInstances[0])
 
 	info, apiInfo, err := t.env.StateInfo()
 	c.Assert(err, IsNil)
@@ -282,9 +283,10 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	// check that a new instance will be started without
 	// zookeeper, with a machine agent, and without a
 	// provisioning agent.
+	series := version.Current.Series
 	info.EntityName = "machine-1"
 	apiInfo.EntityName = "machine-1"
-	inst1, err := t.env.StartInstance("1", info, apiInfo, nil)
+	inst1, err := t.env.StartInstance("1", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, IsNil)
 	inst = t.srv.ec2srv.Instance(string(inst1.Id()))
 	c.Assert(inst, NotNil)

@@ -6,6 +6,7 @@ import (
 	"launchpad.net/goamz/aws"
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
@@ -247,7 +248,7 @@ func findTools(env *environ) (*state.Tools, error) {
 	return environs.FindTools(env, v, flags)
 }
 
-func (e *environ) Bootstrap(cons state.Constraints, cert, key []byte) error {
+func (e *environ) Bootstrap(cons constraints.Value, cert, key []byte) error {
 	password := e.Config().AdminSecret()
 	if password == "" {
 		return fmt.Errorf("admin-secret is required for bootstrap")
@@ -289,6 +290,7 @@ func (e *environ) Bootstrap(cons state.Constraints, cert, key []byte) error {
 	mongoURL := environs.MongoURL(e, v)
 	inst, err := e.startInstance(&startInstanceParams{
 		machineId:   "0",
+		series:      tools.Series,
 		constraints: cons,
 		info: &state.Info{
 			Password: trivial.PasswordHash(password),
@@ -374,12 +376,13 @@ func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
 	return state.AssignUnused
 }
 
-func (e *environ) StartInstance(machineId string, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
 	return e.startInstance(&startInstanceParams{
-		machineId: machineId,
-		info:      info,
-		apiInfo:   apiInfo,
-		tools:     tools,
+		machineId:   machineId,
+		series:      series,
+		constraints: cons,
+		info:        info,
+		apiInfo:     apiInfo,
 	})
 }
 
@@ -415,7 +418,8 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 
 type startInstanceParams struct {
 	machineId       string
-	constraints     state.Constraints
+	series          string
+	constraints     constraints.Value
 	info            *state.Info
 	apiInfo         *api.Info
 	tools           *state.Tools
@@ -434,7 +438,9 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	if scfg.tools == nil {
 		var err error
 		flags := environs.HighestVersion | environs.CompatVersion
-		scfg.tools, err = environs.FindTools(e, version.Current, flags)
+		v := version.Current
+		v.Series = scfg.series
+		scfg.tools, err = environs.FindTools(e, v, flags)
 		if err != nil {
 			return nil, err
 		}
@@ -442,7 +448,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	log.Infof("environs/ec2: starting machine %s in %q running tools version %q from %q", scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
 	spec, err := findInstanceSpec(&instanceConstraint{
 		region:      e.ecfg().region(),
-		series:      scfg.tools.Series,
+		series:      scfg.series,
 		arches:      []string{scfg.tools.Arch},
 		constraints: scfg.constraints,
 	})

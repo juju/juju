@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"launchpad.net/juju-core/constraints"
 )
 
 // DestroyRelation holds the parameters for making the DestroyRelation call.
@@ -141,11 +142,16 @@ type GetAnnotations struct {
 	EntityId string
 }
 
-// SetAnnotation stores parameters for making the SetAnnotation call.
-type SetAnnotation struct {
+// SetAnnotations stores parameters for making the SetAnnotations call.
+type SetAnnotations struct {
 	EntityId string
-	Key      string
-	Value    string
+	Pairs    map[string]string
+}
+
+// SetServiceConstraints stores parameters for making the SetServiceConstraints call.
+type SetServiceConstraints struct {
+	ServiceName string
+	Constraints constraints.Value
 }
 
 // Delta holds details of a change to the environment.

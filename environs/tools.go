@@ -71,12 +71,14 @@ func ListTools(env Environ, majorVersion int) (*ToolsList, error) {
 // a particular storage.
 func listTools(store StorageReader, majorVersion int) ([]*state.Tools, error) {
 	dir := fmt.Sprintf("%s%d.", toolPrefix, majorVersion)
+	log.Debugf("listing tools in dir: %s", dir)
 	names, err := store.List(dir)
 	if err != nil {
 		return nil, err
 	}
 	var toolsList []*state.Tools
 	for _, name := range names {
+		log.Debugf("looking at tools file %s", name)
 		if !strings.HasPrefix(name, toolPrefix) || !strings.HasSuffix(name, ".tgz") {
 			log.Warningf("environs: unexpected tools file found %q", name)
 			continue
@@ -93,6 +95,7 @@ func listTools(store StorageReader, majorVersion int) ([]*state.Tools, error) {
 			continue
 		}
 		t.URL, err = store.URL(name)
+		log.Debugf("tools URL is %s", t.URL)
 		if err != nil {
 			log.Warningf("environs: cannot get URL for %q: %v", name, err)
 			continue
@@ -240,7 +243,9 @@ func bestTools(toolsList []*state.Tools, vers version.Binary, flags ToolsSearchF
 	var bestTools *state.Tools
 	allowDev := vers.IsDev() || flags&DevVersion != 0
 	allowHigher := flags&HighestVersion != 0
+	log.Debugf("finding best tools for version: %v", vers)
 	for _, t := range toolsList {
+		log.Debugf("checking tools %v", t)
 		if t.Major != vers.Major ||
 			t.Series != vers.Series ||
 			t.Arch != vers.Arch ||

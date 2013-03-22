@@ -5,6 +5,7 @@ import (
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/state"
 	"sort"
 	"time"
@@ -776,22 +777,26 @@ func (s *ServiceSuite) TestServiceConfig(c *C) {
 	c.Assert(env.Map(), DeepEquals, map[string]interface{}{"spam": "spam", "eggs": "spam", "chaos": "emeralds"})
 }
 
+func uint64p(val uint64) *uint64 {
+	return &val
+}
+
 func (s *ServiceSuite) TestConstraints(c *C) {
 	// Constraints are initially empty (for now).
-	cons0 := state.Constraints{}
+	cons0 := constraints.Value{}
 	cons1, err := s.mysql.Constraints()
 	c.Assert(err, IsNil)
 	c.Assert(cons1, DeepEquals, cons0)
 
 	// Constraints can be set.
-	cons2 := state.Constraints{Mem: uint64p(4096)}
+	cons2 := constraints.Value{Mem: uint64p(4096)}
 	err = s.mysql.SetConstraints(cons2)
 	cons3, err := s.mysql.Constraints()
 	c.Assert(err, IsNil)
 	c.Assert(cons3, DeepEquals, cons2)
 
 	// Constraints are completely overwritten when re-set.
-	cons4 := state.Constraints{CpuPower: uint64p(750)}
+	cons4 := constraints.Value{CpuPower: uint64p(750)}
 	err = s.mysql.SetConstraints(cons4)
 	c.Assert(err, IsNil)
 	cons5, err := s.mysql.Constraints()
@@ -1345,7 +1350,18 @@ func (s *ServiceSuite) TestWatchServiceConfig(c *C) {
 }
 
 func (s *ServiceSuite) TestAnnotatorForService(c *C) {
-	testAnnotator(c, func() (annotator, error) {
+	testAnnotator(c, func() (state.Annotator, error) {
 		return s.State.Service("mysql")
 	})
+}
+
+func (s *ServiceSuite) TestAnnotationRemovalForService(c *C) {
+	annotations := map[string]string{"mykey": "myvalue"}
+	err := s.mysql.SetAnnotations(annotations)
+	c.Assert(err, IsNil)
+	err = s.mysql.Destroy()
+	c.Assert(err, IsNil)
+	ann, err := s.mysql.Annotations()
+	c.Assert(err, IsNil)
+	c.Assert(ann, DeepEquals, make(map[string]string))
 }

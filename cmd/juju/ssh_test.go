@@ -121,8 +121,7 @@ func (s *SSHCommonSuite) makeMachines(n int, c *C) []*state.Machine {
 		c.Assert(err, IsNil)
 		// must set an instance id as the ssh command uses that as a signal the machine
 		// has been provisioned
-		inst, err := s.Conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), testing.InvalidAPIInfo(m.Id()), nil)
-		c.Assert(err, IsNil)
+		inst := testing.StartInstance(c, s.Conn.Environ, m.Id())
 		c.Assert(m.SetInstanceId(inst.Id()), IsNil)
 		machines[i] = m
 	}

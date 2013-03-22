@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/constraints"
 	"net/http"
 	"sort"
 	"strings"
@@ -16,7 +16,7 @@ type instanceConstraint struct {
 	region      string
 	series      string
 	arches      []string
-	constraints state.Constraints
+	constraints constraints.Value
 }
 
 // instanceSpec holds an instance type name and the chosen image info.
