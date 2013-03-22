@@ -70,13 +70,11 @@ func (t *Tests) TestStartStop(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(insts, HasLen, 0)
 
-	inst0, err := e.StartInstance("0", constraints.Value{}, testing.InvalidStateInfo("0"), testing.InvalidAPIInfo("0"), nil)
-	c.Assert(err, IsNil)
+	inst0 := testing.StartInstance(c, e, "0")
 	c.Assert(inst0, NotNil)
 	id0 := inst0.Id()
 
-	inst1, err := e.StartInstance("1", constraints.Value{}, testing.InvalidStateInfo("1"), testing.InvalidAPIInfo("1"), nil)
-	c.Assert(err, IsNil)
+	inst1 := testing.StartInstance(c, e, "1")
 	c.Assert(inst1, NotNil)
 	id1 := inst1.Id()
 

@@ -66,7 +66,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *C) {
 	st, err := state.Open(&state.Info{
 		Addrs:  []string{testing.MgoAddr},
 		CACert: []byte(testing.CACert),
-	})
+	}, state.DefaultDialTimeout)
 	c.Assert(err, IsNil)
 	defer st.Close()
 	machines, err := st.AllMachines()
@@ -92,7 +92,7 @@ func (s *BootstrapSuite) TestSetConstraints(c *C) {
 	st, err := state.Open(&state.Info{
 		Addrs:  []string{testing.MgoAddr},
 		CACert: []byte(testing.CACert),
-	})
+	}, state.DefaultDialTimeout)
 	c.Assert(err, IsNil)
 	defer st.Close()
 	cons, err := st.EnvironConstraints()
@@ -113,7 +113,7 @@ func (s *BootstrapSuite) TestMachinerWorkers(c *C) {
 	st, err := state.Open(&state.Info{
 		Addrs:  []string{testing.MgoAddr},
 		CACert: []byte(testing.CACert),
-	})
+	}, state.DefaultDialTimeout)
 	c.Assert(err, IsNil)
 	defer st.Close()
 	m, err := st.Machine("0")
@@ -122,7 +122,7 @@ func (s *BootstrapSuite) TestMachinerWorkers(c *C) {
 }
 
 func testOpenState(c *C, info *state.Info, expectErr error) {
-	st, err := state.Open(info)
+	st, err := state.Open(info, state.DefaultDialTimeout)
 	if st != nil {
 		st.Close()
 	}
@@ -155,7 +155,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *C) {
 	testOpenState(c, info, nil)
 
 	info.EntityName = ""
-	st, err := state.Open(info)
+	st, err := state.Open(info, state.DefaultDialTimeout)
 	c.Assert(err, IsNil)
 	defer st.Close()
 

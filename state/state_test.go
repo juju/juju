@@ -26,7 +26,7 @@ var _ = Suite(&StateSuite{})
 func (s *StateSuite) TestDialAgain(c *C) {
 	// Ensure idempotent operations on Dial are working fine.
 	for i := 0; i < 2; i++ {
-		st, err := state.Open(state.TestingStateInfo())
+		st, err := state.Open(state.TestingStateInfo(), state.TestingDialTimeout)
 		c.Assert(err, IsNil)
 		c.Assert(st.Close(), IsNil)
 	}
@@ -426,7 +426,7 @@ func (s *StateSuite) TestEnvironConfig(c *C) {
 	}
 	cfg, err := config.New(initial)
 	c.Assert(err, IsNil)
-	st, err := state.Initialize(state.TestingStateInfo(), cfg)
+	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialTimeout)
 	c.Assert(err, IsNil)
 	st.Close()
 	c.Assert(err, IsNil)
@@ -459,12 +459,12 @@ func (s *StateSuite) TestEnvironConfigWithAdminSecret(c *C) {
 	}
 	cfg, err := config.New(attrs)
 	c.Assert(err, IsNil)
-	_, err = state.Initialize(state.TestingStateInfo(), cfg)
+	_, err = state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialTimeout)
 	c.Assert(err, ErrorMatches, "admin-secret should never be written to the state")
 
 	delete(attrs, "admin-secret")
 	cfg, err = config.New(attrs)
-	st, err := state.Initialize(state.TestingStateInfo(), cfg)
+	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialTimeout)
 	c.Assert(err, IsNil)
 	st.Close()
 
@@ -486,7 +486,7 @@ func (s *StateSuite) TestEnvironConstraints(c *C) {
 	}
 	cfg, err := config.New(m)
 	c.Assert(err, IsNil)
-	st, err := state.Initialize(state.TestingStateInfo(), cfg)
+	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialTimeout)
 	c.Assert(err, IsNil)
 	st.Close()
 
@@ -869,7 +869,7 @@ func (s *StateSuite) TestInitialize(c *C) {
 	}
 	cfg, err := config.New(m)
 	c.Assert(err, IsNil)
-	st, err := state.Initialize(state.TestingStateInfo(), cfg)
+	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialTimeout)
 	c.Assert(err, IsNil)
 	c.Assert(st, NotNil)
 	defer st.Close()
@@ -893,7 +893,7 @@ func (s *StateSuite) TestDoubleInitialize(c *C) {
 	}
 	cfg, err := config.New(m)
 	c.Assert(err, IsNil)
-	st, err := state.Initialize(state.TestingStateInfo(), cfg)
+	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialTimeout)
 	c.Assert(err, IsNil)
 	c.Assert(st, NotNil)
 	env1, err := st.EnvironConfig()
@@ -916,7 +916,7 @@ func (s *StateSuite) TestDoubleInitialize(c *C) {
 	}
 	cfg, err = config.New(m)
 	c.Assert(err, IsNil)
-	st, err = state.Initialize(state.TestingStateInfo(), cfg)
+	st, err = state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialTimeout)
 	c.Assert(err, IsNil)
 	c.Assert(st, NotNil)
 	env2, err := st.EnvironConfig()
@@ -1028,7 +1028,7 @@ func (s *StateSuite) TestWatchEnvironConfig(c *C) {
 		change, err := config.New(test)
 		c.Assert(err, IsNil)
 		if i == 0 {
-			st, err := state.Initialize(state.TestingStateInfo(), change)
+			st, err := state.Initialize(state.TestingStateInfo(), change, state.TestingDialTimeout)
 			c.Assert(err, IsNil)
 			st.Close()
 		} else {
@@ -1056,7 +1056,7 @@ func (s *StateSuite) TestWatchEnvironConfig(c *C) {
 func (s *StateSuite) TestWatchEnvironConfigAfterCreation(c *C) {
 	cfg, err := config.New(watchEnvironConfigTests[0])
 	c.Assert(err, IsNil)
-	st, err := state.Initialize(state.TestingStateInfo(), cfg)
+	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialTimeout)
 	c.Assert(err, IsNil)
 	st.Close()
 	s.State.Sync()
@@ -1081,7 +1081,7 @@ func (s *StateSuite) TestWatchEnvironConfigInvalidConfig(c *C) {
 	}
 	cfg1, err := config.New(m)
 	c.Assert(err, IsNil)
-	st, err := state.Initialize(state.TestingStateInfo(), cfg1)
+	st, err := state.Initialize(state.TestingStateInfo(), cfg1, state.TestingDialTimeout)
 	c.Assert(err, IsNil)
 	st.Close()
 
@@ -1184,7 +1184,7 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *C) {
 }
 
 func tryOpenState(info *state.Info) error {
-	st, err := state.Open(info)
+	st, err := state.Open(info, state.TestingDialTimeout)
 	if err == nil {
 		st.Close()
 	}
@@ -1209,10 +1209,10 @@ func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *C) {
 func (s *StateSuite) TestOpenBadAddress(c *C) {
 	info := state.TestingStateInfo()
 	info.Addrs = []string{"0.1.2.3:1234"}
-	state.SetDialTimeout(1 * time.Millisecond)
-	defer state.SetDialTimeout(0)
-
-	err := tryOpenState(info)
+	st, err := state.Open(info, 1*time.Millisecond)
+	if err == nil {
+		st.Close()
+	}
 	c.Assert(err, ErrorMatches, "no reachable servers")
 }
 
@@ -1258,7 +1258,7 @@ type entity interface {
 
 func testSetMongoPassword(c *C, getEntity func(st *state.State) (entity, error)) {
 	info := state.TestingStateInfo()
-	st, err := state.Open(info)
+	st, err := state.Open(info, state.TestingDialTimeout)
 	c.Assert(err, IsNil)
 	defer st.Close()
 	// Turn on fully-authenticated mode.
@@ -1279,7 +1279,7 @@ func testSetMongoPassword(c *C, getEntity func(st *state.State) (entity, error))
 
 	// Check that we can log in with the correct password.
 	info.Password = "foo"
-	st1, err := state.Open(info)
+	st1, err := state.Open(info, state.TestingDialTimeout)
 	c.Assert(err, IsNil)
 	defer st1.Close()
 
@@ -1351,7 +1351,7 @@ var envConfig = map[string]interface{}{
 func setUpEnvConfig(c *C) {
 	cfg, err := config.New(envConfig)
 	c.Assert(err, IsNil)
-	st, err := state.Initialize(state.TestingStateInfo(), cfg)
+	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialTimeout)
 	c.Assert(err, IsNil)
 	st.Close()
 }
