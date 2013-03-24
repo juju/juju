@@ -1,13 +1,11 @@
 package main
 
 import (
-	//"fmt"
+	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
-	//"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/juju"
-	//"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/version"
 )
 
@@ -39,10 +37,22 @@ func (c *SyncToolsCommand) Init(args []string) error {
 }
 
 func (c *SyncToolsCommand) Run(_ *cmd.Context) error {
-	conn, err := juju.NewConnFromName(c.EnvName)
+	officialAttrs := map[string]interface{}{
+		"name":           "juju-public",
+		"type":           "ec2",
+		"control-bucket": "juju-dist",
+	}
+	officialEnviron, err := environs.NewFromAttrs(officialAttrs)
+	if err != nil {
+		log.Infof("Failed to create officialEnviron")
+		return err
+	}
+	c.toolsList, err = environs.ListTools(officialEnviron, version.Current.Major)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	for _, tool := range c.toolsList.Public {
+		fmt.Printf("Found: %s\n", tool.URL)
+	}
 	return nil
 }
