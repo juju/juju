@@ -59,6 +59,7 @@ func Main(args []string) {
 	juju.Register(&ExposeCommand{})
 	juju.Register(&UnexposeCommand{})
 	juju.Register(&UpgradeJujuCommand{})
+	juju.Register(&SyncToolsCommand{})
 
 	// register common commands
 	juju.Register(&cmd.VersionCommand{})
