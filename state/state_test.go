@@ -1193,15 +1193,15 @@ func tryOpenState(info *state.Info) error {
 
 func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *C) {
 	info := state.TestingStateInfo()
-	info.EntityName, info.Password = "arble", "bar"
+	info.Tag, info.Password = "arble", "bar"
 	err := tryOpenState(info)
 	c.Assert(state.IsUnauthorizedError(err), Equals, true)
 
-	info.EntityName, info.Password = "arble", ""
+	info.Tag, info.Password = "arble", ""
 	err = tryOpenState(info)
 	c.Assert(state.IsUnauthorizedError(err), Equals, true)
 
-	info.EntityName, info.Password = "", ""
+	info.Tag, info.Password = "", ""
 	err = tryOpenState(info)
 	c.Assert(err, IsNil)
 }
@@ -1269,7 +1269,7 @@ func testSetMongoPassword(c *C, getEntity func(st *state.State) (entity, error))
 	c.Assert(err, IsNil)
 
 	// Check that we cannot log in with the wrong password.
-	info.EntityName = ent.Tag()
+	info.Tag = ent.Tag()
 	info.Password = "bar"
 	err = tryOpenState(info)
 	c.Assert(state.IsUnauthorizedError(err), Equals, true)
@@ -1298,7 +1298,7 @@ func testSetMongoPassword(c *C, getEntity func(st *state.State) (entity, error))
 	c.Assert(err, IsNil)
 
 	// Check that the administrator can still log in.
-	info.EntityName, info.Password = "", "admin-secret"
+	info.Tag, info.Password = "", "admin-secret"
 	err = tryOpenState(info)
 	c.Assert(err, IsNil)
 

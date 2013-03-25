@@ -171,9 +171,9 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *C, name, xName, password st
 		DataDir:     fix.dataDir,
 		OldPassword: password,
 		StateInfo: &state.Info{
-			Addrs:      []string{"s1:123", "s2:123"},
-			CACert:     []byte("test-cert"),
-			EntityName: tag,
+			Addrs:  []string{"s1:123", "s2:123"},
+			CACert: []byte("test-cert"),
+			Tag:    tag,
 		},
 	})
 

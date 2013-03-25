@@ -553,10 +553,10 @@ func (e *environ) StartInstance(machineId string, series string, cons constraint
 	if _, ok := e.Config().CACert(); !ok {
 		return nil, fmt.Errorf("no CA certificate in environment configuration")
 	}
-	if info.EntityName != state.MachineTag(machineId) {
+	if info.Tag != state.MachineTag(machineId) {
 		return nil, fmt.Errorf("entity name must match started machine")
 	}
-	if apiInfo.EntityName != state.MachineTag(machineId) {
+	if apiInfo.Tag != state.MachineTag(machineId) {
 		return nil, fmt.Errorf("entity name must match started machine")
 	}
 	if strings.HasPrefix(series, "unknown") {

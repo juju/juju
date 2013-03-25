@@ -261,12 +261,12 @@ func (cfg *MachineConfig) agentConfig(tag string) *agent.Conf {
 		APIPort:         cfg.APIPort,
 	}
 	c.StateInfo.Addrs = cfg.stateHostAddrs()
-	c.StateInfo.EntityName = tag
+	c.StateInfo.Tag = tag
 	c.StateInfo.Password = ""
 	c.OldPassword = cfg.StateInfo.Password
 
 	c.APIInfo.Addrs = cfg.apiHostAddrs()
-	c.APIInfo.EntityName = tag
+	c.APIInfo.Tag = tag
 	c.APIInfo.Password = ""
 
 	return c
@@ -429,10 +429,10 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		if cfg.Config == nil {
 			return fmt.Errorf("missing environment configuration")
 		}
-		if cfg.StateInfo.EntityName != "" {
+		if cfg.StateInfo.Tag != "" {
 			return fmt.Errorf("entity name must be blank when starting a state server")
 		}
-		if cfg.APIInfo.EntityName != "" {
+		if cfg.APIInfo.Tag != "" {
 			return fmt.Errorf("entity name must be blank when starting a state server")
 		}
 		if len(cfg.StateServerCert) == 0 {
@@ -451,13 +451,13 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		if len(cfg.StateInfo.Addrs) == 0 {
 			return fmt.Errorf("missing state hosts")
 		}
-		if cfg.StateInfo.EntityName != state.MachineTag(cfg.MachineId) {
+		if cfg.StateInfo.Tag != state.MachineTag(cfg.MachineId) {
 			return fmt.Errorf("entity name must match started machine")
 		}
 		if len(cfg.APIInfo.Addrs) == 0 {
 			return fmt.Errorf("missing API hosts")
 		}
-		if cfg.APIInfo.EntityName != state.MachineTag(cfg.MachineId) {
+		if cfg.APIInfo.Tag != state.MachineTag(cfg.MachineId) {
 			return fmt.Errorf("entity name must match started machine")
 		}
 	}

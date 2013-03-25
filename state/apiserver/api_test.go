@@ -603,32 +603,32 @@ func setDefaultPassword(c *C, e apiAuthenticator) {
 }
 
 var badLoginTests = []struct {
-	entityName string
-	password   string
-	err        string
-	code       string
+	tag      string
+	password string
+	err      string
+	code     string
 }{{
-	entityName: "user-admin",
-	password:   "wrong password",
-	err:        "invalid entity name or password",
-	code:       api.CodeUnauthorized,
+	tag:      "user-admin",
+	password: "wrong password",
+	err:      "invalid entity name or password",
+	code:     api.CodeUnauthorized,
 }, {
-	entityName: "user-foo",
-	password:   "password",
-	err:        "invalid entity name or password",
-	code:       api.CodeUnauthorized,
+	tag:      "user-foo",
+	password: "password",
+	err:      "invalid entity name or password",
+	code:     api.CodeUnauthorized,
 }, {
-	entityName: "bar",
-	password:   "password",
-	err:        `invalid entity name "bar"`,
+	tag:      "bar",
+	password: "password",
+	err:      `invalid entity name "bar"`,
 }}
 
 func (s *suite) TestBadLogin(c *C) {
 	_, info, err := s.APIConn.Environ.StateInfo()
 	c.Assert(err, IsNil)
 	for i, t := range badLoginTests {
-		c.Logf("test %d; entity %q; password %q", i, t.entityName, t.password)
-		info.EntityName = ""
+		c.Logf("test %d; entity %q; password %q", i, t.tag, t.password)
+		info.Tag = ""
 		info.Password = ""
 		func() {
 			st, err := api.Open(info)
@@ -643,7 +643,7 @@ func (s *suite) TestBadLogin(c *C) {
 			c.Assert(err, ErrorMatches, "not logged in")
 			c.Assert(api.ErrCode(err), Equals, api.CodeUnauthorized)
 
-			err = st.Login(t.entityName, t.password)
+			err = st.Login(t.tag, t.password)
 			c.Assert(err, ErrorMatches, t.err)
 			c.Assert(api.ErrCode(err), Equals, t.code)
 
@@ -837,7 +837,7 @@ func (s *suite) TestMachineLogin(c *C) {
 	_, info, err := s.APIConn.Environ.StateInfo()
 	c.Assert(err, IsNil)
 
-	info.EntityName = stm.Tag()
+	info.Tag = stm.Tag()
 	info.Password = "machine-password"
 
 	st, err := api.Open(info)
@@ -1014,10 +1014,10 @@ func (s *suite) TestServerStopsOutstandingWatchMethod(c *C) {
 	// Note we can't use openAs because we're
 	// not connecting to s.APIConn.
 	st, err := api.Open(&api.Info{
-		EntityName: stm.Tag(),
-		Password:   "password",
-		Addrs:      []string{srv.Addr()},
-		CACert:     []byte(coretesting.CACert),
+		Tag:      stm.Tag(),
+		Password: "password",
+		Addrs:    []string{srv.Addr()},
+		CACert:   []byte(coretesting.CACert),
 	})
 	c.Assert(err, IsNil)
 	defer st.Close()
@@ -1185,10 +1185,10 @@ func (s *suite) TestStop(c *C) {
 	// Note we can't use openAs because we're
 	// not connecting to s.APIConn.
 	st, err := api.Open(&api.Info{
-		EntityName: stm.Tag(),
-		Password:   "password",
-		Addrs:      []string{srv.Addr()},
-		CACert:     []byte(coretesting.CACert),
+		Tag:      stm.Tag(),
+		Password: "password",
+		Addrs:    []string{srv.Addr()},
+		CACert:   []byte(coretesting.CACert),
 	})
 	c.Assert(err, IsNil)
 	defer st.Close()
@@ -1386,12 +1386,12 @@ func (s *suite) TestClientWatchAll(c *C) {
 
 // openAs connects to the API state as the given entity
 // with the default password for that entity.
-func (s *suite) openAs(c *C, entityName string) *api.State {
+func (s *suite) openAs(c *C, tag string) *api.State {
 	_, info, err := s.APIConn.Environ.StateInfo()
 	c.Assert(err, IsNil)
-	info.EntityName = entityName
-	info.Password = fmt.Sprintf("%s password", entityName)
-	c.Logf("opening state; entity %q; password %q", info.EntityName, info.Password)
+	info.Tag = tag
+	info.Password = fmt.Sprintf("%s password", tag)
+	c.Logf("opening state; entity %q; password %q", info.Tag, info.Password)
 	st, err := api.Open(info)
 	c.Assert(err, IsNil)
 	c.Assert(st, NotNil)

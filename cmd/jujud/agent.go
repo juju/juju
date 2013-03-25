@@ -225,7 +225,7 @@ func openState(c *agent.Conf, a Agent) (_ *state.State, _ AgentState, err error)
 		// Ensure we do not lose changes made by another
 		// worker by re-reading the configuration and changing
 		// only the password.
-		c1, err := agent.ReadConf(c.DataDir, c.EntityName())
+		c1, err := agent.ReadConf(c.DataDir, c.Tag())
 		if err != nil {
 			return nil, nil, err
 		}

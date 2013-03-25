@@ -203,10 +203,10 @@ func (s *MachineSuite) TestUpgrade(c *C) {
 func addAPIInfo(conf *agent.Conf, m *state.Machine) {
 	port := testing.FindTCPPort()
 	conf.APIInfo = &api.Info{
-		Addrs:      []string{fmt.Sprintf("localhost:%d", port)},
-		CACert:     []byte(testing.CACert),
-		EntityName: m.Tag(),
-		Password:   "unused",
+		Addrs:    []string{fmt.Sprintf("localhost:%d", port)},
+		CACert:   []byte(testing.CACert),
+		Tag:      m.Tag(),
+		Password: "unused",
 	}
 	conf.StateServerCert = []byte(testing.ServerCert)
 	conf.StateServerKey = []byte(testing.ServerKey)

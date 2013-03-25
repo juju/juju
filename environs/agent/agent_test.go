@@ -31,10 +31,10 @@ var confTests = []struct {
 	conf: agent.Conf{
 		OldPassword: "old password",
 		StateInfo: &state.Info{
-			Addrs:      []string{"foo.com:355", "bar:545"},
-			CACert:     []byte("ca cert"),
-			EntityName: "entity",
-			Password:   "current password",
+			Addrs:    []string{"foo.com:355", "bar:545"},
+			CACert:   []byte("ca cert"),
+			Tag:      "entity",
+			Password: "current password",
 		},
 	},
 }, {
@@ -46,16 +46,16 @@ var confTests = []struct {
 		APIPort:         4321,
 		OldPassword:     "old password",
 		StateInfo: &state.Info{
-			Addrs:      []string{"foo.com:355", "bar:545"},
-			CACert:     []byte("ca cert"),
-			EntityName: "entity",
-			Password:   "current password",
+			Addrs:    []string{"foo.com:355", "bar:545"},
+			CACert:   []byte("ca cert"),
+			Tag:      "entity",
+			Password: "current password",
 		},
 		APIInfo: &api.Info{
-			EntityName: "entity",
-			Password:   "other password",
-			Addrs:      []string{"foo.com:555", "bar:555"},
-			CACert:     []byte("api ca cert"),
+			Tag:      "entity",
+			Password: "other password",
+			Addrs:    []string{"foo.com:555", "bar:555"},
+			CACert:   []byte("api ca cert"),
 		},
 	},
 }, {
@@ -63,15 +63,15 @@ var confTests = []struct {
 	conf: agent.Conf{
 		OldPassword: "old password",
 		StateInfo: &state.Info{
-			Addrs:      []string{"foo.com:355", "bar:545"},
-			CACert:     []byte("ca cert"),
-			EntityName: "entity",
-			Password:   "current password",
+			Addrs:    []string{"foo.com:355", "bar:545"},
+			CACert:   []byte("ca cert"),
+			Tag:      "entity",
+			Password: "current password",
 		},
 		APIInfo: &api.Info{
-			EntityName: "entity",
-			Addrs:      []string{"foo.com:555"},
-			CACert:     []byte("ca cert"),
+			Tag:    "entity",
+			Addrs:  []string{"foo.com:555"},
+			CACert: []byte("ca cert"),
 		},
 	},
 }, {
@@ -81,10 +81,10 @@ var confTests = []struct {
 		StateServerKey:  []byte("server key"),
 		OldPassword:     "old password",
 		StateInfo: &state.Info{
-			Addrs:      []string{"foo.com:355", "bar:545"},
-			CACert:     []byte("ca cert"),
-			EntityName: "entity",
-			Password:   "current password",
+			Addrs:    []string{"foo.com:355", "bar:545"},
+			CACert:   []byte("ca cert"),
+			Tag:      "entity",
+			Password: "current password",
 		},
 		APIInfo: &api.Info{
 			Addrs:  []string{"foo.com:555"},
@@ -99,15 +99,15 @@ var confTests = []struct {
 		StateServerKey:  []byte("server key"),
 		OldPassword:     "old password",
 		StateInfo: &state.Info{
-			Addrs:      []string{"foo.com:355", "bar:545"},
-			CACert:     []byte("ca cert"),
-			EntityName: "entity",
-			Password:   "current password",
+			Addrs:    []string{"foo.com:355", "bar:545"},
+			CACert:   []byte("ca cert"),
+			Tag:      "entity",
+			Password: "current password",
 		},
 		APIInfo: &api.Info{
-			EntityName: "other",
-			Addrs:      []string{"foo.com:555"},
-			CACert:     []byte("api ca cert"),
+			Tag:    "other",
+			Addrs:  []string{"foo.com:555"},
+			CACert: []byte("api ca cert"),
 		},
 	},
 	checkErr: "mismatched entity names",
@@ -127,9 +127,9 @@ var confTests = []struct {
 	conf: agent.Conf{
 		OldPassword: "old password",
 		StateInfo: &state.Info{
-			CACert:     []byte("ca cert"),
-			Password:   "current password",
-			EntityName: "entity",
+			CACert:   []byte("ca cert"),
+			Password: "current password",
+			Tag:      "entity",
 		},
 	},
 	checkErr: "state server address not found in configuration",
@@ -138,10 +138,10 @@ var confTests = []struct {
 	conf: agent.Conf{
 		OldPassword: "old password",
 		StateInfo: &state.Info{
-			Addrs:      []string{"foo"},
-			CACert:     []byte("ca cert"),
-			EntityName: "entity",
-			Password:   "current password",
+			Addrs:    []string{"foo"},
+			CACert:   []byte("ca cert"),
+			Tag:      "entity",
+			Password: "current password",
 		},
 	},
 	checkErr: "invalid state server address \"foo\"",
@@ -150,10 +150,10 @@ var confTests = []struct {
 	conf: agent.Conf{
 		OldPassword: "old password",
 		StateInfo: &state.Info{
-			Addrs:      []string{"foo:bar"},
-			CACert:     []byte("ca cert"),
-			EntityName: "entity",
-			Password:   "current password",
+			Addrs:    []string{"foo:bar"},
+			CACert:   []byte("ca cert"),
+			Tag:      "entity",
+			Password: "current password",
 		},
 	},
 	checkErr: "invalid state server address \"foo:bar\"",
@@ -162,10 +162,10 @@ var confTests = []struct {
 	conf: agent.Conf{
 		OldPassword: "old password",
 		StateInfo: &state.Info{
-			Addrs:      []string{"foo:345d"},
-			CACert:     []byte("ca cert"),
-			EntityName: "entity",
-			Password:   "current password",
+			Addrs:    []string{"foo:345d"},
+			CACert:   []byte("ca cert"),
+			Tag:      "entity",
+			Password: "current password",
 		},
 	},
 	checkErr: "invalid state server address \"foo:345d\"",
@@ -174,15 +174,15 @@ var confTests = []struct {
 	conf: agent.Conf{
 		OldPassword: "old password",
 		StateInfo: &state.Info{
-			Addrs:      []string{"foo:345"},
-			CACert:     []byte("ca cert"),
-			EntityName: "entity",
-			Password:   "current password",
+			Addrs:    []string{"foo:345"},
+			CACert:   []byte("ca cert"),
+			Tag:      "entity",
+			Password: "current password",
 		},
 		APIInfo: &api.Info{
-			EntityName: "entity",
-			Addrs:      []string{"bar.com:455", "foo"},
-			CACert:     []byte("ca cert"),
+			Tag:    "entity",
+			Addrs:  []string{"bar.com:455", "foo"},
+			CACert: []byte("ca cert"),
 		},
 	},
 	checkErr: "invalid API server address \"foo\"",
@@ -191,15 +191,15 @@ var confTests = []struct {
 	conf: agent.Conf{
 		OldPassword: "old password",
 		StateInfo: &state.Info{
-			Addrs:      []string{"foo:345"},
-			CACert:     []byte("ca cert"),
-			EntityName: "entity",
-			Password:   "current password",
+			Addrs:    []string{"foo:345"},
+			CACert:   []byte("ca cert"),
+			Tag:      "entity",
+			Password: "current password",
 		},
 		APIInfo: &api.Info{
-			EntityName: "entity",
-			Addrs:      []string{"foo:3"},
-			CACert:     []byte{},
+			Tag:    "entity",
+			Addrs:  []string{"foo:3"},
+			CACert: []byte{},
 		},
 	},
 	checkErr: "API CA certficate not found in configuration",
@@ -248,12 +248,12 @@ func (suite) TestConfReadWriteCheck(c *C) {
 
 		rconf, err := agent.ReadConf(dataDir, "another")
 		c.Assert(err, IsNil)
-		c.Assert(rconf.StateInfo.EntityName, Equals, "another")
+		c.Assert(rconf.StateInfo.Tag, Equals, "another")
 		if rconf.StateInfo != nil {
-			rconf.StateInfo.EntityName = conf.EntityName()
+			rconf.StateInfo.Tag = conf.Tag()
 		}
 		if rconf.APIInfo != nil {
-			rconf.APIInfo.EntityName = conf.EntityName()
+			rconf.APIInfo.Tag = conf.Tag()
 		}
 		c.Assert(rconf, DeepEquals, &conf)
 
@@ -271,7 +271,7 @@ func (suite) TestConfReadWriteCheck(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(info.Mode()&os.ModePerm, Equals, os.FileMode(0600))
 
-		rconf, err = agent.ReadConf(dataDir, conf.StateInfo.EntityName)
+		rconf, err = agent.ReadConf(dataDir, conf.StateInfo.Tag)
 		c.Assert(err, IsNil)
 
 		c.Assert(rconf, DeepEquals, &conf)
@@ -284,10 +284,10 @@ func (suite) TestConfReadWriteCheck(c *C) {
 func (suite) TestCheckNoDataDir(c *C) {
 	conf := agent.Conf{
 		StateInfo: &state.Info{
-			Addrs:      []string{"x:4"},
-			CACert:     []byte("xxx"),
-			EntityName: "bar",
-			Password:   "pass",
+			Addrs:    []string{"x:4"},
+			CACert:   []byte("xxx"),
+			Tag:      "bar",
+			Password: "pass",
 		},
 	}
 	c.Assert(conf.Check(), ErrorMatches, "data directory not found in configuration")
@@ -297,10 +297,10 @@ func (suite) TestConfDir(c *C) {
 	conf := agent.Conf{
 		DataDir: "/foo",
 		StateInfo: &state.Info{
-			Addrs:      []string{"x:4"},
-			CACert:     []byte("xxx"),
-			EntityName: "bar",
-			Password:   "pass",
+			Addrs:    []string{"x:4"},
+			CACert:   []byte("xxx"),
+			Tag:      "bar",
+			Password: "pass",
 		},
 	}
 	c.Assert(conf.Dir(), Equals, "/foo/agents/bar")
@@ -310,10 +310,10 @@ func (suite) TestConfFile(c *C) {
 	conf := agent.Conf{
 		DataDir: "/foo",
 		StateInfo: &state.Info{
-			Addrs:      []string{"x:4"},
-			CACert:     []byte("xxx"),
-			EntityName: "bar",
-			Password:   "pass",
+			Addrs:    []string{"x:4"},
+			CACert:   []byte("xxx"),
+			Tag:      "bar",
+			Password: "pass",
 		},
 	}
 	c.Assert(conf.File("x/y"), Equals, "/foo/agents/bar/x/y")

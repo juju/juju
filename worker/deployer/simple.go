@@ -78,9 +78,9 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	defer removeOnErr(&err, toolsDir)
 
 	info := state.Info{
-		Addrs:      ctx.addresser.Addresses(),
-		EntityName: tag,
-		CACert:     ctx.caCert,
+		Addrs:  ctx.addresser.Addresses(),
+		Tag:    tag,
+		CACert: ctx.caCert,
 	}
 	// Prepare the agent's configuration data.
 	conf := &agent.Conf{
