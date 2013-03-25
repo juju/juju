@@ -16,6 +16,8 @@ import (
 	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
 	"net"
+	"strconv"
+	"strings"
 	stdtesting "testing"
 	"time"
 )
@@ -270,7 +272,12 @@ func opClientDestroyRelation(c *C, st *api.State, mst *state.State) (func(), err
 	if err != nil {
 		return func() {}, err
 	}
-	return func() {}, nil
+	return func() {
+		eps, err := mst.InferEndpoints([]string{"wordpress", "logging"})
+		c.Assert(err, IsNil)
+		_, err = mst.AddRelation(eps...)
+		c.Assert(err, IsNil)
+	}, nil
 }
 
 func opClientStatus(c *C, st *api.State, mst *state.State) (func(), error) {
@@ -327,7 +334,11 @@ func opClientServiceExpose(c *C, st *api.State, mst *state.State) (func(), error
 	if err != nil {
 		return func() {}, err
 	}
-	return func() {}, nil
+	return func() {
+		svc, err := mst.Service("wordpress")
+		c.Assert(err, IsNil)
+		svc.ClearExposed()
+	}, nil
 }
 
 func opClientServiceUnexpose(c *C, st *api.State, mst *state.State) (func(), error) {
@@ -404,6 +415,23 @@ func opClientServiceDeploy(c *C, st *api.State, mst *state.State) (func(), error
 	}, nil
 }
 
+func latestUnit(c *C, svc *state.Service, st *state.State) *state.Unit {
+	units, err := svc.AllUnits()
+	max := -1
+	n := 0
+	for _, u := range units {
+		parts := strings.Split(u.Name(), "/")
+		n, err = strconv.Atoi(parts[1])
+		c.Assert(err, IsNil)
+		if n > max {
+			max = n
+		}
+	}
+	latestUnit, err := st.Unit(fmt.Sprintf("%s/%d", svc.Name(), n))
+	c.Assert(err, IsNil)
+	return latestUnit
+}
+
 func opClientAddServiceUnits(c *C, st *api.State, mst *state.State) (func(), error) {
 	// This test only checks that the call is made without error, ensuring the
 	// signatures match.
@@ -411,7 +439,12 @@ func opClientAddServiceUnits(c *C, st *api.State, mst *state.State) (func(), err
 	if err != nil {
 		return func() {}, err
 	}
-	return func() {}, nil
+	return func() {
+		svc, err := mst.Service("wordpress")
+		c.Assert(err, IsNil)
+		unit := latestUnit(c, svc, mst)
+		unit.Destroy()
+	}, nil
 }
 
 func opClientDestroyServiceUnits(c *C, st *api.State, mst *state.State) (func(), error) {
@@ -433,22 +466,18 @@ func opClientDestroyServiceUnits(c *C, st *api.State, mst *state.State) (func(),
 func opClientServiceDestroy(c *C, st *api.State, mst *state.State) (func(), error) {
 	// This test only checks that the call is made without error, ensuring the
 	// signatures match.
-	err := st.Client().ServiceDestroy("wordpress")
-	if err != nil {
-		return func() {}, err
-	}
-	return func() {}, nil
+	err := st.Client().ServiceDestroy("non-existent")
+	return func() {}, err
 }
 
 func opClientSetServiceConstraints(c *C, st *api.State, mst *state.State) (func(), error) {
 	// This test only checks that the call is made without error, ensuring the
 	// signatures match.
-	constraints := constraints.Value{}
-	err := st.Client().SetServiceConstraints("wordpress", constraints)
+	nullConstraints := constraints.Value{}
+	err := st.Client().SetServiceConstraints("wordpress", nullConstraints)
 	if err != nil {
 		return func() {}, err
 	}
-	c.Assert(err, IsNil)
 	return func() {}, nil
 }
 
