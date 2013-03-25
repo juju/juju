@@ -36,13 +36,14 @@ func (c *SyncToolsCommand) Init(args []string) error {
 	return nil
 }
 
+var officialBucketAttrs = map[string]interface{}{
+	"name":           "juju-public",
+	"type":           "ec2",
+	"control-bucket": "juju-dist",
+}
+
 func (c *SyncToolsCommand) Run(_ *cmd.Context) error {
-	officialAttrs := map[string]interface{}{
-		"name":           "juju-public",
-		"type":           "ec2",
-		"control-bucket": "juju-dist",
-	}
-	officialEnviron, err := environs.NewFromAttrs(officialAttrs)
+	officialEnviron, err := environs.NewFromAttrs(officialBucketAttrs)
 	if err != nil {
 		log.Infof("Failed to create officialEnviron")
 		return err
