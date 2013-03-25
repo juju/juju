@@ -134,7 +134,7 @@ type localLiveSuite struct {
 func (t *localLiveSuite) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
 	ec2.UseTestImageData(testImagesContent)
-	ec2.UseTestInstanceTypeData("test", testInstanceTypeContent)
+	ec2.UseTestInstanceTypeData(testInstanceTypeContent)
 	t.srv.startServer(c)
 	t.LiveTests.SetUpSuite(c)
 	t.env = t.LiveTests.Env
@@ -147,7 +147,7 @@ func (t *localLiveSuite) TearDownSuite(c *C) {
 	t.env = nil
 	ec2.ShortTimeouts(false)
 	ec2.UseTestImageData(nil)
-	ec2.UseTestInstanceTypeData("test", nil)
+	ec2.UseTestInstanceTypeData(nil)
 	t.LoggingSuite.TearDownSuite(c)
 }
 
@@ -239,7 +239,7 @@ type localServerSuite struct {
 func (t *localServerSuite) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
 	ec2.UseTestImageData(testImagesContent)
-	ec2.UseTestInstanceTypeData("test", testInstanceTypeContent)
+	ec2.UseTestInstanceTypeData(testInstanceTypeContent)
 	t.Tests.SetUpSuite(c)
 	ec2.ShortTimeouts(true)
 }
@@ -248,7 +248,7 @@ func (t *localServerSuite) TearDownSuite(c *C) {
 	t.Tests.TearDownSuite(c)
 	ec2.ShortTimeouts(false)
 	ec2.UseTestImageData(nil)
-	ec2.UseTestInstanceTypeData("test", nil)
+	ec2.UseTestInstanceTypeData(nil)
 	t.LoggingSuite.TearDownSuite(c)
 }
 
@@ -402,7 +402,7 @@ type localNonUSEastSuite struct {
 func (t *localNonUSEastSuite) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
 	ec2.UseTestImageData(testImagesContent)
-	ec2.UseTestInstanceTypeData("test", testInstanceTypeContent)
+	ec2.UseTestInstanceTypeData(testInstanceTypeContent)
 	t.tests.SetUpSuite(c)
 	ec2.ShortTimeouts(true)
 }
@@ -410,7 +410,7 @@ func (t *localNonUSEastSuite) SetUpSuite(c *C) {
 func (t *localNonUSEastSuite) TearDownSuite(c *C) {
 	ec2.ShortTimeouts(false)
 	ec2.UseTestImageData(nil)
-	ec2.UseTestInstanceTypeData("test", nil)
+	ec2.UseTestInstanceTypeData(nil)
 	t.LoggingSuite.TearDownSuite(c)
 }
 

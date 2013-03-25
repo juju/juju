@@ -181,11 +181,11 @@ var _ = Suite(&specSuite{})
 func (s *specSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
 	UseTestImageData(imagesData)
-	UseTestInstanceTypeData("test", instanceTypeData)
+	UseTestInstanceTypeData(instanceTypeData)
 }
 
 func (s *specSuite) TearDownSuite(c *C) {
-	UseTestInstanceTypeData("test", nil)
+	UseTestInstanceTypeData(nil)
 	UseTestImageData(nil)
 	s.LoggingSuite.TearDownTest(c)
 }
