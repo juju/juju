@@ -3,6 +3,7 @@ package params_test
 import (
 	"encoding/json"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state/api/params"
 	"testing"
 )
@@ -25,7 +26,6 @@ var marshalTestCases = []struct {
 }{{
 	about: "MachineInfo Delta",
 	value: params.Delta{
-		Removed: false,
 		Entity: &params.MachineInfo{
 			Id:         "Benji",
 			InstanceId: "Shazam",
@@ -35,17 +35,16 @@ var marshalTestCases = []struct {
 }, {
 	about: "ServiceInfo Delta",
 	value: params.Delta{
-		Removed: false,
 		Entity: &params.ServiceInfo{
-			Name:    "Benji",
-			Exposed: true,
+			Name:     "Benji",
+			Exposed:  true,
+			CharmURL: charm.MustParseURL("cs:series/name"),
 		},
 	},
-	json: `["service","change",{"Name":"Benji","Exposed":true}]`,
+	json: `["service","change",{"CharmURL": "cs:series/name","Name":"Benji","Exposed":true}]`,
 }, {
 	about: "UnitInfo Delta",
 	value: params.Delta{
-		Removed: false,
 		Entity: &params.UnitInfo{
 			Name:    "Benji",
 			Service: "Shazam",
@@ -55,12 +54,23 @@ var marshalTestCases = []struct {
 }, {
 	about: "RelationInfo Delta",
 	value: params.Delta{
-		Removed: false,
 		Entity: &params.RelationInfo{
 			Key: "Benji",
 		},
 	},
 	json: `["relation","change",{"Key":"Benji"}]`,
+}, {
+	about: "AnnotationInfo Delta",
+	value: params.Delta{
+		Entity: &params.AnnotationInfo{
+			EntityName: "machine-0",
+			Annotations: map[string]string{
+				"foo":   "bar",
+				"arble": "2 4",
+			},
+		},
+	},
+	json: `["annotation","change",{"EntityName":"machine-0","Annotations":{"foo":"bar","arble":"2 4"}}]`,
 }, {
 	about: "Delta Removed True",
 	value: params.Delta{
@@ -70,8 +80,7 @@ var marshalTestCases = []struct {
 		},
 	},
 	json: `["relation","remove",{"Key":"Benji"}]`,
-},
-}
+}}
 
 func (s *MarshalSuite) TestDeltaMarshalJSON(c *C) {
 	for _, t := range marshalTestCases {

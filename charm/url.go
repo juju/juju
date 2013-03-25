@@ -1,6 +1,7 @@
 package charm
 
 import (
+	"encoding/json"
 	"fmt"
 	"labix.org/v2/mgo/bson"
 	"regexp"
@@ -193,6 +194,28 @@ func (u *URL) SetBSON(raw bson.Raw) error {
 	var s string
 	err := raw.Unmarshal(&s)
 	if err != nil {
+		return err
+	}
+	url, err := ParseURL(s)
+	if err != nil {
+		return err
+	}
+	*u = *url
+	return nil
+}
+
+var jsonNull = []byte("null")
+
+func (u *URL) MarshalJSON() ([]byte, error) {
+	if u == nil {
+		panic("cannot marshal nil *charm.URL")
+	}
+	return json.Marshal(u.String())
+}
+
+func (u *URL) UnmarshalJSON(b []byte) error {
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
 		return err
 	}
 	url, err := ParseURL(s)
