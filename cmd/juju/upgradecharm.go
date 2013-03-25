@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
@@ -20,6 +21,10 @@ type UpgradeCharmCommand struct {
 
 const upgradeCharmDoc = `
 <service> needs to be an existing deployed service, whose charm you want to upgrade.
+--repository defaults to $JUJU_REPOSITORY when not set explicitly.
+
+The given <service>'s charm will be upgraded to the latest available revision, either
+in the charm store or from a specified local repository.
 `
 
 func (c *UpgradeCharmCommand) Info() *cmd.Info {
@@ -33,7 +38,7 @@ func (c *UpgradeCharmCommand) Info() *cmd.Info {
 
 func (c *UpgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
-	f.StringVar(&c.RepoPath, "repository", os.Getenv("JUJU_REPOSITORY"), "local charm repository")
+	f.StringVar(&c.RepoPath, "repository", os.Getenv("JUJU_REPOSITORY"), "local charm repository path")
 }
 
 func (c *UpgradeCharmCommand) Init(args []string) error {
@@ -47,6 +52,9 @@ func (c *UpgradeCharmCommand) Init(args []string) error {
 		return errors.New("no service specified")
 	default:
 		return cmd.CheckEmpty(args[1:])
+	}
+	if _, err := ioutil.ReadDir(c.RepoPath); err != nil {
+		return fmt.Errorf("invalid repository path specified: %s", c.RepoPath)
 	}
 	// TODO(dimitern): add the other flags --switch, --force and --revision.
 	return nil
@@ -77,17 +85,18 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 	if curl.Revision == rev {
 		if _, bumpRevision = repo.(*charm.LocalRepository); !bumpRevision {
 			return fmt.Errorf("already running latest charm %q", curl)
+		} else {
+			// This is a local repository.
+			if ch, err := repo.Get(curl); err != nil {
+				return err
+			} else if _, bumpRevision = ch.(*charm.Dir); !bumpRevision {
+				// Only bump the revision when it's a directory.
+				return fmt.Errorf("already running latest charm %q", curl)
+			}
 		}
 	}
 	sch, err := conn.PutCharm(curl.WithRevision(rev), repo, bumpRevision)
-	if err == juju.ErrCannotBumpRevision {
-		// If we arrived here, this means we tried to bump the
-		// revision of a bundle in a local repo; the only way we
-		// could've done this is via the if block above, indicating
-		// the found revision was the same as the service's original
-		// charm revision.
-		return fmt.Errorf("already running latest charm %q", curl)
-	} else if err != nil {
+	if err != nil {
 		return err
 	}
 	// TODO(dimitern): get this from the --force flag

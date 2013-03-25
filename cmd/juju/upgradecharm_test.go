@@ -30,6 +30,11 @@ func (s *UpgradeCharmErrorsSuite) TestInvalidArgs(c *C) {
 	c.Assert(err, ErrorMatches, `unrecognized args: \["bar"\]`)
 }
 
+func (s *UpgradeCharmErrorsSuite) TestWithInvalidRepository(c *C) {
+	err := runUpgradeCharm(c, "riak", "--repository=blah")
+	c.Assert(err, ErrorMatches, "invalid repository path specified: blah")
+}
+
 func (s *UpgradeCharmErrorsSuite) TestInvalidService(c *C) {
 	err := runUpgradeCharm(c, "phony")
 	c.Assert(err, ErrorMatches, `service "phony" not found`)

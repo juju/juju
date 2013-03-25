@@ -319,7 +319,7 @@ func (s *ConnSuite) TestPutBundledCharm(c *C) {
 		Revision: -1,
 	}
 	_, err = s.conn.PutCharm(curl, s.repo, true)
-	c.Assert(err, Equals, juju.ErrCannotBumpRevision)
+	c.Assert(err, ErrorMatches, `cannot increment revision of charm "local:series/riak-7": not a directory`)
 
 	sch, err := s.conn.PutCharm(curl, s.repo, false)
 	c.Assert(err, IsNil)

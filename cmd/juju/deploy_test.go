@@ -168,7 +168,7 @@ func (s *DeploySuite) TestCharmBundle(c *C) {
 func (s *DeploySuite) TestCannotUpgradeCharmBundle(c *C) {
 	coretesting.Charms.BundlePath(s.seriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "-u")
-	c.Assert(err, ErrorMatches, "cannot increment revision of non-directory charm")
+	c.Assert(err, ErrorMatches, `cannot increment revision of charm "local:precise/dummy-1": not a directory`)
 	// Verify state not touched...
 	curl := charm.MustParseURL("local:precise/dummy-1")
 	_, err = s.State.Charm(curl)
