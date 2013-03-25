@@ -68,7 +68,6 @@ var origImagesHost = imagesHost
 
 // UseTestImageData causes the given content to be served
 // when the ec2 client asks for image data.
-// 
 func UseTestImageData(content []jujutest.FileContent) {
 	if content != nil {
 		testRoundTripper.Sub = jujutest.NewVirtualRoundTripper(content)
