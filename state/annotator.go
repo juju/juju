@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
+	"launchpad.net/juju-core/trivial"
 	"strings"
 )
 
@@ -26,7 +27,8 @@ type annotator struct {
 }
 
 // SetAnnotations adds key/value pairs to annotations in MongoDB.
-func (a *annotator) SetAnnotations(pairs map[string]string) error {
+func (a *annotator) SetAnnotations(pairs map[string]string) (err error) {
+	defer trivial.ErrorContextf(&err, "cannot update annotations on %s", a.entityName)
 	if len(pairs) == 0 {
 		return nil
 	}
@@ -71,10 +73,10 @@ func (a *annotator) SetAnnotations(pairs map[string]string) error {
 		if err := a.st.runner.Run(ops, "", nil); err == nil {
 			return nil
 		} else if err != txn.ErrAborted {
-			return fmt.Errorf("cannot update annotations on %s: %v", a.entityName, err)
+			return err
 		}
 	}
-	return fmt.Errorf("cannot update annotations on %s: %v", a.entityName, ErrExcessiveContention)
+	return ErrExcessiveContention
 }
 
 // insertOps returns the operations required to insert annotations in MongoDB.
@@ -98,15 +100,12 @@ func (a *annotator) insertOps(toInsert map[string]string) ([]txn.Op, error) {
 			},
 		)
 	}
-	return append(
-		ops,
-		txn.Op{
-			C:      a.st.annotations.Name,
-			Id:     a.globalKey,
-			Assert: txn.DocMissing,
-			Insert: &annotatorDoc{a.globalKey, entityName, toInsert},
-		},
-	), nil
+	return append(ops, txn.Op{
+		C:      a.st.annotations.Name,
+		Id:     a.globalKey,
+		Assert: txn.DocMissing,
+		Insert: &annotatorDoc{a.globalKey, entityName, toInsert},
+	}), nil
 }
 
 // updateOps returns the operations required to update or remove annotations in MongoDB.
