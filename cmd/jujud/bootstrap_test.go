@@ -16,13 +16,13 @@ import (
 type BootstrapSuite struct {
 	testing.LoggingSuite
 	testing.MgoSuite
-	dataDir string
+	dataDir      string
+	fakeJujuHome config.FakeJujuHome
 }
 
 var _ = Suite(&BootstrapSuite{})
 
 func (s *BootstrapSuite) SetUpSuite(c *C) {
-	c.Assert(config.Init(), IsNil)
 	s.LoggingSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 }
@@ -36,9 +36,11 @@ func (s *BootstrapSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	s.dataDir = c.MkDir()
+	s.fakeJujuHome = config.SetFakeJujuHome(c.MkDir())
 }
 
 func (s *BootstrapSuite) TearDownTest(c *C) {
+	s.fakeJujuHome.Restore()
 	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }

@@ -145,7 +145,6 @@ func handleCommandError(c Command, ctx *Context, err error, f *gnuflag.FlagSet) 
 // arguments, which should not include the command name. It returns a code
 // suitable for passing to os.Exit.
 func Main(c Command, ctx *Context, args []string) int {
-	// Parse arguments.
 	f := gnuflag.NewFlagSet(c.Info().Name, gnuflag.ContinueOnError)
 	f.SetOutput(ioutil.Discard)
 	c.SetFlags(f)

@@ -11,6 +11,8 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -32,10 +34,7 @@ var envConfig = mustNewConfig(map[string]interface{}{
 })
 
 func mustNewConfig(m map[string]interface{}) *config.Config {
-	err := config.Init()
-	if err != nil {
-		panic(err)
-	}
+	defer config.SetFakeJujuHome(filepath.Join(os.Getenv("HOME"), ".juju")).Restore()
 	cfg, err := config.New(m)
 	if err != nil {
 		panic(err)

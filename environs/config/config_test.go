@@ -552,8 +552,6 @@ type fakeHome struct {
 }
 
 func makeFakeHome(c *C, files []testFile) fakeHome {
-	err := config.Init()
-	c.Assert(err, IsNil)
 	oldHome := os.Getenv("HOME")
 	homeDir := filepath.Join(c.MkDir(), "me")
 	for _, f := range files {
