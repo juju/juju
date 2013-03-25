@@ -7,8 +7,8 @@ import (
 	"io/ioutil"
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
-	_ "launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/cmd"
+	_ "launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"os"
@@ -57,11 +57,11 @@ func helpText(command cmd.Command, name string) string {
 }
 
 func deployHelpText() string {
-        return helpText(&DeployCommand{}, "juju deploy")
+	return helpText(&DeployCommand{}, "juju deploy")
 }
 
 func syncToolsHelpText() string {
-        return helpText(&SyncToolsCommand{}, "juju sync-tools")
+	return helpText(&SyncToolsCommand{}, "juju sync-tools")
 }
 
 var runMainTests = []struct {

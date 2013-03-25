@@ -6,8 +6,8 @@ import (
 	"launchpad.net/goose/errors"
 	"launchpad.net/goose/swift"
 	"launchpad.net/juju-core/environs"
+	"os"
 	"sync"
-        "os"
 	"time"
 )
 
@@ -94,7 +94,7 @@ func (s *storage) List(prefix string) ([]string, error) {
 	for _, item := range contents {
 		names = append(names, item.Name)
 	}
-        fmt.Fprintf(os.Stderr, "Looking in %#v found %#v", s.containerName, names)
+	fmt.Fprintf(os.Stderr, "Looking in %#v found %#v", s.containerName, names)
 	return names, nil
 }
 
