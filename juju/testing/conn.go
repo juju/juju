@@ -35,12 +35,13 @@ import (
 type JujuConnSuite struct {
 	testing.LoggingSuite
 	testing.MgoSuite
-	Conn     *juju.Conn
-	State    *state.State
-	APIConn  *juju.APIConn
-	APIState *api.State
-	RootDir  string // The faked-up root directory.
-	oldHome  string
+	Conn         *juju.Conn
+	State        *state.State
+	APIConn      *juju.APIConn
+	APIState     *api.State
+	RootDir      string // The faked-up root directory.
+	oldHome      string
+	fakeJujuHome config.FakeJujuHome
 }
 
 // InvalidStateInfo holds information about no state - it will always
@@ -95,7 +96,6 @@ environments:
 `)
 
 func (s *JujuConnSuite) SetUpSuite(c *C) {
-	c.Assert(config.Init(), IsNil)
 	s.LoggingSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 }
@@ -106,6 +106,7 @@ func (s *JujuConnSuite) TearDownSuite(c *C) {
 }
 
 func (s *JujuConnSuite) SetUpTest(c *C) {
+	s.fakeJujuHome = config.SetFakeJujuHome(c.MkDir())
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	s.setUpConn(c)
@@ -115,6 +116,7 @@ func (s *JujuConnSuite) TearDownTest(c *C) {
 	s.tearDownConn(c)
 	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
+	s.fakeJujuHome.Restore()
 }
 
 // Reset returns environment state to that which existed at the start of
@@ -152,11 +154,6 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	dataDir := filepath.Join(s.RootDir, "/var/lib/juju")
 	err = os.MkdirAll(dataDir, 0777)
 	c.Assert(err, IsNil)
-
-	jujuHome := filepath.Join(home, ".juju")
-	err = os.Mkdir(jujuHome, 0777)
-	c.Assert(err, IsNil)
-	config.SetTestJujuHome(jujuHome)
 
 	err = ioutil.WriteFile(config.JujuHomePath("environments.yaml"), envConfig, 0600)
 	c.Assert(err, IsNil)
@@ -200,7 +197,6 @@ func (s *JujuConnSuite) tearDownConn(c *C) {
 	os.Setenv("HOME", s.oldHome)
 	s.oldHome = ""
 	s.RootDir = ""
-	config.RestoreJujuHome()
 }
 
 func (s *JujuConnSuite) DataDir() string {

@@ -10,9 +10,8 @@ import (
 // jujuHome stores the path to the juju configuration
 // folder defined by $JUJU_HOME or default ~/.juju.
 var (
-	jujuHomeMu   sync.Mutex
-	jujuHome     string
-	jujuHomeOrig string
+	jujuHomeMu sync.Mutex
+	jujuHome   string
 )
 
 // Init retrieves $JUJU_HOME or $HOME to set the juju home.
@@ -28,10 +27,6 @@ func Init() error {
 			return errors.New("cannot determine juju home, neither $JUJU_HOME nor $HOME are set")
 		}
 		jujuHome = filepath.Join(home, ".juju")
-	}
-	if jujuHomeOrig == "" {
-		// Store the original juju home only once.
-		jujuHomeOrig = jujuHome
 	}
 	return nil
 }
@@ -51,31 +46,27 @@ func JujuHomePath(names ...string) string {
 	return filepath.Join(all...)
 }
 
-// SetTestJujuHome allows to set the value of juju home for test
-// purposes. It returns the original juju home.
-func SetTestJujuHome(home string) string {
+type FakeJujuHome string
+
+// Restore juju home to the old value.
+func (f FakeJujuHome) Restore() {
 	jujuHomeMu.Lock()
 	defer jujuHomeMu.Unlock()
 
-	if jujuHomeOrig == "" {
-		panic("juju home hasn't been initialized")
-	}
-	jujuHome = home
-	os.Setenv("JUJU_HOME", jujuHome)
-	return jujuHomeOrig
+	jujuHome = string(f)
 }
 
-// RestoreJujuHome (re)initializes the juju home after it may
-// have been changed for testing purposes. It returns the
-// juju home.
-func RestoreJujuHome() string {
+// SetFakeJujuHome allows to set the value of juju home for testing
+// purposes.
+func SetFakeJujuHome(fake string) FakeJujuHome {
 	jujuHomeMu.Lock()
 	defer jujuHomeMu.Unlock()
 
-	if jujuHomeOrig == "" {
-		panic("juju home hasn't been initialized")
+	oldJujuHome := os.Getenv("JUJU_HOME")
+	if oldJujuHome == "" {
+		// TODO(mue) What if $HOME is unset too?
+		oldJujuHome = filepath.Join(os.Getenv("HOME"), ".juju")
 	}
-	jujuHome = jujuHomeOrig
-	os.Setenv("JUJU_HOME", jujuHome)
-	return jujuHome
+	jujuHome = fake
+	return FakeJujuHome(oldJujuHome)
 }

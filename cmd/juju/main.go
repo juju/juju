@@ -2,6 +2,8 @@ package main
 
 import (
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/log"
 	"os"
 )
 
@@ -67,5 +69,11 @@ func Main(args []string) {
 }
 
 func main() {
+	// Init juju home outside any testing context.
+	if err := config.Init(); err != nil {
+		log.Errorf("command failed: %s\n", err)
+		os.Exit(1)
+	}
+
 	Main(os.Args)
 }

@@ -2,7 +2,6 @@ package state_test
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 )
 
@@ -12,10 +11,6 @@ type EnvironSuite struct {
 }
 
 var _ = Suite(&EnvironSuite{})
-
-func (s *EnvironSuite) SetUpSuite(c *C) {
-	c.Assert(config.Init(), IsNil)
-}
 
 func (s *EnvironSuite) SetUpTest(c *C) {
 	s.ConnSuite.SetUpTest(c)

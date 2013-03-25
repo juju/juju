@@ -18,7 +18,7 @@ const (
 )
 
 type bootstrapSuite struct {
-	home testing.FakeHome
+	home *testing.FakeHome
 	testing.LoggingSuite
 }
 

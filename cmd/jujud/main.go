@@ -104,7 +104,6 @@ func jujuDMain(args []string) (code int, err error) {
 
 // This function is not redundant with main, because it provides an entry point
 // for testing with arbitrary command line arguments.
-
 func Main(args []string) {
 	var code int = 1
 	var err error

@@ -9,7 +9,8 @@ import (
 )
 
 type ConfigSuite struct {
-	savedVars map[string]string
+	savedVars    map[string]string
+	fakeJujuHome config.FakeJujuHome
 }
 
 // Ensure any environment variables a user may have set locally are reset.
@@ -134,11 +135,8 @@ func (t configTest) check(c *C) {
 	c.Assert(ecfg.useFloatingIP(), Equals, t.useFloatingIP)
 }
 
-func (s *ConfigSuite) SetUpSuite(c *C) {
-	c.Assert(config.Init(), IsNil)
-}
-
 func (s *ConfigSuite) SetUpTest(c *C) {
+	s.fakeJujuHome = config.SetFakeJujuHome(c.MkDir())
 	s.savedVars = make(map[string]string)
 	for v, val := range envVars {
 		s.savedVars[v] = os.Getenv(v)
@@ -150,6 +148,7 @@ func (s *ConfigSuite) TearDownTest(c *C) {
 	for k, v := range s.savedVars {
 		os.Setenv(k, v)
 	}
+	s.fakeJujuHome.Restore()
 }
 
 var configTests = []configTest{

@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/environs/config"
 	_ "launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
@@ -31,6 +32,8 @@ var flagRunMain = flag.Bool("run-main", false, "Run the application's main funct
 // tool itself.
 func TestRunMain(t *stdtesting.T) {
 	if *flagRunMain {
+		defer config.SetFakeJujuHome(filepath.Join(os.Getenv("HOME"), ".juju")).Restore()
+
 		Main(flag.Args())
 	}
 }
@@ -151,7 +154,7 @@ environments:
 // when environMethod is called.
 func breakJuju(c *C, environMethod string) (msg string) {
 	yaml := fmt.Sprintf(brokenConfig, environMethod)
-	err := ioutil.WriteFile(testing.HomePath(".juju", "environments.yaml"), []byte(yaml), 0666)
+	err := ioutil.WriteFile(config.JujuHomePath("environments.yaml"), []byte(yaml), 0666)
 	c.Assert(err, IsNil)
 
 	return fmt.Sprintf("dummy.%s is broken", environMethod)
@@ -172,7 +175,6 @@ func (s *MainSuite) TestActualRunJujuArgsBeforeCommand(c *C) {
 
 func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *C) {
 	defer testing.MakeFakeHomeNoEnvironments(c, "one").Restore()
-
 	// Check global args work when specified after command
 	msg := breakJuju(c, "Bootstrap")
 	logpath := filepath.Join(c.MkDir(), "log")

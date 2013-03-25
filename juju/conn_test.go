@@ -6,7 +6,6 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
@@ -59,7 +58,6 @@ func (*NewConnSuite) TestNewConnWithoutAdminSecret(c *C) {
 
 func (*NewConnSuite) TestNewConnFromNameGetUnbootstrapped(c *C) {
 	defer coretesting.MakeSampleHome(c).Restore()
-
 	_, err := juju.NewConnFromName("")
 	c.Assert(err, ErrorMatches, "dummy environment not bootstrapped")
 }
@@ -273,7 +271,6 @@ func (s *ConnSuite) TearDownTest(c *C) {
 }
 
 func (s *ConnSuite) SetUpSuite(c *C) {
-	c.Assert(config.Init(), IsNil)
 	s.LoggingSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 }

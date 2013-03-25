@@ -12,29 +12,19 @@ type JujuHomeSuite struct{}
 
 var _ = Suite(&JujuHomeSuite{})
 
-func (s *JujuHomeSuite) SetUpSuite(c *C) {
-	err := config.Init()
-	c.Assert(err, IsNil)
-}
-
-func (s *JujuHomeSuite) TearDownTest(c *C) {
-	config.RestoreJujuHome()
-}
-
 func (s *JujuHomeSuite) TestStandardHome(c *C) {
-	// Environment variable is at least set by the initialization. 
+	c.Assert(config.Init(), IsNil)
 	jujuHome := config.JujuHome()
+	homeVar := os.Getenv("HOME")
 	jujuHomeVar := os.Getenv("JUJU_HOME")
-	c.Assert(jujuHome, Equals, jujuHomeVar)
-	// Changing the environment variable has no effect. 
-	err := os.Setenv("JUJU_HOME", "")
-	c.Assert(err, IsNil)
-	jujuHome = config.JujuHome()
-	c.Assert(jujuHome, Equals, jujuHomeVar)
+	if jujuHomeVar != "" {
+		c.Assert(jujuHome, Equals, jujuHomeVar)
+	} else {
+		c.Assert(jujuHome, Equals, filepath.Join(homeVar, ".juju"))
+	}
 }
 
 func (s *JujuHomeSuite) TestErrorHome(c *C) {
-	defer config.Init()
 	config.ResetJujuHome()
 	homeVar := os.Getenv("HOME")
 	os.Setenv("HOME", "")
@@ -48,10 +38,6 @@ func (s *JujuHomeSuite) TestErrorHome(c *C) {
 	// Invalid (or missing) Init() leads to panic when retrieving, setting or restoring.
 	f := func() { _ = config.JujuHome() }
 	c.Assert(f, PanicMatches, "juju home hasn't been initialized")
-	f = func() { _ = config.SetTestJujuHome("/somwhere/in/the/filesystem") }
-	c.Assert(f, PanicMatches, "juju home hasn't been initialized")
-	f = func() { _ = config.RestoreJujuHome() }
-	c.Assert(f, PanicMatches, "juju home hasn't been initialized")
 }
 
 func (s *JujuHomeSuite) TestHomePath(c *C) {
@@ -59,15 +45,16 @@ func (s *JujuHomeSuite) TestHomePath(c *C) {
 	c.Assert(envPath, Equals, filepath.Join(config.JujuHome(), "environments.yaml"))
 }
 
-func (s *JujuHomeSuite) TestTestHome(c *C) {
+func (s *JujuHomeSuite) TestFakeHome(c *C) {
+	// Init needed to retrieve the original value and check
+	// the restoring.
+	c.Assert(config.Init(), IsNil)
+	origJujuHome := config.JujuHome()
+	fakeJujuHome := c.MkDir()
+	fake := config.SetFakeJujuHome(fakeJujuHome)
 	jujuHome := config.JujuHome()
-	testJujuHome := c.MkDir()
-	origJujuHome := config.SetTestJujuHome(testJujuHome)
-	c.Assert(jujuHome, Equals, origJujuHome)
-	jujuHomeVar := os.Getenv("JUJU_HOME")
-	c.Assert(jujuHomeVar, Equals, testJujuHome)
+	c.Assert(jujuHome, Equals, fakeJujuHome)
+	fake.Restore()
 	jujuHome = config.JujuHome()
-	c.Assert(jujuHome, Equals, testJujuHome)
-	jujuHome = config.RestoreJujuHome()
 	c.Assert(jujuHome, Equals, origJujuHome)
 }

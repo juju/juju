@@ -7,7 +7,6 @@ import (
 	"io"
 	"io/ioutil"
 	"launchpad.net/gnuflag"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"os"
 	"path/filepath"
@@ -146,12 +145,6 @@ func handleCommandError(c Command, ctx *Context, err error, f *gnuflag.FlagSet) 
 // arguments, which should not include the command name. It returns a code
 // suitable for passing to os.Exit.
 func Main(c Command, ctx *Context, args []string) int {
-	// Init juju home.
-	if err := config.Init(); err != nil {
-		log.Errorf("%s command failed: %s\n", c.Info().Name, err)
-		fmt.Fprintf(ctx.Stderr, "error: %v\n", err)
-		return 1
-	}
 	// Parse arguments.
 	f := gnuflag.NewFlagSet(c.Info().Name, gnuflag.ContinueOnError)
 	f.SetOutput(ioutil.Discard)
