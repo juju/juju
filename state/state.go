@@ -781,6 +781,63 @@ func (st *State) Unit(name string) (*Unit, error) {
 	return newUnit(st, &doc), nil
 }
 
+// DestroyUnits destroys the units with the specified names.
+func (st *State) DestroyUnits(names ...string) (err error) {
+	// TODO(rog) make this a transaction?
+	var errs []string
+	for _, name := range names {
+		unit, err := st.Unit(name)
+		switch {
+		case IsNotFound(err):
+			err = fmt.Errorf("unit %q does not exist", name)
+		case err != nil:
+		case unit.Life() != Alive:
+			continue
+		case unit.IsPrincipal():
+			err = unit.Destroy()
+		default:
+			err = fmt.Errorf("unit %q is a subordinate", name)
+		}
+		if err != nil {
+			errs = append(errs, err.Error())
+		}
+	}
+	return destroyErr("units", names, errs)
+}
+
+// DestroyMachines destroys the machines with the specified ids.
+func (st *State) DestroyMachines(ids ...string) (err error) {
+	var errs []string
+	for _, id := range ids {
+		machine, err := st.Machine(id)
+		switch {
+		case IsNotFound(err):
+			err = fmt.Errorf("machine %s does not exist", id)
+		case err != nil:
+		case machine.Life() != Alive:
+			continue
+		default:
+			err = machine.Destroy()
+		}
+		if err != nil {
+			errs = append(errs, err.Error())
+		}
+	}
+	return destroyErr("machines", ids, errs)
+}
+
+func destroyErr(desc string, ids, errs []string) error {
+	if len(errs) == 0 {
+		return nil
+	}
+	msg := "some %s were not destroyed"
+	if len(errs) == len(ids) {
+		msg = "no %s were destroyed"
+	}
+	msg = fmt.Sprintf(msg, desc)
+	return fmt.Errorf("%s: %s", msg, strings.Join(errs, "; "))
+}
+
 // AssignUnit places the unit on a machine. Depending on the policy, and the
 // state of the environment, this may lead to new instances being launched
 // within the environment.
