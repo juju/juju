@@ -14,11 +14,11 @@ var _ = Suite(&instanceTypeSuite{})
 
 func (s *instanceTypeSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
-	UseTestInstanceTypeData(instanceTypeData)
+	UseTestInstanceTypeData("test", instanceTypeData)
 }
 
 func (s *instanceTypeSuite) TearDownSuite(c *C) {
-	UseTestInstanceTypeData(nil)
+	UseTestInstanceTypeData("test", nil)
 	s.LoggingSuite.TearDownTest(c)
 }
 
