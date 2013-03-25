@@ -1249,11 +1249,8 @@ func testSetPassword(c *C, getEntity func() (state.Authenticator, error)) {
 
 type entity interface {
 	lifer
-	EntityName() string
+	state.TaggedAuthenticator
 	SetMongoPassword(password string) error
-	SetPassword(password string) error
-	PasswordValid(password string) bool
-	Refresh() error
 }
 
 func testSetMongoPassword(c *C, getEntity func(st *state.State) (entity, error)) {
@@ -1272,7 +1269,7 @@ func testSetMongoPassword(c *C, getEntity func(st *state.State) (entity, error))
 	c.Assert(err, IsNil)
 
 	// Check that we cannot log in with the wrong password.
-	info.EntityName = ent.EntityName()
+	info.EntityName = ent.Tag()
 	info.Password = "bar"
 	err = tryOpenState(info)
 	c.Assert(state.IsUnauthorizedError(err), Equals, true)
@@ -1339,10 +1336,6 @@ func (s *StateSuite) TestSetAdminMongoPassword(c *C) {
 	c.Assert(err, IsNil)
 }
 
-type namedEntity interface {
-	EntityName() string
-}
-
 var envConfig = map[string]interface{}{
 	"name": "test",
 	"type": "test",
@@ -1356,7 +1349,7 @@ func setUpEnvConfig(c *C) {
 	st.Close()
 }
 
-func (s *StateSuite) testEntity(c *C, getEntity func(string) (namedEntity, error)) {
+func (s *StateSuite) testEntity(c *C, getEntity func(string) (state.Tagger, error)) {
 	e, err := getEntity("environment-foo")
 	c.Check(e, IsNil)
 	c.Assert(err, ErrorMatches, "settings not found")
@@ -1389,32 +1382,32 @@ func (s *StateSuite) testEntity(c *C, getEntity func(string) (namedEntity, error
 	m, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 
-	e, err = getEntity(m.EntityName())
+	e, err = getEntity(m.Tag())
 	c.Assert(err, IsNil)
 	c.Assert(e, FitsTypeOf, m)
-	c.Assert(e.EntityName(), Equals, m.EntityName())
+	c.Assert(e.Tag(), Equals, m.Tag())
 
 	svc, err := s.State.AddService("ser-vice2", s.AddTestingCharm(c, "mysql"))
 	c.Assert(err, IsNil)
 	u, err := svc.AddUnit()
 	c.Assert(err, IsNil)
 
-	e, err = getEntity(u.EntityName())
+	e, err = getEntity(u.Tag())
 	c.Assert(err, IsNil)
 	c.Assert(e, FitsTypeOf, u)
-	c.Assert(e.EntityName(), Equals, u.EntityName())
+	c.Assert(e.Tag(), Equals, u.Tag())
 
 	m.Destroy()
 	svc.Destroy()
 }
 
 func (s *StateSuite) TestAuthenticator(c *C) {
-	getEntity := func(name string) (namedEntity, error) {
+	getEntity := func(name string) (state.Tagger, error) {
 		e, err := s.State.Authenticator(name)
 		if err != nil {
 			return nil, err
 		}
-		return e.(namedEntity), nil
+		return e.(state.Tagger), nil
 	}
 	s.testEntity(c, getEntity)
 	e, err := getEntity("user-arble")
@@ -1425,10 +1418,10 @@ func (s *StateSuite) TestAuthenticator(c *C) {
 	user, err := s.State.AddUser("arble", "pass")
 	c.Assert(err, IsNil)
 
-	e, err = getEntity(user.EntityName())
+	e, err = getEntity(user.Tag())
 	c.Assert(err, IsNil)
 	c.Assert(e, FitsTypeOf, user)
-	c.Assert(e.EntityName(), Equals, user.EntityName())
+	c.Assert(e.Tag(), Equals, user.Tag())
 
 	_, err = getEntity("environment-test")
 	c.Assert(
@@ -1439,32 +1432,32 @@ func (s *StateSuite) TestAuthenticator(c *C) {
 }
 
 func (s *StateSuite) TestAnnotator(c *C) {
-	getEntity := func(name string) (namedEntity, error) {
+	getEntity := func(name string) (state.Tagger, error) {
 		e, err := s.State.Annotator(name)
 		if err != nil {
 			return nil, err
 		}
-		return e.(namedEntity), nil
+		return e.(state.Tagger), nil
 	}
 	s.testEntity(c, getEntity)
 	svc, err := s.State.AddService("ser-vice1", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, IsNil)
 
-	service, err := getEntity(svc.EntityName())
+	service, err := getEntity(svc.Tag())
 	c.Assert(err, IsNil)
 	c.Assert(service, FitsTypeOf, svc)
-	c.Assert(service.EntityName(), Equals, svc.EntityName())
+	c.Assert(service.Tag(), Equals, svc.Tag())
 
 	e, err := getEntity("environment-" + envConfig["name"].(string))
 	c.Assert(err, IsNil)
 	env, err := s.State.Environment()
 	c.Assert(err, IsNil)
 	c.Assert(e, FitsTypeOf, env)
-	c.Assert(e.EntityName(), Equals, env.EntityName())
+	c.Assert(e.Tag(), Equals, env.Tag())
 
 	user, err := s.State.AddUser("arble", "pass")
 	c.Assert(err, IsNil)
-	_, err = getEntity(user.EntityName())
+	_, err = getEntity(user.Tag())
 	c.Assert(
 		err,
 		ErrorMatches,

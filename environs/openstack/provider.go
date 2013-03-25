@@ -971,7 +971,7 @@ func (e *environ) jujuGroupName() string {
 }
 
 func (e *environ) machineFullName(machineId string) string {
-	return fmt.Sprintf("juju-%s-%s", e.Name(), state.MachineEntityName(machineId))
+	return fmt.Sprintf("juju-%s-%s", e.Name(), state.MachineTag(machineId))
 }
 
 // machinesFilter returns a nova.Filter matching all machines in the environment.

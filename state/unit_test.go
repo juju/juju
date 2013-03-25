@@ -252,12 +252,12 @@ func (s *ConnSuite) assertUnitLife(c *C, name string, life state.Life) {
 	c.Assert(unit.Life(), Equals, life)
 }
 
-func (s *UnitSuite) TestEntityName(c *C) {
-	c.Assert(s.unit.EntityName(), Equals, "unit-wordpress-0")
+func (s *UnitSuite) TestTag(c *C) {
+	c.Assert(s.unit.Tag(), Equals, "unit-wordpress-0")
 }
 
-func (s *UnitSuite) TestUnitEntityName(c *C) {
-	c.Assert(state.UnitEntityName("wordpress/2"), Equals, "unit-wordpress-2")
+func (s *UnitSuite) TestUnitTag(c *C) {
+	c.Assert(state.UnitTag("wordpress/2"), Equals, "unit-wordpress-2")
 }
 
 func (s *UnitSuite) TestSetMongoPassword(c *C) {
@@ -312,13 +312,13 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 
 	// Sanity check that we cannot connect with the wrong
 	// password
-	info.EntityName = m.EntityName()
+	info.EntityName = m.Tag()
 	info.Password = "foo1"
 	err = tryOpenState(info)
 	c.Assert(state.IsUnauthorizedError(err), Equals, true)
 
 	// Connect as the machine entity.
-	info.EntityName = m.EntityName()
+	info.EntityName = m.Tag()
 	info.Password = "foo"
 	st1, err := state.Open(info, state.TestingDialTimeout)
 	c.Assert(err, IsNil)
@@ -333,7 +333,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 
 	// Now connect as the unit entity and, as that
 	// that entity, change the password for a new unit.
-	info.EntityName = unit.EntityName()
+	info.EntityName = unit.Tag()
 	info.Password = "bar"
 	st2, err := state.Open(info, state.TestingDialTimeout)
 	c.Assert(err, IsNil)

@@ -13,16 +13,16 @@ import (
 // Annotations/Annotation below.
 type annotatorDoc struct {
 	GlobalKey   string `bson:"_id"`
-	EntityName  string
+	Tag         string
 	Annotations map[string]string
 }
 
 // annotator implements annotation-related methods
 // for any entity that wishes to use it.
 type annotator struct {
-	globalKey  string
-	entityName string
-	st         *State
+	globalKey string
+	tag       string
+	st        *State
 }
 
 // SetAnnotations adds key/value pairs to annotations in MongoDB.
@@ -60,7 +60,7 @@ func (a *annotator) SetAnnotations(pairs map[string]string) error {
 			C:      coll,
 			Id:     id,
 			Assert: txn.DocMissing,
-			Insert: &annotatorDoc{id, a.entityName, toInsert},
+			Insert: &annotatorDoc{id, a.tag, toInsert},
 		}
 		ops = append(ops, insertOp)
 	} else {

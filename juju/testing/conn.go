@@ -48,7 +48,7 @@ type JujuConnSuite struct {
 func InvalidStateInfo(machineId string) *state.Info {
 	return &state.Info{
 		Addrs:      []string{"0.1.2.3:1234"},
-		EntityName: state.MachineEntityName(machineId),
+		EntityName: state.MachineTag(machineId),
 		Password:   "unimportant",
 		CACert:     []byte(testing.CACert),
 	}
@@ -60,7 +60,7 @@ func InvalidStateInfo(machineId string) *state.Info {
 func InvalidAPIInfo(machineId string) *api.Info {
 	return &api.Info{
 		Addrs:      []string{"0.1.2.3:1234"},
-		EntityName: state.MachineEntityName(machineId),
+		EntityName: state.MachineTag(machineId),
 		Password:   "unimportant",
 		CACert:     []byte(testing.CACert),
 	}

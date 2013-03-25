@@ -294,10 +294,10 @@ func (st *State) Unit(name string) (*Unit, error) {
 // Login authenticates as the entity with the given name and password.
 // Subsequent requests on the state will act as that entity.
 // This method is usually called automatically by Open.
-func (st *State) Login(entityName, password string) error {
+func (st *State) Login(tag, password string) error {
 	return st.call("Admin", "", "Login", &params.Creds{
-		EntityName: entityName,
-		Password:   password,
+		Tag:      tag,
+		Password: password,
 	}, nil)
 }
 
@@ -306,16 +306,16 @@ func (m *Machine) Id() string {
 	return m.id
 }
 
-// EntityName returns a name identifying the machine that is safe to use
+// Tag returns a name identifying the machine that is safe to use
 // as a file name.  The returned name will be different from other
-// EntityName values returned by any other entities from the same state.
-func (m *Machine) EntityName() string {
-	return MachineEntityName(m.Id())
+// Tag values returned by any other entities from the same state.
+func (m *Machine) Tag() string {
+	return MachineTag(m.Id())
 }
 
-// MachineEntityName returns the entity name for the
+// MachineTag returns the tag for the
 // machine with the given id.
-func MachineEntityName(id string) string {
+func MachineTag(id string) string {
 	return fmt.Sprintf("machine-%s", id)
 }
 
@@ -449,17 +449,17 @@ func (u *Unit) SetPassword(password string) error {
 	}, nil)
 }
 
-// UnitEntityName returns the entity name for the
+// UnitTag returns the tag for the
 // unit with the given name.
-func UnitEntityName(unitName string) string {
+func UnitTag(unitName string) string {
 	return "unit-" + strings.Replace(unitName, "/", "-", -1)
 }
 
-// EntityName returns a name identifying the unit that is safe to use
+// Tag returns a name identifying the unit that is safe to use
 // as a file name.  The returned name will be different from other
-// EntityName values returned by any other entities from the same state.
-func (u *Unit) EntityName() string {
-	return UnitEntityName(u.name)
+// Tag values returned by any other entities from the same state.
+func (u *Unit) Tag() string {
+	return UnitTag(u.name)
 }
 
 // DeployerName returns the entity name of the agent responsible for deploying

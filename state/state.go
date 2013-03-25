@@ -280,13 +280,23 @@ func (st *State) Machine(id string) (*Machine, error) {
 	return newMachine(st, mdoc), nil
 }
 
+// Tagger represents entities with a tag.
+type Tagger interface {
+	Tag() string
+}
+
 // Authenticator represents entites capable of handling password
 // authentication.
 type Authenticator interface {
 	Refresh() error
 	SetPassword(pass string) error
 	PasswordValid(pass string) bool
-	EntityName() string
+}
+
+// TaggedAuthenticator represents tagged entities capable of authentication.
+type TaggedAuthenticator interface {
+	Authenticator
+	Tagger
 }
 
 // Annotator represents entities capable of handling annotations.
@@ -296,25 +306,31 @@ type Annotator interface {
 	SetAnnotations(pairs map[string]string) error
 }
 
-// Authenticator attempts to return an Authenticator with the given name.
-func (st *State) Authenticator(name string) (Authenticator, error) {
+// TaggedAnnotator represents tagged entities capable of handling annotations.
+type TaggedAnnotator interface {
+	Annotator
+	Tagger
+}
+
+// Authenticator attempts to return a TaggedAuthenticator with the given name.
+func (st *State) Authenticator(name string) (TaggedAuthenticator, error) {
 	e, err := st.entity(name)
 	if err != nil {
 		return nil, err
 	}
-	if e, ok := e.(Authenticator); ok {
+	if e, ok := e.(TaggedAuthenticator); ok {
 		return e, nil
 	}
 	return nil, fmt.Errorf("entity %q does not support authentication", name)
 }
 
-// Annotator attempts to return an Annotator with the given name.
-func (st *State) Annotator(name string) (Annotator, error) {
+// Annotator attempts to return aa TaggedAnnotator with the given name.
+func (st *State) Annotator(name string) (TaggedAnnotator, error) {
 	e, err := st.entity(name)
 	if err != nil {
 		return nil, err
 	}
-	if e, ok := e.(Annotator); ok {
+	if e, ok := e.(TaggedAnnotator); ok {
 		return e, nil
 	}
 	return nil, fmt.Errorf("entity %q does not support annotations", name)

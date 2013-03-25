@@ -91,8 +91,8 @@ type ServiceDestroy struct {
 
 // Creds holds credentials for identifying an entity.
 type Creds struct {
-	EntityName string
-	Password   string
+	Tag      string
+	Password string
 }
 
 // Machine holds details of a machine.
@@ -290,7 +290,7 @@ type AnnotationInfo struct {
 	// and StateWatcher results. We ensure that it's not serialised
 	// for the API by specifying the json tag.
 	GlobalKey   string `bson:"_id" json:"-"`
-	EntityName  string
+	Tag         string
 	Annotations map[string]string
 }
 

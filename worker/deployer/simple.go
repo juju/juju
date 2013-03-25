@@ -72,14 +72,14 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	}
 
 	// Link the current tools for use by the new agent.
-	entityName := state.UnitEntityName(unitName)
-	_, err = agent.ChangeAgentTools(ctx.dataDir, entityName, version.Current)
-	toolsDir := agent.ToolsDir(ctx.dataDir, entityName)
+	tag := state.UnitTag(unitName)
+	_, err = agent.ChangeAgentTools(ctx.dataDir, tag, version.Current)
+	toolsDir := agent.ToolsDir(ctx.dataDir, tag)
 	defer removeOnErr(&err, toolsDir)
 
 	info := state.Info{
 		Addrs:      ctx.addresser.Addresses(),
-		EntityName: entityName,
+		EntityName: tag,
 		CACert:     ctx.caCert,
 	}
 	// Prepare the agent's configuration data.
@@ -94,7 +94,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	defer removeOnErr(&err, conf.Dir())
 
 	// Install an upstart job that runs the unit agent.
-	logPath := path.Join(ctx.logDir, entityName+".log")
+	logPath := path.Join(ctx.logDir, tag+".log")
 	cmd := strings.Join([]string{
 		path.Join(toolsDir, "jujud"), "unit",
 		"--data-dir", conf.DataDir,
@@ -118,12 +118,12 @@ func (ctx *SimpleContext) RecallUnit(unitName string) error {
 	if err := svc.Remove(); err != nil {
 		return err
 	}
-	entityName := state.UnitEntityName(unitName)
-	agentDir := agent.Dir(ctx.dataDir, entityName)
+	tag := state.UnitTag(unitName)
+	agentDir := agent.Dir(ctx.dataDir, tag)
 	if err := os.RemoveAll(agentDir); err != nil {
 		return err
 	}
-	toolsDir := agent.ToolsDir(ctx.dataDir, entityName)
+	toolsDir := agent.ToolsDir(ctx.dataDir, tag)
 	return os.Remove(toolsDir)
 }
 
@@ -155,8 +155,8 @@ func (ctx *SimpleContext) DeployedUnits() ([]string, error) {
 // context, so as to distinguish its own jobs from those installed by other
 // means.
 func (ctx *SimpleContext) upstartService(unitName string) *upstart.Service {
-	entityName := state.UnitEntityName(unitName)
-	svcName := "jujud-" + ctx.deployerName + ":" + entityName
+	tag := state.UnitTag(unitName)
+	svcName := "jujud-" + ctx.deployerName + ":" + tag
 	svc := upstart.NewService(svcName)
 	svc.InitDir = ctx.initDir
 	return svc

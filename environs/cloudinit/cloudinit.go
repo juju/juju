@@ -196,7 +196,7 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 		syslogConfTemplate = nodeRsyslogTemplate
 	}
 	var machineName = func() string {
-		return state.MachineEntityName(cfg.MachineId)
+		return state.MachineTag(cfg.MachineId)
 	}
 
 	var bootstrapIP = func() string {
@@ -224,7 +224,7 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	c.AddRunCmd("restart rsyslog")
 
 	if _, err := addAgentToBoot(c, cfg, "machine",
-		state.MachineEntityName(cfg.MachineId),
+		state.MachineTag(cfg.MachineId),
 		fmt.Sprintf("--machine-id %s "+debugFlag, cfg.MachineId)); err != nil {
 		return nil, err
 	}
@@ -248,7 +248,7 @@ func (cfg *MachineConfig) dataFile(name string) string {
 	return path.Join(cfg.DataDir, name)
 }
 
-func (cfg *MachineConfig) agentConfig(entityName string) *agent.Conf {
+func (cfg *MachineConfig) agentConfig(tag string) *agent.Conf {
 	info := *cfg.StateInfo
 	apiInfo := *cfg.APIInfo
 	c := &agent.Conf{
@@ -261,12 +261,12 @@ func (cfg *MachineConfig) agentConfig(entityName string) *agent.Conf {
 		APIPort:         cfg.APIPort,
 	}
 	c.StateInfo.Addrs = cfg.stateHostAddrs()
-	c.StateInfo.EntityName = entityName
+	c.StateInfo.EntityName = tag
 	c.StateInfo.Password = ""
 	c.OldPassword = cfg.StateInfo.Password
 
 	c.APIInfo.Addrs = cfg.apiHostAddrs()
-	c.APIInfo.EntityName = entityName
+	c.APIInfo.EntityName = tag
 	c.APIInfo.Password = ""
 
 	return c
@@ -274,8 +274,8 @@ func (cfg *MachineConfig) agentConfig(entityName string) *agent.Conf {
 
 // addAgentInfo adds agent-required information to the agent's directory
 // and returns the agent directory name.
-func addAgentInfo(c *cloudinit.Config, cfg *MachineConfig, entityName string) (*agent.Conf, error) {
-	acfg := cfg.agentConfig(entityName)
+func addAgentInfo(c *cloudinit.Config, cfg *MachineConfig, tag string) (*agent.Conf, error) {
+	acfg := cfg.agentConfig(tag)
 	cmds, err := acfg.WriteCommands()
 	if err != nil {
 		return nil, err
@@ -284,8 +284,8 @@ func addAgentInfo(c *cloudinit.Config, cfg *MachineConfig, entityName string) (*
 	return acfg, nil
 }
 
-func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, entityName, args string) (*agent.Conf, error) {
-	acfg, err := addAgentInfo(c, cfg, entityName)
+func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, tag, args string) (*agent.Conf, error) {
+	acfg, err := addAgentInfo(c, cfg, tag)
 	if err != nil {
 		return nil, err
 	}
@@ -293,12 +293,12 @@ func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, entityName, a
 	// Make the agent run via a symbolic link to the actual tools
 	// directory, so it can upgrade itself without needing to change
 	// the upstart script.
-	toolsDir := agent.ToolsDir(cfg.DataDir, entityName)
+	toolsDir := agent.ToolsDir(cfg.DataDir, tag)
 	// TODO(dfc) ln -nfs, so it doesn't fail if for some reason that the target already exists
 	addScripts(c, fmt.Sprintf("ln -s %v %s", cfg.Tools.Binary, shquote(toolsDir)))
 
-	svc := upstart.NewService("jujud-" + entityName)
-	logPath := fmt.Sprintf("/var/log/juju/%s.log", entityName)
+	svc := upstart.NewService("jujud-" + tag)
+	logPath := fmt.Sprintf("/var/log/juju/%s.log", tag)
 	cmd := fmt.Sprintf(
 		"%s/jujud %s"+
 			" --log-file %s"+
@@ -311,13 +311,13 @@ func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, entityName, a
 	)
 	conf := &upstart.Conf{
 		Service: *svc,
-		Desc:    fmt.Sprintf("juju %s agent", entityName),
+		Desc:    fmt.Sprintf("juju %s agent", tag),
 		Cmd:     cmd,
 		Out:     logPath,
 	}
 	cmds, err := conf.InstallCommands()
 	if err != nil {
-		return nil, fmt.Errorf("cannot make cloud-init upstart script for the %s agent: %v", entityName, err)
+		return nil, fmt.Errorf("cannot make cloud-init upstart script for the %s agent: %v", tag, err)
 	}
 	addScripts(c, cmds...)
 	return acfg, nil
@@ -451,13 +451,13 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		if len(cfg.StateInfo.Addrs) == 0 {
 			return fmt.Errorf("missing state hosts")
 		}
-		if cfg.StateInfo.EntityName != state.MachineEntityName(cfg.MachineId) {
+		if cfg.StateInfo.EntityName != state.MachineTag(cfg.MachineId) {
 			return fmt.Errorf("entity name must match started machine")
 		}
 		if len(cfg.APIInfo.Addrs) == 0 {
 			return fmt.Errorf("missing API hosts")
 		}
-		if cfg.APIInfo.EntityName != state.MachineEntityName(cfg.MachineId) {
+		if cfg.APIInfo.EntityName != state.MachineTag(cfg.MachineId) {
 			return fmt.Errorf("entity name must match started machine")
 		}
 	}
