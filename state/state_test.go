@@ -1361,7 +1361,7 @@ func (s *StateSuite) testEntity(c *C, getEntity func(string) (state.Tagger, erro
 		c.Logf(name)
 		e, err := getEntity(name)
 		c.Check(e, IsNil)
-		c.Assert(err, ErrorMatches, `invalid entity name ".*"`)
+		c.Assert(err, ErrorMatches, `invalid entity tag ".*"`)
 	}
 
 	e, err = getEntity("machine-1234")

@@ -336,34 +336,34 @@ func (st *State) Annotator(name string) (TaggedAnnotator, error) {
 	return nil, fmt.Errorf("entity %q does not support annotations", name)
 }
 
-// entity returns the entity for the given name.
-func (st *State) entity(entityName string) (interface{}, error) {
-	i := strings.Index(entityName, "-")
-	if i <= 0 || i >= len(entityName)-1 {
-		return nil, fmt.Errorf("invalid entity name %q", entityName)
+// entity returns the entity for the given tag.
+func (st *State) entity(tag string) (interface{}, error) {
+	i := strings.Index(tag, "-")
+	if i <= 0 || i >= len(tag)-1 {
+		return nil, fmt.Errorf("invalid entity tag %q", tag)
 	}
-	prefix, id := entityName[0:i], entityName[i+1:]
+	prefix, id := tag[0:i], tag[i+1:]
 	switch prefix {
 	case "machine":
 		if !IsMachineId(id) {
-			return nil, fmt.Errorf("invalid entity name %q", entityName)
+			return nil, fmt.Errorf("invalid entity tag %q", tag)
 		}
 		return st.Machine(id)
 	case "unit":
 		i := strings.LastIndex(id, "-")
 		if i == -1 {
-			return nil, fmt.Errorf("invalid entity name %q", entityName)
+			return nil, fmt.Errorf("invalid entity tag %q", tag)
 		}
 		name := id[:i] + "/" + id[i+1:]
 		if !IsUnitName(name) {
-			return nil, fmt.Errorf("invalid entity name %q", entityName)
+			return nil, fmt.Errorf("invalid entity tag %q", tag)
 		}
 		return st.Unit(name)
 	case "user":
 		return st.User(id)
 	case "service":
 		if !IsServiceName(id) {
-			return nil, fmt.Errorf("invalid entity name %q", entityName)
+			return nil, fmt.Errorf("invalid entity tag %q", tag)
 		}
 		return st.Service(id)
 	case "environment":
@@ -374,11 +374,11 @@ func (st *State) entity(entityName string) (interface{}, error) {
 		// Return an invalid entity error if the requested environment is not
 		// the current one.
 		if id != conf.Name() {
-			return nil, fmt.Errorf("invalid entity name %q", entityName)
+			return nil, fmt.Errorf("invalid entity tag %q", tag)
 		}
 		return st.Environment()
 	}
-	return nil, fmt.Errorf("invalid entity name %q", entityName)
+	return nil, fmt.Errorf("invalid entity tag %q", tag)
 }
 
 // AddCharm adds the ch charm with curl to the state.  bundleUrl must be

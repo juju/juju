@@ -620,7 +620,7 @@ var badLoginTests = []struct {
 }, {
 	tag:      "bar",
 	password: "password",
-	err:      `invalid entity name "bar"`,
+	err:      `invalid entity tag "bar"`,
 }}
 
 func (s *suite) TestBadLogin(c *C) {
@@ -817,7 +817,7 @@ func (s *suite) TestClientAnnotations(c *C) {
 
 func (s *suite) TestClientAnnotationsBadEntity(c *C) {
 	bad := []string{"", "machine", "-foo", "foo-", "---", "machine-jim", "unit-123", "unit-foo", "service-", "service-foo/bar"}
-	expected := `invalid entity name ".*"`
+	expected := `invalid entity tag ".*"`
 	for _, id := range bad {
 		err := s.APIState.Client().SetAnnotations(id, map[string]string{"mykey": "myvalue"})
 		c.Assert(err, ErrorMatches, expected)
