@@ -140,13 +140,13 @@ type GetAnnotationsResults struct {
 
 // GetAnnotations stores parameters for making the GetAnnotations call.
 type GetAnnotations struct {
-	EntityId string
+	Tag string
 }
 
 // SetAnnotations stores parameters for making the SetAnnotations call.
 type SetAnnotations struct {
-	EntityId string
-	Pairs    map[string]string
+	Tag   string
+	Pairs map[string]string
 }
 
 // SetServiceConstraints stores parameters for making the SetServiceConstraints call.
