@@ -4,8 +4,8 @@ import (
 	"bytes"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 )
 
@@ -40,7 +40,7 @@ func (s *ConstraintsCommandsSuite) TestSetEnviron(c *C) {
 	assertSet(c, "mem=4G", "cpu-power=250")
 	cons, err := s.State.EnvironConstraints()
 	c.Assert(err, IsNil)
-	c.Assert(cons, DeepEquals, state.Constraints{
+	c.Assert(cons, DeepEquals, constraints.Value{
 		CpuPower: uint64p(250),
 		Mem:      uint64p(4096),
 	})
@@ -49,7 +49,7 @@ func (s *ConstraintsCommandsSuite) TestSetEnviron(c *C) {
 	assertSet(c)
 	cons, err = s.State.EnvironConstraints()
 	c.Assert(err, IsNil)
-	c.Assert(cons, DeepEquals, state.Constraints{})
+	c.Assert(cons, DeepEquals, constraints.Value{})
 }
 
 func (s *ConstraintsCommandsSuite) TestSetService(c *C) {
@@ -60,7 +60,7 @@ func (s *ConstraintsCommandsSuite) TestSetService(c *C) {
 	assertSet(c, "-s", "svc", "mem=4G", "cpu-power=250")
 	cons, err := svc.Constraints()
 	c.Assert(err, IsNil)
-	c.Assert(cons, DeepEquals, state.Constraints{
+	c.Assert(cons, DeepEquals, constraints.Value{
 		CpuPower: uint64p(250),
 		Mem:      uint64p(4096),
 	})
@@ -69,7 +69,7 @@ func (s *ConstraintsCommandsSuite) TestSetService(c *C) {
 	assertSet(c, "-s", "svc")
 	cons, err = svc.Constraints()
 	c.Assert(err, IsNil)
-	c.Assert(cons, DeepEquals, state.Constraints{})
+	c.Assert(cons, DeepEquals, constraints.Value{})
 }
 
 func assertSetError(c *C, code int, stderr string, args ...string) {
@@ -98,7 +98,7 @@ func (s *ConstraintsCommandsSuite) TestGetEnvironEmpty(c *C) {
 }
 
 func (s *ConstraintsCommandsSuite) TestGetEnvironValues(c *C) {
-	cons := state.Constraints{CpuCores: uint64p(64)}
+	cons := constraints.Value{CpuCores: uint64p(64)}
 	err := s.State.SetEnvironConstraints(cons)
 	c.Assert(err, IsNil)
 	assertGet(c, "cpu-cores=64\n")
@@ -113,13 +113,13 @@ func (s *ConstraintsCommandsSuite) TestGetServiceEmpty(c *C) {
 func (s *ConstraintsCommandsSuite) TestGetServiceValues(c *C) {
 	svc, err := s.State.AddService("svc", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, IsNil)
-	err = svc.SetConstraints(state.Constraints{CpuCores: uint64p(64)})
+	err = svc.SetConstraints(constraints.Value{CpuCores: uint64p(64)})
 	c.Assert(err, IsNil)
 	assertGet(c, "cpu-cores=64\n", "svc")
 }
 
 func (s *ConstraintsCommandsSuite) TestGetFormats(c *C) {
-	cons := state.Constraints{CpuCores: uint64p(64), CpuPower: uint64p(0)}
+	cons := constraints.Value{CpuCores: uint64p(64), CpuPower: uint64p(0)}
 	err := s.State.SetEnvironConstraints(cons)
 	c.Assert(err, IsNil)
 	assertGet(c, "cpu-cores=64 cpu-power=\n", "--format", "constraints")

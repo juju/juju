@@ -3,6 +3,7 @@ package state
 import (
 	"container/list"
 	"errors"
+	"fmt"
 	"labix.org/v2/mgo"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
@@ -11,47 +12,8 @@ import (
 )
 
 // StateWatcher watches any changes to the state.
-// It's a stub type for the time being until allWatcher
-// is complete.
-type StateWatcher struct{}
-
-func newStateWatcher(st *State) *StateWatcher {
-	return &StateWatcher{}
-}
-
-// Stop stops the watcher.
-func (w *StateWatcher) Stop() error {
-	return nil
-}
-
-var StubNextDelta = []params.Delta{
-	params.Delta{
-		Removed: false,
-		Entity: &params.ServiceInfo{
-			Name:    "Example",
-			Exposed: true,
-		},
-	},
-	params.Delta{
-		Removed: true,
-		Entity: &params.UnitInfo{
-			Name:    "MyUnit",
-			Service: "Example",
-		},
-	},
-}
-
-// Next retrieves all changes that have happened since the given revision
-// number, blocking until there are some changes available.  It also
-// returns the revision number of the latest change.
-func (w *StateWatcher) Next() ([]params.Delta, error) {
-	// This is a stub to make progress with the higher level coding.
-	return StubNextDelta, nil
-}
-
-// StateWatcher watches any changes to the state.
 // TODO(rog) rename this to StateWatcher when allWatcher is complete.
-type xStateWatcher struct {
+type StateWatcher struct {
 	all *allWatcher
 	// The following fields are maintained by the allWatcher
 	// goroutine.
@@ -59,8 +21,14 @@ type xStateWatcher struct {
 	stopped bool
 }
 
+func newStateWatcher(st *State) *StateWatcher {
+	return &StateWatcher{
+		all: st.allWatcher,
+	}
+}
+
 // Stop stops the watcher.
-func (w *xStateWatcher) Stop() error {
+func (w *StateWatcher) Stop() error {
 	select {
 	case w.all.request <- &allRequest{w: w}:
 		return nil
@@ -71,10 +39,9 @@ func (w *xStateWatcher) Stop() error {
 
 var errWatcherStopped = errors.New("state watcher was stopped")
 
-// Next retrieves all changes that have happened since the given revision
-// number, blocking until there are some changes available.  It also
-// returns the revision number of the latest change.
-func (w *xStateWatcher) Next() ([]params.Delta, error) {
+// Next retrieves all changes that have happened since the last
+// time it was called, blocking until there are some changes available.
+func (w *StateWatcher) Next() ([]params.Delta, error) {
 	req := &allRequest{
 		w:     w,
 		reply: make(chan bool),
@@ -113,7 +80,7 @@ type allWatcher struct {
 
 	// Each entry in the waiting map holds a linked list of Next requests
 	// outstanding for the associated StateWatcher.
-	waiting map[*xStateWatcher]*allRequest
+	waiting map[*StateWatcher]*allRequest
 }
 
 // allWatcherBacking is the interface required
@@ -154,7 +121,7 @@ type entityId struct {
 // replied to when some changes are available.
 type allRequest struct {
 	// w holds the StateWatcher that has originated the request.
-	w *xStateWatcher
+	w *StateWatcher
 
 	// reply receives a message when deltas are ready.  If reply is
 	// nil, the StateWatcher will be stopped.  If the reply is true,
@@ -179,7 +146,7 @@ func newAllWatcher(backing allWatcherBacking) *allWatcher {
 		backing: backing,
 		request: make(chan *allRequest),
 		all:     newAllInfo(),
-		waiting: make(map[*xStateWatcher]*allRequest),
+		waiting: make(map[*StateWatcher]*allRequest),
 	}
 }
 
@@ -323,7 +290,7 @@ func (aw *allWatcher) seen(revno int64) {
 
 // leave is called when the given watcher leaves.  It decrements the reference
 // counts of any entities that have been seen by the watcher.
-func (aw *allWatcher) leave(w *xStateWatcher) {
+func (aw *allWatcher) leave(w *StateWatcher) {
 	for e := aw.all.list.Front(); e != nil; {
 		next := e.Next()
 		entry := e.Value.(*entityEntry)
@@ -339,6 +306,122 @@ func (aw *allWatcher) leave(w *xStateWatcher) {
 			aw.all.decRef(entry, aw.backing.entityIdForInfo(entry.info))
 		}
 		e = next
+	}
+}
+
+// allWatcherStateBacking implements allWatcherBacking by
+// fetching entities from the State.
+type allWatcherStateBacking struct {
+	st *State
+	// collections
+	collectionByName map[string]allWatcherStateCollection
+	collectionByKind map[string]allWatcherStateCollection
+}
+
+// allWatcherStateCollection holds information about a
+// collection watched by an allWatcher and the
+// type of value we use to store entity information
+// for that collection.
+type allWatcherStateCollection struct {
+	*mgo.Collection
+	// infoSliceType stores the type of a slice of the info type
+	// that we use for this collection.  In Go 1.1 we can change
+	// this to use the type itself, as we'll have reflect.SliceOf.
+	infoSliceType reflect.Type
+}
+
+func newAllWatcherStateBacking(st *State) allWatcherBacking {
+	b := &allWatcherStateBacking{
+		st:               st,
+		collectionByName: make(map[string]allWatcherStateCollection),
+		collectionByKind: make(map[string]allWatcherStateCollection),
+	}
+	collections := []allWatcherStateCollection{{
+		Collection:    st.machines,
+		infoSliceType: reflect.TypeOf([]params.MachineInfo(nil)),
+	}, {
+		Collection:    st.units,
+		infoSliceType: reflect.TypeOf([]params.UnitInfo(nil)),
+	}, {
+		Collection:    st.services,
+		infoSliceType: reflect.TypeOf([]params.ServiceInfo(nil)),
+	}, {
+		Collection:    st.relations,
+		infoSliceType: reflect.TypeOf([]params.RelationInfo(nil)),
+	}, {
+		Collection:    st.annotations,
+		infoSliceType: reflect.TypeOf([]params.AnnotationInfo(nil)),
+	}}
+	// Populate the collection maps from the above set of collections.
+	for _, c := range collections {
+		// Create a new instance of the info type so we can
+		// find out its kind.
+		info := reflect.New(c.infoSliceType.Elem()).Interface().(params.EntityInfo)
+		kind := info.EntityKind()
+		if _, ok := b.collectionByKind[kind]; ok {
+			panic(fmt.Errorf("duplicate collection kind %q", kind))
+		}
+		b.collectionByKind[kind] = c
+		if _, ok := b.collectionByName[c.Name]; ok {
+			panic(fmt.Errorf("duplicate collection name %q", kind))
+		}
+		b.collectionByName[c.Name] = c
+	}
+	return b
+}
+
+// watch watches all the collections.
+func (b *allWatcherStateBacking) watch(in chan<- watcher.Change) {
+	for _, c := range b.collectionByName {
+		b.st.watcher.WatchCollection(c.Name, in)
+	}
+}
+
+// watch unwatches all the collections.
+func (b *allWatcherStateBacking) unwatch(in chan<- watcher.Change) {
+	for _, c := range b.collectionByName {
+		b.st.watcher.UnwatchCollection(c.Name, in)
+	}
+}
+
+// getAll fetches all items that we want to watch from the state.
+func (b *allWatcherStateBacking) getAll(all *allInfo) error {
+	// TODO(rog) fetch collections concurrently?
+	for _, c := range b.collectionByName {
+		infoSlicePtr := reflect.New(c.infoSliceType).Interface()
+		if err := c.Find(nil).All(infoSlicePtr); err != nil {
+			return fmt.Errorf("cannot get all %s: %v", c.Name, err)
+		}
+		infos := reflect.ValueOf(infoSlicePtr).Elem()
+		for i := 0; i < infos.Len(); i++ {
+			info := infos.Index(i).Addr().Interface().(params.EntityInfo)
+			all.add(b.entityIdForInfo(info), info)
+		}
+	}
+	return nil
+}
+
+func (b *allWatcherStateBacking) fetch(id entityId) (params.EntityInfo, error) {
+	c, ok := b.collectionByName[id.collection]
+	if !ok {
+		panic(fmt.Errorf("unknown collection %q in fetch request", id.collection))
+	}
+	info := reflect.New(c.infoSliceType.Elem()).Interface().(params.EntityInfo)
+	if err := c.FindId(id.id).One(info); err != nil {
+		return nil, err
+	}
+	return info, nil
+}
+
+// entityIdForInfo returns the entity id of the given entity document.
+func (b *allWatcherStateBacking) entityIdForInfo(info params.EntityInfo) entityId {
+	c, ok := b.collectionByKind[info.EntityKind()]
+	if !ok {
+		panic(fmt.Errorf("entity with unknown kind %q", info.EntityKind()))
+	}
+	return entityId{
+		collection: c.Name,
+		id:         info.EntityId(),
 	}
 }
 

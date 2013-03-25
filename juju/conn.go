@@ -16,7 +16,6 @@ import (
 	"launchpad.net/juju-core/trivial"
 	"net/url"
 	"os"
-	"strings"
 	"time"
 )
 
@@ -45,7 +44,7 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 		return nil, fmt.Errorf("cannot connect without admin-secret")
 	}
 	info.Password = password
-	st, err := state.Open(info)
+	st, err := state.Open(info, state.DefaultDialTimeout)
 	if state.IsUnauthorizedError(err) {
 		// We can't connect with the administrator password,;
 		// perhaps this was the first connection and the
@@ -56,7 +55,7 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 		// connecting to mongo before the state has been
 		// initialized and the initial password set.
 		for a := redialStrategy.Start(); a.Next(); {
-			st, err = state.Open(info)
+			st, err = state.Open(info, state.DefaultDialTimeout)
 			if !state.IsUnauthorizedError(err) {
 				break
 			}
@@ -288,6 +287,8 @@ func (conn *Conn) AddUnits(svc *state.Service, n int) ([]*state.Unit, error) {
 	units := make([]*state.Unit, n)
 	// TODO what do we do if we fail half-way through this process?
 	for i := 0; i < n; i++ {
+		// TODO store AssignmentPolicy in state, thus removing the need
+		// for this to use conn.Environ.
 		policy := conn.Environ.AssignmentPolicy()
 		unit, err := svc.AddUnit()
 		if err != nil {
@@ -300,62 +301,6 @@ func (conn *Conn) AddUnits(svc *state.Service, n int) ([]*state.Unit, error) {
 		units[i] = unit
 	}
 	return units, nil
-}
-
-// DestroyMachines destroys the specified machines.
-func (conn *Conn) DestroyMachines(ids ...string) (err error) {
-	var errs []string
-	for _, id := range ids {
-		machine, err := conn.State.Machine(id)
-		switch {
-		case state.IsNotFound(err):
-			err = fmt.Errorf("machine %s does not exist", id)
-		case err != nil:
-		case machine.Life() != state.Alive:
-			continue
-		default:
-			err = machine.Destroy()
-		}
-		if err != nil {
-			errs = append(errs, err.Error())
-		}
-	}
-	return destroyErr("machines", ids, errs)
-}
-
-// DestroyUnits destroys the specified units.
-func (conn *Conn) DestroyUnits(names ...string) (err error) {
-	var errs []string
-	for _, name := range names {
-		unit, err := conn.State.Unit(name)
-		switch {
-		case state.IsNotFound(err):
-			err = fmt.Errorf("unit %q does not exist", name)
-		case err != nil:
-		case unit.Life() != state.Alive:
-			continue
-		case unit.IsPrincipal():
-			err = unit.Destroy()
-		default:
-			err = fmt.Errorf("unit %q is a subordinate", name)
-		}
-		if err != nil {
-			errs = append(errs, err.Error())
-		}
-	}
-	return destroyErr("units", names, errs)
-}
-
-func destroyErr(desc string, ids, errs []string) error {
-	if len(errs) == 0 {
-		return nil
-	}
-	msg := "some %s were not destroyed"
-	if len(errs) == len(ids) {
-		msg = "no %s were destroyed"
-	}
-	msg = fmt.Sprintf(msg, desc)
-	return fmt.Errorf("%s: %s", msg, strings.Join(errs, "; "))
 }
 
 // Resolved marks the unit as having had any previous state transition

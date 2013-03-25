@@ -183,6 +183,75 @@ func (s *UnitSuite) TestUnitCharm(c *C) {
 	c.Assert(err, ErrorMatches, `unit "wordpress/0" is dead`)
 }
 
+func (s *UnitSuite) TestDestroyPrincipalUnits(c *C) {
+	for i := 0; i < 4; i++ {
+		_, err := s.service.AddUnit()
+		c.Assert(err, IsNil)
+	}
+
+	// Destroy 2 of them; check they become Dying.
+	err := s.State.DestroyUnits("wordpress/0", "wordpress/1")
+	c.Assert(err, IsNil)
+	s.assertUnitLife(c, "wordpress/0", state.Dying)
+	s.assertUnitLife(c, "wordpress/1", state.Dying)
+
+	// Try to destroy an Alive one and a Dying one; check
+	// it destroys the Alive one and ignores the Dying one.
+	err = s.State.DestroyUnits("wordpress/2", "wordpress/0")
+	c.Assert(err, IsNil)
+	s.assertUnitLife(c, "wordpress/2", state.Dying)
+
+	// Try to destroy an Alive one along with a nonexistent one; check that
+	// the valid instruction is followed but the invalid one is warned about.
+	err = s.State.DestroyUnits("boojum/123", "wordpress/3")
+	c.Assert(err, ErrorMatches, `some units were not destroyed: unit "boojum/123" does not exist`)
+	s.assertUnitLife(c, "wordpress/3", state.Dying)
+
+	// Make one Dead, and destroy an Alive one alongside it; check no errors.
+	wp0, err := s.State.Unit("wordpress/0")
+	c.Assert(err, IsNil)
+	err = wp0.EnsureDead()
+	c.Assert(err, IsNil)
+	err = s.State.DestroyUnits("wordpress/0", "wordpress/4")
+	c.Assert(err, IsNil)
+	s.assertUnitLife(c, "wordpress/0", state.Dead)
+	s.assertUnitLife(c, "wordpress/4", state.Dying)
+}
+
+func (s *UnitSuite) TestDestroySubordinateUnits(c *C) {
+	lgsch := s.AddTestingCharm(c, "logging")
+	_, err := s.State.AddService("logging", lgsch)
+	c.Assert(err, IsNil)
+	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
+	c.Assert(err, IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	ru, err := rel.Unit(s.unit)
+	c.Assert(err, IsNil)
+	err = ru.EnterScope(nil)
+	c.Assert(err, IsNil)
+
+	// Try to destroy the subordinate alone; check it fails.
+	err = s.State.DestroyUnits("logging/0")
+	c.Assert(err, ErrorMatches, `no units were destroyed: unit "logging/0" is a subordinate`)
+	s.assertUnitLife(c, "logging/0", state.Alive)
+
+	// Try to destroy the principal and the subordinate together; check it warns
+	// about the subordinate, but destroys the one it can. (The principal unit
+	// agent will be resposible for destroying the subordinate.)
+	err = s.State.DestroyUnits("wordpress/0", "logging/0")
+	c.Assert(err, ErrorMatches, `some units were not destroyed: unit "logging/0" is a subordinate`)
+	s.assertUnitLife(c, "wordpress/0", state.Dying)
+	s.assertUnitLife(c, "logging/0", state.Alive)
+}
+
+func (s *ConnSuite) assertUnitLife(c *C, name string, life state.Life) {
+	unit, err := s.State.Unit(name)
+	c.Assert(err, IsNil)
+	c.Assert(unit.Refresh(), IsNil)
+	c.Assert(unit.Life(), Equals, life)
+}
+
 func (s *UnitSuite) TestEntityName(c *C) {
 	c.Assert(s.unit.EntityName(), Equals, "unit-wordpress-0")
 }
@@ -198,7 +267,7 @@ func (s *UnitSuite) TestSetMongoPassword(c *C) {
 }
 
 func (s *UnitSuite) TestSetPassword(c *C) {
-	testSetPassword(c, func() (state.Entity, error) {
+	testSetPassword(c, func() (state.Authenticator, error) {
 		return s.State.Unit(s.unit.Name())
 	})
 }
@@ -221,7 +290,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 	c.Assert(err, IsNil)
 
 	info := state.TestingStateInfo()
-	st, err := state.Open(info)
+	st, err := state.Open(info, state.TestingDialTimeout)
 	c.Assert(err, IsNil)
 	defer st.Close()
 	// Turn on fully-authenticated mode.
@@ -251,7 +320,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 	// Connect as the machine entity.
 	info.EntityName = m.EntityName()
 	info.Password = "foo"
-	st1, err := state.Open(info)
+	st1, err := state.Open(info, state.TestingDialTimeout)
 	c.Assert(err, IsNil)
 	defer st1.Close()
 
@@ -266,7 +335,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 	// that entity, change the password for a new unit.
 	info.EntityName = unit.EntityName()
 	info.Password = "bar"
-	st2, err := state.Open(info)
+	st2, err := state.Open(info, state.TestingDialTimeout)
 	c.Assert(err, IsNil)
 	defer st2.Close()
 
@@ -722,7 +791,20 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 }
 
 func (s *UnitSuite) TestAnnotatorForUnit(c *C) {
-	testAnnotator(c, func() (annotator, error) {
+	testAnnotator(c, func() (state.Annotator, error) {
 		return s.State.Unit("wordpress/0")
 	})
+}
+
+func (s *UnitSuite) TestAnnotationRemovalForUnit(c *C) {
+	annotations := map[string]string{"mykey": "myvalue"}
+	err := s.unit.SetAnnotations(annotations)
+	c.Assert(err, IsNil)
+	err = s.unit.EnsureDead()
+	c.Assert(err, IsNil)
+	err = s.unit.Remove()
+	c.Assert(err, IsNil)
+	ann, err := s.unit.Annotations()
+	c.Assert(err, IsNil)
+	c.Assert(ann, DeepEquals, make(map[string]string))
 }
