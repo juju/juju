@@ -101,14 +101,14 @@ func registerLocalTests() {
 			testImageId: "1",
 			testFlavor:  "m1.small",
 			LiveTests: jujutest.LiveTests{
-				Config: config,
+				TestConfig: jujutest.TestConfig{config},
 			},
 		},
 	})
 	Suite(&localServerSuite{
 		cred: cred,
 		Tests: jujutest.Tests{
-			Config: config,
+			TestConfig: jujutest.TestConfig{config},
 		},
 	})
 }
@@ -197,7 +197,7 @@ func (s *localServerSuite) TearDownSuite(c *C) {
 func (s *localServerSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.srv.start(c, s.cred)
-	s.Config = updatedTestConfig(s.Config, map[string]interface{}{
+	s.TestConfig.UpdateConfig(map[string]interface{}{
 		"auth-url": s.cred.URL,
 	})
 	s.Tests.SetUpTest(c)
@@ -223,12 +223,11 @@ func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
 	)
 	defer cleanup()
 	// Create a config that matches s.Config but with use-floating-ip set to true
-	newconfig := make(map[string]interface{}, len(s.Config))
-	for k, v := range s.Config {
-		newconfig[k] = v
-	}
-	newconfig["use-floating-ip"] = true
-	env, err := environs.NewFromAttrs(newconfig)
+	s.TestConfig.UpdateConfig(map[string]interface{}{
+		"use-floating-ip": true,
+	})
+	// TODO: Just share jujutest.Tests.Open rather than accessing .Config
+	env, err := environs.NewFromAttrs(s.TestConfig.Config)
 	c.Assert(err, IsNil)
 	err = environs.Bootstrap(env, constraints.Value{})
 	c.Assert(err, ErrorMatches, ".*cannot allocate a public IP as needed.*")

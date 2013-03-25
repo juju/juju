@@ -61,8 +61,8 @@ func registerLiveTests(cred *identity.Credentials, testImageDetails openstack.Im
 	Suite(&LiveTests{
 		cred: cred,
 		LiveTests: jujutest.LiveTests{
-			Config:  config,
-			Attempt: *openstack.ShortAttempt,
+			TestConfig: jujutest.TestConfig{config},
+			Attempt:    *openstack.ShortAttempt,
 			// TODO: Bug #1133263, once the infrastructure is set up,
 			//       enable The state tests on openstack
 			CanOpenState: false,
@@ -98,7 +98,7 @@ func (t *LiveTests) SetUpSuite(c *C) {
 	c.Assert(err, IsNil)
 	publicBucketURL, err := cl.MakeServiceURL("object-store", nil)
 	c.Assert(err, IsNil)
-	t.Config = updatedTestConfig(t.Config, map[string]interface{}{
+	t.TestConfig.UpdateConfig(map[string]interface{}{
 		"public-bucket-url": publicBucketURL,
 		"auth-url":          t.cred.URL,
 	})
@@ -134,21 +134,6 @@ func (t *LiveTests) SetUpTest(c *C) {
 func (t *LiveTests) TearDownTest(c *C) {
 	t.LiveTests.TearDownTest(c)
 	t.LoggingSuite.TearDownTest(c)
-}
-
-// updatedTestConfig merges two maps based on the keys and returns a new map
-// This is a terrible interface for updating the test config. Wanted to make
-// it a method on a jujutest class, but there are two of those that both have
-// Config and neither includes the other so it would need to be copied in both.
-func updatedTestConfig(originalConfig, updateConfig map[string]interface{}) map[string]interface{} {
-	newConfig := map[string]interface{}{}
-	for key, val := range originalConfig {
-		newConfig[key] = val
-	}
-	for key, val := range updateConfig {
-		newConfig[key] = val
-	}
-	return newConfig
 }
 
 // putFakeTools sets up a bucket containing something

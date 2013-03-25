@@ -24,8 +24,8 @@ import (
 type LiveTests struct {
 	coretesting.LoggingSuite
 
-	// Config holds the configuration attributes for opening an environment.
-	Config map[string]interface{}
+	// TestConfig contains the configuration attributes for opening an environment.
+	TestConfig
 
 	// Env holds the currently opened environment.
 	Env environs.Environ
