@@ -91,14 +91,11 @@ func (a *annotator) insertOps(toInsert map[string]string) ([]txn.Op, error) {
 		if err != nil {
 			return nil, err
 		}
-		ops = append(
-			ops,
-			txn.Op{
-				C:      coll,
-				Id:     id,
-				Assert: txn.DocExists,
-			},
-		)
+		ops = append(ops, txn.Op{
+			C:      coll,
+			Id:     id,
+			Assert: txn.DocExists,
+		})
 	}
 	return append(ops, txn.Op{
 		C:      a.st.annotations.Name,
