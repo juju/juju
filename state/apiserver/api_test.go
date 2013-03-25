@@ -270,15 +270,29 @@ func opClientCharmInfo(c *C, st *api.State, mst *state.State) (func(), error) {
 }
 
 func opClientAddRelation(c *C, st *api.State, mst *state.State) (func(), error) {
-	err := st.Client().AddRelation("wordpress", "logging")
+	err := st.Client().AddRelation("wordpress", "mysql")
 	if err != nil {
-		return nil, err
+		return func() {}, err
 	}
-	return func() {}, nil
+	return func() {
+		eps, err := mst.InferEndpoints([]string{"wordpress", "mysql"})
+		c.Assert(err, IsNil)
+		rel, err := mst.EndpointsRelation(eps...)
+		c.Assert(err, IsNil)
+		err = rel.Destroy()
+		c.Assert(err, IsNil)
+		rel.Refresh()
+	}, nil
 }
 
 func opClientDestroyRelation(c *C, st *api.State, mst *state.State) (func(), error) {
-	err := st.Client().DestroyRelation("wordpress", "logging")
+	eps, err := mst.InferEndpoints([]string{"wordpress", "mysql"})
+	c.Assert(err, IsNil)
+	rel, err := mst.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	rel.Refresh()
+
+	err = st.Client().DestroyRelation("wordpress", "mysql")
 	if err != nil {
 		return func() {}, err
 	}
