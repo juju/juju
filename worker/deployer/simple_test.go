@@ -127,17 +127,17 @@ func (fix *SimpleToolsFixture) getContext(c *C, deployerName string) *deployer.S
 	return deployer.NewTestSimpleContext(deployerName, fix.initDir, fix.dataDir, fix.logDir)
 }
 
-func (fix *SimpleToolsFixture) paths(entityName, xName string) (confPath, agentDir, toolsDir string) {
-	confName := fmt.Sprintf("jujud-%s:%s.conf", xName, entityName)
+func (fix *SimpleToolsFixture) paths(tag, xName string) (confPath, agentDir, toolsDir string) {
+	confName := fmt.Sprintf("jujud-%s:%s.conf", xName, tag)
 	confPath = filepath.Join(fix.initDir, confName)
-	agentDir = agent.Dir(fix.dataDir, entityName)
-	toolsDir = agent.ToolsDir(fix.dataDir, entityName)
+	agentDir = agent.Dir(fix.dataDir, tag)
+	toolsDir = agent.ToolsDir(fix.dataDir, tag)
 	return
 }
 
 func (fix *SimpleToolsFixture) checkUnitInstalled(c *C, name, xName, password string) {
-	entityName := state.UnitEntityName(name)
-	uconfPath, _, toolsDir := fix.paths(entityName, xName)
+	tag := state.UnitTag(name)
+	uconfPath, _, toolsDir := fix.paths(tag, xName)
 	uconfData, err := ioutil.ReadFile(uconfPath)
 	c.Assert(err, IsNil)
 	uconf := string(uconfData)
@@ -151,7 +151,7 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *C, name, xName, password st
 	if execLine == "" {
 		c.Fatalf("no command found in %s:\n%s", uconfPath, uconf)
 	}
-	logPath := filepath.Join(fix.logDir, entityName+".log")
+	logPath := filepath.Join(fix.logDir, tag+".log")
 	jujudPath := filepath.Join(toolsDir, "jujud")
 	for _, pat := range []string{
 		"^exec " + jujudPath + " unit ",
@@ -165,7 +165,7 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *C, name, xName, password st
 		}
 	}
 
-	conf, err := agent.ReadConf(fix.dataDir, entityName)
+	conf, err := agent.ReadConf(fix.dataDir, tag)
 	c.Assert(err, IsNil)
 	c.Assert(conf, DeepEquals, &agent.Conf{
 		DataDir:     fix.dataDir,
@@ -173,7 +173,7 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *C, name, xName, password st
 		StateInfo: &state.Info{
 			Addrs:      []string{"s1:123", "s2:123"},
 			CACert:     []byte("test-cert"),
-			EntityName: entityName,
+			EntityName: tag,
 		},
 	})
 
@@ -183,8 +183,8 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *C, name, xName, password st
 }
 
 func (fix *SimpleToolsFixture) checkUnitRemoved(c *C, name, xName string) {
-	entityName := state.UnitEntityName(name)
-	confPath, agentDir, toolsDir := fix.paths(entityName, xName)
+	tag := state.UnitTag(name)
+	confPath, agentDir, toolsDir := fix.paths(tag, xName)
 	for _, path := range []string{confPath, agentDir, toolsDir} {
 		_, err := ioutil.ReadFile(path)
 		c.Assert(os.IsNotExist(err), Equals, true)

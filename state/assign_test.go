@@ -171,7 +171,7 @@ func (s *AssignSuite) TestDeployerName(c *C) {
 	c.Assert(err, IsNil)
 	subordinate := s.addSubordinate(c, principal)
 
-	assertDeployer := func(u *state.Unit, d entityNamer) {
+	assertDeployer := func(u *state.Unit, d state.Tagger) {
 		err := u.Refresh()
 		c.Assert(err, IsNil)
 		name, ok := u.DeployerName()
@@ -179,7 +179,7 @@ func (s *AssignSuite) TestDeployerName(c *C) {
 			c.Assert(ok, Equals, false)
 		} else {
 			c.Assert(ok, Equals, true)
-			c.Assert(name, Equals, d.EntityName())
+			c.Assert(name, Equals, d.Tag())
 		}
 	}
 	assertDeployer(subordinate, principal)
@@ -194,10 +194,6 @@ func (s *AssignSuite) TestDeployerName(c *C) {
 	c.Assert(err, IsNil)
 	assertDeployer(subordinate, principal)
 	assertDeployer(principal, nil)
-}
-
-type entityNamer interface {
-	EntityName() string
 }
 
 func (s *AssignSuite) TestAssignBadSeries(c *C) {

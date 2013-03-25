@@ -244,7 +244,7 @@ func runStop(r runner) error {
 }
 
 type entity interface {
-	EntityName() string
+	state.Tagger
 	SetMongoPassword(string) error
 }
 
@@ -321,7 +321,7 @@ func (s *agentSuite) primeTools(c *C, vers version.Binary) *state.Tools {
 }
 
 func (s *agentSuite) testAgentPasswordChanging(c *C, ent entity, newAgent func() runner) {
-	conf, err := agent.ReadConf(s.DataDir(), ent.EntityName())
+	conf, err := agent.ReadConf(s.DataDir(), ent.Tag())
 	c.Assert(err, IsNil)
 
 	// Check that it starts initially and changes the password
@@ -340,7 +340,7 @@ func (s *agentSuite) testAgentPasswordChanging(c *C, ent entity, newAgent func()
 
 	// Check that we can no longer gain access with the initial password.
 	info := s.StateInfo(c)
-	info.EntityName = ent.EntityName()
+	info.EntityName = ent.Tag()
 	info.Password = "initial"
 	testOpenState(c, info, state.Unauthorizedf("unauth"))
 

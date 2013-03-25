@@ -476,11 +476,6 @@ var scenarioStatus = &api.Status{
 	},
 }
 
-// namedEntity represents entities with a name unique to all entities.
-type namedEntity interface {
-	EntityName() string
-}
-
 // setUpScenario makes an environment scenario suitable for
 // testing most kinds of access scenario. It returns
 // a list of all the entities in the scenario.
@@ -517,8 +512,8 @@ type namedEntity interface {
 // environment manager (bootstrap machine), so is
 // hopefully easier to remember as such.
 func (s *suite) setUpScenario(c *C) (entities []string) {
-	add := func(e namedEntity) {
-		entities = append(entities, e.EntityName())
+	add := func(e state.Tagger) {
+		entities = append(entities, e.Tag())
 	}
 	u, err := s.State.User("admin")
 	c.Assert(err, IsNil)
@@ -532,8 +527,8 @@ func (s *suite) setUpScenario(c *C) (entities []string) {
 
 	m, err := s.State.AddMachine("series", state.JobManageEnviron)
 	c.Assert(err, IsNil)
-	c.Assert(m.EntityName(), Equals, "machine-0")
-	err = m.SetInstanceId(state.InstanceId("i-" + m.EntityName()))
+	c.Assert(m.Tag(), Equals, "machine-0")
+	err = m.SetInstanceId(state.InstanceId("i-" + m.Tag()))
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, m)
 	add(m)
@@ -555,14 +550,14 @@ func (s *suite) setUpScenario(c *C) (entities []string) {
 	for i := 0; i < 2; i++ {
 		wu, err := wordpress.AddUnit()
 		c.Assert(err, IsNil)
-		c.Assert(wu.EntityName(), Equals, fmt.Sprintf("unit-wordpress-%d", i))
+		c.Assert(wu.Tag(), Equals, fmt.Sprintf("unit-wordpress-%d", i))
 		setDefaultPassword(c, wu)
 		add(wu)
 
 		m, err := s.State.AddMachine("series", state.JobHostUnits)
 		c.Assert(err, IsNil)
-		c.Assert(m.EntityName(), Equals, fmt.Sprintf("machine-%d", i+1))
-		err = m.SetInstanceId(state.InstanceId("i-" + m.EntityName()))
+		c.Assert(m.Tag(), Equals, fmt.Sprintf("machine-%d", i+1))
+		err = m.SetInstanceId(state.InstanceId("i-" + m.Tag()))
 		c.Assert(err, IsNil)
 		setDefaultPassword(c, m)
 		add(m)
@@ -594,18 +589,16 @@ func (s *suite) setUpScenario(c *C) (entities []string) {
 	return
 }
 
-// namedAuthenticator is the same as state.Authenticator but without
-// PasswordValid which is implemented by state entities, not by api
-// entities. It also adds to state.Authenticator the ability to retrieve
-// the entity name.
-type namedAuthenticator interface {
-	SetPassword(pass string) error
-	Refresh() error
-	namedEntity
+// apiAuthenticator represents a simple authenticator object with only the
+// SetPassword and Tag methods.  This will fit types from both the state
+// and api packages, as those in the api package do not have PasswordValid().
+type apiAuthenticator interface {
+	state.Tagger
+	SetPassword(string) error
 }
 
-func setDefaultPassword(c *C, e namedAuthenticator) {
-	err := e.SetPassword(e.EntityName() + " password")
+func setDefaultPassword(c *C, e apiAuthenticator) {
+	err := e.SetPassword(e.Tag() + " password")
 	c.Assert(err, IsNil)
 }
 
@@ -778,13 +771,6 @@ var clientAnnotationsTests = []struct {
 	},
 }
 
-// namedAnnotator adds to state.Annotator the ability to retrieve the entity
-// name.
-type namedAnnotator interface {
-	state.Annotator
-	namedEntity
-}
-
 func (s *suite) TestClientAnnotations(c *C) {
 	// Set up entities.
 	service, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
@@ -795,10 +781,10 @@ func (s *suite) TestClientAnnotations(c *C) {
 	c.Assert(err, IsNil)
 	environment, err := s.State.Environment()
 	c.Assert(err, IsNil)
-	entities := []namedAnnotator{service, unit, machine, environment}
+	entities := []state.TaggedAnnotator{service, unit, machine, environment}
 	for i, t := range clientAnnotationsTests {
 		for _, entity := range entities {
-			id := entity.EntityName()
+			id := entity.Tag()
 			c.Logf("test %d. %s. entity %s", i, t.about, id)
 			// Set initial entity annotations.
 			err := entity.SetAnnotations(t.initial)
@@ -851,7 +837,7 @@ func (s *suite) TestMachineLogin(c *C) {
 	_, info, err := s.APIConn.Environ.StateInfo()
 	c.Assert(err, IsNil)
 
-	info.EntityName = stm.EntityName()
+	info.EntityName = stm.Tag()
 	info.Password = "machine-password"
 
 	st, err := api.Open(info)
@@ -878,7 +864,7 @@ func (s *suite) TestMachineInstanceId(c *C) {
 	c.Assert(m, IsNil)
 
 	// ... so login as the machine.
-	st := s.openAs(c, stm.EntityName())
+	st := s.openAs(c, stm.Tag())
 	defer st.Close()
 
 	m, err = st.Machine(stm.Id())
@@ -910,7 +896,7 @@ func (s *suite) TestMachineRefresh(c *C) {
 	err = stm.SetInstanceId("foo")
 	c.Assert(err, IsNil)
 
-	st := s.openAs(c, stm.EntityName())
+	st := s.openAs(c, stm.Tag())
 	defer st.Close()
 	m, err := st.Machine(stm.Id())
 	c.Assert(err, IsNil)
@@ -939,7 +925,7 @@ func (s *suite) TestMachineSetPassword(c *C) {
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, stm)
 
-	st := s.openAs(c, stm.EntityName())
+	st := s.openAs(c, stm.Tag())
 	defer st.Close()
 	m, err := st.Machine(stm.Id())
 	c.Assert(err, IsNil)
@@ -952,8 +938,8 @@ func (s *suite) TestMachineSetPassword(c *C) {
 	c.Assert(stm.PasswordValid("foo"), Equals, true)
 }
 
-func (s *suite) TestMachineEntityName(c *C) {
-	c.Assert(api.MachineEntityName("2"), Equals, "machine-2")
+func (s *suite) TestMachineTag(c *C) {
+	c.Assert(api.MachineTag("2"), Equals, "machine-2")
 
 	stm, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
@@ -962,7 +948,7 @@ func (s *suite) TestMachineEntityName(c *C) {
 	defer st.Close()
 	m, err := st.Machine("0")
 	c.Assert(err, IsNil)
-	c.Assert(m.EntityName(), Equals, "machine-0")
+	c.Assert(m.Tag(), Equals, "machine-0")
 }
 
 func (s *suite) TestMachineWatch(c *C) {
@@ -970,7 +956,7 @@ func (s *suite) TestMachineWatch(c *C) {
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, stm)
 
-	st := s.openAs(c, stm.EntityName())
+	st := s.openAs(c, stm.Tag())
 	defer st.Close()
 	m, err := st.Machine(stm.Id())
 	c.Assert(err, IsNil)
@@ -1028,7 +1014,7 @@ func (s *suite) TestServerStopsOutstandingWatchMethod(c *C) {
 	// Note we can't use openAs because we're
 	// not connecting to s.APIConn.
 	st, err := api.Open(&api.Info{
-		EntityName: stm.EntityName(),
+		EntityName: stm.Tag(),
 		Password:   "password",
 		Addrs:      []string{srv.Addr()},
 		CACert:     []byte(coretesting.CACert),
@@ -1103,7 +1089,7 @@ func (s *suite) TestErrors(c *C) {
 	stm, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, stm)
-	st := s.openAs(c, stm.EntityName())
+	st := s.openAs(c, stm.Tag())
 	defer st.Close()
 	// By testing this single call, we test that the
 	// error transformation function is correctly called
@@ -1172,15 +1158,15 @@ func (s *suite) TestErrorTransform(c *C) {
 	}
 }
 
-func (s *suite) TestUnitEntityName(c *C) {
-	c.Assert(api.UnitEntityName("wordpress/2"), Equals, "unit-wordpress-2")
+func (s *suite) TestUnitTag(c *C) {
+	c.Assert(api.UnitTag("wordpress/2"), Equals, "unit-wordpress-2")
 
 	s.setUpScenario(c)
 	st := s.openAs(c, "unit-wordpress-0")
 	defer st.Close()
 	u, err := st.Unit("wordpress/0")
 	c.Assert(err, IsNil)
-	c.Assert(u.EntityName(), Equals, "unit-wordpress-0")
+	c.Assert(u.Tag(), Equals, "unit-wordpress-0")
 }
 
 func (s *suite) TestStop(c *C) {
@@ -1199,7 +1185,7 @@ func (s *suite) TestStop(c *C) {
 	// Note we can't use openAs because we're
 	// not connecting to s.APIConn.
 	st, err := api.Open(&api.Info{
-		EntityName: stm.EntityName(),
+		EntityName: stm.Tag(),
 		Password:   "password",
 		Addrs:      []string{srv.Addr()},
 		CACert:     []byte(coretesting.CACert),
