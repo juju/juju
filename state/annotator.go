@@ -81,27 +81,27 @@ func (a *annotator) SetAnnotations(pairs map[string]string) (err error) {
 
 // insertOps returns the operations required to insert annotations in MongoDB.
 func (a *annotator) insertOps(toInsert map[string]string) ([]txn.Op, error) {
-	var ops []txn.Op
 	entityName := a.entityName
-	// If the entity is not the environment, add a DocExists check on the
-	// entity document, in order to avoid possible races between entity
-	// removal and annotation creation.
-	if !strings.HasPrefix(entityName, "environment-") {
-		coll, id, err := a.st.ParseEntityName(entityName)
-		if err != nil {
-			return nil, err
-		}
-		ops = append(ops, txn.Op{
-			C:      coll,
-			Id:     id,
-			Assert: txn.DocExists,
-		})
-	}
-	return append(ops, txn.Op{
+	ops := []txn.Op{{
 		C:      a.st.annotations.Name,
 		Id:     a.globalKey,
 		Assert: txn.DocMissing,
 		Insert: &annotatorDoc{a.globalKey, entityName, toInsert},
+	}}
+	if strings.HasPrefix(entityName, "environment-") {
+		return ops, nil
+	}
+	// If the entity is not the environment, add a DocExists check on the
+	// entity document, in order to avoid possible races between entity
+	// removal and annotation creation.
+	coll, id, err := a.st.ParseEntityName(entityName)
+	if err != nil {
+		return nil, err
+	}
+	return append(ops, txn.Op{
+		C:      coll,
+		Id:     id,
+		Assert: txn.DocExists,
 	}), nil
 }
 

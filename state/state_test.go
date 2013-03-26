@@ -1490,6 +1490,7 @@ func (s *StateSuite) TestParseEntityName(c *C) {
 		c.Check(id, Equals, "")
 		c.Assert(err, ErrorMatches, `invalid entity name ".*"`)
 	}
+
 	// Parse a machine entity name.
 	m, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
@@ -1497,6 +1498,7 @@ func (s *StateSuite) TestParseEntityName(c *C) {
 	c.Assert(coll, Equals, "machines")
 	c.Assert(id, Equals, m.Id())
 	c.Assert(err, IsNil)
+
 	// Parse a service entity name.
 	svc, err := s.State.AddService("ser-vice2", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, IsNil)
@@ -1504,6 +1506,7 @@ func (s *StateSuite) TestParseEntityName(c *C) {
 	c.Assert(coll, Equals, "services")
 	c.Assert(id, Equals, svc.Name())
 	c.Assert(err, IsNil)
+
 	// Parse a unit entity name.
 	u, err := svc.AddUnit()
 	c.Assert(err, IsNil)
@@ -1511,6 +1514,7 @@ func (s *StateSuite) TestParseEntityName(c *C) {
 	c.Assert(coll, Equals, "units")
 	c.Assert(id, Equals, u.Name())
 	c.Assert(err, IsNil)
+
 	// Parse a user entity name.
 	user, err := s.State.AddUser("arble", "pass")
 	c.Assert(err, IsNil)

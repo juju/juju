@@ -368,30 +368,32 @@ func (st *State) entity(entityName string) (interface{}, error) {
 // ParseEntityName, given an entity name, returns the collection name and id
 // of the entity document.
 func (st *State) ParseEntityName(entityName string) (string, string, error) {
-	prefixCollMap := map[string]string{
-		"machine": st.machines.Name,
-		"service": st.services.Name,
-		"unit":    st.units.Name,
-		"user":    st.users.Name,
-	}
 	parts := strings.SplitN(entityName, "-", 2)
 	if len(parts) != 2 {
 		return "", "", fmt.Errorf("invalid entity name %q", entityName)
 	}
-	if coll, ok := prefixCollMap[parts[0]]; ok {
-		id := parts[1]
-		if coll == st.units.Name {
-			// Handle replacements occurring when an entity name is created
-			// for a unit.
-			idx := strings.LastIndex(id, "-")
-			if idx == -1 {
-				return "", "", fmt.Errorf("invalid entity name %q", entityName)
-			}
-			id = id[:idx] + "/" + id[idx+1:]
+	id := parts[1]
+	var coll string
+	switch parts[0] {
+	case "machine":
+		coll = st.machines.Name
+	case "service":
+		coll = st.services.Name
+	case "unit":
+		coll = st.units.Name
+		// Handle replacements occurring when an entity name is created
+		// for a unit.
+		idx := strings.LastIndex(id, "-")
+		if idx == -1 {
+			return "", "", fmt.Errorf("invalid entity name %q", entityName)
 		}
-		return coll, id, nil
+		id = id[:idx] + "/" + id[idx+1:]
+	case "user":
+		coll = st.users.Name
+	default:
+		return "", "", fmt.Errorf("invalid entity name %q", entityName)
 	}
-	return "", "", fmt.Errorf("invalid entity name %q", entityName)
+	return coll, id, nil
 }
 
 // AddCharm adds the ch charm with curl to the state.  bundleUrl must be
