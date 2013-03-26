@@ -123,8 +123,7 @@ func (t *LiveTests) TestInstanceAttributes(c *C) {
 }
 
 func (t *LiveTests) TestStartInstanceConstraints(c *C) {
-	cons, err := constraints.Parse("mem=2G")
-	c.Assert(err, IsNil)
+	cons := constraints.MustParse("mem=2G")
 	inst, err := t.Env.StartInstance("31", version.Current.Series, cons, testing.InvalidStateInfo("31"), testing.InvalidAPIInfo("31"))
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst})
