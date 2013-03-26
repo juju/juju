@@ -237,6 +237,39 @@ func (s *ServiceSuite) TestSettingsRefCountWorks(c *C) {
 	assertNoRef(newCh)
 }
 
+const mysqlExtraPeersMeta = `
+name: mysql
+summary: "Database engine"
+description: "A pretty popular database"
+provides:
+  server: mysql
+peers:
+  cluster: mysql
+  loadbalancer: phony
+`
+
+func (s *ServiceSuite) TestNewPeerRelationsAddedOnUpgrade(c *C) {
+	newCh := s.AddMetaCharm(c, "mysql", mysqlExtraPeersMeta, 2)
+
+	ch, _, err := s.mysql.Charm()
+	c.Assert(err, IsNil)
+	c.Assert(ch.Meta().Peers, HasLen, 0)
+
+	err = s.mysql.SetCharm(newCh, false)
+	c.Assert(err, IsNil)
+	ep, err := s.mysql.Endpoint("cluster")
+	c.Assert(err, IsNil)
+	c.Assert(ep.RelationName, Equals, "cluster")
+	c.Assert(ep.RelationRole, Equals, state.RolePeer)
+	ep, err = s.mysql.Endpoint("loadbalancer")
+	c.Assert(err, IsNil)
+	c.Assert(ep.RelationName, Equals, "loadbalancer")
+	c.Assert(ep.RelationRole, Equals, state.RolePeer)
+	ch, _, err = s.mysql.Charm()
+	c.Assert(err, IsNil)
+	c.Assert(ch.Meta().Peers, HasLen, 2)
+}
+
 func jujuInfoEp(serviceName string) state.Endpoint {
 	return state.Endpoint{
 		ServiceName:   serviceName,

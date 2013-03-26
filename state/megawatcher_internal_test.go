@@ -22,10 +22,10 @@ func (st *State) AddTestingCharm(c *C, name string) *Charm {
 	return addCharm(c, st, testing.Charms.Dir(name))
 }
 
-func (st *State) AddConfigCharm(c *C, name, configYaml string, revision int) *Charm {
+func (st *State) AddCustomCharm(c *C, name, filename, content string, revision int) *Charm {
 	path := testing.Charms.ClonedDirPath(c.MkDir(), name)
-	config := filepath.Join(path, "config.yaml")
-	err := ioutil.WriteFile(config, []byte(configYaml), 0644)
+	config := filepath.Join(path, filename)
+	err := ioutil.WriteFile(config, []byte(content), 0644)
 	c.Assert(err, IsNil)
 	ch, err := charm.ReadDir(path)
 	c.Assert(err, IsNil)
