@@ -284,56 +284,75 @@ func (s *ConstraintsSuite) TestGoyamlRoundtripBug1132537(c *C) {
 }
 
 var withFallbacksTests = []struct {
-	desc                      string
-	initial, fallbacks, final string
+	desc      string
+	initial   string
+	fallbacks string
+	final     string
 }{
 	{
-		"empty all round",
-		"", "", "",
+		desc: "empty all round",
 	}, {
-		"arch with empty fallback",
-		"arch=amd64", "", "arch=amd64",
+		desc:    "arch with empty fallback",
+		initial: "arch=amd64",
+		final:   "arch=amd64",
 	}, {
-		"arch with ignored fallback",
-		"arch=amd64", "arch=i386", "arch=amd64",
+		desc:      "arch with ignored fallback",
+		initial:   "arch=amd64",
+		fallbacks: "arch=i386",
+		final:     "arch=amd64",
 	}, {
-		"arch from fallback",
-		"", "arch=i386", "arch=i386",
+		desc:      "arch from fallback",
+		fallbacks: "arch=i386",
+		final:     "arch=i386",
 	}, {
-		"cpu-cores with empty fallback",
-		"cpu-cores=2", "", "cpu-cores=2",
+		desc:    "cpu-cores with empty fallback",
+		initial: "cpu-cores=2",
+		final:   "cpu-cores=2",
 	}, {
-		"cpu-cores with ignored fallback",
-		"cpu-cores=4", "cpu-cores=8", "cpu-cores=4",
+		desc:      "cpu-cores with ignored fallback",
+		initial:   "cpu-cores=4",
+		fallbacks: "cpu-cores=8",
+		final:     "cpu-cores=4",
 	}, {
-		"cpu-cores from fallback",
-		"", "cpu-cores=8", "cpu-cores=8",
+		desc:      "cpu-cores from fallback",
+		fallbacks: "cpu-cores=8",
+		final:     "cpu-cores=8",
 	}, {
-		"cpu-power with empty fallback",
-		"cpu-power=100", "", "cpu-power=100",
+		desc:    "cpu-power with empty fallback",
+		initial: "cpu-power=100",
+		final:   "cpu-power=100",
 	}, {
-		"cpu-power with ignored fallback",
-		"cpu-power=100", "cpu-power=200", "cpu-power=100",
+		desc:      "cpu-power with ignored fallback",
+		initial:   "cpu-power=100",
+		fallbacks: "cpu-power=200",
+		final:     "cpu-power=100",
 	}, {
-		"cpu-power from fallback",
-		"", "cpu-power=200", "cpu-power=200",
+		desc:      "cpu-power from fallback",
+		fallbacks: "cpu-power=200",
+		final:     "cpu-power=200",
 	}, {
-		"mem with empty fallback",
-		"mem=4G", "", "mem=4G",
+		desc:    "mem with empty fallback",
+		initial: "mem=4G",
+		final:   "mem=4G",
 	}, {
-		"mem with ignored fallback",
-		"mem=4G", "mem=8G", "mem=4G",
+		desc:      "mem with ignored fallback",
+		initial:   "mem=4G",
+		fallbacks: "mem=8G",
+		final:     "mem=4G",
 	}, {
-		"mem from fallback",
-		"", "mem=8G", "mem=8G",
+		desc:      "mem from fallback",
+		fallbacks: "mem=8G",
+		final:     "mem=8G",
 	}, {
-		"non-overlapping mix",
-		"mem=4G arch=amd64", "cpu-power=1000 cpu-cores=4",
-		"mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
+		desc:      "non-overlapping mix",
+		initial:   "mem=4G arch=amd64",
+		fallbacks: "cpu-power=1000 cpu-cores=4",
+		final:     "mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
 	}, {
-		"overlapping mix",
-		"mem=4G arch=amd64", "cpu-power=1000 cpu-cores=4 mem=8G",
-		"mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
+		desc:      "overlapping mix",
+		initial:   "mem=4G arch=amd64",
+		fallbacks: "cpu-power=1000 cpu-cores=4 mem=8G",
+		final:     "mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
 	},
 }
 
