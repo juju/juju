@@ -13,8 +13,9 @@ import (
 // bucket
 type SyncToolsCommand struct {
 	EnvCommandBase
-	toolsList    *environs.ToolsList
-	agentVersion version.Number
+	sourceToolsList *environs.ToolsList
+	targetToolsList *environs.ToolsList
+	agentVersion    version.Number
 }
 
 var _ cmd.Command = (*SyncToolsCommand)(nil)
@@ -40,6 +41,8 @@ var officialBucketAttrs = map[string]interface{}{
 	"name":           "juju-public",
 	"type":           "ec2",
 	"control-bucket": "juju-dist",
+	"access-key":     "",
+	"secret-key":     "",
 }
 
 func (c *SyncToolsCommand) Run(_ *cmd.Context) error {
@@ -48,12 +51,16 @@ func (c *SyncToolsCommand) Run(_ *cmd.Context) error {
 		log.Infof("Failed to create officialEnviron")
 		return err
 	}
-	c.toolsList, err = environs.ListTools(officialEnviron, version.Current.Major)
+	c.sourceToolsList, err = environs.ListTools(officialEnviron, version.Current.Major)
 	if err != nil {
 		return err
 	}
-	for _, tool := range c.toolsList.Public {
+	for _, tool := range c.sourceToolsList.Public {
 		fmt.Printf("Found: %s\n", tool.URL)
+	}
+	_, err = environs.NewFromName(c.EnvName)
+	if err != nil {
+		return err
 	}
 	return nil
 }
