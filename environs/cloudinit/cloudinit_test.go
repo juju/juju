@@ -2,6 +2,7 @@ package cloudinit_test
 
 import (
 	"encoding/base64"
+	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/constraints"
@@ -12,7 +13,6 @@ import (
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -33,8 +33,18 @@ var envConfig = mustNewConfig(map[string]interface{}{
 	"ca-cert":         testing.CACert,
 })
 
+func mkJujuHomeDir() string {
+	name, err := ioutil.TempDir(os.TempDir(), "juju-home-")
+	if err != nil {
+		panic(err)
+	}
+	return name
+}
+
 func mustNewConfig(m map[string]interface{}) *config.Config {
-	defer config.SetFakeJujuHome(filepath.Join(os.Getenv("HOME"), ".juju")).Restore()
+	tmpJujHomeDir := mkJujuHomeDir()
+	defer os.RemoveAll(tmpJujHomeDir)
+	defer config.SetJujuHome(config.SetJujuHome(tmpJujHomeDir))
 	cfg, err := config.New(m)
 	if err != nil {
 		panic(err)

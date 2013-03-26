@@ -546,9 +546,9 @@ func (*ConfigSuite) TestConfigAttrs(c *C) {
 }
 
 type fakeHome struct {
-	oldHome      string
-	files        []testFile
-	fakeJujuHome config.FakeJujuHome
+	oldHome     string
+	oldJujuHome string
+	files       []testFile
 }
 
 func makeFakeHome(c *C, files []testFile) fakeHome {
@@ -562,13 +562,13 @@ func makeFakeHome(c *C, files []testFile) fakeHome {
 		c.Assert(err, IsNil)
 	}
 	os.Setenv("HOME", homeDir)
-	fakeJujuHome := config.SetFakeJujuHome(filepath.Join(homeDir, ".juju"))
-	return fakeHome{oldHome, files, fakeJujuHome}
+	oldJujuHome := config.SetJujuHome(filepath.Join(homeDir, ".juju"))
+	return fakeHome{oldHome, oldJujuHome, files}
 }
 
 func (h fakeHome) restore() {
+	config.SetJujuHome(h.oldJujuHome)
 	os.Setenv("HOME", h.oldHome)
-	h.fakeJujuHome.Restore()
 }
 
 // fileContents returns the test file contents for the

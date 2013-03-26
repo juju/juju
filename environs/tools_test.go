@@ -6,6 +6,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/agent"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
@@ -80,6 +81,7 @@ var commandTests = []struct {
 }
 
 func (t *ToolsSuite) TestUploadTools(c *C) {
+	defer config.SetJujuHome(config.SetJujuHome(c.MkDir()))
 	env, err := environs.NewFromAttrs(map[string]interface{}{
 		"name":            "upload-test",
 		"type":            "dummy",

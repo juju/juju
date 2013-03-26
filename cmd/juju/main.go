@@ -1,10 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/log"
 	"os"
+	"path/filepath"
 )
 
 // When we import an environment provider implementation
@@ -68,12 +69,23 @@ func Main(args []string) {
 	os.Exit(cmd.Main(juju, cmd.DefaultContext(), args[1:]))
 }
 
-func main() {
-	// Init juju home outside any testing context.
-	if err := config.Init(); err != nil {
-		log.Errorf("command failed: %s\n", err)
-		os.Exit(1)
+// checkJujuHome retrieves $JUJU_HOME or $HOME to set the juju home.
+// In case both variables aren't set the command will exit with an
+// error. 
+func checkJujuHome() {
+	jujuHome := os.Getenv("JUJU_HOME")
+	if jujuHome == "" {
+		home := os.Getenv("HOME")
+		if home == "" {
+			fmt.Fprintf(os.Stderr, "command failed: cannot determine juju home, neither $JUJU_HOME nor $HOME are set")
+			os.Exit(1)
+		}
+		jujuHome = filepath.Join(home, ".juju")
 	}
+	config.SetJujuHome(jujuHome)
+}
 
+func main() {
+	checkJujuHome()
 	Main(os.Args)
 }

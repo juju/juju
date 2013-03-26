@@ -33,15 +33,17 @@ import (
 //         root of the juju data storage space.
 // $HOME is set to point to RootDir/home/ubuntu.
 type JujuConnSuite struct {
+	// TODO(mue) Fix that juju home can be set by the user
+	// but /var/lib/juju is fixed.
 	testing.LoggingSuite
 	testing.MgoSuite
-	Conn         *juju.Conn
-	State        *state.State
-	APIConn      *juju.APIConn
-	APIState     *api.State
-	RootDir      string // The faked-up root directory.
-	oldHome      string
-	fakeJujuHome config.FakeJujuHome
+	Conn        *juju.Conn
+	State       *state.State
+	APIConn     *juju.APIConn
+	APIState    *api.State
+	RootDir     string // The faked-up root directory.
+	oldHome     string
+	oldJujuHome string
 }
 
 // InvalidStateInfo holds information about no state - it will always
@@ -106,7 +108,7 @@ func (s *JujuConnSuite) TearDownSuite(c *C) {
 }
 
 func (s *JujuConnSuite) SetUpTest(c *C) {
-	s.fakeJujuHome = config.SetFakeJujuHome(c.MkDir())
+	s.oldJujuHome = config.SetJujuHome(c.MkDir())
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	s.setUpConn(c)
@@ -116,7 +118,7 @@ func (s *JujuConnSuite) TearDownTest(c *C) {
 	s.tearDownConn(c)
 	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
-	s.fakeJujuHome.Restore()
+	config.SetJujuHome(s.oldJujuHome)
 }
 
 // Reset returns environment state to that which existed at the start of

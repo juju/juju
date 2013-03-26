@@ -26,20 +26,23 @@ type MainSuite struct{}
 
 var _ = Suite(&MainSuite{})
 
-var flagRunMain = flag.Bool("run-main", false, "Run the application's main function for recursive testing")
+var (
+	flagRunMain  = flag.Bool("run-main", false, "Run the application's main function for recursive testing")
+	flagJujuHome = flag.String("juju-home", "", "Pass the test case's juju home to the recursive main test")
+)
 
 // Reentrancy point for testing (something as close as possible to) the juju
 // tool itself.
 func TestRunMain(t *stdtesting.T) {
 	if *flagRunMain {
-		defer config.SetFakeJujuHome(filepath.Join(os.Getenv("HOME"), ".juju")).Restore()
-
+		config.SetJujuHome(*flagJujuHome)
 		Main(flag.Args())
 	}
 }
 
 func badrun(c *C, exit int, cmd ...string) string {
-	args := append([]string{"-test.run", "TestRunMain", "-run-main", "--", "juju"}, cmd...)
+	testArgs := []string{"-test.run", "TestRunMain", "-run-main", "-juju-home", config.JujuHome(), "--", "juju"}
+	args := append(testArgs, cmd...)
 	ps := exec.Command(os.Args[0], args...)
 	output, err := ps.CombinedOutput()
 	if exit != 0 {
@@ -134,6 +137,7 @@ var runMainTests = []struct {
 }
 
 func (s *MainSuite) TestRunMain(c *C) {
+	defer config.SetJujuHome(config.SetJujuHome(c.MkDir()))
 	for i, t := range runMainTests {
 		c.Logf("test %d: %s", i, t.summary)
 		out := badrun(c, t.code, t.args...)
@@ -220,6 +224,7 @@ var commandNames = []string{
 func (s *MainSuite) TestHelpCommands(c *C) {
 	// Check that we have correctly registered all the commands
 	// by checking the help output.
+	defer config.SetJujuHome(config.SetJujuHome(c.MkDir()))
 	out := badrun(c, 0, "help", "commands")
 	lines := strings.Split(out, "\n")
 	var names []string
@@ -244,6 +249,7 @@ var topicNames = []string{
 func (s *MainSuite) TestHelpTopics(c *C) {
 	// Check that we have correctly registered all the topics
 	// by checking the help output.
+	defer config.SetJujuHome(config.SetJujuHome(c.MkDir()))
 	out := badrun(c, 0, "help", "topics")
 	lines := strings.Split(out, "\n")
 	var names []string
@@ -268,6 +274,7 @@ var globalFlags = []string{
 func (s *MainSuite) TestHelpGlobalOptions(c *C) {
 	// Check that we have correctly registered all the topics
 	// by checking the help output.
+	defer config.SetJujuHome(config.SetJujuHome(c.MkDir()))
 	out := badrun(c, 0, "help", "global-options")
 	c.Assert(out, Matches, `Global Options
 
