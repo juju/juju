@@ -25,6 +25,33 @@ type ProviderSuite struct{}
 
 var _ = Suite(&ProviderSuite{})
 
+var testImagesContent = []jujutest.FileContent{{
+	Name: "/query/precise/server/released.current.txt",
+	Content: "" +
+		"precise\tserver\trelease\t20121017\tebs\tamd64\ttest\tami-20800c10\taki-98e26fa8\t\tparavirtual\n" +
+		"precise\tserver\trelease\t20121017\tebs\ti386\ttest\tami-00000034\tparavirtual\n",
+}, {
+	Name: "/query/quantal/server/released.current.txt",
+	Content: "" +
+		"quantal\tserver\trelease\t20121017\tebs\tamd64\ttest\tami-40f97070\taki-98e26fa8\t\tparavirtual\n" +
+		"quantal\tserver\trelease\t20121017\tebs\ti386\ttest\tami-01000034\taki-98e26fa8\t\tparavirtual\n",
+}, {
+	Name: "/query/raring/server/released.current.txt",
+	Content: "" +
+		"raring\tserver\trelease\t20121017\tebs\tamd64\ttest\tami-40f97070\taki-98e26fa8\t\tparavirtual\n" +
+		"raring\tserver\trelease\t20121017\tebs\ti386\ttest\tami-40f97070\taki-98e26fa8\t\tparavirtual\n",
+}}
+
+// testInstanceTypeContent holds the cost in USDe-3/hour for each of the
+// few available instance types in  the convenient fictional "test" region.
+var testInstanceTypeContent = map[string]uint64{
+	"m1.small":  60,
+	"m1.medium": 120,
+	"m1.large":  240,
+	"m1.xlarge": 480,
+	"t1.micro":  020,
+}
+
 func (s *ProviderSuite) TestMetadata(c *C) {
 	metadataContent := []jujutest.FileContent{
 		{"/2011-01-01/meta-data/instance-id", "dummy.instance.id"},
@@ -106,8 +133,8 @@ type localLiveSuite struct {
 
 func (t *localLiveSuite) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
-	ec2.UseTestImageData(ec2.TestImagesContent)
-	ec2.UseTestInstanceTypeData(ec2.TestInstanceTypeContent)
+	ec2.UseTestImageData(testImagesContent)
+	ec2.UseTestInstanceTypeData(testInstanceTypeContent)
 	t.srv.startServer(c)
 	t.LiveTests.SetUpSuite(c)
 	t.env = t.LiveTests.Env
@@ -211,8 +238,8 @@ type localServerSuite struct {
 
 func (t *localServerSuite) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
-	ec2.UseTestImageData(ec2.TestImagesContent)
-	ec2.UseTestInstanceTypeData(ec2.TestInstanceTypeContent)
+	ec2.UseTestImageData(testImagesContent)
+	ec2.UseTestInstanceTypeData(testInstanceTypeContent)
 	t.Tests.SetUpSuite(c)
 	ec2.ShortTimeouts(true)
 }
@@ -374,8 +401,8 @@ type localNonUSEastSuite struct {
 
 func (t *localNonUSEastSuite) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
-	ec2.UseTestImageData(ec2.TestImagesContent)
-	ec2.UseTestInstanceTypeData(ec2.TestInstanceTypeContent)
+	ec2.UseTestImageData(testImagesContent)
+	ec2.UseTestInstanceTypeData(testInstanceTypeContent)
 	t.tests.SetUpSuite(c)
 	ec2.ShortTimeouts(true)
 }
