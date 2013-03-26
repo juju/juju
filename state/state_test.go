@@ -1407,7 +1407,7 @@ func (s *StateSuite) TestAuthenticator(c *C) {
 		if err != nil {
 			return nil, err
 		}
-		return e.(state.Tagger), nil
+		return e, nil
 	}
 	s.testEntity(c, getEntity)
 	e, err := getEntity("user-arble")
@@ -1437,7 +1437,7 @@ func (s *StateSuite) TestAnnotator(c *C) {
 		if err != nil {
 			return nil, err
 		}
-		return e.(state.Tagger), nil
+		return e, nil
 	}
 	s.testEntity(c, getEntity)
 	svc, err := s.State.AddService("ser-vice1", s.AddTestingCharm(c, "dummy"))

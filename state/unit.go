@@ -323,9 +323,9 @@ func (u *Unit) SubordinateNames() []string {
 	return names
 }
 
-// DeployerName returns the entity name of the agent responsible for deploying
+// DeployerTag returns the tag of the agent responsible for deploying
 // the unit. If no such entity can be determined, false is returned.
-func (u *Unit) DeployerName() (string, bool) {
+func (u *Unit) DeployerTag() (string, bool) {
 	if u.doc.Principal != "" {
 		return UnitTag(u.doc.Principal), true
 	} else if u.doc.MachineId != "" {

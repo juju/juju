@@ -44,14 +44,14 @@ type MachineConfig struct {
 	// StateInfo holds the means for the new instance to communicate with the
 	// juju state. Unless the new machine is running a state server (StateServer is
 	// set), there must be at least one state server address supplied.
-	// The entity name must match that of the machine being started,
+	// The entity tag must match that of the machine being started,
 	// or be empty when starting a state server.
 	StateInfo *state.Info
 
 	// APIInfo holds the means for the new instance to communicate with the
 	// juju state API. Unless the new machine is running a state server (StateServer is
 	// set), there must be at least one state server address supplied.
-	// The entity name must match that of the machine being started,
+	// The entity tag must match that of the machine being started,
 	// or be empty when starting a state server.
 	APIInfo *api.Info
 
@@ -430,10 +430,10 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 			return fmt.Errorf("missing environment configuration")
 		}
 		if cfg.StateInfo.Tag != "" {
-			return fmt.Errorf("entity name must be blank when starting a state server")
+			return fmt.Errorf("entity tag must be blank when starting a state server")
 		}
 		if cfg.APIInfo.Tag != "" {
-			return fmt.Errorf("entity name must be blank when starting a state server")
+			return fmt.Errorf("entity tag must be blank when starting a state server")
 		}
 		if len(cfg.StateServerCert) == 0 {
 			return fmt.Errorf("missing state server certificate")
@@ -452,13 +452,13 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 			return fmt.Errorf("missing state hosts")
 		}
 		if cfg.StateInfo.Tag != state.MachineTag(cfg.MachineId) {
-			return fmt.Errorf("entity name must match started machine")
+			return fmt.Errorf("entity tag must match started machine")
 		}
 		if len(cfg.APIInfo.Addrs) == 0 {
 			return fmt.Errorf("missing API hosts")
 		}
 		if cfg.APIInfo.Tag != state.MachineTag(cfg.MachineId) {
-			return fmt.Errorf("entity name must match started machine")
+			return fmt.Errorf("entity tag must match started machine")
 		}
 	}
 	return nil

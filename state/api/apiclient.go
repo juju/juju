@@ -462,8 +462,8 @@ func (u *Unit) Tag() string {
 	return UnitTag(u.name)
 }
 
-// DeployerName returns the entity name of the agent responsible for deploying
+// DeployerTag returns the tag of the agent responsible for deploying
 // the unit. If no such entity can be determined, false is returned.
-func (u *Unit) DeployerName() (string, bool) {
-	return u.doc.DeployerName, u.doc.DeployerName != ""
+func (u *Unit) DeployerTag() (string, bool) {
+	return u.doc.DeployerTag, u.doc.DeployerTag != ""
 }

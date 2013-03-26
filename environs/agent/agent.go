@@ -84,8 +84,8 @@ func (c *Conf) confFile() string {
 	return c.File("agent.conf")
 }
 
-// Tag returns the entity name that will be used to connect to
-// the state.
+// Tag returns the tag of the entity on whose behalf the state connection will
+// be made.
 func (c *Conf) Tag() string {
 	if c.StateInfo != nil {
 		return c.StateInfo.Tag
@@ -108,7 +108,7 @@ func (c *Conf) Check() error {
 	}
 	if c.StateInfo != nil {
 		if c.StateInfo.Tag == "" {
-			return requiredError("state entity name")
+			return requiredError("state entity tag")
 		}
 		if err := checkAddrs(c.StateInfo.Addrs, "state server address"); err != nil {
 			return err
@@ -120,7 +120,7 @@ func (c *Conf) Check() error {
 	// TODO(rog) make APIInfo mandatory
 	if c.APIInfo != nil {
 		if c.APIInfo.Tag == "" {
-			return requiredError("API entity name")
+			return requiredError("API entity tag")
 		}
 		if err := checkAddrs(c.APIInfo.Addrs, "API server address"); err != nil {
 			return err
@@ -130,7 +130,7 @@ func (c *Conf) Check() error {
 		}
 	}
 	if c.StateInfo != nil && c.APIInfo != nil && c.StateInfo.Tag != c.APIInfo.Tag {
-		return fmt.Errorf("mismatched entity names")
+		return fmt.Errorf("mismatched entity tags")
 	}
 	return nil
 }

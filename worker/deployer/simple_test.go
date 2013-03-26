@@ -123,8 +123,8 @@ func (fix *SimpleToolsFixture) assertUpstartCount(c *C, count int) {
 	c.Assert(fis, HasLen, count)
 }
 
-func (fix *SimpleToolsFixture) getContext(c *C, deployerName string) *deployer.SimpleContext {
-	return deployer.NewTestSimpleContext(deployerName, fix.initDir, fix.dataDir, fix.logDir)
+func (fix *SimpleToolsFixture) getContext(c *C, deployerTag string) *deployer.SimpleContext {
+	return deployer.NewTestSimpleContext(deployerTag, fix.initDir, fix.dataDir, fix.logDir)
 }
 
 func (fix *SimpleToolsFixture) paths(tag, xName string) (confPath, agentDir, toolsDir string) {

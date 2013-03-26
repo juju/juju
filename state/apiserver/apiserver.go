@@ -497,10 +497,10 @@ func (u *srvUnit) SetPassword(p params.Password) error {
 	// - the unit itself.
 	// - the machine responsible for unit, if unit is principal
 	// - the unit's principal unit, if unit is subordinate
-	allow := ename == u.u.Tag()
+	allow := tag == u.u.Tag()
 	if !allow {
-		deployerName, ok := u.u.DeployerName()
-		allow = ok && ename == deployerName
+		deployerTag, ok := u.u.DeployerTag()
+		allow = ok && tag == deployerTag
 	}
 	if !allow {
 		return errPerm

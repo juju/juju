@@ -554,10 +554,10 @@ func (e *environ) StartInstance(machineId string, series string, cons constraint
 		return nil, fmt.Errorf("no CA certificate in environment configuration")
 	}
 	if info.Tag != state.MachineTag(machineId) {
-		return nil, fmt.Errorf("entity name must match started machine")
+		return nil, fmt.Errorf("entity tag must match started machine")
 	}
 	if apiInfo.Tag != state.MachineTag(machineId) {
-		return nil, fmt.Errorf("entity name must match started machine")
+		return nil, fmt.Errorf("entity tag must match started machine")
 	}
 	if strings.HasPrefix(series, "unknown") {
 		return nil, &environs.NotFoundError{fmt.Errorf("no compatible tools found")}

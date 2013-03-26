@@ -82,8 +82,8 @@ func (d *Deployer) changed(unitName string) error {
 		return err
 	} else {
 		life = unit.Life()
-		if deployerName, ok := unit.DeployerName(); ok {
-			responsible = deployerName == d.tag
+		if deployerTag, ok := unit.DeployerTag(); ok {
+			responsible = deployerTag == d.tag
 		}
 	}
 	// Deployed units must be removed if they're Dead, or if the deployer

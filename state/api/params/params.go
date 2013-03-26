@@ -122,7 +122,7 @@ type Password struct {
 
 // Unit holds details of a unit.
 type Unit struct {
-	DeployerName string
+	DeployerTag string
 	// TODO(rog) other unit attributes.
 }
 
