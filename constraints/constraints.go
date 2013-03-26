@@ -53,6 +53,24 @@ func (v Value) String() string {
 	return strings.Join(strs, " ")
 }
 
+// WithFallbacks returns a copy of v with nil values taken from v0.
+func (v Value) WithFallbacks(v0 Value) Value {
+	v1 := v0
+	if v.Arch != nil {
+		v1.Arch = v.Arch
+	}
+	if v.CpuCores != nil {
+		v1.CpuCores = v.CpuCores
+	}
+	if v.CpuPower != nil {
+		v1.CpuPower = v.CpuPower
+	}
+	if v.Mem != nil {
+		v1.Mem = v.Mem
+	}
+	return v1
+}
+
 func uintStr(i uint64) string {
 	if i == 0 {
 		return ""
@@ -60,7 +78,7 @@ func uintStr(i uint64) string {
 	return fmt.Sprintf("%d", i)
 }
 
-// Parse constructs a constraint.Value from the supplied arguments,
+// Parse constructs a constraints.Value from the supplied arguments,
 // each of which must contain only spaces and name=value pairs. If any
 // name is specified more than once, an error is returned.
 func Parse(args ...string) (Value, error) {
@@ -77,6 +95,16 @@ func Parse(args ...string) (Value, error) {
 		}
 	}
 	return cons, nil
+}
+
+// MustParse constructs a constraints.Value from the supplied arguments,
+// as Parse, but panics on failure.
+func MustParse(args ...string) Value {
+	v, err := Parse(args...)
+	if err != nil {
+		panic(err)
+	}
+	return v
 }
 
 // Constraints implements gnuflag.Value for a Constraints.

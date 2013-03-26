@@ -5,7 +5,12 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/constraints"
+	"testing"
 )
+
+func TestPackage(t *testing.T) {
+	TestingT(t)
+}
 
 type ConstraintsSuite struct{}
 
@@ -276,4 +281,68 @@ func (s *ConstraintsSuite) TestGoyamlRoundtripBug1132537(c *C) {
 	// A failure here indicates that goyaml bug lp:1132537 is fixed; please
 	// delete this test and uncomment the flagged constraintsRoundtripTests.
 	c.Assert(val.Hello, IsNil)
+}
+
+var withFallbacksTests = []struct {
+	desc                      string
+	initial, fallbacks, final string
+}{
+	{
+		"empty all round",
+		"", "", "",
+	}, {
+		"arch with empty fallback",
+		"arch=amd64", "", "arch=amd64",
+	}, {
+		"arch with ignored fallback",
+		"arch=amd64", "arch=i386", "arch=amd64",
+	}, {
+		"arch from fallback",
+		"", "arch=i386", "arch=i386",
+	}, {
+		"cpu-cores with empty fallback",
+		"cpu-cores=2", "", "cpu-cores=2",
+	}, {
+		"cpu-cores with ignored fallback",
+		"cpu-cores=4", "cpu-cores=8", "cpu-cores=4",
+	}, {
+		"cpu-cores from fallback",
+		"", "cpu-cores=8", "cpu-cores=8",
+	}, {
+		"cpu-power with empty fallback",
+		"cpu-power=100", "", "cpu-power=100",
+	}, {
+		"cpu-power with ignored fallback",
+		"cpu-power=100", "cpu-power=200", "cpu-power=100",
+	}, {
+		"cpu-power from fallback",
+		"", "cpu-power=200", "cpu-power=200",
+	}, {
+		"mem with empty fallback",
+		"mem=4G", "", "mem=4G",
+	}, {
+		"mem with ignored fallback",
+		"mem=4G", "mem=8G", "mem=4G",
+	}, {
+		"mem from fallback",
+		"", "mem=8G", "mem=8G",
+	}, {
+		"non-overlapping mix",
+		"mem=4G arch=amd64", "cpu-power=1000 cpu-cores=4",
+		"mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
+	}, {
+		"overlapping mix",
+		"mem=4G arch=amd64", "cpu-power=1000 cpu-cores=4 mem=8G",
+		"mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
+	},
+}
+
+func (s *ConstraintsSuite) TestWithFallbacks(c *C) {
+	for i, t := range withFallbacksTests {
+		c.Logf("test %d", i)
+		initial := constraints.MustParse(t.initial)
+		fallbacks := constraints.MustParse(t.fallbacks)
+		final := constraints.MustParse(t.final)
+		c.Assert(initial.WithFallbacks(fallbacks), DeepEquals, final)
+	}
 }
