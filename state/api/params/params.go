@@ -243,12 +243,22 @@ type EntityInfo interface {
 // machineDoc etc).
 // In particular, the document marshalled into mongo
 // must unmarshal correctly into these documents.
+// If the format of a field in a document is changed in mongo, or
+// a field is removed and it coincides with one of the
+// fields below, a similar change must be made here.
+//
+// MachineInfo corresponds with state.machineDoc.
+// ServiceInfo corresponds with state.serviceDoc.
+// UnitInfo corresponds with state.unitDoc.
+// RelationInfo corresponds with state.relationDoc.
+// AnnotationInfo corresponds with state.annotatorDoc.
 
 var (
 	_ EntityInfo = (*MachineInfo)(nil)
 	_ EntityInfo = (*ServiceInfo)(nil)
 	_ EntityInfo = (*UnitInfo)(nil)
 	_ EntityInfo = (*RelationInfo)(nil)
+	_ EntityInfo = (*AnnotationInfo)(nil)
 )
 
 // MachineInfo holds the information about a Machine

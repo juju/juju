@@ -21,6 +21,7 @@ type Service struct {
 }
 
 // serviceDoc represents the internal state of a service in MongoDB.
+// Note the correspondence with ServiceInfo in state/api/params.
 type serviceDoc struct {
 	Name          string `bson:"_id"`
 	CharmURL      *charm.URL

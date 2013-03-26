@@ -11,6 +11,7 @@ import (
 // MongoDB. Note that the annotations map is not maintained in local storage
 // due to the fact that it is not accessed directly, but through
 // Annotations/Annotation below.
+// Note also the correspondence with AnnotationInfo in state/api/params.
 type annotatorDoc struct {
 	GlobalKey   string `bson:"_id"`
 	EntityName  string
