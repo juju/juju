@@ -82,13 +82,12 @@ func (t *LiveTests) BootstrapOnce(c *C) {
 	}
 	// We only build and upload tools if there will be a state agent that
 	// we could connect to (actual live tests, rather than local-only)
-	cons, err := constraints.Parse("mem=2G")
-	c.Assert(err, IsNil)
+	cons := constraints.MustParse("mem=2G")
 	if t.CanOpenState {
 		err := environs.UploadTools(t.Env)
 		c.Assert(err, IsNil)
 	}
-	err = environs.Bootstrap(t.Env, cons)
+	err := environs.Bootstrap(t.Env, cons)
 	c.Assert(err, IsNil)
 	t.bootstrapped = true
 }
