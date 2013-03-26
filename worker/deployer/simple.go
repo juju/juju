@@ -113,7 +113,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	}
 	ctx.syslogConfigPath = syslogConfigRenderer.ConfigFilePath()
 	if e := syslog.Restart(); e != nil {
-		log.Warningf("installer: cannot restart syslog daemon", e)
+		log.Warningf("installer: cannot restart syslog daemon: %v", e)
 	}
 	defer removeOnErr(&err, ctx.syslogConfigPath)
 
@@ -149,7 +149,7 @@ func (ctx *SimpleContext) RecallUnit(unitName string) error {
 		log.Warningf("installer: cannot remove %q: %v", ctx.syslogConfigPath, e)
 	}
 	if e := syslog.Restart(); e != nil {
-		log.Warningf("installer: cannot restart syslog daemon", e)
+		log.Warningf("installer: cannot restart syslog daemon: %v", e)
 	}
 	toolsDir := agent.ToolsDir(ctx.dataDir, entityName)
 	return os.Remove(toolsDir)
