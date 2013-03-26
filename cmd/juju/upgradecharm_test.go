@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
+	"os"
 	"path"
 )
 
@@ -31,8 +32,17 @@ func (s *UpgradeCharmErrorsSuite) TestInvalidArgs(c *C) {
 }
 
 func (s *UpgradeCharmErrorsSuite) TestWithInvalidRepository(c *C) {
-	err := runUpgradeCharm(c, "riak", "--repository=blah")
-	c.Assert(err, ErrorMatches, "invalid repository path specified: blah")
+	testing.Charms.ClonedDirPath(s.seriesPath, "riak")
+	err := runDeploy(c, "local:riak", "riak")
+	c.Assert(err, IsNil)
+
+	err = runUpgradeCharm(c, "riak", "--repository=blah")
+	c.Assert(err, ErrorMatches, `no repository found at ".*blah"`)
+	// Reset JUJU_REPOSITORY explicitly, because repoSuite.SetUpTest
+	// overwrites it (TearDownTest will revert it again).
+	os.Setenv("JUJU_REPOSITORY", "")
+	err = runUpgradeCharm(c, "riak", "--repository=")
+	c.Assert(err, ErrorMatches, `no charms found matching "local:precise/riak" in .*`)
 }
 
 func (s *UpgradeCharmErrorsSuite) TestInvalidService(c *C) {

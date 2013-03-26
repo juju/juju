@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
@@ -20,11 +19,17 @@ type UpgradeCharmCommand struct {
 }
 
 const upgradeCharmDoc = `
-<service> needs to be an existing deployed service, whose charm you want to upgrade.
---repository defaults to $JUJU_REPOSITORY when not set explicitly.
+When no flags are set, the service's charm will be upgraded to the latest
+revision available in the repository from which it was originally deployed.
 
-The given <service>'s charm will be upgraded to the latest available revision, either
-in the charm store or from a specified local repository.
+If the charm came from a local repository, its path will be assumed to be
+$JUJU_REPOSITORY unless overridden by --repository. If there is no newer
+revision of a local charm directory, the local directory's revision will be
+automatically incremented to create a newer version.
+
+The local repository behaviour is tuned specifically to the workflow of a charm
+author working on a single client machine; use of local repositories from
+multiple clients is not supported and may lead to confusing behaviour.
 `
 
 func (c *UpgradeCharmCommand) Info() *cmd.Info {
@@ -53,9 +58,6 @@ func (c *UpgradeCharmCommand) Init(args []string) error {
 	default:
 		return cmd.CheckEmpty(args[1:])
 	}
-	if _, err := ioutil.ReadDir(c.RepoPath); err != nil {
-		return fmt.Errorf("invalid repository path specified: %s", c.RepoPath)
-	}
 	// TODO(dimitern): add the other flags --switch, --force and --revision.
 	return nil
 }
@@ -83,16 +85,15 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 	}
 	bumpRevision := false
 	if curl.Revision == rev {
-		if _, bumpRevision = repo.(*charm.LocalRepository); !bumpRevision {
+		if _, isLocal := repo.(*charm.LocalRepository); !isLocal {
 			return fmt.Errorf("already running latest charm %q", curl)
-		} else {
-			// This is a local repository.
-			if ch, err := repo.Get(curl); err != nil {
-				return err
-			} else if _, bumpRevision = ch.(*charm.Dir); !bumpRevision {
-				// Only bump the revision when it's a directory.
-				return fmt.Errorf("already running latest charm %q", curl)
-			}
+		}
+		// This is a local repository.
+		if ch, err := repo.Get(curl); err != nil {
+			return err
+		} else if _, bumpRevision = ch.(*charm.Dir); !bumpRevision {
+			// Only bump the revision when it's a directory.
+			return fmt.Errorf("already running latest charm %q", curl)
 		}
 	}
 	sch, err := conn.PutCharm(curl.WithRevision(rev), repo, bumpRevision)
