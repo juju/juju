@@ -202,7 +202,7 @@ func opGetUnitWordpress0(c *C, st *api.State, mst *state.State) (func(), error) 
 	if err != nil {
 		c.Check(u, IsNil)
 	} else {
-		name, ok := u.DeployerName()
+		name, ok := u.DeployerTag()
 		c.Check(ok, Equals, true)
 		c.Check(name, Equals, "machine-1")
 	}
@@ -565,7 +565,7 @@ func (s *suite) setUpScenario(c *C) (entities []string) {
 		err = wu.AssignToMachine(m)
 		c.Assert(err, IsNil)
 
-		deployer, ok := wu.DeployerName()
+		deployer, ok := wu.DeployerTag()
 		c.Assert(ok, Equals, true)
 		c.Assert(deployer, Equals, fmt.Sprintf("machine-%d", i+1))
 
@@ -580,7 +580,7 @@ func (s *suite) setUpScenario(c *C) (entities []string) {
 		lu, err := s.State.Unit(fmt.Sprintf("logging/%d", i))
 		c.Assert(err, IsNil)
 		c.Assert(lu.IsPrincipal(), Equals, false)
-		deployer, ok = lu.DeployerName()
+		deployer, ok = lu.DeployerTag()
 		c.Assert(ok, Equals, true)
 		c.Assert(deployer, Equals, fmt.Sprintf("unit-wordpress-%d", i))
 		setDefaultPassword(c, lu)
@@ -1064,7 +1064,7 @@ func (s *suite) TestUnitRefresh(c *C) {
 	u, err := st.Unit("wordpress/0")
 	c.Assert(err, IsNil)
 
-	deployer, ok := u.DeployerName()
+	deployer, ok := u.DeployerTag()
 	c.Assert(ok, Equals, true)
 	c.Assert(deployer, Equals, "machine-1")
 
@@ -1073,14 +1073,14 @@ func (s *suite) TestUnitRefresh(c *C) {
 	err = stu.UnassignFromMachine()
 	c.Assert(err, IsNil)
 
-	deployer, ok = u.DeployerName()
+	deployer, ok = u.DeployerTag()
 	c.Assert(ok, Equals, true)
 	c.Assert(deployer, Equals, "machine-1")
 
 	err = u.Refresh()
 	c.Assert(err, IsNil)
 
-	deployer, ok = u.DeployerName()
+	deployer, ok = u.DeployerTag()
 	c.Assert(ok, Equals, false)
 	c.Assert(deployer, Equals, "")
 }

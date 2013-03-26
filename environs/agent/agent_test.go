@@ -75,7 +75,7 @@ var confTests = []struct {
 		},
 	},
 }, {
-	about: "no api entity name",
+	about: "no api entity tag",
 	conf: agent.Conf{
 		StateServerCert: []byte("server cert"),
 		StateServerKey:  []byte("server key"),
@@ -91,9 +91,9 @@ var confTests = []struct {
 			CACert: []byte("api ca cert"),
 		},
 	},
-	checkErr: "API entity name not found in configuration",
+	checkErr: "API entity tag not found in configuration",
 }, {
-	about: "mismatched entity names",
+	about: "mismatched entity tags",
 	conf: agent.Conf{
 		StateServerCert: []byte("server cert"),
 		StateServerKey:  []byte("server key"),
@@ -110,9 +110,9 @@ var confTests = []struct {
 			CACert: []byte("api ca cert"),
 		},
 	},
-	checkErr: "mismatched entity names",
+	checkErr: "mismatched entity tags",
 }, {
-	about: "no state entity name",
+	about: "no state entity tag",
 	conf: agent.Conf{
 		OldPassword: "old password",
 		StateInfo: &state.Info{
@@ -121,7 +121,7 @@ var confTests = []struct {
 			Password: "current password",
 		},
 	},
-	checkErr: "state entity name not found in configuration",
+	checkErr: "state entity tag not found in configuration",
 }, {
 	about: "no state server address",
 	conf: agent.Conf{

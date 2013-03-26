@@ -91,7 +91,7 @@ type ServiceDestroy struct {
 
 // Creds holds credentials for identifying an entity.
 type Creds struct {
-	Tag      string
+	AuthTag  string
 	Password string
 }
 

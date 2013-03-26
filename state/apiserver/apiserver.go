@@ -439,7 +439,7 @@ func (c *srvClient) SetAnnotations(args params.SetAnnotations) error {
 // All subsequent requests on the connection will
 // act as the authenticated user.
 func (a *srvAdmin) Login(c params.Creds) error {
-	return a.root.user.login(a.root.srv.state, c.Tag, c.Password)
+	return a.root.user.login(a.root.srv.state, c.AuthTag, c.Password)
 }
 
 // Get retrieves all the details of a machine.
@@ -485,14 +485,14 @@ func (m *srvMachine) SetPassword(p params.Password) error {
 // Get retrieves all the details of a unit.
 func (u *srvUnit) Get() (params.Unit, error) {
 	var ru params.Unit
-	ru.DeployerName, _ = u.u.DeployerName()
+	ru.DeployerTag, _ = u.u.DeployerTag()
 	// TODO add other unit attributes
 	return ru, nil
 }
 
 // SetPassword sets the unit's password.
 func (u *srvUnit) SetPassword(p params.Password) error {
-	ename := u.root.user.authenticator().Tag()
+	tag := u.root.user.authenticator().Tag()
 	// Allow:
 	// - the unit itself.
 	// - the machine responsible for unit, if unit is principal

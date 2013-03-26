@@ -296,7 +296,7 @@ func (st *State) Unit(name string) (*Unit, error) {
 // This method is usually called automatically by Open.
 func (st *State) Login(tag, password string) error {
 	return st.call("Admin", "", "Login", &params.Creds{
-		Tag:      tag,
+		AuthTag:  tag,
 		Password: password,
 	}, nil)
 }

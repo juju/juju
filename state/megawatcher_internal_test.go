@@ -904,7 +904,7 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 		err = wu.AssignToMachine(m)
 		c.Assert(err, IsNil)
 
-		deployer, ok := wu.DeployerName()
+		deployer, ok := wu.DeployerTag()
 		c.Assert(ok, Equals, true)
 		c.Assert(deployer, Equals, fmt.Sprintf("machine-%d", i+1))
 
@@ -919,7 +919,7 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 		lu, err := s.State.Unit(fmt.Sprintf("logging/%d", i))
 		c.Assert(err, IsNil)
 		c.Assert(lu.IsPrincipal(), Equals, false)
-		deployer, ok = lu.DeployerName()
+		deployer, ok = lu.DeployerTag()
 		c.Assert(ok, Equals, true)
 		c.Assert(deployer, Equals, fmt.Sprintf("unit-wordpress-%d", i))
 		add(&params.UnitInfo{

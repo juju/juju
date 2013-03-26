@@ -339,36 +339,36 @@ var verifyTests = []struct {
 	{"missing tools URL", func(cfg *cloudinit.MachineConfig) {
 		cfg.Tools = &state.Tools{}
 	}},
-	{"entity name must match started machine", func(cfg *cloudinit.MachineConfig) {
+	{"entity tag must match started machine", func(cfg *cloudinit.MachineConfig) {
 		cfg.StateServer = false
 		info := *cfg.StateInfo
 		info.Tag = "machine-0"
 		cfg.StateInfo = &info
 	}},
-	{"entity name must match started machine", func(cfg *cloudinit.MachineConfig) {
+	{"entity tag must match started machine", func(cfg *cloudinit.MachineConfig) {
 		cfg.StateServer = false
 		info := *cfg.StateInfo
 		info.Tag = ""
 		cfg.StateInfo = &info
 	}},
-	{"entity name must match started machine", func(cfg *cloudinit.MachineConfig) {
+	{"entity tag must match started machine", func(cfg *cloudinit.MachineConfig) {
 		cfg.StateServer = false
 		info := *cfg.APIInfo
 		info.Tag = "machine-0"
 		cfg.APIInfo = &info
 	}},
-	{"entity name must match started machine", func(cfg *cloudinit.MachineConfig) {
+	{"entity tag must match started machine", func(cfg *cloudinit.MachineConfig) {
 		cfg.StateServer = false
 		info := *cfg.APIInfo
 		info.Tag = ""
 		cfg.APIInfo = &info
 	}},
-	{"entity name must be blank when starting a state server", func(cfg *cloudinit.MachineConfig) {
+	{"entity tag must be blank when starting a state server", func(cfg *cloudinit.MachineConfig) {
 		info := *cfg.StateInfo
 		info.Tag = "machine-0"
 		cfg.StateInfo = &info
 	}},
-	{"entity name must be blank when starting a state server", func(cfg *cloudinit.MachineConfig) {
+	{"entity tag must be blank when starting a state server", func(cfg *cloudinit.MachineConfig) {
 		info := *cfg.APIInfo
 		info.Tag = "machine-0"
 		cfg.APIInfo = &info
