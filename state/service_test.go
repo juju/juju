@@ -237,23 +237,32 @@ func (s *ServiceSuite) TestSettingsRefCountWorks(c *C) {
 	assertNoRef(newCh)
 }
 
-const mysqlExtraPeersMeta = `
+const mysqlBaseMeta = `
 name: mysql
 summary: "Database engine"
 description: "A pretty popular database"
 provides:
   server: mysql
+`
+const onePeerMeta = `
+peers:
+  cluster: mysql
+`
+const twoPeersMeta = `
 peers:
   cluster: mysql
   loadbalancer: phony
 `
 
 func (s *ServiceSuite) TestNewPeerRelationsAddedOnUpgrade(c *C) {
-	newCh := s.AddMetaCharm(c, "mysql", mysqlExtraPeersMeta, 2)
+	oldCh := s.AddMetaCharm(c, "mysql", mysqlBaseMeta+onePeerMeta, 2)
+	newCh := s.AddMetaCharm(c, "mysql", mysqlBaseMeta+twoPeersMeta, 3)
 
+	err := s.mysql.SetCharm(oldCh, false)
+	c.Assert(err, IsNil)
 	ch, _, err := s.mysql.Charm()
 	c.Assert(err, IsNil)
-	c.Assert(ch.Meta().Peers, HasLen, 0)
+	c.Assert(ch.Meta().Peers, HasLen, 1)
 
 	err = s.mysql.SetCharm(newCh, false)
 	c.Assert(err, IsNil)

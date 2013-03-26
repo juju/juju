@@ -312,15 +312,16 @@ func (s *Service) peerRelationsDifference(otherMeta *charm.Meta) map[string]char
 	if otherMeta == nil {
 		return nil
 	}
-	otherPeers := otherMeta.Peers
 	ch, _, err := s.Charm()
 	if err != nil {
 		return nil
 	}
+	otherPeers := otherMeta.Peers
+	peers := ch.Meta().Peers
 	diff := make(map[string]charm.Relation)
-	for relName, _ := range ch.Meta().Peers {
-		if newRel, ok := otherPeers[relName]; ok {
-			diff[relName] = newRel
+	for relName, rel := range otherPeers {
+		if _, ok := peers[relName]; !ok {
+			diff[relName] = rel
 		}
 	}
 	return diff
