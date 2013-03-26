@@ -1472,3 +1472,55 @@ func (s *StateSuite) TestAnnotator(c *C) {
 		`entity "user-arble" does not support annotations`,
 	)
 }
+
+func (s *StateSuite) TestParseEntityName(c *C) {
+	bad := []string{
+		"",
+		"machine",
+		"-foo",
+		"foo-",
+		"---",
+		"foo-bar",
+		"environment-foo",
+		"unit-foo",
+	}
+	for _, name := range bad {
+		c.Logf(name)
+		coll, id, err := s.State.ParseEntityName(name)
+		c.Check(coll, Equals, "")
+		c.Check(id, Equals, "")
+		c.Assert(err, ErrorMatches, `invalid entity name ".*"`)
+	}
+
+	// Parse a machine entity name.
+	m, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	coll, id, err := s.State.ParseEntityName(m.EntityName())
+	c.Assert(coll, Equals, "machines")
+	c.Assert(id, Equals, m.Id())
+	c.Assert(err, IsNil)
+
+	// Parse a service entity name.
+	svc, err := s.State.AddService("ser-vice2", s.AddTestingCharm(c, "dummy"))
+	c.Assert(err, IsNil)
+	coll, id, err = s.State.ParseEntityName(svc.EntityName())
+	c.Assert(coll, Equals, "services")
+	c.Assert(id, Equals, svc.Name())
+	c.Assert(err, IsNil)
+
+	// Parse a unit entity name.
+	u, err := svc.AddUnit()
+	c.Assert(err, IsNil)
+	coll, id, err = s.State.ParseEntityName(u.EntityName())
+	c.Assert(coll, Equals, "units")
+	c.Assert(id, Equals, u.Name())
+	c.Assert(err, IsNil)
+
+	// Parse a user entity name.
+	user, err := s.State.AddUser("arble", "pass")
+	c.Assert(err, IsNil)
+	coll, id, err = s.State.ParseEntityName(user.EntityName())
+	c.Assert(coll, Equals, "users")
+	c.Assert(id, Equals, user.Name())
+	c.Assert(err, IsNil)
+}

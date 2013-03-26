@@ -64,9 +64,8 @@ func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *C) {
 
 func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *C) {
 	env := newEnviron("foo", useDefaultKeys)
-	cons, err := constraints.Parse("cpu-cores=2 mem=4G")
-	c.Assert(err, IsNil)
-	err = environs.Bootstrap(env, cons)
+	cons := constraints.MustParse("cpu-cores=2 mem=4G")
+	err := environs.Bootstrap(env, cons)
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
 	c.Assert(env.constraints, DeepEquals, cons)

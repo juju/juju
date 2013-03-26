@@ -217,6 +217,7 @@ var commandNames = []string{
 	"status",
 	"terminate-machine", // alias for destroy-machine
 	"unexpose",
+	"upgrade-charm",
 	"upgrade-juju",
 	"version",
 }

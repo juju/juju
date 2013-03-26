@@ -173,8 +173,8 @@ func repoNotFound(path string) error {
 	return fmt.Errorf("no repository found at %q", path)
 }
 
-func charmNotFound(curl *URL) error {
-	return fmt.Errorf("no charms found matching %q", curl)
+func charmNotFound(curl *URL, repoPath string) error {
+	return fmt.Errorf("no charms found matching %q in %s", curl, repoPath)
 }
 
 func mightBeCharm(info os.FileInfo) bool {
@@ -204,7 +204,7 @@ func (r *LocalRepository) Get(curl *URL) (Charm, error) {
 	path := filepath.Join(r.Path, curl.Series)
 	infos, err := ioutil.ReadDir(path)
 	if err != nil {
-		return nil, charmNotFound(curl)
+		return nil, charmNotFound(curl, r.Path)
 	}
 	var latest Charm
 	for _, info := range infos {
@@ -226,5 +226,5 @@ func (r *LocalRepository) Get(curl *URL) (Charm, error) {
 	if curl.Revision == -1 && latest != nil {
 		return latest, nil
 	}
-	return nil, charmNotFound(curl)
+	return nil, charmNotFound(curl, r.Path)
 }

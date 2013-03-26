@@ -50,7 +50,7 @@ func registerAmazonTests() {
 	}
 	Suite(&LiveTests{
 		LiveTests: jujutest.LiveTests{
-			Config:         attrs,
+			TestConfig:     jujutest.TestConfig{attrs},
 			Attempt:        *ec2.ShortAttempt,
 			CanOpenState:   true,
 			HasProvisioner: true,
@@ -68,7 +68,8 @@ type LiveTests struct {
 
 func (t *LiveTests) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
-	e, err := environs.NewFromAttrs(t.Config)
+	// TODO: Share code from jujutest.LiveTests for creating environment
+	e, err := environs.NewFromAttrs(t.TestConfig.Config)
 	c.Assert(err, IsNil)
 
 	// Environ.PublicStorage() is read only.
@@ -123,8 +124,7 @@ func (t *LiveTests) TestInstanceAttributes(c *C) {
 }
 
 func (t *LiveTests) TestStartInstanceConstraints(c *C) {
-	cons, err := constraints.Parse("mem=2G")
-	c.Assert(err, IsNil)
+	cons := constraints.MustParse("mem=2G")
 	inst, err := t.Env.StartInstance("31", version.Current.Series, cons, testing.InvalidStateInfo("31"), testing.InvalidAPIInfo("31"))
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst})
