@@ -365,6 +365,37 @@ func (st *State) entity(entityName string) (interface{}, error) {
 	return nil, fmt.Errorf("invalid entity name %q", entityName)
 }
 
+// ParseEntityName, given an entity name, returns the collection name and id
+// of the entity document.
+func (st *State) ParseEntityName(entityName string) (string, string, error) {
+	parts := strings.SplitN(entityName, "-", 2)
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("invalid entity name %q", entityName)
+	}
+	id := parts[1]
+	var coll string
+	switch parts[0] {
+	case "machine":
+		coll = st.machines.Name
+	case "service":
+		coll = st.services.Name
+	case "unit":
+		coll = st.units.Name
+		// Handle replacements occurring when an entity name is created
+		// for a unit.
+		idx := strings.LastIndex(id, "-")
+		if idx == -1 {
+			return "", "", fmt.Errorf("invalid entity name %q", entityName)
+		}
+		id = id[:idx] + "/" + id[idx+1:]
+	case "user":
+		coll = st.users.Name
+	default:
+		return "", "", fmt.Errorf("invalid entity name %q", entityName)
+	}
+	return coll, id, nil
+}
+
 // AddCharm adds the ch charm with curl to the state.  bundleUrl must be
 // set to a URL where the bundle for ch may be downloaded from.
 // On success the newly added charm state is returned.
