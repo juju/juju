@@ -25,7 +25,7 @@ revision available in the repository from which it was originally deployed.
 If the charm came from a local repository, its path will be assumed to be
 $JUJU_REPOSITORY unless overridden by --repository. If there is no newer
 revision of a local charm directory, the local directory's revision will be
-automatically incremented to create a newer version.
+automatically incremented to create a newer charm.
 
 The local repository behaviour is tuned specifically to the workflow of a charm
 author working on a single client machine; use of local repositories from
