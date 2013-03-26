@@ -13,7 +13,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
-	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
 	"net"
 	"strconv"
@@ -268,16 +267,11 @@ func opClientCharmInfo(c *C, st *api.State, mst *state.State) (func(), error) {
 }
 
 func opClientDestroyRelation(c *C, st *api.State, mst *state.State) (func(), error) {
-	err := st.Client().DestroyRelation("wordpress", "logging")
-	if err != nil {
-		return func() {}, err
+	err := st.Client().DestroyRelation("nosuch1", "nosuch2")
+	if api.ErrCode(err) == api.CodeNotFound {
+		err = nil
 	}
-	return func() {
-		eps, err := mst.InferEndpoints([]string{"wordpress", "logging"})
-		c.Assert(err, IsNil)
-		_, err = mst.AddRelation(eps...)
-		c.Assert(err, IsNil)
-	}, nil
+	return func() {}, err
 }
 
 func opClientStatus(c *C, st *api.State, mst *state.State) (func(), error) {
@@ -448,18 +442,10 @@ func opClientAddServiceUnits(c *C, st *api.State, mst *state.State) (func(), err
 }
 
 func opClientDestroyServiceUnits(c *C, st *api.State, mst *state.State) (func(), error) {
-	err := statecmd.AddServiceUnits(mst, params.AddServiceUnits{"wordpress", 1})
-	if err != nil {
-		return func() {}, err
+	err := st.Client().DestroyServiceUnits([]string{"wordpress/99"})
+	if err != nil && strings.HasPrefix(err.Error(), "no units were destroyed") {
+		err = nil
 	}
-	newUnitName := []string{"wordpress/1"}
-	err = st.Client().DestroyServiceUnits(newUnitName)
-	if err != nil {
-		return func() {
-			_ = statecmd.DestroyServiceUnits(mst, params.DestroyServiceUnits{newUnitName})
-		}, err
-	}
-	c.Assert(err, IsNil)
 	return func() {}, err
 }
 
@@ -467,6 +453,9 @@ func opClientServiceDestroy(c *C, st *api.State, mst *state.State) (func(), erro
 	// This test only checks that the call is made without error, ensuring the
 	// signatures match.
 	err := st.Client().ServiceDestroy("non-existent")
+	if api.ErrCode(err) == api.CodeNotFound {
+		err = nil
+	}
 	return func() {}, err
 }
 
