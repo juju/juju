@@ -62,22 +62,12 @@ func init() {
 	http.DefaultTransport.(*http.Transport).RegisterProtocol("test", testRoundTripper)
 }
 
-var TestImagesContent = []jujutest.FileContent{
-	{"/query/precise/server/released.current.txt", "" +
-		"precise\tserver\trelease\t20121017\tebs\tamd64\ttest\tami-20800c10\taki-98e26fa8\t\tparavirtual\n" +
-		""},
-	{"/query/quantal/server/released.current.txt", "" +
-		"quantal\tserver\trelease\t20121017\tebs\tamd64\ttest\tami-40f97070\taki-98e26fa8\t\tparavirtual\n" +
-		""},
-	{"/query/raring/server/released.current.txt", "" +
-		"raring\tserver\trelease\t20121017\tebs\tamd64\ttest\tami-40f97070\taki-98e26fa8\t\tparavirtual\n" +
-		""},
-}
-
 // TODO: Apart from overriding different hardcoded hosts, these two test helpers are identical. Let's share.
 
 var origImagesHost = imagesHost
 
+// UseTestImageData causes the given content to be served
+// when the ec2 client asks for image data.
 func UseTestImageData(content []jujutest.FileContent) {
 	if content != nil {
 		testRoundTripper.Sub = jujutest.NewVirtualRoundTripper(content)
@@ -88,16 +78,8 @@ func UseTestImageData(content []jujutest.FileContent) {
 	}
 }
 
-// TestInstanceTypeContent holds the cost in USDe-3/hour for each of the
-// few available instance types in  the convenient fictional "test" region.
-var TestInstanceTypeContent = map[string]uint64{
-	"m1.small":  60,
-	"m1.medium": 120,
-	"m1.large":  240,
-	"m1.xlarge": 480,
-	"t1.micro":  020,
-}
-
+// UseTestInstanceTypeData causes the given instance type
+// cost data to be served for the "test" region.
 func UseTestInstanceTypeData(content map[string]uint64) {
 	if content != nil {
 		allRegionCosts["test"] = content
