@@ -31,7 +31,7 @@ var annotatorTests = []struct {
 	{
 		about: "test setting an invalid annotation",
 		input: map[string]string{"invalid.key": "myvalue"},
-		err:   `invalid key "invalid.key"`,
+		err:   `cannot update annotations on .*: invalid key "invalid.key"`,
 	},
 	{
 		about:    "test returning a non existent annotation",
