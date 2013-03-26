@@ -15,7 +15,6 @@ import (
 	"launchpad.net/juju-core/state/apiserver"
 	coretesting "launchpad.net/juju-core/testing"
 	"net"
-	"strconv"
 	"strings"
 	stdtesting "testing"
 	"time"
@@ -409,36 +408,12 @@ func opClientServiceDeploy(c *C, st *api.State, mst *state.State) (func(), error
 	}, nil
 }
 
-func latestUnit(c *C, svc *state.Service, st *state.State) *state.Unit {
-	units, err := svc.AllUnits()
-	max := -1
-	n := 0
-	for _, u := range units {
-		parts := strings.Split(u.Name(), "/")
-		n, err = strconv.Atoi(parts[1])
-		c.Assert(err, IsNil)
-		if n > max {
-			max = n
-		}
-	}
-	latestUnit, err := st.Unit(fmt.Sprintf("%s/%d", svc.Name(), n))
-	c.Assert(err, IsNil)
-	return latestUnit
-}
-
 func opClientAddServiceUnits(c *C, st *api.State, mst *state.State) (func(), error) {
-	// This test only checks that the call is made without error, ensuring the
-	// signatures match.
-	err := st.Client().AddServiceUnits("wordpress", 1)
-	if err != nil {
-		return func() {}, err
+	err := st.Client().AddServiceUnits("nosuch", 1)
+	if api.ErrCode(err) == api.CodeNotFound {
+		err = nil
 	}
-	return func() {
-		svc, err := mst.Service("wordpress")
-		c.Assert(err, IsNil)
-		unit := latestUnit(c, svc, mst)
-		unit.Destroy()
-	}, nil
+	return func() {}, err
 }
 
 func opClientDestroyServiceUnits(c *C, st *api.State, mst *state.State) (func(), error) {
