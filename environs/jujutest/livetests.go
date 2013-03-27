@@ -24,8 +24,8 @@ import (
 type LiveTests struct {
 	coretesting.LoggingSuite
 
-	// Config holds the configuration attributes for opening an environment.
-	Config map[string]interface{}
+	// TestConfig contains the configuration attributes for opening an environment.
+	TestConfig TestConfig
 
 	// Env holds the currently opened environment.
 	Env environs.Environ
@@ -47,8 +47,8 @@ type LiveTests struct {
 
 func (t *LiveTests) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
-	e, err := environs.NewFromAttrs(t.Config)
-	c.Assert(err, IsNil, Commentf("opening environ %#v", t.Config))
+	e, err := environs.NewFromAttrs(t.TestConfig.Config)
+	c.Assert(err, IsNil, Commentf("opening environ %#v", t.TestConfig.Config))
 	c.Assert(e, NotNil)
 	t.Env = e
 	c.Logf("environment configuration: %#v", publicAttrs(e))
@@ -82,13 +82,12 @@ func (t *LiveTests) BootstrapOnce(c *C) {
 	}
 	// We only build and upload tools if there will be a state agent that
 	// we could connect to (actual live tests, rather than local-only)
-	cons, err := constraints.Parse("mem=2G")
-	c.Assert(err, IsNil)
+	cons := constraints.MustParse("mem=2G")
 	if t.CanOpenState {
 		err := environs.UploadTools(t.Env)
 		c.Assert(err, IsNil)
 	}
-	err = environs.Bootstrap(t.Env, cons)
+	err := environs.Bootstrap(t.Env, cons)
 	c.Assert(err, IsNil)
 	t.bootstrapped = true
 }

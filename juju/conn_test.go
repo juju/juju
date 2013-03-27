@@ -319,6 +319,9 @@ func (s *ConnSuite) TestPutBundledCharm(c *C) {
 		Name:     "riak",
 		Revision: -1,
 	}
+	_, err = s.conn.PutCharm(curl, s.repo, true)
+	c.Assert(err, ErrorMatches, `cannot increment revision of charm "local:series/riak-7": not a directory`)
+
 	sch, err := s.conn.PutCharm(curl, s.repo, false)
 	c.Assert(err, IsNil)
 	c.Assert(sch.Meta().Summary, Equals, "K/V storage engine")
