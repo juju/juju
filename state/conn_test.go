@@ -47,7 +47,7 @@ func (cs *ConnSuite) SetUpTest(c *C) {
 	cs.services = cs.MgoSuite.Session.DB("juju").C("services")
 	cs.units = cs.MgoSuite.Session.DB("juju").C("units")
 	var err error
-	cs.State, err = state.Open(state.TestingStateInfo(), state.TestingDialTimeout, state.TestingRetryDelay)
+	cs.State, err = state.Open(state.TestingStateInfo(), state.TestingDialOpts())
 	c.Assert(err, IsNil)
 }
 

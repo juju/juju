@@ -3,7 +3,6 @@ package state
 import (
 	"labix.org/v2/mgo"
 	"launchpad.net/juju-core/charm"
-	"time"
 )
 
 type (
