@@ -811,7 +811,7 @@ func (s *allWatcherStateSuite) TearDownSuite(c *C) {
 func (s *allWatcherStateSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-	state, err := Open(TestingStateInfo(), TestingDialTimeout, TestingRetryDelay)
+	state, err := Open(TestingStateInfo(), TestingDialOpts())
 	c.Assert(err, IsNil)
 
 	s.State = state
