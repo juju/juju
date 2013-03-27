@@ -15,19 +15,19 @@ var _ = Suite(&RelationSuite{})
 func (s *RelationSuite) TestRelatedEndpoints(c *C) {
 	rel := charm.Relation{
 		Interface: "ifce",
-		Name: "group",
-		Role: charm.RolePeer,
-		Scope: charm.ScopeGlobal,
+		Name:      "group",
+		Role:      charm.RolePeer,
+		Scope:     charm.ScopeGlobal,
 	}
-	eps :=  []Endpoint{{
+	eps := []Endpoint{{
 		ServiceName: "jeff",
-		Relation: rel,
+		Relation:    rel,
 	}, {
 		ServiceName: "mike",
-		Relation: rel,
+		Relation:    rel,
 	}, {
 		ServiceName: "mike",
-		Relation: rel,
+		Relation:    rel,
 	}}
 	r := &Relation{nil, relationDoc{Endpoints: eps}}
 	relatedEps, err := r.RelatedEndpoints("mike")

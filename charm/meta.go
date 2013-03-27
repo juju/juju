@@ -35,8 +35,8 @@ const (
 // Relation represents a single relation defined in the charm
 // metadata.yaml file.
 type Relation struct {
-	Name string
-	Role RelationRole
+	Name      string
+	Role      RelationRole
 	Interface string
 	Optional  bool
 	Limit     int
@@ -212,10 +212,10 @@ func parseRelations(relations interface{}, role RelationRole) map[string]Relatio
 	for name, rel := range relations.(map[string]interface{}) {
 		relMap := rel.(map[string]interface{})
 		relation := Relation{
-			Name: name,
-			Role: role,
+			Name:      name,
+			Role:      role,
 			Interface: relMap["interface"].(string),
-			Optional: relMap["optional"].(bool),
+			Optional:  relMap["optional"].(bool),
 		}
 		if scope := relMap["scope"]; scope != nil {
 			relation.Scope = RelationScope(scope.(string))

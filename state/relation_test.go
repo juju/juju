@@ -103,19 +103,19 @@ func (s *RelationSuite) TestRetrieveNotFound(c *C) {
 	subway := state.Endpoint{
 		ServiceName: "subway",
 		Relation: charm.Relation{
-			Name: "db",
+			Name:      "db",
 			Interface: "mongodb",
-			Role: charm.RoleRequirer,
-			Scope: charm.ScopeGlobal,
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
 		},
 	}
 	mongo := state.Endpoint{
 		ServiceName: "mongo",
 		Relation: charm.Relation{
-			Name: "server",
+			Name:      "server",
 			Interface: "mongodb",
-			Role: charm.RoleProvider,
-			Scope: charm.ScopeGlobal,
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
 		},
 	}
 	_, err := s.State.EndpointsRelation(subway, mongo)

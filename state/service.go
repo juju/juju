@@ -270,8 +270,8 @@ func (s *Service) Endpoints() (eps []Endpoint, err error) {
 	collect := func(role charm.RelationRole, rels map[string]charm.Relation) {
 		for _, rel := range rels {
 			eps = append(eps, Endpoint{
-				ServiceName:   s.doc.Name,
-				Relation: rel,
+				ServiceName: s.doc.Name,
+				Relation:    rel,
 			})
 		}
 	}
@@ -281,8 +281,8 @@ func (s *Service) Endpoints() (eps []Endpoint, err error) {
 	collect(charm.RoleRequirer, meta.Requires)
 	collect(charm.RoleProvider, map[string]charm.Relation{
 		"juju-info": {
-			Name: "juju-info",
-			Role: charm.RoleProvider,
+			Name:      "juju-info",
+			Role:      charm.RoleProvider,
 			Interface: "juju-info",
 			Scope:     charm.ScopeGlobal,
 		},

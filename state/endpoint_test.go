@@ -30,18 +30,18 @@ func (s *EndpointSuite) TestCanRelate(c *C) {
 			ServiceName: "one-service",
 			Relation: charm.Relation{
 				Interface: "ifce",
-				Name: "foo",
-				Role: t.role1,
-				Scope: charm.ScopeGlobal,
+				Name:      "foo",
+				Role:      t.role1,
+				Scope:     charm.ScopeGlobal,
 			},
 		}
 		ep2 := state.Endpoint{
 			ServiceName: "another-service",
 			Relation: charm.Relation{
 				Interface: "ifce",
-				Name: "bar",
-				Role: t.role2,
-				Scope: charm.ScopeGlobal,
+				Name:      "bar",
+				Role:      t.role2,
+				Scope:     charm.ScopeGlobal,
 			},
 		}
 		if t.success {
@@ -56,18 +56,18 @@ func (s *EndpointSuite) TestCanRelate(c *C) {
 		ServiceName: "same-service",
 		Relation: charm.Relation{
 			Interface: "ifce",
-			Name: "foo",
-			Role: charm.RoleProvider,
-			Scope: charm.ScopeGlobal,
+			Name:      "foo",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
 		},
 	}
 	ep2 := state.Endpoint{
 		ServiceName: "same-service",
 		Relation: charm.Relation{
 			Interface: "ifce",
-			Name: "bar",
-			Role: charm.RoleRequirer,
-			Scope: charm.ScopeGlobal,
+			Name:      "bar",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
 		},
 	}
 	c.Assert(ep1.CanRelateTo(ep2), Equals, false)
@@ -145,9 +145,9 @@ func (s *EndpointSuite) TestImplementedBy(c *C) {
 			ServiceName: "x",
 			Relation: charm.Relation{
 				Interface: t.ifce,
-				Name: t.name,
-				Role: t.role,
-				Scope: t.scope,
+				Name:      t.name,
+				Role:      t.role,
+				Scope:     t.scope,
 			},
 		}
 		c.Assert(ep.ImplementedBy(&dummyCharm{}), Equals, t.match)

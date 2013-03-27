@@ -478,8 +478,8 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 			return nil, err
 		}
 		eps := []Endpoint{{
-			ServiceName:   name,
-			Relation: rel,
+			ServiceName: name,
+			Relation:    rel,
 		}}
 		relKey := relationKey(eps)
 		relDoc := &relationDoc{

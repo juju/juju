@@ -239,12 +239,12 @@ func (s *ServiceSuite) TestSettingsRefCountWorks(c *C) {
 
 func jujuInfoEp(serviceName string) state.Endpoint {
 	return state.Endpoint{
-		ServiceName:   serviceName,
+		ServiceName: serviceName,
 		Relation: charm.Relation{
-			Interface:     "juju-info",
-			Name:  "juju-info",
-			Role:  charm.RoleProvider,
-			Scope: charm.ScopeGlobal,
+			Interface: "juju-info",
+			Name:      "juju-info",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
 		},
 	}
 }
@@ -264,12 +264,12 @@ func (s *ServiceSuite) TestMysqlEndpoints(c *C) {
 	serverEP, err := s.mysql.Endpoint("server")
 	c.Assert(err, IsNil)
 	c.Assert(serverEP, DeepEquals, state.Endpoint{
-		ServiceName:   "mysql",
+		ServiceName: "mysql",
 		Relation: charm.Relation{
-			Interface:     "mysql",
-			Name:  "server",
-			Role:  charm.RoleProvider,
-			Scope: charm.ScopeGlobal,
+			Interface: "mysql",
+			Name:      "server",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
 		},
 	})
 
@@ -292,37 +292,37 @@ func (s *ServiceSuite) TestRiakEndpoints(c *C) {
 	ringEP, err := riak.Endpoint("ring")
 	c.Assert(err, IsNil)
 	c.Assert(ringEP, DeepEquals, state.Endpoint{
-		ServiceName:   "myriak",
+		ServiceName: "myriak",
 		Relation: charm.Relation{
-			Interface:     "riak",
-			Name:  "ring",
-			Role:  charm.RolePeer,
-			Scope: charm.ScopeGlobal,
-			Limit: 1,
+			Interface: "riak",
+			Name:      "ring",
+			Role:      charm.RolePeer,
+			Scope:     charm.ScopeGlobal,
+			Limit:     1,
 		},
 	})
 
 	adminEP, err := riak.Endpoint("admin")
 	c.Assert(err, IsNil)
 	c.Assert(adminEP, DeepEquals, state.Endpoint{
-		ServiceName:   "myriak",
+		ServiceName: "myriak",
 		Relation: charm.Relation{
-			Interface:     "http",
-			Name:  "admin",
-			Role:  charm.RoleProvider,
-			Scope: charm.ScopeGlobal,
+			Interface: "http",
+			Name:      "admin",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
 		},
 	})
 
 	endpointEP, err := riak.Endpoint("endpoint")
 	c.Assert(err, IsNil)
 	c.Assert(endpointEP, DeepEquals, state.Endpoint{
-		ServiceName:   "myriak",
+		ServiceName: "myriak",
 		Relation: charm.Relation{
-			Interface:     "http",
-			Name:  "endpoint",
-			Role:  charm.RoleProvider,
-			Scope: charm.ScopeGlobal,
+			Interface: "http",
+			Name:      "endpoint",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
 		},
 	})
 
@@ -345,51 +345,51 @@ func (s *ServiceSuite) TestWordpressEndpoints(c *C) {
 	urlEP, err := wordpress.Endpoint("url")
 	c.Assert(err, IsNil)
 	c.Assert(urlEP, DeepEquals, state.Endpoint{
-		ServiceName:   "wordpress",
+		ServiceName: "wordpress",
 		Relation: charm.Relation{
-			Interface:     "http",
-			Name:  "url",
-			Role:  charm.RoleProvider,
-			Scope: charm.ScopeGlobal,
+			Interface: "http",
+			Name:      "url",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
 		},
 	})
 
 	ldEP, err := wordpress.Endpoint("logging-dir")
 	c.Assert(err, IsNil)
 	c.Assert(ldEP, DeepEquals, state.Endpoint{
-		ServiceName:   "wordpress",
+		ServiceName: "wordpress",
 		Relation: charm.Relation{
-			Interface:     "logging",
-			Name:  "logging-dir",
-			Role:  charm.RoleProvider,
-			Scope: charm.ScopeContainer,
+			Interface: "logging",
+			Name:      "logging-dir",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeContainer,
 		},
 	})
 
 	dbEP, err := wordpress.Endpoint("db")
 	c.Assert(err, IsNil)
 	c.Assert(dbEP, DeepEquals, state.Endpoint{
-		ServiceName:   "wordpress",
+		ServiceName: "wordpress",
 		Relation: charm.Relation{
-			Interface:     "mysql",
-			Name:  "db",
-			Role:  charm.RoleRequirer,
-			Scope: charm.ScopeGlobal,
-			Limit: 1,
+			Interface: "mysql",
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+			Limit:     1,
 		},
 	})
 
 	cacheEP, err := wordpress.Endpoint("cache")
 	c.Assert(err, IsNil)
 	c.Assert(cacheEP, DeepEquals, state.Endpoint{
-		ServiceName:   "wordpress",
+		ServiceName: "wordpress",
 		Relation: charm.Relation{
-			Interface:     "varnish",
-			Name:  "cache",
-			Role:  charm.RoleRequirer,
-			Scope: charm.ScopeGlobal,
-			Limit: 2,
-			Optional: true,
+			Interface: "varnish",
+			Name:      "cache",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+			Limit:     2,
+			Optional:  true,
 		},
 	})
 

@@ -82,10 +82,10 @@ func (s *MetaSuite) TestParseMetaRelations(c *C) {
 	meta, err := charm.ReadMeta(repoMeta("mysql"))
 	c.Assert(err, IsNil)
 	c.Assert(meta.Provides["server"], Equals, charm.Relation{
-		Name: "server",
-		Role: charm.RoleProvider,
+		Name:      "server",
+		Role:      charm.RoleProvider,
 		Interface: "mysql",
-		Scope: charm.ScopeGlobal,
+		Scope:     charm.ScopeGlobal,
 	})
 	c.Assert(meta.Requires, IsNil)
 	c.Assert(meta.Peers, IsNil)
@@ -93,66 +93,66 @@ func (s *MetaSuite) TestParseMetaRelations(c *C) {
 	meta, err = charm.ReadMeta(repoMeta("riak"))
 	c.Assert(err, IsNil)
 	c.Assert(meta.Provides["endpoint"], Equals, charm.Relation{
-		Name: "endpoint",
-		Role: charm.RoleProvider,
+		Name:      "endpoint",
+		Role:      charm.RoleProvider,
 		Interface: "http",
-		Scope: charm.ScopeGlobal,
+		Scope:     charm.ScopeGlobal,
 	})
 	c.Assert(meta.Provides["admin"], Equals, charm.Relation{
-		Name: "admin",
-		Role: charm.RoleProvider,
+		Name:      "admin",
+		Role:      charm.RoleProvider,
 		Interface: "http",
-		Scope: charm.ScopeGlobal,
+		Scope:     charm.ScopeGlobal,
 	})
 	c.Assert(meta.Peers["ring"], Equals, charm.Relation{
-		Name: "ring",
-		Role: charm.RolePeer,
+		Name:      "ring",
+		Role:      charm.RolePeer,
 		Interface: "riak",
-		Limit: 1,
-		Scope: charm.ScopeGlobal,
+		Limit:     1,
+		Scope:     charm.ScopeGlobal,
 	})
 	c.Assert(meta.Requires, IsNil)
 
 	meta, err = charm.ReadMeta(repoMeta("terracotta"))
 	c.Assert(err, IsNil)
 	c.Assert(meta.Provides["dso"], Equals, charm.Relation{
-		Name: "dso",
-		Role: charm.RoleProvider,
+		Name:      "dso",
+		Role:      charm.RoleProvider,
 		Interface: "terracotta",
-		Optional: true,
-		Scope: charm.ScopeGlobal,
+		Optional:  true,
+		Scope:     charm.ScopeGlobal,
 	})
 	c.Assert(meta.Peers["server-array"], Equals, charm.Relation{
-		Name: "server-array",
-		Role: charm.RolePeer,
+		Name:      "server-array",
+		Role:      charm.RolePeer,
 		Interface: "terracotta-server",
-		Limit: 1,
-		Scope: charm.ScopeGlobal,
+		Limit:     1,
+		Scope:     charm.ScopeGlobal,
 	})
 	c.Assert(meta.Requires, IsNil)
 
 	meta, err = charm.ReadMeta(repoMeta("wordpress"))
 	c.Assert(err, IsNil)
 	c.Assert(meta.Provides["url"], Equals, charm.Relation{
-		Name: "url",
-		Role: charm.RoleProvider,
+		Name:      "url",
+		Role:      charm.RoleProvider,
 		Interface: "http",
-		Scope: charm.ScopeGlobal,
+		Scope:     charm.ScopeGlobal,
 	})
 	c.Assert(meta.Requires["db"], Equals, charm.Relation{
-		Name: "db",
-		Role: charm.RoleRequirer,
+		Name:      "db",
+		Role:      charm.RoleRequirer,
 		Interface: "mysql",
-		Limit: 1,
-		Scope: charm.ScopeGlobal,
+		Limit:     1,
+		Scope:     charm.ScopeGlobal,
 	})
 	c.Assert(meta.Requires["cache"], Equals, charm.Relation{
-		Name: "cache",
-		Role: charm.RoleRequirer,
+		Name:      "cache",
+		Role:      charm.RoleRequirer,
 		Interface: "varnish",
-		Limit: 2,
-		Optional: true,
-		Scope: charm.ScopeGlobal,
+		Limit:     2,
+		Optional:  true,
+		Scope:     charm.ScopeGlobal,
 	})
 	c.Assert(meta.Peers, IsNil)
 }
@@ -241,11 +241,11 @@ func (s *MetaSuite) TestCheckMismatchedRelationName(c *C) {
 		Name: "foo",
 		Provides: map[string]charm.Relation{
 			"foo": {
-				Name: "foo",
-				Role: charm.RolePeer,
+				Name:      "foo",
+				Role:      charm.RolePeer,
 				Interface: "x",
-				Limit: 1,
-				Scope: charm.ScopeGlobal,
+				Limit:     1,
+				Scope:     charm.ScopeGlobal,
 			},
 		},
 	}
@@ -260,10 +260,10 @@ func (s *MetaSuite) TestCheckMismatchedRole(c *C) {
 		Name: "foo",
 		Provides: map[string]charm.Relation{
 			"foo": {
-				Role: charm.RolePeer,
+				Role:      charm.RolePeer,
 				Interface: "foo",
-				Limit: 1,
-				Scope: charm.ScopeGlobal,
+				Limit:     1,
+				Scope:     charm.ScopeGlobal,
 			},
 		},
 	}
