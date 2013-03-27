@@ -36,6 +36,10 @@ const (
 	// to a dedicated machine, and that new machines should be launched
 	// if required.
 	AssignUnused AssignmentPolicy = "unused"
+
+	// AssignNew indicates that every service unit should be assigned to a new
+	// dedicated machine.  A new machine will be launched for each new unit.
+	AssignNew AssignmentPolicy = "new"
 )
 
 // UnitStatus represents the status of the unit agent.
