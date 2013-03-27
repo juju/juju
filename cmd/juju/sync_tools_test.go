@@ -36,7 +36,7 @@ var _ = Suite(&toolSuite{})
 
 var t1000precise = &state.Tools{
 	Binary: version.Binary{
-		Number: version.Number{Major: 1, Minor: 0, Patch: 0, Build: 0},
+		Number: version.Number{1, 0, 0, 0},
 		Series: "precise",
 		Arch:   ""},
 	URL: "",
@@ -44,7 +44,7 @@ var t1000precise = &state.Tools{
 
 var t1000quantal = &state.Tools{
 	Binary: version.Binary{
-		Number: version.Number{Major: 1, Minor: 0, Patch: 0, Build: 0},
+		Number: version.Number{1, 0, 0, 0},
 		Series: "quantal",
 		Arch:   ""},
 	URL: "",
@@ -52,7 +52,7 @@ var t1000quantal = &state.Tools{
 
 var t1900quantal = &state.Tools{
 	Binary: version.Binary{
-		Number: version.Number{Major: 1, Minor: 9, Patch: 0, Build: 0},
+		Number: version.Number{1, 9, 0, 0},
 		Series: "quantal",
 		Arch:   ""},
 	URL: "",
@@ -60,7 +60,7 @@ var t1900quantal = &state.Tools{
 
 var t2000precise = &state.Tools{
 	Binary: version.Binary{
-		Number: version.Number{Major: 2, Minor: 0, Patch: 0, Build: 0},
+		Number: version.Number{2, 0, 0, 0},
 		Series: "precise",
 		Arch:   ""},
 	URL: "",
@@ -88,8 +88,10 @@ func (s *toolSuite) TestFindNewestOnlyOneBest(c *C) {
 		all  []*state.Tools
 		best *state.Tools
 	}{
-		{all: []*state.Tools{t1000precise, t1900quantal},
-			best: t1900quantal},
+		{
+			all:  []*state.Tools{t1000precise, t1900quantal},
+			best: t1900quantal,
+		},
 	}
 	for _, t := range oneBestTests {
 		res := findNewest(t.all)
@@ -139,11 +141,13 @@ func (s *toolSuite) TestFindMissingSameEntries(c *C) {
 }
 
 func (s *toolSuite) TestFindHasVersionNotSeries(c *C) {
-	res := findMissing([]*state.Tools{t1000precise, t1000quantal},
+	res := findMissing(
+		[]*state.Tools{t1000precise, t1000quantal},
 		[]*state.Tools{t1000quantal})
 	c.Assert(res, HasLen, 1)
 	c.Assert(res[0], Equals, t1000precise)
-	res = findMissing([]*state.Tools{t1000precise, t1000quantal},
+	res = findMissing(
+		[]*state.Tools{t1000precise, t1000quantal},
 		[]*state.Tools{t1000precise})
 	c.Assert(res, HasLen, 1)
 	c.Assert(res[0], Equals, t1000quantal)
