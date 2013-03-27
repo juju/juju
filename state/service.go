@@ -310,7 +310,8 @@ func (s *Service) Endpoint(relationName string) (Endpoint, error) {
 // present in the service's current charm meta data.
 func (s *Service) extraPeerRelations(newMeta *charm.Meta) map[string]charm.Relation {
 	if newMeta == nil {
-		panic("newMeta is nil")
+		// This should never happen, since we're checking the charm in SetCharm already.
+		panic("newMeta is nil; cannot determine new peer relations")
 	}
 	ch, _, err := s.Charm()
 	if err != nil {
@@ -318,13 +319,13 @@ func (s *Service) extraPeerRelations(newMeta *charm.Meta) map[string]charm.Relat
 	}
 	newPeers := newMeta.Peers
 	oldPeers := ch.Meta().Peers
-	diffPeers := make(map[string]charm.Relation)
+	extraPeers := make(map[string]charm.Relation)
 	for relName, rel := range newPeers {
 		if _, ok := oldPeers[relName]; !ok {
-			diffPeers[relName] = rel
+			extraPeers[relName] = rel
 		}
 	}
-	return diffPeers
+	return extraPeers
 }
 
 // convertConfig takes the given charm's config and converts the

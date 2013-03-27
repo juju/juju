@@ -271,6 +271,7 @@ func (s *ServiceSuite) assertServiceRelations(c *C, svc *state.Service, expected
 }
 
 func (s *ServiceSuite) TestNewPeerRelationsAddedOnUpgrade(c *C) {
+	// Original mysql charm has no peer relations.
 	oldCh := s.AddMetaCharm(c, "mysql", mysqlBaseMeta+onePeerMeta, 2)
 	newCh := s.AddMetaCharm(c, "mysql", mysqlBaseMeta+twoPeersMeta, 3)
 
@@ -288,6 +289,7 @@ func (s *ServiceSuite) TestNewPeerRelationsAddedOnUpgrade(c *C) {
 	err = s.mysql.Destroy()
 	c.Assert(err, IsNil)
 
+	// Check the peer relations got destroyed as well.
 	for _, rel := range rels {
 		err = rel.Refresh()
 		c.Assert(state.IsNotFound(err), Equals, true)
