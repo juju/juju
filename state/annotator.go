@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
+	"launchpad.net/juju-core/trivial"
 	"strings"
 )
 
@@ -11,6 +12,7 @@ import (
 // MongoDB. Note that the annotations map is not maintained in local storage
 // due to the fact that it is not accessed directly, but through
 // Annotations/Annotation below.
+// Note also the correspondence with AnnotationInfo in state/api/params.
 type annotatorDoc struct {
 	GlobalKey   string `bson:"_id"`
 	EntityName  string
@@ -26,7 +28,8 @@ type annotator struct {
 }
 
 // SetAnnotations adds key/value pairs to annotations in MongoDB.
-func (a *annotator) SetAnnotations(pairs map[string]string) error {
+func (a *annotator) SetAnnotations(pairs map[string]string) (err error) {
+	defer trivial.ErrorContextf(&err, "cannot update annotations on %s", a.entityName)
 	if len(pairs) == 0 {
 		return nil
 	}
@@ -45,52 +48,72 @@ func (a *annotator) SetAnnotations(pairs map[string]string) error {
 			toUpdate["annotations."+key] = value
 		}
 	}
-	id := a.globalKey
-	coll := a.st.annotations.Name
-	var ops []txn.Op
-	if count, err := a.st.annotations.FindId(id).Count(); err != nil {
-		return err
-	} else if count == 0 {
-		// The document is missing: no need to remove pairs.
-		// Insert pairs if required.
-		if len(toInsert) == 0 {
+	// Two attempts should be enough to update annotations even with racing
+	// clients - if the document does not already exist, one of the clients
+	// will create it and the others will fail, then all the rest of the
+	// clients should succeed on their second attempt. If the referred-to
+	// entity has disappeared, and removed its annotations in the meantime,
+	// we consider that worthy of an error (will be fixed when new entities
+	// can never share names with old ones).
+	for i := 0; i < 2; i++ {
+		var ops []txn.Op
+		if count, err := a.st.annotations.FindId(a.globalKey).Count(); err != nil {
+			return err
+		} else if count == 0 {
+			// Check that the annotator entity was not previously destroyed.
+			if i != 0 {
+				return fmt.Errorf("%s no longer exists", a.entityName)
+			}
+			ops, err = a.insertOps(toInsert)
+			if err != nil {
+				return err
+			}
+		} else {
+			ops = a.updateOps(toUpdate, toRemove)
+		}
+		if err := a.st.runner.Run(ops, "", nil); err == nil {
 			return nil
-		}
-		insertOp := txn.Op{
-			C:      coll,
-			Id:     id,
-			Assert: txn.DocMissing,
-			Insert: &annotatorDoc{id, a.entityName, toInsert},
-		}
-		ops = append(ops, insertOp)
-	} else {
-		// The document exists.
-		if len(toRemove) != 0 {
-			// Remove pairs.
-			removeOp := txn.Op{
-				C:      coll,
-				Id:     id,
-				Assert: txn.DocExists,
-				Update: D{{"$unset", toRemove}},
-			}
-			ops = append(ops, removeOp)
-		}
-		if len(toUpdate) != 0 {
-			// Insert/update pairs.
-			updateOp := txn.Op{
-				C:      coll,
-				Id:     id,
-				Assert: txn.DocExists,
-				Update: D{{"$set", toUpdate}},
-			}
-			ops = append(ops, updateOp)
+		} else if err != txn.ErrAborted {
+			return err
 		}
 	}
-	if err := a.st.runner.Run(ops, "", nil); err != nil {
-		// TODO(frankban) Bug #1156714: handle possible race conditions.
-		return fmt.Errorf("cannot update annotations on %s: %v", id, err)
+	return ErrExcessiveContention
+}
+
+// insertOps returns the operations required to insert annotations in MongoDB.
+func (a *annotator) insertOps(toInsert map[string]string) ([]txn.Op, error) {
+	entityName := a.entityName
+	ops := []txn.Op{{
+		C:      a.st.annotations.Name,
+		Id:     a.globalKey,
+		Assert: txn.DocMissing,
+		Insert: &annotatorDoc{a.globalKey, entityName, toInsert},
+	}}
+	if strings.HasPrefix(entityName, "environment-") {
+		return ops, nil
 	}
-	return nil
+	// If the entity is not the environment, add a DocExists check on the
+	// entity document, in order to avoid possible races between entity
+	// removal and annotation creation.
+	coll, id, err := a.st.ParseEntityName(entityName)
+	if err != nil {
+		return nil, err
+	}
+	return append(ops, txn.Op{
+		C:      coll,
+		Id:     id,
+		Assert: txn.DocExists,
+	}), nil
+}
+
+// updateOps returns the operations required to update or remove annotations in MongoDB.
+func (a *annotator) updateOps(toUpdate map[string]string, toRemove map[string]bool) []txn.Op {
+	return []txn.Op{{
+		C:      a.st.annotations.Name,
+		Id:     a.globalKey,
+		Assert: txn.DocExists,
+		Update: D{{"$set", toUpdate}, {"$unset", toRemove}},
+	}}
 }
 
 // Annotations returns all the annotations corresponding to an entity.

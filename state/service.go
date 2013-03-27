@@ -21,6 +21,7 @@ type Service struct {
 }
 
 // serviceDoc represents the internal state of a service in MongoDB.
+// Note the correspondence with ServiceInfo in state/api/params.
 type serviceDoc struct {
 	Name          string `bson:"_id"`
 	Series        string
@@ -308,6 +309,28 @@ func (s *Service) Endpoint(relationName string) (Endpoint, error) {
 	return Endpoint{}, fmt.Errorf("service %q has no %q relation", s, relationName)
 }
 
+// extraPeerRelations returns only the peer relations in newMeta not
+// present in the service's current charm meta data.
+func (s *Service) extraPeerRelations(newMeta *charm.Meta) map[string]charm.Relation {
+	if newMeta == nil {
+		// This should never happen, since we're checking the charm in SetCharm already.
+		panic("newMeta is nil")
+	}
+	ch, _, err := s.Charm()
+	if err != nil {
+		return nil
+	}
+	newPeers := newMeta.Peers
+	oldPeers := ch.Meta().Peers
+	extraPeers := make(map[string]charm.Relation)
+	for relName, rel := range newPeers {
+		if _, ok := oldPeers[relName]; !ok {
+			extraPeers[relName] = rel
+		}
+	}
+	return extraPeers
+}
+
 // convertConfig takes the given charm's config and converts the
 // current service's charm config to the new one (if possible,
 // otherwise returns an error). It also returns an assert op to
@@ -378,6 +401,21 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 			Update: D{{"$set", D{{"charmurl", ch.URL()}, {"forcecharm", force}}}},
 		},
 	}
+	// Add any extra peer relations that need creation.
+	newPeers := s.extraPeerRelations(ch.Meta())
+	peerOps, err := s.st.addPeerRelationsOps(s.doc.Name, newPeers)
+	if err != nil {
+		return nil, err
+	}
+	ops = append(ops, peerOps...)
+	// Update the relation count as well.
+	ops = append(ops, txn.Op{
+		C:      s.st.services.Name,
+		Id:     s.doc.Name,
+		Assert: txn.DocExists,
+		Update: D{{"$inc", D{{"relationcount", len(newPeers)}}}},
+	})
+
 	// And finally, decrement the old settings.
 	return append(ops, decOps...), nil
 }
@@ -473,7 +511,7 @@ func (s *Service) newUnitName() (string, error) {
 func (s *Service) addUnitOps(principalName string) (string, []txn.Op, error) {
 	if s.doc.Subordinate && principalName == "" {
 		return "", nil, fmt.Errorf("service is a subordinate")
-	} else if s.doc.Subordinate && principalName != "" {
+	} else if !s.doc.Subordinate && principalName != "" {
 		return "", nil, fmt.Errorf("service is not a subordinate")
 	}
 	name, err := s.newUnitName()

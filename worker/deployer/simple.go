@@ -10,6 +10,7 @@ import (
 
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/version"
@@ -41,6 +42,14 @@ type SimpleContext struct {
 	// LogDir specifies the directory to which installed units will write
 	// their log files. It is typically set to "/var/log/juju".
 	logDir string
+
+	// sysLogConfigDir specifies the directory to which the syslog conf file
+	// will be written. It is set for testing and left empty for production, in
+	// which case the system default is used, typically /etc/rsyslog.d
+	syslogConfigDir string
+
+	// syslogConfigPath is the full path name of the syslog conf file.
+	syslogConfigPath string
 }
 
 var _ Context = (*SimpleContext)(nil)
@@ -95,6 +104,19 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 
 	// Install an upstart job that runs the unit agent.
 	logPath := path.Join(ctx.logDir, entityName+".log")
+	syslogConfigRenderer := syslog.NewForwardConfig(
+		entityName, ctx.addresser.Addresses())
+	syslogConfigRenderer.ConfigDir = ctx.syslogConfigDir
+	syslogConfigRenderer.ConfigFileName = fmt.Sprintf("26-juju-%s.conf", entityName)
+	if err := syslogConfigRenderer.Write(); err != nil {
+		return err
+	}
+	ctx.syslogConfigPath = syslogConfigRenderer.ConfigFilePath()
+	if e := syslog.Restart(); e != nil {
+		log.Warningf("installer: cannot restart syslog daemon: %v", e)
+	}
+	defer removeOnErr(&err, ctx.syslogConfigPath)
+
 	cmd := strings.Join([]string{
 		path.Join(toolsDir, "jujud"), "unit",
 		"--data-dir", conf.DataDir,
@@ -122,6 +144,12 @@ func (ctx *SimpleContext) RecallUnit(unitName string) error {
 	agentDir := agent.Dir(ctx.dataDir, entityName)
 	if err := os.RemoveAll(agentDir); err != nil {
 		return err
+	}
+	if e := os.Remove(ctx.syslogConfigPath); e != nil {
+		log.Warningf("installer: cannot remove %q: %v", ctx.syslogConfigPath, e)
+	}
+	if e := syslog.Restart(); e != nil {
+		log.Warningf("installer: cannot restart syslog daemon: %v", e)
 	}
 	toolsDir := agent.ToolsDir(ctx.dataDir, entityName)
 	return os.Remove(toolsDir)

@@ -57,7 +57,8 @@ func (t configTest) check(c *C) {
 	envs := attrs{
 		"environments": attrs{
 			"testenv": attrs{
-				"type": "openstack",
+				"type":            "openstack",
+				"authorized-keys": "fakekey",
 			},
 		},
 	}
@@ -372,7 +373,8 @@ func (s *ConfigSuite) TestCredentialsFromEnv(c *C) {
 	envs := attrs{
 		"environments": attrs{
 			"testenv": attrs{
-				"type": "openstack",
+				"type":            "openstack",
+				"authorized-keys": "fakekey",
 			},
 		},
 	}
@@ -397,7 +399,8 @@ func (s *ConfigSuite) TestDefaultAuthorisationMode(c *C) {
 	envs := attrs{
 		"environments": attrs{
 			"testenv": attrs{
-				"type": "openstack",
+				"type":            "openstack",
+				"authorized-keys": "fakekey",
 			},
 		},
 	}
