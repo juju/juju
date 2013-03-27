@@ -5,7 +5,12 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/constraints"
+	"testing"
 )
+
+func TestPackage(t *testing.T) {
+	TestingT(t)
+}
 
 type ConstraintsSuite struct{}
 
@@ -276,4 +281,87 @@ func (s *ConstraintsSuite) TestGoyamlRoundtripBug1132537(c *C) {
 	// A failure here indicates that goyaml bug lp:1132537 is fixed; please
 	// delete this test and uncomment the flagged constraintsRoundtripTests.
 	c.Assert(val.Hello, IsNil)
+}
+
+var withFallbacksTests = []struct {
+	desc      string
+	initial   string
+	fallbacks string
+	final     string
+}{
+	{
+		desc: "empty all round",
+	}, {
+		desc:    "arch with empty fallback",
+		initial: "arch=amd64",
+		final:   "arch=amd64",
+	}, {
+		desc:      "arch with ignored fallback",
+		initial:   "arch=amd64",
+		fallbacks: "arch=i386",
+		final:     "arch=amd64",
+	}, {
+		desc:      "arch from fallback",
+		fallbacks: "arch=i386",
+		final:     "arch=i386",
+	}, {
+		desc:    "cpu-cores with empty fallback",
+		initial: "cpu-cores=2",
+		final:   "cpu-cores=2",
+	}, {
+		desc:      "cpu-cores with ignored fallback",
+		initial:   "cpu-cores=4",
+		fallbacks: "cpu-cores=8",
+		final:     "cpu-cores=4",
+	}, {
+		desc:      "cpu-cores from fallback",
+		fallbacks: "cpu-cores=8",
+		final:     "cpu-cores=8",
+	}, {
+		desc:    "cpu-power with empty fallback",
+		initial: "cpu-power=100",
+		final:   "cpu-power=100",
+	}, {
+		desc:      "cpu-power with ignored fallback",
+		initial:   "cpu-power=100",
+		fallbacks: "cpu-power=200",
+		final:     "cpu-power=100",
+	}, {
+		desc:      "cpu-power from fallback",
+		fallbacks: "cpu-power=200",
+		final:     "cpu-power=200",
+	}, {
+		desc:    "mem with empty fallback",
+		initial: "mem=4G",
+		final:   "mem=4G",
+	}, {
+		desc:      "mem with ignored fallback",
+		initial:   "mem=4G",
+		fallbacks: "mem=8G",
+		final:     "mem=4G",
+	}, {
+		desc:      "mem from fallback",
+		fallbacks: "mem=8G",
+		final:     "mem=8G",
+	}, {
+		desc:      "non-overlapping mix",
+		initial:   "mem=4G arch=amd64",
+		fallbacks: "cpu-power=1000 cpu-cores=4",
+		final:     "mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
+	}, {
+		desc:      "overlapping mix",
+		initial:   "mem=4G arch=amd64",
+		fallbacks: "cpu-power=1000 cpu-cores=4 mem=8G",
+		final:     "mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
+	},
+}
+
+func (s *ConstraintsSuite) TestWithFallbacks(c *C) {
+	for i, t := range withFallbacksTests {
+		c.Logf("test %d", i)
+		initial := constraints.MustParse(t.initial)
+		fallbacks := constraints.MustParse(t.fallbacks)
+		final := constraints.MustParse(t.final)
+		c.Assert(initial.WithFallbacks(fallbacks), DeepEquals, final)
+	}
 }
