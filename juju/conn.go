@@ -45,7 +45,8 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 		return nil, fmt.Errorf("cannot connect without admin-secret")
 	}
 	info.Password = password
-	st, err := state.Open(info, state.DefaultDialTimeout, state.DefaultRetryDelay)
+	opts := state.DefaultDialOpts()
+	st, err := state.Open(info, opts)
 	if state.IsUnauthorizedError(err) {
 		// We can't connect with the administrator password,;
 		// perhaps this was the first connection and the
@@ -56,7 +57,7 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 		// connecting to mongo before the state has been
 		// initialized and the initial password set.
 		for a := redialStrategy.Start(); a.Next(); {
-			st, err = state.Open(info, state.DefaultDialTimeout, state.DefaultRetryDelay)
+			st, err = state.Open(info, opts)
 			if !state.IsUnauthorizedError(err) {
 				break
 			}
