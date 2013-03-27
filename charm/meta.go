@@ -23,10 +23,20 @@ const (
 	ScopeContainer RelationScope = "container"
 )
 
+// RelationRole defines the role of a relation endpoint.
+type RelationRole string
+
+const (
+	RoleProvider RelationRole = "provider"
+	RoleRequirer RelationRole = "requirer"
+	RolePeer     RelationRole = "peer"
+)
+
 // Relation represents a single relation defined in the charm
 // metadata.yaml file.
 type Relation struct {
 	Name string
+	Role RelationRole
 	Interface string
 	Optional  bool
 	Limit     int
@@ -111,9 +121,9 @@ func ReadMeta(r io.Reader) (meta *Meta, err error) {
 	// enough for revisions.
 	meta.Summary = m["summary"].(string)
 	meta.Description = m["description"].(string)
-	meta.Provides = parseRelations(m["provides"])
-	meta.Requires = parseRelations(m["requires"])
-	meta.Peers = parseRelations(m["peers"])
+	meta.Provides = parseRelations(m["provides"], RoleProvider)
+	meta.Requires = parseRelations(m["requires"], RoleRequirer)
+	meta.Peers = parseRelations(m["peers"], RolePeer)
 	meta.Format = int(m["format"].(int64))
 	meta.Categories = parseCategories(m["categories"])
 	if subordinate := m["subordinate"]; subordinate != nil {
@@ -133,19 +143,22 @@ func ReadMeta(r io.Reader) (meta *Meta, err error) {
 func (meta Meta) Check() error {
 	// Check for duplicate or forbidden relation names or interfaces.
 	names := map[string]bool{}
-	checkRelations := func(src map[string]Relation, isRequire bool) error {
+	checkRelations := func(src map[string]Relation, role RelationRole) error {
 		for name, rel := range src {
 			if rel.Name != name {
 				return fmt.Errorf("charm %q has mismatched relation name %q; expected %q", meta.Name, rel.Name, name)
 			}
+			if rel.Role != role {
+				return fmt.Errorf("charm %q has mismatched role %q; expected %q", meta.Name, rel.Role, role)
+			}
 			// Container-scoped require relations on subordinates are allowed
 			// to use the otherwise-reserved juju-* namespace.
-			if !meta.Subordinate || !isRequire || rel.Scope != ScopeContainer {
+			if !meta.Subordinate || role != RoleRequirer || rel.Scope != ScopeContainer {
 				if reservedName(name) {
 					return fmt.Errorf("charm %q using a reserved relation name: %q", meta.Name, name)
 				}
 			}
-			if !isRequire {
+			if role != RoleRequirer {
 				if reservedName(rel.Interface) {
 					return fmt.Errorf("charm %q relation %q using a reserved interface: %q", meta.Name, name, rel.Interface)
 				}
@@ -157,13 +170,13 @@ func (meta Meta) Check() error {
 		}
 		return nil
 	}
-	if err := checkRelations(meta.Provides, false); err != nil {
+	if err := checkRelations(meta.Provides, RoleProvider); err != nil {
 		return err
 	}
-	if err := checkRelations(meta.Requires, true); err != nil {
+	if err := checkRelations(meta.Requires, RoleRequirer); err != nil {
 		return err
 	}
-	if err := checkRelations(meta.Peers, false); err != nil {
+	if err := checkRelations(meta.Peers, RolePeer); err != nil {
 		return err
 	}
 
@@ -191,7 +204,7 @@ func reservedName(name string) bool {
 	return name == "juju" || strings.HasPrefix(name, "juju-")
 }
 
-func parseRelations(relations interface{}) map[string]Relation {
+func parseRelations(relations interface{}, role RelationRole) map[string]Relation {
 	if relations == nil {
 		return nil
 	}
@@ -200,6 +213,7 @@ func parseRelations(relations interface{}) map[string]Relation {
 		relMap := rel.(map[string]interface{})
 		relation := Relation{
 			Name: name,
+			Role: role,
 			Interface: relMap["interface"].(string),
 			Optional: relMap["optional"].(bool),
 		}

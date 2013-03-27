@@ -83,6 +83,7 @@ func (s *MetaSuite) TestParseMetaRelations(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(meta.Provides["server"], Equals, charm.Relation{
 		Name: "server",
+		Role: charm.RoleProvider,
 		Interface: "mysql",
 		Scope: charm.ScopeGlobal,
 	})
@@ -93,16 +94,19 @@ func (s *MetaSuite) TestParseMetaRelations(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(meta.Provides["endpoint"], Equals, charm.Relation{
 		Name: "endpoint",
+		Role: charm.RoleProvider,
 		Interface: "http",
 		Scope: charm.ScopeGlobal,
 	})
 	c.Assert(meta.Provides["admin"], Equals, charm.Relation{
 		Name: "admin",
+		Role: charm.RoleProvider,
 		Interface: "http",
 		Scope: charm.ScopeGlobal,
 	})
 	c.Assert(meta.Peers["ring"], Equals, charm.Relation{
 		Name: "ring",
+		Role: charm.RolePeer,
 		Interface: "riak",
 		Limit: 1,
 		Scope: charm.ScopeGlobal,
@@ -113,12 +117,14 @@ func (s *MetaSuite) TestParseMetaRelations(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(meta.Provides["dso"], Equals, charm.Relation{
 		Name: "dso",
+		Role: charm.RoleProvider,
 		Interface: "terracotta",
 		Optional: true,
 		Scope: charm.ScopeGlobal,
 	})
 	c.Assert(meta.Peers["server-array"], Equals, charm.Relation{
 		Name: "server-array",
+		Role: charm.RolePeer,
 		Interface: "terracotta-server",
 		Limit: 1,
 		Scope: charm.ScopeGlobal,
@@ -129,17 +135,20 @@ func (s *MetaSuite) TestParseMetaRelations(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(meta.Provides["url"], Equals, charm.Relation{
 		Name: "url",
+		Role: charm.RoleProvider,
 		Interface: "http",
 		Scope: charm.ScopeGlobal,
 	})
 	c.Assert(meta.Requires["db"], Equals, charm.Relation{
 		Name: "db",
+		Role: charm.RoleRequirer,
 		Interface: "mysql",
 		Limit: 1,
 		Scope: charm.ScopeGlobal,
 	})
 	c.Assert(meta.Requires["cache"], Equals, charm.Relation{
 		Name: "cache",
+		Role: charm.RoleRequirer,
 		Interface: "varnish",
 		Limit: 2,
 		Optional: true,
@@ -226,12 +235,33 @@ requires:
 }
 
 func (s *MetaSuite) TestCheckMismatchedRelationName(c *C) {
-	// This is the only Check case not covered by the above TestRelationsConstraints tests.
+	// This  Check case cannot be covered by the above
+	// TestRelationsConstraints tests.
 	meta := charm.Meta{
 		Name: "foo",
 		Provides: map[string]charm.Relation{
 			"foo": {
+				Name: "foo",
+				Role: charm.RolePeer,
 				Interface: "x",
+				Limit: 1,
+				Scope: charm.ScopeGlobal,
+			},
+		},
+	}
+	err := meta.Check()
+	c.Assert(err, ErrorMatches, `charm "foo" has mismatched role "peer"; expected "provider"`)
+}
+
+func (s *MetaSuite) TestCheckMismatchedRole(c *C) {
+	// This  Check case cannot be covered by the above
+	// TestRelationsConstraints tests.
+	meta := charm.Meta{
+		Name: "foo",
+		Provides: map[string]charm.Relation{
+			"foo": {
+				Role: charm.RolePeer,
+				Interface: "foo",
 				Limit: 1,
 				Scope: charm.ScopeGlobal,
 			},
