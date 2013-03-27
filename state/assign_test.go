@@ -423,6 +423,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineUnusedAvailable(c *C) {
 
 	// Add an unused machine.
 	unused, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
 
 	err = unit.AssignToNewMachine()
 	c.Assert(err, IsNil)
@@ -446,7 +447,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineAlreadyAssigned(c *C) {
 	c.Assert(err, ErrorMatches, `unit is already assigned to a machine`)
 }
 
-func (s *AssignSuite) TestAssignUnitToNewMachineDyingService(c *C) {
+func (s *AssignSuite) TestAssignUnitToNewMachineDyingUnit(c *C) {
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
 	err = unit.Destroy()
@@ -456,7 +457,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineDyingService(c *C) {
 	c.Assert(err, ErrorMatches, `unit is dead`)
 }
 
-func (s *AssignSuite) TestAssignUnitToNewMachineRemovedService(c *C) {
+func (s *AssignSuite) TestAssignUnitToNewMachineRemovedUnit(c *C) {
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
 	err = unit.EnsureDead()
@@ -493,6 +494,17 @@ func (s *AssignSuite) TestAssignUnitLocalPolicy(c *C) {
 		c.Assert(mid, Equals, m.Id())
 		assertMachineCount(c, s.State, 1)
 	}
+}
+
+func (s *AssignSuite) TestAssignUnitNewPolicy(c *C) {
+	_, err := s.State.AddMachine("series", state.JobHostUnits) // available machine
+	c.Assert(err, IsNil)
+	unit, err := s.wordpress.AddUnit()
+	c.Assert(err, IsNil)
+
+	err = s.State.AssignUnit(unit, state.AssignNew)
+	c.Assert(err, IsNil)
+	assertMachineCount(c, s.State, 2)
 }
 
 func (s *AssignSuite) TestAssignUnitUnusedPolicy(c *C) {
