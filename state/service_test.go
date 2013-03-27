@@ -237,6 +237,65 @@ func (s *ServiceSuite) TestSettingsRefCountWorks(c *C) {
 	assertNoRef(newCh)
 }
 
+const mysqlBaseMeta = `
+name: mysql
+summary: "Database engine"
+description: "A pretty popular database"
+provides:
+  server: mysql
+`
+const onePeerMeta = `
+peers:
+  cluster: mysql
+`
+const twoPeersMeta = `
+peers:
+  cluster: mysql
+  loadbalancer: phony
+`
+
+func (s *ServiceSuite) assertServiceRelations(c *C, svc *state.Service, expectedKeys ...string) []*state.Relation {
+	rels, err := svc.Relations()
+	c.Assert(err, IsNil)
+	if len(rels) == 0 {
+		return nil
+	}
+	relKeys := make([]string, len(expectedKeys))
+	for i, rel := range rels {
+		relKeys[i] = rel.String()
+	}
+	sort.Strings(relKeys)
+	c.Assert(relKeys, DeepEquals, expectedKeys)
+	return rels
+}
+
+func (s *ServiceSuite) TestNewPeerRelationsAddedOnUpgrade(c *C) {
+	// Original mysql charm has no peer relations.
+	oldCh := s.AddMetaCharm(c, "mysql", mysqlBaseMeta+onePeerMeta, 2)
+	newCh := s.AddMetaCharm(c, "mysql", mysqlBaseMeta+twoPeersMeta, 3)
+
+	// No relations joined yet.
+	s.assertServiceRelations(c, s.mysql)
+
+	err := s.mysql.SetCharm(oldCh, false)
+	c.Assert(err, IsNil)
+	s.assertServiceRelations(c, s.mysql, "mysql:cluster")
+
+	err = s.mysql.SetCharm(newCh, false)
+	c.Assert(err, IsNil)
+	rels := s.assertServiceRelations(c, s.mysql, "mysql:cluster", "mysql:loadbalancer")
+
+	// Check state consistency by attempting to destroy the service.
+	err = s.mysql.Destroy()
+	c.Assert(err, IsNil)
+
+	// Check the peer relations got destroyed as well.
+	for _, rel := range rels {
+		err = rel.Refresh()
+		c.Assert(state.IsNotFound(err), Equals, true)
+	}
+}
+
 func jujuInfoEp(serviceName string) state.Endpoint {
 	return state.Endpoint{
 		ServiceName:   serviceName,
