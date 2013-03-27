@@ -130,7 +130,7 @@ func (s *StoreSuite) TestError(c *C) {
 func (s *StoreSuite) TestWarning(c *C) {
 	defer log.SetTarget(log.SetTarget(c))
 	curl := charm.MustParseURL("cs:series/unwise")
-	expect := `.* WARNING: charm: charm store reports for "cs:series/unwise": foolishness` + "\n"
+	expect := `.* WARNING charm: charm store reports for "cs:series/unwise": foolishness` + "\n"
 	r, err := s.store.Latest(curl)
 	c.Assert(r, Equals, 23)
 	c.Assert(err, IsNil)
@@ -226,13 +226,13 @@ func (s *LocalRepoSuite) addDir(name string) string {
 
 func (s *LocalRepoSuite) TestMissingCharm(c *C) {
 	_, err := s.repo.Latest(charm.MustParseURL("local:series/zebra"))
-	c.Assert(err, ErrorMatches, `no charms found matching "local:series/zebra"`)
+	c.Assert(err, ErrorMatches, `no charms found matching "local:series/zebra" in `+s.repo.Path)
 	_, err = s.repo.Get(charm.MustParseURL("local:series/zebra"))
-	c.Assert(err, ErrorMatches, `no charms found matching "local:series/zebra"`)
+	c.Assert(err, ErrorMatches, `no charms found matching "local:series/zebra" in `+s.repo.Path)
 	_, err = s.repo.Latest(charm.MustParseURL("local:badseries/zebra"))
-	c.Assert(err, ErrorMatches, `no charms found matching "local:badseries/zebra"`)
+	c.Assert(err, ErrorMatches, `no charms found matching "local:badseries/zebra" in `+s.repo.Path)
 	_, err = s.repo.Get(charm.MustParseURL("local:badseries/zebra"))
-	c.Assert(err, ErrorMatches, `no charms found matching "local:badseries/zebra"`)
+	c.Assert(err, ErrorMatches, `no charms found matching "local:badseries/zebra" in `+s.repo.Path)
 }
 
 func (s *LocalRepoSuite) TestMissingRepo(c *C) {
@@ -279,7 +279,7 @@ func (s *LocalRepoSuite) TestMultipleVersions(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(rev, Equals, 2)
 	ch, err = s.repo.Get(badRevCurl)
-	c.Assert(err, ErrorMatches, `no charms found matching "local:series/upgrade-33"`)
+	c.Assert(err, ErrorMatches, `no charms found matching "local:series/upgrade-33" in `+s.repo.Path)
 }
 
 func (s *LocalRepoSuite) TestBundle(c *C) {
@@ -310,9 +310,9 @@ func (s *LocalRepoSuite) TestLogsErrors(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(ch.Revision(), Equals, 1)
 	c.Assert(c.GetTestLog(), Matches, `
-.* WARNING: charm: failed to load charm at ".*/series/blah": .*
-.* WARNING: charm: failed to load charm at ".*/series/blah.charm": .*
-.* WARNING: charm: failed to load charm at ".*/series/upgrade2": .*
+.* WARNING charm: failed to load charm at ".*/series/blah": .*
+.* WARNING charm: failed to load charm at ".*/series/blah.charm": .*
+.* WARNING charm: failed to load charm at ".*/series/upgrade2": .*
 `[1:])
 }
 
@@ -330,8 +330,8 @@ func (s *LocalRepoSuite) TestIgnoresUnpromisingNames(c *C) {
 	curl := charm.MustParseURL("local:series/dummy")
 
 	_, err = s.repo.Get(curl)
-	c.Assert(err, ErrorMatches, `no charms found matching "local:series/dummy"`)
+	c.Assert(err, ErrorMatches, `no charms found matching "local:series/dummy" in `+s.repo.Path)
 	_, err = s.repo.Latest(curl)
-	c.Assert(err, ErrorMatches, `no charms found matching "local:series/dummy"`)
+	c.Assert(err, ErrorMatches, `no charms found matching "local:series/dummy" in `+s.repo.Path)
 	c.Assert(c.GetTestLog(), Equals, "")
 }

@@ -13,9 +13,9 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
-	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
 	"net"
+	"strings"
 	stdtesting "testing"
 	"time"
 )
@@ -120,8 +120,8 @@ var operationPermTests = []struct {
 	op:    opClientGetAnnotations,
 	allow: []string{"user-admin", "user-other"},
 }, {
-	about: "Client.SetAnnotation",
-	op:    opClientSetAnnotation,
+	about: "Client.SetAnnotations",
+	op:    opClientSetAnnotations,
 	allow: []string{"user-admin", "user-other"},
 }, {
 	about: "Client.AddServiceUnits",
@@ -266,11 +266,11 @@ func opClientCharmInfo(c *C, st *api.State, mst *state.State) (func(), error) {
 }
 
 func opClientDestroyRelation(c *C, st *api.State, mst *state.State) (func(), error) {
-	err := st.Client().DestroyRelation("wordpress", "logging")
-	if err != nil {
-		return func() {}, err
+	err := st.Client().DestroyRelation("nosuch1", "nosuch2")
+	if api.ErrCode(err) == api.CodeNotFound {
+		err = nil
 	}
-	return func() {}, nil
+	return func() {}, err
 }
 
 func opClientStatus(c *C, st *api.State, mst *state.State) (func(), error) {
@@ -327,7 +327,11 @@ func opClientServiceExpose(c *C, st *api.State, mst *state.State) (func(), error
 	if err != nil {
 		return func() {}, err
 	}
-	return func() {}, nil
+	return func() {
+		svc, err := mst.Service("wordpress")
+		c.Assert(err, IsNil)
+		svc.ClearExposed()
+	}, nil
 }
 
 func opClientServiceUnexpose(c *C, st *api.State, mst *state.State) (func(), error) {
@@ -367,13 +371,15 @@ func opClientGetAnnotations(c *C, st *api.State, mst *state.State) (func(), erro
 	return func() {}, nil
 }
 
-func opClientSetAnnotation(c *C, st *api.State, mst *state.State) (func(), error) {
-	err := st.Client().SetAnnotation("service-wordpress", "key", "value")
+func opClientSetAnnotations(c *C, st *api.State, mst *state.State) (func(), error) {
+	pairs := map[string]string{"key1": "value1", "key2": "value2"}
+	err := st.Client().SetAnnotations("service-wordpress", pairs)
 	if err != nil {
 		return func() {}, err
 	}
 	return func() {
-		st.Client().SetAnnotation("service-wordpress", "key", "")
+		pairs := map[string]string{"key1": "", "key2": ""}
+		st.Client().SetAnnotations("service-wordpress", pairs)
 	}, nil
 }
 
@@ -403,50 +409,39 @@ func opClientServiceDeploy(c *C, st *api.State, mst *state.State) (func(), error
 }
 
 func opClientAddServiceUnits(c *C, st *api.State, mst *state.State) (func(), error) {
-	// This test only checks that the call is made without error, ensuring the
-	// signatures match.
-	err := st.Client().AddServiceUnits("wordpress", 1)
-	if err != nil {
-		return func() {}, err
+	err := st.Client().AddServiceUnits("nosuch", 1)
+	if api.ErrCode(err) == api.CodeNotFound {
+		err = nil
 	}
-	return func() {}, nil
+	return func() {}, err
 }
 
 func opClientDestroyServiceUnits(c *C, st *api.State, mst *state.State) (func(), error) {
-	err := statecmd.AddServiceUnits(mst, params.AddServiceUnits{"wordpress", 1})
-	if err != nil {
-		return func() {}, err
+	err := st.Client().DestroyServiceUnits([]string{"wordpress/99"})
+	if err != nil && strings.HasPrefix(err.Error(), "no units were destroyed") {
+		err = nil
 	}
-	newUnitName := []string{"wordpress/1"}
-	err = st.Client().DestroyServiceUnits(newUnitName)
-	if err != nil {
-		return func() {
-			_ = statecmd.DestroyServiceUnits(mst, params.DestroyServiceUnits{newUnitName})
-		}, err
-	}
-	c.Assert(err, IsNil)
 	return func() {}, err
 }
 
 func opClientServiceDestroy(c *C, st *api.State, mst *state.State) (func(), error) {
 	// This test only checks that the call is made without error, ensuring the
 	// signatures match.
-	err := st.Client().ServiceDestroy("wordpress")
-	if err != nil {
-		return func() {}, err
+	err := st.Client().ServiceDestroy("non-existent")
+	if api.ErrCode(err) == api.CodeNotFound {
+		err = nil
 	}
-	return func() {}, nil
+	return func() {}, err
 }
 
 func opClientSetServiceConstraints(c *C, st *api.State, mst *state.State) (func(), error) {
 	// This test only checks that the call is made without error, ensuring the
 	// signatures match.
-	constraints := constraints.Value{}
-	err := st.Client().SetServiceConstraints("wordpress", constraints)
+	nullConstraints := constraints.Value{}
+	err := st.Client().SetServiceConstraints("wordpress", nullConstraints)
 	if err != nil {
 		return func() {}, err
 	}
-	c.Assert(err, IsNil)
 	return func() {}, nil
 }
 
@@ -772,7 +767,7 @@ var clientAnnotationsTests = []struct {
 	{
 		about: "test setting an invalid annotation",
 		input: map[string]string{"invalid.key": "myvalue"},
-		err:   `invalid key "invalid.key"`,
+		err:   `cannot update annotations on .*: invalid key "invalid.key"`,
 	},
 }
 
@@ -795,23 +790,17 @@ func (s *suite) TestClientAnnotations(c *C) {
 	c.Assert(err, IsNil)
 	entities := []namedAnnotator{service, unit, machine, environment}
 	for i, t := range clientAnnotationsTests {
-	loop:
 		for _, entity := range entities {
 			id := entity.EntityName()
 			c.Logf("test %d. %s. entity %s", i, t.about, id)
 			// Set initial entity annotations.
-			for key, value := range t.initial {
-				err := entity.SetAnnotation(key, value)
-				c.Assert(err, IsNil)
-			}
+			err := entity.SetAnnotations(t.initial)
+			c.Assert(err, IsNil)
 			// Add annotations using the API call.
-			for key, value := range t.input {
-				err := s.APIState.Client().SetAnnotation(id, key, value)
-				if t.err != "" {
-					c.Assert(err, ErrorMatches, t.err)
-					continue loop
-				}
-				c.Assert(err, IsNil)
+			err = s.APIState.Client().SetAnnotations(id, t.input)
+			if t.err != "" {
+				c.Assert(err, ErrorMatches, t.err)
+				continue
 			}
 			// Check annotations are correctly set.
 			dbann, err := entity.Annotations()
@@ -823,10 +812,12 @@ func (s *suite) TestClientAnnotations(c *C) {
 			// Check annotations are correctly returned.
 			c.Assert(ann, DeepEquals, dbann)
 			// Clean up annotations on the current entity.
+			cleanup := make(map[string]string)
 			for key := range dbann {
-				err = entity.SetAnnotation(key, "")
-				c.Assert(err, IsNil)
+				cleanup[key] = ""
 			}
+			err = entity.SetAnnotations(cleanup)
+			c.Assert(err, IsNil)
 		}
 	}
 }
@@ -835,7 +826,7 @@ func (s *suite) TestClientAnnotationsBadEntity(c *C) {
 	bad := []string{"", "machine", "-foo", "foo-", "---", "machine-jim", "unit-123", "unit-foo", "service-", "service-foo/bar"}
 	expected := `invalid entity name ".*"`
 	for _, id := range bad {
-		err := s.APIState.Client().SetAnnotation(id, "mykey", "myvalue")
+		err := s.APIState.Client().SetAnnotations(id, map[string]string{"mykey": "myvalue"})
 		c.Assert(err, ErrorMatches, expected)
 		_, err = s.APIState.Client().GetAnnotations(id)
 		c.Assert(err, ErrorMatches, expected)

@@ -1,6 +1,7 @@
 package charm_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
@@ -107,21 +108,36 @@ func (s *URLSuite) TestWithRevision(c *C) {
 	c.Assert(other.WithRevision(1), DeepEquals, other)
 }
 
-func (s *URLSuite) TestBSON(c *C) {
-	type doc struct {
-		URL *charm.URL
-	}
-	url := charm.MustParseURL("cs:series/name")
-	data, err := bson.Marshal(doc{url})
-	c.Assert(err, IsNil)
-	var v doc
-	err = bson.Unmarshal(data, &v)
-	c.Assert(v.URL, DeepEquals, url)
+var codecs = []struct {
+	Marshal   func(interface{}) ([]byte, error)
+	Unmarshal func([]byte, interface{}) error
+}{{
+	Marshal:   bson.Marshal,
+	Unmarshal: bson.Unmarshal,
+}, {
+	Marshal:   json.Marshal,
+	Unmarshal: json.Unmarshal,
+}}
 
-	data, err = bson.Marshal(doc{})
-	c.Assert(err, IsNil)
-	err = bson.Unmarshal(data, &v)
-	c.Assert(v.URL, IsNil)
+func (s *URLSuite) TestCodecs(c *C) {
+	for i, codec := range codecs {
+		c.Logf("codec %d", i)
+		type doc struct {
+			URL *charm.URL
+		}
+		url := charm.MustParseURL("cs:series/name")
+		data, err := codec.Marshal(doc{url})
+		c.Assert(err, IsNil)
+		var v doc
+		err = codec.Unmarshal(data, &v)
+		c.Assert(v.URL, DeepEquals, url)
+
+		data, err = codec.Marshal(doc{})
+		c.Assert(err, IsNil)
+		err = codec.Unmarshal(data, &v)
+		c.Assert(err, IsNil)
+		c.Assert(v.URL, IsNil)
+	}
 }
 
 type QuoteSuite struct{}

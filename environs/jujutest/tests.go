@@ -15,6 +15,25 @@ import (
 	"sort"
 )
 
+// TestConfig contains the configuration for the environment
+// This is a is an indirection to make it harder for tests to accidentally
+// share the underlying map.
+type TestConfig struct {
+	Config map[string]interface{}
+}
+
+// UpdateConfig modifies the configuration safely by creating a new map
+func (testConfig *TestConfig) UpdateConfig(update map[string]interface{}) {
+	newConfig := map[string]interface{}{}
+	for key, val := range testConfig.Config {
+		newConfig[key] = val
+	}
+	for key, val := range update {
+		newConfig[key] = val
+	}
+	testConfig.Config = newConfig
+}
+
 // Tests is a gocheck suite containing tests verifying juju functionality
 // against the environment with the given configuration. The
 // tests are not designed to be run against a live server - the Environ
@@ -22,14 +41,14 @@ import (
 // may be executed.
 type Tests struct {
 	coretesting.LoggingSuite
-	Config map[string]interface{}
-	Env    environs.Environ
+	TestConfig TestConfig
+	Env        environs.Environ
 }
 
 // Open opens an instance of the testing environment.
 func (t *Tests) Open(c *C) environs.Environ {
-	e, err := environs.NewFromAttrs(t.Config)
-	c.Assert(err, IsNil, Commentf("opening environ %#v", t.Config))
+	e, err := environs.NewFromAttrs(t.TestConfig.Config)
+	c.Assert(err, IsNil, Commentf("opening environ %#v", t.TestConfig.Config))
 	c.Assert(e, NotNil)
 	return e
 }
@@ -70,13 +89,11 @@ func (t *Tests) TestStartStop(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(insts, HasLen, 0)
 
-	inst0, err := e.StartInstance("0", constraints.Value{}, testing.InvalidStateInfo("0"), testing.InvalidAPIInfo("0"), nil)
-	c.Assert(err, IsNil)
+	inst0 := testing.StartInstance(c, e, "0")
 	c.Assert(inst0, NotNil)
 	id0 := inst0.Id()
 
-	inst1, err := e.StartInstance("1", constraints.Value{}, testing.InvalidStateInfo("1"), testing.InvalidAPIInfo("1"), nil)
-	c.Assert(err, IsNil)
+	inst1 := testing.StartInstance(c, e, "1")
 	c.Assert(inst1, NotNil)
 	id1 := inst1.Id()
 

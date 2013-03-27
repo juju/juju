@@ -542,7 +542,7 @@ func (e *environ) Destroy([]environs.Instance) error {
 	return nil
 }
 
-func (e *environ) StartInstance(machineId string, cons constraints.Value, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
 	defer delay()
 	log.Infof("environs/dummy: dummy startinstance, machine %s", machineId)
 	if err := e.checkBroken("StartInstance"); err != nil {
@@ -559,14 +559,15 @@ func (e *environ) StartInstance(machineId string, cons constraints.Value, info *
 	if apiInfo.EntityName != state.MachineEntityName(machineId) {
 		return nil, fmt.Errorf("entity name must match started machine")
 	}
-	if tools != nil && (strings.HasPrefix(tools.Series, "unknown")) {
-		return nil, fmt.Errorf("unknown series %q", tools.Series)
+	if strings.HasPrefix(series, "unknown") {
+		return nil, &environs.NotFoundError{fmt.Errorf("no compatible tools found")}
 	}
 	i := &instance{
 		state:     e.state,
 		id:        state.InstanceId(fmt.Sprintf("%s-%d", e.state.name, e.state.maxId)),
 		ports:     make(map[state.Port]bool),
 		machineId: machineId,
+		series:    series,
 	}
 	e.state.insts[i.id] = i
 	e.state.maxId++
@@ -687,6 +688,7 @@ type instance struct {
 	ports     map[state.Port]bool
 	id        state.InstanceId
 	machineId string
+	series    string
 }
 
 func (inst *instance) Id() state.InstanceId {

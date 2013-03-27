@@ -39,15 +39,7 @@ func mustNewConfig(m map[string]interface{}) *config.Config {
 	return cfg
 }
 
-var envConstraints = mustParseConstraints("mem=2G")
-
-func mustParseConstraints(s string) constraints.Value {
-	cons, err := constraints.Parse(s)
-	if err != nil {
-		panic(err)
-	}
-	return cons
-}
+var envConstraints = constraints.MustParse("mem=2G")
 
 type cloudinitTest struct {
 	cfg           cloudinit.MachineConfig
@@ -101,6 +93,8 @@ echo 'datadir: /var/lib/juju\\nstateservercert:\\n[^']+stateserverkey:\\n[^']+mo
 chmod 600 '/var/lib/juju/agents/bootstrap/agent\.conf'
 /var/lib/juju/tools/1\.2\.3-linux-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --constraints 'mem=2048M' --debug
 rm -rf '/var/lib/juju/agents/bootstrap'
+cat > /etc/rsyslog.d/25-juju.conf << 'EOF'\\n\\n\$ModLoad imfile\\n\\n\$InputFilePollInterval 5\\n\$InputFileName /var/log/juju/machine-0.log\\n\$InputFileTag local-juju-machine-0:\\n\$InputFileStateFile machine-0\\n\$InputRunFileMonitor\\n\\n\$ModLoad imudp\\n\$UDPServerRun 514\\n\\n# Messages received from remote rsyslog machines contain a leading space so we\\n# need to account for that.\\n\$template JujuLogFormatLocal,\"%HOSTNAME%:%msg:::drop-last-lf%\\n\"\\n\$template JujuLogFormat,\"%HOSTNAME%:%msg:2:2048:drop-last-lf%\\n\"\\n\\n:syslogtag, startswith, \"juju-\" /var/log/juju/all-machines.log;JujuLogFormat\\n:syslogtag, startswith, \"local-juju-\" /var/log/juju/all-machines.log;JujuLogFormatLocal\\n& ~\\nEOF\\n
+restart rsyslog
 mkdir -p '/var/lib/juju/agents/machine-0'
 echo 'datadir: /var/lib/juju\\nstateservercert:\\n[^']+stateserverkey:\\n[^']+mongoport: 37017\\napiport: 17070\\noldpassword: arble\\nstateinfo:\\n  addrs:\\n  - localhost:37017\\n  cacert:\\n[^']+  entityname: machine-0\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - localhost:17070\\n  cacert:\\n[^']+  entityname: machine-0\\n  password: ""\\n' > '/var/lib/juju/agents/machine-0/agent\.conf'
 chmod 600 '/var/lib/juju/agents/machine-0/agent\.conf'
@@ -136,6 +130,8 @@ bin='/var/lib/juju/tools/1\.2\.3-linux-amd64'
 mkdir -p \$bin
 wget --no-verbose -O - 'http://foo\.com/tools/juju1\.2\.3-linux-amd64\.tgz' \| tar xz -C \$bin
 echo -n 'http://foo\.com/tools/juju1\.2\.3-linux-amd64\.tgz' > \$bin/downloaded-url\.txt
+cat > /etc/rsyslog.d/25-juju.conf << 'EOF'\\n\\n\$ModLoad imfile\\n\\n\$InputFilePollInterval 5\\n\$InputFileName /var/log/juju/machine-99.log\\n\$InputFileTag juju-machine-99:\\n\$InputFileStateFile machine-99\\n\$InputRunFileMonitor\\n\\n:syslogtag, startswith, \"juju-\" @state-addr.example.com:514\\n& ~\\nEOF\\n
+restart rsyslog
 mkdir -p '/var/lib/juju/agents/machine-99'
 echo 'datadir: /var/lib/juju\\noldpassword: arble\\nstateinfo:\\n  addrs:\\n  - state-addr\.example\.com:12345\\n  cacert:\\n[^']+  entityname: machine-99\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - state-addr\.example\.com:54321\\n  cacert:\\n[^']+  entityname: machine-99\\n  password: ""\\n' > '/var/lib/juju/agents/machine-99/agent\.conf'
 chmod 600 '/var/lib/juju/agents/machine-99/agent\.conf'

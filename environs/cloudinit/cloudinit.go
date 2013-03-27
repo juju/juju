@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/trivial"
@@ -123,6 +124,7 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 		debugFlag = " --debug"
 	}
 
+	var syslogConfigRenderer syslog.SyslogConfigRenderer
 	if cfg.StateServer {
 		certKey := string(cfg.StateServerCert) + string(cfg.StateServerKey)
 		addFile(c, cfg.dataFile("server.pem"), certKey, 0600)
@@ -148,7 +150,21 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 				debugFlag,
 			"rm -rf "+shquote(acfg.Dir()),
 		)
+		syslogConfigRenderer = syslog.NewAccumulateConfig(
+			state.MachineEntityName(cfg.MachineId))
+	} else {
+		syslogConfigRenderer = syslog.NewForwardConfig(
+			state.MachineEntityName(cfg.MachineId), cfg.stateHostAddrs())
 	}
+
+	content, err := syslogConfigRenderer.Render()
+	if err != nil {
+		return nil, err
+	}
+	addScripts(c,
+		fmt.Sprintf("cat > /etc/rsyslog.d/25-juju.conf << 'EOF'\n%sEOF\n", string(content)),
+	)
+	c.AddRunCmd("restart rsyslog")
 
 	if _, err := addAgentToBoot(c, cfg, "machine",
 		state.MachineEntityName(cfg.MachineId),
