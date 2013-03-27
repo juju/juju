@@ -11,9 +11,12 @@ type DebugLogSuite struct {
 
 var _ = Suite(&DebugLogSuite{})
 
-func runDebugLog(c *C, args ...string) error {
-	_, err := testing.RunCommand(c, &DebugLogCommand{}, args)
-	return err
+func runDebugLog(c *C, args ...string) (*DebugLogCommand, error) {
+	cmd := &DebugLogCommand{
+		sshCmd: &dummySSHCommand{},
+	}
+	_, err := testing.RunCommand(c, cmd, args)
+	return cmd, err
 }
 
 type dummySSHCommand struct {
@@ -29,10 +32,9 @@ func (c *dummySSHCommand) Run(ctx *cmd.Context) error {
 // debug-log is implemented by invoking juju ssh with the correct arguments.
 // This test checks for the expected invocation.
 func (s *DebugLogSuite) TestDebugLogInvokesSSHCommand(c *C) {
-	debugLogSSHCmd = &dummySSHCommand{}
-	err := runDebugLog(c)
+	debugLogCmd, err := runDebugLog(c)
 	c.Assert(err, IsNil)
-	debugCmd := debugLogSSHCmd.(*dummySSHCommand)
+	debugCmd := debugLogCmd.sshCmd.(*dummySSHCommand)
 	c.Assert(debugCmd.runCalled, Equals, true)
 	c.Assert(debugCmd.Target, Equals, "0")
 	c.Assert([]string{"tail -f /var/log/juju/all-machines.log"}, DeepEquals, debugCmd.Args)

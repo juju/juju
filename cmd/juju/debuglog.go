@@ -1,14 +1,13 @@
 package main
 
 import (
-	"io/ioutil"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 )
 
 type DebugLogCommand struct {
-	EnvCommandBase
-	Args []string
+	// The debug log command simply invokes juju ssh with the required arguments.
+	sshCmd cmd.Command
 }
 
 const debuglogDoc = `
@@ -25,28 +24,19 @@ func (c *DebugLogCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *DebugLogCommand) Init(args []string) error {
-	c.Args = append([]string{"0"}, args...)
-	c.Args = append(c.Args, "tail -f /var/log/juju/all-machines.log")
-	return nil
+func (c *DebugLogCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.sshCmd.SetFlags(f)
 }
 
-// The debug log command simply invokes juju ssh with the required arguments.
-var debugLogSSHCmd cmd.Command = &SSHCommand{}
+func (c *DebugLogCommand) Init(args []string) error {
+	args = append([]string{"0"}, args...)
+	args = append(args, "tail -f /var/log/juju/all-machines.log")
+	return c.sshCmd.Init(args)
+}
 
 // Run uses "juju ssh" to log into the state server node
 // and tails the consolidated log file which captures log
 // messages from all nodes.
 func (c *DebugLogCommand) Run(ctx *cmd.Context) error {
-	sshCmd := debugLogSSHCmd
-	f := gnuflag.NewFlagSet(c.Info().Name, gnuflag.ContinueOnError)
-	f.SetOutput(ioutil.Discard)
-	sshCmd.SetFlags(f)
-	if err := cmd.ParseArgs(sshCmd, f, c.Args); err != nil {
-		return err
-	}
-	if err := sshCmd.Init(f.Args()); err != nil {
-		return err
-	}
-	return sshCmd.Run(ctx)
+	return c.sshCmd.Run(ctx)
 }
