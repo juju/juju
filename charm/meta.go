@@ -26,6 +26,7 @@ const (
 // Relation represents a single relation defined in the charm
 // metadata.yaml file.
 type Relation struct {
+	Name string
 	Interface string
 	Optional  bool
 	Limit     int
@@ -122,11 +123,21 @@ func ReadMeta(r io.Reader) (meta *Meta, err error) {
 		// Obsolete
 		meta.OldRevision = int(m["revision"].(int64))
 	}
+	if err := meta.Check(); err != nil {
+		return nil, err
+	}
+	return meta, nil
+}
 
+// Check checks that the metadata is well-formed.
+func (meta Meta) Check() error {
 	// Check for duplicate or forbidden relation names or interfaces.
 	names := map[string]bool{}
 	checkRelations := func(src map[string]Relation, isRequire bool) error {
 		for name, rel := range src {
+			if rel.Name != name {
+				return fmt.Errorf("charm %q has mismatched relation name %q; expected %q", meta.Name, rel.Name, name)
+			}
 			// Container-scoped require relations on subordinates are allowed
 			// to use the otherwise-reserved juju-* namespace.
 			if !meta.Subordinate || !isRequire || rel.Scope != ScopeContainer {
@@ -147,13 +158,13 @@ func ReadMeta(r io.Reader) (meta *Meta, err error) {
 		return nil
 	}
 	if err := checkRelations(meta.Provides, false); err != nil {
-		return nil, err
+		return err
 	}
 	if err := checkRelations(meta.Requires, true); err != nil {
-		return nil, err
+		return err
 	}
 	if err := checkRelations(meta.Peers, false); err != nil {
-		return nil, err
+		return err
 	}
 
 	// Subordinate charms must have at least one relation that
@@ -170,10 +181,10 @@ func ReadMeta(r io.Reader) (meta *Meta, err error) {
 			}
 		}
 		if !valid {
-			return nil, fmt.Errorf("subordinate charm %q lacks requires relation with container scope", meta.Name)
+			return fmt.Errorf("subordinate charm %q lacks requires relation with container scope", meta.Name)
 		}
 	}
-	return
+	return nil
 }
 
 func reservedName(name string) bool {
@@ -187,9 +198,11 @@ func parseRelations(relations interface{}) map[string]Relation {
 	result := make(map[string]Relation)
 	for name, rel := range relations.(map[string]interface{}) {
 		relMap := rel.(map[string]interface{})
-		relation := Relation{}
-		relation.Interface = relMap["interface"].(string)
-		relation.Optional = relMap["optional"].(bool)
+		relation := Relation{
+			Name: name,
+			Interface: relMap["interface"].(string),
+			Optional: relMap["optional"].(bool),
+		}
 		if scope := relMap["scope"]; scope != nil {
 			relation.Scope = RelationScope(scope.(string))
 		}

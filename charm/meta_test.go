@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
-	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/testing"
@@ -82,28 +81,70 @@ func (s *MetaSuite) TestScopeConstraint(c *C) {
 func (s *MetaSuite) TestParseMetaRelations(c *C) {
 	meta, err := charm.ReadMeta(repoMeta("mysql"))
 	c.Assert(err, IsNil)
-	c.Assert(meta.Provides["server"], Equals, charm.Relation{Interface: "mysql", Scope: charm.ScopeGlobal})
+	c.Assert(meta.Provides["server"], Equals, charm.Relation{
+		Name: "server",
+		Interface: "mysql",
+		Scope: charm.ScopeGlobal,
+	})
 	c.Assert(meta.Requires, IsNil)
 	c.Assert(meta.Peers, IsNil)
 
 	meta, err = charm.ReadMeta(repoMeta("riak"))
 	c.Assert(err, IsNil)
-	c.Assert(meta.Provides["endpoint"], Equals, charm.Relation{Interface: "http", Scope: charm.ScopeGlobal})
-	c.Assert(meta.Provides["admin"], Equals, charm.Relation{Interface: "http", Scope: charm.ScopeGlobal})
-	c.Assert(meta.Peers["ring"], Equals, charm.Relation{Interface: "riak", Limit: 1, Scope: charm.ScopeGlobal})
+	c.Assert(meta.Provides["endpoint"], Equals, charm.Relation{
+		Name: "endpoint",
+		Interface: "http",
+		Scope: charm.ScopeGlobal,
+	})
+	c.Assert(meta.Provides["admin"], Equals, charm.Relation{
+		Name: "admin",
+		Interface: "http",
+		Scope: charm.ScopeGlobal,
+	})
+	c.Assert(meta.Peers["ring"], Equals, charm.Relation{
+		Name: "ring",
+		Interface: "riak",
+		Limit: 1,
+		Scope: charm.ScopeGlobal,
+	})
 	c.Assert(meta.Requires, IsNil)
 
 	meta, err = charm.ReadMeta(repoMeta("terracotta"))
 	c.Assert(err, IsNil)
-	c.Assert(meta.Provides["dso"], Equals, charm.Relation{Interface: "terracotta", Optional: true, Scope: charm.ScopeGlobal})
-	c.Assert(meta.Peers["server-array"], Equals, charm.Relation{Interface: "terracotta-server", Limit: 1, Scope: charm.ScopeGlobal})
+	c.Assert(meta.Provides["dso"], Equals, charm.Relation{
+		Name: "dso",
+		Interface: "terracotta",
+		Optional: true,
+		Scope: charm.ScopeGlobal,
+	})
+	c.Assert(meta.Peers["server-array"], Equals, charm.Relation{
+		Name: "server-array",
+		Interface: "terracotta-server",
+		Limit: 1,
+		Scope: charm.ScopeGlobal,
+	})
 	c.Assert(meta.Requires, IsNil)
 
 	meta, err = charm.ReadMeta(repoMeta("wordpress"))
 	c.Assert(err, IsNil)
-	c.Assert(meta.Provides["url"], Equals, charm.Relation{Interface: "http", Scope: charm.ScopeGlobal})
-	c.Assert(meta.Requires["db"], Equals, charm.Relation{Interface: "mysql", Limit: 1, Scope: charm.ScopeGlobal})
-	c.Assert(meta.Requires["cache"], Equals, charm.Relation{Interface: "varnish", Limit: 2, Optional: true, Scope: charm.ScopeGlobal})
+	c.Assert(meta.Provides["url"], Equals, charm.Relation{
+		Name: "url",
+		Interface: "http",
+		Scope: charm.ScopeGlobal,
+	})
+	c.Assert(meta.Requires["db"], Equals, charm.Relation{
+		Name: "db",
+		Interface: "mysql",
+		Limit: 1,
+		Scope: charm.ScopeGlobal,
+	})
+	c.Assert(meta.Requires["cache"], Equals, charm.Relation{
+		Name: "cache",
+		Interface: "varnish",
+		Limit: 2,
+		Optional: true,
+		Scope: charm.ScopeGlobal,
+	})
 	c.Assert(meta.Peers, IsNil)
 }
 
@@ -182,6 +223,22 @@ requires:
 	check(prefix+`
 requires:
   innocuous: juju-info`, "")
+}
+
+func (s *MetaSuite) TestCheckMismatchedRelationName(c *C) {
+	// This is the only Check case not covered by the above TestRelationsConstraints tests.
+	meta := charm.Meta{
+		Name: "foo",
+		Provides: map[string]charm.Relation{
+			"foo": {
+				Interface: "x",
+				Limit: 1,
+				Scope: charm.ScopeGlobal,
+			},
+		},
+	}
+	err := meta.Check()
+	c.Assert(err, ErrorMatches, `charm "foo" has mismatched relation name ""; expected "foo"`)
 }
 
 // Test rewriting of a given interface specification into long form.
@@ -264,17 +321,20 @@ func (s *MetaSuite) TestMetaHooks(c *C) {
 	c.Assert(hooks, DeepEquals, expectedHooks)
 }
 
-func (s *MetaSuite) TestBSONRoundTripEmpty(c *C) {
-	var empty_input = charm.Meta{}
-	data, err := bson.Marshal(empty_input)
-	c.Assert(err, IsNil)
-	var empty_output charm.Meta
-	err = bson.Unmarshal(data, &empty_output)
-	c.Assert(err, IsNil)
-	c.Assert(empty_input, DeepEquals, empty_output)
+func (s *MetaSuite) TestCodecRoundTripEmpty(c *C) {
+	for i, codec := range codecs {
+		c.Logf("codec %d", i)
+		empty_input := charm.Meta{}
+		data, err := codec.Marshal(empty_input)
+		c.Assert(err, IsNil)
+		var empty_output charm.Meta
+		err = codec.Unmarshal(data, &empty_output)
+		c.Assert(err, IsNil)
+		c.Assert(empty_input, DeepEquals, empty_output)
+	}
 }
 
-func (s *MetaSuite) TestBSONRoundTrip(c *C) {
+func (s *MetaSuite) TestCodecRoundTrip(c *C) {
 	var input = charm.Meta{
 		Name:        "Foo",
 		Summary:     "Bar",
@@ -308,10 +368,13 @@ func (s *MetaSuite) TestBSONRoundTrip(c *C) {
 		Format:      10,
 		OldRevision: 11,
 	}
-	data, err := bson.Marshal(input)
-	c.Assert(err, IsNil)
-	var output charm.Meta
-	err = bson.Unmarshal(data, &output)
-	c.Assert(err, IsNil)
-	c.Assert(input, DeepEquals, output)
+	for i, codec := range codecs {
+		c.Logf("codec %d", i)
+		data, err := codec.Marshal(input)
+		c.Assert(err, IsNil)
+		var output charm.Meta
+		err = codec.Unmarshal(data, &output)
+		c.Assert(err, IsNil)
+		c.Assert(input, DeepEquals, output)
+	}
 }
