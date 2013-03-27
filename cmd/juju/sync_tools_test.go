@@ -111,3 +111,40 @@ func (s *toolSuite) TestFindNewestMultipleBest(c *C) {
 		c.Assert(res, DeepEquals, t.best)
 	}
 }
+
+func (s *toolSuite) TestFindMissingNoTarget(c *C) {
+	var allMissingTests = []struct {
+		source []*state.Tools
+	}{
+		{source: []*state.Tools{t1000precise}},
+		{source: []*state.Tools{t1000precise, t1000quantal}},
+	}
+	for _, t := range allMissingTests {
+		res := findMissing(t.source, []*state.Tools(nil))
+		c.Assert(res, DeepEquals, t.source)
+	}
+}
+
+func (s *toolSuite) TestFindMissingSameEntries(c *C) {
+	var allMissingTests = []struct {
+		source []*state.Tools
+	}{
+		{source: []*state.Tools{t1000precise}},
+		{source: []*state.Tools{t1000precise, t1000quantal}},
+	}
+	for _, t := range allMissingTests {
+		res := findMissing(t.source, t.source)
+		c.Assert(res, HasLen, 0)
+	}
+}
+
+func (s *toolSuite) TestFindHasVersionNotSeries(c *C) {
+	res := findMissing([]*state.Tools{t1000precise, t1000quantal},
+		[]*state.Tools{t1000quantal})
+	c.Assert(res, HasLen, 1)
+	c.Assert(res[0], Equals, t1000precise)
+	res = findMissing([]*state.Tools{t1000precise, t1000quantal},
+		[]*state.Tools{t1000precise})
+	c.Assert(res, HasLen, 1)
+	c.Assert(res[0], Equals, t1000quantal)
+}
