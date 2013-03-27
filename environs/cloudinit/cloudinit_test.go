@@ -42,6 +42,9 @@ func mkJujuHomeDir() string {
 }
 
 func mustNewConfig(m map[string]interface{}) *config.Config {
+	// The need for the global envConfig enforces the
+	// creation of a temporary juju home directory which
+	// is referenced inside config.New().
 	tmpJujHomeDir := mkJujuHomeDir()
 	defer os.RemoveAll(tmpJujHomeDir)
 	defer config.SetJujuHome(config.SetJujuHome(tmpJujHomeDir))

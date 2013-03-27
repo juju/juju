@@ -111,7 +111,6 @@ func (s *StoreSuite) SetUpSuite(c *C) {
 
 func (s *StoreSuite) SetUpTest(c *C) {
 	s.oldJujuHome = config.SetJujuHome(c.MkDir())
-	c.Assert(os.Mkdir(config.JujuHomePath("cache"), 0777), IsNil)
 	s.store = charm.NewStore("http://127.0.0.1:4444")
 	s.server.downloads = nil
 }
@@ -165,7 +164,6 @@ func (s *StoreSuite) assertCached(c *C, curl *charm.URL) {
 }
 
 func (s *StoreSuite) TestGetCacheImplicitRevision(c *C) {
-	os.RemoveAll(config.JujuHomePath("cache"))
 	base := "cs:series/blah"
 	curl := charm.MustParseURL(base)
 	revCurl := charm.MustParseURL(base + "-23")
@@ -178,7 +176,6 @@ func (s *StoreSuite) TestGetCacheImplicitRevision(c *C) {
 }
 
 func (s *StoreSuite) TestGetCacheExplicitRevision(c *C) {
-	os.RemoveAll(config.JujuHomePath("cache"))
 	base := "cs:series/blah-12"
 	curl := charm.MustParseURL(base)
 	ch, err := s.store.Get(curl)
@@ -189,6 +186,7 @@ func (s *StoreSuite) TestGetCacheExplicitRevision(c *C) {
 }
 
 func (s *StoreSuite) TestGetBadCache(c *C) {
+	c.Assert(os.Mkdir(config.JujuHomePath("cache"), 0777), IsNil)
 	base := "cs:series/blah"
 	curl := charm.MustParseURL(base)
 	revCurl := charm.MustParseURL(base + "-23")

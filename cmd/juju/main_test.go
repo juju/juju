@@ -27,23 +27,21 @@ type MainSuite struct{}
 var _ = Suite(&MainSuite{})
 
 var (
-	flagRunMain  = flag.Bool("run-main", false, "Run the application's main function for recursive testing")
-	flagJujuHome = flag.String("juju-home", "", "Pass the test case's juju home to the recursive main test")
+	flagRunMain = flag.Bool("run-main", false, "Run the application's main function for recursive testing")
 )
 
 // Reentrancy point for testing (something as close as possible to) the juju
 // tool itself.
 func TestRunMain(t *stdtesting.T) {
 	if *flagRunMain {
-		config.SetJujuHome(*flagJujuHome)
 		Main(flag.Args())
 	}
 }
 
 func badrun(c *C, exit int, cmd ...string) string {
-	testArgs := []string{"-test.run", "TestRunMain", "-run-main", "-juju-home", config.JujuHome(), "--", "juju"}
-	args := append(testArgs, cmd...)
+	args := append([]string{"-test.run", "TestRunMain", "-run-main", "--", "juju"}, cmd...)
 	ps := exec.Command(os.Args[0], args...)
+	ps.Env = append(os.Environ(), "JUJU_HOME="+config.JujuHome())
 	output, err := ps.CombinedOutput()
 	if exit != 0 {
 		c.Assert(err, ErrorMatches, fmt.Sprintf("exit status %d", exit))
