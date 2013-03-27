@@ -720,8 +720,8 @@ func (u *Unit) AssignToNewMachine() error {
 	// will be added with those operations (which includes the machine id).
 	mdoc := &machineDoc{
 		Series:     u.doc.Series,
-		Jobs:       {JobHostUnits},
-		Principles: {u.doc.Name},
+		Jobs:       []MachineJob{JobHostUnits},
+		Principals: []string{u.doc.Name},
 	}
 	mdoc, ops, err := u.st.addMachineOps(mdoc)
 	assert := append(isAliveDoc, D{
@@ -730,12 +730,12 @@ func (u *Unit) AssignToNewMachine() error {
 			{{"machineid", mdoc.Id}},
 		}},
 	}...)
-	ops := append(ops, txn.Op{{
+	ops = append(ops, txn.Op{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: assert,
 		Update: D{{"$set", D{{"machineid", mdoc.Id}}}},
-	}})
+	})
 	err = u.st.runner.Run(ops, "", nil)
 	if err == nil {
 		u.doc.MachineId = mdoc.Id

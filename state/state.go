@@ -183,7 +183,7 @@ func (st *State) InjectMachine(series string, instanceId InstanceId, jobs ...Mac
 	return st.addMachine(series, instanceId, jobs)
 }
 
-func (st *State) addMachineOps(mdoc *machineDoc, series string, instanceId InstanceId, jobs []MachineJob) (*machineDoc, []txn.Op, error) {
+func (st *State) addMachineOps(mdoc *machineDoc) (*machineDoc, []txn.Op, error) {
 	if mdoc.Series == "" {
 		return nil, nil, fmt.Errorf("no series specified")
 	}
@@ -231,7 +231,7 @@ func (st *State) addMachine(series string, instanceId InstanceId, jobs []Machine
 		return nil, err
 	}
 	// Refresh to pick the txn-revno.
-	m = newMachine(st, &mdoc)
+	m = newMachine(st, mdoc)
 	if err = m.Refresh(); err != nil {
 		return nil, err
 	}
