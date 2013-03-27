@@ -867,19 +867,7 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 		if _, err = u.AssignToUnusedMachine(); err != noUnusedMachines {
 			return err
 		}
-		for {
-			m, err := st.AddMachine(u.doc.Series, JobHostUnits)
-			if err != nil {
-				return err
-			}
-			err = u.assignToMachine(m, true)
-			if err == inUseErr {
-				// Someone else has grabbed the machine we've
-				// just allocated, so try again.
-				continue
-			}
-			return err
-		}
+		return u.AssignToNewMachine()
 	case AssignNew:
 		return u.AssignToNewMachine()
 	}
