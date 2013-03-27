@@ -79,7 +79,7 @@ func (t *Tests) TestBootstrapWithoutAdminSecret(c *C) {
 func (t *Tests) TestProviderAssignmentPolicy(c *C) {
 	e := t.Open(c)
 	policy := e.AssignmentPolicy()
-	c.Assert(policy, FitsTypeOf, state.AssignUnused)
+	c.Assert(policy, FitsTypeOf, state.AssignNew)
 }
 
 func (t *Tests) TestStartStop(c *C) {
