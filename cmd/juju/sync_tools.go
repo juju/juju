@@ -1,11 +1,12 @@
 package main
 
 import (
-	"fmt"
+	//"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
 )
 
@@ -15,7 +16,7 @@ type SyncToolsCommand struct {
 	EnvCommandBase
 	sourceToolsList *environs.ToolsList
 	targetToolsList *environs.ToolsList
-	agentVersion    version.Number
+	allVersions     bool
 }
 
 var _ cmd.Command = (*SyncToolsCommand)(nil)
@@ -29,7 +30,7 @@ func (c *SyncToolsCommand) Info() *cmd.Info {
 
 func (c *SyncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
-	// f.BoolVar(&c.Development, "dev", false, "allow development versions to be chosen")
+	f.BoolVar(&c.allVersions, "all", false, "instead of copying only the newest, copy all versions")
 
 }
 
@@ -45,6 +46,29 @@ var officialBucketAttrs = map[string]interface{}{
 	"secret-key":     "",
 }
 
+// Find the set of tools at the 'newest' version
+func findNewest(fullTools []*state.Tools) []*state.Tools {
+	var curBest *state.Tools = nil
+	var res []*state.Tools = nil
+	for _, t := range fullTools {
+		var add = false
+		if curBest == nil || curBest.Number.Less(t.Number) {
+			// This best is clearly better than all existing
+			// entries, so reset the list
+			res = make([]*state.Tools, 0, 1)
+			add = true
+			curBest = t
+		}
+		if curBest.Number == t.Number {
+			add = true
+		}
+		if add {
+			res = append(res, t)
+		}
+	}
+	return res
+}
+
 func (c *SyncToolsCommand) Run(_ *cmd.Context) error {
 	officialEnviron, err := environs.NewFromAttrs(officialBucketAttrs)
 	if err != nil {
@@ -55,10 +79,11 @@ func (c *SyncToolsCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	for _, tool := range c.sourceToolsList.Public {
-		fmt.Printf("Found: %s\n", tool.URL)
+	env, err := environs.NewFromName(c.EnvName)
+	if err != nil {
+		return err
 	}
-	_, err = environs.NewFromName(c.EnvName)
+	c.targetToolsList, err = environs.ListTools(env, version.Current.Major)
 	if err != nil {
 		return err
 	}
