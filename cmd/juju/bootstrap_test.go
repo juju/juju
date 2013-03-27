@@ -75,13 +75,11 @@ func (*BootstrapSuite) TestRunGeneratesCertificate(c *C) {
 func (*BootstrapSuite) TestConstraints(c *C) {
 	defer testing.MakeFakeHome(c, envConfig, "brokenenv").Restore()
 	scons := " cpu-cores=2   mem=4G"
-	cons, err := constraints.Parse(scons)
-	c.Assert(err, IsNil)
 	opc, errc := runCommand(new(BootstrapCommand), "--constraints", scons)
 	c.Check(<-errc, IsNil)
 	opBootstrap := (<-opc).(dummy.OpBootstrap)
 	c.Check(opBootstrap.Env, Equals, "peckham")
-	c.Check(opBootstrap.Constraints, DeepEquals, cons)
+	c.Check(opBootstrap.Constraints, DeepEquals, constraints.MustParse(scons))
 }
 
 func (*BootstrapSuite) TestUploadTools(c *C) {

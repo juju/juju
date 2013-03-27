@@ -100,19 +100,19 @@ func registerLocalTests() {
 
 	Suite(&localServerSuite{
 		Tests: jujutest.Tests{
-			Config: attrs,
+			TestConfig: jujutest.TestConfig{attrs},
 		},
 	})
 	Suite(&localLiveSuite{
 		LiveTests: LiveTests{
 			LiveTests: jujutest.LiveTests{
-				Config: attrs,
+				TestConfig: jujutest.TestConfig{attrs},
 			},
 		},
 	})
 	Suite(&localNonUSEastSuite{
 		tests: jujutest.Tests{
-			Config: attrs,
+			TestConfig: jujutest.TestConfig{attrs},
 		},
 		srv: localServer{
 			config: &s3test.Config{

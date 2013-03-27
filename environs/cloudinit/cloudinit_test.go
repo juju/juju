@@ -39,15 +39,7 @@ func mustNewConfig(m map[string]interface{}) *config.Config {
 	return cfg
 }
 
-var envConstraints = mustParseConstraints("mem=2G")
-
-func mustParseConstraints(s string) constraints.Value {
-	cons, err := constraints.Parse(s)
-	if err != nil {
-		panic(err)
-	}
-	return cons
-}
+var envConstraints = constraints.MustParse("mem=2G")
 
 type cloudinitTest struct {
 	cfg           cloudinit.MachineConfig

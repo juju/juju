@@ -163,10 +163,10 @@ func (conn *Conn) PutCharm(curl *charm.URL, repo charm.Repository, bumpRevision 
 	if bumpRevision {
 		chd, ok := ch.(*charm.Dir)
 		if !ok {
-			return nil, fmt.Errorf("cannot increment version of charm %q: not a directory", curl)
+			return nil, fmt.Errorf("cannot increment revision of charm %q: not a directory", curl)
 		}
 		if err = chd.SetDiskRevision(chd.Revision() + 1); err != nil {
-			return nil, fmt.Errorf("cannot increment version of charm %q: %v", curl, err)
+			return nil, fmt.Errorf("cannot increment revision of charm %q: %v", curl, err)
 		}
 		curl = curl.WithRevision(chd.Revision())
 	}
