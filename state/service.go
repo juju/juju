@@ -306,25 +306,25 @@ func (s *Service) Endpoint(relationName string) (Endpoint, error) {
 	return Endpoint{}, fmt.Errorf("service %q has no %q relation", s, relationName)
 }
 
-// peerRelationsDifference returns only the peer relations in
-// otherMeta not present in the service's current charm meta data.
-func (s *Service) peerRelationsDifference(otherMeta *charm.Meta) map[string]charm.Relation {
-	if otherMeta == nil {
-		return nil
+// extraPeerRelations returns only the peer relations in newMeta not
+// present in the service's current charm meta data.
+func (s *Service) extraPeerRelations(newMeta *charm.Meta) map[string]charm.Relation {
+	if newMeta == nil {
+		panic("newMeta is nil")
 	}
 	ch, _, err := s.Charm()
 	if err != nil {
 		return nil
 	}
-	otherPeers := otherMeta.Peers
-	peers := ch.Meta().Peers
-	diff := make(map[string]charm.Relation)
-	for relName, rel := range otherPeers {
-		if _, ok := peers[relName]; !ok {
-			diff[relName] = rel
+	newPeers := newMeta.Peers
+	oldPeers := ch.Meta().Peers
+	diffPeers := make(map[string]charm.Relation)
+	for relName, rel := range newPeers {
+		if _, ok := oldPeers[relName]; !ok {
+			diffPeers[relName] = rel
 		}
 	}
-	return diff
+	return diffPeers
 }
 
 // convertConfig takes the given charm's config and converts the
@@ -397,8 +397,8 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 			Update: D{{"$set", D{{"charmurl", ch.URL()}, {"forcecharm", force}}}},
 		},
 	}
-	// Add new peer relations that need creation.
-	newPeers := s.peerRelationsDifference(ch.Meta())
+	// Add any extra peer relations that need creation.
+	newPeers := s.extraPeerRelations(ch.Meta())
 	peerOps, err := s.st.addPeerRelationsOps(s.doc.Name, newPeers)
 	if err != nil {
 		return nil, err

@@ -254,59 +254,44 @@ peers:
   loadbalancer: phony
 `
 
+func (s *ServiceSuite) assertServiceRelations(c *C, svc *state.Service, expectedKeys []string) []*state.Relation {
+	rels, err := svc.Relations()
+	c.Assert(err, IsNil)
+	c.Assert(rels, HasLen, len(expectedKeys))
+	if len(rels) == 0 {
+		return nil
+	}
+	relKeys := make([]string, len(expectedKeys))
+	for i, rel := range rels {
+		relKeys[i] = rel.String()
+	}
+	sort.Strings(relKeys)
+	c.Assert(relKeys, DeepEquals, expectedKeys)
+	return rels
+}
+
 func (s *ServiceSuite) TestNewPeerRelationsAddedOnUpgrade(c *C) {
 	oldCh := s.AddMetaCharm(c, "mysql", mysqlBaseMeta+onePeerMeta, 2)
 	newCh := s.AddMetaCharm(c, "mysql", mysqlBaseMeta+twoPeersMeta, 3)
 
 	// No relations joined yet.
-	c.Assert(state.ServiceRelationCount(s.mysql), Equals, 0)
-	rels, err := s.mysql.Relations()
-	c.Assert(err, IsNil)
-	c.Assert(rels, HasLen, 0)
+	s.assertServiceRelations(c, s.mysql, nil)
 
-	err = s.mysql.SetCharm(oldCh, false)
+	err := s.mysql.SetCharm(oldCh, false)
 	c.Assert(err, IsNil)
-	err = s.mysql.Refresh()
-	c.Assert(err, IsNil)
-	ch, _, err := s.mysql.Charm()
-	c.Assert(err, IsNil)
-	c.Assert(ch.Meta().Peers, HasLen, 1)
-	c.Assert(state.ServiceRelationCount(s.mysql), Equals, 1)
-	rels, err = s.mysql.Relations()
-	c.Assert(err, IsNil)
-	c.Assert(rels, HasLen, 1)
-	ep, err := rels[0].Endpoint("mysql")
-	c.Assert(err, IsNil)
-	c.Assert(ep.RelationName, Equals, "cluster")
-	c.Assert(ep.RelationRole, Equals, state.RolePeer)
+	s.assertServiceRelations(c, s.mysql, []string{"mysql:cluster"})
 
 	err = s.mysql.SetCharm(newCh, false)
 	c.Assert(err, IsNil)
-	err = s.mysql.Refresh()
+	rels := s.assertServiceRelations(c, s.mysql, []string{"mysql:cluster", "mysql:loadbalancer"})
+
+	err = s.mysql.Destroy()
 	c.Assert(err, IsNil)
-	ep, err = s.mysql.Endpoint("cluster")
-	c.Assert(err, IsNil)
-	c.Assert(ep.RelationName, Equals, "cluster")
-	c.Assert(ep.RelationRole, Equals, state.RolePeer)
-	ep, err = s.mysql.Endpoint("loadbalancer")
-	c.Assert(err, IsNil)
-	c.Assert(ep.RelationName, Equals, "loadbalancer")
-	c.Assert(ep.RelationRole, Equals, state.RolePeer)
-	ch, _, err = s.mysql.Charm()
-	c.Assert(err, IsNil)
-	c.Assert(ch.Meta().Peers, HasLen, 2)
-	c.Assert(state.ServiceRelationCount(s.mysql), Equals, 2)
-	rels, err = s.mysql.Relations()
-	c.Assert(err, IsNil)
-	c.Assert(rels, HasLen, 2)
-	ep, err = rels[0].Endpoint("mysql")
-	c.Assert(err, IsNil)
-	c.Assert(ep.RelationName, Equals, "cluster")
-	c.Assert(ep.RelationRole, Equals, state.RolePeer)
-	ep, err = rels[1].Endpoint("mysql")
-	c.Assert(err, IsNil)
-	c.Assert(ep.RelationName, Equals, "loadbalancer")
-	c.Assert(ep.RelationRole, Equals, state.RolePeer)
+
+	for _, rel := range rels {
+		err = rel.Refresh()
+		c.Assert(state.IsNotFound(err), Equals, true)
+	}
 }
 
 func jujuInfoEp(serviceName string) state.Endpoint {
