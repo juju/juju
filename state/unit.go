@@ -724,30 +724,28 @@ func (u *Unit) AssignToNewMachine() error {
 		Principals: []string{u.doc.Name},
 	}
 	mdoc, ops, err := u.st.addMachineOps(mdoc)
-	assert := append(isAliveDoc, D{
-		{"$or", []D{
-			{{"machineid", ""}},
-			{{"machineid", mdoc.Id}},
-		}},
-	}...)
+	if err != nil {
+		return err
+	}
+	isUnassigned := D{{"machineid", ""}}
 	ops = append(ops, txn.Op{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
-		Assert: assert,
+		Assert: append(isAliveDoc, isUnassigned...),
 		Update: D{{"$set", D{{"machineid", mdoc.Id}}}},
 	})
 	err = u.st.runner.Run(ops, "", nil)
 	if err == nil {
 		u.doc.MachineId = mdoc.Id
 		return nil
-	}
-	if err != txn.ErrAborted {
+	} else if err != txn.ErrAborted {
 		return err
 	}
 	// If we assume that the machine ops will never give us an operation that
-	// would fail (due to the machine id that it has is unique), then the only
-	// situation that could cause the failure is either the unit is no longer
-	// alive, or it has been assigned to a different machine.
+	// would fail (because the machine id that it has is unique), then the only
+	// reason that the transaction would have been aborted are:
+	//  * the unit is no longer alive
+	//  * the unit  has been assigned to a different machine
 	unit, err := u.st.Unit(u.Name())
 	if err != nil {
 		return err
@@ -758,7 +756,7 @@ func (u *Unit) AssignToNewMachine() error {
 	case unit.doc.MachineId != "":
 		return alreadyAssignedErr
 	}
-	// Error better than a panic... maybe.
+	// Other error condition not considered.
 	return fmt.Errorf("undetermined error trying to assign unit to a new machine: %q", u)
 }
 
