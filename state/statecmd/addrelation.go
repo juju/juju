@@ -9,14 +9,21 @@ import (
 )
 
 // AddRelation adds a relation between the specified endpoints.
-func AddRelation(state *state.State, args params.AddRelation) error {
+func AddRelation(state *state.State, args params.AddRelation) (params.AddRelationResults, error) {
 	if len(args.Endpoints) != 2 {
-		return fmt.Errorf("a relation must involve two services")
+		return params.AddRelationResults{}, fmt.Errorf("a relation must involve two services")
 	}
 	eps, err := state.InferEndpoints(args.Endpoints)
 	if err != nil {
-		return err
+		return params.AddRelationResults{}, err
 	}
 	_, err = state.AddRelation(eps...)
-	return err
+	if err != nil {
+		return params.AddRelationResults{}, err
+	}
+	relInfo := params.AddRelationResults{}
+	relInfo.Endpoints = []string{}
+	relInfo.Interface = ""
+	relInfo.Scope = ""
+	return relInfo, nil
 }

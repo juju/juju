@@ -11,6 +11,7 @@ import (
 type AddRelationCommand struct {
 	EnvCommandBase
 	Endpoints []string
+	out       cmd.Output
 }
 
 func (c *AddRelationCommand) Info() *cmd.Info {
@@ -26,7 +27,8 @@ func (c *AddRelationCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *AddRelationCommand) Run(_ *cmd.Context) error {
+// Run adds a relation and and formats the result as a YAML string.
+func (c *AddRelationCommand) Run(ctx *cmd.Context) error {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
 		return err
@@ -35,5 +37,14 @@ func (c *AddRelationCommand) Run(_ *cmd.Context) error {
 	params := params.AddRelation{
 		Endpoints: c.Endpoints,
 	}
-	return statecmd.AddRelation(conn.State, params)
+	relInfo, err := statecmd.AddRelation(conn.State, params)
+	if err != nil {
+		return err
+	}
+	relInfoMap := map[string]interface{}{
+		"endpoints": relInfo.Endpoints,
+		"interface": relInfo.Interface,
+		"scope":     relInfo.Scope,
+	}
+	return c.out.Write(ctx, relInfoMap)
 }

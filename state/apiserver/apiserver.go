@@ -374,8 +374,8 @@ func (c *srvClient) SetServiceConstraints(args params.SetServiceConstraints) err
 	return statecmd.SetServiceConstraints(c.root.srv.state, args)
 }
 
-// AddRelation adds a relation between the specified endpoints.
-func (c *srvClient) AddRelation(args params.AddRelation) error {
+// AddRelation adds a relation between the specified endpoints and returns the relation info.
+func (c *srvClient) AddRelation(args params.AddRelation) (params.AddRelationResults, error) {
 	return statecmd.AddRelation(c.root.srv.state, args)
 }
 

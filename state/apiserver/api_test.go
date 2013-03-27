@@ -270,19 +270,11 @@ func opClientCharmInfo(c *C, st *api.State, mst *state.State) (func(), error) {
 }
 
 func opClientAddRelation(c *C, st *api.State, mst *state.State) (func(), error) {
-	err := st.Client().AddRelation("wordpress", "mysql")
-	if err != nil {
-		return func() {}, err
+	_, err := st.Client().AddRelation("nosuch1", "nosuch2")
+	if api.ErrCode(err) == api.CodeNotFound {
+		err = nil
 	}
-	return func() {
-		eps, err := mst.InferEndpoints([]string{"wordpress", "mysql"})
-		c.Assert(err, IsNil)
-		rel, err := mst.EndpointsRelation(eps...)
-		c.Assert(err, IsNil)
-		err = rel.Destroy()
-		c.Assert(err, IsNil)
-		rel.Refresh()
-	}, nil
+	return func() {}, err
 }
 
 func opClientDestroyRelation(c *C, st *api.State, mst *state.State) (func(), error) {
@@ -1366,8 +1358,11 @@ func (s *suite) TestClientServiceDeploy(c *C) {
 func (s *suite) TestSuccessfulAddRelation(c *C) {
 	s.setUpScenario(c)
 	endpoints := []string{"wordpress", "mysql"}
-	err := s.APIState.Client().AddRelation(endpoints[0], endpoints[1])
+	relInfo, err := s.APIState.Client().AddRelation(endpoints[0], endpoints[1])
 	c.Assert(err, IsNil)
+	c.Assert(relInfo.Endpoints, Equals, "")
+	c.Assert(relInfo.Interface, Equals, "")
+	c.Assert(relInfo.Scope, Equals, "")
 	for _, endpoint := range endpoints {
 		service, err := s.State.Service(endpoint)
 		c.Assert(err, IsNil)

@@ -13,6 +13,13 @@ type AddRelation struct {
 	Endpoints []string
 }
 
+// AddRelationResults holds results of the AddRelation call.
+type AddRelationResults struct {
+	Endpoints []string
+	Interface string
+	Scope     string
+}
+
 // DestroyRelation holds the parameters for making the DestroyRelation call.
 // The endpoints specified are unordered.
 type DestroyRelation struct {

@@ -25,13 +25,16 @@ func (s *AddRelationSuite) setUpAddRelationScenario(c *C) {
 
 func (s *AddRelationSuite) TestSuccessfullyAddRelation(c *C) {
 	s.setUpAddRelationScenario(c)
-	err := statecmd.AddRelation(s.State, params.AddRelation{
+	relInfo, err := statecmd.AddRelation(s.State, params.AddRelation{
 		Endpoints: []string{"wordpress", "mysql"},
 	})
 	c.Assert(err, IsNil)
 	// Show that the relation was added.
 	wpSvc, err := s.State.Service("wordpress")
 	c.Assert(err, IsNil)
+	c.Assert(relInfo.Endpoints, Equals, "")
+	c.Assert(relInfo.Interface, Equals, "")
+	c.Assert(relInfo.Scope, Equals, "")
 	rels, err := wpSvc.Relations()
 	c.Assert(len(rels), Equals, 1)
 	mySvc, err := s.State.Service("mysql")
@@ -42,13 +45,16 @@ func (s *AddRelationSuite) TestSuccessfullyAddRelation(c *C) {
 
 func (s *AddRelationSuite) TestSuccessfullyAddRelationSwapped(c *C) {
 	s.setUpAddRelationScenario(c)
-	err := statecmd.AddRelation(s.State, params.AddRelation{
+	relInfo, err := statecmd.AddRelation(s.State, params.AddRelation{
 		Endpoints: []string{"mysql", "wordpress"},
 	})
 	c.Assert(err, IsNil)
 	// Show that the relation was added.
 	wpSvc, err := s.State.Service("wordpress")
 	c.Assert(err, IsNil)
+	c.Assert(relInfo.Endpoints, Equals, "")
+	c.Assert(relInfo.Interface, Equals, "")
+	c.Assert(relInfo.Scope, Equals, "")
 	rels, err := wpSvc.Relations()
 	c.Assert(len(rels), Equals, 1)
 	mySvc, err := s.State.Service("mysql")
@@ -59,7 +65,7 @@ func (s *AddRelationSuite) TestSuccessfullyAddRelationSwapped(c *C) {
 
 func (s *AddRelationSuite) TestCallWithOnlyOneEndpoint(c *C) {
 	s.setUpAddRelationScenario(c)
-	err := statecmd.AddRelation(s.State, params.AddRelation{
+	_, err := statecmd.AddRelation(s.State, params.AddRelation{
 		Endpoints: []string{"wordpress"},
 	})
 	c.Assert(err, ErrorMatches, "a relation must involve two services")
@@ -67,7 +73,7 @@ func (s *AddRelationSuite) TestCallWithOnlyOneEndpoint(c *C) {
 
 func (s *AddRelationSuite) TestCallWithOneEndpointTooMany(c *C) {
 	s.setUpAddRelationScenario(c)
-	err := statecmd.AddRelation(s.State, params.AddRelation{
+	_, err := statecmd.AddRelation(s.State, params.AddRelation{
 		Endpoints: []string{"wordpress", "mysql", "logging"},
 	})
 	c.Assert(err, ErrorMatches, "a relation must involve two services")
@@ -81,7 +87,7 @@ func (s *AddRelationSuite) TestAddAlreadyAddedRelation(c *C) {
 	_, err = s.State.AddRelation(eps...)
 	c.Assert(err, IsNil)
 	// And try to add it again.
-	err = statecmd.AddRelation(s.State, params.AddRelation{
+	_, err := statecmd.AddRelation(s.State, params.AddRelation{
 		Endpoints: []string{"wordpress", "mysql"},
 	})
 	c.Assert(err, ErrorMatches, `cannot add relation "wordpress:db mysql:server": relation already exists`)
