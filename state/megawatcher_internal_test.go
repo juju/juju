@@ -849,7 +849,7 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 	add(&params.ServiceInfo{
 		Name:     "wordpress",
 		Exposed:  true,
-		CharmURL: serviceCharmURL(wordpress),
+		CharmURL: serviceCharmURL(wordpress).String(),
 	})
 	pairs := map[string]string{"x": "12", "y": "99"}
 	err = wordpress.SetAnnotations(pairs)
@@ -864,7 +864,7 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 	c.Assert(err, IsNil)
 	add(&params.ServiceInfo{
 		Name:     "logging",
-		CharmURL: serviceCharmURL(logging),
+		CharmURL: serviceCharmURL(logging).String(),
 	})
 
 	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})

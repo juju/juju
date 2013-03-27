@@ -68,6 +68,7 @@ type UnitSettings struct {
 }
 
 // unitDoc represents the internal state of a unit in MongoDB.
+// Note the correspondence with UnitInfo in state/api/params.
 type unitDoc struct {
 	Name           string `bson:"_id"`
 	Service        string
