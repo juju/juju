@@ -1211,7 +1211,7 @@ func (s *StateSuite) TestOpenBadAddress(c *C) {
 	info := state.TestingStateInfo()
 	info.Addrs = []string{"0.1.2.3:1234"}
 	st, err := state.Open(info, state.DialOpts{
-		Timeout: 1 * time.Millisecond,
+		Timeout:    1 * time.Millisecond,
 		RetryDelay: 0,
 	})
 	if err == nil {
@@ -1227,7 +1227,7 @@ func (s *StateSuite) TestOpenDelaysRetryBadAddress(c *C) {
 
 	t0 := time.Now()
 	st, err := state.Open(info, state.DialOpts{
-		Timeout:1*time.Millisecond, 
+		Timeout:    1 * time.Millisecond,
 		RetryDelay: retryDelay,
 	})
 	if err == nil {
@@ -1260,9 +1260,9 @@ func (s *StateSuite) TestOpenDoesNotDelayOnHandShakeFailure(c *C) {
 
 	t0 := time.Now()
 	st, err := state.Open(info, state.DialOpts{
-                Timeout:1*time.Millisecond, 
-                RetryDelay: retryDelay,
-        })
+		Timeout:    1 * time.Millisecond,
+		RetryDelay: retryDelay,
+	})
 	if err == nil {
 		st.Close()
 	}
