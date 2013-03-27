@@ -46,6 +46,7 @@ func (job MachineJob) String() string {
 }
 
 // machineDoc represents the internal state of a machine in MongoDB.
+// Note the correspondence with MachineInfo in state/api/params.
 type machineDoc struct {
 	Id           string `bson:"_id"`
 	Series       string
