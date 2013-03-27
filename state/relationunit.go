@@ -181,7 +181,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 // exists and is Alive, its name will be returned as well; if one exists
 // but is not Alive, ErrCannotEnterScopeYet is returned.
 func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
-	if !ru.unit.IsPrincipal() || ru.endpoint.RelationScope != charm.ScopeContainer {
+	if !ru.unit.IsPrincipal() || ru.endpoint.Scope != charm.ScopeContainer {
 		return nil, "", nil
 	}
 	related, err := ru.relation.RelatedEndpoints(ru.endpoint.ServiceName)
@@ -298,7 +298,7 @@ func (ru *RelationUnit) LeaveScope() error {
 // WatchScope returns a watcher which notifies of counterpart units
 // entering and leaving the unit's scope.
 func (ru *RelationUnit) WatchScope() *RelationScopeWatcher {
-	role := ru.endpoint.RelationRole.counterpartRole()
+	role := counterpartRole(ru.endpoint.Role)
 	scope := ru.scope + "#" + string(role)
 	return newRelationScopeWatcher(ru.st, scope, ru.unit.Name())
 }
@@ -346,7 +346,7 @@ func (ru *RelationUnit) key(uname string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	parts := []string{ru.scope, string(ep.RelationRole), uname}
+	parts := []string{ru.scope, string(ep.Role), uname}
 	return strings.Join(parts, "#"), nil
 }
 

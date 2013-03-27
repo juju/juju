@@ -13,16 +13,24 @@ var _ = Suite(&RelationSuite{})
 // multi-endpoint peer relations, which are currently not constructable
 // by normal means.
 func (s *RelationSuite) TestRelatedEndpoints(c *C) {
-	r := &Relation{nil, relationDoc{Endpoints: []Endpoint{
-		{"jeff", "ifce", "group", RolePeer, charm.ScopeGlobal},
-		{"mike", "ifce", "group", RolePeer, charm.ScopeGlobal},
-		{"bill", "ifce", "group", RolePeer, charm.ScopeGlobal},
-	}}}
-	eps, err := r.RelatedEndpoints("mike")
+	rel := charm.Relation{
+		Interface: "ifce",
+		Name: "group",
+		Role: charm.RolePeer,
+		Scope: charm.ScopeGlobal,
+	}
+	eps :=  []Endpoint{{
+		ServiceName: "jeff",
+		Relation: rel,
+	}, {
+		ServiceName: "mike",
+		Relation: rel,
+	}, {
+		ServiceName: "mike",
+		Relation: rel,
+	}}
+	r := &Relation{nil, relationDoc{Endpoints: eps}}
+	relatedEps, err := r.RelatedEndpoints("mike")
 	c.Assert(err, IsNil)
-	c.Assert(eps, DeepEquals, []Endpoint{
-		{"jeff", "ifce", "group", RolePeer, charm.ScopeGlobal},
-		{"mike", "ifce", "group", RolePeer, charm.ScopeGlobal},
-		{"bill", "ifce", "group", RolePeer, charm.ScopeGlobal},
-	})
+	c.Assert(relatedEps, DeepEquals, eps)
 }

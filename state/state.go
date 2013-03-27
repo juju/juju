@@ -424,6 +424,9 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot get charm %q: %v", curl, err)
 	}
+	if err := cdoc.Meta.Check(); err != nil {
+		return nil, fmt.Errorf("malformed charm metadata found in state: %v", err)
+	}
 	return newCharm(st, cdoc)
 }
 
@@ -469,17 +472,14 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 			Insert: svcDoc,
 		}}
 	// Collect peer relation addition operations.
-	for relName, rel := range peers {
+	for _, rel := range peers {
 		relId, err := st.sequence("relation")
 		if err != nil {
 			return nil, err
 		}
 		eps := []Endpoint{{
 			ServiceName:   name,
-			Interface:     rel.Interface,
-			RelationName:  relName,
-			RelationRole:  RolePeer,
-			RelationScope: rel.Scope,
+			Relation: rel,
 		}}
 		relKey := relationKey(eps)
 		relDoc := &relationDoc{
@@ -606,11 +606,11 @@ outer:
 }
 
 func isPeer(ep Endpoint) bool {
-	return ep.RelationRole == RolePeer
+	return ep.Role == charm.RolePeer
 }
 
 func notPeer(ep Endpoint) bool {
-	return ep.RelationRole != RolePeer
+	return ep.Role != charm.RolePeer
 }
 
 // endpoints returns all endpoints that could be intended by the
@@ -665,10 +665,10 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		return nil, fmt.Errorf("endpoints do not relate")
 	}
 	// If either endpoint has container scope, so must the other.
-	if eps[0].RelationScope == charm.ScopeContainer {
-		eps[1].RelationScope = charm.ScopeContainer
-	} else if eps[1].RelationScope == charm.ScopeContainer {
-		eps[0].RelationScope = charm.ScopeContainer
+	if eps[0].Scope == charm.ScopeContainer {
+		eps[1].Scope = charm.ScopeContainer
+	} else if eps[1].Scope == charm.ScopeContainer {
+		eps[0].Scope = charm.ScopeContainer
 	}
 	// We only get a unique relation id once, to save on roundtrips. If it's
 	// -1, we haven't got it yet (we don't get it at this stage, because we

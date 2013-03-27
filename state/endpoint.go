@@ -5,29 +5,20 @@ import (
 	"launchpad.net/juju-core/charm"
 )
 
-// RelationRole defines the role of a relation endpoint.
-type RelationRole string
-
-const (
-	RoleProvider RelationRole = "provider"
-	RoleRequirer RelationRole = "requirer"
-	RolePeer     RelationRole = "peer"
-)
-
 // counterpartRole returns the RelationRole that this RelationRole
 // can relate to.
 // This should remain an internal method because the relation
 // model does not guarantee that for every role there will
 // necessarily exist a single counterpart role that is sensible
 // for basing algorithms upon.
-func (r RelationRole) counterpartRole() RelationRole {
+func counterpartRole(r charm.RelationRole) charm.RelationRole {
 	switch r {
-	case RoleProvider:
-		return RoleRequirer
-	case RoleRequirer:
-		return RoleProvider
-	case RolePeer:
-		return RolePeer
+	case charm.RoleProvider:
+		return charm.RoleRequirer
+	case charm.RoleRequirer:
+		return charm.RoleProvider
+	case charm.RolePeer:
+		return charm.RolePeer
 	}
 	panic(fmt.Errorf("unknown relation role %q", r))
 }
@@ -35,23 +26,20 @@ func (r RelationRole) counterpartRole() RelationRole {
 // Endpoint represents one endpoint of a relation.
 type Endpoint struct {
 	ServiceName   string
-	Interface     string
-	RelationName  string
-	RelationRole  RelationRole
-	RelationScope charm.RelationScope
+	charm.Relation
 }
 
 // String returns the unique identifier of the relation endpoint.
 func (ep Endpoint) String() string {
-	return ep.ServiceName + ":" + ep.RelationName
+	return ep.ServiceName + ":" + ep.Name
 }
 
 // CanRelateTo returns whether a relation may be established between e and other.
 func (ep Endpoint) CanRelateTo(other Endpoint) bool {
-	return (ep.ServiceName != other.ServiceName &&
+	return ep.ServiceName != other.ServiceName &&
 		ep.Interface == other.Interface &&
-		ep.RelationRole != RolePeer &&
-		ep.RelationRole.counterpartRole() == other.RelationRole)
+		ep.Role != charm.RolePeer &&
+		counterpartRole(ep.Role) == other.Role
 }
 
 // ImplementedBy returns whether the endpoint is implemented by the supplied charm.
@@ -60,28 +48,28 @@ func (ep Endpoint) ImplementedBy(ch charm.Charm) bool {
 		return true
 	}
 	var m map[string]charm.Relation
-	switch ep.RelationRole {
-	case RoleProvider:
+	switch ep.Role {
+	case charm.RoleProvider:
 		m = ch.Meta().Provides
-	case RoleRequirer:
+	case charm.RoleRequirer:
 		m = ch.Meta().Requires
-	case RolePeer:
+	case charm.RolePeer:
 		m = ch.Meta().Peers
 	default:
-		panic(fmt.Errorf("unknown relation role %q", ep.RelationRole))
+		panic(fmt.Errorf("unknown relation role %q", ep.Role))
 	}
-	rel, found := m[ep.RelationName]
+	rel, found := m[ep.Name]
 	if !found {
 		return false
 	}
 	if rel.Interface == ep.Interface {
-		switch ep.RelationScope {
+		switch ep.Scope {
 		case charm.ScopeGlobal:
 			return rel.Scope != charm.ScopeContainer
 		case charm.ScopeContainer:
 			return true
 		default:
-			panic(fmt.Errorf("unknown relation scope %q", ep.RelationScope))
+			panic(fmt.Errorf("unknown relation scope %q", ep.Scope))
 		}
 	}
 	return false
@@ -90,17 +78,17 @@ func (ep Endpoint) ImplementedBy(ch charm.Charm) bool {
 // IsImplicit returns whether the endpoint is supplied by juju itself,
 // rather than by a charm.
 func (ep Endpoint) IsImplicit() bool {
-	return (ep.RelationName == "juju-info" &&
+	return (ep.Name == "juju-info" &&
 		ep.Interface == "juju-info" &&
-		ep.RelationRole == RoleProvider)
+		ep.Role == charm.RoleProvider)
 }
 
 type epSlice []Endpoint
 
-var roleOrder = map[RelationRole]int{
-	RoleRequirer: 0,
-	RoleProvider: 1,
-	RolePeer:     2,
+var roleOrder = map[charm.RelationRole]int{
+	charm.RoleRequirer: 0,
+	charm.RoleProvider: 1,
+	charm.RolePeer:     2,
 }
 
 func (eps epSlice) Len() int      { return len(eps) }
@@ -108,8 +96,8 @@ func (eps epSlice) Swap(i, j int) { eps[i], eps[j] = eps[j], eps[i] }
 func (eps epSlice) Less(i, j int) bool {
 	ep1 := eps[i]
 	ep2 := eps[j]
-	if ep1.RelationRole != ep2.RelationRole {
-		return roleOrder[ep1.RelationRole] < roleOrder[ep2.RelationRole]
+	if ep1.Role != ep2.Role {
+		return roleOrder[ep1.Role] < roleOrder[ep2.Role]
 	}
 	return ep1.String() < ep2.String()
 }

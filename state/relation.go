@@ -85,7 +85,7 @@ func (r *Relation) Life() Life {
 // are currently in scope, it will be removed immediately.
 func (r *Relation) Destroy() (err error) {
 	defer trivial.ErrorContextf(&err, "cannot destroy relation %q", r)
-	if len(r.doc.Endpoints) == 1 && r.doc.Endpoints[0].RelationRole == RolePeer {
+	if len(r.doc.Endpoints) == 1 && r.doc.Endpoints[0].Role == charm.RolePeer {
 		return fmt.Errorf("is a peer relation")
 	}
 	defer func() {
@@ -242,10 +242,10 @@ func (r *Relation) RelatedEndpoints(serviceName string) ([]Endpoint, error) {
 	if err != nil {
 		return nil, err
 	}
-	role := local.RelationRole.counterpartRole()
+	role := counterpartRole(local.Role)
 	var eps []Endpoint
 	for _, ep := range r.doc.Endpoints {
-		if ep.RelationRole == role {
+		if ep.Role == role {
 			eps = append(eps, ep)
 		}
 	}
@@ -262,7 +262,7 @@ func (r *Relation) Unit(u *Unit) (*RelationUnit, error) {
 		return nil, err
 	}
 	scope := []string{"r", strconv.Itoa(r.doc.Id)}
-	if ep.RelationScope == charm.ScopeContainer {
+	if ep.Scope == charm.ScopeContainer {
 		container := u.doc.Principal
 		if container == "" {
 			container = u.doc.Name
