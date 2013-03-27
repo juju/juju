@@ -57,9 +57,10 @@ func Main(args []string) {
 	juju.Register(&GetConstraintsCommand{})
 	juju.Register(&SetConstraintsCommand{})
 	juju.Register(&ExposeCommand{})
+	juju.Register(&SyncToolsCommand{})
 	juju.Register(&UnexposeCommand{})
 	juju.Register(&UpgradeJujuCommand{})
-	juju.Register(&SyncToolsCommand{})
+	juju.Register(&UpgradeCharmCommand{})
 
 	// register common commands
 	juju.Register(&cmd.VersionCommand{})
