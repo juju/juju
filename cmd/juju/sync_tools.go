@@ -21,6 +21,7 @@ type SyncToolsCommand struct {
 	targetToolsList *environs.ToolsList
 	allVersions     bool
 	dryRun          bool
+	publicBucket    bool
 }
 
 var _ cmd.Command = (*SyncToolsCommand)(nil)
@@ -36,6 +37,7 @@ func (c *SyncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.BoolVar(&c.allVersions, "all", false, "instead of copying only the newest, copy all versions")
 	f.BoolVar(&c.dryRun, "dry-run", false, "don't copy, just print what would be copied")
+	f.BoolVar(&c.publicBucket, "public", false, "write to the public-bucket of the account, instead of the bucket private to the environment.")
 
 }
 
@@ -171,8 +173,18 @@ func (c *SyncToolsCommand) Run(_ *cmd.Context) error {
 	for _, t := range c.targetToolsList.Private {
 		fmt.Printf("Found Target: %s\n", t)
 	}
-	missing := findMissing(toolsToCopy, c.targetToolsList.Private)
-	err = copyTools(missing, officialEnviron.PublicStorage(), targetEnv.Storage(), c.dryRun)
+	targetTools := c.targetToolsList.Private
+	targetStorage := targetEnv.Storage()
+	if c.publicBucket {
+		targetTools = c.targetToolsList.Public
+		var ok bool
+		if targetStorage, ok = targetEnv.PublicStorage().(environs.Storage); !ok {
+			return fmt.Errorf("Cannot write to PublicStorage")
+		}
+
+	}
+	missing := findMissing(toolsToCopy, targetTools)
+	err = copyTools(missing, officialEnviron.PublicStorage(), targetStorage, c.dryRun)
 	if err != nil {
 		return err
 	}
