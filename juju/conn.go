@@ -285,11 +285,9 @@ func (conn *Conn) addCharm(curl *charm.URL, ch charm.Charm) (*state.Charm, error
 // to them as necessary.
 func (conn *Conn) AddUnits(svc *state.Service, n int) ([]*state.Unit, error) {
 	units := make([]*state.Unit, n)
-	// TODO store AssignmentPolicy in state, thus removing the need
-	// for this to use conn.Environ.
-	// 2012-03-26 thumper: I question the validity of the above TODO, why is
-	// it an issue to get the environment from the connection?  It seems to me
-	// that everything is local, so is just a few function calls...
+	// TODO store AssignmentPolicy in state, thus removing the need for this
+	// to use conn.Environ (so the method can be moved off Conn, and into
+	// State.
 	policy := conn.Environ.AssignmentPolicy()
 	// TODO what do we do if we fail half-way through this process?
 	for i := 0; i < n; i++ {
