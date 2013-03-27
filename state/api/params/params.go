@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 )
 
@@ -154,6 +155,11 @@ type SetServiceConstraints struct {
 	Constraints constraints.Value
 }
 
+// CharmInfo stores parameters for a CharmInfo call.
+type CharmInfo struct {
+	CharmURL string
+}
+
 // Delta holds details of a change to the environment.
 type Delta struct {
 	// If Removed is true, the entity has been removed;
@@ -213,6 +219,8 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 		d.Entity = new(UnitInfo)
 	case "relation":
 		d.Entity = new(RelationInfo)
+	case "annotation":
+		d.Entity = new(AnnotationInfo)
 	default:
 		return fmt.Errorf("Unexpected entity name %q", entityKind)
 	}
@@ -230,6 +238,10 @@ type EntityInfo interface {
 	// "service", ...)
 	EntityKind() string
 }
+
+// IMPORTANT NOTE: the types below are direct subsets of the entity docs
+// held in mongo, as defined in the state package (serviceDoc,
+// machineDoc etc).
 
 var (
 	_ EntityInfo = (*MachineInfo)(nil)
@@ -249,8 +261,9 @@ func (i *MachineInfo) EntityId() interface{} { return i.Id }
 func (i *MachineInfo) EntityKind() string    { return "machine" }
 
 type ServiceInfo struct {
-	Name    string `bson:"_id"`
-	Exposed bool
+	Name     string `bson:"_id"`
+	Exposed  bool
+	CharmURL *charm.URL
 }
 
 func (i *ServiceInfo) EntityId() interface{} { return i.Name }
@@ -271,7 +284,15 @@ type RelationInfo struct {
 func (i *RelationInfo) EntityId() interface{} { return i.Key }
 func (i *RelationInfo) EntityKind() string    { return "relation" }
 
-// CharmInfo stores parameters for a CharmInfo call.
-type CharmInfo struct {
-	CharmURL string
+type AnnotationInfo struct {
+	// TODO(rog) GlobalKey should not be necessary here, but is
+	// until there's a level of indirection between mgo documents
+	// and StateWatcher results. We ensure that it's not serialised
+	// for the API by specifying the json tag.
+	GlobalKey   string `bson:"_id" json:"-"`
+	EntityName  string
+	Annotations map[string]string
 }
+
+func (i *AnnotationInfo) EntityId() interface{} { return i.GlobalKey }
+func (i *AnnotationInfo) EntityKind() string    { return "annotation" }
