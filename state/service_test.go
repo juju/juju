@@ -254,10 +254,9 @@ peers:
   loadbalancer: phony
 `
 
-func (s *ServiceSuite) assertServiceRelations(c *C, svc *state.Service, expectedKeys []string) []*state.Relation {
+func (s *ServiceSuite) assertServiceRelations(c *C, svc *state.Service, expectedKeys ...string) []*state.Relation {
 	rels, err := svc.Relations()
 	c.Assert(err, IsNil)
-	c.Assert(rels, HasLen, len(expectedKeys))
 	if len(rels) == 0 {
 		return nil
 	}
@@ -276,16 +275,17 @@ func (s *ServiceSuite) TestNewPeerRelationsAddedOnUpgrade(c *C) {
 	newCh := s.AddMetaCharm(c, "mysql", mysqlBaseMeta+twoPeersMeta, 3)
 
 	// No relations joined yet.
-	s.assertServiceRelations(c, s.mysql, nil)
+	s.assertServiceRelations(c, s.mysql)
 
 	err := s.mysql.SetCharm(oldCh, false)
 	c.Assert(err, IsNil)
-	s.assertServiceRelations(c, s.mysql, []string{"mysql:cluster"})
+	s.assertServiceRelations(c, s.mysql, "mysql:cluster")
 
 	err = s.mysql.SetCharm(newCh, false)
 	c.Assert(err, IsNil)
-	rels := s.assertServiceRelations(c, s.mysql, []string{"mysql:cluster", "mysql:loadbalancer"})
+	rels := s.assertServiceRelations(c, s.mysql, "mysql:cluster", "mysql:loadbalancer")
 
+	// Check state consistency by attempting to destroy the service.
 	err = s.mysql.Destroy()
 	c.Assert(err, IsNil)
 

@@ -311,7 +311,7 @@ func (s *Service) Endpoint(relationName string) (Endpoint, error) {
 func (s *Service) extraPeerRelations(newMeta *charm.Meta) map[string]charm.Relation {
 	if newMeta == nil {
 		// This should never happen, since we're checking the charm in SetCharm already.
-		panic("newMeta is nil; cannot determine new peer relations")
+		panic("newMeta is nil")
 	}
 	ch, _, err := s.Charm()
 	if err != nil {
