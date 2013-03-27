@@ -33,8 +33,8 @@ author working on a single client machine; use of local repositories from
 multiple clients is not supported and may lead to confusing behaviour.
 
 Use of the --force flag is not generally recommended; units upgraded while in
-an error state will not have upgrade-charm hooks executed, and may thus behave
-unexpectedly.
+an error state will not have upgrade-charm hooks executed, and may cause
+unexpected behavior.
 `
 
 func (c *UpgradeCharmCommand) Info() *cmd.Info {
