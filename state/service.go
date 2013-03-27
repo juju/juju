@@ -404,6 +404,13 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 		return nil, err
 	}
 	ops = append(ops, peerOps...)
+	// Update the relation count as well.
+	ops = append(ops, txn.Op{
+		C:      s.st.services.Name,
+		Id:     s.doc.Name,
+		Assert: txn.DocExists,
+		Update: D{{"$inc", D{{"relationcount", len(newPeers)}}}},
+	})
 
 	// And finally, decrement the old settings.
 	return append(ops, decOps...), nil

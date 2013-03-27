@@ -32,6 +32,10 @@ func ServiceSettingsRefCount(st *State, serviceName string, curl *charm.URL) (in
 	return 0, mgo.ErrNotFound
 }
 
+func ServiceRelationCount(svc *Service) int {
+	return svc.doc.RelationCount
+}
+
 func init() {
 	logSize = logSizeTests
 }
