@@ -98,6 +98,30 @@ func (s *MachineSuite) TestWithDeadMachine(c *C) {
 	c.Assert(err, IsNil)
 }
 
+func (s *MachineSuite) TestDyingMachine(c *C) {
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	done := make(chan error)
+	go func() {
+		done <- a.Run(nil)
+	}()
+	defer func() {
+		c.Check(a.Stop(), IsNil)
+	}()
+	time.Sleep(1 * time.Second)
+	err := m.Destroy()
+	c.Assert(err, IsNil)
+	select {
+	case err := <-done:
+		c.Assert(err, IsNil)
+	case <-time.After(3900 * time.Millisecond):
+		c.Fatalf("timed out waiting for agent to terminate")
+	}
+	err = m.Refresh()
+	c.Assert(err, IsNil)
+	c.Assert(m.Life(), Equals, state.Dead)
+}
+
 func (s *MachineSuite) TestHostUnits(c *C) {
 	m, conf, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
