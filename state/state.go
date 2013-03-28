@@ -447,8 +447,8 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 			return nil, err
 		}
 		eps := []Endpoint{{
-			ServiceName:   serviceName,
-			Relation: rel,
+			ServiceName: serviceName,
+			Relation:    rel,
 		}}
 		relKey := relationKey(eps)
 		relDoc := &relationDoc{
