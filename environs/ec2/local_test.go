@@ -267,7 +267,7 @@ func (t *localServerSuite) TearDownTest(c *C) {
 
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	policy := t.env.AssignmentPolicy()
-	c.Assert(policy, Equals, state.AssignUnused)
+	c.Assert(policy, Equals, state.AssignNew)
 
 	err := environs.UploadTools(t.env)
 	c.Assert(err, IsNil)

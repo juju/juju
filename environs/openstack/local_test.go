@@ -231,7 +231,7 @@ func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
 	env, err := environs.NewFromAttrs(s.TestConfig.Config)
 	c.Assert(err, IsNil)
 	err = environs.Bootstrap(env, constraints.Value{})
-	c.Assert(err, ErrorMatches, ".*cannot allocate a public IP as needed.*")
+	c.Assert(err, ErrorMatches, "(.|\n)*cannot allocate a public IP as needed(.|\n)*")
 }
 
 // If the environment is configured not to require a public IP address for nodes,
@@ -348,7 +348,7 @@ func (s *localServerSuite) TestInstancesGathering(c *C) {
 // It should be moved to environs.jujutests.Tests.
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	policy := t.env.AssignmentPolicy()
-	c.Assert(policy, Equals, state.AssignUnused)
+	c.Assert(policy, Equals, state.AssignNew)
 
 	err := environs.Bootstrap(t.env, constraints.Value{})
 	c.Assert(err, IsNil)

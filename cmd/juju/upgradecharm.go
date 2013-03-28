@@ -15,6 +15,7 @@ import (
 type UpgradeCharmCommand struct {
 	EnvCommandBase
 	ServiceName string
+	Force       bool
 	RepoPath    string // defaults to JUJU_REPOSITORY
 }
 
@@ -30,6 +31,10 @@ automatically incremented to create a newer charm.
 The local repository behaviour is tuned specifically to the workflow of a charm
 author working on a single client machine; use of local repositories from
 multiple clients is not supported and may lead to confusing behaviour.
+
+Use of the --force flag is not generally recommended; units upgraded while in
+an error state will not have upgrade-charm hooks executed, and may cause
+unexpected behavior.
 `
 
 func (c *UpgradeCharmCommand) Info() *cmd.Info {
@@ -43,6 +48,7 @@ func (c *UpgradeCharmCommand) Info() *cmd.Info {
 
 func (c *UpgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
+	f.BoolVar(&c.Force, "force", false, "upgrade all units immediately, even if in error state")
 	f.StringVar(&c.RepoPath, "repository", os.Getenv("JUJU_REPOSITORY"), "local charm repository path")
 }
 
@@ -58,7 +64,7 @@ func (c *UpgradeCharmCommand) Init(args []string) error {
 	default:
 		return cmd.CheckEmpty(args[1:])
 	}
-	// TODO(dimitern): add the other flags --switch, --force and --revision.
+	// TODO(dimitern): add the other flags --switch and --revision.
 	return nil
 }
 
@@ -100,7 +106,5 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	// TODO(dimitern): get this from the --force flag
-	forced := false
-	return service.SetCharm(sch, forced)
+	return service.SetCharm(sch, c.Force)
 }
