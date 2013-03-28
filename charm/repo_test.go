@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/testing"
 	"net"
@@ -97,9 +98,9 @@ func (s *MockStore) ServeCharm(w http.ResponseWriter, r *http.Request) {
 }
 
 type StoreSuite struct {
-	server *MockStore
-	store  charm.Repository
-	cache  string
+	server      *MockStore
+	store       charm.Repository
+	oldJujuHome string
 }
 
 var _ = Suite(&StoreSuite{})
@@ -109,12 +110,13 @@ func (s *StoreSuite) SetUpSuite(c *C) {
 }
 
 func (s *StoreSuite) SetUpTest(c *C) {
-	s.cache = c.MkDir()
-	s.store = charm.NewStore("http://127.0.0.1:4444", s.cache)
+	s.oldJujuHome = config.SetJujuHome(c.MkDir())
+	s.store = charm.NewStore("http://127.0.0.1:4444")
 	s.server.downloads = nil
 }
 
 func (s *StoreSuite) TearDownSuite(c *C) {
+	config.SetJujuHome(s.oldJujuHome)
 	s.server.lis.Close()
 }
 
@@ -162,7 +164,6 @@ func (s *StoreSuite) assertCached(c *C, curl *charm.URL) {
 }
 
 func (s *StoreSuite) TestGetCacheImplicitRevision(c *C) {
-	os.RemoveAll(s.cache)
 	base := "cs:series/blah"
 	curl := charm.MustParseURL(base)
 	revCurl := charm.MustParseURL(base + "-23")
@@ -175,7 +176,6 @@ func (s *StoreSuite) TestGetCacheImplicitRevision(c *C) {
 }
 
 func (s *StoreSuite) TestGetCacheExplicitRevision(c *C) {
-	os.RemoveAll(s.cache)
 	base := "cs:series/blah-12"
 	curl := charm.MustParseURL(base)
 	ch, err := s.store.Get(curl)
@@ -186,11 +186,12 @@ func (s *StoreSuite) TestGetCacheExplicitRevision(c *C) {
 }
 
 func (s *StoreSuite) TestGetBadCache(c *C) {
+	c.Assert(os.Mkdir(config.JujuHomePath("cache"), 0777), IsNil)
 	base := "cs:series/blah"
 	curl := charm.MustParseURL(base)
 	revCurl := charm.MustParseURL(base + "-23")
 	name := charm.Quote(revCurl.String()) + ".charm"
-	err := ioutil.WriteFile(filepath.Join(s.cache, name), nil, 0666)
+	err := ioutil.WriteFile(config.JujuHomePath("cache", name), nil, 0666)
 	c.Assert(err, IsNil)
 	ch, err := s.store.Get(curl)
 	c.Assert(err, IsNil)

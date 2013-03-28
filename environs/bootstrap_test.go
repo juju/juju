@@ -18,7 +18,7 @@ const (
 )
 
 type bootstrapSuite struct {
-	home testing.FakeHome
+	home *testing.FakeHome
 	testing.LoggingSuite
 }
 
@@ -45,7 +45,7 @@ func (s *bootstrapSuite) TestBootstrapKeyGeneration(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
 
-	caCertPEM, err := ioutil.ReadFile(testing.HomePath(".juju", "foo-cert.pem"))
+	caCertPEM, err := ioutil.ReadFile(config.JujuHomePath("foo-cert.pem"))
 	c.Assert(err, IsNil)
 
 	err = cert.Verify(env.certPEM, caCertPEM, time.Now())

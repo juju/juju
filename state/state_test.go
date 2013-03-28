@@ -1368,8 +1368,10 @@ type namedEntity interface {
 }
 
 var envConfig = map[string]interface{}{
-	"name": "test",
-	"type": "test",
+	"name":           "test",
+	"type":           "test",
+	"ca-cert":        testing.CACert,
+	"ca-private-key": "",
 }
 
 func setUpEnvConfig(c *C) {

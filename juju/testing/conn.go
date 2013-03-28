@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
@@ -32,14 +33,19 @@ import (
 //         root of the juju data storage space.
 // $HOME is set to point to RootDir/home/ubuntu.
 type JujuConnSuite struct {
+	// TODO: JujuConnSuite should not be concerned both with JUJU_HOME and with
+	// /var/lib/juju: the use cases are completely non-overlapping, and any tests that
+	// really do need both to exist ought to be embedding distinct fixtures for the
+	// distinct environments.
 	testing.LoggingSuite
 	testing.MgoSuite
-	Conn     *juju.Conn
-	State    *state.State
-	APIConn  *juju.APIConn
-	APIState *api.State
-	RootDir  string // The faked-up root directory.
-	oldHome  string
+	Conn        *juju.Conn
+	State       *state.State
+	APIConn     *juju.APIConn
+	APIState    *api.State
+	RootDir     string // The faked-up root directory.
+	oldHome     string
+	oldJujuHome string
 }
 
 // InvalidStateInfo holds information about no state - it will always
@@ -83,7 +89,7 @@ func StartInstance(c *C, env environs.Environ, machineId string) environs.Instan
 
 const AdminSecret = "dummy-secret"
 
-var config = []byte(`
+var envConfig = []byte(`
 environments:
     dummyenv:
         type: dummy
@@ -104,6 +110,7 @@ func (s *JujuConnSuite) TearDownSuite(c *C) {
 }
 
 func (s *JujuConnSuite) SetUpTest(c *C) {
+	s.oldJujuHome = config.SetJujuHome(c.MkDir())
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	s.setUpConn(c)
@@ -113,6 +120,7 @@ func (s *JujuConnSuite) TearDownTest(c *C) {
 	s.tearDownConn(c)
 	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
+	config.SetJujuHome(s.oldJujuHome)
 }
 
 // Reset returns environment state to that which existed at the start of
@@ -151,16 +159,13 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	err = os.MkdirAll(dataDir, 0777)
 	c.Assert(err, IsNil)
 
-	err = os.Mkdir(filepath.Join(home, ".juju"), 0777)
+	err = ioutil.WriteFile(config.JujuHomePath("environments.yaml"), envConfig, 0600)
 	c.Assert(err, IsNil)
 
-	err = ioutil.WriteFile(filepath.Join(home, ".juju", "environments.yaml"), config, 0600)
+	err = ioutil.WriteFile(config.JujuHomePath("dummyenv-cert.pem"), []byte(testing.CACert), 0666)
 	c.Assert(err, IsNil)
 
-	err = ioutil.WriteFile(filepath.Join(home, ".juju", "dummyenv-cert.pem"), []byte(testing.CACert), 0666)
-	c.Assert(err, IsNil)
-
-	err = ioutil.WriteFile(filepath.Join(home, ".juju", "dummyenv-private-key.pem"), []byte(testing.CAKey), 0600)
+	err = ioutil.WriteFile(config.JujuHomePath("dummyenv-private-key.pem"), []byte(testing.CAKey), 0600)
 	c.Assert(err, IsNil)
 
 	environ, err := environs.NewFromName("dummyenv")
@@ -206,12 +211,12 @@ func (s *JujuConnSuite) DataDir() string {
 }
 
 // WriteConfig writes a juju config file to the "home" directory.
-func (s *JujuConnSuite) WriteConfig(config string) {
+func (s *JujuConnSuite) WriteConfig(configData string) {
 	if s.RootDir == "" {
-		panic("SetUpTest has not been called; will not overwrite $HOME/.juju/environments.yaml")
+		panic("SetUpTest has not been called; will not overwrite $JUJU_HOME/environments.yaml")
 	}
-	path := filepath.Join(os.Getenv("HOME"), ".juju", "environments.yaml")
-	err := ioutil.WriteFile(path, []byte(config), 0600)
+	path := config.JujuHomePath("environments.yaml")
+	err := ioutil.WriteFile(path, []byte(configData), 0600)
 	if err != nil {
 		panic(err)
 	}
