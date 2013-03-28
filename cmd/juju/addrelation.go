@@ -35,6 +35,6 @@ func (c *AddRelationCommand) Run(_ *cmd.Context) error {
 	params := params.AddRelation{
 		Endpoints: c.Endpoints,
 	}
-	_, err := statecmd.AddRelation(conn.State, params)
+	_, err = statecmd.AddRelation(conn.State, params)
 	return err
 }

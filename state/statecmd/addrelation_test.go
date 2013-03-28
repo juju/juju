@@ -2,6 +2,7 @@ package statecmd_test
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/statecmd"
@@ -25,16 +26,19 @@ func (s *AddRelationSuite) setUpAddRelationScenario(c *C) {
 
 func (s *AddRelationSuite) TestSuccessfullyAddRelation(c *C) {
 	s.setUpAddRelationScenario(c)
-	relInfo, err := statecmd.AddRelation(s.State, params.AddRelation{
+	endpoints, err := statecmd.AddRelation(s.State, params.AddRelation{
 		Endpoints: []string{"wordpress", "mysql"},
 	})
 	c.Assert(err, IsNil)
+	c.Assert(endpoints.Endpoints["wordpress"].Name, Equals, "db")
+	c.Assert(endpoints.Endpoints["wordpress"].Interface, Equals, "mysql")
+	c.Assert(endpoints.Endpoints["wordpress"].Scope, Equals, charm.RelationScope("global"))
+	c.Assert(endpoints.Endpoints["mysql"].Name, Equals, "server")
+	c.Assert(endpoints.Endpoints["mysql"].Interface, Equals, "mysql")
+	c.Assert(endpoints.Endpoints["mysql"].Scope, Equals, charm.RelationScope("global"))
 	// Show that the relation was added.
 	wpSvc, err := s.State.Service("wordpress")
 	c.Assert(err, IsNil)
-	c.Assert(relInfo.Endpoints, Equals, "")
-	c.Assert(relInfo.Interface, Equals, "")
-	c.Assert(relInfo.Scope, Equals, "")
 	rels, err := wpSvc.Relations()
 	c.Assert(len(rels), Equals, 1)
 	mySvc, err := s.State.Service("mysql")
@@ -45,16 +49,19 @@ func (s *AddRelationSuite) TestSuccessfullyAddRelation(c *C) {
 
 func (s *AddRelationSuite) TestSuccessfullyAddRelationSwapped(c *C) {
 	s.setUpAddRelationScenario(c)
-	relInfo, err := statecmd.AddRelation(s.State, params.AddRelation{
+	res, err := statecmd.AddRelation(s.State, params.AddRelation{
 		Endpoints: []string{"mysql", "wordpress"},
 	})
 	c.Assert(err, IsNil)
+	c.Assert(res.Endpoints["mysql"].Name, Equals, "server")
+	c.Assert(res.Endpoints["mysql"].Interface, Equals, "mysql")
+	c.Assert(res.Endpoints["mysql"].Scope, Equals, charm.RelationScope("global"))
+	c.Assert(res.Endpoints["wordpress"].Name, Equals, "db")
+	c.Assert(res.Endpoints["wordpress"].Interface, Equals, "mysql")
+	c.Assert(res.Endpoints["wordpress"].Scope, Equals, charm.RelationScope("global"))
 	// Show that the relation was added.
 	wpSvc, err := s.State.Service("wordpress")
 	c.Assert(err, IsNil)
-	c.Assert(relInfo.Endpoints, Equals, "")
-	c.Assert(relInfo.Interface, Equals, "")
-	c.Assert(relInfo.Scope, Equals, "")
 	rels, err := wpSvc.Relations()
 	c.Assert(len(rels), Equals, 1)
 	mySvc, err := s.State.Service("mysql")
@@ -87,7 +94,7 @@ func (s *AddRelationSuite) TestAddAlreadyAddedRelation(c *C) {
 	_, err = s.State.AddRelation(eps...)
 	c.Assert(err, IsNil)
 	// And try to add it again.
-	_, err := statecmd.AddRelation(s.State, params.AddRelation{
+	_, err = statecmd.AddRelation(s.State, params.AddRelation{
 		Endpoints: []string{"wordpress", "mysql"},
 	})
 	c.Assert(err, ErrorMatches, `cannot add relation "wordpress:db mysql:server": relation already exists`)

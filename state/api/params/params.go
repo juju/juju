@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 )
 
@@ -13,11 +14,10 @@ type AddRelation struct {
 	Endpoints []string
 }
 
-// AddRelationResults holds results of the AddRelation call.
+// AddRelationResults holds results of the AddRelation call. The Endpoints
+// field maps service names to the involved endpoints.
 type AddRelationResults struct {
-	Endpoints []string
-	Interface string
-	Scope     string
+	Endpoints map[string]charm.Relation
 }
 
 // DestroyRelation holds the parameters for making the DestroyRelation call.

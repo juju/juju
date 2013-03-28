@@ -93,15 +93,15 @@ func (c *Client) ServiceGet(service string) (*params.ServiceGetResults, error) {
 
 // AddRelation adds a relation between the specified endpoints and returns the relation info.
 func (c *Client) AddRelation(endpoint0, endpoint1 string) (*params.AddRelationResults, error) {
-	var relInfo params.AddRelationResults
+	var addRelRes params.AddRelationResults
 	params := params.AddRelation{
 		Endpoints: []string{endpoint0, endpoint1},
 	}
-	err := c.st.client.Call("Client", "", "AddRelation", params, &relInfo)
+	err := c.st.client.Call("Client", "", "AddRelation", params, &addRelRes)
 	if err != nil {
 		return nil, clientError(err)
 	}
-	return &relInfo, nil
+	return &addRelRes, nil
 }
 
 // DestroyRelation removes the relation between the specified endpoints.

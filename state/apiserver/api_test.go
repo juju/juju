@@ -1358,15 +1358,18 @@ func (s *suite) TestClientServiceDeploy(c *C) {
 func (s *suite) TestSuccessfulAddRelation(c *C) {
 	s.setUpScenario(c)
 	endpoints := []string{"wordpress", "mysql"}
-	relInfo, err := s.APIState.Client().AddRelation(endpoints[0], endpoints[1])
+	res, err := s.APIState.Client().AddRelation(endpoints[0], endpoints[1])
 	c.Assert(err, IsNil)
-	c.Assert(relInfo.Endpoints, Equals, "")
-	c.Assert(relInfo.Interface, Equals, "")
-	c.Assert(relInfo.Scope, Equals, "")
+	c.Assert(res.Endpoints["wordpress"].Name, Equals, "db")
+	c.Assert(res.Endpoints["wordpress"].Interface, Equals, "mysql")
+	c.Assert(res.Endpoints["wordpress"].Scope, Equals, charm.RelationScope("global"))
+	c.Assert(res.Endpoints["mysql"].Name, Equals, "server")
+	c.Assert(res.Endpoints["mysql"].Interface, Equals, "mysql")
+	c.Assert(res.Endpoints["mysql"].Scope, Equals, charm.RelationScope("global"))
 	for _, endpoint := range endpoints {
-		service, err := s.State.Service(endpoint)
+		svc, err := s.State.Service(endpoint)
 		c.Assert(err, IsNil)
-		rels, err := service.Relations()
+		rels, err := svc.Relations()
 		c.Assert(err, IsNil)
 		for _, rel := range rels {
 			c.Assert(rel.Life(), Equals, state.Alive)
