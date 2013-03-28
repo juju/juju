@@ -67,7 +67,7 @@ func (s *MetaSuite) TestSubordinateWithoutContainerRelation(c *C) {
 	hackYaml := ReadYaml(r)
 	hackYaml["subordinate"] = true
 	_, err := charm.ReadMeta(hackYaml.Reader())
-	c.Assert(err, ErrorMatches, "subordinate charm \"dummy\" lacks requires relation with container scope")
+	c.Assert(err, ErrorMatches, "subordinate charm \"dummy\" lacks \"requires\" relation with container scope")
 }
 
 func (s *MetaSuite) TestScopeConstraint(c *C) {
