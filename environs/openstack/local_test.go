@@ -231,7 +231,7 @@ func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
 	env, err := environs.NewFromAttrs(s.TestConfig.Config)
 	c.Assert(err, IsNil)
 	err = environs.Bootstrap(env, constraints.Value{})
-	c.Assert(err, ErrorMatches, ".*cannot allocate a public IP as needed.*")
+	c.Assert(err, ErrorMatches, "(.|\n)*cannot allocate a public IP as needed(.|\n)*")
 }
 
 // If the environment is configured not to require a public IP address for nodes,
