@@ -148,7 +148,7 @@ func assertOrder(c *C, revnos ...int64) {
 
 func (s *watcherSuite) revno(c string, id interface{}) (revno int64) {
 	var doc struct {
-		Revno int64       "txn-revno"
+		Revno int64 "txn-revno"
 	}
 	err := s.log.Database.C(c).FindId(id).One(&doc)
 	if err != nil {
