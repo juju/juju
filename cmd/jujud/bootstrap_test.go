@@ -6,7 +6,6 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/agent"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 )
@@ -16,8 +15,7 @@ import (
 type BootstrapSuite struct {
 	testing.LoggingSuite
 	testing.MgoSuite
-	dataDir     string
-	oldJujuHome string
+	dataDir string
 }
 
 var _ = Suite(&BootstrapSuite{})
@@ -36,11 +34,9 @@ func (s *BootstrapSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	s.dataDir = c.MkDir()
-	s.oldJujuHome = config.SetJujuHome(c.MkDir())
 }
 
 func (s *BootstrapSuite) TearDownTest(c *C) {
-	config.SetJujuHome(s.oldJujuHome)
 	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }
@@ -227,4 +223,5 @@ var testConfig = b64yaml{
 	"state-server":    false,
 	"authorized-keys": "i-am-a-key",
 	"ca-cert":         testing.CACert,
+	"ca-private-key":  "",
 }.encode()

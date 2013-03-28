@@ -1344,12 +1344,13 @@ type namedEntity interface {
 }
 
 var envConfig = map[string]interface{}{
-	"name": "test",
-	"type": "test",
+	"name":           "test",
+	"type":           "test",
+	"ca-cert":        testing.CACert,
+	"ca-private-key": "",
 }
 
 func setUpEnvConfig(c *C) {
-	defer config.SetJujuHome(config.SetJujuHome(c.MkDir()))
 	cfg, err := config.New(envConfig)
 	c.Assert(err, IsNil)
 	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialTimeout)

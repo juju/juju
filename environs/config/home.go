@@ -6,7 +6,8 @@ import (
 )
 
 // jujuHome stores the path to the juju configuration
-// folder, which is typically defined by $JUJU_HOME or
+// folder, which is only meaningful when running the juju 
+// CLI tool, and is typically defined by $JUJU_HOME or
 // $HOME/.juju as default.
 var (
 	jujuHomeMu sync.Mutex

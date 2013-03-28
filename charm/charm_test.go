@@ -7,7 +7,6 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/testing"
 	stdtesting "testing"
 )
@@ -40,7 +39,6 @@ var inferRepoTests = []struct {
 }
 
 func (s *CharmSuite) TestInferRepository(c *C) {
-	defer config.SetJujuHome(config.SetJujuHome(c.MkDir()))
 	for i, t := range inferRepoTests {
 		c.Logf("test %d", i)
 		curl, err := charm.InferURL(t.url, "precise")

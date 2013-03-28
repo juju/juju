@@ -20,9 +20,10 @@ func (s *JujuHomeSuite) TestStandardHome(c *C) {
 }
 
 func (s *JujuHomeSuite) TestErrorHome(c *C) {
-	defer config.SetJujuHome(config.SetJujuHome(""))
 	// Invalid juju home leads to panic when retrieving.
 	f := func() { _ = config.JujuHome() }
+	c.Assert(f, PanicMatches, "juju home hasn't been initialized")
+	f = func() { _ = config.JujuHomePath("environments.yaml") }
 	c.Assert(f, PanicMatches, "juju home hasn't been initialized")
 }
 

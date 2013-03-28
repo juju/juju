@@ -33,10 +33,10 @@ import (
 //         root of the juju data storage space.
 // $HOME is set to point to RootDir/home/ubuntu.
 type JujuConnSuite struct {
-	// TODO
-	// Today the juju home directory can be defined by the
-	// user and the data directory is set static to 
-	// /var/lib/juju. That has to be flexible too.
+	// TODO: JujuConnSuite should not be concerned both with JUJU_HOME and with
+	// /var/lib/juju: the use cases are completely non-overlapping, and any tests that
+	// really do need both to exist ought to be embedding distinct fixtures for the
+	// distinct environments.
 	testing.LoggingSuite
 	testing.MgoSuite
 	Conn        *juju.Conn

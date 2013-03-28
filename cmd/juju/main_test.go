@@ -192,6 +192,7 @@ var commandNames = []string{
 	"add-relation",
 	"add-unit",
 	"bootstrap",
+	"debug-log",
 	"deploy",
 	"destroy-environment",
 	"destroy-machine",

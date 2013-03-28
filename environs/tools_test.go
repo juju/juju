@@ -6,7 +6,6 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/agent"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
@@ -81,7 +80,6 @@ var commandTests = []struct {
 }
 
 func (t *ToolsSuite) TestUploadTools(c *C) {
-	defer config.SetJujuHome(config.SetJujuHome(c.MkDir()))
 	env, err := environs.NewFromAttrs(map[string]interface{}{
 		"name":            "upload-test",
 		"type":            "dummy",
@@ -89,6 +87,8 @@ func (t *ToolsSuite) TestUploadTools(c *C) {
 		"authorized-keys": "i-am-a-key",
 		"agent-version":   "1.9.10", // Older than current version
 		"default-series":  "lucid",  // Real old series
+		"ca-cert":         testing.CACert,
+		"ca-private-key":  "",
 	})
 	c.Assert(err, IsNil)
 
