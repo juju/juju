@@ -1,10 +1,12 @@
 package maas
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"launchpad.net/gomaasapi"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -122,9 +124,26 @@ func (env *maasEnviron) getMongoURL(tools *state.Tools) string {
 	return environs.MongoURL(env, v)
 }
 
-// Suppress compiler errors for unused variables.
-// TODO: Eliminate all usage of this function.  It's just for development.
-func unused(...interface{}) {}
+// makeMachineConfig sets up a basic machine configuration for use with
+// userData().  You may still need to supply more information, but this takes
+// care of the fixed entries and the ones that are always needed.
+func (env *maasEnviron) makeMachineConfig(machineID string, stateInfo *state.Info, apiInfo *api.Info, tools *state.Tools) *cloudinit.MachineConfig {
+	return &cloudinit.MachineConfig{
+		// Fixed entries.
+		MongoPort: mgoPort,
+		APIPort:   apiPort,
+		DataDir:   jujuDataDir,
+
+		// Entries based purely on what's in the environment.
+		AuthorizedKeys: env.ecfg().AuthorizedKeys(),
+
+		// Parameter entries.
+		MachineId: machineID,
+		StateInfo: stateInfo,
+		APIInfo:   apiInfo,
+		Tools:     tools,
+	}
+}
 
 // startBootstrapNode starts the juju bootstrap node for this environment.
 func (env *maasEnviron) startBootstrapNode(tools *state.Tools, cert, key []byte, password string) (environs.Instance, error) {
@@ -145,10 +164,24 @@ func (env *maasEnviron) startBootstrapNode(tools *state.Tools, cert, key []byte,
 		Password: trivial.PasswordHash(password),
 		CACert:   caCert,
 	}
-	// TODO: Obtain userdata based on mongoURL cert/key, and config
-	unused(mongoURL, cert, key, config)
-	var userdata []byte
-	inst, err := env.obtainNode("0", &stateInfo, &apiInfo, tools, userdata)
+
+	// The bootstrap instance gets machine id "0".  This is not related to
+	// instance ids or MAAS system ids.  Juju assigns the machine ID.
+	const machineID = "0"
+
+	mcfg := env.makeMachineConfig(machineID, &stateInfo, &apiInfo, tools)
+	mcfg.StateServer = true
+	mcfg.StateServerCert = cert
+	mcfg.StateServerKey = key
+	mcfg.MongoURL = mongoURL
+	mcfg.Config = config
+
+	userdata, err := userData(mcfg)
+	if err != nil {
+		msg := fmt.Errorf("could not compose userdata for bootstrap node: %v", err)
+		return nil, msg
+	}
+	inst, err := env.obtainNode(machineID, &stateInfo, &apiInfo, tools, userdata)
 	if err != nil {
 		return nil, fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
@@ -311,14 +344,14 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, tools *state.To
 		Total: 5 * time.Second,
 		Delay: 200 * time.Millisecond,
 	}
+	userDataParam := base64.StdEncoding.EncodeToString(userdata)
 	params := url.Values{
 		"distro_series": {tools.Series},
-		// TODO: How do we pass user_data!?
-		//"user_data": {userdata},
+		"user_data":     {userDataParam},
 	}
 	// Initialize err to a non-nil value as a sentinel for the following
 	// loop.
-	var err error = fmt.Errorf("(no error)")
+	err := fmt.Errorf("(no error)")
 	for a := retry.Start(); a.Next() && err != nil; {
 		_, err = node.CallPost("start", params)
 	}
@@ -347,7 +380,7 @@ func (environ *maasEnviron) obtainNode(machineId string, stateInfo *state.Info, 
 }
 
 // StartInstance is specified in the Environ interface.
-func (environ *maasEnviron) StartInstance(machineId string, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
+func (environ *maasEnviron) StartInstance(machineID string, stateInfo *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
 	if tools == nil {
 		flags := environs.HighestVersion | environs.CompatVersion
 		var err error
@@ -356,9 +389,14 @@ func (environ *maasEnviron) StartInstance(machineId string, info *state.Info, ap
 			return nil, err
 		}
 	}
-	// TODO: Obtain userdata.
-	var userdata []byte
-	return environ.obtainNode(machineId, info, apiInfo, tools, userdata)
+
+	mcfg := environ.makeMachineConfig(machineID, stateInfo, apiInfo, tools)
+	userdata, err := userData(mcfg)
+	if err != nil {
+		msg := fmt.Errorf("could not compose user data: %v", err)
+		return nil, msg
+	}
+	return environ.obtainNode(machineID, stateInfo, apiInfo, tools, userdata)
 }
 
 // StopInstances is specified in the Environ interface.

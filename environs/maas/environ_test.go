@@ -2,6 +2,7 @@ package maas
 
 import (
 	"bytes"
+	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/gomaasapi"
 	"launchpad.net/juju-core/environs"
@@ -169,22 +170,31 @@ func (suite *EnvironSuite) TestPublicStorageReturnsEmptyStorage(c *C) {
 	c.Check(storage, Equals, environs.EmptyStorage)
 }
 
+// fakeWriteCertAndKey is a stub for the writeCertAndKey to Bootstrap() that
+// always returns an error.  It should never be called.
+func fakeWriteCertAndKey(name string, cert, key []byte) error {
+	return fmt.Errorf("unexpected call to writeCertAndKey")
+}
+
 func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
-	const input = `{"system_id": "test"}`
-	const machineID = "99"
-	node := suite.testMAASObject.TestServer.NewNode(input)
-	resourceURI, err := node.GetField("resource_uri")
-	c.Assert(err, IsNil)
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node1", "hostname": "host1"}`)
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node2", "hostname": "host2"}`)
 	env := suite.makeEnviron()
-	tools, err := environs.PutTools(env.Storage(), nil)
+	err := environs.Bootstrap(env, true, fakeWriteCertAndKey)
+	stateInfo, apiInfo, err := env.StateInfo()
 	c.Assert(err, IsNil)
+	stateInfo.EntityName = "machine-1"
+	apiInfo.EntityName = "machine-1"
 
-	instance, err := env.StartInstance(machineID, nil, nil, tools)
+	instance, err := env.StartInstance("1", stateInfo, apiInfo, nil)
 	c.Assert(err, IsNil)
+	c.Check(instance, NotNil)
 
-	c.Check(string(instance.Id()), Equals, resourceURI)
 	operations := suite.testMAASObject.TestServer.NodeOperations()
-	actions, found := operations["test"]
+	actions, found := operations["node1"]
+	c.Check(found, Equals, true)
+	c.Check(actions, DeepEquals, []string{"start"})
+	actions, found = operations["node2"]
 	c.Check(found, Equals, true)
 	c.Check(actions, DeepEquals, []string{"start"})
 }
@@ -290,18 +300,34 @@ func (suite *EnvironSuite) TestDestroy(c *C) {
 	c.Check(listing, DeepEquals, []string{})
 }
 
+// It would be nice if we could unit-test Bootstrap() in more detail, but
+// at the time of writing that would require more support from gomaasapi's
+// testing service than we have.
 func (suite *EnvironSuite) TestBootstrapSucceeds(c *C) {
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "thenode"}`)
+	cert := []byte{1, 2, 3}
+	key := []byte{4, 5, 6}
 
-	err := env.Bootstrap(true, []byte{}, []byte{})
+	err := env.Bootstrap(true, cert, key)
 	c.Assert(err, IsNil)
 }
 
 func (suite *EnvironSuite) TestBootstrapFailsIfNoNodes(c *C) {
 	env := suite.makeEnviron()
-	err := env.Bootstrap(true, []byte{}, []byte{})
+	cert := []byte{1, 2, 3}
+	key := []byte{4, 5, 6}
+	err := env.Bootstrap(true, cert, key)
 	// Since there are no nodes, the attempt to allocate one returns a
 	// 409: Conflict.
 	c.Check(err, ErrorMatches, ".*409.*")
+}
+
+func (suite *EnvironSuite) TestBootstrapIntegratesWithEnvirons(c *C) {
+	env := suite.makeEnviron()
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "bootstrapnode"}`)
+
+	// environs.Bootstrap calls Environ.Bootstrap.  This works.
+	err := environs.Bootstrap(env, true, fakeWriteCertAndKey)
+	c.Assert(err, IsNil)
 }
