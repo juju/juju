@@ -12,6 +12,30 @@ import (
 	"time"
 )
 
+// Test tuning parameters.
+const (
+	// worstCase is used for timeouts when timing out
+	// will fail the test. Raising this value should
+	// not affect the overall running time of the tests
+	// unless they fail.
+	worstCase = 1 * time.Second
+
+	// justLongEnough is used for timeouts that
+	// are expected to happen for a test to complete
+	// successfully. Reducing this value will make
+	// the tests run faster at the expense of making them
+	// fail more often on heavily loaded or slow hardware.
+	justLongEnough = 50 * time.Millisecond
+
+	// fastPeriod specifies the period of the watcher for
+	// tests where the timing is not critical.
+	fastPeriod = 10 * time.Millisecond
+
+	// slowPeriod specifies the period of the watcher
+	// for tests where the timing is important.
+	slowPeriod = 1 * time.Second
+)
+
 func TestPackage(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
 }
@@ -20,11 +44,11 @@ type watcherSuite struct {
 	testing.MgoSuite
 	testing.LoggingSuite
 
-	log    *mgo.Collection
-	stash  *mgo.Collection
-	runner *txn.Runner
-	w      *watcher.Watcher
-	ch     chan watcher.Change
+	log       *mgo.Collection
+	stash     *mgo.Collection
+	runner    *txn.Runner
+	w         *watcher.Watcher
+	ch        chan watcher.Change
 	oldPeriod time.Duration
 }
 
@@ -36,7 +60,7 @@ type FastPeriodSuite struct {
 
 func (s *FastPeriodSuite) SetUpSuite(c *C) {
 	s.watcherSuite.SetUpSuite(c)
-	watcher.Period = 50 * time.Millisecond
+	watcher.Period = fastPeriod
 }
 
 var _ = Suite(&FastPeriodSuite{})
@@ -50,7 +74,7 @@ type SlowPeriodSuite struct {
 
 func (s *SlowPeriodSuite) SetUpSuite(c *C) {
 	s.watcherSuite.SetUpSuite(c)
-	watcher.Period = 1 * time.Second
+	watcher.Period = slowPeriod
 }
 
 var _ = Suite(&SlowPeriodSuite{})
@@ -91,13 +115,15 @@ func (s *watcherSuite) TearDownTest(c *C) {
 	s.LoggingSuite.TearDownTest(c)
 }
 
+type M map[string]interface{}
+
 func assertChange(c *C, watch <-chan watcher.Change, want watcher.Change) {
 	select {
 	case got := <-watch:
 		if got != want {
 			c.Fatalf("watch reported %v, want %v", got, want)
 		}
-	case <-time.After(watcher.Period  * 2 + 100 * time.Millisecond):
+	case <-time.After(watcher.Period*2 + 100*time.Millisecond):
 		c.Fatalf("watch reported nothing, want %v", want)
 	}
 }
@@ -120,28 +146,10 @@ func assertOrder(c *C, revnos ...int64) {
 	}
 }
 
-type M map[string]interface{}
-
-// longPeriod returns an amount of time to wait when
-// something is expected to happen.
-func (s *watcherSuite) longPeriod() time.Duration {
-	return watcher.Period * 2 + 100 * time.Millisecond
-}
-
-// shortPeriod returns an amount of time to wait
-// when nothing is expected to happen.
-func (s *watcherSuite) shortPeriod() time.Duration {
-	// Anything less and we're not waiting for long
-	// enough to test anything really; anything more
-	// and we're waiting for too long in the normal
-	// course of testing.
-	return 50 * time.Millisecond
-}
-
 func (s *watcherSuite) revno(c string, id interface{}) (revno int64) {
 	var doc struct {
-		Id interface{} "_id"
-		Revno int64 "txn-revno"
+		Id    interface{} "_id"
+		Revno int64       "txn-revno"
 	}
 	err := s.log.Database.C(c).FindId(id).One(&doc)
 	if err != nil {
@@ -352,7 +360,6 @@ func (s *FastPeriodSuite) TestRemove(c *C) {
 func (s *FastPeriodSuite) TestWatchKnownRemove(c *C) {
 	revno1 := s.insert(c, "test", "a")
 	revno2 := s.remove(c, "test", "a")
-	c.Logf("revno2 = %d", revno2)
 	s.w.Sync()
 
 	s.w.Watch("test", "a", revno1, s.ch)
@@ -404,7 +411,7 @@ func (s *FastPeriodSuite) TestScale(c *C) {
 		select {
 		case change := <-s.ch:
 			seen[change.Id] = true
-		case <-time.After(5 * time.Second):
+		case <-time.After(worstCase):
 			c.Fatalf("not enough changes: got %d, want %d", len(seen), N)
 		}
 	}
@@ -423,12 +430,13 @@ func (s *FastPeriodSuite) TestWatchUnwatchOnQueue(c *C) {
 	for i := 1; i < N; i += 2 {
 		s.w.Unwatch("test", i, s.ch)
 	}
+	s.w.StartSync()
 	seen := make(map[interface{}]bool)
 	for i := 0; i < N/2; i++ {
 		select {
 		case change := <-s.ch:
 			seen[change.Id] = true
-		case <-time.After(5 * time.Second):
+		case <-time.After(worstCase):
 			c.Fatalf("not enough changes: got %d, want %d", len(seen), N/2)
 		}
 	}
@@ -451,7 +459,7 @@ func (s *FastPeriodSuite) TestStartSync(c *C) {
 
 	select {
 	case <-done:
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(worstCase):
 		c.Fatalf("StartSync failed to return")
 	}
 
@@ -475,14 +483,14 @@ func (s *FastPeriodSuite) TestSync(c *C) {
 	select {
 	case <-done:
 		c.Fatalf("Sync returned too early")
-	case <-time.After(watcher.Period / 2):
+	case <-time.After(justLongEnough):
 	}
 
 	assertChange(c, s.ch, watcher.Change{"test", "a", revno})
 
 	select {
 	case <-done:
-	case <-time.After(watcher.Period * 2):
+	case <-time.After(justLongEnough):
 		c.Fatalf("Sync failed to return")
 	}
 }
@@ -517,7 +525,7 @@ Loop1:
 			seen[chA] = append(seen[chA], chg)
 		case chg := <-chB:
 			seen[chB] = append(seen[chB], chg)
-		case <-time.After(watcher.Period * 2):
+		case <-time.After(justLongEnough):
 			break Loop1
 		}
 	}
@@ -547,7 +555,7 @@ Loop2:
 			seen[chA] = append(seen[chA], chg)
 		case chg := <-chB:
 			seen[chB] = append(seen[chB], chg)
-		case <-time.After(100 * time.Millisecond):
+		case <-time.After(justLongEnough):
 			break Loop2
 		}
 	}
@@ -650,7 +658,7 @@ func (s *SlowPeriodSuite) TestWatchPeriod(c *C) {
 	case got := <-s.ch:
 		gotPeriod := time.Since(t0)
 		c.Assert(got, Equals, watcher.Change{"test", "a", revno2})
-		if gotPeriod < watcher.Period - leeway {
+		if gotPeriod < watcher.Period-leeway {
 			c.Fatalf("watcher not waiting long enough; got %v want %v", gotPeriod, watcher.Period)
 		}
 	case <-time.After(watcher.Period + leeway):
