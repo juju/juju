@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-// RelationScope describes the scope of a relation endpoint.
+// RelationScope describes the scope of a relation.
 type RelationScope string
 
 // Note that schema doesn't support custom string types,
@@ -23,7 +23,7 @@ const (
 	ScopeContainer RelationScope = "container"
 )
 
-// RelationRole defines the role of a relation endpoint.
+// RelationRole defines the role of a relation.
 type RelationRole string
 
 const (
@@ -194,7 +194,7 @@ func (meta Meta) Check() error {
 			}
 		}
 		if !valid {
-			return fmt.Errorf("subordinate charm %q lacks requires relation with container scope", meta.Name)
+			return fmt.Errorf("subordinate charm %q lacks \"requires\" relation with container scope", meta.Name)
 		}
 	}
 	return nil
