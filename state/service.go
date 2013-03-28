@@ -268,23 +268,22 @@ func (s *Service) Endpoints() (eps []Endpoint, err error) {
 	if err != nil {
 		return nil, err
 	}
-	collect := func(role RelationRole, rels map[string]charm.Relation) {
-		for name, rel := range rels {
+	collect := func(role charm.RelationRole, rels map[string]charm.Relation) {
+		for _, rel := range rels {
 			eps = append(eps, Endpoint{
-				ServiceName:   s.doc.Name,
-				Interface:     rel.Interface,
-				RelationName:  name,
-				RelationRole:  role,
-				RelationScope: rel.Scope,
+				ServiceName: s.doc.Name,
+				Relation:    rel,
 			})
 		}
 	}
 	meta := ch.Meta()
-	collect(RolePeer, meta.Peers)
-	collect(RoleProvider, meta.Provides)
-	collect(RoleRequirer, meta.Requires)
-	collect(RoleProvider, map[string]charm.Relation{
+	collect(charm.RolePeer, meta.Peers)
+	collect(charm.RoleProvider, meta.Provides)
+	collect(charm.RoleRequirer, meta.Requires)
+	collect(charm.RoleProvider, map[string]charm.Relation{
 		"juju-info": {
+			Name:      "juju-info",
+			Role:      charm.RoleProvider,
 			Interface: "juju-info",
 			Scope:     charm.ScopeGlobal,
 		},
@@ -300,7 +299,7 @@ func (s *Service) Endpoint(relationName string) (Endpoint, error) {
 		return Endpoint{}, err
 	}
 	for _, ep := range eps {
-		if ep.RelationName == relationName {
+		if ep.Name == relationName {
 			return ep, nil
 		}
 	}

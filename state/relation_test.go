@@ -100,8 +100,24 @@ func (s *RelationSuite) TestRetrieveSuccess(c *C) {
 }
 
 func (s *RelationSuite) TestRetrieveNotFound(c *C) {
-	subway := state.Endpoint{"subway", "mongodb", "db", state.RoleRequirer, charm.ScopeGlobal}
-	mongo := state.Endpoint{"mongo", "mongodb", "server", state.RoleProvider, charm.ScopeGlobal}
+	subway := state.Endpoint{
+		ServiceName: "subway",
+		Relation: charm.Relation{
+			Name:      "db",
+			Interface: "mongodb",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	mongo := state.Endpoint{
+		ServiceName: "mongo",
+		Relation: charm.Relation{
+			Name:      "server",
+			Interface: "mongodb",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		},
+	}
 	_, err := s.State.EndpointsRelation(subway, mongo)
 	c.Assert(err, ErrorMatches, `relation "subway:db mongo:server" not found`)
 	c.Assert(state.IsNotFound(err), Equals, true)
@@ -149,7 +165,7 @@ func (s *RelationSuite) TestAddContainerRelation(c *C) {
 	c.Assert(err, IsNil)
 
 	// Check that the endpoints both have container scope.
-	wordpressEP.RelationScope = charm.ScopeContainer
+	wordpressEP.Scope = charm.ScopeContainer
 	assertOneRelation(c, logging, 0, loggingEP, wordpressEP)
 	assertOneRelation(c, wordpress, 0, wordpressEP, loggingEP)
 
