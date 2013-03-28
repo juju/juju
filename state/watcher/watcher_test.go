@@ -123,7 +123,7 @@ func assertChange(c *C, watch <-chan watcher.Change, want watcher.Change) {
 		if got != want {
 			c.Fatalf("watch reported %v, want %v", got, want)
 		}
-	case <-time.After(watcher.Period*2 + 100*time.Millisecond):
+	case <-time.After(worstCase):
 		c.Fatalf("watch reported nothing, want %v", want)
 	}
 }
@@ -132,7 +132,7 @@ func assertNoChange(c *C, watch <-chan watcher.Change) {
 	select {
 	case got := <-watch:
 		c.Fatalf("watch reported %v, want nothing", got)
-	case <-time.After(watcher.Period / 2):
+	case <-time.After(justLongEnough):
 	}
 }
 
