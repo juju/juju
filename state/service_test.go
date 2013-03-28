@@ -298,11 +298,13 @@ func (s *ServiceSuite) TestNewPeerRelationsAddedOnUpgrade(c *C) {
 
 func jujuInfoEp(serviceName string) state.Endpoint {
 	return state.Endpoint{
-		ServiceName:   serviceName,
-		Interface:     "juju-info",
-		RelationName:  "juju-info",
-		RelationRole:  state.RoleProvider,
-		RelationScope: charm.ScopeGlobal,
+		ServiceName: serviceName,
+		Relation: charm.Relation{
+			Interface: "juju-info",
+			Name:      "juju-info",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		},
 	}
 }
 
@@ -321,11 +323,13 @@ func (s *ServiceSuite) TestMysqlEndpoints(c *C) {
 	serverEP, err := s.mysql.Endpoint("server")
 	c.Assert(err, IsNil)
 	c.Assert(serverEP, DeepEquals, state.Endpoint{
-		ServiceName:   "mysql",
-		Interface:     "mysql",
-		RelationName:  "server",
-		RelationRole:  state.RoleProvider,
-		RelationScope: charm.ScopeGlobal,
+		ServiceName: "mysql",
+		Relation: charm.Relation{
+			Interface: "mysql",
+			Name:      "server",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		},
 	})
 
 	eps, err := s.mysql.Endpoints()
@@ -347,31 +351,38 @@ func (s *ServiceSuite) TestRiakEndpoints(c *C) {
 	ringEP, err := riak.Endpoint("ring")
 	c.Assert(err, IsNil)
 	c.Assert(ringEP, DeepEquals, state.Endpoint{
-		ServiceName:   "myriak",
-		Interface:     "riak",
-		RelationName:  "ring",
-		RelationRole:  state.RolePeer,
-		RelationScope: charm.ScopeGlobal,
+		ServiceName: "myriak",
+		Relation: charm.Relation{
+			Interface: "riak",
+			Name:      "ring",
+			Role:      charm.RolePeer,
+			Scope:     charm.ScopeGlobal,
+			Limit:     1,
+		},
 	})
 
 	adminEP, err := riak.Endpoint("admin")
 	c.Assert(err, IsNil)
 	c.Assert(adminEP, DeepEquals, state.Endpoint{
-		ServiceName:   "myriak",
-		Interface:     "http",
-		RelationName:  "admin",
-		RelationRole:  state.RoleProvider,
-		RelationScope: charm.ScopeGlobal,
+		ServiceName: "myriak",
+		Relation: charm.Relation{
+			Interface: "http",
+			Name:      "admin",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		},
 	})
 
 	endpointEP, err := riak.Endpoint("endpoint")
 	c.Assert(err, IsNil)
 	c.Assert(endpointEP, DeepEquals, state.Endpoint{
-		ServiceName:   "myriak",
-		Interface:     "http",
-		RelationName:  "endpoint",
-		RelationRole:  state.RoleProvider,
-		RelationScope: charm.ScopeGlobal,
+		ServiceName: "myriak",
+		Relation: charm.Relation{
+			Interface: "http",
+			Name:      "endpoint",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		},
 	})
 
 	eps, err := riak.Endpoints()
@@ -393,41 +404,52 @@ func (s *ServiceSuite) TestWordpressEndpoints(c *C) {
 	urlEP, err := wordpress.Endpoint("url")
 	c.Assert(err, IsNil)
 	c.Assert(urlEP, DeepEquals, state.Endpoint{
-		ServiceName:   "wordpress",
-		Interface:     "http",
-		RelationName:  "url",
-		RelationRole:  state.RoleProvider,
-		RelationScope: charm.ScopeGlobal,
+		ServiceName: "wordpress",
+		Relation: charm.Relation{
+			Interface: "http",
+			Name:      "url",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		},
 	})
 
 	ldEP, err := wordpress.Endpoint("logging-dir")
 	c.Assert(err, IsNil)
 	c.Assert(ldEP, DeepEquals, state.Endpoint{
-		ServiceName:   "wordpress",
-		Interface:     "logging",
-		RelationName:  "logging-dir",
-		RelationRole:  state.RoleProvider,
-		RelationScope: charm.ScopeContainer,
+		ServiceName: "wordpress",
+		Relation: charm.Relation{
+			Interface: "logging",
+			Name:      "logging-dir",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeContainer,
+		},
 	})
 
 	dbEP, err := wordpress.Endpoint("db")
 	c.Assert(err, IsNil)
 	c.Assert(dbEP, DeepEquals, state.Endpoint{
-		ServiceName:   "wordpress",
-		Interface:     "mysql",
-		RelationName:  "db",
-		RelationRole:  state.RoleRequirer,
-		RelationScope: charm.ScopeGlobal,
+		ServiceName: "wordpress",
+		Relation: charm.Relation{
+			Interface: "mysql",
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+			Limit:     1,
+		},
 	})
 
 	cacheEP, err := wordpress.Endpoint("cache")
 	c.Assert(err, IsNil)
 	c.Assert(cacheEP, DeepEquals, state.Endpoint{
-		ServiceName:   "wordpress",
-		Interface:     "varnish",
-		RelationName:  "cache",
-		RelationRole:  state.RoleRequirer,
-		RelationScope: charm.ScopeGlobal,
+		ServiceName: "wordpress",
+		Relation: charm.Relation{
+			Interface: "varnish",
+			Name:      "cache",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+			Limit:     2,
+			Optional:  true,
+		},
 	})
 
 	eps, err := wordpress.Endpoints()
