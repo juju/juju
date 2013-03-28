@@ -67,6 +67,113 @@ func (s *StoreSuite) TestServerCharmInfo(c *C) {
 	s.checkCounterSum(c, []string{"charm-missing", "oneiric", "non-existent"}, false, 1)
 }
 
+func (s *StoreSuite) TestServerCharmEvent(c *C) {
+	server, _ := s.prepareServer(c)
+	req, err := http.NewRequest("GET", "/charm-event", nil)
+	c.Assert(err, IsNil)
+
+	url1 := charm.MustParseURL("cs:oneiric/wordpress")
+	url2 := charm.MustParseURL("cs:oneiric/mysql")
+	urls := []*charm.URL{url1, url2}
+
+	event1 := &store.CharmEvent{
+		Kind:     store.EventPublished,
+		Revision: 42,
+		Digest:   "revKey1",
+		URLs:     urls,
+		Warnings: []string{"A warning."},
+		Time:     time.Unix(1, 0),
+	}
+	event2 := &store.CharmEvent{
+		Kind:     store.EventPublished,
+		Revision: 43,
+		Digest:   "revKey2",
+		URLs:     urls,
+		Time:     time.Unix(2, 0),
+	}
+	event3 := &store.CharmEvent{
+		Kind:   store.EventPublishError,
+		Digest: "revKey3",
+		Errors: []string{"An error."},
+		URLs:   urls[:1],
+		Time:   time.Unix(3, 0),
+	}
+
+	for _, event := range []*store.CharmEvent{event1, event2, event3} {
+		err := s.store.LogCharmEvent(event)
+		c.Assert(err, IsNil)
+	}
+
+	var tests = []struct {
+		query        string
+		kind, digest string
+		err, warn    string
+		time         string
+		revision     int
+	}{
+		{
+			query:  url1.String(),
+			digest: "revKey3",
+			kind:   "publish-error",
+			err:    "An error.",
+			time:   "1970-01-01T00:00:03Z",
+		}, {
+			query:    url2.String(),
+			digest:   "revKey2",
+			kind:     "published",
+			revision: 43,
+			time:     "1970-01-01T00:00:02Z",
+		}, {
+			query:    url1.String() + "@revKey1",
+			digest:   "revKey1",
+			kind:     "published",
+			revision: 42,
+			warn:     "A warning.",
+			time:     "1970-01-01T00:00:01Z",
+		}, {
+			query:    "cs:non/existent",
+			revision: 0,
+			err:      "entry not found",
+		},
+	}
+
+	for _, t := range tests {
+		req.Form = url.Values{"charms": []string{t.query}}
+		rec := httptest.NewRecorder()
+		server.ServeHTTP(rec, req)
+
+		url := t.query
+		if i := strings.Index(url, "@"); i >= 0 {
+			url = url[:i]
+		}
+		info := map[string]interface{}{
+			"kind": "",
+			"revision": float64(0),
+		}
+		if t.kind != "" {
+			info["kind"] = t.kind
+			info["revision"] = float64(t.revision)
+			info["digest"] = t.digest
+			info["time"] = t.time
+		}
+		if t.err != "" {
+			info["errors"] = []interface{}{t.err}
+		}
+		if t.warn != "" {
+			info["warnings"] = []interface{}{t.warn}
+		}
+		expected := map[string]interface{}{url: info}
+		obtained := map[string]interface{}{}
+		err = json.NewDecoder(rec.Body).Decode(&obtained)
+		c.Assert(err, IsNil)
+		c.Assert(obtained, DeepEquals, expected)
+		c.Assert(rec.Header().Get("Content-Type"), Equals, "application/json")
+	}
+
+	s.checkCounterSum(c, []string{"charm-event", "oneiric", "wordpress"}, false, 2)
+	s.checkCounterSum(c, []string{"charm-event", "oneiric", "mysql"}, false, 1)
+}
+
 // checkCounterSum checks that statistics are properly collected.
 // It retries a few times as they are generally collected in background.
 func (s *StoreSuite) checkCounterSum(c *C, key []string, prefix bool, expected int64) {

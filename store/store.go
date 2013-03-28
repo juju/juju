@@ -969,7 +969,8 @@ func (s *Store) LogCharmEvent(event *CharmEvent) (err error) {
 
 // CharmEvent returns the most recent event associated with url
 // and digest.  If the specified event isn't found the error
-// ErrUnknownChange will be returned.
+// ErrUnknownChange will be returned.  If digest is empty, any
+// digest will match.
 func (s *Store) CharmEvent(url *charm.URL, digest string) (*CharmEvent, error) {
 	// TODO: It'd actually make sense to find the charm event after the
 	// revision id, but since we don't care about that now, just make sure
@@ -982,9 +983,13 @@ func (s *Store) CharmEvent(url *charm.URL, digest string) (*CharmEvent, error) {
 
 	events := session.Events()
 	event := &CharmEvent{Digest: digest}
-	query := events.Find(bson.D{{"urls", url}, {"digest", digest}})
-	query.Sort("-time")
-	err := query.One(&event)
+	var query *mgo.Query
+	if digest == "" {
+		query = events.Find(bson.D{{"urls", url}})
+	} else {
+		query = events.Find(bson.D{{"urls", url}, {"digest", digest}})
+	}
+	err := query.Sort("-time").One(&event)
 	if err == mgo.ErrNotFound {
 		return nil, ErrNotFound
 	}
