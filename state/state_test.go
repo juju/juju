@@ -1237,7 +1237,9 @@ func (s *StateSuite) TestOpenDelaysRetryBadAddress(c *C) {
 	// tryOpenState should have delayed for at least RetryDelay
 	// internall mgo will try three times in a row before returning
 	// to the caller.
-	c.Assert(true, Equals, time.Since(t0) > 3*retryDelay)
+	if t1 := time.Since(t0); t1 < 3*retryDelay {
+		c.Errorf("mgo.Dial only paused for %v, expected at least %v", t1, 3*retryDelay)
+	}
 }
 
 func (s *StateSuite) TestOpenDoesNotDelayOnHandShakeFailure(c *C) {
@@ -1269,7 +1271,9 @@ func (s *StateSuite) TestOpenDoesNotDelayOnHandShakeFailure(c *C) {
 	c.Assert(err, ErrorMatches, "no reachable servers")
 	// tryOpenState should not have delayed because the socket
 	// connected, but ssl handshake failed
-	c.Assert(true, Equals, time.Since(t0) < 3*retryDelay)
+	if t1 := time.Since(t0); t1 > 3*retryDelay {
+		c.Errorf("mgo.Dial paused for %v, expected less than %v", t1, 3*retryDelay)
+	}
 }
 
 func testSetPassword(c *C, getEntity func() (state.Authenticator, error)) {
