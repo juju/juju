@@ -503,9 +503,36 @@ func (env *maasEnviron) PublicStorage() environs.StorageReader {
 	return environs.EmptyStorage
 }
 
-func (environ *maasEnviron) Destroy([]environs.Instance) error {
+func (environ *maasEnviron) Destroy(ensureInsts []environs.Instance) error {
 	log.Printf("environs/maas: destroying environment %q", environ.name)
-	panic("Not implemented.")
+	insts, err := environ.AllInstances()
+	if err != nil {
+		return fmt.Errorf("cannot get instances: %v", err)
+	}
+	found := make(map[state.InstanceId]bool)
+	for _, inst := range insts {
+		found[inst.Id()] = true
+	}
+
+	// Add any instances we've been told about but haven't yet shown
+	// up in the instance list.
+	for _, inst := range ensureInsts {
+		id := inst.Id()
+		if !found[id] {
+			insts = append(insts, inst)
+			found[id] = true
+		}
+	}
+	err = environ.StopInstances(insts)
+	if err != nil {
+		return err
+	}
+
+	// To properly observe e.storageUnlocked we need to get its value while
+	// holding e.ecfgMutex. e.Storage() does this for us, then we convert
+	// back to the (*storage) to access the private deleteAll() method.
+	st := environ.Storage().(*maasStorage)
+	return st.deleteAll()
 }
 
 func (*maasEnviron) AssignmentPolicy() state.AssignmentPolicy {

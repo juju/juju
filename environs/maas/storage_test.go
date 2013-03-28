@@ -369,3 +369,17 @@ func (s *StorageSuite) TestNamesMayHaveSlashes(c *C) {
 	c.Assert(err, IsNil)
 	c.Check(data, DeepEquals, content)
 }
+
+func (s *StorageSuite) TestDeleteAllDeletesAllFiles(c *C) {
+	storage := s.makeStorage("get-retrieves-file")
+	const filename1 = "stored-data1"
+	s.fakeStoredFile(storage, filename1)
+	const filename2 = "stored-data2"
+	s.fakeStoredFile(storage, filename2)
+
+	err := storage.deleteAll()
+	c.Assert(err, IsNil)
+	listing, err := storage.List("")
+	c.Assert(err, IsNil)
+	c.Assert(listing, DeepEquals, []string{})
+}

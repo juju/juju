@@ -279,6 +279,27 @@ func (suite *EnvironSuite) TestQuiesceStateFileFailsOnBrokenStateFile(c *C) {
 	c.Check(err, Not(IsNil))
 }
 
+func (suite *EnvironSuite) TestDestroy(c *C) {
+	env := suite.makeEnviron()
+	suite.getInstance("test1")
+	instance := suite.getInstance("test2")
+	data := makeRandomBytes(10)
+	suite.testMAASObject.TestServer.NewFile("filename", data)
+	storage := env.Storage()
+
+	err := env.Destroy([]environs.Instance{instance})
+
+	c.Check(err, IsNil)
+	// Instances have been stopped.
+	operations := suite.testMAASObject.TestServer.NodeOperations()
+	expectedOperations := map[string][]string{"test1": {"release"}, "test2": {"release"}}
+	c.Check(operations, DeepEquals, expectedOperations)
+	// Files have been cleaned up.
+	listing, err := storage.List("")
+	c.Assert(err, IsNil)
+	c.Check(listing, DeepEquals, []string{})
+}
+
 // It would be nice if we could unit-test Bootstrap() in more detail, but
 // at the time of writing that would require more support from gomaasapi's
 // testing service than we have.
