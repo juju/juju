@@ -347,7 +347,7 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, tools *state.To
 	userDataParam := base64.StdEncoding.EncodeToString(userdata)
 	params := url.Values{
 		"distro_series": {tools.Series},
-		"user_data": {userDataParam},
+		"user_data":     {userDataParam},
 	}
 	// Initialize err to a non-nil value as a sentinel for the following
 	// loop.
