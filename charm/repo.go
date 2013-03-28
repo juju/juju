@@ -26,12 +26,12 @@ type InfoResponse struct {
 
 // EventResponse is sent by the charm store in response to charm-event requests.
 type EventResponse struct {
-	Kind     string    `json:"kind"`
-	Revision int       `json:"revision"` // Zero is valid. Can't omitempty.
-	Digest   string    `json:"digest,omitempty"`
-	Errors   []string  `json:"errors,omitempty"`
-	Warnings []string  `json:"warnings,omitempty"`
-	Time     string    `json:"time,omitempty"`
+	Kind     string   `json:"kind"`
+	Revision int      `json:"revision"` // Zero is valid. Can't omitempty.
+	Digest   string   `json:"digest,omitempty"`
+	Errors   []string `json:"errors,omitempty"`
+	Warnings []string `json:"warnings,omitempty"`
+	Time     string   `json:"time,omitempty"`
 }
 
 // Repository respresents a collection of charms.

@@ -147,7 +147,7 @@ func (s *StoreSuite) TestServerCharmEvent(c *C) {
 			url = url[:i]
 		}
 		info := map[string]interface{}{
-			"kind": "",
+			"kind":     "",
 			"revision": float64(0),
 		}
 		if t.kind != "" {
