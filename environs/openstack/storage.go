@@ -54,6 +54,7 @@ func (s *storage) Get(file string) (r io.ReadCloser, err error) {
 		if errors.IsNotFound(err) {
 			continue
 		}
+		return
 	}
 	err, _ = maybeNotFound(err)
 	if err != nil {
