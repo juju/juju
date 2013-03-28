@@ -1,16 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
-	"os"
 )
 
 // SyncToolsCommand copies all the tools from the us-east-1 bucket to the local
@@ -29,13 +28,20 @@ var _ cmd.Command = (*SyncToolsCommand)(nil)
 func (c *SyncToolsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "sync-tools",
-		Purpose: "copy tools from another public bucket",
+		Purpose: "copy tools from the official bucket into a local environment",
+		Doc: `
+This copies the Juju tools tarball from the official bucket into
+your environment. This is generally done when you want Juju to be able
+to run without having to access Amazon. Sometimes this is because the
+environment does not have public access, and sometimes you just want
+to avoid having to access data outside of the local cloud.
+`,
 	}
 }
 
 func (c *SyncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
-	f.BoolVar(&c.allVersions, "all", false, "instead of copying only the newest, copy all versions")
+	f.BoolVar(&c.allVersions, "all", false, "copy all versions, not just the latest")
 	f.BoolVar(&c.dryRun, "dry-run", false, "don't copy, just print what would be copied")
 	f.BoolVar(&c.publicBucket, "public", false, "write to the public-bucket of the account, instead of the bucket private to the environment.")
 
@@ -53,24 +59,24 @@ var officialBucketAttrs = map[string]interface{}{
 	"secret-key":     "",
 }
 
-// Find the set of tools at the 'newest' version
+// Find the set of tools at the 'latest' version
 func findNewest(fullTools []*state.Tools) []*state.Tools {
 	var curBest *state.Tools = nil
 	var res []*state.Tools = nil
-	for _, t := range fullTools {
+	for _, tool := range fullTools {
 		var add = false
-		if curBest == nil || curBest.Number.Less(t.Number) {
+		if curBest == nil || curBest.Number.Less(tool.Number) {
 			// This best is clearly better than all existing
 			// entries, so reset the list
 			res = make([]*state.Tools, 0, 1)
 			add = true
-			curBest = t
+			curBest = tool
 		}
-		if curBest.Number == t.Number {
+		if curBest.Number == tool.Number {
 			add = true
 		}
 		if add {
-			res = append(res, t)
+			res = append(res, tool)
 		}
 	}
 	return res
@@ -91,66 +97,52 @@ func findMissing(sourceTools, targetTools []*state.Tools) []*state.Tools {
 	return res
 }
 
-func copyOne(tool *state.Tools, source environs.StorageReader, target environs.Storage) error {
+func copyOne(tool *state.Tools, source environs.StorageReader,
+	target environs.Storage, ctx *cmd.Context) error {
 	toolsPath := environs.ToolsStoragePath(tool.Binary)
-	if tool == nil {
-		log.Warningf("tool was nil?")
-		return nil
-	}
-	if source == nil {
-		log.Warningf("source was nil?")
-		return nil
-	}
-	if target == nil {
-		log.Warningf("target was nil?")
-		return nil
-	}
+	fmt.Fprintf(ctx.Stdout, "copying %v", toolsPath)
 	toolFile, err := source.Get(toolsPath)
 	if err != nil {
 		return err
 	}
 	defer toolFile.Close()
-	// We have to copy to a local temp file, because Put requires the content
+	// We have to buffer the content, because Put requires the content
 	// length, but Get only returns us a ReadCloser
-	tempFile, err := ioutil.TempFile("", "juju-tgz")
+	buf := bytes.NewBuffer(nil)
+	nBytes, err := io.Copy(buf, toolFile)
 	if err != nil {
 		return err
 	}
-	// defer is LIFO, so make sure to call close last, so that the file is
-	// closed when we go to delete it.
-	defer os.Remove(tempFile.Name())
-	defer tempFile.Close()
-	nBytes, err := io.Copy(tempFile, toolFile)
-	if err != nil {
-		return err
-	}
-	log.Infof("environs: downloaded %v (%dkB), uploading", toolsPath, (nBytes+512)/1024)
+	log.Infof("downloaded %v (%dkB), uploading", toolsPath, (nBytes+512)/1024)
+	fmt.Fprintf(ctx.Stdout, ", download %dkB, uploading\n", (nBytes+512)/1024)
 
-	tempFile.Seek(0, os.SEEK_SET)
-	if err := target.Put(toolsPath, tempFile, nBytes); err != nil {
+	if err := target.Put(toolsPath, buf, nBytes); err != nil {
 		return err
 	}
 	return nil
 }
 
-func copyTools(tools []*state.Tools, source environs.StorageReader, target environs.Storage, dryRun bool) error {
+func copyTools(tools []*state.Tools, source environs.StorageReader,
+	target environs.Storage, dryRun bool, ctx *cmd.Context) error {
 	for _, tool := range tools {
-		log.Infof("Copying %s from %s\n", tool.Binary, tool.URL)
-		if !dryRun {
-			if err := copyOne(tool, source, target); err != nil {
-				return err
-			}
+		log.Infof("copying %s from %s\n", tool.Binary, tool.URL)
+		if dryRun {
+			continue
+		}
+		if err := copyOne(tool, source, target, ctx); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-func (c *SyncToolsCommand) Run(_ *cmd.Context) error {
+func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 	officialEnviron, err := environs.NewFromAttrs(officialBucketAttrs)
 	if err != nil {
-		log.Infof("Failed to create officialEnviron")
+		log.Errorf("failed to initialize the official bucket environment")
 		return err
 	}
+	fmt.Fprintf(ctx.Stdout, "listing the source bucket\n")
 	c.sourceToolsList, err = environs.ListTools(officialEnviron, version.Current.Major)
 	if err != nil {
 		return err
@@ -163,15 +155,18 @@ func (c *SyncToolsCommand) Run(_ *cmd.Context) error {
 	if !c.allVersions {
 		toolsToCopy = findNewest(toolsToCopy)
 	}
-	for _, t := range toolsToCopy {
-		fmt.Printf("Found: %s\n", t)
+	fmt.Fprintf(ctx.Stdout, "found %d tools in source (%d recent ones)\n",
+		len(c.sourceToolsList.Public), len(toolsToCopy))
+	for _, tool := range toolsToCopy {
+		log.Debugf("found source tool: %s", tool)
 	}
+	fmt.Fprintf(ctx.Stdout, "listing target bucket\n")
 	c.targetToolsList, err = environs.ListTools(targetEnv, version.Current.Major)
 	if err != nil {
 		return err
 	}
-	for _, t := range c.targetToolsList.Private {
-		fmt.Printf("Found Target: %s\n", t)
+	for _, tool := range c.targetToolsList.Private {
+		log.Debugf("found target tool: %s", tool)
 	}
 	targetTools := c.targetToolsList.Private
 	targetStorage := targetEnv.Storage()
@@ -184,9 +179,12 @@ func (c *SyncToolsCommand) Run(_ *cmd.Context) error {
 
 	}
 	missing := findMissing(toolsToCopy, targetTools)
-	err = copyTools(missing, officialEnviron.PublicStorage(), targetStorage, c.dryRun)
+	fmt.Fprintf(ctx.Stdout, "found %d tools in target; %d tools to be copied\n",
+		len(targetTools), len(missing))
+	err = copyTools(missing, officialEnviron.PublicStorage(), targetStorage, c.dryRun, ctx)
 	if err != nil {
 		return err
 	}
+	fmt.Fprintf(ctx.Stdout, "copied %d tools\n", len(missing))
 	return nil
 }
