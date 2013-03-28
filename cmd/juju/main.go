@@ -49,6 +49,7 @@ func Main(args []string) {
 	juju.Register(&SCPCommand{})
 	juju.Register(&SSHCommand{})
 	juju.Register(&ResolvedCommand{})
+	juju.Register(&DebugLogCommand{sshCmd: &SSHCommand{}})
 
 	// Register configuration commands.
 	juju.Register(&InitCommand{})
