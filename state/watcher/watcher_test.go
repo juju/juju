@@ -148,14 +148,12 @@ func assertOrder(c *C, revnos ...int64) {
 
 func (s *watcherSuite) revno(c string, id interface{}) (revno int64) {
 	var doc struct {
-		Id    interface{} "_id"
 		Revno int64       "txn-revno"
 	}
 	err := s.log.Database.C(c).FindId(id).One(&doc)
 	if err != nil {
 		panic(err)
 	}
-	log.Infof("revno %q %d => %v %d", c, id, doc.Id, doc.Revno)
 	return doc.Revno
 }
 
@@ -624,10 +622,6 @@ func (s *SlowPeriodSuite) TestWatchBeforeRemoveKnown(c *C) {
 }
 
 func (s *SlowPeriodSuite) TestDoubleUpdate(c *C) {
-	// TODO(rog) this test is inherently flaky because
-	// it relies on the supposition that you can do
-	// two update/query operations within a
-	// watcher period.
 	assertNoChange(c, s.ch)
 
 	revno1 := s.insert(c, "test", "a")
