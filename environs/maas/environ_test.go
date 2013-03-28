@@ -279,6 +279,9 @@ func (suite *EnvironSuite) TestQuiesceStateFileFailsOnBrokenStateFile(c *C) {
 	c.Check(err, Not(IsNil))
 }
 
+// It would be nice if we could unit-test Bootstrap() in more detail, but
+// at the time of writing that would require more support from gomaasapi's
+// testing service than we have.
 func (suite *EnvironSuite) TestBootstrapSucceeds(c *C) {
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "thenode"}`)

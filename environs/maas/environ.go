@@ -147,10 +147,6 @@ func (env *maasEnviron) makeMachineConfig(machineID string, stateInfo *state.Inf
 
 // startBootstrapNode starts the juju bootstrap node for this environment.
 func (env *maasEnviron) startBootstrapNode(tools *state.Tools, cert, key []byte, password string) (environs.Instance, error) {
-	// The bootstrap instance gets machine id "0".  This is not related to
-	// instance ids or MAAS system ids.  Juju assigns the machine ID.
-	const machineID = "0"
-
 	config, err := environs.BootstrapConfig(env.Provider(), env.Config(), tools)
 	if err != nil {
 		return nil, fmt.Errorf("unable to determine initial configuration: %v", err)
@@ -168,6 +164,11 @@ func (env *maasEnviron) startBootstrapNode(tools *state.Tools, cert, key []byte,
 		Password: trivial.PasswordHash(password),
 		CACert:   caCert,
 	}
+
+	// The bootstrap instance gets machine id "0".  This is not related to
+	// instance ids or MAAS system ids.  Juju assigns the machine ID.
+	const machineID = "0"
+
 	mcfg := env.makeMachineConfig(machineID, &stateInfo, &apiInfo, tools)
 	mcfg.StateServer = true
 	mcfg.StateServerCert = cert
@@ -346,9 +347,6 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, tools *state.To
 	userDataParam := base64.StdEncoding.EncodeToString(userdata)
 	params := url.Values{
 		"distro_series": {tools.Series},
-		// userdata is actually binary data, but so are strings in Go.
-		// Casting it will not produce text (probably not valid UTF-8)
-		// but reading it as binary data should work.
 		"user_data": {userDataParam},
 	}
 	// Initialize err to a non-nil value as a sentinel for the following
