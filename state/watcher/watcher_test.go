@@ -16,7 +16,7 @@ func TestPackage(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
 }
 
-type WatcherSuite struct {
+type watcherSuite struct {
 	testing.MgoSuite
 	testing.LoggingSuite
 
@@ -25,21 +25,49 @@ type WatcherSuite struct {
 	runner *txn.Runner
 	w      *watcher.Watcher
 	ch     chan watcher.Change
+	oldPeriod time.Duration
 }
 
-var _ = Suite(&WatcherSuite{})
+// FastPeriodSuite implements tests that should
+// work regardless of the watcher refresh period.
+type FastPeriodSuite struct {
+	watcherSuite
+}
 
-func (s *WatcherSuite) SetUpSuite(c *C) {
+func (s *FastPeriodSuite) SetUpSuite(c *C) {
+	s.watcherSuite.SetUpSuite(c)
+	watcher.Period = 50 * time.Millisecond
+}
+
+var _ = Suite(&FastPeriodSuite{})
+
+// SlowPeriodFastPeriodSuite implements tests
+// that are flaky when the watcher refresh period
+// is small.
+type SlowPeriodSuite struct {
+	watcherSuite
+}
+
+func (s *SlowPeriodSuite) SetUpSuite(c *C) {
+	s.watcherSuite.SetUpSuite(c)
+	watcher.Period = 1 * time.Second
+}
+
+var _ = Suite(&SlowPeriodSuite{})
+
+func (s *watcherSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
+	s.oldPeriod = watcher.Period
 }
 
-func (s *WatcherSuite) TearDownSuite(c *C) {
+func (s *watcherSuite) TearDownSuite(c *C) {
 	s.MgoSuite.TearDownSuite(c)
 	s.LoggingSuite.TearDownSuite(c)
+	watcher.Period = s.oldPeriod
 }
 
-func (s *WatcherSuite) SetUpTest(c *C) {
+func (s *watcherSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 
@@ -56,13 +84,11 @@ func (s *WatcherSuite) SetUpTest(c *C) {
 	s.ch = make(chan watcher.Change)
 }
 
-func (s *WatcherSuite) TearDownTest(c *C) {
+func (s *watcherSuite) TearDownTest(c *C) {
 	c.Assert(s.w.Stop(), IsNil)
 
 	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
-
-	watcher.RealPeriod()
 }
 
 func assertChange(c *C, watch <-chan watcher.Change, want watcher.Change) {
@@ -71,7 +97,7 @@ func assertChange(c *C, watch <-chan watcher.Change, want watcher.Change) {
 		if got != want {
 			c.Fatalf("watch reported %v, want %v", got, want)
 		}
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(watcher.Period  * 2 + 100 * time.Millisecond):
 		c.Fatalf("watch reported nothing, want %v", want)
 	}
 }
@@ -80,7 +106,7 @@ func assertNoChange(c *C, watch <-chan watcher.Change) {
 	select {
 	case got := <-watch:
 		c.Fatalf("watch reported %v, want nothing", got)
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(watcher.Period / 2):
 	}
 }
 
@@ -96,18 +122,36 @@ func assertOrder(c *C, revnos ...int64) {
 
 type M map[string]interface{}
 
-func (s *WatcherSuite) revno(c string, id interface{}) (revno int64) {
+// longPeriod returns an amount of time to wait when
+// something is expected to happen.
+func (s *watcherSuite) longPeriod() time.Duration {
+	return watcher.Period * 2 + 100 * time.Millisecond
+}
+
+// shortPeriod returns an amount of time to wait
+// when nothing is expected to happen.
+func (s *watcherSuite) shortPeriod() time.Duration {
+	// Anything less and we're not waiting for long
+	// enough to test anything really; anything more
+	// and we're waiting for too long in the normal
+	// course of testing.
+	return 50 * time.Millisecond
+}
+
+func (s *watcherSuite) revno(c string, id interface{}) (revno int64) {
 	var doc struct {
+		Id interface{} "_id"
 		Revno int64 "txn-revno"
 	}
 	err := s.log.Database.C(c).FindId(id).One(&doc)
 	if err != nil {
 		panic(err)
 	}
+	log.Infof("revno %q %d => %v %d", c, id, doc.Id, doc.Revno)
 	return doc.Revno
 }
 
-func (s *WatcherSuite) insert(c *C, coll string, id interface{}) (revno int64) {
+func (s *watcherSuite) insert(c *C, coll string, id interface{}) (revno int64) {
 	ops := []txn.Op{{C: coll, Id: id, Insert: M{"n": 1}}}
 	err := s.runner.Run(ops, "", nil)
 	if err != nil {
@@ -118,7 +162,7 @@ func (s *WatcherSuite) insert(c *C, coll string, id interface{}) (revno int64) {
 	return revno
 }
 
-func (s *WatcherSuite) insertAll(c *C, coll string, ids ...interface{}) (revnos []int64) {
+func (s *watcherSuite) insertAll(c *C, coll string, ids ...interface{}) (revnos []int64) {
 	var ops []txn.Op
 	for _, id := range ids {
 		ops = append(ops, txn.Op{C: coll, Id: id, Insert: M{"n": 1}})
@@ -134,7 +178,7 @@ func (s *WatcherSuite) insertAll(c *C, coll string, ids ...interface{}) (revnos 
 	return revnos
 }
 
-func (s *WatcherSuite) update(c *C, coll string, id interface{}) (revno int64) {
+func (s *watcherSuite) update(c *C, coll string, id interface{}) (revno int64) {
 	ops := []txn.Op{{C: coll, Id: id, Update: M{"$inc": M{"n": 1}}}}
 	err := s.runner.Run(ops, "", nil)
 	if err != nil {
@@ -145,7 +189,7 @@ func (s *WatcherSuite) update(c *C, coll string, id interface{}) (revno int64) {
 	return revno
 }
 
-func (s *WatcherSuite) remove(c *C, coll string, id interface{}) (revno int64) {
+func (s *watcherSuite) remove(c *C, coll string, id interface{}) (revno int64) {
 	ops := []txn.Op{{C: coll, Id: id, Remove: true}}
 	err := s.runner.Run(ops, "", nil)
 	if err != nil {
@@ -155,7 +199,7 @@ func (s *WatcherSuite) remove(c *C, coll string, id interface{}) (revno int64) {
 	return -1
 }
 
-func (s *WatcherSuite) TestErrAndDead(c *C) {
+func (s *FastPeriodSuite) TestErrAndDead(c *C) {
 	c.Assert(s.w.Err(), Equals, tomb.ErrStillAlive)
 	select {
 	case <-s.w.Dead():
@@ -171,7 +215,7 @@ func (s *WatcherSuite) TestErrAndDead(c *C) {
 	}
 }
 
-func (s *WatcherSuite) TestWatchBeforeKnown(c *C) {
+func (s *FastPeriodSuite) TestWatchBeforeKnown(c *C) {
 	s.w.Watch("test", "a", -1, s.ch)
 	assertNoChange(c, s.ch)
 
@@ -184,7 +228,7 @@ func (s *WatcherSuite) TestWatchBeforeKnown(c *C) {
 	assertOrder(c, -1, revno)
 }
 
-func (s *WatcherSuite) TestWatchAfterKnown(c *C) {
+func (s *FastPeriodSuite) TestWatchAfterKnown(c *C) {
 	revno := s.insert(c, "test", "a")
 
 	s.w.StartSync()
@@ -196,7 +240,7 @@ func (s *WatcherSuite) TestWatchAfterKnown(c *C) {
 	assertOrder(c, -1, revno)
 }
 
-func (s *WatcherSuite) TestWatchIgnoreUnwatched(c *C) {
+func (s *FastPeriodSuite) TestWatchIgnoreUnwatched(c *C) {
 	s.w.Watch("test", "a", -1, s.ch)
 	assertNoChange(c, s.ch)
 
@@ -206,7 +250,7 @@ func (s *WatcherSuite) TestWatchIgnoreUnwatched(c *C) {
 	assertNoChange(c, s.ch)
 }
 
-func (s *WatcherSuite) TestWatchOrder(c *C) {
+func (s *FastPeriodSuite) TestWatchOrder(c *C) {
 	s.w.StartSync()
 	for _, id := range []string{"a", "b", "c", "d"} {
 		s.w.Watch("test", id, -1, s.ch)
@@ -222,7 +266,7 @@ func (s *WatcherSuite) TestWatchOrder(c *C) {
 	assertNoChange(c, s.ch)
 }
 
-func (s *WatcherSuite) TestTransactionWithMultiple(c *C) {
+func (s *FastPeriodSuite) TestTransactionWithMultiple(c *C) {
 	s.w.StartSync()
 	for _, id := range []string{"a", "b", "c"} {
 		s.w.Watch("test", id, -1, s.ch)
@@ -235,7 +279,7 @@ func (s *WatcherSuite) TestTransactionWithMultiple(c *C) {
 	assertNoChange(c, s.ch)
 }
 
-func (s *WatcherSuite) TestWatchMultipleChannels(c *C) {
+func (s *FastPeriodSuite) TestWatchMultipleChannels(c *C) {
 	ch1 := make(chan watcher.Change)
 	ch2 := make(chan watcher.Change)
 	ch3 := make(chan watcher.Change)
@@ -255,7 +299,7 @@ func (s *WatcherSuite) TestWatchMultipleChannels(c *C) {
 	assertNoChange(c, ch3)
 }
 
-func (s *WatcherSuite) TestIgnoreAncientHistory(c *C) {
+func (s *FastPeriodSuite) TestIgnoreAncientHistory(c *C) {
 	s.insert(c, "test", "a")
 
 	w := watcher.New(s.log)
@@ -266,7 +310,7 @@ func (s *WatcherSuite) TestIgnoreAncientHistory(c *C) {
 	assertNoChange(c, s.ch)
 }
 
-func (s *WatcherSuite) TestUpdate(c *C) {
+func (s *FastPeriodSuite) TestUpdate(c *C) {
 	s.w.Watch("test", "a", -1, s.ch)
 	assertNoChange(c, s.ch)
 
@@ -282,26 +326,7 @@ func (s *WatcherSuite) TestUpdate(c *C) {
 	assertOrder(c, -1, revno1, revno2)
 }
 
-func (s *WatcherSuite) TestDoubleUpdate(c *C) {
-	assertNoChange(c, s.ch)
-
-	revno1 := s.insert(c, "test", "a")
-	s.w.StartSync()
-
-	revno2 := s.update(c, "test", "a")
-	revno3 := s.update(c, "test", "a")
-
-	s.w.Watch("test", "a", revno2, s.ch)
-	assertNoChange(c, s.ch)
-
-	s.w.StartSync()
-	assertChange(c, s.ch, watcher.Change{"test", "a", revno3})
-	assertNoChange(c, s.ch)
-
-	assertOrder(c, -1, revno1, revno2, revno3)
-}
-
-func (s *WatcherSuite) TestRemove(c *C) {
+func (s *FastPeriodSuite) TestRemove(c *C) {
 	s.w.Watch("test", "a", -1, s.ch)
 	assertNoChange(c, s.ch)
 
@@ -324,22 +349,10 @@ func (s *WatcherSuite) TestRemove(c *C) {
 	assertOrder(c, revno2, revno3)
 }
 
-func (s *WatcherSuite) TestWatchBeforeRemoveKnown(c *C) {
-	revno1 := s.insert(c, "test", "a")
-	s.w.Sync()
-	revno2 := s.remove(c, "test", "a")
-
-	s.w.Watch("test", "a", -1, s.ch)
-	assertChange(c, s.ch, watcher.Change{"test", "a", revno1})
-	s.w.StartSync()
-	assertChange(c, s.ch, watcher.Change{"test", "a", revno2})
-
-	assertOrder(c, revno2, revno1)
-}
-
-func (s *WatcherSuite) TestWatchKnownRemove(c *C) {
+func (s *FastPeriodSuite) TestWatchKnownRemove(c *C) {
 	revno1 := s.insert(c, "test", "a")
 	revno2 := s.remove(c, "test", "a")
+	c.Logf("revno2 = %d", revno2)
 	s.w.Sync()
 
 	s.w.Watch("test", "a", revno1, s.ch)
@@ -348,7 +361,7 @@ func (s *WatcherSuite) TestWatchKnownRemove(c *C) {
 	assertOrder(c, revno2, revno1)
 }
 
-func (s *WatcherSuite) TestScale(c *C) {
+func (s *FastPeriodSuite) TestScale(c *C) {
 	const N = 500
 	const T = 10
 
@@ -398,22 +411,7 @@ func (s *WatcherSuite) TestScale(c *C) {
 	c.Assert(len(seen), Equals, N)
 }
 
-func (s *WatcherSuite) TestWatchPeriod(c *C) {
-	period := 1 * time.Second
-	watcher.FakePeriod(period)
-	revno1 := s.insert(c, "test", "a")
-	s.w.Sync()
-	s.w.Watch("test", "a", revno1, s.ch)
-	revno2 := s.update(c, "test", "a")
-
-	// Wait for next periodic refresh.
-	time.Sleep(period)
-	assertChange(c, s.ch, watcher.Change{"test", "a", revno2})
-
-	assertOrder(c, -1, revno1, revno2)
-}
-
-func (s *WatcherSuite) TestWatchUnwatchOnQueue(c *C) {
+func (s *FastPeriodSuite) TestWatchUnwatchOnQueue(c *C) {
 	const N = 10
 	for i := 0; i < N; i++ {
 		s.insert(c, "test", i)
@@ -424,9 +422,6 @@ func (s *WatcherSuite) TestWatchUnwatchOnQueue(c *C) {
 	}
 	for i := 1; i < N; i += 2 {
 		s.w.Unwatch("test", i, s.ch)
-	}
-	for i := 0; i < N; i++ {
-		s.update(c, "test", i)
 	}
 	seen := make(map[interface{}]bool)
 	for i := 0; i < N/2; i++ {
@@ -441,7 +436,7 @@ func (s *WatcherSuite) TestWatchUnwatchOnQueue(c *C) {
 	assertNoChange(c, s.ch)
 }
 
-func (s *WatcherSuite) TestStartSync(c *C) {
+func (s *FastPeriodSuite) TestStartSync(c *C) {
 	s.w.Watch("test", "a", -1, s.ch)
 
 	revno := s.insert(c, "test", "a")
@@ -463,7 +458,7 @@ func (s *WatcherSuite) TestStartSync(c *C) {
 	assertChange(c, s.ch, watcher.Change{"test", "a", revno})
 }
 
-func (s *WatcherSuite) TestSync(c *C) {
+func (s *FastPeriodSuite) TestSync(c *C) {
 	s.w.Watch("test", "a", -1, s.ch)
 
 	// Nothing to do here.
@@ -480,19 +475,19 @@ func (s *WatcherSuite) TestSync(c *C) {
 	select {
 	case <-done:
 		c.Fatalf("Sync returned too early")
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(watcher.Period / 2):
 	}
 
 	assertChange(c, s.ch, watcher.Change{"test", "a", revno})
 
 	select {
 	case <-done:
-	case <-time.After(100 * time.Millisecond):
-		c.Fatalf("Sync failed to returned")
+	case <-time.After(watcher.Period * 2):
+		c.Fatalf("Sync failed to return")
 	}
 }
 
-func (s *WatcherSuite) TestWatchCollection(c *C) {
+func (s *FastPeriodSuite) TestWatchCollection(c *C) {
 	chA1 := make(chan watcher.Change)
 	chB1 := make(chan watcher.Change)
 	chA := make(chan watcher.Change)
@@ -522,7 +517,7 @@ Loop1:
 			seen[chA] = append(seen[chA], chg)
 		case chg := <-chB:
 			seen[chB] = append(seen[chB], chg)
-		case <-time.After(100 * time.Millisecond):
+		case <-time.After(watcher.Period * 2):
 			break Loop1
 		}
 	}
@@ -563,7 +558,7 @@ Loop2:
 	c.Assert(seen[chB], IsNil)
 }
 
-func (s *WatcherSuite) TestUnwatchCollectionWithOutstandingRequest(c *C) {
+func (s *FastPeriodSuite) TestUnwatchCollectionWithOutstandingRequest(c *C) {
 	chA := make(chan watcher.Change)
 	s.w.WatchCollection("testA", chA)
 	chB := make(chan watcher.Change)
@@ -586,7 +581,7 @@ func (s *WatcherSuite) TestUnwatchCollectionWithOutstandingRequest(c *C) {
 	assertChange(c, chB, watcher.Change{"testB", 1, revnoB})
 }
 
-func (s *WatcherSuite) TestNonMutatingTxn(c *C) {
+func (s *FastPeriodSuite) TestNonMutatingTxn(c *C) {
 	chA1 := make(chan watcher.Change)
 	chA := make(chan watcher.Change)
 
@@ -605,4 +600,63 @@ func (s *WatcherSuite) TestNonMutatingTxn(c *C) {
 
 	assertNoChange(c, chA1)
 	assertNoChange(c, chA)
+}
+
+func (s *SlowPeriodSuite) TestWatchBeforeRemoveKnown(c *C) {
+	revno1 := s.insert(c, "test", "a")
+	s.w.Sync()
+	revno2 := s.remove(c, "test", "a")
+
+	s.w.Watch("test", "a", -1, s.ch)
+	assertChange(c, s.ch, watcher.Change{"test", "a", revno1})
+	s.w.StartSync()
+	assertChange(c, s.ch, watcher.Change{"test", "a", revno2})
+
+	assertOrder(c, revno2, revno1)
+}
+
+func (s *SlowPeriodSuite) TestDoubleUpdate(c *C) {
+	// TODO(rog) this test is inherently flaky because
+	// it relies on the supposition that you can do
+	// two update/query operations within a
+	// watcher period.
+	assertNoChange(c, s.ch)
+
+	revno1 := s.insert(c, "test", "a")
+	s.w.StartSync()
+
+	revno2 := s.update(c, "test", "a")
+	revno3 := s.update(c, "test", "a")
+
+	s.w.Watch("test", "a", revno2, s.ch)
+	assertNoChange(c, s.ch)
+
+	s.w.StartSync()
+	assertChange(c, s.ch, watcher.Change{"test", "a", revno3})
+	assertNoChange(c, s.ch)
+
+	assertOrder(c, -1, revno1, revno2, revno3)
+}
+
+func (s *SlowPeriodSuite) TestWatchPeriod(c *C) {
+	revno1 := s.insert(c, "test", "a")
+	s.w.Sync()
+	t0 := time.Now()
+	s.w.Watch("test", "a", revno1, s.ch)
+	revno2 := s.update(c, "test", "a")
+
+	leeway := watcher.Period / 4
+	select {
+	case got := <-s.ch:
+		gotPeriod := time.Since(t0)
+		c.Assert(got, Equals, watcher.Change{"test", "a", revno2})
+		if gotPeriod < watcher.Period - leeway {
+			c.Fatalf("watcher not waiting long enough; got %v want %v", gotPeriod, watcher.Period)
+		}
+	case <-time.After(watcher.Period + leeway):
+		gotPeriod := time.Since(t0)
+		c.Fatalf("watcher waited too long; got %v want %v", gotPeriod, watcher.Period)
+	}
+
+	assertOrder(c, -1, revno1, revno2)
 }

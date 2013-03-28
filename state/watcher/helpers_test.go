@@ -19,7 +19,7 @@ func (w *dummyWatcher) Err() error {
 	return w.err
 }
 
-func (s *WatcherSuite) TestStop(c *C) {
+func (s *FastPeriodSuite) TestStop(c *C) {
 	t := &tomb.Tomb{}
 	watcher.Stop(&dummyWatcher{nil}, t)
 	c.Assert(t.Err(), Equals, tomb.ErrStillAlive)
@@ -28,7 +28,7 @@ func (s *WatcherSuite) TestStop(c *C) {
 	c.Assert(t.Err(), ErrorMatches, "BLAM")
 }
 
-func (s *WatcherSuite) TestMustErr(c *C) {
+func (s *FastPeriodSuite) TestMustErr(c *C) {
 	err := watcher.MustErr(&dummyWatcher{errors.New("POW")})
 	c.Assert(err, ErrorMatches, "POW")
 
