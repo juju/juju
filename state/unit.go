@@ -36,6 +36,10 @@ const (
 	// to a dedicated machine, and that new machines should be launched
 	// if required.
 	AssignUnused AssignmentPolicy = "unused"
+
+	// AssignNew indicates that every service unit should be assigned to a new
+	// dedicated machine.  A new machine will be launched for each new unit.
+	AssignNew AssignmentPolicy = "new"
 )
 
 // UnitStatus represents the status of the unit agent.
@@ -708,6 +712,53 @@ func (u *Unit) AssignToMachine(m *Machine) error {
 		return fmt.Errorf("cannot assign unit %q to machine %v: %v", u, m, err)
 	}
 	return nil
+}
+
+// AssignToNewMachine creates a new machine, and allocates the unit in a
+// single transaction.
+func (u *Unit) AssignToNewMachine() error {
+	// Get the ops necessary to create a new machine, and the machine doc that
+	// will be added with those operations (which includes the machine id).
+	mdoc := &machineDoc{
+		Series:     u.doc.Series,
+		Jobs:       []MachineJob{JobHostUnits},
+		Principals: []string{u.doc.Name},
+	}
+	mdoc, ops, err := u.st.addMachineOps(mdoc)
+	if err != nil {
+		return err
+	}
+	isUnassigned := D{{"machineid", ""}}
+	ops = append(ops, txn.Op{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: append(isAliveDoc, isUnassigned...),
+		Update: D{{"$set", D{{"machineid", mdoc.Id}}}},
+	})
+	err = u.st.runner.Run(ops, "", nil)
+	if err == nil {
+		u.doc.MachineId = mdoc.Id
+		return nil
+	} else if err != txn.ErrAborted {
+		return err
+	}
+	// If we assume that the machine ops will never give us an operation that
+	// would fail (because the machine id that it has is unique), then the only
+	// reason that the transaction would have been aborted are:
+	//  * the unit is no longer alive
+	//  * the unit  has been assigned to a different machine
+	unit, err := u.st.Unit(u.Name())
+	if err != nil {
+		return err
+	}
+	switch {
+	case unit.Life() != Alive:
+		return unitDeadErr
+	case unit.doc.MachineId != "":
+		return alreadyAssignedErr
+	}
+	// Other error condition not considered.
+	return fmt.Errorf("undetermined error trying to assign unit to a new machine: %q", u)
 }
 
 var noUnusedMachines = errors.New("all eligible machines in use")
