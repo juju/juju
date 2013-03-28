@@ -183,48 +183,55 @@ func (st *State) InjectMachine(series string, instanceId InstanceId, jobs ...Mac
 	return st.addMachine(series, instanceId, jobs)
 }
 
-// addMachine implements AddMachine and InjectMachine.
-func (st *State) addMachine(series string, instanceId InstanceId, jobs []MachineJob) (m *Machine, err error) {
-	defer trivial.ErrorContextf(&err, "cannot add a new machine")
-	if series == "" {
-		return nil, fmt.Errorf("no series specified")
+func (st *State) addMachineOps(mdoc *machineDoc) (*machineDoc, []txn.Op, error) {
+	if mdoc.Series == "" {
+		return nil, nil, fmt.Errorf("no series specified")
 	}
-	if len(jobs) == 0 {
-		return nil, fmt.Errorf("no jobs specified")
+	if len(mdoc.Jobs) == 0 {
+		return nil, nil, fmt.Errorf("no jobs specified")
 	}
 	jset := make(map[MachineJob]bool)
-	for _, j := range jobs {
+	for _, j := range mdoc.Jobs {
 		if jset[j] {
-			return nil, fmt.Errorf("duplicate job: %s", j)
+			return nil, nil, fmt.Errorf("duplicate job: %s", j)
 		}
 		jset[j] = true
 	}
 	seq, err := st.sequence("machine")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	id := strconv.Itoa(seq)
-	mdoc := machineDoc{
-		Id:     id,
-		Series: series,
-		Life:   Alive,
-		Jobs:   jobs,
-	}
-	if instanceId != "" {
-		mdoc.InstanceId = instanceId
-	}
+	mdoc.Id = strconv.Itoa(seq)
+	mdoc.Life = Alive
 	ops := []txn.Op{{
 		C:      st.machines.Name,
-		Id:     id,
+		Id:     mdoc.Id,
 		Assert: txn.DocMissing,
-		Insert: mdoc,
+		Insert: *mdoc,
 	}}
+	return mdoc, ops, nil
+}
+
+// addMachine implements AddMachine and InjectMachine.
+func (st *State) addMachine(series string, instanceId InstanceId, jobs []MachineJob) (m *Machine, err error) {
+	defer trivial.ErrorContextf(&err, "cannot add a new machine")
+
+	mdoc := &machineDoc{
+		Series:     series,
+		InstanceId: instanceId,
+		Jobs:       jobs,
+	}
+	mdoc, ops, err := st.addMachineOps(mdoc)
+	if err != nil {
+		return nil, err
+	}
+
 	err = st.runner.Run(ops, "", nil)
 	if err != nil {
 		return nil, err
 	}
 	// Refresh to pick the txn-revno.
-	m = newMachine(st, &mdoc)
+	m = newMachine(st, mdoc)
 	if err = m.Refresh(); err != nil {
 		return nil, err
 	}
@@ -430,6 +437,36 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	return newCharm(st, cdoc)
 }
 
+// addPeerRelationsOps returns the operations necessary to add the
+// specified service peer relations to the state.
+func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.Relation) ([]txn.Op, error) {
+	var ops []txn.Op
+	for _, rel := range peers {
+		relId, err := st.sequence("relation")
+		if err != nil {
+			return nil, err
+		}
+		eps := []Endpoint{{
+			ServiceName:   serviceName,
+			Relation: rel,
+		}}
+		relKey := relationKey(eps)
+		relDoc := &relationDoc{
+			Key:       relKey,
+			Id:        relId,
+			Endpoints: eps,
+			Life:      Alive,
+		}
+		ops = append(ops, txn.Op{
+			C:      st.relations.Name,
+			Id:     relKey,
+			Assert: txn.DocMissing,
+			Insert: relDoc,
+		})
+	}
+	return ops, nil
+}
+
 // AddService creates a new service, running the supplied charm, with the
 // supplied name (which must be unique). If the charm defines peer relations,
 // they will be created automatically.
@@ -472,29 +509,12 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 			Insert: svcDoc,
 		}}
 	// Collect peer relation addition operations.
-	for _, rel := range peers {
-		relId, err := st.sequence("relation")
-		if err != nil {
-			return nil, err
-		}
-		eps := []Endpoint{{
-			ServiceName: name,
-			Relation:    rel,
-		}}
-		relKey := relationKey(eps)
-		relDoc := &relationDoc{
-			Key:       relKey,
-			Id:        relId,
-			Endpoints: eps,
-			Life:      Alive,
-		}
-		ops = append(ops, txn.Op{
-			C:      st.relations.Name,
-			Id:     relKey,
-			Assert: txn.DocMissing,
-			Insert: relDoc,
-		})
+	peerOps, err := st.addPeerRelationsOps(name, peers)
+	if err != nil {
+		return nil, err
 	}
+	ops = append(ops, peerOps...)
+
 	// Run the transaction; happily, there's never any reason to retry,
 	// because all the possible failed assertions imply that the service
 	// already exists.
@@ -860,19 +880,9 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 		if _, err = u.AssignToUnusedMachine(); err != noUnusedMachines {
 			return err
 		}
-		for {
-			m, err := st.AddMachine(u.doc.Series, JobHostUnits)
-			if err != nil {
-				return err
-			}
-			err = u.assignToMachine(m, true)
-			if err == inUseErr {
-				// Someone else has grabbed the machine we've
-				// just allocated, so try again.
-				continue
-			}
-			return err
-		}
+		return u.AssignToNewMachine()
+	case AssignNew:
+		return u.AssignToNewMachine()
 	}
 	panic(fmt.Errorf("unknown unit assignment policy: %q", policy))
 }

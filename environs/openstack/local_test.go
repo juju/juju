@@ -348,7 +348,7 @@ func (s *localServerSuite) TestInstancesGathering(c *C) {
 // It should be moved to environs.jujutests.Tests.
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	policy := t.env.AssignmentPolicy()
-	c.Assert(policy, Equals, state.AssignUnused)
+	c.Assert(policy, Equals, state.AssignNew)
 
 	err := environs.Bootstrap(t.env, constraints.Value{})
 	c.Assert(err, IsNil)

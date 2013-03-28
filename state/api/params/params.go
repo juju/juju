@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 )
 
@@ -242,12 +241,24 @@ type EntityInfo interface {
 // IMPORTANT NOTE: the types below are direct subsets of the entity docs
 // held in mongo, as defined in the state package (serviceDoc,
 // machineDoc etc).
+// In particular, the document marshalled into mongo
+// must unmarshal correctly into these documents.
+// If the format of a field in a document is changed in mongo, or
+// a field is removed and it coincides with one of the
+// fields below, a similar change must be made here.
+//
+// MachineInfo corresponds with state.machineDoc.
+// ServiceInfo corresponds with state.serviceDoc.
+// UnitInfo corresponds with state.unitDoc.
+// RelationInfo corresponds with state.relationDoc.
+// AnnotationInfo corresponds with state.annotatorDoc.
 
 var (
 	_ EntityInfo = (*MachineInfo)(nil)
 	_ EntityInfo = (*ServiceInfo)(nil)
 	_ EntityInfo = (*UnitInfo)(nil)
 	_ EntityInfo = (*RelationInfo)(nil)
+	_ EntityInfo = (*AnnotationInfo)(nil)
 )
 
 // MachineInfo holds the information about a Machine
@@ -263,7 +274,7 @@ func (i *MachineInfo) EntityKind() string    { return "machine" }
 type ServiceInfo struct {
 	Name     string `bson:"_id"`
 	Exposed  bool
-	CharmURL *charm.URL
+	CharmURL string
 }
 
 func (i *ServiceInfo) EntityId() interface{} { return i.Name }
