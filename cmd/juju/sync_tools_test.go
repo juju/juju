@@ -37,34 +37,22 @@ var _ = Suite(&toolSuite{})
 var t1000precise = &state.Tools{
 	Binary: version.Binary{
 		Number: version.Number{1, 0, 0, 0},
-		Series: "precise",
-		Arch:   ""},
-	URL: "",
-}
+		Series: "precise"}}
 
 var t1000quantal = &state.Tools{
 	Binary: version.Binary{
 		Number: version.Number{1, 0, 0, 0},
-		Series: "quantal",
-		Arch:   ""},
-	URL: "",
-}
+		Series: "quantal"}}
 
 var t1900quantal = &state.Tools{
 	Binary: version.Binary{
 		Number: version.Number{1, 9, 0, 0},
-		Series: "quantal",
-		Arch:   ""},
-	URL: "",
-}
+		Series: "quantal"}}
 
 var t2000precise = &state.Tools{
 	Binary: version.Binary{
 		Number: version.Number{2, 0, 0, 0},
-		Series: "precise",
-		Arch:   ""},
-	URL: "",
-}
+		Series: "precise"}}
 
 func (s *toolSuite) TestFindNewestOneTool(c *C) {
 	var onlyOneTests = []struct {
