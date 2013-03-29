@@ -80,6 +80,30 @@ func (ctx *context) run(c *C, steps []stepper) {
 	}
 }
 
+// shortcuts for expected output.
+var (
+	machine0 = M{
+		"dns-name":    "dummyenv-0.dns",
+		"instance-id": "dummyenv-0",
+	}
+	machine1 = M{
+		"dns-name":    "dummyenv-1.dns",
+		"instance-id": "dummyenv-1",
+	}
+	machine2 = M{
+		"dns-name":    "dummyenv-2.dns",
+		"instance-id": "dummyenv-2",
+	}
+	unexposedService = M{
+		"charm":   "local:series/dummy-1",
+		"exposed": false,
+	}
+	exposedService = M{
+		"charm":   "local:series/dummy-1",
+		"exposed": true,
+	}
+)
+
 type outputFormat struct {
 	name      string
 	marshal   func(v interface{}) ([]byte, error)
@@ -94,18 +118,18 @@ var statusFormats = []outputFormat{
 
 var statusTests = []testCase{
 	test(
+		"bootstrap and starting a single instance",
+
 		// unlikely, as you can't run juju status in real life without
 		// machine/0 bootstrapped.
-		"empty state",
 		expect{
-			"no services or machines yet",
+			"empty state",
 			M{
 				"machines": M{},
 				"services": M{},
 			},
 		},
-	), test(
-		"bootstrap and starting a single instance",
+
 		addMachine{"0", state.JobManageEnviron},
 		expect{
 			"simulate juju bootstrap by adding machine/0 to the state",
@@ -124,10 +148,7 @@ var statusTests = []testCase{
 			"simulate the PA starting an instance in response to the state change",
 			M{
 				"machines": M{
-					"0": M{
-						"dns-name":    "dummyenv-0.dns",
-						"instance-id": "dummyenv-0",
-					},
+					"0": machine0,
 				},
 				"services": M{},
 			},
@@ -165,20 +186,11 @@ var statusTests = []testCase{
 			"no services exposed yet",
 			M{
 				"machines": M{
-					"0": M{
-						"dns-name":    "dummyenv-0.dns",
-						"instance-id": "dummyenv-0",
-					},
+					"0": machine0,
 				},
 				"services": M{
-					"dummy-service": M{
-						"charm":   "local:series/dummy-1",
-						"exposed": false,
-					},
-					"exposed-service": M{
-						"charm":   "local:series/dummy-1",
-						"exposed": false,
-					},
+					"dummy-service":   unexposedService,
+					"exposed-service": unexposedService,
 				},
 			},
 		},
@@ -188,20 +200,11 @@ var statusTests = []testCase{
 			"one exposed service",
 			M{
 				"machines": M{
-					"0": M{
-						"dns-name":    "dummyenv-0.dns",
-						"instance-id": "dummyenv-0",
-					},
+					"0": machine0,
 				},
 				"services": M{
-					"dummy-service": M{
-						"charm":   "local:series/dummy-1",
-						"exposed": false,
-					},
-					"exposed-service": M{
-						"charm":   "local:series/dummy-1",
-						"exposed": true,
-					},
+					"dummy-service":   unexposedService,
+					"exposed-service": exposedService,
 				},
 			},
 		},
@@ -214,28 +217,13 @@ var statusTests = []testCase{
 			"two more machines added",
 			M{
 				"machines": M{
-					"0": M{
-						"dns-name":    "dummyenv-0.dns",
-						"instance-id": "dummyenv-0",
-					},
-					"1": M{
-						"dns-name":    "dummyenv-1.dns",
-						"instance-id": "dummyenv-1",
-					},
-					"2": M{
-						"dns-name":    "dummyenv-2.dns",
-						"instance-id": "dummyenv-2",
-					},
+					"0": machine0,
+					"1": machine1,
+					"2": machine2,
 				},
 				"services": M{
-					"dummy-service": M{
-						"charm":   "local:series/dummy-1",
-						"exposed": false,
-					},
-					"exposed-service": M{
-						"charm":   "local:series/dummy-1",
-						"exposed": true,
-					},
+					"dummy-service":   unexposedService,
+					"exposed-service": exposedService,
 				},
 			},
 		},
@@ -249,18 +237,9 @@ var statusTests = []testCase{
 			"add two units, one alive (in error state), one down",
 			M{
 				"machines": M{
-					"0": M{
-						"dns-name":    "dummyenv-0.dns",
-						"instance-id": "dummyenv-0",
-					},
-					"1": M{
-						"dns-name":    "dummyenv-1.dns",
-						"instance-id": "dummyenv-1",
-					},
-					"2": M{
-						"dns-name":    "dummyenv-2.dns",
-						"instance-id": "dummyenv-2",
-					},
+					"0": machine0,
+					"1": machine1,
+					"2": machine2,
 				},
 				"services": M{
 					"exposed-service": M{
