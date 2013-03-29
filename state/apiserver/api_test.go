@@ -148,6 +148,10 @@ var operationPermTests = []struct {
 	op:    opClientCharmInfo,
 	allow: []string{"user-admin", "user-other"},
 }, {
+	about: "Client.AddRelation",
+	op:    opClientAddRelation,
+	allow: []string{"user-admin", "user-other"},
+}, {
 	about: "Client.DestroyRelation",
 	op:    opClientDestroyRelation,
 	allow: []string{"user-admin", "user-other"},
@@ -263,6 +267,14 @@ func opClientCharmInfo(c *C, st *api.State, mst *state.State) (func(), error) {
 	c.Assert(info.Meta.Name, Equals, "wordpress")
 	c.Assert(info.Revision, Equals, 3)
 	return func() {}, nil
+}
+
+func opClientAddRelation(c *C, st *api.State, mst *state.State) (func(), error) {
+	_, err := st.Client().AddRelation("nosuch1", "nosuch2")
+	if api.ErrCode(err) == api.CodeNotFound {
+		err = nil
+	}
+	return func() {}, err
 }
 
 func opClientDestroyRelation(c *C, st *api.State, mst *state.State) (func(), error) {
@@ -1343,10 +1355,32 @@ func (s *suite) TestClientServiceDeploy(c *C) {
 	}
 }
 
+func (s *suite) TestSuccessfulAddRelation(c *C) {
+	s.setUpScenario(c)
+	endpoints := []string{"wordpress", "mysql"}
+	res, err := s.APIState.Client().AddRelation(endpoints...)
+	c.Assert(err, IsNil)
+	c.Assert(res.Endpoints["wordpress"].Name, Equals, "db")
+	c.Assert(res.Endpoints["wordpress"].Interface, Equals, "mysql")
+	c.Assert(res.Endpoints["wordpress"].Scope, Equals, charm.RelationScope("global"))
+	c.Assert(res.Endpoints["mysql"].Name, Equals, "server")
+	c.Assert(res.Endpoints["mysql"].Interface, Equals, "mysql")
+	c.Assert(res.Endpoints["mysql"].Scope, Equals, charm.RelationScope("global"))
+	for _, endpoint := range endpoints {
+		svc, err := s.State.Service(endpoint)
+		c.Assert(err, IsNil)
+		rels, err := svc.Relations()
+		c.Assert(err, IsNil)
+		for _, rel := range rels {
+			c.Assert(rel.Life(), Equals, state.Alive)
+		}
+	}
+}
+
 func (s *suite) TestSuccessfulDestroyRelation(c *C) {
 	s.setUpScenario(c)
 	endpoints := []string{"wordpress", "logging"}
-	err := s.APIState.Client().DestroyRelation(endpoints[0], endpoints[1])
+	err := s.APIState.Client().DestroyRelation(endpoints...)
 	c.Assert(err, IsNil)
 	for _, endpoint := range endpoints {
 		service, err := s.State.Service(endpoint)
