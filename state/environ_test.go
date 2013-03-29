@@ -20,9 +20,9 @@ func (s *EnvironSuite) SetUpTest(c *C) {
 	s.env = env
 }
 
-func (s *EnvironSuite) TestEntityName(c *C) {
+func (s *EnvironSuite) TestTag(c *C) {
 	expected := "environment-" + envConfig["name"].(string)
-	c.Assert(s.env.EntityName(), Equals, expected)
+	c.Assert(s.env.Tag(), Equals, expected)
 }
 
 func (s *EnvironSuite) TestAnnotatorForEnvironment(c *C) {

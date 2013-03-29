@@ -308,8 +308,8 @@ func jujuInfoEp(serviceName string) state.Endpoint {
 	}
 }
 
-func (s *ServiceSuite) TestEntityName(c *C) {
-	c.Assert(s.mysql.EntityName(), Equals, "service-mysql")
+func (s *ServiceSuite) TestTag(c *C) {
+	c.Assert(s.mysql.Tag(), Equals, "service-mysql")
 }
 
 func (s *ServiceSuite) TestMysqlEndpoints(c *C) {
