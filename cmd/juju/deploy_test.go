@@ -168,7 +168,7 @@ func (s *DeploySuite) TestCharmBundle(c *C) {
 func (s *DeploySuite) TestCannotUpgradeCharmBundle(c *C) {
 	coretesting.Charms.BundlePath(s.seriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "-u")
-	c.Assert(err, ErrorMatches, `cannot increment version of charm "local:precise/dummy-1": not a directory`)
+	c.Assert(err, ErrorMatches, `cannot increment revision of charm "local:precise/dummy-1": not a directory`)
 	// Verify state not touched...
 	curl := charm.MustParseURL("local:precise/dummy-1")
 	_, err = s.State.Charm(curl)
@@ -186,9 +186,9 @@ func (s *DeploySuite) TestAddsPeerRelations(c *C) {
 	rel := rels[0]
 	ep, err := rel.Endpoint("riak")
 	c.Assert(err, IsNil)
-	c.Assert(ep.RelationName, Equals, "ring")
-	c.Assert(ep.RelationRole, Equals, state.RolePeer)
-	c.Assert(ep.RelationScope, Equals, charm.ScopeGlobal)
+	c.Assert(ep.Name, Equals, "ring")
+	c.Assert(ep.Role, Equals, charm.RolePeer)
+	c.Assert(ep.Scope, Equals, charm.ScopeGlobal)
 }
 
 func (s *DeploySuite) TestNumUnits(c *C) {

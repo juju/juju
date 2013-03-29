@@ -1,8 +1,9 @@
 package jujutest
 
 import (
-	"bytes"
+	"io/ioutil"
 	"net/http"
+	"strings"
 )
 
 // VirtualRoundTripper can be used to provide "http" responses without actually
@@ -41,14 +42,6 @@ type FileContent struct {
 	Content string
 }
 
-// bytes.Buffer doesn't provide a Close method, but http.Response needs a
-// ReadCloser, so we implement a no-op Close method.
-type BufferCloser struct {
-	*bytes.Buffer
-}
-
-func (bc BufferCloser) Close() error { return nil }
-
 // Map the Path into Content based on FileContent.Name
 func (v *VirtualRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	res := &http.Response{Proto: "HTTP/1.0",
@@ -61,14 +54,14 @@ func (v *VirtualRoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 			res.Status = "200 OK"
 			res.StatusCode = http.StatusOK
 			res.ContentLength = int64(len(fc.Content))
-			res.Body = BufferCloser{bytes.NewBufferString(fc.Content)}
+			res.Body = ioutil.NopCloser(strings.NewReader(fc.Content))
 			return res, nil
 		}
 	}
 	res.Status = "404 Not Found"
 	res.StatusCode = http.StatusNotFound
 	res.ContentLength = 0
-	res.Body = BufferCloser{bytes.NewBufferString("")}
+	res.Body = ioutil.NopCloser(strings.NewReader(""))
 	return res, nil
 }
 

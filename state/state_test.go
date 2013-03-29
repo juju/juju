@@ -295,11 +295,14 @@ var inferEndpointsTests = []struct {
 			{"rk1:ring"},
 		},
 		eps: []state.Endpoint{{
-			ServiceName:   "rk1",
-			Interface:     "riak",
-			RelationName:  "ring",
-			RelationRole:  state.RolePeer,
-			RelationScope: charm.ScopeGlobal,
+			ServiceName: "rk1",
+			Relation: charm.Relation{
+				Name:      "ring",
+				Interface: "riak",
+				Limit:     1,
+				Role:      charm.RolePeer,
+				Scope:     charm.ScopeGlobal,
+			},
 		}},
 	}, {
 		summary: "ambiguous provider/requirer relation",
@@ -315,33 +318,44 @@ var inferEndpointsTests = []struct {
 			{"ms:dev", "wp:db"},
 		},
 		eps: []state.Endpoint{{
-			ServiceName:   "ms",
-			Interface:     "mysql",
-			RelationName:  "dev",
-			RelationRole:  state.RoleProvider,
-			RelationScope: charm.ScopeGlobal,
+			ServiceName: "ms",
+			Relation: charm.Relation{
+				Interface: "mysql",
+				Name:      "dev",
+				Role:      charm.RoleProvider,
+				Scope:     charm.ScopeGlobal,
+				Limit:     2,
+			},
 		}, {
-			ServiceName:   "wp",
-			Interface:     "mysql",
-			RelationName:  "db",
-			RelationRole:  state.RoleRequirer,
-			RelationScope: charm.ScopeGlobal,
+			ServiceName: "wp",
+			Relation: charm.Relation{
+				Interface: "mysql",
+				Name:      "db",
+				Role:      charm.RoleRequirer,
+				Scope:     charm.ScopeGlobal,
+				Limit:     1,
+			},
 		}},
 	}, {
 		summary: "explicit logging relation is preferred over implicit juju-info",
 		inputs:  [][]string{{"lg", "wp"}},
 		eps: []state.Endpoint{{
-			ServiceName:   "lg",
-			Interface:     "logging",
-			RelationName:  "logging-directory",
-			RelationRole:  state.RoleRequirer,
-			RelationScope: charm.ScopeContainer,
+			ServiceName: "lg",
+			Relation: charm.Relation{
+				Interface: "logging",
+				Name:      "logging-directory",
+				Role:      charm.RoleRequirer,
+				Scope:     charm.ScopeContainer,
+				Limit:     1,
+			},
 		}, {
-			ServiceName:   "wp",
-			Interface:     "logging",
-			RelationName:  "logging-dir",
-			RelationRole:  state.RoleProvider,
-			RelationScope: charm.ScopeContainer,
+			ServiceName: "wp",
+			Relation: charm.Relation{
+				Interface: "logging",
+				Name:      "logging-dir",
+				Role:      charm.RoleProvider,
+				Scope:     charm.ScopeContainer,
+			},
 		}},
 	}, {
 		summary: "implict relations can be chosen explicitly",
@@ -351,33 +365,43 @@ var inferEndpointsTests = []struct {
 			{"lg:info", "wp:juju-info"},
 		},
 		eps: []state.Endpoint{{
-			ServiceName:   "lg",
-			Interface:     "juju-info",
-			RelationName:  "info",
-			RelationRole:  state.RoleRequirer,
-			RelationScope: charm.ScopeContainer,
+			ServiceName: "lg",
+			Relation: charm.Relation{
+				Interface: "juju-info",
+				Name:      "info",
+				Role:      charm.RoleRequirer,
+				Scope:     charm.ScopeContainer,
+				Limit:     1,
+			},
 		}, {
-			ServiceName:   "wp",
-			Interface:     "juju-info",
-			RelationName:  "juju-info",
-			RelationRole:  state.RoleProvider,
-			RelationScope: charm.ScopeGlobal,
+			ServiceName: "wp",
+			Relation: charm.Relation{
+				Interface: "juju-info",
+				Name:      "juju-info",
+				Role:      charm.RoleProvider,
+				Scope:     charm.ScopeGlobal,
+			},
 		}},
 	}, {
 		summary: "implicit relations will be chosen if there are no other options",
 		inputs:  [][]string{{"lg", "ms"}},
 		eps: []state.Endpoint{{
-			ServiceName:   "lg",
-			Interface:     "juju-info",
-			RelationName:  "info",
-			RelationRole:  state.RoleRequirer,
-			RelationScope: charm.ScopeContainer,
+			ServiceName: "lg",
+			Relation: charm.Relation{
+				Interface: "juju-info",
+				Name:      "info",
+				Role:      charm.RoleRequirer,
+				Scope:     charm.ScopeContainer,
+				Limit:     1,
+			},
 		}, {
-			ServiceName:   "ms",
-			Interface:     "juju-info",
-			RelationName:  "juju-info",
-			RelationRole:  state.RoleProvider,
-			RelationScope: charm.ScopeGlobal,
+			ServiceName: "ms",
+			Relation: charm.Relation{
+				Interface: "juju-info",
+				Name:      "juju-info",
+				Role:      charm.RoleProvider,
+				Scope:     charm.ScopeGlobal,
+			},
 		}},
 	},
 }
@@ -1337,8 +1361,10 @@ func (s *StateSuite) TestSetAdminMongoPassword(c *C) {
 }
 
 var envConfig = map[string]interface{}{
-	"name": "test",
-	"type": "test",
+	"name":           "test",
+	"type":           "test",
+	"ca-cert":        testing.CACert,
+	"ca-private-key": "",
 }
 
 func setUpEnvConfig(c *C) {
@@ -1463,4 +1489,56 @@ func (s *StateSuite) TestAnnotator(c *C) {
 		ErrorMatches,
 		`entity "user-arble" does not support annotations`,
 	)
+}
+
+func (s *StateSuite) TestParseEntityName(c *C) {
+	bad := []string{
+		"",
+		"machine",
+		"-foo",
+		"foo-",
+		"---",
+		"foo-bar",
+		"environment-foo",
+		"unit-foo",
+	}
+	for _, name := range bad {
+		c.Logf(name)
+		coll, id, err := s.State.ParseEntityName(name)
+		c.Check(coll, Equals, "")
+		c.Check(id, Equals, "")
+		c.Assert(err, ErrorMatches, `invalid entity name ".*"`)
+	}
+
+	// Parse a machine entity name.
+	m, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	coll, id, err := s.State.ParseEntityName(m.EntityName())
+	c.Assert(coll, Equals, "machines")
+	c.Assert(id, Equals, m.Id())
+	c.Assert(err, IsNil)
+
+	// Parse a service entity name.
+	svc, err := s.State.AddService("ser-vice2", s.AddTestingCharm(c, "dummy"))
+	c.Assert(err, IsNil)
+	coll, id, err = s.State.ParseEntityName(svc.EntityName())
+	c.Assert(coll, Equals, "services")
+	c.Assert(id, Equals, svc.Name())
+	c.Assert(err, IsNil)
+
+	// Parse a unit entity name.
+	u, err := svc.AddUnit()
+	c.Assert(err, IsNil)
+	coll, id, err = s.State.ParseEntityName(u.EntityName())
+	c.Assert(coll, Equals, "units")
+	c.Assert(id, Equals, u.Name())
+	c.Assert(err, IsNil)
+
+	// Parse a user entity name.
+	user, err := s.State.AddUser("arble", "pass")
+	c.Assert(err, IsNil)
+	coll, id, err = s.State.ParseEntityName(user.EntityName())
+	c.Assert(coll, Equals, "users")
+	c.Assert(id, Equals, user.Name())
+	c.Assert(err, IsNil)
 }

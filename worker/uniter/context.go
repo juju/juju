@@ -290,7 +290,7 @@ func (ctx *ContextRelation) Id() int {
 }
 
 func (ctx *ContextRelation) Name() string {
-	return ctx.ru.Endpoint().RelationName
+	return ctx.ru.Endpoint().Name
 }
 
 func (ctx *ContextRelation) FakeId() string {

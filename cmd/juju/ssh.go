@@ -78,7 +78,7 @@ func (c *SSHCommon) hostFromTarget(target string) (string, error) {
 	}
 	// maybe the target is a unit ?
 	if state.IsUnitName(target) {
-		log.Infof("cmd/juju: Looking up address for unit %q...", c.Target)
+		log.Infof("cmd/juju: looking up address for unit %q...", c.Target)
 		unit, err := c.State.Unit(target)
 		if err != nil {
 			return "", err

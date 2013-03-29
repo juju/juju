@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"net/http"
 	"net/url"
@@ -32,18 +33,16 @@ type Repository interface {
 
 // store is a Repository that talks to the juju charm server (in ../store).
 type store struct {
-	baseURL   string
-	cachePath string
+	baseURL string
 }
 
 const (
-	storeURL  = "https://store.juju.ubuntu.com"
-	cachePath = "$HOME/.juju/cache"
+	storeURL = "https://store.juju.ubuntu.com"
 )
 
 // Store returns a Repository that provides access to the juju charm store.
 func Store() Repository {
-	return &store{storeURL, os.ExpandEnv(cachePath)}
+	return &store{storeURL}
 }
 
 // info returns the revision and SHA256 digest of the charm referenced by curl.
@@ -106,7 +105,8 @@ func verify(path, digest string) error {
 
 // Get returns the charm referenced by curl.
 func (s *store) Get(curl *URL) (Charm, error) {
-	if err := os.MkdirAll(s.cachePath, 0755); err != nil {
+	cachePath := config.JujuHomePath("cache")
+	if err := os.MkdirAll(cachePath, 0755); err != nil {
 		return nil, err
 	}
 	rev, digest, err := s.info(curl)
@@ -118,14 +118,14 @@ func (s *store) Get(curl *URL) (Charm, error) {
 	} else if curl.Revision != rev {
 		return nil, fmt.Errorf("charm: store returned charm with wrong revision for %q", curl.String())
 	}
-	path := filepath.Join(s.cachePath, Quote(curl.String())+".charm")
+	path := filepath.Join(cachePath, Quote(curl.String())+".charm")
 	if verify(path, digest) != nil {
 		resp, err := http.Get(s.baseURL + "/charm/" + url.QueryEscape(curl.Path()))
 		if err != nil {
 			return nil, err
 		}
 		defer resp.Body.Close()
-		f, err := ioutil.TempFile(s.cachePath, "charm-download")
+		f, err := ioutil.TempFile(cachePath, "charm-download")
 		if err != nil {
 			return nil, err
 		}
@@ -173,8 +173,8 @@ func repoNotFound(path string) error {
 	return fmt.Errorf("no repository found at %q", path)
 }
 
-func charmNotFound(curl *URL) error {
-	return fmt.Errorf("no charms found matching %q", curl)
+func charmNotFound(curl *URL, repoPath string) error {
+	return fmt.Errorf("no charms found matching %q in %s", curl, repoPath)
 }
 
 func mightBeCharm(info os.FileInfo) bool {
@@ -204,7 +204,7 @@ func (r *LocalRepository) Get(curl *URL) (Charm, error) {
 	path := filepath.Join(r.Path, curl.Series)
 	infos, err := ioutil.ReadDir(path)
 	if err != nil {
-		return nil, charmNotFound(curl)
+		return nil, charmNotFound(curl, r.Path)
 	}
 	var latest Charm
 	for _, info := range infos {
@@ -226,5 +226,5 @@ func (r *LocalRepository) Get(curl *URL) (Charm, error) {
 	if curl.Revision == -1 && latest != nil {
 		return latest, nil
 	}
-	return nil, charmNotFound(curl)
+	return nil, charmNotFound(curl, r.Path)
 }

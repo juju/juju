@@ -58,7 +58,6 @@ func (*NewConnSuite) TestNewConnWithoutAdminSecret(c *C) {
 
 func (*NewConnSuite) TestNewConnFromNameGetUnbootstrapped(c *C) {
 	defer coretesting.MakeSampleHome(c).Restore()
-
 	_, err := juju.NewConnFromName("")
 	c.Assert(err, ErrorMatches, "dummy environment not bootstrapped")
 }
@@ -319,6 +318,9 @@ func (s *ConnSuite) TestPutBundledCharm(c *C) {
 		Name:     "riak",
 		Revision: -1,
 	}
+	_, err = s.conn.PutCharm(curl, s.repo, true)
+	c.Assert(err, ErrorMatches, `cannot increment revision of charm "local:series/riak-7": not a directory`)
+
 	sch, err := s.conn.PutCharm(curl, s.repo, false)
 	c.Assert(err, IsNil)
 	c.Assert(sch.Meta().Summary, Equals, "K/V storage engine")

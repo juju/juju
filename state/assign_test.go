@@ -394,6 +394,77 @@ func (s *AssignSuite) TestAssignUnitToUnusedMachineWorksWithMachine0(c *C) {
 	c.Assert(assignedTo.Id(), Equals, "0")
 }
 
+func (s *AssignSuite) TestAssignUnitToNewMachine(c *C) {
+	unit, err := s.wordpress.AddUnit()
+	c.Assert(err, IsNil)
+
+	err = unit.AssignToNewMachine()
+	c.Assert(err, IsNil)
+	// Check the machine on the unit is set.
+	machineId, err := unit.AssignedMachineId()
+	c.Assert(err, IsNil)
+	// Check that the principal is set on the machine.
+	machine, err := s.State.Machine(machineId)
+	c.Assert(err, IsNil)
+	machineUnits, err := machine.Units()
+	c.Assert(err, IsNil)
+	c.Assert(machineUnits, HasLen, 1)
+	// Make sure it is the right unit.
+	c.Assert(machineUnits[0].Name(), Equals, unit.Name())
+}
+
+func (s *AssignSuite) TestAssignUnitToNewMachineUnusedAvailable(c *C) {
+	unit, err := s.wordpress.AddUnit()
+	c.Assert(err, IsNil)
+
+	// Add an unused machine.
+	unused, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+
+	err = unit.AssignToNewMachine()
+	c.Assert(err, IsNil)
+	// Check the machine on the unit is set.
+	machineId, err := unit.AssignedMachineId()
+	c.Assert(err, IsNil)
+	// Check that the machine isn't our unused one.
+	machine, err := s.State.Machine(machineId)
+	c.Assert(err, IsNil)
+	c.Assert(machine.Id(), Not(Equals), unused.Id())
+}
+
+func (s *AssignSuite) TestAssignUnitToNewMachineAlreadyAssigned(c *C) {
+	unit, err := s.wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	// Make the unit assigned
+	err = unit.AssignToNewMachine()
+	c.Assert(err, IsNil)
+	// Try to assign it again
+	err = unit.AssignToNewMachine()
+	c.Assert(err, ErrorMatches, `unit is already assigned to a machine`)
+}
+
+func (s *AssignSuite) TestAssignUnitToNewMachineDyingUnit(c *C) {
+	unit, err := s.wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	err = unit.Destroy()
+	c.Assert(err, IsNil)
+	// Try to assign it the dying unit.
+	err = unit.AssignToNewMachine()
+	c.Assert(err, ErrorMatches, `unit is dead`)
+}
+
+func (s *AssignSuite) TestAssignUnitToNewMachineRemovedUnit(c *C) {
+	unit, err := s.wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	err = unit.EnsureDead()
+	c.Assert(err, IsNil)
+	err = unit.Remove()
+	c.Assert(err, IsNil)
+	// Try to assign it the dying unit.
+	err = unit.AssignToNewMachine()
+	c.Assert(err, ErrorMatches, `unit "wordpress/0" not found`)
+}
+
 func (s *AssignSuite) TestAssignUnitBadPolicy(c *C) {
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
@@ -419,6 +490,17 @@ func (s *AssignSuite) TestAssignUnitLocalPolicy(c *C) {
 		c.Assert(mid, Equals, m.Id())
 		assertMachineCount(c, s.State, 1)
 	}
+}
+
+func (s *AssignSuite) TestAssignUnitNewPolicy(c *C) {
+	_, err := s.State.AddMachine("series", state.JobHostUnits) // available machine
+	c.Assert(err, IsNil)
+	unit, err := s.wordpress.AddUnit()
+	c.Assert(err, IsNil)
+
+	err = s.State.AssignUnit(unit, state.AssignNew)
+	c.Assert(err, IsNil)
+	assertMachineCount(c, s.State, 2)
 }
 
 func (s *AssignSuite) TestAssignUnitUnusedPolicy(c *C) {

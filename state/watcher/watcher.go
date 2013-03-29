@@ -347,7 +347,6 @@ func (w *Watcher) initLastId() error {
 // sync updates the watcher knowledge from the database, and
 // queues events to observing channels.
 func (w *Watcher) sync() error {
-	log.Debugf("state/watcher: loading new events from changelog collection...")
 	// Iterate through log events in reverse insertion order (newest first).
 	iter := w.log.Find(nil).Batch(10).Sort("-$natural").Iter()
 	seen := make(map[watchKey]bool)

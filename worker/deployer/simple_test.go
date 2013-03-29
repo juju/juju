@@ -75,11 +75,12 @@ func (s *SimpleContextSuite) TestIndependentManagers(c *C) {
 }
 
 type SimpleToolsFixture struct {
-	dataDir  string
-	initDir  string
-	logDir   string
-	origPath string
-	binDir   string
+	dataDir         string
+	initDir         string
+	logDir          string
+	origPath        string
+	binDir          string
+	syslogConfigDir string
 }
 
 var fakeJujud = "#!/bin/bash\n# fake-jujud\nexit 0\n"
@@ -88,6 +89,7 @@ func (fix *SimpleToolsFixture) SetUp(c *C, dataDir string) {
 	fix.dataDir = dataDir
 	fix.initDir = c.MkDir()
 	fix.logDir = c.MkDir()
+	fix.syslogConfigDir = c.MkDir()
 	toolsDir := agent.SharedToolsDir(fix.dataDir, version.Current)
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, IsNil)
@@ -123,21 +125,35 @@ func (fix *SimpleToolsFixture) assertUpstartCount(c *C, count int) {
 	c.Assert(fis, HasLen, count)
 }
 
-func (fix *SimpleToolsFixture) getContext(c *C, deployerTag string) *deployer.SimpleContext {
-	return deployer.NewTestSimpleContext(deployerTag, fix.initDir, fix.dataDir, fix.logDir)
+func (fix *SimpleToolsFixture) getContext(c *C, deployerName string) *deployer.SimpleContext {
+	return deployer.NewTestSimpleContext(deployerName, fix.initDir, fix.dataDir, fix.logDir, fix.syslogConfigDir)
 }
 
-func (fix *SimpleToolsFixture) paths(tag, xName string) (confPath, agentDir, toolsDir string) {
+func (fix *SimpleToolsFixture) paths(tag, xName string) (confPath, agentDir, toolsDir, syslogConfPath string) {
 	confName := fmt.Sprintf("jujud-%s:%s.conf", xName, tag)
 	confPath = filepath.Join(fix.initDir, confName)
 	agentDir = agent.Dir(fix.dataDir, tag)
 	toolsDir = agent.ToolsDir(fix.dataDir, tag)
+	syslogConfPath = filepath.Join(fix.syslogConfigDir, fmt.Sprintf("26-juju-%s.conf", tag))
 	return
 }
 
+var expectedSyslogConf = `
+$ModLoad imfile
+
+$InputFilePollInterval 5
+$InputFileName /var/log/juju/unit-foo-123.log
+$InputFileTag juju-unit-foo-123:
+$InputFileStateFile unit-foo-123
+$InputRunFileMonitor
+
+:syslogtag, startswith, "juju-" @s1:514
+& ~
+`
+
 func (fix *SimpleToolsFixture) checkUnitInstalled(c *C, name, xName, password string) {
 	tag := state.UnitTag(name)
-	uconfPath, _, toolsDir := fix.paths(tag, xName)
+	uconfPath, _, toolsDir, syslogConfPath := fix.paths(tag, xName)
 	uconfData, err := ioutil.ReadFile(uconfPath)
 	c.Assert(err, IsNil)
 	uconf := string(uconfData)
@@ -180,12 +196,17 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *C, name, xName, password st
 	jujudData, err := ioutil.ReadFile(jujudPath)
 	c.Assert(err, IsNil)
 	c.Assert(string(jujudData), Equals, fakeJujud)
+
+	syslogConfData, err := ioutil.ReadFile(syslogConfPath)
+	c.Assert(err, IsNil)
+	c.Assert(string(syslogConfData), Equals, expectedSyslogConf)
+
 }
 
 func (fix *SimpleToolsFixture) checkUnitRemoved(c *C, name, xName string) {
 	tag := state.UnitTag(name)
-	confPath, agentDir, toolsDir := fix.paths(tag, xName)
-	for _, path := range []string{confPath, agentDir, toolsDir} {
+	confPath, agentDir, toolsDir, syslogConfPath := fix.paths(tag, xName)
+	for _, path := range []string{confPath, agentDir, toolsDir, syslogConfPath} {
 		_, err := ioutil.ReadFile(path)
 		c.Assert(os.IsNotExist(err), Equals, true)
 	}

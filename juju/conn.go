@@ -163,10 +163,10 @@ func (conn *Conn) PutCharm(curl *charm.URL, repo charm.Repository, bumpRevision 
 	if bumpRevision {
 		chd, ok := ch.(*charm.Dir)
 		if !ok {
-			return nil, fmt.Errorf("cannot increment version of charm %q: not a directory", curl)
+			return nil, fmt.Errorf("cannot increment revision of charm %q: not a directory", curl)
 		}
 		if err = chd.SetDiskRevision(chd.Revision() + 1); err != nil {
-			return nil, fmt.Errorf("cannot increment version of charm %q: %v", curl, err)
+			return nil, fmt.Errorf("cannot increment revision of charm %q: %v", curl, err)
 		}
 		curl = curl.WithRevision(chd.Revision())
 	}
@@ -285,11 +285,12 @@ func (conn *Conn) addCharm(curl *charm.URL, ch charm.Charm) (*state.Charm, error
 // to them as necessary.
 func (conn *Conn) AddUnits(svc *state.Service, n int) ([]*state.Unit, error) {
 	units := make([]*state.Unit, n)
+	// TODO store AssignmentPolicy in state, thus removing the need for this
+	// to use conn.Environ (so the method can be moved off Conn, and into
+	// State.
+	policy := conn.Environ.AssignmentPolicy()
 	// TODO what do we do if we fail half-way through this process?
 	for i := 0; i < n; i++ {
-		// TODO store AssignmentPolicy in state, thus removing the need
-		// for this to use conn.Environ.
-		policy := conn.Environ.AssignmentPolicy()
 		unit, err := svc.AddUnit()
 		if err != nil {
 			return nil, fmt.Errorf("cannot add unit %d/%d to service %q: %v", i+1, n, svc.Name(), err)

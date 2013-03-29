@@ -3,7 +3,6 @@ package params_test
 import (
 	"encoding/json"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state/api/params"
 	"testing"
 )
@@ -38,7 +37,7 @@ var marshalTestCases = []struct {
 		Entity: &params.ServiceInfo{
 			Name:     "Benji",
 			Exposed:  true,
-			CharmURL: charm.MustParseURL("cs:series/name"),
+			CharmURL: "cs:series/name",
 		},
 	},
 	json: `["service","change",{"CharmURL": "cs:series/name","Name":"Benji","Exposed":true}]`,

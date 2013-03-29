@@ -2,6 +2,7 @@ package cloudinit_test
 
 import (
 	"encoding/base64"
+	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/constraints"
@@ -11,6 +12,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
+	"os"
 	"regexp"
 	"strings"
 )
@@ -29,7 +31,16 @@ var envConfig = mustNewConfig(map[string]interface{}{
 	"default-series":  "series",
 	"authorized-keys": "keys",
 	"ca-cert":         testing.CACert,
+	"ca-private-key":  testing.CAKey,
 })
+
+func mkJujuHomeDir() string {
+	name, err := ioutil.TempDir(os.TempDir(), "juju-home-")
+	if err != nil {
+		panic(err)
+	}
+	return name
+}
 
 func mustNewConfig(m map[string]interface{}) *config.Config {
 	cfg, err := config.New(m)
@@ -39,15 +50,7 @@ func mustNewConfig(m map[string]interface{}) *config.Config {
 	return cfg
 }
 
-var envConstraints = mustParseConstraints("mem=2G")
-
-func mustParseConstraints(s string) constraints.Value {
-	cons, err := constraints.Parse(s)
-	if err != nil {
-		panic(err)
-	}
-	return cons
-}
+var envConstraints = constraints.MustParse("mem=2G")
 
 type cloudinitTest struct {
 	cfg           cloudinit.MachineConfig

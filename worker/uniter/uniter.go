@@ -418,7 +418,7 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 	// and its principal's service, the subordinate must become Dying.
 	keepAlive := false
 	for _, r := range u.relationers {
-		scope := r.ru.Endpoint().RelationScope
+		scope := r.ru.Endpoint().Scope
 		if scope == corecharm.ScopeContainer && !r.dying {
 			keepAlive = true
 			break

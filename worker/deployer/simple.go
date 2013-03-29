@@ -10,6 +10,7 @@ import (
 
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/version"
@@ -27,8 +28,8 @@ type SimpleContext struct {
 	// to validate the state server's certificate, in PEM format.
 	caCert []byte
 
-	// DeployerTag identifies the agent on whose behalf this context is running.
-	deployerTag string
+	// DeployerName identifies the agent on whose behalf this context is running.
+	deployerName string
 
 	// InitDir specifies the directory used by upstart on the local system.
 	// It is typically set to "/etc/init".
@@ -41,6 +42,14 @@ type SimpleContext struct {
 	// LogDir specifies the directory to which installed units will write
 	// their log files. It is typically set to "/var/log/juju".
 	logDir string
+
+	// sysLogConfigDir specifies the directory to which the syslog conf file
+	// will be written. It is set for testing and left empty for production, in
+	// which case the system default is used, typically /etc/rsyslog.d
+	syslogConfigDir string
+
+	// syslogConfigPath is the full path name of the syslog conf file.
+	syslogConfigPath string
 }
 
 var _ Context = (*SimpleContext)(nil)
@@ -50,17 +59,17 @@ var _ Context = (*SimpleContext)(nil)
 // "/etc/init" logging to "/var/log/juju". Paths to which agents and tools
 // are installed are relative to dataDir; if dataDir is empty, it will be
 // set to "/var/lib/juju".
-func NewSimpleContext(dataDir string, CACert []byte, deployerTag string, addresser Addresser) *SimpleContext {
+func NewSimpleContext(dataDir string, CACert []byte, deployerName string, addresser Addresser) *SimpleContext {
 	if dataDir == "" {
 		dataDir = "/var/lib/juju"
 	}
 	return &SimpleContext{
-		addresser:   addresser,
-		caCert:      CACert,
-		deployerTag: deployerTag,
-		initDir:     "/etc/init",
-		dataDir:     dataDir,
-		logDir:      "/var/log/juju",
+		addresser:    addresser,
+		caCert:       CACert,
+		deployerName: deployerName,
+		initDir:      "/etc/init",
+		dataDir:      dataDir,
+		logDir:       "/var/log/juju",
 	}
 }
 
@@ -95,6 +104,19 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 
 	// Install an upstart job that runs the unit agent.
 	logPath := path.Join(ctx.logDir, tag+".log")
+	syslogConfigRenderer := syslog.NewForwardConfig(
+		tag, ctx.addresser.Addresses())
+	syslogConfigRenderer.ConfigDir = ctx.syslogConfigDir
+	syslogConfigRenderer.ConfigFileName = fmt.Sprintf("26-juju-%s.conf", tag)
+	if err := syslogConfigRenderer.Write(); err != nil {
+		return err
+	}
+	ctx.syslogConfigPath = syslogConfigRenderer.ConfigFilePath()
+	if e := syslog.Restart(); e != nil {
+		log.Warningf("installer: cannot restart syslog daemon: %v", e)
+	}
+	defer removeOnErr(&err, ctx.syslogConfigPath)
+
 	cmd := strings.Join([]string{
 		path.Join(toolsDir, "jujud"), "unit",
 		"--data-dir", conf.DataDir,
@@ -123,6 +145,12 @@ func (ctx *SimpleContext) RecallUnit(unitName string) error {
 	if err := os.RemoveAll(agentDir); err != nil {
 		return err
 	}
+	if e := os.Remove(ctx.syslogConfigPath); e != nil {
+		log.Warningf("installer: cannot remove %q: %v", ctx.syslogConfigPath, e)
+	}
+	if e := syslog.Restart(); e != nil {
+		log.Warningf("installer: cannot restart syslog daemon: %v", e)
+	}
 	toolsDir := agent.ToolsDir(ctx.dataDir, tag)
 	return os.Remove(toolsDir)
 }
@@ -137,7 +165,7 @@ func (ctx *SimpleContext) DeployedUnits() ([]string, error) {
 	var installed []string
 	for _, fi := range fis {
 		if groups := deployedRe.FindStringSubmatch(fi.Name()); len(groups) == 4 {
-			if groups[1] != ctx.deployerTag {
+			if groups[1] != ctx.deployerName {
 				continue
 			}
 			unitName := groups[2] + "/" + groups[3]
@@ -156,7 +184,7 @@ func (ctx *SimpleContext) DeployedUnits() ([]string, error) {
 // means.
 func (ctx *SimpleContext) upstartService(unitName string) *upstart.Service {
 	tag := state.UnitTag(unitName)
-	svcName := "jujud-" + ctx.deployerTag + ":" + tag
+	svcName := "jujud-" + ctx.deployerName + ":" + tag
 	svc := upstart.NewService(svcName)
 	svc.InitDir = ctx.initDir
 	return svc

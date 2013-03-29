@@ -13,9 +13,9 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
-	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
 	"net"
+	"strings"
 	stdtesting "testing"
 	"time"
 )
@@ -266,11 +266,11 @@ func opClientCharmInfo(c *C, st *api.State, mst *state.State) (func(), error) {
 }
 
 func opClientDestroyRelation(c *C, st *api.State, mst *state.State) (func(), error) {
-	err := st.Client().DestroyRelation("wordpress", "logging")
-	if err != nil {
-		return func() {}, err
+	err := st.Client().DestroyRelation("nosuch1", "nosuch2")
+	if api.ErrCode(err) == api.CodeNotFound {
+		err = nil
 	}
-	return func() {}, nil
+	return func() {}, err
 }
 
 func opClientStatus(c *C, st *api.State, mst *state.State) (func(), error) {
@@ -327,7 +327,11 @@ func opClientServiceExpose(c *C, st *api.State, mst *state.State) (func(), error
 	if err != nil {
 		return func() {}, err
 	}
-	return func() {}, nil
+	return func() {
+		svc, err := mst.Service("wordpress")
+		c.Assert(err, IsNil)
+		svc.ClearExposed()
+	}, nil
 }
 
 func opClientServiceUnexpose(c *C, st *api.State, mst *state.State) (func(), error) {
@@ -405,50 +409,39 @@ func opClientServiceDeploy(c *C, st *api.State, mst *state.State) (func(), error
 }
 
 func opClientAddServiceUnits(c *C, st *api.State, mst *state.State) (func(), error) {
-	// This test only checks that the call is made without error, ensuring the
-	// signatures match.
-	err := st.Client().AddServiceUnits("wordpress", 1)
-	if err != nil {
-		return func() {}, err
+	err := st.Client().AddServiceUnits("nosuch", 1)
+	if api.ErrCode(err) == api.CodeNotFound {
+		err = nil
 	}
-	return func() {}, nil
+	return func() {}, err
 }
 
 func opClientDestroyServiceUnits(c *C, st *api.State, mst *state.State) (func(), error) {
-	err := statecmd.AddServiceUnits(mst, params.AddServiceUnits{"wordpress", 1})
-	if err != nil {
-		return func() {}, err
+	err := st.Client().DestroyServiceUnits([]string{"wordpress/99"})
+	if err != nil && strings.HasPrefix(err.Error(), "no units were destroyed") {
+		err = nil
 	}
-	newUnitName := []string{"wordpress/1"}
-	err = st.Client().DestroyServiceUnits(newUnitName)
-	if err != nil {
-		return func() {
-			_ = statecmd.DestroyServiceUnits(mst, params.DestroyServiceUnits{newUnitName})
-		}, err
-	}
-	c.Assert(err, IsNil)
 	return func() {}, err
 }
 
 func opClientServiceDestroy(c *C, st *api.State, mst *state.State) (func(), error) {
 	// This test only checks that the call is made without error, ensuring the
 	// signatures match.
-	err := st.Client().ServiceDestroy("wordpress")
-	if err != nil {
-		return func() {}, err
+	err := st.Client().ServiceDestroy("non-existent")
+	if api.ErrCode(err) == api.CodeNotFound {
+		err = nil
 	}
-	return func() {}, nil
+	return func() {}, err
 }
 
 func opClientSetServiceConstraints(c *C, st *api.State, mst *state.State) (func(), error) {
 	// This test only checks that the call is made without error, ensuring the
 	// signatures match.
-	constraints := constraints.Value{}
-	err := st.Client().SetServiceConstraints("wordpress", constraints)
+	nullConstraints := constraints.Value{}
+	err := st.Client().SetServiceConstraints("wordpress", nullConstraints)
 	if err != nil {
 		return func() {}, err
 	}
-	c.Assert(err, IsNil)
 	return func() {}, nil
 }
 
@@ -767,7 +760,7 @@ var clientAnnotationsTests = []struct {
 	{
 		about: "test setting an invalid annotation",
 		input: map[string]string{"invalid.key": "myvalue"},
-		err:   `invalid key "invalid.key"`,
+		err:   `cannot update annotations on .*: invalid key "invalid.key"`,
 	},
 }
 
