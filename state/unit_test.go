@@ -422,6 +422,8 @@ func (s *UnitSuite) TestGetSetClearResolved(c *C) {
 	err = s.unit.ClearResolved()
 	c.Assert(err, IsNil)
 
+	err = s.unit.SetResolved(state.ResolvedNone)
+	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "wordpress/0": invalid error resolution mode: ""`)
 	err = s.unit.SetResolved(state.ResolvedMode("foo"))
 	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "wordpress/0": invalid error resolution mode: "foo"`)
 }
