@@ -450,6 +450,8 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 			if err != nil {
 				return err
 			}
+			// TODO(fwereade) check that the service's endpoint in each of
+			// its existing relations is still implemented by the new charm.
 		}
 
 		if err := s.st.runner.Run(ops, "", nil); err == nil {
@@ -460,8 +462,8 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 			return err
 		}
 
-		// If the service is not alive, fail out immediately;
-		// otherwise settings data changed underneath us, so retry.
+		// If the service is not alive, fail out immediately; otherwise,
+		// data changed underneath us, so retry.
 		if alive, err := isAlive(s.st.services, s.doc.Name); err != nil {
 			return err
 		} else if !alive {
