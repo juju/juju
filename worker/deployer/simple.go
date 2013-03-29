@@ -28,8 +28,8 @@ type SimpleContext struct {
 	// to validate the state server's certificate, in PEM format.
 	caCert []byte
 
-	// DeployerName identifies the agent on whose behalf this context is running.
-	deployerName string
+	// DeployerTag identifies the agent on whose behalf this context is running.
+	deployerTag string
 
 	// InitDir specifies the directory used by upstart on the local system.
 	// It is typically set to "/etc/init".
@@ -59,17 +59,17 @@ var _ Context = (*SimpleContext)(nil)
 // "/etc/init" logging to "/var/log/juju". Paths to which agents and tools
 // are installed are relative to dataDir; if dataDir is empty, it will be
 // set to "/var/lib/juju".
-func NewSimpleContext(dataDir string, CACert []byte, deployerName string, addresser Addresser) *SimpleContext {
+func NewSimpleContext(dataDir string, CACert []byte, deployerTag string, addresser Addresser) *SimpleContext {
 	if dataDir == "" {
 		dataDir = "/var/lib/juju"
 	}
 	return &SimpleContext{
-		addresser:    addresser,
-		caCert:       CACert,
-		deployerName: deployerName,
-		initDir:      "/etc/init",
-		dataDir:      dataDir,
-		logDir:       "/var/log/juju",
+		addresser:   addresser,
+		caCert:      CACert,
+		deployerTag: deployerTag,
+		initDir:     "/etc/init",
+		dataDir:     dataDir,
+		logDir:      "/var/log/juju",
 	}
 }
 
@@ -165,7 +165,7 @@ func (ctx *SimpleContext) DeployedUnits() ([]string, error) {
 	var installed []string
 	for _, fi := range fis {
 		if groups := deployedRe.FindStringSubmatch(fi.Name()); len(groups) == 4 {
-			if groups[1] != ctx.deployerName {
+			if groups[1] != ctx.deployerTag {
 				continue
 			}
 			unitName := groups[2] + "/" + groups[3]
@@ -184,7 +184,7 @@ func (ctx *SimpleContext) DeployedUnits() ([]string, error) {
 // means.
 func (ctx *SimpleContext) upstartService(unitName string) *upstart.Service {
 	tag := state.UnitTag(unitName)
-	svcName := "jujud-" + ctx.deployerName + ":" + tag
+	svcName := "jujud-" + ctx.deployerTag + ":" + tag
 	svc := upstart.NewService(svcName)
 	svc.InitDir = ctx.initDir
 	return svc
