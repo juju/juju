@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/environs/config"
 	_ "launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
@@ -25,7 +26,9 @@ type MainSuite struct{}
 
 var _ = Suite(&MainSuite{})
 
-var flagRunMain = flag.Bool("run-main", false, "Run the application's main function for recursive testing")
+var (
+	flagRunMain = flag.Bool("run-main", false, "Run the application's main function for recursive testing")
+)
 
 // Reentrancy point for testing (something as close as possible to) the juju
 // tool itself.
@@ -38,6 +41,7 @@ func TestRunMain(t *stdtesting.T) {
 func badrun(c *C, exit int, cmd ...string) string {
 	args := append([]string{"-test.run", "TestRunMain", "-run-main", "--", "juju"}, cmd...)
 	ps := exec.Command(os.Args[0], args...)
+	ps.Env = append(os.Environ(), "JUJU_HOME="+config.JujuHome())
 	output, err := ps.CombinedOutput()
 	if exit != 0 {
 		c.Assert(err, ErrorMatches, fmt.Sprintf("exit status %d", exit))
@@ -131,6 +135,7 @@ var runMainTests = []struct {
 }
 
 func (s *MainSuite) TestRunMain(c *C) {
+	defer config.SetJujuHome(config.SetJujuHome(c.MkDir()))
 	for i, t := range runMainTests {
 		c.Logf("test %d: %s", i, t.summary)
 		out := badrun(c, t.code, t.args...)
@@ -151,7 +156,7 @@ environments:
 // when environMethod is called.
 func breakJuju(c *C, environMethod string) (msg string) {
 	yaml := fmt.Sprintf(brokenConfig, environMethod)
-	err := ioutil.WriteFile(testing.HomePath(".juju", "environments.yaml"), []byte(yaml), 0666)
+	err := ioutil.WriteFile(config.JujuHomePath("environments.yaml"), []byte(yaml), 0666)
 	c.Assert(err, IsNil)
 
 	return fmt.Sprintf("dummy.%s is broken", environMethod)
@@ -172,7 +177,6 @@ func (s *MainSuite) TestActualRunJujuArgsBeforeCommand(c *C) {
 
 func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *C) {
 	defer testing.MakeFakeHomeNoEnvironments(c, "one").Restore()
-
 	// Check global args work when specified after command
 	msg := breakJuju(c, "Bootstrap")
 	logpath := filepath.Join(c.MkDir(), "log")
@@ -220,6 +224,7 @@ var commandNames = []string{
 func (s *MainSuite) TestHelpCommands(c *C) {
 	// Check that we have correctly registered all the commands
 	// by checking the help output.
+	defer config.SetJujuHome(config.SetJujuHome(c.MkDir()))
 	out := badrun(c, 0, "help", "commands")
 	lines := strings.Split(out, "\n")
 	var names []string
@@ -244,6 +249,7 @@ var topicNames = []string{
 func (s *MainSuite) TestHelpTopics(c *C) {
 	// Check that we have correctly registered all the topics
 	// by checking the help output.
+	defer config.SetJujuHome(config.SetJujuHome(c.MkDir()))
 	out := badrun(c, 0, "help", "topics")
 	lines := strings.Split(out, "\n")
 	var names []string
@@ -268,6 +274,7 @@ var globalFlags = []string{
 func (s *MainSuite) TestHelpGlobalOptions(c *C) {
 	// Check that we have correctly registered all the topics
 	// by checking the help output.
+	defer config.SetJujuHome(config.SetJujuHome(c.MkDir()))
 	out := badrun(c, 0, "help", "global-options")
 	c.Assert(out, Matches, `Global Options
 

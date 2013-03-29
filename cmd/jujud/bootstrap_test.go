@@ -223,4 +223,5 @@ var testConfig = b64yaml{
 	"state-server":    false,
 	"authorized-keys": "i-am-a-key",
 	"ca-cert":         testing.CACert,
+	"ca-private-key":  "",
 }.encode()
