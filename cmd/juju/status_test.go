@@ -15,6 +15,7 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"net/url"
+	"sync"
 	"time"
 )
 
@@ -398,8 +399,17 @@ func (sus setUnitStatus) step(c *C, ctx *context) {
 	c.Assert(err, IsNil)
 }
 
-func (s *StatusSuite) runTestCasesWithFormat(c *C, tests []testCase, format string, marshal func(v interface{}) ([]byte, error), unmarshal func(data []byte, v interface{}) error) {
-	for i, t := range tests {
+var statusFormats = []struct {
+	name      string
+	marshal   func(v interface{}) ([]byte, error)
+	unmarshal func(data []byte, v interface{}) error
+}{
+	{"yaml", goyaml.Marshal, goyaml.Unmarshal},
+	{"json", json.Marshal, json.Unmarshal},
+}
+
+func (s *StatusSuite) TestStatusAllFormats(c *C) {
+	for i, t := range statusTests {
 		c.Log("test %d: %s", i, t.summary)
 		func() {
 			// Prepare context and run all steps to setup.
@@ -407,31 +417,36 @@ func (s *StatusSuite) runTestCasesWithFormat(c *C, tests []testCase, format stri
 			defer s.resetContext(c, ctx)
 			ctx.run(c, t.steps)
 
-			// Run command with the required format.
-			code, stderr, stdout := runStatus(c, "--format", format)
-			c.Assert(code, Equals, 0)
-			c.Assert(stderr, HasLen, 0)
+			// Run them concurrently to speed up the test.
+			var wg sync.WaitGroup
 
-			// Prepare the output in the same format.
-			buf, err := marshal(t.output)
-			c.Assert(err, IsNil)
-			expected := make(map[string]interface{})
-			err = unmarshal(buf, &expected)
-			c.Assert(err, IsNil)
+			// Now execute the command for each format and compare output.
+			for _, format := range statusFormats {
+				wg.Add(1)
+				go func() {
+					c.Logf("format %q", format.name)
+					// Run command with the required format.
+					code, stderr, stdout := runStatus(c, "--format", format.name)
+					c.Assert(code, Equals, 0)
+					c.Assert(stderr, HasLen, 0)
 
-			// Check the output is as expected.
-			actual := make(map[string]interface{})
-			err = unmarshal(stdout, &actual)
-			c.Assert(err, IsNil)
-			c.Assert(actual, DeepEquals, expected)
+					// Prepare the output in the same format.
+					buf, err := format.marshal(t.output)
+					c.Assert(err, IsNil)
+					expected := make(map[string]interface{})
+					err = format.unmarshal(buf, &expected)
+					c.Assert(err, IsNil)
+
+					// Check the output is as expected.
+					actual := make(map[string]interface{})
+					err = format.unmarshal(stdout, &actual)
+					c.Assert(err, IsNil)
+					c.Assert(actual, DeepEquals, expected)
+
+					wg.Done()
+				}()
+			}
+			wg.Wait()
 		}()
 	}
-}
-
-func (s *StatusSuite) TestYamlStatus(c *C) {
-	s.runTestCasesWithFormat(c, statusTests, "yaml", goyaml.Marshal, goyaml.Unmarshal)
-}
-
-func (s *StatusSuite) TestJsonStatus(c *C) {
-	s.runTestCasesWithFormat(c, statusTests, "json", json.Marshal, json.Unmarshal)
 }
