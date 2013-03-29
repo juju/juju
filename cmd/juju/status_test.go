@@ -97,36 +97,42 @@ var statusTests = []testCase{
 		// unlikely, as you can't run juju status in real life without
 		// machine/0 bootstrapped.
 		"empty state",
-		expect{M{
-			"machines": M{},
-			"services": M{},
-		}},
+		expect{
+			"no services or machines yet",
+			M{
+				"machines": M{},
+				"services": M{},
+			},
+		},
 	), test(
-		"simulate juju bootstrap by adding machine/0 to the state",
+		"bootstrap and starting a single instance",
 		addMachine{"0", state.JobManageEnviron},
-		expect{M{
-			"machines": M{
-				"0": M{
-					"instance-id": "pending",
+		expect{
+			"simulate juju bootstrap by adding machine/0 to the state",
+			M{
+				"machines": M{
+					"0": M{
+						"instance-id": "pending",
+					},
 				},
+				"services": M{},
 			},
-			"services": M{},
-		}},
-	), test(
-		"simulate the PA starting an instance in response to the state change",
-		addAndStartMachine{"0", state.JobManageEnviron},
-		expect{M{
-			"machines": M{
-				"0": M{
-					"dns-name":    "dummyenv-0.dns",
-					"instance-id": "dummyenv-0",
+		},
+
+		startMachine{"0"},
+		expect{
+			"simulate the PA starting an instance in response to the state change",
+			M{
+				"machines": M{
+					"0": M{
+						"dns-name":    "dummyenv-0.dns",
+						"instance-id": "dummyenv-0",
+					},
 				},
+				"services": M{},
 			},
-			"services": M{},
-		}},
-	), test(
-		"simulate the MA setting the version",
-		addAndStartMachine{"0", state.JobManageEnviron},
+		},
+
 		setTools{"0", &state.Tools{
 			Binary: version.Binary{
 				Number: version.MustParse("1.2.3"),
@@ -135,118 +141,152 @@ var statusTests = []testCase{
 			},
 			URL: "http://canonical.com/",
 		}},
-		expect{M{
-			"machines": M{
-				"0": M{
-					"dns-name":      "dummyenv-0.dns",
-					"instance-id":   "dummyenv-0",
-					"agent-version": "1.2.3",
+		expect{
+			"simulate the MA setting the version",
+			M{
+				"machines": M{
+					"0": M{
+						"dns-name":      "dummyenv-0.dns",
+						"instance-id":   "dummyenv-0",
+						"agent-version": "1.2.3",
+					},
 				},
+				"services": M{},
 			},
-			"services": M{},
-		}},
+		},
 	), test(
-		"add two services and expose one",
-		addAndStartMachine{"0", state.JobManageEnviron},
+		"add two services and expose one, then add 2 more machines and some units",
+		addMachine{"0", state.JobManageEnviron},
+		startMachine{"0"},
 		addCharm{"dummy"},
-		addServiceSetExposed{"dummy-service", "dummy", false},
-		addServiceSetExposed{"exposed-service", "dummy", true},
-		expect{M{
-			"machines": M{
-				"0": M{
-					"dns-name":    "dummyenv-0.dns",
-					"instance-id": "dummyenv-0",
+		addService{"dummy-service", "dummy"},
+		addService{"exposed-service", "dummy"},
+		expect{
+			"no services exposed yet",
+			M{
+				"machines": M{
+					"0": M{
+						"dns-name":    "dummyenv-0.dns",
+						"instance-id": "dummyenv-0",
+					},
+				},
+				"services": M{
+					"dummy-service": M{
+						"charm":   "local:series/dummy-1",
+						"exposed": false,
+					},
+					"exposed-service": M{
+						"charm":   "local:series/dummy-1",
+						"exposed": false,
+					},
 				},
 			},
-			"services": M{
-				"dummy-service": M{
-					"charm":   "local:series/dummy-1",
-					"exposed": false,
+		},
+
+		setServiceExposed{"exposed-service", true},
+		expect{
+			"one exposed service",
+			M{
+				"machines": M{
+					"0": M{
+						"dns-name":    "dummyenv-0.dns",
+						"instance-id": "dummyenv-0",
+					},
 				},
-				"exposed-service": M{
-					"charm":   "local:series/dummy-1",
-					"exposed": true,
-				},
-			},
-		}},
-	), test(
-		"add three machines, two for units; also two services, one exposed",
-		setupMachinesAndServices{},
-		expect{M{
-			"machines": M{
-				"0": M{
-					"dns-name":      "dummyenv-0.dns",
-					"instance-id":   "dummyenv-0",
-					"agent-version": "1.2.3",
-				},
-				"1": M{
-					"dns-name":    "dummyenv-1.dns",
-					"instance-id": "dummyenv-1",
-				},
-				"2": M{
-					"dns-name":    "dummyenv-2.dns",
-					"instance-id": "dummyenv-2",
+				"services": M{
+					"dummy-service": M{
+						"charm":   "local:series/dummy-1",
+						"exposed": false,
+					},
+					"exposed-service": M{
+						"charm":   "local:series/dummy-1",
+						"exposed": true,
+					},
 				},
 			},
-			"services": M{
-				"dummy-service": M{
-					"charm":   "local:series/dummy-1",
-					"exposed": false,
+		},
+
+		addMachine{"1", state.JobHostUnits},
+		startMachine{"1"},
+		addMachine{"2", state.JobHostUnits},
+		startMachine{"2"},
+		expect{
+			"two more machines added",
+			M{
+				"machines": M{
+					"0": M{
+						"dns-name":    "dummyenv-0.dns",
+						"instance-id": "dummyenv-0",
+					},
+					"1": M{
+						"dns-name":    "dummyenv-1.dns",
+						"instance-id": "dummyenv-1",
+					},
+					"2": M{
+						"dns-name":    "dummyenv-2.dns",
+						"instance-id": "dummyenv-2",
+					},
 				},
-				"exposed-service": M{
-					"charm":   "local:series/dummy-1",
-					"exposed": true,
+				"services": M{
+					"dummy-service": M{
+						"charm":   "local:series/dummy-1",
+						"exposed": false,
+					},
+					"exposed-service": M{
+						"charm":   "local:series/dummy-1",
+						"exposed": true,
+					},
 				},
 			},
-		}},
-	), test(
-		"same scenario as above; add units for services, set status for both (one is down)",
-		setupMachinesAndServices{},
+		},
+
 		addUnit{"dummy-service", "1"},
 		addAliveUnit{"exposed-service", "2"},
 		setUnitStatus{"exposed-service/0", state.UnitError, "You Require More Vespene Gas"},
 		// This will be ignored, because the unit is down.
 		setUnitStatus{"dummy-service/0", state.UnitStarted, ""},
-		expect{M{
-			"machines": M{
-				"0": M{
-					"dns-name":      "dummyenv-0.dns",
-					"instance-id":   "dummyenv-0",
-					"agent-version": "1.2.3",
+		expect{
+			"add two units, one alive (in error state), one down",
+			M{
+				"machines": M{
+					"0": M{
+						"dns-name":    "dummyenv-0.dns",
+						"instance-id": "dummyenv-0",
+					},
+					"1": M{
+						"dns-name":    "dummyenv-1.dns",
+						"instance-id": "dummyenv-1",
+					},
+					"2": M{
+						"dns-name":    "dummyenv-2.dns",
+						"instance-id": "dummyenv-2",
+					},
 				},
-				"1": M{
-					"dns-name":    "dummyenv-1.dns",
-					"instance-id": "dummyenv-1",
-				},
-				"2": M{
-					"dns-name":    "dummyenv-2.dns",
-					"instance-id": "dummyenv-2",
-				},
-			},
-			"services": M{
-				"exposed-service": M{
-					"charm":   "local:series/dummy-1",
-					"exposed": true,
-					"units": M{
-						"exposed-service/0": M{
-							"machine":          "2",
-							"agent-state":      "error",
-							"agent-state-info": "You Require More Vespene Gas",
+				"services": M{
+					"exposed-service": M{
+						"charm":   "local:series/dummy-1",
+						"exposed": true,
+						"units": M{
+							"exposed-service/0": M{
+								"machine":          "2",
+								"agent-state":      "error",
+								"agent-state-info": "You Require More Vespene Gas",
+							},
+						},
+					},
+					"dummy-service": M{
+						"charm":   "local:series/dummy-1",
+						"exposed": false,
+						"units": M{
+							"dummy-service/0": M{
+								"machine":     "1",
+								"agent-state": "down",
+							},
 						},
 					},
 				},
-				"dummy-service": M{
-					"charm":   "local:series/dummy-1",
-					"exposed": false,
-					"units": M{
-						"dummy-service/0": M{
-							"machine":     "1",
-							"agent-state": "down",
-						},
-					},
-				},
 			},
-		}},
+		},
 	),
 }
 
@@ -263,15 +303,12 @@ func (am addMachine) step(c *C, ctx *context) {
 	c.Assert(m.Id(), Equals, am.machineId)
 }
 
-type addAndStartMachine struct {
+type startMachine struct {
 	machineId string
-	job       state.MachineJob
 }
 
-func (asm addAndStartMachine) step(c *C, ctx *context) {
-	am := &addMachine{asm.machineId, asm.job}
-	am.step(c, ctx)
-	m, err := ctx.st.Machine(asm.machineId)
+func (sm startMachine) step(c *C, ctx *context) {
+	m, err := ctx.st.Machine(sm.machineId)
 	c.Assert(err, IsNil)
 	inst := testing.StartInstance(c, ctx.conn.Environ, m.Id())
 	err = m.SetInstanceId(inst.Id())
@@ -305,40 +342,30 @@ func (ac addCharm) step(c *C, ctx *context) {
 	ctx.charms[ac.name] = dummy
 }
 
-type addServiceSetExposed struct {
+type addService struct {
+	name  string
+	charm string
+}
+
+func (as addService) step(c *C, ctx *context) {
+	ch, ok := ctx.charms[as.charm]
+	c.Assert(ok, Equals, true)
+	_, err := ctx.st.AddService(as.name, ch)
+	c.Assert(err, IsNil)
+}
+
+type setServiceExposed struct {
 	name    string
-	charm   string
 	exposed bool
 }
 
-func (asse addServiceSetExposed) step(c *C, ctx *context) {
-	ch, ok := ctx.charms[asse.charm]
-	c.Assert(ok, Equals, true)
-	s, err := ctx.st.AddService(asse.name, ch)
+func (sse setServiceExposed) step(c *C, ctx *context) {
+	s, err := ctx.st.Service(sse.name)
 	c.Assert(err, IsNil)
-	if asse.exposed {
+	if sse.exposed {
 		err = s.SetExposed()
 		c.Assert(err, IsNil)
 	}
-}
-
-type setupMachinesAndServices struct{}
-
-func (smas setupMachinesAndServices) step(c *C, ctx *context) {
-	addAndStartMachine{"0", state.JobManageEnviron}.step(c, ctx)
-	setTools{"0", &state.Tools{
-		Binary: version.Binary{
-			Number: version.MustParse("1.2.3"),
-			Series: "gutsy",
-			Arch:   "ppc",
-		},
-		URL: "http://canonical.com/",
-	}}.step(c, ctx)
-	addAndStartMachine{"1", state.JobHostUnits}.step(c, ctx)
-	addAndStartMachine{"2", state.JobHostUnits}.step(c, ctx)
-	addCharm{"dummy"}.step(c, ctx)
-	addServiceSetExposed{"dummy-service", "dummy", false}.step(c, ctx)
-	addServiceSetExposed{"exposed-service", "dummy", true}.step(c, ctx)
 }
 
 type addUnit struct {
@@ -395,10 +422,12 @@ func (sus setUnitStatus) step(c *C, ctx *context) {
 }
 
 type expect struct {
+	what   string
 	output M
 }
 
 func (e expect) step(c *C, ctx *context) {
+	c.Log("expect: %s", e.what)
 	var wg sync.WaitGroup
 	testFormat := func(format outputFormat, start chan bool) {
 		defer wg.Done()
