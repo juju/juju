@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
+	// "launchpad.net/juju-core/state"
 )
 
 // AddRelation holds the parameters for making the AddRelation call.
@@ -294,8 +295,17 @@ func (i *ServiceInfo) EntityId() interface{} { return i.Name }
 func (i *ServiceInfo) EntityKind() string    { return "service" }
 
 type UnitInfo struct {
-	Name    string `bson:"_id"`
-	Service string
+	Name           string `bson:"_id"`
+	Service        string
+	Series         string
+	CharmURL       *charm.URL
+	PublicAddress  string
+	PrivateAddress string
+	MachineId      string
+	// Resolved       state.ResolvedMode
+	// Ports          []state.Port
+	// Status     UnitStatus
+	StatusInfo string
 }
 
 func (i *UnitInfo) EntityId() interface{} { return i.Name }
