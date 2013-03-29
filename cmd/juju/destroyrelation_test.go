@@ -37,5 +37,5 @@ func (s *DestroyRelationSuite) TestDestroyRelation(c *C) {
 	err = runDestroyRelation(c, "ping", "pong")
 	c.Assert(err, ErrorMatches, `service "ping" not found`)
 	err = runDestroyRelation(c, "riak")
-	c.Assert(err, ErrorMatches, `cannot destroy relation "riak:ring": is a peer relation`)
+	c.Assert(err, ErrorMatches, `a relation must involve two services`)
 }

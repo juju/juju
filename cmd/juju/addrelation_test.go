@@ -29,16 +29,16 @@ var addRelationTests = []struct {
 		args: []string{"rk", "ms"},
 		err:  "no relations found",
 	}, {
-		err: "cannot relate 0 endpoints",
+		err: "a relation must involve two services",
 	}, {
 		args: []string{"rk"},
-		err:  `cannot add relation "rk:ring": relation must have two endpoints`,
+		err:  "a relation must involve two services",
 	}, {
 		args: []string{"rk:ring"},
-		err:  `cannot add relation "rk:ring": relation must have two endpoints`,
+		err:  "a relation must involve two services",
 	}, {
 		args: []string{"ping:pong", "tic:tac", "icki:wacki"},
-		err:  "cannot relate 3 endpoints",
+		err:  "a relation must involve two services",
 	},
 
 	// Add a real relation, and check various ways of failing to re-add it.

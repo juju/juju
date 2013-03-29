@@ -29,7 +29,7 @@ func (s *DestroyRelationSuite) setUpDestroyRelationScenario(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *DestroyRelationSuite) TestNonExistentRelation(c *C) {
+func (s *DestroyRelationSuite) TestAttemptDestroyingNonExistentRelation(c *C) {
 	s.setUpDestroyRelationScenario(c)
 	err := statecmd.DestroyRelation(s.State, params.DestroyRelation{
 		Endpoints: []string{"riak", "wordpress"},
@@ -76,7 +76,7 @@ func (s *DestroyRelationSuite) TestSuccessfullyDestroyRelationSwapped(c *C) {
 	c.Assert(state.IsNotFound(rel.Refresh()), Equals, true)
 }
 
-func (s *DestroyRelationSuite) TestCallWithOnlyOneEndpoint(c *C) {
+func (s *DestroyRelationSuite) TestAttemptDestroyingWithOnlyOneEndpoint(c *C) {
 	s.setUpDestroyRelationScenario(c)
 
 	// Add a relation between wordpress and mysql.
@@ -91,7 +91,16 @@ func (s *DestroyRelationSuite) TestCallWithOnlyOneEndpoint(c *C) {
 	c.Assert(err, ErrorMatches, "no relations found")
 }
 
-func (s *DestroyRelationSuite) TestDestroyAlreadyDestroyedRelation(c *C) {
+func (s *DestroyRelationSuite) TestAttemptDestroyingPeerRelation(c *C) {
+	s.setUpDestroyRelationScenario(c)
+
+	err := statecmd.DestroyRelation(s.State, params.DestroyRelation{
+		Endpoints: []string{"riak:ring"},
+	})
+	c.Assert(err, ErrorMatches, `cannot destroy relation "riak:ring": is a peer relation`)
+}
+
+func (s *DestroyRelationSuite) TestAttemptDestroyingAlreadyDestroyedRelation(c *C) {
 	s.setUpDestroyRelationScenario(c)
 
 	// Add a relation between wordpress and mysql.
