@@ -167,6 +167,7 @@ func (s *LifeSuite) TestLifecycleStateChanges(c *C) {
 
 const (
 	notAliveErr = ".*: not found or not alive"
+	deadErr     = ".*: not found or dead"
 	noErr       = ""
 )
 

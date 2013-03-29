@@ -40,15 +40,17 @@ func (cs *ConnSuite) TearDownSuite(c *C) {
 func (cs *ConnSuite) SetUpTest(c *C) {
 	cs.LoggingSuite.SetUpTest(c)
 	cs.MgoSuite.SetUpTest(c)
+	var err error
+	cs.State, err = state.Open(state.TestingStateInfo(), state.TestingDialTimeout)
+	c.Assert(err, IsNil)
+
+	state.TestingInitialize(c, nil)
 	cs.annotations = cs.MgoSuite.Session.DB("juju").C("annotations")
 	cs.charms = cs.MgoSuite.Session.DB("juju").C("charms")
 	cs.machines = cs.MgoSuite.Session.DB("juju").C("machines")
 	cs.relations = cs.MgoSuite.Session.DB("juju").C("relations")
 	cs.services = cs.MgoSuite.Session.DB("juju").C("services")
 	cs.units = cs.MgoSuite.Session.DB("juju").C("units")
-	var err error
-	cs.State, err = state.Open(state.TestingStateInfo(), state.TestingDialTimeout)
-	c.Assert(err, IsNil)
 }
 
 func (cs *ConnSuite) TearDownTest(c *C) {

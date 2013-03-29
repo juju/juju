@@ -238,6 +238,7 @@ func (st *State) addMachine(series string, instanceId InstanceId, jobs []Machine
 	return m, nil
 }
 
+var errDead = fmt.Errorf("not found or dead")
 var errNotAlive = fmt.Errorf("not found or not alive")
 
 func onAbort(txnErr, err error) error {

@@ -485,7 +485,7 @@ func (s *UnitSuite) TestOpenedPorts(c *C) {
 }
 
 func (s *UnitSuite) TestOpenClosePortWhenDying(c *C) {
-	testWhenDying(c, s.unit, "", notAliveErr, func() error {
+	testWhenDying(c, s.unit, noErr, deadErr, func() error {
 		return s.unit.OpenPort("tcp", 20)
 	}, func() error {
 		return s.unit.ClosePort("tcp", 20)
@@ -506,7 +506,7 @@ func (s *UnitSuite) TestSetClearResolvedWhenNotAlive(c *C) {
 	err = s.unit.EnsureDead()
 	c.Assert(err, IsNil)
 	err = s.unit.SetResolved(state.ResolvedRetryHooks)
-	c.Assert(err, ErrorMatches, notAliveErr)
+	c.Assert(err, ErrorMatches, deadErr)
 	err = s.unit.ClearResolved()
 	c.Assert(err, IsNil)
 }
