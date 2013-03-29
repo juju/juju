@@ -879,9 +879,16 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 		wu, err := wordpress.AddUnit()
 		c.Assert(err, IsNil)
 		c.Assert(wu.Tag(), Equals, fmt.Sprintf("unit-wordpress-%d", i))
+
+		m, err := s.State.AddMachine("series", JobHostUnits)
+		c.Assert(err, IsNil)
+		c.Assert(m.Tag(), Equals, fmt.Sprintf("machine-%d", i+1))
+
 		add(&params.UnitInfo{
-			Name:    fmt.Sprintf("wordpress/%d", i),
-			Service: "wordpress",
+			Name:      fmt.Sprintf("wordpress/%d", i),
+			Service:   wordpress.Name(),
+			Series:    m.Series(),
+			MachineId: m.Id(),
 		})
 		pairs := map[string]string{"name": fmt.Sprintf("bar %d", i)}
 		err = wu.SetAnnotations(pairs)
@@ -892,9 +899,6 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 			Annotations: pairs,
 		})
 
-		m, err := s.State.AddMachine("series", JobHostUnits)
-		c.Assert(err, IsNil)
-		c.Assert(m.Tag(), Equals, fmt.Sprintf("machine-%d", i+1))
 		err = m.SetInstanceId(InstanceId("i-" + m.Tag()))
 		c.Assert(err, IsNil)
 		add(&params.MachineInfo{
@@ -925,6 +929,7 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 		add(&params.UnitInfo{
 			Name:    fmt.Sprintf("logging/%d", i),
 			Service: "logging",
+			Series:  "series",
 		})
 	}
 	return
@@ -971,6 +976,13 @@ func (s *allWatcherStateSuite) TestStateBackingGetAll(c *C) {
 	for _, e := range expectEntities {
 		c.Logf("\t%#v %#v %#v", e.EntityKind(), e.EntityId(), e)
 	}
+	for num, ent := range expectEntities {
+		c.Logf("---------------> %d\n", num)
+		c.Logf("\n************ EXPECTED:\n%#v", ent)
+		c.Logf("************ OBTAINED: \n%#v\n", gotEntities[num])
+		c.Assert(gotEntities[num], DeepEquals, ent)
+	}
+
 	c.Assert(gotEntities, DeepEquals, expectEntities)
 }
 
