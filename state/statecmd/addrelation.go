@@ -3,7 +3,6 @@
 package statecmd
 
 import (
-	"fmt"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -12,9 +11,6 @@ import (
 // AddRelation adds a relation between the specified endpoint names, and
 // returns a map from service names to relation endpoints.
 func AddRelation(state *state.State, args params.AddRelation) (params.AddRelationResults, error) {
-	if len(args.Endpoints) != 2 {
-		return params.AddRelationResults{}, fmt.Errorf("a relation must involve two services")
-	}
 	inEps, err := state.InferEndpoints(args.Endpoints)
 	if err != nil {
 		return params.AddRelationResults{}, err

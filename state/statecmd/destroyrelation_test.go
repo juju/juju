@@ -88,7 +88,7 @@ func (s *DestroyRelationSuite) TestCallWithOnlyOneEndpoint(c *C) {
 	err = statecmd.DestroyRelation(s.State, params.DestroyRelation{
 		Endpoints: []string{"wordpress"},
 	})
-	c.Assert(err, ErrorMatches, "a relation must involve two services")
+	c.Assert(err, ErrorMatches, "no relations found")
 }
 
 func (s *DestroyRelationSuite) TestDestroyAlreadyDestroyedRelation(c *C) {

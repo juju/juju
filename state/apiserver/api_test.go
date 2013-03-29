@@ -1358,7 +1358,7 @@ func (s *suite) TestClientServiceDeploy(c *C) {
 func (s *suite) TestSuccessfulAddRelation(c *C) {
 	s.setUpScenario(c)
 	endpoints := []string{"wordpress", "mysql"}
-	res, err := s.APIState.Client().AddRelation(endpoints[0], endpoints[1])
+	res, err := s.APIState.Client().AddRelation(endpoints...)
 	c.Assert(err, IsNil)
 	c.Assert(res.Endpoints["wordpress"].Name, Equals, "db")
 	c.Assert(res.Endpoints["wordpress"].Interface, Equals, "mysql")
@@ -1380,7 +1380,7 @@ func (s *suite) TestSuccessfulAddRelation(c *C) {
 func (s *suite) TestSuccessfulDestroyRelation(c *C) {
 	s.setUpScenario(c)
 	endpoints := []string{"wordpress", "logging"}
-	err := s.APIState.Client().DestroyRelation(endpoints[0], endpoints[1])
+	err := s.APIState.Client().DestroyRelation(endpoints...)
 	c.Assert(err, IsNil)
 	for _, endpoint := range endpoints {
 		service, err := s.State.Service(endpoint)

@@ -24,18 +24,32 @@ func (s *AddRelationSuite) setUpAddRelationScenario(c *C) {
 	c.Assert(err, IsNil)
 }
 
+func (s *AddRelationSuite) checkEndpoints(c *C, res params.AddRelationResults) {
+	c.Assert(res.Endpoints["wordpress"], DeepEquals, charm.Relation{
+		Name:      "db",
+		Role:      charm.RelationRole("requirer"),
+		Interface: "mysql",
+		Optional:  false,
+		Limit:     1,
+		Scope:     charm.RelationScope("global"),
+	})
+	c.Assert(res.Endpoints["mysql"], DeepEquals, charm.Relation{
+		Name:      "server",
+		Role:      charm.RelationRole("provider"),
+		Interface: "mysql",
+		Optional:  false,
+		Limit:     0,
+		Scope:     charm.RelationScope("global"),
+	})
+}
+
 func (s *AddRelationSuite) TestSuccessfullyAddRelation(c *C) {
 	s.setUpAddRelationScenario(c)
-	endpoints, err := statecmd.AddRelation(s.State, params.AddRelation{
+	res, err := statecmd.AddRelation(s.State, params.AddRelation{
 		Endpoints: []string{"wordpress", "mysql"},
 	})
 	c.Assert(err, IsNil)
-	c.Assert(endpoints.Endpoints["wordpress"].Name, Equals, "db")
-	c.Assert(endpoints.Endpoints["wordpress"].Interface, Equals, "mysql")
-	c.Assert(endpoints.Endpoints["wordpress"].Scope, Equals, charm.RelationScope("global"))
-	c.Assert(endpoints.Endpoints["mysql"].Name, Equals, "server")
-	c.Assert(endpoints.Endpoints["mysql"].Interface, Equals, "mysql")
-	c.Assert(endpoints.Endpoints["mysql"].Scope, Equals, charm.RelationScope("global"))
+	s.checkEndpoints(c, res)
 	// Show that the relation was added.
 	wpSvc, err := s.State.Service("wordpress")
 	c.Assert(err, IsNil)
@@ -53,12 +67,7 @@ func (s *AddRelationSuite) TestSuccessfullyAddRelationSwapped(c *C) {
 		Endpoints: []string{"mysql", "wordpress"},
 	})
 	c.Assert(err, IsNil)
-	c.Assert(res.Endpoints["mysql"].Name, Equals, "server")
-	c.Assert(res.Endpoints["mysql"].Interface, Equals, "mysql")
-	c.Assert(res.Endpoints["mysql"].Scope, Equals, charm.RelationScope("global"))
-	c.Assert(res.Endpoints["wordpress"].Name, Equals, "db")
-	c.Assert(res.Endpoints["wordpress"].Interface, Equals, "mysql")
-	c.Assert(res.Endpoints["wordpress"].Scope, Equals, charm.RelationScope("global"))
+	s.checkEndpoints(c, res)
 	// Show that the relation was added.
 	wpSvc, err := s.State.Service("wordpress")
 	c.Assert(err, IsNil)
@@ -75,7 +84,7 @@ func (s *AddRelationSuite) TestCallWithOnlyOneEndpoint(c *C) {
 	_, err := statecmd.AddRelation(s.State, params.AddRelation{
 		Endpoints: []string{"wordpress"},
 	})
-	c.Assert(err, ErrorMatches, "a relation must involve two services")
+	c.Assert(err, ErrorMatches, "no relations found")
 }
 
 func (s *AddRelationSuite) TestCallWithOneEndpointTooMany(c *C) {
@@ -83,7 +92,7 @@ func (s *AddRelationSuite) TestCallWithOneEndpointTooMany(c *C) {
 	_, err := statecmd.AddRelation(s.State, params.AddRelation{
 		Endpoints: []string{"wordpress", "mysql", "logging"},
 	})
-	c.Assert(err, ErrorMatches, "a relation must involve two services")
+	c.Assert(err, ErrorMatches, "cannot relate 3 endpoints")
 }
 
 func (s *AddRelationSuite) TestAddAlreadyAddedRelation(c *C) {
