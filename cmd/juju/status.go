@@ -228,9 +228,9 @@ func processStatus(r map[string]interface{}, s status, agentAlive, unitDead bool
 			status = state.UnitDown
 		}
 	}
-	r["status"] = status
+	r["agent-state"] = status
 	if len(info) > 0 {
-		r["status-info"] = info
+		r["agent-state-info"] = info
 	}
 }
 

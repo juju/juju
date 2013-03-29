@@ -33,32 +33,15 @@ type StatusSuite struct {
 
 var _ = Suite(&StatusSuite{})
 
-func (s *StatusSuite) SetUpSuite(c *C) {
-	s.JujuConnSuite.SetUpSuite(c)
-}
-
-func (s *StatusSuite) TearDownSuite(c *C) {
-	s.JujuConnSuite.TearDownSuite(c)
-}
-
-func (s *StatusSuite) SetUpTest(c *C) {
-	s.JujuConnSuite.SetUpTest(c)
-}
-
-func (s *StatusSuite) TearDownTest(c *C) {
-	s.JujuConnSuite.TearDownTest(c)
-}
-
 type M map[string]interface{}
 
 type testCase struct {
 	summary string
 	steps   []stepper
-	output  M
 }
 
-func test(summary string, output M, steps ...stepper) testCase {
-	return testCase{summary, steps, output}
+func test(summary string, steps ...stepper) testCase {
+	return testCase{summary, steps}
 }
 
 type stepper interface {
@@ -97,29 +80,42 @@ func (ctx *context) run(c *C, steps []stepper) {
 	}
 }
 
+type outputFormat struct {
+	name      string
+	marshal   func(v interface{}) ([]byte, error)
+	unmarshal func(data []byte, v interface{}) error
+}
+
+// statusFormats list all output formats supported by status command.
+var statusFormats = []outputFormat{
+	{"yaml", goyaml.Marshal, goyaml.Unmarshal},
+	{"json", json.Marshal, json.Unmarshal},
+}
+
 var statusTests = []testCase{
 	test(
 		// unlikely, as you can't run juju status in real life without
 		// machine/0 bootstrapped.
 		"empty state",
-		M{
+		expect{M{
 			"machines": M{},
 			"services": M{},
-		},
+		}},
 	), test(
 		"simulate juju bootstrap by adding machine/0 to the state",
-		M{
+		addMachine{"0", state.JobManageEnviron},
+		expect{M{
 			"machines": M{
 				"0": M{
 					"instance-id": "pending",
 				},
 			},
 			"services": M{},
-		},
-		addMachine{"0", state.JobManageEnviron},
+		}},
 	), test(
 		"simulate the PA starting an instance in response to the state change",
-		M{
+		addAndStartMachine{"0", state.JobManageEnviron},
+		expect{M{
 			"machines": M{
 				"0": M{
 					"dns-name":    "dummyenv-0.dns",
@@ -127,20 +123,9 @@ var statusTests = []testCase{
 				},
 			},
 			"services": M{},
-		},
-		addAndStartMachine{"0", state.JobManageEnviron},
+		}},
 	), test(
 		"simulate the MA setting the version",
-		M{
-			"machines": M{
-				"0": M{
-					"dns-name":      "dummyenv-0.dns",
-					"instance-id":   "dummyenv-0",
-					"agent-version": "1.2.3",
-				},
-			},
-			"services": M{},
-		},
 		addAndStartMachine{"0", state.JobManageEnviron},
 		setTools{"0", &state.Tools{
 			Binary: version.Binary{
@@ -150,9 +135,23 @@ var statusTests = []testCase{
 			},
 			URL: "http://canonical.com/",
 		}},
+		expect{M{
+			"machines": M{
+				"0": M{
+					"dns-name":      "dummyenv-0.dns",
+					"instance-id":   "dummyenv-0",
+					"agent-version": "1.2.3",
+				},
+			},
+			"services": M{},
+		}},
 	), test(
 		"add two services and expose one",
-		M{
+		addAndStartMachine{"0", state.JobManageEnviron},
+		addCharm{"dummy"},
+		addServiceSetExposed{"dummy-service", "dummy", false},
+		addServiceSetExposed{"exposed-service", "dummy", true},
+		expect{M{
 			"machines": M{
 				"0": M{
 					"dns-name":    "dummyenv-0.dns",
@@ -169,14 +168,11 @@ var statusTests = []testCase{
 					"exposed": true,
 				},
 			},
-		},
-		addAndStartMachine{"0", state.JobManageEnviron},
-		addCharm{"dummy"},
-		addServiceSetExposed{"dummy-service", "dummy", false},
-		addServiceSetExposed{"exposed-service", "dummy", true},
+		}},
 	), test(
 		"add three machines, two for units; also two services, one exposed",
-		M{
+		setupMachinesAndServices{},
+		expect{M{
 			"machines": M{
 				"0": M{
 					"dns-name":      "dummyenv-0.dns",
@@ -202,11 +198,16 @@ var statusTests = []testCase{
 					"exposed": true,
 				},
 			},
-		},
-		setupMachinesAndServices{},
+		}},
 	), test(
 		"same scenario as above; add units for services, set status for both (one is down)",
-		M{
+		setupMachinesAndServices{},
+		addUnit{"dummy-service", "1"},
+		addAliveUnit{"exposed-service", "2"},
+		setUnitStatus{"exposed-service/0", state.UnitError, "You Require More Vespene Gas"},
+		// This will be ignored, because the unit is down.
+		setUnitStatus{"dummy-service/0", state.UnitStarted, ""},
+		expect{M{
 			"machines": M{
 				"0": M{
 					"dns-name":      "dummyenv-0.dns",
@@ -228,9 +229,9 @@ var statusTests = []testCase{
 					"exposed": true,
 					"units": M{
 						"exposed-service/0": M{
-							"machine":     "2",
-							"status":      "error",
-							"status-info": "You Require More Vespene Gas",
+							"machine":          "2",
+							"agent-state":      "error",
+							"agent-state-info": "You Require More Vespene Gas",
 						},
 					},
 				},
@@ -239,19 +240,13 @@ var statusTests = []testCase{
 					"exposed": false,
 					"units": M{
 						"dummy-service/0": M{
-							"machine": "1",
-							"status":  "down",
+							"machine":     "1",
+							"agent-state": "down",
 						},
 					},
 				},
 			},
-		},
-		setupMachinesAndServices{},
-		addUnit{"dummy-service", "1"},
-		addAliveUnit{"exposed-service", "2"},
-		setUnitStatus{"exposed-service/0", state.UnitError, "You Require More Vespene Gas"},
-		// This will be ignored, because the unit is down.
-		setUnitStatus{"dummy-service/0", state.UnitStarted, ""},
+		}},
 	),
 }
 
@@ -399,13 +394,44 @@ func (sus setUnitStatus) step(c *C, ctx *context) {
 	c.Assert(err, IsNil)
 }
 
-var statusFormats = []struct {
-	name      string
-	marshal   func(v interface{}) ([]byte, error)
-	unmarshal func(data []byte, v interface{}) error
-}{
-	{"yaml", goyaml.Marshal, goyaml.Unmarshal},
-	{"json", json.Marshal, json.Unmarshal},
+type expect struct {
+	output M
+}
+
+func (e expect) step(c *C, ctx *context) {
+	var wg sync.WaitGroup
+	testFormat := func(format outputFormat, start chan bool) {
+		defer wg.Done()
+
+		<-start
+		c.Logf("format %q", format.name)
+		// Run command with the required format.
+		code, stderr, stdout := runStatus(c, "--format", format.name)
+		c.Assert(code, Equals, 0)
+		c.Assert(stderr, HasLen, 0)
+
+		// Prepare the output in the same format.
+		buf, err := format.marshal(e.output)
+		c.Assert(err, IsNil)
+		expected := make(M)
+		err = format.unmarshal(buf, &expected)
+		c.Assert(err, IsNil)
+
+		// Check the output is as expected.
+		actual := make(M)
+		err = format.unmarshal(stdout, &actual)
+		c.Assert(err, IsNil)
+		c.Assert(actual, DeepEquals, expected)
+	}
+
+	// Now execute the command concurrently for each format.
+	start := make(chan bool)
+	for _, format := range statusFormats {
+		wg.Add(1)
+		go testFormat(format, start)
+		start <- true
+	}
+	wg.Wait()
 }
 
 func (s *StatusSuite) TestStatusAllFormats(c *C) {
@@ -416,37 +442,6 @@ func (s *StatusSuite) TestStatusAllFormats(c *C) {
 			ctx := s.newContext()
 			defer s.resetContext(c, ctx)
 			ctx.run(c, t.steps)
-
-			// Run them concurrently to speed up the test.
-			var wg sync.WaitGroup
-
-			// Now execute the command for each format and compare output.
-			for _, format := range statusFormats {
-				wg.Add(1)
-				go func() {
-					c.Logf("format %q", format.name)
-					// Run command with the required format.
-					code, stderr, stdout := runStatus(c, "--format", format.name)
-					c.Assert(code, Equals, 0)
-					c.Assert(stderr, HasLen, 0)
-
-					// Prepare the output in the same format.
-					buf, err := format.marshal(t.output)
-					c.Assert(err, IsNil)
-					expected := make(map[string]interface{})
-					err = format.unmarshal(buf, &expected)
-					c.Assert(err, IsNil)
-
-					// Check the output is as expected.
-					actual := make(map[string]interface{})
-					err = format.unmarshal(stdout, &actual)
-					c.Assert(err, IsNil)
-					c.Assert(actual, DeepEquals, expected)
-
-					wg.Done()
-				}()
-			}
-			wg.Wait()
 		}()
 	}
 }
