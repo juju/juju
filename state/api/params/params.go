@@ -4,8 +4,21 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 )
+
+// AddRelation holds the parameters for making the AddRelation call.
+// The endpoints specified are unordered.
+type AddRelation struct {
+	Endpoints []string
+}
+
+// AddRelationResults holds the results of a AddRelation call. The Endpoints
+// field maps service names to the involved endpoints.
+type AddRelationResults struct {
+	Endpoints map[string]charm.Relation
+}
 
 // DestroyRelation holds the parameters for making the DestroyRelation call.
 // The endpoints specified are unordered.
