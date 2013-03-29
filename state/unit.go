@@ -363,37 +363,14 @@ func (u *Unit) Refresh() error {
 }
 
 // Status returns the status of the unit's agent.
-func (u *Unit) Status() (status UnitStatus, info string, err error) {
-	status, info = u.doc.Status, u.doc.StatusInfo
-	if status == UnitPending {
-		return
-	}
-	switch status {
-	case UnitError:
-		// We always expect an info if status is 'error'.
-		if info == "" {
-			panic("no status-info found for unit error")
-		}
-		return
-	case UnitStopped:
-		return
-	}
-
-	// TODO(fwereade,niemeyer): Take this out of Status and drop error result.
-	alive, err := u.AgentAlive()
-	if err != nil {
-		return "", "", err
-	}
-	if !alive {
-		return UnitDown, "", nil
-	}
-	return
+func (u *Unit) Status() (status UnitStatus, info string) {
+	return u.doc.Status, u.doc.StatusInfo
 }
 
 // SetStatus sets the status of the unit.
 func (u *Unit) SetStatus(status UnitStatus, info string) error {
-	if status == UnitPending {
-		panic("unit status must not be set to pending")
+	if status == UnitError && info == "" {
+		panic("must set info for unit error status")
 	}
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
