@@ -73,9 +73,9 @@ func (u *User) Name() string {
 	return u.doc.Name
 }
 
-// EntityName returns the entity name for
+// Tag returns the Tag for
 // the user ("user-$username")
-func (u *User) EntityName() string {
+func (u *User) Tag() string {
 	return "user-" + u.doc.Name
 }
 

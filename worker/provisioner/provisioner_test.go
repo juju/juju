@@ -81,7 +81,7 @@ func (s *ProvisionerSuite) checkStartInstance(c *C, m *state.Machine, secret str
 			switch o := o.(type) {
 			case dummy.OpStartInstance:
 				info := s.StateInfo(c)
-				info.EntityName = m.EntityName()
+				info.Tag = m.Tag()
 				c.Assert(o.Info.Password, Not(HasLen), 0)
 				info.Password = o.Info.Password
 				c.Assert(o.Info, DeepEquals, info)

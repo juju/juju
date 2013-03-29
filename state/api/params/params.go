@@ -103,8 +103,8 @@ type ServiceDestroy struct {
 
 // Creds holds credentials for identifying an entity.
 type Creds struct {
-	EntityName string
-	Password   string
+	AuthTag  string
+	Password string
 }
 
 // Machine holds details of a machine.
@@ -134,7 +134,7 @@ type Password struct {
 
 // Unit holds details of a unit.
 type Unit struct {
-	DeployerName string
+	DeployerTag string
 	// TODO(rog) other unit attributes.
 }
 
@@ -152,13 +152,13 @@ type GetAnnotationsResults struct {
 
 // GetAnnotations stores parameters for making the GetAnnotations call.
 type GetAnnotations struct {
-	EntityId string
+	Tag string
 }
 
 // SetAnnotations stores parameters for making the SetAnnotations call.
 type SetAnnotations struct {
-	EntityId string
-	Pairs    map[string]string
+	Tag   string
+	Pairs map[string]string
 }
 
 // SetServiceConstraints stores parameters for making the SetServiceConstraints call.
@@ -314,7 +314,7 @@ type AnnotationInfo struct {
 	// and StateWatcher results. We ensure that it's not serialised
 	// for the API by specifying the json tag.
 	GlobalKey   string `bson:"_id" json:"-"`
-	EntityName  string
+	Tag         string
 	Annotations map[string]string
 }
 

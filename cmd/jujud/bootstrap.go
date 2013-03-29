@@ -61,7 +61,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 
 	// There is no entity that's created at init time.
-	c.Conf.StateInfo.EntityName = ""
+	c.Conf.StateInfo.Tag = ""
 	st, err := state.Initialize(c.Conf.StateInfo, cfg, state.DefaultDialTimeout)
 	if err != nil {
 		return err

@@ -264,7 +264,7 @@ Client->Server
 		Type: "Admin"
 		Request: "Login"
 		Params: {
-			"EntityName": "machine-1",
+			"Tag": "machine-1",
 			Password: "a2eaa54323ae",
 		}
 	}

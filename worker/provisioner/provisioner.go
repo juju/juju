@@ -255,11 +255,11 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 		return fmt.Errorf("cannot set password for new machine: %v", err)
 	}
 	info := *p.info
-	info.EntityName = m.EntityName()
+	info.Tag = m.Tag()
 	info.Password = password
 
 	apiInfo := *p.apiInfo
-	apiInfo.EntityName = m.EntityName()
+	apiInfo.Tag = m.Tag()
 	apiInfo.Password = password
 	inst, err := p.environ.StartInstance(m.Id(), m.Series(), constraints.Value{}, &info, &apiInfo)
 	if err != nil {
