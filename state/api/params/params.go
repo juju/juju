@@ -16,10 +16,11 @@ type DestroyRelation struct {
 // ServiceDeploy holds the parameters for making the ServiceDeploy call.
 type ServiceDeploy struct {
 	ServiceName string
-	Config      map[string]string
-	ConfigYAML  string // Takes precedence over config if both are present.
 	CharmUrl    string
 	NumUnits    int
+	Config      map[string]string
+	ConfigYAML  string // Takes precedence over config if both are present.
+	Constraints constraints.Value
 }
 
 // ServiceExpose holds the parameters for making the ServiceExpose call.

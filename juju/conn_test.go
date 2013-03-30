@@ -444,17 +444,32 @@ func (s *DeployLocalSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *DeployLocalSuite) TestSetNumUnits(c *C) {
+func (s *DeployLocalSuite) TestDeploy(c *C) {
 	charm, err := s.Conn.PutCharm(s.charmUrl, s.repo, false)
 	c.Assert(err, IsNil)
+	cons := constraints.MustParse("mem=4G")
 	args := juju.DeployServiceParams{
 		Charm:       charm,
 		NumUnits:    3,
 		ServiceName: "bob",
+		Constraints: cons,
 	}
 	svc, err := s.Conn.DeployService(args)
 	c.Assert(err, IsNil)
+	scons, err := svc.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(scons, DeepEquals, cons)
+
 	units, err := svc.AllUnits()
 	c.Assert(err, IsNil)
 	c.Assert(len(units), Equals, 3)
+	for _, unit := range units {
+		mid, err := unit.AssignedMachineId()
+		c.Assert(err, IsNil)
+		machine, err := s.State.Machine(mid)
+		c.Assert(err, IsNil)
+		mcons, err := machine.Constraints()
+		c.Assert(err, IsNil)
+		c.Assert(mcons, DeepEquals, cons)
+	}
 }

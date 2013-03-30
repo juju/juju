@@ -118,12 +118,14 @@ func (c *Client) ServiceUnexpose(service string) error {
 
 // ServiceDeploy obtains the charm, either locally or from the charm store,
 // and deploys it.
-func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int, configYAML string) error {
+func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int, configYAML string, cons constraints.Value) error {
 	params := params.ServiceDeploy{
 		ServiceName: serviceName,
-		ConfigYAML:  configYAML,
 		CharmUrl:    charmUrl,
 		NumUnits:    numUnits,
+		// BUG(lp:1162122): ConfigYAML has no tests.
+		ConfigYAML:  configYAML,
+		Constraints: cons,
 	}
 	err := c.st.client.Call("Client", "", "ServiceDeploy", params, nil)
 	if err != nil {

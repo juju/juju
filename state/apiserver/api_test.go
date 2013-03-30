@@ -396,7 +396,7 @@ func opClientServiceDeploy(c *C, st *api.State, mst *state.State) (func(), error
 	originalServerCharmStore := apiserver.CharmStore
 	apiserver.CharmStore = repo
 
-	err = st.Client().ServiceDeploy(charmUrl, serviceName, 1, "")
+	err = st.Client().ServiceDeploy(charmUrl, serviceName, 1, "", constraints.Value{})
 	if err != nil {
 		return func() {}, err
 	}
@@ -1301,17 +1301,20 @@ var serviceDeployTests = []struct {
 	charmUrl         string
 	numUnits         int
 	expectedNumUnits int
+	constraints      constraints.Value
 }{{
 	about:            "Normal deploy",
 	serviceName:      "mywordpress",
 	charmUrl:         "local:series/wordpress",
 	expectedNumUnits: 1,
+	constraints:      constraints.MustParse("mem=1G"),
 }, {
 	about:            "Two units",
 	serviceName:      "mywordpress",
 	charmUrl:         "local:series/wordpress",
 	numUnits:         2,
 	expectedNumUnits: 2,
+	constraints:      constraints.MustParse("mem=4G"),
 },
 }
 
@@ -1321,26 +1324,47 @@ func (s *suite) TestClientServiceDeploy(c *C) {
 	for i, test := range serviceDeployTests {
 		c.Logf("test %d; %s", i, test.about)
 		parsedUrl := charm.MustParseURL(test.charmUrl)
-		localRepo, err := charm.InferRepository(parsedUrl,
-			coretesting.Charms.Path)
-		// Monkey-patch server repository.
-		originalServerCharmStore := apiserver.CharmStore
-		apiserver.CharmStore = localRepo
-		_, err = s.State.Service(test.serviceName)
-		c.Assert(err, NotNil)
-		err = s.APIState.Client().ServiceDeploy(
-			test.charmUrl, test.serviceName, test.numUnits, "")
+		localRepo, err := charm.InferRepository(parsedUrl, coretesting.Charms.Path)
 		c.Assert(err, IsNil)
-		service, err := s.State.Service(test.serviceName)
-		c.Assert(err, IsNil)
-		units, err := service.AllUnits()
-		c.Assert(err, IsNil)
-		c.Assert(units, HasLen, test.expectedNumUnits)
-		// Clean up.
-		removeServiceAndUnits(c, service)
-		// Restore server repository.
-		apiserver.CharmStore = originalServerCharmStore
+		withRepo(localRepo, func() {
+			_, err = s.State.Service(test.serviceName)
+			c.Assert(state.IsNotFound(err), Equals, true)
+			err = s.APIState.Client().ServiceDeploy(
+				test.charmUrl, test.serviceName, test.numUnits, "", test.constraints,
+			)
+			c.Assert(err, IsNil)
+
+			service, err := s.State.Service(test.serviceName)
+			c.Assert(err, IsNil)
+			defer removeServiceAndUnits(c, service)
+			scons, err := service.Constraints()
+			c.Assert(err, IsNil)
+			c.Assert(scons, DeepEquals, test.constraints)
+
+			units, err := service.AllUnits()
+			c.Assert(err, IsNil)
+			c.Assert(units, HasLen, test.expectedNumUnits)
+			for _, unit := range units {
+				mid, err := unit.AssignedMachineId()
+				c.Assert(err, IsNil)
+				machine, err := s.State.Machine(mid)
+				c.Assert(err, IsNil)
+				mcons, err := machine.Constraints()
+				c.Assert(err, IsNil)
+				c.Assert(mcons, DeepEquals, test.constraints)
+			}
+		})
 	}
+}
+
+func withRepo(repo charm.Repository, f func()) {
+	// Monkey-patch server repository.
+	originalServerCharmStore := apiserver.CharmStore
+	apiserver.CharmStore = repo
+	defer func() {
+		apiserver.CharmStore = originalServerCharmStore
+	}()
+	f()
 }
 
 func (s *suite) TestSuccessfulDestroyRelation(c *C) {
