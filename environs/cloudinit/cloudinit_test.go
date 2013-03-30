@@ -2,7 +2,6 @@ package cloudinit_test
 
 import (
 	"encoding/base64"
-	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/constraints"
@@ -12,7 +11,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
-	"os"
 	"regexp"
 	"strings"
 )
@@ -25,36 +23,25 @@ type cloudinitSuite struct {
 
 var _ = Suite(&cloudinitSuite{})
 
-var envConfig = mustNewConfig(map[string]interface{}{
-	"type":            "ec2",
-	"name":            "foo",
-	"default-series":  "series",
-	"authorized-keys": "keys",
-	"ca-cert":         testing.CACert,
-	"ca-private-key":  testing.CAKey,
-})
-
-func mkJujuHomeDir() string {
-	name, err := ioutil.TempDir(os.TempDir(), "juju-home-")
-	if err != nil {
-		panic(err)
-	}
-	return name
-}
-
-func mustNewConfig(m map[string]interface{}) *config.Config {
-	cfg, err := config.New(m)
-	if err != nil {
-		panic(err)
-	}
-	return cfg
-}
-
 var envConstraints = constraints.MustParse("mem=2G")
 
 type cloudinitTest struct {
 	cfg           cloudinit.MachineConfig
+	setEnvConfig  bool
 	expectScripts string
+}
+
+func minimalConfig(c *C) *config.Config {
+	cfg, err := config.New(map[string]interface{}{
+		"type":            "test",
+		"name":            "test-name",
+		"default-series":  "test-series",
+		"authorized-keys": "test-keys",
+		"ca-cert":         testing.CACert,
+		"ca-private-key":  "",
+	})
+	c.Assert(err, IsNil)
+	return cfg
 }
 
 // Each test gives a cloudinit config - we check the
@@ -78,10 +65,10 @@ var cloudinitTests = []cloudinitTest{{
 			Password: "bletch",
 			CACert:   []byte("CA CERT\n" + testing.CACert),
 		},
-		Config:      envConfig,
 		Constraints: envConstraints,
 		DataDir:     "/var/lib/juju",
 	},
+	setEnvConfig: true,
 	expectScripts: `
 mkdir -p /var/lib/juju
 mkdir -p /var/log/juju
@@ -160,32 +147,6 @@ func newSimpleTools(vers string) *state.Tools {
 	}
 }
 
-func (t *cloudinitTest) check(c *C) {
-	ci, err := cloudinit.New(&t.cfg)
-	c.Assert(err, IsNil)
-	c.Check(ci, NotNil)
-	// render the cloudinit config to bytes, and then
-	// back to a map so we can introspect it without
-	// worrying about internal details of the cloudinit
-	// package.
-	data, err := ci.Render()
-	c.Assert(err, IsNil)
-
-	x := make(map[interface{}]interface{})
-	err = goyaml.Unmarshal(data, &x)
-	c.Assert(err, IsNil)
-
-	c.Check(x["apt_upgrade"], Equals, true)
-	c.Check(x["apt_update"], Equals, true)
-
-	scripts := getScripts(x)
-	scriptDiff(c, scripts, t.expectScripts)
-	if t.cfg.Config != nil {
-		checkEnvConfig(c, t.cfg.Config, x, scripts)
-	}
-	checkPackage(c, x, "git", true)
-}
-
 // check that any --env-config $base64 is valid and matches t.cfg.Config
 func checkEnvConfig(c *C, cfg *config.Config, x map[interface{}]interface{}, scripts []string) {
 	re := regexp.MustCompile(`--env-config '([\w,=]+)'`)
@@ -209,13 +170,34 @@ func checkEnvConfig(c *C, cfg *config.Config, x map[interface{}]interface{}, scr
 // TestCloudInit checks that the output from the various tests
 // in cloudinitTests is well formed.
 func (*cloudinitSuite) TestCloudInit(c *C) {
-	for i, test := range cloudinitTests {
+	for i, t := range cloudinitTests {
 		c.Logf("test %d", i)
-		ci, err := cloudinit.New(&test.cfg)
+		if t.setEnvConfig {
+			t.cfg.Config = minimalConfig(c)
+		}
+		ci, err := cloudinit.New(&t.cfg)
 		c.Assert(err, IsNil)
 		c.Check(ci, NotNil)
+		// render the cloudinit config to bytes, and then
+		// back to a map so we can introspect it without
+		// worrying about internal details of the cloudinit
+		// package.
+		data, err := ci.Render()
+		c.Assert(err, IsNil)
 
-		test.check(c)
+		x := make(map[interface{}]interface{})
+		err = goyaml.Unmarshal(data, &x)
+		c.Assert(err, IsNil)
+
+		c.Check(x["apt_upgrade"], Equals, true)
+		c.Check(x["apt_update"], Equals, true)
+
+		scripts := getScripts(x)
+		scriptDiff(c, scripts, t.expectScripts)
+		if t.cfg.Config != nil {
+			checkEnvConfig(c, t.cfg.Config, x, scripts)
+		}
+		checkPackage(c, x, "git", true)
 	}
 }
 
@@ -404,7 +386,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *C) {
 			Addrs:  []string{"host:9999"},
 			CACert: []byte(testing.CACert),
 		},
-		Config:  envConfig,
+		Config:  minimalConfig(c),
 		DataDir: "/var/lib/juju",
 	}
 	// check that the base configuration does not give an error
