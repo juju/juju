@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/trivial"
 	"time"
@@ -82,9 +83,14 @@ func (m *Machine) Series() string {
 	return m.doc.Series
 }
 
+// machineGlobalKey returns the global database key for the identified machine.
+func machineGlobalKey(id string) string {
+	return "m#" + id
+}
+
 // globalKey returns the global database key for the machine.
 func (m *Machine) globalKey() string {
-	return "m#" + m.String()
+	return machineGlobalKey(m.doc.Id)
 }
 
 // MachineEntityName returns the entity name for the
@@ -281,13 +287,27 @@ func (m *Machine) Remove() (err error) {
 	if m.doc.Life != Dead {
 		return fmt.Errorf("machine is not dead")
 	}
-	ops := []txn.Op{{
-		C:      m.st.machines.Name,
-		Id:     m.doc.Id,
-		Remove: true,
-	}}
-	ops = append(ops, annotationRemoveOp(m.st, m.globalKey()))
-	return m.st.runner.Run(ops, "", nil)
+	cleanupOps := []txn.Op{
+		removeConstraintsOp(m.st, m.globalKey()),
+		annotationRemoveOp(m.st, m.globalKey()),
+	}
+	for i := 0; i < 3; i++ {
+		ops := append([]txn.Op{{
+			C:      m.st.machines.Name,
+			Id:     m.doc.Id,
+			Assert: txn.DocExists,
+			Remove: true,
+		}}, cleanupOps...)
+		if err := m.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+			return err
+		}
+		if m, err = m.st.Machine(m.Id()); IsNotFound(err) {
+			return nil
+		} else if err != nil {
+			return err
+		}
+	}
+	return ErrExcessiveContention
 }
 
 // Refresh refreshes the contents of the machine from the underlying
@@ -389,4 +409,39 @@ func (m *Machine) SetInstanceId(id InstanceId) (err error) {
 // String returns a unique description of this machine.
 func (m *Machine) String() string {
 	return m.doc.Id
+}
+
+// Constraints returns the exact constraints that should apply when provisioning
+// an instance for the machine.
+func (m *Machine) Constraints() (constraints.Value, error) {
+	return readConstraints(m.st, m.globalKey())
+}
+
+// SetConstraints sets the exact constraints to apply when provisioning an
+// instance for the machine. It will fail if the machine is Dead, or if it
+// is already provisioned.
+func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
+	defer trivial.ErrorContextf(&err, "cannot set constraints")
+	for i := 0; i < 2; i++ {
+		if m.doc.Life == Dead {
+			return errDead
+		}
+		if m.doc.InstanceId != "" {
+			return fmt.Errorf("machine is already provisioned")
+		}
+		notProvisioned := D{{"instanceid", ""}}
+		mop := txn.Op{
+			C:      m.st.machines.Name,
+			Id:     m.doc.Id,
+			Assert: append(notDeadDoc, notProvisioned...),
+		}
+		ops := []txn.Op{mop, setConstraintsOp(m.st, m.globalKey(), cons)}
+		if err := m.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+			return err
+		}
+		if m, err = m.st.Machine(m.doc.Id); err != nil {
+			return err
+		}
+	}
+	return ErrExcessiveContention
 }

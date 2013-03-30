@@ -71,7 +71,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *C) {
 	defer st.Close()
 	machines, err := st.AllMachines()
 	c.Assert(err, IsNil)
-	c.Assert(len(machines), Equals, 1)
+	c.Assert(machines, HasLen, 1)
 
 	instid, ok := machines[0].InstanceId()
 	c.Assert(ok, Equals, true)
@@ -96,6 +96,13 @@ func (s *BootstrapSuite) TestSetConstraints(c *C) {
 	c.Assert(err, IsNil)
 	defer st.Close()
 	cons, err := st.EnvironConstraints()
+	c.Assert(err, IsNil)
+	c.Assert(cons, DeepEquals, tcons)
+
+	machines, err := st.AllMachines()
+	c.Assert(err, IsNil)
+	c.Assert(machines, HasLen, 1)
+	cons, err = machines[0].Constraints()
 	c.Assert(err, IsNil)
 	c.Assert(cons, DeepEquals, tcons)
 }

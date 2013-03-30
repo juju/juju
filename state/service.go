@@ -200,10 +200,6 @@ func (s *Service) removeOps(asserts D) []txn.Op {
 		Assert: asserts,
 		Remove: true,
 	}, {
-		C:      s.st.constraints.Name,
-		Id:     s.globalKey(),
-		Remove: true,
-	}, {
 		C:      s.st.settingsrefs.Name,
 		Id:     s.settingsKey(),
 		Remove: true,
@@ -212,6 +208,7 @@ func (s *Service) removeOps(asserts D) []txn.Op {
 		Id:     s.settingsKey(),
 		Remove: true,
 	}}
+	ops = append(ops, removeConstraintsOp(s.st, s.globalKey()))
 	return append(ops, annotationRemoveOp(s.st, s.globalKey()))
 }
 
@@ -538,7 +535,7 @@ func (s *Service) addUnitOps(principalName string) (string, []txn.Op, error) {
 		Assert: isAliveDoc,
 		Update: D{{"$inc", D{{"unitcount", 1}}}},
 	}}
-	if principalName != "" {
+	if s.doc.Subordinate {
 		ops = append(ops, txn.Op{
 			C:  s.st.units.Name,
 			Id: principalName,
@@ -547,6 +544,17 @@ func (s *Service) addUnitOps(principalName string) (string, []txn.Op, error) {
 			}),
 			Update: D{{"$addToSet", D{{"subordinates", name}}}},
 		})
+	} else {
+		scons, err := s.Constraints()
+		if err != nil {
+			return "", nil, err
+		}
+		econs, err := s.st.EnvironConstraints()
+		if err != nil {
+			return "", nil, err
+		}
+		cons := scons.WithFallbacks(econs)
+		ops = append(ops, createConstraintsOp(s.st, unitGlobalKey(name), cons))
 	}
 	return name, ops, nil
 }
@@ -575,20 +583,23 @@ var ErrExcessiveContention = errors.New("state changing too quickly; try again s
 
 func (s *Service) removeUnitOps(u *Unit) ([]txn.Op, error) {
 	var ops []txn.Op
-	if u.doc.Principal != "" {
+	if s.doc.Subordinate {
 		ops = append(ops, txn.Op{
 			C:      s.st.units.Name,
 			Id:     u.doc.Principal,
 			Assert: txn.DocExists,
 			Update: D{{"$pull", D{{"subordinates", u.doc.Name}}}},
 		})
-	} else if u.doc.MachineId != "" {
-		ops = append(ops, txn.Op{
-			C:      s.st.machines.Name,
-			Id:     u.doc.MachineId,
-			Assert: txn.DocExists,
-			Update: D{{"$pull", D{{"principals", u.doc.Name}}}},
-		})
+	} else {
+		if u.doc.MachineId != "" {
+			ops = append(ops, txn.Op{
+				C:      s.st.machines.Name,
+				Id:     u.doc.MachineId,
+				Assert: txn.DocExists,
+				Update: D{{"$pull", D{{"principals", u.doc.Name}}}},
+			})
+		}
+		ops = append(ops, removeConstraintsOp(s.st, u.globalKey()))
 	}
 	ops = append(ops, txn.Op{
 		C:      s.st.units.Name,
