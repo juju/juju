@@ -656,6 +656,7 @@ func (s *ServiceSuite) TestReadUnitWhenDying(c *C) {
 	// Test that we can still read units when the service is Dying...
 	unit, err := s.mysql.AddUnit()
 	c.Assert(err, IsNil)
+	preventUnitDestroyRemove(c, s.State, unit)
 	err = s.mysql.Destroy()
 	c.Assert(err, IsNil)
 	_, err = s.mysql.AllUnits()
@@ -959,8 +960,9 @@ var serviceUnitsWatchTests = []struct {
 	}, {
 		"Add two units at once",
 		func(c *C, s *state.State, service *state.Service) {
-			_, err := service.AddUnit()
+			unit2, err := service.AddUnit()
 			c.Assert(err, IsNil)
+			preventUnitDestroyRemove(c, s, unit2)
 			_, err = service.AddUnit()
 			c.Assert(err, IsNil)
 		},
@@ -970,12 +972,14 @@ var serviceUnitsWatchTests = []struct {
 		func(c *C, s *state.State, service *state.Service) {
 			unit0, err := service.Unit("mysql/0")
 			c.Assert(err, IsNil)
+			preventUnitDestroyRemove(c, s, unit0)
 			err = unit0.Destroy()
 			c.Assert(err, IsNil)
 		},
 		[]string{"mysql/0"},
 	}, {
-		"Report dead unit",
+		// I'm preserving these tests in amber, not fixing them.
+		"Report another dying unit for no clear reason",
 		func(c *C, s *state.State, service *state.Service) {
 			unit2, err := service.Unit("mysql/2")
 			c.Assert(err, IsNil)
@@ -1001,6 +1005,7 @@ var serviceUnitsWatchTests = []struct {
 		func(c *C, s *state.State, service *state.Service) {
 			unit3, err := service.Unit("mysql/3")
 			c.Assert(err, IsNil)
+			preventUnitDestroyRemove(c, s, unit3)
 			err = unit3.Destroy()
 			c.Assert(err, IsNil)
 			_, err = service.AddUnit()
@@ -1034,9 +1039,7 @@ var serviceUnitsWatchTests = []struct {
 				c.Assert(err, IsNil)
 			}
 			for i := 10; i < len(units); i++ {
-				err = units[i].EnsureDead()
-				c.Assert(err, IsNil)
-				err = units[i].Remove()
+				err = units[i].Destroy()
 				c.Assert(err, IsNil)
 			}
 		},
@@ -1051,6 +1054,7 @@ var serviceUnitsWatchTests = []struct {
 				c.Assert(err, IsNil)
 			}
 			for _, unit := range units {
+				preventUnitDestroyRemove(c, s, unit)
 				err = unit.Destroy()
 				c.Assert(err, IsNil)
 			}
