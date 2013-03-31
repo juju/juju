@@ -58,7 +58,6 @@ func (*NewConnSuite) TestNewConnWithoutAdminSecret(c *C) {
 
 func (*NewConnSuite) TestNewConnFromNameGetUnbootstrapped(c *C) {
 	defer coretesting.MakeSampleHome(c).Restore()
-
 	_, err := juju.NewConnFromName("")
 	c.Assert(err, ErrorMatches, "dummy environment not bootstrapped")
 }

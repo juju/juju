@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/agent"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
@@ -60,10 +61,10 @@ func (*BootstrapSuite) TestRunGeneratesCertificate(c *C) {
 
 	// Check that the CA certificate and key have been automatically generated
 	// for the environment.
-	info, err := os.Stat(testing.HomePath(".juju", envName+"-cert.pem"))
+	info, err := os.Stat(config.JujuHomePath(envName + "-cert.pem"))
 	c.Assert(err, IsNil)
 	c.Assert(info.Size() > 0, Equals, true)
-	info, err = os.Stat(testing.HomePath(".juju", envName+"-private-key.pem"))
+	info, err = os.Stat(config.JujuHomePath(envName + "-private-key.pem"))
 	c.Assert(err, IsNil)
 	c.Assert(info.Size() > 0, Equals, true)
 

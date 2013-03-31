@@ -36,6 +36,10 @@ const (
 	// to a dedicated machine, and that new machines should be launched
 	// if required.
 	AssignUnused AssignmentPolicy = "unused"
+
+	// AssignNew indicates that every service unit should be assigned to a new
+	// dedicated machine.  A new machine will be launched for each new unit.
+	AssignNew AssignmentPolicy = "new"
 )
 
 // UnitStatus represents the status of the unit agent.
@@ -68,6 +72,7 @@ type UnitSettings struct {
 }
 
 // unitDoc represents the internal state of a unit in MongoDB.
+// Note the correspondence with UnitInfo in state/api/params.
 type unitDoc struct {
 	Name           string `bson:"_id"`
 	Service        string
@@ -101,9 +106,9 @@ func newUnit(st *State, udoc *unitDoc) *Unit {
 		doc: *udoc,
 	}
 	unit.annotator = annotator{
-		globalKey:  unit.globalKey(),
-		entityName: unit.EntityName(),
-		st:         st,
+		globalKey: unit.globalKey(),
+		tag:       unit.Tag(),
+		st:        st,
 	}
 	return unit
 }
@@ -197,7 +202,7 @@ func (u *Unit) SetAgentTools(t *Tools) (err error) {
 // should use to communicate with the state servers.  Previous passwords
 // are invalidated.
 func (u *Unit) SetMongoPassword(password string) error {
-	return u.st.setMongoPassword(u.EntityName(), password)
+	return u.st.setMongoPassword(u.Tag(), password)
 }
 
 // SetPassword sets the password for the machine's agent.
@@ -323,13 +328,13 @@ func (u *Unit) SubordinateNames() []string {
 	return names
 }
 
-// DeployerName returns the entity name of the agent responsible for deploying
+// DeployerTag returns the tag of the agent responsible for deploying
 // the unit. If no such entity can be determined, false is returned.
-func (u *Unit) DeployerName() (string, bool) {
+func (u *Unit) DeployerTag() (string, bool) {
 	if u.doc.Principal != "" {
-		return UnitEntityName(u.doc.Principal), true
+		return UnitTag(u.doc.Principal), true
 	} else if u.doc.MachineId != "" {
-		return MachineEntityName(u.doc.MachineId), true
+		return MachineTag(u.doc.MachineId), true
 	}
 	return "", false
 }
@@ -536,17 +541,17 @@ func (u *Unit) AgentAlive() (bool, error) {
 	return u.st.pwatcher.Alive(u.globalKey())
 }
 
-// UnitEntityName returns the entity name for the
+// UnitTag returns the tag for the
 // unit with the given name.
-func UnitEntityName(unitName string) string {
+func UnitTag(unitName string) string {
 	return "unit-" + strings.Replace(unitName, "/", "-", -1)
 }
 
-// EntityName returns a name identifying the unit that is safe to use
+// Tag returns a name identifying the unit that is safe to use
 // as a file name.  The returned name will be different from other
-// EntityName values returned by any other entities from the same state.
-func (u *Unit) EntityName() string {
-	return UnitEntityName(u.Name())
+// Tag values returned by any other entities from the same state.
+func (u *Unit) Tag() string {
+	return UnitTag(u.Name())
 }
 
 // WaitAgentAlive blocks until the respective agent is alive.
@@ -707,6 +712,53 @@ func (u *Unit) AssignToMachine(m *Machine) error {
 		return fmt.Errorf("cannot assign unit %q to machine %v: %v", u, m, err)
 	}
 	return nil
+}
+
+// AssignToNewMachine creates a new machine, and allocates the unit in a
+// single transaction.
+func (u *Unit) AssignToNewMachine() error {
+	// Get the ops necessary to create a new machine, and the machine doc that
+	// will be added with those operations (which includes the machine id).
+	mdoc := &machineDoc{
+		Series:     u.doc.Series,
+		Jobs:       []MachineJob{JobHostUnits},
+		Principals: []string{u.doc.Name},
+	}
+	mdoc, ops, err := u.st.addMachineOps(mdoc)
+	if err != nil {
+		return err
+	}
+	isUnassigned := D{{"machineid", ""}}
+	ops = append(ops, txn.Op{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: append(isAliveDoc, isUnassigned...),
+		Update: D{{"$set", D{{"machineid", mdoc.Id}}}},
+	})
+	err = u.st.runner.Run(ops, "", nil)
+	if err == nil {
+		u.doc.MachineId = mdoc.Id
+		return nil
+	} else if err != txn.ErrAborted {
+		return err
+	}
+	// If we assume that the machine ops will never give us an operation that
+	// would fail (because the machine id that it has is unique), then the only
+	// reason that the transaction would have been aborted are:
+	//  * the unit is no longer alive
+	//  * the unit  has been assigned to a different machine
+	unit, err := u.st.Unit(u.Name())
+	if err != nil {
+		return err
+	}
+	switch {
+	case unit.Life() != Alive:
+		return unitDeadErr
+	case unit.doc.MachineId != "":
+		return alreadyAssignedErr
+	}
+	// Other error condition not considered.
+	return fmt.Errorf("undetermined error trying to assign unit to a new machine: %q", u)
 }
 
 var noUnusedMachines = errors.New("all eligible machines in use")
