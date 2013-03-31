@@ -166,6 +166,34 @@ func (s *syncToolsSuite) TestCopyAllFromDummy(c *C) {
 		"1.0.0-quantal-i386", "1.9.0-quantal-amd64")
 }
 
+func (s *syncToolsSuite) TestCopyToDummyPublic(c *C) {
+	sourceEnv, cleanup := setupDummyEnvironments(c)
+	defer cleanup()
+	sourceTools, err := environs.ListTools(sourceEnv, 1)
+	c.Assert(err, IsNil)
+	assertToolsList(c, sourceTools.Public,
+		"1.0.0-precise-amd64", "1.0.0-quantal-amd64",
+		"1.0.0-quantal-i386", "1.9.0-quantal-amd64")
+	c.Assert(sourceTools.Private, HasLen, 0)
+	targetEnv, err := environs.NewFromName("test-target")
+	c.Assert(err, IsNil)
+	targetTools, err := environs.ListTools(targetEnv, 1)
+	// Target env just has the fake tools in the public bucket
+	assertToolsList(c, targetTools.Public, version.Current.String())
+	// Nothing in private
+	assertToolsList(c, targetTools.Private)
+	c.Assert(targetTools.Private, HasLen, 0)
+	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--public")
+	c.Assert(err, IsNil)
+	c.Assert(ctx, NotNil)
+	targetTools, err = environs.ListTools(targetEnv, 1)
+	c.Assert(err, IsNil)
+	// newest tools added to the private bucket
+	assertToolsList(c, targetTools.Public,
+		version.Current.String(), "1.9.0-quantal-amd64")
+	assertToolsList(c, targetTools.Private)
+}
+
 type toolSuite struct{}
 
 var _ = Suite(&toolSuite{})
