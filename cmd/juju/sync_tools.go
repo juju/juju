@@ -50,11 +50,12 @@ func (c *SyncToolsCommand) Init(args []string) error {
 }
 
 var officialBucketAttrs = map[string]interface{}{
-	"name":           "juju-public",
-	"type":           "ec2",
-	"control-bucket": "juju-dist",
-	"access-key":     "",
-	"secret-key":     "",
+	"name":            "juju-public",
+	"type":            "ec2",
+	"control-bucket":  "juju-dist",
+	"access-key":      "",
+	"secret-key":      "",
+	"authorized-keys": "not-really", // We shouldn't need ssh access
 }
 
 // Find the set of tools at the 'latest' version
@@ -147,6 +148,7 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 	}
 	targetEnv, err := environs.NewFromName(c.EnvName)
 	if err != nil {
+		log.Errorf("cmd/juju: unable to read %q from environment", c.EnvName)
 		return err
 	}
 	toolsToCopy := c.sourceToolsList.Public
