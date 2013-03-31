@@ -165,9 +165,10 @@ func (s *toolSuite) TestFindNewestMultipleBest(c *C) {
 	var oneBestTests = []struct {
 		all  []*state.Tools
 		best []*state.Tools
-	}{
-		{all: []*state.Tools{t1000precise, t1000quantal},
-			best: []*state.Tools{t1000precise, t1000quantal}},
+	}{{
+		all:  []*state.Tools{t1000precise, t1000quantal},
+		best: []*state.Tools{t1000precise, t1000quantal},
+	},
 	}
 	for _, t := range oneBestTests {
 		res := findNewest(t.all)

@@ -13,7 +13,7 @@ import (
 )
 
 // SyncToolsCommand copies all the tools from the us-east-1 bucket to the local
-// bucket
+// bucket.
 type SyncToolsCommand struct {
 	EnvCommandBase
 	sourceToolsList *environs.ToolsList
@@ -121,8 +121,10 @@ func copyOne(tool *state.Tools, source environs.StorageReader,
 	return nil
 }
 
-func copyTools(tools []*state.Tools, source environs.StorageReader,
-	target environs.Storage, dryRun bool, ctx *cmd.Context) error {
+func copyTools(
+	tools []*state.Tools, source environs.StorageReader,
+	target environs.Storage, dryRun bool, ctx *cmd.Context,
+) error {
 	for _, tool := range tools {
 		log.Infof("cmd/juju: copying %s from %s\n", tool.Binary, tool.URL)
 		if dryRun {
