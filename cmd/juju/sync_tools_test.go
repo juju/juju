@@ -41,9 +41,9 @@ func (s *syncToolsSuite) TestHelp(c *C) {
 	c.Assert(ctx, IsNil)
 }
 
-func (s *syncToolsSuite) TestReadFromDummy(c *C) {
+func setupDummyEnvironments(c *C) (env environs.Environ, cleanup func()) {
 	dummyAttrs := map[string]interface{}{
-		"name":         "test-dummy",
+		"name":         "test-source",
 		"type":         "dummy",
 		"state-server": false,
 		// Note: Without this, you get "no public ssh keys found", which seems
@@ -54,12 +54,18 @@ func (s *syncToolsSuite) TestReadFromDummy(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(env, NotNil)
 	store := env.PublicStorage().(environs.Storage)
+	// Dummy environments always put fake tools, but we don't want it
+	// confusing our state, so we delete them
+	fakepath := environs.ToolsStoragePath(version.Current)
+	err = store.Remove(fakepath)
+	c.Assert(err, IsNil)
+	// Upload t1000precise tools
 	path := environs.ToolsStoragePath(t1000precise.Binary)
 	content := bytes.NewBufferString("content\n")
 	err = store.Put(path, content, int64(content.Len()))
 	c.Assert(err, IsNil)
+	// Save for cleanup
 	orig := officialBucketAttrs
-	defer func() { officialBucketAttrs = orig }()
 	officialBucketAttrs = dummyAttrs
 	c.Assert(os.Mkdir(testing.HomePath(".juju"), 0775), IsNil)
 	jujupath := testing.HomePath(".juju", "environments.yaml")
@@ -67,39 +73,40 @@ func (s *syncToolsSuite) TestReadFromDummy(c *C) {
 		jujupath,
 		[]byte(`
 environments:
-    target:
+    test-target:
         type: dummy
         state-server: false
         authorized-keys: "not-really-one"
 `),
 		0660)
 	c.Assert(err, IsNil)
-	tools, err := environs.ListTools(env, t1000precise.Binary.Major)
+	return env, func() { officialBucketAttrs = orig }
+}
+
+func (s *syncToolsSuite) TestCopyNewestFromDummy(c *C) {
+	sourceEnv, cleanup := setupDummyEnvironments(c)
+	defer cleanup()
+	sourceTools, err := environs.ListTools(sourceEnv, t1000precise.Binary.Major)
 	c.Assert(err, IsNil)
-	// The one we just uploaded
-	c.Assert(tools.Public, HasLen, 2)
-	if tools.Public[0].Binary == t1000precise.Binary {
-		c.Assert(tools.Public[0].Binary, Equals, t1000precise.Binary)
-		c.Assert(tools.Public[1].Binary, Equals, version.Current)
-	} else {
-		c.Assert(tools.Public[0].Binary, Equals, version.Current)
-		c.Assert(tools.Public[1].Binary, Equals, t1000precise.Binary)
-	}
-	c.Assert(tools.Private, HasLen, 0)
-	ctx, err := runSyncToolsCommand(c, "-e", "target")
+	c.Assert(sourceTools.Public, HasLen, 1)
+	c.Assert(sourceTools.Public[0].Binary, Equals, t1000precise.Binary)
+	targetEnv, err := environs.NewFromName("test-target")
+	c.Assert(err, IsNil)
+	targetTools, err := environs.ListTools(targetEnv, t1000precise.Binary.Major)
+	// Target env just has the fake tools in the public bucket
+	c.Assert(targetTools.Public, HasLen, 1)
+	c.Assert(targetTools.Public[0].Binary, Equals, version.Current)
+	c.Assert(targetTools.Private, HasLen, 0)
+	ctx, err := runSyncToolsCommand(c, "-e", "test-target")
 	c.Assert(err, IsNil)
 	c.Assert(ctx, NotNil)
-	tools, err = environs.ListTools(env, t1000precise.Binary.Major)
+	targetTools, err = environs.ListTools(targetEnv, t1000precise.Binary.Major)
 	c.Assert(err, IsNil)
-	c.Assert(tools.Private, HasLen, 2)
-	c.Assert(tools.Private[0].Binary, Equals, t1000precise.Binary)
-	if tools.Private[0].Binary == t1000precise.Binary {
-		c.Assert(tools.Private[0].Binary, Equals, t1000precise.Binary)
-		c.Assert(tools.Private[1].Binary, Equals, version.Current)
-	} else {
-		c.Assert(tools.Private[0].Binary, Equals, version.Current)
-		c.Assert(tools.Private[1].Binary, Equals, t1000precise.Binary)
-	}
+	// No change to the Public bucket
+	c.Assert(targetTools.Public, HasLen, 1)
+	// only the newest added to the private bucket
+	c.Assert(targetTools.Private, HasLen, 1)
+	c.Assert(targetTools.Private[0].Binary, Equals, t1000precise.Binary)
 }
 
 type toolSuite struct{}
