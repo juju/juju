@@ -21,6 +21,7 @@ type Service struct {
 }
 
 // serviceDoc represents the internal state of a service in MongoDB.
+// Note the correspondence with ServiceInfo in state/api/params.
 type serviceDoc struct {
 	Name          string `bson:"_id"`
 	CharmURL      *charm.URL
@@ -39,9 +40,9 @@ func newService(st *State, doc *serviceDoc) *Service {
 		doc: *doc,
 	}
 	svc.annotator = annotator{
-		globalKey:  svc.globalKey(),
-		entityName: svc.EntityName(),
-		st:         st,
+		globalKey: svc.globalKey(),
+		tag:       svc.Tag(),
+		st:        st,
 	}
 	return svc
 }
@@ -51,10 +52,10 @@ func (s *Service) Name() string {
 	return s.doc.Name
 }
 
-// EntityName returns a name identifying the service that is safe to use
+// TAg returns a name identifying the service that is safe to use
 // as a file name.  The returned name will be different from other
-// EntityName values returned by any other entities from the same state.
-func (s *Service) EntityName() string {
+// TAg values returned by any other entities from the same state.
+func (s *Service) Tag() string {
 	return "service-" + s.Name()
 }
 
@@ -267,23 +268,22 @@ func (s *Service) Endpoints() (eps []Endpoint, err error) {
 	if err != nil {
 		return nil, err
 	}
-	collect := func(role RelationRole, rels map[string]charm.Relation) {
-		for name, rel := range rels {
+	collect := func(role charm.RelationRole, rels map[string]charm.Relation) {
+		for _, rel := range rels {
 			eps = append(eps, Endpoint{
-				ServiceName:   s.doc.Name,
-				Interface:     rel.Interface,
-				RelationName:  name,
-				RelationRole:  role,
-				RelationScope: rel.Scope,
+				ServiceName: s.doc.Name,
+				Relation:    rel,
 			})
 		}
 	}
 	meta := ch.Meta()
-	collect(RolePeer, meta.Peers)
-	collect(RoleProvider, meta.Provides)
-	collect(RoleRequirer, meta.Requires)
-	collect(RoleProvider, map[string]charm.Relation{
+	collect(charm.RolePeer, meta.Peers)
+	collect(charm.RoleProvider, meta.Provides)
+	collect(charm.RoleRequirer, meta.Requires)
+	collect(charm.RoleProvider, map[string]charm.Relation{
 		"juju-info": {
+			Name:      "juju-info",
+			Role:      charm.RoleProvider,
 			Interface: "juju-info",
 			Scope:     charm.ScopeGlobal,
 		},
@@ -299,11 +299,33 @@ func (s *Service) Endpoint(relationName string) (Endpoint, error) {
 		return Endpoint{}, err
 	}
 	for _, ep := range eps {
-		if ep.RelationName == relationName {
+		if ep.Name == relationName {
 			return ep, nil
 		}
 	}
 	return Endpoint{}, fmt.Errorf("service %q has no %q relation", s, relationName)
+}
+
+// extraPeerRelations returns only the peer relations in newMeta not
+// present in the service's current charm meta data.
+func (s *Service) extraPeerRelations(newMeta *charm.Meta) map[string]charm.Relation {
+	if newMeta == nil {
+		// This should never happen, since we're checking the charm in SetCharm already.
+		panic("newMeta is nil")
+	}
+	ch, _, err := s.Charm()
+	if err != nil {
+		return nil
+	}
+	newPeers := newMeta.Peers
+	oldPeers := ch.Meta().Peers
+	extraPeers := make(map[string]charm.Relation)
+	for relName, rel := range newPeers {
+		if _, ok := oldPeers[relName]; !ok {
+			extraPeers[relName] = rel
+		}
+	}
+	return extraPeers
 }
 
 // convertConfig takes the given charm's config and converts the
@@ -376,6 +398,21 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 			Update: D{{"$set", D{{"charmurl", ch.URL()}, {"forcecharm", force}}}},
 		},
 	}
+	// Add any extra peer relations that need creation.
+	newPeers := s.extraPeerRelations(ch.Meta())
+	peerOps, err := s.st.addPeerRelationsOps(s.doc.Name, newPeers)
+	if err != nil {
+		return nil, err
+	}
+	ops = append(ops, peerOps...)
+	// Update the relation count as well.
+	ops = append(ops, txn.Op{
+		C:      s.st.services.Name,
+		Id:     s.doc.Name,
+		Assert: txn.DocExists,
+		Update: D{{"$inc", D{{"relationcount", len(newPeers)}}}},
+	})
+
 	// And finally, decrement the old settings.
 	return append(ops, decOps...), nil
 }

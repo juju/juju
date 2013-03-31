@@ -13,7 +13,7 @@ import (
 )
 
 // SyncToolsCommand copies all the tools from the us-east-1 bucket to the local
-// bucket
+// bucket.
 type SyncToolsCommand struct {
 	EnvCommandBase
 	sourceToolsList *environs.ToolsList
@@ -52,11 +52,12 @@ func (c *SyncToolsCommand) Init(args []string) error {
 }
 
 var officialBucketAttrs = map[string]interface{}{
-	"name":           "juju-public",
-	"type":           "ec2",
-	"control-bucket": "juju-dist",
-	"access-key":     "",
-	"secret-key":     "",
+	"name":            "juju-public",
+	"type":            "ec2",
+	"control-bucket":  "juju-dist",
+	"access-key":      "",
+	"secret-key":      "",
+	"authorized-keys": "not-really", // We shouldn't need ssh access
 }
 
 // Find the set of tools at the 'latest' version
@@ -113,7 +114,7 @@ func copyOne(tool *state.Tools, source environs.StorageReader,
 	if err != nil {
 		return err
 	}
-	log.Infof("downloaded %v (%dkB), uploading", toolsPath, (nBytes+512)/1024)
+	log.Infof("cmd/juju: downloaded %v (%dkB), uploading", toolsPath, (nBytes+512)/1024)
 	fmt.Fprintf(ctx.Stdout, ", download %dkB, uploading\n", (nBytes+512)/1024)
 
 	if err := target.Put(toolsPath, buf, nBytes); err != nil {
@@ -122,10 +123,12 @@ func copyOne(tool *state.Tools, source environs.StorageReader,
 	return nil
 }
 
-func copyTools(tools []*state.Tools, source environs.StorageReader,
-	target environs.Storage, dryRun bool, ctx *cmd.Context) error {
+func copyTools(
+	tools []*state.Tools, source environs.StorageReader,
+	target environs.Storage, dryRun bool, ctx *cmd.Context,
+) error {
 	for _, tool := range tools {
-		log.Infof("copying %s from %s\n", tool.Binary, tool.URL)
+		log.Infof("cmd/juju: copying %s from %s\n", tool.Binary, tool.URL)
 		if dryRun {
 			continue
 		}
@@ -139,7 +142,7 @@ func copyTools(tools []*state.Tools, source environs.StorageReader,
 func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 	officialEnviron, err := environs.NewFromAttrs(officialBucketAttrs)
 	if err != nil {
-		log.Errorf("failed to initialize the official bucket environment")
+		log.Errorf("cmd/juju: failed to initialize the official bucket environment")
 		return err
 	}
 	fmt.Fprintf(ctx.Stdout, "listing the source bucket\n")
@@ -149,6 +152,7 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 	}
 	targetEnv, err := environs.NewFromName(c.EnvName)
 	if err != nil {
+		log.Errorf("cmd/juju: unable to read %q from environment", c.EnvName)
 		return err
 	}
 	toolsToCopy := c.sourceToolsList.Public
@@ -158,7 +162,7 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 	fmt.Fprintf(ctx.Stdout, "found %d tools in source (%d recent ones)\n",
 		len(c.sourceToolsList.Public), len(toolsToCopy))
 	for _, tool := range toolsToCopy {
-		log.Debugf("found source tool: %s", tool)
+		log.Debugf("cmd/juju: found source tool: %s", tool)
 	}
 	fmt.Fprintf(ctx.Stdout, "listing target bucket\n")
 	c.targetToolsList, err = environs.ListTools(targetEnv, version.Current.Major)
@@ -166,7 +170,7 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	for _, tool := range c.targetToolsList.Private {
-		log.Debugf("found target tool: %s", tool)
+		log.Debugf("cmd/juju: found target tool: %s", tool)
 	}
 	targetTools := c.targetToolsList.Private
 	targetStorage := targetEnv.Storage()

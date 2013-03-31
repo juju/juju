@@ -3,7 +3,6 @@ package params_test
 import (
 	"encoding/json"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state/api/params"
 	"testing"
 )
@@ -38,7 +37,7 @@ var marshalTestCases = []struct {
 		Entity: &params.ServiceInfo{
 			Name:     "Benji",
 			Exposed:  true,
-			CharmURL: charm.MustParseURL("cs:series/name"),
+			CharmURL: "cs:series/name",
 		},
 	},
 	json: `["service","change",{"CharmURL": "cs:series/name","Name":"Benji","Exposed":true}]`,
@@ -63,14 +62,14 @@ var marshalTestCases = []struct {
 	about: "AnnotationInfo Delta",
 	value: params.Delta{
 		Entity: &params.AnnotationInfo{
-			EntityName: "machine-0",
+			Tag: "machine-0",
 			Annotations: map[string]string{
 				"foo":   "bar",
 				"arble": "2 4",
 			},
 		},
 	},
-	json: `["annotation","change",{"EntityName":"machine-0","Annotations":{"foo":"bar","arble":"2 4"}}]`,
+	json: `["annotation","change",{"Tag":"machine-0","Annotations":{"foo":"bar","arble":"2 4"}}]`,
 }, {
 	about: "Delta Removed True",
 	value: params.Delta{
