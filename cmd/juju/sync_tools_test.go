@@ -16,7 +16,7 @@ import (
 
 type syncToolsSuite struct {
 	testing.LoggingSuite
-	home testing.FakeHome
+	home *testing.FakeHome
 }
 
 func (s *syncToolsSuite) SetUpTest(c *C) {
