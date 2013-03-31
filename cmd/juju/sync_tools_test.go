@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"os"
+	"sort"
 )
 
 type syncToolsSuite struct {
@@ -41,6 +42,13 @@ func (s *syncToolsSuite) TestHelp(c *C) {
 	c.Assert(ctx, IsNil)
 }
 
+func uploadDummyTools(c *C, vers version.Binary, store environs.Storage) {
+	path := environs.ToolsStoragePath(vers)
+	content := bytes.NewBufferString("content\n")
+	err := store.Put(path, content, int64(content.Len()))
+	c.Assert(err, IsNil)
+}
+
 func setupDummyEnvironments(c *C) (env environs.Environ, cleanup func()) {
 	dummyAttrs := map[string]interface{}{
 		"name":         "test-source",
@@ -59,14 +67,16 @@ func setupDummyEnvironments(c *C) (env environs.Environ, cleanup func()) {
 	fakepath := environs.ToolsStoragePath(version.Current)
 	err = store.Remove(fakepath)
 	c.Assert(err, IsNil)
-	// Upload t1000precise tools
-	path := environs.ToolsStoragePath(t1000precise.Binary)
-	content := bytes.NewBufferString("content\n")
-	err = store.Put(path, content, int64(content.Len()))
-	c.Assert(err, IsNil)
-	// Save for cleanup
+	// Upload multiple tools
+	uploadDummyTools(c, t1000precise.Binary, store)
+	uploadDummyTools(c, t1000quantal.Binary, store)
+	uploadDummyTools(c, t1000quantal32.Binary, store)
+	uploadDummyTools(c, t1900quantal.Binary, store)
+	// Overwrite the official source bucket to the new dummy 'test-source',
+	// saving the original value for cleanup
 	orig := officialBucketAttrs
 	officialBucketAttrs = dummyAttrs
+	// Create a target dummy environment
 	c.Assert(os.Mkdir(testing.HomePath(".juju"), 0775), IsNil)
 	jujupath := testing.HomePath(".juju", "environments.yaml")
 	err = ioutil.WriteFile(
@@ -83,30 +93,77 @@ environments:
 	return env, func() { officialBucketAttrs = orig }
 }
 
+func assertToolsList(c *C, toolsList []*state.Tools, expected ...string) {
+	sort.Strings(expected)
+	actual := make([]string, len(toolsList))
+	for i, tool := range toolsList {
+		actual[i] = tool.Binary.String()
+	}
+	sort.Strings(actual)
+	// In gocheck, the empty slice does not equal the nil slice, though it
+	// does for our purposes
+	if expected == nil {
+		expected = []string{}
+	}
+	c.Assert(actual, DeepEquals, expected)
+}
+
 func (s *syncToolsSuite) TestCopyNewestFromDummy(c *C) {
 	sourceEnv, cleanup := setupDummyEnvironments(c)
 	defer cleanup()
-	sourceTools, err := environs.ListTools(sourceEnv, t1000precise.Binary.Major)
+	sourceTools, err := environs.ListTools(sourceEnv, 1)
 	c.Assert(err, IsNil)
-	c.Assert(sourceTools.Public, HasLen, 1)
-	c.Assert(sourceTools.Public[0].Binary, Equals, t1000precise.Binary)
+	assertToolsList(c, sourceTools.Public,
+		"1.0.0-precise-amd64", "1.0.0-quantal-amd64",
+		"1.0.0-quantal-i386", "1.9.0-quantal-amd64")
+	c.Assert(sourceTools.Private, HasLen, 0)
 	targetEnv, err := environs.NewFromName("test-target")
 	c.Assert(err, IsNil)
-	targetTools, err := environs.ListTools(targetEnv, t1000precise.Binary.Major)
+	targetTools, err := environs.ListTools(targetEnv, 1)
 	// Target env just has the fake tools in the public bucket
-	c.Assert(targetTools.Public, HasLen, 1)
-	c.Assert(targetTools.Public[0].Binary, Equals, version.Current)
+	assertToolsList(c, targetTools.Public, version.Current.String())
+	// Nothing in private
+	assertToolsList(c, targetTools.Private)
 	c.Assert(targetTools.Private, HasLen, 0)
 	ctx, err := runSyncToolsCommand(c, "-e", "test-target")
 	c.Assert(err, IsNil)
 	c.Assert(ctx, NotNil)
-	targetTools, err = environs.ListTools(targetEnv, t1000precise.Binary.Major)
+	targetTools, err = environs.ListTools(targetEnv, 1)
 	c.Assert(err, IsNil)
 	// No change to the Public bucket
-	c.Assert(targetTools.Public, HasLen, 1)
+	assertToolsList(c, targetTools.Public, version.Current.String())
 	// only the newest added to the private bucket
-	c.Assert(targetTools.Private, HasLen, 1)
-	c.Assert(targetTools.Private[0].Binary, Equals, t1000precise.Binary)
+	assertToolsList(c, targetTools.Private, "1.9.0-quantal-amd64")
+}
+
+func (s *syncToolsSuite) TestCopyAllFromDummy(c *C) {
+	sourceEnv, cleanup := setupDummyEnvironments(c)
+	defer cleanup()
+	sourceTools, err := environs.ListTools(sourceEnv, 1)
+	c.Assert(err, IsNil)
+	assertToolsList(c, sourceTools.Public,
+		"1.0.0-precise-amd64", "1.0.0-quantal-amd64",
+		"1.0.0-quantal-i386", "1.9.0-quantal-amd64")
+	c.Assert(sourceTools.Private, HasLen, 0)
+	targetEnv, err := environs.NewFromName("test-target")
+	c.Assert(err, IsNil)
+	targetTools, err := environs.ListTools(targetEnv, 1)
+	// Target env just has the fake tools in the public bucket
+	assertToolsList(c, targetTools.Public, version.Current.String())
+	// Nothing in private
+	assertToolsList(c, targetTools.Private)
+	c.Assert(targetTools.Private, HasLen, 0)
+	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--all")
+	c.Assert(err, IsNil)
+	c.Assert(ctx, NotNil)
+	targetTools, err = environs.ListTools(targetEnv, 1)
+	c.Assert(err, IsNil)
+	// No change to the Public bucket
+	assertToolsList(c, targetTools.Public, version.Current.String())
+	// all tools added to the private bucket
+	assertToolsList(c, targetTools.Private,
+		"1.0.0-precise-amd64", "1.0.0-quantal-amd64",
+		"1.0.0-quantal-i386", "1.9.0-quantal-amd64")
 }
 
 type toolSuite struct{}
@@ -119,15 +176,23 @@ var t1000precise = &state.Tools{
 		Series: "precise",
 		Arch:   "amd64"}}
 
+var t1000quantal32 = &state.Tools{
+	Binary: version.Binary{
+		Number: version.Number{1, 0, 0, 0},
+		Series: "quantal",
+		Arch:   "i386"}}
+
 var t1000quantal = &state.Tools{
 	Binary: version.Binary{
 		Number: version.Number{1, 0, 0, 0},
-		Series: "quantal"}}
+		Series: "quantal",
+		Arch:   "amd64"}}
 
 var t1900quantal = &state.Tools{
 	Binary: version.Binary{
 		Number: version.Number{1, 9, 0, 0},
-		Series: "quantal"}}
+		Series: "quantal",
+		Arch:   "amd64"}}
 
 var t2000precise = &state.Tools{
 	Binary: version.Binary{
