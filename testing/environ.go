@@ -3,6 +3,7 @@ package testing
 import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/environs/config"
 	"os"
 	"path/filepath"
 )
@@ -40,7 +41,10 @@ const MultipleEnvConfig = EnvDefault + MultipleEnvConfigNoDefault
 
 const SampleCertName = "erewhemos"
 
-type FakeHome string
+type FakeHome struct {
+	oldHome     string
+	oldJujuHome string
+}
 
 // MakeFakeHomeNoEnvironments creates a new temporary directory through the
 // test checker, and overrides the HOME environment variable to point to this
@@ -49,16 +53,15 @@ type FakeHome string
 // No ~/.juju/environments.yaml exists, but CAKeys are written for each of the
 // 'certNames' specified, and the id_rsa.pub file is written to to the .ssh
 // dir.
-func MakeFakeHomeNoEnvironments(c *C, certNames ...string) FakeHome {
+func MakeFakeHomeNoEnvironments(c *C, certNames ...string) *FakeHome {
 	fake := MakeEmptyFakeHome(c)
-
-	err := os.Mkdir(HomePath(".juju"), 0755)
+	err := os.Mkdir(config.JujuHome(), 0755)
 	c.Assert(err, IsNil)
 
 	for _, name := range certNames {
-		err := ioutil.WriteFile(HomePath(".juju", name+"-cert.pem"), []byte(CACert), 0600)
+		err := ioutil.WriteFile(config.JujuHomePath(name+"-cert.pem"), []byte(CACert), 0600)
 		c.Assert(err, IsNil)
-		err = ioutil.WriteFile(HomePath(".juju", name+"-private-key.pem"), []byte(CAKey), 0600)
+		err = ioutil.WriteFile(config.JujuHomePath(name+"-private-key.pem"), []byte(CAKey), 0600)
 		c.Assert(err, IsNil)
 	}
 
@@ -75,23 +78,24 @@ func MakeFakeHomeNoEnvironments(c *C, certNames ...string) FakeHome {
 // directory.
 //
 // A new ~/.juju/environments.yaml file is created with the content of the
-// `config` parameter, and CAKeys are written for each of the 'certNames'
+// `envConfig` parameter, and CAKeys are written for each of the 'certNames'
 // specified.
-func MakeFakeHome(c *C, config string, certNames ...string) FakeHome {
+func MakeFakeHome(c *C, envConfig string, certNames ...string) *FakeHome {
 	fake := MakeFakeHomeNoEnvironments(c, certNames...)
 
-	envs := HomePath(".juju", "environments.yaml")
-	err := ioutil.WriteFile(envs, []byte(config), 0644)
+	envs := config.JujuHomePath("environments.yaml")
+	err := ioutil.WriteFile(envs, []byte(envConfig), 0644)
 	c.Assert(err, IsNil)
 
 	return fake
 }
 
-func MakeEmptyFakeHome(c *C) FakeHome {
+func MakeEmptyFakeHome(c *C) *FakeHome {
 	oldHome := os.Getenv("HOME")
-	os.Setenv("HOME", c.MkDir())
-
-	return FakeHome(oldHome)
+	fakeHome := c.MkDir()
+	os.Setenv("HOME", fakeHome)
+	oldJujuHome := config.SetJujuHome(filepath.Join(fakeHome, ".juju"))
+	return &FakeHome{oldHome, oldJujuHome}
 }
 
 func HomePath(names ...string) string {
@@ -99,14 +103,15 @@ func HomePath(names ...string) string {
 	return filepath.Join(all...)
 }
 
-func (h FakeHome) Restore() {
-	os.Setenv("HOME", string(h))
+func (h *FakeHome) Restore() {
+	config.SetJujuHome(h.oldJujuHome)
+	os.Setenv("HOME", h.oldHome)
 }
 
-func MakeSampleHome(c *C) FakeHome {
+func MakeSampleHome(c *C) *FakeHome {
 	return MakeFakeHome(c, SingleEnvConfig, SampleCertName)
 }
 
-func MakeMultipleEnvHome(c *C) FakeHome {
+func MakeMultipleEnvHome(c *C) *FakeHome {
 	return MakeFakeHome(c, MultipleEnvConfig, SampleCertName, "erewhemos-2")
 }

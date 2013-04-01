@@ -5,6 +5,7 @@ import (
 	"time"
 
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/dummy"
@@ -70,32 +71,34 @@ func (s *ProvisionerSuite) stopProvisioner(c *C, p *provisioner.Provisioner) {
 	c.Assert(p.Stop(), IsNil)
 }
 
-// checkStartInstance checks that an instance has been started
-// with a machine id the same as m's, and that the machine's
-// instance id has been set appropriately.
-func (s *ProvisionerSuite) checkStartInstance(c *C, m *state.Machine, secret string) {
+func (s *ProvisionerSuite) checkStartInstance(c *C, m *state.Machine) {
+	s.checkStartInstanceCustom(c, m, "pork", constraints.Value{})
+}
+
+func (s *ProvisionerSuite) checkStartInstanceCustom(c *C, m *state.Machine, secret string, cons constraints.Value) {
 	s.State.StartSync()
 	for {
 		select {
 		case o := <-s.op:
 			switch o := o.(type) {
 			case dummy.OpStartInstance:
-				info := s.StateInfo(c)
-				info.EntityName = m.EntityName()
-				c.Assert(o.Info.Password, Not(HasLen), 0)
-				info.Password = o.Info.Password
-				c.Assert(o.Info, DeepEquals, info)
+				s.checkInstanceId(c, m, o.Instance)
+
+				// Check the instance was started with the expected params.
+				c.Assert(o.MachineId, Equals, m.Id())
+				c.Assert(o.Secret, Equals, secret)
+				c.Assert(o.Constraints, DeepEquals, cons)
 
 				// Check we can connect to the state with
 				// the machine's entity name and password.
+				info := s.StateInfo(c)
+				info.Tag = m.Tag()
+				c.Assert(o.Info.Password, Not(HasLen), 0)
+				info.Password = o.Info.Password
+				c.Assert(o.Info, DeepEquals, info)
 				st, err := state.Open(o.Info, state.DefaultDialTimeout)
 				c.Assert(err, IsNil)
 				st.Close()
-
-				c.Assert(o.MachineId, Equals, m.Id())
-				c.Assert(o.Instance, NotNil)
-				s.checkInstanceId(c, m, o.Instance)
-				c.Assert(o.Secret, Equals, secret)
 				return
 			default:
 				c.Logf("ignoring unexpected operation %#v", o)
@@ -176,22 +179,32 @@ func (s *ProvisionerSuite) TestProvisionerStartStop(c *C) {
 	c.Assert(p.Stop(), IsNil)
 }
 
-// Start and stop one machine, watch the PA.
 func (s *ProvisionerSuite) TestSimple(c *C) {
 	p := provisioner.NewProvisioner(s.State)
 	defer s.stopProvisioner(c, p)
 
-	// place a new machine into the state
+	// Check that an instance is provisioned when the machine is created...
 	m, err := s.State.AddMachine(version.Current.Series, state.JobHostUnits)
 	c.Assert(err, IsNil)
+	s.checkStartInstance(c, m)
 
-	s.checkStartInstance(c, m, "pork")
-
-	// now mark it as dying
+	// ...and removed when the machine is Dead.
 	c.Assert(m.EnsureDead(), IsNil)
-
-	// watch the PA remove it
 	s.checkStopInstance(c)
+}
+
+func (s *ProvisionerSuite) TestConstraints(c *C) {
+	// Create a machine with non-standard constraints.
+	m, err := s.State.AddMachine(version.Current.Series, state.JobHostUnits)
+	c.Assert(err, IsNil)
+	cons := constraints.MustParse("mem=4G arch=amd64")
+	err = m.SetConstraints(cons)
+	c.Assert(err, IsNil)
+
+	// Start a provisioner and check those constraints are used.
+	p := provisioner.NewProvisioner(s.State)
+	defer s.stopProvisioner(c, p)
+	s.checkStartInstanceCustom(c, m, "pork", cons)
 }
 
 func (s *ProvisionerSuite) TestProvisioningDoesNotOccurWithAnInvalidEnvironment(c *C) {
@@ -226,7 +239,7 @@ func (s *ProvisionerSuite) TestProvisioningOccursWithFixedEnvironment(c *C) {
 	err = s.fixEnvironment()
 	c.Assert(err, IsNil)
 
-	s.checkStartInstance(c, m, "pork")
+	s.checkStartInstance(c, m)
 }
 
 func (s *ProvisionerSuite) TestProvisioningDoesOccurAfterInvalidEnvironmentPublished(c *C) {
@@ -237,7 +250,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesOccurAfterInvalidEnvironmentPubli
 	m, err := s.State.AddMachine(version.Current.Series, state.JobHostUnits)
 	c.Assert(err, IsNil)
 
-	s.checkStartInstance(c, m, "pork")
+	s.checkStartInstance(c, m)
 
 	err = s.invalidateEnvironment(c)
 	c.Assert(err, IsNil)
@@ -247,7 +260,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesOccurAfterInvalidEnvironmentPubli
 	c.Assert(err, IsNil)
 
 	// the PA should create it using the old environment
-	s.checkStartInstance(c, m, "pork")
+	s.checkStartInstance(c, m)
 }
 
 func (s *ProvisionerSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterRestart(c *C) {
@@ -259,7 +272,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterRe
 	m, err := s.State.AddMachine(version.Current.Series, state.JobHostUnits)
 	c.Check(err, IsNil)
 
-	s.checkStartInstance(c, m, "pork")
+	s.checkStartInstance(c, m)
 
 	// restart the PA
 	c.Check(p.Stop(), IsNil)
@@ -287,13 +300,13 @@ func (s *ProvisionerSuite) TestProvisioningStopsUnknownInstances(c *C) {
 	m, err := s.State.AddMachine(version.Current.Series, state.JobHostUnits)
 	c.Check(err, IsNil)
 
-	s.checkStartInstance(c, m, "pork")
+	s.checkStartInstance(c, m)
 
 	// create a second machine
 	m, err = s.State.AddMachine(version.Current.Series, state.JobHostUnits)
 	c.Check(err, IsNil)
 
-	s.checkStartInstance(c, m, "pork")
+	s.checkStartInstance(c, m)
 
 	// stop the PA
 	c.Check(p.Stop(), IsNil)
@@ -321,7 +334,7 @@ func (s *ProvisionerSuite) TestProvisioningStopsOnlyUnknownInstances(c *C) {
 	m, err := s.State.AddMachine(version.Current.Series, state.JobHostUnits)
 	c.Check(err, IsNil)
 
-	s.checkStartInstance(c, m, "pork")
+	s.checkStartInstance(c, m)
 
 	// stop the PA
 	c.Check(p.Stop(), IsNil)
@@ -345,7 +358,7 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	m, err := s.State.AddMachine(version.Current.Series, state.JobHostUnits)
 	c.Assert(err, IsNil)
 
-	s.checkStartInstance(c, m, "pork")
+	s.checkStartInstance(c, m)
 
 	err = s.invalidateEnvironment(c)
 	c.Assert(err, IsNil)
@@ -357,7 +370,7 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	c.Assert(err, IsNil)
 
 	// the PA should create it using the old environment
-	s.checkStartInstance(c, m, "pork")
+	s.checkStartInstance(c, m)
 
 	err = s.fixEnvironment()
 	c.Assert(err, IsNil)
@@ -388,5 +401,5 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	c.Assert(err, IsNil)
 
 	// the PA should create it using the new environment
-	s.checkStartInstance(c, m, "beef")
+	s.checkStartInstanceCustom(c, m, "beef", constraints.Value{})
 }

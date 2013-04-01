@@ -161,7 +161,7 @@ func maybeReadFile(m map[string]interface{}, attr, defaultPath string) ([]byte, 
 	}
 	path = expandTilde(path)
 	if !filepath.IsAbs(path) {
-		path = filepath.Join(os.Getenv("HOME"), ".juju", path)
+		path = JujuHomePath(path)
 	}
 	data, err := ioutil.ReadFile(path)
 	if err != nil {

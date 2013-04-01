@@ -1,7 +1,6 @@
 package environs
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/goyaml"
@@ -116,15 +115,11 @@ func ReadEnvironsBytes(data []byte) (*Environs, error) {
 	return &Environs{raw.Default, environs}, nil
 }
 
-func environsPath(path string) (string, error) {
+func environsPath(path string) string {
 	if path == "" {
-		home := os.Getenv("HOME")
-		if home == "" {
-			return "", errors.New("$HOME not set")
-		}
-		path = filepath.Join(home, ".juju/environments.yaml")
+		path = config.JujuHomePath("environments.yaml")
 	}
-	return path, nil
+	return path
 }
 
 // ReadEnvirons reads the juju environments.yaml file
@@ -132,10 +127,7 @@ func environsPath(path string) (string, error) {
 // on the file's contents.
 // If path is empty, $HOME/.juju/environments.yaml is used.
 func ReadEnvirons(path string) (*Environs, error) {
-	environsFilepath, err := environsPath(path)
-	if err != nil {
-		return nil, err
-	}
+	environsFilepath := environsPath(path)
 	data, err := ioutil.ReadFile(environsFilepath)
 	if err != nil {
 		return nil, err
@@ -149,10 +141,7 @@ func ReadEnvirons(path string) (*Environs, error) {
 
 // WriteEnvirons creates a new juju environments.yaml file with the specified contents.
 func WriteEnvirons(path string, fileContents string) (string, error) {
-	environsFilepath, err := environsPath(path)
-	if err != nil {
-		return "", err
-	}
+	environsFilepath := environsPath(path)
 	if err := os.MkdirAll(filepath.Dir(environsFilepath), 0755); err != nil {
 		return "", err
 	}

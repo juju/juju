@@ -508,7 +508,10 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 }
 
 func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
-	return state.AssignUnused
+	// Although dummy does not actually start instances, it must respect the
+	// conservative assignment policy for the providers that do instantiate
+	// machines.
+	return state.AssignNew
 }
 
 func (e *environ) Config() *config.Config {
@@ -553,11 +556,11 @@ func (e *environ) StartInstance(machineId string, series string, cons constraint
 	if _, ok := e.Config().CACert(); !ok {
 		return nil, fmt.Errorf("no CA certificate in environment configuration")
 	}
-	if info.EntityName != state.MachineEntityName(machineId) {
-		return nil, fmt.Errorf("entity name must match started machine")
+	if info.Tag != state.MachineTag(machineId) {
+		return nil, fmt.Errorf("entity tag must match started machine")
 	}
-	if apiInfo.EntityName != state.MachineEntityName(machineId) {
-		return nil, fmt.Errorf("entity name must match started machine")
+	if apiInfo.Tag != state.MachineTag(machineId) {
+		return nil, fmt.Errorf("entity tag must match started machine")
 	}
 	if strings.HasPrefix(series, "unknown") {
 		return nil, &environs.NotFoundError{fmt.Errorf("no compatible tools found")}

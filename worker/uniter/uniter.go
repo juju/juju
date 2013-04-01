@@ -107,7 +107,7 @@ func (u *Uniter) init(name string) (err error) {
 	if err != nil {
 		return err
 	}
-	ename := u.unit.EntityName()
+	ename := u.unit.Tag()
 	u.toolsDir = agent.ToolsDir(u.dataDir, ename)
 	if err := EnsureJujucSymlinks(u.toolsDir); err != nil {
 		return err
@@ -418,7 +418,7 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 	// and its principal's service, the subordinate must become Dying.
 	keepAlive := false
 	for _, r := range u.relationers {
-		scope := r.ru.Endpoint().RelationScope
+		scope := r.ru.Endpoint().Scope
 		if scope == corecharm.ScopeContainer && !r.dying {
 			keepAlive = true
 			break

@@ -50,7 +50,7 @@ func testAgentTools(c *C, obj tooler, agent string) {
 	c.Assert(err, IsNil)
 	c.Assert(t3, DeepEquals, t2)
 
-	testWhenDying(c, obj, noErr, notAliveErr, func() error {
+	testWhenDying(c, obj, noErr, deadErr, func() error {
 		return obj.SetAgentTools(t2)
 	})
 }
@@ -67,6 +67,7 @@ func (s *ToolsSuite) TestUnitAgentTools(c *C) {
 	c.Assert(err, IsNil)
 	unit, err := svc.AddUnit()
 	c.Assert(err, IsNil)
+	preventUnitDestroyRemove(c, s.State, unit)
 	testAgentTools(c, unit, `unit "wordpress/0"`)
 }
 

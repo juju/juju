@@ -267,7 +267,7 @@ func (t *localServerSuite) TearDownTest(c *C) {
 
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	policy := t.env.AssignmentPolicy()
-	c.Assert(policy, Equals, state.AssignUnused)
+	c.Assert(policy, Equals, state.AssignNew)
 
 	err := environs.UploadTools(t.env)
 	c.Assert(err, IsNil)
@@ -311,8 +311,8 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	// zookeeper, with a machine agent, and without a
 	// provisioning agent.
 	series := version.Current.Series
-	info.EntityName = "machine-1"
-	apiInfo.EntityName = "machine-1"
+	info.Tag = "machine-1"
+	apiInfo.Tag = "machine-1"
 	inst1, err := t.env.StartInstance("1", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, IsNil)
 	inst = t.srv.ec2srv.Instance(string(inst1.Id()))
