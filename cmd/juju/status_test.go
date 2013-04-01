@@ -15,15 +15,14 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"net/url"
-	"sync"
 	"time"
 )
 
-func runStatus(c *C, args ...string) (code int, stderr, stdout []byte) {
+func runStatus(c *C, args ...string) (code int, stdout, stderr []byte) {
 	ctx := coretesting.Context(c)
 	code = cmd.Main(&StatusCommand{}, ctx, args)
-	stderr = ctx.Stderr.(*bytes.Buffer).Bytes()
 	stdout = ctx.Stdout.(*bytes.Buffer).Bytes()
+	stderr = ctx.Stderr.(*bytes.Buffer).Bytes()
 	return
 }
 
@@ -407,14 +406,12 @@ type expect struct {
 
 func (e expect) step(c *C, ctx *context) {
 	c.Log("expect: %s", e.what)
-	var wg sync.WaitGroup
-	testFormat := func(format outputFormat, start chan bool) {
-		defer wg.Done()
 
-		<-start
+	// Now execute the command for each format.
+	for _, format := range statusFormats {
 		c.Logf("format %q", format.name)
 		// Run command with the required format.
-		code, stderr, stdout := runStatus(c, "--format", format.name)
+		code, stdout, stderr := runStatus(c, "--format", format.name)
 		c.Assert(code, Equals, 0)
 		c.Assert(stderr, HasLen, 0)
 
@@ -431,15 +428,6 @@ func (e expect) step(c *C, ctx *context) {
 		c.Assert(err, IsNil)
 		c.Assert(actual, DeepEquals, expected)
 	}
-
-	// Now execute the command concurrently for each format.
-	start := make(chan bool)
-	for _, format := range statusFormats {
-		wg.Add(1)
-		go testFormat(format, start)
-		start <- true
-	}
-	wg.Wait()
 }
 
 func (s *StatusSuite) TestStatusAllFormats(c *C) {
