@@ -68,13 +68,15 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 	defer st.Close()
 
-	// TODO: we need to be able to customize machine jobs, not just hardcode these.
-	m, err := st.InjectMachine(version.Current.Series, instanceId,
-		state.JobManageEnviron, state.JobServeAPI)
-	if err != nil {
+	if err := st.SetEnvironConstraints(c.Constraints); err != nil {
 		return err
 	}
-	if err := st.SetEnvironConstraints(c.Constraints); err != nil {
+	// TODO: we need to be able to customize machine jobs, not just hardcode these.
+	m, err := st.InjectMachine(
+		version.Current.Series, instanceId,
+		state.JobManageEnviron, state.JobServeAPI,
+	)
+	if err != nil {
 		return err
 	}
 

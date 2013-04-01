@@ -4,44 +4,16 @@ import (
 	"container/list"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
-	"net/url"
-	"path/filepath"
 	"sort"
 	"sync"
 	"time"
 )
-
-func (st *State) AddTestingCharm(c *C, name string) *Charm {
-	return addCharm(c, st, testing.Charms.Dir(name))
-}
-
-func (st *State) AddCustomCharm(c *C, name, filename, content string, revision int) *Charm {
-	path := testing.Charms.ClonedDirPath(c.MkDir(), name)
-	config := filepath.Join(path, filename)
-	err := ioutil.WriteFile(config, []byte(content), 0644)
-	c.Assert(err, IsNil)
-	ch, err := charm.ReadDir(path)
-	c.Assert(err, IsNil)
-	ch.SetRevision(revision)
-	return addCharm(c, st, ch)
-}
-
-func addCharm(c *C, st *State, ch charm.Charm) *Charm {
-	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
-	curl := charm.MustParseURL("local:series/" + ident)
-	bundleURL, err := url.Parse("http://bundles.example.com/" + ident)
-	c.Assert(err, IsNil)
-	sch, err := st.AddCharm(ch, curl, bundleURL, ident+"-sha256")
-	c.Assert(err, IsNil)
-	return sch
-}
 
 type allInfoSuite struct {
 	testing.LoggingSuite
@@ -811,10 +783,10 @@ func (s *allWatcherStateSuite) TearDownSuite(c *C) {
 func (s *allWatcherStateSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-	state, err := Open(TestingStateInfo(), TestingDialTimeout)
+	var err error
+	s.State, err = Open(TestingStateInfo(), TestingDialTimeout)
 	c.Assert(err, IsNil)
-
-	s.State = state
+	TestingInitialize(c, nil)
 }
 
 func (s *allWatcherStateSuite) TearDownTest(c *C) {
@@ -842,7 +814,7 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 		InstanceId: "i-machine-0",
 	})
 
-	wordpress, err := s.State.AddService("wordpress", s.State.AddTestingCharm(c, "wordpress"))
+	wordpress, err := s.State.AddService("wordpress", AddTestingCharm(c, s.State, "wordpress"))
 	c.Assert(err, IsNil)
 	err = wordpress.SetExposed()
 	c.Assert(err, IsNil)
@@ -860,7 +832,7 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 		Annotations: pairs,
 	})
 
-	logging, err := s.State.AddService("logging", s.State.AddTestingCharm(c, "logging"))
+	logging, err := s.State.AddService("logging", AddTestingCharm(c, s.State, "logging"))
 	c.Assert(err, IsNil)
 	add(&params.ServiceInfo{
 		Name:     "logging",

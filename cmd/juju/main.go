@@ -25,7 +25,7 @@ https://juju.ubuntu.com/
 
 // checkJujuHome retrieves $JUJU_HOME or $HOME to set the juju home.
 // In case both variables aren't set the command will exit with an
-// error. 
+// error.
 func checkJujuHome() {
 	jujuHome := os.Getenv("JUJU_HOME")
 	if jujuHome == "" {
