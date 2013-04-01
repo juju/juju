@@ -55,8 +55,7 @@ type CharmStore struct {
 	baseURL string
 }
 
-//var Store = &CharmStore{"https://store.juju.ubuntu.com"}
-var Store = &CharmStore{"http://localhost:8080"}
+var Store = &CharmStore{"https://store.juju.ubuntu.com"}
 
 // Info returns details for a charm in the charm store.
 func (s *CharmStore) Info(curl *URL) (*InfoResponse, error) {
