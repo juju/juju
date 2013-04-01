@@ -1279,7 +1279,7 @@ func (s *suite) TestClientUnitResolved(c *C) {
 	s.setUpScenario(c)
 	u, err := s.State.Unit("wordpress/0")
 	c.Assert(err, IsNil)
-	err = u.SetStatus(state.UnitError, "gaaah")
+	err = u.SetStatus(params.UnitError, "gaaah")
 	c.Assert(err, IsNil)
 	// Code under test:
 	err = s.APIState.Client().Resolved("wordpress/0", false)
@@ -1290,7 +1290,7 @@ func (s *suite) TestClientUnitResolved(c *C) {
 	// And now the actual test assertions: we set the unit as resolved via
 	// the API so it should have a resolved mode set.
 	mode := u.Resolved()
-	c.Assert(mode, Equals, state.ResolvedNoHooks)
+	c.Assert(mode, Equals, params.ResolvedNoHooks)
 }
 
 var serviceDeployTests = []struct {

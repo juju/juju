@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/trivial"
 	"os"
@@ -404,13 +405,13 @@ func (s *ConnSuite) TestResolved(c *C) {
 	err = s.conn.Resolved(u, true)
 	c.Assert(err, ErrorMatches, `unit "testriak/0" is not in an error state`)
 
-	err = u.SetStatus(state.UnitError, "gaaah")
+	err = u.SetStatus(params.UnitError, "gaaah")
 	c.Assert(err, IsNil)
 	err = s.conn.Resolved(u, false)
 	c.Assert(err, IsNil)
 	err = s.conn.Resolved(u, true)
 	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "testriak/0": already resolved`)
-	c.Assert(u.Resolved(), Equals, state.ResolvedNoHooks)
+	c.Assert(u.Resolved(), Equals, params.ResolvedNoHooks)
 
 	err = u.ClearResolved()
 	c.Assert(err, IsNil)
@@ -418,7 +419,7 @@ func (s *ConnSuite) TestResolved(c *C) {
 	c.Assert(err, IsNil)
 	err = s.conn.Resolved(u, false)
 	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "testriak/0": already resolved`)
-	c.Assert(u.Resolved(), Equals, state.ResolvedRetryHooks)
+	c.Assert(u.Resolved(), Equals, params.ResolvedRetryHooks)
 }
 
 type DeployLocalSuite struct {
