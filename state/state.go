@@ -504,6 +504,8 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	peers := ch.Meta().Peers
 	svcDoc := &serviceDoc{
 		Name:          name,
+		Series:        ch.URL().Series,
+		Subordinate:   ch.Meta().Subordinate,
 		CharmURL:      ch.URL(),
 		RelationCount: len(peers),
 		Life:          Alive,
@@ -517,8 +519,7 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 			Id:     svc.settingsKey(),
 			Assert: txn.DocMissing,
 			Insert: settingsRefsDoc{1},
-		},
-		{
+		}, {
 			C:      st.services.Name,
 			Id:     name,
 			Assert: txn.DocMissing,
