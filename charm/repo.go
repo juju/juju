@@ -52,7 +52,7 @@ func (e *NotFoundError) Error() string {
 
 // CharmStore is a Repository that provides access to the public juju charm store.
 type CharmStore struct {
-	baseURL   string
+	baseURL string
 }
 
 //var Store = &CharmStore{"https://store.juju.ubuntu.com"}
@@ -119,7 +119,6 @@ func (s *CharmStore) Event(curl *URL, digest string) (*EventResponse, error) {
 	}
 	return event, nil
 }
-
 
 // revision returns the revision and SHA256 digest of the charm referenced by curl.
 func (s *CharmStore) revision(curl *URL) (revision int, digest string, err error) {
