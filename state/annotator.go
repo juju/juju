@@ -15,21 +15,21 @@ import (
 // Note also the correspondence with AnnotationInfo in state/api/params.
 type annotatorDoc struct {
 	GlobalKey   string `bson:"_id"`
-	EntityName  string
+	Tag         string
 	Annotations map[string]string
 }
 
 // annotator implements annotation-related methods
 // for any entity that wishes to use it.
 type annotator struct {
-	globalKey  string
-	entityName string
-	st         *State
+	globalKey string
+	tag       string
+	st        *State
 }
 
 // SetAnnotations adds key/value pairs to annotations in MongoDB.
 func (a *annotator) SetAnnotations(pairs map[string]string) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot update annotations on %s", a.entityName)
+	defer trivial.ErrorContextf(&err, "cannot update annotations on %s", a.tag)
 	if len(pairs) == 0 {
 		return nil
 	}
@@ -62,7 +62,7 @@ func (a *annotator) SetAnnotations(pairs map[string]string) (err error) {
 		} else if count == 0 {
 			// Check that the annotator entity was not previously destroyed.
 			if i != 0 {
-				return fmt.Errorf("%s no longer exists", a.entityName)
+				return fmt.Errorf("%s no longer exists", a.tag)
 			}
 			ops, err = a.insertOps(toInsert)
 			if err != nil {
@@ -82,20 +82,20 @@ func (a *annotator) SetAnnotations(pairs map[string]string) (err error) {
 
 // insertOps returns the operations required to insert annotations in MongoDB.
 func (a *annotator) insertOps(toInsert map[string]string) ([]txn.Op, error) {
-	entityName := a.entityName
+	tag := a.tag
 	ops := []txn.Op{{
 		C:      a.st.annotations.Name,
 		Id:     a.globalKey,
 		Assert: txn.DocMissing,
-		Insert: &annotatorDoc{a.globalKey, entityName, toInsert},
+		Insert: &annotatorDoc{a.globalKey, tag, toInsert},
 	}}
-	if strings.HasPrefix(entityName, "environment-") {
+	if strings.HasPrefix(tag, "environment-") {
 		return ops, nil
 	}
 	// If the entity is not the environment, add a DocExists check on the
 	// entity document, in order to avoid possible races between entity
 	// removal and annotation creation.
-	coll, id, err := a.st.ParseEntityName(entityName)
+	coll, id, err := a.st.ParseTag(tag)
 	if err != nil {
 		return nil, err
 	}

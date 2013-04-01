@@ -60,7 +60,7 @@ func (s *ServiceSuite) TestSetCharmErrors(c *C) {
 	err := s.mysql.SetCharm(logging, false)
 	c.Assert(err, ErrorMatches, "cannot change a service's subordinacy")
 
-	othermysql := s.AddSeriesCharm(c, "mysql", "otherseries", 123)
+	othermysql := s.AddSeriesCharm(c, "mysql", "otherseries")
 	err = s.mysql.SetCharm(othermysql, false)
 	c.Assert(err, ErrorMatches, "cannot change a service's series")
 }
@@ -317,8 +317,8 @@ func jujuInfoEp(serviceName string) state.Endpoint {
 	}
 }
 
-func (s *ServiceSuite) TestEntityName(c *C) {
-	c.Assert(s.mysql.EntityName(), Equals, "service-mysql")
+func (s *ServiceSuite) TestTag(c *C) {
+	c.Assert(s.mysql.Tag(), Equals, "service-mysql")
 }
 
 func (s *ServiceSuite) TestMysqlEndpoints(c *C) {
@@ -910,6 +910,30 @@ func (s *ServiceSuite) TestConstraints(c *C) {
 	cons6, err := mysql.Constraints()
 	c.Assert(err, IsNil)
 	c.Assert(cons6, DeepEquals, cons0)
+}
+
+func (s *ServiceSuite) TestConstraintsLifecycle(c *C) {
+	// Dying.
+	unit, err := s.mysql.AddUnit()
+	c.Assert(err, IsNil)
+	err = s.mysql.Destroy()
+	c.Assert(err, IsNil)
+	cons1 := constraints.MustParse("mem=1G")
+	err = s.mysql.SetConstraints(cons1)
+	c.Assert(err, ErrorMatches, `cannot set constraints: not found or not alive`)
+	scons, err := s.mysql.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(scons, DeepEquals, constraints.Value{})
+
+	// Removed (== Dead, for a service).
+	err = unit.EnsureDead()
+	c.Assert(err, IsNil)
+	err = unit.Remove()
+	c.Assert(err, IsNil)
+	err = s.mysql.SetConstraints(cons1)
+	c.Assert(err, ErrorMatches, `cannot set constraints: not found or not alive`)
+	_, err = s.mysql.Constraints()
+	c.Assert(err, ErrorMatches, `constraints not found`)
 }
 
 func (s *ServiceSuite) TestSubordinateConstraints(c *C) {

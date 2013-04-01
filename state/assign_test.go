@@ -169,24 +169,22 @@ func (s *AssignSuite) TestAssignSubordinatesToMachine(c *C) {
 	c.Assert(err, ErrorMatches, `unit "logging/0" is not assigned to a machine`)
 }
 
-func (s *AssignSuite) TestDeployerName(c *C) {
+func (s *AssignSuite) TestDeployerTag(c *C) {
 	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	principal, err := s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
 	subordinate := s.addSubordinate(c, principal)
 
-	assertDeployer := func(u *state.Unit, d interface {
-		EntityName() string
-	},) {
+	assertDeployer := func(u *state.Unit, d state.Tagger) {
 		err := u.Refresh()
 		c.Assert(err, IsNil)
-		name, ok := u.DeployerName()
+		name, ok := u.DeployerTag()
 		if d == nil {
 			c.Assert(ok, Equals, false)
 		} else {
 			c.Assert(ok, Equals, true)
-			c.Assert(name, Equals, d.EntityName())
+			c.Assert(name, Equals, d.Tag())
 		}
 	}
 	assertDeployer(subordinate, principal)

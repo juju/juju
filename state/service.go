@@ -42,9 +42,9 @@ func newService(st *State, doc *serviceDoc) *Service {
 		doc: *doc,
 	}
 	svc.annotator = annotator{
-		globalKey:  svc.globalKey(),
-		entityName: svc.EntityName(),
-		st:         st,
+		globalKey: svc.globalKey(),
+		tag:       svc.Tag(),
+		st:        st,
 	}
 	return svc
 }
@@ -54,10 +54,10 @@ func (s *Service) Name() string {
 	return s.doc.Name
 }
 
-// EntityName returns a name identifying the service that is safe to use
+// TAg returns a name identifying the service that is safe to use
 // as a file name.  The returned name will be different from other
-// EntityName values returned by any other entities from the same state.
-func (s *Service) EntityName() string {
+// TAg values returned by any other entities from the same state.
+func (s *Service) Tag() string {
 	return "service-" + s.Name()
 }
 
@@ -693,11 +693,23 @@ func (s *Service) Constraints() (constraints.Value, error) {
 }
 
 // SetConstraints replaces the current service constraints.
-func (s *Service) SetConstraints(cons constraints.Value) error {
+func (s *Service) SetConstraints(cons constraints.Value) (err error) {
 	if s.doc.Subordinate {
 		return ErrSubordinateConstraints
 	}
-	return writeConstraints(s.st, s.globalKey(), cons)
+	defer trivial.ErrorContextf(&err, "cannot set constraints")
+	if s.doc.Life != Alive {
+		return errNotAlive
+	}
+	ops := []txn.Op{
+		{
+			C:      s.st.services.Name,
+			Id:     s.doc.Name,
+			Assert: isAliveDoc,
+		},
+		setConstraintsOp(s.st, s.globalKey(), cons),
+	}
+	return onAbort(s.st.runner.Run(ops, "", nil), errNotAlive)
 }
 
 // settingsIncRefOp returns an operation that increments the ref count
