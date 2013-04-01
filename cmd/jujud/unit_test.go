@@ -96,8 +96,7 @@ waitStarted:
 		case <-time.After(50 * time.Millisecond):
 			err := unit.Refresh()
 			c.Assert(err, IsNil)
-			st, info, err := unit.Status()
-			c.Assert(err, IsNil)
+			st, info := unit.Status()
 			switch st {
 			case state.UnitPending, state.UnitInstalled:
 				c.Logf("waiting...")
