@@ -911,6 +911,30 @@ func (s *ServiceSuite) TestConstraints(c *C) {
 	c.Assert(cons6, DeepEquals, cons0)
 }
 
+func (s *ServiceSuite) TestConstraintsLifecycle(c *C) {
+	// Dying.
+	unit, err := s.mysql.AddUnit()
+	c.Assert(err, IsNil)
+	err = s.mysql.Destroy()
+	c.Assert(err, IsNil)
+	cons1 := constraints.MustParse("mem=1G")
+	err = s.mysql.SetConstraints(cons1)
+	c.Assert(err, ErrorMatches, `cannot set constraints: not found or not alive`)
+	scons, err := s.mysql.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(scons, DeepEquals, constraints.Value{})
+
+	// Removed (== Dead, for a service).
+	err = unit.EnsureDead()
+	c.Assert(err, IsNil)
+	err = unit.Remove()
+	c.Assert(err, IsNil)
+	err = s.mysql.SetConstraints(cons1)
+	c.Assert(err, ErrorMatches, `cannot set constraints: not found or not alive`)
+	_, err = s.mysql.Constraints()
+	c.Assert(err, ErrorMatches, `constraints not found`)
+}
+
 func (s *ServiceSuite) TestSubordinateConstraints(c *C) {
 	loggingCh := s.AddTestingCharm(c, "logging")
 	logging, err := s.State.AddService("logging", loggingCh)
