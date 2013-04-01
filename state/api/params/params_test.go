@@ -59,13 +59,13 @@ var marshalTestCases = []struct {
 			Ports: []params.Port{
 				params.Port{
 					Protocol: "http",
-					Number: 80},
+					Number:   80},
 			},
 			PublicAddress:  "example.com",
 			PrivateAddress: "10.0.0.1",
-			Resolved: "", // See params.ResolvedMode
+			Resolved:       "", // See params.ResolvedMode
 			MachineId:      "1",
-			Status: params.UnitStarted,
+			Status:         params.UnitStarted,
 			StatusInfo:     "Start info",
 		},
 	},
