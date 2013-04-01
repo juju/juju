@@ -76,9 +76,8 @@ func (s *AssignSuite) TestAssignUnitToMachineAgainFails(c *C) {
 	c.Assert(err, IsNil)
 
 	// Assigning the unit to a different machine should fail.
-	// BUG(aram): use error strings from state.
 	err = unit.AssignToMachine(machineTwo)
-	c.Assert(err, ErrorMatches, `cannot assign unit "wordpress/0" to machine 1: .*`)
+	c.Assert(err, ErrorMatches, `cannot assign unit "wordpress/0" to machine 1: unit is already assigned to a machine`)
 
 	machineId, err := unit.AssignedMachineId()
 	c.Assert(err, IsNil)
@@ -242,10 +241,17 @@ func (s *AssignSuite) TestAssignMachineWhenDying(c *C) {
 
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
+	subUnit := s.addSubordinate(c, unit)
 	assignTest := func() error {
 		err := unit.AssignToMachine(machine)
-		err1 := unit.UnassignFromMachine()
-		c.Assert(err1, IsNil)
+		c.Assert(unit.UnassignFromMachine(), IsNil)
+		if subUnit != nil {
+			err := subUnit.EnsureDead()
+			c.Assert(err, IsNil)
+			err = subUnit.Remove()
+			c.Assert(err, IsNil)
+			subUnit = nil
+		}
 		return err
 	}
 	expect := ".*: unit is not alive"
@@ -509,24 +515,33 @@ func (s *AssignSuite) TestAssignUnitToNewMachineAlreadyAssigned(c *C) {
 	c.Assert(err, ErrorMatches, `cannot assign unit "wordpress/0" to new machine: unit is already assigned to a machine`)
 }
 
-func (s *AssignSuite) TestAssignUnitToNewMachineDyingUnit(c *C) {
+func (s *AssignSuite) TestAssignUnitToNewMachineUnitNotAlive(c *C) {
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
+	subUnit := s.addSubordinate(c, unit)
+
+	// Try to assign a dying unit...
 	err = unit.Destroy()
 	c.Assert(err, IsNil)
-	// Try to assign it the dying unit.
+	err = unit.AssignToNewMachine()
+	c.Assert(err, ErrorMatches, `cannot assign unit "wordpress/0" to new machine: unit is not alive`)
+
+	// ...and a dead one.
+	err = subUnit.EnsureDead()
+	c.Assert(err, IsNil)
+	err = subUnit.Remove()
+	c.Assert(err, IsNil)
+	err = unit.EnsureDead()
+	c.Assert(err, IsNil)
 	err = unit.AssignToNewMachine()
 	c.Assert(err, ErrorMatches, `cannot assign unit "wordpress/0" to new machine: unit is not alive`)
 }
 
-func (s *AssignSuite) TestAssignUnitToNewMachineRemovedUnit(c *C) {
+func (s *AssignSuite) TestAssignUnitToNewMachineUnitRemoved(c *C) {
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
-	err = unit.EnsureDead()
+	err = unit.Destroy()
 	c.Assert(err, IsNil)
-	err = unit.Remove()
-	c.Assert(err, IsNil)
-	// Try to assign it the dying unit.
 	err = unit.AssignToNewMachine()
 	c.Assert(err, ErrorMatches, `cannot assign unit "wordpress/0" to new machine: unit not found`)
 }

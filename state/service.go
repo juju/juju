@@ -81,7 +81,7 @@ func (s *Service) Life() Life {
 	return s.doc.Life
 }
 
-var errRefresh = errors.New("cannot determine relation destruction operations; please refresh the service")
+var errRefresh = errors.New("state seems inconsistent, refresh and try again")
 
 // Destroy ensures that the service and all its relations will be removed at
 // some point; if the service has no units, and no relation involving the
@@ -581,7 +581,9 @@ func (s *Service) AddUnit() (unit *Unit, err error) {
 
 var ErrExcessiveContention = errors.New("state changing too quickly; try again soon")
 
-func (s *Service) removeUnitOps(u *Unit) ([]txn.Op, error) {
+// removeUnitOps returns the operations necessary to remove the supplied unit,
+// assuming the supplied asserts apply to the unit document.
+func (s *Service) removeUnitOps(u *Unit, asserts D) ([]txn.Op, error) {
 	var ops []txn.Op
 	if s.doc.Subordinate {
 		ops = append(ops, txn.Op{
@@ -604,7 +606,7 @@ func (s *Service) removeUnitOps(u *Unit) ([]txn.Op, error) {
 	ops = append(ops, txn.Op{
 		C:      s.st.units.Name,
 		Id:     u.doc.Name,
-		Assert: txn.DocExists,
+		Assert: asserts,
 		Remove: true,
 	})
 	if u.doc.CharmURL != nil {

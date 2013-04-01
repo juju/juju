@@ -67,6 +67,7 @@ func (s *ToolsSuite) TestUnitAgentTools(c *C) {
 	c.Assert(err, IsNil)
 	unit, err := svc.AddUnit()
 	c.Assert(err, IsNil)
+	preventUnitDestroyRemove(c, s.State, unit)
 	testAgentTools(c, unit, `unit "wordpress/0"`)
 }
 

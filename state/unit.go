@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state/presence"
@@ -233,18 +232,114 @@ func (u *Unit) PasswordValid(password string) bool {
 	return trivial.PasswordHash(password) == u.doc.PasswordHash
 }
 
-// Destroy sets the unit lifecycle to Dying if it is Alive.
-// It does nothing otherwise.
-func (u *Unit) Destroy() error {
-	err := ensureDying(u.st, u.st.units, u.doc.Name, "unit")
-	if err != nil {
-		return err
+// Destroy, when called on a Alive unit, advances its lifecycle as far as
+// possible; it otherwise has no effect. In most situations, the unit's
+// life is just set to Dying; but if a principal unit that is not assigned
+// to a provisioned machine is Destroyed, it will be removed from state
+// directly.
+func (u *Unit) Destroy() (err error) {
+	defer func() {
+		if err == nil {
+			// This is a white lie; the document might actually be removed.
+			u.doc.Life = Dying
+		}
+	}()
+	unit := &Unit{st: u.st, doc: u.doc}
+	for i := 0; i < 5; i++ {
+		ops, err := unit.destroyOps()
+		switch {
+		case err == errRefresh:
+		case err == errAlreadyDying:
+			return nil
+		case err != nil:
+			return err
+		default:
+			if err := unit.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+				return err
+			}
+		}
+		if err := unit.Refresh(); IsNotFound(err) {
+			return nil
+		} else if err != nil {
+			return err
+		}
 	}
-	u.doc.Life = Dying
-	return nil
+	return ErrExcessiveContention
+}
+
+// destroyOps returns the operations required to destroy the unit. If it
+// returns errRefresh, the unit should be refreshed and the destruction
+// operations recalculated.
+func (u *Unit) destroyOps() ([]txn.Op, error) {
+	if u.doc.Life != Alive {
+		return nil, errAlreadyDying
+	}
+	// In many cases, we just want to set Dying and let the agents deal with it.
+	defaultOps := []txn.Op{{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: isAliveDoc,
+		Update: D{{"$set", D{{"life", Dying}}}},
+	}}
+
+	// Subordinates, and principals with subordinates, are left for the agents.
+	if u.doc.Principal != "" {
+		return defaultOps, nil
+	} else if len(u.doc.Subordinates) != 0 {
+		return defaultOps, nil
+	}
+
+	// If the (known principal) unit has no assigned machine id, the unit can
+	// be removed directly.
+	asserts := D{{"machineid", u.doc.MachineId}}
+	asserts = append(asserts, unitHasNoSubordinates...)
+	asserts = append(asserts, isAliveDoc...)
+	if u.doc.MachineId == "" {
+		return u.removeOps(asserts)
+	}
+
+	// If the unit's machine has an instance id, leave it for the agents.
+	m, err := u.st.Machine(u.doc.MachineId)
+	if IsNotFound(err) {
+		return nil, errRefresh
+	} else if err != nil {
+		return nil, err
+	}
+	if _, found := m.InstanceId(); found {
+		return defaultOps, nil
+	}
+
+	// Units assigned to unprovisioned machines can be removed directly.
+	ops := []txn.Op{{
+		C:      u.st.machines.Name,
+		Id:     u.doc.MachineId,
+		Assert: D{{"instanceid", ""}},
+	}}
+	removeOps, err := u.removeOps(asserts)
+	if err != nil {
+		return nil, err
+	}
+	return append(ops, removeOps...), nil
+}
+
+// removeOps returns the operations necessary to remove the unit, assuming
+// the supplied asserts apply to the unit document.
+func (u *Unit) removeOps(asserts D) ([]txn.Op, error) {
+	svc, err := u.st.Service(u.doc.Service)
+	if err != nil {
+		return nil, err
+	}
+	return svc.removeUnitOps(u, asserts)
 }
 
 var ErrUnitHasSubordinates = errors.New("unit has subordinates")
+
+var unitHasNoSubordinates = D{{
+	"$or", []D{
+		{{"subordinates", D{{"$size", 0}}}},
+		{{"subordinates", D{{"$exists", false}}}},
+	},
+}}
 
 // EnsureDead sets the unit lifecycle to Dead if it is Alive or Dying.
 // It does nothing otherwise. If the unit has subordinates, it will
@@ -259,14 +354,9 @@ func (u *Unit) EnsureDead() (err error) {
 		}
 	}()
 	ops := []txn.Op{{
-		C:  u.st.units.Name,
-		Id: u.doc.Name,
-		Assert: append(notDeadDoc, bson.DocElem{
-			"$or", []D{
-				{{"subordinates", D{{"$size", 0}}}},
-				{{"subordinates", D{{"$exists", false}}}},
-			},
-		}),
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: append(notDeadDoc, unitHasNoSubordinates...),
 		Update: D{{"$set", D{{"life", Dead}}}},
 	}}
 	if err := u.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
@@ -294,7 +384,7 @@ func (u *Unit) Remove() (err error) {
 	}
 	unit := &Unit{st: u.st, doc: u.doc}
 	for i := 0; i < 5; i++ {
-		ops, err := svc.removeUnitOps(unit)
+		ops, err := svc.removeUnitOps(unit, isDeadDoc)
 		if err != nil {
 			return err
 		}
