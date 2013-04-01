@@ -6,11 +6,39 @@ import (
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/testing"
 	"net/url"
 	"path/filepath"
 	"time"
 )
+
+// TestingEnvironConfig returns a default environment configuration.
+func TestingEnvironConfig(c *C) *config.Config {
+	cfg, err := config.New(map[string]interface{}{
+		"type":            "test",
+		"name":            "test-name",
+		"default-series":  "test-series",
+		"authorized-keys": "test-keys",
+		"ca-cert":         testing.CACert,
+		"ca-private-key":  "",
+	})
+	c.Assert(err, IsNil)
+	return cfg
+}
+
+// TestingInitialize ensures that state has been initialized. If state was not
+// already initialized, and cfg is nil, the minimal default environment
+// configuration will be used.
+func TestingInitialize(c *C, cfg *config.Config) {
+	if cfg == nil {
+		cfg = TestingEnvironConfig(c)
+	}
+	st, err := Initialize(TestingStateInfo(), cfg, TestingDialTimeout)
+	c.Assert(err, IsNil)
+	err = st.Close()
+	c.Assert(err, IsNil)
+}
 
 // TestingDialTimeout controls how long calls to state.Open
 // will wait during testing.

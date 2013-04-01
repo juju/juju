@@ -783,10 +783,10 @@ func (s *allWatcherStateSuite) TearDownSuite(c *C) {
 func (s *allWatcherStateSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-	state, err := Open(TestingStateInfo(), TestingDialTimeout)
+	var err error
+	s.State, err = Open(TestingStateInfo(), TestingDialTimeout)
 	c.Assert(err, IsNil)
-
-	s.State = state
+	TestingInitialize(c, nil)
 }
 
 func (s *allWatcherStateSuite) TearDownTest(c *C) {

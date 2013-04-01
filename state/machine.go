@@ -133,7 +133,7 @@ func (m *Machine) SetAgentTools(t *Tools) (err error) {
 		Update: D{{"$set", D{{"tools", t}}}},
 	}}
 	if err := m.st.runner.Run(ops, "", nil); err != nil {
-		return onAbort(err, errNotAlive)
+		return onAbort(err, errDead)
 	}
 	tools := *t
 	m.doc.Tools = &tools
@@ -157,7 +157,7 @@ func (m *Machine) SetPassword(password string) error {
 		Update: D{{"$set", D{{"passwordhash", hp}}}},
 	}}
 	if err := m.st.runner.Run(ops, "", nil); err != nil {
-		return fmt.Errorf("cannot set password of machine %v: %v", m, onAbort(err, errNotAlive))
+		return fmt.Errorf("cannot set password of machine %v: %v", m, onAbort(err, errDead))
 	}
 	m.doc.PasswordHash = hp
 	return nil
@@ -380,7 +380,7 @@ func (m *Machine) SetInstanceId(id InstanceId) (err error) {
 		Update: D{{"$set", D{{"instanceid", id}}}},
 	}}
 	if err := m.st.runner.Run(ops, "", nil); err != nil {
-		return fmt.Errorf("cannot set instance id of machine %v: %v", m, onAbort(err, errNotAlive))
+		return fmt.Errorf("cannot set instance id of machine %v: %v", m, onAbort(err, errDead))
 	}
 	m.doc.InstanceId = id
 	return nil

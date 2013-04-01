@@ -191,7 +191,7 @@ func (u *Unit) SetAgentTools(t *Tools) (err error) {
 		Update: D{{"$set", D{{"tools", t}}}},
 	}}
 	if err := u.st.runner.Run(ops, "", nil); err != nil {
-		return onAbort(err, errNotAlive)
+		return onAbort(err, errDead)
 	}
 	tools := *t
 	u.doc.Tools = &tools
@@ -216,7 +216,7 @@ func (u *Unit) SetPassword(password string) error {
 	}}
 	err := u.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot set password of unit %q: %v", u, onAbort(err, errNotAlive))
+		return fmt.Errorf("cannot set password of unit %q: %v", u, onAbort(err, errDead))
 	}
 	u.doc.PasswordHash = hp
 	return nil
@@ -380,7 +380,7 @@ func (u *Unit) SetStatus(status UnitStatus, info string) error {
 	}}
 	err := u.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot set status of unit %q: %v", u, onAbort(err, errNotAlive))
+		return fmt.Errorf("cannot set status of unit %q: %v", u, onAbort(err, errDead))
 	}
 	u.doc.Status = status
 	u.doc.StatusInfo = info
@@ -399,7 +399,7 @@ func (u *Unit) OpenPort(protocol string, number int) (err error) {
 	}}
 	err = u.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return onAbort(err, errNotAlive)
+		return onAbort(err, errDead)
 	}
 	found := false
 	for _, p := range u.doc.Ports {
@@ -425,7 +425,7 @@ func (u *Unit) ClosePort(protocol string, number int) (err error) {
 	}}
 	err = u.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return onAbort(err, errNotAlive)
+		return onAbort(err, errDead)
 	}
 	newPorts := make([]Port, 0, len(u.doc.Ports))
 	for _, p := range u.doc.Ports {
@@ -840,34 +840,31 @@ func (u *Unit) SetPrivateAddress(address string) error {
 func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 	defer trivial.ErrorContextf(&err, "cannot set resolved mode for unit %q", u)
 	switch mode {
-	case ResolvedNone, ResolvedRetryHooks, ResolvedNoHooks:
+	case ResolvedRetryHooks, ResolvedNoHooks:
 	default:
 		return fmt.Errorf("invalid error resolution mode: %q", mode)
 	}
-	assert := append(notDeadDoc, D{{"resolved", ResolvedNone}}...)
+	// TODO(fwereade): assert unit has error status.
+	resolvedNotSet := D{{"resolved", ResolvedNone}}
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
-		Assert: assert,
+		Assert: append(notDeadDoc, resolvedNotSet...),
 		Update: D{{"$set", D{{"resolved", mode}}}},
 	}}
-	if err := u.st.runner.Run(ops, "", nil); err != nil {
-		if err == txn.ErrAborted {
-			// Find which assertion failed so we can give a
-			// more specific error.
-			u1, err := u.st.Unit(u.Name())
-			if err != nil {
-				return err
-			}
-			if u1.Life() != Alive {
-				return errNotAlive
-			}
-			return fmt.Errorf("already resolved")
-		}
+	if err := u.st.runner.Run(ops, "", nil); err == nil {
+		u.doc.Resolved = mode
+		return nil
+	} else if err != txn.ErrAborted {
 		return err
 	}
-	u.doc.Resolved = mode
-	return nil
+	if ok, err := isNotDead(u.st.units, u.doc.Name); err != nil {
+		return err
+	} else if !ok {
+		return errDead
+	}
+	// For now, the only remaining assert is that resolved was unset.
+	return fmt.Errorf("already resolved")
 }
 
 // ClearResolved removes any resolved setting on the unit.
