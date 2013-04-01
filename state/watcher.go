@@ -688,11 +688,11 @@ func (w *RelationUnitsWatcher) loop() (err error) {
 // has been reported, it will not be reported again.
 type UnitsWatcher struct {
 	commonWatcher
-	entityName string
-	getUnits   func() ([]string, error)
-	life       map[string]Life
-	in         chan watcher.Change
-	out        chan []string
+	tag      string
+	getUnits func() ([]string, error)
+	life     map[string]Life
+	in       chan watcher.Change
+	out      chan []string
 }
 
 // WatchSubordinateUnits returns a UnitsWatcher tracking the unit's subordinate units.
@@ -705,7 +705,7 @@ func (u *Unit) WatchSubordinateUnits() *UnitsWatcher {
 		}
 		return u.doc.Subordinates, nil
 	}
-	return newUnitsWatcher(u.st, u.EntityName(), getUnits, coll, u.doc.Name, u.doc.TxnRevno)
+	return newUnitsWatcher(u.st, u.Tag(), getUnits, coll, u.doc.Name, u.doc.TxnRevno)
 }
 
 // WatchPrincipalUnits returns a UnitsWatcher tracking the machine's principal
@@ -719,13 +719,13 @@ func (m *Machine) WatchPrincipalUnits() *UnitsWatcher {
 		}
 		return m.doc.Principals, nil
 	}
-	return newUnitsWatcher(m.st, m.EntityName(), getUnits, coll, m.doc.Id, m.doc.TxnRevno)
+	return newUnitsWatcher(m.st, m.Tag(), getUnits, coll, m.doc.Id, m.doc.TxnRevno)
 }
 
-func newUnitsWatcher(st *State, entityName string, getUnits func() ([]string, error), coll, id string, revno int64) *UnitsWatcher {
+func newUnitsWatcher(st *State, tag string, getUnits func() ([]string, error), coll, id string, revno int64) *UnitsWatcher {
 	w := &UnitsWatcher{
 		commonWatcher: commonWatcher{st: st},
-		entityName:    entityName,
+		tag:           tag,
 		getUnits:      getUnits,
 		life:          map[string]Life{},
 		in:            make(chan watcher.Change),
@@ -739,9 +739,9 @@ func newUnitsWatcher(st *State, entityName string, getUnits func() ([]string, er
 	return w
 }
 
-// EntityName returns the name of the entity whose units are being watched.
-func (w *UnitsWatcher) EntityName() string {
-	return w.entityName
+// Tag returns the tag of the entity whose units are being watched.
+func (w *UnitsWatcher) Tag() string {
+	return w.tag
 }
 
 // Changes returns the UnitsWatcher's output channel.

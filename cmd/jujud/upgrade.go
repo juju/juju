@@ -56,7 +56,7 @@ func (e *UpgradeReadyError) ChangeAgentTools() error {
 type AgentState interface {
 	// SetAgentTools sets the tools that the agent is currently running.
 	SetAgentTools(tools *state.Tools) error
-	EntityName() string
+	Tag() string
 	SetMongoPassword(password string) error
 	Life() state.Life
 }
@@ -242,7 +242,7 @@ func (u *Upgrader) run() error {
 
 func (u *Upgrader) upgradeReady(old, new *state.Tools) *UpgradeReadyError {
 	return &UpgradeReadyError{
-		AgentName: u.agentState.EntityName(),
+		AgentName: u.agentState.Tag(),
 		OldTools:  old,
 		DataDir:   u.dataDir,
 		NewTools:  new,
