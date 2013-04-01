@@ -4,6 +4,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/statecmd"
 )
 
@@ -32,7 +33,7 @@ func (s *ResolvedSuite) TestMarkResolved(c *C) {
 	c.Assert(err, IsNil)
 	err = statecmd.MarkResolved(u, true)
 	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "testriak/0": already resolved`)
-	c.Assert(u.Resolved(), Equals, state.ResolvedNoHooks)
+	c.Assert(u.Resolved(), Equals, params.ResolvedNoHooks)
 
 	err = u.ClearResolved()
 	c.Assert(err, IsNil)
@@ -40,5 +41,5 @@ func (s *ResolvedSuite) TestMarkResolved(c *C) {
 	c.Assert(err, IsNil)
 	err = statecmd.MarkResolved(u, false)
 	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "testriak/0": already resolved`)
-	c.Assert(u.Resolved(), Equals, state.ResolvedRetryHooks)
+	c.Assert(u.Resolved(), Equals, params.ResolvedRetryHooks)
 }

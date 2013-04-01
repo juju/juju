@@ -4,6 +4,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	"sort"
 	"strconv"
 	"time"
@@ -388,34 +389,34 @@ func (s *UnitSuite) TestUnitWaitAgentAlive(c *C) {
 
 func (s *UnitSuite) TestGetSetClearResolved(c *C) {
 	mode := s.unit.Resolved()
-	c.Assert(mode, Equals, state.ResolvedNone)
+	c.Assert(mode, Equals, params.ResolvedNone)
 
-	err := s.unit.SetResolved(state.ResolvedNoHooks)
+	err := s.unit.SetResolved(params.ResolvedNoHooks)
 	c.Assert(err, IsNil)
-	err = s.unit.SetResolved(state.ResolvedNoHooks)
+	err = s.unit.SetResolved(params.ResolvedNoHooks)
 	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "wordpress/0": already resolved`)
 
 	mode = s.unit.Resolved()
-	c.Assert(mode, Equals, state.ResolvedNoHooks)
+	c.Assert(mode, Equals, params.ResolvedNoHooks)
 	err = s.unit.Refresh()
 	c.Assert(err, IsNil)
 	mode = s.unit.Resolved()
-	c.Assert(mode, Equals, state.ResolvedNoHooks)
+	c.Assert(mode, Equals, params.ResolvedNoHooks)
 
 	err = s.unit.ClearResolved()
 	c.Assert(err, IsNil)
 	mode = s.unit.Resolved()
-	c.Assert(mode, Equals, state.ResolvedNone)
+	c.Assert(mode, Equals, params.ResolvedNone)
 	err = s.unit.Refresh()
 	c.Assert(err, IsNil)
 	mode = s.unit.Resolved()
-	c.Assert(mode, Equals, state.ResolvedNone)
+	c.Assert(mode, Equals, params.ResolvedNone)
 	err = s.unit.ClearResolved()
 	c.Assert(err, IsNil)
 
-	err = s.unit.SetResolved(state.ResolvedNone)
+	err = s.unit.SetResolved(params.ResolvedNone)
 	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "wordpress/0": invalid error resolution mode: ""`)
-	err = s.unit.SetResolved(state.ResolvedMode("foo"))
+	err = s.unit.SetResolved(params.ResolvedMode("foo"))
 	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "wordpress/0": invalid error resolution mode: "foo"`)
 }
 
@@ -427,14 +428,14 @@ func (s *UnitSuite) TestOpenedPorts(c *C) {
 	err := s.unit.OpenPort("tcp", 80)
 	c.Assert(err, IsNil)
 	open := s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []state.Port{
+	c.Assert(open, DeepEquals, []params.Port{
 		{"tcp", 80},
 	})
 
 	err = s.unit.OpenPort("udp", 53)
 	c.Assert(err, IsNil)
 	open = s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []state.Port{
+	c.Assert(open, DeepEquals, []params.Port{
 		{"tcp", 80},
 		{"udp", 53},
 	})
@@ -442,7 +443,7 @@ func (s *UnitSuite) TestOpenedPorts(c *C) {
 	err = s.unit.OpenPort("tcp", 53)
 	c.Assert(err, IsNil)
 	open = s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []state.Port{
+	c.Assert(open, DeepEquals, []params.Port{
 		{"tcp", 53},
 		{"tcp", 80},
 		{"udp", 53},
@@ -451,7 +452,7 @@ func (s *UnitSuite) TestOpenedPorts(c *C) {
 	err = s.unit.OpenPort("tcp", 443)
 	c.Assert(err, IsNil)
 	open = s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []state.Port{
+	c.Assert(open, DeepEquals, []params.Port{
 		{"tcp", 53},
 		{"tcp", 80},
 		{"tcp", 443},
@@ -461,7 +462,7 @@ func (s *UnitSuite) TestOpenedPorts(c *C) {
 	err = s.unit.ClosePort("tcp", 80)
 	c.Assert(err, IsNil)
 	open = s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []state.Port{
+	c.Assert(open, DeepEquals, []params.Port{
 		{"tcp", 53},
 		{"tcp", 443},
 		{"udp", 53},
@@ -470,7 +471,7 @@ func (s *UnitSuite) TestOpenedPorts(c *C) {
 	err = s.unit.ClosePort("tcp", 80)
 	c.Assert(err, IsNil)
 	open = s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []state.Port{
+	c.Assert(open, DeepEquals, []params.Port{
 		{"tcp", 53},
 		{"tcp", 443},
 		{"udp", 53},
@@ -488,17 +489,17 @@ func (s *UnitSuite) TestOpenClosePortWhenDying(c *C) {
 func (s *UnitSuite) TestSetClearResolvedWhenNotAlive(c *C) {
 	err := s.unit.Destroy()
 	c.Assert(err, IsNil)
-	err = s.unit.SetResolved(state.ResolvedNoHooks)
+	err = s.unit.SetResolved(params.ResolvedNoHooks)
 	c.Assert(err, IsNil)
 	err = s.unit.Refresh()
 	c.Assert(err, IsNil)
-	c.Assert(s.unit.Resolved(), Equals, state.ResolvedNoHooks)
+	c.Assert(s.unit.Resolved(), Equals, params.ResolvedNoHooks)
 	err = s.unit.ClearResolved()
 	c.Assert(err, IsNil)
 
 	err = s.unit.EnsureDead()
 	c.Assert(err, IsNil)
-	err = s.unit.SetResolved(state.ResolvedRetryHooks)
+	err = s.unit.SetResolved(params.ResolvedRetryHooks)
 	c.Assert(err, ErrorMatches, deadErr)
 	err = s.unit.ClearResolved()
 	c.Assert(err, IsNil)

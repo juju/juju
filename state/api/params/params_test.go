@@ -56,13 +56,19 @@ var marshalTestCases = []struct {
 				Name:     "name",   // E.g. wordpress.
 				Revision: 42,
 			},
+			Ports: []params.Port{
+				params.Port{
+					Protocol: "http",
+					Number: 80},
+			},
 			PublicAddress:  "example.com",
 			PrivateAddress: "10.0.0.1",
+			Resolved: "", // See params.ResolvedMode
 			MachineId:      "1",
 			StatusInfo:     "started",
 		},
 	},
-	json: `["unit", "change", {"CharmURL": "cs:~user/series/name-42", "MachineId": "1", "Series": "series", "Name": "Benji", "StatusInfo": "started", "PublicAddress": "example.com", "Service": "Shazam", "PrivateAddress": "10.0.0.1"}]`,
+	json: `["unit", "change", {"CharmURL": "cs:~user/series/name-42", "MachineId": "1", "Series": "series", "Name": "Benji", "StatusInfo": "started", "PublicAddress": "example.com", "Service": "Shazam", "PrivateAddress": "10.0.0.1", "Resolved": "", "Ports": [{"Protocol": "http", "Number": 80}]}]`,
 }, {
 	about: "RelationInfo Delta",
 	value: params.Delta{

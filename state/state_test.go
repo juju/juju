@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"net/url"
@@ -814,15 +815,15 @@ func (s *StateSuite) TestWatchServices(c *C) {
 }
 
 var sortPortsTests = []struct {
-	have, want []state.Port
+	have, want []params.Port
 }{
-	{nil, []state.Port{}},
-	{[]state.Port{{"b", 1}, {"a", 99}, {"a", 1}}, []state.Port{{"a", 1}, {"a", 99}, {"b", 1}}},
+	{nil, []params.Port{}},
+	{[]params.Port{{"b", 1}, {"a", 99}, {"a", 1}}, []params.Port{{"a", 1}, {"a", 99}, {"b", 1}}},
 }
 
 func (*StateSuite) TestSortPorts(c *C) {
 	for _, t := range sortPortsTests {
-		p := make([]state.Port, len(t.have))
+		p := make([]params.Port, len(t.have))
 		copy(p, t.have)
 		state.SortPorts(p)
 		c.Check(p, DeepEquals, t.want)

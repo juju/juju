@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
-	// "launchpad.net/juju-core/state"
 )
 
 // AddRelation holds the parameters for making the AddRelation call.
@@ -294,6 +293,26 @@ type ServiceInfo struct {
 func (i *ServiceInfo) EntityId() interface{} { return i.Name }
 func (i *ServiceInfo) EntityKind() string    { return "service" }
 
+// ResolvedMode describes the way state transition errors
+// are resolved.
+type ResolvedMode string
+
+const (
+	ResolvedNone       ResolvedMode = ""
+	ResolvedRetryHooks ResolvedMode = "retry-hooks"
+	ResolvedNoHooks    ResolvedMode = "no-hooks"
+)
+
+// Port identifies a network port number for a particular protocol.
+type Port struct {
+	Protocol string
+	Number   int
+}
+
+func (p Port) String() string {
+	return fmt.Sprintf("%s:%d", p.Protocol, p.Number)
+}
+
 type UnitInfo struct {
 	Name           string `bson:"_id"`
 	Service        string
@@ -302,8 +321,8 @@ type UnitInfo struct {
 	PublicAddress  string
 	PrivateAddress string
 	MachineId      string
-	// Resolved       state.ResolvedMode
-	// Ports          []state.Port
+	Resolved       ResolvedMode
+	Ports          []Port
 	// Status     UnitStatus
 	StatusInfo string
 }

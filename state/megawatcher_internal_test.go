@@ -861,6 +861,7 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 			Service:   wordpress.Name(),
 			Series:    m.Series(),
 			MachineId: m.Id(),
+			Ports:     []params.Port{},
 		})
 		pairs := map[string]string{"name": fmt.Sprintf("bar %d", i)}
 		err = wu.SetAnnotations(pairs)
@@ -902,6 +903,7 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 			Name:    fmt.Sprintf("logging/%d", i),
 			Service: "logging",
 			Series:  "series",
+			Ports:   []params.Port{},
 		})
 	}
 	return
