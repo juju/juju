@@ -976,6 +976,16 @@ func (createServiceAndUnit) step(c *C, ctx *context) {
 	c.Assert(err, IsNil)
 	unit, err := svc.AddUnit()
 	c.Assert(err, IsNil)
+
+	// Assign the unit to a provisioned machine to match expected state.
+	err = unit.AssignToNewMachine()
+	c.Assert(err, IsNil)
+	mid, err := unit.AssignedMachineId()
+	c.Assert(err, IsNil)
+	machine, err := ctx.st.Machine(mid)
+	c.Assert(err, IsNil)
+	err = machine.SetInstanceId("i-exist")
+	c.Assert(err, IsNil)
 	ctx.svc = svc
 	ctx.unit = unit
 }

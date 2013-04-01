@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state/presence"
@@ -127,9 +126,14 @@ func (u *Unit) Name() string {
 	return u.doc.Name
 }
 
+// unitGlobalKey returns the global database key for the named unit.
+func unitGlobalKey(name string) string {
+	return "u#" + name
+}
+
 // globalKey returns the global database key for the unit.
 func (u *Unit) globalKey() string {
-	return "u#" + u.doc.Name
+	return unitGlobalKey(u.doc.Name)
 }
 
 // Life returns whether the unit is Alive, Dying or Dead.
@@ -197,18 +201,114 @@ func (u *Unit) PasswordValid(password string) bool {
 	return trivial.PasswordHash(password) == u.doc.PasswordHash
 }
 
-// Destroy sets the unit lifecycle to Dying if it is Alive.
-// It does nothing otherwise.
-func (u *Unit) Destroy() error {
-	err := ensureDying(u.st, u.st.units, u.doc.Name, "unit")
-	if err != nil {
-		return err
+// Destroy, when called on a Alive unit, advances its lifecycle as far as
+// possible; it otherwise has no effect. In most situations, the unit's
+// life is just set to Dying; but if a principal unit that is not assigned
+// to a provisioned machine is Destroyed, it will be removed from state
+// directly.
+func (u *Unit) Destroy() (err error) {
+	defer func() {
+		if err == nil {
+			// This is a white lie; the document might actually be removed.
+			u.doc.Life = Dying
+		}
+	}()
+	unit := &Unit{st: u.st, doc: u.doc}
+	for i := 0; i < 5; i++ {
+		ops, err := unit.destroyOps()
+		switch {
+		case err == errRefresh:
+		case err == errAlreadyDying:
+			return nil
+		case err != nil:
+			return err
+		default:
+			if err := unit.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+				return err
+			}
+		}
+		if err := unit.Refresh(); IsNotFound(err) {
+			return nil
+		} else if err != nil {
+			return err
+		}
 	}
-	u.doc.Life = Dying
-	return nil
+	return ErrExcessiveContention
+}
+
+// destroyOps returns the operations required to destroy the unit. If it
+// returns errRefresh, the unit should be refreshed and the destruction
+// operations recalculated.
+func (u *Unit) destroyOps() ([]txn.Op, error) {
+	if u.doc.Life != Alive {
+		return nil, errAlreadyDying
+	}
+	// In many cases, we just want to set Dying and let the agents deal with it.
+	defaultOps := []txn.Op{{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: isAliveDoc,
+		Update: D{{"$set", D{{"life", Dying}}}},
+	}}
+
+	// Subordinates, and principals with subordinates, are left for the agents.
+	if u.doc.Principal != "" {
+		return defaultOps, nil
+	} else if len(u.doc.Subordinates) != 0 {
+		return defaultOps, nil
+	}
+
+	// If the (known principal) unit has no assigned machine id, the unit can
+	// be removed directly.
+	asserts := D{{"machineid", u.doc.MachineId}}
+	asserts = append(asserts, unitHasNoSubordinates...)
+	asserts = append(asserts, isAliveDoc...)
+	if u.doc.MachineId == "" {
+		return u.removeOps(asserts)
+	}
+
+	// If the unit's machine has an instance id, leave it for the agents.
+	m, err := u.st.Machine(u.doc.MachineId)
+	if IsNotFound(err) {
+		return nil, errRefresh
+	} else if err != nil {
+		return nil, err
+	}
+	if _, found := m.InstanceId(); found {
+		return defaultOps, nil
+	}
+
+	// Units assigned to unprovisioned machines can be removed directly.
+	ops := []txn.Op{{
+		C:      u.st.machines.Name,
+		Id:     u.doc.MachineId,
+		Assert: D{{"instanceid", ""}},
+	}}
+	removeOps, err := u.removeOps(asserts)
+	if err != nil {
+		return nil, err
+	}
+	return append(ops, removeOps...), nil
+}
+
+// removeOps returns the operations necessary to remove the unit, assuming
+// the supplied asserts apply to the unit document.
+func (u *Unit) removeOps(asserts D) ([]txn.Op, error) {
+	svc, err := u.st.Service(u.doc.Service)
+	if err != nil {
+		return nil, err
+	}
+	return svc.removeUnitOps(u, asserts)
 }
 
 var ErrUnitHasSubordinates = errors.New("unit has subordinates")
+
+var unitHasNoSubordinates = D{{
+	"$or", []D{
+		{{"subordinates", D{{"$size", 0}}}},
+		{{"subordinates", D{{"$exists", false}}}},
+	},
+}}
 
 // EnsureDead sets the unit lifecycle to Dead if it is Alive or Dying.
 // It does nothing otherwise. If the unit has subordinates, it will
@@ -223,14 +323,9 @@ func (u *Unit) EnsureDead() (err error) {
 		}
 	}()
 	ops := []txn.Op{{
-		C:  u.st.units.Name,
-		Id: u.doc.Name,
-		Assert: append(notDeadDoc, bson.DocElem{
-			"$or", []D{
-				{{"subordinates", D{{"$size", 0}}}},
-				{{"subordinates", D{{"$exists", false}}}},
-			},
-		}),
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: append(notDeadDoc, unitHasNoSubordinates...),
 		Update: D{{"$set", D{{"life", Dead}}}},
 	}}
 	if err := u.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
@@ -258,7 +353,7 @@ func (u *Unit) Remove() (err error) {
 	}
 	unit := &Unit{st: u.st, doc: u.doc}
 	for i := 0; i < 5; i++ {
-		ops, err := svc.removeUnitOps(unit)
+		ops, err := svc.removeUnitOps(unit, isDeadDoc)
 		if err != nil {
 			return err
 		}
@@ -556,7 +651,7 @@ func (u *Unit) AssignedMachineId() (id string, err error) {
 	pudoc := unitDoc{}
 	err = u.st.units.Find(D{{"_id", u.doc.Principal}}).One(&pudoc)
 	if err == mgo.ErrNotFound {
-		return "", NotFoundf("cannot get machine id of unit %q: principal %q", u, u.doc.Principal)
+		return "", NotFoundf("principal unit %q", u, u.doc.Principal)
 	} else if err != nil {
 		return "", err
 	}
@@ -567,8 +662,8 @@ func (u *Unit) AssignedMachineId() (id string, err error) {
 }
 
 var (
-	machineDeadErr     = errors.New("machine is dead")
-	unitDeadErr        = errors.New("unit is dead")
+	machineNotAliveErr = errors.New("machine is not alive")
+	unitNotAliveErr    = errors.New("unit is not alive")
 	alreadyAssignedErr = errors.New("unit is already assigned to a machine")
 	inUseErr           = errors.New("machine is not unused")
 )
@@ -576,8 +671,8 @@ var (
 // assignToMachine is the internal version of AssignToMachine,
 // also used by AssignToUnusedMachine. It returns specific errors
 // in some cases:
-// - machineDeadErr when the machine is not alive.
-// - unitDeadErr when the unit is not alive.
+// - machineNotAliveErr when the machine is not alive.
+// - unitNotAliveErr when the unit is not alive.
 // - alreadyAssignedErr when the unit has already been assigned
 // - inUseErr when the machine already has a unit assigned (if unused is true)
 func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
@@ -642,35 +737,50 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 	}
 	switch {
 	case u0.Life() != Alive:
-		return unitDeadErr
+		return unitNotAliveErr
 	case m0.Life() != Alive:
-		return machineDeadErr
+		return machineNotAliveErr
 	case u0.doc.MachineId != "" || !unused:
 		return alreadyAssignedErr
 	}
 	return inUseErr
 }
 
-// AssignToMachine assigns this unit to a given machine.
-func (u *Unit) AssignToMachine(m *Machine) error {
-	err := u.assignToMachine(m, false)
-	if err != nil {
-		return fmt.Errorf("cannot assign unit %q to machine %v: %v", u, m, err)
+func assignContextf(err *error, unit *Unit, target string) {
+	if *err != nil {
+		*err = fmt.Errorf("cannot assign unit %q to %s: %v", unit, target, *err)
 	}
-	return nil
 }
 
-// AssignToNewMachine creates a new machine, and allocates the unit in a
-// single transaction.
-func (u *Unit) AssignToNewMachine() error {
+// AssignToMachine assigns this unit to a given machine.
+func (u *Unit) AssignToMachine(m *Machine) (err error) {
+	defer assignContextf(&err, u, fmt.Sprintf("machine %s", m))
+	return u.assignToMachine(m, false)
+}
+
+// AssignToNewMachine assigns the unit to a new machine, with constraints
+// determined according to the service and environment constraints at the
+// time of unit creation.
+func (u *Unit) AssignToNewMachine() (err error) {
+	defer assignContextf(&err, u, "new machine")
+	if u.doc.Principal != "" {
+		return fmt.Errorf("unit is a subordinate")
+	}
 	// Get the ops necessary to create a new machine, and the machine doc that
 	// will be added with those operations (which includes the machine id).
+	cons, err := readConstraints(u.st, u.globalKey())
+	if IsNotFound(err) {
+		// Lack of constraints indicates lack of unit.
+		return NotFoundf("unit")
+	} else if err != nil {
+		return err
+	}
 	mdoc := &machineDoc{
 		Series:     u.doc.Series,
 		Jobs:       []MachineJob{JobHostUnits},
 		Principals: []string{u.doc.Name},
 	}
-	mdoc, ops, err := u.st.addMachineOps(mdoc)
+	mdoc, ops, err := u.st.addMachineOps(mdoc, cons)
 	if err != nil {
 		return err
 	}
@@ -690,27 +800,29 @@ func (u *Unit) AssignToNewMachine() error {
 	}
 	// If we assume that the machine ops will never give us an operation that
 	// would fail (because the machine id that it has is unique), then the only
-	// reason that the transaction would have been aborted are:
+	// reasons that the transaction could have been aborted are:
 	//  * the unit is no longer alive
-	//  * the unit  has been assigned to a different machine
+	//  * the unit has been assigned to a different machine
 	unit, err := u.st.Unit(u.Name())
 	if err != nil {
 		return err
 	}
 	switch {
 	case unit.Life() != Alive:
-		return unitDeadErr
+		return unitNotAliveErr
 	case unit.doc.MachineId != "":
 		return alreadyAssignedErr
 	}
 	// Other error condition not considered.
-	return fmt.Errorf("undetermined error trying to assign unit to a new machine: %q", u)
+	return fmt.Errorf("unknown error")
 }
 
 var noUnusedMachines = errors.New("all eligible machines in use")
 
 // AssignToUnusedMachine assigns u to a machine without other units.
 // If there are no unused machines besides machine 0, an error is returned.
+// This method does not take constraints into consideration when choosing a
+// machine (lp:1161919).
 func (u *Unit) AssignToUnusedMachine() (m *Machine, err error) {
 	// Select all machines that can accept principal units but have none assigned.
 	query := u.st.machines.Find(D{
@@ -733,11 +845,13 @@ func (u *Unit) AssignToUnusedMachine() (m *Machine, err error) {
 		if err == nil {
 			return m, nil
 		}
-		if err != inUseErr && err != machineDeadErr {
-			return nil, fmt.Errorf("cannot assign unit %q to unused machine: %v", u, err)
+		if err != inUseErr && err != machineNotAliveErr {
+			assignContextf(&err, u, "unused machine")
+			return nil, err
 		}
 	}
 	if err := iter.Err(); err != nil {
+		assignContextf(&err, u, "unused machine")
 		return nil, err
 	}
 	return nil, noUnusedMachines

@@ -30,6 +30,14 @@ func (s *FilterSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	s.unit, err = s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
+	err = s.unit.AssignToNewMachine()
+	c.Assert(err, IsNil)
+	mid, err := s.unit.AssignedMachineId()
+	c.Assert(err, IsNil)
+	machine, err := s.State.Machine(mid)
+	c.Assert(err, IsNil)
+	err = machine.SetInstanceId("i-exist")
+	c.Assert(err, IsNil)
 }
 
 func (s *FilterSuite) TestUnitDeath(c *C) {

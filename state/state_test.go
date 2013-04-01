@@ -18,6 +18,23 @@ import (
 
 type D []bson.DocElem
 
+// preventUnitDestroyRemove ensures that a unit is assigned to a machine with
+// an instance id, and hence prevents it from being unceremoniously removed
+// from state on Destroy. This is useful because several tests go through a
+// unit's lifecycle step by step, asserting the behaviour of a given method
+// in each state, and the unit quick-remove change caused many of these to
+// fail.
+func preventUnitDestroyRemove(c *C, st *state.State, u *state.Unit) {
+	err := u.AssignToNewMachine()
+	c.Assert(err, IsNil)
+	mid, err := u.AssignedMachineId()
+	c.Assert(err, IsNil)
+	m, err := st.Machine(mid)
+	c.Assert(err, IsNil)
+	err = m.SetInstanceId("i-malive")
+	c.Assert(err, IsNil)
+}
+
 type StateSuite struct {
 	ConnSuite
 }
