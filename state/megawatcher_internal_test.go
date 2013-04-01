@@ -806,8 +806,8 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 	}
 	m, err := s.State.AddMachine("series", JobManageEnviron)
 	c.Assert(err, IsNil)
-	c.Assert(m.EntityName(), Equals, "machine-0")
-	err = m.SetInstanceId(InstanceId("i-" + m.EntityName()))
+	c.Assert(m.Tag(), Equals, "machine-0")
+	err = m.SetInstanceId(InstanceId("i-" + m.Tag()))
 	c.Assert(err, IsNil)
 	add(&params.MachineInfo{
 		Id:         "0",
@@ -828,7 +828,7 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 	c.Assert(err, IsNil)
 	add(&params.AnnotationInfo{
 		GlobalKey:   "s#wordpress",
-		EntityName:  "service-wordpress",
+		Tag:         "service-wordpress",
 		Annotations: pairs,
 	})
 
@@ -850,7 +850,7 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 	for i := 0; i < 2; i++ {
 		wu, err := wordpress.AddUnit()
 		c.Assert(err, IsNil)
-		c.Assert(wu.EntityName(), Equals, fmt.Sprintf("unit-wordpress-%d", i))
+		c.Assert(wu.Tag(), Equals, fmt.Sprintf("unit-wordpress-%d", i))
 		add(&params.UnitInfo{
 			Name:    fmt.Sprintf("wordpress/%d", i),
 			Service: "wordpress",
@@ -860,23 +860,23 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 		c.Assert(err, IsNil)
 		add(&params.AnnotationInfo{
 			GlobalKey:   fmt.Sprintf("u#wordpress/%d", i),
-			EntityName:  fmt.Sprintf("unit-wordpress-%d", i),
+			Tag:         fmt.Sprintf("unit-wordpress-%d", i),
 			Annotations: pairs,
 		})
 
 		m, err := s.State.AddMachine("series", JobHostUnits)
 		c.Assert(err, IsNil)
-		c.Assert(m.EntityName(), Equals, fmt.Sprintf("machine-%d", i+1))
-		err = m.SetInstanceId(InstanceId("i-" + m.EntityName()))
+		c.Assert(m.Tag(), Equals, fmt.Sprintf("machine-%d", i+1))
+		err = m.SetInstanceId(InstanceId("i-" + m.Tag()))
 		c.Assert(err, IsNil)
 		add(&params.MachineInfo{
 			Id:         fmt.Sprint(i + 1),
-			InstanceId: "i-" + m.EntityName(),
+			InstanceId: "i-" + m.Tag(),
 		})
 		err = wu.AssignToMachine(m)
 		c.Assert(err, IsNil)
 
-		deployer, ok := wu.DeployerName()
+		deployer, ok := wu.DeployerTag()
 		c.Assert(ok, Equals, true)
 		c.Assert(deployer, Equals, fmt.Sprintf("machine-%d", i+1))
 
@@ -891,7 +891,7 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 		lu, err := s.State.Unit(fmt.Sprintf("logging/%d", i))
 		c.Assert(err, IsNil)
 		c.Assert(lu.IsPrincipal(), Equals, false)
-		deployer, ok = lu.DeployerName()
+		deployer, ok = lu.DeployerTag()
 		c.Assert(ok, Equals, true)
 		c.Assert(deployer, Equals, fmt.Sprintf("unit-wordpress-%d", i))
 		add(&params.UnitInfo{
@@ -981,7 +981,7 @@ func (s *allWatcherStateSuite) TestStateBackingEntityIdForInfo(c *C) {
 func (s *allWatcherStateSuite) TestStateBackingFetch(c *C) {
 	m, err := s.State.AddMachine("series", JobManageEnviron)
 	c.Assert(err, IsNil)
-	c.Assert(m.EntityName(), Equals, "machine-0")
+	c.Assert(m.Tag(), Equals, "machine-0")
 	err = m.SetInstanceId(InstanceId("i-0"))
 	c.Assert(err, IsNil)
 
