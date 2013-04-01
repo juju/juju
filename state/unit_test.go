@@ -116,40 +116,31 @@ func (s *UnitSuite) TestRefresh(c *C) {
 }
 
 func (s *UnitSuite) TestGetSetStatus(c *C) {
-	fail := func() { s.unit.SetStatus(state.UnitPending, "") }
-	c.Assert(fail, PanicMatches, "unit status must not be set to pending")
+	fail := func() { s.unit.SetStatus(state.UnitError, "") }
+	c.Assert(fail, PanicMatches, "must set info for unit error status")
 
-	status, info, err := s.unit.Status()
-	c.Assert(err, IsNil)
+	status, info := s.unit.Status()
 	c.Assert(status, Equals, state.UnitPending)
 	c.Assert(info, Equals, "")
 
-	err = s.unit.SetStatus(state.UnitStarted, "")
+	err := s.unit.SetStatus(state.UnitStarted, "")
 	c.Assert(err, IsNil)
 
-	status, info, err = s.unit.Status()
-	c.Assert(err, IsNil)
-	c.Assert(status, Equals, state.UnitDown)
-	c.Assert(info, Equals, "")
-
-	p, err := s.unit.SetAgentAlive()
-	c.Assert(err, IsNil)
-	defer func() {
-		c.Assert(p.Kill(), IsNil)
-	}()
-
-	s.State.Sync()
-	status, info, err = s.unit.Status()
-	c.Assert(err, IsNil)
+	status, info = s.unit.Status()
 	c.Assert(status, Equals, state.UnitStarted)
 	c.Assert(info, Equals, "")
 
 	err = s.unit.SetStatus(state.UnitError, "test-hook failed")
 	c.Assert(err, IsNil)
-	status, info, err = s.unit.Status()
-	c.Assert(err, IsNil)
+	status, info = s.unit.Status()
 	c.Assert(status, Equals, state.UnitError)
 	c.Assert(info, Equals, "test-hook failed")
+
+	err = s.unit.SetStatus(state.UnitPending, "deploying...")
+	c.Assert(err, IsNil)
+	status, info = s.unit.Status()
+	c.Assert(status, Equals, state.UnitPending)
+	c.Assert(info, Equals, "deploying...")
 }
 
 func (s *UnitSuite) TestUnitCharm(c *C) {
@@ -252,12 +243,12 @@ func (s *ConnSuite) assertUnitLife(c *C, name string, life state.Life) {
 	c.Assert(unit.Life(), Equals, life)
 }
 
-func (s *UnitSuite) TestEntityName(c *C) {
-	c.Assert(s.unit.EntityName(), Equals, "unit-wordpress-0")
+func (s *UnitSuite) TestTag(c *C) {
+	c.Assert(s.unit.Tag(), Equals, "unit-wordpress-0")
 }
 
-func (s *UnitSuite) TestUnitEntityName(c *C) {
-	c.Assert(state.UnitEntityName("wordpress/2"), Equals, "unit-wordpress-2")
+func (s *UnitSuite) TestUnitTag(c *C) {
+	c.Assert(state.UnitTag("wordpress/2"), Equals, "unit-wordpress-2")
 }
 
 func (s *UnitSuite) TestSetMongoPassword(c *C) {
@@ -312,13 +303,13 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 
 	// Sanity check that we cannot connect with the wrong
 	// password
-	info.EntityName = m.EntityName()
+	info.Tag = m.Tag()
 	info.Password = "foo1"
 	err = tryOpenState(info)
 	c.Assert(state.IsUnauthorizedError(err), Equals, true)
 
 	// Connect as the machine entity.
-	info.EntityName = m.EntityName()
+	info.Tag = m.Tag()
 	info.Password = "foo"
 	st1, err := state.Open(info, state.TestingDialTimeout)
 	c.Assert(err, IsNil)
@@ -333,7 +324,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 
 	// Now connect as the unit entity and, as that
 	// that entity, change the password for a new unit.
-	info.EntityName = unit.EntityName()
+	info.Tag = unit.Tag()
 	info.Password = "bar"
 	st2, err := state.Open(info, state.TestingDialTimeout)
 	c.Assert(err, IsNil)

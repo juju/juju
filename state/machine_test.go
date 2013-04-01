@@ -132,12 +132,12 @@ func (s *MachineSuite) TestMachineSetAgentAlive(c *C) {
 	c.Assert(alive, Equals, true)
 }
 
-func (s *MachineSuite) TestEntityName(c *C) {
-	c.Assert(s.machine.EntityName(), Equals, "machine-0")
+func (s *MachineSuite) TestTag(c *C) {
+	c.Assert(s.machine.Tag(), Equals, "machine-0")
 }
 
-func (s *MachineSuite) TestMachineEntityName(c *C) {
-	c.Assert(state.MachineEntityName("10"), Equals, "machine-10")
+func (s *MachineSuite) TestMachineTag(c *C) {
+	c.Assert(state.MachineTag("10"), Equals, "machine-10")
 }
 
 func (s *MachineSuite) TestSetMongoPassword(c *C) {

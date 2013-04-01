@@ -244,7 +244,7 @@ func runStop(r runner) error {
 }
 
 type entity interface {
-	EntityName() string
+	state.Tagger
 	SetMongoPassword(string) error
 }
 
@@ -256,9 +256,9 @@ type agentSuite struct {
 // primeAgent writes the configuration file and tools
 // for an agent with the given entity name.
 // It returns the agent's configuration and the current tools.
-func (s *agentSuite) primeAgent(c *C, entityName, password string) (*agent.Conf, *state.Tools) {
+func (s *agentSuite) primeAgent(c *C, tag, password string) (*agent.Conf, *state.Tools) {
 	tools := s.primeTools(c, version.Current)
-	tools1, err := agent.ChangeAgentTools(s.DataDir(), entityName, version.Current)
+	tools1, err := agent.ChangeAgentTools(s.DataDir(), tag, version.Current)
 	c.Assert(err, IsNil)
 	c.Assert(tools1, DeepEquals, tools)
 
@@ -267,7 +267,7 @@ func (s *agentSuite) primeAgent(c *C, entityName, password string) (*agent.Conf,
 		OldPassword: password,
 		StateInfo:   s.StateInfo(c),
 	}
-	conf.StateInfo.EntityName = entityName
+	conf.StateInfo.Tag = tag
 	err = conf.Write()
 	c.Assert(err, IsNil)
 	return conf, tools
@@ -321,7 +321,7 @@ func (s *agentSuite) primeTools(c *C, vers version.Binary) *state.Tools {
 }
 
 func (s *agentSuite) testAgentPasswordChanging(c *C, ent entity, newAgent func() runner) {
-	conf, err := agent.ReadConf(s.DataDir(), ent.EntityName())
+	conf, err := agent.ReadConf(s.DataDir(), ent.Tag())
 	c.Assert(err, IsNil)
 
 	// Check that it starts initially and changes the password
@@ -340,7 +340,7 @@ func (s *agentSuite) testAgentPasswordChanging(c *C, ent entity, newAgent func()
 
 	// Check that we can no longer gain access with the initial password.
 	info := s.StateInfo(c)
-	info.EntityName = ent.EntityName()
+	info.Tag = ent.Tag()
 	info.Password = "initial"
 	testOpenState(c, info, state.Unauthorizedf("unauth"))
 
@@ -386,7 +386,7 @@ func (s *agentSuite) testUpgrade(c *C, agent runner, currentTools *state.Tools) 
 }
 
 func refreshConfig(c *agent.Conf) error {
-	nc, err := agent.ReadConf(c.DataDir, c.StateInfo.EntityName)
+	nc, err := agent.ReadConf(c.DataDir, c.StateInfo.Tag)
 	if err != nil {
 		return err
 	}

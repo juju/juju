@@ -106,9 +106,9 @@ func newUnit(st *State, udoc *unitDoc) *Unit {
 		doc: *udoc,
 	}
 	unit.annotator = annotator{
-		globalKey:  unit.globalKey(),
-		entityName: unit.EntityName(),
-		st:         st,
+		globalKey: unit.globalKey(),
+		tag:       unit.Tag(),
+		st:        st,
 	}
 	return unit
 }
@@ -207,7 +207,7 @@ func (u *Unit) SetAgentTools(t *Tools) (err error) {
 // should use to communicate with the state servers.  Previous passwords
 // are invalidated.
 func (u *Unit) SetMongoPassword(password string) error {
-	return u.st.setMongoPassword(u.EntityName(), password)
+	return u.st.setMongoPassword(u.Tag(), password)
 }
 
 // SetPassword sets the password for the machine's agent.
@@ -333,13 +333,13 @@ func (u *Unit) SubordinateNames() []string {
 	return names
 }
 
-// DeployerName returns the entity name of the agent responsible for deploying
+// DeployerTag returns the tag of the agent responsible for deploying
 // the unit. If no such entity can be determined, false is returned.
-func (u *Unit) DeployerName() (string, bool) {
+func (u *Unit) DeployerTag() (string, bool) {
 	if u.doc.Principal != "" {
-		return UnitEntityName(u.doc.Principal), true
+		return UnitTag(u.doc.Principal), true
 	} else if u.doc.MachineId != "" {
-		return MachineEntityName(u.doc.MachineId), true
+		return MachineTag(u.doc.MachineId), true
 	}
 	return "", false
 }
@@ -368,37 +368,14 @@ func (u *Unit) Refresh() error {
 }
 
 // Status returns the status of the unit's agent.
-func (u *Unit) Status() (status UnitStatus, info string, err error) {
-	status, info = u.doc.Status, u.doc.StatusInfo
-	if status == UnitPending {
-		return
-	}
-	switch status {
-	case UnitError:
-		// We always expect an info if status is 'error'.
-		if info == "" {
-			panic("no status-info found for unit error")
-		}
-		return
-	case UnitStopped:
-		return
-	}
-
-	// TODO(fwereade,niemeyer): Take this out of Status and drop error result.
-	alive, err := u.AgentAlive()
-	if err != nil {
-		return "", "", err
-	}
-	if !alive {
-		return UnitDown, "", nil
-	}
-	return
+func (u *Unit) Status() (status UnitStatus, info string) {
+	return u.doc.Status, u.doc.StatusInfo
 }
 
 // SetStatus sets the status of the unit.
 func (u *Unit) SetStatus(status UnitStatus, info string) error {
-	if status == UnitPending {
-		panic("unit status must not be set to pending")
+	if status == UnitError && info == "" {
+		panic("must set info for unit error status")
 	}
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
@@ -546,17 +523,17 @@ func (u *Unit) AgentAlive() (bool, error) {
 	return u.st.pwatcher.Alive(u.globalKey())
 }
 
-// UnitEntityName returns the entity name for the
+// UnitTag returns the tag for the
 // unit with the given name.
-func UnitEntityName(unitName string) string {
+func UnitTag(unitName string) string {
 	return "unit-" + strings.Replace(unitName, "/", "-", -1)
 }
 
-// EntityName returns a name identifying the unit that is safe to use
+// Tag returns a name identifying the unit that is safe to use
 // as a file name.  The returned name will be different from other
-// EntityName values returned by any other entities from the same state.
-func (u *Unit) EntityName() string {
-	return UnitEntityName(u.Name())
+// Tag values returned by any other entities from the same state.
+func (u *Unit) Tag() string {
+	return UnitTag(u.Name())
 }
 
 // WaitAgentAlive blocks until the respective agent is alive.
