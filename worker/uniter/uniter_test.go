@@ -112,12 +112,12 @@ type context struct {
 	hooks         []string
 	sch           *state.Charm
 	svc           *state.Service
-	unit          *params.Unit
+	unit          *state.Unit
 	uniter        *uniter.Uniter
 	relatedSvc    *state.Service
 	relation      *state.Relation
 	relationUnits map[string]*state.RelationUnit
-	subordinate   *params.Unit
+	subordinate   *state.Unit
 }
 
 func (ctx *context) run(c *C, steps []stepper) {
