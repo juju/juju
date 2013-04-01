@@ -60,7 +60,7 @@ func (s *ServiceSuite) TestSetCharmErrors(c *C) {
 	err := s.mysql.SetCharm(logging, false)
 	c.Assert(err, ErrorMatches, "cannot change a service's subordinacy")
 
-	othermysql := s.AddSeriesCharm(c, "mysql", "otherseries", 123)
+	othermysql := s.AddSeriesCharm(c, "mysql", "otherseries")
 	err = s.mysql.SetCharm(othermysql, false)
 	c.Assert(err, ErrorMatches, "cannot change a service's series")
 }

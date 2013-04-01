@@ -51,7 +51,9 @@ func AddCustomCharm(c *C, st *State, name, filename, content, series string, rev
 	}
 	ch, err := charm.ReadDir(path)
 	c.Assert(err, IsNil)
-	ch.SetRevision(revision)
+	if revision != -1 {
+		ch.SetRevision(revision)
+	}
 	return addCharm(c, st, series, ch)
 }
 

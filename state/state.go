@@ -701,11 +701,16 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	if !eps[0].CanRelateTo(eps[1]) {
 		return nil, fmt.Errorf("endpoints do not relate")
 	}
-	// If either endpoint has container scope, so must the other.
+	// If either endpoint has container scope, so must the other; and the
+	// services's series must also match, because they'll be deployed to
+	// the same machines.
+	matchSeries := true
 	if eps[0].Scope == charm.ScopeContainer {
 		eps[1].Scope = charm.ScopeContainer
 	} else if eps[1].Scope == charm.ScopeContainer {
 		eps[0].Scope = charm.ScopeContainer
+	} else {
+		matchSeries = false
 	}
 	// We only get a unique relation id once, to save on roundtrips. If it's
 	// -1, we haven't got it yet (we don't get it at this stage, because we
@@ -723,6 +728,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		}
 		// Collect per-service operations, checking sanity as we go.
 		var ops []txn.Op
+		series := map[string]bool{}
 		for _, ep := range eps {
 			svc, err := st.Service(ep.ServiceName)
 			if IsNotFound(err) {
@@ -732,6 +738,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 			} else if svc.doc.Life != Alive {
 				return nil, fmt.Errorf("service %q is not alive", ep.ServiceName)
 			}
+			series[svc.doc.Series] = true
 			ch, _, err := svc.Charm()
 			if err != nil {
 				return nil, err
@@ -746,6 +753,9 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				Update: D{{"$inc", D{{"relationcount", 1}}}},
 			})
 		}
+		if matchSeries && len(series) != 1 {
+			return nil, fmt.Errorf("principal and subordinate services' series must match")
+		}
 		// Create a new unique id if that has not already been done, and add
 		// an operation to create the relation document.
 		if id == -1 {
@@ -754,7 +764,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				return nil, err
 			}
 		}
-		doc := relationDoc{
+		doc := &relationDoc{
 			Key:       key,
 			Id:        id,
 			Endpoints: eps,
@@ -772,7 +782,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		} else if err != nil {
 			return nil, err
 		}
-		return &Relation{st, doc}, nil
+		return &Relation{st, *doc}, nil
 	}
 	return nil, ErrExcessiveContention
 }
