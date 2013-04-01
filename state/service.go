@@ -24,6 +24,8 @@ type Service struct {
 // Note the correspondence with ServiceInfo in state/api/params.
 type serviceDoc struct {
 	Name          string `bson:"_id"`
+	Series        string
+	Subordinate   bool
 	CharmURL      *charm.URL
 	ForceCharm    bool
 	Life          Life
@@ -421,6 +423,12 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 // this charm, and existing units will be upgraded to use it. If force is true,
 // units will be upgraded even if they are in an error state.
 func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
+	if ch.Meta().Subordinate != s.doc.Subordinate {
+		return fmt.Errorf("cannot change a service's subordinacy")
+	}
+	if ch.URL().Series != s.doc.Series {
+		return fmt.Errorf("cannot change a service's series")
+	}
 	for i := 0; i < 5; i++ {
 		var ops []txn.Op
 		// Make sure the service doesn't have this charm already.
@@ -442,6 +450,8 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 			if err != nil {
 				return err
 			}
+			// TODO(fwereade) check that the service's endpoint in each of
+			// its existing relations is still implemented by the new charm.
 		}
 
 		if err := s.st.runner.Run(ops, "", nil); err == nil {
@@ -452,8 +462,8 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 			return err
 		}
 
-		// If the service is not alive, fail out immediately;
-		// otherwise settings data changed underneath us, so retry.
+		// If the service is not alive, fail out immediately; otherwise,
+		// data changed underneath us, so retry.
 		if alive, err := isAlive(s.st.services, s.doc.Name); err != nil {
 			return err
 		} else if !alive {
@@ -500,13 +510,9 @@ func (s *Service) newUnitName() (string, error) {
 // and only if s is a subordinate service. Only one subordinate of a given
 // service will be assigned to a given principal.
 func (s *Service) addUnitOps(principalName string) (string, []txn.Op, error) {
-	ch, _, err := s.Charm()
-	if err != nil {
-		return "", nil, err
-	}
-	if subordinate := ch.Meta().Subordinate; subordinate && principalName == "" {
+	if s.doc.Subordinate && principalName == "" {
 		return "", nil, fmt.Errorf("service is a subordinate")
-	} else if !subordinate && principalName != "" {
+	} else if !s.doc.Subordinate && principalName != "" {
 		return "", nil, fmt.Errorf("service is not a subordinate")
 	}
 	name, err := s.newUnitName()
@@ -516,7 +522,7 @@ func (s *Service) addUnitOps(principalName string) (string, []txn.Op, error) {
 	udoc := &unitDoc{
 		Name:      name,
 		Service:   s.doc.Name,
-		Series:    ch.URL().Series,
+		Series:    s.doc.Series,
 		Life:      Alive,
 		Status:    UnitPending,
 		Principal: principalName,
@@ -663,13 +669,21 @@ func (s *Service) Config() (config *Settings, err error) {
 	return config, nil
 }
 
+var ErrSubordinateConstraints = errors.New("constraints do not apply to subordinate services")
+
 // Constraints returns the current service constraints.
 func (s *Service) Constraints() (constraints.Value, error) {
+	if s.doc.Subordinate {
+		return constraints.Value{}, ErrSubordinateConstraints
+	}
 	return readConstraints(s.st, s.globalKey())
 }
 
 // SetConstraints replaces the current service constraints.
 func (s *Service) SetConstraints(cons constraints.Value) error {
+	if s.doc.Subordinate {
+		return ErrSubordinateConstraints
+	}
 	return writeConstraints(s.st, s.globalKey(), cons)
 }
 

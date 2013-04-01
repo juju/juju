@@ -170,12 +170,12 @@ func checkEnvConfig(c *C, cfg *config.Config, x map[interface{}]interface{}, scr
 // TestCloudInit checks that the output from the various tests
 // in cloudinitTests is well formed.
 func (*cloudinitSuite) TestCloudInit(c *C) {
-	for i, t := range cloudinitTests {
+	for i, test := range cloudinitTests {
 		c.Logf("test %d", i)
-		if t.setEnvConfig {
-			t.cfg.Config = minimalConfig(c)
+		if test.setEnvConfig {
+			test.cfg.Config = minimalConfig(c)
 		}
-		ci, err := cloudinit.New(&t.cfg)
+		ci, err := cloudinit.New(&test.cfg)
 		c.Assert(err, IsNil)
 		c.Check(ci, NotNil)
 		// render the cloudinit config to bytes, and then
@@ -193,9 +193,9 @@ func (*cloudinitSuite) TestCloudInit(c *C) {
 		c.Check(x["apt_update"], Equals, true)
 
 		scripts := getScripts(x)
-		scriptDiff(c, scripts, t.expectScripts)
-		if t.cfg.Config != nil {
-			checkEnvConfig(c, t.cfg.Config, x, scripts)
+		scriptDiff(c, scripts, test.expectScripts)
+		if test.cfg.Config != nil {
+			checkEnvConfig(c, test.cfg.Config, x, scripts)
 		}
 		checkPackage(c, x, "git", true)
 	}

@@ -27,7 +27,7 @@ func (s *ServiceSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *ServiceSuite) TestServiceCharm(c *C) {
+func (s *ServiceSuite) TestSetCharm(c *C) {
 	ch, force, err := s.mysql.Charm()
 	c.Assert(err, IsNil)
 	c.Assert(ch.URL(), DeepEquals, s.charm.URL())
@@ -36,7 +36,6 @@ func (s *ServiceSuite) TestServiceCharm(c *C) {
 	c.Assert(url, DeepEquals, s.charm.URL())
 	c.Assert(force, Equals, false)
 
-	// TODO: SetCharm must validate the change (version, relations, etc)
 	wp := s.AddTestingCharm(c, "wordpress")
 	err = s.mysql.SetCharm(wp, true)
 	ch, force, err1 := s.mysql.Charm()
@@ -54,6 +53,16 @@ func (s *ServiceSuite) TestServiceCharm(c *C) {
 	c.Assert(err, IsNil)
 	err = s.mysql.SetCharm(wp, true)
 	c.Assert(err, ErrorMatches, `service "mysql" is not alive`)
+}
+
+func (s *ServiceSuite) TestSetCharmErrors(c *C) {
+	logging := s.AddTestingCharm(c, "logging")
+	err := s.mysql.SetCharm(logging, false)
+	c.Assert(err, ErrorMatches, "cannot change a service's subordinacy")
+
+	othermysql := s.AddSeriesCharm(c, "mysql", "otherseries")
+	err = s.mysql.SetCharm(othermysql, false)
+	c.Assert(err, ErrorMatches, "cannot change a service's series")
 }
 
 var stringConfig = `
@@ -900,6 +909,18 @@ func (s *ServiceSuite) TestConstraints(c *C) {
 	cons6, err := mysql.Constraints()
 	c.Assert(err, IsNil)
 	c.Assert(cons6, DeepEquals, cons0)
+}
+
+func (s *ServiceSuite) TestSubordinateConstraints(c *C) {
+	loggingCh := s.AddTestingCharm(c, "logging")
+	logging, err := s.State.AddService("logging", loggingCh)
+	c.Assert(err, IsNil)
+
+	_, err = logging.Constraints()
+	c.Assert(err, Equals, state.ErrSubordinateConstraints)
+
+	err = logging.SetConstraints(constraints.Value{})
+	c.Assert(err, Equals, state.ErrSubordinateConstraints)
 }
 
 type unitSlice []*state.Unit
