@@ -581,7 +581,7 @@ func (s *Service) AddUnit() (unit *Unit, err error) {
 
 var ErrExcessiveContention = errors.New("state changing too quickly; try again soon")
 
-// removeOps returns the operations necessary to remove the supplied unit,
+// removeUnitOps returns the operations necessary to remove the supplied unit,
 // assuming the supplied asserts apply to the unit document.
 func (s *Service) removeUnitOps(u *Unit, asserts D) ([]txn.Op, error) {
 	var ops []txn.Op

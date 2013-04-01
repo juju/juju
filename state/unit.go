@@ -232,11 +232,11 @@ func (u *Unit) PasswordValid(password string) bool {
 	return trivial.PasswordHash(password) == u.doc.PasswordHash
 }
 
-// Destroy only affects u if it is Alive. If u is a principal unit
-// assigned to a machine that has not been provisioned (ie one that
-// lacks an instance id), it will be removed immediately; otherwise
-// it will be set to Dying, and its unit agent will be expected to
-// clean it up.
+// Destroy, when called on a Alive unit, advances its lifecycle as far as
+// possible; it otherwise has no effect. In most situations, the unit's
+// life is just set to Dying; but if a principal unit that is not assigned
+// to a provisioned machine is Destroyed, it will be removed from state
+// directly.
 func (u *Unit) Destroy() (err error) {
 	defer func() {
 		if err == nil {
