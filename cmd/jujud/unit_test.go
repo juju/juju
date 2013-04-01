@@ -35,7 +35,7 @@ func (s *UnitSuite) primeAgent(c *C) (*state.Unit, *agent.Conf, *state.Tools) {
 	c.Assert(err, IsNil)
 	err = unit.SetMongoPassword("unit-password")
 	c.Assert(err, IsNil)
-	conf, tools := s.agentSuite.primeAgent(c, unit.EntityName(), "unit-password")
+	conf, tools := s.agentSuite.primeAgent(c, unit.Tag(), "unit-password")
 	return unit, conf, tools
 }
 
@@ -96,8 +96,7 @@ waitStarted:
 		case <-time.After(50 * time.Millisecond):
 			err := unit.Refresh()
 			c.Assert(err, IsNil)
-			st, info, err := unit.Status()
-			c.Assert(err, IsNil)
+			st, info := unit.Status()
 			switch st {
 			case state.UnitPending, state.UnitInstalled:
 				c.Logf("waiting...")

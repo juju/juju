@@ -92,7 +92,7 @@ func (s *ProvisionerSuite) checkStartInstanceCustom(c *C, m *state.Machine, secr
 				// Check we can connect to the state with
 				// the machine's entity name and password.
 				info := s.StateInfo(c)
-				info.EntityName = m.EntityName()
+				info.Tag = m.Tag()
 				c.Assert(o.Info.Password, Not(HasLen), 0)
 				info.Password = o.Info.Password
 				c.Assert(o.Info, DeepEquals, info)
