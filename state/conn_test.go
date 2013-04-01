@@ -61,8 +61,8 @@ func (s *ConnSuite) AddTestingCharm(c *C, name string) *state.Charm {
 	return state.AddTestingCharm(c, s.State, name)
 }
 
-func (s *ConnSuite) AddSeriesCharm(c *C, name, series string, revision int) *state.Charm {
-	return state.AddCustomCharm(c, s.State, name, "", "", series, revision)
+func (s *ConnSuite) AddSeriesCharm(c *C, name, series string) *state.Charm {
+	return state.AddCustomCharm(c, s.State, name, "", "", series, -1)
 }
 
 // AddConfigCharm clones a testing charm, replaces its config with
