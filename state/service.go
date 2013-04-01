@@ -42,9 +42,9 @@ func newService(st *State, doc *serviceDoc) *Service {
 		doc: *doc,
 	}
 	svc.annotator = annotator{
-		globalKey:  svc.globalKey(),
-		entityName: svc.EntityName(),
-		st:         st,
+		globalKey: svc.globalKey(),
+		tag:       svc.Tag(),
+		st:        st,
 	}
 	return svc
 }
@@ -54,10 +54,10 @@ func (s *Service) Name() string {
 	return s.doc.Name
 }
 
-// EntityName returns a name identifying the service that is safe to use
+// TAg returns a name identifying the service that is safe to use
 // as a file name.  The returned name will be different from other
-// EntityName values returned by any other entities from the same state.
-func (s *Service) EntityName() string {
+// TAg values returned by any other entities from the same state.
+func (s *Service) Tag() string {
 	return "service-" + s.Name()
 }
 
@@ -81,7 +81,7 @@ func (s *Service) Life() Life {
 	return s.doc.Life
 }
 
-var errRefresh = errors.New("cannot determine relation destruction operations; please refresh the service")
+var errRefresh = errors.New("state seems inconsistent, refresh and try again")
 
 // Destroy ensures that the service and all its relations will be removed at
 // some point; if the service has no units, and no relation involving the
@@ -581,7 +581,9 @@ func (s *Service) AddUnit() (unit *Unit, err error) {
 
 var ErrExcessiveContention = errors.New("state changing too quickly; try again soon")
 
-func (s *Service) removeUnitOps(u *Unit) ([]txn.Op, error) {
+// removeUnitOps returns the operations necessary to remove the supplied unit,
+// assuming the supplied asserts apply to the unit document.
+func (s *Service) removeUnitOps(u *Unit, asserts D) ([]txn.Op, error) {
 	var ops []txn.Op
 	if s.doc.Subordinate {
 		ops = append(ops, txn.Op{
@@ -604,7 +606,7 @@ func (s *Service) removeUnitOps(u *Unit) ([]txn.Op, error) {
 	ops = append(ops, txn.Op{
 		C:      s.st.units.Name,
 		Id:     u.doc.Name,
-		Assert: txn.DocExists,
+		Assert: asserts,
 		Remove: true,
 	})
 	if u.doc.CharmURL != nil {
@@ -691,11 +693,23 @@ func (s *Service) Constraints() (constraints.Value, error) {
 }
 
 // SetConstraints replaces the current service constraints.
-func (s *Service) SetConstraints(cons constraints.Value) error {
+func (s *Service) SetConstraints(cons constraints.Value) (err error) {
 	if s.doc.Subordinate {
 		return ErrSubordinateConstraints
 	}
-	return writeConstraints(s.st, s.globalKey(), cons)
+	defer trivial.ErrorContextf(&err, "cannot set constraints")
+	if s.doc.Life != Alive {
+		return errNotAlive
+	}
+	ops := []txn.Op{
+		{
+			C:      s.st.services.Name,
+			Id:     s.doc.Name,
+			Assert: isAliveDoc,
+		},
+		setConstraintsOp(s.st, s.globalKey(), cons),
+	}
+	return onAbort(s.st.runner.Run(ops, "", nil), errNotAlive)
 }
 
 // settingsIncRefOp returns an operation that increments the ref count

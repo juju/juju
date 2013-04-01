@@ -37,9 +37,9 @@ func (c *AgentConf) checkArgs(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-func (c *AgentConf) read(entityName string) error {
+func (c *AgentConf) read(tag string) error {
 	var err error
-	c.Conf, err = agent.ReadConf(c.dataDir, entityName)
+	c.Conf, err = agent.ReadConf(c.dataDir, tag)
 	return err
 }
 
@@ -125,7 +125,7 @@ type Agent interface {
 	Tomb() *tomb.Tomb
 	RunOnce(st *state.State, entity AgentState) error
 	Entity(st *state.State) (AgentState, error)
-	EntityName() string
+	Tag() string
 }
 
 // runLoop repeatedly calls runOnce until it returns worker.ErrDead or
@@ -225,7 +225,7 @@ func openState(c *agent.Conf, a Agent) (_ *state.State, _ AgentState, err error)
 		// Ensure we do not lose changes made by another
 		// worker by re-reading the configuration and changing
 		// only the password.
-		c1, err := agent.ReadConf(c.DataDir, c.EntityName())
+		c1, err := agent.ReadConf(c.DataDir, c.Tag())
 		if err != nil {
 			return nil, nil, err
 		}
@@ -254,6 +254,6 @@ var newDeployContext = func(st *state.State, dataDir string, deployerName string
 }
 
 func newDeployer(st *state.State, w *state.UnitsWatcher, dataDir string) *deployer.Deployer {
-	ctx := newDeployContext(st, dataDir, w.EntityName())
+	ctx := newDeployContext(st, dataDir, w.Tag())
 	return deployer.NewDeployer(st, ctx, w)
 }

@@ -278,10 +278,10 @@ func (p *Provisioner) setupAuthentication(m *state.Machine) (*state.Info, *api.I
 		return nil, nil, fmt.Errorf("cannot set password for machine %v: %v", m, err)
 	}
 	stateInfo := *p.stateInfo
-	stateInfo.EntityName = m.EntityName()
+	stateInfo.Tag = m.Tag()
 	stateInfo.Password = password
 	apiInfo := *p.apiInfo
-	apiInfo.EntityName = m.EntityName()
+	apiInfo.Tag = m.Tag()
 	apiInfo.Password = password
 	return &stateInfo, &apiInfo, nil
 }

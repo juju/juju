@@ -53,5 +53,5 @@ func (s *UserSuite) TestName(c *C) {
 	c.Assert(err, IsNil)
 
 	c.Assert(u.Name(), Equals, "someuser")
-	c.Assert(u.EntityName(), Equals, "user-someuser")
+	c.Assert(u.Tag(), Equals, "user-someuser")
 }

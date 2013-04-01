@@ -975,6 +975,16 @@ func (createServiceAndUnit) step(c *C, ctx *context) {
 	c.Assert(err, IsNil)
 	unit, err := svc.AddUnit()
 	c.Assert(err, IsNil)
+
+	// Assign the unit to a provisioned machine to match expected state.
+	err = unit.AssignToNewMachine()
+	c.Assert(err, IsNil)
+	mid, err := unit.AssignedMachineId()
+	c.Assert(err, IsNil)
+	machine, err := ctx.st.Machine(mid)
+	c.Assert(err, IsNil)
+	err = machine.SetInstanceId("i-exist")
+	c.Assert(err, IsNil)
 	ctx.svc = svc
 	ctx.unit = unit
 }
@@ -1195,8 +1205,7 @@ func (s waitUnit) step(c *C, ctx *context) {
 				c.Logf("want unit charm %q, got %q; still waiting", curl(s.charm), got)
 				continue
 			}
-			status, info, err := ctx.unit.Status()
-			c.Assert(err, IsNil)
+			status, info := ctx.unit.Status()
 			if status != s.status {
 				c.Logf("want unit status %q, got %q; still waiting", s.status, status)
 				continue

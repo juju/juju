@@ -295,13 +295,23 @@ func (st *State) Machine(id string) (*Machine, error) {
 	return newMachine(st, mdoc), nil
 }
 
+// Tagger represents entities with a tag.
+type Tagger interface {
+	Tag() string
+}
+
 // Authenticator represents entites capable of handling password
 // authentication.
 type Authenticator interface {
 	Refresh() error
 	SetPassword(pass string) error
 	PasswordValid(pass string) bool
-	EntityName() string
+}
+
+// TaggedAuthenticator represents tagged entities capable of authentication.
+type TaggedAuthenticator interface {
+	Authenticator
+	Tagger
 }
 
 // Annotator represents entities capable of handling annotations.
@@ -311,58 +321,64 @@ type Annotator interface {
 	SetAnnotations(pairs map[string]string) error
 }
 
-// Authenticator attempts to return an Authenticator with the given name.
-func (st *State) Authenticator(name string) (Authenticator, error) {
+// TaggedAnnotator represents tagged entities capable of handling annotations.
+type TaggedAnnotator interface {
+	Annotator
+	Tagger
+}
+
+// Authenticator attempts to return a TaggedAuthenticator with the given name.
+func (st *State) Authenticator(name string) (TaggedAuthenticator, error) {
 	e, err := st.entity(name)
 	if err != nil {
 		return nil, err
 	}
-	if e, ok := e.(Authenticator); ok {
+	if e, ok := e.(TaggedAuthenticator); ok {
 		return e, nil
 	}
 	return nil, fmt.Errorf("entity %q does not support authentication", name)
 }
 
-// Annotator attempts to return an Annotator with the given name.
-func (st *State) Annotator(name string) (Annotator, error) {
+// Annotator attempts to return aa TaggedAnnotator with the given name.
+func (st *State) Annotator(name string) (TaggedAnnotator, error) {
 	e, err := st.entity(name)
 	if err != nil {
 		return nil, err
 	}
-	if e, ok := e.(Annotator); ok {
+	if e, ok := e.(TaggedAnnotator); ok {
 		return e, nil
 	}
 	return nil, fmt.Errorf("entity %q does not support annotations", name)
 }
 
-// entity returns the entity for the given name.
-func (st *State) entity(entityName string) (interface{}, error) {
-	i := strings.Index(entityName, "-")
-	if i <= 0 || i >= len(entityName)-1 {
-		return nil, fmt.Errorf("invalid entity name %q", entityName)
+// entity returns the entity for the given tag.
+func (st *State) entity(tag string) (interface{}, error) {
+	i := strings.Index(tag, "-")
+	if i <= 0 || i >= len(tag)-1 {
+		return nil, fmt.Errorf("invalid entity tag %q", tag)
 	}
-	prefix, id := entityName[0:i], entityName[i+1:]
+	prefix, id := tag[0:i], tag[i+1:]
 	switch prefix {
 	case "machine":
 		if !IsMachineId(id) {
-			return nil, fmt.Errorf("invalid entity name %q", entityName)
+			return nil, fmt.Errorf("invalid entity tag %q", tag)
 		}
 		return st.Machine(id)
 	case "unit":
 		i := strings.LastIndex(id, "-")
 		if i == -1 {
-			return nil, fmt.Errorf("invalid entity name %q", entityName)
+			return nil, fmt.Errorf("invalid entity tag %q", tag)
 		}
 		name := id[:i] + "/" + id[i+1:]
 		if !IsUnitName(name) {
-			return nil, fmt.Errorf("invalid entity name %q", entityName)
+			return nil, fmt.Errorf("invalid entity tag %q", tag)
 		}
 		return st.Unit(name)
 	case "user":
 		return st.User(id)
 	case "service":
 		if !IsServiceName(id) {
-			return nil, fmt.Errorf("invalid entity name %q", entityName)
+			return nil, fmt.Errorf("invalid entity tag %q", tag)
 		}
 		return st.Service(id)
 	case "environment":
@@ -373,19 +389,19 @@ func (st *State) entity(entityName string) (interface{}, error) {
 		// Return an invalid entity error if the requested environment is not
 		// the current one.
 		if id != conf.Name() {
-			return nil, fmt.Errorf("invalid entity name %q", entityName)
+			return nil, fmt.Errorf("invalid entity tag %q", tag)
 		}
 		return st.Environment()
 	}
-	return nil, fmt.Errorf("invalid entity name %q", entityName)
+	return nil, fmt.Errorf("invalid entity tag %q", tag)
 }
 
-// ParseEntityName, given an entity name, returns the collection name and id
+// ParseTag, given an entity tag, returns the collection name and id
 // of the entity document.
-func (st *State) ParseEntityName(entityName string) (string, string, error) {
-	parts := strings.SplitN(entityName, "-", 2)
+func (st *State) ParseTag(tag string) (string, string, error) {
+	parts := strings.SplitN(tag, "-", 2)
 	if len(parts) != 2 {
-		return "", "", fmt.Errorf("invalid entity name %q", entityName)
+		return "", "", fmt.Errorf("invalid entity name %q", tag)
 	}
 	id := parts[1]
 	var coll string
@@ -400,13 +416,13 @@ func (st *State) ParseEntityName(entityName string) (string, string, error) {
 		// for a unit.
 		idx := strings.LastIndex(id, "-")
 		if idx == -1 {
-			return "", "", fmt.Errorf("invalid entity name %q", entityName)
+			return "", "", fmt.Errorf("invalid entity name %q", tag)
 		}
 		id = id[:idx] + "/" + id[idx+1:]
 	case "user":
 		coll = st.users.Name
 	default:
-		return "", "", fmt.Errorf("invalid entity name %q", entityName)
+		return "", "", fmt.Errorf("invalid entity name %q", tag)
 	}
 	return coll, id, nil
 }
@@ -693,11 +709,16 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	if !eps[0].CanRelateTo(eps[1]) {
 		return nil, fmt.Errorf("endpoints do not relate")
 	}
-	// If either endpoint has container scope, so must the other.
+	// If either endpoint has container scope, so must the other; and the
+	// services's series must also match, because they'll be deployed to
+	// the same machines.
+	matchSeries := true
 	if eps[0].Scope == charm.ScopeContainer {
 		eps[1].Scope = charm.ScopeContainer
 	} else if eps[1].Scope == charm.ScopeContainer {
 		eps[0].Scope = charm.ScopeContainer
+	} else {
+		matchSeries = false
 	}
 	// We only get a unique relation id once, to save on roundtrips. If it's
 	// -1, we haven't got it yet (we don't get it at this stage, because we
@@ -715,6 +736,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		}
 		// Collect per-service operations, checking sanity as we go.
 		var ops []txn.Op
+		series := map[string]bool{}
 		for _, ep := range eps {
 			svc, err := st.Service(ep.ServiceName)
 			if IsNotFound(err) {
@@ -724,6 +746,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 			} else if svc.doc.Life != Alive {
 				return nil, fmt.Errorf("service %q is not alive", ep.ServiceName)
 			}
+			series[svc.doc.Series] = true
 			ch, _, err := svc.Charm()
 			if err != nil {
 				return nil, err
@@ -738,6 +761,9 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				Update: D{{"$inc", D{{"relationcount", 1}}}},
 			})
 		}
+		if matchSeries && len(series) != 1 {
+			return nil, fmt.Errorf("principal and subordinate services' series must match")
+		}
 		// Create a new unique id if that has not already been done, and add
 		// an operation to create the relation document.
 		if id == -1 {
@@ -746,7 +772,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				return nil, err
 			}
 		}
-		doc := relationDoc{
+		doc := &relationDoc{
 			Key:       key,
 			Id:        id,
 			Endpoints: eps,
@@ -764,7 +790,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		} else if err != nil {
 			return nil, err
 		}
-		return &Relation{st, doc}, nil
+		return &Relation{st, *doc}, nil
 	}
 	return nil, ErrExcessiveContention
 }

@@ -17,6 +17,23 @@ import (
 
 type D []bson.DocElem
 
+// preventUnitDestroyRemove ensures that a unit is assigned to a machine with
+// an instance id, and hence prevents it from being unceremoniously removed
+// from state on Destroy. This is useful because several tests go through a
+// unit's lifecycle step by step, asserting the behaviour of a given method
+// in each state, and the unit quick-remove change caused many of these to
+// fail.
+func preventUnitDestroyRemove(c *C, st *state.State, u *state.Unit) {
+	err := u.AssignToNewMachine()
+	c.Assert(err, IsNil)
+	mid, err := u.AssignedMachineId()
+	c.Assert(err, IsNil)
+	m, err := st.Machine(mid)
+	c.Assert(err, IsNil)
+	err = m.SetInstanceId("i-malive")
+	c.Assert(err, IsNil)
+}
+
 type StateSuite struct {
 	ConnSuite
 }
@@ -1019,15 +1036,15 @@ func tryOpenState(info *state.Info) error {
 
 func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *C) {
 	info := state.TestingStateInfo()
-	info.EntityName, info.Password = "arble", "bar"
+	info.Tag, info.Password = "arble", "bar"
 	err := tryOpenState(info)
 	c.Assert(state.IsUnauthorizedError(err), Equals, true)
 
-	info.EntityName, info.Password = "arble", ""
+	info.Tag, info.Password = "arble", ""
 	err = tryOpenState(info)
 	c.Assert(state.IsUnauthorizedError(err), Equals, true)
 
-	info.EntityName, info.Password = "", ""
+	info.Tag, info.Password = "", ""
 	err = tryOpenState(info)
 	c.Assert(err, IsNil)
 }
@@ -1075,11 +1092,8 @@ func testSetPassword(c *C, getEntity func() (state.Authenticator, error)) {
 
 type entity interface {
 	lifer
-	EntityName() string
+	state.TaggedAuthenticator
 	SetMongoPassword(password string) error
-	SetPassword(password string) error
-	PasswordValid(password string) bool
-	Refresh() error
 }
 
 func testSetMongoPassword(c *C, getEntity func(st *state.State) (entity, error)) {
@@ -1098,7 +1112,7 @@ func testSetMongoPassword(c *C, getEntity func(st *state.State) (entity, error))
 	c.Assert(err, IsNil)
 
 	// Check that we cannot log in with the wrong password.
-	info.EntityName = ent.EntityName()
+	info.Tag = ent.Tag()
 	info.Password = "bar"
 	err = tryOpenState(info)
 	c.Assert(state.IsUnauthorizedError(err), Equals, true)
@@ -1127,7 +1141,7 @@ func testSetMongoPassword(c *C, getEntity func(st *state.State) (entity, error))
 	c.Assert(err, IsNil)
 
 	// Check that the administrator can still log in.
-	info.EntityName, info.Password = "", "admin-secret"
+	info.Tag, info.Password = "", "admin-secret"
 	err = tryOpenState(info)
 	c.Assert(err, IsNil)
 
@@ -1165,17 +1179,13 @@ func (s *StateSuite) TestSetAdminMongoPassword(c *C) {
 	c.Assert(err, IsNil)
 }
 
-type namedEntity interface {
-	EntityName() string
-}
-
-func (s *StateSuite) testEntity(c *C, getEntity func(string) (namedEntity, error)) {
+func (s *StateSuite) testEntity(c *C, getEntity func(string) (state.Tagger, error)) {
 	bad := []string{"", "machine", "-foo", "foo-", "---", "machine-jim", "unit-123", "unit-foo", "service-", "service-foo/bar", "environment-foo"}
 	for _, name := range bad {
 		c.Logf(name)
 		e, err := getEntity(name)
 		c.Check(e, IsNil)
-		c.Assert(err, ErrorMatches, `invalid entity name ".*"`)
+		c.Assert(err, ErrorMatches, `invalid entity tag ".*"`)
 	}
 
 	e, err := getEntity("machine-1234")
@@ -1196,32 +1206,32 @@ func (s *StateSuite) testEntity(c *C, getEntity func(string) (namedEntity, error
 	m, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 
-	e, err = getEntity(m.EntityName())
+	e, err = getEntity(m.Tag())
 	c.Assert(err, IsNil)
 	c.Assert(e, FitsTypeOf, m)
-	c.Assert(e.EntityName(), Equals, m.EntityName())
+	c.Assert(e.Tag(), Equals, m.Tag())
 
 	svc, err := s.State.AddService("ser-vice2", s.AddTestingCharm(c, "mysql"))
 	c.Assert(err, IsNil)
 	u, err := svc.AddUnit()
 	c.Assert(err, IsNil)
 
-	e, err = getEntity(u.EntityName())
+	e, err = getEntity(u.Tag())
 	c.Assert(err, IsNil)
 	c.Assert(e, FitsTypeOf, u)
-	c.Assert(e.EntityName(), Equals, u.EntityName())
+	c.Assert(e.Tag(), Equals, u.Tag())
 
 	m.Destroy()
 	svc.Destroy()
 }
 
 func (s *StateSuite) TestAuthenticator(c *C) {
-	getEntity := func(name string) (namedEntity, error) {
+	getEntity := func(name string) (state.Tagger, error) {
 		e, err := s.State.Authenticator(name)
 		if err != nil {
 			return nil, err
 		}
-		return e.(namedEntity), nil
+		return e, nil
 	}
 	s.testEntity(c, getEntity)
 	e, err := getEntity("user-arble")
@@ -1232,10 +1242,10 @@ func (s *StateSuite) TestAuthenticator(c *C) {
 	user, err := s.State.AddUser("arble", "pass")
 	c.Assert(err, IsNil)
 
-	e, err = getEntity(user.EntityName())
+	e, err = getEntity(user.Tag())
 	c.Assert(err, IsNil)
 	c.Assert(e, FitsTypeOf, user)
-	c.Assert(e.EntityName(), Equals, user.EntityName())
+	c.Assert(e.Tag(), Equals, user.Tag())
 
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, IsNil)
@@ -1248,21 +1258,21 @@ func (s *StateSuite) TestAuthenticator(c *C) {
 }
 
 func (s *StateSuite) TestAnnotator(c *C) {
-	getEntity := func(name string) (namedEntity, error) {
+	getEntity := func(name string) (state.Tagger, error) {
 		e, err := s.State.Annotator(name)
 		if err != nil {
 			return nil, err
 		}
-		return e.(namedEntity), nil
+		return e, nil
 	}
 	s.testEntity(c, getEntity)
 	svc, err := s.State.AddService("ser-vice1", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, IsNil)
 
-	service, err := getEntity(svc.EntityName())
+	service, err := getEntity(svc.Tag())
 	c.Assert(err, IsNil)
 	c.Assert(service, FitsTypeOf, svc)
-	c.Assert(service.EntityName(), Equals, svc.EntityName())
+	c.Assert(service.Tag(), Equals, svc.Tag())
 
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, IsNil)
@@ -1271,11 +1281,11 @@ func (s *StateSuite) TestAnnotator(c *C) {
 	env, err := s.State.Environment()
 	c.Assert(err, IsNil)
 	c.Assert(e, FitsTypeOf, env)
-	c.Assert(e.EntityName(), Equals, env.EntityName())
+	c.Assert(e.Tag(), Equals, env.Tag())
 
 	user, err := s.State.AddUser("arble", "pass")
 	c.Assert(err, IsNil)
-	_, err = getEntity(user.EntityName())
+	_, err = getEntity(user.Tag())
 	c.Assert(
 		err,
 		ErrorMatches,
@@ -1283,7 +1293,7 @@ func (s *StateSuite) TestAnnotator(c *C) {
 	)
 }
 
-func (s *StateSuite) TestParseEntityName(c *C) {
+func (s *StateSuite) TestParseTag(c *C) {
 	bad := []string{
 		"",
 		"machine",
@@ -1296,7 +1306,7 @@ func (s *StateSuite) TestParseEntityName(c *C) {
 	}
 	for _, name := range bad {
 		c.Logf(name)
-		coll, id, err := s.State.ParseEntityName(name)
+		coll, id, err := s.State.ParseTag(name)
 		c.Check(coll, Equals, "")
 		c.Check(id, Equals, "")
 		c.Assert(err, ErrorMatches, `invalid entity name ".*"`)
@@ -1305,7 +1315,7 @@ func (s *StateSuite) TestParseEntityName(c *C) {
 	// Parse a machine entity name.
 	m, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	coll, id, err := s.State.ParseEntityName(m.EntityName())
+	coll, id, err := s.State.ParseTag(m.Tag())
 	c.Assert(coll, Equals, "machines")
 	c.Assert(id, Equals, m.Id())
 	c.Assert(err, IsNil)
@@ -1313,7 +1323,7 @@ func (s *StateSuite) TestParseEntityName(c *C) {
 	// Parse a service entity name.
 	svc, err := s.State.AddService("ser-vice2", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, IsNil)
-	coll, id, err = s.State.ParseEntityName(svc.EntityName())
+	coll, id, err = s.State.ParseTag(svc.Tag())
 	c.Assert(coll, Equals, "services")
 	c.Assert(id, Equals, svc.Name())
 	c.Assert(err, IsNil)
@@ -1321,7 +1331,7 @@ func (s *StateSuite) TestParseEntityName(c *C) {
 	// Parse a unit entity name.
 	u, err := svc.AddUnit()
 	c.Assert(err, IsNil)
-	coll, id, err = s.State.ParseEntityName(u.EntityName())
+	coll, id, err = s.State.ParseTag(u.Tag())
 	c.Assert(coll, Equals, "units")
 	c.Assert(id, Equals, u.Name())
 	c.Assert(err, IsNil)
@@ -1329,7 +1339,7 @@ func (s *StateSuite) TestParseEntityName(c *C) {
 	// Parse a user entity name.
 	user, err := s.State.AddUser("arble", "pass")
 	c.Assert(err, IsNil)
-	coll, id, err = s.State.ParseEntityName(user.EntityName())
+	coll, id, err = s.State.ParseTag(user.Tag())
 	c.Assert(coll, Equals, "users")
 	c.Assert(id, Equals, user.Name())
 	c.Assert(err, IsNil)

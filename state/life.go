@@ -1,10 +1,7 @@
 package state
 
 import (
-	"fmt"
 	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/txn"
-	"launchpad.net/juju-core/trivial"
 )
 
 // Life represents the lifecycle state of the entities
@@ -18,9 +15,6 @@ const (
 	nLife
 )
 
-var notDeadDoc = D{{"life", D{{"$ne", Dead}}}}
-var isAliveDoc = D{{"life", Alive}}
-
 var lifeStrings = [nLife]string{
 	Alive: "alive",
 	Dying: "dying",
@@ -31,54 +25,16 @@ func (l Life) String() string {
 	return lifeStrings[l]
 }
 
+var isAliveDoc = D{{"life", Alive}}
+var isDeadDoc = D{{"life", Dead}}
+var notDeadDoc = D{{"life", D{{"$ne", Dead}}}}
+
 // Living describes state entities with a lifecycle.
 type Living interface {
 	Life() Life
 	Destroy() error
 	EnsureDead() error
 	Refresh() error
-}
-
-// ensureDying advances the specified entity's life status to Dying, if necessary.
-func ensureDying(st *State, coll *mgo.Collection, id interface{}, desc string) error {
-	ops := []txn.Op{{
-		C:      coll.Name,
-		Id:     id,
-		Assert: isAliveDoc,
-		Update: D{{"$set", D{{"life", Dying}}}},
-	}}
-	if err := st.runner.Run(ops, "", nil); err == txn.ErrAborted {
-		return nil
-	} else if err != nil {
-		return fmt.Errorf("cannot start termination of %s %#v: %v", desc, id, err)
-	}
-	return nil
-}
-
-// ensureDead advances the specified entity's life status to Dead, if necessary.
-// Preconditions can be supplied in assertOps; if the preconditions fail, the error
-// will contain assertMsg. If the entity is not found, no error is returned.
-func ensureDead(st *State, coll *mgo.Collection, id interface{}, desc string, assertOps []txn.Op, assertMsg string) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot finish termination of %s %#v", desc, id)
-	ops := append(assertOps, txn.Op{
-		C:      coll.Name,
-		Id:     id,
-		Update: D{{"$set", D{{"life", Dead}}}},
-	})
-	if err = st.runner.Run(ops, "", nil); err == nil {
-		return nil
-	} else if err != txn.ErrAborted {
-		return err
-	}
-	var doc struct{ Life }
-	if err = coll.FindId(id).One(&doc); err == mgo.ErrNotFound {
-		return nil
-	} else if err != nil {
-		return err
-	} else if doc.Life != Dead {
-		return fmt.Errorf(assertMsg)
-	}
-	return nil
 }
 
 func isAlive(coll *mgo.Collection, id interface{}) (bool, error) {
