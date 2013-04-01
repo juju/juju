@@ -691,11 +691,23 @@ func (s *Service) Constraints() (constraints.Value, error) {
 }
 
 // SetConstraints replaces the current service constraints.
-func (s *Service) SetConstraints(cons constraints.Value) error {
+func (s *Service) SetConstraints(cons constraints.Value) (err error) {
 	if s.doc.Subordinate {
 		return ErrSubordinateConstraints
 	}
-	return writeConstraints(s.st, s.globalKey(), cons)
+	defer trivial.ErrorContextf(&err, "cannot set constraints")
+	if s.doc.Life != Alive {
+		return errNotAlive
+	}
+	ops := []txn.Op{
+		{
+			C:      s.st.services.Name,
+			Id:     s.doc.Name,
+			Assert: isAliveDoc,
+		},
+		setConstraintsOp(s.st, s.globalKey(), cons),
+	}
+	return onAbort(s.st.runner.Run(ops, "", nil), errNotAlive)
 }
 
 // settingsIncRefOp returns an operation that increments the ref count

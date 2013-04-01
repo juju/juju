@@ -287,27 +287,19 @@ func (m *Machine) Remove() (err error) {
 	if m.doc.Life != Dead {
 		return fmt.Errorf("machine is not dead")
 	}
-	cleanupOps := []txn.Op{
-		removeConstraintsOp(m.st, m.globalKey()),
-		annotationRemoveOp(m.st, m.globalKey()),
-	}
-	for i := 0; i < 3; i++ {
-		ops := append([]txn.Op{{
+	ops := []txn.Op{
+		{
 			C:      m.st.machines.Name,
 			Id:     m.doc.Id,
 			Assert: txn.DocExists,
 			Remove: true,
-		}}, cleanupOps...)
-		if err := m.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
-			return err
-		}
-		if m, err = m.st.Machine(m.Id()); IsNotFound(err) {
-			return nil
-		} else if err != nil {
-			return err
-		}
+		},
+		removeConstraintsOp(m.st, m.globalKey()),
+		annotationRemoveOp(m.st, m.globalKey()),
 	}
-	return ErrExcessiveContention
+	// The only abort conditions in play indicate that the machine has already
+	// been removed.
+	return onAbort(m.st.runner.Run(ops, "", nil), nil)
 }
 
 // Refresh refreshes the contents of the machine from the underlying
@@ -422,20 +414,27 @@ func (m *Machine) Constraints() (constraints.Value, error) {
 // is already provisioned.
 func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 	defer trivial.ErrorContextf(&err, "cannot set constraints")
-	for i := 0; i < 2; i++ {
-		if m.doc.Life == Dead {
-			return errDead
+	notProvisioned := D{{"instanceid", ""}}
+	ops := []txn.Op{
+		{
+			C:      m.st.machines.Name,
+			Id:     m.doc.Id,
+			Assert: append(isAliveDoc, notProvisioned...),
+		},
+		setConstraintsOp(m.st, m.globalKey(), cons),
+	}
+	// 3 attempts is enough to push the ErrExcessiveContention case out of the
+	// realm of plausibility: it implies local state indicating unprovisioned,
+	// and remote state indicating provisioned (reasonable); but which changes
+	// back to unprovisioned and then to provisioned again with *very* specific
+	// timing in the course of this loop.
+	for i := 0; i < 3; i++ {
+		if m.doc.Life != Alive {
+			return errNotAlive
 		}
 		if m.doc.InstanceId != "" {
 			return fmt.Errorf("machine is already provisioned")
 		}
-		notProvisioned := D{{"instanceid", ""}}
-		mop := txn.Op{
-			C:      m.st.machines.Name,
-			Id:     m.doc.Id,
-			Assert: append(notDeadDoc, notProvisioned...),
-		}
-		ops := []txn.Op{mop, setConstraintsOp(m.st, m.globalKey(), cons)}
 		if err := m.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
 			return err
 		}
