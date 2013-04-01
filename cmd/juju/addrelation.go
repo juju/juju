@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/statecmd"
 )
 
-// AddRelationCommand adds relations between service endpoints.
+// AddRelationCommand adds a relation between two service endpoints.
 type AddRelationCommand struct {
 	EnvCommandBase
 	Endpoints []string
@@ -34,10 +36,9 @@ func (c *AddRelationCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer conn.Close()
-	eps, err := conn.State.InferEndpoints(c.Endpoints)
-	if err != nil {
-		return err
+	params := params.AddRelation{
+		Endpoints: c.Endpoints,
 	}
-	_, err = conn.State.AddRelation(eps...)
+	_, err = statecmd.AddRelation(conn.State, params)
 	return err
 }

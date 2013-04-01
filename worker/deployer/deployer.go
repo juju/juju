@@ -12,11 +12,11 @@ import (
 // to changes in a set of state units; and for the final removal of its agents'
 // units from state when they are no longer needed.
 type Deployer struct {
-	tomb       tomb.Tomb
-	st         *state.State
-	ctx        Context
-	entityName string
-	deployed   map[string]bool
+	tomb     tomb.Tomb
+	st       *state.State
+	ctx      Context
+	tag      string
+	deployed map[string]bool
 }
 
 // Context abstracts away the differences between different unit deployment
@@ -42,10 +42,10 @@ type Context interface {
 // ctx, according to membership and lifecycle changes notified by w.
 func NewDeployer(st *state.State, ctx Context, w *state.UnitsWatcher) *Deployer {
 	d := &Deployer{
-		st:         st,
-		ctx:        ctx,
-		entityName: w.EntityName(),
-		deployed:   map[string]bool{},
+		st:       st,
+		ctx:      ctx,
+		tag:      w.Tag(),
+		deployed: map[string]bool{},
 	}
 	go func() {
 		defer d.tomb.Done()
@@ -56,7 +56,7 @@ func NewDeployer(st *state.State, ctx Context, w *state.UnitsWatcher) *Deployer 
 }
 
 func (d *Deployer) String() string {
-	return "deployer for " + d.entityName
+	return "deployer for " + d.tag
 }
 
 func (d *Deployer) Stop() error {
@@ -82,8 +82,8 @@ func (d *Deployer) changed(unitName string) error {
 		return err
 	} else {
 		life = unit.Life()
-		if deployerName, ok := unit.DeployerName(); ok {
-			responsible = deployerName == d.entityName
+		if deployerTag, ok := unit.DeployerTag(); ok {
+			responsible = deployerTag == d.tag
 		}
 	}
 	// Deployed units must be removed if they're Dead, or if the deployer

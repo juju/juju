@@ -62,14 +62,14 @@ var marshalTestCases = []struct {
 	about: "AnnotationInfo Delta",
 	value: params.Delta{
 		Entity: &params.AnnotationInfo{
-			EntityName: "machine-0",
+			Tag: "machine-0",
 			Annotations: map[string]string{
 				"foo":   "bar",
 				"arble": "2 4",
 			},
 		},
 	},
-	json: `["annotation","change",{"EntityName":"machine-0","Annotations":{"foo":"bar","arble":"2 4"}}]`,
+	json: `["annotation","change",{"Tag":"machine-0","Annotations":{"foo":"bar","arble":"2 4"}}]`,
 }, {
 	about: "Delta Removed True",
 	value: params.Delta{

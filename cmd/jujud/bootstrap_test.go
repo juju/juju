@@ -45,9 +45,9 @@ func (s *BootstrapSuite) initBootstrapCommand(c *C, args ...string) (*agent.Conf
 	conf := &agent.Conf{
 		DataDir: s.dataDir,
 		StateInfo: &state.Info{
-			EntityName: "bootstrap",
-			Addrs:      []string{testing.MgoAddr},
-			CACert:     []byte(testing.CACert),
+			Tag:    "bootstrap",
+			Addrs:  []string{testing.MgoAddr},
+			CACert: []byte(testing.CACert),
 		},
 	}
 	err := conf.Write()
@@ -151,10 +151,10 @@ func (s *BootstrapSuite) TestInitialPassword(c *C) {
 	}
 	testOpenState(c, info, state.Unauthorizedf("some auth problem"))
 
-	info.EntityName, info.Password = "machine-0", "foo"
+	info.Tag, info.Password = "machine-0", "foo"
 	testOpenState(c, info, nil)
 
-	info.EntityName = ""
+	info.Tag = ""
 	st, err := state.Open(info, state.DefaultDialTimeout)
 	c.Assert(err, IsNil)
 	defer st.Close()
