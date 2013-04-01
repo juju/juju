@@ -3,6 +3,7 @@ package state_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/version"
 	"sort"
 	"time"
@@ -465,7 +466,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {
 	assertChange("mysql/0")
 
 	// Change the unit; no change.
-	err = mysql0.SetStatus(state.UnitStarted, "")
+	err = mysql0.SetStatus(params.UnitStarted, "")
 	c.Assert(err, IsNil)
 	assertNoChange()
 
@@ -494,7 +495,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {
 	assertNoChange()
 
 	// Change the subordinate; no change.
-	err = logging0.SetStatus(state.UnitStarted, "")
+	err = logging0.SetStatus(params.UnitStarted, "")
 	c.Assert(err, IsNil)
 	assertNoChange()
 
@@ -581,7 +582,7 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	assertChange("mysql/0")
 
 	// Change the unit; no change.
-	err = mysql0.SetStatus(state.UnitStarted, "")
+	err = mysql0.SetStatus(params.UnitStarted, "")
 	c.Assert(err, IsNil)
 	assertNoChange()
 
@@ -610,7 +611,7 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	assertChange("logging/0")
 
 	// Change the subordinate; no change.
-	err = logging0.SetStatus(state.UnitStarted, "")
+	err = logging0.SetStatus(params.UnitStarted, "")
 	c.Assert(err, IsNil)
 	assertNoChange()
 

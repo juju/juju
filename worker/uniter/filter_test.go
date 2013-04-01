@@ -6,6 +6,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/tomb"
 	"time"
@@ -46,7 +47,7 @@ func (s *FilterSuite) TestUnitDeath(c *C) {
 	assertNotClosed()
 
 	// Irrelevant change.
-	err = s.unit.SetResolved(state.ResolvedRetryHooks)
+	err = s.unit.SetResolved(params.ResolvedRetryHooks)
 	c.Assert(err, IsNil)
 	assertNotClosed()
 
@@ -134,14 +135,14 @@ func (s *FilterSuite) TestResolvedEvents(c *C) {
 	assertNoChange()
 
 	// Change the unit in an irrelevant way; no events.
-	err = s.unit.SetStatus(state.UnitError, "blarg")
+	err = s.unit.SetStatus(params.UnitError, "blarg")
 	c.Assert(err, IsNil)
 	assertNoChange()
 
 	// Change the unit's resolved to an interesting value; new event received.
-	err = s.unit.SetResolved(state.ResolvedRetryHooks)
+	err = s.unit.SetResolved(params.ResolvedRetryHooks)
 	c.Assert(err, IsNil)
-	assertChange := func(expect state.ResolvedMode) {
+	assertChange := func(expect params.ResolvedMode) {
 		s.State.Sync()
 		select {
 		case rm := <-f.ResolvedEvents():
@@ -150,7 +151,7 @@ func (s *FilterSuite) TestResolvedEvents(c *C) {
 			c.Fatalf("timed out")
 		}
 	}
-	assertChange(state.ResolvedRetryHooks)
+	assertChange(params.ResolvedRetryHooks)
 	assertNoChange()
 
 	// Request a few events, and change the unit a few times; when
@@ -159,10 +160,10 @@ func (s *FilterSuite) TestResolvedEvents(c *C) {
 	err = s.unit.ClearResolved()
 	c.Assert(err, IsNil)
 	f.WantResolvedEvent()
-	err = s.unit.SetResolved(state.ResolvedNoHooks)
+	err = s.unit.SetResolved(params.ResolvedNoHooks)
 	c.Assert(err, IsNil)
 	f.WantResolvedEvent()
-	assertChange(state.ResolvedNoHooks)
+	assertChange(params.ResolvedNoHooks)
 	assertNoChange()
 }
 

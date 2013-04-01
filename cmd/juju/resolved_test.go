@@ -3,6 +3,7 @@ package main
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -21,7 +22,7 @@ var resolvedTests = []struct {
 	args []string
 	err  string
 	unit string
-	mode state.ResolvedMode
+	mode params.ResolvedMode
 }{
 	{
 		err: `no unit specified`,
@@ -35,30 +36,30 @@ var resolvedTests = []struct {
 		args: []string{"dummy/0"},
 		err:  `unit "dummy/0" is not in an error state`,
 		unit: "dummy/0",
-		mode: state.ResolvedNone,
+		mode: params.ResolvedNone,
 	}, {
 		args: []string{"dummy/1", "--retry"},
 		err:  `unit "dummy/1" is not in an error state`,
 		unit: "dummy/1",
-		mode: state.ResolvedNone,
+		mode: params.ResolvedNone,
 	}, {
 		args: []string{"dummy/2"},
 		unit: "dummy/2",
-		mode: state.ResolvedNoHooks,
+		mode: params.ResolvedNoHooks,
 	}, {
 		args: []string{"dummy/2", "--retry"},
 		err:  `cannot set resolved mode for unit "dummy/2": already resolved`,
 		unit: "dummy/2",
-		mode: state.ResolvedNoHooks,
+		mode: params.ResolvedNoHooks,
 	}, {
 		args: []string{"dummy/3", "--retry"},
 		unit: "dummy/3",
-		mode: state.ResolvedRetryHooks,
+		mode: params.ResolvedRetryHooks,
 	}, {
 		args: []string{"dummy/3"},
 		err:  `cannot set resolved mode for unit "dummy/3": already resolved`,
 		unit: "dummy/3",
-		mode: state.ResolvedRetryHooks,
+		mode: params.ResolvedRetryHooks,
 	}, {
 		args: []string{"dummy/4", "roflcopter"},
 		err:  `unrecognized args: \["roflcopter"\]`,
@@ -73,7 +74,7 @@ func (s *ResolvedSuite) TestResolved(c *C) {
 	for _, name := range []string{"dummy/2", "dummy/3", "dummy/4"} {
 		u, err := s.State.Unit(name)
 		c.Assert(err, IsNil)
-		err = u.SetStatus(state.UnitError, "lol borken")
+		err = u.SetStatus(params.UnitError, "lol borken")
 		c.Assert(err, IsNil)
 	}
 

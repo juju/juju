@@ -33,18 +33,6 @@ const (
 	AssignNew AssignmentPolicy = "new"
 )
 
-// UnitStatus represents the status of the unit agent.
-type UnitStatus string
-
-const (
-	UnitPending   UnitStatus = "pending"   // Agent hasn't started
-	UnitInstalled UnitStatus = "installed" // Agent has run the installed hook
-	UnitStarted   UnitStatus = "started"   // Agent is running properly
-	UnitStopped   UnitStatus = "stopped"   // Agent has stopped running on request
-	UnitError     UnitStatus = "error"     // Agent is waiting in an error state
-	UnitDown      UnitStatus = "down"      // Agent is down or not communicating
-)
-
 // UnitSettings holds information about a service unit's settings within a
 // relation.
 type UnitSettings struct {
@@ -68,7 +56,7 @@ type unitDoc struct {
 	Tools          *Tools `bson:",omitempty"`
 	Ports          []params.Port
 	Life           Life
-	Status         UnitStatus
+	Status         params.UnitStatus
 	StatusInfo     string
 	TxnRevno       int64 `bson:"txn-revno"`
 	PasswordHash   string
@@ -344,13 +332,13 @@ func (u *Unit) Refresh() error {
 }
 
 // Status returns the status of the unit's agent.
-func (u *Unit) Status() (status UnitStatus, info string) {
+func (u *Unit) Status() (status params.UnitStatus, info string) {
 	return u.doc.Status, u.doc.StatusInfo
 }
 
 // SetStatus sets the status of the unit.
-func (u *Unit) SetStatus(status UnitStatus, info string) error {
-	if status == UnitError && info == "" {
+func (u *Unit) SetStatus(status params.UnitStatus, info string) error {
+	if status == params.UnitError && info == "" {
 		panic("must set info for unit error status")
 	}
 	ops := []txn.Op{{

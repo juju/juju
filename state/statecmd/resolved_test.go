@@ -3,7 +3,6 @@ package statecmd_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/statecmd"
 )
@@ -27,7 +26,7 @@ func (s *ResolvedSuite) TestMarkResolved(c *C) {
 	err = statecmd.MarkResolved(u, true)
 	c.Assert(err, ErrorMatches, `unit "testriak/0" is not in an error state`)
 
-	err = u.SetStatus(state.UnitError, "gaaah")
+	err = u.SetStatus(params.UnitError, "gaaah")
 	c.Assert(err, IsNil)
 	err = statecmd.MarkResolved(u, false)
 	c.Assert(err, IsNil)
