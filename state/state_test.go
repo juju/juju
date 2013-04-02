@@ -1235,7 +1235,7 @@ func (s *StateSuite) TestOpenDelaysRetryBadAddress(c *C) {
 	}
 	c.Assert(err, ErrorMatches, "no reachable servers")
 	// tryOpenState should have delayed for at least RetryDelay
-	// internall mgo will try three times in a row before returning
+	// internally mgo will try three times in a row before returning
 	// to the caller.
 	if t1 := time.Since(t0); t1 < 3*retryDelay {
 		c.Errorf("mgo.Dial only paused for %v, expected at least %v", t1, 3*retryDelay)
