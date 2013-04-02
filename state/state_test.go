@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
 	"net"
 	"net/url"
@@ -17,6 +18,23 @@ import (
 )
 
 type D []bson.DocElem
+
+// preventUnitDestroyRemove ensures that a unit is assigned to a machine with
+// an instance id, and hence prevents it from being unceremoniously removed
+// from state on Destroy. This is useful because several tests go through a
+// unit's lifecycle step by step, asserting the behaviour of a given method
+// in each state, and the unit quick-remove change caused many of these to
+// fail.
+func preventUnitDestroyRemove(c *C, st *state.State, u *state.Unit) {
+	err := u.AssignToNewMachine()
+	c.Assert(err, IsNil)
+	mid, err := u.AssignedMachineId()
+	c.Assert(err, IsNil)
+	m, err := st.Machine(mid)
+	c.Assert(err, IsNil)
+	err = m.SetInstanceId("i-malive")
+	c.Assert(err, IsNil)
+}
 
 type StateSuite struct {
 	ConnSuite
@@ -296,11 +314,14 @@ var inferEndpointsTests = []struct {
 			{"rk1:ring"},
 		},
 		eps: []state.Endpoint{{
-			ServiceName:   "rk1",
-			Interface:     "riak",
-			RelationName:  "ring",
-			RelationRole:  state.RolePeer,
-			RelationScope: charm.ScopeGlobal,
+			ServiceName: "rk1",
+			Relation: charm.Relation{
+				Name:      "ring",
+				Interface: "riak",
+				Limit:     1,
+				Role:      charm.RolePeer,
+				Scope:     charm.ScopeGlobal,
+			},
 		}},
 	}, {
 		summary: "ambiguous provider/requirer relation",
@@ -316,33 +337,44 @@ var inferEndpointsTests = []struct {
 			{"ms:dev", "wp:db"},
 		},
 		eps: []state.Endpoint{{
-			ServiceName:   "ms",
-			Interface:     "mysql",
-			RelationName:  "dev",
-			RelationRole:  state.RoleProvider,
-			RelationScope: charm.ScopeGlobal,
+			ServiceName: "ms",
+			Relation: charm.Relation{
+				Interface: "mysql",
+				Name:      "dev",
+				Role:      charm.RoleProvider,
+				Scope:     charm.ScopeGlobal,
+				Limit:     2,
+			},
 		}, {
-			ServiceName:   "wp",
-			Interface:     "mysql",
-			RelationName:  "db",
-			RelationRole:  state.RoleRequirer,
-			RelationScope: charm.ScopeGlobal,
+			ServiceName: "wp",
+			Relation: charm.Relation{
+				Interface: "mysql",
+				Name:      "db",
+				Role:      charm.RoleRequirer,
+				Scope:     charm.ScopeGlobal,
+				Limit:     1,
+			},
 		}},
 	}, {
 		summary: "explicit logging relation is preferred over implicit juju-info",
 		inputs:  [][]string{{"lg", "wp"}},
 		eps: []state.Endpoint{{
-			ServiceName:   "lg",
-			Interface:     "logging",
-			RelationName:  "logging-directory",
-			RelationRole:  state.RoleRequirer,
-			RelationScope: charm.ScopeContainer,
+			ServiceName: "lg",
+			Relation: charm.Relation{
+				Interface: "logging",
+				Name:      "logging-directory",
+				Role:      charm.RoleRequirer,
+				Scope:     charm.ScopeContainer,
+				Limit:     1,
+			},
 		}, {
-			ServiceName:   "wp",
-			Interface:     "logging",
-			RelationName:  "logging-dir",
-			RelationRole:  state.RoleProvider,
-			RelationScope: charm.ScopeContainer,
+			ServiceName: "wp",
+			Relation: charm.Relation{
+				Interface: "logging",
+				Name:      "logging-dir",
+				Role:      charm.RoleProvider,
+				Scope:     charm.ScopeContainer,
+			},
 		}},
 	}, {
 		summary: "implict relations can be chosen explicitly",
@@ -352,33 +384,43 @@ var inferEndpointsTests = []struct {
 			{"lg:info", "wp:juju-info"},
 		},
 		eps: []state.Endpoint{{
-			ServiceName:   "lg",
-			Interface:     "juju-info",
-			RelationName:  "info",
-			RelationRole:  state.RoleRequirer,
-			RelationScope: charm.ScopeContainer,
+			ServiceName: "lg",
+			Relation: charm.Relation{
+				Interface: "juju-info",
+				Name:      "info",
+				Role:      charm.RoleRequirer,
+				Scope:     charm.ScopeContainer,
+				Limit:     1,
+			},
 		}, {
-			ServiceName:   "wp",
-			Interface:     "juju-info",
-			RelationName:  "juju-info",
-			RelationRole:  state.RoleProvider,
-			RelationScope: charm.ScopeGlobal,
+			ServiceName: "wp",
+			Relation: charm.Relation{
+				Interface: "juju-info",
+				Name:      "juju-info",
+				Role:      charm.RoleProvider,
+				Scope:     charm.ScopeGlobal,
+			},
 		}},
 	}, {
 		summary: "implicit relations will be chosen if there are no other options",
 		inputs:  [][]string{{"lg", "ms"}},
 		eps: []state.Endpoint{{
-			ServiceName:   "lg",
-			Interface:     "juju-info",
-			RelationName:  "info",
-			RelationRole:  state.RoleRequirer,
-			RelationScope: charm.ScopeContainer,
+			ServiceName: "lg",
+			Relation: charm.Relation{
+				Interface: "juju-info",
+				Name:      "info",
+				Role:      charm.RoleRequirer,
+				Scope:     charm.ScopeContainer,
+				Limit:     1,
+			},
 		}, {
-			ServiceName:   "ms",
-			Interface:     "juju-info",
-			RelationName:  "juju-info",
-			RelationRole:  state.RoleProvider,
-			RelationScope: charm.ScopeGlobal,
+			ServiceName: "ms",
+			Relation: charm.Relation{
+				Interface: "juju-info",
+				Name:      "juju-info",
+				Role:      charm.RoleProvider,
+				Scope:     charm.ScopeGlobal,
+			},
 		}},
 	},
 }
@@ -412,85 +454,21 @@ func (s *StateSuite) TestInferEndpoints(c *C) {
 }
 
 func (s *StateSuite) TestEnvironConfig(c *C) {
-	initial := map[string]interface{}{
-		"name":                      "test",
-		"type":                      "test",
-		"authorized-keys":           "i-am-a-key",
-		"default-series":            "precise",
-		"agent-version":             "1.2.3",
-		"development":               true,
-		"firewall-mode":             "",
-		"admin-secret":              "",
-		"ca-cert":                   testing.CACert,
-		"ca-private-key":            "",
-		"ssl-hostname-verification": true,
-	}
-	cfg, err := config.New(initial)
+	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, IsNil)
-	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialOpts())
+	change, err := cfg.Apply(map[string]interface{}{
+		"authorized-keys": "different-keys",
+		"arbitrary-key":   "shazam!",
+	})
 	c.Assert(err, IsNil)
-	st.Close()
+	err = s.State.SetEnvironConfig(change)
 	c.Assert(err, IsNil)
 	cfg, err = s.State.EnvironConfig()
 	c.Assert(err, IsNil)
-	current := cfg.AllAttrs()
-	c.Assert(current, DeepEquals, initial)
-
-	current["authorized-keys"] = "i-am-a-new-key"
-	cfg, err = config.New(current)
-	c.Assert(err, IsNil)
-	err = s.State.SetEnvironConfig(cfg)
-	c.Assert(err, IsNil)
-	cfg, err = s.State.EnvironConfig()
-	c.Assert(err, IsNil)
-	final := cfg.AllAttrs()
-	c.Assert(final, DeepEquals, current)
-}
-
-func (s *StateSuite) TestEnvironConfigWithAdminSecret(c *C) {
-	attrs := map[string]interface{}{
-		"name":            "test",
-		"type":            "test",
-		"authorized-keys": "i-am-a-key",
-		"default-series":  "precise",
-		"development":     true,
-		"admin-secret":    "foo",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  "",
-	}
-	cfg, err := config.New(attrs)
-	c.Assert(err, IsNil)
-	_, err = state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialOpts())
-	c.Assert(err, ErrorMatches, "admin-secret should never be written to the state")
-
-	delete(attrs, "admin-secret")
-	cfg, err = config.New(attrs)
-	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialOpts())
-	c.Assert(err, IsNil)
-	st.Close()
-
-	cfg, err = cfg.Apply(map[string]interface{}{"admin-secret": "foo"})
-	err = s.State.SetEnvironConfig(cfg)
-	c.Assert(err, ErrorMatches, "admin-secret should never be written to the state")
+	c.Assert(cfg.AllAttrs(), DeepEquals, change.AllAttrs())
 }
 
 func (s *StateSuite) TestEnvironConstraints(c *C) {
-	// Environ constraints are not available before initialization.
-	_, err := s.State.EnvironConstraints()
-	c.Assert(state.IsNotFound(err), Equals, true)
-	m := map[string]interface{}{
-		"type":            "dummy",
-		"name":            "lisboa",
-		"authorized-keys": "i-am-a-key",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  "",
-	}
-	cfg, err := config.New(m)
-	c.Assert(err, IsNil)
-	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialOpts())
-	c.Assert(err, IsNil)
-	st.Close()
-
 	// Environ constraints start out empty (for now).
 	cons0 := constraints.Value{}
 	cons1, err := s.State.EnvironConstraints()
@@ -854,88 +832,16 @@ func (s *StateSuite) TestWatchServices(c *C) {
 	}
 }
 
-func (s *StateSuite) TestInitialize(c *C) {
-	m := map[string]interface{}{
-		"type":                      "dummy",
-		"name":                      "lisboa",
-		"authorized-keys":           "i-am-a-key",
-		"default-series":            "precise",
-		"agent-version":             "1.2.3",
-		"development":               true,
-		"firewall-mode":             "",
-		"admin-secret":              "",
-		"ca-cert":                   testing.CACert,
-		"ca-private-key":            "",
-		"ssl-hostname-verification": true,
-	}
-	cfg, err := config.New(m)
-	c.Assert(err, IsNil)
-	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialOpts())
-	c.Assert(err, IsNil)
-	c.Assert(st, NotNil)
-	defer st.Close()
-	env, err := st.EnvironConfig()
-	c.Assert(env.AllAttrs(), DeepEquals, m)
-}
-
-func (s *StateSuite) TestDoubleInitialize(c *C) {
-	m := map[string]interface{}{
-		"type":                      "dummy",
-		"name":                      "lisboa",
-		"authorized-keys":           "i-am-a-key",
-		"default-series":            "precise",
-		"agent-version":             "1.2.3",
-		"development":               true,
-		"firewall-mode":             "",
-		"admin-secret":              "",
-		"ca-cert":                   testing.CACert,
-		"ca-private-key":            "",
-		"ssl-hostname-verification": true,
-	}
-	cfg, err := config.New(m)
-	c.Assert(err, IsNil)
-	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialOpts())
-	c.Assert(err, IsNil)
-	c.Assert(st, NotNil)
-	env1, err := st.EnvironConfig()
-	st.Close()
-
-	// initialize again, there should be no error and the
-	// environ config should not change.
-	m = map[string]interface{}{
-		"type":                      "dummy",
-		"name":                      "sydney",
-		"authorized-keys":           "i-am-not-an-animal",
-		"default-series":            "xanadu",
-		"development":               false,
-		"agent-version":             "3.4.5",
-		"firewall-mode":             "",
-		"admin-secret":              "",
-		"ca-cert":                   testing.CACert,
-		"ca-private-key":            "",
-		"ssl-hostname-verification": false,
-	}
-	cfg, err = config.New(m)
-	c.Assert(err, IsNil)
-	st, err = state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialOpts())
-	c.Assert(err, IsNil)
-	c.Assert(st, NotNil)
-	env2, err := st.EnvironConfig()
-	st.Close()
-
-	c.Assert(env1.AllAttrs(), DeepEquals, env2.AllAttrs())
-}
-
 var sortPortsTests = []struct {
-	have, want []state.Port
+	have, want []params.Port
 }{
-	{nil, []state.Port{}},
-	{[]state.Port{{"b", 1}, {"a", 99}, {"a", 1}}, []state.Port{{"a", 1}, {"a", 99}, {"b", 1}}},
+	{nil, []params.Port{}},
+	{[]params.Port{{"b", 1}, {"a", 99}, {"a", 1}}, []params.Port{{"a", 1}, {"a", 99}, {"b", 1}}},
 }
 
 func (*StateSuite) TestSortPorts(c *C) {
 	for _, t := range sortPortsTests {
-		p := make([]state.Port, len(t.have))
+		p := make([]params.Port, len(t.have))
 		copy(p, t.have)
 		state.SortPorts(p)
 		c.Check(p, DeepEquals, t.want)
@@ -991,100 +897,45 @@ func (*StateSuite) TestNameChecks(c *C) {
 
 type attrs map[string]interface{}
 
-var watchEnvironConfigTests = []attrs{
-	{
-		"type":            "my-type",
-		"name":            "my-name",
-		"authorized-keys": "i-am-a-key",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  "",
-	},
-	{
-		// Add an attribute.
-		"type":            "my-type",
-		"name":            "my-name",
-		"default-series":  "my-series",
-		"authorized-keys": "i-am-a-key",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  "",
-	},
-	{
-		// Set a new attribute value.
-		"type":            "my-type",
-		"name":            "my-new-name",
-		"default-series":  "my-series",
-		"authorized-keys": "i-am-a-key",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  "",
-	},
-}
-
 func (s *StateSuite) TestWatchEnvironConfig(c *C) {
-	watcher := s.State.WatchEnvironConfig()
-	defer func() {
-		c.Assert(watcher.Stop(), IsNil)
-	}()
-	for i, test := range watchEnvironConfigTests {
-		c.Logf("test %d", i)
-		change, err := config.New(test)
-		c.Assert(err, IsNil)
-		if i == 0 {
-			st, err := state.Initialize(state.TestingStateInfo(), change, state.TestingDialOpts())
-			c.Assert(err, IsNil)
-			st.Close()
-		} else {
-			err = s.State.SetEnvironConfig(change)
-			c.Assert(err, IsNil)
-		}
-		c.Assert(err, IsNil)
+	w := s.State.WatchEnvironConfig()
+	defer stop(c, w)
+
+	assertNoChange := func() {
 		s.State.StartSync()
 		select {
-		case got, ok := <-watcher.Changes():
-			c.Assert(ok, Equals, true)
-			c.Assert(got.AllAttrs(), DeepEquals, change.AllAttrs())
-		case <-time.After(500 * time.Millisecond):
-			c.Fatalf("did not get change: %#v", test)
+		case got := <-w.Changes():
+			c.Fatalf("got unexpected change: %#v", got)
+		case <-time.After(50 * time.Millisecond):
 		}
 	}
-
-	select {
-	case got := <-watcher.Changes():
-		c.Fatalf("got unexpected change: %#v", got)
-	case <-time.After(50 * time.Millisecond):
+	assertChange := func(change attrs) {
+		cfg, err := s.State.EnvironConfig()
+		c.Assert(err, IsNil)
+		if change != nil {
+			cfg, err = cfg.Apply(change)
+			c.Assert(err, IsNil)
+			err = s.State.SetEnvironConfig(cfg)
+			c.Assert(err, IsNil)
+		}
+		s.State.Sync()
+		select {
+		case got, ok := <-w.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(got.AllAttrs(), DeepEquals, cfg.AllAttrs())
+		case <-time.After(500 * time.Millisecond):
+			c.Fatalf("did not get change: %#v", change)
+		}
+		assertNoChange()
 	}
+	assertChange(nil)
+	assertChange(attrs{"default-series": "another-series"})
+	assertChange(attrs{"fancy-new-key": "arbitrary-value"})
 }
 
-func (s *StateSuite) TestWatchEnvironConfigAfterCreation(c *C) {
-	cfg, err := config.New(watchEnvironConfigTests[0])
+func (s *StateSuite) TestWatchEnvironConfigCorruptConfig(c *C) {
+	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, IsNil)
-	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialOpts())
-	c.Assert(err, IsNil)
-	st.Close()
-	s.State.Sync()
-	watcher := s.State.WatchEnvironConfig()
-	defer watcher.Stop()
-	select {
-	case got, ok := <-watcher.Changes():
-		c.Assert(ok, Equals, true)
-		c.Assert(got.AllAttrs(), DeepEquals, cfg.AllAttrs())
-	case <-time.After(500 * time.Millisecond):
-		c.Fatalf("did not get change")
-	}
-}
-
-func (s *StateSuite) TestWatchEnvironConfigInvalidConfig(c *C) {
-	m := map[string]interface{}{
-		"type":            "dummy",
-		"name":            "lisboa",
-		"authorized-keys": "i-am-a-key",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  "",
-	}
-	cfg1, err := config.New(m)
-	c.Assert(err, IsNil)
-	st, err := state.Initialize(state.TestingStateInfo(), cfg1, state.TestingDialOpts())
-	c.Assert(err, IsNil)
-	st.Close()
 
 	// Corrupt the environment configuration.
 	settings := s.Session.DB("juju").C("settings")
@@ -1120,21 +971,14 @@ func (s *StateSuite) TestWatchEnvironConfigInvalidConfig(c *C) {
 	}
 
 	// Fix the configuration.
-	cfg2, err := config.New(map[string]interface{}{
-		"type":            "dummy",
-		"name":            "lisboa",
-		"authorized-keys": "new-key",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  "",
-	})
+	err = s.State.SetEnvironConfig(cfg)
 	c.Assert(err, IsNil)
-	err = s.State.SetEnvironConfig(cfg2)
-	c.Assert(err, IsNil)
+	fixed := cfg.AllAttrs()
 
 	s.State.StartSync()
 	select {
-	case cfg3 := <-done:
-		c.Assert(cfg3.AllAttrs(), DeepEquals, cfg2.AllAttrs())
+	case got := <-done:
+		c.Assert(got.AllAttrs(), DeepEquals, fixed)
 	case <-time.After(5 * time.Second):
 		c.Fatalf("no environment configuration observed")
 	}
@@ -1194,15 +1038,15 @@ func tryOpenState(info *state.Info) error {
 
 func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *C) {
 	info := state.TestingStateInfo()
-	info.EntityName, info.Password = "arble", "bar"
+	info.Tag, info.Password = "arble", "bar"
 	err := tryOpenState(info)
 	c.Assert(state.IsUnauthorizedError(err), Equals, true)
 
-	info.EntityName, info.Password = "arble", ""
+	info.Tag, info.Password = "arble", ""
 	err = tryOpenState(info)
 	c.Assert(state.IsUnauthorizedError(err), Equals, true)
 
-	info.EntityName, info.Password = "", ""
+	info.Tag, info.Password = "", ""
 	err = tryOpenState(info)
 	c.Assert(err, IsNil)
 }
@@ -1301,7 +1145,7 @@ func testSetPassword(c *C, getEntity func() (state.Authenticator, error)) {
 	c.Assert(e2.PasswordValid("bar"), Equals, true)
 
 	if le, ok := e.(lifer); ok {
-		testWhenDying(c, le, noErr, notAliveErr, func() error {
+		testWhenDying(c, le, noErr, deadErr, func() error {
 			return e.SetPassword("arble")
 		})
 	}
@@ -1309,11 +1153,8 @@ func testSetPassword(c *C, getEntity func() (state.Authenticator, error)) {
 
 type entity interface {
 	lifer
-	EntityName() string
+	state.TaggedAuthenticator
 	SetMongoPassword(password string) error
-	SetPassword(password string) error
-	PasswordValid(password string) bool
-	Refresh() error
 }
 
 func testSetMongoPassword(c *C, getEntity func(st *state.State) (entity, error)) {
@@ -1332,7 +1173,7 @@ func testSetMongoPassword(c *C, getEntity func(st *state.State) (entity, error))
 	c.Assert(err, IsNil)
 
 	// Check that we cannot log in with the wrong password.
-	info.EntityName = ent.EntityName()
+	info.Tag = ent.Tag()
 	info.Password = "bar"
 	err = tryOpenState(info)
 	c.Assert(state.IsUnauthorizedError(err), Equals, true)
@@ -1361,7 +1202,7 @@ func testSetMongoPassword(c *C, getEntity func(st *state.State) (entity, error))
 	c.Assert(err, IsNil)
 
 	// Check that the administrator can still log in.
-	info.EntityName, info.Password = "", "admin-secret"
+	info.Tag, info.Password = "", "admin-secret"
 	err = tryOpenState(info)
 	c.Assert(err, IsNil)
 
@@ -1399,39 +1240,16 @@ func (s *StateSuite) TestSetAdminMongoPassword(c *C) {
 	c.Assert(err, IsNil)
 }
 
-type namedEntity interface {
-	EntityName() string
-}
-
-var envConfig = map[string]interface{}{
-	"name": "test",
-	"type": "test",
-}
-
-func setUpEnvConfig(c *C) {
-	cfg, err := config.New(envConfig)
-	c.Assert(err, IsNil)
-	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialOpts())
-	c.Assert(err, IsNil)
-	st.Close()
-}
-
-func (s *StateSuite) testEntity(c *C, getEntity func(string) (namedEntity, error)) {
-	e, err := getEntity("environment-foo")
-	c.Check(e, IsNil)
-	c.Assert(err, ErrorMatches, "settings not found")
-
-	setUpEnvConfig(c)
-
+func (s *StateSuite) testEntity(c *C, getEntity func(string) (state.Tagger, error)) {
 	bad := []string{"", "machine", "-foo", "foo-", "---", "machine-jim", "unit-123", "unit-foo", "service-", "service-foo/bar", "environment-foo"}
 	for _, name := range bad {
 		c.Logf(name)
 		e, err := getEntity(name)
 		c.Check(e, IsNil)
-		c.Assert(err, ErrorMatches, `invalid entity name ".*"`)
+		c.Assert(err, ErrorMatches, `invalid entity tag ".*"`)
 	}
 
-	e, err = getEntity("machine-1234")
+	e, err := getEntity("machine-1234")
 	c.Check(e, IsNil)
 	c.Assert(err, ErrorMatches, `machine 1234 not found`)
 	c.Assert(state.IsNotFound(err), Equals, true)
@@ -1449,32 +1267,32 @@ func (s *StateSuite) testEntity(c *C, getEntity func(string) (namedEntity, error
 	m, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 
-	e, err = getEntity(m.EntityName())
+	e, err = getEntity(m.Tag())
 	c.Assert(err, IsNil)
 	c.Assert(e, FitsTypeOf, m)
-	c.Assert(e.EntityName(), Equals, m.EntityName())
+	c.Assert(e.Tag(), Equals, m.Tag())
 
 	svc, err := s.State.AddService("ser-vice2", s.AddTestingCharm(c, "mysql"))
 	c.Assert(err, IsNil)
 	u, err := svc.AddUnit()
 	c.Assert(err, IsNil)
 
-	e, err = getEntity(u.EntityName())
+	e, err = getEntity(u.Tag())
 	c.Assert(err, IsNil)
 	c.Assert(e, FitsTypeOf, u)
-	c.Assert(e.EntityName(), Equals, u.EntityName())
+	c.Assert(e.Tag(), Equals, u.Tag())
 
 	m.Destroy()
 	svc.Destroy()
 }
 
 func (s *StateSuite) TestAuthenticator(c *C) {
-	getEntity := func(name string) (namedEntity, error) {
+	getEntity := func(name string) (state.Tagger, error) {
 		e, err := s.State.Authenticator(name)
 		if err != nil {
 			return nil, err
 		}
-		return e.(namedEntity), nil
+		return e, nil
 	}
 	s.testEntity(c, getEntity)
 	e, err := getEntity("user-arble")
@@ -1485,46 +1303,50 @@ func (s *StateSuite) TestAuthenticator(c *C) {
 	user, err := s.State.AddUser("arble", "pass")
 	c.Assert(err, IsNil)
 
-	e, err = getEntity(user.EntityName())
+	e, err = getEntity(user.Tag())
 	c.Assert(err, IsNil)
 	c.Assert(e, FitsTypeOf, user)
-	c.Assert(e.EntityName(), Equals, user.EntityName())
+	c.Assert(e.Tag(), Equals, user.Tag())
 
-	_, err = getEntity("environment-test")
+	cfg, err := s.State.EnvironConfig()
+	c.Assert(err, IsNil)
+	_, err = getEntity("environment-" + cfg.Name())
 	c.Assert(
 		err,
 		ErrorMatches,
-		`entity "environment-test" does not support authentication`,
+		`entity "environment-.*" does not support authentication`,
 	)
 }
 
 func (s *StateSuite) TestAnnotator(c *C) {
-	getEntity := func(name string) (namedEntity, error) {
+	getEntity := func(name string) (state.Tagger, error) {
 		e, err := s.State.Annotator(name)
 		if err != nil {
 			return nil, err
 		}
-		return e.(namedEntity), nil
+		return e, nil
 	}
 	s.testEntity(c, getEntity)
 	svc, err := s.State.AddService("ser-vice1", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, IsNil)
 
-	service, err := getEntity(svc.EntityName())
+	service, err := getEntity(svc.Tag())
 	c.Assert(err, IsNil)
 	c.Assert(service, FitsTypeOf, svc)
-	c.Assert(service.EntityName(), Equals, svc.EntityName())
+	c.Assert(service.Tag(), Equals, svc.Tag())
 
-	e, err := getEntity("environment-" + envConfig["name"].(string))
+	cfg, err := s.State.EnvironConfig()
+	c.Assert(err, IsNil)
+	e, err := getEntity("environment-" + cfg.Name())
 	c.Assert(err, IsNil)
 	env, err := s.State.Environment()
 	c.Assert(err, IsNil)
 	c.Assert(e, FitsTypeOf, env)
-	c.Assert(e.EntityName(), Equals, env.EntityName())
+	c.Assert(e.Tag(), Equals, env.Tag())
 
 	user, err := s.State.AddUser("arble", "pass")
 	c.Assert(err, IsNil)
-	_, err = getEntity(user.EntityName())
+	_, err = getEntity(user.Tag())
 	c.Assert(
 		err,
 		ErrorMatches,
@@ -1532,7 +1354,7 @@ func (s *StateSuite) TestAnnotator(c *C) {
 	)
 }
 
-func (s *StateSuite) TestParseEntityName(c *C) {
+func (s *StateSuite) TestParseTag(c *C) {
 	bad := []string{
 		"",
 		"machine",
@@ -1545,7 +1367,7 @@ func (s *StateSuite) TestParseEntityName(c *C) {
 	}
 	for _, name := range bad {
 		c.Logf(name)
-		coll, id, err := s.State.ParseEntityName(name)
+		coll, id, err := s.State.ParseTag(name)
 		c.Check(coll, Equals, "")
 		c.Check(id, Equals, "")
 		c.Assert(err, ErrorMatches, `invalid entity name ".*"`)
@@ -1554,7 +1376,7 @@ func (s *StateSuite) TestParseEntityName(c *C) {
 	// Parse a machine entity name.
 	m, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	coll, id, err := s.State.ParseEntityName(m.EntityName())
+	coll, id, err := s.State.ParseTag(m.Tag())
 	c.Assert(coll, Equals, "machines")
 	c.Assert(id, Equals, m.Id())
 	c.Assert(err, IsNil)
@@ -1562,7 +1384,7 @@ func (s *StateSuite) TestParseEntityName(c *C) {
 	// Parse a service entity name.
 	svc, err := s.State.AddService("ser-vice2", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, IsNil)
-	coll, id, err = s.State.ParseEntityName(svc.EntityName())
+	coll, id, err = s.State.ParseTag(svc.Tag())
 	c.Assert(coll, Equals, "services")
 	c.Assert(id, Equals, svc.Name())
 	c.Assert(err, IsNil)
@@ -1570,7 +1392,7 @@ func (s *StateSuite) TestParseEntityName(c *C) {
 	// Parse a unit entity name.
 	u, err := svc.AddUnit()
 	c.Assert(err, IsNil)
-	coll, id, err = s.State.ParseEntityName(u.EntityName())
+	coll, id, err = s.State.ParseTag(u.Tag())
 	c.Assert(coll, Equals, "units")
 	c.Assert(id, Equals, u.Name())
 	c.Assert(err, IsNil)
@@ -1578,7 +1400,7 @@ func (s *StateSuite) TestParseEntityName(c *C) {
 	// Parse a user entity name.
 	user, err := s.State.AddUser("arble", "pass")
 	c.Assert(err, IsNil)
-	coll, id, err = s.State.ParseEntityName(user.EntityName())
+	coll, id, err = s.State.ParseTag(user.Tag())
 	c.Assert(coll, Equals, "users")
 	c.Assert(id, Equals, user.Name())
 	c.Assert(err, IsNil)

@@ -33,6 +33,24 @@ func createConstraintsOp(st *State, id string, cons constraints.Value) txn.Op {
 	}
 }
 
+func setConstraintsOp(st *State, id string, cons constraints.Value) txn.Op {
+	return txn.Op{
+		C:      st.constraints.Name,
+		Id:     id,
+		Assert: txn.DocExists,
+		Update: D{{"$set", newConstraintsDoc(cons)}},
+	}
+}
+
+func removeConstraintsOp(st *State, id string) txn.Op {
+	return txn.Op{
+		C:      st.constraints.Name,
+		Id:     id,
+		Assert: txn.DocExists,
+		Remove: true,
+	}
+}
+
 func readConstraints(st *State, id string) (constraints.Value, error) {
 	doc := constraintsDoc{}
 	if err := st.constraints.FindId(id).One(&doc); err == mgo.ErrNotFound {
@@ -49,12 +67,7 @@ func readConstraints(st *State, id string) (constraints.Value, error) {
 }
 
 func writeConstraints(st *State, id string, cons constraints.Value) error {
-	ops := []txn.Op{{
-		C:      st.constraints.Name,
-		Id:     id,
-		Assert: txn.DocExists,
-		Update: D{{"$set", newConstraintsDoc(cons)}},
-	}}
+	ops := []txn.Op{setConstraintsOp(st, id, cons)}
 	if err := st.runner.Run(ops, "", nil); err != nil {
 		return fmt.Errorf("cannot set constraints: %v", err)
 	}

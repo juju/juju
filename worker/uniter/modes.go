@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/worker"
 	ucharm "launchpad.net/juju-core/worker/uniter/charm"
@@ -144,7 +145,7 @@ func ModeUpgrading(curl *charm.URL) Mode {
 func ModeConfigChanged(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeConfigChanged", &err)()
 	if !u.s.Started {
-		if err = u.unit.SetStatus(state.UnitInstalled, ""); err != nil {
+		if err = u.unit.SetStatus(params.UnitInstalled, ""); err != nil {
 			return nil, err
 		}
 	}
@@ -182,7 +183,7 @@ func ModeStopping(u *Uniter) (next Mode, err error) {
 // ModeTerminating marks the unit dead and returns ErrDead.
 func ModeTerminating(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeTerminating", &err)()
-	if err = u.unit.SetStatus(state.UnitStopped, ""); err != nil {
+	if err = u.unit.SetStatus(params.UnitStopped, ""); err != nil {
 		return nil, err
 	}
 	w := u.unit.Watch()
@@ -222,7 +223,7 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 	if u.s.Op != Continue {
 		return nil, fmt.Errorf("insane uniter state: %#v", u.s)
 	}
-	if err = u.unit.SetStatus(state.UnitStarted, ""); err != nil {
+	if err = u.unit.SetStatus(params.UnitStarted, ""); err != nil {
 		return nil, err
 	}
 	u.f.WantUpgradeEvent(false)
@@ -330,7 +331,7 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 		return nil, fmt.Errorf("insane uniter state: %#v", u.s)
 	}
 	msg := fmt.Sprintf("hook failed: %q", u.s.Hook.Kind)
-	if err = u.unit.SetStatus(state.UnitError, msg); err != nil {
+	if err = u.unit.SetStatus(params.UnitError, msg); err != nil {
 		return nil, err
 	}
 	u.f.WantResolvedEvent()
@@ -341,9 +342,9 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 			return nil, tomb.ErrDying
 		case rm := <-u.f.ResolvedEvents():
 			switch rm {
-			case state.ResolvedRetryHooks:
+			case params.ResolvedRetryHooks:
 				err = u.runHook(*u.s.Hook)
-			case state.ResolvedNoHooks:
+			case params.ResolvedNoHooks:
 				err = u.commitHook(*u.s.Hook)
 			default:
 				return nil, fmt.Errorf("unknown resolved mode %q", rm)
@@ -370,7 +371,7 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 func ModeConflicted(curl *charm.URL) Mode {
 	return func(u *Uniter) (next Mode, err error) {
 		defer modeContext("ModeConflicted", &err)()
-		if err = u.unit.SetStatus(state.UnitError, "upgrade failed"); err != nil {
+		if err = u.unit.SetStatus(params.UnitError, "upgrade failed"); err != nil {
 			return nil, err
 		}
 		u.f.WantResolvedEvent()

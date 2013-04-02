@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -180,23 +181,23 @@ func (conn *Conn) PutCharm(curl *charm.URL, repo charm.Repository, bumpRevision 
 // DeployServiceParams contains the arguments required to deploy the referenced
 // charm.
 type DeployServiceParams struct {
-	Charm       *state.Charm
 	ServiceName string
+	Charm       *state.Charm
 	NumUnits    int
 	// Config is used only by the API.
 	Config map[string]string
 	// ConfigYAML takes precedence over Config if both are provided.
-	ConfigYAML string
+	ConfigYAML  string
+	Constraints constraints.Value
 }
 
 // DeployService takes a charm and various parameters and deploys it.
 func (conn *Conn) DeployService(args DeployServiceParams) (*state.Service, error) {
-
 	svc, err := conn.State.AddService(args.ServiceName, args.Charm)
 	if err != nil {
 		return nil, err
 	}
-
+	// BUG(lp:1162122): Config/ConfigYAML have no tests.
 	if args.ConfigYAML != "" {
 		ssArgs := params.ServiceSetYAML{
 			ServiceName: args.ServiceName,
@@ -214,9 +215,11 @@ func (conn *Conn) DeployService(args DeployServiceParams) (*state.Service, error
 			return nil, err
 		}
 	}
-
 	if args.Charm.Meta().Subordinate {
 		return svc, nil
+	}
+	if err := svc.SetConstraints(args.Constraints); err != nil {
+		return nil, err
 	}
 	_, err = conn.AddUnits(svc, args.NumUnits)
 	if err != nil {
@@ -286,11 +289,12 @@ func (conn *Conn) addCharm(curl *charm.URL, ch charm.Charm) (*state.Charm, error
 // to them as necessary.
 func (conn *Conn) AddUnits(svc *state.Service, n int) ([]*state.Unit, error) {
 	units := make([]*state.Unit, n)
+	// TODO store AssignmentPolicy in state, thus removing the need for this
+	// to use conn.Environ (so the method can be moved off Conn, and into
+	// State.
+	policy := conn.Environ.AssignmentPolicy()
 	// TODO what do we do if we fail half-way through this process?
 	for i := 0; i < n; i++ {
-		// TODO store AssignmentPolicy in state, thus removing the need
-		// for this to use conn.Environ.
-		policy := conn.Environ.AssignmentPolicy()
 		unit, err := svc.AddUnit()
 		if err != nil {
 			return nil, fmt.Errorf("cannot add unit %d/%d to service %q: %v", i+1, n, svc.Name(), err)
@@ -310,16 +314,12 @@ func (conn *Conn) AddUnits(svc *state.Service, n int) ([]*state.Unit, error) {
 // whether to attempt to reexecute previous failed hooks or to continue
 // as if they had succeeded before.
 func (conn *Conn) Resolved(unit *state.Unit, retryHooks bool) error {
-	status, _, err := unit.Status()
-	if err != nil {
-		return err
-	}
-	if status != state.UnitError {
+	if status, _ := unit.Status(); status != params.UnitError {
 		return fmt.Errorf("unit %q is not in an error state", unit)
 	}
-	mode := state.ResolvedNoHooks
+	mode := params.ResolvedNoHooks
 	if retryHooks {
-		mode = state.ResolvedRetryHooks
+		mode = params.ResolvedRetryHooks
 	}
 	return unit.SetResolved(mode)
 }

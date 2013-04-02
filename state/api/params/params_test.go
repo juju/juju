@@ -38,7 +38,7 @@ var marshalTestCases = []struct {
 		Entity: &params.ServiceInfo{
 			Name:     "Benji",
 			Exposed:  true,
-			CharmURL: charm.MustParseURL("cs:series/name"),
+			CharmURL: "cs:series/name",
 		},
 	},
 	json: `["service","change",{"CharmURL": "cs:series/name","Name":"Benji","Exposed":true}]`,
@@ -48,9 +48,28 @@ var marshalTestCases = []struct {
 		Entity: &params.UnitInfo{
 			Name:    "Benji",
 			Service: "Shazam",
+			Series:  "precise",
+			CharmURL: &charm.URL{
+				Schema:   "cs",
+				User:     "user",
+				Series:   "precise",
+				Name:     "wordpress",
+				Revision: 42,
+			},
+			Ports: []params.Port{
+				params.Port{
+					Protocol: "http",
+					Number:   80},
+			},
+			PublicAddress:  "example.com",
+			PrivateAddress: "10.0.0.1",
+			Resolved:       "", // See params.ResolvedMode
+			MachineId:      "1",
+			Status:         params.UnitStarted,
+			StatusInfo:     "Start info",
 		},
 	},
-	json: `["unit","change",{"Name":"Benji","Service":"Shazam"}]`,
+	json: `["unit", "change", {"CharmURL": "cs:~user/precise/wordpress-42", "MachineId": "1", "Series": "precise", "Name": "Benji", "StatusInfo": "Start info", "Status": "started", "PublicAddress": "example.com", "Service": "Shazam", "PrivateAddress": "10.0.0.1", "Resolved": "", "Ports": [{"Protocol": "http", "Number": 80}]}]`,
 }, {
 	about: "RelationInfo Delta",
 	value: params.Delta{
@@ -63,14 +82,14 @@ var marshalTestCases = []struct {
 	about: "AnnotationInfo Delta",
 	value: params.Delta{
 		Entity: &params.AnnotationInfo{
-			EntityName: "machine-0",
+			Tag: "machine-0",
 			Annotations: map[string]string{
 				"foo":   "bar",
 				"arble": "2 4",
 			},
 		},
 	},
-	json: `["annotation","change",{"EntityName":"machine-0","Annotations":{"foo":"bar","arble":"2 4"}}]`,
+	json: `["annotation","change",{"Tag":"machine-0","Annotations":{"foo":"bar","arble":"2 4"}}]`,
 }, {
 	about: "Delta Removed True",
 	value: params.Delta{

@@ -14,15 +14,16 @@ var _ = Suite(&EnvironSuite{})
 
 func (s *EnvironSuite) SetUpTest(c *C) {
 	s.ConnSuite.SetUpTest(c)
-	setUpEnvConfig(c)
 	env, err := s.State.Environment()
 	c.Assert(err, IsNil)
 	s.env = env
 }
 
-func (s *EnvironSuite) TestEntityName(c *C) {
-	expected := "environment-" + envConfig["name"].(string)
-	c.Assert(s.env.EntityName(), Equals, expected)
+func (s *EnvironSuite) TestTag(c *C) {
+	cfg, err := s.State.EnvironConfig()
+	c.Assert(err, IsNil)
+	expected := "environment-" + cfg.Name()
+	c.Assert(s.env.Tag(), Equals, expected)
 }
 
 func (s *EnvironSuite) TestAnnotatorForEnvironment(c *C) {

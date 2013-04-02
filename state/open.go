@@ -30,9 +30,9 @@ type Info struct {
 	// to validate the state server's certificate, in PEM format.
 	CACert []byte
 
-	// EntityName holds the name of the entity that is connecting.
+	// Tag holds the name of the entity that is connecting.
 	// It should be empty when connecting as an administrator.
-	EntityName string
+	Tag string
 
 	// Password holds the password for the connecting entity.
 	Password string
@@ -64,7 +64,7 @@ func DefaultDialOpts() DialOpts {
 // representing the environment connected to.
 // It returns unauthorizedError if access is unauthorized.
 func Open(info *Info, opts DialOpts) (*State, error) {
-	log.Infof("state: opening state; mongo addresses: %q; entity %q", info.Addrs, info.EntityName)
+	log.Infof("state: opening state; mongo addresses: %q; entity %q", info.Addrs, info.Tag)
 	if len(info.Addrs) == 0 {
 		return nil, errors.New("no mongo addresses")
 	}
@@ -217,11 +217,11 @@ func maybeUnauthorized(err error, msg string) error {
 func newState(session *mgo.Session, info *Info) (*State, error) {
 	db := session.DB("juju")
 	pdb := session.DB("presence")
-	if info.EntityName != "" {
-		if err := db.Login(info.EntityName, info.Password); err != nil {
+	if info.Tag != "" {
+		if err := db.Login(info.Tag, info.Password); err != nil {
 			return nil, maybeUnauthorized(err, "cannot log in to juju database")
 		}
-		if err := pdb.Login(info.EntityName, info.Password); err != nil {
+		if err := pdb.Login(info.Tag, info.Password); err != nil {
 			return nil, maybeUnauthorized(err, "cannot log in to presence database")
 		}
 	} else if info.Password != "" {
