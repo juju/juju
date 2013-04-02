@@ -345,7 +345,7 @@ func (i *UnitInfo) EntityKind() string    { return "unit" }
 
 type Endpoint struct {
 	ServiceName string
-	charm.Relation
+	Relation    charm.Relation
 }
 
 type RelationInfo struct {
