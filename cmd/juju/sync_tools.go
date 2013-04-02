@@ -16,10 +16,8 @@ import (
 // bucket.
 type SyncToolsCommand struct {
 	EnvCommandBase
-	sourceToolsList *environs.ToolsList
-	targetToolsList *environs.ToolsList
-	allVersions     bool
-	dryRun          bool
+	allVersions bool
+	dryRun      bool
 }
 
 var _ cmd.Command = (*SyncToolsCommand)(nil)
@@ -42,11 +40,12 @@ func (c *SyncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.BoolVar(&c.allVersions, "all", false, "copy all versions, not just the latest")
 	f.BoolVar(&c.dryRun, "dry-run", false, "don't copy, just print what would be copied")
-
+	// BUG(lp:1163164)  jam 2013-04-2 we would like to add a "source"
+	// location, rather than only copying from us-east-1
 }
 
 func (c *SyncToolsCommand) Init(args []string) error {
-	return nil
+	return cmd.CheckEmpty(args)
 }
 
 var officialBucketAttrs = map[string]interface{}{
@@ -96,19 +95,21 @@ func findMissing(sourceTools, targetTools []*state.Tools) []*state.Tools {
 	return res
 }
 
-func copyOne(tool *state.Tools, source environs.StorageReader,
-	target environs.Storage, ctx *cmd.Context) error {
+func copyOne(
+	tool *state.Tools, source environs.StorageReader,
+	target environs.Storage, ctx *cmd.Context,
+) error {
 	toolsPath := environs.ToolsStoragePath(tool.Binary)
 	fmt.Fprintf(ctx.Stdout, "copying %v", toolsPath)
-	toolFile, err := source.Get(toolsPath)
+	srcFile, err := source.Get(toolsPath)
 	if err != nil {
 		return err
 	}
-	defer toolFile.Close()
+	defer srcFile.Close()
 	// We have to buffer the content, because Put requires the content
 	// length, but Get only returns us a ReadCloser
 	buf := bytes.NewBuffer(nil)
-	nBytes, err := io.Copy(buf, toolFile)
+	nBytes, err := io.Copy(buf, srcFile)
 	if err != nil {
 		return err
 	}
@@ -126,7 +127,7 @@ func copyTools(
 	target environs.Storage, dryRun bool, ctx *cmd.Context,
 ) error {
 	for _, tool := range tools {
-		log.Infof("cmd/juju: copying %s from %s\n", tool.Binary, tool.URL)
+		log.Infof("cmd/juju: copying %s from %s", tool.Binary, tool.URL)
 		if dryRun {
 			continue
 		}
@@ -144,7 +145,7 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	fmt.Fprintf(ctx.Stdout, "listing the source bucket\n")
-	c.sourceToolsList, err = environs.ListTools(officialEnviron, version.Current.Major)
+	sourceToolsList, err := environs.ListTools(officialEnviron, version.Current.Major)
 	if err != nil {
 		return err
 	}
@@ -153,26 +154,26 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 		log.Errorf("cmd/juju: unable to read %q from environment", c.EnvName)
 		return err
 	}
-	toolsToCopy := c.sourceToolsList.Public
+	toolsToCopy := sourceToolsList.Public
 	if !c.allVersions {
 		toolsToCopy = findNewest(toolsToCopy)
 	}
 	fmt.Fprintf(ctx.Stdout, "found %d tools in source (%d recent ones)\n",
-		len(c.sourceToolsList.Public), len(toolsToCopy))
+		len(sourceToolsList.Public), len(toolsToCopy))
 	for _, tool := range toolsToCopy {
 		log.Debugf("cmd/juju: found source tool: %s", tool)
 	}
 	fmt.Fprintf(ctx.Stdout, "listing target bucket\n")
-	c.targetToolsList, err = environs.ListTools(targetEnv, version.Current.Major)
+	targetToolsList, err := environs.ListTools(targetEnv, version.Current.Major)
 	if err != nil {
 		return err
 	}
-	for _, tool := range c.targetToolsList.Private {
+	for _, tool := range targetToolsList.Private {
 		log.Debugf("cmd/juju: found target tool: %s", tool)
 	}
-	missing := findMissing(toolsToCopy, c.targetToolsList.Private)
+	missing := findMissing(toolsToCopy, targetToolsList.Private)
 	fmt.Fprintf(ctx.Stdout, "found %d tools in target; %d tools to be copied\n",
-		len(c.targetToolsList.Private), len(missing))
+		len(targetToolsList.Private), len(missing))
 	err = copyTools(missing, officialEnviron.PublicStorage(), targetEnv.Storage(), c.dryRun, ctx)
 	if err != nil {
 		return err
