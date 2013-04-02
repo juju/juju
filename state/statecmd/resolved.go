@@ -15,12 +15,12 @@ func MarkResolved(unit *state.Unit, retryHooks bool) error {
 	if err != nil {
 		return err
 	}
-	if status != state.UnitError {
+	if status != params.UnitError {
 		return fmt.Errorf("unit %q is not in an error state", unit)
 	}
-	mode := state.ResolvedNoHooks
+	mode := params.ResolvedNoHooks
 	if retryHooks {
-		mode = state.ResolvedRetryHooks
+		mode = params.ResolvedRetryHooks
 	}
 	return unit.SetResolved(mode)
 }

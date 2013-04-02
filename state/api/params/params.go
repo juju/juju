@@ -294,9 +294,50 @@ type ServiceInfo struct {
 func (i *ServiceInfo) EntityId() interface{} { return i.Name }
 func (i *ServiceInfo) EntityKind() string    { return "service" }
 
+// ResolvedMode describes the way state transition errors
+// are resolved.
+type ResolvedMode string
+
+const (
+	ResolvedNone       ResolvedMode = ""
+	ResolvedRetryHooks ResolvedMode = "retry-hooks"
+	ResolvedNoHooks    ResolvedMode = "no-hooks"
+)
+
+// Port identifies a network port number for a particular protocol.
+type Port struct {
+	Protocol string
+	Number   int
+}
+
+func (p Port) String() string {
+	return fmt.Sprintf("%s:%d", p.Protocol, p.Number)
+}
+
+// UnitStatus represents the status of the unit agent.
+type UnitStatus string
+
+const (
+	UnitPending   UnitStatus = "pending"   // Agent hasn't started
+	UnitInstalled UnitStatus = "installed" // Agent has run the installed hook
+	UnitStarted   UnitStatus = "started"   // Agent is running properly
+	UnitStopped   UnitStatus = "stopped"   // Agent has stopped running on request
+	UnitError     UnitStatus = "error"     // Agent is waiting in an error state
+	UnitDown      UnitStatus = "down"      // Agent is down or not communicating
+)
+
 type UnitInfo struct {
-	Name    string `bson:"_id"`
-	Service string
+	Name           string `bson:"_id"`
+	Service        string
+	Series         string
+	CharmURL       *charm.URL
+	PublicAddress  string
+	PrivateAddress string
+	MachineId      string
+	Resolved       ResolvedMode
+	Ports          []Port
+	Status         UnitStatus
+	StatusInfo     string
 }
 
 func (i *UnitInfo) EntityId() interface{} { return i.Name }

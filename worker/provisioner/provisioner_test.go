@@ -96,7 +96,9 @@ func (s *ProvisionerSuite) checkStartInstanceCustom(c *C, m *state.Machine, secr
 				c.Assert(o.Info.Password, Not(HasLen), 0)
 				info.Password = o.Info.Password
 				c.Assert(o.Info, DeepEquals, info)
-				st, err := state.Open(o.Info, state.DefaultDialTimeout)
+				// Check we can connect to the state with
+				// the machine's entity name and password.
+				st, err := state.Open(o.Info, state.DefaultDialOpts())
 				c.Assert(err, IsNil)
 				st.Close()
 				return

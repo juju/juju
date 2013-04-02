@@ -3,6 +3,7 @@ package params_test
 import (
 	"encoding/json"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state/api/params"
 	"testing"
 )
@@ -47,9 +48,28 @@ var marshalTestCases = []struct {
 		Entity: &params.UnitInfo{
 			Name:    "Benji",
 			Service: "Shazam",
+			Series:  "precise",
+			CharmURL: &charm.URL{
+				Schema:   "cs",
+				User:     "user",
+				Series:   "precise",
+				Name:     "wordpress",
+				Revision: 42,
+			},
+			Ports: []params.Port{
+				params.Port{
+					Protocol: "http",
+					Number:   80},
+			},
+			PublicAddress:  "example.com",
+			PrivateAddress: "10.0.0.1",
+			Resolved:       "", // See params.ResolvedMode
+			MachineId:      "1",
+			Status:         params.UnitStarted,
+			StatusInfo:     "Start info",
 		},
 	},
-	json: `["unit","change",{"Name":"Benji","Service":"Shazam"}]`,
+	json: `["unit", "change", {"CharmURL": "cs:~user/precise/wordpress-42", "MachineId": "1", "Series": "precise", "Name": "Benji", "StatusInfo": "Start info", "Status": "started", "PublicAddress": "example.com", "Service": "Shazam", "PrivateAddress": "10.0.0.1", "Resolved": "", "Ports": [{"Protocol": "http", "Number": 80}]}]`,
 }, {
 	about: "RelationInfo Delta",
 	value: params.Delta{

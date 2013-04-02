@@ -10,7 +10,6 @@ import (
 	"launchpad.net/juju-core/testing"
 	"net/url"
 	"path/filepath"
-	"time"
 )
 
 // TestingEnvironConfig returns a default environment configuration.
@@ -34,15 +33,11 @@ func TestingInitialize(c *C, cfg *config.Config) {
 	if cfg == nil {
 		cfg = TestingEnvironConfig(c)
 	}
-	st, err := Initialize(TestingStateInfo(), cfg, TestingDialTimeout)
+	st, err := Initialize(TestingStateInfo(), cfg, TestingDialOpts())
 	c.Assert(err, IsNil)
 	err = st.Close()
 	c.Assert(err, IsNil)
 }
-
-// TestingDialTimeout controls how long calls to state.Open
-// will wait during testing.
-const TestingDialTimeout = 100 * time.Millisecond
 
 type (
 	CharmDoc    charmDoc
