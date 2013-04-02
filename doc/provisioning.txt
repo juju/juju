@@ -75,14 +75,14 @@ Machine Status and Provisioning Errors (WIP)
 When the provisioner fails to start a machine, it should ensure that (1) the
 machine has no instance id set and (2) the machine has an error status set
 that communicates the nature of the problem. This must be visible in the
-output of `juju status`; and we must supply suitable tools to the users so
+output of `juju status`; and we must supply suitable tools to the user so
 as to allow her to respond appropriately.
 
 If the user believes a machine's provisioning error to be transient, she can
 do a simple `juju resolved 14` which will set some state to make machine 14
 eligible for the provisioner's attention again.
 
-Or, it may be the case that the unit ended up snapshotting a service/environ
+It may otherwise be that the unit ended up snapshotting a service/environ
 config pair that really isn't satsifiable. In that case, the user can try
 (say) `juju resolved 14 --constraints "mem=2G cpu-power=400"`, which allows
 her to completely replace the machine's constraints as well as marking the
@@ -98,7 +98,8 @@ in an unsophisticated but moderately effective way:
 
   $ juju destroy-unit borken/0
 
-...in that at least broken units don't clutter up the service; but:
+...in that at least broken units don't clutter up the service and prevent its
+removal. However:
 
   $ juju destroy-machine 1
 
