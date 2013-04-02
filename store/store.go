@@ -33,7 +33,11 @@ import (
 var (
 	ErrUpdateConflict  = errors.New("charm update in progress")
 	ErrRedundantUpdate = errors.New("charm is up-to-date")
-	ErrNotFound        = errors.New("entry not found")
+
+	// Note that this error message is part of the API, since it's sent
+	// both in charm-info and charm-event responses as errors indicating
+	// that the given charm or charm event wasn't found.
+	ErrNotFound = errors.New("entry not found")
 )
 
 const (
