@@ -311,14 +311,14 @@ type UnitInfo struct {
 func (i *UnitInfo) EntityId() interface{} { return i.Name }
 func (i *UnitInfo) EntityKind() string    { return "unit" }
 
-type endpoint struct {
+type Endpoint struct {
 	ServiceName string
 	charm.Relation
 }
 
 type RelationInfo struct {
 	Key string `bson:"_id"`
-	Endpoints []endpoint
+	Endpoints []Endpoint
 }
 
 func (i *RelationInfo) EntityId() interface{} { return i.Key }

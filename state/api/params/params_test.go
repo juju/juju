@@ -70,7 +70,7 @@ var marshalTestCases = []struct {
 			Key: "Benji",
 		},
 	},
-        json: `["relation","change",{"Key":"Benji", "Endpoints": []}]`,
+        json: `["relation","change",{"Key":"Benji", "Endpoints": null}]`,
 }, {
 	about: "AnnotationInfo Delta",
 	value: params.Delta{
@@ -91,7 +91,7 @@ var marshalTestCases = []struct {
 			Key: "Benji",
 		},
 	},
-	json: `["relation","remove",{"Key":"Benji", "Endpoints": []}]`,
+	json: `["relation","remove",{"Key":"Benji", "Endpoints": null}]`,
 }}
 
 func (s *MarshalSuite) TestDeltaMarshalJSON(c *C) {
