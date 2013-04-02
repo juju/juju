@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/presence"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
@@ -229,9 +230,9 @@ var statusTests = []testCase{
 
 		addUnit{"dummy-service", "1"},
 		addAliveUnit{"exposed-service", "2"},
-		setUnitStatus{"exposed-service/0", state.UnitError, "You Require More Vespene Gas"},
+		setUnitStatus{"exposed-service/0", params.UnitError, "You Require More Vespene Gas"},
 		// This will be ignored, because the unit is down.
-		setUnitStatus{"dummy-service/0", state.UnitStarted, ""},
+		setUnitStatus{"dummy-service/0", params.UnitStarted, ""},
 		expect{
 			"add two units, one alive (in error state), one down",
 			M{
@@ -389,7 +390,7 @@ func (aau addAliveUnit) step(c *C, ctx *context) {
 
 type setUnitStatus struct {
 	unitName   string
-	status     state.UnitStatus
+	status     params.UnitStatus
 	statusInfo string
 }
 

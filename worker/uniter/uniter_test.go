@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/uniter"
@@ -247,9 +248,9 @@ var installHookTests = []uniterTest{
 		startupError{"install"},
 		verifyWaiting{},
 
-		resolveError{state.ResolvedNoHooks},
+		resolveError{params.ResolvedNoHooks},
 		waitUnit{
-			status: state.UnitStarted,
+			status: params.UnitStarted,
 		},
 		waitHooks{"config-changed", "start"},
 	), ut(
@@ -257,18 +258,18 @@ var installHookTests = []uniterTest{
 		startupError{"install"},
 		verifyWaiting{},
 
-		resolveError{state.ResolvedRetryHooks},
+		resolveError{params.ResolvedRetryHooks},
 		waitUnit{
-			status: state.UnitError,
+			status: params.UnitError,
 			info:   `hook failed: "install"`,
 		},
 		waitHooks{"fail-install"},
 		fixHook{"install"},
 		verifyWaiting{},
 
-		resolveError{state.ResolvedRetryHooks},
+		resolveError{params.ResolvedRetryHooks},
 		waitUnit{
-			status: state.UnitStarted,
+			status: params.UnitStarted,
 		},
 		waitHooks{"install", "config-changed", "start"},
 	),
@@ -284,9 +285,9 @@ var startHookTests = []uniterTest{
 		startupError{"start"},
 		verifyWaiting{},
 
-		resolveError{state.ResolvedNoHooks},
+		resolveError{params.ResolvedNoHooks},
 		waitUnit{
-			status: state.UnitStarted,
+			status: params.UnitStarted,
 		},
 		waitHooks{"config-changed"},
 		verifyRunning{},
@@ -295,18 +296,18 @@ var startHookTests = []uniterTest{
 		startupError{"start"},
 		verifyWaiting{},
 
-		resolveError{state.ResolvedRetryHooks},
+		resolveError{params.ResolvedRetryHooks},
 		waitUnit{
-			status: state.UnitError,
+			status: params.UnitError,
 			info:   `hook failed: "start"`,
 		},
 		waitHooks{"fail-start"},
 		verifyWaiting{},
 
 		fixHook{"start"},
-		resolveError{state.ResolvedRetryHooks},
+		resolveError{params.ResolvedRetryHooks},
 		waitUnit{
-			status: state.UnitStarted,
+			status: params.UnitStarted,
 		},
 		waitHooks{"start", "config-changed"},
 		verifyRunning{},
@@ -327,9 +328,9 @@ var configChangedHookTests = []uniterTest{
 		// started state, so the broken hook would actually prevent us
 		// from advancing at all if we didn't fix it.
 		fixHook{"config-changed"},
-		resolveError{state.ResolvedNoHooks},
+		resolveError{params.ResolvedNoHooks},
 		waitUnit{
-			status: state.UnitStarted,
+			status: params.UnitStarted,
 		},
 		waitHooks{"start", "config-changed"},
 		// If we'd accidentally retried that hook, somehow, we would get
@@ -341,18 +342,18 @@ var configChangedHookTests = []uniterTest{
 		startupError{"config-changed"},
 		verifyWaiting{},
 
-		resolveError{state.ResolvedRetryHooks},
+		resolveError{params.ResolvedRetryHooks},
 		waitUnit{
-			status: state.UnitError,
+			status: params.UnitError,
 			info:   `hook failed: "config-changed"`,
 		},
 		waitHooks{"fail-config-changed"},
 		verifyWaiting{},
 
 		fixHook{"config-changed"},
-		resolveError{state.ResolvedRetryHooks},
+		resolveError{params.ResolvedRetryHooks},
 		waitUnit{
-			status: state.UnitStarted,
+			status: params.UnitStarted,
 		},
 		waitHooks{"config-changed", "start"},
 		verifyRunning{},
@@ -367,7 +368,7 @@ var configChangedHookTests = []uniterTest{
 		serveCharm{},
 		createUniter{},
 		waitUnit{
-			status: state.UnitStarted,
+			status: params.UnitStarted,
 		},
 		waitHooks{"install", "config-changed", "start"},
 		assertYaml{"charm/config.out", map[string]interface{}{
@@ -411,7 +412,7 @@ var dyingReactionTests = []uniterTest{
 		serviceDying,
 		verifyWaiting{},
 		fixHook{"start"},
-		resolveError{state.ResolvedRetryHooks},
+		resolveError{params.ResolvedRetryHooks},
 		waitHooks{"start", "config-changed", "stop"},
 		waitUniterDead{},
 	), ut(
@@ -420,7 +421,7 @@ var dyingReactionTests = []uniterTest{
 		unitDying,
 		verifyWaiting{},
 		fixHook{"start"},
-		resolveError{state.ResolvedRetryHooks},
+		resolveError{params.ResolvedRetryHooks},
 		waitHooks{"start", "config-changed", "stop"},
 		waitUniterDead{},
 	), ut(
@@ -444,7 +445,7 @@ var steadyUpgradeTests = []uniterTest{
 		createCharm{revision: 1},
 		upgradeCharm{revision: 1},
 		waitUnit{
-			status: state.UnitStarted,
+			status: params.UnitStarted,
 			charm:  1,
 		},
 		waitHooks{"upgrade-charm", "config-changed"},
@@ -456,7 +457,7 @@ var steadyUpgradeTests = []uniterTest{
 		createCharm{revision: 1},
 		upgradeCharm{revision: 1, forced: true},
 		waitUnit{
-			status: state.UnitStarted,
+			status: params.UnitStarted,
 			charm:  1,
 		},
 		waitHooks{"upgrade-charm", "config-changed"},
@@ -468,7 +469,7 @@ var steadyUpgradeTests = []uniterTest{
 		createCharm{revision: 1, badHooks: []string{"upgrade-charm"}},
 		upgradeCharm{revision: 1},
 		waitUnit{
-			status: state.UnitError,
+			status: params.UnitError,
 			info:   `hook failed: "upgrade-charm"`,
 			charm:  1,
 		},
@@ -476,9 +477,9 @@ var steadyUpgradeTests = []uniterTest{
 		verifyCharm{revision: 1},
 		verifyWaiting{},
 
-		resolveError{state.ResolvedNoHooks},
+		resolveError{params.ResolvedNoHooks},
 		waitUnit{
-			status: state.UnitStarted,
+			status: params.UnitStarted,
 			charm:  1,
 		},
 		waitHooks{"config-changed"},
@@ -489,7 +490,7 @@ var steadyUpgradeTests = []uniterTest{
 		createCharm{revision: 1, badHooks: []string{"upgrade-charm"}},
 		upgradeCharm{revision: 1},
 		waitUnit{
-			status: state.UnitError,
+			status: params.UnitError,
 			info:   `hook failed: "upgrade-charm"`,
 			charm:  1,
 		},
@@ -497,9 +498,9 @@ var steadyUpgradeTests = []uniterTest{
 		verifyCharm{revision: 1},
 		verifyWaiting{},
 
-		resolveError{state.ResolvedRetryHooks},
+		resolveError{params.ResolvedRetryHooks},
 		waitUnit{
-			status: state.UnitError,
+			status: params.UnitError,
 			info:   `hook failed: "upgrade-charm"`,
 			charm:  1,
 		},
@@ -507,9 +508,9 @@ var steadyUpgradeTests = []uniterTest{
 		verifyWaiting{},
 
 		fixHook{"upgrade-charm"},
-		resolveError{state.ResolvedRetryHooks},
+		resolveError{params.ResolvedRetryHooks},
 		waitUnit{
-			status: state.UnitStarted,
+			status: params.UnitStarted,
 			charm:  1,
 		},
 		waitHooks{"upgrade-charm", "config-changed"},
@@ -551,16 +552,16 @@ var errorUpgradeTests = []uniterTest{
 		createCharm{revision: 1},
 		upgradeCharm{revision: 1},
 		waitUnit{
-			status: state.UnitError,
+			status: params.UnitError,
 			info:   `hook failed: "start"`,
 		},
 		waitHooks{},
 		verifyCharm{},
 		verifyWaiting{},
 
-		resolveError{state.ResolvedNoHooks},
+		resolveError{params.ResolvedNoHooks},
 		waitUnit{
-			status: state.UnitStarted,
+			status: params.UnitStarted,
 			charm:  1,
 		},
 		waitHooks{"config-changed", "upgrade-charm", "config-changed"},
@@ -577,7 +578,7 @@ var errorUpgradeTests = []uniterTest{
 		// the charm has been downloaded and verified). However, it's still
 		// useful to wait until that point...
 		waitUnit{
-			status: state.UnitError,
+			status: params.UnitError,
 			info:   `hook failed: "start"`,
 			charm:  1,
 		},
@@ -588,9 +589,9 @@ var errorUpgradeTests = []uniterTest{
 		verifyWaiting{},
 		verifyCharm{revision: 1},
 
-		resolveError{state.ResolvedNoHooks},
+		resolveError{params.ResolvedNoHooks},
 		waitUnit{
-			status: state.UnitStarted,
+			status: params.UnitStarted,
 			charm:  1,
 		},
 		waitHooks{"config-changed"},
@@ -611,10 +612,10 @@ var upgradeConflictsTests = []uniterTest{
 		// NOTE: this is just dumbly committing the conflicts, but AFAICT this
 		// is the only reasonable solution; if the user tells us it's resolved
 		// we have to take their word for it.
-		resolveError{state.ResolvedNoHooks},
+		resolveError{params.ResolvedNoHooks},
 		waitHooks{"upgrade-charm", "config-changed"},
 		waitUnit{
-			status: state.UnitStarted,
+			status: params.UnitStarted,
 			charm:  1,
 		},
 		verifyCharm{revision: 1},
@@ -630,7 +631,7 @@ var upgradeConflictsTests = []uniterTest{
 		serveCharm{},
 		createUniter{},
 		waitUnit{
-			status: state.UnitStarted,
+			status: params.UnitStarted,
 		},
 		waitHooks{"install", "config-changed", "start"},
 		verifyCharm{},
@@ -646,17 +647,17 @@ var upgradeConflictsTests = []uniterTest{
 		serveCharm{},
 		upgradeCharm{revision: 1},
 		waitUnit{
-			status: state.UnitError,
+			status: params.UnitError,
 			info:   "upgrade failed",
 			charm:  1,
 		},
 		verifyWaiting{},
 		verifyCharm{dirty: true},
 
-		resolveError{state.ResolvedNoHooks},
+		resolveError{params.ResolvedNoHooks},
 		waitHooks{"upgrade-charm", "config-changed"},
 		waitUnit{
-			status: state.UnitStarted,
+			status: params.UnitStarted,
 			charm:  1,
 		},
 		verifyCharm{revision: 1},
@@ -674,7 +675,7 @@ var upgradeConflictsTests = []uniterTest{
 		serveCharm{},
 		upgradeCharm{revision: 2, forced: true},
 		waitUnit{
-			status: state.UnitStarted,
+			status: params.UnitStarted,
 			charm:  2,
 		},
 		waitHooks{"upgrade-charm", "config-changed"},
@@ -699,7 +700,7 @@ var upgradeConflictsTests = []uniterTest{
 		startUpgradeError{},
 		serviceDying,
 		verifyWaiting{},
-		resolveError{state.ResolvedNoHooks},
+		resolveError{params.ResolvedNoHooks},
 		waitHooks{"upgrade-charm", "config-changed", "stop"},
 		waitUniterDead{},
 	), ut(
@@ -707,7 +708,7 @@ var upgradeConflictsTests = []uniterTest{
 		startUpgradeError{},
 		unitDying,
 		verifyWaiting{},
-		resolveError{state.ResolvedNoHooks},
+		resolveError{params.ResolvedNoHooks},
 		waitHooks{"upgrade-charm", "config-changed", "stop"},
 		waitUniterDead{},
 	), ut(
@@ -1131,7 +1132,7 @@ func (s startupError) step(c *C, ctx *context) {
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
 	step(c, ctx, waitUnit{
-		status: state.UnitError,
+		status: params.UnitError,
 		info:   fmt.Sprintf(`hook failed: %q`, s.badHook),
 	})
 	for _, hook := range []string{"install", "config-changed", "start"} {
@@ -1150,7 +1151,7 @@ func (s quickStart) step(c *C, ctx *context) {
 	step(c, ctx, createCharm{})
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
-	step(c, ctx, waitUnit{status: state.UnitStarted})
+	step(c, ctx, waitUnit{status: params.UnitStarted})
 	step(c, ctx, waitHooks{"install", "config-changed", "start"})
 	step(c, ctx, verifyCharm{})
 }
@@ -1166,7 +1167,7 @@ func (s quickStartRelation) step(c *C, ctx *context) {
 }
 
 type resolveError struct {
-	resolved state.ResolvedMode
+	resolved params.ResolvedMode
 }
 
 func (s resolveError) step(c *C, ctx *context) {
@@ -1175,10 +1176,10 @@ func (s resolveError) step(c *C, ctx *context) {
 }
 
 type waitUnit struct {
-	status   state.UnitStatus
+	status   params.UnitStatus
 	info     string
 	charm    int
-	resolved state.ResolvedMode
+	resolved params.ResolvedMode
 }
 
 func (s waitUnit) step(c *C, ctx *context) {
@@ -1328,7 +1329,7 @@ func (s startUpgradeError) step(c *C, ctx *context) {
 		serveCharm{},
 		createUniter{},
 		waitUnit{
-			status: state.UnitStarted,
+			status: params.UnitStarted,
 		},
 		waitHooks{"install", "config-changed", "start"},
 		verifyCharm{},
@@ -1347,7 +1348,7 @@ func (s startUpgradeError) step(c *C, ctx *context) {
 		serveCharm{},
 		upgradeCharm{revision: 1},
 		waitUnit{
-			status: state.UnitError,
+			status: params.UnitError,
 			info:   "upgrade failed",
 			charm:  1,
 		},

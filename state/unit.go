@@ -6,21 +6,12 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/trivial"
 	"sort"
 	"strings"
 	"time"
-)
-
-// ResolvedMode describes the way state transition errors
-// are resolved.
-type ResolvedMode string
-
-const (
-	ResolvedNone       ResolvedMode = ""
-	ResolvedRetryHooks ResolvedMode = "retry-hooks"
-	ResolvedNoHooks    ResolvedMode = "no-hooks"
 )
 
 // AssignmentPolicy controls what machine a unit will be assigned to.
@@ -41,28 +32,6 @@ const (
 	AssignNew AssignmentPolicy = "new"
 )
 
-// UnitStatus represents the status of the unit agent.
-type UnitStatus string
-
-const (
-	UnitPending   UnitStatus = "pending"   // Agent hasn't started
-	UnitInstalled UnitStatus = "installed" // Agent has run the installed hook
-	UnitStarted   UnitStatus = "started"   // Agent is running properly
-	UnitStopped   UnitStatus = "stopped"   // Agent has stopped running on request
-	UnitError     UnitStatus = "error"     // Agent is waiting in an error state
-	UnitDown      UnitStatus = "down"      // Agent is down or not communicating
-)
-
-// Port identifies a network port number for a particular protocol.
-type Port struct {
-	Protocol string
-	Number   int
-}
-
-func (p Port) String() string {
-	return fmt.Sprintf("%s:%d", p.Protocol, p.Number)
-}
-
 // UnitSettings holds information about a service unit's settings within a
 // relation.
 type UnitSettings struct {
@@ -82,11 +51,11 @@ type unitDoc struct {
 	PublicAddress  string
 	PrivateAddress string
 	MachineId      string
-	Resolved       ResolvedMode
+	Resolved       params.ResolvedMode
 	Tools          *Tools `bson:",omitempty"`
-	Ports          []Port
+	Ports          []params.Port
 	Life           Life
-	Status         UnitStatus
+	Status         params.UnitStatus
 	StatusInfo     string
 	TxnRevno       int64 `bson:"txn-revno"`
 	PasswordHash   string
@@ -406,7 +375,7 @@ func (u *Unit) Remove() (err error) {
 }
 
 // Resolved returns the resolved mode for the unit.
-func (u *Unit) Resolved() ResolvedMode {
+func (u *Unit) Resolved() params.ResolvedMode {
 	return u.doc.Resolved
 }
 
@@ -458,13 +427,13 @@ func (u *Unit) Refresh() error {
 }
 
 // Status returns the status of the unit's agent.
-func (u *Unit) Status() (status UnitStatus, info string) {
+func (u *Unit) Status() (status params.UnitStatus, info string) {
 	return u.doc.Status, u.doc.StatusInfo
 }
 
 // SetStatus sets the status of the unit.
-func (u *Unit) SetStatus(status UnitStatus, info string) error {
-	if status == UnitError && info == "" {
+func (u *Unit) SetStatus(status params.UnitStatus, info string) error {
+	if status == params.UnitError && info == "" {
 		panic("must set info for unit error status")
 	}
 	ops := []txn.Op{{
@@ -484,7 +453,7 @@ func (u *Unit) SetStatus(status UnitStatus, info string) error {
 
 // OpenPort sets the policy of the port with protocol and number to be opened.
 func (u *Unit) OpenPort(protocol string, number int) (err error) {
-	port := Port{Protocol: protocol, Number: number}
+	port := params.Port{Protocol: protocol, Number: number}
 	defer trivial.ErrorContextf(&err, "cannot open port %v for unit %q", port, u)
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
@@ -510,7 +479,7 @@ func (u *Unit) OpenPort(protocol string, number int) (err error) {
 
 // ClosePort sets the policy of the port with protocol and number to be closed.
 func (u *Unit) ClosePort(protocol string, number int) (err error) {
-	port := Port{Protocol: protocol, Number: number}
+	port := params.Port{Protocol: protocol, Number: number}
 	defer trivial.ErrorContextf(&err, "cannot close port %v for unit %q", port, u)
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
@@ -522,7 +491,7 @@ func (u *Unit) ClosePort(protocol string, number int) (err error) {
 	if err != nil {
 		return onAbort(err, errDead)
 	}
-	newPorts := make([]Port, 0, len(u.doc.Ports))
+	newPorts := make([]params.Port, 0, len(u.doc.Ports))
 	for _, p := range u.doc.Ports {
 		if p != port {
 			newPorts = append(newPorts, p)
@@ -533,8 +502,8 @@ func (u *Unit) ClosePort(protocol string, number int) (err error) {
 }
 
 // OpenedPorts returns a slice containing the open ports of the unit.
-func (u *Unit) OpenedPorts() []Port {
-	ports := append([]Port{}, u.doc.Ports...)
+func (u *Unit) OpenedPorts() []params.Port {
+	ports := append([]params.Port{}, u.doc.Ports...)
 	SortPorts(ports)
 	return ports
 }
@@ -951,15 +920,15 @@ func (u *Unit) SetPrivateAddress(address string) error {
 // reestablish normal workflow. The resolved mode parameter informs
 // whether to attempt to reexecute previous failed hooks or to continue
 // as if they had succeeded before.
-func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
+func (u *Unit) SetResolved(mode params.ResolvedMode) (err error) {
 	defer trivial.ErrorContextf(&err, "cannot set resolved mode for unit %q", u)
 	switch mode {
-	case ResolvedRetryHooks, ResolvedNoHooks:
+	case params.ResolvedRetryHooks, params.ResolvedNoHooks:
 	default:
 		return fmt.Errorf("invalid error resolution mode: %q", mode)
 	}
 	// TODO(fwereade): assert unit has error status.
-	resolvedNotSet := D{{"resolved", ResolvedNone}}
+	resolvedNotSet := D{{"resolved", params.ResolvedNone}}
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
@@ -987,17 +956,17 @@ func (u *Unit) ClearResolved() error {
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: txn.DocExists,
-		Update: D{{"$set", D{{"resolved", ResolvedNone}}}},
+		Update: D{{"$set", D{{"resolved", params.ResolvedNone}}}},
 	}}
 	err := u.st.runner.Run(ops, "", nil)
 	if err != nil {
 		return fmt.Errorf("cannot clear resolved mode for unit %q: %v", u, NotFoundf("unit"))
 	}
-	u.doc.Resolved = ResolvedNone
+	u.doc.Resolved = params.ResolvedNone
 	return nil
 }
 
-type portSlice []Port
+type portSlice []params.Port
 
 func (p portSlice) Len() int      { return len(p) }
 func (p portSlice) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
@@ -1012,6 +981,6 @@ func (p portSlice) Less(i, j int) bool {
 
 // SortPorts sorts the given ports, first by protocol,
 // then by number.
-func SortPorts(ports []Port) {
+func SortPorts(ports []params.Port) {
 	sort.Sort(portSlice(ports))
 }
