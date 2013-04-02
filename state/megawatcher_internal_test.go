@@ -23,7 +23,6 @@ func (*allInfoSuite) assertAllInfoContents(c *C, a *allInfo, latestRevno int64, 
 	assertAllInfoContents(c, a, entityIdForInfo, latestRevno, entries)
 }
 
-
 var _ = Suite(&allInfoSuite{})
 
 var allInfoChangeMethodTests = []struct {
@@ -704,6 +703,11 @@ func (s *allWatcherStateSuite) TearDownTest(c *C) {
 	s.LoggingSuite.TearDownTest(c)
 }
 
+func (s *allWatcherStateSuite) Reset(c *C) {
+	s.TearDownTest(c)
+	s.SetUpTest(c)
+}
+
 var _ = Suite(&allWatcherStateSuite{})
 
 // setUpScenario adds some entities to the state so that
@@ -925,53 +929,54 @@ func (s *allWatcherStateSuite) TestStateBackingChanged(c *C) {
 }
 
 func testBackingChanged(c *C, b allWatcherBacking) {
-	idfn := func(info params.EntityInfo) entityId {
+	idOf := func(info params.EntityInfo) entityId {
 		return b.entityIdForInfo(info)
 	}
 	all := newAllInfo()
 	m99 := &params.MachineInfo{Id: "99"}
-	all.add(idfn(m99), m99)
+	all.add(idOf(m99), m99)
 	m0 := &params.MachineInfo{Id: "0", InstanceId: "i-0"}
 
-	err := b.changed(all, idfn(m0))
+	err := b.changed(all, idOf(m0))
 	c.Assert(err, IsNil)
-	
+
 	c.Logf("first change")
-	assertAllInfoContents(c, all, idfn, 2, []entityEntry{{
+	assertAllInfoContents(c, all, idOf, 2, []entityEntry{{
 		creationRevno: 1,
-		revno: 1,
-		info: m99,
+		revno:         1,
+		info:          m99,
 	}, {
 		creationRevno: 2,
-		revno: 2,
-		info: m0,
+		revno:         2,
+		info:          m0,
 	}})
 
 	c.Logf("second change")
-	err = b.changed(all, idfn(m99))
+	err = b.changed(all, idOf(m99))
 	c.Assert(err, IsNil)
-	assertAllInfoContents(c, all, idfn, 3, []entityEntry{{
+	assertAllInfoContents(c, all, idOf, 3, []entityEntry{{
 		creationRevno: 2,
-		revno: 2,
-		info: m0,
+		revno:         2,
+		info:          m0,
 	}})
 }
 
 var allWatcherChangedTests = []struct {
-	about string
-	add []params.EntityInfo
-	setUp func(c *C, st *State)
-	change entityId
-	expectRevno int64
+	about          string
+	add            []params.EntityInfo
+	setUp          func(c *C, st *State)
+	change         params.EntityInfo
+	expectRevno    int64
 	expectContents []entityEntry
 }{{
-	about: "no entity",
-	setUp: func(*C, *State){},
-	change: entityId{"machine", "1"},
+	about:  "no entity",
+	setUp:  func(*C, *State) {},
+	change: &params.MachineInfo{Id: "1"},
 }, {
 	about:       "entity is marked as removed if it's not in backing",
-	add:  []params.EntityInfo{&params.MachineInfo{Id: "1"}},
-	change:      entityId{"machine", "1"},
+	add:         []params.EntityInfo{&params.MachineInfo{Id: "1"}},
+	setUp:       func(*C, *State) {},
+	change:      &params.MachineInfo{Id: "1"},
 	expectRevno: 2,
 	expectContents: []entityEntry{{
 		creationRevno: 1,
@@ -984,60 +989,56 @@ var allWatcherChangedTests = []struct {
 	}},
 }, {
 	about: "entity is added if it's in backing but not in allInfo",
-	setUp: func(c *C, st *State) func() {
-		m, err := st.AddMachine(JobHostUnits)
+	setUp: func(c *C, st *State) {
+		_, err := st.AddMachine("series", JobHostUnits)
 		c.Assert(err, IsNil)
-		return func() {
-			err := m.EnsureDead()
-			c.Assert(err, IsNil)
-		}
 	},
-	change:      entityId{"machine", "0"},
+	change:      &params.MachineInfo{Id: "0"},
 	expectRevno: 1,
 	expectContents: []entityEntry{{
 		creationRevno: 1,
 		revno:         1,
-		refCount: 1,
 		info:          &params.MachineInfo{Id: "0"},
 	}},
 }, {
 	about: "entity is updated if it's in backing and in allInfo",
-	add:  []params.EntityInfo{&params.MachineInfo{Id: "0"}},
+	add:   []params.EntityInfo{&params.MachineInfo{Id: "0"}},
 	setUp: func(c *C, st *State) {
-		m, err := st.AddMachine(JobManageEnviron)
+		m, err := st.AddMachine("series", JobManageEnviron)
 		c.Assert(err, IsNil)
 		err = m.SetInstanceId("i-0")
 		c.Assert(err, IsNil)
 	},
-	change:      entityId{"machine", "0"},
+	change:      &params.MachineInfo{Id: "0"},
 	expectRevno: 2,
 	expectContents: []entityEntry{{
 		creationRevno: 1,
 		revno:         2,
-		refCount: 1,
-		info:          &params.MachineInfo{
-			Id: "0",
+		refCount:      1,
+		info: &params.MachineInfo{
+			Id:         "0",
 			InstanceId: "i-0",
 		},
 	}},
-}
+}}
 
 func (s *allWatcherStateSuite) TestChanged(c *C) {
 	for i, test := range allWatcherChangedTests {
 		c.Logf("test %d. %s", i, test.about)
-		b := newTestBacking(test.inBacking)
-		aw := newAllWatcher(b)
+		b := newAllWatcherStateBacking(s.State)
+		idOf := func(info params.EntityInfo) entityId { return b.entityIdForInfo(info) }
+		all := newAllInfo()
 		for _, info := range test.add {
-			allInfoAdd(aw.all, info)
-			allInfoIncRef(aw.all, entityIdForInfo(info))
+			all.add(idOf(info), info)
+			allInfoIncRef(all, idOf(info))
 		}
-		err := aw.changed(test.change)
+		test.setUp(c, s.State)
+		err := b.changed(all, idOf(test.change))
 		c.Assert(err, IsNil)
-		assertAllInfoContents(c, aw.all, test.expectRevno, test.expectContents)
+		assertAllInfoContents(c, all, idOf, test.expectRevno, test.expectContents)
 		s.Reset(c)
 	}
 }
-
 
 // TestStateWatcher tests the integration of the state watcher
 // with the state-based backing. Most of the logic is tested elsewhere -
@@ -1138,7 +1139,7 @@ func (s entityInfoSlice) Less(i, j int) bool {
 	panic("unknown id type")
 }
 
-func assertAllInfoContents(c *C, a *allInfo, idfn func(params.EntityInfo) entityId, latestRevno int64, entries []entityEntry) {
+func assertAllInfoContents(c *C, a *allInfo, idOf func(params.EntityInfo) entityId, latestRevno int64, entries []entityEntry) {
 	var gotEntries []entityEntry
 	var gotElems []*list.Element
 	c.Check(a.list.Len(), Equals, len(entries))
@@ -1148,7 +1149,7 @@ func assertAllInfoContents(c *C, a *allInfo, idfn func(params.EntityInfo) entity
 	}
 	c.Assert(gotEntries, DeepEquals, entries)
 	for i, ent := range entries {
-		c.Assert(a.entities[idfn(ent.info)], Equals, gotElems[i])
+		c.Assert(a.entities[idOf(ent.info)], Equals, gotElems[i])
 	}
 	c.Assert(a.entities, HasLen, len(entries))
 	c.Assert(a.latestRevno, Equals, latestRevno)
