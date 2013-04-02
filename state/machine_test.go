@@ -742,27 +742,27 @@ func (s *MachineSuite) TestConstraintsLifecycle(c *C) {
 }
 
 func (s *MachineSuite) TestGetSetStatus(c *C) {
-	failPending := func() { s.machine.SetStatus(state.MachinePending, "") }
+	failPending := func() { s.machine.SetStatus(params.MachinePending, "") }
 	c.Assert(failPending, PanicMatches, "machine status must not be set to pending")
-	failError := func() { s.machine.SetStatus(state.MachineError, "") }
+	failError := func() { s.machine.SetStatus(params.MachineError, "") }
 	c.Assert(failError, PanicMatches, "must set info for machine error status")
 
 	status, info, err := s.machine.Status()
 	c.Assert(err, IsNil)
-	c.Assert(status, Equals, state.MachinePending)
+	c.Assert(status, Equals, params.MachinePending)
 	c.Assert(info, Equals, "")
 
-	err = s.machine.SetStatus(state.MachineStarted, "")
+	err = s.machine.SetStatus(params.MachineStarted, "")
 	c.Assert(err, IsNil)
 	status, info, err = s.machine.Status()
 	c.Assert(err, IsNil)
-	c.Assert(status, Equals, state.MachineStarted)
+	c.Assert(status, Equals, params.MachineStarted)
 	c.Assert(info, Equals, "")
 
-	err = s.machine.SetStatus(state.MachineError, "provisioning failed")
+	err = s.machine.SetStatus(params.MachineError, "provisioning failed")
 	c.Assert(err, IsNil)
 	status, info, err = s.machine.Status()
 	c.Assert(err, IsNil)
-	c.Assert(status, Equals, state.MachineError)
+	c.Assert(status, Equals, params.MachineError)
 	c.Assert(info, Equals, "provisioning failed")
 }

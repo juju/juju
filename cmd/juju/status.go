@@ -218,7 +218,7 @@ func processVersion(r map[string]interface{}, v versioned) {
 }
 
 type status interface {
-	Status() (params.UnitStatus, string)
+	Status() (params.UnitStatus, string, error)
 }
 
 func processStatus(r map[string]interface{}, s status, agentAlive, unitDead bool) {

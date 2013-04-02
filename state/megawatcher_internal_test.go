@@ -862,7 +862,6 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 			Series:    m.Series(),
 			MachineId: m.Id(),
 			Ports:     []params.Port{},
-			Status:    params.UnitPending,
 		})
 		pairs := map[string]string{"name": fmt.Sprintf("bar %d", i)}
 		err = wu.SetAnnotations(pairs)
@@ -905,7 +904,6 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 			Service: "logging",
 			Series:  "series",
 			Ports:   []params.Port{},
-			Status:  params.UnitPending,
 		})
 	}
 	return

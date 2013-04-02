@@ -5,6 +5,7 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/trivial"
 	"time"
@@ -446,10 +447,10 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 }
 
 // Status returns the status of the machine's agent.
-func (m *Machine) Status() (status MachineStatus, info string, err error) {
+func (m *Machine) Status() (status params.MachineStatus, info string, err error) {
 	doc := &machineStatusDoc{}
 	if err := getStatus(m.st, m, doc); IsNotFound(err) {
-		return MachinePending, "", nil
+		return params.MachinePending, "", nil
 	} else if err != nil {
 		return "", "", err
 	}
@@ -457,10 +458,10 @@ func (m *Machine) Status() (status MachineStatus, info string, err error) {
 }
 
 // SetStatus sets the status of the machine.
-func (m *Machine) SetStatus(status MachineStatus, info string) error {
-	if status == MachinePending {
+func (m *Machine) SetStatus(status params.MachineStatus, info string) error {
+	if status == params.MachinePending {
 		panic("machine status must not be set to pending")
-	} else if status == MachineError && info == "" {
+	} else if status == params.MachineError && info == "" {
 		panic("must set info for machine error status")
 	}
 	doc := &machineStatusDoc{status, info}

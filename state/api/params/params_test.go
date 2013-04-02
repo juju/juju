@@ -65,11 +65,9 @@ var marshalTestCases = []struct {
 			PrivateAddress: "10.0.0.1",
 			Resolved:       "", // See params.ResolvedMode
 			MachineId:      "1",
-			Status:         params.UnitStarted,
-			StatusInfo:     "Start info",
 		},
 	},
-	json: `["unit", "change", {"CharmURL": "cs:~user/precise/wordpress-42", "MachineId": "1", "Series": "precise", "Name": "Benji", "StatusInfo": "Start info", "Status": "started", "PublicAddress": "example.com", "Service": "Shazam", "PrivateAddress": "10.0.0.1", "Resolved": "", "Ports": [{"Protocol": "http", "Number": 80}]}]`,
+	json: `["unit", "change", {"CharmURL": "cs:~user/precise/wordpress-42", "MachineId": "1", "Series": "precise", "Name": "Benji", "PublicAddress": "example.com", "Service": "Shazam", "PrivateAddress": "10.0.0.1", "Resolved": "", "Ports": [{"Protocol": "http", "Number": 80}]}]`,
 }, {
 	about: "RelationInfo Delta",
 	value: params.Delta{
