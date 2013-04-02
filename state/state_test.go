@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
+	"net"
 	"net/url"
 	"sort"
 	"strconv"
@@ -44,7 +45,7 @@ var _ = Suite(&StateSuite{})
 func (s *StateSuite) TestDialAgain(c *C) {
 	// Ensure idempotent operations on Dial are working fine.
 	for i := 0; i < 2; i++ {
-		st, err := state.Open(state.TestingStateInfo(), state.TestingDialTimeout)
+		st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts())
 		c.Assert(err, IsNil)
 		c.Assert(st.Close(), IsNil)
 	}
@@ -1028,7 +1029,7 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *C) {
 }
 
 func tryOpenState(info *state.Info) error {
-	st, err := state.Open(info, state.TestingDialTimeout)
+	st, err := state.Open(info, state.TestingDialOpts())
 	if err == nil {
 		st.Close()
 	}
@@ -1053,11 +1054,70 @@ func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *C) {
 func (s *StateSuite) TestOpenBadAddress(c *C) {
 	info := state.TestingStateInfo()
 	info.Addrs = []string{"0.1.2.3:1234"}
-	st, err := state.Open(info, 1*time.Millisecond)
+	st, err := state.Open(info, state.DialOpts{
+		Timeout:    1 * time.Millisecond,
+		RetryDelay: 0,
+	})
 	if err == nil {
 		st.Close()
 	}
 	c.Assert(err, ErrorMatches, "no reachable servers")
+}
+
+func (s *StateSuite) TestOpenDelaysRetryBadAddress(c *C) {
+	retryDelay := 200 * time.Millisecond
+	info := state.TestingStateInfo()
+	info.Addrs = []string{"0.1.2.3:1234"}
+
+	t0 := time.Now()
+	st, err := state.Open(info, state.DialOpts{
+		Timeout:    1 * time.Millisecond,
+		RetryDelay: retryDelay,
+	})
+	if err == nil {
+		st.Close()
+	}
+	c.Assert(err, ErrorMatches, "no reachable servers")
+	// tryOpenState should have delayed for at least RetryDelay
+	// internally mgo will try three times in a row before returning
+	// to the caller.
+	if t1 := time.Since(t0); t1 < 3*retryDelay {
+		c.Errorf("mgo.Dial only paused for %v, expected at least %v", t1, 3*retryDelay)
+	}
+}
+
+func (s *StateSuite) TestOpenDoesNotDelayOnHandShakeFailure(c *C) {
+	retryDelay := 200 * time.Millisecond
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	c.Assert(err, IsNil)
+	defer l.Close()
+	go func() {
+		for {
+			conn, err := l.Accept()
+			if err != nil {
+				return
+			}
+			conn.Write([]byte("this is not a SSL handshake\nno sir\n"))
+			conn.Close()
+		}
+	}()
+	info := state.TestingStateInfo()
+	info.Addrs = []string{l.Addr().String()}
+
+	t0 := time.Now()
+	st, err := state.Open(info, state.DialOpts{
+		Timeout:    1 * time.Millisecond,
+		RetryDelay: retryDelay,
+	})
+	if err == nil {
+		st.Close()
+	}
+	c.Assert(err, ErrorMatches, "no reachable servers")
+	// tryOpenState should not have delayed because the socket
+	// connected, but ssl handshake failed
+	if t1 := time.Since(t0); t1 > 3*retryDelay {
+		c.Errorf("mgo.Dial paused for %v, expected less than %v", t1, 3*retryDelay)
+	}
 }
 
 func testSetPassword(c *C, getEntity func() (state.Authenticator, error)) {
@@ -1099,7 +1159,7 @@ type entity interface {
 
 func testSetMongoPassword(c *C, getEntity func(st *state.State) (entity, error)) {
 	info := state.TestingStateInfo()
-	st, err := state.Open(info, state.TestingDialTimeout)
+	st, err := state.Open(info, state.TestingDialOpts())
 	c.Assert(err, IsNil)
 	defer st.Close()
 	// Turn on fully-authenticated mode.
@@ -1120,7 +1180,7 @@ func testSetMongoPassword(c *C, getEntity func(st *state.State) (entity, error))
 
 	// Check that we can log in with the correct password.
 	info.Password = "foo"
-	st1, err := state.Open(info, state.TestingDialTimeout)
+	st1, err := state.Open(info, state.TestingDialOpts())
 	c.Assert(err, IsNil)
 	defer st1.Close()
 

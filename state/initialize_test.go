@@ -29,7 +29,7 @@ func (s *InitializeSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	var err error
-	s.State, err = state.Open(state.TestingStateInfo(), state.TestingDialTimeout)
+	s.State, err = state.Open(state.TestingStateInfo(), state.TestingDialOpts())
 	c.Assert(err, IsNil)
 }
 
@@ -49,7 +49,7 @@ func (s *InitializeSuite) TestInitialize(c *C) {
 
 	cfg := state.TestingEnvironConfig(c)
 	initial := cfg.AllAttrs()
-	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialTimeout)
+	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialOpts())
 	c.Assert(err, IsNil)
 	c.Assert(st, NotNil)
 	err = st.Close()
@@ -78,7 +78,7 @@ func (s *InitializeSuite) TestDoubleInitializeConfig(c *C) {
 	// for originally...
 	cfg, err := cfg.Apply(map[string]interface{}{"authorized-keys": "something-else"})
 	c.Assert(err, IsNil)
-	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialTimeout)
+	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialOpts())
 	c.Assert(err, IsNil)
 	c.Assert(st, NotNil)
 	st.Close()
@@ -93,7 +93,7 @@ func (s *InitializeSuite) TestEnvironConfigWithAdminSecret(c *C) {
 	good := state.TestingEnvironConfig(c)
 	bad, err := good.Apply(map[string]interface{}{"admin-secret": "foo"})
 
-	_, err = state.Initialize(state.TestingStateInfo(), bad, state.TestingDialTimeout)
+	_, err = state.Initialize(state.TestingStateInfo(), bad, state.TestingDialOpts())
 	c.Assert(err, ErrorMatches, "admin-secret should never be written to the state")
 
 	// admin-secret blocks SetEnvironConfig.

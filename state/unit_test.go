@@ -349,7 +349,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 	c.Assert(err, IsNil)
 
 	info := state.TestingStateInfo()
-	st, err := state.Open(info, state.TestingDialTimeout)
+	st, err := state.Open(info, state.TestingDialOpts())
 	c.Assert(err, IsNil)
 	defer st.Close()
 	// Turn on fully-authenticated mode.
@@ -379,7 +379,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 	// Connect as the machine entity.
 	info.Tag = m.Tag()
 	info.Password = "foo"
-	st1, err := state.Open(info, state.TestingDialTimeout)
+	st1, err := state.Open(info, state.TestingDialOpts())
 	c.Assert(err, IsNil)
 	defer st1.Close()
 
@@ -394,7 +394,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 	// that entity, change the password for a new unit.
 	info.Tag = unit.Tag()
 	info.Password = "bar"
-	st2, err := state.Open(info, state.TestingDialTimeout)
+	st2, err := state.Open(info, state.TestingDialOpts())
 	c.Assert(err, IsNil)
 	defer st2.Close()
 

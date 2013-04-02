@@ -41,7 +41,7 @@ func (cs *ConnSuite) SetUpTest(c *C) {
 	cs.LoggingSuite.SetUpTest(c)
 	cs.MgoSuite.SetUpTest(c)
 	var err error
-	cs.State, err = state.Open(state.TestingStateInfo(), state.TestingDialTimeout)
+	cs.State, err = state.Open(state.TestingStateInfo(), state.TestingDialOpts())
 	c.Assert(err, IsNil)
 
 	state.TestingInitialize(c, nil)

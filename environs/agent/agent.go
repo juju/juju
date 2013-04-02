@@ -200,8 +200,9 @@ func (c *Conf) WriteCommands() ([]string, error) {
 // set the entity's password accordingly.
 func (c *Conf) OpenState() (st *state.State, newPassword string, err error) {
 	info := *c.StateInfo
+	opts := state.DefaultDialOpts()
 	if info.Password != "" {
-		st, err := state.Open(&info, state.DefaultDialTimeout)
+		st, err := state.Open(&info, opts)
 		if err == nil {
 			return st, "", nil
 		}
@@ -214,7 +215,7 @@ func (c *Conf) OpenState() (st *state.State, newPassword string, err error) {
 		// with the old password.
 	}
 	info.Password = c.OldPassword
-	st, err = state.Open(&info, state.DefaultDialTimeout)
+	st, err = state.Open(&info, opts)
 	if err != nil {
 		return nil, "", err
 	}
