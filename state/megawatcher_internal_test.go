@@ -268,66 +268,6 @@ func (*allWatcherSuite) assertAllInfoContents(c *C, a *allInfo, latestRevno int6
 	assertAllInfoContents(c, a, entityIdForInfo, latestRevno, entries)
 }
 
-var allWatcherChangedTests = []struct {
-	about          string
-	add            []params.EntityInfo
-	inBacking      []params.EntityInfo
-	change         entityId
-	expectRevno    int64
-	expectContents []entityEntry
-}{{
-	about:  "no entity",
-	change: entityId{"machine", "1"},
-}, {
-	about:       "entity is marked as removed if it's not there",
-	add:         []params.EntityInfo{&params.MachineInfo{Id: "1"}},
-	change:      entityId{"machine", "1"},
-	expectRevno: 2,
-	expectContents: []entityEntry{{
-		creationRevno: 1,
-		revno:         2,
-		refCount:      1,
-		removed:       true,
-		info: &params.MachineInfo{
-			Id: "1",
-		},
-	}},
-}, {
-	about: "entity is added if it's not there",
-	inBacking: []params.EntityInfo{
-		&params.MachineInfo{Id: "1"},
-	},
-	change:      entityId{"machine", "1"},
-	expectRevno: 1,
-	expectContents: []entityEntry{{
-		creationRevno: 1,
-		revno:         1,
-		info:          &params.MachineInfo{Id: "1"},
-	}},
-}, {
-	about: "entity is updated if it's there",
-	add: []params.EntityInfo{
-		&params.MachineInfo{Id: "1"},
-	},
-	inBacking: []params.EntityInfo{
-		&params.MachineInfo{
-			Id:         "1",
-			InstanceId: "i-1",
-		},
-	},
-	change:      entityId{"machine", "1"},
-	expectRevno: 2,
-	expectContents: []entityEntry{{
-		creationRevno: 1,
-		refCount:      1,
-		revno:         2,
-		info: &params.MachineInfo{
-			Id:         "1",
-			InstanceId: "i-1",
-		},
-	}},
-}}
-
 func (*allWatcherSuite) TestHandle(c *C) {
 	aw := newAllWatcher(newTestBacking(nil))
 
@@ -1016,6 +956,88 @@ func testBackingChanged(c *C, b allWatcherBacking) {
 		info: m0,
 	}})
 }
+
+var allWatcherChangedTests = []struct {
+	about string
+	add []params.EntityInfo
+	setUp func(c *C, st *State)
+	change entityId
+	expectRevno int64
+	expectContents []entityEntry
+}{{
+	about: "no entity",
+	setUp: func(*C, *State){},
+	change: entityId{"machine", "1"},
+}, {
+	about:       "entity is marked as removed if it's not in backing",
+	add:  []params.EntityInfo{&params.MachineInfo{Id: "1"}},
+	change:      entityId{"machine", "1"},
+	expectRevno: 2,
+	expectContents: []entityEntry{{
+		creationRevno: 1,
+		revno:         2,
+		refCount:      1,
+		removed:       true,
+		info: &params.MachineInfo{
+			Id: "1",
+		},
+	}},
+}, {
+	about: "entity is added if it's in backing but not in allInfo",
+	setUp: func(c *C, st *State) func() {
+		m, err := st.AddMachine(JobHostUnits)
+		c.Assert(err, IsNil)
+		return func() {
+			err := m.EnsureDead()
+			c.Assert(err, IsNil)
+		}
+	},
+	change:      entityId{"machine", "0"},
+	expectRevno: 1,
+	expectContents: []entityEntry{{
+		creationRevno: 1,
+		revno:         1,
+		refCount: 1,
+		info:          &params.MachineInfo{Id: "0"},
+	}},
+}, {
+	about: "entity is updated if it's in backing and in allInfo",
+	add:  []params.EntityInfo{&params.MachineInfo{Id: "0"}},
+	setUp: func(c *C, st *State) {
+		m, err := st.AddMachine(JobManageEnviron)
+		c.Assert(err, IsNil)
+		err = m.SetInstanceId("i-0")
+		c.Assert(err, IsNil)
+	},
+	change:      entityId{"machine", "0"},
+	expectRevno: 2,
+	expectContents: []entityEntry{{
+		creationRevno: 1,
+		revno:         2,
+		refCount: 1,
+		info:          &params.MachineInfo{
+			Id: "0",
+			InstanceId: "i-0",
+		},
+	}},
+}
+
+func (s *allWatcherStateSuite) TestChanged(c *C) {
+	for i, test := range allWatcherChangedTests {
+		c.Logf("test %d. %s", i, test.about)
+		b := newTestBacking(test.inBacking)
+		aw := newAllWatcher(b)
+		for _, info := range test.add {
+			allInfoAdd(aw.all, info)
+			allInfoIncRef(aw.all, entityIdForInfo(info))
+		}
+		err := aw.changed(test.change)
+		c.Assert(err, IsNil)
+		assertAllInfoContents(c, aw.all, test.expectRevno, test.expectContents)
+		s.Reset(c)
+	}
+}
+
 
 // TestStateWatcher tests the integration of the state watcher
 // with the state-based backing. Most of the logic is tested elsewhere -
