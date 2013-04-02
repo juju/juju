@@ -347,8 +347,10 @@ func (c *srvClient) ServiceDeploy(args params.ServiceDeploy) error {
 		Charm:       charm,
 		ServiceName: serviceName,
 		NumUnits:    args.NumUnits,
+		// BUG(lp:1162122): Config/ConfigYAML have no tests.
 		Config:      args.Config,
 		ConfigYAML:  args.ConfigYAML,
+		Constraints: args.Constraints,
 	}
 	_, err = conn.DeployService(deployArgs)
 	return err

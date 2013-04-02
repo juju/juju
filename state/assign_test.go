@@ -2,6 +2,7 @@ package state_test
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/state"
 	"sort"
 	"strconv"
@@ -75,9 +76,8 @@ func (s *AssignSuite) TestAssignUnitToMachineAgainFails(c *C) {
 	c.Assert(err, IsNil)
 
 	// Assigning the unit to a different machine should fail.
-	// BUG(aram): use error strings from state.
 	err = unit.AssignToMachine(machineTwo)
-	c.Assert(err, ErrorMatches, `cannot assign unit "wordpress/0" to machine 1: .*`)
+	c.Assert(err, ErrorMatches, `cannot assign unit "wordpress/0" to machine 1: unit is already assigned to a machine`)
 
 	machineId, err := unit.AssignedMachineId()
 	c.Assert(err, IsNil)
@@ -145,19 +145,24 @@ func (s *AssignSuite) TestAssignSubordinatesToMachine(c *C) {
 	c.Assert(err, IsNil)
 	subUnit := s.addSubordinate(c, unit)
 
+	// None of the direct unit assign methods work on subordinates.
 	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	err = subUnit.AssignToMachine(machine)
-	c.Assert(err, ErrorMatches, ".*: unit is a subordinate")
+	c.Assert(err, ErrorMatches, `cannot assign unit "logging/0" to machine 0: unit is a subordinate`)
+	_, err = subUnit.AssignToUnusedMachine()
+	c.Assert(err, ErrorMatches, `cannot assign unit "logging/0" to unused machine: unit is a subordinate`)
+	err = subUnit.AssignToNewMachine()
+	c.Assert(err, ErrorMatches, `cannot assign unit "logging/0" to new machine: unit is a subordinate`)
+
+	// Subordinates know the machine they're indirectly assigned to.
 	err = unit.AssignToMachine(machine)
 	c.Assert(err, IsNil)
-
 	id, err := subUnit.AssignedMachineId()
 	c.Assert(err, IsNil)
 	c.Check(id, Equals, machine.Id())
 
-	// Check that unassigning the principal unassigns the
-	// subordinates too.
+	// Unassigning the principal unassigns the subordinates too.
 	err = unit.UnassignFromMachine()
 	c.Assert(err, IsNil)
 	_, err = subUnit.AssignedMachineId()
@@ -196,6 +201,31 @@ func (s *AssignSuite) TestDeployerTag(c *C) {
 	assertDeployer(principal, nil)
 }
 
+func (s *AssignSuite) TestDirectAssignIgnoresConstraints(c *C) {
+	// Set up constraints.
+	scons := constraints.MustParse("mem=2G cpu-power=400")
+	err := s.wordpress.SetConstraints(scons)
+	c.Assert(err, IsNil)
+	econs := constraints.MustParse("mem=4G cpu-cores=2")
+	err = s.State.SetEnvironConstraints(econs)
+	c.Assert(err, IsNil)
+
+	// Machine will take environment constraints on creation.
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+
+	// Unit will take combined service/environ constraints on creation.
+	unit, err := s.wordpress.AddUnit()
+	c.Assert(err, IsNil)
+
+	// Machine keeps its original constraints on direct assignment.
+	err = unit.AssignToMachine(machine)
+	c.Assert(err, IsNil)
+	mcons, err := machine.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(mcons, DeepEquals, econs)
+}
+
 func (s *AssignSuite) TestAssignBadSeries(c *C) {
 	machine, err := s.State.AddMachine("burble", state.JobHostUnits)
 	c.Assert(err, IsNil)
@@ -209,22 +239,28 @@ func (s *AssignSuite) TestAssignMachineWhenDying(c *C) {
 	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 
-	const unitDeadErr = ".*: unit is dead"
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
-
+	subUnit := s.addSubordinate(c, unit)
 	assignTest := func() error {
 		err := unit.AssignToMachine(machine)
-		err1 := unit.UnassignFromMachine()
-		c.Assert(err1, IsNil)
+		c.Assert(unit.UnassignFromMachine(), IsNil)
+		if subUnit != nil {
+			err := subUnit.EnsureDead()
+			c.Assert(err, IsNil)
+			err = subUnit.Remove()
+			c.Assert(err, IsNil)
+			subUnit = nil
+		}
 		return err
 	}
-	testWhenDying(c, unit, unitDeadErr, unitDeadErr, assignTest)
+	expect := ".*: unit is not alive"
+	testWhenDying(c, unit, expect, expect, assignTest)
 
-	const machineDeadErr = ".*: machine is dead"
+	expect = ".*: machine is not alive"
 	unit, err = s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
-	testWhenDying(c, machine, machineDeadErr, machineDeadErr, assignTest)
+	testWhenDying(c, machine, expect, expect, assignTest)
 }
 
 func (s *AssignSuite) TestAssignMachinePrincipalsChange(c *C) {
@@ -413,6 +449,42 @@ func (s *AssignSuite) TestAssignUnitToNewMachine(c *C) {
 	c.Assert(machineUnits[0].Name(), Equals, unit.Name())
 }
 
+func (s *AssignSuite) TestAssignUnitToNewMachineSetsConstraints(c *C) {
+	// Set up constraints.
+	scons := constraints.MustParse("mem=2G cpu-power=400")
+	err := s.wordpress.SetConstraints(scons)
+	c.Assert(err, IsNil)
+	econs := constraints.MustParse("mem=4G cpu-cores=2")
+	err = s.State.SetEnvironConstraints(econs)
+	c.Assert(err, IsNil)
+
+	// Unit will take combined service/environ constraints on creation.
+	unit, err := s.wordpress.AddUnit()
+	c.Assert(err, IsNil)
+
+	// Change service/env constraints before assigning, to verify this.
+	scons = constraints.MustParse("mem=6G cpu-power=800")
+	err = s.wordpress.SetConstraints(scons)
+	c.Assert(err, IsNil)
+	econs = constraints.MustParse("cpu-cores=4")
+	err = s.State.SetEnvironConstraints(econs)
+	c.Assert(err, IsNil)
+
+	// The new machine takes the original combined unit constraints.
+	err = unit.AssignToNewMachine()
+	c.Assert(err, IsNil)
+	err = unit.Refresh()
+	c.Assert(err, IsNil)
+	mid, err := unit.AssignedMachineId()
+	c.Assert(err, IsNil)
+	machine, err := s.State.Machine(mid)
+	c.Assert(err, IsNil)
+	mcons, err := machine.Constraints()
+	c.Assert(err, IsNil)
+	expect := constraints.MustParse("mem=2G cpu-cores=2 cpu-power=400")
+	c.Assert(mcons, DeepEquals, expect)
+}
+
 func (s *AssignSuite) TestAssignUnitToNewMachineUnusedAvailable(c *C) {
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
@@ -440,29 +512,38 @@ func (s *AssignSuite) TestAssignUnitToNewMachineAlreadyAssigned(c *C) {
 	c.Assert(err, IsNil)
 	// Try to assign it again
 	err = unit.AssignToNewMachine()
-	c.Assert(err, ErrorMatches, `unit is already assigned to a machine`)
+	c.Assert(err, ErrorMatches, `cannot assign unit "wordpress/0" to new machine: unit is already assigned to a machine`)
 }
 
-func (s *AssignSuite) TestAssignUnitToNewMachineDyingUnit(c *C) {
+func (s *AssignSuite) TestAssignUnitToNewMachineUnitNotAlive(c *C) {
+	unit, err := s.wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	subUnit := s.addSubordinate(c, unit)
+
+	// Try to assign a dying unit...
+	err = unit.Destroy()
+	c.Assert(err, IsNil)
+	err = unit.AssignToNewMachine()
+	c.Assert(err, ErrorMatches, `cannot assign unit "wordpress/0" to new machine: unit is not alive`)
+
+	// ...and a dead one.
+	err = subUnit.EnsureDead()
+	c.Assert(err, IsNil)
+	err = subUnit.Remove()
+	c.Assert(err, IsNil)
+	err = unit.EnsureDead()
+	c.Assert(err, IsNil)
+	err = unit.AssignToNewMachine()
+	c.Assert(err, ErrorMatches, `cannot assign unit "wordpress/0" to new machine: unit is not alive`)
+}
+
+func (s *AssignSuite) TestAssignUnitToNewMachineUnitRemoved(c *C) {
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
 	err = unit.Destroy()
 	c.Assert(err, IsNil)
-	// Try to assign it the dying unit.
 	err = unit.AssignToNewMachine()
-	c.Assert(err, ErrorMatches, `unit is dead`)
-}
-
-func (s *AssignSuite) TestAssignUnitToNewMachineRemovedUnit(c *C) {
-	unit, err := s.wordpress.AddUnit()
-	c.Assert(err, IsNil)
-	err = unit.EnsureDead()
-	c.Assert(err, IsNil)
-	err = unit.Remove()
-	c.Assert(err, IsNil)
-	// Try to assign it the dying unit.
-	err = unit.AssignToNewMachine()
-	c.Assert(err, ErrorMatches, `unit "wordpress/0" not found`)
+	c.Assert(err, ErrorMatches, `cannot assign unit "wordpress/0" to new machine: unit not found`)
 }
 
 func (s *AssignSuite) TestAssignUnitBadPolicy(c *C) {
@@ -609,7 +690,7 @@ func (s *AssignSuite) TestAssignUnitUnusedPolicyConcurrently(c *C) {
 	c.Assert(assignments, HasLen, len(us))
 }
 
-func (s *AssignSuite) TestAssignSubordinate(c *C) {
+func (s *AssignSuite) TestAssignUnitWithSubordinate(c *C) {
 	_, err := s.State.AddMachine("series", state.JobManageEnviron) // bootstrap machine
 	c.Assert(err, IsNil)
 	unit, err := s.wordpress.AddUnit()
@@ -617,8 +698,12 @@ func (s *AssignSuite) TestAssignSubordinate(c *C) {
 
 	// Check cannot assign subordinates to machines
 	subUnit := s.addSubordinate(c, unit)
-	err = s.State.AssignUnit(subUnit, state.AssignUnused)
-	c.Assert(err, ErrorMatches, `subordinate unit "logging/0" cannot be assigned directly to a machine`)
+	for _, policy := range []state.AssignmentPolicy{
+		state.AssignLocal, state.AssignNew, state.AssignUnused,
+	} {
+		err = s.State.AssignUnit(subUnit, policy)
+		c.Assert(err, ErrorMatches, `subordinate unit "logging/0" cannot be assigned directly to a machine`)
+	}
 }
 
 func assertMachineCount(c *C, st *state.State, expect int) {
