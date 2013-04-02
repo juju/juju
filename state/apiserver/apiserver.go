@@ -314,7 +314,7 @@ func (c *srvClient) ServiceUnexpose(args params.ServiceUnexpose) error {
 	return statecmd.ServiceUnexpose(c.root.srv.state, args)
 }
 
-var CharmStore charm.Repository = charm.Store()
+var CharmStore charm.Repository = charm.Store
 
 // ServiceDeploy fetches the charm from the charm store and deploys it.  Local
 // charms are not supported.
