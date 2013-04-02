@@ -8,7 +8,7 @@ removed and cleaned up.
 
 However, the choice of exactly what we deploy involves some subtleties. At the
 Provisioner level, it's simple: the series and the constraints we pass to the
-Environ.StartInstance com from the machine entity. But how did they get there?
+Environ.StartInstance come from the machine entity. But how did they get there?
 
 Series
 ------
@@ -19,8 +19,8 @@ Every service, unit, and machine has a series that's set at creation time and
 subsequently immutable. Units take their series from their service, and can
 only be assigned to machines with matching series.
 
-Subordinate units cannot be assigned directly to units; they are created by
-their principals, on the same machine, in response to the creation of
+Subordinate units cannot be assigned directly to machines; they are created
+by their principals, on the same machine, in response to the creation of
 subordinate relations. We therefore restrict subordinate relations such that
 they can only be created between services with matching series.
 
@@ -35,19 +35,21 @@ Constraints are stored for environments, services, units, and machines, but
 unit constraints are not currently exposed because they're not needed outside
 state, and are likely to just cause trouble and confusion if we expose them.
 
-But, from the point of a user, there are environment constraints and service
+From the point of a user, there are environment constraints and service
 constraints, and sensible manipulations of them lead to predictable unit
 deployment decisions. The mechanism is as follows:
 
   * when a unit is added, the current environment and service constraints
     are collapsed into a single value and stored for the unit. (To be clear:
-    every single constraint that is not present on the service will be looked
-    up in the environment, and only left unset on the unit if it is also
-    unset on the environment.)
-  * when a machine is being added without a unit associated, it copies its
-    constraints directly from the environment.
+    at the moment the unit is created, the current service and environment
+    constraints will be combined such that every constraint not set on the
+    service is taken from the environment (or left unset, if not specified
+    at all).
   * when a machine is being added in order to host a given unit, it copies
     its constraints directly from the unit.
+  * when a machine is being added without a unit associated -- for example,
+    when adding additional state servers -- it copies its constraints directly
+    from the environment.
 
 In this way the following sequence of operations becomes predictable:
 
@@ -86,21 +88,23 @@ config pair that really isn't satsifiable. In that case, the user can try
 her to completely replace the machine's constraints as well as marking the
 machine for reprovisioning attention.
 
-In the absence of the above tools, and in the light of time pressure, a smaller
-change to state may have to suffice: by allowing a unit assigned to a machine
-without an instance id to be removed immediately on Destroy() -- rather than
-forcing subsequent calls to EnsureDead() and Remove() -- the user could at
-least do the following:
+Machine Status and Provisioning Errors (current)
+------------------------------------------------
+
+In the absence of the above tools, and in the light of time pressure, a unit
+assigned to a machine that has not been provisioned can be removed directly
+by calling `juju destroy-unit`. Any provisioning error can thus be "resolved"
+in an unsophisticated but moderately effective way:
 
   $ juju destroy-unit borken/0
+
+...in that at least broken units don't clutter up the service; but:
+
   $ juju destroy-machine 1
 
-...to just get rid of the problematic units and machines, and be able to try
-again later. However, this change is itself not without some subtleties and
-should be implemented with care (consider short-circuited removal of units of
-a Dying service; as currently written, the obvious way should be the right
-way to do it, but it still deserves careful thought).
-
+...does not yet cause an unprovisioned machine to be removed from state (whether
+directly, or indirectly via the provisioner; the best place to implement this
+functionality is not clear).
 
 
 [0] (This is a little harder than it sounds -- in particular, openstack doesn't
