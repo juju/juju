@@ -59,11 +59,6 @@ func (cs *ConnSuite) TearDownTest(c *C) {
 	cs.LoggingSuite.TearDownTest(c)
 }
 
-func (cs *ConnSuite) Reset(c *C) {
-	cs.TearDownTest(c)
-	cs.SetUpTest(c)
-}
-
 func (s *ConnSuite) AddTestingCharm(c *C, name string) *state.Charm {
 	return state.AddTestingCharm(c, s.State, name)
 }
