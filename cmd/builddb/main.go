@@ -53,14 +53,20 @@ func build() error {
 
 	log.Infof("builddb: Waiting for unit to reach %q status...", state.UnitStarted)
 	unit := units[0]
-	last, info := unit.Status()
+	last, info, err := unit.Status()
+	if err != nil {
+		return err
+	}
 	logStatus(last, info)
 	for last != state.UnitStarted {
 		time.Sleep(2 * time.Second)
 		if err := unit.Refresh(); err != nil {
 			return err
 		}
-		status, info := unit.Status()
+		status, info, err := unit.Status()
+		if err != nil {
+			return err
+		}
 		if status != last {
 			logStatus(status, info)
 			last = status

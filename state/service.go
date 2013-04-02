@@ -521,7 +521,6 @@ func (s *Service) addUnitOps(principalName string) (string, []txn.Op, error) {
 		Service:   s.doc.Name,
 		Series:    s.doc.Series,
 		Life:      Alive,
-		Status:    UnitPending,
 		Principal: principalName,
 	}
 	ops := []txn.Op{{

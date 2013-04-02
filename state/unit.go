@@ -41,18 +41,6 @@ const (
 	AssignNew AssignmentPolicy = "new"
 )
 
-// UnitStatus represents the status of the unit agent.
-type UnitStatus string
-
-const (
-	UnitPending   UnitStatus = "pending"   // Agent hasn't started
-	UnitInstalled UnitStatus = "installed" // Agent has run the installed hook
-	UnitStarted   UnitStatus = "started"   // Agent is running properly
-	UnitStopped   UnitStatus = "stopped"   // Agent has stopped running on request
-	UnitError     UnitStatus = "error"     // Agent is waiting in an error state
-	UnitDown      UnitStatus = "down"      // Agent is down or not communicating
-)
-
 // Port identifies a network port number for a particular protocol.
 type Port struct {
 	Protocol string
@@ -86,8 +74,6 @@ type unitDoc struct {
 	Tools          *Tools `bson:",omitempty"`
 	Ports          []Port
 	Life           Life
-	Status         UnitStatus
-	StatusInfo     string
 	TxnRevno       int64 `bson:"txn-revno"`
 	PasswordHash   string
 }
@@ -458,8 +444,14 @@ func (u *Unit) Refresh() error {
 }
 
 // Status returns the status of the unit's agent.
-func (u *Unit) Status() (status UnitStatus, info string) {
-	return u.doc.Status, u.doc.StatusInfo
+func (u *Unit) Status() (status UnitStatus, info string, err error) {
+	doc := &unitStatusDoc{}
+	if err := getStatus(u.st, u, doc); IsNotFound(err) {
+		return UnitPending, "", nil
+	} else if err != nil {
+		return "", "", err
+	}
+	return doc.Status, doc.StatusInfo, nil
 }
 
 // SetStatus sets the status of the unit.
@@ -467,18 +459,18 @@ func (u *Unit) SetStatus(status UnitStatus, info string) error {
 	if status == UnitError && info == "" {
 		panic("must set info for unit error status")
 	}
+	doc := &unitStatusDoc{status, info}
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: notDeadDoc,
-		Update: D{{"$set", D{{"status", status}, {"statusinfo", info}}}},
-	}}
+	},
+		setStatusOp(u.st, u, doc),
+	}
 	err := u.st.runner.Run(ops, "", nil)
 	if err != nil {
 		return fmt.Errorf("cannot set status of unit %q: %v", u, onAbort(err, errDead))
 	}
-	u.doc.Status = status
-	u.doc.StatusInfo = info
 	return nil
 }
 

@@ -739,3 +739,29 @@ func (s *MachineSuite) TestConstraintsLifecycle(c *C) {
 	_, err = s.machine.Constraints()
 	c.Assert(err, ErrorMatches, `constraints not found`)
 }
+
+func (s *MachineSuite) TestGetSetStatus(c *C) {
+	failPending := func() { s.machine.SetStatus(state.MachinePending, "") }
+	c.Assert(failPending, PanicMatches, "machine status must not be set to pending")
+	failError := func() { s.machine.SetStatus(state.MachineError, "") }
+	c.Assert(failError, PanicMatches, "must set info for machine error status")
+
+	status, info, err := s.machine.Status()
+	c.Assert(err, IsNil)
+	c.Assert(status, Equals, state.MachinePending)
+	c.Assert(info, Equals, "")
+
+	err = s.machine.SetStatus(state.MachineStarted, "")
+	c.Assert(err, IsNil)
+	status, info, err = s.machine.Status()
+	c.Assert(err, IsNil)
+	c.Assert(status, Equals, state.MachineStarted)
+	c.Assert(info, Equals, "")
+
+	err = s.machine.SetStatus(state.MachineError, "provisioning failed")
+	c.Assert(err, IsNil)
+	status, info, err = s.machine.Status()
+	c.Assert(err, IsNil)
+	c.Assert(status, Equals, state.MachineError)
+	c.Assert(info, Equals, "provisioning failed")
+}

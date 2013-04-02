@@ -444,3 +444,35 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 	}
 	return ErrExcessiveContention
 }
+
+// Status returns the status of the machine's agent.
+func (m *Machine) Status() (status MachineStatus, info string, err error) {
+	doc := &machineStatusDoc{}
+	if err := getStatus(m.st, m, doc); IsNotFound(err) {
+		return MachinePending, "", nil
+	} else if err != nil {
+		return "", "", err
+	}
+	return doc.Status, doc.StatusInfo, nil
+}
+
+// SetStatus sets the status of the machine.
+func (m *Machine) SetStatus(status MachineStatus, info string) error {
+	if status == MachinePending {
+		panic("machine status must not be set to pending")
+	} else if status == MachineError && info == "" {
+		panic("must set info for machine error status")
+	}
+	doc := &machineStatusDoc{status, info}
+	ops := []txn.Op{{
+		C:      m.st.machines.Name,
+		Id:     m.doc.Id,
+		Assert: notDeadDoc,
+	},
+		setStatusOp(m.st, m, doc),
+	}
+	if err := m.st.runner.Run(ops, "", nil); err != nil {
+		return fmt.Errorf("cannot set status of machine %q: %v", m, onAbort(err, errNotAlive))
+	}
+	return nil
+}

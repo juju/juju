@@ -121,6 +121,7 @@ type State struct {
 	presence       *mgo.Collection
 	cleanups       *mgo.Collection
 	annotations    *mgo.Collection
+	statuses       *mgo.Collection
 	runner         *txn.Runner
 	watcher        *watcher.Watcher
 	pwatcher       *presence.Watcher

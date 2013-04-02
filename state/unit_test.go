@@ -119,26 +119,29 @@ func (s *UnitSuite) TestGetSetStatus(c *C) {
 	fail := func() { s.unit.SetStatus(state.UnitError, "") }
 	c.Assert(fail, PanicMatches, "must set info for unit error status")
 
-	status, info := s.unit.Status()
+	status, info, err := s.unit.Status()
+	c.Assert(err, IsNil)
 	c.Assert(status, Equals, state.UnitPending)
 	c.Assert(info, Equals, "")
 
-	err := s.unit.SetStatus(state.UnitStarted, "")
+	err = s.unit.SetStatus(state.UnitStarted, "")
 	c.Assert(err, IsNil)
-
-	status, info = s.unit.Status()
+	status, info, err = s.unit.Status()
+	c.Assert(err, IsNil)
 	c.Assert(status, Equals, state.UnitStarted)
 	c.Assert(info, Equals, "")
 
 	err = s.unit.SetStatus(state.UnitError, "test-hook failed")
 	c.Assert(err, IsNil)
-	status, info = s.unit.Status()
+	status, info, err = s.unit.Status()
+	c.Assert(err, IsNil)
 	c.Assert(status, Equals, state.UnitError)
 	c.Assert(info, Equals, "test-hook failed")
 
 	err = s.unit.SetStatus(state.UnitPending, "deploying...")
 	c.Assert(err, IsNil)
-	status, info = s.unit.Status()
+	status, info, err = s.unit.Status()
+	c.Assert(err, IsNil)
 	c.Assert(status, Equals, state.UnitPending)
 	c.Assert(info, Equals, "deploying...")
 }

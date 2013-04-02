@@ -217,11 +217,14 @@ func processVersion(r map[string]interface{}, v versioned) {
 }
 
 type status interface {
-	Status() (state.UnitStatus, string)
+	Status() (state.UnitStatus, string, error)
 }
 
 func processStatus(r map[string]interface{}, s status, agentAlive, unitDead bool) {
-	status, info := s.Status()
+	status, info, err := s.Status()
+	if err != nil {
+		return
+	}
 	if status != state.UnitPending {
 		if !agentAlive && !unitDead {
 			// Agent should be running but it's not.
