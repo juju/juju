@@ -77,7 +77,7 @@ var marshalTestCases = []struct {
 			Key: "Benji",
 		},
 	},
-        json: `["relation","change",{"Key":"Benji", "Endpoints": null}]`,
+	json: `["relation","change",{"Key":"Benji", "Endpoints": null}]`,
 }, {
 	about: "AnnotationInfo Delta",
 	value: params.Delta{
