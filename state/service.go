@@ -608,6 +608,7 @@ func (s *Service) removeUnitOps(u *Unit, asserts D) ([]txn.Op, error) {
 		Assert: asserts,
 		Remove: true,
 	})
+	ops = append(ops, removeStatusOp(s.st, u))
 	if u.doc.CharmURL != nil {
 		decOps, err := settingsDecRefOps(s.st, s.doc.Name, u.doc.CharmURL)
 		if err != nil {

@@ -145,6 +145,23 @@ func (s *UnitSuite) TestGetSetStatus(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(status, Equals, params.UnitPending)
 	c.Assert(info, Equals, "deploying...")
+
+	// Try set/get as lifecycle advances; the unit is removed when
+	// there are no subordinates, so it fails.
+	err = s.unit.Destroy()
+	c.Assert(err, IsNil)
+	err = s.unit.SetStatus(params.UnitStarted, "")
+	c.Assert(err, ErrorMatches, `cannot set status of unit "wordpress/0": not found or dead`)
+	_, _, err = s.unit.Status()
+	c.Assert(err, ErrorMatches, `cannot get status of unit "wordpress/0": not found`)
+
+	// When the machine is dead, it also should fail.
+	err = s.unit.EnsureDead()
+	c.Assert(err, IsNil)
+	err = s.unit.SetStatus(params.UnitStarted, "")
+	c.Assert(err, ErrorMatches, `cannot set status of unit "wordpress/0": not found or dead`)
+	_, _, err = s.unit.Status()
+	c.Assert(err, ErrorMatches, `cannot get status of unit "wordpress/0": not found`)
 }
 
 func (s *UnitSuite) TestUnitCharm(c *C) {

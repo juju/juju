@@ -297,6 +297,7 @@ func (m *Machine) Remove() (err error) {
 		},
 		removeConstraintsOp(m.st, m.globalKey()),
 		annotationRemoveOp(m.st, m.globalKey()),
+		removeStatusOp(m.st, m),
 	}
 	// The only abort conditions in play indicate that the machine has already
 	// been removed.
@@ -446,10 +447,13 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 	return ErrExcessiveContention
 }
 
-// Status returns the status of the machine's agent.
+// Status returns the status of the machine.
 func (m *Machine) Status() (status params.MachineStatus, info string, err error) {
 	doc := &machineStatusDoc{}
 	if err := getStatus(m.st, m, doc); IsNotFound(err) {
+		if err := m.Refresh(); IsNotFound(err) {
+			return "", "", fmt.Errorf("cannot get status of machine %q: not found", m)
+		}
 		return params.MachinePending, "", nil
 	} else if err != nil {
 		return "", "", err
@@ -460,9 +464,9 @@ func (m *Machine) Status() (status params.MachineStatus, info string, err error)
 // SetStatus sets the status of the machine.
 func (m *Machine) SetStatus(status params.MachineStatus, info string) error {
 	if status == params.MachinePending {
-		panic("machine status must not be set to pending")
+		panic("cannot set machine status to pending")
 	} else if status == params.MachineError && info == "" {
-		panic("must set info for machine error status")
+		panic("machine error status with no info")
 	}
 	doc := &machineStatusDoc{status, info}
 	ops := []txn.Op{{

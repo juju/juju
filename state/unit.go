@@ -428,6 +428,9 @@ func (u *Unit) Refresh() error {
 func (u *Unit) Status() (status params.UnitStatus, info string, err error) {
 	doc := &unitStatusDoc{}
 	if err := getStatus(u.st, u, doc); IsNotFound(err) {
+		if err := u.Refresh(); IsNotFound(err) {
+			return "", "", fmt.Errorf("cannot get status of unit %q: not found", u)
+		}
 		return params.UnitPending, "", nil
 	} else if err != nil {
 		return "", "", err

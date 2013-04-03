@@ -203,7 +203,11 @@ func processUnit(unit *state.Unit) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	processStatus(r, unit, agentAlive, unit.Life() == state.Dead)
+	status, info, err := unit.Status()
+	if err != nil {
+		return nil, err
+	}
+	processUnitStatus(r, status, info, agentAlive, unit.Life() == state.Dead)
 	return r, nil
 }
 
@@ -217,15 +221,7 @@ func processVersion(r map[string]interface{}, v versioned) {
 	}
 }
 
-type status interface {
-	Status() (params.UnitStatus, string, error)
-}
-
-func processStatus(r map[string]interface{}, s status, agentAlive, unitDead bool) {
-	status, info, err := s.Status()
-	if err != nil {
-		return
-	}
+func processUnitStatus(r map[string]interface{}, status params.UnitStatus, info string, agentAlive, unitDead bool) {
 	if status != params.UnitPending {
 		if !agentAlive && !unitDead {
 			// Agent should be running but it's not.

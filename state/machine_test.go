@@ -743,9 +743,9 @@ func (s *MachineSuite) TestConstraintsLifecycle(c *C) {
 
 func (s *MachineSuite) TestGetSetStatus(c *C) {
 	failPending := func() { s.machine.SetStatus(params.MachinePending, "") }
-	c.Assert(failPending, PanicMatches, "machine status must not be set to pending")
+	c.Assert(failPending, PanicMatches, "cannot set machine status to pending")
 	failError := func() { s.machine.SetStatus(params.MachineError, "") }
-	c.Assert(failError, PanicMatches, "must set info for machine error status")
+	c.Assert(failError, PanicMatches, "machine error status with no info")
 
 	status, info, err := s.machine.Status()
 	c.Assert(err, IsNil)
@@ -765,4 +765,24 @@ func (s *MachineSuite) TestGetSetStatus(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(status, Equals, params.MachineError)
 	c.Assert(info, Equals, "provisioning failed")
+
+	// Try set/get as lifecycle advances; when dying is ok.
+	err = s.machine.Destroy()
+	c.Assert(err, IsNil)
+	err = s.machine.SetStatus(params.MachineStopped, "")
+	c.Assert(err, IsNil)
+	status, info, err = s.machine.Status()
+	c.Assert(err, IsNil)
+	c.Assert(status, Equals, params.MachineStopped)
+	c.Assert(info, Equals, "")
+
+	// When the machine is dead, it should fail.
+	err = s.machine.EnsureDead()
+	c.Assert(err, IsNil)
+	err = s.machine.Remove()
+	c.Assert(err, IsNil)
+	err = s.machine.SetStatus(params.MachineStarted, "")
+	c.Assert(err, ErrorMatches, `cannot set status of machine "0": not found or not alive`)
+	_, _, err = s.machine.Status()
+	c.Assert(err, ErrorMatches, `cannot get status of machine "0": not found`)
 }

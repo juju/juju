@@ -65,3 +65,14 @@ func setStatusOp(st *State, keyer globalKeyer, statusDoc interface{}) txn.Op {
 		Insert: statusDoc,
 	}
 }
+
+// removeStatusOp returns the operation needed to remove the status
+// document associated with the given globalKeyer.
+func removeStatusOp(st *State, keyer globalKeyer) txn.Op {
+	key := keyer.globalKey()
+	return txn.Op{
+		C:      st.statuses.Name,
+		Id:     key,
+		Remove: true,
+	}
+}
