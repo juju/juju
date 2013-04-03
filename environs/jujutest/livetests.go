@@ -544,7 +544,7 @@ func waitAgentTools(c *C, w *toolsWaiter, expect version.Binary) *state.Tools {
 // all the provided watchers upgrade to the requested version.
 func (t *LiveTests) checkUpgrade(c *C, conn *juju.Conn, newVersion version.Binary, waiters ...*toolsWaiter) {
 	c.Logf("putting testing version of juju tools")
-	upgradeTools, err := environs.PutTools(t.Env.Storage(), &newVersion.Number, "precise")
+	upgradeTools, err := environs.PutTools(t.Env.Storage(), &newVersion.Number)
 	c.Assert(err, IsNil)
 
 	// Check that the put version really is the version we expect.
