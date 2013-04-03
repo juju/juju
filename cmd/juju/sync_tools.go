@@ -16,11 +16,9 @@ import (
 // bucket.
 type SyncToolsCommand struct {
 	EnvCommandBase
-	sourceToolsList *environs.ToolsList
-	targetToolsList *environs.ToolsList
-	allVersions     bool
-	dryRun          bool
-	publicBucket    bool
+	allVersions  bool
+	dryRun       bool
+	publicBucket bool
 }
 
 var _ cmd.Command = (*SyncToolsCommand)(nil)
@@ -45,10 +43,12 @@ func (c *SyncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.dryRun, "dry-run", false, "don't copy, just print what would be copied")
 	f.BoolVar(&c.publicBucket, "public", false, "write to the public-bucket of the account, instead of the bucket private to the environment.")
 
+	// BUG(lp:1163164)  jam 2013-04-2 we would like to add a "source"
+	// location, rather than only copying from us-east-1
 }
 
 func (c *SyncToolsCommand) Init(args []string) error {
-	return nil
+	return cmd.CheckEmpty(args)
 }
 
 var officialBucketAttrs = map[string]interface{}{
@@ -62,21 +62,17 @@ var officialBucketAttrs = map[string]interface{}{
 
 // Find the set of tools at the 'latest' version
 func findNewest(fullTools []*state.Tools) []*state.Tools {
-	var curBest *state.Tools = nil
-	var res []*state.Tools = nil
+	// This assumes the zero version of Number is always less than a real
+	// number, but we don't have negative versions, so this should be fine
+	var curBest version.Number
+	var res []*state.Tools
 	for _, tool := range fullTools {
-		var add = false
-		if curBest == nil || curBest.Number.Less(tool.Number) {
-			// This best is clearly better than all existing
-			// entries, so reset the list
-			res = make([]*state.Tools, 0, 1)
-			add = true
-			curBest = tool
-		}
-		if curBest.Number == tool.Number {
-			add = true
-		}
-		if add {
+		if curBest.Less(tool.Number) {
+			// This tool is newer than our current best,
+			// so reset the list
+			res = []*state.Tools{tool}
+			curBest = tool.Number
+		} else if curBest == tool.Number {
 			res = append(res, tool)
 		}
 	}
@@ -85,37 +81,39 @@ func findNewest(fullTools []*state.Tools) []*state.Tools {
 
 // Find tools that aren't present in target
 func findMissing(sourceTools, targetTools []*state.Tools) []*state.Tools {
-	var target = make(map[version.Binary]bool, len(targetTools))
+	target := make(map[version.Binary]bool, len(targetTools))
 	for _, tool := range targetTools {
 		target[tool.Binary] = true
 	}
-	res := make([]*state.Tools, 0)
+	var res []*state.Tools
 	for _, tool := range sourceTools {
-		if present := target[tool.Binary]; !present {
+		if !target[tool.Binary] {
 			res = append(res, tool)
 		}
 	}
 	return res
 }
 
-func copyOne(tool *state.Tools, source environs.StorageReader,
-	target environs.Storage, ctx *cmd.Context) error {
+func copyOne(
+	tool *state.Tools, source environs.StorageReader,
+	target environs.Storage, ctx *cmd.Context,
+) error {
 	toolsPath := environs.ToolsStoragePath(tool.Binary)
-	fmt.Fprintf(ctx.Stdout, "copying %v", toolsPath)
-	toolFile, err := source.Get(toolsPath)
+	fmt.Fprintf(ctx.Stderr, "copying %v", toolsPath)
+	srcFile, err := source.Get(toolsPath)
 	if err != nil {
 		return err
 	}
-	defer toolFile.Close()
+	defer srcFile.Close()
 	// We have to buffer the content, because Put requires the content
 	// length, but Get only returns us a ReadCloser
-	buf := bytes.NewBuffer(nil)
-	nBytes, err := io.Copy(buf, toolFile)
+	buf := &bytes.Buffer{}
+	nBytes, err := io.Copy(buf, srcFile)
 	if err != nil {
 		return err
 	}
 	log.Infof("cmd/juju: downloaded %v (%dkB), uploading", toolsPath, (nBytes+512)/1024)
-	fmt.Fprintf(ctx.Stdout, ", download %dkB, uploading\n", (nBytes+512)/1024)
+	fmt.Fprintf(ctx.Stderr, ", download %dkB, uploading\n", (nBytes+512)/1024)
 
 	if err := target.Put(toolsPath, buf, nBytes); err != nil {
 		return err
@@ -128,7 +126,7 @@ func copyTools(
 	target environs.Storage, dryRun bool, ctx *cmd.Context,
 ) error {
 	for _, tool := range tools {
-		log.Infof("cmd/juju: copying %s from %s\n", tool.Binary, tool.URL)
+		log.Infof("cmd/juju: copying %s from %s", tool.Binary, tool.URL)
 		if dryRun {
 			continue
 		}
@@ -145,8 +143,8 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 		log.Errorf("cmd/juju: failed to initialize the official bucket environment")
 		return err
 	}
-	fmt.Fprintf(ctx.Stdout, "listing the source bucket\n")
-	c.sourceToolsList, err = environs.ListTools(officialEnviron, version.Current.Major)
+	fmt.Fprintf(ctx.Stderr, "listing the source bucket\n")
+	sourceToolsList, err := environs.ListTools(officialEnviron, version.Current.Major)
 	if err != nil {
 		return err
 	}
@@ -155,27 +153,27 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 		log.Errorf("cmd/juju: unable to read %q from environment", c.EnvName)
 		return err
 	}
-	toolsToCopy := c.sourceToolsList.Public
+	toolsToCopy := sourceToolsList.Public
 	if !c.allVersions {
 		toolsToCopy = findNewest(toolsToCopy)
 	}
-	fmt.Fprintf(ctx.Stdout, "found %d tools in source (%d recent ones)\n",
-		len(c.sourceToolsList.Public), len(toolsToCopy))
+	fmt.Fprintf(ctx.Stderr, "found %d tools in source (%d recent ones)\n",
+		len(sourceToolsList.Public), len(toolsToCopy))
 	for _, tool := range toolsToCopy {
 		log.Debugf("cmd/juju: found source tool: %s", tool)
 	}
-	fmt.Fprintf(ctx.Stdout, "listing target bucket\n")
-	c.targetToolsList, err = environs.ListTools(targetEnv, version.Current.Major)
+	fmt.Fprintf(ctx.Stderr, "listing target bucket\n")
+	targetToolsList, err := environs.ListTools(targetEnv, version.Current.Major)
 	if err != nil {
 		return err
 	}
-	for _, tool := range c.targetToolsList.Private {
+	for _, tool := range targetToolsList.Private {
 		log.Debugf("cmd/juju: found target tool: %s", tool)
 	}
-	targetTools := c.targetToolsList.Private
+	targetTools := targetToolsList.Private
 	targetStorage := targetEnv.Storage()
 	if c.publicBucket {
-		targetTools = c.targetToolsList.Public
+		targetTools = targetToolsList.Public
 		var ok bool
 		if targetStorage, ok = targetEnv.PublicStorage().(environs.Storage); !ok {
 			return fmt.Errorf("Cannot write to PublicStorage")
@@ -189,6 +187,6 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(ctx.Stdout, "copied %d tools\n", len(missing))
+	fmt.Fprintf(ctx.Stderr, "copied %d tools\n", len(missing))
 	return nil
 }

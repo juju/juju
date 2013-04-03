@@ -198,106 +198,70 @@ type toolSuite struct{}
 
 var _ = Suite(&toolSuite{})
 
-var t1000precise = &state.Tools{
-	Binary: version.Binary{
-		Number: version.Number{1, 0, 0, 0},
-		Series: "precise",
-		Arch:   "amd64"}}
+func mustParseTools(major, minor, patch, build int, series string, arch string) *state.Tools {
+	return &state.Tools{
+		Binary: version.Binary{
+			Number: version.Number{major, minor, patch, build},
+			Series: series,
+			Arch:   arch}}
+}
 
-var t1000quantal32 = &state.Tools{
-	Binary: version.Binary{
-		Number: version.Number{1, 0, 0, 0},
-		Series: "quantal",
-		Arch:   "i386"}}
-
-var t1000quantal = &state.Tools{
-	Binary: version.Binary{
-		Number: version.Number{1, 0, 0, 0},
-		Series: "quantal",
-		Arch:   "amd64"}}
-
-var t1900quantal = &state.Tools{
-	Binary: version.Binary{
-		Number: version.Number{1, 9, 0, 0},
-		Series: "quantal",
-		Arch:   "amd64"}}
-
-var t2000precise = &state.Tools{
-	Binary: version.Binary{
-		Number: version.Number{2, 0, 0, 0},
-		Series: "precise"}}
+var (
+	t1000precise   = mustParseTools(1, 0, 0, 0, "precise", "amd64")
+	t1000quantal   = mustParseTools(1, 0, 0, 0, "quantal", "amd64")
+	t1000quantal32 = mustParseTools(1, 0, 0, 0, "quantal", "i386")
+	t1900quantal   = mustParseTools(1, 9, 0, 0, "quantal", "amd64")
+	t2000precise   = mustParseTools(2, 0, 0, 0, "precise", "amd64")
+)
 
 func (s *toolSuite) TestFindNewestOneTool(c *C) {
-	var onlyOneTests = []struct {
-		tools *state.Tools
-	}{
-		{tools: t1000precise},
-		{tools: t1000quantal},
-		{tools: t1900quantal},
-		{tools: t2000precise},
-	}
-	for _, t := range onlyOneTests {
-		toolList := []*state.Tools{t.tools}
+	for i, t := range []*state.Tools{
+		t1000precise,
+		t1000quantal,
+		t1900quantal,
+		t2000precise,
+	} {
+		c.Log("test: %d %s", i, t.Binary.String())
+		toolList := []*state.Tools{t}
 		res := findNewest(toolList)
 		c.Assert(res, HasLen, 1)
-		c.Assert(res[0], Equals, t.tools)
+		c.Assert(res[0], Equals, t)
 	}
 }
 
 func (s *toolSuite) TestFindNewestOnlyOneBest(c *C) {
-	var oneBestTests = []struct {
-		all  []*state.Tools
-		best *state.Tools
-	}{
-		{
-			all:  []*state.Tools{t1000precise, t1900quantal},
-			best: t1900quantal,
-		},
-	}
-	for _, t := range oneBestTests {
-		res := findNewest(t.all)
-		c.Assert(res, HasLen, 1)
-		c.Assert(res[0], Equals, t.best)
-	}
+	res := findNewest([]*state.Tools{t1000precise, t1900quantal})
+	c.Assert(res, HasLen, 1)
+	c.Assert(res[0], Equals, t1900quantal)
 }
 
 func (s *toolSuite) TestFindNewestMultipleBest(c *C) {
-	var oneBestTests = []struct {
-		all  []*state.Tools
-		best []*state.Tools
-	}{{
-		all:  []*state.Tools{t1000precise, t1000quantal},
-		best: []*state.Tools{t1000precise, t1000quantal},
-	},
-	}
-	for _, t := range oneBestTests {
-		res := findNewest(t.all)
-		c.Assert(res, DeepEquals, t.best)
-	}
+	source := []*state.Tools{t1000precise, t1000quantal}
+	res := findNewest(source)
+	c.Assert(res, HasLen, 2)
+	// Order isn't strictly specified, but findNewest currently returns the
+	// order in source, so it makes the test easier to write
+	c.Assert(res, DeepEquals, source)
 }
 
 func (s *toolSuite) TestFindMissingNoTarget(c *C) {
-	var allMissingTests = []struct {
-		source []*state.Tools
-	}{
-		{source: []*state.Tools{t1000precise}},
-		{source: []*state.Tools{t1000precise, t1000quantal}},
-	}
-	for _, t := range allMissingTests {
-		res := findMissing(t.source, []*state.Tools(nil))
-		c.Assert(res, DeepEquals, t.source)
+	for i, t := range [][]*state.Tools{
+		[]*state.Tools{t1000precise},
+		[]*state.Tools{t1000precise, t1000quantal},
+	} {
+		c.Log("test: %d", i)
+		res := findMissing(t, []*state.Tools(nil))
+		c.Assert(res, DeepEquals, t)
 	}
 }
 
 func (s *toolSuite) TestFindMissingSameEntries(c *C) {
-	var allMissingTests = []struct {
-		source []*state.Tools
-	}{
-		{source: []*state.Tools{t1000precise}},
-		{source: []*state.Tools{t1000precise, t1000quantal}},
-	}
-	for _, t := range allMissingTests {
-		res := findMissing(t.source, t.source)
+	for i, t := range [][]*state.Tools{
+		[]*state.Tools{t1000precise},
+		[]*state.Tools{t1000precise, t1000quantal},
+	} {
+		c.Log("test: %d", i)
+		res := findMissing(t, t)
 		c.Assert(res, HasLen, 0)
 	}
 }
@@ -311,6 +275,19 @@ func (s *toolSuite) TestFindHasVersionNotSeries(c *C) {
 	res = findMissing(
 		[]*state.Tools{t1000precise, t1000quantal},
 		[]*state.Tools{t1000precise})
+	c.Assert(res, HasLen, 1)
+	c.Assert(res[0], Equals, t1000quantal)
+}
+
+func (s *toolSuite) TestFindHasDifferentArch(c *C) {
+	res := findMissing(
+		[]*state.Tools{t1000quantal, t1000quantal32},
+		[]*state.Tools{t1000quantal})
+	c.Assert(res, HasLen, 1)
+	c.Assert(res[0], Equals, t1000quantal32)
+	res = findMissing(
+		[]*state.Tools{t1000quantal, t1000quantal32},
+		[]*state.Tools{t1000quantal32})
 	c.Assert(res, HasLen, 1)
 	c.Assert(res[0], Equals, t1000quantal)
 }
