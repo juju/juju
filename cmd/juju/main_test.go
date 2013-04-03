@@ -227,6 +227,7 @@ var commandNames = []string{
 	"ssh",
 	"stat", // alias for status
 	"status",
+	"sync-tools",
 	"terminate-machine", // alias for destroy-machine
 	"unexpose",
 	"upgrade-charm",
