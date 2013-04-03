@@ -169,13 +169,15 @@ func (st *State) SetEnvironConstraints(cons constraints.Value) error {
 }
 
 // AddMachine adds a new machine configured to run the supplied jobs on the
-// supplied series.
+// supplied series. The machine's constraints will be taken from the
+// environment constraints.
 func (st *State) AddMachine(series string, jobs ...MachineJob) (m *Machine, err error) {
 	return st.addMachine(series, "", jobs)
 }
 
 // InjectMachine adds a new machine, corresponding to an existing provider
-// instance, configured to run the supplied jobs on the supplied series.
+// instance, configured to run the supplied jobs on the supplied series. The
+// machine's constraints will be taken from the environment constraints.
 func (st *State) InjectMachine(series string, instanceId InstanceId, jobs ...MachineJob) (m *Machine, err error) {
 	if instanceId == "" {
 		return nil, fmt.Errorf("cannot inject a machine without an instance id")
@@ -183,7 +185,7 @@ func (st *State) InjectMachine(series string, instanceId InstanceId, jobs ...Mac
 	return st.addMachine(series, instanceId, jobs)
 }
 
-func (st *State) addMachineOps(mdoc *machineDoc) (*machineDoc, []txn.Op, error) {
+func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value) (*machineDoc, []txn.Op, error) {
 	if mdoc.Series == "" {
 		return nil, nil, fmt.Errorf("no series specified")
 	}
@@ -203,12 +205,13 @@ func (st *State) addMachineOps(mdoc *machineDoc) (*machineDoc, []txn.Op, error) 
 	}
 	mdoc.Id = strconv.Itoa(seq)
 	mdoc.Life = Alive
-	ops := []txn.Op{{
+	ops := []txn.Op{createConstraintsOp(st, machineGlobalKey(mdoc.Id), cons)}
+	ops = append(ops, txn.Op{
 		C:      st.machines.Name,
 		Id:     mdoc.Id,
 		Assert: txn.DocMissing,
 		Insert: *mdoc,
-	}}
+	})
 	return mdoc, ops, nil
 }
 
@@ -216,12 +219,16 @@ func (st *State) addMachineOps(mdoc *machineDoc) (*machineDoc, []txn.Op, error) 
 func (st *State) addMachine(series string, instanceId InstanceId, jobs []MachineJob) (m *Machine, err error) {
 	defer trivial.ErrorContextf(&err, "cannot add a new machine")
 
+	cons, err := st.EnvironConstraints()
+	if err != nil {
+		return nil, err
+	}
 	mdoc := &machineDoc{
 		Series:     series,
 		InstanceId: instanceId,
 		Jobs:       jobs,
 	}
-	mdoc, ops, err := st.addMachineOps(mdoc)
+	mdoc, ops, err := st.addMachineOps(mdoc, cons)
 	if err != nil {
 		return nil, err
 	}
@@ -238,6 +245,7 @@ func (st *State) addMachine(series string, instanceId InstanceId, jobs []Machine
 	return m, nil
 }
 
+var errDead = fmt.Errorf("not found or dead")
 var errNotAlive = fmt.Errorf("not found or not alive")
 
 func onAbort(txnErr, err error) error {
@@ -504,6 +512,8 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	peers := ch.Meta().Peers
 	svcDoc := &serviceDoc{
 		Name:          name,
+		Series:        ch.URL().Series,
+		Subordinate:   ch.Meta().Subordinate,
 		CharmURL:      ch.URL(),
 		RelationCount: len(peers),
 		Life:          Alive,
@@ -517,8 +527,7 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 			Id:     svc.settingsKey(),
 			Assert: txn.DocMissing,
 			Insert: settingsRefsDoc{1},
-		},
-		{
+		}, {
 			C:      st.services.Name,
 			Id:     name,
 			Assert: txn.DocMissing,
@@ -700,11 +709,16 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	if !eps[0].CanRelateTo(eps[1]) {
 		return nil, fmt.Errorf("endpoints do not relate")
 	}
-	// If either endpoint has container scope, so must the other.
+	// If either endpoint has container scope, so must the other; and the
+	// services's series must also match, because they'll be deployed to
+	// the same machines.
+	matchSeries := true
 	if eps[0].Scope == charm.ScopeContainer {
 		eps[1].Scope = charm.ScopeContainer
 	} else if eps[1].Scope == charm.ScopeContainer {
 		eps[0].Scope = charm.ScopeContainer
+	} else {
+		matchSeries = false
 	}
 	// We only get a unique relation id once, to save on roundtrips. If it's
 	// -1, we haven't got it yet (we don't get it at this stage, because we
@@ -722,6 +736,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		}
 		// Collect per-service operations, checking sanity as we go.
 		var ops []txn.Op
+		series := map[string]bool{}
 		for _, ep := range eps {
 			svc, err := st.Service(ep.ServiceName)
 			if IsNotFound(err) {
@@ -731,6 +746,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 			} else if svc.doc.Life != Alive {
 				return nil, fmt.Errorf("service %q is not alive", ep.ServiceName)
 			}
+			series[svc.doc.Series] = true
 			ch, _, err := svc.Charm()
 			if err != nil {
 				return nil, err
@@ -745,6 +761,9 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				Update: D{{"$inc", D{{"relationcount", 1}}}},
 			})
 		}
+		if matchSeries && len(series) != 1 {
+			return nil, fmt.Errorf("principal and subordinate services' series must match")
+		}
 		// Create a new unique id if that has not already been done, and add
 		// an operation to create the relation document.
 		if id == -1 {
@@ -753,7 +772,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				return nil, err
 			}
 		}
-		doc := relationDoc{
+		doc := &relationDoc{
 			Key:       key,
 			Id:        id,
 			Endpoints: eps,
@@ -771,7 +790,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		} else if err != nil {
 			return nil, err
 		}
-		return &Relation{st, doc}, nil
+		return &Relation{st, *doc}, nil
 	}
 	return nil, ErrExcessiveContention
 }

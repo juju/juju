@@ -151,6 +151,21 @@ func (s *RelationSuite) TestAddRelation(c *C) {
 	assertOneRelation(c, wordpress, 0, wordpressEP, mysqlEP)
 }
 
+func (s *RelationSuite) TestAddRelationSeriesNeedNotMatch(c *C) {
+	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, IsNil)
+	wordpressEP, err := wordpress.Endpoint("db")
+	c.Assert(err, IsNil)
+	mysql, err := s.State.AddService("mysql", s.AddSeriesCharm(c, "mysql", "otherseries"))
+	c.Assert(err, IsNil)
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, IsNil)
+	_, err = s.State.AddRelation(wordpressEP, mysqlEP)
+	c.Assert(err, IsNil)
+	assertOneRelation(c, mysql, 0, mysqlEP, wordpressEP)
+	assertOneRelation(c, wordpress, 0, wordpressEP, mysqlEP)
+}
+
 func (s *RelationSuite) TestAddContainerRelation(c *C) {
 	// Add a relation.
 	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
@@ -176,6 +191,19 @@ func (s *RelationSuite) TestAddContainerRelation(c *C) {
 	c.Assert(err, ErrorMatches, `cannot add relation "logging:info wordpress:juju-info": relation already exists`)
 	assertOneRelation(c, logging, 0, loggingEP, wordpressEP)
 	assertOneRelation(c, wordpress, 0, wordpressEP, loggingEP)
+}
+
+func (s *RelationSuite) TestAddContainerRelationSeriesMustMatch(c *C) {
+	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, IsNil)
+	wordpressEP, err := wordpress.Endpoint("juju-info")
+	c.Assert(err, IsNil)
+	logging, err := s.State.AddService("logging", s.AddSeriesCharm(c, "logging", "otherseries"))
+	c.Assert(err, IsNil)
+	loggingEP, err := logging.Endpoint("info")
+	c.Assert(err, IsNil)
+	_, err = s.State.AddRelation(wordpressEP, loggingEP)
+	c.Assert(err, ErrorMatches, `cannot add relation "logging:info wordpress:juju-info": principal and subordinate services' series must match`)
 }
 
 func (s *RelationSuite) TestDestroyRelation(c *C) {

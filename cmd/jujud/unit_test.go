@@ -5,6 +5,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
 	"time"
 )
@@ -96,16 +97,15 @@ waitStarted:
 		case <-time.After(50 * time.Millisecond):
 			err := unit.Refresh()
 			c.Assert(err, IsNil)
-			st, info, err := unit.Status()
-			c.Assert(err, IsNil)
+			st, info := unit.Status()
 			switch st {
-			case state.UnitPending, state.UnitInstalled:
+			case params.UnitPending, params.UnitInstalled:
 				c.Logf("waiting...")
 				continue
-			case state.UnitStarted:
+			case params.UnitStarted:
 				c.Logf("started!")
 				break waitStarted
-			case state.UnitDown:
+			case params.UnitDown:
 				s.State.StartSync()
 				c.Logf("unit is still down")
 			default:

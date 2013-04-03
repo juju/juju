@@ -25,63 +25,119 @@ type InfoResponse struct {
 	Warnings []string `json:"warnings,omitempty"`
 }
 
+// EventResponse is sent by the charm store in response to charm-event requests.
+type EventResponse struct {
+	Kind     string   `json:"kind"`
+	Revision int      `json:"revision"` // Zero is valid. Can't omitempty.
+	Digest   string   `json:"digest,omitempty"`
+	Errors   []string `json:"errors,omitempty"`
+	Warnings []string `json:"warnings,omitempty"`
+	Time     string   `json:"time,omitempty"`
+}
+
 // Repository respresents a collection of charms.
 type Repository interface {
 	Get(curl *URL) (Charm, error)
 	Latest(curl *URL) (int, error)
 }
 
-// store is a Repository that talks to the juju charm server (in ../store).
-type store struct {
+// NotFoundError represents an error indicating that the requested data wasn't found.
+type NotFoundError struct {
+	msg string
+}
+
+func (e *NotFoundError) Error() string {
+	return e.msg
+}
+
+// CharmStore is a Repository that provides access to the public juju charm store.
+type CharmStore struct {
 	baseURL string
 }
 
-const (
-	storeURL = "https://store.juju.ubuntu.com"
-)
+var Store = &CharmStore{"https://store.juju.ubuntu.com"}
 
-// Store returns a Repository that provides access to the juju charm store.
-func Store() Repository {
-	return &store{storeURL}
-}
-
-// info returns the revision and SHA256 digest of the charm referenced by curl.
-func (s *store) info(curl *URL) (rev int, digest string, err error) {
+// Info returns details for a charm in the charm store.
+func (s *CharmStore) Info(curl *URL) (*InfoResponse, error) {
 	key := curl.String()
 	resp, err := http.Get(s.baseURL + "/charm-info?charms=" + url.QueryEscape(key))
 	if err != nil {
-		return
+		return nil, err
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return
+		return nil, err
 	}
 	infos := make(map[string]*InfoResponse)
 	if err = json.Unmarshal(body, &infos); err != nil {
-		return
+		return nil, err
 	}
 	info, found := infos[key]
 	if !found {
-		err = fmt.Errorf("charm: charm store returned response without charm %q", key)
-		return
+		return nil, fmt.Errorf("charm: charm store returned response without charm %q", key)
+	}
+	if len(info.Errors) == 1 && info.Errors[0] == "entry not found" {
+		return nil, &NotFoundError{fmt.Sprintf("charm not found: %s", curl)}
+	}
+	return info, nil
+}
+
+// Event returns details for a charm event in the charm store.
+//
+// If digest is empty, the latest event is returned.
+func (s *CharmStore) Event(curl *URL, digest string) (*EventResponse, error) {
+	key := curl.String()
+	query := key
+	if digest != "" {
+		query += "@" + digest
+	}
+	resp, err := http.Get(s.baseURL + "/charm-event?charms=" + url.QueryEscape(query))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	events := make(map[string]*EventResponse)
+	if err = json.Unmarshal(body, &events); err != nil {
+		return nil, err
+	}
+	event, found := events[key]
+	if !found {
+		return nil, fmt.Errorf("charm: charm store returned response without charm %q", key)
+	}
+	if len(event.Errors) == 1 && event.Errors[0] == "entry not found" {
+		if digest == "" {
+			return nil, &NotFoundError{fmt.Sprintf("charm event not found for %q", curl)}
+		} else {
+			return nil, &NotFoundError{fmt.Sprintf("charm event not found for %q with digest %q", curl, digest)}
+		}
+	}
+	return event, nil
+}
+
+// revision returns the revision and SHA256 digest of the charm referenced by curl.
+func (s *CharmStore) revision(curl *URL) (revision int, digest string, err error) {
+	info, err := s.Info(curl)
+	if err != nil {
+		return 0, "", err
 	}
 	for _, w := range info.Warnings {
-		log.Warningf("charm: charm store reports for %q: %s", key, w)
+		log.Warningf("charm: charm store reports for %q: %s", curl, w)
 	}
 	if info.Errors != nil {
-		err = fmt.Errorf(
-			"charm info errors for %q: %s", key, strings.Join(info.Errors, "; "),
-		)
-		return
+		return 0, "", fmt.Errorf("charm info errors for %q: %s", curl, strings.Join(info.Errors, "; "))
 	}
 	return info.Revision, info.Sha256, nil
 }
 
 // Latest returns the latest revision of the charm referenced by curl, regardless
 // of the revision set on curl itself.
-func (s *store) Latest(curl *URL) (int, error) {
-	rev, _, err := s.info(curl.WithRevision(-1))
+func (s *CharmStore) Latest(curl *URL) (int, error) {
+	rev, _, err := s.revision(curl.WithRevision(-1))
 	return rev, err
 }
 
@@ -104,12 +160,12 @@ func verify(path, digest string) error {
 }
 
 // Get returns the charm referenced by curl.
-func (s *store) Get(curl *URL) (Charm, error) {
+func (s *CharmStore) Get(curl *URL) (Charm, error) {
 	cachePath := config.JujuHomePath("cache")
 	if err := os.MkdirAll(cachePath, 0755); err != nil {
 		return nil, err
 	}
-	rev, digest, err := s.info(curl)
+	rev, digest, err := s.revision(curl)
 	if err != nil {
 		return nil, err
 	}
@@ -170,11 +226,11 @@ func (r *LocalRepository) Latest(curl *URL) (int, error) {
 }
 
 func repoNotFound(path string) error {
-	return fmt.Errorf("no repository found at %q", path)
+	return &NotFoundError{fmt.Sprintf("no repository found at %q", path)}
 }
 
 func charmNotFound(curl *URL, repoPath string) error {
-	return fmt.Errorf("no charms found matching %q in %s", curl, repoPath)
+	return &NotFoundError{fmt.Sprintf("no charms found matching %q in %s", curl, repoPath)}
 }
 
 func mightBeCharm(info os.FileInfo) bool {

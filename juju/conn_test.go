@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/trivial"
 	"os"
@@ -117,7 +118,7 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *C) {
 	info, _, err := env.StateInfo()
 	c.Assert(err, IsNil)
 	info.Password = trivial.PasswordHash("side-effect secret")
-	st, err := state.Open(info, state.DefaultDialTimeout)
+	st, err := state.Open(info, state.DefaultDialOpts())
 	c.Assert(err, IsNil)
 
 	// Verify we have no secret in the environ config
@@ -198,7 +199,7 @@ func (cs *NewConnSuite) TestConnWithPassword(c *C) {
 	info, _, err := env.StateInfo()
 	c.Assert(err, IsNil)
 	info.Password = trivial.PasswordHash("nutkin")
-	st, err := state.Open(info, state.DefaultDialTimeout)
+	st, err := state.Open(info, state.DefaultDialOpts())
 	c.Assert(err, IsNil)
 	st.Close()
 
@@ -210,7 +211,7 @@ func (cs *NewConnSuite) TestConnWithPassword(c *C) {
 	// Check that the password has now been changed to the original
 	// admin password.
 	info.Password = "nutkin"
-	st1, err := state.Open(info, state.DefaultDialTimeout)
+	st1, err := state.Open(info, state.DefaultDialOpts())
 	c.Assert(err, IsNil)
 	st1.Close()
 
@@ -404,13 +405,13 @@ func (s *ConnSuite) TestResolved(c *C) {
 	err = s.conn.Resolved(u, true)
 	c.Assert(err, ErrorMatches, `unit "testriak/0" is not in an error state`)
 
-	err = u.SetStatus(state.UnitError, "gaaah")
+	err = u.SetStatus(params.UnitError, "gaaah")
 	c.Assert(err, IsNil)
 	err = s.conn.Resolved(u, false)
 	c.Assert(err, IsNil)
 	err = s.conn.Resolved(u, true)
 	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "testriak/0": already resolved`)
-	c.Assert(u.Resolved(), Equals, state.ResolvedNoHooks)
+	c.Assert(u.Resolved(), Equals, params.ResolvedNoHooks)
 
 	err = u.ClearResolved()
 	c.Assert(err, IsNil)
@@ -418,7 +419,7 @@ func (s *ConnSuite) TestResolved(c *C) {
 	c.Assert(err, IsNil)
 	err = s.conn.Resolved(u, false)
 	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "testriak/0": already resolved`)
-	c.Assert(u.Resolved(), Equals, state.ResolvedRetryHooks)
+	c.Assert(u.Resolved(), Equals, params.ResolvedRetryHooks)
 }
 
 type DeployLocalSuite struct {
@@ -444,17 +445,32 @@ func (s *DeployLocalSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *DeployLocalSuite) TestSetNumUnits(c *C) {
+func (s *DeployLocalSuite) TestDeploy(c *C) {
 	charm, err := s.Conn.PutCharm(s.charmUrl, s.repo, false)
 	c.Assert(err, IsNil)
+	cons := constraints.MustParse("mem=4G")
 	args := juju.DeployServiceParams{
 		Charm:       charm,
 		NumUnits:    3,
 		ServiceName: "bob",
+		Constraints: cons,
 	}
 	svc, err := s.Conn.DeployService(args)
 	c.Assert(err, IsNil)
+	scons, err := svc.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(scons, DeepEquals, cons)
+
 	units, err := svc.AllUnits()
 	c.Assert(err, IsNil)
 	c.Assert(len(units), Equals, 3)
+	for _, unit := range units {
+		mid, err := unit.AssignedMachineId()
+		c.Assert(err, IsNil)
+		machine, err := s.State.Machine(mid)
+		c.Assert(err, IsNil)
+		mcons, err := machine.Constraints()
+		c.Assert(err, IsNil)
+		c.Assert(mcons, DeepEquals, cons)
+	}
 }

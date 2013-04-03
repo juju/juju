@@ -27,7 +27,7 @@ func (s *ServiceSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *ServiceSuite) TestServiceCharm(c *C) {
+func (s *ServiceSuite) TestSetCharm(c *C) {
 	ch, force, err := s.mysql.Charm()
 	c.Assert(err, IsNil)
 	c.Assert(ch.URL(), DeepEquals, s.charm.URL())
@@ -36,7 +36,6 @@ func (s *ServiceSuite) TestServiceCharm(c *C) {
 	c.Assert(url, DeepEquals, s.charm.URL())
 	c.Assert(force, Equals, false)
 
-	// TODO: SetCharm must validate the change (version, relations, etc)
 	wp := s.AddTestingCharm(c, "wordpress")
 	err = s.mysql.SetCharm(wp, true)
 	ch, force, err1 := s.mysql.Charm()
@@ -54,6 +53,16 @@ func (s *ServiceSuite) TestServiceCharm(c *C) {
 	c.Assert(err, IsNil)
 	err = s.mysql.SetCharm(wp, true)
 	c.Assert(err, ErrorMatches, `service "mysql" is not alive`)
+}
+
+func (s *ServiceSuite) TestSetCharmErrors(c *C) {
+	logging := s.AddTestingCharm(c, "logging")
+	err := s.mysql.SetCharm(logging, false)
+	c.Assert(err, ErrorMatches, "cannot change a service's subordinacy")
+
+	othermysql := s.AddSeriesCharm(c, "mysql", "otherseries")
+	err = s.mysql.SetCharm(othermysql, false)
+	c.Assert(err, ErrorMatches, "cannot change a service's series")
 }
 
 var stringConfig = `
@@ -647,6 +656,7 @@ func (s *ServiceSuite) TestReadUnitWhenDying(c *C) {
 	// Test that we can still read units when the service is Dying...
 	unit, err := s.mysql.AddUnit()
 	c.Assert(err, IsNil)
+	preventUnitDestroyRemove(c, s.State, unit)
 	err = s.mysql.Destroy()
 	c.Assert(err, IsNil)
 	_, err = s.mysql.AllUnits()
@@ -902,6 +912,42 @@ func (s *ServiceSuite) TestConstraints(c *C) {
 	c.Assert(cons6, DeepEquals, cons0)
 }
 
+func (s *ServiceSuite) TestConstraintsLifecycle(c *C) {
+	// Dying.
+	unit, err := s.mysql.AddUnit()
+	c.Assert(err, IsNil)
+	err = s.mysql.Destroy()
+	c.Assert(err, IsNil)
+	cons1 := constraints.MustParse("mem=1G")
+	err = s.mysql.SetConstraints(cons1)
+	c.Assert(err, ErrorMatches, `cannot set constraints: not found or not alive`)
+	scons, err := s.mysql.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(scons, DeepEquals, constraints.Value{})
+
+	// Removed (== Dead, for a service).
+	err = unit.EnsureDead()
+	c.Assert(err, IsNil)
+	err = unit.Remove()
+	c.Assert(err, IsNil)
+	err = s.mysql.SetConstraints(cons1)
+	c.Assert(err, ErrorMatches, `cannot set constraints: not found or not alive`)
+	_, err = s.mysql.Constraints()
+	c.Assert(err, ErrorMatches, `constraints not found`)
+}
+
+func (s *ServiceSuite) TestSubordinateConstraints(c *C) {
+	loggingCh := s.AddTestingCharm(c, "logging")
+	logging, err := s.State.AddService("logging", loggingCh)
+	c.Assert(err, IsNil)
+
+	_, err = logging.Constraints()
+	c.Assert(err, Equals, state.ErrSubordinateConstraints)
+
+	err = logging.SetConstraints(constraints.Value{})
+	c.Assert(err, Equals, state.ErrSubordinateConstraints)
+}
+
 type unitSlice []*state.Unit
 
 func (m unitSlice) Len() int           { return len(m) }
@@ -938,8 +984,9 @@ var serviceUnitsWatchTests = []struct {
 	}, {
 		"Add two units at once",
 		func(c *C, s *state.State, service *state.Service) {
-			_, err := service.AddUnit()
+			unit2, err := service.AddUnit()
 			c.Assert(err, IsNil)
+			preventUnitDestroyRemove(c, s, unit2)
 			_, err = service.AddUnit()
 			c.Assert(err, IsNil)
 		},
@@ -949,12 +996,14 @@ var serviceUnitsWatchTests = []struct {
 		func(c *C, s *state.State, service *state.Service) {
 			unit0, err := service.Unit("mysql/0")
 			c.Assert(err, IsNil)
+			preventUnitDestroyRemove(c, s, unit0)
 			err = unit0.Destroy()
 			c.Assert(err, IsNil)
 		},
 		[]string{"mysql/0"},
 	}, {
-		"Report dead unit",
+		// I'm preserving these tests in amber, not fixing them.
+		"Report another dying unit for no clear reason",
 		func(c *C, s *state.State, service *state.Service) {
 			unit2, err := service.Unit("mysql/2")
 			c.Assert(err, IsNil)
@@ -980,6 +1029,7 @@ var serviceUnitsWatchTests = []struct {
 		func(c *C, s *state.State, service *state.Service) {
 			unit3, err := service.Unit("mysql/3")
 			c.Assert(err, IsNil)
+			preventUnitDestroyRemove(c, s, unit3)
 			err = unit3.Destroy()
 			c.Assert(err, IsNil)
 			_, err = service.AddUnit()
@@ -1013,9 +1063,7 @@ var serviceUnitsWatchTests = []struct {
 				c.Assert(err, IsNil)
 			}
 			for i := 10; i < len(units); i++ {
-				err = units[i].EnsureDead()
-				c.Assert(err, IsNil)
-				err = units[i].Remove()
+				err = units[i].Destroy()
 				c.Assert(err, IsNil)
 			}
 		},
@@ -1030,6 +1078,7 @@ var serviceUnitsWatchTests = []struct {
 				c.Assert(err, IsNil)
 			}
 			for _, unit := range units {
+				preventUnitDestroyRemove(c, s, unit)
 				err = unit.Destroy()
 				c.Assert(err, IsNil)
 			}

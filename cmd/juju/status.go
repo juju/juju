@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 )
 
 type StatusCommand struct {
@@ -197,7 +198,12 @@ func processUnit(unit *state.Unit) (map[string]interface{}, error) {
 	}
 
 	processVersion(r, unit)
-	processStatus(r, unit)
+
+	agentAlive, err := unit.AgentAlive()
+	if err != nil {
+		return nil, err
+	}
+	processStatus(r, unit, agentAlive, unit.Life() == state.Dead)
 	return r, nil
 }
 
@@ -212,15 +218,20 @@ func processVersion(r map[string]interface{}, v versioned) {
 }
 
 type status interface {
-	Status() (state.UnitStatus, string, error)
+	Status() (params.UnitStatus, string)
 }
 
-func processStatus(r map[string]interface{}, s status) {
-	if status, info, err := s.Status(); err == nil {
-		r["status"] = status
-		if len(info) > 0 {
-			r["status-info"] = info
+func processStatus(r map[string]interface{}, s status, agentAlive, unitDead bool) {
+	status, info := s.Status()
+	if status != params.UnitPending {
+		if !agentAlive && !unitDead {
+			// Agent should be running but it's not.
+			status = params.UnitDown
 		}
+	}
+	r["agent-state"] = status
+	if len(info) > 0 {
+		r["agent-state-info"] = info
 	}
 }
 

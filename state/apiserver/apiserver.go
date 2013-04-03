@@ -314,7 +314,7 @@ func (c *srvClient) ServiceUnexpose(args params.ServiceUnexpose) error {
 	return statecmd.ServiceUnexpose(c.root.srv.state, args)
 }
 
-var CharmStore charm.Repository = charm.Store()
+var CharmStore charm.Repository = charm.Store
 
 // ServiceDeploy fetches the charm from the charm store and deploys it.  Local
 // charms are not supported.
@@ -347,8 +347,10 @@ func (c *srvClient) ServiceDeploy(args params.ServiceDeploy) error {
 		Charm:       charm,
 		ServiceName: serviceName,
 		NumUnits:    args.NumUnits,
+		// BUG(lp:1162122): Config/ConfigYAML have no tests.
 		Config:      args.Config,
 		ConfigYAML:  args.ConfigYAML,
+		Constraints: args.Constraints,
 	}
 	_, err = conn.DeployService(deployArgs)
 	return err

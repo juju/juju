@@ -19,6 +19,7 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
 	"net/http"
@@ -348,7 +349,7 @@ func (inst *instance) WaitDNSName() (string, error) {
 
 // TODO: following 30 lines nearly verbatim from environs/ec2
 
-func (inst *instance) OpenPorts(machineId string, ports []state.Port) error {
+func (inst *instance) OpenPorts(machineId string, ports []params.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for opening ports on instance: %q",
 			inst.e.Config().FirewallMode())
@@ -361,7 +362,7 @@ func (inst *instance) OpenPorts(machineId string, ports []state.Port) error {
 	return nil
 }
 
-func (inst *instance) ClosePorts(machineId string, ports []state.Port) error {
+func (inst *instance) ClosePorts(machineId string, ports []params.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for closing ports on instance: %q",
 			inst.e.Config().FirewallMode())
@@ -374,7 +375,7 @@ func (inst *instance) ClosePorts(machineId string, ports []state.Port) error {
 	return nil
 }
 
-func (inst *instance) Ports(machineId string) ([]state.Port, error) {
+func (inst *instance) Ports(machineId string) ([]params.Port, error) {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from instance: %q",
 			inst.e.Config().FirewallMode())
@@ -986,7 +987,7 @@ func (e *environ) machinesFilter() *nova.Filter {
 	return filter
 }
 
-func (e *environ) openPortsInGroup(name string, ports []state.Port) error {
+func (e *environ) openPortsInGroup(name string, ports []params.Port) error {
 	novaclient := e.nova()
 	group, err := novaclient.SecurityGroupByName(name)
 	if err != nil {
@@ -1008,7 +1009,7 @@ func (e *environ) openPortsInGroup(name string, ports []state.Port) error {
 	return nil
 }
 
-func (e *environ) closePortsInGroup(name string, ports []state.Port) error {
+func (e *environ) closePortsInGroup(name string, ports []params.Port) error {
 	if len(ports) == 0 {
 		return nil
 	}
@@ -1035,14 +1036,14 @@ func (e *environ) closePortsInGroup(name string, ports []state.Port) error {
 	return nil
 }
 
-func (e *environ) portsInGroup(name string) (ports []state.Port, err error) {
+func (e *environ) portsInGroup(name string) (ports []params.Port, err error) {
 	group, err := e.nova().SecurityGroupByName(name)
 	if err != nil {
 		return nil, err
 	}
 	for _, p := range (*group).Rules {
 		for i := *p.FromPort; i <= *p.ToPort; i++ {
-			ports = append(ports, state.Port{
+			ports = append(ports, params.Port{
 				Protocol: *p.IPProtocol,
 				Number:   i,
 			})
@@ -1054,7 +1055,7 @@ func (e *environ) portsInGroup(name string) (ports []state.Port, err error) {
 
 // TODO: following 30 lines nearly verbatim from environs/ec2
 
-func (e *environ) OpenPorts(ports []state.Port) error {
+func (e *environ) OpenPorts(ports []params.Port) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode for opening ports on environment: %q",
 			e.Config().FirewallMode())
@@ -1066,7 +1067,7 @@ func (e *environ) OpenPorts(ports []state.Port) error {
 	return nil
 }
 
-func (e *environ) ClosePorts(ports []state.Port) error {
+func (e *environ) ClosePorts(ports []params.Port) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode for closing ports on environment: %q",
 			e.Config().FirewallMode())
@@ -1078,7 +1079,7 @@ func (e *environ) ClosePorts(ports []state.Port) error {
 	return nil
 }
 
-func (e *environ) Ports() ([]state.Port, error) {
+func (e *environ) Ports() ([]params.Port, error) {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from environment: %q",
 			e.Config().FirewallMode())

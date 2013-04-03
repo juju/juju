@@ -4,44 +4,16 @@ import (
 	"container/list"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
-	"net/url"
-	"path/filepath"
 	"sort"
 	"sync"
 	"time"
 )
-
-func (st *State) AddTestingCharm(c *C, name string) *Charm {
-	return addCharm(c, st, testing.Charms.Dir(name))
-}
-
-func (st *State) AddCustomCharm(c *C, name, filename, content string, revision int) *Charm {
-	path := testing.Charms.ClonedDirPath(c.MkDir(), name)
-	config := filepath.Join(path, filename)
-	err := ioutil.WriteFile(config, []byte(content), 0644)
-	c.Assert(err, IsNil)
-	ch, err := charm.ReadDir(path)
-	c.Assert(err, IsNil)
-	ch.SetRevision(revision)
-	return addCharm(c, st, ch)
-}
-
-func addCharm(c *C, st *State, ch charm.Charm) *Charm {
-	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
-	curl := charm.MustParseURL("local:series/" + ident)
-	bundleURL, err := url.Parse("http://bundles.example.com/" + ident)
-	c.Assert(err, IsNil)
-	sch, err := st.AddCharm(ch, curl, bundleURL, ident+"-sha256")
-	c.Assert(err, IsNil)
-	return sch
-}
 
 type allInfoSuite struct {
 	testing.LoggingSuite
@@ -811,10 +783,10 @@ func (s *allWatcherStateSuite) TearDownSuite(c *C) {
 func (s *allWatcherStateSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-	state, err := Open(TestingStateInfo(), TestingDialTimeout)
+	var err error
+	s.State, err = Open(TestingStateInfo(), TestingDialOpts())
 	c.Assert(err, IsNil)
-
-	s.State = state
+	TestingInitialize(c, nil)
 }
 
 func (s *allWatcherStateSuite) TearDownTest(c *C) {
@@ -842,7 +814,7 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 		InstanceId: "i-machine-0",
 	})
 
-	wordpress, err := s.State.AddService("wordpress", s.State.AddTestingCharm(c, "wordpress"))
+	wordpress, err := s.State.AddService("wordpress", AddTestingCharm(c, s.State, "wordpress"))
 	c.Assert(err, IsNil)
 	err = wordpress.SetExposed()
 	c.Assert(err, IsNil)
@@ -860,7 +832,7 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 		Annotations: pairs,
 	})
 
-	logging, err := s.State.AddService("logging", s.State.AddTestingCharm(c, "logging"))
+	logging, err := s.State.AddService("logging", AddTestingCharm(c, s.State, "logging"))
 	c.Assert(err, IsNil)
 	add(&params.ServiceInfo{
 		Name:     "logging",
@@ -873,15 +845,27 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 	c.Assert(err, IsNil)
 	add(&params.RelationInfo{
 		Key: "logging:logging-directory wordpress:logging-dir",
+		Endpoints: []params.Endpoint{
+			params.Endpoint{ServiceName: "logging", Relation: charm.Relation{Name: "logging-directory", Role: "requirer", Interface: "logging", Optional: false, Limit: 1, Scope: "container"}},
+			params.Endpoint{ServiceName: "wordpress", Relation: charm.Relation{Name: "logging-dir", Role: "provider", Interface: "logging", Optional: false, Limit: 0, Scope: "container"}}},
 	})
 
 	for i := 0; i < 2; i++ {
 		wu, err := wordpress.AddUnit()
 		c.Assert(err, IsNil)
 		c.Assert(wu.Tag(), Equals, fmt.Sprintf("unit-wordpress-%d", i))
+
+		m, err := s.State.AddMachine("series", JobHostUnits)
+		c.Assert(err, IsNil)
+		c.Assert(m.Tag(), Equals, fmt.Sprintf("machine-%d", i+1))
+
 		add(&params.UnitInfo{
-			Name:    fmt.Sprintf("wordpress/%d", i),
-			Service: "wordpress",
+			Name:      fmt.Sprintf("wordpress/%d", i),
+			Service:   wordpress.Name(),
+			Series:    m.Series(),
+			MachineId: m.Id(),
+			Ports:     []params.Port{},
+			Status:    params.UnitPending,
 		})
 		pairs := map[string]string{"name": fmt.Sprintf("bar %d", i)}
 		err = wu.SetAnnotations(pairs)
@@ -892,9 +876,6 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 			Annotations: pairs,
 		})
 
-		m, err := s.State.AddMachine("series", JobHostUnits)
-		c.Assert(err, IsNil)
-		c.Assert(m.Tag(), Equals, fmt.Sprintf("machine-%d", i+1))
 		err = m.SetInstanceId(InstanceId("i-" + m.Tag()))
 		c.Assert(err, IsNil)
 		add(&params.MachineInfo{
@@ -925,6 +906,9 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 		add(&params.UnitInfo{
 			Name:    fmt.Sprintf("logging/%d", i),
 			Service: "logging",
+			Series:  "series",
+			Ports:   []params.Port{},
+			Status:  params.UnitPending,
 		})
 	}
 	return
@@ -971,6 +955,13 @@ func (s *allWatcherStateSuite) TestStateBackingGetAll(c *C) {
 	for _, e := range expectEntities {
 		c.Logf("\t%#v %#v %#v", e.EntityKind(), e.EntityId(), e)
 	}
+	for num, ent := range expectEntities {
+		c.Logf("---------------> %d\n", num)
+		c.Logf("\n************ EXPECTED:\n%#v", ent)
+		c.Logf("************ OBTAINED: \n%#v\n", gotEntities[num])
+		c.Assert(gotEntities[num], DeepEquals, ent)
+	}
+
 	c.Assert(gotEntities, DeepEquals, expectEntities)
 }
 

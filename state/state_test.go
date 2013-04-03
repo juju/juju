@@ -8,7 +8,9 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
+	"net"
 	"net/url"
 	"sort"
 	"strconv"
@@ -16,6 +18,23 @@ import (
 )
 
 type D []bson.DocElem
+
+// preventUnitDestroyRemove ensures that a unit is assigned to a machine with
+// an instance id, and hence prevents it from being unceremoniously removed
+// from state on Destroy. This is useful because several tests go through a
+// unit's lifecycle step by step, asserting the behaviour of a given method
+// in each state, and the unit quick-remove change caused many of these to
+// fail.
+func preventUnitDestroyRemove(c *C, st *state.State, u *state.Unit) {
+	err := u.AssignToNewMachine()
+	c.Assert(err, IsNil)
+	mid, err := u.AssignedMachineId()
+	c.Assert(err, IsNil)
+	m, err := st.Machine(mid)
+	c.Assert(err, IsNil)
+	err = m.SetInstanceId("i-malive")
+	c.Assert(err, IsNil)
+}
 
 type StateSuite struct {
 	ConnSuite
@@ -26,7 +45,7 @@ var _ = Suite(&StateSuite{})
 func (s *StateSuite) TestDialAgain(c *C) {
 	// Ensure idempotent operations on Dial are working fine.
 	for i := 0; i < 2; i++ {
-		st, err := state.Open(state.TestingStateInfo(), state.TestingDialTimeout)
+		st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts())
 		c.Assert(err, IsNil)
 		c.Assert(st.Close(), IsNil)
 	}
@@ -435,85 +454,21 @@ func (s *StateSuite) TestInferEndpoints(c *C) {
 }
 
 func (s *StateSuite) TestEnvironConfig(c *C) {
-	initial := map[string]interface{}{
-		"name":                      "test",
-		"type":                      "test",
-		"authorized-keys":           "i-am-a-key",
-		"default-series":            "precise",
-		"agent-version":             "1.2.3",
-		"development":               true,
-		"firewall-mode":             "",
-		"admin-secret":              "",
-		"ca-cert":                   testing.CACert,
-		"ca-private-key":            "",
-		"ssl-hostname-verification": true,
-	}
-	cfg, err := config.New(initial)
+	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, IsNil)
-	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialTimeout)
+	change, err := cfg.Apply(map[string]interface{}{
+		"authorized-keys": "different-keys",
+		"arbitrary-key":   "shazam!",
+	})
 	c.Assert(err, IsNil)
-	st.Close()
+	err = s.State.SetEnvironConfig(change)
 	c.Assert(err, IsNil)
 	cfg, err = s.State.EnvironConfig()
 	c.Assert(err, IsNil)
-	current := cfg.AllAttrs()
-	c.Assert(current, DeepEquals, initial)
-
-	current["authorized-keys"] = "i-am-a-new-key"
-	cfg, err = config.New(current)
-	c.Assert(err, IsNil)
-	err = s.State.SetEnvironConfig(cfg)
-	c.Assert(err, IsNil)
-	cfg, err = s.State.EnvironConfig()
-	c.Assert(err, IsNil)
-	final := cfg.AllAttrs()
-	c.Assert(final, DeepEquals, current)
-}
-
-func (s *StateSuite) TestEnvironConfigWithAdminSecret(c *C) {
-	attrs := map[string]interface{}{
-		"name":            "test",
-		"type":            "test",
-		"authorized-keys": "i-am-a-key",
-		"default-series":  "precise",
-		"development":     true,
-		"admin-secret":    "foo",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  "",
-	}
-	cfg, err := config.New(attrs)
-	c.Assert(err, IsNil)
-	_, err = state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialTimeout)
-	c.Assert(err, ErrorMatches, "admin-secret should never be written to the state")
-
-	delete(attrs, "admin-secret")
-	cfg, err = config.New(attrs)
-	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialTimeout)
-	c.Assert(err, IsNil)
-	st.Close()
-
-	cfg, err = cfg.Apply(map[string]interface{}{"admin-secret": "foo"})
-	err = s.State.SetEnvironConfig(cfg)
-	c.Assert(err, ErrorMatches, "admin-secret should never be written to the state")
+	c.Assert(cfg.AllAttrs(), DeepEquals, change.AllAttrs())
 }
 
 func (s *StateSuite) TestEnvironConstraints(c *C) {
-	// Environ constraints are not available before initialization.
-	_, err := s.State.EnvironConstraints()
-	c.Assert(state.IsNotFound(err), Equals, true)
-	m := map[string]interface{}{
-		"type":            "dummy",
-		"name":            "lisboa",
-		"authorized-keys": "i-am-a-key",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  "",
-	}
-	cfg, err := config.New(m)
-	c.Assert(err, IsNil)
-	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialTimeout)
-	c.Assert(err, IsNil)
-	st.Close()
-
 	// Environ constraints start out empty (for now).
 	cons0 := constraints.Value{}
 	cons1, err := s.State.EnvironConstraints()
@@ -877,88 +832,16 @@ func (s *StateSuite) TestWatchServices(c *C) {
 	}
 }
 
-func (s *StateSuite) TestInitialize(c *C) {
-	m := map[string]interface{}{
-		"type":                      "dummy",
-		"name":                      "lisboa",
-		"authorized-keys":           "i-am-a-key",
-		"default-series":            "precise",
-		"agent-version":             "1.2.3",
-		"development":               true,
-		"firewall-mode":             "",
-		"admin-secret":              "",
-		"ca-cert":                   testing.CACert,
-		"ca-private-key":            "",
-		"ssl-hostname-verification": true,
-	}
-	cfg, err := config.New(m)
-	c.Assert(err, IsNil)
-	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialTimeout)
-	c.Assert(err, IsNil)
-	c.Assert(st, NotNil)
-	defer st.Close()
-	env, err := st.EnvironConfig()
-	c.Assert(env.AllAttrs(), DeepEquals, m)
-}
-
-func (s *StateSuite) TestDoubleInitialize(c *C) {
-	m := map[string]interface{}{
-		"type":                      "dummy",
-		"name":                      "lisboa",
-		"authorized-keys":           "i-am-a-key",
-		"default-series":            "precise",
-		"agent-version":             "1.2.3",
-		"development":               true,
-		"firewall-mode":             "",
-		"admin-secret":              "",
-		"ca-cert":                   testing.CACert,
-		"ca-private-key":            "",
-		"ssl-hostname-verification": true,
-	}
-	cfg, err := config.New(m)
-	c.Assert(err, IsNil)
-	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialTimeout)
-	c.Assert(err, IsNil)
-	c.Assert(st, NotNil)
-	env1, err := st.EnvironConfig()
-	st.Close()
-
-	// initialize again, there should be no error and the
-	// environ config should not change.
-	m = map[string]interface{}{
-		"type":                      "dummy",
-		"name":                      "sydney",
-		"authorized-keys":           "i-am-not-an-animal",
-		"default-series":            "xanadu",
-		"development":               false,
-		"agent-version":             "3.4.5",
-		"firewall-mode":             "",
-		"admin-secret":              "",
-		"ca-cert":                   testing.CACert,
-		"ca-private-key":            "",
-		"ssl-hostname-verification": false,
-	}
-	cfg, err = config.New(m)
-	c.Assert(err, IsNil)
-	st, err = state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialTimeout)
-	c.Assert(err, IsNil)
-	c.Assert(st, NotNil)
-	env2, err := st.EnvironConfig()
-	st.Close()
-
-	c.Assert(env1.AllAttrs(), DeepEquals, env2.AllAttrs())
-}
-
 var sortPortsTests = []struct {
-	have, want []state.Port
+	have, want []params.Port
 }{
-	{nil, []state.Port{}},
-	{[]state.Port{{"b", 1}, {"a", 99}, {"a", 1}}, []state.Port{{"a", 1}, {"a", 99}, {"b", 1}}},
+	{nil, []params.Port{}},
+	{[]params.Port{{"b", 1}, {"a", 99}, {"a", 1}}, []params.Port{{"a", 1}, {"a", 99}, {"b", 1}}},
 }
 
 func (*StateSuite) TestSortPorts(c *C) {
 	for _, t := range sortPortsTests {
-		p := make([]state.Port, len(t.have))
+		p := make([]params.Port, len(t.have))
 		copy(p, t.have)
 		state.SortPorts(p)
 		c.Check(p, DeepEquals, t.want)
@@ -1014,100 +897,45 @@ func (*StateSuite) TestNameChecks(c *C) {
 
 type attrs map[string]interface{}
 
-var watchEnvironConfigTests = []attrs{
-	{
-		"type":            "my-type",
-		"name":            "my-name",
-		"authorized-keys": "i-am-a-key",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  "",
-	},
-	{
-		// Add an attribute.
-		"type":            "my-type",
-		"name":            "my-name",
-		"default-series":  "my-series",
-		"authorized-keys": "i-am-a-key",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  "",
-	},
-	{
-		// Set a new attribute value.
-		"type":            "my-type",
-		"name":            "my-new-name",
-		"default-series":  "my-series",
-		"authorized-keys": "i-am-a-key",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  "",
-	},
-}
-
 func (s *StateSuite) TestWatchEnvironConfig(c *C) {
-	watcher := s.State.WatchEnvironConfig()
-	defer func() {
-		c.Assert(watcher.Stop(), IsNil)
-	}()
-	for i, test := range watchEnvironConfigTests {
-		c.Logf("test %d", i)
-		change, err := config.New(test)
-		c.Assert(err, IsNil)
-		if i == 0 {
-			st, err := state.Initialize(state.TestingStateInfo(), change, state.TestingDialTimeout)
-			c.Assert(err, IsNil)
-			st.Close()
-		} else {
-			err = s.State.SetEnvironConfig(change)
-			c.Assert(err, IsNil)
-		}
-		c.Assert(err, IsNil)
+	w := s.State.WatchEnvironConfig()
+	defer stop(c, w)
+
+	assertNoChange := func() {
 		s.State.StartSync()
 		select {
-		case got, ok := <-watcher.Changes():
-			c.Assert(ok, Equals, true)
-			c.Assert(got.AllAttrs(), DeepEquals, change.AllAttrs())
-		case <-time.After(500 * time.Millisecond):
-			c.Fatalf("did not get change: %#v", test)
+		case got := <-w.Changes():
+			c.Fatalf("got unexpected change: %#v", got)
+		case <-time.After(50 * time.Millisecond):
 		}
 	}
-
-	select {
-	case got := <-watcher.Changes():
-		c.Fatalf("got unexpected change: %#v", got)
-	case <-time.After(50 * time.Millisecond):
+	assertChange := func(change attrs) {
+		cfg, err := s.State.EnvironConfig()
+		c.Assert(err, IsNil)
+		if change != nil {
+			cfg, err = cfg.Apply(change)
+			c.Assert(err, IsNil)
+			err = s.State.SetEnvironConfig(cfg)
+			c.Assert(err, IsNil)
+		}
+		s.State.Sync()
+		select {
+		case got, ok := <-w.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(got.AllAttrs(), DeepEquals, cfg.AllAttrs())
+		case <-time.After(500 * time.Millisecond):
+			c.Fatalf("did not get change: %#v", change)
+		}
+		assertNoChange()
 	}
+	assertChange(nil)
+	assertChange(attrs{"default-series": "another-series"})
+	assertChange(attrs{"fancy-new-key": "arbitrary-value"})
 }
 
-func (s *StateSuite) TestWatchEnvironConfigAfterCreation(c *C) {
-	cfg, err := config.New(watchEnvironConfigTests[0])
+func (s *StateSuite) TestWatchEnvironConfigCorruptConfig(c *C) {
+	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, IsNil)
-	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialTimeout)
-	c.Assert(err, IsNil)
-	st.Close()
-	s.State.Sync()
-	watcher := s.State.WatchEnvironConfig()
-	defer watcher.Stop()
-	select {
-	case got, ok := <-watcher.Changes():
-		c.Assert(ok, Equals, true)
-		c.Assert(got.AllAttrs(), DeepEquals, cfg.AllAttrs())
-	case <-time.After(500 * time.Millisecond):
-		c.Fatalf("did not get change")
-	}
-}
-
-func (s *StateSuite) TestWatchEnvironConfigInvalidConfig(c *C) {
-	m := map[string]interface{}{
-		"type":            "dummy",
-		"name":            "lisboa",
-		"authorized-keys": "i-am-a-key",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  "",
-	}
-	cfg1, err := config.New(m)
-	c.Assert(err, IsNil)
-	st, err := state.Initialize(state.TestingStateInfo(), cfg1, state.TestingDialTimeout)
-	c.Assert(err, IsNil)
-	st.Close()
 
 	// Corrupt the environment configuration.
 	settings := s.Session.DB("juju").C("settings")
@@ -1143,21 +971,14 @@ func (s *StateSuite) TestWatchEnvironConfigInvalidConfig(c *C) {
 	}
 
 	// Fix the configuration.
-	cfg2, err := config.New(map[string]interface{}{
-		"type":            "dummy",
-		"name":            "lisboa",
-		"authorized-keys": "new-key",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  "",
-	})
+	err = s.State.SetEnvironConfig(cfg)
 	c.Assert(err, IsNil)
-	err = s.State.SetEnvironConfig(cfg2)
-	c.Assert(err, IsNil)
+	fixed := cfg.AllAttrs()
 
 	s.State.StartSync()
 	select {
-	case cfg3 := <-done:
-		c.Assert(cfg3.AllAttrs(), DeepEquals, cfg2.AllAttrs())
+	case got := <-done:
+		c.Assert(got.AllAttrs(), DeepEquals, fixed)
 	case <-time.After(5 * time.Second):
 		c.Fatalf("no environment configuration observed")
 	}
@@ -1208,7 +1029,7 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *C) {
 }
 
 func tryOpenState(info *state.Info) error {
-	st, err := state.Open(info, state.TestingDialTimeout)
+	st, err := state.Open(info, state.TestingDialOpts())
 	if err == nil {
 		st.Close()
 	}
@@ -1233,11 +1054,70 @@ func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *C) {
 func (s *StateSuite) TestOpenBadAddress(c *C) {
 	info := state.TestingStateInfo()
 	info.Addrs = []string{"0.1.2.3:1234"}
-	st, err := state.Open(info, 1*time.Millisecond)
+	st, err := state.Open(info, state.DialOpts{
+		Timeout:    1 * time.Millisecond,
+		RetryDelay: 0,
+	})
 	if err == nil {
 		st.Close()
 	}
 	c.Assert(err, ErrorMatches, "no reachable servers")
+}
+
+func (s *StateSuite) TestOpenDelaysRetryBadAddress(c *C) {
+	retryDelay := 200 * time.Millisecond
+	info := state.TestingStateInfo()
+	info.Addrs = []string{"0.1.2.3:1234"}
+
+	t0 := time.Now()
+	st, err := state.Open(info, state.DialOpts{
+		Timeout:    1 * time.Millisecond,
+		RetryDelay: retryDelay,
+	})
+	if err == nil {
+		st.Close()
+	}
+	c.Assert(err, ErrorMatches, "no reachable servers")
+	// tryOpenState should have delayed for at least RetryDelay
+	// internally mgo will try three times in a row before returning
+	// to the caller.
+	if t1 := time.Since(t0); t1 < 3*retryDelay {
+		c.Errorf("mgo.Dial only paused for %v, expected at least %v", t1, 3*retryDelay)
+	}
+}
+
+func (s *StateSuite) TestOpenDoesNotDelayOnHandShakeFailure(c *C) {
+	retryDelay := 200 * time.Millisecond
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	c.Assert(err, IsNil)
+	defer l.Close()
+	go func() {
+		for {
+			conn, err := l.Accept()
+			if err != nil {
+				return
+			}
+			conn.Write([]byte("this is not a SSL handshake\nno sir\n"))
+			conn.Close()
+		}
+	}()
+	info := state.TestingStateInfo()
+	info.Addrs = []string{l.Addr().String()}
+
+	t0 := time.Now()
+	st, err := state.Open(info, state.DialOpts{
+		Timeout:    1 * time.Millisecond,
+		RetryDelay: retryDelay,
+	})
+	if err == nil {
+		st.Close()
+	}
+	c.Assert(err, ErrorMatches, "no reachable servers")
+	// tryOpenState should not have delayed because the socket
+	// connected, but ssl handshake failed
+	if t1 := time.Since(t0); t1 > 3*retryDelay {
+		c.Errorf("mgo.Dial paused for %v, expected less than %v", t1, 3*retryDelay)
+	}
 }
 
 func testSetPassword(c *C, getEntity func() (state.Authenticator, error)) {
@@ -1265,7 +1145,7 @@ func testSetPassword(c *C, getEntity func() (state.Authenticator, error)) {
 	c.Assert(e2.PasswordValid("bar"), Equals, true)
 
 	if le, ok := e.(lifer); ok {
-		testWhenDying(c, le, noErr, notAliveErr, func() error {
+		testWhenDying(c, le, noErr, deadErr, func() error {
 			return e.SetPassword("arble")
 		})
 	}
@@ -1279,7 +1159,7 @@ type entity interface {
 
 func testSetMongoPassword(c *C, getEntity func(st *state.State) (entity, error)) {
 	info := state.TestingStateInfo()
-	st, err := state.Open(info, state.TestingDialTimeout)
+	st, err := state.Open(info, state.TestingDialOpts())
 	c.Assert(err, IsNil)
 	defer st.Close()
 	// Turn on fully-authenticated mode.
@@ -1300,7 +1180,7 @@ func testSetMongoPassword(c *C, getEntity func(st *state.State) (entity, error))
 
 	// Check that we can log in with the correct password.
 	info.Password = "foo"
-	st1, err := state.Open(info, state.TestingDialTimeout)
+	st1, err := state.Open(info, state.TestingDialOpts())
 	c.Assert(err, IsNil)
 	defer st1.Close()
 
@@ -1360,28 +1240,7 @@ func (s *StateSuite) TestSetAdminMongoPassword(c *C) {
 	c.Assert(err, IsNil)
 }
 
-var envConfig = map[string]interface{}{
-	"name":           "test",
-	"type":           "test",
-	"ca-cert":        testing.CACert,
-	"ca-private-key": "",
-}
-
-func setUpEnvConfig(c *C) {
-	cfg, err := config.New(envConfig)
-	c.Assert(err, IsNil)
-	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialTimeout)
-	c.Assert(err, IsNil)
-	st.Close()
-}
-
 func (s *StateSuite) testEntity(c *C, getEntity func(string) (state.Tagger, error)) {
-	e, err := getEntity("environment-foo")
-	c.Check(e, IsNil)
-	c.Assert(err, ErrorMatches, "settings not found")
-
-	setUpEnvConfig(c)
-
 	bad := []string{"", "machine", "-foo", "foo-", "---", "machine-jim", "unit-123", "unit-foo", "service-", "service-foo/bar", "environment-foo"}
 	for _, name := range bad {
 		c.Logf(name)
@@ -1390,7 +1249,7 @@ func (s *StateSuite) testEntity(c *C, getEntity func(string) (state.Tagger, erro
 		c.Assert(err, ErrorMatches, `invalid entity tag ".*"`)
 	}
 
-	e, err = getEntity("machine-1234")
+	e, err := getEntity("machine-1234")
 	c.Check(e, IsNil)
 	c.Assert(err, ErrorMatches, `machine 1234 not found`)
 	c.Assert(state.IsNotFound(err), Equals, true)
@@ -1449,11 +1308,13 @@ func (s *StateSuite) TestAuthenticator(c *C) {
 	c.Assert(e, FitsTypeOf, user)
 	c.Assert(e.Tag(), Equals, user.Tag())
 
-	_, err = getEntity("environment-test")
+	cfg, err := s.State.EnvironConfig()
+	c.Assert(err, IsNil)
+	_, err = getEntity("environment-" + cfg.Name())
 	c.Assert(
 		err,
 		ErrorMatches,
-		`entity "environment-test" does not support authentication`,
+		`entity "environment-.*" does not support authentication`,
 	)
 }
 
@@ -1474,7 +1335,9 @@ func (s *StateSuite) TestAnnotator(c *C) {
 	c.Assert(service, FitsTypeOf, svc)
 	c.Assert(service.Tag(), Equals, svc.Tag())
 
-	e, err := getEntity("environment-" + envConfig["name"].(string))
+	cfg, err := s.State.EnvironConfig()
+	c.Assert(err, IsNil)
+	e, err := getEntity("environment-" + cfg.Name())
 	c.Assert(err, IsNil)
 	env, err := s.State.Environment()
 	c.Assert(err, IsNil)
