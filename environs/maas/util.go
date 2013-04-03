@@ -29,8 +29,11 @@ func getSystemIdValues(instanceIds []state.InstanceId) url.Values {
 }
 
 // userData returns a zipped cloudinit config.
-func userData(cfg *cloudinit.MachineConfig) ([]byte, error) {
+func userData(cfg *cloudinit.MachineConfig, scripts ...string) ([]byte, error) {
 	cloudcfg, err := cloudinit.New(cfg)
+	for _, script := range scripts {
+		cloudcfg.AddRunCmd(script)
+	}
 	if err != nil {
 		return nil, err
 	}

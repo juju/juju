@@ -128,7 +128,7 @@ func (env *maasEnviron) getMongoURL(tools *state.Tools) string {
 // userData().  You may still need to supply more information, but this takes
 // care of the fixed entries and the ones that are always needed.
 func (env *maasEnviron) makeMachineConfig(machineID string, stateInfo *state.Info, apiInfo *api.Info, tools *state.Tools) *cloudinit.MachineConfig {
-	return &cloudinit.MachineConfig{
+	machineConfig := &cloudinit.MachineConfig{
 		// Fixed entries.
 		MongoPort: mgoPort,
 		APIPort:   apiPort,
@@ -143,6 +143,7 @@ func (env *maasEnviron) makeMachineConfig(machineID string, stateInfo *state.Inf
 		APIInfo:   apiInfo,
 		Tools:     tools,
 	}
+	return machineConfig
 }
 
 // startBootstrapNode starts the juju bootstrap node for this environment.
@@ -176,6 +177,8 @@ func (env *maasEnviron) startBootstrapNode(tools *state.Tools, cert, key []byte,
 	mcfg.MongoURL = mongoURL
 	mcfg.Config = config
 
+	// script := fmt.Sprintf(`echo -n %s > /var/lib/juju/MAASmachineID.txt`, trivial.ShQuote(machineID))
+	// Pass script???
 	userdata, err := userData(mcfg)
 	if err != nil {
 		msg := fmt.Errorf("could not compose userdata for bootstrap node: %v", err)
@@ -391,7 +394,8 @@ func (environ *maasEnviron) StartInstance(machineID string, stateInfo *state.Inf
 	}
 
 	mcfg := environ.makeMachineConfig(machineID, stateInfo, apiInfo, tools)
-	userdata, err := userData(mcfg)
+	script := fmt.Sprintf(`echo -n %s > /var/lib/juju/MAASmachineID.txt`, trivial.ShQuote(machineID))
+	userdata, err := userData(mcfg, script)
 	if err != nil {
 		msg := fmt.Errorf("could not compose user data: %v", err)
 		return nil, msg
