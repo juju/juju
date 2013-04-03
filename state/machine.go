@@ -1,7 +1,6 @@
 package state
 
 import (
-	"errors"
 	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
@@ -179,6 +178,8 @@ func (m *Machine) PasswordValid(password string) bool {
 // Destroy sets the machine lifecycle to Dying if it is Alive. It does
 // nothing otherwise. Destroy will fail if the machine has principal
 // units assigned, or if the machine has JobManageEnviron.
+// If the machine has assigned units, Destroy will return
+// a HasAssignedUnitsError.
 func (m *Machine) Destroy() error {
 	return m.advanceLifecycle(Dying)
 }
@@ -186,11 +187,20 @@ func (m *Machine) Destroy() error {
 // EnsureDead sets the machine lifecycle to Dead if it is Alive or Dying.
 // It does nothing otherwise. EnsureDead will fail if the machine has
 // principal units assigned, or if the machine has JobManageEnviron.
+// If the machine has assigned units, EnsureDead will return
+// a HasAssignedUnitsError.
 func (m *Machine) EnsureDead() error {
 	return m.advanceLifecycle(Dead)
 }
 
-var ErrHasAssignedUnits = errors.New("machine cannot be destroyed because it has assigned units")
+type HasAssignedUnitsError struct {
+	MachineId string
+	UnitNames []string
+}
+
+func (e *HasAssignedUnitsError) Error() string {
+	return fmt.Sprintf("machine %s has unit %q assigned", e.MachineId, e.UnitNames[0])
+}
 
 // advanceLifecycle ensures that the machine's lifecycle is no earlier
 // than the supplied value. If the machine already has that lifecycle
@@ -268,7 +278,10 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 			}
 		}
 		if len(m.doc.Principals) != 0 {
-			return ErrHasAssignedUnits
+			return &HasAssignedUnitsError{
+				MachineId: m.doc.Id,
+				UnitNames: m.doc.Principals,
+			}
 		}
 		// Run the transaction...
 		if err := m.st.runner.Run([]txn.Op{op}, "", nil); err != txn.ErrAborted {

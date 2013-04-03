@@ -432,7 +432,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 		if err == nil {
 			break
 		}
-		c.Assert(err, Equals, state.ErrHasAssignedUnits)
+		c.Assert(err, FitsTypeOf, &state.HasAssignedUnitsError{})
 		time.Sleep(5 * time.Second)
 		err = m1.Refresh()
 		if state.IsNotFound(err) {
@@ -713,10 +713,10 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
 	c.Assert(err, IsNil)
 
 	dummyenv, err := environs.NewFromAttrs(map[string]interface{}{
-		"type":         "dummy",
-		"name":         "dummy storage",
-		"secret":       "pizza",
-		"state-server": false,
+		"type":           "dummy",
+		"name":           "dummy storage",
+		"secret":         "pizza",
+		"state-server":   false,
 		"ca-cert":        coretesting.CACert,
 		"ca-private-key": coretesting.CAKey,
 	})
