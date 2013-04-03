@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
 	"reflect"
 	"time"
@@ -96,6 +97,32 @@ func (s *MachineSuite) TestWithDeadMachine(c *C) {
 	a = s.newAgent(c, m)
 	err = runWithTimeout(a)
 	c.Assert(err, IsNil)
+}
+
+func (s *MachineSuite) TestDyingMachine(c *C) {
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	done := make(chan error)
+	go func() {
+		done <- a.Run(nil)
+	}()
+	defer func() {
+		c.Check(a.Stop(), IsNil)
+	}()
+	time.Sleep(1 * time.Second)
+	err := m.Destroy()
+	c.Assert(err, IsNil)
+	select {
+	case err := <-done:
+		c.Assert(err, IsNil)
+	case <-time.After(watcher.Period * 5 / 4):
+		// TODO(rog) Fix this so it doesn't wait for so long.
+		// https://bugs.launchpad.net/juju-core/+bug/1163983
+		c.Fatalf("timed out waiting for agent to terminate")
+	}
+	err = m.Refresh()
+	c.Assert(err, IsNil)
+	c.Assert(m.Life(), Equals, state.Dead)
 }
 
 func (s *MachineSuite) TestHostUnits(c *C) {
