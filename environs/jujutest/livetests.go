@@ -85,7 +85,7 @@ func (t *LiveTests) BootstrapOnce(c *C) {
 	// we could connect to (actual live tests, rather than local-only)
 	cons := constraints.MustParse("mem=2G")
 	if t.CanOpenState {
-		err := environs.UploadTools(t.Env)
+		_, err := environs.PutTools(t.Env.Storage(), nil, "precise")
 		c.Assert(err, IsNil)
 	}
 	err := environs.Bootstrap(t.Env, cons)
@@ -522,7 +522,7 @@ func waitAgentTools(c *C, w *toolsWaiter, expect version.Binary) *state.Tools {
 // all the provided watchers upgrade to the requested version.
 func (t *LiveTests) checkUpgrade(c *C, conn *juju.Conn, newVersion version.Binary, waiters ...*toolsWaiter) {
 	c.Logf("putting testing version of juju tools")
-	upgradeTools, err := environs.PutTools(t.Env.Storage(), &newVersion.Number)
+	upgradeTools, err := environs.PutTools(t.Env.Storage(), &newVersion.Number, "precise")
 	c.Assert(err, IsNil)
 
 	// Check that the put version really is the version we expect.

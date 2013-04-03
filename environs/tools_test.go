@@ -1,7 +1,9 @@
 package environs_test
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
@@ -79,26 +81,6 @@ var commandTests = []struct {
 	},
 }
 
-func (t *ToolsSuite) TestUploadTools(c *C) {
-	env, err := environs.NewFromAttrs(map[string]interface{}{
-		"name":            "upload-test",
-		"type":            "dummy",
-		"state-server":    false,
-		"authorized-keys": "i-am-a-key",
-		"agent-version":   "1.9.10", // Older than current version
-		"default-series":  "lucid",  // Real old series
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  "",
-	})
-	c.Assert(err, IsNil)
-
-	err = environs.UploadTools(env)
-	c.Assert(err, IsNil)
-
-	c.Assert(env.Config().AgentVersion(), Equals, version.Current.Number)
-	c.Assert(env.Config().DefaultSeries(), Equals, version.Current.Series)
-}
-
 func (t *ToolsSuite) TestPutGetTools(c *C) {
 	tools, err := environs.PutTools(t.env.Storage(), nil)
 	c.Assert(err, IsNil)
@@ -130,6 +112,34 @@ func (t *ToolsSuite) TestPutGetTools(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(string(data), Equals, tools.URL)
 	}
+}
+
+func (t *ToolsSuite) TestPutToolsFakeSeries(c *C) {
+	tools, err := environs.PutTools(t.env.Storage(), nil, "sham", "fake")
+	c.Assert(err, IsNil)
+	c.Assert(tools.Binary, Equals, version.Current)
+	expect := getToolsRaw(c, tools)
+
+	for _, series := range []string{"sham", "fake", version.Current.Series} {
+		vers := version.Current
+		vers.Series = series
+		tools, err := environs.FindTools(t.env, vers, environs.CompatVersion)
+		c.Assert(err, IsNil)
+		c.Assert(tools.Binary, Equals, vers)
+		c.Assert(getToolsRaw(c, tools), DeepEquals, expect)
+	}
+}
+
+func getToolsRaw(c *C, tools *state.Tools) []byte {
+	resp, err := http.Get(tools.URL)
+	c.Assert(err, IsNil)
+	defer resp.Body.Close()
+	c.Assert(resp.StatusCode, Equals, http.StatusOK)
+	var buf bytes.Buffer
+	_, err = io.Copy(&buf, resp.Body)
+	c.Assert(err, IsNil)
+	return buf.Bytes()
+
 }
 
 func (t *ToolsSuite) TestPutToolsAndForceVersion(c *C) {
