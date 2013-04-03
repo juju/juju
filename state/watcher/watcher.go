@@ -202,8 +202,9 @@ func (w *Watcher) Sync() {
 	}
 }
 
-// period is the delay between each sync.
-var period time.Duration = 5 * time.Second
+// Period is the delay between each sync.
+// It must not be changed when any watchers are active.
+var Period time.Duration = 5 * time.Second
 
 // loop implements the main watcher loop.
 func (w *Watcher) loop() error {
@@ -216,7 +217,7 @@ func (w *Watcher) loop() error {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-w.next:
-			w.next = time.After(period)
+			w.next = time.After(Period)
 			syncDone := w.syncDone
 			w.syncDone = nil
 			if err := w.sync(); err != nil {
