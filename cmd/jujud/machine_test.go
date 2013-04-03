@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
 	"reflect"
@@ -114,9 +115,9 @@ func (s *MachineSuite) TestDyingMachine(c *C) {
 	select {
 	case err := <-done:
 		c.Assert(err, IsNil)
-	case <-time.After(6 * time.Second):
-		// The default state/watcher poll interval is 5 seconds.
-		// TODO(rog) allow shorter poll interval in tests.
+	case <-time.After(watcher.Period * 5 / 4):
+		// TODO(rog) Fix this so it doesn't wait for so long.
+		// https://bugs.launchpad.net/juju-core/+bug/1163983
 		c.Fatalf("timed out waiting for agent to terminate")
 	}
 	err = m.Refresh()
