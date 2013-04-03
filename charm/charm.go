@@ -32,7 +32,7 @@ func Read(path string) (Charm, error) {
 func InferRepository(curl *URL, localRepoPath string) (repo Repository, err error) {
 	switch curl.Schema {
 	case "cs":
-		repo = Store()
+		repo = Store
 	case "local":
 		if localRepoPath == "" {
 			return nil, errors.New("path to local repository not specified")

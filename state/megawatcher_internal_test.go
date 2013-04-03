@@ -691,10 +691,7 @@ func (s *allWatcherStateSuite) TearDownSuite(c *C) {
 func (s *allWatcherStateSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-	var err error
-	s.State, err = Open(TestingStateInfo(), TestingDialOpts())
-	c.Assert(err, IsNil)
-	TestingInitialize(c, nil)
+	s.State = TestingInitialize(c, nil)
 }
 
 func (s *allWatcherStateSuite) TearDownTest(c *C) {
@@ -758,6 +755,9 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 	c.Assert(err, IsNil)
 	add(&params.RelationInfo{
 		Key: "logging:logging-directory wordpress:logging-dir",
+		Endpoints: []params.Endpoint{
+			params.Endpoint{ServiceName: "logging", Relation: charm.Relation{Name: "logging-directory", Role: "requirer", Interface: "logging", Optional: false, Limit: 1, Scope: "container"}},
+			params.Endpoint{ServiceName: "wordpress", Relation: charm.Relation{Name: "logging-dir", Role: "provider", Interface: "logging", Optional: false, Limit: 0, Scope: "container"}}},
 	})
 
 	for i := 0; i < 2; i++ {
