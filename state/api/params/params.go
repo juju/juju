@@ -329,8 +329,14 @@ type UnitInfo struct {
 func (i *UnitInfo) EntityId() interface{} { return i.Name }
 func (i *UnitInfo) EntityKind() string    { return "unit" }
 
+type Endpoint struct {
+	ServiceName string
+	Relation    charm.Relation
+}
+
 type RelationInfo struct {
-	Key string `bson:"_id"`
+	Key       string `bson:"_id"`
+	Endpoints []Endpoint
 }
 
 func (i *RelationInfo) EntityId() interface{} { return i.Key }
