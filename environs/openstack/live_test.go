@@ -26,7 +26,7 @@ func randomName() string {
 	return fmt.Sprintf("%x", buf)
 }
 
-func makeTestConfig() map[string]interface{} {
+func makeTestConfig(cred *identity.Credentials) map[string]interface{} {
 	// The following attributes hold the environment configuration
 	// for running the OpenStack integration tests.
 	//
@@ -36,22 +36,33 @@ func makeTestConfig() map[string]interface{} {
 	//  secret-key: $OS_PASSWORD
 	//
 	attrs := map[string]interface{}{
-		"name":           "sample-" + randomName(),
-		"type":           "openstack",
-		"auth-mode":      "userpass",
-		"control-bucket": "juju-test-" + randomName(),
-		"ca-cert":        coretesting.CACert,
-		"ca-private-key": coretesting.CAKey,
+		"name":            "sample-" + randomName(),
+		"type":            "openstack",
+		"auth-mode":       "userpass",
+		"control-bucket":  "juju-test-" + randomName(),
+		"ca-cert":         coretesting.CACert,
+		"ca-private-key":  coretesting.CAKey,
+		"authorized-keys": "fakekey",
+		"admin-secret":    "secret",
+		"username":        cred.User,
+		"password":        cred.Secrets,
+		"region":          cred.Region,
+		"auth-url":        cred.URL,
+		"tenant-name":     cred.TenantName,
 	}
 	return attrs
 }
 
 // Register tests to run against a real Openstack instance.
 func registerLiveTests(cred *identity.Credentials, testImageDetails openstack.ImageDetails) {
+	config := makeTestConfig(cred)
+	config["default-image-id"] = testImageDetails.ImageId
+	config["default-instance-type"] = testImageDetails.Flavor
 	Suite(&LiveTests{
 		cred: cred,
 		LiveTests: jujutest.LiveTests{
-			Attempt: *openstack.ShortAttempt,
+			TestConfig: jujutest.TestConfig{config},
+			Attempt:    *openstack.ShortAttempt,
 			// TODO: Bug #1133263, once the infrastructure is set up,
 			//       enable The state tests on openstack
 			CanOpenState: false,
@@ -79,29 +90,18 @@ type LiveTests struct {
 
 func (t *LiveTests) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
-	// Get an authenticated Goose client to extract some configuration parameters for the test environment.
+	// Update some Config items now that we have services running.
+	// This is setting the public-bucket-url and auth-url because that
+	// information is set during startup of the localLiveSuite
 	cl := client.NewClient(t.cred, identity.AuthUserPass, nil)
 	err := cl.Authenticate()
 	c.Assert(err, IsNil)
 	publicBucketURL, err := cl.MakeServiceURL("object-store", nil)
 	c.Assert(err, IsNil)
-	attrs := makeTestConfig()
-	attrs["admin-secret"] = "secret"
-	attrs["username"] = t.cred.User
-	attrs["password"] = t.cred.Secrets
-	attrs["region"] = t.cred.Region
-	attrs["auth-url"] = t.cred.URL
-	attrs["tenant-name"] = t.cred.TenantName
-	attrs["public-bucket-url"] = publicBucketURL
-	attrs["default-image-id"] = t.testImageId
-	attrs["default-instance-type"] = t.testFlavor
-	t.Config = attrs
-	t.LiveTests = jujutest.LiveTests{
-		Config:         attrs,
-		Attempt:        *openstack.ShortAttempt,
-		CanOpenState:   false, // no state; local tests (unless -live is passed)
-		HasProvisioner: false, // don't deploy anything
-	}
+	t.TestConfig.UpdateConfig(map[string]interface{}{
+		"public-bucket-url": publicBucketURL,
+		"auth-url":          t.cred.URL,
+	})
 	t.LiveTests.SetUpSuite(c)
 	// Environ.PublicStorage() is read only.
 	// For testing, we create a specific storage instance which is authorised to write to

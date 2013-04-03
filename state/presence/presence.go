@@ -311,7 +311,6 @@ type pingInfo struct {
 // queues events to observing channels. It fetches the last two time
 // slots and compares the union of both to the in-memory state.
 func (w *Watcher) sync() error {
-	log.Debugf("state/presence: synchronizing watcher knowledge with database...")
 	slot := timeSlot(time.Now(), w.delta)
 	var ping []pingInfo
 	err := w.pings.Find(bson.D{{"$or", []pingInfo{{Slot: slot}, {Slot: slot - period}}}}).All(&ping)

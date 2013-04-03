@@ -2,7 +2,9 @@ package params_test
 
 import (
 	"encoding/json"
+	"fmt"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state/api/params"
 	"testing"
 )
@@ -25,7 +27,6 @@ var marshalTestCases = []struct {
 }{{
 	about: "MachineInfo Delta",
 	value: params.Delta{
-		Removed: false,
 		Entity: &params.MachineInfo{
 			Id:         "Benji",
 			InstanceId: "Shazam",
@@ -35,32 +36,64 @@ var marshalTestCases = []struct {
 }, {
 	about: "ServiceInfo Delta",
 	value: params.Delta{
-		Removed: false,
 		Entity: &params.ServiceInfo{
-			Name:    "Benji",
-			Exposed: true,
+			Name:     "Benji",
+			Exposed:  true,
+			CharmURL: "cs:series/name",
 		},
 	},
-	json: `["service","change",{"Name":"Benji","Exposed":true}]`,
+	json: `["service","change",{"CharmURL": "cs:series/name","Name":"Benji","Exposed":true}]`,
 }, {
 	about: "UnitInfo Delta",
 	value: params.Delta{
-		Removed: false,
 		Entity: &params.UnitInfo{
 			Name:    "Benji",
 			Service: "Shazam",
+			Series:  "precise",
+			CharmURL: &charm.URL{
+				Schema:   "cs",
+				User:     "user",
+				Series:   "precise",
+				Name:     "wordpress",
+				Revision: 42,
+			},
+			Ports: []params.Port{
+				params.Port{
+					Protocol: "http",
+					Number:   80},
+			},
+			PublicAddress:  "example.com",
+			PrivateAddress: "10.0.0.1",
+			Resolved:       "", // See params.ResolvedMode
+			MachineId:      "1",
+			Status:         params.UnitStarted,
+			StatusInfo:     "Start info",
 		},
 	},
-	json: `["unit","change",{"Name":"Benji","Service":"Shazam"}]`,
+	json: `["unit", "change", {"CharmURL": "cs:~user/precise/wordpress-42", "MachineId": "1", "Series": "precise", "Name": "Benji", "StatusInfo": "Start info", "Status": "started", "PublicAddress": "example.com", "Service": "Shazam", "PrivateAddress": "10.0.0.1", "Resolved": "", "Ports": [{"Protocol": "http", "Number": 80}]}]`,
 }, {
 	about: "RelationInfo Delta",
 	value: params.Delta{
-		Removed: false,
 		Entity: &params.RelationInfo{
 			Key: "Benji",
+			Endpoints: []params.Endpoint{
+				params.Endpoint{ServiceName: "logging", Relation: charm.Relation{Name: "logging-directory", Role: "requirer", Interface: "logging", Optional: false, Limit: 1, Scope: "container"}},
+				params.Endpoint{ServiceName: "wordpress", Relation: charm.Relation{Name: "logging-dir", Role: "provider", Interface: "logging", Optional: false, Limit: 0, Scope: "container"}}},
 		},
 	},
-	json: `["relation","change",{"Key":"Benji"}]`,
+	json: `["relation","change",{"Key":"Benji", "Endpoints": [{"ServiceName":"logging", "Relation":{"Name":"logging-directory", "Role":"requirer", "Interface":"logging", "Optional":false, "Limit":1, "Scope":"container"}}, {"ServiceName":"wordpress", "Relation":{"Name":"logging-dir", "Role":"provider", "Interface":"logging", "Optional":false, "Limit":0, "Scope":"container"}}]}]`,
+}, {
+	about: "AnnotationInfo Delta",
+	value: params.Delta{
+		Entity: &params.AnnotationInfo{
+			Tag: "machine-0",
+			Annotations: map[string]string{
+				"foo":   "bar",
+				"arble": "2 4",
+			},
+		},
+	},
+	json: `["annotation","change",{"Tag":"machine-0","Annotations":{"foo":"bar","arble":"2 4"}}]`,
 }, {
 	about: "Delta Removed True",
 	value: params.Delta{
@@ -69,9 +102,8 @@ var marshalTestCases = []struct {
 			Key: "Benji",
 		},
 	},
-	json: `["relation","remove",{"Key":"Benji"}]`,
-},
-}
+	json: `["relation","remove",{"Key":"Benji", "Endpoints": null}]`,
+}}
 
 func (s *MarshalSuite) TestDeltaMarshalJSON(c *C) {
 	for _, t := range marshalTestCases {
@@ -97,6 +129,10 @@ func (s *MarshalSuite) TestDeltaUnmarshalJSON(c *C) {
 		var unmarshalled params.Delta
 		err := json.Unmarshal([]byte(t.json), &unmarshalled)
 		c.Check(err, IsNil)
+		fmt.Printf("****************************************\n")
+		fmt.Printf("%#v\n", unmarshalled.Entity)
+		fmt.Printf("----------------------------------------\n")
+		fmt.Printf("%#v\n", t.value.Entity)
 		c.Check(unmarshalled, DeepEquals, t.value)
 	}
 }

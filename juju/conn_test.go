@@ -4,11 +4,13 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/trivial"
 	"os"
@@ -44,7 +46,7 @@ func (*NewConnSuite) TestNewConnWithoutAdminSecret(c *C) {
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
-	err = environs.Bootstrap(env, false)
+	err = environs.Bootstrap(env, constraints.Value{})
 	c.Assert(err, IsNil)
 
 	delete(attrs, "admin-secret")
@@ -57,7 +59,6 @@ func (*NewConnSuite) TestNewConnWithoutAdminSecret(c *C) {
 
 func (*NewConnSuite) TestNewConnFromNameGetUnbootstrapped(c *C) {
 	defer coretesting.MakeSampleHome(c).Restore()
-
 	_, err := juju.NewConnFromName("")
 	c.Assert(err, ErrorMatches, "dummy environment not bootstrapped")
 }
@@ -65,7 +66,7 @@ func (*NewConnSuite) TestNewConnFromNameGetUnbootstrapped(c *C) {
 func bootstrapEnv(c *C, envName string) {
 	environ, err := environs.NewFromName(envName)
 	c.Assert(err, IsNil)
-	err = environs.Bootstrap(environ, false)
+	err = environs.Bootstrap(environ, constraints.Value{})
 	c.Assert(err, IsNil)
 }
 
@@ -112,12 +113,12 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *C) {
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
-	err = environs.Bootstrap(env, false)
+	err = environs.Bootstrap(env, constraints.Value{})
 	c.Assert(err, IsNil)
 	info, _, err := env.StateInfo()
 	c.Assert(err, IsNil)
 	info.Password = trivial.PasswordHash("side-effect secret")
-	st, err := state.Open(info)
+	st, err := state.Open(info, state.DefaultDialOpts())
 	c.Assert(err, IsNil)
 
 	// Verify we have no secret in the environ config
@@ -152,7 +153,7 @@ func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *C) {
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
-	err = environs.Bootstrap(env, false)
+	err = environs.Bootstrap(env, constraints.Value{})
 	c.Assert(err, IsNil)
 
 	// Make a new Conn, which will push the secrets.
@@ -190,7 +191,7 @@ func (cs *NewConnSuite) TestConnWithPassword(c *C) {
 		"ca-private-key":  coretesting.CAKey,
 	})
 	c.Assert(err, IsNil)
-	err = environs.Bootstrap(env, false)
+	err = environs.Bootstrap(env, constraints.Value{})
 	c.Assert(err, IsNil)
 
 	// Check that Bootstrap has correctly used a hash
@@ -198,7 +199,7 @@ func (cs *NewConnSuite) TestConnWithPassword(c *C) {
 	info, _, err := env.StateInfo()
 	c.Assert(err, IsNil)
 	info.Password = trivial.PasswordHash("nutkin")
-	st, err := state.Open(info)
+	st, err := state.Open(info, state.DefaultDialOpts())
 	c.Assert(err, IsNil)
 	st.Close()
 
@@ -210,7 +211,7 @@ func (cs *NewConnSuite) TestConnWithPassword(c *C) {
 	// Check that the password has now been changed to the original
 	// admin password.
 	info.Password = "nutkin"
-	st1, err := state.Open(info)
+	st1, err := state.Open(info, state.DefaultDialOpts())
 	c.Assert(err, IsNil)
 	st1.Close()
 
@@ -248,7 +249,7 @@ func (s *ConnSuite) SetUpTest(c *C) {
 	}
 	environ, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
-	err = environs.Bootstrap(environ, false)
+	err = environs.Bootstrap(environ, constraints.Value{})
 	c.Assert(err, IsNil)
 	s.conn, err = juju.NewConn(environ)
 	c.Assert(err, IsNil)
@@ -318,6 +319,9 @@ func (s *ConnSuite) TestPutBundledCharm(c *C) {
 		Name:     "riak",
 		Revision: -1,
 	}
+	_, err = s.conn.PutCharm(curl, s.repo, true)
+	c.Assert(err, ErrorMatches, `cannot increment revision of charm "local:series/riak-7": not a directory`)
+
 	sch, err := s.conn.PutCharm(curl, s.repo, false)
 	c.Assert(err, IsNil)
 	c.Assert(sch.Meta().Summary, Equals, "K/V storage engine")
@@ -386,125 +390,6 @@ func (s *ConnSuite) TestAddUnits(c *C) {
 	c.Assert(id0, Not(Equals), id1)
 }
 
-func (s *ConnSuite) TestDestroyPrincipalUnits(c *C) {
-	// Create 5 principal units.
-	curl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "wordpress")
-	sch, err := s.conn.PutCharm(curl, s.repo, false)
-	wordpress, err := s.conn.State.AddService("wordpress", sch)
-	c.Assert(err, IsNil)
-	for i := 0; i < 5; i++ {
-		_, err = wordpress.AddUnit()
-		c.Assert(err, IsNil)
-	}
-
-	// Destroy 2 of them; check they become Dying.
-	err = s.conn.DestroyUnits("wordpress/0", "wordpress/1")
-	c.Assert(err, IsNil)
-	s.assertUnitLife(c, "wordpress/0", state.Dying)
-	s.assertUnitLife(c, "wordpress/1", state.Dying)
-
-	// Try to destroy an Alive one and a Dying one; check
-	// it destroys the Alive one and ignores the Dying one.
-	err = s.conn.DestroyUnits("wordpress/2", "wordpress/0")
-	c.Assert(err, IsNil)
-	s.assertUnitLife(c, "wordpress/2", state.Dying)
-
-	// Try to destroy an Alive one along with a nonexistent one; check that
-	// the valid instruction is followed but the invalid one is warned about.
-	err = s.conn.DestroyUnits("boojum/123", "wordpress/3")
-	c.Assert(err, ErrorMatches, `some units were not destroyed: unit "boojum/123" does not exist`)
-	s.assertUnitLife(c, "wordpress/3", state.Dying)
-
-	// Make one Dead, and destroy an Alive one alongside it; check no errors.
-	wp0, err := s.conn.State.Unit("wordpress/0")
-	c.Assert(err, IsNil)
-	err = wp0.EnsureDead()
-	c.Assert(err, IsNil)
-	err = s.conn.DestroyUnits("wordpress/0", "wordpress/4")
-	c.Assert(err, IsNil)
-	s.assertUnitLife(c, "wordpress/0", state.Dead)
-	s.assertUnitLife(c, "wordpress/4", state.Dying)
-}
-
-func (s *ConnSuite) TestDestroySubordinateUnits(c *C) {
-	// Create a principal and a subordinate.
-	wpcurl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "wordpress")
-	wpsch, err := s.conn.PutCharm(wpcurl, s.repo, false)
-	wordpress, err := s.conn.State.AddService("wordpress", wpsch)
-	c.Assert(err, IsNil)
-	wordpress0, err := wordpress.AddUnit()
-	c.Assert(err, IsNil)
-	lgcurl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "logging")
-	lgsch, err := s.conn.PutCharm(lgcurl, s.repo, false)
-	_, err = s.conn.State.AddService("logging", lgsch)
-	c.Assert(err, IsNil)
-	eps, err := s.conn.State.InferEndpoints([]string{"logging", "wordpress"})
-	c.Assert(err, IsNil)
-	rel, err := s.conn.State.AddRelation(eps...)
-	c.Assert(err, IsNil)
-	ru, err := rel.Unit(wordpress0)
-	c.Assert(err, IsNil)
-	err = ru.EnterScope(nil)
-	c.Assert(err, IsNil)
-
-	// Try to destroy the subordinate alone; check it fails.
-	err = s.conn.DestroyUnits("logging/0")
-	c.Assert(err, ErrorMatches, `no units were destroyed: unit "logging/0" is a subordinate`)
-	s.assertUnitLife(c, "logging/0", state.Alive)
-
-	// Try to destroy the principal and the subordinate together; check it warns
-	// about the subordinate, but destroys the one it can. (The principal unit
-	// agent will be resposible for destroying the subordinate.)
-	err = s.conn.DestroyUnits("wordpress/0", "logging/0")
-	c.Assert(err, ErrorMatches, `some units were not destroyed: unit "logging/0" is a subordinate`)
-	s.assertUnitLife(c, "wordpress/0", state.Dying)
-	s.assertUnitLife(c, "logging/0", state.Alive)
-}
-
-func (s *ConnSuite) assertUnitLife(c *C, name string, life state.Life) {
-	unit, err := s.conn.State.Unit(name)
-	c.Assert(err, IsNil)
-	c.Assert(unit.Refresh(), IsNil)
-	c.Assert(unit.Life(), Equals, life)
-}
-
-func (s *ConnSuite) TestDestroyMachines(c *C) {
-	m0, err := s.conn.State.AddMachine("series", state.JobManageEnviron)
-	c.Assert(err, IsNil)
-	m1, err := s.conn.State.AddMachine("series", state.JobHostUnits)
-	c.Assert(err, IsNil)
-	m2, err := s.conn.State.AddMachine("series", state.JobHostUnits)
-	c.Assert(err, IsNil)
-
-	curl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "wordpress")
-	sch, err := s.conn.PutCharm(curl, s.repo, false)
-	wordpress, err := s.conn.State.AddService("wordpress", sch)
-	c.Assert(err, IsNil)
-	u, err := wordpress.AddUnit()
-	c.Assert(err, IsNil)
-	err = u.AssignToMachine(m1)
-	c.Assert(err, IsNil)
-
-	err = s.conn.DestroyMachines("0", "1", "2")
-	c.Assert(err, ErrorMatches, `some machines were not destroyed: machine 0 is required by the environment; machine 1 has unit "wordpress/0" assigned`)
-	assertLife := func(m *state.Machine, life state.Life) {
-		err := m.Refresh()
-		c.Assert(err, IsNil)
-		c.Assert(m.Life(), Equals, life)
-	}
-	assertLife(m0, state.Alive)
-	assertLife(m1, state.Alive)
-	assertLife(m2, state.Dying)
-
-	err = u.UnassignFromMachine()
-	c.Assert(err, IsNil)
-	err = s.conn.DestroyMachines("0", "1", "2")
-	c.Assert(err, ErrorMatches, `some machines were not destroyed: machine 0 is required by the environment`)
-	assertLife(m0, state.Alive)
-	assertLife(m1, state.Dying)
-	assertLife(m2, state.Dying)
-}
-
 func (s *ConnSuite) TestResolved(c *C) {
 	curl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "riak")
 	sch, err := s.conn.PutCharm(curl, s.repo, false)
@@ -520,13 +405,13 @@ func (s *ConnSuite) TestResolved(c *C) {
 	err = s.conn.Resolved(u, true)
 	c.Assert(err, ErrorMatches, `unit "testriak/0" is not in an error state`)
 
-	err = u.SetStatus(state.UnitError, "gaaah")
+	err = u.SetStatus(params.UnitError, "gaaah")
 	c.Assert(err, IsNil)
 	err = s.conn.Resolved(u, false)
 	c.Assert(err, IsNil)
 	err = s.conn.Resolved(u, true)
 	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "testriak/0": already resolved`)
-	c.Assert(u.Resolved(), Equals, state.ResolvedNoHooks)
+	c.Assert(u.Resolved(), Equals, params.ResolvedNoHooks)
 
 	err = u.ClearResolved()
 	c.Assert(err, IsNil)
@@ -534,7 +419,7 @@ func (s *ConnSuite) TestResolved(c *C) {
 	c.Assert(err, IsNil)
 	err = s.conn.Resolved(u, false)
 	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "testriak/0": already resolved`)
-	c.Assert(u.Resolved(), Equals, state.ResolvedRetryHooks)
+	c.Assert(u.Resolved(), Equals, params.ResolvedRetryHooks)
 }
 
 type DeployLocalSuite struct {
@@ -560,17 +445,32 @@ func (s *DeployLocalSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *DeployLocalSuite) TestSetNumUnits(c *C) {
+func (s *DeployLocalSuite) TestDeploy(c *C) {
 	charm, err := s.Conn.PutCharm(s.charmUrl, s.repo, false)
 	c.Assert(err, IsNil)
+	cons := constraints.MustParse("mem=4G")
 	args := juju.DeployServiceParams{
 		Charm:       charm,
 		NumUnits:    3,
 		ServiceName: "bob",
+		Constraints: cons,
 	}
 	svc, err := s.Conn.DeployService(args)
 	c.Assert(err, IsNil)
+	scons, err := svc.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(scons, DeepEquals, cons)
+
 	units, err := svc.AllUnits()
 	c.Assert(err, IsNil)
 	c.Assert(len(units), Equals, 3)
+	for _, unit := range units {
+		mid, err := unit.AssignedMachineId()
+		c.Assert(err, IsNil)
+		machine, err := s.State.Machine(mid)
+		c.Assert(err, IsNil)
+		mcons, err := machine.Constraints()
+		c.Assert(err, IsNil)
+		c.Assert(mcons, DeepEquals, cons)
+	}
 }

@@ -7,6 +7,8 @@ import (
 	"io/ioutil"
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs/config"
 	_ "launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
@@ -25,7 +27,9 @@ type MainSuite struct{}
 
 var _ = Suite(&MainSuite{})
 
-var flagRunMain = flag.Bool("run-main", false, "Run the application's main function for recursive testing")
+var (
+	flagRunMain = flag.Bool("run-main", false, "Run the application's main function for recursive testing")
+)
 
 // Reentrancy point for testing (something as close as possible to) the juju
 // tool itself.
@@ -35,9 +39,10 @@ func TestRunMain(t *stdtesting.T) {
 	}
 }
 
-func badrun(c *C, exit int, cmd ...string) string {
-	args := append([]string{"-test.run", "TestRunMain", "-run-main", "--", "juju"}, cmd...)
-	ps := exec.Command(os.Args[0], args...)
+func badrun(c *C, exit int, args ...string) string {
+	localArgs := append([]string{"-test.run", "TestRunMain", "-run-main", "--", "juju"}, args...)
+	ps := exec.Command(os.Args[0], localArgs...)
+	ps.Env = append(os.Environ(), "JUJU_HOME="+config.JujuHome())
 	output, err := ps.CombinedOutput()
 	if exit != 0 {
 		c.Assert(err, ErrorMatches, fmt.Sprintf("exit status %d", exit))
@@ -45,15 +50,22 @@ func badrun(c *C, exit int, cmd ...string) string {
 	return string(output)
 }
 
-func deployHelpText() string {
+func helpText(command cmd.Command, name string) string {
 	buff := &bytes.Buffer{}
-	dc := &DeployCommand{}
-	info := dc.Info()
-	info.Name = "juju deploy"
+	info := command.Info()
+	info.Name = name
 	f := gnuflag.NewFlagSet(info.Name, gnuflag.ContinueOnError)
-	dc.SetFlags(f)
+	command.SetFlags(f)
 	buff.Write(info.Help(f))
 	return buff.String()
+}
+
+func deployHelpText() string {
+	return helpText(&DeployCommand{}, "juju deploy")
+}
+
+func syncToolsHelpText() string {
+	return helpText(&SyncToolsCommand{}, "juju sync-tools")
 }
 
 var runMainTests = []struct {
@@ -123,6 +135,11 @@ var runMainTests = []struct {
 		code:    2,
 		out:     "error: flag provided but not defined: --environment\n",
 	}, {
+		summary: "juju sync-tools registered properly",
+		args:    []string{"sync-tools", "--help"},
+		code:    0,
+		out:     syncToolsHelpText(),
+	}, {
 		summary: "check version command registered properly",
 		args:    []string{"version"},
 		code:    0,
@@ -131,6 +148,7 @@ var runMainTests = []struct {
 }
 
 func (s *MainSuite) TestRunMain(c *C) {
+	defer config.SetJujuHome(config.SetJujuHome(c.MkDir()))
 	for i, t := range runMainTests {
 		c.Logf("test %d: %s", i, t.summary)
 		out := badrun(c, t.code, t.args...)
@@ -151,7 +169,7 @@ environments:
 // when environMethod is called.
 func breakJuju(c *C, environMethod string) (msg string) {
 	yaml := fmt.Sprintf(brokenConfig, environMethod)
-	err := ioutil.WriteFile(testing.HomePath(".juju", "environments.yaml"), []byte(yaml), 0666)
+	err := ioutil.WriteFile(config.JujuHomePath("environments.yaml"), []byte(yaml), 0666)
 	c.Assert(err, IsNil)
 
 	return fmt.Sprintf("dummy.%s is broken", environMethod)
@@ -166,13 +184,12 @@ func (s *MainSuite) TestActualRunJujuArgsBeforeCommand(c *C) {
 	c.Assert(out, Equals, "error: "+msg+"\n")
 	content, err := ioutil.ReadFile(logpath)
 	c.Assert(err, IsNil)
-	fullmsg := fmt.Sprintf(`(.|\n)*ERROR: juju bootstrap command failed: %s\n`, msg)
+	fullmsg := fmt.Sprintf(`.*\n.*ERROR JUJU:juju:bootstrap juju bootstrap command failed: %s\n`, msg)
 	c.Assert(string(content), Matches, fullmsg)
 }
 
 func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *C) {
 	defer testing.MakeFakeHomeNoEnvironments(c, "one").Restore()
-
 	// Check global args work when specified after command
 	msg := breakJuju(c, "Bootstrap")
 	logpath := filepath.Join(c.MkDir(), "log")
@@ -180,7 +197,7 @@ func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *C) {
 	c.Assert(out, Equals, "error: "+msg+"\n")
 	content, err := ioutil.ReadFile(logpath)
 	c.Assert(err, IsNil)
-	fullmsg := fmt.Sprintf(`(.|\n)*ERROR: juju bootstrap command failed: %s\n`, msg)
+	fullmsg := fmt.Sprintf(`.*\n.*ERROR JUJU:juju:bootstrap juju bootstrap command failed: %s\n`, msg)
 	c.Assert(string(content), Matches, fullmsg)
 }
 
@@ -188,6 +205,7 @@ var commandNames = []string{
 	"add-relation",
 	"add-unit",
 	"bootstrap",
+	"debug-log",
 	"deploy",
 	"destroy-environment",
 	"destroy-machine",
@@ -209,8 +227,10 @@ var commandNames = []string{
 	"ssh",
 	"stat", // alias for status
 	"status",
+	"sync-tools",
 	"terminate-machine", // alias for destroy-machine
 	"unexpose",
+	"upgrade-charm",
 	"upgrade-juju",
 	"version",
 }
@@ -218,6 +238,7 @@ var commandNames = []string{
 func (s *MainSuite) TestHelpCommands(c *C) {
 	// Check that we have correctly registered all the commands
 	// by checking the help output.
+	defer config.SetJujuHome(config.SetJujuHome(c.MkDir()))
 	out := badrun(c, 0, "help", "commands")
 	lines := strings.Split(out, "\n")
 	var names []string
@@ -242,6 +263,7 @@ var topicNames = []string{
 func (s *MainSuite) TestHelpTopics(c *C) {
 	// Check that we have correctly registered all the topics
 	// by checking the help output.
+	defer config.SetJujuHome(config.SetJujuHome(c.MkDir()))
 	out := badrun(c, 0, "help", "topics")
 	lines := strings.Split(out, "\n")
 	var names []string
@@ -266,6 +288,7 @@ var globalFlags = []string{
 func (s *MainSuite) TestHelpGlobalOptions(c *C) {
 	// Check that we have correctly registered all the topics
 	// by checking the help output.
+	defer config.SetJujuHome(config.SetJujuHome(c.MkDir()))
 	out := badrun(c, 0, "help", "global-options")
 	c.Assert(out, Matches, `Global Options
 

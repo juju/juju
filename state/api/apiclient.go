@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/tomb"
@@ -90,6 +91,24 @@ func (c *Client) ServiceGet(service string) (*params.ServiceGetResults, error) {
 	return &results, nil
 }
 
+// AddRelation adds a relation between the specified endpoints and returns the relation info.
+func (c *Client) AddRelation(endpoints ...string) (*params.AddRelationResults, error) {
+	var addRelRes params.AddRelationResults
+	params := params.AddRelation{Endpoints: endpoints}
+	err := c.st.client.Call("Client", "", "AddRelation", params, &addRelRes)
+	if err != nil {
+		return nil, clientError(err)
+	}
+	return &addRelRes, nil
+}
+
+// DestroyRelation removes the relation between the specified endpoints.
+func (c *Client) DestroyRelation(endpoints ...string) error {
+	params := params.DestroyRelation{Endpoints: endpoints}
+	err := c.st.client.Call("Client", "", "DestroyRelation", params, nil)
+	return clientError(err)
+}
+
 // ServiceExpose changes the juju-managed firewall to expose any ports that
 // were also explicitly marked by units as open.
 func (c *Client) ServiceExpose(service string) error {
@@ -108,12 +127,14 @@ func (c *Client) ServiceUnexpose(service string) error {
 
 // ServiceDeploy obtains the charm, either locally or from the charm store,
 // and deploys it.
-func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int, configYAML string) error {
+func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int, configYAML string, cons constraints.Value) error {
 	params := params.ServiceDeploy{
 		ServiceName: serviceName,
-		ConfigYAML:  configYAML,
 		CharmUrl:    charmUrl,
 		NumUnits:    numUnits,
+		// BUG(lp:1162122): ConfigYAML has no tests.
+		ConfigYAML:  configYAML,
+		Constraints: cons,
 	}
 	err := c.st.client.Call("Client", "", "ServiceDeploy", params, nil)
 	if err != nil {
@@ -147,6 +168,15 @@ func (c *Client) ServiceDestroy(service string) error {
 	return clientError(c.st.client.Call("Client", "", "ServiceDestroy", params, nil))
 }
 
+// SetServiceConstraints specifies the constraints for the given service.
+func (c *Client) SetServiceConstraints(service string, constraints constraints.Value) error {
+	params := params.SetServiceConstraints{
+		ServiceName: service,
+		Constraints: constraints,
+	}
+	return clientError(c.st.client.Call("Client", "", "SetServiceConstraints", params, nil))
+}
+
 // CharmInfo holds information about a charm.
 type CharmInfo struct {
 	Revision int
@@ -170,6 +200,7 @@ func (c *Client) CharmInfo(charmURL string) (*CharmInfo, error) {
 type EnvironmentInfo struct {
 	DefaultSeries string
 	ProviderType  string
+	Name          string
 }
 
 // EnvironmentInfo returns details about the Juju environment.
@@ -218,8 +249,8 @@ func (c *Client) WatchAll() (*AllWatcher, error) {
 }
 
 // GetAnnotations returns annotations that have been set on the given entity.
-func (c *Client) GetAnnotations(entityId string) (map[string]string, error) {
-	args := params.GetAnnotations{entityId}
+func (c *Client) GetAnnotations(tag string) (map[string]string, error) {
+	args := params.GetAnnotations{tag}
 	ann := new(params.GetAnnotationsResults)
 	err := c.st.client.Call("Client", "", "GetAnnotations", args, ann)
 	if err != nil {
@@ -228,12 +259,12 @@ func (c *Client) GetAnnotations(entityId string) (map[string]string, error) {
 	return ann.Annotations, nil
 }
 
-// SetAnnotation sets the annotation with the given key on the given entity to
-// the given value. Currently annotations are supported on machines, services,
+// SetAnnotations sets the annotation pairs on the given entity.
+// Currently annotations are supported on machines, services,
 // units and the environment itself.
-func (c *Client) SetAnnotation(entityId, key, value string) error {
-	args := params.SetAnnotation{entityId, key, value}
-	err := c.st.client.Call("Client", "", "SetAnnotation", args, nil)
+func (c *Client) SetAnnotations(tag string, pairs map[string]string) error {
+	args := params.SetAnnotations{tag, pairs}
+	err := c.st.client.Call("Client", "", "SetAnnotations", args, nil)
 	if err != nil {
 		return clientError(err)
 	}
@@ -274,10 +305,10 @@ func (st *State) Unit(name string) (*Unit, error) {
 // Login authenticates as the entity with the given name and password.
 // Subsequent requests on the state will act as that entity.
 // This method is usually called automatically by Open.
-func (st *State) Login(entityName, password string) error {
+func (st *State) Login(tag, password string) error {
 	return st.call("Admin", "", "Login", &params.Creds{
-		EntityName: entityName,
-		Password:   password,
+		AuthTag:  tag,
+		Password: password,
 	}, nil)
 }
 
@@ -286,16 +317,16 @@ func (m *Machine) Id() string {
 	return m.id
 }
 
-// EntityName returns a name identifying the machine that is safe to use
+// Tag returns a name identifying the machine that is safe to use
 // as a file name.  The returned name will be different from other
-// EntityName values returned by any other entities from the same state.
-func (m *Machine) EntityName() string {
-	return MachineEntityName(m.Id())
+// Tag values returned by any other entities from the same state.
+func (m *Machine) Tag() string {
+	return MachineTag(m.Id())
 }
 
-// MachineEntityName returns the entity name for the
+// MachineTag returns the tag for the
 // machine with the given id.
-func MachineEntityName(id string) string {
+func MachineTag(id string) string {
 	return fmt.Sprintf("machine-%s", id)
 }
 
@@ -429,21 +460,21 @@ func (u *Unit) SetPassword(password string) error {
 	}, nil)
 }
 
-// UnitEntityName returns the entity name for the
+// UnitTag returns the tag for the
 // unit with the given name.
-func UnitEntityName(unitName string) string {
+func UnitTag(unitName string) string {
 	return "unit-" + strings.Replace(unitName, "/", "-", -1)
 }
 
-// EntityName returns a name identifying the unit that is safe to use
+// Tag returns a name identifying the unit that is safe to use
 // as a file name.  The returned name will be different from other
-// EntityName values returned by any other entities from the same state.
-func (u *Unit) EntityName() string {
-	return UnitEntityName(u.name)
+// Tag values returned by any other entities from the same state.
+func (u *Unit) Tag() string {
+	return UnitTag(u.name)
 }
 
-// DeployerName returns the entity name of the agent responsible for deploying
+// DeployerTag returns the tag of the agent responsible for deploying
 // the unit. If no such entity can be determined, false is returned.
-func (u *Unit) DeployerName() (string, bool) {
-	return u.doc.DeployerName, u.doc.DeployerName != ""
+func (u *Unit) DeployerTag() (string, bool) {
+	return u.doc.DeployerTag, u.doc.DeployerTag != ""
 }

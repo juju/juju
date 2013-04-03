@@ -73,22 +73,10 @@ func (u *User) Name() string {
 	return u.doc.Name
 }
 
-// EntityName returns the entity name for
+// Tag returns the Tag for
 // the user ("user-$username")
-func (u *User) EntityName() string {
+func (u *User) Tag() string {
 	return "user-" + u.doc.Name
-}
-
-// Annotations currently just returns an empty map. Implemented here so that
-// a user can be used as an Entity.
-func (u *User) Annotations() map[string]string {
-	return map[string]string{}
-}
-
-// SetAnnotation currently just returns an error. Implemented here so that
-// a user can be used as an Entity.
-func (u *User) SetAnnotation(key, value string) error {
-	return fmt.Errorf("cannot set annotation of user")
 }
 
 // SetPassword sets the password associated with the user.

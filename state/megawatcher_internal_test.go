@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
+	"sort"
 	"sync"
 	"time"
 )
@@ -18,24 +20,6 @@ type allInfoSuite struct {
 }
 
 var _ = Suite(&allInfoSuite{})
-
-// assertAllInfoContents checks that the given allWatcher
-// has the given contents, in oldest-to-newest order.
-func assertAllInfoContents(c *C, a *allInfo, latestRevno int64, entries []entityEntry) {
-	var gotEntries []entityEntry
-	var gotElems []*list.Element
-	c.Check(a.list.Len(), Equals, len(entries))
-	for e := a.list.Back(); e != nil; e = e.Prev() {
-		gotEntries = append(gotEntries, *e.Value.(*entityEntry))
-		gotElems = append(gotElems, e)
-	}
-	c.Assert(gotEntries, DeepEquals, entries)
-	for i, ent := range entries {
-		c.Assert(a.entities[entityIdForInfo(ent.info)], Equals, gotElems[i])
-	}
-	c.Assert(a.entities, HasLen, len(entries))
-	c.Assert(a.latestRevno, Equals, latestRevno)
-}
 
 var allInfoChangeMethodTests = []struct {
 	about          string
@@ -379,13 +363,13 @@ func (*allWatcherSuite) TestHandle(c *C) {
 	aw := newAllWatcher(newTestBacking(nil))
 
 	// Add request from first watcher.
-	w0 := &xStateWatcher{all: aw}
+	w0 := &StateWatcher{all: aw}
 	req0 := &allRequest{
 		w:     w0,
 		reply: make(chan bool, 1),
 	}
 	aw.handle(req0)
-	assertWaitingRequests(c, aw, map[*xStateWatcher][]*allRequest{
+	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
 		w0: {req0},
 	})
 
@@ -395,18 +379,18 @@ func (*allWatcherSuite) TestHandle(c *C) {
 		reply: make(chan bool, 1),
 	}
 	aw.handle(req1)
-	assertWaitingRequests(c, aw, map[*xStateWatcher][]*allRequest{
+	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
 		w0: {req1, req0},
 	})
 
 	// Add request from second watcher.
-	w1 := &xStateWatcher{all: aw}
+	w1 := &StateWatcher{all: aw}
 	req2 := &allRequest{
 		w:     w1,
 		reply: make(chan bool, 1),
 	}
 	aw.handle(req2)
-	assertWaitingRequests(c, aw, map[*xStateWatcher][]*allRequest{
+	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
 		w0: {req1, req0},
 		w1: {req2},
 	})
@@ -415,7 +399,7 @@ func (*allWatcherSuite) TestHandle(c *C) {
 	aw.handle(&allRequest{
 		w: w0,
 	})
-	assertWaitingRequests(c, aw, map[*xStateWatcher][]*allRequest{
+	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
 		w1: {req2},
 	})
 	assertReplied(c, false, req0)
@@ -435,7 +419,7 @@ func (*allWatcherSuite) TestHandleStopNoDecRefIfMoreRecentlyCreated(c *C) {
 	aw := newAllWatcher(newTestBacking(nil))
 	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
 	allInfoIncRef(aw.all, entityId{"machine", "0"})
-	w := &xStateWatcher{all: aw}
+	w := &StateWatcher{all: aw}
 
 	// Stop the watcher.
 	aw.handle(&allRequest{w: w})
@@ -456,7 +440,7 @@ func (*allWatcherSuite) TestHandleStopNoDecRefIfAlreadySeenRemoved(c *C) {
 	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
 	allInfoIncRef(aw.all, entityId{"machine", "0"})
 	aw.all.markRemoved(entityId{"machine", "0"})
-	w := &xStateWatcher{all: aw}
+	w := &StateWatcher{all: aw}
 	// Stop the watcher.
 	aw.handle(&allRequest{w: w})
 	assertAllInfoContents(c, aw.all, 2, []entityEntry{{
@@ -476,7 +460,7 @@ func (*allWatcherSuite) TestHandleStopDecRefIfAlreadySeenAndNotRemoved(c *C) {
 	aw := newAllWatcher(newTestBacking(nil))
 	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
 	allInfoIncRef(aw.all, entityId{"machine", "0"})
-	w := &xStateWatcher{all: aw}
+	w := &StateWatcher{all: aw}
 	w.revno = aw.all.latestRevno
 	// Stop the watcher.
 	aw.handle(&allRequest{w: w})
@@ -495,7 +479,7 @@ func (*allWatcherSuite) TestHandleStopNoDecRefIfNotSeen(c *C) {
 	aw := newAllWatcher(newTestBacking(nil))
 	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
 	allInfoIncRef(aw.all, entityId{"machine", "0"})
-	w := &xStateWatcher{all: aw}
+	w := &StateWatcher{all: aw}
 	// Stop the watcher.
 	aw.handle(&allRequest{w: w})
 	assertAllInfoContents(c, aw.all, 1, []entityEntry{{
@@ -562,12 +546,12 @@ func (*allWatcherSuite) TestRespondResults(c *C) {
 			aw := newAllWatcher(&allWatcherTestBacking{})
 			c.Logf("test %0*b", len(respondTestChanges), ns)
 			var (
-				ws      []*xStateWatcher
+				ws      []*StateWatcher
 				wstates []watcherState
 				reqs    []*allRequest
 			)
 			for i := 0; i < wcount; i++ {
-				ws = append(ws, &xStateWatcher{})
+				ws = append(ws, &StateWatcher{})
 				wstates = append(wstates, make(watcherState))
 				reqs = append(reqs, nil)
 			}
@@ -593,7 +577,7 @@ func (*allWatcherSuite) TestRespondResults(c *C) {
 					continue
 				}
 				// Check that the expected requests are pending.
-				expectWaiting := make(map[*xStateWatcher][]*allRequest)
+				expectWaiting := make(map[*StateWatcher][]*allRequest)
 				for wi, w := range ws {
 					if reqs[wi] != nil {
 						expectWaiting[w] = []*allRequest{reqs[wi]}
@@ -639,7 +623,7 @@ func (*allWatcherSuite) TestRespondMultiple(c *C) {
 
 	// Add one request and respond.
 	// It should see the above change.
-	w0 := &xStateWatcher{all: aw}
+	w0 := &StateWatcher{all: aw}
 	req0 := &allRequest{
 		w:     w0,
 		reply: make(chan bool, 1),
@@ -664,7 +648,7 @@ func (*allWatcherSuite) TestRespondMultiple(c *C) {
 	// The request from the first watcher should still not
 	// be replied to, but the later of the two requests from
 	// the second watcher should get a reply.
-	w1 := &xStateWatcher{all: aw}
+	w1 := &StateWatcher{all: aw}
 	req1 := &allRequest{
 		w:     w1,
 		reply: make(chan bool, 1),
@@ -675,7 +659,7 @@ func (*allWatcherSuite) TestRespondMultiple(c *C) {
 		reply: make(chan bool, 1),
 	}
 	aw.handle(req2)
-	assertWaitingRequests(c, aw, map[*xStateWatcher][]*allRequest{
+	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
 		w0: {req0},
 		w1: {req2, req1},
 	})
@@ -684,7 +668,7 @@ func (*allWatcherSuite) TestRespondMultiple(c *C) {
 	assertNotReplied(c, req1)
 	assertReplied(c, true, req2)
 	c.Assert(req2.changes, DeepEquals, []params.Delta{{Entity: &params.MachineInfo{Id: "0"}}})
-	assertWaitingRequests(c, aw, map[*xStateWatcher][]*allRequest{
+	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
 		w0: {req0},
 		w1: {req1},
 	})
@@ -710,7 +694,7 @@ func (*allWatcherSuite) TestRespondMultiple(c *C) {
 func (*allWatcherSuite) TestRunStop(c *C) {
 	aw := newAllWatcher(newTestBacking(nil))
 	go aw.run()
-	w := &xStateWatcher{all: aw}
+	w := &StateWatcher{all: aw}
 	err := aw.Stop()
 	c.Assert(err, IsNil)
 	d, err := w.Next()
@@ -729,7 +713,7 @@ func (*allWatcherSuite) TestRun(c *C) {
 		c.Check(aw.Stop(), IsNil)
 	}()
 	go aw.run()
-	w := &xStateWatcher{all: aw}
+	w := &StateWatcher{all: aw}
 	checkNext(c, w, []params.Delta{
 		{Entity: &params.MachineInfo{Id: "0"}},
 		{Entity: &params.UnitInfo{Name: "wordpress/0"}},
@@ -751,7 +735,7 @@ func (*allWatcherSuite) TestStateWatcherStop(c *C) {
 		c.Check(aw.Stop(), IsNil)
 	}()
 	go aw.run()
-	w := &xStateWatcher{all: aw}
+	w := &StateWatcher{all: aw}
 	done := make(chan struct{})
 	go func() {
 		checkNext(c, w, nil, errWatcherStopped.Error())
@@ -769,7 +753,7 @@ func (*allWatcherSuite) TestStateWatcherStopBecauseAllWatcherError(c *C) {
 	defer func() {
 		c.Check(aw.Stop(), ErrorMatches, "some error")
 	}()
-	w := &xStateWatcher{all: aw}
+	w := &StateWatcher{all: aw}
 	// Receive one delta to make sure that the allWatcher
 	// has seen the initial state.
 	checkNext(c, w, []params.Delta{{Entity: &params.MachineInfo{Id: "0"}}}, "")
@@ -780,23 +764,393 @@ func (*allWatcherSuite) TestStateWatcherStopBecauseAllWatcherError(c *C) {
 	checkNext(c, w, nil, "some error")
 }
 
-func checkNext(c *C, w *xStateWatcher, deltas []params.Delta, expectErr string) {
-	ch := make(chan []params.Delta)
-	go func() {
-		d, err := w.Next()
-		if expectErr != "" {
-			c.Check(err, ErrorMatches, expectErr)
-		} else {
-			c.Check(err, IsNil)
+type allWatcherStateSuite struct {
+	testing.LoggingSuite
+	testing.MgoSuite
+	State *State
+}
+
+func (s *allWatcherStateSuite) SetUpSuite(c *C) {
+	s.LoggingSuite.SetUpSuite(c)
+	s.MgoSuite.SetUpSuite(c)
+}
+
+func (s *allWatcherStateSuite) TearDownSuite(c *C) {
+	s.MgoSuite.TearDownSuite(c)
+	s.LoggingSuite.TearDownSuite(c)
+}
+
+func (s *allWatcherStateSuite) SetUpTest(c *C) {
+	s.LoggingSuite.SetUpTest(c)
+	s.MgoSuite.SetUpTest(c)
+	s.State = TestingInitialize(c, nil)
+}
+
+func (s *allWatcherStateSuite) TearDownTest(c *C) {
+	s.State.Close()
+	s.MgoSuite.TearDownTest(c)
+	s.LoggingSuite.TearDownTest(c)
+}
+
+var _ = Suite(&allWatcherStateSuite{})
+
+// setUpScenario adds some entities to the state so that
+// we can check that they all get pulled in by
+// allWatcherStateBacking.getAll.
+func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
+	add := func(e params.EntityInfo) {
+		entities = append(entities, e)
+	}
+	m, err := s.State.AddMachine("series", JobManageEnviron)
+	c.Assert(err, IsNil)
+	c.Assert(m.Tag(), Equals, "machine-0")
+	err = m.SetInstanceId(InstanceId("i-" + m.Tag()))
+	c.Assert(err, IsNil)
+	add(&params.MachineInfo{
+		Id:         "0",
+		InstanceId: "i-machine-0",
+	})
+
+	wordpress, err := s.State.AddService("wordpress", AddTestingCharm(c, s.State, "wordpress"))
+	c.Assert(err, IsNil)
+	err = wordpress.SetExposed()
+	c.Assert(err, IsNil)
+	add(&params.ServiceInfo{
+		Name:     "wordpress",
+		Exposed:  true,
+		CharmURL: serviceCharmURL(wordpress).String(),
+	})
+	pairs := map[string]string{"x": "12", "y": "99"}
+	err = wordpress.SetAnnotations(pairs)
+	c.Assert(err, IsNil)
+	add(&params.AnnotationInfo{
+		GlobalKey:   "s#wordpress",
+		Tag:         "service-wordpress",
+		Annotations: pairs,
+	})
+
+	logging, err := s.State.AddService("logging", AddTestingCharm(c, s.State, "logging"))
+	c.Assert(err, IsNil)
+	add(&params.ServiceInfo{
+		Name:     "logging",
+		CharmURL: serviceCharmURL(logging).String(),
+	})
+
+	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
+	c.Assert(err, IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	add(&params.RelationInfo{
+		Key: "logging:logging-directory wordpress:logging-dir",
+		Endpoints: []params.Endpoint{
+			params.Endpoint{ServiceName: "logging", Relation: charm.Relation{Name: "logging-directory", Role: "requirer", Interface: "logging", Optional: false, Limit: 1, Scope: "container"}},
+			params.Endpoint{ServiceName: "wordpress", Relation: charm.Relation{Name: "logging-dir", Role: "provider", Interface: "logging", Optional: false, Limit: 0, Scope: "container"}}},
+	})
+
+	for i := 0; i < 2; i++ {
+		wu, err := wordpress.AddUnit()
+		c.Assert(err, IsNil)
+		c.Assert(wu.Tag(), Equals, fmt.Sprintf("unit-wordpress-%d", i))
+
+		m, err := s.State.AddMachine("series", JobHostUnits)
+		c.Assert(err, IsNil)
+		c.Assert(m.Tag(), Equals, fmt.Sprintf("machine-%d", i+1))
+
+		add(&params.UnitInfo{
+			Name:      fmt.Sprintf("wordpress/%d", i),
+			Service:   wordpress.Name(),
+			Series:    m.Series(),
+			MachineId: m.Id(),
+			Ports:     []params.Port{},
+			Status:    params.UnitPending,
+		})
+		pairs := map[string]string{"name": fmt.Sprintf("bar %d", i)}
+		err = wu.SetAnnotations(pairs)
+		c.Assert(err, IsNil)
+		add(&params.AnnotationInfo{
+			GlobalKey:   fmt.Sprintf("u#wordpress/%d", i),
+			Tag:         fmt.Sprintf("unit-wordpress-%d", i),
+			Annotations: pairs,
+		})
+
+		err = m.SetInstanceId(InstanceId("i-" + m.Tag()))
+		c.Assert(err, IsNil)
+		add(&params.MachineInfo{
+			Id:         fmt.Sprint(i + 1),
+			InstanceId: "i-" + m.Tag(),
+		})
+		err = wu.AssignToMachine(m)
+		c.Assert(err, IsNil)
+
+		deployer, ok := wu.DeployerTag()
+		c.Assert(ok, Equals, true)
+		c.Assert(deployer, Equals, fmt.Sprintf("machine-%d", i+1))
+
+		wru, err := rel.Unit(wu)
+		c.Assert(err, IsNil)
+
+		// Create the subordinate unit as a side-effect of entering
+		// scope in the principal's relation-unit.
+		err = wru.EnterScope(nil)
+		c.Assert(err, IsNil)
+
+		lu, err := s.State.Unit(fmt.Sprintf("logging/%d", i))
+		c.Assert(err, IsNil)
+		c.Assert(lu.IsPrincipal(), Equals, false)
+		deployer, ok = lu.DeployerTag()
+		c.Assert(ok, Equals, true)
+		c.Assert(deployer, Equals, fmt.Sprintf("unit-wordpress-%d", i))
+		add(&params.UnitInfo{
+			Name:    fmt.Sprintf("logging/%d", i),
+			Service: "logging",
+			Series:  "series",
+			Ports:   []params.Port{},
+			Status:  params.UnitPending,
+		})
+	}
+	return
+}
+
+func serviceCharmURL(svc *Service) *charm.URL {
+	url, _ := svc.CharmURL()
+	return url
+}
+
+func (s *allWatcherStateSuite) TestStateBackingGetAll(c *C) {
+	expectEntities := s.setUpScenario(c)
+	b := newAllWatcherStateBacking(s.State)
+	all := newAllInfo()
+	err := b.getAll(all)
+	c.Assert(err, IsNil)
+
+	// Check that all the entities have been placed
+	// into the list; we can't use assertAllInfoContents
+	// here because we don't know the order that
+	// things were placed into the list.
+	var gotEntities entityInfoSlice
+	c.Check(all.latestRevno, Equals, int64(len(expectEntities)))
+	i := int64(0)
+	for e := all.list.Front(); e != nil; e = e.Next() {
+		entry := e.Value.(*entityEntry)
+		gotEntities = append(gotEntities, entry.info)
+		c.Check(entry.revno, Equals, all.latestRevno-i)
+		c.Check(entry.refCount, Equals, 0)
+		c.Check(entry.creationRevno, Equals, entry.revno)
+		c.Check(entry.removed, Equals, false)
+		i++
+		c.Assert(all.entities[b.entityIdForInfo(entry.info)], Equals, e)
+	}
+	c.Assert(len(all.entities), Equals, int(i))
+
+	sort.Sort(gotEntities)
+	sort.Sort(expectEntities)
+	c.Logf("got")
+	for _, e := range gotEntities {
+		c.Logf("\t%#v %#v %#v", e.EntityKind(), e.EntityId(), e)
+	}
+	c.Logf("expected")
+	for _, e := range expectEntities {
+		c.Logf("\t%#v %#v %#v", e.EntityKind(), e.EntityId(), e)
+	}
+	for num, ent := range expectEntities {
+		c.Logf("---------------> %d\n", num)
+		c.Logf("\n************ EXPECTED:\n%#v", ent)
+		c.Logf("************ OBTAINED: \n%#v\n", gotEntities[num])
+		c.Assert(gotEntities[num], DeepEquals, ent)
+	}
+
+	c.Assert(gotEntities, DeepEquals, expectEntities)
+}
+
+func (s *allWatcherStateSuite) TestStateBackingEntityIdForInfo(c *C) {
+	tests := []struct {
+		info       params.EntityInfo
+		collection *mgo.Collection
+		id         entityId
+	}{{
+		info:       &params.MachineInfo{Id: "1"},
+		collection: s.State.machines,
+	}, {
+		info:       &params.UnitInfo{Name: "wordpress/1"},
+		collection: s.State.units,
+	}, {
+		info:       &params.ServiceInfo{Name: "wordpress"},
+		collection: s.State.services,
+	}, {
+		info:       &params.RelationInfo{Key: "logging:logging-directory wordpress:logging-dir"},
+		collection: s.State.relations,
+	}, {
+		info:       &params.AnnotationInfo{GlobalKey: "m-0"},
+		collection: s.State.annotations,
+	}}
+	b := newAllWatcherStateBacking(s.State)
+	for i, test := range tests {
+		c.Logf("test %d: %T", i, test.info)
+		id := b.entityIdForInfo(test.info)
+		c.Assert(id, Equals, entityId{
+			collection: test.collection.Name,
+			id:         test.info.EntityId(),
+		})
+	}
+}
+
+func (s *allWatcherStateSuite) TestStateBackingFetch(c *C) {
+	m, err := s.State.AddMachine("series", JobManageEnviron)
+	c.Assert(err, IsNil)
+	c.Assert(m.Tag(), Equals, "machine-0")
+	err = m.SetInstanceId(InstanceId("i-0"))
+	c.Assert(err, IsNil)
+
+	b0 := newAllWatcherStateBacking(s.State)
+	testBackingFetch(c, b0)
+
+	// Test the test backing in the same way to
+	// make sure it agrees.
+	b1 := newTestBacking([]params.EntityInfo{
+		&params.MachineInfo{
+			Id:         "0",
+			InstanceId: "i-0",
+		},
+	})
+	testBackingFetch(c, b1)
+}
+
+// TestStateWatcher tests the integration of the state watcher
+// with the state-based backing. Most of the logic is tested elsewhere -
+// this just tests end-to-end.
+func (s *allWatcherStateSuite) TestStateWatcher(c *C) {
+	m0, err := s.State.AddMachine("series", JobManageEnviron)
+	c.Assert(err, IsNil)
+	c.Assert(m0.Id(), Equals, "0")
+
+	m1, err := s.State.AddMachine("series", JobHostUnits)
+	c.Assert(err, IsNil)
+	c.Assert(m1.Id(), Equals, "1")
+
+	b := newAllWatcherStateBacking(s.State)
+	aw := newAllWatcher(b)
+	go aw.run()
+	defer aw.Stop()
+	w := &StateWatcher{all: aw}
+	s.State.StartSync()
+	checkNext(c, w, []params.Delta{{
+		Entity: &params.MachineInfo{Id: "0"},
+	}, {
+		Entity: &params.MachineInfo{Id: "1"},
+	}}, "")
+
+	// Make some changes to the state.
+	err = m0.SetInstanceId("i-0")
+	c.Assert(err, IsNil)
+	err = m1.Destroy()
+	c.Assert(err, IsNil)
+	err = m1.EnsureDead()
+	c.Assert(err, IsNil)
+	err = m1.Remove()
+	c.Assert(err, IsNil)
+	m2, err := s.State.AddMachine("series", JobManageEnviron)
+	c.Assert(err, IsNil)
+	c.Assert(m2.Id(), Equals, "2")
+	s.State.StartSync()
+
+	// Check that we see the changes happen within a
+	// reasonable time.
+	var deltas []params.Delta
+	for {
+		d, err := getNext(c, w, 100*time.Millisecond)
+		if err == errTimeout {
+			break
 		}
-		ch <- d
+		c.Assert(err, IsNil)
+		deltas = append(deltas, d...)
+	}
+	checkDeltasEqual(c, deltas, []params.Delta{{
+		Removed: true,
+		Entity:  &params.MachineInfo{Id: "1"},
+	}, {
+		Entity: &params.MachineInfo{Id: "2"},
+	}, {
+		Entity: &params.MachineInfo{
+			Id:         "0",
+			InstanceId: "i-0",
+		},
+	}})
+
+	err = w.Stop()
+	c.Assert(err, IsNil)
+
+	_, err = w.Next()
+	c.Assert(err, ErrorMatches, "state watcher was stopped")
+}
+
+func testBackingFetch(c *C, b allWatcherBacking) {
+	m := &params.MachineInfo{Id: "0", InstanceId: "i-0"}
+	id0 := b.entityIdForInfo(m)
+	info, err := b.fetch(id0)
+	c.Assert(err, IsNil)
+	c.Assert(info, DeepEquals, m)
+
+	info, err = b.fetch(entityId{id0.collection, "99"})
+	c.Assert(err, Equals, mgo.ErrNotFound)
+	c.Assert(info, IsNil)
+}
+
+type entityInfoSlice []params.EntityInfo
+
+func (s entityInfoSlice) Len() int      { return len(s) }
+func (s entityInfoSlice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+func (s entityInfoSlice) Less(i, j int) bool {
+	if s[i].EntityKind() != s[j].EntityKind() {
+		return s[i].EntityKind() < s[j].EntityKind()
+	}
+	switch id := s[i].EntityId().(type) {
+	case string:
+		return id < s[j].EntityId().(string)
+	}
+	panic("unknown id type")
+}
+
+func assertAllInfoContents(c *C, a *allInfo, latestRevno int64, entries []entityEntry) {
+	var gotEntries []entityEntry
+	var gotElems []*list.Element
+	c.Check(a.list.Len(), Equals, len(entries))
+	for e := a.list.Back(); e != nil; e = e.Prev() {
+		gotEntries = append(gotEntries, *e.Value.(*entityEntry))
+		gotElems = append(gotElems, e)
+	}
+	c.Assert(gotEntries, DeepEquals, entries)
+	for i, ent := range entries {
+		c.Assert(a.entities[entityIdForInfo(ent.info)], Equals, gotElems[i])
+	}
+	c.Assert(a.entities, HasLen, len(entries))
+	c.Assert(a.latestRevno, Equals, latestRevno)
+}
+
+var errTimeout = errors.New("no change received in sufficient time")
+
+func getNext(c *C, w *StateWatcher, timeout time.Duration) ([]params.Delta, error) {
+	var deltas []params.Delta
+	var err error
+	ch := make(chan struct{}, 1)
+	go func() {
+		deltas, err = w.Next()
+		ch <- struct{}{}
 	}()
 	select {
-	case d := <-ch:
-		checkDeltasEqual(c, d, deltas)
+	case <-ch:
+		return deltas, err
 	case <-time.After(1 * time.Second):
-		c.Errorf("no change received in sufficient time; expected %v", deltas)
 	}
+	return nil, errTimeout
+}
+
+func checkNext(c *C, w *StateWatcher, deltas []params.Delta, expectErr string) {
+	d, err := getNext(c, w, 1*time.Second)
+	if expectErr != "" {
+		c.Check(err, ErrorMatches, expectErr)
+		return
+	}
+	checkDeltasEqual(c, d, deltas)
 }
 
 // deltas are returns in arbitrary order, so we compare
@@ -870,7 +1224,7 @@ func assertReplied(c *C, val bool, req *allRequest) {
 	}
 }
 
-func assertWaitingRequests(c *C, aw *allWatcher, waiting map[*xStateWatcher][]*allRequest) {
+func assertWaitingRequests(c *C, aw *allWatcher, waiting map[*StateWatcher][]*allRequest) {
 	c.Assert(aw.waiting, HasLen, len(waiting))
 	for w, reqs := range waiting {
 		i := 0

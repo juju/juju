@@ -46,7 +46,7 @@ func (s *StoreSuite) SetUpTest(c *C) {
 	var err error
 	s.store, err = store.Open(s.Addr)
 	c.Assert(err, IsNil)
-	log.Target = c
+	log.SetTarget(c)
 	log.Debug = true
 }
 
@@ -722,6 +722,42 @@ func (s *StoreSuite) TestListCountersBy(c *C) {
 				{Key: []string{"a"}, Prefix: true, Count: 2, Time: day(1)},
 				{Key: []string{"a"}, Prefix: true, Count: 1, Time: day(3)},
 				{Key: []string{"a"}, Prefix: true, Count: 3, Time: day(9)},
+			},
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: true,
+				List:   false,
+				By:     store.ByDay,
+				Start:  day(2),
+			},
+			[]store.Counter{
+				{Key: []string{"a"}, Prefix: true, Count: 1, Time: day(3)},
+				{Key: []string{"a"}, Prefix: true, Count: 3, Time: day(9)},
+			},
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: true,
+				List:   false,
+				By:     store.ByDay,
+				Stop:   day(4),
+			},
+			[]store.Counter{
+				{Key: []string{"a"}, Prefix: true, Count: 2, Time: day(1)},
+				{Key: []string{"a"}, Prefix: true, Count: 1, Time: day(3)},
+			},
+		}, {
+			store.CounterRequest{
+				Key:    []string{"a"},
+				Prefix: true,
+				List:   false,
+				By:     store.ByDay,
+				Start:  day(3),
+				Stop:   day(8),
+			},
+			[]store.Counter{
+				{Key: []string{"a"}, Prefix: true, Count: 1, Time: day(3)},
 			},
 		}, {
 			store.CounterRequest{

@@ -3,6 +3,7 @@ package state
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/testing"
+	"time"
 )
 
 type SettingsSuite struct {
@@ -23,6 +24,15 @@ func TestingStateInfo() *Info {
 	}
 }
 
+// TestingDialOpts returns configuration parameters for
+// connecting to the testing state server.
+func TestingDialOpts() DialOpts {
+	return DialOpts{
+		Timeout:    100 * time.Millisecond,
+		RetryDelay: 0,
+	}
+}
+
 func (s *SettingsSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
@@ -36,7 +46,8 @@ func (s *SettingsSuite) TearDownSuite(c *C) {
 func (s *SettingsSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-	state, err := Open(TestingStateInfo())
+	// TODO(dfc) this logic is duplicated with the metawatcher_test.
+	state, err := Open(TestingStateInfo(), TestingDialOpts())
 	c.Assert(err, IsNil)
 
 	s.state = state

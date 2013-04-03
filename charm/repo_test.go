@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/testing"
 	"net"
@@ -14,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 )
 
 type MockStore struct {
@@ -35,6 +37,9 @@ func NewMockStore(c *C) *MockStore {
 	s.mux = http.NewServeMux()
 	s.mux.HandleFunc("/charm-info", func(w http.ResponseWriter, r *http.Request) {
 		s.ServeInfo(w, r)
+	})
+	s.mux.HandleFunc("/charm-event", func(w http.ResponseWriter, r *http.Request) {
+		s.ServeEvent(w, r)
 	})
 	s.mux.HandleFunc("/charm/", func(w http.ResponseWriter, r *http.Request) {
 		s.ServeCharm(w, r)
@@ -60,17 +65,62 @@ func (s *MockStore) ServeInfo(w http.ResponseWriter, r *http.Request) {
 		switch curl.Name {
 		case "borken":
 			cr.Errors = append(cr.Errors, "badness")
-			continue
 		case "unwise":
 			cr.Warnings = append(cr.Warnings, "foolishness")
 			fallthrough
-		default:
+		case "good":
 			if curl.Revision == -1 {
 				cr.Revision = 23
 			} else {
 				cr.Revision = curl.Revision
 			}
 			cr.Sha256 = s.bundleSha256
+		default:
+			cr.Errors = append(cr.Errors, "entry not found")
+		}
+	}
+	data, err := json.Marshal(response)
+	if err != nil {
+		panic(err)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_, err = w.Write(data)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (s *MockStore) ServeEvent(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	response := map[string]*charm.EventResponse{}
+	for _, url := range r.Form["charms"] {
+		digest := ""
+		if i := strings.Index(url, "@"); i >= 0 {
+			digest = url[i+1:]
+			url = url[:i]
+		}
+		er := &charm.EventResponse{}
+		response[url] = er
+		if digest != "" && digest != "the-digest" {
+			er.Kind = "not-found"
+			er.Errors = []string{"entry not found"}
+			continue
+		}
+		curl := charm.MustParseURL(url)
+		switch curl.Name {
+		case "borken":
+			er.Kind = "publish-error"
+			er.Errors = append(er.Errors, "badness")
+		case "unwise":
+			er.Warnings = append(er.Warnings, "foolishness")
+			fallthrough
+		case "good":
+			er.Kind = "published"
+			er.Revision = 23
+			er.Digest = "the-digest"
+		default:
+			er.Kind = "not-found"
+			er.Errors = []string{"entry not found"}
 		}
 	}
 	data, err := json.Marshal(response)
@@ -97,9 +147,9 @@ func (s *MockStore) ServeCharm(w http.ResponseWriter, r *http.Request) {
 }
 
 type StoreSuite struct {
-	server *MockStore
-	store  charm.Repository
-	cache  string
+	server      *MockStore
+	store       *charm.CharmStore
+	oldJujuHome string
 }
 
 var _ = Suite(&StoreSuite{})
@@ -109,13 +159,23 @@ func (s *StoreSuite) SetUpSuite(c *C) {
 }
 
 func (s *StoreSuite) SetUpTest(c *C) {
-	s.cache = c.MkDir()
-	s.store = charm.NewStore("http://127.0.0.1:4444", s.cache)
+	s.oldJujuHome = config.SetJujuHome(c.MkDir())
+	s.store = charm.NewStore("http://127.0.0.1:4444")
 	s.server.downloads = nil
 }
 
 func (s *StoreSuite) TearDownSuite(c *C) {
+	config.SetJujuHome(s.oldJujuHome)
 	s.server.lis.Close()
+}
+
+func (s *StoreSuite) TestMissing(c *C) {
+	curl := charm.MustParseURL("cs:series/missing")
+	expect := `charm not found: cs:series/missing`
+	_, err := s.store.Latest(curl)
+	c.Assert(err, ErrorMatches, expect)
+	_, err = s.store.Get(curl)
+	c.Assert(err, ErrorMatches, expect)
 }
 
 func (s *StoreSuite) TestError(c *C) {
@@ -128,11 +188,9 @@ func (s *StoreSuite) TestError(c *C) {
 }
 
 func (s *StoreSuite) TestWarning(c *C) {
-	orig := log.Target
-	log.Target = c
-	defer func() { log.Target = orig }()
+	defer log.SetTarget(log.SetTarget(c))
 	curl := charm.MustParseURL("cs:series/unwise")
-	expect := `.* WARNING: charm: charm store reports for "cs:series/unwise": foolishness` + "\n"
+	expect := `.* WARNING charm: charm store reports for "cs:series/unwise": foolishness` + "\n"
 	r, err := s.store.Latest(curl)
 	c.Assert(r, Equals, 23)
 	c.Assert(err, IsNil)
@@ -145,9 +203,9 @@ func (s *StoreSuite) TestWarning(c *C) {
 
 func (s *StoreSuite) TestLatest(c *C) {
 	for _, str := range []string{
-		"cs:series/blah",
-		"cs:series/blah-2",
-		"cs:series/blah-99",
+		"cs:series/good",
+		"cs:series/good-2",
+		"cs:series/good-99",
 	} {
 		r, err := s.store.Latest(charm.MustParseURL(str))
 		c.Assert(r, Equals, 23)
@@ -164,8 +222,7 @@ func (s *StoreSuite) assertCached(c *C, curl *charm.URL) {
 }
 
 func (s *StoreSuite) TestGetCacheImplicitRevision(c *C) {
-	os.RemoveAll(s.cache)
-	base := "cs:series/blah"
+	base := "cs:series/good"
 	curl := charm.MustParseURL(base)
 	revCurl := charm.MustParseURL(base + "-23")
 	ch, err := s.store.Get(curl)
@@ -177,8 +234,7 @@ func (s *StoreSuite) TestGetCacheImplicitRevision(c *C) {
 }
 
 func (s *StoreSuite) TestGetCacheExplicitRevision(c *C) {
-	os.RemoveAll(s.cache)
-	base := "cs:series/blah-12"
+	base := "cs:series/good-12"
 	curl := charm.MustParseURL(base)
 	ch, err := s.store.Get(curl)
 	c.Assert(err, IsNil)
@@ -188,11 +244,12 @@ func (s *StoreSuite) TestGetCacheExplicitRevision(c *C) {
 }
 
 func (s *StoreSuite) TestGetBadCache(c *C) {
-	base := "cs:series/blah"
+	c.Assert(os.Mkdir(config.JujuHomePath("cache"), 0777), IsNil)
+	base := "cs:series/good"
 	curl := charm.MustParseURL(base)
 	revCurl := charm.MustParseURL(base + "-23")
 	name := charm.Quote(revCurl.String()) + ".charm"
-	err := ioutil.WriteFile(filepath.Join(s.cache, name), nil, 0666)
+	err := ioutil.WriteFile(config.JujuHomePath("cache", name), nil, 0666)
 	c.Assert(err, IsNil)
 	ch, err := s.store.Get(curl)
 	c.Assert(err, IsNil)
@@ -200,6 +257,83 @@ func (s *StoreSuite) TestGetBadCache(c *C) {
 	c.Assert(s.server.downloads, DeepEquals, []*charm.URL{revCurl})
 	s.assertCached(c, curl)
 	s.assertCached(c, revCurl)
+}
+
+// The following tests cover the low-level CharmStore-specific API.
+
+func (s *StoreSuite) TestInfo(c *C) {
+	curl := charm.MustParseURL("cs:series/good")
+	info, err := s.store.Info(curl)
+	c.Assert(err, IsNil)
+	c.Assert(info.Errors, IsNil)
+	c.Assert(info.Revision, Equals, 23)
+}
+
+func (s *StoreSuite) TestInfoNotFound(c *C) {
+	curl := charm.MustParseURL("cs:series/missing")
+	info, err := s.store.Info(curl)
+	c.Assert(err, ErrorMatches, `charm not found: cs:series/missing`)
+	c.Assert(info, IsNil)
+}
+
+func (s *StoreSuite) TestInfoError(c *C) {
+	curl := charm.MustParseURL("cs:series/borken")
+	info, err := s.store.Info(curl)
+	c.Assert(err, IsNil)
+	c.Assert(info.Errors, DeepEquals, []string{"badness"})
+}
+
+func (s *StoreSuite) TestInfoWarning(c *C) {
+	curl := charm.MustParseURL("cs:series/unwise")
+	info, err := s.store.Info(curl)
+	c.Assert(err, IsNil)
+	c.Assert(info.Warnings, DeepEquals, []string{"foolishness"})
+}
+
+func (s *StoreSuite) TestEvent(c *C) {
+	curl := charm.MustParseURL("cs:series/good")
+	event, err := s.store.Event(curl, "")
+	c.Assert(err, IsNil)
+	c.Assert(event.Errors, IsNil)
+	c.Assert(event.Revision, Equals, 23)
+	c.Assert(event.Digest, Equals, "the-digest")
+}
+
+func (s *StoreSuite) TestEventWithDigest(c *C) {
+	curl := charm.MustParseURL("cs:series/good")
+	event, err := s.store.Event(curl, "the-digest")
+	c.Assert(err, IsNil)
+	c.Assert(event.Errors, IsNil)
+	c.Assert(event.Revision, Equals, 23)
+	c.Assert(event.Digest, Equals, "the-digest")
+}
+
+func (s *StoreSuite) TestEventNotFound(c *C) {
+	curl := charm.MustParseURL("cs:series/missing")
+	event, err := s.store.Event(curl, "")
+	c.Assert(err, ErrorMatches, `charm event not found for "cs:series/missing"`)
+	c.Assert(event, IsNil)
+}
+
+func (s *StoreSuite) TestEventNotFoundDigest(c *C) {
+	curl := charm.MustParseURL("cs:series/good")
+	event, err := s.store.Event(curl, "missing-digest")
+	c.Assert(err, ErrorMatches, `charm event not found for "cs:series/good" with digest "missing-digest"`)
+	c.Assert(event, IsNil)
+}
+
+func (s *StoreSuite) TestEventError(c *C) {
+	curl := charm.MustParseURL("cs:series/borken")
+	event, err := s.store.Event(curl, "")
+	c.Assert(err, IsNil)
+	c.Assert(event.Errors, DeepEquals, []string{"badness"})
+}
+
+func (s *StoreSuite) TestEventWarning(c *C) {
+	curl := charm.MustParseURL("cs:series/unwise")
+	event, err := s.store.Event(curl, "")
+	c.Assert(err, IsNil)
+	c.Assert(event.Warnings, DeepEquals, []string{"foolishness"})
 }
 
 type LocalRepoSuite struct {
@@ -228,13 +362,13 @@ func (s *LocalRepoSuite) addDir(name string) string {
 
 func (s *LocalRepoSuite) TestMissingCharm(c *C) {
 	_, err := s.repo.Latest(charm.MustParseURL("local:series/zebra"))
-	c.Assert(err, ErrorMatches, `no charms found matching "local:series/zebra"`)
+	c.Assert(err, ErrorMatches, `no charms found matching "local:series/zebra" in `+s.repo.Path)
 	_, err = s.repo.Get(charm.MustParseURL("local:series/zebra"))
-	c.Assert(err, ErrorMatches, `no charms found matching "local:series/zebra"`)
+	c.Assert(err, ErrorMatches, `no charms found matching "local:series/zebra" in `+s.repo.Path)
 	_, err = s.repo.Latest(charm.MustParseURL("local:badseries/zebra"))
-	c.Assert(err, ErrorMatches, `no charms found matching "local:badseries/zebra"`)
+	c.Assert(err, ErrorMatches, `no charms found matching "local:badseries/zebra" in `+s.repo.Path)
 	_, err = s.repo.Get(charm.MustParseURL("local:badseries/zebra"))
-	c.Assert(err, ErrorMatches, `no charms found matching "local:badseries/zebra"`)
+	c.Assert(err, ErrorMatches, `no charms found matching "local:badseries/zebra" in `+s.repo.Path)
 }
 
 func (s *LocalRepoSuite) TestMissingRepo(c *C) {
@@ -281,7 +415,7 @@ func (s *LocalRepoSuite) TestMultipleVersions(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(rev, Equals, 2)
 	ch, err = s.repo.Get(badRevCurl)
-	c.Assert(err, ErrorMatches, `no charms found matching "local:series/upgrade-33"`)
+	c.Assert(err, ErrorMatches, `no charms found matching "local:series/upgrade-33" in `+s.repo.Path)
 }
 
 func (s *LocalRepoSuite) TestBundle(c *C) {
@@ -312,9 +446,9 @@ func (s *LocalRepoSuite) TestLogsErrors(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(ch.Revision(), Equals, 1)
 	c.Assert(c.GetTestLog(), Matches, `
-.* WARNING: charm: failed to load charm at ".*/series/blah": .*
-.* WARNING: charm: failed to load charm at ".*/series/blah.charm": .*
-.* WARNING: charm: failed to load charm at ".*/series/upgrade2": .*
+.* WARNING charm: failed to load charm at ".*/series/blah": .*
+.* WARNING charm: failed to load charm at ".*/series/blah.charm": .*
+.* WARNING charm: failed to load charm at ".*/series/upgrade2": .*
 `[1:])
 }
 
@@ -332,8 +466,8 @@ func (s *LocalRepoSuite) TestIgnoresUnpromisingNames(c *C) {
 	curl := charm.MustParseURL("local:series/dummy")
 
 	_, err = s.repo.Get(curl)
-	c.Assert(err, ErrorMatches, `no charms found matching "local:series/dummy"`)
+	c.Assert(err, ErrorMatches, `no charms found matching "local:series/dummy" in `+s.repo.Path)
 	_, err = s.repo.Latest(curl)
-	c.Assert(err, ErrorMatches, `no charms found matching "local:series/dummy"`)
+	c.Assert(err, ErrorMatches, `no charms found matching "local:series/dummy" in `+s.repo.Path)
 	c.Assert(c.GetTestLog(), Equals, "")
 }

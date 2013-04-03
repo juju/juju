@@ -17,11 +17,11 @@ import (
 
 // Provisioner represents a running provisioning worker.
 type Provisioner struct {
-	st      *state.State
-	info    *state.Info
-	apiInfo *api.Info
-	environ environs.Environ
-	tomb    tomb.Tomb
+	st        *state.State
+	stateInfo *state.Info
+	apiInfo   *api.Info
+	environ   environs.Environ
+	tomb      tomb.Tomb
 
 	// machine.Id => environs.Instance
 	instances map[string]environs.Instance
@@ -74,7 +74,7 @@ func (p *Provisioner) loop() error {
 	// Get a new StateInfo from the environment: the one used to
 	// launch the agent may refer to localhost, which will be
 	// unhelpful when attempting to run an agent on a new machine.
-	if p.info, p.apiInfo, err = p.environ.StateInfo(); err != nil {
+	if p.stateInfo, p.apiInfo, err = p.environ.StateInfo(); err != nil {
 		return err
 	}
 
@@ -235,7 +235,7 @@ func (p *Provisioner) pendingOrDead(ids []string) (pending, dead []*state.Machin
 func (p *Provisioner) startMachines(machines []*state.Machine) error {
 	for _, m := range machines {
 		if err := p.startMachine(m); err != nil {
-			return err
+			return fmt.Errorf("cannot start machine %v: %v", m, err)
 		}
 	}
 	return nil
@@ -244,23 +244,17 @@ func (p *Provisioner) startMachines(machines []*state.Machine) error {
 func (p *Provisioner) startMachine(m *state.Machine) error {
 	// TODO(dfc) the state.Info passed to environ.StartInstance remains contentious
 	// however as the PA only knows one state.Info, and that info is used by MAs and
-	password, err := trivial.RandomPassword()
-	if err != nil {
-		return fmt.Errorf("cannot make password for new machine: %v", err)
-	}
-	if err := m.SetMongoPassword(password); err != nil {
-		return fmt.Errorf("cannot set password for new machine: %v", err)
-	}
-	// UAs to locate the ZK for this environment, it is logical to use the same
+	// UAs to locate the state for this environment, it is logical to use the same
 	// state.Info as the PA.
-	info := *p.info
-	info.EntityName = m.EntityName()
-	info.Password = password
-
-	apiInfo := *p.apiInfo
-	apiInfo.EntityName = m.EntityName()
-	apiInfo.Password = password
-	inst, err := p.environ.StartInstance(m.Id(), &info, &apiInfo, nil)
+	stateInfo, apiInfo, err := p.setupAuthentication(m)
+	if err != nil {
+		return err
+	}
+	cons, err := m.Constraints()
+	if err != nil {
+		return err
+	}
+	inst, err := p.environ.StartInstance(m.Id(), m.Series(), cons, stateInfo, apiInfo)
 	if err != nil {
 		return fmt.Errorf("cannot start instance for new machine: %v", err)
 	}
@@ -268,12 +262,28 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 	if err := m.SetInstanceId(inst.Id()); err != nil {
 		return err
 	}
-
 	// populate the local cache
 	p.instances[m.Id()] = inst
 	p.machines[inst.Id()] = m.Id()
 	log.Noticef("worker/provisioner: started machine %s as instance %s", m, inst.Id())
 	return nil
+}
+
+func (p *Provisioner) setupAuthentication(m *state.Machine) (*state.Info, *api.Info, error) {
+	password, err := trivial.RandomPassword()
+	if err != nil {
+		return nil, nil, fmt.Errorf("cannot make password for machine %v: %v", m, err)
+	}
+	if err := m.SetMongoPassword(password); err != nil {
+		return nil, nil, fmt.Errorf("cannot set password for machine %v: %v", m, err)
+	}
+	stateInfo := *p.stateInfo
+	stateInfo.Tag = m.Tag()
+	stateInfo.Password = password
+	apiInfo := *p.apiInfo
+	apiInfo.Tag = m.Tag()
+	apiInfo.Password = password
+	return &stateInfo, &apiInfo, nil
 }
 
 func (p *Provisioner) stopInstances(instances []environs.Instance) error {

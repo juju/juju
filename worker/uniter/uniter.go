@@ -107,7 +107,7 @@ func (u *Uniter) init(name string) (err error) {
 	if err != nil {
 		return err
 	}
-	ename := u.unit.EntityName()
+	ename := u.unit.Tag()
 	u.toolsDir = agent.ToolsDir(u.dataDir, ename)
 	if err := EnsureJujucSymlinks(u.toolsDir); err != nil {
 		return err
@@ -181,15 +181,7 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason Op) error {
 		hi = u.s.Hook
 	}
 	if u.s == nil || u.s.OpStep != Done {
-		// Set the new charm URL - this returns once it's done and stored.
-		if err := u.f.SetCharm(curl); err != nil {
-			return err
-		}
-		// Refresh to get the new URL.
-		if err := u.unit.Refresh(); err != nil {
-			return err
-		}
-
+		// Get the new charm bundle before announcing intention to use it.
 		log.Infof("worker/uniter: fetching charm %q", curl)
 		sch, err := u.st.Charm(curl)
 		if err != nil {
@@ -200,6 +192,17 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason Op) error {
 			return err
 		}
 		if err = u.deployer.Stage(bun, curl); err != nil {
+			return err
+		}
+
+		// Set the new charm URL - this returns when the operation is complete,
+		// at which point we can refresh the local copy of the unit to get a
+		// version with the correct charm URL, and can go ahead and deploy
+		// the charm proper.
+		if err := u.f.SetCharm(curl); err != nil {
+			return err
+		}
+		if err := u.unit.Refresh(); err != nil {
 			return err
 		}
 		log.Infof("worker/uniter: deploying charm %q", curl)
@@ -415,7 +418,7 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 	// and its principal's service, the subordinate must become Dying.
 	keepAlive := false
 	for _, r := range u.relationers {
-		scope := r.ru.Endpoint().RelationScope
+		scope := r.ru.Endpoint().Scope
 		if scope == corecharm.ScopeContainer && !r.dying {
 			keepAlive = true
 			break

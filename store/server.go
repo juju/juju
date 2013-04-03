@@ -28,6 +28,9 @@ func NewServer(store *Store) (*Server, error) {
 	s.mux.HandleFunc("/charm-info", func(w http.ResponseWriter, r *http.Request) {
 		s.serveInfo(w, r)
 	})
+	s.mux.HandleFunc("/charm-event", func(w http.ResponseWriter, r *http.Request) {
+		s.serveEvent(w, r)
+	})
 	s.mux.HandleFunc("/charm/", func(w http.ResponseWriter, r *http.Request) {
 		s.serveCharm(w, r)
 	})
@@ -110,6 +113,54 @@ func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *Server) serveEvent(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/charm-event" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	r.ParseForm()
+	response := map[string]*charm.EventResponse{}
+	for _, url := range r.Form["charms"] {
+		digest := ""
+		if i := strings.Index(url, "@"); i >= 0 && i+1 < len(url) {
+			digest = url[i+1:]
+			url = url[:i]
+		}
+		c := &charm.EventResponse{}
+		response[url] = c
+		curl, err := charm.ParseURL(url)
+		var event *CharmEvent
+		if err == nil {
+			event, err = s.store.CharmEvent(curl, digest)
+		}
+		var skey []string
+		if err == nil {
+			skey = charmStatsKey(curl, "charm-event")
+			c.Kind = event.Kind.String()
+			c.Revision = event.Revision
+			c.Digest = event.Digest
+			c.Errors = event.Errors
+			c.Warnings = event.Warnings
+			c.Time = event.Time.UTC().Format(time.RFC3339)
+		} else {
+			c.Errors = append(c.Errors, err.Error())
+		}
+		if skey != nil && statsEnabled(r) {
+			go s.store.IncCounter(skey)
+		}
+	}
+	data, err := json.Marshal(response)
+	if err == nil {
+		w.Header().Set("Content-Type", "application/json")
+		_, err = w.Write(data)
+	}
+	if err != nil {
+		log.Errorf("store: cannot write content: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+}
+
 func (s *Server) serveCharm(w http.ResponseWriter, r *http.Request) {
 	if !strings.HasPrefix(r.URL.Path, "/charm/") {
 		panic("serveCharm: bad url")
@@ -171,23 +222,30 @@ func (s *Server) serveStats(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(fmt.Sprintf("Invalid 'by' value: %q", v)))
 		return
 	}
-	var sep string
-	var padding bool
-	switch v := r.Form.Get("format"); v {
-	case "", "text":
-		sep = "  "
-		padding = true
-	case "csv":
-		sep = ","
-	default:
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(fmt.Sprintf("Invalid 'format' value: %q", v)))
-		return
-	}
 	req := CounterRequest{
 		Key:  strings.Split(base, ":"),
 		List: r.Form.Get("list") == "1",
 		By:   by,
+	}
+	if v := r.Form.Get("start"); v != "" {
+		var err error
+		req.Start, err = time.Parse("2006-01-02", v)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(fmt.Sprintf("Invalid 'start' value: %q", v)))
+			return
+		}
+	}
+	if v := r.Form.Get("stop"); v != "" {
+		var err error
+		req.Stop, err = time.Parse("2006-01-02", v)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(fmt.Sprintf("Invalid 'stop' value: %q", v)))
+			return
+		}
+		// Cover all timestamps within the stop day.
+		req.Stop = req.Stop.Add(24*time.Hour - 1*time.Second)
 	}
 	if req.Key[len(req.Key)-1] == "*" {
 		req.Prefix = true
@@ -198,6 +256,25 @@ func (s *Server) serveStats(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	var format func([]formatItem) []byte
+	switch v := r.Form.Get("format"); v {
+	case "":
+		if !req.List && req.By == ByAll {
+			format = formatCount
+		} else {
+			format = formatText
+		}
+	case "text":
+		format = formatText
+	case "csv":
+		format = formatCSV
+	case "json":
+		format = formatJSON
+	default:
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("Invalid 'format' value: %q", v)))
+		return
+	}
 
 	entries, err := s.store.Counters(&req)
 	if err != nil {
@@ -206,58 +283,26 @@ func (s *Server) serveStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// First build keys and figure max key length.
 	var buf []byte
-	var maxKeyLength int
-	type resultItem struct {
-		key   string
-		count int64
-		time  time.Time
-	}
-	var result []resultItem
+	var items []formatItem
 	for i := range entries {
 		entry := &entries[i]
-		for j := range entry.Key {
-			buf = append(buf, entry.Key[j]...)
-			buf = append(buf, ':')
+		if req.List {
+			for j := range entry.Key {
+				buf = append(buf, entry.Key[j]...)
+				buf = append(buf, ':')
+			}
+			if entry.Prefix {
+				buf = append(buf, '*')
+			} else {
+				buf = buf[:len(buf)-1]
+			}
 		}
-		if entry.Prefix {
-			buf = append(buf, '*')
-		} else {
-			buf = buf[:len(buf)-1]
-		}
-		if maxKeyLength < len(buf) {
-			maxKeyLength = len(buf)
-		}
-		result = append(result, resultItem{string(buf), entry.Count, entry.Time})
+		items = append(items, formatItem{string(buf), entry.Count, entry.Time})
 		buf = buf[:0]
 	}
 
-	// Then join all keys and counts in a single formatted buffer.
-	spaces := make([]byte, maxKeyLength)
-	for i := range spaces {
-		spaces[i] = ' '
-	}
-	newline := req.List || req.By != ByAll
-	for i := range result {
-		item := &result[i]
-		if req.List {
-			buf = append(buf, item.key...)
-			if padding {
-				buf = append(buf, spaces[len(item.key):]...)
-			}
-			buf = append(buf, sep...)
-		}
-		if req.By != ByAll {
-			buf = append(buf, item.time.Format("2006-01-02")...)
-			buf = append(buf, sep...)
-		}
-		buf = strconv.AppendInt(buf, item.count, 10)
-		if newline {
-			buf = append(buf, '\n')
-		}
-	}
-
+	buf = format(items)
 	w.Header().Set("Content-Type", "text/plain")
 	w.Header().Set("Content-Length", strconv.Itoa(len(buf)))
 	_, err = w.Write(buf)
@@ -272,4 +317,102 @@ func (s *Server) serveBlitzKey(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	w.Header().Set("Content-Length", "2")
 	w.Write([]byte("42"))
+}
+
+type formatItem struct {
+	key   string
+	count int64
+	time  time.Time
+}
+
+func (fi *formatItem) hasKey() bool {
+	return fi.key != ""
+}
+
+func (fi *formatItem) hasTime() bool {
+	return !fi.time.IsZero()
+}
+
+func (fi *formatItem) formatTime() string {
+	return fi.time.Format("2006-01-02")
+}
+
+func formatCount(items []formatItem) []byte {
+	return strconv.AppendInt(nil, items[0].count, 10)
+}
+
+func formatText(items []formatItem) []byte {
+	var maxKeyLength int
+	for i := range items {
+		if l := len(items[i].key); maxKeyLength < l {
+			maxKeyLength = l
+		}
+	}
+	spaces := make([]byte, maxKeyLength+2)
+	for i := range spaces {
+		spaces[i] = ' '
+	}
+	var buf []byte
+	for i := range items {
+		item := &items[i]
+		if item.hasKey() {
+			buf = append(buf, item.key...)
+			buf = append(buf, spaces[len(item.key):]...)
+		}
+		if item.hasTime() {
+			buf = append(buf, item.formatTime()...)
+			buf = append(buf, ' ', ' ')
+		}
+		buf = strconv.AppendInt(buf, item.count, 10)
+		buf = append(buf, '\n')
+	}
+	return buf
+}
+
+func formatCSV(items []formatItem) []byte {
+	var buf []byte
+	for i := range items {
+		item := &items[i]
+		if item.hasKey() {
+			buf = append(buf, item.key...)
+			buf = append(buf, ',')
+		}
+		if item.hasTime() {
+			buf = append(buf, item.formatTime()...)
+			buf = append(buf, ',')
+		}
+		buf = strconv.AppendInt(buf, item.count, 10)
+		buf = append(buf, '\n')
+	}
+	return buf
+}
+
+func formatJSON(items []formatItem) []byte {
+	if len(items) == 0 {
+		return []byte("[]")
+	}
+	var buf []byte
+	buf = append(buf, '[')
+	for i := range items {
+		item := &items[i]
+		if i == 0 {
+			buf = append(buf, '[')
+		} else {
+			buf = append(buf, ',', '[')
+		}
+		if item.hasKey() {
+			buf = append(buf, '"')
+			buf = append(buf, item.key...)
+			buf = append(buf, '"', ',')
+		}
+		if item.hasTime() {
+			buf = append(buf, '"')
+			buf = append(buf, item.formatTime()...)
+			buf = append(buf, '"', ',')
+		}
+		buf = strconv.AppendInt(buf, item.count, 10)
+		buf = append(buf, ']')
+	}
+	buf = append(buf, ']')
+	return buf
 }

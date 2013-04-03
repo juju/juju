@@ -7,6 +7,7 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	"os"
@@ -17,6 +18,7 @@ type DeployCommand struct {
 	CharmName    string
 	ServiceName  string
 	Config       cmd.FileVar
+	Constraints  constraints.Value
 	NumUnits     int // defaults to 1
 	BumpRevision bool
 	RepoPath     string // defaults to JUJU_REPOSITORY
@@ -59,6 +61,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.BumpRevision, "u", false, "increment local charm directory revision")
 	f.BoolVar(&c.BumpRevision, "upgrade", false, "")
 	f.Var(&c.Config, "config", "path to yaml-formatted service config")
+	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "set service constraints")
 	f.StringVar(&c.RepoPath, "repository", os.Getenv("JUJU_REPOSITORY"), "local charm repository")
 }
 
@@ -117,6 +120,12 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+	if charm.Meta().Subordinate {
+		empty := constraints.Value{}
+		if c.Constraints != empty {
+			return state.ErrSubordinateConstraints
+		}
+	}
 	serviceName := c.ServiceName
 	if serviceName == "" {
 		serviceName = curl.Name
@@ -125,7 +134,9 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		Charm:       charm,
 		ServiceName: serviceName,
 		NumUnits:    c.NumUnits,
+		// BUG(lp:1162122): --config has no tests.
 		ConfigYAML:  string(configYAML),
+		Constraints: c.Constraints,
 	}
 	_, err = conn.DeployService(args)
 	return err

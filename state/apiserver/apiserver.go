@@ -97,7 +97,7 @@ func (r *srvRoot) Admin(id string) (*srvAdmin, error) {
 // of the accessor functions (Machine, Unit, etc) which avoids us making
 // the check in every single request method.
 func (r *srvRoot) requireAgent() error {
-	e := r.user.entity()
+	e := r.user.authenticator()
 	if e == nil {
 		return errNotLoggedIn
 	}
@@ -110,7 +110,7 @@ func (r *srvRoot) requireAgent() error {
 // requireClient returns an error unless the current
 // client is a juju client user.
 func (r *srvRoot) requireClient() error {
-	e := r.user.entity()
+	e := r.user.authenticator()
 	if e == nil {
 		return errNotLoggedIn
 	}
@@ -161,11 +161,11 @@ func (r *srvRoot) User(name string) (*srvUser, error) {
 	// When we provide support for user administration,
 	// this will need to be changed to allow access to
 	// the administrator.
-	e := r.user.entity()
+	e := r.user.authenticator()
 	if e == nil {
 		return nil, errNotLoggedIn
 	}
-	if e.EntityName() != name {
+	if e.Tag() != name {
 		return nil, errPerm
 	}
 	u, err := r.srv.state.User(name)
@@ -314,7 +314,7 @@ func (c *srvClient) ServiceUnexpose(args params.ServiceUnexpose) error {
 	return statecmd.ServiceUnexpose(c.root.srv.state, args)
 }
 
-var CharmStore charm.Repository = charm.Store()
+var CharmStore charm.Repository = charm.Store
 
 // ServiceDeploy fetches the charm from the charm store and deploys it.  Local
 // charms are not supported.
@@ -347,8 +347,10 @@ func (c *srvClient) ServiceDeploy(args params.ServiceDeploy) error {
 		Charm:       charm,
 		ServiceName: serviceName,
 		NumUnits:    args.NumUnits,
+		// BUG(lp:1162122): Config/ConfigYAML have no tests.
 		Config:      args.Config,
 		ConfigYAML:  args.ConfigYAML,
+		Constraints: args.Constraints,
 	}
 	_, err = conn.DeployService(deployArgs)
 	return err
@@ -367,6 +369,21 @@ func (c *srvClient) DestroyServiceUnits(args params.DestroyServiceUnits) error {
 // ServiceDestroy destroys a given service.
 func (c *srvClient) ServiceDestroy(args params.ServiceDestroy) error {
 	return statecmd.ServiceDestroy(c.root.srv.state, args)
+}
+
+// SetServiceConstraints sets the constraints for a given service.
+func (c *srvClient) SetServiceConstraints(args params.SetServiceConstraints) error {
+	return statecmd.SetServiceConstraints(c.root.srv.state, args)
+}
+
+// AddRelation adds a relation between the specified endpoints and returns the relation info.
+func (c *srvClient) AddRelation(args params.AddRelation) (params.AddRelationResults, error) {
+	return statecmd.AddRelation(c.root.srv.state, args)
+}
+
+// DestroyRelation removes the relation between the specified endpoints.
+func (c *srvClient) DestroyRelation(args params.DestroyRelation) error {
+	return statecmd.DestroyRelation(c.root.srv.state, args)
 }
 
 // CharmInfo returns information about the requested charm.
@@ -398,33 +415,38 @@ func (c *srvClient) EnvironmentInfo() (api.EnvironmentInfo, error) {
 	info := api.EnvironmentInfo{
 		DefaultSeries: conf.DefaultSeries(),
 		ProviderType:  conf.Type(),
+		Name:          conf.Name(),
 	}
 	return info, nil
 }
 
 // GetAnnotations returns annotations about a given entity.
 func (c *srvClient) GetAnnotations(args params.GetAnnotations) (params.GetAnnotationsResults, error) {
-	entity, err := c.root.srv.state.Entity(args.EntityId)
+	entity, err := c.root.srv.state.Annotator(args.Tag)
 	if err != nil {
 		return params.GetAnnotationsResults{}, err
 	}
-	return params.GetAnnotationsResults{Annotations: entity.Annotations()}, nil
+	ann, err := entity.Annotations()
+	if err != nil {
+		return params.GetAnnotationsResults{}, err
+	}
+	return params.GetAnnotationsResults{Annotations: ann}, nil
 }
 
-// SetAnnotation stores an annotation about a given entity.
-func (c *srvClient) SetAnnotation(args params.SetAnnotation) error {
-	entity, err := c.root.srv.state.Entity(args.EntityId)
+// SetAnnotations stores annotations about a given entity.
+func (c *srvClient) SetAnnotations(args params.SetAnnotations) error {
+	entity, err := c.root.srv.state.Annotator(args.Tag)
 	if err != nil {
 		return err
 	}
-	return entity.SetAnnotation(args.Key, args.Value)
+	return entity.SetAnnotations(args.Pairs)
 }
 
 // Login logs in with the provided credentials.
 // All subsequent requests on the connection will
 // act as the authenticated user.
 func (a *srvAdmin) Login(c params.Creds) error {
-	return a.root.user.login(a.root.srv.state, c.EntityName, c.Password)
+	return a.root.user.login(a.root.srv.state, c.AuthTag, c.Password)
 }
 
 // Get retrieves all the details of a machine.
@@ -444,7 +466,7 @@ func (m *srvMachine) Watch() (params.EntityWatcherId, error) {
 	}, nil
 }
 
-func setPassword(e state.Entity, password string) error {
+func setPassword(e state.TaggedAuthenticator, password string) error {
 	// Catch expected common case of mispelled
 	// or missing Password parameter.
 	if password == "" {
@@ -458,8 +480,8 @@ func (m *srvMachine) SetPassword(p params.Password) error {
 	// Allow:
 	// - the machine itself.
 	// - the environment manager.
-	e := m.root.user.entity()
-	allow := e.EntityName() == m.m.EntityName() ||
+	e := m.root.user.authenticator()
+	allow := e.Tag() == m.m.Tag() ||
 		isMachineWithJob(e, state.JobManageEnviron)
 	if !allow {
 		return errPerm
@@ -470,22 +492,22 @@ func (m *srvMachine) SetPassword(p params.Password) error {
 // Get retrieves all the details of a unit.
 func (u *srvUnit) Get() (params.Unit, error) {
 	var ru params.Unit
-	ru.DeployerName, _ = u.u.DeployerName()
+	ru.DeployerTag, _ = u.u.DeployerTag()
 	// TODO add other unit attributes
 	return ru, nil
 }
 
 // SetPassword sets the unit's password.
 func (u *srvUnit) SetPassword(p params.Password) error {
-	ename := u.root.user.entity().EntityName()
+	tag := u.root.user.authenticator().Tag()
 	// Allow:
 	// - the unit itself.
 	// - the machine responsible for unit, if unit is principal
 	// - the unit's principal unit, if unit is subordinate
-	allow := ename == u.u.EntityName()
+	allow := tag == u.u.Tag()
 	if !allow {
-		deployerName, ok := u.u.DeployerName()
-		allow = ok && ename == deployerName
+		deployerTag, ok := u.u.DeployerTag()
+		allow = ok && tag == deployerTag
 	}
 	if !allow {
 		return errPerm
@@ -506,21 +528,21 @@ func (u *srvUser) Get() (params.User, error) {
 // authUser holds login details. It's ok to call
 // its methods concurrently.
 type authUser struct {
-	mu      sync.Mutex
-	_entity state.Entity // logged-in entity (access only when mu is locked)
+	mu     sync.Mutex
+	entity state.TaggedAuthenticator // logged-in entity (access only when mu is locked)
 }
 
 // login authenticates as entity with the given name,.
-func (u *authUser) login(st *state.State, entityName, password string) error {
+func (u *authUser) login(st *state.State, tag, password string) error {
 	u.mu.Lock()
 	defer u.mu.Unlock()
-	entity, err := st.Entity(entityName)
+	entity, err := st.Authenticator(tag)
 	if err != nil && !state.IsNotFound(err) {
 		return err
 	}
 	// TODO(rog) remove
 	if !AuthenticationEnabled {
-		u._entity = entity
+		u.entity = entity
 		return nil
 	}
 	// We return the same error when an entity
@@ -530,22 +552,22 @@ func (u *authUser) login(st *state.State, entityName, password string) error {
 	if err != nil || !entity.PasswordValid(password) {
 		return errBadCreds
 	}
-	u._entity = entity
+	u.entity = entity
 	return nil
 }
 
-// entity returns the currently logged-in entity, or nil if not
-// currently logged on.  The returned entity should not be modified
+// authenticator returns the currently logged-in authenticator entity, or nil
+// if not currently logged on.  The returned entity should not be modified
 // because it may be used concurrently.
-func (u *authUser) entity() state.Entity {
+func (u *authUser) authenticator() state.TaggedAuthenticator {
 	u.mu.Lock()
 	defer u.mu.Unlock()
-	return u._entity
+	return u.entity
 }
 
 // isMachineWithJob returns whether the given entity is a machine that
 // is configured to run the given job.
-func isMachineWithJob(e state.Entity, j state.MachineJob) bool {
+func isMachineWithJob(e state.TaggedAuthenticator, j state.MachineJob) bool {
 	m, ok := e.(*state.Machine)
 	if !ok {
 		return false
@@ -559,7 +581,7 @@ func isMachineWithJob(e state.Entity, j state.MachineJob) bool {
 }
 
 // isAgent returns whether the given entity is an agent.
-func isAgent(e state.Entity) bool {
+func isAgent(e state.TaggedAuthenticator) bool {
 	_, isUser := e.(*state.User)
 	return !isUser
 }

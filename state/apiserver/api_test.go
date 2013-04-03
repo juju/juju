@@ -6,15 +6,16 @@ import (
 	"io"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
-	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
 	"net"
+	"strings"
 	stdtesting "testing"
 	"time"
 )
@@ -119,8 +120,8 @@ var operationPermTests = []struct {
 	op:    opClientGetAnnotations,
 	allow: []string{"user-admin", "user-other"},
 }, {
-	about: "Client.SetAnnotation",
-	op:    opClientSetAnnotation,
+	about: "Client.SetAnnotations",
+	op:    opClientSetAnnotations,
 	allow: []string{"user-admin", "user-other"},
 }, {
 	about: "Client.AddServiceUnits",
@@ -135,12 +136,24 @@ var operationPermTests = []struct {
 	op:    opClientServiceDestroy,
 	allow: []string{"user-admin", "user-other"},
 }, {
+	about: "Client.SetServiceConstraints",
+	op:    opClientSetServiceConstraints,
+	allow: []string{"user-admin", "user-other"},
+}, {
 	about: "Client.WatchAll",
 	op:    opClientWatchAll,
 	allow: []string{"user-admin", "user-other"},
 }, {
 	about: "Client.CharmInfo",
 	op:    opClientCharmInfo,
+	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.AddRelation",
+	op:    opClientAddRelation,
+	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.DestroyRelation",
+	op:    opClientDestroyRelation,
 	allow: []string{"user-admin", "user-other"},
 },
 }
@@ -193,7 +206,7 @@ func opGetUnitWordpress0(c *C, st *api.State, mst *state.State) (func(), error) 
 	if err != nil {
 		c.Check(u, IsNil)
 	} else {
-		name, ok := u.DeployerName()
+		name, ok := u.DeployerTag()
 		c.Check(ok, Equals, true)
 		c.Check(name, Equals, "machine-1")
 	}
@@ -250,11 +263,26 @@ func opClientCharmInfo(c *C, st *api.State, mst *state.State) (func(), error) {
 		c.Check(info, IsNil)
 		return func() {}, err
 	}
-	c.Assert(err, IsNil)
 	c.Assert(info.URL, Equals, "local:series/wordpress-3")
 	c.Assert(info.Meta.Name, Equals, "wordpress")
 	c.Assert(info.Revision, Equals, 3)
 	return func() {}, nil
+}
+
+func opClientAddRelation(c *C, st *api.State, mst *state.State) (func(), error) {
+	_, err := st.Client().AddRelation("nosuch1", "nosuch2")
+	if api.ErrCode(err) == api.CodeNotFound {
+		err = nil
+	}
+	return func() {}, err
+}
+
+func opClientDestroyRelation(c *C, st *api.State, mst *state.State) (func(), error) {
+	err := st.Client().DestroyRelation("nosuch1", "nosuch2")
+	if api.ErrCode(err) == api.CodeNotFound {
+		err = nil
+	}
+	return func() {}, err
 }
 
 func opClientStatus(c *C, st *api.State, mst *state.State) (func(), error) {
@@ -263,7 +291,6 @@ func opClientStatus(c *C, st *api.State, mst *state.State) (func(), error) {
 		c.Check(status, IsNil)
 		return func() {}, err
 	}
-	c.Assert(err, IsNil)
 	c.Assert(status, DeepEquals, scenarioStatus)
 	return func() {}, nil
 }
@@ -302,7 +329,6 @@ func opClientServiceGet(c *C, st *api.State, mst *state.State) (func(), error) {
 	if err != nil {
 		return func() {}, err
 	}
-	c.Assert(err, IsNil)
 	return func() {}, nil
 }
 
@@ -313,8 +339,11 @@ func opClientServiceExpose(c *C, st *api.State, mst *state.State) (func(), error
 	if err != nil {
 		return func() {}, err
 	}
-	c.Assert(err, IsNil)
-	return func() {}, nil
+	return func() {
+		svc, err := mst.Service("wordpress")
+		c.Assert(err, IsNil)
+		svc.ClearExposed()
+	}, nil
 }
 
 func opClientServiceUnexpose(c *C, st *api.State, mst *state.State) (func(), error) {
@@ -324,7 +353,6 @@ func opClientServiceUnexpose(c *C, st *api.State, mst *state.State) (func(), err
 	if err != nil {
 		return func() {}, err
 	}
-	c.Assert(err, IsNil)
 	return func() {}, nil
 }
 
@@ -351,19 +379,19 @@ func opClientGetAnnotations(c *C, st *api.State, mst *state.State) (func(), erro
 	if err != nil {
 		return func() {}, err
 	}
-	c.Assert(err, IsNil)
 	c.Assert(ann, DeepEquals, make(map[string]string))
 	return func() {}, nil
 }
 
-func opClientSetAnnotation(c *C, st *api.State, mst *state.State) (func(), error) {
-	err := st.Client().SetAnnotation("service-wordpress", "key", "value")
+func opClientSetAnnotations(c *C, st *api.State, mst *state.State) (func(), error) {
+	pairs := map[string]string{"key1": "value1", "key2": "value2"}
+	err := st.Client().SetAnnotations("service-wordpress", pairs)
 	if err != nil {
 		return func() {}, err
 	}
-	c.Assert(err, IsNil)
 	return func() {
-		st.Client().SetAnnotation("service-wordpress", "key", "")
+		pairs := map[string]string{"key1": "", "key2": ""}
+		st.Client().SetAnnotations("service-wordpress", pairs)
 	}, nil
 }
 
@@ -380,7 +408,7 @@ func opClientServiceDeploy(c *C, st *api.State, mst *state.State) (func(), error
 	originalServerCharmStore := apiserver.CharmStore
 	apiserver.CharmStore = repo
 
-	err = st.Client().ServiceDeploy(charmUrl, serviceName, 1, "")
+	err = st.Client().ServiceDeploy(charmUrl, serviceName, 1, "", constraints.Value{})
 	if err != nil {
 		return func() {}, err
 	}
@@ -393,40 +421,39 @@ func opClientServiceDeploy(c *C, st *api.State, mst *state.State) (func(), error
 }
 
 func opClientAddServiceUnits(c *C, st *api.State, mst *state.State) (func(), error) {
-	// This test only checks that the call is made without error, ensuring the
-	// signatures match.
-	err := st.Client().AddServiceUnits("wordpress", 1)
-	if err != nil {
-		return func() {}, err
+	err := st.Client().AddServiceUnits("nosuch", 1)
+	if api.ErrCode(err) == api.CodeNotFound {
+		err = nil
 	}
-	c.Assert(err, IsNil)
-	return func() {}, nil
+	return func() {}, err
 }
 
 func opClientDestroyServiceUnits(c *C, st *api.State, mst *state.State) (func(), error) {
-	err := statecmd.AddServiceUnits(mst, params.AddServiceUnits{"wordpress", 1})
-	if err != nil {
-		return func() {}, err
+	err := st.Client().DestroyServiceUnits([]string{"wordpress/99"})
+	if err != nil && strings.HasPrefix(err.Error(), "no units were destroyed") {
+		err = nil
 	}
-	newUnitName := []string{"wordpress/1"}
-	err = st.Client().DestroyServiceUnits(newUnitName)
-	if err != nil {
-		return func() {
-			_ = statecmd.DestroyServiceUnits(mst, params.DestroyServiceUnits{newUnitName})
-		}, err
-	}
-	c.Assert(err, IsNil)
 	return func() {}, err
 }
 
 func opClientServiceDestroy(c *C, st *api.State, mst *state.State) (func(), error) {
 	// This test only checks that the call is made without error, ensuring the
 	// signatures match.
-	err := st.Client().ServiceDestroy("wordpress")
+	err := st.Client().ServiceDestroy("non-existent")
+	if api.ErrCode(err) == api.CodeNotFound {
+		err = nil
+	}
+	return func() {}, err
+}
+
+func opClientSetServiceConstraints(c *C, st *api.State, mst *state.State) (func(), error) {
+	// This test only checks that the call is made without error, ensuring the
+	// signatures match.
+	nullConstraints := constraints.Value{}
+	err := st.Client().SetServiceConstraints("wordpress", nullConstraints)
 	if err != nil {
 		return func() {}, err
 	}
-	c.Assert(err, IsNil)
 	return func() {}, nil
 }
 
@@ -490,8 +517,8 @@ var scenarioStatus = &api.Status{
 // environment manager (bootstrap machine), so is
 // hopefully easier to remember as such.
 func (s *suite) setUpScenario(c *C) (entities []string) {
-	add := func(e state.Entity) {
-		entities = append(entities, e.EntityName())
+	add := func(e state.Tagger) {
+		entities = append(entities, e.Tag())
 	}
 	u, err := s.State.User("admin")
 	c.Assert(err, IsNil)
@@ -505,11 +532,14 @@ func (s *suite) setUpScenario(c *C) (entities []string) {
 
 	m, err := s.State.AddMachine("series", state.JobManageEnviron)
 	c.Assert(err, IsNil)
-	c.Assert(m.EntityName(), Equals, "machine-0")
-	err = m.SetInstanceId(state.InstanceId("i-" + m.EntityName()))
+	c.Assert(m.Tag(), Equals, "machine-0")
+	err = m.SetInstanceId(state.InstanceId("i-" + m.Tag()))
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, m)
 	add(m)
+
+	_, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
+	c.Assert(err, IsNil)
 
 	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
@@ -525,14 +555,14 @@ func (s *suite) setUpScenario(c *C) (entities []string) {
 	for i := 0; i < 2; i++ {
 		wu, err := wordpress.AddUnit()
 		c.Assert(err, IsNil)
-		c.Assert(wu.EntityName(), Equals, fmt.Sprintf("unit-wordpress-%d", i))
+		c.Assert(wu.Tag(), Equals, fmt.Sprintf("unit-wordpress-%d", i))
 		setDefaultPassword(c, wu)
 		add(wu)
 
 		m, err := s.State.AddMachine("series", state.JobHostUnits)
 		c.Assert(err, IsNil)
-		c.Assert(m.EntityName(), Equals, fmt.Sprintf("machine-%d", i+1))
-		err = m.SetInstanceId(state.InstanceId("i-" + m.EntityName()))
+		c.Assert(m.Tag(), Equals, fmt.Sprintf("machine-%d", i+1))
+		err = m.SetInstanceId(state.InstanceId("i-" + m.Tag()))
 		c.Assert(err, IsNil)
 		setDefaultPassword(c, m)
 		add(m)
@@ -540,7 +570,7 @@ func (s *suite) setUpScenario(c *C) (entities []string) {
 		err = wu.AssignToMachine(m)
 		c.Assert(err, IsNil)
 
-		deployer, ok := wu.DeployerName()
+		deployer, ok := wu.DeployerTag()
 		c.Assert(ok, Equals, true)
 		c.Assert(deployer, Equals, fmt.Sprintf("machine-%d", i+1))
 
@@ -555,7 +585,7 @@ func (s *suite) setUpScenario(c *C) (entities []string) {
 		lu, err := s.State.Unit(fmt.Sprintf("logging/%d", i))
 		c.Assert(err, IsNil)
 		c.Assert(lu.IsPrincipal(), Equals, false)
-		deployer, ok = lu.DeployerName()
+		deployer, ok = lu.DeployerTag()
 		c.Assert(ok, Equals, true)
 		c.Assert(deployer, Equals, fmt.Sprintf("unit-wordpress-%d", i))
 		setDefaultPassword(c, lu)
@@ -564,48 +594,46 @@ func (s *suite) setUpScenario(c *C) (entities []string) {
 	return
 }
 
-// AuthEntity is the same as state.Entity but
-// without PasswordValid and annotations handling
-// which are implemented by state entities but not
-// by api entities.
-type AuthEntity interface {
-	EntityName() string
-	SetPassword(pass string) error
-	Refresh() error
+// apiAuthenticator represents a simple authenticator object with only the
+// SetPassword and Tag methods.  This will fit types from both the state
+// and api packages, as those in the api package do not have PasswordValid().
+type apiAuthenticator interface {
+	state.Tagger
+	SetPassword(string) error
 }
 
-func setDefaultPassword(c *C, e AuthEntity) {
-	err := e.SetPassword(e.EntityName() + " password")
+func setDefaultPassword(c *C, e apiAuthenticator) {
+	err := e.SetPassword(e.Tag() + " password")
 	c.Assert(err, IsNil)
 }
 
 var badLoginTests = []struct {
-	entityName string
-	password   string
-	err        string
-	code       string
+	tag      string
+	password string
+	err      string
+	code     string
 }{{
-	entityName: "user-admin",
-	password:   "wrong password",
-	err:        "invalid entity name or password",
-	code:       api.CodeUnauthorized,
+	tag:      "user-admin",
+	password: "wrong password",
+	err:      "invalid entity name or password",
+	code:     api.CodeUnauthorized,
 }, {
-	entityName: "user-foo",
-	password:   "password",
-	err:        "invalid entity name or password",
-	code:       api.CodeUnauthorized,
+	tag:      "user-foo",
+	password: "password",
+	err:      "invalid entity name or password",
+	code:     api.CodeUnauthorized,
 }, {
-	entityName: "bar",
-	password:   "password",
-	err:        `invalid entity name "bar"`,
+	tag:      "bar",
+	password: "password",
+	err:      `invalid entity tag "bar"`,
 }}
 
 func (s *suite) TestBadLogin(c *C) {
 	_, info, err := s.APIConn.Environ.StateInfo()
 	c.Assert(err, IsNil)
 	for i, t := range badLoginTests {
-		c.Logf("test %d; entity %q; password %q", i, t.entityName, t.password)
-		info.EntityName = ""
+		c.Logf("test %d; entity %q; password %q", i, t.tag, t.password)
+		info.Tag = ""
 		info.Password = ""
 		func() {
 			st, err := api.Open(info)
@@ -620,7 +648,7 @@ func (s *suite) TestBadLogin(c *C) {
 			c.Assert(err, ErrorMatches, "not logged in")
 			c.Assert(api.ErrCode(err), Equals, api.CodeUnauthorized)
 
-			err = st.Login(t.entityName, t.password)
+			err = st.Login(t.tag, t.password)
 			c.Assert(err, ErrorMatches, t.err)
 			c.Assert(api.ErrCode(err), Equals, t.code)
 
@@ -715,6 +743,7 @@ func (s *suite) TestClientEnvironmentInfo(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(info.DefaultSeries, Equals, conf.DefaultSeries())
 	c.Assert(info.ProviderType, Equals, conf.Type())
+	c.Assert(info.Name, Equals, conf.Name())
 }
 
 var clientAnnotationsTests = []struct {
@@ -743,7 +772,7 @@ var clientAnnotationsTests = []struct {
 	{
 		about: "test setting an invalid annotation",
 		input: map[string]string{"invalid.key": "myvalue"},
-		err:   `invalid key "invalid.key"`,
+		err:   `cannot update annotations on .*: invalid key "invalid.key"`,
 	},
 }
 
@@ -755,51 +784,47 @@ func (s *suite) TestClientAnnotations(c *C) {
 	c.Assert(err, IsNil)
 	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	entities := []state.Entity{service, unit, machine}
+	environment, err := s.State.Environment()
+	c.Assert(err, IsNil)
+	entities := []state.TaggedAnnotator{service, unit, machine, environment}
 	for i, t := range clientAnnotationsTests {
-	loop:
 		for _, entity := range entities {
-			id := entity.EntityName()
+			id := entity.Tag()
 			c.Logf("test %d. %s. entity %s", i, t.about, id)
 			// Set initial entity annotations.
-			for key, value := range t.initial {
-				err := entity.SetAnnotation(key, value)
-				c.Assert(err, IsNil)
-			}
+			err := entity.SetAnnotations(t.initial)
+			c.Assert(err, IsNil)
 			// Add annotations using the API call.
-			for key, value := range t.input {
-				err := s.APIState.Client().SetAnnotation(id, key, value)
-				if t.err != "" {
-					c.Assert(err, ErrorMatches, t.err)
-					continue loop
-				}
-				c.Assert(err, IsNil)
+			err = s.APIState.Client().SetAnnotations(id, t.input)
+			if t.err != "" {
+				c.Assert(err, ErrorMatches, t.err)
+				continue
 			}
 			// Check annotations are correctly set.
-			err := entity.Refresh()
+			dbann, err := entity.Annotations()
 			c.Assert(err, IsNil)
-			c.Assert(entity.Annotations(), DeepEquals, t.expected)
+			c.Assert(dbann, DeepEquals, t.expected)
 			// Retrieve annotations using the API call.
 			ann, err := s.APIState.Client().GetAnnotations(id)
 			c.Assert(err, IsNil)
 			// Check annotations are correctly returned.
-			err = entity.Refresh()
-			c.Assert(err, IsNil)
-			c.Assert(ann, DeepEquals, entity.Annotations())
+			c.Assert(ann, DeepEquals, dbann)
 			// Clean up annotations on the current entity.
-			for key := range entity.Annotations() {
-				err = entity.SetAnnotation(key, "")
-				c.Assert(err, IsNil)
+			cleanup := make(map[string]string)
+			for key := range dbann {
+				cleanup[key] = ""
 			}
+			err = entity.SetAnnotations(cleanup)
+			c.Assert(err, IsNil)
 		}
 	}
 }
 
 func (s *suite) TestClientAnnotationsBadEntity(c *C) {
 	bad := []string{"", "machine", "-foo", "foo-", "---", "machine-jim", "unit-123", "unit-foo", "service-", "service-foo/bar"}
-	expected := `invalid entity name ".*"`
+	expected := `invalid entity tag ".*"`
 	for _, id := range bad {
-		err := s.APIState.Client().SetAnnotation(id, "mykey", "myvalue")
+		err := s.APIState.Client().SetAnnotations(id, map[string]string{"mykey": "myvalue"})
 		c.Assert(err, ErrorMatches, expected)
 		_, err = s.APIState.Client().GetAnnotations(id)
 		c.Assert(err, ErrorMatches, expected)
@@ -817,7 +842,7 @@ func (s *suite) TestMachineLogin(c *C) {
 	_, info, err := s.APIConn.Environ.StateInfo()
 	c.Assert(err, IsNil)
 
-	info.EntityName = stm.EntityName()
+	info.Tag = stm.Tag()
 	info.Password = "machine-password"
 
 	st, err := api.Open(info)
@@ -844,7 +869,7 @@ func (s *suite) TestMachineInstanceId(c *C) {
 	c.Assert(m, IsNil)
 
 	// ... so login as the machine.
-	st := s.openAs(c, stm.EntityName())
+	st := s.openAs(c, stm.Tag())
 	defer st.Close()
 
 	m, err = st.Machine(stm.Id())
@@ -876,7 +901,7 @@ func (s *suite) TestMachineRefresh(c *C) {
 	err = stm.SetInstanceId("foo")
 	c.Assert(err, IsNil)
 
-	st := s.openAs(c, stm.EntityName())
+	st := s.openAs(c, stm.Tag())
 	defer st.Close()
 	m, err := st.Machine(stm.Id())
 	c.Assert(err, IsNil)
@@ -905,7 +930,7 @@ func (s *suite) TestMachineSetPassword(c *C) {
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, stm)
 
-	st := s.openAs(c, stm.EntityName())
+	st := s.openAs(c, stm.Tag())
 	defer st.Close()
 	m, err := st.Machine(stm.Id())
 	c.Assert(err, IsNil)
@@ -918,8 +943,8 @@ func (s *suite) TestMachineSetPassword(c *C) {
 	c.Assert(stm.PasswordValid("foo"), Equals, true)
 }
 
-func (s *suite) TestMachineEntityName(c *C) {
-	c.Assert(api.MachineEntityName("2"), Equals, "machine-2")
+func (s *suite) TestMachineTag(c *C) {
+	c.Assert(api.MachineTag("2"), Equals, "machine-2")
 
 	stm, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
@@ -928,7 +953,7 @@ func (s *suite) TestMachineEntityName(c *C) {
 	defer st.Close()
 	m, err := st.Machine("0")
 	c.Assert(err, IsNil)
-	c.Assert(m.EntityName(), Equals, "machine-0")
+	c.Assert(m.Tag(), Equals, "machine-0")
 }
 
 func (s *suite) TestMachineWatch(c *C) {
@@ -936,7 +961,7 @@ func (s *suite) TestMachineWatch(c *C) {
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, stm)
 
-	st := s.openAs(c, stm.EntityName())
+	st := s.openAs(c, stm.Tag())
 	defer st.Close()
 	m, err := st.Machine(stm.Id())
 	c.Assert(err, IsNil)
@@ -994,10 +1019,10 @@ func (s *suite) TestServerStopsOutstandingWatchMethod(c *C) {
 	// Note we can't use openAs because we're
 	// not connecting to s.APIConn.
 	st, err := api.Open(&api.Info{
-		EntityName: stm.EntityName(),
-		Password:   "password",
-		Addrs:      []string{srv.Addr()},
-		CACert:     []byte(coretesting.CACert),
+		Tag:      stm.Tag(),
+		Password: "password",
+		Addrs:    []string{srv.Addr()},
+		CACert:   []byte(coretesting.CACert),
 	})
 	c.Assert(err, IsNil)
 	defer st.Close()
@@ -1044,7 +1069,7 @@ func (s *suite) TestUnitRefresh(c *C) {
 	u, err := st.Unit("wordpress/0")
 	c.Assert(err, IsNil)
 
-	deployer, ok := u.DeployerName()
+	deployer, ok := u.DeployerTag()
 	c.Assert(ok, Equals, true)
 	c.Assert(deployer, Equals, "machine-1")
 
@@ -1053,14 +1078,14 @@ func (s *suite) TestUnitRefresh(c *C) {
 	err = stu.UnassignFromMachine()
 	c.Assert(err, IsNil)
 
-	deployer, ok = u.DeployerName()
+	deployer, ok = u.DeployerTag()
 	c.Assert(ok, Equals, true)
 	c.Assert(deployer, Equals, "machine-1")
 
 	err = u.Refresh()
 	c.Assert(err, IsNil)
 
-	deployer, ok = u.DeployerName()
+	deployer, ok = u.DeployerTag()
 	c.Assert(ok, Equals, false)
 	c.Assert(deployer, Equals, "")
 }
@@ -1069,7 +1094,7 @@ func (s *suite) TestErrors(c *C) {
 	stm, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, stm)
-	st := s.openAs(c, stm.EntityName())
+	st := s.openAs(c, stm.Tag())
 	defer st.Close()
 	// By testing this single call, we test that the
 	// error transformation function is correctly called
@@ -1138,15 +1163,15 @@ func (s *suite) TestErrorTransform(c *C) {
 	}
 }
 
-func (s *suite) TestUnitEntityName(c *C) {
-	c.Assert(api.UnitEntityName("wordpress/2"), Equals, "unit-wordpress-2")
+func (s *suite) TestUnitTag(c *C) {
+	c.Assert(api.UnitTag("wordpress/2"), Equals, "unit-wordpress-2")
 
 	s.setUpScenario(c)
 	st := s.openAs(c, "unit-wordpress-0")
 	defer st.Close()
 	u, err := st.Unit("wordpress/0")
 	c.Assert(err, IsNil)
-	c.Assert(u.EntityName(), Equals, "unit-wordpress-0")
+	c.Assert(u.Tag(), Equals, "unit-wordpress-0")
 }
 
 func (s *suite) TestStop(c *C) {
@@ -1165,10 +1190,10 @@ func (s *suite) TestStop(c *C) {
 	// Note we can't use openAs because we're
 	// not connecting to s.APIConn.
 	st, err := api.Open(&api.Info{
-		EntityName: stm.EntityName(),
-		Password:   "password",
-		Addrs:      []string{srv.Addr()},
-		CACert:     []byte(coretesting.CACert),
+		Tag:      stm.Tag(),
+		Password: "password",
+		Addrs:    []string{srv.Addr()},
+		CACert:   []byte(coretesting.CACert),
 	})
 	c.Assert(err, IsNil)
 	defer st.Close()
@@ -1254,7 +1279,7 @@ func (s *suite) TestClientUnitResolved(c *C) {
 	s.setUpScenario(c)
 	u, err := s.State.Unit("wordpress/0")
 	c.Assert(err, IsNil)
-	err = u.SetStatus(state.UnitError, "gaaah")
+	err = u.SetStatus(params.UnitError, "gaaah")
 	c.Assert(err, IsNil)
 	// Code under test:
 	err = s.APIState.Client().Resolved("wordpress/0", false)
@@ -1265,7 +1290,7 @@ func (s *suite) TestClientUnitResolved(c *C) {
 	// And now the actual test assertions: we set the unit as resolved via
 	// the API so it should have a resolved mode set.
 	mode := u.Resolved()
-	c.Assert(mode, Equals, state.ResolvedNoHooks)
+	c.Assert(mode, Equals, params.ResolvedNoHooks)
 }
 
 var serviceDeployTests = []struct {
@@ -1274,17 +1299,20 @@ var serviceDeployTests = []struct {
 	charmUrl         string
 	numUnits         int
 	expectedNumUnits int
+	constraints      constraints.Value
 }{{
 	about:            "Normal deploy",
 	serviceName:      "mywordpress",
 	charmUrl:         "local:series/wordpress",
 	expectedNumUnits: 1,
+	constraints:      constraints.MustParse("mem=1G"),
 }, {
 	about:            "Two units",
 	serviceName:      "mywordpress",
 	charmUrl:         "local:series/wordpress",
 	numUnits:         2,
 	expectedNumUnits: 2,
+	constraints:      constraints.MustParse("mem=4G"),
 },
 }
 
@@ -1294,31 +1322,103 @@ func (s *suite) TestClientServiceDeploy(c *C) {
 	for i, test := range serviceDeployTests {
 		c.Logf("test %d; %s", i, test.about)
 		parsedUrl := charm.MustParseURL(test.charmUrl)
-		localRepo, err := charm.InferRepository(parsedUrl,
-			coretesting.Charms.Path)
-		// Monkey-patch server repository.
-		originalServerCharmStore := apiserver.CharmStore
-		apiserver.CharmStore = localRepo
-		_, err = s.State.Service(test.serviceName)
-		c.Assert(err, NotNil)
-		err = s.APIState.Client().ServiceDeploy(
-			test.charmUrl, test.serviceName, test.numUnits, "")
+		localRepo, err := charm.InferRepository(parsedUrl, coretesting.Charms.Path)
 		c.Assert(err, IsNil)
-		service, err := s.State.Service(test.serviceName)
-		c.Assert(err, IsNil)
-		units, err := service.AllUnits()
-		c.Assert(err, IsNil)
-		c.Assert(units, HasLen, test.expectedNumUnits)
-		// Clean up.
-		removeServiceAndUnits(c, service)
-		// Restore server repository.
-		apiserver.CharmStore = originalServerCharmStore
+		withRepo(localRepo, func() {
+			_, err = s.State.Service(test.serviceName)
+			c.Assert(state.IsNotFound(err), Equals, true)
+			err = s.APIState.Client().ServiceDeploy(
+				test.charmUrl, test.serviceName, test.numUnits, "", test.constraints,
+			)
+			c.Assert(err, IsNil)
+
+			service, err := s.State.Service(test.serviceName)
+			c.Assert(err, IsNil)
+			defer removeServiceAndUnits(c, service)
+			scons, err := service.Constraints()
+			c.Assert(err, IsNil)
+			c.Assert(scons, DeepEquals, test.constraints)
+
+			units, err := service.AllUnits()
+			c.Assert(err, IsNil)
+			c.Assert(units, HasLen, test.expectedNumUnits)
+			for _, unit := range units {
+				mid, err := unit.AssignedMachineId()
+				c.Assert(err, IsNil)
+				machine, err := s.State.Machine(mid)
+				c.Assert(err, IsNil)
+				mcons, err := machine.Constraints()
+				c.Assert(err, IsNil)
+				c.Assert(mcons, DeepEquals, test.constraints)
+			}
+		})
 	}
 }
 
-// This test will be thrown away, at least in part, once the stub code in
-// state/megawatcher.go is implemented.
+func withRepo(repo charm.Repository, f func()) {
+	// Monkey-patch server repository.
+	originalServerCharmStore := apiserver.CharmStore
+	apiserver.CharmStore = repo
+	defer func() {
+		apiserver.CharmStore = originalServerCharmStore
+	}()
+	f()
+}
+
+func (s *suite) TestSuccessfulAddRelation(c *C) {
+	s.setUpScenario(c)
+	endpoints := []string{"wordpress", "mysql"}
+	res, err := s.APIState.Client().AddRelation(endpoints...)
+	c.Assert(err, IsNil)
+	c.Assert(res.Endpoints["wordpress"].Name, Equals, "db")
+	c.Assert(res.Endpoints["wordpress"].Interface, Equals, "mysql")
+	c.Assert(res.Endpoints["wordpress"].Scope, Equals, charm.RelationScope("global"))
+	c.Assert(res.Endpoints["mysql"].Name, Equals, "server")
+	c.Assert(res.Endpoints["mysql"].Interface, Equals, "mysql")
+	c.Assert(res.Endpoints["mysql"].Scope, Equals, charm.RelationScope("global"))
+	for _, endpoint := range endpoints {
+		svc, err := s.State.Service(endpoint)
+		c.Assert(err, IsNil)
+		rels, err := svc.Relations()
+		c.Assert(err, IsNil)
+		for _, rel := range rels {
+			c.Assert(rel.Life(), Equals, state.Alive)
+		}
+	}
+}
+
+func (s *suite) TestSuccessfulDestroyRelation(c *C) {
+	s.setUpScenario(c)
+	endpoints := []string{"wordpress", "logging"}
+	err := s.APIState.Client().DestroyRelation(endpoints...)
+	c.Assert(err, IsNil)
+	for _, endpoint := range endpoints {
+		service, err := s.State.Service(endpoint)
+		c.Assert(err, IsNil)
+		rels, err := service.Relations()
+		c.Assert(err, IsNil)
+		// When relations are destroyed they don't go away immediately but
+		// instead are set to 'Dying', due to references held by the user
+		// agent.
+		for _, rel := range rels {
+			c.Assert(rel.Life(), Equals, state.Dying)
+		}
+	}
+}
+
+func (s *suite) TestNoRelation(c *C) {
+	s.setUpScenario(c)
+	err := s.APIState.Client().DestroyRelation("wordpress", "mysql")
+	c.Assert(err, ErrorMatches, `relation "wordpress:db mysql:server" not found`)
+}
+
 func (s *suite) TestClientWatchAll(c *C) {
+	// A very simple end-to-end test, because
+	// all the logic is tested elsewhere.
+	m, err := s.State.AddMachine("series", state.JobManageEnviron)
+	c.Assert(err, IsNil)
+	err = m.SetInstanceId("i-0")
+	c.Assert(err, IsNil)
 	watcher, err := s.APIState.Client().WatchAll()
 	c.Assert(err, IsNil)
 	defer func() {
@@ -1327,19 +1427,22 @@ func (s *suite) TestClientWatchAll(c *C) {
 	}()
 	deltas, err := watcher.Next()
 	c.Assert(err, IsNil)
-	// This is the part that most clearly is tied to the fact that we are
-	// testing a stub.
-	c.Assert(deltas, DeepEquals, state.StubNextDelta)
+	c.Assert(deltas, DeepEquals, []params.Delta{{
+		Entity: &params.MachineInfo{
+			Id:         m.Id(),
+			InstanceId: "i-0",
+		},
+	}})
 }
 
 // openAs connects to the API state as the given entity
 // with the default password for that entity.
-func (s *suite) openAs(c *C, entityName string) *api.State {
+func (s *suite) openAs(c *C, tag string) *api.State {
 	_, info, err := s.APIConn.Environ.StateInfo()
 	c.Assert(err, IsNil)
-	info.EntityName = entityName
-	info.Password = fmt.Sprintf("%s password", entityName)
-	c.Logf("opening state; entity %q; password %q", info.EntityName, info.Password)
+	info.Tag = tag
+	info.Password = fmt.Sprintf("%s password", tag)
+	c.Logf("opening state; entity %q; password %q", info.Tag, info.Password)
 	st, err := api.Open(info)
 	c.Assert(err, IsNil)
 	c.Assert(st, NotNil)

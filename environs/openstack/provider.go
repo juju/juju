@@ -12,12 +12,14 @@ import (
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
 	"net/http"
@@ -347,7 +349,7 @@ func (inst *instance) WaitDNSName() (string, error) {
 
 // TODO: following 30 lines nearly verbatim from environs/ec2
 
-func (inst *instance) OpenPorts(machineId string, ports []state.Port) error {
+func (inst *instance) OpenPorts(machineId string, ports []params.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for opening ports on instance: %q",
 			inst.e.Config().FirewallMode())
@@ -360,7 +362,7 @@ func (inst *instance) OpenPorts(machineId string, ports []state.Port) error {
 	return nil
 }
 
-func (inst *instance) ClosePorts(machineId string, ports []state.Port) error {
+func (inst *instance) ClosePorts(machineId string, ports []params.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for closing ports on instance: %q",
 			inst.e.Config().FirewallMode())
@@ -373,7 +375,7 @@ func (inst *instance) ClosePorts(machineId string, ports []state.Port) error {
 	return nil
 }
 
-func (inst *instance) Ports(machineId string) ([]state.Port, error) {
+func (inst *instance) Ports(machineId string) ([]params.Port, error) {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from instance: %q",
 			inst.e.Config().FirewallMode())
@@ -416,7 +418,18 @@ func (e *environ) PublicStorage() environs.StorageReader {
 	return e.publicStorageUnlocked
 }
 
-func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
+// TODO(thumper): this code is duplicated in ec2 and openstack.  Ideally we
+// should refactor the tools selection criteria with the version that is in
+// environs. The constraints work will require this refactoring.
+func findTools(env *environ) (*state.Tools, error) {
+	flags := environs.HighestVersion | environs.CompatVersion
+	v := version.Current
+	v.Series = env.Config().DefaultSeries()
+	// TODO: set Arch based on constraints (when they are landed)
+	return environs.FindTools(env, v, flags)
+}
+
+func (e *environ) Bootstrap(cons constraints.Value, cert, key []byte) error {
 	password := e.Config().AdminSecret()
 	if password == "" {
 		return fmt.Errorf("admin-secret is required for bootstrap")
@@ -438,21 +451,12 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 	if _, notFound := err.(*environs.NotFoundError); !notFound {
 		return fmt.Errorf("cannot query old bootstrap state: %v", err)
 	}
-	var tools *state.Tools
-	if uploadTools {
-		tools, err = environs.PutTools(e.Storage(), nil)
-		if err != nil {
-			return fmt.Errorf("cannot upload tools: %v", err)
-		}
-	} else {
-		flags := environs.HighestVersion | environs.CompatVersion
-		v := version.Current
-		v.Series = e.Config().DefaultSeries()
-		tools, err = environs.FindTools(e, v, flags)
-		if err != nil {
-			return fmt.Errorf("cannot find tools: %v", err)
-		}
+
+	tools, err := findTools(e)
+	if err != nil {
+		return fmt.Errorf("cannot find tools: %v", err)
 	}
+
 	config, err := environs.BootstrapConfig(providerInstance, e.Config(), tools)
 	if err != nil {
 		return fmt.Errorf("unable to determine inital configuration: %v", err)
@@ -467,6 +471,7 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 	mongoURL := environs.MongoURL(e, v)
 	inst, err := e.startInstance(&startInstanceParams{
 		machineId: "0",
+		series:    tools.Series,
 		info: &state.Info{
 			Password: trivial.PasswordHash(password),
 			CACert:   caCert,
@@ -479,6 +484,7 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 		mongoURL:        mongoURL,
 		stateServer:     true,
 		config:          config,
+		constraints:     cons,
 		stateServerCert: cert,
 		stateServerKey:  key,
 		withPublicIP:    e.ecfg().useFloatingIP(),
@@ -626,24 +632,27 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (e *environ) StartInstance(machineId string, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
 	return e.startInstance(&startInstanceParams{
 		machineId:    machineId,
+		series:       series,
+		constraints:  cons,
 		info:         info,
 		apiInfo:      apiInfo,
-		tools:        tools,
 		withPublicIP: e.ecfg().useFloatingIP(),
 	})
 }
 
 type startInstanceParams struct {
 	machineId       string
+	series          string
 	info            *state.Info
 	apiInfo         *api.Info
 	tools           *state.Tools
 	mongoURL        string
 	stateServer     bool
 	config          *config.Config
+	constraints     constraints.Value
 	stateServerCert []byte
 	stateServerKey  []byte
 
@@ -667,6 +676,7 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 		MachineId:       scfg.machineId,
 		AuthorizedKeys:  e.ecfg().AuthorizedKeys(),
 		Config:          scfg.config,
+		Constraints:     scfg.constraints,
 	}
 	cloudcfg, err := cloudinit.New(cfg)
 	if err != nil {
@@ -743,18 +753,23 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 			log.Infof("environs/openstack: allocated public IP %s", publicIP.IP)
 		}
 	}
+	// TODO(fwereade): use scfg.constraints to pick instance spec before
+	// settling on tools.
 	if scfg.tools == nil {
 		var err error
 		flags := environs.HighestVersion | environs.CompatVersion
-		scfg.tools, err = environs.FindTools(e, version.Current, flags)
+		v := version.Current
+		v.Series = scfg.series
+		scfg.tools, err = environs.FindTools(e, v, flags)
 		if err != nil {
 			return nil, err
 		}
 	}
 	log.Infof("environs/openstack: starting machine %s in %q running tools version %q from %q",
 		scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
-	if strings.Contains(scfg.tools.Series, "unknown") || strings.Contains(scfg.tools.Arch, "unknown") {
-		return nil, fmt.Errorf("cannot find image for unknown series or architecture")
+	if strings.Contains(scfg.tools.Series, "unknown") {
+		// TODO(fwereade): this is somewhat crazy.
+		return nil, fmt.Errorf("cannot find image for %q", scfg.tools.Series)
 	}
 	spec, err := findInstanceSpec(e, &instanceConstraint{
 		series: scfg.tools.Series,
@@ -941,7 +956,12 @@ func (e *environ) Destroy(ensureInsts []environs.Instance) error {
 }
 
 func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
-	return state.AssignUnused
+	// Until we get proper containers to install units into, we shouldn't
+	// reuse dirty machines, as we cannot guarantee that when units were
+	// removed, it was left in a clean state.  Once we have good
+	// containerisation for the units, we should be able to have the ability
+	// to assign back to unused machines.
+	return state.AssignNew
 }
 
 func (e *environ) globalGroupName() string {
@@ -957,7 +977,7 @@ func (e *environ) jujuGroupName() string {
 }
 
 func (e *environ) machineFullName(machineId string) string {
-	return fmt.Sprintf("juju-%s-%s", e.Name(), state.MachineEntityName(machineId))
+	return fmt.Sprintf("juju-%s-%s", e.Name(), state.MachineTag(machineId))
 }
 
 // machinesFilter returns a nova.Filter matching all machines in the environment.
@@ -967,7 +987,7 @@ func (e *environ) machinesFilter() *nova.Filter {
 	return filter
 }
 
-func (e *environ) openPortsInGroup(name string, ports []state.Port) error {
+func (e *environ) openPortsInGroup(name string, ports []params.Port) error {
 	novaclient := e.nova()
 	group, err := novaclient.SecurityGroupByName(name)
 	if err != nil {
@@ -989,7 +1009,7 @@ func (e *environ) openPortsInGroup(name string, ports []state.Port) error {
 	return nil
 }
 
-func (e *environ) closePortsInGroup(name string, ports []state.Port) error {
+func (e *environ) closePortsInGroup(name string, ports []params.Port) error {
 	if len(ports) == 0 {
 		return nil
 	}
@@ -1016,14 +1036,14 @@ func (e *environ) closePortsInGroup(name string, ports []state.Port) error {
 	return nil
 }
 
-func (e *environ) portsInGroup(name string) (ports []state.Port, err error) {
+func (e *environ) portsInGroup(name string) (ports []params.Port, err error) {
 	group, err := e.nova().SecurityGroupByName(name)
 	if err != nil {
 		return nil, err
 	}
 	for _, p := range (*group).Rules {
 		for i := *p.FromPort; i <= *p.ToPort; i++ {
-			ports = append(ports, state.Port{
+			ports = append(ports, params.Port{
 				Protocol: *p.IPProtocol,
 				Number:   i,
 			})
@@ -1035,7 +1055,7 @@ func (e *environ) portsInGroup(name string) (ports []state.Port, err error) {
 
 // TODO: following 30 lines nearly verbatim from environs/ec2
 
-func (e *environ) OpenPorts(ports []state.Port) error {
+func (e *environ) OpenPorts(ports []params.Port) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode for opening ports on environment: %q",
 			e.Config().FirewallMode())
@@ -1047,7 +1067,7 @@ func (e *environ) OpenPorts(ports []state.Port) error {
 	return nil
 }
 
-func (e *environ) ClosePorts(ports []state.Port) error {
+func (e *environ) ClosePorts(ports []params.Port) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode for closing ports on environment: %q",
 			e.Config().FirewallMode())
@@ -1059,7 +1079,7 @@ func (e *environ) ClosePorts(ports []state.Port) error {
 	return nil
 }
 
-func (e *environ) Ports() ([]state.Port, error) {
+func (e *environ) Ports() ([]params.Port, error) {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from environment: %q",
 			e.Config().FirewallMode())

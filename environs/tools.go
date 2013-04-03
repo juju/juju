@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
@@ -15,7 +16,7 @@ import (
 	"strings"
 )
 
-var toolPrefix = "tools/juju-"
+const toolPrefix = "tools/juju-"
 
 // ToolsList holds a list of available tools.  Private tools take
 // precedence over public tools, even if they have a lower
@@ -23,6 +24,29 @@ var toolPrefix = "tools/juju-"
 type ToolsList struct {
 	Private []*state.Tools
 	Public  []*state.Tools
+}
+
+// UploadTools puts the tools into the environ's storage, and sets the default
+// series of the environment.
+func UploadTools(environ Environ) error {
+	tools, err := PutTools(environ.Storage(), nil)
+	if err != nil {
+		return fmt.Errorf("cannot upload tools: %v", err)
+	}
+	cfg := environ.Config()
+	m := cfg.AllAttrs()
+	// Specify the agent-version and default-series in the environment to match the tools.
+	m["agent-version"] = tools.Number.String()
+	m["default-series"] = tools.Series
+	cfg, err = config.New(m)
+	if err != nil {
+		return fmt.Errorf("cannot create environment configuration with defined version %q and series %q: %v", tools.Number.String(), tools.Series, err)
+	}
+	if err = environ.SetConfig(cfg); err != nil {
+		return fmt.Errorf("cannot set environment configuration with version %q and series %q: %v", tools.Number.String(), tools.Series, err)
+	}
+
+	return nil
 }
 
 // ListTools returns a ToolsList holding all the tools
@@ -47,12 +71,14 @@ func ListTools(env Environ, majorVersion int) (*ToolsList, error) {
 // a particular storage.
 func listTools(store StorageReader, majorVersion int) ([]*state.Tools, error) {
 	dir := fmt.Sprintf("%s%d.", toolPrefix, majorVersion)
+	log.Debugf("listing tools in dir: %s", dir)
 	names, err := store.List(dir)
 	if err != nil {
 		return nil, err
 	}
 	var toolsList []*state.Tools
 	for _, name := range names {
+		log.Debugf("looking at tools file %s", name)
 		if !strings.HasPrefix(name, toolPrefix) || !strings.HasSuffix(name, ".tgz") {
 			log.Warningf("environs: unexpected tools file found %q", name)
 			continue
@@ -69,6 +95,7 @@ func listTools(store StorageReader, majorVersion int) ([]*state.Tools, error) {
 			continue
 		}
 		t.URL, err = store.URL(name)
+		log.Debugf("tools URL is %s", t.URL)
 		if err != nil {
 			log.Warningf("environs: cannot get URL for %q: %v", name, err)
 			continue
@@ -216,7 +243,9 @@ func bestTools(toolsList []*state.Tools, vers version.Binary, flags ToolsSearchF
 	var bestTools *state.Tools
 	allowDev := vers.IsDev() || flags&DevVersion != 0
 	allowHigher := flags&HighestVersion != 0
+	log.Debugf("finding best tools for version: %v", vers)
 	for _, t := range toolsList {
+		log.Debugf("checking tools %v", t)
 		if t.Major != vers.Major ||
 			t.Series != vers.Series ||
 			t.Arch != vers.Arch ||

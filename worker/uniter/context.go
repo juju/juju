@@ -149,7 +149,8 @@ func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string)
 	logger.stop()
 	if ee, ok := err.(*exec.Error); ok && err != nil {
 		if os.IsNotExist(ee.Err) {
-			// Missing hook is perfectly valid.
+			// Missing hook is perfectly valid, but worth mentioning.
+			log.Infof("worker/uniter: skipped %q hook (not implemented)", hookName)
 			return nil
 		}
 	}
@@ -289,7 +290,7 @@ func (ctx *ContextRelation) Id() int {
 }
 
 func (ctx *ContextRelation) Name() string {
-	return ctx.ru.Endpoint().RelationName
+	return ctx.ru.Endpoint().Name
 }
 
 func (ctx *ContextRelation) FakeId() string {

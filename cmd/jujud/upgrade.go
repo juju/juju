@@ -56,7 +56,7 @@ func (e *UpgradeReadyError) ChangeAgentTools() error {
 type AgentState interface {
 	// SetAgentTools sets the tools that the agent is currently running.
 	SetAgentTools(tools *state.Tools) error
-	EntityName() string
+	Tag() string
 	SetMongoPassword(password string) error
 	Life() state.Life
 }
@@ -175,11 +175,13 @@ func (u *Upgrader) run() error {
 			}
 			binary := version.Current
 			binary.Number = vers
-
 			if tools, err := agent.ReadTools(u.dataDir, binary); err == nil {
-				// The tools have already been downloaded, so use them.
+				// The exact tools have already been downloaded, so use them.
 				return u.upgradeReady(currentTools, tools)
 			}
+
+			// Try to find the proposed tools in the environment, and fall back
+			// to the most recent version no later than the proposed.
 			flags := environs.CompatVersion
 			if cfg.Development() {
 				flags |= environs.DevVersion
@@ -200,6 +202,11 @@ func (u *Upgrader) run() error {
 				}
 				log.Warningf("cmd/jujud: upgrader cannot find exact tools match for %s; using %s instead", binary, tools.Binary)
 			}
+			if tools, err := agent.ReadTools(u.dataDir, tools.Binary); err == nil {
+				// The best available tools have already been downloaded, so use them.
+				return u.upgradeReady(currentTools, tools)
+			}
+
 			log.Infof("cmd/jujud: upgrader downloading %q", tools.URL)
 			download = downloader.New(tools.URL, "")
 			downloadTools = tools
@@ -235,7 +242,7 @@ func (u *Upgrader) run() error {
 
 func (u *Upgrader) upgradeReady(old, new *state.Tools) *UpgradeReadyError {
 	return &UpgradeReadyError{
-		AgentName: u.agentState.EntityName(),
+		AgentName: u.agentState.Tag(),
 		OldTools:  old,
 		DataDir:   u.dataDir,
 		NewTools:  new,
