@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/config"
 	_ "launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/testing"
@@ -38,9 +39,9 @@ func TestRunMain(t *stdtesting.T) {
 	}
 }
 
-func badrun(c *C, exit int, cmd ...string) string {
-	args := append([]string{"-test.run", "TestRunMain", "-run-main", "--", "juju"}, cmd...)
-	ps := exec.Command(os.Args[0], args...)
+func badrun(c *C, exit int, args ...string) string {
+	localArgs := append([]string{"-test.run", "TestRunMain", "-run-main", "--", "juju"}, args...)
+	ps := exec.Command(os.Args[0], localArgs...)
 	ps.Env = append(os.Environ(), "JUJU_HOME="+config.JujuHome())
 	output, err := ps.CombinedOutput()
 	if exit != 0 {
@@ -49,15 +50,22 @@ func badrun(c *C, exit int, cmd ...string) string {
 	return string(output)
 }
 
-func deployHelpText() string {
+func helpText(command cmd.Command, name string) string {
 	buff := &bytes.Buffer{}
-	dc := &DeployCommand{}
-	info := dc.Info()
-	info.Name = "juju deploy"
+	info := command.Info()
+	info.Name = name
 	f := gnuflag.NewFlagSet(info.Name, gnuflag.ContinueOnError)
-	dc.SetFlags(f)
+	command.SetFlags(f)
 	buff.Write(info.Help(f))
 	return buff.String()
+}
+
+func deployHelpText() string {
+	return helpText(&DeployCommand{}, "juju deploy")
+}
+
+func syncToolsHelpText() string {
+	return helpText(&SyncToolsCommand{}, "juju sync-tools")
 }
 
 var runMainTests = []struct {
@@ -126,6 +134,11 @@ var runMainTests = []struct {
 		args:    []string{"--environment", "blah", "bootstrap"},
 		code:    2,
 		out:     "error: flag provided but not defined: --environment\n",
+	}, {
+		summary: "juju sync-tools registered properly",
+		args:    []string{"sync-tools", "--help"},
+		code:    0,
+		out:     syncToolsHelpText(),
 	}, {
 		summary: "check version command registered properly",
 		args:    []string{"version"},
