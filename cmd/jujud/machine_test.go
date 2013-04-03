@@ -114,7 +114,9 @@ func (s *MachineSuite) TestDyingMachine(c *C) {
 	select {
 	case err := <-done:
 		c.Assert(err, IsNil)
-	case <-time.After(3900 * time.Millisecond):
+	case <-time.After(6 * time.Second):
+		// The default state/watcher poll interval is 5 seconds.
+		// TODO(rog) allow shorter poll interval in tests.
 		c.Fatalf("timed out waiting for agent to terminate")
 	}
 	err = m.Refresh()
