@@ -8,6 +8,7 @@ import (
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/trivial"
 	"sort"
 	"strconv"
@@ -516,6 +517,7 @@ func (s *Service) addUnitOps(principalName string) (string, []txn.Op, error) {
 	if err != nil {
 		return "", nil, err
 	}
+	globalKey := unitGlobalKey(name)
 	udoc := &unitDoc{
 		Name:      name,
 		Service:   s.doc.Name,
@@ -523,17 +525,21 @@ func (s *Service) addUnitOps(principalName string) (string, []txn.Op, error) {
 		Life:      Alive,
 		Principal: principalName,
 	}
-	ops := []txn.Op{{
-		C:      s.st.units.Name,
-		Id:     name,
-		Assert: txn.DocMissing,
-		Insert: udoc,
-	}, {
-		C:      s.st.services.Name,
-		Id:     s.doc.Name,
-		Assert: isAliveDoc,
-		Update: D{{"$inc", D{{"unitcount", 1}}}},
-	}}
+	usdoc := &unitStatusDoc{params.UnitPending, ""}
+	ops := []txn.Op{
+		{
+			C:      s.st.units.Name,
+			Id:     name,
+			Assert: txn.DocMissing,
+			Insert: udoc,
+		},
+		createStatusOp(s.st, globalKey, usdoc),
+		{
+			C:      s.st.services.Name,
+			Id:     s.doc.Name,
+			Assert: isAliveDoc,
+			Update: D{{"$inc", D{{"unitcount", 1}}}},
+		}}
 	if s.doc.Subordinate {
 		ops = append(ops, txn.Op{
 			C:  s.st.units.Name,
@@ -553,7 +559,7 @@ func (s *Service) addUnitOps(principalName string) (string, []txn.Op, error) {
 			return "", nil, err
 		}
 		cons := scons.WithFallbacks(econs)
-		ops = append(ops, createConstraintsOp(s.st, unitGlobalKey(name), cons))
+		ops = append(ops, createConstraintsOp(s.st, globalKey, cons))
 	}
 	return name, ops, nil
 }
@@ -591,24 +597,24 @@ func (s *Service) removeUnitOps(u *Unit, asserts D) ([]txn.Op, error) {
 			Assert: txn.DocExists,
 			Update: D{{"$pull", D{{"subordinates", u.doc.Name}}}},
 		})
-	} else {
-		if u.doc.MachineId != "" {
-			ops = append(ops, txn.Op{
-				C:      s.st.machines.Name,
-				Id:     u.doc.MachineId,
-				Assert: txn.DocExists,
-				Update: D{{"$pull", D{{"principals", u.doc.Name}}}},
-			})
-		}
-		ops = append(ops, removeConstraintsOp(s.st, u.globalKey()))
+	} else if u.doc.MachineId != "" {
+		ops = append(ops, txn.Op{
+			C:      s.st.machines.Name,
+			Id:     u.doc.MachineId,
+			Assert: txn.DocExists,
+			Update: D{{"$pull", D{{"principals", u.doc.Name}}}},
+		})
 	}
 	ops = append(ops, txn.Op{
 		C:      s.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: asserts,
 		Remove: true,
-	})
-	ops = append(ops, removeStatusOp(s.st, u))
+	},
+		removeConstraintsOp(s.st, u.globalKey()),
+		removeStatusOp(s.st, u.globalKey()),
+		annotationRemoveOp(s.st, u.globalKey()),
+	)
 	if u.doc.CharmURL != nil {
 		decOps, err := settingsDecRefOps(s.st, s.doc.Name, u.doc.CharmURL)
 		if err != nil {
@@ -630,7 +636,7 @@ func (s *Service) removeUnitOps(u *Unit, asserts D) ([]txn.Op, error) {
 	} else {
 		svcOp.Assert = D{{"life", Dying}, {"unitcount", D{{"$gt", 1}}}}
 	}
-	return append(ops, svcOp, annotationRemoveOp(s.st, u.globalKey())), nil
+	return append(ops, svcOp), nil
 }
 
 // Unit returns the service's unit with name.

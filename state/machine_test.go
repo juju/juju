@@ -741,7 +741,7 @@ func (s *MachineSuite) TestConstraintsLifecycle(c *C) {
 	c.Assert(err, ErrorMatches, `constraints not found`)
 }
 
-func (s *MachineSuite) TestGetSetStatus(c *C) {
+func (s *MachineSuite) TestGetSetStatusWhileAlive(c *C) {
 	failPending := func() { s.machine.SetStatus(params.MachinePending, "") }
 	c.Assert(failPending, PanicMatches, "cannot set machine status to pending")
 	failError := func() { s.machine.SetStatus(params.MachineError, "") }
@@ -765,24 +765,33 @@ func (s *MachineSuite) TestGetSetStatus(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(status, Equals, params.MachineError)
 	c.Assert(info, Equals, "provisioning failed")
+}
 
-	// Try set/get as lifecycle advances; when dying is ok.
-	err = s.machine.Destroy()
+func (s *MachineSuite) TestGetSetStatusWhileNotAlive(c *C) {
+	// When Dying set/get should work.
+	err := s.machine.Destroy()
 	c.Assert(err, IsNil)
 	err = s.machine.SetStatus(params.MachineStopped, "")
 	c.Assert(err, IsNil)
+	status, info, err := s.machine.Status()
+	c.Assert(err, IsNil)
+	c.Assert(status, Equals, params.MachineStopped)
+	c.Assert(info, Equals, "")
+
+	// When Dead set should fail, but get will work.
+	err = s.machine.EnsureDead()
+	c.Assert(err, IsNil)
+	err = s.machine.SetStatus(params.MachineStarted, "not really")
+	c.Assert(err, ErrorMatches, `cannot set status of machine "0": not found or not alive`)
 	status, info, err = s.machine.Status()
 	c.Assert(err, IsNil)
 	c.Assert(status, Equals, params.MachineStopped)
 	c.Assert(info, Equals, "")
 
-	// When the machine is dead, it should fail.
-	err = s.machine.EnsureDead()
-	c.Assert(err, IsNil)
 	err = s.machine.Remove()
 	c.Assert(err, IsNil)
-	err = s.machine.SetStatus(params.MachineStarted, "")
+	err = s.machine.SetStatus(params.MachineStarted, "not really")
 	c.Assert(err, ErrorMatches, `cannot set status of machine "0": not found or not alive`)
 	_, _, err = s.machine.Status()
-	c.Assert(err, ErrorMatches, `cannot get status of machine "0": not found`)
+	c.Assert(err, ErrorMatches, "status not found")
 }

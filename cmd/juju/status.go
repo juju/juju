@@ -203,11 +203,21 @@ func processUnit(unit *state.Unit) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+	unitDead := unit.Life() == state.Dead
 	status, info, err := unit.Status()
 	if err != nil {
 		return nil, err
 	}
-	processUnitStatus(r, status, info, agentAlive, unit.Life() == state.Dead)
+	if status != params.UnitPending {
+		if !agentAlive && !unitDead {
+			// Agent should be running but it's not.
+			status = params.UnitDown
+		}
+	}
+	r["agent-state"] = status
+	if len(info) > 0 {
+		r["agent-state-info"] = info
+	}
 	return r, nil
 }
 
@@ -218,19 +228,6 @@ type versioned interface {
 func processVersion(r map[string]interface{}, v versioned) {
 	if t, err := v.AgentTools(); err == nil {
 		r["agent-version"] = t.Binary.Number.String()
-	}
-}
-
-func processUnitStatus(r map[string]interface{}, status params.UnitStatus, info string, agentAlive, unitDead bool) {
-	if status != params.UnitPending {
-		if !agentAlive && !unitDead {
-			// Agent should be running but it's not.
-			status = params.UnitDown
-		}
-	}
-	r["agent-state"] = status
-	if len(info) > 0 {
-		r["agent-state-info"] = info
 	}
 }
 

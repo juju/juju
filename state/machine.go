@@ -61,6 +61,14 @@ type machineDoc struct {
 	PasswordHash string
 }
 
+// machineStatusDoc represents the internal state of a machine status in MongoDB
+// There is an implicit _id field here, which mongo creates, which is the
+// global key of the unit which is referred to.
+type machineStatusDoc struct {
+	Status     params.MachineStatus
+	StatusInfo string
+}
+
 func newMachine(st *State, doc *machineDoc) *Machine {
 	machine := &Machine{
 		st:  st,
@@ -295,9 +303,9 @@ func (m *Machine) Remove() (err error) {
 			Assert: txn.DocExists,
 			Remove: true,
 		},
+		removeStatusOp(m.st, m.globalKey()),
 		removeConstraintsOp(m.st, m.globalKey()),
 		annotationRemoveOp(m.st, m.globalKey()),
-		removeStatusOp(m.st, m),
 	}
 	// The only abort conditions in play indicate that the machine has already
 	// been removed.
@@ -450,12 +458,7 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 // Status returns the status of the machine.
 func (m *Machine) Status() (status params.MachineStatus, info string, err error) {
 	doc := &machineStatusDoc{}
-	if err := getStatus(m.st, m, doc); IsNotFound(err) {
-		if err := m.Refresh(); IsNotFound(err) {
-			return "", "", fmt.Errorf("cannot get status of machine %q: not found", m)
-		}
-		return params.MachinePending, "", nil
-	} else if err != nil {
+	if err := getStatus(m.st, m.globalKey(), doc); err != nil {
 		return "", "", err
 	}
 	return doc.Status, doc.StatusInfo, nil
@@ -474,7 +477,7 @@ func (m *Machine) SetStatus(status params.MachineStatus, info string) error {
 		Id:     m.doc.Id,
 		Assert: notDeadDoc,
 	},
-		setStatusOp(m.st, m, doc),
+		updateStatusOp(m.st, m.globalKey(), doc),
 	}
 	if err := m.st.runner.Run(ops, "", nil); err != nil {
 		return fmt.Errorf("cannot set status of machine %q: %v", m, onAbort(err, errNotAlive))

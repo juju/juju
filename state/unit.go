@@ -59,6 +59,14 @@ type unitDoc struct {
 	PasswordHash   string
 }
 
+// unitStatusDoc represents the internal state of a unit status in MongoDB.
+// There is an implicit _id field here, which mongo creates, which is the
+// global key of the unit which is referred to.
+type unitStatusDoc struct {
+	Status     params.UnitStatus
+	StatusInfo string
+}
+
 // Unit represents the state of a service unit.
 type Unit struct {
 	st  *State
@@ -427,12 +435,7 @@ func (u *Unit) Refresh() error {
 // Status returns the status of the unit's agent.
 func (u *Unit) Status() (status params.UnitStatus, info string, err error) {
 	doc := &unitStatusDoc{}
-	if err := getStatus(u.st, u, doc); IsNotFound(err) {
-		if err := u.Refresh(); IsNotFound(err) {
-			return "", "", fmt.Errorf("cannot get status of unit %q: not found", u)
-		}
-		return params.UnitPending, "", nil
-	} else if err != nil {
+	if err := getStatus(u.st, u.globalKey(), doc); err != nil {
 		return "", "", err
 	}
 	return doc.Status, doc.StatusInfo, nil
@@ -441,7 +444,7 @@ func (u *Unit) Status() (status params.UnitStatus, info string, err error) {
 // SetStatus sets the status of the unit.
 func (u *Unit) SetStatus(status params.UnitStatus, info string) error {
 	if status == params.UnitError && info == "" {
-		panic("must set info for unit error status")
+		panic("unit error status with no info")
 	}
 	doc := &unitStatusDoc{status, info}
 	ops := []txn.Op{{
@@ -449,7 +452,7 @@ func (u *Unit) SetStatus(status params.UnitStatus, info string) error {
 		Id:     u.doc.Name,
 		Assert: notDeadDoc,
 	},
-		setStatusOp(u.st, u, doc),
+		updateStatusOp(u.st, u.globalKey(), doc),
 	}
 	err := u.st.runner.Run(ops, "", nil)
 	if err != nil {
