@@ -380,7 +380,6 @@ type entityId struct {
 	id         interface{}
 }
 
-
 // changed updates the allWatcher's idea of the current state
 // in response to the given change.
 func (b *allWatcherStateBacking) changed(all *allInfo, change watcher.Change) error {

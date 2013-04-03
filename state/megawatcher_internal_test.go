@@ -912,18 +912,18 @@ var allWatcherChangedTests = []struct {
 	expectRevno    int64
 	expectContents []entityEntry
 }{{
-	about:  "no entity",
-	setUp:  func(*C, *State) {},
-	change:      watcher.Change{
-		C: "machines",
+	about: "no entity",
+	setUp: func(*C, *State) {},
+	change: watcher.Change{
+		C:  "machines",
 		Id: "1",
 	},
 }, {
-	about:       "entity is marked as removed if it's not in backing",
-	add:         []params.EntityInfo{&params.MachineInfo{Id: "1"}},
-	setUp:       func(*C, *State) {},
-	change:      watcher.Change{
-		C: "machines",
+	about: "entity is marked as removed if it's not in backing",
+	add:   []params.EntityInfo{&params.MachineInfo{Id: "1"}},
+	setUp: func(*C, *State) {},
+	change: watcher.Change{
+		C:  "machines",
 		Id: "1",
 	},
 	expectRevno: 2,
@@ -942,8 +942,8 @@ var allWatcherChangedTests = []struct {
 		_, err := st.AddMachine("series", JobHostUnits)
 		c.Assert(err, IsNil)
 	},
-	change:      watcher.Change{
-		C: "machines",
+	change: watcher.Change{
+		C:  "machines",
 		Id: "0",
 	},
 	expectRevno: 1,
@@ -961,8 +961,8 @@ var allWatcherChangedTests = []struct {
 		err = m.SetInstanceId("i-0")
 		c.Assert(err, IsNil)
 	},
-	change:      watcher.Change{
-		C: "machines",
+	change: watcher.Change{
+		C:  "machines",
 		Id: "0",
 	},
 	expectRevno: 2,
@@ -1066,7 +1066,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *C) {
 func idForInfo(info params.EntityInfo) infoId {
 	return testEntityId{
 		kind: info.EntityKind(),
-		id:         info.EntityId(),
+		id:   info.EntityId(),
 	}
 }
 
@@ -1244,13 +1244,13 @@ func newTestBacking(initial []params.EntityInfo) *allWatcherTestBacking {
 
 type testEntityId struct {
 	kind string
-	id interface{}
+	id   interface{}
 }
 
 func (b *allWatcherTestBacking) changed(all *allInfo, change watcher.Change) error {
 	id := testEntityId{
 		kind: change.C,
-		id: change.Id,
+		id:   change.Id,
 	}
 	info, err := b.fetch(id)
 	if err == mgo.ErrNotFound {
