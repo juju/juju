@@ -368,7 +368,7 @@ func (environ *maasEnviron) obtainNode(machineId string, stateInfo *state.Info, 
 	}
 	instance := maasInstance{&node, environ}
 
-	script := fmt.Sprintf(`mkdir -p %s; echo -n %s > %s`, trivial.ShQuote(string(instance.Id())), jujuDataDir, _MAASInstanceIDFilename)
+	script := fmt.Sprintf(`mkdir -p %s; echo -n %s > %s`, jujuDataDir, trivial.ShQuote(string(instance.Id())), _MAASInstanceIDFilename)
 	userdata, err := userData(mcfg, script)
 	if err != nil {
 		msg := fmt.Errorf("could not compose userdata for bootstrap node: %v", err)
