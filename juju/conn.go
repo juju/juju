@@ -314,7 +314,11 @@ func (conn *Conn) AddUnits(svc *state.Service, n int) ([]*state.Unit, error) {
 // whether to attempt to reexecute previous failed hooks or to continue
 // as if they had succeeded before.
 func (conn *Conn) Resolved(unit *state.Unit, retryHooks bool) error {
-	if status, _ := unit.Status(); status != params.UnitError {
+	status, _, err := unit.Status()
+	if err != nil {
+		return err
+	}
+	if status != params.UnitError {
 		return fmt.Errorf("unit %q is not in an error state", unit)
 	}
 	mode := params.ResolvedNoHooks

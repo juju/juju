@@ -85,7 +85,7 @@ func (t *LiveTests) BootstrapOnce(c *C) {
 	// we could connect to (actual live tests, rather than local-only)
 	cons := constraints.MustParse("mem=2G")
 	if t.CanOpenState {
-		_, err := environs.PutTools(t.Env.Storage(), nil, "precise")
+		_, err := environs.PutTools(t.Env.Storage(), nil)
 		c.Assert(err, IsNil)
 	}
 	err := environs.Bootstrap(t.Env, cons)
@@ -409,15 +409,37 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	// Now remove the unit and its assigned machine and
 	// check that the PA removes it.
 	c.Logf("removing unit")
-	err = unit.EnsureDead()
-	c.Assert(err, IsNil)
-	err = unit.Remove()
-	c.Assert(err, IsNil)
-	err = m1.EnsureDead()
-	c.Assert(err, IsNil)
-	err = m1.Remove()
+	err = unit.Destroy()
 	c.Assert(err, IsNil)
 
+	// Wait until unit is dead
+	uwatch := unit.Watch()
+	defer uwatch.Stop()
+	for unit.Life() != state.Dead {
+		c.Logf("waiting for unit change")
+		<-uwatch.Changes()
+		err := unit.Refresh()
+		c.Logf("refreshed; err %v", err)
+		if state.IsNotFound(err) {
+			c.Logf("unit has been removed")
+			break
+		}
+		c.Assert(err, IsNil)
+	}
+	for {
+		c.Logf("destroying machine")
+		err := m1.Destroy()
+		if err == nil {
+			break
+		}
+		c.Assert(err, FitsTypeOf, &state.HasAssignedUnitsError{})
+		time.Sleep(5 * time.Second)
+		err = m1.Refresh()
+		if state.IsNotFound(err) {
+			break
+		}
+		c.Assert(err, IsNil)
+	}
 	c.Logf("waiting for instance to be removed")
 	t.assertStopInstance(c, conn.Environ, instId1)
 }
@@ -691,10 +713,12 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
 	c.Assert(err, IsNil)
 
 	dummyenv, err := environs.NewFromAttrs(map[string]interface{}{
-		"type":         "dummy",
-		"name":         "dummy storage",
-		"secret":       "pizza",
-		"state-server": false,
+		"type":           "dummy",
+		"name":           "dummy storage",
+		"secret":         "pizza",
+		"state-server":   false,
+		"ca-cert":        coretesting.CACert,
+		"ca-private-key": coretesting.CAKey,
 	})
 	c.Assert(err, IsNil)
 	defer dummyenv.Destroy(nil)

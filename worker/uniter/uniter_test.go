@@ -1206,7 +1206,8 @@ func (s waitUnit) step(c *C, ctx *context) {
 				c.Logf("want unit charm %q, got %q; still waiting", curl(s.charm), got)
 				continue
 			}
-			status, info := ctx.unit.Status()
+			status, info, err := ctx.unit.Status()
+			c.Assert(err, IsNil)
 			if status != s.status {
 				c.Logf("want unit status %q, got %q; still waiting", s.status, status)
 				continue
