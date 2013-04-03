@@ -236,11 +236,20 @@ func newState(name string, ops chan<- Operation, fwmode config.FirewallMode) *en
 // find some tools and initialise the state correctly.
 func putFakeTools(s environs.StorageWriter) {
 	log.Infof("environs/dummy: putting fake tools")
-	path := environs.ToolsStoragePath(version.Current)
+	toolsVersion := version.Current
+	path := environs.ToolsStoragePath(toolsVersion)
 	toolsContents := "tools archive, honest guv"
 	err := s.Put(path, strings.NewReader(toolsContents), int64(len(toolsContents)))
 	if err != nil {
 		panic(err)
+	}
+	if toolsVersion.Series != version.DefaultSeries() {
+		toolsVersion.Series = version.DefaultSeries()
+		path = environs.ToolsStoragePath(toolsVersion)
+		err = s.Put(path, strings.NewReader(toolsContents), int64(len(toolsContents)))
+		if err != nil {
+			panic(err)
+		}
 	}
 }
 

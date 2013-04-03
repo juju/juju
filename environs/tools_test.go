@@ -48,8 +48,8 @@ var envs *environs.Environs
 func toolsStoragePath(vers string) string {
 	return environs.ToolsStoragePath(version.Binary{
 		Number: version.MustParse(vers),
-		Series: version.Current.Series,
-		Arch:   version.Current.Arch,
+		Series: version.CurrentSeries(),
+		Arch:   version.CurrentArch(),
 	})
 }
 
@@ -88,8 +88,8 @@ func (t *ToolsSuite) TestUploadTools(c *C) {
 	err = environs.UploadTools(env)
 	c.Assert(err, IsNil)
 
-	c.Assert(env.Config().AgentVersion(), Equals, version.Current.Number)
-	c.Assert(env.Config().DefaultSeries(), Equals, version.Current.Series)
+	c.Assert(env.Config().AgentVersion(), Equals, version.VersionNumber())
+	c.Assert(env.Config().DefaultSeries(), Equals, version.CurrentSeries())
 }
 
 func (t *ToolsSuite) TestPutGetTools(c *C) {
@@ -222,7 +222,7 @@ var findToolsTests = []struct {
 	err            string   // the error we expect to find (if not blank).
 }{{
 	summary:  "current version should be satisfied by current tools path",
-	version:  version.Current.Number,
+	version:  version.VersionNumber(),
 	flags:    environs.CompatVersion,
 	contents: []string{environs.ToolsStoragePath(version.Current)},
 	expect:   environs.ToolsStoragePath(version.Current),
@@ -266,11 +266,11 @@ var findToolsTests = []struct {
 		environs.ToolsStoragePath(version.Binary{
 			Number: version.MustParse("1.9.9"),
 			Series: "foo",
-			Arch:   version.Current.Arch,
+			Arch:   version.CurrentArch(),
 		}),
 		environs.ToolsStoragePath(version.Binary{
 			Number: version.MustParse("1.9.9"),
-			Series: version.Current.Series,
+			Series: version.CurrentSeries(),
 			Arch:   "foo",
 		}),
 		toolsStoragePath("1.0.0"),

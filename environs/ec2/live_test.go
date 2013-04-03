@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
@@ -79,7 +80,7 @@ func (t *LiveTests) SetUpSuite(c *C) {
 	// Put some fake tools in place so that tests that are simply
 	// starting instances without any need to check if those instances
 	// are running will find them in the public bucket.
-	putFakeTools(c, t.writablePublicStorage)
+	envtesting.PutFakeTools(c, t.writablePublicStorage)
 	t.LiveTests.SetUpSuite(c)
 }
 
@@ -125,7 +126,7 @@ func (t *LiveTests) TestInstanceAttributes(c *C) {
 
 func (t *LiveTests) TestStartInstanceConstraints(c *C) {
 	cons := constraints.MustParse("mem=2G")
-	inst, err := t.Env.StartInstance("31", version.Current.Series, cons, testing.InvalidStateInfo("31"), testing.InvalidAPIInfo("31"))
+	inst, err := t.Env.StartInstance("31", version.DefaultSeries(), cons, testing.InvalidStateInfo("31"), testing.InvalidAPIInfo("31"))
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst})
 	ec2inst := ec2.InstanceEC2(inst)

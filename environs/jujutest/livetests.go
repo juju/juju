@@ -336,7 +336,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	// bootstrap process (it's optional in the config.Config)
 	cfg, err := conn.State.EnvironConfig()
 	c.Assert(err, IsNil)
-	c.Check(cfg.AgentVersion(), Equals, version.Current.Number)
+	c.Check(cfg.AgentVersion(), Equals, version.VersionNumber())
 
 	// Check that the constraints have been set in the environment.
 	cons, err := conn.State.EnvironConstraints()

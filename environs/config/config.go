@@ -71,7 +71,7 @@ func New(attrs map[string]interface{}) (*Config, error) {
 	}
 
 	if c.m["default-series"].(string) == "" {
-		c.m["default-series"] = version.Current.Series
+		c.m["default-series"] = version.DefaultSeries()
 	}
 
 	// Load authorized-keys-path into authorized-keys if necessary.
@@ -112,7 +112,7 @@ func New(attrs map[string]interface{}) (*Config, error) {
 			return nil, fmt.Errorf("invalid agent version in environment configuration: %q", v)
 		}
 	} else {
-		c.m["agent-version"] = version.Current.Number.String()
+		c.m["agent-version"] = version.Version()
 	}
 
 	// Check firewall mode.
@@ -294,7 +294,7 @@ var fields = schema.Fields{
 }
 
 var defaults = schema.Defaults{
-	"default-series":            version.Current.Series,
+	"default-series":            version.DefaultSeries(),
 	"authorized-keys":           "",
 	"authorized-keys-path":      "",
 	"firewall-mode":             FwDefault,
