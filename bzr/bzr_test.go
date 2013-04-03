@@ -8,14 +8,13 @@ import (
 	"testing"
 )
 
-
 func Test(t *testing.T) {
 	TestingT(t)
 }
 
 var _ = Suite(&BzrSuite{})
 
-type BzrSuite struct{
+type BzrSuite struct {
 	b *bzr.Branch
 }
 
@@ -74,7 +73,7 @@ func (s *BzrSuite) TestCommit(c *C) {
 	cmd := exec.Command("bzr", "log", "--long", "-v", s.b.Location())
 	output, err := cmd.CombinedOutput()
 	c.Assert(err, IsNil)
-	c.Assert(string(output), Matches, "(?s).*revision-id: " + revid + "\n.*message:\n.*my log message\n.*added:\n.*myfile .*")
+	c.Assert(string(output), Matches, "(?s).*revision-id: "+revid+"\n.*message:\n.*my log message\n.*added:\n.*myfile .*")
 }
 
 func (s *BzrSuite) TestPush(c *C) {
