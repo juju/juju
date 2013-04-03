@@ -61,9 +61,10 @@ type machineDoc struct {
 	PasswordHash string
 }
 
-// machineStatusDoc represents the internal state of a machine status in MongoDB
-// There is an implicit _id field here, which mongo creates, which is the
-// global key of the unit which is referred to.
+// machineStatusDoc represents the internal state of a machine status in MongoDB.
+// The implicit _id field is explicitly set to the global key of the
+// associated machine in the document's creation transaction, but omitted to
+// allow direct use of the document in both create and update transactions.
 type machineStatusDoc struct {
 	Status     params.MachineStatus
 	StatusInfo string
