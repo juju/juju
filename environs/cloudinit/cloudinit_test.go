@@ -23,27 +23,25 @@ type cloudinitSuite struct {
 
 var _ = Suite(&cloudinitSuite{})
 
-var envConfig = mustNewConfig(map[string]interface{}{
-	"type":            "ec2",
-	"name":            "foo",
-	"default-series":  "series",
-	"authorized-keys": "keys",
-	"ca-cert":         testing.CACert,
-})
-
-func mustNewConfig(m map[string]interface{}) *config.Config {
-	cfg, err := config.New(m)
-	if err != nil {
-		panic(err)
-	}
-	return cfg
-}
-
 var envConstraints = constraints.MustParse("mem=2G")
 
 type cloudinitTest struct {
 	cfg           cloudinit.MachineConfig
+	setEnvConfig  bool
 	expectScripts string
+}
+
+func minimalConfig(c *C) *config.Config {
+	cfg, err := config.New(map[string]interface{}{
+		"type":            "test",
+		"name":            "test-name",
+		"default-series":  "test-series",
+		"authorized-keys": "test-keys",
+		"ca-cert":         testing.CACert,
+		"ca-private-key":  "",
+	})
+	c.Assert(err, IsNil)
+	return cfg
 }
 
 // Each test gives a cloudinit config - we check the
@@ -67,10 +65,10 @@ var cloudinitTests = []cloudinitTest{{
 			Password: "bletch",
 			CACert:   []byte("CA CERT\n" + testing.CACert),
 		},
-		Config:      envConfig,
 		Constraints: envConstraints,
 		DataDir:     "/var/lib/juju",
 	},
+	setEnvConfig: true,
 	expectScripts: `
 mkdir -p /var/lib/juju
 mkdir -p /var/log/juju
@@ -89,14 +87,14 @@ dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.2
 cat >> /etc/init/juju-db\.conf << 'EOF'\\ndescription "juju state database"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nexec /opt/mongo/bin/mongod --auth --dbpath=/var/lib/juju/db --sslOnNormalPorts --sslPEMKeyFile '/var/lib/juju/server\.pem' --sslPEMKeyPassword ignored --bind_ip 0\.0\.0\.0 --port 37017 --noprealloc --smallfiles\\nEOF\\n
 start juju-db
 mkdir -p '/var/lib/juju/agents/bootstrap'
-echo 'datadir: /var/lib/juju\\nstateservercert:\\n[^']+stateserverkey:\\n[^']+mongoport: 37017\\napiport: 17070\\noldpassword: arble\\nstateinfo:\\n  addrs:\\n  - localhost:37017\\n  cacert:\\n[^']+  entityname: bootstrap\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - localhost:17070\\n  cacert:\\n[^']+  entityname: bootstrap\\n  password: ""\\n' > '/var/lib/juju/agents/bootstrap/agent\.conf'
+echo 'datadir: /var/lib/juju\\nstateservercert:\\n[^']+stateserverkey:\\n[^']+mongoport: 37017\\napiport: 17070\\noldpassword: arble\\nstateinfo:\\n  addrs:\\n  - localhost:37017\\n  cacert:\\n[^']+  tag: bootstrap\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - localhost:17070\\n  cacert:\\n[^']+  tag: bootstrap\\n  password: ""\\n' > '/var/lib/juju/agents/bootstrap/agent\.conf'
 chmod 600 '/var/lib/juju/agents/bootstrap/agent\.conf'
 /var/lib/juju/tools/1\.2\.3-linux-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --constraints 'mem=2048M' --debug
 rm -rf '/var/lib/juju/agents/bootstrap'
 cat > /etc/rsyslog.d/25-juju.conf << 'EOF'\\n\\n\$ModLoad imfile\\n\\n\$InputFilePollInterval 5\\n\$InputFileName /var/log/juju/machine-0.log\\n\$InputFileTag local-juju-machine-0:\\n\$InputFileStateFile machine-0\\n\$InputRunFileMonitor\\n\\n\$ModLoad imudp\\n\$UDPServerRun 514\\n\\n# Messages received from remote rsyslog machines contain a leading space so we\\n# need to account for that.\\n\$template JujuLogFormatLocal,\"%HOSTNAME%:%msg:::drop-last-lf%\\n\"\\n\$template JujuLogFormat,\"%HOSTNAME%:%msg:2:2048:drop-last-lf%\\n\"\\n\\n:syslogtag, startswith, \"juju-\" /var/log/juju/all-machines.log;JujuLogFormat\\n:syslogtag, startswith, \"local-juju-\" /var/log/juju/all-machines.log;JujuLogFormatLocal\\n& ~\\nEOF\\n
 restart rsyslog
 mkdir -p '/var/lib/juju/agents/machine-0'
-echo 'datadir: /var/lib/juju\\nstateservercert:\\n[^']+stateserverkey:\\n[^']+mongoport: 37017\\napiport: 17070\\noldpassword: arble\\nstateinfo:\\n  addrs:\\n  - localhost:37017\\n  cacert:\\n[^']+  entityname: machine-0\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - localhost:17070\\n  cacert:\\n[^']+  entityname: machine-0\\n  password: ""\\n' > '/var/lib/juju/agents/machine-0/agent\.conf'
+echo 'datadir: /var/lib/juju\\nstateservercert:\\n[^']+stateserverkey:\\n[^']+mongoport: 37017\\napiport: 17070\\noldpassword: arble\\nstateinfo:\\n  addrs:\\n  - localhost:37017\\n  cacert:\\n[^']+  tag: machine-0\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - localhost:17070\\n  cacert:\\n[^']+  tag: machine-0\\n  password: ""\\n' > '/var/lib/juju/agents/machine-0/agent\.conf'
 chmod 600 '/var/lib/juju/agents/machine-0/agent\.conf'
 ln -s 1\.2\.3-linux-amd64 '/var/lib/juju/tools/machine-0'
 cat >> /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju machine-0 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nexec /var/lib/juju/tools/machine-0/jujud machine --log-file /var/log/juju/machine-0\.log --data-dir '/var/lib/juju' --machine-id 0  --debug >> /var/log/juju/machine-0\.log 2>&1\\nEOF\\n
@@ -111,16 +109,16 @@ start jujud-machine-0
 			StateServer:    false,
 			Tools:          newSimpleTools("1.2.3-linux-amd64"),
 			StateInfo: &state.Info{
-				Addrs:      []string{"state-addr.example.com:12345"},
-				EntityName: "machine-99",
-				Password:   "arble",
-				CACert:     []byte("CA CERT\n" + testing.CACert),
+				Addrs:    []string{"state-addr.example.com:12345"},
+				Tag:      "machine-99",
+				Password: "arble",
+				CACert:   []byte("CA CERT\n" + testing.CACert),
 			},
 			APIInfo: &api.Info{
-				Addrs:      []string{"state-addr.example.com:54321"},
-				EntityName: "machine-99",
-				Password:   "bletch",
-				CACert:     []byte("CA CERT\n" + testing.CACert),
+				Addrs:    []string{"state-addr.example.com:54321"},
+				Tag:      "machine-99",
+				Password: "bletch",
+				CACert:   []byte("CA CERT\n" + testing.CACert),
 			},
 		},
 		expectScripts: `
@@ -133,7 +131,7 @@ echo -n 'http://foo\.com/tools/juju1\.2\.3-linux-amd64\.tgz' > \$bin/downloaded-
 cat > /etc/rsyslog.d/25-juju.conf << 'EOF'\\n\\n\$ModLoad imfile\\n\\n\$InputFilePollInterval 5\\n\$InputFileName /var/log/juju/machine-99.log\\n\$InputFileTag juju-machine-99:\\n\$InputFileStateFile machine-99\\n\$InputRunFileMonitor\\n\\n:syslogtag, startswith, \"juju-\" @state-addr.example.com:514\\n& ~\\nEOF\\n
 restart rsyslog
 mkdir -p '/var/lib/juju/agents/machine-99'
-echo 'datadir: /var/lib/juju\\noldpassword: arble\\nstateinfo:\\n  addrs:\\n  - state-addr\.example\.com:12345\\n  cacert:\\n[^']+  entityname: machine-99\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - state-addr\.example\.com:54321\\n  cacert:\\n[^']+  entityname: machine-99\\n  password: ""\\n' > '/var/lib/juju/agents/machine-99/agent\.conf'
+echo 'datadir: /var/lib/juju\\noldpassword: arble\\nstateinfo:\\n  addrs:\\n  - state-addr\.example\.com:12345\\n  cacert:\\n[^']+  tag: machine-99\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - state-addr\.example\.com:54321\\n  cacert:\\n[^']+  tag: machine-99\\n  password: ""\\n' > '/var/lib/juju/agents/machine-99/agent\.conf'
 chmod 600 '/var/lib/juju/agents/machine-99/agent\.conf'
 ln -s 1\.2\.3-linux-amd64 '/var/lib/juju/tools/machine-99'
 cat >> /etc/init/jujud-machine-99\.conf << 'EOF'\\ndescription "juju machine-99 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nexec /var/lib/juju/tools/machine-99/jujud machine --log-file /var/log/juju/machine-99\.log --data-dir '/var/lib/juju' --machine-id 99  --debug >> /var/log/juju/machine-99\.log 2>&1\\nEOF\\n
@@ -147,32 +145,6 @@ func newSimpleTools(vers string) *state.Tools {
 		URL:    "http://foo.com/tools/juju" + vers + ".tgz",
 		Binary: version.MustParseBinary(vers),
 	}
-}
-
-func (t *cloudinitTest) check(c *C) {
-	ci, err := cloudinit.New(&t.cfg)
-	c.Assert(err, IsNil)
-	c.Check(ci, NotNil)
-	// render the cloudinit config to bytes, and then
-	// back to a map so we can introspect it without
-	// worrying about internal details of the cloudinit
-	// package.
-	data, err := ci.Render()
-	c.Assert(err, IsNil)
-
-	x := make(map[interface{}]interface{})
-	err = goyaml.Unmarshal(data, &x)
-	c.Assert(err, IsNil)
-
-	c.Check(x["apt_upgrade"], Equals, true)
-	c.Check(x["apt_update"], Equals, true)
-
-	scripts := getScripts(x)
-	scriptDiff(c, scripts, t.expectScripts)
-	if t.cfg.Config != nil {
-		checkEnvConfig(c, t.cfg.Config, x, scripts)
-	}
-	checkPackage(c, x, "git", true)
 }
 
 // check that any --env-config $base64 is valid and matches t.cfg.Config
@@ -200,11 +172,32 @@ func checkEnvConfig(c *C, cfg *config.Config, x map[interface{}]interface{}, scr
 func (*cloudinitSuite) TestCloudInit(c *C) {
 	for i, test := range cloudinitTests {
 		c.Logf("test %d", i)
+		if test.setEnvConfig {
+			test.cfg.Config = minimalConfig(c)
+		}
 		ci, err := cloudinit.New(&test.cfg)
 		c.Assert(err, IsNil)
 		c.Check(ci, NotNil)
+		// render the cloudinit config to bytes, and then
+		// back to a map so we can introspect it without
+		// worrying about internal details of the cloudinit
+		// package.
+		data, err := ci.Render()
+		c.Assert(err, IsNil)
 
-		test.check(c)
+		x := make(map[interface{}]interface{})
+		err = goyaml.Unmarshal(data, &x)
+		c.Assert(err, IsNil)
+
+		c.Check(x["apt_upgrade"], Equals, true)
+		c.Check(x["apt_update"], Equals, true)
+
+		scripts := getScripts(x)
+		scriptDiff(c, scripts, test.expectScripts)
+		if test.cfg.Config != nil {
+			checkEnvConfig(c, test.cfg.Config, x, scripts)
+		}
+		checkPackage(c, x, "git", true)
 	}
 }
 
@@ -285,25 +278,25 @@ var verifyTests = []struct {
 	{"missing state hosts", func(cfg *cloudinit.MachineConfig) {
 		cfg.StateServer = false
 		cfg.StateInfo = &state.Info{
-			EntityName: "machine-99",
-			CACert:     []byte(testing.CACert),
+			Tag:    "machine-99",
+			CACert: []byte(testing.CACert),
 		}
 		cfg.APIInfo = &api.Info{
-			Addrs:      []string{"foo:35"},
-			EntityName: "machine-99",
-			CACert:     []byte(testing.CACert),
+			Addrs:  []string{"foo:35"},
+			Tag:    "machine-99",
+			CACert: []byte(testing.CACert),
 		}
 	}},
 	{"missing API hosts", func(cfg *cloudinit.MachineConfig) {
 		cfg.StateServer = false
 		cfg.StateInfo = &state.Info{
-			Addrs:      []string{"foo:35"},
-			EntityName: "machine-99",
-			CACert:     []byte(testing.CACert),
+			Addrs:  []string{"foo:35"},
+			Tag:    "machine-99",
+			CACert: []byte(testing.CACert),
 		}
 		cfg.APIInfo = &api.Info{
-			EntityName: "machine-99",
-			CACert:     []byte(testing.CACert),
+			Tag:    "machine-99",
+			CACert: []byte(testing.CACert),
 		}
 	}},
 	{"missing CA certificate", func(cfg *cloudinit.MachineConfig) {
@@ -312,8 +305,8 @@ var verifyTests = []struct {
 	{"missing CA certificate", func(cfg *cloudinit.MachineConfig) {
 		cfg.StateServer = false
 		cfg.StateInfo = &state.Info{
-			EntityName: "machine-99",
-			Addrs:      []string{"host:98765"},
+			Tag:   "machine-99",
+			Addrs: []string{"host:98765"},
 		}
 	}},
 	{"missing state server certificate", func(cfg *cloudinit.MachineConfig) {
@@ -331,38 +324,38 @@ var verifyTests = []struct {
 	{"missing tools URL", func(cfg *cloudinit.MachineConfig) {
 		cfg.Tools = &state.Tools{}
 	}},
-	{"entity name must match started machine", func(cfg *cloudinit.MachineConfig) {
+	{"entity tag must match started machine", func(cfg *cloudinit.MachineConfig) {
 		cfg.StateServer = false
 		info := *cfg.StateInfo
-		info.EntityName = "machine-0"
+		info.Tag = "machine-0"
 		cfg.StateInfo = &info
 	}},
-	{"entity name must match started machine", func(cfg *cloudinit.MachineConfig) {
+	{"entity tag must match started machine", func(cfg *cloudinit.MachineConfig) {
 		cfg.StateServer = false
 		info := *cfg.StateInfo
-		info.EntityName = ""
+		info.Tag = ""
 		cfg.StateInfo = &info
 	}},
-	{"entity name must match started machine", func(cfg *cloudinit.MachineConfig) {
+	{"entity tag must match started machine", func(cfg *cloudinit.MachineConfig) {
 		cfg.StateServer = false
 		info := *cfg.APIInfo
-		info.EntityName = "machine-0"
+		info.Tag = "machine-0"
 		cfg.APIInfo = &info
 	}},
-	{"entity name must match started machine", func(cfg *cloudinit.MachineConfig) {
+	{"entity tag must match started machine", func(cfg *cloudinit.MachineConfig) {
 		cfg.StateServer = false
 		info := *cfg.APIInfo
-		info.EntityName = ""
+		info.Tag = ""
 		cfg.APIInfo = &info
 	}},
-	{"entity name must be blank when starting a state server", func(cfg *cloudinit.MachineConfig) {
+	{"entity tag must be blank when starting a state server", func(cfg *cloudinit.MachineConfig) {
 		info := *cfg.StateInfo
-		info.EntityName = "machine-0"
+		info.Tag = "machine-0"
 		cfg.StateInfo = &info
 	}},
-	{"entity name must be blank when starting a state server", func(cfg *cloudinit.MachineConfig) {
+	{"entity tag must be blank when starting a state server", func(cfg *cloudinit.MachineConfig) {
 		info := *cfg.APIInfo
-		info.EntityName = "machine-0"
+		info.Tag = "machine-0"
 		cfg.APIInfo = &info
 	}},
 	{"missing mongo port", func(cfg *cloudinit.MachineConfig) {
@@ -393,7 +386,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *C) {
 			Addrs:  []string{"host:9999"},
 			CACert: []byte(testing.CACert),
 		},
-		Config:  envConfig,
+		Config:  minimalConfig(c),
 		DataDir: "/var/lib/juju",
 	}
 	// check that the base configuration does not give an error

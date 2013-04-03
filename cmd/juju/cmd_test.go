@@ -13,7 +13,7 @@ import (
 
 type CmdSuite struct {
 	testing.JujuConnSuite
-	home coretesting.FakeHome
+	home *coretesting.FakeHome
 }
 
 var _ = Suite(&CmdSuite{})

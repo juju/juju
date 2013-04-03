@@ -48,8 +48,8 @@ type Conf struct {
 
 // ReadConf reads configuration data for the given
 // entity from the given data directory.
-func ReadConf(dataDir, entityName string) (*Conf, error) {
-	dir := Dir(dataDir, entityName)
+func ReadConf(dataDir, tag string) (*Conf, error) {
+	dir := Dir(dataDir, tag)
 	data, err := ioutil.ReadFile(path.Join(dir, "agent.conf"))
 	if err != nil {
 		return nil, err
@@ -63,10 +63,10 @@ func ReadConf(dataDir, entityName string) (*Conf, error) {
 		return nil, err
 	}
 	if c.StateInfo != nil {
-		c.StateInfo.EntityName = entityName
+		c.StateInfo.Tag = tag
 	}
 	if c.APIInfo != nil {
-		c.APIInfo.EntityName = entityName
+		c.APIInfo.Tag = tag
 	}
 	return &c, nil
 }
@@ -84,18 +84,18 @@ func (c *Conf) confFile() string {
 	return c.File("agent.conf")
 }
 
-// EntityName returns the entity name that will be used to connect to
-// the state.
-func (c *Conf) EntityName() string {
+// Tag returns the tag of the entity on whose behalf the state connection will
+// be made.
+func (c *Conf) Tag() string {
 	if c.StateInfo != nil {
-		return c.StateInfo.EntityName
+		return c.StateInfo.Tag
 	}
-	return c.APIInfo.EntityName
+	return c.APIInfo.Tag
 }
 
 // Dir returns the agent's directory.
 func (c *Conf) Dir() string {
-	return Dir(c.DataDir, c.EntityName())
+	return Dir(c.DataDir, c.Tag())
 }
 
 // Check checks that the configuration has all the required elements.
@@ -107,8 +107,8 @@ func (c *Conf) Check() error {
 		return requiredError("state info or API info")
 	}
 	if c.StateInfo != nil {
-		if c.StateInfo.EntityName == "" {
-			return requiredError("state entity name")
+		if c.StateInfo.Tag == "" {
+			return requiredError("state entity tag")
 		}
 		if err := checkAddrs(c.StateInfo.Addrs, "state server address"); err != nil {
 			return err
@@ -119,8 +119,8 @@ func (c *Conf) Check() error {
 	}
 	// TODO(rog) make APIInfo mandatory
 	if c.APIInfo != nil {
-		if c.APIInfo.EntityName == "" {
-			return requiredError("API entity name")
+		if c.APIInfo.Tag == "" {
+			return requiredError("API entity tag")
 		}
 		if err := checkAddrs(c.APIInfo.Addrs, "API server address"); err != nil {
 			return err
@@ -129,8 +129,8 @@ func (c *Conf) Check() error {
 			return requiredError("API CA certficate")
 		}
 	}
-	if c.StateInfo != nil && c.APIInfo != nil && c.StateInfo.EntityName != c.APIInfo.EntityName {
-		return fmt.Errorf("mismatched entity names")
+	if c.StateInfo != nil && c.APIInfo != nil && c.StateInfo.Tag != c.APIInfo.Tag {
+		return fmt.Errorf("mismatched entity tags")
 	}
 	return nil
 }
@@ -200,8 +200,9 @@ func (c *Conf) WriteCommands() ([]string, error) {
 // set the entity's password accordingly.
 func (c *Conf) OpenState() (st *state.State, newPassword string, err error) {
 	info := *c.StateInfo
+	opts := state.DefaultDialOpts()
 	if info.Password != "" {
-		st, err := state.Open(&info, state.DefaultDialTimeout)
+		st, err := state.Open(&info, opts)
 		if err == nil {
 			return st, "", nil
 		}
@@ -214,7 +215,7 @@ func (c *Conf) OpenState() (st *state.State, newPassword string, err error) {
 		// with the old password.
 	}
 	info.Password = c.OldPassword
-	st, err = state.Open(&info, state.DefaultDialTimeout)
+	st, err = state.Open(&info, opts)
 	if err != nil {
 		return nil, "", err
 	}
