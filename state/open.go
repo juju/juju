@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
+	"launchpad.net/juju-core/trivial"
 )
 
 // Info encapsulates information about cluster of
@@ -126,10 +127,10 @@ func Initialize(info *Info, cfg *config.Config, opts DialOpts) (rst *State, err 
 			st.Close()
 		}
 	}()
-	// A valid environment config is used as a signal that the
+	// A valid environment is used as a signal that the
 	// state has already been initalized. If this is the case
 	// do nothing.
-	if _, err := st.EnvironConfig(); err == nil {
+	if _, err := st.Environment(); err == nil {
 		return st, nil
 	} else if !IsNotFound(err) {
 		return nil, err
@@ -141,6 +142,7 @@ func Initialize(info *Info, cfg *config.Config, opts DialOpts) (rst *State, err 
 	ops := []txn.Op{
 		createConstraintsOp(st, "e", constraints.Value{}),
 		createSettingsOp(st, "e", cfg.AllAttrs()),
+		createEnvironmentOp(st, cfg.Name(), trivial.NewUUID()),
 	}
 	if err := st.runner.Run(ops, "", nil); err == txn.ErrAborted {
 		// The config was created in the meantime.
@@ -233,6 +235,7 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 	st := &State{
 		info:           info,
 		db:             db,
+		environments:   db.C("environments"),
 		charms:         db.C("charms"),
 		machines:       db.C("machines"),
 		relations:      db.C("relations"),

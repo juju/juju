@@ -108,6 +108,7 @@ func IsNotFound(err error) bool {
 type State struct {
 	info           *Info
 	db             *mgo.Database
+	environments   *mgo.Collection
 	charms         *mgo.Collection
 	machines       *mgo.Collection
 	relations      *mgo.Collection

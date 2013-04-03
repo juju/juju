@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"os"
@@ -91,6 +92,17 @@ func AssertEnvContains(c *C, lines []string, env map[string]string) {
 	}
 }
 
+func AssertEnvMatches(c *C, lines []string, key, match string) {
+	for _, line := range lines {
+		kv := strings.SplitN(line, "=", 2)
+		if len(kv) == 2 && kv[0] == key {
+			c.Assert(kv[1], Matches, match)
+			return
+		}
+	}
+	c.Errorf("expected to find %v matching %q", key, match)
+}
+
 func AssertEnv(c *C, outPath string, charmDir string, env map[string]string) {
 	out, err := ioutil.ReadFile(outPath)
 	c.Assert(err, IsNil)
@@ -102,6 +114,7 @@ func AssertEnv(c *C, outPath string, charmDir string, env map[string]string) {
 		"CHARM_DIR":                charmDir,
 		"JUJU_AGENT_SOCKET":        "/path/to/socket",
 	})
+	AssertEnvMatches(c, lines, "JUJU_ENV_UUID", "[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[8,9,a,b][0-9a-f]{3}-[0-9a-f]{12}")
 }
 
 // LineBufferSize matches the constant used when creating
@@ -653,5 +666,5 @@ func (s *HookContextSuite) GetHookContext(c *C, relid int, remote string) *unite
 		_, found := s.relctxs[relid]
 		c.Assert(found, Equals, true)
 	}
-	return uniter.NewHookContext(s.unit, "TestCtx", relid, remote, s.relctxs)
+	return uniter.NewHookContext(s.unit, "TestCtx", trivial.NewUUID(), relid, remote, s.relctxs)
 }

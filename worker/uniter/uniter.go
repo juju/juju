@@ -34,6 +34,7 @@ type Uniter struct {
 	service       *state.Service
 	relationers   map[int]*Relationer
 	relationHooks chan hook.Info
+	uuid          trivial.UUID
 
 	dataDir      string
 	baseDir      string
@@ -53,9 +54,14 @@ type Uniter struct {
 // charm on behalf of the named unit, by executing hooks and operations
 // provoked by changes in st.
 func NewUniter(st *state.State, name string, dataDir string) *Uniter {
+	env, err := st.Environment()
+	if err != nil {
+		panic(err)
+	}
 	u := &Uniter{
 		st:      st,
 		dataDir: dataDir,
+		uuid:    env.UUID(),
 	}
 	go func() {
 		defer u.tomb.Done()
@@ -258,7 +264,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	for id, r := range u.relationers {
 		ctxRelations[id] = r.Context()
 	}
-	hctx := NewHookContext(u.unit, hctxId, relationId, hi.RemoteUnit, ctxRelations)
+	hctx := NewHookContext(u.unit, hctxId, u.uuid, relationId, hi.RemoteUnit, ctxRelations)
 
 	// Prepare server.
 	getCmd := func(ctxId, cmdName string) (cmd.Command, error) {
