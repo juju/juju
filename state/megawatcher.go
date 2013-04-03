@@ -96,10 +96,10 @@ type allWatcherBacking interface {
 	// into the given allInfo.
 	getAll(all *allInfo) error
 
-	// fetch retrieves information about the entity with
-	// the given id. It returns mgo.ErrNotFound if the
-	// entity does not exist.
-	fetch(id entityId) (params.EntityInfo, error)
+	// changed informs the backing about a change to the entity with
+	// the given id.  The backing is responsible for updating the
+	// allInfo to reflect the change.
+	changed(all *allInfo, id entityId) error
 
 	// watch watches for any changes and sends them
 	// on the given channel.
@@ -182,7 +182,7 @@ func (aw *allWatcher) loop() error {
 				collection: change.C,
 				id:         change.Id,
 			}
-			if err := aw.changed(id); err != nil {
+			if err := aw.backing.changed(aw.all, id); err != nil {
 				return err
 			}
 		case req := <-aw.request:
@@ -242,23 +242,6 @@ func (aw *allWatcher) respond() {
 		}
 		aw.seen(revno)
 	}
-}
-
-// changed updates the allWatcher's idea of the current state
-// in response to the given change.
-func (aw *allWatcher) changed(id entityId) error {
-	// TODO(rog) investigate ways that this can be made more efficient
-	// than simply fetching each entity in turn.
-	info, err := aw.backing.fetch(id)
-	if err == mgo.ErrNotFound {
-		aw.all.markRemoved(id)
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	aw.all.update(id, info)
-	return nil
 }
 
 // seen states that a StateWatcher has just been given information about
@@ -398,6 +381,23 @@ func (b *allWatcherStateBacking) getAll(all *allInfo) error {
 			all.add(b.entityIdForInfo(info), info)
 		}
 	}
+	return nil
+}
+
+// changed updates the allWatcher's idea of the current state
+// in response to the given change.
+func (b *allWatcherStateBacking) changed(all *allInfo, id entityId) error {
+	// TODO(rog) investigate ways that this can be made more efficient
+	// than simply fetching each entity in turn.
+	info, err := b.fetch(id)
+	if err == mgo.ErrNotFound {
+		all.markRemoved(id)
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	all.update(id, info)
 	return nil
 }
 

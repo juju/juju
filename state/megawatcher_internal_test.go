@@ -19,6 +19,10 @@ type allInfoSuite struct {
 	testing.LoggingSuite
 }
 
+func (*allInfoSuite) assertAllInfoContents(c *C, a *allInfo, latestRevno int64, entries []entityEntry) {
+	assertAllInfoContents(c, a, entityIdForInfo, latestRevno, entries)
+}
+
 var _ = Suite(&allInfoSuite{})
 
 var allInfoChangeMethodTests = []struct {
@@ -190,14 +194,7 @@ func (s *allInfoSuite) TestAllInfoChangeMethods(c *C) {
 		all := newAllInfo()
 		c.Logf("test %d. %s", i, test.about)
 		test.change(all)
-		assertAllInfoContents(c, all, test.expectRevno, test.expectContents)
-	}
-}
-
-func entityIdForInfo(info params.EntityInfo) entityId {
-	return entityId{
-		collection: info.EntityKind(),
-		id:         info.EntityId(),
+		s.assertAllInfoContents(c, all, test.expectRevno, test.expectContents)
 	}
 }
 
@@ -260,103 +257,14 @@ func (s *allInfoSuite) TestChangesSince(c *C) {
 
 }
 
-func allInfoAdd(a *allInfo, info params.EntityInfo) {
-	a.add(entityIdForInfo(info), info)
-}
-
-func allInfoIncRef(a *allInfo, id entityId) {
-	entry := a.entities[id].Value.(*entityEntry)
-	entry.refCount++
-}
-
 type allWatcherSuite struct {
 	testing.LoggingSuite
 }
 
 var _ = Suite(&allWatcherSuite{})
 
-func (*allWatcherSuite) TestChangedFetchErrorReturn(c *C) {
-	expectErr := errors.New("some error")
-	b := newTestBacking(nil)
-	b.setFetchError(expectErr)
-	aw := newAllWatcher(b)
-	err := aw.changed(entityId{})
-	c.Assert(err, Equals, expectErr)
-}
-
-var allWatcherChangedTests = []struct {
-	about          string
-	add            []params.EntityInfo
-	inBacking      []params.EntityInfo
-	change         entityId
-	expectRevno    int64
-	expectContents []entityEntry
-}{{
-	about:  "no entity",
-	change: entityId{"machine", "1"},
-}, {
-	about:       "entity is marked as removed if it's not there",
-	add:         []params.EntityInfo{&params.MachineInfo{Id: "1"}},
-	change:      entityId{"machine", "1"},
-	expectRevno: 2,
-	expectContents: []entityEntry{{
-		creationRevno: 1,
-		revno:         2,
-		refCount:      1,
-		removed:       true,
-		info: &params.MachineInfo{
-			Id: "1",
-		},
-	}},
-}, {
-	about: "entity is added if it's not there",
-	inBacking: []params.EntityInfo{
-		&params.MachineInfo{Id: "1"},
-	},
-	change:      entityId{"machine", "1"},
-	expectRevno: 1,
-	expectContents: []entityEntry{{
-		creationRevno: 1,
-		revno:         1,
-		info:          &params.MachineInfo{Id: "1"},
-	}},
-}, {
-	about: "entity is updated if it's there",
-	add: []params.EntityInfo{
-		&params.MachineInfo{Id: "1"},
-	},
-	inBacking: []params.EntityInfo{
-		&params.MachineInfo{
-			Id:         "1",
-			InstanceId: "i-1",
-		},
-	},
-	change:      entityId{"machine", "1"},
-	expectRevno: 2,
-	expectContents: []entityEntry{{
-		creationRevno: 1,
-		refCount:      1,
-		revno:         2,
-		info: &params.MachineInfo{
-			Id:         "1",
-			InstanceId: "i-1",
-		},
-	}},
-}}
-
-func (*allWatcherSuite) TestChanged(c *C) {
-	for i, test := range allWatcherChangedTests {
-		c.Logf("test %d. %s", i, test.about)
-		b := newTestBacking(test.inBacking)
-		aw := newAllWatcher(b)
-		for _, info := range test.add {
-			allInfoAdd(aw.all, info)
-			allInfoIncRef(aw.all, entityIdForInfo(info))
-		}
-		err := aw.changed(test.change)
-		c.Assert(err, IsNil)
-		assertAllInfoContents(c, aw.all, test.expectRevno, test.expectContents)
-	}
+func (*allWatcherSuite) assertAllInfoContents(c *C, a *allInfo, latestRevno int64, entries []entityEntry) {
+	assertAllInfoContents(c, a, entityIdForInfo, latestRevno, entries)
 }
 
 func (*allWatcherSuite) TestHandle(c *C) {
@@ -413,7 +321,7 @@ func (*allWatcherSuite) TestHandle(c *C) {
 	assertReplied(c, false, req2)
 }
 
-func (*allWatcherSuite) TestHandleStopNoDecRefIfMoreRecentlyCreated(c *C) {
+func (s *allWatcherSuite) TestHandleStopNoDecRefIfMoreRecentlyCreated(c *C) {
 	// If the StateWatcher hasn't seen the item, then we shouldn't
 	// decrement its ref count when it is stopped.
 	aw := newAllWatcher(newTestBacking(nil))
@@ -423,7 +331,7 @@ func (*allWatcherSuite) TestHandleStopNoDecRefIfMoreRecentlyCreated(c *C) {
 
 	// Stop the watcher.
 	aw.handle(&allRequest{w: w})
-	assertAllInfoContents(c, aw.all, 1, []entityEntry{{
+	s.assertAllInfoContents(c, aw.all, 1, []entityEntry{{
 		creationRevno: 1,
 		revno:         1,
 		refCount:      1,
@@ -433,7 +341,7 @@ func (*allWatcherSuite) TestHandleStopNoDecRefIfMoreRecentlyCreated(c *C) {
 	}})
 }
 
-func (*allWatcherSuite) TestHandleStopNoDecRefIfAlreadySeenRemoved(c *C) {
+func (s *allWatcherSuite) TestHandleStopNoDecRefIfAlreadySeenRemoved(c *C) {
 	// If the StateWatcher has already seen the item removed, then
 	// we shouldn't decrement its ref count when it is stopped.
 	aw := newAllWatcher(newTestBacking(nil))
@@ -443,7 +351,7 @@ func (*allWatcherSuite) TestHandleStopNoDecRefIfAlreadySeenRemoved(c *C) {
 	w := &StateWatcher{all: aw}
 	// Stop the watcher.
 	aw.handle(&allRequest{w: w})
-	assertAllInfoContents(c, aw.all, 2, []entityEntry{{
+	s.assertAllInfoContents(c, aw.all, 2, []entityEntry{{
 		creationRevno: 1,
 		revno:         2,
 		refCount:      1,
@@ -454,7 +362,7 @@ func (*allWatcherSuite) TestHandleStopNoDecRefIfAlreadySeenRemoved(c *C) {
 	}})
 }
 
-func (*allWatcherSuite) TestHandleStopDecRefIfAlreadySeenAndNotRemoved(c *C) {
+func (s *allWatcherSuite) TestHandleStopDecRefIfAlreadySeenAndNotRemoved(c *C) {
 	// If the StateWatcher has already seen the item removed, then
 	// we should decrement its ref count when it is stopped.
 	aw := newAllWatcher(newTestBacking(nil))
@@ -464,7 +372,7 @@ func (*allWatcherSuite) TestHandleStopDecRefIfAlreadySeenAndNotRemoved(c *C) {
 	w.revno = aw.all.latestRevno
 	// Stop the watcher.
 	aw.handle(&allRequest{w: w})
-	assertAllInfoContents(c, aw.all, 1, []entityEntry{{
+	s.assertAllInfoContents(c, aw.all, 1, []entityEntry{{
 		creationRevno: 1,
 		revno:         1,
 		info: &params.MachineInfo{
@@ -473,7 +381,7 @@ func (*allWatcherSuite) TestHandleStopDecRefIfAlreadySeenAndNotRemoved(c *C) {
 	}})
 }
 
-func (*allWatcherSuite) TestHandleStopNoDecRefIfNotSeen(c *C) {
+func (s *allWatcherSuite) TestHandleStopNoDecRefIfNotSeen(c *C) {
 	// If the StateWatcher hasn't seen the item at all, it should
 	// leave the ref count untouched.
 	aw := newAllWatcher(newTestBacking(nil))
@@ -482,7 +390,7 @@ func (*allWatcherSuite) TestHandleStopNoDecRefIfNotSeen(c *C) {
 	w := &StateWatcher{all: aw}
 	// Stop the watcher.
 	aw.handle(&allRequest{w: w})
-	assertAllInfoContents(c, aw.all, 1, []entityEntry{{
+	s.assertAllInfoContents(c, aw.all, 1, []entityEntry{{
 		creationRevno: 1,
 		revno:         1,
 		refCount:      1,
@@ -527,7 +435,7 @@ var (
 	respondTestFinalRevno = int64(len(respondTestChanges))
 )
 
-func (*allWatcherSuite) TestRespondResults(c *C) {
+func (s *allWatcherSuite) TestRespondResults(c *C) {
 	// We test the response results for a pair of watchers by
 	// interleaving notional Next requests in all possible
 	// combinations after each change in respondTestChanges and
@@ -612,7 +520,7 @@ func (*allWatcherSuite) TestRespondResults(c *C) {
 					assertReplied(c, false, reqs[wi])
 				}
 			}
-			assertAllInfoContents(c, aw.all, respondTestFinalRevno, respondTestFinalState)
+			s.assertAllInfoContents(c, aw.all, respondTestFinalRevno, respondTestFinalState)
 		}
 	}
 }
@@ -790,6 +698,11 @@ func (s *allWatcherStateSuite) TearDownTest(c *C) {
 	s.State.Close()
 	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
+}
+
+func (s *allWatcherStateSuite) Reset(c *C) {
+	s.TearDownTest(c)
+	s.SetUpTest(c)
 }
 
 var _ = Suite(&allWatcherStateSuite{})
@@ -994,7 +907,7 @@ func (s *allWatcherStateSuite) TestStateBackingEntityIdForInfo(c *C) {
 	}
 }
 
-func (s *allWatcherStateSuite) TestStateBackingFetch(c *C) {
+func (s *allWatcherStateSuite) TestStateBackingChanged(c *C) {
 	m, err := s.State.AddMachine("series", JobManageEnviron)
 	c.Assert(err, IsNil)
 	c.Assert(m.Tag(), Equals, "machine-0")
@@ -1002,7 +915,7 @@ func (s *allWatcherStateSuite) TestStateBackingFetch(c *C) {
 	c.Assert(err, IsNil)
 
 	b0 := newAllWatcherStateBacking(s.State)
-	testBackingFetch(c, b0)
+	testBackingChanged(c, b0)
 
 	// Test the test backing in the same way to
 	// make sure it agrees.
@@ -1012,7 +925,119 @@ func (s *allWatcherStateSuite) TestStateBackingFetch(c *C) {
 			InstanceId: "i-0",
 		},
 	})
-	testBackingFetch(c, b1)
+	testBackingChanged(c, b1)
+}
+
+func testBackingChanged(c *C, b allWatcherBacking) {
+	idOf := func(info params.EntityInfo) entityId {
+		return b.entityIdForInfo(info)
+	}
+	all := newAllInfo()
+	m99 := &params.MachineInfo{Id: "99"}
+	all.add(idOf(m99), m99)
+	m0 := &params.MachineInfo{Id: "0", InstanceId: "i-0"}
+
+	err := b.changed(all, idOf(m0))
+	c.Assert(err, IsNil)
+
+	c.Logf("first change")
+	assertAllInfoContents(c, all, idOf, 2, []entityEntry{{
+		creationRevno: 1,
+		revno:         1,
+		info:          m99,
+	}, {
+		creationRevno: 2,
+		revno:         2,
+		info:          m0,
+	}})
+
+	c.Logf("second change")
+	err = b.changed(all, idOf(m99))
+	c.Assert(err, IsNil)
+	assertAllInfoContents(c, all, idOf, 3, []entityEntry{{
+		creationRevno: 2,
+		revno:         2,
+		info:          m0,
+	}})
+}
+
+var allWatcherChangedTests = []struct {
+	about          string
+	add            []params.EntityInfo
+	setUp          func(c *C, st *State)
+	change         params.EntityInfo
+	expectRevno    int64
+	expectContents []entityEntry
+}{{
+	about:  "no entity",
+	setUp:  func(*C, *State) {},
+	change: &params.MachineInfo{Id: "1"},
+}, {
+	about:       "entity is marked as removed if it's not in backing",
+	add:         []params.EntityInfo{&params.MachineInfo{Id: "1"}},
+	setUp:       func(*C, *State) {},
+	change:      &params.MachineInfo{Id: "1"},
+	expectRevno: 2,
+	expectContents: []entityEntry{{
+		creationRevno: 1,
+		revno:         2,
+		refCount:      1,
+		removed:       true,
+		info: &params.MachineInfo{
+			Id: "1",
+		},
+	}},
+}, {
+	about: "entity is added if it's in backing but not in allInfo",
+	setUp: func(c *C, st *State) {
+		_, err := st.AddMachine("series", JobHostUnits)
+		c.Assert(err, IsNil)
+	},
+	change:      &params.MachineInfo{Id: "0"},
+	expectRevno: 1,
+	expectContents: []entityEntry{{
+		creationRevno: 1,
+		revno:         1,
+		info:          &params.MachineInfo{Id: "0"},
+	}},
+}, {
+	about: "entity is updated if it's in backing and in allInfo",
+	add:   []params.EntityInfo{&params.MachineInfo{Id: "0"}},
+	setUp: func(c *C, st *State) {
+		m, err := st.AddMachine("series", JobManageEnviron)
+		c.Assert(err, IsNil)
+		err = m.SetInstanceId("i-0")
+		c.Assert(err, IsNil)
+	},
+	change:      &params.MachineInfo{Id: "0"},
+	expectRevno: 2,
+	expectContents: []entityEntry{{
+		creationRevno: 1,
+		revno:         2,
+		refCount:      1,
+		info: &params.MachineInfo{
+			Id:         "0",
+			InstanceId: "i-0",
+		},
+	}},
+}}
+
+func (s *allWatcherStateSuite) TestChanged(c *C) {
+	for i, test := range allWatcherChangedTests {
+		c.Logf("test %d. %s", i, test.about)
+		b := newAllWatcherStateBacking(s.State)
+		idOf := func(info params.EntityInfo) entityId { return b.entityIdForInfo(info) }
+		all := newAllInfo()
+		for _, info := range test.add {
+			all.add(idOf(info), info)
+			allInfoIncRef(all, idOf(info))
+		}
+		test.setUp(c, s.State)
+		err := b.changed(all, idOf(test.change))
+		c.Assert(err, IsNil)
+		assertAllInfoContents(c, all, idOf, test.expectRevno, test.expectContents)
+		s.Reset(c)
+	}
 }
 
 // TestStateWatcher tests the integration of the state watcher
@@ -1083,16 +1108,20 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *C) {
 	c.Assert(err, ErrorMatches, "state watcher was stopped")
 }
 
-func testBackingFetch(c *C, b allWatcherBacking) {
-	m := &params.MachineInfo{Id: "0", InstanceId: "i-0"}
-	id0 := b.entityIdForInfo(m)
-	info, err := b.fetch(id0)
-	c.Assert(err, IsNil)
-	c.Assert(info, DeepEquals, m)
+func entityIdForInfo(info params.EntityInfo) entityId {
+	return entityId{
+		collection: info.EntityKind(),
+		id:         info.EntityId(),
+	}
+}
 
-	info, err = b.fetch(entityId{id0.collection, "99"})
-	c.Assert(err, Equals, mgo.ErrNotFound)
-	c.Assert(info, IsNil)
+func allInfoAdd(a *allInfo, info params.EntityInfo) {
+	a.add(entityIdForInfo(info), info)
+}
+
+func allInfoIncRef(a *allInfo, id entityId) {
+	entry := a.entities[id].Value.(*entityEntry)
+	entry.refCount++
 }
 
 type entityInfoSlice []params.EntityInfo
@@ -1110,7 +1139,7 @@ func (s entityInfoSlice) Less(i, j int) bool {
 	panic("unknown id type")
 }
 
-func assertAllInfoContents(c *C, a *allInfo, latestRevno int64, entries []entityEntry) {
+func assertAllInfoContents(c *C, a *allInfo, idOf func(params.EntityInfo) entityId, latestRevno int64, entries []entityEntry) {
 	var gotEntries []entityEntry
 	var gotElems []*list.Element
 	c.Check(a.list.Len(), Equals, len(entries))
@@ -1120,7 +1149,7 @@ func assertAllInfoContents(c *C, a *allInfo, latestRevno int64, entries []entity
 	}
 	c.Assert(gotEntries, DeepEquals, entries)
 	for i, ent := range entries {
-		c.Assert(a.entities[entityIdForInfo(ent.info)], Equals, gotElems[i])
+		c.Assert(a.entities[idOf(ent.info)], Equals, gotElems[i])
 	}
 	c.Assert(a.entities, HasLen, len(entries))
 	c.Assert(a.latestRevno, Equals, latestRevno)
@@ -1256,6 +1285,19 @@ func newTestBacking(initial []params.EntityInfo) *allWatcherTestBacking {
 		b.entities[entityIdForInfo(info)] = info
 	}
 	return b
+}
+
+func (b *allWatcherTestBacking) changed(all *allInfo, id entityId) error {
+	info, err := b.fetch(id)
+	if err == mgo.ErrNotFound {
+		all.markRemoved(id)
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	all.update(id, info)
+	return nil
 }
 
 func (b *allWatcherTestBacking) fetch(id entityId) (params.EntityInfo, error) {
