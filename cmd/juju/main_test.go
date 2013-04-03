@@ -156,29 +156,10 @@ func (s *MainSuite) TestRunMain(c *C) {
 	}
 }
 
-var brokenConfig = `
-environments:
-    one:
-        type: dummy
-        state-server: false
-        authorized-keys: i-am-a-key
-        broken: %s
-`
-
-// breakJuju forces the dummy environment to return an error
-// when environMethod is called.
-func breakJuju(c *C, environMethod string) (msg string) {
-	yaml := fmt.Sprintf(brokenConfig, environMethod)
-	err := ioutil.WriteFile(config.JujuHomePath("environments.yaml"), []byte(yaml), 0666)
-	c.Assert(err, IsNil)
-
-	return fmt.Sprintf("dummy.%s is broken", environMethod)
-}
-
 func (s *MainSuite) TestActualRunJujuArgsBeforeCommand(c *C) {
 	defer testing.MakeFakeHomeNoEnvironments(c, "one").Restore()
 	// Check global args work when specified before command
-	msg := breakJuju(c, "Bootstrap")
+	msg, _ := testing.BreakJuju(c, "one", "Bootstrap", false)
 	logpath := filepath.Join(c.MkDir(), "log")
 	out := badrun(c, 1, "--log-file", logpath, "--verbose", "--debug", "bootstrap")
 	c.Assert(out, Equals, "error: "+msg+"\n")
@@ -191,7 +172,7 @@ func (s *MainSuite) TestActualRunJujuArgsBeforeCommand(c *C) {
 func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *C) {
 	defer testing.MakeFakeHomeNoEnvironments(c, "one").Restore()
 	// Check global args work when specified after command
-	msg := breakJuju(c, "Bootstrap")
+	msg, _ := testing.BreakJuju(c, "one", "Bootstrap", false)
 	logpath := filepath.Join(c.MkDir(), "log")
 	out := badrun(c, 1, "bootstrap", "--log-file", logpath, "--verbose", "--debug")
 	c.Assert(out, Equals, "error: "+msg+"\n")

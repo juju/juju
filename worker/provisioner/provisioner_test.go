@@ -1,9 +1,8 @@
 package provisioner_test
 
 import (
+	"fmt"
 	"labix.org/v2/mgo/bson"
-	"time"
-
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -11,11 +10,13 @@ import (
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/provisioner"
 	stdtesting "testing"
+	"time"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -89,6 +90,12 @@ func (s *ProvisionerSuite) checkStartInstanceCustom(c *C, m *state.Machine, secr
 				c.Assert(o.Secret, Equals, secret)
 				c.Assert(o.Constraints, DeepEquals, cons)
 
+				// Check the status was updated.
+				status, statusInfo, err := m.Status()
+				c.Assert(err, IsNil)
+				c.Assert(status, Equals, params.MachinePending)
+				c.Assert(statusInfo, Equals, "starting")
+
 				// Check we can connect to the state with
 				// the machine's entity name and password.
 				info := s.StateInfo(c)
@@ -100,6 +107,7 @@ func (s *ProvisionerSuite) checkStartInstanceCustom(c *C, m *state.Machine, secr
 				// the machine's entity name and password.
 				st, err := state.Open(o.Info, state.DefaultDialOpts())
 				c.Assert(err, IsNil)
+
 				st.Close()
 				return
 			default:
@@ -209,19 +217,30 @@ func (s *ProvisionerSuite) TestConstraints(c *C) {
 	s.checkStartInstanceCustom(c, m, "pork", cons)
 }
 
-func (s *ProvisionerSuite) TestProvisioningDoesNotOccurWithAnInvalidEnvironment(c *C) {
-	err := s.invalidateEnvironment(c)
+func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenStartInstanceFailed(c *C) {
+	brokenMsg, ecfg := coretesting.BreakJuju(c, "dummyenv", "StartInstance", true)
+	err := s.State.SetEnvironConfig(ecfg)
 	c.Assert(err, IsNil)
 
 	p := provisioner.NewProvisioner(s.State)
-	defer s.stopProvisioner(c, p)
+	defer func() {
+		err := s.fixEnvironment()
+		c.Assert(err, IsNil)
 
-	// try to create a machine
-	_, err = s.State.AddMachine(version.Current.Series, state.JobHostUnits)
+		errInfo := fmt.Sprintf("cannot start machine 0: cannot start instance for new machine: %s", brokenMsg)
+		c.Assert(p.Stop(), ErrorMatches, errInfo)
+	}()
+
+	// Check that an instance is not provisioned when the machine is created...
+	m, err := s.State.AddMachine(version.Current.Series, state.JobHostUnits)
 	c.Assert(err, IsNil)
-
-	// the PA should not create it
 	s.checkNotStartInstance(c)
+
+	// And check the machine status is set to error.
+	status, info, err := m.Status()
+	c.Assert(err, IsNil)
+	c.Assert(status, Equals, params.MachineError)
+	c.Assert(info, Equals, brokenMsg)
 }
 
 func (s *ProvisionerSuite) TestProvisioningOccursWithFixedEnvironment(c *C) {

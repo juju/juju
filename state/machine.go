@@ -467,9 +467,7 @@ func (m *Machine) Status() (status params.MachineStatus, info string, err error)
 
 // SetStatus sets the status of the machine.
 func (m *Machine) SetStatus(status params.MachineStatus, info string) error {
-	if status == params.MachinePending {
-		panic("cannot set machine status to pending")
-	} else if status == params.MachineError && info == "" {
+	if status == params.MachineError && info == "" {
 		panic("machine error status with no info")
 	}
 	doc := &machineStatusDoc{status, info}

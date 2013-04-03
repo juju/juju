@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/worker"
@@ -102,7 +103,7 @@ func (p *Provisioner) loop() error {
 			if !ok {
 				return watcher.MustErr(machinesWatcher)
 			}
-			// TODO(dfc) fire process machines periodically to shut down unknown
+			// TODO(dfc; lp:1042717) fire process machines periodically to shut down unknown
 			// instances.
 			if err := p.processMachines(ids); err != nil {
 				return err
@@ -254,8 +255,10 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 	if err != nil {
 		return err
 	}
+	m.SetStatus(params.MachinePending, "starting")
 	inst, err := p.environ.StartInstance(m.Id(), m.Series(), cons, stateInfo, apiInfo)
 	if err != nil {
+		m.SetStatus(params.MachineError, err.Error())
 		return fmt.Errorf("cannot start instance for new machine: %v", err)
 	}
 	// assign the instance id to the machine
