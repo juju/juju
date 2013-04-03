@@ -8,6 +8,18 @@ import (
 	"launchpad.net/juju-core/constraints"
 )
 
+// AddRelation holds the parameters for making the AddRelation call.
+// The endpoints specified are unordered.
+type AddRelation struct {
+	Endpoints []string
+}
+
+// AddRelationResults holds the results of a AddRelation call. The Endpoints
+// field maps service names to the involved endpoints.
+type AddRelationResults struct {
+	Endpoints map[string]charm.Relation
+}
+
 // DestroyRelation holds the parameters for making the DestroyRelation call.
 // The endpoints specified are unordered.
 type DestroyRelation struct {
@@ -17,10 +29,11 @@ type DestroyRelation struct {
 // ServiceDeploy holds the parameters for making the ServiceDeploy call.
 type ServiceDeploy struct {
 	ServiceName string
-	Config      map[string]string
-	ConfigYAML  string // Takes precedence over config if both are present.
 	CharmUrl    string
 	NumUnits    int
+	Config      map[string]string
+	ConfigYAML  string // Takes precedence over config if both are present.
+	Constraints constraints.Value
 }
 
 // ServiceExpose holds the parameters for making the ServiceExpose call.
@@ -91,8 +104,8 @@ type ServiceDestroy struct {
 
 // Creds holds credentials for identifying an entity.
 type Creds struct {
-	EntityName string
-	Password   string
+	AuthTag  string
+	Password string
 }
 
 // Machine holds details of a machine.
@@ -122,7 +135,7 @@ type Password struct {
 
 // Unit holds details of a unit.
 type Unit struct {
-	DeployerName string
+	DeployerTag string
 	// TODO(rog) other unit attributes.
 }
 
@@ -140,13 +153,13 @@ type GetAnnotationsResults struct {
 
 // GetAnnotations stores parameters for making the GetAnnotations call.
 type GetAnnotations struct {
-	EntityId string
+	Tag string
 }
 
 // SetAnnotations stores parameters for making the SetAnnotations call.
 type SetAnnotations struct {
-	EntityId string
-	Pairs    map[string]string
+	Tag   string
+	Pairs map[string]string
 }
 
 // SetServiceConstraints stores parameters for making the SetServiceConstraints call.
@@ -242,12 +255,24 @@ type EntityInfo interface {
 // IMPORTANT NOTE: the types below are direct subsets of the entity docs
 // held in mongo, as defined in the state package (serviceDoc,
 // machineDoc etc).
+// In particular, the document marshalled into mongo
+// must unmarshal correctly into these documents.
+// If the format of a field in a document is changed in mongo, or
+// a field is removed and it coincides with one of the
+// fields below, a similar change must be made here.
+//
+// MachineInfo corresponds with state.machineDoc.
+// ServiceInfo corresponds with state.serviceDoc.
+// UnitInfo corresponds with state.unitDoc.
+// RelationInfo corresponds with state.relationDoc.
+// AnnotationInfo corresponds with state.annotatorDoc.
 
 var (
 	_ EntityInfo = (*MachineInfo)(nil)
 	_ EntityInfo = (*ServiceInfo)(nil)
 	_ EntityInfo = (*UnitInfo)(nil)
 	_ EntityInfo = (*RelationInfo)(nil)
+	_ EntityInfo = (*AnnotationInfo)(nil)
 )
 
 // MachineInfo holds the information about a Machine
@@ -263,22 +288,69 @@ func (i *MachineInfo) EntityKind() string    { return "machine" }
 type ServiceInfo struct {
 	Name     string `bson:"_id"`
 	Exposed  bool
-	CharmURL *charm.URL
+	CharmURL string
 }
 
 func (i *ServiceInfo) EntityId() interface{} { return i.Name }
 func (i *ServiceInfo) EntityKind() string    { return "service" }
 
+// ResolvedMode describes the way state transition errors
+// are resolved.
+type ResolvedMode string
+
+const (
+	ResolvedNone       ResolvedMode = ""
+	ResolvedRetryHooks ResolvedMode = "retry-hooks"
+	ResolvedNoHooks    ResolvedMode = "no-hooks"
+)
+
+// Port identifies a network port number for a particular protocol.
+type Port struct {
+	Protocol string
+	Number   int
+}
+
+func (p Port) String() string {
+	return fmt.Sprintf("%s:%d", p.Protocol, p.Number)
+}
+
+// UnitStatus represents the status of the unit agent.
+type UnitStatus string
+
+const (
+	UnitPending   UnitStatus = "pending"   // Agent hasn't started
+	UnitInstalled UnitStatus = "installed" // Agent has run the installed hook
+	UnitStarted   UnitStatus = "started"   // Agent is running properly
+	UnitStopped   UnitStatus = "stopped"   // Agent has stopped running on request
+	UnitError     UnitStatus = "error"     // Agent is waiting in an error state
+	UnitDown      UnitStatus = "down"      // Agent is down or not communicating
+)
+
 type UnitInfo struct {
-	Name    string `bson:"_id"`
-	Service string
+	Name           string `bson:"_id"`
+	Service        string
+	Series         string
+	CharmURL       *charm.URL
+	PublicAddress  string
+	PrivateAddress string
+	MachineId      string
+	Resolved       ResolvedMode
+	Ports          []Port
+	Status         UnitStatus
+	StatusInfo     string
 }
 
 func (i *UnitInfo) EntityId() interface{} { return i.Name }
 func (i *UnitInfo) EntityKind() string    { return "unit" }
 
+type Endpoint struct {
+	ServiceName string
+	Relation    charm.Relation
+}
+
 type RelationInfo struct {
-	Key string `bson:"_id"`
+	Key       string `bson:"_id"`
+	Endpoints []Endpoint
 }
 
 func (i *RelationInfo) EntityId() interface{} { return i.Key }
@@ -290,7 +362,7 @@ type AnnotationInfo struct {
 	// and StateWatcher results. We ensure that it's not serialised
 	// for the API by specifying the json tag.
 	GlobalKey   string `bson:"_id" json:"-"`
-	EntityName  string
+	Tag         string
 	Annotations map[string]string
 }
 

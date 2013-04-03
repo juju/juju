@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 )
 
 // A EnvironProvider represents a computing and storage provider.
@@ -63,16 +64,16 @@ type Instance interface {
 
 	// OpenPorts opens the given ports on the instance, which
 	// should have been started with the given machine id.
-	OpenPorts(machineId string, ports []state.Port) error
+	OpenPorts(machineId string, ports []params.Port) error
 
 	// ClosePorts closes the given ports on the instance, which
 	// should have been started with the given machine id.
-	ClosePorts(machineId string, ports []state.Port) error
+	ClosePorts(machineId string, ports []params.Port) error
 
 	// Ports returns the set of ports open on the instance, which
 	// should have been started with the given machine id.
 	// The ports are returned as sorted by state.SortPorts.
-	Ports(machineId string) ([]state.Port, error)
+	Ports(machineId string) ([]params.Port, error)
 }
 
 var ErrNoInstances = errors.New("no instances found")
@@ -212,17 +213,17 @@ type Environ interface {
 	// OpenPorts opens the given ports for the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	OpenPorts(ports []state.Port) error
+	OpenPorts(ports []params.Port) error
 
 	// ClosePorts closes the given ports for the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	ClosePorts(ports []state.Port) error
+	ClosePorts(ports []params.Port) error
 
 	// Ports returns the ports opened for the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	Ports() ([]state.Port, error)
+	Ports() ([]params.Port, error)
 
 	// Provider returns the EnvironProvider that created this Environ.
 	Provider() EnvironProvider

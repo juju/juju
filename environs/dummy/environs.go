@@ -29,6 +29,7 @@ import (
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/trivial"
@@ -86,14 +87,14 @@ type OpOpenPorts struct {
 	Env        string
 	MachineId  string
 	InstanceId state.InstanceId
-	Ports      []state.Port
+	Ports      []params.Port
 }
 
 type OpClosePorts struct {
 	Env        string
 	MachineId  string
 	InstanceId state.InstanceId
-	Ports      []state.Port
+	Ports      []params.Port
 }
 
 type OpPutFile GenericOperation
@@ -118,7 +119,7 @@ type environState struct {
 	mu            sync.Mutex
 	maxId         int // maximum instance id allocated so far.
 	insts         map[state.InstanceId]*instance
-	globalPorts   map[state.Port]bool
+	globalPorts   map[params.Port]bool
 	firewallMode  config.FirewallMode
 	bootstrapped  bool
 	storageDelay  time.Duration
@@ -220,7 +221,7 @@ func newState(name string, ops chan<- Operation, fwmode config.FirewallMode) *en
 		name:         name,
 		ops:          ops,
 		insts:        make(map[state.InstanceId]*instance),
-		globalPorts:  make(map[state.Port]bool),
+		globalPorts:  make(map[params.Port]bool),
 		firewallMode: fwmode,
 	}
 	s.storage = newStorage(s, "/"+name+"/private")
@@ -463,7 +464,7 @@ func (e *environ) Bootstrap(cons constraints.Value, cert, key []byte) error {
 		if err != nil {
 			return fmt.Errorf("cannot make bootstrap config: %v", err)
 		}
-		st, err := state.Initialize(info, cfg, state.DefaultDialTimeout)
+		st, err := state.Initialize(info, cfg, state.DefaultDialOpts())
 		if err != nil {
 			panic(err)
 		}
@@ -508,7 +509,10 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 }
 
 func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
-	return state.AssignUnused
+	// Although dummy does not actually start instances, it must respect the
+	// conservative assignment policy for the providers that do instantiate
+	// machines.
+	return state.AssignNew
 }
 
 func (e *environ) Config() *config.Config {
@@ -553,11 +557,11 @@ func (e *environ) StartInstance(machineId string, series string, cons constraint
 	if _, ok := e.Config().CACert(); !ok {
 		return nil, fmt.Errorf("no CA certificate in environment configuration")
 	}
-	if info.EntityName != state.MachineEntityName(machineId) {
-		return nil, fmt.Errorf("entity name must match started machine")
+	if info.Tag != state.MachineTag(machineId) {
+		return nil, fmt.Errorf("entity tag must match started machine")
 	}
-	if apiInfo.EntityName != state.MachineEntityName(machineId) {
-		return nil, fmt.Errorf("entity name must match started machine")
+	if apiInfo.Tag != state.MachineTag(machineId) {
+		return nil, fmt.Errorf("entity tag must match started machine")
 	}
 	if strings.HasPrefix(series, "unknown") {
 		return nil, &environs.NotFoundError{fmt.Errorf("no compatible tools found")}
@@ -565,7 +569,7 @@ func (e *environ) StartInstance(machineId string, series string, cons constraint
 	i := &instance{
 		state:     e.state,
 		id:        state.InstanceId(fmt.Sprintf("%s-%d", e.state.name, e.state.maxId)),
-		ports:     make(map[state.Port]bool),
+		ports:     make(map[params.Port]bool),
 		machineId: machineId,
 		series:    series,
 	}
@@ -639,7 +643,7 @@ func (e *environ) AllInstances() ([]environs.Instance, error) {
 	return insts, nil
 }
 
-func (e *environ) OpenPorts(ports []state.Port) error {
+func (e *environ) OpenPorts(ports []params.Port) error {
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	if e.state.firewallMode != config.FwGlobal {
@@ -652,7 +656,7 @@ func (e *environ) OpenPorts(ports []state.Port) error {
 	return nil
 }
 
-func (e *environ) ClosePorts(ports []state.Port) error {
+func (e *environ) ClosePorts(ports []params.Port) error {
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	if e.state.firewallMode != config.FwGlobal {
@@ -665,7 +669,7 @@ func (e *environ) ClosePorts(ports []state.Port) error {
 	return nil
 }
 
-func (e *environ) Ports() (ports []state.Port, err error) {
+func (e *environ) Ports() (ports []params.Port, err error) {
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	if e.state.firewallMode != config.FwGlobal {
@@ -685,7 +689,7 @@ func (*environ) Provider() environs.EnvironProvider {
 
 type instance struct {
 	state     *environState
-	ports     map[state.Port]bool
+	ports     map[params.Port]bool
 	id        state.InstanceId
 	machineId string
 	series    string
@@ -704,7 +708,7 @@ func (inst *instance) WaitDNSName() (string, error) {
 	return inst.DNSName()
 }
 
-func (inst *instance) OpenPorts(machineId string, ports []state.Port) error {
+func (inst *instance) OpenPorts(machineId string, ports []params.Port) error {
 	defer delay()
 	log.Infof("environs/dummy: openPorts %s, %#v", machineId, ports)
 	if inst.state.firewallMode != config.FwInstance {
@@ -728,7 +732,7 @@ func (inst *instance) OpenPorts(machineId string, ports []state.Port) error {
 	return nil
 }
 
-func (inst *instance) ClosePorts(machineId string, ports []state.Port) error {
+func (inst *instance) ClosePorts(machineId string, ports []params.Port) error {
 	defer delay()
 	if inst.state.firewallMode != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for closing ports on instance: %q",
@@ -751,7 +755,7 @@ func (inst *instance) ClosePorts(machineId string, ports []state.Port) error {
 	return nil
 }
 
-func (inst *instance) Ports(machineId string) (ports []state.Port, err error) {
+func (inst *instance) Ports(machineId string) (ports []params.Port, err error) {
 	defer delay()
 	if inst.state.firewallMode != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from instance: %q",

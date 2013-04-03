@@ -55,7 +55,7 @@ func (a *MachineAgent) Stop() error {
 
 // Run runs a machine agent.
 func (a *MachineAgent) Run(_ *cmd.Context) error {
-	if err := a.Conf.read(state.MachineEntityName(a.MachineId)); err != nil {
+	if err := a.Conf.read(state.MachineTag(a.MachineId)); err != nil {
 		return err
 	}
 	defer log.Noticef("cmd/jujud: machine agent exiting")
@@ -130,8 +130,8 @@ func (a *MachineAgent) Entity(st *state.State) (AgentState, error) {
 	return st.Machine(a.MachineId)
 }
 
-func (a *MachineAgent) EntityName() string {
-	return state.MachineEntityName(a.MachineId)
+func (a *MachineAgent) Tag() string {
+	return state.MachineTag(a.MachineId)
 }
 
 func (a *MachineAgent) Tomb() *tomb.Tomb {

@@ -79,13 +79,13 @@ func (s *UpgradeCharmSuccessSuite) SetUpTest(c *C) {
 	c.Assert(forced, Equals, false)
 }
 
-func (s *UpgradeCharmSuccessSuite) assertUpgraded(c *C, revision int) {
+func (s *UpgradeCharmSuccessSuite) assertUpgraded(c *C, revision int, forced bool) {
 	err := s.riak.Refresh()
 	c.Assert(err, IsNil)
-	ch, forced, err := s.riak.Charm()
+	ch, force, err := s.riak.Charm()
 	c.Assert(err, IsNil)
 	c.Assert(ch.Revision(), Equals, revision)
-	c.Assert(forced, Equals, false)
+	c.Assert(force, Equals, forced)
 	s.assertCharmUploaded(c, ch.URL())
 }
 
@@ -98,7 +98,7 @@ func (s *UpgradeCharmSuccessSuite) assertLocalRevision(c *C, revision int) {
 func (s *UpgradeCharmSuccessSuite) TestBumpsRevisionWhenNecessary(c *C) {
 	err := runUpgradeCharm(c, "riak")
 	c.Assert(err, IsNil)
-	s.assertUpgraded(c, 8)
+	s.assertUpgraded(c, 8, false)
 	s.assertLocalRevision(c, 8)
 }
 
@@ -110,7 +110,7 @@ func (s *UpgradeCharmSuccessSuite) TestDoesntBumpRevisionWhenNotNecessary(c *C) 
 
 	err = runUpgradeCharm(c, "riak")
 	c.Assert(err, IsNil)
-	s.assertUpgraded(c, 42)
+	s.assertUpgraded(c, 42, false)
 	s.assertLocalRevision(c, 42)
 }
 
@@ -128,6 +128,13 @@ func (s *UpgradeCharmSuccessSuite) TestUpgradesWithBundle(c *C) {
 
 	err = runUpgradeCharm(c, "riak")
 	c.Assert(err, IsNil)
-	s.assertUpgraded(c, 42)
+	s.assertUpgraded(c, 42, false)
 	s.assertLocalRevision(c, 7)
+}
+
+func (s *UpgradeCharmSuccessSuite) TestForcedUpgrade(c *C) {
+	err := runUpgradeCharm(c, "riak", "--force")
+	c.Assert(err, IsNil)
+	s.assertUpgraded(c, 8, true)
+	s.assertLocalRevision(c, 8)
 }

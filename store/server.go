@@ -28,6 +28,9 @@ func NewServer(store *Store) (*Server, error) {
 	s.mux.HandleFunc("/charm-info", func(w http.ResponseWriter, r *http.Request) {
 		s.serveInfo(w, r)
 	})
+	s.mux.HandleFunc("/charm-event", func(w http.ResponseWriter, r *http.Request) {
+		s.serveEvent(w, r)
+	})
 	s.mux.HandleFunc("/charm/", func(w http.ResponseWriter, r *http.Request) {
 		s.serveCharm(w, r)
 	})
@@ -92,6 +95,54 @@ func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 			if err == ErrNotFound {
 				skey = charmStatsKey(curl, "charm-missing")
 			}
+			c.Errors = append(c.Errors, err.Error())
+		}
+		if skey != nil && statsEnabled(r) {
+			go s.store.IncCounter(skey)
+		}
+	}
+	data, err := json.Marshal(response)
+	if err == nil {
+		w.Header().Set("Content-Type", "application/json")
+		_, err = w.Write(data)
+	}
+	if err != nil {
+		log.Errorf("store: cannot write content: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+}
+
+func (s *Server) serveEvent(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/charm-event" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	r.ParseForm()
+	response := map[string]*charm.EventResponse{}
+	for _, url := range r.Form["charms"] {
+		digest := ""
+		if i := strings.Index(url, "@"); i >= 0 && i+1 < len(url) {
+			digest = url[i+1:]
+			url = url[:i]
+		}
+		c := &charm.EventResponse{}
+		response[url] = c
+		curl, err := charm.ParseURL(url)
+		var event *CharmEvent
+		if err == nil {
+			event, err = s.store.CharmEvent(curl, digest)
+		}
+		var skey []string
+		if err == nil {
+			skey = charmStatsKey(curl, "charm-event")
+			c.Kind = event.Kind.String()
+			c.Revision = event.Revision
+			c.Digest = event.Digest
+			c.Errors = event.Errors
+			c.Warnings = event.Warnings
+			c.Time = event.Time.UTC().Format(time.RFC3339)
+		} else {
 			c.Errors = append(c.Errors, err.Error())
 		}
 		if skey != nil && statsEnabled(r) {
