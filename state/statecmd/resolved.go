@@ -11,7 +11,11 @@ import (
 // normal workflow. The retryHooks parameter informs whether to attempt to
 // retry previous failed hooks or to continue as if they had succeeded before.
 func MarkResolved(unit *state.Unit, retryHooks bool) error {
-	if status, _ := unit.Status(); status != params.UnitError {
+	status, _, err := unit.Status()
+	if err != nil {
+		return err
+	}
+	if status != params.UnitError {
 		return fmt.Errorf("unit %q is not in an error state", unit)
 	}
 	mode := params.ResolvedNoHooks

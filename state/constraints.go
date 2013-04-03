@@ -46,7 +46,6 @@ func removeConstraintsOp(st *State, id string) txn.Op {
 	return txn.Op{
 		C:      st.constraints.Name,
 		Id:     id,
-		Assert: txn.DocExists,
 		Remove: true,
 	}
 }

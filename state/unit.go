@@ -55,10 +55,17 @@ type unitDoc struct {
 	Tools          *Tools `bson:",omitempty"`
 	Ports          []params.Port
 	Life           Life
-	Status         params.UnitStatus
-	StatusInfo     string
 	TxnRevno       int64 `bson:"txn-revno"`
 	PasswordHash   string
+}
+
+// unitStatusDoc represents the internal state of a unit status in MongoDB.
+// The implicit _id field is explicitly set to the global key of the
+// associated unit in the document's creation transaction, but omitted to
+// allow direct use of the document in both create and update transactions.
+type unitStatusDoc struct {
+	Status     params.UnitStatus
+	StatusInfo string
 }
 
 // Unit represents the state of a service unit.
@@ -427,27 +434,31 @@ func (u *Unit) Refresh() error {
 }
 
 // Status returns the status of the unit's agent.
-func (u *Unit) Status() (status params.UnitStatus, info string) {
-	return u.doc.Status, u.doc.StatusInfo
+func (u *Unit) Status() (status params.UnitStatus, info string, err error) {
+	doc := &unitStatusDoc{}
+	if err := getStatus(u.st, u.globalKey(), doc); err != nil {
+		return "", "", err
+	}
+	return doc.Status, doc.StatusInfo, nil
 }
 
 // SetStatus sets the status of the unit.
 func (u *Unit) SetStatus(status params.UnitStatus, info string) error {
 	if status == params.UnitError && info == "" {
-		panic("must set info for unit error status")
+		panic("unit error status with no info")
 	}
+	doc := &unitStatusDoc{status, info}
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: notDeadDoc,
-		Update: D{{"$set", D{{"status", status}, {"statusinfo", info}}}},
-	}}
+	},
+		updateStatusOp(u.st, u.globalKey(), doc),
+	}
 	err := u.st.runner.Run(ops, "", nil)
 	if err != nil {
 		return fmt.Errorf("cannot set status of unit %q: %v", u, onAbort(err, errDead))
 	}
-	u.doc.Status = status
-	u.doc.StatusInfo = info
 	return nil
 }
 

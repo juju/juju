@@ -740,3 +740,58 @@ func (s *MachineSuite) TestConstraintsLifecycle(c *C) {
 	_, err = s.machine.Constraints()
 	c.Assert(err, ErrorMatches, `constraints not found`)
 }
+
+func (s *MachineSuite) TestGetSetStatusWhileAlive(c *C) {
+	failPending := func() { s.machine.SetStatus(params.MachinePending, "") }
+	c.Assert(failPending, PanicMatches, "cannot set machine status to pending")
+	failError := func() { s.machine.SetStatus(params.MachineError, "") }
+	c.Assert(failError, PanicMatches, "machine error status with no info")
+
+	status, info, err := s.machine.Status()
+	c.Assert(err, IsNil)
+	c.Assert(status, Equals, params.MachinePending)
+	c.Assert(info, Equals, "")
+
+	err = s.machine.SetStatus(params.MachineStarted, "")
+	c.Assert(err, IsNil)
+	status, info, err = s.machine.Status()
+	c.Assert(err, IsNil)
+	c.Assert(status, Equals, params.MachineStarted)
+	c.Assert(info, Equals, "")
+
+	err = s.machine.SetStatus(params.MachineError, "provisioning failed")
+	c.Assert(err, IsNil)
+	status, info, err = s.machine.Status()
+	c.Assert(err, IsNil)
+	c.Assert(status, Equals, params.MachineError)
+	c.Assert(info, Equals, "provisioning failed")
+}
+
+func (s *MachineSuite) TestGetSetStatusWhileNotAlive(c *C) {
+	// When Dying set/get should work.
+	err := s.machine.Destroy()
+	c.Assert(err, IsNil)
+	err = s.machine.SetStatus(params.MachineStopped, "")
+	c.Assert(err, IsNil)
+	status, info, err := s.machine.Status()
+	c.Assert(err, IsNil)
+	c.Assert(status, Equals, params.MachineStopped)
+	c.Assert(info, Equals, "")
+
+	// When Dead set should fail, but get will work.
+	err = s.machine.EnsureDead()
+	c.Assert(err, IsNil)
+	err = s.machine.SetStatus(params.MachineStarted, "not really")
+	c.Assert(err, ErrorMatches, `cannot set status of machine "0": not found or not alive`)
+	status, info, err = s.machine.Status()
+	c.Assert(err, IsNil)
+	c.Assert(status, Equals, params.MachineStopped)
+	c.Assert(info, Equals, "")
+
+	err = s.machine.Remove()
+	c.Assert(err, IsNil)
+	err = s.machine.SetStatus(params.MachineStarted, "not really")
+	c.Assert(err, ErrorMatches, `cannot set status of machine "0": not found or not alive`)
+	_, _, err = s.machine.Status()
+	c.Assert(err, ErrorMatches, "status not found")
+}
