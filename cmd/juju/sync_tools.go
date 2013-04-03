@@ -59,21 +59,17 @@ var officialBucketAttrs = map[string]interface{}{
 
 // Find the set of tools at the 'latest' version
 func findNewest(fullTools []*state.Tools) []*state.Tools {
-	var curBest *state.Tools = nil
+	// This assumes the nil version of Number is always less than a real
+	// number, but we don't have negative versions, so this should be fine
+	var curBest version.Number
 	var res []*state.Tools = nil
 	for _, tool := range fullTools {
-		var add = false
-		if curBest == nil || curBest.Number.Less(tool.Number) {
-			// This best is clearly better than all existing
-			// entries, so reset the list
-			res = make([]*state.Tools, 0, 1)
-			add = true
-			curBest = tool
-		}
-		if curBest.Number == tool.Number {
-			add = true
-		}
-		if add {
+		if curBest.Less(tool.Number) {
+			// This tool is newer than our current best,
+			// so reset the list
+			res = []*state.Tools{tool}
+			curBest = tool.Number
+		} else if curBest == tool.Number {
 			res = append(res, tool)
 		}
 	}
