@@ -177,9 +177,9 @@ func (env *maasEnviron) startBootstrapNode(tools *state.Tools, cert, key []byte,
 	mcfg.MongoURL = mongoURL
 	mcfg.Config = config
 
-	// script := fmt.Sprintf(`echo -n %s > /var/lib/juju/MAASmachineID.txt`, trivial.ShQuote(machineID))
+	script := fmt.Sprintf(`echo -n %s > /var/lib/juju/MAASmachineID.txt`, trivial.ShQuote(machineID))
 	// Pass script???
-	userdata, err := userData(mcfg)
+	userdata, err := userData(mcfg, script)
 	if err != nil {
 		msg := fmt.Errorf("could not compose userdata for bootstrap node: %v", err)
 		return nil, msg
