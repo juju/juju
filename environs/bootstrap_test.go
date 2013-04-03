@@ -5,9 +5,9 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cert"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"time"
 )
@@ -18,7 +18,7 @@ const (
 )
 
 type bootstrapSuite struct {
-	home testing.FakeHome
+	home *testing.FakeHome
 	testing.LoggingSuite
 }
 
@@ -35,17 +35,17 @@ func (s *bootstrapSuite) TearDownTest(c *C) {
 
 func (s *bootstrapSuite) TestBootstrapNeedsConfigCert(c *C) {
 	env := newEnviron("bar", noKeysDefined)
-	err := environs.Bootstrap(env, state.Constraints{})
+	err := environs.Bootstrap(env, constraints.Value{})
 	c.Assert(err, ErrorMatches, "environment configuration missing CA certificate")
 }
 
 func (s *bootstrapSuite) TestBootstrapKeyGeneration(c *C) {
 	env := newEnviron("foo", useDefaultKeys)
-	err := environs.Bootstrap(env, state.Constraints{})
+	err := environs.Bootstrap(env, constraints.Value{})
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
 
-	caCertPEM, err := ioutil.ReadFile(testing.HomePath(".juju", "foo-cert.pem"))
+	caCertPEM, err := ioutil.ReadFile(config.JujuHomePath("foo-cert.pem"))
 	c.Assert(err, IsNil)
 
 	err = cert.Verify(env.certPEM, caCertPEM, time.Now())
@@ -56,17 +56,16 @@ func (s *bootstrapSuite) TestBootstrapKeyGeneration(c *C) {
 
 func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *C) {
 	env := newEnviron("foo", useDefaultKeys)
-	err := environs.Bootstrap(env, state.Constraints{})
+	err := environs.Bootstrap(env, constraints.Value{})
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
-	c.Assert(env.constraints, DeepEquals, state.Constraints{})
+	c.Assert(env.constraints, DeepEquals, constraints.Value{})
 }
 
 func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *C) {
 	env := newEnviron("foo", useDefaultKeys)
-	cons, err := state.ParseConstraints("cpu-cores=2 mem=4G")
-	c.Assert(err, IsNil)
-	err = environs.Bootstrap(env, cons)
+	cons := constraints.MustParse("cpu-cores=2 mem=4G")
+	err := environs.Bootstrap(env, cons)
 	c.Assert(err, IsNil)
 	c.Assert(env.bootstrapCount, Equals, 1)
 	c.Assert(env.constraints, DeepEquals, cons)
@@ -79,7 +78,7 @@ type bootstrapEnviron struct {
 
 	// The following fields are filled in when Bootstrap is called.
 	bootstrapCount int
-	constraints    state.Constraints
+	constraints    constraints.Value
 	certPEM        []byte
 	keyPEM         []byte
 }
@@ -110,7 +109,7 @@ func (e *bootstrapEnviron) Name() string {
 	return e.name
 }
 
-func (e *bootstrapEnviron) Bootstrap(cons state.Constraints, certPEM, keyPEM []byte) error {
+func (e *bootstrapEnviron) Bootstrap(cons constraints.Value, certPEM, keyPEM []byte) error {
 	e.bootstrapCount++
 	e.constraints = cons
 	e.certPEM = certPEM

@@ -87,6 +87,8 @@ func (t *ToolsSuite) TestUploadTools(c *C) {
 		"authorized-keys": "i-am-a-key",
 		"agent-version":   "1.9.10", // Older than current version
 		"default-series":  "lucid",  // Real old series
+		"ca-cert":         testing.CACert,
+		"ca-private-key":  "",
 	})
 	c.Assert(err, IsNil)
 

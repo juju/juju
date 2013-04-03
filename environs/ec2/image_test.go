@@ -3,8 +3,8 @@ package ec2
 import (
 	"fmt"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/jujutest"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"strings"
 )
@@ -267,13 +267,11 @@ var findInstanceSpecTests = []struct {
 func (s *specSuite) TestFindInstanceSpec(c *C) {
 	for i, t := range findInstanceSpecTests {
 		c.Logf("test %d", i)
-		cons, err := state.ParseConstraints(t.cons)
-		c.Assert(err, IsNil)
 		spec, err := findInstanceSpec(&instanceConstraint{
 			region:      "test",
 			series:      t.series,
 			arches:      t.arches,
-			constraints: cons,
+			constraints: constraints.MustParse(t.cons),
 		})
 		c.Assert(err, IsNil)
 		c.Check(spec.instanceType, Equals, t.itype)
@@ -311,13 +309,11 @@ var findInstanceSpecErrorTests = []struct {
 func (s *specSuite) TestFindInstanceSpecErrors(c *C) {
 	for i, t := range findInstanceSpecErrorTests {
 		c.Logf("test %d", i)
-		cons, err := state.ParseConstraints(t.cons)
-		c.Assert(err, IsNil)
-		_, err = findInstanceSpec(&instanceConstraint{
+		_, err := findInstanceSpec(&instanceConstraint{
 			region:      "test",
 			series:      t.series,
 			arches:      t.arches,
-			constraints: cons,
+			constraints: constraints.MustParse(t.cons),
 		})
 		c.Check(err, ErrorMatches, t.err)
 	}

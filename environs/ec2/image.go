@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/constraints"
 	"net/http"
 	"sort"
 	"strings"
@@ -16,7 +16,7 @@ type instanceConstraint struct {
 	region      string
 	series      string
 	arches      []string
-	constraints state.Constraints
+	constraints constraints.Value
 }
 
 // instanceSpec holds an instance type name and the chosen image info.
@@ -97,8 +97,7 @@ const (
 // supplied series in the supplied region.
 func getImages(region, series string, arches []string) ([]image, error) {
 	path := fmt.Sprintf("/query/%s/server/released.current.txt", series)
-	hclient := new(http.Client)
-	resp, err := hclient.Get(imagesHost + path)
+	resp, err := http.Get(imagesHost + path)
 	if err == nil {
 		defer resp.Body.Close()
 		if resp.StatusCode != 200 {
@@ -108,7 +107,6 @@ func getImages(region, series string, arches []string) ([]image, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot get image data for %q: %v", series, err)
 	}
-
 	var images []image
 	r := bufio.NewReader(resp.Body)
 	for {

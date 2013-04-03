@@ -9,6 +9,7 @@ import (
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/presence"
@@ -158,23 +159,25 @@ func (st *State) SetEnvironConfig(cfg *config.Config) error {
 }
 
 // EnvironConstraints returns the current environment constraints.
-func (st *State) EnvironConstraints() (Constraints, error) {
+func (st *State) EnvironConstraints() (constraints.Value, error) {
 	return readConstraints(st, "e")
 }
 
 // SetEnvironConstraints replaces the current environment constraints.
-func (st *State) SetEnvironConstraints(cons Constraints) error {
+func (st *State) SetEnvironConstraints(cons constraints.Value) error {
 	return writeConstraints(st, "e", cons)
 }
 
 // AddMachine adds a new machine configured to run the supplied jobs on the
-// supplied series.
+// supplied series. The machine's constraints will be taken from the
+// environment constraints.
 func (st *State) AddMachine(series string, jobs ...MachineJob) (m *Machine, err error) {
 	return st.addMachine(series, "", jobs)
 }
 
 // InjectMachine adds a new machine, corresponding to an existing provider
-// instance, configured to run the supplied jobs on the supplied series.
+// instance, configured to run the supplied jobs on the supplied series. The
+// machine's constraints will be taken from the environment constraints.
 func (st *State) InjectMachine(series string, instanceId InstanceId, jobs ...MachineJob) (m *Machine, err error) {
 	if instanceId == "" {
 		return nil, fmt.Errorf("cannot inject a machine without an instance id")
@@ -182,54 +185,67 @@ func (st *State) InjectMachine(series string, instanceId InstanceId, jobs ...Mac
 	return st.addMachine(series, instanceId, jobs)
 }
 
-// addMachine implements AddMachine and InjectMachine.
-func (st *State) addMachine(series string, instanceId InstanceId, jobs []MachineJob) (m *Machine, err error) {
-	defer trivial.ErrorContextf(&err, "cannot add a new machine")
-	if series == "" {
-		return nil, fmt.Errorf("no series specified")
+func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value) (*machineDoc, []txn.Op, error) {
+	if mdoc.Series == "" {
+		return nil, nil, fmt.Errorf("no series specified")
 	}
-	if len(jobs) == 0 {
-		return nil, fmt.Errorf("no jobs specified")
+	if len(mdoc.Jobs) == 0 {
+		return nil, nil, fmt.Errorf("no jobs specified")
 	}
 	jset := make(map[MachineJob]bool)
-	for _, j := range jobs {
+	for _, j := range mdoc.Jobs {
 		if jset[j] {
-			return nil, fmt.Errorf("duplicate job: %s", j)
+			return nil, nil, fmt.Errorf("duplicate job: %s", j)
 		}
 		jset[j] = true
 	}
 	seq, err := st.sequence("machine")
 	if err != nil {
+		return nil, nil, err
+	}
+	mdoc.Id = strconv.Itoa(seq)
+	mdoc.Life = Alive
+	ops := []txn.Op{createConstraintsOp(st, machineGlobalKey(mdoc.Id), cons)}
+	ops = append(ops, txn.Op{
+		C:      st.machines.Name,
+		Id:     mdoc.Id,
+		Assert: txn.DocMissing,
+		Insert: *mdoc,
+	})
+	return mdoc, ops, nil
+}
+
+// addMachine implements AddMachine and InjectMachine.
+func (st *State) addMachine(series string, instanceId InstanceId, jobs []MachineJob) (m *Machine, err error) {
+	defer trivial.ErrorContextf(&err, "cannot add a new machine")
+
+	cons, err := st.EnvironConstraints()
+	if err != nil {
 		return nil, err
 	}
-	id := strconv.Itoa(seq)
-	mdoc := machineDoc{
-		Id:     id,
-		Series: series,
-		Life:   Alive,
-		Jobs:   jobs,
+	mdoc := &machineDoc{
+		Series:     series,
+		InstanceId: instanceId,
+		Jobs:       jobs,
 	}
-	if instanceId != "" {
-		mdoc.InstanceId = instanceId
+	mdoc, ops, err := st.addMachineOps(mdoc, cons)
+	if err != nil {
+		return nil, err
 	}
-	ops := []txn.Op{{
-		C:      st.machines.Name,
-		Id:     id,
-		Assert: txn.DocMissing,
-		Insert: mdoc,
-	}}
+
 	err = st.runner.Run(ops, "", nil)
 	if err != nil {
 		return nil, err
 	}
 	// Refresh to pick the txn-revno.
-	m = newMachine(st, &mdoc)
+	m = newMachine(st, mdoc)
 	if err = m.Refresh(); err != nil {
 		return nil, err
 	}
 	return m, nil
 }
 
+var errDead = fmt.Errorf("not found or dead")
 var errNotAlive = fmt.Errorf("not found or not alive")
 
 func onAbort(txnErr, err error) error {
@@ -279,74 +295,90 @@ func (st *State) Machine(id string) (*Machine, error) {
 	return newMachine(st, mdoc), nil
 }
 
+// Tagger represents entities with a tag.
+type Tagger interface {
+	Tag() string
+}
+
 // Authenticator represents entites capable of handling password
 // authentication.
 type Authenticator interface {
 	Refresh() error
 	SetPassword(pass string) error
 	PasswordValid(pass string) bool
-	EntityName() string
+}
+
+// TaggedAuthenticator represents tagged entities capable of authentication.
+type TaggedAuthenticator interface {
+	Authenticator
+	Tagger
 }
 
 // Annotator represents entities capable of handling annotations.
 type Annotator interface {
 	Annotation(key string) (string, error)
 	Annotations() (map[string]string, error)
-	SetAnnotation(key, value string) error
+	SetAnnotations(pairs map[string]string) error
 }
 
-// Authenticator attempts to return an Authenticator with the given name.
-func (st *State) Authenticator(name string) (Authenticator, error) {
+// TaggedAnnotator represents tagged entities capable of handling annotations.
+type TaggedAnnotator interface {
+	Annotator
+	Tagger
+}
+
+// Authenticator attempts to return a TaggedAuthenticator with the given name.
+func (st *State) Authenticator(name string) (TaggedAuthenticator, error) {
 	e, err := st.entity(name)
 	if err != nil {
 		return nil, err
 	}
-	if e, ok := e.(Authenticator); ok {
+	if e, ok := e.(TaggedAuthenticator); ok {
 		return e, nil
 	}
 	return nil, fmt.Errorf("entity %q does not support authentication", name)
 }
 
-// Annotator attempts to return an Annotator with the given name.
-func (st *State) Annotator(name string) (Annotator, error) {
+// Annotator attempts to return aa TaggedAnnotator with the given name.
+func (st *State) Annotator(name string) (TaggedAnnotator, error) {
 	e, err := st.entity(name)
 	if err != nil {
 		return nil, err
 	}
-	if e, ok := e.(Annotator); ok {
+	if e, ok := e.(TaggedAnnotator); ok {
 		return e, nil
 	}
 	return nil, fmt.Errorf("entity %q does not support annotations", name)
 }
 
-// entity returns the entity for the given name.
-func (st *State) entity(entityName string) (interface{}, error) {
-	i := strings.Index(entityName, "-")
-	if i <= 0 || i >= len(entityName)-1 {
-		return nil, fmt.Errorf("invalid entity name %q", entityName)
+// entity returns the entity for the given tag.
+func (st *State) entity(tag string) (interface{}, error) {
+	i := strings.Index(tag, "-")
+	if i <= 0 || i >= len(tag)-1 {
+		return nil, fmt.Errorf("invalid entity tag %q", tag)
 	}
-	prefix, id := entityName[0:i], entityName[i+1:]
+	prefix, id := tag[0:i], tag[i+1:]
 	switch prefix {
 	case "machine":
 		if !IsMachineId(id) {
-			return nil, fmt.Errorf("invalid entity name %q", entityName)
+			return nil, fmt.Errorf("invalid entity tag %q", tag)
 		}
 		return st.Machine(id)
 	case "unit":
 		i := strings.LastIndex(id, "-")
 		if i == -1 {
-			return nil, fmt.Errorf("invalid entity name %q", entityName)
+			return nil, fmt.Errorf("invalid entity tag %q", tag)
 		}
 		name := id[:i] + "/" + id[i+1:]
 		if !IsUnitName(name) {
-			return nil, fmt.Errorf("invalid entity name %q", entityName)
+			return nil, fmt.Errorf("invalid entity tag %q", tag)
 		}
 		return st.Unit(name)
 	case "user":
 		return st.User(id)
 	case "service":
 		if !IsServiceName(id) {
-			return nil, fmt.Errorf("invalid entity name %q", entityName)
+			return nil, fmt.Errorf("invalid entity tag %q", tag)
 		}
 		return st.Service(id)
 	case "environment":
@@ -357,11 +389,42 @@ func (st *State) entity(entityName string) (interface{}, error) {
 		// Return an invalid entity error if the requested environment is not
 		// the current one.
 		if id != conf.Name() {
-			return nil, fmt.Errorf("invalid entity name %q", entityName)
+			return nil, fmt.Errorf("invalid entity tag %q", tag)
 		}
 		return st.Environment()
 	}
-	return nil, fmt.Errorf("invalid entity name %q", entityName)
+	return nil, fmt.Errorf("invalid entity tag %q", tag)
+}
+
+// ParseTag, given an entity tag, returns the collection name and id
+// of the entity document.
+func (st *State) ParseTag(tag string) (string, string, error) {
+	parts := strings.SplitN(tag, "-", 2)
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("invalid entity name %q", tag)
+	}
+	id := parts[1]
+	var coll string
+	switch parts[0] {
+	case "machine":
+		coll = st.machines.Name
+	case "service":
+		coll = st.services.Name
+	case "unit":
+		coll = st.units.Name
+		// Handle replacements occurring when an entity name is created
+		// for a unit.
+		idx := strings.LastIndex(id, "-")
+		if idx == -1 {
+			return "", "", fmt.Errorf("invalid entity name %q", tag)
+		}
+		id = id[:idx] + "/" + id[idx+1:]
+	case "user":
+		coll = st.users.Name
+	default:
+		return "", "", fmt.Errorf("invalid entity name %q", tag)
+	}
+	return coll, id, nil
 }
 
 // AddCharm adds the ch charm with curl to the state.  bundleUrl must be
@@ -392,7 +455,40 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot get charm %q: %v", curl, err)
 	}
+	if err := cdoc.Meta.Check(); err != nil {
+		return nil, fmt.Errorf("malformed charm metadata found in state: %v", err)
+	}
 	return newCharm(st, cdoc)
+}
+
+// addPeerRelationsOps returns the operations necessary to add the
+// specified service peer relations to the state.
+func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.Relation) ([]txn.Op, error) {
+	var ops []txn.Op
+	for _, rel := range peers {
+		relId, err := st.sequence("relation")
+		if err != nil {
+			return nil, err
+		}
+		eps := []Endpoint{{
+			ServiceName: serviceName,
+			Relation:    rel,
+		}}
+		relKey := relationKey(eps)
+		relDoc := &relationDoc{
+			Key:       relKey,
+			Id:        relId,
+			Endpoints: eps,
+			Life:      Alive,
+		}
+		ops = append(ops, txn.Op{
+			C:      st.relations.Name,
+			Id:     relKey,
+			Assert: txn.DocMissing,
+			Insert: relDoc,
+		})
+	}
+	return ops, nil
 }
 
 // AddService creates a new service, running the supplied charm, with the
@@ -416,53 +512,34 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	peers := ch.Meta().Peers
 	svcDoc := &serviceDoc{
 		Name:          name,
+		Series:        ch.URL().Series,
+		Subordinate:   ch.Meta().Subordinate,
 		CharmURL:      ch.URL(),
 		RelationCount: len(peers),
 		Life:          Alive,
 	}
 	svc := newService(st, svcDoc)
 	ops := []txn.Op{
-		createConstraintsOp(st, svc.globalKey(), Constraints{}),
+		createConstraintsOp(st, svc.globalKey(), constraints.Value{}),
 		createSettingsOp(st, svc.settingsKey(), nil),
 		{
 			C:      st.settingsrefs.Name,
 			Id:     svc.settingsKey(),
 			Assert: txn.DocMissing,
 			Insert: settingsRefsDoc{1},
-		},
-		{
+		}, {
 			C:      st.services.Name,
 			Id:     name,
 			Assert: txn.DocMissing,
 			Insert: svcDoc,
 		}}
 	// Collect peer relation addition operations.
-	for relName, rel := range peers {
-		relId, err := st.sequence("relation")
-		if err != nil {
-			return nil, err
-		}
-		eps := []Endpoint{{
-			ServiceName:   name,
-			Interface:     rel.Interface,
-			RelationName:  relName,
-			RelationRole:  RolePeer,
-			RelationScope: rel.Scope,
-		}}
-		relKey := relationKey(eps)
-		relDoc := &relationDoc{
-			Key:       relKey,
-			Id:        relId,
-			Endpoints: eps,
-			Life:      Alive,
-		}
-		ops = append(ops, txn.Op{
-			C:      st.relations.Name,
-			Id:     relKey,
-			Assert: txn.DocMissing,
-			Insert: relDoc,
-		})
+	peerOps, err := st.addPeerRelationsOps(name, peers)
+	if err != nil {
+		return nil, err
 	}
+	ops = append(ops, peerOps...)
+
 	// Run the transaction; happily, there's never any reason to retry,
 	// because all the possible failed assertions imply that the service
 	// already exists.
@@ -574,11 +651,11 @@ outer:
 }
 
 func isPeer(ep Endpoint) bool {
-	return ep.RelationRole == RolePeer
+	return ep.Role == charm.RolePeer
 }
 
 func notPeer(ep Endpoint) bool {
-	return ep.RelationRole != RolePeer
+	return ep.Role != charm.RolePeer
 }
 
 // endpoints returns all endpoints that could be intended by the
@@ -632,11 +709,16 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	if !eps[0].CanRelateTo(eps[1]) {
 		return nil, fmt.Errorf("endpoints do not relate")
 	}
-	// If either endpoint has container scope, so must the other.
-	if eps[0].RelationScope == charm.ScopeContainer {
-		eps[1].RelationScope = charm.ScopeContainer
-	} else if eps[1].RelationScope == charm.ScopeContainer {
-		eps[0].RelationScope = charm.ScopeContainer
+	// If either endpoint has container scope, so must the other; and the
+	// services's series must also match, because they'll be deployed to
+	// the same machines.
+	matchSeries := true
+	if eps[0].Scope == charm.ScopeContainer {
+		eps[1].Scope = charm.ScopeContainer
+	} else if eps[1].Scope == charm.ScopeContainer {
+		eps[0].Scope = charm.ScopeContainer
+	} else {
+		matchSeries = false
 	}
 	// We only get a unique relation id once, to save on roundtrips. If it's
 	// -1, we haven't got it yet (we don't get it at this stage, because we
@@ -654,6 +736,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		}
 		// Collect per-service operations, checking sanity as we go.
 		var ops []txn.Op
+		series := map[string]bool{}
 		for _, ep := range eps {
 			svc, err := st.Service(ep.ServiceName)
 			if IsNotFound(err) {
@@ -663,6 +746,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 			} else if svc.doc.Life != Alive {
 				return nil, fmt.Errorf("service %q is not alive", ep.ServiceName)
 			}
+			series[svc.doc.Series] = true
 			ch, _, err := svc.Charm()
 			if err != nil {
 				return nil, err
@@ -677,6 +761,9 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				Update: D{{"$inc", D{{"relationcount", 1}}}},
 			})
 		}
+		if matchSeries && len(series) != 1 {
+			return nil, fmt.Errorf("principal and subordinate services' series must match")
+		}
 		// Create a new unique id if that has not already been done, and add
 		// an operation to create the relation document.
 		if id == -1 {
@@ -685,7 +772,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				return nil, err
 			}
 		}
-		doc := relationDoc{
+		doc := &relationDoc{
 			Key:       key,
 			Id:        id,
 			Endpoints: eps,
@@ -703,7 +790,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		} else if err != nil {
 			return nil, err
 		}
-		return &Relation{st, doc}, nil
+		return &Relation{st, *doc}, nil
 	}
 	return nil, ErrExcessiveContention
 }
@@ -751,6 +838,63 @@ func (st *State) Unit(name string) (*Unit, error) {
 	return newUnit(st, &doc), nil
 }
 
+// DestroyUnits destroys the units with the specified names.
+func (st *State) DestroyUnits(names ...string) (err error) {
+	// TODO(rog) make this a transaction?
+	var errs []string
+	for _, name := range names {
+		unit, err := st.Unit(name)
+		switch {
+		case IsNotFound(err):
+			err = fmt.Errorf("unit %q does not exist", name)
+		case err != nil:
+		case unit.Life() != Alive:
+			continue
+		case unit.IsPrincipal():
+			err = unit.Destroy()
+		default:
+			err = fmt.Errorf("unit %q is a subordinate", name)
+		}
+		if err != nil {
+			errs = append(errs, err.Error())
+		}
+	}
+	return destroyErr("units", names, errs)
+}
+
+// DestroyMachines destroys the machines with the specified ids.
+func (st *State) DestroyMachines(ids ...string) (err error) {
+	var errs []string
+	for _, id := range ids {
+		machine, err := st.Machine(id)
+		switch {
+		case IsNotFound(err):
+			err = fmt.Errorf("machine %s does not exist", id)
+		case err != nil:
+		case machine.Life() != Alive:
+			continue
+		default:
+			err = machine.Destroy()
+		}
+		if err != nil {
+			errs = append(errs, err.Error())
+		}
+	}
+	return destroyErr("machines", ids, errs)
+}
+
+func destroyErr(desc string, ids, errs []string) error {
+	if len(errs) == 0 {
+		return nil
+	}
+	msg := "some %s were not destroyed"
+	if len(errs) == len(ids) {
+		msg = "no %s were destroyed"
+	}
+	msg = fmt.Sprintf(msg, desc)
+	return fmt.Errorf("%s: %s", msg, strings.Join(errs, "; "))
+}
+
 // AssignUnit places the unit on a machine. Depending on the policy, and the
 // state of the environment, this may lead to new instances being launched
 // within the environment.
@@ -771,19 +915,9 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 		if _, err = u.AssignToUnusedMachine(); err != noUnusedMachines {
 			return err
 		}
-		for {
-			m, err := st.AddMachine(u.doc.Series, JobHostUnits)
-			if err != nil {
-				return err
-			}
-			err = u.assignToMachine(m, true)
-			if err == inUseErr {
-				// Someone else has grabbed the machine we've
-				// just allocated, so try again.
-				continue
-			}
-			return err
-		}
+		return u.AssignToNewMachine()
+	case AssignNew:
+		return u.AssignToNewMachine()
 	}
 	panic(fmt.Errorf("unknown unit assignment policy: %q", policy))
 }

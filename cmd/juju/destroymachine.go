@@ -42,5 +42,5 @@ func (c *DestroyMachineCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer conn.Close()
-	return conn.DestroyMachines(c.MachineIds...)
+	return conn.State.DestroyMachines(c.MachineIds...)
 }

@@ -6,12 +6,14 @@ import (
 	"launchpad.net/goamz/aws"
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
 	"net/http"
@@ -247,7 +249,7 @@ func findTools(env *environ) (*state.Tools, error) {
 	return environs.FindTools(env, v, flags)
 }
 
-func (e *environ) Bootstrap(cons state.Constraints, cert, key []byte) error {
+func (e *environ) Bootstrap(cons constraints.Value, cert, key []byte) error {
 	password := e.Config().AdminSecret()
 	if password == "" {
 		return fmt.Errorf("admin-secret is required for bootstrap")
@@ -289,6 +291,7 @@ func (e *environ) Bootstrap(cons state.Constraints, cert, key []byte) error {
 	mongoURL := environs.MongoURL(e, v)
 	inst, err := e.startInstance(&startInstanceParams{
 		machineId:   "0",
+		series:      tools.Series,
 		constraints: cons,
 		info: &state.Info{
 			Password: trivial.PasswordHash(password),
@@ -371,16 +374,21 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 // AssignmentPolicy for EC2 is to deploy units only on machines without other
 // units already assigned, and to launch new machines as required.
 func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
-	return state.AssignUnused
+	// Until we get proper containers to install units into, we shouldn't
+	// reuse dirty machines, as we cannot guarantee that when units were
+	// removed, it was left in a clean state.  Once we have good
+	// containerisation for the units, we should be able to have the ability
+	// to assign back to unused machines.
+	return state.AssignNew
 }
 
-func (e *environ) StartInstance(machineId string, cons state.Constraints, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
 	return e.startInstance(&startInstanceParams{
 		machineId:   machineId,
+		series:      series,
 		constraints: cons,
 		info:        info,
 		apiInfo:     apiInfo,
-		tools:       tools,
 	})
 }
 
@@ -416,7 +424,8 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 
 type startInstanceParams struct {
 	machineId       string
-	constraints     state.Constraints
+	series          string
+	constraints     constraints.Value
 	info            *state.Info
 	apiInfo         *api.Info
 	tools           *state.Tools
@@ -435,7 +444,9 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	if scfg.tools == nil {
 		var err error
 		flags := environs.HighestVersion | environs.CompatVersion
-		scfg.tools, err = environs.FindTools(e, version.Current, flags)
+		v := version.Current
+		v.Series = scfg.series
+		scfg.tools, err = environs.FindTools(e, v, flags)
 		if err != nil {
 			return nil, err
 		}
@@ -443,7 +454,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	log.Infof("environs/ec2: starting machine %s in %q running tools version %q from %q", scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
 	spec, err := findInstanceSpec(&instanceConstraint{
 		region:      e.ecfg().region(),
-		series:      scfg.tools.Series,
+		series:      scfg.series,
 		arches:      []string{scfg.tools.Arch},
 		constraints: scfg.constraints,
 	})
@@ -619,7 +630,7 @@ func (e *environ) Destroy(ensureInsts []environs.Instance) error {
 	return st.deleteAll()
 }
 
-func portsToIPPerms(ports []state.Port) []ec2.IPPerm {
+func portsToIPPerms(ports []params.Port) []ec2.IPPerm {
 	ipPerms := make([]ec2.IPPerm, len(ports))
 	for i, p := range ports {
 		ipPerms[i] = ec2.IPPerm{
@@ -632,7 +643,7 @@ func portsToIPPerms(ports []state.Port) []ec2.IPPerm {
 	return ipPerms
 }
 
-func (e *environ) openPortsInGroup(name string, ports []state.Port) error {
+func (e *environ) openPortsInGroup(name string, ports []params.Port) error {
 	if len(ports) == 0 {
 		return nil
 	}
@@ -662,7 +673,7 @@ func (e *environ) openPortsInGroup(name string, ports []state.Port) error {
 	return nil
 }
 
-func (e *environ) closePortsInGroup(name string, ports []state.Port) error {
+func (e *environ) closePortsInGroup(name string, ports []params.Port) error {
 	if len(ports) == 0 {
 		return nil
 	}
@@ -677,7 +688,7 @@ func (e *environ) closePortsInGroup(name string, ports []state.Port) error {
 	return nil
 }
 
-func (e *environ) portsInGroup(name string) (ports []state.Port, err error) {
+func (e *environ) portsInGroup(name string) (ports []params.Port, err error) {
 	g := ec2.SecurityGroup{Name: name}
 	resp, err := e.ec2().SecurityGroups([]ec2.SecurityGroup{g}, nil)
 	if err != nil {
@@ -692,7 +703,7 @@ func (e *environ) portsInGroup(name string) (ports []state.Port, err error) {
 			continue
 		}
 		for i := p.FromPort; i <= p.ToPort; i++ {
-			ports = append(ports, state.Port{
+			ports = append(ports, params.Port{
 				Protocol: p.Protocol,
 				Number:   i,
 			})
@@ -702,7 +713,7 @@ func (e *environ) portsInGroup(name string) (ports []state.Port, err error) {
 	return ports, nil
 }
 
-func (e *environ) OpenPorts(ports []state.Port) error {
+func (e *environ) OpenPorts(ports []params.Port) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode for opening ports on environment: %q",
 			e.Config().FirewallMode())
@@ -714,7 +725,7 @@ func (e *environ) OpenPorts(ports []state.Port) error {
 	return nil
 }
 
-func (e *environ) ClosePorts(ports []state.Port) error {
+func (e *environ) ClosePorts(ports []params.Port) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode for closing ports on environment: %q",
 			e.Config().FirewallMode())
@@ -726,7 +737,7 @@ func (e *environ) ClosePorts(ports []state.Port) error {
 	return nil
 }
 
-func (e *environ) Ports() ([]state.Port, error) {
+func (e *environ) Ports() ([]params.Port, error) {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from environment: %q",
 			e.Config().FirewallMode())
@@ -785,7 +796,7 @@ func (e *environ) jujuGroupName() string {
 	return "juju-" + e.name
 }
 
-func (inst *instance) OpenPorts(machineId string, ports []state.Port) error {
+func (inst *instance) OpenPorts(machineId string, ports []params.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for opening ports on instance: %q",
 			inst.e.Config().FirewallMode())
@@ -798,7 +809,7 @@ func (inst *instance) OpenPorts(machineId string, ports []state.Port) error {
 	return nil
 }
 
-func (inst *instance) ClosePorts(machineId string, ports []state.Port) error {
+func (inst *instance) ClosePorts(machineId string, ports []params.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for closing ports on instance: %q",
 			inst.e.Config().FirewallMode())
@@ -811,7 +822,7 @@ func (inst *instance) ClosePorts(machineId string, ports []state.Port) error {
 	return nil
 }
 
-func (inst *instance) Ports(machineId string) ([]state.Port, error) {
+func (inst *instance) Ports(machineId string) ([]params.Port, error) {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from instance: %q",
 			inst.e.Config().FirewallMode())

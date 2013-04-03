@@ -2,7 +2,7 @@ package ec2
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -86,9 +86,7 @@ var getInstanceTypesTest = []struct {
 func (s *instanceTypeSuite) TestGetInstanceTypes(c *C) {
 	for i, t := range getInstanceTypesTest {
 		c.Logf("test %d: %s", i, t.info)
-		cons, err := state.ParseConstraints(t.cons)
-		c.Assert(err, IsNil)
-		itypes, err := getInstanceTypes("test", cons)
+		itypes, err := getInstanceTypes("test", constraints.MustParse(t.cons))
 		c.Assert(err, IsNil)
 		names := make([]string, len(itypes))
 		for i, itype := range itypes {
@@ -104,16 +102,14 @@ func (s *instanceTypeSuite) TestGetInstanceTypes(c *C) {
 }
 
 func (s *instanceTypeSuite) TestGetInstanceTypesErrors(c *C) {
-	_, err := getInstanceTypes("unknown-region", state.Constraints{})
+	_, err := getInstanceTypes("unknown-region", constraints.Value{})
 	c.Check(err, ErrorMatches, `no instance types found in unknown-region`)
 
-	cons, err := state.ParseConstraints("cpu-power=9001")
-	c.Assert(err, IsNil)
+	cons := constraints.MustParse("cpu-power=9001")
 	_, err = getInstanceTypes("test", cons)
 	c.Check(err, ErrorMatches, `no instance types in test matching constraints "cpu-power=9001"`)
 
-	cons, err = state.ParseConstraints("arch=i386 mem=8G")
-	c.Assert(err, IsNil)
+	cons = constraints.MustParse("arch=i386 mem=8G")
 	_, err = getInstanceTypes("test", cons)
 	c.Check(err, ErrorMatches, `no instance types in test matching constraints "arch=i386 cpu-power=100 mem=8192M"`)
 }
@@ -144,8 +140,7 @@ var instanceTypeMatchTests = []struct {
 func (s *instanceTypeSuite) TestMatch(c *C) {
 	for i, t := range instanceTypeMatchTests {
 		c.Logf("test %d", i)
-		cons, err := state.ParseConstraints(t.cons)
-		c.Assert(err, IsNil)
+		cons := constraints.MustParse(t.cons)
 		var itype instanceType
 		for _, itype = range allInstanceTypes {
 			if itype.name == t.itype {

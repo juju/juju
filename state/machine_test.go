@@ -2,7 +2,9 @@ package state_test
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/version"
 	"sort"
 	"time"
@@ -80,6 +82,41 @@ func (s *MachineSuite) TestRemove(c *C) {
 	c.Assert(err, IsNil)
 }
 
+func (s *MachineSuite) TestDestroyMachines(c *C) {
+	m0 := s.machine
+	m1, err := s.State.AddMachine("series", state.JobManageEnviron)
+	c.Assert(err, IsNil)
+	m2, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+
+	sch := s.AddTestingCharm(c, "wordpress")
+	wordpress, err := s.State.AddService("wordpress", sch)
+	c.Assert(err, IsNil)
+	u, err := wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	err = u.AssignToMachine(m0)
+	c.Assert(err, IsNil)
+
+	err = s.State.DestroyMachines("0", "1", "2")
+	c.Assert(err, ErrorMatches, `some machines were not destroyed: machine 0 has unit "wordpress/0" assigned; machine 1 is required by the environment`)
+	assertLife := func(m *state.Machine, life state.Life) {
+		err := m.Refresh()
+		c.Assert(err, IsNil)
+		c.Assert(m.Life(), Equals, life)
+	}
+	assertLife(m0, state.Alive)
+	assertLife(m1, state.Alive)
+	assertLife(m2, state.Dying)
+
+	err = u.UnassignFromMachine()
+	c.Assert(err, IsNil)
+	err = s.State.DestroyMachines("0", "1", "2")
+	c.Assert(err, ErrorMatches, `some machines were not destroyed: machine 1 is required by the environment`)
+	assertLife(m0, state.Dying)
+	assertLife(m1, state.Alive)
+	assertLife(m2, state.Dying)
+}
+
 func (s *MachineSuite) TestMachineSetAgentAlive(c *C) {
 	alive, err := s.machine.AgentAlive()
 	c.Assert(err, IsNil)
@@ -96,12 +133,12 @@ func (s *MachineSuite) TestMachineSetAgentAlive(c *C) {
 	c.Assert(alive, Equals, true)
 }
 
-func (s *MachineSuite) TestEntityName(c *C) {
-	c.Assert(s.machine.EntityName(), Equals, "machine-0")
+func (s *MachineSuite) TestTag(c *C) {
+	c.Assert(s.machine.Tag(), Equals, "machine-0")
 }
 
-func (s *MachineSuite) TestMachineEntityName(c *C) {
-	c.Assert(state.MachineEntityName("10"), Equals, "machine-10")
+func (s *MachineSuite) TestMachineTag(c *C) {
+	c.Assert(state.MachineTag("10"), Equals, "machine-10")
 }
 
 func (s *MachineSuite) TestSetMongoPassword(c *C) {
@@ -238,12 +275,8 @@ func (s *MachineSuite) TestMachineRefresh(c *C) {
 
 func (s *MachineSuite) TestRefreshWhenNotAlive(c *C) {
 	// Refresh should work regardless of liveness status.
-	m := s.machine
-	err := m.SetInstanceId("foo")
-	c.Assert(err, IsNil)
-
 	testWhenDying(c, s.machine, noErr, noErr, func() error {
-		return m.Refresh()
+		return s.machine.Refresh()
 	})
 }
 
@@ -430,7 +463,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {
 	assertChange("mysql/0")
 
 	// Change the unit; no change.
-	err = mysql0.SetStatus(state.UnitStarted, "")
+	err = mysql0.SetStatus(params.UnitStarted, "")
 	c.Assert(err, IsNil)
 	assertNoChange()
 
@@ -459,7 +492,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {
 	assertNoChange()
 
 	// Change the subordinate; no change.
-	err = logging0.SetStatus(state.UnitStarted, "")
+	err = logging0.SetStatus(params.UnitStarted, "")
 	c.Assert(err, IsNil)
 	assertNoChange()
 
@@ -546,7 +579,7 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	assertChange("mysql/0")
 
 	// Change the unit; no change.
-	err = mysql0.SetStatus(state.UnitStarted, "")
+	err = mysql0.SetStatus(params.UnitStarted, "")
 	c.Assert(err, IsNil)
 	assertNoChange()
 
@@ -575,7 +608,7 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	assertChange("logging/0")
 
 	// Change the subordinate; no change.
-	err = logging0.SetStatus(state.UnitStarted, "")
+	err = logging0.SetStatus(params.UnitStarted, "")
 	c.Assert(err, IsNil)
 	assertNoChange()
 
@@ -624,7 +657,8 @@ func (s *MachineSuite) TestAnnotatorForMachine(c *C) {
 }
 
 func (s *MachineSuite) TestAnnotationRemovalForMachine(c *C) {
-	err := s.machine.SetAnnotation("mykey", "myvalue")
+	annotations := map[string]string{"mykey": "myvalue"}
+	err := s.machine.SetAnnotations(annotations)
 	c.Assert(err, IsNil)
 	err = s.machine.EnsureDead()
 	c.Assert(err, IsNil)
@@ -633,4 +667,76 @@ func (s *MachineSuite) TestAnnotationRemovalForMachine(c *C) {
 	ann, err := s.machine.Annotations()
 	c.Assert(err, IsNil)
 	c.Assert(ann, DeepEquals, make(map[string]string))
+}
+
+func (s *MachineSuite) TestConstraintsFromEnvironment(c *C) {
+	econs1 := constraints.MustParse("mem=1G")
+	econs2 := constraints.MustParse("mem=2G")
+
+	// A newly-created machine gets a copy of the environment constraints.
+	err := s.State.SetEnvironConstraints(econs1)
+	c.Assert(err, IsNil)
+	machine1, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	mcons1, err := machine1.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(mcons1, DeepEquals, econs1)
+
+	// Change environment constraints and add a new machine.
+	err = s.State.SetEnvironConstraints(econs2)
+	c.Assert(err, IsNil)
+	machine2, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	mcons2, err := machine2.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(mcons2, DeepEquals, econs2)
+
+	// Check the original machine has its original constraints.
+	mcons1, err = machine1.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(mcons1, DeepEquals, econs1)
+}
+
+func (s *MachineSuite) TestSetConstraints(c *C) {
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+
+	// Constraints can be set...
+	cons1 := constraints.MustParse("mem=1G")
+	err = machine.SetConstraints(cons1)
+	c.Assert(err, IsNil)
+	mcons, err := machine.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(mcons, DeepEquals, cons1)
+
+	// ...until the machine is provisioned, at which point they stick.
+	err = machine.SetInstanceId("i-mstuck")
+	c.Assert(err, IsNil)
+	cons2 := constraints.MustParse("mem=2G")
+	err = machine.SetConstraints(cons2)
+	c.Assert(err, ErrorMatches, "cannot set constraints: machine is already provisioned")
+
+	// Check the failed set had no effect.
+	mcons, err = machine.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(mcons, DeepEquals, cons1)
+}
+
+func (s *MachineSuite) TestConstraintsLifecycle(c *C) {
+	cons := constraints.MustParse("mem=1G")
+	cannotSet := `cannot set constraints: not found or not alive`
+	testWhenDying(c, s.machine, cannotSet, cannotSet, func() error {
+		err := s.machine.SetConstraints(cons)
+		mcons, err1 := s.machine.Constraints()
+		c.Assert(err1, IsNil)
+		c.Assert(mcons, DeepEquals, constraints.Value{})
+		return err
+	})
+
+	err := s.machine.Remove()
+	c.Assert(err, IsNil)
+	err = s.machine.SetConstraints(cons)
+	c.Assert(err, ErrorMatches, cannotSet)
+	_, err = s.machine.Constraints()
+	c.Assert(err, ErrorMatches, `constraints not found`)
 }

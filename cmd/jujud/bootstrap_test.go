@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
@@ -44,9 +45,9 @@ func (s *BootstrapSuite) initBootstrapCommand(c *C, args ...string) (*agent.Conf
 	conf := &agent.Conf{
 		DataDir: s.dataDir,
 		StateInfo: &state.Info{
-			EntityName: "bootstrap",
-			Addrs:      []string{testing.MgoAddr},
-			CACert:     []byte(testing.CACert),
+			Tag:    "bootstrap",
+			Addrs:  []string{testing.MgoAddr},
+			CACert: []byte(testing.CACert),
 		},
 	}
 	err := conf.Write()
@@ -65,12 +66,12 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *C) {
 	st, err := state.Open(&state.Info{
 		Addrs:  []string{testing.MgoAddr},
 		CACert: []byte(testing.CACert),
-	})
+	}, state.DefaultDialOpts())
 	c.Assert(err, IsNil)
 	defer st.Close()
 	machines, err := st.AllMachines()
 	c.Assert(err, IsNil)
-	c.Assert(len(machines), Equals, 1)
+	c.Assert(machines, HasLen, 1)
 
 	instid, ok := machines[0].InstanceId()
 	c.Assert(ok, Equals, true)
@@ -78,11 +79,11 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *C) {
 
 	cons, err := st.EnvironConstraints()
 	c.Assert(err, IsNil)
-	c.Assert(cons, DeepEquals, state.Constraints{})
+	c.Assert(cons, DeepEquals, constraints.Value{})
 }
 
 func (s *BootstrapSuite) TestSetConstraints(c *C) {
-	tcons := state.Constraints{Mem: uint64p(2048), CpuCores: uint64p(2)}
+	tcons := constraints.Value{Mem: uint64p(2048), CpuCores: uint64p(2)}
 	_, cmd, err := s.initBootstrapCommand(c, "--env-config", testConfig, "--constraints", tcons.String())
 	c.Assert(err, IsNil)
 	err = cmd.Run(nil)
@@ -91,10 +92,17 @@ func (s *BootstrapSuite) TestSetConstraints(c *C) {
 	st, err := state.Open(&state.Info{
 		Addrs:  []string{testing.MgoAddr},
 		CACert: []byte(testing.CACert),
-	})
+	}, state.DefaultDialOpts())
 	c.Assert(err, IsNil)
 	defer st.Close()
 	cons, err := st.EnvironConstraints()
+	c.Assert(err, IsNil)
+	c.Assert(cons, DeepEquals, tcons)
+
+	machines, err := st.AllMachines()
+	c.Assert(err, IsNil)
+	c.Assert(machines, HasLen, 1)
+	cons, err = machines[0].Constraints()
 	c.Assert(err, IsNil)
 	c.Assert(cons, DeepEquals, tcons)
 }
@@ -112,7 +120,7 @@ func (s *BootstrapSuite) TestMachinerWorkers(c *C) {
 	st, err := state.Open(&state.Info{
 		Addrs:  []string{testing.MgoAddr},
 		CACert: []byte(testing.CACert),
-	})
+	}, state.DefaultDialOpts())
 	c.Assert(err, IsNil)
 	defer st.Close()
 	m, err := st.Machine("0")
@@ -121,7 +129,7 @@ func (s *BootstrapSuite) TestMachinerWorkers(c *C) {
 }
 
 func testOpenState(c *C, info *state.Info, expectErr error) {
-	st, err := state.Open(info)
+	st, err := state.Open(info, state.DefaultDialOpts())
 	if st != nil {
 		st.Close()
 	}
@@ -150,11 +158,11 @@ func (s *BootstrapSuite) TestInitialPassword(c *C) {
 	}
 	testOpenState(c, info, state.Unauthorizedf("some auth problem"))
 
-	info.EntityName, info.Password = "machine-0", "foo"
+	info.Tag, info.Password = "machine-0", "foo"
 	testOpenState(c, info, nil)
 
-	info.EntityName = ""
-	st, err := state.Open(info)
+	info.Tag = ""
+	st, err := state.Open(info, state.DefaultDialOpts())
 	c.Assert(err, IsNil)
 	defer st.Close()
 
@@ -222,4 +230,5 @@ var testConfig = b64yaml{
 	"state-server":    false,
 	"authorized-keys": "i-am-a-key",
 	"ca-cert":         testing.CACert,
+	"ca-private-key":  "",
 }.encode()

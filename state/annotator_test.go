@@ -31,7 +31,7 @@ var annotatorTests = []struct {
 	{
 		about: "test setting an invalid annotation",
 		input: map[string]string{"invalid.key": "myvalue"},
-		err:   `invalid key "invalid.key"`,
+		err:   `cannot update annotations on .*: invalid key "invalid.key"`,
 	},
 	{
 		about:    "test returning a non existent annotation",
@@ -44,29 +44,40 @@ var annotatorTests = []struct {
 		expected: map[string]string{},
 	},
 	{
+		about:    "test removing multiple annotations",
+		initial:  map[string]string{"key1": "v1", "key2": "v2", "key3": "v3"},
+		input:    map[string]string{"key1": "", "key3": ""},
+		expected: map[string]string{"key2": "v2"},
+	},
+	{
+		about:    "test removing/adding annotations in the same transaction",
+		initial:  map[string]string{"key1": "value1"},
+		input:    map[string]string{"key1": "", "key2": "value2"},
+		expected: map[string]string{"key2": "value2"},
+	},
+	{
 		about:    "test removing a non existent annotation",
 		input:    map[string]string{"mykey": ""},
+		expected: map[string]string{},
+	},
+	{
+		about:    "test passing an empty map",
+		input:    map[string]string{},
 		expected: map[string]string{},
 	},
 }
 
 func testAnnotator(c *C, getEntity func() (state.Annotator, error)) {
-loop:
 	for i, t := range annotatorTests {
 		c.Logf("test %d. %s", i, t.about)
 		entity, err := getEntity()
 		c.Assert(err, IsNil)
-		for key, value := range t.initial {
-			err := entity.SetAnnotation(key, value)
-			c.Assert(err, IsNil)
-		}
-		for key, value := range t.input {
-			err := entity.SetAnnotation(key, value)
-			if t.err != "" {
-				c.Assert(err, ErrorMatches, t.err)
-				continue loop
-			}
-			c.Assert(err, IsNil)
+		err = entity.SetAnnotations(t.initial)
+		c.Assert(err, IsNil)
+		err = entity.SetAnnotations(t.input)
+		if t.err != "" {
+			c.Assert(err, ErrorMatches, t.err)
+			continue
 		}
 		// Retrieving single values works as expected.
 		for key, value := range t.input {
@@ -79,8 +90,11 @@ loop:
 		c.Assert(err, IsNil)
 		c.Assert(ann, DeepEquals, t.expected)
 		// Clean up existing annotations.
+		cleanup := make(map[string]string)
 		for key := range t.expected {
-			err = entity.SetAnnotation(key, "")
+			cleanup[key] = ""
 		}
+		err = entity.SetAnnotations(cleanup)
+		c.Assert(err, IsNil)
 	}
 }

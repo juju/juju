@@ -3,9 +3,11 @@ package environs
 import (
 	"errors"
 	"io"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 )
 
 // A EnvironProvider represents a computing and storage provider.
@@ -62,16 +64,16 @@ type Instance interface {
 
 	// OpenPorts opens the given ports on the instance, which
 	// should have been started with the given machine id.
-	OpenPorts(machineId string, ports []state.Port) error
+	OpenPorts(machineId string, ports []params.Port) error
 
 	// ClosePorts closes the given ports on the instance, which
 	// should have been started with the given machine id.
-	ClosePorts(machineId string, ports []state.Port) error
+	ClosePorts(machineId string, ports []params.Port) error
 
 	// Ports returns the set of ports open on the instance, which
 	// should have been started with the given machine id.
 	// The ports are returned as sorted by state.SortPorts.
-	Ports(machineId string) ([]state.Port, error)
+	Ports(machineId string) ([]params.Port, error)
 }
 
 var ErrNoInstances = errors.New("no instances found")
@@ -149,7 +151,7 @@ type Environ interface {
 	// The stateServerCertand stateServerKey parameters hold
 	// both the certificate and the respective private key to be
 	// used by the initial state server, in PEM format.
-	Bootstrap(cons state.Constraints, stateServerCert, stateServerKey []byte) error
+	Bootstrap(cons constraints.Value, stateServerCert, stateServerKey []byte) error
 
 	// StateInfo returns information on the state initialized
 	// by Bootstrap.
@@ -171,7 +173,7 @@ type Environ interface {
 	// on the new machine are given by tools - if nil,
 	// the Environ will find a set of tools compatible with the
 	// current version.
-	StartInstance(machineId string, cons state.Constraints, info *state.Info, apiInfo *api.Info, tools *state.Tools) (Instance, error)
+	StartInstance(machineId string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (Instance, error)
 
 	// StopInstances shuts down the given instances.
 	StopInstances([]Instance) error
@@ -211,17 +213,17 @@ type Environ interface {
 	// OpenPorts opens the given ports for the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	OpenPorts(ports []state.Port) error
+	OpenPorts(ports []params.Port) error
 
 	// ClosePorts closes the given ports for the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	ClosePorts(ports []state.Port) error
+	ClosePorts(ports []params.Port) error
 
 	// Ports returns the ports opened for the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	Ports() ([]state.Port, error)
+	Ports() ([]params.Port, error)
 
 	// Provider returns the EnvironProvider that created this Environ.
 	Provider() EnvironProvider

@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -16,7 +17,6 @@ import (
 	"launchpad.net/juju-core/trivial"
 	"net/url"
 	"os"
-	"strings"
 	"time"
 )
 
@@ -45,7 +45,8 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 		return nil, fmt.Errorf("cannot connect without admin-secret")
 	}
 	info.Password = password
-	st, err := state.Open(info)
+	opts := state.DefaultDialOpts()
+	st, err := state.Open(info, opts)
 	if state.IsUnauthorizedError(err) {
 		// We can't connect with the administrator password,;
 		// perhaps this was the first connection and the
@@ -56,7 +57,7 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 		// connecting to mongo before the state has been
 		// initialized and the initial password set.
 		for a := redialStrategy.Start(); a.Next(); {
-			st, err = state.Open(info)
+			st, err = state.Open(info, opts)
 			if !state.IsUnauthorizedError(err) {
 				break
 			}
@@ -164,10 +165,10 @@ func (conn *Conn) PutCharm(curl *charm.URL, repo charm.Repository, bumpRevision 
 	if bumpRevision {
 		chd, ok := ch.(*charm.Dir)
 		if !ok {
-			return nil, fmt.Errorf("cannot increment version of charm %q: not a directory", curl)
+			return nil, fmt.Errorf("cannot increment revision of charm %q: not a directory", curl)
 		}
 		if err = chd.SetDiskRevision(chd.Revision() + 1); err != nil {
-			return nil, fmt.Errorf("cannot increment version of charm %q: %v", curl, err)
+			return nil, fmt.Errorf("cannot increment revision of charm %q: %v", curl, err)
 		}
 		curl = curl.WithRevision(chd.Revision())
 	}
@@ -180,23 +181,23 @@ func (conn *Conn) PutCharm(curl *charm.URL, repo charm.Repository, bumpRevision 
 // DeployServiceParams contains the arguments required to deploy the referenced
 // charm.
 type DeployServiceParams struct {
-	Charm       *state.Charm
 	ServiceName string
+	Charm       *state.Charm
 	NumUnits    int
 	// Config is used only by the API.
 	Config map[string]string
 	// ConfigYAML takes precedence over Config if both are provided.
-	ConfigYAML string
+	ConfigYAML  string
+	Constraints constraints.Value
 }
 
 // DeployService takes a charm and various parameters and deploys it.
 func (conn *Conn) DeployService(args DeployServiceParams) (*state.Service, error) {
-
 	svc, err := conn.State.AddService(args.ServiceName, args.Charm)
 	if err != nil {
 		return nil, err
 	}
-
+	// BUG(lp:1162122): Config/ConfigYAML have no tests.
 	if args.ConfigYAML != "" {
 		ssArgs := params.ServiceSetYAML{
 			ServiceName: args.ServiceName,
@@ -214,9 +215,11 @@ func (conn *Conn) DeployService(args DeployServiceParams) (*state.Service, error
 			return nil, err
 		}
 	}
-
 	if args.Charm.Meta().Subordinate {
 		return svc, nil
+	}
+	if err := svc.SetConstraints(args.Constraints); err != nil {
+		return nil, err
 	}
 	_, err = conn.AddUnits(svc, args.NumUnits)
 	if err != nil {
@@ -286,9 +289,12 @@ func (conn *Conn) addCharm(curl *charm.URL, ch charm.Charm) (*state.Charm, error
 // to them as necessary.
 func (conn *Conn) AddUnits(svc *state.Service, n int) ([]*state.Unit, error) {
 	units := make([]*state.Unit, n)
+	// TODO store AssignmentPolicy in state, thus removing the need for this
+	// to use conn.Environ (so the method can be moved off Conn, and into
+	// State.
+	policy := conn.Environ.AssignmentPolicy()
 	// TODO what do we do if we fail half-way through this process?
 	for i := 0; i < n; i++ {
-		policy := conn.Environ.AssignmentPolicy()
 		unit, err := svc.AddUnit()
 		if err != nil {
 			return nil, fmt.Errorf("cannot add unit %d/%d to service %q: %v", i+1, n, svc.Name(), err)
@@ -302,78 +308,18 @@ func (conn *Conn) AddUnits(svc *state.Service, n int) ([]*state.Unit, error) {
 	return units, nil
 }
 
-// DestroyMachines destroys the specified machines.
-func (conn *Conn) DestroyMachines(ids ...string) (err error) {
-	var errs []string
-	for _, id := range ids {
-		machine, err := conn.State.Machine(id)
-		switch {
-		case state.IsNotFound(err):
-			err = fmt.Errorf("machine %s does not exist", id)
-		case err != nil:
-		case machine.Life() != state.Alive:
-			continue
-		default:
-			err = machine.Destroy()
-		}
-		if err != nil {
-			errs = append(errs, err.Error())
-		}
-	}
-	return destroyErr("machines", ids, errs)
-}
-
-// DestroyUnits destroys the specified units.
-func (conn *Conn) DestroyUnits(names ...string) (err error) {
-	var errs []string
-	for _, name := range names {
-		unit, err := conn.State.Unit(name)
-		switch {
-		case state.IsNotFound(err):
-			err = fmt.Errorf("unit %q does not exist", name)
-		case err != nil:
-		case unit.Life() != state.Alive:
-			continue
-		case unit.IsPrincipal():
-			err = unit.Destroy()
-		default:
-			err = fmt.Errorf("unit %q is a subordinate", name)
-		}
-		if err != nil {
-			errs = append(errs, err.Error())
-		}
-	}
-	return destroyErr("units", names, errs)
-}
-
-func destroyErr(desc string, ids, errs []string) error {
-	if len(errs) == 0 {
-		return nil
-	}
-	msg := "some %s were not destroyed"
-	if len(errs) == len(ids) {
-		msg = "no %s were destroyed"
-	}
-	msg = fmt.Sprintf(msg, desc)
-	return fmt.Errorf("%s: %s", msg, strings.Join(errs, "; "))
-}
-
 // Resolved marks the unit as having had any previous state transition
 // problems resolved, and informs the unit that it may attempt to
 // reestablish normal workflow. The retryHooks parameter informs
 // whether to attempt to reexecute previous failed hooks or to continue
 // as if they had succeeded before.
 func (conn *Conn) Resolved(unit *state.Unit, retryHooks bool) error {
-	status, _, err := unit.Status()
-	if err != nil {
-		return err
-	}
-	if status != state.UnitError {
+	if status, _ := unit.Status(); status != params.UnitError {
 		return fmt.Errorf("unit %q is not in an error state", unit)
 	}
-	mode := state.ResolvedNoHooks
+	mode := params.ResolvedNoHooks
 	if retryHooks {
-		mode = state.ResolvedRetryHooks
+		mode = params.ResolvedRetryHooks
 	}
 	return unit.SetResolved(mode)
 }

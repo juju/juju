@@ -27,11 +27,11 @@ type Info struct {
 	// to validate the state server's certificate, in PEM format.
 	CACert []byte
 
-	// EntityName holds the name of the entity that is connecting.
+	// Tag holds the name of the entity that is connecting.
 	// If this and the password are empty, no login attempt will be made
 	// (this is to allow tests to access the API to check that operations
 	// fail when not logged in).
-	EntityName string
+	Tag string
 
 	// Password holds the password for the administrator or connecting entity.
 	Password string
@@ -79,8 +79,8 @@ func Open(info *Info) (*State, error) {
 		client: client,
 		conn:   conn,
 	}
-	if info.EntityName != "" || info.Password != "" {
-		if err := st.Login(info.EntityName, info.Password); err != nil {
+	if info.Tag != "" || info.Password != "" {
+		if err := st.Login(info.Tag, info.Password); err != nil {
 			conn.Close()
 			return nil, err
 		}

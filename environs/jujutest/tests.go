@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -14,6 +15,25 @@ import (
 	"sort"
 )
 
+// TestConfig contains the configuration for the environment
+// This is a is an indirection to make it harder for tests to accidentally
+// share the underlying map.
+type TestConfig struct {
+	Config map[string]interface{}
+}
+
+// UpdateConfig modifies the configuration safely by creating a new map
+func (testConfig *TestConfig) UpdateConfig(update map[string]interface{}) {
+	newConfig := map[string]interface{}{}
+	for key, val := range testConfig.Config {
+		newConfig[key] = val
+	}
+	for key, val := range update {
+		newConfig[key] = val
+	}
+	testConfig.Config = newConfig
+}
+
 // Tests is a gocheck suite containing tests verifying juju functionality
 // against the environment with the given configuration. The
 // tests are not designed to be run against a live server - the Environ
@@ -21,14 +41,14 @@ import (
 // may be executed.
 type Tests struct {
 	coretesting.LoggingSuite
-	Config map[string]interface{}
-	Env    environs.Environ
+	TestConfig TestConfig
+	Env        environs.Environ
 }
 
 // Open opens an instance of the testing environment.
 func (t *Tests) Open(c *C) environs.Environ {
-	e, err := environs.NewFromAttrs(t.Config)
-	c.Assert(err, IsNil, Commentf("opening environ %#v", t.Config))
+	e, err := environs.NewFromAttrs(t.TestConfig.Config)
+	c.Assert(err, IsNil, Commentf("opening environ %#v", t.TestConfig.Config))
 	c.Assert(e, NotNil)
 	return e
 }
@@ -52,14 +72,8 @@ func (t *Tests) TestBootstrapWithoutAdminSecret(c *C) {
 	delete(m, "admin-secret")
 	env, err := environs.NewFromAttrs(m)
 	c.Assert(err, IsNil)
-	err = environs.Bootstrap(env, state.Constraints{})
+	err = environs.Bootstrap(env, constraints.Value{})
 	c.Assert(err, ErrorMatches, ".*admin-secret is required for bootstrap")
-}
-
-func (t *Tests) TestProviderAssignmentPolicy(c *C) {
-	e := t.Open(c)
-	policy := e.AssignmentPolicy()
-	c.Assert(policy, FitsTypeOf, state.AssignUnused)
 }
 
 func (t *Tests) TestStartStop(c *C) {
@@ -69,13 +83,11 @@ func (t *Tests) TestStartStop(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(insts, HasLen, 0)
 
-	inst0, err := e.StartInstance("0", state.Constraints{}, testing.InvalidStateInfo("0"), testing.InvalidAPIInfo("0"), nil)
-	c.Assert(err, IsNil)
+	inst0 := testing.StartInstance(c, e, "0")
 	c.Assert(inst0, NotNil)
 	id0 := inst0.Id()
 
-	inst1, err := e.StartInstance("1", state.Constraints{}, testing.InvalidStateInfo("1"), testing.InvalidAPIInfo("1"), nil)
-	c.Assert(err, IsNil)
+	inst1 := testing.StartInstance(c, e, "1")
 	c.Assert(inst1, NotNil)
 	id1 := inst1.Id()
 
@@ -107,18 +119,18 @@ func (t *Tests) TestStartStop(c *C) {
 func (t *Tests) TestBootstrap(c *C) {
 	// TODO tests for Bootstrap(true)
 	e := t.Open(c)
-	err := environs.Bootstrap(e, state.Constraints{})
+	err := environs.Bootstrap(e, constraints.Value{})
 	c.Assert(err, IsNil)
 
 	info, apiInfo, err := e.StateInfo()
 	c.Check(info.Addrs, Not(HasLen), 0)
 	c.Check(apiInfo.Addrs, Not(HasLen), 0)
 
-	err = environs.Bootstrap(e, state.Constraints{})
+	err = environs.Bootstrap(e, constraints.Value{})
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	e2 := t.Open(c)
-	err = environs.Bootstrap(e2, state.Constraints{})
+	err = environs.Bootstrap(e2, constraints.Value{})
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	info2, apiInfo2, err := e2.StateInfo()
@@ -131,10 +143,10 @@ func (t *Tests) TestBootstrap(c *C) {
 	// Open again because Destroy invalidates old environments.
 	e3 := t.Open(c)
 
-	err = environs.Bootstrap(e3, state.Constraints{})
+	err = environs.Bootstrap(e3, constraints.Value{})
 	c.Assert(err, IsNil)
 
-	err = environs.Bootstrap(e3, state.Constraints{})
+	err = environs.Bootstrap(e3, constraints.Value{})
 	c.Assert(err, NotNil)
 }
 
