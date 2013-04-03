@@ -18,10 +18,6 @@ import (
 	"launchpad.net/juju-core/state/watcher"
 )
 
-// DefaultDialTimeout is the default amount of time to wait
-// when calling state.Open.
-const DefaultDialTimeout = 10 * time.Minute
-
 // Info encapsulates information about cluster of
 // servers holding juju state and can be used to make a
 // connection to that cluster.
@@ -34,20 +30,41 @@ type Info struct {
 	// to validate the state server's certificate, in PEM format.
 	CACert []byte
 
-	// EntityName holds the name of the entity that is connecting.
+	// Tag holds the name of the entity that is connecting.
 	// It should be empty when connecting as an administrator.
-	EntityName string
+	Tag string
 
 	// Password holds the password for the connecting entity.
 	Password string
+}
+
+// DialOpts holds configuration parameters that control the
+// Dialing behavior when connecting to a state server.
+type DialOpts struct {
+	// Timeout is the amount of time to wait contacting
+	// a state server.
+	Timeout time.Duration
+
+	// RetryDelay is the amount of time to wait between
+	// unsucssful connection attempts.
+	RetryDelay time.Duration
+}
+
+// DefaultDialOpts returns a DialOpts representing the default
+// parameters for contacting a state server.
+func DefaultDialOpts() DialOpts {
+	return DialOpts{
+		Timeout:    10 * time.Minute,
+		RetryDelay: 2 * time.Second,
+	}
 }
 
 // Open connects to the server described by the given
 // info, waits for it to be initialized, and returns a new State
 // representing the environment connected to.
 // It returns unauthorizedError if access is unauthorized.
-func Open(info *Info, dialTimeout time.Duration) (*State, error) {
-	log.Infof("state: opening state; mongo addresses: %q; entity %q", info.Addrs, info.EntityName)
+func Open(info *Info, opts DialOpts) (*State, error) {
+	log.Infof("state: opening state; mongo addresses: %q; entity %q", info.Addrs, info.Tag)
 	if len(info.Addrs) == 0 {
 		return nil, errors.New("no mongo addresses")
 	}
@@ -66,17 +83,23 @@ func Open(info *Info, dialTimeout time.Duration) (*State, error) {
 	}
 	dial := func(addr net.Addr) (net.Conn, error) {
 		log.Infof("state: connecting to %v", addr)
-		c, err := tls.Dial("tcp", addr.String(), tlsConfig)
+		c, err := net.Dial("tcp", addr.String())
 		if err != nil {
-			log.Errorf("state: connection failed: %v", err)
+			log.Errorf("state: connection failed, paused for %v: %v", opts.RetryDelay, err)
+			time.Sleep(opts.RetryDelay)
+			return nil, err
+		}
+		cc := tls.Client(c, tlsConfig)
+		if err := cc.Handshake(); err != nil {
+			log.Errorf("state: TLS handshake failed: %v", err)
 			return nil, err
 		}
 		log.Infof("state: connection established")
-		return c, err
+		return cc, nil
 	}
 	session, err := mgo.DialWithInfo(&mgo.DialInfo{
 		Addrs:   info.Addrs,
-		Timeout: dialTimeout,
+		Timeout: opts.Timeout,
 		Dial:    dial,
 	})
 	if err != nil {
@@ -93,8 +116,8 @@ func Open(info *Info, dialTimeout time.Duration) (*State, error) {
 // Initialize sets up an initial empty state and returns it.
 // This needs to be performed only once for a given environment.
 // It returns unauthorizedError if access is unauthorized.
-func Initialize(info *Info, cfg *config.Config, dialTimeout time.Duration) (rst *State, err error) {
-	st, err := Open(info, dialTimeout)
+func Initialize(info *Info, cfg *config.Config, opts DialOpts) (rst *State, err error) {
+	st, err := Open(info, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -194,11 +217,11 @@ func maybeUnauthorized(err error, msg string) error {
 func newState(session *mgo.Session, info *Info) (*State, error) {
 	db := session.DB("juju")
 	pdb := session.DB("presence")
-	if info.EntityName != "" {
-		if err := db.Login(info.EntityName, info.Password); err != nil {
+	if info.Tag != "" {
+		if err := db.Login(info.Tag, info.Password); err != nil {
 			return nil, maybeUnauthorized(err, "cannot log in to juju database")
 		}
-		if err := pdb.Login(info.EntityName, info.Password); err != nil {
+		if err := pdb.Login(info.Tag, info.Password); err != nil {
 			return nil, maybeUnauthorized(err, "cannot log in to presence database")
 		}
 	} else if info.Password != "" {
@@ -227,7 +250,7 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 	log := db.C("txns.log")
 	logInfo := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
 	// The lack of error code for this error was reported upstream:
-	//     https://jira.mongodb.org/browse/SERVER-6992
+	//     https://jira.klmongodb.org/browse/SERVER-6992
 	err := log.Create(&logInfo)
 	if err != nil && err.Error() != "collection already exists" {
 		return nil, maybeUnauthorized(err, "cannot create log collection")

@@ -28,8 +28,8 @@ type SimpleContext struct {
 	// to validate the state server's certificate, in PEM format.
 	caCert []byte
 
-	// DeployerName identifies the agent on whose behalf this context is running.
-	deployerName string
+	// DeployerTag identifies the agent on whose behalf this context is running.
+	deployerTag string
 
 	// InitDir specifies the directory used by upstart on the local system.
 	// It is typically set to "/etc/init".
@@ -59,17 +59,17 @@ var _ Context = (*SimpleContext)(nil)
 // "/etc/init" logging to "/var/log/juju". Paths to which agents and tools
 // are installed are relative to dataDir; if dataDir is empty, it will be
 // set to "/var/lib/juju".
-func NewSimpleContext(dataDir string, CACert []byte, deployerName string, addresser Addresser) *SimpleContext {
+func NewSimpleContext(dataDir string, CACert []byte, deployerTag string, addresser Addresser) *SimpleContext {
 	if dataDir == "" {
 		dataDir = "/var/lib/juju"
 	}
 	return &SimpleContext{
-		addresser:    addresser,
-		caCert:       CACert,
-		deployerName: deployerName,
-		initDir:      "/etc/init",
-		dataDir:      dataDir,
-		logDir:       "/var/log/juju",
+		addresser:   addresser,
+		caCert:      CACert,
+		deployerTag: deployerTag,
+		initDir:     "/etc/init",
+		dataDir:     dataDir,
+		logDir:      "/var/log/juju",
 	}
 }
 
@@ -81,15 +81,15 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	}
 
 	// Link the current tools for use by the new agent.
-	entityName := state.UnitEntityName(unitName)
-	_, err = agent.ChangeAgentTools(ctx.dataDir, entityName, version.Current)
-	toolsDir := agent.ToolsDir(ctx.dataDir, entityName)
+	tag := state.UnitTag(unitName)
+	_, err = agent.ChangeAgentTools(ctx.dataDir, tag, version.Current)
+	toolsDir := agent.ToolsDir(ctx.dataDir, tag)
 	defer removeOnErr(&err, toolsDir)
 
 	info := state.Info{
-		Addrs:      ctx.addresser.Addresses(),
-		EntityName: entityName,
-		CACert:     ctx.caCert,
+		Addrs:  ctx.addresser.Addresses(),
+		Tag:    tag,
+		CACert: ctx.caCert,
 	}
 	// Prepare the agent's configuration data.
 	conf := &agent.Conf{
@@ -103,11 +103,11 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	defer removeOnErr(&err, conf.Dir())
 
 	// Install an upstart job that runs the unit agent.
-	logPath := path.Join(ctx.logDir, entityName+".log")
+	logPath := path.Join(ctx.logDir, tag+".log")
 	syslogConfigRenderer := syslog.NewForwardConfig(
-		entityName, ctx.addresser.Addresses())
+		tag, ctx.addresser.Addresses())
 	syslogConfigRenderer.ConfigDir = ctx.syslogConfigDir
-	syslogConfigRenderer.ConfigFileName = fmt.Sprintf("26-juju-%s.conf", entityName)
+	syslogConfigRenderer.ConfigFileName = fmt.Sprintf("26-juju-%s.conf", tag)
 	if err := syslogConfigRenderer.Write(); err != nil {
 		return err
 	}
@@ -140,8 +140,8 @@ func (ctx *SimpleContext) RecallUnit(unitName string) error {
 	if err := svc.Remove(); err != nil {
 		return err
 	}
-	entityName := state.UnitEntityName(unitName)
-	agentDir := agent.Dir(ctx.dataDir, entityName)
+	tag := state.UnitTag(unitName)
+	agentDir := agent.Dir(ctx.dataDir, tag)
 	if err := os.RemoveAll(agentDir); err != nil {
 		return err
 	}
@@ -151,7 +151,7 @@ func (ctx *SimpleContext) RecallUnit(unitName string) error {
 	if e := syslog.Restart(); e != nil {
 		log.Warningf("installer: cannot restart syslog daemon: %v", e)
 	}
-	toolsDir := agent.ToolsDir(ctx.dataDir, entityName)
+	toolsDir := agent.ToolsDir(ctx.dataDir, tag)
 	return os.Remove(toolsDir)
 }
 
@@ -165,7 +165,7 @@ func (ctx *SimpleContext) DeployedUnits() ([]string, error) {
 	var installed []string
 	for _, fi := range fis {
 		if groups := deployedRe.FindStringSubmatch(fi.Name()); len(groups) == 4 {
-			if groups[1] != ctx.deployerName {
+			if groups[1] != ctx.deployerTag {
 				continue
 			}
 			unitName := groups[2] + "/" + groups[3]
@@ -183,8 +183,8 @@ func (ctx *SimpleContext) DeployedUnits() ([]string, error) {
 // context, so as to distinguish its own jobs from those installed by other
 // means.
 func (ctx *SimpleContext) upstartService(unitName string) *upstart.Service {
-	entityName := state.UnitEntityName(unitName)
-	svcName := "jujud-" + ctx.deployerName + ":" + entityName
+	tag := state.UnitTag(unitName)
+	svcName := "jujud-" + ctx.deployerTag + ":" + tag
 	svc := upstart.NewService(svcName)
 	svc.InitDir = ctx.initDir
 	return svc

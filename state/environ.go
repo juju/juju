@@ -18,17 +18,17 @@ func (st *State) Environment() (*Environment, error) {
 		name: conf.Name(),
 	}
 	env.annotator = annotator{
-		globalKey:  env.globalKey(),
-		entityName: env.EntityName(),
-		st:         st,
+		globalKey: env.globalKey(),
+		tag:       env.Tag(),
+		st:        st,
 	}
 	return env, nil
 }
 
-// EntityName returns a name identifying the environment.
-// The returned name will be different from other EntityName values returned
+// Tag returns a name identifying the environment.
+// The returned name will be different from other Tag values returned
 // by any other entities from the same state.
-func (e Environment) EntityName() string {
+func (e Environment) Tag() string {
 	return "environment-" + e.name
 }
 
