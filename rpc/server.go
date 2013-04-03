@@ -139,7 +139,30 @@ func (csrv *codecServer) serve() error {
 			argp = &struct{}{}
 		}
 		if err := csrv.codec.ReadRequestBody(argp); err != nil {
-			return fmt.Errorf("error reading request body: %v", err)
+			// If we get EOF, we know the connection is a
+			// goner, so don't try to respond.
+			if err == io.EOF {
+				return nil
+			}
+			if err == io.ErrUnexpectedEOF {
+				return err
+			}
+			// An error reading the body often indicates bad
+			// request parameters rather than an issue with
+			// the connection itself, so we reply with an
+			// error rather than tearing down the connection
+			// unless it's obviously a connection issue.  If
+			// the error is actually a framing or syntax
+			// problem, then the next ReadHeader should pick
+			// up the problem and abort.
+			resp := &Response{
+				RequestId: req.RequestId,
+			}
+			csrv.setError(resp, err)
+			if err := csrv.codec.WriteResponse(resp, struct{}{}); err != nil {
+				return err
+			}
+			continue
 		}
 		csrv.pending.Add(1)
 		go csrv.runRequest(req.RequestId, req.Id, o, a, arg)

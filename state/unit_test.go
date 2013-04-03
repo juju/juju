@@ -116,32 +116,51 @@ func (s *UnitSuite) TestRefresh(c *C) {
 	c.Assert(state.IsNotFound(err), Equals, true)
 }
 
-func (s *UnitSuite) TestGetSetStatus(c *C) {
+func (s *UnitSuite) TestGetSetStatusWhileAlive(c *C) {
 	fail := func() { s.unit.SetStatus(params.UnitError, "") }
-	c.Assert(fail, PanicMatches, "must set info for unit error status")
+	c.Assert(fail, PanicMatches, "unit error status with no info")
 
-	status, info := s.unit.Status()
+	status, info, err := s.unit.Status()
+	c.Assert(err, IsNil)
 	c.Assert(status, Equals, params.UnitPending)
 	c.Assert(info, Equals, "")
 
-	err := s.unit.SetStatus(params.UnitStarted, "")
+	err = s.unit.SetStatus(params.UnitStarted, "")
 	c.Assert(err, IsNil)
-
-	status, info = s.unit.Status()
+	status, info, err = s.unit.Status()
+	c.Assert(err, IsNil)
 	c.Assert(status, Equals, params.UnitStarted)
 	c.Assert(info, Equals, "")
 
 	err = s.unit.SetStatus(params.UnitError, "test-hook failed")
 	c.Assert(err, IsNil)
-	status, info = s.unit.Status()
+	status, info, err = s.unit.Status()
+	c.Assert(err, IsNil)
 	c.Assert(status, Equals, params.UnitError)
 	c.Assert(info, Equals, "test-hook failed")
 
 	err = s.unit.SetStatus(params.UnitPending, "deploying...")
 	c.Assert(err, IsNil)
-	status, info = s.unit.Status()
+	status, info, err = s.unit.Status()
+	c.Assert(err, IsNil)
 	c.Assert(status, Equals, params.UnitPending)
 	c.Assert(info, Equals, "deploying...")
+}
+
+func (s *UnitSuite) TestGetSetStatusWhileNotAlive(c *C) {
+	err := s.unit.Destroy()
+	c.Assert(err, IsNil)
+	err = s.unit.SetStatus(params.UnitStarted, "not really")
+	c.Assert(err, ErrorMatches, `cannot set status of unit "wordpress/0": not found or dead`)
+	_, _, err = s.unit.Status()
+	c.Assert(err, ErrorMatches, "status not found")
+
+	err = s.unit.EnsureDead()
+	c.Assert(err, IsNil)
+	err = s.unit.SetStatus(params.UnitStarted, "not really")
+	c.Assert(err, ErrorMatches, `cannot set status of unit "wordpress/0": not found or dead`)
+	_, _, err = s.unit.Status()
+	c.Assert(err, ErrorMatches, "status not found")
 }
 
 func (s *UnitSuite) TestUnitCharm(c *C) {

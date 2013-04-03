@@ -26,17 +26,16 @@ func TestingEnvironConfig(c *C) *config.Config {
 	return cfg
 }
 
-// TestingInitialize ensures that state has been initialized. If state was not
+// TestingInitialize initializes the state and returns it. If state was not
 // already initialized, and cfg is nil, the minimal default environment
 // configuration will be used.
-func TestingInitialize(c *C, cfg *config.Config) {
+func TestingInitialize(c *C, cfg *config.Config) *State {
 	if cfg == nil {
 		cfg = TestingEnvironConfig(c)
 	}
 	st, err := Initialize(TestingStateInfo(), cfg, TestingDialOpts())
 	c.Assert(err, IsNil)
-	err = st.Close()
-	c.Assert(err, IsNil)
+	return st
 }
 
 type (
