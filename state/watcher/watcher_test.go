@@ -65,20 +65,6 @@ func (s *FastPeriodSuite) SetUpSuite(c *C) {
 
 var _ = Suite(&FastPeriodSuite{})
 
-// SlowPeriodFastPeriodSuite implements tests
-// that are flaky when the watcher refresh period
-// is small.
-type SlowPeriodSuite struct {
-	watcherSuite
-}
-
-func (s *SlowPeriodSuite) SetUpSuite(c *C) {
-	s.watcherSuite.SetUpSuite(c)
-	watcher.Period = slowPeriod
-}
-
-var _ = Suite(&SlowPeriodSuite{})
-
 func (s *watcherSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
@@ -607,6 +593,20 @@ func (s *FastPeriodSuite) TestNonMutatingTxn(c *C) {
 	assertNoChange(c, chA1)
 	assertNoChange(c, chA)
 }
+
+// SlowPeriodSuite implements tests
+// that are flaky when the watcher refresh period
+// is small.
+type SlowPeriodSuite struct {
+	watcherSuite
+}
+
+func (s *SlowPeriodSuite) SetUpSuite(c *C) {
+	s.watcherSuite.SetUpSuite(c)
+	watcher.Period = slowPeriod
+}
+
+var _ = Suite(&SlowPeriodSuite{})
 
 func (s *SlowPeriodSuite) TestWatchBeforeRemoveKnown(c *C) {
 	revno1 := s.insert(c, "test", "a")
