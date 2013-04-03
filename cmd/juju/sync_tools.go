@@ -59,10 +59,10 @@ var officialBucketAttrs = map[string]interface{}{
 
 // Find the set of tools at the 'latest' version
 func findNewest(fullTools []*state.Tools) []*state.Tools {
-	// This assumes the nil version of Number is always less than a real
+	// This assumes the zero version of Number is always less than a real
 	// number, but we don't have negative versions, so this should be fine
 	var curBest version.Number
-	var res []*state.Tools = nil
+	var res []*state.Tools
 	for _, tool := range fullTools {
 		if curBest.Less(tool.Number) {
 			// This tool is newer than our current best,
@@ -78,13 +78,13 @@ func findNewest(fullTools []*state.Tools) []*state.Tools {
 
 // Find tools that aren't present in target
 func findMissing(sourceTools, targetTools []*state.Tools) []*state.Tools {
-	var target = make(map[version.Binary]bool, len(targetTools))
+	target := make(map[version.Binary]bool, len(targetTools))
 	for _, tool := range targetTools {
 		target[tool.Binary] = true
 	}
-	res := make([]*state.Tools, 0)
+	var res []*state.Tools
 	for _, tool := range sourceTools {
-		if present := target[tool.Binary]; !present {
+		if !target[tool.Binary] {
 			res = append(res, tool)
 		}
 	}
@@ -104,7 +104,7 @@ func copyOne(
 	defer srcFile.Close()
 	// We have to buffer the content, because Put requires the content
 	// length, but Get only returns us a ReadCloser
-	buf := bytes.NewBuffer(nil)
+	buf := &bytes.Buffer{}
 	nBytes, err := io.Copy(buf, srcFile)
 	if err != nil {
 		return err
