@@ -32,7 +32,7 @@ func getSystemIdValues(instanceIds []state.InstanceId) url.Values {
 func userData(cfg *cloudinit.MachineConfig, scripts ...string) ([]byte, error) {
 	cloudcfg, err := cloudinit.New(cfg)
 	for _, script := range scripts {
-		cloudcfg.AddRunCmd(script)
+		cloudcfg.AddRunCmdPrepend(script)
 	}
 	if err != nil {
 		return nil, err
