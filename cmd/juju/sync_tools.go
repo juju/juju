@@ -96,7 +96,7 @@ func copyOne(
 	target environs.Storage, ctx *cmd.Context,
 ) error {
 	toolsPath := environs.ToolsStoragePath(tool.Binary)
-	fmt.Fprintf(ctx.Stdout, "copying %v", toolsPath)
+	fmt.Fprintf(ctx.Stderr, "copying %v", toolsPath)
 	srcFile, err := source.Get(toolsPath)
 	if err != nil {
 		return err
@@ -110,7 +110,7 @@ func copyOne(
 		return err
 	}
 	log.Infof("cmd/juju: downloaded %v (%dkB), uploading", toolsPath, (nBytes+512)/1024)
-	fmt.Fprintf(ctx.Stdout, ", download %dkB, uploading\n", (nBytes+512)/1024)
+	fmt.Fprintf(ctx.Stderr, ", download %dkB, uploading\n", (nBytes+512)/1024)
 
 	if err := target.Put(toolsPath, buf, nBytes); err != nil {
 		return err
@@ -140,7 +140,7 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 		log.Errorf("cmd/juju: failed to initialize the official bucket environment")
 		return err
 	}
-	fmt.Fprintf(ctx.Stdout, "listing the source bucket\n")
+	fmt.Fprintf(ctx.Stderr, "listing the source bucket\n")
 	sourceToolsList, err := environs.ListTools(officialEnviron, version.Current.Major)
 	if err != nil {
 		return err
@@ -154,12 +154,12 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 	if !c.allVersions {
 		toolsToCopy = findNewest(toolsToCopy)
 	}
-	fmt.Fprintf(ctx.Stdout, "found %d tools in source (%d recent ones)\n",
+	fmt.Fprintf(ctx.Stderr, "found %d tools in source (%d recent ones)\n",
 		len(sourceToolsList.Public), len(toolsToCopy))
 	for _, tool := range toolsToCopy {
 		log.Debugf("cmd/juju: found source tool: %s", tool)
 	}
-	fmt.Fprintf(ctx.Stdout, "listing target bucket\n")
+	fmt.Fprintf(ctx.Stderr, "listing target bucket\n")
 	targetToolsList, err := environs.ListTools(targetEnv, version.Current.Major)
 	if err != nil {
 		return err
@@ -168,12 +168,12 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 		log.Debugf("cmd/juju: found target tool: %s", tool)
 	}
 	missing := findMissing(toolsToCopy, targetToolsList.Private)
-	fmt.Fprintf(ctx.Stdout, "found %d tools in target; %d tools to be copied\n",
+	fmt.Fprintf(ctx.Stderr, "found %d tools in target; %d tools to be copied\n",
 		len(targetToolsList.Private), len(missing))
 	err = copyTools(missing, officialEnviron.PublicStorage(), targetEnv.Storage(), c.dryRun, ctx)
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(ctx.Stdout, "copied %d tools\n", len(missing))
+	fmt.Fprintf(ctx.Stderr, "copied %d tools\n", len(missing))
 	return nil
 }
