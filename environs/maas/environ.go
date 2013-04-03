@@ -535,7 +535,7 @@ func (environ *maasEnviron) Destroy(ensureInsts []environs.Instance) error {
 }
 
 func (*maasEnviron) AssignmentPolicy() state.AssignmentPolicy {
-	panic("Not implemented.")
+	return state.AssignUnused
 }
 
 func (*maasEnviron) OpenPorts([]state.Port) error {
