@@ -1,7 +1,6 @@
 package environs_test
 
 import (
-	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
@@ -36,7 +35,7 @@ func (t *MongoToolsSuite) TearDownTest(c *C) {
 }
 
 func currentMongoPath() string {
-	return environ.MongoStoragePath(version.CurrentSeries(), version.CurrentArch())
+	return environs.MongoStoragePath(version.CurrentSeries(), version.CurrentArch())
 }
 
 var mongoURLTests = []struct {
@@ -75,10 +74,6 @@ func (t *MongoToolsSuite) TestMongoURL(c *C) {
 	for i, tt := range mongoURLTests {
 		c.Logf("Test %d: %s", i, tt.summary)
 		putNames(c, t.env, tt.contents, tt.publicContents)
-		vers := version.Binary{
-			Series: version.Current.Series,
-			Arch:   version.Current.Arch,
-		}
 		mongoURL := environs.MongoURL(t.env, version.CurrentSeries(), version.CurrentArch())
 		if tt.expect != "" {
 			assertURLContents(c, mongoURL, tt.expect)

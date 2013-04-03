@@ -10,7 +10,7 @@ import (
 // - the public storage
 // - a "well known" EC2 bucket
 func MongoURL(env Environ, series, architecture string) string {
-	path = MongoStoragePath(series, architecture)
+	path := MongoStoragePath(series, architecture)
 	url, err := findMongo(env.Storage(), path)
 	if err == nil {
 		return url
