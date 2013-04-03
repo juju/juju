@@ -717,6 +717,8 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
 		"name":         "dummy storage",
 		"secret":       "pizza",
 		"state-server": false,
+		"ca-cert":        coretesting.CACert,
+		"ca-private-key": coretesting.CAKey,
 	})
 	c.Assert(err, IsNil)
 	defer dummyenv.Destroy(nil)
