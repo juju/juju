@@ -71,14 +71,15 @@ func (s *InitializeSuite) TestInitialize(c *C) {
 func (s *InitializeSuite) TestDoubleInitializeConfig(c *C) {
 	cfg := state.TestingEnvironConfig(c)
 	initial := cfg.AllAttrs()
-	state.TestingInitialize(c, cfg)
+	st := state.TestingInitialize(c, cfg)
+	st.Close()
 
 	// A second initialize returns an open *State, but ignores its params.
 	// TODO(fwereade) I think this is crazy, but it's what we were testing
 	// for originally...
 	cfg, err := cfg.Apply(map[string]interface{}{"authorized-keys": "something-else"})
 	c.Assert(err, IsNil)
-	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialOpts())
+	st, err = state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialOpts())
 	c.Assert(err, IsNil)
 	c.Assert(st, NotNil)
 	st.Close()
@@ -97,7 +98,8 @@ func (s *InitializeSuite) TestEnvironConfigWithAdminSecret(c *C) {
 	c.Assert(err, ErrorMatches, "admin-secret should never be written to the state")
 
 	// admin-secret blocks SetEnvironConfig.
-	state.TestingInitialize(c, good)
+	st := state.TestingInitialize(c, good)
+	st.Close()
 	err = s.State.SetEnvironConfig(bad)
 	c.Assert(err, ErrorMatches, "admin-secret should never be written to the state")
 
