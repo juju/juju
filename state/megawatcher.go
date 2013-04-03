@@ -88,9 +88,9 @@ type allWatcher struct {
 // It is an interface for testing purposes.
 // TODO(rog) complete this type and its methods.
 type allWatcherBacking interface {
-	// entityIdForInfo returns the entity id corresponding
+	// idForInfo returns the entity id corresponding
 	// to the given entity info.
-	entityIdForInfo(info params.EntityInfo) entityId
+	idForInfo(info params.EntityInfo) infoId
 
 	// getAll retrieves information about all known entities in the state
 	// into the given allInfo.
@@ -99,7 +99,7 @@ type allWatcherBacking interface {
 	// changed informs the backing about a change to the entity with
 	// the given id.  The backing is responsible for updating the
 	// allInfo to reflect the change.
-	changed(all *allInfo, id entityId) error
+	changed(all *allInfo, change watcher.Change) error
 
 	// watch watches for any changes and sends them
 	// on the given channel.
@@ -108,12 +108,6 @@ type allWatcherBacking interface {
 	// unwatch stops watching for changes on the
 	// given channel.
 	unwatch(in chan<- watcher.Change)
-}
-
-// entityId holds the mongo identifier of an entity.
-type entityId struct {
-	collection string
-	id         interface{}
 }
 
 // allRequest holds a request from the StateWatcher to the
@@ -178,11 +172,7 @@ func (aw *allWatcher) loop() error {
 		case <-aw.tomb.Dying():
 			return tomb.ErrDying
 		case change := <-in:
-			id := entityId{
-				collection: change.C,
-				id:         change.Id,
-			}
-			if err := aw.backing.changed(aw.all, id); err != nil {
+			if err := aw.backing.changed(aw.all, change); err != nil {
 				return err
 			}
 		case req := <-aw.request:
@@ -265,7 +255,7 @@ func (aw *allWatcher) seen(revno int64) {
 			// has now been removed, so decrement its refCount, removing
 			// the entity if nothing else is waiting to be notified that it's
 			// gone.
-			aw.all.decRef(entry, aw.backing.entityIdForInfo(entry.info))
+			aw.all.decRef(entry, aw.backing.idForInfo(entry.info))
 		}
 		e = next
 	}
@@ -286,7 +276,7 @@ func (aw *allWatcher) leave(w *StateWatcher) {
 				e = next
 				continue
 			}
-			aw.all.decRef(entry, aw.backing.entityIdForInfo(entry.info))
+			aw.all.decRef(entry, aw.backing.idForInfo(entry.info))
 		}
 		e = next
 	}
@@ -378,15 +368,26 @@ func (b *allWatcherStateBacking) getAll(all *allInfo) error {
 		infos := reflect.ValueOf(infoSlicePtr).Elem()
 		for i := 0; i < infos.Len(); i++ {
 			info := infos.Index(i).Addr().Interface().(params.EntityInfo)
-			all.add(b.entityIdForInfo(info), info)
+			all.add(b.idForInfo(info), info)
 		}
 	}
 	return nil
 }
 
+// entityId holds the mongo identifier of an entity.
+type entityId struct {
+	collection string
+	id         interface{}
+}
+
+
 // changed updates the allWatcher's idea of the current state
 // in response to the given change.
-func (b *allWatcherStateBacking) changed(all *allInfo, id entityId) error {
+func (b *allWatcherStateBacking) changed(all *allInfo, change watcher.Change) error {
+	id := entityId{
+		collection: change.C,
+		id:         change.Id,
+	}
 	// TODO(rog) investigate ways that this can be made more efficient
 	// than simply fetching each entity in turn.
 	info, err := b.fetch(id)
@@ -413,8 +414,10 @@ func (b *allWatcherStateBacking) fetch(id entityId) (params.EntityInfo, error) {
 	return info, nil
 }
 
-// entityIdForInfo returns the entity id of the given entity document.
-func (b *allWatcherStateBacking) entityIdForInfo(info params.EntityInfo) entityId {
+type infoId interface{}
+
+// idForInfo returns the entity id of the given entity document.
+func (b *allWatcherStateBacking) idForInfo(info params.EntityInfo) infoId {
 	c, ok := b.collectionByKind[info.EntityKind()]
 	if !ok {
 		panic(fmt.Errorf("entity with unknown kind %q", info.EntityKind()))
@@ -458,7 +461,7 @@ type entityEntry struct {
 // to a StateWatcher.
 type allInfo struct {
 	latestRevno int64
-	entities    map[entityId]*list.Element
+	entities    map[infoId]*list.Element
 	list        *list.List
 }
 
@@ -466,7 +469,7 @@ type allInfo struct {
 // current state of all entities in the environment.
 func newAllInfo() *allInfo {
 	all := &allInfo{
-		entities: make(map[entityId]*list.Element),
+		entities: make(map[infoId]*list.Element),
 		list:     list.New(),
 	}
 	return all
@@ -474,7 +477,7 @@ func newAllInfo() *allInfo {
 
 // add adds a new entity with the given id and associated
 // information to the list.
-func (a *allInfo) add(id entityId, info params.EntityInfo) {
+func (a *allInfo) add(id infoId, info params.EntityInfo) {
 	if a.entities[id] != nil {
 		panic("adding new entry with duplicate id")
 	}
@@ -489,7 +492,7 @@ func (a *allInfo) add(id entityId, info params.EntityInfo) {
 
 // decRef decrements the reference count of an entry within the list,
 // deleting it if it becomes zero and the entry is removed.
-func (a *allInfo) decRef(entry *entityEntry, id entityId) {
+func (a *allInfo) decRef(entry *entityEntry, id infoId) {
 	if entry.refCount--; entry.refCount > 0 {
 		return
 	}
@@ -508,7 +511,7 @@ func (a *allInfo) decRef(entry *entityEntry, id entityId) {
 }
 
 // delete deletes the entry with the given entity id.
-func (a *allInfo) delete(id entityId) {
+func (a *allInfo) delete(id infoId) {
 	elem := a.entities[id]
 	if elem == nil {
 		return
@@ -520,7 +523,7 @@ func (a *allInfo) delete(id entityId) {
 // markRemoved marks that the entity with the given id has
 // been removed from the state. If nothing has seen the
 // entity, then we delete it immediately.
-func (a *allInfo) markRemoved(id entityId) {
+func (a *allInfo) markRemoved(id infoId) {
 	if elem := a.entities[id]; elem != nil {
 		entry := elem.Value.(*entityEntry)
 		if entry.removed {
@@ -539,7 +542,7 @@ func (a *allInfo) markRemoved(id entityId) {
 
 // update updates the information for the entity with
 // the given id.
-func (a *allInfo) update(id entityId, info params.EntityInfo) {
+func (a *allInfo) update(id infoId, info params.EntityInfo) {
 	elem := a.entities[id]
 	if elem == nil {
 		a.add(id, info)

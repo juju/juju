@@ -20,7 +20,7 @@ type allInfoSuite struct {
 }
 
 func (*allInfoSuite) assertAllInfoContents(c *C, a *allInfo, latestRevno int64, entries []entityEntry) {
-	assertAllInfoContents(c, a, entityIdForInfo, latestRevno, entries)
+	assertAllInfoContents(c, a, idForInfo, latestRevno, entries)
 }
 
 var _ = Suite(&allInfoSuite{})
@@ -82,7 +82,7 @@ var allInfoChangeMethodTests = []struct {
 	about: "update an entity that's not currently there",
 	change: func(all *allInfo) {
 		m := &params.MachineInfo{Id: "1"}
-		all.update(entityIdForInfo(m), m)
+		all.update(idForInfo(m), m)
 	},
 	expectRevno: 1,
 	expectContents: []entityEntry{{
@@ -95,8 +95,8 @@ var allInfoChangeMethodTests = []struct {
 	change: func(all *allInfo) {
 		allInfoAdd(all, &params.MachineInfo{Id: "0"})
 		allInfoAdd(all, &params.MachineInfo{Id: "1"})
-		allInfoIncRef(all, entityId{"machine", "0"})
-		all.markRemoved(entityId{"machine", "0"})
+		allInfoIncRef(all, testEntityId{"machine", "0"})
+		all.markRemoved(testEntityId{"machine", "0"})
 	},
 	expectRevno: 3,
 	expectContents: []entityEntry{{
@@ -113,20 +113,20 @@ var allInfoChangeMethodTests = []struct {
 }, {
 	about: "mark removed on nonexistent entry",
 	change: func(all *allInfo) {
-		all.markRemoved(entityId{"machine", "0"})
+		all.markRemoved(testEntityId{"machine", "0"})
 	},
 }, {
 	about: "mark removed on already marked entry",
 	change: func(all *allInfo) {
 		allInfoAdd(all, &params.MachineInfo{Id: "0"})
 		allInfoAdd(all, &params.MachineInfo{Id: "1"})
-		allInfoIncRef(all, entityId{"machine", "0"})
-		all.markRemoved(entityId{"machine", "0"})
-		all.update(entityId{"machine", "1"}, &params.MachineInfo{
+		allInfoIncRef(all, testEntityId{"machine", "0"})
+		all.markRemoved(testEntityId{"machine", "0"})
+		all.update(testEntityId{"machine", "1"}, &params.MachineInfo{
 			Id:         "1",
 			InstanceId: "i-1",
 		})
-		all.markRemoved(entityId{"machine", "0"})
+		all.markRemoved(testEntityId{"machine", "0"})
 	},
 	expectRevno: 4,
 	expectContents: []entityEntry{{
@@ -147,21 +147,21 @@ var allInfoChangeMethodTests = []struct {
 	about: "mark removed on entry with zero ref count",
 	change: func(all *allInfo) {
 		allInfoAdd(all, &params.MachineInfo{Id: "0"})
-		all.markRemoved(entityId{"machine", "0"})
+		all.markRemoved(testEntityId{"machine", "0"})
 	},
 	expectRevno: 2,
 }, {
 	about: "delete entry",
 	change: func(all *allInfo) {
 		allInfoAdd(all, &params.MachineInfo{Id: "0"})
-		all.delete(entityId{"machine", "0"})
+		all.delete(testEntityId{"machine", "0"})
 	},
 	expectRevno: 1,
 }, {
 	about: "decref of non-removed entity",
 	change: func(all *allInfo) {
 		m := &params.MachineInfo{Id: "0"}
-		id := entityIdForInfo(m)
+		id := idForInfo(m)
 		allInfoAdd(all, m)
 		allInfoIncRef(all, id)
 		entry := all.entities[id].Value.(*entityEntry)
@@ -178,7 +178,7 @@ var allInfoChangeMethodTests = []struct {
 	about: "decref of removed entity",
 	change: func(all *allInfo) {
 		m := &params.MachineInfo{Id: "0"}
-		id := entityIdForInfo(m)
+		id := idForInfo(m)
 		allInfoAdd(all, m)
 		entry := all.entities[id].Value.(*entityEntry)
 		entry.refCount++
@@ -223,16 +223,16 @@ func (s *allInfoSuite) TestChangesSince(c *C) {
 		Id:         "1",
 		InstanceId: "foo",
 	}
-	a.update(entityIdForInfo(m1), m1)
+	a.update(idForInfo(m1), m1)
 	c.Assert(a.changesSince(rev), DeepEquals, []params.Delta{{Entity: m1}})
 
 	// Make sure the machine isn't simply removed from
 	// the list when it's marked as removed.
-	allInfoIncRef(a, entityId{"machine", "0"})
+	allInfoIncRef(a, testEntityId{"machine", "0"})
 
 	// Remove another machine and check we see it's removed.
 	m0 := &params.MachineInfo{Id: "0"}
-	a.markRemoved(entityIdForInfo(m0))
+	a.markRemoved(idForInfo(m0))
 
 	// Check that something that never saw m0 does not get
 	// informed of its removal (even those the removed entity
@@ -264,7 +264,7 @@ type allWatcherSuite struct {
 var _ = Suite(&allWatcherSuite{})
 
 func (*allWatcherSuite) assertAllInfoContents(c *C, a *allInfo, latestRevno int64, entries []entityEntry) {
-	assertAllInfoContents(c, a, entityIdForInfo, latestRevno, entries)
+	assertAllInfoContents(c, a, idForInfo, latestRevno, entries)
 }
 
 func (*allWatcherSuite) TestHandle(c *C) {
@@ -326,7 +326,7 @@ func (s *allWatcherSuite) TestHandleStopNoDecRefIfMoreRecentlyCreated(c *C) {
 	// decrement its ref count when it is stopped.
 	aw := newAllWatcher(newTestBacking(nil))
 	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
-	allInfoIncRef(aw.all, entityId{"machine", "0"})
+	allInfoIncRef(aw.all, testEntityId{"machine", "0"})
 	w := &StateWatcher{all: aw}
 
 	// Stop the watcher.
@@ -346,8 +346,8 @@ func (s *allWatcherSuite) TestHandleStopNoDecRefIfAlreadySeenRemoved(c *C) {
 	// we shouldn't decrement its ref count when it is stopped.
 	aw := newAllWatcher(newTestBacking(nil))
 	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
-	allInfoIncRef(aw.all, entityId{"machine", "0"})
-	aw.all.markRemoved(entityId{"machine", "0"})
+	allInfoIncRef(aw.all, testEntityId{"machine", "0"})
+	aw.all.markRemoved(testEntityId{"machine", "0"})
 	w := &StateWatcher{all: aw}
 	// Stop the watcher.
 	aw.handle(&allRequest{w: w})
@@ -367,7 +367,7 @@ func (s *allWatcherSuite) TestHandleStopDecRefIfAlreadySeenAndNotRemoved(c *C) {
 	// we should decrement its ref count when it is stopped.
 	aw := newAllWatcher(newTestBacking(nil))
 	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
-	allInfoIncRef(aw.all, entityId{"machine", "0"})
+	allInfoIncRef(aw.all, testEntityId{"machine", "0"})
 	w := &StateWatcher{all: aw}
 	w.revno = aw.all.latestRevno
 	// Stop the watcher.
@@ -386,7 +386,7 @@ func (s *allWatcherSuite) TestHandleStopNoDecRefIfNotSeen(c *C) {
 	// leave the ref count untouched.
 	aw := newAllWatcher(newTestBacking(nil))
 	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
-	allInfoIncRef(aw.all, entityId{"machine", "0"})
+	allInfoIncRef(aw.all, testEntityId{"machine", "0"})
 	w := &StateWatcher{all: aw}
 	// Stop the watcher.
 	aw.handle(&allRequest{w: w})
@@ -411,16 +411,16 @@ var respondTestChanges = [...]func(all *allInfo){
 		allInfoAdd(all, &params.MachineInfo{Id: "2"})
 	},
 	func(all *allInfo) {
-		all.markRemoved(entityId{"machine", "0"})
+		all.markRemoved(testEntityId{"machine", "0"})
 	},
 	func(all *allInfo) {
-		all.update(entityId{"machine", "1"}, &params.MachineInfo{
+		all.update(testEntityId{"machine", "1"}, &params.MachineInfo{
 			Id:         "1",
 			InstanceId: "i-1",
 		})
 	},
 	func(all *allInfo) {
-		all.markRemoved(entityId{"machine", "1"})
+		all.markRemoved(testEntityId{"machine", "1"})
 	},
 }
 
@@ -631,7 +631,7 @@ func (*allWatcherSuite) TestRun(c *C) {
 	checkNext(c, w, []params.Delta{
 		{Entity: &params.MachineInfo{Id: "0", InstanceId: "i-0"}},
 	}, "")
-	b.deleteEntity(entityId{"machine", "0"})
+	b.deleteEntity(testEntityId{"machine", "0"})
 	checkNext(c, w, []params.Delta{
 		{Removed: true, Entity: &params.MachineInfo{Id: "0"}},
 	}, "")
@@ -849,7 +849,7 @@ func (s *allWatcherStateSuite) TestStateBackingGetAll(c *C) {
 		c.Check(entry.creationRevno, Equals, entry.revno)
 		c.Check(entry.removed, Equals, false)
 		i++
-		c.Assert(all.entities[b.entityIdForInfo(entry.info)], Equals, e)
+		c.Assert(all.entities[b.idForInfo(entry.info)], Equals, e)
 	}
 	c.Assert(len(all.entities), Equals, int(i))
 
@@ -877,7 +877,6 @@ func (s *allWatcherStateSuite) TestStateBackingEntityIdForInfo(c *C) {
 	tests := []struct {
 		info       params.EntityInfo
 		collection *mgo.Collection
-		id         entityId
 	}{{
 		info:       &params.MachineInfo{Id: "1"},
 		collection: s.State.machines,
@@ -897,7 +896,7 @@ func (s *allWatcherStateSuite) TestStateBackingEntityIdForInfo(c *C) {
 	b := newAllWatcherStateBacking(s.State)
 	for i, test := range tests {
 		c.Logf("test %d: %T", i, test.info)
-		id := b.entityIdForInfo(test.info)
+		id := b.idForInfo(test.info)
 		c.Assert(id, Equals, entityId{
 			collection: test.collection.Name,
 			id:         test.info.EntityId(),
@@ -905,76 +904,28 @@ func (s *allWatcherStateSuite) TestStateBackingEntityIdForInfo(c *C) {
 	}
 }
 
-func (s *allWatcherStateSuite) TestStateBackingChanged(c *C) {
-	m, err := s.State.AddMachine("series", JobManageEnviron)
-	c.Assert(err, IsNil)
-	c.Assert(m.Tag(), Equals, "machine-0")
-	err = m.SetInstanceId(InstanceId("i-0"))
-	c.Assert(err, IsNil)
-
-	b0 := newAllWatcherStateBacking(s.State)
-	testBackingChanged(c, b0)
-
-	// Test the test backing in the same way to
-	// make sure it agrees.
-	b1 := newTestBacking([]params.EntityInfo{
-		&params.MachineInfo{
-			Id:         "0",
-			InstanceId: "i-0",
-		},
-	})
-	testBackingChanged(c, b1)
-}
-
-func testBackingChanged(c *C, b allWatcherBacking) {
-	idOf := func(info params.EntityInfo) entityId {
-		return b.entityIdForInfo(info)
-	}
-	all := newAllInfo()
-	m99 := &params.MachineInfo{Id: "99"}
-	all.add(idOf(m99), m99)
-	m0 := &params.MachineInfo{Id: "0", InstanceId: "i-0"}
-
-	err := b.changed(all, idOf(m0))
-	c.Assert(err, IsNil)
-
-	c.Logf("first change")
-	assertAllInfoContents(c, all, idOf, 2, []entityEntry{{
-		creationRevno: 1,
-		revno:         1,
-		info:          m99,
-	}, {
-		creationRevno: 2,
-		revno:         2,
-		info:          m0,
-	}})
-
-	c.Logf("second change")
-	err = b.changed(all, idOf(m99))
-	c.Assert(err, IsNil)
-	assertAllInfoContents(c, all, idOf, 3, []entityEntry{{
-		creationRevno: 2,
-		revno:         2,
-		info:          m0,
-	}})
-}
-
 var allWatcherChangedTests = []struct {
 	about          string
 	add            []params.EntityInfo
 	setUp          func(c *C, st *State)
-	change         params.EntityInfo
+	change         watcher.Change
 	expectRevno    int64
 	expectContents []entityEntry
 }{{
 	about:  "no entity",
 	setUp:  func(*C, *State) {},
-	change: &params.MachineInfo{Id: "1"},
+	change:      watcher.Change{
+		C: "machines",
+		Id: "1",
+	},
 }, {
 	about:       "entity is marked as removed if it's not in backing",
 	add:         []params.EntityInfo{&params.MachineInfo{Id: "1"}},
 	setUp:       func(*C, *State) {},
-	change:      &params.MachineInfo{Id: "1"},
+	change:      watcher.Change{
+		C: "machines",
+		Id: "1",
+	},
 	expectRevno: 2,
 	expectContents: []entityEntry{{
 		creationRevno: 1,
@@ -991,7 +942,10 @@ var allWatcherChangedTests = []struct {
 		_, err := st.AddMachine("series", JobHostUnits)
 		c.Assert(err, IsNil)
 	},
-	change:      &params.MachineInfo{Id: "0"},
+	change:      watcher.Change{
+		C: "machines",
+		Id: "0",
+	},
 	expectRevno: 1,
 	expectContents: []entityEntry{{
 		creationRevno: 1,
@@ -1007,7 +961,10 @@ var allWatcherChangedTests = []struct {
 		err = m.SetInstanceId("i-0")
 		c.Assert(err, IsNil)
 	},
-	change:      &params.MachineInfo{Id: "0"},
+	change:      watcher.Change{
+		C: "machines",
+		Id: "0",
+	},
 	expectRevno: 2,
 	expectContents: []entityEntry{{
 		creationRevno: 1,
@@ -1024,14 +981,14 @@ func (s *allWatcherStateSuite) TestChanged(c *C) {
 	for i, test := range allWatcherChangedTests {
 		c.Logf("test %d. %s", i, test.about)
 		b := newAllWatcherStateBacking(s.State)
-		idOf := func(info params.EntityInfo) entityId { return b.entityIdForInfo(info) }
+		idOf := func(info params.EntityInfo) infoId { return b.idForInfo(info) }
 		all := newAllInfo()
 		for _, info := range test.add {
 			all.add(idOf(info), info)
 			allInfoIncRef(all, idOf(info))
 		}
 		test.setUp(c, s.State)
-		err := b.changed(all, idOf(test.change))
+		err := b.changed(all, test.change)
 		c.Assert(err, IsNil)
 		assertAllInfoContents(c, all, idOf, test.expectRevno, test.expectContents)
 		s.Reset(c)
@@ -1106,18 +1063,18 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *C) {
 	c.Assert(err, ErrorMatches, "state watcher was stopped")
 }
 
-func entityIdForInfo(info params.EntityInfo) entityId {
-	return entityId{
-		collection: info.EntityKind(),
+func idForInfo(info params.EntityInfo) infoId {
+	return testEntityId{
+		kind: info.EntityKind(),
 		id:         info.EntityId(),
 	}
 }
 
 func allInfoAdd(a *allInfo, info params.EntityInfo) {
-	a.add(entityIdForInfo(info), info)
+	a.add(idForInfo(info), info)
 }
 
-func allInfoIncRef(a *allInfo, id entityId) {
+func allInfoIncRef(a *allInfo, id infoId) {
 	entry := a.entities[id].Value.(*entityEntry)
 	entry.refCount++
 }
@@ -1137,7 +1094,7 @@ func (s entityInfoSlice) Less(i, j int) bool {
 	panic("unknown id type")
 }
 
-func assertAllInfoContents(c *C, a *allInfo, idOf func(params.EntityInfo) entityId, latestRevno int64, entries []entityEntry) {
+func assertAllInfoContents(c *C, a *allInfo, idOf func(params.EntityInfo) infoId, latestRevno int64, entries []entityEntry) {
 	var gotEntries []entityEntry
 	var gotElems []*list.Element
 	c.Check(a.list.Len(), Equals, len(entries))
@@ -1186,10 +1143,10 @@ func checkDeltasEqual(c *C, d0, d1 []params.Delta) {
 	c.Check(deltaMap(d0), DeepEquals, deltaMap(d1))
 }
 
-func deltaMap(deltas []params.Delta) map[entityId]params.EntityInfo {
-	m := make(map[entityId]params.EntityInfo)
+func deltaMap(deltas []params.Delta) map[infoId]params.EntityInfo {
+	m := make(map[infoId]params.EntityInfo)
 	for _, d := range deltas {
-		id := entityIdForInfo(d.Entity)
+		id := idForInfo(d.Entity)
 		if _, ok := m[id]; ok {
 			panic(fmt.Errorf("%v mentioned twice in delta set", id))
 		}
@@ -1205,11 +1162,11 @@ func deltaMap(deltas []params.Delta) map[entityId]params.EntityInfo {
 // watcherState represents a StateWatcher client's
 // current view of the state. It holds the last delta that a given
 // state watcher has seen for each entity.
-type watcherState map[entityId]params.Delta
+type watcherState map[infoId]params.Delta
 
 func (s watcherState) update(changes []params.Delta) {
 	for _, d := range changes {
-		id := entityIdForInfo(d.Entity)
+		id := idForInfo(d.Entity)
 		if d.Removed {
 			if _, ok := s[id]; !ok {
 				panic(fmt.Errorf("entity id %v removed when it wasn't there", id))
@@ -1270,22 +1227,31 @@ func assertWaitingRequests(c *C, aw *allWatcher, waiting map[*StateWatcher][]*al
 type allWatcherTestBacking struct {
 	mu       sync.Mutex
 	fetchErr error
-	entities map[entityId]params.EntityInfo
+	entities map[infoId]params.EntityInfo
 	watchc   chan<- watcher.Change
 	txnRevno int64
 }
 
 func newTestBacking(initial []params.EntityInfo) *allWatcherTestBacking {
 	b := &allWatcherTestBacking{
-		entities: make(map[entityId]params.EntityInfo),
+		entities: make(map[infoId]params.EntityInfo),
 	}
 	for _, info := range initial {
-		b.entities[entityIdForInfo(info)] = info
+		b.entities[idForInfo(info)] = info
 	}
 	return b
 }
 
-func (b *allWatcherTestBacking) changed(all *allInfo, id entityId) error {
+type testEntityId struct {
+	kind string
+	id interface{}
+}
+
+func (b *allWatcherTestBacking) changed(all *allInfo, change watcher.Change) error {
+	id := testEntityId{
+		kind: change.C,
+		id: change.Id,
+	}
 	info, err := b.fetch(id)
 	if err == mgo.ErrNotFound {
 		all.markRemoved(id)
@@ -1298,7 +1264,7 @@ func (b *allWatcherTestBacking) changed(all *allInfo, id entityId) error {
 	return nil
 }
 
-func (b *allWatcherTestBacking) fetch(id entityId) (params.EntityInfo, error) {
+func (b *allWatcherTestBacking) fetch(id infoId) (params.EntityInfo, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if b.fetchErr != nil {
@@ -1310,8 +1276,8 @@ func (b *allWatcherTestBacking) fetch(id entityId) (params.EntityInfo, error) {
 	return nil, mgo.ErrNotFound
 }
 
-func (b *allWatcherTestBacking) entityIdForInfo(info params.EntityInfo) entityId {
-	return entityIdForInfo(info)
+func (b *allWatcherTestBacking) idForInfo(info params.EntityInfo) infoId {
+	return idForInfo(info)
 }
 
 func (b *allWatcherTestBacking) watch(c chan<- watcher.Change) {
@@ -1344,12 +1310,12 @@ func (b *allWatcherTestBacking) getAll(all *allInfo) error {
 func (b *allWatcherTestBacking) updateEntity(info params.EntityInfo) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	id := b.entityIdForInfo(info)
+	id := b.idForInfo(info).(testEntityId)
 	b.entities[id] = info
 	b.txnRevno++
 	if b.watchc != nil {
 		b.watchc <- watcher.Change{
-			C:     id.collection,
+			C:     id.kind,
 			Id:    id.id,
 			Revno: b.txnRevno, // This is actually ignored, but fill it in anyway.
 		}
@@ -1362,14 +1328,15 @@ func (b *allWatcherTestBacking) setFetchError(err error) {
 	b.fetchErr = err
 }
 
-func (b *allWatcherTestBacking) deleteEntity(id entityId) {
+func (b *allWatcherTestBacking) deleteEntity(id0 infoId) {
+	id := id0.(testEntityId)
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	delete(b.entities, id)
 	b.txnRevno++
 	if b.watchc != nil {
 		b.watchc <- watcher.Change{
-			C:     id.collection,
+			C:     id.kind,
 			Id:    id.id,
 			Revno: -1,
 		}
