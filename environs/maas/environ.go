@@ -177,14 +177,7 @@ func (env *maasEnviron) startBootstrapNode(tools *state.Tools, cert, key []byte,
 	mcfg.MongoURL = mongoURL
 	mcfg.Config = config
 
-	script := fmt.Sprintf(`echo -n %s > /var/lib/juju/MAASmachineID.txt`, trivial.ShQuote(machineID))
-	// Pass script???
-	userdata, err := userData(mcfg, script)
-	if err != nil {
-		msg := fmt.Errorf("could not compose userdata for bootstrap node: %v", err)
-		return nil, msg
-	}
-	inst, err := env.obtainNode(machineID, &stateInfo, &apiInfo, tools, userdata)
+	inst, err := env.obtainNode(machineID, &stateInfo, &apiInfo, tools, mcfg)
 	if err != nil {
 		return nil, fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
@@ -361,9 +354,11 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, tools *state.To
 	return err
 }
 
+var _MAASInstanceIDFilename = "/var/lib/juju/MAASmachineID.txt"
+
 // obtainNode allocates and starts a MAAS node.  It is used both for the
 // implementation of StartInstance, and to initialize the bootstrap node.
-func (environ *maasEnviron) obtainNode(machineId string, stateInfo *state.Info, apiInfo *api.Info, tools *state.Tools, userdata []byte) (*maasInstance, error) {
+func (environ *maasEnviron) obtainNode(machineId string, stateInfo *state.Info, apiInfo *api.Info, tools *state.Tools, mcfg *cloudinit.MachineConfig) (*maasInstance, error) {
 
 	log.Printf("environs/maas: starting machine %s in $q running tools version %q from %q", machineId, environ.name, tools.Binary, tools.URL)
 
@@ -373,6 +368,12 @@ func (environ *maasEnviron) obtainNode(machineId string, stateInfo *state.Info, 
 	}
 	instance := maasInstance{&node, environ}
 
+	script := fmt.Sprintf(`echo -n %s > %s`, trivial.ShQuote(string(instance.Id())), _MAASInstanceIDFilename)
+	userdata, err := userData(mcfg, script)
+	if err != nil {
+		msg := fmt.Errorf("could not compose userdata for bootstrap node: %v", err)
+		return nil, msg
+	}
 	err = environ.startNode(node, tools, userdata)
 	if err != nil {
 		environ.StopInstances([]environs.Instance{&instance})
@@ -394,13 +395,7 @@ func (environ *maasEnviron) StartInstance(machineID string, stateInfo *state.Inf
 	}
 
 	mcfg := environ.makeMachineConfig(machineID, stateInfo, apiInfo, tools)
-	script := fmt.Sprintf(`echo -n %s > /var/lib/juju/MAASmachineID.txt`, trivial.ShQuote(machineID))
-	userdata, err := userData(mcfg, script)
-	if err != nil {
-		msg := fmt.Errorf("could not compose user data: %v", err)
-		return nil, msg
-	}
-	return environ.obtainNode(machineID, stateInfo, apiInfo, tools, userdata)
+	return environ.obtainNode(machineID, stateInfo, apiInfo, tools, mcfg)
 }
 
 // StopInstances is specified in the Environ interface.

@@ -5,6 +5,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"io/ioutil"
 )
 
 type maasEnvironProvider struct{}
@@ -50,5 +51,9 @@ func (*maasEnvironProvider) PrivateAddress() (string, error) {
 
 // InstanceId is specified in the EnvironProvider interface.
 func (*maasEnvironProvider) InstanceId() (state.InstanceId, error) {
-	panic("Not implemented.")
+	content, err := ioutil.ReadFile(_MAASInstanceIDFilename)
+	if err != nil {
+		return "", err
+	}
+	return state.InstanceId(string(content)), nil
 }
