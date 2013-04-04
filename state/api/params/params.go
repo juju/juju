@@ -162,6 +162,16 @@ type SetAnnotations struct {
 	Pairs map[string]string
 }
 
+// GetServiceConstraints stores parameters for making the GetServiceConstraints call.
+type GetServiceConstraints struct {
+	ServiceName string
+}
+
+// GetServiceConstraintsResults holds results of the GetServiceConstraints call.
+type GetServiceConstraintsResults struct {
+	Constraints constraints.Value
+}
+
 // SetServiceConstraints stores parameters for making the SetServiceConstraints call.
 type SetServiceConstraints struct {
 	ServiceName string

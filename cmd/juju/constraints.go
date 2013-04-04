@@ -59,11 +59,14 @@ func (c *GetConstraintsCommand) Run(ctx *cmd.Context) (err error) {
 	if c.ServiceName == "" {
 		cons, err = conn.State.EnvironConstraints()
 	} else {
-		var svc *state.Service
-		if svc, err = conn.State.Service(c.ServiceName); err != nil {
+		params := params.GetServiceConstraints{
+			ServiceName: c.ServiceName,
+		}
+		results, err := statecmd.GetServiceConstraints(conn.State, params)
+		if err != nil {
 			return err
 		}
-		cons, err = svc.Constraints()
+		cons = results.Constraints
 	}
 	if err != nil {
 		return err
