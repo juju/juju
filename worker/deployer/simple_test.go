@@ -15,22 +15,22 @@ import (
 	"launchpad.net/juju-core/worker/deployer"
 )
 
-type SimpleManagerSuite struct {
+type SimpleContextSuite struct {
 	SimpleToolsFixture
 }
 
-var _ = Suite(&SimpleManagerSuite{})
+var _ = Suite(&SimpleContextSuite{})
 
-func (s *SimpleManagerSuite) SetUpTest(c *C) {
+func (s *SimpleContextSuite) SetUpTest(c *C) {
 	s.SimpleToolsFixture.SetUp(c, c.MkDir())
 }
 
-func (s *SimpleManagerSuite) TearDownTest(c *C) {
+func (s *SimpleContextSuite) TearDownTest(c *C) {
 	s.SimpleToolsFixture.TearDown(c)
 }
 
-func (s *SimpleManagerSuite) TestDeployRecall(c *C) {
-	mgr0 := s.getManager(c, "test-entity-0")
+func (s *SimpleContextSuite) TestDeployRecall(c *C) {
+	mgr0 := s.getContext(c, "test-entity-0")
 	units, err := mgr0.DeployedUnits()
 	c.Assert(err, IsNil)
 	c.Assert(units, HasLen, 0)
@@ -53,12 +53,12 @@ func (s *SimpleManagerSuite) TestDeployRecall(c *C) {
 	s.checkUnitRemoved(c, "foo/123", "test-entity-0")
 }
 
-func (s *SimpleManagerSuite) TestIndependentManagers(c *C) {
-	mgr0 := s.getManager(c, "test-entity-0")
+func (s *SimpleContextSuite) TestIndependentManagers(c *C) {
+	mgr0 := s.getContext(c, "test-entity-0")
 	err := mgr0.DeployUnit("foo/123", "some-password")
 	c.Assert(err, IsNil)
 
-	mgr1 := s.getManager(c, "test-entity-1")
+	mgr1 := s.getContext(c, "test-entity-1")
 	units, err := mgr1.DeployedUnits()
 	c.Assert(err, IsNil)
 	c.Assert(units, HasLen, 0)
@@ -75,11 +75,12 @@ func (s *SimpleManagerSuite) TestIndependentManagers(c *C) {
 }
 
 type SimpleToolsFixture struct {
-	dataDir  string
-	initDir  string
-	logDir   string
-	origPath string
-	binDir   string
+	dataDir         string
+	initDir         string
+	logDir          string
+	origPath        string
+	binDir          string
+	syslogConfigDir string
 }
 
 var fakeJujud = "#!/bin/bash\n# fake-jujud\nexit 0\n"
@@ -88,6 +89,7 @@ func (fix *SimpleToolsFixture) SetUp(c *C, dataDir string) {
 	fix.dataDir = dataDir
 	fix.initDir = c.MkDir()
 	fix.logDir = c.MkDir()
+	fix.syslogConfigDir = c.MkDir()
 	toolsDir := agent.SharedToolsDir(fix.dataDir, version.Current)
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, IsNil)
@@ -123,30 +125,35 @@ func (fix *SimpleToolsFixture) assertUpstartCount(c *C, count int) {
 	c.Assert(fis, HasLen, count)
 }
 
-func (fix *SimpleToolsFixture) getManager(c *C, deployerName string) *deployer.SimpleManager {
-	return &deployer.SimpleManager{
-		StateInfo: &state.Info{
-			CACert:     []byte("test-cert"),
-			Addrs:      []string{"s1:123", "s2:123"},
-			EntityName: deployerName,
-		},
-		InitDir: fix.initDir,
-		DataDir: fix.dataDir,
-		LogDir:  fix.logDir,
-	}
+func (fix *SimpleToolsFixture) getContext(c *C, deployerName string) *deployer.SimpleContext {
+	return deployer.NewTestSimpleContext(deployerName, fix.initDir, fix.dataDir, fix.logDir, fix.syslogConfigDir)
 }
 
-func (fix *SimpleToolsFixture) paths(entityName, xName string) (confPath, agentDir, toolsDir string) {
-	confName := fmt.Sprintf("jujud-%s:%s.conf", xName, entityName)
+func (fix *SimpleToolsFixture) paths(tag, xName string) (confPath, agentDir, toolsDir, syslogConfPath string) {
+	confName := fmt.Sprintf("jujud-%s:%s.conf", xName, tag)
 	confPath = filepath.Join(fix.initDir, confName)
-	agentDir = agent.Dir(fix.dataDir, entityName)
-	toolsDir = agent.ToolsDir(fix.dataDir, entityName)
+	agentDir = agent.Dir(fix.dataDir, tag)
+	toolsDir = agent.ToolsDir(fix.dataDir, tag)
+	syslogConfPath = filepath.Join(fix.syslogConfigDir, fmt.Sprintf("26-juju-%s.conf", tag))
 	return
 }
 
+var expectedSyslogConf = `
+$ModLoad imfile
+
+$InputFilePollInterval 5
+$InputFileName /var/log/juju/unit-foo-123.log
+$InputFileTag juju-unit-foo-123:
+$InputFileStateFile unit-foo-123
+$InputRunFileMonitor
+
+:syslogtag, startswith, "juju-" @s1:514
+& ~
+`
+
 func (fix *SimpleToolsFixture) checkUnitInstalled(c *C, name, xName, password string) {
-	entityName := state.UnitEntityName(name)
-	uconfPath, _, toolsDir := fix.paths(entityName, xName)
+	tag := state.UnitTag(name)
+	uconfPath, _, toolsDir, syslogConfPath := fix.paths(tag, xName)
 	uconfData, err := ioutil.ReadFile(uconfPath)
 	c.Assert(err, IsNil)
 	uconf := string(uconfData)
@@ -160,7 +167,7 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *C, name, xName, password st
 	if execLine == "" {
 		c.Fatalf("no command found in %s:\n%s", uconfPath, uconf)
 	}
-	logPath := filepath.Join(fix.logDir, entityName+".log")
+	logPath := filepath.Join(fix.logDir, tag+".log")
 	jujudPath := filepath.Join(toolsDir, "jujud")
 	for _, pat := range []string{
 		"^exec " + jujudPath + " unit ",
@@ -174,27 +181,32 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *C, name, xName, password st
 		}
 	}
 
-	conf, err := agent.ReadConf(fix.dataDir, entityName)
+	conf, err := agent.ReadConf(fix.dataDir, tag)
 	c.Assert(err, IsNil)
 	c.Assert(conf, DeepEquals, &agent.Conf{
 		DataDir:     fix.dataDir,
 		OldPassword: password,
 		StateInfo: &state.Info{
-			Addrs:      []string{"s1:123", "s2:123"},
-			CACert:     []byte("test-cert"),
-			EntityName: entityName,
+			Addrs:  []string{"s1:123", "s2:123"},
+			CACert: []byte("test-cert"),
+			Tag:    tag,
 		},
 	})
 
 	jujudData, err := ioutil.ReadFile(jujudPath)
 	c.Assert(err, IsNil)
 	c.Assert(string(jujudData), Equals, fakeJujud)
+
+	syslogConfData, err := ioutil.ReadFile(syslogConfPath)
+	c.Assert(err, IsNil)
+	c.Assert(string(syslogConfData), Equals, expectedSyslogConf)
+
 }
 
 func (fix *SimpleToolsFixture) checkUnitRemoved(c *C, name, xName string) {
-	entityName := state.UnitEntityName(name)
-	confPath, agentDir, toolsDir := fix.paths(entityName, xName)
-	for _, path := range []string{confPath, agentDir, toolsDir} {
+	tag := state.UnitTag(name)
+	confPath, agentDir, toolsDir, syslogConfPath := fix.paths(tag, xName)
+	for _, path := range []string{confPath, agentDir, toolsDir, syslogConfPath} {
 		_, err := ioutil.ReadFile(path)
 		c.Assert(os.IsNotExist(err), Equals, true)
 	}

@@ -130,7 +130,7 @@ func (r *Relationer) PrepareHook(hi hook.Info) (hookName string, err error) {
 	} else if hi.RemoteUnit != "" {
 		r.ctx.UpdateMembers(SettingsMap{hi.RemoteUnit: nil})
 	}
-	name := r.ru.Endpoint().RelationName
+	name := r.ru.Endpoint().Name
 	return fmt.Sprintf("%s-%s", name, hi.Kind), nil
 }
 

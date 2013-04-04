@@ -5,6 +5,7 @@ import (
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/trivial"
 	"net/http"
@@ -54,27 +55,47 @@ func BucketStorage(b *s3.Bucket) environs.Storage {
 	}
 }
 
-var origImagesHost = imagesHost
+var testRoundTripper = &jujutest.ProxyRoundTripper{}
 
 func init() {
-	// Make the images data accessible through the "file" protocol.
-	http.DefaultTransport.(*http.Transport).RegisterProtocol("file", http.NewFileTransport(http.Dir("testdata")))
+	// Prepare mock http transport for overriding metadata and images output in tests
+	http.DefaultTransport.(*http.Transport).RegisterProtocol("test", testRoundTripper)
 }
 
-func UseTestImageData(local bool) {
-	if local {
-		imagesHost = "file:"
+// TODO: Apart from overriding different hardcoded hosts, these two test helpers are identical. Let's share.
+
+var origImagesHost = imagesHost
+
+// UseTestImageData causes the given content to be served
+// when the ec2 client asks for image data.
+func UseTestImageData(content []jujutest.FileContent) {
+	if content != nil {
+		testRoundTripper.Sub = jujutest.NewVirtualRoundTripper(content)
+		imagesHost = "test:"
 	} else {
+		testRoundTripper.Sub = nil
 		imagesHost = origImagesHost
+	}
+}
+
+// UseTestInstanceTypeData causes the given instance type
+// cost data to be served for the "test" region.
+func UseTestInstanceTypeData(content map[string]uint64) {
+	if content != nil {
+		allRegionCosts["test"] = content
+	} else {
+		delete(allRegionCosts, "test")
 	}
 }
 
 var origMetadataHost = metadataHost
 
-func UseTestMetadata(local bool) {
-	if local {
-		metadataHost = "file:"
+func UseTestMetadata(content []jujutest.FileContent) {
+	if content != nil {
+		testRoundTripper.Sub = jujutest.NewVirtualRoundTripper(content)
+		metadataHost = "test:"
 	} else {
+		testRoundTripper.Sub = nil
 		metadataHost = origMetadataHost
 	}
 }

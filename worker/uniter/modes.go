@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/worker"
 	ucharm "launchpad.net/juju-core/worker/uniter/charm"
@@ -22,7 +23,7 @@ type Mode func(u *Uniter) (Mode, error)
 // ModeInit is the initial Uniter mode.
 func ModeInit(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeInit", &err)()
-	log.Printf("worker/uniter: updating unit addresses")
+	log.Infof("worker/uniter: updating unit addresses")
 	cfg, err := u.st.EnvironConfig()
 	if err != nil {
 		return nil, err
@@ -41,7 +42,7 @@ func ModeInit(u *Uniter) (next Mode, err error) {
 	} else if err = u.unit.SetPublicAddress(public); err != nil {
 		return nil, err
 	}
-	log.Printf("reconciling relation state")
+	log.Infof("reconciling relation state")
 	if err := u.restoreRelations(); err != nil {
 		return nil, err
 	}
@@ -54,10 +55,10 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 
 	// If we haven't yet loaded state, do so.
 	if u.s == nil {
-		log.Printf("loading uniter state")
+		log.Infof("loading uniter state")
 		if u.s, err = u.sf.Read(); err == ErrNoStateFile {
 			// When no state exists, start from scratch.
-			log.Printf("worker/uniter: charm is not deployed")
+			log.Infof("worker/uniter: charm is not deployed")
 			curl, _ := u.service.CharmURL()
 			return ModeInstalling(curl), nil
 		} else if err != nil {
@@ -68,7 +69,7 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 	// Filter out states not related to charm deployment.
 	switch u.s.Op {
 	case Continue:
-		log.Printf("worker/uniter: continuing after %q hook", u.s.Hook.Kind)
+		log.Infof("worker/uniter: continuing after %q hook", u.s.Hook.Kind)
 		switch u.s.Hook.Kind {
 		case hooks.Stop:
 			return ModeTerminating, nil
@@ -85,30 +86,30 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 		return ModeAbide, nil
 	case RunHook:
 		if u.s.OpStep == Queued {
-			log.Printf("worker/uniter: found queued %q hook", u.s.Hook.Kind)
+			log.Infof("worker/uniter: found queued %q hook", u.s.Hook.Kind)
 			if err = u.runHook(*u.s.Hook); err != nil && err != errHookFailed {
 				return nil, err
 			}
 			return ModeContinue, nil
 		}
 		if u.s.OpStep == Done {
-			log.Printf("worker/uniter: found uncommitted %q hook", u.s.Hook.Kind)
+			log.Infof("worker/uniter: found uncommitted %q hook", u.s.Hook.Kind)
 			if err = u.commitHook(*u.s.Hook); err != nil {
 				return nil, err
 			}
 			return ModeContinue, nil
 		}
-		log.Printf("worker/uniter: awaiting error resolution for %q hook", u.s.Hook.Kind)
+		log.Infof("worker/uniter: awaiting error resolution for %q hook", u.s.Hook.Kind)
 		return ModeHookError, nil
 	}
 
 	// Resume interrupted deployment operations.
 	curl := u.s.CharmURL
 	if u.s.Op == Install {
-		log.Printf("worker/uniter: resuming charm install")
+		log.Infof("worker/uniter: resuming charm install")
 		return ModeInstalling(curl), nil
 	} else if u.s.Op == Upgrade {
-		log.Printf("worker/uniter: resuming charm upgrade")
+		log.Infof("worker/uniter: resuming charm upgrade")
 		return ModeUpgrading(curl), nil
 	}
 	panic(fmt.Errorf("unhandled uniter operation %q", u.s.Op))
@@ -136,11 +137,6 @@ func ModeUpgrading(curl *charm.URL) Mode {
 		} else if err != nil {
 			return nil, err
 		}
-		// Now the upgrade is complete, we'll need to check all
-		// relations again: some might previously have been skipped
-		// (if they involved endpoints only implemented in the new
-		// charm).
-		u.f.WantAllRelationsEvents()
 		return ModeContinue, nil
 	}
 }
@@ -149,7 +145,7 @@ func ModeUpgrading(curl *charm.URL) Mode {
 func ModeConfigChanged(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeConfigChanged", &err)()
 	if !u.s.Started {
-		if err = u.unit.SetStatus(state.UnitInstalled, ""); err != nil {
+		if err = u.unit.SetStatus(params.UnitInstalled, ""); err != nil {
 			return nil, err
 		}
 	}
@@ -187,7 +183,7 @@ func ModeStopping(u *Uniter) (next Mode, err error) {
 // ModeTerminating marks the unit dead and returns ErrDead.
 func ModeTerminating(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeTerminating", &err)()
-	if err = u.unit.SetStatus(state.UnitStopped, ""); err != nil {
+	if err = u.unit.SetStatus(params.UnitStopped, ""); err != nil {
 		return nil, err
 	}
 	w := u.unit.Watch()
@@ -227,14 +223,10 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 	if u.s.Op != Continue {
 		return nil, fmt.Errorf("insane uniter state: %#v", u.s)
 	}
-	if err = u.unit.SetStatus(state.UnitStarted, ""); err != nil {
+	if err = u.unit.SetStatus(params.UnitStarted, ""); err != nil {
 		return nil, err
 	}
-	url, err := ucharm.ReadCharmURL(u.charm)
-	if err != nil {
-		return nil, err
-	}
-	u.f.WantUpgradeEvent(url, false)
+	u.f.WantUpgradeEvent(false)
 	for _, r := range u.relationers {
 		r.StartHooks()
 	}
@@ -339,24 +331,20 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 		return nil, fmt.Errorf("insane uniter state: %#v", u.s)
 	}
 	msg := fmt.Sprintf("hook failed: %q", u.s.Hook.Kind)
-	if err = u.unit.SetStatus(state.UnitError, msg); err != nil {
-		return nil, err
-	}
-	url, err := ucharm.ReadCharmURL(u.charm)
-	if err != nil {
+	if err = u.unit.SetStatus(params.UnitError, msg); err != nil {
 		return nil, err
 	}
 	u.f.WantResolvedEvent()
-	u.f.WantUpgradeEvent(url, true)
+	u.f.WantUpgradeEvent(true)
 	for {
 		select {
 		case <-u.tomb.Dying():
 			return nil, tomb.ErrDying
 		case rm := <-u.f.ResolvedEvents():
 			switch rm {
-			case state.ResolvedRetryHooks:
+			case params.ResolvedRetryHooks:
 				err = u.runHook(*u.s.Hook)
-			case state.ResolvedNoHooks:
+			case params.ResolvedNoHooks:
 				err = u.commitHook(*u.s.Hook)
 			default:
 				return nil, fmt.Errorf("unknown resolved mode %q", rm)
@@ -383,11 +371,11 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 func ModeConflicted(curl *charm.URL) Mode {
 	return func(u *Uniter) (next Mode, err error) {
 		defer modeContext("ModeConflicted", &err)()
-		if err = u.unit.SetStatus(state.UnitError, "upgrade failed"); err != nil {
+		if err = u.unit.SetStatus(params.UnitError, "upgrade failed"); err != nil {
 			return nil, err
 		}
 		u.f.WantResolvedEvent()
-		u.f.WantUpgradeEvent(curl, true)
+		u.f.WantUpgradeEvent(true)
 		for {
 			select {
 			case <-u.tomb.Dying():
@@ -415,7 +403,7 @@ func ModeConflicted(curl *charm.URL) Mode {
 // modeContext returns a function that implements logging and common error
 // manipulation for Mode funcs.
 func modeContext(name string, err *error) func() {
-	log.Printf("worker/uniter: %s starting", name)
+	log.Infof("worker/uniter: %s starting", name)
 	return func() {
 		log.Debugf("worker/uniter: %s exiting", name)
 		switch *err {

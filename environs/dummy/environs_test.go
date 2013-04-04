@@ -20,12 +20,12 @@ func init() {
 		"ca-private-key":  testing.CAKey,
 	}
 	Suite(&jujutest.LiveTests{
-		Config:         attrs,
+		TestConfig:     jujutest.TestConfig{attrs},
 		CanOpenState:   true,
 		HasProvisioner: false,
 	})
 	Suite(&jujutest.Tests{
-		Config: attrs,
+		TestConfig: jujutest.TestConfig{attrs},
 	})
 }
 

@@ -16,54 +16,54 @@ import (
 // created in the test -- to StartSync and cause the task to actually start
 // a sync and observe changes to the set of desired units (and thereby run
 // deployment tests in a reasonable amount of time).
-type fakeManager struct {
+type fakeContext struct {
 	mu       sync.Mutex
 	deployed map[string]bool
 	st       *state.State
 	inited   chan struct{}
 }
 
-func (mgr *fakeManager) DeployUnit(unitName, _ string) error {
-	mgr.mu.Lock()
-	mgr.deployed[unitName] = true
-	mgr.mu.Unlock()
+func (ctx *fakeContext) DeployUnit(unitName, _ string) error {
+	ctx.mu.Lock()
+	ctx.deployed[unitName] = true
+	ctx.mu.Unlock()
 	return nil
 }
 
-func (mgr *fakeManager) RecallUnit(unitName string) error {
-	mgr.mu.Lock()
-	delete(mgr.deployed, unitName)
-	mgr.mu.Unlock()
+func (ctx *fakeContext) RecallUnit(unitName string) error {
+	ctx.mu.Lock()
+	delete(ctx.deployed, unitName)
+	ctx.mu.Unlock()
 	return nil
 }
 
-func (mgr *fakeManager) DeployedUnits() ([]string, error) {
+func (ctx *fakeContext) DeployedUnits() ([]string, error) {
 	var unitNames []string
-	mgr.mu.Lock()
-	for unitName := range mgr.deployed {
+	ctx.mu.Lock()
+	for unitName := range ctx.deployed {
 		unitNames = append(unitNames, unitName)
 	}
-	mgr.mu.Unlock()
+	ctx.mu.Unlock()
 	sort.Strings(unitNames)
 	return unitNames, nil
 }
 
-func (mgr *fakeManager) waitDeployed(c *C, want ...string) {
+func (ctx *fakeContext) waitDeployed(c *C, want ...string) {
 	sort.Strings(want)
 	timeout := time.After(500 * time.Millisecond)
 	select {
 	case <-timeout:
 		c.Fatalf("manager never initialized")
-	case <-mgr.inited:
+	case <-ctx.inited:
 		for {
-			mgr.st.StartSync()
+			ctx.st.StartSync()
 			select {
 			case <-timeout:
-				got, err := mgr.DeployedUnits()
+				got, err := ctx.DeployedUnits()
 				c.Assert(err, IsNil)
 				c.Fatalf("unexpected units: %#v", got)
 			case <-time.After(50 * time.Millisecond):
-				got, err := mgr.DeployedUnits()
+				got, err := ctx.DeployedUnits()
 				c.Assert(err, IsNil)
 				if reflect.DeepEqual(got, want) {
 					return
@@ -74,23 +74,22 @@ func (mgr *fakeManager) waitDeployed(c *C, want ...string) {
 	panic("unreachable")
 }
 
-func patchDeployManager(c *C, expectInfo *state.Info, expectDataDir string) (*fakeManager, func()) {
-	mgr := &fakeManager{
+func patchDeployContext(c *C, expectInfo *state.Info, expectDataDir string) (*fakeContext, func()) {
+	ctx := &fakeContext{
 		deployed: map[string]bool{},
 		inited:   make(chan struct{}),
 	}
 	e0 := *expectInfo
 	expectInfo = &e0
-	orig := newDeployManager
-	newDeployManager = func(st *state.State, info *state.Info, dataDir string) deployer.Manager {
-		c.Check(info.Addrs, DeepEquals, expectInfo.Addrs)
-		c.Check(info.CACert, DeepEquals, expectInfo.CACert)
-		c.Check(info.EntityName, Equals, expectInfo.EntityName)
-		c.Check(info.Password, Equals, "")
+	orig := newDeployContext
+	newDeployContext = func(st *state.State, dataDir string, deployerTag string) deployer.Context {
+		c.Check(st.Addresses(), DeepEquals, expectInfo.Addrs)
+		c.Check(st.CACert(), DeepEquals, expectInfo.CACert)
+		c.Check(deployerTag, Equals, expectInfo.Tag)
 		c.Check(dataDir, Equals, expectDataDir)
-		mgr.st = st
-		close(mgr.inited)
-		return mgr
+		ctx.st = st
+		close(ctx.inited)
+		return ctx
 	}
-	return mgr, func() { newDeployManager = orig }
+	return ctx, func() { newDeployContext = orig }
 }

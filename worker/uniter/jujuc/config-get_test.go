@@ -21,7 +21,7 @@ var configGetTests = []struct {
 	args []string
 	out  string
 }{
-	{[]string{"monsters"}, "false\n"},
+	{[]string{"monsters"}, "False\n"},
 	{[]string{"--format", "yaml", "monsters"}, "false\n"},
 	{[]string{"--format", "json", "monsters"}, "false\n"},
 	{[]string{"spline-reticulation"}, "45\n"},
@@ -56,8 +56,7 @@ func (s *ConfigGetSuite) TestHelp(c *C) {
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, Equals, 0)
-	c.Assert(bufferString(ctx.Stdout), Equals, "")
-	c.Assert(bufferString(ctx.Stderr), Equals, `usage: config-get [options] [<key>]
+	c.Assert(bufferString(ctx.Stdout), Equals, `usage: config-get [options] [<key>]
 purpose: print service configuration
 
 options:
@@ -68,6 +67,7 @@ options:
 
 If a key is given, only the value for that key will be printed.
 `)
+	c.Assert(bufferString(ctx.Stderr), Equals, "")
 }
 
 func (s *ConfigGetSuite) TestOutputPath(c *C) {
@@ -81,7 +81,7 @@ func (s *ConfigGetSuite) TestOutputPath(c *C) {
 	c.Assert(bufferString(ctx.Stdout), Equals, "")
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "some-file"))
 	c.Assert(err, IsNil)
-	c.Assert(string(content), Equals, "false\n")
+	c.Assert(string(content), Equals, "False\n")
 }
 
 func (s *ConfigGetSuite) TestUnknownArg(c *C) {

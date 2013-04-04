@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
@@ -126,6 +127,9 @@ var initErrorTests = []struct {
 	}, {
 		args: []string{"craziness", "burble1", "-n", "0"},
 		err:  `must deploy at least one unit`,
+	}, {
+		args: []string{"craziness", "burble1", "--constraints", "gibber=plop"},
+		err:  `invalid value "gibber=plop" for flag --constraints: unknown constraint "gibber"`,
 	},
 }
 
@@ -168,7 +172,7 @@ func (s *DeploySuite) TestCharmBundle(c *C) {
 func (s *DeploySuite) TestCannotUpgradeCharmBundle(c *C) {
 	coretesting.Charms.BundlePath(s.seriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "-u")
-	c.Assert(err, ErrorMatches, `cannot increment version of charm "local:precise/dummy-1": not a directory`)
+	c.Assert(err, ErrorMatches, `cannot increment revision of charm "local:precise/dummy-1": not a directory`)
 	// Verify state not touched...
 	curl := charm.MustParseURL("local:precise/dummy-1")
 	_, err = s.State.Charm(curl)
@@ -186,9 +190,9 @@ func (s *DeploySuite) TestAddsPeerRelations(c *C) {
 	rel := rels[0]
 	ep, err := rel.Endpoint("riak")
 	c.Assert(err, IsNil)
-	c.Assert(ep.RelationName, Equals, "ring")
-	c.Assert(ep.RelationRole, Equals, state.RolePeer)
-	c.Assert(ep.RelationScope, Equals, charm.ScopeGlobal)
+	c.Assert(ep.Name, Equals, "ring")
+	c.Assert(ep.Role, Equals, charm.RolePeer)
+	c.Assert(ep.Scope, Equals, charm.ScopeGlobal)
 }
 
 func (s *DeploySuite) TestNumUnits(c *C) {
@@ -205,4 +209,21 @@ func (s *DeploySuite) TestSubordinateCharm(c *C) {
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/logging-1")
 	s.assertService(c, "logging", curl, 0, 0)
+}
+
+func (s *DeploySuite) TestConstraints(c *C) {
+	coretesting.Charms.BundlePath(s.seriesPath, "dummy")
+	err := runDeploy(c, "local:dummy", "--constraints", "mem=2G cpu-cores=2")
+	c.Assert(err, IsNil)
+	curl := charm.MustParseURL("local:precise/dummy-1")
+	service, _ := s.assertService(c, "dummy", curl, 1, 0)
+	cons, err := service.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(cons, DeepEquals, constraints.MustParse("mem=2G cpu-cores=2"))
+}
+
+func (s *DeploySuite) TestSubordinateConstraints(c *C) {
+	coretesting.Charms.BundlePath(s.seriesPath, "logging")
+	err := runDeploy(c, "local:logging", "--constraints", "mem=1G")
+	c.Assert(err, Equals, state.ErrSubordinateConstraints)
 }

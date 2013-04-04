@@ -8,6 +8,7 @@ import (
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"os"
@@ -63,7 +64,6 @@ func checkMessage(c *C, msg string, cmd ...string) {
 
 func (s *MainSuite) TestParseErrors(c *C) {
 	// Check all the obvious parse errors
-	checkMessage(c, "no command specified")
 	checkMessage(c, "unrecognized command: jujud cavitate", "cavitate")
 	msgf := "flag provided but not defined: --cheese"
 	checkMessage(c, msgf, "--cheese", "cavitate")
@@ -86,7 +86,21 @@ func (s *MainSuite) TestParseErrors(c *C) {
 		"toastie")
 }
 
+var expectedProviders = []string{
+	"ec2",
+	"openstack",
+}
+
+func (s *MainSuite) TestProvidersAreRegistered(c *C) {
+	// check that all the expected providers are registered
+	for _, name := range expectedProviders {
+		_, err := environs.Provider(name)
+		c.Assert(err, IsNil)
+	}
+}
+
 type RemoteCommand struct {
+	cmd.CommandBase
 	msg string
 }
 

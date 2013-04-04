@@ -49,7 +49,7 @@ func (s *CharmSuite) TestInferRepository(c *C) {
 		case *charm.LocalRepository:
 			c.Assert(repo.Path, Equals, t.path)
 		default:
-			c.Assert(repo, FitsTypeOf, charm.Store())
+			c.Assert(repo, Equals, charm.Store)
 		}
 	}
 	curl, err := charm.InferURL("local:whatever", "precise")

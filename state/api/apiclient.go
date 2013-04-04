@@ -2,8 +2,10 @@ package api
 
 import (
 	"fmt"
+	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/state/statecmd"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/tomb"
 	"strings"
 	"sync"
@@ -13,7 +15,7 @@ import (
 type Machine struct {
 	st  *State
 	id  string
-	doc rpcMachine
+	doc params.Machine
 }
 
 // Client represents the client-accessible part of the state.
@@ -49,7 +51,7 @@ func (c *Client) Status() (*Status, error) {
 
 // ServiceSet sets configuration options on a service.
 func (c *Client) ServiceSet(service string, options map[string]string) error {
-	p := statecmd.ServiceSetParams{
+	p := params.ServiceSet{
 		ServiceName: service,
 		Options:     options,
 	}
@@ -57,10 +59,20 @@ func (c *Client) ServiceSet(service string, options map[string]string) error {
 	return clientError(err)
 }
 
+// Resolved clears errors on a unit.
+func (c *Client) Resolved(unit string, retry bool) error {
+	p := params.Resolved{
+		UnitName: unit,
+		Retry:    retry,
+	}
+	err := c.st.client.Call("Client", "", "Resolved", p, nil)
+	return clientError(err)
+}
+
 // ServiceSetYAML sets configuration options on a service
 // given options in YAML format.
 func (c *Client) ServiceSetYAML(service string, yaml string) error {
-	p := statecmd.ServiceSetYAMLParams{
+	p := params.ServiceSetYAML{
 		ServiceName: service,
 		Config:      yaml,
 	}
@@ -69,9 +81,9 @@ func (c *Client) ServiceSetYAML(service string, yaml string) error {
 }
 
 // ServiceGet returns the configuration for the named service.
-func (c *Client) ServiceGet(service string) (*statecmd.ServiceGetResults, error) {
-	var results statecmd.ServiceGetResults
-	params := statecmd.ServiceGetParams{ServiceName: service}
+func (c *Client) ServiceGet(service string) (*params.ServiceGetResults, error) {
+	var results params.ServiceGetResults
+	params := params.ServiceGet{ServiceName: service}
 	err := c.st.client.Call("Client", "", "ServiceGet", params, &results)
 	if err != nil {
 		return nil, clientError(err)
@@ -79,42 +91,184 @@ func (c *Client) ServiceGet(service string) (*statecmd.ServiceGetResults, error)
 	return &results, nil
 }
 
+// AddRelation adds a relation between the specified endpoints and returns the relation info.
+func (c *Client) AddRelation(endpoints ...string) (*params.AddRelationResults, error) {
+	var addRelRes params.AddRelationResults
+	params := params.AddRelation{Endpoints: endpoints}
+	err := c.st.client.Call("Client", "", "AddRelation", params, &addRelRes)
+	if err != nil {
+		return nil, clientError(err)
+	}
+	return &addRelRes, nil
+}
+
+// DestroyRelation removes the relation between the specified endpoints.
+func (c *Client) DestroyRelation(endpoints ...string) error {
+	params := params.DestroyRelation{Endpoints: endpoints}
+	err := c.st.client.Call("Client", "", "DestroyRelation", params, nil)
+	return clientError(err)
+}
+
 // ServiceExpose changes the juju-managed firewall to expose any ports that
 // were also explicitly marked by units as open.
 func (c *Client) ServiceExpose(service string) error {
-	params := statecmd.ServiceExposeParams{ServiceName: service}
+	params := params.ServiceExpose{ServiceName: service}
 	err := c.st.client.Call("Client", "", "ServiceExpose", params, nil)
+	return clientError(err)
+}
+
+// ServiceUnexpose changes the juju-managed firewall to unexpose any ports that
+// were also explicitly marked by units as open.
+func (c *Client) ServiceUnexpose(service string) error {
+	params := params.ServiceUnexpose{ServiceName: service}
+	err := c.st.client.Call("Client", "", "ServiceUnexpose", params, nil)
+	return clientError(err)
+}
+
+// ServiceDeploy obtains the charm, either locally or from the charm store,
+// and deploys it.
+func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int, configYAML string, cons constraints.Value) error {
+	params := params.ServiceDeploy{
+		ServiceName: serviceName,
+		CharmUrl:    charmUrl,
+		NumUnits:    numUnits,
+		// BUG(lp:1162122): ConfigYAML has no tests.
+		ConfigYAML:  configYAML,
+		Constraints: cons,
+	}
+	err := c.st.client.Call("Client", "", "ServiceDeploy", params, nil)
 	if err != nil {
 		return clientError(err)
 	}
 	return nil
 }
 
-// ServiceUnexpose changes the juju-managed firewall to unexpose any ports that
-// were also explicitly marked by units as open.
-func (c *Client) ServiceUnexpose(service string) error {
-	params := statecmd.ServiceUnexposeParams{ServiceName: service}
-	err := c.st.client.Call("Client", "", "ServiceUnexpose", params, nil)
-	if err != nil {
-		return clientError(err)
+// AddServiceUnits adds a given number of units to a service.
+func (c *Client) AddServiceUnits(service string, numUnits int) error {
+	params := params.AddServiceUnits{
+		ServiceName: service,
+		NumUnits:    numUnits,
 	}
-	return nil
+	err := c.st.client.Call("Client", "", "AddServiceUnits", params, nil)
+	return clientError(err)
+}
+
+// DestroyServiceUnits decreases the number of units dedicated to a service.
+func (c *Client) DestroyServiceUnits(unitNames []string) error {
+	params := params.DestroyServiceUnits{unitNames}
+	err := c.st.client.Call("Client", "", "DestroyServiceUnits", params, nil)
+	return clientError(err)
+}
+
+// ServiceDestroy destroys a given service.
+func (c *Client) ServiceDestroy(service string) error {
+	params := params.ServiceDestroy{
+		ServiceName: service,
+	}
+	return clientError(c.st.client.Call("Client", "", "ServiceDestroy", params, nil))
+}
+
+// SetServiceConstraints specifies the constraints for the given service.
+func (c *Client) SetServiceConstraints(service string, constraints constraints.Value) error {
+	params := params.SetServiceConstraints{
+		ServiceName: service,
+		Constraints: constraints,
+	}
+	return clientError(c.st.client.Call("Client", "", "SetServiceConstraints", params, nil))
+}
+
+// CharmInfo holds information about a charm.
+type CharmInfo struct {
+	Revision int
+	URL      string
+	Config   *charm.Config
+	Meta     *charm.Meta
+}
+
+// CharmInfo returns information about the requested charm.
+func (c *Client) CharmInfo(charmURL string) (*CharmInfo, error) {
+	args := params.CharmInfo{CharmURL: charmURL}
+	info := new(CharmInfo)
+	err := c.st.client.Call("Client", "", "CharmInfo", args, info)
+	if err != nil {
+		return nil, clientError(err)
+	}
+	return info, nil
 }
 
 // EnvironmentInfo holds information about the Juju environment.
 type EnvironmentInfo struct {
 	DefaultSeries string
 	ProviderType  string
+	Name          string
 }
 
 // EnvironmentInfo returns details about the Juju environment.
 func (c *Client) EnvironmentInfo() (*EnvironmentInfo, error) {
 	info := new(EnvironmentInfo)
 	err := c.st.client.Call("Client", "", "EnvironmentInfo", nil, info)
+	return info, clientError(err)
+}
+
+// AllWatcher holds information allowing us to get Deltas describing changes
+// to the entire environment.
+type AllWatcher struct {
+	client *Client
+	id     *string
+}
+
+func newAllWatcher(client *Client, id *string) *AllWatcher {
+	return &AllWatcher{client, id}
+}
+
+func (watcher *AllWatcher) Next() ([]params.Delta, error) {
+	info := new(params.AllWatcherNextResults)
+	err := watcher.client.st.client.Call("AllWatcher", *watcher.id, "Next", nil, info)
+	return info.Deltas, clientError(err)
+}
+
+func (watcher *AllWatcher) Stop() error {
+	return clientError(
+		watcher.client.st.client.Call("AllWatcher", *watcher.id, "Stop", nil, nil))
+}
+
+// WatchAll holds the id of the newly-created AllWatcher.
+type WatchAll struct {
+	AllWatcherId string
+}
+
+// WatchAll returns an AllWatcher, from which you can request the Next
+// collection of Deltas.
+func (c *Client) WatchAll() (*AllWatcher, error) {
+	info := new(WatchAll)
+	err := c.st.client.Call("Client", "", "WatchAll", nil, info)
 	if err != nil {
 		return nil, clientError(err)
 	}
-	return info, nil
+	return newAllWatcher(c, &info.AllWatcherId), nil
+}
+
+// GetAnnotations returns annotations that have been set on the given entity.
+func (c *Client) GetAnnotations(tag string) (map[string]string, error) {
+	args := params.GetAnnotations{tag}
+	ann := new(params.GetAnnotationsResults)
+	err := c.st.client.Call("Client", "", "GetAnnotations", args, ann)
+	if err != nil {
+		return nil, clientError(err)
+	}
+	return ann.Annotations, nil
+}
+
+// SetAnnotations sets the annotation pairs on the given entity.
+// Currently annotations are supported on machines, services,
+// units and the environment itself.
+func (c *Client) SetAnnotations(tag string, pairs map[string]string) error {
+	args := params.SetAnnotations{tag, pairs}
+	err := c.st.client.Call("Client", "", "SetAnnotations", args, nil)
+	if err != nil {
+		return clientError(err)
+	}
+	return nil
 }
 
 // Machine returns a reference to the machine with the given id.
@@ -133,7 +287,7 @@ func (st *State) Machine(id string) (*Machine, error) {
 type Unit struct {
 	st   *State
 	name string
-	doc  rpcUnit
+	doc  params.Unit
 }
 
 // Unit returns a unit by name.
@@ -151,10 +305,10 @@ func (st *State) Unit(name string) (*Unit, error) {
 // Login authenticates as the entity with the given name and password.
 // Subsequent requests on the state will act as that entity.
 // This method is usually called automatically by Open.
-func (st *State) Login(entityName, password string) error {
-	return st.call("Admin", "", "Login", &rpcCreds{
-		EntityName: entityName,
-		Password:   password,
+func (st *State) Login(tag, password string) error {
+	return st.call("Admin", "", "Login", &params.Creds{
+		AuthTag:  tag,
+		Password: password,
 	}, nil)
 }
 
@@ -163,16 +317,16 @@ func (m *Machine) Id() string {
 	return m.id
 }
 
-// EntityName returns a name identifying the machine that is safe to use
+// Tag returns a name identifying the machine that is safe to use
 // as a file name.  The returned name will be different from other
-// EntityName values returned by any other entities from the same state.
-func (m *Machine) EntityName() string {
-	return MachineEntityName(m.Id())
+// Tag values returned by any other entities from the same state.
+func (m *Machine) Tag() string {
+	return MachineTag(m.Id())
 }
 
-// MachineEntityName returns the entity name for the
+// MachineTag returns the tag for the
 // machine with the given id.
-func MachineEntityName(id string) string {
+func MachineTag(id string) string {
 	return fmt.Sprintf("machine-%s", id)
 }
 
@@ -195,7 +349,7 @@ func (m *Machine) InstanceId() (string, bool) {
 
 // SetPassword sets the password for the machine's agent.
 func (m *Machine) SetPassword(password string) error {
-	return m.st.call("Machine", m.id, "SetPassword", &rpcPassword{
+	return m.st.call("Machine", m.id, "SetPassword", &params.Password{
 		Password: password,
 	}, nil)
 }
@@ -230,7 +384,7 @@ func newEntityWatcher(st *State, etype, id string) *EntityWatcher {
 }
 
 func (w *EntityWatcher) loop() error {
-	var id rpcEntityWatcherId
+	var id params.EntityWatcherId
 	if err := w.st.call(w.etype, w.eid, "Watch", nil, &id); err != nil {
 		return err
 	}
@@ -250,7 +404,7 @@ func (w *EntityWatcher) loop() error {
 		defer w.wg.Done()
 		<-w.tomb.Dying()
 		if err := callWatch("Stop"); err != nil {
-			log.Printf("state/api: error trying to stop watcher: %v", err)
+			log.Errorf("state/api: error trying to stop watcher: %v", err)
 		}
 	}()
 	for {
@@ -301,26 +455,26 @@ func (u *Unit) Refresh() error {
 
 // SetPassword sets the password for the unit's agent.
 func (u *Unit) SetPassword(password string) error {
-	return u.st.call("Unit", u.name, "SetPassword", &rpcPassword{
+	return u.st.call("Unit", u.name, "SetPassword", &params.Password{
 		Password: password,
 	}, nil)
 }
 
-// UnitEntityName returns the entity name for the
+// UnitTag returns the tag for the
 // unit with the given name.
-func UnitEntityName(unitName string) string {
+func UnitTag(unitName string) string {
 	return "unit-" + strings.Replace(unitName, "/", "-", -1)
 }
 
-// EntityName returns a name identifying the unit that is safe to use
+// Tag returns a name identifying the unit that is safe to use
 // as a file name.  The returned name will be different from other
-// EntityName values returned by any other entities from the same state.
-func (u *Unit) EntityName() string {
-	return UnitEntityName(u.name)
+// Tag values returned by any other entities from the same state.
+func (u *Unit) Tag() string {
+	return UnitTag(u.name)
 }
 
-// DeployerName returns the entity name of the agent responsible for deploying
+// DeployerTag returns the tag of the agent responsible for deploying
 // the unit. If no such entity can be determined, false is returned.
-func (u *Unit) DeployerName() (string, bool) {
-	return u.doc.DeployerName, u.doc.DeployerName != ""
+func (u *Unit) DeployerTag() (string, bool) {
+	return u.doc.DeployerTag, u.doc.DeployerTag != ""
 }

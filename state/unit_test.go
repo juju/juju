@@ -4,6 +4,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	"sort"
 	"strconv"
 	"time"
@@ -38,6 +39,30 @@ func (s *UnitSuite) TestService(c *C) {
 	svc, err := s.unit.Service()
 	c.Assert(err, IsNil)
 	c.Assert(svc.Name(), Equals, s.unit.ServiceName())
+}
+
+func (s *UnitSuite) TestServiceConfig(c *C) {
+	scfg, err := s.service.Config()
+	c.Assert(err, IsNil)
+	scfg.Update(map[string]interface{}{
+		"foo":        "bar",
+		"blog-title": "no title",
+	})
+	_, err = scfg.Write()
+	c.Assert(err, IsNil)
+
+	unit, err := s.service.AddUnit()
+	c.Assert(err, IsNil)
+
+	_, err = unit.ServiceConfig()
+	c.Assert(err, ErrorMatches, "unit charm not set")
+
+	err = unit.SetCharmURL(s.charm.URL())
+	c.Assert(err, IsNil)
+
+	cfg, err := unit.ServiceConfig()
+	c.Assert(err, IsNil)
+	c.Assert(cfg, DeepEquals, scfg.Map())
 }
 
 func (s *UnitSuite) TestGetSetPublicAddress(c *C) {
@@ -91,44 +116,55 @@ func (s *UnitSuite) TestRefresh(c *C) {
 	c.Assert(state.IsNotFound(err), Equals, true)
 }
 
-func (s *UnitSuite) TestGetSetStatus(c *C) {
-	fail := func() { s.unit.SetStatus(state.UnitPending, "") }
-	c.Assert(fail, PanicMatches, "unit status must not be set to pending")
+func (s *UnitSuite) TestGetSetStatusWhileAlive(c *C) {
+	fail := func() { s.unit.SetStatus(params.UnitError, "") }
+	c.Assert(fail, PanicMatches, "unit error status with no info")
 
 	status, info, err := s.unit.Status()
 	c.Assert(err, IsNil)
-	c.Assert(status, Equals, state.UnitPending)
+	c.Assert(status, Equals, params.UnitPending)
 	c.Assert(info, Equals, "")
 
-	err = s.unit.SetStatus(state.UnitStarted, "")
-	c.Assert(err, IsNil)
-
-	status, info, err = s.unit.Status()
-	c.Assert(err, IsNil)
-	c.Assert(status, Equals, state.UnitDown)
-	c.Assert(info, Equals, "")
-
-	p, err := s.unit.SetAgentAlive()
-	c.Assert(err, IsNil)
-	defer func() {
-		c.Assert(p.Kill(), IsNil)
-	}()
-
-	s.State.Sync()
-	status, info, err = s.unit.Status()
-	c.Assert(err, IsNil)
-	c.Assert(status, Equals, state.UnitStarted)
-	c.Assert(info, Equals, "")
-
-	err = s.unit.SetStatus(state.UnitError, "test-hook failed")
+	err = s.unit.SetStatus(params.UnitStarted, "")
 	c.Assert(err, IsNil)
 	status, info, err = s.unit.Status()
 	c.Assert(err, IsNil)
-	c.Assert(status, Equals, state.UnitError)
+	c.Assert(status, Equals, params.UnitStarted)
+	c.Assert(info, Equals, "")
+
+	err = s.unit.SetStatus(params.UnitError, "test-hook failed")
+	c.Assert(err, IsNil)
+	status, info, err = s.unit.Status()
+	c.Assert(err, IsNil)
+	c.Assert(status, Equals, params.UnitError)
 	c.Assert(info, Equals, "test-hook failed")
+
+	err = s.unit.SetStatus(params.UnitPending, "deploying...")
+	c.Assert(err, IsNil)
+	status, info, err = s.unit.Status()
+	c.Assert(err, IsNil)
+	c.Assert(status, Equals, params.UnitPending)
+	c.Assert(info, Equals, "deploying...")
+}
+
+func (s *UnitSuite) TestGetSetStatusWhileNotAlive(c *C) {
+	err := s.unit.Destroy()
+	c.Assert(err, IsNil)
+	err = s.unit.SetStatus(params.UnitStarted, "not really")
+	c.Assert(err, ErrorMatches, `cannot set status of unit "wordpress/0": not found or dead`)
+	_, _, err = s.unit.Status()
+	c.Assert(err, ErrorMatches, "status not found")
+
+	err = s.unit.EnsureDead()
+	c.Assert(err, IsNil)
+	err = s.unit.SetStatus(params.UnitStarted, "not really")
+	c.Assert(err, ErrorMatches, `cannot set status of unit "wordpress/0": not found or dead`)
+	_, _, err = s.unit.Status()
+	c.Assert(err, ErrorMatches, "status not found")
 }
 
 func (s *UnitSuite) TestUnitCharm(c *C) {
+	preventUnitDestroyRemove(c, s.State, s.unit)
 	curl, ok := s.unit.CharmURL()
 	c.Assert(ok, Equals, false)
 	c.Assert(curl, IsNil)
@@ -159,12 +195,146 @@ func (s *UnitSuite) TestUnitCharm(c *C) {
 	c.Assert(err, ErrorMatches, `unit "wordpress/0" is dead`)
 }
 
-func (s *UnitSuite) TestEntityName(c *C) {
-	c.Assert(s.unit.EntityName(), Equals, "unit-wordpress-0")
+func (s *UnitSuite) TestDestroyPrincipalUnits(c *C) {
+	preventUnitDestroyRemove(c, s.State, s.unit)
+	for i := 0; i < 4; i++ {
+		unit, err := s.service.AddUnit()
+		c.Assert(err, IsNil)
+		preventUnitDestroyRemove(c, s.State, unit)
+	}
+
+	// Destroy 2 of them; check they become Dying.
+	err := s.State.DestroyUnits("wordpress/0", "wordpress/1")
+	c.Assert(err, IsNil)
+	s.assertUnitLife(c, "wordpress/0", state.Dying)
+	s.assertUnitLife(c, "wordpress/1", state.Dying)
+
+	// Try to destroy an Alive one and a Dying one; check
+	// it destroys the Alive one and ignores the Dying one.
+	err = s.State.DestroyUnits("wordpress/2", "wordpress/0")
+	c.Assert(err, IsNil)
+	s.assertUnitLife(c, "wordpress/2", state.Dying)
+
+	// Try to destroy an Alive one along with a nonexistent one; check that
+	// the valid instruction is followed but the invalid one is warned about.
+	err = s.State.DestroyUnits("boojum/123", "wordpress/3")
+	c.Assert(err, ErrorMatches, `some units were not destroyed: unit "boojum/123" does not exist`)
+	s.assertUnitLife(c, "wordpress/3", state.Dying)
+
+	// Make one Dead, and destroy an Alive one alongside it; check no errors.
+	wp0, err := s.State.Unit("wordpress/0")
+	c.Assert(err, IsNil)
+	err = wp0.EnsureDead()
+	c.Assert(err, IsNil)
+	err = s.State.DestroyUnits("wordpress/0", "wordpress/4")
+	c.Assert(err, IsNil)
+	s.assertUnitLife(c, "wordpress/0", state.Dead)
+	s.assertUnitLife(c, "wordpress/4", state.Dying)
 }
 
-func (s *UnitSuite) TestUnitEntityName(c *C) {
-	c.Assert(state.UnitEntityName("wordpress/2"), Equals, "unit-wordpress-2")
+func (s *UnitSuite) TestShortCircuitDestroyUnassignedUnit(c *C) {
+	// A unit without subordinates or assigned machine is removed directly.
+	err := s.unit.Destroy()
+	c.Assert(err, IsNil)
+	c.Assert(s.unit.Life(), Equals, state.Dying)
+	s.assertUnitRemoved(c, s.unit)
+}
+
+func (s *UnitSuite) TestCannotShortCircuitDestroyWithSubordinates(c *C) {
+	// A unit with subordinates is just set to Dying.
+	_, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
+	c.Assert(err, IsNil)
+	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
+	c.Assert(err, IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	ru, err := rel.Unit(s.unit)
+	c.Assert(err, IsNil)
+	err = ru.EnterScope(nil)
+	c.Assert(err, IsNil)
+	err = s.unit.Destroy()
+	c.Assert(err, IsNil)
+	c.Assert(s.unit.Life(), Equals, state.Dying)
+	s.assertUnitLife(c, s.unit.Name(), state.Dying)
+}
+
+func (s *UnitSuite) TestShortCircuitDestroyWithUnprovisionedMachine(c *C) {
+	// A unit with an assigned but unprovisioned machine is removed directly.
+	err := s.unit.AssignToNewMachine()
+	c.Assert(err, IsNil)
+	err = s.unit.Destroy()
+	c.Assert(err, IsNil)
+	c.Assert(s.unit.Life(), Equals, state.Dying)
+	s.assertUnitRemoved(c, s.unit)
+}
+
+func (s *UnitSuite) TestCannotShortCircuitDestroyWithProvisionedMachine(c *C) {
+	// A unit assigned to a provisioned machine is set to Dying.
+	err := s.unit.AssignToNewMachine()
+	c.Assert(err, IsNil)
+	mid, err := s.unit.AssignedMachineId()
+	c.Assert(err, IsNil)
+	machine, err := s.State.Machine(mid)
+	c.Assert(err, IsNil)
+	err = machine.SetInstanceId("i-malive")
+	c.Assert(err, IsNil)
+	err = s.unit.Destroy()
+	c.Assert(err, IsNil)
+	c.Assert(s.unit.Life(), Equals, state.Dying)
+	s.assertUnitLife(c, s.unit.Name(), state.Dying)
+}
+
+func (s *UnitSuite) TestDestroySubordinateUnits(c *C) {
+	lgsch := s.AddTestingCharm(c, "logging")
+	_, err := s.State.AddService("logging", lgsch)
+	c.Assert(err, IsNil)
+	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
+	c.Assert(err, IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	ru, err := rel.Unit(s.unit)
+	c.Assert(err, IsNil)
+	err = ru.EnterScope(nil)
+	c.Assert(err, IsNil)
+
+	// Try to destroy the subordinate alone; check it fails.
+	err = s.State.DestroyUnits("logging/0")
+	c.Assert(err, ErrorMatches, `no units were destroyed: unit "logging/0" is a subordinate`)
+	s.assertUnitLife(c, "logging/0", state.Alive)
+
+	// Try to destroy the principal and the subordinate together; check it warns
+	// about the subordinate, but destroys the one it can. (The principal unit
+	// agent will be resposible for destroying the subordinate.)
+	err = s.State.DestroyUnits("wordpress/0", "logging/0")
+	c.Assert(err, ErrorMatches, `some units were not destroyed: unit "logging/0" is a subordinate`)
+	s.assertUnitLife(c, "wordpress/0", state.Dying)
+	s.assertUnitLife(c, "logging/0", state.Alive)
+}
+
+func (s *UnitSuite) assertUnitLife(c *C, name string, life state.Life) {
+	unit, err := s.State.Unit(name)
+	c.Assert(err, IsNil)
+	c.Assert(unit.Refresh(), IsNil)
+	c.Assert(unit.Life(), Equals, life)
+}
+
+func (s *UnitSuite) assertUnitRemoved(c *C, unit *state.Unit) {
+	err := unit.Refresh()
+	c.Assert(state.IsNotFound(err), Equals, true)
+	err = unit.Destroy()
+	c.Assert(err, IsNil)
+	err = unit.EnsureDead()
+	c.Assert(err, IsNil)
+	err = unit.Remove()
+	c.Assert(err, IsNil)
+}
+
+func (s *UnitSuite) TestTag(c *C) {
+	c.Assert(s.unit.Tag(), Equals, "unit-wordpress-0")
+}
+
+func (s *UnitSuite) TestUnitTag(c *C) {
+	c.Assert(state.UnitTag("wordpress/2"), Equals, "unit-wordpress-2")
 }
 
 func (s *UnitSuite) TestSetMongoPassword(c *C) {
@@ -174,7 +344,8 @@ func (s *UnitSuite) TestSetMongoPassword(c *C) {
 }
 
 func (s *UnitSuite) TestSetPassword(c *C) {
-	testSetPassword(c, func() (state.AuthEntity, error) {
+	preventUnitDestroyRemove(c, s.State, s.unit)
+	testSetPassword(c, func() (state.Authenticator, error) {
 		return s.State.Unit(s.unit.Name())
 	})
 }
@@ -197,7 +368,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 	c.Assert(err, IsNil)
 
 	info := state.TestingStateInfo()
-	st, err := state.Open(info)
+	st, err := state.Open(info, state.TestingDialOpts())
 	c.Assert(err, IsNil)
 	defer st.Close()
 	// Turn on fully-authenticated mode.
@@ -219,15 +390,15 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 
 	// Sanity check that we cannot connect with the wrong
 	// password
-	info.EntityName = m.EntityName()
+	info.Tag = m.Tag()
 	info.Password = "foo1"
 	err = tryOpenState(info)
 	c.Assert(state.IsUnauthorizedError(err), Equals, true)
 
 	// Connect as the machine entity.
-	info.EntityName = m.EntityName()
+	info.Tag = m.Tag()
 	info.Password = "foo"
-	st1, err := state.Open(info)
+	st1, err := state.Open(info, state.TestingDialOpts())
 	c.Assert(err, IsNil)
 	defer st1.Close()
 
@@ -240,9 +411,9 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 
 	// Now connect as the unit entity and, as that
 	// that entity, change the password for a new unit.
-	info.EntityName = unit.EntityName()
+	info.Tag = unit.Tag()
 	info.Password = "bar"
-	st2, err := state.Open(info)
+	st2, err := state.Open(info, state.TestingDialOpts())
 	c.Assert(err, IsNil)
 	defer st2.Close()
 
@@ -264,7 +435,7 @@ func (s *UnitSuite) TestUnitSetAgentAlive(c *C) {
 
 	pinger, err := s.unit.SetAgentAlive()
 	c.Assert(err, IsNil)
-	c.Assert(pinger, Not(IsNil))
+	c.Assert(pinger, NotNil)
 	defer pinger.Stop()
 
 	s.State.Sync()
@@ -304,32 +475,34 @@ func (s *UnitSuite) TestUnitWaitAgentAlive(c *C) {
 
 func (s *UnitSuite) TestGetSetClearResolved(c *C) {
 	mode := s.unit.Resolved()
-	c.Assert(mode, Equals, state.ResolvedNone)
+	c.Assert(mode, Equals, params.ResolvedNone)
 
-	err := s.unit.SetResolved(state.ResolvedNoHooks)
+	err := s.unit.SetResolved(params.ResolvedNoHooks)
 	c.Assert(err, IsNil)
-	err = s.unit.SetResolved(state.ResolvedNoHooks)
+	err = s.unit.SetResolved(params.ResolvedNoHooks)
 	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "wordpress/0": already resolved`)
 
 	mode = s.unit.Resolved()
-	c.Assert(mode, Equals, state.ResolvedNoHooks)
+	c.Assert(mode, Equals, params.ResolvedNoHooks)
 	err = s.unit.Refresh()
 	c.Assert(err, IsNil)
 	mode = s.unit.Resolved()
-	c.Assert(mode, Equals, state.ResolvedNoHooks)
+	c.Assert(mode, Equals, params.ResolvedNoHooks)
 
 	err = s.unit.ClearResolved()
 	c.Assert(err, IsNil)
 	mode = s.unit.Resolved()
-	c.Assert(mode, Equals, state.ResolvedNone)
+	c.Assert(mode, Equals, params.ResolvedNone)
 	err = s.unit.Refresh()
 	c.Assert(err, IsNil)
 	mode = s.unit.Resolved()
-	c.Assert(mode, Equals, state.ResolvedNone)
+	c.Assert(mode, Equals, params.ResolvedNone)
 	err = s.unit.ClearResolved()
 	c.Assert(err, IsNil)
 
-	err = s.unit.SetResolved(state.ResolvedMode("foo"))
+	err = s.unit.SetResolved(params.ResolvedNone)
+	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "wordpress/0": invalid error resolution mode: ""`)
+	err = s.unit.SetResolved(params.ResolvedMode("foo"))
 	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "wordpress/0": invalid error resolution mode: "foo"`)
 }
 
@@ -341,14 +514,14 @@ func (s *UnitSuite) TestOpenedPorts(c *C) {
 	err := s.unit.OpenPort("tcp", 80)
 	c.Assert(err, IsNil)
 	open := s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []state.Port{
+	c.Assert(open, DeepEquals, []params.Port{
 		{"tcp", 80},
 	})
 
 	err = s.unit.OpenPort("udp", 53)
 	c.Assert(err, IsNil)
 	open = s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []state.Port{
+	c.Assert(open, DeepEquals, []params.Port{
 		{"tcp", 80},
 		{"udp", 53},
 	})
@@ -356,7 +529,7 @@ func (s *UnitSuite) TestOpenedPorts(c *C) {
 	err = s.unit.OpenPort("tcp", 53)
 	c.Assert(err, IsNil)
 	open = s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []state.Port{
+	c.Assert(open, DeepEquals, []params.Port{
 		{"tcp", 53},
 		{"tcp", 80},
 		{"udp", 53},
@@ -365,7 +538,7 @@ func (s *UnitSuite) TestOpenedPorts(c *C) {
 	err = s.unit.OpenPort("tcp", 443)
 	c.Assert(err, IsNil)
 	open = s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []state.Port{
+	c.Assert(open, DeepEquals, []params.Port{
 		{"tcp", 53},
 		{"tcp", 80},
 		{"tcp", 443},
@@ -375,7 +548,7 @@ func (s *UnitSuite) TestOpenedPorts(c *C) {
 	err = s.unit.ClosePort("tcp", 80)
 	c.Assert(err, IsNil)
 	open = s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []state.Port{
+	c.Assert(open, DeepEquals, []params.Port{
 		{"tcp", 53},
 		{"tcp", 443},
 		{"udp", 53},
@@ -384,7 +557,7 @@ func (s *UnitSuite) TestOpenedPorts(c *C) {
 	err = s.unit.ClosePort("tcp", 80)
 	c.Assert(err, IsNil)
 	open = s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []state.Port{
+	c.Assert(open, DeepEquals, []params.Port{
 		{"tcp", 53},
 		{"tcp", 443},
 		{"udp", 53},
@@ -392,7 +565,8 @@ func (s *UnitSuite) TestOpenedPorts(c *C) {
 }
 
 func (s *UnitSuite) TestOpenClosePortWhenDying(c *C) {
-	testWhenDying(c, s.unit, "", notAliveErr, func() error {
+	preventUnitDestroyRemove(c, s.State, s.unit)
+	testWhenDying(c, s.unit, noErr, deadErr, func() error {
 		return s.unit.OpenPort("tcp", 20)
 	}, func() error {
 		return s.unit.ClosePort("tcp", 20)
@@ -400,20 +574,21 @@ func (s *UnitSuite) TestOpenClosePortWhenDying(c *C) {
 }
 
 func (s *UnitSuite) TestSetClearResolvedWhenNotAlive(c *C) {
+	preventUnitDestroyRemove(c, s.State, s.unit)
 	err := s.unit.Destroy()
 	c.Assert(err, IsNil)
-	err = s.unit.SetResolved(state.ResolvedNoHooks)
+	err = s.unit.SetResolved(params.ResolvedNoHooks)
 	c.Assert(err, IsNil)
 	err = s.unit.Refresh()
 	c.Assert(err, IsNil)
-	c.Assert(s.unit.Resolved(), Equals, state.ResolvedNoHooks)
+	c.Assert(s.unit.Resolved(), Equals, params.ResolvedNoHooks)
 	err = s.unit.ClearResolved()
 	c.Assert(err, IsNil)
 
 	err = s.unit.EnsureDead()
 	c.Assert(err, IsNil)
-	err = s.unit.SetResolved(state.ResolvedRetryHooks)
-	c.Assert(err, ErrorMatches, notAliveErr)
+	err = s.unit.SetResolved(params.ResolvedRetryHooks)
+	c.Assert(err, ErrorMatches, deadErr)
 	err = s.unit.ClearResolved()
 	c.Assert(err, IsNil)
 }
@@ -644,6 +819,7 @@ var watchUnitTests = []struct {
 }
 
 func (s *UnitSuite) TestWatchUnit(c *C) {
+	preventUnitDestroyRemove(c, s.State, s.unit)
 	altunit, err := s.State.Unit(s.unit.Name())
 	c.Assert(err, IsNil)
 	err = altunit.SetPublicAddress("newer-address")
@@ -698,7 +874,20 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 }
 
 func (s *UnitSuite) TestAnnotatorForUnit(c *C) {
-	testAnnotator(c, func() (annotator, error) {
+	testAnnotator(c, func() (state.Annotator, error) {
 		return s.State.Unit("wordpress/0")
 	})
+}
+
+func (s *UnitSuite) TestAnnotationRemovalForUnit(c *C) {
+	annotations := map[string]string{"mykey": "myvalue"}
+	err := s.unit.SetAnnotations(annotations)
+	c.Assert(err, IsNil)
+	err = s.unit.EnsureDead()
+	c.Assert(err, IsNil)
+	err = s.unit.Remove()
+	c.Assert(err, IsNil)
+	ann, err := s.unit.Annotations()
+	c.Assert(err, IsNil)
+	c.Assert(ann, DeepEquals, make(map[string]string))
 }
