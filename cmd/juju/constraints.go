@@ -63,7 +63,6 @@ func (c *GetConstraintsCommand) Run(ctx *cmd.Context) (err error) {
 			ServiceName: c.ServiceName,
 		}
 
-		var results params.GetServiceConstraintsResults
 		results, err = statecmd.GetServiceConstraints(conn.State, args)
 		cons = results.Constraints
 	}

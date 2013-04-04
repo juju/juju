@@ -1,4 +1,4 @@
-// Code shared by the CLI and API for the SetConstraints function.
+// Code shared by the CLI and API for the GetConstraints function.
 
 package statecmd
 
@@ -8,7 +8,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 )
 
-// GetServiceContstraints returns the constraints for a given service
+// GetServiceConstraints returns the constraints for a given service
 func GetServiceConstraints(st *state.State, args params.GetServiceConstraints) (params.GetServiceConstraintsResults, error) {
 	svc, err := st.Service(args.ServiceName)
 	if err != nil {
