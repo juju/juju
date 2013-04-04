@@ -163,6 +163,10 @@ func (p *Provisioner) processMachines(ids []string) error {
 		return err
 	}
 
+	// It's important that we stop unknown instances before starting
+	// pending ones, because if we start an instance and then fail to
+	// set its InstanceId on the machine we don't want to start a new
+	// instance for the same machine ID.
 	if err := p.stopInstances(append(stopping, unknown...)); err != nil {
 		return err
 	}
@@ -223,7 +227,7 @@ func (p *Provisioner) pendingOrDead(ids []string) (pending, dead []*state.Machin
 			continue
 		case state.Dying:
 			// TODO(dimitern): handle machines that are Dying but unprovisioned?
-			log.Infof("worker/provisioner: ignoring dying maching %q", m)
+			log.Infof("worker/provisioner: ignoring dying machine %q", m)
 			continue
 		}
 		if instId, hasInstId := m.InstanceId(); !hasInstId {
@@ -234,7 +238,7 @@ func (p *Provisioner) pendingOrDead(ids []string) (pending, dead []*state.Machin
 			}
 			if status != params.MachineError {
 				pending = append(pending, m)
-				log.Infof("worker/provisioner: found machine pending %q provisioning")
+				log.Infof("worker/provisioner: found machine %q pending provisioning", m)
 				continue
 			}
 		} else {
@@ -271,8 +275,12 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 		// Set the state to error, so the machine will be skipped next
 		// time until the error is resolved, but don't return an
 		// error; just keep going with the other machines.
-		m.SetStatus(params.MachineError, err.Error())
-		log.Errorf("worker/provisioner: cannot start instance for new machine: %v", err)
+		log.Errorf("worker/provisioner: cannot start instance for machine %q: %v", m, err)
+		if err1 := m.SetStatus(params.MachineError, err.Error()); err1 != nil {
+			// Something is wrong with this machine, better report it back.
+			log.Errorf("worker/provisioner: cannot set error status for machine %q: %v", m, err1)
+			return err1
+		}
 		return nil
 	}
 	if err := m.SetInstanceId(inst.Id()); err != nil {
@@ -281,11 +289,11 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 		// but will then be detected by findUnknownInstances and
 		// killed again.
 		//
-		// Multiple instantiations of a given machine cannot coexist,
-		// because findUnknownInstances is called before
-		// startMachines. However, if the first machine had started to
-		// do work before being replaced, we may encounter surprising
-		// problems.
+		// Multiple instantiations of a given machine (with the same
+		// machine ID) cannot coexist, because findUnknownInstances is
+		// called before startMachines. However, if the first machine
+		// had started to do work before being replaced, we may
+		// encounter surprising problems.
 		return err
 	}
 	// populate the local cache
