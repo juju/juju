@@ -19,11 +19,6 @@ import (
 // number of the release package.
 const version = "1.9.13"
 
-// Version returns the string representation of the current version number.
-func Version() string {
-	return version
-}
-
 // CurrentNumber returns the version number.
 func CurrentNumber() Number {
 	return MustParse(version)

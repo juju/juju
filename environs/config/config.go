@@ -112,7 +112,7 @@ func New(attrs map[string]interface{}) (*Config, error) {
 			return nil, fmt.Errorf("invalid agent version in environment configuration: %q", v)
 		}
 	} else {
-		c.m["agent-version"] = version.Version()
+		c.m["agent-version"] = version.CurrentNumber().String()
 	}
 
 	// Check firewall mode.

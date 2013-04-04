@@ -530,7 +530,7 @@ func (*ConfigSuite) TestConfigAttrs(c *C) {
 
 	// These attributes are added if not set.
 	attrs["development"] = false
-	attrs["agent-version"] = version.Version()
+	attrs["agent-version"] = version.CurrentNumber().String()
 	attrs["default-series"] = version.DefaultSeries()
 	c.Assert(cfg.AllAttrs(), DeepEquals, attrs)
 	c.Assert(cfg.UnknownAttrs(), DeepEquals, map[string]interface{}{"unknown": "my-unknown"})
