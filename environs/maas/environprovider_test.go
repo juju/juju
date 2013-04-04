@@ -3,6 +3,9 @@ package maas
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/state"
+	"io/ioutil"
+	"os"
 )
 
 type EnvironProviderSuite struct {
@@ -28,3 +31,26 @@ func (suite *EnvironProviderSuite) TestSecretAttrsReturnsSensitiveMAASAttributes
 	expectedAttrs := map[string]interface{}{"maas-oauth": oauth}
 	c.Check(secretAttrs, DeepEquals, expectedAttrs)
 }
+
+func (suite *EnvironProviderSuite) TestInstanceIdReadsInstanceIdFile(c *C) {
+	instanceId := "instance-id"
+	// Create a temporary file to act as the file where the instanceID
+	// is stored.
+	file, err := ioutil.TempFile("", "")
+	c.Assert(err, IsNil)
+	filename := file.Name()
+	defer os.Remove(filename)
+	err = ioutil.WriteFile(filename, []byte(instanceId), 0644)
+	c.Assert(err, IsNil)
+	// "Monkey patch" the value of _MAASInstanceIDFilename with the path
+	// to the temporary file.
+	old_MAASInstanceIDFilename := _MAASInstanceIDFilename
+	_MAASInstanceIDFilename = filename
+	defer func() {_MAASInstanceIDFilename = old_MAASInstanceIDFilename}()
+
+	provider := suite.environ.Provider()
+	returnedInstanceId, err := provider.InstanceId()
+	c.Assert(err, IsNil)
+	c.Check(returnedInstanceId, Equals, state.InstanceId(instanceId))
+}
+
