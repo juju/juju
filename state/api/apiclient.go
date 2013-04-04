@@ -168,6 +168,13 @@ func (c *Client) ServiceDestroy(service string) error {
 	return clientError(c.st.client.Call("Client", "", "ServiceDestroy", params, nil))
 }
 
+// GetServiceConstraints returns the constraints for the given service.
+func (c *Client) GetServiceConstraints(service string) (constraints.Value, error) {
+	results := new(params.GetServiceConstraintsResults)
+	err := c.st.client.Call("Client", "", "GetServiceConstraints", params.GetServiceConstraints{service}, results)
+	return results.Constraints, clientError(err)
+}
+
 // SetServiceConstraints specifies the constraints for the given service.
 func (c *Client) SetServiceConstraints(service string, constraints constraints.Value) error {
 	params := params.SetServiceConstraints{

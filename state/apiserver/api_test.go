@@ -136,6 +136,10 @@ var operationPermTests = []struct {
 	op:    opClientServiceDestroy,
 	allow: []string{"user-admin", "user-other"},
 }, {
+	about: "Client.GetServiceConstraints",
+	op:    opClientGetServiceConstraints,
+	allow: []string{"user-admin", "user-other"},
+}, {
 	about: "Client.SetServiceConstraints",
 	op:    opClientSetServiceConstraints,
 	allow: []string{"user-admin", "user-other"},
@@ -443,6 +447,13 @@ func opClientServiceDestroy(c *C, st *api.State, mst *state.State) (func(), erro
 	if api.ErrCode(err) == api.CodeNotFound {
 		err = nil
 	}
+	return func() {}, err
+}
+
+func opClientGetServiceConstraints(c *C, st *api.State, mst *state.State) (func(), error) {
+	// This test only checks that the call is made without error, ensuring the
+	// signatures match.
+	_, err := st.Client().GetServiceConstraints("wordpress")
 	return func() {}, err
 }
 
