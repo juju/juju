@@ -19,8 +19,9 @@ func MongoURL(env Environ, series, architecture string) string {
 	if err == nil {
 		return url
 	}
-	url = fmt.Sprintf("http://juju-dist.s3.amazonaws.com/%s", path)
-	return url
+	// TODO(thumper): this should at least check that the fallback option
+	// exists before returning it. lp:1164220
+	return fmt.Sprintf("http://juju-dist.s3.amazonaws.com/%s", path)
 }
 
 // Return the URL of a compatible MongoDB (if it exists) from the storage,

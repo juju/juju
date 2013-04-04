@@ -88,7 +88,7 @@ func (t *ToolsSuite) TestUploadTools(c *C) {
 	err = environs.UploadTools(env)
 	c.Assert(err, IsNil)
 
-	c.Assert(env.Config().AgentVersion(), Equals, version.VersionNumber())
+	c.Assert(env.Config().AgentVersion(), Equals, version.CurrentNumber())
 	c.Assert(env.Config().DefaultSeries(), Equals, version.CurrentSeries())
 }
 
@@ -222,7 +222,7 @@ var findToolsTests = []struct {
 	err            string   // the error we expect to find (if not blank).
 }{{
 	summary:  "current version should be satisfied by current tools path",
-	version:  version.VersionNumber(),
+	version:  version.CurrentNumber(),
 	flags:    environs.CompatVersion,
 	contents: []string{environs.ToolsStoragePath(version.Current)},
 	expect:   environs.ToolsStoragePath(version.Current),

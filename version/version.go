@@ -24,8 +24,8 @@ func Version() string {
 	return version
 }
 
-// Version returns the string representation of the current version number.
-func VersionNumber() Number {
+// CurrentNumber returns the version number.
+func CurrentNumber() Number {
 	return MustParse(version)
 }
 
@@ -48,7 +48,7 @@ func CurrentArch() string {
 // "FORCE-VERSION" is present in the same directory as the running
 // binary, it will override this.
 var Current = Binary{
-	Number: VersionNumber(),
+	Number: CurrentNumber(),
 	Series: CurrentSeries(),
 	Arch:   CurrentArch(),
 }

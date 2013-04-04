@@ -441,7 +441,7 @@ func (test configTest) check(c *C, h fakeHome) {
 		c.Assert(err, IsNil)
 		c.Assert(cfg.AgentVersion(), Equals, vers)
 	} else {
-		c.Assert(cfg.AgentVersion(), Equals, version.VersionNumber())
+		c.Assert(cfg.AgentVersion(), Equals, version.CurrentNumber())
 	}
 
 	dev, _ := test.attrs["development"].(bool)
