@@ -151,8 +151,9 @@ func (p *Provisioner) processMachines(ids []string) error {
 		return err
 	}
 
-	// Start an instance for the pending ones
-	if err := p.startMachines(pending); err != nil {
+	// Find running instances that have no machines associated
+	unknown, err := p.findUnknownInstances()
+	if err != nil {
 		return err
 	}
 
@@ -162,13 +163,12 @@ func (p *Provisioner) processMachines(ids []string) error {
 		return err
 	}
 
-	// Find running instances that have no machines associated
-	unknown, err := p.findUnknownInstances()
-	if err != nil {
+	if err := p.stopInstances(append(stopping, unknown...)); err != nil {
 		return err
 	}
 
-	return p.stopInstances(append(stopping, unknown...))
+	// Start an instance for the pending ones
+	return p.startMachines(pending)
 }
 
 // findUnknownInstances finds instances which are not associated with a machine.
@@ -210,6 +210,7 @@ func (p *Provisioner) pendingOrDead(ids []string) (pending, dead []*state.Machin
 	for _, id := range ids {
 		m, err := p.st.Machine(id)
 		if state.IsNotFound(err) {
+			log.Infof("worker/provisioner: machine %q not found in state", m)
 			continue
 		}
 		if err != nil {
@@ -218,21 +219,27 @@ func (p *Provisioner) pendingOrDead(ids []string) (pending, dead []*state.Machin
 		switch m.Life() {
 		case state.Dead:
 			dead = append(dead, m)
+			log.Infof("worker/provisioner: found dead machine %q", m)
 			continue
 		case state.Dying:
+			// TODO(dimitern): handle machines that are Dying but unprovisioned?
+			log.Infof("worker/provisioner: ignoring dying maching %q", m)
 			continue
 		}
-		instId, hasInstId := m.InstanceId()
-		status, _, err := m.Status()
-		if err != nil {
-			log.Warningf("worker/provisioner: cannot get machine %q status: %v", m, err)
-			continue
+		if instId, hasInstId := m.InstanceId(); !hasInstId {
+			status, _, err := m.Status()
+			if err != nil {
+				log.Infof("worker/provisioner: cannot get machine %q status: %v", m, err)
+				continue
+			}
+			if status != params.MachineError {
+				pending = append(pending, m)
+				log.Infof("worker/provisioner: found machine pending %q provisioning")
+				continue
+			}
+		} else {
+			log.Infof("worker/provisioner: machine %v already started as instance %q", m, instId)
 		}
-		if !hasInstId && status != params.MachineError {
-			pending = append(pending, m)
-			continue
-		}
-		log.Warningf("worker/provisioner: machine %v already started as instance %q", m, instId)
 	}
 	return
 }
@@ -265,14 +272,20 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 		// time until the error is resolved, but don't return an
 		// error; just keep going with the other machines.
 		m.SetStatus(params.MachineError, err.Error())
-		log.Noticef("worker/provisioner: cannot start instance for new machine: %v", err)
+		log.Errorf("worker/provisioner: cannot start instance for new machine: %v", err)
 		return nil
 	}
-	// assign the instance id to the machine
 	if err := m.SetInstanceId(inst.Id()); err != nil {
-		// The machine has started, but the it failed to set an
-		// instance id, so it'll be picked up on the next iteration by
-		// findUnknownInstances and killed.
+		// The machine is started, but we can't record the mapping in
+		// state. It'll keep running while we fail out and restart,
+		// but will then be detected by findUnknownInstances and
+		// killed again.
+		//
+		// Multiple instantiations of a given machine cannot coexist,
+		// because findUnknownInstances is called before
+		// startMachines. However, if the first machine had started to
+		// do work before being replaced, we may encounter surprising
+		// problems.
 		return err
 	}
 	// populate the local cache

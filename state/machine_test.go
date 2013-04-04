@@ -748,9 +748,14 @@ func (s *MachineSuite) TestGetSetStatusWhileAlive(c *C) {
 	failPending := func() { s.machine.SetStatus(params.MachinePending, "") }
 	c.Assert(failPending, PanicMatches, "machine status cannot be set to pending")
 
-	err := s.machine.SetStatus(params.MachineStarted, "")
-	c.Assert(err, IsNil)
 	status, info, err := s.machine.Status()
+	c.Assert(err, IsNil)
+	c.Assert(status, Equals, params.MachinePending)
+	c.Assert(info, Equals, "")
+
+	err = s.machine.SetStatus(params.MachineStarted, "")
+	c.Assert(err, IsNil)
+	status, info, err = s.machine.Status()
 	c.Assert(err, IsNil)
 	c.Assert(status, Equals, params.MachineStarted)
 	c.Assert(info, Equals, "")
