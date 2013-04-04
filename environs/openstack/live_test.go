@@ -10,9 +10,8 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/openstack"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/version"
-	"strings"
 )
 
 // generate a different bucket name for each config instance, so that
@@ -110,7 +109,7 @@ func (t *LiveTests) SetUpSuite(c *C) {
 	// Put some fake tools in place so that tests that are simply
 	// starting instances without any need to check if those instances
 	// are running will find them in the public bucket.
-	putFakeTools(c, t.writeablePublicStorage)
+	envtesting.PutFakeTools(c, t.writeablePublicStorage)
 }
 
 func (t *LiveTests) TearDownSuite(c *C) {
@@ -134,18 +133,6 @@ func (t *LiveTests) SetUpTest(c *C) {
 func (t *LiveTests) TearDownTest(c *C) {
 	t.LiveTests.TearDownTest(c)
 	t.LoggingSuite.TearDownTest(c)
-}
-
-// putFakeTools sets up a bucket containing something
-// that looks like a tools archive so test methods
-// that start an instance can succeed even though they
-// do not upload tools.
-func putFakeTools(c *C, s environs.StorageWriter) {
-	path := environs.ToolsStoragePath(version.Current)
-	c.Logf("putting fake tools at %v", path)
-	toolsContents := "tools archive, honest guv"
-	err := s.Put(path, strings.NewReader(toolsContents), int64(len(toolsContents)))
-	c.Assert(err, IsNil)
 }
 
 func (t *LiveTests) TestFindImageSpec(c *C) {
