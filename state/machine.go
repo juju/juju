@@ -422,9 +422,6 @@ func (m *Machine) SetInstanceId(id InstanceId) (err error) {
 		return fmt.Errorf("cannot set instance id of machine %v: %v", m, onAbort(err, errDead))
 	}
 	m.doc.InstanceId = id
-	if err := m.SetStatus(params.MachinePending, "provisioned"); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -488,6 +485,8 @@ func (m *Machine) Status() (status params.MachineStatus, info string, err error)
 func (m *Machine) SetStatus(status params.MachineStatus, info string) error {
 	if status == params.MachineError && info == "" {
 		panic("machine error status with no info")
+	} else if status == params.MachinePending {
+		panic("machine status cannot be set to pending")
 	}
 	doc := &machineStatusDoc{status, info}
 	ops := []txn.Op{{

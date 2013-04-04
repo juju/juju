@@ -238,19 +238,8 @@ func (s *MachineSuite) TestMachineInstanceIdBlank(c *C) {
 }
 
 func (s *MachineSuite) TestMachineSetInstanceId(c *C) {
-	// Make sure the status gets changed after successful
-	// SetInstanceId, so first change it here.
-	err := s.machine.SetStatus(params.MachineDown, "nonsense")
+	err := s.machine.SetInstanceId("umbrella/0")
 	c.Assert(err, IsNil)
-
-	err = s.machine.SetInstanceId("umbrella/0")
-	c.Assert(err, IsNil)
-
-	// Now check it's changed.
-	status, info, err := s.machine.Status()
-	c.Assert(err, IsNil)
-	c.Assert(status, Equals, params.MachinePending)
-	c.Assert(info, Equals, "provisioned")
 
 	m, err := s.State.Machine(s.machine.Id())
 	c.Assert(err, IsNil)
@@ -756,17 +745,12 @@ func (s *MachineSuite) TestConstraintsLifecycle(c *C) {
 func (s *MachineSuite) TestGetSetStatusWhileAlive(c *C) {
 	failError := func() { s.machine.SetStatus(params.MachineError, "") }
 	c.Assert(failError, PanicMatches, "machine error status with no info")
+	failPending := func() { s.machine.SetStatus(params.MachinePending, "") }
+	c.Assert(failPending, PanicMatches, "machine status cannot be set to pending")
 
-	err := s.machine.SetStatus(params.MachinePending, "some info")
+	err := s.machine.SetStatus(params.MachineStarted, "")
 	c.Assert(err, IsNil)
 	status, info, err := s.machine.Status()
-	c.Assert(err, IsNil)
-	c.Assert(status, Equals, params.MachinePending)
-	c.Assert(info, Equals, "some info")
-
-	err = s.machine.SetStatus(params.MachineStarted, "")
-	c.Assert(err, IsNil)
-	status, info, err = s.machine.Status()
 	c.Assert(err, IsNil)
 	c.Assert(status, Equals, params.MachineStarted)
 	c.Assert(info, Equals, "")

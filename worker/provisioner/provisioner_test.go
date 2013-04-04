@@ -238,17 +238,16 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenStartInstanceFailed
 	c.Assert(status, Equals, params.MachineError)
 	c.Assert(info, Equals, brokenMsg)
 
-	errInfo := fmt.Sprintf("cannot start machine 0: cannot start instance for new machine: %s", brokenMsg)
-	c.Assert(p.Stop(), ErrorMatches, errInfo)
-
-	// But once the error is gone, after a restart it works.
+	// Unbreak the environ config.
 	err = s.fixEnvironment()
 	c.Assert(err, IsNil)
 
+	// Restart the PA to make sure the machine is skipped again.
+	s.stopProvisioner(c, p)
 	p = provisioner.NewProvisioner(s.State)
 	defer s.stopProvisioner(c, p)
 
-	s.checkStartInstance(c, m)
+	s.checkNotStartInstance(c)
 }
 
 func (s *ProvisionerSuite) TestProvisioningDoesNotOccurWithAnInvalidEnvironment(c *C) {

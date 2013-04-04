@@ -2,8 +2,6 @@ package provisioner
 
 import (
 	"fmt"
-	"sync"
-
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
@@ -14,6 +12,7 @@ import (
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/tomb"
+	"sync"
 )
 
 // Provisioner represents a running provisioning worker.
@@ -223,8 +222,13 @@ func (p *Provisioner) pendingOrDead(ids []string) (pending, dead []*state.Machin
 		case state.Dying:
 			continue
 		}
-		instId, ok := m.InstanceId()
-		if !ok {
+		instId, hasInstId := m.InstanceId()
+		status, _, err := m.Status()
+		if err != nil {
+			log.Warningf("worker/provisioner: cannot get machine %q status: %v", m, err)
+			continue
+		}
+		if !hasInstId && status != params.MachineError {
 			pending = append(pending, m)
 			continue
 		}
@@ -257,11 +261,18 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 	}
 	inst, err := p.environ.StartInstance(m.Id(), m.Series(), cons, stateInfo, apiInfo)
 	if err != nil {
+		// Set the state to error, so the machine will be skipped next
+		// time until the error is resolved, but don't return an
+		// error; just keep going with the other machines.
 		m.SetStatus(params.MachineError, err.Error())
-		return fmt.Errorf("cannot start instance for new machine: %v", err)
+		log.Noticef("worker/provisioner: cannot start instance for new machine: %v", err)
+		return nil
 	}
 	// assign the instance id to the machine
 	if err := m.SetInstanceId(inst.Id()); err != nil {
+		// The machine has started, but the it failed to set an
+		// instance id, so it'll be picked up on the next iteration by
+		// findUnknownInstances and killed.
 		return err
 	}
 	// populate the local cache
