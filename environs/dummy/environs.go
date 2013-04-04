@@ -243,8 +243,8 @@ func putFakeTools(s environs.StorageWriter) {
 	if err != nil {
 		panic(err)
 	}
-	if toolsVersion.Series != config.DefaultSeries() {
-		toolsVersion.Series = config.DefaultSeries()
+	if toolsVersion.Series != config.DefaultSeries {
+		toolsVersion.Series = config.DefaultSeries
 		path = environs.ToolsStoragePath(toolsVersion)
 		err = s.Put(path, strings.NewReader(toolsContents), int64(len(toolsContents)))
 		if err != nil {

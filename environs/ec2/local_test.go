@@ -298,7 +298,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	// check that a new instance will be started without
 	// zookeeper, with a machine agent, and without a
 	// provisioning agent.
-	series := config.DefaultSeries()
+	series := config.DefaultSeries
 	info.Tag = "machine-1"
 	apiInfo.Tag = "machine-1"
 	inst1, err := t.env.StartInstance("1", series, constraints.Value{}, info, apiInfo)

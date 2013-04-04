@@ -185,7 +185,7 @@ func (s *ProvisionerSuite) TestSimple(c *C) {
 	defer s.stopProvisioner(c, p)
 
 	// Check that an instance is provisioned when the machine is created...
-	m, err := s.State.AddMachine(config.DefaultSeries(), state.JobHostUnits)
+	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
 	c.Assert(err, IsNil)
 	s.checkStartInstance(c, m)
 
@@ -196,7 +196,7 @@ func (s *ProvisionerSuite) TestSimple(c *C) {
 
 func (s *ProvisionerSuite) TestConstraints(c *C) {
 	// Create a machine with non-standard constraints.
-	m, err := s.State.AddMachine(config.DefaultSeries(), state.JobHostUnits)
+	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
 	c.Assert(err, IsNil)
 	cons := constraints.MustParse("mem=4G arch=amd64")
 	err = m.SetConstraints(cons)
@@ -216,7 +216,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurWithAnInvalidEnvironment(
 	defer s.stopProvisioner(c, p)
 
 	// try to create a machine
-	_, err = s.State.AddMachine(config.DefaultSeries(), state.JobHostUnits)
+	_, err = s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
 	c.Assert(err, IsNil)
 
 	// the PA should not create it
@@ -231,7 +231,7 @@ func (s *ProvisionerSuite) TestProvisioningOccursWithFixedEnvironment(c *C) {
 	defer s.stopProvisioner(c, p)
 
 	// try to create a machine
-	m, err := s.State.AddMachine(config.DefaultSeries(), state.JobHostUnits)
+	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
 	c.Assert(err, IsNil)
 
 	// the PA should not create it
@@ -248,7 +248,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesOccurAfterInvalidEnvironmentPubli
 	defer s.stopProvisioner(c, p)
 
 	// place a new machine into the state
-	m, err := s.State.AddMachine(config.DefaultSeries(), state.JobHostUnits)
+	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
 	c.Assert(err, IsNil)
 
 	s.checkStartInstance(c, m)
@@ -257,7 +257,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesOccurAfterInvalidEnvironmentPubli
 	c.Assert(err, IsNil)
 
 	// create a second machine
-	m, err = s.State.AddMachine(config.DefaultSeries(), state.JobHostUnits)
+	m, err = s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
 	c.Assert(err, IsNil)
 
 	// the PA should create it using the old environment
@@ -270,7 +270,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterRe
 	// the PA is restarted in this test. tf. Methods like Fatalf and Assert should not be used.
 
 	// create a machine
-	m, err := s.State.AddMachine(config.DefaultSeries(), state.JobHostUnits)
+	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
 	c.Check(err, IsNil)
 
 	s.checkStartInstance(c, m)
@@ -298,13 +298,13 @@ func (s *ProvisionerSuite) TestProvisioningStopsUnknownInstances(c *C) {
 	// the PA is restarted in this test. Methods like Fatalf and Assert should not be used.
 
 	// create a machine
-	m, err := s.State.AddMachine(config.DefaultSeries(), state.JobHostUnits)
+	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
 	c.Check(err, IsNil)
 
 	s.checkStartInstance(c, m)
 
 	// create a second machine
-	m, err = s.State.AddMachine(config.DefaultSeries(), state.JobHostUnits)
+	m, err = s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
 	c.Check(err, IsNil)
 
 	s.checkStartInstance(c, m)
@@ -332,7 +332,7 @@ func (s *ProvisionerSuite) TestProvisioningStopsOnlyUnknownInstances(c *C) {
 	// the PA is restarted in this test. Methods like Fatalf and Assert should not be used.
 
 	// create a machine
-	m, err := s.State.AddMachine(config.DefaultSeries(), state.JobHostUnits)
+	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
 	c.Check(err, IsNil)
 
 	s.checkStartInstance(c, m)
@@ -356,7 +356,7 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	defer s.stopProvisioner(c, p)
 
 	// place a new machine into the state
-	m, err := s.State.AddMachine(config.DefaultSeries(), state.JobHostUnits)
+	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
 	c.Assert(err, IsNil)
 
 	s.checkStartInstance(c, m)
@@ -367,7 +367,7 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	s.State.StartSync()
 
 	// create a second machine
-	m, err = s.State.AddMachine(config.DefaultSeries(), state.JobHostUnits)
+	m, err = s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
 	c.Assert(err, IsNil)
 
 	// the PA should create it using the old environment
@@ -398,7 +398,7 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	}
 
 	// create a third machine
-	m, err = s.State.AddMachine(config.DefaultSeries(), state.JobHostUnits)
+	m, err = s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
 	c.Assert(err, IsNil)
 
 	// the PA should create it using the new environment

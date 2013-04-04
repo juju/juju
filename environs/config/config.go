@@ -25,12 +25,10 @@ const (
 	// When ports are opened for one machine, all machines will have the same
 	// port opened.
 	FwGlobal FirewallMode = "global"
-)
 
-// DefaultSeries returns the most recent Ubuntu LTS release name.
-func DefaultSeries() string {
-	return "precise"
-}
+	// DefaultSeries returns the most recent Ubuntu LTS release name.
+	DefaultSeries string = "precise"
+)
 
 // Config holds an immutable environment configuration.
 type Config struct {
@@ -76,7 +74,7 @@ func New(attrs map[string]interface{}) (*Config, error) {
 	}
 
 	if c.m["default-series"].(string) == "" {
-		c.m["default-series"] = DefaultSeries()
+		c.m["default-series"] = DefaultSeries
 	}
 
 	// Load authorized-keys-path into authorized-keys if necessary.
@@ -299,7 +297,7 @@ var fields = schema.Fields{
 }
 
 var defaults = schema.Defaults{
-	"default-series":            DefaultSeries(),
+	"default-series":            DefaultSeries,
 	"authorized-keys":           "",
 	"authorized-keys-path":      "",
 	"firewall-mode":             FwDefault,
