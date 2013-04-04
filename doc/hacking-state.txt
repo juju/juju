@@ -145,3 +145,9 @@ We'll deal with that when it's a problem rather than just a concern;
 but new reference counts should not be thoughtlessly added to entity
 documents, and opportunities to separate them from existing docs should
 be considered seriously.
+
+
+[TODO: write about globalKey and what it's good for... constraints, settings,
+statuses, etc; occasionaly profitable use of fast prefix lookup on indexed
+fields.]
+

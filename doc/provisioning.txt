@@ -27,10 +27,6 @@ they can only be created between services with matching series.
 Constraints
 -----------
 
-[TODO: write about globalKey and what it's good for... constraints, settings,
-statuses, etc; occasionaly profitable use of fast prefix lookup on indexed
-fields.]
-
 Constraints are stored for environments, services, units, and machines, but
 unit constraints are not currently exposed because they're not needed outside
 state, and are likely to just cause trouble and confusion if we expose them.
@@ -67,10 +63,31 @@ controlled by their principal units. There's only ever one machine to which
 that subordinate could (and must) be deployed, and to restrict that further
 by means of constraints will only confuse people.
 
+Machine Status and Provisioning Errors (current)
+------------------------------------------------
+
+In the light of time pressure, a unit assigned to a machine that has not been
+provisioned can be removed directly by calling `juju destroy-unit`. Any
+provisioning error can thus be "resolved" in an unsophisticated but moderately
+effective way:
+
+  $ juju destroy-unit borken/0
+
+...in that at least broken units don't clutter up the service and prevent its
+removal. However:
+
+  $ juju destroy-machine 1
+
+...does not yet cause an unprovisioned machine to be removed from state (whether
+directly, or indirectly via the provisioner; the best place to implement this
+functionality is not clear).
+
 Machine Status and Provisioning Errors (WIP)
 --------------------------------------------
 
-[TODO: figure this out; not yet implemented, somewhat speculative...]
+[TODO: figure this out; not yet implemented, somewhat speculative... in
+particular, use of "resolved" may be inappropriate. Consider adding a
+"retry" CLI tool...]
 
 When the provisioner fails to start a machine, it should ensure that (1) the
 machine has no instance id set and (2) the machine has an error status set
@@ -88,29 +105,9 @@ config pair that really isn't satsifiable. In that case, the user can try
 her to completely replace the machine's constraints as well as marking the
 machine for reprovisioning attention.
 
-Machine Status and Provisioning Errors (current)
-------------------------------------------------
 
-In the absence of the above tools, and in the light of time pressure, a unit
-assigned to a machine that has not been provisioned can be removed directly
-by calling `juju destroy-unit`. Any provisioning error can thus be "resolved"
-in an unsophisticated but moderately effective way:
-
-  $ juju destroy-unit borken/0
-
-...in that at least broken units don't clutter up the service and prevent its
-removal. However:
-
-  $ juju destroy-machine 1
-
-...does not yet cause an unprovisioned machine to be removed from state (whether
-directly, or indirectly via the provisioner; the best place to implement this
-functionality is not clear).
-
-
-[0] (This is a little harder than it sounds -- in particular, openstack doesn't
-    expose image series information, and effectively relies on the user to set
-    a "default-image-id" config key that happens to have the "right" series. But
-    I think that's a provider bug rather than a juju bug, so it's not especially
-    important at this stage.)
+[0] This is a little harder than it sounds -- in particular, openstack
+    environments don't necessarily have image series information available,
+    and may rely on the user to set a "default-image-id" config key that
+    happens to have the "right" series.
 
