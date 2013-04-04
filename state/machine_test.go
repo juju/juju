@@ -743,10 +743,10 @@ func (s *MachineSuite) TestConstraintsLifecycle(c *C) {
 }
 
 func (s *MachineSuite) TestGetSetStatusWhileAlive(c *C) {
-	failPending := func() { s.machine.SetStatus(params.MachinePending, "") }
-	c.Assert(failPending, PanicMatches, "cannot set machine status to pending")
 	failError := func() { s.machine.SetStatus(params.MachineError, "") }
 	c.Assert(failError, PanicMatches, "machine error status with no info")
+	failPending := func() { s.machine.SetStatus(params.MachinePending, "") }
+	c.Assert(failPending, PanicMatches, "machine status cannot be set to pending")
 
 	status, info, err := s.machine.Status()
 	c.Assert(err, IsNil)
