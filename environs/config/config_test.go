@@ -519,7 +519,6 @@ func (*ConfigSuite) TestConfigAttrs(c *C) {
 		"name":                      "my-name",
 		"authorized-keys":           "my-keys",
 		"firewall-mode":             string(config.FwDefault),
-		"default-series":            version.DefaultSeries(),
 		"admin-secret":              "foo",
 		"unknown":                   "my-unknown",
 		"ca-private-key":            "",
@@ -532,6 +531,7 @@ func (*ConfigSuite) TestConfigAttrs(c *C) {
 	// These attributes are added if not set.
 	attrs["development"] = false
 	attrs["agent-version"] = version.Version()
+	attrs["default-series"] = version.DefaultSeries()
 	c.Assert(cfg.AllAttrs(), DeepEquals, attrs)
 	c.Assert(cfg.UnknownAttrs(), DeepEquals, map[string]interface{}{"unknown": "my-unknown"})
 
