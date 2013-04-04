@@ -50,15 +50,8 @@ var envs *environs.Environs
 func toolsStoragePath(vers string) string {
 	return environs.ToolsStoragePath(version.Binary{
 		Number: version.MustParse(vers),
-		Series: version.Current.Series,
-		Arch:   version.Current.Arch,
-	})
-}
-
-func mongoStoragePath(series, arch string) string {
-	return environs.MongoStoragePath(version.Binary{
-		Series: series,
-		Arch:   arch,
+		Series: version.CurrentSeries(),
+		Arch:   version.CurrentArch(),
 	})
 }
 
@@ -238,7 +231,7 @@ var findToolsTests = []struct {
 	err            string   // the error we expect to find (if not blank).
 }{{
 	summary:  "current version should be satisfied by current tools path",
-	version:  version.Current.Number,
+	version:  version.CurrentNumber(),
 	flags:    environs.CompatVersion,
 	contents: []string{environs.ToolsStoragePath(version.Current)},
 	expect:   environs.ToolsStoragePath(version.Current),
@@ -282,11 +275,11 @@ var findToolsTests = []struct {
 		environs.ToolsStoragePath(version.Binary{
 			Number: version.MustParse("1.9.9"),
 			Series: "foo",
-			Arch:   version.Current.Arch,
+			Arch:   version.CurrentArch(),
 		}),
 		environs.ToolsStoragePath(version.Binary{
 			Number: version.MustParse("1.9.9"),
-			Series: version.Current.Series,
+			Series: version.CurrentSeries(),
 			Arch:   "foo",
 		}),
 		toolsStoragePath("1.0.0"),
@@ -329,69 +322,6 @@ func (t *ToolsSuite) TestFindTools(c *C) {
 			assertURLContents(c, tools.URL, tt.expect)
 		}
 		t.env.Destroy(nil)
-	}
-}
-
-var mongoURLTests = []struct {
-	summary        string   // a summary of the test purpose.
-	contents       []string // names in private storage.
-	publicContents []string // names in public storage.
-	expect         string   // the name we expect to find (if no error).
-	urlpart        string   // part of the url we expect to find (if not blank).
-}{{
-	summary:  "grab mongo from private storage if it exists there",
-	contents: []string{environs.MongoStoragePath(version.Current)},
-	expect:   environs.MongoStoragePath(version.Current),
-}, {
-	summary: "fall back to public storage when nothing found in private",
-	contents: []string{
-		environs.MongoStoragePath(version.Binary{
-			Series: "foo",
-			Arch:   version.Current.Arch}),
-	},
-	publicContents: []string{
-		environs.MongoStoragePath(version.Current),
-	},
-	expect: "public-" + environs.MongoStoragePath(version.Current),
-}, {
-	summary: "if nothing in public or private storage, fall back to copy in ec2",
-	contents: []string{
-		environs.ToolsStoragePath(version.Binary{
-			Series: "foo",
-			Arch:   version.Current.Arch,
-		}),
-		environs.ToolsStoragePath(version.Binary{
-			Series: version.Current.Series,
-			Arch:   "foo",
-		}),
-	},
-	publicContents: []string{
-		environs.MongoStoragePath(version.Binary{
-			Series: "foo",
-			Arch:   version.Current.Arch,
-		}),
-	},
-	urlpart: "http://juju-dist.s3.amazonaws.com",
-},
-}
-
-func (t *ToolsSuite) TestMongoURL(c *C) {
-	for i, tt := range mongoURLTests {
-		c.Logf("Test %d: %s", i, tt.summary)
-		putNames(c, t.env, tt.contents, tt.publicContents)
-		vers := version.Binary{
-			Series: version.Current.Series,
-			Arch:   version.Current.Arch,
-		}
-		mongoURL := environs.MongoURL(t.env, vers)
-		if tt.expect != "" {
-			assertURLContents(c, mongoURL, tt.expect)
-		}
-		if tt.urlpart != "" {
-			c.Assert(mongoURL, Matches, tt.urlpart+".*")
-		}
-		t.env.Destroy(nil)
-		dummy.ResetPublicStorage(t.env)
 	}
 }
 

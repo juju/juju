@@ -54,7 +54,7 @@ func (*CurrentSuite) TestReadSeries(c *C) {
 }
 
 func (*CurrentSuite) TestCurrentSeries(c *C) {
-	s := version.Current.Series
+	s := version.CurrentSeries()
 	if s == "unknown" {
 		s = "n/a"
 	}
