@@ -11,13 +11,13 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/trivial"
-	"launchpad.net/juju-core/version"
 	"regexp"
 )
 
@@ -298,7 +298,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	// check that a new instance will be started without
 	// zookeeper, with a machine agent, and without a
 	// provisioning agent.
-	series := version.DefaultSeries()
+	series := config.DefaultSeries()
 	info.Tag = "machine-1"
 	apiInfo.Tag = "machine-1"
 	inst1, err := t.env.StartInstance("1", series, constraints.Value{}, info, apiInfo)

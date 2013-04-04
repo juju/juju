@@ -29,11 +29,6 @@ func CurrentSeries() string {
 	return readSeries("/etc/lsb-release")
 }
 
-// DefaultSeries returns the most recent Ubuntu LTS release name.
-func DefaultSeries() string {
-	return "precise"
-}
-
 // CurrentArch returns the architecture of the machine.
 func CurrentArch() string {
 	return ubuntuArch(runtime.GOARCH)

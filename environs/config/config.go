@@ -27,6 +27,11 @@ const (
 	FwGlobal FirewallMode = "global"
 )
 
+// DefaultSeries returns the most recent Ubuntu LTS release name.
+func DefaultSeries() string {
+	return "precise"
+}
+
 // Config holds an immutable environment configuration.
 type Config struct {
 	m, t map[string]interface{}
@@ -71,7 +76,7 @@ func New(attrs map[string]interface{}) (*Config, error) {
 	}
 
 	if c.m["default-series"].(string) == "" {
-		c.m["default-series"] = version.DefaultSeries()
+		c.m["default-series"] = DefaultSeries()
 	}
 
 	// Load authorized-keys-path into authorized-keys if necessary.
@@ -294,7 +299,7 @@ var fields = schema.Fields{
 }
 
 var defaults = schema.Defaults{
-	"default-series":            version.DefaultSeries(),
+	"default-series":            DefaultSeries(),
 	"authorized-keys":           "",
 	"authorized-keys-path":      "",
 	"firewall-mode":             FwDefault,
