@@ -238,8 +238,19 @@ func (s *MachineSuite) TestMachineInstanceIdBlank(c *C) {
 }
 
 func (s *MachineSuite) TestMachineSetInstanceId(c *C) {
-	err := s.machine.SetInstanceId("umbrella/0")
+	// Make sure the status gets changed after successful
+	// SetInstanceId, so first change it here.
+	err := s.machine.SetStatus(params.MachineDown, "nonsense")
 	c.Assert(err, IsNil)
+
+	err = s.machine.SetInstanceId("umbrella/0")
+	c.Assert(err, IsNil)
+
+	// Now check it's changed.
+	status, info, err := s.machine.Status()
+	c.Assert(err, IsNil)
+	c.Assert(status, Equals, params.MachinePending)
+	c.Assert(info, Equals, "provisioned")
 
 	m, err := s.State.Machine(s.machine.Id())
 	c.Assert(err, IsNil)

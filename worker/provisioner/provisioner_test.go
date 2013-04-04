@@ -49,6 +49,19 @@ func (s *ProvisionerSuite) SetUpTest(c *C) {
 	s.cfg = cfg
 }
 
+// breakDummyProvider changes the environment config in state in a way
+// that causes the given environMethod of the dummy provider to return
+// an error, which is also returned as a message to be checked.
+func breakDummyProvider(c *C, st *state.State, environMethod string) string {
+	oldCfg, err := st.EnvironConfig()
+	c.Assert(err, IsNil)
+	cfg, err := oldCfg.Apply(map[string]interface{}{"broken": environMethod})
+	c.Assert(err, IsNil)
+	err = st.SetEnvironConfig(cfg)
+	c.Assert(err, IsNil)
+	return fmt.Sprintf("dummy.%s is broken", environMethod)
+}
+
 // invalidateEnvironment alters the environment configuration
 // so the Settings returned from the watcher will not pass
 // validation.
@@ -89,12 +102,6 @@ func (s *ProvisionerSuite) checkStartInstanceCustom(c *C, m *state.Machine, secr
 				c.Assert(o.MachineId, Equals, m.Id())
 				c.Assert(o.Secret, Equals, secret)
 				c.Assert(o.Constraints, DeepEquals, cons)
-
-				// Check the status was updated.
-				status, statusInfo, err := m.Status()
-				c.Assert(err, IsNil)
-				c.Assert(status, Equals, params.MachinePending)
-				c.Assert(statusInfo, Equals, "starting")
 
 				// Check we can connect to the state with
 				// the machine's entity name and password.
@@ -218,18 +225,8 @@ func (s *ProvisionerSuite) TestConstraints(c *C) {
 }
 
 func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenStartInstanceFailed(c *C) {
-	brokenMsg, ecfg := coretesting.BreakJuju(c, "dummyenv", "StartInstance", true)
-	err := s.State.SetEnvironConfig(ecfg)
-	c.Assert(err, IsNil)
-
+	brokenMsg := breakDummyProvider(c, s.State, "StartInstance")
 	p := provisioner.NewProvisioner(s.State)
-	defer func() {
-		err := s.fixEnvironment()
-		c.Assert(err, IsNil)
-
-		errInfo := fmt.Sprintf("cannot start machine 0: cannot start instance for new machine: %s", brokenMsg)
-		c.Assert(p.Stop(), ErrorMatches, errInfo)
-	}()
 
 	// Check that an instance is not provisioned when the machine is created...
 	m, err := s.State.AddMachine(version.Current.Series, state.JobHostUnits)
@@ -241,6 +238,33 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenStartInstanceFailed
 	c.Assert(err, IsNil)
 	c.Assert(status, Equals, params.MachineError)
 	c.Assert(info, Equals, brokenMsg)
+
+	errInfo := fmt.Sprintf("cannot start machine 0: cannot start instance for new machine: %s", brokenMsg)
+	c.Assert(p.Stop(), ErrorMatches, errInfo)
+
+	// But once the error is gone, after a restart it works.
+	err = s.fixEnvironment()
+	c.Assert(err, IsNil)
+
+	p = provisioner.NewProvisioner(s.State)
+	defer s.stopProvisioner(c, p)
+
+	s.checkStartInstance(c, m)
+}
+
+func (s *ProvisionerSuite) TestProvisioningDoesNotOccurWithAnInvalidEnvironment(c *C) {
+	err := s.invalidateEnvironment(c)
+	c.Assert(err, IsNil)
+
+	p := provisioner.NewProvisioner(s.State)
+	defer s.stopProvisioner(c, p)
+
+	// try to create a machine
+	_, err = s.State.AddMachine(version.Current.Series, state.JobHostUnits)
+	c.Assert(err, IsNil)
+
+	// the PA should not create it
+	s.checkNotStartInstance(c)
 }
 
 func (s *ProvisionerSuite) TestProvisioningOccursWithFixedEnvironment(c *C) {

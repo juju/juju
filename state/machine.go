@@ -422,6 +422,9 @@ func (m *Machine) SetInstanceId(id InstanceId) (err error) {
 		return fmt.Errorf("cannot set instance id of machine %v: %v", m, onAbort(err, errDead))
 	}
 	m.doc.InstanceId = id
+	if err := m.SetStatus(params.MachinePending, "provisioned"); err != nil {
+		return err
+	}
 	return nil
 }
 

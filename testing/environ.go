@@ -1,10 +1,8 @@
 package testing
 
 import (
-	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/environs/config"
 	"os"
 	"path/filepath"
@@ -116,33 +114,4 @@ func MakeSampleHome(c *C) *FakeHome {
 
 func MakeMultipleEnvHome(c *C) *FakeHome {
 	return MakeFakeHome(c, MultipleEnvConfig, SampleCertName, "erewhemos-2")
-}
-
-// BreakJuju forces the dummy environment to return an error when
-// environMethod is called. It allows you to customize the environ
-// name and whether state server is available.
-// It returns the exact message to expect, as well as the environ
-// config, in case you need to call SetEnvironConfig() with it.
-func BreakJuju(c *C, envName, environMethod string, withStateServer bool) (string, *config.Config) {
-	brokenConfig := map[string]interface{}{
-		"environments": map[string]interface{}{
-			envName: map[string]interface{}{
-				"type":            "dummy",
-				"state-server":    withStateServer,
-				"authorized-keys": "i-am-a-key",
-				"broken":          environMethod,
-			},
-		},
-	}
-	data, err := goyaml.Marshal(brokenConfig)
-	err = ioutil.WriteFile(config.JujuHomePath("environments.yaml"), data, 0666)
-	c.Assert(err, IsNil)
-
-	// Now get the config only and return an environ config from it.
-	ecfg := brokenConfig["environments"].(map[string]interface{})[envName].(map[string]interface{})
-	ecfg["name"] = envName
-	cfg, err := config.New(ecfg)
-	c.Assert(err, IsNil)
-
-	return fmt.Sprintf("dummy.%s is broken", environMethod), cfg
 }

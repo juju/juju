@@ -255,7 +255,6 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 	if err != nil {
 		return err
 	}
-	m.SetStatus(params.MachinePending, "starting")
 	inst, err := p.environ.StartInstance(m.Id(), m.Series(), cons, stateInfo, apiInfo)
 	if err != nil {
 		m.SetStatus(params.MachineError, err.Error())
