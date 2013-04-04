@@ -1,11 +1,11 @@
 package maas
 
 import (
+	"io/ioutil"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
-	"io/ioutil"
 )
 
 type maasEnvironProvider struct{}

@@ -1,10 +1,10 @@
 package maas
 
 import (
+	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
-	"io/ioutil"
 	"os"
 )
 
@@ -46,11 +46,10 @@ func (suite *EnvironProviderSuite) TestInstanceIdReadsInstanceIdFile(c *C) {
 	// to the temporary file.
 	old_MAASInstanceIDFilename := _MAASInstanceIDFilename
 	_MAASInstanceIDFilename = filename
-	defer func() {_MAASInstanceIDFilename = old_MAASInstanceIDFilename}()
+	defer func() { _MAASInstanceIDFilename = old_MAASInstanceIDFilename }()
 
 	provider := suite.environ.Provider()
 	returnedInstanceId, err := provider.InstanceId()
 	c.Assert(err, IsNil)
 	c.Check(returnedInstanceId, Equals, state.InstanceId(instanceId))
 }
-
