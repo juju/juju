@@ -371,7 +371,7 @@ func (c *srvClient) ServiceDestroy(args params.ServiceDestroy) error {
 	return statecmd.ServiceDestroy(c.root.srv.state, args)
 }
 
-// GetServiceConstraints sets the constraints for a given service.
+// GetServiceConstraints returns the constraints for a given service.
 func (c *srvClient) GetServiceConstraints(args params.GetServiceConstraints) (params.GetServiceConstraintsResults, error) {
 	return statecmd.GetServiceConstraints(c.root.srv.state, args)
 }

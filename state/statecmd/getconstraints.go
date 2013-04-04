@@ -8,7 +8,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 )
 
-// GetServiceContstraints sets the constraints for a given service
+// GetServiceContstraints returns the constraints for a given service
 func GetServiceConstraints(st *state.State, args params.GetServiceConstraints) (params.GetServiceConstraintsResults, error) {
 	svc, err := st.Service(args.ServiceName)
 	if err != nil {
