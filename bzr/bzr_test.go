@@ -19,31 +19,24 @@ type BzrSuite struct {
 }
 
 func (s *BzrSuite) SetUpTest(c *C) {
-	b, err := bzr.New(c.MkDir())
-	c.Assert(err, IsNil)
-	c.Assert(b.Init(), IsNil)
-	s.b = b
+	s.b = bzr.New(c.MkDir())
+	c.Assert(s.b.Init(), IsNil)
 }
 
 func (s *BzrSuite) TestNewFindsRoot(c *C) {
 	err := os.Mkdir(s.b.Join("dir"), 0755)
 	c.Assert(err, IsNil)
-	b, err := bzr.New(s.b.Join("dir"))
-	c.Assert(err, IsNil)
+	b := bzr.New(s.b.Join("dir"))
 	c.Assert(b.Location(), Equals, s.b.Location())
 }
 
 func (s *BzrSuite) TestJoin(c *C) {
-	b, err := bzr.New("lp:foo")
-	c.Assert(err, IsNil)
-	path := b.Join("baz", "bar")
+	path := bzr.New("lp:foo").Join("baz", "bar")
 	c.Assert(path, Equals, "lp:foo/baz/bar")
 }
 
 func (s *BzrSuite) TestErrorHandling(c *C) {
-	b, err := bzr.New("/non/existent/path")
-	c.Assert(err, IsNil)
-	err = b.Init()
+	err := bzr.New("/non/existent/path").Init()
 	c.Assert(err, ErrorMatches, `(?s)error running "bzr init":.*does not exist.*`)
 }
 
@@ -77,12 +70,9 @@ func (s *BzrSuite) TestCommit(c *C) {
 }
 
 func (s *BzrSuite) TestPush(c *C) {
-	b1, err := bzr.New(c.MkDir())
-	c.Assert(err, IsNil)
-	b2, err := bzr.New(c.MkDir())
-	c.Assert(err, IsNil)
-	b3, err := bzr.New(c.MkDir())
-	c.Assert(err, IsNil)
+	b1 := bzr.New(c.MkDir())
+	b2 := bzr.New(c.MkDir())
+	b3 := bzr.New(c.MkDir())
 	c.Assert(b1.Init(), IsNil)
 	c.Assert(b2.Init(), IsNil)
 	c.Assert(b3.Init(), IsNil)

@@ -16,17 +16,15 @@ type Branch struct {
 }
 
 // New returns a new Branch for the Bazaar branch at location.
-func New(location string) (*Branch, error) {
+func New(location string) *Branch {
 	b := &Branch{location}
 	if _, err := os.Stat(location); err == nil {
 		stdout, _, err := b.bzr("root")
 		if err == nil {
 			b.location = strings.TrimRight(string(stdout), "\n")
-		} else if !strings.Contains(err.Error(), "Not a branch") {
-			return nil, err
 		}
 	}
-	return b, nil
+	return b
 }
 
 // Location returns the location of branch b.
