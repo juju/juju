@@ -139,7 +139,6 @@ func getToolsRaw(c *C, tools *state.Tools) []byte {
 	_, err = io.Copy(&buf, resp.Body)
 	c.Assert(err, IsNil)
 	return buf.Bytes()
-
 }
 
 func (t *ToolsSuite) TestPutToolsAndForceVersion(c *C) {

@@ -23,6 +23,17 @@ type URL struct {
 	Revision int    // -1 if unset, N otherwise
 }
 
+var (
+	// ValidUser defines the user names that are valid in charm URLs.
+	ValidUser = regexp.MustCompile("^[a-z0-9][a-zA-Z0-9+.-]+$")
+
+	// ValidSeries defines the series names that are valid in charm URLs.
+	ValidSeries = regexp.MustCompile("^[a-z]+([a-z-]+[a-z])?$")
+
+	// ValidName defines the charm names that are valid in charm URLs.
+	ValidName = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*$")
+)
+
 // WithRevision returns a URL equivalent to url but with Revision set
 // to revision.
 func (url *URL) WithRevision(revision int) *URL {
@@ -30,10 +41,6 @@ func (url *URL) WithRevision(revision int) *URL {
 	urlCopy.Revision = revision
 	return &urlCopy
 }
-
-var ValidUser = regexp.MustCompile("^[a-z0-9][a-zA-Z0-9+.-]+$")
-var ValidSeries = regexp.MustCompile("^[a-z]+([a-z-]+[a-z])?$")
-var ValidName = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*$")
 
 // MustParseURL works like ParseURL, but panics in case of errors.
 func MustParseURL(url string) *URL {

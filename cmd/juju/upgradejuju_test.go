@@ -170,7 +170,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *C) {
 	}()
 
 	for i, test := range upgradeJujuTests {
-		c.Logf("\ntest %d: %s\n", i, test.about)
+		c.Logf("\ntest %d: %s", i, test.about)
 		// Set up the test preconditions.
 		s.Reset(c)
 		for _, v := range test.private {
