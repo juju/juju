@@ -130,3 +130,19 @@ func (b *Branch) Push(attr *PushAttr) error {
 	_, _, err := b.bzr(args...)
 	return err
 }
+
+// MustBeClean returns an error if 'bzr status' is not clean.
+func (b *Branch) MustBeClean() error {
+	stdout, _, err := b.bzr("status", b.location)
+	if err != nil {
+		return err
+	}
+	if bytes.Count(stdout, []byte{'\n'}) == 1 && bytes.Contains(stdout, []byte(`See "bzr shelve --list" for details.`)) {
+		return nil // Shelves are fine.
+	}
+	if len(stdout) > 0 {
+		return fmt.Errorf("branch is not clean (bzr status)")
+	}
+	return nil
+}
+
