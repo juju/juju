@@ -88,7 +88,7 @@ type allWatcher struct {
 // It is an interface for testing purposes.
 // TODO(rog) complete this type and its methods.
 type allWatcherBacking interface {
-	// idForInfo returns the entity id corresponding
+	// idForInfo returns the info id corresponding
 	// to the given entity info.
 	idForInfo(info params.EntityInfo) infoId
 
@@ -415,7 +415,7 @@ func (b *allWatcherStateBacking) fetch(id entityId) (params.EntityInfo, error) {
 
 type infoId interface{}
 
-// idForInfo returns the entity id of the given entity document.
+// idForInfo returns the info id of the given entity document.
 func (b *allWatcherStateBacking) idForInfo(info params.EntityInfo) infoId {
 	c, ok := b.collectionByKind[info.EntityKind()]
 	if !ok {
@@ -509,7 +509,7 @@ func (a *allInfo) decRef(entry *entityEntry, id infoId) {
 	a.list.Remove(elem)
 }
 
-// delete deletes the entry with the given entity id.
+// delete deletes the entry with the given info id.
 func (a *allInfo) delete(id infoId) {
 	elem := a.entities[id]
 	if elem == nil {
