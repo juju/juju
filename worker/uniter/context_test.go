@@ -92,18 +92,7 @@ func AssertEnvContains(c *C, lines []string, env map[string]string) {
 	}
 }
 
-func AssertEnvMatches(c *C, lines []string, key, match string) {
-	for _, line := range lines {
-		kv := strings.SplitN(line, "=", 2)
-		if len(kv) == 2 && kv[0] == key {
-			c.Assert(kv[1], Matches, match)
-			return
-		}
-	}
-	c.Errorf("expected to find %v matching %q", key, match)
-}
-
-func AssertEnv(c *C, outPath string, charmDir string, env map[string]string) {
+func AssertEnv(c *C, outPath string, charmDir string, env map[string]string, uuid trivial.UUID) {
 	out, err := ioutil.ReadFile(outPath)
 	c.Assert(err, IsNil)
 	lines := strings.Split(string(out), "\n")
@@ -113,8 +102,8 @@ func AssertEnv(c *C, outPath string, charmDir string, env map[string]string) {
 		"APT_LISTCHANGES_FRONTEND": "none",
 		"CHARM_DIR":                charmDir,
 		"JUJU_AGENT_SOCKET":        "/path/to/socket",
+		"JUJU_ENV_UUID":            uuid.String(),
 	})
-	AssertEnvMatches(c, lines, "JUJU_ENV_UUID", "[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[8,9,a,b][0-9a-f]{3}-[0-9a-f]{12}")
 }
 
 // LineBufferSize matches the constant used when creating
@@ -216,9 +205,10 @@ func (l *logRecorder) Output(calldepth int, s string) error {
 func (s *RunHookSuite) TestRunHook(c *C) {
 	logger := &logRecorder{c: c, prefix: "INFO worker/uniter: HOOK "}
 	defer log.SetTarget(log.SetTarget(logger))
+	uuid := trivial.NewUUID()
 	for i, t := range runHookTests {
 		c.Logf("test %d: %s; perm %v", i, t.summary, t.spec.perm)
-		ctx := s.GetHookContext(c, t.relid, t.remote)
+		ctx := s.GetHookContext(c, uuid, t.relid, t.remote)
 		var charmDir, outPath string
 		if t.spec.perm == 0 {
 			charmDir = c.MkDir()
@@ -242,7 +232,7 @@ func (s *RunHookSuite) TestRunHook(c *C) {
 			for k, v := range t.env {
 				env[k] = v
 			}
-			AssertEnv(c, outPath, charmDir, env)
+			AssertEnv(c, outPath, charmDir, env, uuid)
 		}
 		var expectLog []string
 		if t.spec.stdout != "" {
@@ -273,7 +263,7 @@ func splitLine(s string) []string {
 
 func (s *RunHookSuite) TestRunHookRelationFlushing(c *C) {
 	// Create a charm with a breaking hook.
-	ctx := s.GetHookContext(c, -1, "")
+	ctx := s.GetHookContext(c, trivial.NewUUID(), -1, "")
 	charmDir, _ := makeCharm(c, hookSpec{
 		name: "something-happened",
 		perm: 0700,
@@ -533,7 +523,7 @@ type InterfaceSuite struct {
 var _ = Suite(&InterfaceSuite{})
 
 func (s *InterfaceSuite) GetContext(c *C, relId int, remoteName string) jujuc.Context {
-	return s.HookContextSuite.GetHookContext(c, relId, remoteName)
+	return s.HookContextSuite.GetHookContext(c, trivial.NewUUID(), relId, remoteName)
 }
 
 func (s *InterfaceSuite) TestTrivial(c *C) {
@@ -661,10 +651,10 @@ func (s *HookContextSuite) AddContextRelation(c *C, name string) {
 	s.relctxs[rel.Id()] = uniter.NewContextRelation(ru, nil)
 }
 
-func (s *HookContextSuite) GetHookContext(c *C, relid int, remote string) *uniter.HookContext {
+func (s *HookContextSuite) GetHookContext(c *C, uuid trivial.UUID, relid int, remote string) *uniter.HookContext {
 	if relid != -1 {
 		_, found := s.relctxs[relid]
 		c.Assert(found, Equals, true)
 	}
-	return uniter.NewHookContext(s.unit, "TestCtx", trivial.NewUUID(), relid, remote, s.relctxs)
+	return uniter.NewHookContext(s.unit, "TestCtx", uuid, relid, remote, s.relctxs)
 }

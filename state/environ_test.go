@@ -3,6 +3,7 @@ package state_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/trivial"
 )
 
 type EnvironSuite struct {
@@ -29,7 +30,9 @@ func (s *EnvironSuite) TestTag(c *C) {
 func (s *EnvironSuite) TestUUID(c *C) {
 	env, err := s.State.Environment()
 	c.Assert(err, IsNil)
-	c.Assert(env.UUID().String(), Matches, "[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[8,9,a,b][0-9a-f]{3}-[0-9a-f]{12}")
+	uuid := env.UUID()
+	c.Assert(uuid, FitsTypeOf, trivial.UUID{})
+	c.Assert(uuid.String(), Matches, "[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[8,9,a,b][0-9a-f]{3}-[0-9a-f]{12}")
 }
 
 func (s *EnvironSuite) TestAnnotatorForEnvironment(c *C) {

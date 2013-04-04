@@ -26,7 +26,7 @@ type environmentDoc struct {
 // Environment returns the environment entity.
 func (st *State) Environment() (*Environment, error) {
 	doc := environmentDoc{}
-	err := st.environments.FindId("e").One(&doc)
+	err := st.environments.FindId("environment").One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, NotFoundf("environment")
 	}
@@ -57,20 +57,20 @@ func (e Environment) UUID() trivial.UUID {
 
 // globalKey returns the global database key for the environment.
 func (e *Environment) globalKey() string {
-	return "e#" + e.name
+	return e.uuid.String()
 }
 
 // createEnvironmentOp creates the transaction operation to insert the
 // environment with the given name and UUID.
 func createEnvironmentOp(st *State, name string, uuid trivial.UUID) txn.Op {
 	doc := &environmentDoc{
-		Id:   "e",
+		Id:   "environment",
 		Name: name,
 		UUID: uuid,
 	}
 	return txn.Op{
 		C:      st.environments.Name,
-		Id:     "e",
+		Id:     "environment",
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}
