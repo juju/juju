@@ -5,6 +5,7 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/trivial"
 	"time"
@@ -58,6 +59,15 @@ type machineDoc struct {
 	TxnRevno     int64  `bson:"txn-revno"`
 	Jobs         []MachineJob
 	PasswordHash string
+}
+
+// machineStatusDoc represents the internal state of a machine status in MongoDB.
+// The implicit _id field is explicitly set to the global key of the
+// associated machine in the document's creation transaction, but omitted to
+// allow direct use of the document in both create and update transactions.
+type machineStatusDoc struct {
+	Status     params.MachineStatus
+	StatusInfo string
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {
@@ -178,6 +188,8 @@ func (m *Machine) PasswordValid(password string) bool {
 // Destroy sets the machine lifecycle to Dying if it is Alive. It does
 // nothing otherwise. Destroy will fail if the machine has principal
 // units assigned, or if the machine has JobManageEnviron.
+// If the machine has assigned units, Destroy will return
+// a HasAssignedUnitsError.
 func (m *Machine) Destroy() error {
 	return m.advanceLifecycle(Dying)
 }
@@ -185,8 +197,19 @@ func (m *Machine) Destroy() error {
 // EnsureDead sets the machine lifecycle to Dead if it is Alive or Dying.
 // It does nothing otherwise. EnsureDead will fail if the machine has
 // principal units assigned, or if the machine has JobManageEnviron.
+// If the machine has assigned units, EnsureDead will return
+// a HasAssignedUnitsError.
 func (m *Machine) EnsureDead() error {
 	return m.advanceLifecycle(Dead)
+}
+
+type HasAssignedUnitsError struct {
+	MachineId string
+	UnitNames []string
+}
+
+func (e *HasAssignedUnitsError) Error() string {
+	return fmt.Sprintf("machine %s has unit %q assigned", e.MachineId, e.UnitNames[0])
 }
 
 // advanceLifecycle ensures that the machine's lifecycle is no earlier
@@ -265,7 +288,10 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 			}
 		}
 		if len(m.doc.Principals) != 0 {
-			return fmt.Errorf("machine %s has unit %q assigned", m.doc.Id, m.doc.Principals[0])
+			return &HasAssignedUnitsError{
+				MachineId: m.doc.Id,
+				UnitNames: m.doc.Principals,
+			}
 		}
 		// Run the transaction...
 		if err := m.st.runner.Run([]txn.Op{op}, "", nil); err != txn.ErrAborted {
@@ -294,6 +320,7 @@ func (m *Machine) Remove() (err error) {
 			Assert: txn.DocExists,
 			Remove: true,
 		},
+		removeStatusOp(m.st, m.globalKey()),
 		removeConstraintsOp(m.st, m.globalKey()),
 		annotationRemoveOp(m.st, m.globalKey()),
 	}
@@ -443,4 +470,34 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 		}
 	}
 	return ErrExcessiveContention
+}
+
+// Status returns the status of the machine.
+func (m *Machine) Status() (status params.MachineStatus, info string, err error) {
+	doc := &machineStatusDoc{}
+	if err := getStatus(m.st, m.globalKey(), doc); err != nil {
+		return "", "", err
+	}
+	return doc.Status, doc.StatusInfo, nil
+}
+
+// SetStatus sets the status of the machine.
+func (m *Machine) SetStatus(status params.MachineStatus, info string) error {
+	if status == params.MachinePending {
+		panic("cannot set machine status to pending")
+	} else if status == params.MachineError && info == "" {
+		panic("machine error status with no info")
+	}
+	doc := &machineStatusDoc{status, info}
+	ops := []txn.Op{{
+		C:      m.st.machines.Name,
+		Id:     m.doc.Id,
+		Assert: notDeadDoc,
+	},
+		updateStatusOp(m.st, m.globalKey(), doc),
+	}
+	if err := m.st.runner.Run(ops, "", nil); err != nil {
+		return fmt.Errorf("cannot set status of machine %q: %v", m, onAbort(err, errNotAlive))
+	}
+	return nil
 }

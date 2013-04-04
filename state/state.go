@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/trivial"
@@ -121,6 +122,7 @@ type State struct {
 	presence       *mgo.Collection
 	cleanups       *mgo.Collection
 	annotations    *mgo.Collection
+	statuses       *mgo.Collection
 	runner         *txn.Runner
 	watcher        *watcher.Watcher
 	pwatcher       *presence.Watcher
@@ -205,13 +207,17 @@ func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value) (*machi
 	}
 	mdoc.Id = strconv.Itoa(seq)
 	mdoc.Life = Alive
-	ops := []txn.Op{createConstraintsOp(st, machineGlobalKey(mdoc.Id), cons)}
-	ops = append(ops, txn.Op{
-		C:      st.machines.Name,
-		Id:     mdoc.Id,
-		Assert: txn.DocMissing,
-		Insert: *mdoc,
-	})
+	msdoc := &machineStatusDoc{params.MachinePending, ""}
+	ops := []txn.Op{
+		{
+			C:      st.machines.Name,
+			Id:     mdoc.Id,
+			Assert: txn.DocMissing,
+			Insert: *mdoc,
+		},
+		createConstraintsOp(st, machineGlobalKey(mdoc.Id), cons),
+		createStatusOp(st, machineGlobalKey(mdoc.Id), msdoc),
+	}
 	return mdoc, ops, nil
 }
 
