@@ -314,18 +314,6 @@ func (p Port) String() string {
 	return fmt.Sprintf("%s:%d", p.Protocol, p.Number)
 }
 
-// UnitStatus represents the status of the unit agent.
-type UnitStatus string
-
-const (
-	UnitPending   UnitStatus = "pending"   // Agent hasn't started
-	UnitInstalled UnitStatus = "installed" // Agent has run the installed hook
-	UnitStarted   UnitStatus = "started"   // Agent is running properly
-	UnitStopped   UnitStatus = "stopped"   // Agent has stopped running on request
-	UnitError     UnitStatus = "error"     // Agent is waiting in an error state
-	UnitDown      UnitStatus = "down"      // Agent is down or not communicating
-)
-
 type UnitInfo struct {
 	Name           string `bson:"_id"`
 	Service        string
@@ -336,15 +324,19 @@ type UnitInfo struct {
 	MachineId      string
 	Resolved       ResolvedMode
 	Ports          []Port
-	Status         UnitStatus
-	StatusInfo     string
 }
 
 func (i *UnitInfo) EntityId() interface{} { return i.Name }
 func (i *UnitInfo) EntityKind() string    { return "unit" }
 
+type Endpoint struct {
+	ServiceName string
+	Relation    charm.Relation
+}
+
 type RelationInfo struct {
-	Key string `bson:"_id"`
+	Key       string `bson:"_id"`
+	Endpoints []Endpoint
 }
 
 func (i *RelationInfo) EntityId() interface{} { return i.Key }

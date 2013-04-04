@@ -6,7 +6,6 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	stdlog "log"
 	"os"
@@ -54,14 +53,20 @@ func build() error {
 
 	log.Infof("builddb: Waiting for unit to reach %q status...", params.UnitStarted)
 	unit := units[0]
-	last, info := unit.Status()
+	last, info, err := unit.Status()
+	if err != nil {
+		return err
+	}
 	logStatus(last, info)
 	for last != params.UnitStarted {
 		time.Sleep(2 * time.Second)
 		if err := unit.Refresh(); err != nil {
 			return err
 		}
-		status, info := unit.Status()
+		status, info, err := unit.Status()
+		if err != nil {
+			return err
+		}
 		if status != last {
 			logStatus(status, info)
 			last = status
