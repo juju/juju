@@ -49,22 +49,23 @@ func (c *GetConstraintsCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-func (c *GetConstraintsCommand) Run(ctx *cmd.Context) (err error) {
+func (c *GetConstraintsCommand) Run(ctx *cmd.Context) error {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
+
 	var cons constraints.Value
-	if c.ServiceName == "" {
-		cons, err = conn.State.EnvironConstraints()
-	} else {
+	if c.ServiceName != "" {
 		args := params.GetServiceConstraints{
 			ServiceName: c.ServiceName,
 		}
-
+		var results params.GetServiceConstraintsResults
 		results, err = statecmd.GetServiceConstraints(conn.State, args)
 		cons = results.Constraints
+	} else {
+		cons, err = conn.State.EnvironConstraints()
 	}
 	if err != nil {
 		return err
