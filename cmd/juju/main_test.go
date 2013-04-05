@@ -165,8 +165,8 @@ environments:
         broken: %s
 `
 
-// breakJuju forces the dummy environment to return an error
-// when environMethod is called.
+// breakJuju forces the dummy environment to return an error when
+// environMethod is called.
 func breakJuju(c *C, environMethod string) (msg string) {
 	yaml := fmt.Sprintf(brokenConfig, environMethod)
 	err := ioutil.WriteFile(config.JujuHomePath("environments.yaml"), []byte(yaml), 0666)
