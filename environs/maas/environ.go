@@ -196,7 +196,7 @@ func (env *maasEnviron) Bootstrap(uploadTools bool, stateServerCert, stateServer
 	if password == "" {
 		return fmt.Errorf("admin-secret is required for bootstrap")
 	}
-	log.Printf("environs/maas: bootstrapping environment %q.", env.Name())
+	log.Debugf("environs/maas: bootstrapping environment %q.", env.Name())
 	err := env.quiesceStateFile()
 	if err != nil {
 		return err
@@ -245,7 +245,7 @@ func (env *maasEnviron) StateInfo() (*state.Info, *api.Info, error) {
 	var apiAddrs []string
 	// Wait for the DNS names of any of the instances
 	// to become available.
-	log.Printf("environs/maas: waiting for DNS name(s) of state server instances %v", st.StateInstances)
+	log.Debugf("environs/maas: waiting for DNS name(s) of state server instances %v", st.StateInstances)
 	for a := longAttempt.Start(); len(stateAddrs) == 0 && a.Next(); {
 		insts, err := env.Instances(st.StateInstances)
 		if err != nil && err != environs.ErrPartialInstances {
@@ -363,7 +363,7 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, tools *state.To
 // implementation of StartInstance, and to initialize the bootstrap node.
 func (environ *maasEnviron) obtainNode(machineId string, stateInfo *state.Info, apiInfo *api.Info, tools *state.Tools, userdata []byte) (*maasInstance, error) {
 
-	log.Printf("environs/maas: starting machine %s in $q running tools version %q from %q", machineId, environ.name, tools.Binary, tools.URL)
+	log.Debugf("environs/maas: starting machine %s in $q running tools version %q from %q", machineId, environ.name, tools.Binary, tools.URL)
 
 	node, err := environ.acquireNode()
 	if err != nil {
@@ -376,7 +376,7 @@ func (environ *maasEnviron) obtainNode(machineId string, stateInfo *state.Info, 
 		environ.StopInstances([]environs.Instance{&instance})
 		return nil, fmt.Errorf("cannot start instance: %v", err)
 	}
-	log.Printf("environs/maas: started instance %q", instance.Id())
+	log.Debugf("environs/maas: started instance %q", instance.Id())
 	return &instance, nil
 }
 
@@ -505,7 +505,7 @@ func (env *maasEnviron) PublicStorage() environs.StorageReader {
 }
 
 func (environ *maasEnviron) Destroy(ensureInsts []environs.Instance) error {
-	log.Printf("environs/maas: destroying environment %q", environ.name)
+	log.Debugf("environs/maas: destroying environment %q", environ.name)
 	insts, err := environ.AllInstances()
 	if err != nil {
 		return fmt.Errorf("cannot get instances: %v", err)
