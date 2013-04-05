@@ -46,7 +46,7 @@ var confTests = []struct {
 		MongoPort:       1234,
 		APIPort:         4321,
 		OldPassword:     "old password",
-			MachineNonce: "dummy",
+		MachineNonce:    "dummy",
 		StateInfo: &state.Info{
 			Addrs:    []string{"foo.com:355", "bar:545"},
 			CACert:   []byte("ca cert"),
@@ -119,8 +119,8 @@ var confTests = []struct {
 }, {
 	about: "no state entity tag",
 	conf: agent.Conf{
-		OldPassword: "old password",
-			MachineNonce: "dummy",
+		OldPassword:  "old password",
+		MachineNonce: "dummy",
 		StateInfo: &state.Info{
 			Addrs:    []string{"foo.com:355", "bar:545"},
 			CACert:   []byte("ca cert"),
@@ -169,8 +169,8 @@ var confTests = []struct {
 }, {
 	about: "state server address with bad port",
 	conf: agent.Conf{
-		OldPassword: "old password",
-			MachineNonce: "dummy",
+		OldPassword:  "old password",
+		MachineNonce: "dummy",
 		StateInfo: &state.Info{
 			Addrs:    []string{"foo:345d"},
 			CACert:   []byte("ca cert"),
@@ -200,8 +200,8 @@ var confTests = []struct {
 }, {
 	about: "no api CA cert",
 	conf: agent.Conf{
-		OldPassword: "old password",
-			MachineNonce: "dummy",
+		OldPassword:  "old password",
+		MachineNonce: "dummy",
 		StateInfo: &state.Info{
 			Addrs:    []string{"foo:345"},
 			CACert:   []byte("ca cert"),
