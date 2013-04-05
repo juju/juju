@@ -87,7 +87,7 @@ func (s *FilterSuite) TestUnitDeath(c *C) {
 	case <-time.After(50 * time.Millisecond):
 		c.Fatalf("dead not detected")
 	}
-	c.Assert(f.Wait(), Equals, worker.ErrDead)
+	c.Assert(f.Wait(), Equals, worker.ErrTerminateAgent)
 }
 
 func (s *FilterSuite) TestServiceDeath(c *C) {

@@ -113,7 +113,7 @@ func (s *RelationerSuite) TestEnterLeaveScope(c *C) {
 		c.Assert(ch.Joined, HasLen, 0)
 		c.Assert(ch.Changed, HasLen, 0)
 		c.Assert(ch.Departed, DeepEquals, []string{"u/0"})
-	case <-time.After(5 * time.Second):
+	case <-time.After(worstCase):
 		c.Fatalf("timed out waiting for absence detection")
 	}
 }

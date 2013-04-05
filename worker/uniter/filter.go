@@ -353,7 +353,7 @@ func (f *filter) loop(unitName string) (err error) {
 func (f *filter) unitChanged() error {
 	if err := f.unit.Refresh(); err != nil {
 		if state.IsNotFound(err) {
-			return worker.ErrDead
+			return worker.ErrTerminateAgent
 		}
 		return err
 	}
@@ -365,7 +365,7 @@ func (f *filter) unitChanged() error {
 			f.outUpgrade = nil
 		case state.Dead:
 			log.Noticef("worker/uniter/filter: unit is dead")
-			return worker.ErrDead
+			return worker.ErrTerminateAgent
 		}
 	}
 	if resolved := f.unit.Resolved(); resolved != f.resolved {
