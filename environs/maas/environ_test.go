@@ -5,10 +5,12 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/gomaasapi"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/version"
 )
 
 type EnvironSuite struct {
@@ -180,13 +182,14 @@ func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node1", "hostname": "host1"}`)
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node2", "hostname": "host2"}`)
 	env := suite.makeEnviron()
-	err := environs.Bootstrap(env, fakeWriteCertAndKey)
+	err := environs.Bootstrap(env, constraints.Value{})
 	stateInfo, apiInfo, err := env.StateInfo()
 	c.Assert(err, IsNil)
-	stateInfo.EntityName = "machine-1"
-	apiInfo.EntityName = "machine-1"
+	stateInfo.Tag = "machine-1"
+	apiInfo.Tag = "machine-1"
 
-	instance, err := env.StartInstance("1", stateInfo, apiInfo, nil)
+	series := version.Current.Series
+	instance, err := env.StartInstance("1", series, constraints.Value{}, stateInfo, apiInfo)
 	c.Assert(err, IsNil)
 	c.Check(instance, NotNil)
 
@@ -309,7 +312,7 @@ func (suite *EnvironSuite) TestBootstrapSucceeds(c *C) {
 	cert := []byte{1, 2, 3}
 	key := []byte{4, 5, 6}
 
-	err := env.Bootstrap(nil, cert, key)
+	err := env.Bootstrap(constraints.Value{}, cert, key)
 	c.Assert(err, IsNil)
 }
 
@@ -317,7 +320,7 @@ func (suite *EnvironSuite) TestBootstrapFailsIfNoNodes(c *C) {
 	env := suite.makeEnviron()
 	cert := []byte{1, 2, 3}
 	key := []byte{4, 5, 6}
-	err := env.Bootstrap(nil, cert, key)
+	err := env.Bootstrap(constraints.Value{}, cert, key)
 	// Since there are no nodes, the attempt to allocate one returns a
 	// 409: Conflict.
 	c.Check(err, ErrorMatches, ".*409.*")
@@ -328,6 +331,6 @@ func (suite *EnvironSuite) TestBootstrapIntegratesWithEnvirons(c *C) {
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "bootstrapnode"}`)
 
 	// environs.Bootstrap calls Environ.Bootstrap.  This works.
-	err := environs.Bootstrap(env, fakeWriteCertAndKey)
+	err := environs.Bootstrap(env, constraints.Value{})
 	c.Assert(err, IsNil)
 }
