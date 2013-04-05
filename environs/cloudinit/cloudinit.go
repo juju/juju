@@ -96,7 +96,13 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 		return nil, err
 	}
 	c := cloudinit.New()
+	return Configure(cfg, c)
+}
 
+func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, error) {
+	if err := verifyConfig(cfg); err != nil {
+		return nil, err
+	}
 	c.AddSSHAuthorizedKeys(cfg.AuthorizedKeys)
 	c.AddPackage("git")
 

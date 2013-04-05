@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
+	cloudinit_core "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
@@ -197,6 +198,30 @@ func (*cloudinitSuite) TestCloudInit(c *C) {
 		c.Check(ci, NotNil)
 
 		test.check(c)
+	}
+}
+
+func (*cloudinitSuite) TestCloudInitConfigure(c *C) {
+	for i, test := range cloudinitTests {
+		c.Logf("test %d (Configure)", i)
+		// Create a simple cloudinit config with a 'runcmd' statement.
+		cloudcfg := cloudinit_core.New()
+		script := "test script"
+		cloudcfg.AddRunCmd(script)
+
+		ci, err := cloudinit.Configure(&test.cfg, cloudcfg)
+		c.Assert(err, IsNil)
+		c.Check(ci, NotNil)
+		data, err := ci.Render()
+		c.Assert(err, IsNil)
+
+		ciContent := make(map[interface{}]interface{})
+		err = goyaml.Unmarshal(data, &ciContent)
+		c.Assert(err, IsNil)
+		// The 'runcmd' statement is at the beginning of the list
+		// of 'runcmd' statements.
+		runCmd := ciContent["runcmd"].([]interface{})
+		c.Check(runCmd[0], Equals, script)
 	}
 }
 

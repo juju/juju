@@ -86,6 +86,6 @@ func (s *UtilSuite) TestUserData(c *C) {
 	// The scripts given to userData where added as the first
 	// commands to be run.
 	runCmd := config["runcmd"].([]interface{})
-	c.Check(runCmd[0], Equals, script2)
-	c.Check(runCmd[1], Equals, script1)
+	c.Check(runCmd[0], Equals, script1)
+	c.Check(runCmd[1], Equals, script2)
 }
