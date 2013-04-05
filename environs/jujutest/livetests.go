@@ -683,7 +683,7 @@ attempt:
 // available platform.  The first thing start instance should do is find
 // appropriate tools.
 func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
-	inst, err := t.Env.StartInstance("4", "unknownseries", constraints.Value{}, testing.InvalidStateInfo("4"), testing.InvalidAPIInfo("4"))
+	inst, err := t.Env.StartInstance("4", "fake_nonce", "unknownseries", constraints.Value{}, testing.InvalidStateInfo("4"), testing.InvalidAPIInfo("4"))
 	if inst != nil {
 		err := t.Env.StopInstances([]environs.Instance{inst})
 		c.Check(err, IsNil)
