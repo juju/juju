@@ -1049,19 +1049,19 @@ func (s waitUniterDead) step(c *C, ctx *context) {
 		c.Assert(err, ErrorMatches, s.err)
 		return
 	}
-	// In the default case, we're waiting for worker.ErrDead, but the path to
-	// that error can be tricky. If the unit becomes Dead at an inconvenient
-	// time, unrelated calls can fail -- as they should -- but not be detected
-	// as worker.ErrDead. In this case, we restart the uniter and check that it
-	// fails as expected when starting up; this mimics the behaviour of the
-	// unit agent and verifies that the UA will, eventually, see the correct
-	// error and respond appropriately.
+	// In the default case, we're waiting for worker.ErrTerminateAgent, but
+	// the path to that error can be tricky. If the unit becomes Dead at an
+	// inconvenient time, unrelated calls can fail -- as they should -- but
+	// not be detected as worker.ErrTerminateAgent. In this case, we restart
+	// the uniter and check that it fails as expected when starting up; this
+	// mimics the behaviour of the unit agent and verifies that the UA will,
+	// eventually, see the correct error and respond appropriately.
 	err := s.waitDead(c, ctx)
-	if err != worker.ErrDead {
+	if err != worker.ErrTerminateAgent {
 		step(c, ctx, startUniter{})
 		err = s.waitDead(c, ctx)
 	}
-	c.Assert(err, Equals, worker.ErrDead)
+	c.Assert(err, Equals, worker.ErrTerminateAgent)
 	err = ctx.unit.Refresh()
 	c.Assert(err, IsNil)
 	c.Assert(ctx.unit.Life(), Equals, state.Dead)

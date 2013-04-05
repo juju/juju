@@ -77,7 +77,7 @@ func (*toolSuite) TestUpgradeGetsPrecedence(c *C) {
 func (*toolSuite) TestDeadGetsPrecedence(c *C) {
 	tasks := newTestTasks(3)
 	tasks[1].stopErr = &UpgradeReadyError{}
-	tasks[2].stopErr = worker.ErrDead
+	tasks[2].stopErr = worker.ErrTerminateAgent
 	go func() {
 		time.Sleep(10 * time.Millisecond)
 		tasks[0].kill <- fmt.Errorf("stop")
