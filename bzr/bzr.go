@@ -145,4 +145,3 @@ func (b *Branch) MustBeClean() error {
 	}
 	return nil
 }
-

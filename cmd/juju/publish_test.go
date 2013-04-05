@@ -151,7 +151,7 @@ func (s *PublishSuite) TestPreExistingPublished(c *C) {
 
 	req := testing.Server.WaitRequest()
 	c.Assert(req.URL.Path, Equals, "/charm-event")
-	c.Assert(req.Form.Get("charms"), Equals, "cs:precise/wordpress@" + digest)
+	c.Assert(req.Form.Get("charms"), Equals, "cs:precise/wordpress@"+digest)
 }
 
 func (s *PublishSuite) TestPreExistingPublishedEdge(c *C) {
@@ -175,7 +175,7 @@ func (s *PublishSuite) TestPreExistingPublishedEdge(c *C) {
 
 	req := testing.Server.WaitRequest()
 	c.Assert(req.URL.Path, Equals, "/charm-event")
-	c.Assert(req.Form.Get("charms"), Equals, "cs:precise/wordpress@" + digest)
+	c.Assert(req.Form.Get("charms"), Equals, "cs:precise/wordpress@"+digest)
 
 	req = testing.Server.WaitRequest()
 	c.Assert(req.URL.Path, Equals, "/charm-event")
@@ -196,7 +196,7 @@ func (s *PublishSuite) TestPreExistingPublishError(c *C) {
 
 	req := testing.Server.WaitRequest()
 	c.Assert(req.URL.Path, Equals, "/charm-event")
-	c.Assert(req.Form.Get("charms"), Equals, "cs:precise/wordpress@" + digest)
+	c.Assert(req.Form.Get("charms"), Equals, "cs:precise/wordpress@"+digest)
 }
 
 func (s *PublishSuite) TestFullPublish(c *C) {
@@ -246,7 +246,7 @@ func (s *PublishSuite) TestFullPublish(c *C) {
 	// And that all the requests were sent with the proper data.
 	req := testing.Server.WaitRequest()
 	c.Assert(req.URL.Path, Equals, "/charm-event")
-	c.Assert(req.Form.Get("charms"), Equals, "cs:~user/precise/wordpress@" + digest)
+	c.Assert(req.Form.Get("charms"), Equals, "cs:~user/precise/wordpress@"+digest)
 
 	for i := 0; i < 3; i++ {
 		// The second request grabs tip to see the current state, and the
@@ -302,7 +302,7 @@ func (s *PublishSuite) TestFullPublishError(c *C) {
 	// And that all the requests were sent with the proper data.
 	req := testing.Server.WaitRequest()
 	c.Assert(req.URL.Path, Equals, "/charm-event")
-	c.Assert(req.Form.Get("charms"), Equals, "cs:~user/precise/wordpress@" + digest)
+	c.Assert(req.Form.Get("charms"), Equals, "cs:~user/precise/wordpress@"+digest)
 
 	for i := 0; i < 3; i++ {
 		// The second request grabs tip to see the current state, and the
@@ -357,7 +357,7 @@ func (s *PublishSuite) TestFullPublishRace(c *C) {
 	// And that all the requests were sent with the proper data.
 	req := testing.Server.WaitRequest()
 	c.Assert(req.URL.Path, Equals, "/charm-event")
-	c.Assert(req.Form.Get("charms"), Equals, "cs:~user/precise/wordpress@" + digest)
+	c.Assert(req.Form.Get("charms"), Equals, "cs:~user/precise/wordpress@"+digest)
 
 	for i := 0; i < 3; i++ {
 		// The second request grabs tip to see the current state, and the
@@ -367,4 +367,3 @@ func (s *PublishSuite) TestFullPublishRace(c *C) {
 		c.Assert(req.Form.Get("charms"), Equals, "cs:~user/precise/wordpress")
 	}
 }
-
