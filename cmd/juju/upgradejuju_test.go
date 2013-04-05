@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
@@ -146,10 +147,13 @@ func upload(s environs.Storage, v string) {
 // - we can make it return a tools with a version == version.Current.
 // - we don't need to actually rebuild the juju source for each test
 // that uses --upload-tools.
-func testPutTools(storage environs.Storage, forceVersion *version.Number) (*state.Tools, error) {
+func testPutTools(storage environs.Storage, forceVersion *version.Number, fakeSeries ...string) (*state.Tools, error) {
 	vers := version.Current
 	if forceVersion != nil {
 		vers.Number = *forceVersion
+	}
+	if len(fakeSeries) != 0 {
+		return nil, fmt.Errorf("test framework should not be trusted with this")
 	}
 	upload(storage, vers.String())
 	return &state.Tools{
@@ -166,7 +170,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *C) {
 	}()
 
 	for i, test := range upgradeJujuTests {
-		c.Logf("%d. %s", i, test.about)
+		c.Logf("\ntest %d: %s", i, test.about)
 		// Set up the test preconditions.
 		s.Reset(c)
 		for _, v := range test.private {

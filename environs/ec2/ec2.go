@@ -285,10 +285,7 @@ func (e *environ) Bootstrap(cons constraints.Value, cert, key []byte) error {
 	if !hasCert {
 		return fmt.Errorf("no CA certificate in environment configuration")
 	}
-	v := version.Current
-	v.Series = tools.Series
-	v.Arch = tools.Arch
-	mongoURL := environs.MongoURL(e, v)
+	mongoURL := environs.MongoURL(e, tools.Series, tools.Arch)
 	inst, err := e.startInstance(&startInstanceParams{
 		machineId:   "0",
 		series:      tools.Series,

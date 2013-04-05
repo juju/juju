@@ -11,14 +11,14 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/trivial"
-	"launchpad.net/juju-core/version"
 	"regexp"
-	"strings"
 )
 
 type ProviderSuite struct{}
@@ -186,20 +186,8 @@ func (srv *localServer) startServer(c *C) {
 		S3LocationConstraint: true,
 	}
 	s3inst := s3.New(aws.Auth{}, aws.Regions["test"])
-	putFakeTools(c, ec2.BucketStorage(s3inst.Bucket("public-tools")))
+	envtesting.PutFakeTools(c, ec2.BucketStorage(s3inst.Bucket("public-tools")))
 	srv.addSpice(c)
-}
-
-// putFakeTools sets up a bucket containing something
-// that looks like a tools archive so test methods
-// that start an instance can succeed even though they
-// do not upload tools.
-func putFakeTools(c *C, s environs.StorageWriter) {
-	path := environs.ToolsStoragePath(version.Current)
-	c.Logf("putting fake tools at %v", path)
-	toolsContents := "tools archive, honest guv"
-	err := s.Put(path, strings.NewReader(toolsContents), int64(len(toolsContents)))
-	c.Assert(err, IsNil)
 }
 
 // addSpice adds some "spice" to the local server
@@ -269,7 +257,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	policy := t.env.AssignmentPolicy()
 	c.Assert(policy, Equals, state.AssignNew)
 
-	err := environs.UploadTools(t.env)
+	_, err := environs.PutTools(t.env.Storage(), nil)
 	c.Assert(err, IsNil)
 	err = environs.Bootstrap(t.env, constraints.Value{})
 	c.Assert(err, IsNil)
@@ -310,7 +298,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	// check that a new instance will be started without
 	// zookeeper, with a machine agent, and without a
 	// provisioning agent.
-	series := version.Current.Series
+	series := config.DefaultSeries
 	info.Tag = "machine-1"
 	apiInfo.Tag = "machine-1"
 	inst1, err := t.env.StartInstance("1", series, constraints.Value{}, info, apiInfo)

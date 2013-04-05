@@ -441,7 +441,7 @@ func (test configTest) check(c *C, h fakeHome) {
 		c.Assert(err, IsNil)
 		c.Assert(cfg.AgentVersion(), Equals, vers)
 	} else {
-		c.Assert(cfg.AgentVersion(), Equals, version.Current.Number)
+		c.Assert(cfg.AgentVersion(), Equals, version.CurrentNumber())
 	}
 
 	dev, _ := test.attrs["development"].(bool)
@@ -450,7 +450,7 @@ func (test configTest) check(c *C, h fakeHome) {
 	if series, _ := test.attrs["default-series"].(string); series != "" {
 		c.Assert(cfg.DefaultSeries(), Equals, series)
 	} else {
-		c.Assert(cfg.DefaultSeries(), Equals, version.Current.Series)
+		c.Assert(cfg.DefaultSeries(), Equals, config.DefaultSeries)
 	}
 
 	if m, _ := test.attrs["firewall-mode"].(string); m != "" {
@@ -519,7 +519,6 @@ func (*ConfigSuite) TestConfigAttrs(c *C) {
 		"name":                      "my-name",
 		"authorized-keys":           "my-keys",
 		"firewall-mode":             string(config.FwDefault),
-		"default-series":            version.Current.Series,
 		"admin-secret":              "foo",
 		"unknown":                   "my-unknown",
 		"ca-private-key":            "",
@@ -531,7 +530,8 @@ func (*ConfigSuite) TestConfigAttrs(c *C) {
 
 	// These attributes are added if not set.
 	attrs["development"] = false
-	attrs["agent-version"] = version.Current.Number.String()
+	attrs["agent-version"] = version.CurrentNumber().String()
+	attrs["default-series"] = config.DefaultSeries
 	c.Assert(cfg.AllAttrs(), DeepEquals, attrs)
 	c.Assert(cfg.UnknownAttrs(), DeepEquals, map[string]interface{}{"unknown": "my-unknown"})
 
