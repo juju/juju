@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
@@ -24,29 +23,6 @@ const toolPrefix = "tools/juju-"
 type ToolsList struct {
 	Private []*state.Tools
 	Public  []*state.Tools
-}
-
-// UploadTools puts the tools into the environ's storage, and sets the default
-// series of the environment.
-func UploadTools(environ Environ) error {
-	tools, err := PutTools(environ.Storage(), nil)
-	if err != nil {
-		return fmt.Errorf("cannot upload tools: %v", err)
-	}
-	cfg := environ.Config()
-	m := cfg.AllAttrs()
-	// Specify the agent-version and default-series in the environment to match the tools.
-	m["agent-version"] = tools.Number.String()
-	m["default-series"] = tools.Series
-	cfg, err = config.New(m)
-	if err != nil {
-		return fmt.Errorf("cannot create environment configuration with defined version %q and series %q: %v", tools.Number.String(), tools.Series, err)
-	}
-	if err = environ.SetConfig(cfg); err != nil {
-		return fmt.Errorf("cannot set environment configuration with version %q and series %q: %v", tools.Number.String(), tools.Series, err)
-	}
-
-	return nil
 }
 
 // ListTools returns a ToolsList holding all the tools
@@ -105,11 +81,14 @@ func listTools(store StorageReader, majorVersion int) ([]*state.Tools, error) {
 	return toolsList, nil
 }
 
-// PutTools builds the current version of the juju tools, uploads them
-// to the given storage, and returns a Tools instance describing them.
-// If forceVersion is not nil, the uploaded tools bundle will report
-// the given version number.
-func PutTools(storage Storage, forceVersion *version.Number) (*state.Tools, error) {
+// PutTools builds whatever version of launchpad.net/juju-core is in $GOPATH,
+// uploads it to the given storage, and returns a Tools instance describing
+// them. If forceVersion is not nil, the uploaded tools bundle will report
+// the given version number; if any fakeSeries are supplied, additional copies
+// of the built tools will be uploaded for use by machines of those series.
+// Juju tools built for one series do not necessarily run on another, but this
+// func exists only for development use cases.
+func PutTools(storage Storage, forceVersion *version.Number, fakeSeries ...string) (*state.Tools, error) {
 	// TODO(rog) find binaries from $PATH when not using a development
 	// version of juju within a $GOPATH.
 
@@ -126,21 +105,37 @@ func PutTools(storage Storage, forceVersion *version.Number) (*state.Tools, erro
 	if err != nil {
 		return nil, err
 	}
-	_, err = f.Seek(0, 0)
-	if err != nil {
-		return nil, fmt.Errorf("cannot seek to start of tools archive: %v", err)
-	}
 	fi, err := f.Stat()
 	if err != nil {
 		return nil, fmt.Errorf("cannot stat newly made tools archive: %v", err)
 	}
-	p := ToolsStoragePath(toolsVersion)
-	log.Infof("environs: putting tools %v (%dkB)", p, (fi.Size()+512)/1024)
-	err = storage.Put(p, f, fi.Size())
+	size := fi.Size()
+	log.Infof("environs: built tools %v (%dkB)", toolsVersion, (size+512)/1024)
+	putTools := func(vers version.Binary) (string, error) {
+		if _, err := f.Seek(0, 0); err != nil {
+			return "", fmt.Errorf("cannot seek to start of tools archive: %v", err)
+		}
+		path := ToolsStoragePath(vers)
+		log.Infof("environs: putting tools %v", path)
+		if err := storage.Put(path, f, size); err != nil {
+			return "", err
+		}
+		return path, nil
+	}
+	for _, series := range fakeSeries {
+		if series != toolsVersion.Series {
+			fakeVersion := toolsVersion
+			fakeVersion.Series = series
+			if _, err := putTools(fakeVersion); err != nil {
+				return nil, err
+			}
+		}
+	}
+	path, err := putTools(toolsVersion)
 	if err != nil {
 		return nil, err
 	}
-	url, err := storage.URL(p)
+	url, err := storage.URL(path)
 	if err != nil {
 		return nil, err
 	}
@@ -266,12 +261,6 @@ func ToolsStoragePath(vers version.Binary) string {
 	return toolPrefix + vers.String() + ".tgz"
 }
 
-// MongoStoragePath returns the path that is used to
-// retrieve the given version of mongodb in a Storage.
-func MongoStoragePath(vers version.Binary) string {
-	return fmt.Sprintf("tools/mongo-2.2.0-%s-%s.tgz", vers.Series, vers.Arch)
-}
-
 // ToolsSearchFlags gives options when searching
 // for tools.
 type ToolsSearchFlags int
@@ -309,42 +298,6 @@ func FindTools(env Environ, vers version.Binary, flags ToolsSearchFlags) (*state
 		return tools, &NotFoundError{fmt.Errorf("no compatible tools found")}
 	}
 	return tools, nil
-}
-
-// MongoURL figures out from where to retrieve a copy of MongoDB compatible with
-// the given version from the given environment. The search locations are (in order):
-// - the environment specific storage
-// - the public storage
-// - a "well known" EC2 bucket
-func MongoURL(env Environ, vers version.Binary) string {
-	url, err := findMongo(env.Storage(), vers)
-	if err == nil {
-		return url
-	}
-	url, err = findMongo(env.PublicStorage(), vers)
-	if err == nil {
-		return url
-	}
-	url = fmt.Sprintf("http://juju-dist.s3.amazonaws.com/tools/mongo-2.2.0-%s-%s.tgz", vers.Series, vers.Arch)
-	return url
-}
-
-// Return the URL of a compatible MongoDB (if it exists) from the storage,
-// for the given series and architecture (in vers).
-func findMongo(store StorageReader, vers version.Binary) (string, error) {
-	path := MongoStoragePath(vers)
-	names, err := store.List(path)
-	if err != nil {
-		return "", err
-	}
-	if len(names) != 1 {
-		return "", &NotFoundError{fmt.Errorf("%s not found", path)}
-	}
-	url, err := store.URL(names[0])
-	if err != nil {
-		return "", err
-	}
-	return url, nil
 }
 
 func setenv(env []string, val string) []string {

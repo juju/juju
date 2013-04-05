@@ -19,13 +19,28 @@ import (
 // number of the release package.
 const version = "1.9.13"
 
+// CurrentNumber returns the version number.
+func CurrentNumber() Number {
+	return MustParse(version)
+}
+
+// CurrentSeries returns the current Ubuntu release name.
+func CurrentSeries() string {
+	return readSeries("/etc/lsb-release")
+}
+
+// CurrentArch returns the architecture of the machine.
+func CurrentArch() string {
+	return ubuntuArch(runtime.GOARCH)
+}
+
 // Current gives the current version of the system.  If the file
 // "FORCE-VERSION" is present in the same directory as the running
 // binary, it will override this.
 var Current = Binary{
-	Number: MustParse(version),
-	Series: readSeries("/etc/lsb-release"), // current Ubuntu release name.
-	Arch:   ubuntuArch(runtime.GOARCH),
+	Number: CurrentNumber(),
+	Series: CurrentSeries(),
+	Arch:   CurrentArch(),
 }
 
 func init() {

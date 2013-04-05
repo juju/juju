@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/openstack"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
@@ -203,7 +204,7 @@ func (s *localServerSuite) SetUpTest(c *C) {
 	})
 	s.Tests.SetUpTest(c)
 	writeablePublicStorage := openstack.WritablePublicStorage(s.Env)
-	putFakeTools(c, writeablePublicStorage)
+	envtesting.PutFakeTools(c, writeablePublicStorage)
 	s.env = s.Tests.Env
 }
 

@@ -95,19 +95,55 @@ func (*BootstrapSuite) TestUploadTools(c *C) {
 	c.Check(opBootstrap.Env, Equals, "peckham")
 	c.Check(opBootstrap.Constraints, DeepEquals, constraints.Value{})
 
+	assertUploadedSomething(c, version.Current)
+}
+
+func assertUploadedSomething(c *C, vers version.Binary) {
 	// Check that some file was uploaded and can be unpacked; detailed
 	// semantics tested elsewhere.
 	envs, err := environs.ReadEnvirons("")
 	c.Assert(err, IsNil)
 	env, err := envs.Open("peckham")
 	c.Assert(err, IsNil)
-	tools, err := environs.FindTools(env, version.Current, environs.CompatVersion)
+	tools, err := environs.FindTools(env, vers, environs.CompatVersion)
 	c.Assert(err, IsNil)
+	c.Assert(tools.Binary, Equals, vers)
 	resp, err := http.Get(tools.URL)
 	c.Assert(err, IsNil)
 	defer resp.Body.Close()
 	err = agent.UnpackTools(c.MkDir(), tools, resp.Body)
 	c.Assert(err, IsNil)
+}
+
+func (*BootstrapSuite) TestUploadToolsFakeSeries(c *C) {
+	defer testing.MakeFakeHome(c, envConfig).Restore()
+	opc, errc := runCommand(new(BootstrapCommand), "--upload-tools", "--fake-series=good,great")
+	c.Check(<-errc, IsNil)
+	c.Check((<-opc).(dummy.OpPutFile).Env, Equals, "peckham")
+	c.Check((<-opc).(dummy.OpPutFile).Env, Equals, "peckham")
+	c.Check((<-opc).(dummy.OpPutFile).Env, Equals, "peckham")
+	c.Check((<-opc).(dummy.OpBootstrap).Env, Equals, "peckham")
+
+	vers := version.Current
+	assertUploadedSomething(c, vers)
+	vers.Series = "good"
+	assertUploadedSomething(c, vers)
+	vers.Series = "great"
+	assertUploadedSomething(c, vers)
+}
+
+func (*BootstrapSuite) TestFakeSeriesBadParams(c *C) {
+	defer testing.MakeFakeHome(c, envConfig).Restore()
+	opc, errc := runCommand(new(BootstrapCommand), "--fake-series=bad1")
+	c.Check(<-errc, ErrorMatches, `invalid value "bad1" for flag --fake-series: invalid series name "bad1"`)
+	c.Check(<-opc, IsNil)
+}
+
+func (*BootstrapSuite) TestFakeSeriesNoUploadTools(c *C) {
+	defer testing.MakeFakeHome(c, envConfig).Restore()
+	opc, errc := runCommand(new(BootstrapCommand), "--fake-series=good,great")
+	c.Check(<-errc, ErrorMatches, `--fake-series requires --upload-tools`)
+	c.Check(<-opc, IsNil)
 }
 
 func (*BootstrapSuite) TestBrokenEnvironment(c *C) {
