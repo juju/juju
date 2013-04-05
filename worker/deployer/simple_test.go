@@ -186,6 +186,8 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *C, name, xName, password st
 	c.Assert(conf, DeepEquals, &agent.Conf{
 		DataDir:     fix.dataDir,
 		OldPassword: password,
+		// TODO(dimitern) this will change in a follow-up, when we start using it.
+		MachineNonce: "FAKE_NONCE",
 		StateInfo: &state.Info{
 			Addrs:  []string{"s1:123", "s2:123"},
 			CACert: []byte("test-cert"),

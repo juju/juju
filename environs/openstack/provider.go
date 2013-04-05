@@ -669,11 +669,13 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 		StateServerKey:  scfg.stateServerKey,
 		DataDir:         "/var/lib/juju",
 		Tools:           scfg.tools,
-		MongoURL:        scfg.mongoURL,
-		MachineId:       scfg.machineId,
-		AuthorizedKeys:  e.ecfg().AuthorizedKeys(),
-		Config:          scfg.config,
-		Constraints:     scfg.constraints,
+		// TODO(dimitern) this will change in a follow-up, when we start using it.
+		MachineNonce:   "FAKE_NONCE",
+		MongoURL:       scfg.mongoURL,
+		MachineId:      scfg.machineId,
+		AuthorizedKeys: e.ecfg().AuthorizedKeys(),
+		Config:         scfg.config,
+		Constraints:    scfg.constraints,
 	}
 	cloudcfg, err := cloudinit.New(cfg)
 	if err != nil {
