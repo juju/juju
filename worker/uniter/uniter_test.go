@@ -29,6 +29,12 @@ import (
 	"time"
 )
 
+// worstCase is used for timeouts when timing out
+// will fail the test. Raising this value should
+// not affect the overall running time of the tests
+// unless they fail.
+const worstCase = 10 * time.Second
+
 func TestPackage(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
 }
@@ -1001,7 +1007,7 @@ func (createUniter) step(c *C, ctx *context) {
 type waitAddresses struct{}
 
 func (waitAddresses) step(c *C, ctx *context) {
-	timeout := time.After(5 * time.Second)
+	timeout := time.After(worstCase)
 	for {
 		select {
 		case <-timeout:
@@ -1064,7 +1070,7 @@ func (s waitUniterDead) step(c *C, ctx *context) {
 func (s waitUniterDead) waitDead(c *C, ctx *context) error {
 	u := ctx.uniter
 	ctx.uniter = nil
-	timeout := time.After(5 * time.Second)
+	timeout := time.After(worstCase)
 	for {
 		// The repeated StartSync is to ensure timely completion of this method
 		// in the case(s) where a state change causes a uniter action which
@@ -1183,7 +1189,7 @@ type waitUnit struct {
 }
 
 func (s waitUnit) step(c *C, ctx *context) {
-	timeout := time.After(5 * time.Second)
+	timeout := time.After(worstCase)
 	for {
 		ctx.st.StartSync()
 		select {
@@ -1240,7 +1246,7 @@ func (s waitHooks) step(c *C, ctx *context) {
 	if match {
 		return
 	}
-	timeout := time.After(5 * time.Second)
+	timeout := time.After(worstCase)
 	for {
 		ctx.st.StartSync()
 		select {
@@ -1470,7 +1476,7 @@ type waitSubordinateExists struct {
 }
 
 func (s waitSubordinateExists) step(c *C, ctx *context) {
-	timeout := time.After(5 * time.Second)
+	timeout := time.After(worstCase)
 	for {
 		ctx.st.StartSync()
 		select {
@@ -1491,7 +1497,7 @@ func (s waitSubordinateExists) step(c *C, ctx *context) {
 type waitSubordinateDying struct{}
 
 func (waitSubordinateDying) step(c *C, ctx *context) {
-	timeout := time.After(5 * time.Second)
+	timeout := time.After(worstCase)
 	for {
 		ctx.st.StartSync()
 		select {
