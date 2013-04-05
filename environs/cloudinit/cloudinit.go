@@ -92,9 +92,6 @@ func base64yaml(m *config.Config) string {
 }
 
 func New(cfg *MachineConfig) (*cloudinit.Config, error) {
-	if err := verifyConfig(cfg); err != nil {
-		return nil, err
-	}
 	c := cloudinit.New()
 	return Configure(cfg, c)
 }

@@ -204,25 +204,33 @@ func (*cloudinitSuite) TestCloudInit(c *C) {
 func (*cloudinitSuite) TestCloudInitConfigure(c *C) {
 	for i, test := range cloudinitTests {
 		c.Logf("test %d (Configure)", i)
-		// Create a simple cloudinit config with a 'runcmd' statement.
 		cloudcfg := cloudinit_core.New()
-		script := "test script"
-		cloudcfg.AddRunCmd(script)
-
 		ci, err := cloudinit.Configure(&test.cfg, cloudcfg)
 		c.Assert(err, IsNil)
 		c.Check(ci, NotNil)
-		data, err := ci.Render()
-		c.Assert(err, IsNil)
 
-		ciContent := make(map[interface{}]interface{})
-		err = goyaml.Unmarshal(data, &ciContent)
-		c.Assert(err, IsNil)
-		// The 'runcmd' statement is at the beginning of the list
-		// of 'runcmd' statements.
-		runCmd := ciContent["runcmd"].([]interface{})
-		c.Check(runCmd[0], Equals, script)
+		test.check(c)
 	}
+}
+
+func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *C) {
+	// Create a simple cloudinit config with a 'runcmd' statement.
+	cloudcfg := cloudinit_core.New()
+	script := "test script"
+	cloudcfg.AddRunCmd(script)
+	ci, err := cloudinit.Configure(&cloudinitTests[0].cfg, cloudcfg)
+	c.Assert(err, IsNil)
+	c.Check(ci, NotNil)
+	data, err := ci.Render()
+	c.Assert(err, IsNil)
+
+	ciContent := make(map[interface{}]interface{})
+	err = goyaml.Unmarshal(data, &ciContent)
+	c.Assert(err, IsNil)
+	// The 'runcmd' statement is at the beginning of the list
+	// of 'runcmd' statements.
+	runCmd := ciContent["runcmd"].([]interface{})
+	c.Check(runCmd[0], Equals, script)
 }
 
 func getScripts(x map[interface{}]interface{}) []string {
