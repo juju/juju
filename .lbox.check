@@ -18,3 +18,9 @@ if [ $VERSION == 'devel' ]; then
 		-printfuncs 'ErrorContextf:1,notFoundf:0,badReqErrorf:0,Commitf:0,Snapshotf:0,Debugf:0' \
 		.
 fi
+
+# check this branch builds cleanly
+go build launchpad.net/juju-core/...
+
+# TODO(dfc) uncomment when the tests pass reliably
+# go test launchpad.net/juju-core/...
