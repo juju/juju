@@ -96,7 +96,7 @@ var allInfoChangeMethodTests = []struct {
 		allInfoAdd(all, &params.MachineInfo{Id: "0"})
 		allInfoAdd(all, &params.MachineInfo{Id: "1"})
 		allInfoIncRef(all, testEntityId{"machine", "0"})
-		all.markRemoved(testEntityId{"machine", "0"})
+		all.update(testEntityId{"machine", "0"}, nil)
 	},
 	expectRevno: 3,
 	expectContents: []entityEntry{{
@@ -113,7 +113,7 @@ var allInfoChangeMethodTests = []struct {
 }, {
 	about: "mark removed on nonexistent entry",
 	change: func(all *allInfo) {
-		all.markRemoved(testEntityId{"machine", "0"})
+		all.update(testEntityId{"machine", "0"}, nil)
 	},
 }, {
 	about: "mark removed on already marked entry",
@@ -121,12 +121,12 @@ var allInfoChangeMethodTests = []struct {
 		allInfoAdd(all, &params.MachineInfo{Id: "0"})
 		allInfoAdd(all, &params.MachineInfo{Id: "1"})
 		allInfoIncRef(all, testEntityId{"machine", "0"})
-		all.markRemoved(testEntityId{"machine", "0"})
+		all.update(testEntityId{"machine", "0"}, nil)
 		all.update(testEntityId{"machine", "1"}, &params.MachineInfo{
 			Id:         "1",
 			InstanceId: "i-1",
 		})
-		all.markRemoved(testEntityId{"machine", "0"})
+		all.update(testEntityId{"machine", "0"}, nil)
 	},
 	expectRevno: 4,
 	expectContents: []entityEntry{{
@@ -147,7 +147,7 @@ var allInfoChangeMethodTests = []struct {
 	about: "mark removed on entry with zero ref count",
 	change: func(all *allInfo) {
 		allInfoAdd(all, &params.MachineInfo{Id: "0"})
-		all.markRemoved(testEntityId{"machine", "0"})
+		all.update(testEntityId{"machine", "0"}, nil)
 	},
 	expectRevno: 2,
 }, {
@@ -182,7 +182,7 @@ var allInfoChangeMethodTests = []struct {
 		allInfoAdd(all, m)
 		entry := all.entities[id].Value.(*entityEntry)
 		entry.refCount++
-		all.markRemoved(id)
+		all.update(id, nil)
 		all.decRef(entry, id)
 	},
 	expectRevno: 2,
@@ -232,7 +232,7 @@ func (s *allInfoSuite) TestChangesSince(c *C) {
 
 	// Remove another machine and check we see it's removed.
 	m0 := &params.MachineInfo{Id: "0"}
-	a.markRemoved(idForInfo(m0))
+	a.update(idForInfo(m0), nil)
 
 	// Check that something that never saw m0 does not get
 	// informed of its removal (even those the removed entity
@@ -347,7 +347,7 @@ func (s *allWatcherSuite) TestHandleStopNoDecRefIfAlreadySeenRemoved(c *C) {
 	aw := newAllWatcher(newTestBacking(nil))
 	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
 	allInfoIncRef(aw.all, testEntityId{"machine", "0"})
-	aw.all.markRemoved(testEntityId{"machine", "0"})
+	aw.all.update(testEntityId{"machine", "0"}, nil)
 	w := &StateWatcher{all: aw}
 	// Stop the watcher.
 	aw.handle(&allRequest{w: w})
@@ -411,7 +411,7 @@ var respondTestChanges = [...]func(all *allInfo){
 		allInfoAdd(all, &params.MachineInfo{Id: "2"})
 	},
 	func(all *allInfo) {
-		all.markRemoved(testEntityId{"machine", "0"})
+		all.update(testEntityId{"machine", "0"}, nil)
 	},
 	func(all *allInfo) {
 		all.update(testEntityId{"machine", "1"}, &params.MachineInfo{
@@ -420,7 +420,7 @@ var respondTestChanges = [...]func(all *allInfo){
 		})
 	},
 	func(all *allInfo) {
-		all.markRemoved(testEntityId{"machine", "1"})
+		all.update(testEntityId{"machine", "1"}, nil)
 	},
 }
 
@@ -1254,7 +1254,7 @@ func (b *allWatcherTestBacking) changed(all *allInfo, change watcher.Change) err
 	}
 	info, err := b.fetch(id)
 	if err == mgo.ErrNotFound {
-		all.markRemoved(id)
+		all.update(id, nil)
 		return nil
 	}
 	if err != nil {

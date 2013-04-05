@@ -368,7 +368,7 @@ func (b *allWatcherStateBacking) getAll(all *allInfo) error {
 		infos := reflect.ValueOf(infoSlicePtr).Elem()
 		for i := 0; i < infos.Len(); i++ {
 			info := infos.Index(i).Addr().Interface().(params.EntityInfo)
-			all.add(b.idForInfo(info), info)
+			all.update(b.idForInfo(info), info)
 		}
 	}
 	return nil
@@ -390,11 +390,7 @@ func (b *allWatcherStateBacking) changed(all *allInfo, change watcher.Change) er
 	// TODO(rog) investigate ways that this can be made more efficient
 	// than simply fetching each entity in turn.
 	info, err := b.fetch(id)
-	if err == mgo.ErrNotFound {
-		all.markRemoved(id)
-		return nil
-	}
-	if err != nil {
+	if err != nil && err != mgo.ErrNotFound {
 		return err
 	}
 	all.update(id, info)
@@ -476,6 +472,7 @@ func newAllInfo() *allInfo {
 
 // add adds a new entity with the given id and associated
 // information to the list.
+// This method should be considered private to allInfo.
 func (a *allInfo) add(id infoId, info params.EntityInfo) {
 	if a.entities[id] != nil {
 		panic("adding new entry with duplicate id")
@@ -491,6 +488,7 @@ func (a *allInfo) add(id infoId, info params.EntityInfo) {
 
 // decRef decrements the reference count of an entry within the list,
 // deleting it if it becomes zero and the entry is removed.
+// This method should be considered private to allInfo.
 func (a *allInfo) decRef(entry *entityEntry, id infoId) {
 	if entry.refCount--; entry.refCount > 0 {
 		return
@@ -510,6 +508,7 @@ func (a *allInfo) decRef(entry *entityEntry, id infoId) {
 }
 
 // delete deletes the entry with the given info id.
+// This method should be considered private to allInfo.
 func (a *allInfo) delete(id infoId) {
 	elem := a.entities[id]
 	if elem == nil {
@@ -522,6 +521,7 @@ func (a *allInfo) delete(id infoId) {
 // markRemoved marks that the entity with the given id has
 // been removed from the state. If nothing has seen the
 // entity, then we delete it immediately.
+// This method should be considered private to allInfo.
 func (a *allInfo) markRemoved(id infoId) {
 	if elem := a.entities[id]; elem != nil {
 		entry := elem.Value.(*entityEntry)
@@ -540,8 +540,13 @@ func (a *allInfo) markRemoved(id infoId) {
 }
 
 // update updates the information for the entity with
-// the given id.
+// the given id. If info is nil, the entity will be marked
+// as removed and deleted if nothing has seen the entity..
 func (a *allInfo) update(id infoId, info params.EntityInfo) {
+	if info == nil {
+		a.markRemoved(id)
+		return
+	}
 	elem := a.entities[id]
 	if elem == nil {
 		a.add(id, info)
