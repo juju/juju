@@ -205,7 +205,8 @@ func (l *logRecorder) Output(calldepth int, s string) error {
 func (s *RunHookSuite) TestRunHook(c *C) {
 	logger := &logRecorder{c: c, prefix: "INFO worker/uniter: HOOK "}
 	defer log.SetTarget(log.SetTarget(logger))
-	uuid := trivial.NewUUID()
+	uuid, err := trivial.NewUUID()
+	c.Assert(err, IsNil)
 	for i, t := range runHookTests {
 		c.Logf("test %d: %s; perm %v", i, t.summary, t.spec.perm)
 		ctx := s.GetHookContext(c, uuid, t.relid, t.remote)
@@ -263,7 +264,9 @@ func splitLine(s string) []string {
 
 func (s *RunHookSuite) TestRunHookRelationFlushing(c *C) {
 	// Create a charm with a breaking hook.
-	ctx := s.GetHookContext(c, trivial.NewUUID(), -1, "")
+	uuid, err := trivial.NewUUID()
+	c.Assert(err, IsNil)
+	ctx := s.GetHookContext(c, uuid, -1, "")
 	charmDir, _ := makeCharm(c, hookSpec{
 		name: "something-happened",
 		perm: 0700,
@@ -523,7 +526,9 @@ type InterfaceSuite struct {
 var _ = Suite(&InterfaceSuite{})
 
 func (s *InterfaceSuite) GetContext(c *C, relId int, remoteName string) jujuc.Context {
-	return s.HookContextSuite.GetHookContext(c, trivial.NewUUID(), relId, remoteName)
+	uuid, err := trivial.NewUUID()
+	c.Assert(err, IsNil)
+	return s.HookContextSuite.GetHookContext(c, uuid, relId, remoteName)
 }
 
 func (s *InterfaceSuite) TestTrivial(c *C) {

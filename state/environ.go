@@ -21,15 +21,14 @@ type Environment struct {
 
 // environmentDoc represents the internal state of the environment in MongoDB.
 type environmentDoc struct {
-	Id   string `bson:"_id"`
-	Name string
 	UUID trivial.UUID
+	Name string
 }
 
 // Environment returns the environment entity.
 func (st *State) Environment() (*Environment, error) {
 	doc := environmentDoc{}
-	err := st.environments.FindId(environGlobalKey).One(&doc)
+	err := st.environments.Find(D{{"name", D{{"$ne", ""}}}}).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, NotFoundf("environment")
 	}
@@ -53,7 +52,7 @@ func (e Environment) Tag() string {
 	return "environment-" + e.name
 }
 
-// UUID returns an universally unique identifier of the environment.
+// UUID returns the universally unique identifier of the environment.
 func (e Environment) UUID() trivial.UUID {
 	return e.uuid.Copy()
 }
@@ -67,9 +66,8 @@ func (e *Environment) globalKey() string {
 // an environment document with the given name and UUID.
 func createEnvironmentOp(st *State, name string, uuid trivial.UUID) txn.Op {
 	doc := &environmentDoc{
-		Id:   environGlobalKey,
-		Name: name,
 		UUID: uuid,
+		Name: name,
 	}
 	return txn.Op{
 		C:      st.environments.Name,

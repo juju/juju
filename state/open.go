@@ -139,8 +139,12 @@ func Initialize(info *Info, cfg *config.Config, opts DialOpts) (rst *State, err 
 	if cfg.AdminSecret() != "" {
 		return nil, fmt.Errorf("admin-secret should never be written to the state")
 	}
+	uuid, err := trivial.NewUUID()
+	if err != nil {
+		return nil, fmt.Errorf("environment UUID cannot be created: %v", err)
+	}
 	ops := []txn.Op{
-		createEnvironmentOp(st, cfg.Name(), trivial.NewUUID()),
+		createEnvironmentOp(st, cfg.Name(), uuid),
 		createSettingsOp(st, environGlobalKey, cfg.AllAttrs()),
 		createConstraintsOp(st, environGlobalKey, constraints.Value{}),
 	}

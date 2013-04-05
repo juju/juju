@@ -10,18 +10,17 @@ import (
 type UUID [16]byte
 
 // NewUUID generates a new version 4 UUID relying only on random numbers.
-func NewUUID() UUID {
+func NewUUID() (UUID, error) {
 	uuid := UUID{}
-	_, err := io.ReadFull(rand.Reader, []byte(uuid[0:16]))
-	if err != nil {
-		panic(err)
+	if _, err := io.ReadFull(rand.Reader, []byte(uuid[0:16])); err != nil {
+		return UUID{}, err
 	}
 	// Set version (4) and variant (2) according to RfC 4122.
 	var version byte = 4 << 4
 	var variant byte = 8 << 4
 	uuid[6] = version | (uuid[6] & 15)
 	uuid[8] = variant | (uuid[8] & 15)
-	return uuid
+	return uuid, nil
 }
 
 // Copy returns a copy of the UUID.
@@ -33,9 +32,7 @@ func (uuid UUID) Copy() UUID {
 // Raw returns a copy of the UUID bytes.
 func (uuid UUID) Raw() [16]byte {
 	var raw [16]byte
-	for i := 0; i < 16; i++ {
-		raw[i] = uuid[i]
-	}
+	copy([]byte(raw[0:16]), []byte(uuid[0:16]))
 	return raw
 }
 

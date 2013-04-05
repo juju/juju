@@ -109,7 +109,8 @@ func (trivialSuite) TestCompression(c *C) {
 }
 
 func (trivialSuite) TestUUID(c *C) {
-	uuid := trivial.NewUUID()
+	uuid, err := trivial.NewUUID()
+	c.Assert(err, IsNil)
 	uuidCopy := uuid.Copy()
 	uuidRaw := uuid.Raw()
 	uuidStr := uuid.String()
@@ -118,4 +119,7 @@ func (trivialSuite) TestUUID(c *C) {
 	uuid[0] = 0x00
 	uuidCopy[0] = 0xFF
 	c.Assert(uuid, Not(DeepEquals), uuidCopy)
+	nextUUID, err := trivial.NewUUID()
+	c.Assert(err, IsNil)
+	c.Assert(uuid, Not(DeepEquals), nextUUID)
 }

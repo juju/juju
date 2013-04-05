@@ -28,8 +28,18 @@ func (s *EnvironSuite) TestTag(c *C) {
 }
 
 func (s *EnvironSuite) TestUUID(c *C) {
-	uuid := s.env.UUID()
-	c.Assert(uuid, FitsTypeOf, trivial.UUID{})
+	uuidA := s.env.UUID()
+	c.Assert(uuidA, FitsTypeOf, trivial.UUID{})
+
+	// Check that two environments have different UUIDs.
+	s.State.Close()
+	s.MgoSuite.TearDownTest(c)
+	s.MgoSuite.SetUpTest(c)
+	s.State = state.TestingInitialize(c, nil)
+	env, err := s.State.Environment()
+	c.Assert(err, IsNil)
+	uuidB := env.UUID()
+	c.Assert(uuidA, Not(Equals), uuidB)
 }
 
 func (s *EnvironSuite) TestAnnotatorForEnvironment(c *C) {
