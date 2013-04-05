@@ -51,6 +51,7 @@ func (job MachineJob) String() string {
 // Note the correspondence with MachineInfo in state/api/params.
 type machineDoc struct {
 	Id           string `bson:"_id"`
+	Nonce        string
 	Series       string
 	InstanceId   InstanceId
 	Principals   []string
@@ -410,19 +411,35 @@ func (m *Machine) Units() (units []*Unit, err error) {
 	return units, nil
 }
 
-// SetInstanceId sets the provider specific machine id for this machine.
-func (m *Machine) SetInstanceId(id InstanceId) (err error) {
+// SetProvisioned sets the provider specific machine id and nonce for
+// this machine. Once set, the instance id cannot be changed.
+func (m *Machine) SetProvisioned(id InstanceId, nonce string) error {
+	notTheSame := D{{"$ne", D{{"instanceid", id}}}}
 	ops := []txn.Op{{
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
-		Assert: notDeadDoc,
-		Update: D{{"$set", D{{"instanceid", id}}}},
+		Assert: append(notDeadDoc, notTheSame...),
+		Update: D{{"$set", D{{"instanceid", id}, {"nonce", nonce}}}},
 	}}
-	if err := m.st.runner.Run(ops, "", nil); err != nil {
-		return fmt.Errorf("cannot set instance id of machine %v: %v", m, onAbort(err, errDead))
+	errMsg := "cannot set instance id of machine %q: %v"
+	if err := m.st.runner.Run(ops, "", nil); err == nil {
+		m.doc.InstanceId = id
+		m.doc.Nonce = nonce
+		return nil
+	} else if err != txn.ErrAborted {
+		return fmt.Errorf(errMsg, m, err)
+	} else if alive, err := isNotDead(m.st.machines, m.doc.Id); err != nil {
+		return fmt.Errorf(errMsg, m, err)
+	} else if !alive {
+		return fmt.Errorf(errMsg, m, errNotAlive)
 	}
-	m.doc.InstanceId = id
-	return nil
+	return fmt.Errorf(errMsg, m, "already set")
+}
+
+// CheckProvisioned returns true, if the machine was provisioned with
+// an instance id and the given nonce.
+func (m *Machine) CheckProvisioned(nonce string) bool {
+	return m.doc.Nonce == nonce && m.doc.InstanceId != ""
 }
 
 // String returns a unique description of this machine.

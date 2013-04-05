@@ -717,11 +717,12 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 	m, err := s.State.AddMachine("series", JobManageEnviron)
 	c.Assert(err, IsNil)
 	c.Assert(m.Tag(), Equals, "machine-0")
-	err = m.SetInstanceId(InstanceId("i-" + m.Tag()))
+	err = m.SetProvisioned(InstanceId("i-"+m.Tag()), "fake_nonce")
 	c.Assert(err, IsNil)
 	add(&params.MachineInfo{
 		Id:         "0",
 		InstanceId: "i-machine-0",
+		Nonce:      "fake_nonce",
 	})
 
 	wordpress, err := s.State.AddService("wordpress", AddTestingCharm(c, s.State, "wordpress"))
@@ -785,7 +786,7 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 			Annotations: pairs,
 		})
 
-		err = m.SetInstanceId(InstanceId("i-" + m.Tag()))
+		err = m.SetProvisioned(InstanceId("i-"+m.Tag()), "fake_nonce")
 		c.Assert(err, IsNil)
 		add(&params.MachineInfo{
 			Id:         fmt.Sprint(i + 1),
@@ -958,7 +959,7 @@ var allWatcherChangedTests = []struct {
 	setUp: func(c *C, st *State) {
 		m, err := st.AddMachine("series", JobManageEnviron)
 		c.Assert(err, IsNil)
-		err = m.SetInstanceId("i-0")
+		err = m.SetProvisioned("i-0", "bootstrap_nonce")
 		c.Assert(err, IsNil)
 	},
 	change: watcher.Change{
@@ -973,6 +974,7 @@ var allWatcherChangedTests = []struct {
 		info: &params.MachineInfo{
 			Id:         "0",
 			InstanceId: "i-0",
+			Nonce:      "bootstrap_nonce",
 		},
 	}},
 }}
@@ -1020,7 +1022,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *C) {
 	}}, "")
 
 	// Make some changes to the state.
-	err = m0.SetInstanceId("i-0")
+	err = m0.SetProvisioned("i-0", "bootstrap_nonce")
 	c.Assert(err, IsNil)
 	err = m1.Destroy()
 	c.Assert(err, IsNil)
@@ -1053,6 +1055,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *C) {
 		Entity: &params.MachineInfo{
 			Id:         "0",
 			InstanceId: "i-0",
+			Nonce:      "bootstrap_nonce",
 		},
 	}})
 

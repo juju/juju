@@ -544,7 +544,7 @@ func (s *suite) setUpScenario(c *C) (entities []string) {
 	m, err := s.State.AddMachine("series", state.JobManageEnviron)
 	c.Assert(err, IsNil)
 	c.Assert(m.Tag(), Equals, "machine-0")
-	err = m.SetInstanceId(state.InstanceId("i-" + m.Tag()))
+	err = m.SetProvisioned(state.InstanceId("i-"+m.Tag()), "fake_nonce")
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, m)
 	add(m)
@@ -573,7 +573,7 @@ func (s *suite) setUpScenario(c *C) (entities []string) {
 		m, err := s.State.AddMachine("series", state.JobHostUnits)
 		c.Assert(err, IsNil)
 		c.Assert(m.Tag(), Equals, fmt.Sprintf("machine-%d", i+1))
-		err = m.SetInstanceId(state.InstanceId("i-" + m.Tag()))
+		err = m.SetProvisioned(state.InstanceId("i-"+m.Tag()), "fake_nonce")
 		c.Assert(err, IsNil)
 		setDefaultPassword(c, m)
 		add(m)
@@ -847,7 +847,7 @@ func (s *suite) TestMachineLogin(c *C) {
 	c.Assert(err, IsNil)
 	err = stm.SetPassword("machine-password")
 	c.Assert(err, IsNil)
-	err = stm.SetInstanceId("i-foo")
+	err = stm.SetProvisioned("i-foo", "fake_nonce")
 	c.Assert(err, IsNil)
 
 	_, info, err := s.APIConn.Environ.StateInfo()
@@ -890,7 +890,7 @@ func (s *suite) TestMachineInstanceId(c *C) {
 	c.Check(instId, Equals, "")
 	c.Check(ok, Equals, false)
 
-	err = stm.SetInstanceId("foo")
+	err = stm.SetProvisioned("foo", "fake_nonce")
 	c.Assert(err, IsNil)
 
 	instId, ok = m.InstanceId()
@@ -909,7 +909,7 @@ func (s *suite) TestMachineRefresh(c *C) {
 	stm, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, stm)
-	err = stm.SetInstanceId("foo")
+	err = stm.SetProvisioned("foo", "fake_nonce")
 	c.Assert(err, IsNil)
 
 	st := s.openAs(c, stm.Tag())
@@ -921,7 +921,7 @@ func (s *suite) TestMachineRefresh(c *C) {
 	c.Assert(ok, Equals, true)
 	c.Assert(instId, Equals, "foo")
 
-	err = stm.SetInstanceId("bar")
+	err = stm.SetProvisioned("bar", "fake_nonce")
 	c.Assert(err, IsNil)
 
 	instId, ok = m.InstanceId()
@@ -995,7 +995,7 @@ func (s *suite) TestMachineWatch(c *C) {
 	case <-time.After(20 * time.Millisecond):
 	}
 
-	err = stm.SetInstanceId("foo")
+	err = stm.SetProvisioned("foo", "fake_nonce")
 	c.Assert(err, IsNil)
 	s.State.StartSync()
 
@@ -1193,7 +1193,7 @@ func (s *suite) TestStop(c *C) {
 
 	stm, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	err = stm.SetInstanceId("foo")
+	err = stm.SetProvisioned("foo", "fake_nonce")
 	c.Assert(err, IsNil)
 	err = stm.SetPassword("password")
 	c.Assert(err, IsNil)
@@ -1428,7 +1428,7 @@ func (s *suite) TestClientWatchAll(c *C) {
 	// all the logic is tested elsewhere.
 	m, err := s.State.AddMachine("series", state.JobManageEnviron)
 	c.Assert(err, IsNil)
-	err = m.SetInstanceId("i-0")
+	err = m.SetProvisioned("i-0", state.BootstrapNonce)
 	c.Assert(err, IsNil)
 	watcher, err := s.APIState.Client().WatchAll()
 	c.Assert(err, IsNil)

@@ -237,8 +237,11 @@ func (s *MachineSuite) TestMachineInstanceIdBlank(c *C) {
 	c.Assert(string(iid), Equals, "")
 }
 
-func (s *MachineSuite) TestMachineSetInstanceId(c *C) {
-	err := s.machine.SetInstanceId("umbrella/0")
+func (s *MachineSuite) TestMachineSetCheckProvisioned(c *C) {
+	// Check before provisioning.
+	c.Assert(s.machine.CheckProvisioned("fake_nonce"), Equals, false)
+
+	err := s.machine.SetProvisioned("umbrella/0", "fake_nonce")
 	c.Assert(err, IsNil)
 
 	m, err := s.State.Machine(s.machine.Id())
@@ -246,6 +249,20 @@ func (s *MachineSuite) TestMachineSetInstanceId(c *C) {
 	id, ok := m.InstanceId()
 	c.Assert(ok, Equals, true)
 	c.Assert(string(id), Equals, "umbrella/0")
+	c.Assert(s.machine.CheckProvisioned("fake_nonce"), Equals, true)
+
+	// Try it twice, it should fail.
+	err = s.machine.SetProvisioned("doesn't-matter", "phony")
+	c.Assert(err, ErrorMatches, `cannot set instance id of machine "0": already set`)
+
+	// Check it with invalid nonce.
+	c.Assert(s.machine.CheckProvisioned("not-really"), Equals, false)
+}
+
+func (s *MachineSuite) TestMachineSetProvisionedWhenNotAlive(c *C) {
+	testWhenDying(c, s.machine, notAliveErr, notAliveErr, func() error {
+		return s.machine.SetProvisioned("umbrella/0", "fake_nonce")
+	})
 }
 
 func (s *MachineSuite) TestMachineRefresh(c *C) {
@@ -255,7 +272,7 @@ func (s *MachineSuite) TestMachineRefresh(c *C) {
 
 	m1, err := s.State.Machine(m0.Id())
 	c.Assert(err, IsNil)
-	err = m0.SetInstanceId("umbrella/0")
+	err = m0.SetProvisioned("umbrella/0", "fake_nonce")
 	c.Assert(err, IsNil)
 	newId, _ := m0.InstanceId()
 
@@ -385,10 +402,10 @@ var watchMachineTests = []func(m *state.Machine) error{
 		return nil
 	},
 	func(m *state.Machine) error {
-		return m.SetInstanceId("m-foo")
+		return m.SetProvisioned("m-foo", "fake_nonce")
 	},
 	func(m *state.Machine) error {
-		return m.SetInstanceId("")
+		return m.SetProvisioned("", "")
 	},
 	func(m *state.Machine) error {
 		return m.SetAgentTools(tools(3, "baz"))
@@ -451,7 +468,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {
 	assertChange()
 
 	// Change machine; no change.
-	err := s.machine.SetInstanceId("cheese")
+	err := s.machine.SetProvisioned("cheese", "fake_nonce")
 	c.Assert(err, IsNil)
 
 	// Assign a unit; change detected.
@@ -567,7 +584,7 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	assertChange()
 
 	// Change machine; no change.
-	err := s.machine.SetInstanceId("cheese")
+	err := s.machine.SetProvisioned("cheese", "fake_nonce")
 	c.Assert(err, IsNil)
 
 	// Assign a unit; change detected.
@@ -711,7 +728,7 @@ func (s *MachineSuite) TestSetConstraints(c *C) {
 	c.Assert(mcons, DeepEquals, cons1)
 
 	// ...until the machine is provisioned, at which point they stick.
-	err = machine.SetInstanceId("i-mstuck")
+	err = machine.SetProvisioned("i-mstuck", "fake_nonce")
 	c.Assert(err, IsNil)
 	cons2 := constraints.MustParse("mem=2G")
 	err = machine.SetConstraints(cons2)

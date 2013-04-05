@@ -284,7 +284,8 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 		}
 		return nil
 	}
-	if err := m.SetInstanceId(inst.Id()); err != nil {
+	// TODO(dimitern) generate an unique random nonce in a follow-up.
+	if err := m.SetProvisioned(inst.Id(), ""); err != nil {
 		// The machine is started, but we can't record the mapping in
 		// state. It'll keep running while we fail out and restart,
 		// but will then be detected by findUnknownInstances and
