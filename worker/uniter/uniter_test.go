@@ -29,7 +29,11 @@ import (
 	"time"
 )
 
-const worstCase = 30 * time.Second
+// worstCase is used for timeouts when timing out
+// will fail the test. Raising this value should
+// not affect the overall running time of the tests
+// unless they fail.
+const worstCase = 10 * time.Second
 
 func TestPackage(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
