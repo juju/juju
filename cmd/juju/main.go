@@ -51,27 +51,27 @@ func Main(args []string) {
 	})
 	juju.AddHelpTopic("basics", "Basic commands", helpBasics)
 
-	// Register creation commands.
+	// Creation commands.
 	juju.Register(&BootstrapCommand{})
 	juju.Register(&DeployCommand{})
 	juju.Register(&AddRelationCommand{})
 	juju.Register(&AddUnitCommand{})
 
-	// Register destruction commands.
+	// Destruction commands.
 	juju.Register(&DestroyMachineCommand{})
 	juju.Register(&DestroyRelationCommand{})
 	juju.Register(&DestroyServiceCommand{})
 	juju.Register(&DestroyUnitCommand{})
 	juju.Register(&DestroyEnvironmentCommand{})
 
-	// Register error resolution commands.
+	// Error resolution commands.
 	juju.Register(&StatusCommand{})
 	juju.Register(&SCPCommand{})
 	juju.Register(&SSHCommand{})
 	juju.Register(&ResolvedCommand{})
 	juju.Register(&DebugLogCommand{sshCmd: &SSHCommand{}})
 
-	// Register configuration commands.
+	// Configuration commands.
 	juju.Register(&InitCommand{})
 	juju.Register(&GetCommand{})
 	juju.Register(&SetCommand{})
@@ -83,7 +83,10 @@ func Main(args []string) {
 	juju.Register(&UpgradeJujuCommand{})
 	juju.Register(&UpgradeCharmCommand{})
 
-	// register common commands
+	// Charm publishing commands.
+	juju.Register(&PublishCommand{})
+
+	// Common commands.
 	juju.Register(&cmd.VersionCommand{})
 
 	os.Exit(cmd.Main(juju, cmd.DefaultContext(), args[1:]))
