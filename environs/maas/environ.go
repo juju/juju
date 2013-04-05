@@ -119,10 +119,7 @@ func (env *maasEnviron) findTools() (*state.Tools, error) {
 
 // getMongoURL returns the URL to the appropriate MongoDB instance.
 func (env *maasEnviron) getMongoURL(tools *state.Tools) string {
-	v := version.Current
-	v.Series = tools.Series
-	v.Arch = tools.Arch
-	return environs.MongoURL(env, v)
+	return environs.MongoURL(env, tools.Series, tools.Arch)
 }
 
 // makeMachineConfig sets up a basic machine configuration for use with
