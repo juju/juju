@@ -22,7 +22,7 @@ var _ = Suite(&MachinerSuite{})
 
 func (s *MachinerSuite) TestNotFound(c *C) {
 	mr := machiner.NewMachiner(s.State, "eleventy-one")
-	c.Assert(mr.Wait(), Equals, worker.ErrDead)
+	c.Assert(mr.Wait(), Equals, worker.ErrTerminateAgent)
 }
 
 func (s *MachinerSuite) TestRunStop(c *C) {
@@ -41,7 +41,7 @@ func (s *MachinerSuite) TestSetDead(c *C) {
 	defer mr.Stop()
 	c.Assert(m.Destroy(), IsNil)
 	s.State.StartSync()
-	c.Assert(mr.Wait(), Equals, worker.ErrDead)
+	c.Assert(mr.Wait(), Equals, worker.ErrTerminateAgent)
 	c.Assert(m.Refresh(), IsNil)
 	c.Assert(m.Life(), Equals, state.Dead)
 }
