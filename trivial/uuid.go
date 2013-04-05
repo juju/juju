@@ -2,17 +2,17 @@ package trivial
 
 import (
 	"crypto/rand"
-	"encoding/hex"
+	"fmt"
 	"io"
 )
 
 // UUID represent a universal identifier with 16 octets.
-type UUID []byte
+type UUID [16]byte
 
 // NewUUID generates a new version 4 UUID relying only on random numbers.
 func NewUUID() UUID {
-	uuid := make([]byte, 16)
-	_, err := io.ReadFull(rand.Reader, uuid)
+	uuid := UUID{}
+	_, err := io.ReadFull(rand.Reader, []byte(uuid[0:16]))
 	if err != nil {
 		panic(err)
 	}
@@ -31,15 +31,16 @@ func (uuid UUID) Copy() UUID {
 }
 
 // Raw returns a copy of the UUID bytes.
-func (uuid UUID) Raw() []byte {
-	raw := make([]byte, 16)
-	copy(raw, uuid[0:16])
+func (uuid UUID) Raw() [16]byte {
+	var raw [16]byte
+	for i := 0; i < 16; i++ {
+		raw[i] = uuid[i]
+	}
 	return raw
 }
 
 // String returns a hexadecimal string representation with
 // standardized separators.
 func (uuid UUID) String() string {
-	base := hex.EncodeToString(uuid.Raw())
-	return base[0:8] + "-" + base[8:12] + "-" + base[12:16] + "-" + base[16:20] + "-" + base[20:32]
+	return fmt.Sprintf("%x-%x-%x-%x-%x", uuid[0:4], uuid[4:6], uuid[6:8], uuid[8:10], uuid[10:16])
 }

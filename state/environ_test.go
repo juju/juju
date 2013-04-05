@@ -28,11 +28,8 @@ func (s *EnvironSuite) TestTag(c *C) {
 }
 
 func (s *EnvironSuite) TestUUID(c *C) {
-	env, err := s.State.Environment()
-	c.Assert(err, IsNil)
-	uuid := env.UUID()
+	uuid := s.env.UUID()
 	c.Assert(uuid, FitsTypeOf, trivial.UUID{})
-	c.Assert(uuid.String(), Matches, "[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[8,9,a,b][0-9a-f]{3}-[0-9a-f]{12}")
 }
 
 func (s *EnvironSuite) TestAnnotatorForEnvironment(c *C) {

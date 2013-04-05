@@ -140,9 +140,9 @@ func Initialize(info *Info, cfg *config.Config, opts DialOpts) (rst *State, err 
 		return nil, fmt.Errorf("admin-secret should never be written to the state")
 	}
 	ops := []txn.Op{
-		createConstraintsOp(st, "e", constraints.Value{}),
-		createSettingsOp(st, "e", cfg.AllAttrs()),
 		createEnvironmentOp(st, cfg.Name(), trivial.NewUUID()),
+		createSettingsOp(st, environGlobalKey, cfg.AllAttrs()),
+		createConstraintsOp(st, environGlobalKey, constraints.Value{}),
 	}
 	if err := st.runner.Run(ops, "", nil); err == txn.ErrAborted {
 		// The config was created in the meantime.

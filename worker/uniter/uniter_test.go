@@ -104,6 +104,7 @@ type stepper interface {
 
 type context struct {
 	id            int
+	uuid          string
 	path          string
 	dataDir       string
 	s             *UniterSuite
@@ -135,12 +136,12 @@ func (ctx *context) run(c *C, steps []stepper) {
 
 var goodHook = `
 #!/bin/bash
-juju-log UniterSuite-%d %s $JUJU_REMOTE_UNIT
+juju-log UniterSuite-%d $JUJU_ENV_UUID %s $JUJU_REMOTE_UNIT
 `[1:]
 
 var badHook = `
 #!/bin/bash
-juju-log UniterSuite-%d fail-%s $JUJU_REMOTE_UNIT
+juju-log UniterSuite-%d $JUJU_ENV_UUID fail-%s $JUJU_REMOTE_UNIT
 exit 1
 `[1:]
 
@@ -159,8 +160,10 @@ func (ctx *context) matchLogHooks(c *C) (match bool, overshoot bool) {
 	hookPattern := fmt.Sprintf(`^.* INFO `+
 		`u/0(| [a-z0-9-]+:[0-9]+)`+ // juju-log badge; group matches relation id
 		`: UniterSuite-%d`+ // test badge; prevents cross-pollution
+		` %s`+ // JUJU_ENV_UUID
 		` ([0-9a-z-/ ]+)$`, // foo-relation-joined bar/123
 		ctx.id,
+		ctx.uuid,
 	)
 	// donePattern matches uniter logging that indicates a hook has run.
 	donePattern := `^.* (INFO|ERROR) worker/uniter: (ran "[a-z0-9-]+" hook|hook failed)`
@@ -827,11 +830,15 @@ func (s *UniterSuite) runUniterTests(c *C, uniterTests []uniterTest) {
 	for i, t := range uniterTests {
 		c.Logf("\ntest %d: %s\n", i, t.summary)
 		func() {
+			env, err := s.State.Environment()
+			c.Assert(err, IsNil)
+			uuid := env.UUID().String()
 			defer s.Reset(c)
 			ctx := &context{
 				s:       s,
 				st:      s.State,
 				id:      i,
+				uuid:    uuid,
 				path:    s.unitDir,
 				dataDir: s.dataDir,
 				charms:  coretesting.ResponseMap{},

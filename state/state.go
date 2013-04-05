@@ -135,7 +135,7 @@ func (st *State) Watch() *StateWatcher {
 }
 
 func (st *State) EnvironConfig() (*config.Config, error) {
-	settings, err := readSettings(st, "e")
+	settings, err := readSettings(st, environGlobalKey)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +152,7 @@ func (st *State) SetEnvironConfig(cfg *config.Config) error {
 	// TODO(niemeyer): This isn't entirely right as the change is done as a
 	// delta that the user didn't ask for. Instead, take a (old, new) config
 	// pair, and apply *known* delta.
-	settings, err := readSettings(st, "e")
+	settings, err := readSettings(st, environGlobalKey)
 	if err != nil {
 		return err
 	}
@@ -163,12 +163,12 @@ func (st *State) SetEnvironConfig(cfg *config.Config) error {
 
 // EnvironConstraints returns the current environment constraints.
 func (st *State) EnvironConstraints() (constraints.Value, error) {
-	return readConstraints(st, "e")
+	return readConstraints(st, environGlobalKey)
 }
 
 // SetEnvironConstraints replaces the current environment constraints.
 func (st *State) SetEnvironConstraints(cons constraints.Value) error {
-	return writeConstraints(st, "e", cons)
+	return writeConstraints(st, environGlobalKey, cons)
 }
 
 // AddMachine adds a new machine configured to run the supplied jobs on the

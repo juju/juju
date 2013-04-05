@@ -7,6 +7,10 @@ import (
 	"launchpad.net/juju-core/trivial"
 )
 
+// environGlobalKey is the key for the environment, its
+// settings and constraints.
+const environGlobalKey = "e"
+
 // Environment represents the state of an environment.
 type Environment struct {
 	st   *State
@@ -17,16 +21,15 @@ type Environment struct {
 
 // environmentDoc represents the internal state of the environment in MongoDB.
 type environmentDoc struct {
-	Id       string `bson:"_id"`
-	Name     string
-	UUID     trivial.UUID
-	TxnRevno int64 `bson:"txn-revno"`
+	Id   string `bson:"_id"`
+	Name string
+	UUID trivial.UUID
 }
 
 // Environment returns the environment entity.
 func (st *State) Environment() (*Environment, error) {
 	doc := environmentDoc{}
-	err := st.environments.FindId("environment").One(&doc)
+	err := st.environments.FindId(environGlobalKey).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, NotFoundf("environment")
 	}
@@ -50,27 +53,27 @@ func (e Environment) Tag() string {
 	return "environment-" + e.name
 }
 
-// UUID returns universally unique identifier of the environment.
+// UUID returns an universally unique identifier of the environment.
 func (e Environment) UUID() trivial.UUID {
 	return e.uuid.Copy()
 }
 
 // globalKey returns the global database key for the environment.
 func (e *Environment) globalKey() string {
-	return e.uuid.String()
+	return environGlobalKey
 }
 
-// createEnvironmentOp creates the transaction operation to insert the
-// environment with the given name and UUID.
+// createEnvironmentOp returns the operation needed to create
+// an environment document with the given name and UUID.
 func createEnvironmentOp(st *State, name string, uuid trivial.UUID) txn.Op {
 	doc := &environmentDoc{
-		Id:   "environment",
+		Id:   environGlobalKey,
 		Name: name,
 		UUID: uuid,
 	}
 	return txn.Op{
 		C:      st.environments.Name,
-		Id:     "environment",
+		Id:     environGlobalKey,
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}
