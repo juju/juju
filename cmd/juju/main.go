@@ -13,6 +13,7 @@ import (
 // be available to the juju command.
 import (
 	_ "launchpad.net/juju-core/environs/ec2"
+	_ "launchpad.net/juju-core/environs/maas"
 	_ "launchpad.net/juju-core/environs/openstack"
 )
 
