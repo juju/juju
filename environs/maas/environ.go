@@ -378,14 +378,13 @@ func (environ *maasEnviron) obtainNode(machineId string, stateInfo *state.Info, 
 }
 
 // StartInstance is specified in the Environ interface.
-func (environ *maasEnviron) StartInstance(machineID string, stateInfo *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
-	if tools == nil {
-		flags := environs.HighestVersion | environs.CompatVersion
-		var err error
-		tools, err = environs.FindTools(environ, version.Current, flags)
-		if err != nil {
-			return nil, err
-		}
+func (environ *maasEnviron) StartInstance(machineID string, series string, cons constraints.Value, stateInfo *state.Info, apiInfo *api.Info) (environs.Instance, error) {
+	// TODO: Support series.
+	flags := environs.HighestVersion | environs.CompatVersion
+	var err error
+	tools, err := environs.FindTools(environ, version.Current, flags)
+	if err != nil {
+		return nil, err
 	}
 
 	mcfg := environ.makeMachineConfig(machineID, stateInfo, apiInfo, tools)
