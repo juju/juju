@@ -6,12 +6,15 @@ import (
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/testservices/hook"
 	"launchpad.net/goose/testservices/openstackservice"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/openstack"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/version"
 	"net/http"
 	"net/http/httptest"
 )
@@ -20,9 +23,17 @@ type ProviderSuite struct{}
 
 var _ = Suite(&ProviderSuite{})
 
+func (s *ProviderSuite) SetUpTest(c *C) {
+	openstack.ShortTimeouts(true)
+}
+
+func (s *ProviderSuite) TearDownTest(c *C) {
+	openstack.ShortTimeouts(false)
+}
+
 func (s *ProviderSuite) TestMetadata(c *C) {
-	openstack.UseTestMetadata(true)
-	defer openstack.UseTestMetadata(false)
+	openstack.UseTestMetadata(openstack.MetadataTestingBase)
+	defer openstack.UseTestMetadata(nil)
 
 	p, err := environs.Provider("openstack")
 	c.Assert(err, IsNil)
@@ -40,13 +51,31 @@ func (s *ProviderSuite) TestMetadata(c *C) {
 	c.Assert(id, Equals, state.InstanceId("d8e02d56-2648-49a3-bf97-6be8f1204f38"))
 }
 
+func (s *ProviderSuite) TestPublicFallbackToPrivate(c *C) {
+	openstack.UseTestMetadata([]jujutest.FileContent{
+		{"/latest/meta-data/public-ipv4", "203.1.1.2"},
+		{"/latest/meta-data/local-ipv4", "10.1.1.2"},
+	})
+	defer openstack.UseTestMetadata(nil)
+	p, err := environs.Provider("openstack")
+	c.Assert(err, IsNil)
+
+	addr, err := p.PublicAddress()
+	c.Assert(err, IsNil)
+	c.Assert(addr, Equals, "203.1.1.2")
+
+	openstack.UseTestMetadata([]jujutest.FileContent{
+		{"/latest/meta-data/local-ipv4", "10.1.1.2"},
+		{"/latest/meta-data/public-ipv4", ""},
+	})
+	addr, err = p.PublicAddress()
+	c.Assert(err, IsNil)
+	c.Assert(addr, Equals, "10.1.1.2")
+}
+
 func (s *ProviderSuite) TestLegacyInstanceId(c *C) {
-	openstack.UseTestMetadata(true)
-	openstack.UseMetadataJSON("invalid.json")
-	defer func() {
-		openstack.UseTestMetadata(false)
-		openstack.UseMetadataJSON("")
-	}()
+	openstack.UseTestMetadata(openstack.MetadataHP)
+	defer openstack.UseTestMetadata(nil)
 
 	p, err := environs.Provider("openstack")
 	c.Assert(err, IsNil)
@@ -64,13 +93,25 @@ func registerLocalTests() {
 		Region:     "some region",
 		TenantName: "some tenant",
 	}
+	config := makeTestConfig(cred)
+	config["authorized-keys"] = "fakekey"
+	config["default-image-id"] = "1"
+	config["default-instance-type"] = "m1.small"
 	Suite(&localLiveSuite{
 		LiveTests: LiveTests{
-			cred: cred,
+			cred:        cred,
+			testImageId: "1",
+			testFlavor:  "m1.small",
+			LiveTests: jujutest.LiveTests{
+				TestConfig: jujutest.TestConfig{config},
+			},
 		},
 	})
 	Suite(&localServerSuite{
 		cred: cred,
+		Tests: jujutest.Tests{
+			TestConfig: jujutest.TestConfig{config},
+		},
 	})
 }
 
@@ -89,6 +130,7 @@ func (s *localServer) start(c *C, cred *identity.Credentials) {
 	s.Mux = http.NewServeMux()
 	s.Server.Config.Handler = s.Mux
 	cred.URL = s.Server.URL
+	c.Logf("Started service at: %v", s.Server.URL)
 	s.Service = openstackservice.New(cred)
 	s.Service.SetupHTTP(s.Mux)
 	openstack.ShortTimeouts(true)
@@ -108,24 +150,9 @@ type localLiveSuite struct {
 	srv localServer
 }
 
-// localServerSuite contains tests that run against an Openstack service double.
-// These tests can test things that would be unreasonably slow or expensive
-// to test on a live Openstack server. The service double is started and stopped for
-// each test.
-type localServerSuite struct {
-	coretesting.LoggingSuite
-	jujutest.Tests
-	cred *identity.Credentials
-	srv  localServer
-	env  environs.Environ
-}
-
 func (s *localLiveSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
 	c.Logf("Running live tests using openstack service test double")
-
-	s.testImageId = "1"
-	s.testFlavor = "m1.small"
 	s.srv.start(c, s.cred)
 	s.LiveTests.SetUpSuite(c)
 }
@@ -146,6 +173,18 @@ func (s *localLiveSuite) TearDownTest(c *C) {
 	s.LoggingSuite.TearDownTest(c)
 }
 
+// localServerSuite contains tests that run against an Openstack service double.
+// These tests can test things that would be unreasonably slow or expensive
+// to test on a live Openstack server. The service double is started and stopped for
+// each test.
+type localServerSuite struct {
+	coretesting.LoggingSuite
+	jujutest.Tests
+	cred *identity.Credentials
+	srv  localServer
+	env  environs.Environ
+}
+
 func (s *localServerSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.Tests.SetUpSuite(c)
@@ -157,28 +196,15 @@ func (s *localServerSuite) TearDownSuite(c *C) {
 	s.LoggingSuite.TearDownSuite(c)
 }
 
-func testConfig(cred *identity.Credentials) map[string]interface{} {
-	attrs := makeTestConfig()
-	attrs["admin-secret"] = "secret"
-	attrs["username"] = cred.User
-	attrs["password"] = cred.Secrets
-	attrs["region"] = cred.Region
-	attrs["auth-url"] = cred.URL
-	attrs["tenant-name"] = cred.TenantName
-	attrs["default-image-id"] = "1"
-	attrs["default-instance-type"] = "m1.small"
-	return attrs
-}
-
 func (s *localServerSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.srv.start(c, s.cred)
-	s.Tests = jujutest.Tests{
-		Config: testConfig(s.cred),
-	}
+	s.TestConfig.UpdateConfig(map[string]interface{}{
+		"auth-url": s.cred.URL,
+	})
 	s.Tests.SetUpTest(c)
 	writeablePublicStorage := openstack.WritablePublicStorage(s.Env)
-	putFakeTools(c, writeablePublicStorage)
+	envtesting.PutFakeTools(c, writeablePublicStorage)
 	s.env = s.Tests.Env
 }
 
@@ -188,13 +214,9 @@ func (s *localServerSuite) TearDownTest(c *C) {
 	s.LoggingSuite.TearDownTest(c)
 }
 
-func panicWrite(name string, cert, key []byte) error {
-	panic("writeCertAndKey called unexpectedly")
-}
-
-// If the bootstrap node is configured to require a public IP address (the default),
+// If the bootstrap node is configured to require a public IP address,
 // bootstrapping fails if an address cannot be allocated.
-func (s *localLiveSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
+func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
 	cleanup := s.srv.Service.Nova.RegisterControlPoint(
 		"addFloatingIP",
 		func(sc hook.ServiceControl, args ...interface{}) error {
@@ -202,8 +224,15 @@ func (s *localLiveSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
 		},
 	)
 	defer cleanup()
-	err := environs.Bootstrap(s.Env, true, panicWrite)
-	c.Assert(err, ErrorMatches, ".*cannot allocate a public IP as needed.*")
+	// Create a config that matches s.Config but with use-floating-ip set to true
+	s.TestConfig.UpdateConfig(map[string]interface{}{
+		"use-floating-ip": true,
+	})
+	// TODO: Just share jujutest.Tests.Open rather than accessing .Config
+	env, err := environs.NewFromAttrs(s.TestConfig.Config)
+	c.Assert(err, IsNil)
+	err = environs.Bootstrap(env, constraints.Value{})
+	c.Assert(err, ErrorMatches, "(.|\n)*cannot allocate a public IP as needed(.|\n)*")
 }
 
 // If the environment is configured not to require a public IP address for nodes,
@@ -224,10 +253,9 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *C) {
 		},
 	)
 	defer cleanup()
-	err := environs.Bootstrap(s.Env, true, panicWrite)
+	err := environs.Bootstrap(s.Env, constraints.Value{})
 	c.Assert(err, IsNil)
-	inst, err := s.Env.StartInstance("100", testing.InvalidStateInfo("100"), testing.InvalidAPIInfo("100"), nil)
-	c.Assert(err, IsNil)
+	inst := testing.StartInstance(c, s.Env, "100")
 	err = s.Env.StopInstances([]environs.Instance{inst})
 	c.Assert(err, IsNil)
 }
@@ -280,11 +308,9 @@ var instanceGathering = []struct {
 }
 
 func (s *localServerSuite) TestInstancesGathering(c *C) {
-	inst0, err := s.Env.StartInstance("100", testing.InvalidStateInfo("100"), testing.InvalidAPIInfo("100"), nil)
-	c.Assert(err, IsNil)
+	inst0 := testing.StartInstance(c, s.Env, "100")
 	id0 := inst0.Id()
-	inst1, err := s.Env.StartInstance("101", testing.InvalidStateInfo("101"), testing.InvalidAPIInfo("101"), nil)
-	c.Assert(err, IsNil)
+	inst1 := testing.StartInstance(c, s.Env, "101")
 	id1 := inst1.Id()
 	defer func() {
 		err := s.Env.StopInstances([]environs.Instance{inst0, inst1})
@@ -323,9 +349,9 @@ func (s *localServerSuite) TestInstancesGathering(c *C) {
 // It should be moved to environs.jujutests.Tests.
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	policy := t.env.AssignmentPolicy()
-	c.Assert(policy, Equals, state.AssignUnused)
+	c.Assert(policy, Equals, state.AssignNew)
 
-	err := environs.Bootstrap(t.env, true, panicWrite)
+	err := environs.Bootstrap(t.env, constraints.Value{})
 	c.Assert(err, IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
@@ -352,9 +378,10 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 
 	// check that a new instance will be started with a machine agent,
 	// and without a provisioning agent.
-	info.EntityName = "machine-1"
-	apiInfo.EntityName = "machine-1"
-	inst1, err := t.env.StartInstance("1", info, apiInfo, nil)
+	series := version.Current.Series
+	info.Tag = "machine-1"
+	apiInfo.Tag = "machine-1"
+	inst1, err := t.env.StartInstance("1", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, IsNil)
 
 	err = t.env.Destroy(append(insts, inst1))

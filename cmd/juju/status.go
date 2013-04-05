@@ -7,11 +7,12 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 )
 
 type StatusCommand struct {
-	EnvName string
-	out     cmd.Output
+	EnvCommandBase
+	out cmd.Output
 }
 
 var statusDoc = "This command will report on the runtime state of various system entities."
@@ -26,15 +27,11 @@ func (c *StatusCommand) Info() *cmd.Info {
 }
 
 func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
-	addEnvironFlags(&c.EnvName, f)
+	c.EnvCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
 		"json": cmd.FormatJson,
 	})
-}
-
-func (c *StatusCommand) Init(args []string) error {
-	return cmd.CheckEmpty(args)
 }
 
 func (c *StatusCommand) Run(ctx *cmd.Context) error {
@@ -201,7 +198,26 @@ func processUnit(unit *state.Unit) (map[string]interface{}, error) {
 	}
 
 	processVersion(r, unit)
-	processStatus(r, unit)
+
+	agentAlive, err := unit.AgentAlive()
+	if err != nil {
+		return nil, err
+	}
+	unitDead := unit.Life() == state.Dead
+	status, info, err := unit.Status()
+	if err != nil {
+		return nil, err
+	}
+	if status != params.UnitPending {
+		if !agentAlive && !unitDead {
+			// Agent should be running but it's not.
+			status = params.UnitDown
+		}
+	}
+	r["agent-state"] = status
+	if len(info) > 0 {
+		r["agent-state-info"] = info
+	}
 	return r, nil
 }
 
@@ -212,19 +228,6 @@ type versioned interface {
 func processVersion(r map[string]interface{}, v versioned) {
 	if t, err := v.AgentTools(); err == nil {
 		r["agent-version"] = t.Binary.Number.String()
-	}
-}
-
-type status interface {
-	Status() (state.UnitStatus, string, error)
-}
-
-func processStatus(r map[string]interface{}, s status) {
-	if status, info, err := s.Status(); err == nil {
-		r["status"] = status
-		if len(info) > 0 {
-			r["status-info"] = info
-		}
 	}
 }
 

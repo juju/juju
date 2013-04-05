@@ -12,6 +12,7 @@ import (
 
 // UnitAgent is a cmd.Command responsible for running a unit agent.
 type UnitAgent struct {
+	cmd.CommandBase
 	tomb     tomb.Tomb
 	Conf     AgentConf
 	UnitName string
@@ -49,10 +50,10 @@ func (a *UnitAgent) Stop() error {
 
 // Run runs a unit agent.
 func (a *UnitAgent) Run(ctx *cmd.Context) error {
-	if err := a.Conf.read(state.UnitEntityName(a.UnitName)); err != nil {
+	if err := a.Conf.read(state.UnitTag(a.UnitName)); err != nil {
 		return err
 	}
-	defer log.Printf("cmd/jujud: unit agent exiting")
+	defer log.Noticef("cmd/jujud: unit agent exiting")
 	defer a.tomb.Done()
 	err := RunAgentLoop(a.Conf.Conf, a)
 	if ug, ok := err.(*UpgradeReadyError); ok {
@@ -82,8 +83,8 @@ func (a *UnitAgent) Entity(st *state.State) (AgentState, error) {
 	return st.Unit(a.UnitName)
 }
 
-func (a *UnitAgent) EntityName() string {
-	return state.UnitEntityName(a.UnitName)
+func (a *UnitAgent) Tag() string {
+	return state.UnitTag(a.UnitName)
 }
 
 func (a *UnitAgent) Tomb() *tomb.Tomb {

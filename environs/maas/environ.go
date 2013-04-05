@@ -5,12 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"launchpad.net/gomaasapi"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
 	"net/url"
@@ -118,10 +120,7 @@ func (env *maasEnviron) findTools() (*state.Tools, error) {
 
 // getMongoURL returns the URL to the appropriate MongoDB instance.
 func (env *maasEnviron) getMongoURL(tools *state.Tools) string {
-	v := version.Current
-	v.Series = tools.Series
-	v.Arch = tools.Arch
-	return environs.MongoURL(env, v)
+	return environs.MongoURL(env, tools.Series, tools.Arch)
 }
 
 // makeMachineConfig sets up a basic machine configuration for use with
@@ -184,13 +183,16 @@ func (env *maasEnviron) startBootstrapNode(tools *state.Tools, cert, key []byte,
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *maasEnviron) Bootstrap(uploadTools bool, stateServerCert, stateServerKey []byte) error {
+func (env *maasEnviron) Bootstrap(cons constraints.Value, stateServerCert, stateServerKey []byte) error {
+	// TODO: Fix this quick hack.  uploadTools is a now-obsolete parameter.
+ 	uploadTools := false
+
 	// This was all cargo-culted from the EC2 provider.
 	password := env.Config().AdminSecret()
 	if password == "" {
 		return fmt.Errorf("admin-secret is required for bootstrap")
 	}
-	log.Printf("environs/maas: bootstrapping environment %q.", env.Name())
+	log.Debugf("environs/maas: bootstrapping environment %q.", env.Name())
 	err := env.quiesceStateFile()
 	if err != nil {
 		return err
@@ -239,7 +241,7 @@ func (env *maasEnviron) StateInfo() (*state.Info, *api.Info, error) {
 	var apiAddrs []string
 	// Wait for the DNS names of any of the instances
 	// to become available.
-	log.Printf("environs/maas: waiting for DNS name(s) of state server instances %v", st.StateInstances)
+	log.Debugf("environs/maas: waiting for DNS name(s) of state server instances %v", st.StateInstances)
 	for a := longAttempt.Start(); len(stateAddrs) == 0 && a.Next(); {
 		insts, err := env.Instances(st.StateInstances)
 		if err != nil && err != environs.ErrPartialInstances {
@@ -359,7 +361,7 @@ var _MAASInstanceIDFilename = jujuDataDir + "/MAASmachineID.txt"
 // implementation of StartInstance, and to initialize the bootstrap node.
 func (environ *maasEnviron) obtainNode(machineId string, stateInfo *state.Info, apiInfo *api.Info, tools *state.Tools, mcfg *cloudinit.MachineConfig) (*maasInstance, error) {
 
-	log.Printf("environs/maas: starting machine %s in $q running tools version %q from %q", machineId, environ.name, tools.Binary, tools.URL)
+	log.Debugf("environs/maas: starting machine %s in $q running tools version %q from %q", machineId, environ.name, tools.Binary, tools.URL)
 
 	node, err := environ.acquireNode()
 	if err != nil {
@@ -378,19 +380,18 @@ func (environ *maasEnviron) obtainNode(machineId string, stateInfo *state.Info, 
 		environ.StopInstances([]environs.Instance{&instance})
 		return nil, fmt.Errorf("cannot start instance: %v", err)
 	}
-	log.Printf("environs/maas: started instance %q", instance.Id())
+	log.Debugf("environs/maas: started instance %q", instance.Id())
 	return &instance, nil
 }
 
 // StartInstance is specified in the Environ interface.
-func (environ *maasEnviron) StartInstance(machineID string, stateInfo *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
-	if tools == nil {
-		flags := environs.HighestVersion | environs.CompatVersion
-		var err error
-		tools, err = environs.FindTools(environ, version.Current, flags)
-		if err != nil {
-			return nil, err
-		}
+func (environ *maasEnviron) StartInstance(machineID string, series string, cons constraints.Value, stateInfo *state.Info, apiInfo *api.Info) (environs.Instance, error) {
+	// TODO: Support series.
+	flags := environs.HighestVersion | environs.CompatVersion
+	var err error
+	tools, err := environs.FindTools(environ, version.Current, flags)
+	if err != nil {
+		return nil, err
 	}
 
 	mcfg := environ.makeMachineConfig(machineID, stateInfo, apiInfo, tools)
@@ -502,7 +503,7 @@ func (env *maasEnviron) PublicStorage() environs.StorageReader {
 }
 
 func (environ *maasEnviron) Destroy(ensureInsts []environs.Instance) error {
-	log.Printf("environs/maas: destroying environment %q", environ.name)
+	log.Debugf("environs/maas: destroying environment %q", environ.name)
 	insts, err := environ.AllInstances()
 	if err != nil {
 		return fmt.Errorf("cannot get instances: %v", err)
@@ -537,15 +538,15 @@ func (*maasEnviron) AssignmentPolicy() state.AssignmentPolicy {
 	return state.AssignUnused
 }
 
-func (*maasEnviron) OpenPorts([]state.Port) error {
+func (*maasEnviron) OpenPorts([]params.Port) error {
 	panic("Not implemented.")
 }
 
-func (*maasEnviron) ClosePorts([]state.Port) error {
+func (*maasEnviron) ClosePorts([]params.Port) error {
 	panic("Not implemented.")
 }
 
-func (*maasEnviron) Ports() ([]state.Port, error) {
+func (*maasEnviron) Ports() ([]params.Port, error) {
 	panic("Not implemented.")
 }
 

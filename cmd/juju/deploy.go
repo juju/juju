@@ -3,19 +3,22 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	"os"
 )
 
 type DeployCommand struct {
-	EnvName      string
+	EnvCommandBase
 	CharmName    string
 	ServiceName  string
 	Config       cmd.FileVar
+	Constraints  constraints.Value
 	NumUnits     int // defaults to 1
 	BumpRevision bool
 	RepoPath     string // defaults to JUJU_REPOSITORY
@@ -52,12 +55,13 @@ func (c *DeployCommand) Info() *cmd.Info {
 }
 
 func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
-	addEnvironFlags(&c.EnvName, f)
+	c.EnvCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "number of service units to deploy for principal charms")
 	f.IntVar(&c.NumUnits, "num-units", 1, "")
 	f.BoolVar(&c.BumpRevision, "u", false, "increment local charm directory revision")
 	f.BoolVar(&c.BumpRevision, "upgrade", false, "")
 	f.Var(&c.Config, "config", "path to yaml-formatted service config")
+	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "set service constraints")
 	f.StringVar(&c.RepoPath, "repository", os.Getenv("JUJU_REPOSITORY"), "local charm repository")
 }
 
@@ -105,25 +109,35 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	ch, err := conn.PutCharm(curl, repo, c.BumpRevision)
-	if err != nil {
-		return err
-	}
+	var configYAML []byte
 	if c.Config.Path != "" {
-		// TODO many dependencies :(
-		return errors.New("state.Service.SetConfig not implemented (format 2...)")
+		configYAML, err = ioutil.ReadFile(c.Config.Path)
+		if err != nil {
+			return err
+		}
 	}
-	svcName := c.ServiceName
-	if svcName == "" {
-		svcName = curl.Name
-	}
-	svc, err := conn.State.AddService(svcName, ch)
+	charm, err := conn.PutCharm(curl, repo, c.BumpRevision)
 	if err != nil {
 		return err
 	}
-	if ch.Meta().Subordinate {
-		return nil
+	if charm.Meta().Subordinate {
+		empty := constraints.Value{}
+		if c.Constraints != empty {
+			return state.ErrSubordinateConstraints
+		}
 	}
-	_, err = conn.AddUnits(svc, c.NumUnits)
+	serviceName := c.ServiceName
+	if serviceName == "" {
+		serviceName = curl.Name
+	}
+	args := juju.DeployServiceParams{
+		Charm:       charm,
+		ServiceName: serviceName,
+		NumUnits:    c.NumUnits,
+		// BUG(lp:1162122): --config has no tests.
+		ConfigYAML:  string(configYAML),
+		Constraints: c.Constraints,
+	}
+	_, err = conn.DeployService(args)
 	return err
 }

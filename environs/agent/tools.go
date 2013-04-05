@@ -11,7 +11,6 @@ import (
 	"launchpad.net/juju-core/version"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 )
 
@@ -75,12 +74,12 @@ func UnpackTools(dataDir string, tools *state.Tools, r io.Reader) (err error) {
 		if hdr.Typeflag != tar.TypeReg {
 			return fmt.Errorf("bad file type %c in file %q in tools archive", hdr.Typeflag, hdr.Name)
 		}
-		name := filepath.Join(dir, hdr.Name)
+		name := path.Join(dir, hdr.Name)
 		if err := writeFile(name, os.FileMode(hdr.Mode&0777), tr); err != nil {
 			return fmt.Errorf("tar extract %q failed: %v", name, err)
 		}
 	}
-	err = ioutil.WriteFile(filepath.Join(dir, urlFile), []byte(tools.URL), 0644)
+	err = ioutil.WriteFile(path.Join(dir, urlFile), []byte(tools.URL), 0644)
 	if err != nil {
 		return err
 	}
@@ -102,7 +101,7 @@ func removeAll(dir string) {
 	if err == nil || os.IsNotExist(err) {
 		return
 	}
-	log.Printf("environs: cannot remove %q: %v", dir, err)
+	log.Warningf("environs: cannot remove %q: %v", dir, err)
 }
 
 func writeFile(name string, mode os.FileMode, r io.Reader) error {
@@ -119,7 +118,7 @@ func writeFile(name string, mode os.FileMode, r io.Reader) error {
 // in the dataDir directory, and returns a Tools instance describing them.
 func ReadTools(dataDir string, vers version.Binary) (*state.Tools, error) {
 	dir := SharedToolsDir(dataDir, vers)
-	urlData, err := ioutil.ReadFile(filepath.Join(dir, urlFile))
+	urlData, err := ioutil.ReadFile(path.Join(dir, urlFile))
 	if err != nil {
 		return nil, fmt.Errorf("cannot read URL in tools directory: %v", err)
 	}

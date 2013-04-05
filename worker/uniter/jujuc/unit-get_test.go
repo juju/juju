@@ -50,8 +50,7 @@ func (s *UnitGetSuite) TestHelp(c *C) {
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, Equals, 0)
-	c.Assert(bufferString(ctx.Stdout), Equals, "")
-	c.Assert(bufferString(ctx.Stderr), Equals, `usage: unit-get [options] <setting>
+	c.Assert(bufferString(ctx.Stdout), Equals, `usage: unit-get [options] <setting>
 purpose: print public-address or private-address
 
 options:
@@ -60,6 +59,7 @@ options:
 -o, --output (= "")
     specify an output file
 `)
+	c.Assert(bufferString(ctx.Stderr), Equals, "")
 }
 
 func (s *UnitGetSuite) TestOutputPath(c *C) {

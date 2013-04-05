@@ -9,7 +9,6 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/version"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -118,12 +117,11 @@ func (s *SSHSuite) TestSSHCommand(c *C) {
 func (s *SSHCommonSuite) makeMachines(n int, c *C) []*state.Machine {
 	var machines = make([]*state.Machine, n)
 	for i := 0; i < n; i++ {
-		m, err := s.State.AddMachine(version.Current.Series, state.JobHostUnits)
+		m, err := s.State.AddMachine("series", state.JobHostUnits)
 		c.Assert(err, IsNil)
 		// must set an instance id as the ssh command uses that as a signal the machine
 		// has been provisioned
-		inst, err := s.Conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), testing.InvalidAPIInfo(m.Id()), nil)
-		c.Assert(err, IsNil)
+		inst := testing.StartInstance(c, s.Conn.Environ, m.Id())
 		c.Assert(m.SetInstanceId(inst.Id()), IsNil)
 		machines[i] = m
 	}

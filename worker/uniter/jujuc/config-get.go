@@ -7,6 +7,7 @@ import (
 
 // ConfigGetCommand implements the config-get command.
 type ConfigGetCommand struct {
+	cmd.CommandBase
 	ctx Context
 	Key string // The key to show. If empty, show all.
 	out cmd.Output

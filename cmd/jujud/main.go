@@ -9,6 +9,13 @@ import (
 	"path/filepath"
 )
 
+// When we import an environment provider implementation
+// here, it will register itself with environs.
+import (
+	_ "launchpad.net/juju-core/environs/ec2"
+	_ "launchpad.net/juju-core/environs/openstack"
+)
+
 var jujudDoc = `
 juju provides easy, intelligent service orchestration on top of environments
 such as OpenStack, Amazon AWS, or bare metal. jujud is a component of juju.
@@ -82,18 +89,21 @@ func jujuCMain(commandName string, args []string) (code int, err error) {
 // Main registers subcommands for the jujud executable, and hands over control
 // to the cmd package.
 func jujuDMain(args []string) (code int, err error) {
-	jujud := &cmd.SuperCommand{Name: "jujud", Doc: jujudDoc, Log: &cmd.Log{}}
+	jujud := cmd.NewSuperCommand(cmd.SuperCommandParams{
+		Name: "jujud",
+		Doc:  jujudDoc,
+		Log:  &cmd.Log{},
+	})
 	jujud.Register(&BootstrapCommand{})
 	jujud.Register(&MachineAgent{})
 	jujud.Register(&UnitAgent{})
-	jujud.Register(&VersionCommand{})
+	jujud.Register(&cmd.VersionCommand{})
 	code = cmd.Main(jujud, cmd.DefaultContext(), args[1:])
 	return code, nil
 }
 
-// This function is not redundant with main, because it provides an entry point
+// Main is not redundant with main(), because it provides an entry point
 // for testing with arbitrary command line arguments.
-
 func Main(args []string) {
 	var code int = 1
 	var err error

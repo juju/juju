@@ -6,7 +6,9 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/worker"
+	"launchpad.net/tomb"
 	"time"
 )
 
@@ -15,6 +17,7 @@ type FilterSuite struct {
 	wordpress  *state.Service
 	unit       *state.Unit
 	mysqlcharm *state.Charm
+	wpcharm    *state.Charm
 }
 
 var _ = Suite(&FilterSuite{})
@@ -22,9 +25,18 @@ var _ = Suite(&FilterSuite{})
 func (s *FilterSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
 	var err error
-	s.wordpress, err = s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.wpcharm = s.AddTestingCharm(c, "wordpress")
+	s.wordpress, err = s.State.AddService("wordpress", s.wpcharm)
 	c.Assert(err, IsNil)
 	s.unit, err = s.wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	err = s.unit.AssignToNewMachine()
+	c.Assert(err, IsNil)
+	mid, err := s.unit.AssignedMachineId()
+	c.Assert(err, IsNil)
+	machine, err := s.State.Machine(mid)
+	c.Assert(err, IsNil)
+	err = machine.SetInstanceId("i-exist")
 	c.Assert(err, IsNil)
 }
 
@@ -43,7 +55,7 @@ func (s *FilterSuite) TestUnitDeath(c *C) {
 	assertNotClosed()
 
 	// Irrelevant change.
-	err = s.unit.SetResolved(state.ResolvedRetryHooks)
+	err = s.unit.SetResolved(params.ResolvedRetryHooks)
 	c.Assert(err, IsNil)
 	assertNotClosed()
 
@@ -131,14 +143,14 @@ func (s *FilterSuite) TestResolvedEvents(c *C) {
 	assertNoChange()
 
 	// Change the unit in an irrelevant way; no events.
-	err = s.unit.SetStatus(state.UnitError, "blarg")
+	err = s.unit.SetStatus(params.UnitError, "blarg")
 	c.Assert(err, IsNil)
 	assertNoChange()
 
 	// Change the unit's resolved to an interesting value; new event received.
-	err = s.unit.SetResolved(state.ResolvedRetryHooks)
+	err = s.unit.SetResolved(params.ResolvedRetryHooks)
 	c.Assert(err, IsNil)
-	assertChange := func(expect state.ResolvedMode) {
+	assertChange := func(expect params.ResolvedMode) {
 		s.State.Sync()
 		select {
 		case rm := <-f.ResolvedEvents():
@@ -147,7 +159,7 @@ func (s *FilterSuite) TestResolvedEvents(c *C) {
 			c.Fatalf("timed out")
 		}
 	}
-	assertChange(state.ResolvedRetryHooks)
+	assertChange(params.ResolvedRetryHooks)
 	assertNoChange()
 
 	// Request a few events, and change the unit a few times; when
@@ -156,14 +168,14 @@ func (s *FilterSuite) TestResolvedEvents(c *C) {
 	err = s.unit.ClearResolved()
 	c.Assert(err, IsNil)
 	f.WantResolvedEvent()
-	err = s.unit.SetResolved(state.ResolvedNoHooks)
+	err = s.unit.SetResolved(params.ResolvedNoHooks)
 	c.Assert(err, IsNil)
 	f.WantResolvedEvent()
-	assertChange(state.ResolvedNoHooks)
+	assertChange(params.ResolvedNoHooks)
 	assertNoChange()
 }
 
-func (s *FilterSuite) TestCharmEvents(c *C) {
+func (s *FilterSuite) TestCharmUpgradeEvents(c *C) {
 	oldCharm := s.AddTestingCharm(c, "upgrade1")
 	svc, err := s.State.AddService("upgradetest", oldCharm)
 	c.Assert(err, IsNil)
@@ -185,8 +197,13 @@ func (s *FilterSuite) TestCharmEvents(c *C) {
 	}
 	assertNoChange()
 
-	// Request an event relative to the existing state; nothing.
-	f.WantUpgradeEvent(oldCharm.URL(), false)
+	// Setting a charm generates no new events if it already matches.
+	err = f.SetCharm(oldCharm.URL())
+	c.Assert(err, IsNil)
+	assertNoChange()
+
+	// Explicitly request an event relative to the existing state; nothing.
+	f.WantUpgradeEvent(false)
 	assertNoChange()
 
 	// Change the service in an irrelevant way; no events.
@@ -210,22 +227,21 @@ func (s *FilterSuite) TestCharmEvents(c *C) {
 	assertChange(newCharm.URL())
 	assertNoChange()
 
-	// Request a change relative to the original state, unforced;
-	// same event is sent.
-	f.WantUpgradeEvent(oldCharm.URL(), false)
+	// Request a new upgrade *unforced* upgrade event, we should see one.
+	f.WantUpgradeEvent(false)
 	assertChange(newCharm.URL())
 	assertNoChange()
 
-	// Request a forced change relative to the initial state; no change...
-	f.WantUpgradeEvent(oldCharm.URL(), true)
+	// Request only *forced* upgrade events; nothing.
+	f.WantUpgradeEvent(true)
 	assertNoChange()
 
-	// ...and still no change when we have a forced upgrade to that state...
+	// But when we have a forced upgrade to the same URL, no new event.
 	err = svc.SetCharm(oldCharm, true)
 	c.Assert(err, IsNil)
 	assertNoChange()
 
-	// ...but a *forced* change to a different charm does generate an event.
+	// ...but a *forced* change to a different URL should generate an event.
 	err = svc.SetCharm(newCharm, true)
 	assertChange(newCharm.URL())
 	assertNoChange()
@@ -236,17 +252,7 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	c.Assert(err, IsNil)
 	defer f.Stop()
 
-	// Initial event.
-	assertChange := func() {
-		s.State.Sync()
-		select {
-		case _, ok := <-f.ConfigEvents():
-			c.Assert(ok, Equals, true)
-		case <-time.After(50 * time.Millisecond):
-			c.Fatalf("timed out")
-		}
-	}
-	assertChange()
+	// Test no changes before the charm URL is set.
 	assertNoChange := func() {
 		s.State.StartSync()
 		select {
@@ -257,6 +263,28 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	}
 	assertNoChange()
 
+	assertChange := func() {
+		s.State.Sync()
+		select {
+		case _, ok := <-f.ConfigEvents():
+			c.Assert(ok, Equals, true)
+		case <-time.After(50 * time.Millisecond):
+			c.Fatalf("timed out")
+		}
+		assertNoChange()
+	}
+
+	// Set the charm URL to trigger config events.
+	err = f.SetCharm(s.wpcharm.URL())
+	c.Assert(err, IsNil)
+	assertChange()
+
+	// Make sure the charm URL is set now.
+	s.unit.Refresh()
+	curl, ok := s.unit.CharmURL()
+	c.Assert(ok, Equals, true)
+	c.Assert(curl, DeepEquals, s.wpcharm.URL())
+
 	// Change the config; new event received.
 	node, err := s.wordpress.Config()
 	c.Assert(err, IsNil)
@@ -264,7 +292,6 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	_, err = node.Write()
 	c.Assert(err, IsNil)
 	assertChange()
-	assertNoChange()
 
 	// Change the config a couple of times, then reset the events.
 	node.Set("title", "20,000 leagues in the cloud")
@@ -273,6 +300,7 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	node.Set("outlook", "precipitous")
 	_, err = node.Write()
 	c.Assert(err, IsNil)
+	// We make sure the event has come into the filter before we tell it to discard any received.
 	s.State.Sync()
 	f.DiscardConfigEvent()
 	assertNoChange()
@@ -282,8 +310,8 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	f, err = newFilter(s.State, s.unit.Name())
 	c.Assert(err, IsNil)
 	defer f.Stop()
-	f.DiscardConfigEvent()
 	s.State.Sync()
+	f.DiscardConfigEvent()
 	assertNoChange()
 
 	// Further changes are still collapsed as appropriate.
@@ -294,7 +322,45 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	_, err = node.Write()
 	c.Assert(err, IsNil)
 	assertChange()
+}
+
+func (s *FilterSuite) TestCharmErrorEvents(c *C) {
+	f, err := newFilter(s.State, s.unit.Name())
+	c.Assert(err, IsNil)
+	defer f.Stop()
+
+	assertNoChange := func() {
+		s.State.StartSync()
+		select {
+		case <-f.ConfigEvents():
+			c.Fatalf("unexpected config event")
+		case <-time.After(50 * time.Millisecond):
+		}
+	}
+	assertDead := func(f *filter) {
+		select {
+		case <-f.Dead():
+		case <-time.After(50 * time.Millisecond):
+			c.Fatalf("filter did not die")
+		}
+	}
+
+	// Check setting an invalid charm URL does not send events.
+	err = f.SetCharm(charm.MustParseURL("cs:missing/one-1"))
+	c.Assert(err, Equals, tomb.ErrDying)
 	assertNoChange()
+	assertDead(f)
+
+	// Filter died after the error, so restart it.
+	f, err = newFilter(s.State, s.unit.Name())
+	c.Assert(err, IsNil)
+	defer f.Stop()
+
+	// Check with a nil charm URL, again no changes.
+	err = f.SetCharm(nil)
+	c.Assert(err, Equals, tomb.ErrDying)
+	assertNoChange()
+	assertDead(f)
 }
 
 func (s *FilterSuite) TestRelationsEvents(c *C) {
@@ -323,14 +389,9 @@ func (s *FilterSuite) TestRelationsEvents(c *C) {
 		case <-time.After(50 * time.Millisecond):
 			c.Fatalf("timed out")
 		}
+		assertNoChange()
 	}
 	assertChange([]int{0, 1})
-	assertNoChange()
-
-	// Request all relations events; no changes should happen
-	f.WantAllRelationsEvents()
-	assertChange([]int{0, 1})
-	assertNoChange()
 
 	// Add another relation, and change another's Life (by entering scope before
 	// Destroy, thereby setting the relation to Dying); check event.
@@ -342,20 +403,22 @@ func (s *FilterSuite) TestRelationsEvents(c *C) {
 	err = rel0.Destroy()
 	c.Assert(err, IsNil)
 	assertChange([]int{0, 2})
-	assertNoChange()
 
 	// Remove a relation completely; check event.
 	err = rel1.Destroy()
 	c.Assert(err, IsNil)
 	assertChange([]int{1})
-	assertNoChange()
 
 	// Start a new filter, check initial event.
 	f, err = newFilter(s.State, s.unit.Name())
 	c.Assert(err, IsNil)
 	defer f.Stop()
 	assertChange([]int{0, 2})
-	assertNoChange()
+
+	// Check setting the charm URL generates all new relation events.
+	err = f.SetCharm(s.wpcharm.URL())
+	c.Assert(err, IsNil)
+	assertChange([]int{0, 2})
 }
 
 func (s *FilterSuite) addRelation(c *C) *state.Relation {

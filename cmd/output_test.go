@@ -9,6 +9,7 @@ import (
 
 // OutputCommand is a command that uses the output.go formatters.
 type OutputCommand struct {
+	cmd.CommandBase
 	out   cmd.Output
 	value interface{}
 }
@@ -48,8 +49,8 @@ var outputTests = map[string][]struct {
 		{1, "1\n"},
 		{-1, "-1\n"},
 		{1.1, "1.1\n"},
-		{true, "true\n"},
-		{false, "false\n"},
+		{true, "True\n"},
+		{false, "False\n"},
 		{"hello", "hello\n"},
 		{"\n\n\n", "\n\n\n\n"},
 		{"foo: bar", "foo: bar\n"},
@@ -60,8 +61,8 @@ var outputTests = map[string][]struct {
 		{1, "1\n"},
 		{-1, "-1\n"},
 		{1.1, "1.1\n"},
-		{true, "true\n"},
-		{false, "false\n"},
+		{true, "True\n"},
+		{false, "False\n"},
 		{"hello", "hello\n"},
 		{"\n\n\n", "\n\n\n\n"},
 		{"foo: bar", "foo: bar\n"},

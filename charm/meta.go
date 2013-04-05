@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-// RelationScope describes the scope of a relation endpoint.
+// RelationScope describes the scope of a relation.
 type RelationScope string
 
 // Note that schema doesn't support custom string types,
@@ -23,9 +23,20 @@ const (
 	ScopeContainer RelationScope = "container"
 )
 
+// RelationRole defines the role of a relation.
+type RelationRole string
+
+const (
+	RoleProvider RelationRole = "provider"
+	RoleRequirer RelationRole = "requirer"
+	RolePeer     RelationRole = "peer"
+)
+
 // Relation represents a single relation defined in the charm
 // metadata.yaml file.
 type Relation struct {
+	Name      string
+	Role      RelationRole
 	Interface string
 	Optional  bool
 	Limit     int
@@ -44,6 +55,7 @@ type Meta struct {
 	Peers       map[string]Relation `bson:",omitempty"`
 	Format      int                 `bson:",omitempty"`
 	OldRevision int                 `bson:",omitempty"` // Obsolete
+	Categories  []string            `bson:",omitempty"`
 }
 
 func generateRelationHooks(relName string, allHooks map[string]bool) {
@@ -74,6 +86,18 @@ func (m Meta) Hooks() map[string]bool {
 	return allHooks
 }
 
+func parseCategories(categories interface{}) []string {
+	if categories == nil {
+		return nil
+	}
+	slice := categories.([]interface{})
+	result := make([]string, 0, len(slice))
+	for _, cat := range slice {
+		result = append(result, cat.(string))
+	}
+	return result
+}
+
 // ReadMeta reads the content of a metadata.yaml file and returns
 // its representation.
 func ReadMeta(r io.Reader) (meta *Meta, err error) {
@@ -97,10 +121,11 @@ func ReadMeta(r io.Reader) (meta *Meta, err error) {
 	// enough for revisions.
 	meta.Summary = m["summary"].(string)
 	meta.Description = m["description"].(string)
-	meta.Provides = parseRelations(m["provides"])
-	meta.Requires = parseRelations(m["requires"])
-	meta.Peers = parseRelations(m["peers"])
+	meta.Provides = parseRelations(m["provides"], RoleProvider)
+	meta.Requires = parseRelations(m["requires"], RoleRequirer)
+	meta.Peers = parseRelations(m["peers"], RolePeer)
 	meta.Format = int(m["format"].(int64))
+	meta.Categories = parseCategories(m["categories"])
 	if subordinate := m["subordinate"]; subordinate != nil {
 		meta.Subordinate = subordinate.(bool)
 	}
@@ -108,19 +133,32 @@ func ReadMeta(r io.Reader) (meta *Meta, err error) {
 		// Obsolete
 		meta.OldRevision = int(m["revision"].(int64))
 	}
+	if err := meta.Check(); err != nil {
+		return nil, err
+	}
+	return meta, nil
+}
 
+// Check checks that the metadata is well-formed.
+func (meta Meta) Check() error {
 	// Check for duplicate or forbidden relation names or interfaces.
 	names := map[string]bool{}
-	checkRelations := func(src map[string]Relation, isRequire bool) error {
+	checkRelations := func(src map[string]Relation, role RelationRole) error {
 		for name, rel := range src {
+			if rel.Name != name {
+				return fmt.Errorf("charm %q has mismatched relation name %q; expected %q", meta.Name, rel.Name, name)
+			}
+			if rel.Role != role {
+				return fmt.Errorf("charm %q has mismatched role %q; expected %q", meta.Name, rel.Role, role)
+			}
 			// Container-scoped require relations on subordinates are allowed
 			// to use the otherwise-reserved juju-* namespace.
-			if !meta.Subordinate || !isRequire || rel.Scope != ScopeContainer {
+			if !meta.Subordinate || role != RoleRequirer || rel.Scope != ScopeContainer {
 				if reservedName(name) {
 					return fmt.Errorf("charm %q using a reserved relation name: %q", meta.Name, name)
 				}
 			}
-			if !isRequire {
+			if role != RoleRequirer {
 				if reservedName(rel.Interface) {
 					return fmt.Errorf("charm %q relation %q using a reserved interface: %q", meta.Name, name, rel.Interface)
 				}
@@ -132,14 +170,14 @@ func ReadMeta(r io.Reader) (meta *Meta, err error) {
 		}
 		return nil
 	}
-	if err := checkRelations(meta.Provides, false); err != nil {
-		return nil, err
+	if err := checkRelations(meta.Provides, RoleProvider); err != nil {
+		return err
 	}
-	if err := checkRelations(meta.Requires, true); err != nil {
-		return nil, err
+	if err := checkRelations(meta.Requires, RoleRequirer); err != nil {
+		return err
 	}
-	if err := checkRelations(meta.Peers, false); err != nil {
-		return nil, err
+	if err := checkRelations(meta.Peers, RolePeer); err != nil {
+		return err
 	}
 
 	// Subordinate charms must have at least one relation that
@@ -156,26 +194,29 @@ func ReadMeta(r io.Reader) (meta *Meta, err error) {
 			}
 		}
 		if !valid {
-			return nil, fmt.Errorf("subordinate charm %q lacks requires relation with container scope", meta.Name)
+			return fmt.Errorf("subordinate charm %q lacks \"requires\" relation with container scope", meta.Name)
 		}
 	}
-	return
+	return nil
 }
 
 func reservedName(name string) bool {
 	return name == "juju" || strings.HasPrefix(name, "juju-")
 }
 
-func parseRelations(relations interface{}) map[string]Relation {
+func parseRelations(relations interface{}, role RelationRole) map[string]Relation {
 	if relations == nil {
 		return nil
 	}
 	result := make(map[string]Relation)
 	for name, rel := range relations.(map[string]interface{}) {
 		relMap := rel.(map[string]interface{})
-		relation := Relation{}
-		relation.Interface = relMap["interface"].(string)
-		relation.Optional = relMap["optional"].(bool)
+		relation := Relation{
+			Name:      name,
+			Role:      role,
+			Interface: relMap["interface"].(string),
+			Optional:  relMap["optional"].(bool),
+		}
 		if scope := relMap["scope"]; scope != nil {
 			relation.Scope = RelationScope(scope.(string))
 		}
@@ -269,6 +310,7 @@ var charmSchema = schema.FieldMap(
 		"revision":    schema.Int(), // Obsolete
 		"format":      schema.Int(),
 		"subordinate": schema.Bool(),
+		"categories":  schema.List(schema.String()),
 	},
 	schema.Defaults{
 		"provides":    schema.Omit,
@@ -277,5 +319,6 @@ var charmSchema = schema.FieldMap(
 		"revision":    schema.Omit,
 		"format":      1,
 		"subordinate": schema.Omit,
+		"categories":  schema.Omit,
 	},
 )

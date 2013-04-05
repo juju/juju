@@ -11,6 +11,7 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/cert"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/presence"
@@ -29,22 +30,41 @@ type Info struct {
 	// to validate the state server's certificate, in PEM format.
 	CACert []byte
 
-	// EntityName holds the name of the entity that is connecting.
+	// Tag holds the name of the entity that is connecting.
 	// It should be empty when connecting as an administrator.
-	EntityName string
+	Tag string
 
 	// Password holds the password for the connecting entity.
 	Password string
 }
 
-var dialTimeout = 10 * time.Minute
+// DialOpts holds configuration parameters that control the
+// Dialing behavior when connecting to a state server.
+type DialOpts struct {
+	// Timeout is the amount of time to wait contacting
+	// a state server.
+	Timeout time.Duration
+
+	// RetryDelay is the amount of time to wait between
+	// unsucssful connection attempts.
+	RetryDelay time.Duration
+}
+
+// DefaultDialOpts returns a DialOpts representing the default
+// parameters for contacting a state server.
+func DefaultDialOpts() DialOpts {
+	return DialOpts{
+		Timeout:    10 * time.Minute,
+		RetryDelay: 2 * time.Second,
+	}
+}
 
 // Open connects to the server described by the given
 // info, waits for it to be initialized, and returns a new State
 // representing the environment connected to.
 // It returns unauthorizedError if access is unauthorized.
-func Open(info *Info) (*State, error) {
-	log.Printf("state: opening state; mongo addresses: %q; entity %q", info.Addrs, info.EntityName)
+func Open(info *Info, opts DialOpts) (*State, error) {
+	log.Infof("state: opening state; mongo addresses: %q; entity %q", info.Addrs, info.Tag)
 	if len(info.Addrs) == 0 {
 		return nil, errors.New("no mongo addresses")
 	}
@@ -62,18 +82,24 @@ func Open(info *Info) (*State, error) {
 		ServerName: "anything",
 	}
 	dial := func(addr net.Addr) (net.Conn, error) {
-		log.Printf("state: connecting to %v", addr)
-		c, err := tls.Dial("tcp", addr.String(), tlsConfig)
+		log.Infof("state: connecting to %v", addr)
+		c, err := net.Dial("tcp", addr.String())
 		if err != nil {
-			log.Printf("state: connection failed: %v", err)
+			log.Errorf("state: connection failed, paused for %v: %v", opts.RetryDelay, err)
+			time.Sleep(opts.RetryDelay)
 			return nil, err
 		}
-		log.Printf("state: connection established")
-		return c, err
+		cc := tls.Client(c, tlsConfig)
+		if err := cc.Handshake(); err != nil {
+			log.Errorf("state: TLS handshake failed: %v", err)
+			return nil, err
+		}
+		log.Infof("state: connection established")
+		return cc, nil
 	}
 	session, err := mgo.DialWithInfo(&mgo.DialInfo{
 		Addrs:   info.Addrs,
-		Timeout: dialTimeout,
+		Timeout: opts.Timeout,
 		Dial:    dial,
 	})
 	if err != nil {
@@ -90,8 +116,8 @@ func Open(info *Info) (*State, error) {
 // Initialize sets up an initial empty state and returns it.
 // This needs to be performed only once for a given environment.
 // It returns unauthorizedError if access is unauthorized.
-func Initialize(info *Info, cfg *config.Config) (rst *State, err error) {
-	st, err := Open(info)
+func Initialize(info *Info, cfg *config.Config, opts DialOpts) (rst *State, err error) {
+	st, err := Open(info, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -108,12 +134,12 @@ func Initialize(info *Info, cfg *config.Config) (rst *State, err error) {
 	} else if !IsNotFound(err) {
 		return nil, err
 	}
-	log.Printf("state: initializing environment")
+	log.Infof("state: initializing environment")
 	if cfg.AdminSecret() != "" {
 		return nil, fmt.Errorf("admin-secret should never be written to the state")
 	}
 	ops := []txn.Op{
-		createConstraintsOp(st, "e", Constraints{}),
+		createConstraintsOp(st, "e", constraints.Value{}),
 		createSettingsOp(st, "e", cfg.AllAttrs()),
 	}
 	if err := st.runner.Run(ops, "", nil); err == txn.ErrAborted {
@@ -191,11 +217,11 @@ func maybeUnauthorized(err error, msg string) error {
 func newState(session *mgo.Session, info *Info) (*State, error) {
 	db := session.DB("juju")
 	pdb := session.DB("presence")
-	if info.EntityName != "" {
-		if err := db.Login(info.EntityName, info.Password); err != nil {
+	if info.Tag != "" {
+		if err := db.Login(info.Tag, info.Password); err != nil {
 			return nil, maybeUnauthorized(err, "cannot log in to juju database")
 		}
-		if err := pdb.Login(info.EntityName, info.Password); err != nil {
+		if err := pdb.Login(info.Tag, info.Password); err != nil {
 			return nil, maybeUnauthorized(err, "cannot log in to presence database")
 		}
 	} else if info.Password != "" {
@@ -213,16 +239,19 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 		relationScopes: db.C("relationscopes"),
 		services:       db.C("services"),
 		settings:       db.C("settings"),
+		settingsrefs:   db.C("settingsrefs"),
 		constraints:    db.C("constraints"),
 		units:          db.C("units"),
 		users:          db.C("users"),
 		presence:       pdb.C("presence"),
 		cleanups:       db.C("cleanups"),
+		annotations:    db.C("annotations"),
+		statuses:       db.C("statuses"),
 	}
 	log := db.C("txns.log")
 	logInfo := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
 	// The lack of error code for this error was reported upstream:
-	//     https://jira.mongodb.org/browse/SERVER-6992
+	//     https://jira.klmongodb.org/browse/SERVER-6992
 	err := log.Create(&logInfo)
 	if err != nil && err.Error() != "collection already exists" {
 		return nil, maybeUnauthorized(err, "cannot create log collection")
@@ -237,11 +266,13 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 			return nil, fmt.Errorf("cannot create database index: %v", err)
 		}
 	}
+	st.allWatcher = newAllWatcher(newAllWatcherStateBacking(st))
+	go st.allWatcher.run()
 	return st, nil
 }
 
-// Addrs returns the list of addresses used to connect to the state.
-func (st *State) Addrs() (addrs []string) {
+// Addresses returns the list of addresses used to connect to the state.
+func (st *State) Addresses() (addrs []string) {
 	return append(addrs, st.info.Addrs...)
 }
 
@@ -253,8 +284,9 @@ func (st *State) CACert() (cert []byte) {
 func (st *State) Close() error {
 	err1 := st.watcher.Stop()
 	err2 := st.pwatcher.Stop()
+	err3 := st.allWatcher.Stop()
 	st.db.Session.Close()
-	for _, err := range []error{err1, err2} {
+	for _, err := range []error{err1, err2, err3} {
 		if err != nil {
 			return err
 		}

@@ -3,17 +3,20 @@ package juju
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/trivial"
 	"net/url"
 	"os"
-	"strings"
 	"time"
 )
 
@@ -42,7 +45,8 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 		return nil, fmt.Errorf("cannot connect without admin-secret")
 	}
 	info.Password = password
-	st, err := state.Open(info)
+	opts := state.DefaultDialOpts()
+	st, err := state.Open(info, opts)
 	if state.IsUnauthorizedError(err) {
 		// We can't connect with the administrator password,;
 		// perhaps this was the first connection and the
@@ -53,7 +57,7 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 		// connecting to mongo before the state has been
 		// initialized and the initial password set.
 		for a := redialStrategy.Start(); a.Next(); {
-			st, err = state.Open(info)
+			st, err = state.Open(info, opts)
 			if !state.IsUnauthorizedError(err) {
 				break
 			}
@@ -161,10 +165,10 @@ func (conn *Conn) PutCharm(curl *charm.URL, repo charm.Repository, bumpRevision 
 	if bumpRevision {
 		chd, ok := ch.(*charm.Dir)
 		if !ok {
-			return nil, fmt.Errorf("cannot increment version of charm %q: not a directory", curl)
+			return nil, fmt.Errorf("cannot increment revision of charm %q: not a directory", curl)
 		}
 		if err = chd.SetDiskRevision(chd.Revision() + 1); err != nil {
-			return nil, fmt.Errorf("cannot increment version of charm %q: %v", curl, err)
+			return nil, fmt.Errorf("cannot increment revision of charm %q: %v", curl, err)
 		}
 		curl = curl.WithRevision(chd.Revision())
 	}
@@ -172,6 +176,56 @@ func (conn *Conn) PutCharm(curl *charm.URL, repo charm.Repository, bumpRevision 
 		return sch, nil
 	}
 	return conn.addCharm(curl, ch)
+}
+
+// DeployServiceParams contains the arguments required to deploy the referenced
+// charm.
+type DeployServiceParams struct {
+	ServiceName string
+	Charm       *state.Charm
+	NumUnits    int
+	// Config is used only by the API.
+	Config map[string]string
+	// ConfigYAML takes precedence over Config if both are provided.
+	ConfigYAML  string
+	Constraints constraints.Value
+}
+
+// DeployService takes a charm and various parameters and deploys it.
+func (conn *Conn) DeployService(args DeployServiceParams) (*state.Service, error) {
+	svc, err := conn.State.AddService(args.ServiceName, args.Charm)
+	if err != nil {
+		return nil, err
+	}
+	// BUG(lp:1162122): Config/ConfigYAML have no tests.
+	if args.ConfigYAML != "" {
+		ssArgs := params.ServiceSetYAML{
+			ServiceName: args.ServiceName,
+			Config:      args.ConfigYAML,
+		}
+		if err := ServiceSetYAML(conn.State, ssArgs); err != nil {
+			return nil, err
+		}
+	} else if args.Config != nil {
+		ssArgs := params.ServiceSet{
+			ServiceName: args.ServiceName,
+			Options:     args.Config,
+		}
+		if err := ServiceSet(conn.State, ssArgs); err != nil {
+			return nil, err
+		}
+	}
+	if args.Charm.Meta().Subordinate {
+		return svc, nil
+	}
+	if err := svc.SetConstraints(args.Constraints); err != nil {
+		return nil, err
+	}
+	_, err = conn.AddUnits(svc, args.NumUnits)
+	if err != nil {
+		return nil, err
+	}
+	return svc, nil
 }
 
 func (conn *Conn) addCharm(curl *charm.URL, ch charm.Charm) (*state.Charm, error) {
@@ -211,7 +265,7 @@ func (conn *Conn) addCharm(curl *charm.URL, ch charm.Charm) (*state.Charm, error
 		return nil, err
 	}
 	storage := conn.Environ.Storage()
-	log.Printf("writing charm to storage [%d bytes]", size)
+	log.Infof("writing charm to storage [%d bytes]", size)
 	if err := storage.Put(name, f, size); err != nil {
 		return nil, fmt.Errorf("cannot put charm: %v", err)
 	}
@@ -223,7 +277,7 @@ func (conn *Conn) addCharm(curl *charm.URL, ch charm.Charm) (*state.Charm, error
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse storage URL: %v", err)
 	}
-	log.Printf("adding charm to state")
+	log.Infof("adding charm to state")
 	sch, err := conn.State.AddCharm(ch, curl, u, digest)
 	if err != nil {
 		return nil, fmt.Errorf("cannot add charm: %v", err)
@@ -235,9 +289,12 @@ func (conn *Conn) addCharm(curl *charm.URL, ch charm.Charm) (*state.Charm, error
 // to them as necessary.
 func (conn *Conn) AddUnits(svc *state.Service, n int) ([]*state.Unit, error) {
 	units := make([]*state.Unit, n)
+	// TODO store AssignmentPolicy in state, thus removing the need for this
+	// to use conn.Environ (so the method can be moved off Conn, and into
+	// State.
+	policy := conn.Environ.AssignmentPolicy()
 	// TODO what do we do if we fail half-way through this process?
 	for i := 0; i < n; i++ {
-		policy := conn.Environ.AssignmentPolicy()
 		unit, err := svc.AddUnit()
 		if err != nil {
 			return nil, fmt.Errorf("cannot add unit %d/%d to service %q: %v", i+1, n, svc.Name(), err)
@@ -251,62 +308,6 @@ func (conn *Conn) AddUnits(svc *state.Service, n int) ([]*state.Unit, error) {
 	return units, nil
 }
 
-// DestroyMachines destroys the specified machines.
-func (conn *Conn) DestroyMachines(ids ...string) (err error) {
-	var errs []string
-	for _, id := range ids {
-		machine, err := conn.State.Machine(id)
-		switch {
-		case state.IsNotFound(err):
-			err = fmt.Errorf("machine %s does not exist", id)
-		case err != nil:
-		case machine.Life() != state.Alive:
-			continue
-		default:
-			err = machine.Destroy()
-		}
-		if err != nil {
-			errs = append(errs, err.Error())
-		}
-	}
-	return destroyErr("machines", ids, errs)
-}
-
-// DestroyUnits destroys the specified units.
-func (conn *Conn) DestroyUnits(names ...string) (err error) {
-	var errs []string
-	for _, name := range names {
-		unit, err := conn.State.Unit(name)
-		switch {
-		case state.IsNotFound(err):
-			err = fmt.Errorf("unit %q does not exist", name)
-		case err != nil:
-		case unit.Life() != state.Alive:
-			continue
-		case unit.IsPrincipal():
-			err = unit.Destroy()
-		default:
-			err = fmt.Errorf("unit %q is a subordinate", name)
-		}
-		if err != nil {
-			errs = append(errs, err.Error())
-		}
-	}
-	return destroyErr("units", names, errs)
-}
-
-func destroyErr(desc string, ids, errs []string) error {
-	if len(errs) == 0 {
-		return nil
-	}
-	msg := "some %s were not destroyed"
-	if len(errs) == len(ids) {
-		msg = "no %s were destroyed"
-	}
-	msg = fmt.Sprintf(msg, desc)
-	return fmt.Errorf("%s: %s", msg, strings.Join(errs, "; "))
-}
-
 // Resolved marks the unit as having had any previous state transition
 // problems resolved, and informs the unit that it may attempt to
 // reestablish normal workflow. The retryHooks parameter informs
@@ -317,12 +318,89 @@ func (conn *Conn) Resolved(unit *state.Unit, retryHooks bool) error {
 	if err != nil {
 		return err
 	}
-	if status != state.UnitError {
+	if status != params.UnitError {
 		return fmt.Errorf("unit %q is not in an error state", unit)
 	}
-	mode := state.ResolvedNoHooks
+	mode := params.ResolvedNoHooks
 	if retryHooks {
-		mode = state.ResolvedRetryHooks
+		mode = params.ResolvedRetryHooks
 	}
 	return unit.SetResolved(mode)
+}
+
+// ServiceSet changes a service's configuration values.
+// Values set to the empty string will be deleted.
+func ServiceSet(st *state.State, p params.ServiceSet) error {
+	return serviceSet(st, p.ServiceName, p.Options)
+}
+
+// ServiceSetYAML is like ServiceSet except that the
+// configuration data is specified in YAML format.
+func ServiceSetYAML(st *state.State, p params.ServiceSetYAML) error {
+	// TODO(rog) should this function interpret null as delete?
+	// If so, we need to sort out some goyaml issues first.
+	// (see https://bugs.launchpad.net/goyaml/+bug/1133337)
+	var options map[string]string
+	if err := goyaml.Unmarshal([]byte(p.Config), &options); err != nil {
+		return err
+	}
+	return serviceSet(st, p.ServiceName, options)
+}
+
+func serviceSet(st *state.State, svcName string, options map[string]string) error {
+	if len(options) == 0 {
+		return errors.New("no options to set")
+	}
+	unvalidated := make(map[string]string)
+	var remove []string
+	for k, v := range options {
+		if v == "" {
+			remove = append(remove, k)
+		} else {
+			unvalidated[k] = v
+		}
+	}
+	srv, err := st.Service(svcName)
+	if err != nil {
+		return err
+	}
+	charm, _, err := srv.Charm()
+	if err != nil {
+		return err
+	}
+	// 1. Validate will convert this partial configuration
+	// into a full configuration by inserting charm defaults
+	// for missing values.
+	validated, err := charm.Config().Validate(unvalidated)
+	if err != nil {
+		return err
+	}
+	// 2. strip out the additional default keys added in the previous step.
+	validated = strip(validated, unvalidated)
+	cfg, err := srv.Config()
+	if err != nil {
+		return err
+	}
+	// 3. Update any keys that remain after validation and filtering.
+	if len(validated) > 0 {
+		cfg.Update(validated)
+	}
+	// 4. Delete any removed keys.
+	if len(remove) > 0 {
+		for _, k := range remove {
+			cfg.Delete(k)
+		}
+	}
+	_, err = cfg.Write()
+	return err
+}
+
+// strip removes from validated, any keys which are not also present in unvalidated.
+func strip(validated map[string]interface{}, unvalidated map[string]string) map[string]interface{} {
+	for k := range validated {
+		if _, ok := unvalidated[k]; !ok {
+			delete(validated, k)
+		}
+	}
+	return validated
 }
