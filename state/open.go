@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/presence"
+	"launchpad.net/juju-core/state/allwatcher"
 	"launchpad.net/juju-core/state/watcher"
 )
 
@@ -266,8 +267,8 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 			return nil, fmt.Errorf("cannot create database index: %v", err)
 		}
 	}
-	st.allWatcher = newAllWatcher(newAllWatcherStateBacking(st))
-	go st.allWatcher.run()
+	st.allWatcher = allwatcher.NewAllWatcher(newAllWatcherStateBacking(st))
+	go st.allWatcher.Run()
 	return st, nil
 }
 

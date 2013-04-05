@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"labix.org/v2/mgo"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/allwatcher"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/watcher"
 	"reflect"
 )
@@ -29,7 +31,7 @@ type allWatcherStateCollection struct {
 	infoSliceType reflect.Type
 }
 
-func newAllWatcherStateBacking(st *State) allWatcherBacking {
+func newAllWatcherStateBacking(st *State) allwatcher.Backing {
 	b := &allWatcherStateBacking{
 		st:               st,
 		collectionByName: make(map[string]allWatcherStateCollection),
@@ -69,22 +71,22 @@ func newAllWatcherStateBacking(st *State) allWatcherBacking {
 	return b
 }
 
-// watch watches all the collections.
-func (b *allWatcherStateBacking) watch(in chan<- watcher.Change) {
+// Watch watches all the collections.
+func (b *allWatcherStateBacking) Watch(in chan<- watcher.Change) {
 	for _, c := range b.collectionByName {
 		b.st.watcher.WatchCollection(c.Name, in)
 	}
 }
 
-// watch unwatches all the collections.
-func (b *allWatcherStateBacking) unwatch(in chan<- watcher.Change) {
+// Unwatch unwatches all the collections.
+func (b *allWatcherStateBacking) Unwatch(in chan<- watcher.Change) {
 	for _, c := range b.collectionByName {
 		b.st.watcher.UnwatchCollection(c.Name, in)
 	}
 }
 
-// getAll fetches all items that we want to watch from the state.
-func (b *allWatcherStateBacking) getAll(all *allInfo) error {
+// GetAll fetches all items that we want to watch from the state.
+func (b *allWatcherStateBacking) GetAll(all *allwatcher.AllInfo) error {
 	// TODO(rog) fetch collections concurrently?
 	for _, c := range b.collectionByName {
 		infoSlicePtr := reflect.New(c.infoSliceType).Interface()
@@ -94,7 +96,7 @@ func (b *allWatcherStateBacking) getAll(all *allInfo) error {
 		infos := reflect.ValueOf(infoSlicePtr).Elem()
 		for i := 0; i < infos.Len(); i++ {
 			info := infos.Index(i).Addr().Interface().(params.EntityInfo)
-			all.update(b.idForInfo(info), info)
+			all.Update(b.IdForInfo(info), info)
 		}
 	}
 	return nil
@@ -108,7 +110,7 @@ type entityId struct {
 
 // changed updates the allWatcher's idea of the current state
 // in response to the given change.
-func (b *allWatcherStateBacking) changed(all *allInfo, change watcher.Change) error {
+func (b *allWatcherStateBacking) Changed(all *allwatcher.AllInfo, change watcher.Change) error {
 	id := entityId{
 		collection: change.C,
 		id:         change.Id,
@@ -119,7 +121,8 @@ func (b *allWatcherStateBacking) changed(all *allInfo, change watcher.Change) er
 	if err != nil && err != mgo.ErrNotFound {
 		return err
 	}
-	all.update(id, info)
+	log.Infof("updated %+v to %#v", id, info)
+	all.Update(id, info)
 	return nil
 }
 
@@ -135,10 +138,9 @@ func (b *allWatcherStateBacking) fetch(id entityId) (params.EntityInfo, error) {
 	return info, nil
 }
 
-type infoId interface{}
 
 // idForInfo returns the info id of the given entity document.
-func (b *allWatcherStateBacking) idForInfo(info params.EntityInfo) infoId {
+func (b *allWatcherStateBacking) IdForInfo(info params.EntityInfo) allwatcher.InfoId {
 	c, ok := b.collectionByKind[info.EntityKind()]
 	if !ok {
 		panic(fmt.Errorf("entity with unknown kind %q", info.EntityKind()))

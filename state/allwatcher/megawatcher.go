@@ -1,4 +1,4 @@
-package state
+package allwatcher
 
 import (
 	"container/list"
@@ -10,37 +10,37 @@ import (
 )
 
 // StateWatcher watches any changes to the state.
-// TODO(rog) rename this to StateWatcher when allWatcher is complete.
+// TODO(rog) rename this to StateWatcher when AllWatcher is complete.
 type StateWatcher struct {
-	all *allWatcher
-	// The following fields are maintained by the allWatcher
+	all *AllWatcher
+	// The following fields are maintained by the AllWatcher
 	// goroutine.
 	revno   int64
 	stopped bool
 }
 
-func newStateWatcher(st *State) *StateWatcher {
+func NewStateWatcher(all *AllWatcher) *StateWatcher {
 	return &StateWatcher{
-		all: st.allWatcher,
+		all: all,
 	}
 }
 
 // Stop stops the watcher.
 func (w *StateWatcher) Stop() error {
 	select {
-	case w.all.request <- &allRequest{w: w}:
+	case w.all.request <- &request{w: w}:
 		return nil
 	case <-w.all.tomb.Dead():
 	}
 	return w.all.tomb.Err()
 }
 
-var errWatcherStopped = errors.New("state watcher was stopped")
+var ErrWatcherStopped = errors.New("state watcher was stopped")
 
 // Next retrieves all changes that have happened since the last
 // time it was called, blocking until there are some changes available.
 func (w *StateWatcher) Next() ([]params.Delta, error) {
-	req := &allRequest{
+	req := &request{
 		w:     w,
 		reply: make(chan bool),
 	}
@@ -49,69 +49,71 @@ func (w *StateWatcher) Next() ([]params.Delta, error) {
 	case <-w.all.tomb.Dead():
 		err := w.all.tomb.Err()
 		if err == nil {
-			err = errWatcherStopped
+			err = ErrWatcherStopped
 		}
 		return nil, err
 	}
 	if ok := <-req.reply; !ok {
 		// TODO better error?
-		return nil, errWatcherStopped
+		return nil, ErrWatcherStopped
 	}
 	return req.changes, nil
 }
 
-// allWatcher holds a shared record of all current state and replies to
+// AllWatcher holds a shared record of all current state and replies to
 // requests from StateWatches to tell them when it changes.
 // TODO(rog) complete this type and its methods.
-type allWatcher struct {
+type AllWatcher struct {
 	tomb tomb.Tomb
 
 	// backing knows how to fetch information from
 	// the underlying state.
-	backing allWatcherBacking
+	backing Backing
 
 	// request receives requests from StateWatcher clients.
-	request chan *allRequest
+	request chan *request
 
-	// all holds information on everything the allWatcher cares about.
-	all *allInfo
+	// all holds information on everything the AllWatcher cares about.
+	all *AllInfo
 
 	// Each entry in the waiting map holds a linked list of Next requests
 	// outstanding for the associated StateWatcher.
-	waiting map[*StateWatcher]*allRequest
+	waiting map[*StateWatcher]*request
 }
 
-// allWatcherBacking is the interface required
-// by the allWatcher to access the underlying state.
+type InfoId interface{}
+
+// Backing is the interface required
+// by the AllWatcher to access the underlying state.
 // It is an interface for testing purposes.
 // TODO(rog) complete this type and its methods.
-type allWatcherBacking interface {
+type Backing interface {
 	// idForInfo returns the info id corresponding
 	// to the given entity info.
-	idForInfo(info params.EntityInfo) infoId
+	IdForInfo(info params.EntityInfo) InfoId
 
 	// getAll retrieves information about all known entities in the state
-	// into the given allInfo.
-	getAll(all *allInfo) error
+	// into the given AllInfo.
+	GetAll(all *AllInfo) error
 
-	// changed informs the backing about a change to the entity with
+	// Changed informs the backing about a change to the entity with
 	// the given id.  The backing is responsible for updating the
-	// allInfo to reflect the change.
-	changed(all *allInfo, change watcher.Change) error
+	// AllInfo to reflect the change.
+	Changed(all *AllInfo, change watcher.Change) error
 
-	// watch watches for any changes and sends them
+	// Watch watches for any changes and sends them
 	// on the given channel.
-	watch(in chan<- watcher.Change)
+	Watch(in chan<- watcher.Change)
 
-	// unwatch stops watching for changes on the
+	// Unwatch stops watching for changes on the
 	// given channel.
-	unwatch(in chan<- watcher.Change)
+	Unwatch(in chan<- watcher.Change)
 }
 
-// allRequest holds a request from the StateWatcher to the
-// allWatcher for some changes. The request will be
+// request holds a message from the StateWatcher to the
+// AllWatcher for some changes. The request will be
 // replied to when some changes are available.
-type allRequest struct {
+type request struct {
 	// w holds the StateWatcher that has originated the request.
 	w *StateWatcher
 
@@ -127,42 +129,42 @@ type allRequest struct {
 
 	// next points to the next request in the list of outstanding
 	// requests on a given watcher.  It is used only by the central
-	// allWatcher goroutine.
-	next *allRequest
+	// AllWatcher goroutine.
+	next *request
 }
 
-// newAllWatcher returns a new allWatcher that retrieves information
+// newAllWatcher returns a new AllWatcher that retrieves information
 // using the given backing. It does not start it running.
-func newAllWatcher(backing allWatcherBacking) *allWatcher {
-	return &allWatcher{
+func NewAllWatcher(backing Backing) *AllWatcher {
+	return &AllWatcher{
 		backing: backing,
-		request: make(chan *allRequest),
-		all:     newAllInfo(),
-		waiting: make(map[*StateWatcher]*allRequest),
+		request: make(chan *request),
+		all:     NewAllInfo(),
+		waiting: make(map[*StateWatcher]*request),
 	}
 }
 
-func (aw *allWatcher) run() {
+func (aw *AllWatcher) Run() {
 	defer aw.tomb.Done()
 	// TODO(rog) distinguish between temporary and permanent errors:
-	// if we get an error in loop, this logic kill the state's allWatcher
+	// if we get an error in loop, this logic kill the state's AllWatcher
 	// forever. This currently fits the way we go about things,
 	// because we reconnect to the state on any error, but
 	// perhaps there are errors we could recover from.
 	aw.tomb.Kill(aw.loop())
 }
 
-func (aw *allWatcher) loop() error {
+func (aw *AllWatcher) loop() error {
 	in := make(chan watcher.Change)
-	aw.backing.watch(in)
-	defer aw.backing.unwatch(in)
+	aw.backing.Watch(in)
+	defer aw.backing.Unwatch(in)
 	// We have no idea what changes the watcher might be trying to
 	// send us while getAll proceeds, but we don't mind, because
-	// allWatcher.changed is idempotent with respect to both updates
+	// AllWatcher.changed is idempotent with respect to both updates
 	// and removals.
 	// TODO(rog) Perhaps find a way to avoid blocking all other
-	// watchers while getAll is running.
-	if err := aw.backing.getAll(aw.all); err != nil {
+	// watchers while GetAll is running.
+	if err := aw.backing.GetAll(aw.all); err != nil {
 		return err
 	}
 	for {
@@ -170,7 +172,7 @@ func (aw *allWatcher) loop() error {
 		case <-aw.tomb.Dying():
 			return tomb.ErrDying
 		case change := <-in:
-			if err := aw.backing.changed(aw.all, change); err != nil {
+			if err := aw.backing.Changed(aw.all, change); err != nil {
 				return err
 			}
 		case req := <-aw.request:
@@ -181,14 +183,14 @@ func (aw *allWatcher) loop() error {
 	panic("unreachable")
 }
 
-// Stop stops the allWatcher.
-func (aw *allWatcher) Stop() error {
+// Stop stops the AllWatcher.
+func (aw *AllWatcher) Stop() error {
 	aw.tomb.Kill(nil)
 	return aw.tomb.Wait()
 }
 
-// handle processes a request from a StateWatcher to the allWatcher.
-func (aw *allWatcher) handle(req *allRequest) {
+// handle processes a request from a StateWatcher to the AllWatcher.
+func (aw *AllWatcher) handle(req *request) {
 	if req.w.stopped {
 		// The watcher has previously been stopped.
 		if req.reply != nil {
@@ -212,10 +214,10 @@ func (aw *allWatcher) handle(req *allRequest) {
 }
 
 // respond responds to all outstanding requests that are satisfiable.
-func (aw *allWatcher) respond() {
+func (aw *AllWatcher) respond() {
 	for w, req := range aw.waiting {
 		revno := w.revno
-		changes := aw.all.changesSince(revno)
+		changes := aw.all.ChangesSince(revno)
 		if len(changes) == 0 {
 			continue
 		}
@@ -235,7 +237,7 @@ func (aw *allWatcher) respond() {
 // seen states that a StateWatcher has just been given information about
 // all entities newer than the given revno.  We assume it has already
 // seen all the older entities.
-func (aw *allWatcher) seen(revno int64) {
+func (aw *AllWatcher) seen(revno int64) {
 	for e := aw.all.list.Front(); e != nil; {
 		next := e.Next()
 		entry := e.Value.(*entityEntry)
@@ -253,7 +255,7 @@ func (aw *allWatcher) seen(revno int64) {
 			// has now been removed, so decrement its refCount, removing
 			// the entity if nothing else is waiting to be notified that it's
 			// gone.
-			aw.all.decRef(entry, aw.backing.idForInfo(entry.info))
+			aw.all.decRef(entry, aw.backing.IdForInfo(entry.info))
 		}
 		e = next
 	}
@@ -261,7 +263,7 @@ func (aw *allWatcher) seen(revno int64) {
 
 // leave is called when the given watcher leaves.  It decrements the reference
 // counts of any entities that have been seen by the watcher.
-func (aw *allWatcher) leave(w *StateWatcher) {
+func (aw *AllWatcher) leave(w *StateWatcher) {
 	for e := aw.all.list.Front(); e != nil; {
 		next := e.Next()
 		entry := e.Value.(*entityEntry)
@@ -274,7 +276,7 @@ func (aw *allWatcher) leave(w *StateWatcher) {
 				e = next
 				continue
 			}
-			aw.all.decRef(entry, aw.backing.idForInfo(entry.info))
+			aw.all.decRef(entry, aw.backing.IdForInfo(entry.info))
 		}
 		e = next
 	}
@@ -309,28 +311,42 @@ type entityEntry struct {
 	info params.EntityInfo
 }
 
-// allInfo holds a list of all entities known
+// AllInfo holds a list of all entities known
 // to a StateWatcher.
-type allInfo struct {
+type AllInfo struct {
 	latestRevno int64
-	entities    map[infoId]*list.Element
+	entities    map[InfoId]*list.Element
 	list        *list.List
 }
 
-// newAllInfo returns an allInfo instance holding information about the
+// NewAllInfo returns an AllInfo instance holding information about the
 // current state of all entities in the environment.
-func newAllInfo() *allInfo {
-	all := &allInfo{
-		entities: make(map[infoId]*list.Element),
+// It is only exposed here for testing purposes.
+func NewAllInfo() *AllInfo {
+	all := &AllInfo{
+		entities: make(map[InfoId]*list.Element),
 		list:     list.New(),
 	}
 	return all
 }
 
+// All returns all the entities stored in the AllInfo,
+// oldest first. It is only exposed for testing purposes.
+func (a *AllInfo) All() []params.EntityInfo {
+	entities := make([]params.EntityInfo, 0, a.list.Len())
+	for e := a.list.Front(); e != nil; e = e.Next() {
+		entry := e.Value.(*entityEntry)
+		if entry.removed {
+			continue
+		}
+		entities = append(entities, entry.info)
+	}
+	return entities
+}
+
 // add adds a new entity with the given id and associated
 // information to the list.
-// This method should be considered private to allInfo.
-func (a *allInfo) add(id infoId, info params.EntityInfo) {
+func (a *AllInfo) add(id InfoId, info params.EntityInfo) {
 	if a.entities[id] != nil {
 		panic("adding new entry with duplicate id")
 	}
@@ -345,8 +361,7 @@ func (a *allInfo) add(id infoId, info params.EntityInfo) {
 
 // decRef decrements the reference count of an entry within the list,
 // deleting it if it becomes zero and the entry is removed.
-// This method should be considered private to allInfo.
-func (a *allInfo) decRef(entry *entityEntry, id infoId) {
+func (a *AllInfo) decRef(entry *entityEntry, id InfoId) {
 	if entry.refCount--; entry.refCount > 0 {
 		return
 	}
@@ -365,8 +380,7 @@ func (a *allInfo) decRef(entry *entityEntry, id infoId) {
 }
 
 // delete deletes the entry with the given info id.
-// This method should be considered private to allInfo.
-func (a *allInfo) delete(id infoId) {
+func (a *AllInfo) delete(id InfoId) {
 	elem := a.entities[id]
 	if elem == nil {
 		return
@@ -378,8 +392,7 @@ func (a *allInfo) delete(id infoId) {
 // markRemoved marks that the entity with the given id has
 // been removed from the state. If nothing has seen the
 // entity, then we delete it immediately.
-// This method should be considered private to allInfo.
-func (a *allInfo) markRemoved(id infoId) {
+func (a *AllInfo) markRemoved(id InfoId) {
 	if elem := a.entities[id]; elem != nil {
 		entry := elem.Value.(*entityEntry)
 		if entry.removed {
@@ -396,10 +409,10 @@ func (a *allInfo) markRemoved(id infoId) {
 	}
 }
 
-// update updates the information for the entity with
+// Update updates the information for the entity with
 // the given id. If info is nil, the entity will be marked
 // as removed and deleted if nothing has seen the entity..
-func (a *allInfo) update(id infoId, info params.EntityInfo) {
+func (a *AllInfo) Update(id InfoId, info params.EntityInfo) {
 	if info == nil {
 		a.markRemoved(id)
 		return
@@ -422,9 +435,9 @@ func (a *allInfo) update(id infoId, info params.EntityInfo) {
 	a.list.MoveToFront(elem)
 }
 
-// changesSince returns any changes that have occurred since
+// ChangesSince returns any changes that have occurred since
 // the given revno, oldest first.
-func (a *allInfo) changesSince(revno int64) []params.Delta {
+func (a *AllInfo) ChangesSince(revno int64) []params.Delta {
 	e := a.list.Front()
 	n := 0
 	for ; e != nil; e = e.Next() {

@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
+	"launchpad.net/juju-core/state/allwatcher"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
 	"net/url"
@@ -126,11 +127,11 @@ type State struct {
 	runner         *txn.Runner
 	watcher        *watcher.Watcher
 	pwatcher       *presence.Watcher
-	allWatcher     *allWatcher
+	allWatcher     *allwatcher.AllWatcher
 }
 
-func (st *State) Watch() *StateWatcher {
-	return newStateWatcher(st)
+func (st *State) Watch() *allwatcher.StateWatcher {
+	return allwatcher.NewStateWatcher(st.allWatcher)
 }
 
 func (st *State) EnvironConfig() (*config.Config, error) {
