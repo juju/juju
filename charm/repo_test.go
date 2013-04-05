@@ -340,7 +340,7 @@ func (s *StoreSuite) TestEventWarning(c *C) {
 func (s *StoreSuite) TestBranchLocation(c *C) {
 	curl := charm.MustParseURL("cs:series/name")
 	location := s.store.BranchLocation(curl)
-	c.Assert(location, Equals, "lp:charms/series/name/trunk")
+	c.Assert(location, Equals, "lp:charms/series/name")
 
 	curl = charm.MustParseURL("cs:~user/series/name")
 	location = s.store.BranchLocation(curl)
