@@ -257,7 +257,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	policy := t.env.AssignmentPolicy()
 	c.Assert(policy, Equals, state.AssignNew)
 
-	err := environs.UploadTools(t.env)
+	_, err := environs.PutTools(t.env.Storage(), nil)
 	c.Assert(err, IsNil)
 	err = environs.Bootstrap(t.env, constraints.Value{})
 	c.Assert(err, IsNil)

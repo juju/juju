@@ -85,7 +85,7 @@ func (t *LiveTests) BootstrapOnce(c *C) {
 	// we could connect to (actual live tests, rather than local-only)
 	cons := constraints.MustParse("mem=2G")
 	if t.CanOpenState {
-		err := environs.UploadTools(t.Env)
+		_, err := environs.PutTools(t.Env.Storage(), nil)
 		c.Assert(err, IsNil)
 	}
 	err := environs.Bootstrap(t.Env, cons)
