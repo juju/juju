@@ -1,6 +1,7 @@
 package maas
 
 import (
+	cloudinit_core "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -30,10 +31,11 @@ func getSystemIdValues(instanceIds []state.InstanceId) url.Values {
 
 // userData returns a zipped cloudinit config.
 func userData(cfg *cloudinit.MachineConfig, scripts ...string) ([]byte, error) {
-	cloudcfg, err := cloudinit.New(cfg)
+	cloudcfg := cloudinit_core.New()
 	for _, script := range scripts {
-		cloudcfg.AddRunCmdPrefix(script)
+		cloudcfg.AddRunCmd(script)
 	}
+	cloudcfg, err := cloudinit.Configure(cfg, cloudcfg)
 	if err != nil {
 		return nil, err
 	}

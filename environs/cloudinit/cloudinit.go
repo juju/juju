@@ -92,11 +92,14 @@ func base64yaml(m *config.Config) string {
 }
 
 func New(cfg *MachineConfig) (*cloudinit.Config, error) {
+	c := cloudinit.New()
+	return Configure(cfg, c)
+}
+
+func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, error) {
 	if err := verifyConfig(cfg); err != nil {
 		return nil, err
 	}
-	c := cloudinit.New()
-
 	c.AddSSHAuthorizedKeys(cfg.AuthorizedKeys)
 	c.AddPackage("git")
 
