@@ -83,7 +83,7 @@ var confTests = []struct {
 		StateServerCert: []byte("server cert"),
 		StateServerKey:  []byte("server key"),
 		OldPassword:     "old password",
-			MachineNonce: "dummy",
+		MachineNonce:    "dummy",
 		StateInfo: &state.Info{
 			Addrs:    []string{"foo.com:355", "bar:545"},
 			CACert:   []byte("ca cert"),
@@ -143,8 +143,8 @@ var confTests = []struct {
 }, {
 	about: "state server address with no port",
 	conf: agent.Conf{
-		OldPassword: "old password",
-			MachineNonce: "dummy",
+		OldPassword:  "old password",
+		MachineNonce: "dummy",
 		StateInfo: &state.Info{
 			Addrs:    []string{"foo"},
 			CACert:   []byte("ca cert"),
