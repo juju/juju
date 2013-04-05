@@ -180,7 +180,7 @@ func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node1", "hostname": "host1"}`)
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node2", "hostname": "host2"}`)
 	env := suite.makeEnviron()
-	err := environs.Bootstrap(env, true, fakeWriteCertAndKey)
+	err := environs.Bootstrap(env, fakeWriteCertAndKey)
 	stateInfo, apiInfo, err := env.StateInfo()
 	c.Assert(err, IsNil)
 	stateInfo.EntityName = "machine-1"
@@ -309,7 +309,7 @@ func (suite *EnvironSuite) TestBootstrapSucceeds(c *C) {
 	cert := []byte{1, 2, 3}
 	key := []byte{4, 5, 6}
 
-	err := env.Bootstrap(true, cert, key)
+	err := env.Bootstrap(nil, cert, key)
 	c.Assert(err, IsNil)
 }
 
@@ -317,7 +317,7 @@ func (suite *EnvironSuite) TestBootstrapFailsIfNoNodes(c *C) {
 	env := suite.makeEnviron()
 	cert := []byte{1, 2, 3}
 	key := []byte{4, 5, 6}
-	err := env.Bootstrap(true, cert, key)
+	err := env.Bootstrap(nil, cert, key)
 	// Since there are no nodes, the attempt to allocate one returns a
 	// 409: Conflict.
 	c.Check(err, ErrorMatches, ".*409.*")
@@ -328,6 +328,6 @@ func (suite *EnvironSuite) TestBootstrapIntegratesWithEnvirons(c *C) {
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "bootstrapnode"}`)
 
 	// environs.Bootstrap calls Environ.Bootstrap.  This works.
-	err := environs.Bootstrap(env, true, fakeWriteCertAndKey)
+	err := environs.Bootstrap(env, fakeWriteCertAndKey)
 	c.Assert(err, IsNil)
 }
