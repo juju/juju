@@ -1053,7 +1053,7 @@ func (s waitUniterDead) step(c *C, ctx *context) {
 	// the path to that error can be tricky. If the unit becomes Dead at an
 	// inconvenient time, unrelated calls can fail -- as they should -- but
 	// not be detected as worker.ErrTerminateAgent. In this case, we restart
-	// the uniter and check that it/ fails as expected when starting up; this
+	// the uniter and check that it fails as expected when starting up; this
 	// mimics the behaviour of the unit agent and verifies that the UA will,
 	// eventually, see the correct error and respond appropriately.
 	err := s.waitDead(c, ctx)
