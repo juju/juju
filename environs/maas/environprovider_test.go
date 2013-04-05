@@ -15,6 +15,8 @@ type EnvironProviderSuite struct {
 var _ = Suite(new(EnvironProviderSuite))
 
 func (suite *EnvironProviderSuite) TestSecretAttrsReturnsSensitiveMAASAttributes(c *C) {
+	testJujuHome := c.MkDir()
+	defer config.SetJujuHome(config.SetJujuHome(testJujuHome))
 	const oauth = "aa:bb:cc"
 	attrs := map[string]interface{}{
 		"maas-oauth":  oauth,
