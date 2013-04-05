@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
 	"net/url"
@@ -539,15 +540,15 @@ func (*maasEnviron) AssignmentPolicy() state.AssignmentPolicy {
 	panic("Not implemented.")
 }
 
-func (*maasEnviron) OpenPorts([]state.Port) error {
+func (*maasEnviron) OpenPorts([]params.Port) error {
 	panic("Not implemented.")
 }
 
-func (*maasEnviron) ClosePorts([]state.Port) error {
+func (*maasEnviron) ClosePorts([]params.Port) error {
 	panic("Not implemented.")
 }
 
-func (*maasEnviron) Ports() ([]state.Port, error) {
+func (*maasEnviron) Ports() ([]params.Port, error) {
 	panic("Not implemented.")
 }
 
