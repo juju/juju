@@ -405,9 +405,6 @@ var watchMachineTests = []func(m *state.Machine) error{
 		return m.SetProvisioned("m-foo", "fake_nonce")
 	},
 	func(m *state.Machine) error {
-		return m.SetProvisioned("", "")
-	},
-	func(m *state.Machine) error {
 		return m.SetAgentTools(tools(3, "baz"))
 	},
 }

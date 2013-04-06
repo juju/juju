@@ -414,11 +414,14 @@ func (m *Machine) Units() (units []*Unit, err error) {
 // SetProvisioned sets the provider specific machine id and nonce for
 // this machine. Once set, the instance id cannot be changed.
 func (m *Machine) SetProvisioned(id InstanceId, nonce string) error {
-	notTheSame := D{{"$ne", D{{"instanceid", id}}}}
+	sameIdOrEmpty := D{{"$or", []D{
+		{{"instanceid", id}},
+		{{"instanceid", ""}},
+	}}}
 	ops := []txn.Op{{
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
-		Assert: append(notDeadDoc, notTheSame...),
+		Assert: append(isAliveDoc, sameIdOrEmpty...),
 		Update: D{{"$set", D{{"instanceid", id}, {"nonce", nonce}}}},
 	}}
 	errMsg := "cannot set instance id of machine %q: %v"
@@ -428,7 +431,7 @@ func (m *Machine) SetProvisioned(id InstanceId, nonce string) error {
 		return nil
 	} else if err != txn.ErrAborted {
 		return fmt.Errorf(errMsg, m, err)
-	} else if alive, err := isNotDead(m.st.machines, m.doc.Id); err != nil {
+	} else if alive, err := isAlive(m.st.machines, m.doc.Id); err != nil {
 		return fmt.Errorf(errMsg, m, err)
 	} else if !alive {
 		return fmt.Errorf(errMsg, m, errNotAlive)
