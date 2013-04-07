@@ -63,7 +63,7 @@ func (s *BzrSuite) TestCommit(c *C) {
 	revid, err := s.b.RevisionId()
 	c.Assert(err, IsNil)
 
-	cmd := exec.Command("bzr", "log", "--long", "-v", s.b.Location())
+	cmd := exec.Command("bzr", "log", "--long", "--show-ids", "-v", s.b.Location())
 	output, err := cmd.CombinedOutput()
 	c.Assert(err, IsNil)
 	c.Assert(string(output), Matches, "(?s).*revision-id: "+revid+"\n.*message:\n.*my log message\n.*added:\n.*myfile .*")
