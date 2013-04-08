@@ -355,9 +355,7 @@ var allWatcherChangedTests = []struct {
 	}, {
 		about: "service is added if it's in backing but not in Store",
 		setUp: func(c *C, st *State) {
-			ch := AddTestingCharm(c, st, "wordpress")
-			c.Logf("testing wordpress charm url: %s", ch)
-			wordpress, err := st.AddService("wordpress", ch)
+			wordpress, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
 			c.Assert(err, IsNil)
 			err = wordpress.SetExposed()
 			c.Assert(err, IsNil)
@@ -394,13 +392,125 @@ var allWatcherChangedTests = []struct {
 			},
 		},
 	},
+	// Relation changes
+	{
+		about: "no relation in state, no service in store -> do nothing",
+		setUp: func(c *C, st *State) {},
+		change: watcher.Change{
+			C:  "relations",
+			Id: "logging:logging-directory wordpress:logging-dir",
+		},
+	}, {
+		about: "relation is removed if it's not in backing",
+		add:   []params.EntityInfo{&params.RelationInfo{Key: "logging:logging-directory wordpress:logging-dir"}},
+		setUp: func(*C, *State) {},
+		change: watcher.Change{
+			C:  "relations",
+			Id: "logging:logging-directory wordpress:logging-dir",
+		},
+	}, {
+		about: "relation is added if it's in backing but not in Store",
+		setUp: func(c *C, st *State) {
+			_, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
+			c.Assert(err, IsNil)
+
+			_, err = st.AddService("logging", AddTestingCharm(c, st, "logging"))
+			c.Assert(err, IsNil)
+			eps, err := st.InferEndpoints([]string{"logging", "wordpress"})
+			c.Assert(err, IsNil)
+			_, err = st.AddRelation(eps...)
+			c.Assert(err, IsNil)
+		},
+		change: watcher.Change{
+			C:  "relations",
+			Id: "logging:logging-directory wordpress:logging-dir",
+		},
+		expectContents: []params.EntityInfo{
+			&params.RelationInfo{
+				Key: "logging:logging-directory wordpress:logging-dir",
+				Endpoints: []params.Endpoint{
+					params.Endpoint{ServiceName: "logging", Relation: charm.Relation{Name: "logging-directory", Role: "requirer", Interface: "logging", Optional: false, Limit: 1, Scope: "container"}},
+					params.Endpoint{ServiceName: "wordpress", Relation: charm.Relation{Name: "logging-dir", Role: "provider", Interface: "logging", Optional: false, Limit: 0, Scope: "container"}}},
+			},
+		},
+	},
+	// Annotation changes
+	{
+		about: "no annotation in state, no annotation in store -> do nothing",
+		setUp: func(c *C, st *State) {},
+		change: watcher.Change{
+			C:  "relations",
+			Id: "m#0",
+		},
+	}, {
+		about: "annotation is removed if it's not in backing",
+		add:   []params.EntityInfo{&params.AnnotationInfo{Tag: "machine-0"}},
+		setUp: func(*C, *State) {},
+		change: watcher.Change{
+			C:  "annotations",
+			Id: "m#0",
+		},
+	}, {
+		about: "annotation is added if it's in backing but not in Store",
+		setUp: func(c *C, st *State) {
+			m, err := st.AddMachine("series", JobHostUnits)
+			c.Assert(err, IsNil)
+			err = m.SetAnnotations(map[string]string{"foo": "bar", "arble": "baz"})
+			c.Assert(err, IsNil)
+		},
+		change: watcher.Change{
+			C:  "annotations",
+			Id: "m#0",
+		},
+		expectContents: []params.EntityInfo{
+			&params.AnnotationInfo{
+				Tag:         "machine-0",
+				Annotations: map[string]string{"foo": "bar", "arble": "baz"},
+			},
+		},
+	}, {
+		about: "annotation is updated if it's in backing and in multiwatcher.Store",
+		add: []params.EntityInfo{&params.AnnotationInfo{
+			Tag: "machine-0",
+			Annotations: map[string]string{
+				"arble":  "baz",
+				"foo":    "bar",
+				"pretty": "polly",
+			},
+		}},
+		setUp: func(c *C, st *State) {
+			m, err := st.AddMachine("series", JobHostUnits)
+			c.Assert(err, IsNil)
+			err = m.SetAnnotations(map[string]string{
+				"arble":  "khroomph",
+				"pretty": "",
+				"new":    "attr",
+			})
+			c.Assert(err, IsNil)
+		},
+		change: watcher.Change{
+			C:  "annotations",
+			Id: "m#0",
+		},
+		expectContents: []params.EntityInfo{
+			&params.AnnotationInfo{
+				Tag: "machine-0",
+				Annotations: map[string]string{
+					"arble": "khroomph",
+					"new":   "attr",
+				},
+			},
+		},
+	},
 }
 
 func (s *storeManagerStateSuite) TestChanged(c *C) {
 	collections := map[string]*mgo.Collection{
-		"machines": s.State.machines,
-		"units":    s.State.units,
-		"services": s.State.services,
+		"machines":    s.State.machines,
+		"units":       s.State.units,
+		"services":    s.State.services,
+		"relations":   s.State.relations,
+		"annotations": s.State.annotations,
 	}
 	for i, test := range allWatcherChangedTests {
 		c.Logf("test %d. %s", i, test.about)

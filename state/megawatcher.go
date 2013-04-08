@@ -139,9 +139,13 @@ func (a *backingAnnotation) updated(st *State, store *multiwatcher.Store) error 
 }
 
 func (svc *backingAnnotation) removed(st *State, store *multiwatcher.Store, id interface{}) error {
+	tag, ok := tagForGlobalKey(id.(string))
+	if !ok {
+		panic(fmt.Errorf("unknown global key %q in state", id))
+	}
 	store.Remove(params.EntityId{
 		Kind: "annotation",
-		Id:   id,
+		Id:   tag,
 	})
 	return nil
 }
