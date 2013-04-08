@@ -482,12 +482,15 @@ var scenarioStatus = &api.Status{
 	Machines: map[string]api.MachineInfo{
 		"0": {
 			InstanceId: "i-machine-0",
+			Nonce:      "user-admin:bootstrap",
 		},
 		"1": {
 			InstanceId: "i-machine-1",
+			Nonce:      "fake_nonce",
 		},
 		"2": {
 			InstanceId: "i-machine-2",
+			Nonce:      "fake_nonce",
 		},
 	},
 }
@@ -501,12 +504,15 @@ var scenarioStatus = &api.Status{
 // user-other
 // machine-0
 //  instance-id="i-machine-0"
+//  nonce="fake_nonce"
 //  jobs=manage-environ
 // machine-1
 //  instance-id="i-machine-1"
+//  nonce="fake_nonce"
 //  jobs=host-units
 // machine-2
 //  instance-id="i-machine-2"
+//  nonce="fake_nonce"
 //  jobs=host-units
 // service-wordpress
 // service-logging

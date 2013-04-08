@@ -30,9 +30,10 @@ var marshalTestCases = []struct {
 		Entity: &params.MachineInfo{
 			Id:         "Benji",
 			InstanceId: "Shazam",
+			Nonce:      "fake_nonce",
 		},
 	},
-	json: `["machine","change",{"Id":"Benji","InstanceId":"Shazam"}]`,
+	json: `["machine","change",{"Id":"Benji","InstanceId":"Shazam","Nonce":"fake_nonce"}]`,
 }, {
 	about: "ServiceInfo Delta",
 	value: params.Delta{
