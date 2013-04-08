@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
@@ -334,6 +335,50 @@ func (s *StoreSuite) TestEventWarning(c *C) {
 	event, err := s.store.Event(curl, "")
 	c.Assert(err, IsNil)
 	c.Assert(event.Warnings, DeepEquals, []string{"foolishness"})
+}
+
+func (s *StoreSuite) TestBranchLocation(c *C) {
+	curl := charm.MustParseURL("cs:series/name")
+	location := s.store.BranchLocation(curl)
+	c.Assert(location, Equals, "lp:charms/series/name/trunk")
+
+	curl = charm.MustParseURL("cs:~user/series/name")
+	location = s.store.BranchLocation(curl)
+	c.Assert(location, Equals, "lp:~user/charms/series/name/trunk")
+}
+
+func (s *StoreSuite) TestCharmURL(c *C) {
+	tests := []struct{ url, loc string }{
+		{"cs:precise/wordpress", "lp:charms/precise/wordpress"},
+		{"cs:precise/wordpress", "http://launchpad.net/+branch/charms/precise/wordpress"},
+		{"cs:precise/wordpress", "https://launchpad.net/+branch/charms/precise/wordpress"},
+		{"cs:precise/wordpress", "http://code.launchpad.net/+branch/charms/precise/wordpress"},
+		{"cs:precise/wordpress", "https://code.launchpad.net/+branch/charms/precise/wordpress"},
+		{"cs:precise/wordpress", "bzr+ssh://bazaar.launchpad.net/+branch/charms/precise/wordpress"},
+		{"cs:~charmers/precise/wordpress", "lp:~charmers/charms/precise/wordpress/trunk"},
+		{"cs:~charmers/precise/wordpress", "http://launchpad.net/~charmers/charms/precise/wordpress/trunk"},
+		{"cs:~charmers/precise/wordpress", "https://launchpad.net/~charmers/charms/precise/wordpress/trunk"},
+		{"cs:~charmers/precise/wordpress", "http://code.launchpad.net/~charmers/charms/precise/wordpress/trunk"},
+		{"cs:~charmers/precise/wordpress", "https://code.launchpad.net/~charmers/charms/precise/wordpress/trunk"},
+		{"cs:~charmers/precise/wordpress", "http://launchpad.net/+branch/~charmers/charms/precise/wordpress/trunk"},
+		{"cs:~charmers/precise/wordpress", "https://launchpad.net/+branch/~charmers/charms/precise/wordpress/trunk"},
+		{"cs:~charmers/precise/wordpress", "http://code.launchpad.net/+branch/~charmers/charms/precise/wordpress/trunk"},
+		{"cs:~charmers/precise/wordpress", "https://code.launchpad.net/+branch/~charmers/charms/precise/wordpress/trunk"},
+		{"cs:~charmers/precise/wordpress", "bzr+ssh://bazaar.launchpad.net/~charmers/charms/precise/wordpress/trunk"},
+		{"cs:~charmers/precise/wordpress", "~charmers/charms/precise/wordpress/trunk"},
+		{"", "lp:~charmers/charms/precise/wordpress/whatever"},
+		{"", "lp:~charmers/whatever/precise/wordpress/trunk"},
+		{"", "lp:whatever/precise/wordpress"},
+	}
+	for _, t := range tests {
+		curl, err := s.store.CharmURL(t.loc)
+		if t.url == "" {
+			c.Assert(err, ErrorMatches, fmt.Sprintf("unknown branch location: %q", t.loc))
+		} else {
+			c.Assert(err, IsNil)
+			c.Assert(curl.String(), Equals, t.url)
+		}
+	}
 }
 
 type LocalRepoSuite struct {

@@ -208,7 +208,9 @@ func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value) (*machi
 	}
 	mdoc.Id = strconv.Itoa(seq)
 	mdoc.Life = Alive
-	msdoc := &machineStatusDoc{params.MachinePending, ""}
+	sdoc := statusDoc{
+		Status: string(params.MachinePending),
+	}
 	ops := []txn.Op{
 		{
 			C:      st.machines.Name,
@@ -217,7 +219,7 @@ func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value) (*machi
 			Insert: *mdoc,
 		},
 		createConstraintsOp(st, machineGlobalKey(mdoc.Id), cons),
-		createStatusOp(st, machineGlobalKey(mdoc.Id), msdoc),
+		createStatusOp(st, machineGlobalKey(mdoc.Id), sdoc),
 	}
 	return mdoc, ops, nil
 }
