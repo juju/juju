@@ -185,7 +185,7 @@ func (env *maasEnviron) startBootstrapNode(tools *state.Tools, cert, key []byte,
 // Bootstrap is specified in the Environ interface.
 func (env *maasEnviron) Bootstrap(cons constraints.Value, stateServerCert, stateServerKey []byte) error {
 	// TODO: Fix this quick hack.  uploadTools is a now-obsolete parameter.
-	uploadTools := false
+ 	uploadTools := false
 
 	// This was all cargo-culted from the EC2 provider.
 	password := env.Config().AdminSecret()
