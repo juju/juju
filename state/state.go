@@ -931,12 +931,14 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 	panic(fmt.Errorf("unknown unit assignment policy: %q", policy))
 }
 
+// AssignUnitToMachine places the unit on the specificed machine.
 func (st *State) AssignUnitToMachine(u *Unit, mid string) (err error) {
 	if !u.IsPrincipal() {
 		return fmt.Errorf("subordinate unit %q cannot be assigned directly to a machine", u)
 	}
+
 	defer trivial.ErrorContextf(&err, "cannot assign unit %q to machine", u)
-	
+
 	m, err := st.Machine(mid)
 	if err != nil {
 		return err

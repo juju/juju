@@ -191,7 +191,7 @@ type DeployServiceParams struct {
 	ConfigYAML  string
 	Constraints constraints.Value
 	// Use string for deploy-to machine to avoid ambiguity around machine 0.
-	MachineId   string
+	MachineId string
 }
 
 // DeployService takes a charm and various parameters and deploys it.
