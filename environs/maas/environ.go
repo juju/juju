@@ -99,7 +99,6 @@ func (env *maasEnviron) quiesceStateFile() error {
 // to the environment's Storage.
 func (env *maasEnviron) uploadTools() (*state.Tools, error) {
 	// Also upload the tools for the default series taken from the environment.
-	// TODO: Check that this is sane with the juju-core team.
 	tools, err := environs.PutTools(env.Storage(), nil, env.Config().DefaultSeries())
 	if err != nil {
 		return nil, fmt.Errorf("cannot upload tools: %v", err)
@@ -198,7 +197,6 @@ func (env *maasEnviron) Bootstrap(cons constraints.Value, stateServerCert, state
 		return err
 	}
 	// MAAS does not support public storage: always upload the tools.
-	// TODO: Check that this is sane with the juju-core team.
 	var tools *state.Tools
 	tools, err = env.uploadTools()
 	if err != nil {
