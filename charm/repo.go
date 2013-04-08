@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"net/http"
 	"net/url"
@@ -15,6 +14,9 @@ import (
 	"path/filepath"
 	"strings"
 )
+
+// CacheDir stores the charm cache directory path.
+var CacheDir string
 
 // InfoResponse is sent by the charm store in response to charm-info requests.
 type InfoResponse struct {
@@ -211,8 +213,11 @@ func verify(path, digest string) error {
 
 // Get returns the charm referenced by curl.
 func (s *CharmStore) Get(curl *URL) (Charm, error) {
-	cachePath := config.JujuHomePath("cache")
-	if err := os.MkdirAll(cachePath, 0755); err != nil {
+	// MachineAgent.Run should have already set the CacheDir.
+	if CacheDir == "" {
+		panic("the charm cache directory path is empty")
+	}
+	if err := os.MkdirAll(CacheDir, 0755); err != nil {
 		return nil, err
 	}
 	rev, digest, err := s.revision(curl)
@@ -224,14 +229,14 @@ func (s *CharmStore) Get(curl *URL) (Charm, error) {
 	} else if curl.Revision != rev {
 		return nil, fmt.Errorf("charm: store returned charm with wrong revision for %q", curl.String())
 	}
-	path := filepath.Join(cachePath, Quote(curl.String())+".charm")
+	path := filepath.Join(CacheDir, Quote(curl.String())+".charm")
 	if verify(path, digest) != nil {
 		resp, err := http.Get(s.baseURL + "/charm/" + url.QueryEscape(curl.Path()))
 		if err != nil {
 			return nil, err
 		}
 		defer resp.Body.Close()
-		f, err := ioutil.TempFile(cachePath, "charm-download")
+		f, err := ioutil.TempFile(CacheDir, "charm-download")
 		if err != nil {
 			return nil, err
 		}

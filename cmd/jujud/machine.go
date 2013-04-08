@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"launchpad.net/gnuflag"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/log"
@@ -13,6 +14,7 @@ import (
 	"launchpad.net/juju-core/worker/machiner"
 	"launchpad.net/juju-core/worker/provisioner"
 	"launchpad.net/tomb"
+	"path/filepath"
 	"time"
 )
 
@@ -58,6 +60,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	if err := a.Conf.read(state.MachineTag(a.MachineId)); err != nil {
 		return err
 	}
+	charm.CacheDir = filepath.Join(a.Conf.DataDir, "charmcache")
 	defer log.Noticef("cmd/jujud: machine agent exiting")
 	defer a.tomb.Done()
 
