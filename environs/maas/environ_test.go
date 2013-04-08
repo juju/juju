@@ -8,10 +8,10 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
-	envtesting "launchpad.net/juju-core/environs/testing"
 )
 
 type EnvironSuite struct {
@@ -23,11 +23,11 @@ var _ = Suite(new(EnvironSuite))
 // getTestConfig creates a customized sample MAAS provider configuration.
 func getTestConfig(name, server, oauth, secret string) *config.Config {
 	ecfg, err := newConfig(map[string]interface{}{
-		"name":         name,
-		"maas-server":  server,
-		"maas-oauth":   oauth,
-		"admin-secret": secret,
-        "authorized-keys": "I-am-not-a-real-key",
+		"name":            name,
+		"maas-server":     server,
+		"maas-oauth":      oauth,
+		"admin-secret":    secret,
+		"authorized-keys": "I-am-not-a-real-key",
 	})
 	if err != nil {
 		panic(err)
