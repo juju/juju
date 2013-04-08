@@ -209,7 +209,7 @@ func (s *RunHookSuite) TestRunHook(c *C) {
 	c.Assert(err, IsNil)
 	for i, t := range runHookTests {
 		c.Logf("test %d: %s; perm %v", i, t.summary, t.spec.perm)
-		ctx := s.GetHookContext(c, uuid, t.relid, t.remote)
+		ctx := s.GetHookContext(c, uuid.String(), t.relid, t.remote)
 		var charmDir, outPath string
 		if t.spec.perm == 0 {
 			charmDir = c.MkDir()
@@ -233,7 +233,7 @@ func (s *RunHookSuite) TestRunHook(c *C) {
 			for k, v := range t.env {
 				env[k] = v
 			}
-			AssertEnv(c, outPath, charmDir, env, uuid)
+			AssertEnv(c, outPath, charmDir, env, uuid.String())
 		}
 		var expectLog []string
 		if t.spec.stdout != "" {
@@ -266,7 +266,7 @@ func (s *RunHookSuite) TestRunHookRelationFlushing(c *C) {
 	// Create a charm with a breaking hook.
 	uuid, err := trivial.NewUUID()
 	c.Assert(err, IsNil)
-	ctx := s.GetHookContext(c, uuid, -1, "")
+	ctx := s.GetHookContext(c, uuid.String(), -1, "")
 	charmDir, _ := makeCharm(c, hookSpec{
 		name: "something-happened",
 		perm: 0700,
@@ -528,7 +528,7 @@ var _ = Suite(&InterfaceSuite{})
 func (s *InterfaceSuite) GetContext(c *C, relId int, remoteName string) jujuc.Context {
 	uuid, err := trivial.NewUUID()
 	c.Assert(err, IsNil)
-	return s.HookContextSuite.GetHookContext(c, uuid, relId, remoteName)
+	return s.HookContextSuite.GetHookContext(c, uuid.String(), relId, remoteName)
 }
 
 func (s *InterfaceSuite) TestTrivial(c *C) {

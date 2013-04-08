@@ -146,7 +146,7 @@ func Initialize(info *Info, cfg *config.Config, opts DialOpts) (rst *State, err 
 	ops := []txn.Op{
 		createConstraintsOp(st, environGlobalKey, constraints.Value{}),
 		createSettingsOp(st, environGlobalKey, cfg.AllAttrs()),
-		createEnvironmentOp(st, cfg.Name(), uuid),
+		createEnvironmentOp(st, cfg.Name(), uuid.String()),
 	}
 	if err := st.runner.Run(ops, "", nil); err == txn.ErrAborted {
 		// The config was created in the meantime.
