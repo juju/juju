@@ -345,6 +345,8 @@ type UnitInfo struct {
 	MachineId      string
 	Resolved       ResolvedMode
 	Ports          []Port
+	Status UnitStatus
+	StatusInfo string
 }
 
 func (i *UnitInfo) EntityId() EntityId {

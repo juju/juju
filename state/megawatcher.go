@@ -37,10 +37,6 @@ func (svc *backingMachine) removed(st *State, store *multiwatcher.Store, id inte
 	return nil
 }
 
-func (m *backingMachine) mongoId() interface{} {
-	return m.Id
-}
-
 type backingUnit unitDoc
 
 func (u *backingUnit) updated(st *State, store *multiwatcher.Store) error {
@@ -69,10 +65,6 @@ func (svc *backingUnit) removed(st *State, store *multiwatcher.Store, id interfa
 	return nil
 }
 
-func (m *backingUnit) mongoId() interface{} {
-	return m.Name
-}
-
 type backingService serviceDoc
 
 func (svc *backingService) updated(st *State, store *multiwatcher.Store) error {
@@ -91,10 +83,6 @@ func (svc *backingService) removed(st *State, store *multiwatcher.Store, id inte
 		Id:   id,
 	})
 	return nil
-}
-
-func (m *backingService) mongoId() interface{} {
-	return m.Name
 }
 
 type backingRelation relationDoc
@@ -123,10 +111,6 @@ func (svc *backingRelation) removed(st *State, store *multiwatcher.Store, id int
 	return nil
 }
 
-func (m *backingRelation) mongoId() interface{} {
-	return m.Key
-}
-
 type backingAnnotation annotatorDoc
 
 func (a *backingAnnotation) updated(st *State, store *multiwatcher.Store) error {
@@ -150,9 +134,14 @@ func (svc *backingAnnotation) removed(st *State, store *multiwatcher.Store, id i
 	return nil
 }
 
-func (a *backingAnnotation) mongoId() interface{} {
-	return a.GlobalKey
+type backingStatus statusDoc
+
+func (s *backingStatus) updated(st *State, store *multiwatcher.Store) error {
+	
 }
+
+
+func (svc *backingStatus) removed(st *State, store *multiwatcher.Store, id interface{}) error {
 
 // backingEntityDoc is implemented by the documents in
 // collections that the allWatcherStateBacking watches.
@@ -163,9 +152,6 @@ type backingEntityDoc interface {
 	// updated is called when the document has changed.
 	// The receiving instance will not contain any data.
 	removed(st *State, store *multiwatcher.Store, id interface{}) error
-
-	// mongoId returns the mongo _id field of the document.
-	mongoId() interface{}
 }
 
 var (
@@ -174,6 +160,7 @@ var (
 	_ backingEntityDoc = (*backingService)(nil)
 	_ backingEntityDoc = (*backingRelation)(nil)
 	_ backingEntityDoc = (*backingAnnotation)(nil)
+	_ backingEntityDoc = (*backingStatus)(nil)
 )
 
 // allWatcherStateCollection holds information about a
@@ -214,7 +201,7 @@ func newAllWatcherStateBacking(st *State) multiwatcher.Backing {
 		infoSliceType: reflect.TypeOf([]backingAnnotation(nil)),
 	}, {
 		Collection: st.statuses,
-		infoSliceType:  
+		infoSliceType:  reflect.TypeOf([]
 	}}
 	// Populate the collection maps from the above set of collections.
 	for _, c := range collections {
