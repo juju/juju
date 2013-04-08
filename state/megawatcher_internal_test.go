@@ -3,12 +3,14 @@ package state
 import (
 	"errors"
 	"fmt"
+	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/multiwatcher"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
+	"reflect"
 	"sort"
 	"time"
 )
@@ -166,6 +168,27 @@ func serviceCharmURL(svc *Service) *charm.URL {
 	return url
 }
 
+func assertEntitiesEqual(c *C, got, want []params.EntityInfo) {
+	if len(got) == 0 {
+		got = nil
+	}
+	if len(want) == 0 {
+		want = nil
+	}
+	if reflect.DeepEqual(got, want) {
+		return
+	}
+	c.Errorf("entity mismatch; got len %d; want %d", len(got), len(want))
+	for _, e := range got {
+		c.Logf("\t%T %#v", e, e)
+	}
+	c.Logf("expected")
+	for _, e := range want {
+		c.Logf("\t%T %#v", e, e)
+	}
+	c.FailNow()
+}
+
 func (s *storeManagerStateSuite) TestStateBackingGetAll(c *C) {
 	expectEntities := s.setUpScenario(c)
 	b := newAllWatcherStateBacking(s.State)
@@ -175,22 +198,7 @@ func (s *storeManagerStateSuite) TestStateBackingGetAll(c *C) {
 	var gotEntities entityInfoSlice = all.All()
 	sort.Sort(gotEntities)
 	sort.Sort(expectEntities)
-	c.Logf("got")
-	for _, e := range gotEntities {
-		c.Logf("\t%T %#v", e, e)
-	}
-	c.Logf("expected")
-	for _, e := range expectEntities {
-		c.Logf("\t%T%#v", e, e)
-	}
-	for num, ent := range expectEntities {
-		c.Logf("---------------> %d\n", num)
-		c.Logf("\n************ EXPECTED:\n%#v", ent)
-		c.Logf("************ OBTAINED: \n%#v\n", gotEntities[num])
-		c.Assert(gotEntities[num], DeepEquals, ent)
-	}
-
-	c.Assert(gotEntities, DeepEquals, expectEntities)
+	assertEntitiesEqual(c, gotEntities, expectEntities)
 }
 
 var allWatcherChangedTests = []struct {
@@ -199,56 +207,201 @@ var allWatcherChangedTests = []struct {
 	setUp          func(c *C, st *State)
 	change         watcher.Change
 	expectContents []params.EntityInfo
-}{{
-	about: "no entity",
-	setUp: func(*C, *State) {},
-	change: watcher.Change{
-		C:  "machines",
-		Id: "1",
-	},
-}, {
-	about: "entity is removed if it's not in backing",
-	add:   []params.EntityInfo{&params.MachineInfo{Id: "1"}},
-	setUp: func(*C, *State) {},
-	change: watcher.Change{
-		C:  "machines",
-		Id: "1",
-	},
-}, {
-	about: "entity is added if it's in backing but not in multiwatcher.Store",
-	setUp: func(c *C, st *State) {
-		_, err := st.AddMachine("series", JobHostUnits)
-		c.Assert(err, IsNil)
-	},
-	change: watcher.Change{
-		C:  "machines",
-		Id: "0",
-	},
-	expectContents: []params.EntityInfo{
-		&params.MachineInfo{Id: "0"},
-	},
-}, {
-	about: "entity is updated if it's in backing and in multiwatcher.Store",
-	add:   []params.EntityInfo{&params.MachineInfo{Id: "0"}},
-	setUp: func(c *C, st *State) {
-		m, err := st.AddMachine("series", JobManageEnviron)
-		c.Assert(err, IsNil)
-		err = m.SetInstanceId("i-0")
-		c.Assert(err, IsNil)
-	},
-	change: watcher.Change{
-		C:  "machines",
-		Id: "0",
-	},
-	expectContents: []params.EntityInfo{
-		&params.MachineInfo{
-			Id:         "0",
-			InstanceId: "i-0",
+}{
+	// Machine changes
+	{
+		about: "no machine in state, no machine in store -> do nothing",
+		setUp: func(*C, *State) {},
+		change: watcher.Change{
+			C:  "machines",
+			Id: "1",
+		},
+	}, {
+		about: "machine is removed if it's not in backing",
+		add:   []params.EntityInfo{&params.MachineInfo{Id: "1"}},
+		setUp: func(*C, *State) {},
+		change: watcher.Change{
+			C:  "machines",
+			Id: "1",
+		},
+	}, {
+		about: "machine is added if it's in backing but not in Store",
+		setUp: func(c *C, st *State) {
+			_, err := st.AddMachine("series", JobHostUnits)
+			c.Assert(err, IsNil)
+		},
+		change: watcher.Change{
+			C:  "machines",
+			Id: "0",
+		},
+		expectContents: []params.EntityInfo{
+			&params.MachineInfo{Id: "0"},
+		},
+	}, {
+		about: "machine is updated if it's in backing and in Store",
+		add:   []params.EntityInfo{&params.MachineInfo{Id: "0"}},
+		setUp: func(c *C, st *State) {
+			m, err := st.AddMachine("series", JobManageEnviron)
+			c.Assert(err, IsNil)
+			err = m.SetInstanceId("i-0")
+			c.Assert(err, IsNil)
+		},
+		change: watcher.Change{
+			C:  "machines",
+			Id: "0",
+		},
+		expectContents: []params.EntityInfo{
+			&params.MachineInfo{
+				Id:         "0",
+				InstanceId: "i-0",
+			},
 		},
 	},
-}}
+	// Unit changes
+	{
+		about: "no unit in state, no unit in store -> do nothing",
+		setUp: func(c *C, st *State) {},
+		change: watcher.Change{
+			C:  "units",
+			Id: "1",
+		},
+	}, {
+		about: "unit is removed if it's not in backing",
+		add:   []params.EntityInfo{&params.UnitInfo{Name: "wordpress/1"}},
+		setUp: func(*C, *State) {},
+		change: watcher.Change{
+			C:  "units",
+			Id: "wordpress/1",
+		},
+	}, {
+		about: "unit is added if it's in backing but not in Store",
+		setUp: func(c *C, st *State) {
+			wordpress, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
+			c.Assert(err, IsNil)
+			u, err := wordpress.AddUnit()
+			c.Assert(err, IsNil)
+			err = u.SetPublicAddress("public")
+			c.Assert(err, IsNil)
+			err = u.SetPrivateAddress("private")
+			c.Assert(err, IsNil)
+			err = u.SetResolved(params.ResolvedRetryHooks)
+			c.Assert(err, IsNil)
+			err = u.OpenPort("tcp", 12345)
+			c.Assert(err, IsNil)
+			m, err := st.AddMachine("series", JobHostUnits)
+			c.Assert(err, IsNil)
+			err = u.AssignToMachine(m)
+			c.Assert(err, IsNil)
+		},
+		change: watcher.Change{
+			C:  "units",
+			Id: "wordpress/0",
+		},
+		expectContents: []params.EntityInfo{
+			&params.UnitInfo{
+				Name:           "wordpress/0",
+				Service:        "wordpress",
+				Series:         "series",
+				PublicAddress:  "public",
+				PrivateAddress: "private",
+				MachineId:      "0",
+				Resolved:       params.ResolvedRetryHooks,
+				Ports:          []params.Port{{"tcp", 12345}},
+			},
+		},
+	}, {
+		about: "unit is updated if it's in backing and in multiwatcher.Store",
+		add:   []params.EntityInfo{&params.UnitInfo{Name: "wordpress/0"}},
+		setUp: func(c *C, st *State) {
+			wordpress, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
+			c.Assert(err, IsNil)
+			u, err := wordpress.AddUnit()
+			c.Assert(err, IsNil)
+			err = u.SetPublicAddress("public")
+			c.Assert(err, IsNil)
+			err = u.OpenPort("udp", 17070)
+			c.Assert(err, IsNil)
+		},
+		change: watcher.Change{
+			C:  "units",
+			Id: "wordpress/0",
+		},
+		expectContents: []params.EntityInfo{
+			&params.UnitInfo{
+				Name:          "wordpress/0",
+				Service:       "wordpress",
+				Series:        "series",
+				PublicAddress: "public",
+				Ports:         []params.Port{{"udp", 17070}},
+			},
+		},
+	},
+	// Service changes
+	{
+		about: "no service in state, no service in store -> do nothing",
+		setUp: func(c *C, st *State) {},
+		change: watcher.Change{
+			C:  "services",
+			Id: "wordpress",
+		},
+	}, {
+		about: "service is removed if it's not in backing",
+		add:   []params.EntityInfo{&params.ServiceInfo{Name: "wordpress"}},
+		setUp: func(*C, *State) {},
+		change: watcher.Change{
+			C:  "services",
+			Id: "wordpress",
+		},
+	}, {
+		about: "service is added if it's in backing but not in Store",
+		setUp: func(c *C, st *State) {
+			ch := AddTestingCharm(c, st, "wordpress")
+			c.Logf("testing wordpress charm url: %s", ch)
+			wordpress, err := st.AddService("wordpress", ch)
+			c.Assert(err, IsNil)
+			err = wordpress.SetExposed()
+			c.Assert(err, IsNil)
+		},
+		change: watcher.Change{
+			C:  "services",
+			Id: "wordpress",
+		},
+		expectContents: []params.EntityInfo{
+			&params.ServiceInfo{
+				Name:     "wordpress",
+				Exposed:  true,
+				CharmURL: "local:series/series-wordpress-3",
+			},
+		},
+	}, {
+		about: "service is updated if it's in backing and in multiwatcher.Store",
+		add: []params.EntityInfo{&params.ServiceInfo{
+			Name:    "wordpress",
+			Exposed: true,
+		}},
+		setUp: func(c *C, st *State) {
+			_, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
+			c.Assert(err, IsNil)
+		},
+		change: watcher.Change{
+			C:  "services",
+			Id: "wordpress",
+		},
+		expectContents: []params.EntityInfo{
+			&params.ServiceInfo{
+				Name:     "wordpress",
+				CharmURL: "local:series/series-wordpress-3",
+			},
+		},
+	},
+}
 
 func (s *storeManagerStateSuite) TestChanged(c *C) {
+	collections := map[string]*mgo.Collection{
+		"machines": s.State.machines,
+		"units":    s.State.units,
+		"services": s.State.services,
+	}
 	for i, test := range allWatcherChangedTests {
 		c.Logf("test %d. %s", i, test.about)
 		b := newAllWatcherStateBacking(s.State)
@@ -258,9 +411,11 @@ func (s *storeManagerStateSuite) TestChanged(c *C) {
 		}
 		test.setUp(c, s.State)
 		c.Logf("done set up")
+		ch := test.change
+		ch.C = collections[ch.C].Name
 		err := b.Changed(all, test.change)
 		c.Assert(err, IsNil)
-		assertStoreContents(c, all, test.expectContents)
+		assertEntitiesEqual(c, all.All(), test.expectContents)
 		s.Reset(c)
 	}
 }
@@ -348,15 +503,6 @@ func (s entityInfoSlice) Less(i, j int) bool {
 	default:
 	}
 	panic("unexpect entity id type")
-}
-
-func assertStoreContents(c *C, a *multiwatcher.Store, entries []params.EntityInfo) {
-	gotEntries := a.All()
-	if len(entries) == 0 {
-		c.Assert(gotEntries, HasLen, 0)
-	} else {
-		c.Assert(gotEntries, DeepEquals, entries)
-	}
 }
 
 var errTimeout = errors.New("no change received in sufficient time")
