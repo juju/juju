@@ -3,7 +3,6 @@ package state
 import (
 	"errors"
 	"fmt"
-	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state/api/params"
@@ -79,7 +78,6 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 	err = wordpress.SetAnnotations(pairs)
 	c.Assert(err, IsNil)
 	add(&params.AnnotationInfo{
-		GlobalKey:   "s#wordpress",
 		Tag:         "service-wordpress",
 		Annotations: pairs,
 	})
@@ -122,7 +120,6 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 		err = wu.SetAnnotations(pairs)
 		c.Assert(err, IsNil)
 		add(&params.AnnotationInfo{
-			GlobalKey:   fmt.Sprintf("u#wordpress/%d", i),
 			Tag:         fmt.Sprintf("unit-wordpress-%d", i),
 			Annotations: pairs,
 		})
@@ -180,11 +177,11 @@ func (s *storeManagerStateSuite) TestStateBackingGetAll(c *C) {
 	sort.Sort(expectEntities)
 	c.Logf("got")
 	for _, e := range gotEntities {
-		c.Logf("\t%#v %#v", e.EntityKind(), e)
+		c.Logf("\t%T %#v", e, e)
 	}
 	c.Logf("expected")
 	for _, e := range expectEntities {
-		c.Logf("\t%#v %#v", e.EntityKind(), e)
+		c.Logf("\t%T%#v", e, e)
 	}
 	for num, ent := range expectEntities {
 		c.Logf("---------------> %d\n", num)
@@ -194,43 +191,6 @@ func (s *storeManagerStateSuite) TestStateBackingGetAll(c *C) {
 	}
 
 	c.Assert(gotEntities, DeepEquals, expectEntities)
-}
-
-func (s *storeManagerStateSuite) TestStateBackingIdForInfo(c *C) {
-	tests := []struct {
-		info       params.EntityInfo
-		collection *mgo.Collection
-		id         interface{}
-	}{{
-		info:       &params.MachineInfo{Id: "1"},
-		collection: s.State.machines,
-		id:         "1",
-	}, {
-		info:       &params.UnitInfo{Name: "wordpress/1"},
-		collection: s.State.units,
-		id:         "wordpress/1",
-	}, {
-		info:       &params.ServiceInfo{Name: "wordpress"},
-		collection: s.State.services,
-		id:         "wordpress",
-	}, {
-		info:       &params.RelationInfo{Key: "logging:logging-directory wordpress:logging-dir"},
-		collection: s.State.relations,
-		id:         "logging:logging-directory wordpress:logging-dir",
-	}, {
-		info:       &params.AnnotationInfo{GlobalKey: "m-0"},
-		collection: s.State.annotations,
-		id:         "m-0",
-	}}
-	b := newAllWatcherStateBacking(s.State)
-	for i, test := range tests {
-		c.Logf("test %d: %T", i, test.info)
-		id := b.IdForInfo(test.info)
-		c.Assert(id, Equals, entityId{
-			collection: test.collection.Name,
-			id:         test.id,
-		})
-	}
 }
 
 var allWatcherChangedTests = []struct {
@@ -292,10 +252,9 @@ func (s *storeManagerStateSuite) TestChanged(c *C) {
 	for i, test := range allWatcherChangedTests {
 		c.Logf("test %d. %s", i, test.about)
 		b := newAllWatcherStateBacking(s.State)
-		idOf := func(info params.EntityInfo) multiwatcher.InfoId { return b.IdForInfo(info) }
 		all := multiwatcher.NewStore()
 		for _, info := range test.add {
-			all.Update(idOf(info), info)
+			all.Update(info)
 		}
 		test.setUp(c, s.State)
 		c.Logf("done set up")
@@ -379,23 +338,16 @@ type entityInfoSlice []params.EntityInfo
 func (s entityInfoSlice) Len() int      { return len(s) }
 func (s entityInfoSlice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 func (s entityInfoSlice) Less(i, j int) bool {
-	if s[i].EntityKind() != s[j].EntityKind() {
-		return s[i].EntityKind() < s[j].EntityKind()
+	id0, id1 := s[i].EntityId(), s[j].EntityId()
+	if id0.Kind != id1.Kind {
+		return id0.Kind < id1.Kind
 	}
-	p, q := s[i], s[j]
-	switch p := p.(type) {
-	case *params.MachineInfo:
-		return p.Id < q.(*params.MachineInfo).Id
-	case *params.UnitInfo:
-		return p.Name < q.(*params.UnitInfo).Name
-	case *params.ServiceInfo:
-		return p.Name < q.(*params.ServiceInfo).Name
-	case *params.RelationInfo:
-		return p.Key < q.(*params.RelationInfo).Key
-	case *params.AnnotationInfo:
-		return p.GlobalKey < q.(*params.AnnotationInfo).GlobalKey
+	switch id := id0.Id.(type) {
+	case string:
+		return id < id1.Id.(string)
+	default:
 	}
-	panic("unknown id type")
+	panic("unexpect entity id type")
 }
 
 func assertStoreContents(c *C, a *multiwatcher.Store, entries []params.EntityInfo) {
@@ -441,10 +393,9 @@ func checkDeltasEqual(c *C, b multiwatcher.Backing, d0, d1 []params.Delta) {
 }
 
 func deltaMap(deltas []params.Delta, b multiwatcher.Backing) map[multiwatcher.InfoId]params.EntityInfo {
-	idOf := func(info params.EntityInfo) multiwatcher.InfoId { return b.IdForInfo(info) }
 	m := make(map[multiwatcher.InfoId]params.EntityInfo)
 	for _, d := range deltas {
-		id := idOf(d.Entity)
+		id := d.Entity.EntityId()
 		if _, ok := m[id]; ok {
 			panic(fmt.Errorf("%v mentioned twice in delta set", id))
 		}

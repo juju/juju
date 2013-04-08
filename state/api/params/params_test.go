@@ -46,9 +46,9 @@ var marshalTestCases = []struct {
 	about: "UnitInfo Delta",
 	value: params.Delta{
 		Entity: &params.UnitInfo{
-			Name:    "Benji",
-			Service: "Shazam",
-			Series:  "precise",
+			Name:     "Benji",
+			Service:  "Shazam",
+			Series:   "precise",
 			CharmURL: "cs:~user/precise/wordpress-42",
 			Ports: []params.Port{
 				params.Port{

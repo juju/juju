@@ -920,7 +920,7 @@ type MachineInfo struct {
 func (i *MachineInfo) EntityId() params.EntityId {
 	return params.EntityId{
 		Kind: "machine",
-		Id: i.Id,
+		Id:   i.Id,
 	}
 }
 
@@ -932,6 +932,6 @@ type ServiceInfo struct {
 func (i *ServiceInfo) EntityId() params.EntityId {
 	return params.EntityId{
 		Kind: "service",
-		Id: i.Name,
+		Id:   i.Name,
 	}
 }

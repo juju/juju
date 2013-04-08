@@ -305,7 +305,7 @@ var (
 
 type EntityId struct {
 	Kind string
-	Id interface{}
+	Id   interface{}
 }
 
 // MachineInfo holds the information about a Machine
@@ -318,7 +318,7 @@ type MachineInfo struct {
 func (i *MachineInfo) EntityId() EntityId {
 	return EntityId{
 		Kind: "machine",
-		Id: i.Id,
+		Id:   i.Id,
 	}
 }
 
@@ -331,7 +331,7 @@ type ServiceInfo struct {
 func (i *ServiceInfo) EntityId() EntityId {
 	return EntityId{
 		Kind: "service",
-		Id: i.Name,
+		Id:   i.Name,
 	}
 }
 
@@ -350,7 +350,7 @@ type UnitInfo struct {
 func (i *UnitInfo) EntityId() EntityId {
 	return EntityId{
 		Kind: "unit",
-		Id: i.Name,
+		Id:   i.Name,
 	}
 }
 
@@ -364,10 +364,10 @@ type RelationInfo struct {
 	Endpoints []Endpoint
 }
 
-func (i *RelationInfo) EntityId() EntityId { 
+func (i *RelationInfo) EntityId() EntityId {
 	return EntityId{
 		Kind: "relation",
-		Id: i.Key,
+		Id:   i.Key,
 	}
 }
 
@@ -379,6 +379,6 @@ type AnnotationInfo struct {
 func (i *AnnotationInfo) EntityId() EntityId {
 	return EntityId{
 		Kind: "annotation",
-		Id: i.Tag,
+		Id:   i.Tag,
 	}
 }
