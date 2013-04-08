@@ -60,40 +60,6 @@ var officialBucketAttrs = map[string]interface{}{
 	"authorized-keys": "not-really", // We shouldn't need ssh access
 }
 
-// Find the set of tools at the 'latest' version
-func findNewest(fullTools []*state.Tools) []*state.Tools {
-	// This assumes the zero version of Number is always less than a real
-	// number, but we don't have negative versions, so this should be fine
-	var curBest version.Number
-	var res []*state.Tools
-	for _, tool := range fullTools {
-		if curBest.Less(tool.Number) {
-			// This tool is newer than our current best,
-			// so reset the list
-			res = []*state.Tools{tool}
-			curBest = tool.Number
-		} else if curBest == tool.Number {
-			res = append(res, tool)
-		}
-	}
-	return res
-}
-
-// Find tools that aren't present in target
-func findMissing(sourceTools, targetTools []*state.Tools) []*state.Tools {
-	target := make(map[version.Binary]bool, len(targetTools))
-	for _, tool := range targetTools {
-		target[tool.Binary] = true
-	}
-	var res []*state.Tools
-	for _, tool := range sourceTools {
-		if !target[tool.Binary] {
-			res = append(res, tool)
-		}
-	}
-	return res
-}
-
 func copyOne(
 	tool *state.Tools, source environs.StorageReader,
 	target environs.Storage, ctx *cmd.Context,
@@ -155,7 +121,7 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 	}
 	toolsToCopy := sourceToolsList.Public
 	if !c.allVersions {
-		toolsToCopy = findNewest(toolsToCopy)
+		toolsToCopy = toolsToCopy.Newest()
 	}
 	fmt.Fprintf(ctx.Stderr, "found %d tools in source (%d recent ones)\n",
 		len(sourceToolsList.Public), len(toolsToCopy))
@@ -180,7 +146,7 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 		}
 
 	}
-	missing := findMissing(toolsToCopy, targetTools)
+	missing := toolsToCopy.Difference(targetTools)
 	fmt.Fprintf(ctx.Stdout, "found %d tools in target; %d tools to be copied\n",
 		len(targetTools), len(missing))
 	err = copyTools(missing, officialEnviron.PublicStorage(), targetStorage, c.dryRun, ctx)
