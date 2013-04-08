@@ -49,13 +49,7 @@ var marshalTestCases = []struct {
 			Name:    "Benji",
 			Service: "Shazam",
 			Series:  "precise",
-			CharmURL: &charm.URL{
-				Schema:   "cs",
-				User:     "user",
-				Series:   "precise",
-				Name:     "wordpress",
-				Revision: 42,
-			},
+			CharmURL: "cs:~user/precise/wordpress-42",
 			Ports: []params.Port{
 				params.Port{
 					Protocol: "http",
