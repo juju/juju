@@ -304,14 +304,13 @@ func (conn *Conn) AddUnits(svc *state.Service, n int, mid string) ([]*state.Unit
 		}
 		if mid != "" {
 			if n != 1 {
-				return nil, fmt.Errorf("cannot add multiple units of %q to a single machine", svc.Name())
+				return nil, fmt.Errorf("cannot add multiple units of service %q to a single machine", svc.Name())
 			}
 			err := conn.State.AssignUnitToMachine(unit, mid)
 			if err != nil {
 				return nil, err
 			}
 		} else if err := conn.State.AssignUnit(unit, policy); err != nil {
-			// TODO lp:1101139 (units are not assigned transactionally)
 			return nil, err
 		}
 		units[i] = unit

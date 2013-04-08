@@ -390,7 +390,7 @@ func (s *ConnSuite) TestAddUnits(c *C) {
 	c.Assert(id0, Not(Equals), id1)
 
 	units, err = s.conn.AddUnits(svc, 2, "0")
-	c.Assert(err, ErrorMatches, `cannot add multiple units of "testriak" to a single machine`)
+	c.Assert(err, ErrorMatches, `cannot add multiple units of service "testriak" to a single machine`)
 
 	units, err = s.conn.AddUnits(svc, 1, "0")
 	c.Assert(err, IsNil)
