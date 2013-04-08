@@ -9,7 +9,7 @@ import (
 	"launchpad.net/tomb"
 )
 
-var ErrTerminateAgent = errors.New("agent entity is must be terminated")
+var ErrTerminateAgent = errors.New("agent should be terminated")
 
 var loadedInvalid = func() {}
 
