@@ -612,7 +612,7 @@ func (s entityInfoSlice) Less(i, j int) bool {
 		return id < id1.Id.(string)
 	default:
 	}
-	panic("unexpect entity id type")
+	panic("unexpected entity id type")
 }
 
 var errTimeout = errors.New("no change received in sufficient time")
