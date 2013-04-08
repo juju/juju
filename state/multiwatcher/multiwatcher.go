@@ -1,4 +1,4 @@
-package allwatcher
+package multiwatcher
 
 import (
 	"container/list"
@@ -82,16 +82,13 @@ type StoreManager struct {
 // InfoId holds an identifier for an Info item held in a Store.
 type InfoId interface{}
 
-// Info is the type of an item held in a Store.
-type Info interface{}
-
 // Backing is the interface required
 // by the StoreManager to access the underlying state.
 // It is an interface for testing purposes.
 type Backing interface {
 	// idForInfo returns the info id corresponding
 	// to the given entity info.
-	IdForInfo(info Info) InfoId
+	IdForInfo(info params.EntityInfo) InfoId
 
 	// getAll retrieves information about all information
 	// known to the Backing and stashes it in the Store.
