@@ -224,7 +224,7 @@ func (d *Delta) MarshalJSON() ([]byte, error) {
 	if d.Removed {
 		c = "remove"
 	}
-	fmt.Fprintf(&buf, "%q,%q,", d.Entity.EntityKind(), c)
+	fmt.Fprintf(&buf, "%q,%q,", d.Entity.EntityId().Kind, c)
 	buf.Write(b)
 	buf.WriteByte(']')
 	return buf.Bytes(), nil
@@ -275,12 +275,9 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 
 // EntityInfo is implemented by all entity Info types.
 type EntityInfo interface {
-	// EntityKind returns the kind of entity (for example "machine",
-	// "service", ...)
-	EntityKind() string
 	// EntityId returns an identifier that will uniquely
 	// identify the entity within its kind
-	EntityId() interface{}
+	EntityId() EntityId
 }
 
 // IMPORTANT NOTE: the types below are direct subsets of the entity docs
@@ -306,6 +303,11 @@ var (
 	_ EntityInfo = (*AnnotationInfo)(nil)
 )
 
+type EntityId struct {
+	Kind string
+	Id interface{}
+}
+
 // MachineInfo holds the information about a Machine
 // that is watched by StateWatcher.
 type MachineInfo struct {
@@ -313,8 +315,12 @@ type MachineInfo struct {
 	InstanceId string
 }
 
-func (i *MachineInfo) EntityKind() string { return "machine" }
-func (i *MachineInfo) EntityId() interface{} { return i.Id }
+func (i *MachineInfo) EntityId() EntityId {
+	return EntityId{
+		Kind: "machine",
+		Id: i.Id,
+	}
+}
 
 type ServiceInfo struct {
 	Name     string `bson:"_id"`
@@ -322,8 +328,12 @@ type ServiceInfo struct {
 	CharmURL string
 }
 
-func (i *ServiceInfo) EntityKind() string { return "service" }
-func (i *ServiceInfo) EntityId() interface{} { return i.Name }
+func (i *ServiceInfo) EntityId() EntityId {
+	return EntityId{
+		Kind: "service",
+		Id: i.Name,
+	}
+}
 
 type UnitInfo struct {
 	Name           string `bson:"_id"`
@@ -337,8 +347,12 @@ type UnitInfo struct {
 	Ports          []Port
 }
 
-func (i *UnitInfo) EntityKind() string { return "unit" }
-func (i *UnitInfo) EntityId() interface{} { return i.Name }
+func (i *UnitInfo) EntityId() EntityId {
+	return EntityId{
+		Kind: "unit",
+		Id: i.Name,
+	}
+}
 
 type Endpoint struct {
 	ServiceName string
@@ -350,13 +364,21 @@ type RelationInfo struct {
 	Endpoints []Endpoint
 }
 
-func (i *RelationInfo) EntityKind() string { return "relation" }
-func (i *RelationInfo) EntityId() interface{} { return i.Key }
+func (i *RelationInfo) EntityId() EntityId { 
+	return EntityId{
+		Kind: "relation",
+		Id: i.Key,
+	}
+}
 
 type AnnotationInfo struct {
 	Tag         string
 	Annotations map[string]string
 }
 
-func (i *AnnotationInfo) EntityKind() string { return "annotation" }
-func (i *AnnotationInfo) EntityId() interface{} { return i.Tag }
+func (i *AnnotationInfo) EntityId() EntityId {
+	return EntityId{
+		Kind: "annotation",
+		Id: i.Tag,
+	}
+}
