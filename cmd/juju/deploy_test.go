@@ -169,6 +169,29 @@ func (s *DeploySuite) TestCharmBundle(c *C) {
 	s.assertService(c, "some-service-name", curl, 1, 0)
 }
 
+func (s *DeploySuite) TestDeployTo(c *C) {
+	coretesting.Charms.BundlePath(s.seriesPath, "dummy")
+	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	err = runDeploy(c, "--to", machine.Id(), "local:dummy", "portlandia")
+	c.Assert(err, IsNil)
+	svc, err := s.State.Service("portlandia")
+	c.Assert(err, IsNil)
+	units, err := svc.AllUnits()
+	c.Assert(err, IsNil)
+	c.Assert(units, HasLen, 1)
+	mid, err := units[0].AssignedMachineId()
+	c.Assert(err, IsNil)
+	c.Assert(mid, Equals, machine.Id())
+}
+
+func (s *DeploySuite) TestDeployToInvalidMachine(c *C) {
+	coretesting.Charms.BundlePath(s.seriesPath, "dummy")
+	err := runDeploy(c, "--to", "42", "local:dummy", "portlandia")
+	c.Assert(err, ErrorMatches, `cannot assign unit "portlandia/0" to machine: machine 42 not found`)
+
+}
+
 func (s *DeploySuite) TestCannotUpgradeCharmBundle(c *C) {
 	coretesting.Charms.BundlePath(s.seriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "-u")
