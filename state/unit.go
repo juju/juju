@@ -435,11 +435,13 @@ func (u *Unit) Refresh() error {
 
 // Status returns the status of the unit's agent.
 func (u *Unit) Status() (status params.UnitStatus, info string, err error) {
-	doc := &unitStatusDoc{}
-	if err := getStatus(u.st, u.globalKey(), doc); err != nil {
+	doc, err := getStatus(u.st, u.globalKey())
+	if err != nil {
 		return "", "", err
 	}
-	return doc.Status, doc.StatusInfo, nil
+	status = params.UnitStatus(doc.Status)
+	info = doc.StatusInfo
+	return
 }
 
 // SetStatus sets the status of the unit.
@@ -447,7 +449,10 @@ func (u *Unit) SetStatus(status params.UnitStatus, info string) error {
 	if status == params.UnitError && info == "" {
 		panic("unit error status with no info")
 	}
-	doc := &unitStatusDoc{status, info}
+	doc := statusDoc{
+		Status:     string(status),
+		StatusInfo: info,
+	}
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
