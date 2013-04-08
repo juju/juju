@@ -3,6 +3,7 @@ package state
 import (
 	"fmt"
 	"labix.org/v2/mgo"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/multiwatcher"
 	"launchpad.net/juju-core/state/watcher"
@@ -24,6 +25,22 @@ func (m *backingMachine) updated(st *State, store *multiwatcher.Store) error {
 	info := &params.MachineInfo{
 		Id:         m.Id,
 		InstanceId: string(m.InstanceId),
+	}
+	oldInfo := store.Get(info.EntityId())
+	if oldInfo == nil {
+		// We're adding the entry for the first time,
+		// so fetch the associated machine status.
+		sdoc, err := getStatus(st, machineGlobalKey(m.Id))
+		if err != nil {
+			return err
+		}
+		info.Status = params.MachineStatus(sdoc.Status)
+		info.StatusInfo = sdoc.StatusInfo
+	} else {
+		// The entry already exists, so preserve the current status.
+		oldInfo := oldInfo.(*params.MachineInfo)
+		info.Status = oldInfo.Status
+		info.StatusInfo = oldInfo.StatusInfo
 	}
 	store.Update(info)
 	return nil
@@ -52,6 +69,22 @@ func (u *backingUnit) updated(st *State, store *multiwatcher.Store) error {
 	}
 	if u.CharmURL != nil {
 		info.CharmURL = u.CharmURL.String()
+	}
+	oldInfo := store.Get(info.EntityId())
+	if oldInfo == nil {
+		// We're adding the entry for the first time,
+		// so fetch the associated unit status.
+		sdoc, err := getStatus(st, unitGlobalKey(u.Name))
+		if err != nil {
+			return err
+		}
+		info.Status = params.UnitStatus(sdoc.Status)
+		info.StatusInfo = sdoc.StatusInfo
+	} else {
+		// The entry already exists, so preserve the current status.
+		oldInfo := oldInfo.(*params.UnitInfo)
+		info.Status = oldInfo.Status
+		info.StatusInfo = oldInfo.StatusInfo
 	}
 	store.Update(info)
 	return nil
@@ -134,14 +167,62 @@ func (svc *backingAnnotation) removed(st *State, store *multiwatcher.Store, id i
 	return nil
 }
 
-type backingStatus statusDoc
-
-func (s *backingStatus) updated(st *State, store *multiwatcher.Store) error {
-	
+// We duplicate
+type backingStatus struct {
+	GlobalKey  string `bson:"_id"`
+	Status     string
+	StatusInfo string
 }
 
+func (s *backingStatus) updated(st *State, store *multiwatcher.Store) error {
+	parentId, ok := backingEntityIdForGlobalKey(s.GlobalKey)
+	if !ok {
+		log.Errorf("status for entity with unrecognised global key %q", s.GlobalKey)
+		return nil
+	}
+	info := store.Get(parentId)
+	switch info := info.(type) {
+	case nil:
+		// The parent info doesn't exist. Ignore the status until it does.
+		return nil
+	case *params.UnitInfo:
+		newInfo := *info
+		info = &newInfo
+		info.Status = params.UnitStatus(s.Status)
+		info.StatusInfo = s.StatusInfo
+	case *params.MachineInfo:
+		newInfo := *info
+		info = &newInfo
+		info.Status = params.MachineStatus(s.Status)
+		info.StatusInfo = s.StatusInfo
+	default:
+		panic(fmt.Errorf("status for unexpected entity with id %q; type %T", s.GlobalKey, info))
+	}
+	store.Update(info)
+	return nil
+}
+
+func backingEntityIdForGlobalKey(key string) (params.EntityId, bool) {
+	if len(key) < 3 || key[1] != '#' {
+		return params.EntityId{}, false
+	}
+	id := key[2:]
+	switch key[0] {
+	case 'm':
+		return (&params.MachineInfo{Id: id}).EntityId(), true
+	case 'u':
+		return (&params.UnitInfo{Name: id}).EntityId(), true
+	case 's':
+		return (&params.ServiceInfo{Name: id}).EntityId(), true
+	}
+	return params.EntityId{}, false
+}
 
 func (svc *backingStatus) removed(st *State, store *multiwatcher.Store, id interface{}) error {
+	// If the status is removed, the parent will follow not long after,
+	// so do nothing.
+	return nil
+}
 
 // backingEntityDoc is implemented by the documents in
 // collections that the allWatcherStateBacking watches.
@@ -200,8 +281,9 @@ func newAllWatcherStateBacking(st *State) multiwatcher.Backing {
 		Collection:    st.annotations,
 		infoSliceType: reflect.TypeOf([]backingAnnotation(nil)),
 	}, {
-		Collection: st.statuses,
-		infoSliceType:  reflect.TypeOf([]
+		Collection:    st.statuses,
+		infoSliceType: reflect.TypeOf([]backingStatus(nil)),
+		subsidiary:    true,
 	}}
 	// Populate the collection maps from the above set of collections.
 	for _, c := range collections {
@@ -236,6 +318,9 @@ func (b *allWatcherStateBacking) Unwatch(in chan<- watcher.Change) {
 func (b *allWatcherStateBacking) GetAll(all *multiwatcher.Store) error {
 	// TODO(rog) fetch collections concurrently?
 	for _, c := range b.collectionByName {
+		if c.subsidiary {
+			continue
+		}
 		infoSlicePtr := reflect.New(c.infoSliceType)
 		if err := c.Find(nil).All(infoSlicePtr.Interface()); err != nil {
 			return fmt.Errorf("cannot get all %s: %v", c.Name, err)

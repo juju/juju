@@ -179,10 +179,11 @@ func assertEntitiesEqual(c *C, got, want []params.EntityInfo) {
 		return
 	}
 	c.Errorf("entity mismatch; got len %d; want %d", len(got), len(want))
+	c.Logf("got:")
 	for _, e := range got {
 		c.Logf("\t%T %#v", e, e)
 	}
-	c.Logf("expected")
+	c.Logf("expected:")
 	for _, e := range want {
 		c.Logf("\t%T %#v", e, e)
 	}
@@ -227,7 +228,9 @@ var allWatcherChangedTests = []struct {
 	}, {
 		about: "machine is added if it's in backing but not in Store",
 		setUp: func(c *C, st *State) {
-			_, err := st.AddMachine("series", JobHostUnits)
+			m, err := st.AddMachine("series", JobHostUnits)
+			c.Assert(err, IsNil)
+			err = m.SetStatus(params.MachineError, "failure")
 			c.Assert(err, IsNil)
 		},
 		change: watcher.Change{
@@ -235,11 +238,21 @@ var allWatcherChangedTests = []struct {
 			Id: "0",
 		},
 		expectContents: []params.EntityInfo{
-			&params.MachineInfo{Id: "0"},
+			&params.MachineInfo{
+				Id:         "0",
+				Status:     params.MachineError,
+				StatusInfo: "failure",
+			},
 		},
 	}, {
 		about: "machine is updated if it's in backing and in Store",
-		add:   []params.EntityInfo{&params.MachineInfo{Id: "0"}},
+		add: []params.EntityInfo{
+			&params.MachineInfo{
+				Id:         "0",
+				Status:     params.MachineError,
+				StatusInfo: "another failure",
+			},
+		},
 		setUp: func(c *C, st *State) {
 			m, err := st.AddMachine("series", JobManageEnviron)
 			c.Assert(err, IsNil)
@@ -254,6 +267,8 @@ var allWatcherChangedTests = []struct {
 			&params.MachineInfo{
 				Id:         "0",
 				InstanceId: "i-0",
+				Status:     params.MachineError,
+				StatusInfo: "another failure",
 			},
 		},
 	},
@@ -292,6 +307,8 @@ var allWatcherChangedTests = []struct {
 			c.Assert(err, IsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, IsNil)
+			err = u.SetStatus(params.UnitError, "failure")
+			c.Assert(err, IsNil)
 		},
 		change: watcher.Change{
 			C:  "units",
@@ -307,11 +324,17 @@ var allWatcherChangedTests = []struct {
 				MachineId:      "0",
 				Resolved:       params.ResolvedRetryHooks,
 				Ports:          []params.Port{{"tcp", 12345}},
+				Status:         params.UnitError,
+				StatusInfo:     "failure",
 			},
 		},
 	}, {
 		about: "unit is updated if it's in backing and in multiwatcher.Store",
-		add:   []params.EntityInfo{&params.UnitInfo{Name: "wordpress/0"}},
+		add: []params.EntityInfo{&params.UnitInfo{
+			Name:       "wordpress/0",
+			Status:     params.UnitError,
+			StatusInfo: "another failure",
+		}},
 		setUp: func(c *C, st *State) {
 			wordpress, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
 			c.Assert(err, IsNil)
@@ -333,6 +356,8 @@ var allWatcherChangedTests = []struct {
 				Series:        "series",
 				PublicAddress: "public",
 				Ports:         []params.Port{{"udp", 17070}},
+				Status:        params.UnitError,
+				StatusInfo:    "another failure",
 			},
 		},
 	},

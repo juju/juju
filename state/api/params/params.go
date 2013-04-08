@@ -313,6 +313,8 @@ type EntityId struct {
 type MachineInfo struct {
 	Id         string `bson:"_id"`
 	InstanceId string
+	Status MachineStatus
+	StatusInfo string
 }
 
 func (i *MachineInfo) EntityId() EntityId {
