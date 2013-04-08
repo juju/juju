@@ -22,6 +22,7 @@ type DeployCommand struct {
 	NumUnits     int // defaults to 1
 	BumpRevision bool
 	RepoPath     string // defaults to JUJU_REPOSITORY
+	MachineId    string
 }
 
 const deployDoc = `
@@ -58,6 +59,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "number of service units to deploy for principal charms")
 	f.IntVar(&c.NumUnits, "num-units", 1, "")
+	f.StringVar(&c.MachineId, "to", "", "Machine to deploy initial unit on")
 	f.BoolVar(&c.BumpRevision, "u", false, "increment local charm directory revision")
 	f.BoolVar(&c.BumpRevision, "upgrade", false, "")
 	f.Var(&c.Config, "config", "path to yaml-formatted service config")
@@ -137,6 +139,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		// BUG(lp:1162122): --config has no tests.
 		ConfigYAML:  string(configYAML),
 		Constraints: c.Constraints,
+	        MachineId:   c.MachineId,
 	}
 	_, err = conn.DeployService(args)
 	return err
