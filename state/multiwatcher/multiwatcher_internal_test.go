@@ -18,28 +18,24 @@ func Test(t *stdtesting.T) {
 	TestingT(t)
 }
 
-type allInfoSuite struct {
+type storeSuite struct {
 	testing.LoggingSuite
 }
 
-func (*allInfoSuite) assertAllInfoContents(c *C, a *AllInfo, latestRevno int64, entries []entityEntry) {
-	assertAllInfoContents(c, a, idForInfo, latestRevno, entries)
-}
+var _ = Suite(&storeSuite{})
 
-var _ = Suite(&allInfoSuite{})
-
-var AllInfoChangeMethodTests = []struct {
+var StoreChangeMethodTests = []struct {
 	about          string
-	change         func(all *AllInfo)
+	change         func(all *Store)
 	expectRevno    int64
 	expectContents []entityEntry
 }{{
 	about:  "empty at first",
-	change: func(*AllInfo) {},
+	change: func(*Store) {},
 }, {
 	about: "add single entry",
-	change: func(all *AllInfo) {
-		allInfoAdd(all, &params.MachineInfo{
+	change: func(all *Store) {
+		storeAdd(all, &params.MachineInfo{
 			Id:         "0",
 			InstanceId: "i-0",
 		})
@@ -55,12 +51,12 @@ var AllInfoChangeMethodTests = []struct {
 	}},
 }, {
 	about: "add two entries",
-	change: func(all *AllInfo) {
-		allInfoAdd(all, &params.MachineInfo{
+	change: func(all *Store) {
+		storeAdd(all, &params.MachineInfo{
 			Id:         "0",
 			InstanceId: "i-0",
 		})
-		allInfoAdd(all, &params.ServiceInfo{
+		storeAdd(all, &params.ServiceInfo{
 			Name:    "wordpress",
 			Exposed: true,
 		})
@@ -83,7 +79,7 @@ var AllInfoChangeMethodTests = []struct {
 	}},
 }, {
 	about: "update an entity that's not currently there",
-	change: func(all *AllInfo) {
+	change: func(all *Store) {
 		m := &params.MachineInfo{Id: "1"}
 		all.Update(idForInfo(m), m)
 	},
@@ -95,11 +91,11 @@ var AllInfoChangeMethodTests = []struct {
 	}},
 }, {
 	about: "mark removed on existing entry",
-	change: func(all *AllInfo) {
-		allInfoAdd(all, &params.MachineInfo{Id: "0"})
-		allInfoAdd(all, &params.MachineInfo{Id: "1"})
-		AllInfoIncRef(all, testEntityId{"machine", "0"})
-		all.Update(testEntityId{"machine", "0"}, nil)
+	change: func(all *Store) {
+		storeAdd(all, &params.MachineInfo{Id: "0"})
+		storeAdd(all, &params.MachineInfo{Id: "1"})
+		StoreIncRef(all, testInfoId{"machine", "0"})
+		all.Update(testInfoId{"machine", "0"}, nil)
 	},
 	expectRevno: 3,
 	expectContents: []entityEntry{{
@@ -115,21 +111,21 @@ var AllInfoChangeMethodTests = []struct {
 	}},
 }, {
 	about: "mark removed on nonexistent entry",
-	change: func(all *AllInfo) {
-		all.Update(testEntityId{"machine", "0"}, nil)
+	change: func(all *Store) {
+		all.Update(testInfoId{"machine", "0"}, nil)
 	},
 }, {
 	about: "mark removed on already marked entry",
-	change: func(all *AllInfo) {
-		allInfoAdd(all, &params.MachineInfo{Id: "0"})
-		allInfoAdd(all, &params.MachineInfo{Id: "1"})
-		AllInfoIncRef(all, testEntityId{"machine", "0"})
-		all.Update(testEntityId{"machine", "0"}, nil)
-		all.Update(testEntityId{"machine", "1"}, &params.MachineInfo{
+	change: func(all *Store) {
+		storeAdd(all, &params.MachineInfo{Id: "0"})
+		storeAdd(all, &params.MachineInfo{Id: "1"})
+		StoreIncRef(all, testInfoId{"machine", "0"})
+		all.Update(testInfoId{"machine", "0"}, nil)
+		all.Update(testInfoId{"machine", "1"}, &params.MachineInfo{
 			Id:         "1",
 			InstanceId: "i-1",
 		})
-		all.Update(testEntityId{"machine", "0"}, nil)
+		all.Update(testInfoId{"machine", "0"}, nil)
 	},
 	expectRevno: 4,
 	expectContents: []entityEntry{{
@@ -148,25 +144,25 @@ var AllInfoChangeMethodTests = []struct {
 	}},
 }, {
 	about: "mark removed on entry with zero ref count",
-	change: func(all *AllInfo) {
-		allInfoAdd(all, &params.MachineInfo{Id: "0"})
-		all.Update(testEntityId{"machine", "0"}, nil)
+	change: func(all *Store) {
+		storeAdd(all, &params.MachineInfo{Id: "0"})
+		all.Update(testInfoId{"machine", "0"}, nil)
 	},
 	expectRevno: 2,
 }, {
 	about: "delete entry",
-	change: func(all *AllInfo) {
-		allInfoAdd(all, &params.MachineInfo{Id: "0"})
-		all.delete(testEntityId{"machine", "0"})
+	change: func(all *Store) {
+		storeAdd(all, &params.MachineInfo{Id: "0"})
+		all.delete(testInfoId{"machine", "0"})
 	},
 	expectRevno: 1,
 }, {
 	about: "decref of non-removed entity",
-	change: func(all *AllInfo) {
+	change: func(all *Store) {
 		m := &params.MachineInfo{Id: "0"}
 		id := idForInfo(m)
-		allInfoAdd(all, m)
-		AllInfoIncRef(all, id)
+		storeAdd(all, m)
+		StoreIncRef(all, id)
 		entry := all.entities[id].Value.(*entityEntry)
 		all.decRef(entry, id)
 	},
@@ -179,10 +175,10 @@ var AllInfoChangeMethodTests = []struct {
 	}},
 }, {
 	about: "decref of removed entity",
-	change: func(all *AllInfo) {
+	change: func(all *Store) {
 		m := &params.MachineInfo{Id: "0"}
 		id := idForInfo(m)
-		allInfoAdd(all, m)
+		storeAdd(all, m)
 		entry := all.entities[id].Value.(*entityEntry)
 		entry.refCount++
 		all.Update(id, nil)
@@ -192,22 +188,22 @@ var AllInfoChangeMethodTests = []struct {
 },
 }
 
-func (s *allInfoSuite) TestAllInfoChangeMethods(c *C) {
-	for i, test := range AllInfoChangeMethodTests {
-		all := newAllInfo()
+func (s *storeSuite) TestStoreChangeMethods(c *C) {
+	for i, test := range StoreChangeMethodTests {
+		all := NewStore()
 		c.Logf("test %d. %s", i, test.about)
 		test.change(all)
-		s.assertAllInfoContents(c, all, test.expectRevno, test.expectContents)
+		assertStoreContents(c, all, test.expectRevno, test.expectContents)
 	}
 }
 
-func (s *allInfoSuite) TestChangesSince(c *C) {
-	a := newAllInfo()
+func (s *storeSuite) TestChangesSince(c *C) {
+	a := NewStore()
 	// Add three entries.
 	var deltas []params.Delta
 	for i := 0; i < 3; i++ {
 		m := &params.MachineInfo{Id: fmt.Sprint(i)}
-		allInfoAdd(a, m)
+		storeAdd(a, m)
 		deltas = append(deltas, params.Delta{Entity: m})
 	}
 	// Check that the deltas from each revno are as expected.
@@ -231,7 +227,7 @@ func (s *allInfoSuite) TestChangesSince(c *C) {
 
 	// Make sure the machine isn't simply removed from
 	// the list when it's marked as removed.
-	AllInfoIncRef(a, testEntityId{"machine", "0"})
+	StoreIncRef(a, testInfoId{"machine", "0"})
 
 	// Remove another machine and check we see it's removed.
 	m0 := &params.MachineInfo{Id: "0"}
@@ -260,27 +256,23 @@ func (s *allInfoSuite) TestChangesSince(c *C) {
 
 }
 
-type allWatcherSuite struct {
+type storeManagerSuite struct {
 	testing.LoggingSuite
 }
 
-var _ = Suite(&allWatcherSuite{})
+var _ = Suite(&storeManagerSuite{})
 
-func (*allWatcherSuite) assertAllInfoContents(c *C, a *AllInfo, latestRevno int64, entries []entityEntry) {
-	assertAllInfoContents(c, a, idForInfo, latestRevno, entries)
-}
-
-func (*allWatcherSuite) TestHandle(c *C) {
-	aw := NewAllWatcher(newTestBacking(nil))
+func (*storeManagerSuite) TestHandle(c *C) {
+	aw := NewStoreManager(newTestBacking(nil))
 
 	// Add request from first watcher.
-	w0 := &StateWatcher{all: aw}
+	w0 := &Watcher{all: aw}
 	req0 := &request{
 		w:     w0,
 		reply: make(chan bool, 1),
 	}
 	aw.handle(req0)
-	assertWaitingRequests(c, aw, map[*StateWatcher][]*request{
+	assertWaitingRequests(c, aw, map[*Watcher][]*request{
 		w0: {req0},
 	})
 
@@ -290,18 +282,18 @@ func (*allWatcherSuite) TestHandle(c *C) {
 		reply: make(chan bool, 1),
 	}
 	aw.handle(req1)
-	assertWaitingRequests(c, aw, map[*StateWatcher][]*request{
+	assertWaitingRequests(c, aw, map[*Watcher][]*request{
 		w0: {req1, req0},
 	})
 
 	// Add request from second watcher.
-	w1 := &StateWatcher{all: aw}
+	w1 := &Watcher{all: aw}
 	req2 := &request{
 		w:     w1,
 		reply: make(chan bool, 1),
 	}
 	aw.handle(req2)
-	assertWaitingRequests(c, aw, map[*StateWatcher][]*request{
+	assertWaitingRequests(c, aw, map[*Watcher][]*request{
 		w0: {req1, req0},
 		w1: {req2},
 	})
@@ -310,7 +302,7 @@ func (*allWatcherSuite) TestHandle(c *C) {
 	aw.handle(&request{
 		w: w0,
 	})
-	assertWaitingRequests(c, aw, map[*StateWatcher][]*request{
+	assertWaitingRequests(c, aw, map[*Watcher][]*request{
 		w1: {req2},
 	})
 	assertReplied(c, false, req0)
@@ -324,17 +316,17 @@ func (*allWatcherSuite) TestHandle(c *C) {
 	assertReplied(c, false, req2)
 }
 
-func (s *allWatcherSuite) TestHandleStopNoDecRefIfMoreRecentlyCreated(c *C) {
-	// If the StateWatcher hasn't seen the item, then we shouldn't
+func (s *storeManagerSuite) TestHandleStopNoDecRefIfMoreRecentlyCreated(c *C) {
+	// If the Watcher hasn't seen the item, then we shouldn't
 	// decrement its ref count when it is stopped.
-	aw := NewAllWatcher(newTestBacking(nil))
-	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
-	AllInfoIncRef(aw.all, testEntityId{"machine", "0"})
-	w := &StateWatcher{all: aw}
+	aw := NewStoreManager(newTestBacking(nil))
+	storeAdd(aw.all, &params.MachineInfo{Id: "0"})
+	StoreIncRef(aw.all, testInfoId{"machine", "0"})
+	w := &Watcher{all: aw}
 
 	// Stop the watcher.
 	aw.handle(&request{w: w})
-	s.assertAllInfoContents(c, aw.all, 1, []entityEntry{{
+	assertStoreContents(c, aw.all, 1, []entityEntry{{
 		creationRevno: 1,
 		revno:         1,
 		refCount:      1,
@@ -344,17 +336,17 @@ func (s *allWatcherSuite) TestHandleStopNoDecRefIfMoreRecentlyCreated(c *C) {
 	}})
 }
 
-func (s *allWatcherSuite) TestHandleStopNoDecRefIfAlreadySeenRemoved(c *C) {
-	// If the StateWatcher has already seen the item removed, then
+func (s *storeManagerSuite) TestHandleStopNoDecRefIfAlreadySeenRemoved(c *C) {
+	// If the Watcher has already seen the item removed, then
 	// we shouldn't decrement its ref count when it is stopped.
-	aw := NewAllWatcher(newTestBacking(nil))
-	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
-	AllInfoIncRef(aw.all, testEntityId{"machine", "0"})
-	aw.all.Update(testEntityId{"machine", "0"}, nil)
-	w := &StateWatcher{all: aw}
+	aw := NewStoreManager(newTestBacking(nil))
+	storeAdd(aw.all, &params.MachineInfo{Id: "0"})
+	StoreIncRef(aw.all, testInfoId{"machine", "0"})
+	aw.all.Update(testInfoId{"machine", "0"}, nil)
+	w := &Watcher{all: aw}
 	// Stop the watcher.
 	aw.handle(&request{w: w})
-	s.assertAllInfoContents(c, aw.all, 2, []entityEntry{{
+	assertStoreContents(c, aw.all, 2, []entityEntry{{
 		creationRevno: 1,
 		revno:         2,
 		refCount:      1,
@@ -365,17 +357,17 @@ func (s *allWatcherSuite) TestHandleStopNoDecRefIfAlreadySeenRemoved(c *C) {
 	}})
 }
 
-func (s *allWatcherSuite) TestHandleStopDecRefIfAlreadySeenAndNotRemoved(c *C) {
-	// If the StateWatcher has already seen the item removed, then
+func (s *storeManagerSuite) TestHandleStopDecRefIfAlreadySeenAndNotRemoved(c *C) {
+	// If the Watcher has already seen the item removed, then
 	// we should decrement its ref count when it is stopped.
-	aw := NewAllWatcher(newTestBacking(nil))
-	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
-	AllInfoIncRef(aw.all, testEntityId{"machine", "0"})
-	w := &StateWatcher{all: aw}
+	aw := NewStoreManager(newTestBacking(nil))
+	storeAdd(aw.all, &params.MachineInfo{Id: "0"})
+	StoreIncRef(aw.all, testInfoId{"machine", "0"})
+	w := &Watcher{all: aw}
 	w.revno = aw.all.latestRevno
 	// Stop the watcher.
 	aw.handle(&request{w: w})
-	s.assertAllInfoContents(c, aw.all, 1, []entityEntry{{
+	assertStoreContents(c, aw.all, 1, []entityEntry{{
 		creationRevno: 1,
 		revno:         1,
 		info: &params.MachineInfo{
@@ -384,16 +376,16 @@ func (s *allWatcherSuite) TestHandleStopDecRefIfAlreadySeenAndNotRemoved(c *C) {
 	}})
 }
 
-func (s *allWatcherSuite) TestHandleStopNoDecRefIfNotSeen(c *C) {
-	// If the StateWatcher hasn't seen the item at all, it should
+func (s *storeManagerSuite) TestHandleStopNoDecRefIfNotSeen(c *C) {
+	// If the Watcher hasn't seen the item at all, it should
 	// leave the ref count untouched.
-	aw := NewAllWatcher(newTestBacking(nil))
-	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
-	AllInfoIncRef(aw.all, testEntityId{"machine", "0"})
-	w := &StateWatcher{all: aw}
+	aw := NewStoreManager(newTestBacking(nil))
+	storeAdd(aw.all, &params.MachineInfo{Id: "0"})
+	StoreIncRef(aw.all, testInfoId{"machine", "0"})
+	w := &Watcher{all: aw}
 	// Stop the watcher.
 	aw.handle(&request{w: w})
-	s.assertAllInfoContents(c, aw.all, 1, []entityEntry{{
+	assertStoreContents(c, aw.all, 1, []entityEntry{{
 		creationRevno: 1,
 		revno:         1,
 		refCount:      1,
@@ -403,27 +395,27 @@ func (s *allWatcherSuite) TestHandleStopNoDecRefIfNotSeen(c *C) {
 	}})
 }
 
-var respondTestChanges = [...]func(all *AllInfo){
-	func(all *AllInfo) {
-		allInfoAdd(all, &params.MachineInfo{Id: "0"})
+var respondTestChanges = [...]func(all *Store){
+	func(all *Store) {
+		storeAdd(all, &params.MachineInfo{Id: "0"})
 	},
-	func(all *AllInfo) {
-		allInfoAdd(all, &params.MachineInfo{Id: "1"})
+	func(all *Store) {
+		storeAdd(all, &params.MachineInfo{Id: "1"})
 	},
-	func(all *AllInfo) {
-		allInfoAdd(all, &params.MachineInfo{Id: "2"})
+	func(all *Store) {
+		storeAdd(all, &params.MachineInfo{Id: "2"})
 	},
-	func(all *AllInfo) {
-		all.Update(testEntityId{"machine", "0"}, nil)
+	func(all *Store) {
+		all.Update(testInfoId{"machine", "0"}, nil)
 	},
-	func(all *AllInfo) {
-		all.Update(testEntityId{"machine", "1"}, &params.MachineInfo{
+	func(all *Store) {
+		all.Update(testInfoId{"machine", "1"}, &params.MachineInfo{
 			Id:         "1",
 			InstanceId: "i-1",
 		})
 	},
-	func(all *AllInfo) {
-		all.Update(testEntityId{"machine", "1"}, nil)
+	func(all *Store) {
+		all.Update(testInfoId{"machine", "1"}, nil)
 	},
 }
 
@@ -438,7 +430,7 @@ var (
 	respondTestFinalRevno = int64(len(respondTestChanges))
 )
 
-func (s *allWatcherSuite) TestRespondResults(c *C) {
+func (s *storeManagerSuite) TestRespondResults(c *C) {
 	// We test the response results for a pair of watchers by
 	// interleaving notional Next requests in all possible
 	// combinations after each change in respondTestChanges and
@@ -454,15 +446,15 @@ func (s *allWatcherSuite) TestRespondResults(c *C) {
 	ns := make([]int, wcount)
 	for ns[0] = 0; ns[0] < numCombinations; ns[0]++ {
 		for ns[1] = 0; ns[1] < numCombinations; ns[1]++ {
-			aw := NewAllWatcher(&allWatcherTestBacking{})
+			aw := NewStoreManager(&storeManagerTestBacking{})
 			c.Logf("test %0*b", len(respondTestChanges), ns)
 			var (
-				ws      []*StateWatcher
+				ws      []*Watcher
 				wstates []watcherState
 				reqs    []*request
 			)
 			for i := 0; i < wcount; i++ {
-				ws = append(ws, &StateWatcher{})
+				ws = append(ws, &Watcher{})
 				wstates = append(wstates, make(watcherState))
 				reqs = append(reqs, nil)
 			}
@@ -488,7 +480,7 @@ func (s *allWatcherSuite) TestRespondResults(c *C) {
 					continue
 				}
 				// Check that the expected requests are pending.
-				expectWaiting := make(map[*StateWatcher][]*request)
+				expectWaiting := make(map[*Watcher][]*request)
 				for wi, w := range ws {
 					if reqs[wi] != nil {
 						expectWaiting[w] = []*request{reqs[wi]}
@@ -523,18 +515,18 @@ func (s *allWatcherSuite) TestRespondResults(c *C) {
 					assertReplied(c, false, reqs[wi])
 				}
 			}
-			s.assertAllInfoContents(c, aw.all, respondTestFinalRevno, respondTestFinalState)
+			assertStoreContents(c, aw.all, respondTestFinalRevno, respondTestFinalState)
 		}
 	}
 }
 
-func (*allWatcherSuite) TestRespondMultiple(c *C) {
-	aw := NewAllWatcher(newTestBacking(nil))
-	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
+func (*storeManagerSuite) TestRespondMultiple(c *C) {
+	aw := NewStoreManager(newTestBacking(nil))
+	storeAdd(aw.all, &params.MachineInfo{Id: "0"})
 
 	// Add one request and respond.
 	// It should see the above change.
-	w0 := &StateWatcher{all: aw}
+	w0 := &Watcher{all: aw}
 	req0 := &request{
 		w:     w0,
 		reply: make(chan bool, 1),
@@ -559,7 +551,7 @@ func (*allWatcherSuite) TestRespondMultiple(c *C) {
 	// The request from the first watcher should still not
 	// be replied to, but the later of the two requests from
 	// the second watcher should get a reply.
-	w1 := &StateWatcher{all: aw}
+	w1 := &Watcher{all: aw}
 	req1 := &request{
 		w:     w1,
 		reply: make(chan bool, 1),
@@ -570,7 +562,7 @@ func (*allWatcherSuite) TestRespondMultiple(c *C) {
 		reply: make(chan bool, 1),
 	}
 	aw.handle(req2)
-	assertWaitingRequests(c, aw, map[*StateWatcher][]*request{
+	assertWaitingRequests(c, aw, map[*Watcher][]*request{
 		w0: {req0},
 		w1: {req2, req1},
 	})
@@ -579,7 +571,7 @@ func (*allWatcherSuite) TestRespondMultiple(c *C) {
 	assertNotReplied(c, req1)
 	assertReplied(c, true, req2)
 	c.Assert(req2.changes, DeepEquals, []params.Delta{{Entity: &params.MachineInfo{Id: "0"}}})
-	assertWaitingRequests(c, aw, map[*StateWatcher][]*request{
+	assertWaitingRequests(c, aw, map[*Watcher][]*request{
 		w0: {req0},
 		w1: {req1},
 	})
@@ -591,7 +583,7 @@ func (*allWatcherSuite) TestRespondMultiple(c *C) {
 
 	// Now make a change and check that both waiting requests
 	// get serviced.
-	allInfoAdd(aw.all, &params.MachineInfo{Id: "1"})
+	storeAdd(aw.all, &params.MachineInfo{Id: "1"})
 	aw.respond()
 	assertReplied(c, true, req0)
 	assertReplied(c, true, req1)
@@ -602,10 +594,10 @@ func (*allWatcherSuite) TestRespondMultiple(c *C) {
 	c.Assert(req1.changes, DeepEquals, deltas)
 }
 
-func (*allWatcherSuite) TestRunStop(c *C) {
-	aw := NewAllWatcher(newTestBacking(nil))
+func (*storeManagerSuite) TestRunStop(c *C) {
+	aw := NewStoreManager(newTestBacking(nil))
 	go aw.Run()
-	w := &StateWatcher{all: aw}
+	w := &Watcher{all: aw}
 	err := aw.Stop()
 	c.Assert(err, IsNil)
 	d, err := w.Next()
@@ -613,18 +605,18 @@ func (*allWatcherSuite) TestRunStop(c *C) {
 	c.Assert(d, HasLen, 0)
 }
 
-func (*allWatcherSuite) TestRun(c *C) {
-	b := newTestBacking([]params.EntityInfo{
+func (*storeManagerSuite) TestRun(c *C) {
+	b := newTestBacking([]testInfo{
 		&params.MachineInfo{Id: "0"},
 		&params.UnitInfo{Name: "wordpress/0"},
 		&params.ServiceInfo{Name: "wordpress"},
 	})
-	aw := NewAllWatcher(b)
+	aw := NewStoreManager(b)
 	defer func() {
 		c.Check(aw.Stop(), IsNil)
 	}()
 	go aw.Run()
-	w := &StateWatcher{all: aw}
+	w := &Watcher{all: aw}
 	checkNext(c, w, []params.Delta{
 		{Entity: &params.MachineInfo{Id: "0"}},
 		{Entity: &params.UnitInfo{Name: "wordpress/0"}},
@@ -634,19 +626,19 @@ func (*allWatcherSuite) TestRun(c *C) {
 	checkNext(c, w, []params.Delta{
 		{Entity: &params.MachineInfo{Id: "0", InstanceId: "i-0"}},
 	}, "")
-	b.deleteEntity(testEntityId{"machine", "0"})
+	b.deleteEntity(testInfoId{"machine", "0"})
 	checkNext(c, w, []params.Delta{
 		{Removed: true, Entity: &params.MachineInfo{Id: "0"}},
 	}, "")
 }
 
-func (*allWatcherSuite) TestStateWatcherStop(c *C) {
-	aw := NewAllWatcher(newTestBacking(nil))
+func (*storeManagerSuite) TestWatcherStop(c *C) {
+	aw := NewStoreManager(newTestBacking(nil))
 	defer func() {
 		c.Check(aw.Stop(), IsNil)
 	}()
 	go aw.Run()
-	w := &StateWatcher{all: aw}
+	w := &Watcher{all: aw}
 	done := make(chan struct{})
 	go func() {
 		checkNext(c, w, nil, ErrWatcherStopped.Error())
@@ -657,15 +649,15 @@ func (*allWatcherSuite) TestStateWatcherStop(c *C) {
 	<-done
 }
 
-func (*allWatcherSuite) TestStateWatcherStopBecauseAllWatcherError(c *C) {
-	b := newTestBacking([]params.EntityInfo{&params.MachineInfo{Id: "0"}})
-	aw := NewAllWatcher(b)
+func (*storeManagerSuite) TestWatcherStopBecauseStoreManagerError(c *C) {
+	b := newTestBacking([]testInfo{&params.MachineInfo{Id: "0"}})
+	aw := NewStoreManager(b)
 	go aw.Run()
 	defer func() {
 		c.Check(aw.Stop(), ErrorMatches, "some error")
 	}()
-	w := &StateWatcher{all: aw}
-	// Receive one delta to make sure that the allWatcher
+	w := &Watcher{all: aw}
+	// Receive one delta to make sure that the storeManager
 	// has seen the initial state.
 	checkNext(c, w, []params.Delta{{Entity: &params.MachineInfo{Id: "0"}}}, "")
 	c.Logf("setting fetch error")
@@ -675,38 +667,23 @@ func (*allWatcherSuite) TestStateWatcherStopBecauseAllWatcherError(c *C) {
 	checkNext(c, w, nil, "some error")
 }
 
-func idForInfo(info params.EntityInfo) InfoId {
-	return testEntityId{
+func idForInfo(info testInfo) InfoId {
+	return testInfoId{
 		kind: info.EntityKind(),
 		id:   info.EntityId(),
 	}
 }
 
-func allInfoAdd(a *AllInfo, info params.EntityInfo) {
+func storeAdd(a *Store, info testInfo) {
 	a.add(idForInfo(info), info)
 }
 
-func AllInfoIncRef(a *AllInfo, id InfoId) {
+func StoreIncRef(a *Store, id InfoId) {
 	entry := a.entities[id].Value.(*entityEntry)
 	entry.refCount++
 }
 
-type entityInfoSlice []params.EntityInfo
-
-func (s entityInfoSlice) Len() int      { return len(s) }
-func (s entityInfoSlice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
-func (s entityInfoSlice) Less(i, j int) bool {
-	if s[i].EntityKind() != s[j].EntityKind() {
-		return s[i].EntityKind() < s[j].EntityKind()
-	}
-	switch id := s[i].EntityId().(type) {
-	case string:
-		return id < s[j].EntityId().(string)
-	}
-	panic("unknown id type")
-}
-
-func assertAllInfoContents(c *C, a *AllInfo, idOf func(params.EntityInfo) InfoId, latestRevno int64, entries []entityEntry) {
+func assertStoreContents(c *C, a *Store, latestRevno int64, entries []entityEntry) {
 	var gotEntries []entityEntry
 	var gotElems []*list.Element
 	c.Check(a.list.Len(), Equals, len(entries))
@@ -716,7 +693,7 @@ func assertAllInfoContents(c *C, a *AllInfo, idOf func(params.EntityInfo) InfoId
 	}
 	c.Assert(gotEntries, DeepEquals, entries)
 	for i, ent := range entries {
-		c.Assert(a.entities[idOf(ent.info)], Equals, gotElems[i])
+		c.Assert(a.entities[idForInfo(ent.info)], Equals, gotElems[i])
 	}
 	c.Assert(a.entities, HasLen, len(entries))
 	c.Assert(a.latestRevno, Equals, latestRevno)
@@ -724,7 +701,7 @@ func assertAllInfoContents(c *C, a *AllInfo, idOf func(params.EntityInfo) InfoId
 
 var errTimeout = errors.New("no change received in sufficient time")
 
-func getNext(c *C, w *StateWatcher, timeout time.Duration) ([]params.Delta, error) {
+func getNext(c *C, w *Watcher, timeout time.Duration) ([]params.Delta, error) {
 	var deltas []params.Delta
 	var err error
 	ch := make(chan struct{}, 1)
@@ -740,7 +717,7 @@ func getNext(c *C, w *StateWatcher, timeout time.Duration) ([]params.Delta, erro
 	return nil, errTimeout
 }
 
-func checkNext(c *C, w *StateWatcher, deltas []params.Delta, expectErr string) {
+func checkNext(c *C, w *Watcher, deltas []params.Delta, expectErr string) {
 	d, err := getNext(c, w, 1*time.Second)
 	if expectErr != "" {
 		c.Check(err, ErrorMatches, expectErr)
@@ -755,10 +732,10 @@ func checkDeltasEqual(c *C, d0, d1 []params.Delta) {
 	c.Check(deltaMap(d0), DeepEquals, deltaMap(d1))
 }
 
-func deltaMap(deltas []params.Delta) map[InfoId]params.EntityInfo {
-	m := make(map[InfoId]params.EntityInfo)
+func deltaMap(deltas []params.Delta) map[InfoId]Info {
+	m := make(map[InfoId]Info)
 	for _, d := range deltas {
-		id := idForInfo(d.Entity)
+		id := idForInfo(d.Entity.(testInfo))
 		if _, ok := m[id]; ok {
 			panic(fmt.Errorf("%v mentioned twice in delta set", id))
 		}
@@ -771,14 +748,14 @@ func deltaMap(deltas []params.Delta) map[InfoId]params.EntityInfo {
 	return m
 }
 
-// watcherState represents a StateWatcher client's
+// watcherState represents a Watcher client's
 // current view of the state. It holds the last delta that a given
 // state watcher has seen for each entity.
 type watcherState map[InfoId]params.Delta
 
 func (s watcherState) update(changes []params.Delta) {
 	for _, d := range changes {
-		id := idForInfo(d.Entity)
+		id := idForInfo(d.Entity.(testInfo))
 		if d.Removed {
 			if _, ok := s[id]; !ok {
 				panic(fmt.Errorf("entity id %v removed when it wasn't there", id))
@@ -792,7 +769,7 @@ func (s watcherState) update(changes []params.Delta) {
 
 // check checks that the watcher state matches that
 // held in current.
-func (s watcherState) check(c *C, current *AllInfo) {
+func (s watcherState) check(c *C, current *Store) {
 	currentEntities := make(watcherState)
 	for id, elem := range current.entities {
 		entry := elem.Value.(*entityEntry)
@@ -820,7 +797,7 @@ func assertReplied(c *C, val bool, req *request) {
 	}
 }
 
-func assertWaitingRequests(c *C, aw *AllWatcher, waiting map[*StateWatcher][]*request) {
+func assertWaitingRequests(c *C, aw *StoreManager, waiting map[*Watcher][]*request) {
 	c.Assert(aw.waiting, HasLen, len(waiting))
 	for w, reqs := range waiting {
 		i := 0
@@ -836,17 +813,17 @@ func assertWaitingRequests(c *C, aw *AllWatcher, waiting map[*StateWatcher][]*re
 	}
 }
 
-type allWatcherTestBacking struct {
+type storeManagerTestBacking struct {
 	mu       sync.Mutex
 	fetchErr error
-	entities map[InfoId]params.EntityInfo
+	entities map[InfoId]testInfo
 	watchc   chan<- watcher.Change
 	txnRevno int64
 }
 
-func newTestBacking(initial []params.EntityInfo) *allWatcherTestBacking {
-	b := &allWatcherTestBacking{
-		entities: make(map[InfoId]params.EntityInfo),
+func newTestBacking(initial []testInfo) *storeManagerTestBacking {
+	b := &storeManagerTestBacking{
+		entities: make(map[InfoId]testInfo),
 	}
 	for _, info := range initial {
 		b.entities[idForInfo(info)] = info
@@ -854,13 +831,18 @@ func newTestBacking(initial []params.EntityInfo) *allWatcherTestBacking {
 	return b
 }
 
-type testEntityId struct {
+type testInfoId struct {
 	kind string
 	id   interface{}
 }
 
-func (b *allWatcherTestBacking) Changed(all *AllInfo, change watcher.Change) error {
-	id := testEntityId{
+type testInfo interface {
+	EntityKind() string
+	EntityId() interface{}
+}
+
+func (b *storeManagerTestBacking) Changed(all *Store, change watcher.Change) error {
+	id := testInfoId{
 		kind: change.C,
 		id:   change.Id,
 	}
@@ -876,7 +858,7 @@ func (b *allWatcherTestBacking) Changed(all *AllInfo, change watcher.Change) err
 	return nil
 }
 
-func (b *allWatcherTestBacking) fetch(id InfoId) (params.EntityInfo, error) {
+func (b *storeManagerTestBacking) fetch(id InfoId) (testInfo, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if b.fetchErr != nil {
@@ -888,11 +870,11 @@ func (b *allWatcherTestBacking) fetch(id InfoId) (params.EntityInfo, error) {
 	return nil, mgo.ErrNotFound
 }
 
-func (b *allWatcherTestBacking) IdForInfo(info params.EntityInfo) InfoId {
-	return idForInfo(info)
+func (b *storeManagerTestBacking) IdForInfo(info Info) InfoId {
+	return idForInfo(info.(testInfo))
 }
 
-func (b *allWatcherTestBacking) Watch(c chan<- watcher.Change) {
+func (b *storeManagerTestBacking) Watch(c chan<- watcher.Change) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if b.watchc != nil {
@@ -901,7 +883,7 @@ func (b *allWatcherTestBacking) Watch(c chan<- watcher.Change) {
 	b.watchc = c
 }
 
-func (b *allWatcherTestBacking) Unwatch(c chan<- watcher.Change) {
+func (b *storeManagerTestBacking) Unwatch(c chan<- watcher.Change) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if c != b.watchc {
@@ -910,7 +892,7 @@ func (b *allWatcherTestBacking) Unwatch(c chan<- watcher.Change) {
 	b.watchc = nil
 }
 
-func (b *allWatcherTestBacking) GetAll(all *AllInfo) error {
+func (b *storeManagerTestBacking) GetAll(all *Store) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	for id, info := range b.entities {
@@ -919,10 +901,10 @@ func (b *allWatcherTestBacking) GetAll(all *AllInfo) error {
 	return nil
 }
 
-func (b *allWatcherTestBacking) updateEntity(info params.EntityInfo) {
+func (b *storeManagerTestBacking) updateEntity(info testInfo) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	id := b.IdForInfo(info).(testEntityId)
+	id := b.IdForInfo(info).(testInfoId)
 	b.entities[id] = info
 	b.txnRevno++
 	if b.watchc != nil {
@@ -934,14 +916,14 @@ func (b *allWatcherTestBacking) updateEntity(info params.EntityInfo) {
 	}
 }
 
-func (b *allWatcherTestBacking) setFetchError(err error) {
+func (b *storeManagerTestBacking) setFetchError(err error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.fetchErr = err
 }
 
-func (b *allWatcherTestBacking) deleteEntity(id0 InfoId) {
-	id := id0.(testEntityId)
+func (b *storeManagerTestBacking) deleteEntity(id0 InfoId) {
+	id := id0.(testInfoId)
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	delete(b.entities, id)
