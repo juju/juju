@@ -27,6 +27,7 @@ func getTestConfig(name, server, oauth, secret string) *config.Config {
 		"maas-server":  server,
 		"maas-oauth":   oauth,
 		"admin-secret": secret,
+        "authorized-keys": "I-am-not-a-real-key",
 	})
 	if err != nil {
 		panic(err)

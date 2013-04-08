@@ -23,6 +23,7 @@ func (suite *EnvironProviderSuite) TestSecretAttrsReturnsSensitiveMAASAttributes
 		"maas-server": "http://maas.example.com/maas/api/1.0/",
 		"name":        "wheee",
 		"type":        "maas",
+        "authorized-keys": "I-am-not-a-real-key",
 	}
 	config, err := config.New(attrs)
 	c.Assert(err, IsNil)
