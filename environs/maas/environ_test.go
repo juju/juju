@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
@@ -59,6 +60,11 @@ func (suite *EnvironSuite) makeEnviron() *maasEnviron {
 
 func (suite *EnvironSuite) setupFakeProviderStateFile(c *C) {
 	suite.testMAASObject.TestServer.NewFile("provider-state", []byte("test file content"))
+}
+
+func (suite *EnvironSuite) setupFakeTools(c *C) {
+	storage := NewStorage(suite.environ)
+	envtesting.PutFakeTools(c, storage)
 }
 
 func (EnvironSuite) TestSetConfigUpdatesConfig(c *C) {
@@ -194,6 +200,7 @@ func (suite *EnvironSuite) SetUpBootstrapNode(c *C, hostname string, environ *ma
 // TODO: this test fails from time to time: we need to investigate what's
 // going on (also see the additional remarks below).
 func (suite *EnvironSuite) DisableTestStartInstanceStartsInstance(c *C) {
+	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
 	suite.setupFakeProviderStateFile(c)
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node1", "hostname": "host1"}`)
@@ -329,6 +336,7 @@ func (suite *EnvironSuite) TestDestroy(c *C) {
 // at the time of writing that would require more support from gomaasapi's
 // testing service than we have.
 func (suite *EnvironSuite) TestBootstrapSucceeds(c *C) {
+	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "thenode"}`)
 	cert := []byte{1, 2, 3}
@@ -339,6 +347,7 @@ func (suite *EnvironSuite) TestBootstrapSucceeds(c *C) {
 }
 
 func (suite *EnvironSuite) TestBootstrapFailsIfNoNodes(c *C) {
+	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
 	cert := []byte{1, 2, 3}
 	key := []byte{4, 5, 6}
@@ -348,19 +357,8 @@ func (suite *EnvironSuite) TestBootstrapFailsIfNoNodes(c *C) {
 	c.Check(err, ErrorMatches, ".*409.*")
 }
 
-func (suite *EnvironSuite) TestBootstrapUploadsTools(c *C) {
-	env := suite.makeEnviron()
-	suite.testMAASObject.TestServer.NewNode(`{"system_id": "thenode"}`)
-	cert := []byte{1, 2, 3}
-	key := []byte{4, 5, 6}
-	err := env.Bootstrap(constraints.Value{}, cert, key)
-	c.Assert(err, IsNil)
-
-	_, err = env.findTools()
-	c.Assert(err, IsNil)
-}
-
 func (suite *EnvironSuite) TestBootstrapIntegratesWithEnvirons(c *C) {
+	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "bootstrapnode"}`)
 

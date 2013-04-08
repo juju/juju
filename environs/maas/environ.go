@@ -95,28 +95,12 @@ func (env *maasEnviron) quiesceStateFile() error {
 	return nil
 }
 
-// uploadTools builds the current version of the juju tools and uploads them
-// to the environment's Storage.
-func (env *maasEnviron) uploadTools() (*state.Tools, error) {
-	// Also upload the tools for the default series taken from the environment.
-	tools, err := environs.PutTools(env.Storage(), nil, env.Config().DefaultSeries())
-	if err != nil {
-		return nil, fmt.Errorf("cannot upload tools: %v", err)
-	}
-	return tools, nil
-}
-
-// findTools looks for a current version of the juju tools that is already
-// uploaded in the environment.
+// TODO: this code is cargo-culted from the openstack/ec2 providers.
 func (env *maasEnviron) findTools() (*state.Tools, error) {
 	flags := environs.HighestVersion | environs.CompatVersion
 	v := version.Current
 	v.Series = env.Config().DefaultSeries()
-	tools, err := environs.FindTools(env, v, flags)
-	if err != nil {
-		return nil, fmt.Errorf("cannot find tools: %v", err)
-	}
-	return tools, nil
+	return environs.FindTools(env, v, flags)
 }
 
 // getMongoURL returns the URL to the appropriate MongoDB instance.
@@ -196,9 +180,8 @@ func (env *maasEnviron) Bootstrap(cons constraints.Value, stateServerCert, state
 	if err != nil {
 		return err
 	}
-	// MAAS does not support public storage: always upload the tools.
 	var tools *state.Tools
-	tools, err = env.uploadTools()
+	tools, err = env.findTools()
 	if err != nil {
 		return err
 	}
