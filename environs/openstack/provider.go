@@ -467,8 +467,9 @@ func (e *environ) Bootstrap(cons constraints.Value, cert, key []byte) error {
 	}
 	mongoURL := environs.MongoURL(e, tools.Series, tools.Arch)
 	inst, err := e.startInstance(&startInstanceParams{
-		machineId: "0",
-		series:    tools.Series,
+		machineId:    "0",
+		machineNonce: state.BootstrapNonce,
+		series:       tools.Series,
 		info: &state.Info{
 			Password: trivial.PasswordHash(password),
 			CACert:   caCert,
@@ -629,9 +630,10 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (e *environ) StartInstance(machineId string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
 	return e.startInstance(&startInstanceParams{
 		machineId:    machineId,
+		machineNonce: machineNonce,
 		series:       series,
 		constraints:  cons,
 		info:         info,
@@ -642,6 +644,7 @@ func (e *environ) StartInstance(machineId string, series string, cons constraint
 
 type startInstanceParams struct {
 	machineId       string
+	machineNonce    string
 	series          string
 	info            *state.Info
 	apiInfo         *api.Info
@@ -669,13 +672,12 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 		StateServerKey:  scfg.stateServerKey,
 		DataDir:         "/var/lib/juju",
 		Tools:           scfg.tools,
-		// TODO(dimitern) this will change in a follow-up, when we start using it.
-		MachineNonce:   "FAKE_NONCE",
-		MongoURL:       scfg.mongoURL,
-		MachineId:      scfg.machineId,
-		AuthorizedKeys: e.ecfg().AuthorizedKeys(),
-		Config:         scfg.config,
-		Constraints:    scfg.constraints,
+		MachineNonce:    scfg.machineNonce,
+		MongoURL:        scfg.mongoURL,
+		MachineId:       scfg.machineId,
+		AuthorizedKeys:  e.ecfg().AuthorizedKeys(),
+		Config:          scfg.config,
+		Constraints:     scfg.constraints,
 	}
 	cloudcfg, err := cloudinit.New(cfg)
 	if err != nil {

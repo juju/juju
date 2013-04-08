@@ -67,6 +67,9 @@ var (
 	validMachine = regexp.MustCompile("^0$|^[1-9][0-9]*$")
 )
 
+// BootstrapNonce is used as a nonce for the state server machine.
+const BootstrapNonce = "user-admin:bootstrap"
+
 // IsServiceName returns whether name is a valid service name.
 func IsServiceName(name string) bool {
 	return validService.MatchString(name)
