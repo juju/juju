@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/dummy"
@@ -10,6 +11,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
+	"path/filepath"
 	"reflect"
 	"time"
 )
@@ -81,6 +83,19 @@ func (s *MachineSuite) TestRunStop(c *C) {
 	err := a.Stop()
 	c.Assert(err, IsNil)
 	c.Assert(<-done, IsNil)
+}
+
+func (s *MachineSuite) TestCharmCacheDir(c *C) {
+	charm.CacheDir = ""
+	m, agentConf, _ := s.primeAgent(c, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	done := make(chan error)
+	go func() {
+		done <- a.Run(nil)
+	}()
+	err := a.Stop()
+	c.Assert(err, IsNil)
+	c.Assert(charm.CacheDir, Equals, filepath.Join(agentConf.DataDir, "charmcache"))
 }
 
 func (s *MachineSuite) TestWithDeadMachine(c *C) {
