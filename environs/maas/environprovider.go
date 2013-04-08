@@ -25,7 +25,18 @@ func (maasEnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
 
 // BoilerplateConfig is specified in the EnvironProvider interface.
 func (maasEnvironProvider) BoilerplateConfig() string {
-	panic("Not implemented.")
+	return `
+  maas:
+    type: maas
+    # Change this to where your MAAS server lives.
+    maas-server: 'http://192.168.1.1'
+    maas-oauth: '<add your OAuth credentials from MAAS here>'
+    admin-secret: {{rand}}
+    default-series: precise
+    authorized-keys-path: ~/.ssh/authorized_keys # or any file you want.
+    # Or:
+    # authorized-keys: ssh-rsa keymaterialhere
+`[1:]
 }
 
 // SecretAttrs is specified in the EnvironProvider interface.
