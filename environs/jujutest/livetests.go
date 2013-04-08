@@ -694,6 +694,17 @@ func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
 	c.Assert(err, ErrorMatches, "no compatible tools found")
 }
 
+// Check that we can't start an instance with an empty nonce value.
+func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *C) {
+	inst, err := t.Env.StartInstance("4", "", config.DefaultSeries, constraints.Value{}, testing.InvalidStateInfo("4"), testing.InvalidAPIInfo("4"))
+	if inst != nil {
+		err := t.Env.StopInstances([]environs.Instance{inst})
+		c.Check(err, IsNil)
+	}
+	c.Assert(inst, IsNil)
+	c.Assert(err, ErrorMatches, ".*missing machine nonce")
+}
+
 func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
 	if !t.HasProvisioner {
 		c.Skip("HasProvisioner is false; cannot test deployment")
