@@ -18,7 +18,7 @@ type Environment struct {
 
 // environmentDoc represents the internal state of the environment in MongoDB.
 type environmentDoc struct {
-	UUID string // `bson:"_id"`
+	UUID string `bson:"_id"`
 	Name string
 }
 
