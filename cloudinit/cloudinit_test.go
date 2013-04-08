@@ -182,6 +182,14 @@ var ctests = []struct {
 		},
 	},
 	{
+		"AddRunCmdPrefix",
+		"runcmd:\n- testprefix\n- test\n",
+		func(cfg *cloudinit.Config) {
+			cfg.AddRunCmd("test")
+			cfg.AddRunCmdPrefix("testprefix")
+		},
+	},
+	{
 		"Mounts",
 		"mounts:\n- - x\n  - \"y\"\n- - z\n  - w\n",
 		func(cfg *cloudinit.Config) {

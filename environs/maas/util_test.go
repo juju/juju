@@ -35,7 +35,8 @@ func (s *UtilSuite) TestGetSystemIdValues(c *C) {
 }
 
 func (s *UtilSuite) TestUserData(c *C) {
-
+	testJujuHome := c.MkDir()
+	defer config.SetJujuHome(config.SetJujuHome(testJujuHome))
 	tools := &state.Tools{
 		URL:    "http://foo.com/tools/juju1.2.3-linux-amd64.tgz",
 		Binary: version.MustParseBinary("1.2.3-linux-amd64"),
@@ -68,7 +69,10 @@ func (s *UtilSuite) TestUserData(c *C) {
 		APIPort:     apiPort,
 		StateServer: true,
 	}
-	result, err := userData(cfg)
+	script1 := "script1"
+	script2 := "script2"
+	scripts := []string{script1, script2}
+	result, err := userData(cfg, scripts...)
 	c.Assert(err, IsNil)
 
 	unzipped, err := trivial.Gunzip(result)
@@ -80,4 +84,9 @@ func (s *UtilSuite) TestUserData(c *C) {
 
 	// Just check that the cloudinit config looks good.
 	c.Check(config["apt_upgrade"], Equals, true)
+	// The scripts given to userData where added as the first
+	// commands to be run.
+	runCmd := config["runcmd"].([]interface{})
+	c.Check(runCmd[0], Equals, script2)
+	c.Check(runCmd[1], Equals, script1)
 }

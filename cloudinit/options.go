@@ -89,12 +89,27 @@ func (cfg *Config) addCmd(kind string, c *command) {
 	cfg.attrs[kind] = append(cmds, c)
 }
 
+func (cfg *Config) addCmdPrefix(kind string, c *command) {
+	cmds, _ := cfg.attrs[kind].([]*command)
+	cfg.attrs[kind] = append([]*command{c}, cmds...)
+}
+
 // AddRunCmd adds a command to be executed
 // at first boot. The command will be run
 // by the shell with any metacharacters retaining
 // their special meaning (that is, no quoting takes place).
 func (cfg *Config) AddRunCmd(cmd string) {
 	cfg.addCmd("runcmd", &command{literal: cmd})
+}
+
+// AddRunCmdPrefix adds a command to be executed
+// at first boot. AddRunCmdPrefix adds the command at
+// the beginning of the list of the commands to be run.
+// The command will be run by the shell with any metacharacters
+// retaining their special meaning (that is, no quoting takes
+// place).
+func (cfg *Config) AddRunCmdPrefix(cmd string) {
+	cfg.addCmdPrefix("runcmd", &command{literal: cmd})
 }
 
 // AddRunCmdArgs is like AddRunCmd except that the command
