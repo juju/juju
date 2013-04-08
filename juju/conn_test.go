@@ -379,7 +379,7 @@ func (s *ConnSuite) TestAddUnits(c *C) {
 	c.Assert(err, IsNil)
 	svc, err := s.conn.State.AddService("testriak", sch)
 	c.Assert(err, IsNil)
-	units, err := s.conn.AddUnits(svc, 2)
+	units, err := s.conn.AddUnits(svc, 2, "")
 	c.Assert(err, IsNil)
 	c.Assert(units, HasLen, 2)
 
@@ -388,6 +388,15 @@ func (s *ConnSuite) TestAddUnits(c *C) {
 	id1, err := units[1].AssignedMachineId()
 	c.Assert(err, IsNil)
 	c.Assert(id0, Not(Equals), id1)
+
+	units, err = s.conn.AddUnits(svc, 2, "0")
+	c.Assert(err, ErrorMatches, `cannot add multiple units of "testriak" to a single machine`)
+
+	units, err = s.conn.AddUnits(svc, 1, "0")
+	c.Assert(err, IsNil)
+	id2, err := units[0].AssignedMachineId()
+	c.Assert(id2, Equals, id0)
+
 }
 
 func (s *ConnSuite) TestResolved(c *C) {
@@ -396,7 +405,7 @@ func (s *ConnSuite) TestResolved(c *C) {
 	c.Assert(err, IsNil)
 	svc, err := s.conn.State.AddService("testriak", sch)
 	c.Assert(err, IsNil)
-	us, err := s.conn.AddUnits(svc, 1)
+	us, err := s.conn.AddUnits(svc, 1, "")
 	c.Assert(err, IsNil)
 	u := us[0]
 

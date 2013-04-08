@@ -22,6 +22,6 @@ func AddServiceUnits(state *state.State, args params.AddServiceUnits) error {
 	if args.NumUnits < 1 {
 		return errors.New("must add at least one unit")
 	}
-	_, err = conn.AddUnits(service, args.NumUnits)
+	_, err = conn.AddUnits(service, args.NumUnits, "")
 	return err
 }
