@@ -13,11 +13,12 @@ import (
 // Branch represents a Bazaar branch.
 type Branch struct {
 	location string
+	env  []string
 }
 
 // New returns a new Branch for the Bazaar branch at location.
 func New(location string) *Branch {
-	b := &Branch{location}
+	b := &Branch{location, cenv()}
 	if _, err := os.Stat(location); err == nil {
 		stdout, _, err := b.bzr("root")
 		if err == nil {
@@ -25,6 +26,18 @@ func New(location string) *Branch {
 		}
 	}
 	return b
+}
+
+// cenv returns a copy of the current process environment with LC_ALL=C.
+func cenv() []string {
+	env := os.Environ()
+	for i, pair := range env {
+		if strings.HasPrefix(pair, "LC_ALL=") {
+			env[i] = "LC_ALL=C"
+			return env
+		}
+	}
+	return append(env, "LC_ALL=C")
 }
 
 // Location returns the location of branch b.
@@ -49,6 +62,7 @@ func (b *Branch) bzr(args ...string) (stdout, stderr []byte, err error) {
 	}
 	errbuf := &bytes.Buffer{}
 	cmd.Stderr = errbuf
+	cmd.Env = b.env
 	stdout, err = cmd.Output()
 	// Some commands fail with exit status 0 (e.g. bzr root). :-(
 	if err != nil || bytes.Contains(errbuf.Bytes(), []byte("ERROR")) {
