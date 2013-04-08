@@ -88,10 +88,7 @@ func (c *PublishCommand) Run(ctx *cmd.Context) (err error) {
 			}
 		}
 	} else {
-		// TODO Long term we likely can't support a default series here.
-		// InferURL must be able to take an empty default series and error
-		// out if it can't work without one.
-		curl, err = charm.InferURL(c.URL, "precise")
+		curl, err = charm.InferURL(c.URL, "")
 		if err != nil {
 			return err
 		}
