@@ -99,6 +99,8 @@ func (s *ProvisionerSuite) checkStartInstanceCustom(c *C, m *state.Machine, secr
 
 				// Check the instance was started with the expected params.
 				c.Assert(o.MachineId, Equals, m.Id())
+				// TODO(dimitern) this will change in a follow-up to match the actual value generated.
+				c.Assert(o.MachineNonce, Equals, "fake_nonce")
 				c.Assert(o.Secret, Equals, secret)
 				c.Assert(o.Constraints, DeepEquals, cons)
 
