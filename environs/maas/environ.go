@@ -184,8 +184,6 @@ func (env *maasEnviron) startBootstrapNode(tools *state.Tools, cert, key []byte,
 
 // Bootstrap is specified in the Environ interface.
 func (env *maasEnviron) Bootstrap(cons constraints.Value, stateServerCert, stateServerKey []byte) error {
-	// TODO: Fix this quick hack.  uploadTools is a now-obsolete parameter.
- 	uploadTools := false
 
 	// This was all cargo-culted from the EC2 provider.
 	password := env.Config().AdminSecret()
@@ -197,12 +195,10 @@ func (env *maasEnviron) Bootstrap(cons constraints.Value, stateServerCert, state
 	if err != nil {
 		return err
 	}
+	// MAAS does not support public storage: always upload the tools.
+	// TODO: Check that this is sane with the juju-core team.
 	var tools *state.Tools
-	if uploadTools {
-		tools, err = env.uploadTools()
-	} else {
-		tools, err = env.findTools()
-	}
+	tools, err = env.uploadTools()
 	if err != nil {
 		return err
 	}
