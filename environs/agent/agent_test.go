@@ -29,7 +29,8 @@ var confTests = []struct {
 }{{
 	about: "state info only",
 	conf: agent.Conf{
-		OldPassword: "old password",
+		OldPassword:  "old password",
+		MachineNonce: "dummy",
 		StateInfo: &state.Info{
 			Addrs:    []string{"foo.com:355", "bar:545"},
 			CACert:   []byte("ca cert"),
@@ -209,8 +210,7 @@ var confTests = []struct {
 		OldPassword: "old password",
 	},
 	checkErr: "state info or API info not found in configuration",
-},
-}
+}}
 
 func (suite) TestConfReadWriteCheck(c *C) {
 	d := c.MkDir()
