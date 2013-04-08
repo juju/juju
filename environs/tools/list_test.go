@@ -167,6 +167,10 @@ func (s *ListSuite) TestFilter(c *C) {
 		tools.Filter{Released: true},
 		t200all,
 	}, {
+		t1000All,
+		tools.Filter{Released: true},
+		nil,
+	}, {
 		tAll,
 		tools.Filter{Number: version.MustParse("1.9.0")},
 		t190all,
@@ -201,8 +205,12 @@ func (s *ListSuite) TestFilter(c *C) {
 		tools.List{t200quantal32},
 	}} {
 		c.Logf("test %d", i)
-		actual, ok := test.src.Filter(test.filter)
+		actual, err := test.src.Filter(test.filter)
 		c.Check(actual, DeepEquals, test.expect)
-		c.Check(ok, Equals, len(test.expect) > 0)
+		if len(test.expect) > 0 {
+			c.Check(err, IsNil)
+		} else {
+			c.Check(err, Equals, tools.ErrNoMatches)
+		}
 	}
 }
