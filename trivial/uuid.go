@@ -9,8 +9,8 @@ import (
 // UUID represent a universal identifier with 16 octets.
 type UUID [16]byte
 
-// NewUUID generates a new version 4 UUID relying only on random numbers.
-func NewUUID() (UUID, error) {
+// GenerateUUID generates a new version 4 UUID relying only on random numbers.
+func GenerateUUID() (UUID, error) {
 	uuid := UUID{}
 	if _, err := io.ReadFull(rand.Reader, []byte(uuid[0:16])); err != nil {
 		return UUID{}, err
@@ -25,19 +25,26 @@ func NewUUID() (UUID, error) {
 
 // Copy returns a copy of the UUID.
 func (uuid UUID) Copy() UUID {
-	raw := uuid.Raw()
-	return UUID(raw)
+	uuidCopy := uuid
+	return uuidCopy
 }
 
 // Raw returns a copy of the UUID bytes.
 func (uuid UUID) Raw() [16]byte {
-	var raw [16]byte
-	copy([]byte(raw[0:16]), []byte(uuid[0:16]))
-	return raw
+	return [16]byte(uuid)
 }
 
 // String returns a hexadecimal string representation with
 // standardized separators.
 func (uuid UUID) String() string {
 	return fmt.Sprintf("%x-%x-%x-%x-%x", uuid[0:4], uuid[4:6], uuid[6:8], uuid[8:10], uuid[10:16])
+}
+
+// NewUUID returns a new generated UUID as string.
+func NewUUID() (string, error) {
+	uuid, err := GenerateUUID()
+	if err != nil {
+		return "", err
+	}
+	return uuid.String(), nil
 }

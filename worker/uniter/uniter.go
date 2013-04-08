@@ -34,7 +34,7 @@ type Uniter struct {
 	service       *state.Service
 	relationers   map[int]*Relationer
 	relationHooks chan hook.Info
-	uuid          trivial.UUID
+	uuid          string
 
 	dataDir      string
 	baseDir      string
@@ -54,14 +54,9 @@ type Uniter struct {
 // charm on behalf of the named unit, by executing hooks and operations
 // provoked by changes in st.
 func NewUniter(st *state.State, name string, dataDir string) *Uniter {
-	env, err := st.Environment()
-	if err != nil {
-		panic(err)
-	}
 	u := &Uniter{
 		st:      st,
 		dataDir: dataDir,
-		uuid:    env.UUID(),
 	}
 	go func() {
 		defer u.tomb.Done()
@@ -127,6 +122,12 @@ func (u *Uniter) init(name string) (err error) {
 	if err != nil {
 		return err
 	}
+	var env *state.Environment
+	env, err = u.st.Environment()
+	if err != nil {
+		return err
+	}
+	u.uuid = env.UUID()
 	u.relationers = map[int]*Relationer{}
 	u.relationHooks = make(chan hook.Info)
 	u.charm = charm.NewGitDir(filepath.Join(u.baseDir, "charm"))

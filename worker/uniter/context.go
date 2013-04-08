@@ -6,7 +6,6 @@ import (
 	"io"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"os"
 	"os/exec"
@@ -27,7 +26,7 @@ type HookContext struct {
 	id string
 
 	// uuid is the universally unique identifier of the environment.
-	uuid trivial.UUID
+	uuid string
 
 	// relationId identifies the relation for which a relation hook is
 	// executing. If it is -1, the context is not running a relation hook;
@@ -44,7 +43,7 @@ type HookContext struct {
 	relations map[int]*ContextRelation
 }
 
-func NewHookContext(unit *state.Unit, id string, uuid trivial.UUID, relationId int,
+func NewHookContext(unit *state.Unit, id, uuid string, relationId int,
 	remoteUnitName string, relations map[int]*ContextRelation) *HookContext {
 	return &HookContext{
 		unit:           unit,
@@ -120,7 +119,7 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 		"JUJU_CONTEXT_ID=" + ctx.id,
 		"JUJU_AGENT_SOCKET=" + socketPath,
 		"JUJU_UNIT_NAME=" + ctx.unit.Name(),
-		"JUJU_ENV_UUID=" + ctx.uuid.String(),
+		"JUJU_ENV_UUID=" + ctx.uuid,
 	}
 	if r, found := ctx.HookRelation(); found {
 		vars = append(vars, "JUJU_RELATION="+r.Name())

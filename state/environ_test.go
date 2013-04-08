@@ -3,7 +3,6 @@ package state_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/trivial"
 )
 
 type EnvironSuite struct {
@@ -29,7 +28,7 @@ func (s *EnvironSuite) TestTag(c *C) {
 
 func (s *EnvironSuite) TestUUID(c *C) {
 	uuidA := s.env.UUID()
-	c.Assert(uuidA, FitsTypeOf, trivial.UUID{})
+	c.Assert(uuidA, HasLen, 36)
 
 	// Check that two environments have different UUIDs.
 	s.State.Close()

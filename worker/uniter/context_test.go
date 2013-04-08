@@ -92,7 +92,7 @@ func AssertEnvContains(c *C, lines []string, env map[string]string) {
 	}
 }
 
-func AssertEnv(c *C, outPath string, charmDir string, env map[string]string, uuid trivial.UUID) {
+func AssertEnv(c *C, outPath string, charmDir string, env map[string]string, uuid string) {
 	out, err := ioutil.ReadFile(outPath)
 	c.Assert(err, IsNil)
 	lines := strings.Split(string(out), "\n")
@@ -102,7 +102,7 @@ func AssertEnv(c *C, outPath string, charmDir string, env map[string]string, uui
 		"APT_LISTCHANGES_FRONTEND": "none",
 		"CHARM_DIR":                charmDir,
 		"JUJU_AGENT_SOCKET":        "/path/to/socket",
-		"JUJU_ENV_UUID":            uuid.String(),
+		"JUJU_ENV_UUID":            uuid,
 	})
 }
 
@@ -656,7 +656,7 @@ func (s *HookContextSuite) AddContextRelation(c *C, name string) {
 	s.relctxs[rel.Id()] = uniter.NewContextRelation(ru, nil)
 }
 
-func (s *HookContextSuite) GetHookContext(c *C, uuid trivial.UUID, relid int, remote string) *uniter.HookContext {
+func (s *HookContextSuite) GetHookContext(c *C, uuid string, relid int, remote string) *uniter.HookContext {
 	if relid != -1 {
 		_, found := s.relctxs[relid]
 		c.Assert(found, Equals, true)

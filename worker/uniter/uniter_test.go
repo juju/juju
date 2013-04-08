@@ -16,7 +16,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/uniter"
 	"net/url"
@@ -110,7 +109,7 @@ type stepper interface {
 }
 
 type context struct {
-	uuid          trivial.UUID
+	uuid          string
 	path          string
 	dataDir       string
 	s             *UniterSuite

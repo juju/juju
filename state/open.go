@@ -144,9 +144,9 @@ func Initialize(info *Info, cfg *config.Config, opts DialOpts) (rst *State, err 
 		return nil, fmt.Errorf("environment UUID cannot be created: %v", err)
 	}
 	ops := []txn.Op{
-		createEnvironmentOp(st, cfg.Name(), uuid),
-		createSettingsOp(st, environGlobalKey, cfg.AllAttrs()),
 		createConstraintsOp(st, environGlobalKey, constraints.Value{}),
+		createSettingsOp(st, environGlobalKey, cfg.AllAttrs()),
+		createEnvironmentOp(st, cfg.Name(), uuid),
 	}
 	if err := st.runner.Run(ops, "", nil); err == txn.ErrAborted {
 		// The config was created in the meantime.
