@@ -186,6 +186,9 @@ type allWatcherStateCollection struct {
 	// that we use for this collection.  In Go 1.1 we can change
 	// this to use the type itself, as we'll have reflect.SliceOf.
 	infoSliceType reflect.Type
+	// subsidiary is true if the collection is used only
+	// modify a primary entity.
+	subsidiary bool
 }
 
 func newAllWatcherStateBacking(st *State) multiwatcher.Backing {
@@ -209,6 +212,9 @@ func newAllWatcherStateBacking(st *State) multiwatcher.Backing {
 	}, {
 		Collection:    st.annotations,
 		infoSliceType: reflect.TypeOf([]backingAnnotation(nil)),
+	}, {
+		Collection: st.statuses,
+		infoSliceType:  
 	}}
 	// Populate the collection maps from the above set of collections.
 	for _, c := range collections {
