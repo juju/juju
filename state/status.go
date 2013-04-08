@@ -6,6 +6,10 @@ import (
 	"labix.org/v2/mgo/txn"
 )
 
+// statusDoc represents a entity status in Mongodb.  The implicit
+// _id field is explicitly set to the global key of the associated
+// entity in the document's creation transaction, but omitted to allow
+// direct use of the document in both create and update transactions.
 type statusDoc struct {
 	Status     string
 	StatusInfo string

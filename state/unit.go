@@ -59,15 +59,6 @@ type unitDoc struct {
 	PasswordHash   string
 }
 
-// unitStatusDoc represents the internal state of a unit status in MongoDB.
-// The implicit _id field is explicitly set to the global key of the
-// associated unit in the document's creation transaction, but omitted to
-// allow direct use of the document in both create and update transactions.
-type unitStatusDoc struct {
-	Status     params.UnitStatus
-	StatusInfo string
-}
-
 // Unit represents the state of a service unit.
 type Unit struct {
 	st  *State
