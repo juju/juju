@@ -63,10 +63,7 @@ func (e *Environment) globalKey() string {
 // createEnvironmentOp returns the operation needed to create
 // an environment document with the given name and UUID.
 func createEnvironmentOp(st *State, name, uuid string) txn.Op {
-	doc := &environmentDoc{
-		UUID: uuid,
-		Name: name,
-	}
+	doc := &environmentDoc{uuid, name}
 	return txn.Op{
 		C:      st.environments.Name,
 		Id:     uuid,
