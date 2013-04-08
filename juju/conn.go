@@ -48,6 +48,7 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 	opts := state.DefaultDialOpts()
 	st, err := state.Open(info, opts)
 	if state.IsUnauthorizedError(err) {
+		log.Noticef("juju: authorization error while connecting to state server; retrying")
 		// We can't connect with the administrator password,;
 		// perhaps this was the first connection and the
 		// password has not been changed yet.
