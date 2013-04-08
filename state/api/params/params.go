@@ -255,8 +255,6 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 
 // EntityInfo is implemented by all entity Info types.
 type EntityInfo interface {
-	// EntityId returns the collection-specific identifier for the entity.
-	EntityId() interface{}
 	// EntityKind returns the kind of entity (for example "machine",
 	// "service", ...)
 	EntityKind() string
@@ -292,7 +290,6 @@ type MachineInfo struct {
 	InstanceId string
 }
 
-func (i *MachineInfo) EntityId() interface{} { return i.Id }
 func (i *MachineInfo) EntityKind() string    { return "machine" }
 
 type ServiceInfo struct {
@@ -301,7 +298,6 @@ type ServiceInfo struct {
 	CharmURL string
 }
 
-func (i *ServiceInfo) EntityId() interface{} { return i.Name }
 func (i *ServiceInfo) EntityKind() string    { return "service" }
 
 // ResolvedMode describes the way state transition errors
@@ -336,7 +332,6 @@ type UnitInfo struct {
 	Ports          []Port
 }
 
-func (i *UnitInfo) EntityId() interface{} { return i.Name }
 func (i *UnitInfo) EntityKind() string    { return "unit" }
 
 type Endpoint struct {
@@ -349,7 +344,6 @@ type RelationInfo struct {
 	Endpoints []Endpoint
 }
 
-func (i *RelationInfo) EntityId() interface{} { return i.Key }
 func (i *RelationInfo) EntityKind() string    { return "relation" }
 
 type AnnotationInfo struct {
@@ -362,5 +356,4 @@ type AnnotationInfo struct {
 	Annotations map[string]string
 }
 
-func (i *AnnotationInfo) EntityId() interface{} { return i.GlobalKey }
 func (i *AnnotationInfo) EntityKind() string    { return "annotation" }
