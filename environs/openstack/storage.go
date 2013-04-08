@@ -10,8 +10,8 @@ import (
 	"time"
 )
 
-// storage implements environs.Storage on an OpenStack container.
-type storage struct {
+// storage implements storage.ReadWriter on a Swift container.
+type swiftStorage struct {
 	sync.Mutex
 	madeContainer bool
 	containerName string
@@ -23,7 +23,7 @@ type storage struct {
 // place where bootstrap information and deployed charms
 // are stored. To avoid two round trips on every PUT operation,
 // we do this only once for each environ.
-func (s *storage) makeContainer(containerName string, containerACL swift.ACL) error {
+func (s *swiftStorage) makeContainer(containerName string, containerACL swift.ACL) error {
 	s.Lock()
 	defer s.Unlock()
 	if s.madeContainer {
@@ -37,7 +37,7 @@ func (s *storage) makeContainer(containerName string, containerACL swift.ACL) er
 	return err
 }
 
-func (s *storage) Put(file string, r io.Reader, length int64) error {
+func (s *swiftStorage) Put(file string, r io.Reader, length int64) error {
 	if err := s.makeContainer(s.containerName, s.containerACL); err != nil {
 		return fmt.Errorf("cannot make Swift control container: %v", err)
 	}
@@ -48,7 +48,7 @@ func (s *storage) Put(file string, r io.Reader, length int64) error {
 	return nil
 }
 
-func (s *storage) Get(file string) (r io.ReadCloser, err error) {
+func (s *swiftStorage) Get(file string) (r io.ReadCloser, err error) {
 	for a := shortAttempt.Start(); a.Next(); {
 		r, err = s.swift.GetReader(s.containerName, file)
 		if !errors.IsNotFound(err) {
@@ -62,13 +62,13 @@ func (s *storage) Get(file string) (r io.ReadCloser, err error) {
 	return r, nil
 }
 
-func (s *storage) URL(name string) (string, error) {
+func (s *swiftStorage) URL(name string) (string, error) {
 	// 10 years should be good enough.
 	expires := time.Now().AddDate(10, 0, 0)
 	return s.swift.SignedURL(s.containerName, name, expires)
 }
 
-func (s *storage) Remove(file string) error {
+func (s *swiftStorage) Remove(file string) error {
 	err := s.swift.DeleteObject(s.containerName, file)
 	// If we can't delete the object because the bucket doesn't
 	// exist, then we don't care.
@@ -78,7 +78,7 @@ func (s *storage) Remove(file string) error {
 	return nil
 }
 
-func (s *storage) List(prefix string) ([]string, error) {
+func (s *swiftStorage) List(prefix string) ([]string, error) {
 	contents, err := s.swift.List(s.containerName, prefix, "", "", 0)
 	if err != nil {
 		// If the container is not found, it's not an error
@@ -96,7 +96,7 @@ func (s *storage) List(prefix string) ([]string, error) {
 	return names, nil
 }
 
-func (s *storage) deleteAll() error {
+func (s *swiftStorage) deleteAll() error {
 	names, err := s.List("")
 	if err != nil {
 		return err

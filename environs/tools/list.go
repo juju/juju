@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
 	"sort"
@@ -78,8 +77,6 @@ func (src List) Difference(excluded List) List {
 	}
 	return result
 }
-
-var ErrNoMatches = errors.New("no matching tools available")
 
 // Filter returns a List, derived from src, containing only those tools that
 // match the supplied Filter. If no tools match, it returns ErrNoMatches.

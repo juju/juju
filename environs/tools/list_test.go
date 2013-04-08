@@ -167,7 +167,7 @@ func (s *ListSuite) TestFilter(c *C) {
 		tools.Filter{Released: true},
 		t200all,
 	}, {
-		t1000All,
+		t100all,
 		tools.Filter{Released: true},
 		nil,
 	}, {

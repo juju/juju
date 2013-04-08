@@ -6,6 +6,7 @@ import (
 	"launchpad.net/goose/swift"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/jujutest"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/trivial"
 	"net/http"
@@ -74,16 +75,16 @@ func ShortTimeouts(short bool) {
 
 var ShortAttempt = &shortAttempt
 
-func DeleteStorageContent(s environs.Storage) error {
-	return s.(*storage).deleteAll()
+func DeleteStorageContent(s storage.ReadWriter) error {
+	return s.(*swiftStorage).deleteAll()
 }
 
 // WritablePublicStorage returns a Storage instance which is authorised to write to the PublicStorage bucket.
 // It is used by tests which need to upload files.
-func WritablePublicStorage(e environs.Environ) environs.Storage {
+func WritablePublicStorage(e environs.Environ) storage.ReadWriter {
 	ecfg := e.(*environ).ecfg()
 	authModeCfg := AuthMode(ecfg.authMode())
-	writablePublicStorage := &storage{
+	writablePublicStorage := &swiftStorage{
 		containerName: ecfg.publicBucket(),
 		swift:         swift.New(e.(*environ).client(ecfg, authModeCfg)),
 	}

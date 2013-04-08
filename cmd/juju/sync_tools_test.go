@@ -1,12 +1,13 @@
 package main
 
 import (
-	"bytes"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/environs/storage"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
@@ -42,22 +43,8 @@ func (s *syncToolsSuite) TestHelp(c *C) {
 	c.Assert(ctx, IsNil)
 }
 
-func uploadDummyTools(c *C, vers version.Binary, store environs.Storage) {
-	path := environs.ToolsStoragePath(vers)
-	content := bytes.NewBufferString("content\n")
-	err := store.Put(path, content, int64(content.Len()))
-	c.Assert(err, IsNil)
-}
-
-func deletePublicTools(c *C, store environs.Storage) {
-	// Dummy environments always put fake tools, but we don't want it
-	// confusing our state, so we delete them
-	dummyTools, err := store.List("tools/juju")
-	c.Assert(err, IsNil)
-	for _, path := range dummyTools {
-		err = store.Remove(path)
-		c.Assert(err, IsNil)
-	}
+func uploadDummyTools(c *C, vers version.Binary, store storage.ReadWriter) {
+	envtesting.UploadFakeToolsVersion(c, store, vers)
 }
 
 func setupDummyEnvironments(c *C) (env environs.Environ, cleanup func()) {
@@ -72,8 +59,8 @@ func setupDummyEnvironments(c *C) (env environs.Environ, cleanup func()) {
 	env, err := environs.NewFromAttrs(dummyAttrs)
 	c.Assert(err, IsNil)
 	c.Assert(env, NotNil)
-	store := env.PublicStorage().(environs.Storage)
-	deletePublicTools(c, store)
+	store := env.PublicStorage().(storage.ReadWriter)
+	envtesting.RemoveTools(c, store)
 	// Upload multiple tools
 	uploadDummyTools(c, t1000precise.Binary, store)
 	uploadDummyTools(c, t1000quantal.Binary, store)
@@ -118,12 +105,12 @@ func assertToolsList(c *C, toolsList []*state.Tools, expected ...string) {
 func setupTargetEnv(c *C) environs.Environ {
 	targetEnv, err := environs.NewFromName("test-target")
 	c.Assert(err, IsNil)
-	store := targetEnv.PublicStorage().(environs.Storage)
-	deletePublicTools(c, store)
-	targetTools, err := environs.ListTools(targetEnv, 1)
-	// Target has no tools.
-	c.Assert(targetTools.Public, HasLen, 0)
-	c.Assert(targetTools.Private, HasLen, 0)
+	store := targetEnv.PublicStorage().(storage.ReadWriter)
+	envtesting.RemoveTools(c, store)
+	toolsList, err := environs.ListTools(targetEnv, 1)
+	c.Assert(err, IsNil)
+	c.Assert(toolsList.Private, HasLen, 0)
+	c.Assert(toolsList.Public, HasLen, 0)
 	return targetEnv
 }
 
@@ -192,7 +179,7 @@ func (s *syncToolsSuite) TestCopyToDummyPublic(c *C) {
 	c.Assert(ctx, NotNil)
 	targetTools, err := environs.ListTools(targetEnv, 1)
 	c.Assert(err, IsNil)
-	// newest tools added to the private bucket
+	// newest tools added to the public bucket
 	assertToolsList(c, targetTools.Public, "1.9.0-quantal-amd64")
 	c.Assert(targetTools.Private, HasLen, 0)
 }

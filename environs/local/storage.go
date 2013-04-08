@@ -5,21 +5,22 @@ import (
 	"io"
 	"io/ioutil"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/storage"
 	"net/http"
 	"sort"
 	"strings"
 )
 
-// storage implements the environs.Storage interface.
-type storage struct {
+// fileStorage implements the storage.ReadWriter interface.
+type fileStorage struct {
 	baseURL string
 }
 
-var _ environs.Storage = (*storage)(nil)
+var _ storage.ReadWriter = (*fileStorage)(nil)
 
-// newStorage returns a new local storage.
-func newStorage(address string, port int) *storage {
-	return &storage{
+// newStorage returns a new local fileStorage.
+func newStorage(address string, port int) *fileStorage {
+	return &fileStorage{
 		baseURL: fmt.Sprintf("http://%s:%d", address, port),
 	}
 }
@@ -28,7 +29,7 @@ func newStorage(address string, port int) *storage {
 // that can be used to read its contents. It is the caller's
 // responsibility to close it after use. If the name does not
 // exist, it should return a *NotFoundError.
-func (s *storage) Get(name string) (io.ReadCloser, error) {
+func (s *fileStorage) Get(name string) (io.ReadCloser, error) {
 	url, err := s.URL(name)
 	if err != nil {
 		return nil, err
@@ -48,7 +49,7 @@ func (s *storage) Get(name string) (io.ReadCloser, error) {
 // to be in a flat namespace, so the prefix may include slashes
 // and the names returned are the full names for the matching
 // entries.
-func (s *storage) List(prefix string) ([]string, error) {
+func (s *fileStorage) List(prefix string) ([]string, error) {
 	url, err := s.URL(prefix)
 	if err != nil {
 		return nil, err
@@ -74,13 +75,13 @@ func (s *storage) List(prefix string) ([]string, error) {
 }
 
 // URL returns an URL that can be used to access the given storage file.
-func (s *storage) URL(name string) (string, error) {
+func (s *fileStorage) URL(name string) (string, error) {
 	return fmt.Sprintf("%s/%s", s.baseURL, name), nil
 }
 
 // Put reads from r and writes to the given storage file.
 // The length must be set to the total length of the file.
-func (s *storage) Put(name string, r io.Reader, length int64) error {
+func (s *fileStorage) Put(name string, r io.Reader, length int64) error {
 	url, err := s.URL(name)
 	if err != nil {
 		return err
@@ -103,7 +104,7 @@ func (s *storage) Put(name string, r io.Reader, length int64) error {
 // Remove removes the given file from the environment's
 // storage. It should not return an error if the file does
 // not exist.
-func (s *storage) Remove(name string) error {
+func (s *fileStorage) Remove(name string) error {
 	url, err := s.URL(name)
 	if err != nil {
 		return err

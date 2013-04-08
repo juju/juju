@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/storage"
+	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
-	"strings"
 )
 
 type UpgradeJujuSuite struct {
@@ -88,6 +89,13 @@ var upgradeJujuTests = []struct {
 	expectDevelopment: true,
 }, {
 	about:          "specified version",
+	public:         []string{"2.0.3-foo-bar"},
+	currentVersion: "3.0.0-foo-bar",
+	agentVersion:   "2.0.0",
+	args:           []string{"--version", "2.0.3"},
+	expectVersion:  "2.0.3",
+}, {
+	about:          "specified version missing",
 	currentVersion: "3.0.0-foo-bar",
 	agentVersion:   "2.0.0",
 	args:           []string{"--version", "2.0.3"},
@@ -110,7 +118,7 @@ var upgradeJujuTests = []struct {
 	currentVersion: "2.0.1-foo-bar",
 	agentVersion:   "2.0.0",
 	args:           []string{"--upload-tools"},
-	expectErr:      "cannot find newest version: no tools found",
+	expectVersion:  "2.0.1",
 	expectUploaded: "2.0.1-foo-bar",
 }, {
 	about:          "upload and bump version",
@@ -133,29 +141,15 @@ var upgradeJujuTests = []struct {
 },
 }
 
-func upload(s environs.Storage, v string) {
-	vers := version.MustParseBinary(v)
-	p := environs.ToolsStoragePath(vers)
-	err := s.Put(p, strings.NewReader(v), int64(len(v)))
-	if err != nil {
-		panic(err)
-	}
-}
-
-// testPutTools mocks environs.PutTools. This is an advantage in
-// two ways:
-// - we can make it return a tools with a version == version.Current.
-// - we don't need to actually rebuild the juju source for each test
-// that uses --upload-tools.
-func testPutTools(storage environs.Storage, forceVersion *version.Number, fakeSeries ...string) (*state.Tools, error) {
+func mockUploadTools(store storage.ReadWriter, forceVersion *version.Number, fakeSeries ...string) (*state.Tools, error) {
 	vers := version.Current
 	if forceVersion != nil {
 		vers.Number = *forceVersion
 	}
 	if len(fakeSeries) != 0 {
-		return nil, fmt.Errorf("test framework should not be trusted with this")
+		return nil, fmt.Errorf("not implemented: testPutTools does not handle fakeSeries")
 	}
-	upload(storage, vers.String())
+	envtesting.MustUploadFakeToolsVersion(store, vers)
 	return &state.Tools{
 		Binary: vers,
 	}, nil
@@ -163,10 +157,10 @@ func testPutTools(storage environs.Storage, forceVersion *version.Number, fakeSe
 
 func (s *UpgradeJujuSuite) TestUpgradeJuju(c *C) {
 	oldVersion := version.Current
-	putTools = testPutTools
+	uploadTools = mockUploadTools
 	defer func() {
 		version.Current = oldVersion
-		putTools = environs.PutTools
+		uploadTools = tools.Upload
 	}()
 
 	for i, test := range upgradeJujuTests {
@@ -174,11 +168,13 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *C) {
 		// Set up the test preconditions.
 		s.Reset(c)
 		for _, v := range test.private {
-			upload(s.Conn.Environ.Storage(), v)
+			vers := version.MustParseBinary(v)
+			envtesting.MustUploadFakeToolsVersion(s.Conn.Environ.Storage(), vers)
 		}
 		for _, v := range test.public {
-			storage := s.Conn.Environ.PublicStorage().(environs.Storage)
-			upload(storage, v)
+			vers := version.MustParseBinary(v)
+			store := s.Conn.Environ.PublicStorage().(storage.ReadWriter)
+			envtesting.MustUploadFakeToolsVersion(store, vers)
 		}
 		version.Current = version.MustParseBinary(test.currentVersion)
 		err := SetAgentVersion(s.State, version.MustParse(test.agentVersion), false)
@@ -203,8 +199,8 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *C) {
 		c.Check(cfg.Development(), Equals, test.expectDevelopment)
 
 		if test.expectUploaded != "" {
-			p := environs.ToolsStoragePath(version.MustParseBinary(test.expectUploaded))
-			r, err := s.Conn.Environ.Storage().Get(p)
+			vers := version.MustParseBinary(test.expectUploaded)
+			r, err := s.Conn.Environ.Storage().Get(tools.StorageName(vers))
 			c.Assert(err, IsNil)
 			data, err := ioutil.ReadAll(r)
 			c.Check(err, IsNil)
@@ -219,24 +215,16 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *C) {
 // 'em there.
 func (s *UpgradeJujuSuite) Reset(c *C) {
 	s.JujuConnSuite.Reset(c)
-	removeAll := func(storage environs.Storage) {
-		names, err := storage.List("")
-		c.Assert(err, IsNil)
-		for _, name := range names {
-			err := storage.Remove(name)
-			c.Assert(err, IsNil)
-		}
-	}
-	removeAll(s.Conn.Environ.Storage())
-	removeAll(s.Conn.Environ.PublicStorage().(environs.Storage))
+	envtesting.RemoveTools(c, s.Conn.Environ.Storage())
+	envtesting.RemoveTools(c, s.Conn.Environ.PublicStorage().(storage.ReadWriter))
 }
 
 func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealPutTools(c *C) {
 	s.Reset(c)
 	_, err := coretesting.RunCommand(c, &UpgradeJujuCommand{}, []string{"--upload-tools", "--dev"})
 	c.Assert(err, IsNil)
-	p := environs.ToolsStoragePath(version.Current)
-	r, err := s.Conn.Environ.Storage().Get(p)
+	name := tools.StorageName(version.Current)
+	r, err := s.Conn.Environ.Storage().Get(name)
 	c.Assert(err, IsNil)
 	r.Close()
 }

@@ -6,6 +6,7 @@ import (
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/jujutest"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/trivial"
 	"net/http"
@@ -39,8 +40,8 @@ func EnvironS3(e environs.Environ) *s3.S3 {
 	return e.(*environ).s3()
 }
 
-func DeleteStorageContent(s environs.Storage) error {
-	return s.(*storage).deleteAll()
+func DeleteStorageContent(s storage.ReadWriter) error {
+	return s.(*s3storage).deleteAll()
 }
 
 func InstanceEC2(inst environs.Instance) *ec2.Instance {
@@ -49,8 +50,8 @@ func InstanceEC2(inst environs.Instance) *ec2.Instance {
 
 // BucketStorage returns a storage instance addressing
 // an arbitrary s3 bucket.
-func BucketStorage(b *s3.Bucket) environs.Storage {
-	return &storage{
+func BucketStorage(b *s3.Bucket) storage.ReadWriter {
+	return &s3storage{
 		bucket: b,
 	}
 }
@@ -135,13 +136,13 @@ func FabricateInstance(inst environs.Instance, newId string) environs.Instance {
 	return newi
 }
 
-// Access non exported methods on ec2.storage
+// Access non exported methods on ec2.s3storage
 type Storage interface {
 	Put(file string, r io.Reader, length int64) error
 	ResetMadeBucket()
 }
 
-func (s *storage) ResetMadeBucket() {
+func (s *s3storage) ResetMadeBucket() {
 	s.Lock()
 	defer s.Unlock()
 	s.madeBucket = false
@@ -149,10 +150,10 @@ func (s *storage) ResetMadeBucket() {
 
 // WritablePublicStorage returns a Storage instance which is authorised to write to the PublicStorage bucket.
 // It is used by tests which need to upload files.
-func WritablePublicStorage(e environs.Environ) environs.Storage {
+func WritablePublicStorage(e environs.Environ) storage.ReadWriter {
 	// In the case of ec2, access to the public storage instance is created with the user's AWS credentials.
 	// So write access is there implicitly, and we just need to cast to a writable storage instance.
 	// This contrasts with the openstack case, where the public storage instance truly is read only and we need
 	// to create a separate writable instance. If the ec2 case ever changes, the changes are confined to this method.
-	return e.PublicStorage().(environs.Storage)
+	return e.PublicStorage().(storage.ReadWriter)
 }

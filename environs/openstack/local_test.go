@@ -204,7 +204,7 @@ func (s *localServerSuite) SetUpTest(c *C) {
 	})
 	s.Tests.SetUpTest(c)
 	writeablePublicStorage := openstack.WritablePublicStorage(s.Env)
-	envtesting.PutFakeTools(c, writeablePublicStorage)
+	envtesting.UploadFakeTools(c, writeablePublicStorage)
 	s.env = s.Tests.Env
 }
 

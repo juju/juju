@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/openstack"
+	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	coretesting "launchpad.net/juju-core/testing"
 )
@@ -84,7 +85,7 @@ type LiveTests struct {
 	cred                   *identity.Credentials
 	testImageId            string
 	testFlavor             string
-	writeablePublicStorage environs.Storage
+	writeablePublicStorage storage.ReadWriter
 }
 
 func (t *LiveTests) SetUpSuite(c *C) {
@@ -109,7 +110,7 @@ func (t *LiveTests) SetUpSuite(c *C) {
 	// Put some fake tools in place so that tests that are simply
 	// starting instances without any need to check if those instances
 	// are running will find them in the public bucket.
-	envtesting.PutFakeTools(c, t.writeablePublicStorage)
+	envtesting.UploadFakeTools(c, t.writeablePublicStorage)
 }
 
 func (t *LiveTests) TearDownSuite(c *C) {

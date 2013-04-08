@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -260,8 +261,8 @@ type environ struct {
 	ecfgMutex             sync.Mutex
 	ecfgUnlocked          *environConfig
 	novaUnlocked          *nova.Client
-	storageUnlocked       environs.Storage
-	publicStorageUnlocked environs.Storage // optional.
+	storageUnlocked       *swiftStorage
+	publicStorageUnlocked *swiftStorage // optional.
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -402,14 +403,14 @@ func (e *environ) Name() string {
 	return e.name
 }
 
-func (e *environ) Storage() environs.Storage {
+func (e *environ) Storage() storage.ReadWriter {
 	e.ecfgMutex.Lock()
 	storage := e.storageUnlocked
 	e.ecfgMutex.Unlock()
 	return storage
 }
 
-func (e *environ) PublicStorage() environs.StorageReader {
+func (e *environ) PublicStorage() storage.Reader {
 	e.ecfgMutex.Lock()
 	defer e.ecfgMutex.Unlock()
 	if e.publicStorageUnlocked == nil {
@@ -600,7 +601,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 
 	// create new storage instances, existing instances continue
 	// to reference their existing configuration.
-	e.storageUnlocked = &storage{
+	e.storageUnlocked = &swiftStorage{
 		containerName: ecfg.controlBucket(),
 		// this is possibly just a hack - if the ACL is swift.Private,
 		// the machine won't be able to get the tools (401 error)
@@ -610,14 +611,14 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 		// If no public bucket URL is specified, we will instead create the public bucket
 		// using the user's credentials on the authenticated client.
 		if ecfg.publicBucketURL() == "" {
-			e.publicStorageUnlocked = &storage{
+			e.publicStorageUnlocked = &swiftStorage{
 				containerName: ecfg.publicBucket(),
 				// this is possibly just a hack - if the ACL is swift.Private,
 				// the machine won't be able to get the tools (401 error)
 				containerACL: swift.PublicRead,
 				swift:        swift.New(client)}
 		} else {
-			e.publicStorageUnlocked = &storage{
+			e.publicStorageUnlocked = &swiftStorage{
 				containerName: ecfg.publicBucket(),
 				containerACL:  swift.PublicRead,
 				swift:         swift.New(e.publicClient(ecfg))}
@@ -944,12 +945,10 @@ func (e *environ) Destroy(ensureInsts []environs.Instance) error {
 	if err != nil {
 		return err
 	}
-
-	// To properly observe e.storageUnlocked we need to get its value while
-	// holding e.ecfgMutex. e.Storage() does this for us, then we convert
-	// back to the (*storage) to access the private deleteAll() method.
-	st := e.Storage().(*storage)
-	return st.deleteAll()
+	e.ecfgMutex.Lock()
+	storage := e.storageUnlocked
+	e.ecfgMutex.Unlock()
+	return storage.deleteAll()
 }
 
 func (e *environ) AssignmentPolicy() state.AssignmentPolicy {

@@ -9,6 +9,8 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/storage"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -85,7 +87,7 @@ func (t *LiveTests) BootstrapOnce(c *C) {
 	// we could connect to (actual live tests, rather than local-only)
 	cons := constraints.MustParse("mem=2G")
 	if t.CanOpenState {
-		_, err := environs.PutTools(t.Env.Storage(), nil)
+		_, err := tools.Upload(t.Env.Storage(), nil)
 		c.Assert(err, IsNil)
 	}
 	err := environs.Bootstrap(t.Env, cons)
@@ -544,7 +546,7 @@ func waitAgentTools(c *C, w *toolsWaiter, expect version.Binary) *state.Tools {
 // all the provided watchers upgrade to the requested version.
 func (t *LiveTests) checkUpgrade(c *C, conn *juju.Conn, newVersion version.Binary, waiters ...*toolsWaiter) {
 	c.Logf("putting testing version of juju tools")
-	upgradeTools, err := environs.PutTools(t.Env.Storage(), &newVersion.Number)
+	upgradeTools, err := tools.Upload(t.Env.Storage(), &newVersion.Number)
 	c.Assert(err, IsNil)
 
 	// Check that the put version really is the version we expect.
@@ -730,20 +732,20 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
 	// already bootstrapped.
 	t.Destroy(c)
 
-	currentPath := environs.ToolsStoragePath(current)
-	otherPath := environs.ToolsStoragePath(other)
+	currentName := tools.StorageName(current)
+	otherName := tools.StorageName(other)
 	envStorage := env.Storage()
 	dummyStorage := dummyenv.Storage()
 
-	defer envStorage.Remove(otherPath)
+	defer envStorage.Remove(otherName)
 
-	_, err = environs.PutTools(dummyStorage, &current.Number)
+	_, err = tools.Upload(dummyStorage, &current.Number)
 	c.Assert(err, IsNil)
 
 	// This will only work while cross-compiling across releases is safe,
 	// which depends on external elements. Tends to be safe for the last
 	// few releases, but we may have to refactor some day.
-	err = storageCopy(dummyStorage, currentPath, envStorage, otherPath)
+	err = storageCopy(dummyStorage, currentName, envStorage, otherName)
 	c.Assert(err, IsNil)
 
 	err = environs.Bootstrap(env, constraints.Value{})
@@ -764,7 +766,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
 	waitAgentTools(c, mw0, other)
 }
 
-func storageCopy(source environs.Storage, sourcePath string, target environs.Storage, targetPath string) error {
+func storageCopy(source storage.Reader, sourcePath string, target storage.Writer, targetPath string) error {
 	rc, err := source.Get(sourcePath)
 	if err != nil {
 		return err

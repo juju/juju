@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
+	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -64,7 +65,7 @@ func registerAmazonTests() {
 type LiveTests struct {
 	coretesting.LoggingSuite
 	jujutest.LiveTests
-	writablePublicStorage environs.Storage
+	writablePublicStorage storage.ReadWriter
 }
 
 func (t *LiveTests) SetUpSuite(c *C) {
@@ -80,7 +81,7 @@ func (t *LiveTests) SetUpSuite(c *C) {
 	// Put some fake tools in place so that tests that are simply
 	// starting instances without any need to check if those instances
 	// are running will find them in the public bucket.
-	envtesting.PutFakeTools(c, t.writablePublicStorage)
+	envtesting.UploadFakeTools(c, t.writablePublicStorage)
 	t.LiveTests.SetUpSuite(c)
 }
 

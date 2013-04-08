@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/tools"
 	"os"
 	"strings"
 )
@@ -64,7 +65,7 @@ func (c *BootstrapCommand) Run(context *cmd.Context) error {
 	}
 
 	if c.UploadTools {
-		tools, err := environs.PutTools(environ.Storage(), nil, c.FakeSeries...)
+		tools, err := tools.Upload(environ.Storage(), nil, c.FakeSeries...)
 		if err != nil {
 			return err
 		}

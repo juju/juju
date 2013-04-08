@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/trivial"
@@ -186,7 +187,8 @@ func (srv *localServer) startServer(c *C) {
 		S3LocationConstraint: true,
 	}
 	s3inst := s3.New(aws.Auth{}, aws.Regions["test"])
-	envtesting.PutFakeTools(c, ec2.BucketStorage(s3inst.Bucket("public-tools")))
+	writeablePublicStorage := ec2.BucketStorage(s3inst.Bucket("public-tools"))
+	envtesting.UploadFakeTools(c, writeablePublicStorage)
 	srv.addSpice(c)
 }
 
@@ -257,7 +259,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	policy := t.env.AssignmentPolicy()
 	c.Assert(policy, Equals, state.AssignNew)
 
-	_, err := environs.PutTools(t.env.Storage(), nil)
+	_, err := tools.Upload(t.env.Storage(), nil)
 	c.Assert(err, IsNil)
 	err = environs.Bootstrap(t.env, constraints.Value{})
 	c.Assert(err, IsNil)

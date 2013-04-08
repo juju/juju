@@ -7,6 +7,8 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/storage"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
@@ -61,12 +63,12 @@ var officialBucketAttrs = map[string]interface{}{
 }
 
 func copyOne(
-	tool *state.Tools, source environs.StorageReader,
-	target environs.Storage, ctx *cmd.Context,
+	tool *state.Tools, source storage.Reader,
+	target storage.Writer, ctx *cmd.Context,
 ) error {
-	toolsPath := environs.ToolsStoragePath(tool.Binary)
-	fmt.Fprintf(ctx.Stderr, "copying %v", toolsPath)
-	srcFile, err := source.Get(toolsPath)
+	toolsName := tools.StorageName(tool.Binary)
+	fmt.Fprintf(ctx.Stderr, "copying %v", toolsName)
+	srcFile, err := source.Get(toolsName)
 	if err != nil {
 		return err
 	}
@@ -78,18 +80,18 @@ func copyOne(
 	if err != nil {
 		return err
 	}
-	log.Infof("cmd/juju: downloaded %v (%dkB), uploading", toolsPath, (nBytes+512)/1024)
+	log.Infof("cmd/juju: downloaded %v (%dkB), uploading", toolsName, (nBytes+512)/1024)
 	fmt.Fprintf(ctx.Stderr, ", download %dkB, uploading\n", (nBytes+512)/1024)
 
-	if err := target.Put(toolsPath, buf, nBytes); err != nil {
+	if err := target.Put(toolsName, buf, nBytes); err != nil {
 		return err
 	}
 	return nil
 }
 
 func copyTools(
-	tools []*state.Tools, source environs.StorageReader,
-	target environs.Storage, dryRun bool, ctx *cmd.Context,
+	tools []*state.Tools, source storage.Reader,
+	target storage.Writer, dryRun bool, ctx *cmd.Context,
 ) error {
 	for _, tool := range tools {
 		log.Infof("cmd/juju: copying %s from %s", tool.Binary, tool.URL)
@@ -129,22 +131,21 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 		log.Debugf("cmd/juju: found source tool: %s", tool)
 	}
 	fmt.Fprintf(ctx.Stderr, "listing target bucket\n")
+	var targetTools tools.List
+	var targetStorage storage.ReadWriter
 	targetToolsList, err := environs.ListTools(targetEnv, version.Current.Major)
 	if err != nil {
 		return err
 	}
-	for _, tool := range targetToolsList.Private {
-		log.Debugf("cmd/juju: found target tool: %s", tool)
-	}
-	targetTools := targetToolsList.Private
-	targetStorage := targetEnv.Storage()
 	if c.publicBucket {
 		targetTools = targetToolsList.Public
 		var ok bool
-		if targetStorage, ok = targetEnv.PublicStorage().(environs.Storage); !ok {
+		if targetStorage, ok = targetEnv.PublicStorage().(storage.ReadWriter); !ok {
 			return fmt.Errorf("Cannot write to PublicStorage")
 		}
-
+	} else {
+		targetTools = targetToolsList.Private
+		targetStorage = targetEnv.Storage()
 	}
 	missing := toolsToCopy.Difference(targetTools)
 	fmt.Fprintf(ctx.Stdout, "found %d tools in target; %d tools to be copied\n",
