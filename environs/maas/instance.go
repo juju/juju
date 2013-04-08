@@ -4,6 +4,7 @@ import (
 	"launchpad.net/gomaasapi"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 )
 
 type maasInstance struct {
@@ -44,14 +45,14 @@ func (instance *maasInstance) WaitDNSName() (string, error) {
 	return instance.DNSName()
 }
 
-func (instance *maasInstance) OpenPorts(machineId string, ports []state.Port) error {
+func (instance *maasInstance) OpenPorts(machineId string, ports []params.Port) error {
 	panic("Not implemented.")
 }
 
-func (instance *maasInstance) ClosePorts(machineId string, ports []state.Port) error {
+func (instance *maasInstance) ClosePorts(machineId string, ports []params.Port) error {
 	panic("Not implemented.")
 }
 
-func (instance *maasInstance) Ports(machineId string) ([]state.Port, error) {
+func (instance *maasInstance) Ports(machineId string) ([]params.Port, error) {
 	panic("Not implemented.")
 }

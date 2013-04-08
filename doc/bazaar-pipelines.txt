@@ -1,0 +1,86 @@
+Bazaar Pipelines
+================
+
+Pipelines are implemented using a bazaar plugin.
+
+  $ mkdir -p ~/.bazaar/plugins
+  $ bzr branch lp:bzr-pipeline ~/.bazaar/plugins/pipeline
+
+Basic info for pipelines can be found using `bzr help pipeline`.
+
+Pipelines require lightweight checkouts, but that is how `cobzr` and how the
+recommendations are specified in the `bazaar-usage.txt` document.
+
+
+Why use pipelines
+=================
+
+Pipelines could be thought of as a doubly linked list of dependent branches.
+
+Often when working you need to break up the implementation, either because the
+work can be more easily reviewed as a collection of small independent changes,
+or the work can be landed incrementally.
+
+Another reason is to avoid mixing new work with other refactoring that occurs
+during the process of writing the new work.  Often when adding new features,
+other parts of code need to change.  The branch is easier to review if the
+prerequisite changes happen seperately.
+
+Sometimes you don't know you want to refactor things until half of it is done
+already.  In this situation you can create a new pipe before the current one,
+and move the changes into it.
+
+  $ bzr add-pipe --before some-refactoring-work
+  $ bzr merge -i :next
+
+This enters you into an interactive merge of the changes from the next branch
+in the pipeline.
+
+
+Merging trunk
+=============
+
+When merging trunk into a pipeline, you should move to the first branch in the
+pipeline.
+
+  $ bzr switch :first
+  $ bzr merge <trunk>
+  # resolve any conflicts that may be there
+  $ bzr commit -m "Merge trunk"
+  $ bzr pump
+
+The pump command is effectively merging each pipe into the next pipe and
+commits without changing the current active pipe.  The pump command starts
+with the active pipe.  If there are conflicts from any particular merge, the
+pumping stops, and the active branch is set to be the branch that had the
+conflicts ready for you to fix the conflicts.
+
+
+Useful aliases
+==============
+
+  $ bzr alias pipes="show-pipeline"
+
+Show the branches in the pipeline.  All branches are considered a pipeline
+with one branch, so you can run this on any branch (actually a lightweight
+checkout). The current pipe is shown with an `*` at the start of the line.
+
+  $ bzr alias next="switch-pipe :next"
+  $ bzr alias prev="switch-pipe :prev"
+
+These two aliases allow you to move around the pipeline using:
+
+  $ bzr next   # move to the next branch in the pipeline
+  $ bzr prev   # move to the previous branch in the pipeline
+
+
+  $ bzr alias pdiff="diff -r branch::prev"
+
+Show me the differences that this branch has introduced compared to the
+previous branch in the pipeline.
+
+  $ bzr alias unpumped="missing --mine :next"
+
+Show the revisions that are in the current branch that are not yet in the next
+branch in the pipeline.
+

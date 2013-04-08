@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
 	"reflect"
 	"time"
@@ -27,7 +28,7 @@ func (s *MachineSuite) primeAgent(c *C, jobs ...state.MachineJob) (*state.Machin
 	c.Assert(err, IsNil)
 	err = m.SetMongoPassword("machine-password")
 	c.Assert(err, IsNil)
-	conf, tools := s.agentSuite.primeAgent(c, state.MachineEntityName(m.Id()), "machine-password")
+	conf, tools := s.agentSuite.primeAgent(c, state.MachineTag(m.Id()), "machine-password")
 	return m, conf, tools
 }
 
@@ -98,10 +99,36 @@ func (s *MachineSuite) TestWithDeadMachine(c *C) {
 	c.Assert(err, IsNil)
 }
 
+func (s *MachineSuite) TestDyingMachine(c *C) {
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	done := make(chan error)
+	go func() {
+		done <- a.Run(nil)
+	}()
+	defer func() {
+		c.Check(a.Stop(), IsNil)
+	}()
+	time.Sleep(1 * time.Second)
+	err := m.Destroy()
+	c.Assert(err, IsNil)
+	select {
+	case err := <-done:
+		c.Assert(err, IsNil)
+	case <-time.After(watcher.Period * 5 / 4):
+		// TODO(rog) Fix this so it doesn't wait for so long.
+		// https://bugs.launchpad.net/juju-core/+bug/1163983
+		c.Fatalf("timed out waiting for agent to terminate")
+	}
+	err = m.Refresh()
+	c.Assert(err, IsNil)
+	c.Assert(m.Life(), Equals, state.Dead)
+}
+
 func (s *MachineSuite) TestHostUnits(c *C) {
 	m, conf, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
-	mgr, reset := patchDeployManager(c, conf.StateInfo, conf.DataDir)
+	ctx, reset := patchDeployContext(c, conf.StateInfo, conf.DataDir)
 	defer reset()
 	go func() { c.Check(a.Run(nil), IsNil) }()
 	defer func() { c.Check(a.Stop(), IsNil) }()
@@ -112,23 +139,23 @@ func (s *MachineSuite) TestHostUnits(c *C) {
 	c.Assert(err, IsNil)
 	u1, err := svc.AddUnit()
 	c.Assert(err, IsNil)
-	mgr.waitDeployed(c)
+	ctx.waitDeployed(c)
 
 	err = u0.AssignToMachine(m)
 	c.Assert(err, IsNil)
-	mgr.waitDeployed(c, u0.Name())
+	ctx.waitDeployed(c, u0.Name())
 
 	err = u0.Destroy()
 	c.Assert(err, IsNil)
-	mgr.waitDeployed(c, u0.Name())
+	ctx.waitDeployed(c, u0.Name())
 
 	err = u1.AssignToMachine(m)
 	c.Assert(err, IsNil)
-	mgr.waitDeployed(c, u0.Name(), u1.Name())
+	ctx.waitDeployed(c, u0.Name(), u1.Name())
 
 	err = u0.EnsureDead()
 	c.Assert(err, IsNil)
-	mgr.waitDeployed(c, u1.Name())
+	ctx.waitDeployed(c, u1.Name())
 
 	err = u0.Refresh()
 	c.Assert(state.IsNotFound(err), Equals, true)
@@ -203,10 +230,10 @@ func (s *MachineSuite) TestUpgrade(c *C) {
 func addAPIInfo(conf *agent.Conf, m *state.Machine) {
 	port := testing.FindTCPPort()
 	conf.APIInfo = &api.Info{
-		Addrs:      []string{fmt.Sprintf("localhost:%d", port)},
-		CACert:     []byte(testing.CACert),
-		EntityName: m.EntityName(),
-		Password:   "unused",
+		Addrs:    []string{fmt.Sprintf("localhost:%d", port)},
+		CACert:   []byte(testing.CACert),
+		Tag:      m.Tag(),
+		Password: "unused",
 	}
 	conf.StateServerCert = []byte(testing.ServerCert)
 	conf.StateServerKey = []byte(testing.ServerKey)

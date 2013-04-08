@@ -139,6 +139,10 @@ func (a *SimpleMethods) Call1r0e(s stringVal) error {
 	return a.root.callError(a, "Call1r0e", s)
 }
 
+func (a *SimpleMethods) SliceArg(struct{ X []string }) stringVal {
+	return stringVal{"SliceArg ret"}
+}
+
 type DelayedMethods struct {
 	ready chan struct{}
 	done  chan string
@@ -176,9 +180,7 @@ func (*suite) TestRPC(c *C) {
 			}
 		}
 	}
-	client.Close()
-	err := chanReadError(c, srvDone, "server done")
-	c.Assert(err, IsNil)
+	closeClient(c, client, srvDone)
 }
 
 func (root *Root) testCall(c *C, client *rpc.Client, narg, nret int, retErr, testErr bool) {
@@ -249,9 +251,7 @@ func (*suite) TestConcurrentCalls(c *C) {
 	start2 <- "return 2"
 	chanRead(c, done1, "method 1 done")
 	chanRead(c, done2, "method 2 done")
-	client.Close()
-	err := chanReadError(c, srvDone, "server done")
-	c.Assert(err, IsNil)
+	closeClient(c, client, srvDone)
 }
 
 type codedError struct {
@@ -275,9 +275,7 @@ func (*suite) TestErrorCode(c *C) {
 	err := client.Call("ErrorMethods", "", "Call", nil, nil)
 	c.Assert(err, ErrorMatches, `server error: message \(code\)`)
 	c.Assert(err.(rpc.ErrorCoder).ErrorCode(), Equals, "code")
-	client.Close()
-	err = chanReadError(c, srvDone, "server done")
-	c.Assert(err, IsNil)
+	closeClient(c, client, srvDone)
 }
 
 func (*suite) TestTransformErrors(c *C) {
@@ -311,9 +309,7 @@ func (*suite) TestTransformErrors(c *C) {
 		Message: "transformed: no error methods",
 	})
 
-	client.Close()
-	err = chanReadError(c, srvDone, "server done")
-	c.Assert(err, IsNil)
+	closeClient(c, client, srvDone)
 }
 
 func (*suite) TestServerWaitsForOutstandingCalls(c *C) {
@@ -344,9 +340,7 @@ func (*suite) TestServerWaitsForOutstandingCalls(c *C) {
 	case <-time.After(25 * time.Millisecond):
 	}
 	start <- "xxx"
-	err := chanReadError(c, srvDone, "server done")
-	c.Check(err, IsNil)
-	chanRead(c, done, "DelayedMethods.Delay done")
+	closeClient(c, client, srvDone)
 }
 
 func chanRead(c *C, ch <-chan struct{}, what string) {
@@ -400,9 +394,7 @@ func (*suite) TestCompatibility(c *C) {
 	c.Assert(arg, Equals, stringVal{"x"})
 	c.Assert(r, Equals, extra{})
 
-	client.Close()
-	err := chanReadError(c, srvDone, "server done")
-	c.Assert(err, IsNil)
+	closeClient(c, client, srvDone)
 }
 
 func (*suite) TestBadCall(c *C) {
@@ -422,9 +414,38 @@ func (*suite) TestBadCall(c *C) {
 	err = client.Call("SimpleMethods", "xx", "Call0r0", nil, nil)
 	c.Assert(err, ErrorMatches, "server error: unknown SimpleMethods id")
 
-	client.Close()
-	err = chanReadError(c, srvDone, "server done")
+	closeClient(c, client, srvDone)
+}
+
+func (*suite) TestContinueAfterReadBodyError(c *C) {
+	root := &Root{
+		simple: make(map[string]*SimpleMethods),
+	}
+	a0 := &SimpleMethods{root: root, id: "a0"}
+	root.simple["a0"] = a0
+	client, srvDone := newRPCClientServer(c, root, nil)
+
+	var ret stringVal
+	arg0 := struct {
+		X map[string]int
+	}{
+		X: map[string]int{"hello": 65},
+	}
+	err := client.Call("SimpleMethods", "a0", "SliceArg", arg0, &ret)
+	c.Assert(err, ErrorMatches, `server error: json: cannot unmarshal object into Go value of type \[\]string`)
+
+	err = client.Call("SimpleMethods", "a0", "SliceArg", arg0, &ret)
+	c.Assert(err, ErrorMatches, `server error: json: cannot unmarshal object into Go value of type \[\]string`)
+
+	arg1 := struct {
+		X []string
+	}{
+		X: []string{"one"},
+	}
+	err = client.Call("SimpleMethods", "a0", "SliceArg", arg1, &ret)
 	c.Assert(err, IsNil)
+	c.Assert(ret.Val, Equals, "SliceArg ret")
+	closeClient(c, client, srvDone)
 }
 
 func (*suite) TestErrorAfterClientClose(c *C) {
@@ -468,14 +489,13 @@ func chanReadError(c *C, ch <-chan error, what string) error {
 
 // newRPCClientServer starts an RPC server serving a connection from a
 // single client.  When the server has finished serving the connection,
-// it sends a value on done.
-func newRPCClientServer(c *C, root interface{}, tfErr func(error) error) (client *rpc.Client, done <-chan error) {
+// it sends a value on the returned channel.
+func newRPCClientServer(c *C, root interface{}, tfErr func(error) error) (*rpc.Client, <-chan error) {
 	srv, err := rpc.NewServer(root, tfErr)
 	c.Assert(err, IsNil)
 
 	l, err := net.Listen("tcp", ":0")
 	c.Assert(err, IsNil)
-	defer l.Close()
 
 	srvDone := make(chan error, 1)
 	go func() {
@@ -484,14 +504,21 @@ func newRPCClientServer(c *C, root interface{}, tfErr func(error) error) (client
 			srvDone <- err
 			return
 		}
+		defer l.Close()
 		err = srv.ServeCodec(NewJSONServerCodec(conn), root)
 		c.Logf("server status: %v", err)
 		srvDone <- err
 	}()
 	conn, err := net.Dial("tcp", l.Addr().String())
 	c.Assert(err, IsNil)
-	client = rpc.NewClientWithCodec(NewJSONClientCodec(conn))
+	client := rpc.NewClientWithCodec(NewJSONClientCodec(conn))
 	return client, srvDone
+}
+
+func closeClient(c *C, client *rpc.Client, srvDone <-chan error) {
+	client.Close()
+	err := chanReadError(c, srvDone, "server done")
+	c.Assert(err, IsNil)
 }
 
 type generalServerCodec struct {
@@ -539,17 +566,17 @@ func (c *generalClientCodec) WriteRequest(req *rpc.Request, x interface{}) error
 	if reflect.ValueOf(x).Kind() != reflect.Struct {
 		panic(fmt.Errorf("WriteRequest bad param; want struct got %T (%#v)", x, x))
 	}
-	log.Printf("send client request header: %#v", req)
+	log.Infof("send client request header: %#v", req)
 	if err := c.enc.Encode(req); err != nil {
 		return err
 	}
-	log.Printf("send client request body: %#v", x)
+	log.Infof("send client request body: %#v", x)
 	return c.enc.Encode(x)
 }
 
 func (c *generalClientCodec) ReadResponseHeader(resp *rpc.Response) error {
 	err := c.dec.Decode(resp)
-	log.Printf("got response header %#v", resp)
+	log.Infof("got response header %#v", resp)
 	return err
 }
 
@@ -562,9 +589,9 @@ func (c *generalClientCodec) ReadResponseBody(r interface{}) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("got response body: %q", m)
+	log.Infof("got response body: %q", m)
 	err = json.Unmarshal(m, r)
-	log.Printf("unmarshalled into %#v", r)
+	log.Infof("unmarshalled into %#v", r)
 	return err
 }
 

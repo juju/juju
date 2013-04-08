@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"launchpad.net/juju-core/environs/local"
@@ -19,29 +20,25 @@ func TestLocal(t *testing.T) {
 	TestingT(t)
 }
 
-type backendSuite struct {
-	listener net.Listener
-	dataDir  string
-}
+type backendSuite struct{}
 
 var _ = Suite(&backendSuite{})
 
-const (
-	environName = "test-environ"
-	portNo      = 60006
-)
+const environName = "test-environ"
 
-func (s *backendSuite) SetUpSuite(c *C) {
-	var err error
-	s.dataDir = c.MkDir()
-	s.listener, err = local.Listen(s.dataDir, environName, "127.0.0.1", portNo)
+var testSetMu sync.Mutex
+
+// nextTestSet returns a new port number, listener and data directory.
+func nextTestSet(c *C) (int, net.Listener, string) {
+	testSetMu.Lock()
+	defer testSetMu.Unlock()
+
+	dataDir := c.MkDir()
+	listener, err := local.Listen(dataDir, environName, "127.0.0.1", 0)
 	c.Assert(err, IsNil)
+	port := listener.Addr().(*net.TCPAddr).Port
 
-	createTestData(c, s.dataDir)
-}
-
-func (s *backendSuite) TearDownSuite(c *C) {
-	s.listener.Close()
+	return port, listener, dataDir
 }
 
 type testCase struct {
@@ -116,6 +113,11 @@ var getTests = []testCase{
 
 func (s *backendSuite) TestGet(c *C) {
 	// Test retrieving a file from a storage.
+	portNo, listener, dataDir := nextTestSet(c)
+	defer listener.Close()
+
+	createTestData(c, dataDir)
+
 	check := func(tc testCase) {
 		url := fmt.Sprintf("http://localhost:%d/%s", portNo, tc.name)
 		resp, err := http.Get(url)
@@ -182,6 +184,11 @@ var listTests = []testCase{
 
 func (s *backendSuite) TestList(c *C) {
 	// Test listing file of a storage.
+	portNo, listener, dataDir := nextTestSet(c)
+	defer listener.Close()
+
+	createTestData(c, dataDir)
+
 	check := func(tc testCase) {
 		url := fmt.Sprintf("http://localhost:%d/%s*", portNo, tc.name)
 		resp, err := http.Get(url)
@@ -224,6 +231,11 @@ var putTests = []testCase{
 
 func (s *backendSuite) TestPut(c *C) {
 	// Test sending a file to the storage.
+	portNo, listener, dataDir := nextTestSet(c)
+	defer listener.Close()
+
+	createTestData(c, dataDir)
+
 	check := func(tc testCase) {
 		url := fmt.Sprintf("http://localhost:%d/%s", portNo, tc.name)
 		req, err := http.NewRequest("PUT", url, bytes.NewBufferString(tc.content))
@@ -237,7 +249,7 @@ func (s *backendSuite) TestPut(c *C) {
 		}
 		c.Assert(resp.StatusCode, Equals, 201)
 
-		fp := filepath.Join(s.dataDir, environName, tc.name)
+		fp := filepath.Join(dataDir, environName, tc.name)
 		b, err := ioutil.ReadFile(fp)
 		c.Assert(err, IsNil)
 		c.Assert(string(b), Equals, tc.content)
@@ -273,8 +285,13 @@ var removeTests = []testCase{
 
 func (s *backendSuite) TestRemove(c *C) {
 	// Test removing a file in the storage.
+	portNo, listener, dataDir := nextTestSet(c)
+	defer listener.Close()
+
+	createTestData(c, dataDir)
+
 	check := func(tc testCase) {
-		fp := filepath.Join(s.dataDir, environName, tc.name)
+		fp := filepath.Join(dataDir, environName, tc.name)
 		dir, _ := filepath.Split(fp)
 		err := os.MkdirAll(dir, 0777)
 		c.Assert(err, IsNil)

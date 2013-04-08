@@ -6,12 +6,14 @@ import (
 	"launchpad.net/goamz/aws"
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
 	"net/http"
@@ -127,7 +129,7 @@ amazon:
 }
 
 func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	log.Printf("environs/ec2: opening environment %q", cfg.Name())
+	log.Infof("environs/ec2: opening environment %q", cfg.Name())
 	e := new(environ)
 	err := e.SetConfig(cfg)
 	if err != nil {
@@ -236,12 +238,23 @@ func (e *environ) PublicStorage() environs.StorageReader {
 	return e.publicStorageUnlocked
 }
 
-func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
+// TODO(thumper): this code is duplicated in ec2 and openstack.  Ideally we
+// should refactor the tools selection criteria with the version that is in
+// environs. The constraints work will require this refactoring.
+func findTools(env *environ) (*state.Tools, error) {
+	flags := environs.HighestVersion | environs.CompatVersion
+	v := version.Current
+	v.Series = env.Config().DefaultSeries()
+	// TODO: set Arch based on constraints (when they are landed)
+	return environs.FindTools(env, v, flags)
+}
+
+func (e *environ) Bootstrap(cons constraints.Value, cert, key []byte) error {
 	password := e.Config().AdminSecret()
 	if password == "" {
 		return fmt.Errorf("admin-secret is required for bootstrap")
 	}
-	log.Printf("environs/ec2: bootstrapping environment %q", e.name)
+	log.Infof("environs/ec2: bootstrapping environment %q", e.name)
 	// If the state file exists, it might actually have just been
 	// removed by Destroy, and eventual consistency has not caught
 	// up yet, so we retry to verify if that is happening.
@@ -258,21 +271,12 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 	if _, notFound := err.(*environs.NotFoundError); !notFound {
 		return fmt.Errorf("cannot query old bootstrap state: %v", err)
 	}
-	var tools *state.Tools
-	if uploadTools {
-		tools, err = environs.PutTools(e.Storage(), nil)
-		if err != nil {
-			return fmt.Errorf("cannot upload tools: %v", err)
-		}
-	} else {
-		flags := environs.HighestVersion | environs.CompatVersion
-		v := version.Current
-		v.Series = e.Config().DefaultSeries()
-		tools, err = environs.FindTools(e, v, flags)
-		if err != nil {
-			return fmt.Errorf("cannot find tools: %v", err)
-		}
+
+	tools, err := findTools(e)
+	if err != nil {
+		return fmt.Errorf("cannot find tools: %v", err)
 	}
+
 	config, err := environs.BootstrapConfig(providerInstance, e.Config(), tools)
 	if err != nil {
 		return fmt.Errorf("unable to determine inital configuration: %v", err)
@@ -281,12 +285,11 @@ func (e *environ) Bootstrap(uploadTools bool, cert, key []byte) error {
 	if !hasCert {
 		return fmt.Errorf("no CA certificate in environment configuration")
 	}
-	v := version.Current
-	v.Series = tools.Series
-	v.Arch = tools.Arch
-	mongoURL := environs.MongoURL(e, v)
+	mongoURL := environs.MongoURL(e, tools.Series, tools.Arch)
 	inst, err := e.startInstance(&startInstanceParams{
-		machineId: "0",
+		machineId:   "0",
+		series:      tools.Series,
+		constraints: cons,
 		info: &state.Info{
 			Password: trivial.PasswordHash(password),
 			CACert:   caCert,
@@ -336,7 +339,7 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 	var apiAddrs []string
 	// Wait for the DNS names of any of the instances
 	// to become available.
-	log.Printf("environs/ec2: waiting for DNS name(s) of state server instances %v", st.StateInstances)
+	log.Infof("environs/ec2: waiting for DNS name(s) of state server instances %v", st.StateInstances)
 	for a := longAttempt.Start(); len(stateAddrs) == 0 && a.Next(); {
 		insts, err := e.Instances(st.StateInstances)
 		if err != nil && err != environs.ErrPartialInstances {
@@ -368,15 +371,21 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 // AssignmentPolicy for EC2 is to deploy units only on machines without other
 // units already assigned, and to launch new machines as required.
 func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
-	return state.AssignUnused
+	// Until we get proper containers to install units into, we shouldn't
+	// reuse dirty machines, as we cannot guarantee that when units were
+	// removed, it was left in a clean state.  Once we have good
+	// containerisation for the units, we should be able to have the ability
+	// to assign back to unused machines.
+	return state.AssignNew
 }
 
-func (e *environ) StartInstance(machineId string, info *state.Info, apiInfo *api.Info, tools *state.Tools) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
 	return e.startInstance(&startInstanceParams{
-		machineId: machineId,
-		info:      info,
-		apiInfo:   apiInfo,
-		tools:     tools,
+		machineId:   machineId,
+		series:      series,
+		constraints: cons,
+		info:        info,
+		apiInfo:     apiInfo,
 	})
 }
 
@@ -395,6 +404,7 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 		MachineId:       scfg.machineId,
 		AuthorizedKeys:  e.ecfg().AuthorizedKeys(),
 		Config:          scfg.config,
+		Constraints:     scfg.constraints,
 	}
 	cloudcfg, err := cloudinit.New(cfg)
 	if err != nil {
@@ -411,6 +421,8 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 
 type startInstanceParams struct {
 	machineId       string
+	series          string
+	constraints     constraints.Value
 	info            *state.Info
 	apiInfo         *api.Info
 	tools           *state.Tools
@@ -424,24 +436,28 @@ type startInstanceParams struct {
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself.
 func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, error) {
+	// TODO(fwereade): choose tools *after* getting an instance spec; take series
+	// from scfg and available arches from list of known and compatible tools.
 	if scfg.tools == nil {
 		var err error
 		flags := environs.HighestVersion | environs.CompatVersion
-		scfg.tools, err = environs.FindTools(e, version.Current, flags)
+		v := version.Current
+		v.Series = scfg.series
+		scfg.tools, err = environs.FindTools(e, v, flags)
 		if err != nil {
 			return nil, err
 		}
 	}
-	log.Printf("environs/ec2: starting machine %s in %q running tools version %q from %q", scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
+	log.Infof("environs/ec2: starting machine %s in %q running tools version %q from %q", scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
 	spec, err := findInstanceSpec(&instanceConstraint{
-		series: scfg.tools.Series,
-		arch:   scfg.tools.Arch,
-		region: e.ecfg().region(),
+		region:      e.ecfg().region(),
+		series:      scfg.series,
+		arches:      []string{scfg.tools.Arch},
+		constraints: scfg.constraints,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("cannot find image satisfying constraints: %v", err)
+		return nil, err
 	}
-	// TODO quick sanity check that we can access the tools URL?
 	userData, err := e.userData(scfg)
 	if err != nil {
 		return nil, fmt.Errorf("cannot make user data: %v", err)
@@ -454,11 +470,11 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 
 	for a := shortAttempt.Start(); a.Next(); {
 		instances, err = e.ec2().RunInstances(&ec2.RunInstances{
-			ImageId:        spec.imageId,
+			ImageId:        spec.image.id,
 			MinCount:       1,
 			MaxCount:       1,
 			UserData:       userData,
-			InstanceType:   "m1.small",
+			InstanceType:   spec.instanceType,
 			SecurityGroups: groups,
 		})
 		if err == nil || ec2ErrCode(err) != "InvalidGroup.NotFound" {
@@ -472,7 +488,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 		return nil, fmt.Errorf("expected 1 started instance, got %d", len(instances.Instances))
 	}
 	inst := &instance{e, &instances.Instances[0]}
-	log.Printf("environs/ec2: started instance %q", inst.Id())
+	log.Infof("environs/ec2: started instance %q", inst.Id())
 	return inst, nil
 }
 
@@ -578,7 +594,7 @@ func (e *environ) AllInstances() ([]environs.Instance, error) {
 }
 
 func (e *environ) Destroy(ensureInsts []environs.Instance) error {
-	log.Printf("environs/ec2: destroying environment %q", e.name)
+	log.Infof("environs/ec2: destroying environment %q", e.name)
 	insts, err := e.AllInstances()
 	if err != nil {
 		return fmt.Errorf("cannot get instances: %v", err)
@@ -611,7 +627,7 @@ func (e *environ) Destroy(ensureInsts []environs.Instance) error {
 	return st.deleteAll()
 }
 
-func portsToIPPerms(ports []state.Port) []ec2.IPPerm {
+func portsToIPPerms(ports []params.Port) []ec2.IPPerm {
 	ipPerms := make([]ec2.IPPerm, len(ports))
 	for i, p := range ports {
 		ipPerms[i] = ec2.IPPerm{
@@ -624,7 +640,7 @@ func portsToIPPerms(ports []state.Port) []ec2.IPPerm {
 	return ipPerms
 }
 
-func (e *environ) openPortsInGroup(name string, ports []state.Port) error {
+func (e *environ) openPortsInGroup(name string, ports []params.Port) error {
 	if len(ports) == 0 {
 		return nil
 	}
@@ -654,7 +670,7 @@ func (e *environ) openPortsInGroup(name string, ports []state.Port) error {
 	return nil
 }
 
-func (e *environ) closePortsInGroup(name string, ports []state.Port) error {
+func (e *environ) closePortsInGroup(name string, ports []params.Port) error {
 	if len(ports) == 0 {
 		return nil
 	}
@@ -669,7 +685,7 @@ func (e *environ) closePortsInGroup(name string, ports []state.Port) error {
 	return nil
 }
 
-func (e *environ) portsInGroup(name string) (ports []state.Port, err error) {
+func (e *environ) portsInGroup(name string) (ports []params.Port, err error) {
 	g := ec2.SecurityGroup{Name: name}
 	resp, err := e.ec2().SecurityGroups([]ec2.SecurityGroup{g}, nil)
 	if err != nil {
@@ -680,11 +696,11 @@ func (e *environ) portsInGroup(name string) (ports []state.Port, err error) {
 	}
 	for _, p := range resp.Groups[0].IPPerms {
 		if len(p.SourceIPs) != 1 {
-			log.Printf("environs/ec2: unexpected IP permission found: %v", p)
+			log.Warningf("environs/ec2: unexpected IP permission found: %v", p)
 			continue
 		}
 		for i := p.FromPort; i <= p.ToPort; i++ {
-			ports = append(ports, state.Port{
+			ports = append(ports, params.Port{
 				Protocol: p.Protocol,
 				Number:   i,
 			})
@@ -694,7 +710,7 @@ func (e *environ) portsInGroup(name string) (ports []state.Port, err error) {
 	return ports, nil
 }
 
-func (e *environ) OpenPorts(ports []state.Port) error {
+func (e *environ) OpenPorts(ports []params.Port) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode for opening ports on environment: %q",
 			e.Config().FirewallMode())
@@ -702,11 +718,11 @@ func (e *environ) OpenPorts(ports []state.Port) error {
 	if err := e.openPortsInGroup(e.globalGroupName(), ports); err != nil {
 		return err
 	}
-	log.Printf("environs/ec2: opened ports in global group: %v", ports)
+	log.Infof("environs/ec2: opened ports in global group: %v", ports)
 	return nil
 }
 
-func (e *environ) ClosePorts(ports []state.Port) error {
+func (e *environ) ClosePorts(ports []params.Port) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode for closing ports on environment: %q",
 			e.Config().FirewallMode())
@@ -714,11 +730,11 @@ func (e *environ) ClosePorts(ports []state.Port) error {
 	if err := e.closePortsInGroup(e.globalGroupName(), ports); err != nil {
 		return err
 	}
-	log.Printf("environs/ec2: closed ports in global group: %v", ports)
+	log.Infof("environs/ec2: closed ports in global group: %v", ports)
 	return nil
 }
 
-func (e *environ) Ports() ([]state.Port, error) {
+func (e *environ) Ports() ([]params.Port, error) {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from environment: %q",
 			e.Config().FirewallMode())
@@ -777,7 +793,7 @@ func (e *environ) jujuGroupName() string {
 	return "juju-" + e.name
 }
 
-func (inst *instance) OpenPorts(machineId string, ports []state.Port) error {
+func (inst *instance) OpenPorts(machineId string, ports []params.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for opening ports on instance: %q",
 			inst.e.Config().FirewallMode())
@@ -786,11 +802,11 @@ func (inst *instance) OpenPorts(machineId string, ports []state.Port) error {
 	if err := inst.e.openPortsInGroup(name, ports); err != nil {
 		return err
 	}
-	log.Printf("environs/ec2: opened ports in security group %s: %v", name, ports)
+	log.Infof("environs/ec2: opened ports in security group %s: %v", name, ports)
 	return nil
 }
 
-func (inst *instance) ClosePorts(machineId string, ports []state.Port) error {
+func (inst *instance) ClosePorts(machineId string, ports []params.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for closing ports on instance: %q",
 			inst.e.Config().FirewallMode())
@@ -799,11 +815,11 @@ func (inst *instance) ClosePorts(machineId string, ports []state.Port) error {
 	if err := inst.e.closePortsInGroup(name, ports); err != nil {
 		return err
 	}
-	log.Printf("environs/ec2: closed ports in security group %s: %v", name, ports)
+	log.Infof("environs/ec2: closed ports in security group %s: %v", name, ports)
 	return nil
 }
 
-func (inst *instance) Ports(machineId string) ([]state.Port, error) {
+func (inst *instance) Ports(machineId string) ([]params.Port, error) {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from instance: %q",
 			inst.e.Config().FirewallMode())

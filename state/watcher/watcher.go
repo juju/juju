@@ -72,6 +72,21 @@ func (k watchKey) String() string {
 	return fmt.Sprintf("document %v in %s", k.id, coll)
 }
 
+// match returns whether the receiving watch key,
+// which may refer to a particular item or
+// an entire collection, matches k1, which refers
+// to a particular item.
+func (k watchKey) match(k1 watchKey) bool {
+	if k.c != k1.c {
+		return false
+	}
+	if k.id == nil {
+		// k refers to entire collection
+		return true
+	}
+	return k.id == k1.id
+}
+
 type watchInfo struct {
 	ch    chan<- Change
 	revno int64
@@ -187,8 +202,9 @@ func (w *Watcher) Sync() {
 	}
 }
 
-// period is the delay between each sync.
-var period time.Duration = 5 * time.Second
+// Period is the delay between each sync.
+// It must not be changed when any watchers are active.
+var Period time.Duration = 5 * time.Second
 
 // loop implements the main watcher loop.
 func (w *Watcher) loop() error {
@@ -201,7 +217,7 @@ func (w *Watcher) loop() error {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-w.next:
-			w.next = time.After(period)
+			w.next = time.After(Period)
 			syncDone := w.syncDone
 			w.syncDone = nil
 			if err := w.sync(); err != nil {
@@ -293,13 +309,13 @@ func (w *Watcher) handle(req interface{}) {
 		}
 		for i := range w.requestEvents {
 			e := &w.requestEvents[i]
-			if e.key == r.key && e.ch == r.ch {
+			if r.key.match(e.key) && e.ch == r.ch {
 				e.ch = nil
 			}
 		}
 		for i := range w.syncEvents {
 			e := &w.syncEvents[i]
-			if e.key == r.key && e.ch == r.ch {
+			if r.key.match(e.key) && e.ch == r.ch {
 				e.ch = nil
 			}
 		}
@@ -332,7 +348,6 @@ func (w *Watcher) initLastId() error {
 // sync updates the watcher knowledge from the database, and
 // queues events to observing channels.
 func (w *Watcher) sync() error {
-	log.Debugf("state/watcher: loading new events from changelog collection...")
 	// Iterate through log events in reverse insertion order (newest first).
 	iter := w.log.Find(nil).Batch(10).Sort("-$natural").Iter()
 	seen := make(map[watchKey]bool)
@@ -369,7 +384,7 @@ func (w *Watcher) sync() error {
 				}
 			}
 			if len(d) == 0 || len(d) != len(r) {
-				log.Printf("state/watcher: changelog has invalid collection document: %#v", c)
+				log.Warningf("state/watcher: changelog has invalid collection document: %#v", c)
 				continue
 			}
 			for i := len(d) - 1; i >= 0; i-- {
@@ -380,7 +395,7 @@ func (w *Watcher) sync() error {
 				seen[key] = true
 				revno, ok := r[i].(int64)
 				if !ok {
-					log.Printf("state/watcher: changelog has revno with type %T: %#v", r[i], r[i])
+					log.Warningf("state/watcher: changelog has revno with type %T: %#v", r[i], r[i])
 					continue
 				}
 				if revno < 0 {

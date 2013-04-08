@@ -5,32 +5,51 @@ import (
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/trivial"
 	"net/http"
+	"time"
 )
 
+// This provides the content for code accessing test:///... URLs. This allows
+// us to set the responses for things like the Metadata server, by pointing
+// metadata requests at test:///... rather than http://169.254.169.254
+var testRoundTripper = &jujutest.ProxyRoundTripper{}
+
 func init() {
-	http.DefaultTransport.(*http.Transport).RegisterProtocol("file", http.NewFileTransport(http.Dir("testdata")))
+	http.DefaultTransport.(*http.Transport).RegisterProtocol("test", testRoundTripper)
 }
 
 var origMetadataHost = metadataHost
 
-func UseTestMetadata(local bool) {
-	if local {
-		metadataHost = "file:"
-	} else {
-		metadataHost = origMetadataHost
-	}
+var metadataContent = `{"uuid": "d8e02d56-2648-49a3-bf97-6be8f1204f38",` +
+	`"availability_zone": "nova", "hostname": "test.novalocal", ` +
+	`"launch_index": 0, "meta": {"priority": "low", "role": "webserver"}, ` +
+	`"public_keys": {"mykey": "ssh-rsa fake-key\n"}, "name": "test"}`
+
+// A group of canned responses for the "metadata server". These match
+// reasonably well with the results of making those requests on a Folsom+
+// Openstack service
+var MetadataTestingBase = []jujutest.FileContent{
+	{"/latest/meta-data/instance-id", "i-000abc"},
+	{"/latest/meta-data/local-ipv4", "10.1.1.2"},
+	{"/latest/meta-data/public-ipv4", "203.1.1.2"},
+	{"/openstack/2012-08-10/meta_data.json", metadataContent},
 }
 
-var origMetadataJSON = metadataJSON
+// This is the same as MetadataTestingBase, but it doesn't have the openstack
+// 2012-08-08 API. This matches what is available in HP Cloud.
+var MetadataHP = MetadataTestingBase[:len(MetadataTestingBase)-1]
 
-func UseMetadataJSON(path string) {
-	if path != "" {
-		metadataJSON = path
+// Set Metadata requests to be served by the filecontent supplied.
+func UseTestMetadata(metadata []jujutest.FileContent) {
+	if len(metadata) != 0 {
+		testRoundTripper.Sub = jujutest.NewVirtualRoundTripper(metadata)
+		metadataHost = "test:"
 	} else {
-		metadataJSON = origMetadataJSON
+		testRoundTripper.Sub = nil
+		metadataHost = origMetadataHost
 	}
 }
 
@@ -43,8 +62,8 @@ var originalLongAttempt = longAttempt
 func ShortTimeouts(short bool) {
 	if short {
 		shortAttempt = trivial.AttemptStrategy{
-			Total: 0.25e9,
-			Delay: 0.01e9,
+			Total: 100 * time.Millisecond,
+			Delay: 10 * time.Millisecond,
 		}
 		longAttempt = shortAttempt
 	} else {

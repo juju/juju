@@ -37,9 +37,9 @@ func (c *AgentConf) checkArgs(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-func (c *AgentConf) read(entityName string) error {
+func (c *AgentConf) read(tag string) error {
 	var err error
-	c.Conf, err = agent.ReadConf(c.dataDir, entityName)
+	c.Conf, err = agent.ReadConf(c.dataDir, tag)
 	return err
 }
 
@@ -71,7 +71,7 @@ waiting:
 		select {
 		case info := <-done:
 			if info.err != nil {
-				log.Printf("cmd/jujud: %s: %v", tasks[info.index], info.err)
+				log.Errorf("cmd/jujud: %s: %v", tasks[info.index], info.err)
 				logged[info.index] = true
 				err = info.err
 				break waiting
@@ -85,7 +85,7 @@ waiting:
 	for i, t := range tasks {
 		err1 := t.Stop()
 		if !logged[i] && err1 != nil {
-			log.Printf("cmd/jujud: %s: %v", t, err1)
+			log.Errorf("cmd/jujud: %s: %v", t, err1)
 			logged[i] = true
 		}
 		if moreImportant(err1, err) {
@@ -125,31 +125,31 @@ type Agent interface {
 	Tomb() *tomb.Tomb
 	RunOnce(st *state.State, entity AgentState) error
 	Entity(st *state.State) (AgentState, error)
-	EntityName() string
+	Tag() string
 }
 
 // runLoop repeatedly calls runOnce until it returns worker.ErrDead or
 // an upgraded error, or a value is received on stop.
 func runLoop(runOnce func() error, stop <-chan struct{}) error {
-	log.Printf("cmd/jujud: agent starting")
+	log.Noticef("cmd/jujud: agent starting")
 	for {
 		err := runOnce()
 		if err == worker.ErrDead {
-			log.Printf("cmd/jujud: entity is dead")
+			log.Noticef("cmd/jujud: entity is dead")
 			return nil
 		}
 		if isFatal(err) {
 			return err
 		}
 		if err == nil {
-			log.Printf("cmd/jujud: agent died with no error")
+			log.Errorf("cmd/jujud: agent died with no error")
 		} else {
-			log.Printf("cmd/jujud: %v", err)
+			log.Errorf("cmd/jujud: %v", err)
 		}
 		if !isleep(retryDelay, stop) {
 			return nil
 		}
-		log.Printf("cmd/jujud: rerunning agent")
+		log.Noticef("cmd/jujud: rerunning agent")
 	}
 	panic("unreachable")
 }
@@ -225,7 +225,7 @@ func openState(c *agent.Conf, a Agent) (_ *state.State, _ AgentState, err error)
 		// Ensure we do not lose changes made by another
 		// worker by re-reading the configuration and changing
 		// only the password.
-		c1, err := agent.ReadConf(c.DataDir, c.EntityName())
+		c1, err := agent.ReadConf(c.DataDir, c.Tag())
 		if err != nil {
 			return nil, nil, err
 		}
@@ -241,24 +241,19 @@ func openState(c *agent.Conf, a Agent) (_ *state.State, _ AgentState, err error)
 	return st, entity, nil
 }
 
-// newDeployManager gives the tests the opportunity to create a deployer.Manager
+// newDeployContext gives the tests the opportunity to create a deployer.Context
 // that can be used for testing so as to avoid (1) deploying units to the system
 // running the tests and (2) get access to the *State used internally, so that
-// tests can be run without waiting for the 5s watcher refresh time we would
-// otherwise be restricted to. When not testing, st is unused.
-var newDeployManager = func(st *state.State, info *state.Info, dataDir string) deployer.Manager {
-	// TODO: pick manager kind based on entity name? (once we have a
-	// container manager for prinicpal units, that is; for now, there
+// tests can be run without waiting for the 5s watcher refresh time to which we would
+// otherwise be restricted.
+var newDeployContext = func(st *state.State, dataDir string, deployerName string) deployer.Context {
+	// TODO: pick context kind based on entity name? (once we have a
+	// container context for principal units, that is; for now, there
 	// is no distinction between principal and subordinate deployments)
-	return deployer.NewSimpleManager(info, dataDir)
+	return deployer.NewSimpleContext(dataDir, st.CACert(), deployerName, st)
 }
 
 func newDeployer(st *state.State, w *state.UnitsWatcher, dataDir string) *deployer.Deployer {
-	info := &state.Info{
-		EntityName: w.EntityName(),
-		Addrs:      st.Addrs(),
-		CACert:     st.CACert(),
-	}
-	mgr := newDeployManager(st, info, dataDir)
-	return deployer.NewDeployer(st, mgr, w)
+	ctx := newDeployContext(st, dataDir, w.Tag())
+	return deployer.NewDeployer(st, ctx, w)
 }

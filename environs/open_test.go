@@ -2,14 +2,19 @@ package environs_test
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	_ "launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/testing"
 )
 
 type OpenSuite struct{}
 
 var _ = Suite(&OpenSuite{})
+
+func (OpenSuite) TearDownTest(c *C) {
+	dummy.Reset()
+}
 
 func (OpenSuite) TestNewDummyEnviron(c *C) {
 	// matches *Settings.Map()
@@ -24,7 +29,7 @@ func (OpenSuite) TestNewDummyEnviron(c *C) {
 	}
 	env, err := environs.NewFromAttrs(config)
 	c.Assert(err, IsNil)
-	c.Assert(env.Bootstrap(false, nil, nil), IsNil)
+	c.Assert(env.Bootstrap(constraints.Value{}, nil, nil), IsNil)
 }
 
 func (OpenSuite) TestNewUnknownEnviron(c *C) {
@@ -37,4 +42,19 @@ func (OpenSuite) TestNewUnknownEnviron(c *C) {
 	})
 	c.Assert(err, ErrorMatches, "no registered provider for.*")
 	c.Assert(env, IsNil)
+}
+
+func (OpenSuite) TestNewFromNameNoDefault(c *C) {
+	defer testing.MakeFakeHome(c, testing.MultipleEnvConfigNoDefault, testing.SampleCertName).Restore()
+
+	_, err := environs.NewFromName("")
+	c.Assert(err, ErrorMatches, "no default environment found")
+}
+
+func (OpenSuite) TestNewFromNameGetDefault(c *C) {
+	defer testing.MakeFakeHome(c, testing.SingleEnvConfig, testing.SampleCertName).Restore()
+
+	e, err := environs.NewFromName("")
+	c.Assert(err, IsNil)
+	c.Assert(e.Name(), Equals, "erewhemos")
 }

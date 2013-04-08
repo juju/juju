@@ -35,7 +35,8 @@ func (s *UtilSuite) TestGetSystemIdValues(c *C) {
 }
 
 func (s *UtilSuite) TestUserData(c *C) {
-
+	testJujuHome := c.MkDir()
+	defer config.SetJujuHome(config.SetJujuHome(testJujuHome))
 	tools := &state.Tools{
 		URL:    "http://foo.com/tools/juju1.2.3-linux-amd64.tgz",
 		Binary: version.MustParseBinary("1.2.3-linux-amd64"),

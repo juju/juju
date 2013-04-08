@@ -10,21 +10,10 @@ import (
 )
 
 type LogSuite struct {
-	restoreLog func()
+	testing.LoggingSuite
 }
 
 var _ = Suite(&LogSuite{})
-
-func (s *LogSuite) SetUpTest(c *C) {
-	target, debug := log.Target, log.Debug
-	s.restoreLog = func() {
-		log.Target, log.Debug = target, debug
-	}
-}
-
-func (s *LogSuite) TearDownTest(c *C) {
-	s.restoreLog()
-}
 
 func (s *LogSuite) TestAddFlags(c *C) {
 	l := &cmd.Log{}
@@ -49,7 +38,7 @@ func (s *LogSuite) TestStart(c *C) {
 		path    string
 		verbose bool
 		debug   bool
-		target  Checker
+		check   Checker
 	}{
 		{"", true, true, NotNil},
 		{"", true, false, NotNil},
@@ -60,45 +49,48 @@ func (s *LogSuite) TestStart(c *C) {
 		{"foo", false, true, NotNil},
 		{"foo", false, false, NotNil},
 	} {
-		l := &cmd.Log{t.path, t.verbose, t.debug}
+		// commands always start with the log target set to its zero value.
+		log.SetTarget(nil)
+
+		l := &cmd.Log{Prefix: "test", Path: t.path, Verbose: t.verbose, Debug: t.debug}
 		ctx := testing.Context(c)
 		err := l.Start(ctx)
 		c.Assert(err, IsNil)
-		c.Assert(log.Target, t.target)
+		c.Assert(log.Target(), t.check)
 		c.Assert(log.Debug, Equals, t.debug)
 	}
 }
 
 func (s *LogSuite) TestStderr(c *C) {
-	l := &cmd.Log{Verbose: true}
+	l := &cmd.Log{Prefix: "test", Verbose: true}
 	ctx := testing.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, IsNil)
-	log.Printf("hello")
-	c.Assert(bufferString(ctx.Stderr), Matches, `.* JUJU hello\n`)
+	log.Infof("hello")
+	c.Assert(bufferString(ctx.Stderr), Matches, `^.* INFO JUJU:test hello\n`)
 }
 
 func (s *LogSuite) TestRelPathLog(c *C) {
-	l := &cmd.Log{Path: "foo.log"}
+	l := &cmd.Log{Prefix: "test", Path: "foo.log"}
 	ctx := testing.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, IsNil)
-	log.Printf("hello")
+	log.Infof("hello")
 	c.Assert(bufferString(ctx.Stderr), Equals, "")
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "foo.log"))
 	c.Assert(err, IsNil)
-	c.Assert(string(content), Matches, `.* JUJU hello\n`)
+	c.Assert(string(content), Matches, `^.* INFO JUJU:test hello\n`)
 }
 
 func (s *LogSuite) TestAbsPathLog(c *C) {
 	path := filepath.Join(c.MkDir(), "foo.log")
-	l := &cmd.Log{Path: path}
+	l := &cmd.Log{Prefix: "test", Path: path}
 	ctx := testing.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, IsNil)
-	log.Printf("hello")
+	log.Infof("hello")
 	c.Assert(bufferString(ctx.Stderr), Equals, "")
 	content, err := ioutil.ReadFile(path)
 	c.Assert(err, IsNil)
-	c.Assert(string(content), Matches, `.* JUJU hello\n`)
+	c.Assert(string(content), Matches, `^.* INFO JUJU:test hello\n`)
 }

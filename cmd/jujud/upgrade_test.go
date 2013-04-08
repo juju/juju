@@ -307,7 +307,7 @@ func (as testAgentState) SetAgentTools(tools *state.Tools) error {
 	return nil
 }
 
-func (as testAgentState) EntityName() string {
+func (as testAgentState) Tag() string {
 	return "testagent"
 }
 

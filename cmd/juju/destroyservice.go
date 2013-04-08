@@ -2,15 +2,16 @@ package main
 
 import (
 	"fmt"
-	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/statecmd"
 )
 
 // DestroyServiceCommand causes an existing service to be destroyed.
 type DestroyServiceCommand struct {
-	EnvName     string
+	EnvCommandBase
 	ServiceName string
 }
 
@@ -21,10 +22,6 @@ func (c *DestroyServiceCommand) Info() *cmd.Info {
 		Purpose: "destroy a service",
 		Doc:     "Destroying a service will destroy all its units and relations.",
 	}
-}
-
-func (c *DestroyServiceCommand) SetFlags(f *gnuflag.FlagSet) {
-	addEnvironFlags(&c.EnvName, f)
 }
 
 func (c *DestroyServiceCommand) Init(args []string) error {
@@ -44,9 +41,9 @@ func (c *DestroyServiceCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer conn.Close()
-	svc, err := conn.State.Service(c.ServiceName)
-	if err != nil {
-		return err
+
+	params := params.ServiceDestroy{
+		ServiceName: c.ServiceName,
 	}
-	return svc.Destroy()
+	return statecmd.ServiceDestroy(conn.State, params)
 }

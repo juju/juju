@@ -25,6 +25,9 @@ const (
 	// When ports are opened for one machine, all machines will have the same
 	// port opened.
 	FwGlobal FirewallMode = "global"
+
+	// DefaultSeries returns the most recent Ubuntu LTS release name.
+	DefaultSeries string = "precise"
 )
 
 // Config holds an immutable environment configuration.
@@ -71,7 +74,7 @@ func New(attrs map[string]interface{}) (*Config, error) {
 	}
 
 	if c.m["default-series"].(string) == "" {
-		c.m["default-series"] = version.Current.Series
+		c.m["default-series"] = DefaultSeries
 	}
 
 	// Load authorized-keys-path into authorized-keys if necessary.
@@ -112,7 +115,7 @@ func New(attrs map[string]interface{}) (*Config, error) {
 			return nil, fmt.Errorf("invalid agent version in environment configuration: %q", v)
 		}
 	} else {
-		c.m["agent-version"] = version.Current.Number.String()
+		c.m["agent-version"] = version.CurrentNumber().String()
 	}
 
 	// Check firewall mode.
@@ -161,7 +164,7 @@ func maybeReadFile(m map[string]interface{}, attr, defaultPath string) ([]byte, 
 	}
 	path = expandTilde(path)
 	if !filepath.IsAbs(path) {
-		path = filepath.Join(os.Getenv("HOME"), ".juju", path)
+		path = JujuHomePath(path)
 	}
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -294,7 +297,7 @@ var fields = schema.Fields{
 }
 
 var defaults = schema.Defaults{
-	"default-series":            version.Current.Series,
+	"default-series":            DefaultSeries,
 	"authorized-keys":           "",
 	"authorized-keys-path":      "",
 	"firewall-mode":             FwDefault,

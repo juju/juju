@@ -8,6 +8,7 @@ import (
 
 // RelationGetCommand implements the relation-get command.
 type RelationGetCommand struct {
+	cmd.CommandBase
 	ctx        Context
 	RelationId int
 	Key        string

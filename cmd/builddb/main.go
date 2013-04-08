@@ -6,8 +6,8 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/state"
-	corelog "log"
+	"launchpad.net/juju-core/state/api/params"
+	stdlog "log"
 	"os"
 	"path/filepath"
 	"time"
@@ -19,18 +19,15 @@ import (
 )
 
 func main() {
-	log.Target = corelog.New(os.Stdout, "", corelog.LstdFlags)
+	log.SetTarget(stdlog.New(os.Stdout, "", stdlog.LstdFlags))
 	if err := build(); err != nil {
-		corelog.Fatalf("error: %v", err)
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
 	}
 }
 
 func build() error {
 	environ, err := environs.NewFromName("")
-	if err != nil {
-		return err
-	}
-	err = environs.Bootstrap(environ, true, nil)
 	if err != nil {
 		return err
 	}
@@ -56,14 +53,14 @@ func build() error {
 		return err
 	}
 
-	log.Printf("builddb: Waiting for unit to reach %q status...", state.UnitStarted)
+	log.Infof("builddb: Waiting for unit to reach %q status...", params.UnitStarted)
 	unit := units[0]
 	last, info, err := unit.Status()
 	if err != nil {
 		return err
 	}
 	logStatus(last, info)
-	for last != state.UnitStarted {
+	for last != params.UnitStarted {
 		time.Sleep(2 * time.Second)
 		if err := unit.Refresh(); err != nil {
 			return err
@@ -81,15 +78,15 @@ func build() error {
 	if !ok {
 		return fmt.Errorf("cannot retrieve files: build unit lacks a public-address")
 	}
-	log.Printf("builddb: Built files published at http://%s", addr)
-	log.Printf("builddb: Remember to destroy the environment when you're done...")
+	log.Noticef("builddb: Built files published at http://%s", addr)
+	log.Noticef("builddb: Remember to destroy the environment when you're done...")
 	return nil
 }
 
-func logStatus(status state.UnitStatus, info string) {
+func logStatus(status params.UnitStatus, info string) {
 	if info == "" {
-		log.Printf("builddb: Unit status is %q", status)
+		log.Infof("builddb: Unit status is %q", status)
 	} else {
-		log.Printf("builddb: Unit status is %q: %s", status, info)
+		log.Infof("builddb: Unit status is %q: %s", status, info)
 	}
 }

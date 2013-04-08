@@ -15,12 +15,15 @@ type EnvironProviderSuite struct {
 var _ = Suite(new(EnvironProviderSuite))
 
 func (suite *EnvironProviderSuite) TestSecretAttrsReturnsSensitiveMAASAttributes(c *C) {
+	testJujuHome := c.MkDir()
+	defer config.SetJujuHome(config.SetJujuHome(testJujuHome))
 	const oauth = "aa:bb:cc"
 	attrs := map[string]interface{}{
-		"maas-oauth":  oauth,
-		"maas-server": "http://maas.example.com/maas/api/1.0/",
-		"name":        "wheee",
-		"type":        "maas",
+		"maas-oauth":      oauth,
+		"maas-server":     "http://maas.example.com/maas/api/1.0/",
+		"name":            "wheee",
+		"type":            "maas",
+		"authorized-keys": "I-am-not-a-real-key",
 	}
 	config, err := config.New(attrs)
 	c.Assert(err, IsNil)

@@ -12,17 +12,17 @@ import (
 // to changes in a set of state units; and for the final removal of its agents'
 // units from state when they are no longer needed.
 type Deployer struct {
-	tomb       tomb.Tomb
-	st         *state.State
-	mgr        Manager
-	entityName string
-	deployed   map[string]bool
+	tomb     tomb.Tomb
+	st       *state.State
+	ctx      Context
+	tag      string
+	deployed map[string]bool
 }
 
-// Manager abstracts away the differences between different unit deployment
-// strategies; where a Deployer is responsible for what to deploy, a Manager
+// Context abstracts away the differences between different unit deployment
+// strategies; where a Deployer is responsible for what to deploy, a Context
 // is responsible for how to deploy.
-type Manager interface {
+type Context interface {
 
 	// DeployUnit causes the agent for the specified unit to be started and run
 	// continuously until further notice without further intervention. It will
@@ -39,13 +39,13 @@ type Manager interface {
 }
 
 // NewDeployer returns a Deployer that deploys and recalls unit agents via
-// mgr, according to membership and lifecycle changes notified by w.
-func NewDeployer(st *state.State, mgr Manager, w *state.UnitsWatcher) *Deployer {
+// ctx, according to membership and lifecycle changes notified by w.
+func NewDeployer(st *state.State, ctx Context, w *state.UnitsWatcher) *Deployer {
 	d := &Deployer{
-		st:         st,
-		mgr:        mgr,
-		entityName: w.EntityName(),
-		deployed:   map[string]bool{},
+		st:       st,
+		ctx:      ctx,
+		tag:      w.Tag(),
+		deployed: map[string]bool{},
 	}
 	go func() {
 		defer d.tomb.Done()
@@ -56,7 +56,7 @@ func NewDeployer(st *state.State, mgr Manager, w *state.UnitsWatcher) *Deployer 
 }
 
 func (d *Deployer) String() string {
-	return "deployer for " + d.entityName
+	return "deployer for " + d.tag
 }
 
 func (d *Deployer) Stop() error {
@@ -72,7 +72,7 @@ func (d *Deployer) Wait() error {
 // indicated by its state.
 func (d *Deployer) changed(unitName string) error {
 	// Determine unit life state, and whether we're responsible for it.
-	log.Printf("worker/deployer: checking unit %q", unitName)
+	log.Infof("worker/deployer: checking unit %q", unitName)
 	var life state.Life
 	responsible := false
 	unit, err := d.st.Unit(unitName)
@@ -82,8 +82,8 @@ func (d *Deployer) changed(unitName string) error {
 		return err
 	} else {
 		life = unit.Life()
-		if deployerName, ok := unit.DeployerName(); ok {
-			responsible = deployerName == d.entityName
+		if deployerTag, ok := unit.DeployerTag(); ok {
+			responsible = deployerTag == d.tag
 		}
 	}
 	// Deployed units must be removed if they're Dead, or if the deployer
@@ -116,7 +116,7 @@ func (d *Deployer) deploy(unit *state.Unit) error {
 	if d.deployed[unit.Name()] {
 		panic("must not re-deploy a deployed unit")
 	}
-	log.Printf("worker/deployer: deploying unit %q", unit)
+	log.Infof("worker/deployer: deploying unit %q", unit)
 	initialPassword, err := trivial.RandomPassword()
 	if err != nil {
 		return err
@@ -124,7 +124,7 @@ func (d *Deployer) deploy(unit *state.Unit) error {
 	if err := unit.SetMongoPassword(initialPassword); err != nil {
 		return err
 	}
-	if err := d.mgr.DeployUnit(unitName, initialPassword); err != nil {
+	if err := d.ctx.DeployUnit(unitName, initialPassword); err != nil {
 		return err
 	}
 	d.deployed[unitName] = true
@@ -137,8 +137,8 @@ func (d *Deployer) recall(unitName string) error {
 	if !d.deployed[unitName] {
 		panic("must not recall a unit that is not deployed")
 	}
-	log.Printf("worker/deployer: recalling unit %q", unitName)
-	if err := d.mgr.RecallUnit(unitName); err != nil {
+	log.Infof("worker/deployer: recalling unit %q", unitName)
+	if err := d.ctx.RecallUnit(unitName); err != nil {
 		return err
 	}
 	delete(d.deployed, unitName)
@@ -153,7 +153,7 @@ func (d *Deployer) remove(unit *state.Unit) error {
 	} else if unit.Life() == state.Alive {
 		panic("must not remove an Alive unit")
 	}
-	log.Printf("worker/deployer: removing unit %q", unit)
+	log.Infof("worker/deployer: removing unit %q", unit)
 	if err := unit.EnsureDead(); err != nil {
 		return err
 	}
@@ -161,7 +161,7 @@ func (d *Deployer) remove(unit *state.Unit) error {
 }
 
 func (d *Deployer) loop(w *state.UnitsWatcher) error {
-	deployed, err := d.mgr.DeployedUnits()
+	deployed, err := d.ctx.DeployedUnits()
 	if err != nil {
 		return err
 	}

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
+	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/trivial"
 	"time"
@@ -46,6 +48,7 @@ func (job MachineJob) String() string {
 }
 
 // machineDoc represents the internal state of a machine in MongoDB.
+// Note the correspondence with MachineInfo in state/api/params.
 type machineDoc struct {
 	Id           string `bson:"_id"`
 	Series       string
@@ -56,20 +59,27 @@ type machineDoc struct {
 	TxnRevno     int64  `bson:"txn-revno"`
 	Jobs         []MachineJob
 	PasswordHash string
-	Annotations  map[string]string
+}
+
+// machineStatusDoc represents the internal state of a machine status in MongoDB.
+// The implicit _id field is explicitly set to the global key of the
+// associated machine in the document's creation transaction, but omitted to
+// allow direct use of the document in both create and update transactions.
+type machineStatusDoc struct {
+	Status     params.MachineStatus
+	StatusInfo string
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {
 	machine := &Machine{
 		st:  st,
 		doc: *doc,
-		annotator: annotator{
-			st:   st,
-			coll: st.machines.Name,
-			id:   doc.Id,
-		},
 	}
-	machine.annotator.annotations = &machine.doc.Annotations
+	machine.annotator = annotator{
+		globalKey: machine.globalKey(),
+		tag:       machine.Tag(),
+		st:        st,
+	}
 	return machine
 }
 
@@ -78,32 +88,32 @@ func (m *Machine) Id() string {
 	return m.doc.Id
 }
 
-// Annotations returns the machine annotations.
-func (m *Machine) Annotations() map[string]string {
-	return m.doc.Annotations
-}
-
 // Series returns the operating system series running on the machine.
 func (m *Machine) Series() string {
 	return m.doc.Series
 }
 
-// globalKey returns the global database key for the machine.
-func (m *Machine) globalKey() string {
-	return "m#" + m.String()
+// machineGlobalKey returns the global database key for the identified machine.
+func machineGlobalKey(id string) string {
+	return "m#" + id
 }
 
-// MachineEntityName returns the entity name for the
+// globalKey returns the global database key for the machine.
+func (m *Machine) globalKey() string {
+	return machineGlobalKey(m.doc.Id)
+}
+
+// MachineTag returns the tag for the
 // machine with the given id.
-func MachineEntityName(id string) string {
+func MachineTag(id string) string {
 	return fmt.Sprintf("machine-%s", id)
 }
 
-// EntityName returns a name identifying the machine that is safe to use
+// Tag returns a name identifying the machine that is safe to use
 // as a file name.  The returned name will be different from other
-// EntityName values returned by any other entities from the same state.
-func (m *Machine) EntityName() string {
-	return MachineEntityName(m.Id())
+// Tag values returned by any other entities from the same state.
+func (m *Machine) Tag() string {
+	return MachineTag(m.Id())
 }
 
 // Life returns whether the machine is Alive, Dying or Dead.
@@ -139,7 +149,7 @@ func (m *Machine) SetAgentTools(t *Tools) (err error) {
 		Update: D{{"$set", D{{"tools", t}}}},
 	}}
 	if err := m.st.runner.Run(ops, "", nil); err != nil {
-		return onAbort(err, errNotAlive)
+		return onAbort(err, errDead)
 	}
 	tools := *t
 	m.doc.Tools = &tools
@@ -150,7 +160,7 @@ func (m *Machine) SetAgentTools(t *Tools) (err error) {
 // should use to communicate with the state servers.  Previous passwords
 // are invalidated.
 func (m *Machine) SetMongoPassword(password string) error {
-	return m.st.setMongoPassword(m.EntityName(), password)
+	return m.st.setMongoPassword(m.Tag(), password)
 }
 
 // SetPassword sets the password for the machine's agent.
@@ -163,7 +173,7 @@ func (m *Machine) SetPassword(password string) error {
 		Update: D{{"$set", D{{"passwordhash", hp}}}},
 	}}
 	if err := m.st.runner.Run(ops, "", nil); err != nil {
-		return fmt.Errorf("cannot set password of machine %v: %v", m, onAbort(err, errNotAlive))
+		return fmt.Errorf("cannot set password of machine %v: %v", m, onAbort(err, errDead))
 	}
 	m.doc.PasswordHash = hp
 	return nil
@@ -178,6 +188,8 @@ func (m *Machine) PasswordValid(password string) bool {
 // Destroy sets the machine lifecycle to Dying if it is Alive. It does
 // nothing otherwise. Destroy will fail if the machine has principal
 // units assigned, or if the machine has JobManageEnviron.
+// If the machine has assigned units, Destroy will return
+// a HasAssignedUnitsError.
 func (m *Machine) Destroy() error {
 	return m.advanceLifecycle(Dying)
 }
@@ -185,8 +197,19 @@ func (m *Machine) Destroy() error {
 // EnsureDead sets the machine lifecycle to Dead if it is Alive or Dying.
 // It does nothing otherwise. EnsureDead will fail if the machine has
 // principal units assigned, or if the machine has JobManageEnviron.
+// If the machine has assigned units, EnsureDead will return
+// a HasAssignedUnitsError.
 func (m *Machine) EnsureDead() error {
 	return m.advanceLifecycle(Dead)
+}
+
+type HasAssignedUnitsError struct {
+	MachineId string
+	UnitNames []string
+}
+
+func (e *HasAssignedUnitsError) Error() string {
+	return fmt.Sprintf("machine %s has unit %q assigned", e.MachineId, e.UnitNames[0])
 }
 
 // advanceLifecycle ensures that the machine's lifecycle is no earlier
@@ -265,7 +288,10 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 			}
 		}
 		if len(m.doc.Principals) != 0 {
-			return fmt.Errorf("machine %s has unit %q assigned", m.doc.Id, m.doc.Principals[0])
+			return &HasAssignedUnitsError{
+				MachineId: m.doc.Id,
+				UnitNames: m.doc.Principals,
+			}
 		}
 		// Run the transaction...
 		if err := m.st.runner.Run([]txn.Op{op}, "", nil); err != txn.ErrAborted {
@@ -287,12 +313,20 @@ func (m *Machine) Remove() (err error) {
 	if m.doc.Life != Dead {
 		return fmt.Errorf("machine is not dead")
 	}
-	ops := []txn.Op{{
-		C:      m.st.machines.Name,
-		Id:     m.doc.Id,
-		Remove: true,
-	}}
-	return m.st.runner.Run(ops, "", nil)
+	ops := []txn.Op{
+		{
+			C:      m.st.machines.Name,
+			Id:     m.doc.Id,
+			Assert: txn.DocExists,
+			Remove: true,
+		},
+		removeStatusOp(m.st, m.globalKey()),
+		removeConstraintsOp(m.st, m.globalKey()),
+		annotationRemoveOp(m.st, m.globalKey()),
+	}
+	// The only abort conditions in play indicate that the machine has already
+	// been removed.
+	return onAbort(m.st.runner.Run(ops, "", nil), nil)
 }
 
 // Refresh refreshes the contents of the machine from the underlying
@@ -385,7 +419,7 @@ func (m *Machine) SetInstanceId(id InstanceId) (err error) {
 		Update: D{{"$set", D{{"instanceid", id}}}},
 	}}
 	if err := m.st.runner.Run(ops, "", nil); err != nil {
-		return fmt.Errorf("cannot set instance id of machine %v: %v", m, onAbort(err, errNotAlive))
+		return fmt.Errorf("cannot set instance id of machine %v: %v", m, onAbort(err, errDead))
 	}
 	m.doc.InstanceId = id
 	return nil
@@ -394,4 +428,76 @@ func (m *Machine) SetInstanceId(id InstanceId) (err error) {
 // String returns a unique description of this machine.
 func (m *Machine) String() string {
 	return m.doc.Id
+}
+
+// Constraints returns the exact constraints that should apply when provisioning
+// an instance for the machine.
+func (m *Machine) Constraints() (constraints.Value, error) {
+	return readConstraints(m.st, m.globalKey())
+}
+
+// SetConstraints sets the exact constraints to apply when provisioning an
+// instance for the machine. It will fail if the machine is Dead, or if it
+// is already provisioned.
+func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
+	defer trivial.ErrorContextf(&err, "cannot set constraints")
+	notProvisioned := D{{"instanceid", ""}}
+	ops := []txn.Op{
+		{
+			C:      m.st.machines.Name,
+			Id:     m.doc.Id,
+			Assert: append(isAliveDoc, notProvisioned...),
+		},
+		setConstraintsOp(m.st, m.globalKey(), cons),
+	}
+	// 3 attempts is enough to push the ErrExcessiveContention case out of the
+	// realm of plausibility: it implies local state indicating unprovisioned,
+	// and remote state indicating provisioned (reasonable); but which changes
+	// back to unprovisioned and then to provisioned again with *very* specific
+	// timing in the course of this loop.
+	for i := 0; i < 3; i++ {
+		if m.doc.Life != Alive {
+			return errNotAlive
+		}
+		if m.doc.InstanceId != "" {
+			return fmt.Errorf("machine is already provisioned")
+		}
+		if err := m.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+			return err
+		}
+		if m, err = m.st.Machine(m.doc.Id); err != nil {
+			return err
+		}
+	}
+	return ErrExcessiveContention
+}
+
+// Status returns the status of the machine.
+func (m *Machine) Status() (status params.MachineStatus, info string, err error) {
+	doc := &machineStatusDoc{}
+	if err := getStatus(m.st, m.globalKey(), doc); err != nil {
+		return "", "", err
+	}
+	return doc.Status, doc.StatusInfo, nil
+}
+
+// SetStatus sets the status of the machine.
+func (m *Machine) SetStatus(status params.MachineStatus, info string) error {
+	if status == params.MachineError && info == "" {
+		panic("machine error status with no info")
+	} else if status == params.MachinePending {
+		panic("machine status cannot be set to pending")
+	}
+	doc := &machineStatusDoc{status, info}
+	ops := []txn.Op{{
+		C:      m.st.machines.Name,
+		Id:     m.doc.Id,
+		Assert: notDeadDoc,
+	},
+		updateStatusOp(m.st, m.globalKey(), doc),
+	}
+	if err := m.st.runner.Run(ops, "", nil); err != nil {
+		return fmt.Errorf("cannot set status of machine %q: %v", m, onAbort(err, errNotAlive))
+	}
+	return nil
 }

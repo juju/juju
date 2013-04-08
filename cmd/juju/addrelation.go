@@ -2,14 +2,15 @@ package main
 
 import (
 	"fmt"
-	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/statecmd"
 )
 
-// AddRelationCommand adds relations between service endpoints.
+// AddRelationCommand adds a relation between two service endpoints.
 type AddRelationCommand struct {
-	EnvName   string
+	EnvCommandBase
 	Endpoints []string
 }
 
@@ -19,10 +20,6 @@ func (c *AddRelationCommand) Info() *cmd.Info {
 		Args:    "<service1>[:<relation name1>] <service2>[:<relation name2>]",
 		Purpose: "add a relation between two services",
 	}
-}
-
-func (c *AddRelationCommand) SetFlags(f *gnuflag.FlagSet) {
-	addEnvironFlags(&c.EnvName, f)
 }
 
 func (c *AddRelationCommand) Init(args []string) error {
@@ -39,10 +36,9 @@ func (c *AddRelationCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer conn.Close()
-	eps, err := conn.State.InferEndpoints(c.Endpoints)
-	if err != nil {
-		return err
+	params := params.AddRelation{
+		Endpoints: c.Endpoints,
 	}
-	_, err = conn.State.AddRelation(eps...)
+	_, err = statecmd.AddRelation(conn.State, params)
 	return err
 }
