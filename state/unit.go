@@ -59,15 +59,6 @@ type unitDoc struct {
 	PasswordHash   string
 }
 
-// unitStatusDoc represents the internal state of a unit status in MongoDB.
-// The implicit _id field is explicitly set to the global key of the
-// associated unit in the document's creation transaction, but omitted to
-// allow direct use of the document in both create and update transactions.
-type unitStatusDoc struct {
-	Status     params.UnitStatus
-	StatusInfo string
-}
-
 // Unit represents the state of a service unit.
 type Unit struct {
 	st  *State
@@ -435,11 +426,13 @@ func (u *Unit) Refresh() error {
 
 // Status returns the status of the unit's agent.
 func (u *Unit) Status() (status params.UnitStatus, info string, err error) {
-	doc := &unitStatusDoc{}
-	if err := getStatus(u.st, u.globalKey(), doc); err != nil {
+	doc, err := getStatus(u.st, u.globalKey())
+	if err != nil {
 		return "", "", err
 	}
-	return doc.Status, doc.StatusInfo, nil
+	status = params.UnitStatus(doc.Status)
+	info = doc.StatusInfo
+	return
 }
 
 // SetStatus sets the status of the unit.
@@ -447,7 +440,10 @@ func (u *Unit) SetStatus(status params.UnitStatus, info string) error {
 	if status == params.UnitError && info == "" {
 		panic("unit error status with no info")
 	}
-	doc := &unitStatusDoc{status, info}
+	doc := statusDoc{
+		Status:     string(status),
+		StatusInfo: info,
+	}
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,

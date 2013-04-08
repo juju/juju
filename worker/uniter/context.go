@@ -25,6 +25,9 @@ type HookContext struct {
 	// id identifies the context.
 	id string
 
+	// uuid is the universally unique identifier of the environment.
+	uuid string
+
 	// relationId identifies the relation for which a relation hook is
 	// executing. If it is -1, the context is not running a relation hook;
 	// otherwise, its value must be a valid key into the relations map.
@@ -40,10 +43,12 @@ type HookContext struct {
 	relations map[int]*ContextRelation
 }
 
-func NewHookContext(unit *state.Unit, id string, relationId int, remoteUnitName string, relations map[int]*ContextRelation) *HookContext {
+func NewHookContext(unit *state.Unit, id, uuid string, relationId int,
+	remoteUnitName string, relations map[int]*ContextRelation) *HookContext {
 	return &HookContext{
 		unit:           unit,
 		id:             id,
+		uuid:           uuid,
 		relationId:     relationId,
 		remoteUnitName: remoteUnitName,
 		relations:      relations,
@@ -114,6 +119,7 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 		"JUJU_CONTEXT_ID=" + ctx.id,
 		"JUJU_AGENT_SOCKET=" + socketPath,
 		"JUJU_UNIT_NAME=" + ctx.unit.Name(),
+		"JUJU_ENV_UUID=" + ctx.uuid,
 	}
 	if r, found := ctx.HookRelation(); found {
 		vars = append(vars, "JUJU_RELATION="+r.Name())
