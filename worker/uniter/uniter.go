@@ -34,6 +34,7 @@ type Uniter struct {
 	service       *state.Service
 	relationers   map[int]*Relationer
 	relationHooks chan hook.Info
+	uuid          string
 
 	dataDir      string
 	baseDir      string
@@ -121,6 +122,12 @@ func (u *Uniter) init(name string) (err error) {
 	if err != nil {
 		return err
 	}
+	var env *state.Environment
+	env, err = u.st.Environment()
+	if err != nil {
+		return err
+	}
+	u.uuid = env.UUID()
 	u.relationers = map[int]*Relationer{}
 	u.relationHooks = make(chan hook.Info)
 	u.charm = charm.NewGitDir(filepath.Join(u.baseDir, "charm"))
@@ -258,7 +265,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	for id, r := range u.relationers {
 		ctxRelations[id] = r.Context()
 	}
-	hctx := NewHookContext(u.unit, hctxId, relationId, hi.RemoteUnit, ctxRelations)
+	hctx := NewHookContext(u.unit, hctxId, u.uuid, relationId, hi.RemoteUnit, ctxRelations)
 
 	// Prepare server.
 	getCmd := func(ctxId, cmdName string) (cmd.Command, error) {
