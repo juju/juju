@@ -376,7 +376,6 @@ func (s *storeManagerSuite) TestHandleStopDecRefIfAlreadySeenAndNotRemoved(c *C)
 	}})
 }
 
-
 func (s *storeManagerSuite) TestHandleStopNoDecRefIfNotSeen(c *C) {
 	// If the Watcher hasn't seen the item at all, it should
 	// leave the ref count untouched.
@@ -943,13 +942,13 @@ type MachineInfo struct {
 	InstanceId string
 }
 
-func (i *MachineInfo) EntityId() string { return i.Id }
-func (i *MachineInfo) EntityKind() string    { return "machine" }
+func (i *MachineInfo) EntityId() string   { return i.Id }
+func (i *MachineInfo) EntityKind() string { return "machine" }
 
 type ServiceInfo struct {
-	Name     string
+	Name    string
 	Exposed bool
 }
 
-func (i *ServiceInfo) EntityId() string { return i.Name }
-func (i *ServiceInfo) EntityKind() string    { return "service" }
+func (i *ServiceInfo) EntityId() string   { return i.Name }
+func (i *ServiceInfo) EntityKind() string { return "service" }

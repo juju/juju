@@ -3,9 +3,9 @@ package state
 import (
 	"fmt"
 	"labix.org/v2/mgo"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/allwatcher"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/multiwatcher"
 	"launchpad.net/juju-core/state/watcher"
 	"reflect"
 )
@@ -29,9 +29,11 @@ type allWatcherStateCollection struct {
 	// that we use for this collection.  In Go 1.1 we can change
 	// this to use the type itself, as we'll have reflect.SliceOf.
 	infoSliceType reflect.Type
+	// idOf returns the id of the given info.
+	idOf func(info params.EntityInfo) interface{}
 }
 
-func newAllWatcherStateBacking(st *State) allwatcher.Backing {
+func newAllWatcherStateBacking(st *State) multiwatcher.Backing {
 	b := &allWatcherStateBacking{
 		st:               st,
 		collectionByName: make(map[string]allWatcherStateCollection),
@@ -40,18 +42,33 @@ func newAllWatcherStateBacking(st *State) allwatcher.Backing {
 	collections := []allWatcherStateCollection{{
 		Collection:    st.machines,
 		infoSliceType: reflect.TypeOf([]params.MachineInfo(nil)),
+		idOf: func(info params.EntityInfo) interface{} {
+			return info.(*params.MachineInfo).Id
+		},
 	}, {
 		Collection:    st.units,
 		infoSliceType: reflect.TypeOf([]params.UnitInfo(nil)),
+		idOf: func(info params.EntityInfo) interface{} {
+			return info.(*params.UnitInfo).Name
+		},
 	}, {
 		Collection:    st.services,
 		infoSliceType: reflect.TypeOf([]params.ServiceInfo(nil)),
+		idOf: func(info params.EntityInfo) interface{} {
+			return info.(*params.ServiceInfo).Name
+		},
 	}, {
 		Collection:    st.relations,
 		infoSliceType: reflect.TypeOf([]params.RelationInfo(nil)),
+		idOf: func(info params.EntityInfo) interface{} {
+			return info.(*params.RelationInfo).Key
+		},
 	}, {
 		Collection:    st.annotations,
 		infoSliceType: reflect.TypeOf([]params.AnnotationInfo(nil)),
+		idOf: func(info params.EntityInfo) interface{} {
+			return info.(*params.AnnotationInfo).GlobalKey
+		},
 	}}
 	// Populate the collection maps from the above set of collections.
 	for _, c := range collections {
@@ -86,7 +103,7 @@ func (b *allWatcherStateBacking) Unwatch(in chan<- watcher.Change) {
 }
 
 // GetAll fetches all items that we want to watch from the state.
-func (b *allWatcherStateBacking) GetAll(all *allwatcher.AllInfo) error {
+func (b *allWatcherStateBacking) GetAll(all *multiwatcher.Store) error {
 	// TODO(rog) fetch collections concurrently?
 	for _, c := range b.collectionByName {
 		infoSlicePtr := reflect.New(c.infoSliceType).Interface()
@@ -110,7 +127,7 @@ type entityId struct {
 
 // changed updates the allWatcher's idea of the current state
 // in response to the given change.
-func (b *allWatcherStateBacking) Changed(all *allwatcher.AllInfo, change watcher.Change) error {
+func (b *allWatcherStateBacking) Changed(all *multiwatcher.Store, change watcher.Change) error {
 	id := entityId{
 		collection: change.C,
 		id:         change.Id,
@@ -138,15 +155,14 @@ func (b *allWatcherStateBacking) fetch(id entityId) (params.EntityInfo, error) {
 	return info, nil
 }
 
-
 // idForInfo returns the info id of the given entity document.
-func (b *allWatcherStateBacking) IdForInfo(info params.EntityInfo) allwatcher.InfoId {
+func (b *allWatcherStateBacking) IdForInfo(info params.EntityInfo) multiwatcher.InfoId {
 	c, ok := b.collectionByKind[info.EntityKind()]
 	if !ok {
 		panic(fmt.Errorf("entity with unknown kind %q", info.EntityKind()))
 	}
 	return entityId{
 		collection: c.Name,
-		id:         info.EntityId(),
+		id:         c.idOf(info),
 	}
 }

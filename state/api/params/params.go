@@ -290,7 +290,7 @@ type MachineInfo struct {
 	InstanceId string
 }
 
-func (i *MachineInfo) EntityKind() string    { return "machine" }
+func (i *MachineInfo) EntityKind() string { return "machine" }
 
 type ServiceInfo struct {
 	Name     string `bson:"_id"`
@@ -298,7 +298,7 @@ type ServiceInfo struct {
 	CharmURL string
 }
 
-func (i *ServiceInfo) EntityKind() string    { return "service" }
+func (i *ServiceInfo) EntityKind() string { return "service" }
 
 // ResolvedMode describes the way state transition errors
 // are resolved.
@@ -332,7 +332,7 @@ type UnitInfo struct {
 	Ports          []Port
 }
 
-func (i *UnitInfo) EntityKind() string    { return "unit" }
+func (i *UnitInfo) EntityKind() string { return "unit" }
 
 type Endpoint struct {
 	ServiceName string
@@ -344,7 +344,7 @@ type RelationInfo struct {
 	Endpoints []Endpoint
 }
 
-func (i *RelationInfo) EntityKind() string    { return "relation" }
+func (i *RelationInfo) EntityKind() string { return "relation" }
 
 type AnnotationInfo struct {
 	// TODO(rog) GlobalKey should not be necessary here, but is
@@ -356,4 +356,4 @@ type AnnotationInfo struct {
 	Annotations map[string]string
 }
 
-func (i *AnnotationInfo) EntityKind() string    { return "annotation" }
+func (i *AnnotationInfo) EntityKind() string { return "annotation" }

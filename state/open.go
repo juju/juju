@@ -14,8 +14,8 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state/multiwatcher"
 	"launchpad.net/juju-core/state/presence"
-	"launchpad.net/juju-core/state/allwatcher"
 	"launchpad.net/juju-core/state/watcher"
 )
 
@@ -267,8 +267,8 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 			return nil, fmt.Errorf("cannot create database index: %v", err)
 		}
 	}
-	st.allWatcher = allwatcher.NewAllWatcher(newAllWatcherStateBacking(st))
-	go st.allWatcher.Run()
+	st.allManager = multiwatcher.NewStoreManager(newAllWatcherStateBacking(st))
+	go st.allManager.Run()
 	return st, nil
 }
 
@@ -285,7 +285,7 @@ func (st *State) CACert() (cert []byte) {
 func (st *State) Close() error {
 	err1 := st.watcher.Stop()
 	err2 := st.pwatcher.Stop()
-	err3 := st.allWatcher.Stop()
+	err3 := st.allManager.Stop()
 	st.db.Session.Close()
 	for _, err := range []error{err1, err2, err3} {
 		if err != nil {
