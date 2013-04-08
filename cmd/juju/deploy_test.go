@@ -173,7 +173,7 @@ func (s *DeploySuite) TestDeployTo(c *C) {
 	coretesting.Charms.BundlePath(s.seriesPath, "dummy")
 	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	err = runDeploy(c, "--to", machine.Id(), "local:dummy", "portlandia")
+	err = runDeploy(c, "--force-machine", machine.Id(), "local:dummy", "portlandia")
 	c.Assert(err, IsNil)
 	svc, err := s.State.Service("portlandia")
 	c.Assert(err, IsNil)
@@ -187,7 +187,7 @@ func (s *DeploySuite) TestDeployTo(c *C) {
 
 func (s *DeploySuite) TestDeployToInvalidMachine(c *C) {
 	coretesting.Charms.BundlePath(s.seriesPath, "dummy")
-	err := runDeploy(c, "--to", "42", "local:dummy", "portlandia")
+	err := runDeploy(c, "--force-machine", "42", "local:dummy", "portlandia")
 	c.Assert(err, ErrorMatches, `cannot assign unit "portlandia/0" to machine: machine 42 not found`)
 
 }

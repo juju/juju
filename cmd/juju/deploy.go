@@ -59,7 +59,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "number of service units to deploy for principal charms")
 	f.IntVar(&c.NumUnits, "num-units", 1, "")
-	f.StringVar(&c.MachineId, "to", "", "Machine to deploy initial unit on")
+	f.StringVar(&c.MachineId, "force-machine", "", "Machine to deploy initial unit")
 	f.BoolVar(&c.BumpRevision, "u", false, "increment local charm directory revision")
 	f.BoolVar(&c.BumpRevision, "upgrade", false, "")
 	f.Var(&c.Config, "config", "path to yaml-formatted service config")
