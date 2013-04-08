@@ -527,6 +527,108 @@ var allWatcherChangedTests = []struct {
 			},
 		},
 	},
+	// Unit status changes
+	{
+		about: "no unit in state -> do nothing",
+		setUp: func(c *C, st *State) {},
+		change: watcher.Change{
+			C:  "statuses",
+			Id: "u#wordpress/0",
+		},
+	}, {
+		about: "no change if status is not in backing",
+		add: []params.EntityInfo{&params.UnitInfo{
+			Name:       "wordpress/0",
+			Status:     params.UnitError,
+			StatusInfo: "failure",
+		}},
+		setUp: func(*C, *State) {},
+		change: watcher.Change{
+			C:  "statuses",
+			Id: "u#wordpress/0",
+		},
+		expectContents: []params.EntityInfo{
+			&params.UnitInfo{
+				Name:       "wordpress/0",
+				Status:     params.UnitError,
+				StatusInfo: "failure",
+			},
+		},
+	}, {
+		about: "status is changed if the unit exists in the store",
+		add: []params.EntityInfo{&params.UnitInfo{
+			Name:       "wordpress/0",
+			Status:     params.UnitError,
+			StatusInfo: "failure",
+		}},
+		setUp: func(c *C, st *State) {
+			wordpress, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
+			c.Assert(err, IsNil)
+			u, err := wordpress.AddUnit()
+			c.Assert(err, IsNil)
+			err = u.SetStatus(params.UnitStarted, "")
+			c.Assert(err, IsNil)
+		},
+		change: watcher.Change{
+			C:  "statuses",
+			Id: "u#wordpress/0",
+		},
+		expectContents: []params.EntityInfo{
+			&params.UnitInfo{
+				Name:   "wordpress/0",
+				Status: params.UnitStarted,
+			},
+		},
+	},
+	// Machine status changes
+	{
+		about: "no machine in state -> do nothing",
+		setUp: func(c *C, st *State) {},
+		change: watcher.Change{
+			C:  "statuses",
+			Id: "m#0",
+		},
+	}, {
+		about: "no change if status is not in backing",
+		add: []params.EntityInfo{&params.MachineInfo{
+			Id:         "0",
+			Status:     params.MachineError,
+			StatusInfo: "failure",
+		}},
+		setUp: func(*C, *State) {},
+		change: watcher.Change{
+			C:  "statuses",
+			Id: "m#0",
+		},
+		expectContents: []params.EntityInfo{&params.MachineInfo{
+			Id:         "0",
+			Status:     params.MachineError,
+			StatusInfo: "failure",
+		}},
+	}, {
+		about: "status is changed if the machine exists in the store",
+		add: []params.EntityInfo{&params.MachineInfo{
+			Id:         "0",
+			Status:     params.MachineError,
+			StatusInfo: "failure",
+		}},
+		setUp: func(c *C, st *State) {
+			m, err := st.AddMachine("series", JobHostUnits)
+			c.Assert(err, IsNil)
+			err = m.SetStatus(params.MachineStarted, "")
+			c.Assert(err, IsNil)
+		},
+		change: watcher.Change{
+			C:  "statuses",
+			Id: "m#0",
+		},
+		expectContents: []params.EntityInfo{
+			&params.MachineInfo{
+				Id:     "0",
+				Status: params.MachineStarted,
+			},
+		},
+	},
 }
 
 func (s *storeManagerStateSuite) TestChanged(c *C) {
@@ -536,6 +638,7 @@ func (s *storeManagerStateSuite) TestChanged(c *C) {
 		"services":    s.State.services,
 		"relations":   s.State.relations,
 		"annotations": s.State.annotations,
+		"statuses":    s.State.statuses,
 	}
 	for i, test := range allWatcherChangedTests {
 		c.Logf("test %d. %s", i, test.about)

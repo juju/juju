@@ -180,25 +180,31 @@ func (s *backingStatus) updated(st *State, store *multiwatcher.Store) error {
 		log.Errorf("status for entity with unrecognised global key %q", s.GlobalKey)
 		return nil
 	}
-	info := store.Get(parentId)
-	switch info := info.(type) {
+	info0 := store.Get(parentId)
+	switch info := info0.(type) {
 	case nil:
 		// The parent info doesn't exist. Ignore the status until it does.
 		return nil
 	case *params.UnitInfo:
 		newInfo := *info
-		info = &newInfo
-		info.Status = params.UnitStatus(s.Status)
-		info.StatusInfo = s.StatusInfo
+		newInfo.Status = params.UnitStatus(s.Status)
+		newInfo.StatusInfo = s.StatusInfo
+		info0 = &newInfo
 	case *params.MachineInfo:
 		newInfo := *info
-		info = &newInfo
-		info.Status = params.MachineStatus(s.Status)
-		info.StatusInfo = s.StatusInfo
+		newInfo.Status = params.MachineStatus(s.Status)
+		newInfo.StatusInfo = s.StatusInfo
+		info0 = &newInfo
 	default:
 		panic(fmt.Errorf("status for unexpected entity with id %q; type %T", s.GlobalKey, info))
 	}
-	store.Update(info)
+	store.Update(info0)
+	return nil
+}
+
+func (svc *backingStatus) removed(st *State, store *multiwatcher.Store, id interface{}) error {
+	// If the status is removed, the parent will follow not long after,
+	// so do nothing.
 	return nil
 }
 
@@ -216,12 +222,6 @@ func backingEntityIdForGlobalKey(key string) (params.EntityId, bool) {
 		return (&params.ServiceInfo{Name: id}).EntityId(), true
 	}
 	return params.EntityId{}, false
-}
-
-func (svc *backingStatus) removed(st *State, store *multiwatcher.Store, id interface{}) error {
-	// If the status is removed, the parent will follow not long after,
-	// so do nothing.
-	return nil
 }
 
 // backingEntityDoc is implemented by the documents in
