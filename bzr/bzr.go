@@ -13,7 +13,7 @@ import (
 // Branch represents a Bazaar branch.
 type Branch struct {
 	location string
-	env  []string
+	env      []string
 }
 
 // New returns a new Branch for the Bazaar branch at location.

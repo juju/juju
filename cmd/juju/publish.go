@@ -54,7 +54,6 @@ func (c *PublishCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.CharmPath, "from", ".", "path for charm to be published")
 }
 
-
 func (c *PublishCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return nil
