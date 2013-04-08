@@ -192,7 +192,7 @@ func fakeWriteCertAndKey(name string, cert, key []byte) error {
 func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
-	// Create node 0: will be used as the bootstrap node.
+	// Create node 0: it will be used as the bootstrap node.
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 	err := environs.Bootstrap(env, constraints.Value{})
 	c.Assert(err, IsNil)
