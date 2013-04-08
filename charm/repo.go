@@ -141,6 +141,56 @@ func (s *CharmStore) Latest(curl *URL) (int, error) {
 	return rev, err
 }
 
+// BranchLocation returns the location for the branch holding the charm at curl.
+func (s *CharmStore) BranchLocation(curl *URL) string {
+	if curl.User != "" {
+		return fmt.Sprintf("lp:~%s/charms/%s/%s/trunk", curl.User, curl.Series, curl.Name)
+	}
+	return fmt.Sprintf("lp:charms/%s/%s/trunk", curl.Series, curl.Name)
+}
+
+var branchPrefixes = []string{
+	"lp:",
+	"bzr+ssh://bazaar.launchpad.net/+branch/",
+	"bzr+ssh://bazaar.launchpad.net/",
+	"http://launchpad.net/+branch/",
+	"http://launchpad.net/",
+	"https://launchpad.net/+branch/",
+	"https://launchpad.net/",
+	"http://code.launchpad.net/+branch/",
+	"http://code.launchpad.net/",
+	"https://code.launchpad.net/+branch/",
+	"https://code.launchpad.net/",
+}
+
+// CharmURL returns the charm URL for the branch at location.
+func (s *CharmStore) CharmURL(location string) (*URL, error) {
+	var l string
+	if len(location) > 0 && location[0] == '~' {
+		l = location
+	} else {
+		for _, prefix := range branchPrefixes {
+			if strings.HasPrefix(location, prefix) {
+				l = location[len(prefix):]
+				break
+			}
+		}
+	}
+	if l != "" {
+		u := strings.Split(l, "/")
+		if len(u) == 3 && u[0] == "charms" {
+			return ParseURL(fmt.Sprintf("cs:%s/%s", u[1], u[2]))
+		}
+		if len(u) == 4 && u[0] == "charms" && u[3] == "trunk" {
+			return ParseURL(fmt.Sprintf("cs:%s/%s", u[1], u[2]))
+		}
+		if len(u) == 5 && u[1] == "charms" && u[4] == "trunk" && len(u[0]) > 0 && u[0][0] == '~' {
+			return ParseURL(fmt.Sprintf("cs:%s/%s/%s", u[0], u[2], u[3]))
+		}
+	}
+	return nil, fmt.Errorf("unknown branch location: %q", location)
+}
+
 // verify returns an error unless a file exists at path with a hex-encoded
 // SHA256 matching digest.
 func verify(path, digest string) error {

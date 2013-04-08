@@ -223,7 +223,7 @@ var confTests = []struct {
 	},
 	checkErr: "state info or API info not found in configuration",
 }, {
-	about: "no machine nonce",
+	about: "no machine nonce is ok",
 	conf: agent.Conf{
 		OldPassword: "old password",
 		StateInfo: &state.Info{
@@ -238,7 +238,6 @@ var confTests = []struct {
 			CACert: []byte("ca cert"),
 		},
 	},
-	checkErr: "machine nonce not found in configuration",
 }}
 
 func (suite) TestConfReadWriteCheck(c *C) {

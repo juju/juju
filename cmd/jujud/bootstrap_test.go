@@ -44,8 +44,6 @@ func (s *BootstrapSuite) TearDownTest(c *C) {
 func (s *BootstrapSuite) initBootstrapCommand(c *C, args ...string) (*agent.Conf, *BootstrapCommand, error) {
 	conf := &agent.Conf{
 		DataDir: s.dataDir,
-		// TODO(dimitern) this will change in a follow-up, when we start using it.
-		MachineNonce: "FAKE_NONCE",
 		StateInfo: &state.Info{
 			Tag:    "bootstrap",
 			Addrs:  []string{testing.MgoAddr},

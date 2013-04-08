@@ -265,9 +265,7 @@ func (s *agentSuite) primeAgent(c *C, tag, password string) (*agent.Conf, *state
 	conf := &agent.Conf{
 		DataDir:     s.DataDir(),
 		OldPassword: password,
-		// TODO(dimitern) this will change in a follow-up, when we start using it.
-		MachineNonce: "FAKE_NONCE",
-		StateInfo:    s.StateInfo(c),
+		StateInfo:   s.StateInfo(c),
 	}
 	conf.StateInfo.Tag = tag
 	err = conf.Write()

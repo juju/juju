@@ -136,9 +136,6 @@ func (c *Conf) Check() error {
 	if c.StateInfo != nil && c.APIInfo != nil && c.StateInfo.Tag != c.APIInfo.Tag {
 		return fmt.Errorf("mismatched entity tags")
 	}
-	if c.MachineNonce == "" {
-		return requiredError("machine nonce")
-	}
 	return nil
 }
 
