@@ -90,6 +90,31 @@ func (s *URLSuite) TestInferURL(c *C) {
 	c.Assert(err, ErrorMatches, "cannot infer charm URL with user but no schema: .*")
 }
 
+var inferNoDefaultSeriesTests = []struct {
+	vague, exact string
+}{
+	{"foo", ""},
+	{"foo-1", ""},
+	{"cs:foo", ""},
+	{"cs:~user/foo", ""},
+	{"series/foo", "cs:series/foo"},
+	{"cs:series/foo", "cs:series/foo"},
+	{"cs:~user/series/foo", "cs:~user/series/foo"},
+}
+
+func (s *URLSuite) TestInferURLNoDefaultSeries(c *C) {
+	for _, t := range inferNoDefaultSeriesTests {
+		inferred, err := charm.InferURL(t.vague, "")
+		if t.exact == "" {
+			c.Assert(err, ErrorMatches, fmt.Sprintf("cannot infer charm URL for %q: no series provided", t.vague))
+		} else {
+			parsed, err := charm.ParseURL(t.exact)
+			c.Assert(err, IsNil)
+			c.Assert(inferred, DeepEquals, parsed, Commentf(`InferURL(%q, "")`, t.vague))
+		}
+	}
+}
+
 func (s *URLSuite) TestMustParseURL(c *C) {
 	url := charm.MustParseURL("cs:series/name")
 	c.Assert(url, DeepEquals, &charm.URL{"cs", "", "series", "name", -1})

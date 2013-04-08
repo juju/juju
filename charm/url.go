@@ -142,9 +142,15 @@ func InferURL(src, defaultSeries string) (*URL, error) {
 	var full string
 	switch parts := strings.Split(src, "/"); len(parts) {
 	case 1:
+		if defaultSeries == "" {
+			return nil, fmt.Errorf("cannot infer charm URL for %q: no series provided", orig)
+		}
 		full = fmt.Sprintf("%s:%s/%s", schema, defaultSeries, src)
 	case 2:
 		if strings.HasPrefix(parts[0], "~") {
+			if defaultSeries == "" {
+				return nil, fmt.Errorf("cannot infer charm URL for %q: no series provided", orig)
+			}
 			full = fmt.Sprintf("%s:%s/%s/%s", schema, parts[0], defaultSeries, parts[1])
 		} else {
 			full = fmt.Sprintf("%s:%s", schema, src)
