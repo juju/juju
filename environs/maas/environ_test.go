@@ -348,6 +348,18 @@ func (suite *EnvironSuite) TestBootstrapFailsIfNoNodes(c *C) {
 	c.Check(err, ErrorMatches, ".*409.*")
 }
 
+func (suite *EnvironSuite) TestBootstrapUploadsTools(c *C) {
+	env := suite.makeEnviron()
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "thenode"}`)
+	cert := []byte{1, 2, 3}
+	key := []byte{4, 5, 6}
+	err := env.Bootstrap(constraints.Value{}, cert, key)
+	c.Assert(err, IsNil)
+
+	_, err = env.findTools()
+	c.Assert(err, IsNil)
+}
+
 func (suite *EnvironSuite) TestBootstrapIntegratesWithEnvirons(c *C) {
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "bootstrapnode"}`)

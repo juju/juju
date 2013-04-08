@@ -98,7 +98,9 @@ func (env *maasEnviron) quiesceStateFile() error {
 // uploadTools builds the current version of the juju tools and uploads them
 // to the environment's Storage.
 func (env *maasEnviron) uploadTools() (*state.Tools, error) {
-	tools, err := environs.PutTools(env.Storage(), nil)
+	// Also upload the tools for the default series taken from the environment.
+	// TODO: Check that this is sane with the juju-core team.
+	tools, err := environs.PutTools(env.Storage(), nil, env.Config().DefaultSeries())
 	if err != nil {
 		return nil, fmt.Errorf("cannot upload tools: %v", err)
 	}
