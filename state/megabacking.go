@@ -138,7 +138,6 @@ func (b *allWatcherStateBacking) Changed(all *multiwatcher.Store, change watcher
 	if err != nil && err != mgo.ErrNotFound {
 		return err
 	}
-	log.Infof("updated %+v to %#v", id, info)
 	all.Update(id, info)
 	return nil
 }
