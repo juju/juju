@@ -17,7 +17,7 @@ func (s *ResolvedSuite) TestMarkResolved(c *C) {
 	sch := s.AddTestingCharm(c, "riak")
 	svc, err := s.Conn.State.AddService("testriak", sch)
 	c.Assert(err, IsNil)
-	us, err := s.Conn.AddUnits(svc, 1)
+	us, err := s.Conn.AddUnits(svc, 1, "")
 	c.Assert(err, IsNil)
 	u := us[0]
 
