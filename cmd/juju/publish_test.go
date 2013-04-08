@@ -17,16 +17,11 @@ type PublishSuite struct {
 	testing.HTTPSuite
 
 	dir        string
-	oldDir     string
 	oldBaseURL string
 	branch     *bzr.Branch
 }
 
 var _ = Suite(&PublishSuite{})
-
-func runPublish(c *C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, &PublishCommand{}, args)
-}
 
 func touch(c *C, filename string) {
 	f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, 0644)
@@ -46,13 +41,13 @@ func addMeta(c *C, branch *bzr.Branch) {
 	c.Assert(err, IsNil)
 }
 
+func (s *PublishSuite) runPublish(c *C, args ...string) (*cmd.Context, error) {
+	return testing.RunCommandInDir(c, &PublishCommand{}, args, s.dir)
+}
+
 func (s *PublishSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.HTTPSuite.SetUpSuite(c)
-
-	var err error
-	s.oldDir, err = os.Getwd()
-	c.Assert(err, IsNil)
 
 	s.oldBaseURL = charm.Store.BaseURL
 	charm.Store.BaseURL = s.URL("")
@@ -70,8 +65,6 @@ func (s *PublishSuite) SetUpTest(c *C) {
 	s.HTTPSuite.SetUpTest(c)
 
 	s.dir = c.MkDir()
-	os.Chdir(s.dir)
-
 	s.branch = bzr.New(s.dir)
 	err := s.branch.Init()
 	c.Assert(err, IsNil)
@@ -80,35 +73,38 @@ func (s *PublishSuite) SetUpTest(c *C) {
 func (s *PublishSuite) TearDownTest(c *C) {
 	s.HTTPSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
-
-	os.Chdir(s.oldDir)
 }
 
 func (s *PublishSuite) TestNoBranch(c *C) {
-	os.Chdir(c.MkDir())
-	_, err := runPublish(c, "cs:precise/wordpress")
-	c.Assert(err, ErrorMatches, "publish must be run from within a charm branch")
+	dir := c.MkDir()
+	_, err := testing.RunCommandInDir(c, &PublishCommand{}, []string{"cs:precise/wordpress"}, dir)
+	c.Assert(err, ErrorMatches, fmt.Sprintf("not a charm branch: %s", dir))
 }
 
 func (s *PublishSuite) TestEmpty(c *C) {
-	_, err := runPublish(c, "cs:precise/wordpress")
+	_, err := s.runPublish(c, "cs:precise/wordpress")
+	c.Assert(err, ErrorMatches, `cannot obtain local digest: branch has no content`)
+}
+
+func (s *PublishSuite) TestFrom(c *C) {
+	_, err := testing.RunCommandInDir(c, &PublishCommand{}, []string{"--from", s.dir, "cs:precise/wordpress"}, c.MkDir())
 	c.Assert(err, ErrorMatches, `cannot obtain local digest: branch has no content`)
 }
 
 func (s *PublishSuite) TestMissingSeries(c *C) {
-	_, err := runPublish(c, "cs:wordpress")
+	_, err := s.runPublish(c, "cs:wordpress")
 	c.Assert(err, ErrorMatches, `cannot infer charm URL for "cs:wordpress": no series provided`)
 }
 
 func (s *PublishSuite) TestNotClean(c *C) {
 	touch(c, s.branch.Join("file"))
-	_, err := runPublish(c, "cs:precise/wordpress")
+	_, err := s.runPublish(c, "cs:precise/wordpress")
 	c.Assert(err, ErrorMatches, `branch is not clean \(bzr status\)`)
 }
 
 func (s *PublishSuite) TestNoPushLocation(c *C) {
 	addMeta(c, s.branch)
-	_, err := runPublish(c)
+	_, err := s.runPublish(c)
 	c.Assert(err, ErrorMatches, `no charm URL provided and cannot infer from current directory \(no push location\)`)
 }
 
@@ -116,13 +112,13 @@ func (s *PublishSuite) TestUnknownPushLocation(c *C) {
 	addMeta(c, s.branch)
 	err := s.branch.Push(&bzr.PushAttr{Location: c.MkDir() + "/foo", Remember: true})
 	c.Assert(err, IsNil)
-	_, err = runPublish(c)
+	_, err = s.runPublish(c)
 	c.Assert(err, ErrorMatches, `cannot infer charm URL from branch location: ".*/foo"`)
 }
 
 func (s *PublishSuite) TestWrongRepository(c *C) {
 	addMeta(c, s.branch)
-	_, err := runPublish(c, "local:precise/wordpress")
+	_, err := s.runPublish(c, "local:precise/wordpress")
 	c.Assert(err, ErrorMatches, "charm URL must reference the juju charm store")
 }
 
@@ -136,7 +132,7 @@ func (s *PublishSuite) TestInferURL(c *C) {
 		panic("unreachable")
 	})
 
-	_, err := testing.RunCommand(c, cmd, []string{"precise/wordpress"})
+	_, err := testing.RunCommandInDir(c, cmd, []string{"precise/wordpress"}, s.dir)
 	c.Assert(err, IsNil)
 	c.Fatal("shouldn't get here; location closure didn't run?")
 }
@@ -150,7 +146,7 @@ func (s *PublishSuite) TestPreExistingPublished(c *C) {
 	body := `{"cs:precise/wordpress": {"kind": "published", "digest": %q, "revision": 42}}`
 	testing.Server.Response(200, nil, []byte(fmt.Sprintf(body, digest)))
 
-	ctx, err := runPublish(c, "cs:precise/wordpress")
+	ctx, err := s.runPublish(c, "cs:precise/wordpress")
 	c.Assert(err, IsNil)
 	c.Assert(testing.Stdout(ctx), Equals, "cs:precise/wordpress-42\n")
 
@@ -174,7 +170,7 @@ func (s *PublishSuite) TestPreExistingPublishedEdge(c *C) {
 	body = `{"cs:precise/wordpress": {"kind": "published", "digest": %q, "revision": 42}}`
 	testing.Server.Response(200, nil, []byte(fmt.Sprintf(body, digest)))
 
-	ctx, err := runPublish(c, "cs:precise/wordpress")
+	ctx, err := s.runPublish(c, "cs:precise/wordpress")
 	c.Assert(err, IsNil)
 	c.Assert(testing.Stdout(ctx), Equals, "cs:precise/wordpress-42\n")
 
@@ -196,7 +192,7 @@ func (s *PublishSuite) TestPreExistingPublishError(c *C) {
 	body := `{"cs:precise/wordpress": {"kind": "publish-error", "digest": %q, "errors": ["an error"]}}`
 	testing.Server.Response(200, nil, []byte(fmt.Sprintf(body, digest)))
 
-	_, err = runPublish(c, "cs:precise/wordpress")
+	_, err = s.runPublish(c, "cs:precise/wordpress")
 	c.Assert(err, ErrorMatches, "charm could not be published: an error")
 
 	req := testing.Server.WaitRequest()
@@ -239,7 +235,7 @@ func (s *PublishSuite) TestFullPublish(c *C) {
 	body = `{"cs:~user/precise/wordpress": {"kind": "published", "digest": %q, "revision": 42}}`
 	testing.Server.Response(200, nil, []byte(fmt.Sprintf(body, digest)))
 
-	ctx, err := testing.RunCommand(c, cmd, []string{"cs:~user/precise/wordpress"})
+	ctx, err := testing.RunCommandInDir(c, cmd, []string{"cs:~user/precise/wordpress"}, s.dir)
 	c.Assert(err, IsNil)
 	c.Assert(testing.Stdout(ctx), Equals, "cs:~user/precise/wordpress-42\n")
 
@@ -295,7 +291,7 @@ func (s *PublishSuite) TestFullPublishError(c *C) {
 	body = `{"cs:~user/precise/wordpress": {"kind": "published", "digest": %q, "revision": 42}}`
 	testing.Server.Response(200, nil, []byte(fmt.Sprintf(body, digest)))
 
-	ctx, err := testing.RunCommand(c, cmd, []string{"cs:~user/precise/wordpress"})
+	ctx, err := testing.RunCommandInDir(c, cmd, []string{"cs:~user/precise/wordpress"}, s.dir)
 	c.Assert(err, IsNil)
 	c.Assert(testing.Stdout(ctx), Equals, "cs:~user/precise/wordpress-42\n")
 
@@ -351,7 +347,7 @@ func (s *PublishSuite) TestFullPublishRace(c *C) {
 	body = `{"cs:~user/precise/wordpress": {"kind": "published", "digest": "surprising-digest", "revision": 42}}`
 	testing.Server.Response(200, nil, []byte(body))
 
-	_, err = testing.RunCommand(c, cmd, []string{"cs:~user/precise/wordpress"})
+	_, err = testing.RunCommandInDir(c, cmd, []string{"cs:~user/precise/wordpress"}, s.dir)
 	c.Assert(err, ErrorMatches, `charm changed but not to local charm digest; publishing race\?`)
 
 	// Ensure the branch was actually pushed.

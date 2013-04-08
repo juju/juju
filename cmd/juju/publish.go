@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/bzr"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
@@ -13,8 +14,8 @@ import (
 
 type PublishCommand struct {
 	EnvCommandBase
-	URL      string
-	RepoPath string // defaults to JUJU_REPOSITORY
+	URL       string
+	CharmPath string
 
 	// changePushLocation allows translating the branch location
 	// for testing purposes.
@@ -43,10 +44,16 @@ func (c *PublishCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "publish",
 		Args:    "[<charm url>]",
-		Purpose: "publish the charm in $PWD to the store",
+		Purpose: "publish charm to the store",
 		Doc:     publishDoc,
 	}
 }
+
+func (c *PublishCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.EnvCommandBase.SetFlags(f)
+	f.StringVar(&c.CharmPath, "from", ".", "path for charm to be published")
+}
+
 
 func (c *PublishCommand) Init(args []string) error {
 	if len(args) == 0 {
@@ -67,9 +74,9 @@ func (c *PublishCommand) SetPollDelay(delay time.Duration) {
 // Wording guideline to avoid confusion: charms have *URLs*, branches have *locations*.
 
 func (c *PublishCommand) Run(ctx *cmd.Context) (err error) {
-	branch := bzr.New(".")
+	branch := bzr.New(ctx.AbsPath(c.CharmPath))
 	if _, err := os.Stat(branch.Join(".bzr")); err != nil {
-		return fmt.Errorf("publish must be run from within a charm branch")
+		return fmt.Errorf("not a charm branch: %s", branch.Location())
 	}
 	if err := branch.MustBeClean(); err != nil {
 		return err
@@ -99,7 +106,7 @@ func (c *PublishCommand) Run(ctx *cmd.Context) (err error) {
 		pushLocation = c.changePushLocation(pushLocation)
 	}
 
-	repo, err := charm.InferRepository(curl, ctx.AbsPath(c.RepoPath))
+	repo, err := charm.InferRepository(curl, "/not/important")
 	if err != nil {
 		return err
 	}
