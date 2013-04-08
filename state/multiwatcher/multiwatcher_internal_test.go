@@ -253,7 +253,15 @@ func (s *storeSuite) TestChangesSince(c *C) {
 		Removed: true,
 		Entity:  m0,
 	}})
+}
 
+func (s *storeSuite) TestGet(c *C) {
+	a := NewStore()
+	m := &MachineInfo{Id: "0"}
+	a.Update(m)
+
+	c.Assert(a.Get(m.EntityId()), Equals, m)
+	c.Assert(a.Get(params.EntityId{"machine", "1"}), IsNil)
 }
 
 type storeManagerSuite struct {
