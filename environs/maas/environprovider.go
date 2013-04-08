@@ -28,8 +28,8 @@ func (maasEnvironProvider) BoilerplateConfig() string {
 	return `
   maas:
     type: maas
-    # Change this to where your MAAS server lives.
-    maas-server: 'http://192.168.1.1'
+    # Change this to where your MAAS server lives.  It must specify the API endpoint.
+    maas-server: 'http://192.168.1.1/MAAS/api/1.0'
     maas-oauth: '<add your OAuth credentials from MAAS here>'
     admin-secret: {{rand}}
     default-series: precise
