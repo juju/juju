@@ -2,6 +2,7 @@ package statecmd_test
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -190,7 +191,7 @@ func (s *ConfigSuite) TestServiceSet(c *C) {
 
 var getTests = []struct {
 	about  string
-	params params.ServiceGet // parameters to ServiceGet call.
+	params params.ServiceGet
 	expect params.ServiceGetResults
 	err    string
 }{
@@ -209,7 +210,7 @@ var getTests = []struct {
 		expect: params.ServiceGetResults{
 			Service: "dummy-service",
 			Charm:   "dummy",
-			Settings: map[string]interface{}{
+			Config: map[string]interface{}{
 				"outlook": map[string]interface{}{
 					"description": "No default outlook.",
 					"type":        "string",
@@ -231,14 +232,19 @@ var getTests = []struct {
 					"value":       nil,
 				},
 			},
+			Constraints: constraints.MustParse("mem=2G cpu-power=400"),
 		},
 	},
 }
 
 func (s *ConfigSuite) TestServiceGet(c *C) {
 	sch := s.AddTestingCharm(c, "dummy")
-	_, err := s.State.AddService("dummy-service", sch)
+	svc, err := s.State.AddService("dummy-service", sch)
 	c.Assert(err, IsNil)
+	scons := constraints.MustParse("mem=2G cpu-power=400")
+	err = svc.SetConstraints(scons)
+	c.Assert(err, IsNil)
+
 	for i, t := range getTests {
 		c.Logf("test %d. %s", i, t.about)
 		results, err := statecmd.ServiceGet(s.State, t.params)
