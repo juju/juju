@@ -95,9 +95,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	conf := &agent.Conf{
 		DataDir:     ctx.dataDir,
 		OldPassword: initialPassword,
-		// TODO(dimitern) this will change in a follow-up, when we start using it.
-		MachineNonce: "FAKE_NONCE",
-		StateInfo:    &info,
+		StateInfo:   &info,
 	}
 	if err := conf.Write(); err != nil {
 		return err

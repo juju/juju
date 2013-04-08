@@ -271,7 +271,7 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 		return err
 	}
 	// TODO(dimitern) generate an unique random nonce in a follow-up.
-	inst, err := p.environ.StartInstance(m.Id(), "", m.Series(), cons, stateInfo, apiInfo)
+	inst, err := p.environ.StartInstance(m.Id(), "fake_nonce", m.Series(), cons, stateInfo, apiInfo)
 	if err != nil {
 		// Set the state to error, so the machine will be skipped next
 		// time until the error is resolved, but don't return an

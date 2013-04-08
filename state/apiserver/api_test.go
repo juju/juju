@@ -914,32 +914,24 @@ func (s *suite) TestMachineInstanceId(c *C) {
 func (s *suite) TestMachineRefresh(c *C) {
 	stm, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	setDefaultPassword(c, stm)
-	err = stm.SetProvisioned("foo", "fake_nonce")
-	c.Assert(err, IsNil)
+	oldId, _ := stm.InstanceId()
 
+	setDefaultPassword(c, stm)
 	st := s.openAs(c, stm.Tag())
 	defer st.Close()
+
 	m, err := st.Machine(stm.Id())
 	c.Assert(err, IsNil)
-
-	instId, ok := m.InstanceId()
-	c.Assert(ok, Equals, true)
-	c.Assert(instId, Equals, "foo")
-
-	err = stm.SetProvisioned("bar", "fake_nonce")
+	err = stm.SetProvisioned("foo", "fake_nonce")
 	c.Assert(err, IsNil)
+	newId, _ := stm.InstanceId()
 
-	instId, ok = m.InstanceId()
-	c.Assert(ok, Equals, true)
-	c.Assert(instId, Equals, "foo")
-
+	mId, _ := m.InstanceId()
+	c.Assert(state.InstanceId(mId), Equals, oldId)
 	err = m.Refresh()
 	c.Assert(err, IsNil)
-
-	instId, ok = m.InstanceId()
-	c.Assert(ok, Equals, true)
-	c.Assert(instId, Equals, "bar")
+	mId, _ = m.InstanceId()
+	c.Assert(state.InstanceId(mId), Equals, newId)
 }
 
 func (s *suite) TestMachineSetPassword(c *C) {

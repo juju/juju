@@ -77,7 +77,7 @@ func StartInstance(c *C, env environs.Environ, machineId string) environs.Instan
 	series := config.DefaultSeries
 	inst, err := env.StartInstance(
 		machineId,
-		"invalid nonce",
+		"fake_nonce",
 		series,
 		constraints.Value{},
 		InvalidStateInfo(machineId),

@@ -46,7 +46,6 @@ var confTests = []struct {
 		MongoPort:       1234,
 		APIPort:         4321,
 		OldPassword:     "old password",
-		MachineNonce:    "dummy",
 		StateInfo: &state.Info{
 			Addrs:    []string{"foo.com:355", "bar:545"},
 			CACert:   []byte("ca cert"),
@@ -63,8 +62,7 @@ var confTests = []struct {
 }, {
 	about: "API info and state info sharing CA cert",
 	conf: agent.Conf{
-		OldPassword:  "old password",
-		MachineNonce: "dummy",
+		OldPassword: "old password",
 		StateInfo: &state.Info{
 			Addrs:    []string{"foo.com:355", "bar:545"},
 			CACert:   []byte("ca cert"),
@@ -83,7 +81,6 @@ var confTests = []struct {
 		StateServerCert: []byte("server cert"),
 		StateServerKey:  []byte("server key"),
 		OldPassword:     "old password",
-		MachineNonce:    "dummy",
 		StateInfo: &state.Info{
 			Addrs:    []string{"foo.com:355", "bar:545"},
 			CACert:   []byte("ca cert"),
@@ -102,7 +99,6 @@ var confTests = []struct {
 		StateServerCert: []byte("server cert"),
 		StateServerKey:  []byte("server key"),
 		OldPassword:     "old password",
-		MachineNonce:    "dummy",
 		StateInfo: &state.Info{
 			Addrs:    []string{"foo.com:355", "bar:545"},
 			CACert:   []byte("ca cert"),
@@ -119,8 +115,7 @@ var confTests = []struct {
 }, {
 	about: "no state entity tag",
 	conf: agent.Conf{
-		OldPassword:  "old password",
-		MachineNonce: "dummy",
+		OldPassword: "old password",
 		StateInfo: &state.Info{
 			Addrs:    []string{"foo.com:355", "bar:545"},
 			CACert:   []byte("ca cert"),
@@ -131,8 +126,7 @@ var confTests = []struct {
 }, {
 	about: "no state server address",
 	conf: agent.Conf{
-		OldPassword:  "old password",
-		MachineNonce: "dummy",
+		OldPassword: "old password",
 		StateInfo: &state.Info{
 			CACert:   []byte("ca cert"),
 			Password: "current password",
@@ -143,8 +137,7 @@ var confTests = []struct {
 }, {
 	about: "state server address with no port",
 	conf: agent.Conf{
-		OldPassword:  "old password",
-		MachineNonce: "dummy",
+		OldPassword: "old password",
 		StateInfo: &state.Info{
 			Addrs:    []string{"foo"},
 			CACert:   []byte("ca cert"),
@@ -156,8 +149,7 @@ var confTests = []struct {
 }, {
 	about: "state server address with non-numeric port",
 	conf: agent.Conf{
-		OldPassword:  "old password",
-		MachineNonce: "dummy",
+		OldPassword: "old password",
 		StateInfo: &state.Info{
 			Addrs:    []string{"foo:bar"},
 			CACert:   []byte("ca cert"),
@@ -169,8 +161,7 @@ var confTests = []struct {
 }, {
 	about: "state server address with bad port",
 	conf: agent.Conf{
-		OldPassword:  "old password",
-		MachineNonce: "dummy",
+		OldPassword: "old password",
 		StateInfo: &state.Info{
 			Addrs:    []string{"foo:345d"},
 			CACert:   []byte("ca cert"),
@@ -182,8 +173,7 @@ var confTests = []struct {
 }, {
 	about: "invalid api server address",
 	conf: agent.Conf{
-		OldPassword:  "old password",
-		MachineNonce: "dummy",
+		OldPassword: "old password",
 		StateInfo: &state.Info{
 			Addrs:    []string{"foo:345"},
 			CACert:   []byte("ca cert"),
@@ -200,8 +190,7 @@ var confTests = []struct {
 }, {
 	about: "no api CA cert",
 	conf: agent.Conf{
-		OldPassword:  "old password",
-		MachineNonce: "dummy",
+		OldPassword: "old password",
 		StateInfo: &state.Info{
 			Addrs:    []string{"foo:345"},
 			CACert:   []byte("ca cert"),
@@ -218,27 +207,9 @@ var confTests = []struct {
 }, {
 	about: "no state or API info",
 	conf: agent.Conf{
-		OldPassword:  "old password",
-		MachineNonce: "dummy",
+		OldPassword: "old password",
 	},
 	checkErr: "state info or API info not found in configuration",
-}, {
-	about: "no machine nonce",
-	conf: agent.Conf{
-		OldPassword: "old password",
-		StateInfo: &state.Info{
-			Addrs:    []string{"foo.com:355", "bar:545"},
-			CACert:   []byte("ca cert"),
-			Tag:      "entity",
-			Password: "current password",
-		},
-		APIInfo: &api.Info{
-			Tag:    "entity",
-			Addrs:  []string{"foo.com:555"},
-			CACert: []byte("ca cert"),
-		},
-	},
-	checkErr: "machine nonce not found in configuration",
 }}
 
 func (suite) TestConfReadWriteCheck(c *C) {

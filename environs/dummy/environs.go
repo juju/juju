@@ -564,6 +564,9 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 	}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
+	if machineNonce == "" {
+		return nil, fmt.Errorf("cannot start instance: missing machine nonce")
+	}
 	if _, ok := e.Config().CACert(); !ok {
 		return nil, fmt.Errorf("no CA certificate in environment configuration")
 	}
