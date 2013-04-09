@@ -97,7 +97,9 @@ func (s *UtilSuite) TestMachineInfoserializeYAML(c *C) {
 	instanceId := "instanceId"
 	hostname := "hostname"
 	info := machineInfo{instanceId, hostname}
+
 	yaml, err := info.serializeYAML()
+
 	c.Assert(err, IsNil)
 	expected := "instanceid: instanceId\nhostname: hostname\n"
 	c.Check(string(yaml), Equals, expected)
@@ -111,7 +113,9 @@ func (s *UtilSuite) TestMachineInfoCloudinitRunCmd(c *C) {
 	_MAASInstanceFilename = filename
 	defer func() { _MAASInstanceFilename = old_MAASInstanceFilename }()
 	info := machineInfo{instanceId, hostname}
+
 	script, err := info.cloudinitRunCmd()
+
 	c.Assert(err, IsNil)
 	yaml, err := info.serializeYAML()
 	c.Assert(err, IsNil)
@@ -129,7 +133,9 @@ func (s *UtilSuite) TestMachineInfoLoad(c *C) {
 	_MAASInstanceFilename = filename
 	defer func() { _MAASInstanceFilename = old_MAASInstanceFilename }()
 	info := machineInfo{}
+
 	err := info.load()
+
 	c.Assert(err, IsNil)
 	c.Check(info.InstanceId, Equals, instanceId)
 	c.Check(info.Hostname, Equals, hostname)
