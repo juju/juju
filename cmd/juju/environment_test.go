@@ -72,7 +72,7 @@ var _ = Suite(&SetEnvironmentSuite{})
 
 var setEnvInitTests = []struct {
 	args     []string
-	expected map[string]string
+	expected attributes
 	err      string
 }{
 	{
@@ -83,7 +83,7 @@ var setEnvInitTests = []struct {
 		err:  `Missing "=" in arg 1: "missing"`,
 	}, {
 		args: []string{"key=value"},
-		expected: map[string]string{
+		expected: attributes{
 			"key": "value",
 		},
 	}, {
@@ -91,7 +91,7 @@ var setEnvInitTests = []struct {
 		err:  `Key "key" specified more than once`,
 	}, {
 		args: []string{"key=value", "other=embedded=equal"},
-		expected: map[string]string{
+		expected: attributes{
 			"key":   "value",
 			"other": "embedded=equal",
 		},

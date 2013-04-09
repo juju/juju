@@ -70,10 +70,12 @@ func (c *GetEnvironmentCommand) Run(ctx *cmd.Context) error {
 	return fmt.Errorf("Environment key %q not found in %q environment.", c.key, config.Name())
 }
 
+type attributes map[string]interface{}
+
 // SetEnvironment
 type SetEnvironmentCommand struct {
 	EnvCommandBase
-	values map[string]string
+	values attributes
 }
 
 const setEnvHelpDoc = `
@@ -95,7 +97,7 @@ func (c *SetEnvironmentCommand) Init(args []string) (err error) {
 	if len(args) == 0 {
 		return fmt.Errorf("No key, value pairs specified")
 	}
-	c.values = make(map[string]string)
+	c.values = make(attributes)
 	for i, arg := range args {
 		bits := strings.SplitN(arg, "=", 2)
 		if len(bits) < 2 {
@@ -111,14 +113,30 @@ func (c *SetEnvironmentCommand) Init(args []string) (err error) {
 }
 
 func (c *SetEnvironmentCommand) Run(ctx *cmd.Context) error {
-	//conn, err := juju.NewConnFromName(c.EnvName)
-	//if err != nil {
-	//	return err
-	//}
-	//defer conn.Close()
-	for key, value := range c.values {
-		fmt.Fprintf(ctx.Stdout, "%s: %q\n", key, value)
+	conn, err := juju.NewConnFromName(c.EnvName)
+	if err != nil {
+		return err
 	}
+	defer conn.Close()
 
-	return nil
+	// Here is the magic around setting the attributes:
+
+	// Get the existing environment config from the state.
+	stateConfig, err := conn.State.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	// Apply the attributes specified for the command to the state config.
+	newConfig, err := stateConfig.Apply(c.values)
+	if err != nil {
+		return err
+	}
+	// Now validate this new config against the existing config via the provider.
+	provider := conn.Environ.Provider()
+	newProviderConfig, err := provider.Validate(newConfig, stateConfig)
+	if err != nil {
+		return err
+	}
+	// Now try to apply the new validate config.
+	return conn.State.SetEnvironConfig(newProviderConfig)
 }
