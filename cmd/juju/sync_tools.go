@@ -131,21 +131,21 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 		log.Debugf("cmd/juju: found source tool: %s", tool)
 	}
 	fmt.Fprintf(ctx.Stderr, "listing target bucket\n")
-	var targetTools tools.List
-	var targetStorage storage.ReadWriter
 	targetToolsList, err := environs.ListTools(targetEnv, version.Current.Major)
 	if err != nil {
 		return err
 	}
+	targetTools := targetToolsList.Private
+	targetStorage := targetEnv.Storage()
 	if c.publicBucket {
 		targetTools = targetToolsList.Public
 		var ok bool
 		if targetStorage, ok = targetEnv.PublicStorage().(storage.ReadWriter); !ok {
 			return fmt.Errorf("Cannot write to PublicStorage")
 		}
-	} else {
-		targetTools = targetToolsList.Private
-		targetStorage = targetEnv.Storage()
+	}
+	for _, tool := range targetTools {
+		log.Debugf("cmd/juju: found target tool: %s", tool)
 	}
 	missing := toolsToCopy.Difference(targetTools)
 	fmt.Fprintf(ctx.Stdout, "found %d tools in target; %d tools to be copied\n",

@@ -72,10 +72,9 @@ func (s *memStorage) dataWithDelay(path string) (data []byte, err error) {
 	s.state.mu.Lock()
 	delay := s.state.storageDelay
 	s.state.mu.Unlock()
-
 	log.Infof("environs/dummy: storage pausing for %v", delay)
-	log.Infof("environs/dummy: storage unpaused")
 	time.Sleep(delay)
+	log.Infof("environs/dummy: storage unpaused")
 	s.state.mu.Lock()
 	defer s.state.mu.Unlock()
 	if err := s.poisoned[path]; err != nil {
