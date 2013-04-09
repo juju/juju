@@ -117,7 +117,7 @@ func (s *URLSuite) TestInferURLNoDefaultSeries(c *C) {
 	}
 }
 
-var validRegexpTests = []struct {
+var validTests = []struct {
 	valid  func(string) bool
 	string string
 	expect bool
@@ -162,7 +162,7 @@ var validRegexpTests = []struct {
 }
 
 func (s *URLSuite) TestValidCheckers(c *C) {
-	for i, t := range validRegexpTests {
+	for i, t := range validTests {
 		c.Logf("test %d: %s", i, t.string)
 		c.Assert(t.valid(t.string), Equals, t.expect)
 	}
