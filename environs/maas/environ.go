@@ -344,9 +344,13 @@ func (environ *maasEnviron) obtainNode(machineId string, stateInfo *state.Info, 
 	if err != nil {
 		return nil, fmt.Errorf("cannot run instances: %v", err)
 	}
-	instance := maasInstance{&node, environ}
 
-	info := machineInfo{string(instance.Id()), "test"}
+	hostname, err := node.GetField("hostname")
+	if err != nil {
+		return nil, err
+	}
+	instance := maasInstance{&node, environ}
+	info := machineInfo{string(instance.Id()), hostname}
 	runCmd, err := info.cloudinitRunCmd()
 	if err != nil {
 		return nil, err
