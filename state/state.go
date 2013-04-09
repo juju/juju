@@ -1032,3 +1032,21 @@ func (st *State) Cleanup() error {
 	}
 	return nil
 }
+
+var tagPrefix = map[byte]string{
+	'm': "machine-",
+	's': "service-",
+	'u': "unit-",
+	'e': "environment-",
+}
+
+func tagForGlobalKey(key string) (string, bool) {
+	if len(key) < 3 || key[1] != '#' {
+		return "", false
+	}
+	p, ok := tagPrefix[key[0]]
+	if !ok {
+		return "", false
+	}
+	return p + key[2:], true
+}
