@@ -11,12 +11,14 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/trivial"
 	"net/url"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -404,4 +406,21 @@ func strip(validated map[string]interface{}, unvalidated map[string]string) map[
 		}
 	}
 	return validated
+}
+
+// InitJujuHome retrieves $JUJU_HOME or $HOME to set the juju home.
+// In case both variables aren't set the function will return an error.
+// It also sets up the charm cache directory path in charm.CacheDir.
+func InitJujuHome() error {
+	jujuHome := os.Getenv("JUJU_HOME")
+	if jujuHome == "" {
+		home := os.Getenv("HOME")
+		if home == "" {
+			return errors.New("cannot determine juju home, neither $JUJU_HOME nor $HOME are set")
+		}
+		jujuHome = filepath.Join(home, ".juju")
+	}
+	config.SetJujuHome(jujuHome)
+	charm.CacheDir = filepath.Join(jujuHome, "charmcache")
+	return nil
 }

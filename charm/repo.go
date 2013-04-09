@@ -212,10 +212,11 @@ func verify(path, digest string) error {
 }
 
 // Get returns the charm referenced by curl.
+// CacheDir must have been set, otherwise Get will panic.
 func (s *CharmStore) Get(curl *URL) (Charm, error) {
-	// MachineAgent.Run should have already set the CacheDir.
+	// The cache location must have been previously set.
 	if CacheDir == "" {
-		panic("the charm cache directory path is empty")
+		panic("charm cache directory path is empty")
 	}
 	if err := os.MkdirAll(CacheDir, 0755); err != nil {
 		return nil, err
