@@ -127,6 +127,9 @@ func (t configTest) check(c *C) {
 	if t.region != "" {
 		c.Assert(ecfg.region(), Equals, t.region)
 	}
+	if t.authMode != "" {
+		c.Assert(ecfg.authMode(), Equals, t.authMode)
+	}
 	if t.username != "" {
 		c.Assert(ecfg.username(), Equals, t.username)
 		c.Assert(ecfg.password(), Equals, t.password)
@@ -207,10 +210,6 @@ var configTests = []configTest{
 	}, {
 		summary: "missing region in environment",
 		envVars: map[string]string{
-			"OS_USERNAME": "user",
-			"OS_PASSWORD": "secret",
-			"OS_AUTH_URL": "http://auth",
-			"OS_TENANT_NAME": "sometenant",
 			"OS_REGION_NAME": "",
 			"NOVA_REGION": "",
 		},
@@ -227,10 +226,6 @@ var configTests = []configTest{
 		envVars: map[string]string{
 			"OS_USERNAME": "",
 			"NOVA_USERNAME": "",
-			"OS_PASSWORD": "secret",
-			"OS_AUTH_URL": "http://auth",
-			"OS_TENANT_NAME": "sometenant",
-			"OS_REGION_NAME": "region",
 		},
 	}, {
 		summary: "invalid password",
@@ -242,12 +237,8 @@ var configTests = []configTest{
 		summary: "missing password in environment",
 		err: "required environment variable not set for credentials attribute: Secrets",
 		envVars: map[string]string{
-			"OS_USERNAME": "user",
 			"OS_PASSWORD": "",
 			"NOVA_PASSWORD": "",
-			"OS_AUTH_URL": "http://auth",
-			"OS_TENANT_NAME": "sometenant",
-			"OS_REGION_NAME": "region",
 		},
 	}, {
 		summary: "invalid tenant-name",
@@ -259,12 +250,8 @@ var configTests = []configTest{
 		summary: "missing tenant in environment",
 		err: "required environment variable not set for credentials attribute: TenantName",
 		envVars: map[string]string{
-			"OS_USERNAME": "user",
-			"OS_PASSWORD": "secret",
-			"OS_AUTH_URL": "http://auth",
 			"OS_TENANT_NAME": "",
 			"NOVA_PROJECT_ID": "",
-			"OS_REGION_NAME": "region",
 		},
 	}, {
 		summary: "invalid auth-url type",
@@ -276,11 +263,7 @@ var configTests = []configTest{
 		summary: "missing auth-url in environment",
 		err: "required environment variable not set for credentials attribute: URL",
 		envVars: map[string]string{
-			"OS_USERNAME": "user",
-			"OS_PASSWORD": "secret",
 			"OS_AUTH_URL": "",
-			"OS_TENANT_NAME": "sometenant",
-			"OS_REGION_NAME": "region",
 		},
 	}, {
 		summary: "invalid authorization mode",
@@ -335,15 +318,8 @@ var configTests = []configTest{
 		authURL:    "http://some/url",
 		region:     "region",
 	}, {
-		summary: "default auth mode based on environment",
-		envVars: map[string]string{
-			"OS_USERNAME": "jujuer",
-			"OS_PASSWORD": "open sesame",
-			"OS_AUTH_URL": "http://some/url",
-			"OS_TENANT_NAME": "juju tenant",
-			"OS_REGION_NAME": "region",
-		},
-		authMode:     string(AuthUserPass),
+		summary:  "default auth mode based on environment",
+		authMode: string(AuthUserPass),
 	}, {
 		summary: "image id",
 		config: attrs{
