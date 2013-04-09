@@ -156,10 +156,10 @@ var _ = Suite(&StoreSuite{})
 
 func (s *StoreSuite) SetUpSuite(c *C) {
 	s.server = NewMockStore(c)
+	s.oldCacheDir = charm.CacheDir
 }
 
 func (s *StoreSuite) SetUpTest(c *C) {
-	s.oldCacheDir = charm.CacheDir
 	charm.CacheDir = c.MkDir()
 	s.store = charm.NewStore("http://127.0.0.1:4444")
 	s.server.downloads = nil
