@@ -212,7 +212,7 @@ func strp(s string) *string {
 
 var constraintsRoundtripTests = []constraints.Value{
 	{},
-	// {Arch: strp("")}, goyaml bug lp:1132537
+	{Arch: strp("")},
 	{Arch: strp("amd64")},
 	{CpuCores: uint64p(0)},
 	{CpuCores: uint64p(128)},
@@ -271,16 +271,6 @@ func (s *ConstraintsSuite) TestRoundtripYaml(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(cons, DeepEquals, t)
 	}
-}
-
-func (s *ConstraintsSuite) TestGoyamlRoundtripBug1132537(c *C) {
-	var val struct{ Hello *string }
-	err := goyaml.Unmarshal([]byte(`hello: ""`), &val)
-	c.Assert(err, IsNil)
-
-	// A failure here indicates that goyaml bug lp:1132537 is fixed; please
-	// delete this test and uncomment the flagged constraintsRoundtripTests.
-	c.Assert(val.Hello, IsNil)
 }
 
 var withFallbacksTests = []struct {
