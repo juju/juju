@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/state/api/params"
 	"testing"
 )
 
@@ -39,9 +39,9 @@ var marshalTestCases = []struct {
 	about: "ServiceInfo Delta",
 	value: params.Delta{
 		Entity: &params.ServiceInfo{
-			Name:     "Benji",
-			Exposed:  true,
-			CharmURL: "cs:series/name",
+			Name:        "Benji",
+			Exposed:     true,
+			CharmURL:    "cs:series/name",
 			Constraints: constraints.MustParse("arch=arm mem=1024M"),
 		},
 	},

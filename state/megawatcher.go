@@ -118,17 +118,15 @@ func (svc *backingService) updated(st *State, store *multiwatcher.Store, id inte
 	if oldInfo == nil {
 		// We're adding the entry for the first time,
 		// so fetch the associated service contraints.
-		sdoc, err := getStatus(st, unitGlobalKey(u.Name))
+		c, err := readConstraints(st, serviceGlobalKey(svc.Name))
 		if err != nil {
 			return err
 		}
-		info.Status = params.UnitStatus(sdoc.Status)
-		info.StatusInfo = sdoc.StatusInfo
+		info.Constraints = c
 	} else {
 		// The entry already exists, so preserve the current status.
-		oldInfo := oldInfo.(*params.UnitInfo)
-		info.Status = oldInfo.Status
-		info.StatusInfo = oldInfo.StatusInfo
+		oldInfo := oldInfo.(*params.ServiceInfo)
+		info.Constraints = oldInfo.Constraints
 	}
 	store.Update(info)
 	return nil
@@ -246,13 +244,36 @@ func (a *backingStatus) mongoId() interface{} {
 type backingConstraints constraintsDoc
 
 func (s *backingConstraints) updated(st *State, store *multiwatcher.Store, id interface{}) error {
-	
+	parentId, ok := backingEntityIdForGlobalKey(id.(string))
+	if !ok {
+		log.Errorf("constraints for entity with unrecognised global key %q", id)
+		return nil
+	}
+	info0 := store.Get(parentId)
+	switch info := info0.(type) {
+	case nil:
+		// The parent info doesn't exist. Ignore the status until it does.
+		return nil
+	case *params.UnitInfo, *params.MachineInfo:
+		// We don't (yet) publish unit or machine constraints.
+		return nil
+	case *params.ServiceInfo:
+		newInfo := *info
+		newInfo.Constraints = constraintsDoc(*s).value()
+		info0 = &newInfo
+	default:
+		panic(fmt.Errorf("status for unexpected entity with id %q; type %T", id, info))
+	}
+	store.Update(info0)
+	return nil
 }
 
-func (s *backingStatus) removed(st *State, store *multiwatcher.Store, id interface{}) error {
+func (s *backingConstraints) removed(st *State, store *multiwatcher.Store, id interface{}) error {
+	return nil
 }
 
-func (a *backingStatus) mongoId() interface{} {
+func (a *backingConstraints) mongoId() interface{} {
+	panic("cannot find mongo id from constraints document")
 }
 
 func backingEntityIdForGlobalKey(key string) (params.EntityId, bool) {
@@ -295,7 +316,7 @@ var (
 	_ backingEntityDoc = (*backingRelation)(nil)
 	_ backingEntityDoc = (*backingAnnotation)(nil)
 	_ backingEntityDoc = (*backingStatus)(nil)
-	_ backingEntityDoc = (*backingConstraint)(nil)
+	_ backingEntityDoc = (*backingConstraints)(nil)
 )
 
 // allWatcherStateCollection holds information about a
@@ -310,7 +331,7 @@ type allWatcherStateCollection struct {
 	// this to use the type itself, as we'll have reflect.SliceOf.
 	infoSliceType reflect.Type
 	// subsidiary is true if the collection is used only
-	// modify a primary entity.
+	// to modify a primary entity.
 	subsidiary bool
 }
 
@@ -338,6 +359,10 @@ func newAllWatcherStateBacking(st *State) multiwatcher.Backing {
 	}, {
 		Collection:    st.statuses,
 		infoSliceType: reflect.TypeOf([]backingStatus(nil)),
+		subsidiary:    true,
+	}, {
+		Collection:    st.constraints,
+		infoSliceType: reflect.TypeOf([]backingConstraints(nil)),
 		subsidiary:    true,
 	}}
 	// Populate the collection maps from the above set of collections.
