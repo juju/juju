@@ -36,6 +36,7 @@ type configTest struct {
 	summary       string
 	config        attrs
 	change        attrs
+	envVars       map[string]string
 	region        string
 	controlBucket string
 	publicBucket  string
@@ -75,6 +76,13 @@ func (t configTest) check(c *C) {
 
 	es, err := environs.ReadEnvironsBytes(data)
 	c.Check(err, IsNil)
+
+	// Set environment variables if any.
+	if t.envVars != nil {
+		for k, v := range t.envVars {
+			os.Setenv(k, v)
+		}
+	}
 
 	e, err := es.Open("testenv")
 	if t.change != nil {
@@ -243,6 +251,29 @@ var configTests = []configTest{
 		authURL:    "http://some/url",
 		authMode:   "legacy",
 	}, {
+		summary: "missing region",
+		config: attrs{
+			"username":    "jujuer",
+			"password":    "open sesame",
+			"tenant-name": "juju tenant",
+			"auth-mode":   "legacy",
+			"auth-url":    "http://some/url",
+		},
+		envVars: map[string]string{
+			"OS_USERNAME": "user",
+			"OS_PASSWORD": "secret",
+			"OS_AUTH_URL": "http://auth",
+			"OS_TENANT_NAME": "sometenant",
+			"OS_REGION_NAME": "",
+			"NOVA_REGION": "",
+		},
+		username:   "jujuer",
+		password:   "open sesame",
+		tenantName: "juju tenant",
+		authURL:    "http://some/url",
+		authMode:   "legacy",
+		err:        "required environment variable not set for credentials attribute: Region",
+	}, {
 		summary: "image id",
 		config: attrs{
 			"default-image-id": "image-id",
@@ -327,15 +358,6 @@ func (s *ConfigSuite) setupEnvCredentials() {
 
 var regionTestConfig = configTests[0]
 var credentialsTestConfig = configTests[12]
-
-func (s *ConfigSuite) TestMissingRegion(c *C) {
-	s.setupEnvCredentials()
-	os.Setenv("OS_REGION_NAME", "")
-	os.Setenv("NOVA_REGION", "")
-	test := credentialsTestConfig
-	test.err = "required environment variable not set for credentials attribute: Region"
-	test.check(c)
-}
 
 func (s *ConfigSuite) TestMissingUsername(c *C) {
 	s.setupEnvCredentials()
