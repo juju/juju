@@ -23,6 +23,17 @@ type URL struct {
 	Revision int    // -1 if unset, N otherwise
 }
 
+var (
+	// ValidUser defines the user names that are valid in charm URLs.
+	ValidUser = regexp.MustCompile("^[a-z0-9][a-zA-Z0-9+.-]+$")
+
+	// ValidSeries defines the series names that are valid in charm URLs.
+	ValidSeries = regexp.MustCompile("^[a-z]+([a-z-]+[a-z])?$")
+
+	// ValidName defines the charm names that are valid in charm URLs.
+	ValidName = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*$")
+)
+
 // WithRevision returns a URL equivalent to url but with Revision set
 // to revision.
 func (url *URL) WithRevision(revision int) *URL {
@@ -30,10 +41,6 @@ func (url *URL) WithRevision(revision int) *URL {
 	urlCopy.Revision = revision
 	return &urlCopy
 }
-
-var validUser = regexp.MustCompile("^[a-z0-9][a-zA-Z0-9+.-]+$")
-var validSeries = regexp.MustCompile("^[a-z]+([a-z-]+[a-z])?$")
-var validName = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*$")
 
 // MustParseURL works like ParseURL, but panics in case of errors.
 func MustParseURL(url string) *URL {
@@ -68,7 +75,7 @@ func ParseURL(url string) (*URL, error) {
 			return nil, fmt.Errorf("local charm URL with user name: %q", url)
 		}
 		u.User = parts[0][1:]
-		if !validUser.MatchString(u.User) {
+		if !ValidUser.MatchString(u.User) {
 			return nil, fmt.Errorf("charm URL has invalid user name: %q", url)
 		}
 		parts = parts[1:]
@@ -80,7 +87,7 @@ func ParseURL(url string) (*URL, error) {
 	}
 	if len(parts) == 2 {
 		u.Series = parts[0]
-		if !validSeries.MatchString(u.Series) {
+		if !ValidSeries.MatchString(u.Series) {
 			return nil, fmt.Errorf("charm URL has invalid series: %q", url)
 		}
 		parts = parts[1:]
@@ -104,7 +111,7 @@ func ParseURL(url string) (*URL, error) {
 		}
 		break
 	}
-	if !validName.MatchString(u.Name) {
+	if !ValidName.MatchString(u.Name) {
 		return nil, fmt.Errorf("charm URL has invalid charm name: %q", url)
 	}
 	return u, nil

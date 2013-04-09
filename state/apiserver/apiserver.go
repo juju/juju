@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/multiwatcher"
 	"launchpad.net/juju-core/state/statecmd"
 	statewatcher "launchpad.net/juju-core/state/watcher"
 	"strconv"
@@ -204,7 +205,7 @@ func (r *srvRoot) AllWatcher(id string) (srvClientAllWatcher, error) {
 	if w == nil {
 		return srvClientAllWatcher{}, errUnknownWatcher
 	}
-	if _, ok := w.w.(*state.StateWatcher); !ok {
+	if _, ok := w.w.(*multiwatcher.Watcher); !ok {
 		return srvClientAllWatcher{}, errUnknownWatcher
 	}
 	return srvClientAllWatcher{w}, nil
@@ -272,14 +273,14 @@ type srvClientAllWatcher struct {
 }
 
 func (aw srvClientAllWatcher) Next() (params.AllWatcherNextResults, error) {
-	deltas, err := aw.w.(*state.StateWatcher).Next()
+	deltas, err := aw.w.(*multiwatcher.Watcher).Next()
 	return params.AllWatcherNextResults{
 		Deltas: deltas,
 	}, err
 }
 
 func (aw srvClientAllWatcher) Stop() error {
-	return aw.w.(*state.StateWatcher).Stop()
+	return aw.w.(*multiwatcher.Watcher).Stop()
 }
 
 // ServiceSet implements the server side of Client.ServerSet.
@@ -369,6 +370,11 @@ func (c *srvClient) DestroyServiceUnits(args params.DestroyServiceUnits) error {
 // ServiceDestroy destroys a given service.
 func (c *srvClient) ServiceDestroy(args params.ServiceDestroy) error {
 	return statecmd.ServiceDestroy(c.root.srv.state, args)
+}
+
+// GetServiceConstraints returns the constraints for a given service.
+func (c *srvClient) GetServiceConstraints(args params.GetServiceConstraints) (params.GetServiceConstraintsResults, error) {
+	return statecmd.GetServiceConstraints(c.root.srv.state, args)
 }
 
 // SetServiceConstraints sets the constraints for a given service.

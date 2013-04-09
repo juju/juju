@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/openstack"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
@@ -203,7 +204,7 @@ func (s *localServerSuite) SetUpTest(c *C) {
 	})
 	s.Tests.SetUpTest(c)
 	writeablePublicStorage := openstack.WritablePublicStorage(s.Env)
-	putFakeTools(c, writeablePublicStorage)
+	envtesting.PutFakeTools(c, writeablePublicStorage)
 	s.env = s.Tests.Env
 }
 
@@ -380,7 +381,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	series := version.Current.Series
 	info.Tag = "machine-1"
 	apiInfo.Tag = "machine-1"
-	inst1, err := t.env.StartInstance("1", series, constraints.Value{}, info, apiInfo)
+	inst1, err := t.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, IsNil)
 
 	err = t.env.Destroy(append(insts, inst1))

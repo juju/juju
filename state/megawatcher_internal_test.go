@@ -1,716 +1,59 @@
 package state
 
 import (
-	"container/list"
 	"errors"
 	"fmt"
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/multiwatcher"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
+	"reflect"
 	"sort"
-	"sync"
 	"time"
 )
 
-type allInfoSuite struct {
-	testing.LoggingSuite
-}
-
-func (*allInfoSuite) assertAllInfoContents(c *C, a *allInfo, latestRevno int64, entries []entityEntry) {
-	assertAllInfoContents(c, a, entityIdForInfo, latestRevno, entries)
-}
-
-var _ = Suite(&allInfoSuite{})
-
-var allInfoChangeMethodTests = []struct {
-	about          string
-	change         func(all *allInfo)
-	expectRevno    int64
-	expectContents []entityEntry
-}{{
-	about:  "empty at first",
-	change: func(*allInfo) {},
-}, {
-	about: "add single entry",
-	change: func(all *allInfo) {
-		allInfoAdd(all, &params.MachineInfo{
-			Id:         "0",
-			InstanceId: "i-0",
-		})
-	},
-	expectRevno: 1,
-	expectContents: []entityEntry{{
-		creationRevno: 1,
-		revno:         1,
-		info: &params.MachineInfo{
-			Id:         "0",
-			InstanceId: "i-0",
-		},
-	}},
-}, {
-	about: "add two entries",
-	change: func(all *allInfo) {
-		allInfoAdd(all, &params.MachineInfo{
-			Id:         "0",
-			InstanceId: "i-0",
-		})
-		allInfoAdd(all, &params.ServiceInfo{
-			Name:    "wordpress",
-			Exposed: true,
-		})
-	},
-	expectRevno: 2,
-	expectContents: []entityEntry{{
-		creationRevno: 1,
-		revno:         1,
-		info: &params.MachineInfo{
-			Id:         "0",
-			InstanceId: "i-0",
-		},
-	}, {
-		creationRevno: 2,
-		revno:         2,
-		info: &params.ServiceInfo{
-			Name:    "wordpress",
-			Exposed: true,
-		},
-	}},
-}, {
-	about: "update an entity that's not currently there",
-	change: func(all *allInfo) {
-		m := &params.MachineInfo{Id: "1"}
-		all.update(entityIdForInfo(m), m)
-	},
-	expectRevno: 1,
-	expectContents: []entityEntry{{
-		creationRevno: 1,
-		revno:         1,
-		info:          &params.MachineInfo{Id: "1"},
-	}},
-}, {
-	about: "mark removed on existing entry",
-	change: func(all *allInfo) {
-		allInfoAdd(all, &params.MachineInfo{Id: "0"})
-		allInfoAdd(all, &params.MachineInfo{Id: "1"})
-		allInfoIncRef(all, entityId{"machine", "0"})
-		all.markRemoved(entityId{"machine", "0"})
-	},
-	expectRevno: 3,
-	expectContents: []entityEntry{{
-		creationRevno: 2,
-		revno:         2,
-		info:          &params.MachineInfo{Id: "1"},
-	}, {
-		creationRevno: 1,
-		revno:         3,
-		refCount:      1,
-		removed:       true,
-		info:          &params.MachineInfo{Id: "0"},
-	}},
-}, {
-	about: "mark removed on nonexistent entry",
-	change: func(all *allInfo) {
-		all.markRemoved(entityId{"machine", "0"})
-	},
-}, {
-	about: "mark removed on already marked entry",
-	change: func(all *allInfo) {
-		allInfoAdd(all, &params.MachineInfo{Id: "0"})
-		allInfoAdd(all, &params.MachineInfo{Id: "1"})
-		allInfoIncRef(all, entityId{"machine", "0"})
-		all.markRemoved(entityId{"machine", "0"})
-		all.update(entityId{"machine", "1"}, &params.MachineInfo{
-			Id:         "1",
-			InstanceId: "i-1",
-		})
-		all.markRemoved(entityId{"machine", "0"})
-	},
-	expectRevno: 4,
-	expectContents: []entityEntry{{
-		creationRevno: 1,
-		revno:         3,
-		refCount:      1,
-		removed:       true,
-		info:          &params.MachineInfo{Id: "0"},
-	}, {
-		creationRevno: 2,
-		revno:         4,
-		info: &params.MachineInfo{
-			Id:         "1",
-			InstanceId: "i-1",
-		},
-	}},
-}, {
-	about: "mark removed on entry with zero ref count",
-	change: func(all *allInfo) {
-		allInfoAdd(all, &params.MachineInfo{Id: "0"})
-		all.markRemoved(entityId{"machine", "0"})
-	},
-	expectRevno: 2,
-}, {
-	about: "delete entry",
-	change: func(all *allInfo) {
-		allInfoAdd(all, &params.MachineInfo{Id: "0"})
-		all.delete(entityId{"machine", "0"})
-	},
-	expectRevno: 1,
-}, {
-	about: "decref of non-removed entity",
-	change: func(all *allInfo) {
-		m := &params.MachineInfo{Id: "0"}
-		id := entityIdForInfo(m)
-		allInfoAdd(all, m)
-		allInfoIncRef(all, id)
-		entry := all.entities[id].Value.(*entityEntry)
-		all.decRef(entry, id)
-	},
-	expectRevno: 1,
-	expectContents: []entityEntry{{
-		creationRevno: 1,
-		revno:         1,
-		refCount:      0,
-		info:          &params.MachineInfo{Id: "0"},
-	}},
-}, {
-	about: "decref of removed entity",
-	change: func(all *allInfo) {
-		m := &params.MachineInfo{Id: "0"}
-		id := entityIdForInfo(m)
-		allInfoAdd(all, m)
-		entry := all.entities[id].Value.(*entityEntry)
-		entry.refCount++
-		all.markRemoved(id)
-		all.decRef(entry, id)
-	},
-	expectRevno: 2,
-},
-}
-
-func (s *allInfoSuite) TestAllInfoChangeMethods(c *C) {
-	for i, test := range allInfoChangeMethodTests {
-		all := newAllInfo()
-		c.Logf("test %d. %s", i, test.about)
-		test.change(all)
-		s.assertAllInfoContents(c, all, test.expectRevno, test.expectContents)
-	}
-}
-
-func (s *allInfoSuite) TestChangesSince(c *C) {
-	a := newAllInfo()
-	// Add three entries.
-	var deltas []params.Delta
-	for i := 0; i < 3; i++ {
-		m := &params.MachineInfo{Id: fmt.Sprint(i)}
-		allInfoAdd(a, m)
-		deltas = append(deltas, params.Delta{Entity: m})
-	}
-	// Check that the deltas from each revno are as expected.
-	for i := 0; i < 3; i++ {
-		c.Logf("test %d", i)
-		c.Assert(a.changesSince(int64(i)), DeepEquals, deltas[i:])
-	}
-
-	// Check boundary cases.
-	c.Assert(a.changesSince(-1), DeepEquals, deltas)
-	c.Assert(a.changesSince(99), HasLen, 0)
-
-	// Update one machine and check we see the changes.
-	rev := a.latestRevno
-	m1 := &params.MachineInfo{
-		Id:         "1",
-		InstanceId: "foo",
-	}
-	a.update(entityIdForInfo(m1), m1)
-	c.Assert(a.changesSince(rev), DeepEquals, []params.Delta{{Entity: m1}})
-
-	// Make sure the machine isn't simply removed from
-	// the list when it's marked as removed.
-	allInfoIncRef(a, entityId{"machine", "0"})
-
-	// Remove another machine and check we see it's removed.
-	m0 := &params.MachineInfo{Id: "0"}
-	a.markRemoved(entityIdForInfo(m0))
-
-	// Check that something that never saw m0 does not get
-	// informed of its removal (even those the removed entity
-	// is still in the list.
-	c.Assert(a.changesSince(0), DeepEquals, []params.Delta{{
-		Entity: &params.MachineInfo{Id: "2"},
-	}, {
-		Entity: m1,
-	}})
-
-	c.Assert(a.changesSince(rev), DeepEquals, []params.Delta{{
-		Entity: m1,
-	}, {
-		Removed: true,
-		Entity:  m0,
-	}})
-
-	c.Assert(a.changesSince(rev+1), DeepEquals, []params.Delta{{
-		Removed: true,
-		Entity:  m0,
-	}})
-
-}
-
-type allWatcherSuite struct {
-	testing.LoggingSuite
-}
-
-var _ = Suite(&allWatcherSuite{})
-
-func (*allWatcherSuite) assertAllInfoContents(c *C, a *allInfo, latestRevno int64, entries []entityEntry) {
-	assertAllInfoContents(c, a, entityIdForInfo, latestRevno, entries)
-}
-
-func (*allWatcherSuite) TestHandle(c *C) {
-	aw := newAllWatcher(newTestBacking(nil))
-
-	// Add request from first watcher.
-	w0 := &StateWatcher{all: aw}
-	req0 := &allRequest{
-		w:     w0,
-		reply: make(chan bool, 1),
-	}
-	aw.handle(req0)
-	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
-		w0: {req0},
-	})
-
-	// Add second request from first watcher.
-	req1 := &allRequest{
-		w:     w0,
-		reply: make(chan bool, 1),
-	}
-	aw.handle(req1)
-	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
-		w0: {req1, req0},
-	})
-
-	// Add request from second watcher.
-	w1 := &StateWatcher{all: aw}
-	req2 := &allRequest{
-		w:     w1,
-		reply: make(chan bool, 1),
-	}
-	aw.handle(req2)
-	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
-		w0: {req1, req0},
-		w1: {req2},
-	})
-
-	// Stop first watcher.
-	aw.handle(&allRequest{
-		w: w0,
-	})
-	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
-		w1: {req2},
-	})
-	assertReplied(c, false, req0)
-	assertReplied(c, false, req1)
-
-	// Stop second watcher.
-	aw.handle(&allRequest{
-		w: w1,
-	})
-	assertWaitingRequests(c, aw, nil)
-	assertReplied(c, false, req2)
-}
-
-func (s *allWatcherSuite) TestHandleStopNoDecRefIfMoreRecentlyCreated(c *C) {
-	// If the StateWatcher hasn't seen the item, then we shouldn't
-	// decrement its ref count when it is stopped.
-	aw := newAllWatcher(newTestBacking(nil))
-	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
-	allInfoIncRef(aw.all, entityId{"machine", "0"})
-	w := &StateWatcher{all: aw}
-
-	// Stop the watcher.
-	aw.handle(&allRequest{w: w})
-	s.assertAllInfoContents(c, aw.all, 1, []entityEntry{{
-		creationRevno: 1,
-		revno:         1,
-		refCount:      1,
-		info: &params.MachineInfo{
-			Id: "0",
-		},
-	}})
-}
-
-func (s *allWatcherSuite) TestHandleStopNoDecRefIfAlreadySeenRemoved(c *C) {
-	// If the StateWatcher has already seen the item removed, then
-	// we shouldn't decrement its ref count when it is stopped.
-	aw := newAllWatcher(newTestBacking(nil))
-	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
-	allInfoIncRef(aw.all, entityId{"machine", "0"})
-	aw.all.markRemoved(entityId{"machine", "0"})
-	w := &StateWatcher{all: aw}
-	// Stop the watcher.
-	aw.handle(&allRequest{w: w})
-	s.assertAllInfoContents(c, aw.all, 2, []entityEntry{{
-		creationRevno: 1,
-		revno:         2,
-		refCount:      1,
-		removed:       true,
-		info: &params.MachineInfo{
-			Id: "0",
-		},
-	}})
-}
-
-func (s *allWatcherSuite) TestHandleStopDecRefIfAlreadySeenAndNotRemoved(c *C) {
-	// If the StateWatcher has already seen the item removed, then
-	// we should decrement its ref count when it is stopped.
-	aw := newAllWatcher(newTestBacking(nil))
-	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
-	allInfoIncRef(aw.all, entityId{"machine", "0"})
-	w := &StateWatcher{all: aw}
-	w.revno = aw.all.latestRevno
-	// Stop the watcher.
-	aw.handle(&allRequest{w: w})
-	s.assertAllInfoContents(c, aw.all, 1, []entityEntry{{
-		creationRevno: 1,
-		revno:         1,
-		info: &params.MachineInfo{
-			Id: "0",
-		},
-	}})
-}
-
-func (s *allWatcherSuite) TestHandleStopNoDecRefIfNotSeen(c *C) {
-	// If the StateWatcher hasn't seen the item at all, it should
-	// leave the ref count untouched.
-	aw := newAllWatcher(newTestBacking(nil))
-	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
-	allInfoIncRef(aw.all, entityId{"machine", "0"})
-	w := &StateWatcher{all: aw}
-	// Stop the watcher.
-	aw.handle(&allRequest{w: w})
-	s.assertAllInfoContents(c, aw.all, 1, []entityEntry{{
-		creationRevno: 1,
-		revno:         1,
-		refCount:      1,
-		info: &params.MachineInfo{
-			Id: "0",
-		},
-	}})
-}
-
-var respondTestChanges = [...]func(all *allInfo){
-	func(all *allInfo) {
-		allInfoAdd(all, &params.MachineInfo{Id: "0"})
-	},
-	func(all *allInfo) {
-		allInfoAdd(all, &params.MachineInfo{Id: "1"})
-	},
-	func(all *allInfo) {
-		allInfoAdd(all, &params.MachineInfo{Id: "2"})
-	},
-	func(all *allInfo) {
-		all.markRemoved(entityId{"machine", "0"})
-	},
-	func(all *allInfo) {
-		all.update(entityId{"machine", "1"}, &params.MachineInfo{
-			Id:         "1",
-			InstanceId: "i-1",
-		})
-	},
-	func(all *allInfo) {
-		all.markRemoved(entityId{"machine", "1"})
-	},
-}
-
-var (
-	respondTestFinalState = []entityEntry{{
-		creationRevno: 3,
-		revno:         3,
-		info: &params.MachineInfo{
-			Id: "2",
-		},
-	}}
-	respondTestFinalRevno = int64(len(respondTestChanges))
-)
-
-func (s *allWatcherSuite) TestRespondResults(c *C) {
-	// We test the response results for a pair of watchers by
-	// interleaving notional Next requests in all possible
-	// combinations after each change in respondTestChanges and
-	// checking that the view of the world as seen by the watchers
-	// matches the actual current state.
-
-	// We decide whether if we make a request for a given
-	// watcher by inspecting a number n - bit i of n determines whether
-	// a request will be responded to after running respondTestChanges[i].
-
-	numCombinations := 1 << uint(len(respondTestChanges))
-	const wcount = 2
-	ns := make([]int, wcount)
-	for ns[0] = 0; ns[0] < numCombinations; ns[0]++ {
-		for ns[1] = 0; ns[1] < numCombinations; ns[1]++ {
-			aw := newAllWatcher(&allWatcherTestBacking{})
-			c.Logf("test %0*b", len(respondTestChanges), ns)
-			var (
-				ws      []*StateWatcher
-				wstates []watcherState
-				reqs    []*allRequest
-			)
-			for i := 0; i < wcount; i++ {
-				ws = append(ws, &StateWatcher{})
-				wstates = append(wstates, make(watcherState))
-				reqs = append(reqs, nil)
-			}
-			// Make each change in turn, and make a request for each
-			// watcher if n and respond
-			for i, change := range respondTestChanges {
-				c.Logf("change %d", i)
-				change(aw.all)
-				needRespond := false
-				for wi, n := range ns {
-					if n&(1<<uint(i)) != 0 {
-						needRespond = true
-						if reqs[wi] == nil {
-							reqs[wi] = &allRequest{
-								w:     ws[wi],
-								reply: make(chan bool, 1),
-							}
-							aw.handle(reqs[wi])
-						}
-					}
-				}
-				if !needRespond {
-					continue
-				}
-				// Check that the expected requests are pending.
-				expectWaiting := make(map[*StateWatcher][]*allRequest)
-				for wi, w := range ws {
-					if reqs[wi] != nil {
-						expectWaiting[w] = []*allRequest{reqs[wi]}
-					}
-				}
-				assertWaitingRequests(c, aw, expectWaiting)
-				// Actually respond; then check that each watcher with
-				// an outstanding request now has an up to date view
-				// of the world.
-				aw.respond()
-				for wi, req := range reqs {
-					if req == nil {
-						continue
-					}
-					select {
-					case ok := <-req.reply:
-						c.Assert(ok, Equals, true)
-						c.Assert(len(req.changes) > 0, Equals, true)
-						wstates[wi].update(req.changes)
-						reqs[wi] = nil
-					default:
-					}
-					c.Logf("check %d", wi)
-					wstates[wi].check(c, aw.all)
-				}
-			}
-			// Stop the watcher and check that all ref counts end up at zero
-			// and removed objects are deleted.
-			for wi, w := range ws {
-				aw.handle(&allRequest{w: w})
-				if reqs[wi] != nil {
-					assertReplied(c, false, reqs[wi])
-				}
-			}
-			s.assertAllInfoContents(c, aw.all, respondTestFinalRevno, respondTestFinalState)
-		}
-	}
-}
-
-func (*allWatcherSuite) TestRespondMultiple(c *C) {
-	aw := newAllWatcher(newTestBacking(nil))
-	allInfoAdd(aw.all, &params.MachineInfo{Id: "0"})
-
-	// Add one request and respond.
-	// It should see the above change.
-	w0 := &StateWatcher{all: aw}
-	req0 := &allRequest{
-		w:     w0,
-		reply: make(chan bool, 1),
-	}
-	aw.handle(req0)
-	aw.respond()
-	assertReplied(c, true, req0)
-	c.Assert(req0.changes, DeepEquals, []params.Delta{{Entity: &params.MachineInfo{Id: "0"}}})
-	assertWaitingRequests(c, aw, nil)
-
-	// Add another request from the same watcher and respond.
-	// It should have no reply because nothing has changed.
-	req0 = &allRequest{
-		w:     w0,
-		reply: make(chan bool, 1),
-	}
-	aw.handle(req0)
-	aw.respond()
-	assertNotReplied(c, req0)
-
-	// Add two requests from another watcher and respond.
-	// The request from the first watcher should still not
-	// be replied to, but the later of the two requests from
-	// the second watcher should get a reply.
-	w1 := &StateWatcher{all: aw}
-	req1 := &allRequest{
-		w:     w1,
-		reply: make(chan bool, 1),
-	}
-	aw.handle(req1)
-	req2 := &allRequest{
-		w:     w1,
-		reply: make(chan bool, 1),
-	}
-	aw.handle(req2)
-	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
-		w0: {req0},
-		w1: {req2, req1},
-	})
-	aw.respond()
-	assertNotReplied(c, req0)
-	assertNotReplied(c, req1)
-	assertReplied(c, true, req2)
-	c.Assert(req2.changes, DeepEquals, []params.Delta{{Entity: &params.MachineInfo{Id: "0"}}})
-	assertWaitingRequests(c, aw, map[*StateWatcher][]*allRequest{
-		w0: {req0},
-		w1: {req1},
-	})
-
-	// Check that nothing more gets responded to if we call respond again.
-	aw.respond()
-	assertNotReplied(c, req0)
-	assertNotReplied(c, req1)
-
-	// Now make a change and check that both waiting requests
-	// get serviced.
-	allInfoAdd(aw.all, &params.MachineInfo{Id: "1"})
-	aw.respond()
-	assertReplied(c, true, req0)
-	assertReplied(c, true, req1)
-	assertWaitingRequests(c, aw, nil)
-
-	deltas := []params.Delta{{Entity: &params.MachineInfo{Id: "1"}}}
-	c.Assert(req0.changes, DeepEquals, deltas)
-	c.Assert(req1.changes, DeepEquals, deltas)
-}
-
-func (*allWatcherSuite) TestRunStop(c *C) {
-	aw := newAllWatcher(newTestBacking(nil))
-	go aw.run()
-	w := &StateWatcher{all: aw}
-	err := aw.Stop()
-	c.Assert(err, IsNil)
-	d, err := w.Next()
-	c.Assert(err, ErrorMatches, "state watcher was stopped")
-	c.Assert(d, HasLen, 0)
-}
-
-func (*allWatcherSuite) TestRun(c *C) {
-	b := newTestBacking([]params.EntityInfo{
-		&params.MachineInfo{Id: "0"},
-		&params.UnitInfo{Name: "wordpress/0"},
-		&params.ServiceInfo{Name: "wordpress"},
-	})
-	aw := newAllWatcher(b)
-	defer func() {
-		c.Check(aw.Stop(), IsNil)
-	}()
-	go aw.run()
-	w := &StateWatcher{all: aw}
-	checkNext(c, w, []params.Delta{
-		{Entity: &params.MachineInfo{Id: "0"}},
-		{Entity: &params.UnitInfo{Name: "wordpress/0"}},
-		{Entity: &params.ServiceInfo{Name: "wordpress"}},
-	}, "")
-	b.updateEntity(&params.MachineInfo{Id: "0", InstanceId: "i-0"})
-	checkNext(c, w, []params.Delta{
-		{Entity: &params.MachineInfo{Id: "0", InstanceId: "i-0"}},
-	}, "")
-	b.deleteEntity(entityId{"machine", "0"})
-	checkNext(c, w, []params.Delta{
-		{Removed: true, Entity: &params.MachineInfo{Id: "0"}},
-	}, "")
-}
-
-func (*allWatcherSuite) TestStateWatcherStop(c *C) {
-	aw := newAllWatcher(newTestBacking(nil))
-	defer func() {
-		c.Check(aw.Stop(), IsNil)
-	}()
-	go aw.run()
-	w := &StateWatcher{all: aw}
-	done := make(chan struct{})
-	go func() {
-		checkNext(c, w, nil, errWatcherStopped.Error())
-		done <- struct{}{}
-	}()
-	err := w.Stop()
-	c.Assert(err, IsNil)
-	<-done
-}
-
-func (*allWatcherSuite) TestStateWatcherStopBecauseAllWatcherError(c *C) {
-	b := newTestBacking([]params.EntityInfo{&params.MachineInfo{Id: "0"}})
-	aw := newAllWatcher(b)
-	go aw.run()
-	defer func() {
-		c.Check(aw.Stop(), ErrorMatches, "some error")
-	}()
-	w := &StateWatcher{all: aw}
-	// Receive one delta to make sure that the allWatcher
-	// has seen the initial state.
-	checkNext(c, w, []params.Delta{{Entity: &params.MachineInfo{Id: "0"}}}, "")
-	c.Logf("setting fetch error")
-	b.setFetchError(errors.New("some error"))
-	c.Logf("updating entity")
-	b.updateEntity(&params.MachineInfo{Id: "1"})
-	checkNext(c, w, nil, "some error")
-}
-
-type allWatcherStateSuite struct {
+type storeManagerStateSuite struct {
 	testing.LoggingSuite
 	testing.MgoSuite
 	State *State
 }
 
-func (s *allWatcherStateSuite) SetUpSuite(c *C) {
+func (s *storeManagerStateSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 }
 
-func (s *allWatcherStateSuite) TearDownSuite(c *C) {
+func (s *storeManagerStateSuite) TearDownSuite(c *C) {
 	s.MgoSuite.TearDownSuite(c)
 	s.LoggingSuite.TearDownSuite(c)
 }
 
-func (s *allWatcherStateSuite) SetUpTest(c *C) {
+func (s *storeManagerStateSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	s.State = TestingInitialize(c, nil)
 }
 
-func (s *allWatcherStateSuite) TearDownTest(c *C) {
+func (s *storeManagerStateSuite) TearDownTest(c *C) {
 	s.State.Close()
 	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }
 
-func (s *allWatcherStateSuite) Reset(c *C) {
+func (s *storeManagerStateSuite) Reset(c *C) {
 	s.TearDownTest(c)
 	s.SetUpTest(c)
 }
 
-var _ = Suite(&allWatcherStateSuite{})
+var _ = Suite(&storeManagerStateSuite{})
 
 // setUpScenario adds some entities to the state so that
 // we can check that they all get pulled in by
 // allWatcherStateBacking.getAll.
-func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
+func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 	add := func(e params.EntityInfo) {
 		entities = append(entities, e)
 	}
@@ -722,6 +65,7 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 	add(&params.MachineInfo{
 		Id:         "0",
 		InstanceId: "i-machine-0",
+		Status:     params.MachinePending,
 	})
 
 	wordpress, err := s.State.AddService("wordpress", AddTestingCharm(c, s.State, "wordpress"))
@@ -737,7 +81,6 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 	err = wordpress.SetAnnotations(pairs)
 	c.Assert(err, IsNil)
 	add(&params.AnnotationInfo{
-		GlobalKey:   "s#wordpress",
 		Tag:         "service-wordpress",
 		Annotations: pairs,
 	})
@@ -775,21 +118,25 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 			Series:    m.Series(),
 			MachineId: m.Id(),
 			Ports:     []params.Port{},
+			Status:    params.UnitPending,
 		})
 		pairs := map[string]string{"name": fmt.Sprintf("bar %d", i)}
 		err = wu.SetAnnotations(pairs)
 		c.Assert(err, IsNil)
 		add(&params.AnnotationInfo{
-			GlobalKey:   fmt.Sprintf("u#wordpress/%d", i),
 			Tag:         fmt.Sprintf("unit-wordpress-%d", i),
 			Annotations: pairs,
 		})
 
 		err = m.SetInstanceId(InstanceId("i-" + m.Tag()))
 		c.Assert(err, IsNil)
+		err = m.SetStatus(params.MachineError, m.Tag())
+		c.Assert(err, IsNil)
 		add(&params.MachineInfo{
 			Id:         fmt.Sprint(i + 1),
 			InstanceId: "i-" + m.Tag(),
+			Status:     params.MachineError,
+			StatusInfo: m.Tag(),
 		})
 		err = wu.AssignToMachine(m)
 		c.Assert(err, IsNil)
@@ -817,6 +164,7 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 			Service: "logging",
 			Series:  "series",
 			Ports:   []params.Port{},
+			Status:  params.UnitPending,
 		})
 	}
 	return
@@ -827,221 +175,500 @@ func serviceCharmURL(svc *Service) *charm.URL {
 	return url
 }
 
-func (s *allWatcherStateSuite) TestStateBackingGetAll(c *C) {
+func assertEntitiesEqual(c *C, got, want []params.EntityInfo) {
+	if len(got) == 0 {
+		got = nil
+	}
+	if len(want) == 0 {
+		want = nil
+	}
+	if reflect.DeepEqual(got, want) {
+		return
+	}
+	c.Errorf("entity mismatch; got len %d; want %d", len(got), len(want))
+	c.Logf("got:")
+	for _, e := range got {
+		c.Logf("\t%T %#v", e, e)
+	}
+	c.Logf("expected:")
+	for _, e := range want {
+		c.Logf("\t%T %#v", e, e)
+	}
+	c.FailNow()
+}
+
+func (s *storeManagerStateSuite) TestStateBackingGetAll(c *C) {
 	expectEntities := s.setUpScenario(c)
 	b := newAllWatcherStateBacking(s.State)
-	all := newAllInfo()
-	err := b.getAll(all)
+	all := multiwatcher.NewStore()
+	err := b.GetAll(all)
 	c.Assert(err, IsNil)
-
-	// Check that all the entities have been placed
-	// into the list; we can't use assertAllInfoContents
-	// here because we don't know the order that
-	// things were placed into the list.
-	var gotEntities entityInfoSlice
-	c.Check(all.latestRevno, Equals, int64(len(expectEntities)))
-	i := int64(0)
-	for e := all.list.Front(); e != nil; e = e.Next() {
-		entry := e.Value.(*entityEntry)
-		gotEntities = append(gotEntities, entry.info)
-		c.Check(entry.revno, Equals, all.latestRevno-i)
-		c.Check(entry.refCount, Equals, 0)
-		c.Check(entry.creationRevno, Equals, entry.revno)
-		c.Check(entry.removed, Equals, false)
-		i++
-		c.Assert(all.entities[b.entityIdForInfo(entry.info)], Equals, e)
-	}
-	c.Assert(len(all.entities), Equals, int(i))
-
+	var gotEntities entityInfoSlice = all.All()
 	sort.Sort(gotEntities)
 	sort.Sort(expectEntities)
-	c.Logf("got")
-	for _, e := range gotEntities {
-		c.Logf("\t%#v %#v %#v", e.EntityKind(), e.EntityId(), e)
-	}
-	c.Logf("expected")
-	for _, e := range expectEntities {
-		c.Logf("\t%#v %#v %#v", e.EntityKind(), e.EntityId(), e)
-	}
-	for num, ent := range expectEntities {
-		c.Logf("---------------> %d\n", num)
-		c.Logf("\n************ EXPECTED:\n%#v", ent)
-		c.Logf("************ OBTAINED: \n%#v\n", gotEntities[num])
-		c.Assert(gotEntities[num], DeepEquals, ent)
-	}
-
-	c.Assert(gotEntities, DeepEquals, expectEntities)
-}
-
-func (s *allWatcherStateSuite) TestStateBackingEntityIdForInfo(c *C) {
-	tests := []struct {
-		info       params.EntityInfo
-		collection *mgo.Collection
-		id         entityId
-	}{{
-		info:       &params.MachineInfo{Id: "1"},
-		collection: s.State.machines,
-	}, {
-		info:       &params.UnitInfo{Name: "wordpress/1"},
-		collection: s.State.units,
-	}, {
-		info:       &params.ServiceInfo{Name: "wordpress"},
-		collection: s.State.services,
-	}, {
-		info:       &params.RelationInfo{Key: "logging:logging-directory wordpress:logging-dir"},
-		collection: s.State.relations,
-	}, {
-		info:       &params.AnnotationInfo{GlobalKey: "m-0"},
-		collection: s.State.annotations,
-	}}
-	b := newAllWatcherStateBacking(s.State)
-	for i, test := range tests {
-		c.Logf("test %d: %T", i, test.info)
-		id := b.entityIdForInfo(test.info)
-		c.Assert(id, Equals, entityId{
-			collection: test.collection.Name,
-			id:         test.info.EntityId(),
-		})
-	}
-}
-
-func (s *allWatcherStateSuite) TestStateBackingChanged(c *C) {
-	m, err := s.State.AddMachine("series", JobManageEnviron)
-	c.Assert(err, IsNil)
-	c.Assert(m.Tag(), Equals, "machine-0")
-	err = m.SetInstanceId(InstanceId("i-0"))
-	c.Assert(err, IsNil)
-
-	b0 := newAllWatcherStateBacking(s.State)
-	testBackingChanged(c, b0)
-
-	// Test the test backing in the same way to
-	// make sure it agrees.
-	b1 := newTestBacking([]params.EntityInfo{
-		&params.MachineInfo{
-			Id:         "0",
-			InstanceId: "i-0",
-		},
-	})
-	testBackingChanged(c, b1)
-}
-
-func testBackingChanged(c *C, b allWatcherBacking) {
-	idOf := func(info params.EntityInfo) entityId {
-		return b.entityIdForInfo(info)
-	}
-	all := newAllInfo()
-	m99 := &params.MachineInfo{Id: "99"}
-	all.add(idOf(m99), m99)
-	m0 := &params.MachineInfo{Id: "0", InstanceId: "i-0"}
-
-	err := b.changed(all, idOf(m0))
-	c.Assert(err, IsNil)
-
-	c.Logf("first change")
-	assertAllInfoContents(c, all, idOf, 2, []entityEntry{{
-		creationRevno: 1,
-		revno:         1,
-		info:          m99,
-	}, {
-		creationRevno: 2,
-		revno:         2,
-		info:          m0,
-	}})
-
-	c.Logf("second change")
-	err = b.changed(all, idOf(m99))
-	c.Assert(err, IsNil)
-	assertAllInfoContents(c, all, idOf, 3, []entityEntry{{
-		creationRevno: 2,
-		revno:         2,
-		info:          m0,
-	}})
+	assertEntitiesEqual(c, gotEntities, expectEntities)
 }
 
 var allWatcherChangedTests = []struct {
 	about          string
 	add            []params.EntityInfo
 	setUp          func(c *C, st *State)
-	change         params.EntityInfo
-	expectRevno    int64
-	expectContents []entityEntry
-}{{
-	about:  "no entity",
-	setUp:  func(*C, *State) {},
-	change: &params.MachineInfo{Id: "1"},
-}, {
-	about:       "entity is marked as removed if it's not in backing",
-	add:         []params.EntityInfo{&params.MachineInfo{Id: "1"}},
-	setUp:       func(*C, *State) {},
-	change:      &params.MachineInfo{Id: "1"},
-	expectRevno: 2,
-	expectContents: []entityEntry{{
-		creationRevno: 1,
-		revno:         2,
-		refCount:      1,
-		removed:       true,
-		info: &params.MachineInfo{
+	change         watcher.Change
+	expectContents []params.EntityInfo
+}{
+	// Machine changes
+	{
+		about: "no machine in state, no machine in store -> do nothing",
+		setUp: func(*C, *State) {},
+		change: watcher.Change{
+			C:  "machines",
 			Id: "1",
 		},
-	}},
-}, {
-	about: "entity is added if it's in backing but not in allInfo",
-	setUp: func(c *C, st *State) {
-		_, err := st.AddMachine("series", JobHostUnits)
-		c.Assert(err, IsNil)
-	},
-	change:      &params.MachineInfo{Id: "0"},
-	expectRevno: 1,
-	expectContents: []entityEntry{{
-		creationRevno: 1,
-		revno:         1,
-		info:          &params.MachineInfo{Id: "0"},
-	}},
-}, {
-	about: "entity is updated if it's in backing and in allInfo",
-	add:   []params.EntityInfo{&params.MachineInfo{Id: "0"}},
-	setUp: func(c *C, st *State) {
-		m, err := st.AddMachine("series", JobManageEnviron)
-		c.Assert(err, IsNil)
-		err = m.SetInstanceId("i-0")
-		c.Assert(err, IsNil)
-	},
-	change:      &params.MachineInfo{Id: "0"},
-	expectRevno: 2,
-	expectContents: []entityEntry{{
-		creationRevno: 1,
-		revno:         2,
-		refCount:      1,
-		info: &params.MachineInfo{
-			Id:         "0",
-			InstanceId: "i-0",
+	}, {
+		about: "machine is removed if it's not in backing",
+		add:   []params.EntityInfo{&params.MachineInfo{Id: "1"}},
+		setUp: func(*C, *State) {},
+		change: watcher.Change{
+			C:  "machines",
+			Id: "1",
 		},
-	}},
-}}
+	}, {
+		about: "machine is added if it's in backing but not in Store",
+		setUp: func(c *C, st *State) {
+			m, err := st.AddMachine("series", JobHostUnits)
+			c.Assert(err, IsNil)
+			err = m.SetStatus(params.MachineError, "failure")
+			c.Assert(err, IsNil)
+		},
+		change: watcher.Change{
+			C:  "machines",
+			Id: "0",
+		},
+		expectContents: []params.EntityInfo{
+			&params.MachineInfo{
+				Id:         "0",
+				Status:     params.MachineError,
+				StatusInfo: "failure",
+			},
+		},
+	}, {
+		about: "machine is updated if it's in backing and in Store",
+		add: []params.EntityInfo{
+			&params.MachineInfo{
+				Id:         "0",
+				Status:     params.MachineError,
+				StatusInfo: "another failure",
+			},
+		},
+		setUp: func(c *C, st *State) {
+			m, err := st.AddMachine("series", JobManageEnviron)
+			c.Assert(err, IsNil)
+			err = m.SetInstanceId("i-0")
+			c.Assert(err, IsNil)
+		},
+		change: watcher.Change{
+			C:  "machines",
+			Id: "0",
+		},
+		expectContents: []params.EntityInfo{
+			&params.MachineInfo{
+				Id:         "0",
+				InstanceId: "i-0",
+				Status:     params.MachineError,
+				StatusInfo: "another failure",
+			},
+		},
+	},
+	// Unit changes
+	{
+		about: "no unit in state, no unit in store -> do nothing",
+		setUp: func(c *C, st *State) {},
+		change: watcher.Change{
+			C:  "units",
+			Id: "1",
+		},
+	}, {
+		about: "unit is removed if it's not in backing",
+		add:   []params.EntityInfo{&params.UnitInfo{Name: "wordpress/1"}},
+		setUp: func(*C, *State) {},
+		change: watcher.Change{
+			C:  "units",
+			Id: "wordpress/1",
+		},
+	}, {
+		about: "unit is added if it's in backing but not in Store",
+		setUp: func(c *C, st *State) {
+			wordpress, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
+			c.Assert(err, IsNil)
+			u, err := wordpress.AddUnit()
+			c.Assert(err, IsNil)
+			err = u.SetPublicAddress("public")
+			c.Assert(err, IsNil)
+			err = u.SetPrivateAddress("private")
+			c.Assert(err, IsNil)
+			err = u.SetResolved(params.ResolvedRetryHooks)
+			c.Assert(err, IsNil)
+			err = u.OpenPort("tcp", 12345)
+			c.Assert(err, IsNil)
+			m, err := st.AddMachine("series", JobHostUnits)
+			c.Assert(err, IsNil)
+			err = u.AssignToMachine(m)
+			c.Assert(err, IsNil)
+			err = u.SetStatus(params.UnitError, "failure")
+			c.Assert(err, IsNil)
+		},
+		change: watcher.Change{
+			C:  "units",
+			Id: "wordpress/0",
+		},
+		expectContents: []params.EntityInfo{
+			&params.UnitInfo{
+				Name:           "wordpress/0",
+				Service:        "wordpress",
+				Series:         "series",
+				PublicAddress:  "public",
+				PrivateAddress: "private",
+				MachineId:      "0",
+				Resolved:       params.ResolvedRetryHooks,
+				Ports:          []params.Port{{"tcp", 12345}},
+				Status:         params.UnitError,
+				StatusInfo:     "failure",
+			},
+		},
+	}, {
+		about: "unit is updated if it's in backing and in multiwatcher.Store",
+		add: []params.EntityInfo{&params.UnitInfo{
+			Name:       "wordpress/0",
+			Status:     params.UnitError,
+			StatusInfo: "another failure",
+		}},
+		setUp: func(c *C, st *State) {
+			wordpress, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
+			c.Assert(err, IsNil)
+			u, err := wordpress.AddUnit()
+			c.Assert(err, IsNil)
+			err = u.SetPublicAddress("public")
+			c.Assert(err, IsNil)
+			err = u.OpenPort("udp", 17070)
+			c.Assert(err, IsNil)
+		},
+		change: watcher.Change{
+			C:  "units",
+			Id: "wordpress/0",
+		},
+		expectContents: []params.EntityInfo{
+			&params.UnitInfo{
+				Name:          "wordpress/0",
+				Service:       "wordpress",
+				Series:        "series",
+				PublicAddress: "public",
+				Ports:         []params.Port{{"udp", 17070}},
+				Status:        params.UnitError,
+				StatusInfo:    "another failure",
+			},
+		},
+	},
+	// Service changes
+	{
+		about: "no service in state, no service in store -> do nothing",
+		setUp: func(c *C, st *State) {},
+		change: watcher.Change{
+			C:  "services",
+			Id: "wordpress",
+		},
+	}, {
+		about: "service is removed if it's not in backing",
+		add:   []params.EntityInfo{&params.ServiceInfo{Name: "wordpress"}},
+		setUp: func(*C, *State) {},
+		change: watcher.Change{
+			C:  "services",
+			Id: "wordpress",
+		},
+	}, {
+		about: "service is added if it's in backing but not in Store",
+		setUp: func(c *C, st *State) {
+			wordpress, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
+			c.Assert(err, IsNil)
+			err = wordpress.SetExposed()
+			c.Assert(err, IsNil)
+		},
+		change: watcher.Change{
+			C:  "services",
+			Id: "wordpress",
+		},
+		expectContents: []params.EntityInfo{
+			&params.ServiceInfo{
+				Name:     "wordpress",
+				Exposed:  true,
+				CharmURL: "local:series/series-wordpress-3",
+			},
+		},
+	}, {
+		about: "service is updated if it's in backing and in multiwatcher.Store",
+		add: []params.EntityInfo{&params.ServiceInfo{
+			Name:    "wordpress",
+			Exposed: true,
+		}},
+		setUp: func(c *C, st *State) {
+			_, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
+			c.Assert(err, IsNil)
+		},
+		change: watcher.Change{
+			C:  "services",
+			Id: "wordpress",
+		},
+		expectContents: []params.EntityInfo{
+			&params.ServiceInfo{
+				Name:     "wordpress",
+				CharmURL: "local:series/series-wordpress-3",
+			},
+		},
+	},
+	// Relation changes
+	{
+		about: "no relation in state, no service in store -> do nothing",
+		setUp: func(c *C, st *State) {},
+		change: watcher.Change{
+			C:  "relations",
+			Id: "logging:logging-directory wordpress:logging-dir",
+		},
+	}, {
+		about: "relation is removed if it's not in backing",
+		add:   []params.EntityInfo{&params.RelationInfo{Key: "logging:logging-directory wordpress:logging-dir"}},
+		setUp: func(*C, *State) {},
+		change: watcher.Change{
+			C:  "relations",
+			Id: "logging:logging-directory wordpress:logging-dir",
+		},
+	}, {
+		about: "relation is added if it's in backing but not in Store",
+		setUp: func(c *C, st *State) {
+			_, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
+			c.Assert(err, IsNil)
 
-func (s *allWatcherStateSuite) TestChanged(c *C) {
+			_, err = st.AddService("logging", AddTestingCharm(c, st, "logging"))
+			c.Assert(err, IsNil)
+			eps, err := st.InferEndpoints([]string{"logging", "wordpress"})
+			c.Assert(err, IsNil)
+			_, err = st.AddRelation(eps...)
+			c.Assert(err, IsNil)
+		},
+		change: watcher.Change{
+			C:  "relations",
+			Id: "logging:logging-directory wordpress:logging-dir",
+		},
+		expectContents: []params.EntityInfo{
+			&params.RelationInfo{
+				Key: "logging:logging-directory wordpress:logging-dir",
+				Endpoints: []params.Endpoint{
+					params.Endpoint{ServiceName: "logging", Relation: charm.Relation{Name: "logging-directory", Role: "requirer", Interface: "logging", Optional: false, Limit: 1, Scope: "container"}},
+					params.Endpoint{ServiceName: "wordpress", Relation: charm.Relation{Name: "logging-dir", Role: "provider", Interface: "logging", Optional: false, Limit: 0, Scope: "container"}}},
+			},
+		},
+	},
+	// Annotation changes
+	{
+		about: "no annotation in state, no annotation in store -> do nothing",
+		setUp: func(c *C, st *State) {},
+		change: watcher.Change{
+			C:  "relations",
+			Id: "m#0",
+		},
+	}, {
+		about: "annotation is removed if it's not in backing",
+		add:   []params.EntityInfo{&params.AnnotationInfo{Tag: "machine-0"}},
+		setUp: func(*C, *State) {},
+		change: watcher.Change{
+			C:  "annotations",
+			Id: "m#0",
+		},
+	}, {
+		about: "annotation is added if it's in backing but not in Store",
+		setUp: func(c *C, st *State) {
+			m, err := st.AddMachine("series", JobHostUnits)
+			c.Assert(err, IsNil)
+			err = m.SetAnnotations(map[string]string{"foo": "bar", "arble": "baz"})
+			c.Assert(err, IsNil)
+		},
+		change: watcher.Change{
+			C:  "annotations",
+			Id: "m#0",
+		},
+		expectContents: []params.EntityInfo{
+			&params.AnnotationInfo{
+				Tag:         "machine-0",
+				Annotations: map[string]string{"foo": "bar", "arble": "baz"},
+			},
+		},
+	}, {
+		about: "annotation is updated if it's in backing and in multiwatcher.Store",
+		add: []params.EntityInfo{&params.AnnotationInfo{
+			Tag: "machine-0",
+			Annotations: map[string]string{
+				"arble":  "baz",
+				"foo":    "bar",
+				"pretty": "polly",
+			},
+		}},
+		setUp: func(c *C, st *State) {
+			m, err := st.AddMachine("series", JobHostUnits)
+			c.Assert(err, IsNil)
+			err = m.SetAnnotations(map[string]string{
+				"arble":  "khroomph",
+				"pretty": "",
+				"new":    "attr",
+			})
+			c.Assert(err, IsNil)
+		},
+		change: watcher.Change{
+			C:  "annotations",
+			Id: "m#0",
+		},
+		expectContents: []params.EntityInfo{
+			&params.AnnotationInfo{
+				Tag: "machine-0",
+				Annotations: map[string]string{
+					"arble": "khroomph",
+					"new":   "attr",
+				},
+			},
+		},
+	},
+	// Unit status changes
+	{
+		about: "no unit in state -> do nothing",
+		setUp: func(c *C, st *State) {},
+		change: watcher.Change{
+			C:  "statuses",
+			Id: "u#wordpress/0",
+		},
+	}, {
+		about: "no change if status is not in backing",
+		add: []params.EntityInfo{&params.UnitInfo{
+			Name:       "wordpress/0",
+			Status:     params.UnitError,
+			StatusInfo: "failure",
+		}},
+		setUp: func(*C, *State) {},
+		change: watcher.Change{
+			C:  "statuses",
+			Id: "u#wordpress/0",
+		},
+		expectContents: []params.EntityInfo{
+			&params.UnitInfo{
+				Name:       "wordpress/0",
+				Status:     params.UnitError,
+				StatusInfo: "failure",
+			},
+		},
+	}, {
+		about: "status is changed if the unit exists in the store",
+		add: []params.EntityInfo{&params.UnitInfo{
+			Name:       "wordpress/0",
+			Status:     params.UnitError,
+			StatusInfo: "failure",
+		}},
+		setUp: func(c *C, st *State) {
+			wordpress, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
+			c.Assert(err, IsNil)
+			u, err := wordpress.AddUnit()
+			c.Assert(err, IsNil)
+			err = u.SetStatus(params.UnitStarted, "")
+			c.Assert(err, IsNil)
+		},
+		change: watcher.Change{
+			C:  "statuses",
+			Id: "u#wordpress/0",
+		},
+		expectContents: []params.EntityInfo{
+			&params.UnitInfo{
+				Name:   "wordpress/0",
+				Status: params.UnitStarted,
+			},
+		},
+	},
+	// Machine status changes
+	{
+		about: "no machine in state -> do nothing",
+		setUp: func(c *C, st *State) {},
+		change: watcher.Change{
+			C:  "statuses",
+			Id: "m#0",
+		},
+	}, {
+		about: "no change if status is not in backing",
+		add: []params.EntityInfo{&params.MachineInfo{
+			Id:         "0",
+			Status:     params.MachineError,
+			StatusInfo: "failure",
+		}},
+		setUp: func(*C, *State) {},
+		change: watcher.Change{
+			C:  "statuses",
+			Id: "m#0",
+		},
+		expectContents: []params.EntityInfo{&params.MachineInfo{
+			Id:         "0",
+			Status:     params.MachineError,
+			StatusInfo: "failure",
+		}},
+	}, {
+		about: "status is changed if the machine exists in the store",
+		add: []params.EntityInfo{&params.MachineInfo{
+			Id:         "0",
+			Status:     params.MachineError,
+			StatusInfo: "failure",
+		}},
+		setUp: func(c *C, st *State) {
+			m, err := st.AddMachine("series", JobHostUnits)
+			c.Assert(err, IsNil)
+			err = m.SetStatus(params.MachineStarted, "")
+			c.Assert(err, IsNil)
+		},
+		change: watcher.Change{
+			C:  "statuses",
+			Id: "m#0",
+		},
+		expectContents: []params.EntityInfo{
+			&params.MachineInfo{
+				Id:     "0",
+				Status: params.MachineStarted,
+			},
+		},
+	},
+}
+
+func (s *storeManagerStateSuite) TestChanged(c *C) {
+	collections := map[string]*mgo.Collection{
+		"machines":    s.State.machines,
+		"units":       s.State.units,
+		"services":    s.State.services,
+		"relations":   s.State.relations,
+		"annotations": s.State.annotations,
+		"statuses":    s.State.statuses,
+	}
 	for i, test := range allWatcherChangedTests {
 		c.Logf("test %d. %s", i, test.about)
 		b := newAllWatcherStateBacking(s.State)
-		idOf := func(info params.EntityInfo) entityId { return b.entityIdForInfo(info) }
-		all := newAllInfo()
+		all := multiwatcher.NewStore()
 		for _, info := range test.add {
-			all.add(idOf(info), info)
-			allInfoIncRef(all, idOf(info))
+			all.Update(info)
 		}
 		test.setUp(c, s.State)
-		err := b.changed(all, idOf(test.change))
+		c.Logf("done set up")
+		ch := test.change
+		ch.C = collections[ch.C].Name
+		err := b.Changed(all, test.change)
 		c.Assert(err, IsNil)
-		assertAllInfoContents(c, all, idOf, test.expectRevno, test.expectContents)
+		assertEntitiesEqual(c, all.All(), test.expectContents)
 		s.Reset(c)
 	}
 }
 
-// TestStateWatcher tests the integration of the state watcher
+// StateWatcher tests the integration of the state watcher
 // with the state-based backing. Most of the logic is tested elsewhere -
 // this just tests end-to-end.
-func (s *allWatcherStateSuite) TestStateWatcher(c *C) {
+func (s *storeManagerStateSuite) TestStateWatcher(c *C) {
 	m0, err := s.State.AddMachine("series", JobManageEnviron)
 	c.Assert(err, IsNil)
 	c.Assert(m0.Id(), Equals, "0")
@@ -1051,15 +678,20 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *C) {
 	c.Assert(m1.Id(), Equals, "1")
 
 	b := newAllWatcherStateBacking(s.State)
-	aw := newAllWatcher(b)
-	go aw.run()
+	aw := multiwatcher.NewStoreManager(b)
 	defer aw.Stop()
-	w := &StateWatcher{all: aw}
+	w := multiwatcher.NewWatcher(aw)
 	s.State.StartSync()
-	checkNext(c, w, []params.Delta{{
-		Entity: &params.MachineInfo{Id: "0"},
+	checkNext(c, w, b, []params.Delta{{
+		Entity: &params.MachineInfo{
+			Id:     "0",
+			Status: params.MachinePending,
+		},
 	}, {
-		Entity: &params.MachineInfo{Id: "1"},
+		Entity: &params.MachineInfo{
+			Id:     "1",
+			Status: params.MachinePending,
+		},
 	}}, "")
 
 	// Make some changes to the state.
@@ -1087,15 +719,22 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *C) {
 		c.Assert(err, IsNil)
 		deltas = append(deltas, d...)
 	}
-	checkDeltasEqual(c, deltas, []params.Delta{{
+	checkDeltasEqual(c, b, deltas, []params.Delta{{
 		Removed: true,
-		Entity:  &params.MachineInfo{Id: "1"},
+		Entity: &params.MachineInfo{
+			Id:     "1",
+			Status: params.MachinePending,
+		},
 	}, {
-		Entity: &params.MachineInfo{Id: "2"},
+		Entity: &params.MachineInfo{
+			Id:     "2",
+			Status: params.MachinePending,
+		},
 	}, {
 		Entity: &params.MachineInfo{
 			Id:         "0",
 			InstanceId: "i-0",
+			Status:     params.MachinePending,
 		},
 	}})
 
@@ -1106,56 +745,26 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *C) {
 	c.Assert(err, ErrorMatches, "state watcher was stopped")
 }
 
-func entityIdForInfo(info params.EntityInfo) entityId {
-	return entityId{
-		collection: info.EntityKind(),
-		id:         info.EntityId(),
-	}
-}
-
-func allInfoAdd(a *allInfo, info params.EntityInfo) {
-	a.add(entityIdForInfo(info), info)
-}
-
-func allInfoIncRef(a *allInfo, id entityId) {
-	entry := a.entities[id].Value.(*entityEntry)
-	entry.refCount++
-}
-
 type entityInfoSlice []params.EntityInfo
 
 func (s entityInfoSlice) Len() int      { return len(s) }
 func (s entityInfoSlice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 func (s entityInfoSlice) Less(i, j int) bool {
-	if s[i].EntityKind() != s[j].EntityKind() {
-		return s[i].EntityKind() < s[j].EntityKind()
+	id0, id1 := s[i].EntityId(), s[j].EntityId()
+	if id0.Kind != id1.Kind {
+		return id0.Kind < id1.Kind
 	}
-	switch id := s[i].EntityId().(type) {
+	switch id := id0.Id.(type) {
 	case string:
-		return id < s[j].EntityId().(string)
+		return id < id1.Id.(string)
+	default:
 	}
-	panic("unknown id type")
-}
-
-func assertAllInfoContents(c *C, a *allInfo, idOf func(params.EntityInfo) entityId, latestRevno int64, entries []entityEntry) {
-	var gotEntries []entityEntry
-	var gotElems []*list.Element
-	c.Check(a.list.Len(), Equals, len(entries))
-	for e := a.list.Back(); e != nil; e = e.Prev() {
-		gotEntries = append(gotEntries, *e.Value.(*entityEntry))
-		gotElems = append(gotElems, e)
-	}
-	c.Assert(gotEntries, DeepEquals, entries)
-	for i, ent := range entries {
-		c.Assert(a.entities[idOf(ent.info)], Equals, gotElems[i])
-	}
-	c.Assert(a.entities, HasLen, len(entries))
-	c.Assert(a.latestRevno, Equals, latestRevno)
+	panic("unexpected entity id type")
 }
 
 var errTimeout = errors.New("no change received in sufficient time")
 
-func getNext(c *C, w *StateWatcher, timeout time.Duration) ([]params.Delta, error) {
+func getNext(c *C, w *multiwatcher.Watcher, timeout time.Duration) ([]params.Delta, error) {
 	var deltas []params.Delta
 	var err error
 	ch := make(chan struct{}, 1)
@@ -1171,25 +780,25 @@ func getNext(c *C, w *StateWatcher, timeout time.Duration) ([]params.Delta, erro
 	return nil, errTimeout
 }
 
-func checkNext(c *C, w *StateWatcher, deltas []params.Delta, expectErr string) {
+func checkNext(c *C, w *multiwatcher.Watcher, b multiwatcher.Backing, deltas []params.Delta, expectErr string) {
 	d, err := getNext(c, w, 1*time.Second)
 	if expectErr != "" {
 		c.Check(err, ErrorMatches, expectErr)
 		return
 	}
-	checkDeltasEqual(c, d, deltas)
+	checkDeltasEqual(c, b, d, deltas)
 }
 
 // deltas are returns in arbitrary order, so we compare
 // them as sets.
-func checkDeltasEqual(c *C, d0, d1 []params.Delta) {
-	c.Check(deltaMap(d0), DeepEquals, deltaMap(d1))
+func checkDeltasEqual(c *C, b multiwatcher.Backing, d0, d1 []params.Delta) {
+	c.Check(deltaMap(d0, b), DeepEquals, deltaMap(d1, b))
 }
 
-func deltaMap(deltas []params.Delta) map[entityId]params.EntityInfo {
-	m := make(map[entityId]params.EntityInfo)
+func deltaMap(deltas []params.Delta, b multiwatcher.Backing) map[multiwatcher.InfoId]params.EntityInfo {
+	m := make(map[multiwatcher.InfoId]params.EntityInfo)
 	for _, d := range deltas {
-		id := entityIdForInfo(d.Entity)
+		id := d.Entity.EntityId()
 		if _, ok := m[id]; ok {
 			panic(fmt.Errorf("%v mentioned twice in delta set", id))
 		}
@@ -1200,178 +809,4 @@ func deltaMap(deltas []params.Delta) map[entityId]params.EntityInfo {
 		}
 	}
 	return m
-}
-
-// watcherState represents a StateWatcher client's
-// current view of the state. It holds the last delta that a given
-// state watcher has seen for each entity.
-type watcherState map[entityId]params.Delta
-
-func (s watcherState) update(changes []params.Delta) {
-	for _, d := range changes {
-		id := entityIdForInfo(d.Entity)
-		if d.Removed {
-			if _, ok := s[id]; !ok {
-				panic(fmt.Errorf("entity id %v removed when it wasn't there", id))
-			}
-			delete(s, id)
-		} else {
-			s[id] = d
-		}
-	}
-}
-
-// check checks that the watcher state matches that
-// held in current.
-func (s watcherState) check(c *C, current *allInfo) {
-	currentEntities := make(watcherState)
-	for id, elem := range current.entities {
-		entry := elem.Value.(*entityEntry)
-		if !entry.removed {
-			currentEntities[id] = params.Delta{Entity: entry.info}
-		}
-	}
-	c.Assert(s, DeepEquals, currentEntities)
-}
-
-func assertNotReplied(c *C, req *allRequest) {
-	select {
-	case v := <-req.reply:
-		c.Fatalf("request was unexpectedly replied to (got %v)", v)
-	default:
-	}
-}
-
-func assertReplied(c *C, val bool, req *allRequest) {
-	select {
-	case v := <-req.reply:
-		c.Assert(v, Equals, val)
-	default:
-		c.Fatalf("request was not replied to")
-	}
-}
-
-func assertWaitingRequests(c *C, aw *allWatcher, waiting map[*StateWatcher][]*allRequest) {
-	c.Assert(aw.waiting, HasLen, len(waiting))
-	for w, reqs := range waiting {
-		i := 0
-		for req := aw.waiting[w]; ; req = req.next {
-			if i >= len(reqs) {
-				c.Assert(req, IsNil)
-				break
-			}
-			c.Assert(req, Equals, reqs[i])
-			assertNotReplied(c, req)
-			i++
-		}
-	}
-}
-
-type allWatcherTestBacking struct {
-	mu       sync.Mutex
-	fetchErr error
-	entities map[entityId]params.EntityInfo
-	watchc   chan<- watcher.Change
-	txnRevno int64
-}
-
-func newTestBacking(initial []params.EntityInfo) *allWatcherTestBacking {
-	b := &allWatcherTestBacking{
-		entities: make(map[entityId]params.EntityInfo),
-	}
-	for _, info := range initial {
-		b.entities[entityIdForInfo(info)] = info
-	}
-	return b
-}
-
-func (b *allWatcherTestBacking) changed(all *allInfo, id entityId) error {
-	info, err := b.fetch(id)
-	if err == mgo.ErrNotFound {
-		all.markRemoved(id)
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	all.update(id, info)
-	return nil
-}
-
-func (b *allWatcherTestBacking) fetch(id entityId) (params.EntityInfo, error) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	if b.fetchErr != nil {
-		return nil, b.fetchErr
-	}
-	if info, ok := b.entities[id]; ok {
-		return info, nil
-	}
-	return nil, mgo.ErrNotFound
-}
-
-func (b *allWatcherTestBacking) entityIdForInfo(info params.EntityInfo) entityId {
-	return entityIdForInfo(info)
-}
-
-func (b *allWatcherTestBacking) watch(c chan<- watcher.Change) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	if b.watchc != nil {
-		panic("test backing can only watch once")
-	}
-	b.watchc = c
-}
-
-func (b *allWatcherTestBacking) unwatch(c chan<- watcher.Change) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	if c != b.watchc {
-		panic("unwatching wrong channel")
-	}
-	b.watchc = nil
-}
-
-func (b *allWatcherTestBacking) getAll(all *allInfo) error {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	for id, info := range b.entities {
-		all.update(id, info)
-	}
-	return nil
-}
-
-func (b *allWatcherTestBacking) updateEntity(info params.EntityInfo) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	id := b.entityIdForInfo(info)
-	b.entities[id] = info
-	b.txnRevno++
-	if b.watchc != nil {
-		b.watchc <- watcher.Change{
-			C:     id.collection,
-			Id:    id.id,
-			Revno: b.txnRevno, // This is actually ignored, but fill it in anyway.
-		}
-	}
-}
-
-func (b *allWatcherTestBacking) setFetchError(err error) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	b.fetchErr = err
-}
-
-func (b *allWatcherTestBacking) deleteEntity(id entityId) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	delete(b.entities, id)
-	b.txnRevno++
-	if b.watchc != nil {
-		b.watchc <- watcher.Change{
-			C:     id.collection,
-			Id:    id.id,
-			Revno: -1,
-		}
-	}
 }

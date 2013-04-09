@@ -6,6 +6,7 @@ import (
 	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	"regexp"
 )
 
 type URLSuite struct{}
@@ -39,7 +40,8 @@ var urlTests = []struct {
 }
 
 func (s *URLSuite) TestParseURL(c *C) {
-	for _, t := range urlTests {
+	for i, t := range urlTests {
+		c.Logf("test %d", i)
 		url, err := charm.ParseURL(t.s)
 		comment := Commentf("ParseURL(%q)", t.s)
 		if t.err != "" {
@@ -71,7 +73,8 @@ var inferTests = []struct {
 }
 
 func (s *URLSuite) TestInferURL(c *C) {
-	for _, t := range inferTests {
+	for i, t := range inferTests {
+		c.Logf("test %d", i)
 		comment := Commentf("InferURL(%q, %q)", t.vague, "defseries")
 		inferred, ierr := charm.InferURL(t.vague, "defseries")
 		parsed, perr := charm.ParseURL(t.exact)
@@ -112,6 +115,57 @@ func (s *URLSuite) TestInferURLNoDefaultSeries(c *C) {
 			c.Assert(err, IsNil)
 			c.Assert(inferred, DeepEquals, parsed, Commentf(`InferURL(%q, "")`, t.vague))
 		}
+	}
+}
+
+var validRegexpTests = []struct {
+	regexp *regexp.Regexp
+	string string
+	expect bool
+}{
+	{charm.ValidUser, "", false},
+	{charm.ValidUser, "bob", true},
+	{charm.ValidUser, "Bob", false},
+	{charm.ValidUser, "bOB", true},
+	{charm.ValidUser, "b^b", false},
+	{charm.ValidUser, "bob1", true},
+	{charm.ValidUser, "bob-1", true},
+	{charm.ValidUser, "bob+1", true},
+	{charm.ValidUser, "bob.1", true},
+	{charm.ValidUser, "1bob", true},
+	{charm.ValidUser, "1-bob", true},
+	{charm.ValidUser, "1+bob", true},
+	{charm.ValidUser, "1.bob", true},
+	{charm.ValidUser, "jim.bob+99-1.", true},
+
+	{charm.ValidName, "", false},
+	{charm.ValidName, "wordpress", true},
+	{charm.ValidName, "Wordpress", false},
+	{charm.ValidName, "word-press", true},
+	{charm.ValidName, "word press", false},
+	{charm.ValidName, "word^press", false},
+	{charm.ValidName, "-wordpress", false},
+	{charm.ValidName, "wordpress-", false},
+	{charm.ValidName, "wordpress2", true},
+	{charm.ValidName, "wordpress-2", false},
+	{charm.ValidName, "word2-press2", true},
+
+	{charm.ValidSeries, "", false},
+	{charm.ValidSeries, "precise", true},
+	{charm.ValidSeries, "Precise", false},
+	{charm.ValidSeries, "pre cise", false},
+	{charm.ValidSeries, "pre-cise", true},
+	{charm.ValidSeries, "pre^cise", false},
+	{charm.ValidSeries, "prec1se", false},
+	{charm.ValidSeries, "-precise", false},
+	{charm.ValidSeries, "precise-", false},
+	{charm.ValidSeries, "pre-c1se", false},
+}
+
+func (s *URLSuite) TestValidRegexps(c *C) {
+	for i, t := range validRegexpTests {
+		c.Logf("test %d: %s", i, t.string)
+		c.Assert(t.regexp.MatchString(t.string), Equals, t.expect)
 	}
 }
 

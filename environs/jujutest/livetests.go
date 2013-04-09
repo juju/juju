@@ -85,7 +85,7 @@ func (t *LiveTests) BootstrapOnce(c *C) {
 	// we could connect to (actual live tests, rather than local-only)
 	cons := constraints.MustParse("mem=2G")
 	if t.CanOpenState {
-		err := environs.UploadTools(t.Env)
+		_, err := environs.PutTools(t.Env.Storage(), nil)
 		c.Assert(err, IsNil)
 	}
 	err := environs.Bootstrap(t.Env, cons)
@@ -336,7 +336,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	// bootstrap process (it's optional in the config.Config)
 	cfg, err := conn.State.EnvironConfig()
 	c.Assert(err, IsNil)
-	c.Check(cfg.AgentVersion(), Equals, version.Current.Number)
+	c.Check(cfg.AgentVersion(), Equals, version.CurrentNumber())
 
 	// Check that the constraints have been set in the environment.
 	cons, err := conn.State.EnvironConstraints()
@@ -683,7 +683,7 @@ attempt:
 // available platform.  The first thing start instance should do is find
 // appropriate tools.
 func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
-	inst, err := t.Env.StartInstance("4", "unknownseries", constraints.Value{}, testing.InvalidStateInfo("4"), testing.InvalidAPIInfo("4"))
+	inst, err := t.Env.StartInstance("4", "fake_nonce", "unknownseries", constraints.Value{}, testing.InvalidStateInfo("4"), testing.InvalidAPIInfo("4"))
 	if inst != nil {
 		err := t.Env.StopInstances([]environs.Instance{inst})
 		c.Check(err, IsNil)
@@ -692,6 +692,17 @@ func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
 	var notFoundError *environs.NotFoundError
 	c.Assert(err, FitsTypeOf, notFoundError)
 	c.Assert(err, ErrorMatches, "no compatible tools found")
+}
+
+// Check that we can't start an instance with an empty nonce value.
+func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *C) {
+	inst, err := t.Env.StartInstance("4", "", config.DefaultSeries, constraints.Value{}, testing.InvalidStateInfo("4"), testing.InvalidAPIInfo("4"))
+	if inst != nil {
+		err := t.Env.StopInstances([]environs.Instance{inst})
+		c.Check(err, IsNil)
+	}
+	c.Assert(inst, IsNil)
+	c.Assert(err, ErrorMatches, ".*missing machine nonce")
 }
 
 func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {

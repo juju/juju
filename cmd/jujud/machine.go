@@ -88,7 +88,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 			err = err1
 		}
 	}
-	if err == worker.ErrDead {
+	if err == worker.ErrTerminateAgent {
 		err = nil
 	}
 	if ug, ok := err.(*UpgradeReadyError); ok {

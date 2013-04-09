@@ -43,7 +43,7 @@ func (mr *Machiner) Wait() error {
 func (mr *Machiner) loop() error {
 	m, err := mr.st.Machine(mr.id)
 	if state.IsNotFound(err) {
-		return worker.ErrDead
+		return worker.ErrTerminateAgent
 	} else if err != nil {
 		return err
 	}
@@ -55,7 +55,7 @@ func (mr *Machiner) loop() error {
 			return tomb.ErrDying
 		case <-w.Changes():
 			if err := m.Refresh(); state.IsNotFound(err) {
-				return worker.ErrDead
+				return worker.ErrTerminateAgent
 			} else if err != nil {
 				return err
 			}
@@ -65,7 +65,7 @@ func (mr *Machiner) loop() error {
 				if err := m.EnsureDead(); err != nil {
 					return err
 				}
-				return worker.ErrDead
+				return worker.ErrTerminateAgent
 			}
 		}
 	}

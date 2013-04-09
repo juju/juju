@@ -13,7 +13,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/version"
 	"os"
 	"path/filepath"
 )
@@ -75,9 +74,10 @@ func InvalidAPIInfo(machineId string) *api.Info {
 // StartInstance is a test helper function that starts an instance on the
 // environment using the current series and invalid info states.
 func StartInstance(c *C, env environs.Environ, machineId string) environs.Instance {
-	series := version.Current.Series
+	series := config.DefaultSeries
 	inst, err := env.StartInstance(
 		machineId,
+		"fake_nonce",
 		series,
 		constraints.Value{},
 		InvalidStateInfo(machineId),

@@ -9,7 +9,7 @@ import (
 	"launchpad.net/tomb"
 )
 
-var ErrDead = errors.New("agent entity is dead")
+var ErrTerminateAgent = errors.New("agent should be terminated")
 
 var loadedInvalid = func() {}
 

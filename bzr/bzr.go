@@ -52,11 +52,8 @@ func (b *Branch) Join(parts ...string) string {
 	return path.Join(append([]string{b.location}, parts...)...)
 }
 
-func (b *Branch) bzr(args ...string) (stdout, stderr []byte, err error) {
-	if len(args) == 0 {
-		panic("no point in runing bzr without arguments here")
-	}
-	cmd := exec.Command("bzr", args...)
+func (b *Branch) bzr(subcommand string, args ...string) (stdout, stderr []byte, err error) {
+	cmd := exec.Command("bzr", append([]string{subcommand}, args...)...)
 	if _, err := os.Stat(b.location); err == nil {
 		cmd.Dir = b.location
 	}
@@ -70,7 +67,7 @@ func (b *Branch) bzr(args ...string) (stdout, stderr []byte, err error) {
 		if err != nil {
 			errmsg = err.Error()
 		}
-		return nil, nil, fmt.Errorf(`error running "bzr %s": %s%s%s`, args[0], stdout, errbuf.Bytes(), errmsg)
+		return nil, nil, fmt.Errorf(`error running "bzr %s": %s%s%s`, subcommand, stdout, errbuf.Bytes(), errmsg)
 	}
 	return stdout, errbuf.Bytes(), err
 }
@@ -132,7 +129,7 @@ type PushAttr struct {
 // provided, or to the default push location otherwise.
 // See PushAttr for other options.
 func (b *Branch) Push(attr *PushAttr) error {
-	args := []string{"push"}
+	var args []string
 	if attr != nil {
 		if attr.Remember {
 			args = append(args, "--remember")
@@ -141,7 +138,7 @@ func (b *Branch) Push(attr *PushAttr) error {
 			args = append(args, attr.Location)
 		}
 	}
-	_, _, err := b.bzr(args...)
+	_, _, err := b.bzr("push", args...)
 	return err
 }
 

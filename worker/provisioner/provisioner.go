@@ -2,17 +2,17 @@ package provisioner
 
 import (
 	"fmt"
-	"sync"
-
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/tomb"
+	"sync"
 )
 
 // Provisioner represents a running provisioning worker.
@@ -102,7 +102,7 @@ func (p *Provisioner) loop() error {
 			if !ok {
 				return watcher.MustErr(machinesWatcher)
 			}
-			// TODO(dfc) fire process machines periodically to shut down unknown
+			// TODO(dfc; lp:1042717) fire process machines periodically to shut down unknown
 			// instances.
 			if err := p.processMachines(ids); err != nil {
 				return err
@@ -151,8 +151,9 @@ func (p *Provisioner) processMachines(ids []string) error {
 		return err
 	}
 
-	// Start an instance for the pending ones
-	if err := p.startMachines(pending); err != nil {
+	// Find running instances that have no machines associated
+	unknown, err := p.findUnknownInstances()
+	if err != nil {
 		return err
 	}
 
@@ -162,13 +163,16 @@ func (p *Provisioner) processMachines(ids []string) error {
 		return err
 	}
 
-	// Find running instances that have no machines associated
-	unknown, err := p.findUnknownInstances()
-	if err != nil {
+	// It's important that we stop unknown instances before starting
+	// pending ones, because if we start an instance and then fail to
+	// set its InstanceId on the machine we don't want to start a new
+	// instance for the same machine ID.
+	if err := p.stopInstances(append(stopping, unknown...)); err != nil {
 		return err
 	}
 
-	return p.stopInstances(append(stopping, unknown...))
+	// Start an instance for the pending ones
+	return p.startMachines(pending)
 }
 
 // findUnknownInstances finds instances which are not associated with a machine.
@@ -210,6 +214,7 @@ func (p *Provisioner) pendingOrDead(ids []string) (pending, dead []*state.Machin
 	for _, id := range ids {
 		m, err := p.st.Machine(id)
 		if state.IsNotFound(err) {
+			log.Infof("worker/provisioner: machine %q not found in state", m)
 			continue
 		}
 		if err != nil {
@@ -218,16 +223,27 @@ func (p *Provisioner) pendingOrDead(ids []string) (pending, dead []*state.Machin
 		switch m.Life() {
 		case state.Dead:
 			dead = append(dead, m)
+			log.Infof("worker/provisioner: found dead machine %q", m)
 			continue
 		case state.Dying:
+			// TODO(dimitern): handle machines that are Dying but unprovisioned?
+			log.Infof("worker/provisioner: ignoring dying machine %q", m)
 			continue
 		}
-		instId, ok := m.InstanceId()
-		if !ok {
-			pending = append(pending, m)
-			continue
+		if instId, hasInstId := m.InstanceId(); !hasInstId {
+			status, _, err := m.Status()
+			if err != nil {
+				log.Infof("worker/provisioner: cannot get machine %q status: %v", m, err)
+				continue
+			}
+			if status != params.MachineError {
+				pending = append(pending, m)
+				log.Infof("worker/provisioner: found machine %q pending provisioning", m)
+				continue
+			}
+		} else {
+			log.Infof("worker/provisioner: machine %v already started as instance %q", m, instId)
 		}
-		log.Warningf("worker/provisioner: machine %v already started as instance %q", m, instId)
 	}
 	return
 }
@@ -254,12 +270,31 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 	if err != nil {
 		return err
 	}
-	inst, err := p.environ.StartInstance(m.Id(), m.Series(), cons, stateInfo, apiInfo)
+	// TODO(dimitern) generate an unique random nonce in a follow-up.
+	inst, err := p.environ.StartInstance(m.Id(), "fake_nonce", m.Series(), cons, stateInfo, apiInfo)
 	if err != nil {
-		return fmt.Errorf("cannot start instance for new machine: %v", err)
+		// Set the state to error, so the machine will be skipped next
+		// time until the error is resolved, but don't return an
+		// error; just keep going with the other machines.
+		log.Errorf("worker/provisioner: cannot start instance for machine %q: %v", m, err)
+		if err1 := m.SetStatus(params.MachineError, err.Error()); err1 != nil {
+			// Something is wrong with this machine, better report it back.
+			log.Errorf("worker/provisioner: cannot set error status for machine %q: %v", m, err1)
+			return err1
+		}
+		return nil
 	}
-	// assign the instance id to the machine
 	if err := m.SetInstanceId(inst.Id()); err != nil {
+		// The machine is started, but we can't record the mapping in
+		// state. It'll keep running while we fail out and restart,
+		// but will then be detected by findUnknownInstances and
+		// killed again.
+		//
+		// Multiple instantiations of a given machine (with the same
+		// machine ID) cannot coexist, because findUnknownInstances is
+		// called before startMachines. However, if the first machine
+		// had started to do work before being replaced, we may
+		// encounter surprising problems.
 		return err
 	}
 	// populate the local cache

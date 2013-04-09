@@ -61,15 +61,6 @@ type machineDoc struct {
 	PasswordHash string
 }
 
-// machineStatusDoc represents the internal state of a machine status in MongoDB.
-// The implicit _id field is explicitly set to the global key of the
-// associated machine in the document's creation transaction, but omitted to
-// allow direct use of the document in both create and update transactions.
-type machineStatusDoc struct {
-	Status     params.MachineStatus
-	StatusInfo string
-}
-
 func newMachine(st *State, doc *machineDoc) *Machine {
 	machine := &Machine{
 		st:  st,
@@ -474,21 +465,27 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 
 // Status returns the status of the machine.
 func (m *Machine) Status() (status params.MachineStatus, info string, err error) {
-	doc := &machineStatusDoc{}
-	if err := getStatus(m.st, m.globalKey(), doc); err != nil {
+	doc, err := getStatus(m.st, m.globalKey())
+	if err != nil {
 		return "", "", err
 	}
-	return doc.Status, doc.StatusInfo, nil
+	status = params.MachineStatus(doc.Status)
+	info = doc.StatusInfo
+	return
 }
 
 // SetStatus sets the status of the machine.
 func (m *Machine) SetStatus(status params.MachineStatus, info string) error {
-	if status == params.MachinePending {
-		panic("cannot set machine status to pending")
-	} else if status == params.MachineError && info == "" {
+	if status == params.MachineError && info == "" {
 		panic("machine error status with no info")
 	}
-	doc := &machineStatusDoc{status, info}
+	if status == params.MachinePending {
+		panic("machine status cannot be set to pending")
+	}
+	doc := statusDoc{
+		Status:     string(status),
+		StatusInfo: info,
+	}
 	ops := []txn.Op{{
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,

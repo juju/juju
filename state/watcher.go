@@ -916,7 +916,7 @@ func (w *EnvironConfigWatcher) Changes() <-chan *config.Config {
 }
 
 func (w *EnvironConfigWatcher) loop() (err error) {
-	sw := w.st.watchSettings("e")
+	sw := w.st.watchSettings(environGlobalKey)
 	defer sw.Stop()
 	out := w.out
 	out = nil

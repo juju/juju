@@ -136,6 +136,10 @@ var operationPermTests = []struct {
 	op:    opClientServiceDestroy,
 	allow: []string{"user-admin", "user-other"},
 }, {
+	about: "Client.GetServiceConstraints",
+	op:    opClientGetServiceConstraints,
+	allow: []string{"user-admin", "user-other"},
+}, {
 	about: "Client.SetServiceConstraints",
 	op:    opClientSetServiceConstraints,
 	allow: []string{"user-admin", "user-other"},
@@ -443,6 +447,13 @@ func opClientServiceDestroy(c *C, st *api.State, mst *state.State) (func(), erro
 	if api.ErrCode(err) == api.CodeNotFound {
 		err = nil
 	}
+	return func() {}, err
+}
+
+func opClientGetServiceConstraints(c *C, st *api.State, mst *state.State) (func(), error) {
+	// This test only checks that the call is made without error, ensuring the
+	// signatures match.
+	_, err := st.Client().GetServiceConstraints("wordpress")
 	return func() {}, err
 }
 
@@ -1427,12 +1438,18 @@ func (s *suite) TestClientWatchAll(c *C) {
 	}()
 	deltas, err := watcher.Next()
 	c.Assert(err, IsNil)
-	c.Assert(deltas, DeepEquals, []params.Delta{{
+	if !c.Check(deltas, DeepEquals, []params.Delta{{
 		Entity: &params.MachineInfo{
 			Id:         m.Id(),
 			InstanceId: "i-0",
+			Status:     params.MachinePending,
 		},
-	}})
+	}}) {
+		c.Logf("got:")
+		for _, d := range deltas {
+			c.Logf("%#v\n", d.Entity)
+		}
+	}
 }
 
 // openAs connects to the API state as the given entity

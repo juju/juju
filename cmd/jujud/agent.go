@@ -103,7 +103,7 @@ func importance(err error) int {
 		return 1
 	case isUpgraded(err):
 		return 2
-	case err == worker.ErrDead:
+	case err == worker.ErrTerminateAgent:
 		return 3
 	}
 	panic("unreachable")
@@ -128,14 +128,14 @@ type Agent interface {
 	Tag() string
 }
 
-// runLoop repeatedly calls runOnce until it returns worker.ErrDead or
-// an upgraded error, or a value is received on stop.
+// runLoop repeatedly calls runOnce until it returns worker.ErrTerminateAgent
+// or an upgraded error, or a value is received on stop.
 func runLoop(runOnce func() error, stop <-chan struct{}) error {
 	log.Noticef("cmd/jujud: agent starting")
 	for {
 		err := runOnce()
-		if err == worker.ErrDead {
-			log.Noticef("cmd/jujud: entity is dead")
+		if err == worker.ErrTerminateAgent {
+			log.Noticef("cmd/jujud: entity is terminated")
 			return nil
 		}
 		if isFatal(err) {
@@ -163,7 +163,7 @@ func (e *fatalError) Error() string {
 }
 
 func isFatal(err error) bool {
-	if err == worker.ErrDead || isUpgraded(err) {
+	if err == worker.ErrTerminateAgent || isUpgraded(err) {
 		return true
 	}
 	_, ok := err.(*fatalError)
@@ -216,7 +216,7 @@ func openState(c *agent.Conf, a Agent) (_ *state.State, _ AgentState, err error)
 	}()
 	entity, err := a.Entity(st)
 	if state.IsNotFound(err) || err == nil && entity.Life() == state.Dead {
-		err = worker.ErrDead
+		err = worker.ErrTerminateAgent
 	}
 	if err != nil {
 		return nil, nil, err
