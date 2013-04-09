@@ -482,15 +482,12 @@ var scenarioStatus = &api.Status{
 	Machines: map[string]api.MachineInfo{
 		"0": {
 			InstanceId: "i-machine-0",
-			Nonce:      "user-admin:bootstrap",
 		},
 		"1": {
 			InstanceId: "i-machine-1",
-			Nonce:      "fake_nonce",
 		},
 		"2": {
 			InstanceId: "i-machine-2",
-			Nonce:      "fake_nonce",
 		},
 	},
 }

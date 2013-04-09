@@ -722,7 +722,6 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 	add(&params.MachineInfo{
 		Id:         "0",
 		InstanceId: "i-machine-0",
-		Nonce:      "fake_nonce",
 	})
 
 	wordpress, err := s.State.AddService("wordpress", AddTestingCharm(c, s.State, "wordpress"))
@@ -791,7 +790,6 @@ func (s *allWatcherStateSuite) setUpScenario(c *C) (entities entityInfoSlice) {
 		add(&params.MachineInfo{
 			Id:         fmt.Sprint(i + 1),
 			InstanceId: "i-" + m.Tag(),
-			Nonce:      "fake_nonce",
 		})
 		err = wu.AssignToMachine(m)
 		c.Assert(err, IsNil)
@@ -975,7 +973,6 @@ var allWatcherChangedTests = []struct {
 		info: &params.MachineInfo{
 			Id:         "0",
 			InstanceId: "i-0",
-			Nonce:      "bootstrap_nonce",
 		},
 	}},
 }}
@@ -1056,7 +1053,6 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *C) {
 		Entity: &params.MachineInfo{
 			Id:         "0",
 			InstanceId: "i-0",
-			Nonce:      "bootstrap_nonce",
 		},
 	}})
 

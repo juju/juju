@@ -32,7 +32,6 @@ func (st *State) Client() *Client {
 // MachineInfo holds information about a machine.
 type MachineInfo struct {
 	InstanceId string // blank if not set.
-	Nonce      string // blank if not set.
 }
 
 // Status holds information about the status of a juju environment.

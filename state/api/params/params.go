@@ -290,7 +290,6 @@ var (
 type MachineInfo struct {
 	Id         string `bson:"_id"`
 	InstanceId string
-	Nonce      string
 }
 
 func (i *MachineInfo) EntityId() interface{} { return i.Id }
