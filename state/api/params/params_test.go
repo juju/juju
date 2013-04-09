@@ -2,7 +2,6 @@ package params_test
 
 import (
 	"encoding/json"
-	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state/api/params"
@@ -30,9 +29,11 @@ var marshalTestCases = []struct {
 		Entity: &params.MachineInfo{
 			Id:         "Benji",
 			InstanceId: "Shazam",
+			Status:     "error",
+			StatusInfo: "foo",
 		},
 	},
-	json: `["machine","change",{"Id":"Benji","InstanceId":"Shazam"}]`,
+	json: `["machine","change",{"Id":"Benji","InstanceId":"Shazam","Status":"error","StatusInfo":"foo"}]`,
 }, {
 	about: "ServiceInfo Delta",
 	value: params.Delta{
@@ -47,16 +48,10 @@ var marshalTestCases = []struct {
 	about: "UnitInfo Delta",
 	value: params.Delta{
 		Entity: &params.UnitInfo{
-			Name:    "Benji",
-			Service: "Shazam",
-			Series:  "precise",
-			CharmURL: &charm.URL{
-				Schema:   "cs",
-				User:     "user",
-				Series:   "precise",
-				Name:     "wordpress",
-				Revision: 42,
-			},
+			Name:     "Benji",
+			Service:  "Shazam",
+			Series:   "precise",
+			CharmURL: "cs:~user/precise/wordpress-42",
 			Ports: []params.Port{
 				params.Port{
 					Protocol: "http",
@@ -66,9 +61,11 @@ var marshalTestCases = []struct {
 			PrivateAddress: "10.0.0.1",
 			Resolved:       "", // See params.ResolvedMode
 			MachineId:      "1",
+			Status:         "error",
+			StatusInfo:     "foo",
 		},
 	},
-	json: `["unit", "change", {"CharmURL": "cs:~user/precise/wordpress-42", "MachineId": "1", "Series": "precise", "Name": "Benji", "PublicAddress": "example.com", "Service": "Shazam", "PrivateAddress": "10.0.0.1", "Resolved": "", "Ports": [{"Protocol": "http", "Number": 80}]}]`,
+	json: `["unit", "change", {"CharmURL": "cs:~user/precise/wordpress-42", "MachineId": "1", "Series": "precise", "Name": "Benji", "PublicAddress": "example.com", "Service": "Shazam", "PrivateAddress": "10.0.0.1", "Resolved": "", "Ports": [{"Protocol": "http", "Number": 80}], "Status": "error", "StatusInfo": "foo"}]`,
 }, {
 	about: "RelationInfo Delta",
 	value: params.Delta{
@@ -127,10 +124,6 @@ func (s *MarshalSuite) TestDeltaUnmarshalJSON(c *C) {
 		var unmarshalled params.Delta
 		err := json.Unmarshal([]byte(t.json), &unmarshalled)
 		c.Check(err, IsNil)
-		fmt.Printf("****************************************\n")
-		fmt.Printf("%#v\n", unmarshalled.Entity)
-		fmt.Printf("----------------------------------------\n")
-		fmt.Printf("%#v\n", t.value.Entity)
 		c.Check(unmarshalled, DeepEquals, t.value)
 	}
 }

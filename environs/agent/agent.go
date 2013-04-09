@@ -31,6 +31,10 @@ type Conf struct {
 	// is blank or invalid.
 	OldPassword string
 
+	// MachineNonce is set at provisioning/bootstrap time and used to
+	// ensure the agent is running on the correct instance.
+	MachineNonce string
+
 	// StateInfo specifies how the agent should connect to the
 	// state.  The password may be empty if an old password is
 	// specified, or when bootstrapping.
