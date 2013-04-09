@@ -155,7 +155,7 @@ func (b *allWatcherStateBacking) fetch(id entityId) (params.EntityInfo, error) {
 	return info, nil
 }
 
-// idForInfo returns the info id of the given entity document.
+// IdForInfo returns the info id of the given entity document.
 func (b *allWatcherStateBacking) IdForInfo(info params.EntityInfo) multiwatcher.InfoId {
 	c, ok := b.collectionByKind[info.EntityKind()]
 	if !ok {
