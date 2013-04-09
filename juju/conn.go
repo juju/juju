@@ -408,9 +408,9 @@ func strip(validated map[string]interface{}, unvalidated map[string]string) map[
 	return validated
 }
 
-// InitJujuHome retrieves $JUJU_HOME or $HOME to set the juju home.
-// In case both variables aren't set the function will return an error.
-// It also sets up the charm cache directory path in charm.CacheDir.
+// InitJujuHome initializes the charm and environs/config packages to use
+// default paths based on the $JUJU_HOME or $HOME environment variables.
+// This function should be called before calling NewConn or Conn.Deploy.
 func InitJujuHome() error {
 	jujuHome := os.Getenv("JUJU_HOME")
 	if jujuHome == "" {

@@ -27,8 +27,8 @@ https://juju.ubuntu.com/
 // provides an entry point for testing with arbitrary command line arguments.
 func Main(args []string) {
 	if err := juju.InitJujuHome(); err != nil {
-		fmt.Fprintf(os.Stderr, "command failed: "+err.Error()+"\n")
-		os.Exit(1)
+		fmt.Fprintf(os.Stderr, "error: %s\n", err)
+		os.Exit(2)
 	}
 	juju := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name: "juju",
