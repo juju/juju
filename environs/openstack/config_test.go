@@ -205,6 +205,17 @@ var configTests = []configTest{
 		},
 		err: ".*expected string, got 666",
 	}, {
+		summary: "missing region in environment",
+		envVars: map[string]string{
+			"OS_USERNAME": "user",
+			"OS_PASSWORD": "secret",
+			"OS_AUTH_URL": "http://auth",
+			"OS_TENANT_NAME": "sometenant",
+			"OS_REGION_NAME": "",
+			"NOVA_REGION": "",
+		},
+		err:        "required environment variable not set for credentials attribute: Region",
+	}, {
 		summary: "invalid username",
 		config: attrs{
 			"username": 666,
@@ -309,29 +320,6 @@ var configTests = []configTest{
 		tenantName: "juju tenant",
 		authURL:    "http://some/url",
 		authMode:   "legacy",
-	}, {
-		summary: "missing region",
-		config: attrs{
-			"username":    "jujuer",
-			"password":    "open sesame",
-			"tenant-name": "juju tenant",
-			"auth-mode":   "legacy",
-			"auth-url":    "http://some/url",
-		},
-		envVars: map[string]string{
-			"OS_USERNAME": "user",
-			"OS_PASSWORD": "secret",
-			"OS_AUTH_URL": "http://auth",
-			"OS_TENANT_NAME": "sometenant",
-			"OS_REGION_NAME": "",
-			"NOVA_REGION": "",
-		},
-		username:   "jujuer",
-		password:   "open sesame",
-		tenantName: "juju tenant",
-		authURL:    "http://some/url",
-		authMode:   "legacy",
-		err:        "required environment variable not set for credentials attribute: Region",
 	}, {
 		summary: "image id",
 		config: attrs{
