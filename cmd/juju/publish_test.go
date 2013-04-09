@@ -30,10 +30,13 @@ func touch(c *C, filename string) {
 	f.Close()
 }
 
-func addMeta(c *C, branch *bzr.Branch) {
+func addMeta(c *C, branch *bzr.Branch, meta string) {
+	if meta == "" {
+		meta = "name: wordpress\nsummary: Some summary\ndescription: Some description.\n"
+	}
 	f, err := os.Create(branch.Join("metadata.yaml"))
 	c.Assert(err, IsNil)
-	_, err = f.Write([]byte("name: wordpress\nsummary: Some summary\ndescripion: Some description.\n"))
+	_, err = f.Write([]byte(meta))
 	f.Close()
 	c.Assert(err, IsNil)
 	err = branch.Add("metadata.yaml")
@@ -106,13 +109,13 @@ func (s *PublishSuite) TestNotClean(c *C) {
 }
 
 func (s *PublishSuite) TestNoPushLocation(c *C) {
-	addMeta(c, s.branch)
+	addMeta(c, s.branch, "")
 	_, err := s.runPublish(c)
 	c.Assert(err, ErrorMatches, `no charm URL provided and cannot infer from current directory \(no push location\)`)
 }
 
 func (s *PublishSuite) TestUnknownPushLocation(c *C) {
-	addMeta(c, s.branch)
+	addMeta(c, s.branch, "")
 	err := s.branch.Push(&bzr.PushAttr{Location: c.MkDir() + "/foo", Remember: true})
 	c.Assert(err, IsNil)
 	_, err = s.runPublish(c)
@@ -120,13 +123,13 @@ func (s *PublishSuite) TestUnknownPushLocation(c *C) {
 }
 
 func (s *PublishSuite) TestWrongRepository(c *C) {
-	addMeta(c, s.branch)
+	addMeta(c, s.branch, "")
 	_, err := s.runPublish(c, "local:precise/wordpress")
 	c.Assert(err, ErrorMatches, "charm URL must reference the juju charm store")
 }
 
 func (s *PublishSuite) TestInferURL(c *C) {
-	addMeta(c, s.branch)
+	addMeta(c, s.branch, "")
 
 	cmd := &PublishCommand{}
 	cmd.ChangePushLocation(func(location string) string {
@@ -140,8 +143,20 @@ func (s *PublishSuite) TestInferURL(c *C) {
 	c.Fatal("shouldn't get here; location closure didn't run?")
 }
 
+func (s *PublishSuite) TestBrokenCharm(c *C) {
+	addMeta(c, s.branch, "name: wordpress\nsummary: Some summary\n")
+	_, err := s.runPublish(c, "cs:precise/wordpress")
+	c.Assert(err, ErrorMatches, "metadata: description: expected string, got nothing")
+}
+
+func (s *PublishSuite) TestWrongName(c *C) {
+	addMeta(c, s.branch, "")
+	_, err := s.runPublish(c, "cs:precise/mysql")
+	c.Assert(err, ErrorMatches, `charm name in metadata must match name in URL: "wordpress" != "mysql"`)
+}
+
 func (s *PublishSuite) TestPreExistingPublished(c *C) {
-	addMeta(c, s.branch)
+	addMeta(c, s.branch, "")
 
 	// Pretend the store has seen the digest before, and it has succeeded.
 	digest, err := s.branch.RevisionId()
@@ -159,7 +174,7 @@ func (s *PublishSuite) TestPreExistingPublished(c *C) {
 }
 
 func (s *PublishSuite) TestPreExistingPublishedEdge(c *C) {
-	addMeta(c, s.branch)
+	addMeta(c, s.branch, "")
 
 	// If it doesn't find the right digest on the first try, it asks again for
 	// any digest at all to keep the tip in mind. There's a small chance that
@@ -187,7 +202,7 @@ func (s *PublishSuite) TestPreExistingPublishedEdge(c *C) {
 }
 
 func (s *PublishSuite) TestPreExistingPublishError(c *C) {
-	addMeta(c, s.branch)
+	addMeta(c, s.branch, "")
 
 	// Pretend the store has seen the digest before, and it has failed.
 	digest, err := s.branch.RevisionId()
@@ -204,7 +219,7 @@ func (s *PublishSuite) TestPreExistingPublishError(c *C) {
 }
 
 func (s *PublishSuite) TestFullPublish(c *C) {
-	addMeta(c, s.branch)
+	addMeta(c, s.branch, "")
 
 	digest, err := s.branch.RevisionId()
 	c.Assert(err, IsNil)
@@ -262,7 +277,7 @@ func (s *PublishSuite) TestFullPublish(c *C) {
 }
 
 func (s *PublishSuite) TestFullPublishError(c *C) {
-	addMeta(c, s.branch)
+	addMeta(c, s.branch, "")
 
 	digest, err := s.branch.RevisionId()
 	c.Assert(err, IsNil)
@@ -318,7 +333,7 @@ func (s *PublishSuite) TestFullPublishError(c *C) {
 }
 
 func (s *PublishSuite) TestFullPublishRace(c *C) {
-	addMeta(c, s.branch)
+	addMeta(c, s.branch, "")
 
 	digest, err := s.branch.RevisionId()
 	c.Assert(err, IsNil)
