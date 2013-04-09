@@ -1,4 +1,4 @@
-package state
+package multiwatcher
 
 import (
 	"container/list"
@@ -9,38 +9,40 @@ import (
 	"reflect"
 )
 
-// StateWatcher watches any changes to the state.
-// TODO(rog) rename this to StateWatcher when allWatcher is complete.
-type StateWatcher struct {
-	all *allWatcher
-	// The following fields are maintained by the allWatcher
+// Watcher watches any changes to the state.
+type Watcher struct {
+	all *StoreManager
+
+	// The following fields are maintained by the StoreManager
 	// goroutine.
 	revno   int64
 	stopped bool
 }
 
-func newStateWatcher(st *State) *StateWatcher {
-	return &StateWatcher{
-		all: st.allWatcher,
+// NewWatcher creates a new watcher that can observe
+// changes to an underlying store manager.
+func NewWatcher(all *StoreManager) *Watcher {
+	return &Watcher{
+		all: all,
 	}
 }
 
 // Stop stops the watcher.
-func (w *StateWatcher) Stop() error {
+func (w *Watcher) Stop() error {
 	select {
-	case w.all.request <- &allRequest{w: w}:
+	case w.all.request <- &request{w: w}:
 		return nil
 	case <-w.all.tomb.Dead():
 	}
 	return w.all.tomb.Err()
 }
 
-var errWatcherStopped = errors.New("state watcher was stopped")
+var ErrWatcherStopped = errors.New("state watcher was stopped")
 
 // Next retrieves all changes that have happened since the last
 // time it was called, blocking until there are some changes available.
-func (w *StateWatcher) Next() ([]params.Delta, error) {
-	req := &allRequest{
+func (w *Watcher) Next() ([]params.Delta, error) {
+	req := &request{
 		w:     w,
 		reply: make(chan bool),
 	}
@@ -49,75 +51,75 @@ func (w *StateWatcher) Next() ([]params.Delta, error) {
 	case <-w.all.tomb.Dead():
 		err := w.all.tomb.Err()
 		if err == nil {
-			err = errWatcherStopped
+			err = ErrWatcherStopped
 		}
 		return nil, err
 	}
 	if ok := <-req.reply; !ok {
 		// TODO better error?
-		return nil, errWatcherStopped
+		return nil, ErrWatcherStopped
 	}
 	return req.changes, nil
 }
 
-// allWatcher holds a shared record of all current state and replies to
-// requests from StateWatches to tell them when it changes.
-// TODO(rog) complete this type and its methods.
-type allWatcher struct {
+// StoreManager holds a shared record of current state and replies to
+// requests from Watchers to tell them when it changes.
+type StoreManager struct {
 	tomb tomb.Tomb
 
 	// backing knows how to fetch information from
 	// the underlying state.
-	backing allWatcherBacking
+	backing Backing
 
-	// request receives requests from StateWatcher clients.
-	request chan *allRequest
+	// request receives requests from Watcher clients.
+	request chan *request
 
-	// all holds information on everything the allWatcher cares about.
-	all *allInfo
+	// all holds information on everything the StoreManager cares about.
+	all *Store
 
 	// Each entry in the waiting map holds a linked list of Next requests
-	// outstanding for the associated StateWatcher.
-	waiting map[*StateWatcher]*allRequest
+	// outstanding for the associated Watcher.
+	waiting map[*Watcher]*request
 }
 
-// allWatcherBacking is the interface required
-// by the allWatcher to access the underlying state.
-// It is an interface for testing purposes.
-// TODO(rog) complete this type and its methods.
-type allWatcherBacking interface {
+// InfoId holds an identifier for an Info item held in a Store.
+type InfoId interface{}
+
+// Backing is the interface required by the StoreManager to access the
+// underlying state.
+type Backing interface {
 	// idForInfo returns the info id corresponding
 	// to the given entity info.
-	idForInfo(info params.EntityInfo) infoId
+	IdForInfo(info params.EntityInfo) InfoId
 
-	// getAll retrieves information about all known entities in the state
-	// into the given allInfo.
-	getAll(all *allInfo) error
+	// GetAll retrieves information about all information
+	// known to the Backing and stashes it in the Store.
+	GetAll(all *Store) error
 
-	// changed informs the backing about a change to the entity with
-	// the given id.  The backing is responsible for updating the
-	// allInfo to reflect the change.
-	changed(all *allInfo, change watcher.Change) error
+	// Changed informs the backing about a change received
+	// from a watcher channel.  The backing is responsible for
+	// updating the Store to reflect the change.
+	Changed(all *Store, change watcher.Change) error
 
-	// watch watches for any changes and sends them
+	// Watch watches for any changes and sends them
 	// on the given channel.
-	watch(in chan<- watcher.Change)
+	Watch(in chan<- watcher.Change)
 
-	// unwatch stops watching for changes on the
+	// Unwatch stops watching for changes on the
 	// given channel.
-	unwatch(in chan<- watcher.Change)
+	Unwatch(in chan<- watcher.Change)
 }
 
-// allRequest holds a request from the StateWatcher to the
-// allWatcher for some changes. The request will be
+// request holds a message from the Watcher to the
+// StoreManager for some changes. The request will be
 // replied to when some changes are available.
-type allRequest struct {
-	// w holds the StateWatcher that has originated the request.
-	w *StateWatcher
+type request struct {
+	// w holds the Watcher that has originated the request.
+	w *Watcher
 
 	// reply receives a message when deltas are ready.  If reply is
-	// nil, the StateWatcher will be stopped.  If the reply is true,
-	// the request has been processed; if false, the StateWatcher
+	// nil, the Watcher will be stopped.  If the reply is true,
+	// the request has been processed; if false, the Watcher
 	// has been stopped,
 	reply chan bool
 
@@ -127,68 +129,74 @@ type allRequest struct {
 
 	// next points to the next request in the list of outstanding
 	// requests on a given watcher.  It is used only by the central
-	// allWatcher goroutine.
-	next *allRequest
+	// StoreManager goroutine.
+	next *request
 }
 
-// newAllWatcher returns a new allWatcher that retrieves information
-// using the given backing. It does not start it running.
-func newAllWatcher(backing allWatcherBacking) *allWatcher {
-	return &allWatcher{
+// newStoreManagerNoRun creates the store manager
+// but does not start its run loop.
+func newStoreManagerNoRun(backing Backing) *StoreManager {
+	return &StoreManager{
 		backing: backing,
-		request: make(chan *allRequest),
-		all:     newAllInfo(),
-		waiting: make(map[*StateWatcher]*allRequest),
+		request: make(chan *request),
+		all:     NewStore(),
+		waiting: make(map[*Watcher]*request),
 	}
 }
 
-func (aw *allWatcher) run() {
-	defer aw.tomb.Done()
-	// TODO(rog) distinguish between temporary and permanent errors:
-	// if we get an error in loop, this logic kill the state's allWatcher
-	// forever. This currently fits the way we go about things,
-	// because we reconnect to the state on any error, but
-	// perhaps there are errors we could recover from.
-	aw.tomb.Kill(aw.loop())
+// NewStoreManager returns a new StoreManager that retrieves information
+// using the given backing.
+func NewStoreManager(backing Backing) *StoreManager {
+	sm := newStoreManagerNoRun(backing)
+	go func() {
+		defer sm.tomb.Done()
+		// TODO(rog) distinguish between temporary and permanent errors:
+		// if we get an error in loop, this logic kill the state's StoreManager
+		// forever. This currently fits the way we go about things,
+		// because we reconnect to the state on any error, but
+		// perhaps there are errors we could recover from.
+		sm.tomb.Kill(sm.loop())
+	}()
+	return sm
 }
 
-func (aw *allWatcher) loop() error {
+func (sm *StoreManager) loop() error {
 	in := make(chan watcher.Change)
-	aw.backing.watch(in)
-	defer aw.backing.unwatch(in)
+	sm.backing.Watch(in)
+	defer sm.backing.Unwatch(in)
 	// We have no idea what changes the watcher might be trying to
 	// send us while getAll proceeds, but we don't mind, because
-	// allWatcher.changed is idempotent with respect to both updates
+	// StoreManager.changed is idempotent with respect to both updates
 	// and removals.
 	// TODO(rog) Perhaps find a way to avoid blocking all other
-	// watchers while getAll is running.
-	if err := aw.backing.getAll(aw.all); err != nil {
+	// watchers while GetAll is running.
+	if err := sm.backing.GetAll(sm.all); err != nil {
 		return err
 	}
 	for {
 		select {
-		case <-aw.tomb.Dying():
+		case <-sm.tomb.Dying():
 			return tomb.ErrDying
 		case change := <-in:
-			if err := aw.backing.changed(aw.all, change); err != nil {
+			if err := sm.backing.Changed(sm.all, change); err != nil {
 				return err
 			}
-		case req := <-aw.request:
-			aw.handle(req)
+		case req := <-sm.request:
+			sm.handle(req)
 		}
-		aw.respond()
+		sm.respond()
 	}
 	panic("unreachable")
 }
 
-// Stop stops the allWatcher.
-func (aw *allWatcher) Stop() error {
-	aw.tomb.Kill(nil)
-	return aw.tomb.Wait()
+// Stop stops the StoreManager.
+func (sm *StoreManager) Stop() error {
+	sm.tomb.Kill(nil)
+	return sm.tomb.Wait()
 }
 
-// handle processes a request from a StateWatcher to the allWatcher.
-func (aw *allWatcher) handle(req *allRequest) {
+// handle processes a request from a Watcher to the StoreManager.
+func (sm *StoreManager) handle(req *request) {
 	if req.w.stopped {
 		// The watcher has previously been stopped.
 		if req.reply != nil {
@@ -198,45 +206,45 @@ func (aw *allWatcher) handle(req *allRequest) {
 	}
 	if req.reply == nil {
 		// This is a request to stop the watcher.
-		for req := aw.waiting[req.w]; req != nil; req = req.next {
+		for req := sm.waiting[req.w]; req != nil; req = req.next {
 			req.reply <- false
 		}
-		delete(aw.waiting, req.w)
+		delete(sm.waiting, req.w)
 		req.w.stopped = true
-		aw.leave(req.w)
+		sm.leave(req.w)
 		return
 	}
 	// Add request to head of list.
-	req.next = aw.waiting[req.w]
-	aw.waiting[req.w] = req
+	req.next = sm.waiting[req.w]
+	sm.waiting[req.w] = req
 }
 
 // respond responds to all outstanding requests that are satisfiable.
-func (aw *allWatcher) respond() {
-	for w, req := range aw.waiting {
+func (sm *StoreManager) respond() {
+	for w, req := range sm.waiting {
 		revno := w.revno
-		changes := aw.all.changesSince(revno)
+		changes := sm.all.ChangesSince(revno)
 		if len(changes) == 0 {
 			continue
 		}
 		req.changes = changes
-		w.revno = aw.all.latestRevno
+		w.revno = sm.all.latestRevno
 		req.reply <- true
 		if req := req.next; req == nil {
 			// Last request for this watcher.
-			delete(aw.waiting, w)
+			delete(sm.waiting, w)
 		} else {
-			aw.waiting[w] = req
+			sm.waiting[w] = req
 		}
-		aw.seen(revno)
+		sm.seen(revno)
 	}
 }
 
-// seen states that a StateWatcher has just been given information about
+// seen states that a Watcher has just been given information about
 // all entities newer than the given revno.  We assume it has already
 // seen all the older entities.
-func (aw *allWatcher) seen(revno int64) {
-	for e := aw.all.list.Front(); e != nil; {
+func (sm *StoreManager) seen(revno int64) {
+	for e := sm.all.list.Front(); e != nil; {
 		next := e.Next()
 		entry := e.Value.(*entityEntry)
 		if entry.revno <= revno {
@@ -253,7 +261,7 @@ func (aw *allWatcher) seen(revno int64) {
 			// has now been removed, so decrement its refCount, removing
 			// the entity if nothing else is waiting to be notified that it's
 			// gone.
-			aw.all.decRef(entry, aw.backing.idForInfo(entry.info))
+			sm.all.decRef(entry, sm.backing.IdForInfo(entry.info))
 		}
 		e = next
 	}
@@ -261,8 +269,8 @@ func (aw *allWatcher) seen(revno int64) {
 
 // leave is called when the given watcher leaves.  It decrements the reference
 // counts of any entities that have been seen by the watcher.
-func (aw *allWatcher) leave(w *StateWatcher) {
-	for e := aw.all.list.Front(); e != nil; {
+func (sm *StoreManager) leave(w *Watcher) {
+	for e := sm.all.list.Front(); e != nil; {
 		next := e.Next()
 		entry := e.Value.(*entityEntry)
 		if entry.creationRevno <= w.revno {
@@ -274,14 +282,14 @@ func (aw *allWatcher) leave(w *StateWatcher) {
 				e = next
 				continue
 			}
-			aw.all.decRef(entry, aw.backing.idForInfo(entry.info))
+			sm.all.decRef(entry, sm.backing.IdForInfo(entry.info))
 		}
 		e = next
 	}
 }
 
 // entityEntry holds an entry in the linked list of all entities known
-// to a StateWatcher.
+// to a Watcher.
 type entityEntry struct {
 	// The revno holds the local idea of the latest change to the
 	// given entity.  It is not the same as the transaction revno -
@@ -299,9 +307,9 @@ type entityEntry struct {
 
 	// refCount holds a count of the number of watchers that
 	// have seen this entity. When the entity is marked as removed,
-	// the ref count is decremented whenever a StateWatcher that
+	// the ref count is decremented whenever a Watcher that
 	// has previously seen the entry now sees that it has been removed;
-	// the entry will be deleted when all such StateWatchers have
+	// the entry will be deleted when all such Watchers have
 	// been notified.
 	refCount int
 
@@ -309,27 +317,42 @@ type entityEntry struct {
 	info params.EntityInfo
 }
 
-// allInfo holds a list of all entities known
-// to a StateWatcher.
-type allInfo struct {
+// Store holds a list of all entities known
+// to a Watcher.
+type Store struct {
 	latestRevno int64
-	entities    map[infoId]*list.Element
+	entities    map[InfoId]*list.Element
 	list        *list.List
 }
 
-// newAllInfo returns an allInfo instance holding information about the
+// NewStore returns an Store instance holding information about the
 // current state of all entities in the environment.
-func newAllInfo() *allInfo {
-	all := &allInfo{
-		entities: make(map[infoId]*list.Element),
+// It is only exposed here for testing purposes.
+func NewStore() *Store {
+	all := &Store{
+		entities: make(map[InfoId]*list.Element),
 		list:     list.New(),
 	}
 	return all
 }
 
+// All returns all the entities stored in the Store,
+// oldest first. It is only exposed for testing purposes.
+func (a *Store) All() []params.EntityInfo {
+	entities := make([]params.EntityInfo, 0, a.list.Len())
+	for e := a.list.Front(); e != nil; e = e.Next() {
+		entry := e.Value.(*entityEntry)
+		if entry.removed {
+			continue
+		}
+		entities = append(entities, entry.info)
+	}
+	return entities
+}
+
 // add adds a new entity with the given id and associated
 // information to the list.
-func (a *allInfo) add(id infoId, info params.EntityInfo) {
+func (a *Store) add(id InfoId, info params.EntityInfo) {
 	if a.entities[id] != nil {
 		panic("adding new entry with duplicate id")
 	}
@@ -344,7 +367,7 @@ func (a *allInfo) add(id infoId, info params.EntityInfo) {
 
 // decRef decrements the reference count of an entry within the list,
 // deleting it if it becomes zero and the entry is removed.
-func (a *allInfo) decRef(entry *entityEntry, id infoId) {
+func (a *Store) decRef(entry *entityEntry, id InfoId) {
 	if entry.refCount--; entry.refCount > 0 {
 		return
 	}
@@ -363,7 +386,7 @@ func (a *allInfo) decRef(entry *entityEntry, id infoId) {
 }
 
 // delete deletes the entry with the given info id.
-func (a *allInfo) delete(id infoId) {
+func (a *Store) delete(id InfoId) {
 	elem := a.entities[id]
 	if elem == nil {
 		return
@@ -375,7 +398,7 @@ func (a *allInfo) delete(id infoId) {
 // markRemoved marks that the entity with the given id has
 // been removed from the state. If nothing has seen the
 // entity, then we delete it immediately.
-func (a *allInfo) markRemoved(id infoId) {
+func (a *Store) markRemoved(id InfoId) {
 	if elem := a.entities[id]; elem != nil {
 		entry := elem.Value.(*entityEntry)
 		if entry.removed {
@@ -392,9 +415,14 @@ func (a *allInfo) markRemoved(id infoId) {
 	}
 }
 
-// update updates the information for the entity with
-// the given id.
-func (a *allInfo) update(id infoId, info params.EntityInfo) {
+// Update updates the information for the entity with
+// the given id. If info is nil, the entity will be marked
+// as removed and deleted if nothing has seen the entity.
+func (a *Store) Update(id InfoId, info params.EntityInfo) {
+	if info == nil {
+		a.markRemoved(id)
+		return
+	}
 	elem := a.entities[id]
 	if elem == nil {
 		a.add(id, info)
@@ -413,9 +441,9 @@ func (a *allInfo) update(id infoId, info params.EntityInfo) {
 	a.list.MoveToFront(elem)
 }
 
-// changesSince returns any changes that have occurred since
+// ChangesSince returns any changes that have occurred since
 // the given revno, oldest first.
-func (a *allInfo) changesSince(revno int64) []params.Delta {
+func (a *Store) ChangesSince(revno int64) []params.Delta {
 	e := a.list.Front()
 	n := 0
 	for ; e != nil; e = e.Next() {

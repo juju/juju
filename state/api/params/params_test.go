@@ -2,7 +2,6 @@ package params_test
 
 import (
 	"encoding/json"
-	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state/api/params"
@@ -127,10 +126,6 @@ func (s *MarshalSuite) TestDeltaUnmarshalJSON(c *C) {
 		var unmarshalled params.Delta
 		err := json.Unmarshal([]byte(t.json), &unmarshalled)
 		c.Check(err, IsNil)
-		fmt.Printf("****************************************\n")
-		fmt.Printf("%#v\n", unmarshalled.Entity)
-		fmt.Printf("----------------------------------------\n")
-		fmt.Printf("%#v\n", t.value.Entity)
 		c.Check(unmarshalled, DeepEquals, t.value)
 	}
 }
