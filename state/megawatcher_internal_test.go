@@ -65,6 +65,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 	add(&params.MachineInfo{
 		Id:         "0",
 		InstanceId: "i-machine-0",
+		Status:     params.MachinePending,
 	})
 
 	wordpress, err := s.State.AddService("wordpress", AddTestingCharm(c, s.State, "wordpress"))
@@ -117,6 +118,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 			Series:    m.Series(),
 			MachineId: m.Id(),
 			Ports:     []params.Port{},
+			Status:    params.UnitPending,
 		})
 		pairs := map[string]string{"name": fmt.Sprintf("bar %d", i)}
 		err = wu.SetAnnotations(pairs)
@@ -128,9 +130,13 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 
 		err = m.SetInstanceId(InstanceId("i-" + m.Tag()))
 		c.Assert(err, IsNil)
+		err = m.SetStatus(params.MachineError, m.Tag())
+		c.Assert(err, IsNil)
 		add(&params.MachineInfo{
 			Id:         fmt.Sprint(i + 1),
 			InstanceId: "i-" + m.Tag(),
+			Status:     params.MachineError,
+			StatusInfo: m.Tag(),
 		})
 		err = wu.AssignToMachine(m)
 		c.Assert(err, IsNil)
@@ -158,6 +164,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 			Service: "logging",
 			Series:  "series",
 			Ports:   []params.Port{},
+			Status:  params.UnitPending,
 		})
 	}
 	return
@@ -676,9 +683,15 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *C) {
 	w := multiwatcher.NewWatcher(aw)
 	s.State.StartSync()
 	checkNext(c, w, b, []params.Delta{{
-		Entity: &params.MachineInfo{Id: "0"},
+		Entity: &params.MachineInfo{
+			Id:     "0",
+			Status: params.MachinePending,
+		},
 	}, {
-		Entity: &params.MachineInfo{Id: "1"},
+		Entity: &params.MachineInfo{
+			Id:     "1",
+			Status: params.MachinePending,
+		},
 	}}, "")
 
 	// Make some changes to the state.
@@ -708,13 +721,20 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *C) {
 	}
 	checkDeltasEqual(c, b, deltas, []params.Delta{{
 		Removed: true,
-		Entity:  &params.MachineInfo{Id: "1"},
+		Entity: &params.MachineInfo{
+			Id:     "1",
+			Status: params.MachinePending,
+		},
 	}, {
-		Entity: &params.MachineInfo{Id: "2"},
+		Entity: &params.MachineInfo{
+			Id:     "2",
+			Status: params.MachinePending,
+		},
 	}, {
 		Entity: &params.MachineInfo{
 			Id:         "0",
 			InstanceId: "i-0",
+			Status:     params.MachinePending,
 		},
 	}})
 
