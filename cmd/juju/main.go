@@ -3,9 +3,8 @@ package main
 import (
 	"fmt"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/juju"
 	"os"
-	"path/filepath"
 )
 
 // When we import an environment provider implementation
@@ -23,27 +22,14 @@ such as OpenStack, Amazon AWS, or bare metal.
 https://juju.ubuntu.com/
 `
 
-// checkJujuHome retrieves $JUJU_HOME or $HOME to set the juju home.
-// In case both variables aren't set the command will exit with an
-// error.
-func checkJujuHome() {
-	jujuHome := os.Getenv("JUJU_HOME")
-	if jujuHome == "" {
-		home := os.Getenv("HOME")
-		if home == "" {
-			fmt.Fprintf(os.Stderr, "command failed: cannot determine juju home, neither $JUJU_HOME nor $HOME are set")
-			os.Exit(1)
-		}
-		jujuHome = filepath.Join(home, ".juju")
-	}
-	config.SetJujuHome(jujuHome)
-}
-
 // Main registers subcommands for the juju executable, and hands over control
 // to the cmd package. This function is not redundant with main, because it
 // provides an entry point for testing with arbitrary command line arguments.
 func Main(args []string) {
-	checkJujuHome()
+	if err := juju.InitJujuHome(); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %s\n", err)
+		os.Exit(2)
+	}
 	juju := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name: "juju",
 		Doc:  jujuDoc,
