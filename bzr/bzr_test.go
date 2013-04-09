@@ -63,7 +63,7 @@ func (s *BzrSuite) TestCommit(c *C) {
 	revid, err := s.b.RevisionId()
 	c.Assert(err, IsNil)
 
-	cmd := exec.Command("bzr", "log", "--long", "-v", s.b.Location())
+	cmd := exec.Command("bzr", "log", "--long", "--show-ids", "-v", s.b.Location())
 	output, err := cmd.CombinedOutput()
 	c.Assert(err, IsNil)
 	c.Assert(string(output), Matches, "(?s).*revision-id: "+revid+"\n.*message:\n.*my log message\n.*added:\n.*myfile .*")
@@ -118,4 +118,17 @@ func (s *BzrSuite) TestPush(c *C) {
 	c.Assert(err, IsNil)
 	_, err = os.Stat(b3.Join("file"))
 	c.Assert(err, IsNil)
+}
+
+func (s *BzrSuite) TestCheckClean(c *C) {
+	err := s.b.CheckClean()
+	c.Assert(err, IsNil)
+
+	// Create and add b1/file to the branch.
+	f, err := os.Create(s.b.Join("file"))
+	c.Assert(err, IsNil)
+	f.Close()
+
+	err = s.b.CheckClean()
+	c.Assert(err, ErrorMatches, `branch is not clean \(bzr status\)`)
 }

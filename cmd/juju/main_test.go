@@ -220,6 +220,7 @@ var commandNames = []string{
 	"get-environment",
 	"help",
 	"init",
+	"publish",
 	"remove-relation", // alias for destroy-relation
 	"remove-unit",     // alias for destroy-unit
 	"resolved",

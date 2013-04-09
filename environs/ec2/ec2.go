@@ -287,9 +287,10 @@ func (e *environ) Bootstrap(cons constraints.Value, cert, key []byte) error {
 	}
 	mongoURL := environs.MongoURL(e, tools.Series, tools.Arch)
 	inst, err := e.startInstance(&startInstanceParams{
-		machineId:   "0",
-		series:      tools.Series,
-		constraints: cons,
+		machineId:    "0",
+		machineNonce: state.BootstrapNonce,
+		series:       tools.Series,
+		constraints:  cons,
 		info: &state.Info{
 			Password: trivial.PasswordHash(password),
 			CACert:   caCert,
@@ -379,13 +380,14 @@ func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
 	return state.AssignNew
 }
 
-func (e *environ) StartInstance(machineId string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
 	return e.startInstance(&startInstanceParams{
-		machineId:   machineId,
-		series:      series,
-		constraints: cons,
-		info:        info,
-		apiInfo:     apiInfo,
+		machineId:    machineId,
+		machineNonce: machineNonce,
+		series:       series,
+		constraints:  cons,
+		info:         info,
+		apiInfo:      apiInfo,
 	})
 }
 
@@ -400,6 +402,7 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 		StateServerKey:  scfg.stateServerKey,
 		DataDir:         "/var/lib/juju",
 		Tools:           scfg.tools,
+		MachineNonce:    scfg.machineNonce,
 		MongoURL:        scfg.mongoURL,
 		MachineId:       scfg.machineId,
 		AuthorizedKeys:  e.ecfg().AuthorizedKeys(),
@@ -421,6 +424,7 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 
 type startInstanceParams struct {
 	machineId       string
+	machineNonce    string
 	series          string
 	constraints     constraints.Value
 	info            *state.Info
