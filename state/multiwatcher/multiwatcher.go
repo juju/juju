@@ -88,9 +88,6 @@ type InfoId interface{}
 // Backing is the interface required by the StoreManager to access the
 // underlying state.
 type Backing interface {
-	// idForInfo returns the info id corresponding
-	// to the given entity info.
-	IdForInfo(info params.EntityInfo) InfoId
 
 	// GetAll retrieves information about all information
 	// known to the Backing and stashes it in the Store.
@@ -261,7 +258,7 @@ func (sm *StoreManager) seen(revno int64) {
 			// has now been removed, so decrement its refCount, removing
 			// the entity if nothing else is waiting to be notified that it's
 			// gone.
-			sm.all.decRef(entry, sm.backing.IdForInfo(entry.info))
+			sm.all.decRef(entry)
 		}
 		e = next
 	}
@@ -282,7 +279,7 @@ func (sm *StoreManager) leave(w *Watcher) {
 				e = next
 				continue
 			}
-			sm.all.decRef(entry, sm.backing.IdForInfo(entry.info))
+			sm.all.decRef(entry)
 		}
 		e = next
 	}
@@ -367,7 +364,7 @@ func (a *Store) add(id InfoId, info params.EntityInfo) {
 
 // decRef decrements the reference count of an entry within the list,
 // deleting it if it becomes zero and the entry is removed.
-func (a *Store) decRef(entry *entityEntry, id InfoId) {
+func (a *Store) decRef(entry *entityEntry) {
 	if entry.refCount--; entry.refCount > 0 {
 		return
 	}
@@ -377,6 +374,7 @@ func (a *Store) decRef(entry *entityEntry, id InfoId) {
 	if !entry.removed {
 		return
 	}
+	id := entry.info.EntityId()
 	elem := a.entities[id]
 	if elem == nil {
 		panic("delete of non-existent entry")
@@ -386,7 +384,7 @@ func (a *Store) decRef(entry *entityEntry, id InfoId) {
 }
 
 // delete deletes the entry with the given info id.
-func (a *Store) delete(id InfoId) {
+func (a *Store) delete(id params.EntityId) {
 	elem := a.entities[id]
 	if elem == nil {
 		return
@@ -395,10 +393,10 @@ func (a *Store) delete(id InfoId) {
 	a.list.Remove(elem)
 }
 
-// markRemoved marks that the entity with the given id has
-// been removed from the state. If nothing has seen the
+// Remove marks that the entity with the given id has
+// been removed from the backing. If nothing has seen the
 // entity, then we delete it immediately.
-func (a *Store) markRemoved(id InfoId) {
+func (a *Store) Remove(id params.EntityId) {
 	if elem := a.entities[id]; elem != nil {
 		entry := elem.Value.(*entityEntry)
 		if entry.removed {
@@ -415,14 +413,9 @@ func (a *Store) markRemoved(id InfoId) {
 	}
 }
 
-// Update updates the information for the entity with
-// the given id. If info is nil, the entity will be marked
-// as removed and deleted if nothing has seen the entity.
-func (a *Store) Update(id InfoId, info params.EntityInfo) {
-	if info == nil {
-		a.markRemoved(id)
-		return
-	}
+// Update updates the information for the given entity.
+func (a *Store) Update(info params.EntityInfo) {
+	id := info.EntityId()
 	elem := a.entities[id]
 	if elem == nil {
 		a.add(id, info)

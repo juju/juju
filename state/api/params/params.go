@@ -183,6 +183,26 @@ type CharmInfo struct {
 	CharmURL string
 }
 
+// ResolvedMode describes the way state transition errors
+// are resolved.
+type ResolvedMode string
+
+const (
+	ResolvedNone       ResolvedMode = ""
+	ResolvedRetryHooks ResolvedMode = "retry-hooks"
+	ResolvedNoHooks    ResolvedMode = "no-hooks"
+)
+
+// Port identifies a network port number for a particular protocol.
+type Port struct {
+	Protocol string
+	Number   int
+}
+
+func (p Port) String() string {
+	return fmt.Sprintf("%s:%d", p.Protocol, p.Number)
+}
+
 // Delta holds details of a change to the environment.
 type Delta struct {
 	// If Removed is true, the entity has been removed;
@@ -204,7 +224,7 @@ func (d *Delta) MarshalJSON() ([]byte, error) {
 	if d.Removed {
 		c = "remove"
 	}
-	fmt.Fprintf(&buf, "%q,%q,", d.Entity.EntityKind(), c)
+	fmt.Fprintf(&buf, "%q,%q,", d.Entity.EntityId().Kind, c)
 	buf.Write(b)
 	buf.WriteByte(']')
 	return buf.Bytes(), nil
@@ -255,9 +275,9 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 
 // EntityInfo is implemented by all entity Info types.
 type EntityInfo interface {
-	// EntityKind returns the kind of entity (for example "machine",
-	// "service", ...)
-	EntityKind() string
+	// EntityId returns an identifier that will uniquely
+	// identify the entity within its kind
+	EntityId() EntityId
 }
 
 // IMPORTANT NOTE: the types below are direct subsets of the entity docs
@@ -283,6 +303,11 @@ var (
 	_ EntityInfo = (*AnnotationInfo)(nil)
 )
 
+type EntityId struct {
+	Kind string
+	Id   interface{}
+}
+
 // MachineInfo holds the information about a Machine
 // that is watched by StateWatcher.
 type MachineInfo struct {
@@ -290,7 +315,12 @@ type MachineInfo struct {
 	InstanceId string
 }
 
-func (i *MachineInfo) EntityKind() string { return "machine" }
+func (i *MachineInfo) EntityId() EntityId {
+	return EntityId{
+		Kind: "machine",
+		Id:   i.Id,
+	}
+}
 
 type ServiceInfo struct {
 	Name     string `bson:"_id"`
@@ -298,33 +328,18 @@ type ServiceInfo struct {
 	CharmURL string
 }
 
-func (i *ServiceInfo) EntityKind() string { return "service" }
-
-// ResolvedMode describes the way state transition errors
-// are resolved.
-type ResolvedMode string
-
-const (
-	ResolvedNone       ResolvedMode = ""
-	ResolvedRetryHooks ResolvedMode = "retry-hooks"
-	ResolvedNoHooks    ResolvedMode = "no-hooks"
-)
-
-// Port identifies a network port number for a particular protocol.
-type Port struct {
-	Protocol string
-	Number   int
-}
-
-func (p Port) String() string {
-	return fmt.Sprintf("%s:%d", p.Protocol, p.Number)
+func (i *ServiceInfo) EntityId() EntityId {
+	return EntityId{
+		Kind: "service",
+		Id:   i.Name,
+	}
 }
 
 type UnitInfo struct {
 	Name           string `bson:"_id"`
 	Service        string
 	Series         string
-	CharmURL       *charm.URL
+	CharmURL       string
 	PublicAddress  string
 	PrivateAddress string
 	MachineId      string
@@ -332,7 +347,12 @@ type UnitInfo struct {
 	Ports          []Port
 }
 
-func (i *UnitInfo) EntityKind() string { return "unit" }
+func (i *UnitInfo) EntityId() EntityId {
+	return EntityId{
+		Kind: "unit",
+		Id:   i.Name,
+	}
+}
 
 type Endpoint struct {
 	ServiceName string
@@ -344,16 +364,21 @@ type RelationInfo struct {
 	Endpoints []Endpoint
 }
 
-func (i *RelationInfo) EntityKind() string { return "relation" }
+func (i *RelationInfo) EntityId() EntityId {
+	return EntityId{
+		Kind: "relation",
+		Id:   i.Key,
+	}
+}
 
 type AnnotationInfo struct {
-	// TODO(rog) GlobalKey should not be necessary here, but is
-	// until there's a level of indirection between mgo documents
-	// and StateWatcher results. We ensure that it's not serialised
-	// for the API by specifying the json tag.
-	GlobalKey   string `bson:"_id" json:"-"`
 	Tag         string
 	Annotations map[string]string
 }
 
-func (i *AnnotationInfo) EntityKind() string { return "annotation" }
+func (i *AnnotationInfo) EntityId() EntityId {
+	return EntityId{
+		Kind: "annotation",
+		Id:   i.Tag,
+	}
+}
