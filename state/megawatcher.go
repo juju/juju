@@ -203,7 +203,6 @@ func (a *backingAnnotation) mongoId() interface{} {
 	return a.GlobalKey
 }
 
-// We duplicate the status document
 type backingStatus statusDoc
 
 func (s *backingStatus) updated(st *State, store *multiwatcher.Store, id interface{}) error {
