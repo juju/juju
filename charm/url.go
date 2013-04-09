@@ -24,9 +24,9 @@ type URL struct {
 }
 
 var (
-	validUser = regexp.MustCompile("^[a-z0-9][a-zA-Z0-9+.-]+$")
+	validUser   = regexp.MustCompile("^[a-z0-9][a-zA-Z0-9+.-]+$")
 	validSeries = regexp.MustCompile("^[a-z]+([a-z-]+[a-z])?$")
-	validName = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*$")
+	validName   = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*$")
 )
 
 // IsValidUser returns whether user is a valid username in charm URLs.
