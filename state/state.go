@@ -67,6 +67,9 @@ var (
 	validMachine = regexp.MustCompile("^0$|^[1-9][0-9]*$")
 )
 
+// BootstrapNonce is used as a nonce for the state server machine.
+const BootstrapNonce = "user-admin:bootstrap"
+
 // IsServiceName returns whether name is a valid service name.
 func IsServiceName(name string) bool {
 	return validService.MatchString(name)
@@ -109,6 +112,7 @@ func IsNotFound(err error) bool {
 type State struct {
 	info           *Info
 	db             *mgo.Database
+	environments   *mgo.Collection
 	charms         *mgo.Collection
 	machines       *mgo.Collection
 	relations      *mgo.Collection
@@ -134,7 +138,7 @@ func (st *State) Watch() *StateWatcher {
 }
 
 func (st *State) EnvironConfig() (*config.Config, error) {
-	settings, err := readSettings(st, "e")
+	settings, err := readSettings(st, environGlobalKey)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +155,7 @@ func (st *State) SetEnvironConfig(cfg *config.Config) error {
 	// TODO(niemeyer): This isn't entirely right as the change is done as a
 	// delta that the user didn't ask for. Instead, take a (old, new) config
 	// pair, and apply *known* delta.
-	settings, err := readSettings(st, "e")
+	settings, err := readSettings(st, environGlobalKey)
 	if err != nil {
 		return err
 	}
@@ -162,12 +166,12 @@ func (st *State) SetEnvironConfig(cfg *config.Config) error {
 
 // EnvironConstraints returns the current environment constraints.
 func (st *State) EnvironConstraints() (constraints.Value, error) {
-	return readConstraints(st, "e")
+	return readConstraints(st, environGlobalKey)
 }
 
 // SetEnvironConstraints replaces the current environment constraints.
 func (st *State) SetEnvironConstraints(cons constraints.Value) error {
-	return writeConstraints(st, "e", cons)
+	return writeConstraints(st, environGlobalKey, cons)
 }
 
 // AddMachine adds a new machine configured to run the supplied jobs on the
@@ -207,7 +211,9 @@ func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value) (*machi
 	}
 	mdoc.Id = strconv.Itoa(seq)
 	mdoc.Life = Alive
-	msdoc := &machineStatusDoc{params.MachinePending, ""}
+	sdoc := statusDoc{
+		Status: string(params.MachinePending),
+	}
 	ops := []txn.Op{
 		{
 			C:      st.machines.Name,
@@ -216,7 +222,7 @@ func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value) (*machi
 			Insert: *mdoc,
 		},
 		createConstraintsOp(st, machineGlobalKey(mdoc.Id), cons),
-		createStatusOp(st, machineGlobalKey(mdoc.Id), msdoc),
+		createStatusOp(st, machineGlobalKey(mdoc.Id), sdoc),
 	}
 	return mdoc, ops, nil
 }
