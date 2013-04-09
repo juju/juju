@@ -61,7 +61,6 @@ func restoreEnvVars(envVars map[string]string) {
 	}
 }
 
-
 func (t configTest) check(c *C) {
 	envs := attrs{
 		"environments": attrs{
@@ -160,7 +159,6 @@ func (t configTest) check(c *C) {
 	}
 	c.Assert(ecfg.useFloatingIP(), Equals, t.useFloatingIP)
 
-
 }
 
 func (s *ConfigSuite) SetUpTest(c *C) {
@@ -211,9 +209,9 @@ var configTests = []configTest{
 		summary: "missing region in environment",
 		envVars: map[string]string{
 			"OS_REGION_NAME": "",
-			"NOVA_REGION": "",
+			"NOVA_REGION":    "",
 		},
-		err:        "required environment variable not set for credentials attribute: Region",
+		err: "required environment variable not set for credentials attribute: Region",
 	}, {
 		summary: "invalid username",
 		config: attrs{
@@ -222,9 +220,9 @@ var configTests = []configTest{
 		err: ".*expected string, got 666",
 	}, {
 		summary: "missing username in environment",
-		err: "required environment variable not set for credentials attribute: User",
+		err:     "required environment variable not set for credentials attribute: User",
 		envVars: map[string]string{
-			"OS_USERNAME": "",
+			"OS_USERNAME":   "",
 			"NOVA_USERNAME": "",
 		},
 	}, {
@@ -235,9 +233,9 @@ var configTests = []configTest{
 		err: ".*expected string, got 666",
 	}, {
 		summary: "missing password in environment",
-		err: "required environment variable not set for credentials attribute: Secrets",
+		err:     "required environment variable not set for credentials attribute: Secrets",
 		envVars: map[string]string{
-			"OS_PASSWORD": "",
+			"OS_PASSWORD":   "",
 			"NOVA_PASSWORD": "",
 		},
 	}, {
@@ -248,9 +246,9 @@ var configTests = []configTest{
 		err: ".*expected string, got 666",
 	}, {
 		summary: "missing tenant in environment",
-		err: "required environment variable not set for credentials attribute: TenantName",
+		err:     "required environment variable not set for credentials attribute: TenantName",
 		envVars: map[string]string{
-			"OS_TENANT_NAME": "",
+			"OS_TENANT_NAME":  "",
 			"NOVA_PROJECT_ID": "",
 		},
 	}, {
@@ -261,7 +259,7 @@ var configTests = []configTest{
 		err: ".*expected string, got 666",
 	}, {
 		summary: "missing auth-url in environment",
-		err: "required environment variable not set for credentials attribute: URL",
+		err:     "required environment variable not set for credentials attribute: URL",
 		envVars: map[string]string{
 			"OS_AUTH_URL": "",
 		},
@@ -306,9 +304,9 @@ var configTests = []configTest{
 	}, {
 		summary: "valid auth args in environment",
 		envVars: map[string]string{
-			"OS_USERNAME": "jujuer",
-			"OS_PASSWORD": "open sesame",
-			"OS_AUTH_URL": "http://some/url",
+			"OS_USERNAME":    "jujuer",
+			"OS_PASSWORD":    "open sesame",
+			"OS_AUTH_URL":    "http://some/url",
 			"OS_TENANT_NAME": "juju tenant",
 			"OS_REGION_NAME": "region",
 		},
