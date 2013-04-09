@@ -275,7 +275,6 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 		}
 	}
 	st.allManager = multiwatcher.NewStoreManager(newAllWatcherStateBacking(st))
-	go st.allManager.Run()
 	return st, nil
 }
 
