@@ -333,8 +333,17 @@ var configTests = []configTest{
 		password:   "open sesame",
 		tenantName: "juju tenant",
 		authURL:    "http://some/url",
-		authMode:   "legacy",
 		region:     "region",
+	}, {
+		summary: "default auth mode based on environment",
+		envVars: map[string]string{
+			"OS_USERNAME": "jujuer",
+			"OS_PASSWORD": "open sesame",
+			"OS_AUTH_URL": "http://some/url",
+			"OS_TENANT_NAME": "juju tenant",
+			"OS_REGION_NAME": "region",
+		},
+		authMode:     string(AuthUserPass),
 	}, {
 		summary: "image id",
 		config: attrs{
@@ -416,25 +425,4 @@ func (s *ConfigSuite) setupEnvCredentials() {
 	os.Setenv("OS_AUTH_URL", "http://auth")
 	os.Setenv("OS_TENANT_NAME", "sometenant")
 	os.Setenv("OS_REGION_NAME", "region")
-}
-
-
-func (s *ConfigSuite) TestDefaultAuthorisationMode(c *C) {
-	// Specify a basic configuration without authorization mode.
-	envs := attrs{
-		"environments": attrs{
-			"testenv": attrs{
-				"type":            "openstack",
-				"authorized-keys": "fakekey",
-			},
-		},
-	}
-	data, err := goyaml.Marshal(envs)
-	c.Assert(err, IsNil)
-	s.setupEnvCredentials()
-	es, err := environs.ReadEnvironsBytes(data)
-	c.Check(err, IsNil)
-	e, err := es.Open("testenv")
-	ecfg := e.(*environ).ecfg()
-	c.Assert(ecfg.authMode(), Equals, string(AuthUserPass))
 }
