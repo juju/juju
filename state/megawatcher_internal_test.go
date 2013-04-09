@@ -60,7 +60,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 	m, err := s.State.AddMachine("series", JobManageEnviron)
 	c.Assert(err, IsNil)
 	c.Assert(m.Tag(), Equals, "machine-0")
-	err = m.SetInstanceId(InstanceId("i-" + m.Tag()))
+	err = m.SetProvisioned(InstanceId("i-"+m.Tag()), "fake_nonce")
 	c.Assert(err, IsNil)
 	add(&params.MachineInfo{
 		Id:         "0",
@@ -128,7 +128,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 			Annotations: pairs,
 		})
 
-		err = m.SetInstanceId(InstanceId("i-" + m.Tag()))
+		err = m.SetProvisioned(InstanceId("i-"+m.Tag()), "fake_nonce")
 		c.Assert(err, IsNil)
 		err = m.SetStatus(params.MachineError, m.Tag())
 		c.Assert(err, IsNil)
@@ -263,7 +263,7 @@ var allWatcherChangedTests = []struct {
 		setUp: func(c *C, st *State) {
 			m, err := st.AddMachine("series", JobManageEnviron)
 			c.Assert(err, IsNil)
-			err = m.SetInstanceId("i-0")
+			err = m.SetProvisioned("i-0", "bootstrap_nonce")
 			c.Assert(err, IsNil)
 		},
 		change: watcher.Change{
@@ -695,7 +695,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *C) {
 	}}, "")
 
 	// Make some changes to the state.
-	err = m0.SetInstanceId("i-0")
+	err = m0.SetProvisioned("i-0", "bootstrap_nonce")
 	c.Assert(err, IsNil)
 	err = m1.Destroy()
 	c.Assert(err, IsNil)
