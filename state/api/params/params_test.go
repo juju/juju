@@ -5,6 +5,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/constraints"
 	"testing"
 )
 
@@ -41,9 +42,10 @@ var marshalTestCases = []struct {
 			Name:     "Benji",
 			Exposed:  true,
 			CharmURL: "cs:series/name",
+			Constraints: constraints.MustParse("arch=arm mem=1024M"),
 		},
 	},
-	json: `["service","change",{"CharmURL": "cs:series/name","Name":"Benji","Exposed":true}]`,
+	json: `["service","change",{"CharmURL": "cs:series/name","Name":"Benji","Exposed":true,"Constraints":{"arch":"arm", "mem": 1024}}]`,
 }, {
 	about: "UnitInfo Delta",
 	value: params.Delta{
@@ -119,8 +121,8 @@ func (s *MarshalSuite) TestDeltaMarshalJSON(c *C) {
 }
 
 func (s *MarshalSuite) TestDeltaUnmarshalJSON(c *C) {
-	for _, t := range marshalTestCases {
-		c.Log(t.about)
+	for i, t := range marshalTestCases {
+		c.Logf("test %d. %s", i, t.about)
 		var unmarshalled params.Delta
 		err := json.Unmarshal([]byte(t.json), &unmarshalled)
 		c.Check(err, IsNil)
