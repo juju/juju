@@ -365,6 +365,7 @@ func (s *StoreSuite) TestCharmURL(c *C) {
 		{"cs:~charmers/precise/wordpress", "http://code.launchpad.net/+branch/~charmers/charms/precise/wordpress/trunk"},
 		{"cs:~charmers/precise/wordpress", "https://code.launchpad.net/+branch/~charmers/charms/precise/wordpress/trunk"},
 		{"cs:~charmers/precise/wordpress", "bzr+ssh://bazaar.launchpad.net/~charmers/charms/precise/wordpress/trunk"},
+		{"cs:~charmers/precise/wordpress", "bzr+ssh://bazaar.launchpad.net/~charmers/charms/precise/wordpress/trunk/"},
 		{"cs:~charmers/precise/wordpress", "~charmers/charms/precise/wordpress/trunk"},
 		{"", "lp:~charmers/charms/precise/wordpress/whatever"},
 		{"", "lp:~charmers/whatever/precise/wordpress/trunk"},

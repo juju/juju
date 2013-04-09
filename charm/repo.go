@@ -177,6 +177,9 @@ func (s *CharmStore) CharmURL(location string) (*URL, error) {
 		}
 	}
 	if l != "" {
+		for len(l) > 0 && l[len(l)-1] == '/' {
+			l = l[:len(l)-1]
+		}
 		u := strings.Split(l, "/")
 		if len(u) == 3 && u[0] == "charms" {
 			return ParseURL(fmt.Sprintf("cs:%s/%s", u[1], u[2]))
