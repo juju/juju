@@ -26,18 +26,18 @@ type PublishCommand struct {
 
 const publishDoc = `
 <charm url> can be a charm URL, or an unambiguously condensed form of it;
-assuming a current default series of "precise", the following forms will be
-accepted.
+the following forms are accepted:
 
 For cs:precise/mysql
-  mysql
+  cs:precise/mysql
   precise/mysql
 
 For cs:~user/precise/mysql
-  cs:~user/mysql
+  cs:~user/precise/mysql
 
-If <charm url> isn't provided, an attempt will be made to infer it from
-the current branch push URL.
+There is no default series, so one must be provided explicitly when
+informing a charm URL. If the URL isn't provided, an attempt will be
+made to infer it from the current branch push URL.
 `
 
 func (c *PublishCommand) Info() *cmd.Info {
