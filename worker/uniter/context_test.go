@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"os"
@@ -91,7 +92,7 @@ func AssertEnvContains(c *C, lines []string, env map[string]string) {
 	}
 }
 
-func AssertEnv(c *C, outPath string, charmDir string, env map[string]string) {
+func AssertEnv(c *C, outPath string, charmDir string, env map[string]string, uuid string) {
 	out, err := ioutil.ReadFile(outPath)
 	c.Assert(err, IsNil)
 	lines := strings.Split(string(out), "\n")
@@ -101,6 +102,7 @@ func AssertEnv(c *C, outPath string, charmDir string, env map[string]string) {
 		"APT_LISTCHANGES_FRONTEND": "none",
 		"CHARM_DIR":                charmDir,
 		"JUJU_AGENT_SOCKET":        "/path/to/socket",
+		"JUJU_ENV_UUID":            uuid,
 	})
 }
 
@@ -203,9 +205,11 @@ func (l *logRecorder) Output(calldepth int, s string) error {
 func (s *RunHookSuite) TestRunHook(c *C) {
 	logger := &logRecorder{c: c, prefix: "INFO worker/uniter: HOOK "}
 	defer log.SetTarget(log.SetTarget(logger))
+	uuid, err := trivial.NewUUID()
+	c.Assert(err, IsNil)
 	for i, t := range runHookTests {
 		c.Logf("test %d: %s; perm %v", i, t.summary, t.spec.perm)
-		ctx := s.GetHookContext(c, t.relid, t.remote)
+		ctx := s.GetHookContext(c, uuid.String(), t.relid, t.remote)
 		var charmDir, outPath string
 		if t.spec.perm == 0 {
 			charmDir = c.MkDir()
@@ -229,7 +233,7 @@ func (s *RunHookSuite) TestRunHook(c *C) {
 			for k, v := range t.env {
 				env[k] = v
 			}
-			AssertEnv(c, outPath, charmDir, env)
+			AssertEnv(c, outPath, charmDir, env, uuid.String())
 		}
 		var expectLog []string
 		if t.spec.stdout != "" {
@@ -260,7 +264,9 @@ func splitLine(s string) []string {
 
 func (s *RunHookSuite) TestRunHookRelationFlushing(c *C) {
 	// Create a charm with a breaking hook.
-	ctx := s.GetHookContext(c, -1, "")
+	uuid, err := trivial.NewUUID()
+	c.Assert(err, IsNil)
+	ctx := s.GetHookContext(c, uuid.String(), -1, "")
 	charmDir, _ := makeCharm(c, hookSpec{
 		name: "something-happened",
 		perm: 0700,
@@ -520,7 +526,9 @@ type InterfaceSuite struct {
 var _ = Suite(&InterfaceSuite{})
 
 func (s *InterfaceSuite) GetContext(c *C, relId int, remoteName string) jujuc.Context {
-	return s.HookContextSuite.GetHookContext(c, relId, remoteName)
+	uuid, err := trivial.NewUUID()
+	c.Assert(err, IsNil)
+	return s.HookContextSuite.GetHookContext(c, uuid.String(), relId, remoteName)
 }
 
 func (s *InterfaceSuite) TestTrivial(c *C) {
@@ -648,10 +656,10 @@ func (s *HookContextSuite) AddContextRelation(c *C, name string) {
 	s.relctxs[rel.Id()] = uniter.NewContextRelation(ru, nil)
 }
 
-func (s *HookContextSuite) GetHookContext(c *C, relid int, remote string) *uniter.HookContext {
+func (s *HookContextSuite) GetHookContext(c *C, uuid string, relid int, remote string) *uniter.HookContext {
 	if relid != -1 {
 		_, found := s.relctxs[relid]
 		c.Assert(found, Equals, true)
 	}
-	return uniter.NewHookContext(s.unit, "TestCtx", relid, remote, s.relctxs)
+	return uniter.NewHookContext(s.unit, "TestCtx", uuid, relid, remote, s.relctxs)
 }

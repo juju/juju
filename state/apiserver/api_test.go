@@ -1433,12 +1433,18 @@ func (s *suite) TestClientWatchAll(c *C) {
 	}()
 	deltas, err := watcher.Next()
 	c.Assert(err, IsNil)
-	c.Assert(deltas, DeepEquals, []params.Delta{{
+	if !c.Check(deltas, DeepEquals, []params.Delta{{
 		Entity: &params.MachineInfo{
 			Id:         m.Id(),
 			InstanceId: "i-0",
+			Status:     params.MachinePending,
 		},
-	}})
+	}}) {
+		c.Logf("got:")
+		for _, d := range deltas {
+			c.Logf("%#v\n", d.Entity)
+		}
+	}
 }
 
 // openAs connects to the API state as the given entity
