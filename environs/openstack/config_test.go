@@ -245,11 +245,32 @@ var configTests = []configTest{
 		},
 		err: ".*expected string, got 666",
 	}, {
+		summary: "missing tenant in environment",
+		err: "required environment variable not set for credentials attribute: TenantName",
+		envVars: map[string]string{
+			"OS_USERNAME": "user",
+			"OS_PASSWORD": "secret",
+			"OS_AUTH_URL": "http://auth",
+			"OS_TENANT_NAME": "",
+			"NOVA_PROJECT_ID": "",
+			"OS_REGION_NAME": "region",
+		},
+	}, {
 		summary: "invalid auth-url type",
 		config: attrs{
 			"auth-url": 666,
 		},
 		err: ".*expected string, got 666",
+	}, {
+		summary: "missing auth-url in environment",
+		err: "required environment variable not set for credentials attribute: URL",
+		envVars: map[string]string{
+			"OS_USERNAME": "user",
+			"OS_PASSWORD": "secret",
+			"OS_AUTH_URL": "",
+			"OS_TENANT_NAME": "sometenant",
+			"OS_REGION_NAME": "region",
+		},
 	}, {
 		summary: "invalid authorization mode",
 		config: attrs{
@@ -394,24 +415,6 @@ func (s *ConfigSuite) setupEnvCredentials() {
 	os.Setenv("OS_REGION_NAME", "region")
 }
 
-var regionTestConfig = configTests[0]
-
-func (s *ConfigSuite) TestMissingTenant(c *C) {
-	s.setupEnvCredentials()
-	os.Setenv("OS_TENANT_NAME", "")
-	os.Setenv("NOVA_PROJECT_ID", "")
-	test := regionTestConfig
-	test.err = "required environment variable not set for credentials attribute: TenantName"
-	test.check(c)
-}
-
-func (s *ConfigSuite) TestMissingAuthUrl(c *C) {
-	s.setupEnvCredentials()
-	os.Setenv("OS_AUTH_URL", "")
-	test := regionTestConfig
-	test.err = "required environment variable not set for credentials attribute: URL"
-	test.check(c)
-}
 
 func (s *ConfigSuite) TestCredentialsFromEnv(c *C) {
 	// Specify a basic configuration without credentials.
