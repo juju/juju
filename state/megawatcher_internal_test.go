@@ -65,6 +65,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 	add(&params.MachineInfo{
 		Id:         "0",
 		InstanceId: "i-machine-0",
+		Status:     params.MachinePending,
 	})
 
 	wordpress, err := s.State.AddService("wordpress", AddTestingCharm(c, s.State, "wordpress"))
@@ -117,6 +118,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 			Series:    m.Series(),
 			MachineId: m.Id(),
 			Ports:     []params.Port{},
+			Status:    params.UnitPending,
 		})
 		pairs := map[string]string{"name": fmt.Sprintf("bar %d", i)}
 		err = wu.SetAnnotations(pairs)
@@ -128,9 +130,13 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 
 		err = m.SetInstanceId(InstanceId("i-" + m.Tag()))
 		c.Assert(err, IsNil)
+		err = m.SetStatus(params.MachineError, m.Tag())
+		c.Assert(err, IsNil)
 		add(&params.MachineInfo{
 			Id:         fmt.Sprint(i + 1),
 			InstanceId: "i-" + m.Tag(),
+			Status:     params.MachineError,
+			StatusInfo: m.Tag(),
 		})
 		err = wu.AssignToMachine(m)
 		c.Assert(err, IsNil)
@@ -158,6 +164,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 			Service: "logging",
 			Series:  "series",
 			Ports:   []params.Port{},
+			Status:  params.UnitPending,
 		})
 	}
 	return
@@ -179,10 +186,11 @@ func assertEntitiesEqual(c *C, got, want []params.EntityInfo) {
 		return
 	}
 	c.Errorf("entity mismatch; got len %d; want %d", len(got), len(want))
+	c.Logf("got:")
 	for _, e := range got {
 		c.Logf("\t%T %#v", e, e)
 	}
-	c.Logf("expected")
+	c.Logf("expected:")
 	for _, e := range want {
 		c.Logf("\t%T %#v", e, e)
 	}
@@ -227,7 +235,9 @@ var allWatcherChangedTests = []struct {
 	}, {
 		about: "machine is added if it's in backing but not in Store",
 		setUp: func(c *C, st *State) {
-			_, err := st.AddMachine("series", JobHostUnits)
+			m, err := st.AddMachine("series", JobHostUnits)
+			c.Assert(err, IsNil)
+			err = m.SetStatus(params.MachineError, "failure")
 			c.Assert(err, IsNil)
 		},
 		change: watcher.Change{
@@ -235,11 +245,21 @@ var allWatcherChangedTests = []struct {
 			Id: "0",
 		},
 		expectContents: []params.EntityInfo{
-			&params.MachineInfo{Id: "0"},
+			&params.MachineInfo{
+				Id:         "0",
+				Status:     params.MachineError,
+				StatusInfo: "failure",
+			},
 		},
 	}, {
 		about: "machine is updated if it's in backing and in Store",
-		add:   []params.EntityInfo{&params.MachineInfo{Id: "0"}},
+		add: []params.EntityInfo{
+			&params.MachineInfo{
+				Id:         "0",
+				Status:     params.MachineError,
+				StatusInfo: "another failure",
+			},
+		},
 		setUp: func(c *C, st *State) {
 			m, err := st.AddMachine("series", JobManageEnviron)
 			c.Assert(err, IsNil)
@@ -254,6 +274,8 @@ var allWatcherChangedTests = []struct {
 			&params.MachineInfo{
 				Id:         "0",
 				InstanceId: "i-0",
+				Status:     params.MachineError,
+				StatusInfo: "another failure",
 			},
 		},
 	},
@@ -292,6 +314,8 @@ var allWatcherChangedTests = []struct {
 			c.Assert(err, IsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, IsNil)
+			err = u.SetStatus(params.UnitError, "failure")
+			c.Assert(err, IsNil)
 		},
 		change: watcher.Change{
 			C:  "units",
@@ -307,11 +331,17 @@ var allWatcherChangedTests = []struct {
 				MachineId:      "0",
 				Resolved:       params.ResolvedRetryHooks,
 				Ports:          []params.Port{{"tcp", 12345}},
+				Status:         params.UnitError,
+				StatusInfo:     "failure",
 			},
 		},
 	}, {
 		about: "unit is updated if it's in backing and in multiwatcher.Store",
-		add:   []params.EntityInfo{&params.UnitInfo{Name: "wordpress/0"}},
+		add: []params.EntityInfo{&params.UnitInfo{
+			Name:       "wordpress/0",
+			Status:     params.UnitError,
+			StatusInfo: "another failure",
+		}},
 		setUp: func(c *C, st *State) {
 			wordpress, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
 			c.Assert(err, IsNil)
@@ -333,6 +363,8 @@ var allWatcherChangedTests = []struct {
 				Series:        "series",
 				PublicAddress: "public",
 				Ports:         []params.Port{{"udp", 17070}},
+				Status:        params.UnitError,
+				StatusInfo:    "another failure",
 			},
 		},
 	},
@@ -502,6 +534,108 @@ var allWatcherChangedTests = []struct {
 			},
 		},
 	},
+	// Unit status changes
+	{
+		about: "no unit in state -> do nothing",
+		setUp: func(c *C, st *State) {},
+		change: watcher.Change{
+			C:  "statuses",
+			Id: "u#wordpress/0",
+		},
+	}, {
+		about: "no change if status is not in backing",
+		add: []params.EntityInfo{&params.UnitInfo{
+			Name:       "wordpress/0",
+			Status:     params.UnitError,
+			StatusInfo: "failure",
+		}},
+		setUp: func(*C, *State) {},
+		change: watcher.Change{
+			C:  "statuses",
+			Id: "u#wordpress/0",
+		},
+		expectContents: []params.EntityInfo{
+			&params.UnitInfo{
+				Name:       "wordpress/0",
+				Status:     params.UnitError,
+				StatusInfo: "failure",
+			},
+		},
+	}, {
+		about: "status is changed if the unit exists in the store",
+		add: []params.EntityInfo{&params.UnitInfo{
+			Name:       "wordpress/0",
+			Status:     params.UnitError,
+			StatusInfo: "failure",
+		}},
+		setUp: func(c *C, st *State) {
+			wordpress, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
+			c.Assert(err, IsNil)
+			u, err := wordpress.AddUnit()
+			c.Assert(err, IsNil)
+			err = u.SetStatus(params.UnitStarted, "")
+			c.Assert(err, IsNil)
+		},
+		change: watcher.Change{
+			C:  "statuses",
+			Id: "u#wordpress/0",
+		},
+		expectContents: []params.EntityInfo{
+			&params.UnitInfo{
+				Name:   "wordpress/0",
+				Status: params.UnitStarted,
+			},
+		},
+	},
+	// Machine status changes
+	{
+		about: "no machine in state -> do nothing",
+		setUp: func(c *C, st *State) {},
+		change: watcher.Change{
+			C:  "statuses",
+			Id: "m#0",
+		},
+	}, {
+		about: "no change if status is not in backing",
+		add: []params.EntityInfo{&params.MachineInfo{
+			Id:         "0",
+			Status:     params.MachineError,
+			StatusInfo: "failure",
+		}},
+		setUp: func(*C, *State) {},
+		change: watcher.Change{
+			C:  "statuses",
+			Id: "m#0",
+		},
+		expectContents: []params.EntityInfo{&params.MachineInfo{
+			Id:         "0",
+			Status:     params.MachineError,
+			StatusInfo: "failure",
+		}},
+	}, {
+		about: "status is changed if the machine exists in the store",
+		add: []params.EntityInfo{&params.MachineInfo{
+			Id:         "0",
+			Status:     params.MachineError,
+			StatusInfo: "failure",
+		}},
+		setUp: func(c *C, st *State) {
+			m, err := st.AddMachine("series", JobHostUnits)
+			c.Assert(err, IsNil)
+			err = m.SetStatus(params.MachineStarted, "")
+			c.Assert(err, IsNil)
+		},
+		change: watcher.Change{
+			C:  "statuses",
+			Id: "m#0",
+		},
+		expectContents: []params.EntityInfo{
+			&params.MachineInfo{
+				Id:     "0",
+				Status: params.MachineStarted,
+			},
+		},
+	},
 }
 
 func (s *storeManagerStateSuite) TestChanged(c *C) {
@@ -511,6 +645,7 @@ func (s *storeManagerStateSuite) TestChanged(c *C) {
 		"services":    s.State.services,
 		"relations":   s.State.relations,
 		"annotations": s.State.annotations,
+		"statuses":    s.State.statuses,
 	}
 	for i, test := range allWatcherChangedTests {
 		c.Logf("test %d. %s", i, test.about)
@@ -548,9 +683,15 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *C) {
 	w := multiwatcher.NewWatcher(aw)
 	s.State.StartSync()
 	checkNext(c, w, b, []params.Delta{{
-		Entity: &params.MachineInfo{Id: "0"},
+		Entity: &params.MachineInfo{
+			Id:     "0",
+			Status: params.MachinePending,
+		},
 	}, {
-		Entity: &params.MachineInfo{Id: "1"},
+		Entity: &params.MachineInfo{
+			Id:     "1",
+			Status: params.MachinePending,
+		},
 	}}, "")
 
 	// Make some changes to the state.
@@ -580,13 +721,20 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *C) {
 	}
 	checkDeltasEqual(c, b, deltas, []params.Delta{{
 		Removed: true,
-		Entity:  &params.MachineInfo{Id: "1"},
+		Entity: &params.MachineInfo{
+			Id:     "1",
+			Status: params.MachinePending,
+		},
 	}, {
-		Entity: &params.MachineInfo{Id: "2"},
+		Entity: &params.MachineInfo{
+			Id:     "2",
+			Status: params.MachinePending,
+		},
 	}, {
 		Entity: &params.MachineInfo{
 			Id:         "0",
 			InstanceId: "i-0",
+			Status:     params.MachinePending,
 		},
 	}})
 

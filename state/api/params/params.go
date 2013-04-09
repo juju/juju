@@ -313,6 +313,8 @@ type EntityId struct {
 type MachineInfo struct {
 	Id         string `bson:"_id"`
 	InstanceId string
+	Status     MachineStatus
+	StatusInfo string
 }
 
 func (i *MachineInfo) EntityId() EntityId {
@@ -345,6 +347,8 @@ type UnitInfo struct {
 	MachineId      string
 	Resolved       ResolvedMode
 	Ports          []Port
+	Status         UnitStatus
+	StatusInfo     string
 }
 
 func (i *UnitInfo) EntityId() EntityId {
