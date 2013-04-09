@@ -5,6 +5,7 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
+	"strings"
 )
 
 // GetEnvironmentCommand is able to output either the entire environment or
@@ -15,11 +16,23 @@ type GetEnvironmentCommand struct {
 	out cmd.Output
 }
 
+const getEnvHelpDoc = `
+If no extra args passed on the command line, all configuration keys and values
+for the environment are output using the selected formatter.
+
+A single environment value can be output by adding the environment key name to
+the end of the command line.
+
+e.g. $ juju get-environment default-series
+     precise
+`
+
 func (c *GetEnvironmentCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "get-environment",
 		Args:    "[<environment key>]",
 		Purpose: "view environment values",
+		Doc:     strings.TrimSpace(getEnvHelpDoc),
 	}
 }
 
