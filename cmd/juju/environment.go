@@ -69,3 +69,56 @@ func (c *GetEnvironmentCommand) Run(ctx *cmd.Context) error {
 
 	return fmt.Errorf("Environment key %q not found in %q environment.", c.key, config.Name())
 }
+
+// SetEnvironment
+type SetEnvironmentCommand struct {
+	EnvCommandBase
+	values map[string]string
+}
+
+const setEnvHelpDoc = `
+TODO: write me
+`
+
+func (c *SetEnvironmentCommand) Info() *cmd.Info {
+	return &cmd.Info{
+		Name:    "set-environment",
+		Args:    "key=[value] ...",
+		Purpose: "replace environment values",
+		Doc:     strings.TrimSpace(setEnvHelpDoc),
+	}
+}
+
+// SetFlags handled entirely by EnvCommandBase
+
+func (c *SetEnvironmentCommand) Init(args []string) (err error) {
+	if len(args) == 0 {
+		return fmt.Errorf("No key, value pairs specified")
+	}
+	c.values = make(map[string]string)
+	for i, arg := range args {
+		bits := strings.SplitN(arg, "=", 2)
+		if len(bits) < 2 {
+			return fmt.Errorf(`Missing "=" in arg %d: %q`, i+1, arg)
+		}
+		key := bits[0]
+		if _, exists := c.values[key]; exists {
+			return fmt.Errorf(`Key %q specified more than once`, key)
+		}
+		c.values[key] = bits[1]
+	}
+	return nil
+}
+
+func (c *SetEnvironmentCommand) Run(ctx *cmd.Context) error {
+	//conn, err := juju.NewConnFromName(c.EnvName)
+	//if err != nil {
+	//	return err
+	//}
+	//defer conn.Close()
+	for key, value := range c.values {
+		fmt.Fprintf(ctx.Stdout, "%s: %q\n", key, value)
+	}
+
+	return nil
+}
