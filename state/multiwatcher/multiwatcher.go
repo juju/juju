@@ -12,12 +12,15 @@ import (
 // Watcher watches any changes to the state.
 type Watcher struct {
 	all *StoreManager
+
 	// The following fields are maintained by the StoreManager
 	// goroutine.
 	revno   int64
 	stopped bool
 }
 
+// NewWatcher creates a new watcher that can observe
+// changes to an underlying store manager.
 func NewWatcher(all *StoreManager) *Watcher {
 	return &Watcher{
 		all: all,
@@ -82,12 +85,11 @@ type StoreManager struct {
 // InfoId holds an identifier for an Info item held in a Store.
 type InfoId interface{}
 
-// Backing is the interface required
-// by the StoreManager to access the underlying state.
-// It is an interface for testing purposes.
+// Backing is the interface required by the StoreManager to access the
+// underlying state.
 type Backing interface {
 
-	// getAll retrieves information about all information
+	// GetAll retrieves information about all information
 	// known to the Backing and stashes it in the Store.
 	GetAll(all *Store) error
 
@@ -128,9 +130,9 @@ type request struct {
 	next *request
 }
 
-// newStoreManager returns a new StoreManager that retrieves information
-// using the given backing. It does not start it running.
-func NewStoreManager(backing Backing) *StoreManager {
+// newStoreManagerNoRun creates the store manager
+// but does not start its run loop.
+func newStoreManagerNoRun(backing Backing) *StoreManager {
 	return &StoreManager{
 		backing: backing,
 		request: make(chan *request),
@@ -139,53 +141,59 @@ func NewStoreManager(backing Backing) *StoreManager {
 	}
 }
 
-func (aw *StoreManager) Run() {
-	defer aw.tomb.Done()
-	// TODO(rog) distinguish between temporary and permanent errors:
-	// if we get an error in loop, this logic kill the state's StoreManager
-	// forever. This currently fits the way we go about things,
-	// because we reconnect to the state on any error, but
-	// perhaps there are errors we could recover from.
-	aw.tomb.Kill(aw.loop())
+// NewStoreManager returns a new StoreManager that retrieves information
+// using the given backing.
+func NewStoreManager(backing Backing) *StoreManager {
+	s := newStoreManagerNoRun(backing)
+	go func() {
+		defer s.tomb.Done()
+		// TODO(rog) distinguish between temporary and permanent errors:
+		// if we get an error in loop, this logic kill the state's StoreManager
+		// forever. This currently fits the way we go about things,
+		// because we reconnect to the state on any error, but
+		// perhaps there are errors we could recover from.
+		s.tomb.Kill(s.loop())
+	}()
+	return s
 }
 
-func (aw *StoreManager) loop() error {
+func (sm *StoreManager) loop() error {
 	in := make(chan watcher.Change)
-	aw.backing.Watch(in)
-	defer aw.backing.Unwatch(in)
+	sm.backing.Watch(in)
+	defer sm.backing.Unwatch(in)
 	// We have no idea what changes the watcher might be trying to
 	// send us while getAll proceeds, but we don't mind, because
 	// StoreManager.changed is idempotent with respect to both updates
 	// and removals.
 	// TODO(rog) Perhaps find a way to avoid blocking all other
 	// watchers while GetAll is running.
-	if err := aw.backing.GetAll(aw.all); err != nil {
+	if err := sm.backing.GetAll(sm.all); err != nil {
 		return err
 	}
 	for {
 		select {
-		case <-aw.tomb.Dying():
+		case <-sm.tomb.Dying():
 			return tomb.ErrDying
 		case change := <-in:
-			if err := aw.backing.Changed(aw.all, change); err != nil {
+			if err := sm.backing.Changed(sm.all, change); err != nil {
 				return err
 			}
-		case req := <-aw.request:
-			aw.handle(req)
+		case req := <-sm.request:
+			sm.handle(req)
 		}
-		aw.respond()
+		sm.respond()
 	}
 	panic("unreachable")
 }
 
 // Stop stops the StoreManager.
-func (aw *StoreManager) Stop() error {
-	aw.tomb.Kill(nil)
-	return aw.tomb.Wait()
+func (sm *StoreManager) Stop() error {
+	sm.tomb.Kill(nil)
+	return sm.tomb.Wait()
 }
 
 // handle processes a request from a Watcher to the StoreManager.
-func (aw *StoreManager) handle(req *request) {
+func (sm *StoreManager) handle(req *request) {
 	if req.w.stopped {
 		// The watcher has previously been stopped.
 		if req.reply != nil {
@@ -195,45 +203,45 @@ func (aw *StoreManager) handle(req *request) {
 	}
 	if req.reply == nil {
 		// This is a request to stop the watcher.
-		for req := aw.waiting[req.w]; req != nil; req = req.next {
+		for req := sm.waiting[req.w]; req != nil; req = req.next {
 			req.reply <- false
 		}
-		delete(aw.waiting, req.w)
+		delete(sm.waiting, req.w)
 		req.w.stopped = true
-		aw.leave(req.w)
+		sm.leave(req.w)
 		return
 	}
 	// Add request to head of list.
-	req.next = aw.waiting[req.w]
-	aw.waiting[req.w] = req
+	req.next = sm.waiting[req.w]
+	sm.waiting[req.w] = req
 }
 
 // respond responds to all outstanding requests that are satisfiable.
-func (aw *StoreManager) respond() {
-	for w, req := range aw.waiting {
+func (sm *StoreManager) respond() {
+	for w, req := range sm.waiting {
 		revno := w.revno
-		changes := aw.all.ChangesSince(revno)
+		changes := sm.all.ChangesSince(revno)
 		if len(changes) == 0 {
 			continue
 		}
 		req.changes = changes
-		w.revno = aw.all.latestRevno
+		w.revno = sm.all.latestRevno
 		req.reply <- true
 		if req := req.next; req == nil {
 			// Last request for this watcher.
-			delete(aw.waiting, w)
+			delete(sm.waiting, w)
 		} else {
-			aw.waiting[w] = req
+			sm.waiting[w] = req
 		}
-		aw.seen(revno)
+		sm.seen(revno)
 	}
 }
 
 // seen states that a Watcher has just been given information about
 // all entities newer than the given revno.  We assume it has already
 // seen all the older entities.
-func (aw *StoreManager) seen(revno int64) {
-	for e := aw.all.list.Front(); e != nil; {
+func (sm *StoreManager) seen(revno int64) {
+	for e := sm.all.list.Front(); e != nil; {
 		next := e.Next()
 		entry := e.Value.(*entityEntry)
 		if entry.revno <= revno {
@@ -250,7 +258,7 @@ func (aw *StoreManager) seen(revno int64) {
 			// has now been removed, so decrement its refCount, removing
 			// the entity if nothing else is waiting to be notified that it's
 			// gone.
-			aw.all.decRef(entry)
+			sm.all.decRef(entry)
 		}
 		e = next
 	}
@@ -258,8 +266,8 @@ func (aw *StoreManager) seen(revno int64) {
 
 // leave is called when the given watcher leaves.  It decrements the reference
 // counts of any entities that have been seen by the watcher.
-func (aw *StoreManager) leave(w *Watcher) {
-	for e := aw.all.list.Front(); e != nil; {
+func (sm *StoreManager) leave(w *Watcher) {
+	for e := sm.all.list.Front(); e != nil; {
 		next := e.Next()
 		entry := e.Value.(*entityEntry)
 		if entry.creationRevno <= w.revno {
@@ -271,7 +279,7 @@ func (aw *StoreManager) leave(w *Watcher) {
 				e = next
 				continue
 			}
-			aw.all.decRef(entry)
+			sm.all.decRef(entry)
 		}
 		e = next
 	}

@@ -263,16 +263,16 @@ type storeManagerSuite struct {
 var _ = Suite(&storeManagerSuite{})
 
 func (*storeManagerSuite) TestHandle(c *C) {
-	aw := NewStoreManager(newTestBacking(nil))
+	sm := newStoreManagerNoRun(newTestBacking(nil))
 
 	// Add request from first watcher.
-	w0 := &Watcher{all: aw}
+	w0 := &Watcher{all: sm}
 	req0 := &request{
 		w:     w0,
 		reply: make(chan bool, 1),
 	}
-	aw.handle(req0)
-	assertWaitingRequests(c, aw, map[*Watcher][]*request{
+	sm.handle(req0)
+	assertWaitingRequests(c, sm, map[*Watcher][]*request{
 		w0: {req0},
 	})
 
@@ -281,52 +281,52 @@ func (*storeManagerSuite) TestHandle(c *C) {
 		w:     w0,
 		reply: make(chan bool, 1),
 	}
-	aw.handle(req1)
-	assertWaitingRequests(c, aw, map[*Watcher][]*request{
+	sm.handle(req1)
+	assertWaitingRequests(c, sm, map[*Watcher][]*request{
 		w0: {req1, req0},
 	})
 
 	// Add request from second watcher.
-	w1 := &Watcher{all: aw}
+	w1 := &Watcher{all: sm}
 	req2 := &request{
 		w:     w1,
 		reply: make(chan bool, 1),
 	}
-	aw.handle(req2)
-	assertWaitingRequests(c, aw, map[*Watcher][]*request{
+	sm.handle(req2)
+	assertWaitingRequests(c, sm, map[*Watcher][]*request{
 		w0: {req1, req0},
 		w1: {req2},
 	})
 
 	// Stop first watcher.
-	aw.handle(&request{
+	sm.handle(&request{
 		w: w0,
 	})
-	assertWaitingRequests(c, aw, map[*Watcher][]*request{
+	assertWaitingRequests(c, sm, map[*Watcher][]*request{
 		w1: {req2},
 	})
 	assertReplied(c, false, req0)
 	assertReplied(c, false, req1)
 
 	// Stop second watcher.
-	aw.handle(&request{
+	sm.handle(&request{
 		w: w1,
 	})
-	assertWaitingRequests(c, aw, nil)
+	assertWaitingRequests(c, sm, nil)
 	assertReplied(c, false, req2)
 }
 
 func (s *storeManagerSuite) TestHandleStopNoDecRefIfMoreRecentlyCreated(c *C) {
 	// If the Watcher hasn't seen the item, then we shouldn't
 	// decrement its ref count when it is stopped.
-	aw := NewStoreManager(newTestBacking(nil))
-	aw.all.Update(&MachineInfo{Id: "0"})
-	StoreIncRef(aw.all, params.EntityId{"machine", "0"})
-	w := &Watcher{all: aw}
+	sm := NewStoreManager(newTestBacking(nil))
+	sm.all.Update(&MachineInfo{Id: "0"})
+	StoreIncRef(sm.all, params.EntityId{"machine", "0"})
+	w := &Watcher{all: sm}
 
 	// Stop the watcher.
-	aw.handle(&request{w: w})
-	assertStoreContents(c, aw.all, 1, []entityEntry{{
+	sm.handle(&request{w: w})
+	assertStoreContents(c, sm.all, 1, []entityEntry{{
 		creationRevno: 1,
 		revno:         1,
 		refCount:      1,
@@ -339,14 +339,14 @@ func (s *storeManagerSuite) TestHandleStopNoDecRefIfMoreRecentlyCreated(c *C) {
 func (s *storeManagerSuite) TestHandleStopNoDecRefIfAlreadySeenRemoved(c *C) {
 	// If the Watcher has already seen the item removed, then
 	// we shouldn't decrement its ref count when it is stopped.
-	aw := NewStoreManager(newTestBacking(nil))
-	aw.all.Update(&MachineInfo{Id: "0"})
-	StoreIncRef(aw.all, params.EntityId{"machine", "0"})
-	aw.all.Remove(params.EntityId{"machine", "0"})
-	w := &Watcher{all: aw}
+	sm := NewStoreManager(newTestBacking(nil))
+	sm.all.Update(&MachineInfo{Id: "0"})
+	StoreIncRef(sm.all, params.EntityId{"machine", "0"})
+	sm.all.Remove(params.EntityId{"machine", "0"})
+	w := &Watcher{all: sm}
 	// Stop the watcher.
-	aw.handle(&request{w: w})
-	assertStoreContents(c, aw.all, 2, []entityEntry{{
+	sm.handle(&request{w: w})
+	assertStoreContents(c, sm.all, 2, []entityEntry{{
 		creationRevno: 1,
 		revno:         2,
 		refCount:      1,
@@ -360,14 +360,14 @@ func (s *storeManagerSuite) TestHandleStopNoDecRefIfAlreadySeenRemoved(c *C) {
 func (s *storeManagerSuite) TestHandleStopDecRefIfAlreadySeenAndNotRemoved(c *C) {
 	// If the Watcher has already seen the item removed, then
 	// we should decrement its ref count when it is stopped.
-	aw := NewStoreManager(newTestBacking(nil))
-	aw.all.Update(&MachineInfo{Id: "0"})
-	StoreIncRef(aw.all, params.EntityId{"machine", "0"})
-	w := &Watcher{all: aw}
-	w.revno = aw.all.latestRevno
+	sm := NewStoreManager(newTestBacking(nil))
+	sm.all.Update(&MachineInfo{Id: "0"})
+	StoreIncRef(sm.all, params.EntityId{"machine", "0"})
+	w := &Watcher{all: sm}
+	w.revno = sm.all.latestRevno
 	// Stop the watcher.
-	aw.handle(&request{w: w})
-	assertStoreContents(c, aw.all, 1, []entityEntry{{
+	sm.handle(&request{w: w})
+	assertStoreContents(c, sm.all, 1, []entityEntry{{
 		creationRevno: 1,
 		revno:         1,
 		info: &MachineInfo{
@@ -379,13 +379,13 @@ func (s *storeManagerSuite) TestHandleStopDecRefIfAlreadySeenAndNotRemoved(c *C)
 func (s *storeManagerSuite) TestHandleStopNoDecRefIfNotSeen(c *C) {
 	// If the Watcher hasn't seen the item at all, it should
 	// leave the ref count untouched.
-	aw := NewStoreManager(newTestBacking(nil))
-	aw.all.Update(&MachineInfo{Id: "0"})
-	StoreIncRef(aw.all, params.EntityId{"machine", "0"})
-	w := &Watcher{all: aw}
+	sm := NewStoreManager(newTestBacking(nil))
+	sm.all.Update(&MachineInfo{Id: "0"})
+	StoreIncRef(sm.all, params.EntityId{"machine", "0"})
+	w := &Watcher{all: sm}
 	// Stop the watcher.
-	aw.handle(&request{w: w})
-	assertStoreContents(c, aw.all, 1, []entityEntry{{
+	sm.handle(&request{w: w})
+	assertStoreContents(c, sm.all, 1, []entityEntry{{
 		creationRevno: 1,
 		revno:         1,
 		refCount:      1,
@@ -446,7 +446,7 @@ func (s *storeManagerSuite) TestRespondResults(c *C) {
 	ns := make([]int, wcount)
 	for ns[0] = 0; ns[0] < numCombinations; ns[0]++ {
 		for ns[1] = 0; ns[1] < numCombinations; ns[1]++ {
-			aw := NewStoreManager(&storeManagerTestBacking{})
+			sm := newStoreManagerNoRun(&storeManagerTestBacking{})
 			c.Logf("test %0*b", len(respondTestChanges), ns)
 			var (
 				ws      []*Watcher
@@ -462,7 +462,7 @@ func (s *storeManagerSuite) TestRespondResults(c *C) {
 			// watcher if n and respond
 			for i, change := range respondTestChanges {
 				c.Logf("change %d", i)
-				change(aw.all)
+				change(sm.all)
 				needRespond := false
 				for wi, n := range ns {
 					if n&(1<<uint(i)) != 0 {
@@ -472,7 +472,7 @@ func (s *storeManagerSuite) TestRespondResults(c *C) {
 								w:     ws[wi],
 								reply: make(chan bool, 1),
 							}
-							aw.handle(reqs[wi])
+							sm.handle(reqs[wi])
 						}
 					}
 				}
@@ -486,11 +486,11 @@ func (s *storeManagerSuite) TestRespondResults(c *C) {
 						expectWaiting[w] = []*request{reqs[wi]}
 					}
 				}
-				assertWaitingRequests(c, aw, expectWaiting)
+				assertWaitingRequests(c, sm, expectWaiting)
 				// Actually respond; then check that each watcher with
 				// an outstanding request now has an up to date view
 				// of the world.
-				aw.respond()
+				sm.respond()
 				for wi, req := range reqs {
 					if req == nil {
 						continue
@@ -504,38 +504,38 @@ func (s *storeManagerSuite) TestRespondResults(c *C) {
 					default:
 					}
 					c.Logf("check %d", wi)
-					wstates[wi].check(c, aw.all)
+					wstates[wi].check(c, sm.all)
 				}
 			}
 			// Stop the watcher and check that all ref counts end up at zero
 			// and removed objects are deleted.
 			for wi, w := range ws {
-				aw.handle(&request{w: w})
+				sm.handle(&request{w: w})
 				if reqs[wi] != nil {
 					assertReplied(c, false, reqs[wi])
 				}
 			}
-			assertStoreContents(c, aw.all, respondTestFinalRevno, respondTestFinalState)
+			assertStoreContents(c, sm.all, respondTestFinalRevno, respondTestFinalState)
 		}
 	}
 }
 
 func (*storeManagerSuite) TestRespondMultiple(c *C) {
-	aw := NewStoreManager(newTestBacking(nil))
-	aw.all.Update(&MachineInfo{Id: "0"})
+	sm := NewStoreManager(newTestBacking(nil))
+	sm.all.Update(&MachineInfo{Id: "0"})
 
 	// Add one request and respond.
 	// It should see the above change.
-	w0 := &Watcher{all: aw}
+	w0 := &Watcher{all: sm}
 	req0 := &request{
 		w:     w0,
 		reply: make(chan bool, 1),
 	}
-	aw.handle(req0)
-	aw.respond()
+	sm.handle(req0)
+	sm.respond()
 	assertReplied(c, true, req0)
 	c.Assert(req0.changes, DeepEquals, []params.Delta{{Entity: &MachineInfo{Id: "0"}}})
-	assertWaitingRequests(c, aw, nil)
+	assertWaitingRequests(c, sm, nil)
 
 	// Add another request from the same watcher and respond.
 	// It should have no reply because nothing has changed.
@@ -543,51 +543,51 @@ func (*storeManagerSuite) TestRespondMultiple(c *C) {
 		w:     w0,
 		reply: make(chan bool, 1),
 	}
-	aw.handle(req0)
-	aw.respond()
+	sm.handle(req0)
+	sm.respond()
 	assertNotReplied(c, req0)
 
 	// Add two requests from another watcher and respond.
 	// The request from the first watcher should still not
 	// be replied to, but the later of the two requests from
 	// the second watcher should get a reply.
-	w1 := &Watcher{all: aw}
+	w1 := &Watcher{all: sm}
 	req1 := &request{
 		w:     w1,
 		reply: make(chan bool, 1),
 	}
-	aw.handle(req1)
+	sm.handle(req1)
 	req2 := &request{
 		w:     w1,
 		reply: make(chan bool, 1),
 	}
-	aw.handle(req2)
-	assertWaitingRequests(c, aw, map[*Watcher][]*request{
+	sm.handle(req2)
+	assertWaitingRequests(c, sm, map[*Watcher][]*request{
 		w0: {req0},
 		w1: {req2, req1},
 	})
-	aw.respond()
+	sm.respond()
 	assertNotReplied(c, req0)
 	assertNotReplied(c, req1)
 	assertReplied(c, true, req2)
 	c.Assert(req2.changes, DeepEquals, []params.Delta{{Entity: &MachineInfo{Id: "0"}}})
-	assertWaitingRequests(c, aw, map[*Watcher][]*request{
+	assertWaitingRequests(c, sm, map[*Watcher][]*request{
 		w0: {req0},
 		w1: {req1},
 	})
 
 	// Check that nothing more gets responded to if we call respond again.
-	aw.respond()
+	sm.respond()
 	assertNotReplied(c, req0)
 	assertNotReplied(c, req1)
 
 	// Now make a change and check that both waiting requests
 	// get serviced.
-	aw.all.Update(&MachineInfo{Id: "1"})
-	aw.respond()
+	sm.all.Update(&MachineInfo{Id: "1"})
+	sm.respond()
 	assertReplied(c, true, req0)
 	assertReplied(c, true, req1)
-	assertWaitingRequests(c, aw, nil)
+	assertWaitingRequests(c, sm, nil)
 
 	deltas := []params.Delta{{Entity: &MachineInfo{Id: "1"}}}
 	c.Assert(req0.changes, DeepEquals, deltas)
@@ -595,10 +595,9 @@ func (*storeManagerSuite) TestRespondMultiple(c *C) {
 }
 
 func (*storeManagerSuite) TestRunStop(c *C) {
-	aw := NewStoreManager(newTestBacking(nil))
-	go aw.Run()
-	w := &Watcher{all: aw}
-	err := aw.Stop()
+	sm := NewStoreManager(newTestBacking(nil))
+	w := &Watcher{all: sm}
+	err := sm.Stop()
 	c.Assert(err, IsNil)
 	d, err := w.Next()
 	c.Assert(err, ErrorMatches, "state watcher was stopped")
@@ -611,12 +610,11 @@ func (*storeManagerSuite) TestRun(c *C) {
 		&ServiceInfo{Name: "logging"},
 		&ServiceInfo{Name: "wordpress"},
 	})
-	aw := NewStoreManager(b)
+	sm := NewStoreManager(b)
 	defer func() {
-		c.Check(aw.Stop(), IsNil)
+		c.Check(sm.Stop(), IsNil)
 	}()
-	go aw.Run()
-	w := &Watcher{all: aw}
+	w := &Watcher{all: sm}
 	checkNext(c, w, []params.Delta{
 		{Entity: &MachineInfo{Id: "0"}},
 		{Entity: &ServiceInfo{Name: "logging"}},
@@ -633,12 +631,11 @@ func (*storeManagerSuite) TestRun(c *C) {
 }
 
 func (*storeManagerSuite) TestWatcherStop(c *C) {
-	aw := NewStoreManager(newTestBacking(nil))
+	sm := NewStoreManager(newTestBacking(nil))
 	defer func() {
-		c.Check(aw.Stop(), IsNil)
+		c.Check(sm.Stop(), IsNil)
 	}()
-	go aw.Run()
-	w := &Watcher{all: aw}
+	w := &Watcher{all: sm}
 	done := make(chan struct{})
 	go func() {
 		checkNext(c, w, nil, ErrWatcherStopped.Error())
@@ -651,12 +648,11 @@ func (*storeManagerSuite) TestWatcherStop(c *C) {
 
 func (*storeManagerSuite) TestWatcherStopBecauseStoreManagerError(c *C) {
 	b := newTestBacking([]params.EntityInfo{&MachineInfo{Id: "0"}})
-	aw := NewStoreManager(b)
-	go aw.Run()
+	sm := NewStoreManager(b)
 	defer func() {
-		c.Check(aw.Stop(), ErrorMatches, "some error")
+		c.Check(sm.Stop(), ErrorMatches, "some error")
 	}()
-	w := &Watcher{all: aw}
+	w := &Watcher{all: sm}
 	// Receive one delta to make sure that the storeManager
 	// has seen the initial state.
 	checkNext(c, w, []params.Delta{{Entity: &MachineInfo{Id: "0"}}}, "")
@@ -786,11 +782,11 @@ func assertReplied(c *C, val bool, req *request) {
 	}
 }
 
-func assertWaitingRequests(c *C, aw *StoreManager, waiting map[*Watcher][]*request) {
-	c.Assert(aw.waiting, HasLen, len(waiting))
+func assertWaitingRequests(c *C, sm *StoreManager, waiting map[*Watcher][]*request) {
+	c.Assert(sm.waiting, HasLen, len(waiting))
 	for w, reqs := range waiting {
 		i := 0
-		for req := aw.waiting[w]; ; req = req.next {
+		for req := sm.waiting[w]; ; req = req.next {
 			if i >= len(reqs) {
 				c.Assert(req, IsNil)
 				break
