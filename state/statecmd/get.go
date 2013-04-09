@@ -20,7 +20,7 @@ func ServiceGet(st *state.State, p params.ServiceGet) (params.ServiceGetResults,
 	if err != nil {
 		return params.ServiceGetResults{}, err
 	}
-	svcfg, err := svc.Config()
+	svcCfg, err := svc.Config()
 	if err != nil {
 		return params.ServiceGetResults{}, err
 	}
@@ -28,12 +28,18 @@ func ServiceGet(st *state.State, p params.ServiceGet) (params.ServiceGetResults,
 	if err != nil {
 		return params.ServiceGetResults{}, err
 	}
-	chcfg := charm.Config().Options
+	charmCfg := charm.Config().Options
+
+	constraints, err := svc.Constraints()
+	if err != nil {
+		return params.ServiceGetResults{}, err
+	}
 
 	return params.ServiceGetResults{
-		Service:  p.ServiceName,
-		Charm:    charm.Meta().Name,
-		Settings: merge(svcfg.Map(), chcfg),
+		Service:     p.ServiceName,
+		Charm:       charm.Meta().Name,
+		Config:      merge(svcCfg.Map(), charmCfg),
+		Constraints: constraints,
 	}, nil
 }
 

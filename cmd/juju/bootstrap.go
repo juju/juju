@@ -88,7 +88,7 @@ type seriesVar struct {
 func (v seriesVar) Set(value string) error {
 	names := strings.Split(value, ",")
 	for _, name := range names {
-		if !charm.ValidSeries.MatchString(name) {
+		if !charm.IsValidSeries(name) {
 			return fmt.Errorf("invalid series name %q", name)
 		}
 	}

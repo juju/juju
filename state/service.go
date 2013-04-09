@@ -525,7 +525,9 @@ func (s *Service) addUnitOps(principalName string) (string, []txn.Op, error) {
 		Life:      Alive,
 		Principal: principalName,
 	}
-	usdoc := &unitStatusDoc{params.UnitPending, ""}
+	sdoc := statusDoc{
+		Status: string(params.UnitPending),
+	}
 	ops := []txn.Op{
 		{
 			C:      s.st.units.Name,
@@ -533,7 +535,7 @@ func (s *Service) addUnitOps(principalName string) (string, []txn.Op, error) {
 			Assert: txn.DocMissing,
 			Insert: udoc,
 		},
-		createStatusOp(s.st, globalKey, usdoc),
+		createStatusOp(s.st, globalKey, sdoc),
 		{
 			C:      s.st.services.Name,
 			Id:     s.doc.Name,

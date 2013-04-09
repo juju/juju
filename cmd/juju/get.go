@@ -63,7 +63,7 @@ func (c *GetCommand) Run(ctx *cmd.Context) error {
 	resultsMap := map[string]interface{}{
 		"service":  results.Service,
 		"charm":    results.Charm,
-		"settings": results.Settings,
+		"settings": results.Config,
 	}
 	return c.out.Write(ctx, resultsMap)
 }
