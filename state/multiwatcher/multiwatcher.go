@@ -434,6 +434,16 @@ func (a *Store) Update(info params.EntityInfo) {
 	a.list.MoveToFront(elem)
 }
 
+// Get returns the stored entity with the given
+// id, or nil if none was found. The contents of the returned entity
+// should not be changed.
+func (a *Store) Get(id params.EntityId) params.EntityInfo {
+	if e := a.entities[id]; e != nil {
+		return e.Value.(*entityEntry).info
+	}
+	return nil
+}
+
 // ChangesSince returns any changes that have occurred since
 // the given revno, oldest first.
 func (a *Store) ChangesSince(revno int64) []params.Delta {
