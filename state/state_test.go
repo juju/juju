@@ -165,6 +165,9 @@ func (s *StateSuite) TestInjectMachine(c *C) {
 	instanceId, ok := m.InstanceId()
 	c.Assert(ok, Equals, true)
 	c.Assert(instanceId, Equals, state.InstanceId("i-mindustrious"))
+
+	// Make sure the bootstrap nonce value is set.
+	c.Assert(m.CheckProvisioned(state.BootstrapNonce), Equals, true)
 }
 
 func (s *StateSuite) TestReadMachine(c *C) {
