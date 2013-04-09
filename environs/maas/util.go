@@ -1,6 +1,9 @@
 package maas
 
 import (
+	"fmt"
+	"io/ioutil"
+	"launchpad.net/goyaml"
 	cloudinit_core "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/log"
@@ -46,4 +49,38 @@ func userData(cfg *cloudinit.MachineConfig, scripts ...string) ([]byte, error) {
 	cdata := trivial.Gzip(data)
 	log.Debugf("environs/maas: maas user data; %d bytes", len(cdata))
 	return cdata, nil
+}
+
+type machineInfo struct {
+	InstanceId string
+	Hostname   string
+}
+
+var _MAASInstanceFilename = jujuDataDir + "/MAASmachine.txt"
+
+// serializeYAML serializes the info into YAML format.
+func (info *machineInfo) serializeYAML() ([]byte, error) {
+	return goyaml.Marshal(info)
+}
+
+// cloudinitRunCmd returns the shell command that, when run, will create the
+// "machine info" file containing the instanceId and the hostname of a machine.
+// That command is destined to be used by cloudinit.
+func (info *machineInfo) cloudinitRunCmd() (string, error) {
+	yaml, err := info.serializeYAML()
+	if err != nil {
+		return "", err
+	}
+	script := fmt.Sprintf(`mkdir -p %s; echo -n %s > %s`, trivial.ShQuote(jujuDataDir), trivial.ShQuote(string(yaml)), trivial.ShQuote(_MAASInstanceFilename))
+	return script, nil
+}
+
+// load loads the "machine info" file and parse the content into the info
+// object.
+func (info *machineInfo) load() error {
+	content, err := ioutil.ReadFile(_MAASInstanceFilename)
+	if err != nil {
+		return err
+	}
+	return goyaml.Unmarshal(content, info)
 }

@@ -1,7 +1,6 @@
 package maas
 
 import (
-	"io/ioutil"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
@@ -50,21 +49,31 @@ func (prov maasEnvironProvider) SecretAttrs(cfg *config.Config) (map[string]inte
 	return secretAttrs, nil
 }
 
+func (maasEnvironProvider) hostname() (string, error) {
+	info := machineInfo{}
+	err := info.load()
+	if err != nil {
+		return "", err
+	}
+	return info.Hostname, nil
+}
+
 // PublicAddress is specified in the EnvironProvider interface.
-func (maasEnvironProvider) PublicAddress() (string, error) {
-	panic("Not implemented.")
+func (prov maasEnvironProvider) PublicAddress() (string, error) {
+	return prov.hostname()
 }
 
 // PrivateAddress is specified in the EnvironProvider interface.
-func (maasEnvironProvider) PrivateAddress() (string, error) {
-	panic("Not implemented.")
+func (prov maasEnvironProvider) PrivateAddress() (string, error) {
+	return prov.hostname()
 }
 
 // InstanceId is specified in the EnvironProvider interface.
 func (maasEnvironProvider) InstanceId() (state.InstanceId, error) {
-	content, err := ioutil.ReadFile(_MAASInstanceIDFilename)
+	info := machineInfo{}
+	err := info.load()
 	if err != nil {
 		return "", err
 	}
-	return state.InstanceId(string(content)), nil
+	return state.InstanceId(info.InstanceId), nil
 }

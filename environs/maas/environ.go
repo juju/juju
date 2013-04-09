@@ -334,8 +334,6 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, tools *state.To
 	return err
 }
 
-var _MAASInstanceIDFilename = jujuDataDir + "/MAASmachineID.txt"
-
 // obtainNode allocates and starts a MAAS node.  It is used both for the
 // implementation of StartInstance, and to initialize the bootstrap node.
 func (environ *maasEnviron) obtainNode(machineId string, stateInfo *state.Info, apiInfo *api.Info, tools *state.Tools, mcfg *cloudinit.MachineConfig) (*maasInstance, error) {
@@ -348,8 +346,12 @@ func (environ *maasEnviron) obtainNode(machineId string, stateInfo *state.Info, 
 	}
 	instance := maasInstance{&node, environ}
 
-	script := fmt.Sprintf(`mkdir -p %s; echo -n %s > %s`, trivial.ShQuote(jujuDataDir), trivial.ShQuote(string(instance.Id())), trivial.ShQuote(_MAASInstanceIDFilename))
-	userdata, err := userData(mcfg, script)
+	info := machineInfo{string(instance.Id()), "test"}
+	runCmd, err := info.cloudinitRunCmd()
+	if err != nil {
+		return nil, err
+	}
+	userdata, err := userData(mcfg, runCmd)
 	if err != nil {
 		msg := fmt.Errorf("could not compose userdata for bootstrap node: %v", err)
 		return nil, msg
