@@ -494,7 +494,7 @@ func newRPCClientServer(c *C, root interface{}, tfErr func(error) error) (*rpc.C
 	srv, err := rpc.NewServer(root, tfErr)
 	c.Assert(err, IsNil)
 
-	l, err := net.Listen("tcp", ":0")
+	l, err := net.Listen("tcp", "127.0.0.1:0")
 	c.Assert(err, IsNil)
 
 	srvDone := make(chan error, 1)

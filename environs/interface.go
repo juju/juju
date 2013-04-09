@@ -127,15 +127,13 @@ type Environ interface {
 	// values previously obtained from Storage and PublicStorage.
 	SetConfig(cfg *config.Config) error
 
-	// StartInstance asks for a new instance to be created,
-	// associated with the provided machine identifier.  The given
-	// info describes the juju state for the new instance to connect
-	// to.  Using the same machine id as another running instance
-	// can lead to undefined results. The juju tools that will run
-	// on the new machine are given by tools - if nil,
-	// the Environ will find a set of tools compatible with the
-	// current version.
-	StartInstance(machineId string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (Instance, error)
+	// StartInstance asks for a new instance to be created, associated
+	// with the provided machine identifier. The given info describes
+	// the juju state for the new instance to connect to. The nonce,
+	// which must be unique within an environment, is used by juju to
+	// protect against the consequences of multiple instances being
+	// started with the same machine id.
+	StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (Instance, error)
 
 	// StopInstances shuts down the given instances.
 	StopInstances([]Instance) error

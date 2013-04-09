@@ -381,7 +381,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	series := version.Current.Series
 	info.Tag = "machine-1"
 	apiInfo.Tag = "machine-1"
-	inst1, err := t.env.StartInstance("1", series, constraints.Value{}, info, apiInfo)
+	inst1, err := t.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, IsNil)
 
 	err = t.env.Destroy(append(insts, inst1))

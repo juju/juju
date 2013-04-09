@@ -24,15 +24,25 @@ type URL struct {
 }
 
 var (
-	// ValidUser defines the user names that are valid in charm URLs.
-	ValidUser = regexp.MustCompile("^[a-z0-9][a-zA-Z0-9+.-]+$")
-
-	// ValidSeries defines the series names that are valid in charm URLs.
-	ValidSeries = regexp.MustCompile("^[a-z]+([a-z-]+[a-z])?$")
-
-	// ValidName defines the charm names that are valid in charm URLs.
-	ValidName = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*$")
+	validUser   = regexp.MustCompile("^[a-z0-9][a-zA-Z0-9+.-]+$")
+	validSeries = regexp.MustCompile("^[a-z]+([a-z-]+[a-z])?$")
+	validName   = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*$")
 )
+
+// IsValidUser returns whether user is a valid username in charm URLs.
+func IsValidUser(user string) bool {
+	return validUser.MatchString(user)
+}
+
+// IsValidSeries returns whether series is a valid series in charm URLs.
+func IsValidSeries(series string) bool {
+	return validSeries.MatchString(series)
+}
+
+// IsValidName returns whether name is a valid charm name.
+func IsValidName(name string) bool {
+	return validName.MatchString(name)
+}
 
 // WithRevision returns a URL equivalent to url but with Revision set
 // to revision.
@@ -75,7 +85,7 @@ func ParseURL(url string) (*URL, error) {
 			return nil, fmt.Errorf("local charm URL with user name: %q", url)
 		}
 		u.User = parts[0][1:]
-		if !ValidUser.MatchString(u.User) {
+		if !IsValidUser(u.User) {
 			return nil, fmt.Errorf("charm URL has invalid user name: %q", url)
 		}
 		parts = parts[1:]
@@ -87,7 +97,7 @@ func ParseURL(url string) (*URL, error) {
 	}
 	if len(parts) == 2 {
 		u.Series = parts[0]
-		if !ValidSeries.MatchString(u.Series) {
+		if !IsValidSeries(u.Series) {
 			return nil, fmt.Errorf("charm URL has invalid series: %q", url)
 		}
 		parts = parts[1:]
@@ -111,7 +121,7 @@ func ParseURL(url string) (*URL, error) {
 		}
 		break
 	}
-	if !ValidName.MatchString(u.Name) {
+	if !IsValidName(u.Name) {
 		return nil, fmt.Errorf("charm URL has invalid charm name: %q", url)
 	}
 	return u, nil
@@ -149,9 +159,15 @@ func InferURL(src, defaultSeries string) (*URL, error) {
 	var full string
 	switch parts := strings.Split(src, "/"); len(parts) {
 	case 1:
+		if defaultSeries == "" {
+			return nil, fmt.Errorf("cannot infer charm URL for %q: no series provided", orig)
+		}
 		full = fmt.Sprintf("%s:%s/%s", schema, defaultSeries, src)
 	case 2:
 		if strings.HasPrefix(parts[0], "~") {
+			if defaultSeries == "" {
+				return nil, fmt.Errorf("cannot infer charm URL for %q: no series provided", orig)
+			}
 			full = fmt.Sprintf("%s:%s/%s/%s", schema, parts[0], defaultSeries, parts[1])
 		} else {
 			full = fmt.Sprintf("%s:%s", schema, src)

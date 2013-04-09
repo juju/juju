@@ -303,7 +303,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	series := config.DefaultSeries
 	info.Tag = "machine-1"
 	apiInfo.Tag = "machine-1"
-	inst1, err := t.env.StartInstance("1", series, constraints.Value{}, info, apiInfo)
+	inst1, err := t.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, IsNil)
 	inst = t.srv.ec2srv.Instance(string(inst1.Id()))
 	c.Assert(inst, NotNil)

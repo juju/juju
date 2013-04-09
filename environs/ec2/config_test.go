@@ -1,5 +1,7 @@
 package ec2
 
+// TODO: Clean this up so it matches environs/openstack/config_test.go.
+
 import (
 	"io/ioutil"
 	"launchpad.net/goamz/aws"
