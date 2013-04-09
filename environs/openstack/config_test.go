@@ -55,6 +55,13 @@ type configTest struct {
 
 type attrs map[string]interface{}
 
+func restoreEnvVars(envVars map[string]string) {
+	for k, v := range envVars {
+		os.Setenv(k, v)
+	}
+}
+
+
 func (t configTest) check(c *C) {
 	envs := attrs{
 		"environments": attrs{
@@ -78,8 +85,10 @@ func (t configTest) check(c *C) {
 	c.Check(err, IsNil)
 
 	// Set environment variables if any.
+	savedVars := make(map[string]string)
 	if t.envVars != nil {
 		for k, v := range t.envVars {
+			savedVars[k] = os.Getenv(k)
 			os.Setenv(k, v)
 		}
 	}
@@ -103,8 +112,13 @@ func (t configTest) check(c *C) {
 	}
 	if t.err != "" {
 		c.Check(err, ErrorMatches, t.err)
+		restoreEnvVars(savedVars)
 		return
+	} else {
+		// Restore environment variables.
+		restoreEnvVars(savedVars)
 	}
+
 	c.Assert(err, IsNil)
 
 	ecfg := e.(*environ).ecfg()
@@ -142,6 +156,8 @@ func (t configTest) check(c *C) {
 		c.Assert(ecfg.defaultInstanceType(), Equals, t.instanceType)
 	}
 	c.Assert(ecfg.useFloatingIP(), Equals, t.useFloatingIP)
+
+
 }
 
 func (s *ConfigSuite) SetUpTest(c *C) {
@@ -195,11 +211,33 @@ var configTests = []configTest{
 		},
 		err: ".*expected string, got 666",
 	}, {
+		summary: "missing username in environment",
+		err: "required environment variable not set for credentials attribute: User",
+		envVars: map[string]string{
+			"OS_USERNAME": "",
+			"NOVA_USERNAME": "",
+			"OS_PASSWORD": "secret",
+			"OS_AUTH_URL": "http://auth",
+			"OS_TENANT_NAME": "sometenant",
+			"OS_REGION_NAME": "region",
+		},
+	}, {
 		summary: "invalid password",
 		config: attrs{
 			"password": 666,
 		},
 		err: ".*expected string, got 666",
+	}, {
+		summary: "missing password in environment",
+		err: "required environment variable not set for credentials attribute: Secrets",
+		envVars: map[string]string{
+			"OS_USERNAME": "user",
+			"OS_PASSWORD": "",
+			"NOVA_PASSWORD": "",
+			"OS_AUTH_URL": "http://auth",
+			"OS_TENANT_NAME": "sometenant",
+			"OS_REGION_NAME": "region",
+		},
 	}, {
 		summary: "invalid tenant-name",
 		config: attrs{
@@ -357,25 +395,7 @@ func (s *ConfigSuite) setupEnvCredentials() {
 }
 
 var regionTestConfig = configTests[0]
-var credentialsTestConfig = configTests[12]
 
-func (s *ConfigSuite) TestMissingUsername(c *C) {
-	s.setupEnvCredentials()
-	os.Setenv("OS_USERNAME", "")
-	os.Setenv("NOVA_USERNAME", "")
-	test := regionTestConfig
-	test.err = "required environment variable not set for credentials attribute: User"
-	test.check(c)
-}
-
-func (s *ConfigSuite) TestMissingPassword(c *C) {
-	s.setupEnvCredentials()
-	os.Setenv("OS_PASSWORD", "")
-	os.Setenv("NOVA_PASSWORD", "")
-	test := regionTestConfig
-	test.err = "required environment variable not set for credentials attribute: Secrets"
-	test.check(c)
-}
 func (s *ConfigSuite) TestMissingTenant(c *C) {
 	s.setupEnvCredentials()
 	os.Setenv("OS_TENANT_NAME", "")
