@@ -114,6 +114,22 @@ func (svc *backingService) updated(st *State, store *multiwatcher.Store, id inte
 		Exposed:  svc.Exposed,
 		CharmURL: svc.CharmURL.String(),
 	}
+	oldInfo := store.Get(info.EntityId())
+	if oldInfo == nil {
+		// We're adding the entry for the first time,
+		// so fetch the associated service contraints.
+		sdoc, err := getStatus(st, unitGlobalKey(u.Name))
+		if err != nil {
+			return err
+		}
+		info.Status = params.UnitStatus(sdoc.Status)
+		info.StatusInfo = sdoc.StatusInfo
+	} else {
+		// The entry already exists, so preserve the current status.
+		oldInfo := oldInfo.(*params.UnitInfo)
+		info.Status = oldInfo.Status
+		info.StatusInfo = oldInfo.StatusInfo
+	}
 	store.Update(info)
 	return nil
 }
@@ -230,7 +246,15 @@ func (a *backingStatus) mongoId() interface{} {
 
 type backingConstraints constraintsDoc
 
-//func (s *backingConstraints) 
+func (s *backingConstraints) updated(st *State, store *multiwatcher.Store, id interface{}) error {
+	
+}
+
+func (s *backingStatus) removed(st *State, store *multiwatcher.Store, id interface{}) error {
+}
+
+func (a *backingStatus) mongoId() interface{} {
+}
 
 func backingEntityIdForGlobalKey(key string) (params.EntityId, bool) {
 	if len(key) < 3 || key[1] != '#' {
