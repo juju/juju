@@ -54,7 +54,11 @@ func (c *GetEnvironmentCommand) Run(ctx *cmd.Context) error {
 	}
 	defer conn.Close()
 
-	config := conn.Environ.Config()
+	// Get the existing environment config from the state.
+	config, err := conn.State.EnvironConfig()
+	if err != nil {
+		return err
+	}
 	attrs := config.AllAttrs()
 
 	// If no key specified, write out the whole lot.
