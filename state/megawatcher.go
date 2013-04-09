@@ -160,7 +160,7 @@ type backingEntityDoc interface {
 	// updated is called when the document has changed.
 	updated(st *State, store *multiwatcher.Store) error
 
-	// updated is called when the document has changed.
+	// removed is called when the document has changed.
 	// The receiving instance will not contain any data.
 	removed(st *State, store *multiwatcher.Store, id interface{}) error
 
