@@ -202,11 +202,15 @@ func (s *backingStatus) updated(st *State, store *multiwatcher.Store) error {
 	return nil
 }
 
-func (svc *backingStatus) removed(st *State, store *multiwatcher.Store, id interface{}) error {
+func (*backingStatus) removed(st *State, store *multiwatcher.Store, id interface{}) error {
 	// If the status is removed, the parent will follow not long after,
 	// so do nothing.
 	return nil
 }
+
+type backingConstraints constraintsDoc
+
+//func (s *backingConstraints) 
 
 func backingEntityIdForGlobalKey(key string) (params.EntityId, bool) {
 	if len(key) < 3 || key[1] != '#' {
@@ -242,6 +246,7 @@ var (
 	_ backingEntityDoc = (*backingRelation)(nil)
 	_ backingEntityDoc = (*backingAnnotation)(nil)
 	_ backingEntityDoc = (*backingStatus)(nil)
+	_ backingEntityDoc = (*backingConstraint)(nil)
 )
 
 // allWatcherStateCollection holds information about a
