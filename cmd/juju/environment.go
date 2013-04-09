@@ -26,6 +26,7 @@ func (c *GetEnvironmentCommand) Info() *cmd.Info {
 func (c *GetEnvironmentCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	// TODO(thumper) --private to also include private.
 }
 
 func (c *GetEnvironmentCommand) Init(args []string) (err error) {
