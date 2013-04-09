@@ -306,7 +306,7 @@ func (s *storeManagerStateSuite) TestChanged(c *C) {
 	}
 }
 
-// Testmultiwatcher.StateWatcher tests the integration of the state watcher
+// StateWatcher tests the integration of the state watcher
 // with the state-based backing. Most of the logic is tested elsewhere -
 // this just tests end-to-end.
 func (s *storeManagerStateSuite) TestStateWatcher(c *C) {
@@ -320,7 +320,6 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *C) {
 
 	b := newAllWatcherStateBacking(s.State)
 	aw := multiwatcher.NewStoreManager(b)
-	go aw.Run()
 	defer aw.Stop()
 	w := multiwatcher.NewWatcher(aw)
 	s.State.StartSync()

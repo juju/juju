@@ -12,12 +12,15 @@ import (
 // Watcher watches any changes to the state.
 type Watcher struct {
 	all *StoreManager
+
 	// The following fields are maintained by the StoreManager
 	// goroutine.
 	revno   int64
 	stopped bool
 }
 
+// NewWatcher creates a new watcher that can observe
+// changes to an underlying store manager.
 func NewWatcher(all *StoreManager) *Watcher {
 	return &Watcher{
 		all: all,
@@ -82,15 +85,14 @@ type StoreManager struct {
 // InfoId holds an identifier for an Info item held in a Store.
 type InfoId interface{}
 
-// Backing is the interface required
-// by the StoreManager to access the underlying state.
-// It is an interface for testing purposes.
+// Backing is the interface required by the StoreManager to access the
+// underlying state.
 type Backing interface {
 	// idForInfo returns the info id corresponding
 	// to the given entity info.
 	IdForInfo(info params.EntityInfo) InfoId
 
-	// getAll retrieves information about all information
+	// GetAll retrieves information about all information
 	// known to the Backing and stashes it in the Store.
 	GetAll(all *Store) error
 
@@ -131,9 +133,9 @@ type request struct {
 	next *request
 }
 
-// newStoreManager returns a new StoreManager that retrieves information
-// using the given backing. It does not start it running.
-func NewStoreManager(backing Backing) *StoreManager {
+// newStoreManagerNoRun creates the store manager
+// but does not start its run loop.
+func newStoreManagerNoRun(backing Backing) *StoreManager {
 	return &StoreManager{
 		backing: backing,
 		request: make(chan *request),
@@ -142,14 +144,20 @@ func NewStoreManager(backing Backing) *StoreManager {
 	}
 }
 
-func (aw *StoreManager) Run() {
-	defer aw.tomb.Done()
-	// TODO(rog) distinguish between temporary and permanent errors:
-	// if we get an error in loop, this logic kill the state's StoreManager
-	// forever. This currently fits the way we go about things,
-	// because we reconnect to the state on any error, but
-	// perhaps there are errors we could recover from.
-	aw.tomb.Kill(aw.loop())
+// NewStoreManager returns a new StoreManager that retrieves information
+// using the given backing.
+func NewStoreManager(backing Backing) *StoreManager {
+	s := newStoreManagerNoRun(backing)
+	go func() {
+		defer s.tomb.Done()
+		// TODO(rog) distinguish between temporary and permanent errors:
+		// if we get an error in loop, this logic kill the state's StoreManager
+		// forever. This currently fits the way we go about things,
+		// because we reconnect to the state on any error, but
+		// perhaps there are errors we could recover from.
+		s.tomb.Kill(s.loop())
+	}()
+	return s
 }
 
 func (aw *StoreManager) loop() error {

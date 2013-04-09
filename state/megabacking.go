@@ -24,10 +24,12 @@ type allWatcherStateBacking struct {
 // for that collection.
 type allWatcherStateCollection struct {
 	*mgo.Collection
+
 	// infoSliceType stores the type of a slice of the info type
 	// that we use for this collection.  In Go 1.1 we can change
 	// this to use the type itself, as we'll have reflect.SliceOf.
 	infoSliceType reflect.Type
+
 	// idOf returns the id of the given info.
 	idOf func(info params.EntityInfo) interface{}
 }
@@ -124,7 +126,7 @@ type entityId struct {
 	id         interface{}
 }
 
-// changed updates the allWatcher's idea of the current state
+// Changed updates the allWatcher's idea of the current state
 // in response to the given change.
 func (b *allWatcherStateBacking) Changed(all *multiwatcher.Store, change watcher.Change) error {
 	id := entityId{
