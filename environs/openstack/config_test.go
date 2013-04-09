@@ -91,6 +91,7 @@ func (t configTest) check(c *C) {
 			os.Setenv(k, v)
 		}
 	}
+	defer restoreEnvVars(savedVars)
 
 	e, err := es.Open("testenv")
 	if t.change != nil {
@@ -111,13 +112,8 @@ func (t configTest) check(c *C) {
 	}
 	if t.err != "" {
 		c.Check(err, ErrorMatches, t.err)
-		restoreEnvVars(savedVars)
 		return
-	} else {
-		// Restore environment variables.
-		restoreEnvVars(savedVars)
 	}
-
 	c.Assert(err, IsNil)
 
 	ecfg := e.(*environ).ecfg()
