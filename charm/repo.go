@@ -52,7 +52,7 @@ func (e *NotFoundError) Error() string {
 
 // CharmStore is a Repository that provides access to the public juju charm store.
 type CharmStore struct {
-	baseURL string
+	BaseURL string
 }
 
 var Store = &CharmStore{"https://store.juju.ubuntu.com"}
@@ -60,7 +60,7 @@ var Store = &CharmStore{"https://store.juju.ubuntu.com"}
 // Info returns details for a charm in the charm store.
 func (s *CharmStore) Info(curl *URL) (*InfoResponse, error) {
 	key := curl.String()
-	resp, err := http.Get(s.baseURL + "/charm-info?charms=" + url.QueryEscape(key))
+	resp, err := http.Get(s.BaseURL + "/charm-info?charms=" + url.QueryEscape(key))
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func (s *CharmStore) Event(curl *URL, digest string) (*EventResponse, error) {
 	if digest != "" {
 		query += "@" + digest
 	}
-	resp, err := http.Get(s.baseURL + "/charm-event?charms=" + url.QueryEscape(query))
+	resp, err := http.Get(s.BaseURL + "/charm-event?charms=" + url.QueryEscape(query))
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +146,7 @@ func (s *CharmStore) BranchLocation(curl *URL) string {
 	if curl.User != "" {
 		return fmt.Sprintf("lp:~%s/charms/%s/%s/trunk", curl.User, curl.Series, curl.Name)
 	}
-	return fmt.Sprintf("lp:charms/%s/%s/trunk", curl.Series, curl.Name)
+	return fmt.Sprintf("lp:charms/%s/%s", curl.Series, curl.Name)
 }
 
 var branchPrefixes = []string{
@@ -177,6 +177,9 @@ func (s *CharmStore) CharmURL(location string) (*URL, error) {
 		}
 	}
 	if l != "" {
+		for len(l) > 0 && l[len(l)-1] == '/' {
+			l = l[:len(l)-1]
+		}
 		u := strings.Split(l, "/")
 		if len(u) == 3 && u[0] == "charms" {
 			return ParseURL(fmt.Sprintf("cs:%s/%s", u[1], u[2]))
@@ -226,7 +229,7 @@ func (s *CharmStore) Get(curl *URL) (Charm, error) {
 	}
 	path := filepath.Join(cachePath, Quote(curl.String())+".charm")
 	if verify(path, digest) != nil {
-		resp, err := http.Get(s.baseURL + "/charm/" + url.QueryEscape(curl.Path()))
+		resp, err := http.Get(s.BaseURL + "/charm/" + url.QueryEscape(curl.Path()))
 		if err != nil {
 			return nil, err
 		}
