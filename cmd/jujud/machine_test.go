@@ -20,8 +20,8 @@ type MachineSuite struct {
 
 var _ = Suite(&MachineSuite{})
 
-// primeAgent adds a new Machine to run the given jobs, and sets up the
-// machine agent's directory.  It returns the new machine, the
+// primeAgent adds a new Machine to run the given jobs, and sets up
+// the machine agent's directory.  It returns the new machine, the
 // agent's configuration and the tools currently running.
 func (s *MachineSuite) primeAgent(c *C, jobs ...state.MachineJob) (*state.Machine, *agent.Conf, *state.Tools) {
 	m, err := s.State.InjectMachine("series", "ardbeg-0", jobs...)
@@ -29,6 +29,9 @@ func (s *MachineSuite) primeAgent(c *C, jobs ...state.MachineJob) (*state.Machin
 	err = m.SetMongoPassword("machine-password")
 	c.Assert(err, IsNil)
 	conf, tools := s.agentSuite.primeAgent(c, state.MachineTag(m.Id()), "machine-password")
+	conf.MachineNonce = state.BootstrapNonce
+	conf.Write()
+	c.Assert(err, IsNil)
 	return m, conf, tools
 }
 

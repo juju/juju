@@ -127,7 +127,17 @@ func (a *MachineAgent) RunOnce(st *state.State, e AgentState) error {
 }
 
 func (a *MachineAgent) Entity(st *state.State) (AgentState, error) {
-	return st.Machine(a.MachineId)
+	m, err := st.Machine(a.MachineId)
+	if err != nil {
+		return nil, err
+	}
+	// Check the machine nonce as provisioned matches the agent.Conf value.
+	if m.CheckProvisioned(a.Conf.MachineNonce) {
+		return m, nil
+	}
+	// Not provisioned -> no need to run the agent further.
+	log.Errorf("cmd/jujud: tried to start an agent for unprovisioned machine %q", m)
+	return nil, worker.ErrTerminateAgent
 }
 
 func (a *MachineAgent) Tag() string {
