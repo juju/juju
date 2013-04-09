@@ -241,8 +241,7 @@ func (s *ConfigSuite) TestServiceGet(c *C) {
 	sch := s.AddTestingCharm(c, "dummy")
 	svc, err := s.State.AddService("dummy-service", sch)
 	c.Assert(err, IsNil)
-	scons := constraints.MustParse("mem=2G cpu-power=400")
-	err = svc.SetConstraints(scons)
+	err = svc.SetConstraints(constraints.MustParse("mem=2G cpu-power=400"))
 	c.Assert(err, IsNil)
 
 	for i, t := range getTests {
