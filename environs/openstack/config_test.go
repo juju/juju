@@ -158,7 +158,6 @@ func (t configTest) check(c *C) {
 		c.Assert(ecfg.defaultInstanceType(), Equals, t.instanceType)
 	}
 	c.Assert(ecfg.useFloatingIP(), Equals, t.useFloatingIP)
-
 }
 
 func (s *ConfigSuite) SetUpTest(c *C) {
@@ -300,7 +299,7 @@ var configTests = []configTest{
 		password:   "open sesame",
 		tenantName: "juju tenant",
 		authURL:    "http://some/url",
-		authMode:   "legacy",
+		authMode:   string(AuthLegacy),
 	}, {
 		summary: "valid auth args in environment",
 		envVars: map[string]string{
