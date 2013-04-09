@@ -51,6 +51,13 @@ func userData(cfg *cloudinit.MachineConfig, scripts ...string) ([]byte, error) {
 	return cdata, nil
 }
 
+// machineInfo is the structure used to pass information between the provider
+// and the agent running on a node.
+// When a node is started, the provider code creates a machineInfo object
+// containing information about the node being started and configures
+// cloudinit to get a YAML representation of that object written on the node's
+// filesystem during its first startup.  That file is then read by the juju
+// agent running on the node and converted back into a machineInfo object.
 type machineInfo struct {
 	InstanceId string
 	Hostname   string
