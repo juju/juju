@@ -321,6 +321,21 @@ var configTests = []configTest{
 		authURL:    "http://some/url",
 		authMode:   "legacy",
 	}, {
+		summary: "valid auth args in environment",
+		envVars: map[string]string{
+			"OS_USERNAME": "jujuer",
+			"OS_PASSWORD": "open sesame",
+			"OS_AUTH_URL": "http://some/url",
+			"OS_TENANT_NAME": "juju tenant",
+			"OS_REGION_NAME": "region",
+		},
+		username:   "jujuer",
+		password:   "open sesame",
+		tenantName: "juju tenant",
+		authURL:    "http://some/url",
+		authMode:   "legacy",
+		region:     "region",
+	}, {
 		summary: "image id",
 		config: attrs{
 			"default-image-id": "image-id",
@@ -403,32 +418,6 @@ func (s *ConfigSuite) setupEnvCredentials() {
 	os.Setenv("OS_REGION_NAME", "region")
 }
 
-
-func (s *ConfigSuite) TestCredentialsFromEnv(c *C) {
-	// Specify a basic configuration without credentials.
-	envs := attrs{
-		"environments": attrs{
-			"testenv": attrs{
-				"type":            "openstack",
-				"authorized-keys": "fakekey",
-			},
-		},
-	}
-	data, err := goyaml.Marshal(envs)
-	c.Assert(err, IsNil)
-	// Poke the credentials into the environment.
-	s.setupEnvCredentials()
-	es, err := environs.ReadEnvironsBytes(data)
-	c.Check(err, IsNil)
-	e, err := es.Open("testenv")
-	ecfg := e.(*environ).ecfg()
-	// The credentials below come from environment variables set during test setup.
-	c.Assert(ecfg.username(), Equals, "user")
-	c.Assert(ecfg.password(), Equals, "secret")
-	c.Assert(ecfg.authURL(), Equals, "http://auth")
-	c.Assert(ecfg.region(), Equals, "region")
-	c.Assert(ecfg.tenantName(), Equals, "sometenant")
-}
 
 func (s *ConfigSuite) TestDefaultAuthorisationMode(c *C) {
 	// Specify a basic configuration without authorization mode.
