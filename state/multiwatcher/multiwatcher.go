@@ -147,17 +147,17 @@ func newStoreManagerNoRun(backing Backing) *StoreManager {
 // NewStoreManager returns a new StoreManager that retrieves information
 // using the given backing.
 func NewStoreManager(backing Backing) *StoreManager {
-	s := newStoreManagerNoRun(backing)
+	sm := newStoreManagerNoRun(backing)
 	go func() {
-		defer s.tomb.Done()
+		defer sm.tomb.Done()
 		// TODO(rog) distinguish between temporary and permanent errors:
 		// if we get an error in loop, this logic kill the state's StoreManager
 		// forever. This currently fits the way we go about things,
 		// because we reconnect to the state on any error, but
 		// perhaps there are errors we could recover from.
-		s.tomb.Kill(s.loop())
+		sm.tomb.Kill(sm.loop())
 	}()
-	return s
+	return sm
 }
 
 func (sm *StoreManager) loop() error {
