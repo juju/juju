@@ -95,27 +95,12 @@ func (env *maasEnviron) quiesceStateFile() error {
 	return nil
 }
 
-// uploadTools builds the current version of the juju tools and uploads them
-// to the environment's Storage.
-func (env *maasEnviron) uploadTools() (*state.Tools, error) {
-	tools, err := environs.PutTools(env.Storage(), nil)
-	if err != nil {
-		return nil, fmt.Errorf("cannot upload tools: %v", err)
-	}
-	return tools, nil
-}
-
-// findTools looks for a current version of the juju tools that is already
-// uploaded in the environment.
+// TODO: this code is cargo-culted from the openstack/ec2 providers.
 func (env *maasEnviron) findTools() (*state.Tools, error) {
 	flags := environs.HighestVersion | environs.CompatVersion
 	v := version.Current
 	v.Series = env.Config().DefaultSeries()
-	tools, err := environs.FindTools(env, v, flags)
-	if err != nil {
-		return nil, fmt.Errorf("cannot find tools: %v", err)
-	}
-	return tools, nil
+	return environs.FindTools(env, v, flags)
 }
 
 // getMongoURL returns the URL to the appropriate MongoDB instance.
@@ -184,8 +169,6 @@ func (env *maasEnviron) startBootstrapNode(tools *state.Tools, cert, key []byte,
 
 // Bootstrap is specified in the Environ interface.
 func (env *maasEnviron) Bootstrap(cons constraints.Value, stateServerCert, stateServerKey []byte) error {
-	// TODO: Fix this quick hack.  uploadTools is a now-obsolete parameter.
- 	uploadTools := false
 
 	// This was all cargo-culted from the EC2 provider.
 	password := env.Config().AdminSecret()
@@ -198,11 +181,7 @@ func (env *maasEnviron) Bootstrap(cons constraints.Value, stateServerCert, state
 		return err
 	}
 	var tools *state.Tools
-	if uploadTools {
-		tools, err = env.uploadTools()
-	} else {
-		tools, err = env.findTools()
-	}
+	tools, err = env.findTools()
 	if err != nil {
 		return err
 	}
