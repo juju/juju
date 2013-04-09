@@ -44,6 +44,16 @@ func (c *CommandBase) Init(args []string) error {
 	return CheckEmpty(args)
 }
 
+// ZeroOrOneArgs checks to see that there are zero or one args, and returns
+// the value of the arg if provided, or the empty string if not.
+func (c *CommandBase) ZeroOrOneArgs(args []string) (string, error) {
+	var result string
+	if len(args) > 0 {
+		result, args = args[0], args[1:]
+	}
+	return result, CheckEmpty(args)
+}
+
 // Context represents the run context of a Command. Command implementations
 // should interpret file names relative to Dir (see AbsPath below), and print
 // output and errors to Stdout and Stderr respectively.
