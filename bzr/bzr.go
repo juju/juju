@@ -145,8 +145,8 @@ func (b *Branch) Push(attr *PushAttr) error {
 	return err
 }
 
-// MustBeClean returns an error if 'bzr status' is not clean.
-func (b *Branch) MustBeClean() error {
+// CheckClean returns an error if 'bzr status' is not clean.
+func (b *Branch) CheckClean() error {
 	stdout, _, err := b.bzr("status", b.location)
 	if err != nil {
 		return err

@@ -77,7 +77,7 @@ func (c *PublishCommand) Run(ctx *cmd.Context) (err error) {
 	if _, err := os.Stat(branch.Join(".bzr")); err != nil {
 		return fmt.Errorf("not a charm branch: %s", branch.Location())
 	}
-	if err := branch.MustBeClean(); err != nil {
+	if err := branch.CheckClean(); err != nil {
 		return err
 	}
 
