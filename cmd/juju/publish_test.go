@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
 	"os"
+	"time"
 )
 
 // Sadly, this is a very slow test suite, heavily dominated by calls to bzr.
@@ -44,6 +45,8 @@ func addMeta(c *C, branch *bzr.Branch) {
 func (s *PublishSuite) runPublish(c *C, args ...string) (*cmd.Context, error) {
 	return testing.RunCommandInDir(c, &PublishCommand{}, args, s.dir)
 }
+
+const pollDelay = 100 * time.Millisecond
 
 func (s *PublishSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
@@ -215,7 +218,7 @@ func (s *PublishSuite) TestFullPublish(c *C) {
 		c.Assert(location, Equals, "lp:~user/charms/precise/wordpress/trunk")
 		return pushBranch.Location()
 	})
-	cmd.SetPollDelay(1e8)
+	cmd.SetPollDelay(pollDelay)
 
 	var body string
 
@@ -273,7 +276,7 @@ func (s *PublishSuite) TestFullPublishError(c *C) {
 		c.Assert(location, Equals, "lp:~user/charms/precise/wordpress/trunk")
 		return pushBranch.Location()
 	})
-	cmd.SetPollDelay(1e8)
+	cmd.SetPollDelay(pollDelay)
 
 	var body string
 
@@ -329,7 +332,7 @@ func (s *PublishSuite) TestFullPublishRace(c *C) {
 		c.Assert(location, Equals, "lp:~user/charms/precise/wordpress/trunk")
 		return pushBranch.Location()
 	})
-	cmd.SetPollDelay(1e8)
+	cmd.SetPollDelay(pollDelay)
 
 	var body string
 
