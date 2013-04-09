@@ -216,6 +216,8 @@ var commandNames = []string{
 	"generate-config", // alias for init
 	"get",
 	"get-constraints",
+	"get-env", // alias for set-environment
+	"get-environment",
 	"help",
 	"init",
 	"remove-relation", // alias for destroy-relation
