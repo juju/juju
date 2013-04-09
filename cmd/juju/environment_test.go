@@ -108,3 +108,23 @@ func (s *SetEnvironmentSuite) TestInit(c *C) {
 		}
 	}
 }
+
+func (s *SetEnvironmentSuite) TestChangeDefaultSeries(c *C) {
+	_, err := testing.RunCommand(c, &SetEnvironmentCommand{}, []string{"default-series=raring"})
+	c.Assert(err, IsNil)
+
+	stateConfig, err := s.State.EnvironConfig()
+	c.Assert(err, IsNil)
+	c.Assert(stateConfig.DefaultSeries(), Equals, "raring")
+}
+
+func (s *SetEnvironmentSuite) TestChangeAsCommandPair(c *C) {
+	_, err := testing.RunCommand(c, &SetEnvironmentCommand{}, []string{"default-series=raring"})
+	c.Assert(err, IsNil)
+
+	context, err := testing.RunCommand(c, &GetEnvironmentCommand{}, []string{"default-series"})
+	c.Assert(err, IsNil)
+	output := strings.TrimSpace(testing.Stdout(context))
+
+	c.Assert(output, Equals, "raring")
+}
