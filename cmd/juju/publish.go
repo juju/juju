@@ -119,6 +119,14 @@ func (c *PublishCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	log.Infof("cmd/juju: local digest is %s", localDigest)
 
+	ch, err := charm.ReadDir(branch.Location())
+	if err != nil {
+		return err
+	}
+	if ch.Meta().Name != curl.Name {
+		return fmt.Errorf("charm name in metadata must match name in URL: %q != %q", ch.Meta().Name, curl.Name)
+	}
+
 	oldEvent, err := charm.Store.Event(curl, localDigest)
 	if _, ok := err.(*charm.NotFoundError); ok {
 		oldEvent, err = charm.Store.Event(curl, "")
