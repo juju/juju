@@ -564,6 +564,43 @@ var validationTests = []validationTest{
 			"name": "my-name",
 		},
 		err: `cannot change type from "my-type" to "type2"`,
+	}, {
+		about: "Can't change the name",
+		new: attrs{
+			"type": "my-type",
+			"name": "new-name",
+		},
+		old: attrs{
+			"type": "my-type",
+			"name": "my-name",
+		},
+		err: `cannot change name from "my-name" to "new-name"`,
+	}, {
+		about: "Can't change agent version",
+		new: attrs{
+			"type":          "my-type",
+			"name":          "my-name",
+			"agent-version": "1.9.14",
+		},
+		old: attrs{
+			"type":          "my-type",
+			"name":          "my-name",
+			"agent-version": "1.9.13",
+		},
+		err: `cannot change agent-version from "1.9.13" to "1.9.14"`,
+	}, {
+		about: "Can't change the firewall-mode",
+		new: attrs{
+			"type":          "my-type",
+			"name":          "my-name",
+			"firewall-mode": config.FwInstance,
+		},
+		old: attrs{
+			"type":          "my-type",
+			"name":          "my-name",
+			"firewall-mode": config.FwGlobal,
+		},
+		err: `cannot change firewall-mode from "global" to "instance"`,
 	},
 }
 
