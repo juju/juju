@@ -691,9 +691,9 @@ func (s *Service) Config() (config *Settings, err error) {
 	return config, nil
 }
 
-// Set changes a service's configuration values.
+// SetConfig changes a service's configuration values.
 // Values set to the empty string will be deleted.
-func (s *Service) Set(options map[string]string) error {
+func (s *Service) SetConfig(options map[string]string) error {
 	unvalidated := make(map[string]string)
 	var remove []string
 	for k, v := range options {
@@ -734,10 +734,11 @@ func (s *Service) Set(options map[string]string) error {
 	return err
 }
 
-// SetYAML is like Set except that the
+// SetConfigYAML is like Set except that the
 // configuration data is specified in YAML format.
-func (s *Service) SetYAML(yamlData []byte) error {
+func (s *Service) SetConfigYAML(yamlData []byte) error {
 	// TODO(rog) should this function interpret null as delete?
+	// TODO(rog) this is wrong. See lp#1167465
 	var options map[string]string
 	if err := goyaml.Unmarshal(yamlData, &options); err != nil {
 		return err
@@ -748,7 +749,7 @@ func (s *Service) SetYAML(yamlData []byte) error {
 		// so check that we actually have got a map.
 		return fmt.Errorf("malformed YAML data")
 	}
-	return s.Set(options)
+	return s.SetConfig(options)
 }
 
 // strip removes from validated, any keys which are not also present in unvalidated.

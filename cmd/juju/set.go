@@ -72,9 +72,9 @@ func (c *SetCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	if len(contents) == 0 {
-		return svc.Set(options)
+		return svc.SetConfig(options)
 	}
-	return svc.SetYAML(contents)
+	return svc.SetConfigYAML(contents)
 }
 
 // parse parses the option k=v strings into a map of options to be

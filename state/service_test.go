@@ -179,13 +179,13 @@ func (s *ServiceSuite) TestSetCharmConfig(c *C) {
 
 func serviceSet(options map[string]string) func(svc *state.Service) error {
 	return func(svc *state.Service) error {
-		return svc.Set(options)
+		return svc.SetConfig(options)
 	}
 }
 
 func serviceSetYAML(yaml string) func(svc *state.Service) error {
 	return func(svc *state.Service) error {
-		return svc.SetYAML([]byte(yaml))
+		return svc.SetConfigYAML([]byte(yaml))
 	}
 }
 

@@ -289,7 +289,7 @@ func (c *srvClient) ServiceSet(p params.ServiceSet) error {
 	if err != nil {
 		return err
 	}
-	return svc.Set(p.Options)
+	return svc.SetConfig(p.Options)
 }
 
 // ServiceSetYAML implements the server side of Client.ServerSetYAML.
@@ -298,7 +298,7 @@ func (c *srvClient) ServiceSetYAML(p params.ServiceSetYAML) error {
 	if err != nil {
 		return err
 	}
-	return svc.SetYAML([]byte(p.Config))
+	return svc.SetConfigYAML([]byte(p.Config))
 }
 
 // ServiceGet returns the configuration for a service.
