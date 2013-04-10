@@ -283,6 +283,20 @@ var configTests = []configTest{
 		accessKey: "MyAccessKey",
 		secretKey: "MySecretKey",
 	}, {
+		summary: "keypair authorization mode without access key",
+		config: attrs{
+			"auth-mode": "keypair",
+			"secret-key": "MySecretKey",
+		},
+		err: "Missing access-key or secret-key for 'keypair' authentication mode.",
+	}, {
+		summary: "keypair authorization mode without secret key",
+		config: attrs{
+			"auth-mode": "keypair",
+			"access-key": "MyAccessKey",
+		},
+		err: "Missing access-key or secret-key for 'keypair' authentication mode.",
+	}, {
 		summary: "invalid auth-url format",
 		config: attrs{
 			"auth-url": "invalid",

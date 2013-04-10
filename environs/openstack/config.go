@@ -130,6 +130,13 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 	authMode := ecfg.authMode()
 	switch AuthMode(authMode) {
 	case AuthKeyPair:
+		accessKey := ecfg.accessKey()
+		secretKey := ecfg.secretKey()
+		if accessKey == "" || secretKey == "" {
+			return nil, fmt.Errorf(
+				"Missing access-key or secret-key for " +
+				"'keypair' authentication mode.")
+		}
 	case AuthLegacy:
 	case AuthUserPass:
 	default:
