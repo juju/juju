@@ -1,6 +1,7 @@
 package maas
 
 import (
+	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/environs/cloudinit"
@@ -10,6 +11,7 @@ import (
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
+	"os"
 )
 
 type UtilSuite struct{}
@@ -89,4 +91,52 @@ func (s *UtilSuite) TestUserData(c *C) {
 	runCmd := config["runcmd"].([]interface{})
 	c.Check(runCmd[0], Equals, script1)
 	c.Check(runCmd[1], Equals, script2)
+}
+
+func (s *UtilSuite) TestMachineInfoserializeYAML(c *C) {
+	instanceId := "instanceId"
+	hostname := "hostname"
+	info := machineInfo{instanceId, hostname}
+
+	yaml, err := info.serializeYAML()
+
+	c.Assert(err, IsNil)
+	expected := "instanceid: instanceId\nhostname: hostname\n"
+	c.Check(string(yaml), Equals, expected)
+}
+
+func (s *UtilSuite) TestMachineInfoCloudinitRunCmd(c *C) {
+	instanceId := "instanceId"
+	hostname := "hostname"
+	filename := "path/to/file"
+	old_MAASInstanceFilename := _MAASInstanceFilename
+	_MAASInstanceFilename = filename
+	defer func() { _MAASInstanceFilename = old_MAASInstanceFilename }()
+	info := machineInfo{instanceId, hostname}
+
+	script, err := info.cloudinitRunCmd()
+
+	c.Assert(err, IsNil)
+	yaml, err := info.serializeYAML()
+	c.Assert(err, IsNil)
+	expected := fmt.Sprintf("mkdir -p '%s'; echo -n '%s' > '%s'", jujuDataDir, yaml, filename)
+	c.Check(script, Equals, expected)
+}
+
+func (s *UtilSuite) TestMachineInfoLoad(c *C) {
+	instanceId := "instanceId"
+	hostname := "hostname"
+	yaml := fmt.Sprintf("instanceid: %s\nhostname: %s\n", instanceId, hostname)
+	filename := createTempFile(c, []byte(yaml))
+	defer os.Remove(filename)
+	old_MAASInstanceFilename := _MAASInstanceFilename
+	_MAASInstanceFilename = filename
+	defer func() { _MAASInstanceFilename = old_MAASInstanceFilename }()
+	info := machineInfo{}
+
+	err := info.load()
+
+	c.Assert(err, IsNil)
+	c.Check(info.InstanceId, Equals, instanceId)
+	c.Check(info.Hostname, Equals, hostname)
 }

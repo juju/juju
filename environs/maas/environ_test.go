@@ -216,6 +216,11 @@ func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
 	// The instance number 1 has been started.
 	actions, found = operations["node1"]
 	c.Check(found, Equals, true)
+	// TODO: check that cloudinit config include the creation of the
+	// "machine file" containing the instanceId and the hostname.
+	// In order to do that, the testservice in gomaasapi needs to be
+	// improved to get it to record the parameters sent during the "node
+	// start" operation.
 	c.Check(actions, DeepEquals, []string{"start"})
 }
 
