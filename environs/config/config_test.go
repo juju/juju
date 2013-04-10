@@ -625,13 +625,11 @@ func (*ConfigSuite) TestValidateChange(c *C) {
 		oldConfig, err := config.New(test.old)
 		c.Assert(err, IsNil)
 
-		valid, err := config.Validate(newConfig, oldConfig)
+		err = config.Validate(newConfig, oldConfig)
 		if test.err == "" {
 			c.Assert(err, IsNil)
-			c.Assert(valid.AllAttrs(), DeepEquals, newConfig.AllAttrs())
 		} else {
 			c.Assert(err, ErrorMatches, test.err)
-			c.Assert(valid, IsNil)
 		}
 	}
 }

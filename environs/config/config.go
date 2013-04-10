@@ -99,8 +99,8 @@ func New(attrs map[string]interface{}) (*Config, error) {
 		}
 	}
 
-	c, err = Validate(c, nil) // no old config to compare against
-	if err != nil {
+	// no old config to compare against
+	if err = Validate(c, nil); err != nil {
 		return nil, err
 	}
 
@@ -117,23 +117,23 @@ func New(attrs map[string]interface{}) (*Config, error) {
 // it if necessary, and returns the validated configuration.  If old is not
 // nil, it holds the previous environment configuration for consideration when
 // validating changes.
-func Validate(cfg, old *Config) (*Config, error) {
+func Validate(cfg, old *Config) error {
 
 	// Check if there are any required fields that are empty.
 	for _, attr := range []string{"name", "type", "default-series", "authorized-keys"} {
 		if cfg.asString(attr) == "" {
-			return nil, fmt.Errorf("empty %s in environment configuration", attr)
+			return fmt.Errorf("empty %s in environment configuration", attr)
 		}
 	}
 
 	if strings.ContainsAny(cfg.asString("name"), "/\\") {
-		return nil, fmt.Errorf("environment name contains unsafe characters")
+		return fmt.Errorf("environment name contains unsafe characters")
 	}
 
 	// The schema always makes sure something is set.
 	v := cfg.asString("agent-version")
 	if _, err := version.Parse(v); err != nil {
-		return nil, fmt.Errorf("invalid agent version in environment configuration: %q", v)
+		return fmt.Errorf("invalid agent version in environment configuration: %q", v)
 	}
 
 	// Check firewall mode.
@@ -142,7 +142,7 @@ func Validate(cfg, old *Config) (*Config, error) {
 	case FwDefault, FwInstance, FwGlobal:
 		// Valid mode.
 	default:
-		return nil, fmt.Errorf("invalid firewall mode in environment configuration: %q", firewallMode)
+		return fmt.Errorf("invalid firewall mode in environment configuration: %q", firewallMode)
 	}
 
 	// Check the immutable config values.  These can't change
@@ -151,12 +151,12 @@ func Validate(cfg, old *Config) (*Config, error) {
 			oldValue := old.asString(attr)
 			newValue := cfg.asString(attr)
 			if oldValue != newValue {
-				return nil, fmt.Errorf("cannot change %s from %q to %q", attr, oldValue, newValue)
+				return fmt.Errorf("cannot change %s from %q to %q", attr, oldValue, newValue)
 			}
 		}
 	}
 
-	return cfg, nil
+	return nil
 }
 
 // maybeReadFile sets m[attr] to:
