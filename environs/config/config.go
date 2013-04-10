@@ -32,6 +32,9 @@ const (
 
 // Config holds an immutable environment configuration.
 type Config struct {
+	// m holds the attributes that are defined for Config.
+	// t holds the other attributes that are passed in (aka UnknownAttrs).
+	// the union of these two are AllAttrs
 	m, t map[string]interface{}
 }
 
