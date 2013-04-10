@@ -119,19 +119,15 @@ func New(attrs map[string]interface{}) (*Config, error) {
 // validating changes.
 func Validate(cfg, old *Config) (*Config, error) {
 
-	name := cfg.Name()
-	if name == "" {
-		return nil, fmt.Errorf("empty name in environment configuration")
-	}
-	if strings.ContainsAny(name, "/\\") {
-		return nil, fmt.Errorf("environment name contains unsafe characters")
-	}
-
 	// Check if there are any required fields that are empty.
-	for _, attr := range []string{"type", "default-series", "authorized-keys"} {
-		if s, _ := cfg.m[attr].(string); s == "" {
+	for _, attr := range []string{"name", "type", "default-series", "authorized-keys"} {
+		if cfg.asString(attr) == "" {
 			return nil, fmt.Errorf("empty %s in environment configuration", attr)
 		}
+	}
+
+	if strings.ContainsAny(cfg.asString("name"), "/\\") {
+		return nil, fmt.Errorf("environment name contains unsafe characters")
 	}
 
 	// The schema always makes sure something is set.
@@ -151,11 +147,11 @@ func Validate(cfg, old *Config) (*Config, error) {
 
 	// Check the immutable config values.  These can't change
 	if old != nil {
-		for _, name := range []string{"type", "name", "agent-version", "firewall-mode"} {
-			oldValue := old.asString(name)
-			newValue := cfg.asString(name)
+		for _, attr := range []string{"type", "name", "agent-version", "firewall-mode"} {
+			oldValue := old.asString(attr)
+			newValue := cfg.asString(attr)
 			if oldValue != newValue {
-				return nil, fmt.Errorf("cannot change %s from %q to %q", name, oldValue, newValue)
+				return nil, fmt.Errorf("cannot change %s from %q to %q", attr, oldValue, newValue)
 			}
 		}
 	}

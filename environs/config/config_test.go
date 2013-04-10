@@ -245,9 +245,16 @@ var configTests = []configTest{
 		},
 		err: "name: expected string, got nothing",
 	}, {
-		about: "Bad name",
+		about: "Bad name, no slash",
 		attrs: attrs{
 			"name": "foo/bar",
+			"type": "my-type",
+		},
+		err: "environment name contains unsafe characters",
+	}, {
+		about: "Bad name, no backslash",
+		attrs: attrs{
+			"name": "foo\\bar",
 			"type": "my-type",
 		},
 		err: "environment name contains unsafe characters",
