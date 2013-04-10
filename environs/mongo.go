@@ -2,7 +2,6 @@ package environs
 
 import (
 	"fmt"
-	"launchpad.net/juju-core/environs/storage"
 )
 
 // MongoURL figures out from where to retrieve a copy of MongoDB compatible with
@@ -27,7 +26,7 @@ func MongoURL(env Environ, series, architecture string) string {
 
 // Return the URL of a compatible MongoDB (if it exists) from the storage,
 // for the given series and architecture (in vers).
-func findMongo(store storage.Reader, path string) (string, error) {
+func findMongo(store StorageReader, path string) (string, error) {
 	names, err := store.List(path)
 	if err != nil {
 		return "", err

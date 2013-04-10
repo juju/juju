@@ -1,10 +1,9 @@
 package main
 
 import (
-	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs/storage"
+	"launchpad.net/juju-core/environs"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/juju/testing"
@@ -141,18 +140,21 @@ var upgradeJujuTests = []struct {
 },
 }
 
-func mockUploadTools(store storage.ReadWriter, forceVersion *version.Number, fakeSeries ...string) (*state.Tools, error) {
+// mockUploadTools simulates the effect of tools.Upload, but skips the time-
+// consuming build from source. TODO(fwereade) better factor environs/tools
+// such that build logic is exposed and can itself be neatly mocked?
+func mockUploadTools(putter tools.URLPutter, forceVersion *version.Number, fakeSeries ...string) (*state.Tools, error) {
+	storage := putter.(environs.Storage)
 	vers := version.Current
 	if forceVersion != nil {
 		vers.Number = *forceVersion
 	}
-	if len(fakeSeries) != 0 {
-		return nil, fmt.Errorf("not implemented: testPutTools does not handle fakeSeries")
+	t := envtesting.MustUploadFakeToolsVersion(storage, vers)
+	for _, series := range fakeSeries {
+		vers.Series = series
+		envtesting.MustUploadFakeToolsVersion(storage, vers)
 	}
-	envtesting.MustUploadFakeToolsVersion(store, vers)
-	return &state.Tools{
-		Binary: vers,
-	}, nil
+	return t, nil
 }
 
 func (s *UpgradeJujuSuite) TestUpgradeJuju(c *C) {
@@ -173,8 +175,8 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *C) {
 		}
 		for _, v := range test.public {
 			vers := version.MustParseBinary(v)
-			store := s.Conn.Environ.PublicStorage().(storage.ReadWriter)
-			envtesting.MustUploadFakeToolsVersion(store, vers)
+			storage := s.Conn.Environ.PublicStorage().(environs.Storage)
+			envtesting.MustUploadFakeToolsVersion(storage, vers)
 		}
 		version.Current = version.MustParseBinary(test.currentVersion)
 		err := SetAgentVersion(s.State, version.MustParse(test.agentVersion), false)
@@ -216,7 +218,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *C) {
 func (s *UpgradeJujuSuite) Reset(c *C) {
 	s.JujuConnSuite.Reset(c)
 	envtesting.RemoveTools(c, s.Conn.Environ.Storage())
-	envtesting.RemoveTools(c, s.Conn.Environ.PublicStorage().(storage.ReadWriter))
+	envtesting.RemoveTools(c, s.Conn.Environ.PublicStorage().(environs.Storage))
 }
 
 func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealPutTools(c *C) {

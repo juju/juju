@@ -6,7 +6,6 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
-	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
@@ -43,8 +42,8 @@ func (s *syncToolsSuite) TestHelp(c *C) {
 	c.Assert(ctx, IsNil)
 }
 
-func uploadDummyTools(c *C, vers version.Binary, store storage.ReadWriter) {
-	envtesting.UploadFakeToolsVersion(c, store, vers)
+func uploadDummyTools(c *C, vers version.Binary, storage environs.Storage) {
+	envtesting.UploadFakeToolsVersion(c, storage, vers)
 }
 
 func setupDummyEnvironments(c *C) (env environs.Environ, cleanup func()) {
@@ -59,7 +58,7 @@ func setupDummyEnvironments(c *C) (env environs.Environ, cleanup func()) {
 	env, err := environs.NewFromAttrs(dummyAttrs)
 	c.Assert(err, IsNil)
 	c.Assert(env, NotNil)
-	store := env.PublicStorage().(storage.ReadWriter)
+	store := env.PublicStorage().(environs.Storage)
 	envtesting.RemoveTools(c, store)
 	// Upload multiple tools
 	uploadDummyTools(c, t1000precise.Binary, store)
@@ -105,7 +104,7 @@ func assertToolsList(c *C, toolsList []*state.Tools, expected ...string) {
 func setupTargetEnv(c *C) environs.Environ {
 	targetEnv, err := environs.NewFromName("test-target")
 	c.Assert(err, IsNil)
-	store := targetEnv.PublicStorage().(storage.ReadWriter)
+	store := targetEnv.PublicStorage().(environs.Storage)
 	envtesting.RemoveTools(c, store)
 	toolsList, err := environs.ListTools(targetEnv, 1)
 	c.Assert(err, IsNil)

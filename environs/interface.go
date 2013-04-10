@@ -2,9 +2,9 @@ package environs
 
 import (
 	"errors"
+	"io"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
@@ -85,6 +85,44 @@ type NotFoundError struct {
 	error
 }
 
+// A StorageReader can retrieve and list files from a storage provider.
+type StorageReader interface {
+	// Get opens the given storage file and returns a ReadCloser
+	// that can be used to read its contents.  It is the caller's
+	// responsibility to close it after use.  If the name does not
+	// exist, it should return a *NotFoundError.
+	Get(name string) (io.ReadCloser, error)
+
+	// List lists all names in the storage with the given prefix, in
+	// alphabetical order.  The names in the storage are considered
+	// to be in a flat namespace, so the prefix may include slashes
+	// and the names returned are the full names for the matching
+	// entries.
+	List(prefix string) ([]string, error)
+
+	// URL returns a URL that can be used to access the given storage file.
+	URL(name string) (string, error)
+}
+
+// A StorageWriter adds and removes files in a storage provider.
+type StorageWriter interface {
+	// Put reads from r and writes to the given storage file.
+	// The length must give the total length of the file.
+	Put(name string, r io.Reader, length int64) error
+
+	// Remove removes the given file from the environment's
+	// storage. It should not return an error if the file does
+	// not exist.
+	Remove(name string) error
+}
+
+// Storage represents storage that can be both
+// read and written.
+type Storage interface {
+	StorageReader
+	StorageWriter
+}
+
 // An Environ represents a juju environment as specified
 // in the environments.yaml file.
 //
@@ -151,10 +189,10 @@ type Environ interface {
 	AllInstances() ([]Instance, error)
 
 	// Storage returns storage specific to the environment.
-	Storage() storage.ReadWriter
+	Storage() Storage
 
 	// PublicStorage returns storage shared between environments.
-	PublicStorage() storage.Reader
+	PublicStorage() StorageReader
 
 	// Destroy shuts down all known machines and destroys the
 	// rest of the environment. A list of instances known to

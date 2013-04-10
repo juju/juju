@@ -5,7 +5,6 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
-	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/state"
@@ -126,7 +125,8 @@ var findToolsTests = []struct {
 
 // putNames puts a set of names into the environ's private
 // and public storage. The data in the private storage is
-// the name itself; in the public storage the name is preceded with "public-".
+// the name itself; in the public storage the name is preceded
+// with "public-".
 func putNames(c *C, env environs.Environ, private, public []string) {
 	for _, name := range private {
 		err := env.Storage().Put(name, strings.NewReader(name), int64(len(name)))
@@ -136,8 +136,8 @@ func putNames(c *C, env environs.Environ, private, public []string) {
 	// that we can easily tell if we've got the right thing.
 	for _, name := range public {
 		data := "public-" + name
-		writer := env.PublicStorage().(storage.Writer)
-		err := writer.Put(name, strings.NewReader(data), int64(len(data)))
+		storage := env.PublicStorage().(environs.Storage)
+		err := storage.Put(name, strings.NewReader(data), int64(len(data)))
 		c.Assert(err, IsNil)
 	}
 }
@@ -218,7 +218,7 @@ func (t *ToolsSuite) TestListTools(c *C) {
 	// dummy always populates the tools set with version.Current.
 	// Remove any tools in the public storage to ensure they don't
 	// conflict with the list of tools we expect.
-	envtesting.RemoveTools(c, t.env.PublicStorage().(storage.ReadWriter))
+	envtesting.RemoveTools(c, t.env.PublicStorage().(environs.Storage))
 	putNames(c, t.env, testList, testList)
 
 	for i, test := range listToolsTests {

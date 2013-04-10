@@ -3,8 +3,8 @@ package tools
 import (
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
-	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
@@ -22,12 +22,19 @@ func StorageName(vers version.Binary) string {
 	return toolPrefix + vers.String() + ".tgz"
 }
 
+// URLLister exposes to ReadList the relevant capabilities of an
+// environs.Storage; it exists to foil an import cycle.
+type URLLister interface {
+	URL(name string) (string, error)
+	List(prefix string) ([]string, error)
+}
+
 // ReadList returns a List of the tools in store with the given major version.
 // If store contains no such tools, it returns ErrNoMatches.
-func ReadList(store storage.Reader, majorVersion int) (List, error) {
+func ReadList(storage URLLister, majorVersion int) (List, error) {
 	prefix := fmt.Sprintf("%s%d.", toolPrefix, majorVersion)
 	log.Debugf("reading tools list: %s", prefix)
-	names, err := store.List(prefix)
+	names, err := storage.List(prefix)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +49,7 @@ func ReadList(store storage.Reader, majorVersion int) (List, error) {
 			continue
 		}
 		log.Debugf("found %s", vers)
-		if t.URL, err = store.URL(name); err != nil {
+		if t.URL, err = storage.URL(name); err != nil {
 			return nil, err
 		}
 		list = append(list, &t)
@@ -53,6 +60,13 @@ func ReadList(store storage.Reader, majorVersion int) (List, error) {
 	return list, nil
 }
 
+// URLPutter exposes to Upload the relevant capabilities of an
+// environs.Storage; it exists to foil an import cycle.
+type URLPutter interface {
+	URL(name string) (string, error)
+	Put(name string, r io.Reader, length int64) error
+}
+
 // Upload builds whatever version of launchpad.net/juju-core is in $GOPATH,
 // uploads it to the given storage, and returns a Tools instance describing
 // them. If forceVersion is not nil, the uploaded tools bundle will report
@@ -60,7 +74,7 @@ func ReadList(store storage.Reader, majorVersion int) (List, error) {
 // of the built tools will be uploaded for use by machines of those series.
 // Juju tools built for one series do not necessarily run on another, but this
 // func exists only for development use cases.
-func Upload(store storage.ReadWriter, forceVersion *version.Number, fakeSeries ...string) (*state.Tools, error) {
+func Upload(storage URLPutter, forceVersion *version.Number, fakeSeries ...string) (*state.Tools, error) {
 	// TODO(rog) find binaries from $PATH when not using a development
 	// version of juju within a $GOPATH.
 
@@ -82,14 +96,14 @@ func Upload(store storage.ReadWriter, forceVersion *version.Number, fakeSeries .
 		return nil, fmt.Errorf("cannot stat newly made tools archive: %v", err)
 	}
 	size := fi.Size()
-	log.Infof("environs: built tools %v (%dkB)", toolsVersion, (size+512)/1024)
+	log.Infof("environs/tools: built %v (%dkB)", toolsVersion, (size+512)/1024)
 	putTools := func(vers version.Binary) (string, error) {
 		if _, err := f.Seek(0, 0); err != nil {
 			return "", fmt.Errorf("cannot seek to start of tools archive: %v", err)
 		}
 		name := StorageName(vers)
-		log.Infof("environs: putting tools %v", name)
-		if err := store.Put(name, f, size); err != nil {
+		log.Infof("environs/tools: uploading %s", vers)
+		if err := storage.Put(name, f, size); err != nil {
 			return "", err
 		}
 		return name, nil
@@ -107,7 +121,7 @@ func Upload(store storage.ReadWriter, forceVersion *version.Number, fakeSeries .
 	if err != nil {
 		return nil, err
 	}
-	url, err := store.URL(name)
+	url, err := storage.URL(name)
 	if err != nil {
 		return nil, err
 	}

@@ -7,7 +7,6 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -63,8 +62,8 @@ var officialBucketAttrs = map[string]interface{}{
 }
 
 func copyOne(
-	tool *state.Tools, source storage.Reader,
-	target storage.Writer, ctx *cmd.Context,
+	tool *state.Tools, source environs.StorageReader,
+	target environs.Storage, ctx *cmd.Context,
 ) error {
 	toolsName := tools.StorageName(tool.Binary)
 	fmt.Fprintf(ctx.Stderr, "copying %v", toolsName)
@@ -90,8 +89,8 @@ func copyOne(
 }
 
 func copyTools(
-	tools []*state.Tools, source storage.Reader,
-	target storage.Writer, dryRun bool, ctx *cmd.Context,
+	tools []*state.Tools, source environs.StorageReader,
+	target environs.Storage, dryRun bool, ctx *cmd.Context,
 ) error {
 	for _, tool := range tools {
 		log.Infof("cmd/juju: copying %s from %s", tool.Binary, tool.URL)
@@ -140,7 +139,7 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 	if c.publicBucket {
 		targetTools = targetToolsList.Public
 		var ok bool
-		if targetStorage, ok = targetEnv.PublicStorage().(storage.ReadWriter); !ok {
+		if targetStorage, ok = targetEnv.PublicStorage().(environs.Storage); !ok {
 			return fmt.Errorf("Cannot write to PublicStorage")
 		}
 	}

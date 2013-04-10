@@ -7,7 +7,6 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
@@ -154,7 +153,7 @@ func (t *Tests) TestBootstrap(c *C) {
 var noRetry = trivial.AttemptStrategy{}
 
 func (t *Tests) TestPersistence(c *C) {
-	store := t.Open(c).Storage()
+	storage := t.Open(c).Storage()
 
 	names := []string{
 		"aa",
@@ -162,12 +161,12 @@ func (t *Tests) TestPersistence(c *C) {
 		"zzz/bb",
 	}
 	for _, name := range names {
-		checkFileDoesNotExist(c, store, name, noRetry)
-		checkPutFile(c, store, name, []byte(name))
+		checkFileDoesNotExist(c, storage, name, noRetry)
+		checkPutFile(c, storage, name, []byte(name))
 	}
-	checkList(c, store, "", names)
-	checkList(c, store, "a", []string{"aa"})
-	checkList(c, store, "zzz/", []string{"zzz/aa", "zzz/bb"})
+	checkList(c, storage, "", names)
+	checkList(c, storage, "a", []string{"aa"})
+	checkList(c, storage, "zzz/", []string{"zzz/aa", "zzz/bb"})
 
 	storage2 := t.Open(c).Storage()
 	for _, name := range names {
@@ -183,7 +182,7 @@ func (t *Tests) TestPersistence(c *C) {
 	c.Check(err, IsNil)
 
 	// ... and check it's been removed in the other environment
-	checkFileDoesNotExist(c, store, names[0], noRetry)
+	checkFileDoesNotExist(c, storage, names[0], noRetry)
 
 	// ... and that the rest of the files are still around
 	checkList(c, storage2, "", names[1:])
@@ -197,8 +196,8 @@ func (t *Tests) TestPersistence(c *C) {
 	checkList(c, storage2, "", nil)
 }
 
-func checkList(c *C, store storage.Reader, prefix string, names []string) {
-	lnames, err := store.List(prefix)
+func checkList(c *C, storage environs.StorageReader, prefix string, names []string) {
+	lnames, err := storage.List(prefix)
 	c.Assert(err, IsNil)
 	// TODO(dfc) gocheck should grow an SliceEquals checker.
 	expected := copyslice(lnames)
@@ -215,16 +214,16 @@ func copyslice(s []string) []string {
 	return r
 }
 
-func checkPutFile(c *C, store storage.Writer, name string, contents []byte) {
-	err := store.Put(name, bytes.NewBuffer(contents), int64(len(contents)))
+func checkPutFile(c *C, storage environs.StorageWriter, name string, contents []byte) {
+	err := storage.Put(name, bytes.NewBuffer(contents), int64(len(contents)))
 	c.Assert(err, IsNil)
 }
 
-func checkFileDoesNotExist(c *C, store storage.Reader, name string, attempt trivial.AttemptStrategy) {
+func checkFileDoesNotExist(c *C, storage environs.StorageReader, name string, attempt trivial.AttemptStrategy) {
 	var r io.ReadCloser
 	var err error
 	for a := attempt.Start(); a.Next(); {
-		r, err = store.Get(name)
+		r, err = storage.Get(name)
 		if err != nil {
 			break
 		}
@@ -234,8 +233,8 @@ func checkFileDoesNotExist(c *C, store storage.Reader, name string, attempt triv
 	c.Assert(err, FitsTypeOf, notFoundError)
 }
 
-func checkFileHasContents(c *C, store storage.Reader, name string, contents []byte, attempt trivial.AttemptStrategy) {
-	r, err := store.Get(name)
+func checkFileHasContents(c *C, storage environs.StorageReader, name string, contents []byte, attempt trivial.AttemptStrategy) {
+	r, err := storage.Get(name)
 	c.Assert(err, IsNil)
 	c.Check(r, NotNil)
 	defer r.Close()
@@ -244,7 +243,7 @@ func checkFileHasContents(c *C, store storage.Reader, name string, contents []by
 	c.Check(err, IsNil)
 	c.Check(data, DeepEquals, contents)
 
-	url, err := store.URL(name)
+	url, err := storage.URL(name)
 	c.Assert(err, IsNil)
 
 	var resp *http.Response

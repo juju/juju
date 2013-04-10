@@ -125,8 +125,8 @@ type environState struct {
 	firewallMode  config.FirewallMode
 	bootstrapped  bool
 	storageDelay  time.Duration
-	storage       *memStorage
-	publicStorage *memStorage
+	storage       *storage
+	publicStorage *storage
 	httpListener  net.Listener
 	apiServer     *apiserver.Server
 	apiState      *state.State
@@ -140,10 +140,10 @@ type environ struct {
 	ecfgUnlocked *environConfig
 }
 
-// memStorage holds the storage for an environState.
+// storage holds the storage for an environState.
 // There are two instances for each environState
 // instance, one for public files and one for private.
-type memStorage struct {
+type storage struct {
 	path     string // path prefix in http space.
 	state    *environState
 	files    map[string][]byte

@@ -3,12 +3,11 @@ package environs
 import (
 	"fmt"
 	"io"
-	"launchpad.net/juju-core/environs/storage"
 )
 
-// EmptyStorage holds a storage.Reader object that contains no files and
+// EmptyStorage holds a StorageReader object that contains no files and
 // offers no URLs.
-var EmptyStorage storage.Reader = emptyStorage{}
+var EmptyStorage StorageReader = emptyStorage{}
 
 type emptyStorage struct{}
 

@@ -10,7 +10,6 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/openstack"
-	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	coretesting "launchpad.net/juju-core/testing"
 )
@@ -85,7 +84,7 @@ type LiveTests struct {
 	cred                   *identity.Credentials
 	testImageId            string
 	testFlavor             string
-	writeablePublicStorage storage.ReadWriter
+	writeablePublicStorage environs.Storage
 }
 
 func (t *LiveTests) SetUpSuite(c *C) {

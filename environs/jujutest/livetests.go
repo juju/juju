@@ -9,7 +9,6 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
@@ -777,7 +776,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
 	waitAgentTools(c, mw0, other)
 }
 
-func storageCopy(source storage.Reader, sourcePath string, target storage.Writer, targetPath string) error {
+func storageCopy(source environs.Storage, sourcePath string, target environs.Storage, targetPath string) error {
 	rc, err := source.Get(sourcePath)
 	if err != nil {
 		return err

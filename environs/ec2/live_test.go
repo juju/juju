@@ -12,7 +12,6 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
-	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -65,7 +64,7 @@ func registerAmazonTests() {
 type LiveTests struct {
 	coretesting.LoggingSuite
 	jujutest.LiveTests
-	writablePublicStorage storage.ReadWriter
+	writablePublicStorage environs.Storage
 }
 
 func (t *LiveTests) SetUpSuite(c *C) {

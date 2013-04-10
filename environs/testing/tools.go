@@ -3,20 +3,20 @@ package testing
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/storage"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
 	"strings"
 )
 
-func uploadFakeToolsVersion(s storage.ReadWriter, vers version.Binary) (*state.Tools, error) {
+func uploadFakeToolsVersion(storage environs.Storage, vers version.Binary) (*state.Tools, error) {
 	data := vers.String()
 	name := tools.StorageName(vers)
-	if err := s.Put(name, strings.NewReader(data), int64(len(data))); err != nil {
+	if err := storage.Put(name, strings.NewReader(data), int64(len(data))); err != nil {
 		return nil, err
 	}
-	url, err := s.URL(name)
+	url, err := storage.URL(name)
 	if err != nil {
 		return nil, err
 	}
@@ -25,31 +25,31 @@ func uploadFakeToolsVersion(s storage.ReadWriter, vers version.Binary) (*state.T
 
 // UploadFakeToolsVersion puts fake tools in the supplied storage for the
 // supplied version.
-func UploadFakeToolsVersion(c *C, s storage.ReadWriter, vers version.Binary) *state.Tools {
-	t, err := uploadFakeToolsVersion(s, vers)
+func UploadFakeToolsVersion(c *C, storage environs.Storage, vers version.Binary) *state.Tools {
+	t, err := uploadFakeToolsVersion(storage, vers)
 	c.Assert(err, IsNil)
 	return t
 }
 
 // MustUploadFakeToolsVersion acts as UploadFakeToolsVersion, but panics on failure.
-func MustUploadFakeToolsVersion(s storage.ReadWriter, vers version.Binary) *state.Tools {
-	t, err := uploadFakeToolsVersion(s, vers)
+func MustUploadFakeToolsVersion(storage environs.Storage, vers version.Binary) *state.Tools {
+	t, err := uploadFakeToolsVersion(storage, vers)
 	if err != nil {
 		panic(err)
 	}
 	return t
 }
 
-func uploadFakeTools(s storage.ReadWriter) error {
+func uploadFakeTools(storage environs.Storage) error {
 	toolsVersion := version.Current
-	if _, err := uploadFakeToolsVersion(s, toolsVersion); err != nil {
+	if _, err := uploadFakeToolsVersion(storage, toolsVersion); err != nil {
 		return err
 	}
 	if toolsVersion.Series == config.DefaultSeries {
 		return nil
 	}
 	toolsVersion.Series = config.DefaultSeries
-	_, err := uploadFakeToolsVersion(s, toolsVersion)
+	_, err := uploadFakeToolsVersion(storage, toolsVersion)
 	return err
 }
 
@@ -58,23 +58,23 @@ func uploadFakeTools(s storage.ReadWriter) error {
 // to config.DefaultSeries, matching fake tools will be uploaded for that series.
 // This is useful for tests that are kinda casual about specifying their
 // environment.
-func UploadFakeTools(c *C, s storage.ReadWriter) {
-	c.Assert(uploadFakeTools(s), IsNil)
+func UploadFakeTools(c *C, storage environs.Storage) {
+	c.Assert(uploadFakeTools(storage), IsNil)
 }
 
 // MustUploadFakeTools acts as UploadFakeTools, but panics on failure.
-func MustUploadFakeTools(s storage.ReadWriter) {
-	if err := uploadFakeTools(s); err != nil {
+func MustUploadFakeTools(storage environs.Storage) {
+	if err := uploadFakeTools(storage); err != nil {
 		panic(err)
 	}
 }
 
 // RemoveTools deletes all tools from the supplied storage.
-func RemoveTools(c *C, s storage.ReadWriter) {
-	names, err := s.List("tools/juju-")
+func RemoveTools(c *C, storage environs.Storage) {
+	names, err := storage.List("tools/juju-")
 	c.Assert(err, IsNil)
 	for _, name := range names {
-		err = s.Remove(name)
+		err = storage.Remove(name)
 		c.Assert(err, IsNil)
 	}
 }

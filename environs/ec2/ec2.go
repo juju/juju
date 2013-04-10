@@ -10,7 +10,6 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -60,8 +59,8 @@ type environ struct {
 	ecfgUnlocked          *environConfig
 	ec2Unlocked           *ec2.EC2
 	s3Unlocked            *s3.S3
-	storageUnlocked       *s3storage
-	publicStorageUnlocked *s3storage // optional.
+	storageUnlocked       *storage
+	publicStorageUnlocked *storage // optional.
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -185,11 +184,11 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 
 	// create new storage instances, existing instances continue
 	// to reference their existing configuration.
-	e.storageUnlocked = &s3storage{
+	e.storageUnlocked = &storage{
 		bucket: e.s3Unlocked.Bucket(ecfg.controlBucket()),
 	}
 	if ecfg.publicBucket() != "" {
-		e.publicStorageUnlocked = &s3storage{
+		e.publicStorageUnlocked = &storage{
 			bucket: s3.New(auth, publicBucketRegion).Bucket(ecfg.publicBucket()),
 		}
 	} else {
@@ -223,14 +222,14 @@ func (e *environ) Name() string {
 	return e.name
 }
 
-func (e *environ) Storage() storage.ReadWriter {
+func (e *environ) Storage() environs.Storage {
 	e.ecfgMutex.Lock()
 	storage := e.storageUnlocked
 	e.ecfgMutex.Unlock()
 	return storage
 }
 
-func (e *environ) PublicStorage() storage.Reader {
+func (e *environ) PublicStorage() environs.StorageReader {
 	e.ecfgMutex.Lock()
 	defer e.ecfgMutex.Unlock()
 	if e.publicStorageUnlocked == nil {
@@ -624,10 +623,12 @@ func (e *environ) Destroy(ensureInsts []environs.Instance) error {
 	if err != nil {
 		return err
 	}
-	e.ecfgMutex.Lock()
-	storage := e.storageUnlocked
-	e.ecfgMutex.Unlock()
-	return storage.deleteAll()
+
+	// To properly observe e.storageUnlocked we need to get its value while
+	// holding e.ecfgMutex. e.Storage() does this for us, then we convert
+	// back to the (*storage) to access the private deleteAll() method.
+	st := e.Storage().(*storage)
+	return st.deleteAll()
 }
 
 func portsToIPPerms(ports []params.Port) []ec2.IPPerm {
