@@ -158,7 +158,7 @@ func processMachine(machine *state.Machine, instance environs.Instance) (map[str
 	}
 
 	r["instance-state"] = status
-	if len(info) > 0 {
+	if info != "" {
 		r["instance-state-info"] = info
 	}
 
