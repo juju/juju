@@ -8,7 +8,6 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/state/api/params"
 )
 
 // SetCommand updates the configuration of a service
@@ -68,16 +67,14 @@ func (c *SetCommand) Run(ctx *cmd.Context) error {
 	}
 	defer conn.Close()
 
-	if len(contents) == 0 {
-		return juju.ServiceSet(conn.State, params.ServiceSet{
-			ServiceName: c.ServiceName,
-			Options:     options,
-		})
+	svc, err := conn.State.Service(c.ServiceName)
+	if err != nil {
+		return err
 	}
-	return juju.ServiceSetYAML(conn.State, params.ServiceSetYAML{
-		ServiceName: c.ServiceName,
-		Config:      string(contents),
-	})
+	if len(contents) == 0 {
+		return svc.Set(options)
+	}
+	return svc.SetYAML(contents)
 }
 
 // parse parses the option k=v strings into a map of options to be

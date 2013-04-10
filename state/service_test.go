@@ -177,6 +177,130 @@ func (s *ServiceSuite) TestSetCharmConfig(c *C) {
 	}
 }
 
+func serviceSet(options map[string]string) func(svc *state.Service) error {
+	return func(svc *state.Service) error {
+		return svc.Set(options)
+	}
+}
+
+func serviceSetYAML(yaml string) func(svc *state.Service) error {
+	return func(svc *state.Service) error {
+		return svc.SetYAML([]byte(yaml))
+	}
+}
+
+var serviceSetTests = []struct {
+	about   string
+	initial map[string]interface{}
+	set     func(st *state.Service) error
+	expect  map[string]interface{} // resulting configuration of the dummy service.
+	err     string                 // error regex
+}{{
+	about: "unknown option",
+	set:   serviceSet(map[string]string{"foo": "bar"}),
+	err:   `Unknown configuration option: "foo"`,
+}, {
+	about: "set outlook",
+	set:   serviceSet(map[string]string{"outlook": "positive"}),
+	expect: map[string]interface{}{
+		"outlook": "positive",
+	},
+}, {
+	about: "unset outlook and set title",
+	initial: map[string]interface{}{
+		"outlook": "positive",
+	},
+	set: serviceSet(map[string]string{
+		"outlook": "",
+		"title":   "sir",
+	},
+	),
+	expect: map[string]interface{}{
+		"title": "sir",
+	},
+}, {
+	about: "set a default value",
+	initial: map[string]interface{}{
+		"title": "sir",
+	},
+	set: serviceSet(map[string]string{"username": "admin001"}),
+	expect: map[string]interface{}{
+		"username": "admin001",
+		"title":    "sir",
+	},
+}, {
+	about: "unset a default value, set a different default",
+	initial: map[string]interface{}{
+		"username": "admin001",
+		"title":    "sir",
+	},
+	set: serviceSet(map[string]string{
+		"username": "",
+		"title":    "My Title",
+	},
+	),
+	expect: map[string]interface{}{
+		"title": "My Title",
+	},
+}, {
+	about: "bad configuration",
+	set:   serviceSetYAML("345"),
+	err:   "malformed YAML data",
+}, {
+	about:  "config with no options",
+	set:    serviceSetYAML("{}"),
+	expect: map[string]interface{}{},
+}, {
+	about: "set some attributes",
+	initial: map[string]interface{}{
+		"title": "sir",
+	},
+	set: serviceSetYAML("skill-level: 9000\nusername: admin001\n\n"),
+	expect: map[string]interface{}{
+		"title":       "sir",
+		"username":    "admin001",
+		"skill-level": int64(9000), // yaml int types are int64
+	},
+}, {
+	about: "remove an attribute by setting to empty string",
+	initial: map[string]interface{}{
+		"title":    "sir",
+		"username": "foo",
+	},
+	set: serviceSetYAML("title: ''\n"),
+	expect: map[string]interface{}{
+		"username": "foo",
+	},
+},
+}
+
+func (s *ServiceSuite) TestSet(c *C) {
+	sch := s.AddTestingCharm(c, "dummy")
+	for i, t := range serviceSetTests {
+		c.Logf("test %d. %s", i, t.about)
+		svc, err := s.State.AddService("dummy-service", sch)
+		c.Assert(err, IsNil)
+		if t.initial != nil {
+			cfg, err := svc.Config()
+			c.Assert(err, IsNil)
+			cfg.Update(t.initial)
+			_, err = cfg.Write()
+			c.Assert(err, IsNil)
+		}
+		err = t.set(svc)
+		if t.err != "" {
+			c.Assert(err, ErrorMatches, t.err)
+		} else {
+			c.Assert(err, IsNil)
+			cfg, err := svc.Config()
+			c.Assert(err, IsNil)
+			c.Assert(cfg.Map(), DeepEquals, t.expect)
+		}
+		err = svc.Destroy()
+		c.Assert(err, IsNil)
+	}
+}
+
 func (s *ServiceSuite) TestSettingsRefCountWorks(c *C) {
 	oldCh := s.AddConfigCharm(c, "wordpress", emptyConfig, 1)
 	newCh := s.AddConfigCharm(c, "wordpress", emptyConfig, 2)

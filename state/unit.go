@@ -922,6 +922,26 @@ func (u *Unit) SetPrivateAddress(address string) error {
 	return nil
 }
 
+// Resolve marks the unit as having had any previous state transition
+// problems resolved, and informs the unit that it may attempt to
+// reestablish normal workflow. The retryHooks parameter informs
+// whether to attempt to reexecute previous failed hooks or to continue
+// as if they had succeeded before.
+func (u *Unit) Resolve(retryHooks bool) error {
+	status, _, err := u.Status()
+	if err != nil {
+		return err
+	}
+	if status != params.UnitError {
+		return fmt.Errorf("unit %q is not in an error state", u)
+	}
+	mode := params.ResolvedNoHooks
+	if retryHooks {
+		mode = params.ResolvedRetryHooks
+	}
+	return u.SetResolved(mode)
+}
+
 // SetResolved marks the unit as having had any previous state transition
 // problems resolved, and informs the unit that it may attempt to
 // reestablish normal workflow. The resolved mode parameter informs

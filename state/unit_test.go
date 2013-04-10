@@ -473,6 +473,29 @@ func (s *UnitSuite) TestUnitWaitAgentAlive(c *C) {
 	c.Assert(alive, Equals, false)
 }
 
+func (s *UnitSuite) TestResolve(c *C) {
+	err := s.unit.Resolve(false)
+	c.Assert(err, ErrorMatches, `unit "wordpress/0" is not in an error state`)
+	err = s.unit.Resolve(true)
+	c.Assert(err, ErrorMatches, `unit "wordpress/0" is not in an error state`)
+
+	err = s.unit.SetStatus(params.UnitError, "gaaah")
+	c.Assert(err, IsNil)
+	err = s.unit.Resolve(false)
+	c.Assert(err, IsNil)
+	err = s.unit.Resolve(true)
+	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "wordpress/0": already resolved`)
+	c.Assert(s.unit.Resolved(), Equals, params.ResolvedNoHooks)
+
+	err = s.unit.ClearResolved()
+	c.Assert(err, IsNil)
+	err = s.unit.Resolve(true)
+	c.Assert(err, IsNil)
+	err = s.unit.Resolve(false)
+	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "wordpress/0": already resolved`)
+	c.Assert(s.unit.Resolved(), Equals, params.ResolvedRetryHooks)
+}
+
 func (s *UnitSuite) TestGetSetClearResolved(c *C) {
 	mode := s.unit.Resolved()
 	c.Assert(mode, Equals, params.ResolvedNone)

@@ -285,12 +285,20 @@ func (aw srvClientAllWatcher) Stop() error {
 
 // ServiceSet implements the server side of Client.ServerSet.
 func (c *srvClient) ServiceSet(p params.ServiceSet) error {
-	return juju.ServiceSet(c.root.srv.state, p)
+	svc, err := c.root.srv.state.Service(p.ServiceName)
+	if err != nil {
+		return err
+	}
+	return svc.Set(p.Options)
 }
 
 // ServiceSetYAML implements the server side of Client.ServerSetYAML.
 func (c *srvClient) ServiceSetYAML(p params.ServiceSetYAML) error {
-	return juju.ServiceSetYAML(c.root.srv.state, p)
+	svc, err := c.root.srv.state.Service(p.ServiceName)
+	if err != nil {
+		return err
+	}
+	return svc.SetYAML([]byte(p.Config))
 }
 
 // ServiceGet returns the configuration for a service.
