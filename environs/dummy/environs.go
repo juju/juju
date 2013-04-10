@@ -348,14 +348,8 @@ func (p *environProvider) Validate(cfg, old *config.Config) (valid *config.Confi
 	if err != nil {
 		return nil, err
 	}
+	// Apply the coerced unknown values back into the config.
 	attrs := v.(map[string]interface{})
-	switch cfg.FirewallMode() {
-	case config.FwDefault:
-		attrs["firewall-mode"] = config.FwInstance
-	case config.FwInstance, config.FwGlobal:
-	default:
-		return nil, fmt.Errorf("unsupported firewall mode: %q", cfg.FirewallMode())
-	}
 	return cfg.Apply(attrs)
 }
 
