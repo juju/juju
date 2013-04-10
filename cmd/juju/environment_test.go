@@ -128,3 +128,19 @@ func (s *SetEnvironmentSuite) TestChangeAsCommandPair(c *C) {
 
 	c.Assert(output, Equals, "raring")
 }
+
+var immutableConfigTests = map[string]string{
+	"name":          "foo",
+	"type":          "foo",
+	"agent-version": "1.2.3",
+	"firewall-mode": "global",
+}
+
+func (s *SetEnvironmentSuite) TestImmutableConfigValues(c *C) {
+	for name, value := range immutableConfigTests {
+		param := fmt.Sprintf("%s=%s", name, value)
+		_, err := testing.RunCommand(c, &SetEnvironmentCommand{}, []string{param})
+		errorPattern := fmt.Sprintf("cannot change %s from .* to %q", name, value)
+		c.Assert(err, ErrorMatches, errorPattern)
+	}
+}
