@@ -32,7 +32,7 @@ func preventUnitDestroyRemove(c *C, st *state.State, u *state.Unit) {
 	c.Assert(err, IsNil)
 	m, err := st.Machine(mid)
 	c.Assert(err, IsNil)
-	err = m.SetInstanceId("i-malive")
+	err = m.SetProvisioned("i-malive", "fake_nonce")
 	c.Assert(err, IsNil)
 }
 
@@ -165,6 +165,9 @@ func (s *StateSuite) TestInjectMachine(c *C) {
 	instanceId, ok := m.InstanceId()
 	c.Assert(ok, Equals, true)
 	c.Assert(instanceId, Equals, state.InstanceId("i-mindustrious"))
+
+	// Make sure the bootstrap nonce value is set.
+	c.Assert(m.CheckProvisioned(state.BootstrapNonce), Equals, true)
 }
 
 func (s *StateSuite) TestReadMachine(c *C) {
@@ -187,7 +190,7 @@ func (s *StateSuite) TestAllMachines(c *C) {
 	for i := 0; i < numInserts; i++ {
 		m, err := s.State.AddMachine("series", state.JobHostUnits)
 		c.Assert(err, IsNil)
-		err = m.SetInstanceId(state.InstanceId(fmt.Sprintf("foo-%d", i)))
+		err = m.SetProvisioned(state.InstanceId(fmt.Sprintf("foo-%d", i)), "fake_nonce")
 		c.Assert(err, IsNil)
 		err = m.SetAgentTools(newTools("7.8.9-foo-bar", "http://arble.tgz"))
 		c.Assert(err, IsNil)
@@ -517,7 +520,7 @@ var machinesWatchTests = []struct {
 			c.Assert(err, IsNil)
 			m0, err := s.Machine("0")
 			c.Assert(err, IsNil)
-			err = m0.SetInstanceId("spam")
+			err = m0.SetProvisioned("spam", "fake_nonce")
 			c.Assert(err, IsNil)
 		},
 		[]string{"1"},
@@ -597,7 +600,7 @@ var machinesWatchTests = []struct {
 				c.Assert(err, IsNil)
 			}
 			for i := 0; i < len(machines); i++ {
-				err = machines[i].SetInstanceId(state.InstanceId("spam" + fmt.Sprint(i)))
+				err = machines[i].SetProvisioned(state.InstanceId("spam"+fmt.Sprint(i)), "fake_nonce")
 				c.Assert(err, IsNil)
 			}
 			for i := 10; i < len(machines); i++ {

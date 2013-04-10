@@ -285,12 +285,20 @@ func (aw srvClientAllWatcher) Stop() error {
 
 // ServiceSet implements the server side of Client.ServerSet.
 func (c *srvClient) ServiceSet(p params.ServiceSet) error {
-	return juju.ServiceSet(c.root.srv.state, p)
+	svc, err := c.root.srv.state.Service(p.ServiceName)
+	if err != nil {
+		return err
+	}
+	return svc.SetConfig(p.Options)
 }
 
 // ServiceSetYAML implements the server side of Client.ServerSetYAML.
 func (c *srvClient) ServiceSetYAML(p params.ServiceSetYAML) error {
-	return juju.ServiceSetYAML(c.root.srv.state, p)
+	svc, err := c.root.srv.state.Service(p.ServiceName)
+	if err != nil {
+		return err
+	}
+	return svc.SetConfigYAML([]byte(p.Config))
 }
 
 // ServiceGet returns the configuration for a service.
@@ -300,7 +308,11 @@ func (c *srvClient) ServiceGet(args params.ServiceGet) (params.ServiceGetResults
 
 // Resolved implements the server side of Client.Resolved.
 func (c *srvClient) Resolved(p params.Resolved) error {
-	return statecmd.Resolved(c.root.srv.state, p)
+	unit, err := c.root.srv.state.Unit(p.UnitName)
+	if err != nil {
+		return err
+	}
+	return unit.Resolve(p.Retry)
 }
 
 // ServiceExpose changes the juju-managed firewall to expose any ports that

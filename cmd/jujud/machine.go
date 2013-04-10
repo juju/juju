@@ -117,7 +117,7 @@ func (a *MachineAgent) RunOnce(st *state.State, e AgentState) error {
 				newDeployer(st, m.WatchPrincipalUnits(), a.Conf.DataDir))
 		case state.JobManageEnviron:
 			tasks = append(tasks,
-				provisioner.NewProvisioner(st),
+				provisioner.NewProvisioner(st, a.MachineId),
 				firewaller.NewFirewaller(st))
 		case state.JobServeAPI:
 			// Ignore because it's started independently.
@@ -130,7 +130,18 @@ func (a *MachineAgent) RunOnce(st *state.State, e AgentState) error {
 }
 
 func (a *MachineAgent) Entity(st *state.State) (AgentState, error) {
-	return st.Machine(a.MachineId)
+	m, err := st.Machine(a.MachineId)
+	if err != nil {
+		return nil, err
+	}
+	// Check the machine nonce as provisioned matches the agent.Conf value.
+	if !m.CheckProvisioned(a.Conf.MachineNonce) {
+		// The agent is running on a different machine to the one it
+		// should be according to state. It must stop immediately.
+		log.Errorf("cmd/jujud: running machine %v agent on inappropriate instance", m)
+		return nil, worker.ErrTerminateAgent
+	}
+	return m, nil
 }
 
 func (a *MachineAgent) Tag() string {

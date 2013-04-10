@@ -146,7 +146,7 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 	for _, tool := range targetTools {
 		log.Debugf("cmd/juju: found target tool: %s", tool)
 	}
-	missing := toolsToCopy.Difference(targetTools)
+	missing := toolsToCopy.Exclude(targetTools)
 	fmt.Fprintf(ctx.Stdout, "found %d tools in target; %d tools to be copied\n",
 		len(targetTools), len(missing))
 	err = copyTools(missing, officialEnviron.PublicStorage(), targetStorage, c.dryRun, ctx)
