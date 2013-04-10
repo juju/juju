@@ -41,6 +41,8 @@ func (s *MachineSuite) primeAgent(c *C, jobs ...state.MachineJob) (*state.Machin
 	c.Assert(err, IsNil)
 	err = m.SetMongoPassword("machine-password")
 	c.Assert(err, IsNil)
+	err = m.SetPassword("machine-api-password")
+	c.Assert(err, IsNil)
 	conf, tools := s.agentSuite.primeAgent(c, state.MachineTag(m.Id()), "machine-password")
 	conf.MachineNonce = state.BootstrapNonce
 	conf.Write()
@@ -250,7 +252,7 @@ func addAPIInfo(conf *agent.Conf, m *state.Machine) {
 		Addrs:    []string{fmt.Sprintf("localhost:%d", port)},
 		CACert:   []byte(testing.CACert),
 		Tag:      m.Tag(),
-		Password: "unused",
+		Password: "machine-api-password",
 	}
 	conf.StateServerCert = []byte(testing.ServerCert)
 	conf.StateServerKey = []byte(testing.ServerKey)
