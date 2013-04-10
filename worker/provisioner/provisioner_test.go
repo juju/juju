@@ -14,6 +14,7 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/worker/provisioner"
+	"strings"
 	stdtesting "testing"
 	"time"
 )
@@ -99,7 +100,10 @@ func (s *ProvisionerSuite) checkStartInstanceCustom(c *C, m *state.Machine, secr
 
 				// Check the instance was started with the expected params.
 				c.Assert(o.MachineId, Equals, m.Id())
-				c.Assert(o.MachineNonce, Matches, fmt.Sprintf("machine-0:%s", trivial.ValidUUIDString))
+				nonceParts := strings.SplitN(o.MachineNonce, ":", 2)
+				c.Assert(nonceParts, HasLen, 2)
+				c.Assert(nonceParts[0], Equals, state.MachineTag("0"))
+				c.Assert(trivial.IsValidUUIDString(nonceParts[1]), Equals, true)
 				c.Assert(o.Secret, Equals, secret)
 				c.Assert(o.Constraints, DeepEquals, cons)
 

@@ -118,7 +118,6 @@ func (a *MachineAgent) RunOnce(st *state.State, e AgentState) error {
 		case state.JobManageEnviron:
 			tasks = append(tasks,
 				provisioner.NewProvisioner(st, a.MachineId),
-				// TODO(dimitern) pass the machine id to the firewaller as well.
 				firewaller.NewFirewaller(st))
 		case state.JobServeAPI:
 			// Ignore because it's started independently.
@@ -139,7 +138,7 @@ func (a *MachineAgent) Entity(st *state.State) (AgentState, error) {
 	if !m.CheckProvisioned(a.Conf.MachineNonce) {
 		// The agent is running on a different machine to the one it
 		// should be according to state. It must stop immediately.
-		log.Errorf("cmd/jujud: tried to start an agent for unprovisioned machine %q", m)
+		log.Errorf("cmd/jujud: running machine %v agent on inappropriate instance", m)
 		return nil, worker.ErrTerminateAgent
 	}
 	return m, nil

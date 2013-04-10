@@ -277,8 +277,11 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 	if err != nil {
 		return err
 	}
-	uniqueNonce := fmt.Sprintf("%s:%s", state.MachineTag(p.machineId), uuid.String())
-	inst, err := p.environ.StartInstance(m.Id(), uniqueNonce, m.Series(), cons, stateInfo, apiInfo)
+	// Generated nonce has the format: "machine-#:UUID". The first
+	// part is a badge, specifying the tag of the machine the provisioner
+	// is running on, while the second part is a random UUID.
+	nonce := fmt.Sprintf("%s:%s", state.MachineTag(p.machineId), uuid.String())
+	inst, err := p.environ.StartInstance(m.Id(), nonce, m.Series(), cons, stateInfo, apiInfo)
 	if err != nil {
 		// Set the state to error, so the machine will be skipped next
 		// time until the error is resolved, but don't return an
@@ -291,7 +294,7 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 		}
 		return nil
 	}
-	if err := m.SetProvisioned(inst.Id(), uniqueNonce); err != nil {
+	if err := m.SetProvisioned(inst.Id(), nonce); err != nil {
 		// The machine is started, but we can't record the mapping in
 		// state. It'll keep running while we fail out and restart,
 		// but will then be detected by findUnknownInstances and
