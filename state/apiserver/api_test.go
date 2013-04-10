@@ -1235,12 +1235,12 @@ func (s *suite) TestStop(c *C) {
 
 func (s *suite) TestClientServiceGet(c *C) {
 	s.setUpScenario(c)
-	config, err := s.APIState.Client().ServiceGet("wordpress")
+	results, err := s.APIState.Client().ServiceGet("wordpress")
 	c.Assert(err, IsNil)
-	c.Assert(config, DeepEquals, &params.ServiceGetResults{
+	c.Assert(results, DeepEquals, &params.ServiceGetResults{
 		Service: "wordpress",
 		Charm:   "wordpress",
-		Settings: map[string]interface{}{
+		Config: map[string]interface{}{
 			"blog-title": map[string]interface{}{
 				"type":        "string",
 				"value":       nil,
