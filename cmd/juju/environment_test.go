@@ -118,6 +118,18 @@ func (s *SetEnvironmentSuite) TestChangeDefaultSeries(c *C) {
 	c.Assert(stateConfig.DefaultSeries(), Equals, "raring")
 }
 
+func (s *SetEnvironmentSuite) TestChangeMultipleValues(c *C) {
+	_, err := testing.RunCommand(c, &SetEnvironmentCommand{}, []string{"default-series=spartan", "broken=nope", "secret=sekrit"})
+	c.Assert(err, IsNil)
+
+	stateConfig, err := s.State.EnvironConfig()
+	c.Assert(err, IsNil)
+	attrs := stateConfig.AllAttrs()
+	c.Assert(attrs["default-series"].(string), Equals, "spartan")
+	c.Assert(attrs["broken"].(string), Equals, "nope")
+	c.Assert(attrs["secret"].(string), Equals, "sekrit")
+}
+
 func (s *SetEnvironmentSuite) TestChangeAsCommandPair(c *C) {
 	_, err := testing.RunCommand(c, &SetEnvironmentCommand{}, []string{"default-series=raring"})
 	c.Assert(err, IsNil)
