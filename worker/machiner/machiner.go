@@ -2,7 +2,9 @@ package machiner
 
 import (
 	"fmt"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/tomb"
@@ -41,12 +43,27 @@ func (mr *Machiner) Wait() error {
 }
 
 func (mr *Machiner) loop() error {
+	// Find which machine we're responsible for.
 	m, err := mr.st.Machine(mr.id)
 	if state.IsNotFound(err) {
 		return worker.ErrTerminateAgent
 	} else if err != nil {
 		return err
 	}
+
+	// Mark the machine as started and log it.
+	if err := m.SetStatus(params.MachineStarted, ""); err != nil {
+		return err
+	}
+	log.Noticef("worker/machiner: machine %q started", m)
+
+	// Announce our presence to the world.
+	pinger, err := m.SetAgentAlive()
+	if err != nil {
+		return err
+	}
+	defer watcher.Stop(pinger, &mr.tomb)
+
 	w := m.Watch()
 	defer watcher.Stop(w, &mr.tomb)
 	for {
@@ -60,11 +77,16 @@ func (mr *Machiner) loop() error {
 				return err
 			}
 			if m.Life() != state.Alive {
+				log.Debugf("worker/machiner: machine %q is now %s", m, m.Life())
+				if err := m.SetStatus(params.MachineStopped, ""); err != nil {
+					return err
+				}
 				// If the machine is Dying, it has no units,
 				// and can be safely set to Dead.
 				if err := m.EnsureDead(); err != nil {
 					return err
 				}
+				log.Noticef("worker/machiner: machine %q shutting down", m)
 				return worker.ErrTerminateAgent
 			}
 		}
