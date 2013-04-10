@@ -91,11 +91,11 @@ func Upload(storage URLPutter, forceVersion *version.Number, fakeSeries ...strin
 	if err != nil {
 		return nil, err
 	}
-	fi, err := f.Stat()
+	fileInfo, err := f.Stat()
 	if err != nil {
 		return nil, fmt.Errorf("cannot stat newly made tools archive: %v", err)
 	}
-	size := fi.Size()
+	size := fileInfo.Size()
 	log.Infof("environs/tools: built %v (%dkB)", toolsVersion, (size+512)/1024)
 	putTools := func(vers version.Binary) (string, error) {
 		if _, err := f.Seek(0, 0); err != nil {
