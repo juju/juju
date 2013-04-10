@@ -49,23 +49,23 @@ type stepper interface {
 }
 
 type context struct {
-	st          *state.State
-	conn        *juju.Conn
-	charms      map[string]*state.Charm
-	unitPingers map[string]*presence.Pinger
+	st      *state.State
+	conn    *juju.Conn
+	charms  map[string]*state.Charm
+	pingers map[string]*presence.Pinger
 }
 
 func (s *StatusSuite) newContext() *context {
 	return &context{
-		st:          s.State,
-		conn:        s.Conn,
-		charms:      make(map[string]*state.Charm),
-		unitPingers: make(map[string]*presence.Pinger),
+		st:      s.State,
+		conn:    s.Conn,
+		charms:  make(map[string]*state.Charm),
+		pingers: make(map[string]*presence.Pinger),
 	}
 }
 
 func (s *StatusSuite) resetContext(c *C, ctx *context) {
-	for _, up := range ctx.unitPingers {
+	for _, up := range ctx.pingers {
 		err := up.Kill()
 		c.Check(err, IsNil)
 	}
@@ -83,16 +83,22 @@ func (ctx *context) run(c *C, steps []stepper) {
 // shortcuts for expected output.
 var (
 	machine0 = M{
-		"dns-name":    "dummyenv-0.dns",
-		"instance-id": "dummyenv-0",
+		"agent-state":    "running",
+		"instance-state": "started",
+		"dns-name":       "dummyenv-0.dns",
+		"instance-id":    "dummyenv-0",
 	}
 	machine1 = M{
-		"dns-name":    "dummyenv-1.dns",
-		"instance-id": "dummyenv-1",
+		"agent-state":    "running",
+		"instance-state": "started",
+		"dns-name":       "dummyenv-1.dns",
+		"instance-id":    "dummyenv-1",
 	}
 	machine2 = M{
-		"dns-name":    "dummyenv-2.dns",
-		"instance-id": "dummyenv-2",
+		"agent-state":    "running",
+		"instance-state": "started",
+		"dns-name":       "dummyenv-2.dns",
+		"instance-id":    "dummyenv-2",
 	}
 	unexposedService = M{
 		"charm":   "local:series/dummy-1",
@@ -143,9 +149,25 @@ var statusTests = []testCase{
 			},
 		},
 
-		startMachine{"0"},
+		startAliveMachine{"0"},
 		expect{
 			"simulate the PA starting an instance in response to the state change",
+			M{
+				"machines": M{
+					"0": M{
+						"agent-state":    "running",
+						"instance-state": "pending",
+						"dns-name":       "dummyenv-0.dns",
+						"instance-id":    "dummyenv-0",
+					},
+				},
+				"services": M{},
+			},
+		},
+
+		setMachineStatus{"0", params.MachineStarted, ""},
+		expect{
+			"simulate the MA started and set the machine status",
 			M{
 				"machines": M{
 					"0": machine0,
@@ -167,9 +189,11 @@ var statusTests = []testCase{
 			M{
 				"machines": M{
 					"0": M{
-						"dns-name":      "dummyenv-0.dns",
-						"instance-id":   "dummyenv-0",
-						"agent-version": "1.2.3",
+						"dns-name":       "dummyenv-0.dns",
+						"instance-id":    "dummyenv-0",
+						"agent-version":  "1.2.3",
+						"agent-state":    "running",
+						"instance-state": "started",
 					},
 				},
 				"services": M{},
@@ -178,7 +202,8 @@ var statusTests = []testCase{
 	), test(
 		"add two services and expose one, then add 2 more machines and some units",
 		addMachine{"0", state.JobManageEnviron},
-		startMachine{"0"},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", params.MachineStarted, ""},
 		addCharm{"dummy"},
 		addService{"dummy-service", "dummy"},
 		addService{"exposed-service", "dummy"},
@@ -210,9 +235,11 @@ var statusTests = []testCase{
 		},
 
 		addMachine{"1", state.JobHostUnits},
-		startMachine{"1"},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", params.MachineStarted, ""},
 		addMachine{"2", state.JobHostUnits},
-		startMachine{"2"},
+		startAliveMachine{"2"},
+		setMachineStatus{"2", params.MachineStarted, ""},
 		expect{
 			"two more machines added",
 			M{
@@ -266,6 +293,58 @@ var statusTests = []testCase{
 				},
 			},
 		},
+
+		addMachine{"3", state.JobHostUnits},
+		startMachine{"3"},
+		addMachine{"4", state.JobHostUnits},
+		startAliveMachine{"4"},
+		setMachineStatus{"4", params.MachineError, "Beware the red toys"},
+		expect{
+			"add two more machine, one with a dead agent, one in error state",
+			M{
+				"machines": M{
+					"0": machine0,
+					"1": machine1,
+					"2": machine2,
+					"3": M{
+						"dns-name":       "dummyenv-3.dns",
+						"instance-id":    "dummyenv-3",
+						"agent-state":    "down",
+						"instance-state": "pending",
+					},
+					"4": M{
+						"dns-name":            "dummyenv-4.dns",
+						"instance-id":         "dummyenv-4",
+						"agent-state":         "not-started",
+						"instance-state":      "error",
+						"instance-state-info": "Beware the red toys",
+					},
+				},
+				"services": M{
+					"exposed-service": M{
+						"charm":   "local:series/dummy-1",
+						"exposed": true,
+						"units": M{
+							"exposed-service/0": M{
+								"machine":          "2",
+								"agent-state":      "error",
+								"agent-state-info": "You Require More Vespene Gas",
+							},
+						},
+					},
+					"dummy-service": M{
+						"charm":   "local:series/dummy-1",
+						"exposed": false,
+						"units": M{
+							"dummy-service/0": M{
+								"machine":     "1",
+								"agent-state": "down",
+							},
+						},
+					},
+				},
+			},
+		},
 	),
 }
 
@@ -292,6 +371,27 @@ func (sm startMachine) step(c *C, ctx *context) {
 	inst := testing.StartInstance(c, ctx.conn.Environ, m.Id())
 	err = m.SetProvisioned(inst.Id(), "fake_nonce")
 	c.Assert(err, IsNil)
+}
+
+type startAliveMachine struct {
+	machineId string
+}
+
+func (sam startAliveMachine) step(c *C, ctx *context) {
+	m, err := ctx.st.Machine(sam.machineId)
+	c.Assert(err, IsNil)
+	pinger, err := m.SetAgentAlive()
+	c.Assert(err, IsNil)
+	ctx.st.StartSync()
+	err = m.WaitAgentAlive(200 * time.Millisecond)
+	c.Assert(err, IsNil)
+	agentAlive, err := m.AgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(agentAlive, Equals, true)
+	inst := testing.StartInstance(c, ctx.conn.Environ, m.Id())
+	err = m.SetProvisioned(inst.Id(), "fake_nonce")
+	c.Assert(err, IsNil)
+	ctx.pingers[m.Id()] = pinger
 }
 
 type setTools struct {
@@ -385,7 +485,7 @@ func (aau addAliveUnit) step(c *C, ctx *context) {
 	c.Assert(err, IsNil)
 	err = u.AssignToMachine(m)
 	c.Assert(err, IsNil)
-	ctx.unitPingers[u.Name()] = pinger
+	ctx.pingers[u.Name()] = pinger
 }
 
 type setUnitStatus struct {
@@ -397,6 +497,18 @@ type setUnitStatus struct {
 func (sus setUnitStatus) step(c *C, ctx *context) {
 	u, err := ctx.st.Unit(sus.unitName)
 	err = u.SetStatus(sus.status, sus.statusInfo)
+	c.Assert(err, IsNil)
+}
+
+type setMachineStatus struct {
+	machineId  string
+	status     params.MachineStatus
+	statusInfo string
+}
+
+func (sms setMachineStatus) step(c *C, ctx *context) {
+	m, err := ctx.st.Machine(sms.machineId)
+	err = m.SetStatus(sms.status, sms.statusInfo)
 	c.Assert(err, IsNil)
 }
 

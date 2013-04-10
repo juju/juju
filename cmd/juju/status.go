@@ -137,9 +137,31 @@ func processMachine(machine *state.Machine, instance environs.Instance) (map[str
 	}
 
 	processVersion(r, machine)
-	processAgentStatus(r, machine)
 
-	// TODO(dfc) unit-status
+	// The following logic is ported from Python juju status command.
+	agentAlive, err := machine.AgentAlive()
+	if err != nil {
+		return nil, err
+	}
+	machineDead := machine.Life() == state.Dead
+	status, info, err := machine.Status()
+	if err != nil {
+		return nil, err
+	}
+	r["agent-state"] = "running"
+	if !agentAlive && !machineDead {
+		// Agent should be running but it's not.
+		r["agent-state"] = "down"
+	} else if !agentAlive || status == params.MachineError {
+		// Either the provisioning failed, or the agent is still starting.
+		r["agent-state"] = "not-started"
+	}
+
+	r["instance-state"] = status
+	if len(info) > 0 {
+		r["instance-state-info"] = info
+	}
+
 	return r, nil
 }
 
@@ -228,16 +250,6 @@ type versioned interface {
 func processVersion(r map[string]interface{}, v versioned) {
 	if t, err := v.AgentTools(); err == nil {
 		r["agent-version"] = t.Binary.Number.String()
-	}
-}
-
-type agentAliver interface {
-	AgentAlive() (bool, error)
-}
-
-func processAgentStatus(r map[string]interface{}, a agentAliver) {
-	if alive, err := a.AgentAlive(); err == nil && alive {
-		r["agent-state"] = "running"
 	}
 }
 
