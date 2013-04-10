@@ -8,9 +8,11 @@ import (
 	"strings"
 )
 
-// List is an unordered list of tools available in an environment.
+// List holds tools available in an environment. The order of tools within
+// a List is not significant.
 type List []*state.Tools
 
+// String returns the versions of the tools in src, separated by semicolons.
 func (src List) String() string {
 	names := make([]string, len(src))
 	for i, tools := range src {
@@ -21,22 +23,24 @@ func (src List) String() string {
 
 // Series returns all series for which some tools in src were built.
 func (src List) Series() []string {
-	return src.collect(func(seen map[string]bool, tools *state.Tools) {
-		seen[tools.Series] = true
+	return src.collect(func(tools *state.Tools) string {
+		return tools.Series
 	})
 }
 
 // Arches returns all architectures for which some tools in src were built.
 func (src List) Arches() []string {
-	return src.collect(func(seen map[string]bool, tools *state.Tools) {
-		seen[tools.Arch] = true
+	return src.collect(func(tools *state.Tools) string {
+		return tools.Arch
 	})
 }
 
-func (src List) collect(f func(map[string]bool, *state.Tools)) []string {
+// collect calls f on all values in src and returns an alphabetically
+// ordered list of the returned results without duplicates.
+func (src List) collect(f func(*state.Tools) string) []string {
 	seen := map[string]bool{}
 	for _, tools := range src {
-		f(seen, tools)
+		seen[f(tools)] = true
 	}
 	result := []string{}
 	for value := range seen {
@@ -46,16 +50,18 @@ func (src List) collect(f func(map[string]bool, *state.Tools)) []string {
 	return result
 }
 
-// Newest returns a List, derived from src, containing only those tools
-// which have a version number greater than or equal to all other tools
-// in the list.
+// Newest returns the tools in src with the greatest version.
 func (src List) Newest() List {
+	if len(src) == 0 {
+		return nil
+	}
 	best := src[0].Number
 	var result List
 	for _, tools := range src {
 		if best.Less(tools.Number) {
+			// Found new best number; reset result list.
 			best = tools.Number
-			result = List{tools}
+			result = append(result[:0], tools)
 		} else if tools.Number == best {
 			result = append(result, tools)
 		}
@@ -63,9 +69,8 @@ func (src List) Newest() List {
 	return result
 }
 
-// Difference returns a List, derived from src, containing only tools with
-// binary versions not found in the supplied List.
-func (src List) Difference(excluded List) List {
+// Difference returns the tools in src that are not in excluded.
+func (src List) Exclude(excluded List) List {
 	ignore := make(map[version.Binary]bool, len(excluded))
 	for _, tool := range excluded {
 		ignore[tool.Binary] = true
@@ -81,9 +86,9 @@ func (src List) Difference(excluded List) List {
 
 var ErrNoMatches = errors.New("no matching tools available")
 
-// Filter returns a List, derived from src, containing only those tools that
+// Match returns a List, derived from src, containing only those tools that
 // match the supplied Filter. If no tools match, it returns ErrNoMatches.
-func (src List) Filter(f Filter) (List, error) {
+func (src List) Match(f Filter) (List, error) {
 	var result List
 	for _, tools := range src {
 		if f.match(tools) {
@@ -96,24 +101,27 @@ func (src List) Filter(f Filter) (List, error) {
 	return result, nil
 }
 
-// Filter parameterises List.Filter.
+// Filter holds criteria for choosing tools.
 type Filter struct {
 
-	// Release, if true, ignores all tools whose version number indicates
-	// that they're development versions.
+	// Release, if true, causes the filter to match only tools with a
+	// non-development version number.
 	Released bool
 
-	// Number, if non-zero, ignores all tools without that version number.
+	// Number, if non-zero, causes the filter to match only tools with
+	// that exact version number.
 	Number version.Number
 
-	// Series, if not empty, ignores all tools not built for that series.
+	// Series, if not empty, causes the filter to match only tools with
+	// that series.
 	Series string
 
-	// Arch, if not empty, ignores all tools not built for that architecture.
+	// Arch, if not empty, causes the filter to match only tools with
+	// that architecture.
 	Arch string
 }
 
-// match returns true if the supplied tools match all non-zero fields in f.
+// match returns true if the supplied tools match f.
 func (f Filter) match(tools *state.Tools) bool {
 	if f.Released && tools.IsDev() {
 		return false
