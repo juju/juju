@@ -2,7 +2,6 @@ package maas
 
 import (
 	"fmt"
-	"io/ioutil"
 	"launchpad.net/goyaml"
 	cloudinit_core "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/environs/cloudinit"
@@ -85,9 +84,5 @@ func (info *machineInfo) cloudinitRunCmd() (string, error) {
 // load loads the "machine info" file and parse the content into the info
 // object.
 func (info *machineInfo) load() error {
-	content, err := ioutil.ReadFile(_MAASInstanceFilename)
-	if err != nil {
-		return err
-	}
-	return goyaml.Unmarshal(content, info)
+	return trivial.ReadYaml(_MAASInstanceFilename, info)
 }

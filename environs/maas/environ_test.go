@@ -2,15 +2,18 @@ package maas
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/gomaasapi"
+	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
 )
 
@@ -189,6 +192,14 @@ func fakeWriteCertAndKey(name string, cert, key []byte) error {
 	return fmt.Errorf("unexpected call to writeCertAndKey")
 }
 
+func decodeUserData(userData string) ([]byte, error) {
+	data, err := base64.StdEncoding.DecodeString(userData)
+	if err != nil {
+		return []byte(""), err
+	}
+	return trivial.Gunzip(data)
+}
+
 func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
@@ -216,12 +227,23 @@ func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
 	// The instance number 1 has been started.
 	actions, found = operations["node1"]
 	c.Check(found, Equals, true)
-	// TODO: check that cloudinit config include the creation of the
-	// "machine file" containing the instanceId and the hostname.
-	// In order to do that, the testservice in gomaasapi needs to be
-	// improved to get it to record the parameters sent during the "node
-	// start" operation.
 	c.Check(actions, DeepEquals, []string{"start"})
+
+	// The value of the "user data" parameter used when starting the node
+	// contains the run cmd used to write the machine information onto
+	// the node's filesystem.
+	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
+	nodeRequestValues, found := requestValues["node1"]
+	c.Check(found, Equals, true)
+	userData := nodeRequestValues[0].Get("user_data")
+	decodedUserData, err := decodeUserData(userData)
+	c.Assert(err, IsNil)
+	info := machineInfo{string(instance.Id()), "host1"}
+	cloudinitRunCmd, err := info.cloudinitRunCmd()
+	c.Assert(err, IsNil)
+	data, err := goyaml.Marshal(cloudinitRunCmd)
+	c.Assert(err, IsNil)
+	c.Check(string(decodedUserData), Matches, "(.|\n)*"+string(data)+"(\n|.)*")
 }
 
 func (suite *EnvironSuite) getInstance(systemId string) *maasInstance {
