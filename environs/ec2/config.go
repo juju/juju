@@ -63,6 +63,10 @@ func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
 }
 
 func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
+	// Check for valid changes for the base config values.
+	if err := config.Validate(cfg, old); err != nil {
+		return nil, err
+	}
 	v, err := configChecker.Coerce(cfg.UnknownAttrs(), nil)
 	if err != nil {
 		return nil, err
