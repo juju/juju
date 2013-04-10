@@ -280,7 +280,7 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	env.name = cfg.Name()
 	env.ecfgUnlocked = ecfg
 
-    // We're using v1.0 of the MAAS API.
+	// We're using v1.0 of the MAAS API.
 	authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.MAASServer(), ecfg.MAASOAuth(), "1.0")
 	if err != nil {
 		return err
