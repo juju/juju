@@ -84,7 +84,8 @@ type SetEnvironmentCommand struct {
 }
 
 const setEnvHelpDoc = `
-TODO: write me
+Updates the environment of a running Juju instance.  Multiple key/value pairs
+can be passed on as command line arguments.
 `
 
 func (c *SetEnvironmentCommand) Info() *cmd.Info {
