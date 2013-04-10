@@ -29,7 +29,7 @@ var singleValueTests = []struct {
 		output: "i-am-a-key",
 	}, {
 		key: "unknown",
-		err: `Environment key "unknown" not found in "dummyenv" environment.`,
+		err: `Key "unknown" not found in "dummyenv" environment.`,
 	},
 }
 
