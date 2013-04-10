@@ -40,6 +40,9 @@ func (s *MachineSuite) primeAgent(c *C, jobs ...state.MachineJob) (*state.Machin
 	err = m.SetMongoPassword("machine-password")
 	c.Assert(err, IsNil)
 	conf, tools := s.agentSuite.primeAgent(c, state.MachineTag(m.Id()), "machine-password")
+	conf.MachineNonce = state.BootstrapNonce
+	conf.Write()
+	c.Assert(err, IsNil)
 	return m, conf, tools
 }
 
