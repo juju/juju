@@ -545,6 +545,53 @@ func (*ConfigSuite) TestConfigAttrs(c *C) {
 	c.Assert(newcfg.AllAttrs(), DeepEquals, attrs)
 }
 
+type validationTest struct {
+	about string
+	new   attrs
+	old   attrs
+	err   string
+}
+
+var validationTests = []validationTest{
+	{
+		about: "Can't change the type",
+		new: attrs{
+			"type": "type2",
+			"name": "my-name",
+		},
+		old: attrs{
+			"type": "my-type",
+			"name": "my-name",
+		},
+		err: `cannot change type from "my-type" to "type2"`,
+	},
+}
+
+func (*ConfigSuite) TestValidateChange(c *C) {
+	files := []testFile{
+		{".ssh/identity.pub", "identity"},
+	}
+	h := makeFakeHome(c, files)
+	defer h.restore()
+
+	for i, test := range validationTests {
+		c.Logf("test %d. %s", i, test.about)
+		newConfig, err := config.New(test.new)
+		c.Assert(err, IsNil)
+		oldConfig, err := config.New(test.old)
+		c.Assert(err, IsNil)
+
+		valid, err := config.Validate(newConfig, oldConfig)
+		if test.err == "" {
+			c.Assert(err, IsNil)
+			c.Assert(valid.AllAttrs(), DeepEquals, newConfig.AllAttrs())
+		} else {
+			c.Assert(err, ErrorMatches, test.err)
+			c.Assert(valid, IsNil)
+		}
+	}
+}
+
 type fakeHome struct {
 	oldHome     string
 	oldJujuHome string
