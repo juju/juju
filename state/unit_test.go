@@ -276,7 +276,7 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithProvisionedMachine(c *C) {
 	c.Assert(err, IsNil)
 	machine, err := s.State.Machine(mid)
 	c.Assert(err, IsNil)
-	err = machine.SetInstanceId("i-malive")
+	err = machine.SetProvisioned("i-malive", "fake_nonce")
 	c.Assert(err, IsNil)
 	err = s.unit.Destroy()
 	c.Assert(err, IsNil)

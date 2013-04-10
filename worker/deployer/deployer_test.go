@@ -38,7 +38,7 @@ func (s *DeployerSuite) TestDeployRecallRemovePrincipals(c *C) {
 	// Create a machine, and a couple of units.
 	m, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	err = m.SetInstanceId("i-exist")
+	err = m.SetProvisioned("i-exist", "fake_nonce")
 	c.Assert(err, IsNil)
 	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)

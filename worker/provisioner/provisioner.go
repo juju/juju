@@ -271,7 +271,8 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 		return err
 	}
 	// TODO(dimitern) generate an unique random nonce in a follow-up.
-	inst, err := p.environ.StartInstance(m.Id(), "fake_nonce", m.Series(), cons, stateInfo, apiInfo)
+	nonce := "fake_nonce"
+	inst, err := p.environ.StartInstance(m.Id(), nonce, m.Series(), cons, stateInfo, apiInfo)
 	if err != nil {
 		// Set the state to error, so the machine will be skipped next
 		// time until the error is resolved, but don't return an
@@ -284,11 +285,14 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 		}
 		return nil
 	}
-	if err := m.SetInstanceId(inst.Id()); err != nil {
+	// TODO(dimitern) generate an unique random nonce in a follow-up.
+	if err := m.SetProvisioned(inst.Id(), nonce); err != nil {
 		// The machine is started, but we can't record the mapping in
 		// state. It'll keep running while we fail out and restart,
 		// but will then be detected by findUnknownInstances and
 		// killed again.
+		//
+		// TODO(dimitern) Stop the instance right away here.
 		//
 		// Multiple instantiations of a given machine (with the same
 		// machine ID) cannot coexist, because findUnknownInstances is
