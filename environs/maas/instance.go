@@ -47,13 +47,16 @@ func (instance *maasInstance) WaitDNSName() (string, error) {
 
 // MAAS does not do firewalling so these port methods do nothing.
 func (instance *maasInstance) OpenPorts(machineId string, ports []params.Port) error {
+	log.Debugf("environs/maas: unimplemented OpenPorts() called")
 	return nil
 }
 
 func (instance *maasInstance) ClosePorts(machineId string, ports []params.Port) error {
+	log.Debugf("environs/maas: unimplemented ClosePorts() called")
 	return nil
 }
 
 func (instance *maasInstance) Ports(machineId string) ([]params.Port, error) {
+	log.Debugf("environs/maas: unimplemented Ports() called")
 	return []params.Port{}, nil
 }
