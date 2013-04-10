@@ -6,7 +6,6 @@ import (
 	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
-	"regexp"
 )
 
 type URLSuite struct{}
@@ -118,54 +117,54 @@ func (s *URLSuite) TestInferURLNoDefaultSeries(c *C) {
 	}
 }
 
-var validRegexpTests = []struct {
-	regexp *regexp.Regexp
+var validTests = []struct {
+	valid  func(string) bool
 	string string
 	expect bool
 }{
-	{charm.ValidUser, "", false},
-	{charm.ValidUser, "bob", true},
-	{charm.ValidUser, "Bob", false},
-	{charm.ValidUser, "bOB", true},
-	{charm.ValidUser, "b^b", false},
-	{charm.ValidUser, "bob1", true},
-	{charm.ValidUser, "bob-1", true},
-	{charm.ValidUser, "bob+1", true},
-	{charm.ValidUser, "bob.1", true},
-	{charm.ValidUser, "1bob", true},
-	{charm.ValidUser, "1-bob", true},
-	{charm.ValidUser, "1+bob", true},
-	{charm.ValidUser, "1.bob", true},
-	{charm.ValidUser, "jim.bob+99-1.", true},
+	{charm.IsValidUser, "", false},
+	{charm.IsValidUser, "bob", true},
+	{charm.IsValidUser, "Bob", false},
+	{charm.IsValidUser, "bOB", true},
+	{charm.IsValidUser, "b^b", false},
+	{charm.IsValidUser, "bob1", true},
+	{charm.IsValidUser, "bob-1", true},
+	{charm.IsValidUser, "bob+1", true},
+	{charm.IsValidUser, "bob.1", true},
+	{charm.IsValidUser, "1bob", true},
+	{charm.IsValidUser, "1-bob", true},
+	{charm.IsValidUser, "1+bob", true},
+	{charm.IsValidUser, "1.bob", true},
+	{charm.IsValidUser, "jim.bob+99-1.", true},
 
-	{charm.ValidName, "", false},
-	{charm.ValidName, "wordpress", true},
-	{charm.ValidName, "Wordpress", false},
-	{charm.ValidName, "word-press", true},
-	{charm.ValidName, "word press", false},
-	{charm.ValidName, "word^press", false},
-	{charm.ValidName, "-wordpress", false},
-	{charm.ValidName, "wordpress-", false},
-	{charm.ValidName, "wordpress2", true},
-	{charm.ValidName, "wordpress-2", false},
-	{charm.ValidName, "word2-press2", true},
+	{charm.IsValidName, "", false},
+	{charm.IsValidName, "wordpress", true},
+	{charm.IsValidName, "Wordpress", false},
+	{charm.IsValidName, "word-press", true},
+	{charm.IsValidName, "word press", false},
+	{charm.IsValidName, "word^press", false},
+	{charm.IsValidName, "-wordpress", false},
+	{charm.IsValidName, "wordpress-", false},
+	{charm.IsValidName, "wordpress2", true},
+	{charm.IsValidName, "wordpress-2", false},
+	{charm.IsValidName, "word2-press2", true},
 
-	{charm.ValidSeries, "", false},
-	{charm.ValidSeries, "precise", true},
-	{charm.ValidSeries, "Precise", false},
-	{charm.ValidSeries, "pre cise", false},
-	{charm.ValidSeries, "pre-cise", true},
-	{charm.ValidSeries, "pre^cise", false},
-	{charm.ValidSeries, "prec1se", false},
-	{charm.ValidSeries, "-precise", false},
-	{charm.ValidSeries, "precise-", false},
-	{charm.ValidSeries, "pre-c1se", false},
+	{charm.IsValidSeries, "", false},
+	{charm.IsValidSeries, "precise", true},
+	{charm.IsValidSeries, "Precise", false},
+	{charm.IsValidSeries, "pre cise", false},
+	{charm.IsValidSeries, "pre-cise", true},
+	{charm.IsValidSeries, "pre^cise", false},
+	{charm.IsValidSeries, "prec1se", false},
+	{charm.IsValidSeries, "-precise", false},
+	{charm.IsValidSeries, "precise-", false},
+	{charm.IsValidSeries, "pre-c1se", false},
 }
 
-func (s *URLSuite) TestValidRegexps(c *C) {
-	for i, t := range validRegexpTests {
+func (s *URLSuite) TestValidCheckers(c *C) {
+	for i, t := range validTests {
 		c.Logf("test %d: %s", i, t.string)
-		c.Assert(t.regexp.MatchString(t.string), Equals, t.expect)
+		c.Assert(t.valid(t.string), Equals, t.expect)
 	}
 }
 
