@@ -118,9 +118,8 @@ func New(attrs map[string]interface{}) (*Config, error) {
 	return c, nil
 }
 
-// Validate ensures that config is a valid configuration, applying changes to
-// it if necessary, and returns the validated configuration.  If old is not
-// nil, it holds the previous environment configuration for consideration when
+// Validate ensures that config is a valid configuration.  If old is not nil,
+// it holds the previous environment configuration for consideration when
 // validating changes.
 func Validate(cfg, old *Config) error {
 
