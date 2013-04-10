@@ -501,12 +501,15 @@ var scenarioStatus = &api.Status{
 // user-other
 // machine-0
 //  instance-id="i-machine-0"
+//  nonce="fake_nonce"
 //  jobs=manage-environ
 // machine-1
 //  instance-id="i-machine-1"
+//  nonce="fake_nonce"
 //  jobs=host-units
 // machine-2
 //  instance-id="i-machine-2"
+//  nonce="fake_nonce"
 //  jobs=host-units
 // service-wordpress
 // service-logging
@@ -544,7 +547,7 @@ func (s *suite) setUpScenario(c *C) (entities []string) {
 	m, err := s.State.AddMachine("series", state.JobManageEnviron)
 	c.Assert(err, IsNil)
 	c.Assert(m.Tag(), Equals, "machine-0")
-	err = m.SetInstanceId(state.InstanceId("i-" + m.Tag()))
+	err = m.SetProvisioned(state.InstanceId("i-"+m.Tag()), "fake_nonce")
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, m)
 	add(m)
@@ -573,7 +576,7 @@ func (s *suite) setUpScenario(c *C) (entities []string) {
 		m, err := s.State.AddMachine("series", state.JobHostUnits)
 		c.Assert(err, IsNil)
 		c.Assert(m.Tag(), Equals, fmt.Sprintf("machine-%d", i+1))
-		err = m.SetInstanceId(state.InstanceId("i-" + m.Tag()))
+		err = m.SetProvisioned(state.InstanceId("i-"+m.Tag()), "fake_nonce")
 		c.Assert(err, IsNil)
 		setDefaultPassword(c, m)
 		add(m)
@@ -847,7 +850,7 @@ func (s *suite) TestMachineLogin(c *C) {
 	c.Assert(err, IsNil)
 	err = stm.SetPassword("machine-password")
 	c.Assert(err, IsNil)
-	err = stm.SetInstanceId("i-foo")
+	err = stm.SetProvisioned("i-foo", "fake_nonce")
 	c.Assert(err, IsNil)
 
 	_, info, err := s.APIConn.Environ.StateInfo()
@@ -890,7 +893,7 @@ func (s *suite) TestMachineInstanceId(c *C) {
 	c.Check(instId, Equals, "")
 	c.Check(ok, Equals, false)
 
-	err = stm.SetInstanceId("foo")
+	err = stm.SetProvisioned("foo", "fake_nonce")
 	c.Assert(err, IsNil)
 
 	instId, ok = m.InstanceId()
@@ -906,34 +909,35 @@ func (s *suite) TestMachineInstanceId(c *C) {
 }
 
 func (s *suite) TestMachineRefresh(c *C) {
+	// Add a machine and get its instance id (it's empty at first).
 	stm, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	setDefaultPassword(c, stm)
-	err = stm.SetInstanceId("foo")
-	c.Assert(err, IsNil)
+	oldId, _ := stm.InstanceId()
+	c.Assert(oldId, Equals, state.InstanceId(""))
 
+	// Now open the state connection for that machine.
+	setDefaultPassword(c, stm)
 	st := s.openAs(c, stm.Tag())
 	defer st.Close()
+
+	// Get the machine through the API.
 	m, err := st.Machine(stm.Id())
 	c.Assert(err, IsNil)
-
-	instId, ok := m.InstanceId()
-	c.Assert(ok, Equals, true)
-	c.Assert(instId, Equals, "foo")
-
-	err = stm.SetInstanceId("bar")
+	// Set the original machine's instance id and nonce.
+	err = stm.SetProvisioned("foo", "fake_nonce")
 	c.Assert(err, IsNil)
+	newId, _ := stm.InstanceId()
+	c.Assert(newId, Equals, state.InstanceId("foo"))
 
-	instId, ok = m.InstanceId()
-	c.Assert(ok, Equals, true)
-	c.Assert(instId, Equals, "foo")
-
+	// Get the instance id of the machine through the API,
+	// it should match the oldId, before the refresh.
+	mId, _ := m.InstanceId()
+	c.Assert(state.InstanceId(mId), Equals, oldId)
 	err = m.Refresh()
 	c.Assert(err, IsNil)
-
-	instId, ok = m.InstanceId()
-	c.Assert(ok, Equals, true)
-	c.Assert(instId, Equals, "bar")
+	// Now the instance id should be the new one.
+	mId, _ = m.InstanceId()
+	c.Assert(state.InstanceId(mId), Equals, newId)
 }
 
 func (s *suite) TestMachineSetPassword(c *C) {
@@ -995,7 +999,7 @@ func (s *suite) TestMachineWatch(c *C) {
 	case <-time.After(20 * time.Millisecond):
 	}
 
-	err = stm.SetInstanceId("foo")
+	err = stm.SetProvisioned("foo", "fake_nonce")
 	c.Assert(err, IsNil)
 	s.State.StartSync()
 
@@ -1193,7 +1197,7 @@ func (s *suite) TestStop(c *C) {
 
 	stm, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	err = stm.SetInstanceId("foo")
+	err = stm.SetProvisioned("foo", "fake_nonce")
 	c.Assert(err, IsNil)
 	err = stm.SetPassword("password")
 	c.Assert(err, IsNil)
@@ -1301,7 +1305,7 @@ func (s *suite) TestClientUnitResolved(c *C) {
 	// And now the actual test assertions: we set the unit as resolved via
 	// the API so it should have a resolved mode set.
 	mode := u.Resolved()
-	c.Assert(mode, Equals, params.ResolvedNoHooks)
+	c.Assert(mode, Equals, state.ResolvedNoHooks)
 }
 
 var serviceDeployTests = []struct {
@@ -1428,7 +1432,7 @@ func (s *suite) TestClientWatchAll(c *C) {
 	// all the logic is tested elsewhere.
 	m, err := s.State.AddMachine("series", state.JobManageEnviron)
 	c.Assert(err, IsNil)
-	err = m.SetInstanceId("i-0")
+	err = m.SetProvisioned("i-0", state.BootstrapNonce)
 	c.Assert(err, IsNil)
 	watcher, err := s.APIState.Client().WatchAll()
 	c.Assert(err, IsNil)

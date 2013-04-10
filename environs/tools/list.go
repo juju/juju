@@ -52,11 +52,8 @@ func (src List) collect(f func(*state.Tools) string) []string {
 
 // Newest returns the tools in src with the greatest version.
 func (src List) Newest() List {
-	if len(src) == 0 {
-		return nil
-	}
-	best := src[0].Number
 	var result List
+	var best version.Number
 	for _, tools := range src {
 		if best.Less(tools.Number) {
 			// Found new best number; reset result list.

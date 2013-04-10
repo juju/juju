@@ -342,9 +342,9 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 			return nil, tomb.ErrDying
 		case rm := <-u.f.ResolvedEvents():
 			switch rm {
-			case params.ResolvedRetryHooks:
+			case state.ResolvedRetryHooks:
 				err = u.runHook(*u.s.Hook)
-			case params.ResolvedNoHooks:
+			case state.ResolvedNoHooks:
 				err = u.commitHook(*u.s.Hook)
 			default:
 				return nil, fmt.Errorf("unknown resolved mode %q", rm)
