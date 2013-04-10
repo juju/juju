@@ -1301,7 +1301,7 @@ func (s *suite) TestClientUnitResolved(c *C) {
 	// And now the actual test assertions: we set the unit as resolved via
 	// the API so it should have a resolved mode set.
 	mode := u.Resolved()
-	c.Assert(mode, Equals, params.ResolvedNoHooks)
+	c.Assert(mode, Equals, state.ResolvedNoHooks)
 }
 
 var serviceDeployTests = []struct {
