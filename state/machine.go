@@ -432,7 +432,8 @@ func (m *Machine) SetProvisioned(id InstanceId, nonce string) (err error) {
 	return fmt.Errorf("already set")
 }
 
-// CheckProvisioned returns true if the machine was provisioned.
+// CheckProvisioned returns true if the machine was provisioned with
+// the given nonce.
 func (m *Machine) CheckProvisioned(nonce string) bool {
 	return m.doc.Nonce == nonce && m.doc.InstanceId != ""
 }

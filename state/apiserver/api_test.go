@@ -909,24 +909,33 @@ func (s *suite) TestMachineInstanceId(c *C) {
 }
 
 func (s *suite) TestMachineRefresh(c *C) {
+	// Add a machine and get its instance id (it's empty at first).
 	stm, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	oldId, _ := stm.InstanceId()
+	c.Assert(oldId, Equals, "")
 
+	// Now open the state connection for that machine.
 	setDefaultPassword(c, stm)
 	st := s.openAs(c, stm.Tag())
 	defer st.Close()
 
+	// Get the machine through the API.
 	m, err := st.Machine(stm.Id())
 	c.Assert(err, IsNil)
+	// Set the original machine's instance id and nonce.
 	err = stm.SetProvisioned("foo", "fake_nonce")
 	c.Assert(err, IsNil)
 	newId, _ := stm.InstanceId()
+	c.Assert(newId, Equals, "foo")
 
+	// Get the instance id of the machine through the API,
+	// it should match the oldId, before the refresh.
 	mId, _ := m.InstanceId()
 	c.Assert(state.InstanceId(mId), Equals, oldId)
 	err = m.Refresh()
 	c.Assert(err, IsNil)
+	// Now the instance id should be the new one.
 	mId, _ = m.InstanceId()
 	c.Assert(state.InstanceId(mId), Equals, newId)
 }
