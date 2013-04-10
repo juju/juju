@@ -331,7 +331,7 @@ func (suite *EnvironSuite) TestDestroy(c *C) {
 func (suite *EnvironSuite) TestBootstrapSucceeds(c *C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
-	suite.testMAASObject.TestServer.NewNode(`{"system_id": "thenode"}`)
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "thenode", "hostname": "host"}`)
 	cert := []byte{1, 2, 3}
 	key := []byte{4, 5, 6}
 
@@ -353,7 +353,7 @@ func (suite *EnvironSuite) TestBootstrapFailsIfNoNodes(c *C) {
 func (suite *EnvironSuite) TestBootstrapIntegratesWithEnvirons(c *C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
-	suite.testMAASObject.TestServer.NewNode(`{"system_id": "bootstrapnode"}`)
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "bootstrapnode", "hostname": "host"}`)
 
 	// environs.Bootstrap calls Environ.Bootstrap.  This works.
 	err := environs.Bootstrap(env, constraints.Value{})
