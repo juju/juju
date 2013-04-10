@@ -81,7 +81,17 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 
 	// Set up initial authentication.
-	if _, err := st.AddUser("admin", c.Conf.OldPassword); err != nil {
+	u, err := st.AddUser("admin", "")
+	if err != nil {
+		return err
+	}
+
+	// Note that at bootstrap time, the password is set to
+	// the hash of its actual value. The first time a client
+	// connects to mongo, it changes the mongo password
+	// to the original password.
+
+	if err := u.SetPasswordHash(c.Conf.OldPassword); err != nil {
 		return err
 	}
 	if err := m.SetMongoPassword(c.Conf.OldPassword); err != nil {
