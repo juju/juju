@@ -103,6 +103,8 @@ func (c *SetEnvironmentCommand) Init(args []string) (err error) {
 	if len(args) == 0 {
 		return fmt.Errorf("No key, value pairs specified")
 	}
+	// TODO(thumper) look to have a common library of functions for dealing
+	// with key=value pairs.
 	c.values = make(attributes)
 	for i, arg := range args {
 		bits := strings.SplitN(arg, "=", 2)
@@ -128,21 +130,21 @@ func (c *SetEnvironmentCommand) Run(ctx *cmd.Context) error {
 	// Here is the magic around setting the attributes:
 
 	// Get the existing environment config from the state.
-	stateConfig, err := conn.State.EnvironConfig()
+	oldConfig, err := conn.State.EnvironConfig()
 	if err != nil {
 		return err
 	}
 	// Apply the attributes specified for the command to the state config.
-	newConfig, err := stateConfig.Apply(c.values)
+	newConfig, err := oldConfig.Apply(c.values)
 	if err != nil {
 		return err
 	}
 	// Now validate this new config against the existing config via the provider.
 	provider := conn.Environ.Provider()
-	newProviderConfig, err := provider.Validate(newConfig, stateConfig)
+	newProviderConfig, err := provider.Validate(newConfig, oldConfig)
 	if err != nil {
 		return err
 	}
-	// Now try to apply the new validate config.
+	// Now try to apply the new validated config.
 	return conn.State.SetEnvironConfig(newProviderConfig)
 }
