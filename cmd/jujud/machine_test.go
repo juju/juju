@@ -337,7 +337,7 @@ func opRecvTimeout(c *C, st *state.State, opc <-chan dummy.Operation, kinds ...d
 				}
 			}
 			c.Logf("discarding unknown event %#v", op)
-		case <-time.After(10 * time.Second):
+		case <-time.After(15 * time.Second):
 			c.Fatalf("time out wating for operation")
 		}
 	}
