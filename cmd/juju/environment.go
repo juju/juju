@@ -40,7 +40,6 @@ func (c *GetEnvironmentCommand) Info() *cmd.Info {
 func (c *GetEnvironmentCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
-	// TODO(thumper) --private to also include private.
 }
 
 func (c *GetEnvironmentCommand) Init(args []string) (err error) {
@@ -72,5 +71,5 @@ func (c *GetEnvironmentCommand) Run(ctx *cmd.Context) error {
 		return c.out.Write(ctx, value)
 	}
 
-	return fmt.Errorf("Environment key %q not found in %q environment.", c.key, config.Name())
+	return fmt.Errorf("Key %q not found in %q environment.", c.key, config.Name())
 }
