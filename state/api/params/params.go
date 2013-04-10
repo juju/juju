@@ -63,9 +63,10 @@ type ServiceGet struct {
 
 // ServiceGetResults holds results of the ServiceGet call.
 type ServiceGetResults struct {
-	Service  string
-	Charm    string
-	Settings map[string]interface{}
+	Service     string
+	Charm       string
+	Config      map[string]interface{}
+	Constraints constraints.Value
 }
 
 // ServiceUnexpose holds parameters for the ServiceUnexpose call.

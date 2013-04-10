@@ -6,6 +6,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
@@ -473,4 +474,51 @@ func (s *DeployLocalSuite) TestDeploy(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(mcons, DeepEquals, cons)
 	}
+}
+
+type InitJujuHomeSuite struct {
+	originalHome     string
+	originalJujuHome string
+}
+
+var _ = Suite(&InitJujuHomeSuite{})
+
+func (s *InitJujuHomeSuite) SetUpTest(c *C) {
+	s.originalHome = os.Getenv("HOME")
+	s.originalJujuHome = os.Getenv("JUJU_HOME")
+}
+
+func (s *InitJujuHomeSuite) TearDownTest(c *C) {
+	os.Setenv("HOME", s.originalHome)
+	os.Setenv("JUJU_HOME", s.originalJujuHome)
+}
+
+func (s *InitJujuHomeSuite) TestJujuHome(c *C) {
+	os.Setenv("JUJU_HOME", "/my/juju/home")
+	err := juju.InitJujuHome()
+	c.Assert(err, IsNil)
+	c.Assert(config.JujuHome(), Equals, "/my/juju/home")
+}
+
+func (s *InitJujuHomeSuite) TestHome(c *C) {
+	os.Setenv("JUJU_HOME", "")
+	os.Setenv("HOME", "/my/home/")
+	err := juju.InitJujuHome()
+	c.Assert(err, IsNil)
+	c.Assert(config.JujuHome(), Equals, "/my/home/.juju")
+}
+
+func (s *InitJujuHomeSuite) TestError(c *C) {
+	os.Setenv("JUJU_HOME", "")
+	os.Setenv("HOME", "")
+	err := juju.InitJujuHome()
+	c.Assert(err, ErrorMatches, "cannot determine juju home.*")
+}
+
+func (s *InitJujuHomeSuite) TestCacheDir(c *C) {
+	os.Setenv("JUJU_HOME", "/foo/bar")
+	c.Assert(charm.CacheDir, Equals, "")
+	err := juju.InitJujuHome()
+	c.Assert(err, IsNil)
+	c.Assert(charm.CacheDir, Equals, "/foo/bar/charmcache")
 }

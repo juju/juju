@@ -241,7 +241,15 @@ func (s *MachineSuite) TestMachineSetCheckProvisioned(c *C) {
 	// Check before provisioning.
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), Equals, false)
 
-	err := s.machine.SetProvisioned("umbrella/0", "fake_nonce")
+	// Either one should not be empty.
+	err := s.machine.SetProvisioned("umbrella/0", "")
+	c.Assert(err, ErrorMatches, `cannot set instance id of machine "0": instance id and nonce cannot be empty`)
+	err = s.machine.SetProvisioned("", "fake_nonce")
+	c.Assert(err, ErrorMatches, `cannot set instance id of machine "0": instance id and nonce cannot be empty`)
+	err = s.machine.SetProvisioned("", "")
+	c.Assert(err, ErrorMatches, `cannot set instance id of machine "0": instance id and nonce cannot be empty`)
+
+	err = s.machine.SetProvisioned("umbrella/0", "fake_nonce")
 	c.Assert(err, IsNil)
 
 	m, err := s.State.Machine(s.machine.Id())

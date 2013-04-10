@@ -404,34 +404,36 @@ func (m *Machine) Units() (units []*Unit, err error) {
 
 // SetProvisioned sets the provider specific machine id and nonce for
 // this machine. Once set, the instance id cannot be changed.
-func (m *Machine) SetProvisioned(id InstanceId, nonce string) error {
-	sameIdOrEmpty := D{{"$or", []D{
-		{{"instanceid", id}},
-		{{"instanceid", ""}},
-	}}}
+func (m *Machine) SetProvisioned(id InstanceId, nonce string) (err error) {
+	defer trivial.ErrorContextf(&err, "cannot set instance id of machine %q", m)
+
+	if id == "" || nonce == "" {
+		return fmt.Errorf("instance id and nonce cannot be empty")
+	}
+	notSetYet := D{{"instanceid", ""}, {"nonce", ""}}
 	ops := []txn.Op{{
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
-		Assert: append(isAliveDoc, sameIdOrEmpty...),
+		Assert: append(isAliveDoc, notSetYet...),
 		Update: D{{"$set", D{{"instanceid", id}, {"nonce", nonce}}}},
 	}}
-	errMsg := "cannot set instance id of machine %q: %v"
-	if err := m.st.runner.Run(ops, "", nil); err == nil {
+
+	if err = m.st.runner.Run(ops, "", nil); err == nil {
 		m.doc.InstanceId = id
 		m.doc.Nonce = nonce
 		return nil
 	} else if err != txn.ErrAborted {
-		return fmt.Errorf(errMsg, m, err)
+		return err
 	} else if alive, err := isAlive(m.st.machines, m.doc.Id); err != nil {
-		return fmt.Errorf(errMsg, m, err)
+		return err
 	} else if !alive {
-		return fmt.Errorf(errMsg, m, errNotAlive)
+		return errNotAlive
 	}
-	return fmt.Errorf(errMsg, m, "already set")
+	return fmt.Errorf("already set")
 }
 
-// CheckProvisioned returns true, if the machine was provisioned with
-// an instance id and the given nonce.
+// CheckProvisioned returns true if the machine was provisioned with
+// the given nonce.
 func (m *Machine) CheckProvisioned(nonce string) bool {
 	return m.doc.Nonce == nonce && m.doc.InstanceId != ""
 }

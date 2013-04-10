@@ -36,6 +36,7 @@ type configTest struct {
 	summary       string
 	config        attrs
 	change        attrs
+	envVars       map[string]string
 	region        string
 	controlBucket string
 	publicBucket  string
@@ -53,6 +54,12 @@ type configTest struct {
 }
 
 type attrs map[string]interface{}
+
+func restoreEnvVars(envVars map[string]string) {
+	for k, v := range envVars {
+		os.Setenv(k, v)
+	}
+}
 
 func (t configTest) check(c *C) {
 	envs := attrs{
@@ -75,6 +82,16 @@ func (t configTest) check(c *C) {
 
 	es, err := environs.ReadEnvironsBytes(data)
 	c.Check(err, IsNil)
+
+	// Set environment variables if any.
+	savedVars := make(map[string]string)
+	if t.envVars != nil {
+		for k, v := range t.envVars {
+			savedVars[k] = os.Getenv(k)
+			os.Setenv(k, v)
+		}
+	}
+	defer restoreEnvVars(savedVars)
 
 	e, err := es.Open("testenv")
 	if t.change != nil {
@@ -104,6 +121,9 @@ func (t configTest) check(c *C) {
 	c.Assert(ecfg.controlBucket(), Equals, "x")
 	if t.region != "" {
 		c.Assert(ecfg.region(), Equals, t.region)
+	}
+	if t.authMode != "" {
+		c.Assert(ecfg.authMode(), Equals, t.authMode)
 	}
 	if t.username != "" {
 		c.Assert(ecfg.username(), Equals, t.username)
@@ -181,11 +201,25 @@ var configTests = []configTest{
 		},
 		err: ".*expected string, got 666",
 	}, {
+		summary: "missing region in environment",
+		envVars: map[string]string{
+			"OS_REGION_NAME": "",
+			"NOVA_REGION":    "",
+		},
+		err: "required environment variable not set for credentials attribute: Region",
+	}, {
 		summary: "invalid username",
 		config: attrs{
 			"username": 666,
 		},
 		err: ".*expected string, got 666",
+	}, {
+		summary: "missing username in environment",
+		err:     "required environment variable not set for credentials attribute: User",
+		envVars: map[string]string{
+			"OS_USERNAME":   "",
+			"NOVA_USERNAME": "",
+		},
 	}, {
 		summary: "invalid password",
 		config: attrs{
@@ -193,17 +227,37 @@ var configTests = []configTest{
 		},
 		err: ".*expected string, got 666",
 	}, {
+		summary: "missing password in environment",
+		err:     "required environment variable not set for credentials attribute: Secrets",
+		envVars: map[string]string{
+			"OS_PASSWORD":   "",
+			"NOVA_PASSWORD": "",
+		},
+	}, {
 		summary: "invalid tenant-name",
 		config: attrs{
 			"tenant-name": 666,
 		},
 		err: ".*expected string, got 666",
 	}, {
+		summary: "missing tenant in environment",
+		err:     "required environment variable not set for credentials attribute: TenantName",
+		envVars: map[string]string{
+			"OS_TENANT_NAME":  "",
+			"NOVA_PROJECT_ID": "",
+		},
+	}, {
 		summary: "invalid auth-url type",
 		config: attrs{
 			"auth-url": 666,
 		},
 		err: ".*expected string, got 666",
+	}, {
+		summary: "missing auth-url in environment",
+		err:     "required environment variable not set for credentials attribute: URL",
+		envVars: map[string]string{
+			"OS_AUTH_URL": "",
+		},
 	}, {
 		summary: "invalid authorization mode",
 		config: attrs{
@@ -241,7 +295,24 @@ var configTests = []configTest{
 		password:   "open sesame",
 		tenantName: "juju tenant",
 		authURL:    "http://some/url",
-		authMode:   "legacy",
+		authMode:   string(AuthLegacy),
+	}, {
+		summary: "valid auth args in environment",
+		envVars: map[string]string{
+			"OS_USERNAME":    "jujuer",
+			"OS_PASSWORD":    "open sesame",
+			"OS_AUTH_URL":    "http://some/url",
+			"OS_TENANT_NAME": "juju tenant",
+			"OS_REGION_NAME": "region",
+		},
+		username:   "jujuer",
+		password:   "open sesame",
+		tenantName: "juju tenant",
+		authURL:    "http://some/url",
+		region:     "region",
+	}, {
+		summary:  "default auth mode based on environment",
+		authMode: string(AuthUserPass),
 	}, {
 		summary: "image id",
 		config: attrs{
@@ -323,96 +394,4 @@ func (s *ConfigSuite) setupEnvCredentials() {
 	os.Setenv("OS_AUTH_URL", "http://auth")
 	os.Setenv("OS_TENANT_NAME", "sometenant")
 	os.Setenv("OS_REGION_NAME", "region")
-}
-
-var regionTestConfig = configTests[0]
-var credentialsTestConfig = configTests[12]
-
-func (s *ConfigSuite) TestMissingRegion(c *C) {
-	s.setupEnvCredentials()
-	os.Setenv("OS_REGION_NAME", "")
-	os.Setenv("NOVA_REGION", "")
-	test := credentialsTestConfig
-	test.err = "required environment variable not set for credentials attribute: Region"
-	test.check(c)
-}
-
-func (s *ConfigSuite) TestMissingUsername(c *C) {
-	s.setupEnvCredentials()
-	os.Setenv("OS_USERNAME", "")
-	os.Setenv("NOVA_USERNAME", "")
-	test := regionTestConfig
-	test.err = "required environment variable not set for credentials attribute: User"
-	test.check(c)
-}
-
-func (s *ConfigSuite) TestMissingPassword(c *C) {
-	s.setupEnvCredentials()
-	os.Setenv("OS_PASSWORD", "")
-	os.Setenv("NOVA_PASSWORD", "")
-	test := regionTestConfig
-	test.err = "required environment variable not set for credentials attribute: Secrets"
-	test.check(c)
-}
-func (s *ConfigSuite) TestMissingTenant(c *C) {
-	s.setupEnvCredentials()
-	os.Setenv("OS_TENANT_NAME", "")
-	os.Setenv("NOVA_PROJECT_ID", "")
-	test := regionTestConfig
-	test.err = "required environment variable not set for credentials attribute: TenantName"
-	test.check(c)
-}
-
-func (s *ConfigSuite) TestMissingAuthUrl(c *C) {
-	s.setupEnvCredentials()
-	os.Setenv("OS_AUTH_URL", "")
-	test := regionTestConfig
-	test.err = "required environment variable not set for credentials attribute: URL"
-	test.check(c)
-}
-
-func (s *ConfigSuite) TestCredentialsFromEnv(c *C) {
-	// Specify a basic configuration without credentials.
-	envs := attrs{
-		"environments": attrs{
-			"testenv": attrs{
-				"type":            "openstack",
-				"authorized-keys": "fakekey",
-			},
-		},
-	}
-	data, err := goyaml.Marshal(envs)
-	c.Assert(err, IsNil)
-	// Poke the credentials into the environment.
-	s.setupEnvCredentials()
-	es, err := environs.ReadEnvironsBytes(data)
-	c.Check(err, IsNil)
-	e, err := es.Open("testenv")
-	ecfg := e.(*environ).ecfg()
-	// The credentials below come from environment variables set during test setup.
-	c.Assert(ecfg.username(), Equals, "user")
-	c.Assert(ecfg.password(), Equals, "secret")
-	c.Assert(ecfg.authURL(), Equals, "http://auth")
-	c.Assert(ecfg.region(), Equals, "region")
-	c.Assert(ecfg.tenantName(), Equals, "sometenant")
-}
-
-func (s *ConfigSuite) TestDefaultAuthorisationMode(c *C) {
-	// Specify a basic configuration without authorization mode.
-	envs := attrs{
-		"environments": attrs{
-			"testenv": attrs{
-				"type":            "openstack",
-				"authorized-keys": "fakekey",
-			},
-		},
-	}
-	data, err := goyaml.Marshal(envs)
-	c.Assert(err, IsNil)
-	s.setupEnvCredentials()
-	es, err := environs.ReadEnvironsBytes(data)
-	c.Check(err, IsNil)
-	e, err := es.Open("testenv")
-	ecfg := e.(*environ).ecfg()
-	c.Assert(ecfg.authMode(), Equals, string(AuthUserPass))
 }

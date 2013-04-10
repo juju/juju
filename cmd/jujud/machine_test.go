@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/dummy"
@@ -10,18 +11,28 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
+	"path/filepath"
 	"reflect"
 	"time"
 )
 
 type MachineSuite struct {
 	agentSuite
+	oldCacheDir string
 }
 
 var _ = Suite(&MachineSuite{})
 
-// primeAgent adds a new Machine to run the given jobs, and sets up
-// the machine agent's directory.  It returns the new machine, the
+func (s *MachineSuite) SetUpSuite(c *C) {
+	s.oldCacheDir = charm.CacheDir
+}
+
+func (s *MachineSuite) TearDownSuite(c *C) {
+	charm.CacheDir = s.oldCacheDir
+}
+
+// primeAgent adds a new Machine to run the given jobs, and sets up the
+// machine agent's directory.  It returns the new machine, the
 // agent's configuration and the tools currently running.
 func (s *MachineSuite) primeAgent(c *C, jobs ...state.MachineJob) (*state.Machine, *agent.Conf, *state.Tools) {
 	m, err := s.State.InjectMachine("series", "ardbeg-0", jobs...)
@@ -75,7 +86,7 @@ func (s *MachineSuite) TestRunInvalidMachineId(c *C) {
 }
 
 func (s *MachineSuite) TestRunStop(c *C) {
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
+	m, ac, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	done := make(chan error)
 	go func() {
@@ -84,6 +95,7 @@ func (s *MachineSuite) TestRunStop(c *C) {
 	err := a.Stop()
 	c.Assert(err, IsNil)
 	c.Assert(<-done, IsNil)
+	c.Assert(charm.CacheDir, Equals, filepath.Join(ac.DataDir, "charmcache"))
 }
 
 func (s *MachineSuite) TestWithDeadMachine(c *C) {

@@ -18,6 +18,7 @@ import (
 // Provisioner represents a running provisioning worker.
 type Provisioner struct {
 	st        *state.State
+	machineId string // Which machine runs the provisioner.
 	stateInfo *state.Info
 	apiInfo   *api.Info
 	environ   environs.Environ
@@ -48,9 +49,10 @@ func (o *configObserver) notify(cfg *config.Config) {
 // NewProvisioner returns a new Provisioner. When new machines
 // are added to the state, it allocates instances from the environment
 // and allocates them to the new machines.
-func NewProvisioner(st *state.State) *Provisioner {
+func NewProvisioner(st *state.State, machineId string) *Provisioner {
 	p := &Provisioner{
 		st:        st,
+		machineId: machineId,
 		instances: make(map[string]environs.Instance),
 		machines:  make(map[state.InstanceId]string),
 	}
@@ -275,7 +277,7 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 	if err != nil {
 		return err
 	}
-	uniqueNonce := uuid.String()
+	uniqueNonce := fmt.Sprintf("%s:%s", state.MachineTag(p.machineId), uuid.String())
 	inst, err := p.environ.StartInstance(m.Id(), uniqueNonce, m.Series(), cons, stateInfo, apiInfo)
 	if err != nil {
 		// Set the state to error, so the machine will be skipped next
@@ -294,6 +296,8 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 		// state. It'll keep running while we fail out and restart,
 		// but will then be detected by findUnknownInstances and
 		// killed again.
+		//
+		// TODO(dimitern) Stop the instance right away here.
 		//
 		// Multiple instantiations of a given machine (with the same
 		// machine ID) cannot coexist, because findUnknownInstances is
