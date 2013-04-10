@@ -517,16 +517,17 @@ func (*maasEnviron) AssignmentPolicy() state.AssignmentPolicy {
 	return state.AssignUnused
 }
 
+// MAAS does not do firewalling so these port methods do nothing.
 func (*maasEnviron) OpenPorts([]params.Port) error {
-	panic("Not implemented.")
+	return nil
 }
 
 func (*maasEnviron) ClosePorts([]params.Port) error {
-	panic("Not implemented.")
+	return nil
 }
 
 func (*maasEnviron) Ports() ([]params.Port, error) {
-	panic("Not implemented.")
+	return []params.Port{}, nil
 }
 
 func (*maasEnviron) Provider() environs.EnvironProvider {

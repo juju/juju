@@ -45,14 +45,15 @@ func (instance *maasInstance) WaitDNSName() (string, error) {
 	return instance.DNSName()
 }
 
+// MAAS does not do firewalling so these port methods do nothing.
 func (instance *maasInstance) OpenPorts(machineId string, ports []params.Port) error {
-	panic("Not implemented.")
+	return nil
 }
 
 func (instance *maasInstance) ClosePorts(machineId string, ports []params.Port) error {
-	panic("Not implemented.")
+	return nil
 }
 
 func (instance *maasInstance) Ports(machineId string) ([]params.Port, error) {
-	panic("Not implemented.")
+	return []params.Port{}, nil
 }
