@@ -106,3 +106,20 @@ func (s *CmdSuite) TestCheckEmpty(c *C) {
 	c.Assert(cmd.CheckEmpty(nil), IsNil)
 	c.Assert(cmd.CheckEmpty([]string{"boo!"}), ErrorMatches, `unrecognized args: \["boo!"\]`)
 }
+
+func (s *CmdSuite) TestZeroOrOneArgs(c *C) {
+
+	expectValue := func(args []string, expected string) {
+		arg, err := cmd.ZeroOrOneArgs(args)
+		c.Assert(arg, Equals, expected)
+		c.Assert(err, IsNil)
+	}
+
+	expectValue(nil, "")
+	expectValue([]string{}, "")
+	expectValue([]string{"foo"}, "foo")
+
+	arg, err := cmd.ZeroOrOneArgs([]string{"foo", "bar"})
+	c.Assert(arg, Equals, "")
+	c.Assert(err, ErrorMatches, `unrecognized args: \["bar"\]`)
+}
