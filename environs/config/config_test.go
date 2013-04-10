@@ -539,6 +539,8 @@ func (*ConfigSuite) TestConfigAttrs(c *C) {
 	attrs["development"] = false
 	attrs["agent-version"] = version.CurrentNumber().String()
 	attrs["default-series"] = config.DefaultSeries
+	// Default firewall mode is instance
+	attrs["firewall-mode"] = string(config.FwInstance)
 	c.Assert(cfg.AllAttrs(), DeepEquals, attrs)
 	c.Assert(cfg.UnknownAttrs(), DeepEquals, map[string]interface{}{"unknown": "my-unknown"})
 

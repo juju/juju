@@ -104,6 +104,11 @@ func New(attrs map[string]interface{}) (*Config, error) {
 		return nil, err
 	}
 
+	// Default firewall mode is instance.
+	if c.FirewallMode() == FwDefault {
+		c.m["firewall-mode"] = string(FwInstance)
+	}
+
 	// Copy unknown attributes onto the type-specific map.
 	for k, v := range attrs {
 		if _, ok := fields[k]; !ok {
