@@ -296,6 +296,7 @@ var statusTests = []testCase{
 
 		addMachine{"3", state.JobHostUnits},
 		startMachine{"3"},
+		// status for machine 3 not set; defaults to pending.
 		addMachine{"4", state.JobHostUnits},
 		startAliveMachine{"4"},
 		setMachineStatus{"4", params.MachineError, "Beware the red toys"},
