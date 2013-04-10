@@ -44,7 +44,7 @@ func (c *GetEnvironmentCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *GetEnvironmentCommand) Init(args []string) (err error) {
-	c.key, err = c.ZeroOrOneArgs(args)
+	c.key, err = cmd.ZeroOrOneArgs(args)
 	return
 }
 
