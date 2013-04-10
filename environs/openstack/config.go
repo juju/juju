@@ -15,6 +15,8 @@ var configChecker = schema.StrictFieldMap(
 		"tenant-name":           schema.String(),
 		"auth-url":              schema.String(),
 		"auth-mode":             schema.String(),
+		"access-key":            schema.String(),
+		"secret-key":            schema.String(),
 		"region":                schema.String(),
 		"control-bucket":        schema.String(),
 		"public-bucket":         schema.String(),
@@ -29,6 +31,8 @@ var configChecker = schema.StrictFieldMap(
 		"tenant-name":           "",
 		"auth-url":              "",
 		"auth-mode":             string(AuthUserPass),
+		"access-key":            "",
+		"secret-key":            "",
 		"region":                "",
 		"control-bucket":        "",
 		"public-bucket":         "juju-dist",
@@ -68,6 +72,14 @@ func (c *environConfig) authMode() string {
 	return c.attrs["auth-mode"].(string)
 }
 
+func (c *environConfig) accessKey() string {
+	return c.attrs["access-key"].(string)
+}
+
+func (c *environConfig) secretKey() string {
+	return c.attrs["secret-key"].(string)
+}
+
 func (c *environConfig) controlBucket() string {
 	return c.attrs["control-bucket"].(string)
 }
@@ -103,6 +115,7 @@ func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
 type AuthMode string
 
 const (
+	AuthKeyPair  AuthMode = "keypair"
 	AuthLegacy   AuthMode = "legacy"
 	AuthUserPass AuthMode = "userpass"
 )
@@ -116,6 +129,7 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 
 	authMode := ecfg.authMode()
 	switch AuthMode(authMode) {
+	case AuthKeyPair:
 	case AuthLegacy:
 	case AuthUserPass:
 	default:

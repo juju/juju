@@ -49,6 +49,8 @@ type configTest struct {
 	tenantName    string
 	authMode      string
 	authURL       string
+	accessKey     string
+	secretKey     string
 	firewallMode  config.FirewallMode
 	err           string
 }
@@ -124,6 +126,12 @@ func (t configTest) check(c *C) {
 	}
 	if t.authMode != "" {
 		c.Assert(ecfg.authMode(), Equals, t.authMode)
+	}
+	if t.accessKey != "" {
+		c.Assert(ecfg.accessKey(), Equals, t.accessKey)
+	}
+	if t.secretKey != "" {
+		c.Assert(ecfg.secretKey(), Equals, t.secretKey)
 	}
 	if t.username != "" {
 		c.Assert(ecfg.username(), Equals, t.username)
@@ -264,6 +272,16 @@ var configTests = []configTest{
 			"auth-mode": "invalid-mode",
 		},
 		err: ".*invalid authorization mode.*",
+	}, {
+		summary: "keypair authorization mode",
+		config: attrs{
+			"auth-mode": "keypair",
+			"access-key": "MyAccessKey",
+			"secret-key": "MySecretKey",
+		},
+		authMode: "keypair",
+		accessKey: "MyAccessKey",
+		secretKey: "MySecretKey",
 	}, {
 		summary: "invalid auth-url format",
 		config: attrs{
