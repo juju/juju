@@ -5,7 +5,6 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
-	"os"
 )
 
 type EnvironProviderSuite struct {
@@ -35,10 +34,10 @@ func (suite *EnvironProviderSuite) TestSecretAttrsReturnsSensitiveMAASAttributes
 	c.Check(secretAttrs, DeepEquals, expectedAttrs)
 }
 
-// create a temporary file with the given content.  The caller is responsible
-// for cleaning up the file.
+// create a temporary file with the given content.  The file will be cleaned
+// up at the end of the test calling this method.
 func createTempFile(c *C, content []byte) string {
-	file, err := ioutil.TempFile("", "")
+	file, err := ioutil.TempFile(c.MkDir(), "")
 	c.Assert(err, IsNil)
 	filename := file.Name()
 	err = ioutil.WriteFile(filename, content, 0644)
@@ -56,7 +55,6 @@ func (suite *EnvironProviderSuite) TestInstanceIdReadsInstanceIdFromMachineFile(
 	// Create a temporary file to act as the file where the instanceID
 	// is stored.
 	filename := createTempFile(c, yaml)
-	defer os.Remove(filename)
 	// "Monkey patch" the value of _MAASInstanceFilename with the path
 	// to the temporary file.
 	old_MAASInstanceFilename := _MAASInstanceFilename
@@ -79,7 +77,6 @@ func (suite *EnvironProviderSuite) TestPrivatePublicAddressReadsHostnameFromMach
 	// Create a temporary file to act as the file where the instanceID
 	// is stored.
 	filename := createTempFile(c, yaml)
-	defer os.Remove(filename)
 	// "Monkey patch" the value of _MAASInstanceFilename with the path
 	// to the temporary file.
 	old_MAASInstanceFilename := _MAASInstanceFilename
