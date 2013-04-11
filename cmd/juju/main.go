@@ -7,15 +7,6 @@ import (
 	"os"
 )
 
-// When we import an environment provider implementation
-// here, it will register itself with environs, and hence
-// be available to the juju command.
-import (
-	_ "launchpad.net/juju-core/environs/ec2"
-	_ "launchpad.net/juju-core/environs/maas"
-	_ "launchpad.net/juju-core/environs/openstack"
-)
-
 var jujuDoc = `
 juju provides easy, intelligent service orchestration on top of environments
 such as OpenStack, Amazon AWS, or bare metal.
