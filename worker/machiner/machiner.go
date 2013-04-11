@@ -56,8 +56,9 @@ func (mr *Machiner) loop() error {
 	if err != nil {
 		return err
 	}
-	log.Debugf("worker/machiner: agent for machine %q is now alive", m)
 	defer watcher.Stop(pinger, &mr.tomb)
+	mr.st.StartSync()
+	log.Debugf("worker/machiner: agent for machine %q is now alive", m)
 
 	// Mark the machine as started and log it.
 	if err := m.SetStatus(params.MachineStarted, ""); err != nil {
