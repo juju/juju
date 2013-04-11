@@ -64,16 +64,11 @@ type machineInfo struct {
 
 var _MAASInstanceFilename = jujuDataDir + "/MAASmachine.txt"
 
-// serializeYAML serializes the info into YAML format.
-func (info *machineInfo) serializeYAML() ([]byte, error) {
-	return goyaml.Marshal(info)
-}
-
 // cloudinitRunCmd returns the shell command that, when run, will create the
 // "machine info" file containing the instanceId and the hostname of a machine.
 // That command is destined to be used by cloudinit.
 func (info *machineInfo) cloudinitRunCmd() (string, error) {
-	yaml, err := info.serializeYAML()
+	yaml, err := goyaml.Marshal(info)
 	if err != nil {
 		return "", err
 	}

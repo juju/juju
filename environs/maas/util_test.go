@@ -94,18 +94,6 @@ func (s *UtilSuite) TestUserData(c *C) {
 	c.Check(runCmd[1], Equals, script2)
 }
 
-func (s *UtilSuite) TestMachineInfoserializeYAML(c *C) {
-	instanceId := "instanceId"
-	hostname := "hostname"
-	info := machineInfo{instanceId, hostname}
-
-	yaml, err := info.serializeYAML()
-
-	c.Assert(err, IsNil)
-	expected := "instanceid: instanceId\nhostname: hostname\n"
-	c.Check(string(yaml), Equals, expected)
-}
-
 func (s *UtilSuite) TestMachineInfoCloudinitRunCmd(c *C) {
 	instanceId := "instanceId"
 	hostname := "hostname"
@@ -118,7 +106,7 @@ func (s *UtilSuite) TestMachineInfoCloudinitRunCmd(c *C) {
 	script, err := info.cloudinitRunCmd()
 
 	c.Assert(err, IsNil)
-	yaml, err := info.serializeYAML()
+	yaml, err := goyaml.Marshal(info)
 	c.Assert(err, IsNil)
 	expected := fmt.Sprintf("mkdir -p '%s'; echo -n '%s' > '%s'", jujuDataDir, yaml, filename)
 	c.Check(script, Equals, expected)
