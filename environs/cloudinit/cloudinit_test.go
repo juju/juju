@@ -255,9 +255,9 @@ func (*cloudinitSuite) TestCloudInit(c *C) {
 		checkPackage(c, x, "git", true)
 		if test.cfg.StateServer {
 			checkPackage(c, x, "mongodb-server", true)
-			source := struct{ Source, Key string }{
-				Source: "ppa:juju/experimental",
-				Key:    "1024R/C8068B11",
+			source := struct{ source, key string }{
+				source: "ppa:juju/experimental",
+				key:    "1024R/C8068B11",
 			}
 			checkAptSource(c, x, source, test.cfg.NeedMongoPPA())
 		}
@@ -321,7 +321,7 @@ func checkPackage(c *C, x map[interface{}]interface{}, pkg string, match bool) {
 
 // CheckAptSources checks that the cloudinit will or won't install the given
 // source, depending on the value of match.
-func checkAptSource(c *C, x map[interface{}]interface{}, source struct{ Source, Key string }, match bool) {
+func checkAptSource(c *C, x map[interface{}]interface{}, source struct{ source, key string }, match bool) {
 	sources0 := x["apt_sources"]
 	if sources0 == nil {
 		if match {
@@ -335,7 +335,7 @@ func checkAptSource(c *C, x map[interface{}]interface{}, source struct{ Source, 
 	found := false
 	for _, s0 := range sources {
 		s := s0.(map[interface{}]interface{})
-		if s["source"] == source.Source && s["key"] == source.Key {
+		if s["source"] == source.source && s["key"] == source.key {
 			found = true
 		}
 	}
