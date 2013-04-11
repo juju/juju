@@ -148,20 +148,23 @@ func processMachine(machine *state.Machine, instance environs.Instance) (map[str
 	if err != nil {
 		return nil, err
 	}
-	r["agent-state"] = "running"
-	if !agentAlive && !machineDead {
-		// Agent should be running but it's not.
-		r["agent-state"] = "down"
-	} else if !agentAlive || status == params.MachineError {
-		// Either the provisioning failed, or the agent is still starting.
-		r["agent-state"] = "not-started"
-	}
 
-	r["instance-state"] = status
+	if status != params.MachinePending {
+		if !agentAlive && !machineDead {
+			// Add the original status to the info, so it's not lost.
+			if info != "" {
+				info = fmt.Sprintf("%s: %s", status, info)
+			} else {
+				info = string(status)
+			}
+			// Agent should be running but it's not.
+			status = params.MachineDown
+		}
+	}
+	r["agent-state"] = status
 	if info != "" {
-		r["instance-state-info"] = info
+		r["agent-state-info"] = info
 	}
-
 	return r, nil
 }
 
@@ -232,12 +235,18 @@ func processUnit(unit *state.Unit) (map[string]interface{}, error) {
 	}
 	if status != params.UnitPending {
 		if !agentAlive && !unitDead {
+			// Add the original status to the info, so it's not lost.
+			if info != "" {
+				info = fmt.Sprintf("%s: %s", status, info)
+			} else {
+				info = string(status)
+			}
 			// Agent should be running but it's not.
 			status = params.UnitDown
 		}
 	}
 	r["agent-state"] = status
-	if len(info) > 0 {
+	if info != "" {
 		r["agent-state-info"] = info
 	}
 	return r, nil

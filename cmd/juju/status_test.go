@@ -83,22 +83,19 @@ func (ctx *context) run(c *C, steps []stepper) {
 // shortcuts for expected output.
 var (
 	machine0 = M{
-		"agent-state":    "running",
-		"instance-state": "started",
-		"dns-name":       "dummyenv-0.dns",
-		"instance-id":    "dummyenv-0",
+		"agent-state": "started",
+		"dns-name":    "dummyenv-0.dns",
+		"instance-id": "dummyenv-0",
 	}
 	machine1 = M{
-		"agent-state":    "running",
-		"instance-state": "started",
-		"dns-name":       "dummyenv-1.dns",
-		"instance-id":    "dummyenv-1",
+		"agent-state": "started",
+		"dns-name":    "dummyenv-1.dns",
+		"instance-id": "dummyenv-1",
 	}
 	machine2 = M{
-		"agent-state":    "running",
-		"instance-state": "started",
-		"dns-name":       "dummyenv-2.dns",
-		"instance-id":    "dummyenv-2",
+		"agent-state": "started",
+		"dns-name":    "dummyenv-2.dns",
+		"instance-id": "dummyenv-2",
 	}
 	unexposedService = M{
 		"charm":   "local:series/dummy-1",
@@ -155,10 +152,9 @@ var statusTests = []testCase{
 			M{
 				"machines": M{
 					"0": M{
-						"agent-state":    "running",
-						"instance-state": "pending",
-						"dns-name":       "dummyenv-0.dns",
-						"instance-id":    "dummyenv-0",
+						"agent-state": "pending",
+						"dns-name":    "dummyenv-0.dns",
+						"instance-id": "dummyenv-0",
 					},
 				},
 				"services": M{},
@@ -189,11 +185,10 @@ var statusTests = []testCase{
 			M{
 				"machines": M{
 					"0": M{
-						"dns-name":       "dummyenv-0.dns",
-						"instance-id":    "dummyenv-0",
-						"agent-version":  "1.2.3",
-						"agent-state":    "running",
-						"instance-state": "started",
+						"dns-name":      "dummyenv-0.dns",
+						"instance-id":   "dummyenv-0",
+						"agent-version": "1.2.3",
+						"agent-state":   "started",
 					},
 				},
 				"services": M{},
@@ -258,7 +253,7 @@ var statusTests = []testCase{
 		addUnit{"dummy-service", "1"},
 		addAliveUnit{"exposed-service", "2"},
 		setUnitStatus{"exposed-service/0", params.UnitError, "You Require More Vespene Gas"},
-		// This will be ignored, because the unit is down.
+		// Simulate some status with no info, while the agent is down.
 		setUnitStatus{"dummy-service/0", params.UnitStarted, ""},
 		expect{
 			"add two units, one alive (in error state), one down",
@@ -287,6 +282,7 @@ var statusTests = []testCase{
 							"dummy-service/0": M{
 								"machine":     "1",
 								"agent-state": "down",
+							"agent-state-info": "started",
 							},
 						},
 					},
@@ -296,7 +292,8 @@ var statusTests = []testCase{
 
 		addMachine{"3", state.JobHostUnits},
 		startMachine{"3"},
-		// status for machine 3 not set; defaults to pending.
+		// Simulate some status with info, while the agent is down.
+		setMachineStatus{"3", params.MachineStopped, "Really?"},
 		addMachine{"4", state.JobHostUnits},
 		startAliveMachine{"4"},
 		setMachineStatus{"4", params.MachineError, "Beware the red toys"},
@@ -308,17 +305,16 @@ var statusTests = []testCase{
 					"1": machine1,
 					"2": machine2,
 					"3": M{
-						"dns-name":       "dummyenv-3.dns",
-						"instance-id":    "dummyenv-3",
-						"agent-state":    "down",
-						"instance-state": "pending",
+						"dns-name":         "dummyenv-3.dns",
+						"instance-id":      "dummyenv-3",
+						"agent-state":      "down",
+						"agent-state-info": "stopped: Really?",
 					},
 					"4": M{
-						"dns-name":            "dummyenv-4.dns",
-						"instance-id":         "dummyenv-4",
-						"agent-state":         "not-started",
-						"instance-state":      "error",
-						"instance-state-info": "Beware the red toys",
+						"dns-name":         "dummyenv-4.dns",
+						"instance-id":      "dummyenv-4",
+						"agent-state":      "error",
+						"agent-state-info": "Beware the red toys",
 					},
 				},
 				"services": M{
@@ -338,8 +334,9 @@ var statusTests = []testCase{
 						"exposed": false,
 						"units": M{
 							"dummy-service/0": M{
-								"machine":     "1",
-								"agent-state": "down",
+								"machine":          "1",
+								"agent-state":      "down",
+								"agent-state-info": "started",
 							},
 						},
 					},
