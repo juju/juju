@@ -83,11 +83,12 @@ func (ConfigSuite) TestValidateUpcallsEnvironsConfigValidate(c *C) {
 	}
 	oldCfg, err := newConfig(baseAttrs)
 	c.Assert(err, IsNil)
-	newCfg, err := newConfig(baseAttrs)
-	c.Assert(err, IsNil)
 	newName := oldCfg.Name() + "-but-different"
-	newCfg.Apply(map[string]interface{}{"name": newName})
-	_, err = maasEnvironProvider{}.Validate(newCfg.Config, oldCfg.Config)
+	newCfg, err := oldCfg.Apply(map[string]interface{}{"name": newName})
+	c.Assert(err, IsNil)
+
+	_, err = maasEnvironProvider{}.Validate(newCfg, oldCfg.Config)
+
 	c.Assert(err, NotNil)
 	c.Check(err, ErrorMatches, ".*cannot change name.*")
 }
