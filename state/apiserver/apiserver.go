@@ -16,10 +16,6 @@ import (
 	"sync"
 )
 
-// TODO(rog) remove this when the rest of the system
-// has been updated to set passwords appropriately.
-var AuthenticationEnabled = false
-
 // srvRoot represents a single client's connection to the state.
 type srvRoot struct {
 	admin    *srvAdmin
@@ -557,11 +553,6 @@ func (u *authUser) login(st *state.State, tag, password string) error {
 	entity, err := st.Authenticator(tag)
 	if err != nil && !state.IsNotFound(err) {
 		return err
-	}
-	// TODO(rog) remove
-	if !AuthenticationEnabled {
-		u.entity = entity
-		return nil
 	}
 	// We return the same error when an entity
 	// does not exist as for a bad password, so that
