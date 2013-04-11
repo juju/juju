@@ -2,7 +2,6 @@ package maas
 
 import (
 	"encoding/base64"
-	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/gomaasapi"
 	"launchpad.net/goyaml"
@@ -186,12 +185,6 @@ func (suite *EnvironSuite) TestPublicStorageReturnsEmptyStorage(c *C) {
 	storage := env.PublicStorage()
 	c.Assert(storage, NotNil)
 	c.Check(storage, Equals, environs.EmptyStorage)
-}
-
-// fakeWriteCertAndKey is a stub for the writeCertAndKey to Bootstrap() that
-// always returns an error.  It should never be called.
-func fakeWriteCertAndKey(name string, cert, key []byte) error {
-	return fmt.Errorf("unexpected call to writeCertAndKey")
 }
 
 func decodeUserData(userData string) ([]byte, error) {
