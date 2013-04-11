@@ -64,6 +64,7 @@ func Main(args []string) {
 	juju.Register(&GetConstraintsCommand{})
 	juju.Register(&SetConstraintsCommand{})
 	juju.Register(&GetEnvironmentCommand{})
+	juju.Register(&SetEnvironmentCommand{})
 	juju.Register(&ExposeCommand{})
 	juju.Register(&SyncToolsCommand{})
 	juju.Register(&UnexposeCommand{})

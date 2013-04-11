@@ -227,6 +227,8 @@ var commandNames = []string{
 	"scp",
 	"set",
 	"set-constraints",
+	"set-env", // alias for set-environment
+	"set-environment",
 	"ssh",
 	"stat", // alias for status
 	"status",

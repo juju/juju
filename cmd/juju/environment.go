@@ -73,3 +73,78 @@ func (c *GetEnvironmentCommand) Run(ctx *cmd.Context) error {
 
 	return fmt.Errorf("Key %q not found in %q environment.", c.key, config.Name())
 }
+
+type attributes map[string]interface{}
+
+// SetEnvironment
+type SetEnvironmentCommand struct {
+	EnvCommandBase
+	values attributes
+}
+
+const setEnvHelpDoc = `
+Updates the environment of a running Juju instance.  Multiple key/value pairs
+can be passed on as command line arguments.
+`
+
+func (c *SetEnvironmentCommand) Info() *cmd.Info {
+	return &cmd.Info{
+		Name:    "set-environment",
+		Args:    "key=[value] ...",
+		Purpose: "replace environment values",
+		Doc:     strings.TrimSpace(setEnvHelpDoc),
+		Aliases: []string{"set-env"},
+	}
+}
+
+// SetFlags handled entirely by EnvCommandBase
+
+func (c *SetEnvironmentCommand) Init(args []string) (err error) {
+	if len(args) == 0 {
+		return fmt.Errorf("No key, value pairs specified")
+	}
+	// TODO(thumper) look to have a common library of functions for dealing
+	// with key=value pairs.
+	c.values = make(attributes)
+	for i, arg := range args {
+		bits := strings.SplitN(arg, "=", 2)
+		if len(bits) < 2 {
+			return fmt.Errorf(`Missing "=" in arg %d: %q`, i+1, arg)
+		}
+		key := bits[0]
+		if _, exists := c.values[key]; exists {
+			return fmt.Errorf(`Key %q specified more than once`, key)
+		}
+		c.values[key] = bits[1]
+	}
+	return nil
+}
+
+func (c *SetEnvironmentCommand) Run(ctx *cmd.Context) error {
+	conn, err := juju.NewConnFromName(c.EnvName)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	// Here is the magic around setting the attributes:
+	// TODO(thumper): get this magic under test somewhere, and update other call-sites to use it.
+	// Get the existing environment config from the state.
+	oldConfig, err := conn.State.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	// Apply the attributes specified for the command to the state config.
+	newConfig, err := oldConfig.Apply(c.values)
+	if err != nil {
+		return err
+	}
+	// Now validate this new config against the existing config via the provider.
+	provider := conn.Environ.Provider()
+	newProviderConfig, err := provider.Validate(newConfig, oldConfig)
+	if err != nil {
+		return err
+	}
+	// Now try to apply the new validated config.
+	return conn.State.SetEnvironConfig(newProviderConfig)
+}
