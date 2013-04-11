@@ -20,7 +20,7 @@ func (suite *EnvironProviderSuite) TestSecretAttrsReturnsSensitiveMAASAttributes
 	const oauth = "aa:bb:cc"
 	attrs := map[string]interface{}{
 		"maas-oauth":      oauth,
-		"maas-server":     "http://maas.example.com/maas/api/1.0/",
+		"maas-server":     "http://maas.example.com/maas/",
 		"name":            "wheee",
 		"type":            "maas",
 		"authorized-keys": "I-am-not-a-real-key",

@@ -46,7 +46,7 @@ func (suite *EnvironSuite) makeEnviron() *maasEnviron {
 		"ca-cert":         testing.CACert,
 		"ca-private-key":  testing.CAKey,
 		"maas-oauth":      "a:b:c",
-		"maas-server":     suite.testMAASObject.URL().String(),
+		"maas-server":     suite.testMAASObject.TestServer.URL,
 	})
 	if err != nil {
 		panic(err)
@@ -81,7 +81,7 @@ func (EnvironSuite) TestSetConfigUpdatesConfig(c *C) {
 	errSetConfig := env.SetConfig(cfg2)
 	c.Check(errSetConfig, IsNil)
 	c.Check(env.name, Equals, anotherName)
-	authClient, _ := gomaasapi.NewAuthenticatedClient(anotherServer, anotherOauth)
+	authClient, _ := gomaasapi.NewAuthenticatedClient(anotherServer, anotherOauth, apiVersion)
 	maas := gomaasapi.NewMAAS(*authClient)
 	MAASServer := env.maasClientUnlocked
 	c.Check(MAASServer, DeepEquals, maas)

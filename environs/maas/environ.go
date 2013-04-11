@@ -24,6 +24,8 @@ const (
 	mgoPort     = 37017
 	apiPort     = 17070
 	jujuDataDir = "/var/lib/juju"
+	// We're using v1.0 of the MAAS API.
+    apiVersion  = "1.0"
 )
 
 var mgoPortSuffix = fmt.Sprintf(":%d", mgoPort)
@@ -280,7 +282,7 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	env.name = cfg.Name()
 	env.ecfgUnlocked = ecfg
 
-	authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.MAASServer(), ecfg.MAASOAuth())
+	authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.MAASServer(), ecfg.MAASOAuth(), apiVersion)
 	if err != nil {
 		return err
 	}
