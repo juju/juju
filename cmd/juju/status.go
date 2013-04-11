@@ -128,6 +128,25 @@ func processMachines(machines map[string]*state.Machine, instances map[state.Ins
 	return r, nil
 }
 
+func processStatus(r map[string]interface{}, status params.Status, info string, agentAlive, entityDead bool) {
+	if status != params.StatusPending {
+		if !agentAlive && !entityDead {
+			// Add the original status to the info, so it's not lost.
+			if info != "" {
+				info = fmt.Sprintf("(%s: %s)", status, info)
+			} else {
+				info = fmt.Sprintf("(%s)", status)
+			}
+			// Agent should be running but it's not.
+			status = params.StatusDown
+		}
+	}
+	r["agent-state"] = status
+	if info != "" {
+		r["agent-state-info"] = info
+	}
+}
+
 func processMachine(machine *state.Machine, instance environs.Instance) (map[string]interface{}, error) {
 	r := m()
 	r["instance-id"] = instance.Id()
@@ -147,23 +166,8 @@ func processMachine(machine *state.Machine, instance environs.Instance) (map[str
 	if err != nil {
 		return nil, err
 	}
+	processStatus(r, status, info, agentAlive, machineDead)
 
-	if status != params.MachinePending {
-		if !agentAlive && !machineDead {
-			// Add the original status to the info, so it's not lost.
-			if info != "" {
-				info = fmt.Sprintf("(%s: %s)", status, info)
-			} else {
-				info = fmt.Sprintf("(%s)", status)
-			}
-			// Agent should be running but it's not.
-			status = params.MachineDown
-		}
-	}
-	r["agent-state"] = status
-	if info != "" {
-		r["agent-state-info"] = info
-	}
 	return r, nil
 }
 
@@ -232,22 +236,8 @@ func processUnit(unit *state.Unit) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	if status != params.UnitPending {
-		if !agentAlive && !unitDead {
-			// Add the original status to the info, so it's not lost.
-			if info != "" {
-				info = fmt.Sprintf("(%s: %s)", status, info)
-			} else {
-				info = fmt.Sprintf("(%s)", status)
-			}
-			// Agent should be running but it's not.
-			status = params.UnitDown
-		}
-	}
-	r["agent-state"] = status
-	if info != "" {
-		r["agent-state-info"] = info
-	}
+	processStatus(r, status, info, agentAlive, unitDead)
+
 	return r, nil
 }
 

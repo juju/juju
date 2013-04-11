@@ -143,7 +143,7 @@ func (s *FilterSuite) TestResolvedEvents(c *C) {
 	assertNoChange()
 
 	// Change the unit in an irrelevant way; no events.
-	err = s.unit.SetStatus(params.UnitError, "blarg")
+	err = s.unit.SetStatus(params.StatusError, "blarg")
 	c.Assert(err, IsNil)
 	assertNoChange()
 

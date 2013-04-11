@@ -74,7 +74,7 @@ func (s *ResolvedSuite) TestResolved(c *C) {
 	for _, name := range []string{"dummy/2", "dummy/3", "dummy/4"} {
 		u, err := s.State.Unit(name)
 		c.Assert(err, IsNil)
-		err = u.SetStatus(params.UnitError, "lol borken")
+		err = u.SetStatus(params.StatusError, "lol borken")
 		c.Assert(err, IsNil)
 	}
 
