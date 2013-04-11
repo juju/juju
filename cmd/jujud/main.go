@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 )
 
-// Register the providers.
+// Import the providers.
 import (
 	_ "launchpad.net/juju-core/environs/all"
 )
