@@ -7,6 +7,11 @@ import (
 	"os"
 )
 
+// Register the providers.
+import (
+	_ "launchpad.net/juju-core/environs/all"
+)
+
 var jujuDoc = `
 juju provides easy, intelligent service orchestration on top of environments
 such as OpenStack, Amazon AWS, or bare metal.

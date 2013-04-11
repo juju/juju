@@ -13,6 +13,11 @@ import (
 	"time"
 )
 
+// Register the providers.
+import (
+	_ "launchpad.net/juju-core/environs/all"
+)
+
 func main() {
 	log.SetTarget(stdlog.New(os.Stdout, "", stdlog.LstdFlags))
 	if err := build(); err != nil {

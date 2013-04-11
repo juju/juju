@@ -1,4 +1,4 @@
-package cmd
+package all
 
 // Register all the available providers.
 // When we import an environment provider implementation
