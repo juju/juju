@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
@@ -21,8 +22,8 @@ const toolPrefix = "tools/juju-"
 // precedence over public tools, even if they have a lower
 // version number.
 type ToolsList struct {
-	Private []*state.Tools
-	Public  []*state.Tools
+	Private tools.List
+	Public  tools.List
 }
 
 // ListTools returns a ToolsList holding all the tools
@@ -45,14 +46,14 @@ func ListTools(env Environ, majorVersion int) (*ToolsList, error) {
 
 // listTools is like ListTools, but only returns the tools from
 // a particular storage.
-func listTools(store StorageReader, majorVersion int) ([]*state.Tools, error) {
+func listTools(store StorageReader, majorVersion int) (tools.List, error) {
 	dir := fmt.Sprintf("%s%d.", toolPrefix, majorVersion)
 	log.Debugf("listing tools in dir: %s", dir)
 	names, err := store.List(dir)
 	if err != nil {
 		return nil, err
 	}
-	var toolsList []*state.Tools
+	var toolsList tools.List
 	for _, name := range names {
 		log.Debugf("looking at tools file %s", name)
 		if !strings.HasPrefix(name, toolPrefix) || !strings.HasSuffix(name, ".tgz") {

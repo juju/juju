@@ -184,16 +184,6 @@ type CharmInfo struct {
 	CharmURL string
 }
 
-// ResolvedMode describes the way state transition errors
-// are resolved.
-type ResolvedMode string
-
-const (
-	ResolvedNone       ResolvedMode = ""
-	ResolvedRetryHooks ResolvedMode = "retry-hooks"
-	ResolvedNoHooks    ResolvedMode = "no-hooks"
-)
-
 // Port identifies a network port number for a particular protocol.
 type Port struct {
 	Protocol string
@@ -346,7 +336,6 @@ type UnitInfo struct {
 	PublicAddress  string
 	PrivateAddress string
 	MachineId      string
-	Resolved       ResolvedMode
 	Ports          []Port
 	Status         UnitStatus
 	StatusInfo     string

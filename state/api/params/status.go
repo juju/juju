@@ -43,8 +43,8 @@ const (
 
 	// The machine requires human intervention in order to operate
 	// correctly.
-
 	MachineError MachineStatus = "error"
+
 	// The machine agent ought to be signalling activity, but it cannot
 	// be detected.
 	MachineDown MachineStatus = "down"
