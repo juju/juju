@@ -128,7 +128,7 @@ func (c *SetEnvironmentCommand) Run(ctx *cmd.Context) error {
 	defer conn.Close()
 
 	// Here is the magic around setting the attributes:
-
+	// TODO(thumper): get this magic under test somewhere, and update other call-sites to use it.
 	// Get the existing environment config from the state.
 	oldConfig, err := conn.State.EnvironConfig()
 	if err != nil {
