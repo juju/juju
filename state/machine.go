@@ -504,7 +504,10 @@ func (m *Machine) SetStatus(status params.Status, info string) error {
 	if status == params.StatusPending {
 		panic("machine status cannot be set to pending")
 	}
-	doc := statusDoc{status, info}
+	doc := statusDoc{
+		Status:     status,
+		StatusInfo: info,
+	}
 	ops := []txn.Op{{
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,

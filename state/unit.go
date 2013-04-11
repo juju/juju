@@ -450,7 +450,10 @@ func (u *Unit) SetStatus(status params.Status, info string) error {
 	if status == params.StatusError && info == "" {
 		panic("unit error status with no info")
 	}
-	doc := statusDoc{status, info}
+	doc := statusDoc{
+		Status:     status,
+		StatusInfo: info,
+	}
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
