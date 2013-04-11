@@ -190,6 +190,8 @@ func (s *DeploySuite) TestDeployToInvalidMachine(c *C) {
 	err := runDeploy(c, "--force-machine", "42", "local:dummy", "portlandia")
 	c.Assert(err, ErrorMatches, `cannot assign unit "portlandia/0" to machine: machine 42 not found`)
 
+	err = runDeploy(c, "--force-machine", "abc", "local:dummy", "portlandia")
+	c.Assert(err, ErrorMatches, `Invalid machine id "abc"`)
 }
 
 func (s *DeploySuite) TestCannotUpgradeCharmBundle(c *C) {

@@ -90,6 +90,12 @@ func (c *DeployCommand) Init(args []string) error {
 		// TODO improve/remove: this is misleading when deploying subordinates.
 		return errors.New("must deploy at least one unit")
 	}
+
+	if c.MachineId != "" {
+		if !state.IsMachineId(c.MachineId) {
+			return fmt.Errorf("Invalid machine id %q", c.MachineId)
+		}
+	}
 	return nil
 }
 
