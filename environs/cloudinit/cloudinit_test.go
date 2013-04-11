@@ -284,7 +284,7 @@ func scriptDiff(c *C, got []string, expect string) {
 		case i == len(got):
 			c.Fatalf("too few scripts found (expected %q at line %d)", pats[i], i)
 		case i == len(pats):
-			cString.Fatalf("too many scripts found (got %q at line %d)", got[i], i)
+			c.Fatalf("too many scripts found (got %q at line %d)", got[i], i)
 		}
 		script := strings.Replace(got[i], "\n", "\\n", -1) // make .* work
 		c.Assert(script, Matches, pats[i], Commentf("line %d", i))
