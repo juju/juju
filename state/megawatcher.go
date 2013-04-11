@@ -68,7 +68,6 @@ func (u *backingUnit) updated(st *State, store *multiwatcher.Store, id interface
 		PublicAddress:  u.PublicAddress,
 		PrivateAddress: u.PrivateAddress,
 		MachineId:      u.MachineId,
-		Resolved:       u.Resolved,
 		Ports:          u.Ports,
 	}
 	if u.CharmURL != nil {

@@ -179,7 +179,7 @@ func (st *State) SetEnvironConstraints(cons constraints.Value) error {
 // supplied series. The machine's constraints will be taken from the
 // environment constraints.
 func (st *State) AddMachine(series string, jobs ...MachineJob) (m *Machine, err error) {
-	return st.addMachine(series, "", jobs)
+	return st.addMachine(series, "", "", jobs)
 }
 
 // InjectMachine adds a new machine, corresponding to an existing provider
@@ -189,7 +189,7 @@ func (st *State) InjectMachine(series string, instanceId InstanceId, jobs ...Mac
 	if instanceId == "" {
 		return nil, fmt.Errorf("cannot inject a machine without an instance id")
 	}
-	return st.addMachine(series, instanceId, jobs)
+	return st.addMachine(series, instanceId, BootstrapNonce, jobs)
 }
 
 func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value) (*machineDoc, []txn.Op, error) {
@@ -229,7 +229,7 @@ func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value) (*machi
 }
 
 // addMachine implements AddMachine and InjectMachine.
-func (st *State) addMachine(series string, instanceId InstanceId, jobs []MachineJob) (m *Machine, err error) {
+func (st *State) addMachine(series string, instanceId InstanceId, nonce string, jobs []MachineJob) (m *Machine, err error) {
 	defer trivial.ErrorContextf(&err, "cannot add a new machine")
 
 	cons, err := st.EnvironConstraints()
@@ -239,6 +239,7 @@ func (st *State) addMachine(series string, instanceId InstanceId, jobs []Machine
 	mdoc := &machineDoc{
 		Series:     series,
 		InstanceId: instanceId,
+		Nonce:      nonce,
 		Jobs:       jobs,
 	}
 	mdoc, ops, err := st.addMachineOps(mdoc, cons)

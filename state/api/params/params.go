@@ -63,9 +63,10 @@ type ServiceGet struct {
 
 // ServiceGetResults holds results of the ServiceGet call.
 type ServiceGetResults struct {
-	Service  string
-	Charm    string
-	Settings map[string]interface{}
+	Service     string
+	Charm       string
+	Config      map[string]interface{}
+	Constraints constraints.Value
 }
 
 // ServiceUnexpose holds parameters for the ServiceUnexpose call.
@@ -182,16 +183,6 @@ type SetServiceConstraints struct {
 type CharmInfo struct {
 	CharmURL string
 }
-
-// ResolvedMode describes the way state transition errors
-// are resolved.
-type ResolvedMode string
-
-const (
-	ResolvedNone       ResolvedMode = ""
-	ResolvedRetryHooks ResolvedMode = "retry-hooks"
-	ResolvedNoHooks    ResolvedMode = "no-hooks"
-)
 
 // Port identifies a network port number for a particular protocol.
 type Port struct {
@@ -346,7 +337,6 @@ type UnitInfo struct {
 	PublicAddress  string
 	PrivateAddress string
 	MachineId      string
-	Resolved       ResolvedMode
 	Ports          []Port
 	Status         UnitStatus
 	StatusInfo     string

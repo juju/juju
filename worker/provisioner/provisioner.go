@@ -18,6 +18,7 @@ import (
 // Provisioner represents a running provisioning worker.
 type Provisioner struct {
 	st        *state.State
+	machineId string // Which machine runs the provisioner.
 	stateInfo *state.Info
 	apiInfo   *api.Info
 	environ   environs.Environ
@@ -48,9 +49,10 @@ func (o *configObserver) notify(cfg *config.Config) {
 // NewProvisioner returns a new Provisioner. When new machines
 // are added to the state, it allocates instances from the environment
 // and allocates them to the new machines.
-func NewProvisioner(st *state.State) *Provisioner {
+func NewProvisioner(st *state.State, machineId string) *Provisioner {
 	p := &Provisioner{
 		st:        st,
+		machineId: machineId,
 		instances: make(map[string]environs.Instance),
 		machines:  make(map[state.InstanceId]string),
 	}
@@ -270,8 +272,16 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 	if err != nil {
 		return err
 	}
-	// TODO(dimitern) generate an unique random nonce in a follow-up.
-	inst, err := p.environ.StartInstance(m.Id(), "fake_nonce", m.Series(), cons, stateInfo, apiInfo)
+	// Generate a unique nonce for the new instance.
+	uuid, err := trivial.NewUUID()
+	if err != nil {
+		return err
+	}
+	// Generated nonce has the format: "machine-#:UUID". The first
+	// part is a badge, specifying the tag of the machine the provisioner
+	// is running on, while the second part is a random UUID.
+	nonce := fmt.Sprintf("%s:%s", state.MachineTag(p.machineId), uuid.String())
+	inst, err := p.environ.StartInstance(m.Id(), nonce, m.Series(), cons, stateInfo, apiInfo)
 	if err != nil {
 		// Set the state to error, so the machine will be skipped next
 		// time until the error is resolved, but don't return an
@@ -284,11 +294,13 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 		}
 		return nil
 	}
-	if err := m.SetInstanceId(inst.Id()); err != nil {
+	if err := m.SetProvisioned(inst.Id(), nonce); err != nil {
 		// The machine is started, but we can't record the mapping in
 		// state. It'll keep running while we fail out and restart,
 		// but will then be detected by findUnknownInstances and
 		// killed again.
+		//
+		// TODO(dimitern) Stop the instance right away here.
 		//
 		// Multiple instantiations of a given machine (with the same
 		// machine ID) cannot coexist, because findUnknownInstances is

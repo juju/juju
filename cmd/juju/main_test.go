@@ -216,14 +216,19 @@ var commandNames = []string{
 	"generate-config", // alias for init
 	"get",
 	"get-constraints",
+	"get-env", // alias for get-environment
+	"get-environment",
 	"help",
 	"init",
+	"publish",
 	"remove-relation", // alias for destroy-relation
 	"remove-unit",     // alias for destroy-unit
 	"resolved",
 	"scp",
 	"set",
 	"set-constraints",
+	"set-env", // alias for set-environment
+	"set-environment",
 	"ssh",
 	"stat", // alias for status
 	"status",

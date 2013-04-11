@@ -6,8 +6,6 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/statecmd"
 )
 
 // ResolvedCommand marks a unit in an error state as ready to continue.
@@ -50,9 +48,9 @@ func (c *ResolvedCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer conn.Close()
-	params := params.Resolved{
-		UnitName: c.UnitName,
-		Retry:    c.Retry,
+	unit, err := conn.State.Unit(c.UnitName)
+	if err != nil {
+		return err
 	}
-	return statecmd.Resolved(conn.State, params)
+	return unit.Resolve(c.Retry)
 }

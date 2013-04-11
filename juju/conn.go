@@ -7,16 +7,16 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/trivial"
 	"net/url"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -194,25 +194,21 @@ type DeployServiceParams struct {
 
 // DeployService takes a charm and various parameters and deploys it.
 func (conn *Conn) DeployService(args DeployServiceParams) (*state.Service, error) {
+	// TODO(rog) validate the configuration before adding the service.
 	svc, err := conn.State.AddService(args.ServiceName, args.Charm)
 	if err != nil {
 		return nil, err
 	}
+	// TODO(rog) should we destroy if we return an error in any of the
+	// subsequent operations?
 	// BUG(lp:1162122): Config/ConfigYAML have no tests.
 	if args.ConfigYAML != "" {
-		ssArgs := params.ServiceSetYAML{
-			ServiceName: args.ServiceName,
-			Config:      args.ConfigYAML,
-		}
-		if err := ServiceSetYAML(conn.State, ssArgs); err != nil {
+		if err := svc.SetConfigYAML([]byte(args.ConfigYAML)); err != nil {
 			return nil, err
 		}
 	} else if args.Config != nil {
-		ssArgs := params.ServiceSet{
-			ServiceName: args.ServiceName,
-			Options:     args.Config,
-		}
-		if err := ServiceSet(conn.State, ssArgs); err != nil {
+		if err := svc.SetConfig(args.Config); err != nil {
+			// TODO(rog) should we destroy the service here?
 			return nil, err
 		}
 	}
@@ -309,99 +305,19 @@ func (conn *Conn) AddUnits(svc *state.Service, n int) ([]*state.Unit, error) {
 	return units, nil
 }
 
-// Resolved marks the unit as having had any previous state transition
-// problems resolved, and informs the unit that it may attempt to
-// reestablish normal workflow. The retryHooks parameter informs
-// whether to attempt to reexecute previous failed hooks or to continue
-// as if they had succeeded before.
-func (conn *Conn) Resolved(unit *state.Unit, retryHooks bool) error {
-	status, _, err := unit.Status()
-	if err != nil {
-		return err
-	}
-	if status != params.UnitError {
-		return fmt.Errorf("unit %q is not in an error state", unit)
-	}
-	mode := params.ResolvedNoHooks
-	if retryHooks {
-		mode = params.ResolvedRetryHooks
-	}
-	return unit.SetResolved(mode)
-}
-
-// ServiceSet changes a service's configuration values.
-// Values set to the empty string will be deleted.
-func ServiceSet(st *state.State, p params.ServiceSet) error {
-	return serviceSet(st, p.ServiceName, p.Options)
-}
-
-// ServiceSetYAML is like ServiceSet except that the
-// configuration data is specified in YAML format.
-func ServiceSetYAML(st *state.State, p params.ServiceSetYAML) error {
-	// TODO(rog) should this function interpret null as delete?
-	// If so, we need to sort out some goyaml issues first.
-	// (see https://bugs.launchpad.net/goyaml/+bug/1133337)
-	var options map[string]string
-	if err := goyaml.Unmarshal([]byte(p.Config), &options); err != nil {
-		return err
-	}
-	return serviceSet(st, p.ServiceName, options)
-}
-
-func serviceSet(st *state.State, svcName string, options map[string]string) error {
-	if len(options) == 0 {
-		return errors.New("no options to set")
-	}
-	unvalidated := make(map[string]string)
-	var remove []string
-	for k, v := range options {
-		if v == "" {
-			remove = append(remove, k)
-		} else {
-			unvalidated[k] = v
+// InitJujuHome initializes the charm and environs/config packages to use
+// default paths based on the $JUJU_HOME or $HOME environment variables.
+// This function should be called before calling NewConn or Conn.Deploy.
+func InitJujuHome() error {
+	jujuHome := os.Getenv("JUJU_HOME")
+	if jujuHome == "" {
+		home := os.Getenv("HOME")
+		if home == "" {
+			return errors.New("cannot determine juju home, neither $JUJU_HOME nor $HOME are set")
 		}
+		jujuHome = filepath.Join(home, ".juju")
 	}
-	srv, err := st.Service(svcName)
-	if err != nil {
-		return err
-	}
-	charm, _, err := srv.Charm()
-	if err != nil {
-		return err
-	}
-	// 1. Validate will convert this partial configuration
-	// into a full configuration by inserting charm defaults
-	// for missing values.
-	validated, err := charm.Config().Validate(unvalidated)
-	if err != nil {
-		return err
-	}
-	// 2. strip out the additional default keys added in the previous step.
-	validated = strip(validated, unvalidated)
-	cfg, err := srv.Config()
-	if err != nil {
-		return err
-	}
-	// 3. Update any keys that remain after validation and filtering.
-	if len(validated) > 0 {
-		cfg.Update(validated)
-	}
-	// 4. Delete any removed keys.
-	if len(remove) > 0 {
-		for _, k := range remove {
-			cfg.Delete(k)
-		}
-	}
-	_, err = cfg.Write()
-	return err
-}
-
-// strip removes from validated, any keys which are not also present in unvalidated.
-func strip(validated map[string]interface{}, unvalidated map[string]string) map[string]interface{} {
-	for k := range validated {
-		if _, ok := unvalidated[k]; !ok {
-			delete(validated, k)
-		}
-	}
-	return validated
+	config.SetJujuHome(jujuHome)
+	charm.CacheDir = filepath.Join(jujuHome, "charmcache")
+	return nil
 }

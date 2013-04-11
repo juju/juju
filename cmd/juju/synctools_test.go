@@ -197,10 +197,6 @@ func (s *syncToolsSuite) TestCopyToDummyPublic(c *C) {
 	c.Assert(targetTools.Private, HasLen, 0)
 }
 
-type toolSuite struct{}
-
-var _ = Suite(&toolSuite{})
-
 func mustParseTools(major, minor, patch, build int, series string, arch string) *state.Tools {
 	return &state.Tools{
 		Binary: version.Binary{
@@ -216,81 +212,3 @@ var (
 	t1900quantal   = mustParseTools(1, 9, 0, 0, "quantal", "amd64")
 	t2000precise   = mustParseTools(2, 0, 0, 0, "precise", "amd64")
 )
-
-func (s *toolSuite) TestFindNewestOneTool(c *C) {
-	for i, t := range []*state.Tools{
-		t1000precise,
-		t1000quantal,
-		t1900quantal,
-		t2000precise,
-	} {
-		c.Log("test: %d %s", i, t.Binary.String())
-		toolList := []*state.Tools{t}
-		res := findNewest(toolList)
-		c.Assert(res, HasLen, 1)
-		c.Assert(res[0], Equals, t)
-	}
-}
-
-func (s *toolSuite) TestFindNewestOnlyOneBest(c *C) {
-	res := findNewest([]*state.Tools{t1000precise, t1900quantal})
-	c.Assert(res, HasLen, 1)
-	c.Assert(res[0], Equals, t1900quantal)
-}
-
-func (s *toolSuite) TestFindNewestMultipleBest(c *C) {
-	source := []*state.Tools{t1000precise, t1000quantal}
-	res := findNewest(source)
-	c.Assert(res, HasLen, 2)
-	// Order isn't strictly specified, but findNewest currently returns the
-	// order in source, so it makes the test easier to write
-	c.Assert(res, DeepEquals, source)
-}
-
-func (s *toolSuite) TestFindMissingNoTarget(c *C) {
-	for i, t := range [][]*state.Tools{
-		[]*state.Tools{t1000precise},
-		[]*state.Tools{t1000precise, t1000quantal},
-	} {
-		c.Log("test: %d", i)
-		res := findMissing(t, []*state.Tools(nil))
-		c.Assert(res, DeepEquals, t)
-	}
-}
-
-func (s *toolSuite) TestFindMissingSameEntries(c *C) {
-	for i, t := range [][]*state.Tools{
-		[]*state.Tools{t1000precise},
-		[]*state.Tools{t1000precise, t1000quantal},
-	} {
-		c.Log("test: %d", i)
-		res := findMissing(t, t)
-		c.Assert(res, HasLen, 0)
-	}
-}
-
-func (s *toolSuite) TestFindHasVersionNotSeries(c *C) {
-	res := findMissing(
-		[]*state.Tools{t1000precise, t1000quantal},
-		[]*state.Tools{t1000quantal})
-	c.Assert(res, HasLen, 1)
-	c.Assert(res[0], Equals, t1000precise)
-	res = findMissing(
-		[]*state.Tools{t1000precise, t1000quantal},
-		[]*state.Tools{t1000precise})
-	c.Assert(res, HasLen, 1)
-	c.Assert(res[0], Equals, t1000quantal)
-}
-
-func (s *toolSuite) TestFindHasDifferentArch(c *C) {
-	res := findMissing(
-		[]*state.Tools{t1000quantal, t1000quantal32},
-		[]*state.Tools{t1000quantal})
-	c.Assert(res, HasLen, 1)
-	c.Assert(res[0], Equals, t1000quantal32)
-	res = findMissing(
-		[]*state.Tools{t1000quantal, t1000quantal32},
-		[]*state.Tools{t1000quantal32})
-	c.Assert(res, HasLen, 1)
-	c.Assert(res[0], Equals, t1000quantal)
-}

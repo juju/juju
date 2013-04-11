@@ -119,3 +119,16 @@ func (s *BzrSuite) TestPush(c *C) {
 	_, err = os.Stat(b3.Join("file"))
 	c.Assert(err, IsNil)
 }
+
+func (s *BzrSuite) TestCheckClean(c *C) {
+	err := s.b.CheckClean()
+	c.Assert(err, IsNil)
+
+	// Create and add b1/file to the branch.
+	f, err := os.Create(s.b.Join("file"))
+	c.Assert(err, IsNil)
+	f.Close()
+
+	err = s.b.CheckClean()
+	c.Assert(err, ErrorMatches, `branch is not clean \(bzr status\)`)
+}
