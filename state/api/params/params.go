@@ -304,7 +304,7 @@ type EntityId struct {
 type MachineInfo struct {
 	Id         string `bson:"_id"`
 	InstanceId string
-	Status     MachineStatus
+	Status     Status
 	StatusInfo string
 }
 
@@ -338,7 +338,7 @@ type UnitInfo struct {
 	PrivateAddress string
 	MachineId      string
 	Ports          []Port
-	Status         UnitStatus
+	Status         Status
 	StatusInfo     string
 }
 

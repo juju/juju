@@ -100,13 +100,13 @@ waitStarted:
 			st, info, err := unit.Status()
 			c.Assert(err, IsNil)
 			switch st {
-			case params.UnitPending, params.UnitInstalled:
+			case params.StatusPending, params.StatusInstalled:
 				c.Logf("waiting...")
 				continue
-			case params.UnitStarted:
+			case params.StatusStarted:
 				c.Logf("started!")
 				break waitStarted
-			case params.UnitDown:
+			case params.StatusDown:
 				s.State.StartSync()
 				c.Logf("unit is still down")
 			default:

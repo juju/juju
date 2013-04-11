@@ -533,7 +533,7 @@ func (s *Service) addUnitOps(principalName string) (string, []txn.Op, error) {
 		Principal: principalName,
 	}
 	sdoc := statusDoc{
-		Status: string(params.UnitPending),
+		Status: params.StatusPending,
 	}
 	ops := []txn.Op{
 		{

@@ -486,28 +486,25 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 }
 
 // Status returns the status of the machine.
-func (m *Machine) Status() (status params.MachineStatus, info string, err error) {
+func (m *Machine) Status() (status params.Status, info string, err error) {
 	doc, err := getStatus(m.st, m.globalKey())
 	if err != nil {
 		return "", "", err
 	}
-	status = params.MachineStatus(doc.Status)
+	status = doc.Status
 	info = doc.StatusInfo
 	return
 }
 
 // SetStatus sets the status of the machine.
-func (m *Machine) SetStatus(status params.MachineStatus, info string) error {
-	if status == params.MachineError && info == "" {
+func (m *Machine) SetStatus(status params.Status, info string) error {
+	if status == params.StatusError && info == "" {
 		panic("machine error status with no info")
 	}
-	if status == params.MachinePending {
+	if status == params.StatusPending {
 		panic("machine status cannot be set to pending")
 	}
-	doc := statusDoc{
-		Status:     string(status),
-		StatusInfo: info,
-	}
+	doc := statusDoc{status, info}
 	ops := []txn.Op{{
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,

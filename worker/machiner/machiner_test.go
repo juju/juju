@@ -28,7 +28,7 @@ type MachinerSuite struct {
 
 var _ = Suite(&MachinerSuite{})
 
-func (s *MachinerSuite) waitMachineStatus(c *C, m *state.Machine, expectStatus params.MachineStatus) {
+func (s *MachinerSuite) waitMachineStatus(c *C, m *state.Machine, expectStatus params.Status) {
 	timeout := time.After(worstCase)
 	for {
 		select {
@@ -68,7 +68,7 @@ func (s *MachinerSuite) TestStartSetsStatus(c *C) {
 
 	status, info, err := m.Status()
 	c.Assert(err, IsNil)
-	c.Assert(status, Equals, params.MachinePending)
+	c.Assert(status, Equals, params.StatusPending)
 	c.Assert(info, Equals, "")
 
 	alive, err := m.AgentAlive()
@@ -78,7 +78,7 @@ func (s *MachinerSuite) TestStartSetsStatus(c *C) {
 	mr := machiner.NewMachiner(s.State, m.Id())
 	defer mr.Stop()
 
-	s.waitMachineStatus(c, m, params.MachineStarted)
+	s.waitMachineStatus(c, m, params.StatusStarted)
 
 	s.State.Sync()
 	alive, err = m.AgentAlive()
@@ -92,7 +92,7 @@ func (s *MachinerSuite) TestSetsStatusWhenDying(c *C) {
 	mr := machiner.NewMachiner(s.State, m.Id())
 	defer mr.Stop()
 	c.Assert(m.Destroy(), IsNil)
-	s.waitMachineStatus(c, m, params.MachineStopped)
+	s.waitMachineStatus(c, m, params.StatusStopped)
 }
 
 func (s *MachinerSuite) TestSetDead(c *C) {

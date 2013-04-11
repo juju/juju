@@ -1294,7 +1294,7 @@ func (s *suite) TestClientUnitResolved(c *C) {
 	s.setUpScenario(c)
 	u, err := s.State.Unit("wordpress/0")
 	c.Assert(err, IsNil)
-	err = u.SetStatus(params.UnitError, "gaaah")
+	err = u.SetStatus(params.StatusError, "gaaah")
 	c.Assert(err, IsNil)
 	// Code under test:
 	err = s.APIState.Client().Resolved("wordpress/0", false)
@@ -1446,7 +1446,7 @@ func (s *suite) TestClientWatchAll(c *C) {
 		Entity: &params.MachineInfo{
 			Id:         m.Id(),
 			InstanceId: "i-0",
-			Status:     params.MachinePending,
+			Status:     params.StatusPending,
 		},
 	}}) {
 		c.Logf("got:")
