@@ -1,7 +1,6 @@
 package maas
 
 import (
-	"bytes"
 	"encoding/base64"
 	"fmt"
 	. "launchpad.net/gocheck"

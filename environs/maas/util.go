@@ -58,22 +58,17 @@ func userData(cfg *cloudinit.MachineConfig, scripts ...string) ([]byte, error) {
 // filesystem during its first startup.  That file is then read by the juju
 // agent running on the node and converted back into a machineInfo object.
 type machineInfo struct {
-	InstanceId string
-	Hostname   string
+	InstanceId string `yaml:,omitempty`
+	Hostname   string `yaml:,omitempty`
 }
 
 var _MAASInstanceFilename = jujuDataDir + "/MAASmachine.txt"
-
-// serializeYAML serializes the info into YAML format.
-func (info *machineInfo) serializeYAML() ([]byte, error) {
-	return goyaml.Marshal(info)
-}
 
 // cloudinitRunCmd returns the shell command that, when run, will create the
 // "machine info" file containing the instanceId and the hostname of a machine.
 // That command is destined to be used by cloudinit.
 func (info *machineInfo) cloudinitRunCmd() (string, error) {
-	yaml, err := info.serializeYAML()
+	yaml, err := goyaml.Marshal(info)
 	if err != nil {
 		return "", err
 	}

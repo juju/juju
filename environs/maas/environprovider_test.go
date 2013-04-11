@@ -3,6 +3,7 @@ package maas
 import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
+	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 	"os"
@@ -51,7 +52,7 @@ func createTempFile(c *C, content []byte) string {
 func (suite *EnvironProviderSuite) TestInstanceIdReadsInstanceIdFromMachineFile(c *C) {
 	instanceId := "instance-id"
 	info := machineInfo{instanceId, "hostname"}
-	yaml, err := info.serializeYAML()
+	yaml, err := goyaml.Marshal(info)
 	c.Assert(err, IsNil)
 	// Create a temporary file to act as the file where the instanceID
 	// is stored.
@@ -74,7 +75,7 @@ func (suite *EnvironProviderSuite) TestInstanceIdReadsInstanceIdFromMachineFile(
 func (suite *EnvironProviderSuite) TestPrivatePublicAddressReadsHostnameFromMachineFile(c *C) {
 	hostname := "myhostname"
 	info := machineInfo{"instance-id", hostname}
-	yaml, err := info.serializeYAML()
+	yaml, err := goyaml.Marshal(info)
 	c.Assert(err, IsNil)
 	// Create a temporary file to act as the file where the instanceID
 	// is stored.
