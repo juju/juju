@@ -34,7 +34,7 @@ var apiPortSuffix = fmt.Sprintf(":%d", apiPort)
 // a security group after termination).  The former failure mode is
 // dealt with by shortAttempt, the latter by longAttempt.
 var shortAttempt = trivial.AttemptStrategy{
-	Total: 5 * time.Second,
+	Total: 40 * time.Second,
 	Delay: 200 * time.Millisecond,
 }
 
