@@ -5,7 +5,6 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/tomb"
@@ -30,8 +29,8 @@ type filter struct {
 	outConfigOn    chan struct{}
 	outUpgrade     chan *charm.URL
 	outUpgradeOn   chan *charm.URL
-	outResolved    chan params.ResolvedMode
-	outResolvedOn  chan params.ResolvedMode
+	outResolved    chan state.ResolvedMode
+	outResolvedOn  chan state.ResolvedMode
 	outRelations   chan []int
 	outRelationsOn chan []int
 
@@ -60,7 +59,7 @@ type filter struct {
 	// and used to detect interesting changes to express as events.
 	unit             *state.Unit
 	life             state.Life
-	resolved         params.ResolvedMode
+	resolved         state.ResolvedMode
 	service          *state.Service
 	upgradeFrom      serviceCharm
 	upgradeAvailable serviceCharm
@@ -78,8 +77,8 @@ func newFilter(st *state.State, unitName string) (*filter, error) {
 		outConfigOn:       make(chan struct{}),
 		outUpgrade:        make(chan *charm.URL),
 		outUpgradeOn:      make(chan *charm.URL),
-		outResolved:       make(chan params.ResolvedMode),
-		outResolvedOn:     make(chan params.ResolvedMode),
+		outResolved:       make(chan state.ResolvedMode),
+		outResolvedOn:     make(chan state.ResolvedMode),
 		outRelations:      make(chan []int),
 		outRelationsOn:    make(chan []int),
 		wantForcedUpgrade: make(chan bool),
@@ -126,7 +125,7 @@ func (f *filter) UpgradeEvents() <-chan *charm.URL {
 // unit's Resolved value changes, or when an event is explicitly requested.
 // A ResolvedNone state will never generate events, but ResolvedRetryHooks and
 // ResolvedNoHooks will always be delivered as described.
-func (f *filter) ResolvedEvents() <-chan params.ResolvedMode {
+func (f *filter) ResolvedEvents() <-chan state.ResolvedMode {
 	return f.outResolvedOn
 }
 
@@ -338,7 +337,7 @@ func (f *filter) loop(unitName string) (err error) {
 			}
 		case <-f.wantResolved:
 			log.Debugf("worker/uniter/filter: want resolved event")
-			if f.resolved != params.ResolvedNone {
+			if f.resolved != state.ResolvedNone {
 				f.outResolved = f.outResolvedOn
 			}
 		case <-discardConfig:
@@ -370,7 +369,7 @@ func (f *filter) unitChanged() error {
 	}
 	if resolved := f.unit.Resolved(); resolved != f.resolved {
 		f.resolved = resolved
-		if f.resolved != params.ResolvedNone {
+		if f.resolved != state.ResolvedNone {
 			f.outResolved = f.outResolvedOn
 		}
 	}

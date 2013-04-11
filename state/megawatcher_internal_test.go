@@ -306,8 +306,6 @@ var allWatcherChangedTests = []struct {
 			c.Assert(err, IsNil)
 			err = u.SetPrivateAddress("private")
 			c.Assert(err, IsNil)
-			err = u.SetResolved(params.ResolvedRetryHooks)
-			c.Assert(err, IsNil)
 			err = u.OpenPort("tcp", 12345)
 			c.Assert(err, IsNil)
 			m, err := st.AddMachine("series", JobHostUnits)
@@ -329,7 +327,6 @@ var allWatcherChangedTests = []struct {
 				PublicAddress:  "public",
 				PrivateAddress: "private",
 				MachineId:      "0",
-				Resolved:       params.ResolvedRetryHooks,
 				Ports:          []params.Port{{"tcp", 12345}},
 				Status:         params.UnitError,
 				StatusInfo:     "failure",

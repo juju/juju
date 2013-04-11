@@ -11,7 +11,6 @@ import (
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/trivial"
 	"os"
@@ -389,38 +388,6 @@ func (s *ConnSuite) TestAddUnits(c *C) {
 	id1, err := units[1].AssignedMachineId()
 	c.Assert(err, IsNil)
 	c.Assert(id0, Not(Equals), id1)
-}
-
-func (s *ConnSuite) TestResolved(c *C) {
-	curl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "riak")
-	sch, err := s.conn.PutCharm(curl, s.repo, false)
-	c.Assert(err, IsNil)
-	svc, err := s.conn.State.AddService("testriak", sch)
-	c.Assert(err, IsNil)
-	us, err := s.conn.AddUnits(svc, 1)
-	c.Assert(err, IsNil)
-	u := us[0]
-
-	err = s.conn.Resolved(u, false)
-	c.Assert(err, ErrorMatches, `unit "testriak/0" is not in an error state`)
-	err = s.conn.Resolved(u, true)
-	c.Assert(err, ErrorMatches, `unit "testriak/0" is not in an error state`)
-
-	err = u.SetStatus(params.UnitError, "gaaah")
-	c.Assert(err, IsNil)
-	err = s.conn.Resolved(u, false)
-	c.Assert(err, IsNil)
-	err = s.conn.Resolved(u, true)
-	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "testriak/0": already resolved`)
-	c.Assert(u.Resolved(), Equals, params.ResolvedNoHooks)
-
-	err = u.ClearResolved()
-	c.Assert(err, IsNil)
-	err = s.conn.Resolved(u, true)
-	c.Assert(err, IsNil)
-	err = s.conn.Resolved(u, false)
-	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "testriak/0": already resolved`)
-	c.Assert(u.Resolved(), Equals, params.ResolvedRetryHooks)
 }
 
 type DeployLocalSuite struct {

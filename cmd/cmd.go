@@ -191,3 +191,16 @@ func CheckEmpty(args []string) error {
 	}
 	return nil
 }
+
+// ZeroOrOneArgs checks to see that there are zero or one args, and returns
+// the value of the arg if provided, or the empty string if not.
+func ZeroOrOneArgs(args []string) (string, error) {
+	var result string
+	if len(args) > 0 {
+		result, args = args[0], args[1:]
+	}
+	if err := CheckEmpty(args); err != nil {
+		return "", err
+	}
+	return result, nil
+}
