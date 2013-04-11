@@ -39,7 +39,7 @@ var longAttempt = trivial.AttemptStrategy{
 type maasEnviron struct {
 	name string
 
-	// ecfgMutext protects the *Unlocked fields below.
+	// ecfgMutex protects the *Unlocked fields below.
 	ecfgMutex sync.Mutex
 
 	ecfgUnlocked       *maasEnvironConfig
