@@ -291,6 +291,15 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
+// getMAASClient returns a MAAS client object to use for a request, in a
+// lock-protected fashioon.
+func (env *maasEnviron) getMAASClient() *gomaasapi.MAASObject {
+	env.ecfgMutex.Lock()
+	defer env.ecfgMutex.Unlock()
+
+	return env.maasClientUnlocked
+}
+
 // acquireNode allocates a node from the MAAS.
 func (environ *maasEnviron) acquireNode() (gomaasapi.MAASObject, error) {
 	retry := trivial.AttemptStrategy{
@@ -300,7 +309,7 @@ func (environ *maasEnviron) acquireNode() (gomaasapi.MAASObject, error) {
 	var result gomaasapi.JSONObject
 	var err error
 	for a := retry.Start(); a.Next(); {
-		client := environ.maasClientUnlocked.GetSubObject("nodes/")
+		client := environ.getMAASClient().GetSubObject("nodes/")
 		result, err = client.CallPost("acquire", nil)
 		if err == nil {
 			break
@@ -445,7 +454,7 @@ func (environ *maasEnviron) Instances(ids []state.InstanceId) ([]environs.Instan
 // that could be found plus the error environs.ErrPartialInstances in the error
 // return.
 func (environ *maasEnviron) instances(ids []state.InstanceId) ([]environs.Instance, error) {
-	nodeListing := environ.maasClientUnlocked.GetSubObject("nodes")
+	nodeListing := environ.getMAASClient().GetSubObject("nodes")
 	filter := getSystemIdValues(ids)
 	listNodeObjects, err := nodeListing.CallGet("list", filter)
 	if err != nil {
