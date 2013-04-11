@@ -31,10 +31,6 @@ type suite struct {
 
 var _ = Suite(&suite{})
 
-func init() {
-	apiserver.AuthenticationEnabled = true
-}
-
 func removeServiceAndUnits(c *C, service *state.Service) {
 	// Destroy all units for the service.
 	units, err := service.AllUnits()

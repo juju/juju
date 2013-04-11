@@ -81,16 +81,23 @@ func (u *User) Tag() string {
 
 // SetPassword sets the password associated with the user.
 func (u *User) SetPassword(password string) error {
-	hp := trivial.PasswordHash(password)
+	return u.SetPasswordHash(trivial.PasswordHash(password))
+}
+
+// SetPasswordHash sets the password to the
+// inverse of trivial.PasswordHash(pwHash).
+// It can be used when we know only the hash
+// of the password, but not the clear text.
+func (u *User) SetPasswordHash(pwHash string) error {
 	ops := []txn.Op{{
 		C:      u.st.users.Name,
 		Id:     u.Name(),
-		Update: D{{"$set", D{{"passwordhash", hp}}}},
+		Update: D{{"$set", D{{"passwordhash", pwHash}}}},
 	}}
 	if err := u.st.runner.Run(ops, "", nil); err != nil {
 		return fmt.Errorf("cannot set password of user %q: %v", u.Name(), err)
 	}
-	u.doc.PasswordHash = hp
+	u.doc.PasswordHash = pwHash
 	return nil
 }
 
