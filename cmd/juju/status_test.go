@@ -308,7 +308,7 @@ var statusTests = []testCase{
 						"dns-name":         "dummyenv-3.dns",
 						"instance-id":      "dummyenv-3",
 						"agent-state":      "down",
-					"agent-state-info": "(stopped: Really?)",
+						"agent-state-info": "(stopped: Really?)",
 					},
 					"4": M{
 						"dns-name":         "dummyenv-4.dns",
