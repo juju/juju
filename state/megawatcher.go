@@ -214,6 +214,10 @@ func (s *backingStatus) updated(st *State, store *multiwatcher.Store, id interfa
 		// The parent info doesn't exist. Ignore the status until it does.
 		return nil
 	case *params.UnitInfo:
+		newInfo := *info
+		newInfo.Status = s.Status
+		newInfo.StatusInfo = s.StatusInfo
+		info0 = &newInfo
 	case *params.MachineInfo:
 		newInfo := *info
 		newInfo.Status = s.Status
