@@ -124,11 +124,11 @@ func (env *maasEnviron) makeMachineConfig(machineID, machineNonce string, stateI
 		AuthorizedKeys: env.ecfg().AuthorizedKeys(),
 
 		// Parameter entries.
-		MachineId: machineID,
+		MachineId:    machineID,
 		MachineNonce: machineNonce,
-		StateInfo: stateInfo,
-		APIInfo:   apiInfo,
-		Tools:     tools,
+		StateInfo:    stateInfo,
+		APIInfo:      apiInfo,
+		Tools:        tools,
 	}
 }
 

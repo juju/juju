@@ -54,7 +54,7 @@ func (s *UtilSuite) TestUserData(c *C) {
 
 	cfg := &cloudinit.MachineConfig{
 		MachineId:       "10",
-		MachineNonce:	"5432",
+		MachineNonce:    "5432",
 		Tools:           tools,
 		StateServerCert: []byte(testing.ServerCert),
 		StateServerKey:  []byte(testing.ServerKey),
