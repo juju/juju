@@ -143,9 +143,9 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		ServiceName: serviceName,
 		NumUnits:    c.NumUnits,
 		// BUG(lp:1162122): --config has no tests.
-		ConfigYAML:  string(configYAML),
-		Constraints: c.Constraints,
-		ForceMachineId:   c.MachineId,
+		ConfigYAML:     string(configYAML),
+		Constraints:    c.Constraints,
+		ForceMachineId: c.MachineId,
 	}
 	_, err = conn.DeployService(args)
 	return err
