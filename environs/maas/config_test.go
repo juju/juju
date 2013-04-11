@@ -72,3 +72,23 @@ func (ConfigSuite) TestChecksWellFormedMaasOAuth(c *C) {
 	c.Assert(err, NotNil)
 	c.Check(err, ErrorMatches, ".*malformed maas-oauth.*")
 }
+
+func (ConfigSuite) TestValidateUpcallsEnvironsConfigValidate(c *C) {
+	// The base Validate() function will not allow an environment to
+	// change its name.  Trigger that error so as to prove that the
+	// environment provider's Validate() calls the base Validate().
+	baseAttrs := map[string]interface{}{
+		"maas-server": "http://maas.example.com/maas/",
+		"maas-oauth":  "consumer-key:resource-token:resource-secret",
+	}
+	oldCfg, err := newConfig(baseAttrs)
+	c.Assert(err, IsNil)
+	newName := oldCfg.Name() + "-but-different"
+	newCfg, err := oldCfg.Apply(map[string]interface{}{"name": newName})
+	c.Assert(err, IsNil)
+
+	_, err = maasEnvironProvider{}.Validate(newCfg, oldCfg.Config)
+
+	c.Assert(err, NotNil)
+	c.Check(err, ErrorMatches, ".*cannot change name.*")
+}

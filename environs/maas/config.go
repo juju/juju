@@ -46,6 +46,12 @@ func (prov maasEnvironProvider) newConfig(cfg *config.Config) (*maasEnvironConfi
 var errMalformedMaasOAuth = errors.New("malformed maas-oauth (3 items separated by colons)")
 
 func (prov maasEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.Config, error) {
+	// Validate base configuration change before validating MAAS specifics.
+	err := config.Validate(cfg, oldCfg)
+	if err != nil {
+		return nil, err
+	}
+
 	v, err := maasConfigChecker.Coerce(cfg.UnknownAttrs(), nil)
 	if err != nil {
 		return nil, err
