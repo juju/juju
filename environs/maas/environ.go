@@ -25,7 +25,7 @@ const (
 	apiPort     = 17070
 	jujuDataDir = "/var/lib/juju"
 	// We're using v1.0 of the MAAS API.
-    apiVersion  = "1.0"
+	apiVersion = "1.0"
 )
 
 var mgoPortSuffix = fmt.Sprintf(":%d", mgoPort)
@@ -298,12 +298,13 @@ func (environ *maasEnviron) acquireNode() (gomaasapi.MAASObject, error) {
 		Delay: 200 * time.Millisecond,
 	}
 	var result gomaasapi.JSONObject
-	// Initialize err to a non-nil value as a sentinel for the following
-	// loop.
-	var err error = fmt.Errorf("(no error)")
-	for a := retry.Start(); a.Next() && err != nil; {
+	var err error
+	for a := retry.Start(); a.Next(); {
 		client := environ.maasClientUnlocked.GetSubObject("nodes/")
 		result, err = client.CallPost("acquire", nil)
+		if err == nil {
+			break
+		}
 	}
 	if err != nil {
 		return gomaasapi.MAASObject{}, err
