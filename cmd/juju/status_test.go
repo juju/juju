@@ -280,9 +280,9 @@ var statusTests = []testCase{
 						"exposed": false,
 						"units": M{
 							"dummy-service/0": M{
-								"machine":     "1",
-								"agent-state": "down",
-							"agent-state-info": "started",
+								"machine":          "1",
+								"agent-state":      "down",
+								"agent-state-info": "started",
 							},
 						},
 					},
