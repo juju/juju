@@ -79,7 +79,7 @@ func (ConfigSuite) TestValidateUpcallsEnvironsConfigValidate(c *C) {
 	// environment provider's Validate() calls the base Validate().
 	baseAttrs := map[string]interface{}{
 		"maas-server": "http://maas.example.com/maas/",
-		"maas-oauth": "consumer-key:resource-token:resource-secret",
+		"maas-oauth":  "consumer-key:resource-token:resource-secret",
 	}
 	oldCfg, err := newConfig(baseAttrs)
 	c.Assert(err, IsNil)
