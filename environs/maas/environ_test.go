@@ -226,7 +226,7 @@ func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
 
 	// The instance number 1 has been started.
 	actions, found = operations["node1"]
-	c.Check(found, Equals, true)
+	c.Assert(found, Equals, true)
 	c.Check(actions, DeepEquals, []string{"start"})
 
 	// The value of the "user data" parameter used when starting the node
@@ -234,7 +234,7 @@ func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
 	// the node's filesystem.
 	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
 	nodeRequestValues, found := requestValues["node1"]
-	c.Check(found, Equals, true)
+	c.Assert(found, Equals, true)
 	userData := nodeRequestValues[0].Get("user_data")
 	decodedUserData, err := decodeUserData(userData)
 	c.Assert(err, IsNil)
