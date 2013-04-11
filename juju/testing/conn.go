@@ -95,7 +95,6 @@ environments:
         type: dummy
         state-server: true
         authorized-keys: 'i-am-a-key'
-        default-series: decrepit
         admin-secret: ` + AdminSecret + `
 `)
 

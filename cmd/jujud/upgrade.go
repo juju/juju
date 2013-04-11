@@ -156,7 +156,12 @@ func (u *Upgrader) run() error {
 					// continue on, because the version number is still significant.
 				}
 			}
-			vers := cfg.AgentVersion()
+			vers, ok := cfg.AgentVersion()
+			if !ok {
+				// This shouldn't be possible; but if it happens it's no reason
+				// to kill this task. Just wait for the config to change again.
+				continue
+			}
 			if download != nil {
 				// There's a download in progress, stop it if we need to.
 				if vers == downloadTools.Number {

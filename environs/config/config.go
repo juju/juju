@@ -114,8 +114,6 @@ func New(attrs map[string]interface{}) (*Config, error) {
 		if _, err := version.Parse(v); err != nil {
 			return nil, fmt.Errorf("invalid agent version in environment configuration: %q", v)
 		}
-	} else {
-		c.m["agent-version"] = version.CurrentNumber().String()
 	}
 
 	// Check firewall mode.
@@ -228,14 +226,18 @@ func (c *Config) FirewallMode() FirewallMode {
 	return FirewallMode(c.m["firewall-mode"].(string))
 }
 
-// AgentVersion returns the proposed version number for the agent tools.
-func (c *Config) AgentVersion() version.Number {
-	v := c.m["agent-version"].(string)
-	n, err := version.Parse(v)
-	if err != nil {
-		panic(err) // We should have checked it earlier.
+// AgentVersion returns the proposed version number for the agent tools,
+// and whether it has been set. Once an environment is bootstrapped, this
+// must always be valid.
+func (c *Config) AgentVersion() (version.Number, bool) {
+	if v, ok := c.m["agent-version"].(string); ok {
+		n, err := version.Parse(v)
+		if err != nil {
+			panic(err) // We should have checked it earlier.
+		}
+		return n, true
 	}
-	return n
+	return version.Number{}, false
 }
 
 // Development returns whether the environment is in development mode.

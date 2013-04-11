@@ -436,12 +436,13 @@ func (test configTest) check(c *C, h fakeHome) {
 	name, _ := test.attrs["name"].(string)
 	c.Assert(cfg.Type(), Equals, typ)
 	c.Assert(cfg.Name(), Equals, name)
+	agentVersion, ok := cfg.AgentVersion()
 	if s := test.attrs["agent-version"]; s != nil {
-		vers, err := version.Parse(s.(string))
-		c.Assert(err, IsNil)
-		c.Assert(cfg.AgentVersion(), Equals, vers)
+		c.Assert(ok, Equals, true)
+		c.Assert(agentVersion, Equals, version.MustParse(s.(string)))
 	} else {
-		c.Assert(cfg.AgentVersion(), Equals, version.CurrentNumber())
+		c.Assert(ok, Equals, false)
+		c.Assert(agentVersion, Equals, version.Number{})
 	}
 
 	dev, _ := test.attrs["development"].(bool)
@@ -530,7 +531,6 @@ func (*ConfigSuite) TestConfigAttrs(c *C) {
 
 	// These attributes are added if not set.
 	attrs["development"] = false
-	attrs["agent-version"] = version.CurrentNumber().String()
 	attrs["default-series"] = config.DefaultSeries
 	c.Assert(cfg.AllAttrs(), DeepEquals, attrs)
 	c.Assert(cfg.UnknownAttrs(), DeepEquals, map[string]interface{}{"unknown": "my-unknown"})

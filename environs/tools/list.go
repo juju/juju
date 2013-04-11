@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
 	"sort"
@@ -90,6 +91,7 @@ func (src List) Match(f Filter) (List, error) {
 		}
 	}
 	if len(result) == 0 {
+		log.Errorf("environs/tools: cannot match %#v", f)
 		return nil, ErrNoMatches
 	}
 	return result, nil

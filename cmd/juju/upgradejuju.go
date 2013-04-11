@@ -69,7 +69,12 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	c.agentVersion = cfg.AgentVersion()
+	var ok bool
+	c.agentVersion, ok = cfg.AgentVersion()
+	if !ok {
+		// Can't happen. In theory.
+		return fmt.Errorf("incomplete environment configuration")
+	}
 	c.toolsList, err = environs.ListTools(c.conn.Environ, c.agentVersion.Major)
 	if err != nil {
 		return err

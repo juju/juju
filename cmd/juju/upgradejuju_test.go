@@ -197,7 +197,9 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *C) {
 		c.Assert(err, IsNil)
 		cfg, err := s.State.EnvironConfig()
 		c.Check(err, IsNil)
-		c.Check(cfg.AgentVersion(), Equals, version.MustParse(test.expectVersion))
+		agentVersion, ok := cfg.AgentVersion()
+		c.Check(ok, Equals, true)
+		c.Check(agentVersion, Equals, version.MustParse(test.expectVersion))
 		c.Check(cfg.Development(), Equals, test.expectDevelopment)
 
 		if test.expectUploaded != "" {

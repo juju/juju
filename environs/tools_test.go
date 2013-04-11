@@ -34,6 +34,8 @@ func (t *ToolsSuite) SetUpTest(c *C) {
 	})
 	c.Assert(err, IsNil)
 	t.env = env
+	envtesting.RemoveTools(c, t.env.Storage())
+	envtesting.RemoveTools(c, t.env.PublicStorage().(environs.Storage))
 	t.dataDir = c.MkDir()
 }
 
@@ -215,10 +217,6 @@ func (t *ToolsSuite) TestListTools(c *C) {
 		"xtools/juju-2.2.3-precise-amd64.tgz",
 	}
 
-	// dummy always populates the tools set with version.Current.
-	// Remove any tools in the public storage to ensure they don't
-	// conflict with the list of tools we expect.
-	envtesting.RemoveTools(c, t.env.PublicStorage().(environs.Storage))
 	putNames(c, t.env, testList, testList)
 
 	for i, test := range listToolsTests {

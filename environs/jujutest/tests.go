@@ -7,6 +7,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
@@ -78,6 +79,7 @@ func (t *Tests) TestBootstrapWithoutAdminSecret(c *C) {
 
 func (t *Tests) TestStartStop(c *C) {
 	e := t.Open(c)
+	envtesting.UploadFakeTools(c, e.Storage())
 
 	insts, err := e.Instances(nil)
 	c.Assert(err, IsNil)
