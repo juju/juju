@@ -43,10 +43,13 @@ func (suite *EnvironSuite) makeEnviron() *maasEnviron {
 		"type":            "maas",
 		"admin-secret":    "local-secret",
 		"authorized-keys": "foo",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  testing.CAKey,
+		"agent-version":   version.CurrentNumber().String(),
 		"maas-oauth":      "a:b:c",
 		"maas-server":     suite.testMAASObject.TestServer.URL,
+		// These are not needed by MAAS, but juju-core breaks without them. Needs
+		// fixing there.
+		"ca-cert":        testing.CACert,
+		"ca-private-key": testing.CAKey,
 	})
 	if err != nil {
 		panic(err)
