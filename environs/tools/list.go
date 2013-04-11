@@ -3,6 +3,7 @@ package tools
 import (
 	"errors"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
 	"sort"
 	"strings"
@@ -38,16 +39,11 @@ func (src List) Arches() []string {
 // collect calls f on all values in src and returns an alphabetically
 // ordered list of the returned results without duplicates.
 func (src List) collect(f func(*state.Tools) string) []string {
-	seen := map[string]bool{}
+	seen := set.NewStringSet()
 	for _, tools := range src {
-		seen[f(tools)] = true
+		seen.Add(f(tools))
 	}
-	result := []string{}
-	for value := range seen {
-		result = append(result, value)
-	}
-	sort.Strings(result)
-	return result
+	return seen.SortedValues()
 }
 
 // Newest returns the tools in src with the greatest version.
