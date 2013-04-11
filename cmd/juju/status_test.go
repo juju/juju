@@ -290,7 +290,7 @@ func (sm startMachine) step(c *C, ctx *context) {
 	m, err := ctx.st.Machine(sm.machineId)
 	c.Assert(err, IsNil)
 	inst := testing.StartInstance(c, ctx.conn.Environ, m.Id())
-	err = m.SetInstanceId(inst.Id())
+	err = m.SetProvisioned(inst.Id(), "fake_nonce")
 	c.Assert(err, IsNil)
 }
 

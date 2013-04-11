@@ -18,7 +18,7 @@ const (
 	// will fail the test. Raising this value should
 	// not affect the overall running time of the tests
 	// unless they fail.
-	worstCase = 1 * time.Second
+	worstCase = 10 * time.Second
 
 	// justLongEnough is used for timeouts that
 	// are expected to happen for a test to complete

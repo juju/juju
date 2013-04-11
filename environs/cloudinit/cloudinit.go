@@ -53,6 +53,10 @@ type MachineConfig struct {
 	// or be empty when starting a state server.
 	APIInfo *api.Info
 
+	// MachineNonce is set at provisioning/bootstrap time and used to
+	// ensure the agent is running on the correct instance.
+	MachineNonce string
+
 	// Tools is juju tools to be used on the new machine.
 	Tools *state.Tools
 
@@ -205,6 +209,7 @@ func (cfg *MachineConfig) agentConfig(tag string) *agent.Conf {
 		StateServerKey:  cfg.StateServerKey,
 		MongoPort:       cfg.MongoPort,
 		APIPort:         cfg.APIPort,
+		MachineNonce:    cfg.MachineNonce,
 	}
 	c.StateInfo.Addrs = cfg.stateHostAddrs()
 	c.StateInfo.Tag = tag
@@ -406,6 +411,9 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		if cfg.APIInfo.Tag != state.MachineTag(cfg.MachineId) {
 			return fmt.Errorf("entity tag must match started machine")
 		}
+	}
+	if cfg.MachineNonce == "" {
+		return fmt.Errorf("missing machine nonce")
 	}
 	return nil
 }

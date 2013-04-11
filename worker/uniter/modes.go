@@ -180,7 +180,7 @@ func ModeStopping(u *Uniter) (next Mode, err error) {
 	return ModeContinue, nil
 }
 
-// ModeTerminating marks the unit dead and returns ErrDead.
+// ModeTerminating marks the unit dead and returns ErrTerminateAgent.
 func ModeTerminating(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeTerminating", &err)()
 	if err = u.unit.SetStatus(params.UnitStopped, ""); err != nil {
@@ -207,7 +207,7 @@ func ModeTerminating(u *Uniter) (next Mode, err error) {
 			if err := u.unit.EnsureDead(); err != nil {
 				return nil, err
 			}
-			return nil, worker.ErrDead
+			return nil, worker.ErrTerminateAgent
 		}
 	}
 	panic("unreachable")
@@ -342,9 +342,9 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 			return nil, tomb.ErrDying
 		case rm := <-u.f.ResolvedEvents():
 			switch rm {
-			case params.ResolvedRetryHooks:
+			case state.ResolvedRetryHooks:
 				err = u.runHook(*u.s.Hook)
-			case params.ResolvedNoHooks:
+			case state.ResolvedNoHooks:
 				err = u.commitHook(*u.s.Hook)
 			default:
 				return nil, fmt.Errorf("unknown resolved mode %q", rm)
@@ -407,7 +407,7 @@ func modeContext(name string, err *error) func() {
 	return func() {
 		log.Debugf("worker/uniter: %s exiting", name)
 		switch *err {
-		case nil, tomb.ErrDying, worker.ErrDead:
+		case nil, tomb.ErrDying, worker.ErrTerminateAgent:
 		default:
 			*err = errors.New(name + ": " + (*err).Error())
 		}

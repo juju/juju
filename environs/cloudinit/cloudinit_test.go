@@ -57,6 +57,7 @@ var cloudinitTests = []cloudinitTest{{
 		StateServerKey:  serverKey,
 		MongoPort:       37017,
 		APIPort:         17070,
+		MachineNonce:    "FAKE_NONCE",
 		StateInfo: &state.Info{
 			Password: "arble",
 			CACert:   []byte("CA CERT\n" + testing.CACert),
@@ -87,14 +88,14 @@ dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.2
 cat >> /etc/init/juju-db\.conf << 'EOF'\\ndescription "juju state database"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nexec /opt/mongo/bin/mongod --auth --dbpath=/var/lib/juju/db --sslOnNormalPorts --sslPEMKeyFile '/var/lib/juju/server\.pem' --sslPEMKeyPassword ignored --bind_ip 0\.0\.0\.0 --port 37017 --noprealloc --smallfiles\\nEOF\\n
 start juju-db
 mkdir -p '/var/lib/juju/agents/bootstrap'
-echo 'datadir: /var/lib/juju\\nstateservercert:\\n[^']+stateserverkey:\\n[^']+mongoport: 37017\\napiport: 17070\\noldpassword: arble\\nstateinfo:\\n  addrs:\\n  - localhost:37017\\n  cacert:\\n[^']+  tag: bootstrap\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - localhost:17070\\n  cacert:\\n[^']+  tag: bootstrap\\n  password: ""\\n' > '/var/lib/juju/agents/bootstrap/agent\.conf'
+echo 'datadir: /var/lib/juju\\nstateservercert:\\n[^']+stateserverkey:\\n[^']+mongoport: 37017\\napiport: 17070\\noldpassword: arble\\nmachinenonce: FAKE_NONCE\\nstateinfo:\\n  addrs:\\n  - localhost:37017\\n  cacert:\\n[^']+  tag: bootstrap\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - localhost:17070\\n  cacert:\\n[^']+  tag: bootstrap\\n  password: ""\\n' > '/var/lib/juju/agents/bootstrap/agent\.conf'
 chmod 600 '/var/lib/juju/agents/bootstrap/agent\.conf'
 /var/lib/juju/tools/1\.2\.3-linux-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --constraints 'mem=2048M' --debug
 rm -rf '/var/lib/juju/agents/bootstrap'
 cat > /etc/rsyslog.d/25-juju.conf << 'EOF'\\n\\n\$ModLoad imfile\\n\\n\$InputFilePollInterval 5\\n\$InputFileName /var/log/juju/machine-0.log\\n\$InputFileTag local-juju-machine-0:\\n\$InputFileStateFile machine-0\\n\$InputRunFileMonitor\\n\\n\$ModLoad imudp\\n\$UDPServerRun 514\\n\\n# Messages received from remote rsyslog machines contain a leading space so we\\n# need to account for that.\\n\$template JujuLogFormatLocal,\"%HOSTNAME%:%msg:::drop-last-lf%\\n\"\\n\$template JujuLogFormat,\"%HOSTNAME%:%msg:2:2048:drop-last-lf%\\n\"\\n\\n:syslogtag, startswith, \"juju-\" /var/log/juju/all-machines.log;JujuLogFormat\\n:syslogtag, startswith, \"local-juju-\" /var/log/juju/all-machines.log;JujuLogFormatLocal\\n& ~\\nEOF\\n
 restart rsyslog
 mkdir -p '/var/lib/juju/agents/machine-0'
-echo 'datadir: /var/lib/juju\\nstateservercert:\\n[^']+stateserverkey:\\n[^']+mongoport: 37017\\napiport: 17070\\noldpassword: arble\\nstateinfo:\\n  addrs:\\n  - localhost:37017\\n  cacert:\\n[^']+  tag: machine-0\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - localhost:17070\\n  cacert:\\n[^']+  tag: machine-0\\n  password: ""\\n' > '/var/lib/juju/agents/machine-0/agent\.conf'
+echo 'datadir: /var/lib/juju\\nstateservercert:\\n[^']+stateserverkey:\\n[^']+mongoport: 37017\\napiport: 17070\\noldpassword: arble\\nmachinenonce: FAKE_NONCE\\nstateinfo:\\n  addrs:\\n  - localhost:37017\\n  cacert:\\n[^']+  tag: machine-0\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - localhost:17070\\n  cacert:\\n[^']+  tag: machine-0\\n  password: ""\\n' > '/var/lib/juju/agents/machine-0/agent\.conf'
 chmod 600 '/var/lib/juju/agents/machine-0/agent\.conf'
 ln -s 1\.2\.3-linux-amd64 '/var/lib/juju/tools/machine-0'
 cat >> /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju machine-0 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nexec /var/lib/juju/tools/machine-0/jujud machine --log-file /var/log/juju/machine-0\.log --data-dir '/var/lib/juju' --machine-id 0  --debug >> /var/log/juju/machine-0\.log 2>&1\\nEOF\\n
@@ -108,6 +109,7 @@ start jujud-machine-0
 			DataDir:        "/var/lib/juju",
 			StateServer:    false,
 			Tools:          newSimpleTools("1.2.3-linux-amd64"),
+			MachineNonce:   "FAKE_NONCE",
 			StateInfo: &state.Info{
 				Addrs:    []string{"state-addr.example.com:12345"},
 				Tag:      "machine-99",
@@ -131,7 +133,7 @@ echo -n 'http://foo\.com/tools/juju1\.2\.3-linux-amd64\.tgz' > \$bin/downloaded-
 cat > /etc/rsyslog.d/25-juju.conf << 'EOF'\\n\\n\$ModLoad imfile\\n\\n\$InputFilePollInterval 5\\n\$InputFileName /var/log/juju/machine-99.log\\n\$InputFileTag juju-machine-99:\\n\$InputFileStateFile machine-99\\n\$InputRunFileMonitor\\n\\n:syslogtag, startswith, \"juju-\" @state-addr.example.com:514\\n& ~\\nEOF\\n
 restart rsyslog
 mkdir -p '/var/lib/juju/agents/machine-99'
-echo 'datadir: /var/lib/juju\\noldpassword: arble\\nstateinfo:\\n  addrs:\\n  - state-addr\.example\.com:12345\\n  cacert:\\n[^']+  tag: machine-99\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - state-addr\.example\.com:54321\\n  cacert:\\n[^']+  tag: machine-99\\n  password: ""\\n' > '/var/lib/juju/agents/machine-99/agent\.conf'
+echo 'datadir: /var/lib/juju\\noldpassword: arble\\nmachinenonce: FAKE_NONCE\\nstateinfo:\\n  addrs:\\n  - state-addr\.example\.com:12345\\n  cacert:\\n[^']+  tag: machine-99\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - state-addr\.example\.com:54321\\n  cacert:\\n[^']+  tag: machine-99\\n  password: ""\\n' > '/var/lib/juju/agents/machine-99/agent\.conf'
 chmod 600 '/var/lib/juju/agents/machine-99/agent\.conf'
 ln -s 1\.2\.3-linux-amd64 '/var/lib/juju/tools/machine-99'
 cat >> /etc/init/jujud-machine-99\.conf << 'EOF'\\ndescription "juju machine-99 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nexec /var/lib/juju/tools/machine-99/jujud machine --log-file /var/log/juju/machine-99\.log --data-dir '/var/lib/juju' --machine-id 99  --debug >> /var/log/juju/machine-99\.log 2>&1\\nEOF\\n
@@ -396,6 +398,9 @@ var verifyTests = []struct {
 	{"missing API port", func(cfg *cloudinit.MachineConfig) {
 		cfg.APIPort = 0
 	}},
+	{"missing machine nonce", func(cfg *cloudinit.MachineConfig) {
+		cfg.MachineNonce = ""
+	}},
 }
 
 // TestCloudInitVerify checks that required fields are appropriately
@@ -418,8 +423,9 @@ func (*cloudinitSuite) TestCloudInitVerify(c *C) {
 			Addrs:  []string{"host:9999"},
 			CACert: []byte(testing.CACert),
 		},
-		Config:  minimalConfig(c),
-		DataDir: "/var/lib/juju",
+		Config:       minimalConfig(c),
+		DataDir:      "/var/lib/juju",
+		MachineNonce: "FAKE_NONCE",
 	}
 	// check that the base configuration does not give an error
 	_, err := cloudinit.New(cfg)
