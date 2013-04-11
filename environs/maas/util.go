@@ -58,8 +58,8 @@ func userData(cfg *cloudinit.MachineConfig, scripts ...string) ([]byte, error) {
 // filesystem during its first startup.  That file is then read by the juju
 // agent running on the node and converted back into a machineInfo object.
 type machineInfo struct {
-	InstanceId string
-	Hostname   string
+	InstanceId string `yaml:,omitempty`
+	Hostname   string `yaml:,omitempty`
 }
 
 var _MAASInstanceFilename = jujuDataDir + "/MAASmachine.txt"
