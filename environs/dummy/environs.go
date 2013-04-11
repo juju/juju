@@ -69,13 +69,14 @@ type OpBootstrap struct {
 type OpDestroy GenericOperation
 
 type OpStartInstance struct {
-	Env         string
-	MachineId   string
-	Instance    environs.Instance
-	Constraints constraints.Value
-	Info        *state.Info
-	APIInfo     *api.Info
-	Secret      string
+	Env          string
+	MachineId    string
+	MachineNonce string
+	Instance     environs.Instance
+	Constraints  constraints.Value
+	Info         *state.Info
+	APIInfo      *api.Info
+	Secret       string
 }
 
 type OpStopInstances struct {
@@ -339,18 +340,16 @@ func (p *environProvider) newConfig(cfg *config.Config) (*environConfig, error) 
 }
 
 func (p *environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
+	// Check for valid changes for the base config values.
+	if err := config.Validate(cfg, old); err != nil {
+		return nil, err
+	}
 	v, err := checker.Coerce(cfg.UnknownAttrs(), nil)
 	if err != nil {
 		return nil, err
 	}
+	// Apply the coerced unknown values back into the config.
 	attrs := v.(map[string]interface{})
-	switch cfg.FirewallMode() {
-	case config.FwDefault:
-		attrs["firewall-mode"] = config.FwInstance
-	case config.FwInstance, config.FwGlobal:
-	default:
-		return nil, fmt.Errorf("unsupported firewall mode: %q", cfg.FirewallMode())
-	}
 	return cfg.Apply(attrs)
 }
 
@@ -555,7 +554,7 @@ func (e *environ) Destroy([]environs.Instance) error {
 	return nil
 }
 
-func (e *environ) StartInstance(machineId string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
 	defer delay()
 	log.Infof("environs/dummy: dummy startinstance, machine %s", machineId)
 	if err := e.checkBroken("StartInstance"); err != nil {
@@ -563,6 +562,9 @@ func (e *environ) StartInstance(machineId string, series string, cons constraint
 	}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
+	if machineNonce == "" {
+		return nil, fmt.Errorf("cannot start instance: missing machine nonce")
+	}
 	if _, ok := e.Config().CACert(); !ok {
 		return nil, fmt.Errorf("no CA certificate in environment configuration")
 	}
@@ -585,13 +587,14 @@ func (e *environ) StartInstance(machineId string, series string, cons constraint
 	e.state.insts[i.id] = i
 	e.state.maxId++
 	e.state.ops <- OpStartInstance{
-		Env:         e.state.name,
-		MachineId:   machineId,
-		Constraints: cons,
-		Instance:    i,
-		Info:        info,
-		APIInfo:     apiInfo,
-		Secret:      e.ecfg().secret(),
+		Env:          e.state.name,
+		MachineId:    machineId,
+		MachineNonce: machineNonce,
+		Constraints:  cons,
+		Instance:     i,
+		Info:         info,
+		APIInfo:      apiInfo,
+		Secret:       e.ecfg().secret(),
 	}
 	return i, nil
 }

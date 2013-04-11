@@ -6,11 +6,11 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/trivial"
 	"os"
@@ -390,38 +390,6 @@ func (s *ConnSuite) TestAddUnits(c *C) {
 	c.Assert(id0, Not(Equals), id1)
 }
 
-func (s *ConnSuite) TestResolved(c *C) {
-	curl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "riak")
-	sch, err := s.conn.PutCharm(curl, s.repo, false)
-	c.Assert(err, IsNil)
-	svc, err := s.conn.State.AddService("testriak", sch)
-	c.Assert(err, IsNil)
-	us, err := s.conn.AddUnits(svc, 1)
-	c.Assert(err, IsNil)
-	u := us[0]
-
-	err = s.conn.Resolved(u, false)
-	c.Assert(err, ErrorMatches, `unit "testriak/0" is not in an error state`)
-	err = s.conn.Resolved(u, true)
-	c.Assert(err, ErrorMatches, `unit "testriak/0" is not in an error state`)
-
-	err = u.SetStatus(params.UnitError, "gaaah")
-	c.Assert(err, IsNil)
-	err = s.conn.Resolved(u, false)
-	c.Assert(err, IsNil)
-	err = s.conn.Resolved(u, true)
-	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "testriak/0": already resolved`)
-	c.Assert(u.Resolved(), Equals, params.ResolvedNoHooks)
-
-	err = u.ClearResolved()
-	c.Assert(err, IsNil)
-	err = s.conn.Resolved(u, true)
-	c.Assert(err, IsNil)
-	err = s.conn.Resolved(u, false)
-	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "testriak/0": already resolved`)
-	c.Assert(u.Resolved(), Equals, params.ResolvedRetryHooks)
-}
-
 type DeployLocalSuite struct {
 	testing.JujuConnSuite
 	repo          *charm.LocalRepository
@@ -473,4 +441,51 @@ func (s *DeployLocalSuite) TestDeploy(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(mcons, DeepEquals, cons)
 	}
+}
+
+type InitJujuHomeSuite struct {
+	originalHome     string
+	originalJujuHome string
+}
+
+var _ = Suite(&InitJujuHomeSuite{})
+
+func (s *InitJujuHomeSuite) SetUpTest(c *C) {
+	s.originalHome = os.Getenv("HOME")
+	s.originalJujuHome = os.Getenv("JUJU_HOME")
+}
+
+func (s *InitJujuHomeSuite) TearDownTest(c *C) {
+	os.Setenv("HOME", s.originalHome)
+	os.Setenv("JUJU_HOME", s.originalJujuHome)
+}
+
+func (s *InitJujuHomeSuite) TestJujuHome(c *C) {
+	os.Setenv("JUJU_HOME", "/my/juju/home")
+	err := juju.InitJujuHome()
+	c.Assert(err, IsNil)
+	c.Assert(config.JujuHome(), Equals, "/my/juju/home")
+}
+
+func (s *InitJujuHomeSuite) TestHome(c *C) {
+	os.Setenv("JUJU_HOME", "")
+	os.Setenv("HOME", "/my/home/")
+	err := juju.InitJujuHome()
+	c.Assert(err, IsNil)
+	c.Assert(config.JujuHome(), Equals, "/my/home/.juju")
+}
+
+func (s *InitJujuHomeSuite) TestError(c *C) {
+	os.Setenv("JUJU_HOME", "")
+	os.Setenv("HOME", "")
+	err := juju.InitJujuHome()
+	c.Assert(err, ErrorMatches, "cannot determine juju home.*")
+}
+
+func (s *InitJujuHomeSuite) TestCacheDir(c *C) {
+	os.Setenv("JUJU_HOME", "/foo/bar")
+	c.Assert(charm.CacheDir, Equals, "")
+	err := juju.InitJujuHome()
+	c.Assert(err, IsNil)
+	c.Assert(charm.CacheDir, Equals, "/foo/bar/charmcache")
 }

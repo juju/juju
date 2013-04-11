@@ -211,7 +211,8 @@ func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
 	stateInfo.Tag = "machine-1"
 	apiInfo.Tag = "machine-1"
 	series := version.Current.Series
-	instance, err := env.StartInstance("1", series, constraints.Value{}, stateInfo, apiInfo)
+	nonce := "12345"
+	instance, err := env.StartInstance("1", nonce, series, constraints.Value{}, stateInfo, apiInfo)
 	c.Assert(err, IsNil)
 	c.Check(instance, NotNil)
 

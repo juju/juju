@@ -14,8 +14,10 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state/multiwatcher"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
+	"launchpad.net/juju-core/trivial"
 )
 
 // Info encapsulates information about cluster of
@@ -126,10 +128,10 @@ func Initialize(info *Info, cfg *config.Config, opts DialOpts) (rst *State, err 
 			st.Close()
 		}
 	}()
-	// A valid environment config is used as a signal that the
+	// A valid environment is used as a signal that the
 	// state has already been initalized. If this is the case
 	// do nothing.
-	if _, err := st.EnvironConfig(); err == nil {
+	if _, err := st.Environment(); err == nil {
 		return st, nil
 	} else if !IsNotFound(err) {
 		return nil, err
@@ -138,9 +140,14 @@ func Initialize(info *Info, cfg *config.Config, opts DialOpts) (rst *State, err 
 	if cfg.AdminSecret() != "" {
 		return nil, fmt.Errorf("admin-secret should never be written to the state")
 	}
+	uuid, err := trivial.NewUUID()
+	if err != nil {
+		return nil, fmt.Errorf("environment UUID cannot be created: %v", err)
+	}
 	ops := []txn.Op{
-		createConstraintsOp(st, "e", constraints.Value{}),
-		createSettingsOp(st, "e", cfg.AllAttrs()),
+		createConstraintsOp(st, environGlobalKey, constraints.Value{}),
+		createSettingsOp(st, environGlobalKey, cfg.AllAttrs()),
+		createEnvironmentOp(st, cfg.Name(), uuid.String()),
 	}
 	if err := st.runner.Run(ops, "", nil); err == txn.ErrAborted {
 		// The config was created in the meantime.
@@ -233,6 +240,7 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 	st := &State{
 		info:           info,
 		db:             db,
+		environments:   db.C("environments"),
 		charms:         db.C("charms"),
 		machines:       db.C("machines"),
 		relations:      db.C("relations"),
@@ -266,8 +274,7 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 			return nil, fmt.Errorf("cannot create database index: %v", err)
 		}
 	}
-	st.allWatcher = newAllWatcher(newAllWatcherStateBacking(st))
-	go st.allWatcher.run()
+	st.allManager = multiwatcher.NewStoreManager(newAllWatcherStateBacking(st))
 	return st, nil
 }
 
@@ -284,7 +291,7 @@ func (st *State) CACert() (cert []byte) {
 func (st *State) Close() error {
 	err1 := st.watcher.Stop()
 	err2 := st.pwatcher.Stop()
-	err3 := st.allWatcher.Stop()
+	err3 := st.allManager.Stop()
 	st.db.Session.Close()
 	for _, err := range []error{err1, err2, err3} {
 		if err != nil {

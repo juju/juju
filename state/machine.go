@@ -51,6 +51,7 @@ func (job MachineJob) String() string {
 // Note the correspondence with MachineInfo in state/api/params.
 type machineDoc struct {
 	Id           string `bson:"_id"`
+	Nonce        string
 	Series       string
 	InstanceId   InstanceId
 	Principals   []string
@@ -59,15 +60,6 @@ type machineDoc struct {
 	TxnRevno     int64  `bson:"txn-revno"`
 	Jobs         []MachineJob
 	PasswordHash string
-}
-
-// machineStatusDoc represents the internal state of a machine status in MongoDB.
-// The implicit _id field is explicitly set to the global key of the
-// associated machine in the document's creation transaction, but omitted to
-// allow direct use of the document in both create and update transactions.
-type machineStatusDoc struct {
-	Status     params.MachineStatus
-	StatusInfo string
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {
@@ -410,19 +402,40 @@ func (m *Machine) Units() (units []*Unit, err error) {
 	return units, nil
 }
 
-// SetInstanceId sets the provider specific machine id for this machine.
-func (m *Machine) SetInstanceId(id InstanceId) (err error) {
+// SetProvisioned sets the provider specific machine id and nonce for
+// this machine. Once set, the instance id cannot be changed.
+func (m *Machine) SetProvisioned(id InstanceId, nonce string) (err error) {
+	defer trivial.ErrorContextf(&err, "cannot set instance id of machine %q", m)
+
+	if id == "" || nonce == "" {
+		return fmt.Errorf("instance id and nonce cannot be empty")
+	}
+	notSetYet := D{{"instanceid", ""}, {"nonce", ""}}
 	ops := []txn.Op{{
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
-		Assert: notDeadDoc,
-		Update: D{{"$set", D{{"instanceid", id}}}},
+		Assert: append(isAliveDoc, notSetYet...),
+		Update: D{{"$set", D{{"instanceid", id}, {"nonce", nonce}}}},
 	}}
-	if err := m.st.runner.Run(ops, "", nil); err != nil {
-		return fmt.Errorf("cannot set instance id of machine %v: %v", m, onAbort(err, errDead))
+
+	if err = m.st.runner.Run(ops, "", nil); err == nil {
+		m.doc.InstanceId = id
+		m.doc.Nonce = nonce
+		return nil
+	} else if err != txn.ErrAborted {
+		return err
+	} else if alive, err := isAlive(m.st.machines, m.doc.Id); err != nil {
+		return err
+	} else if !alive {
+		return errNotAlive
 	}
-	m.doc.InstanceId = id
-	return nil
+	return fmt.Errorf("already set")
+}
+
+// CheckProvisioned returns true if the machine was provisioned with
+// the given nonce.
+func (m *Machine) CheckProvisioned(nonce string) bool {
+	return m.doc.Nonce == nonce && m.doc.InstanceId != ""
 }
 
 // String returns a unique description of this machine.
@@ -474,21 +487,27 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 
 // Status returns the status of the machine.
 func (m *Machine) Status() (status params.MachineStatus, info string, err error) {
-	doc := &machineStatusDoc{}
-	if err := getStatus(m.st, m.globalKey(), doc); err != nil {
+	doc, err := getStatus(m.st, m.globalKey())
+	if err != nil {
 		return "", "", err
 	}
-	return doc.Status, doc.StatusInfo, nil
+	status = params.MachineStatus(doc.Status)
+	info = doc.StatusInfo
+	return
 }
 
 // SetStatus sets the status of the machine.
 func (m *Machine) SetStatus(status params.MachineStatus, info string) error {
 	if status == params.MachineError && info == "" {
 		panic("machine error status with no info")
-	} else if status == params.MachinePending {
+	}
+	if status == params.MachinePending {
 		panic("machine status cannot be set to pending")
 	}
-	doc := &machineStatusDoc{status, info}
+	doc := statusDoc{
+		Status:     string(status),
+		StatusInfo: info,
+	}
 	ops := []txn.Op{{
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,

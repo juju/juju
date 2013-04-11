@@ -4,10 +4,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/testing"
 	"net"
@@ -149,23 +149,24 @@ func (s *MockStore) ServeCharm(w http.ResponseWriter, r *http.Request) {
 type StoreSuite struct {
 	server      *MockStore
 	store       *charm.CharmStore
-	oldJujuHome string
+	oldCacheDir string
 }
 
 var _ = Suite(&StoreSuite{})
 
 func (s *StoreSuite) SetUpSuite(c *C) {
 	s.server = NewMockStore(c)
+	s.oldCacheDir = charm.CacheDir
 }
 
 func (s *StoreSuite) SetUpTest(c *C) {
-	s.oldJujuHome = config.SetJujuHome(c.MkDir())
+	charm.CacheDir = c.MkDir()
 	s.store = charm.NewStore("http://127.0.0.1:4444")
 	s.server.downloads = nil
 }
 
 func (s *StoreSuite) TearDownSuite(c *C) {
-	config.SetJujuHome(s.oldJujuHome)
+	charm.CacheDir = s.oldCacheDir
 	s.server.lis.Close()
 }
 
@@ -244,12 +245,12 @@ func (s *StoreSuite) TestGetCacheExplicitRevision(c *C) {
 }
 
 func (s *StoreSuite) TestGetBadCache(c *C) {
-	c.Assert(os.Mkdir(config.JujuHomePath("cache"), 0777), IsNil)
+	c.Assert(os.Mkdir(filepath.Join(charm.CacheDir, "cache"), 0777), IsNil)
 	base := "cs:series/good"
 	curl := charm.MustParseURL(base)
 	revCurl := charm.MustParseURL(base + "-23")
 	name := charm.Quote(revCurl.String()) + ".charm"
-	err := ioutil.WriteFile(config.JujuHomePath("cache", name), nil, 0666)
+	err := ioutil.WriteFile(filepath.Join(charm.CacheDir, "cache", name), nil, 0666)
 	c.Assert(err, IsNil)
 	ch, err := s.store.Get(curl)
 	c.Assert(err, IsNil)
@@ -334,6 +335,51 @@ func (s *StoreSuite) TestEventWarning(c *C) {
 	event, err := s.store.Event(curl, "")
 	c.Assert(err, IsNil)
 	c.Assert(event.Warnings, DeepEquals, []string{"foolishness"})
+}
+
+func (s *StoreSuite) TestBranchLocation(c *C) {
+	curl := charm.MustParseURL("cs:series/name")
+	location := s.store.BranchLocation(curl)
+	c.Assert(location, Equals, "lp:charms/series/name")
+
+	curl = charm.MustParseURL("cs:~user/series/name")
+	location = s.store.BranchLocation(curl)
+	c.Assert(location, Equals, "lp:~user/charms/series/name/trunk")
+}
+
+func (s *StoreSuite) TestCharmURL(c *C) {
+	tests := []struct{ url, loc string }{
+		{"cs:precise/wordpress", "lp:charms/precise/wordpress"},
+		{"cs:precise/wordpress", "http://launchpad.net/+branch/charms/precise/wordpress"},
+		{"cs:precise/wordpress", "https://launchpad.net/+branch/charms/precise/wordpress"},
+		{"cs:precise/wordpress", "http://code.launchpad.net/+branch/charms/precise/wordpress"},
+		{"cs:precise/wordpress", "https://code.launchpad.net/+branch/charms/precise/wordpress"},
+		{"cs:precise/wordpress", "bzr+ssh://bazaar.launchpad.net/+branch/charms/precise/wordpress"},
+		{"cs:~charmers/precise/wordpress", "lp:~charmers/charms/precise/wordpress/trunk"},
+		{"cs:~charmers/precise/wordpress", "http://launchpad.net/~charmers/charms/precise/wordpress/trunk"},
+		{"cs:~charmers/precise/wordpress", "https://launchpad.net/~charmers/charms/precise/wordpress/trunk"},
+		{"cs:~charmers/precise/wordpress", "http://code.launchpad.net/~charmers/charms/precise/wordpress/trunk"},
+		{"cs:~charmers/precise/wordpress", "https://code.launchpad.net/~charmers/charms/precise/wordpress/trunk"},
+		{"cs:~charmers/precise/wordpress", "http://launchpad.net/+branch/~charmers/charms/precise/wordpress/trunk"},
+		{"cs:~charmers/precise/wordpress", "https://launchpad.net/+branch/~charmers/charms/precise/wordpress/trunk"},
+		{"cs:~charmers/precise/wordpress", "http://code.launchpad.net/+branch/~charmers/charms/precise/wordpress/trunk"},
+		{"cs:~charmers/precise/wordpress", "https://code.launchpad.net/+branch/~charmers/charms/precise/wordpress/trunk"},
+		{"cs:~charmers/precise/wordpress", "bzr+ssh://bazaar.launchpad.net/~charmers/charms/precise/wordpress/trunk"},
+		{"cs:~charmers/precise/wordpress", "bzr+ssh://bazaar.launchpad.net/~charmers/charms/precise/wordpress/trunk/"},
+		{"cs:~charmers/precise/wordpress", "~charmers/charms/precise/wordpress/trunk"},
+		{"", "lp:~charmers/charms/precise/wordpress/whatever"},
+		{"", "lp:~charmers/whatever/precise/wordpress/trunk"},
+		{"", "lp:whatever/precise/wordpress"},
+	}
+	for _, t := range tests {
+		curl, err := s.store.CharmURL(t.loc)
+		if t.url == "" {
+			c.Assert(err, ErrorMatches, fmt.Sprintf("unknown branch location: %q", t.loc))
+		} else {
+			c.Assert(err, IsNil)
+			c.Assert(curl.String(), Equals, t.url)
+		}
+	}
 }
 
 type LocalRepoSuite struct {
