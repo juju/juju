@@ -110,6 +110,7 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	c.AddPackage("git")
 
 	addScripts(c,
+		"set -xe",		// ensure we run all the scripts or abort.
 		fmt.Sprintf("mkdir -p %s", cfg.DataDir),
 		"mkdir -p /var/log/juju")
 
