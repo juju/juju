@@ -68,35 +68,6 @@ func (env *maasEnviron) Name() string {
 	return env.name
 }
 
-// quiesceStateFile waits (up to a few seconds) for any existing state file to
-// disappear.
-//
-// This is used when bootstrapping, to deal with any previous state file that
-// may have been removed by a Destroy that hasn't reached its eventual
-// consistent state yet.
-func (env *maasEnviron) quiesceStateFile() error {
-	// This was all cargo-culted off the EC2 provider.
-	var err error
-	retry := trivial.AttemptStrategy{
-		Total: 5 * time.Second,
-		Delay: 200 * time.Millisecond,
-	}
-	for a := retry.Start(); err == nil && a.Next(); {
-		_, err = env.loadState()
-	}
-	if err == nil {
-		// The state file outlived the timeout.  Looks like it wasn't
-		// being destroyed after all.
-		return fmt.Errorf("environment is already bootstrapped")
-	}
-	if _, notFound := err.(*environs.NotFoundError); !notFound {
-		return fmt.Errorf("cannot query old bootstrap state: %v", err)
-	}
-	// Got to this point?  Then the error was "not found," which is the
-	// state we're looking for.
-	return nil
-}
-
 // TODO: this code is cargo-culted from the openstack/ec2 providers.
 func (env *maasEnviron) findTools() (*state.Tools, error) {
 	flags := environs.HighestVersion | environs.CompatVersion
@@ -178,12 +149,7 @@ func (env *maasEnviron) Bootstrap(cons constraints.Value, stateServerCert, state
 		return fmt.Errorf("admin-secret is required for bootstrap")
 	}
 	log.Debugf("environs/maas: bootstrapping environment %q.", env.Name())
-	err := env.quiesceStateFile()
-	if err != nil {
-		return err
-	}
-	var tools *state.Tools
-	tools, err = env.findTools()
+	tools, err := env.findTools()
 	if err != nil {
 		return err
 	}

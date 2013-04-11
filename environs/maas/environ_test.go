@@ -1,7 +1,6 @@
 package maas
 
 import (
-	"bytes"
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/gomaasapi"
@@ -256,21 +255,6 @@ func (suite *EnvironSuite) TestStopInstancesStopsAndReleasesInstances(c *C) {
 	c.Check(operations, DeepEquals, expectedOperations)
 }
 
-func (suite *EnvironSuite) TestQuiesceStateFileIsHappyWithoutStateFile(c *C) {
-	err := suite.makeEnviron().quiesceStateFile()
-	c.Check(err, IsNil)
-}
-
-func (suite *EnvironSuite) TestQuiesceStateFileFailsWithStateFile(c *C) {
-	env := suite.makeEnviron()
-	err := env.saveState(&bootstrapState{})
-	c.Assert(err, IsNil)
-
-	err = env.quiesceStateFile()
-
-	c.Check(err, Not(IsNil))
-}
-
 func (suite *EnvironSuite) TestStateInfo(c *C) {
 	env := suite.makeEnviron()
 	hostname := "test"
@@ -293,18 +277,6 @@ func (suite *EnvironSuite) TestStateInfoFailsIfNoStateInstances(c *C) {
 	_, _, err := env.StateInfo()
 
 	c.Check(err, FitsTypeOf, &environs.NotFoundError{})
-}
-
-func (suite *EnvironSuite) TestQuiesceStateFileFailsOnBrokenStateFile(c *C) {
-	const content = "@#$(*&Y%!"
-	reader := bytes.NewReader([]byte(content))
-	env := suite.makeEnviron()
-	err := env.Storage().Put(stateFile, reader, int64(len(content)))
-	c.Assert(err, IsNil)
-
-	err = env.quiesceStateFile()
-
-	c.Check(err, Not(IsNil))
 }
 
 func (suite *EnvironSuite) TestDestroy(c *C) {
