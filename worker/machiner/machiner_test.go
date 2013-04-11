@@ -78,12 +78,12 @@ func (s *MachinerSuite) TestStartSetsStatus(c *C) {
 	mr := machiner.NewMachiner(s.State, m.Id())
 	defer mr.Stop()
 
-	c.Assert(m.WaitAgentAlive(worstCase), IsNil)
+	s.waitMachineStatus(c, m, params.MachineStarted)
+
+	s.State.Sync()
 	alive, err = m.AgentAlive()
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, true)
-
-	s.waitMachineStatus(c, m, params.MachineStarted)
 }
 
 func (s *MachinerSuite) TestSetsStatusWhenDying(c *C) {
