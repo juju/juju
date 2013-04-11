@@ -113,7 +113,7 @@ func (env *maasEnviron) getMongoURL(tools *state.Tools) string {
 // makeMachineConfig sets up a basic machine configuration for use with
 // userData().  You may still need to supply more information, but this takes
 // care of the fixed entries and the ones that are always needed.
-func (env *maasEnviron) makeMachineConfig(machineID string, stateInfo *state.Info, apiInfo *api.Info, tools *state.Tools) *cloudinit.MachineConfig {
+func (env *maasEnviron) makeMachineConfig(machineID, machineNonce string, stateInfo *state.Info, apiInfo *api.Info, tools *state.Tools) *cloudinit.MachineConfig {
 	return &cloudinit.MachineConfig{
 		// Fixed entries.
 		MongoPort: mgoPort,
@@ -125,6 +125,7 @@ func (env *maasEnviron) makeMachineConfig(machineID string, stateInfo *state.Inf
 
 		// Parameter entries.
 		MachineId: machineID,
+		MachineNonce: machineNonce,
 		StateInfo: stateInfo,
 		APIInfo:   apiInfo,
 		Tools:     tools,
@@ -155,7 +156,7 @@ func (env *maasEnviron) startBootstrapNode(tools *state.Tools, cert, key []byte,
 	// instance ids or MAAS system ids.  Juju assigns the machine ID.
 	const machineID = "0"
 
-	mcfg := env.makeMachineConfig(machineID, &stateInfo, &apiInfo, tools)
+	mcfg := env.makeMachineConfig(machineID, state.BootstrapNonce, &stateInfo, &apiInfo, tools)
 	mcfg.StateServer = true
 	mcfg.StateServerCert = cert
 	mcfg.StateServerKey = key
@@ -382,8 +383,8 @@ func (environ *maasEnviron) obtainNode(machineId string, stateInfo *state.Info, 
 }
 
 // StartInstance is specified in the Environ interface.
-func (environ *maasEnviron) StartInstance(machineID string, series string, cons constraints.Value, stateInfo *state.Info, apiInfo *api.Info) (environs.Instance, error) {
-	// TODO: Support series.
+func (environ *maasEnviron) StartInstance(machineID, machineNonce string, series string, cons constraints.Value, stateInfo *state.Info, apiInfo *api.Info) (environs.Instance, error) {
+	// TODO: Support series.  It was added to the interface after we implemented.
 	flags := environs.HighestVersion | environs.CompatVersion
 	var err error
 	tools, err := environs.FindTools(environ, version.Current, flags)
@@ -391,7 +392,7 @@ func (environ *maasEnviron) StartInstance(machineID string, series string, cons 
 		return nil, err
 	}
 
-	mcfg := environ.makeMachineConfig(machineID, stateInfo, apiInfo, tools)
+	mcfg := environ.makeMachineConfig(machineID, machineNonce, stateInfo, apiInfo, tools)
 	return environ.obtainNode(machineID, stateInfo, apiInfo, tools, mcfg)
 }
 
