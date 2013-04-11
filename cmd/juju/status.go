@@ -138,7 +138,6 @@ func processMachine(machine *state.Machine, instance environs.Instance) (map[str
 
 	processVersion(r, machine)
 
-	// The following logic is ported from Python juju status command.
 	agentAlive, err := machine.AgentAlive()
 	if err != nil {
 		return nil, err
@@ -153,9 +152,9 @@ func processMachine(machine *state.Machine, instance environs.Instance) (map[str
 		if !agentAlive && !machineDead {
 			// Add the original status to the info, so it's not lost.
 			if info != "" {
-				info = fmt.Sprintf("%s: %s", status, info)
+				info = fmt.Sprintf("(%s: %s)", status, info)
 			} else {
-				info = string(status)
+				info = fmt.Sprintf("(%s)", status)
 			}
 			// Agent should be running but it's not.
 			status = params.MachineDown
@@ -237,9 +236,9 @@ func processUnit(unit *state.Unit) (map[string]interface{}, error) {
 		if !agentAlive && !unitDead {
 			// Add the original status to the info, so it's not lost.
 			if info != "" {
-				info = fmt.Sprintf("%s: %s", status, info)
+				info = fmt.Sprintf("(%s: %s)", status, info)
 			} else {
-				info = string(status)
+				info = fmt.Sprintf("(%s)", status)
 			}
 			// Agent should be running but it's not.
 			status = params.UnitDown
