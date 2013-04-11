@@ -11,7 +11,6 @@ import (
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
-	"os"
 )
 
 type UtilSuite struct{}
@@ -117,7 +116,6 @@ func (s *UtilSuite) TestMachineInfoLoad(c *C) {
 	hostname := "hostname"
 	yaml := fmt.Sprintf("instanceid: %s\nhostname: %s\n", instanceId, hostname)
 	filename := createTempFile(c, []byte(yaml))
-	defer os.Remove(filename)
 	old_MAASInstanceFilename := _MAASInstanceFilename
 	_MAASInstanceFilename = filename
 	defer func() { _MAASInstanceFilename = old_MAASInstanceFilename }()
