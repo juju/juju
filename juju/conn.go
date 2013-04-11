@@ -191,7 +191,7 @@ type DeployServiceParams struct {
 	ConfigYAML  string
 	Constraints constraints.Value
 	// Use string for deploy-to machine to avoid ambiguity around machine 0.
-	MachineId string
+	ForceMachineId string
 }
 
 // DeployService takes a charm and various parameters and deploys it.
@@ -224,7 +224,7 @@ func (conn *Conn) DeployService(args DeployServiceParams) (*state.Service, error
 	if err := svc.SetConstraints(args.Constraints); err != nil {
 		return nil, err
 	}
-	_, err = conn.AddUnits(svc, args.NumUnits, args.MachineId)
+	_, err = conn.AddUnits(svc, args.NumUnits, args.ForceMachineId)
 	if err != nil {
 		return nil, err
 	}
