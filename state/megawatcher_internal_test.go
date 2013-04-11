@@ -6,6 +6,7 @@ import (
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/multiwatcher"
 	"launchpad.net/juju-core/state/watcher"
@@ -72,10 +73,13 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 	c.Assert(err, IsNil)
 	err = wordpress.SetExposed()
 	c.Assert(err, IsNil)
+	err = wordpress.SetConstraints(constraints.MustParse("mem=100M"))
+	c.Assert(err, IsNil)
 	add(&params.ServiceInfo{
-		Name:     "wordpress",
-		Exposed:  true,
-		CharmURL: serviceCharmURL(wordpress).String(),
+		Name:        "wordpress",
+		Exposed:     true,
+		CharmURL:    serviceCharmURL(wordpress).String(),
+		Constraints: constraints.MustParse("mem=100M"),
 	})
 	pairs := map[string]string{"x": "12", "y": "99"}
 	err = wordpress.SetAnnotations(pairs)
@@ -633,6 +637,52 @@ var allWatcherChangedTests = []struct {
 			},
 		},
 	},
+	// Service constraints changes
+	{
+		about: "no service in state -> do nothing",
+		setUp: func(c *C, st *State) {},
+		change: watcher.Change{
+			C:  "constraints",
+			Id: "s#wordpress",
+		},
+	}, {
+		about: "no change if service is not in backing",
+		add: []params.EntityInfo{&params.ServiceInfo{
+			Name:        "wordpress",
+			Constraints: constraints.MustParse("mem=99M"),
+		}},
+		setUp: func(*C, *State) {},
+		change: watcher.Change{
+			C:  "constraints",
+			Id: "s#wordpress",
+		},
+		expectContents: []params.EntityInfo{&params.ServiceInfo{
+			Name:        "wordpress",
+			Constraints: constraints.MustParse("mem=99M"),
+		}},
+	}, {
+		about: "status is changed if the service exists in the store",
+		add: []params.EntityInfo{&params.ServiceInfo{
+			Name:        "wordpress",
+			Constraints: constraints.MustParse("mem=99M cpu-cores=2 cpu-power=4"),
+		}},
+		setUp: func(c *C, st *State) {
+			svc, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
+			c.Assert(err, IsNil)
+			err = svc.SetConstraints(constraints.MustParse("mem=4G cpu-cores= arch=amd64"))
+			c.Assert(err, IsNil)
+		},
+		change: watcher.Change{
+			C:  "constraints",
+			Id: "s#wordpress",
+		},
+		expectContents: []params.EntityInfo{
+			&params.ServiceInfo{
+				Name:        "wordpress",
+				Constraints: constraints.MustParse("mem=4G cpu-cores= arch=amd64"),
+			},
+		},
+	},
 }
 
 func (s *storeManagerStateSuite) TestChanged(c *C) {
@@ -643,6 +693,7 @@ func (s *storeManagerStateSuite) TestChanged(c *C) {
 		"relations":   s.State.relations,
 		"annotations": s.State.annotations,
 		"statuses":    s.State.statuses,
+		"constraints": s.State.constraints,
 	}
 	for i, test := range allWatcherChangedTests {
 		c.Logf("test %d. %s", i, test.about)

@@ -63,9 +63,15 @@ func (s *Service) Tag() string {
 	return "service-" + s.Name()
 }
 
+// serviceGlobalKey returns the global database key for the service
+// with the given name.
+func serviceGlobalKey(svcName string) string {
+	return "s#" + svcName
+}
+
 // globalKey returns the global database key for the service.
 func (s *Service) globalKey() string {
-	return "s#" + s.doc.Name
+	return serviceGlobalKey(s.doc.Name)
 }
 
 func serviceSettingsKey(serviceName string, curl *charm.URL) string {

@@ -316,9 +316,10 @@ func (i *MachineInfo) EntityId() EntityId {
 }
 
 type ServiceInfo struct {
-	Name     string `bson:"_id"`
-	Exposed  bool
-	CharmURL string
+	Name        string `bson:"_id"`
+	Exposed     bool
+	CharmURL    string
+	Constraints constraints.Value
 }
 
 func (i *ServiceInfo) EntityId() EntityId {
