@@ -384,7 +384,8 @@ func (environ *maasEnviron) obtainNode(machineId string, stateInfo *state.Info, 
 
 // StartInstance is specified in the Environ interface.
 func (environ *maasEnviron) StartInstance(machineID, machineNonce string, series string, cons constraints.Value, stateInfo *state.Info, apiInfo *api.Info) (environs.Instance, error) {
-	// TODO: Support series.  It was added to the interface after we implemented.
+	// TODO: Support series and constraints.  They were added to the
+	// interface after we implemented.
 	flags := environs.HighestVersion | environs.CompatVersion
 	var err error
 	tools, err := environs.FindTools(environ, version.Current, flags)
