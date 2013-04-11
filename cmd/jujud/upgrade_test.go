@@ -42,6 +42,7 @@ type proposal struct {
 	devVersion bool
 }
 
+// TODO(fwereade): Here be dragons. All sorts of state is smeared across
 var upgraderTests = []struct {
 	about      string
 	current    string   // current version.
@@ -53,40 +54,54 @@ var upgraderTests = []struct {
 	upgradeTo string
 }{{
 	about:   "propose with no possible candidates",
-	propose: "2.0.2",
+	current: "2.0.0",
+	propose: "2.2.0",
 }, {
 	about:   "propose with same candidate as current",
+	current: "2.0.0",
 	upload:  []string{"2.0.0"},
-	propose: "2.0.4",
+	propose: "2.4.0",
 }, {
 	about:   "propose development version when !devVersion",
-	upload:  []string{"2.0.1"},
-	propose: "2.0.4",
+	current: "2.0.0",
+	upload:  []string{"2.1.0"},
+	propose: "2.4.0",
 }, {
 	about:      "propose development version when devVersion",
-	propose:    "2.0.4",
+	current:    "2.0.0",
+	upload:     []string{"2.1.0"},
+	propose:    "2.4.0",
 	devVersion: true,
-	upgradeTo:  "2.0.1",
+	upgradeTo:  "2.1.0",
 }, {
 	about:     "propose release version when !devVersion",
-	propose:   "2.0.4",
+	current:   "2.1.0",
+	upload:    []string{"2.0.0"},
+	propose:   "2.4.0",
 	upgradeTo: "2.0.0",
 }, {
-	about:   "propose with higher available candidates",
-	upload:  []string{"2.0.5", "2.0.6"},
-	propose: "2.0.4",
+	about:     "propose with higher available candidates",
+	current:   "2.0.0",
+	upload:    []string{"2.4.0", "2.5.0", "2.6.0"},
+	propose:   "2.4.0",
+	upgradeTo: "2.4.0",
 }, {
 	about:     "propose exact available version",
-	propose:   "2.0.6",
-	upgradeTo: "2.0.6",
+	current:   "2.4.0",
+	upload:    []string{"2.6.0"},
+	propose:   "2.6.0",
+	upgradeTo: "2.6.0",
 }, {
 	about:     "propose downgrade",
-	propose:   "2.0.5",
-	upgradeTo: "2.0.5",
+	current:   "2.6.0",
+	upload:    []string{"2.5.0"},
+	propose:   "2.5.0",
+	upgradeTo: "2.5.0",
 }, {
 	about:     "upgrade with no proposal",
-	current:   "2.0.6-foo-bar",
-	upgradeTo: "2.0.5",
+	current:   "2.6.0",
+	upload:    []string{"2.5.0"},
+	upgradeTo: "2.5.0",
 },
 }
 
@@ -111,20 +126,22 @@ func (s *UpgraderSuite) TestUpgrader(c *C) {
 		}
 	}()
 
-	uploaded := make(map[version.Number]*state.Tools)
 	for i, test := range upgraderTests {
-		c.Logf("%d. %s; current version: %v", i, test.about, version.Current)
+		c.Logf("\ntest %d: %s", i, test.about)
+		s.removeTools(c)
+		uploaded := make(map[version.Number]*state.Tools)
 		for _, v := range test.upload {
 			vers := version.Current
 			vers.Number = version.MustParse(v)
 			tools := s.uploadTools(c, vers)
 			uploaded[vers.Number] = tools
 		}
-		if test.current != "" {
-			version.Current = version.MustParseBinary(test.current)
-			currentTools, err = agent.ReadTools(s.DataDir(), version.Current)
-			c.Assert(err, IsNil)
+		if test.current == "" {
+			panic("incomplete test setup: current is mandatory")
 		}
+		version.Current.Number = version.MustParse(test.current)
+		currentTools, err = agent.ReadTools(s.DataDir(), version.Current)
+		c.Assert(err, IsNil)
 		if u == nil {
 			u = s.startUpgrader(c, currentTools)
 		}
@@ -150,8 +167,6 @@ func (s *UpgraderSuite) TestUpgrader(c *C) {
 			c.Assert(string(data), Equals, "jujud contents "+tools.Binary.String())
 
 			u, upgraderDone = nil, nil
-			currentTools = tools
-			version.Current = tools.Binary
 		}
 	}
 }

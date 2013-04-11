@@ -22,17 +22,25 @@ type ToolsList struct {
 // given major version.
 func ListTools(env Environ, majorVersion int) (*ToolsList, error) {
 	private, err := tools.ReadList(env.Storage(), majorVersion)
-	if err != nil && err != tools.ErrNoMatches {
+	if err := ignoreMissingTools(err); err != nil {
 		return nil, err
 	}
 	public, err := tools.ReadList(env.PublicStorage(), majorVersion)
-	if err != nil && err != tools.ErrNoMatches {
+	if err := ignoreMissingTools(err); err != nil {
 		return nil, err
 	}
 	return &ToolsList{
 		Private: private,
 		Public:  public,
 	}, nil
+}
+
+func ignoreMissingTools(err error) error {
+	switch err {
+	case tools.ErrNoTools, tools.ErrNoMatches:
+		return nil
+	}
+	return err
 }
 
 // BestTools returns the most recent version
@@ -118,7 +126,7 @@ func FindTools(env Environ, vers version.Binary, flags ToolsSearchFlags) (*state
 // buckets are not mixed.
 func FindAvailableTools(environ Environ, majorVersion int) (tools.List, error) {
 	list, err := tools.ReadList(environ.Storage(), majorVersion)
-	if err == tools.ErrNoMatches {
+	if err == tools.ErrNoTools {
 		list, err = tools.ReadList(environ.PublicStorage(), majorVersion)
 	}
 	return list, err

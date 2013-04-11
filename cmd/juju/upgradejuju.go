@@ -49,6 +49,9 @@ func (c *UpgradeJujuCommand) Init(args []string) error {
 		if err != nil {
 			return err
 		}
+		if c.Version.Major != version.Current.Major {
+			return fmt.Errorf("cannot upgrade to incompatible version")
+		}
 		if c.Version == (version.Number{}) {
 			return fmt.Errorf("cannot upgrade to version 0.0.0")
 		}
@@ -65,6 +68,7 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) error {
 	}
 	defer c.conn.Close()
 
+	// Collect the current state of the environment.
 	cfg, err := c.conn.State.EnvironConfig()
 	if err != nil {
 		return err
@@ -75,32 +79,59 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) error {
 		// Can't happen. In theory.
 		return fmt.Errorf("incomplete environment configuration")
 	}
-	c.toolsList, err = environs.ListTools(c.conn.Environ, c.agentVersion.Major)
+	c.toolsList, err = environs.ListTools(c.conn.Environ, version.Current.Major)
 	if err != nil {
 		return err
 	}
+
+	// Determine what tools to upgrade to.
 	if c.UploadTools {
 		var forceVersion *version.Number
 		if c.BumpVersion {
 			vers := c.bumpedVersion()
 			forceVersion = &vers.Number
 		}
+		// TODO(fwereade): we should split out building from uploading, so
+		// we can tell when we're about to upload incompatible tools and
+		// abort before we upload them.
 		tools, err := uploadTools(c.conn.Environ.Storage(), forceVersion)
 		if err != nil {
 			return err
 		}
+		c.toolsList.Private = append(c.toolsList.Private, tools)
 		c.Version = tools.Number
 	} else if c.Version == (version.Number{}) {
 		c.Version, err = c.newestVersion()
 		if err != nil {
 			return fmt.Errorf("cannot find newest version: %v", err)
 		}
+	} else {
+		list := c.toolsList.Private
+		if len(c.toolsList.Private) == 0 {
+			list = c.toolsList.Public
+		}
+		if _, err := list.Match(tools.Filter{Number: c.Version}); err != nil {
+			return err
+		}
 	}
-	if c.Version.Major != c.agentVersion.Major {
-		return fmt.Errorf("cannot upgrade major versions yet")
+
+	// Validate that the requested change is a good one, then make it.
+	if c.Version.Major > c.agentVersion.Major {
+		return fmt.Errorf("major version upgrades are not supported yet")
+	} else if c.Version.Major < c.agentVersion.Major {
+		// TODO(fwereade): I'm a bit concerned about old agent/CLI versions even
+		// *connecting* to environments with higher agent-versions; but ofc they
+		// have to connect in order to discover this information. However, once
+		// any of our tools detect an incompatible version, they should act to
+		// minimize damage: the CLI should abort politely, and the agents should
+		// run an upgrader but no other tasks.
+		return fmt.Errorf("cannot downgrade major version from %d to %d", c.agentVersion.Major, c.Version.Major)
 	}
 	if c.Version == c.agentVersion && c.Development == cfg.Development() {
 		return nil
+	}
+	if err := c.checkVersion(); err != nil {
+		return err
 	}
 	return SetAgentVersion(c.conn.State, c.Version, c.Development)
 }
@@ -137,6 +168,15 @@ func (c *UpgradeJujuCommand) bumpedVersion() version.Binary {
 		}
 	}
 	return vers
+}
+
+// checkVersion returns an error if no available tools match the Version field.
+// It assumes that tools have been chosen sensibly, and does not differentiate
+// between tools in public and private storage.
+func (c *UpgradeJujuCommand) checkVersion() error {
+	list := append(c.toolsList.Private, c.toolsList.Public...)
+	_, err := list.Match(tools.Filter{Number: c.Version})
+	return err
 }
 
 // highestVersion returns the tools with the highest

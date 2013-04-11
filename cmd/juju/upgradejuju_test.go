@@ -34,91 +34,112 @@ var upgradeJujuTests = []struct {
 }{{
 	about:          "unwanted extra argument",
 	currentVersion: "1.0.0-foo-bar",
-	agentVersion:   "1.0.0",
 	args:           []string{"foo"},
 	expectInitErr:  "unrecognized args:.*",
 }, {
 	about:          "invalid --version value",
 	currentVersion: "1.0.0-foo-bar",
-	agentVersion:   "1.0.0",
 	args:           []string{"--version", "invalid-version"},
 	expectInitErr:  "invalid version .*",
+}, {
+	about:          "major version upgrade to incompatible version",
+	currentVersion: "2.0.0-foo-bar",
+	args:           []string{"--version", "5.2.0"},
+	expectInitErr:  "cannot upgrade to incompatible version",
+}, {
+	about:          "major version downgrade to incompatible version",
+	currentVersion: "4.2.0-foo-bar",
+	args:           []string{"--version", "3.2.0"},
+	expectInitErr:  "cannot upgrade to incompatible version",
 }, {
 	about:          "from private storage",
 	private:        []string{"2.0.0-foo-bar", "2.0.2-foo-bletch", "2.0.3-foo-bar"},
 	public:         []string{"2.0.0-foo-bar", "2.0.4-foo-bar", "2.0.5-foo-bar"},
 	currentVersion: "2.0.0-foo-bar",
 	agentVersion:   "2.0.0",
-	expectVersion:  "2.0.2",
-}, {
-	about:          "current dev version, from private storage",
-	private:        []string{"2.0.0-foo-bar", "2.0.2-foo-bar", "2.0.3-foo-bar", "3.0.1-foo-bar"},
-	public:         []string{"2.0.0-foo-bar", "2.0.4-foo-bar", "2.0.5-foo-bar"},
-	currentVersion: "2.0.1-foo-bar",
-	agentVersion:   "2.0.1",
 	expectVersion:  "2.0.3",
 }, {
+	about:          "current dev version, from private storage",
+	private:        []string{"2.0.0-foo-bar", "2.2.0-foo-bar", "2.3.0-foo-bar", "3.0.1-foo-bar"},
+	public:         []string{"2.0.0-foo-bar", "2.4.0-foo-bar", "2.5.0-foo-bar"},
+	currentVersion: "2.1.0-foo-bar",
+	agentVersion:   "2.1.0",
+	expectVersion:  "2.3.0",
+}, {
 	about:             "dev version flag, from private storage",
-	private:           []string{"2.0.0-foo-bar", "2.0.2-foo-bar", "2.0.3-foo-bar"},
-	public:            []string{"2.0.0-foo-bar", "2.0.4-foo-bar", "2.0.5-foo-bar"},
+	private:           []string{"2.0.0-foo-bar", "2.2.0-foo-bar", "2.3.0-foo-bar"},
+	public:            []string{"2.0.0-foo-bar", "2.4.0-foo-bar", "2.5.0-foo-bar"},
 	currentVersion:    "2.0.0-foo-bar",
 	args:              []string{"--dev"},
 	agentVersion:      "2.0.0",
-	expectVersion:     "2.0.3",
+	expectVersion:     "2.3.0",
 	expectDevelopment: true,
 }, {
 	about:          "from public storage",
-	public:         []string{"2.0.0-foo-bar", "2.0.2-arble-bletch", "2.0.3-foo-bar"},
+	public:         []string{"2.0.0-foo-bar", "2.2.0-arble-bletch", "2.3.0-foo-bar"},
 	currentVersion: "2.0.0-foo-bar",
 	agentVersion:   "2.0.0",
-	expectVersion:  "2.0.2",
+	expectVersion:  "2.2.0",
 }, {
 	about:          "current dev version, from public storage",
-	public:         []string{"2.0.0-foo-bar", "2.0.2-arble-bletch", "2.0.3-foo-bar"},
-	currentVersion: "2.0.1-foo-bar",
-	agentVersion:   "2.0.1",
-	expectVersion:  "2.0.3",
+	public:         []string{"2.0.0-foo-bar", "2.2.0-arble-bletch", "2.3.0-foo-bar"},
+	currentVersion: "2.1.0-foo-bar",
+	agentVersion:   "2.1.0",
+	expectVersion:  "2.3.0",
 }, {
 	about:             "dev version flag, from public storage",
-	public:            []string{"2.0.0-foo-bar", "2.0.2-arble-bletch", "2.0.3-foo-bar"},
+	public:            []string{"2.0.0-foo-bar", "2.2.0-arble-bletch", "2.3.0-foo-bar"},
 	currentVersion:    "2.0.0-foo-bar",
 	args:              []string{"--dev"},
 	agentVersion:      "2.0.0",
-	expectVersion:     "2.0.3",
+	expectVersion:     "2.3.0",
 	expectDevelopment: true,
 }, {
 	about:          "specified version",
-	public:         []string{"2.0.3-foo-bar"},
+	public:         []string{"2.3.0-foo-bar"},
 	currentVersion: "3.0.0-foo-bar",
 	agentVersion:   "2.0.0",
-	args:           []string{"--version", "2.0.3"},
-	expectVersion:  "2.0.3",
+	args:           []string{"--version", "2.3.0"},
+	expectVersion:  "2.3.0",
+}, {
+	about:          "specified version missing, but already set",
+	currentVersion: "3.0.0-foo-bar",
+	agentVersion:   "3.0.0",
+	args:           []string{"--version", "3.0.0"},
 }, {
 	about:          "specified version missing",
 	currentVersion: "3.0.0-foo-bar",
-	agentVersion:   "2.0.0",
-	args:           []string{"--version", "2.0.3"},
-	expectVersion:  "2.0.3",
+	agentVersion:   "3.0.0",
+	args:           []string{"--version", "3.2.0"},
+	expectErr:      "no matching tools available",
 }, {
-	about:          "major version change",
-	currentVersion: "2.0.0-foo-bar",
-	agentVersion:   "4.1.2",
-	args:           []string{"--version", "3.1.2"},
-	expectErr:      "cannot upgrade major versions yet",
+	about:          "major version downgrade to compatible version",
+	private:        []string{"3.2.0-foo-bar"},
+	currentVersion: "3.2.0-foo-bar",
+	agentVersion:   "4.2.0",
+	args:           []string{"--version", "3.2.0"},
+	expectErr:      "cannot downgrade major version from 4 to 3",
+}, {
+	about:          "major version upgrade to compatible version",
+	private:        []string{"3.2.0-foo-bar"},
+	currentVersion: "3.2.0-foo-bar",
+	agentVersion:   "2.8.2",
+	args:           []string{"--version", "3.2.0"},
+	expectErr:      "major version upgrades are not supported yet",
 }, {
 	about:          "upload",
-	currentVersion: "2.0.2-foo-bar",
+	currentVersion: "2.2.0-foo-bar",
 	agentVersion:   "2.0.0",
 	args:           []string{"--upload-tools"},
-	expectVersion:  "2.0.2",
-	expectUploaded: "2.0.2-foo-bar",
+	expectVersion:  "2.2.0",
+	expectUploaded: "2.2.0-foo-bar",
 }, {
 	about:          "upload dev version, currently on release version",
-	currentVersion: "2.0.1-foo-bar",
+	currentVersion: "2.1.0-foo-bar",
 	agentVersion:   "2.0.0",
 	args:           []string{"--upload-tools"},
-	expectVersion:  "2.0.1",
-	expectUploaded: "2.0.1-foo-bar",
+	expectVersion:  "2.1.0",
+	expectUploaded: "2.1.0-foo-bar",
 }, {
 	about:          "upload and bump version",
 	private:        []string{"2.4.6-foo-bar", "2.4.8-foo-bar"},
@@ -167,8 +188,23 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *C) {
 
 	for i, test := range upgradeJujuTests {
 		c.Logf("\ntest %d: %s", i, test.about)
-		// Set up the test preconditions.
 		s.Reset(c)
+
+		// Set up apparent CLI version and initialize the command.
+		version.Current = version.MustParseBinary(test.currentVersion)
+		com := &UpgradeJujuCommand{}
+		if err := coretesting.InitCommand(com, test.args); err != nil {
+			if test.expectInitErr != "" {
+				c.Check(err, ErrorMatches, test.expectInitErr)
+			} else {
+				c.Check(err, IsNil)
+			}
+			continue
+		}
+
+		// Set up environ/state and run the command.
+		err := SetAgentVersion(s.State, version.MustParse(test.agentVersion), false)
+		c.Assert(err, IsNil)
 		for _, v := range test.private {
 			vers := version.MustParseBinary(v)
 			envtesting.MustUploadFakeToolsVersion(s.Conn.Environ.Storage(), vers)
@@ -178,23 +214,16 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *C) {
 			storage := s.Conn.Environ.PublicStorage().(environs.Storage)
 			envtesting.MustUploadFakeToolsVersion(storage, vers)
 		}
-		version.Current = version.MustParseBinary(test.currentVersion)
-		err := SetAgentVersion(s.State, version.MustParse(test.agentVersion), false)
-		c.Assert(err, IsNil)
+		if err := com.Run(coretesting.Context(c)); err != nil {
+			if test.expectErr != "" {
+				c.Check(err, ErrorMatches, test.expectErr)
+			} else {
+				c.Check(err, IsNil)
+			}
+			continue
+		}
 
-		// Run the command
-		com := &UpgradeJujuCommand{}
-		err = coretesting.InitCommand(com, test.args)
-		if test.expectInitErr != "" {
-			c.Check(err, ErrorMatches, test.expectInitErr)
-			continue
-		}
-		err = com.Run(coretesting.Context(c))
-		if test.expectErr != "" {
-			c.Check(err, ErrorMatches, test.expectErr)
-			continue
-		}
-		c.Assert(err, IsNil)
+		// Check expected changes to environ/state.
 		cfg, err := s.State.EnvironConfig()
 		c.Check(err, IsNil)
 		agentVersion, ok := cfg.AgentVersion()
@@ -223,9 +252,9 @@ func (s *UpgradeJujuSuite) Reset(c *C) {
 	envtesting.RemoveTools(c, s.Conn.Environ.PublicStorage().(environs.Storage))
 }
 
-func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealPutTools(c *C) {
+func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *C) {
 	s.Reset(c)
-	_, err := coretesting.RunCommand(c, &UpgradeJujuCommand{}, []string{"--upload-tools", "--dev"})
+	_, err := coretesting.RunCommand(c, &UpgradeJujuCommand{}, []string{"--upload-tools"})
 	c.Assert(err, IsNil)
 	name := tools.StorageName(version.Current)
 	r, err := s.Conn.Environ.Storage().Get(name)

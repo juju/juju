@@ -5,8 +5,10 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/config"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -295,7 +297,6 @@ func (s *agentSuite) proposeVersion(c *C, vers version.Number, development bool)
 
 func (s *agentSuite) uploadTools(c *C, vers version.Binary) *state.Tools {
 	tgz := coretesting.TarGz(
-		coretesting.NewTarFile("juju", 0777, "juju contents "+vers.String()),
 		coretesting.NewTarFile("jujud", 0777, "jujud contents "+vers.String()),
 	)
 	storage := s.Conn.Environ.Storage()
@@ -304,6 +305,12 @@ func (s *agentSuite) uploadTools(c *C, vers version.Binary) *state.Tools {
 	url, err := s.Conn.Environ.Storage().URL(tools.StorageName(vers))
 	c.Assert(err, IsNil)
 	return &state.Tools{URL: url, Binary: vers}
+}
+
+func (s *agentSuite) removeTools(c *C) {
+	env := s.Conn.Environ
+	envtesting.RemoveTools(c, env.Storage())
+	envtesting.RemoveTools(c, env.PublicStorage().(environs.Storage))
 }
 
 // primeTools sets up the current version of the tools to vers and

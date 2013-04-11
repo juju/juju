@@ -50,6 +50,15 @@ func (src List) collect(f func(*state.Tools) string) []string {
 	return result
 }
 
+// URLs returns download URLs for the tools in src, keyed by binary version.
+func (src List) URLs() map[version.Binary]string {
+	result := map[version.Binary]string{}
+	for _, tools := range src {
+		result[tools.Binary] = tools.URL
+	}
+	return result
+}
+
 // Newest returns the tools in src with the greatest version.
 func (src List) Newest() List {
 	var result List

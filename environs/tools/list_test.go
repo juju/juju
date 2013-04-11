@@ -175,9 +175,9 @@ var matchTests = []struct {
 }, {
 	tAll,
 	tools.Filter{Released: true},
-	t200all,
+	extend(t100all, t200all),
 }, {
-	t100all,
+	t190all,
 	tools.Filter{Released: true},
 	nil,
 }, {

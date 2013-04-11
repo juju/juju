@@ -12,6 +12,7 @@ import (
 	"strings"
 )
 
+var ErrNoTools = errors.New("no tools available")
 var ErrNoMatches = errors.New("no matching tools available")
 
 const toolPrefix = "tools/juju-"
@@ -32,13 +33,13 @@ type URLLister interface {
 // ReadList returns a List of the tools in store with the given major version.
 // If store contains no such tools, it returns ErrNoMatches.
 func ReadList(storage URLLister, majorVersion int) (List, error) {
-	prefix := fmt.Sprintf("%s%d.", toolPrefix, majorVersion)
-	log.Debugf("reading tools list: %s", prefix)
-	names, err := storage.List(prefix)
+	log.Debugf("environs/tools: reading v%d.* tools", majorVersion)
+	names, err := storage.List(toolPrefix)
 	if err != nil {
 		return nil, err
 	}
 	var list List
+	var foundAnyTools bool
 	for _, name := range names {
 		if !strings.HasPrefix(name, toolPrefix) || !strings.HasSuffix(name, ".tgz") {
 			continue
@@ -48,14 +49,21 @@ func ReadList(storage URLLister, majorVersion int) (List, error) {
 		if t.Binary, err = version.ParseBinary(vers); err != nil {
 			continue
 		}
-		log.Debugf("found %s", vers)
+		foundAnyTools = true
+		if t.Major != majorVersion {
+			continue
+		}
+		log.Debugf("environs/tools: found %s", vers)
 		if t.URL, err = storage.URL(name); err != nil {
 			return nil, err
 		}
 		list = append(list, &t)
 	}
 	if len(list) == 0 {
-		return nil, ErrNoMatches
+		if foundAnyTools {
+			return nil, ErrNoMatches
+		}
+		return nil, ErrNoTools
 	}
 	return list, nil
 }
