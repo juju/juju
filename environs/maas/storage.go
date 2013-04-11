@@ -27,13 +27,9 @@ type maasStorage struct {
 var _ environs.Storage = (*maasStorage)(nil)
 
 func NewStorage(env *maasEnviron) environs.Storage {
-	env.ecfgMutex.Lock()
-	defer env.ecfgMutex.Unlock()
-
-	filesClient := env.maasClientUnlocked.GetSubObject("files")
 	storage := new(maasStorage)
 	storage.environUnlocked = env
-	storage.maasClientUnlocked = filesClient
+	storage.maasClientUnlocked = env.getMAASClient().GetSubObject("files")
 	return storage
 }
 
