@@ -435,23 +435,23 @@ func (u *Unit) Refresh() error {
 }
 
 // Status returns the status of the unit's agent.
-func (u *Unit) Status() (status params.UnitStatus, info string, err error) {
+func (u *Unit) Status() (status params.Status, info string, err error) {
 	doc, err := getStatus(u.st, u.globalKey())
 	if err != nil {
 		return "", "", err
 	}
-	status = params.UnitStatus(doc.Status)
+	status = doc.Status
 	info = doc.StatusInfo
 	return
 }
 
 // SetStatus sets the status of the unit.
-func (u *Unit) SetStatus(status params.UnitStatus, info string) error {
-	if status == params.UnitError && info == "" {
+func (u *Unit) SetStatus(status params.Status, info string) error {
+	if status == params.StatusError && info == "" {
 		panic("unit error status with no info")
 	}
 	doc := statusDoc{
-		Status:     string(status),
+		Status:     status,
 		StatusInfo: info,
 	}
 	ops := []txn.Op{{
@@ -942,7 +942,7 @@ func (u *Unit) Resolve(retryHooks bool) error {
 	if err != nil {
 		return err
 	}
-	if status != params.UnitError {
+	if status != params.StatusError {
 		return fmt.Errorf("unit %q is not in an error state", u)
 	}
 	mode := ResolvedNoHooks

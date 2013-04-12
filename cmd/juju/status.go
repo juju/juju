@@ -128,6 +128,25 @@ func processMachines(machines map[string]*state.Machine, instances map[state.Ins
 	return sm, nil
 }
 
+func processStatus(sm map[string]interface{}, status params.Status, info string, agentAlive, entityDead bool) {
+	if status != params.StatusPending {
+		if !agentAlive && !entityDead {
+			// Add the original status to the info, so it's not lost.
+			if info != "" {
+				info = fmt.Sprintf("(%s: %s)", status, info)
+			} else {
+				info = fmt.Sprintf("(%s)", status)
+			}
+			// Agent should be running but it's not.
+			status = params.StatusDown
+		}
+	}
+	sm["agent-state"] = status
+	if info != "" {
+		sm["agent-state-info"] = info
+	}
+}
+
 func processMachine(machine *state.Machine, instance environs.Instance) (map[string]interface{}, error) {
 	sm := statusMap()
 	sm["instance-id"] = instance.Id()
@@ -137,9 +156,18 @@ func processMachine(machine *state.Machine, instance environs.Instance) (map[str
 	}
 
 	processVersion(sm, machine)
-	processAgentStatus(sm, machine)
 
-	// TODO(dfc) unit-status
+	agentAlive, err := machine.AgentAlive()
+	if err != nil {
+		return nil, err
+	}
+	machineDead := machine.Life() == state.Dead
+	status, info, err := machine.Status()
+	if err != nil {
+		return nil, err
+	}
+	processStatus(sm, status, info, agentAlive, machineDead)
+
 	return sm, nil
 }
 
@@ -209,16 +237,8 @@ func processUnit(unit *state.Unit) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	if status != params.UnitPending {
-		if !agentAlive && !unitDead {
-			// Agent should be running but it's not.
-			status = params.UnitDown
-		}
-	}
-	sm["agent-state"] = status
-	if len(info) > 0 {
-		sm["agent-state-info"] = info
-	}
+	processStatus(sm, status, info, agentAlive, unitDead)
+
 	return sm, nil
 }
 
@@ -245,16 +265,6 @@ type versioned interface {
 func processVersion(sm map[string]interface{}, v versioned) {
 	if t, err := v.AgentTools(); err == nil {
 		sm["agent-version"] = t.Binary.Number.String()
-	}
-}
-
-type agentAliver interface {
-	AgentAlive() (bool, error)
-}
-
-func processAgentStatus(sm map[string]interface{}, a agentAliver) {
-	if alive, err := a.AgentAlive(); err == nil && alive {
-		sm["agent-state"] = "running"
 	}
 }
 

@@ -57,11 +57,10 @@ func (mr *Machiner) loop() error {
 		return err
 	}
 	defer watcher.Stop(pinger, &mr.tomb)
-	mr.st.StartSync()
 	log.Debugf("worker/machiner: agent for machine %q is now alive", m)
 
 	// Mark the machine as started and log it.
-	if err := m.SetStatus(params.MachineStarted, ""); err != nil {
+	if err := m.SetStatus(params.StatusStarted, ""); err != nil {
 		return err
 	}
 	log.Noticef("worker/machiner: machine %q started", m)
@@ -80,7 +79,7 @@ func (mr *Machiner) loop() error {
 			}
 			if m.Life() != state.Alive {
 				log.Debugf("worker/machiner: machine %q is now %s", m, m.Life())
-				if err := m.SetStatus(params.MachineStopped, ""); err != nil {
+				if err := m.SetStatus(params.StatusStopped, ""); err != nil {
 					return err
 				}
 				// If the machine is Dying, it has no units,

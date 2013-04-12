@@ -213,7 +213,7 @@ func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value) (*machi
 	mdoc.Id = strconv.Itoa(seq)
 	mdoc.Life = Alive
 	sdoc := statusDoc{
-		Status: string(params.MachinePending),
+		Status: params.StatusPending,
 	}
 	ops := []txn.Op{
 		{

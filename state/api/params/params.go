@@ -304,7 +304,7 @@ type EntityId struct {
 type MachineInfo struct {
 	Id         string `bson:"_id"`
 	InstanceId string
-	Status     MachineStatus
+	Status     Status
 	StatusInfo string
 }
 
@@ -316,9 +316,10 @@ func (i *MachineInfo) EntityId() EntityId {
 }
 
 type ServiceInfo struct {
-	Name     string `bson:"_id"`
-	Exposed  bool
-	CharmURL string
+	Name        string `bson:"_id"`
+	Exposed     bool
+	CharmURL    string
+	Constraints constraints.Value
 }
 
 func (i *ServiceInfo) EntityId() EntityId {
@@ -337,7 +338,7 @@ type UnitInfo struct {
 	PrivateAddress string
 	MachineId      string
 	Ports          []Port
-	Status         UnitStatus
+	Status         Status
 	StatusInfo     string
 }
 
