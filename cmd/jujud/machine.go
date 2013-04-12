@@ -61,7 +61,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 		return err
 	}
 	charm.CacheDir = filepath.Join(a.Conf.DataDir, "charmcache")
-	defer log.Noticef("cmd/jujud: machine agent exiting")
+	defer log.Noticef("machine agent exiting")
 	defer a.tomb.Done()
 
 	// We run the API server worker first, because we may
@@ -105,7 +105,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 
 func (a *MachineAgent) RunOnce(st *state.State, e AgentState) error {
 	m := e.(*state.Machine)
-	log.Infof("cmd/jujud: jobs for machine agent: %v", m.Jobs())
+	log.Infof("jobs for machine agent: %v", m.Jobs())
 	tasks := []task{
 		NewUpgrader(st, m, a.Conf.DataDir),
 		machiner.NewMachiner(st, m.Id()),
@@ -123,7 +123,7 @@ func (a *MachineAgent) RunOnce(st *state.State, e AgentState) error {
 			// Ignore because it's started independently.
 			continue
 		default:
-			log.Warningf("cmd/jujud: ignoring unknown job %q", j)
+			log.Warningf("ignoring unknown job %q", j)
 		}
 	}
 	return runTasks(a.tomb.Dying(), tasks...)
@@ -138,7 +138,7 @@ func (a *MachineAgent) Entity(st *state.State) (AgentState, error) {
 	if !m.CheckProvisioned(a.Conf.MachineNonce) {
 		// The agent is running on a different machine to the one it
 		// should be according to state. It must stop immediately.
-		log.Errorf("cmd/jujud: running machine %v agent on inappropriate instance", m)
+		log.Errorf("running machine %v agent on inappropriate instance", m)
 		return nil, worker.ErrTerminateAgent
 	}
 	return m, nil
@@ -190,7 +190,7 @@ func (a *MachineAgent) maybeRunAPIServerOnce(conf *agent.Conf) error {
 	if len(conf.StateServerCert) == 0 || len(conf.StateServerKey) == 0 {
 		return &fatalError{"configuration does not have state server cert/key"}
 	}
-	log.Infof("cmd/jujud: running API server job")
+	log.Infof("running API server job")
 	srv, err := apiserver.NewServer(st, fmt.Sprintf(":%d", conf.APIPort), conf.StateServerCert, conf.StateServerKey)
 	if err != nil {
 		return err
@@ -198,7 +198,7 @@ func (a *MachineAgent) maybeRunAPIServerOnce(conf *agent.Conf) error {
 	select {
 	case <-a.tomb.Dying():
 	case <-srv.Dead():
-		log.Noticef("jujud: API server has died: %v", srv.Stop())
+		log.Noticef("API server has died: %v", srv.Stop())
 	}
 	return srv.Stop()
 }

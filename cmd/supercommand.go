@@ -185,9 +185,6 @@ func (c *SuperCommand) Run(ctx *Context) error {
 		panic("Run: missing subcommand; Init failed or not called")
 	}
 	if c.Log != nil {
-		if c.Log.Prefix == "" {
-			c.Log.Prefix = c.Name + ":" + c.subcmd.Info().Name
-		}
 		if err := c.Log.Start(ctx); err != nil {
 			return err
 		}
