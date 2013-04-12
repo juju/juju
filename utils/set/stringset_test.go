@@ -25,12 +25,14 @@ func AssertValues(c *C, s set.StringSet, expected ...string) {
 	sort.Strings(expected)
 	sort.Strings(values)
 	c.Assert(values, DeepEquals, expected)
+	c.Assert(s.Size(), Equals, len(expected))
 }
 
 func AssertSortedValues(c *C, s set.StringSet, expected ...string) {
-	values := s.Values()
+	values := s.SortedValues()
 	sort.Strings(expected)
 	c.Assert(values, DeepEquals, expected)
+	c.Assert(s.Size(), Equals, len(expected))
 }
 
 // Actual tests start here.
@@ -40,8 +42,10 @@ func (stringSetSuite) TestEmpty(c *C) {
 }
 
 func (stringSetSuite) TestInitialValues(c *C) {
-	s := set.MakeStringSet("foo", "bar", "baz")
-	AssertValues(c, s, "foo", "bar", "baz")
+	values := []string{"foo", "bar", "baz"}
+	s := set.MakeStringSet(values...)
+	AssertValues(c, s, values...)
+	AssertSortedValues(c, s, values...)
 }
 
 func (stringSetSuite) TestAdd(c *C) {
