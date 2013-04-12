@@ -47,7 +47,7 @@ func (s *ContextSuite) GetHookContext(c *C, relid int, remote string) *Context {
 		c.Assert(found, Equals, true)
 	}
 	return &Context{
-		ports:  set.NewStringSet(),
+		ports:  set.MakeStringSet(),
 		relid:  relid,
 		remote: remote,
 		rels:   s.rels,
