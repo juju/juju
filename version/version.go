@@ -70,6 +70,10 @@ type Number struct {
 	Build int
 }
 
+// Zero is occasionally convenient and readable. Please don't change its
+// value.
+var Zero = Number{}
+
 // Binary specifies a binary version of juju.
 type Binary struct {
 	Number

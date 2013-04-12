@@ -59,8 +59,9 @@ func (src List) URLs() map[version.Binary]string {
 	return result
 }
 
-// Newest returns the tools in src with the greatest version.
-func (src List) Newest() List {
+// Newest returns the tools in src with the greatest version, and what that
+// version is.
+func (src List) Newest() (List, version.Number) {
 	var result List
 	var best version.Number
 	for _, tools := range src {
@@ -72,7 +73,7 @@ func (src List) Newest() List {
 			result = append(result, tools)
 		}
 	}
-	return result
+	return result, best
 }
 
 // Difference returns the tools in src that are not in excluded.
@@ -131,7 +132,7 @@ func (f Filter) match(tools *state.Tools) bool {
 	if f.Released && tools.IsDev() {
 		return false
 	}
-	if f.Number != (version.Number{}) && tools.Number != f.Number {
+	if f.Number != version.Zero && tools.Number != f.Number {
 		return false
 	}
 	if f.Series != "" && tools.Series != f.Series {

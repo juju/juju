@@ -3,7 +3,6 @@ package environs_test
 import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
 	envtesting "launchpad.net/juju-core/environs/testing"
@@ -559,62 +558,5 @@ func (s *ToolsSuite) TestFindAvailableTools(c *C) {
 			expect = public
 		}
 		c.Check(actual.URLs(), DeepEquals, expect)
-	}
-}
-
-var findBootstrapToolsTests = []struct {
-	info         string
-	available    []version.Binary
-	cliVersion   version.Number
-	agentVersion version.Number
-	constraints  constraints.Value
-	expect       []version.Binary
-	err          error
-}{{
-	info:       "released cli version, better released tools",
-	available:  v120all,
-	cliVersion: v100,
-	expect:     v120all,
-}, {
-	info:       "released cli version, matching released tools",
-	available:  v100all,
-	cliVersion: v100,
-	expect:     v100all,
-}, {
-	info:       "released cli version, only worse released tools",
-	available:  v120all,
-	cliVersion: v100,
-	expect:     v120all,
-}, {
-	info: "released cli version, only dev tools",
-}, {
-	info: "released cli version, better dev tools",
-}, {
-	info: "released cli version, only worse dev tools",
-}, {
-	info: "released cli version with dev flag, only dev tools",
-}, {
-	info: "released cli version with dev flag, better dev tools",
-}, {
-	info: "released cli version with dev flag, only worse dev tools",
-}, {
-	info: "dev cli version, better released tools",
-}, {
-	info: "dev cli version, matching released tools",
-}, {
-	info: "dev cli version, only worse released tools",
-}, {
-	info: "dev cli version, better dev tools",
-}, {
-	info: "dev cli version, matching dev tools",
-}, {
-	info: "dev cli version, only worse dev tools",
-}}
-
-func (s *ToolsSuite) TestFindBootstrapTools(c *C) {
-	for i, test := range findBootstrapToolsTests {
-		c.Logf("test %d: %s", i, test.info)
-		s.removeTools(c)
-		c.Fatalf("BLAM")
 	}
 }

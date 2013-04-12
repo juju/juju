@@ -442,7 +442,7 @@ func (test configTest) check(c *C, h fakeHome) {
 		c.Assert(agentVersion, Equals, version.MustParse(s.(string)))
 	} else {
 		c.Assert(ok, Equals, false)
-		c.Assert(agentVersion, Equals, version.Number{})
+		c.Assert(agentVersion, Equals, version.Zero)
 	}
 
 	dev, _ := test.attrs["development"].(bool)

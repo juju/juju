@@ -42,7 +42,7 @@ type proposal struct {
 	devVersion bool
 }
 
-// TODO(fwereade): Here be dragons. All sorts of state is smeared across
+// Here be dragons.
 var upgraderTests = []struct {
 	about      string
 	current    string   // current version.
@@ -62,21 +62,27 @@ var upgraderTests = []struct {
 	upload:  []string{"2.0.0"},
 	propose: "2.4.0",
 }, {
-	about:   "propose development version when !devVersion",
+	about:     "dev available, dev proposed, dev chosen despite !devVersion",
+	current:   "2.0.0",
+	upload:    []string{"2.1.0"},
+	propose:   "2.3.0",
+	upgradeTo: "2.1.0",
+}, {
+	about:   "dev available, release proposed, dev ignored because !devVersion",
 	current: "2.0.0",
 	upload:  []string{"2.1.0"},
 	propose: "2.4.0",
 }, {
-	about:      "propose development version when devVersion",
+	about:      "dev available, release proposed, dev chosen because devVersion",
 	current:    "2.0.0",
-	upload:     []string{"2.1.0"},
+	upload:     []string{"2.2.0", "2.3.0"},
 	propose:    "2.4.0",
 	devVersion: true,
-	upgradeTo:  "2.1.0",
+	upgradeTo:  "2.3.0",
 }, {
-	about:     "propose release version when !devVersion",
-	current:   "2.1.0",
-	upload:    []string{"2.0.0"},
+	about:     "release available, release proposed, dev ignored because !devVersion",
+	current:   "2.2.0",
+	upload:    []string{"2.0.0", "2.3.0"},
 	propose:   "2.4.0",
 	upgradeTo: "2.0.0",
 }, {
@@ -97,24 +103,10 @@ var upgraderTests = []struct {
 	upload:    []string{"2.5.0"},
 	propose:   "2.5.0",
 	upgradeTo: "2.5.0",
-}, {
-	about:     "upgrade with no proposal",
-	current:   "2.6.0",
-	upload:    []string{"2.5.0"},
-	upgradeTo: "2.5.0",
 },
 }
 
 func (s *UpgraderSuite) TestUpgrader(c *C) {
-	currentTools := s.primeTools(c, version.MustParseBinary("2.0.0-foo-bar"))
-	// Remove the tools from the storage so that we're sure that the
-	// uploader isn't trying to fetch them.
-	resp, err := http.Get(currentTools.URL)
-	c.Assert(err, IsNil)
-	err = agent.UnpackTools(s.DataDir(), currentTools, resp.Body)
-	c.Assert(err, IsNil)
-	s.removeVersion(c, currentTools.Binary)
-
 	var (
 		u            *Upgrader
 		upgraderDone <-chan error
@@ -128,7 +120,17 @@ func (s *UpgraderSuite) TestUpgrader(c *C) {
 
 	for i, test := range upgraderTests {
 		c.Logf("\ntest %d: %s", i, test.about)
+		if test.current == "" {
+			panic("incomplete test setup: starting current version is mandatory")
+		}
+		currentTools := s.primeTools(c, version.MustParseBinary(test.current+"-foo-bar"))
+		resp, err := http.Get(currentTools.URL)
+		c.Assert(err, IsNil)
+		err = agent.UnpackTools(s.DataDir(), currentTools, resp.Body)
+		resp.Body.Close()
+		c.Assert(err, IsNil)
 		s.removeTools(c)
+
 		uploaded := make(map[version.Number]*state.Tools)
 		for _, v := range test.upload {
 			vers := version.Current
@@ -136,9 +138,8 @@ func (s *UpgraderSuite) TestUpgrader(c *C) {
 			tools := s.uploadTools(c, vers)
 			uploaded[vers.Number] = tools
 		}
-		if test.current == "" {
-			panic("incomplete test setup: current is mandatory")
-		}
+
+		s.proposeVersion(c, version.MustParse(test.current), test.devVersion)
 		version.Current.Number = version.MustParse(test.current)
 		currentTools, err = agent.ReadTools(s.DataDir(), version.Current)
 		c.Assert(err, IsNil)
@@ -163,11 +164,10 @@ func (s *UpgraderSuite) TestUpgrader(c *C) {
 			// Check that the upgraded version was really downloaded.
 			path := agent.SharedToolsDir(s.DataDir(), tools.Binary)
 			data, err := ioutil.ReadFile(filepath.Join(path, "jujud"))
-			c.Assert(err, IsNil)
-			c.Assert(string(data), Equals, "jujud contents "+tools.Binary.String())
-
-			u, upgraderDone = nil, nil
+			c.Check(err, IsNil)
+			c.Check(string(data), Equals, "jujud contents "+tools.Binary.String())
 		}
+		u, upgraderDone = nil, nil
 	}
 }
 

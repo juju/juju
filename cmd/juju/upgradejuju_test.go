@@ -202,8 +202,14 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *C) {
 			continue
 		}
 
-		// Set up environ/state and run the command.
-		err := SetAgentVersion(s.State, version.MustParse(test.agentVersion), false)
+		// Set up state and environ, and run the command.
+		cfg, err := s.State.EnvironConfig()
+		c.Assert(err, IsNil)
+		cfg, err = cfg.Apply(map[string]interface{}{
+			"agent-version": test.agentVersion,
+			"development":   false,
+		})
+		err = s.State.SetEnvironConfig(cfg)
 		c.Assert(err, IsNil)
 		for _, v := range test.private {
 			vers := version.MustParseBinary(v)
@@ -224,7 +230,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *C) {
 		}
 
 		// Check expected changes to environ/state.
-		cfg, err := s.State.EnvironConfig()
+		cfg, err = s.State.EnvironConfig()
 		c.Check(err, IsNil)
 		agentVersion, ok := cfg.AgentVersion()
 		c.Check(ok, Equals, true)

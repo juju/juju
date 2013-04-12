@@ -237,7 +237,7 @@ func (c *Config) AgentVersion() (version.Number, bool) {
 		}
 		return n, true
 	}
-	return version.Number{}, false
+	return version.Zero, false
 }
 
 // Development returns whether the environment is in development mode.

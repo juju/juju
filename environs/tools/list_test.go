@@ -95,27 +95,35 @@ func (s *ListSuite) TestArches(c *C) {
 var newestTests = []struct {
 	src    tools.List
 	expect tools.List
+	number version.Number
 }{{
 	nil,
 	nil,
+	version.Zero,
 }, {
 	tools.List{t100precise},
 	tools.List{t100precise},
+	version.MustParse("1.0.0"),
 }, {
 	t100all,
 	t100all,
+	version.MustParse("1.0.0"),
 }, {
 	extend(t100all, t190all, t200all),
 	t200all,
+	version.MustParse("2.0.0"),
 }, {
 	tAll,
 	tools.List{t2001precise},
+	version.MustParse("2.0.0.1"),
 }}
 
 func (s *ListSuite) TestNewest(c *C) {
 	for i, test := range newestTests {
 		c.Logf("test %d", i)
-		c.Check(test.src.Newest(), DeepEquals, test.expect)
+		actual, version := test.src.Newest()
+		c.Check(actual, DeepEquals, test.expect)
+		c.Check(version, DeepEquals, test.number)
 	}
 }
 
