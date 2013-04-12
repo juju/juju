@@ -17,8 +17,5 @@ format:
 simplify:
 	find "$(GOPATH)/src/$(PROJECT)/" -name \*.go | xargs gofmt -w -s
 
-# Pattern rule: building a Go file.
-%: %.go
-	go build -o $@ $<
 
 .PHONY: build check format simplify
