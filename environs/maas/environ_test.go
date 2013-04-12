@@ -71,20 +71,41 @@ func (suite *EnvironSuite) setupFakeTools(c *C) {
 	envtesting.PutFakeTools(c, storage)
 }
 
+func (EnvironSuite) TestSetConfigValidatesFirst(c *C) {
+	// SetConfig() validates the config change and disallows, for example,
+	// changes in the environment name.
+	server := "http://maas.example.com"
+	oauth := "a:b:c"
+	secret := "pssst"
+	oldCfg := getTestConfig("old-name", server, oauth, secret)
+	newCfg := getTestConfig("new-name", server, oauth, secret)
+	env, err := NewEnviron(oldCfg)
+	c.Assert(err, IsNil)
+
+	// SetConfig() fails, even though both the old and the new config are
+	// individually.
+	err = env.SetConfig(newCfg)
+	c.Assert(err, NotNil)
+	c.Check(err, ErrorMatches, ".*cannot change name.*")
+
+	// The old config is still in place.  The new config never took effect.
+	c.Check(env.Name(), Equals, "old-name")
+}
+
 func (EnvironSuite) TestSetConfigUpdatesConfig(c *C) {
-	cfg := getTestConfig("test env", "http://maas2.example.com", "a:b:c", "secret")
+	name := "test env"
+	cfg := getTestConfig(name, "http://maas2.example.com", "a:b:c", "secret")
 	env, err := NewEnviron(cfg)
 	c.Check(err, IsNil)
 	c.Check(env.name, Equals, "test env")
 
-	anotherName := "another name"
 	anotherServer := "http://maas.example.com"
 	anotherOauth := "c:d:e"
 	anotherSecret := "secret2"
-	cfg2 := getTestConfig(anotherName, anotherServer, anotherOauth, anotherSecret)
+	cfg2 := getTestConfig(name, anotherServer, anotherOauth, anotherSecret)
 	errSetConfig := env.SetConfig(cfg2)
 	c.Check(errSetConfig, IsNil)
-	c.Check(env.name, Equals, anotherName)
+	c.Check(env.name, Equals, name)
 	authClient, _ := gomaasapi.NewAuthenticatedClient(anotherServer, anotherOauth, apiVersion)
 	maas := gomaasapi.NewMAAS(*authClient)
 	MAASServer := env.maasClientUnlocked
