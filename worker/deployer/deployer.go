@@ -43,10 +43,9 @@ type Context interface {
 // ctx, according to membership and lifecycle changes notified by w.
 func NewDeployer(st *state.State, ctx Context, w *state.UnitsWatcher) *Deployer {
 	d := &Deployer{
-		st:       st,
-		ctx:      ctx,
-		tag:      w.Tag(),
-		deployed: set.MakeStringSet(),
+		st:  st,
+		ctx: ctx,
+		tag: w.Tag(),
 	}
 	go func() {
 		defer d.tomb.Done()

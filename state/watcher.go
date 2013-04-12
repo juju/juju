@@ -428,7 +428,6 @@ func newRelationScopeWatcher(st *State, scope, ignore string) *RelationScopeWatc
 		prefix:        scope + "#",
 		ignore:        ignore,
 		out:           make(chan *RelationScopeChange),
-		knownUnits:    set.MakeStringSet(),
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -555,7 +554,6 @@ func newRelationUnitsWatcher(ru *RelationUnit) *RelationUnitsWatcher {
 	w := &RelationUnitsWatcher{
 		commonWatcher: commonWatcher{st: ru.st},
 		sw:            ru.WatchScope(),
-		watching:      set.MakeStringSet(),
 		updates:       make(chan watcher.Change),
 		out:           make(chan RelationUnitsChange),
 	}

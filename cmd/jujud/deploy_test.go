@@ -75,8 +75,7 @@ func (ctx *fakeContext) waitDeployed(c *C, want ...string) {
 
 func patchDeployContext(c *C, expectInfo *state.Info, expectDataDir string) (*fakeContext, func()) {
 	ctx := &fakeContext{
-		deployed: set.MakeStringSet(),
-		inited:   make(chan struct{}),
+		inited: make(chan struct{}),
 	}
 	e0 := *expectInfo
 	expectInfo = &e0
