@@ -4,10 +4,14 @@ import (
 	"sort"
 )
 
+// StringSet represents the classic "set" data structure, and contains
+// strings.
 type StringSet struct {
 	values map[string]bool
 }
 
+// MakeStringSet creates and initializes a StringSet and populates it with
+// initial values as specified in the parameters.
 func MakeStringSet(initial ...string) StringSet {
 	result := StringSet{values: make(map[string]bool)}
 	for _, value := range initial {
@@ -23,17 +27,26 @@ func (s *StringSet) Size() int {
 
 // Add puts a value into the set.
 func (s *StringSet) Add(value string) {
+	if s.values == nil {
+		s.values = make(map[string]bool)
+	}
 	s.values[value] = true
 }
 
 // Remove takes a value out of the set.  If value wasn't in the set to start
 // with, this method silently succeeds.
 func (s *StringSet) Remove(value string) {
+	if s.values == nil {
+		return
+	}
 	delete(s.values, value)
 }
 
 // Contains returns true if the value is in the set, and false otherwise.
 func (s *StringSet) Contains(value string) bool {
+	if s.values == nil {
+		return false
+	}
 	_, exists := s.values[value]
 	return exists
 }
