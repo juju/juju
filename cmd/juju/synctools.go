@@ -79,7 +79,7 @@ func copyOne(
 	if err != nil {
 		return err
 	}
-	log.Infof("cmd/juju: downloaded %v (%dkB), uploading", toolsName, (nBytes+512)/1024)
+	log.Infof("downloaded %v (%dkB), uploading", toolsName, (nBytes+512)/1024)
 	fmt.Fprintf(ctx.Stderr, ", download %dkB, uploading\n", (nBytes+512)/1024)
 
 	if err := target.Put(toolsName, buf, nBytes); err != nil {
@@ -93,7 +93,7 @@ func copyTools(
 	target environs.Storage, dryRun bool, ctx *cmd.Context,
 ) error {
 	for _, tool := range tools {
-		log.Infof("cmd/juju: copying %s from %s", tool.Binary, tool.URL)
+		log.Infof("copying %s from %s", tool.Binary, tool.URL)
 		if dryRun {
 			continue
 		}
@@ -107,7 +107,7 @@ func copyTools(
 func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 	officialEnviron, err := environs.NewFromAttrs(officialBucketAttrs)
 	if err != nil {
-		log.Errorf("cmd/juju: failed to initialize the official bucket environment")
+		log.Errorf("failed to initialize the official bucket environment")
 		return err
 	}
 	fmt.Fprintf(ctx.Stderr, "listing the source bucket\n")
@@ -117,7 +117,7 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 	}
 	targetEnv, err := environs.NewFromName(c.EnvName)
 	if err != nil {
-		log.Errorf("cmd/juju: unable to read %q from environment", c.EnvName)
+		log.Errorf("unable to read %q from environment", c.EnvName)
 		return err
 	}
 	toolsToCopy := sourceToolsList.Public
@@ -127,7 +127,7 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 	fmt.Fprintf(ctx.Stderr, "found %d tools in source (%d recent ones)\n",
 		len(sourceToolsList.Public), len(toolsToCopy))
 	for _, tool := range toolsToCopy {
-		log.Debugf("cmd/juju: found source tool: %s", tool)
+		log.Debugf("found source tool: %s", tool)
 	}
 	fmt.Fprintf(ctx.Stderr, "listing target bucket\n")
 	targetToolsList, err := environs.ListTools(targetEnv, version.Current.Major)
@@ -144,7 +144,7 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 	for _, tool := range targetTools {
-		log.Debugf("cmd/juju: found target tool: %s", tool)
+		log.Debugf("found target tool: %s", tool)
 	}
 	missing := toolsToCopy.Exclude(targetTools)
 	fmt.Fprintf(ctx.Stdout, "found %d tools in target; %d tools to be copied\n",

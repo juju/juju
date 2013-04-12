@@ -11,9 +11,11 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+)
 
-	// Register the provider
-	_ "launchpad.net/juju-core/environs/ec2"
+// Import the providers.
+import (
+	_ "launchpad.net/juju-core/environs/all"
 )
 
 func main() {
@@ -51,14 +53,14 @@ func build() error {
 		return err
 	}
 
-	log.Infof("builddb: Waiting for unit to reach %q status...", params.UnitStarted)
+	log.Infof("builddb: Waiting for unit to reach %q status...", params.StatusStarted)
 	unit := units[0]
 	last, info, err := unit.Status()
 	if err != nil {
 		return err
 	}
 	logStatus(last, info)
-	for last != params.UnitStarted {
+	for last != params.StatusStarted {
 		time.Sleep(2 * time.Second)
 		if err := unit.Refresh(); err != nil {
 			return err
@@ -81,7 +83,7 @@ func build() error {
 	return nil
 }
 
-func logStatus(status params.UnitStatus, info string) {
+func logStatus(status params.Status, info string) {
 	if info == "" {
 		log.Infof("builddb: Unit status is %q", status)
 	} else {

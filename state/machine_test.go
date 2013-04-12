@@ -486,7 +486,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {
 	assertChange("mysql/0")
 
 	// Change the unit; no change.
-	err = mysql0.SetStatus(params.UnitStarted, "")
+	err = mysql0.SetStatus(params.StatusStarted, "")
 	c.Assert(err, IsNil)
 	assertNoChange()
 
@@ -515,7 +515,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {
 	assertNoChange()
 
 	// Change the subordinate; no change.
-	err = logging0.SetStatus(params.UnitStarted, "")
+	err = logging0.SetStatus(params.StatusStarted, "")
 	c.Assert(err, IsNil)
 	assertNoChange()
 
@@ -602,7 +602,7 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	assertChange("mysql/0")
 
 	// Change the unit; no change.
-	err = mysql0.SetStatus(params.UnitStarted, "")
+	err = mysql0.SetStatus(params.StatusStarted, "")
 	c.Assert(err, IsNil)
 	assertNoChange()
 
@@ -631,7 +631,7 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	assertChange("logging/0")
 
 	// Change the subordinate; no change.
-	err = logging0.SetStatus(params.UnitStarted, "")
+	err = logging0.SetStatus(params.StatusStarted, "")
 	c.Assert(err, IsNil)
 	assertNoChange()
 
@@ -765,28 +765,28 @@ func (s *MachineSuite) TestConstraintsLifecycle(c *C) {
 }
 
 func (s *MachineSuite) TestGetSetStatusWhileAlive(c *C) {
-	failError := func() { s.machine.SetStatus(params.MachineError, "") }
+	failError := func() { s.machine.SetStatus(params.StatusError, "") }
 	c.Assert(failError, PanicMatches, "machine error status with no info")
-	failPending := func() { s.machine.SetStatus(params.MachinePending, "") }
+	failPending := func() { s.machine.SetStatus(params.StatusPending, "") }
 	c.Assert(failPending, PanicMatches, "machine status cannot be set to pending")
 
 	status, info, err := s.machine.Status()
 	c.Assert(err, IsNil)
-	c.Assert(status, Equals, params.MachinePending)
+	c.Assert(status, Equals, params.StatusPending)
 	c.Assert(info, Equals, "")
 
-	err = s.machine.SetStatus(params.MachineStarted, "")
+	err = s.machine.SetStatus(params.StatusStarted, "")
 	c.Assert(err, IsNil)
 	status, info, err = s.machine.Status()
 	c.Assert(err, IsNil)
-	c.Assert(status, Equals, params.MachineStarted)
+	c.Assert(status, Equals, params.StatusStarted)
 	c.Assert(info, Equals, "")
 
-	err = s.machine.SetStatus(params.MachineError, "provisioning failed")
+	err = s.machine.SetStatus(params.StatusError, "provisioning failed")
 	c.Assert(err, IsNil)
 	status, info, err = s.machine.Status()
 	c.Assert(err, IsNil)
-	c.Assert(status, Equals, params.MachineError)
+	c.Assert(status, Equals, params.StatusError)
 	c.Assert(info, Equals, "provisioning failed")
 }
 
@@ -794,26 +794,26 @@ func (s *MachineSuite) TestGetSetStatusWhileNotAlive(c *C) {
 	// When Dying set/get should work.
 	err := s.machine.Destroy()
 	c.Assert(err, IsNil)
-	err = s.machine.SetStatus(params.MachineStopped, "")
+	err = s.machine.SetStatus(params.StatusStopped, "")
 	c.Assert(err, IsNil)
 	status, info, err := s.machine.Status()
 	c.Assert(err, IsNil)
-	c.Assert(status, Equals, params.MachineStopped)
+	c.Assert(status, Equals, params.StatusStopped)
 	c.Assert(info, Equals, "")
 
 	// When Dead set should fail, but get will work.
 	err = s.machine.EnsureDead()
 	c.Assert(err, IsNil)
-	err = s.machine.SetStatus(params.MachineStarted, "not really")
+	err = s.machine.SetStatus(params.StatusStarted, "not really")
 	c.Assert(err, ErrorMatches, `cannot set status of machine "0": not found or not alive`)
 	status, info, err = s.machine.Status()
 	c.Assert(err, IsNil)
-	c.Assert(status, Equals, params.MachineStopped)
+	c.Assert(status, Equals, params.StatusStopped)
 	c.Assert(info, Equals, "")
 
 	err = s.machine.Remove()
 	c.Assert(err, IsNil)
-	err = s.machine.SetStatus(params.MachineStarted, "not really")
+	err = s.machine.SetStatus(params.StatusStarted, "not really")
 	c.Assert(err, ErrorMatches, `cannot set status of machine "0": not found or not alive`)
 	_, _, err = s.machine.Status()
 	c.Assert(err, ErrorMatches, "status not found")

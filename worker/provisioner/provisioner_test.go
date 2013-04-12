@@ -240,7 +240,7 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenStartInstanceFailed
 	// And check the machine status is set to error.
 	status, info, err := m.Status()
 	c.Assert(err, IsNil)
-	c.Assert(status, Equals, params.MachineError)
+	c.Assert(status, Equals, params.StatusError)
 	c.Assert(info, Equals, brokenMsg)
 
 	// Unbreak the environ config.

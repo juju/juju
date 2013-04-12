@@ -279,8 +279,9 @@ var upgradeJujuTests = []struct {
 }
 
 // mockUploadTools simulates the effect of tools.Upload, but skips the time-
-// consuming build from source. TODO(fwereade) better factor environs/tools
-// such that build logic is exposed and can itself be neatly mocked?
+// consuming build from source.
+// TODO(fwereade) better factor environs/tools such that build logic is
+// exposed and can itself be neatly mocked?
 func mockUploadTools(putter tools.URLPutter, forceVersion *version.Number, series ...string) (*state.Tools, error) {
 	storage := putter.(environs.Storage)
 	vers := version.Current

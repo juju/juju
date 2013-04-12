@@ -245,9 +245,16 @@ var configTests = []configTest{
 		},
 		err: "name: expected string, got nothing",
 	}, {
-		about: "Bad name",
+		about: "Bad name, no slash",
 		attrs: attrs{
 			"name": "foo/bar",
+			"type": "my-type",
+		},
+		err: "environment name contains unsafe characters",
+	}, {
+		about: "Bad name, no backslash",
+		attrs: attrs{
+			"name": "foo\\bar",
 			"type": "my-type",
 		},
 		err: "environment name contains unsafe characters",
@@ -532,6 +539,8 @@ func (*ConfigSuite) TestConfigAttrs(c *C) {
 	// These attributes are added if not set.
 	attrs["development"] = false
 	attrs["default-series"] = config.DefaultSeries
+	// Default firewall mode is instance
+	attrs["firewall-mode"] = string(config.FwInstance)
 	c.Assert(cfg.AllAttrs(), DeepEquals, attrs)
 	c.Assert(cfg.UnknownAttrs(), DeepEquals, map[string]interface{}{"unknown": "my-unknown"})
 
@@ -543,6 +552,88 @@ func (*ConfigSuite) TestConfigAttrs(c *C) {
 	attrs["name"] = "new-name"
 	attrs["new-unknown"] = "my-new-unknown"
 	c.Assert(newcfg.AllAttrs(), DeepEquals, attrs)
+}
+
+type validationTest struct {
+	about string
+	new   attrs
+	old   attrs
+	err   string
+}
+
+var validationTests = []validationTest{
+	{
+		about: "Can't change the type",
+		new: attrs{
+			"type": "type2",
+			"name": "my-name",
+		},
+		old: attrs{
+			"type": "my-type",
+			"name": "my-name",
+		},
+		err: `cannot change type from "my-type" to "type2"`,
+	}, {
+		about: "Can't change the name",
+		new: attrs{
+			"type": "my-type",
+			"name": "new-name",
+		},
+		old: attrs{
+			"type": "my-type",
+			"name": "my-name",
+		},
+		err: `cannot change name from "my-name" to "new-name"`,
+	}, {
+		about: "Can't change agent version",
+		new: attrs{
+			"type":          "my-type",
+			"name":          "my-name",
+			"agent-version": "1.9.14",
+		},
+		old: attrs{
+			"type":          "my-type",
+			"name":          "my-name",
+			"agent-version": "1.9.13",
+		},
+		err: `cannot change agent-version from "1.9.13" to "1.9.14"`,
+	}, {
+		about: "Can't change the firewall-mode",
+		new: attrs{
+			"type":          "my-type",
+			"name":          "my-name",
+			"firewall-mode": config.FwInstance,
+		},
+		old: attrs{
+			"type":          "my-type",
+			"name":          "my-name",
+			"firewall-mode": config.FwGlobal,
+		},
+		err: `cannot change firewall-mode from "global" to "instance"`,
+	},
+}
+
+func (*ConfigSuite) TestValidateChange(c *C) {
+	files := []testFile{
+		{".ssh/identity.pub", "identity"},
+	}
+	h := makeFakeHome(c, files)
+	defer h.restore()
+
+	for i, test := range validationTests {
+		c.Logf("test %d. %s", i, test.about)
+		newConfig, err := config.New(test.new)
+		c.Assert(err, IsNil)
+		oldConfig, err := config.New(test.old)
+		c.Assert(err, IsNil)
+
+		err = config.Validate(newConfig, oldConfig)
+		if test.err == "" {
+			c.Assert(err, IsNil)
+		} else {
+			c.Assert(err, ErrorMatches, test.err)
+		}
+	}
 }
 
 type fakeHome struct {

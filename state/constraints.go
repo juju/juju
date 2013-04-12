@@ -15,6 +15,15 @@ type constraintsDoc struct {
 	Mem      *uint64
 }
 
+func (doc constraintsDoc) value() constraints.Value {
+	return constraints.Value{
+		Arch:     doc.Arch,
+		CpuCores: doc.CpuCores,
+		CpuPower: doc.CpuPower,
+		Mem:      doc.Mem,
+	}
+}
+
 func newConstraintsDoc(cons constraints.Value) constraintsDoc {
 	return constraintsDoc{
 		Arch:     cons.Arch,
@@ -57,12 +66,7 @@ func readConstraints(st *State, id string) (constraints.Value, error) {
 	} else if err != nil {
 		return constraints.Value{}, err
 	}
-	return constraints.Value{
-		Arch:     doc.Arch,
-		CpuCores: doc.CpuCores,
-		CpuPower: doc.CpuPower,
-		Mem:      doc.Mem,
-	}, nil
+	return doc.value(), nil
 }
 
 func writeConstraints(st *State, id string, cons constraints.Value) error {
