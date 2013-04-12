@@ -206,6 +206,7 @@ func (*cloudinitSuite) TestCloudInit(c *C) {
 
 func (*cloudinitSuite) TestCloudInitConfigure(c *C) {
 	for i, test := range cloudinitTests {
+		test.cfg.Config = minimalConfig(c)
 		c.Logf("test %d (Configure)", i)
 		cloudcfg := cloudinit_core.New()
 		ci, err := cloudinit.Configure(&test.cfg, cloudcfg)
@@ -219,6 +220,7 @@ func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *C) {
 	cloudcfg := cloudinit_core.New()
 	script := "test script"
 	cloudcfg.AddRunCmd(script)
+	cloudinitTests[0].cfg.Config = minimalConfig(c)
 	ci, err := cloudinit.Configure(&cloudinitTests[0].cfg, cloudcfg)
 	c.Assert(err, IsNil)
 	c.Check(ci, NotNil)
