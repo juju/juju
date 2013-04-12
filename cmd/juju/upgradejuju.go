@@ -71,12 +71,12 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) (err error) {
 	defer conn.Close()
 	defer func() {
 		if err == errUpToDate {
-			log.Noticef("no upgrade available")
+			log.Noticef(err.Error())
 			err = nil
 		}
 	}()
 
-	//
+	// Determine the version to upgrade to, uploading tools if necessary.
 	env := conn.Environ
 	cfg, err := conn.State.EnvironConfig()
 	if err != nil {
@@ -96,6 +96,7 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) (err error) {
 		return err
 	}
 	log.Infof("upgrade version chosen: %s", v.chosen)
+	// TODO(fwereade): this list may be incomplete, pending tools.Upload change.
 	log.Infof("available tools: %s", v.tools)
 
 	// Write updated config back to state if necessary. Note that this is
@@ -106,9 +107,6 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) (err error) {
 	// TODO(fwereade): Do this right. Warning: scope unclear.
 	// TODO(fwereade): I don't think Config.Development does anything very
 	// useful. Preserved behaviour just in case.
-	if v.chosen == v.agent && c.Development == cfg.Development() {
-		return nil
-	}
 	if cfg, err = cfg.Apply(map[string]interface{}{
 		"agent-version": v.chosen.String(),
 		"development":   c.Development,
@@ -122,6 +120,10 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) (err error) {
 	return nil
 }
 
+// initVersions collects state relevant to an upgrade decision. The returned
+// agent and client versions, and the list of currently available tools, will
+// always be accurate; the chosen vesion may remain blank until uploadTools
+// or validate is called.
 func (c *UpgradeJujuCommand) initVersions(cfg *config.Config, env environs.Environ) (*upgradeVersions, error) {
 	agent, ok := cfg.AgentVersion()
 	if !ok {
@@ -152,6 +154,7 @@ func (c *UpgradeJujuCommand) initVersions(cfg *config.Config, env environs.Envir
 	}, nil
 }
 
+// upgradeVersions holds the version information for making upgrade decisions.
 type upgradeVersions struct {
 	agent  version.Number
 	client version.Number
@@ -159,6 +162,13 @@ type upgradeVersions struct {
 	tools  tools.List
 }
 
+// uploadTools compiles jujud from $GOPATH and uploads it into the supplied
+// storage. If no version has been explicitly chosen, the version number
+// reported by the built tools will be based on the client version number.
+// In any case, the version number reported will have a build component higher
+// than that of any otherwise-matching available tools.
+// uploadTools resets the chosen version and replaces the available tools
+// with the ones just uploaded.
 func (v *upgradeVersions) uploadTools(storage environs.Storage, series []string) error {
 	// TODO(fwereade): this is kinda crack: we should not assume that
 	// version.Current matches whatever source happens to be built. The
@@ -180,7 +190,7 @@ func (v *upgradeVersions) uploadTools(storage environs.Storage, series []string)
 	// TODO(fwereade): tools.Upload should return a tools.List, and should
 	// include all the extra series we build, so we can set *that* onto
 	// v.available and maybe one day be able to check that a given upgrade
-	// won't leave out-of-date machines lying around.
+	// won't leave out-of-date machines lying around, starved of tools.
 	uploaded, err := uploadTools(storage, &v.chosen, series...)
 	if err != nil {
 		return err
@@ -189,6 +199,10 @@ func (v *upgradeVersions) uploadTools(storage environs.Storage, series []string)
 	return nil
 }
 
+// validate chooses an upgrade version, of one has not already been chosen,
+// and ensures the tools list contains no entries that do not have that version.
+// If validate returns no error, the environment agent-version can be set to
+// the value of the chosen field.
 func (v *upgradeVersions) validate(dev bool) (err error) {
 	// If not completely specified already, pick a single tools version.
 	dev = dev || v.agent.IsDev() || v.client.IsDev() || v.chosen.IsDev()

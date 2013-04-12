@@ -107,17 +107,6 @@ var upgraderTests = []struct {
 }
 
 func (s *UpgraderSuite) TestUpgrader(c *C) {
-	var (
-		u            *Upgrader
-		upgraderDone <-chan error
-	)
-
-	defer func() {
-		if u != nil {
-			c.Assert(u.Stop(), IsNil)
-		}
-	}()
-
 	for i, test := range upgraderTests {
 		c.Logf("\ntest %d: %s", i, test.about)
 		if test.current == "" {
@@ -143,17 +132,20 @@ func (s *UpgraderSuite) TestUpgrader(c *C) {
 		version.Current.Number = version.MustParse(test.current)
 		currentTools, err = agent.ReadTools(s.DataDir(), version.Current)
 		c.Assert(err, IsNil)
-		if u == nil {
-			u = s.startUpgrader(c, currentTools)
-		}
-		if test.propose != "" {
-			s.proposeVersion(c, version.MustParse(test.propose), test.devVersion)
-			s.State.StartSync()
-		}
-		if test.upgradeTo == "" {
-			s.State.StartSync()
-			assertNothingHappens(c, upgraderDone)
-		} else {
+
+		u := s.startUpgrader(c, currentTools)
+		func() {
+			defer u.Stop()
+			if test.propose != "" {
+				s.proposeVersion(c, version.MustParse(test.propose), test.devVersion)
+				s.State.StartSync()
+			}
+			if test.upgradeTo == "" {
+				s.State.StartSync()
+				assertNothingHappens(c, u)
+				c.Assert(u.Stop(), IsNil)
+				return
+			}
 			ug := waitDeath(c, u)
 			tools := uploaded[version.MustParse(test.upgradeTo)]
 			c.Check(ug.NewTools, DeepEquals, tools)
@@ -166,8 +158,7 @@ func (s *UpgraderSuite) TestUpgrader(c *C) {
 			data, err := ioutil.ReadFile(filepath.Join(path, "jujud"))
 			c.Check(err, IsNil)
 			c.Check(string(data), Equals, "jujud contents "+tools.Binary.String())
-		}
-		u, upgraderDone = nil, nil
+		}()
 	}
 }
 
@@ -267,11 +258,14 @@ func (s *UpgraderSuite) TestUpgraderReadyErrorUpgrade(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(string(data), Equals, "jujud contents 2.0.2-foo-bar")
 }
-
-func assertNothingHappens(c *C, upgraderDone <-chan error) {
+func assertNothingHappens(c *C, u *Upgrader) {
+	done := make(chan error, 1)
+	go func() {
+		done <- u.Wait()
+	}()
 	select {
-	case got := <-upgraderDone:
-		c.Fatalf("expected nothing to happen, got %v", got)
+	case got := <-done:
+		c.Fatalf("expected nothing to happen, got %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}
 }

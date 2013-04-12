@@ -108,13 +108,20 @@ func (v seriesVar) String() string {
 	return strings.Join(*v.target, ",")
 }
 
+// getUploadSeries returns the supplied series if non-empty; otherwise it
+// returns a default list of series we should probably upload, base on cfg.
 func getUploadSeries(cfg *config.Config, series []string) []string {
 	if len(series) != 0 {
 		return series
 	}
-	result := []string{config.DefaultSeries}
-	if envDefault := cfg.DefaultSeries(); result[0] != envDefault {
-		result = append(result, envDefault)
+	set := map[string]bool{
+		config.DefaultSeries:   true,
+		cfg.DefaultSeries():    true,
+		version.Current.Series: true,
+	}
+	result := []string{}
+	for name := range set {
+		result = append(result, name)
 	}
 	return result
 }

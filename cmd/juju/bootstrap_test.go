@@ -85,17 +85,25 @@ func (*BootstrapSuite) TestConstraints(c *C) {
 
 func (*BootstrapSuite) TestUploadTools(c *C) {
 	defer testing.MakeFakeHome(c, envConfig).Restore()
-	// bootstrap with tool uploading - checking that a file
-	// is uploaded should be sufficient, as the detailed semantics
-	// of UploadTools are tested in environs.
+	origCurrent := version.Current
+	version.Current.Series = "hostseries"
+	defer func() { version.Current = origCurrent }()
+
 	opc, errc := runCommand(new(BootstrapCommand), "--upload-tools")
 	c.Check(<-errc, IsNil)
-	c.Check((<-opc).(dummy.OpPutFile).Env, Equals, "peckham")
+	c.Check((<-opc).(dummy.OpPutFile).Env, Equals, "peckham") // hostseries from version.Current
+	c.Check((<-opc).(dummy.OpPutFile).Env, Equals, "peckham") // defaultseries from env config
+	c.Check((<-opc).(dummy.OpPutFile).Env, Equals, "peckham") // precise from config.DefaultSeries
 	opBootstrap := (<-opc).(dummy.OpBootstrap)
 	c.Check(opBootstrap.Env, Equals, "peckham")
 	c.Check(opBootstrap.Constraints, DeepEquals, constraints.Value{})
 
-	assertUploadedSomething(c, version.Current)
+	vers := version.Current
+	assertUploadedSomething(c, vers)
+	vers.Series = "defaultseries"
+	assertUploadedSomething(c, vers)
+	vers.Series = "precise"
+	assertUploadedSomething(c, vers)
 }
 
 func assertUploadedSomething(c *C, vers version.Binary) {
@@ -115,9 +123,9 @@ func assertUploadedSomething(c *C, vers version.Binary) {
 	c.Assert(err, IsNil)
 }
 
-func (*BootstrapSuite) TestUploadToolsFakeSeries(c *C) {
+func (*BootstrapSuite) TestUploadToolsSeries(c *C) {
 	defer testing.MakeFakeHome(c, envConfig).Restore()
-	opc, errc := runCommand(new(BootstrapCommand), "--upload-tools", "--fake-series=good,great")
+	opc, errc := runCommand(new(BootstrapCommand), "--upload-tools", "--series=good,great")
 	c.Check(<-errc, IsNil)
 	c.Check((<-opc).(dummy.OpPutFile).Env, Equals, "peckham")
 	c.Check((<-opc).(dummy.OpPutFile).Env, Equals, "peckham")
@@ -132,17 +140,17 @@ func (*BootstrapSuite) TestUploadToolsFakeSeries(c *C) {
 	assertUploadedSomething(c, vers)
 }
 
-func (*BootstrapSuite) TestFakeSeriesBadParams(c *C) {
+func (*BootstrapSuite) TestSeriesBadParams(c *C) {
 	defer testing.MakeFakeHome(c, envConfig).Restore()
-	opc, errc := runCommand(new(BootstrapCommand), "--fake-series=bad1")
-	c.Check(<-errc, ErrorMatches, `invalid value "bad1" for flag --fake-series: invalid series name "bad1"`)
+	opc, errc := runCommand(new(BootstrapCommand), "--series=bad1")
+	c.Check(<-errc, ErrorMatches, `invalid value "bad1" for flag --series: invalid series name "bad1"`)
 	c.Check(<-opc, IsNil)
 }
 
-func (*BootstrapSuite) TestFakeSeriesNoUploadTools(c *C) {
+func (*BootstrapSuite) TestSeriesNoUploadTools(c *C) {
 	defer testing.MakeFakeHome(c, envConfig).Restore()
-	opc, errc := runCommand(new(BootstrapCommand), "--fake-series=good,great")
-	c.Check(<-errc, ErrorMatches, `--fake-series requires --upload-tools`)
+	opc, errc := runCommand(new(BootstrapCommand), "--series=good,great")
+	c.Check(<-errc, ErrorMatches, `--series requires --upload-tools`)
 	c.Check(<-opc, IsNil)
 }
 
