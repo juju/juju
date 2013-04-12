@@ -167,7 +167,7 @@ func Validate(cfg, old *Config) error {
 						oldAgentVersion, newAgentVersion)
 				}
 			} else {
-				return fmt.Errorf("cannot unset agent-version")
+				return fmt.Errorf("cannot clear agent-version")
 			}
 		}
 	}

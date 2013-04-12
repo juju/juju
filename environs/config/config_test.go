@@ -585,6 +585,29 @@ var validationTests = []validationTest{
 		},
 		err: `cannot change name from "my-name" to "new-name"`,
 	}, {
+		about: "Can set agent version",
+		new: attrs{
+			"type":          "my-type",
+			"name":          "my-name",
+			"agent-version": "1.9.13",
+		},
+		old: attrs{
+			"type": "my-type",
+			"name": "my-name",
+		},
+	}, {
+		about: "Can't clear agent version",
+		new: attrs{
+			"type": "my-type",
+			"name": "my-name",
+		},
+		old: attrs{
+			"type":          "my-type",
+			"name":          "my-name",
+			"agent-version": "1.9.13",
+		},
+		err: `cannot clear agent-version`,
+	}, {
 		about: "Can't change agent version",
 		new: attrs{
 			"type":          "my-type",
