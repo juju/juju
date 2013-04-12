@@ -16,6 +16,11 @@ func MakeStringSet(initial ...string) StringSet {
 	return result
 }
 
+// Size returns the number of elements in the set.
+func (s *StringSet) Size() int {
+	return len(s.values)
+}
+
 // Add puts a value into the set.
 func (s *StringSet) Add(value string) {
 	s.values[value] = true
