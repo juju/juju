@@ -60,9 +60,6 @@ type MachineConfig struct {
 	// Tools is juju tools to be used on the new machine.
 	Tools *state.Tools
 
-	// MongoURL is used to retrieve the mongodb tarball.
-	MongoURL string
-
 	// DataDir holds the directory that juju state will be put in the new
 	// machine.
 	DataDir string
@@ -133,12 +130,12 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 
 	var syslogConfigRenderer syslog.SyslogConfigRenderer
 	if cfg.StateServer {
+		if cfg.NeedMongoPPA() {
+			c.AddAptSource("ppa:juju/experimental", "1024R/C8068B11")
+		}
+		c.AddPackage("mongodb-server")
 		certKey := string(cfg.StateServerCert) + string(cfg.StateServerKey)
 		addFile(c, cfg.dataFile("server.pem"), certKey, 0600)
-		addScripts(c,
-			"mkdir -p /opt",
-			fmt.Sprintf("wget --no-verbose -O - %s | tar xz -C /opt", shquote(cfg.MongoURL)),
-		)
 		if err := addMongoToBoot(c, cfg); err != nil {
 			return nil, err
 		}
@@ -286,7 +283,7 @@ func addMongoToBoot(c *cloudinit.Config, cfg *MachineConfig) error {
 	conf := &upstart.Conf{
 		Service: *svc,
 		Desc:    "juju state database",
-		Cmd: "/opt/mongo/bin/mongod" +
+		Cmd: "/usr/bin/mongod" +
 			" --auth" +
 			" --dbpath=/var/lib/juju/db" +
 			" --sslOnNormalPorts" +
@@ -338,6 +335,13 @@ func (cfg *MachineConfig) apiHostAddrs() []string {
 		hosts = append(hosts, cfg.APIInfo.Addrs...)
 	}
 	return hosts
+}
+
+func (cfg *MachineConfig) NeedMongoPPA() bool {
+	series := cfg.Tools.Series
+	// 11.10 and earlier are not supported.
+	// 13.04 and later ship a compatible version in the archive.
+	return series == "precise" || series == "quantal"
 }
 
 func shquote(p string) string {

@@ -47,63 +47,116 @@ func minimalConfig(c *C) *config.Config {
 
 // Each test gives a cloudinit config - we check the
 // output to see if it looks correct.
-var cloudinitTests = []cloudinitTest{{
-	cfg: cloudinit.MachineConfig{
-		MachineId:       "0",
-		AuthorizedKeys:  "sshkey1",
-		Tools:           newSimpleTools("1.2.3-linux-amd64"),
-		MongoURL:        "http://juju-dist.host.com/mongodb.tar.gz",
-		StateServer:     true,
-		StateServerCert: serverCert,
-		StateServerKey:  serverKey,
-		MongoPort:       37017,
-		APIPort:         17070,
-		MachineNonce:    "FAKE_NONCE",
-		StateInfo: &state.Info{
-			Password: "arble",
-			CACert:   []byte("CA CERT\n" + testing.CACert),
+var cloudinitTests = []cloudinitTest{
+	{
+		// precise state server
+		cfg: cloudinit.MachineConfig{
+			MachineId:      "0",
+			AuthorizedKeys: "sshkey1",
+			// precise currently needs mongo from PPA
+			Tools:           newSimpleTools("1.2.3-precise-amd64"),
+			StateServer:     true,
+			StateServerCert: serverCert,
+			StateServerKey:  serverKey,
+			MongoPort:       37017,
+			APIPort:         17070,
+			MachineNonce:    "FAKE_NONCE",
+			StateInfo: &state.Info{
+				Password: "arble",
+				CACert:   []byte("CA CERT\n" + testing.CACert),
+			},
+			APIInfo: &api.Info{
+				Password: "bletch",
+				CACert:   []byte("CA CERT\n" + testing.CACert),
+			},
+			Constraints: envConstraints,
+			DataDir:     "/var/lib/juju",
 		},
-		APIInfo: &api.Info{
-			Password: "bletch",
-			CACert:   []byte("CA CERT\n" + testing.CACert),
-		},
-		Constraints: envConstraints,
-		DataDir:     "/var/lib/juju",
-	},
-	setEnvConfig: true,
-	expectScripts: `
+		setEnvConfig: true,
+		expectScripts: `
 mkdir -p /var/lib/juju
 mkdir -p /var/log/juju
-bin='/var/lib/juju/tools/1\.2\.3-linux-amd64'
+bin='/var/lib/juju/tools/1\.2\.3-precise-amd64'
 mkdir -p \$bin
-wget --no-verbose -O - 'http://foo\.com/tools/juju1\.2\.3-linux-amd64\.tgz' \| tar xz -C \$bin
-echo -n 'http://foo\.com/tools/juju1\.2\.3-linux-amd64\.tgz' > \$bin/downloaded-url\.txt
+wget --no-verbose -O - 'http://foo\.com/tools/juju1\.2\.3-precise-amd64\.tgz' \| tar xz -C \$bin
+echo -n 'http://foo\.com/tools/juju1\.2\.3-precise-amd64\.tgz' > \$bin/downloaded-url\.txt
 echo 'SERVER CERT\\n[^']*SERVER KEY\\n[^']*' > '/var/lib/juju/server\.pem'
 chmod 600 '/var/lib/juju/server\.pem'
-mkdir -p /opt
-wget --no-verbose -O - 'http://juju-dist\.host\.com/mongodb\.tar\.gz' \| tar xz -C /opt
 mkdir -p /var/lib/juju/db/journal
 dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.0
 dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.1
 dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.2
-cat >> /etc/init/juju-db\.conf << 'EOF'\\ndescription "juju state database"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nexec /opt/mongo/bin/mongod --auth --dbpath=/var/lib/juju/db --sslOnNormalPorts --sslPEMKeyFile '/var/lib/juju/server\.pem' --sslPEMKeyPassword ignored --bind_ip 0\.0\.0\.0 --port 37017 --noprealloc --smallfiles\\nEOF\\n
+cat >> /etc/init/juju-db\.conf << 'EOF'\\ndescription "juju state database"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nexec /usr/bin/mongod --auth --dbpath=/var/lib/juju/db --sslOnNormalPorts --sslPEMKeyFile '/var/lib/juju/server\.pem' --sslPEMKeyPassword ignored --bind_ip 0\.0\.0\.0 --port 37017 --noprealloc --smallfiles\\nEOF\\n
 start juju-db
 mkdir -p '/var/lib/juju/agents/bootstrap'
 echo 'datadir: /var/lib/juju\\nstateservercert:\\n[^']+stateserverkey:\\n[^']+mongoport: 37017\\napiport: 17070\\noldpassword: arble\\nmachinenonce: FAKE_NONCE\\nstateinfo:\\n  addrs:\\n  - localhost:37017\\n  cacert:\\n[^']+  tag: bootstrap\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - localhost:17070\\n  cacert:\\n[^']+  tag: bootstrap\\n  password: ""\\n' > '/var/lib/juju/agents/bootstrap/agent\.conf'
 chmod 600 '/var/lib/juju/agents/bootstrap/agent\.conf'
-/var/lib/juju/tools/1\.2\.3-linux-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --constraints 'mem=2048M' --debug
+/var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --constraints 'mem=2048M' --debug
 rm -rf '/var/lib/juju/agents/bootstrap'
 cat > /etc/rsyslog.d/25-juju.conf << 'EOF'\\n\\n\$ModLoad imfile\\n\\n\$InputFilePollInterval 5\\n\$InputFileName /var/log/juju/machine-0.log\\n\$InputFileTag local-juju-machine-0:\\n\$InputFileStateFile machine-0\\n\$InputRunFileMonitor\\n\\n\$ModLoad imudp\\n\$UDPServerRun 514\\n\\n# Messages received from remote rsyslog machines contain a leading space so we\\n# need to account for that.\\n\$template JujuLogFormatLocal,\"%HOSTNAME%:%msg:::drop-last-lf%\\n\"\\n\$template JujuLogFormat,\"%HOSTNAME%:%msg:2:2048:drop-last-lf%\\n\"\\n\\n:syslogtag, startswith, \"juju-\" /var/log/juju/all-machines.log;JujuLogFormat\\n:syslogtag, startswith, \"local-juju-\" /var/log/juju/all-machines.log;JujuLogFormatLocal\\n& ~\\nEOF\\n
 restart rsyslog
 mkdir -p '/var/lib/juju/agents/machine-0'
 echo 'datadir: /var/lib/juju\\nstateservercert:\\n[^']+stateserverkey:\\n[^']+mongoport: 37017\\napiport: 17070\\noldpassword: arble\\nmachinenonce: FAKE_NONCE\\nstateinfo:\\n  addrs:\\n  - localhost:37017\\n  cacert:\\n[^']+  tag: machine-0\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - localhost:17070\\n  cacert:\\n[^']+  tag: machine-0\\n  password: ""\\n' > '/var/lib/juju/agents/machine-0/agent\.conf'
 chmod 600 '/var/lib/juju/agents/machine-0/agent\.conf'
-ln -s 1\.2\.3-linux-amd64 '/var/lib/juju/tools/machine-0'
+ln -s 1\.2\.3-precise-amd64 '/var/lib/juju/tools/machine-0'
 cat >> /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju machine-0 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nexec /var/lib/juju/tools/machine-0/jujud machine --log-file /var/log/juju/machine-0\.log --data-dir '/var/lib/juju' --machine-id 0  --debug >> /var/log/juju/machine-0\.log 2>&1\\nEOF\\n
 start jujud-machine-0
 `,
-},
-	{
+	}, {
+		// raring state server
+		cfg: cloudinit.MachineConfig{
+			MachineId:      "0",
+			AuthorizedKeys: "sshkey1",
+			// raring provides mongo in the archive
+			Tools:           newSimpleTools("1.2.3-raring-amd64"),
+			StateServer:     true,
+			StateServerCert: serverCert,
+			StateServerKey:  serverKey,
+			MongoPort:       37017,
+			APIPort:         17070,
+			MachineNonce:    "FAKE_NONCE",
+			StateInfo: &state.Info{
+				Password: "arble",
+				CACert:   []byte("CA CERT\n" + testing.CACert),
+			},
+			APIInfo: &api.Info{
+				Password: "bletch",
+				CACert:   []byte("CA CERT\n" + testing.CACert),
+			},
+			Constraints: envConstraints,
+			DataDir:     "/var/lib/juju",
+		},
+		setEnvConfig: true,
+		expectScripts: `
+mkdir -p /var/lib/juju
+mkdir -p /var/log/juju
+bin='/var/lib/juju/tools/1\.2\.3-raring-amd64'
+mkdir -p \$bin
+wget --no-verbose -O - 'http://foo\.com/tools/juju1\.2\.3-raring-amd64\.tgz' \| tar xz -C \$bin
+echo -n 'http://foo\.com/tools/juju1\.2\.3-raring-amd64\.tgz' > \$bin/downloaded-url\.txt
+echo 'SERVER CERT\\n[^']*SERVER KEY\\n[^']*' > '/var/lib/juju/server\.pem'
+chmod 600 '/var/lib/juju/server\.pem'
+mkdir -p /var/lib/juju/db/journal
+dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.0
+dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.1
+dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.2
+cat >> /etc/init/juju-db\.conf << 'EOF'\\ndescription "juju state database"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nexec /usr/bin/mongod --auth --dbpath=/var/lib/juju/db --sslOnNormalPorts --sslPEMKeyFile '/var/lib/juju/server\.pem' --sslPEMKeyPassword ignored --bind_ip 0\.0\.0\.0 --port 37017 --noprealloc --smallfiles\\nEOF\\n
+start juju-db
+mkdir -p '/var/lib/juju/agents/bootstrap'
+echo 'datadir: /var/lib/juju\\nstateservercert:\\n[^']+stateserverkey:\\n[^']+mongoport: 37017\\napiport: 17070\\noldpassword: arble\\nmachinenonce: FAKE_NONCE\\nstateinfo:\\n  addrs:\\n  - localhost:37017\\n  cacert:\\n[^']+  tag: bootstrap\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - localhost:17070\\n  cacert:\\n[^']+  tag: bootstrap\\n  password: ""\\n' > '/var/lib/juju/agents/bootstrap/agent\.conf'
+chmod 600 '/var/lib/juju/agents/bootstrap/agent\.conf'
+/var/lib/juju/tools/1\.2\.3-raring-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --constraints 'mem=2048M' --debug
+rm -rf '/var/lib/juju/agents/bootstrap'
+cat > /etc/rsyslog.d/25-juju.conf << 'EOF'\\n\\n\$ModLoad imfile\\n\\n\$InputFilePollInterval 5\\n\$InputFileName /var/log/juju/machine-0.log\\n\$InputFileTag local-juju-machine-0:\\n\$InputFileStateFile machine-0\\n\$InputRunFileMonitor\\n\\n\$ModLoad imudp\\n\$UDPServerRun 514\\n\\n# Messages received from remote rsyslog machines contain a leading space so we\\n# need to account for that.\\n\$template JujuLogFormatLocal,\"%HOSTNAME%:%msg:::drop-last-lf%\\n\"\\n\$template JujuLogFormat,\"%HOSTNAME%:%msg:2:2048:drop-last-lf%\\n\"\\n\\n:syslogtag, startswith, \"juju-\" /var/log/juju/all-machines.log;JujuLogFormat\\n:syslogtag, startswith, \"local-juju-\" /var/log/juju/all-machines.log;JujuLogFormatLocal\\n& ~\\nEOF\\n
+restart rsyslog
+mkdir -p '/var/lib/juju/agents/machine-0'
+echo 'datadir: /var/lib/juju\\nstateservercert:\\n[^']+stateserverkey:\\n[^']+mongoport: 37017\\napiport: 17070\\noldpassword: arble\\nmachinenonce: FAKE_NONCE\\nstateinfo:\\n  addrs:\\n  - localhost:37017\\n  cacert:\\n[^']+  tag: machine-0\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - localhost:17070\\n  cacert:\\n[^']+  tag: machine-0\\n  password: ""\\n' > '/var/lib/juju/agents/machine-0/agent\.conf'
+chmod 600 '/var/lib/juju/agents/machine-0/agent\.conf'
+ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
+cat >> /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju machine-0 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nexec /var/lib/juju/tools/machine-0/jujud machine --log-file /var/log/juju/machine-0\.log --data-dir '/var/lib/juju' --machine-id 0  --debug >> /var/log/juju/machine-0\.log 2>&1\\nEOF\\n
+start jujud-machine-0
+`,
+	}, {
 		cfg: cloudinit.MachineConfig{
 			MachineId:      "99",
 			AuthorizedKeys: "sshkey1",
@@ -201,6 +254,14 @@ func (*cloudinitSuite) TestCloudInit(c *C) {
 			checkEnvConfig(c, test.cfg.Config, x, scripts)
 		}
 		checkPackage(c, x, "git", true)
+		if test.cfg.StateServer {
+			checkPackage(c, x, "mongodb-server", true)
+			source := struct{ source, key string }{
+				source: "ppa:juju/experimental",
+				key:    "1024R/C8068B11",
+			}
+			checkAptSource(c, x, source, test.cfg.NeedMongoPPA())
+		}
 	}
 }
 
@@ -286,6 +347,34 @@ func checkPackage(c *C, x map[interface{}]interface{}, pkg string, match bool) {
 		c.Errorf("package %q not found in %v", pkg, pkgs)
 	case !match && found:
 		c.Errorf("%q found but not expected in %v", pkg, pkgs)
+	}
+}
+
+// CheckAptSources checks that the cloudinit will or won't install the given
+// source, depending on the value of match.
+func checkAptSource(c *C, x map[interface{}]interface{}, source struct{ source, key string }, match bool) {
+	sources0 := x["apt_sources"]
+	if sources0 == nil {
+		if match {
+			c.Errorf("cloudinit has no entry for apt_sources")
+		}
+		return
+	}
+
+	sources := sources0.([]interface{})
+
+	found := false
+	for _, s0 := range sources {
+		s := s0.(map[interface{}]interface{})
+		if s["source"] == source.source && s["key"] == source.key {
+			found = true
+		}
+	}
+	switch {
+	case match && !found:
+		c.Errorf("source %q not found in %v", source, sources)
+	case !match && found:
+		c.Errorf("%q found but not expected in %v", source, sources)
 	}
 }
 

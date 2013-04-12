@@ -465,7 +465,6 @@ func (e *environ) Bootstrap(cons constraints.Value, cert, key []byte) error {
 	if !hasCert {
 		return fmt.Errorf("no CA certificate in environment configuration")
 	}
-	mongoURL := environs.MongoURL(e, tools.Series, tools.Arch)
 	inst, err := e.startInstance(&startInstanceParams{
 		machineId:    "0",
 		machineNonce: state.BootstrapNonce,
@@ -479,7 +478,6 @@ func (e *environ) Bootstrap(cons constraints.Value, cert, key []byte) error {
 			CACert:   caCert,
 		},
 		tools:           tools,
-		mongoURL:        mongoURL,
 		stateServer:     true,
 		config:          config,
 		constraints:     cons,
@@ -649,7 +647,6 @@ type startInstanceParams struct {
 	info            *state.Info
 	apiInfo         *api.Info
 	tools           *state.Tools
-	mongoURL        string
 	stateServer     bool
 	config          *config.Config
 	constraints     constraints.Value
@@ -673,7 +670,6 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 		DataDir:         "/var/lib/juju",
 		Tools:           scfg.tools,
 		MachineNonce:    scfg.machineNonce,
-		MongoURL:        scfg.mongoURL,
 		MachineId:       scfg.machineId,
 		AuthorizedKeys:  e.ecfg().AuthorizedKeys(),
 		Config:          scfg.config,
