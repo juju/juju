@@ -160,7 +160,7 @@ func (env *maasEnviron) Bootstrap(cons constraints.Value, stateServerCert, state
 	}
 	err = env.saveState(&bootstrapState{StateInstances: []state.InstanceId{inst.Id()}})
 	if err != nil {
-		env.stopInstance(inst)
+		env.releaseInstance(inst)
 		return fmt.Errorf("cannot save state: %v", err)
 	}
 
@@ -341,7 +341,7 @@ func (environ *maasEnviron) obtainNode(machineId string, stateInfo *state.Info, 
 	}
 	err = environ.startNode(node, tools, userdata)
 	if err != nil {
-		environ.StopInstances([]environs.Instance{&instance})
+		environ.releaseInstance(&instance)
 		return nil, fmt.Errorf("cannot start instance: %v", err)
 	}
 	log.Debugf("environs/maas: started instance %q", instance.Id())
@@ -380,19 +380,6 @@ func (environ *maasEnviron) StopInstances(instances []environs.Instance) error {
 		}
 	}
 	return firstErr
-}
-
-// stopInstance stops a single instance.  Avoid looping over this in bulk
-// operations: use StopInstances for those.
-func (environ *maasEnviron) stopInstance(inst environs.Instance) error {
-	maasInst := inst.(*maasInstance)
-	maasObj := maasInst.maasObject
-	_, err := maasObj.CallPost("stop", nil)
-	if err != nil {
-		log.Debugf("environs/maas: error stopping instance %v", maasInst)
-	}
-
-	return err
 }
 
 // releaseInstance releases a single instance.
