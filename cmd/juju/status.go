@@ -108,11 +108,11 @@ func fetchAllServices(st *state.State) (map[string]*state.Service, error) {
 
 // processMachines gathers information about machines.
 func processMachines(machines map[string]*state.Machine, instances map[state.InstanceId]environs.Instance) (map[string]interface{}, error) {
-	r := make(map[string]interface{})
+	sm := statusMap()
 	for _, m := range machines {
 		instid, ok := m.InstanceId()
 		if !ok {
-			r[m.Id()] = map[string]interface{}{
+			sm[m.Id()] = map[string]interface{}{
 				"instance-id": "pending",
 			}
 		} else {
@@ -122,44 +122,44 @@ func processMachines(machines map[string]*state.Machine, instances map[state.Ins
 				// yet the environ cannot find that id.
 				return nil, fmt.Errorf("instance %s for machine %s not found", instid, m.Id())
 			}
-			r[m.Id()] = checkError(processMachine(m, instance))
+			sm[m.Id()] = checkError(processMachine(m, instance))
 		}
 	}
-	return r, nil
+	return sm, nil
 }
 
 func processMachine(machine *state.Machine, instance environs.Instance) (map[string]interface{}, error) {
-	r := m()
-	r["instance-id"] = instance.Id()
+	sm := statusMap()
+	sm["instance-id"] = instance.Id()
 
 	if dnsname, err := instance.DNSName(); err == nil {
-		r["dns-name"] = dnsname
+		sm["dns-name"] = dnsname
 	}
 
-	processVersion(r, machine)
-	processAgentStatus(r, machine)
+	processVersion(sm, machine)
+	processAgentStatus(sm, machine)
 
 	// TODO(dfc) unit-status
-	return r, nil
+	return sm, nil
 }
 
 // processServices gathers information about services.
 func processServices(services map[string]*state.Service) (map[string]interface{}, error) {
-	r := m()
+	sm := statusMap()
 	for _, s := range services {
-		r[s.Name()] = checkError(processService(s))
+		sm[s.Name()] = checkError(processService(s))
 	}
-	return r, nil
+	return sm, nil
 }
 
 func processService(service *state.Service) (map[string]interface{}, error) {
-	r := m()
+	sm := statusMap()
 	ch, _, err := service.Charm()
 	if err != nil {
 		return nil, err
 	}
-	r["charm"] = ch.String()
-	r["exposed"] = service.IsExposed()
+	sm["charm"] = ch.String()
+	sm["exposed"] = service.IsExposed()
 
 	// TODO(dfc) service.IsSubordinate() ?
 
@@ -168,36 +168,37 @@ func processService(service *state.Service) (map[string]interface{}, error) {
 		return nil, err
 	}
 
-	u := checkError(processUnits(units))
-	if len(u) > 0 {
-		r["units"] = u
+	if u := checkError(processUnits(units)); len(u) > 0 {
+		sm["units"] = u
+	}
+	if r := checkError(processRelations(service)); len(r) > 0 {
+		sm["relations"] = r
 	}
 
-	// TODO(dfc) process relations
-	return r, nil
+	return sm, nil
 }
 
 func processUnits(units []*state.Unit) (map[string]interface{}, error) {
-	r := m()
+	sm := statusMap()
 	for _, unit := range units {
-		r[unit.Name()] = checkError(processUnit(unit))
+		sm[unit.Name()] = checkError(processUnit(unit))
 	}
-	return r, nil
+	return sm, nil
 }
 
 func processUnit(unit *state.Unit) (map[string]interface{}, error) {
-	r := m()
+	sm := statusMap()
 
 	if addr, ok := unit.PublicAddress(); ok {
-		r["public-address"] = addr
+		sm["public-address"] = addr
 	}
 
 	if id, err := unit.AssignedMachineId(); err == nil {
 		// TODO(dfc) we could make this nicer, ie machine/0
-		r["machine"] = id
+		sm["machine"] = id
 	}
 
-	processVersion(r, unit)
+	processVersion(sm, unit)
 
 	agentAlive, err := unit.AgentAlive()
 	if err != nil {
@@ -214,20 +215,36 @@ func processUnit(unit *state.Unit) (map[string]interface{}, error) {
 			status = params.UnitDown
 		}
 	}
-	r["agent-state"] = status
+	sm["agent-state"] = status
 	if len(info) > 0 {
-		r["agent-state-info"] = info
+		sm["agent-state-info"] = info
 	}
-	return r, nil
+	return sm, nil
+}
+
+func processRelations(service *state.Service) (map[string]interface{}, error) {
+	relations, err := service.Relations()
+	if err != nil {
+		return nil, err
+	}
+	sm := statusMap()
+	for _, relation := range relations {
+		endpoint, err := relation.Endpoint(service.Name())
+		if err != nil {
+			return nil, err
+		}
+		sm[relation.String()] = endpoint.String()
+	}
+	return sm, nil
 }
 
 type versioned interface {
 	AgentTools() (*state.Tools, error)
 }
 
-func processVersion(r map[string]interface{}, v versioned) {
+func processVersion(sm map[string]interface{}, v versioned) {
 	if t, err := v.AgentTools(); err == nil {
-		r["agent-version"] = t.Binary.Number.String()
+		sm["agent-version"] = t.Binary.Number.String()
 	}
 }
 
@@ -235,13 +252,13 @@ type agentAliver interface {
 	AgentAlive() (bool, error)
 }
 
-func processAgentStatus(r map[string]interface{}, a agentAliver) {
+func processAgentStatus(sm map[string]interface{}, a agentAliver) {
 	if alive, err := a.AgentAlive(); err == nil && alive {
-		r["agent-state"] = "running"
+		sm["agent-state"] = "running"
 	}
 }
 
-func m() map[string]interface{} { return make(map[string]interface{}) }
+func statusMap() map[string]interface{} { return make(map[string]interface{}) }
 
 func checkError(m map[string]interface{}, err error) map[string]interface{} {
 	if err != nil {

@@ -179,7 +179,7 @@ var statusTests = []testCase{
 		"add two services and expose one, then add 2 more machines and some units",
 		addMachine{"0", state.JobManageEnviron},
 		startMachine{"0"},
-		addCharm{"dummy"},
+		addCharm{"dummy", nil, nil},
 		addService{"dummy-service", "dummy"},
 		addService{"exposed-service", "dummy"},
 		expect{
@@ -266,6 +266,85 @@ var statusTests = []testCase{
 				},
 			},
 		},
+	), test(
+		"add two services, expose them, add machines and relate them",
+		addMachine{"0", state.JobManageEnviron},
+		startMachine{"0"},
+		addCharm{"dummy",
+			map[string]charm.Relation{
+				"foo": charm.Relation{
+					Name:      "foo",
+					Role:      charm.RoleProvider,
+					Interface: "ifce",
+					Optional:  false,
+					Limit:     1,
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+			map[string]charm.Relation{
+				"bar": charm.Relation{
+					Name:      "bar",
+					Role:      charm.RoleRequirer,
+					Interface: "ifce",
+					Optional:  false,
+					Limit:     1,
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+		},
+
+		addService{"p-service", "dummy"},
+		addService{"r-service", "dummy"},
+		setServiceExposed{"p-service", true},
+		setServiceExposed{"r-service", true},
+
+		addMachine{"1", state.JobHostUnits},
+		startMachine{"1"},
+		addMachine{"2", state.JobHostUnits},
+		startMachine{"2"},
+		addUnit{"p-service", "1"},
+		addUnit{"r-service", "2"},
+
+		relateServices{"p-service", "foo", "r-service", "bar"},
+
+		expect{
+			"add two units, one alive (in error state), one down",
+			M{
+				"machines": M{
+					"0": machine0,
+					"1": machine1,
+					"2": machine2,
+				},
+				"services": M{
+					"p-service": M{
+						"charm":   "local:series/dummy-1",
+						"exposed": true,
+						"units": M{
+							"p-service/0": M{
+								"machine":     "1",
+								"agent-state": "pending",
+							},
+						},
+						"relations": M{
+							"r-service:bar p-service:foo": "p-service:foo",
+						},
+					},
+					"r-service": M{
+						"charm":   "local:series/dummy-1",
+						"exposed": true,
+						"units": M{
+							"r-service/0": M{
+								"machine":     "2",
+								"agent-state": "pending",
+							},
+						},
+						"relations": M{
+							"r-service:bar p-service:foo": "r-service:bar",
+						},
+					},
+				},
+			},
+		},
 	),
 }
 
@@ -307,12 +386,20 @@ func (st setTools) step(c *C, ctx *context) {
 }
 
 type addCharm struct {
-	name string
+	name     string
+	provides map[string]charm.Relation
+	requires map[string]charm.Relation
 }
 
 func (ac addCharm) step(c *C, ctx *context) {
 	ch := coretesting.Charms.Dir(ac.name)
 	name, rev := ch.Meta().Name, ch.Revision()
+	if ac.provides != nil {
+		ch.Meta().Provides = ac.provides
+	}
+	if ac.requires != nil {
+		ch.Meta().Requires = ac.requires
+	}
 	curl := charm.MustParseURL(fmt.Sprintf("local:series/%s-%d", name, rev))
 	bundleURL, err := url.Parse(fmt.Sprintf("http://bundles.example.com/%s-%d", name, rev))
 	c.Assert(err, IsNil)
@@ -397,6 +484,36 @@ type setUnitStatus struct {
 func (sus setUnitStatus) step(c *C, ctx *context) {
 	u, err := ctx.st.Unit(sus.unitName)
 	err = u.SetStatus(sus.status, sus.statusInfo)
+	c.Assert(err, IsNil)
+}
+
+type relateServices struct {
+	serviceNameA string
+	nameA        string
+	serviceNameB string
+	nameB        string
+}
+
+func (rs relateServices) step(c *C, ctx *context) {
+	epA := state.Endpoint{
+		ServiceName: rs.serviceNameA,
+		Relation: charm.Relation{
+			Interface: "ifce",
+			Name:      rs.nameA,
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	epB := state.Endpoint{
+		ServiceName: rs.serviceNameB,
+		Relation: charm.Relation{
+			Interface: "ifce",
+			Name:      rs.nameB,
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	_, err := ctx.st.AddRelation(epA, epB)
 	c.Assert(err, IsNil)
 }
 
