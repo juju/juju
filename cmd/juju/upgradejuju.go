@@ -6,6 +6,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
@@ -24,7 +25,7 @@ type UpgradeJujuCommand struct {
 	vers         string
 }
 
-var putTools = environs.PutTools
+var uploadTools = tools.Upload
 
 func (c *UpgradeJujuCommand) Info() *cmd.Info {
 	return &cmd.Info{
@@ -78,15 +79,13 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) error {
 		if c.BumpVersion {
 			vers := c.bumpedVersion()
 			forceVersion = &vers.Number
-			c.Version = vers.Number
 		}
-		tools, err := putTools(c.conn.Environ.Storage(), forceVersion)
+		tools, err := uploadTools(c.conn.Environ.Storage(), forceVersion)
 		if err != nil {
 			return err
 		}
-		c.toolsList.Private = append(c.toolsList.Private, tools)
-	}
-	if c.Version == (version.Number{}) {
+		c.Version = tools.Number
+	} else if c.Version == (version.Number{}) {
 		c.Version, err = c.newestVersion()
 		if err != nil {
 			return fmt.Errorf("cannot find newest version: %v", err)
