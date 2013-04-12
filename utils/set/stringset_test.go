@@ -16,18 +16,18 @@ type stringSetSuite struct{}
 var _ = Suite(stringSetSuite{})
 
 // Helper methods for the tests.
-func AssertEmpty(c *C, s *set.StringSet) {
+func AssertEmpty(c *C, s set.StringSet) {
 	c.Assert(len(s.Values()), Equals, 0)
 }
 
-func AssertValues(c *C, s *set.StringSet, expected ...string) {
+func AssertValues(c *C, s set.StringSet, expected ...string) {
 	values := s.Values()
 	sort.Strings(expected)
 	sort.Strings(values)
 	c.Assert(values, DeepEquals, expected)
 }
 
-func AssertSortedValues(c *C, s *set.StringSet, expected ...string) {
+func AssertSortedValues(c *C, s set.StringSet, expected ...string) {
 	values := s.Values()
 	sort.Strings(expected)
 	c.Assert(values, DeepEquals, expected)
@@ -35,17 +35,17 @@ func AssertSortedValues(c *C, s *set.StringSet, expected ...string) {
 
 // Actual tests start here.
 func (stringSetSuite) TestEmpty(c *C) {
-	s := set.NewStringSet()
+	s := set.MakeStringSet()
 	AssertEmpty(c, s)
 }
 
 func (stringSetSuite) TestInitialValues(c *C) {
-	s := set.NewStringSet("foo", "bar", "baz")
+	s := set.MakeStringSet("foo", "bar", "baz")
 	AssertValues(c, s, "foo", "bar", "baz")
 }
 
 func (stringSetSuite) TestAdd(c *C) {
-	s := set.NewStringSet()
+	s := set.MakeStringSet()
 	s.Add("foo")
 	s.Add("foo")
 	s.Add("bar")
@@ -53,27 +53,27 @@ func (stringSetSuite) TestAdd(c *C) {
 }
 
 func (stringSetSuite) TestRemove(c *C) {
-	s := set.NewStringSet("foo", "bar")
+	s := set.MakeStringSet("foo", "bar")
 	s.Remove("foo")
 	AssertValues(c, s, "bar")
 }
 
 func (stringSetSuite) TestContains(c *C) {
-	s := set.NewStringSet("foo", "bar")
+	s := set.MakeStringSet("foo", "bar")
 	c.Assert(s.Contains("foo"), Equals, true)
 	c.Assert(s.Contains("bar"), Equals, true)
 	c.Assert(s.Contains("baz"), Equals, false)
 }
 
 func (stringSetSuite) TestRemoveNonExistant(c *C) {
-	s := set.NewStringSet()
+	s := set.MakeStringSet()
 	s.Remove("foo")
 	AssertEmpty(c, s)
 }
 
 func (stringSetSuite) TestUnion(c *C) {
-	s1 := set.NewStringSet("foo", "bar")
-	s2 := set.NewStringSet("foo", "baz", "bang")
+	s1 := set.MakeStringSet("foo", "bar")
+	s2 := set.MakeStringSet("foo", "baz", "bang")
 	union1 := s1.Union(s2)
 	union2 := s2.Union(s1)
 
@@ -82,8 +82,8 @@ func (stringSetSuite) TestUnion(c *C) {
 }
 
 func (stringSetSuite) TestIntersection(c *C) {
-	s1 := set.NewStringSet("foo", "bar")
-	s2 := set.NewStringSet("foo", "baz", "bang")
+	s1 := set.MakeStringSet("foo", "bar")
+	s2 := set.MakeStringSet("foo", "baz", "bang")
 	int1 := s1.Intersection(s2)
 	int2 := s2.Intersection(s1)
 
@@ -92,8 +92,8 @@ func (stringSetSuite) TestIntersection(c *C) {
 }
 
 func (stringSetSuite) TestDifference(c *C) {
-	s1 := set.NewStringSet("foo", "bar")
-	s2 := set.NewStringSet("foo", "baz", "bang")
+	s1 := set.MakeStringSet("foo", "bar")
+	s2 := set.MakeStringSet("foo", "baz", "bang")
 	diff1 := s1.Difference(s2)
 	diff2 := s2.Difference(s1)
 

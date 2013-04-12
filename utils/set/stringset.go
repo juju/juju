@@ -8,8 +8,8 @@ type StringSet struct {
 	values map[string]bool
 }
 
-func NewStringSet(initial ...string) *StringSet {
-	result := &StringSet{values: make(map[string]bool)}
+func MakeStringSet(initial ...string) StringSet {
+	result := StringSet{values: make(map[string]bool)}
 	for _, value := range initial {
 		result.Add(value)
 	}
@@ -53,8 +53,8 @@ func (s *StringSet) SortedValues() []string {
 
 // Union returns a new StringSet representing a union of the elments in the
 // method target and the parameter.
-func (s *StringSet) Union(other *StringSet) *StringSet {
-	result := NewStringSet()
+func (s *StringSet) Union(other StringSet) StringSet {
+	result := MakeStringSet()
 	// Use the internal map rather than going through the friendlier functions
 	// to avoid extra allocation of slices.
 	for value, _ := range s.values {
@@ -68,8 +68,8 @@ func (s *StringSet) Union(other *StringSet) *StringSet {
 
 // Intersection returns a new StringSet representing a intersection of the elments in the
 // method target and the parameter.
-func (s *StringSet) Intersection(other *StringSet) *StringSet {
-	result := NewStringSet()
+func (s *StringSet) Intersection(other StringSet) StringSet {
+	result := MakeStringSet()
 	// Use the internal map rather than going through the friendlier functions
 	// to avoid extra allocation of slices.
 	for value, _ := range s.values {
@@ -82,8 +82,8 @@ func (s *StringSet) Intersection(other *StringSet) *StringSet {
 
 // Difference returns a new StringSet representing all the values in the
 // target that are not in the parameter.
-func (s *StringSet) Difference(other *StringSet) *StringSet {
-	result := NewStringSet()
+func (s *StringSet) Difference(other StringSet) StringSet {
+	result := MakeStringSet()
 	// Use the internal map rather than going through the friendlier functions
 	// to avoid extra allocation of slices.
 	for value, _ := range s.values {
