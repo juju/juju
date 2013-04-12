@@ -76,11 +76,6 @@ func (env *maasEnviron) findTools() (*state.Tools, error) {
 	return environs.FindTools(env, v, flags)
 }
 
-// getMongoURL returns the URL to the appropriate MongoDB instance.
-func (env *maasEnviron) getMongoURL(tools *state.Tools) string {
-	return environs.MongoURL(env, tools.Series, tools.Arch)
-}
-
 // makeMachineConfig sets up a basic machine configuration for use with
 // userData().  You may still need to supply more information, but this takes
 // care of the fixed entries and the ones that are always needed.
@@ -113,7 +108,6 @@ func (env *maasEnviron) startBootstrapNode(tools *state.Tools, cert, key []byte,
 	if !hasCert {
 		return nil, fmt.Errorf("no CA certificate in environment configuration")
 	}
-	mongoURL := env.getMongoURL(tools)
 	stateInfo := state.Info{
 		Password: trivial.PasswordHash(password),
 		CACert:   caCert,
@@ -131,7 +125,6 @@ func (env *maasEnviron) startBootstrapNode(tools *state.Tools, cert, key []byte,
 	mcfg.StateServer = true
 	mcfg.StateServerCert = cert
 	mcfg.StateServerKey = key
-	mcfg.MongoURL = mongoURL
 	mcfg.Config = config
 
 	inst, err := env.obtainNode(machineID, &stateInfo, &apiInfo, tools, mcfg)
