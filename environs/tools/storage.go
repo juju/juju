@@ -14,12 +14,15 @@ import (
 
 var ErrNoMatches = errors.New("no matching tools available")
 
-const toolPrefix = "tools/juju-"
+const (
+	toolPrefix = "tools/juju-"
+	toolSuffix = ".tgz"
+)
 
 // StorageName returns the name that is used to store and retrieve the
 // given version of the juju tools.
 func StorageName(vers version.Binary) string {
-	return toolPrefix + vers.String() + ".tgz"
+	return toolPrefix + vers.String() + toolSuffix
 }
 
 // URLLister exposes to ReadList the relevant capabilities of an
@@ -40,11 +43,11 @@ func ReadList(storage URLLister, majorVersion int) (List, error) {
 	}
 	var list List
 	for _, name := range names {
-		if !strings.HasPrefix(name, toolPrefix) || !strings.HasSuffix(name, ".tgz") {
+		if !strings.HasPrefix(name, toolPrefix) || !strings.HasSuffix(name, toolSuffix) {
 			continue
 		}
 		var t state.Tools
-		vers := name[len(toolPrefix) : len(name)-len(".tgz")]
+		vers := name[len(toolPrefix) : len(name)-len(toolSuffix)]
 		if t.Binary, err = version.ParseBinary(vers); err != nil {
 			continue
 		}
