@@ -245,7 +245,7 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 		return err
 	}
 
-	ecfg, err := env.Provider().(*maasEnvironProvider).newConfig(cfg)
+	ecfg, err := providerInstance.newConfig(cfg)
 	if err != nil {
 		return err
 	}
