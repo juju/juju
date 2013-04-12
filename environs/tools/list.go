@@ -5,7 +5,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
-	"sort"
 	"strings"
 )
 

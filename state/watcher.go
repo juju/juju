@@ -461,7 +461,7 @@ func (w *RelationScopeWatcher) mergeChange(changes *RelationScopeChange, ch watc
 	if ch.Revno == -1 {
 		if w.knownUnits.Contains(name) {
 			changes.Left = append(changes.Left, name)
-			w.KnownUntil.Remove(name)
+			w.knownUnits.Remove(name)
 		}
 		return nil
 	}
