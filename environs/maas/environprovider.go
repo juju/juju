@@ -22,20 +22,22 @@ func (maasEnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return NewEnviron(cfg)
 }
 
+// Boilerplate config YAML.  Don't mess with the indentation or add newlines!
+const boilerplateYAML = `maas:
+  type: maas
+  # Change this to where your MAAS server lives.  It must specify the base path.
+  maas-server: 'http://192.168.1.1/MAAS/'
+  maas-oauth: '<add your OAuth credentials from MAAS here>'
+  admin-secret: {{rand}}
+  default-series: precise
+  authorized-keys-path: ~/.ssh/authorized_keys # or any file you want.
+  # Or:
+  # authorized-keys: ssh-rsa keymaterialhere
+`
+
 // BoilerplateConfig is specified in the EnvironProvider interface.
 func (maasEnvironProvider) BoilerplateConfig() string {
-	return `
-  maas:
-    type: maas
-    # Change this to where your MAAS server lives.  It must specify the base path.
-    maas-server: 'http://192.168.1.1/MAAS/'
-    maas-oauth: '<add your OAuth credentials from MAAS here>'
-    admin-secret: {{rand}}
-    default-series: precise
-    authorized-keys-path: ~/.ssh/authorized_keys # or any file you want.
-    # Or:
-    # authorized-keys: ssh-rsa keymaterialhere
-`[1:]
+	return boilerplateYAML
 }
 
 // SecretAttrs is specified in the EnvironProvider interface.
