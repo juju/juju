@@ -9,11 +9,9 @@ import (
 	"path/filepath"
 )
 
-// When we import an environment provider implementation
-// here, it will register itself with environs.
+// Import the providers.
 import (
-	_ "launchpad.net/juju-core/environs/ec2"
-	_ "launchpad.net/juju-core/environs/openstack"
+	_ "launchpad.net/juju-core/environs/all"
 )
 
 var jujudDoc = `
