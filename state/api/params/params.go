@@ -90,7 +90,7 @@ type ResolvedResults struct {
 // AddServiceUnitsResults holds the names of the units added by the
 // AddServiceUnits call.
 type AddServiceUnitsResults struct {
-	UnitNames []string
+	Units []string
 }
 
 // AddServiceUnits holds parameters for the AddUnits call.
