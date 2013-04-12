@@ -48,6 +48,20 @@ func (stringSetSuite) TestInitialValues(c *C) {
 	AssertSortedValues(c, s, values...)
 }
 
+func (stringSetSuite) TestSize(c *C) {
+	// Works on an uninitialized StringSet
+	var uninitialized set.StringSet
+	c.Assert(uninitialized.Size(), Equals, 0)
+
+	// Empty sets are empty.
+	s := set.MakeStringSet()
+	c.Assert(s.Size(), Equals, 0)
+
+	// Size returns number of unique values.
+	s = set.MakeStringSet("foo", "foo", "bar")
+	c.Assert(s.Size(), Equals, 2)
+}
+
 func (stringSetSuite) TestAdd(c *C) {
 	s := set.MakeStringSet()
 	s.Add("foo")
