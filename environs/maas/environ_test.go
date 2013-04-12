@@ -68,7 +68,7 @@ func (suite *EnvironSuite) setupFakeProviderStateFile(c *C) {
 
 func (suite *EnvironSuite) setupFakeTools(c *C) {
 	storage := NewStorage(suite.environ)
-	envtesting.PutFakeTools(c, storage)
+	envtesting.UploadFakeTools(c, storage)
 }
 
 func (EnvironSuite) TestSetConfigValidatesFirst(c *C) {
