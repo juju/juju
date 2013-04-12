@@ -238,13 +238,24 @@ func (env *maasEnviron) Config() *config.Config {
 
 // SetConfig is specified in the Environ interface.
 func (env *maasEnviron) SetConfig(cfg *config.Config) error {
-	ecfg, err := env.Provider().(*maasEnvironProvider).newConfig(cfg)
+	env.ecfgMutex.Lock()
+	defer env.ecfgMutex.Unlock()
+
+	// The new config has already been validated by itself, but now we
+	// validate the transition from the old config to the new.
+	var oldCfg *config.Config
+	if env.ecfgUnlocked != nil {
+		oldCfg = env.ecfgUnlocked.Config
+	}
+	cfg, err := env.Provider().Validate(cfg, oldCfg)
 	if err != nil {
 		return err
 	}
 
-	env.ecfgMutex.Lock()
-	defer env.ecfgMutex.Unlock()
+	ecfg, err := env.Provider().(*maasEnvironProvider).newConfig(cfg)
+	if err != nil {
+		return err
+	}
 
 	env.name = cfg.Name()
 	env.ecfgUnlocked = ecfg
