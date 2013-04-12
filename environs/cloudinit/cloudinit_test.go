@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
+	cloudinit_core "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
@@ -210,8 +211,6 @@ func (*cloudinitSuite) TestCloudInitConfigure(c *C) {
 		ci, err := cloudinit.Configure(&test.cfg, cloudcfg)
 		c.Assert(err, IsNil)
 		c.Check(ci, NotNil)
-
-		test.check(c)
 	}
 }
 
