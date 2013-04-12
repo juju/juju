@@ -184,7 +184,7 @@ func (s *MainSuite) TestActualRunJujuArgsBeforeCommand(c *C) {
 	c.Assert(out, Equals, "error: "+msg+"\n")
 	content, err := ioutil.ReadFile(logpath)
 	c.Assert(err, IsNil)
-	fullmsg := fmt.Sprintf(`.*\n.*ERROR juju bootstrap command failed: %s\n`, msg)
+	fullmsg := fmt.Sprintf(`.*\n.*ERROR command failed: %s\n`, msg)
 	c.Assert(string(content), Matches, fullmsg)
 }
 
@@ -197,7 +197,7 @@ func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *C) {
 	c.Assert(out, Equals, "error: "+msg+"\n")
 	content, err := ioutil.ReadFile(logpath)
 	c.Assert(err, IsNil)
-	fullmsg := fmt.Sprintf(`.*\n.*ERROR juju bootstrap command failed: %s\n`, msg)
+	fullmsg := fmt.Sprintf(`.*\n.*ERROR command failed: %s\n`, msg)
 	c.Assert(string(content), Matches, fullmsg)
 }
 
