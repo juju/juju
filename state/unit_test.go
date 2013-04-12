@@ -117,47 +117,47 @@ func (s *UnitSuite) TestRefresh(c *C) {
 }
 
 func (s *UnitSuite) TestGetSetStatusWhileAlive(c *C) {
-	fail := func() { s.unit.SetStatus(params.UnitError, "") }
+	fail := func() { s.unit.SetStatus(params.StatusError, "") }
 	c.Assert(fail, PanicMatches, "unit error status with no info")
 
 	status, info, err := s.unit.Status()
 	c.Assert(err, IsNil)
-	c.Assert(status, Equals, params.UnitPending)
+	c.Assert(status, Equals, params.StatusPending)
 	c.Assert(info, Equals, "")
 
-	err = s.unit.SetStatus(params.UnitStarted, "")
+	err = s.unit.SetStatus(params.StatusStarted, "")
 	c.Assert(err, IsNil)
 	status, info, err = s.unit.Status()
 	c.Assert(err, IsNil)
-	c.Assert(status, Equals, params.UnitStarted)
+	c.Assert(status, Equals, params.StatusStarted)
 	c.Assert(info, Equals, "")
 
-	err = s.unit.SetStatus(params.UnitError, "test-hook failed")
+	err = s.unit.SetStatus(params.StatusError, "test-hook failed")
 	c.Assert(err, IsNil)
 	status, info, err = s.unit.Status()
 	c.Assert(err, IsNil)
-	c.Assert(status, Equals, params.UnitError)
+	c.Assert(status, Equals, params.StatusError)
 	c.Assert(info, Equals, "test-hook failed")
 
-	err = s.unit.SetStatus(params.UnitPending, "deploying...")
+	err = s.unit.SetStatus(params.StatusPending, "deploying...")
 	c.Assert(err, IsNil)
 	status, info, err = s.unit.Status()
 	c.Assert(err, IsNil)
-	c.Assert(status, Equals, params.UnitPending)
+	c.Assert(status, Equals, params.StatusPending)
 	c.Assert(info, Equals, "deploying...")
 }
 
 func (s *UnitSuite) TestGetSetStatusWhileNotAlive(c *C) {
 	err := s.unit.Destroy()
 	c.Assert(err, IsNil)
-	err = s.unit.SetStatus(params.UnitStarted, "not really")
+	err = s.unit.SetStatus(params.StatusStarted, "not really")
 	c.Assert(err, ErrorMatches, `cannot set status of unit "wordpress/0": not found or dead`)
 	_, _, err = s.unit.Status()
 	c.Assert(err, ErrorMatches, "status not found")
 
 	err = s.unit.EnsureDead()
 	c.Assert(err, IsNil)
-	err = s.unit.SetStatus(params.UnitStarted, "not really")
+	err = s.unit.SetStatus(params.StatusStarted, "not really")
 	c.Assert(err, ErrorMatches, `cannot set status of unit "wordpress/0": not found or dead`)
 	_, _, err = s.unit.Status()
 	c.Assert(err, ErrorMatches, "status not found")
@@ -479,7 +479,7 @@ func (s *UnitSuite) TestResolve(c *C) {
 	err = s.unit.Resolve(true)
 	c.Assert(err, ErrorMatches, `unit "wordpress/0" is not in an error state`)
 
-	err = s.unit.SetStatus(params.UnitError, "gaaah")
+	err = s.unit.SetStatus(params.StatusError, "gaaah")
 	c.Assert(err, IsNil)
 	err = s.unit.Resolve(false)
 	c.Assert(err, IsNil)

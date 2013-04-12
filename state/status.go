@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
+	"launchpad.net/juju-core/state/api/params"
 )
 
 // statusDoc represents a entity status in Mongodb.  The implicit
@@ -11,7 +12,7 @@ import (
 // entity in the document's creation transaction, but omitted to allow
 // direct use of the document in both create and update transactions.
 type statusDoc struct {
-	Status     string
+	Status     params.Status
 	StatusInfo string
 }
 

@@ -69,19 +69,3 @@ var mongoURLTests = []struct {
 	urlpart: "http://juju-dist.s3.amazonaws.com",
 },
 }
-
-func (t *MongoToolsSuite) TestMongoURL(c *C) {
-	for i, tt := range mongoURLTests {
-		c.Logf("Test %d: %s", i, tt.summary)
-		putNames(c, t.env, tt.contents, tt.publicContents)
-		mongoURL := environs.MongoURL(t.env, version.CurrentSeries(), version.CurrentArch())
-		if tt.expect != "" {
-			assertURLContents(c, mongoURL, tt.expect)
-		}
-		if tt.urlpart != "" {
-			c.Assert(mongoURL, Matches, tt.urlpart+".*")
-		}
-		t.env.Destroy(nil)
-		dummy.ResetPublicStorage(t.env)
-	}
-}

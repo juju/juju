@@ -63,6 +63,10 @@ func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
 }
 
 func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
+	// Check for valid changes for the base config values.
+	if err := config.Validate(cfg, old); err != nil {
+		return nil, err
+	}
 	v, err := configChecker.Coerce(cfg.UnknownAttrs(), nil)
 	if err != nil {
 		return nil, err
@@ -93,18 +97,11 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 		}
 	}
 
-	switch cfg.FirewallMode() {
-	case config.FwDefault:
-		ecfg.attrs["firewall-mode"] = config.FwInstance
-	case config.FwInstance, config.FwGlobal:
-	default:
-		return nil, fmt.Errorf("unsupported firewall mode: %q", cfg.FirewallMode())
-	}
-
 	// ssl-hostname-verification cannot be disabled
 	if !ecfg.SSLHostnameVerification() {
 		return nil, fmt.Errorf("disabling ssh-hostname-verification is not supported")
 	}
 
+	// Apply the coerced unknown values back into the config.
 	return cfg.Apply(ecfg.attrs)
 }
