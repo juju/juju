@@ -47,7 +47,10 @@ func (c *UpgradeJujuCommand) Init(args []string) error {
 			return err
 		}
 		if vers.Major != version.Current.Major {
-			return fmt.Errorf("cannot upgrade to incompatible version")
+			return fmt.Errorf("cannot upgrade to version incompatible with CLI")
+		}
+		if c.UploadTools && vers.Build != 0 {
+			return fmt.Errorf("cannot specify build number when uploading tools")
 		}
 		c.Version = vers
 	}
@@ -73,6 +76,7 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) (err error) {
 		}
 	}()
 
+	//
 	env := conn.Environ
 	cfg, err := conn.State.EnvironConfig()
 	if err != nil {
@@ -100,7 +104,8 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) (err error) {
 	// this happens, tough: I'm not going to pretend to do it right when
 	// I'm not.
 	// TODO(fwereade): Do this right. Warning: scope unclear.
-	// TODO(fwereade): I don't think Config.Development does anything useful.
+	// TODO(fwereade): I don't think Config.Development does anything very
+	// useful. Preserved behaviour just in case.
 	if v.chosen == v.agent && c.Development == cfg.Development() {
 		return nil
 	}
@@ -123,11 +128,17 @@ func (c *UpgradeJujuCommand) initVersions(cfg *config.Config, env environs.Envir
 		// Can't happen. In theory.
 		return nil, fmt.Errorf("incomplete environment configuration")
 	}
+	if c.Version == agent {
+		return nil, errUpToDate
+	}
 	client := version.Current.Number
 	available, err := environs.FindAvailableTools(env, client.Major)
 	switch err {
 	case nil, tools.ErrNoMatches, tools.ErrNoTools:
 		if err != nil && !c.UploadTools {
+			if c.Version == version.Zero {
+				return nil, errUpToDate
+			}
 			return nil, err
 		}
 	default:

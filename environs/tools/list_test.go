@@ -17,7 +17,10 @@ type ListSuite struct{}
 var _ = Suite(&ListSuite{})
 
 func mustParseTools(name string) *state.Tools {
-	return &state.Tools{Binary: version.MustParseBinary(name)}
+	return &state.Tools{
+		Binary: version.MustParseBinary(name),
+		URL:    "http://example.com/" + name,
+	}
 }
 
 func extend(lists ...tools.List) tools.List {
@@ -90,6 +93,18 @@ func (s *ListSuite) TestArches(c *C) {
 		c.Logf("test %d", i)
 		c.Check(test.src.Arches(), DeepEquals, test.expect)
 	}
+}
+
+func (s *ListSuite) TestURLs(c *C) {
+	empty := tools.List{}
+	c.Check(empty.URLs(), DeepEquals, map[version.Binary]string{})
+
+	full := tools.List{t100precise, t190quantal, t2001precise}
+	c.Check(full.URLs(), DeepEquals, map[version.Binary]string{
+		t100precise.Binary:  t100precise.URL,
+		t190quantal.Binary:  t190quantal.URL,
+		t2001precise.Binary: t2001precise.URL,
+	})
 }
 
 var newestTests = []struct {
