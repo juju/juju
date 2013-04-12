@@ -4,6 +4,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
 
@@ -15,13 +16,13 @@ var _ = Suite(&PortsSuite{})
 
 var portsTests = []struct {
 	cmd    []string
-	expect map[string]bool
+	expect set.StringSet
 }{
-	{[]string{"open-port", "80"}, map[string]bool{"80/tcp": true}},
-	{[]string{"open-port", "99/tcp"}, map[string]bool{"80/tcp": true, "99/tcp": true}},
-	{[]string{"close-port", "80/TCP"}, map[string]bool{"99/tcp": true}},
-	{[]string{"open-port", "123/udp"}, map[string]bool{"99/tcp": true, "123/udp": true}},
-	{[]string{"close-port", "9999/UDP"}, map[string]bool{"99/tcp": true, "123/udp": true}},
+	{[]string{"open-port", "80"}, set.MakeStringSet("80/tcp")},
+	{[]string{"open-port", "99/tcp"}, set.MakeStringSet("80/tcp", "99/tcp")},
+	{[]string{"close-port", "80/TCP"}, set.MakeStringSet("99/tcp")},
+	{[]string{"open-port", "123/udp"}, set.MakeStringSet("99/tcp", "123/udp")},
+	{[]string{"close-port", "9999/UDP"}, set.MakeStringSet("99/tcp", "123/udp")},
 }
 
 func (s *PortsSuite) TestOpenClose(c *C) {
