@@ -237,8 +237,19 @@ func (s *MachineSuite) TestMachineInstanceIdBlank(c *C) {
 	c.Assert(string(iid), Equals, "")
 }
 
-func (s *MachineSuite) TestMachineSetInstanceId(c *C) {
-	err := s.machine.SetInstanceId("umbrella/0")
+func (s *MachineSuite) TestMachineSetCheckProvisioned(c *C) {
+	// Check before provisioning.
+	c.Assert(s.machine.CheckProvisioned("fake_nonce"), Equals, false)
+
+	// Either one should not be empty.
+	err := s.machine.SetProvisioned("umbrella/0", "")
+	c.Assert(err, ErrorMatches, `cannot set instance id of machine "0": instance id and nonce cannot be empty`)
+	err = s.machine.SetProvisioned("", "fake_nonce")
+	c.Assert(err, ErrorMatches, `cannot set instance id of machine "0": instance id and nonce cannot be empty`)
+	err = s.machine.SetProvisioned("", "")
+	c.Assert(err, ErrorMatches, `cannot set instance id of machine "0": instance id and nonce cannot be empty`)
+
+	err = s.machine.SetProvisioned("umbrella/0", "fake_nonce")
 	c.Assert(err, IsNil)
 
 	m, err := s.State.Machine(s.machine.Id())
@@ -246,6 +257,20 @@ func (s *MachineSuite) TestMachineSetInstanceId(c *C) {
 	id, ok := m.InstanceId()
 	c.Assert(ok, Equals, true)
 	c.Assert(string(id), Equals, "umbrella/0")
+	c.Assert(s.machine.CheckProvisioned("fake_nonce"), Equals, true)
+
+	// Try it twice, it should fail.
+	err = s.machine.SetProvisioned("doesn't-matter", "phony")
+	c.Assert(err, ErrorMatches, `cannot set instance id of machine "0": already set`)
+
+	// Check it with invalid nonce.
+	c.Assert(s.machine.CheckProvisioned("not-really"), Equals, false)
+}
+
+func (s *MachineSuite) TestMachineSetProvisionedWhenNotAlive(c *C) {
+	testWhenDying(c, s.machine, notAliveErr, notAliveErr, func() error {
+		return s.machine.SetProvisioned("umbrella/0", "fake_nonce")
+	})
 }
 
 func (s *MachineSuite) TestMachineRefresh(c *C) {
@@ -255,7 +280,7 @@ func (s *MachineSuite) TestMachineRefresh(c *C) {
 
 	m1, err := s.State.Machine(m0.Id())
 	c.Assert(err, IsNil)
-	err = m0.SetInstanceId("umbrella/0")
+	err = m0.SetProvisioned("umbrella/0", "fake_nonce")
 	c.Assert(err, IsNil)
 	newId, _ := m0.InstanceId()
 
@@ -385,10 +410,7 @@ var watchMachineTests = []func(m *state.Machine) error{
 		return nil
 	},
 	func(m *state.Machine) error {
-		return m.SetInstanceId("m-foo")
-	},
-	func(m *state.Machine) error {
-		return m.SetInstanceId("")
+		return m.SetProvisioned("m-foo", "fake_nonce")
 	},
 	func(m *state.Machine) error {
 		return m.SetAgentTools(tools(3, "baz"))
@@ -451,7 +473,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {
 	assertChange()
 
 	// Change machine; no change.
-	err := s.machine.SetInstanceId("cheese")
+	err := s.machine.SetProvisioned("cheese", "fake_nonce")
 	c.Assert(err, IsNil)
 
 	// Assign a unit; change detected.
@@ -464,7 +486,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {
 	assertChange("mysql/0")
 
 	// Change the unit; no change.
-	err = mysql0.SetStatus(params.UnitStarted, "")
+	err = mysql0.SetStatus(params.StatusStarted, "")
 	c.Assert(err, IsNil)
 	assertNoChange()
 
@@ -493,7 +515,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {
 	assertNoChange()
 
 	// Change the subordinate; no change.
-	err = logging0.SetStatus(params.UnitStarted, "")
+	err = logging0.SetStatus(params.StatusStarted, "")
 	c.Assert(err, IsNil)
 	assertNoChange()
 
@@ -567,7 +589,7 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	assertChange()
 
 	// Change machine; no change.
-	err := s.machine.SetInstanceId("cheese")
+	err := s.machine.SetProvisioned("cheese", "fake_nonce")
 	c.Assert(err, IsNil)
 
 	// Assign a unit; change detected.
@@ -580,7 +602,7 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	assertChange("mysql/0")
 
 	// Change the unit; no change.
-	err = mysql0.SetStatus(params.UnitStarted, "")
+	err = mysql0.SetStatus(params.StatusStarted, "")
 	c.Assert(err, IsNil)
 	assertNoChange()
 
@@ -609,7 +631,7 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	assertChange("logging/0")
 
 	// Change the subordinate; no change.
-	err = logging0.SetStatus(params.UnitStarted, "")
+	err = logging0.SetStatus(params.StatusStarted, "")
 	c.Assert(err, IsNil)
 	assertNoChange()
 
@@ -711,7 +733,7 @@ func (s *MachineSuite) TestSetConstraints(c *C) {
 	c.Assert(mcons, DeepEquals, cons1)
 
 	// ...until the machine is provisioned, at which point they stick.
-	err = machine.SetInstanceId("i-mstuck")
+	err = machine.SetProvisioned("i-mstuck", "fake_nonce")
 	c.Assert(err, IsNil)
 	cons2 := constraints.MustParse("mem=2G")
 	err = machine.SetConstraints(cons2)
@@ -743,28 +765,28 @@ func (s *MachineSuite) TestConstraintsLifecycle(c *C) {
 }
 
 func (s *MachineSuite) TestGetSetStatusWhileAlive(c *C) {
-	failError := func() { s.machine.SetStatus(params.MachineError, "") }
+	failError := func() { s.machine.SetStatus(params.StatusError, "") }
 	c.Assert(failError, PanicMatches, "machine error status with no info")
-	failPending := func() { s.machine.SetStatus(params.MachinePending, "") }
+	failPending := func() { s.machine.SetStatus(params.StatusPending, "") }
 	c.Assert(failPending, PanicMatches, "machine status cannot be set to pending")
 
 	status, info, err := s.machine.Status()
 	c.Assert(err, IsNil)
-	c.Assert(status, Equals, params.MachinePending)
+	c.Assert(status, Equals, params.StatusPending)
 	c.Assert(info, Equals, "")
 
-	err = s.machine.SetStatus(params.MachineStarted, "")
+	err = s.machine.SetStatus(params.StatusStarted, "")
 	c.Assert(err, IsNil)
 	status, info, err = s.machine.Status()
 	c.Assert(err, IsNil)
-	c.Assert(status, Equals, params.MachineStarted)
+	c.Assert(status, Equals, params.StatusStarted)
 	c.Assert(info, Equals, "")
 
-	err = s.machine.SetStatus(params.MachineError, "provisioning failed")
+	err = s.machine.SetStatus(params.StatusError, "provisioning failed")
 	c.Assert(err, IsNil)
 	status, info, err = s.machine.Status()
 	c.Assert(err, IsNil)
-	c.Assert(status, Equals, params.MachineError)
+	c.Assert(status, Equals, params.StatusError)
 	c.Assert(info, Equals, "provisioning failed")
 }
 
@@ -772,26 +794,26 @@ func (s *MachineSuite) TestGetSetStatusWhileNotAlive(c *C) {
 	// When Dying set/get should work.
 	err := s.machine.Destroy()
 	c.Assert(err, IsNil)
-	err = s.machine.SetStatus(params.MachineStopped, "")
+	err = s.machine.SetStatus(params.StatusStopped, "")
 	c.Assert(err, IsNil)
 	status, info, err := s.machine.Status()
 	c.Assert(err, IsNil)
-	c.Assert(status, Equals, params.MachineStopped)
+	c.Assert(status, Equals, params.StatusStopped)
 	c.Assert(info, Equals, "")
 
 	// When Dead set should fail, but get will work.
 	err = s.machine.EnsureDead()
 	c.Assert(err, IsNil)
-	err = s.machine.SetStatus(params.MachineStarted, "not really")
+	err = s.machine.SetStatus(params.StatusStarted, "not really")
 	c.Assert(err, ErrorMatches, `cannot set status of machine "0": not found or not alive`)
 	status, info, err = s.machine.Status()
 	c.Assert(err, IsNil)
-	c.Assert(status, Equals, params.MachineStopped)
+	c.Assert(status, Equals, params.StatusStopped)
 	c.Assert(info, Equals, "")
 
 	err = s.machine.Remove()
 	c.Assert(err, IsNil)
-	err = s.machine.SetStatus(params.MachineStarted, "not really")
+	err = s.machine.SetStatus(params.StatusStarted, "not really")
 	c.Assert(err, ErrorMatches, `cannot set status of machine "0": not found or not alive`)
 	_, _, err = s.machine.Status()
 	c.Assert(err, ErrorMatches, "status not found")

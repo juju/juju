@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/dummy"
@@ -10,15 +11,27 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
+	"path/filepath"
 	"reflect"
 	"time"
 )
 
 type MachineSuite struct {
 	agentSuite
+	oldCacheDir string
 }
 
 var _ = Suite(&MachineSuite{})
+
+func (s *MachineSuite) SetUpSuite(c *C) {
+	s.agentSuite.SetUpSuite(c)
+	s.oldCacheDir = charm.CacheDir
+}
+
+func (s *MachineSuite) TearDownSuite(c *C) {
+	charm.CacheDir = s.oldCacheDir
+	s.agentSuite.TearDownSuite(c)
+}
 
 // primeAgent adds a new Machine to run the given jobs, and sets up the
 // machine agent's directory.  It returns the new machine, the
@@ -28,7 +41,12 @@ func (s *MachineSuite) primeAgent(c *C, jobs ...state.MachineJob) (*state.Machin
 	c.Assert(err, IsNil)
 	err = m.SetMongoPassword("machine-password")
 	c.Assert(err, IsNil)
+	err = m.SetPassword("machine-api-password")
+	c.Assert(err, IsNil)
 	conf, tools := s.agentSuite.primeAgent(c, state.MachineTag(m.Id()), "machine-password")
+	conf.MachineNonce = state.BootstrapNonce
+	conf.Write()
+	c.Assert(err, IsNil)
 	return m, conf, tools
 }
 
@@ -72,7 +90,7 @@ func (s *MachineSuite) TestRunInvalidMachineId(c *C) {
 }
 
 func (s *MachineSuite) TestRunStop(c *C) {
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
+	m, ac, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	done := make(chan error)
 	go func() {
@@ -81,6 +99,7 @@ func (s *MachineSuite) TestRunStop(c *C) {
 	err := a.Stop()
 	c.Assert(err, IsNil)
 	c.Assert(<-done, IsNil)
+	c.Assert(charm.CacheDir, Equals, filepath.Join(ac.DataDir, "charmcache"))
 }
 
 func (s *MachineSuite) TestWithDeadMachine(c *C) {
@@ -233,7 +252,7 @@ func addAPIInfo(conf *agent.Conf, m *state.Machine) {
 		Addrs:    []string{fmt.Sprintf("localhost:%d", port)},
 		CACert:   []byte(testing.CACert),
 		Tag:      m.Tag(),
-		Password: "unused",
+		Password: "machine-api-password",
 	}
 	conf.StateServerCert = []byte(testing.ServerCert)
 	conf.StateServerKey = []byte(testing.ServerKey)
@@ -318,7 +337,7 @@ func opRecvTimeout(c *C, st *state.State, opc <-chan dummy.Operation, kinds ...d
 				}
 			}
 			c.Logf("discarding unknown event %#v", op)
-		case <-time.After(5 * time.Second):
+		case <-time.After(15 * time.Second):
 			c.Fatalf("time out wating for operation")
 		}
 	}

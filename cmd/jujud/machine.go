@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"launchpad.net/gnuflag"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/log"
@@ -13,6 +14,7 @@ import (
 	"launchpad.net/juju-core/worker/machiner"
 	"launchpad.net/juju-core/worker/provisioner"
 	"launchpad.net/tomb"
+	"path/filepath"
 	"time"
 )
 
@@ -58,7 +60,8 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	if err := a.Conf.read(state.MachineTag(a.MachineId)); err != nil {
 		return err
 	}
-	defer log.Noticef("cmd/jujud: machine agent exiting")
+	charm.CacheDir = filepath.Join(a.Conf.DataDir, "charmcache")
+	defer log.Noticef("machine agent exiting")
 	defer a.tomb.Done()
 
 	// We run the API server worker first, because we may
@@ -102,7 +105,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 
 func (a *MachineAgent) RunOnce(st *state.State, e AgentState) error {
 	m := e.(*state.Machine)
-	log.Infof("cmd/jujud: jobs for machine agent: %v", m.Jobs())
+	log.Infof("jobs for machine agent: %v", m.Jobs())
 	tasks := []task{
 		NewUpgrader(st, m, a.Conf.DataDir),
 		machiner.NewMachiner(st, m.Id()),
@@ -114,20 +117,31 @@ func (a *MachineAgent) RunOnce(st *state.State, e AgentState) error {
 				newDeployer(st, m.WatchPrincipalUnits(), a.Conf.DataDir))
 		case state.JobManageEnviron:
 			tasks = append(tasks,
-				provisioner.NewProvisioner(st),
+				provisioner.NewProvisioner(st, a.MachineId),
 				firewaller.NewFirewaller(st))
 		case state.JobServeAPI:
 			// Ignore because it's started independently.
 			continue
 		default:
-			log.Warningf("cmd/jujud: ignoring unknown job %q", j)
+			log.Warningf("ignoring unknown job %q", j)
 		}
 	}
 	return runTasks(a.tomb.Dying(), tasks...)
 }
 
 func (a *MachineAgent) Entity(st *state.State) (AgentState, error) {
-	return st.Machine(a.MachineId)
+	m, err := st.Machine(a.MachineId)
+	if err != nil {
+		return nil, err
+	}
+	// Check the machine nonce as provisioned matches the agent.Conf value.
+	if !m.CheckProvisioned(a.Conf.MachineNonce) {
+		// The agent is running on a different machine to the one it
+		// should be according to state. It must stop immediately.
+		log.Errorf("running machine %v agent on inappropriate instance", m)
+		return nil, worker.ErrTerminateAgent
+	}
+	return m, nil
 }
 
 func (a *MachineAgent) Tag() string {
@@ -176,7 +190,7 @@ func (a *MachineAgent) maybeRunAPIServerOnce(conf *agent.Conf) error {
 	if len(conf.StateServerCert) == 0 || len(conf.StateServerKey) == 0 {
 		return &fatalError{"configuration does not have state server cert/key"}
 	}
-	log.Infof("cmd/jujud: running API server job")
+	log.Infof("running API server job")
 	srv, err := apiserver.NewServer(st, fmt.Sprintf(":%d", conf.APIPort), conf.StateServerCert, conf.StateServerKey)
 	if err != nil {
 		return err
@@ -184,7 +198,7 @@ func (a *MachineAgent) maybeRunAPIServerOnce(conf *agent.Conf) error {
 	select {
 	case <-a.tomb.Dying():
 	case <-srv.Dead():
-		log.Noticef("jujud: API server has died: %v", srv.Stop())
+		log.Noticef("API server has died: %v", srv.Stop())
 	}
 	return srv.Stop()
 }

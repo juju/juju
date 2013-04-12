@@ -52,7 +52,7 @@ func (s *LogSuite) TestStart(c *C) {
 		// commands always start with the log target set to its zero value.
 		log.SetTarget(nil)
 
-		l := &cmd.Log{Prefix: "test", Path: t.path, Verbose: t.verbose, Debug: t.debug}
+		l := &cmd.Log{Path: t.path, Verbose: t.verbose, Debug: t.debug}
 		ctx := testing.Context(c)
 		err := l.Start(ctx)
 		c.Assert(err, IsNil)
@@ -62,16 +62,16 @@ func (s *LogSuite) TestStart(c *C) {
 }
 
 func (s *LogSuite) TestStderr(c *C) {
-	l := &cmd.Log{Prefix: "test", Verbose: true}
+	l := &cmd.Log{Verbose: true}
 	ctx := testing.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, IsNil)
 	log.Infof("hello")
-	c.Assert(bufferString(ctx.Stderr), Matches, `^.* INFO JUJU:test hello\n`)
+	c.Assert(bufferString(ctx.Stderr), Matches, `^.* INFO hello\n`)
 }
 
 func (s *LogSuite) TestRelPathLog(c *C) {
-	l := &cmd.Log{Prefix: "test", Path: "foo.log"}
+	l := &cmd.Log{Path: "foo.log"}
 	ctx := testing.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, IsNil)
@@ -79,12 +79,12 @@ func (s *LogSuite) TestRelPathLog(c *C) {
 	c.Assert(bufferString(ctx.Stderr), Equals, "")
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "foo.log"))
 	c.Assert(err, IsNil)
-	c.Assert(string(content), Matches, `^.* INFO JUJU:test hello\n`)
+	c.Assert(string(content), Matches, `^.* INFO hello\n`)
 }
 
 func (s *LogSuite) TestAbsPathLog(c *C) {
 	path := filepath.Join(c.MkDir(), "foo.log")
-	l := &cmd.Log{Prefix: "test", Path: path}
+	l := &cmd.Log{Path: path}
 	ctx := testing.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, IsNil)
@@ -92,5 +92,5 @@ func (s *LogSuite) TestAbsPathLog(c *C) {
 	c.Assert(bufferString(ctx.Stderr), Equals, "")
 	content, err := ioutil.ReadFile(path)
 	c.Assert(err, IsNil)
-	c.Assert(string(content), Matches, `^.* INFO JUJU:test hello\n`)
+	c.Assert(string(content), Matches, `^.* INFO hello\n`)
 }

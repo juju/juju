@@ -2,9 +2,9 @@ package params_test
 
 import (
 	"encoding/json"
-	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/state/api/params"
 	"testing"
 )
@@ -30,33 +30,30 @@ var marshalTestCases = []struct {
 		Entity: &params.MachineInfo{
 			Id:         "Benji",
 			InstanceId: "Shazam",
+			Status:     "error",
+			StatusInfo: "foo",
 		},
 	},
-	json: `["machine","change",{"Id":"Benji","InstanceId":"Shazam"}]`,
+	json: `["machine","change",{"Id":"Benji","InstanceId":"Shazam","Status":"error","StatusInfo":"foo"}]`,
 }, {
 	about: "ServiceInfo Delta",
 	value: params.Delta{
 		Entity: &params.ServiceInfo{
-			Name:     "Benji",
-			Exposed:  true,
-			CharmURL: "cs:series/name",
+			Name:        "Benji",
+			Exposed:     true,
+			CharmURL:    "cs:series/name",
+			Constraints: constraints.MustParse("arch=arm mem=1024M"),
 		},
 	},
-	json: `["service","change",{"CharmURL": "cs:series/name","Name":"Benji","Exposed":true}]`,
+	json: `["service","change",{"CharmURL": "cs:series/name","Name":"Benji","Exposed":true,"Constraints":{"arch":"arm", "mem": 1024}}]`,
 }, {
 	about: "UnitInfo Delta",
 	value: params.Delta{
 		Entity: &params.UnitInfo{
-			Name:    "Benji",
-			Service: "Shazam",
-			Series:  "precise",
-			CharmURL: &charm.URL{
-				Schema:   "cs",
-				User:     "user",
-				Series:   "precise",
-				Name:     "wordpress",
-				Revision: 42,
-			},
+			Name:     "Benji",
+			Service:  "Shazam",
+			Series:   "precise",
+			CharmURL: "cs:~user/precise/wordpress-42",
 			Ports: []params.Port{
 				params.Port{
 					Protocol: "http",
@@ -64,11 +61,12 @@ var marshalTestCases = []struct {
 			},
 			PublicAddress:  "example.com",
 			PrivateAddress: "10.0.0.1",
-			Resolved:       "", // See params.ResolvedMode
 			MachineId:      "1",
+			Status:         "error",
+			StatusInfo:     "foo",
 		},
 	},
-	json: `["unit", "change", {"CharmURL": "cs:~user/precise/wordpress-42", "MachineId": "1", "Series": "precise", "Name": "Benji", "PublicAddress": "example.com", "Service": "Shazam", "PrivateAddress": "10.0.0.1", "Resolved": "", "Ports": [{"Protocol": "http", "Number": 80}]}]`,
+	json: `["unit", "change", {"CharmURL": "cs:~user/precise/wordpress-42", "MachineId": "1", "Series": "precise", "Name": "Benji", "PublicAddress": "example.com", "Service": "Shazam", "PrivateAddress": "10.0.0.1", "Ports": [{"Protocol": "http", "Number": 80}], "Status": "error", "StatusInfo": "foo"}]`,
 }, {
 	about: "RelationInfo Delta",
 	value: params.Delta{
@@ -122,15 +120,11 @@ func (s *MarshalSuite) TestDeltaMarshalJSON(c *C) {
 }
 
 func (s *MarshalSuite) TestDeltaUnmarshalJSON(c *C) {
-	for _, t := range marshalTestCases {
-		c.Log(t.about)
+	for i, t := range marshalTestCases {
+		c.Logf("test %d. %s", i, t.about)
 		var unmarshalled params.Delta
 		err := json.Unmarshal([]byte(t.json), &unmarshalled)
 		c.Check(err, IsNil)
-		fmt.Printf("****************************************\n")
-		fmt.Printf("%#v\n", unmarshalled.Entity)
-		fmt.Printf("----------------------------------------\n")
-		fmt.Printf("%#v\n", t.value.Entity)
 		c.Check(unmarshalled, DeepEquals, t.value)
 	}
 }

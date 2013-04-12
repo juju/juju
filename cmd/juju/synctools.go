@@ -7,6 +7,7 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
@@ -60,47 +61,13 @@ var officialBucketAttrs = map[string]interface{}{
 	"authorized-keys": "not-really", // We shouldn't need ssh access
 }
 
-// Find the set of tools at the 'latest' version
-func findNewest(fullTools []*state.Tools) []*state.Tools {
-	// This assumes the zero version of Number is always less than a real
-	// number, but we don't have negative versions, so this should be fine
-	var curBest version.Number
-	var res []*state.Tools
-	for _, tool := range fullTools {
-		if curBest.Less(tool.Number) {
-			// This tool is newer than our current best,
-			// so reset the list
-			res = []*state.Tools{tool}
-			curBest = tool.Number
-		} else if curBest == tool.Number {
-			res = append(res, tool)
-		}
-	}
-	return res
-}
-
-// Find tools that aren't present in target
-func findMissing(sourceTools, targetTools []*state.Tools) []*state.Tools {
-	target := make(map[version.Binary]bool, len(targetTools))
-	for _, tool := range targetTools {
-		target[tool.Binary] = true
-	}
-	var res []*state.Tools
-	for _, tool := range sourceTools {
-		if !target[tool.Binary] {
-			res = append(res, tool)
-		}
-	}
-	return res
-}
-
 func copyOne(
 	tool *state.Tools, source environs.StorageReader,
 	target environs.Storage, ctx *cmd.Context,
 ) error {
-	toolsPath := environs.ToolsStoragePath(tool.Binary)
-	fmt.Fprintf(ctx.Stderr, "copying %v", toolsPath)
-	srcFile, err := source.Get(toolsPath)
+	toolsName := tools.StorageName(tool.Binary)
+	fmt.Fprintf(ctx.Stderr, "copying %v", toolsName)
+	srcFile, err := source.Get(toolsName)
 	if err != nil {
 		return err
 	}
@@ -112,10 +79,10 @@ func copyOne(
 	if err != nil {
 		return err
 	}
-	log.Infof("cmd/juju: downloaded %v (%dkB), uploading", toolsPath, (nBytes+512)/1024)
+	log.Infof("downloaded %v (%dkB), uploading", toolsName, (nBytes+512)/1024)
 	fmt.Fprintf(ctx.Stderr, ", download %dkB, uploading\n", (nBytes+512)/1024)
 
-	if err := target.Put(toolsPath, buf, nBytes); err != nil {
+	if err := target.Put(toolsName, buf, nBytes); err != nil {
 		return err
 	}
 	return nil
@@ -126,7 +93,7 @@ func copyTools(
 	target environs.Storage, dryRun bool, ctx *cmd.Context,
 ) error {
 	for _, tool := range tools {
-		log.Infof("cmd/juju: copying %s from %s", tool.Binary, tool.URL)
+		log.Infof("copying %s from %s", tool.Binary, tool.URL)
 		if dryRun {
 			continue
 		}
@@ -140,7 +107,7 @@ func copyTools(
 func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 	officialEnviron, err := environs.NewFromAttrs(officialBucketAttrs)
 	if err != nil {
-		log.Errorf("cmd/juju: failed to initialize the official bucket environment")
+		log.Errorf("failed to initialize the official bucket environment")
 		return err
 	}
 	fmt.Fprintf(ctx.Stderr, "listing the source bucket\n")
@@ -150,25 +117,22 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 	}
 	targetEnv, err := environs.NewFromName(c.EnvName)
 	if err != nil {
-		log.Errorf("cmd/juju: unable to read %q from environment", c.EnvName)
+		log.Errorf("unable to read %q from environment", c.EnvName)
 		return err
 	}
 	toolsToCopy := sourceToolsList.Public
 	if !c.allVersions {
-		toolsToCopy = findNewest(toolsToCopy)
+		toolsToCopy = toolsToCopy.Newest()
 	}
 	fmt.Fprintf(ctx.Stderr, "found %d tools in source (%d recent ones)\n",
 		len(sourceToolsList.Public), len(toolsToCopy))
 	for _, tool := range toolsToCopy {
-		log.Debugf("cmd/juju: found source tool: %s", tool)
+		log.Debugf("found source tool: %s", tool)
 	}
 	fmt.Fprintf(ctx.Stderr, "listing target bucket\n")
 	targetToolsList, err := environs.ListTools(targetEnv, version.Current.Major)
 	if err != nil {
 		return err
-	}
-	for _, tool := range targetToolsList.Private {
-		log.Debugf("cmd/juju: found target tool: %s", tool)
 	}
 	targetTools := targetToolsList.Private
 	targetStorage := targetEnv.Storage()
@@ -178,9 +142,11 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 		if targetStorage, ok = targetEnv.PublicStorage().(environs.Storage); !ok {
 			return fmt.Errorf("Cannot write to PublicStorage")
 		}
-
 	}
-	missing := findMissing(toolsToCopy, targetTools)
+	for _, tool := range targetTools {
+		log.Debugf("found target tool: %s", tool)
+	}
+	missing := toolsToCopy.Exclude(targetTools)
 	fmt.Fprintf(ctx.Stdout, "found %d tools in target; %d tools to be copied\n",
 		len(targetTools), len(missing))
 	err = copyTools(missing, officialEnviron.PublicStorage(), targetStorage, c.dryRun, ctx)

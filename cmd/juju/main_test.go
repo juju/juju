@@ -184,7 +184,7 @@ func (s *MainSuite) TestActualRunJujuArgsBeforeCommand(c *C) {
 	c.Assert(out, Equals, "error: "+msg+"\n")
 	content, err := ioutil.ReadFile(logpath)
 	c.Assert(err, IsNil)
-	fullmsg := fmt.Sprintf(`.*\n.*ERROR JUJU:juju:bootstrap juju bootstrap command failed: %s\n`, msg)
+	fullmsg := fmt.Sprintf(`(.|\n)*ERROR command failed: %s\n`, msg)
 	c.Assert(string(content), Matches, fullmsg)
 }
 
@@ -197,7 +197,7 @@ func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *C) {
 	c.Assert(out, Equals, "error: "+msg+"\n")
 	content, err := ioutil.ReadFile(logpath)
 	c.Assert(err, IsNil)
-	fullmsg := fmt.Sprintf(`.*\n.*ERROR JUJU:juju:bootstrap juju bootstrap command failed: %s\n`, msg)
+	fullmsg := fmt.Sprintf(`(.|\n)*ERROR command failed: %s\n`, msg)
 	c.Assert(string(content), Matches, fullmsg)
 }
 
@@ -216,14 +216,19 @@ var commandNames = []string{
 	"generate-config", // alias for init
 	"get",
 	"get-constraints",
+	"get-env", // alias for get-environment
+	"get-environment",
 	"help",
 	"init",
+	"publish",
 	"remove-relation", // alias for destroy-relation
 	"remove-unit",     // alias for destroy-unit
 	"resolved",
 	"scp",
 	"set",
 	"set-constraints",
+	"set-env", // alias for set-environment
+	"set-environment",
 	"ssh",
 	"stat", // alias for status
 	"status",

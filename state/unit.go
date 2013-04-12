@@ -32,6 +32,16 @@ const (
 	AssignNew AssignmentPolicy = "new"
 )
 
+// ResolvedMode describes the way state transition errors
+// are resolved.
+type ResolvedMode string
+
+const (
+	ResolvedNone       ResolvedMode = ""
+	ResolvedRetryHooks ResolvedMode = "retry-hooks"
+	ResolvedNoHooks    ResolvedMode = "no-hooks"
+)
+
 // UnitSettings holds information about a service unit's settings within a
 // relation.
 type UnitSettings struct {
@@ -51,21 +61,12 @@ type unitDoc struct {
 	PublicAddress  string
 	PrivateAddress string
 	MachineId      string
-	Resolved       params.ResolvedMode
+	Resolved       ResolvedMode
 	Tools          *Tools `bson:",omitempty"`
 	Ports          []params.Port
 	Life           Life
 	TxnRevno       int64 `bson:"txn-revno"`
 	PasswordHash   string
-}
-
-// unitStatusDoc represents the internal state of a unit status in MongoDB.
-// The implicit _id field is explicitly set to the global key of the
-// associated unit in the document's creation transaction, but omitted to
-// allow direct use of the document in both create and update transactions.
-type unitStatusDoc struct {
-	Status     params.UnitStatus
-	StatusInfo string
 }
 
 // Unit represents the state of a service unit.
@@ -382,7 +383,7 @@ func (u *Unit) Remove() (err error) {
 }
 
 // Resolved returns the resolved mode for the unit.
-func (u *Unit) Resolved() params.ResolvedMode {
+func (u *Unit) Resolved() ResolvedMode {
 	return u.doc.Resolved
 }
 
@@ -434,20 +435,25 @@ func (u *Unit) Refresh() error {
 }
 
 // Status returns the status of the unit's agent.
-func (u *Unit) Status() (status params.UnitStatus, info string, err error) {
-	doc := &unitStatusDoc{}
-	if err := getStatus(u.st, u.globalKey(), doc); err != nil {
+func (u *Unit) Status() (status params.Status, info string, err error) {
+	doc, err := getStatus(u.st, u.globalKey())
+	if err != nil {
 		return "", "", err
 	}
-	return doc.Status, doc.StatusInfo, nil
+	status = doc.Status
+	info = doc.StatusInfo
+	return
 }
 
 // SetStatus sets the status of the unit.
-func (u *Unit) SetStatus(status params.UnitStatus, info string) error {
-	if status == params.UnitError && info == "" {
+func (u *Unit) SetStatus(status params.Status, info string) error {
+	if status == params.StatusError && info == "" {
 		panic("unit error status with no info")
 	}
-	doc := &unitStatusDoc{status, info}
+	doc := statusDoc{
+		Status:     status,
+		StatusInfo: info,
+	}
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
@@ -926,20 +932,40 @@ func (u *Unit) SetPrivateAddress(address string) error {
 	return nil
 }
 
+// Resolve marks the unit as having had any previous state transition
+// problems resolved, and informs the unit that it may attempt to
+// reestablish normal workflow. The retryHooks parameter informs
+// whether to attempt to reexecute previous failed hooks or to continue
+// as if they had succeeded before.
+func (u *Unit) Resolve(retryHooks bool) error {
+	status, _, err := u.Status()
+	if err != nil {
+		return err
+	}
+	if status != params.StatusError {
+		return fmt.Errorf("unit %q is not in an error state", u)
+	}
+	mode := ResolvedNoHooks
+	if retryHooks {
+		mode = ResolvedRetryHooks
+	}
+	return u.SetResolved(mode)
+}
+
 // SetResolved marks the unit as having had any previous state transition
 // problems resolved, and informs the unit that it may attempt to
 // reestablish normal workflow. The resolved mode parameter informs
 // whether to attempt to reexecute previous failed hooks or to continue
 // as if they had succeeded before.
-func (u *Unit) SetResolved(mode params.ResolvedMode) (err error) {
+func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 	defer trivial.ErrorContextf(&err, "cannot set resolved mode for unit %q", u)
 	switch mode {
-	case params.ResolvedRetryHooks, params.ResolvedNoHooks:
+	case ResolvedRetryHooks, ResolvedNoHooks:
 	default:
 		return fmt.Errorf("invalid error resolution mode: %q", mode)
 	}
 	// TODO(fwereade): assert unit has error status.
-	resolvedNotSet := D{{"resolved", params.ResolvedNone}}
+	resolvedNotSet := D{{"resolved", ResolvedNone}}
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
@@ -967,13 +993,13 @@ func (u *Unit) ClearResolved() error {
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: txn.DocExists,
-		Update: D{{"$set", D{{"resolved", params.ResolvedNone}}}},
+		Update: D{{"$set", D{{"resolved", ResolvedNone}}}},
 	}}
 	err := u.st.runner.Run(ops, "", nil)
 	if err != nil {
 		return fmt.Errorf("cannot clear resolved mode for unit %q: %v", u, NotFoundf("unit"))
 	}
-	u.doc.Resolved = params.ResolvedNone
+	u.doc.Resolved = ResolvedNone
 	return nil
 }
 

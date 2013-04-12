@@ -117,47 +117,47 @@ func (s *UnitSuite) TestRefresh(c *C) {
 }
 
 func (s *UnitSuite) TestGetSetStatusWhileAlive(c *C) {
-	fail := func() { s.unit.SetStatus(params.UnitError, "") }
+	fail := func() { s.unit.SetStatus(params.StatusError, "") }
 	c.Assert(fail, PanicMatches, "unit error status with no info")
 
 	status, info, err := s.unit.Status()
 	c.Assert(err, IsNil)
-	c.Assert(status, Equals, params.UnitPending)
+	c.Assert(status, Equals, params.StatusPending)
 	c.Assert(info, Equals, "")
 
-	err = s.unit.SetStatus(params.UnitStarted, "")
+	err = s.unit.SetStatus(params.StatusStarted, "")
 	c.Assert(err, IsNil)
 	status, info, err = s.unit.Status()
 	c.Assert(err, IsNil)
-	c.Assert(status, Equals, params.UnitStarted)
+	c.Assert(status, Equals, params.StatusStarted)
 	c.Assert(info, Equals, "")
 
-	err = s.unit.SetStatus(params.UnitError, "test-hook failed")
+	err = s.unit.SetStatus(params.StatusError, "test-hook failed")
 	c.Assert(err, IsNil)
 	status, info, err = s.unit.Status()
 	c.Assert(err, IsNil)
-	c.Assert(status, Equals, params.UnitError)
+	c.Assert(status, Equals, params.StatusError)
 	c.Assert(info, Equals, "test-hook failed")
 
-	err = s.unit.SetStatus(params.UnitPending, "deploying...")
+	err = s.unit.SetStatus(params.StatusPending, "deploying...")
 	c.Assert(err, IsNil)
 	status, info, err = s.unit.Status()
 	c.Assert(err, IsNil)
-	c.Assert(status, Equals, params.UnitPending)
+	c.Assert(status, Equals, params.StatusPending)
 	c.Assert(info, Equals, "deploying...")
 }
 
 func (s *UnitSuite) TestGetSetStatusWhileNotAlive(c *C) {
 	err := s.unit.Destroy()
 	c.Assert(err, IsNil)
-	err = s.unit.SetStatus(params.UnitStarted, "not really")
+	err = s.unit.SetStatus(params.StatusStarted, "not really")
 	c.Assert(err, ErrorMatches, `cannot set status of unit "wordpress/0": not found or dead`)
 	_, _, err = s.unit.Status()
 	c.Assert(err, ErrorMatches, "status not found")
 
 	err = s.unit.EnsureDead()
 	c.Assert(err, IsNil)
-	err = s.unit.SetStatus(params.UnitStarted, "not really")
+	err = s.unit.SetStatus(params.StatusStarted, "not really")
 	c.Assert(err, ErrorMatches, `cannot set status of unit "wordpress/0": not found or dead`)
 	_, _, err = s.unit.Status()
 	c.Assert(err, ErrorMatches, "status not found")
@@ -276,7 +276,7 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithProvisionedMachine(c *C) {
 	c.Assert(err, IsNil)
 	machine, err := s.State.Machine(mid)
 	c.Assert(err, IsNil)
-	err = machine.SetInstanceId("i-malive")
+	err = machine.SetProvisioned("i-malive", "fake_nonce")
 	c.Assert(err, IsNil)
 	err = s.unit.Destroy()
 	c.Assert(err, IsNil)
@@ -473,36 +473,59 @@ func (s *UnitSuite) TestUnitWaitAgentAlive(c *C) {
 	c.Assert(alive, Equals, false)
 }
 
+func (s *UnitSuite) TestResolve(c *C) {
+	err := s.unit.Resolve(false)
+	c.Assert(err, ErrorMatches, `unit "wordpress/0" is not in an error state`)
+	err = s.unit.Resolve(true)
+	c.Assert(err, ErrorMatches, `unit "wordpress/0" is not in an error state`)
+
+	err = s.unit.SetStatus(params.StatusError, "gaaah")
+	c.Assert(err, IsNil)
+	err = s.unit.Resolve(false)
+	c.Assert(err, IsNil)
+	err = s.unit.Resolve(true)
+	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "wordpress/0": already resolved`)
+	c.Assert(s.unit.Resolved(), Equals, state.ResolvedNoHooks)
+
+	err = s.unit.ClearResolved()
+	c.Assert(err, IsNil)
+	err = s.unit.Resolve(true)
+	c.Assert(err, IsNil)
+	err = s.unit.Resolve(false)
+	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "wordpress/0": already resolved`)
+	c.Assert(s.unit.Resolved(), Equals, state.ResolvedRetryHooks)
+}
+
 func (s *UnitSuite) TestGetSetClearResolved(c *C) {
 	mode := s.unit.Resolved()
-	c.Assert(mode, Equals, params.ResolvedNone)
+	c.Assert(mode, Equals, state.ResolvedNone)
 
-	err := s.unit.SetResolved(params.ResolvedNoHooks)
+	err := s.unit.SetResolved(state.ResolvedNoHooks)
 	c.Assert(err, IsNil)
-	err = s.unit.SetResolved(params.ResolvedNoHooks)
+	err = s.unit.SetResolved(state.ResolvedNoHooks)
 	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "wordpress/0": already resolved`)
 
 	mode = s.unit.Resolved()
-	c.Assert(mode, Equals, params.ResolvedNoHooks)
+	c.Assert(mode, Equals, state.ResolvedNoHooks)
 	err = s.unit.Refresh()
 	c.Assert(err, IsNil)
 	mode = s.unit.Resolved()
-	c.Assert(mode, Equals, params.ResolvedNoHooks)
+	c.Assert(mode, Equals, state.ResolvedNoHooks)
 
 	err = s.unit.ClearResolved()
 	c.Assert(err, IsNil)
 	mode = s.unit.Resolved()
-	c.Assert(mode, Equals, params.ResolvedNone)
+	c.Assert(mode, Equals, state.ResolvedNone)
 	err = s.unit.Refresh()
 	c.Assert(err, IsNil)
 	mode = s.unit.Resolved()
-	c.Assert(mode, Equals, params.ResolvedNone)
+	c.Assert(mode, Equals, state.ResolvedNone)
 	err = s.unit.ClearResolved()
 	c.Assert(err, IsNil)
 
-	err = s.unit.SetResolved(params.ResolvedNone)
+	err = s.unit.SetResolved(state.ResolvedNone)
 	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "wordpress/0": invalid error resolution mode: ""`)
-	err = s.unit.SetResolved(params.ResolvedMode("foo"))
+	err = s.unit.SetResolved(state.ResolvedMode("foo"))
 	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "wordpress/0": invalid error resolution mode: "foo"`)
 }
 
@@ -577,17 +600,17 @@ func (s *UnitSuite) TestSetClearResolvedWhenNotAlive(c *C) {
 	preventUnitDestroyRemove(c, s.State, s.unit)
 	err := s.unit.Destroy()
 	c.Assert(err, IsNil)
-	err = s.unit.SetResolved(params.ResolvedNoHooks)
+	err = s.unit.SetResolved(state.ResolvedNoHooks)
 	c.Assert(err, IsNil)
 	err = s.unit.Refresh()
 	c.Assert(err, IsNil)
-	c.Assert(s.unit.Resolved(), Equals, params.ResolvedNoHooks)
+	c.Assert(s.unit.Resolved(), Equals, state.ResolvedNoHooks)
 	err = s.unit.ClearResolved()
 	c.Assert(err, IsNil)
 
 	err = s.unit.EnsureDead()
 	c.Assert(err, IsNil)
-	err = s.unit.SetResolved(params.ResolvedRetryHooks)
+	err = s.unit.SetResolved(state.ResolvedRetryHooks)
 	c.Assert(err, ErrorMatches, deadErr)
 	err = s.unit.ClearResolved()
 	c.Assert(err, IsNil)

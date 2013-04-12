@@ -9,15 +9,12 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/multiwatcher"
 	"launchpad.net/juju-core/state/statecmd"
 	statewatcher "launchpad.net/juju-core/state/watcher"
 	"strconv"
 	"sync"
 )
-
-// TODO(rog) remove this when the rest of the system
-// has been updated to set passwords appropriately.
-var AuthenticationEnabled = false
 
 // srvRoot represents a single client's connection to the state.
 type srvRoot struct {
@@ -204,7 +201,7 @@ func (r *srvRoot) AllWatcher(id string) (srvClientAllWatcher, error) {
 	if w == nil {
 		return srvClientAllWatcher{}, errUnknownWatcher
 	}
-	if _, ok := w.w.(*state.StateWatcher); !ok {
+	if _, ok := w.w.(*multiwatcher.Watcher); !ok {
 		return srvClientAllWatcher{}, errUnknownWatcher
 	}
 	return srvClientAllWatcher{w}, nil
@@ -272,24 +269,32 @@ type srvClientAllWatcher struct {
 }
 
 func (aw srvClientAllWatcher) Next() (params.AllWatcherNextResults, error) {
-	deltas, err := aw.w.(*state.StateWatcher).Next()
+	deltas, err := aw.w.(*multiwatcher.Watcher).Next()
 	return params.AllWatcherNextResults{
 		Deltas: deltas,
 	}, err
 }
 
 func (aw srvClientAllWatcher) Stop() error {
-	return aw.w.(*state.StateWatcher).Stop()
+	return aw.w.(*multiwatcher.Watcher).Stop()
 }
 
 // ServiceSet implements the server side of Client.ServerSet.
 func (c *srvClient) ServiceSet(p params.ServiceSet) error {
-	return juju.ServiceSet(c.root.srv.state, p)
+	svc, err := c.root.srv.state.Service(p.ServiceName)
+	if err != nil {
+		return err
+	}
+	return svc.SetConfig(p.Options)
 }
 
 // ServiceSetYAML implements the server side of Client.ServerSetYAML.
 func (c *srvClient) ServiceSetYAML(p params.ServiceSetYAML) error {
-	return juju.ServiceSetYAML(c.root.srv.state, p)
+	svc, err := c.root.srv.state.Service(p.ServiceName)
+	if err != nil {
+		return err
+	}
+	return svc.SetConfigYAML([]byte(p.Config))
 }
 
 // ServiceGet returns the configuration for a service.
@@ -299,7 +304,11 @@ func (c *srvClient) ServiceGet(args params.ServiceGet) (params.ServiceGetResults
 
 // Resolved implements the server side of Client.Resolved.
 func (c *srvClient) Resolved(p params.Resolved) error {
-	return statecmd.Resolved(c.root.srv.state, p)
+	unit, err := c.root.srv.state.Unit(p.UnitName)
+	if err != nil {
+		return err
+	}
+	return unit.Resolve(p.Retry)
 }
 
 // ServiceExpose changes the juju-managed firewall to expose any ports that
@@ -544,11 +553,6 @@ func (u *authUser) login(st *state.State, tag, password string) error {
 	entity, err := st.Authenticator(tag)
 	if err != nil && !state.IsNotFound(err) {
 		return err
-	}
-	// TODO(rog) remove
-	if !AuthenticationEnabled {
-		u.entity = entity
-		return nil
 	}
 	// We return the same error when an entity
 	// does not exist as for a bad password, so that

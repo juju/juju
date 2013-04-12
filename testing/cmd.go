@@ -61,8 +61,8 @@ func Stderr(ctx *cmd.Context) string {
 	return ctx.Stderr.(*bytes.Buffer).String()
 }
 
-// RunCommand will run a command with the specified args.  The returned error
-// may come from either the parsing of the args, the command initialisation or
+// RunCommand runs a command with the specified args.  The returned error
+// may come from either the parsing of the args, the command initialisation, or
 // the actual running of the command.  Access to the resulting output streams
 // is provided through the returned context instance.
 func RunCommand(c *C, com cmd.Command, args []string) (*cmd.Context, error) {
@@ -70,6 +70,15 @@ func RunCommand(c *C, com cmd.Command, args []string) (*cmd.Context, error) {
 		return nil, err
 	}
 	var context = Context(c)
+	return context, com.Run(context)
+}
+
+// RunCommandInDir works like RunCommand, but runs with a context that uses dir.
+func RunCommandInDir(c *C, com cmd.Command, args []string, dir string) (*cmd.Context, error) {
+	if err := InitCommand(com, args); err != nil {
+		return nil, err
+	}
+	var context = ContextForDir(c, dir)
 	return context, com.Run(context)
 }
 
