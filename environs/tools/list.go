@@ -39,7 +39,7 @@ func (src List) Arches() []string {
 // collect calls f on all values in src and returns an alphabetically
 // ordered list of the returned results without duplicates.
 func (src List) collect(f func(*state.Tools) string) []string {
-	seen := set.NewStringSet()
+	seen := set.MakeStringSet()
 	for _, tools := range src {
 		seen.Add(f(tools))
 	}

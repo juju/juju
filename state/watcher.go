@@ -411,7 +411,7 @@ type RelationScopeWatcher struct {
 	commonWatcher
 	prefix     string
 	ignore     string
-	knownUnits *set.StringSet
+	knownUnits set.StringSet
 	out        chan *RelationScopeChange
 }
 
@@ -428,7 +428,7 @@ func newRelationScopeWatcher(st *State, scope, ignore string) *RelationScopeWatc
 		prefix:        scope + "#",
 		ignore:        ignore,
 		out:           make(chan *RelationScopeChange),
-		knownUnits:    set.NewStringSet(),
+		knownUnits:    set.MakeStringSet(),
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -525,7 +525,7 @@ func (w *RelationScopeWatcher) loop() error {
 type RelationUnitsWatcher struct {
 	commonWatcher
 	sw       *RelationScopeWatcher
-	watching *set.StringSet
+	watching set.StringSet
 	updates  chan watcher.Change
 	out      chan RelationUnitsChange
 }
@@ -555,7 +555,7 @@ func newRelationUnitsWatcher(ru *RelationUnit) *RelationUnitsWatcher {
 	w := &RelationUnitsWatcher{
 		commonWatcher: commonWatcher{st: ru.st},
 		sw:            ru.WatchScope(),
-		watching:      set.NewStringSet(),
+		watching:      set.MakeStringSet(),
 		updates:       make(chan watcher.Change),
 		out:           make(chan RelationUnitsChange),
 	}
