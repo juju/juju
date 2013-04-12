@@ -143,6 +143,10 @@ func (env *maasEnviron) startBootstrapNode(tools *state.Tools, cert, key []byte,
 
 // Bootstrap is specified in the Environ interface.
 func (env *maasEnviron) Bootstrap(cons constraints.Value, stateServerCert, stateServerKey []byte) error {
+	constraints := cons.String()
+	if constraints != "" {
+		log.Warningf("ignoring constraints '%s' (not implemented)", constraints)
+	}
 
 	// This was all cargo-culted from the EC2 provider.
 	password := env.Config().AdminSecret()
