@@ -421,7 +421,7 @@ func opClientServiceDeploy(c *C, st *api.State, mst *state.State) (func(), error
 }
 
 func opClientAddServiceUnits(c *C, st *api.State, mst *state.State) (func(), error) {
-	err := st.Client().AddServiceUnits("nosuch", 1)
+	_, err := st.Client().AddServiceUnits("nosuch", 1)
 	if api.ErrCode(err) == api.CodeNotFound {
 		err = nil
 	}
