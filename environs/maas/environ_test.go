@@ -83,7 +83,7 @@ func (EnvironSuite) TestSetConfigValidatesFirst(c *C) {
 	c.Assert(err, IsNil)
 
 	// SetConfig() fails, even though both the old and the new config are
-	// individually.
+	// individually valid.
 	err = env.SetConfig(newCfg)
 	c.Assert(err, NotNil)
 	c.Check(err, ErrorMatches, ".*cannot change name.*")
