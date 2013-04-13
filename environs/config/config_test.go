@@ -608,19 +608,6 @@ var validationTests = []validationTest{
 		},
 		err: `cannot clear agent-version`,
 	}, {
-		about: "Can't change agent version",
-		new: attrs{
-			"type":          "my-type",
-			"name":          "my-name",
-			"agent-version": "1.9.14",
-		},
-		old: attrs{
-			"type":          "my-type",
-			"name":          "my-name",
-			"agent-version": "1.9.13",
-		},
-		err: `cannot change agent-version from "1.9.13" to "1.9.14"`,
-	}, {
 		about: "Can't change the firewall-mode",
 		new: attrs{
 			"type":          "my-type",

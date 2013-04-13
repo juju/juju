@@ -160,14 +160,8 @@ func Validate(cfg, old *Config) error {
 				return fmt.Errorf("cannot change %s from %q to %q", attr, oldValue, newValue)
 			}
 		}
-		if oldVersion, oldFound := old.AgentVersion(); oldFound {
-			if newVersion, newFound := cfg.AgentVersion(); newFound {
-				if oldVersion != newVersion {
-					// This should be done via upgrade-juju.
-					return fmt.Errorf("cannot change agent-version from %q to %q",
-						oldVersion, newVersion)
-				}
-			} else {
+		if _, oldFound := old.AgentVersion(); oldFound {
+			if _, newFound := cfg.AgentVersion(); newFound {
 				return fmt.Errorf("cannot clear agent-version")
 			}
 		}

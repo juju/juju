@@ -479,19 +479,18 @@ var (
 func (s *ToolsSuite) uploadVersions(c *C, storage environs.Storage, verses ...version.Binary) map[version.Binary]string {
 	uploaded := map[version.Binary]string{}
 	for _, vers := range verses {
-		uploaded[vers] = s.uploadPrivate(c, vers).URL
+		uploaded[vers] = envtesting.UploadFakeToolsVersion(c, storage, vers).URL
 	}
 	return uploaded
-	storage := s.env.Storage()
 }
 
 func (s *ToolsSuite) uploadPrivate(c *C, verses ...version.Binary) map[version.Binary]string {
-	return envtesting.UploadFakeToolsVersions(c, s.env.Storage(), verses...)
+	return s.uploadVersions(c, s.env.Storage(), verses...)
 }
 
 func (s *ToolsSuite) uploadPublic(c *C, verses ...version.Binary) map[version.Binary]string {
 	storage := s.env.PublicStorage().(environs.Storage)
-	return envtesting.UploadFakeToolsVersions(c, storage, verses...)
+	return s.uploadVersions(c, storage, verses...)
 }
 
 var findAvailableToolsTests = []struct {
@@ -536,10 +535,10 @@ var findAvailableToolsTests = []struct {
 
 func (s *ToolsSuite) TestFindAvailableTools(c *C) {
 	for i, test := range findAvailableToolsTests {
-		c.Logf("test %d: %s", i, test.info)
+		c.Logf("\ntest %d: %s", i, test.info)
 		envtesting.RemoveAllTools(c, s.env)
-		private := s.uploadPrivate(c, test.private)
-		public := s.uploadPublic(c, test.public)
+		private := s.uploadPrivate(c, test.private...)
+		public := s.uploadPublic(c, test.public...)
 		actual, err := environs.FindAvailableTools(s.env, test.major)
 		if test.err != nil {
 			if len(actual) > 0 {
@@ -548,10 +547,14 @@ func (s *ToolsSuite) TestFindAvailableTools(c *C) {
 			c.Check(err, DeepEquals, &environs.NotFoundError{test.err})
 			continue
 		}
-		expect := private
-		if len(expect) == 0 {
+		source := private
+		if len(source) == 0 {
 			// We only use the public bucket if the private one has *no* tools.
-			expect = public
+			source = public
+		}
+		expect := map[version.Binary]string{}
+		for _, expected := range test.expect {
+			expect[expected] = source[expected]
 		}
 		c.Check(actual.URLs(), DeepEquals, expect)
 	}
@@ -595,10 +598,10 @@ var findExactToolsTests = []struct {
 
 func (s *ToolsSuite) TestFindExactTools(c *C) {
 	for i, test := range findExactToolsTests {
-		c.Logf("test %d", i)
+		c.Logf("\ntest %d", i)
 		envtesting.RemoveAllTools(c, s.env)
-		private := s.uploadPrivate(c, test.private)
-		public := s.uploadPublic(c, test.public)
+		private := s.uploadPrivate(c, test.private...)
+		public := s.uploadPublic(c, test.public...)
 		actual, err := environs.FindExactTools(s.env, test.seek)
 		if test.err == nil {
 			c.Check(err, IsNil)
@@ -608,7 +611,7 @@ func (s *ToolsSuite) TestFindExactTools(c *C) {
 				// We only use the public bucket if the private one has *no* tools.
 				source = public
 			}
-			c.Check(actual.URL, DeepEquals, source[actual.Binary].URL)
+			c.Check(actual.URL, DeepEquals, source[actual.Binary])
 		} else {
 			c.Check(err, DeepEquals, &environs.NotFoundError{test.err})
 		}
