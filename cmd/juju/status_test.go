@@ -35,6 +35,8 @@ var _ = Suite(&StatusSuite{})
 
 type M map[string]interface{}
 
+type L []interface{}
+
 type testCase struct {
 	summary string
 	steps   []stepper
@@ -96,6 +98,11 @@ var (
 		"agent-state": "started",
 		"dns-name":    "dummyenv-2.dns",
 		"instance-id": "dummyenv-2",
+	}
+	machine3 = M{
+		"agent-state": "started",
+		"dns-name":    "dummyenv-3.dns",
+		"instance-id": "dummyenv-3",
 	}
 	unexposedService = M{
 		"charm":   "local:series/dummy-1",
@@ -353,17 +360,33 @@ var statusTests = []testCase{
 				"foo": charm.Relation{
 					Name:      "foo",
 					Role:      charm.RoleProvider,
-					Interface: "ifce",
+					Interface: "ifce-a",
+					Optional:  false,
+					Limit:     1,
+					Scope:     charm.ScopeGlobal,
+				},
+				"bar": charm.Relation{
+					Name:      "bar",
+					Role:      charm.RoleProvider,
+					Interface: "ifce-b",
 					Optional:  false,
 					Limit:     1,
 					Scope:     charm.ScopeGlobal,
 				},
 			},
 			map[string]charm.Relation{
-				"bar": charm.Relation{
-					Name:      "bar",
+				"baz": charm.Relation{
+					Name:      "baz",
 					Role:      charm.RoleRequirer,
-					Interface: "ifce",
+					Interface: "ifce-a",
+					Optional:  false,
+					Limit:     1,
+					Scope:     charm.ScopeGlobal,
+				},
+				"yadda": charm.Relation{
+					Name:      "yadda",
+					Role:      charm.RoleRequirer,
+					Interface: "ifce-b",
 					Optional:  false,
 					Limit:     1,
 					Scope:     charm.ScopeGlobal,
@@ -371,22 +394,29 @@ var statusTests = []testCase{
 			},
 		},
 
-		addService{"p-service", "dummy"},
-		addService{"r-service", "dummy"},
-		setServiceExposed{"p-service", true},
-		setServiceExposed{"r-service", true},
-
+		addService{"a-service", "dummy"},
+		setServiceExposed{"a-service", true},
 		addMachine{"1", state.JobHostUnits},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", params.StatusStarted, ""},
-		addUnit{"p-service", "1"},
+		addUnit{"a-service", "1"},
 
+		addService{"b-service", "dummy"},
+		setServiceExposed{"b-service", true},
 		addMachine{"2", state.JobHostUnits},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", params.StatusStarted, ""},
-		addUnit{"r-service", "2"},
+		addUnit{"b-service", "2"},
 
-		relateServices{"p-service", "foo", "r-service", "bar"},
+		addService{"c-service", "dummy"},
+		setServiceExposed{"c-service", true},
+		addMachine{"3", state.JobHostUnits},
+		startAliveMachine{"3"},
+		setMachineStatus{"3", params.StatusStarted, ""},
+		addUnit{"c-service", "3"},
+
+		relateServices{"a-service", "foo", "b-service", "baz", "ifce-a"},
+		relateServices{"a-service", "bar", "c-service", "yadda", "ifce-b"},
 
 		expect{
 			"two services with a provider requirer relation between them",
@@ -395,32 +425,47 @@ var statusTests = []testCase{
 					"0": machine0,
 					"1": machine1,
 					"2": machine2,
+					"3": machine3,
 				},
 				"services": M{
-					"p-service": M{
+					"a-service": M{
 						"charm":   "local:series/dummy-1",
 						"exposed": true,
 						"units": M{
-							"p-service/0": M{
+							"a-service/0": M{
 								"machine":     "1",
 								"agent-state": "pending",
 							},
 						},
 						"relations": M{
-							"r-service:bar p-service:foo": "p-service:foo",
+							"0": L{"b-service"},
+							"1": L{"c-service"},
 						},
 					},
-					"r-service": M{
+					"b-service": M{
 						"charm":   "local:series/dummy-1",
 						"exposed": true,
 						"units": M{
-							"r-service/0": M{
+							"b-service/0": M{
 								"machine":     "2",
 								"agent-state": "pending",
 							},
 						},
 						"relations": M{
-							"r-service:bar p-service:foo": "r-service:bar",
+							"0": L{"a-service"},
+						},
+					},
+					"c-service": M{
+						"charm":   "local:series/dummy-1",
+						"exposed": true,
+						"units": M{
+							"c-service/0": M{
+								"machine":     "3",
+								"agent-state": "pending",
+							},
+						},
+						"relations": M{
+							"1": L{"a-service"},
 						},
 					},
 				},
@@ -606,13 +651,14 @@ type relateServices struct {
 	nameA        string
 	serviceNameB string
 	nameB        string
+	ifce         string
 }
 
 func (rs relateServices) step(c *C, ctx *context) {
 	epA := state.Endpoint{
 		ServiceName: rs.serviceNameA,
 		Relation: charm.Relation{
-			Interface: "ifce",
+			Interface: rs.ifce,
 			Name:      rs.nameA,
 			Role:      charm.RoleProvider,
 			Scope:     charm.ScopeGlobal,
@@ -621,7 +667,7 @@ func (rs relateServices) step(c *C, ctx *context) {
 	epB := state.Endpoint{
 		ServiceName: rs.serviceNameB,
 		Relation: charm.Relation{
-			Interface: "ifce",
+			Interface: rs.ifce,
 			Name:      rs.nameB,
 			Role:      charm.RoleRequirer,
 			Scope:     charm.ScopeGlobal,
