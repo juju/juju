@@ -35,12 +35,7 @@ func (s *ToolsSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	s.env = env
 	s.dataDir = c.MkDir()
-	s.removeTools(c)
-}
-
-func (s *ToolsSuite) removeTools(c *C) {
-	envtesting.RemoveTools(c, s.env.Storage())
-	envtesting.RemoveTools(c, s.env.PublicStorage().(environs.Storage))
+	envtesting.RemoveAllTools(c, s.env)
 }
 
 func (s *ToolsSuite) TearDownTest(c *C) {
@@ -447,12 +442,13 @@ func (s *ToolsSuite) TestBestTools(c *C) {
 }
 
 var (
-	v100    = version.MustParse("1.0.0")
-	v100p64 = version.MustParseBinary("1.0.0-precise-amd64")
-	v100p32 = version.MustParseBinary("1.0.0-precise-i386")
-	v100q64 = version.MustParseBinary("1.0.0-quantal-amd64")
-	v100q32 = version.MustParseBinary("1.0.0-quantal-i386")
-	v100all = []version.Binary{v100p64, v100p32, v100q64, v100q32}
+	v100     = version.MustParse("1.0.0")
+	v100p64  = version.MustParseBinary("1.0.0-precise-amd64")
+	v100p32  = version.MustParseBinary("1.0.0-precise-i386")
+	v100q64  = version.MustParseBinary("1.0.0-quantal-amd64")
+	v100q32  = version.MustParseBinary("1.0.0-quantal-i386")
+	v1001p64 = version.MustParseBinary("1.0.0.1-precise-amd64")
+	v100all  = []version.Binary{v100p64, v100p32, v100q64, v100q32, v1001p64}
 
 	v110    = version.MustParse("1.1.0")
 	v110p64 = version.MustParseBinary("1.1.0-precise-amd64")
@@ -469,6 +465,7 @@ var (
 	v120q64 = version.MustParseBinary("1.2.0-quantal-amd64")
 	v120q32 = version.MustParseBinary("1.2.0-quantal-i386")
 	v120all = []version.Binary{v120p64, v120p32, v120q64, v120q32}
+	v1all   = append(v100all, append(v110all, v120all...)...)
 
 	v220    = version.MustParse("2.2.0")
 	v220p32 = version.MustParseBinary("2.2.0-precise-i386")
@@ -476,15 +473,25 @@ var (
 	v220q32 = version.MustParseBinary("2.2.0-quantal-i386")
 	v220q64 = version.MustParseBinary("2.2.0-quantal-amd64")
 	v220all = []version.Binary{v220p64, v220p32, v220q64, v220q32}
+	vAll    = append(v1all, v220all...)
 )
 
-func (s *ToolsSuite) uploadPrivate(c *C, vers version.Binary) *state.Tools {
-	return envtesting.UploadFakeToolsVersion(c, s.env.Storage(), vers)
+func (s *ToolsSuite) uploadVersions(c *C, storage environs.Storage, verses ...version.Binary) map[version.Binary]string {
+	uploaded := map[version.Binary]string{}
+	for _, vers := range verses {
+		uploaded[vers] = s.uploadPrivate(c, vers).URL
+	}
+	return uploaded
+	storage := s.env.Storage()
 }
 
-func (s *ToolsSuite) uploadPublic(c *C, vers version.Binary) *state.Tools {
+func (s *ToolsSuite) uploadPrivate(c *C, verses ...version.Binary) map[version.Binary]string {
+	return envtesting.UploadFakeToolsVersions(c, s.env.Storage(), verses...)
+}
+
+func (s *ToolsSuite) uploadPublic(c *C, verses ...version.Binary) map[version.Binary]string {
 	storage := s.env.PublicStorage().(environs.Storage)
-	return envtesting.UploadFakeToolsVersion(c, storage, vers)
+	return envtesting.UploadFakeToolsVersions(c, storage, verses...)
 }
 
 var findAvailableToolsTests = []struct {
@@ -506,50 +513,39 @@ var findAvailableToolsTests = []struct {
 }, {
 	info:    "tools found in private bucket",
 	major:   1,
-	private: v110all,
-	expect:  v110all,
-}, {
-	info:   "private tools only, none matching",
-	major:  1,
-	public: v220all,
-	err:    tools.ErrNoMatches,
+	private: vAll,
+	expect:  v1all,
 }, {
 	info:   "tools found in public bucket",
 	major:  1,
-	public: v110all,
-	expect: v110all,
+	public: vAll,
+	expect: v1all,
 }, {
 	info:    "tools found in both buckets, only taken from private",
 	major:   1,
 	private: v110p,
-	public:  v110all,
+	public:  vAll,
 	expect:  v110p,
 }, {
 	info:    "private tools completely block public ones",
 	major:   1,
 	private: v220all,
-	public:  v110all,
+	public:  vAll,
 	err:     tools.ErrNoMatches,
 }}
 
 func (s *ToolsSuite) TestFindAvailableTools(c *C) {
 	for i, test := range findAvailableToolsTests {
 		c.Logf("test %d: %s", i, test.info)
-		s.removeTools(c)
-		private := map[version.Binary]string{}
-		for _, vers := range test.private {
-			private[vers] = s.uploadPrivate(c, vers).URL
-		}
-		public := map[version.Binary]string{}
-		for _, vers := range test.public {
-			public[vers] = s.uploadPublic(c, vers).URL
-		}
+		envtesting.RemoveAllTools(c, s.env)
+		private := s.uploadPrivate(c, test.private)
+		public := s.uploadPublic(c, test.public)
 		actual, err := environs.FindAvailableTools(s.env, test.major)
 		if test.err != nil {
 			if len(actual) > 0 {
 				c.Logf(actual.String())
 			}
-			c.Check(err, Equals, test.err)
+			c.Check(err, DeepEquals, &environs.NotFoundError{test.err})
 			continue
 		}
 		expect := private
@@ -558,5 +554,63 @@ func (s *ToolsSuite) TestFindAvailableTools(c *C) {
 			expect = public
 		}
 		c.Check(actual.URLs(), DeepEquals, expect)
+	}
+}
+
+var findExactToolsTests = []struct {
+	info    string
+	private []version.Binary
+	public  []version.Binary
+	seek    version.Binary
+	err     error
+}{{
+	info: "nothing available",
+	seek: v100p64,
+	err:  tools.ErrNoTools,
+}, {
+	info:    "only non-matches available in private",
+	private: append(v110all, v100p32, v100q64, v1001p64),
+	seek:    v100p64,
+	err:     tools.ErrNoMatches,
+}, {
+	info:    "exact match available in private",
+	private: []version.Binary{v100p64},
+	seek:    v100p64,
+}, {
+	info:    "only non-matches available in public",
+	private: append(v110all, v100p32, v100q64, v1001p64),
+	seek:    v100p64,
+	err:     tools.ErrNoMatches,
+}, {
+	info:   "exact match available in public",
+	public: []version.Binary{v100p64},
+	seek:   v100p64,
+}, {
+	info:    "exact match in public blocked by private",
+	private: v110all,
+	public:  []version.Binary{v100p64},
+	seek:    v100p64,
+	err:     tools.ErrNoMatches,
+}}
+
+func (s *ToolsSuite) TestFindExactTools(c *C) {
+	for i, test := range findExactToolsTests {
+		c.Logf("test %d", i)
+		envtesting.RemoveAllTools(c, s.env)
+		private := s.uploadPrivate(c, test.private)
+		public := s.uploadPublic(c, test.public)
+		actual, err := environs.FindExactTools(s.env, test.seek)
+		if test.err == nil {
+			c.Check(err, IsNil)
+			c.Check(actual.Binary, Equals, test.seek)
+			source := private
+			if len(source) == 0 {
+				// We only use the public bucket if the private one has *no* tools.
+				source = public
+			}
+			c.Check(actual.URL, DeepEquals, source[actual.Binary].URL)
+		} else {
+			c.Check(err, DeepEquals, &environs.NotFoundError{test.err})
+		}
 	}
 }

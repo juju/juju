@@ -60,14 +60,14 @@ type stringsTest struct {
 }
 
 var seriesTests = []stringsTest{{
-	tools.List{t100precise},
-	[]string{"precise"},
+	src:    tools.List{t100precise},
+	expect: []string{"precise"},
 }, {
-	tools.List{t100precise, t100precise32, t200precise},
-	[]string{"precise"},
+	src:    tools.List{t100precise, t100precise32, t200precise},
+	expect: []string{"precise"},
 }, {
-	tAll,
-	[]string{"precise", "quantal"},
+	src:    tAll,
+	expect: []string{"precise", "quantal"},
 }}
 
 func (s *ListSuite) TestSeries(c *C) {
@@ -78,14 +78,14 @@ func (s *ListSuite) TestSeries(c *C) {
 }
 
 var archesTests = []stringsTest{{
-	tools.List{t100precise},
-	[]string{"amd64"},
+	src:    tools.List{t100precise},
+	expect: []string{"amd64"},
 }, {
-	tools.List{t100precise, t100quantal, t200precise},
-	[]string{"amd64"},
+	src:    tools.List{t100precise, t100quantal, t200precise},
+	expect: []string{"amd64"},
 }, {
-	tAll,
-	[]string{"amd64", "i386"},
+	src:    tAll,
+	expect: []string{"amd64", "i386"},
 }}
 
 func (s *ListSuite) TestArches(c *C) {
@@ -112,33 +112,33 @@ var newestTests = []struct {
 	expect tools.List
 	number version.Number
 }{{
-	nil,
-	nil,
-	version.Zero,
+	src:    nil,
+	expect: nil,
+	number: version.Zero,
 }, {
-	tools.List{t100precise},
-	tools.List{t100precise},
-	version.MustParse("1.0.0"),
+	src:    tools.List{t100precise},
+	expect: tools.List{t100precise},
+	number: version.MustParse("1.0.0"),
 }, {
-	t100all,
-	t100all,
-	version.MustParse("1.0.0"),
+	src:    t100all,
+	expect: t100all,
+	number: version.MustParse("1.0.0"),
 }, {
-	extend(t100all, t190all, t200all),
-	t200all,
-	version.MustParse("2.0.0"),
+	src:    extend(t100all, t190all, t200all),
+	expect: t200all,
+	number: version.MustParse("2.0.0"),
 }, {
-	tAll,
-	tools.List{t2001precise},
-	version.MustParse("2.0.0.1"),
+	src:    tAll,
+	expect: tools.List{t2001precise},
+	number: version.MustParse("2.0.0.1"),
 }}
 
 func (s *ListSuite) TestNewest(c *C) {
 	for i, test := range newestTests {
 		c.Logf("test %d", i)
-		actual, version := test.src.Newest()
+		number, actual := test.src.Newest()
+		c.Check(number, DeepEquals, test.number)
 		c.Check(actual, DeepEquals, test.expect)
-		c.Check(version, DeepEquals, test.number)
 	}
 }
 

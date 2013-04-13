@@ -122,7 +122,7 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 	}
 	toolsToCopy := sourceToolsList.Public
 	if !c.allVersions {
-		toolsToCopy, _ = toolsToCopy.Newest()
+		_, toolsToCopy = toolsToCopy.Newest()
 	}
 	fmt.Fprintf(ctx.Stderr, "found %d tools in source (%d recent ones)\n",
 		len(sourceToolsList.Public), len(toolsToCopy))

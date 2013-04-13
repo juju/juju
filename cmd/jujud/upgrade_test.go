@@ -6,10 +6,10 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/dummy"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
-	"net/http"
 	"path/filepath"
 	"time"
 )
@@ -37,117 +37,117 @@ func (s *UpgraderSuite) TestUpgraderStop(c *C) {
 	c.Assert(err, IsNil)
 }
 
-type proposal struct {
-	version    string
-	devVersion bool
-}
+var (
+	v200     = version.MustParse("2.0.0")
+	t200p64  = version.MustParseBinary("2.0.0-precise-amd64")
+	t200p32  = version.MustParseBinary("2.0.0-precise-i386")
+	t200q64  = version.MustParseBinary("2.0.0-quantal-amd64")
+	t2007p64 = version.MustParseBinary("2.0.0.7-precise-amd64")
+	t200all  = []version.Binary{t200p64, t200p32, t200q64, t2007p64}
 
-// Here be dragons.
+	v214     = version.MustParse("2.1.4")
+	t214p64  = version.MustParseBinary("2.1.4-precise-amd64")
+	v2144    = version.MustParse("2.1.4.4")
+	t2144p64 = version.MustParseBinary("2.1.4.4-precise-amd64")
+	t2144p32 = version.MustParseBinary("2.1.4.4-precise-i386")
+	t2144q64 = version.MustParseBinary("2.1.4.4-quantal-amd64")
+	t214all  = []version.Binary{t214p64, t2144p64, t2144p32, t2144q64}
+	t2all    = append(t200all, t214all...)
+
+	v300    = version.MustParse("3.0.0")
+	t300p64 = version.MustParseBinary("3.0.0-precise-amd64")
+	tAll    = append(t2all, t300p64)
+)
+
 var upgraderTests = []struct {
-	about      string
-	current    string   // current version.
-	upload     []string // Upload these tools versions.
-	propose    string   // Propose this version...
-	devVersion bool     // ... with devVersion set to this.
-
-	// upgradeTo is blank if nothing should happen.
-	upgradeTo string
+	about     string
+	current   version.Binary
+	available []version.Binary
+	propose   version.Number
+	upgrade   version.Binary
 }{{
-	about:   "propose with no possible candidates",
-	current: "2.0.0",
-	propose: "2.2.0",
+	about:   "same version, no tools available",
+	current: t200p64,
+	propose: v200,
 }, {
-	about:   "propose with same candidate as current",
-	current: "2.0.0",
-	upload:  []string{"2.0.0"},
-	propose: "2.4.0",
+	about:     "same version, bad tools available",
+	current:   t200p64,
+	available: []version.Binary{t200p32, t200q64, t214p64, t300p64},
+	propose:   v200,
 }, {
-	about:     "dev available, dev proposed, dev chosen despite !devVersion",
-	current:   "2.0.0",
-	upload:    []string{"2.1.0"},
-	propose:   "2.3.0",
-	upgradeTo: "2.1.0",
+	about:     "same version, all tools available",
+	current:   t200p64,
+	available: tAll,
+	propose:   v200,
 }, {
-	about:   "dev available, release proposed, dev ignored because !devVersion",
-	current: "2.0.0",
-	upload:  []string{"2.1.0"},
-	propose: "2.4.0",
+	about:   "newer version, no tools available",
+	current: t200p64,
+	propose: v2144,
 }, {
-	about:      "dev available, release proposed, dev chosen because devVersion",
-	current:    "2.0.0",
-	upload:     []string{"2.2.0", "2.3.0"},
-	propose:    "2.4.0",
-	devVersion: true,
-	upgradeTo:  "2.3.0",
+	about:     "newer version, bad tools available",
+	current:   t200p64,
+	available: []version.Binary{t200p64, t214p64, t2144p32, t2144q64, t300p64},
+	propose:   v2144,
 }, {
-	about:     "release available, release proposed, dev ignored because !devVersion",
-	current:   "2.2.0",
-	upload:    []string{"2.0.0", "2.3.0"},
-	propose:   "2.4.0",
-	upgradeTo: "2.0.0",
+	about:     "newer version, all tools available",
+	current:   t200p64,
+	available: tAll,
+	propose:   v2144,
+	upgrade:   t2144p64,
 }, {
-	about:     "propose with higher available candidates",
-	current:   "2.0.0",
-	upload:    []string{"2.4.0", "2.5.0", "2.6.0"},
-	propose:   "2.4.0",
-	upgradeTo: "2.4.0",
+	about:   "older version, no tools available",
+	current: t2144p64,
+	propose: v200,
 }, {
-	about:     "propose exact available version",
-	current:   "2.4.0",
-	upload:    []string{"2.6.0"},
-	propose:   "2.6.0",
-	upgradeTo: "2.6.0",
+	about:     "older version, bad tools available",
+	current:   t2144p64,
+	available: []version.Binary{t200p32, t200q64, t214p64, t2144p64, t300p64},
+	propose:   v200,
 }, {
-	about:     "propose downgrade",
-	current:   "2.6.0",
-	upload:    []string{"2.5.0"},
-	propose:   "2.5.0",
-	upgradeTo: "2.5.0",
-},
-}
+	about:     "older version, all tools available",
+	current:   t2144p64,
+	available: tAll,
+	propose:   v200,
+	upgrade:   t200p64,
+}, {
+	about:     "newer major version, all tools available",
+	current:   t200p64,
+	available: tAll,
+	propose:   v300,
+}, {
+	about:     "older major version, all tools available",
+	current:   t300p64,
+	available: tAll,
+	propose:   v200,
+}}
 
 func (s *UpgraderSuite) TestUpgrader(c *C) {
 	for i, test := range upgraderTests {
 		c.Logf("\ntest %d: %s", i, test.about)
-		if test.current == "" {
-			panic("incomplete test setup: starting current version is mandatory")
-		}
-		currentTools := s.primeTools(c, version.MustParseBinary(test.current+"-foo-bar"))
-		resp, err := http.Get(currentTools.URL)
-		c.Assert(err, IsNil)
-		err = agent.UnpackTools(s.DataDir(), currentTools, resp.Body)
-		resp.Body.Close()
-		c.Assert(err, IsNil)
-		s.removeTools(c)
-
-		uploaded := make(map[version.Number]*state.Tools)
-		for _, v := range test.upload {
-			vers := version.Current
-			vers.Number = version.MustParse(v)
+		// Note: primeTools sets version.Current...
+		currentTools := s.primeTools(c, test.current)
+		// ...but it also puts tools in storage we don't need, which is why we
+		// don't clean up garbage from earlier runs first.
+		envtesting.RemoveAllTools(c, s.Conn.Environ)
+		uploaded := make(map[version.Binary]*state.Tools)
+		for _, vers := range test.available {
 			tools := s.uploadTools(c, vers)
-			uploaded[vers.Number] = tools
+			uploaded[vers] = tools
 		}
 
-		s.proposeVersion(c, version.MustParse(test.current), test.devVersion)
-		version.Current.Number = version.MustParse(test.current)
-		currentTools, err = agent.ReadTools(s.DataDir(), version.Current)
-		c.Assert(err, IsNil)
-
-		u := s.startUpgrader(c, currentTools)
 		func() {
+			u := s.startUpgrader(c, currentTools)
 			defer u.Stop()
-			if test.propose != "" {
-				s.proposeVersion(c, version.MustParse(test.propose), test.devVersion)
-				s.State.StartSync()
-			}
-			if test.upgradeTo == "" {
-				s.State.StartSync()
+			s.proposeVersion(c, test.propose)
+			s.State.StartSync()
+			if test.upgrade.Number == version.Zero {
 				assertNothingHappens(c, u)
 				c.Assert(u.Stop(), IsNil)
 				return
 			}
+
 			ug := waitDeath(c, u)
-			tools := uploaded[version.MustParse(test.upgradeTo)]
+			tools := uploaded[test.upgrade]
 			c.Check(ug.NewTools, DeepEquals, tools)
 			c.Check(ug.OldTools.Binary, Equals, version.Current)
 			c.Check(ug.DataDir, Equals, s.DataDir())
@@ -160,6 +160,30 @@ func (s *UpgraderSuite) TestUpgrader(c *C) {
 			c.Check(string(data), Equals, "jujud contents "+tools.Binary.String())
 		}()
 	}
+}
+
+func (s *UpgraderSuite) TestStillWorksAfterBadVersions(c *C) {
+	currentTools := s.primeTools(c, t200p64)
+	envtesting.RemoveAllTools(c, s.Conn.Environ)
+	u := s.startUpgrader(c, currentTools)
+	defer u.Stop()
+
+	// Propose a missing version
+	s.proposeVersion(c, v2144)
+	s.State.StartSync()
+	assertNothingHappens(c, u)
+
+	// Propose an incompatible version
+	s.proposeVersion(c, v300)
+	s.State.StartSync()
+	assertNothingHappens(c, u)
+
+	// Propose a working version
+	newTools := s.uploadTools(c, t2144p64)
+	s.proposeVersion(c, v2144)
+	s.State.StartSync()
+	ug := waitDeath(c, u)
+	c.Assert(ug.NewTools, DeepEquals, newTools)
 }
 
 var delayedStopTests = []struct {
@@ -216,7 +240,7 @@ func (s *UpgraderSuite) TestDelayedStop(c *C) {
 		upgraderKillDelay = test.upgraderKillDelay
 		dummy.SetStorageDelay(test.storageDelay)
 		proposed := version.MustParse(test.propose)
-		s.proposeVersion(c, proposed, true)
+		s.proposeVersion(c, proposed)
 		u := s.startUpgrader(c, tools)
 		t0 := time.Now()
 		err := u.Stop()

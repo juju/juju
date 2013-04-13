@@ -34,7 +34,7 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "set environment constraints")
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
-	f.Var(seriesVar{&c.Series}, "series", "upload tools for supplied comma-separated series")
+	f.Var(seriesVar{&c.Series}, "series", "upload tools for supplied comma-separated series list")
 }
 
 func (c *BootstrapCommand) Init(args []string) error {
@@ -108,20 +108,22 @@ func (v seriesVar) String() string {
 	return strings.Join(*v.target, ",")
 }
 
-// getUploadSeries returns the supplied series if non-empty; otherwise it
-// returns a default list of series we should probably upload, base on cfg.
+// getUploadSeries returns the supplied series with duplicates removed if
+// non-empty; otherwise it returns a default list of series we should
+// probably upload, based on cfg.
 func getUploadSeries(cfg *config.Config, series []string) []string {
-	if len(series) != 0 {
-		return series
+	set := map[string]bool{}
+	for _, series := range series {
+		set[series] = true
 	}
-	set := map[string]bool{
-		config.DefaultSeries:   true,
-		cfg.DefaultSeries():    true,
-		version.Current.Series: true,
+	if len(series) == 0 {
+		set[version.Current.Series] = true
+		set[config.DefaultSeries] = true
+		set[cfg.DefaultSeries()] = true
 	}
 	result := []string{}
-	for name := range set {
-		result = append(result, name)
+	for series := range set {
+		result = append(result, series)
 	}
 	return result
 }

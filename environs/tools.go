@@ -21,25 +21,17 @@ type ToolsList struct {
 // given major version.
 func ListTools(env Environ, majorVersion int) (*ToolsList, error) {
 	private, err := tools.ReadList(env.Storage(), majorVersion)
-	if err := ignoreMissingTools(err); err != nil {
+	if err != nil && !isToolsError(err) {
 		return nil, err
 	}
 	public, err := tools.ReadList(env.PublicStorage(), majorVersion)
-	if err := ignoreMissingTools(err); err != nil {
+	if err != nil && !isToolsError(err) {
 		return nil, err
 	}
 	return &ToolsList{
 		Private: private,
 		Public:  public,
 	}, nil
-}
-
-func ignoreMissingTools(err error) error {
-	switch err {
-	case tools.ErrNoTools, tools.ErrNoMatches:
-		return nil
-	}
-	return err
 }
 
 // BestTools returns the most recent version
@@ -120,14 +112,53 @@ func FindTools(env Environ, vers version.Binary, flags ToolsSearchFlags) (*state
 }
 
 // FindAvailableTools returns a tools.List containing all tools with a given
-// version number in the environment's private storage. If no tools are
-// present in private storage, it falls back to public storage; if no tools
-// are present there, it returns ErrNoTools. Tools from public and private
-// buckets are not mixed.
-func FindAvailableTools(environ Environ, majorVersion int) (tools.List, error) {
-	list, err := tools.ReadList(environ.Storage(), majorVersion)
+// major version number available in the environment.
+// If *any* tools are present in private storage, *only* tools from private
+// storage are available.
+// If *no* tools are present in private storage, *only* tools from public
+// storage are available.
+// If no *available* tools have the supplied major version number, the function
+// returns a *NotFoundError.
+func FindAvailableTools(environ Environ, majorVersion int) (list tools.List, err error) {
+	defer convertToolsError(&err)
+	list, err = tools.ReadList(environ.Storage(), majorVersion)
 	if err == tools.ErrNoTools {
 		list, err = tools.ReadList(environ.PublicStorage(), majorVersion)
 	}
 	return list, err
+}
+
+// FindExactTools returns only the tools that match the supplied version.
+// TODO(fwereade) this should not exist: it's used by cmd/jujud/Upgrader,
+// which needs to run on every agent and must absolutely *not* in general
+// have access to an Environ.
+func FindExactTools(environ Environ, vers version.Binary) (t *state.Tools, err error) {
+	defer convertToolsError(&err)
+	list, err := FindAvailableTools(environ, vers.Major)
+	if err != nil {
+		return nil, err
+	}
+	list, err = list.Match(tools.Filter{
+		Number: vers.Number,
+		Series: vers.Series,
+		Arch:   vers.Arch,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return list[0], nil
+}
+
+func isToolsError(err error) bool {
+	switch err {
+	case tools.ErrNoTools, tools.ErrNoMatches:
+		return true
+	}
+	return false
+}
+
+func convertToolsError(err *error) {
+	if isToolsError(*err) {
+		*err = &NotFoundError{*err}
+	}
 }

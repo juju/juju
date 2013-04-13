@@ -70,8 +70,8 @@ type Number struct {
 	Build int
 }
 
-// Zero is occasionally convenient and readable. Please don't change its
-// value.
+// Zero is occasionally convenient and readable.
+// Please don't change its value.
 var Zero = Number{}
 
 // Binary specifies a binary version of juju.
@@ -229,8 +229,8 @@ func isOdd(x int) bool {
 }
 
 // IsDev returns whether the version represents a development
-// version. A version with an odd-numbered minor component, or
-// a nonzero build component, is considered to be a development
+// version. A version with an odd-numbered minor component or
+// a nonzero build component is considered to be a development
 // version.
 func (v Number) IsDev() bool {
 	return isOdd(v.Minor) || v.Build > 0

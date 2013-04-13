@@ -275,8 +275,7 @@ var upgradeJujuTests = []struct {
 	args:           []string{"--upload-tools", "--version", "2.7.3"},
 	expectVersion:  "2.7.3.2",
 	expectUploaded: []string{"2.7.3.2-foo-bar", "2.7.3.2-precise-bar", "2.7.3.2-always-bar"},
-},
-}
+}}
 
 // mockUploadTools simulates the effect of tools.Upload, but skips the time-
 // consuming build from source.
@@ -327,6 +326,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *C) {
 			"agent-version": test.agentVersion,
 			"development":   false,
 		})
+		c.Assert(err, IsNil)
 		err = s.State.SetEnvironConfig(cfg)
 		c.Assert(err, IsNil)
 		for _, v := range test.private {
