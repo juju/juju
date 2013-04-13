@@ -1,21 +1,16 @@
 package environs_test
 
 import (
-	"bytes"
-	"fmt"
-	"io"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/dummy"
+	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"net/http"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
 )
 
@@ -24,6 +19,8 @@ type ToolsSuite struct {
 	testing.LoggingSuite
 	dataDir string
 }
+
+var _ = Suite(&ToolsSuite{})
 
 func (t *ToolsSuite) SetUpTest(c *C) {
 	t.LoggingSuite.SetUpTest(c)
@@ -45,174 +42,12 @@ func (t *ToolsSuite) TearDownTest(c *C) {
 	t.LoggingSuite.TearDownTest(c)
 }
 
-var envs *environs.Environs
-
-func toolsStoragePath(vers string) string {
-	return environs.ToolsStoragePath(version.Binary{
+func toolsStorageName(vers string) string {
+	return tools.StorageName(version.Binary{
 		Number: version.MustParse(vers),
 		Series: version.CurrentSeries(),
 		Arch:   version.CurrentArch(),
 	})
-}
-
-var _ = Suite(&ToolsSuite{})
-
-const urlFile = "downloaded-url.txt"
-
-var commandTests = []struct {
-	cmd    []string
-	output string
-}{
-	// TODO(niemeyer): Reintroduce this once we start deploying to the public bucket.
-	//{
-	//  []string{"juju", "arble"},
-	//  "error: unrecognized command: juju arble\n",
-	//},
-	{
-		[]string{"jujud", "arble"},
-		"error: unrecognized command: jujud arble\n",
-	},
-}
-
-func (t *ToolsSuite) TestPutGetTools(c *C) {
-	tools, err := environs.PutTools(t.env.Storage(), nil)
-	c.Assert(err, IsNil)
-	c.Assert(tools.Binary, Equals, version.Current)
-	c.Assert(tools.URL, Not(Equals), "")
-
-	for i, get := range []func(dataDir string, t *state.Tools) error{
-		getTools,
-		getToolsWithTar,
-	} {
-		c.Logf("test %d", i)
-		// Unarchive the tool executables into a temp directory.
-		dataDir := c.MkDir()
-		err = get(dataDir, tools)
-		c.Assert(err, IsNil)
-
-		dir := agent.SharedToolsDir(dataDir, version.Current)
-		// Verify that each tool executes and produces some
-		// characteristic output.
-		for i, test := range commandTests {
-			c.Logf("command test %d", i)
-			out, err := exec.Command(filepath.Join(dir, test.cmd[0]), test.cmd[1:]...).CombinedOutput()
-			if err != nil {
-				c.Assert(err, FitsTypeOf, (*exec.ExitError)(nil))
-			}
-			c.Check(string(out), Matches, test.output)
-		}
-		data, err := ioutil.ReadFile(filepath.Join(dir, urlFile))
-		c.Assert(err, IsNil)
-		c.Assert(string(data), Equals, tools.URL)
-	}
-}
-
-func (t *ToolsSuite) TestPutToolsFakeSeries(c *C) {
-	tools, err := environs.PutTools(t.env.Storage(), nil, "sham", "fake")
-	c.Assert(err, IsNil)
-	c.Assert(tools.Binary, Equals, version.Current)
-	expect := getToolsRaw(c, tools)
-
-	for _, series := range []string{"sham", "fake", version.Current.Series} {
-		vers := version.Current
-		vers.Series = series
-		tools, err := environs.FindTools(t.env, vers, environs.CompatVersion)
-		c.Assert(err, IsNil)
-		c.Assert(tools.Binary, Equals, vers)
-		c.Assert(getToolsRaw(c, tools), DeepEquals, expect)
-	}
-}
-
-func getToolsRaw(c *C, tools *state.Tools) []byte {
-	resp, err := http.Get(tools.URL)
-	c.Assert(err, IsNil)
-	defer resp.Body.Close()
-	c.Assert(resp.StatusCode, Equals, http.StatusOK)
-	var buf bytes.Buffer
-	_, err = io.Copy(&buf, resp.Body)
-	c.Assert(err, IsNil)
-	return buf.Bytes()
-}
-
-func (t *ToolsSuite) TestPutToolsAndForceVersion(c *C) {
-	// This test actually tests three things:
-	//   the writing of the FORCE-VERSION file;
-	//   the reading of the FORCE-VERSION file by the version package;
-	//   and the reading of the version from jujud.
-	vers := version.Current
-	vers.Patch++
-	tools, err := environs.PutTools(t.env.Storage(), &vers.Number)
-	c.Assert(err, IsNil)
-	c.Assert(tools.Binary, Equals, vers)
-}
-
-// Test that the upload procedure fails correctly
-// when the build process fails (because of a bad Go source
-// file in this case).
-func (t *ToolsSuite) TestUploadBadBuild(c *C) {
-	gopath := c.MkDir()
-	join := append([]string{gopath, "src"}, strings.Split("launchpad.net/juju-core/cmd/broken", "/")...)
-	pkgdir := filepath.Join(join...)
-	err := os.MkdirAll(pkgdir, 0777)
-	c.Assert(err, IsNil)
-
-	err = ioutil.WriteFile(filepath.Join(pkgdir, "broken.go"), []byte("nope"), 0666)
-	c.Assert(err, IsNil)
-
-	defer os.Setenv("GOPATH", os.Getenv("GOPATH"))
-	os.Setenv("GOPATH", gopath)
-
-	tools, err := environs.PutTools(t.env.Storage(), nil)
-	c.Assert(tools, IsNil)
-	c.Assert(err, ErrorMatches, `build command "go" failed: exit status 1; can't load package:(.|\n)*`)
-}
-
-func (t *ToolsSuite) toolsDir() string {
-	return filepath.Join(t.dataDir, "tools")
-}
-
-func (t *ToolsSuite) TestToolsStoragePath(c *C) {
-	c.Assert(environs.ToolsStoragePath(binaryVersion("1.2.3-precise-amd64")),
-		Equals, "tools/juju-1.2.3-precise-amd64.tgz")
-}
-
-// getTools downloads and unpacks the given tools.
-func getTools(dataDir string, tools *state.Tools) error {
-	resp, err := http.Get(tools.URL)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("bad http status: %v", resp.Status)
-	}
-	return agent.UnpackTools(dataDir, tools, resp.Body)
-}
-
-// getToolsWithTar is the same as getTools but uses tar
-// itself so we're not just testing the Go tar package against
-// itself.
-func getToolsWithTar(dataDir string, tools *state.Tools) error {
-	resp, err := http.Get(tools.URL)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	dir := agent.SharedToolsDir(dataDir, tools.Binary)
-	err = os.MkdirAll(dir, 0755)
-	if err != nil {
-		return err
-	}
-
-	cmd := exec.Command("tar", "xz")
-	cmd.Dir = dir
-	cmd.Stdin = resp.Body
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("tar extract failed: %s", out)
-	}
-	return ioutil.WriteFile(filepath.Join(cmd.Dir, urlFile), []byte(tools.URL), 0644)
 }
 
 type toolsSpec struct {
@@ -233,64 +68,65 @@ var findToolsTests = []struct {
 	summary:  "current version should be satisfied by current tools path",
 	version:  version.CurrentNumber(),
 	flags:    environs.CompatVersion,
-	contents: []string{environs.ToolsStoragePath(version.Current)},
-	expect:   environs.ToolsStoragePath(version.Current),
+	contents: []string{tools.StorageName(version.Current)},
+	expect:   tools.StorageName(version.Current),
 }, {
 	summary: "highest version of tools is chosen",
 	version: version.MustParse("0.0.0"),
 	flags:   environs.HighestVersion | environs.DevVersion | environs.CompatVersion,
 	contents: []string{
-		toolsStoragePath("0.0.9"),
-		toolsStoragePath("0.1.9"),
+		toolsStorageName("0.0.9"),
+		toolsStorageName("0.1.9"),
 	},
-	expect: toolsStoragePath("0.1.9"),
+	expect: toolsStorageName("0.1.9"),
 }, {
 	summary: "fall back to public storage when nothing found in private",
 	version: version.MustParse("1.0.2"),
 	flags:   environs.DevVersion | environs.CompatVersion,
 	contents: []string{
-		toolsStoragePath("0.0.9"),
+		toolsStorageName("0.0.9"),
 	},
 	publicContents: []string{
-		toolsStoragePath("1.0.0"),
-		toolsStoragePath("1.0.1"),
+		toolsStorageName("1.0.0"),
+		toolsStorageName("1.0.1"),
 	},
-	expect: "public-" + toolsStoragePath("1.0.1"),
+	expect: "public-" + toolsStorageName("1.0.1"),
 }, {
 	summary: "always use private storage in preference to public storage",
 	version: version.MustParse("1.9.0"),
 	flags:   environs.DevVersion | environs.CompatVersion,
 	contents: []string{
-		toolsStoragePath("1.0.2"),
+		toolsStorageName("1.0.2"),
 	},
 	publicContents: []string{
-		toolsStoragePath("1.0.9"),
+		toolsStorageName("1.0.9"),
 	},
-	expect: toolsStoragePath("1.0.2"),
+	expect: toolsStorageName("1.0.2"),
 }, {
 	summary: "mismatching series or architecture is ignored",
 	version: version.MustParse("1.0.0"),
 	flags:   environs.CompatVersion,
 	contents: []string{
-		environs.ToolsStoragePath(version.Binary{
+		tools.StorageName(version.Binary{
 			Number: version.MustParse("1.9.9"),
 			Series: "foo",
 			Arch:   version.CurrentArch(),
 		}),
-		environs.ToolsStoragePath(version.Binary{
+		tools.StorageName(version.Binary{
 			Number: version.MustParse("1.9.9"),
 			Series: version.CurrentSeries(),
 			Arch:   "foo",
 		}),
-		toolsStoragePath("1.0.0"),
+		toolsStorageName("1.0.0"),
 	},
-	expect: toolsStoragePath("1.0.0"),
+	expect: toolsStorageName("1.0.0"),
 },
 }
 
 // putNames puts a set of names into the environ's private
 // and public storage. The data in the private storage is
-// the name itself; in the public storage the name is preceded with "public-".
+// the name itself; in the public storage the name is preceded
+// with "public-".
 func putNames(c *C, env environs.Environ, private, public []string) {
 	for _, name := range private {
 		err := env.Storage().Put(name, strings.NewReader(name), int64(len(name)))
@@ -300,7 +136,8 @@ func putNames(c *C, env environs.Environ, private, public []string) {
 	// that we can easily tell if we've got the right thing.
 	for _, name := range public {
 		data := "public-" + name
-		err := env.PublicStorage().(environs.Storage).Put(name, strings.NewReader(data), int64(len(data)))
+		storage := env.PublicStorage().(environs.Storage)
+		err := storage.Put(name, strings.NewReader(data), int64(len(data)))
 		c.Assert(err, IsNil)
 	}
 }
@@ -322,27 +159,6 @@ func (t *ToolsSuite) TestFindTools(c *C) {
 			assertURLContents(c, tools.URL, tt.expect)
 		}
 		t.env.Destroy(nil)
-	}
-}
-
-var setenvTests = []struct {
-	set    string
-	expect []string
-}{
-	{"foo=1", []string{"foo=1", "arble="}},
-	{"foo=", []string{"foo=", "arble="}},
-	{"arble=23", []string{"foo=bar", "arble=23"}},
-	{"zaphod=42", []string{"foo=bar", "arble=", "zaphod=42"}},
-}
-
-func (*ToolsSuite) TestSetenv(c *C) {
-	env0 := []string{"foo=bar", "arble="}
-	for i, t := range setenvTests {
-		c.Logf("test %d", i)
-		env := make([]string, len(env0))
-		copy(env, env0)
-		env = environs.Setenv(env, t.set)
-		c.Check(env, DeepEquals, t.expect)
 	}
 }
 
@@ -402,13 +218,7 @@ func (t *ToolsSuite) TestListTools(c *C) {
 	// dummy always populates the tools set with version.Current.
 	// Remove any tools in the public storage to ensure they don't
 	// conflict with the list of tools we expect.
-	ps := t.env.PublicStorage().(environs.Storage)
-	tools, err := ps.List("")
-	c.Assert(err, IsNil)
-	for _, tool := range tools {
-		ps.Remove(tool)
-	}
-
+	envtesting.RemoveTools(c, t.env.PublicStorage().(environs.Storage))
 	putNames(c, t.env, testList, testList)
 
 	for i, test := range listToolsTests {
@@ -420,12 +230,12 @@ func (t *ToolsSuite) TestListTools(c *C) {
 		for i, t := range toolsList.Private {
 			vers := binaryVersion(test.expect[i])
 			c.Assert(t.Binary, Equals, vers)
-			assertURLContents(c, t.URL, environs.ToolsStoragePath(vers))
+			assertURLContents(c, t.URL, tools.StorageName(vers))
 		}
 		for i, t := range toolsList.Public {
 			vers := binaryVersion(test.expect[i])
 			c.Assert(t.Binary, Equals, vers)
-			assertURLContents(c, t.URL, "public-"+environs.ToolsStoragePath(vers))
+			assertURLContents(c, t.URL, "public-"+tools.StorageName(vers))
 		}
 	}
 }
