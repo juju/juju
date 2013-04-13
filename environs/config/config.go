@@ -161,7 +161,7 @@ func Validate(cfg, old *Config) error {
 			}
 		}
 		if _, oldFound := old.AgentVersion(); oldFound {
-			if _, newFound := cfg.AgentVersion(); newFound {
+			if _, newFound := cfg.AgentVersion(); !newFound {
 				return fmt.Errorf("cannot clear agent-version")
 			}
 		}
