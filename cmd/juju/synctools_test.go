@@ -1,30 +1,69 @@
 package main
 
 import (
-	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
-	"os"
 	"sort"
 )
 
 type syncToolsSuite struct {
 	testing.LoggingSuite
-	home *testing.FakeHome
+	home      *testing.FakeHome
+	targetEnv environs.Environ
+	origAttrs map[string]interface{}
 }
 
 func (s *syncToolsSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
-	s.home = testing.MakeEmptyFakeHome(c)
+
+	// Create a target environments.yaml and make sure its environment is empty.
+	s.home = testing.MakeFakeHome(c, `
+environments:
+    test-target:
+        type: dummy
+        state-server: false
+        authorized-keys: "not-really-one"
+`)
+	var err error
+	s.targetEnv, err = environs.NewFromName("test-target")
+	c.Assert(err, IsNil)
+	envtesting.RemoveAllTools(c, s.targetEnv)
+
+	// Create a source environment and populate its public tools.
+	dummyAttrs := map[string]interface{}{
+		"name":         "test-source",
+		"type":         "dummy",
+		"state-server": false,
+		// Note: Without this, you get "no public ssh keys found", which seems
+		// a bit odd for the "dummy" environment
+		"authorized-keys": "I-am-not-a-real-key",
+	}
+	env, err := environs.NewFromAttrs(dummyAttrs)
+	c.Assert(err, IsNil)
+	c.Assert(env, NotNil)
+	envtesting.RemoveAllTools(c, env)
+	store := env.PublicStorage().(environs.Storage)
+	envtesting.UploadFakeToolsVersion(c, store, t1000precise.Binary)
+	envtesting.UploadFakeToolsVersion(c, store, t1000quantal.Binary)
+	envtesting.UploadFakeToolsVersion(c, store, t1000quantal32.Binary)
+	envtesting.UploadFakeToolsVersion(c, store, t1900quantal.Binary)
+	envtesting.UploadFakeToolsVersion(c, store, t2000precise.Binary)
+
+	// Overwrite the official source bucket to the new dummy 'test-source',
+	// saving the original value for cleanup
+	s.origAttrs = officialBucketAttrs
+	officialBucketAttrs = dummyAttrs
 }
 
 func (s *syncToolsSuite) TearDownTest(c *C) {
+	officialBucketAttrs = s.origAttrs
 	dummy.Reset()
 	s.home.Restore()
 	s.LoggingSuite.TearDownTest(c)
@@ -42,50 +81,6 @@ func (s *syncToolsSuite) TestHelp(c *C) {
 	c.Assert(ctx, IsNil)
 }
 
-func uploadDummyTools(c *C, vers version.Binary, storage environs.Storage) {
-	envtesting.UploadFakeToolsVersion(c, storage, vers)
-}
-
-func setupDummyEnvironments(c *C) (env environs.Environ, cleanup func()) {
-	dummyAttrs := map[string]interface{}{
-		"name":         "test-source",
-		"type":         "dummy",
-		"state-server": false,
-		// Note: Without this, you get "no public ssh keys found", which seems
-		// a bit odd for the "dummy" environment
-		"authorized-keys": "I-am-not-a-real-key",
-	}
-	env, err := environs.NewFromAttrs(dummyAttrs)
-	c.Assert(err, IsNil)
-	c.Assert(env, NotNil)
-	store := env.PublicStorage().(environs.Storage)
-	envtesting.RemoveTools(c, store)
-	// Upload multiple tools
-	uploadDummyTools(c, t1000precise.Binary, store)
-	uploadDummyTools(c, t1000quantal.Binary, store)
-	uploadDummyTools(c, t1000quantal32.Binary, store)
-	uploadDummyTools(c, t1900quantal.Binary, store)
-	// Overwrite the official source bucket to the new dummy 'test-source',
-	// saving the original value for cleanup
-	orig := officialBucketAttrs
-	officialBucketAttrs = dummyAttrs
-	// Create a target dummy environment
-	c.Assert(os.Mkdir(testing.HomePath(".juju"), 0775), IsNil)
-	jujupath := testing.HomePath(".juju", "environments.yaml")
-	err = ioutil.WriteFile(
-		jujupath,
-		[]byte(`
-environments:
-    test-target:
-        type: dummy
-        state-server: false
-        authorized-keys: "not-really-one"
-`),
-		0660)
-	c.Assert(err, IsNil)
-	return env, func() { officialBucketAttrs = orig }
-}
-
 func assertToolsList(c *C, toolsList []*state.Tools, expected ...string) {
 	sort.Strings(expected)
 	actual := make([]string, len(toolsList))
@@ -101,100 +96,105 @@ func assertToolsList(c *C, toolsList []*state.Tools, expected ...string) {
 	c.Assert(actual, DeepEquals, expected)
 }
 
-func setupTargetEnv(c *C) environs.Environ {
-	targetEnv, err := environs.NewFromName("test-target")
-	c.Assert(err, IsNil)
-	store := targetEnv.PublicStorage().(environs.Storage)
-	envtesting.RemoveTools(c, store)
-	toolsList, err := environs.ListTools(targetEnv, 1)
-	c.Assert(err, IsNil)
-	c.Assert(toolsList.Private, HasLen, 0)
-	c.Assert(toolsList.Public, HasLen, 0)
-	return targetEnv
+func assertEmpty(c *C, storage environs.StorageReader) {
+	list, err := tools.ReadList(storage, 1)
+	if len(list) > 0 {
+		c.Logf("got unexpected tools: %s", list)
+	}
+	c.Assert(err, Equals, tools.ErrNoTools)
 }
 
 func (s *syncToolsSuite) TestCopyNewestFromDummy(c *C) {
-	sourceEnv, cleanup := setupDummyEnvironments(c)
-	defer cleanup()
-	sourceTools, err := environs.ListTools(sourceEnv, 1)
-	c.Assert(err, IsNil)
-	assertToolsList(c, sourceTools.Public,
-		"1.0.0-precise-amd64", "1.0.0-quantal-amd64",
-		"1.0.0-quantal-i386", "1.9.0-quantal-amd64")
-	c.Assert(sourceTools.Private, HasLen, 0)
-
-	targetEnv := setupTargetEnv(c)
-
 	ctx, err := runSyncToolsCommand(c, "-e", "test-target")
 	c.Assert(err, IsNil)
 	c.Assert(ctx, NotNil)
-	targetTools, err := environs.ListTools(targetEnv, 1)
+
+	// Newest released v1 tools made available to target env.
+	targetTools, err := environs.FindAvailableTools(s.targetEnv, 1)
 	c.Assert(err, IsNil)
-	// No change to the Public bucket
-	c.Assert(targetTools.Public, HasLen, 0)
-	// only the newest added to the private bucket
-	assertToolsList(c, targetTools.Private, "1.9.0-quantal-amd64")
+	assertToolsList(c, targetTools,
+		"1.0.0-precise-amd64", "1.0.0-quantal-amd64", "1.0.0-quantal-i386")
+
+	// Public bucket was not touched.
+	assertEmpty(c, s.targetEnv.PublicStorage())
+}
+
+func (s *syncToolsSuite) TestCopyNewestDevFromDummy(c *C) {
+	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--dev")
+	c.Assert(err, IsNil)
+	c.Assert(ctx, NotNil)
+
+	// Newest v1 dev tools made available to target env.
+	targetTools, err := environs.FindAvailableTools(s.targetEnv, 1)
+	c.Assert(err, IsNil)
+	assertToolsList(c, targetTools, "1.9.0-quantal-amd64")
+
+	// Public bucket was not touched.
+	assertEmpty(c, s.targetEnv.PublicStorage())
 }
 
 func (s *syncToolsSuite) TestCopyAllFromDummy(c *C) {
-	sourceEnv, cleanup := setupDummyEnvironments(c)
-	defer cleanup()
-	sourceTools, err := environs.ListTools(sourceEnv, 1)
-	c.Assert(err, IsNil)
-	assertToolsList(c, sourceTools.Public,
-		"1.0.0-precise-amd64", "1.0.0-quantal-amd64",
-		"1.0.0-quantal-i386", "1.9.0-quantal-amd64")
-	c.Assert(sourceTools.Private, HasLen, 0)
-
-	targetEnv := setupTargetEnv(c)
-
 	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--all")
 	c.Assert(err, IsNil)
 	c.Assert(ctx, NotNil)
-	targetTools, err := environs.ListTools(targetEnv, 1)
+
+	// All released v1 tools made available to target env.
+	targetTools, err := environs.FindAvailableTools(s.targetEnv, 1)
 	c.Assert(err, IsNil)
-	// No change to the Public bucket
-	c.Assert(targetTools.Public, HasLen, 0)
-	// all tools added to the private bucket
-	assertToolsList(c, targetTools.Private,
+	assertToolsList(c, targetTools,
+		"1.0.0-precise-amd64", "1.0.0-quantal-amd64", "1.0.0-quantal-i386")
+
+	// Public bucket was not touched.
+	assertEmpty(c, s.targetEnv.PublicStorage())
+}
+
+func (s *syncToolsSuite) TestCopyAllDevFromDummy(c *C) {
+	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--all", "--dev")
+	c.Assert(err, IsNil)
+	c.Assert(ctx, NotNil)
+
+	// All v1 tools, dev and release, made available to target env.
+	targetTools, err := environs.FindAvailableTools(s.targetEnv, 1)
+	c.Assert(err, IsNil)
+	assertToolsList(c, targetTools,
 		"1.0.0-precise-amd64", "1.0.0-quantal-amd64",
 		"1.0.0-quantal-i386", "1.9.0-quantal-amd64")
+
+	// Public bucket was not touched.
+	assertEmpty(c, s.targetEnv.PublicStorage())
 }
 
 func (s *syncToolsSuite) TestCopyToDummyPublic(c *C) {
-	sourceEnv, cleanup := setupDummyEnvironments(c)
-	defer cleanup()
-	sourceTools, err := environs.ListTools(sourceEnv, 1)
-	c.Assert(err, IsNil)
-	assertToolsList(c, sourceTools.Public,
-		"1.0.0-precise-amd64", "1.0.0-quantal-amd64",
-		"1.0.0-quantal-i386", "1.9.0-quantal-amd64")
-	c.Assert(sourceTools.Private, HasLen, 0)
-
-	targetEnv := setupTargetEnv(c)
-
 	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--public")
 	c.Assert(err, IsNil)
 	c.Assert(ctx, NotNil)
-	targetTools, err := environs.ListTools(targetEnv, 1)
+
+	// Newest released tools made available to target env.
+	targetTools, err := environs.FindAvailableTools(s.targetEnv, 1)
 	c.Assert(err, IsNil)
-	// newest tools added to the public bucket
-	assertToolsList(c, targetTools.Public, "1.9.0-quantal-amd64")
-	c.Assert(targetTools.Private, HasLen, 0)
+	assertToolsList(c, targetTools,
+		"1.0.0-precise-amd64", "1.0.0-quantal-amd64", "1.0.0-quantal-i386")
+
+	// Private bucket was not touched.
+	assertEmpty(c, s.targetEnv.Storage())
 }
 
-func mustParseTools(major, minor, patch, build int, series string, arch string) *state.Tools {
-	return &state.Tools{
-		Binary: version.Binary{
-			Number: version.Number{major, minor, patch, build},
-			Series: series,
-			Arch:   arch}}
+func (s *syncToolsSuite) TestCopyToDummyPublicBlockedByPrivate(c *C) {
+	envtesting.UploadFakeToolsVersion(c, s.targetEnv.Storage(), t2000precise.Binary)
+
+	_, err := runSyncToolsCommand(c, "-e", "test-target", "--public")
+	c.Assert(err, ErrorMatches, "private tools present: public tools would be ignored")
+	assertEmpty(c, s.targetEnv.PublicStorage())
+}
+
+func mustParseTools(vers string) *state.Tools {
+	return &state.Tools{Binary: version.MustParseBinary(vers)}
 }
 
 var (
-	t1000precise   = mustParseTools(1, 0, 0, 0, "precise", "amd64")
-	t1000quantal   = mustParseTools(1, 0, 0, 0, "quantal", "amd64")
-	t1000quantal32 = mustParseTools(1, 0, 0, 0, "quantal", "i386")
-	t1900quantal   = mustParseTools(1, 9, 0, 0, "quantal", "amd64")
-	t2000precise   = mustParseTools(2, 0, 0, 0, "precise", "amd64")
+	t1000precise   = mustParseTools("1.0.0-precise-amd64")
+	t1000quantal   = mustParseTools("1.0.0-quantal-amd64")
+	t1000quantal32 = mustParseTools("1.0.0-quantal-i386")
+	t1900quantal   = mustParseTools("1.9.0-quantal-amd64")
+	t2000precise   = mustParseTools("2.0.0-precise-amd64")
 )

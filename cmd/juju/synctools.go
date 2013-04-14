@@ -20,6 +20,7 @@ type SyncToolsCommand struct {
 	allVersions  bool
 	dryRun       bool
 	publicBucket bool
+	dev          bool
 }
 
 var _ cmd.Command = (*SyncToolsCommand)(nil)
@@ -42,6 +43,7 @@ func (c *SyncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.BoolVar(&c.allVersions, "all", false, "copy all versions, not just the latest")
 	f.BoolVar(&c.dryRun, "dry-run", false, "don't copy, just print what would be copied")
+	f.BoolVar(&c.dev, "dev", false, "consider development versions as well as released ones")
 	f.BoolVar(&c.publicBucket, "public", false, "write to the public-bucket of the account, instead of the bucket private to the environment.")
 
 	// BUG(lp:1163164)  jam 2013-04-2 we would like to add a "source"
@@ -105,14 +107,9 @@ func copyTools(
 }
 
 func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
-	officialEnviron, err := environs.NewFromAttrs(officialBucketAttrs)
+	sourceEnv, err := environs.NewFromAttrs(officialBucketAttrs)
 	if err != nil {
 		log.Errorf("failed to initialize the official bucket environment")
-		return err
-	}
-	fmt.Fprintf(ctx.Stderr, "listing the source bucket\n")
-	sourceToolsList, err := environs.ListTools(officialEnviron, version.Current.Major)
-	if err != nil {
 		return err
 	}
 	targetEnv, err := environs.NewFromName(c.EnvName)
@@ -120,36 +117,59 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 		log.Errorf("unable to read %q from environment", c.EnvName)
 		return err
 	}
-	toolsToCopy := sourceToolsList.Public
-	if !c.allVersions {
-		_, toolsToCopy = toolsToCopy.Newest()
-	}
-	fmt.Fprintf(ctx.Stderr, "found %d tools in source (%d recent ones)\n",
-		len(sourceToolsList.Public), len(toolsToCopy))
-	for _, tool := range toolsToCopy {
-		log.Debugf("found source tool: %s", tool)
-	}
-	fmt.Fprintf(ctx.Stderr, "listing target bucket\n")
-	targetToolsList, err := environs.ListTools(targetEnv, version.Current.Major)
+
+	fmt.Fprintf(ctx.Stderr, "listing the source bucket\n")
+	majorVersion := version.Current.Major
+	sourceStorage := sourceEnv.PublicStorage()
+	sourceTools, err := tools.ReadList(sourceStorage, majorVersion)
 	if err != nil {
 		return err
 	}
-	targetTools := targetToolsList.Private
+	if !c.dev {
+		filter := tools.Filter{Released: true}
+		if sourceTools, err = sourceTools.Match(filter); err != nil {
+			return err
+		}
+	}
+	fmt.Fprintf(ctx.Stderr, "found %d tools\n", len(sourceTools))
+	if !c.allVersions {
+		var latest version.Number
+		latest, sourceTools = sourceTools.Newest()
+		fmt.Fprintf(ctx.Stderr, "found %d recent tools (version %s)\n", len(sourceTools), latest)
+	}
+	for _, tool := range sourceTools {
+		log.Debugf("found source tool: %s", tool)
+	}
+
+	fmt.Fprintf(ctx.Stderr, "listing target bucket\n")
 	targetStorage := targetEnv.Storage()
 	if c.publicBucket {
-		targetTools = targetToolsList.Public
+		switch _, err := tools.ReadList(targetStorage, majorVersion); err {
+		case tools.ErrNoTools:
+		case nil, tools.ErrNoMatches:
+			return fmt.Errorf("private tools present: public tools would be ignored")
+		default:
+			return err
+		}
 		var ok bool
 		if targetStorage, ok = targetEnv.PublicStorage().(environs.Storage); !ok {
-			return fmt.Errorf("Cannot write to PublicStorage")
+			return fmt.Errorf("cannot write to public storage")
 		}
+	}
+	targetTools, err := tools.ReadList(targetStorage, majorVersion)
+	switch err {
+	case nil, tools.ErrNoMatches, tools.ErrNoTools:
+	default:
+		return err
 	}
 	for _, tool := range targetTools {
 		log.Debugf("found target tool: %s", tool)
 	}
-	missing := toolsToCopy.Exclude(targetTools)
+
+	missing := sourceTools.Exclude(targetTools)
 	fmt.Fprintf(ctx.Stdout, "found %d tools in target; %d tools to be copied\n",
 		len(targetTools), len(missing))
-	err = copyTools(missing, officialEnviron.PublicStorage(), targetStorage, c.dryRun, ctx)
+	err = copyTools(missing, sourceStorage, targetStorage, c.dryRun, ctx)
 	if err != nil {
 		return err
 	}
