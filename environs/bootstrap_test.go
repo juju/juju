@@ -82,22 +82,21 @@ type bootstrapEnviron struct {
 	// The following fields are filled in when Bootstrap is called.
 	bootstrapCount int
 	constraints    constraints.Value
-	certPEM        []byte
-	keyPEM         []byte
 }
 
 func newEnviron(name string, defaultKeys bool) *bootstrapEnviron {
 	m := map[string]interface{}{
 		"name":            name,
 		"type":            "test",
-		"authorized-keys": "foo",
 		"ca-cert":         "",
 		"ca-private-key":  "",
+		"authorized-keys": "",
 	}
 	if defaultKeys {
 		m["ca-cert"] = testing.CACert
 		m["ca-private-key"] = testing.CAKey
 		m["admin-secret"] = version.Current.Number.String()
+		m["authorized-keys"] = "foo"
 	}
 	cfg, err := config.New(m)
 	if err != nil {

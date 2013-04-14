@@ -637,7 +637,7 @@ func (e *environ) userData(scfg *startInstanceParams, tools *state.Tools) ([]byt
 		DataDir:      "/var/lib/juju",
 		Tools:        tools,
 	}
-	if err := environs.FinishMachineConfig(mcfg, e, scfg.constraints); err != nil {
+	if err := environs.FinishMachineConfig(mcfg, e.Config(), scfg.constraints); err != nil {
 		return nil, err
 	}
 	cloudcfg, err := cloudinit.New(mcfg)

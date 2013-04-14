@@ -316,7 +316,7 @@ func (environ *maasEnviron) obtainNode(machineId string, cons constraints.Value,
 	if err != nil {
 		return nil, err
 	}
-	if err := environs.FinishMachineConfig(mcfg, environ, cons); err != nil {
+	if err := environs.FinishMachineConfig(mcfg, environ.Config(), cons); err != nil {
 		return nil, err
 	}
 	userdata, err := userData(mcfg, runCmd)
