@@ -7,7 +7,7 @@ import (
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"sort"
 	"strconv"
 	"strings"
@@ -85,7 +85,7 @@ func (r *Relation) Life() Life {
 // Destroy ensures that the relation will be removed at some point; if no units
 // are currently in scope, it will be removed immediately.
 func (r *Relation) Destroy() (err error) {
-	defer trivial.ErrorContextf(&err, "cannot destroy relation %q", r)
+	defer utils.ErrorContextf(&err, "cannot destroy relation %q", r)
 	if len(r.doc.Endpoints) == 1 && r.doc.Endpoints[0].Role == charm.RolePeer {
 		return fmt.Errorf("is a peer relation")
 	}

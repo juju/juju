@@ -4,7 +4,7 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/tomb"
 )
@@ -117,7 +117,7 @@ func (d *Deployer) deploy(unit *state.Unit) error {
 		panic("must not re-deploy a deployed unit")
 	}
 	log.Infof("worker/deployer: deploying unit %q", unit)
-	initialPassword, err := trivial.RandomPassword()
+	initialPassword, err := utils.RandomPassword()
 	if err != nil {
 		return err
 	}

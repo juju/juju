@@ -80,7 +80,7 @@ func (t *LiveTests) SetUpSuite(c *C) {
 	// Put some fake tools in place so that tests that are simply
 	// starting instances without any need to check if those instances
 	// are running will find them in the public bucket.
-	envtesting.PutFakeTools(c, t.writablePublicStorage)
+	envtesting.UploadFakeTools(c, t.writablePublicStorage)
 	t.LiveTests.SetUpSuite(c)
 }
 

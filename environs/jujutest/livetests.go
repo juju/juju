@@ -9,12 +9,13 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 	"time"
 )
@@ -33,7 +34,7 @@ type LiveTests struct {
 
 	// Attempt holds a strategy for waiting until the environment
 	// becomes logically consistent.
-	Attempt trivial.AttemptStrategy
+	Attempt utils.AttemptStrategy
 
 	// CanOpenState should be true if the testing environment allows
 	// the state to be opened after bootstrapping.
@@ -85,7 +86,7 @@ func (t *LiveTests) BootstrapOnce(c *C) {
 	// we could connect to (actual live tests, rather than local-only)
 	cons := constraints.MustParse("mem=2G")
 	if t.CanOpenState {
-		_, err := environs.PutTools(t.Env.Storage(), nil)
+		_, err := tools.Upload(t.Env.Storage(), nil)
 		c.Assert(err, IsNil)
 	}
 	err := environs.Bootstrap(t.Env, cons)
@@ -544,7 +545,7 @@ func waitAgentTools(c *C, w *toolsWaiter, expect version.Binary) *state.Tools {
 // all the provided watchers upgrade to the requested version.
 func (t *LiveTests) checkUpgrade(c *C, conn *juju.Conn, newVersion version.Binary, waiters ...*toolsWaiter) {
 	c.Logf("putting testing version of juju tools")
-	upgradeTools, err := environs.PutTools(t.Env.Storage(), &newVersion.Number)
+	upgradeTools, err := tools.Upload(t.Env.Storage(), &newVersion.Number)
 	c.Assert(err, IsNil)
 
 	// Check that the put version really is the version we expect.
@@ -576,7 +577,7 @@ func setAgentVersion(st *state.State, vers version.Number) error {
 	return st.SetEnvironConfig(cfg)
 }
 
-var waitAgent = trivial.AttemptStrategy{
+var waitAgent = utils.AttemptStrategy{
 	Total: 30 * time.Second,
 	Delay: 1 * time.Second,
 }
@@ -741,20 +742,20 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
 	// already bootstrapped.
 	t.Destroy(c)
 
-	currentPath := environs.ToolsStoragePath(current)
-	otherPath := environs.ToolsStoragePath(other)
+	currentName := tools.StorageName(current)
+	otherName := tools.StorageName(other)
 	envStorage := env.Storage()
 	dummyStorage := dummyenv.Storage()
 
-	defer envStorage.Remove(otherPath)
+	defer envStorage.Remove(otherName)
 
-	_, err = environs.PutTools(dummyStorage, &current.Number)
+	_, err = tools.Upload(dummyStorage, &current.Number)
 	c.Assert(err, IsNil)
 
 	// This will only work while cross-compiling across releases is safe,
 	// which depends on external elements. Tends to be safe for the last
 	// few releases, but we may have to refactor some day.
-	err = storageCopy(dummyStorage, currentPath, envStorage, otherPath)
+	err = storageCopy(dummyStorage, currentName, envStorage, otherName)
 	c.Assert(err, IsNil)
 
 	err = environs.Bootstrap(env, constraints.Value{})

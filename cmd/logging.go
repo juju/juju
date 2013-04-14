@@ -6,13 +6,11 @@ import (
 	"launchpad.net/juju-core/log"
 	stdlog "log"
 	"os"
-	"strings"
 )
 
 // Log supplies the necessary functionality for Commands that wish to set up
 // logging.
 type Log struct {
-	Prefix  string
 	Path    string
 	Verbose bool
 	Debug   bool
@@ -28,11 +26,7 @@ func (l *Log) AddFlags(f *gnuflag.FlagSet) {
 }
 
 func (l *Log) Output(calldepth int, s string) error {
-	// split the log line between the LEVEL and the message
-	output := strings.SplitN(s, " ", 2)
-	// recombine it inserting our prefix between the LEVEL and the message
-	output = []string{output[0], l.Prefix, output[1]}
-	return l.Logger.Output(calldepth, strings.Join(output, " "))
+	return l.Logger.Output(calldepth, s)
 }
 
 // Start starts logging using the given Context.
@@ -49,7 +43,6 @@ func (l *Log) Start(ctx *Context) (err error) {
 		target = ctx.Stderr
 	}
 	if target != nil {
-		l.Prefix = "JUJU:" + l.Prefix
 		l.Logger = stdlog.New(target, "", stdlog.LstdFlags)
 		log.SetTarget(l)
 	}
