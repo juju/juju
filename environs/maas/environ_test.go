@@ -261,6 +261,13 @@ func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
 	data, err := goyaml.Marshal(cloudinitRunCmd)
 	c.Assert(err, IsNil)
 	c.Check(string(decodedUserData), Matches, "(.|\n)*"+string(data)+"(\n|.)*")
+
+	// Trash the tools and try to start another instance.
+	envtesting.RemoveTools(c, env.Storage())
+	instance, err = env.StartInstance("2", "xxxxx", series, constraints.Value{}, stateInfo, apiInfo)
+	c.Check(instance, IsNil)
+	c.Check(err, ErrorMatches, "no tools available")
+	c.Check(err, FitsTypeOf, (*environs.NotFoundError)(nil))
 }
 
 func (suite *EnvironSuite) getInstance(systemId string) *maasInstance {
@@ -344,19 +351,24 @@ func (suite *EnvironSuite) TestBootstrapSucceeds(c *C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "thenode", "hostname": "host"}`)
-	cert := []byte{1, 2, 3}
-	key := []byte{4, 5, 6}
-
-	err := env.Bootstrap(constraints.Value{}, cert, key)
+	err := env.Bootstrap(constraints.Value{})
 	c.Assert(err, IsNil)
+}
+
+func (suite *EnvironSuite) TestBootstrapFailsIfNoTools(c *C) {
+	suite.setupFakeTools(c)
+	env := suite.makeEnviron()
+	// Can't RemoveAllTools, no public storage.
+	envtesting.RemoveTools(c, env.Storage())
+	err := env.Bootstrap(constraints.Value{})
+	c.Check(err, ErrorMatches, "no tools available")
+	c.Check(err, FitsTypeOf, (*environs.NotFoundError)(nil))
 }
 
 func (suite *EnvironSuite) TestBootstrapFailsIfNoNodes(c *C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
-	cert := []byte{1, 2, 3}
-	key := []byte{4, 5, 6}
-	err := env.Bootstrap(constraints.Value{}, cert, key)
+	err := env.Bootstrap(constraints.Value{})
 	// Since there are no nodes, the attempt to allocate one returns a
 	// 409: Conflict.
 	c.Check(err, ErrorMatches, ".*409.*")

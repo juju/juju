@@ -2,9 +2,7 @@ package environs
 
 import (
 	"fmt"
-	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/constraints"
-	"time"
 )
 
 // Bootstrap bootstraps the given environment. The supplied constraints are
@@ -12,19 +10,14 @@ import (
 // environment.
 func Bootstrap(environ Environ, cons constraints.Value) error {
 	cfg := environ.Config()
-	caCert, hasCACert := cfg.CACert()
-	caKey, hasCAKey := cfg.CAPrivateKey()
-	if !hasCACert {
+	if secret := cfg.AdminSecret(); secret == "" {
+		return fmt.Errorf("environment configuration missing admin-secret")
+	}
+	if _, hasCACert := cfg.CACert(); !hasCACert {
 		return fmt.Errorf("environment configuration missing CA certificate")
 	}
-	if !hasCAKey {
+	if _, hasCAKey := cfg.CAPrivateKey(); !hasCAKey {
 		return fmt.Errorf("environment configuration missing CA private key")
 	}
-	// Generate a new key pair and certificate for
-	// the newly bootstrapped instance.
-	cert, key, err := cert.NewServer(environ.Name(), caCert, caKey, time.Now().UTC().AddDate(10, 0, 0))
-	if err != nil {
-		return fmt.Errorf("cannot generate bootstrap certificate: %v", err)
-	}
-	return environ.Bootstrap(cons, cert, key)
+	return environ.Bootstrap(cons)
 }

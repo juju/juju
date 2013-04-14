@@ -694,7 +694,7 @@ func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
 	c.Assert(inst, IsNil)
 	var notFoundError *environs.NotFoundError
 	c.Assert(err, FitsTypeOf, notFoundError)
-	c.Assert(err, ErrorMatches, "no compatible tools found")
+	c.Assert(err, ErrorMatches, "no matching tools available")
 }
 
 // Check that we can't start an instance with an empty nonce value.

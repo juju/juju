@@ -2,14 +2,12 @@ package environs_test
 
 import (
 	"fmt"
-	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/testing"
-	"time"
+	"launchpad.net/juju-core/version"
 )
 
 const (
@@ -33,24 +31,29 @@ func (s *bootstrapSuite) TearDownTest(c *C) {
 	s.home.Restore()
 }
 
-func (s *bootstrapSuite) TestBootstrapNeedsConfigCert(c *C) {
+func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *C) {
 	env := newEnviron("bar", noKeysDefined)
+	fixEnv := func(key string, value interface{}) {
+		cfg, err := env.Config().Apply(map[string]interface{}{
+			key: value,
+		})
+		c.Assert(err, IsNil)
+		env.cfg = cfg
+	}
+
 	err := environs.Bootstrap(env, constraints.Value{})
+	c.Assert(err, ErrorMatches, "environment configuration missing admin-secret")
+
+	fixEnv("admin-secret", "whatever")
+	err = environs.Bootstrap(env, constraints.Value{})
 	c.Assert(err, ErrorMatches, "environment configuration missing CA certificate")
-}
 
-func (s *bootstrapSuite) TestBootstrapKeyGeneration(c *C) {
-	env := newEnviron("foo", useDefaultKeys)
-	err := environs.Bootstrap(env, constraints.Value{})
-	c.Assert(err, IsNil)
-	c.Assert(env.bootstrapCount, Equals, 1)
+	fixEnv("ca-cert", testing.CACert)
+	err = environs.Bootstrap(env, constraints.Value{})
+	c.Assert(err, ErrorMatches, "environment configuration missing CA private key")
 
-	caCertPEM, err := ioutil.ReadFile(config.JujuHomePath("foo-cert.pem"))
-	c.Assert(err, IsNil)
-
-	err = cert.Verify(env.certPEM, caCertPEM, time.Now())
-	c.Assert(err, IsNil)
-	err = cert.Verify(env.certPEM, caCertPEM, time.Now().AddDate(9, 0, 0))
+	fixEnv("ca-private-key", testing.CAKey)
+	err = environs.Bootstrap(env, constraints.Value{})
 	c.Assert(err, IsNil)
 }
 
@@ -94,6 +97,7 @@ func newEnviron(name string, defaultKeys bool) *bootstrapEnviron {
 	if defaultKeys {
 		m["ca-cert"] = testing.CACert
 		m["ca-private-key"] = testing.CAKey
+		m["admin-secret"] = version.Current.Number.String()
 	}
 	cfg, err := config.New(m)
 	if err != nil {
@@ -109,11 +113,9 @@ func (e *bootstrapEnviron) Name() string {
 	return e.name
 }
 
-func (e *bootstrapEnviron) Bootstrap(cons constraints.Value, certPEM, keyPEM []byte) error {
+func (e *bootstrapEnviron) Bootstrap(cons constraints.Value) error {
 	e.bootstrapCount++
 	e.constraints = cons
-	e.certPEM = certPEM
-	e.keyPEM = keyPEM
 	return nil
 }
 

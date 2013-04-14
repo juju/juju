@@ -134,19 +134,3 @@ func (t *LiveTests) TearDownTest(c *C) {
 	t.LiveTests.TearDownTest(c)
 	t.LoggingSuite.TearDownTest(c)
 }
-
-func (t *LiveTests) TestFindImageSpec(c *C) {
-	instanceType := openstack.DefaultInstanceType(t.Env)
-	imageId, flavorId, err := openstack.FindInstanceSpec(t.Env, "precise", "amd64", instanceType)
-	c.Assert(err, IsNil)
-	c.Assert(imageId, Equals, t.testImageId)
-	c.Assert(flavorId, Not(Equals), "")
-}
-
-func (t *LiveTests) TestFindImageBadFlavor(c *C) {
-	imageId, flavorId, err := openstack.FindInstanceSpec(t.Env, "precise", "amd64", "bad.flavor")
-	_, ok := err.(environs.NotFoundError)
-	c.Assert(ok, Equals, true)
-	c.Assert(imageId, Equals, "")
-	c.Assert(flavorId, Equals, "")
-}

@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/version"
 	"net/http"
 	"sort"
 )
@@ -68,18 +69,15 @@ func (t *Tests) TearDownTest(c *C) {
 	t.LoggingSuite.TearDownTest(c)
 }
 
-func (t *Tests) TestBootstrapWithoutAdminSecret(c *C) {
-	m := t.Env.Config().AllAttrs()
-	delete(m, "admin-secret")
-	env, err := environs.NewFromAttrs(m)
-	c.Assert(err, IsNil)
-	err = environs.Bootstrap(env, constraints.Value{})
-	c.Assert(err, ErrorMatches, ".*admin-secret is required for bootstrap")
-}
-
 func (t *Tests) TestStartStop(c *C) {
 	e := t.Open(c)
 	envtesting.UploadFakeTools(c, e.Storage())
+	cfg, err := e.Config().Apply(map[string]interface{}{
+		"agent-version": version.Current.Number.String(),
+	})
+	c.Assert(err, IsNil)
+	err = e.SetConfig(cfg)
+	c.Assert(err, IsNil)
 
 	insts, err := e.Instances(nil)
 	c.Assert(err, IsNil)
