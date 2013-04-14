@@ -162,17 +162,15 @@ environments:
         type: dummy
         state-server: false
         authorized-keys: i-am-a-key
-        broken: %s
 `
 
-// breakJuju forces the dummy environment to return an error when
+// breakJuju writes a dummy environment with incomplete configuration.
 // environMethod is called.
 func breakJuju(c *C, environMethod string) (msg string) {
-	yaml := fmt.Sprintf(brokenConfig, environMethod)
-	err := ioutil.WriteFile(config.JujuHomePath("environments.yaml"), []byte(yaml), 0666)
+	path := config.JujuHomePath("environments.yaml")
+	err := ioutil.WriteFile(path, []byte(brokenConfig), 0666)
 	c.Assert(err, IsNil)
-
-	return fmt.Sprintf("dummy.%s is broken", environMethod)
+	return fmt.Sprintf("environment configuration missing admin-secret")
 }
 
 func (s *MainSuite) TestActualRunJujuArgsBeforeCommand(c *C) {
