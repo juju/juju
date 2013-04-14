@@ -191,7 +191,11 @@ func (s *DeploySuite) TestForceMachineToInvalidMachine(c *C) {
 	c.Assert(err, ErrorMatches, `cannot assign unit "portlandia/0" to machine: machine 42 not found`)
 
 	err = runDeploy(c, "--force-machine", "abc", "local:dummy", "portlandia")
-	c.Assert(err, ErrorMatches, `Invalid machine id "abc"`)
+	c.Assert(err, ErrorMatches, `invalid machine id "abc"`)
+
+	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
+	err = runDeploy(c, "--force-machine", machine.Id(), "-n", "5", "local:dummy", "portlandia")
+	c.Assert(err, ErrorMatches, `force-machine cannot be used for multiple units`)
 }
 
 func (s *DeploySuite) TestCannotUpgradeCharmBundle(c *C) {

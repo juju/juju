@@ -93,7 +93,10 @@ func (c *DeployCommand) Init(args []string) error {
 
 	if c.MachineId != "" {
 		if !state.IsMachineId(c.MachineId) {
-			return fmt.Errorf("Invalid machine id %q", c.MachineId)
+			return fmt.Errorf("invalid machine id %q", c.MachineId)
+		}
+		if c.NumUnits > 1 {
+			return fmt.Errorf("force-machine cannot be used for multiple units")
 		}
 	}
 	return nil
