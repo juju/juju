@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"net/http"
@@ -26,6 +27,7 @@ var _ = Suite(&BootstrapSuite{})
 func (s *BootstrapSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
+	uploadTools = mockUploadTools
 }
 
 func (s *BootstrapSuite) SetUpTest(c *C) {
@@ -39,6 +41,7 @@ func (s *BootstrapSuite) TearDownSuite(c *C) {
 }
 
 func (s *BootstrapSuite) TearDownTest(c *C) {
+	uploadTools = tools.Upload
 	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 	dummy.Reset()
