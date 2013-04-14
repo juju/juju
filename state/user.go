@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"regexp"
 )
 
@@ -19,7 +19,7 @@ func (st *State) AddUser(name, password string) (*User, error) {
 		st: st,
 		doc: userDoc{
 			Name:         name,
-			PasswordHash: trivial.PasswordHash(password),
+			PasswordHash: utils.PasswordHash(password),
 		},
 	}
 	ops := []txn.Op{{
@@ -81,11 +81,11 @@ func (u *User) Tag() string {
 
 // SetPassword sets the password associated with the user.
 func (u *User) SetPassword(password string) error {
-	return u.SetPasswordHash(trivial.PasswordHash(password))
+	return u.SetPasswordHash(utils.PasswordHash(password))
 }
 
 // SetPasswordHash sets the password to the
-// inverse of trivial.PasswordHash(pwHash).
+// inverse of utils.PasswordHash(pwHash).
 // It can be used when we know only the hash
 // of the password, but not the clear text.
 func (u *User) SetPasswordHash(pwHash string) error {
@@ -104,7 +104,7 @@ func (u *User) SetPasswordHash(pwHash string) error {
 // PasswordValid returns whether the given password
 // is valid for the user.
 func (u *User) PasswordValid(password string) bool {
-	return trivial.PasswordHash(password) == u.doc.PasswordHash
+	return utils.PasswordHash(password) == u.doc.PasswordHash
 }
 
 // Refresh refreshes information about the user

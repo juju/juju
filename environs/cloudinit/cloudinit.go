@@ -12,8 +12,8 @@ import (
 	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/upstart"
+	"launchpad.net/juju-core/utils"
 	"path"
 )
 
@@ -345,7 +345,7 @@ func (cfg *MachineConfig) NeedMongoPPA() bool {
 }
 
 func shquote(p string) string {
-	return trivial.ShQuote(p)
+	return utils.ShQuote(p)
 }
 
 type requiresError string
@@ -355,7 +355,7 @@ func (e requiresError) Error() string {
 }
 
 func verifyConfig(cfg *MachineConfig) (err error) {
-	defer trivial.ErrorContextf(&err, "invalid machine configuration")
+	defer utils.ErrorContextf(&err, "invalid machine configuration")
 	if !state.IsMachineId(cfg.MachineId) {
 		return fmt.Errorf("invalid machine id")
 	}
