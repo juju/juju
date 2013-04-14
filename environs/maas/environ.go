@@ -13,7 +13,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 	"net/url"
 	"sync"
@@ -31,7 +31,7 @@ const (
 var mgoPortSuffix = fmt.Sprintf(":%d", mgoPort)
 var apiPortSuffix = fmt.Sprintf(":%d", apiPort)
 
-var longAttempt = trivial.AttemptStrategy{
+var longAttempt = utils.AttemptStrategy{
 	Total: 3 * time.Minute,
 	Delay: 1 * time.Second,
 }
@@ -109,11 +109,11 @@ func (env *maasEnviron) startBootstrapNode(tools *state.Tools, cert, key []byte,
 		return nil, fmt.Errorf("no CA certificate in environment configuration")
 	}
 	stateInfo := state.Info{
-		Password: trivial.PasswordHash(password),
+		Password: utils.PasswordHash(password),
 		CACert:   caCert,
 	}
 	apiInfo := api.Info{
-		Password: trivial.PasswordHash(password),
+		Password: utils.PasswordHash(password),
 		CACert:   caCert,
 	}
 
@@ -277,7 +277,7 @@ func (env *maasEnviron) getMAASClient() *gomaasapi.MAASObject {
 
 // acquireNode allocates a node from the MAAS.
 func (environ *maasEnviron) acquireNode() (gomaasapi.MAASObject, error) {
-	retry := trivial.AttemptStrategy{
+	retry := utils.AttemptStrategy{
 		Total: 5 * time.Second,
 		Delay: 200 * time.Millisecond,
 	}
@@ -303,7 +303,7 @@ func (environ *maasEnviron) acquireNode() (gomaasapi.MAASObject, error) {
 
 // startNode installs and boots a node.
 func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, tools *state.Tools, userdata []byte) error {
-	retry := trivial.AttemptStrategy{
+	retry := utils.AttemptStrategy{
 		Total: 5 * time.Second,
 		Delay: 200 * time.Millisecond,
 	}

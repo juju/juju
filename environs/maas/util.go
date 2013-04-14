@@ -7,7 +7,7 @@ import (
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"net/url"
 	"strings"
 )
@@ -45,7 +45,7 @@ func userData(cfg *cloudinit.MachineConfig, scripts ...string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	cdata := trivial.Gzip(data)
+	cdata := utils.Gzip(data)
 	log.Debugf("environs/maas: maas user data; %d bytes", len(cdata))
 	return cdata, nil
 }
@@ -72,12 +72,12 @@ func (info *machineInfo) cloudinitRunCmd() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	script := fmt.Sprintf(`mkdir -p %s; echo -n %s > %s`, trivial.ShQuote(jujuDataDir), trivial.ShQuote(string(yaml)), trivial.ShQuote(_MAASInstanceFilename))
+	script := fmt.Sprintf(`mkdir -p %s; echo -n %s > %s`, utils.ShQuote(jujuDataDir), utils.ShQuote(string(yaml)), utils.ShQuote(_MAASInstanceFilename))
 	return script, nil
 }
 
 // load loads the "machine info" file and parse the content into the info
 // object.
 func (info *machineInfo) load() error {
-	return trivial.ReadYaml(_MAASInstanceFilename, info)
+	return utils.ReadYaml(_MAASInstanceFilename, info)
 }
