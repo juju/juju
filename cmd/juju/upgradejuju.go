@@ -27,7 +27,29 @@ var uploadTools = tools.Upload
 
 var upgradeJujuDoc = `
 When called without options, upgrade-juju will upgrade all agents in the
-environment to the most recent version compatible with the CLI tools.
+environment to the most recent version compatible with the CLI tools. Most
+users should only ever call upgrade-juju without options.
+
+Versions have 4 components: major, minor, patch, and build. All version numbers
+that have an odd minor component, or a nonzero build component, are considered
+to be development versions; all others are release versions.
+
+In normal use, the CLI and the agents will all run release tools; when
+upgrade-juju is called, only other release tools will be considered. However,
+if *any* of the following conditions hold:
+
+  * the CLI has a development version
+  * the environment has a development version
+  * the environment "development" setting is true
+  * the --dev flag is passed
+
+...development versions will also be considered; and if --version specifies a
+development version, or --upload-tools is set, a development version will
+certainly be used.
+
+The --dev flag allows development versions of juju to be chosen when they
+would otherwise be ignored by virtue of the agent and CLI versions both
+being release, and the "development" environment setting being false.
 `[1:]
 
 func (c *UpgradeJujuCommand) Info() *cmd.Info {
@@ -104,7 +126,7 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) (err error) {
 			return err
 		}
 	}
-	if err := v.validate(c.Development); err != nil {
+	if err := v.validate(); err != nil {
 		return err
 	}
 	log.Infof("upgrade version chosen: %s", v.chosen)
@@ -117,11 +139,8 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) (err error) {
 	// this happens, tough: I'm not going to pretend to do it right when
 	// I'm not.
 	// TODO(fwereade): Do this right. Warning: scope unclear.
-	// TODO(fwereade): I don't think Config.Development does anything very
-	// useful. Preserved behaviour just in case.
 	cfg, err = cfg.Apply(map[string]interface{}{
 		"agent-version": v.chosen.String(),
-		"development":   c.Development,
 	})
 	if err != nil {
 		return err
@@ -135,8 +154,8 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) (err error) {
 
 // initVersions collects state relevant to an upgrade decision. The returned
 // agent and client versions, and the list of currently available tools, will
-// always be accurate; the chosen version may remain blank until uploadTools
-// or validate is called.
+// always be accurate; the chosen version, and the flag indicating development
+// mode, may remain blank until uploadTools or validate is called.
 func (c *UpgradeJujuCommand) initVersions(cfg *config.Config, env environs.Environ) (*upgradeVersions, error) {
 	agent, ok := cfg.AgentVersion()
 	if !ok {
@@ -159,7 +178,9 @@ func (c *UpgradeJujuCommand) initVersions(cfg *config.Config, env environs.Envir
 			return nil, err
 		}
 	}
+	dev := c.Development || cfg.Development() || agent.IsDev() || client.IsDev()
 	return &upgradeVersions{
+		dev:    dev,
 		agent:  agent,
 		client: client,
 		chosen: c.Version,
@@ -169,6 +190,7 @@ func (c *UpgradeJujuCommand) initVersions(cfg *config.Config, env environs.Envir
 
 // upgradeVersions holds the version information for making upgrade decisions.
 type upgradeVersions struct {
+	dev    bool
 	agent  version.Number
 	client version.Number
 	chosen version.Number
@@ -198,7 +220,7 @@ func (v *upgradeVersions) uploadTools(storage environs.Storage, series []string)
 	if v.chosen == version.Zero {
 		v.chosen = v.client
 	}
-	v.chosen = uniqueVersion(v.chosen, v.tools)
+	v.chosen = uploadVersion(v.chosen, v.tools)
 
 	// TODO(fwereade): tools.Upload should return a tools.List, and should
 	// include all the extra series we build, so we can set *that* onto
@@ -216,10 +238,10 @@ func (v *upgradeVersions) uploadTools(storage environs.Storage, series []string)
 // and ensures the tools list contains no entries that do not have that version.
 // If validate returns no error, the environment agent-version can be set to
 // the value of the chosen field.
-func (v *upgradeVersions) validate(dev bool) (err error) {
+func (v *upgradeVersions) validate() (err error) {
 	// If not completely specified already, pick a single tools version.
-	dev = dev || v.agent.IsDev() || v.client.IsDev() || v.chosen.IsDev()
-	filter := tools.Filter{Number: v.chosen, Released: !dev}
+	v.dev = v.dev || v.chosen.IsDev()
+	filter := tools.Filter{Number: v.chosen, Released: !v.dev}
 	if v.tools, err = v.tools.Match(filter); err != nil {
 		return err
 	}
@@ -235,7 +257,7 @@ func (v *upgradeVersions) validate(dev bool) (err error) {
 		// have to connect in order to discover they shouldn't. However, once
 		// any of our tools detect an incompatible version, they should act to
 		// minimize damage: the CLI should abort politely, and the agents should
-		// run an upgrader but no other tasks.
+		// run an Upgrader but no other tasks.
 		return fmt.Errorf("cannot change major version from %d to %d", v.agent.Major, v.chosen.Major)
 	} else if v.chosen.Major > v.agent.Major {
 		return fmt.Errorf("major version upgrades are not supported yet")
@@ -244,9 +266,9 @@ func (v *upgradeVersions) validate(dev bool) (err error) {
 	return nil
 }
 
-// uniqueVersion returns a copy of the supplied version with a build number
+// uploadVersion returns a copy of the supplied version with a build number
 // higher than any of the supplied tools that share its major, minor and patch.
-func uniqueVersion(vers version.Number, existing tools.List) version.Number {
+func uploadVersion(vers version.Number, existing tools.List) version.Number {
 	for _, t := range existing {
 		if t.Major != vers.Major || t.Minor != vers.Minor || t.Patch != vers.Patch {
 			continue

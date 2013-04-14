@@ -24,13 +24,13 @@ var upgradeJujuTests = []struct {
 	public         []string
 	currentVersion string
 	agentVersion   string
+	development    bool
 
-	args              []string
-	expectInitErr     string
-	expectErr         string
-	expectVersion     string
-	expectDevelopment bool
-	expectUploaded    []string
+	args           []string
+	expectInitErr  string
+	expectErr      string
+	expectVersion  string
+	expectUploaded []string
 }{{
 	about:          "unwanted extra argument",
 	currentVersion: "1.0.0-foo-bar",
@@ -72,48 +72,74 @@ var upgradeJujuTests = []struct {
 	args:           []string{"--upload-tools", "--version", "3.1.0.4"},
 	expectInitErr:  "cannot specify build number when uploading tools",
 }, {
-	about:          "from private storage",
+	about:          "latest release from private storage",
 	private:        []string{"2.0.0-foo-bar", "2.0.2-foo-bletch", "2.0.3-foo-bar"},
 	public:         []string{"2.0.0-foo-bar", "2.0.4-foo-bar", "2.0.5-foo-bar"},
 	currentVersion: "2.0.0-foo-bar",
 	agentVersion:   "2.0.0",
 	expectVersion:  "2.0.3",
 }, {
-	about:          "current dev version, from private storage",
+	about:          "latest dev from private storage (because client is dev)",
 	private:        []string{"2.0.0-foo-bar", "2.2.0-foo-bar", "2.3.0-foo-bar", "3.0.1-foo-bar"},
 	public:         []string{"2.0.0-foo-bar", "2.4.0-foo-bar", "2.5.0-foo-bar"},
 	currentVersion: "2.1.0-foo-bar",
+	agentVersion:   "2.0.0",
+	expectVersion:  "2.3.0",
+}, {
+	about:          "latest dev from private storage (because agent is dev)",
+	private:        []string{"2.0.0-foo-bar", "2.2.0-foo-bar", "2.3.0-foo-bar", "3.0.1-foo-bar"},
+	public:         []string{"2.0.0-foo-bar", "2.4.0-foo-bar", "2.5.0-foo-bar"},
+	currentVersion: "2.0.0-foo-bar",
 	agentVersion:   "2.1.0",
 	expectVersion:  "2.3.0",
 }, {
-	about:             "dev version flag, from private storage",
-	private:           []string{"2.0.0-foo-bar", "2.2.0-foo-bar", "2.3.0-foo-bar"},
-	public:            []string{"2.0.0-foo-bar", "2.4.0-foo-bar", "2.5.0-foo-bar"},
-	currentVersion:    "2.0.0-foo-bar",
-	args:              []string{"--dev"},
-	agentVersion:      "2.0.0",
-	expectVersion:     "2.3.0",
-	expectDevelopment: true,
+	about:          "latest dev from private storage (because --dev flag)",
+	private:        []string{"2.0.0-foo-bar", "2.2.0-foo-bar", "2.3.0-foo-bar"},
+	public:         []string{"2.0.0-foo-bar", "2.4.0-foo-bar", "2.5.0-foo-bar"},
+	currentVersion: "2.0.0-foo-bar",
+	args:           []string{"--dev"},
+	agentVersion:   "2.0.0",
+	expectVersion:  "2.3.0",
 }, {
-	about:          "from public storage",
+	about:          "latest dev from private storage (because dev env setting)",
+	private:        []string{"2.0.0-foo-bar", "2.2.0-foo-bar", "2.3.0-foo-bar"},
+	public:         []string{"2.0.0-foo-bar", "2.4.0-foo-bar", "2.5.0-foo-bar"},
+	currentVersion: "2.0.0-foo-bar",
+	development:    true,
+	agentVersion:   "2.0.0",
+	expectVersion:  "2.3.0",
+}, {
+	about:          "latest release from public storage",
 	public:         []string{"2.0.0-foo-bar", "2.2.0-arble-bletch", "2.3.0-foo-bar"},
 	currentVersion: "2.0.0-foo-bar",
 	agentVersion:   "2.0.0",
 	expectVersion:  "2.2.0",
 }, {
-	about:          "current dev version, from public storage",
+	about:          "latest dev from public storage (because client is dev)",
 	public:         []string{"2.0.0-foo-bar", "2.2.0-arble-bletch", "2.3.0-foo-bar"},
 	currentVersion: "2.1.0-foo-bar",
+	agentVersion:   "2.0.0",
+	expectVersion:  "2.3.0",
+}, {
+	about:          "latest dev from public storage (because agent is dev)",
+	public:         []string{"2.0.0-foo-bar", "2.2.0-arble-bletch", "2.3.0-foo-bar"},
+	currentVersion: "2.0.0-foo-bar",
 	agentVersion:   "2.1.0",
 	expectVersion:  "2.3.0",
 }, {
-	about:             "dev version flag, from public storage",
-	public:            []string{"2.0.0-foo-bar", "2.2.0-arble-bletch", "2.3.0-foo-bar"},
-	currentVersion:    "2.0.0-foo-bar",
-	args:              []string{"--dev"},
-	agentVersion:      "2.0.0",
-	expectVersion:     "2.3.0",
-	expectDevelopment: true,
+	about:          "latest dev from public storage (because --dev flag)",
+	public:         []string{"2.0.0-foo-bar", "2.2.0-arble-bletch", "2.3.0-foo-bar"},
+	currentVersion: "2.0.0-foo-bar",
+	args:           []string{"--dev"},
+	agentVersion:   "2.0.0",
+	expectVersion:  "2.3.0",
+}, {
+	about:          "latest dev from public storage (because dev env setting)",
+	public:         []string{"2.0.0-foo-bar", "2.2.0-arble-bletch", "2.3.0-foo-bar"},
+	currentVersion: "2.0.0-foo-bar",
+	development:    true,
+	agentVersion:   "2.0.0",
+	expectVersion:  "2.3.0",
 }, {
 	about:          "specified version",
 	public:         []string{"2.3.0-foo-bar"},
@@ -175,34 +201,6 @@ var upgradeJujuTests = []struct {
 	agentVersion:   "2.8.2",
 	args:           []string{"--version", "3.2.0"},
 	expectErr:      "major version upgrades are not supported yet",
-}, {
-	about:          "simple success",
-	currentVersion: "2.0.0-foo-bar",
-	private:        []string{"2.2.0-foo-bar"},
-	public:         []string{"2.4.0-foo-bar"},
-	agentVersion:   "2.0.0",
-	expectVersion:  "2.2.0",
-}, {
-	about:          "simple success from public tools",
-	currentVersion: "2.0.0-foo-bar",
-	public:         []string{"2.4.0-foo-bar"},
-	agentVersion:   "2.0.0",
-	expectVersion:  "2.4.0",
-}, {
-	about:          "simple success from public tools",
-	currentVersion: "2.0.0-foo-bar",
-	public:         []string{"2.4.0-foo-bar"},
-	agentVersion:   "2.0.0",
-	expectVersion:  "2.4.0",
-}, {
-	about:             "simple success with dev tools",
-	currentVersion:    "2.0.0-foo-bar",
-	private:           []string{"2.2.0-foo-bar", "2.3.0-foo-bar"},
-	public:            []string{"2.5.0-foo-bar"},
-	agentVersion:      "2.0.0",
-	args:              []string{"--dev"},
-	expectVersion:     "2.3.0",
-	expectDevelopment: true,
 }, {
 	about:          "nothing available 1",
 	currentVersion: "2.0.0-foo-bar",
@@ -324,7 +322,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *C) {
 		c.Assert(err, IsNil)
 		cfg, err = cfg.Apply(map[string]interface{}{
 			"agent-version": test.agentVersion,
-			"development":   false,
+			"development":   test.development,
 		})
 		c.Assert(err, IsNil)
 		err = s.State.SetEnvironConfig(cfg)
@@ -352,7 +350,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *C) {
 		agentVersion, ok := cfg.AgentVersion()
 		c.Check(ok, Equals, true)
 		c.Check(agentVersion, Equals, version.MustParse(test.expectVersion))
-		c.Check(cfg.Development(), Equals, test.expectDevelopment)
+		c.Check(cfg.Development(), Equals, test.development)
 
 		for _, uploaded := range test.expectUploaded {
 			vers := version.MustParseBinary(uploaded)

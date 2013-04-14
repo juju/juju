@@ -8,7 +8,6 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/version"
 	"os"
 	"strings"
@@ -69,10 +68,10 @@ func (c *BootstrapCommand) Run(context *cmd.Context) error {
 	if c.UploadTools {
 		// Force version.Current, for consistency with subsequent upgrade-juju
 		// (see UpgradeJujuCommand).
+		forceVersion := version.Current.Number
 		cfg := environ.Config()
 		series := getUploadSeries(cfg, c.Series)
-		forceVersion := version.Current.Number
-		tools, err := tools.Upload(environ.Storage(), &forceVersion, series...)
+		tools, err := uploadTools(environ.Storage(), &forceVersion, series...)
 		if err != nil {
 			return err
 		}
