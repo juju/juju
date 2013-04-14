@@ -302,7 +302,12 @@ func (conn *Conn) AddUnits(svc *state.Service, n int, mid string) ([]*state.Unit
 			if n != 1 {
 				return nil, fmt.Errorf("cannot add multiple units of service %q to a single machine", svc.Name())
 			}
-			err := conn.State.AssignUnitToMachine(unit, mid)
+			m, err := conn.State.Machine(mid)
+			if err != nil {
+				return nil, fmt.Errorf("cannot assign unit %q to machine: %v", unit.Name(), err)
+			}
+			err = unit.AssignToMachine(m)
+
 			if err != nil {
 				return nil, err
 			}

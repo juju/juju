@@ -22,7 +22,7 @@ type DeployCommand struct {
 	NumUnits     int // defaults to 1
 	BumpRevision bool
 	RepoPath     string // defaults to JUJU_REPOSITORY
-	MachineId    string
+	ForceMachineId    string
 }
 
 const deployDoc = `
@@ -59,7 +59,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "number of service units to deploy for principal charms")
 	f.IntVar(&c.NumUnits, "num-units", 1, "")
-	f.StringVar(&c.MachineId, "force-machine", "", "Machine to deploy initial unit, bypasses constraints")
+	f.StringVar(&c.ForceMachineId, "force-machine", "", "Machine to deploy initial unit, bypasses constraints")
 	f.BoolVar(&c.BumpRevision, "u", false, "increment local charm directory revision")
 	f.BoolVar(&c.BumpRevision, "upgrade", false, "")
 	f.Var(&c.Config, "config", "path to yaml-formatted service config")
@@ -91,9 +91,9 @@ func (c *DeployCommand) Init(args []string) error {
 		return errors.New("must deploy at least one unit")
 	}
 
-	if c.MachineId != "" {
-		if !state.IsMachineId(c.MachineId) {
-			return fmt.Errorf("invalid machine id %q", c.MachineId)
+	if c.ForceMachineId != "" {
+		if !state.IsMachineId(c.ForceMachineId) {
+			return fmt.Errorf("invalid machine id %q", c.ForceMachineId)
 		}
 		if c.NumUnits > 1 {
 			return fmt.Errorf("force-machine cannot be used for multiple units")
@@ -136,6 +136,10 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		if c.Constraints != empty {
 			return state.ErrSubordinateConstraints
 		}
+		
+		if c.ForceMachineId != "" {
+			return fmt.Errorf("subordinate service cannot specify force-machine")
+		}
 	}
 	serviceName := c.ServiceName
 	if serviceName == "" {
@@ -148,7 +152,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		// BUG(lp:1162122): --config has no tests.
 		ConfigYAML:     string(configYAML),
 		Constraints:    c.Constraints,
-		ForceMachineId: c.MachineId,
+		ForceMachineId: c.ForceMachineId,
 	}
 	_, err = conn.DeployService(args)
 	return err
