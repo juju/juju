@@ -109,7 +109,7 @@ func (t *LiveTests) SetUpSuite(c *C) {
 	// Put some fake tools in place so that tests that are simply
 	// starting instances without any need to check if those instances
 	// are running will find them in the public bucket.
-	envtesting.PutFakeTools(c, t.writeablePublicStorage)
+	envtesting.UploadFakeTools(c, t.writeablePublicStorage)
 }
 
 func (t *LiveTests) TearDownSuite(c *C) {

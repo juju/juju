@@ -71,7 +71,7 @@ waiting:
 		select {
 		case info := <-done:
 			if info.err != nil {
-				log.Errorf("cmd/jujud: %s: %v", tasks[info.index], info.err)
+				log.Errorf("%s: %v", tasks[info.index], info.err)
 				logged[info.index] = true
 				err = info.err
 				break waiting
@@ -85,7 +85,7 @@ waiting:
 	for i, t := range tasks {
 		err1 := t.Stop()
 		if !logged[i] && err1 != nil {
-			log.Errorf("cmd/jujud: %s: %v", t, err1)
+			log.Errorf("%s: %v", t, err1)
 			logged[i] = true
 		}
 		if moreImportant(err1, err) {
@@ -131,25 +131,25 @@ type Agent interface {
 // runLoop repeatedly calls runOnce until it returns worker.ErrTerminateAgent
 // or an upgraded error, or a value is received on stop.
 func runLoop(runOnce func() error, stop <-chan struct{}) error {
-	log.Noticef("cmd/jujud: agent starting")
+	log.Noticef("agent starting")
 	for {
 		err := runOnce()
 		if err == worker.ErrTerminateAgent {
-			log.Noticef("cmd/jujud: entity is terminated")
+			log.Noticef("entity is terminated")
 			return nil
 		}
 		if isFatal(err) {
 			return err
 		}
 		if err == nil {
-			log.Errorf("cmd/jujud: agent died with no error")
+			log.Errorf("agent died with no error")
 		} else {
-			log.Errorf("cmd/jujud: %v", err)
+			log.Errorf("%v", err)
 		}
 		if !isleep(retryDelay, stop) {
 			return nil
 		}
-		log.Noticef("cmd/jujud: rerunning agent")
+		log.Noticef("rerunning agent")
 	}
 	panic("unreachable")
 }

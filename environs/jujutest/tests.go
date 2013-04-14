@@ -10,7 +10,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"net/http"
 	"sort"
 )
@@ -150,7 +150,7 @@ func (t *Tests) TestBootstrap(c *C) {
 	c.Assert(err, NotNil)
 }
 
-var noRetry = trivial.AttemptStrategy{}
+var noRetry = utils.AttemptStrategy{}
 
 func (t *Tests) TestPersistence(c *C) {
 	storage := t.Open(c).Storage()
@@ -219,7 +219,7 @@ func checkPutFile(c *C, storage environs.StorageWriter, name string, contents []
 	c.Assert(err, IsNil)
 }
 
-func checkFileDoesNotExist(c *C, storage environs.StorageReader, name string, attempt trivial.AttemptStrategy) {
+func checkFileDoesNotExist(c *C, storage environs.StorageReader, name string, attempt utils.AttemptStrategy) {
 	var r io.ReadCloser
 	var err error
 	for a := attempt.Start(); a.Next(); {
@@ -233,7 +233,7 @@ func checkFileDoesNotExist(c *C, storage environs.StorageReader, name string, at
 	c.Assert(err, FitsTypeOf, notFoundError)
 }
 
-func checkFileHasContents(c *C, storage environs.StorageReader, name string, contents []byte, attempt trivial.AttemptStrategy) {
+func checkFileHasContents(c *C, storage environs.StorageReader, name string, contents []byte, attempt utils.AttemptStrategy) {
 	r, err := storage.Get(name)
 	c.Assert(err, IsNil)
 	c.Check(r, NotNil)

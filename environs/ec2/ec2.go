@@ -14,7 +14,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 	"net/http"
 	"strings"
@@ -33,12 +33,12 @@ var apiPortSuffix = fmt.Sprintf(":%d", apiPort)
 // state transition (for instance an instance taking a while to release
 // a security group after termination).  The former failure mode is
 // dealt with by shortAttempt, the latter by longAttempt.
-var shortAttempt = trivial.AttemptStrategy{
+var shortAttempt = utils.AttemptStrategy{
 	Total: 5 * time.Second,
 	Delay: 200 * time.Millisecond,
 }
 
-var longAttempt = trivial.AttemptStrategy{
+var longAttempt = utils.AttemptStrategy{
 	Total: 3 * time.Minute,
 	Delay: 1 * time.Second,
 }
@@ -285,22 +285,20 @@ func (e *environ) Bootstrap(cons constraints.Value, cert, key []byte) error {
 	if !hasCert {
 		return fmt.Errorf("no CA certificate in environment configuration")
 	}
-	mongoURL := environs.MongoURL(e, tools.Series, tools.Arch)
 	inst, err := e.startInstance(&startInstanceParams{
 		machineId:    "0",
 		machineNonce: state.BootstrapNonce,
 		series:       tools.Series,
 		constraints:  cons,
 		info: &state.Info{
-			Password: trivial.PasswordHash(password),
+			Password: utils.PasswordHash(password),
 			CACert:   caCert,
 		},
 		apiInfo: &api.Info{
-			Password: trivial.PasswordHash(password),
+			Password: utils.PasswordHash(password),
 			CACert:   caCert,
 		},
 		tools:           tools,
-		mongoURL:        mongoURL,
 		stateServer:     true,
 		config:          config,
 		stateServerCert: cert,
@@ -403,7 +401,6 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 		DataDir:         "/var/lib/juju",
 		Tools:           scfg.tools,
 		MachineNonce:    scfg.machineNonce,
-		MongoURL:        scfg.mongoURL,
 		MachineId:       scfg.machineId,
 		AuthorizedKeys:  e.ecfg().AuthorizedKeys(),
 		Config:          scfg.config,
@@ -417,7 +414,7 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	cdata := trivial.Gzip(data)
+	cdata := utils.Gzip(data)
 	log.Debugf("environs/ec2: ec2 user data; %d bytes: %q", len(cdata), data)
 	return cdata, nil
 }
@@ -430,7 +427,6 @@ type startInstanceParams struct {
 	info            *state.Info
 	apiInfo         *api.Info
 	tools           *state.Tools
-	mongoURL        string
 	stateServer     bool
 	config          *config.Config
 	stateServerCert []byte
@@ -1031,7 +1027,7 @@ var metadataHost = "http://169.254.169.254"
 // http://docs.amazonwebservices.com/AWSEC2/latest/UserGuide/AESDG-chapter-instancedata.html
 func fetchMetadata(name string) (value string, err error) {
 	uri := fmt.Sprintf("%s/2011-01-01/meta-data/%s", metadataHost, name)
-	defer trivial.ErrorContextf(&err, "cannot get %q", uri)
+	defer utils.ErrorContextf(&err, "cannot get %q", uri)
 	for a := shortAttempt.Start(); a.Next(); {
 		var resp *http.Response
 		resp, err = http.Get(uri)

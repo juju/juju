@@ -120,7 +120,6 @@ func MgoTestPackage(t *stdtesting.T) {
 }
 
 func (s *MgoSuite) SetUpSuite(c *C) {
-	c.Logf("mgo setupsuite")
 	if MgoAddr == "" {
 		panic("MgoSuite tests must be run with MgoTestPackage")
 	}

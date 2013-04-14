@@ -15,9 +15,10 @@ import (
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"regexp"
 )
 
@@ -186,7 +187,8 @@ func (srv *localServer) startServer(c *C) {
 		S3LocationConstraint: true,
 	}
 	s3inst := s3.New(aws.Auth{}, aws.Regions["test"])
-	envtesting.PutFakeTools(c, ec2.BucketStorage(s3inst.Bucket("public-tools")))
+	writeablePublicStorage := ec2.BucketStorage(s3inst.Bucket("public-tools"))
+	envtesting.UploadFakeTools(c, writeablePublicStorage)
 	srv.addSpice(c)
 }
 
@@ -257,7 +259,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	policy := t.env.AssignmentPolicy()
 	c.Assert(policy, Equals, state.AssignNew)
 
-	_, err := environs.PutTools(t.env.Storage(), nil)
+	_, err := tools.Upload(t.env.Storage(), nil)
 	c.Assert(err, IsNil)
 	err = environs.Bootstrap(t.env, constraints.Value{})
 	c.Assert(err, IsNil)
@@ -284,7 +286,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(bootstrapDNS, Not(Equals), "")
 
-	userData, err := trivial.Gunzip(inst.UserData)
+	userData, err := utils.Gunzip(inst.UserData)
 	c.Assert(err, IsNil)
 	c.Logf("first instance: UserData: %q", userData)
 	var x map[interface{}]interface{}
@@ -305,7 +307,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	c.Assert(err, IsNil)
 	inst = t.srv.ec2srv.Instance(string(inst1.Id()))
 	c.Assert(inst, NotNil)
-	userData, err = trivial.Gunzip(inst.UserData)
+	userData, err = utils.Gunzip(inst.UserData)
 	c.Assert(err, IsNil)
 	c.Logf("second instance: UserData: %q", userData)
 	x = nil

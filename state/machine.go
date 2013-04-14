@@ -7,7 +7,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/presence"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"time"
 )
 
@@ -130,7 +130,7 @@ func (m *Machine) AgentTools() (*Tools, error) {
 
 // SetAgentTools sets the tools that the agent is currently running.
 func (m *Machine) SetAgentTools(t *Tools) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot set agent tools for machine %v", m)
+	defer utils.ErrorContextf(&err, "cannot set agent tools for machine %v", m)
 	if t.Series == "" || t.Arch == "" {
 		return fmt.Errorf("empty series or arch")
 	}
@@ -157,7 +157,7 @@ func (m *Machine) SetMongoPassword(password string) error {
 
 // SetPassword sets the password for the machine's agent.
 func (m *Machine) SetPassword(password string) error {
-	hp := trivial.PasswordHash(password)
+	hp := utils.PasswordHash(password)
 	ops := []txn.Op{{
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
@@ -174,7 +174,7 @@ func (m *Machine) SetPassword(password string) error {
 // PasswordValid returns whether the given password is valid
 // for the given machine.
 func (m *Machine) PasswordValid(password string) bool {
-	return trivial.PasswordHash(password) == m.doc.PasswordHash
+	return utils.PasswordHash(password) == m.doc.PasswordHash
 }
 
 // Destroy sets the machine lifecycle to Dying if it is Alive. It does
@@ -301,7 +301,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 // Remove removes the machine from state. It will fail if the machine is not
 // Dead.
 func (m *Machine) Remove() (err error) {
-	defer trivial.ErrorContextf(&err, "cannot remove machine %s", m.doc.Id)
+	defer utils.ErrorContextf(&err, "cannot remove machine %s", m.doc.Id)
 	if m.doc.Life != Dead {
 		return fmt.Errorf("machine is not dead")
 	}
@@ -344,7 +344,7 @@ func (m *Machine) AgentAlive() (bool, error) {
 
 // WaitAgentAlive blocks until the respective agent is alive.
 func (m *Machine) WaitAgentAlive(timeout time.Duration) (err error) {
-	defer trivial.ErrorContextf(&err, "waiting for agent of machine %v", m)
+	defer utils.ErrorContextf(&err, "waiting for agent of machine %v", m)
 	ch := make(chan presence.Change)
 	m.st.pwatcher.Watch(m.globalKey(), ch)
 	defer m.st.pwatcher.Unwatch(m.globalKey(), ch)
@@ -382,7 +382,7 @@ func (m *Machine) InstanceId() (InstanceId, bool) {
 
 // Units returns all the units that have been assigned to the machine.
 func (m *Machine) Units() (units []*Unit, err error) {
-	defer trivial.ErrorContextf(&err, "cannot get units assigned to machine %v", m)
+	defer utils.ErrorContextf(&err, "cannot get units assigned to machine %v", m)
 	pudocs := []unitDoc{}
 	err = m.st.units.Find(D{{"machineid", m.doc.Id}}).All(&pudocs)
 	if err != nil {
@@ -405,7 +405,7 @@ func (m *Machine) Units() (units []*Unit, err error) {
 // SetProvisioned sets the provider specific machine id and nonce for
 // this machine. Once set, the instance id cannot be changed.
 func (m *Machine) SetProvisioned(id InstanceId, nonce string) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot set instance id of machine %q", m)
+	defer utils.ErrorContextf(&err, "cannot set instance id of machine %q", m)
 
 	if id == "" || nonce == "" {
 		return fmt.Errorf("instance id and nonce cannot be empty")
@@ -453,7 +453,7 @@ func (m *Machine) Constraints() (constraints.Value, error) {
 // instance for the machine. It will fail if the machine is Dead, or if it
 // is already provisioned.
 func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot set constraints")
+	defer utils.ErrorContextf(&err, "cannot set constraints")
 	notProvisioned := D{{"instanceid", ""}}
 	ops := []txn.Op{
 		{
@@ -486,26 +486,26 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 }
 
 // Status returns the status of the machine.
-func (m *Machine) Status() (status params.MachineStatus, info string, err error) {
+func (m *Machine) Status() (status params.Status, info string, err error) {
 	doc, err := getStatus(m.st, m.globalKey())
 	if err != nil {
 		return "", "", err
 	}
-	status = params.MachineStatus(doc.Status)
+	status = doc.Status
 	info = doc.StatusInfo
 	return
 }
 
 // SetStatus sets the status of the machine.
-func (m *Machine) SetStatus(status params.MachineStatus, info string) error {
-	if status == params.MachineError && info == "" {
+func (m *Machine) SetStatus(status params.Status, info string) error {
+	if status == params.StatusError && info == "" {
 		panic("machine error status with no info")
 	}
-	if status == params.MachinePending {
+	if status == params.StatusPending {
 		panic("machine status cannot be set to pending")
 	}
 	doc := statusDoc{
-		Status:     string(status),
+		Status:     status,
 		StatusInfo: info,
 	}
 	ops := []txn.Op{{

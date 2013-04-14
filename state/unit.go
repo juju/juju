@@ -8,7 +8,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/presence"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"sort"
 	"strings"
 	"time"
@@ -161,7 +161,7 @@ func (u *Unit) AgentTools() (*Tools, error) {
 
 // SetAgentTools sets the tools that the agent is currently running.
 func (u *Unit) SetAgentTools(t *Tools) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot set agent tools for unit %q", u)
+	defer utils.ErrorContextf(&err, "cannot set agent tools for unit %q", u)
 	if t.Series == "" || t.Arch == "" {
 		return fmt.Errorf("empty series or arch")
 	}
@@ -188,7 +188,7 @@ func (u *Unit) SetMongoPassword(password string) error {
 
 // SetPassword sets the password for the machine's agent.
 func (u *Unit) SetPassword(password string) error {
-	hp := trivial.PasswordHash(password)
+	hp := utils.PasswordHash(password)
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
@@ -206,7 +206,7 @@ func (u *Unit) SetPassword(password string) error {
 // PasswordValid returns whether the given password is valid
 // for the given unit.
 func (u *Unit) PasswordValid(password string) bool {
-	return trivial.PasswordHash(password) == u.doc.PasswordHash
+	return utils.PasswordHash(password) == u.doc.PasswordHash
 }
 
 // Destroy, when called on a Alive unit, advances its lifecycle as far as
@@ -351,7 +351,7 @@ func (u *Unit) EnsureDead() (err error) {
 // the service is Dying and no other references to it exist. It will fail if
 // the unit is not Dead.
 func (u *Unit) Remove() (err error) {
-	defer trivial.ErrorContextf(&err, "cannot remove unit %q", u)
+	defer utils.ErrorContextf(&err, "cannot remove unit %q", u)
 	if u.doc.Life != Dead {
 		return errors.New("unit is not dead")
 	}
@@ -435,23 +435,23 @@ func (u *Unit) Refresh() error {
 }
 
 // Status returns the status of the unit's agent.
-func (u *Unit) Status() (status params.UnitStatus, info string, err error) {
+func (u *Unit) Status() (status params.Status, info string, err error) {
 	doc, err := getStatus(u.st, u.globalKey())
 	if err != nil {
 		return "", "", err
 	}
-	status = params.UnitStatus(doc.Status)
+	status = doc.Status
 	info = doc.StatusInfo
 	return
 }
 
 // SetStatus sets the status of the unit.
-func (u *Unit) SetStatus(status params.UnitStatus, info string) error {
-	if status == params.UnitError && info == "" {
+func (u *Unit) SetStatus(status params.Status, info string) error {
+	if status == params.StatusError && info == "" {
 		panic("unit error status with no info")
 	}
 	doc := statusDoc{
-		Status:     string(status),
+		Status:     status,
 		StatusInfo: info,
 	}
 	ops := []txn.Op{{
@@ -471,7 +471,7 @@ func (u *Unit) SetStatus(status params.UnitStatus, info string) error {
 // OpenPort sets the policy of the port with protocol and number to be opened.
 func (u *Unit) OpenPort(protocol string, number int) (err error) {
 	port := params.Port{Protocol: protocol, Number: number}
-	defer trivial.ErrorContextf(&err, "cannot open port %v for unit %q", port, u)
+	defer utils.ErrorContextf(&err, "cannot open port %v for unit %q", port, u)
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
@@ -497,7 +497,7 @@ func (u *Unit) OpenPort(protocol string, number int) (err error) {
 // ClosePort sets the policy of the port with protocol and number to be closed.
 func (u *Unit) ClosePort(protocol string, number int) (err error) {
 	port := params.Port{Protocol: protocol, Number: number}
-	defer trivial.ErrorContextf(&err, "cannot close port %v for unit %q", port, u)
+	defer utils.ErrorContextf(&err, "cannot close port %v for unit %q", port, u)
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
@@ -614,7 +614,7 @@ func (u *Unit) Tag() string {
 
 // WaitAgentAlive blocks until the respective agent is alive.
 func (u *Unit) WaitAgentAlive(timeout time.Duration) (err error) {
-	defer trivial.ErrorContextf(&err, "waiting for agent of unit %q", u)
+	defer utils.ErrorContextf(&err, "waiting for agent of unit %q", u)
 	ch := make(chan presence.Change)
 	u.st.pwatcher.Watch(u.globalKey(), ch)
 	defer u.st.pwatcher.Unwatch(u.globalKey(), ch)
@@ -942,7 +942,7 @@ func (u *Unit) Resolve(retryHooks bool) error {
 	if err != nil {
 		return err
 	}
-	if status != params.UnitError {
+	if status != params.StatusError {
 		return fmt.Errorf("unit %q is not in an error state", u)
 	}
 	mode := ResolvedNoHooks
@@ -958,7 +958,7 @@ func (u *Unit) Resolve(retryHooks bool) error {
 // whether to attempt to reexecute previous failed hooks or to continue
 // as if they had succeeded before.
 func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot set resolved mode for unit %q", u)
+	defer utils.ErrorContextf(&err, "cannot set resolved mode for unit %q", u)
 	switch mode {
 	case ResolvedRetryHooks, ResolvedNoHooks:
 	default:

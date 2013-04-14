@@ -72,13 +72,13 @@ func (c *SSHCommand) Run(ctx *cmd.Context) error {
 func (c *SSHCommon) hostFromTarget(target string) (string, error) {
 	// is the target the id of a machine ?
 	if state.IsMachineId(target) {
-		log.Infof("cmd/juju: looking up address for machine %s...", target)
+		log.Infof("looking up address for machine %s...", target)
 		// TODO(dfc) maybe we should have machine.PublicAddress() ?
 		return c.machinePublicAddress(target)
 	}
 	// maybe the target is a unit ?
 	if state.IsUnitName(target) {
-		log.Infof("cmd/juju: looking up address for unit %q...", c.Target)
+		log.Infof("looking up address for unit %q...", c.Target)
 		unit, err := c.State.Unit(target)
 		if err != nil {
 			return "", err
