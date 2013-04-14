@@ -16,13 +16,13 @@ var _ = Suite(&PortsSuite{})
 
 var portsTests = []struct {
 	cmd    []string
-	expect set.StringSet
+	expect set.Strings
 }{
-	{[]string{"open-port", "80"}, set.MakeStringSet("80/tcp")},
-	{[]string{"open-port", "99/tcp"}, set.MakeStringSet("80/tcp", "99/tcp")},
-	{[]string{"close-port", "80/TCP"}, set.MakeStringSet("99/tcp")},
-	{[]string{"open-port", "123/udp"}, set.MakeStringSet("99/tcp", "123/udp")},
-	{[]string{"close-port", "9999/UDP"}, set.MakeStringSet("99/tcp", "123/udp")},
+	{[]string{"open-port", "80"}, set.NewStrings("80/tcp")},
+	{[]string{"open-port", "99/tcp"}, set.NewStrings("80/tcp", "99/tcp")},
+	{[]string{"close-port", "80/TCP"}, set.NewStrings("99/tcp")},
+	{[]string{"open-port", "123/udp"}, set.NewStrings("99/tcp", "123/udp")},
+	{[]string{"close-port", "9999/UDP"}, set.NewStrings("99/tcp", "123/udp")},
 }
 
 func (s *PortsSuite) TestOpenClose(c *C) {

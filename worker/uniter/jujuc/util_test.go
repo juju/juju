@@ -65,7 +65,7 @@ func setSettings(c *C, ru *state.RelationUnit, settings map[string]interface{}) 
 }
 
 type Context struct {
-	ports  set.StringSet
+	ports  set.Strings
 	relid  int
 	remote string
 	rels   map[int]*ContextRelation

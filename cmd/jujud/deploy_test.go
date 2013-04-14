@@ -19,7 +19,7 @@ import (
 // deployment tests in a reasonable amount of time).
 type fakeContext struct {
 	mu       sync.Mutex
-	deployed set.StringSet
+	deployed set.Strings
 	st       *state.State
 	inited   chan struct{}
 }

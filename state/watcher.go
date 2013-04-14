@@ -411,7 +411,7 @@ type RelationScopeWatcher struct {
 	commonWatcher
 	prefix     string
 	ignore     string
-	knownUnits set.StringSet
+	knownUnits set.Strings
 	out        chan *RelationScopeChange
 }
 
@@ -524,7 +524,7 @@ func (w *RelationScopeWatcher) loop() error {
 type RelationUnitsWatcher struct {
 	commonWatcher
 	sw       *RelationScopeWatcher
-	watching set.StringSet
+	watching set.Strings
 	updates  chan watcher.Change
 	out      chan RelationUnitsChange
 }

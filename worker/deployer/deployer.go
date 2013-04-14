@@ -17,7 +17,7 @@ type Deployer struct {
 	st       *state.State
 	ctx      Context
 	tag      string
-	deployed set.StringSet
+	deployed set.Strings
 }
 
 // Context abstracts away the differences between different unit deployment
