@@ -4,16 +4,16 @@ import (
 	"sort"
 )
 
-// StringSet represents the classic "set" data structure, and contains
+// Strings represents the classic "set" data structure, and contains
 // strings.
-type StringSet struct {
+type Strings struct {
 	values map[string]bool
 }
 
-// MakeStringSet creates and initializes a StringSet and populates it with
+// NewStrings creates and initializes a Strings and populates it with
 // initial values as specified in the parameters.
-func MakeStringSet(initial ...string) StringSet {
-	result := StringSet{values: make(map[string]bool)}
+func NewStrings(initial ...string) Strings {
+	result := Strings{values: make(map[string]bool)}
 	for _, value := range initial {
 		result.Add(value)
 	}
@@ -21,12 +21,12 @@ func MakeStringSet(initial ...string) StringSet {
 }
 
 // Size returns the number of elements in the set.
-func (s *StringSet) Size() int {
+func (s *Strings) Size() int {
 	return len(s.values)
 }
 
 // Add puts a value into the set.
-func (s *StringSet) Add(value string) {
+func (s *Strings) Add(value string) {
 	if s.values == nil {
 		s.values = make(map[string]bool)
 	}
@@ -35,7 +35,7 @@ func (s *StringSet) Add(value string) {
 
 // Remove takes a value out of the set.  If value wasn't in the set to start
 // with, this method silently succeeds.
-func (s *StringSet) Remove(value string) {
+func (s *Strings) Remove(value string) {
 	if s.values == nil {
 		return
 	}
@@ -43,7 +43,7 @@ func (s *StringSet) Remove(value string) {
 }
 
 // Contains returns true if the value is in the set, and false otherwise.
-func (s *StringSet) Contains(value string) bool {
+func (s *Strings) Contains(value string) bool {
 	if s.values == nil {
 		return false
 	}
@@ -52,7 +52,7 @@ func (s *StringSet) Contains(value string) bool {
 }
 
 // Values returns an unordered slice containing all the values in the set.
-func (s *StringSet) Values() []string {
+func (s *Strings) Values() []string {
 	result := make([]string, len(s.values))
 	i := 0
 	for key, _ := range s.values {
@@ -63,16 +63,16 @@ func (s *StringSet) Values() []string {
 }
 
 // SortedValues returns an ordered slice containing all the values in the set.
-func (s *StringSet) SortedValues() []string {
+func (s *Strings) SortedValues() []string {
 	values := s.Values()
 	sort.Strings(values)
 	return values
 }
 
-// Union returns a new StringSet representing a union of the elments in the
+// Union returns a new Strings representing a union of the elments in the
 // method target and the parameter.
-func (s *StringSet) Union(other StringSet) StringSet {
-	result := MakeStringSet()
+func (s *Strings) Union(other Strings) Strings {
+	result := NewStrings()
 	// Use the internal map rather than going through the friendlier functions
 	// to avoid extra allocation of slices.
 	for value, _ := range s.values {
@@ -84,10 +84,10 @@ func (s *StringSet) Union(other StringSet) StringSet {
 	return result
 }
 
-// Intersection returns a new StringSet representing a intersection of the elments in the
+// Intersection returns a new Strings representing a intersection of the elments in the
 // method target and the parameter.
-func (s *StringSet) Intersection(other StringSet) StringSet {
-	result := MakeStringSet()
+func (s *Strings) Intersection(other Strings) Strings {
+	result := NewStrings()
 	// Use the internal map rather than going through the friendlier functions
 	// to avoid extra allocation of slices.
 	for value, _ := range s.values {
@@ -98,10 +98,10 @@ func (s *StringSet) Intersection(other StringSet) StringSet {
 	return result
 }
 
-// Difference returns a new StringSet representing all the values in the
+// Difference returns a new Strings representing all the values in the
 // target that are not in the parameter.
-func (s *StringSet) Difference(other StringSet) StringSet {
-	result := MakeStringSet()
+func (s *Strings) Difference(other Strings) Strings {
+	result := NewStrings()
 	// Use the internal map rather than going through the friendlier functions
 	// to avoid extra allocation of slices.
 	for value, _ := range s.values {

@@ -16,7 +16,7 @@ type stringSetSuite struct{}
 var _ = Suite(stringSetSuite{})
 
 // Helper methods for the tests.
-func AssertValues(c *C, s set.StringSet, expected ...string) {
+func AssertValues(c *C, s set.Strings, expected ...string) {
 	values := s.Values()
 	// Expect an empty slice, not a nil slice for values.
 	if expected == nil {
@@ -26,46 +26,36 @@ func AssertValues(c *C, s set.StringSet, expected ...string) {
 	sort.Strings(values)
 	c.Assert(values, DeepEquals, expected)
 	c.Assert(s.Size(), Equals, len(expected))
-}
-
-func AssertSortedValues(c *C, s set.StringSet, expected ...string) {
-	// Expect an empty slice, not a nil slice for values.
-	if expected == nil {
-		expected = []string{}
-	}
-	values := s.SortedValues()
-	sort.Strings(expected)
-	c.Assert(values, DeepEquals, expected)
-	c.Assert(s.Size(), Equals, len(expected))
+	// Check the sorted values too.
+	sorted := s.SortedValues()
+	c.Assert(sorted, DeepEquals, expected)
 }
 
 // Actual tests start here.
 
 func (stringSetSuite) TestEmpty(c *C) {
-	s := set.MakeStringSet()
+	s := set.NewStrings()
 	AssertValues(c, s)
-	AssertSortedValues(c, s)
 }
 
 func (stringSetSuite) TestInitialValues(c *C) {
 	values := []string{"foo", "bar", "baz"}
-	s := set.MakeStringSet(values...)
+	s := set.NewStrings(values...)
 	AssertValues(c, s, values...)
-	AssertSortedValues(c, s, values...)
 }
 
 func (stringSetSuite) TestSize(c *C) {
 	// Empty sets are empty.
-	s := set.MakeStringSet()
+	s := set.NewStrings()
 	c.Assert(s.Size(), Equals, 0)
 
 	// Size returns number of unique values.
-	s = set.MakeStringSet("foo", "foo", "bar")
+	s = set.NewStrings("foo", "foo", "bar")
 	c.Assert(s.Size(), Equals, 2)
 }
 
 func (stringSetSuite) TestAdd(c *C) {
-	s := set.MakeStringSet()
+	s := set.NewStrings()
 	s.Add("foo")
 	s.Add("foo")
 	s.Add("bar")
@@ -73,27 +63,27 @@ func (stringSetSuite) TestAdd(c *C) {
 }
 
 func (stringSetSuite) TestRemove(c *C) {
-	s := set.MakeStringSet("foo", "bar")
+	s := set.NewStrings("foo", "bar")
 	s.Remove("foo")
 	AssertValues(c, s, "bar")
 }
 
 func (stringSetSuite) TestContains(c *C) {
-	s := set.MakeStringSet("foo", "bar")
+	s := set.NewStrings("foo", "bar")
 	c.Assert(s.Contains("foo"), Equals, true)
 	c.Assert(s.Contains("bar"), Equals, true)
 	c.Assert(s.Contains("baz"), Equals, false)
 }
 
-func (stringSetSuite) TestRemoveNonExistant(c *C) {
-	s := set.MakeStringSet()
+func (stringSetSuite) TestRemoveNonExistent(c *C) {
+	s := set.NewStrings()
 	s.Remove("foo")
 	AssertValues(c, s)
 }
 
 func (stringSetSuite) TestUnion(c *C) {
-	s1 := set.MakeStringSet("foo", "bar")
-	s2 := set.MakeStringSet("foo", "baz", "bang")
+	s1 := set.NewStrings("foo", "bar")
+	s2 := set.NewStrings("foo", "baz", "bang")
 	union1 := s1.Union(s2)
 	union2 := s2.Union(s1)
 
@@ -102,8 +92,8 @@ func (stringSetSuite) TestUnion(c *C) {
 }
 
 func (stringSetSuite) TestIntersection(c *C) {
-	s1 := set.MakeStringSet("foo", "bar")
-	s2 := set.MakeStringSet("foo", "baz", "bang")
+	s1 := set.NewStrings("foo", "bar")
+	s2 := set.NewStrings("foo", "baz", "bang")
 	int1 := s1.Intersection(s2)
 	int2 := s2.Intersection(s1)
 
@@ -112,8 +102,8 @@ func (stringSetSuite) TestIntersection(c *C) {
 }
 
 func (stringSetSuite) TestDifference(c *C) {
-	s1 := set.MakeStringSet("foo", "bar")
-	s2 := set.MakeStringSet("foo", "baz", "bang")
+	s1 := set.NewStrings("foo", "bar")
+	s2 := set.NewStrings("foo", "baz", "bang")
 	diff1 := s1.Difference(s2)
 	diff2 := s2.Difference(s1)
 
@@ -122,28 +112,27 @@ func (stringSetSuite) TestDifference(c *C) {
 }
 
 func (stringSetSuite) TestUninitialized(c *C) {
-	var uninitialized set.StringSet
+	var uninitialized set.Strings
 	c.Assert(uninitialized.Size(), Equals, 0)
 	// You can get values and sorted values from an unitialized set.
 	AssertValues(c, uninitialized)
-	AssertSortedValues(c, uninitialized)
 	// All contains checks are false
 	c.Assert(uninitialized.Contains("foo"), Equals, false)
-	// Remove works on an uninitialized StringSet
+	// Remove works on an uninitialized Strings
 	uninitialized.Remove("foo")
 
-	var other set.StringSet
+	var other set.Strings
 	// Union returns a new set that is empty but initialized.
-	c.Assert(uninitialized.Union(other), DeepEquals, set.MakeStringSet())
-	c.Assert(uninitialized.Intersection(other), DeepEquals, set.MakeStringSet())
-	c.Assert(uninitialized.Difference(other), DeepEquals, set.MakeStringSet())
+	c.Assert(uninitialized.Union(other), DeepEquals, set.NewStrings())
+	c.Assert(uninitialized.Intersection(other), DeepEquals, set.NewStrings())
+	c.Assert(uninitialized.Difference(other), DeepEquals, set.NewStrings())
 
-	other = set.MakeStringSet("foo", "bar")
+	other = set.NewStrings("foo", "bar")
 	c.Assert(uninitialized.Union(other), DeepEquals, other)
-	c.Assert(uninitialized.Intersection(other), DeepEquals, set.MakeStringSet())
-	c.Assert(uninitialized.Difference(other), DeepEquals, set.MakeStringSet())
+	c.Assert(uninitialized.Intersection(other), DeepEquals, set.NewStrings())
+	c.Assert(uninitialized.Difference(other), DeepEquals, set.NewStrings())
 	c.Assert(other.Union(uninitialized), DeepEquals, other)
-	c.Assert(other.Intersection(uninitialized), DeepEquals, set.MakeStringSet())
+	c.Assert(other.Intersection(uninitialized), DeepEquals, set.NewStrings())
 	c.Assert(other.Difference(uninitialized), DeepEquals, other)
 
 	// Once something is added, the set becomes initialized.
