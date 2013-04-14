@@ -2,6 +2,7 @@ package environs
 
 import (
 	"fmt"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -126,6 +127,78 @@ func FindAvailableTools(environ Environ, majorVersion int) (list tools.List, err
 		list, err = tools.ReadList(environ.PublicStorage(), majorVersion)
 	}
 	return list, err
+}
+
+// FindBootstrapTools returns a ToolsList containing only those tools with
+// which it would be reasonable to launch an environment's first machine,
+// given the supplied constraints.
+// If the environment was not already configured to use a specific agent
+// version, the newest available version will be chosen and set in the
+// environment's configuration.
+func FindBootstrapTools(environ Environ, cons constraints.Value) (list tools.List, err error) {
+	defer convertToolsError(&err)
+	// Collect all possible compatible tools.
+	cliVersion := version.Current.Number
+	if list, err = FindAvailableTools(environ, cliVersion.Major); err != nil {
+		return nil, err
+	}
+
+	// Discard all that are known to be irrelevant.
+	cfg := environ.Config()
+	filter := tools.Filter{Series: cfg.DefaultSeries()}
+	if cons.Arch != nil && *cons.Arch != "" {
+		filter.Arch = *cons.Arch
+	}
+	if agentVersion, ok := cfg.AgentVersion(); ok {
+		// If we already have an explicit agent version set, we're done.
+		filter.Number = agentVersion
+		return list.Match(filter)
+	}
+	filter.Released = !cliVersion.IsDev() && !cfg.Development()
+	if list, err = list.Match(filter); err != nil {
+		return nil, err
+	}
+
+	// We probably still have a mix of versions available; discard older ones
+	// and update environment configuration to use only those remaining.
+	vers, list := list.Newest()
+	cfg, err = cfg.Apply(map[string]interface{}{
+		"agent-version": vers.String(),
+	})
+	if err == nil {
+		err = environ.SetConfig(cfg)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to update environment configuration: %v", err)
+	}
+	return list, nil
+}
+
+// FindInstanceTools returns a ToolsList containing only those tools with which
+// it would be reasonable to start a new instance, given the supplied series and
+// constraints.
+// It is an error to call it with an environment not already configured to use
+// a specific agent version.
+func FindInstanceTools(environ Environ, series string, cons constraints.Value) (list tools.List, err error) {
+	defer convertToolsError(&err)
+	// Collect all possible compatible tools.
+	agentVersion, ok := environ.Config().AgentVersion()
+	if !ok {
+		return nil, fmt.Errorf("no agent version set in environment configuration")
+	}
+	if list, err = FindAvailableTools(environ, agentVersion.Major); err != nil {
+		return nil, err
+	}
+
+	// Discard all that are known to be irrelevant.
+	filter := tools.Filter{
+		Number: agentVersion,
+		Series: series,
+	}
+	if cons.Arch != nil && *cons.Arch != "" {
+		filter.Arch = *cons.Arch
+	}
+	return list.Match(filter)
 }
 
 // FindExactTools returns only the tools that match the supplied version.
