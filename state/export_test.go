@@ -19,6 +19,7 @@ func TestingEnvironConfig(c *C) *config.Config {
 		"name":            "test-name",
 		"default-series":  "test-series",
 		"authorized-keys": "test-keys",
+		"agent-version":   "9.9.9.9",
 		"ca-cert":         testing.CACert,
 		"ca-private-key":  "",
 	})

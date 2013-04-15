@@ -137,8 +137,8 @@ func Initialize(info *Info, cfg *config.Config, opts DialOpts) (rst *State, err 
 		return nil, err
 	}
 	log.Infof("state: initializing environment")
-	if cfg.AdminSecret() != "" {
-		return nil, fmt.Errorf("admin-secret should never be written to the state")
+	if err := checkEnvironConfig(cfg); err != nil {
+		return nil, err
 	}
 	uuid, err := trivial.NewUUID()
 	if err != nil {
