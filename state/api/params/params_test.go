@@ -45,7 +45,7 @@ var marshalTestCases = []struct {
 			Constraints: constraints.MustParse("arch=arm mem=1024M"),
 			Config: map[string]interface{}{
 				"hello": "goodbye",
-				"foo": false,
+				"foo":   false,
 			},
 		},
 	},
