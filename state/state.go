@@ -16,7 +16,7 @@ import (
 	"launchpad.net/juju-core/state/multiwatcher"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 	"net/url"
 	"regexp"
@@ -230,7 +230,7 @@ func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value) (*machi
 
 // addMachine implements AddMachine and InjectMachine.
 func (st *State) addMachine(series string, instanceId InstanceId, nonce string, jobs []MachineJob) (m *Machine, err error) {
-	defer trivial.ErrorContextf(&err, "cannot add a new machine")
+	defer utils.ErrorContextf(&err, "cannot add a new machine")
 
 	cons, err := st.EnvironConstraints()
 	if err != nil {
@@ -509,7 +509,7 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 // supplied name (which must be unique). If the charm defines peer relations,
 // they will be created automatically.
 func (st *State) AddService(name string, ch *Charm) (service *Service, err error) {
-	defer trivial.ErrorContextf(&err, "cannot add service %q", name)
+	defer utils.ErrorContextf(&err, "cannot add service %q", name)
 	// Sanity checks.
 	if !IsServiceName(name) {
 		return nil, fmt.Errorf("invalid name")
@@ -714,7 +714,7 @@ func (st *State) endpoints(name string, filter func(ep Endpoint) bool) ([]Endpoi
 // AddRelation creates a new relation with the given endpoints.
 func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	key := relationKey(eps)
-	defer trivial.ErrorContextf(&err, "cannot add relation %q", key)
+	defer utils.ErrorContextf(&err, "cannot add relation %q", key)
 	// Enforce basic endpoint sanity. The epCount restrictions may be relaxed
 	// in the future; if so, this method is likely to need significant rework.
 	if len(eps) != 2 {
@@ -916,7 +916,7 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 	if !u.IsPrincipal() {
 		return fmt.Errorf("subordinate unit %q cannot be assigned directly to a machine", u)
 	}
-	defer trivial.ErrorContextf(&err, "cannot assign unit %q to machine", u)
+	defer utils.ErrorContextf(&err, "cannot assign unit %q to machine", u)
 	var m *Machine
 	switch policy {
 	case AssignLocal:

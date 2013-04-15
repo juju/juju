@@ -33,7 +33,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 	"net"
 	"net/http"
@@ -458,7 +458,7 @@ func (e *environ) Bootstrap(cons constraints.Value, cert, key []byte) error {
 		if err := st.SetEnvironConstraints(cons); err != nil {
 			panic(err)
 		}
-		if err := st.SetAdminMongoPassword(trivial.PasswordHash(password)); err != nil {
+		if err := st.SetAdminMongoPassword(utils.PasswordHash(password)); err != nil {
 			panic(err)
 		}
 		// TODO(rog) use hash of password when the juju API connection

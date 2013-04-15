@@ -11,7 +11,7 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -213,7 +213,7 @@ func decodeUserData(userData string) ([]byte, error) {
 	if err != nil {
 		return []byte(""), err
 	}
-	return trivial.Gunzip(data)
+	return utils.Gunzip(data)
 }
 
 func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
