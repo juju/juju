@@ -104,6 +104,11 @@ var (
 		"dns-name":    "dummyenv-3.dns",
 		"instance-id": "dummyenv-3",
 	}
+	machine4 = M{
+		"agent-state": "started",
+		"dns-name":    "dummyenv-4.dns",
+		"instance-id": "dummyenv-4",
+	}
 	unexposedService = M{
 		"charm":   "local:series/dummy-1",
 		"exposed": false,
@@ -206,7 +211,7 @@ var statusTests = []testCase{
 		addMachine{"0", state.JobManageEnviron},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", params.StatusStarted, ""},
-		addCharm{"dummy", nil, nil},
+		addCharm{"dummy"},
 		addService{"dummy-service", "dummy"},
 		addService{"exposed-service", "dummy"},
 		expect{
@@ -351,121 +356,108 @@ var statusTests = []testCase{
 			},
 		},
 	), test(
-		"add two services, expose them, add machines and relate them",
+		"complex scenario with multiple related services",
 		addMachine{"0", state.JobManageEnviron},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", params.StatusStarted, ""},
-		addCharm{"dummy",
-			map[string]charm.Relation{
-				"foo": charm.Relation{
-					Name:      "foo",
-					Role:      charm.RoleProvider,
-					Interface: "ifce-a",
-					Optional:  false,
-					Limit:     1,
-					Scope:     charm.ScopeGlobal,
-				},
-				"bar": charm.Relation{
-					Name:      "bar",
-					Role:      charm.RoleProvider,
-					Interface: "ifce-b",
-					Optional:  false,
-					Limit:     1,
-					Scope:     charm.ScopeGlobal,
-				},
-			},
-			map[string]charm.Relation{
-				"baz": charm.Relation{
-					Name:      "baz",
-					Role:      charm.RoleRequirer,
-					Interface: "ifce-a",
-					Optional:  false,
-					Limit:     1,
-					Scope:     charm.ScopeGlobal,
-				},
-				"yadda": charm.Relation{
-					Name:      "yadda",
-					Role:      charm.RoleRequirer,
-					Interface: "ifce-b",
-					Optional:  false,
-					Limit:     1,
-					Scope:     charm.ScopeGlobal,
-				},
-			},
-		},
+		addCharm{"wordpress"},
+		addCharm{"mysql"},
+		addCharm{"varnish"},
 
-		addService{"a-service", "dummy"},
-		setServiceExposed{"a-service", true},
+		addService{"project", "wordpress"},
+		setServiceExposed{"project", true},
 		addMachine{"1", state.JobHostUnits},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", params.StatusStarted, ""},
-		addUnit{"a-service", "1"},
+		addUnit{"project", "1"},
 
-		addService{"b-service", "dummy"},
-		setServiceExposed{"b-service", true},
+		addService{"mysql", "mysql"},
+		setServiceExposed{"mysql", true},
 		addMachine{"2", state.JobHostUnits},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", params.StatusStarted, ""},
-		addUnit{"b-service", "2"},
+		addUnit{"mysql", "2"},
 
-		addService{"c-service", "dummy"},
-		setServiceExposed{"c-service", true},
+		addService{"varnish", "varnish"},
+		setServiceExposed{"varnish", true},
 		addMachine{"3", state.JobHostUnits},
 		startAliveMachine{"3"},
 		setMachineStatus{"3", params.StatusStarted, ""},
-		addUnit{"c-service", "3"},
+		addUnit{"varnish", "3"},
 
-		relateServices{"a-service", "foo", "b-service", "baz", "ifce-a"},
-		relateServices{"a-service", "bar", "c-service", "yadda", "ifce-b"},
+		addService{"private", "wordpress"},
+		setServiceExposed{"private", true},
+		addMachine{"4", state.JobHostUnits},
+		startAliveMachine{"4"},
+		setMachineStatus{"4", params.StatusStarted, ""},
+		addUnit{"private", "4"},
+
+		relateServices{"project", "mysql"},
+		relateServices{"project", "varnish"},
+		relateServices{"private", "mysql"},
 
 		expect{
-			"two services with a provider requirer relation between them",
+			"multiples services with relations between some of them",
 			M{
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
 					"2": machine2,
 					"3": machine3,
+					"4": machine4,
 				},
 				"services": M{
-					"a-service": M{
-						"charm":   "local:series/dummy-1",
+					"project": M{
+						"charm":   "local:series/wordpress-3",
 						"exposed": true,
 						"units": M{
-							"a-service/0": M{
+							"project/0": M{
 								"machine":     "1",
 								"agent-state": "pending",
 							},
 						},
 						"relations": M{
-							"0": L{"b-service"},
-							"1": L{"c-service"},
+							"db":    L{"mysql"},
+							"cache": L{"varnish"},
 						},
 					},
-					"b-service": M{
-						"charm":   "local:series/dummy-1",
+					"mysql": M{
+						"charm":   "local:series/mysql-1",
 						"exposed": true,
 						"units": M{
-							"b-service/0": M{
+							"mysql/0": M{
 								"machine":     "2",
 								"agent-state": "pending",
 							},
 						},
 						"relations": M{
-							"0": L{"a-service"},
+							"server": L{"private", "project"},
 						},
 					},
-					"c-service": M{
-						"charm":   "local:series/dummy-1",
+					"varnish": M{
+						"charm":   "local:series/varnish-1",
 						"exposed": true,
 						"units": M{
-							"c-service/0": M{
+							"varnish/0": M{
 								"machine":     "3",
 								"agent-state": "pending",
 							},
 						},
 						"relations": M{
-							"1": L{"a-service"},
+							"webcache": L{"project"},
+						},
+					},
+					"private": M{
+						"charm":   "local:series/wordpress-3",
+						"exposed": true,
+						"units": M{
+							"private/0": M{
+								"machine":     "4",
+								"agent-state": "pending",
+							},
+						},
+						"relations": M{
+							"db": L{"mysql"},
 						},
 					},
 				},
@@ -533,20 +525,12 @@ func (st setTools) step(c *C, ctx *context) {
 }
 
 type addCharm struct {
-	name     string
-	provides map[string]charm.Relation
-	requires map[string]charm.Relation
+	name string
 }
 
 func (ac addCharm) step(c *C, ctx *context) {
 	ch := coretesting.Charms.Dir(ac.name)
 	name, rev := ch.Meta().Name, ch.Revision()
-	if ac.provides != nil {
-		ch.Meta().Provides = ac.provides
-	}
-	if ac.requires != nil {
-		ch.Meta().Requires = ac.requires
-	}
 	curl := charm.MustParseURL(fmt.Sprintf("local:series/%s-%d", name, rev))
 	bundleURL, err := url.Parse(fmt.Sprintf("http://bundles.example.com/%s-%d", name, rev))
 	c.Assert(err, IsNil)
@@ -647,33 +631,13 @@ func (sms setMachineStatus) step(c *C, ctx *context) {
 }
 
 type relateServices struct {
-	serviceNameA string
-	nameA        string
-	serviceNameB string
-	nameB        string
-	ifce         string
+	ep1, ep2 string
 }
 
 func (rs relateServices) step(c *C, ctx *context) {
-	epA := state.Endpoint{
-		ServiceName: rs.serviceNameA,
-		Relation: charm.Relation{
-			Interface: rs.ifce,
-			Name:      rs.nameA,
-			Role:      charm.RoleProvider,
-			Scope:     charm.ScopeGlobal,
-		},
-	}
-	epB := state.Endpoint{
-		ServiceName: rs.serviceNameB,
-		Relation: charm.Relation{
-			Interface: rs.ifce,
-			Name:      rs.nameB,
-			Role:      charm.RoleRequirer,
-			Scope:     charm.ScopeGlobal,
-		},
-	}
-	_, err := ctx.st.AddRelation(epA, epB)
+	eps, err := ctx.st.InferEndpoints([]string{rs.ep1, rs.ep2})
+	c.Assert(err, IsNil)
+	_, err = ctx.st.AddRelation(eps...)
 	c.Assert(err, IsNil)
 }
 

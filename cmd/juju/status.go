@@ -2,8 +2,6 @@ package main
 
 import (
 	"fmt"
-	"sort"
-	"strconv"
 
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
@@ -11,6 +9,7 @@ import (
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/utils/set"
 )
 
 type StatusCommand struct {
@@ -194,7 +193,7 @@ func processService(service *state.Service) (statusMap, error) {
 
 	// TODO(dfc) service.IsSubordinate() ?
 
-	relations, relationMap, relationsServiceMap, err := processRelationsMap(service)
+	_, relationMap, err := processRelationsMap(service)
 	if err != nil {
 		return nil, err
 	}
@@ -209,8 +208,8 @@ func processService(service *state.Service) (statusMap, error) {
 		serviceMap["units"] = u
 	}
 
-	if r := checkError(processRelations(service, relations, relationMap, relationsServiceMap)); len(r) > 0 {
-		serviceMap["relations"] = r
+	if len(relationMap) > 0 {
+		serviceMap["relations"] = relationMap
 	}
 
 	return serviceMap, nil
@@ -252,104 +251,53 @@ func processUnit(unit *state.Unit) (statusMap, error) {
 	return unitMap, nil
 }
 
-func processRelationsMap(service *state.Service) ([]*state.Relation, statusMap, statusMap, error) {
+func processRelationsMap(service *state.Service) ([]*state.Relation, statusMap, error) {
 	// TODO(mue) This way the same relation is read twice (for each service).
 	// Maybe add Relations() to state, read them only once and pass them to the to each
 	// call of this function. 
 	relations, err := service.Relations()
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
-	relMap := make(statusMap)
-	relSvcMap := make(statusMap)
+	relationMap := make(statusMap)
 	for _, relation := range relations {
+		ep, err := relation.Endpoint(service.Name())
+		if err != nil {
+			return nil, nil, err
+		}
+		relationName := ep.Relation.Name
 		eps, err := relation.RelatedEndpoints(service.Name())
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, err
 		}
-		if len(eps) > 1 {
-			// Filter out this service.
-			filteredEPs := []state.Endpoint{}
-			for _, ep := range eps {
-				if ep.ServiceName != service.Name() {
-					filteredEPs = append(filteredEPs, ep)
-				}
-			}
-			eps = filteredEPs
+		serviceNames := []string{}
+		if relationMap[relationName] != nil {
+			serviceNames = relationMap[relationName].([]string)
 		}
-		if len(eps) > 1 {
-			return nil, nil, nil, fmt.Errorf("unexpected relationship with more than 2 endpoints")
+		for _, ep := range eps {
+			serviceNames = append(serviceNames, ep.ServiceName)
 		}
-		relMap.addToSet(strconv.Itoa(relation.Id()), eps[0].ServiceName)
-		relSvcMap.addToSet(relation.String(), eps[0].ServiceName)
+		relationMap[relationName] = serviceNames
 	}
-	return relations, relMap, relSvcMap, nil
-}
-
-func processRelations(service *state.Service, relations []*state.Relation, relMap, relSvcMap statusMap) (statusMap, error) {
-	for _, relation := range relations {
-		eps, err := relation.RelatedEndpoints(service.Name())
-		if err != nil {
-			return nil, err
-		}
-		if len(eps) > 1 {
-			// Filter out this service.
-			filteredEPs := []state.Endpoint{}
-			for _, ep := range eps {
-				if ep.ServiceName != service.Name() {
-					filteredEPs = append(filteredEPs, ep)
-				}
-			}
-			eps = filteredEPs
-		}
-		if len(eps) > 1 {
-			return nil, fmt.Errorf("unexpected relationship with more than 2 endpoints")
-		}
-		relMap.addToSet(strconv.Itoa(relation.Id()), eps[0].ServiceName)
-		relSvcMap.addToSet(relation.String(), eps[0].ServiceName)
+	// Normalize service names by removing duplicates and sorting them.
+	for relationName, serviceNames := range relationMap {
+		sn := set.NewStrings(serviceNames.([]string)...)
+		relationMap[relationName] = sn.SortedValues()
 	}
-	relMap.normalize()
-	return relMap, nil
+	return relations, relationMap, nil
 }
 
 type versioned interface {
 	AgentTools() (*state.Tools, error)
 }
 
-func processVersion(sm map[string]interface{}, v versioned) {
+func processVersion(sm statusMap, v versioned) {
 	if t, err := v.AgentTools(); err == nil {
 		sm["agent-version"] = t.Binary.Number.String()
 	}
 }
-
-// TODO(mue) Change to string map when it is in trunk.
-type stringSet map[string]bool
 
 type statusMap map[string]interface{}
-
-func (sm statusMap) addToSet(key, value string) {
-	if sm[key] == nil {
-		sm[key] = make(stringSet)
-	}
-	sm[key].(stringSet)[value] = true
-}
-
-func (sm statusMap) normalize() {
-	for key, set := range sm {
-		list := []string{}
-		for value := range set.(stringSet) {
-			list = append(list, value)
-		}
-		sort.Strings(list)
-		sm[key] = list
-	}
-}
-
-func (sm statusMap) processVersion(v versioned) {
-	if t, err := v.AgentTools(); err == nil {
-		sm["agent-version"] = t.Binary.Number.String()
-	}
-}
 
 func checkError(sm statusMap, err error) statusMap {
 	if err != nil {
