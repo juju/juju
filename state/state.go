@@ -936,7 +936,6 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 	panic(fmt.Errorf("unknown unit assignment policy: %q", policy))
 }
 
-
 // StartSync forces watchers to resynchronize their state with the
 // database immediately. This will happen periodically automatically.
 func (st *State) StartSync() {

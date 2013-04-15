@@ -15,14 +15,14 @@ import (
 
 type DeployCommand struct {
 	EnvCommandBase
-	CharmName    string
-	ServiceName  string
-	Config       cmd.FileVar
-	Constraints  constraints.Value
-	NumUnits     int // defaults to 1
-	BumpRevision bool
-	RepoPath     string // defaults to JUJU_REPOSITORY
-	ForceMachineId    string
+	CharmName      string
+	ServiceName    string
+	Config         cmd.FileVar
+	Constraints    constraints.Value
+	NumUnits       int // defaults to 1
+	BumpRevision   bool
+	RepoPath       string // defaults to JUJU_REPOSITORY
+	ForceMachineId string
 }
 
 const deployDoc = `
@@ -90,7 +90,6 @@ func (c *DeployCommand) Init(args []string) error {
 		// TODO improve/remove: this is misleading when deploying subordinates.
 		return errors.New("must deploy at least one unit")
 	}
-
 	if c.ForceMachineId != "" {
 		if !state.IsMachineId(c.ForceMachineId) {
 			return fmt.Errorf("invalid machine id %q", c.ForceMachineId)
@@ -136,7 +135,6 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		if c.Constraints != empty {
 			return state.ErrSubordinateConstraints
 		}
-		
 		if c.ForceMachineId != "" {
 			return fmt.Errorf("subordinate service cannot specify force-machine")
 		}
