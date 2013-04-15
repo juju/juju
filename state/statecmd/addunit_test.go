@@ -53,7 +53,7 @@ func (s *AddUnitsSuite) TestAddServiceUnits(c *C) {
 
 	for i, t := range addUnitsTests {
 		c.Logf("test %d. %s", i, t.about)
-		err = statecmd.AddServiceUnits(s.State, params.AddServiceUnits{
+		units, err := statecmd.AddServiceUnits(s.State, params.AddServiceUnits{
 			ServiceName: t.service,
 			NumUnits:    t.numUnits,
 		})
@@ -61,6 +61,10 @@ func (s *AddUnitsSuite) TestAddServiceUnits(c *C) {
 			c.Assert(err, ErrorMatches, t.err)
 		} else {
 			c.Assert(err, IsNil)
+			c.Assert(units, HasLen, t.numUnits)
+			for _, unit := range units {
+				c.Assert(unit.ServiceName(), Equals, t.service)
+			}
 			service, err := s.State.Service(t.service)
 			c.Assert(err, IsNil)
 			unitCount, err := service.AllUnits()

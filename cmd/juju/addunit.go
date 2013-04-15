@@ -57,5 +57,6 @@ func (c *AddUnitCommand) Run(_ *cmd.Context) error {
 		ServiceName: c.ServiceName,
 		NumUnits:    c.NumUnits,
 	}
-	return statecmd.AddServiceUnits(conn.State, params)
+	_, err = statecmd.AddServiceUnits(conn.State, params)
+	return err
 }
