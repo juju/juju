@@ -107,8 +107,9 @@ func (suite *EnvironProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *C) 
 	config, err := config.New(attrs)
 	c.Assert(err, IsNil)
 	env, err := suite.environ.Provider().Open(config)
-	// When Open() fails (i.e. returns a non nil error), it returns an
-	// environs.Environ object with a nil value and a nil type.
+	// When Open() fails (i.e. returns a non-nil error), it returns an
+	// environs.Environ interface object with a nil value and a nil
+	// type.
 	c.Check(env, Equals, nil)
 	c.Check(err, ErrorMatches, ".*malformed maas-oauth.*")
 }
