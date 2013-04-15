@@ -643,7 +643,13 @@ func (s *Service) removeUnitOps(u *Unit, asserts D) ([]txn.Op, error) {
 	if s.doc.Life == Alive {
 		svcOp.Assert = D{{"life", Alive}, {"unitcount", D{{"$gt", 0}}}}
 	} else {
-		svcOp.Assert = D{{"life", Dying}, {"unitcount", D{{"$gt", 1}}}}
+		svcOp.Assert = D{
+			{"life", Dying},
+			{"$or", []D{
+				{{"unitcount", D{{"$gt", 1}}}},
+				{{"relationcount", D{{"$gt", 0}}}},
+			}},
+		}
 	}
 	return append(ops, svcOp), nil
 }
