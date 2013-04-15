@@ -92,3 +92,23 @@ func (suite *EnvironProviderSuite) TestPrivatePublicAddressReadsHostnameFromMach
 	c.Assert(err, IsNil)
 	c.Check(privateAddress, Equals, hostname)
 }
+
+func (suite *EnvironProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *C) {
+	testJujuHome := c.MkDir()
+	defer config.SetJujuHome(config.SetJujuHome(testJujuHome))
+	const oauth = "wrongly-formatted-oauth-string"
+	attrs := map[string]interface{}{
+		"maas-oauth":      oauth,
+		"maas-server":     "http://maas.example.com/maas/",
+		"name":            "wheee",
+		"type":            "maas",
+		"authorized-keys": "I-am-not-a-real-key",
+	}
+	config, err := config.New(attrs)
+	c.Assert(err, IsNil)
+	env, err := suite.environ.Provider().Open(config)
+	// When Open() fails (i.e. returns a non nil error), it returns an
+	// environs.Environ object with a nil value and a nil type.
+	c.Check(env, Equals, nil)
+	c.Check(err, ErrorMatches, ".*malformed maas-oauth.*")
+}
