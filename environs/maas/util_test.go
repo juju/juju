@@ -9,7 +9,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -77,7 +77,7 @@ func (s *UtilSuite) TestUserData(c *C) {
 	result, err := userData(cfg, scripts...)
 	c.Assert(err, IsNil)
 
-	unzipped, err := trivial.Gunzip(result)
+	unzipped, err := utils.Gunzip(result)
 	c.Assert(err, IsNil)
 
 	config := make(map[interface{}]interface{})

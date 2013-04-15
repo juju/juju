@@ -9,7 +9,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/tomb"
 	"sync"
@@ -273,7 +273,7 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 		return err
 	}
 	// Generate a unique nonce for the new instance.
-	uuid, err := trivial.NewUUID()
+	uuid, err := utils.NewUUID()
 	if err != nil {
 		return err
 	}
@@ -317,7 +317,7 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 }
 
 func (p *Provisioner) setupAuthentication(m *state.Machine) (*state.Info, *api.Info, error) {
-	password, err := trivial.RandomPassword()
+	password, err := utils.RandomPassword()
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot make password for machine %v: %v", m, err)
 	}

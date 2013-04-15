@@ -4,7 +4,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/charm/hooks"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/juju-core/worker/uniter/hook"
 	"path/filepath"
@@ -154,7 +154,7 @@ func (s *StateFileSuite) TestStates(c *C) {
 		}
 		if t.err != "" {
 			c.Assert(write, PanicMatches, "invalid uniter state: "+t.err)
-			err := trivial.WriteYaml(path, &t.st)
+			err := utils.WriteYaml(path, &t.st)
 			c.Assert(err, IsNil)
 			_, err = file.Read()
 			c.Assert(err, ErrorMatches, "cannot read charm state at .*: invalid uniter state: "+t.err)
