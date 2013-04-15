@@ -304,7 +304,6 @@ func (s *backingSettings) updated(st *State, store *multiwatcher.Store, id inter
 		return nil
 	}
 	info0 := store.Get(parentId)
-	log.Infof("settings updated; parent %q; url %q; old %#v", parentId, url, info0)
 	switch info := info0.(type) {
 	case nil:
 		// The parent info doesn't exist. Ignore the status until it does.
