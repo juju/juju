@@ -12,7 +12,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"os"
 	"path/filepath"
 	stdtesting "testing"
@@ -117,7 +117,7 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *C) {
 	c.Assert(err, IsNil)
 	info, _, err := env.StateInfo()
 	c.Assert(err, IsNil)
-	info.Password = trivial.PasswordHash("side-effect secret")
+	info.Password = utils.PasswordHash("side-effect secret")
 	st, err := state.Open(info, state.DefaultDialOpts())
 	c.Assert(err, IsNil)
 
@@ -198,7 +198,7 @@ func (cs *NewConnSuite) TestConnWithPassword(c *C) {
 	// of the admin password.
 	info, _, err := env.StateInfo()
 	c.Assert(err, IsNil)
-	info.Password = trivial.PasswordHash("nutkin")
+	info.Password = utils.PasswordHash("nutkin")
 	st, err := state.Open(info, state.DefaultDialOpts())
 	c.Assert(err, IsNil)
 	st.Close()

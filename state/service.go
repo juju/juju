@@ -10,7 +10,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"sort"
 	"strconv"
 )
@@ -95,7 +95,7 @@ var errRefresh = errors.New("state seems inconsistent, refresh and try again")
 // some point; if the service has no units, and no relation involving the
 // service has any units in scope, they are all removed immediately.
 func (s *Service) Destroy() (err error) {
-	defer trivial.ErrorContextf(&err, "cannot destroy service %q", s)
+	defer utils.ErrorContextf(&err, "cannot destroy service %q", s)
 	defer func() {
 		if err == nil {
 			// This is a white lie; the document might actually be removed.
@@ -575,7 +575,7 @@ func (s *Service) addUnitOps(principalName string) (string, []txn.Op, error) {
 
 // AddUnit adds a new principal unit to the service.
 func (s *Service) AddUnit() (unit *Unit, err error) {
-	defer trivial.ErrorContextf(&err, "cannot add unit to service %q", s)
+	defer utils.ErrorContextf(&err, "cannot add unit to service %q", s)
 	name, ops, err := s.addUnitOps("")
 	if err != nil {
 		return nil, err
@@ -676,7 +676,7 @@ func (s *Service) AllUnits() (units []*Unit, err error) {
 
 // Relations returns a Relation for every relation the service is in.
 func (s *Service) Relations() (relations []*Relation, err error) {
-	defer trivial.ErrorContextf(&err, "can't get relations for service %q", s)
+	defer utils.ErrorContextf(&err, "can't get relations for service %q", s)
 	docs := []relationDoc{}
 	err = s.st.relations.Find(D{{"endpoints.servicename", s.doc.Name}}).All(&docs)
 	if err != nil {
@@ -783,7 +783,7 @@ func (s *Service) SetConstraints(cons constraints.Value) (err error) {
 	if s.doc.Subordinate {
 		return ErrSubordinateConstraints
 	}
-	defer trivial.ErrorContextf(&err, "cannot set constraints")
+	defer utils.ErrorContextf(&err, "cannot set constraints")
 	if s.doc.Life != Alive {
 		return errNotAlive
 	}

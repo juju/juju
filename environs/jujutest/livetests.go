@@ -15,7 +15,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 	"time"
 )
@@ -34,7 +34,7 @@ type LiveTests struct {
 
 	// Attempt holds a strategy for waiting until the environment
 	// becomes logically consistent.
-	Attempt trivial.AttemptStrategy
+	Attempt utils.AttemptStrategy
 
 	// CanOpenState should be true if the testing environment allows
 	// the state to be opened after bootstrapping.
@@ -577,7 +577,7 @@ func setAgentVersion(st *state.State, vers version.Number) error {
 	return st.SetEnvironConfig(cfg)
 }
 
-var waitAgent = trivial.AttemptStrategy{
+var waitAgent = utils.AttemptStrategy{
 	Total: 30 * time.Second,
 	Delay: 1 * time.Second,
 }

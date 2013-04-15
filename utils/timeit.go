@@ -1,4 +1,4 @@
-package trivial
+package utils
 
 import (
 	"fmt"
@@ -26,11 +26,11 @@ var stack []*timer
 
 // Start a timer, used for tracking time spent.
 // Generally used with either defer, as in:
-//  defer trivial.Timeit("my func")()
+//  defer utils.Timeit("my func")()
 // Which will track how much time is spent in your function. Or
 // if you want to track the time spent in a function you are calling
 // then you would use:
-//  toc := trivial.Timeit("anotherFunc()")
+//  toc := utils.Timeit("anotherFunc()")
 //  anotherFunc()
 //  toc()
 // This tracks nested calls by indenting the output, and will print out the
