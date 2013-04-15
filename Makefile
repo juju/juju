@@ -11,7 +11,7 @@ check:
 
 # Reformat the source files.
 format:
-	find "$(GOPATH)/src/$(PROJECT)/" -name \*.go | xargs gofmt -w
+	go fmt $(PROJECT)/...
 
 # Invoke gofmt's "simplify" option to streamline the source code.
 simplify:
