@@ -635,8 +635,8 @@ func remove(strs []string, s string) []string {
 
 func (w *RelationUnitsWatcher) finish() {
 	watcher.Stop(w.sw, &w.tomb)
-	for _, key := range w.watching.Values() {
-		w.st.watcher.Unwatch(w.st.settings.Name, key, w.updates)
+	for _, watchedValue := range w.watching.Values() {
+		w.st.watcher.Unwatch(w.st.settings.Name, watchedValue, w.updates)
 	}
 	close(w.updates)
 	close(w.out)

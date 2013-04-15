@@ -54,6 +54,19 @@ func (stringSetSuite) TestSize(c *C) {
 	c.Assert(s.Size(), Equals, 2)
 }
 
+func (stringSetSuite) TestIsEmpty(c *C) {
+	// Empty sets are empty.
+	s := set.NewStrings()
+	c.Assert(s.IsEmpty(), Equals, true)
+
+	// Non-empty sets are not empty.
+	s = set.NewStrings("foo")
+	c.Assert(s.IsEmpty(), Equals, false)
+	// Newly empty sets work too.
+	s.Remove("foo")
+	c.Assert(s.IsEmpty(), Equals, true)
+}
+
 func (stringSetSuite) TestAdd(c *C) {
 	s := set.NewStrings()
 	s.Add("foo")
@@ -114,6 +127,7 @@ func (stringSetSuite) TestDifference(c *C) {
 func (stringSetSuite) TestUninitialized(c *C) {
 	var uninitialized set.Strings
 	c.Assert(uninitialized.Size(), Equals, 0)
+	c.Assert(uninitialized.IsEmpty(), Equals, true)
 	// You can get values and sorted values from an unitialized set.
 	AssertValues(c, uninitialized)
 	// All contains checks are false

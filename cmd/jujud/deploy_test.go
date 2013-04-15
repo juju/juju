@@ -41,7 +41,7 @@ func (ctx *fakeContext) RecallUnit(unitName string) error {
 func (ctx *fakeContext) DeployedUnits() ([]string, error) {
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
-	if ctx.deployed.Size() == 0 {
+	if ctx.deployed.IsEmpty() {
 		return nil, nil
 	}
 	return ctx.deployed.SortedValues(), nil

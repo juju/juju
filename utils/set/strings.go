@@ -25,6 +25,11 @@ func (s *Strings) Size() int {
 	return len(s.values)
 }
 
+// IsEmpty is true for empty or uninitialized sets.
+func (s *Strings) IsEmpty() bool {
+	return len(s.values) == 0
+}
+
 // Add puts a value into the set.
 func (s *Strings) Add(value string) {
 	if s.values == nil {
