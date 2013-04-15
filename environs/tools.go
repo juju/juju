@@ -1,22 +1,12 @@
 package environs
 
 import (
-	"archive/tar"
-	"compress/gzip"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"strings"
 )
-
-const toolPrefix = "tools/juju-"
 
 // ToolsList holds a list of available tools.  Private tools take
 // precedence over public tools, even if they have a lower
@@ -30,193 +20,18 @@ type ToolsList struct {
 // available in the given environment that have the
 // given major version.
 func ListTools(env Environ, majorVersion int) (*ToolsList, error) {
-	private, err := listTools(env.Storage(), majorVersion)
-	if err != nil {
+	private, err := tools.ReadList(env.Storage(), majorVersion)
+	if err != nil && err != tools.ErrNoMatches {
 		return nil, err
 	}
-	public, err := listTools(env.PublicStorage(), majorVersion)
-	if err != nil {
+	public, err := tools.ReadList(env.PublicStorage(), majorVersion)
+	if err != nil && err != tools.ErrNoMatches {
 		return nil, err
 	}
 	return &ToolsList{
 		Private: private,
 		Public:  public,
 	}, nil
-}
-
-// listTools is like ListTools, but only returns the tools from
-// a particular storage.
-func listTools(store StorageReader, majorVersion int) (tools.List, error) {
-	dir := fmt.Sprintf("%s%d.", toolPrefix, majorVersion)
-	log.Debugf("listing tools in dir: %s", dir)
-	names, err := store.List(dir)
-	if err != nil {
-		return nil, err
-	}
-	var toolsList tools.List
-	for _, name := range names {
-		log.Debugf("looking at tools file %s", name)
-		if !strings.HasPrefix(name, toolPrefix) || !strings.HasSuffix(name, ".tgz") {
-			log.Warningf("environs: unexpected tools file found %q", name)
-			continue
-		}
-		vers := name[len(toolPrefix) : len(name)-len(".tgz")]
-		var t state.Tools
-		t.Binary, err = version.ParseBinary(vers)
-		if err != nil {
-			log.Warningf("environs: failed to parse %q: %v", vers, err)
-			continue
-		}
-		if t.Major != majorVersion {
-			log.Warningf("environs: tool %q found in wrong directory %q", name, dir)
-			continue
-		}
-		t.URL, err = store.URL(name)
-		log.Debugf("tools URL is %s", t.URL)
-		if err != nil {
-			log.Warningf("environs: cannot get URL for %q: %v", name, err)
-			continue
-		}
-		toolsList = append(toolsList, &t)
-	}
-	return toolsList, nil
-}
-
-// PutTools builds whatever version of launchpad.net/juju-core is in $GOPATH,
-// uploads it to the given storage, and returns a Tools instance describing
-// them. If forceVersion is not nil, the uploaded tools bundle will report
-// the given version number; if any fakeSeries are supplied, additional copies
-// of the built tools will be uploaded for use by machines of those series.
-// Juju tools built for one series do not necessarily run on another, but this
-// func exists only for development use cases.
-func PutTools(storage Storage, forceVersion *version.Number, fakeSeries ...string) (*state.Tools, error) {
-	// TODO(rog) find binaries from $PATH when not using a development
-	// version of juju within a $GOPATH.
-
-	// We create the entire archive before asking the environment to
-	// start uploading so that we can be sure we have archived
-	// correctly.
-	f, err := ioutil.TempFile("", "juju-tgz")
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	defer os.Remove(f.Name())
-	toolsVersion, err := bundleTools(f, forceVersion)
-	if err != nil {
-		return nil, err
-	}
-	fi, err := f.Stat()
-	if err != nil {
-		return nil, fmt.Errorf("cannot stat newly made tools archive: %v", err)
-	}
-	size := fi.Size()
-	log.Infof("environs: built tools %v (%dkB)", toolsVersion, (size+512)/1024)
-	putTools := func(vers version.Binary) (string, error) {
-		if _, err := f.Seek(0, 0); err != nil {
-			return "", fmt.Errorf("cannot seek to start of tools archive: %v", err)
-		}
-		path := ToolsStoragePath(vers)
-		log.Infof("environs: putting tools %v", path)
-		if err := storage.Put(path, f, size); err != nil {
-			return "", err
-		}
-		return path, nil
-	}
-	for _, series := range fakeSeries {
-		if series != toolsVersion.Series {
-			fakeVersion := toolsVersion
-			fakeVersion.Series = series
-			if _, err := putTools(fakeVersion); err != nil {
-				return nil, err
-			}
-		}
-	}
-	path, err := putTools(toolsVersion)
-	if err != nil {
-		return nil, err
-	}
-	url, err := storage.URL(path)
-	if err != nil {
-		return nil, err
-	}
-	return &state.Tools{toolsVersion, url}, nil
-}
-
-// archive writes the executable files found in the given directory in
-// gzipped tar format to w.  An error is returned if an entry inside dir
-// is not a regular executable file.
-func archive(w io.Writer, dir string) (err error) {
-	entries, err := ioutil.ReadDir(dir)
-	if err != nil {
-		return err
-	}
-
-	gzw := gzip.NewWriter(w)
-	defer closeErrorCheck(&err, gzw)
-
-	tarw := tar.NewWriter(gzw)
-	defer closeErrorCheck(&err, tarw)
-
-	for _, ent := range entries {
-		h := tarHeader(ent)
-		// ignore local umask
-		if isExecutable(ent) {
-			h.Mode = 0755
-		} else {
-			h.Mode = 0644
-		}
-		err := tarw.WriteHeader(h)
-		if err != nil {
-			return err
-		}
-		if err := copyFile(tarw, filepath.Join(dir, ent.Name())); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// copyFile writes the contents of the given file to w.
-func copyFile(w io.Writer, file string) error {
-	f, err := os.Open(file)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	_, err = io.Copy(w, f)
-	return err
-}
-
-// tarHeader returns a tar file header given the file's stat
-// information.
-func tarHeader(i os.FileInfo) *tar.Header {
-	return &tar.Header{
-		Typeflag:   tar.TypeReg,
-		Name:       i.Name(),
-		Size:       i.Size(),
-		Mode:       int64(i.Mode() & 0777),
-		ModTime:    i.ModTime(),
-		AccessTime: i.ModTime(),
-		ChangeTime: i.ModTime(),
-		Uname:      "ubuntu",
-		Gname:      "ubuntu",
-	}
-}
-
-// isExecutable returns whether the given info
-// represents a regular file executable by (at least) the user.
-func isExecutable(i os.FileInfo) bool {
-	return i.Mode()&(0100|os.ModeType) == 0100
-}
-
-// closeErrorCheck means that we can ensure that
-// Close errors do not get lost even when we defer them,
-func closeErrorCheck(errp *error, c io.Closer) {
-	err := c.Close()
-	if *errp == nil {
-		*errp = err
-	}
 }
 
 // BestTools returns the most recent version
@@ -256,12 +71,6 @@ func bestTools(toolsList []*state.Tools, vers version.Binary, flags ToolsSearchF
 	return bestTools
 }
 
-// ToolsStoragePath returns the path that is used to store and
-// retrieve the given version of the juju tools in a Storage.
-func ToolsStoragePath(vers version.Binary) string {
-	return toolPrefix + vers.String() + ".tgz"
-}
-
 // ToolsSearchFlags gives options when searching
 // for tools.
 type ToolsSearchFlags int
@@ -299,78 +108,4 @@ func FindTools(env Environ, vers version.Binary, flags ToolsSearchFlags) (*state
 		return tools, &NotFoundError{fmt.Errorf("no compatible tools found")}
 	}
 	return tools, nil
-}
-
-func setenv(env []string, val string) []string {
-	prefix := val[0 : strings.Index(val, "=")+1]
-	for i, eval := range env {
-		if strings.HasPrefix(eval, prefix) {
-			env[i] = val
-			return env
-		}
-	}
-	return append(env, val)
-}
-
-// bundleTools bundles all the current juju tools in gzipped tar
-// format to the given writer.
-// If forceVersion is not nil, a FORCE-VERSION file is included in
-// the tools bundle so it will lie about its current version number.
-func bundleTools(w io.Writer, forceVersion *version.Number) (version.Binary, error) {
-	dir, err := ioutil.TempDir("", "juju-tools")
-	if err != nil {
-		return version.Binary{}, err
-	}
-	defer os.RemoveAll(dir)
-
-	cmds := [][]string{
-		{"go", "install", "launchpad.net/juju-core/cmd/jujud"},
-		{"strip", dir + "/jujud"},
-	}
-	env := setenv(os.Environ(), "GOBIN="+dir)
-	for _, args := range cmds {
-		cmd := exec.Command(args[0], args[1:]...)
-		cmd.Env = env
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			return version.Binary{}, fmt.Errorf("build command %q failed: %v; %s", args[0], err, out)
-		}
-	}
-	if forceVersion != nil {
-		if err := ioutil.WriteFile(filepath.Join(dir, "FORCE-VERSION"), []byte(forceVersion.String()), 0666); err != nil {
-			return version.Binary{}, err
-		}
-	}
-	cmd := exec.Command(filepath.Join(dir, "jujud"), "version")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return version.Binary{}, fmt.Errorf("cannot get version from %q: %v; %s", cmd.Args[0], err, out)
-	}
-	tvs := strings.TrimSpace(string(out))
-	tvers, err := version.ParseBinary(tvs)
-	if err != nil {
-		return version.Binary{}, fmt.Errorf("invalid version %q printed by jujud", tvs)
-	}
-	err = archive(w, dir)
-	if err != nil {
-		return version.Binary{}, err
-	}
-	return tvers, err
-}
-
-// EmptyStorage holds a StorageReader object that contains nothing.
-var EmptyStorage StorageReader = emptyStorage{}
-
-type emptyStorage struct{}
-
-func (s emptyStorage) Get(name string) (io.ReadCloser, error) {
-	return nil, &NotFoundError{fmt.Errorf("file %q not found in empty storage", name)}
-}
-
-func (s emptyStorage) URL(string) (string, error) {
-	return "", fmt.Errorf("empty storage has no URLs")
-}
-
-func (s emptyStorage) List(prefix string) ([]string, error) {
-	return nil, nil
 }

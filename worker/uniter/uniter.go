@@ -10,7 +10,7 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker/uniter/charm"
 	"launchpad.net/juju-core/worker/uniter/hook"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
@@ -103,7 +103,7 @@ func (u *Uniter) loop(name string) (err error) {
 }
 
 func (u *Uniter) init(name string) (err error) {
-	defer trivial.ErrorContextf(&err, "failed to initialize uniter for unit %q", name)
+	defer utils.ErrorContextf(&err, "failed to initialize uniter for unit %q", name)
 	u.unit, err = u.st.Unit(name)
 	if err != nil {
 		return err

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
 	"net/http"
@@ -227,13 +227,13 @@ func (s *UpgraderSuite) TestDelayedStop(c *C) {
 }
 
 func (s *UpgraderSuite) poisonVersion(vers version.Binary) {
-	path := environs.ToolsStoragePath(vers)
-	dummy.Poison(s.Conn.Environ.Storage(), path, fmt.Errorf("poisoned file"))
+	name := tools.StorageName(vers)
+	dummy.Poison(s.Conn.Environ.Storage(), name, fmt.Errorf("poisoned file"))
 }
 
 func (s *UpgraderSuite) removeVersion(c *C, vers version.Binary) {
-	path := environs.ToolsStoragePath(vers)
-	err := s.Conn.Environ.Storage().Remove(path)
+	name := tools.StorageName(vers)
+	err := s.Conn.Environ.Storage().Remove(name)
 	c.Assert(err, IsNil)
 }
 

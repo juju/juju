@@ -3,7 +3,7 @@ package state_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 )
 
 type UserSuite struct {
@@ -53,7 +53,7 @@ func (s *UserSuite) TestSetPasswordHash(c *C) {
 	u, err := s.State.AddUser("someuser", "")
 	c.Assert(err, IsNil)
 
-	err = u.SetPasswordHash(trivial.PasswordHash("foo"))
+	err = u.SetPasswordHash(utils.PasswordHash("foo"))
 	c.Assert(err, IsNil)
 
 	c.Assert(u.PasswordValid("foo"), Equals, true)

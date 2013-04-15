@@ -7,6 +7,7 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
@@ -64,9 +65,9 @@ func copyOne(
 	tool *state.Tools, source environs.StorageReader,
 	target environs.Storage, ctx *cmd.Context,
 ) error {
-	toolsPath := environs.ToolsStoragePath(tool.Binary)
-	fmt.Fprintf(ctx.Stderr, "copying %v", toolsPath)
-	srcFile, err := source.Get(toolsPath)
+	toolsName := tools.StorageName(tool.Binary)
+	fmt.Fprintf(ctx.Stderr, "copying %v", toolsName)
+	srcFile, err := source.Get(toolsName)
 	if err != nil {
 		return err
 	}
@@ -78,10 +79,10 @@ func copyOne(
 	if err != nil {
 		return err
 	}
-	log.Infof("downloaded %v (%dkB), uploading", toolsPath, (nBytes+512)/1024)
+	log.Infof("downloaded %v (%dkB), uploading", toolsName, (nBytes+512)/1024)
 	fmt.Fprintf(ctx.Stderr, ", download %dkB, uploading\n", (nBytes+512)/1024)
 
-	if err := target.Put(toolsPath, buf, nBytes); err != nil {
+	if err := target.Put(toolsName, buf, nBytes); err != nil {
 		return err
 	}
 	return nil
@@ -133,9 +134,6 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	for _, tool := range targetToolsList.Private {
-		log.Debugf("found target tool: %s", tool)
-	}
 	targetTools := targetToolsList.Private
 	targetStorage := targetEnv.Storage()
 	if c.publicBucket {
@@ -144,7 +142,9 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 		if targetStorage, ok = targetEnv.PublicStorage().(environs.Storage); !ok {
 			return fmt.Errorf("Cannot write to PublicStorage")
 		}
-
+	}
+	for _, tool := range targetTools {
+		log.Debugf("found target tool: %s", tool)
 	}
 	missing := toolsToCopy.Exclude(targetTools)
 	fmt.Fprintf(ctx.Stdout, "found %d tools in target; %d tools to be copied\n",
