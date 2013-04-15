@@ -372,8 +372,8 @@ func (c *srvClient) AddServiceUnits(args params.AddServiceUnits) (params.AddServ
 		return params.AddServiceUnitsResults{}, err
 	}
 	unitNames := make([]string, len(units))
-	for num, unit := range units {
-		unitNames[num] = unit.String()
+	for i, unit := range units {
+		unitNames[i] = unit.String()
 	}
 	return params.AddServiceUnitsResults{Units: unitNames}, nil
 }

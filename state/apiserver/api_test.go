@@ -715,7 +715,7 @@ var clientAddServiceUnitsTests = []struct {
 		expected: []string{"dummy/0", "dummy/1", "dummy/2"},
 	},
 	{
-		about: "must add at least one unit",
+		about: "fails trying to add zero units",
 		err:   "must add at least one unit",
 	},
 }
