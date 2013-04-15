@@ -55,7 +55,7 @@ func (s *Strings) Contains(value string) bool {
 func (s *Strings) Values() []string {
 	result := make([]string, len(s.values))
 	i := 0
-	for key, _ := range s.values {
+	for key := range s.values {
 		result[i] = key
 		i++
 	}
@@ -75,10 +75,10 @@ func (s *Strings) Union(other Strings) Strings {
 	result := NewStrings()
 	// Use the internal map rather than going through the friendlier functions
 	// to avoid extra allocation of slices.
-	for value, _ := range s.values {
+	for value := range s.values {
 		result.values[value] = true
 	}
-	for value, _ := range other.values {
+	for value := range other.values {
 		result.values[value] = true
 	}
 	return result
@@ -90,7 +90,7 @@ func (s *Strings) Intersection(other Strings) Strings {
 	result := NewStrings()
 	// Use the internal map rather than going through the friendlier functions
 	// to avoid extra allocation of slices.
-	for value, _ := range s.values {
+	for value := range s.values {
 		if other.Contains(value) {
 			result.values[value] = true
 		}
@@ -104,7 +104,7 @@ func (s *Strings) Difference(other Strings) Strings {
 	result := NewStrings()
 	// Use the internal map rather than going through the friendlier functions
 	// to avoid extra allocation of slices.
-	for value, _ := range s.values {
+	for value := range s.values {
 		if !other.Contains(value) {
 			result.values[value] = true
 		}
