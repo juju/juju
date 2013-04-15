@@ -161,7 +161,7 @@ var statusTests = []testCase{
 			},
 		},
 
-		setMachineStatus{"0", params.MachineStarted, ""},
+		setMachineStatus{"0", params.StatusStarted, ""},
 		expect{
 			"simulate the MA started and set the machine status",
 			M{
@@ -198,7 +198,7 @@ var statusTests = []testCase{
 		"add two services and expose one, then add 2 more machines and some units",
 		addMachine{"0", state.JobManageEnviron},
 		startAliveMachine{"0"},
-		setMachineStatus{"0", params.MachineStarted, ""},
+		setMachineStatus{"0", params.StatusStarted, ""},
 		addCharm{"dummy"},
 		addService{"dummy-service", "dummy"},
 		addService{"exposed-service", "dummy"},
@@ -231,10 +231,10 @@ var statusTests = []testCase{
 
 		addMachine{"1", state.JobHostUnits},
 		startAliveMachine{"1"},
-		setMachineStatus{"1", params.MachineStarted, ""},
+		setMachineStatus{"1", params.StatusStarted, ""},
 		addMachine{"2", state.JobHostUnits},
 		startAliveMachine{"2"},
-		setMachineStatus{"2", params.MachineStarted, ""},
+		setMachineStatus{"2", params.StatusStarted, ""},
 		expect{
 			"two more machines added",
 			M{
@@ -252,9 +252,9 @@ var statusTests = []testCase{
 
 		addUnit{"dummy-service", "1"},
 		addAliveUnit{"exposed-service", "2"},
-		setUnitStatus{"exposed-service/0", params.UnitError, "You Require More Vespene Gas"},
+		setUnitStatus{"exposed-service/0", params.StatusError, "You Require More Vespene Gas"},
 		// Simulate some status with no info, while the agent is down.
-		setUnitStatus{"dummy-service/0", params.UnitStarted, ""},
+		setUnitStatus{"dummy-service/0", params.StatusStarted, ""},
 		expect{
 			"add two units, one alive (in error state), one down",
 			M{
@@ -293,10 +293,10 @@ var statusTests = []testCase{
 		addMachine{"3", state.JobHostUnits},
 		startMachine{"3"},
 		// Simulate some status with info, while the agent is down.
-		setMachineStatus{"3", params.MachineStopped, "Really?"},
+		setMachineStatus{"3", params.StatusStopped, "Really?"},
 		addMachine{"4", state.JobHostUnits},
 		startAliveMachine{"4"},
-		setMachineStatus{"4", params.MachineError, "Beware the red toys"},
+		setMachineStatus{"4", params.StatusError, "Beware the red toys"},
 		expect{
 			"add two more machine, one with a dead agent, one in error state",
 			M{
@@ -488,7 +488,7 @@ func (aau addAliveUnit) step(c *C, ctx *context) {
 
 type setUnitStatus struct {
 	unitName   string
-	status     params.UnitStatus
+	status     params.Status
 	statusInfo string
 }
 
@@ -500,7 +500,7 @@ func (sus setUnitStatus) step(c *C, ctx *context) {
 
 type setMachineStatus struct {
 	machineId  string
-	status     params.MachineStatus
+	status     params.Status
 	statusInfo string
 }
 

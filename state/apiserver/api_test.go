@@ -31,10 +31,6 @@ type suite struct {
 
 var _ = Suite(&suite{})
 
-func init() {
-	apiserver.AuthenticationEnabled = true
-}
-
 func removeServiceAndUnits(c *C, service *state.Service) {
 	// Destroy all units for the service.
 	units, err := service.AllUnits()
@@ -425,7 +421,7 @@ func opClientServiceDeploy(c *C, st *api.State, mst *state.State) (func(), error
 }
 
 func opClientAddServiceUnits(c *C, st *api.State, mst *state.State) (func(), error) {
-	err := st.Client().AddServiceUnits("nosuch", 1)
+	_, err := st.Client().AddServiceUnits("nosuch", 1)
 	if api.ErrCode(err) == api.CodeNotFound {
 		err = nil
 	}
@@ -707,6 +703,36 @@ func (s *suite) TestClientServiceSetYAML(c *C) {
 		"title":    "aaa",
 		"username": "bbb",
 	})
+}
+
+var clientAddServiceUnitsTests = []struct {
+	about    string
+	expected []string
+	err      string
+}{
+	{
+		about:    "returns unit names",
+		expected: []string{"dummy/0", "dummy/1", "dummy/2"},
+	},
+	{
+		about: "fails trying to add zero units",
+		err:   "must add at least one unit",
+	},
+}
+
+func (s *suite) TestClientAddServiceUnits(c *C) {
+	_, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
+	c.Assert(err, IsNil)
+	for i, t := range clientAddServiceUnitsTests {
+		c.Logf("test %d. %s", i, t.about)
+		units, err := s.APIState.Client().AddServiceUnits("dummy", len(t.expected))
+		if t.err != "" {
+			c.Assert(err, ErrorMatches, t.err)
+			continue
+		}
+		c.Assert(err, IsNil)
+		c.Assert(units, DeepEquals, t.expected)
+	}
 }
 
 var clientCharmInfoTests = []struct {
@@ -1294,7 +1320,7 @@ func (s *suite) TestClientUnitResolved(c *C) {
 	s.setUpScenario(c)
 	u, err := s.State.Unit("wordpress/0")
 	c.Assert(err, IsNil)
-	err = u.SetStatus(params.UnitError, "gaaah")
+	err = u.SetStatus(params.StatusError, "gaaah")
 	c.Assert(err, IsNil)
 	// Code under test:
 	err = s.APIState.Client().Resolved("wordpress/0", false)
@@ -1446,7 +1472,7 @@ func (s *suite) TestClientWatchAll(c *C) {
 		Entity: &params.MachineInfo{
 			Id:         m.Id(),
 			InstanceId: "i-0",
-			Status:     params.MachinePending,
+			Status:     params.StatusPending,
 		},
 	}}) {
 		c.Logf("got:")

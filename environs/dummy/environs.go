@@ -25,6 +25,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/state"
@@ -32,7 +33,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 	"net"
 	"net/http"
@@ -227,31 +228,9 @@ func newState(name string, ops chan<- Operation, fwmode config.FirewallMode) *en
 	}
 	s.storage = newStorage(s, "/"+name+"/private")
 	s.publicStorage = newStorage(s, "/"+name+"/public")
-	putFakeTools(s.publicStorage)
 	s.listen()
+	envtesting.MustUploadFakeTools(s.publicStorage)
 	return s
-}
-
-// putFakeTools writes something
-// that looks like a tools archive so Bootstrap can
-// find some tools and initialise the state correctly.
-func putFakeTools(s environs.StorageWriter) {
-	log.Infof("environs/dummy: putting fake tools")
-	toolsVersion := version.Current
-	path := environs.ToolsStoragePath(toolsVersion)
-	toolsContents := "tools archive, honest guv"
-	err := s.Put(path, strings.NewReader(toolsContents), int64(len(toolsContents)))
-	if err != nil {
-		panic(err)
-	}
-	if toolsVersion.Series != config.DefaultSeries {
-		toolsVersion.Series = config.DefaultSeries
-		path = environs.ToolsStoragePath(toolsVersion)
-		err = s.Put(path, strings.NewReader(toolsContents), int64(len(toolsContents)))
-		if err != nil {
-			panic(err)
-		}
-	}
 }
 
 // listen starts a network listener listening for http
@@ -479,7 +458,7 @@ func (e *environ) Bootstrap(cons constraints.Value, cert, key []byte) error {
 		if err := st.SetEnvironConstraints(cons); err != nil {
 			panic(err)
 		}
-		if err := st.SetAdminMongoPassword(trivial.PasswordHash(password)); err != nil {
+		if err := st.SetAdminMongoPassword(utils.PasswordHash(password)); err != nil {
 			panic(err)
 		}
 		// TODO(rog) use hash of password when the juju API connection

@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
+	cloudinit_core "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
@@ -265,6 +266,38 @@ func (*cloudinitSuite) TestCloudInit(c *C) {
 			checkAptSource(c, x, source, test.cfg.NeedMongoPPA())
 		}
 	}
+}
+
+func (*cloudinitSuite) TestCloudInitConfigure(c *C) {
+	for i, test := range cloudinitTests {
+		test.cfg.Config = minimalConfig(c)
+		c.Logf("test %d (Configure)", i)
+		cloudcfg := cloudinit_core.New()
+		ci, err := cloudinit.Configure(&test.cfg, cloudcfg)
+		c.Assert(err, IsNil)
+		c.Check(ci, NotNil)
+	}
+}
+
+func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *C) {
+	// Create a simple cloudinit config with a 'runcmd' statement.
+	cloudcfg := cloudinit_core.New()
+	script := "test script"
+	cloudcfg.AddRunCmd(script)
+	cloudinitTests[0].cfg.Config = minimalConfig(c)
+	ci, err := cloudinit.Configure(&cloudinitTests[0].cfg, cloudcfg)
+	c.Assert(err, IsNil)
+	c.Check(ci, NotNil)
+	data, err := ci.Render()
+	c.Assert(err, IsNil)
+
+	ciContent := make(map[interface{}]interface{})
+	err = goyaml.Unmarshal(data, &ciContent)
+	c.Assert(err, IsNil)
+	// The 'runcmd' statement is at the beginning of the list
+	// of 'runcmd' statements.
+	runCmd := ciContent["runcmd"].([]interface{})
+	c.Check(runCmd[0], Equals, script)
 }
 
 func getScripts(x map[interface{}]interface{}) []string {

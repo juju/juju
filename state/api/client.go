@@ -8,7 +8,7 @@ import (
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/rpc"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"time"
 )
 
@@ -37,7 +37,7 @@ type Info struct {
 	Password string
 }
 
-var openAttempt = trivial.AttemptStrategy{
+var openAttempt = utils.AttemptStrategy{
 	Total: 5 * time.Minute,
 	Delay: 500 * time.Millisecond,
 }

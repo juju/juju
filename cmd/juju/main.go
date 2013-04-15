@@ -7,12 +7,9 @@ import (
 	"os"
 )
 
-// When we import an environment provider implementation
-// here, it will register itself with environs, and hence
-// be available to the juju command.
+// Import the providers.
 import (
-	_ "launchpad.net/juju-core/environs/ec2"
-	_ "launchpad.net/juju-core/environs/openstack"
+	_ "launchpad.net/juju-core/environs/all"
 )
 
 var jujuDoc = `

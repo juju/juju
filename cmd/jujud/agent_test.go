@@ -5,9 +5,9 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
@@ -299,9 +299,9 @@ func (s *agentSuite) uploadTools(c *C, vers version.Binary) *state.Tools {
 		coretesting.NewTarFile("jujud", 0777, "jujud contents "+vers.String()),
 	)
 	storage := s.Conn.Environ.Storage()
-	err := storage.Put(environs.ToolsStoragePath(vers), bytes.NewReader(tgz), int64(len(tgz)))
+	err := storage.Put(tools.StorageName(vers), bytes.NewReader(tgz), int64(len(tgz)))
 	c.Assert(err, IsNil)
-	url, err := s.Conn.Environ.Storage().URL(environs.ToolsStoragePath(vers))
+	url, err := s.Conn.Environ.Storage().URL(tools.StorageName(vers))
 	c.Assert(err, IsNil)
 	return &state.Tools{URL: url, Binary: vers}
 }

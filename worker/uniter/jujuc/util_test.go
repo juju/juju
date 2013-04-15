@@ -6,6 +6,7 @@ import (
 	"io"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"sort"
 	"testing"
@@ -46,7 +47,6 @@ func (s *ContextSuite) GetHookContext(c *C, relid int, remote string) *Context {
 		c.Assert(found, Equals, true)
 	}
 	return &Context{
-		ports:  map[string]bool{},
 		relid:  relid,
 		remote: remote,
 		rels:   s.rels,
@@ -65,7 +65,7 @@ func setSettings(c *C, ru *state.RelationUnit, settings map[string]interface{}) 
 }
 
 type Context struct {
-	ports  map[string]bool
+	ports  set.Strings
 	relid  int
 	remote string
 	rels   map[int]*ContextRelation
@@ -84,12 +84,12 @@ func (c *Context) PrivateAddress() (string, bool) {
 }
 
 func (c *Context) OpenPort(protocol string, port int) error {
-	c.ports[fmt.Sprintf("%d/%s", port, protocol)] = true
+	c.ports.Add(fmt.Sprintf("%d/%s", port, protocol))
 	return nil
 }
 
 func (c *Context) ClosePort(protocol string, port int) error {
-	delete(c.ports, fmt.Sprintf("%d/%s", port, protocol))
+	c.ports.Remove(fmt.Sprintf("%d/%s", port, protocol))
 	return nil
 }
 

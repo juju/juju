@@ -9,7 +9,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/tomb"
 	"sync"
@@ -238,7 +238,7 @@ func (p *Provisioner) pendingOrDead(ids []string) (pending, dead []*state.Machin
 				log.Infof("worker/provisioner: cannot get machine %q status: %v", m, err)
 				continue
 			}
-			if status != params.MachineError {
+			if status != params.StatusError {
 				pending = append(pending, m)
 				log.Infof("worker/provisioner: found machine %q pending provisioning", m)
 				continue
@@ -273,7 +273,7 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 		return err
 	}
 	// Generate a unique nonce for the new instance.
-	uuid, err := trivial.NewUUID()
+	uuid, err := utils.NewUUID()
 	if err != nil {
 		return err
 	}
@@ -287,7 +287,7 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 		// time until the error is resolved, but don't return an
 		// error; just keep going with the other machines.
 		log.Errorf("worker/provisioner: cannot start instance for machine %q: %v", m, err)
-		if err1 := m.SetStatus(params.MachineError, err.Error()); err1 != nil {
+		if err1 := m.SetStatus(params.StatusError, err.Error()); err1 != nil {
 			// Something is wrong with this machine, better report it back.
 			log.Errorf("worker/provisioner: cannot set error status for machine %q: %v", m, err1)
 			return err1
@@ -317,7 +317,7 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 }
 
 func (p *Provisioner) setupAuthentication(m *state.Machine) (*state.Info, *api.Info, error) {
-	password, err := trivial.RandomPassword()
+	password, err := utils.RandomPassword()
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot make password for machine %v: %v", m, err)
 	}

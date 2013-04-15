@@ -117,7 +117,7 @@ func (c *PublishCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return fmt.Errorf("cannot obtain local digest: %v", err)
 	}
-	log.Infof("cmd/juju: local digest is %s", localDigest)
+	log.Infof("local digest is %s", localDigest)
 
 	ch, err := charm.ReadDir(branch.Location())
 	if err != nil {
@@ -131,7 +131,7 @@ func (c *PublishCommand) Run(ctx *cmd.Context) (err error) {
 	if _, ok := err.(*charm.NotFoundError); ok {
 		oldEvent, err = charm.Store.Event(curl, "")
 		if _, ok := err.(*charm.NotFoundError); ok {
-			log.Infof("cmd/juju: charm %s is not yet in the store", curl)
+			log.Infof("charm %s is not yet in the store", curl)
 			err = nil
 		}
 	}
@@ -143,13 +143,13 @@ func (c *PublishCommand) Run(ctx *cmd.Context) (err error) {
 		return handleEvent(ctx, curl, oldEvent)
 	}
 
-	log.Infof("cmd/juju: sending charm to the charm store...")
+	log.Infof("sending charm to the charm store...")
 
 	err = branch.Push(&bzr.PushAttr{Location: pushLocation, Remember: true})
 	if err != nil {
 		return err
 	}
-	log.Infof("cmd/juju: charm sent; waiting for it to be published...")
+	log.Infof("charm sent; waiting for it to be published...")
 	for {
 		time.Sleep(c.pollDelay)
 		newEvent, err := charm.Store.Event(curl, "")
@@ -175,7 +175,7 @@ func handleEvent(ctx *cmd.Context, curl *charm.URL, event *charm.EventResponse) 
 	switch event.Kind {
 	case "published":
 		curlRev := curl.WithRevision(event.Revision)
-		log.Infof("cmd/juju: charm published at %s as %s", event.Time, curlRev)
+		log.Infof("charm published at %s as %s", event.Time, curlRev)
 		fmt.Fprintln(ctx.Stdout, curlRev)
 	case "publish-error":
 		return fmt.Errorf("charm could not be published: %s", strings.Join(event.Errors, "; "))
