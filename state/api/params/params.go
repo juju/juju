@@ -87,6 +87,12 @@ type ResolvedResults struct {
 	Settings map[string]interface{}
 }
 
+// AddServiceUnitsResults holds the names of the units added by the
+// AddServiceUnits call.
+type AddServiceUnitsResults struct {
+	Units []string
+}
+
 // AddServiceUnits holds parameters for the AddUnits call.
 type AddServiceUnits struct {
 	ServiceName string
