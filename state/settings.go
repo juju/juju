@@ -180,8 +180,8 @@ func newSettings(st *State, key string) *Settings {
 	}
 }
 
-// cleanMap cleans the map of version and _id fields.
-func cleanMap(in map[string]interface{}) {
+// cleanSettingsMap cleans the map of version and _id fields.
+func cleanSettingsMap(in map[string]interface{}) {
 	delete(in, "_id")
 	delete(in, "txn-revno")
 	delete(in, "txn-queue")
@@ -200,8 +200,8 @@ func (c *Settings) Read() error {
 		return fmt.Errorf("cannot read settings: %v", err)
 	}
 	c.txnRevno = config["txn-revno"].(int64)
-	cleanMap(config)
-	c.disk = copyMap(config)
+	cleanSettingsMap(config)
+	c.disk = config
 	c.core = copyMap(config)
 	return nil
 }

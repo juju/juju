@@ -75,11 +75,17 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 	c.Assert(err, IsNil)
 	err = wordpress.SetConstraints(constraints.MustParse("mem=100M"))
 	c.Assert(err, IsNil)
+	cfg, err := wordpress.Config()
+	c.Assert(err, IsNil)
+	cfg.Set("blog-title", "boring")
+	_, err = cfg.Write()
+	c.Assert(err, IsNil)
 	add(&params.ServiceInfo{
 		Name:        "wordpress",
 		Exposed:     true,
 		CharmURL:    serviceCharmURL(wordpress).String(),
 		Constraints: constraints.MustParse("mem=100M"),
+		Config: map[string]interface{}{"blog-title": "boring"},
 	})
 	pairs := map[string]string{"x": "12", "y": "99"}
 	err = wordpress.SetAnnotations(pairs)
@@ -94,6 +100,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 	add(&params.ServiceInfo{
 		Name:     "logging",
 		CharmURL: serviceCharmURL(logging).String(),
+		Config: map[string]interface{}{},
 	})
 
 	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
@@ -402,6 +409,7 @@ var allWatcherChangedTests = []struct {
 				Name:     "wordpress",
 				Exposed:  true,
 				CharmURL: "local:series/series-wordpress-3",
+				Config: map[string]interface {}{},
 			},
 		},
 	}, {
@@ -409,6 +417,9 @@ var allWatcherChangedTests = []struct {
 		add: []params.EntityInfo{&params.ServiceInfo{
 			Name:    "wordpress",
 			Exposed: true,
+			CharmURL: "local:series/series-wordpress-3",
+			Constraints: constraints.MustParse("mem=99M"),
+			Config: map[string]interface{}{"foo": "bar"},
 		}},
 		setUp: func(c *C, st *State) {
 			_, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
@@ -422,6 +433,8 @@ var allWatcherChangedTests = []struct {
 			&params.ServiceInfo{
 				Name:     "wordpress",
 				CharmURL: "local:series/series-wordpress-3",
+				Constraints: constraints.MustParse("mem=99M"),
+				Config: map[string]interface{}{"foo": "bar"},
 			},
 		},
 	},
