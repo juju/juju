@@ -33,7 +33,7 @@ var apiPortSuffix = fmt.Sprintf(":%d", apiPort)
 // state transition (for instance an instance taking a while to release
 // a security group after termination).  The former failure mode is
 // dealt with by shortAttempt, the latter by longAttempt.
-var shortAttempt = trivial.AttemptStrategy{
+var shortAttempt = utils.AttemptStrategy{
 	Total: 5 * time.Second,
 	Delay: 200 * time.Millisecond,
 }
