@@ -300,10 +300,11 @@ type backingSettings map[string]interface{}
 func (s *backingSettings) updated(st *State, store *multiwatcher.Store, id interface{}) error {
 	parentId, url, ok := backingEntityIdForSettingsKey(id.(string))
 	if !ok {
-		log.Errorf("settings for entity with unrecognised key %q", id)
+		log.Errorf("settings for entity with unrecognized key %q", id)
 		return nil
 	}
 	info0 := store.Get(parentId)
+	log.Infof("settings updated; parent %q; url %q; old %#v", parentId, url, info0)
 	switch info := info0.(type) {
 	case nil:
 		// The parent info doesn't exist. Ignore the status until it does.
@@ -445,6 +446,10 @@ func newAllWatcherStateBacking(st *State) multiwatcher.Backing {
 	}, {
 		Collection:    st.constraints,
 		infoSliceType: reflect.TypeOf([]backingConstraints(nil)),
+		subsidiary:    true,
+	}, {
+		Collection:    st.settings,
+		infoSliceType: reflect.TypeOf([]backingSettings(nil)),
 		subsidiary:    true,
 	}}
 	// Populate the collection maps from the above set of collections.
