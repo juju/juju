@@ -714,6 +714,54 @@ func (s *UnitSuite) TestRemove(c *C) {
 	c.Assert(err, IsNil)
 }
 
+func (s *UnitSuite) TestRemovePathological(c *C) {
+	// Add a relation between wordpress and mysql...
+	wordpress := s.service
+	wordpress0 := s.unit
+	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
+	c.Assert(err, IsNil)
+	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
+	c.Assert(err, IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+
+	// The relation holds a reference to wordpress, but that can't keep
+	// wordpress from being removed -- because the relation will be removed
+	// if we destroy wordpress.
+	// However, if a unit of the *other* service joins the relation, that
+	// will add an additional reference and prevent the relation -- and
+	// thus wordpress itself -- from being removed when its last unit is.
+	mysql0, err := mysql.AddUnit()
+	c.Assert(err, IsNil)
+	mysql0ru, err := rel.Unit(mysql0)
+	c.Assert(err, IsNil)
+	err = mysql0ru.EnterScope(nil)
+	c.Assert(err, IsNil)
+
+	// Destroy wordpress, and remove its last unit.
+	err = wordpress.Destroy()
+	c.Assert(err, IsNil)
+	err = wordpress0.EnsureDead()
+	c.Assert(err, IsNil)
+	err = wordpress0.Remove()
+	c.Assert(err, IsNil)
+
+	// Check this didn't kill the service or relation yet...
+	err = wordpress.Refresh()
+	c.Assert(err, IsNil)
+	err = rel.Refresh()
+	c.Assert(err, IsNil)
+
+	// ...but when the unit on the other side departs the relation, the
+	// relation and the other service are cleaned up.
+	err = mysql0ru.LeaveScope()
+	c.Assert(err, IsNil)
+	err = wordpress.Refresh()
+	c.Assert(state.IsNotFound(err), Equals, true)
+	err = rel.Refresh()
+	c.Assert(state.IsNotFound(err), Equals, true)
+}
+
 func (s *UnitSuite) TestWatchSubordinates(c *C) {
 	w := s.unit.WatchSubordinateUnits()
 	defer stop(c, w)
