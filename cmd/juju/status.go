@@ -62,7 +62,7 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 
 	result := map[string]interface{}{
 		"machines": checkError(processMachines(machines, instances)),
-		"services": checkError(processServices(services)),
+		"services": checkError(processServices(services, machines)),
 	}
 
 	return c.out.Write(ctx, result)
@@ -176,15 +176,23 @@ func processMachine(machine *state.Machine, instance environs.Instance) (statusM
 }
 
 // processServices gathers information about services.
-func processServices(services map[string]*state.Service) (statusMap, error) {
+func processServices(services map[string]*state.Service, machines map[string]*state.Machine) (statusMap, error) {
+	subordinatesMap := make(statusMap)
 	servicesMap := make(statusMap)
+	// 1st pass: iterate over the services.
 	for _, s := range services {
-		servicesMap[s.Name()] = checkError(processService(s))
+		servicesMap[s.Name()] = checkError(processService(s, subordinatesMap, machines))
+	}
+	// 2nd pass: post-process the subordinates.
+	// TODO(mue) Add subordinated unit status.
+	for serviceName, subordinateNames := range subordinatesMap {
+		st := set.NewStrings(subordinateNames.([]string)...)
+		servicesMap[serviceName].(statusMap)["subordinate-to"] = st.SortedValues()
 	}
 	return servicesMap, nil
 }
 
-func processService(service *state.Service) (statusMap, error) {
+func processService(service *state.Service, subordinatesMap statusMap, machines map[string]*state.Machine) (statusMap, error) {
 	serviceMap := make(statusMap)
 	ch, _, err := service.Charm()
 	if err != nil {
@@ -193,14 +201,12 @@ func processService(service *state.Service) (statusMap, error) {
 	serviceMap["charm"] = ch.String()
 	serviceMap["exposed"] = service.IsExposed()
 
-	// TODO(dfc) service.IsSubordinate() ?
-
 	units, err := service.AllUnits()
 	if err != nil {
 		return nil, err
 	}
 
-	if u := checkError(processUnits(units)); len(u) > 0 {
+	if u := checkError(processUnits(units, subordinatesMap, machines)); len(u) > 0 {
 		serviceMap["units"] = u
 	}
 
@@ -211,15 +217,15 @@ func processService(service *state.Service) (statusMap, error) {
 	return serviceMap, nil
 }
 
-func processUnits(units []*state.Unit) (statusMap, error) {
+func processUnits(units []*state.Unit, subordinatesMap statusMap, machines map[string]*state.Machine) (statusMap, error) {
 	unitsMap := make(statusMap)
 	for _, unit := range units {
-		unitsMap[unit.Name()] = checkError(processUnit(unit))
+		unitsMap[unit.Name()] = checkError(processUnit(unit, subordinatesMap, machines))
 	}
 	return unitsMap, nil
 }
 
-func processUnit(unit *state.Unit) (statusMap, error) {
+func processUnit(unit *state.Unit, subordinatesMap statusMap, machines map[string]*state.Machine) (statusMap, error) {
 	unitMap := make(statusMap)
 
 	if addr, ok := unit.PublicAddress(); ok {
@@ -243,6 +249,26 @@ func processUnit(unit *state.Unit) (statusMap, error) {
 		return nil, err
 	}
 	processStatus(unitMap, status, info, agentAlive, unitDead)
+
+	if !unit.IsPrincipal() {
+		sname := unit.ServiceName()
+		subnames := []string{}
+		if subordinatesMap[sname] != nil {
+			subnames = subordinatesMap[sname].([]string)
+		}
+		if unitMap["machine"] != nil {
+			m := machines[unitMap["machine"].(string)]
+			us, err := m.Units()
+			if err != nil {
+				return nil, err
+			}
+			for _, u := range us {
+				if u.IsPrincipal() {
+					subordinatesMap[sname] = append(subnames, u.ServiceName())
+				}
+			}
+		}
+	}
 
 	return unitMap, nil
 }
