@@ -43,7 +43,7 @@ func (fslockSuite) TestNamedLockDir(c *C) {
 	invalidLockName := func(name string) {
 		dir := c.MkDir()
 		_, err := fslock.NewLock(dir, name)
-		c.Assert(err, Equals, fslock.InvalidLockName)
+		c.Assert(err, ErrorMatches, "Invalid lock name .*")
 	}
 
 	invalidLockName("NoCapitals")
@@ -70,7 +70,7 @@ func (fslockSuite) TestNewLockWithExistingFileInPlace(c *C) {
 	c.Assert(err, IsNil)
 
 	_, err = fslock.NewLock(path, "special")
-	c.Assert(err, ErrorMatches, `lock dir ".*/locks" exists and is a file not a directory`)
+	c.Assert(err, ErrorMatches, `.* not a directory`)
 }
 
 func (fslockSuite) TestIsLockHeldBasics(c *C) {

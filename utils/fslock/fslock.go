@@ -60,25 +60,8 @@ func NewLock(lockDir, name string) (*Lock, error) {
 		nonce:  nonce,
 	}
 	// Ensure the parent exists.
-	dir, err := os.Open(lock.parent)
-	if os.IsNotExist(err) {
-		// try to make it
-		err = os.MkdirAll(lock.parent, 0755)
-		// Since we have just created the directory successfully, return now.
-		if err == nil {
-			return lock, nil
-		}
-	}
-	if err != nil {
+	if err := os.MkdirAll(lock.parent, 0755); err != nil {
 		return nil, err
-	}
-	// Make sure it is actually a directory
-	fileInfo, err := dir.Stat()
-	if err != nil {
-		return nil, err
-	}
-	if !fileInfo.IsDir() {
-		return nil, fmt.Errorf("lock dir %q exists and is a file not a directory", lockDir)
 	}
 	return lock, nil
 }
@@ -192,7 +175,7 @@ func (lock *Lock) IsLockHeld() bool {
 	if err != nil {
 		return false
 	}
-	return string(heldNonce) == lock.nonce
+	return string(heldNonce) == string(lock.nonce)
 }
 
 func (lock *Lock) Unlock() error {
