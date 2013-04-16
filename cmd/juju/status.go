@@ -12,6 +12,8 @@ import (
 	"launchpad.net/juju-core/utils/set"
 )
 
+type statusMap map[string]interface{}
+
 type StatusCommand struct {
 	EnvCommandBase
 	out cmd.Output
@@ -193,23 +195,17 @@ func processService(service *state.Service) (statusMap, error) {
 
 	// TODO(dfc) service.IsSubordinate() ?
 
-	_, relationMap, err := processRelationsMap(service)
-	if err != nil {
-		return nil, err
-	}
-
 	units, err := service.AllUnits()
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO(mue) Change processUnits to work similar to the Python version.
 	if u := checkError(processUnits(units)); len(u) > 0 {
 		serviceMap["units"] = u
 	}
 
-	if len(relationMap) > 0 {
-		serviceMap["relations"] = relationMap
+	if r := checkError(processRelations(service)); len(r) > 0 {
+		serviceMap["relations"] = r
 	}
 
 	return serviceMap, nil
@@ -251,24 +247,24 @@ func processUnit(unit *state.Unit) (statusMap, error) {
 	return unitMap, nil
 }
 
-func processRelationsMap(service *state.Service) ([]*state.Relation, statusMap, error) {
+func processRelations(service *state.Service) (statusMap, error) {
 	// TODO(mue) This way the same relation is read twice (for each service).
-	// Maybe add Relations() to state, read them only once and pass them to the to each
+	// Maybe add Relations() to state, read them only once and pass them to each
 	// call of this function. 
 	relations, err := service.Relations()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	relationMap := make(statusMap)
 	for _, relation := range relations {
 		ep, err := relation.Endpoint(service.Name())
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		relationName := ep.Relation.Name
 		eps, err := relation.RelatedEndpoints(service.Name())
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		serviceNames := []string{}
 		if relationMap[relationName] != nil {
@@ -280,11 +276,12 @@ func processRelationsMap(service *state.Service) ([]*state.Relation, statusMap, 
 		relationMap[relationName] = serviceNames
 	}
 	// Normalize service names by removing duplicates and sorting them.
+	// TODO(mue) Check if and why duplicates can happen and what this means.
 	for relationName, serviceNames := range relationMap {
 		sn := set.NewStrings(serviceNames.([]string)...)
 		relationMap[relationName] = sn.SortedValues()
 	}
-	return relations, relationMap, nil
+	return relationMap, nil
 }
 
 type versioned interface {
@@ -296,8 +293,6 @@ func processVersion(sm statusMap, v versioned) {
 		sm["agent-version"] = t.Binary.Number.String()
 	}
 }
-
-type statusMap map[string]interface{}
 
 func checkError(sm statusMap, err error) statusMap {
 	if err != nil {

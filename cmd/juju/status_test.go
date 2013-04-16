@@ -355,7 +355,11 @@ var statusTests = []testCase{
 				},
 			},
 		},
-	), test(
+	),
+}
+
+var relationTests = []testCase{
+	test(
 		"complex scenario with multiple related services",
 		addMachine{"0", state.JobManageEnviron},
 		startAliveMachine{"0"},
@@ -369,14 +373,16 @@ var statusTests = []testCase{
 		addMachine{"1", state.JobHostUnits},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", params.StatusStarted, ""},
-		addUnit{"project", "1"},
+		addAliveUnit{"project", "1"},
+		setUnitStatus{"project/0", params.StatusStarted, ""},
 
 		addService{"mysql", "mysql"},
 		setServiceExposed{"mysql", true},
 		addMachine{"2", state.JobHostUnits},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", params.StatusStarted, ""},
-		addUnit{"mysql", "2"},
+		addAliveUnit{"mysql", "2"},
+		setUnitStatus{"mysql/0", params.StatusStarted, ""},
 
 		addService{"varnish", "varnish"},
 		setServiceExposed{"varnish", true},
@@ -413,7 +419,7 @@ var statusTests = []testCase{
 						"units": M{
 							"project/0": M{
 								"machine":     "1",
-								"agent-state": "pending",
+								"agent-state": "started",
 							},
 						},
 						"relations": M{
@@ -427,7 +433,7 @@ var statusTests = []testCase{
 						"units": M{
 							"mysql/0": M{
 								"machine":     "2",
-								"agent-state": "pending",
+								"agent-state": "started",
 							},
 						},
 						"relations": M{
@@ -458,6 +464,66 @@ var statusTests = []testCase{
 						},
 						"relations": M{
 							"db": L{"mysql"},
+						},
+					},
+				},
+			},
+		},
+	), test(
+		"simple peer scenario",
+		addMachine{"0", state.JobManageEnviron},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", params.StatusStarted, ""},
+		addCharm{"riak"},
+		addCharm{"wordpress"},
+
+		addService{"riak", "riak"},
+		setServiceExposed{"riak", true},
+		addMachine{"1", state.JobHostUnits},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", params.StatusStarted, ""},
+		addAliveUnit{"riak", "1"},
+		setUnitStatus{"riak/0", params.StatusStarted, ""},
+		addMachine{"2", state.JobHostUnits},
+		startAliveMachine{"2"},
+		setMachineStatus{"2", params.StatusStarted, ""},
+		addAliveUnit{"riak", "2"},
+		setUnitStatus{"riak/1", params.StatusStarted, ""},
+		addMachine{"3", state.JobHostUnits},
+		startAliveMachine{"3"},
+		setMachineStatus{"3", params.StatusStarted, ""},
+		addAliveUnit{"riak", "3"},
+		setUnitStatus{"riak/2", params.StatusStarted, ""},
+
+		expect{
+			"multiples related peer units",
+			M{
+				"machines": M{
+					"0": machine0,
+					"1": machine1,
+					"2": machine2,
+					"3": machine3,
+				},
+				"services": M{
+					"riak": M{
+						"charm":   "local:series/riak-7",
+						"exposed": true,
+						"units": M{
+							"riak/0": M{
+								"machine":     "1",
+								"agent-state": "started",
+							},
+							"riak/1": M{
+								"machine":     "2",
+								"agent-state": "started",
+							},
+							"riak/2": M{
+								"machine":     "3",
+								"agent-state": "started",
+							},
+						},
+						"relations": M{
+							"ring": L{"riak"},
 						},
 					},
 				},
@@ -674,6 +740,18 @@ func (e expect) step(c *C, ctx *context) {
 
 func (s *StatusSuite) TestStatusAllFormats(c *C) {
 	for i, t := range statusTests {
+		c.Log("test %d: %s", i, t.summary)
+		func() {
+			// Prepare context and run all steps to setup.
+			ctx := s.newContext()
+			defer s.resetContext(c, ctx)
+			ctx.run(c, t.steps)
+		}()
+	}
+}
+
+func (s *StatusSuite) TestRelations(c *C) {
+	for i, t := range relationTests {
 		c.Log("test %d: %s", i, t.summary)
 		func() {
 			// Prepare context and run all steps to setup.
