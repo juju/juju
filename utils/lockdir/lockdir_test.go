@@ -138,3 +138,28 @@ func (lockDirSuite) TestLockBlocks(c *C) {
 
 	c.Assert(lock2.IsLockHeld(), Equals, true)
 }
+
+func (lockDirSuite) TestTryLockUnlocked(c *C) {
+	dir := c.MkDir()
+	lock, err := lockdir.NewLock(dir, "testing")
+	c.Assert(err, IsNil)
+
+	acquired, err := lock.TryLock(10 * time.Millisecond)
+	c.Assert(err, IsNil)
+	c.Assert(acquired, Equals, true)
+}
+
+func (lockDirSuite) TestTryLockLocked(c *C) {
+	dir := c.MkDir()
+	lock1, err := lockdir.NewLock(dir, "testing")
+	c.Assert(err, IsNil)
+	lock2, err := lockdir.NewLock(dir, "testing")
+	c.Assert(err, IsNil)
+
+	err = lock1.Lock()
+	c.Assert(err, IsNil)
+
+	acquired, err := lock2.TryLock(10 * time.Millisecond)
+	c.Assert(err, IsNil)
+	c.Assert(acquired, Equals, false)
+}
