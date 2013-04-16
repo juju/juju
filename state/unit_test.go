@@ -725,8 +725,12 @@ func (s *UnitSuite) TestRemovePathological(c *C) {
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, IsNil)
 
-	// Enter scope with a unit of mysql, to keep the relation (and thus
-	// wordpress itself) from being removed.
+	// The relation holds a reference to wordpress, but that can't keep
+	// wordpress from being removed -- because the relation will be removed
+	// if we destroy wordpress.
+	// However, if a unit of the *other* service joins the relation, that
+	// will add an additional reference and prevent the relation -- and
+	// thus wordpress itself -- from being removed when its last unit is.
 	mysql0, err := mysql.AddUnit()
 	c.Assert(err, IsNil)
 	mysql0ru, err := rel.Unit(mysql0)
@@ -748,7 +752,8 @@ func (s *UnitSuite) TestRemovePathological(c *C) {
 	err = rel.Refresh()
 	c.Assert(err, IsNil)
 
-	// ...but finally leaving relation scope on the other side does.
+	// ...but when the unit on the other side departs the relation, the
+	// relation and the other service are cleaned up.
 	err = mysql0ru.LeaveScope()
 	c.Assert(err, IsNil)
 	err = wordpress.Refresh()
