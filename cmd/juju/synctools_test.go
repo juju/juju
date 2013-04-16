@@ -7,21 +7,23 @@ import (
 	"launchpad.net/juju-core/environs/dummy"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
-	"sort"
 )
 
 type syncToolsSuite struct {
 	testing.LoggingSuite
-	home      *testing.FakeHome
-	targetEnv environs.Environ
-	origAttrs map[string]interface{}
+	home        *testing.FakeHome
+	targetEnv   environs.Environ
+	origAttrs   map[string]interface{}
+	origVersion version.Binary
 }
 
 func (s *syncToolsSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
+	s.origVersion = version.Current
+	// It's important that this be v1 to match the test data.
+	version.Current.Number = version.MustParse("1.2.3")
 
 	// Create a target environments.yaml and make sure its environment is empty.
 	s.home = testing.MakeFakeHome(c, `
@@ -50,12 +52,9 @@ environments:
 	c.Assert(env, NotNil)
 	envtesting.RemoveAllTools(c, env)
 	store := env.PublicStorage().(environs.Storage)
-	envtesting.UploadFakeToolsVersion(c, store, t1000precise.Binary)
-	envtesting.UploadFakeToolsVersion(c, store, t1000quantal.Binary)
-	envtesting.UploadFakeToolsVersion(c, store, t1000quantal32.Binary)
-	envtesting.UploadFakeToolsVersion(c, store, t1900quantal.Binary)
-	envtesting.UploadFakeToolsVersion(c, store, t2000precise.Binary)
-
+	for _, vers := range vAll {
+		envtesting.UploadFakeToolsVersion(c, store, vers)
+	}
 	// Overwrite the official source bucket to the new dummy 'test-source',
 	// saving the original value for cleanup
 	s.origAttrs = officialBucketAttrs
@@ -66,6 +65,7 @@ func (s *syncToolsSuite) TearDownTest(c *C) {
 	officialBucketAttrs = s.origAttrs
 	dummy.Reset()
 	s.home.Restore()
+	version.Current = s.origVersion
 	s.LoggingSuite.TearDownTest(c)
 }
 
@@ -81,19 +81,12 @@ func (s *syncToolsSuite) TestHelp(c *C) {
 	c.Assert(ctx, IsNil)
 }
 
-func assertToolsList(c *C, toolsList []*state.Tools, expected ...string) {
-	sort.Strings(expected)
-	actual := make([]string, len(toolsList))
-	for i, tool := range toolsList {
-		actual[i] = tool.Binary.String()
+func assertToolsList(c *C, list tools.List, expected []version.Binary) {
+	urls := list.URLs()
+	c.Check(urls, HasLen, len(expected))
+	for _, vers := range expected {
+		c.Assert(urls[vers], Not(Equals), "")
 	}
-	sort.Strings(actual)
-	// In gocheck, the empty slice does not equal the nil slice, though it
-	// does for our purposes
-	if expected == nil {
-		expected = []string{}
-	}
-	c.Assert(actual, DeepEquals, expected)
 }
 
 func assertEmpty(c *C, storage environs.StorageReader) {
@@ -112,8 +105,7 @@ func (s *syncToolsSuite) TestCopyNewestFromDummy(c *C) {
 	// Newest released v1 tools made available to target env.
 	targetTools, err := environs.FindAvailableTools(s.targetEnv, 1)
 	c.Assert(err, IsNil)
-	assertToolsList(c, targetTools,
-		"1.0.0-precise-amd64", "1.0.0-quantal-amd64", "1.0.0-quantal-i386")
+	assertToolsList(c, targetTools, v100all)
 
 	// Public bucket was not touched.
 	assertEmpty(c, s.targetEnv.PublicStorage())
@@ -127,7 +119,7 @@ func (s *syncToolsSuite) TestCopyNewestDevFromDummy(c *C) {
 	// Newest v1 dev tools made available to target env.
 	targetTools, err := environs.FindAvailableTools(s.targetEnv, 1)
 	c.Assert(err, IsNil)
-	assertToolsList(c, targetTools, "1.9.0-quantal-amd64")
+	assertToolsList(c, targetTools, v190all)
 
 	// Public bucket was not touched.
 	assertEmpty(c, s.targetEnv.PublicStorage())
@@ -141,8 +133,7 @@ func (s *syncToolsSuite) TestCopyAllFromDummy(c *C) {
 	// All released v1 tools made available to target env.
 	targetTools, err := environs.FindAvailableTools(s.targetEnv, 1)
 	c.Assert(err, IsNil)
-	assertToolsList(c, targetTools,
-		"1.0.0-precise-amd64", "1.0.0-quantal-amd64", "1.0.0-quantal-i386")
+	assertToolsList(c, targetTools, v100all)
 
 	// Public bucket was not touched.
 	assertEmpty(c, s.targetEnv.PublicStorage())
@@ -156,9 +147,7 @@ func (s *syncToolsSuite) TestCopyAllDevFromDummy(c *C) {
 	// All v1 tools, dev and release, made available to target env.
 	targetTools, err := environs.FindAvailableTools(s.targetEnv, 1)
 	c.Assert(err, IsNil)
-	assertToolsList(c, targetTools,
-		"1.0.0-precise-amd64", "1.0.0-quantal-amd64",
-		"1.0.0-quantal-i386", "1.9.0-quantal-amd64")
+	assertToolsList(c, targetTools, v1all)
 
 	// Public bucket was not touched.
 	assertEmpty(c, s.targetEnv.PublicStorage())
@@ -172,29 +161,29 @@ func (s *syncToolsSuite) TestCopyToDummyPublic(c *C) {
 	// Newest released tools made available to target env.
 	targetTools, err := environs.FindAvailableTools(s.targetEnv, 1)
 	c.Assert(err, IsNil)
-	assertToolsList(c, targetTools,
-		"1.0.0-precise-amd64", "1.0.0-quantal-amd64", "1.0.0-quantal-i386")
+	assertToolsList(c, targetTools, v100all)
 
 	// Private bucket was not touched.
 	assertEmpty(c, s.targetEnv.Storage())
 }
 
 func (s *syncToolsSuite) TestCopyToDummyPublicBlockedByPrivate(c *C) {
-	envtesting.UploadFakeToolsVersion(c, s.targetEnv.Storage(), t2000precise.Binary)
+	envtesting.UploadFakeToolsVersion(c, s.targetEnv.Storage(), v200p64)
 
 	_, err := runSyncToolsCommand(c, "-e", "test-target", "--public")
 	c.Assert(err, ErrorMatches, "private tools present: public tools would be ignored")
 	assertEmpty(c, s.targetEnv.PublicStorage())
 }
 
-func mustParseTools(vers string) *state.Tools {
-	return &state.Tools{Binary: version.MustParseBinary(vers)}
-}
-
 var (
-	t1000precise   = mustParseTools("1.0.0-precise-amd64")
-	t1000quantal   = mustParseTools("1.0.0-quantal-amd64")
-	t1000quantal32 = mustParseTools("1.0.0-quantal-i386")
-	t1900quantal   = mustParseTools("1.9.0-quantal-amd64")
-	t2000precise   = mustParseTools("2.0.0-precise-amd64")
+	v100p64 = version.MustParseBinary("1.0.0-precise-amd64")
+	v100q64 = version.MustParseBinary("1.0.0-quantal-amd64")
+	v100q32 = version.MustParseBinary("1.0.0-quantal-i386")
+	v100all = []version.Binary{v100p64, v100q64, v100q32}
+	v190q64 = version.MustParseBinary("1.9.0-quantal-amd64")
+	v190p32 = version.MustParseBinary("1.9.0-precise-i386")
+	v190all = []version.Binary{v190q64, v190p32}
+	v1all   = append(v100all, v190all...)
+	v200p64 = version.MustParseBinary("2.0.0-precise-amd64")
+	vAll    = append(v1all, v200p64)
 )
