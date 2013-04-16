@@ -319,7 +319,7 @@ type ServiceInfo struct {
 	Exposed     bool
 	CharmURL    string
 	Constraints constraints.Value
-	Life        int8
+	Life        string
 }
 
 func (i *ServiceInfo) EntityId() EntityId {

@@ -43,9 +43,10 @@ var marshalTestCases = []struct {
 			Exposed:     true,
 			CharmURL:    "cs:series/name",
 			Constraints: constraints.MustParse("arch=arm mem=1024M"),
+			Life:        "dying",
 		},
 	},
-	json: `["service","change",{"CharmURL": "cs:series/name","Name":"Benji","Exposed":true,"Constraints":{"arch":"arm", "mem": 1024}}]`,
+	json: `["service","change",{"CharmURL": "cs:series/name","Life":"dying","Name":"Benji","Exposed":true,"Constraints":{"arch":"arm", "mem": 1024}}]`,
 }, {
 	about: "UnitInfo Delta",
 	value: params.Delta{

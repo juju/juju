@@ -80,6 +80,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 		Exposed:     true,
 		CharmURL:    serviceCharmURL(wordpress).String(),
 		Constraints: constraints.MustParse("mem=100M"),
+		Life:        Alive.String(),
 	})
 	pairs := map[string]string{"x": "12", "y": "99"}
 	err = wordpress.SetAnnotations(pairs)
@@ -94,6 +95,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 	add(&params.ServiceInfo{
 		Name:     "logging",
 		CharmURL: serviceCharmURL(logging).String(),
+		Life:     Alive.String(),
 	})
 
 	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
