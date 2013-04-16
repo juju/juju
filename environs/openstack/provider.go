@@ -769,9 +769,11 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 		return nil, fmt.Errorf("cannot find image for %q", scfg.tools.Series)
 	}
 	spec, err := findInstanceSpec(e, &instanceConstraint{
-		series: scfg.tools.Series,
-		arch:   scfg.tools.Arch,
-		region: e.ecfg().region(),
+		environs.InstanceConstraint: environs.InstanceConstraint{
+			Series: scfg.tools.Series,
+			Arches: []string{scfg.tools.Arch},
+			Region: e.ecfg().region(),
+		},
 		flavor: e.ecfg().defaultInstanceType(),
 	})
 	if err != nil {
@@ -795,8 +797,8 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	for a := shortAttempt.Start(); a.Next(); {
 		server, err = e.nova().RunServer(nova.RunServerOpts{
 			Name:               e.machineFullName(scfg.machineId),
-			FlavorId:           spec.flavorId,
-			ImageId:            spec.imageId,
+			FlavorId:           spec.InstanceTypeId,
+			ImageId:            spec.Image.Id,
 			UserData:           userData,
 			SecurityGroupNames: groupNames,
 		})

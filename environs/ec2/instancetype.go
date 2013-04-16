@@ -1,110 +1,8 @@
 package ec2
 
 import (
-	"fmt"
-	"launchpad.net/juju-core/constraints"
-	"sort"
+	"launchpad.net/juju-core/environs"
 )
-
-// instanceType holds all relevant attributes of the various ec2 instance
-// types.
-type instanceType struct {
-	name     string
-	arches   []string
-	cpuCores uint64
-	cpuPower uint64
-	mem      uint64
-	// hvm instance types must be launched with hvm images.
-	hvm bool
-}
-
-// match returns true if itype can satisfy the supplied constraints. If so,
-// it also returns a copy of itype with any arches that do not match the
-// constraints filtered out.
-func (itype instanceType) match(cons constraints.Value) (instanceType, bool) {
-	nothing := instanceType{}
-	if cons.Arch != nil {
-		itype.arches = filterArches(itype.arches, []string{*cons.Arch})
-	}
-	if len(itype.arches) == 0 {
-		return nothing, false
-	}
-	if cons.CpuCores != nil && itype.cpuCores < *cons.CpuCores {
-		return nothing, false
-	}
-	if cons.CpuPower != nil && itype.cpuPower < *cons.CpuPower {
-		return nothing, false
-	}
-	if cons.Mem != nil && itype.mem < *cons.Mem {
-		return nothing, false
-	}
-	return itype, true
-}
-
-// filterArches returns every element of src that also exists in filter.
-func filterArches(src, filter []string) (dst []string) {
-	for _, arch := range src {
-		for _, match := range filter {
-			if arch == match {
-				dst = append(dst, arch)
-				break
-			}
-		}
-	}
-	return dst
-}
-
-// defaultCpuPower is larger that t1.micro's cpuPower, and no larger than
-// any other instance type's cpuPower. It is used when no explicit CpuPower
-// constraint exists, preventing t1.micro from being chosen unless the user
-// has clearly indicated that they are willing to accept poor performance.
-var defaultCpuPower uint64 = 100
-
-// getInstanceTypes returns all instance types matching cons and available
-// in region, sorted by increasing region-specific cost.
-func getInstanceTypes(region string, cons constraints.Value) ([]instanceType, error) {
-	if cons.CpuPower == nil {
-		v := defaultCpuPower
-		cons.CpuPower = &v
-	}
-	allCosts := allRegionCosts[region]
-	if len(allCosts) == 0 {
-		return nil, fmt.Errorf("no instance types found in %s", region)
-	}
-	var costs []uint64
-	var itypes []instanceType
-	for _, itype := range allInstanceTypes {
-		cost, ok := allCosts[itype.name]
-		if !ok {
-			continue
-		}
-		itype, ok := itype.match(cons)
-		if !ok {
-			continue
-		}
-		costs = append(costs, cost)
-		itypes = append(itypes, itype)
-	}
-	if len(itypes) == 0 {
-		return nil, fmt.Errorf("no instance types in %s matching constraints %q", region, cons)
-	}
-	sort.Sort(byCost{itypes, costs})
-	return itypes, nil
-}
-
-// byCost is used to sort a slice of instance types as a side effect of
-// sorting a matching slice of costs in USDe-3/hour.
-type byCost struct {
-	itypes []instanceType
-	costs  []uint64
-}
-
-func (bc byCost) Len() int           { return len(bc.costs) }
-func (bc byCost) Less(i, j int) bool { return bc.costs[i] < bc.costs[j] }
-func (bc byCost) Swap(i, j int) {
-	bc.costs[i], bc.costs[j] = bc.costs[j], bc.costs[i]
-	bc.itypes[i], bc.itypes[j] = bc.itypes[j], bc.itypes[i]
-}
 
 // all instance types can run amd64 images, and some can also run i386 ones.
 var (
@@ -114,134 +12,134 @@ var (
 
 // allInstanceTypes holds the relevant attributes of every known
 // instance type.
-var allInstanceTypes = []instanceType{
+var allInstanceTypes = []environs.InstanceType{
 	{ // First generation.
-		name:     "m1.small",
-		arches:   both,
-		cpuCores: 1,
-		cpuPower: 100,
-		mem:      1740,
+		Name:     "m1.small",
+		Arches:   both,
+		CpuCores: 1,
+		CpuPower: 100,
+		Mem:      1740,
 	}, {
-		name:     "m1.medium",
-		arches:   both,
-		cpuCores: 1,
-		cpuPower: 200,
-		mem:      3840,
+		Name:     "m1.medium",
+		Arches:   both,
+		CpuCores: 1,
+		CpuPower: 200,
+		Mem:      3840,
 	}, {
-		name:     "m1.large",
-		arches:   amd64,
-		cpuCores: 2,
-		cpuPower: 400,
-		mem:      7680,
+		Name:     "m1.large",
+		Arches:   amd64,
+		CpuCores: 2,
+		CpuPower: 400,
+		Mem:      7680,
 	}, {
-		name:     "m1.xlarge",
-		arches:   amd64,
-		cpuCores: 4,
-		cpuPower: 800,
-		mem:      15360,
+		Name:     "m1.xlarge",
+		Arches:   amd64,
+		CpuCores: 4,
+		CpuPower: 800,
+		Mem:      15360,
 	},
 	{ // Second generation.
-		name:     "m3.xlarge",
-		arches:   amd64,
-		cpuCores: 4,
-		cpuPower: 1300,
-		mem:      15360,
+		Name:     "m3.xlarge",
+		Arches:   amd64,
+		CpuCores: 4,
+		CpuPower: 1300,
+		Mem:      15360,
 	}, {
-		name:     "m3.2xlarge",
-		arches:   amd64,
-		cpuCores: 8,
-		cpuPower: 2600,
-		mem:      30720,
+		Name:     "m3.2xlarge",
+		Arches:   amd64,
+		CpuCores: 8,
+		CpuPower: 2600,
+		Mem:      30720,
 	},
 	{ // Micro.
-		name:     "t1.micro",
-		arches:   both,
-		cpuCores: 1,
-		cpuPower: 20,
-		mem:      613,
+		Name:     "t1.micro",
+		Arches:   both,
+		CpuCores: 1,
+		CpuPower: 20,
+		Mem:      613,
 	},
-	{ // High-memory.
-		name:     "m2.xlarge",
-		arches:   amd64,
-		cpuCores: 2,
-		cpuPower: 650,
-		mem:      17408,
+	{ // High-Memory.
+		Name:     "m2.xlarge",
+		Arches:   amd64,
+		CpuCores: 2,
+		CpuPower: 650,
+		Mem:      17408,
 	}, {
-		name:     "m2.2xlarge",
-		arches:   amd64,
-		cpuCores: 4,
-		cpuPower: 1300,
-		mem:      34816,
+		Name:     "m2.2xlarge",
+		Arches:   amd64,
+		CpuCores: 4,
+		CpuPower: 1300,
+		Mem:      34816,
 	}, {
-		name:     "m2.4xlarge",
-		arches:   amd64,
-		cpuCores: 8,
-		cpuPower: 2600,
-		mem:      69632,
+		Name:     "m2.4xlarge",
+		Arches:   amd64,
+		CpuCores: 8,
+		CpuPower: 2600,
+		Mem:      69632,
 	},
 	{ // High-CPU.
-		name:     "c1.medium",
-		arches:   both,
-		cpuCores: 2,
-		cpuPower: 500,
-		mem:      1740,
+		Name:     "c1.medium",
+		Arches:   both,
+		CpuCores: 2,
+		CpuPower: 500,
+		Mem:      1740,
 	}, {
-		name:     "c1.xlarge",
-		arches:   amd64,
-		cpuCores: 8,
-		cpuPower: 2000,
-		mem:      7168,
+		Name:     "c1.xlarge",
+		Arches:   amd64,
+		CpuCores: 8,
+		CpuPower: 2000,
+		Mem:      7168,
 	},
 	{ // Cluster compute.
-		name:     "cc1.4xlarge",
-		arches:   amd64,
-		cpuCores: 8,
-		cpuPower: 3350,
-		mem:      23552,
-		hvm:      true,
+		Name:     "cc1.4xlarge",
+		Arches:   amd64,
+		CpuCores: 8,
+		CpuPower: 3350,
+		Mem:      23552,
+		Hvm:      true,
 	}, {
-		name:     "cc2.8xlarge",
-		arches:   amd64,
-		cpuCores: 16,
-		cpuPower: 8800,
-		mem:      61952,
-		hvm:      true,
+		Name:     "cc2.8xlarge",
+		Arches:   amd64,
+		CpuCores: 16,
+		CpuPower: 8800,
+		Mem:      61952,
+		Hvm:      true,
 	},
-	{ // High memory cluster.
-		name:     "cr1.8xlarge",
-		arches:   amd64,
-		cpuCores: 16,
-		cpuPower: 8800,
-		mem:      249856,
-		hvm:      true,
+	{ // High Memory cluster.
+		Name:     "cr1.8xlarge",
+		Arches:   amd64,
+		CpuCores: 16,
+		CpuPower: 8800,
+		Mem:      249856,
+		Hvm:      true,
 	},
 	{ // Cluster GPU.
-		name:     "cg1.4xlarge",
-		arches:   amd64,
-		cpuCores: 8,
-		cpuPower: 3350,
-		mem:      22528,
-		hvm:      true,
+		Name:     "cg1.4xlarge",
+		Arches:   amd64,
+		CpuCores: 8,
+		CpuPower: 3350,
+		Mem:      22528,
+		Hvm:      true,
 	},
 	{ // High I/O.
-		name:     "hi1.4xlarge",
-		arches:   amd64,
-		cpuCores: 16,
-		cpuPower: 3500,
-		mem:      61952,
+		Name:     "hi1.4xlarge",
+		Arches:   amd64,
+		CpuCores: 16,
+		CpuPower: 3500,
+		Mem:      61952,
 	},
 	{ // High storage.
-		name:     "hs1.8xlarge",
-		arches:   amd64,
-		cpuCores: 16,
-		cpuPower: 3500,
-		mem:      119808,
+		Name:     "hs1.8xlarge",
+		Arches:   amd64,
+		CpuCores: 16,
+		CpuPower: 3500,
+		Mem:      119808,
 	},
 }
 
 // allRegionCosts holds the cost in USDe-3/hour for each available instance
 // type in each region.
-var allRegionCosts = map[string]map[string]uint64{
+var allRegionCosts = environs.RegionCost{
 	"ap-northeast-1": { // Tokyo.
 		"m1.small":   88,
 		"m1.medium":  175,

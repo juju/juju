@@ -3,49 +3,76 @@ package openstack
 import (
 	"fmt"
 	"launchpad.net/juju-core/environs"
+	"bufio"
 )
 
 // instanceConstraint constrains the possible instances that may be
 // chosen by the Openstack provider.
 type instanceConstraint struct {
-	series string // Ubuntu release name.
-	arch   string
-	region string
+	environs.InstanceConstraint
 	flavor string
 }
 
-// instanceSpec specifies a particular kind of instance.
-type instanceSpec struct {
-	imageId  string
-	flavorId string
-}
-
-func findInstanceSpec(e *environ, constraint *instanceConstraint) (*instanceSpec, error) {
+func findInstanceSpec(e *environ, constraint *instanceConstraint) (*environs.InstanceSpec, error) {
 	nova := e.nova()
-	flavors, err := nova.ListFlavors()
+	flavors, err := nova.ListFlavorsDetail()
 	if err != nil {
 		return nil, err
 	}
-	var flavorId string
+	var defaultInstanceType *environs.InstanceType
+	allInstanceTypes := []environs.InstanceType{}
 	for _, flavor := range flavors {
-		if flavor.Name == constraint.flavor {
-			flavorId = flavor.Id
-			break
+		allInstanceTypes = append(allInstanceTypes, environs.InstanceType{
+				Id: flavor.Id,
+				Name: flavor.Name,
+				Arches: constraint.Arches,
+				Mem: uint64(flavor.RAM),
+				CpuCores: uint64(flavor.VCPUs),
+				CpuPower: 100,
+			})
+		if constraint.flavor == "" || flavor.Name == constraint.flavor {
+			defaultInstanceType = &environs.InstanceType{
+				Id: flavor.Id,
+				Name: flavor.Name,
+				Arches: constraint.Arches,
+				Mem: uint64(flavor.RAM),
+				CpuCores: uint64(flavor.VCPUs),
+				CpuPower: 100,
+			}
 		}
 	}
-	if flavorId == "" {
+	if len(allInstanceTypes) == 0 {
 		return nil, environs.NotFoundError{fmt.Errorf("No such flavor %s", constraint.flavor)}
 	}
-	// TODO(wallyworld) - we want to search for an image based on the series, arch, region like for ec2 providers
-	// and http://cloud-images.ubuntu.com but there's nothing to support that yet.
-	// So we allow the user to configure a default image Id to use.
-	imageId := e.ecfg().defaultImageId()
-	if imageId == "" {
-		return nil, fmt.Errorf("Unable to find image for series/arch/region %s/%s/%s and no default specified.",
-			constraint.series, constraint.arch, constraint.region)
+	availableTypes, err := environs.GetInstanceTypes(constraint.Region, constraint.Constraints, allInstanceTypes, nil)
+	if err != nil {
+		return nil, fmt.Errorf("cannot get instance types for %q: %v", constraint.Series, err)
 	}
-	return &instanceSpec{
-		imageId:  imageId,
-		flavorId: flavorId,
-	}, nil
+	if len(availableTypes) == 0 && defaultInstanceType != nil {
+		availableTypes = []environs.InstanceType{*defaultInstanceType}
+	}
+
+	var spec *environs.InstanceSpec
+	releasesFile := fmt.Sprintf("series-image-metadata/%s/server/released.current.txt", constraint.Series)
+	r, err := e.Storage().Get(releasesFile)
+	if err != nil {
+		r, err = e.PublicStorage().Get(releasesFile)
+	}
+	if err == nil {
+		defer r.Close()
+		br := bufio.NewReader(r)
+		spec, err = environs.FindInstanceSpec(br, &constraint.InstanceConstraint, availableTypes)
+	}
+	if err != nil {
+		imageId := e.ecfg().defaultImageId()
+		if imageId == "" {
+			return nil, fmt.Errorf("Unable to find image for series/arch/region %s/%s/%s and no default specified.",
+				constraint.Series, constraint.Arches[0], constraint.Region)
+		}
+		spec = &environs.InstanceSpec{
+			availableTypes[0].Id, availableTypes[0].Name,
+			environs.Image{imageId, constraint.Arches[0], false},
+		}
+	}
+	return spec, nil
 }

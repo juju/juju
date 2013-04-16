@@ -449,11 +449,12 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 		}
 	}
 	log.Infof("environs/ec2: starting machine %s in %q running tools version %q from %q", scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
-	spec, err := findInstanceSpec(&instanceConstraint{
-		region:      e.ecfg().region(),
-		series:      scfg.series,
-		arches:      []string{scfg.tools.Arch},
-		constraints: scfg.constraints,
+	spec, err := findInstanceSpec(&environs.InstanceConstraint{
+		Region:      e.ecfg().region(),
+		Series:      scfg.series,
+		Ebs:         "ebs",
+		Arches:      []string{scfg.tools.Arch},
+		Constraints: scfg.constraints,
 	})
 	if err != nil {
 		return nil, err
@@ -470,11 +471,11 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 
 	for a := shortAttempt.Start(); a.Next(); {
 		instances, err = e.ec2().RunInstances(&ec2.RunInstances{
-			ImageId:        spec.image.id,
+			ImageId:        spec.Image.Id,
 			MinCount:       1,
 			MaxCount:       1,
 			UserData:       userData,
-			InstanceType:   spec.instanceType,
+			InstanceType:   spec.InstanceTypeName,
 			SecurityGroups: groups,
 		})
 		if err == nil || ec2ErrCode(err) != "InvalidGroup.NotFound" {
