@@ -32,21 +32,25 @@ var (
 type Lock struct {
 	name   string
 	parent string
-	nonce  string
+	nonce  []byte
 }
 
-func generateNonce() (string, error) {
-	const size = 20
-	var nonce [size]byte
-	if _, err := io.ReadFull(rand.Reader, []byte(nonce[0:size])); err != nil {
-		return "", err
+func generateNonce() ([]byte, error) {
+	nonce := make([]byte, 20)
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return nil, err
 	}
-	return string(nonce[:]), nil
+	return nonce, nil
 }
 
-// Return a new lock.
+// NewLock returns a new lock with the given name within the given lock
+// directory, without acquiring it. The lock name must match the regular
+// expression `^[a-z]+[a-z0-9.-]*`.
 func NewLock(lockDir, name string) (*Lock, error) {
 	nonce, err := generateNonce()
+	if err != nil {
+		return nil, err
+	}
 	if !validName.MatchString(name) {
 		return nil, fmt.Errorf("Invalid lock name %q.  Names must match %q", name, nameRegexp)
 	}
