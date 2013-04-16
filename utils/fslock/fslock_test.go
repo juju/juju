@@ -27,30 +27,34 @@ func (fslockSuite) TearDownSuite(c *C) {
 	fslock.SetLockWaitDelay(1 * time.Second)
 }
 
-// This test also happens to test that locks can get created when the fslock
-// doesn't exist.
-func (fslockSuite) TestNamedLockDir(c *C) {
-	validLockName := func(name string) {
+// This test also happens to test that locks can get created when the parent
+// lock directory doesn't exist.
+func (fslockSuite) TestValidNamesLockDir(c *C) {
+
+	for _, name := range []string{
+		"a",
+		"longer",
+		"longer-with.special-characters",
+	} {
 		dir := c.MkDir()
 		_, err := fslock.NewLock(dir, name)
 		c.Assert(err, IsNil)
 	}
+}
 
-	validLockName("a")
-	validLockName("longer")
-	validLockName("longer-with.special-characters")
+func (fslockSuite) TestInvalidNames(c *C) {
 
-	invalidLockName := func(name string) {
+	for _, name := range []string{
+		"NoCapitals",
+		"no+plus",
+		"no/slash",
+		"no\\backslash",
+		"no$dollar",
+	} {
 		dir := c.MkDir()
 		_, err := fslock.NewLock(dir, name)
 		c.Assert(err, ErrorMatches, "Invalid lock name .*")
 	}
-
-	invalidLockName("NoCapitals")
-	invalidLockName("no+plus")
-	invalidLockName("no/slash")
-	invalidLockName("no\\backslash")
-	invalidLockName("no$dollar")
 }
 
 func (fslockSuite) TestNewLockWithExistingDir(c *C) {
