@@ -139,16 +139,16 @@ func (fslockSuite) TestLockBlocks(c *C) {
 	c.Assert(lock2.IsLockHeld(), Equals, true)
 }
 
-func (fslockSuite) TestTryLockUnlocked(c *C) {
+func (fslockSuite) TestLockWithTimeoutUnlocked(c *C) {
 	dir := c.MkDir()
 	lock, err := fslock.NewLock(dir, "testing")
 	c.Assert(err, IsNil)
 
-	err = lock.TryLock(10 * time.Millisecond)
+	err = lock.LockWithTimeout(10 * time.Millisecond)
 	c.Assert(err, IsNil)
 }
 
-func (fslockSuite) TestTryLockLocked(c *C) {
+func (fslockSuite) TestLockWithTimeoutLocked(c *C) {
 	dir := c.MkDir()
 	lock1, err := fslock.NewLock(dir, "testing")
 	c.Assert(err, IsNil)
@@ -158,6 +158,6 @@ func (fslockSuite) TestTryLockLocked(c *C) {
 	err = lock1.Lock()
 	c.Assert(err, IsNil)
 
-	err = lock2.TryLock(10 * time.Millisecond)
+	err = lock2.LockWithTimeout(10 * time.Millisecond)
 	c.Assert(err, Equals, fslock.ErrTimeout)
 }

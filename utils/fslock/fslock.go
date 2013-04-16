@@ -124,7 +124,9 @@ func (lock *Lock) Lock() error {
 	panic("unreachable")
 }
 
-func (lock *Lock) TryLock(duration time.Duration) error {
+// LockWithTimeout tries to acquire the lock. If it cannot acquire the lock
+// within the given duration, it returns ErrTimeout.
+func (lock *Lock) LockWithTimeout(duration time.Duration) error {
 	deadline := time.Now().Add(duration)
 	for {
 		acquired, err := lock.acquire()
