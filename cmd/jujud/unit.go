@@ -50,10 +50,10 @@ func (a *UnitAgent) Stop() error {
 
 // Run runs a unit agent.
 func (a *UnitAgent) Run(ctx *cmd.Context) error {
+	defer log.Noticef("unit agent exiting")
 	if err := a.Conf.read(state.UnitTag(a.UnitName)); err != nil {
 		return err
 	}
-	defer log.Noticef("unit agent exiting")
 	defer a.tomb.Done()
 	err := RunAgentLoop(a.Conf.Conf, a)
 	if ug, ok := err.(*UpgradeReadyError); ok {

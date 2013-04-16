@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/log"
 	"os"
 )
 
@@ -74,7 +75,9 @@ func Main(args []string) {
 	// Common commands.
 	juju.Register(&cmd.VersionCommand{})
 
-	os.Exit(cmd.Main(juju, cmd.DefaultContext(), args[1:]))
+	status := cmd.Main(juju, cmd.DefaultContext(), args[1:])
+	log.Infof("finished with status %v", status)
+	os.Exit(status)
 }
 
 func main() {

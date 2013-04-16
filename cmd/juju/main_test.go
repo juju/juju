@@ -185,6 +185,7 @@ func (s *MainSuite) TestActualRunJujuArgsBeforeCommand(c *C) {
 	content, err := ioutil.ReadFile(logpath)
 	c.Assert(err, IsNil)
 	fullmsg := fmt.Sprintf(`(.|\n)*ERROR command failed: %s\n`, msg)
+	fullmsg += `(.|\n)* INFO finished with status 1\n`
 	c.Assert(string(content), Matches, fullmsg)
 }
 
@@ -198,6 +199,7 @@ func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *C) {
 	content, err := ioutil.ReadFile(logpath)
 	c.Assert(err, IsNil)
 	fullmsg := fmt.Sprintf(`(.|\n)*ERROR command failed: %s\n`, msg)
+	fullmsg += `(.|\n)* INFO finished with status 1\n`
 	c.Assert(string(content), Matches, fullmsg)
 }
 
