@@ -439,7 +439,7 @@ var allWatcherChangedTests = []struct {
 		add: []params.EntityInfo{&params.ServiceInfo{
 			Name: "wordpress",
 			// Note: CharmURL has a different revision number from
-			// the wordpress revision in the testing repo.	
+			// the wordpress revision in the testing repo.
 			CharmURL: "local:series/series-wordpress-2",
 			Config:   map[string]interface{}{"foo": "bar"},
 		}},
