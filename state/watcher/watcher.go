@@ -372,9 +372,7 @@ func (w *Watcher) sync() error {
 		if id.Value == lastId {
 			break
 		}
-		if Debug {
-			debugf("state/watcher: got changelog document: %#v", entry)
-		}
+		debugf("state/watcher: got changelog document: %#v", entry)
 		for _, c := range entry[1:] {
 			// See txn's Runner.ChangeLog for the structure of log entries.
 			var d, r []interface{}
