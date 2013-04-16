@@ -66,17 +66,17 @@ func NewLock(lockDir, name string) (*Lock, error) {
 	return lock, nil
 }
 
-func (lock *Lock) namedLockDir() string {
+func (lock *Lock) lockDir() string {
 	return path.Join(lock.parent, lock.name)
 }
 
 func (lock *Lock) heldFile() string {
-	return path.Join(lock.namedLockDir(), "held")
+	return path.Join(lock.lockDir(), "held")
 }
 
 func (lock *Lock) acquire() (bool, error) {
-	// If the namedLockDir exists, then the lock is held by someone else.
-	dir, err := os.Open(lock.namedLockDir())
+	// If the lockDir exists, then the lock is held by someone else.
+	dir, err := os.Open(lock.lockDir())
 	if err == nil {
 		dir.Close()
 		return false, nil
@@ -89,7 +89,7 @@ func (lock *Lock) acquire() (bool, error) {
 	if err != nil {
 		return false, err // this shouldn't really fail...
 	}
-	err = os.Rename(tempDirName, lock.namedLockDir())
+	err = os.Rename(tempDirName, lock.lockDir())
 	if os.IsExist(err) {
 		// Beaten to it, clean up temporary directory.
 		os.RemoveAll(tempDirName)
@@ -168,7 +168,7 @@ func (lock *Lock) TryLock(duration time.Duration) (isLocked bool, err error) {
 	return <-locked, <-error
 }
 
-// IsLockHeld returns true if and only if the namedLockDir exists, and the
+// IsLockHeld returns true if and only if the lockDir exists, and the
 // file 'held' in that directory contains the nonce for this lock.
 func (lock *Lock) IsLockHeld() bool {
 	heldNonce, err := ioutil.ReadFile(lock.heldFile())
@@ -182,5 +182,5 @@ func (lock *Lock) Unlock() error {
 	if !lock.IsLockHeld() {
 		return ErrLockNotHeld
 	}
-	return os.RemoveAll(lock.namedLockDir())
+	return os.RemoveAll(lock.lockDir())
 }
