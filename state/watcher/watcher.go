@@ -280,6 +280,7 @@ func (w *Watcher) flush() {
 // handle deals with requests delivered by the public API
 // onto the background watcher goroutine.
 func (w *Watcher) handle(req interface{}) {
+	debugf("state/watcher: got request: %#v", req)
 	switch r := req.(type) {
 	case reqSync:
 		w.next = time.After(0)
