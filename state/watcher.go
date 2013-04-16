@@ -103,8 +103,8 @@ func (w *LifecycleWatcher) initial() (ids []string, err error) {
 	iter := w.coll.Find(nil).Select(lifeFields).Iter()
 	var doc lifeDoc
 	for iter.Next(&doc) {
+		ids = append(ids, doc.Id)
 		if doc.Life != Dead {
-			ids = append(ids, doc.Id)
 			w.life[doc.Id] = doc.Life
 		}
 	}
