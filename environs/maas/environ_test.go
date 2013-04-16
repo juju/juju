@@ -264,7 +264,7 @@ func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
 
 	// Trash the tools and try to start another instance.
 	envtesting.RemoveTools(c, env.Storage())
-	instance, err = env.StartInstance("2", "xxxxx", series, constraints.Value{}, stateInfo, apiInfo)
+	instance, err = env.StartInstance("2", "fake-nonce", series, constraints.Value{}, stateInfo, apiInfo)
 	c.Check(instance, IsNil)
 	c.Check(err, ErrorMatches, "no tools available")
 	c.Check(err, FitsTypeOf, (*environs.NotFoundError)(nil))

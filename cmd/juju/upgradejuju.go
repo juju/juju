@@ -263,7 +263,7 @@ func (v *upgradeVersions) validate() (err error) {
 // uploadVersion returns a copy of the supplied version with a build number
 // higher than any of the supplied tools that share its major, minor and patch.
 func uploadVersion(vers version.Number, existing tools.List) version.Number {
-	vers.Build += 1
+	vers.Build++
 	for _, t := range existing {
 		if t.Major != vers.Major || t.Minor != vers.Minor || t.Patch != vers.Patch {
 			continue

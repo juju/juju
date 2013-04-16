@@ -117,7 +117,7 @@ func (env *maasEnviron) Bootstrap(cons constraints.Value) error {
 	err = env.saveState(&bootstrapState{StateInstances: []state.InstanceId{inst.Id()}})
 	if err != nil {
 		if err := env.releaseInstance(inst); err != nil {
-			log.Errorf("cannot release failed bootstrap instance: %v", err)
+			log.Errorf("environs/maas: cannot release failed bootstrap instance: %v", err)
 		}
 		return fmt.Errorf("cannot save state: %v", err)
 	}
@@ -150,10 +150,10 @@ func (env *maasEnviron) StateInfo() (*state.Info, *api.Info, error) {
 	for a := longAttempt.Start(); len(stateAddrs) == 0 && a.Next(); {
 		insts, err := env.Instances(st.StateInstances)
 		if err != nil && err != environs.ErrPartialInstances {
-			log.Debugf("error getting state instance: %v", err.Error())
+			log.Debugf("environs/maas: error getting state instance: %v", err.Error())
 			return nil, nil, err
 		}
-		log.Debugf("started processing instances: %#v", insts)
+		log.Debugf("environs/maas: started processing instances: %#v", insts)
 		for _, inst := range insts {
 			if inst == nil {
 				continue
@@ -289,8 +289,7 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, 
 func (environ *maasEnviron) obtainNode(machineId string, cons constraints.Value, possibleTools tools.List, mcfg *cloudinit.MachineConfig) (_ *maasInstance, err error) {
 	series := possibleTools.Series()
 	if len(series) != 1 {
-		log.Errorf("expected one series; got %v", series)
-		panic("series should have been chosen by now")
+		return nil, fmt.Errorf("expected single series, got %v", series)
 	}
 	var instance *maasInstance
 	if node, tools, err := environ.acquireNode(cons, possibleTools); err != nil {
@@ -302,7 +301,7 @@ func (environ *maasEnviron) obtainNode(machineId string, cons constraints.Value,
 	defer func() {
 		if err != nil {
 			if err := environ.releaseInstance(instance); err != nil {
-				log.Errorf("error releasing failed instance: %v", err)
+				log.Errorf("environs/maas: error releasing failed instance: %v", err)
 			}
 		}
 	}()

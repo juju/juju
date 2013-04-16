@@ -170,7 +170,7 @@ func breakJuju(c *C, environMethod string) (msg string) {
 	path := config.JujuHomePath("environments.yaml")
 	err := ioutil.WriteFile(path, []byte(brokenConfig), 0666)
 	c.Assert(err, IsNil)
-	return fmt.Sprintf("environment configuration missing admin-secret")
+	return fmt.Sprintf("environment configuration has no admin-secret")
 }
 
 func (s *MainSuite) TestActualRunJujuArgsBeforeCommand(c *C) {

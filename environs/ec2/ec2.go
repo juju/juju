@@ -402,8 +402,7 @@ type startInstanceParams struct {
 func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, error) {
 	series := scfg.possibleTools.Series()
 	if len(series) != 1 {
-		log.Errorf("expected one series; got %v", series)
-		panic("series should have been chosen by now")
+		return nil, fmt.Errorf("expected single series, got %v", series)
 	}
 	arches := scfg.possibleTools.Arches()
 	spec, err := findInstanceSpec(&instanceConstraint{
@@ -417,8 +416,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	}
 	tools, err := scfg.possibleTools.Match(tools.Filter{Arch: spec.image.arch})
 	if err != nil {
-		log.Errorf("expected arch in %v; got %v", arches, spec.image.arch)
-		panic("findInstanceSpec chose impossible arch")
+		return nil, fmt.Errorf("chose architecture %v not present in %v", spec.image.arch, arches)
 	}
 	userData, err := e.userData(scfg, tools[0])
 	if err != nil {
