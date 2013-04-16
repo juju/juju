@@ -10,7 +10,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"time"
 )
 
@@ -61,7 +61,7 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *C) {
 	err = environs.FinishMachineConfig(mcfg, cfg, cons)
 	c.Check(err, IsNil)
 	c.Check(mcfg.AuthorizedKeys, Equals, "we-are-the-keys")
-	password := trivial.PasswordHash("lisboan-pork")
+	password := utils.PasswordHash("lisboan-pork")
 	c.Check(mcfg.APIInfo, DeepEquals, &api.Info{
 		Password: password, CACert: []byte(testing.CACert),
 	})

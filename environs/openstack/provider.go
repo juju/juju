@@ -21,7 +21,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"net/http"
 	"strconv"
 	"strings"
@@ -46,12 +46,12 @@ var providerInstance environProvider
 // state transition (for instance an instance taking a while to release
 // a security group after termination).  The former failure mode is
 // dealt with by shortAttempt, the latter by longAttempt.
-var shortAttempt = trivial.AttemptStrategy{
+var shortAttempt = utils.AttemptStrategy{
 	Total: 10 * time.Second, // it seems Nova needs more time than EC2
 	Delay: 200 * time.Millisecond,
 }
 
-var longAttempt = trivial.AttemptStrategy{
+var longAttempt = utils.AttemptStrategy{
 	Total: 3 * time.Minute,
 	Delay: 1 * time.Second,
 }
@@ -648,7 +648,7 @@ func (e *environ) userData(scfg *startInstanceParams, tools *state.Tools) ([]byt
 	if err != nil {
 		return nil, err
 	}
-	cdata := trivial.Gzip(data)
+	cdata := utils.Gzip(data)
 	log.Debugf("environs/openstack: openstack user data; %d bytes", len(cdata))
 	return cdata, nil
 }

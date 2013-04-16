@@ -18,7 +18,7 @@ import (
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"regexp"
 )
 
@@ -286,7 +286,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(bootstrapDNS, Not(Equals), "")
 
-	userData, err := trivial.Gunzip(inst.UserData)
+	userData, err := utils.Gunzip(inst.UserData)
 	c.Assert(err, IsNil)
 	c.Logf("first instance: UserData: %q", userData)
 	var x map[interface{}]interface{}
@@ -307,7 +307,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	c.Assert(err, IsNil)
 	inst = t.srv.ec2srv.Instance(string(inst1.Id()))
 	c.Assert(inst, NotNil)
-	userData, err = trivial.Gunzip(inst.UserData)
+	userData, err = utils.Gunzip(inst.UserData)
 	c.Assert(err, IsNil)
 	c.Logf("second instance: UserData: %q", userData)
 	x = nil

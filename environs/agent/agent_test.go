@@ -7,7 +7,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -350,7 +350,7 @@ func (s *openSuite) TestOpenStateFallbackPassword(c *C) {
 	defer st.Close()
 	c.Assert(newPassword, Matches, ".+")
 	c.Assert(st, NotNil)
-	p, err := trivial.RandomPassword()
+	p, err := utils.RandomPassword()
 	c.Assert(err, IsNil)
 	c.Assert(newPassword, HasLen, len(p))
 	c.Assert(conf.OldPassword, Equals, s.StateInfo(c).Password)
@@ -368,7 +368,7 @@ func (s *openSuite) TestOpenStateNoPassword(c *C) {
 	defer st.Close()
 	c.Assert(newPassword, Matches, ".+")
 	c.Assert(st, NotNil)
-	p, err := trivial.RandomPassword()
+	p, err := utils.RandomPassword()
 	c.Assert(err, IsNil)
 	c.Assert(newPassword, HasLen, len(p))
 	c.Assert(conf.OldPassword, Equals, s.StateInfo(c).Password)

@@ -141,7 +141,7 @@ type Environ interface {
 	// starting one or more instances.  If the configuration's
 	// AdminSecret is non-empty, the adminstrator password on the
 	// newly bootstrapped state will be set to a hash of it (see
-	// trivial.PasswordHash), When first connecting to the
+	// utils.PasswordHash), When first connecting to the
 	// environment via the juju package, the password hash will be
 	// automatically replaced by the real password.
 	//

@@ -14,7 +14,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"net/url"
 	"sync"
 	"time"
@@ -31,7 +31,7 @@ const (
 var mgoPortSuffix = fmt.Sprintf(":%d", mgoPort)
 var apiPortSuffix = fmt.Sprintf(":%d", apiPort)
 
-var longAttempt = trivial.AttemptStrategy{
+var longAttempt = utils.AttemptStrategy{
 	Total: 3 * time.Minute,
 	Delay: 1 * time.Second,
 }
@@ -238,7 +238,7 @@ func (env *maasEnviron) getMAASClient() *gomaasapi.MAASObject {
 // acquireNode allocates a node from the MAAS.
 func (environ *maasEnviron) acquireNode(cons constraints.Value, possibleTools tools.List) (gomaasapi.MAASObject, *state.Tools, error) {
 	log.Warningf("environs/maas: ignoring constraints %q", cons)
-	retry := trivial.AttemptStrategy{
+	retry := utils.AttemptStrategy{
 		Total: 5 * time.Second,
 		Delay: 200 * time.Millisecond,
 	}
@@ -266,7 +266,7 @@ func (environ *maasEnviron) acquireNode(cons constraints.Value, possibleTools to
 
 // startNode installs and boots a node.
 func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, userdata []byte) error {
-	retry := trivial.AttemptStrategy{
+	retry := utils.AttemptStrategy{
 		Total: 5 * time.Second,
 		Delay: 200 * time.Millisecond,
 	}

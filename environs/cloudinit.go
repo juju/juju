@@ -10,13 +10,13 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 )
 
 // FinishMachineConfig sets fields on a MachineConfig that can be determined by
 // inspecting a plain config.Config.
 func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons constraints.Value) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot complete machine configuration")
+	defer utils.ErrorContextf(&err, "cannot complete machine configuration")
 
 	// Everything needs the environment's authorized keys.
 	authKeys := cfg.AuthorizedKeys()
@@ -39,7 +39,7 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 	if password == "" {
 		return fmt.Errorf("environment configuration missing admin-secret")
 	}
-	passwordHash := trivial.PasswordHash(password)
+	passwordHash := utils.PasswordHash(password)
 	mcfg.APIInfo = &api.Info{Password: passwordHash, CACert: caCert}
 	mcfg.StateInfo = &state.Info{Password: passwordHash, CACert: caCert}
 	mcfg.Constraints = cons
