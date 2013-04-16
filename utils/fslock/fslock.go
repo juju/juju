@@ -76,9 +76,8 @@ func (lock *Lock) heldFile() string {
 
 func (lock *Lock) acquire() (bool, error) {
 	// If the lockDir exists, then the lock is held by someone else.
-	dir, err := os.Open(lock.lockDir())
+	_, err := os.Stat(lock.lockDir())
 	if err == nil {
-		dir.Close()
 		return false, nil
 	}
 	if !os.IsNotExist(err) {
