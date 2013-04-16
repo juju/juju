@@ -2,13 +2,17 @@ package main
 
 import (
 	"fmt"
+
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/utils/set"
 )
+
+type statusMap map[string]interface{}
 
 type StatusCommand struct {
 	EnvCommandBase
@@ -107,12 +111,12 @@ func fetchAllServices(st *state.State) (map[string]*state.Service, error) {
 }
 
 // processMachines gathers information about machines.
-func processMachines(machines map[string]*state.Machine, instances map[state.InstanceId]environs.Instance) (map[string]interface{}, error) {
-	r := make(map[string]interface{})
+func processMachines(machines map[string]*state.Machine, instances map[state.InstanceId]environs.Instance) (statusMap, error) {
+	machinesMap := make(statusMap)
 	for _, m := range machines {
 		instid, ok := m.InstanceId()
 		if !ok {
-			r[m.Id()] = map[string]interface{}{
+			machinesMap[m.Id()] = statusMap{
 				"instance-id": "pending",
 			}
 		} else {
@@ -122,13 +126,13 @@ func processMachines(machines map[string]*state.Machine, instances map[state.Ins
 				// yet the environ cannot find that id.
 				return nil, fmt.Errorf("instance %s for machine %s not found", instid, m.Id())
 			}
-			r[m.Id()] = checkError(processMachine(m, instance))
+			machinesMap[m.Id()] = checkError(processMachine(m, instance))
 		}
 	}
-	return r, nil
+	return machinesMap, nil
 }
 
-func processStatus(r map[string]interface{}, status params.Status, info string, agentAlive, entityDead bool) {
+func processStatus(sm statusMap, status params.Status, info string, agentAlive, entityDead bool) {
 	if status != params.StatusPending {
 		if !agentAlive && !entityDead {
 			// Add the original status to the info, so it's not lost.
@@ -141,21 +145,21 @@ func processStatus(r map[string]interface{}, status params.Status, info string, 
 			status = params.StatusDown
 		}
 	}
-	r["agent-state"] = status
+	sm["agent-state"] = status
 	if info != "" {
-		r["agent-state-info"] = info
+		sm["agent-state-info"] = info
 	}
 }
 
-func processMachine(machine *state.Machine, instance environs.Instance) (map[string]interface{}, error) {
-	r := m()
-	r["instance-id"] = instance.Id()
+func processMachine(machine *state.Machine, instance environs.Instance) (statusMap, error) {
+	machineMap := make(statusMap)
+	machineMap["instance-id"] = instance.Id()
 
 	if dnsname, err := instance.DNSName(); err == nil {
-		r["dns-name"] = dnsname
+		machineMap["dns-name"] = dnsname
 	}
 
-	processVersion(r, machine)
+	processVersion(machineMap, machine)
 
 	agentAlive, err := machine.AgentAlive()
 	if err != nil {
@@ -166,28 +170,28 @@ func processMachine(machine *state.Machine, instance environs.Instance) (map[str
 	if err != nil {
 		return nil, err
 	}
-	processStatus(r, status, info, agentAlive, machineDead)
+	processStatus(machineMap, status, info, agentAlive, machineDead)
 
-	return r, nil
+	return machineMap, nil
 }
 
 // processServices gathers information about services.
-func processServices(services map[string]*state.Service) (map[string]interface{}, error) {
-	r := m()
+func processServices(services map[string]*state.Service) (statusMap, error) {
+	servicesMap := make(statusMap)
 	for _, s := range services {
-		r[s.Name()] = checkError(processService(s))
+		servicesMap[s.Name()] = checkError(processService(s))
 	}
-	return r, nil
+	return servicesMap, nil
 }
 
-func processService(service *state.Service) (map[string]interface{}, error) {
-	r := m()
+func processService(service *state.Service) (statusMap, error) {
+	serviceMap := make(statusMap)
 	ch, _, err := service.Charm()
 	if err != nil {
 		return nil, err
 	}
-	r["charm"] = ch.String()
-	r["exposed"] = service.IsExposed()
+	serviceMap["charm"] = ch.String()
+	serviceMap["exposed"] = service.IsExposed()
 
 	// TODO(dfc) service.IsSubordinate() ?
 
@@ -196,36 +200,38 @@ func processService(service *state.Service) (map[string]interface{}, error) {
 		return nil, err
 	}
 
-	u := checkError(processUnits(units))
-	if len(u) > 0 {
-		r["units"] = u
+	if u := checkError(processUnits(units)); len(u) > 0 {
+		serviceMap["units"] = u
 	}
 
-	// TODO(dfc) process relations
-	return r, nil
+	if r := checkError(processRelations(service)); len(r) > 0 {
+		serviceMap["relations"] = r
+	}
+
+	return serviceMap, nil
 }
 
-func processUnits(units []*state.Unit) (map[string]interface{}, error) {
-	r := m()
+func processUnits(units []*state.Unit) (statusMap, error) {
+	unitsMap := make(statusMap)
 	for _, unit := range units {
-		r[unit.Name()] = checkError(processUnit(unit))
+		unitsMap[unit.Name()] = checkError(processUnit(unit))
 	}
-	return r, nil
+	return unitsMap, nil
 }
 
-func processUnit(unit *state.Unit) (map[string]interface{}, error) {
-	r := m()
+func processUnit(unit *state.Unit) (statusMap, error) {
+	unitMap := make(statusMap)
 
 	if addr, ok := unit.PublicAddress(); ok {
-		r["public-address"] = addr
+		unitMap["public-address"] = addr
 	}
 
 	if id, err := unit.AssignedMachineId(); err == nil {
 		// TODO(dfc) we could make this nicer, ie machine/0
-		r["machine"] = id
+		unitMap["machine"] = id
 	}
 
-	processVersion(r, unit)
+	processVersion(unitMap, unit)
 
 	agentAlive, err := unit.AgentAlive()
 	if err != nil {
@@ -236,26 +242,61 @@ func processUnit(unit *state.Unit) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	processStatus(r, status, info, agentAlive, unitDead)
+	processStatus(unitMap, status, info, agentAlive, unitDead)
 
-	return r, nil
+	return unitMap, nil
+}
+
+func processRelations(service *state.Service) (statusMap, error) {
+	// TODO(mue) This way the same relation is read twice (for each service).
+	// Maybe add Relations() to state, read them only once and pass them to each
+	// call of this function. 
+	relations, err := service.Relations()
+	if err != nil {
+		return nil, err
+	}
+	relationMap := make(statusMap)
+	for _, relation := range relations {
+		ep, err := relation.Endpoint(service.Name())
+		if err != nil {
+			return nil, err
+		}
+		relationName := ep.Relation.Name
+		eps, err := relation.RelatedEndpoints(service.Name())
+		if err != nil {
+			return nil, err
+		}
+		serviceNames := []string{}
+		if relationMap[relationName] != nil {
+			serviceNames = relationMap[relationName].([]string)
+		}
+		for _, ep := range eps {
+			serviceNames = append(serviceNames, ep.ServiceName)
+		}
+		relationMap[relationName] = serviceNames
+	}
+	// Normalize service names by removing duplicates and sorting them.
+	// TODO(mue) Check if and why duplicates can happen and what this means.
+	for relationName, serviceNames := range relationMap {
+		sn := set.NewStrings(serviceNames.([]string)...)
+		relationMap[relationName] = sn.SortedValues()
+	}
+	return relationMap, nil
 }
 
 type versioned interface {
 	AgentTools() (*state.Tools, error)
 }
 
-func processVersion(r map[string]interface{}, v versioned) {
+func processVersion(sm statusMap, v versioned) {
 	if t, err := v.AgentTools(); err == nil {
-		r["agent-version"] = t.Binary.Number.String()
+		sm["agent-version"] = t.Binary.Number.String()
 	}
 }
 
-func m() map[string]interface{} { return make(map[string]interface{}) }
-
-func checkError(m map[string]interface{}, err error) map[string]interface{} {
+func checkError(sm statusMap, err error) statusMap {
 	if err != nil {
 		return map[string]interface{}{"status-error": err.Error()}
 	}
-	return m
+	return sm
 }
