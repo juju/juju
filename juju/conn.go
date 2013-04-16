@@ -190,6 +190,8 @@ type DeployServiceParams struct {
 	// ConfigYAML takes precedence over Config if both are provided.
 	ConfigYAML  string
 	Constraints constraints.Value
+	// Use string for deploy-to machine to avoid ambiguity around machine 0.
+	ForceMachineId string
 }
 
 // DeployService takes a charm and various parameters and deploys it.
@@ -218,7 +220,7 @@ func (conn *Conn) DeployService(args DeployServiceParams) (*state.Service, error
 	if err := svc.SetConstraints(args.Constraints); err != nil {
 		return nil, err
 	}
-	_, err = conn.AddUnits(svc, args.NumUnits)
+	_, err = conn.AddUnits(svc, args.NumUnits, args.ForceMachineId)
 	if err != nil {
 		return nil, err
 	}
@@ -284,7 +286,7 @@ func (conn *Conn) addCharm(curl *charm.URL, ch charm.Charm) (*state.Charm, error
 
 // AddUnits starts n units of the given service and allocates machines
 // to them as necessary.
-func (conn *Conn) AddUnits(svc *state.Service, n int) ([]*state.Unit, error) {
+func (conn *Conn) AddUnits(svc *state.Service, n int, mid string) ([]*state.Unit, error) {
 	units := make([]*state.Unit, n)
 	// TODO store AssignmentPolicy in state, thus removing the need for this
 	// to use conn.Environ (so the method can be moved off Conn, and into
@@ -296,8 +298,20 @@ func (conn *Conn) AddUnits(svc *state.Service, n int) ([]*state.Unit, error) {
 		if err != nil {
 			return nil, fmt.Errorf("cannot add unit %d/%d to service %q: %v", i+1, n, svc.Name(), err)
 		}
-		// TODO lp:1101139 (units are not assigned transactionally)
-		if err := conn.State.AssignUnit(unit, policy); err != nil {
+		if mid != "" {
+			if n != 1 {
+				return nil, fmt.Errorf("cannot add multiple units of service %q to a single machine", svc.Name())
+			}
+			m, err := conn.State.Machine(mid)
+			if err != nil {
+				return nil, fmt.Errorf("cannot assign unit %q to machine: %v", unit.Name(), err)
+			}
+			err = unit.AssignToMachine(m)
+
+			if err != nil {
+				return nil, err
+			}
+		} else if err := conn.State.AssignUnit(unit, policy); err != nil {
 			return nil, err
 		}
 		units[i] = unit
