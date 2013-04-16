@@ -8,6 +8,7 @@
 package fslock
 
 import (
+	"bytes"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -97,7 +98,7 @@ func (lock *Lock) acquire() (bool, error) {
 		return false, err
 	}
 	// write nonce
-	err = ioutil.WriteFile(lock.heldFile(), []byte(lock.nonce), 0755)
+	err = ioutil.WriteFile(lock.heldFile(), lock.nonce, 0755)
 	if err != nil {
 		return false, err
 	}
@@ -174,7 +175,7 @@ func (lock *Lock) IsLockHeld() bool {
 	if err != nil {
 		return false
 	}
-	return string(heldNonce) == string(lock.nonce)
+	return bytes.Equal(heldNonce, lock.nonce)
 }
 
 func (lock *Lock) Unlock() error {
