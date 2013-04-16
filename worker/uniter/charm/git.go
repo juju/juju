@@ -7,7 +7,7 @@ import (
 	"io/ioutil"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -198,7 +198,7 @@ func (d *GitDir) statuses() ([]string, error) {
 func ReadCharmURL(d *GitDir) (*charm.URL, error) {
 	path := filepath.Join(d.path, ".juju-charm")
 	surl := ""
-	if err := trivial.ReadYaml(path, &surl); err != nil {
+	if err := utils.ReadYaml(path, &surl); err != nil {
 		return nil, err
 	}
 	return charm.ParseURL(surl)
@@ -206,5 +206,5 @@ func ReadCharmURL(d *GitDir) (*charm.URL, error) {
 
 // WriteCharmURL writes a charm identity file into the directory.
 func WriteCharmURL(d *GitDir, url *charm.URL) error {
-	return trivial.WriteYaml(filepath.Join(d.path, ".juju-charm"), url.String())
+	return utils.WriteYaml(filepath.Join(d.path, ".juju-charm"), url.String())
 }

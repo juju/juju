@@ -26,30 +26,24 @@ type UpgradeJujuCommand struct {
 var uploadTools = tools.Upload
 
 var upgradeJujuDoc = `
-When called without options, upgrade-juju will upgrade all agents in the
-environment to the most recent version compatible with the CLI tools. Most
-users should only ever call upgrade-juju without options.
+The upgrade-juju command upgrades a running environment by setting a version
+number for all juju agents to run. By default, it chooses the most recent non-
+development version compatible with the command-line tools.
 
-Versions have 4 components: major, minor, patch, and build. All version numbers
-that have an odd minor component, or a nonzero build component, are considered
-to be development versions; all others are release versions.
+A development version is defined to be any version with an odd minor version
+or a nonzero build component (for example version 2.1.1, 3.3.0 and 2.0.0.1 are
+development versions; 2.0.3 and 3.4.1 are not). A development version may be
+chosen if any of the following conditions hold:
 
-In normal use, the CLI and the agents will all run release tools; when
-upgrade-juju is called, only other release tools will be considered. However,
-if *any* of the following conditions hold:
-
-  * the CLI has a development version
-  * the environment has a development version
+  * the current juju tool has a development version.
+  * the juju environment has a development version
   * the environment "development" setting is true
-  * the --dev flag is passed
+  * the --dev flag is specified
 
-...development versions will also be considered; and if --version specifies a
-development version, or --upload-tools is set, a development version will
-certainly be used.
-
-The --dev flag allows development versions of juju to be chosen when they
-would otherwise be ignored by virtue of the agent and CLI versions both
-being release, and the "development" environment setting being false.
+For development use, the --upload-tools flag specifies that the juju tools will
+be compiled locally and uploaded before the version is set. Currently the tools
+will be uploaded as if they had the version of the current juju tool, unless
+specified otherwise by the --version flag.
 `[1:]
 
 func (c *UpgradeJujuCommand) Info() *cmd.Info {
@@ -269,7 +263,7 @@ func (v *upgradeVersions) validate() (err error) {
 // uploadVersion returns a copy of the supplied version with a build number
 // higher than any of the supplied tools that share its major, minor and patch.
 func uploadVersion(vers version.Number, existing tools.List) version.Number {
-	vers.Build += 1
+	vers.Build++
 	for _, t := range existing {
 		if t.Major != vers.Major || t.Minor != vers.Minor || t.Patch != vers.Patch {
 			continue

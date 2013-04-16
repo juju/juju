@@ -15,7 +15,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"net/http"
 	"strings"
 	"sync"
@@ -33,12 +33,12 @@ var apiPortSuffix = fmt.Sprintf(":%d", apiPort)
 // state transition (for instance an instance taking a while to release
 // a security group after termination).  The former failure mode is
 // dealt with by shortAttempt, the latter by longAttempt.
-var shortAttempt = trivial.AttemptStrategy{
+var shortAttempt = utils.AttemptStrategy{
 	Total: 5 * time.Second,
 	Delay: 200 * time.Millisecond,
 }
 
-var longAttempt = trivial.AttemptStrategy{
+var longAttempt = utils.AttemptStrategy{
 	Total: 3 * time.Minute,
 	Delay: 1 * time.Second,
 }
@@ -381,7 +381,7 @@ func (e *environ) userData(scfg *startInstanceParams, tools *state.Tools) ([]byt
 	if err != nil {
 		return nil, err
 	}
-	cdata := trivial.Gzip(data)
+	cdata := utils.Gzip(data)
 	log.Debugf("environs/ec2: ec2 user data; %d bytes: %q", len(cdata), data)
 	return cdata, nil
 }
@@ -402,8 +402,7 @@ type startInstanceParams struct {
 func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, error) {
 	series := scfg.possibleTools.Series()
 	if len(series) != 1 {
-		log.Errorf("expected one series; got %v", series)
-		panic("series should have been chosen by now")
+		return nil, fmt.Errorf("expected single series, got %v", series)
 	}
 	arches := scfg.possibleTools.Arches()
 	spec, err := findInstanceSpec(&instanceConstraint{
@@ -417,8 +416,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	}
 	tools, err := scfg.possibleTools.Match(tools.Filter{Arch: spec.image.arch})
 	if err != nil {
-		log.Errorf("expected arch in %v; got %v", arches, spec.image.arch)
-		panic("findInstanceSpec chose impossible arch")
+		return nil, fmt.Errorf("chose architecture %v not present in %v", spec.image.arch, arches)
 	}
 	userData, err := e.userData(scfg, tools[0])
 	if err != nil {
@@ -989,7 +987,7 @@ var metadataHost = "http://169.254.169.254"
 // http://docs.amazonwebservices.com/AWSEC2/latest/UserGuide/AESDG-chapter-instancedata.html
 func fetchMetadata(name string) (value string, err error) {
 	uri := fmt.Sprintf("%s/2011-01-01/meta-data/%s", metadataHost, name)
-	defer trivial.ErrorContextf(&err, "cannot get %q", uri)
+	defer utils.ErrorContextf(&err, "cannot get %q", uri)
 	for a := shortAttempt.Start(); a.Next(); {
 		var resp *http.Response
 		resp, err = http.Get(uri)

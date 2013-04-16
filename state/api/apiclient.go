@@ -55,8 +55,7 @@ func (c *Client) ServiceSet(service string, options map[string]string) error {
 		ServiceName: service,
 		Options:     options,
 	}
-	err := c.st.client.Call("Client", "", "ServiceSet", p, nil)
-	return clientError(err)
+	return c.st.call("Client", "", "ServiceSet", p, nil)
 }
 
 // Resolved clears errors on a unit.
@@ -65,8 +64,7 @@ func (c *Client) Resolved(unit string, retry bool) error {
 		UnitName: unit,
 		Retry:    retry,
 	}
-	err := c.st.client.Call("Client", "", "Resolved", p, nil)
-	return clientError(err)
+	return c.st.call("Client", "", "Resolved", p, nil)
 }
 
 // ServiceSetYAML sets configuration options on a service
@@ -76,53 +74,43 @@ func (c *Client) ServiceSetYAML(service string, yaml string) error {
 		ServiceName: service,
 		Config:      yaml,
 	}
-	err := c.st.client.Call("Client", "", "ServiceSetYAML", p, nil)
-	return clientError(err)
+	return c.st.call("Client", "", "ServiceSetYAML", p, nil)
 }
 
 // ServiceGet returns the configuration for the named service.
 func (c *Client) ServiceGet(service string) (*params.ServiceGetResults, error) {
 	var results params.ServiceGetResults
 	params := params.ServiceGet{ServiceName: service}
-	err := c.st.client.Call("Client", "", "ServiceGet", params, &results)
-	if err != nil {
-		return nil, clientError(err)
-	}
-	return &results, nil
+	err := c.st.call("Client", "", "ServiceGet", params, &results)
+	return &results, err
 }
 
 // AddRelation adds a relation between the specified endpoints and returns the relation info.
 func (c *Client) AddRelation(endpoints ...string) (*params.AddRelationResults, error) {
 	var addRelRes params.AddRelationResults
 	params := params.AddRelation{Endpoints: endpoints}
-	err := c.st.client.Call("Client", "", "AddRelation", params, &addRelRes)
-	if err != nil {
-		return nil, clientError(err)
-	}
-	return &addRelRes, nil
+	err := c.st.call("Client", "", "AddRelation", params, &addRelRes)
+	return &addRelRes, err
 }
 
 // DestroyRelation removes the relation between the specified endpoints.
 func (c *Client) DestroyRelation(endpoints ...string) error {
 	params := params.DestroyRelation{Endpoints: endpoints}
-	err := c.st.client.Call("Client", "", "DestroyRelation", params, nil)
-	return clientError(err)
+	return c.st.call("Client", "", "DestroyRelation", params, nil)
 }
 
 // ServiceExpose changes the juju-managed firewall to expose any ports that
 // were also explicitly marked by units as open.
 func (c *Client) ServiceExpose(service string) error {
 	params := params.ServiceExpose{ServiceName: service}
-	err := c.st.client.Call("Client", "", "ServiceExpose", params, nil)
-	return clientError(err)
+	return c.st.call("Client", "", "ServiceExpose", params, nil)
 }
 
 // ServiceUnexpose changes the juju-managed firewall to unexpose any ports that
 // were also explicitly marked by units as open.
 func (c *Client) ServiceUnexpose(service string) error {
 	params := params.ServiceUnexpose{ServiceName: service}
-	err := c.st.client.Call("Client", "", "ServiceUnexpose", params, nil)
-	return clientError(err)
+	return c.st.call("Client", "", "ServiceUnexpose", params, nil)
 }
 
 // ServiceDeploy obtains the charm, either locally or from the charm store,
@@ -136,28 +124,24 @@ func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int
 		ConfigYAML:  configYAML,
 		Constraints: cons,
 	}
-	err := c.st.client.Call("Client", "", "ServiceDeploy", params, nil)
-	if err != nil {
-		return clientError(err)
-	}
-	return nil
+	return c.st.call("Client", "", "ServiceDeploy", params, nil)
 }
 
 // AddServiceUnits adds a given number of units to a service.
-func (c *Client) AddServiceUnits(service string, numUnits int) error {
-	params := params.AddServiceUnits{
+func (c *Client) AddServiceUnits(service string, numUnits int) ([]string, error) {
+	args := params.AddServiceUnits{
 		ServiceName: service,
 		NumUnits:    numUnits,
 	}
-	err := c.st.client.Call("Client", "", "AddServiceUnits", params, nil)
-	return clientError(err)
+	results := new(params.AddServiceUnitsResults)
+	err := c.st.call("Client", "", "AddServiceUnits", args, results)
+	return results.Units, err
 }
 
 // DestroyServiceUnits decreases the number of units dedicated to a service.
 func (c *Client) DestroyServiceUnits(unitNames []string) error {
 	params := params.DestroyServiceUnits{unitNames}
-	err := c.st.client.Call("Client", "", "DestroyServiceUnits", params, nil)
-	return clientError(err)
+	return c.st.call("Client", "", "DestroyServiceUnits", params, nil)
 }
 
 // ServiceDestroy destroys a given service.
@@ -165,14 +149,14 @@ func (c *Client) ServiceDestroy(service string) error {
 	params := params.ServiceDestroy{
 		ServiceName: service,
 	}
-	return clientError(c.st.client.Call("Client", "", "ServiceDestroy", params, nil))
+	return c.st.call("Client", "", "ServiceDestroy", params, nil)
 }
 
 // GetServiceConstraints returns the constraints for the given service.
 func (c *Client) GetServiceConstraints(service string) (constraints.Value, error) {
 	results := new(params.GetServiceConstraintsResults)
-	err := c.st.client.Call("Client", "", "GetServiceConstraints", params.GetServiceConstraints{service}, results)
-	return results.Constraints, clientError(err)
+	err := c.st.call("Client", "", "GetServiceConstraints", params.GetServiceConstraints{service}, results)
+	return results.Constraints, err
 }
 
 // SetServiceConstraints specifies the constraints for the given service.
@@ -181,7 +165,7 @@ func (c *Client) SetServiceConstraints(service string, constraints constraints.V
 		ServiceName: service,
 		Constraints: constraints,
 	}
-	return clientError(c.st.client.Call("Client", "", "SetServiceConstraints", params, nil))
+	return c.st.call("Client", "", "SetServiceConstraints", params, nil)
 }
 
 // CharmInfo holds information about a charm.
@@ -196,9 +180,8 @@ type CharmInfo struct {
 func (c *Client) CharmInfo(charmURL string) (*CharmInfo, error) {
 	args := params.CharmInfo{CharmURL: charmURL}
 	info := new(CharmInfo)
-	err := c.st.client.Call("Client", "", "CharmInfo", args, info)
-	if err != nil {
-		return nil, clientError(err)
+	if err := c.st.call("Client", "", "CharmInfo", args, info); err != nil {
+		return nil, err
 	}
 	return info, nil
 }
@@ -213,8 +196,8 @@ type EnvironmentInfo struct {
 // EnvironmentInfo returns details about the Juju environment.
 func (c *Client) EnvironmentInfo() (*EnvironmentInfo, error) {
 	info := new(EnvironmentInfo)
-	err := c.st.client.Call("Client", "", "EnvironmentInfo", nil, info)
-	return info, clientError(err)
+	err := c.st.call("Client", "", "EnvironmentInfo", nil, info)
+	return info, err
 }
 
 // AllWatcher holds information allowing us to get Deltas describing changes
@@ -230,13 +213,12 @@ func newAllWatcher(client *Client, id *string) *AllWatcher {
 
 func (watcher *AllWatcher) Next() ([]params.Delta, error) {
 	info := new(params.AllWatcherNextResults)
-	err := watcher.client.st.client.Call("AllWatcher", *watcher.id, "Next", nil, info)
-	return info.Deltas, clientError(err)
+	err := watcher.client.st.call("AllWatcher", *watcher.id, "Next", nil, info)
+	return info.Deltas, err
 }
 
 func (watcher *AllWatcher) Stop() error {
-	return clientError(
-		watcher.client.st.client.Call("AllWatcher", *watcher.id, "Stop", nil, nil))
+	return watcher.client.st.call("AllWatcher", *watcher.id, "Stop", nil, nil)
 }
 
 // WatchAll holds the id of the newly-created AllWatcher.
@@ -248,9 +230,8 @@ type WatchAll struct {
 // collection of Deltas.
 func (c *Client) WatchAll() (*AllWatcher, error) {
 	info := new(WatchAll)
-	err := c.st.client.Call("Client", "", "WatchAll", nil, info)
-	if err != nil {
-		return nil, clientError(err)
+	if err := c.st.call("Client", "", "WatchAll", nil, info); err != nil {
+		return nil, err
 	}
 	return newAllWatcher(c, &info.AllWatcherId), nil
 }
@@ -259,11 +240,8 @@ func (c *Client) WatchAll() (*AllWatcher, error) {
 func (c *Client) GetAnnotations(tag string) (map[string]string, error) {
 	args := params.GetAnnotations{tag}
 	ann := new(params.GetAnnotationsResults)
-	err := c.st.client.Call("Client", "", "GetAnnotations", args, ann)
-	if err != nil {
-		return nil, clientError(err)
-	}
-	return ann.Annotations, nil
+	err := c.st.call("Client", "", "GetAnnotations", args, ann)
+	return ann.Annotations, err
 }
 
 // SetAnnotations sets the annotation pairs on the given entity.
@@ -271,11 +249,7 @@ func (c *Client) GetAnnotations(tag string) (map[string]string, error) {
 // units and the environment itself.
 func (c *Client) SetAnnotations(tag string, pairs map[string]string) error {
 	args := params.SetAnnotations{tag, pairs}
-	err := c.st.client.Call("Client", "", "SetAnnotations", args, nil)
-	if err != nil {
-		return clientError(err)
-	}
-	return nil
+	return c.st.call("Client", "", "SetAnnotations", args, nil)
 }
 
 // Machine returns a reference to the machine with the given id.

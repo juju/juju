@@ -11,7 +11,7 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -213,7 +213,7 @@ func decodeUserData(userData string) ([]byte, error) {
 	if err != nil {
 		return []byte(""), err
 	}
-	return trivial.Gunzip(data)
+	return utils.Gunzip(data)
 }
 
 func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
@@ -264,7 +264,7 @@ func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
 
 	// Trash the tools and try to start another instance.
 	envtesting.RemoveTools(c, env.Storage())
-	instance, err = env.StartInstance("2", "xxxxx", series, constraints.Value{}, stateInfo, apiInfo)
+	instance, err = env.StartInstance("2", "fake-nonce", series, constraints.Value{}, stateInfo, apiInfo)
 	c.Check(instance, IsNil)
 	c.Check(err, ErrorMatches, "no tools available")
 	c.Check(err, FitsTypeOf, (*environs.NotFoundError)(nil))

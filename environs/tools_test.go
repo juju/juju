@@ -389,10 +389,17 @@ func (s *ToolsSuite) TestFindBootstrapTools(c *C) {
 			continue
 		}
 		expect := map[version.Binary]string{}
+		unique := map[version.Number]bool{}
 		for _, expected := range test.expect {
 			expect[expected] = available[expected]
+			unique[expected.Number] = true
 		}
 		c.Check(actual.URLs(), DeepEquals, expect)
+		for expectAgentVersion := range unique {
+			agentVersion, ok := s.env.Config().AgentVersion()
+			c.Check(ok, Equals, true)
+			c.Check(agentVersion, Equals, expectAgentVersion)
+		}
 	}
 }
 

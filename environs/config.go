@@ -151,7 +151,8 @@ func WriteEnvirons(path string, fileContents string) (string, error) {
 }
 
 // BootstrapConfig returns a copy of the supplied configuration with
-// secret attributes removed.
+// secret attributes removed. If the resulting config is not suitable
+// for bootstrapping an environment, an error is returned.
 func BootstrapConfig(cfg *config.Config) (*config.Config, error) {
 	p, err := Provider(cfg.Type())
 	if err != nil {
@@ -173,8 +174,7 @@ func BootstrapConfig(cfg *config.Config) (*config.Config, error) {
 		return nil, err
 	}
 	if _, ok := cfg.AgentVersion(); !ok {
-		// Getting this right is the responsibility of the client environ code.
-		panic("cannot create bootstrap config without an agent-version")
+		return nil, fmt.Errorf("environment configuration has no agent-version")
 	}
 	return cfg, nil
 }

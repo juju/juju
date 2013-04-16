@@ -3,6 +3,7 @@ package main
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/worker/deployer"
 	"reflect"
 	"sort"
@@ -18,34 +19,32 @@ import (
 // deployment tests in a reasonable amount of time).
 type fakeContext struct {
 	mu       sync.Mutex
-	deployed map[string]bool
+	deployed set.Strings
 	st       *state.State
 	inited   chan struct{}
 }
 
 func (ctx *fakeContext) DeployUnit(unitName, _ string) error {
 	ctx.mu.Lock()
-	ctx.deployed[unitName] = true
+	ctx.deployed.Add(unitName)
 	ctx.mu.Unlock()
 	return nil
 }
 
 func (ctx *fakeContext) RecallUnit(unitName string) error {
 	ctx.mu.Lock()
-	delete(ctx.deployed, unitName)
+	ctx.deployed.Remove(unitName)
 	ctx.mu.Unlock()
 	return nil
 }
 
 func (ctx *fakeContext) DeployedUnits() ([]string, error) {
-	var unitNames []string
 	ctx.mu.Lock()
-	for unitName := range ctx.deployed {
-		unitNames = append(unitNames, unitName)
+	defer ctx.mu.Unlock()
+	if ctx.deployed.IsEmpty() {
+		return nil, nil
 	}
-	ctx.mu.Unlock()
-	sort.Strings(unitNames)
-	return unitNames, nil
+	return ctx.deployed.SortedValues(), nil
 }
 
 func (ctx *fakeContext) waitDeployed(c *C, want ...string) {
@@ -76,8 +75,7 @@ func (ctx *fakeContext) waitDeployed(c *C, want ...string) {
 
 func patchDeployContext(c *C, expectInfo *state.Info, expectDataDir string) (*fakeContext, func()) {
 	ctx := &fakeContext{
-		deployed: map[string]bool{},
-		inited:   make(chan struct{}),
+		inited: make(chan struct{}),
 	}
 	e0 := *expectInfo
 	expectInfo = &e0

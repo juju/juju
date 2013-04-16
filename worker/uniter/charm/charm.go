@@ -9,7 +9,7 @@ import (
 	"launchpad.net/juju-core/downloader"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"os"
 	"path"
 )
@@ -44,7 +44,7 @@ func (d *BundlesDir) Read(sch *state.Charm, abort <-chan struct{}) (*charm.Bundl
 // hash, then copies it into the directory. If a value is received on abort, the
 // download will be stopped.
 func (d *BundlesDir) download(sch *state.Charm, abort <-chan struct{}) (err error) {
-	defer trivial.ErrorContextf(&err, "failed to download charm %q from %q", sch.URL(), sch.BundleURL())
+	defer utils.ErrorContextf(&err, "failed to download charm %q from %q", sch.URL(), sch.BundleURL())
 	dir := d.downloadsPath()
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err

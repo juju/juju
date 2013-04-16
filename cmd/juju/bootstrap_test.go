@@ -62,11 +62,14 @@ func (s *BootstrapSuite) TestTests(c *C) {
 }
 
 type bootstrapTest struct {
-	info        string
-	version     string
-	args        []string
+	info string
+	// binary version string used to set version.Current
+	version string
+	args    []string
+	err     string
+	// binary version strings for expected tools; if set, no default tools
+	// will be uploaded before running the test.
 	uploads     []string
-	err         string
 	constraints constraints.Value
 }
 
@@ -96,8 +99,8 @@ func (test bootstrapTest) run(c *C) {
 			c.Check((<-opc).(dummy.OpPutFile).Env, Equals, "peckham")
 		}
 		list, err := environs.FindAvailableTools(env, version.Current.Major)
-		c.Logf("found: " + list.String())
 		c.Check(err, IsNil)
+		c.Logf("found: " + list.String())
 		urls := list.URLs()
 		c.Check(urls, HasLen, len(test.uploads))
 		for _, v := range test.uploads {
@@ -127,7 +130,6 @@ func (test bootstrapTest) run(c *C) {
 	c.Check(hasCert, Equals, true)
 	_, hasKey := env.Config().CAPrivateKey()
 	c.Check(hasKey, Equals, true)
-
 }
 
 var bootstrapTests = []bootstrapTest{{
@@ -151,7 +153,7 @@ var bootstrapTests = []bootstrapTest{{
 }, {
 	info: "bad environment",
 	args: []string{"-e", "brokenenv"},
-	err:  `environment configuration missing admin-secret`,
+	err:  `environment configuration has no admin-secret`,
 }, {
 	info:        "constraints",
 	args:        []string{"--constraints", "mem=4G cpu-cores=4"},
