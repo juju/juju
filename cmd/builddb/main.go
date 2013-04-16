@@ -48,7 +48,7 @@ func build() error {
 	if err := service.SetExposed(); err != nil {
 		return err
 	}
-	units, err := conn.AddUnits(service, 1)
+	units, err := conn.AddUnits(service, 1, "")
 	if err != nil {
 		return err
 	}

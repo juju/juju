@@ -169,6 +169,39 @@ func (s *DeploySuite) TestCharmBundle(c *C) {
 	s.assertService(c, "some-service-name", curl, 1, 0)
 }
 
+func (s *DeploySuite) TestForceMachine(c *C) {
+	coretesting.Charms.BundlePath(s.seriesPath, "dummy")
+	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	err = runDeploy(c, "--force-machine", machine.Id(), "local:dummy", "portlandia")
+	c.Assert(err, IsNil)
+	svc, err := s.State.Service("portlandia")
+	c.Assert(err, IsNil)
+	units, err := svc.AllUnits()
+	c.Assert(err, IsNil)
+	c.Assert(units, HasLen, 1)
+	mid, err := units[0].AssignedMachineId()
+	c.Assert(err, IsNil)
+	c.Assert(mid, Equals, machine.Id())
+}
+
+func (s *DeploySuite) TestForceMachineInvalid(c *C) {
+	coretesting.Charms.BundlePath(s.seriesPath, "dummy")
+	err := runDeploy(c, "--force-machine", "42", "local:dummy", "portlandia")
+	c.Assert(err, ErrorMatches, `cannot assign unit "portlandia/0" to machine: machine 42 not found`)
+
+	err = runDeploy(c, "--force-machine", "abc", "local:dummy", "portlandia")
+	c.Assert(err, ErrorMatches, `invalid machine id "abc"`)
+
+	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
+	err = runDeploy(c, "--force-machine", machine.Id(), "-n", "5", "local:dummy", "portlandia")
+	c.Assert(err, ErrorMatches, `force-machine cannot be used for multiple units`)
+
+	coretesting.Charms.BundlePath(s.seriesPath, "logging")
+	err = runDeploy(c, "--force-machine", machine.Id(), "local:logging")
+	c.Assert(err, ErrorMatches, `subordinate service cannot specify force-machine`)
+}
+
 func (s *DeploySuite) TestCannotUpgradeCharmBundle(c *C) {
 	coretesting.Charms.BundlePath(s.seriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "-u")
