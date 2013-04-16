@@ -74,6 +74,7 @@ var cloudinitTests = []cloudinitTest{
 		},
 		setEnvConfig: true,
 		expectScripts: `
+set -xe
 mkdir -p /var/lib/juju
 mkdir -p /var/log/juju
 bin='/var/lib/juju/tools/1\.2\.3-precise-amd64'
@@ -128,6 +129,7 @@ start jujud-machine-0
 		},
 		setEnvConfig: true,
 		expectScripts: `
+set -xe
 mkdir -p /var/lib/juju
 mkdir -p /var/log/juju
 bin='/var/lib/juju/tools/1\.2\.3-raring-amd64'
@@ -178,6 +180,7 @@ start jujud-machine-0
 			},
 		},
 		expectScripts: `
+set -xe
 mkdir -p /var/lib/juju
 mkdir -p /var/log/juju
 bin='/var/lib/juju/tools/1\.2\.3-linux-amd64'

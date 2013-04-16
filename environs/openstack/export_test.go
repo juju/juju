@@ -7,7 +7,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"net/http"
 	"time"
 )
@@ -61,7 +61,7 @@ var originalLongAttempt = longAttempt
 // and this reduces the test time from 30s to 3s.
 func ShortTimeouts(short bool) {
 	if short {
-		shortAttempt = trivial.AttemptStrategy{
+		shortAttempt = utils.AttemptStrategy{
 			Total: 100 * time.Millisecond,
 			Delay: 10 * time.Millisecond,
 		}

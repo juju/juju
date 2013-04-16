@@ -105,10 +105,10 @@ func (u *Upgrader) run() error {
 		return err
 	}
 
-	// TODO: this whole package should be ignorant of environs, so it
-	// shouldn't be watching environ config (and it shouldn't be looking
-	// in storage): we should be able to find out what to download from
-	// state, exactly as we do for charms.
+	// TODO(fwereade): this whole package should be ignorant of environs,
+	// so it shouldn't be watching environ config (and it shouldn't be
+	// looking in storage): we should be able to find out what to download
+	// from state, exactly as we do for charms.
 	w := u.st.WatchEnvironConfig()
 	defer watcher.Stop(w, &u.tomb)
 
