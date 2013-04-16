@@ -35,7 +35,7 @@ type Lock struct {
 	nonce  string
 }
 
-func GenerateNonce() (string, error) {
+func generateNonce() (string, error) {
 	const size = 20
 	var nonce [size]byte
 	if _, err := io.ReadFull(rand.Reader, []byte(nonce[0:size])); err != nil {
@@ -46,7 +46,7 @@ func GenerateNonce() (string, error) {
 
 // Return a new lock.
 func NewLock(lockDir, name string) (*Lock, error) {
-	nonce, err := GenerateNonce()
+	nonce, err := generateNonce()
 	if !validName.MatchString(name) {
 		return nil, fmt.Errorf("Invalid lock name %q.  Names must match %q", name, nameRegexp)
 	}
