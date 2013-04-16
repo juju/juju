@@ -80,13 +80,6 @@ type Resolved struct {
 	Retry    bool
 }
 
-// ResolvedResults holds results of the Resolved call.
-type ResolvedResults struct {
-	Service  string
-	Charm    string
-	Settings map[string]interface{}
-}
-
 // AddServiceUnitsResults holds the names of the units added by the
 // AddServiceUnits call.
 type AddServiceUnitsResults struct {
@@ -325,6 +318,7 @@ type ServiceInfo struct {
 	Name        string `bson:"_id"`
 	Exposed     bool
 	CharmURL    string
+	Life        string
 	Constraints constraints.Value
 	Config      map[string]interface{}
 }
