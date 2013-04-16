@@ -189,8 +189,7 @@ func cleanSettingsMap(in map[string]interface{}) {
 
 // Read (re)reads the node data into c.
 func (c *Settings) Read() error {
-	config := map[string]interface{}{}
-	err := c.st.settings.FindId(c.key).One(config)
+	config, txnRevno, err := readSettingsDoc(c.st, c.key)
 	if err == mgo.ErrNotFound {
 		c.disk = nil
 		c.core = make(map[string]interface{})
@@ -199,11 +198,23 @@ func (c *Settings) Read() error {
 	if err != nil {
 		return fmt.Errorf("cannot read settings: %v", err)
 	}
-	c.txnRevno = config["txn-revno"].(int64)
-	cleanSettingsMap(config)
+	c.txnRevno = txnRevno
 	c.disk = config
 	c.core = copyMap(config)
 	return nil
+}
+
+// readSettingsDoc reads the settings with the given
+// key. It returns the settings and the current rxnRevno.
+func readSettingsDoc(st *State, key string) (map[string]interface{}, int64, error) {
+	config := map[string]interface{}{}
+	err := st.settings.FindId(key).One(config)
+	if err != nil {
+		return nil, 0, err
+	}
+	txnRevno := config["txn-revno"].(int64)
+	cleanSettingsMap(config)
+	return config, txnRevno, nil
 }
 
 // readSettings returns the Settings for key.

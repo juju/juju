@@ -115,6 +115,7 @@ func (svc *backingService) updated(st *State, store *multiwatcher.Store, id inte
 		CharmURL: svc.CharmURL.String(),
 	}
 	oldInfo := store.Get(info.EntityId())
+	needConfig := false
 	if oldInfo == nil {
 		// We're adding the entry for the first time,
 		// so fetch the associated child documents.
@@ -123,12 +124,7 @@ func (svc *backingService) updated(st *State, store *multiwatcher.Store, id inte
 			return err
 		}
 		info.Constraints = c
-
-		s, err := readSettings(st, serviceSettingsKey(svc.Name, svc.CharmURL))
-		if err != nil {
-			return err
-		}
-		info.Config = s.disk
+		needConfig = true
 	} else {
 		// The entry already exists, so preserve the current status.
 		oldInfo := oldInfo.(*params.ServiceInfo)
@@ -140,11 +136,14 @@ func (svc *backingService) updated(st *State, store *multiwatcher.Store, id inte
 		} else {
 			// The charm URL has changed - we need to fetch the
 			// settings from the new charm's settings doc.
-			s, err := readSettings(st, serviceSettingsKey(svc.Name, svc.CharmURL))
-			if err != nil {
-				return err
-			}
-			info.Config = s.disk
+			needConfig = true
+		}
+	}
+	if needConfig {
+		var err error
+		info.Config, _, err = readSettingsDoc(st, serviceSettingsKey(svc.Name, svc.CharmURL))
+		if err != nil {
+			return err
 		}
 	}
 	store.Update(info)
