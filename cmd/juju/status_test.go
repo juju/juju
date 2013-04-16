@@ -35,6 +35,8 @@ var _ = Suite(&StatusSuite{})
 
 type M map[string]interface{}
 
+type L []interface{}
+
 type testCase struct {
 	summary string
 	steps   []stepper
@@ -96,6 +98,16 @@ var (
 		"agent-state": "started",
 		"dns-name":    "dummyenv-2.dns",
 		"instance-id": "dummyenv-2",
+	}
+	machine3 = M{
+		"agent-state": "started",
+		"dns-name":    "dummyenv-3.dns",
+		"instance-id": "dummyenv-3",
+	}
+	machine4 = M{
+		"agent-state": "started",
+		"dns-name":    "dummyenv-4.dns",
+		"instance-id": "dummyenv-4",
 	}
 	unexposedService = M{
 		"charm":   "local:series/dummy-1",
@@ -346,6 +358,180 @@ var statusTests = []testCase{
 	),
 }
 
+var relationTests = []testCase{
+	test(
+		"complex scenario with multiple related services",
+		addMachine{"0", state.JobManageEnviron},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", params.StatusStarted, ""},
+		addCharm{"wordpress"},
+		addCharm{"mysql"},
+		addCharm{"varnish"},
+
+		addService{"project", "wordpress"},
+		setServiceExposed{"project", true},
+		addMachine{"1", state.JobHostUnits},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", params.StatusStarted, ""},
+		addAliveUnit{"project", "1"},
+		setUnitStatus{"project/0", params.StatusStarted, ""},
+
+		addService{"mysql", "mysql"},
+		setServiceExposed{"mysql", true},
+		addMachine{"2", state.JobHostUnits},
+		startAliveMachine{"2"},
+		setMachineStatus{"2", params.StatusStarted, ""},
+		addAliveUnit{"mysql", "2"},
+		setUnitStatus{"mysql/0", params.StatusStarted, ""},
+
+		addService{"varnish", "varnish"},
+		setServiceExposed{"varnish", true},
+		addMachine{"3", state.JobHostUnits},
+		startAliveMachine{"3"},
+		setMachineStatus{"3", params.StatusStarted, ""},
+		addUnit{"varnish", "3"},
+
+		addService{"private", "wordpress"},
+		setServiceExposed{"private", true},
+		addMachine{"4", state.JobHostUnits},
+		startAliveMachine{"4"},
+		setMachineStatus{"4", params.StatusStarted, ""},
+		addUnit{"private", "4"},
+
+		relateServices{"project", "mysql"},
+		relateServices{"project", "varnish"},
+		relateServices{"private", "mysql"},
+
+		expect{
+			"multiples services with relations between some of them",
+			M{
+				"machines": M{
+					"0": machine0,
+					"1": machine1,
+					"2": machine2,
+					"3": machine3,
+					"4": machine4,
+				},
+				"services": M{
+					"project": M{
+						"charm":   "local:series/wordpress-3",
+						"exposed": true,
+						"units": M{
+							"project/0": M{
+								"machine":     "1",
+								"agent-state": "started",
+							},
+						},
+						"relations": M{
+							"db":    L{"mysql"},
+							"cache": L{"varnish"},
+						},
+					},
+					"mysql": M{
+						"charm":   "local:series/mysql-1",
+						"exposed": true,
+						"units": M{
+							"mysql/0": M{
+								"machine":     "2",
+								"agent-state": "started",
+							},
+						},
+						"relations": M{
+							"server": L{"private", "project"},
+						},
+					},
+					"varnish": M{
+						"charm":   "local:series/varnish-1",
+						"exposed": true,
+						"units": M{
+							"varnish/0": M{
+								"machine":     "3",
+								"agent-state": "pending",
+							},
+						},
+						"relations": M{
+							"webcache": L{"project"},
+						},
+					},
+					"private": M{
+						"charm":   "local:series/wordpress-3",
+						"exposed": true,
+						"units": M{
+							"private/0": M{
+								"machine":     "4",
+								"agent-state": "pending",
+							},
+						},
+						"relations": M{
+							"db": L{"mysql"},
+						},
+					},
+				},
+			},
+		},
+	), test(
+		"simple peer scenario",
+		addMachine{"0", state.JobManageEnviron},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", params.StatusStarted, ""},
+		addCharm{"riak"},
+		addCharm{"wordpress"},
+
+		addService{"riak", "riak"},
+		setServiceExposed{"riak", true},
+		addMachine{"1", state.JobHostUnits},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", params.StatusStarted, ""},
+		addAliveUnit{"riak", "1"},
+		setUnitStatus{"riak/0", params.StatusStarted, ""},
+		addMachine{"2", state.JobHostUnits},
+		startAliveMachine{"2"},
+		setMachineStatus{"2", params.StatusStarted, ""},
+		addAliveUnit{"riak", "2"},
+		setUnitStatus{"riak/1", params.StatusStarted, ""},
+		addMachine{"3", state.JobHostUnits},
+		startAliveMachine{"3"},
+		setMachineStatus{"3", params.StatusStarted, ""},
+		addAliveUnit{"riak", "3"},
+		setUnitStatus{"riak/2", params.StatusStarted, ""},
+
+		expect{
+			"multiples related peer units",
+			M{
+				"machines": M{
+					"0": machine0,
+					"1": machine1,
+					"2": machine2,
+					"3": machine3,
+				},
+				"services": M{
+					"riak": M{
+						"charm":   "local:series/riak-7",
+						"exposed": true,
+						"units": M{
+							"riak/0": M{
+								"machine":     "1",
+								"agent-state": "started",
+							},
+							"riak/1": M{
+								"machine":     "2",
+								"agent-state": "started",
+							},
+							"riak/2": M{
+								"machine":     "3",
+								"agent-state": "started",
+							},
+						},
+						"relations": M{
+							"ring": L{"riak"},
+						},
+					},
+				},
+			},
+		},
+	),
+}
+
 // TODO(dfc) test failing components by destructively mutating the state under the hood
 
 type addMachine struct {
@@ -510,6 +696,17 @@ func (sms setMachineStatus) step(c *C, ctx *context) {
 	c.Assert(err, IsNil)
 }
 
+type relateServices struct {
+	ep1, ep2 string
+}
+
+func (rs relateServices) step(c *C, ctx *context) {
+	eps, err := ctx.st.InferEndpoints([]string{rs.ep1, rs.ep2})
+	c.Assert(err, IsNil)
+	_, err = ctx.st.AddRelation(eps...)
+	c.Assert(err, IsNil)
+}
+
 type expect struct {
 	what   string
 	output M
@@ -543,6 +740,18 @@ func (e expect) step(c *C, ctx *context) {
 
 func (s *StatusSuite) TestStatusAllFormats(c *C) {
 	for i, t := range statusTests {
+		c.Log("test %d: %s", i, t.summary)
+		func() {
+			// Prepare context and run all steps to setup.
+			ctx := s.newContext()
+			defer s.resetContext(c, ctx)
+			ctx.run(c, t.steps)
+		}()
+	}
+}
+
+func (s *StatusSuite) TestRelations(c *C) {
+	for i, t := range relationTests {
 		c.Log("test %d: %s", i, t.summary)
 		func() {
 			// Prepare context and run all steps to setup.

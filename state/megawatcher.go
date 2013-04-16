@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/state/multiwatcher"
 	"launchpad.net/juju-core/state/watcher"
 	"reflect"
+	"strings"
 )
 
 // allWatcherStateBacking implements allWatcherBacking by
@@ -114,18 +115,36 @@ func (svc *backingService) updated(st *State, store *multiwatcher.Store, id inte
 		CharmURL: svc.CharmURL.String(),
 	}
 	oldInfo := store.Get(info.EntityId())
+	needConfig := false
 	if oldInfo == nil {
 		// We're adding the entry for the first time,
-		// so fetch the associated service contraints.
+		// so fetch the associated child documents.
 		c, err := readConstraints(st, serviceGlobalKey(svc.Name))
 		if err != nil {
 			return err
 		}
 		info.Constraints = c
+		needConfig = true
 	} else {
 		// The entry already exists, so preserve the current status.
 		oldInfo := oldInfo.(*params.ServiceInfo)
 		info.Constraints = oldInfo.Constraints
+		if info.CharmURL == oldInfo.CharmURL {
+			// The charm URL remains the same - we can continue to
+			// use the same config settings.
+			info.Config = oldInfo.Config
+		} else {
+			// The charm URL has changed - we need to fetch the
+			// settings from the new charm's settings doc.
+			needConfig = true
+		}
+	}
+	if needConfig {
+		var err error
+		info.Config, _, err = readSettingsDoc(st, serviceSettingsKey(svc.Name, svc.CharmURL))
+		if err != nil {
+			return err
+		}
 	}
 	store.Update(info)
 	return nil
@@ -275,6 +294,68 @@ func (a *backingConstraints) mongoId() interface{} {
 	panic("cannot find mongo id from constraints document")
 }
 
+type backingSettings map[string]interface{}
+
+func (s *backingSettings) updated(st *State, store *multiwatcher.Store, id interface{}) error {
+	parentId, url, ok := backingEntityIdForSettingsKey(id.(string))
+	if !ok {
+		log.Errorf("settings for entity with unrecognized key %q", id)
+		return nil
+	}
+	info0 := store.Get(parentId)
+	switch info := info0.(type) {
+	case nil:
+		// The parent info doesn't exist. Ignore the status until it does.
+		return nil
+	case *params.ServiceInfo:
+		// If we're seeing settings for the service with a different
+		// charm URL, we ignore them - we will fetch
+		// them again when the service charm changes.
+		// By doing this we make sure that the settings in the
+		// ServiceInfo are always consistent with the charm URL.
+		if info.CharmURL != url {
+			break
+		}
+		newInfo := *info
+		cleanSettingsMap(*s)
+		newInfo.Config = *s
+		info0 = &newInfo
+	default:
+		return nil
+	}
+	store.Update(info0)
+	return nil
+}
+
+func (s *backingSettings) removed(st *State, store *multiwatcher.Store, id interface{}) error {
+	return nil
+}
+
+func (a *backingSettings) mongoId() interface{} {
+	panic("cannot find mongo id from settings document")
+}
+
+// backingEntityIdForSettingsKey returns the entity id for the given
+// settings key. Any extra information in the key is returned in
+// extra.
+func backingEntityIdForSettingsKey(key string) (eid params.EntityId, extra string, ok bool) {
+	if !strings.HasPrefix(key, "s#") {
+		eid, ok = backingEntityIdForGlobalKey(key)
+		return
+	}
+	key = key[2:]
+	i := strings.Index(key, "#")
+	if i == -1 {
+		return params.EntityId{}, "", false
+	}
+	eid = (&params.ServiceInfo{Name: key[0:i]}).EntityId()
+	extra = key[i+1:]
+	ok = true
+	return
+}
+
+// backingEntityIdForGlobalKey returns the entity id for the given global key.
+// It returns false if the key is not recognized.
 func backingEntityIdForGlobalKey(key string) (params.EntityId, bool) {
 	if len(key) < 3 || key[1] != '#' {
 		return params.EntityId{}, false
@@ -316,6 +397,7 @@ var (
 	_ backingEntityDoc = (*backingAnnotation)(nil)
 	_ backingEntityDoc = (*backingStatus)(nil)
 	_ backingEntityDoc = (*backingConstraints)(nil)
+	_ backingEntityDoc = (*backingSettings)(nil)
 )
 
 // allWatcherStateCollection holds information about a
@@ -362,6 +444,10 @@ func newAllWatcherStateBacking(st *State) multiwatcher.Backing {
 	}, {
 		Collection:    st.constraints,
 		infoSliceType: reflect.TypeOf([]backingConstraints(nil)),
+		subsidiary:    true,
+	}, {
+		Collection:    st.settings,
+		infoSliceType: reflect.TypeOf([]backingSettings(nil)),
 		subsidiary:    true,
 	}}
 	// Populate the collection maps from the above set of collections.
@@ -423,6 +509,8 @@ func (b *allWatcherStateBacking) Changed(all *multiwatcher.Store, change watcher
 	doc := reflect.New(c.infoSliceType.Elem()).Interface().(backingEntityDoc)
 	// TODO(rog) investigate ways that this can be made more efficient
 	// than simply fetching each entity in turn.
+	// TODO(rog) avoid fetching documents that we have no interest
+	// in, such as settings changes to entities we don't care about.
 	err := c.FindId(change.Id).One(doc)
 	if err == mgo.ErrNotFound {
 		return doc.removed(b.st, all, change.Id)
