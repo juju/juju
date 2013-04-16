@@ -144,8 +144,7 @@ func (lock *Lock) LockWithTimeout(duration time.Duration) error {
 	panic("unreachable")
 }
 
-// IsLockHeld returns true if and only if the lockDir exists, and the
-// file 'held' in that directory contains the nonce for this lock.
+// IsHeld returns whether the lock is currently held by the receiver.
 func (lock *Lock) IsLockHeld() bool {
 	heldNonce, err := ioutil.ReadFile(lock.heldFile())
 	if err != nil {
@@ -154,6 +153,8 @@ func (lock *Lock) IsLockHeld() bool {
 	return bytes.Equal(heldNonce, lock.nonce)
 }
 
+// Unlock releases a held lock.  If the lock is not held ErrLockNotHeld is
+// returned.
 func (lock *Lock) Unlock() error {
 	if !lock.IsLockHeld() {
 		return ErrLockNotHeld
