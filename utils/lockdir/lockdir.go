@@ -1,11 +1,5 @@
 // On-disk mutex protecting a resource
 //
-// Waiting for a lock must be done by polling; this can be aborted after a timeout.
-//
-// Locks must always be explicitly released, typically using defer.
-//
-// Locks may fail to be released if the process is abruptly terminated (machine stop, SIGKILL).
-//
 // A lock is represented on disk by a directory of a particular name,
 // containing an information file.  Taking a lock is done by renaming a
 // temporary directory into place.  We use temporary directories because for
@@ -13,22 +7,6 @@
 // succeed and the others will fail.  (Files won't do because some filesystems
 // or transports only have rename-and-overwrite, making it hard to tell who
 // won.)
-//
-// The desired characteristics are:
-//
-// TODO: check these
-// * Locks are not reentrant.  (That is, a client that tries to take a
-//   lock it already holds may deadlock or fail.)
-// * Stale locks can be guessed at by a heuristic
-// * Lost locks can be broken by any client
-// * Failed lock operations leave little or no mess
-// * Deadlocks are avoided by having a timeout always in use, clients
-//   desiring indefinite waits can retry or set a silly big timeout.
-//
-// Locks are generally stored in the JUJU_DATA dir, in a locks directory.
-//
-// Locks are named, the name should be lower case with dashes, and will be
-// enforced through a regex.
 
 package lockdir
 
@@ -47,7 +25,6 @@ import (
 var (
 	InvalidLockName = errors.New("Lock names must match regex `^[a-z]+[a-z0-9.-]*$")
 	LockNotHeld     = errors.New("Lock not held")
-	LockFailed      = errors.New("xxx")
 
 	validName = regexp.MustCompile("^[a-z]+[a-z0-9.-]*$")
 
@@ -204,7 +181,8 @@ func (lock *Lock) TryLock(duration time.Duration) (isLocked bool, err error) {
 	case <-time.After(duration):
 		timeout <- struct{}{}
 	}
-
+	// It is possible that the timeout got signalled just before the goroutine
+	// tried again, so check the results rather than automatically failing.
 	return <-locked, <-error
 }
 
