@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
 	"os"
 	"strings"
@@ -111,18 +112,11 @@ func (v seriesVar) String() string {
 // non-empty; otherwise it returns a default list of series we should
 // probably upload, based on cfg.
 func getUploadSeries(cfg *config.Config, series []string) []string {
-	set := map[string]bool{}
-	for _, series := range series {
-		set[series] = true
+	unique := set.NewStrings(series...)
+	if unique.Size == 0 {
+		unique.Add(version.Current.Series)
+		unique.Add(config.DefaultSeries)
+		unique.Add(cfg.DefaultSeries())
 	}
-	if len(series) == 0 {
-		set[version.Current.Series] = true
-		set[config.DefaultSeries] = true
-		set[cfg.DefaultSeries()] = true
-	}
-	result := []string{}
-	for series := range set {
-		result = append(result, series)
-	}
-	return result
+	return unique.Values()
 }
