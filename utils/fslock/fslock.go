@@ -121,7 +121,6 @@ func (lock *Lock) Lock() error {
 		time.Sleep(lockWaitDelay)
 	}
 	panic("unreachable")
-	return nil // unreachable
 }
 
 func (lock *Lock) TryLock(duration time.Duration) (isLocked bool, err error) {
