@@ -37,16 +37,21 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path"
 	"regexp"
+	"time"
 )
 
 var (
 	InvalidLockName = errors.New("Lock names must match regex `^[a-z]+[a-z0-9.-]*$")
+	LockNotHeld     = errors.New("Lock not held")
 	LockFailed      = errors.New("xxx")
 
 	validName = regexp.MustCompile("^[a-z]+[a-z0-9.-]*$")
+
+	lockWaitDelay = 1 * time.Second
 )
 
 type Lock struct {
@@ -67,7 +72,6 @@ func GenerateNonce() (string, error) {
 // Return a new lock.
 func NewLock(lockDir, name string) (*Lock, error) {
 	nonce, err := GenerateNonce()
-	// TODO: check name is valid.
 	if !validName.MatchString(name) {
 		return nil, InvalidLockName
 	}
@@ -107,11 +111,51 @@ func (lock *Lock) NamedLockDir() string {
 	return path.Join(lock.lockDir, lock.name)
 }
 
-func (lock *Lock) Acquire() {
+func (lock *Lock) heldFile() string {
+	return path.Join(lock.NamedLockDir(), "held")
+}
+
+// Lock blocks until it is able to acquire the lock.
+func (lock *Lock) Lock() error {
+	sleep := false
+	for {
+		if sleep {
+			time.Sleep(lockWaitDelay)
+		} else {
+			sleep = true
+		}
+		// If the NamedLockDir exists, then the lock is held by someone else.
+		dir, err := os.Open(lock.NamedLockDir())
+		if err == nil {
+			dir.Close()
+			continue
+		} else if !os.IsNotExist(err) {
+			continue
+		}
+		// Create a temporary directory (in the temp dir), and then move it to the right name.
+		tempDirName, err := ioutil.TempDir("", "temp-lock")
+		if err != nil {
+			return err // this shouldn't really fail...
+		}
+		err = os.Rename(tempDirName, lock.NamedLockDir())
+		if os.IsExist(err) {
+			// Beaten to it.
+			continue
+		}
+		// write nonce
+		err = ioutil.WriteFile(lock.heldFile(), []byte(lock.nonce), 0755)
+		if err != nil {
+			return err
+		}
+		// We now have the lock.
+		return nil
+	}
+	panic("unreachable")
+	return nil // unreachable
 }
 
 // use a real time out...
-func (lock *Lock) TryAcquire(timeout int) error {
+func (lock *Lock) TryLock(timeout int) error {
 	return nil
 
 	// + select {
@@ -122,10 +166,19 @@ func (lock *Lock) TryAcquire(timeout int) error {
 
 }
 
-// IsLockHeld returns true if and only if the
+// IsLockHeld returns true if and only if the NamedLockDir exists, and the
+// file 'held' in that directory contains the nonce for this lock.
 func (lock *Lock) IsLockHeld() bool {
-	return false
+	heldNonce, err := ioutil.ReadFile(lock.heldFile())
+	if err != nil {
+		return false
+	}
+	return string(heldNonce) == lock.nonce
 }
 
-func (lock *Lock) Unlock() {
+func (lock *Lock) Unlock() error {
+	if !lock.IsLockHeld() {
+		return LockNotHeld
+	}
+	return os.RemoveAll(lock.NamedLockDir())
 }
