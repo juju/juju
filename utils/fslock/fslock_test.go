@@ -144,9 +144,8 @@ func (fslockSuite) TestTryLockUnlocked(c *C) {
 	lock, err := fslock.NewLock(dir, "testing")
 	c.Assert(err, IsNil)
 
-	acquired, err := lock.TryLock(10 * time.Millisecond)
+	err = lock.TryLock(10 * time.Millisecond)
 	c.Assert(err, IsNil)
-	c.Assert(acquired, Equals, true)
 }
 
 func (fslockSuite) TestTryLockLocked(c *C) {
@@ -159,7 +158,6 @@ func (fslockSuite) TestTryLockLocked(c *C) {
 	err = lock1.Lock()
 	c.Assert(err, IsNil)
 
-	acquired, err := lock2.TryLock(10 * time.Millisecond)
-	c.Assert(err, IsNil)
-	c.Assert(acquired, Equals, false)
+	err = lock2.TryLock(10 * time.Millisecond)
+	c.Assert(err, Equals, fslock.ErrTimeout)
 }

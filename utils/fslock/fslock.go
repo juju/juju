@@ -25,6 +25,7 @@ const nameRegexp = "^[a-z]+[a-z0-9.-]*$"
 
 var (
 	ErrLockNotHeld = errors.New("lock not held")
+	ErrTimeout     = errors.New("lock timeout exceeded")
 
 	validName = regexp.MustCompile(nameRegexp)
 
@@ -123,50 +124,22 @@ func (lock *Lock) Lock() error {
 	panic("unreachable")
 }
 
-func (lock *Lock) TryLock(duration time.Duration) (isLocked bool, err error) {
-	locked := make(chan bool)
-	error := make(chan error)
-	timeout := make(chan struct{})
-	defer func() {
-		close(locked)
-		close(error)
-		close(timeout)
-	}()
-
-	go func() {
-		for {
-			acquired, err := lock.acquire()
-			if err != nil {
-				locked <- false
-				error <- err
-				return
-			}
-			if acquired {
-				locked <- true
-				error <- nil
-				return
-			}
-			select {
-			case <-timeout:
-				locked <- false
-				error <- nil
-				return
-			case <-time.After(lockWaitDelay):
-				// Keep trying...
-			}
+func (lock *Lock) TryLock(duration time.Duration) error {
+	deadline := time.Now().Add(duration)
+	for {
+		acquired, err := lock.acquire()
+		if err != nil {
+			return err
 		}
-	}()
-
-	select {
-	case isLocked = <-locked:
-		err = <-error
-		return
-	case <-time.After(duration):
-		timeout <- struct{}{}
+		if acquired {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return ErrTimeout
+		}
+		time.Sleep(lockWaitDelay)
 	}
-	// It is possible that the timeout got signalled just before the goroutine
-	// tried again, so check the results rather than automatically failing.
-	return <-locked, <-error
+	panic("unreachable")
 }
 
 // IsLockHeld returns true if and only if the lockDir exists, and the
