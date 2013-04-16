@@ -47,13 +47,10 @@ func generateNonce() ([]byte, error) {
 // directory, without acquiring it. The lock name must match the regular
 // expression `^[a-z]+[a-z0-9.-]*`.
 func NewLock(lockDir, name string) (*Lock, error) {
-	nonce, err := generateNonce()
-	if err != nil {
-		return nil, err
-	}
 	if !validName.MatchString(name) {
 		return nil, fmt.Errorf("Invalid lock name %q.  Names must match %q", name, nameRegexp)
 	}
+	nonce, err := generateNonce()
 	if err != nil {
 		return nil, err
 	}
