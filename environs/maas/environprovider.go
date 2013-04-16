@@ -19,7 +19,11 @@ func init() {
 
 func (maasEnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	log.Debugf("environs/maas: opening environment %q.", cfg.Name())
-	return NewEnviron(cfg)
+	env, err := NewEnviron(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return env, nil
 }
 
 // Boilerplate config YAML.  Don't mess with the indentation or add newlines!

@@ -1,4 +1,4 @@
-package trivial
+package utils
 
 import (
 	"time"

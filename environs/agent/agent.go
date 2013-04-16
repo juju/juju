@@ -6,7 +6,7 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"os"
 	"path"
 	"regexp"
@@ -190,9 +190,9 @@ func (c *Conf) WriteCommands() ([]string, error) {
 	addCmd := func(f string, a ...interface{}) {
 		cmds = append(cmds, fmt.Sprintf(f, a...))
 	}
-	f := trivial.ShQuote(c.confFile())
-	addCmd("mkdir -p %s", trivial.ShQuote(c.Dir()))
-	addCmd("echo %s > %s", trivial.ShQuote(string(data)), f)
+	f := utils.ShQuote(c.confFile())
+	addCmd("mkdir -p %s", utils.ShQuote(c.Dir()))
+	addCmd("echo %s > %s", utils.ShQuote(string(data)), f)
 	addCmd("chmod %o %s", 0600, f)
 	return cmds, nil
 }
@@ -225,7 +225,7 @@ func (c *Conf) OpenState() (st *state.State, newPassword string, err error) {
 	}
 	// We've succeeded in connecting with the old password, so
 	// we can now change it to something more private.
-	password, err := trivial.RandomPassword()
+	password, err := utils.RandomPassword()
 	if err != nil {
 		st.Close()
 		return nil, "", err

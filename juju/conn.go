@@ -13,7 +13,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -27,7 +27,7 @@ type Conn struct {
 	State   *state.State
 }
 
-var redialStrategy = trivial.AttemptStrategy{
+var redialStrategy = utils.AttemptStrategy{
 	Total: 60 * time.Second,
 	Delay: 250 * time.Millisecond,
 }
@@ -52,7 +52,7 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 		// We can't connect with the administrator password,;
 		// perhaps this was the first connection and the
 		// password has not been changed yet.
-		info.Password = trivial.PasswordHash(password)
+		info.Password = utils.PasswordHash(password)
 
 		// We try for a while because we might succeed in
 		// connecting to mongo before the state has been
