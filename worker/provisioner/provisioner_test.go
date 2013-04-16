@@ -80,10 +80,13 @@ func (s *ProvisionerSuite) fixEnvironment() error {
 	return s.State.SetEnvironConfig(s.cfg)
 }
 
-// stop stops something stoppable.
-func stop(c *C, s interface {
+// stopper is stoppable.
+type stopper interface {
 	Stop() error
-},) {
+}
+
+// stop stops a stopper.
+func stop(c *C, s stopper) {
 	c.Assert(s.Stop(), IsNil)
 }
 
