@@ -12,7 +12,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker/provisioner"
 	"strings"
 	stdtesting "testing"
@@ -31,7 +31,7 @@ type ProvisionerSuite struct {
 
 var _ = Suite(&ProvisionerSuite{})
 
-var veryShortAttempt = trivial.AttemptStrategy{
+var veryShortAttempt = utils.AttemptStrategy{
 	Total: 1 * time.Second,
 	Delay: 80 * time.Millisecond,
 }
@@ -69,7 +69,7 @@ func (s *ProvisionerSuite) invalidateEnvironment(c *C) error {
 	admindb := s.Session.DB("admin")
 	err := admindb.Login("admin", testing.AdminSecret)
 	if err != nil {
-		err = admindb.Login("admin", trivial.PasswordHash(testing.AdminSecret))
+		err = admindb.Login("admin", utils.PasswordHash(testing.AdminSecret))
 	}
 	c.Assert(err, IsNil)
 	settings := s.Session.DB("juju").C("settings")
@@ -103,7 +103,7 @@ func (s *ProvisionerSuite) checkStartInstanceCustom(c *C, m *state.Machine, secr
 				nonceParts := strings.SplitN(o.MachineNonce, ":", 2)
 				c.Assert(nonceParts, HasLen, 2)
 				c.Assert(nonceParts[0], Equals, state.MachineTag("0"))
-				c.Assert(trivial.IsValidUUIDString(nonceParts[1]), Equals, true)
+				c.Assert(utils.IsValidUUIDString(nonceParts[1]), Equals, true)
 				c.Assert(o.Secret, Equals, secret)
 				c.Assert(o.Constraints, DeepEquals, cons)
 

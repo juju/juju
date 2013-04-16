@@ -42,15 +42,15 @@ func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *C) {
 	}
 
 	err := environs.Bootstrap(env, constraints.Value{})
-	c.Assert(err, ErrorMatches, "environment configuration missing admin-secret")
+	c.Assert(err, ErrorMatches, "environment configuration has no admin-secret")
 
 	fixEnv("admin-secret", "whatever")
 	err = environs.Bootstrap(env, constraints.Value{})
-	c.Assert(err, ErrorMatches, "environment configuration missing CA certificate")
+	c.Assert(err, ErrorMatches, "environment configuration has no ca-cert")
 
 	fixEnv("ca-cert", testing.CACert)
 	err = environs.Bootstrap(env, constraints.Value{})
-	c.Assert(err, ErrorMatches, "environment configuration missing CA private key")
+	c.Assert(err, ErrorMatches, "environment configuration has no ca-private-key")
 
 	fixEnv("ca-private-key", testing.CAKey)
 	err = environs.Bootstrap(env, constraints.Value{})

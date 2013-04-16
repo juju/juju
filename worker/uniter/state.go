@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	uhook "launchpad.net/juju-core/worker/uniter/hook"
 	"os"
 )
@@ -70,7 +70,7 @@ type State struct {
 
 // validate returns an error if the state violates expectations.
 func (st State) validate() (err error) {
-	defer trivial.ErrorContextf(&err, "invalid uniter state")
+	defer utils.ErrorContextf(&err, "invalid uniter state")
 	hasHook := st.Hook != nil
 	hasCharm := st.CharmURL != nil
 	switch st.Op {
@@ -119,7 +119,7 @@ var ErrNoStateFile = errors.New("uniter state file does not exist")
 // ErrNoStateFile.
 func (f *StateFile) Read() (*State, error) {
 	var st State
-	if err := trivial.ReadYaml(f.path, &st); err != nil {
+	if err := utils.ReadYaml(f.path, &st); err != nil {
 		if os.IsNotExist(err) {
 			return nil, ErrNoStateFile
 		}
@@ -149,5 +149,5 @@ func (f *StateFile) Write(started bool, op Op, step OpStep, hi *uhook.Info, url 
 	if err := st.validate(); err != nil {
 		panic(err)
 	}
-	return trivial.WriteYaml(f.path, st)
+	return utils.WriteYaml(f.path, st)
 }
