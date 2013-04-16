@@ -407,6 +407,7 @@ var allWatcherChangedTests = []struct {
 				Name:     "wordpress",
 				Exposed:  true,
 				CharmURL: "local:series/series-wordpress-3",
+				Life:     Alive.String(),
 				Config:   map[string]interface{}{},
 			},
 		},
@@ -432,6 +433,7 @@ var allWatcherChangedTests = []struct {
 			&params.ServiceInfo{
 				Name:        "wordpress",
 				CharmURL:    "local:series/series-wordpress-3",
+				Life:        Alive.String(),
 				Constraints: constraints.MustParse("mem=99M"),
 				Config:      map[string]interface{}{"blog-title": "boring"},
 			},
@@ -462,6 +464,7 @@ var allWatcherChangedTests = []struct {
 			&params.ServiceInfo{
 				Name:     "wordpress",
 				CharmURL: "local:series/series-wordpress-3",
+				Life:     Alive.String(),
 				Config:   map[string]interface{}{"blog-title": "boring"},
 			},
 		},
