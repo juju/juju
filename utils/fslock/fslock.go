@@ -4,11 +4,8 @@
 // containing an information file.  Taking a lock is done by renaming a
 // temporary directory into place.  We use temporary directories because for
 // all filesystems we believe that exactly one attempt to claim the lock will
-// succeed and the others will fail.  (Files won't do because some filesystems
-// or transports only have rename-and-overwrite, making it hard to tell who
-// won.)
-
-package lockdir
+// succeed and the others will fail.
+package fslock
 
 import (
 	"crypto/rand"
@@ -22,19 +19,20 @@ import (
 	"time"
 )
 
-var (
-	InvalidLockName = errors.New("Lock names must match regex `^[a-z]+[a-z0-9.-]*$")
-	LockNotHeld     = errors.New("Lock not held")
+const nameRegexp = "^[a-z]+[a-z0-9.-]*$"
 
-	validName = regexp.MustCompile("^[a-z]+[a-z0-9.-]*$")
+var (
+	ErrLockNotHeld = errors.New("lock not held")
+
+	validName = regexp.MustCompile(nameRegexp)
 
 	lockWaitDelay = 1 * time.Second
 )
 
 type Lock struct {
-	name    string
-	lockDir string
-	nonce   string
+	name   string
+	parent string
+	nonce  string
 }
 
 func GenerateNonce() (string, error) {
@@ -50,21 +48,21 @@ func GenerateNonce() (string, error) {
 func NewLock(lockDir, name string) (*Lock, error) {
 	nonce, err := GenerateNonce()
 	if !validName.MatchString(name) {
-		return nil, InvalidLockName
+		return nil, fmt.Errorf("Invalid lock name %q.  Names must match %q", name, nameRegexp)
 	}
 	if err != nil {
 		return nil, err
 	}
 	lock := &Lock{
-		name:    name,
-		lockDir: lockDir,
-		nonce:   nonce,
+		name:   name,
+		parent: lockDir,
+		nonce:  nonce,
 	}
-	// Ensure the lockDir exists.
-	dir, err := os.Open(lock.lockDir)
+	// Ensure the parent exists.
+	dir, err := os.Open(lock.parent)
 	if os.IsNotExist(err) {
 		// try to make it
-		err = os.MkdirAll(lock.lockDir, 0755)
+		err = os.MkdirAll(lock.parent, 0755)
 		// Since we have just created the directory successfully, return now.
 		if err == nil {
 			return lock, nil
@@ -85,7 +83,7 @@ func NewLock(lockDir, name string) (*Lock, error) {
 }
 
 func (lock *Lock) namedLockDir() string {
-	return path.Join(lock.lockDir, lock.name)
+	return path.Join(lock.parent, lock.name)
 }
 
 func (lock *Lock) heldFile() string {
@@ -198,7 +196,7 @@ func (lock *Lock) IsLockHeld() bool {
 
 func (lock *Lock) Unlock() error {
 	if !lock.IsLockHeld() {
-		return LockNotHeld
+		return ErrLockNotHeld
 	}
 	return os.RemoveAll(lock.namedLockDir())
 }
