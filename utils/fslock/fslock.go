@@ -10,6 +10,7 @@ package fslock
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -85,7 +86,8 @@ func (lock *Lock) acquire() (bool, error) {
 		return false, err
 	}
 	// Create a temporary directory (in the temp dir), and then move it to the right name.
-	tempDirName, err := ioutil.TempDir("", "temp-lock")
+	tempLockName := hex.EncodeToString(lock.nonce)
+	tempDirName, err := ioutil.TempDir("", tempLockName)
 	if err != nil {
 		return false, err // this shouldn't really fail...
 	}
