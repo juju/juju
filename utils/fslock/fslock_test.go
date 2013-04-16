@@ -122,7 +122,7 @@ func (fslockSuite) TestLockBlocks(c *C) {
 		close(acquired)
 	}()
 
-	// Waiting for something not to happen is inherintly hard...
+	// Waiting for something not to happen is inherently hard...
 	select {
 	case <-acquired:
 		c.Fatalf("Unexpected lock acquisition")
