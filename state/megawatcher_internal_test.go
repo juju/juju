@@ -75,12 +75,14 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 	c.Assert(err, IsNil)
 	err = wordpress.SetConstraints(constraints.MustParse("mem=100M"))
 	c.Assert(err, IsNil)
+	setServiceConfigAttr(c, wordpress, "blog-title", "boring")
 	add(&params.ServiceInfo{
 		Name:        "wordpress",
 		Exposed:     true,
 		CharmURL:    serviceCharmURL(wordpress).String(),
-		Constraints: constraints.MustParse("mem=100M"),
 		Life:        Alive.String(),
+		Constraints: constraints.MustParse("mem=100M"),
+		Config:      map[string]interface{}{"blog-title": "boring"},
 	})
 	pairs := map[string]string{"x": "12", "y": "99"}
 	err = wordpress.SetAnnotations(pairs)
@@ -96,6 +98,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 		Name:     "logging",
 		CharmURL: serviceCharmURL(logging).String(),
 		Life:     Alive.String(),
+		Config:   map[string]interface{}{},
 	})
 
 	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
@@ -404,16 +407,51 @@ var allWatcherChangedTests = []struct {
 				Name:     "wordpress",
 				Exposed:  true,
 				CharmURL: "local:series/series-wordpress-3",
+				Config:   map[string]interface{}{},
 			},
 		},
 	}, {
 		about: "service is updated if it's in backing and in multiwatcher.Store",
 		add: []params.EntityInfo{&params.ServiceInfo{
-			Name:    "wordpress",
-			Exposed: true,
+			Name:        "wordpress",
+			Exposed:     true,
+			CharmURL:    "local:series/series-wordpress-3",
+			Constraints: constraints.MustParse("mem=99M"),
+			Config:      map[string]interface{}{"blog-title": "boring"},
 		}},
 		setUp: func(c *C, st *State) {
-			_, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
+			svc, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
+			c.Assert(err, IsNil)
+			setServiceConfigAttr(c, svc, "blog-title", "boring")
+		},
+		change: watcher.Change{
+			C:  "services",
+			Id: "wordpress",
+		},
+		expectContents: []params.EntityInfo{
+			&params.ServiceInfo{
+				Name:        "wordpress",
+				CharmURL:    "local:series/series-wordpress-3",
+				Constraints: constraints.MustParse("mem=99M"),
+				Config:      map[string]interface{}{"blog-title": "boring"},
+			},
+		},
+	}, {
+		about: "service re-reads config when charm URL changes",
+		add: []params.EntityInfo{&params.ServiceInfo{
+			Name: "wordpress",
+			// Note: CharmURL has a different revision number from
+			// the wordpress revision in the testing repo.
+			CharmURL: "local:series/series-wordpress-2",
+			Config:   map[string]interface{}{"foo": "bar"},
+		}},
+		setUp: func(c *C, st *State) {
+			svc, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
+			c.Assert(err, IsNil)
+			cfg, err := svc.Config()
+			c.Assert(err, IsNil)
+			cfg.Set("blog-title", "boring")
+			_, err = cfg.Write()
 			c.Assert(err, IsNil)
 		},
 		change: watcher.Change{
@@ -424,6 +462,7 @@ var allWatcherChangedTests = []struct {
 			&params.ServiceInfo{
 				Name:     "wordpress",
 				CharmURL: "local:series/series-wordpress-3",
+				Config:   map[string]interface{}{"blog-title": "boring"},
 			},
 		},
 	},
@@ -685,6 +724,98 @@ var allWatcherChangedTests = []struct {
 			},
 		},
 	},
+	// Service config changes.
+	{
+		about: "no service in state -> do nothing",
+		setUp: func(c *C, st *State) {},
+		change: watcher.Change{
+			C:  "settings",
+			Id: "s#wordpress#local:series/series-wordpress-3",
+		},
+	}, {
+		about: "no change if service is not in backing",
+		add: []params.EntityInfo{&params.ServiceInfo{
+			Name:     "wordpress",
+			CharmURL: "local:series/series-wordpress-3",
+		}},
+		setUp: func(*C, *State) {},
+		change: watcher.Change{
+			C:  "settings",
+			Id: "s#wordpress#local:series/series-wordpress-3",
+		},
+		expectContents: []params.EntityInfo{&params.ServiceInfo{
+			Name:     "wordpress",
+			CharmURL: "local:series/series-wordpress-3",
+		}},
+	}, {
+		about: "service config is changed if service exists in the store with the same URL",
+		add: []params.EntityInfo{&params.ServiceInfo{
+			Name:     "wordpress",
+			CharmURL: "local:series/series-wordpress-3",
+			Config:   map[string]interface{}{"foo": "bar"},
+		}},
+		setUp: func(c *C, st *State) {
+			svc, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
+			c.Assert(err, IsNil)
+			setServiceConfigAttr(c, svc, "blog-title", "foo")
+		},
+		change: watcher.Change{
+			C:  "settings",
+			Id: "s#wordpress#local:series/series-wordpress-3",
+		},
+		expectContents: []params.EntityInfo{
+			&params.ServiceInfo{
+				Name:     "wordpress",
+				CharmURL: "local:series/series-wordpress-3",
+				Config:   map[string]interface{}{"blog-title": "foo"},
+			},
+		},
+	}, {
+		about: "service config is unchanged if service exists in the store with a different URL",
+		add: []params.EntityInfo{&params.ServiceInfo{
+			Name:     "wordpress",
+			CharmURL: "local:series/series-wordpress-2", // Note different revno.
+			Config:   map[string]interface{}{"foo": "bar"},
+		}},
+		setUp: func(c *C, st *State) {
+			svc, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
+			c.Assert(err, IsNil)
+			setServiceConfigAttr(c, svc, "blog-title", "foo")
+		},
+		change: watcher.Change{
+			C:  "settings",
+			Id: "s#wordpress#local:series/series-wordpress-3",
+		},
+		expectContents: []params.EntityInfo{
+			&params.ServiceInfo{
+				Name:     "wordpress",
+				CharmURL: "local:series/series-wordpress-2",
+				Config:   map[string]interface{}{"foo": "bar"},
+			},
+		},
+	}, {
+		about: "non-service config change is ignored",
+		setUp: func(*C, *State) {},
+		change: watcher.Change{
+			C:  "settings",
+			Id: "m#0",
+		},
+	}, {
+		about: "service config change with no charm url is ignored",
+		setUp: func(*C, *State) {},
+		change: watcher.Change{
+			C:  "settings",
+			Id: "s#foo",
+		},
+	},
+}
+
+func setServiceConfigAttr(c *C, svc *Service, attr string, val interface{}) {
+	cfg, err := svc.Config()
+	c.Assert(err, IsNil)
+	cfg.Set("blog-title", val)
+	_, err = cfg.Write()
+	c.Assert(err, IsNil)
 }
 
 func (s *storeManagerStateSuite) TestChanged(c *C) {
@@ -696,6 +827,7 @@ func (s *storeManagerStateSuite) TestChanged(c *C) {
 		"annotations": s.State.annotations,
 		"statuses":    s.State.statuses,
 		"constraints": s.State.constraints,
+		"settings":    s.State.settings,
 	}
 	for i, test := range allWatcherChangedTests {
 		c.Logf("test %d. %s", i, test.about)

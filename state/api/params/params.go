@@ -318,8 +318,9 @@ type ServiceInfo struct {
 	Name        string `bson:"_id"`
 	Exposed     bool
 	CharmURL    string
-	Constraints constraints.Value
 	Life        string
+	Constraints constraints.Value
+	Config      map[string]interface{}
 }
 
 func (i *ServiceInfo) EntityId() EntityId {
