@@ -6,14 +6,11 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/agent"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/dummy"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
-	"net/http"
-	"os"
 	"strings"
 )
 
@@ -27,7 +24,6 @@ var _ = Suite(&BootstrapSuite{})
 func (s *BootstrapSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
-	uploadTools = mockUploadTools
 }
 
 func (s *BootstrapSuite) SetUpTest(c *C) {
@@ -41,127 +37,9 @@ func (s *BootstrapSuite) TearDownSuite(c *C) {
 }
 
 func (s *BootstrapSuite) TearDownTest(c *C) {
-	uploadTools = tools.Upload
 	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 	dummy.Reset()
-}
-
-func (*BootstrapSuite) TestBasic(c *C) {
-	defer testing.MakeFakeHome(c, envConfig).Restore()
-	opc, errc := runCommand(new(BootstrapCommand))
-	c.Check(<-errc, IsNil)
-	opBootstrap := (<-opc).(dummy.OpBootstrap)
-	c.Check(opBootstrap.Env, Equals, "peckham")
-	c.Check(opBootstrap.Constraints, DeepEquals, constraints.Value{})
-}
-
-func (*BootstrapSuite) TestRunGeneratesCertificate(c *C) {
-	defer testing.MakeFakeHome(c, envConfig).Restore()
-	envName := "peckham"
-	_, err := testing.RunCommand(c, new(BootstrapCommand), nil)
-	c.Assert(err, IsNil)
-
-	// Check that the CA certificate and key have been automatically generated
-	// for the environment.
-	info, err := os.Stat(config.JujuHomePath(envName + "-cert.pem"))
-	c.Assert(err, IsNil)
-	c.Assert(info.Size() > 0, Equals, true)
-	info, err = os.Stat(config.JujuHomePath(envName + "-private-key.pem"))
-	c.Assert(err, IsNil)
-	c.Assert(info.Size() > 0, Equals, true)
-
-	// Check that the environment validates the cert and key.
-	_, err = environs.NewFromName(envName)
-	c.Assert(err, IsNil)
-}
-
-func (*BootstrapSuite) TestConstraints(c *C) {
-	defer testing.MakeFakeHome(c, envConfig, "brokenenv").Restore()
-	scons := " cpu-cores=2   mem=4G"
-	opc, errc := runCommand(new(BootstrapCommand), "--constraints", scons)
-	c.Check(<-errc, IsNil)
-	opBootstrap := (<-opc).(dummy.OpBootstrap)
-	c.Check(opBootstrap.Env, Equals, "peckham")
-	c.Check(opBootstrap.Constraints, DeepEquals, constraints.MustParse(scons))
-}
-
-func (*BootstrapSuite) TestUploadTools(c *C) {
-	defer testing.MakeFakeHome(c, envConfig).Restore()
-	origCurrent := version.Current
-	version.Current.Series = "hostseries"
-	defer func() { version.Current = origCurrent }()
-
-	opc, errc := runCommand(new(BootstrapCommand), "--upload-tools")
-	c.Check(<-errc, IsNil)
-	c.Check((<-opc).(dummy.OpPutFile).Env, Equals, "peckham") // hostseries from version.Current
-	c.Check((<-opc).(dummy.OpPutFile).Env, Equals, "peckham") // defaultseries from env config
-	c.Check((<-opc).(dummy.OpPutFile).Env, Equals, "peckham") // precise from config.DefaultSeries
-	opBootstrap := (<-opc).(dummy.OpBootstrap)
-	c.Check(opBootstrap.Env, Equals, "peckham")
-	c.Check(opBootstrap.Constraints, DeepEquals, constraints.Value{})
-
-	vers := version.Current
-	assertUploadedSomething(c, vers)
-	vers.Series = "defaultseries"
-	assertUploadedSomething(c, vers)
-	vers.Series = "precise"
-	assertUploadedSomething(c, vers)
-}
-
-func assertUploadedSomething(c *C, vers version.Binary) {
-	// Check that some file was uploaded and can be unpacked; detailed
-	// semantics tested elsewhere.
-	envs, err := environs.ReadEnvirons("")
-	c.Assert(err, IsNil)
-	env, err := envs.Open("peckham")
-	c.Assert(err, IsNil)
-	tools, err := environs.FindTools(env, vers, environs.CompatVersion)
-	c.Assert(err, IsNil)
-	c.Assert(tools.Binary, Equals, vers)
-	resp, err := http.Get(tools.URL)
-	c.Assert(err, IsNil)
-	defer resp.Body.Close()
-	err = agent.UnpackTools(c.MkDir(), tools, resp.Body)
-	c.Assert(err, IsNil)
-}
-
-func (*BootstrapSuite) TestUploadToolsSeries(c *C) {
-	defer testing.MakeFakeHome(c, envConfig).Restore()
-	opc, errc := runCommand(new(BootstrapCommand), "--upload-tools", "--series=good,great")
-	c.Check(<-errc, IsNil)
-	c.Check((<-opc).(dummy.OpPutFile).Env, Equals, "peckham")
-	c.Check((<-opc).(dummy.OpPutFile).Env, Equals, "peckham")
-	c.Check((<-opc).(dummy.OpPutFile).Env, Equals, "peckham")
-	c.Check((<-opc).(dummy.OpBootstrap).Env, Equals, "peckham")
-
-	vers := version.Current
-	assertUploadedSomething(c, vers)
-	vers.Series = "good"
-	assertUploadedSomething(c, vers)
-	vers.Series = "great"
-	assertUploadedSomething(c, vers)
-}
-
-func (*BootstrapSuite) TestSeriesBadParams(c *C) {
-	defer testing.MakeFakeHome(c, envConfig).Restore()
-	opc, errc := runCommand(new(BootstrapCommand), "--series=bad1")
-	c.Check(<-errc, ErrorMatches, `invalid value "bad1" for flag --series: invalid series name "bad1"`)
-	c.Check(<-opc, IsNil)
-}
-
-func (*BootstrapSuite) TestSeriesNoUploadTools(c *C) {
-	defer testing.MakeFakeHome(c, envConfig).Restore()
-	opc, errc := runCommand(new(BootstrapCommand), "--series=good,great")
-	c.Check(<-errc, ErrorMatches, `--series requires --upload-tools`)
-	c.Check(<-opc, IsNil)
-}
-
-func (*BootstrapSuite) TestBrokenEnvironment(c *C) {
-	defer testing.MakeFakeHome(c, envConfig).Restore()
-	opc, errc := runCommand(new(BootstrapCommand), "-e", "brokenenv")
-	c.Check(<-errc, ErrorMatches, "dummy.Bootstrap is broken")
-	c.Check(<-opc, IsNil)
 }
 
 func (*BootstrapSuite) TestMissingEnvironment(c *C) {
@@ -173,3 +51,146 @@ func (*BootstrapSuite) TestMissingEnvironment(c *C) {
 	strippedErr := strings.Replace(errStr, "\n", "", -1)
 	c.Assert(strippedErr, Matches, ".*No juju environment configuration file exists.*")
 }
+
+func (s *BootstrapSuite) TestTests(c *C) {
+	uploadTools = mockUploadTools
+	defer func() { uploadTools = tools.Upload }()
+	for i, test := range bootstrapTests {
+		c.Logf("\ntest %d: %s", i, test.info)
+		test.run(c)
+	}
+}
+
+type bootstrapTest struct {
+	info string
+	// binary version string used to set version.Current
+	version string
+	args    []string
+	err     string
+	// binary version strings for expected tools; if set, no default tools
+	// will be uploaded before running the test.
+	uploads     []string
+	constraints constraints.Value
+}
+
+func (test bootstrapTest) run(c *C) {
+	defer testing.MakeFakeHome(c, envConfig).Restore()
+	dummy.Reset()
+	env, err := environs.NewFromName("peckham")
+	c.Assert(err, IsNil)
+	envtesting.RemoveAllTools(c, env)
+
+	if test.version != "" {
+		origVersion := version.Current
+		version.Current = version.MustParseBinary(test.version)
+		defer func() { version.Current = origVersion }()
+	}
+	uploadCount := len(test.uploads)
+	if uploadCount == 0 {
+		usefulVersion := version.Current
+		usefulVersion.Series = env.Config().DefaultSeries()
+		envtesting.UploadFakeToolsVersion(c, env.Storage(), usefulVersion)
+	}
+
+	// Run command and check for uploads.
+	opc, errc := runCommand(new(BootstrapCommand), test.args...)
+	if uploadCount > 0 {
+		for i := 0; i < uploadCount; i++ {
+			c.Check((<-opc).(dummy.OpPutFile).Env, Equals, "peckham")
+		}
+		list, err := environs.FindAvailableTools(env, version.Current.Major)
+		c.Check(err, IsNil)
+		c.Logf("found: " + list.String())
+		urls := list.URLs()
+		c.Check(urls, HasLen, len(test.uploads))
+		for _, v := range test.uploads {
+			c.Logf("seeking: " + v)
+			vers := version.MustParseBinary(v)
+			_, found := urls[vers]
+			c.Check(found, Equals, true)
+		}
+	}
+
+	// Check for remaining operations/errors.
+	if test.err != "" {
+		c.Check(<-errc, ErrorMatches, test.err)
+		return
+	}
+	if !c.Check(<-errc, IsNil) {
+		return
+	}
+	opBootstrap := (<-opc).(dummy.OpBootstrap)
+	c.Check(opBootstrap.Env, Equals, "peckham")
+	c.Check(opBootstrap.Constraints, DeepEquals, test.constraints)
+
+	// Check a CA cert/key was generated by reloading the environment.
+	env, err = environs.NewFromName("peckham")
+	c.Assert(err, IsNil)
+	_, hasCert := env.Config().CACert()
+	c.Check(hasCert, Equals, true)
+	_, hasKey := env.Config().CAPrivateKey()
+	c.Check(hasKey, Equals, true)
+}
+
+var bootstrapTests = []bootstrapTest{{
+	info: "no args, no error, no uploads, no constraints",
+}, {
+	info: "bad arg",
+	args: []string{"twiddle"},
+	err:  `unrecognized args: \["twiddle"\]`,
+}, {
+	info: "bad --constraints",
+	args: []string{"--constraints", "bad=wrong"},
+	err:  `invalid value "bad=wrong" for flag --constraints: unknown constraint "bad"`,
+}, {
+	info: "bad --series",
+	args: []string{"--series", "bad1"},
+	err:  `invalid value "bad1" for flag --series: invalid series name "bad1"`,
+}, {
+	info: "lonely --series",
+	args: []string{"--series", "fine"},
+	err:  `--series requires --upload-tools`,
+}, {
+	info: "bad environment",
+	args: []string{"-e", "brokenenv"},
+	err:  `environment configuration has no admin-secret`,
+}, {
+	info:        "constraints",
+	args:        []string{"--constraints", "mem=4G cpu-cores=4"},
+	constraints: constraints.MustParse("mem=4G cpu-cores=4"),
+}, {
+	info:    "--upload-tools picks all reasonable series",
+	version: "1.2.3-hostseries-hostarch",
+	args:    []string{"--upload-tools"},
+	uploads: []string{
+		"1.2.3.1-hostseries-hostarch",    // from version.Current
+		"1.2.3.1-defaultseries-hostarch", // from env.Config().DefaultSeries()
+		"1.2.3.1-precise-hostarch",       // from environs/config.DefaultSeries
+	},
+}, {
+	info:    "--upload-tools only uploads each file once",
+	version: "1.2.3-precise-hostarch",
+	args:    []string{"--upload-tools"},
+	uploads: []string{
+		"1.2.3.1-defaultseries-hostarch",
+		"1.2.3.1-precise-hostarch",
+	},
+}, {
+	info:    "--upload-tools accepts specific series even if they're crazy",
+	version: "1.2.3-hostseries-hostarch",
+	args:    []string{"--upload-tools", "--series", "ping,ping,pong"},
+	uploads: []string{
+		"1.2.3.1-hostseries-hostarch",
+		"1.2.3.1-ping-hostarch",
+		"1.2.3.1-pong-hostarch",
+	},
+	err: "no matching tools available",
+}, {
+	info:    "--upload-tools always bumps build number",
+	version: "1.2.3.4-defaultseries-hostarch",
+	args:    []string{"--upload-tools"},
+	uploads: []string{
+		"1.2.3.5-defaultseries-hostarch",
+		"1.2.3.5-precise-hostarch",
+	},
+}}

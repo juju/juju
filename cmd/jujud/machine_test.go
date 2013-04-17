@@ -7,10 +7,12 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/dummy"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/version"
 	"path/filepath"
 	"reflect"
 	"time"
@@ -181,6 +183,9 @@ func (s *MachineSuite) TestHostUnits(c *C) {
 }
 
 func (s *MachineSuite) TestManageEnviron(c *C) {
+	usefulVersion := version.Current
+	usefulVersion.Series = "series" // to match the charm created below
+	envtesting.UploadFakeToolsVersion(c, s.Conn.Environ.Storage(), usefulVersion)
 	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
 	op := make(chan dummy.Operation, 200)
 	dummy.Listen(op)

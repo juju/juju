@@ -224,29 +224,29 @@ var upgradeJujuTests = []struct {
 	currentVersion: "2.2.0-foo-bar",
 	agentVersion:   "2.0.0",
 	args:           []string{"--upload-tools"},
-	expectVersion:  "2.2.0",
-	expectUploaded: []string{"2.2.0-foo-bar", "2.2.0-precise-bar", "2.2.0-always-bar"},
+	expectVersion:  "2.2.0.1",
+	expectUploaded: []string{"2.2.0.1-foo-bar", "2.2.0.1-precise-bar", "2.2.0.1-always-bar"},
 }, {
 	about:          "upload with explicit version",
 	currentVersion: "2.2.0-foo-bar",
 	agentVersion:   "2.0.0",
 	args:           []string{"--upload-tools", "--version", "2.7.3"},
-	expectVersion:  "2.7.3",
-	expectUploaded: []string{"2.7.3-foo-bar", "2.7.3-precise-bar", "2.7.3-always-bar"},
+	expectVersion:  "2.7.3.1",
+	expectUploaded: []string{"2.7.3.1-foo-bar", "2.7.3.1-precise-bar", "2.7.3.1-always-bar"},
 }, {
 	about:          "upload with explicit series",
 	currentVersion: "2.2.0-foo-bar",
 	agentVersion:   "2.0.0",
 	args:           []string{"--upload-tools", "--series", "plonk"},
-	expectVersion:  "2.2.0",
-	expectUploaded: []string{"2.2.0-foo-bar", "2.2.0-plonk-bar"},
+	expectVersion:  "2.2.0.1",
+	expectUploaded: []string{"2.2.0.1-foo-bar", "2.2.0.1-plonk-bar"},
 }, {
 	about:          "upload dev version, currently on release version",
 	currentVersion: "2.1.0-foo-bar",
 	agentVersion:   "2.0.0",
 	args:           []string{"--upload-tools"},
-	expectVersion:  "2.1.0",
-	expectUploaded: []string{"2.1.0-foo-bar", "2.1.0-precise-bar", "2.1.0-always-bar"},
+	expectVersion:  "2.1.0.1",
+	expectUploaded: []string{"2.1.0.1-foo-bar", "2.1.0.1-precise-bar", "2.1.0.1-always-bar"},
 }, {
 	about:          "upload bumps version when necessary",
 	private:        []string{"2.4.6-foo-bar", "2.4.8-foo-bar"},
@@ -287,8 +287,10 @@ func mockUploadTools(putter tools.URLPutter, forceVersion *version.Number, serie
 	}
 	t := envtesting.MustUploadFakeToolsVersion(storage, vers)
 	for _, series := range series {
-		vers.Series = series
-		envtesting.MustUploadFakeToolsVersion(storage, vers)
+		if series != version.Current.Series {
+			vers.Series = series
+			envtesting.MustUploadFakeToolsVersion(storage, vers)
+		}
 	}
 	return t, nil
 }
@@ -355,7 +357,9 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *C) {
 		for _, uploaded := range test.expectUploaded {
 			vers := version.MustParseBinary(uploaded)
 			r, err := s.Conn.Environ.Storage().Get(tools.StorageName(vers))
-			c.Assert(err, IsNil)
+			if !c.Check(err, IsNil) {
+				continue
+			}
 			data, err := ioutil.ReadAll(r)
 			r.Close()
 			c.Check(err, IsNil)
@@ -376,6 +380,7 @@ func (s *UpgradeJujuSuite) Reset(c *C) {
 	c.Assert(err, IsNil)
 	cfg, err = cfg.Apply(map[string]interface{}{
 		"default-series": "always",
+		"agent-version":  "1.2.3",
 	})
 	c.Assert(err, IsNil)
 	err = s.State.SetEnvironConfig(cfg)
@@ -386,7 +391,9 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *C) {
 	s.Reset(c)
 	_, err := coretesting.RunCommand(c, &UpgradeJujuCommand{}, []string{"--upload-tools"})
 	c.Assert(err, IsNil)
-	name := tools.StorageName(version.Current)
+	vers := version.Current
+	vers.Build = 1
+	name := tools.StorageName(vers)
 	r, err := s.Conn.Environ.Storage().Get(name)
 	c.Assert(err, IsNil)
 	r.Close()
