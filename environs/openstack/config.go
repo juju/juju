@@ -131,16 +131,9 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 	}
 	ecfg := &environConfig{cfg, v.(map[string]interface{})}
 
-	authMode := ecfg.authMode()
-	switch AuthMode(authMode) {
+	authMode := AuthMode(ecfg.authMode())
+	switch authMode {
 	case AuthKeyPair:
-		accessKey := ecfg.accessKey()
-		secretKey := ecfg.secretKey()
-		if accessKey == "" || secretKey == "" {
-			return nil, fmt.Errorf(
-				"Missing access-key or secret-key for " +
-				"'keypair' authentication mode.")
-		}
 	case AuthLegacy:
 	case AuthUserPass:
 	default:
@@ -155,17 +148,32 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 	}
 	cred := identity.CredentialsFromEnv()
 	format := "required environment variable not set for credentials attribute: %s"
-	if ecfg.username() == "" {
-		if cred.User == "" {
-			return nil, fmt.Errorf(format, "User")
+	if authMode == AuthUserPass || authMode == AuthLegacy {
+		if ecfg.username() == "" {
+			if cred.User == "" {
+				return nil, fmt.Errorf(format, "User")
+			}
+			ecfg.attrs["username"] = cred.User
 		}
-		ecfg.attrs["username"] = cred.User
-	}
-	if ecfg.password() == "" {
-		if cred.Secrets == "" {
-			return nil, fmt.Errorf(format, "Secrets")
+		if ecfg.password() == "" {
+			if cred.Secrets == "" {
+				return nil, fmt.Errorf(format, "Secrets")
+			}
+			ecfg.attrs["password"] = cred.Secrets
 		}
-		ecfg.attrs["password"] = cred.Secrets
+	} else if authMode == AuthKeyPair {
+		if ecfg.accessKey() == "" {
+			if cred.AccessKey == "" {
+				return nil, fmt.Errorf(format, "AccessKey")
+			}
+			ecfg.attrs["access-key"] = cred.AccessKey
+		}
+		if ecfg.secretKey() == "" {
+			if cred.SecretKey == "" {
+				return nil, fmt.Errorf(format, "SecretKey")
+			}
+			ecfg.attrs["secret-key"] = cred.SecretKey
+		}
 	}
 	if ecfg.authURL() == "" {
 		if cred.URL == "" {

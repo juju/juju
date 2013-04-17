@@ -288,14 +288,14 @@ var configTests = []configTest{
 			"auth-mode": "keypair",
 			"secret-key": "MySecretKey",
 		},
-		err: "Missing access-key or secret-key for 'keypair' authentication mode.",
+		err: "required environment variable not set for credentials attribute: AccessKey",
 	}, {
 		summary: "keypair authorization mode without secret key",
 		config: attrs{
 			"auth-mode": "keypair",
 			"access-key": "MyAccessKey",
 		},
-		err: "Missing access-key or secret-key for 'keypair' authentication mode.",
+		err: "required environment variable not set for credentials attribute: SecretKey",
 	}, {
 		summary: "invalid auth-url format",
 		config: attrs{
