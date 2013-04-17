@@ -297,7 +297,6 @@ type backingSettings map[string]interface{}
 func (s *backingSettings) updated(st *State, store *multiwatcher.Store, id interface{}) error {
 	parentId, url, ok := backingEntityIdForSettingsKey(id.(string))
 	if !ok {
-		log.Debugf("state: settings for entity with unrecognized key %q", id)
 		return nil
 	}
 	info0 := store.Get(parentId)
