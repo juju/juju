@@ -57,7 +57,6 @@ func (a *MachineAgent) Stop() error {
 
 // Run runs a machine agent.
 func (a *MachineAgent) Run(_ *cmd.Context) error {
-	defer log.Noticef("machine agent exiting")
 	if err := a.Conf.read(state.MachineTag(a.MachineId)); err != nil {
 		return err
 	}

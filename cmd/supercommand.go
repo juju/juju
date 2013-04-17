@@ -6,6 +6,7 @@ import (
 	"launchpad.net/gnuflag"
 	"sort"
 	"strings"
+	"launchpad.net/juju-core/log"
 )
 
 type topic struct {
@@ -188,8 +189,15 @@ func (c *SuperCommand) Run(ctx *Context) error {
 		if err := c.Log.Start(ctx); err != nil {
 			return err
 		}
+		defer log.Infof("finished")
 	}
-	return c.subcmd.Run(ctx)
+	err := c.subcmd.Run(ctx)
+	if err != nil && err != ErrSilent {
+		log.Infof("command failed: %v", err)
+	} else {
+		log.Infof("command finished")
+	}
+	return err
 }
 
 type helpCommand struct {
