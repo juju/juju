@@ -104,16 +104,30 @@ func (u *Uniter) loop(name string) (err error) {
 	return err
 }
 
+func (u *Uniter) setupLocks() (err error) {
+	lockDir := filepath.Join(u.dataDir, "locks")
+	u.hookLock, err = fslock.NewLock(lockDir, "uniter-hook-execution")
+	if err != nil {
+		return err
+	}
+	if message := u.hookLock.GetMessage(); u.hookLock.IsLocked() && message != "" {
+		// Look to see if it was us that held the lock before.  If it was, we
+		// should be safe enough to break it, as it is likely that we died
+		// before unlocking, and have been restarted by upstart.
+		parts := strings.SplitN(message, ":", 2)
+		if len(parts) > 1 && parts[0] == u.unit.Name() {
+			u.hookLock.BreakLock()
+		}
+	}
+}
+
 func (u *Uniter) init(name string) (err error) {
 	defer utils.ErrorContextf(&err, "failed to initialize uniter for unit %q", name)
 	u.unit, err = u.st.Unit(name)
 	if err != nil {
 		return err
 	}
-	// The lockDir needs to be shared across all agents on a machine.
-	lockDir := filepath.Join(u.dataDir, "locks")
-	u.hookLock, err = fslock.NewLock(lockDir, "uniter-hook-execution")
-	if err != nil {
+	if err = u.setupLocks(); err != nil {
 		return err
 	}
 	ename := u.unit.Tag()
