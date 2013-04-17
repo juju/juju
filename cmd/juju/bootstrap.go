@@ -113,7 +113,7 @@ func (v seriesVar) String() string {
 // probably upload, based on cfg.
 func getUploadSeries(cfg *config.Config, series []string) []string {
 	unique := set.NewStrings(series...)
-	if unique.Size() == 0 {
+	if unique.IsEmpty() {
 		unique.Add(version.Current.Series)
 		unique.Add(config.DefaultSeries)
 		unique.Add(cfg.DefaultSeries())
