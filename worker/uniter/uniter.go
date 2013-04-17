@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/fslock"
 	"launchpad.net/juju-core/worker/uniter/charm"
 	"launchpad.net/juju-core/worker/uniter/hook"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
@@ -46,6 +47,7 @@ type Uniter struct {
 	s            *State
 	sf           *StateFile
 	rand         *rand.Rand
+	hookLock     *fslock.Lock
 
 	ranConfigChanged bool
 }
@@ -105,6 +107,12 @@ func (u *Uniter) loop(name string) (err error) {
 func (u *Uniter) init(name string) (err error) {
 	defer utils.ErrorContextf(&err, "failed to initialize uniter for unit %q", name)
 	u.unit, err = u.st.Unit(name)
+	if err != nil {
+		return err
+	}
+	// The lockDir needs to be shared across all agents on a machine.
+	lockDir := filepath.Join(u.dataDir, "locks")
+	u.hookLock, err = fslock.NewLock(lockDir, "uniter-hook-execution")
 	if err != nil {
 		return err
 	}
@@ -252,6 +260,11 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	if err = hi.Validate(); err != nil {
 		return err
 	}
+	if err = u.hookLock.Lock(); err != nil {
+		return err
+	}
+	defer u.hookLock.Unlock()
+
 	hookName := string(hi.Kind)
 	relationId := -1
 	if hi.Kind.IsRelation() {
