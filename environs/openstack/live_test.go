@@ -88,7 +88,7 @@ type LiveTests struct {
 	writeablePublicStorage environs.Storage
 }
 
-var privateBucketImagesData = map[string]string {
+var privateBucketImagesData = map[string]string{
 	"precise": imagesFields(
 		"inst1 amd64 region-1 id-a paravirtual",
 		"inst2 amd64 region-2 id-b paravirtual",
@@ -99,7 +99,7 @@ var privateBucketImagesData = map[string]string {
 	),
 }
 
-var publicBucketImagesData = map[string]string {
+var publicBucketImagesData = map[string]string{
 	"raring": imagesFields(
 		"inst5 amd64 some-region id-y paravirtual",
 		"inst6 amd64 another-region id-z paravirtual",
