@@ -23,6 +23,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // TODO(niemeyer): This must not be exported.
@@ -131,10 +132,17 @@ type State struct {
 	runner         *txn.Runner
 	watcher        *watcher.Watcher
 	pwatcher       *presence.Watcher
+	// mu guards allManager.
+	mu sync.Mutex
 	allManager     *multiwatcher.StoreManager
 }
 
 func (st *State) Watch() *multiwatcher.Watcher {
+	st.mu.Lock()
+	if st.allManager == nil {
+		st.allManager = multiwatcher.NewStoreManager(newAllWatcherStateBacking(st))
+	}
+	st.mu.Unlock()
 	return multiwatcher.NewWatcher(st.allManager)
 }
 
