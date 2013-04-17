@@ -1,6 +1,7 @@
 package provisioner
 
 import (
+	"errors"
 	"fmt"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -193,14 +194,9 @@ func (p *Provisioner) findUnknownInstances() ([]environs.Instance, error) {
 		return nil, err
 	}
 	for _, m := range machines {
-		if m.Life() == state.Dead {
-			continue
+		if instId, ok := m.InstanceId(); ok {
+			delete(instances, instId)
 		}
-		instId, ok := m.InstanceId()
-		if !ok {
-			continue
-		}
-		delete(instances, instId)
 	}
 	var unknown []environs.Instance
 	for _, i := range instances {
@@ -223,13 +219,21 @@ func (p *Provisioner) pendingOrDead(ids []string) (pending, dead []*state.Machin
 			return nil, nil, err
 		}
 		switch m.Life() {
+		case state.Dying:
+			if _, ok := m.InstanceId(); ok {
+				continue
+			}
+			log.Infof("worker/provisioner: killing dying, unprovisioned machine %q", m)
+			if err := m.EnsureDead(); err != nil {
+				return nil, nil, err
+			}
+			fallthrough
 		case state.Dead:
 			dead = append(dead, m)
-			log.Infof("worker/provisioner: found dead machine %q", m)
-			continue
-		case state.Dying:
-			// TODO(dimitern): handle machines that are Dying but unprovisioned?
-			log.Infof("worker/provisioner: ignoring dying machine %q", m)
+			log.Infof("worker/provisioner: removing dead machine %q", m)
+			if err := m.Remove(); err != nil {
+				return nil, nil, err
+			}
 			continue
 		}
 		if instId, hasInstId := m.InstanceId(); !hasInstId {
@@ -238,7 +242,7 @@ func (p *Provisioner) pendingOrDead(ids []string) (pending, dead []*state.Machin
 				log.Infof("worker/provisioner: cannot get machine %q status: %v", m, err)
 				continue
 			}
-			if status != params.StatusError {
+			if status == params.StatusPending {
 				pending = append(pending, m)
 				log.Infof("worker/provisioner: found machine %q pending provisioning", m)
 				continue
@@ -353,6 +357,8 @@ func (p *Provisioner) stopInstances(instances []environs.Instance) error {
 	return nil
 }
 
+var errNotProvisioned = errors.New("machine has no instance id set")
+
 // instanceForMachine returns the environs.Instance that represents this machine's instance.
 func (p *Provisioner) instanceForMachine(m *state.Machine) (environs.Instance, error) {
 	inst, ok := p.instances[m.Id()]
@@ -361,7 +367,7 @@ func (p *Provisioner) instanceForMachine(m *state.Machine) (environs.Instance, e
 	}
 	instId, ok := m.InstanceId()
 	if !ok {
-		panic("cannot have unset instance ids here")
+		return nil, errNotProvisioned
 	}
 	// TODO(dfc): Ask for all instances at once.
 	insts, err := p.environ.Instances([]state.InstanceId{instId})
@@ -378,14 +384,13 @@ func (p *Provisioner) instanceForMachine(m *state.Machine) (environs.Instance, e
 func (p *Provisioner) instancesForMachines(ms []*state.Machine) ([]environs.Instance, error) {
 	var insts []environs.Instance
 	for _, m := range ms {
-		inst, err := p.instanceForMachine(m)
-		if err == environs.ErrNoInstances {
-			continue
-		}
-		if err != nil {
+		switch inst, err := p.instanceForMachine(m); err {
+		case nil:
+			insts = append(insts, inst)
+		case errNotProvisioned, environs.ErrNoInstances:
+		default:
 			return nil, err
 		}
-		insts = append(insts, inst)
 	}
 	return insts, nil
 }
