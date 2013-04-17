@@ -132,6 +132,7 @@ var statusFormats = []outputFormat{
 }
 
 var statusTests = []testCase{
+	// Status tests
 	test(
 		"bootstrap and starting a single instance",
 
@@ -356,9 +357,8 @@ var statusTests = []testCase{
 			},
 		},
 	),
-}
 
-var relationTests = []testCase{
+	// Relation tests
 	test(
 		"complex scenario with multiple related services",
 		addMachine{"0", state.JobManageEnviron},
@@ -530,9 +530,8 @@ var relationTests = []testCase{
 			},
 		},
 	),
-}
 
-var subordinatesTests = []testCase{
+	// Subordinate tests
 	test(
 		"one service with one subordinate service",
 		addMachine{"0", state.JobManageEnviron},
@@ -883,30 +882,6 @@ func (e expect) step(c *C, ctx *context) {
 
 func (s *StatusSuite) TestStatusAllFormats(c *C) {
 	for i, t := range statusTests {
-		c.Logf("test %d: %s", i, t.summary)
-		func() {
-			// Prepare context and run all steps to setup.
-			ctx := s.newContext()
-			defer s.resetContext(c, ctx)
-			ctx.run(c, t.steps)
-		}()
-	}
-}
-
-func (s *StatusSuite) TestRelations(c *C) {
-	for i, t := range relationTests {
-		c.Logf("test %d: %s", i, t.summary)
-		func() {
-			// Prepare context and run all steps to setup.
-			ctx := s.newContext()
-			defer s.resetContext(c, ctx)
-			ctx.run(c, t.steps)
-		}()
-	}
-}
-
-func (s *StatusSuite) TestSubordinates(c *C) {
-	for i, t := range subordinatesTests {
 		c.Logf("test %d: %s", i, t.summary)
 		func() {
 			// Prepare context and run all steps to setup.

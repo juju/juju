@@ -144,8 +144,7 @@ func (ctxt *statusContext) processMachine(machine *state.Machine) (status machin
 		// Double plus ungood.  There is an instance id recorded
 		// for this machine in the state, yet the environ cannot
 		// find that id.
-		status.Err = fmt.Errorf("instance %s not found", instid)
-		return
+		status.InstanceState = "missing"
 	}
 	status.InstanceId = instance.Id()
 	status.DNSName, _ = instance.DNSName()
@@ -162,13 +161,10 @@ func (ctxt *statusContext) processServices() map[string]serviceStatus {
 }
 
 func (ctxt *statusContext) processService(service *state.Service) (status serviceStatus) {
-	ch, _, err := service.Charm()
-	if err != nil {
-		status.Err = err
-		return
-	}
-	status.Charm = ch.String()
+	url, _ := service.CharmURL()
+	status.Charm = url.String()
 	status.Exposed = service.IsExposed()
+	var err error
 	status.Relations, status.SubordinateTo, err = ctxt.processRelations(service)
 	if err != nil {
 		status.Err = err
@@ -256,12 +252,12 @@ type stateAgent interface {
 // processAgent retrieves version and status information from the given entity
 // and sets the destination version, status and info values accordingly.
 func processAgent(dstVersion *string, dstStatus *params.Status, dstInfo *string, entity stateAgent) error {
+	if t, err := entity.AgentTools(); err == nil {
+		*dstVersion = t.Binary.Number.String()
+	}
 	agentAlive, err := entity.AgentAlive()
 	if err != nil {
 		return err
-	}
-	if t, err := entity.AgentTools(); err == nil {
-		*dstVersion = t.Binary.Number.String()
 	}
 	entityDead := entity.Life() == state.Dead
 	status, info, err := entity.Status()
@@ -290,6 +286,7 @@ type machineStatus struct {
 	AgentVersion   string           `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
 	AgentState     params.Status    `json:"agent-state,omitempty" yaml:"agent-state,omitempty"`
 	AgentStateInfo string           `json:"agent-state-info,omitempty" yaml:"agent-state-info,omitempty"`
+	InstanceState  string           `json:"instance-state,omitempty" yaml:"instance-state,omitempty"`
 }
 
 // A goyaml bug means we can't declare these types
