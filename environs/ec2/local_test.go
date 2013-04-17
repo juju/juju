@@ -11,11 +11,9 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
@@ -259,9 +257,8 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	policy := t.env.AssignmentPolicy()
 	c.Assert(policy, Equals, state.AssignNew)
 
-	_, err := tools.Upload(t.env.Storage(), nil)
-	c.Assert(err, IsNil)
-	err = environs.Bootstrap(t.env, constraints.Value{})
+	envtesting.UploadFakeTools(c, t.env.Storage())
+	err := environs.Bootstrap(t.env, constraints.Value{})
 	c.Assert(err, IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
