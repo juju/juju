@@ -1,9 +1,8 @@
 package main
 
 import (
-	"fmt"
-
 	"encoding/json"
+	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
@@ -163,41 +162,42 @@ func (ctxt *statusContext) processMachines() map[string]machineStatus {
 	return machinesMap
 }
 
-func processStatus(dstStatus *params.Status, dstInfo *string, status params.Status, info string, agentAlive, entityDead bool) {
-	if status != params.StatusPending {
-		if !agentAlive && !entityDead {
-			// Add the original status to the info, so it's not lost.
-			if info != "" {
-				info = fmt.Sprintf("(%s: %s)", status, info)
-			} else {
-				info = fmt.Sprintf("(%s)", status)
-			}
-			// Agent should be running but it's not.
-			status = params.StatusDown
+type statuser interface {
+	Life() state.Life
+	AgentAlive() (bool, error)
+	Status() (params.Status, string, error)
+}
+
+func processStatus(dstStatus *params.Status, dstInfo *string, entity statuser) error {
+	agentAlive, err := entity.AgentAlive()
+	if err != nil {
+		return err
+	}
+	entityDead := entity.Life() == state.Dead
+	status, info, err := entity.Status()
+	if err != nil {
+		return err
+	}
+	if status != params.StatusPending && !agentAlive && !entityDead {
+		// Add the original status to the info, so it's not lost.
+		if info != "" {
+			info = fmt.Sprintf("(%s: %s)", status, info)
+		} else {
+			info = fmt.Sprintf("(%s)", status)
 		}
+		// Agent should be running but it's not.
+		status = params.StatusDown
 	}
 	*dstStatus = status
 	*dstInfo = info
+	return nil
 }
 
 func processMachine(machine *state.Machine, instance environs.Instance) (status machineStatus) {
 	status.InstanceId = instance.Id()
 	status.DNSName, _ = instance.DNSName()
 	processVersion(&status.AgentVersion, machine)
-
-	agentAlive, err := machine.AgentAlive()
-	if err != nil {
-		status.Err = err
-		return
-	}
-	machineDead := machine.Life() == state.Dead
-	mstatus, info, err := machine.Status()
-	if err != nil {
-		status.Err = err
-		return
-	}
-	processStatus(&status.AgentState, &status.AgentStateInfo, mstatus, info, agentAlive, machineDead)
-
+	status.Err = processStatus(&status.AgentState, &status.AgentStateInfo, machine)
 	return
 }
 
@@ -251,18 +251,10 @@ func (ctxt *statusContext) processUnit(unit *state.Unit) (status unitStatus) {
 	}
 	processVersion(&status.AgentVersion, unit)
 
-	agentAlive, err := unit.AgentAlive()
-	if err != nil {
+	if err := processStatus(&status.AgentState, &status.AgentStateInfo, unit); err != nil {
 		status.Err = err
 		return
 	}
-	unitDead := unit.Life() == state.Dead
-	ustatus, info, err := unit.Status()
-	if err != nil {
-		status.Err = err
-		return
-	}
-	processStatus(&status.AgentState, &status.AgentStateInfo, ustatus, info, agentAlive, unitDead)
 	if subUnits := unit.SubordinateNames(); len(subUnits) > 0 {
 		status.Subordinates = make(map[string]unitStatus)
 		for _, name := range subUnits {
