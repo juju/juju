@@ -3,8 +3,8 @@ package ec2
 import (
 	"bufio"
 	"fmt"
-	"net/http"
 	"launchpad.net/juju-core/environs"
+	"net/http"
 )
 
 // imagesHost holds the address of the images http server.
@@ -27,7 +27,7 @@ func findInstanceSpec(ic *environs.InstanceConstraint) (*environs.InstanceSpec, 
 	}
 	availableTypes, err := environs.GetInstanceTypes(ic.Region, ic.Constraints, allInstanceTypes, allRegionCosts)
 	if err != nil {
-		return nil, fmt.Errorf("cannot get instance types for %q: %v", ic.Series, err)
+		return nil, err
 	}
 	r := bufio.NewReader(resp.Body)
 	return environs.FindInstanceSpec(r, ic, availableTypes)

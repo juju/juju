@@ -18,7 +18,14 @@ type InstanceType struct {
 	Hvm bool
 }
 
-type RegionCost map[string]map[string]uint64
+// all instance types can run amd64 images, and some can also run i386 ones.
+var (
+	Amd64 = []string{"amd64"}
+	Both  = []string{"amd64", "i386"}
+)
+
+type InstanceTypeCost map[string]uint64
+type RegionCosts map[string]InstanceTypeCost
 
 // match returns true if itype can satisfy the supplied constraints. If so,
 // it also returns a copy of itype with any arches that do not match the
@@ -34,7 +41,7 @@ func (itype InstanceType) match(cons constraints.Value) (InstanceType, bool) {
 	if cons.CpuCores != nil && itype.CpuCores < *cons.CpuCores {
 		return nothing, false
 	}
-	if cons.CpuPower != nil && itype.CpuPower < *cons.CpuPower {
+	if cons.CpuPower != nil && itype.CpuPower > 0 && itype.CpuPower < *cons.CpuPower {
 		return nothing, false
 	}
 	if cons.Mem != nil && itype.Mem < *cons.Mem {
@@ -65,19 +72,21 @@ var defaultCpuPower uint64 = 100
 // GetInstanceTypes returns all instance types matching cons and available
 // in region, sorted by increasing region-specific cost (if known).
 func GetInstanceTypes(region string, cons constraints.Value,
-		allinstanceTypes []InstanceType, allRegionCosts RegionCost) ([]InstanceType, error) {
+	allinstanceTypes []InstanceType, allRegionCosts RegionCosts) ([]InstanceType, error) {
 	if cons.CpuPower == nil {
 		v := defaultCpuPower
 		cons.CpuPower = &v
 	}
 	allCosts := allRegionCosts[region]
+	if len(allCosts) == 0 && len(allRegionCosts) > 0 {
+		return nil, fmt.Errorf("no instance types found in %s", region)
+	}
 	var costs []uint64
 	var itypes []InstanceType
 	for _, itype := range allinstanceTypes {
 		cost, ok := allCosts[itype.Name]
-		if !ok {
-			// if no cost specified for region, just use a default and first one wins.
-			cost = 1
+		if !ok && len(allRegionCosts) > 0 {
+			continue
 		}
 		itype, ok := itype.match(cons)
 		if !ok {

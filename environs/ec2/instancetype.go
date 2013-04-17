@@ -4,102 +4,96 @@ import (
 	"launchpad.net/juju-core/environs"
 )
 
-// all instance types can run amd64 images, and some can also run i386 ones.
-var (
-	amd64 = []string{"amd64"}
-	both  = []string{"amd64", "i386"}
-)
-
 // allInstanceTypes holds the relevant attributes of every known
 // instance type.
 var allInstanceTypes = []environs.InstanceType{
 	{ // First generation.
 		Name:     "m1.small",
-		Arches:   both,
+		Arches:   environs.Both,
 		CpuCores: 1,
 		CpuPower: 100,
 		Mem:      1740,
 	}, {
 		Name:     "m1.medium",
-		Arches:   both,
+		Arches:   environs.Both,
 		CpuCores: 1,
 		CpuPower: 200,
 		Mem:      3840,
 	}, {
 		Name:     "m1.large",
-		Arches:   amd64,
+		Arches:   environs.Amd64,
 		CpuCores: 2,
 		CpuPower: 400,
 		Mem:      7680,
 	}, {
 		Name:     "m1.xlarge",
-		Arches:   amd64,
+		Arches:   environs.Amd64,
 		CpuCores: 4,
 		CpuPower: 800,
 		Mem:      15360,
 	},
 	{ // Second generation.
 		Name:     "m3.xlarge",
-		Arches:   amd64,
+		Arches:   environs.Amd64,
 		CpuCores: 4,
 		CpuPower: 1300,
 		Mem:      15360,
 	}, {
 		Name:     "m3.2xlarge",
-		Arches:   amd64,
+		Arches:   environs.Amd64,
 		CpuCores: 8,
 		CpuPower: 2600,
 		Mem:      30720,
 	},
 	{ // Micro.
 		Name:     "t1.micro",
-		Arches:   both,
+		Arches:   environs.Both,
 		CpuCores: 1,
 		CpuPower: 20,
 		Mem:      613,
 	},
 	{ // High-Memory.
 		Name:     "m2.xlarge",
-		Arches:   amd64,
+		Arches:   environs.Amd64,
 		CpuCores: 2,
 		CpuPower: 650,
 		Mem:      17408,
 	}, {
 		Name:     "m2.2xlarge",
-		Arches:   amd64,
+		Arches:   environs.Amd64,
 		CpuCores: 4,
 		CpuPower: 1300,
 		Mem:      34816,
 	}, {
 		Name:     "m2.4xlarge",
-		Arches:   amd64,
+		Arches:   environs.Amd64,
 		CpuCores: 8,
 		CpuPower: 2600,
 		Mem:      69632,
 	},
 	{ // High-CPU.
 		Name:     "c1.medium",
-		Arches:   both,
+		Arches:   environs.Both,
 		CpuCores: 2,
 		CpuPower: 500,
 		Mem:      1740,
 	}, {
 		Name:     "c1.xlarge",
-		Arches:   amd64,
+		Arches:   environs.Amd64,
 		CpuCores: 8,
 		CpuPower: 2000,
 		Mem:      7168,
 	},
 	{ // Cluster compute.
 		Name:     "cc1.4xlarge",
-		Arches:   amd64,
+		Arches:   environs.Amd64,
 		CpuCores: 8,
 		CpuPower: 3350,
 		Mem:      23552,
 		Hvm:      true,
 	}, {
 		Name:     "cc2.8xlarge",
-		Arches:   amd64,
+		Arches:   environs.Amd64,
 		CpuCores: 16,
 		CpuPower: 8800,
 		Mem:      61952,
@@ -107,7 +101,7 @@ var allInstanceTypes = []environs.InstanceType{
 	},
 	{ // High Memory cluster.
 		Name:     "cr1.8xlarge",
-		Arches:   amd64,
+		Arches:   environs.Amd64,
 		CpuCores: 16,
 		CpuPower: 8800,
 		Mem:      249856,
@@ -115,7 +109,7 @@ var allInstanceTypes = []environs.InstanceType{
 	},
 	{ // Cluster GPU.
 		Name:     "cg1.4xlarge",
-		Arches:   amd64,
+		Arches:   environs.Amd64,
 		CpuCores: 8,
 		CpuPower: 3350,
 		Mem:      22528,
@@ -123,14 +117,14 @@ var allInstanceTypes = []environs.InstanceType{
 	},
 	{ // High I/O.
 		Name:     "hi1.4xlarge",
-		Arches:   amd64,
+		Arches:   environs.Amd64,
 		CpuCores: 16,
 		CpuPower: 3500,
 		Mem:      61952,
 	},
 	{ // High storage.
 		Name:     "hs1.8xlarge",
-		Arches:   amd64,
+		Arches:   environs.Amd64,
 		CpuCores: 16,
 		CpuPower: 3500,
 		Mem:      119808,
@@ -139,7 +133,7 @@ var allInstanceTypes = []environs.InstanceType{
 
 // allRegionCosts holds the cost in USDe-3/hour for each available instance
 // type in each region.
-var allRegionCosts = environs.RegionCost{
+var allRegionCosts = environs.RegionCosts{
 	"ap-northeast-1": { // Tokyo.
 		"m1.small":   88,
 		"m1.medium":  175,

@@ -1,12 +1,12 @@
 package environs
 
 import (
-	"fmt"
 	"bufio"
+	"fmt"
 	"io"
+	"launchpad.net/juju-core/constraints"
 	"sort"
 	"strings"
-	"launchpad.net/juju-core/constraints"
 )
 
 // InstanceConstraint constrains the possible instances that may be
@@ -15,7 +15,7 @@ type InstanceConstraint struct {
 	Region      string
 	Series      string
 	Arches      []string
-	Ebs         string
+	Storage     string
 	Constraints constraints.Value
 }
 
@@ -28,7 +28,7 @@ type InstanceSpec struct {
 
 // FindInstanceSpec returns an InstanceSpec satisfying the supplied InstanceConstraint.
 func FindInstanceSpec(r *bufio.Reader, ic *InstanceConstraint, availableTypes []InstanceType) (*InstanceSpec, error) {
-	images, err := getImages(r, ic.Region, ic.Series, ic.Ebs, ic.Arches)
+	images, err := getImages(r, ic.Region, ic.Series, ic.Storage, ic.Arches)
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +52,7 @@ const (
 	colServer
 	colDaily
 	colDate
-	colEBS
+	colStorage
 	colArch
 	colRegion
 	colImageId
@@ -87,7 +87,7 @@ func (image Image) match(itype InstanceType) bool {
 
 // getImages returns the latest released ubuntu server images for the
 // supplied series in the supplied region.
-func getImages(r *bufio.Reader, region, series, ebs string, arches []string) ([]Image, error) {
+func getImages(r *bufio.Reader, region, series, storage string, arches []string) ([]Image, error) {
 	var images []Image
 	for {
 		line, _, err := r.ReadLine()
@@ -107,7 +107,7 @@ func getImages(r *bufio.Reader, region, series, ebs string, arches []string) ([]
 		if f[colRegion] != region {
 			continue
 		}
-		if ebs != "" && f[colEBS] != ebs {
+		if storage != "" && f[colStorage] != storage {
 			continue
 		}
 		if len(filterArches([]string{f[colArch]}, arches)) != 0 {

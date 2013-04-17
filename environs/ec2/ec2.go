@@ -452,7 +452,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	spec, err := findInstanceSpec(&environs.InstanceConstraint{
 		Region:      e.ecfg().region(),
 		Series:      scfg.series,
-		Ebs:         "ebs",
+		Storage:     "ebs",
 		Arches:      []string{scfg.tools.Arch},
 		Constraints: scfg.constraints,
 	})

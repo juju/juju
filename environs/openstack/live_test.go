@@ -136,17 +136,24 @@ func (t *LiveTests) TearDownTest(c *C) {
 }
 
 func (t *LiveTests) TestFindImageSpec(c *C) {
-	instanceType := openstack.DefaultInstanceType(t.Env)
-	imageId, flavorId, err := openstack.FindInstanceSpec(t.Env, "precise", "amd64", instanceType)
+	spec, err := openstack.FindInstanceSpec(t.Env, "precise", "amd64", "")
 	c.Assert(err, IsNil)
-	c.Assert(imageId, Equals, t.testImageId)
-	c.Assert(flavorId, Not(Equals), "")
+	c.Assert(spec.Image.Id, Equals, t.testImageId)
+	c.Assert(spec.InstanceTypeName, Not(Equals), "")
 }
 
-func (t *LiveTests) TestFindImageBadFlavor(c *C) {
-	imageId, flavorId, err := openstack.FindInstanceSpec(t.Env, "precise", "amd64", "bad.flavor")
-	_, ok := err.(environs.NotFoundError)
-	c.Assert(ok, Equals, true)
-	c.Assert(imageId, Equals, "")
-	c.Assert(flavorId, Equals, "")
+// If no matching instance type is found, use the default flavor if specified.
+func (t *LiveTests) TestFindImageSpecDefaultFlavor(c *C) {
+	openstack.SetDefaultInstanceType(t.Env, "m1.small")
+	spec, err := openstack.FindInstanceSpec(t.Env, "precise", "amd64", "mem=8G")
+	c.Assert(err, IsNil)
+	c.Assert(spec.Image.Id, Equals, t.testImageId)
+	c.Assert(spec.InstanceTypeName, Equals, "m1.small")
+}
+
+// An error occurs if no matching instance type is found and the default flavor is invalid.
+func (t *LiveTests) TestFindImageBadDefaultFlavor(c *C) {
+	openstack.SetDefaultInstanceType(t.Env, "bad.flavor")
+	_, err := openstack.FindInstanceSpec(t.Env, "precise", "amd64", "mem=4G")
+	c.Assert(err, ErrorMatches, `no instance types in some region matching constraints "cpu-power=100 mem=4096M"`)
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/state"
@@ -99,18 +100,17 @@ func InstanceAddress(addresses map[string][]nova.IPAddress) (string, error) {
 	return instanceAddress(addresses)
 }
 
-func FindInstanceSpec(e environs.Environ, series, arch, flavor string) (imageId, flavorId string, err error) {
+func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *environs.InstanceSpec, err error) {
 	env := e.(*environ)
-	spec, err := findInstanceSpec(env, &instanceConstraint{
-		series: series,
-		arch:   arch,
-		region: env.ecfg().region(),
-		flavor: flavor,
+	spec, err = findInstanceSpec(env, &instanceConstraint{
+		environs.InstanceConstraint: environs.InstanceConstraint{
+			Series:      series,
+			Arches:      []string{arch},
+			Region:      env.ecfg().region(),
+			Constraints: constraints.MustParse(cons),
+		},
+		defaultFlavor: env.ecfg().defaultInstanceType(),
 	})
-	if err == nil {
-		imageId = spec.imageId
-		flavorId = spec.flavorId
-	}
 	return
 }
 
@@ -119,9 +119,9 @@ func SetUseFloatingIP(e environs.Environ, val bool) {
 	env.ecfg().attrs["use-floating-ip"] = val
 }
 
-func DefaultInstanceType(e environs.Environ) string {
+func SetDefaultInstanceType(e environs.Environ, defaultInstanceType string) {
 	ecfg := e.(*environ).ecfg()
-	return ecfg.defaultInstanceType()
+	ecfg.attrs["default-instance-type"] = defaultInstanceType
 }
 
 // ImageDetails specify parameters used to start a test machine for the live tests.
