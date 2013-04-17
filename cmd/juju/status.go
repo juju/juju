@@ -53,7 +53,9 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	defer conn.Close()
 
 	var ctxt statusContext
-	if ctxt.instances, err = fetchAllInstances(conn.Environ); err != nil {
+	ctxt.instances, err = fetchAllInstances(conn.Environ)
+	if err != nil {
+
 		return err
 	}
 	if ctxt.machines, err = fetchAllMachines(conn.State); err != nil {
@@ -138,17 +140,15 @@ func (ctxt *statusContext) processMachine(machine *state.Machine) (status machin
 	}
 	instance, ok := ctxt.instances[instid]
 	if !ok {
-		// Double plus ungood.  There is an
-		// instance id recorded for this machine
-		// in the state, yet the environ cannot
+		// Double plus ungood.  There is an instance id recorded
+		// for this machine in the state, yet the environ cannot
 		// find that id.
 		status.Err = fmt.Errorf("instance %s not found", instid)
 		return
 	}
 	status.InstanceId = instance.Id()
 	status.DNSName, _ = instance.DNSName()
-	processVersion(&status.AgentVersion, machine)
-	status.Err = processStatus(&status.AgentState, &status.AgentStateInfo, machine)
+	status.Err = processAgent(&status.AgentVersion, &status.AgentState, &status.AgentStateInfo, machine)
 	return
 }
 
@@ -192,8 +192,7 @@ func (ctxt *statusContext) processUnit(unit *state.Unit) (status unitStatus) {
 	if unit.IsPrincipal() {
 		status.Machine, _ = unit.AssignedMachineId()
 	}
-	processVersion(&status.AgentVersion, unit)
-	if err := processStatus(&status.AgentState, &status.AgentStateInfo, unit); err != nil {
+	if err := processAgent(&status.AgentVersion, &status.AgentState, &status.AgentStateInfo, unit); err != nil {
 		status.Err = err
 		return
 	}
@@ -246,29 +245,22 @@ func (*statusContext) processRelations(service *state.Service) (related map[stri
 	return related, subordSet.SortedValues(), nil
 }
 
-type versioned interface {
-	AgentTools() (*state.Tools, error)
-}
-
-// processVersion stores the agent version in status.
-func processVersion(version *string, v versioned) {
-	if t, err := v.AgentTools(); err == nil {
-		*version = t.Binary.Number.String()
-	}
-}
-
-type statuser interface {
+type stateAgent interface {
 	Life() state.Life
 	AgentAlive() (bool, error)
+	AgentTools() (*state.Tools, error)
 	Status() (params.Status, string, error)
 }
 
-// processStatus retrieves the status from the given entity
-// and sets the destination status and info values accordingly.
-func processStatus(dstStatus *params.Status, dstInfo *string, entity statuser) error {
+// processAgent retrieves version and status information from the given entity
+// and sets the destination version, status and info values accordingly.
+func processAgent(dstVersion *string, dstStatus *params.Status, dstInfo *string, entity stateAgent) error {
 	agentAlive, err := entity.AgentAlive()
 	if err != nil {
 		return err
+	}
+	if t, err := entity.AgentTools(); err == nil {
+		*dstVersion = t.Binary.Number.String()
 	}
 	entityDead := entity.Life() == state.Dead
 	status, info, err := entity.Status()
