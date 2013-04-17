@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/environs/openstack"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	coretesting "launchpad.net/juju-core/testing"
+	"strings"
 )
 
 // generate a different bucket name for each config instance, so that
@@ -87,6 +88,42 @@ type LiveTests struct {
 	writeablePublicStorage environs.Storage
 }
 
+var privateBucketImagesData = map[string]string {
+	"precise": imagesFields(
+		"inst1 amd64 region-1 id-a paravirtual",
+		"inst2 amd64 region-2 id-b paravirtual",
+	),
+	"quantal": imagesFields(
+		"inst3 amd64 some-region id-1 paravirtual",
+		"inst4 amd64 another-region id-2 paravirtual",
+	),
+}
+
+var publicBucketImagesData = map[string]string {
+	"raring": imagesFields(
+		"inst5 amd64 some-region id-y paravirtual",
+		"inst6 amd64 another-region id-z paravirtual",
+	),
+}
+
+func imagesFields(srcs ...string) string {
+	strs := make([]string, len(srcs))
+	for i, src := range srcs {
+		parts := strings.Split(src, " ")
+		if len(parts) != 5 {
+			panic("bad clouddata field input")
+		}
+		args := make([]interface{}, len(parts))
+		for i, part := range parts {
+			args[i] = part
+		}
+		// Ignored fields are left empty for clarity's sake, and two additional
+		// tabs are tacked on to the end to verify extra columns are ignored.
+		strs[i] = fmt.Sprintf("\t\t\t\t%s\t%s\t%s\t%s\t\t\t%s\t\t\n", args...)
+	}
+	return strings.Join(strs, "")
+}
+
 func (t *LiveTests) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
 	// Update some Config items now that we have services running.
@@ -117,12 +154,12 @@ func (t *LiveTests) TearDownSuite(c *C) {
 		// This can happen if SetUpSuite fails.
 		return
 	}
-	if t.writeablePublicStorage != nil {
-		err := openstack.DeleteStorageContent(t.writeablePublicStorage)
-		c.Check(err, IsNil)
-	}
 	t.LiveTests.TearDownSuite(c)
 	t.LoggingSuite.TearDownSuite(c)
+}
+
+func metadataFilePath(series string) string {
+	return fmt.Sprintf("series-image-metadata/%s/server/released.current.txt", series)
 }
 
 func (t *LiveTests) SetUpTest(c *C) {
@@ -130,15 +167,46 @@ func (t *LiveTests) SetUpTest(c *C) {
 	t.LiveTests.SetUpTest(c)
 	openstack.SetDefaultImageId(t.Env, t.testImageId)
 	openstack.SetDefaultInstanceType(t.Env, t.testFlavor)
+	// Put some image metadata files into the public and private storage.
+	for series, imagesData := range privateBucketImagesData {
+		t.Env.Storage().Put(metadataFilePath(series), strings.NewReader(imagesData), int64(len(imagesData)))
+	}
+	for series, imagesData := range publicBucketImagesData {
+		t.writeablePublicStorage.Put(metadataFilePath(series), strings.NewReader(imagesData), int64(len(imagesData)))
+	}
 }
 
 func (t *LiveTests) TearDownTest(c *C) {
+	for series := range privateBucketImagesData {
+		t.Env.Storage().Remove(metadataFilePath(series))
+	}
+	for series := range publicBucketImagesData {
+		t.writeablePublicStorage.Remove(metadataFilePath(series))
+	}
 	t.LiveTests.TearDownTest(c)
 	t.LoggingSuite.TearDownTest(c)
 }
 
+func (t *LiveTests) TestFindImageSpecPrivateStorage(c *C) {
+	openstack.SetDefaultInstanceType(t.Env, "")
+	openstack.SetDefaultImageId(t.Env, "")
+	spec, err := openstack.FindInstanceSpec(t.Env, "quantal", "amd64", "mem=512M")
+	c.Assert(err, IsNil)
+	c.Assert(spec.Image.Id, Equals, "id-1")
+	c.Assert(spec.InstanceTypeName, Equals, "m1.tiny")
+}
+
+func (t *LiveTests) TestFindImageSpecPublicStorage(c *C) {
+	openstack.SetDefaultInstanceType(t.Env, "")
+	openstack.SetDefaultImageId(t.Env, "")
+	spec, err := openstack.FindInstanceSpec(t.Env, "raring", "amd64", "mem=512M")
+	c.Assert(err, IsNil)
+	c.Assert(spec.Image.Id, Equals, "id-y")
+	c.Assert(spec.InstanceTypeName, Equals, "m1.tiny")
+}
+
 // If no suitable image is found, use the default if specified.
-func (t *LiveTests) TestFindImageSpec(c *C) {
+func (t *LiveTests) TestFindImageSpecDefaultImage(c *C) {
 	spec, err := openstack.FindInstanceSpec(t.Env, "precise", "amd64", "")
 	c.Assert(err, IsNil)
 	c.Assert(spec.Image.Id, Equals, t.testImageId)
@@ -158,12 +226,12 @@ func (t *LiveTests) TestFindImageSpecDefaultFlavor(c *C) {
 func (t *LiveTests) TestFindImageBadDefaultFlavor(c *C) {
 	openstack.SetDefaultInstanceType(t.Env, "bad.flavor")
 	_, err := openstack.FindInstanceSpec(t.Env, "precise", "amd64", "mem=8G")
-	c.Assert(err, ErrorMatches, `no instance types in some region matching constraints "cpu-power=100 mem=8192M"`)
+	c.Assert(err, ErrorMatches, `no instance types in some-region matching constraints "cpu-power=100 mem=8192M"`)
 }
 
 // An error occurs if no suitable image is found and the default not specified.
 func (t *LiveTests) TestFindImageBadDefaultImage(c *C) {
 	openstack.SetDefaultImageId(t.Env, "")
 	_, err := openstack.FindInstanceSpec(t.Env, "precise", "amd64", "mem=8G")
-	c.Assert(err, ErrorMatches, `unable to find image for series/arch/region precise/amd64/some region and no default specified.`)
+	c.Assert(err, ErrorMatches, `unable to find image for series/arch/region precise/amd64/some-region and no default specified.`)
 }

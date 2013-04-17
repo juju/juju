@@ -71,6 +71,8 @@ var defaultCpuPower uint64 = 100
 
 // GetInstanceTypes returns all instance types matching cons and available
 // in region, sorted by increasing region-specific cost (if known).
+// If no costs are specified, then we use the RAM amount as the cost on the
+// assumption that it costs less to run an instance with a smaller RAM requirement.
 func GetInstanceTypes(region string, cons constraints.Value,
 	allinstanceTypes []InstanceType, allRegionCosts RegionCosts) ([]InstanceType, error) {
 	if cons.CpuPower == nil {
@@ -85,8 +87,12 @@ func GetInstanceTypes(region string, cons constraints.Value,
 	var itypes []InstanceType
 	for _, itype := range allinstanceTypes {
 		cost, ok := allCosts[itype.Name]
-		if !ok && len(allRegionCosts) > 0 {
-			continue
+		if !ok {
+			if len(allRegionCosts) > 0 {
+				continue
+			} else {
+				cost = itype.Mem
+			}
 		}
 		itype, ok := itype.match(cons)
 		if !ok {

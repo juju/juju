@@ -90,7 +90,7 @@ func registerLocalTests() {
 	cred := &identity.Credentials{
 		User:       "fred",
 		Secrets:    "secret",
-		Region:     "some region",
+		Region:     "some-region",
 		TenantName: "some tenant",
 	}
 	config := makeTestConfig(cred)

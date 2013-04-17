@@ -150,8 +150,7 @@ var getInstanceTypesTest = []struct {
 		info: "no costs data available",
 		cons: "cpu-cores=2",
 		itypes: []string{
-			"m1.large", "m1.xlarge", "c1.medium", "c1.xlarge", "cc1.4xlarge",
-			"cc2.8xlarge",
+			"c1.medium", "c1.xlarge", "m1.large", "m1.xlarge", "cc1.4xlarge", "cc2.8xlarge",
 		},
 		noCosts: true,
 	},
