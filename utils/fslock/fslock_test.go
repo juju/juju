@@ -1,9 +1,12 @@
 package fslock_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
+	"runtime"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -83,7 +86,7 @@ func (fslockSuite) TestIsLockHeldBasics(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(lock.IsLockHeld(), Equals, false)
 
-	err = lock.Lock()
+	err = lock.Lock("")
 	c.Assert(err, IsNil)
 	c.Assert(lock.IsLockHeld(), Equals, true)
 
@@ -99,7 +102,7 @@ func (fslockSuite) TestIsLockHeldTwoLocks(c *C) {
 	lock2, err := fslock.NewLock(dir, "testing")
 	c.Assert(err, IsNil)
 
-	err = lock1.Lock()
+	err = lock1.Lock("")
 	c.Assert(err, IsNil)
 	c.Assert(lock2.IsLockHeld(), Equals, false)
 }
@@ -113,11 +116,11 @@ func (fslockSuite) TestLockBlocks(c *C) {
 	c.Assert(err, IsNil)
 
 	acquired := make(chan struct{})
-	err = lock1.Lock()
+	err = lock1.Lock("")
 	c.Assert(err, IsNil)
 
 	go func() {
-		lock2.Lock()
+		lock2.Lock("")
 		acquired <- struct{}{}
 		close(acquired)
 	}()
@@ -148,7 +151,7 @@ func (fslockSuite) TestLockWithTimeoutUnlocked(c *C) {
 	lock, err := fslock.NewLock(dir, "testing")
 	c.Assert(err, IsNil)
 
-	err = lock.LockWithTimeout(10 * time.Millisecond)
+	err = lock.LockWithTimeout(10*time.Millisecond, "")
 	c.Assert(err, IsNil)
 }
 
@@ -159,10 +162,10 @@ func (fslockSuite) TestLockWithTimeoutLocked(c *C) {
 	lock2, err := fslock.NewLock(dir, "testing")
 	c.Assert(err, IsNil)
 
-	err = lock1.Lock()
+	err = lock1.Lock("")
 	c.Assert(err, IsNil)
 
-	err = lock2.LockWithTimeout(10 * time.Millisecond)
+	err = lock2.LockWithTimeout(10*time.Millisecond, "")
 	c.Assert(err, Equals, fslock.ErrTimeout)
 }
 
@@ -182,7 +185,7 @@ func (fslockSuite) TestIsLocked(c *C) {
 	lock2, err := fslock.NewLock(dir, "testing")
 	c.Assert(err, IsNil)
 
-	err = lock1.Lock()
+	err = lock1.Lock("")
 	c.Assert(err, IsNil)
 
 	c.Assert(lock1.IsLocked(), Equals, true)
@@ -196,7 +199,7 @@ func (fslockSuite) TestBreakLock(c *C) {
 	lock2, err := fslock.NewLock(dir, "testing")
 	c.Assert(err, IsNil)
 
-	err = lock1.Lock()
+	err = lock1.Lock("")
 	c.Assert(err, IsNil)
 
 	err = lock2.BreakLock()
@@ -216,22 +219,27 @@ func (fslockSuite) TestMessage(c *C) {
 	dir := c.MkDir()
 	lock, err := fslock.NewLock(dir, "testing")
 	c.Assert(err, IsNil)
-	c.Assert(lock.GetMessage(), Equals, "")
+	c.Assert(lock.Message(), Equals, "")
 
 	err = lock.SetMessage("my message")
 	c.Assert(err, Equals, fslock.ErrLockNotHeld)
 
-	err = lock.Lock()
+	err = lock.Lock("")
 	c.Assert(err, IsNil)
 
 	err = lock.SetMessage("my message")
 	c.Assert(err, IsNil)
-	c.Assert(lock.GetMessage(), Equals, "my message")
+	c.Assert(lock.Message(), Equals, "my message")
+
+	// Messages can be changed while the lock is held.
+	err = lock.SetMessage("new message")
+	c.Assert(err, IsNil)
+	c.Assert(lock.Message(), Equals, "new message")
 
 	// Unlocking removes the message.
 	err = lock.Unlock()
 	c.Assert(err, IsNil)
-	c.Assert(lock.GetMessage(), Equals, "")
+	c.Assert(lock.Message(), Equals, "")
 }
 
 func (fslockSuite) TestMessageAcrossLocks(c *C) {
@@ -241,10 +249,71 @@ func (fslockSuite) TestMessageAcrossLocks(c *C) {
 	lock2, err := fslock.NewLock(dir, "testing")
 	c.Assert(err, IsNil)
 
-	err = lock1.Lock()
+	err = lock1.Lock("")
 	c.Assert(err, IsNil)
 	err = lock1.SetMessage("very busy")
 	c.Assert(err, IsNil)
 
-	c.Assert(lock2.GetMessage(), Equals, "very busy")
+	c.Assert(lock2.Message(), Equals, "very busy")
+}
+
+func (fslockSuite) TestInitialMessageWhenLocking(c *C) {
+	dir := c.MkDir()
+	lock, err := fslock.NewLock(dir, "testing")
+	c.Assert(err, IsNil)
+
+	err = lock.Lock("initial message")
+	c.Assert(err, IsNil)
+	c.Assert(lock.Message(), Equals, "initial message")
+
+	err = lock.Unlock()
+	c.Assert(err, IsNil)
+
+	err = lock.LockWithTimeout(10*time.Millisecond, "initial timeout message")
+	c.Assert(err, IsNil)
+	c.Assert(lock.Message(), Equals, "initial timeout message")
+}
+
+func (fslockSuite) TestStress(c *C) {
+	const lockAttempts = 100
+	const concurrentLocks = 3
+
+	var counter = new(int64)
+	// Use atomics to update lockState to make sure the lock isn't held by
+	// someone else. A value of 1 means locked, 0 means unlocked.
+	var lockState = new(int32)
+	var done = make(chan struct{})
+	defer close(done)
+
+	dir := c.MkDir()
+
+	var stress = func(name string) {
+		defer func() { done <- struct{}{} }()
+		lock, err := fslock.NewLock(dir, "testing")
+		if err != nil {
+			return
+		}
+		for i := 0; i < lockAttempts; i++ {
+			lock.Lock(name)
+			state := atomic.AddInt32(lockState, 1)
+			c.Check(state, Equals, int32(1))
+			// Tell the go routine scheduler to give a slice to someone else
+			// while we have this locked.
+			runtime.Gosched()
+			// need to decrement prior to unlock to avoid the race of someone
+			// else grabbing the lock before we decrement the state.
+			_ = atomic.AddInt32(lockState, -1)
+			lock.Unlock()
+			// increment the general counter
+			_ = atomic.AddInt64(counter, 1)
+		}
+	}
+
+	for i := 0; i < concurrentLocks; i++ {
+		go stress(fmt.Sprintf("Lock %d", i))
+	}
+	for i := 0; i < concurrentLocks; i++ {
+		<-done
+	}
+	c.Assert(*counter, Equals, int64(lockAttempts*concurrentLocks))
 }

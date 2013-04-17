@@ -21,7 +21,11 @@ import (
 	"time"
 )
 
-const nameRegexp = "^[a-z]+[a-z0-9.-]*$"
+const (
+	nameRegexp      = "^[a-z]+[a-z0-9.-]*$"
+	heldFilename    = "held"
+	messageFilename = "message"
+)
 
 var (
 	ErrLockNotHeld = errors.New("lock not held")
@@ -81,7 +85,9 @@ func (lock *Lock) messageFile() string {
 	return path.Join(lock.lockDir(), "message")
 }
 
-func (lock *Lock) acquire() (bool, error) {
+// If message is set, it will write the message to the lock directory as the
+// lock is taken.
+func (lock *Lock) acquire(message string) (bool, error) {
 	// If the lockDir exists, then the lock is held by someone else.
 	_, err := os.Stat(lock.lockDir())
 	if err == nil {
@@ -91,11 +97,24 @@ func (lock *Lock) acquire() (bool, error) {
 		return false, err
 	}
 	// Create a temporary directory (in the temp dir), and then move it to the right name.
-	tempLockName := hex.EncodeToString(lock.nonce)
+	// Use a directory name starting with "." as it isn't a valid lock name.
+	tempLockName := fmt.Sprintf(".%s", hex.EncodeToString(lock.nonce))
 	tempDirName, err := ioutil.TempDir("", tempLockName)
 	if err != nil {
 		return false, err // this shouldn't really fail...
 	}
+	// write nonce into the temp dir
+	err = ioutil.WriteFile(path.Join(tempDirName, heldFilename), lock.nonce, 0755)
+	if err != nil {
+		return false, err
+	}
+	if message != "" {
+		err = ioutil.WriteFile(path.Join(tempDirName, messageFilename), []byte(message), 0755)
+		if err != nil {
+			return false, err
+		}
+	}
+	// Now move the temp directory to the lock directory.
 	err = os.Rename(tempDirName, lock.lockDir())
 	if os.IsExist(err) {
 		// Beaten to it, clean up temporary directory.
@@ -104,19 +123,18 @@ func (lock *Lock) acquire() (bool, error) {
 	} else if err != nil {
 		return false, err
 	}
-	// write nonce
-	err = ioutil.WriteFile(lock.heldFile(), lock.nonce, 0755)
-	if err != nil {
-		return false, err
-	}
 	// We now have the lock.
 	return true, nil
 }
 
-// Lock blocks until it is able to acquire the lock.
-func (lock *Lock) Lock() error {
+// Lock blocks until it is able to acquire the lock.  Since we are dealing
+// with sharing and locking using the filesystem, it is good behaviour to
+// provide a message that is saved with the lock.  This is output in debugging
+// information, and can be queried by any other Lock dealing with the same
+// lock name and lock directory.
+func (lock *Lock) Lock(message string) error {
 	for {
-		acquired, err := lock.acquire()
+		acquired, err := lock.acquire(message)
 		if err != nil {
 			return err
 		}
@@ -129,11 +147,12 @@ func (lock *Lock) Lock() error {
 }
 
 // LockWithTimeout tries to acquire the lock. If it cannot acquire the lock
-// within the given duration, it returns ErrTimeout.
-func (lock *Lock) LockWithTimeout(duration time.Duration) error {
+// within the given duration, it returns ErrTimeout.  See `Lock` for
+// information about the message.
+func (lock *Lock) LockWithTimeout(duration time.Duration, message string) error {
 	deadline := time.Now().Add(duration)
 	for {
-		acquired, err := lock.acquire()
+		acquired, err := lock.acquire(message)
 		if err != nil {
 			return err
 		}
@@ -182,12 +201,21 @@ func (lock *Lock) SetMessage(message string) error {
 	if !lock.IsLockHeld() {
 		return ErrLockNotHeld
 	}
-	return ioutil.WriteFile(lock.messageFile(), []byte(message), 0755)
+	// Since the message can be read by anyone, make this an atomic write by
+	// writing to a temp file and renaming.
+	tempFile, err := ioutil.TempFile(lock.lockDir(), ".message")
+	if err != nil {
+		return err
+	}
+	tempFilename := tempFile.Name()
+	fmt.Fprint(tempFile, message)
+	tempFile.Close()
+	return os.Rename(tempFilename, lock.messageFile())
 }
 
-// GetMessage returns the saved message, or the empty string if there is no
+// Message returns the saved message, or the empty string if there is no
 // saved message.
-func (lock *Lock) GetMessage() string {
+func (lock *Lock) Message() string {
 	message, err := ioutil.ReadFile(lock.messageFile())
 	if err != nil {
 		return ""
