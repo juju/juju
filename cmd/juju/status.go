@@ -173,7 +173,7 @@ func (ctxt *statusContext) processService(service *state.Service) (status servic
 		status.Err = err
 		return
 	}
-	if !service.IsSubordinate() {
+	if service.IsPrincipal() {
 		status.Units = ctxt.processUnits(ctxt.units[service.Name()])
 	}
 	return status
@@ -233,7 +233,7 @@ func (*statusContext) processRelations(service *state.Service) (related map[stri
 			return nil, nil, err
 		}
 		for _, ep := range eps {
-			if ep.Scope == charm.ScopeContainer && service.IsSubordinate() {
+			if ep.Scope == charm.ScopeContainer && !service.IsPrincipal() {
 				subordSet.Add(ep.ServiceName)
 			}
 			related[relationName] = append(related[relationName], ep.ServiceName)

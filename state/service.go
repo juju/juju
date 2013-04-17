@@ -263,8 +263,10 @@ func (s *Service) Charm() (ch *Charm, force bool, err error) {
 	return ch, s.doc.ForceCharm, nil
 }
 
-func (s *Service) IsSubordinate() bool {
-	return s.doc.Subordinate
+// IsPrincipal returns whether units of the service can
+// have subordinate units.
+func (s *Service) IsPrincipal() bool {
+	return !s.doc.Subordinate
 }
 
 // CharmURL returns the service's charm URL, and whether units should upgrade
