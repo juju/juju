@@ -768,14 +768,11 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 		// TODO(fwereade): this is somewhat crazy.
 		return nil, fmt.Errorf("cannot find image for %q", scfg.tools.Series)
 	}
-	spec, err := findInstanceSpec(e, &instanceConstraint{
-		environs.InstanceConstraint: environs.InstanceConstraint{
-			Series:      scfg.tools.Series,
-			Arches:      []string{scfg.tools.Arch},
-			Region:      e.ecfg().region(),
-			Constraints: scfg.constraints,
-		},
-		defaultFlavor: e.ecfg().defaultInstanceType(),
+	spec, err := findInstanceSpec(e, &environs.InstanceConstraint{
+		Series:      scfg.tools.Series,
+		Arches:      []string{scfg.tools.Arch},
+		Region:      e.ecfg().region(),
+		Constraints: scfg.constraints,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image satisfying constraints: %v", err)

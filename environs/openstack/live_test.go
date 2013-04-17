@@ -128,6 +128,8 @@ func (t *LiveTests) TearDownSuite(c *C) {
 func (t *LiveTests) SetUpTest(c *C) {
 	t.LoggingSuite.SetUpTest(c)
 	t.LiveTests.SetUpTest(c)
+	openstack.SetDefaultImageId(t.Env, t.testImageId)
+	openstack.SetDefaultInstanceType(t.Env, t.testFlavor)
 }
 
 func (t *LiveTests) TearDownTest(c *C) {
@@ -135,6 +137,7 @@ func (t *LiveTests) TearDownTest(c *C) {
 	t.LoggingSuite.TearDownTest(c)
 }
 
+// If no suitable image is found, use the default if specified.
 func (t *LiveTests) TestFindImageSpec(c *C) {
 	spec, err := openstack.FindInstanceSpec(t.Env, "precise", "amd64", "")
 	c.Assert(err, IsNil)
@@ -154,6 +157,13 @@ func (t *LiveTests) TestFindImageSpecDefaultFlavor(c *C) {
 // An error occurs if no matching instance type is found and the default flavor is invalid.
 func (t *LiveTests) TestFindImageBadDefaultFlavor(c *C) {
 	openstack.SetDefaultInstanceType(t.Env, "bad.flavor")
-	_, err := openstack.FindInstanceSpec(t.Env, "precise", "amd64", "mem=4G")
-	c.Assert(err, ErrorMatches, `no instance types in some region matching constraints "cpu-power=100 mem=4096M"`)
+	_, err := openstack.FindInstanceSpec(t.Env, "precise", "amd64", "mem=8G")
+	c.Assert(err, ErrorMatches, `no instance types in some region matching constraints "cpu-power=100 mem=8192M"`)
+}
+
+// An error occurs if no suitable image is found and the default not specified.
+func (t *LiveTests) TestFindImageBadDefaultImage(c *C) {
+	openstack.SetDefaultImageId(t.Env, "")
+	_, err := openstack.FindInstanceSpec(t.Env, "precise", "amd64", "mem=8G")
+	c.Assert(err, ErrorMatches, `unable to find image for series/arch/region precise/amd64/some region and no default specified.`)
 }

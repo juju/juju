@@ -6,17 +6,9 @@ import (
 	"launchpad.net/juju-core/environs"
 )
 
-// instanceConstraint constrains the possible instances that may be chosen by the Openstack provider.
-// It adds to the standard instance constraints by allowing for an optional default flavor to be
-// specified which is used if no instance types match the supplied contraints.
-type instanceConstraint struct {
-	environs.InstanceConstraint
-	defaultFlavor string
-}
-
 // findInstanceSpec returns an image and instance type satisfying the constraint.
 // The instance type comes from querying the flavors supported by the deployment.
-func findInstanceSpec(e *environ, ic *instanceConstraint) (*environs.InstanceSpec, error) {
+func findInstanceSpec(e *environ, ic *environs.InstanceConstraint) (*environs.InstanceSpec, error) {
 	// first construct the available instance types from the supported flavors.
 	nova := e.nova()
 	flavors, err := nova.ListFlavorsDetail()
@@ -25,32 +17,28 @@ func findInstanceSpec(e *environ, ic *instanceConstraint) (*environs.InstanceSpe
 	}
 	var defaultInstanceType *environs.InstanceType
 	allInstanceTypes := []environs.InstanceType{}
+	defaultFlavor := e.ecfg().defaultInstanceType()
 	for _, flavor := range flavors {
-		allInstanceTypes = append(allInstanceTypes, environs.InstanceType{
+		instanceType := environs.InstanceType{
 			Id:       flavor.Id,
 			Name:     flavor.Name,
 			Arches:   ic.Arches,
 			Mem:      uint64(flavor.RAM),
 			CpuCores: uint64(flavor.VCPUs),
-		})
-		if ic.defaultFlavor == "" || flavor.Name == ic.defaultFlavor {
-			defaultInstanceType = &environs.InstanceType{
-				Id:       flavor.Id,
-				Name:     flavor.Name,
-				Arches:   ic.Arches,
-				Mem:      uint64(flavor.RAM),
-				CpuCores: uint64(flavor.VCPUs),
-			}
+		}
+		allInstanceTypes = append(allInstanceTypes, instanceType)
+		if flavor.Name == defaultFlavor {
+			defaultInstanceType = &instanceType
 		}
 	}
 	if len(allInstanceTypes) == 0 {
-		return nil, environs.NotFoundError{fmt.Errorf("no such flavor %s", ic.defaultFlavor)}
+		return nil, environs.NotFoundError{fmt.Errorf("no such flavor %s", defaultFlavor)}
 	}
 	availableTypes, err := environs.GetInstanceTypes(ic.Region, ic.Constraints, allInstanceTypes, nil)
 	// if no matching instance types are found, use the default if one is specified.
 	if err != nil {
 		if defaultInstanceType == nil {
-				return nil, err
+			return nil, err
 		}
 		availableTypes = []environs.InstanceType{*defaultInstanceType}
 	}
@@ -66,7 +54,7 @@ func findInstanceSpec(e *environ, ic *instanceConstraint) (*environs.InstanceSpe
 	if err == nil {
 		defer r.Close()
 		br := bufio.NewReader(r)
-		spec, err = environs.FindInstanceSpec(br, &ic.InstanceConstraint, availableTypes)
+		spec, err = environs.FindInstanceSpec(br, ic, availableTypes)
 	}
 	// if no matching image is found for whatever reason, use the default if one is specified.
 	if err != nil {

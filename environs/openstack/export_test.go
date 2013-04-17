@@ -102,14 +102,11 @@ func InstanceAddress(addresses map[string][]nova.IPAddress) (string, error) {
 
 func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *environs.InstanceSpec, err error) {
 	env := e.(*environ)
-	spec, err = findInstanceSpec(env, &instanceConstraint{
-		environs.InstanceConstraint: environs.InstanceConstraint{
-			Series:      series,
-			Arches:      []string{arch},
-			Region:      env.ecfg().region(),
-			Constraints: constraints.MustParse(cons),
-		},
-		defaultFlavor: env.ecfg().defaultInstanceType(),
+	spec, err = findInstanceSpec(env, &environs.InstanceConstraint{
+		Series:      series,
+		Arches:      []string{arch},
+		Region:      env.ecfg().region(),
+		Constraints: constraints.MustParse(cons),
 	})
 	return
 }
@@ -122,6 +119,11 @@ func SetUseFloatingIP(e environs.Environ, val bool) {
 func SetDefaultInstanceType(e environs.Environ, defaultInstanceType string) {
 	ecfg := e.(*environ).ecfg()
 	ecfg.attrs["default-instance-type"] = defaultInstanceType
+}
+
+func SetDefaultImageId(e environs.Environ, defaultId string) {
+	ecfg := e.(*environ).ecfg()
+	ecfg.attrs["default-image-id"] = defaultId
 }
 
 // ImageDetails specify parameters used to start a test machine for the live tests.
