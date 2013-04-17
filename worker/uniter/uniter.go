@@ -20,6 +20,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -116,9 +117,12 @@ func (u *Uniter) setupLocks() (err error) {
 		// before unlocking, and have been restarted by upstart.
 		parts := strings.SplitN(message, ":", 2)
 		if len(parts) > 1 && parts[0] == u.unit.Name() {
-			u.hookLock.BreakLock()
+			if err := u.hookLock.BreakLock(); err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }
 
 func (u *Uniter) init(name string) (err error) {
