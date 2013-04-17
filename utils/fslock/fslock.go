@@ -166,6 +166,17 @@ func (lock *Lock) Unlock() error {
 	return os.RemoveAll(lock.lockDir())
 }
 
+// IsLocked returns true if the lock is currently held by anyone.
+func (lock *Lock) IsLocked() bool {
+	_, err := os.Stat(lock.heldFile())
+	return err == nil
+}
+
+// BreakLock forcably breaks the lock that is currently being held.
+func (lock *Lock) BreakLock() error {
+	return os.RemoveAll(lock.lockDir())
+}
+
 // SetMessage saves the message if and only if the lock is held.
 func (lock *Lock) SetMessage(message string) error {
 	if !lock.IsLockHeld() {

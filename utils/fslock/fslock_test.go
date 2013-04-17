@@ -175,6 +175,39 @@ func (fslockSuite) TestUnlock(c *C) {
 	c.Assert(err, Equals, fslock.ErrLockNotHeld)
 }
 
+func (fslockSuite) TestIsLocked(c *C) {
+	dir := c.MkDir()
+	lock1, err := fslock.NewLock(dir, "testing")
+	c.Assert(err, IsNil)
+	lock2, err := fslock.NewLock(dir, "testing")
+	c.Assert(err, IsNil)
+
+	err = lock1.Lock()
+	c.Assert(err, IsNil)
+
+	c.Assert(lock1.IsLocked(), Equals, true)
+	c.Assert(lock2.IsLocked(), Equals, true)
+}
+
+func (fslockSuite) TestBreakLock(c *C) {
+	dir := c.MkDir()
+	lock1, err := fslock.NewLock(dir, "testing")
+	c.Assert(err, IsNil)
+	lock2, err := fslock.NewLock(dir, "testing")
+	c.Assert(err, IsNil)
+
+	err = lock1.Lock()
+	c.Assert(err, IsNil)
+
+	err = lock2.BreakLock()
+	c.Assert(err, IsNil)
+	c.Assert(lock2.IsLocked(), Equals, false)
+
+	// Normally locks are broken due to client crashes, not duration.
+	err = lock1.Unlock()
+	c.Assert(err, Equals, fslock.ErrLockNotHeld)
+}
+
 func (fslockSuite) TestMessage(c *C) {
 	dir := c.MkDir()
 	lock, err := fslock.NewLock(dir, "testing")
