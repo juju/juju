@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/version"
 	"os"
 	"path/filepath"
 )
@@ -89,14 +90,15 @@ func StartInstance(c *C, env environs.Environ, machineId string) environs.Instan
 
 const AdminSecret = "dummy-secret"
 
-var envConfig = []byte(`
+var envConfig = `
 environments:
     dummyenv:
         type: dummy
         state-server: true
         authorized-keys: 'i-am-a-key'
         admin-secret: ` + AdminSecret + `
-`)
+        agent-version: %s
+`
 
 func (s *JujuConnSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
@@ -158,7 +160,8 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	err = os.MkdirAll(dataDir, 0777)
 	c.Assert(err, IsNil)
 
-	err = ioutil.WriteFile(config.JujuHomePath("environments.yaml"), envConfig, 0600)
+	yaml := []byte(fmt.Sprintf(envConfig, version.Current.Number))
+	err = ioutil.WriteFile(config.JujuHomePath("environments.yaml"), yaml, 0600)
 	c.Assert(err, IsNil)
 
 	err = ioutil.WriteFile(config.JujuHomePath("dummyenv-cert.pem"), []byte(testing.CACert), 0666)

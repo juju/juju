@@ -380,6 +380,7 @@ func (s *UpgradeJujuSuite) Reset(c *C) {
 	c.Assert(err, IsNil)
 	cfg, err = cfg.Apply(map[string]interface{}{
 		"default-series": "always",
+		"agent-version":  "1.2.3",
 	})
 	c.Assert(err, IsNil)
 	err = s.State.SetEnvironConfig(cfg)
