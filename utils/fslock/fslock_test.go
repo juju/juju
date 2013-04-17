@@ -206,6 +206,10 @@ func (fslockSuite) TestBreakLock(c *C) {
 	// Normally locks are broken due to client crashes, not duration.
 	err = lock1.Unlock()
 	c.Assert(err, Equals, fslock.ErrLockNotHeld)
+
+	// Breaking a non-existant isn't an error
+	err = lock2.BreakLock()
+	c.Assert(err, IsNil)
 }
 
 func (fslockSuite) TestMessage(c *C) {
