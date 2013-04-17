@@ -497,342 +497,163 @@ func (s *StateSuite) TestEnvironConstraints(c *C) {
 	c.Assert(cons5, Not(Equals), cons4)
 }
 
-var machinesWatchTests = []struct {
-	summary string
-	test    func(*C, *state.State)
-	changes []string
-}{
-	{
-		"Do nothing",
-		func(_ *C, _ *state.State) {},
-		nil,
-	}, {
-		"Add a machine",
-		func(c *C, s *state.State) {
-			_, err := s.AddMachine("series", state.JobHostUnits)
-			c.Assert(err, IsNil)
-		},
-		[]string{"0"},
-	}, {
-		"Ignore unrelated changes",
-		func(c *C, s *state.State) {
-			_, err := s.AddMachine("series", state.JobHostUnits)
-			c.Assert(err, IsNil)
-			m0, err := s.Machine("0")
-			c.Assert(err, IsNil)
-			err = m0.SetProvisioned("spam", "fake_nonce")
-			c.Assert(err, IsNil)
-		},
-		[]string{"1"},
-	}, {
-		"Add two machines at once",
-		func(c *C, s *state.State) {
-			_, err := s.AddMachine("series", state.JobHostUnits)
-			c.Assert(err, IsNil)
-			_, err = s.AddMachine("series", state.JobHostUnits)
-			c.Assert(err, IsNil)
-		},
-		[]string{"2", "3"},
-	}, {
-		"Report machines that become Dying",
-		func(c *C, s *state.State) {
-			m3, err := s.Machine("3")
-			c.Assert(err, IsNil)
-			err = m3.Destroy()
-			c.Assert(err, IsNil)
-		},
-		[]string{"3"},
-	}, {
-		"Report machines that become Dead",
-		func(c *C, s *state.State) {
-			m3, err := s.Machine("3")
-			c.Assert(err, IsNil)
-			err = m3.EnsureDead()
-			c.Assert(err, IsNil)
-		},
-		[]string{"3"},
-	}, {
-		"Do not report Dead machines that are removed",
-		func(c *C, s *state.State) {
-			m0, err := s.Machine("0")
-			c.Assert(err, IsNil)
-			err = m0.Destroy()
-			c.Assert(err, IsNil)
-			m3, err := s.Machine("3")
-			c.Assert(err, IsNil)
-			err = m3.Remove()
-			c.Assert(err, IsNil)
-		},
-		[]string{"0"},
-	}, {
-		"Report previously known machines that are removed",
-		func(c *C, s *state.State) {
-			m0, err := s.Machine("0")
-			c.Assert(err, IsNil)
-			err = m0.EnsureDead()
-			c.Assert(err, IsNil)
-			m2, err := s.Machine("2")
-			c.Assert(err, IsNil)
-			err = m2.EnsureDead()
-			c.Assert(err, IsNil)
-			err = m2.Remove()
-			c.Assert(err, IsNil)
-		},
-		[]string{"0", "2"},
-	}, {
-		"Added and Dead machines at once",
-		func(c *C, s *state.State) {
-			_, err := s.AddMachine("series", state.JobHostUnits)
-			c.Assert(err, IsNil)
-			m1, err := s.Machine("1")
-			c.Assert(err, IsNil)
-			err = m1.EnsureDead()
-			c.Assert(err, IsNil)
-		},
-		[]string{"1", "4"},
-	}, {
-		"Add many, change many, and remove many at once",
-		func(c *C, s *state.State) {
-			machines := [20]*state.Machine{}
-			var err error
-			for i := 0; i < len(machines); i++ {
-				machines[i], err = s.AddMachine("series", state.JobHostUnits)
-				c.Assert(err, IsNil)
-			}
-			for i := 0; i < len(machines); i++ {
-				err = machines[i].SetProvisioned(state.InstanceId("spam"+fmt.Sprint(i)), "fake_nonce")
-				c.Assert(err, IsNil)
-			}
-			for i := 10; i < len(machines); i++ {
-				err = machines[i].EnsureDead()
-				c.Assert(err, IsNil)
-				err = machines[i].Remove()
-				c.Assert(err, IsNil)
-			}
-		},
-		[]string{"5", "6", "7", "8", "9", "10", "11", "12", "13", "14"},
-	}, {
-		"Do not report never-seen and removed or dead",
-		func(c *C, s *state.State) {
-			m, err := s.AddMachine("series", state.JobHostUnits)
-			c.Assert(err, IsNil)
-			err = m.EnsureDead()
-			c.Assert(err, IsNil)
+func (s *StateSuite) TestWatchServicesBulkEvents(c *C) {
+	// Alive service...
+	dummyCharm := s.AddTestingCharm(c, "dummy")
+	alive, err := s.State.AddService("service0", dummyCharm)
+	c.Assert(err, IsNil)
 
-			m, err = s.AddMachine("series", state.JobHostUnits)
-			c.Assert(err, IsNil)
-			err = m.EnsureDead()
-			c.Assert(err, IsNil)
-			err = m.Remove()
-			c.Assert(err, IsNil)
+	// Dying service...
+	dying, err := s.State.AddService("service1", dummyCharm)
+	c.Assert(err, IsNil)
+	keepDying, err := dying.AddUnit()
+	c.Assert(err, IsNil)
+	err = dying.Destroy()
+	c.Assert(err, IsNil)
 
-			_, err = s.AddMachine("series", state.JobHostUnits)
-			c.Assert(err, IsNil)
-		},
-		[]string{"27"},
-	}, {
-		"Take into account what's already in the queue",
-		func(c *C, s *state.State) {
-			m, err := s.AddMachine("series", state.JobHostUnits)
-			c.Assert(err, IsNil)
-			s.Sync()
-			err = m.EnsureDead()
-			c.Assert(err, IsNil)
-			s.Sync()
-			err = m.Remove()
-			c.Assert(err, IsNil)
-			s.Sync()
-		},
-		[]string{"28"},
-	},
+	// Dead service (actually, gone, Dead == removed in this case).
+	gone, err := s.State.AddService("service2", dummyCharm)
+	c.Assert(err, IsNil)
+	err = gone.Destroy()
+	c.Assert(err, IsNil)
+
+	// All except gone are reported in initial event.
+	w := s.State.WatchServices()
+	defer stop(c, w)
+	s.assertChange(c, w, alive.Name(), dying.Name())
+
+	// Remove them all; alive/dying changes reported.
+	err = alive.Destroy()
+	c.Assert(err, IsNil)
+	err = keepDying.Destroy()
+	c.Assert(err, IsNil)
+	s.assertChange(c, w, alive.Name(), dying.Name())
 }
 
-func (s *StateSuite) TestWatchMachines(c *C) {
-	machineWatcher := s.State.WatchMachines()
-	defer func() {
-		c.Assert(machineWatcher.Stop(), IsNil)
-	}()
-	for i, test := range machinesWatchTests {
-		c.Logf("Test %d: %s", i, test.summary)
-		test.test(c, s.State)
-		s.State.StartSync()
-		var got []string
-		for {
-			select {
-			case ids, ok := <-machineWatcher.Changes():
-				c.Assert(ok, Equals, true)
-				got = append(got, ids...)
-				if len(got) < len(test.changes) {
-					continue
-				}
-				sort.Strings(got)
-				sort.Strings(test.changes)
-				c.Assert(got, DeepEquals, test.changes)
-			case <-time.After(500 * time.Millisecond):
-				c.Fatalf("did not get change: want %#v, got %#v", test.changes, got)
-			}
-			break
-		}
-	}
+func (s *StateSuite) TestWatchServicesLifecycle(c *C) {
+	// Initial event is empty when no services.
+	w := s.State.WatchServices()
+	defer stop(c, w)
+	s.assertChange(c, w)
+
+	// Add a service: reported.
+	service, err := s.State.AddService("service", s.AddTestingCharm(c, "dummy"))
+	c.Assert(err, IsNil)
+	s.assertChange(c, w, "service")
+
+	// Change the service: not reported.
+	keepDying, err := service.AddUnit()
+	c.Assert(err, IsNil)
+	s.assertNoChange(c, w)
+
+	// Make it Dying: reported.
+	err = service.Destroy()
+	c.Assert(err, IsNil)
+	s.assertChange(c, w, "service")
+
+	// Make it Dead(/removed): reported.
+	err = keepDying.Destroy()
+	c.Assert(err, IsNil)
+	s.assertChange(c, w, "service")
+}
+
+func (s *StateSuite) TestWatchMachinesBulkEvents(c *C) {
+	// Alive machine...
+	alive, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+
+	// Dying machine...
+	dying, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	err = dying.SetProvisioned(state.InstanceId("i-blah"), "fake-nonce")
+	c.Assert(err, IsNil)
+	err = dying.Destroy()
+	c.Assert(err, IsNil)
+
+	// Dead machine...
+	dead, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	err = dead.EnsureDead()
+	c.Assert(err, IsNil)
+
+	// Gone machine.
+	gone, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	err = gone.EnsureDead()
+	c.Assert(err, IsNil)
+	err = gone.Remove()
+	c.Assert(err, IsNil)
+
+	// All except gone machine are reported in initial event.
+	w := s.State.WatchMachines()
+	defer stop(c, w)
+	s.assertChange(c, w, alive.Id(), dying.Id(), dead.Id())
+
+	// Remove them all; alive/dying changes reported; dead never mentioned again.
+	err = alive.Destroy()
+	c.Assert(err, IsNil)
+	err = dying.EnsureDead()
+	c.Assert(err, IsNil)
+	err = dying.Remove()
+	c.Assert(err, IsNil)
+	err = dead.Remove()
+	c.Assert(err, IsNil)
+	s.assertChange(c, w, alive.Id(), dying.Id())
+}
+
+func (s *StateSuite) TestWatchMachinesLifecycle(c *C) {
+	// Initial event is empty when no machines.
+	w := s.State.WatchMachines()
+	defer stop(c, w)
+	s.assertChange(c, w)
+
+	// Add a machine: reported.
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	s.assertChange(c, w, "0")
+
+	// Change the machine: not reported.
+	err = machine.SetProvisioned(state.InstanceId("i-blah"), "fake-nonce")
+	c.Assert(err, IsNil)
+	s.assertNoChange(c, w)
+
+	// Make it Dying: reported.
+	err = machine.Destroy()
+	c.Assert(err, IsNil)
+	s.assertChange(c, w, "0")
+
+	// Make it Dead: reported.
+	err = machine.EnsureDead()
+	c.Assert(err, IsNil)
+	s.assertChange(c, w, "0")
+
+	// Remove it: not reported.
+	err = machine.Remove()
+	c.Assert(err, IsNil)
+	s.assertNoChange(c, w)
+}
+
+func (s *StateSuite) assertNoChange(c *C, w *state.LifecycleWatcher) {
+	s.State.StartSync()
 	select {
-	case got := <-machineWatcher.Changes():
-		c.Fatalf("got unexpected change: %#v", got)
-	case <-time.After(100 * time.Millisecond):
+	case ids, ok := <-w.Changes():
+		c.Fatalf("unexpected change: %v %v", ids, ok)
+	case <-time.After(50 * time.Millisecond):
 	}
 }
 
-var servicesWatchTests = []struct {
-	summary string
-	test    func(*C, *state.State, *state.Charm)
-	changes []string
-}{
-	{
-		"check initial empty event",
-		func(_ *C, _ *state.State, _ *state.Charm) {},
-		[]string(nil),
-	},
-	{
-		"add a service",
-		func(c *C, s *state.State, ch *state.Charm) {
-			_, err := s.AddService("s0", ch)
-			c.Assert(err, IsNil)
-		},
-		[]string{"s0"},
-	},
-	{
-		"add a service and test unrelated change",
-		func(c *C, s *state.State, ch *state.Charm) {
-			svc, err := s.Service("s0")
-			c.Assert(err, IsNil)
-			err = svc.SetExposed()
-			c.Assert(err, IsNil)
-			_, err = s.AddService("s1", ch)
-			c.Assert(err, IsNil)
-		},
-		[]string{"s1"},
-	},
-	{
-		"add two services",
-		func(c *C, s *state.State, ch *state.Charm) {
-			_, err := s.AddService("s2", ch)
-			c.Assert(err, IsNil)
-			_, err = s.AddService("s3", ch)
-			c.Assert(err, IsNil)
-		},
-		[]string{"s2", "s3"},
-	},
-	{
-		"destroy a service",
-		func(c *C, s *state.State, _ *state.Charm) {
-			svc3, err := s.Service("s3")
-			c.Assert(err, IsNil)
-			err = svc3.Destroy()
-			c.Assert(err, IsNil)
-		},
-		[]string{"s3"},
-	},
-	{
-		"destroy one (to Dying); remove another",
-		func(c *C, s *state.State, _ *state.Charm) {
-			svc0, err := s.Service("s0")
-			c.Assert(err, IsNil)
-			_, err = svc0.AddUnit()
-			c.Assert(err, IsNil)
-			err = svc0.Destroy()
-			c.Assert(err, IsNil)
-			svc2, err := s.Service("s2")
-			c.Assert(err, IsNil)
-			err = svc2.Destroy()
-			c.Assert(err, IsNil)
-		},
-		[]string{"s0", "s2"},
-	},
-	{
-		"remove the Dying one",
-		func(c *C, s *state.State, _ *state.Charm) {
-			svc0, err := s.Service("s0")
-			c.Assert(err, IsNil)
-			removeAllUnits(c, svc0)
-		},
-		[]string{"s0"},
-	},
-	{
-		"add and remove a service at the same time",
-		func(c *C, s *state.State, ch *state.Charm) {
-			_, err := s.AddService("s4", ch)
-			c.Assert(err, IsNil)
-			svc1, err := s.Service("s1")
-			c.Assert(err, IsNil)
-			err = svc1.Destroy()
-			c.Assert(err, IsNil)
-		},
-		[]string{"s1", "s4"},
-	},
-	{
-		"add and remove many services at once",
-		func(c *C, s *state.State, ch *state.Charm) {
-			services := [20]*state.Service{}
-			var err error
-			for i := 0; i < len(services); i++ {
-				services[i], err = s.AddService("ss"+fmt.Sprint(i), ch)
-				c.Assert(err, IsNil)
-			}
-			for i := 10; i < len(services); i++ {
-				err = services[i].Destroy()
-				c.Assert(err, IsNil)
-			}
-		},
-		[]string{"ss0", "ss1", "ss2", "ss3", "ss4", "ss5", "ss6", "ss7", "ss8", "ss9"},
-	},
-	{
-		"set exposed and change life at the same time",
-		func(c *C, s *state.State, ch *state.Charm) {
-			_, err := s.AddService("twenty-five", ch)
-			c.Assert(err, IsNil)
-			svc9, err := s.Service("ss9")
-			c.Assert(err, IsNil)
-			err = svc9.SetExposed()
-			c.Assert(err, IsNil)
-			err = svc9.Destroy()
-			c.Assert(err, IsNil)
-		},
-		[]string{"twenty-five", "ss9"},
-	},
-}
-
-func (s *StateSuite) TestWatchServices(c *C) {
-	serviceWatcher := s.State.WatchServices()
-	defer func() {
-		c.Assert(serviceWatcher.Stop(), IsNil)
-	}()
-	charm := s.AddTestingCharm(c, "dummy")
-	for i, test := range servicesWatchTests {
-		c.Logf("test %d: %s", i, test.summary)
-		test.test(c, s.State, charm)
-		s.State.StartSync()
-		var got []string
-		for {
-			select {
-			case new, ok := <-serviceWatcher.Changes():
-				c.Assert(ok, Equals, true)
-				got = append(got, new...)
-				if len(got) < len(test.changes) {
-					continue
-				}
-				sort.Strings(got)
-				sort.Strings(test.changes)
-				c.Assert(got, DeepEquals, test.changes)
-			case <-time.After(500 * time.Millisecond):
-				c.Fatalf("did not get change, want: %#v, got: %#v", test.changes, got)
-			}
-			break
-		}
-	}
+func (s *StateSuite) assertChange(c *C, w *state.LifecycleWatcher, expect ...string) {
+	s.State.Sync()
 	select {
-	case got := <-serviceWatcher.Changes():
-		c.Fatalf("got unexpected change: %#v", got)
-	case <-time.After(100 * time.Millisecond):
+	case actual, ok := <-w.Changes():
+		c.Assert(ok, Equals, true)
+		sort.Strings(actual)
+		sort.Strings(expect)
+		c.Assert(actual, DeepEquals, expect)
+	case <-time.After(500 * time.Millisecond):
+		c.Fatalf("timed out waiting for %v", expect)
 	}
+	s.assertNoChange(c, w)
 }
 
 var sortPortsTests = []struct {
