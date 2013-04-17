@@ -3,7 +3,6 @@ package state
 import (
 	"fmt"
 	"labix.org/v2/mgo"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/multiwatcher"
 	"launchpad.net/juju-core/state/watcher"

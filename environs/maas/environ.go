@@ -325,7 +325,7 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, tools *state.To
 // implementation of StartInstance, and to initialize the bootstrap node.
 func (environ *maasEnviron) obtainNode(machineId string, stateInfo *state.Info, apiInfo *api.Info, tools *state.Tools, mcfg *cloudinit.MachineConfig) (*maasInstance, error) {
 
-	log.Debugf("environs/maas: starting machine %s in $q running tools version %q from %q", machineId, environ.name, tools.Binary, tools.URL)
+	log.Debugf("environs/maas: starting machine %s in %q running tools version %q from %q", machineId, environ.name, tools.Binary, tools.URL)
 
 	node, err := environ.acquireNode()
 	if err != nil {
