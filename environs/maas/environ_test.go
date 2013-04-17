@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
+	"net/url"
 )
 
 type EnvironSuite struct {
@@ -268,6 +269,32 @@ func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
 	c.Check(instance, IsNil)
 	c.Check(err, ErrorMatches, "no tools available")
 	c.Check(err, FitsTypeOf, (*environs.NotFoundError)(nil))
+}
+
+func mustParseQuery(query string) url.Values {
+	values, err := url.ParseQuery(query)
+	if err != nil {
+		panic(err)
+	}
+	return values
+}
+
+func uint64p(val uint64) *uint64 {
+	return &val
+}
+
+func (suite *EnvironSuite) TestConvertConstraints(c *C) {
+	var testValues = []struct {
+		constraints    constraints.Value
+		expectedResult url.Values
+	}{
+		{constraints.Value{CpuCores: uint64p(4)}, mustParseQuery("cpu_count=4")},
+		{constraints.Value{Mem: uint64p(1024)}, mustParseQuery("mem=1024")},
+		{constraints.MustParse("cpu-cores=4"), mustParseQuery("cpu_count=4")},
+	}
+	for _, test := range testValues {
+		c.Check(convertConstraints(test.constraints), DeepEquals, test.expectedResult)
+	}
 }
 
 func (suite *EnvironSuite) getInstance(systemId string) *maasInstance {
