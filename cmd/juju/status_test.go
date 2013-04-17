@@ -132,6 +132,7 @@ var statusFormats = []outputFormat{
 }
 
 var statusTests = []testCase{
+	// Status tests
 	test(
 		"bootstrap and starting a single instance",
 
@@ -356,9 +357,8 @@ var statusTests = []testCase{
 			},
 		},
 	),
-}
 
-var relationTests = []testCase{
+	// Relation tests
 	test(
 		"complex scenario with multiple related services",
 		addMachine{"0", state.JobManageEnviron},
@@ -530,6 +530,108 @@ var relationTests = []testCase{
 			},
 		},
 	),
+
+	// Subordinate tests
+	test(
+		"one service with one subordinate service",
+		addMachine{"0", state.JobManageEnviron},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", params.StatusStarted, ""},
+		addCharm{"wordpress"},
+		addCharm{"mysql"},
+		addCharm{"logging"},
+
+		addService{"wordpress", "wordpress"},
+		setServiceExposed{"wordpress", true},
+		addMachine{"1", state.JobHostUnits},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", params.StatusStarted, ""},
+		addAliveUnit{"wordpress", "1"},
+		setUnitStatus{"wordpress/0", params.StatusStarted, ""},
+
+		addService{"mysql", "mysql"},
+		setServiceExposed{"mysql", true},
+		addMachine{"2", state.JobHostUnits},
+		startAliveMachine{"2"},
+		setMachineStatus{"2", params.StatusStarted, ""},
+		addAliveUnit{"mysql", "2"},
+		setUnitStatus{"mysql/0", params.StatusStarted, ""},
+
+		addService{"logging", "logging"},
+		setServiceExposed{"logging", true},
+
+		relateServices{"wordpress", "mysql"},
+		relateServices{"wordpress", "logging"},
+		relateServices{"mysql", "logging"},
+
+		addSubordinate{"wordpress/0", "logging"},
+		addSubordinate{"mysql/0", "logging"},
+
+		setUnitsAlive{"logging"},
+		setUnitStatus{"logging/0", params.StatusStarted, ""},
+		setUnitStatus{"logging/1", params.StatusError, "somehow lost in all those logs"},
+
+		expect{
+			"multiples related peer units",
+			M{
+				"machines": M{
+					"0": machine0,
+					"1": machine1,
+					"2": machine2,
+				},
+				"services": M{
+					"wordpress": M{
+						"charm":   "local:series/wordpress-3",
+						"exposed": true,
+						"units": M{
+							"wordpress/0": M{
+								"machine":     "1",
+								"agent-state": "started",
+								"subordinates": M{
+									"logging/0": M{
+										"agent-state": "started",
+									},
+								},
+							},
+						},
+						"relations": M{
+							"db":          L{"mysql"},
+							"logging-dir": L{"logging"},
+						},
+					},
+					"mysql": M{
+						"charm":   "local:series/mysql-1",
+						"exposed": true,
+						"units": M{
+							"mysql/0": M{
+								"machine":     "2",
+								"agent-state": "started",
+								"subordinates": M{
+									"logging/1": M{
+										"agent-state":      "error",
+										"agent-state-info": "somehow lost in all those logs",
+									},
+								},
+							},
+						},
+						"relations": M{
+							"server":    L{"wordpress"},
+							"juju-info": L{"logging"},
+						},
+					},
+					"logging": M{
+						"charm":   "local:series/logging-1",
+						"exposed": true,
+						"relations": M{
+							"logging-directory": L{"wordpress"},
+							"info":              L{"mysql"},
+						},
+						"subordinate-to": L{"mysql", "wordpress"},
+					},
+				},
+			},
+		},
+	),
 }
 
 // TODO(dfc) test failing components by destructively mutating the state under the hood
@@ -672,6 +774,28 @@ func (aau addAliveUnit) step(c *C, ctx *context) {
 	ctx.pingers[u.Name()] = pinger
 }
 
+type setUnitsAlive struct {
+	serviceName string
+}
+
+func (sua setUnitsAlive) step(c *C, ctx *context) {
+	s, err := ctx.st.Service(sua.serviceName)
+	c.Assert(err, IsNil)
+	us, err := s.AllUnits()
+	c.Assert(err, IsNil)
+	for _, u := range us {
+		pinger, err := u.SetAgentAlive()
+		c.Assert(err, IsNil)
+		ctx.st.StartSync()
+		err = u.WaitAgentAlive(200 * time.Millisecond)
+		c.Assert(err, IsNil)
+		agentAlive, err := u.AgentAlive()
+		c.Assert(err, IsNil)
+		c.Assert(agentAlive, Equals, true)
+		ctx.pingers[u.Name()] = pinger
+	}
+}
+
 type setUnitStatus struct {
 	unitName   string
 	status     params.Status
@@ -707,13 +831,31 @@ func (rs relateServices) step(c *C, ctx *context) {
 	c.Assert(err, IsNil)
 }
 
+type addSubordinate struct {
+	prinUnit   string
+	subService string
+}
+
+func (as addSubordinate) step(c *C, ctx *context) {
+	u, err := ctx.st.Unit(as.prinUnit)
+	c.Assert(err, IsNil)
+	eps, err := ctx.st.InferEndpoints([]string{u.ServiceName(), as.subService})
+	c.Assert(err, IsNil)
+	rel, err := ctx.st.EndpointsRelation(eps...)
+	c.Assert(err, IsNil)
+	ru, err := rel.Unit(u)
+	c.Assert(err, IsNil)
+	err = ru.EnterScope(nil)
+	c.Assert(err, IsNil)
+}
+
 type expect struct {
 	what   string
 	output M
 }
 
 func (e expect) step(c *C, ctx *context) {
-	c.Log("expect: %s", e.what)
+	c.Logf("expect: %s", e.what)
 
 	// Now execute the command for each format.
 	for _, format := range statusFormats {
@@ -740,19 +882,7 @@ func (e expect) step(c *C, ctx *context) {
 
 func (s *StatusSuite) TestStatusAllFormats(c *C) {
 	for i, t := range statusTests {
-		c.Log("test %d: %s", i, t.summary)
-		func() {
-			// Prepare context and run all steps to setup.
-			ctx := s.newContext()
-			defer s.resetContext(c, ctx)
-			ctx.run(c, t.steps)
-		}()
-	}
-}
-
-func (s *StatusSuite) TestRelations(c *C) {
-	for i, t := range relationTests {
-		c.Log("test %d: %s", i, t.summary)
+		c.Logf("test %d: %s", i, t.summary)
 		func() {
 			// Prepare context and run all steps to setup.
 			ctx := s.newContext()
