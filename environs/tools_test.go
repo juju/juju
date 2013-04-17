@@ -582,7 +582,7 @@ func (s *ToolsSuite) TestFindAvailableTools(c *C) {
 	}
 }
 
-var findBootstrapToolsTests = []struct {
+var ensureAgentVersionTests = []struct {
 	info          string
 	available     []version.Binary
 	cliVersion    version.Binary
@@ -763,8 +763,8 @@ var findBootstrapToolsTests = []struct {
 	expect:        []version.Binary{v1001p64},
 }}
 
-func (s *ToolsSuite) TestFindBootstrapTools(c *C) {
-	for i, test := range findBootstrapToolsTests {
+func (s *ToolsSuite) TestEnsureAgentVersion(c *C) {
+	for i, test := range ensureAgentVersionTests {
 		c.Logf("\ntest %d: %s", i, test.info)
 		attrs := map[string]interface{}{
 			"development":    test.development,
@@ -782,7 +782,7 @@ func (s *ToolsSuite) TestFindBootstrapTools(c *C) {
 		}
 
 		cons := constraints.MustParse(test.constraints)
-		actual, err := environs.FindBootstrapTools(s.env, cons)
+		actual, err := environs.EnsureAgentVersion(s.env, cons)
 		if test.err != nil {
 			if len(actual) > 0 {
 				c.Logf(actual.String())

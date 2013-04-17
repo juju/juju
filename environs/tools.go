@@ -129,13 +129,13 @@ func FindAvailableTools(environ Environ, majorVersion int) (list tools.List, err
 	return list, err
 }
 
-// FindBootstrapTools returns a ToolsList containing only those tools with
+// EnsureAgentVersion returns a ToolsList containing only those tools with
 // which it would be reasonable to launch an environment's first machine,
 // given the supplied constraints.
 // If the environment was not already configured to use a specific agent
 // version, the newest available version will be chosen and set in the
 // environment's configuration.
-func FindBootstrapTools(environ Environ, cons constraints.Value) (list tools.List, err error) {
+func EnsureAgentVersion(environ Environ, cons constraints.Value) (list tools.List, err error) {
 	defer convertToolsError(&err)
 	// Collect all possible compatible tools.
 	cliVersion := version.Current.Number
