@@ -17,7 +17,7 @@ import (
 	"launchpad.net/juju-core/state/multiwatcher"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 )
 
 // Info encapsulates information about cluster of
@@ -137,10 +137,10 @@ func Initialize(info *Info, cfg *config.Config, opts DialOpts) (rst *State, err 
 		return nil, err
 	}
 	log.Infof("state: initializing environment")
-	if cfg.AdminSecret() != "" {
-		return nil, fmt.Errorf("admin-secret should never be written to the state")
+	if err := checkEnvironConfig(cfg); err != nil {
+		return nil, err
 	}
-	uuid, err := trivial.NewUUID()
+	uuid, err := utils.NewUUID()
 	if err != nil {
 		return nil, fmt.Errorf("environment UUID cannot be created: %v", err)
 	}

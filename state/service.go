@@ -6,10 +6,11 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
+	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"sort"
 	"strconv"
 )
@@ -62,9 +63,15 @@ func (s *Service) Tag() string {
 	return "service-" + s.Name()
 }
 
+// serviceGlobalKey returns the global database key for the service
+// with the given name.
+func serviceGlobalKey(svcName string) string {
+	return "s#" + svcName
+}
+
 // globalKey returns the global database key for the service.
 func (s *Service) globalKey() string {
-	return "s#" + s.doc.Name
+	return serviceGlobalKey(s.doc.Name)
 }
 
 func serviceSettingsKey(serviceName string, curl *charm.URL) string {
@@ -88,7 +95,7 @@ var errRefresh = errors.New("state seems inconsistent, refresh and try again")
 // some point; if the service has no units, and no relation involving the
 // service has any units in scope, they are all removed immediately.
 func (s *Service) Destroy() (err error) {
-	defer trivial.ErrorContextf(&err, "cannot destroy service %q", s)
+	defer utils.ErrorContextf(&err, "cannot destroy service %q", s)
 	defer func() {
 		if err == nil {
 			// This is a white lie; the document might actually be removed.
@@ -526,7 +533,7 @@ func (s *Service) addUnitOps(principalName string) (string, []txn.Op, error) {
 		Principal: principalName,
 	}
 	sdoc := statusDoc{
-		Status: string(params.UnitPending),
+		Status: params.StatusPending,
 	}
 	ops := []txn.Op{
 		{
@@ -568,7 +575,7 @@ func (s *Service) addUnitOps(principalName string) (string, []txn.Op, error) {
 
 // AddUnit adds a new principal unit to the service.
 func (s *Service) AddUnit() (unit *Unit, err error) {
-	defer trivial.ErrorContextf(&err, "cannot add unit to service %q", s)
+	defer utils.ErrorContextf(&err, "cannot add unit to service %q", s)
 	name, ops, err := s.addUnitOps("")
 	if err != nil {
 		return nil, err
@@ -636,7 +643,13 @@ func (s *Service) removeUnitOps(u *Unit, asserts D) ([]txn.Op, error) {
 	if s.doc.Life == Alive {
 		svcOp.Assert = D{{"life", Alive}, {"unitcount", D{{"$gt", 0}}}}
 	} else {
-		svcOp.Assert = D{{"life", Dying}, {"unitcount", D{{"$gt", 1}}}}
+		svcOp.Assert = D{
+			{"life", Dying},
+			{"$or", []D{
+				{{"unitcount", D{{"$gt", 1}}}},
+				{{"relationcount", D{{"$gt", 0}}}},
+			}},
+		}
 	}
 	return append(ops, svcOp), nil
 }
@@ -669,7 +682,7 @@ func (s *Service) AllUnits() (units []*Unit, err error) {
 
 // Relations returns a Relation for every relation the service is in.
 func (s *Service) Relations() (relations []*Relation, err error) {
-	defer trivial.ErrorContextf(&err, "can't get relations for service %q", s)
+	defer utils.ErrorContextf(&err, "can't get relations for service %q", s)
 	docs := []relationDoc{}
 	err = s.st.relations.Find(D{{"endpoints.servicename", s.doc.Name}}).All(&docs)
 	if err != nil {
@@ -690,6 +703,77 @@ func (s *Service) Config() (config *Settings, err error) {
 	return config, nil
 }
 
+// SetConfig changes a service's configuration values.
+// Values set to the empty string will be deleted.
+func (s *Service) SetConfig(options map[string]string) error {
+	unvalidated := make(map[string]string)
+	var remove []string
+	for k, v := range options {
+		if v == "" {
+			remove = append(remove, k)
+		} else {
+			unvalidated[k] = v
+		}
+	}
+	charm, _, err := s.Charm()
+	if err != nil {
+		return err
+	}
+	// 1. Validate will convert this partial configuration
+	// into a full configuration by inserting charm defaults
+	// for missing values.
+	validated, err := charm.Config().Validate(unvalidated)
+	if err != nil {
+		return err
+	}
+	// 2. strip out the additional default keys added in the previous step.
+	validated = strip(validated, unvalidated)
+	cfg, err := s.Config()
+	if err != nil {
+		return err
+	}
+	// 3. Update any keys that remain after validation and filtering.
+	if len(validated) > 0 {
+		cfg.Update(validated)
+	}
+	// 4. Delete any removed keys.
+	if len(remove) > 0 {
+		for _, k := range remove {
+			cfg.Delete(k)
+		}
+	}
+	_, err = cfg.Write()
+	return err
+}
+
+// SetConfigYAML is like Set except that the
+// configuration data is specified in YAML format.
+func (s *Service) SetConfigYAML(yamlData []byte) error {
+	// TODO(rog) should this function interpret null as delete?
+	// TODO(rog) this is wrong. See lp#1167465
+	var options map[string]string
+	if err := goyaml.Unmarshal(yamlData, &options); err != nil {
+		return err
+	}
+	if options == nil {
+		// YAML will unfortunately succeed if we try to
+		// unmarshal into an inappropriate data type,
+		// so check that we actually have got a map.
+		return fmt.Errorf("malformed YAML data")
+	}
+	return s.SetConfig(options)
+}
+
+// strip removes from validated, any keys which are not also present in unvalidated.
+func strip(validated map[string]interface{}, unvalidated map[string]string) map[string]interface{} {
+	for k := range validated {
+		if _, ok := unvalidated[k]; !ok {
+			delete(validated, k)
+		}
+	}
+	return validated
+}
+
 var ErrSubordinateConstraints = errors.New("constraints do not apply to subordinate services")
 
 // Constraints returns the current service constraints.
@@ -705,7 +789,7 @@ func (s *Service) SetConstraints(cons constraints.Value) (err error) {
 	if s.doc.Subordinate {
 		return ErrSubordinateConstraints
 	}
-	defer trivial.ErrorContextf(&err, "cannot set constraints")
+	defer utils.ErrorContextf(&err, "cannot set constraints")
 	if s.doc.Life != Alive {
 		return errNotAlive
 	}

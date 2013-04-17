@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"testing"
 )
@@ -38,12 +40,18 @@ var marshalTestCases = []struct {
 	about: "ServiceInfo Delta",
 	value: params.Delta{
 		Entity: &params.ServiceInfo{
-			Name:     "Benji",
-			Exposed:  true,
-			CharmURL: "cs:series/name",
+			Name:        "Benji",
+			Exposed:     true,
+			CharmURL:    "cs:series/name",
+			Life:        state.Dying.String(),
+			Constraints: constraints.MustParse("arch=arm mem=1024M"),
+			Config: map[string]interface{}{
+				"hello": "goodbye",
+				"foo":   false,
+			},
 		},
 	},
-	json: `["service","change",{"CharmURL": "cs:series/name","Name":"Benji","Exposed":true}]`,
+	json: `["service","change",{"CharmURL": "cs:series/name","Name":"Benji","Exposed":true,"Life":"dying","Constraints":{"arch":"arm", "mem": 1024},"Config": {"hello":"goodbye","foo":false}}]`,
 }, {
 	about: "UnitInfo Delta",
 	value: params.Delta{
@@ -59,13 +67,12 @@ var marshalTestCases = []struct {
 			},
 			PublicAddress:  "example.com",
 			PrivateAddress: "10.0.0.1",
-			Resolved:       "", // See params.ResolvedMode
 			MachineId:      "1",
 			Status:         "error",
 			StatusInfo:     "foo",
 		},
 	},
-	json: `["unit", "change", {"CharmURL": "cs:~user/precise/wordpress-42", "MachineId": "1", "Series": "precise", "Name": "Benji", "PublicAddress": "example.com", "Service": "Shazam", "PrivateAddress": "10.0.0.1", "Resolved": "", "Ports": [{"Protocol": "http", "Number": 80}], "Status": "error", "StatusInfo": "foo"}]`,
+	json: `["unit", "change", {"CharmURL": "cs:~user/precise/wordpress-42", "MachineId": "1", "Series": "precise", "Name": "Benji", "PublicAddress": "example.com", "Service": "Shazam", "PrivateAddress": "10.0.0.1", "Ports": [{"Protocol": "http", "Number": 80}], "Status": "error", "StatusInfo": "foo"}]`,
 }, {
 	about: "RelationInfo Delta",
 	value: params.Delta{
@@ -119,8 +126,8 @@ func (s *MarshalSuite) TestDeltaMarshalJSON(c *C) {
 }
 
 func (s *MarshalSuite) TestDeltaUnmarshalJSON(c *C) {
-	for _, t := range marshalTestCases {
-		c.Log(t.about)
+	for i, t := range marshalTestCases {
+		c.Logf("test %d. %s", i, t.about)
 		var unmarshalled params.Delta
 		err := json.Unmarshal([]byte(t.json), &unmarshalled)
 		c.Check(err, IsNil)

@@ -16,7 +16,7 @@ import (
 	"launchpad.net/juju-core/state/multiwatcher"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 	"net/url"
 	"regexp"
@@ -147,11 +147,22 @@ func (st *State) EnvironConfig() (*config.Config, error) {
 	return config.New(attrs)
 }
 
+// checkEnvironConfig returns an error if the config is definitely invalid.
+func checkEnvironConfig(cfg *config.Config) error {
+	if cfg.AdminSecret() != "" {
+		return fmt.Errorf("admin-secret should never be written to the state")
+	}
+	if _, ok := cfg.AgentVersion(); !ok {
+		return fmt.Errorf("agent-version must always be set in state")
+	}
+	return nil
+}
+
 // SetEnvironConfig replaces the current configuration of the
 // environment with the provided configuration.
 func (st *State) SetEnvironConfig(cfg *config.Config) error {
-	if cfg.AdminSecret() != "" {
-		return fmt.Errorf("admin-secret should never be written to the state")
+	if err := checkEnvironConfig(cfg); err != nil {
+		return err
 	}
 	// TODO(niemeyer): This isn't entirely right as the change is done as a
 	// delta that the user didn't ask for. Instead, take a (old, new) config
@@ -179,7 +190,7 @@ func (st *State) SetEnvironConstraints(cons constraints.Value) error {
 // supplied series. The machine's constraints will be taken from the
 // environment constraints.
 func (st *State) AddMachine(series string, jobs ...MachineJob) (m *Machine, err error) {
-	return st.addMachine(series, "", jobs)
+	return st.addMachine(series, "", "", jobs)
 }
 
 // InjectMachine adds a new machine, corresponding to an existing provider
@@ -189,7 +200,7 @@ func (st *State) InjectMachine(series string, instanceId InstanceId, jobs ...Mac
 	if instanceId == "" {
 		return nil, fmt.Errorf("cannot inject a machine without an instance id")
 	}
-	return st.addMachine(series, instanceId, jobs)
+	return st.addMachine(series, instanceId, BootstrapNonce, jobs)
 }
 
 func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value) (*machineDoc, []txn.Op, error) {
@@ -213,7 +224,7 @@ func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value) (*machi
 	mdoc.Id = strconv.Itoa(seq)
 	mdoc.Life = Alive
 	sdoc := statusDoc{
-		Status: string(params.MachinePending),
+		Status: params.StatusPending,
 	}
 	ops := []txn.Op{
 		{
@@ -229,8 +240,8 @@ func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value) (*machi
 }
 
 // addMachine implements AddMachine and InjectMachine.
-func (st *State) addMachine(series string, instanceId InstanceId, jobs []MachineJob) (m *Machine, err error) {
-	defer trivial.ErrorContextf(&err, "cannot add a new machine")
+func (st *State) addMachine(series string, instanceId InstanceId, nonce string, jobs []MachineJob) (m *Machine, err error) {
+	defer utils.ErrorContextf(&err, "cannot add a new machine")
 
 	cons, err := st.EnvironConstraints()
 	if err != nil {
@@ -239,6 +250,7 @@ func (st *State) addMachine(series string, instanceId InstanceId, jobs []Machine
 	mdoc := &machineDoc{
 		Series:     series,
 		InstanceId: instanceId,
+		Nonce:      nonce,
 		Jobs:       jobs,
 	}
 	mdoc, ops, err := st.addMachineOps(mdoc, cons)
@@ -508,7 +520,7 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 // supplied name (which must be unique). If the charm defines peer relations,
 // they will be created automatically.
 func (st *State) AddService(name string, ch *Charm) (service *Service, err error) {
-	defer trivial.ErrorContextf(&err, "cannot add service %q", name)
+	defer utils.ErrorContextf(&err, "cannot add service %q", name)
 	// Sanity checks.
 	if !IsServiceName(name) {
 		return nil, fmt.Errorf("invalid name")
@@ -713,7 +725,7 @@ func (st *State) endpoints(name string, filter func(ep Endpoint) bool) ([]Endpoi
 // AddRelation creates a new relation with the given endpoints.
 func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	key := relationKey(eps)
-	defer trivial.ErrorContextf(&err, "cannot add relation %q", key)
+	defer utils.ErrorContextf(&err, "cannot add relation %q", key)
 	// Enforce basic endpoint sanity. The epCount restrictions may be relaxed
 	// in the future; if so, this method is likely to need significant rework.
 	if len(eps) != 2 {
@@ -915,7 +927,7 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 	if !u.IsPrincipal() {
 		return fmt.Errorf("subordinate unit %q cannot be assigned directly to a machine", u)
 	}
-	defer trivial.ErrorContextf(&err, "cannot assign unit %q to machine", u)
+	defer utils.ErrorContextf(&err, "cannot assign unit %q to machine", u)
 	var m *Machine
 	switch policy {
 	case AssignLocal:

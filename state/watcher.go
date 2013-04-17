@@ -5,6 +5,7 @@ import (
 	"labix.org/v2/mgo"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state/watcher"
+	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/tomb"
 	"strings"
 )
@@ -102,8 +103,8 @@ func (w *LifecycleWatcher) initial() (ids []string, err error) {
 	iter := w.coll.Find(nil).Select(lifeFields).Iter()
 	var doc lifeDoc
 	for iter.Next(&doc) {
+		ids = append(ids, doc.Id)
 		if doc.Life != Dead {
-			ids = append(ids, doc.Id)
 			w.life[doc.Id] = doc.Life
 		}
 	}
@@ -410,7 +411,7 @@ type RelationScopeWatcher struct {
 	commonWatcher
 	prefix     string
 	ignore     string
-	knownUnits map[string]bool
+	knownUnits set.Strings
 	out        chan *RelationScopeChange
 }
 
@@ -427,7 +428,6 @@ func newRelationScopeWatcher(st *State, scope, ignore string) *RelationScopeWatc
 		prefix:        scope + "#",
 		ignore:        ignore,
 		out:           make(chan *RelationScopeChange),
-		knownUnits:    make(map[string]bool),
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -458,15 +458,15 @@ func (w *RelationScopeWatcher) mergeChange(changes *RelationScopeChange, ch watc
 		return nil
 	}
 	if ch.Revno == -1 {
-		if w.knownUnits[name] {
+		if w.knownUnits.Contains(name) {
 			changes.Left = append(changes.Left, name)
-			delete(w.knownUnits, name)
+			w.knownUnits.Remove(name)
 		}
 		return nil
 	}
-	if !w.knownUnits[name] {
+	if !w.knownUnits.Contains(name) {
 		changes.Entered = append(changes.Entered, name)
-		w.knownUnits[name] = true
+		w.knownUnits.Add(name)
 	}
 	return nil
 }
@@ -482,7 +482,7 @@ func (w *RelationScopeWatcher) getInitialEvent() (initial *RelationScopeChange, 
 	for _, doc := range docs {
 		if name := doc.unitName(); name != w.ignore {
 			changes.Entered = append(changes.Entered, name)
-			w.knownUnits[name] = true
+			w.knownUnits.Add(name)
 		}
 	}
 	return changes, nil
@@ -524,7 +524,7 @@ func (w *RelationScopeWatcher) loop() error {
 type RelationUnitsWatcher struct {
 	commonWatcher
 	sw       *RelationScopeWatcher
-	watching map[string]bool
+	watching set.Strings
 	updates  chan watcher.Change
 	out      chan RelationUnitsChange
 }
@@ -554,7 +554,6 @@ func newRelationUnitsWatcher(ru *RelationUnit) *RelationUnitsWatcher {
 	w := &RelationUnitsWatcher{
 		commonWatcher: commonWatcher{st: ru.st},
 		sw:            ru.WatchScope(),
-		watching:      map[string]bool{},
 		updates:       make(chan watcher.Change),
 		out:           make(chan RelationUnitsChange),
 	}
@@ -608,7 +607,7 @@ func (w *RelationUnitsWatcher) mergeScope(changes *RelationUnitsChange, c *Relat
 		changes.Joined = append(changes.Joined, name)
 		changes.Departed = remove(changes.Departed, name)
 		w.st.watcher.Watch(w.st.settings.Name, key, revno, w.updates)
-		w.watching[key] = true
+		w.watching.Add(key)
 	}
 	for _, name := range c.Left {
 		key := w.sw.prefix + name
@@ -618,7 +617,7 @@ func (w *RelationUnitsWatcher) mergeScope(changes *RelationUnitsChange, c *Relat
 		}
 		changes.Joined = remove(changes.Joined, name)
 		w.st.watcher.Unwatch(w.st.settings.Name, key, w.updates)
-		delete(w.watching, key)
+		w.watching.Remove(key)
 	}
 	return nil
 }
@@ -636,8 +635,8 @@ func remove(strs []string, s string) []string {
 
 func (w *RelationUnitsWatcher) finish() {
 	watcher.Stop(w.sw, &w.tomb)
-	for key := range w.watching {
-		w.st.watcher.Unwatch(w.st.settings.Name, key, w.updates)
+	for _, watchedValue := range w.watching.Values() {
+		w.st.watcher.Unwatch(w.st.settings.Name, watchedValue, w.updates)
 	}
 	close(w.updates)
 	close(w.out)

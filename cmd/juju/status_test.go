@@ -35,6 +35,8 @@ var _ = Suite(&StatusSuite{})
 
 type M map[string]interface{}
 
+type L []interface{}
+
 type testCase struct {
 	summary string
 	steps   []stepper
@@ -49,23 +51,23 @@ type stepper interface {
 }
 
 type context struct {
-	st          *state.State
-	conn        *juju.Conn
-	charms      map[string]*state.Charm
-	unitPingers map[string]*presence.Pinger
+	st      *state.State
+	conn    *juju.Conn
+	charms  map[string]*state.Charm
+	pingers map[string]*presence.Pinger
 }
 
 func (s *StatusSuite) newContext() *context {
 	return &context{
-		st:          s.State,
-		conn:        s.Conn,
-		charms:      make(map[string]*state.Charm),
-		unitPingers: make(map[string]*presence.Pinger),
+		st:      s.State,
+		conn:    s.Conn,
+		charms:  make(map[string]*state.Charm),
+		pingers: make(map[string]*presence.Pinger),
 	}
 }
 
 func (s *StatusSuite) resetContext(c *C, ctx *context) {
-	for _, up := range ctx.unitPingers {
+	for _, up := range ctx.pingers {
 		err := up.Kill()
 		c.Check(err, IsNil)
 	}
@@ -83,16 +85,29 @@ func (ctx *context) run(c *C, steps []stepper) {
 // shortcuts for expected output.
 var (
 	machine0 = M{
+		"agent-state": "started",
 		"dns-name":    "dummyenv-0.dns",
 		"instance-id": "dummyenv-0",
 	}
 	machine1 = M{
+		"agent-state": "started",
 		"dns-name":    "dummyenv-1.dns",
 		"instance-id": "dummyenv-1",
 	}
 	machine2 = M{
+		"agent-state": "started",
 		"dns-name":    "dummyenv-2.dns",
 		"instance-id": "dummyenv-2",
+	}
+	machine3 = M{
+		"agent-state": "started",
+		"dns-name":    "dummyenv-3.dns",
+		"instance-id": "dummyenv-3",
+	}
+	machine4 = M{
+		"agent-state": "started",
+		"dns-name":    "dummyenv-4.dns",
+		"instance-id": "dummyenv-4",
 	}
 	unexposedService = M{
 		"charm":   "local:series/dummy-1",
@@ -143,9 +158,24 @@ var statusTests = []testCase{
 			},
 		},
 
-		startMachine{"0"},
+		startAliveMachine{"0"},
 		expect{
 			"simulate the PA starting an instance in response to the state change",
+			M{
+				"machines": M{
+					"0": M{
+						"agent-state": "pending",
+						"dns-name":    "dummyenv-0.dns",
+						"instance-id": "dummyenv-0",
+					},
+				},
+				"services": M{},
+			},
+		},
+
+		setMachineStatus{"0", params.StatusStarted, ""},
+		expect{
+			"simulate the MA started and set the machine status",
 			M{
 				"machines": M{
 					"0": machine0,
@@ -170,6 +200,7 @@ var statusTests = []testCase{
 						"dns-name":      "dummyenv-0.dns",
 						"instance-id":   "dummyenv-0",
 						"agent-version": "1.2.3",
+						"agent-state":   "started",
 					},
 				},
 				"services": M{},
@@ -178,7 +209,8 @@ var statusTests = []testCase{
 	), test(
 		"add two services and expose one, then add 2 more machines and some units",
 		addMachine{"0", state.JobManageEnviron},
-		startMachine{"0"},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", params.StatusStarted, ""},
 		addCharm{"dummy"},
 		addService{"dummy-service", "dummy"},
 		addService{"exposed-service", "dummy"},
@@ -210,9 +242,11 @@ var statusTests = []testCase{
 		},
 
 		addMachine{"1", state.JobHostUnits},
-		startMachine{"1"},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", params.StatusStarted, ""},
 		addMachine{"2", state.JobHostUnits},
-		startMachine{"2"},
+		startAliveMachine{"2"},
+		setMachineStatus{"2", params.StatusStarted, ""},
 		expect{
 			"two more machines added",
 			M{
@@ -230,9 +264,9 @@ var statusTests = []testCase{
 
 		addUnit{"dummy-service", "1"},
 		addAliveUnit{"exposed-service", "2"},
-		setUnitStatus{"exposed-service/0", params.UnitError, "You Require More Vespene Gas"},
-		// This will be ignored, because the unit is down.
-		setUnitStatus{"dummy-service/0", params.UnitStarted, ""},
+		setUnitStatus{"exposed-service/0", params.StatusError, "You Require More Vespene Gas"},
+		// Simulate some status with no info, while the agent is down.
+		setUnitStatus{"dummy-service/0", params.StatusStarted, ""},
 		expect{
 			"add two units, one alive (in error state), one down",
 			M{
@@ -258,9 +292,238 @@ var statusTests = []testCase{
 						"exposed": false,
 						"units": M{
 							"dummy-service/0": M{
-								"machine":     "1",
-								"agent-state": "down",
+								"machine":          "1",
+								"agent-state":      "down",
+								"agent-state-info": "(started)",
 							},
+						},
+					},
+				},
+			},
+		},
+
+		addMachine{"3", state.JobHostUnits},
+		startMachine{"3"},
+		// Simulate some status with info, while the agent is down.
+		setMachineStatus{"3", params.StatusStopped, "Really?"},
+		addMachine{"4", state.JobHostUnits},
+		startAliveMachine{"4"},
+		setMachineStatus{"4", params.StatusError, "Beware the red toys"},
+		expect{
+			"add two more machine, one with a dead agent, one in error state",
+			M{
+				"machines": M{
+					"0": machine0,
+					"1": machine1,
+					"2": machine2,
+					"3": M{
+						"dns-name":         "dummyenv-3.dns",
+						"instance-id":      "dummyenv-3",
+						"agent-state":      "down",
+						"agent-state-info": "(stopped: Really?)",
+					},
+					"4": M{
+						"dns-name":         "dummyenv-4.dns",
+						"instance-id":      "dummyenv-4",
+						"agent-state":      "error",
+						"agent-state-info": "Beware the red toys",
+					},
+				},
+				"services": M{
+					"exposed-service": M{
+						"charm":   "local:series/dummy-1",
+						"exposed": true,
+						"units": M{
+							"exposed-service/0": M{
+								"machine":          "2",
+								"agent-state":      "error",
+								"agent-state-info": "You Require More Vespene Gas",
+							},
+						},
+					},
+					"dummy-service": M{
+						"charm":   "local:series/dummy-1",
+						"exposed": false,
+						"units": M{
+							"dummy-service/0": M{
+								"machine":          "1",
+								"agent-state":      "down",
+								"agent-state-info": "(started)",
+							},
+						},
+					},
+				},
+			},
+		},
+	),
+}
+
+var relationTests = []testCase{
+	test(
+		"complex scenario with multiple related services",
+		addMachine{"0", state.JobManageEnviron},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", params.StatusStarted, ""},
+		addCharm{"wordpress"},
+		addCharm{"mysql"},
+		addCharm{"varnish"},
+
+		addService{"project", "wordpress"},
+		setServiceExposed{"project", true},
+		addMachine{"1", state.JobHostUnits},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", params.StatusStarted, ""},
+		addAliveUnit{"project", "1"},
+		setUnitStatus{"project/0", params.StatusStarted, ""},
+
+		addService{"mysql", "mysql"},
+		setServiceExposed{"mysql", true},
+		addMachine{"2", state.JobHostUnits},
+		startAliveMachine{"2"},
+		setMachineStatus{"2", params.StatusStarted, ""},
+		addAliveUnit{"mysql", "2"},
+		setUnitStatus{"mysql/0", params.StatusStarted, ""},
+
+		addService{"varnish", "varnish"},
+		setServiceExposed{"varnish", true},
+		addMachine{"3", state.JobHostUnits},
+		startAliveMachine{"3"},
+		setMachineStatus{"3", params.StatusStarted, ""},
+		addUnit{"varnish", "3"},
+
+		addService{"private", "wordpress"},
+		setServiceExposed{"private", true},
+		addMachine{"4", state.JobHostUnits},
+		startAliveMachine{"4"},
+		setMachineStatus{"4", params.StatusStarted, ""},
+		addUnit{"private", "4"},
+
+		relateServices{"project", "mysql"},
+		relateServices{"project", "varnish"},
+		relateServices{"private", "mysql"},
+
+		expect{
+			"multiples services with relations between some of them",
+			M{
+				"machines": M{
+					"0": machine0,
+					"1": machine1,
+					"2": machine2,
+					"3": machine3,
+					"4": machine4,
+				},
+				"services": M{
+					"project": M{
+						"charm":   "local:series/wordpress-3",
+						"exposed": true,
+						"units": M{
+							"project/0": M{
+								"machine":     "1",
+								"agent-state": "started",
+							},
+						},
+						"relations": M{
+							"db":    L{"mysql"},
+							"cache": L{"varnish"},
+						},
+					},
+					"mysql": M{
+						"charm":   "local:series/mysql-1",
+						"exposed": true,
+						"units": M{
+							"mysql/0": M{
+								"machine":     "2",
+								"agent-state": "started",
+							},
+						},
+						"relations": M{
+							"server": L{"private", "project"},
+						},
+					},
+					"varnish": M{
+						"charm":   "local:series/varnish-1",
+						"exposed": true,
+						"units": M{
+							"varnish/0": M{
+								"machine":     "3",
+								"agent-state": "pending",
+							},
+						},
+						"relations": M{
+							"webcache": L{"project"},
+						},
+					},
+					"private": M{
+						"charm":   "local:series/wordpress-3",
+						"exposed": true,
+						"units": M{
+							"private/0": M{
+								"machine":     "4",
+								"agent-state": "pending",
+							},
+						},
+						"relations": M{
+							"db": L{"mysql"},
+						},
+					},
+				},
+			},
+		},
+	), test(
+		"simple peer scenario",
+		addMachine{"0", state.JobManageEnviron},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", params.StatusStarted, ""},
+		addCharm{"riak"},
+		addCharm{"wordpress"},
+
+		addService{"riak", "riak"},
+		setServiceExposed{"riak", true},
+		addMachine{"1", state.JobHostUnits},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", params.StatusStarted, ""},
+		addAliveUnit{"riak", "1"},
+		setUnitStatus{"riak/0", params.StatusStarted, ""},
+		addMachine{"2", state.JobHostUnits},
+		startAliveMachine{"2"},
+		setMachineStatus{"2", params.StatusStarted, ""},
+		addAliveUnit{"riak", "2"},
+		setUnitStatus{"riak/1", params.StatusStarted, ""},
+		addMachine{"3", state.JobHostUnits},
+		startAliveMachine{"3"},
+		setMachineStatus{"3", params.StatusStarted, ""},
+		addAliveUnit{"riak", "3"},
+		setUnitStatus{"riak/2", params.StatusStarted, ""},
+
+		expect{
+			"multiples related peer units",
+			M{
+				"machines": M{
+					"0": machine0,
+					"1": machine1,
+					"2": machine2,
+					"3": machine3,
+				},
+				"services": M{
+					"riak": M{
+						"charm":   "local:series/riak-7",
+						"exposed": true,
+						"units": M{
+							"riak/0": M{
+								"machine":     "1",
+								"agent-state": "started",
+							},
+							"riak/1": M{
+								"machine":     "2",
+								"agent-state": "started",
+							},
+							"riak/2": M{
+								"machine":     "3",
+								"agent-state": "started",
+							},
+						},
+						"relations": M{
+							"ring": L{"riak"},
 						},
 					},
 				},
@@ -290,8 +553,29 @@ func (sm startMachine) step(c *C, ctx *context) {
 	m, err := ctx.st.Machine(sm.machineId)
 	c.Assert(err, IsNil)
 	inst := testing.StartInstance(c, ctx.conn.Environ, m.Id())
-	err = m.SetInstanceId(inst.Id())
+	err = m.SetProvisioned(inst.Id(), "fake_nonce")
 	c.Assert(err, IsNil)
+}
+
+type startAliveMachine struct {
+	machineId string
+}
+
+func (sam startAliveMachine) step(c *C, ctx *context) {
+	m, err := ctx.st.Machine(sam.machineId)
+	c.Assert(err, IsNil)
+	pinger, err := m.SetAgentAlive()
+	c.Assert(err, IsNil)
+	ctx.st.StartSync()
+	err = m.WaitAgentAlive(200 * time.Millisecond)
+	c.Assert(err, IsNil)
+	agentAlive, err := m.AgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(agentAlive, Equals, true)
+	inst := testing.StartInstance(c, ctx.conn.Environ, m.Id())
+	err = m.SetProvisioned(inst.Id(), "fake_nonce")
+	c.Assert(err, IsNil)
+	ctx.pingers[m.Id()] = pinger
 }
 
 type setTools struct {
@@ -385,18 +669,41 @@ func (aau addAliveUnit) step(c *C, ctx *context) {
 	c.Assert(err, IsNil)
 	err = u.AssignToMachine(m)
 	c.Assert(err, IsNil)
-	ctx.unitPingers[u.Name()] = pinger
+	ctx.pingers[u.Name()] = pinger
 }
 
 type setUnitStatus struct {
 	unitName   string
-	status     params.UnitStatus
+	status     params.Status
 	statusInfo string
 }
 
 func (sus setUnitStatus) step(c *C, ctx *context) {
 	u, err := ctx.st.Unit(sus.unitName)
 	err = u.SetStatus(sus.status, sus.statusInfo)
+	c.Assert(err, IsNil)
+}
+
+type setMachineStatus struct {
+	machineId  string
+	status     params.Status
+	statusInfo string
+}
+
+func (sms setMachineStatus) step(c *C, ctx *context) {
+	m, err := ctx.st.Machine(sms.machineId)
+	err = m.SetStatus(sms.status, sms.statusInfo)
+	c.Assert(err, IsNil)
+}
+
+type relateServices struct {
+	ep1, ep2 string
+}
+
+func (rs relateServices) step(c *C, ctx *context) {
+	eps, err := ctx.st.InferEndpoints([]string{rs.ep1, rs.ep2})
+	c.Assert(err, IsNil)
+	_, err = ctx.st.AddRelation(eps...)
 	c.Assert(err, IsNil)
 }
 
@@ -433,6 +740,18 @@ func (e expect) step(c *C, ctx *context) {
 
 func (s *StatusSuite) TestStatusAllFormats(c *C) {
 	for i, t := range statusTests {
+		c.Log("test %d: %s", i, t.summary)
+		func() {
+			// Prepare context and run all steps to setup.
+			ctx := s.newContext()
+			defer s.resetContext(c, ctx)
+			ctx.run(c, t.steps)
+		}()
+	}
+}
+
+func (s *StatusSuite) TestRelations(c *C) {
+	for i, t := range relationTests {
 		c.Log("test %d: %s", i, t.summary)
 		func() {
 			// Prepare context and run all steps to setup.

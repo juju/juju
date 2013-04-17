@@ -87,6 +87,12 @@ type ResolvedResults struct {
 	Settings map[string]interface{}
 }
 
+// AddServiceUnitsResults holds the names of the units added by the
+// AddServiceUnits call.
+type AddServiceUnitsResults struct {
+	Units []string
+}
+
 // AddServiceUnits holds parameters for the AddUnits call.
 type AddServiceUnits struct {
 	ServiceName string
@@ -183,16 +189,6 @@ type SetServiceConstraints struct {
 type CharmInfo struct {
 	CharmURL string
 }
-
-// ResolvedMode describes the way state transition errors
-// are resolved.
-type ResolvedMode string
-
-const (
-	ResolvedNone       ResolvedMode = ""
-	ResolvedRetryHooks ResolvedMode = "retry-hooks"
-	ResolvedNoHooks    ResolvedMode = "no-hooks"
-)
 
 // Port identifies a network port number for a particular protocol.
 type Port struct {
@@ -314,7 +310,7 @@ type EntityId struct {
 type MachineInfo struct {
 	Id         string `bson:"_id"`
 	InstanceId string
-	Status     MachineStatus
+	Status     Status
 	StatusInfo string
 }
 
@@ -326,9 +322,12 @@ func (i *MachineInfo) EntityId() EntityId {
 }
 
 type ServiceInfo struct {
-	Name     string `bson:"_id"`
-	Exposed  bool
-	CharmURL string
+	Name        string `bson:"_id"`
+	Exposed     bool
+	CharmURL    string
+	Life        string
+	Constraints constraints.Value
+	Config      map[string]interface{}
 }
 
 func (i *ServiceInfo) EntityId() EntityId {
@@ -346,9 +345,8 @@ type UnitInfo struct {
 	PublicAddress  string
 	PrivateAddress string
 	MachineId      string
-	Resolved       ResolvedMode
 	Ports          []Port
-	Status         UnitStatus
+	Status         Status
 	StatusInfo     string
 }
 

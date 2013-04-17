@@ -36,7 +36,7 @@ func (s *FilterSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	machine, err := s.State.Machine(mid)
 	c.Assert(err, IsNil)
-	err = machine.SetInstanceId("i-exist")
+	err = machine.SetProvisioned("i-exist", "fake_nonce")
 	c.Assert(err, IsNil)
 }
 
@@ -55,7 +55,7 @@ func (s *FilterSuite) TestUnitDeath(c *C) {
 	assertNotClosed()
 
 	// Irrelevant change.
-	err = s.unit.SetResolved(params.ResolvedRetryHooks)
+	err = s.unit.SetResolved(state.ResolvedRetryHooks)
 	c.Assert(err, IsNil)
 	assertNotClosed()
 
@@ -143,14 +143,14 @@ func (s *FilterSuite) TestResolvedEvents(c *C) {
 	assertNoChange()
 
 	// Change the unit in an irrelevant way; no events.
-	err = s.unit.SetStatus(params.UnitError, "blarg")
+	err = s.unit.SetStatus(params.StatusError, "blarg")
 	c.Assert(err, IsNil)
 	assertNoChange()
 
 	// Change the unit's resolved to an interesting value; new event received.
-	err = s.unit.SetResolved(params.ResolvedRetryHooks)
+	err = s.unit.SetResolved(state.ResolvedRetryHooks)
 	c.Assert(err, IsNil)
-	assertChange := func(expect params.ResolvedMode) {
+	assertChange := func(expect state.ResolvedMode) {
 		s.State.Sync()
 		select {
 		case rm := <-f.ResolvedEvents():
@@ -159,7 +159,7 @@ func (s *FilterSuite) TestResolvedEvents(c *C) {
 			c.Fatalf("timed out")
 		}
 	}
-	assertChange(params.ResolvedRetryHooks)
+	assertChange(state.ResolvedRetryHooks)
 	assertNoChange()
 
 	// Request a few events, and change the unit a few times; when
@@ -168,10 +168,10 @@ func (s *FilterSuite) TestResolvedEvents(c *C) {
 	err = s.unit.ClearResolved()
 	c.Assert(err, IsNil)
 	f.WantResolvedEvent()
-	err = s.unit.SetResolved(params.ResolvedNoHooks)
+	err = s.unit.SetResolved(state.ResolvedNoHooks)
 	c.Assert(err, IsNil)
 	f.WantResolvedEvent()
-	assertChange(params.ResolvedNoHooks)
+	assertChange(state.ResolvedNoHooks)
 	assertNoChange()
 }
 

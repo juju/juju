@@ -1,6 +1,7 @@
 package provisioner
 
 import (
+	"errors"
 	"fmt"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -9,7 +10,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/tomb"
 	"sync"
@@ -18,6 +19,7 @@ import (
 // Provisioner represents a running provisioning worker.
 type Provisioner struct {
 	st        *state.State
+	machineId string // Which machine runs the provisioner.
 	stateInfo *state.Info
 	apiInfo   *api.Info
 	environ   environs.Environ
@@ -48,9 +50,10 @@ func (o *configObserver) notify(cfg *config.Config) {
 // NewProvisioner returns a new Provisioner. When new machines
 // are added to the state, it allocates instances from the environment
 // and allocates them to the new machines.
-func NewProvisioner(st *state.State) *Provisioner {
+func NewProvisioner(st *state.State, machineId string) *Provisioner {
 	p := &Provisioner{
 		st:        st,
+		machineId: machineId,
 		instances: make(map[string]environs.Instance),
 		machines:  make(map[state.InstanceId]string),
 	}
@@ -191,14 +194,9 @@ func (p *Provisioner) findUnknownInstances() ([]environs.Instance, error) {
 		return nil, err
 	}
 	for _, m := range machines {
-		if m.Life() == state.Dead {
-			continue
+		if instId, ok := m.InstanceId(); ok {
+			delete(instances, instId)
 		}
-		instId, ok := m.InstanceId()
-		if !ok {
-			continue
-		}
-		delete(instances, instId)
 	}
 	var unknown []environs.Instance
 	for _, i := range instances {
@@ -221,13 +219,21 @@ func (p *Provisioner) pendingOrDead(ids []string) (pending, dead []*state.Machin
 			return nil, nil, err
 		}
 		switch m.Life() {
+		case state.Dying:
+			if _, ok := m.InstanceId(); ok {
+				continue
+			}
+			log.Infof("worker/provisioner: killing dying, unprovisioned machine %q", m)
+			if err := m.EnsureDead(); err != nil {
+				return nil, nil, err
+			}
+			fallthrough
 		case state.Dead:
 			dead = append(dead, m)
-			log.Infof("worker/provisioner: found dead machine %q", m)
-			continue
-		case state.Dying:
-			// TODO(dimitern): handle machines that are Dying but unprovisioned?
-			log.Infof("worker/provisioner: ignoring dying machine %q", m)
+			log.Infof("worker/provisioner: removing dead machine %q", m)
+			if err := m.Remove(); err != nil {
+				return nil, nil, err
+			}
 			continue
 		}
 		if instId, hasInstId := m.InstanceId(); !hasInstId {
@@ -236,7 +242,7 @@ func (p *Provisioner) pendingOrDead(ids []string) (pending, dead []*state.Machin
 				log.Infof("worker/provisioner: cannot get machine %q status: %v", m, err)
 				continue
 			}
-			if status != params.MachineError {
+			if status == params.StatusPending {
 				pending = append(pending, m)
 				log.Infof("worker/provisioner: found machine %q pending provisioning", m)
 				continue
@@ -270,25 +276,35 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 	if err != nil {
 		return err
 	}
-	// TODO(dimitern) generate an unique random nonce in a follow-up.
-	inst, err := p.environ.StartInstance(m.Id(), "fake_nonce", m.Series(), cons, stateInfo, apiInfo)
+	// Generate a unique nonce for the new instance.
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return err
+	}
+	// Generated nonce has the format: "machine-#:UUID". The first
+	// part is a badge, specifying the tag of the machine the provisioner
+	// is running on, while the second part is a random UUID.
+	nonce := fmt.Sprintf("%s:%s", state.MachineTag(p.machineId), uuid.String())
+	inst, err := p.environ.StartInstance(m.Id(), nonce, m.Series(), cons, stateInfo, apiInfo)
 	if err != nil {
 		// Set the state to error, so the machine will be skipped next
 		// time until the error is resolved, but don't return an
 		// error; just keep going with the other machines.
 		log.Errorf("worker/provisioner: cannot start instance for machine %q: %v", m, err)
-		if err1 := m.SetStatus(params.MachineError, err.Error()); err1 != nil {
+		if err1 := m.SetStatus(params.StatusError, err.Error()); err1 != nil {
 			// Something is wrong with this machine, better report it back.
 			log.Errorf("worker/provisioner: cannot set error status for machine %q: %v", m, err1)
 			return err1
 		}
 		return nil
 	}
-	if err := m.SetInstanceId(inst.Id()); err != nil {
+	if err := m.SetProvisioned(inst.Id(), nonce); err != nil {
 		// The machine is started, but we can't record the mapping in
 		// state. It'll keep running while we fail out and restart,
 		// but will then be detected by findUnknownInstances and
 		// killed again.
+		//
+		// TODO(dimitern) Stop the instance right away here.
 		//
 		// Multiple instantiations of a given machine (with the same
 		// machine ID) cannot coexist, because findUnknownInstances is
@@ -305,7 +321,7 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 }
 
 func (p *Provisioner) setupAuthentication(m *state.Machine) (*state.Info, *api.Info, error) {
-	password, err := trivial.RandomPassword()
+	password, err := utils.RandomPassword()
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot make password for machine %v: %v", m, err)
 	}
@@ -341,6 +357,8 @@ func (p *Provisioner) stopInstances(instances []environs.Instance) error {
 	return nil
 }
 
+var errNotProvisioned = errors.New("machine has no instance id set")
+
 // instanceForMachine returns the environs.Instance that represents this machine's instance.
 func (p *Provisioner) instanceForMachine(m *state.Machine) (environs.Instance, error) {
 	inst, ok := p.instances[m.Id()]
@@ -349,7 +367,7 @@ func (p *Provisioner) instanceForMachine(m *state.Machine) (environs.Instance, e
 	}
 	instId, ok := m.InstanceId()
 	if !ok {
-		panic("cannot have unset instance ids here")
+		return nil, errNotProvisioned
 	}
 	// TODO(dfc): Ask for all instances at once.
 	insts, err := p.environ.Instances([]state.InstanceId{instId})
@@ -366,14 +384,13 @@ func (p *Provisioner) instanceForMachine(m *state.Machine) (environs.Instance, e
 func (p *Provisioner) instancesForMachines(ms []*state.Machine) ([]environs.Instance, error) {
 	var insts []environs.Instance
 	for _, m := range ms {
-		inst, err := p.instanceForMachine(m)
-		if err == environs.ErrNoInstances {
-			continue
-		}
-		if err != nil {
+		switch inst, err := p.instanceForMachine(m); err {
+		case nil:
+			insts = append(insts, inst)
+		case errNotProvisioned, environs.ErrNoInstances:
+		default:
 			return nil, err
 		}
-		insts = append(insts, inst)
 	}
 	return insts, nil
 }

@@ -111,7 +111,7 @@ func (s *SettingsSuite) TestUpdateWithWrite(c *C) {
 	mgoData := make(map[string]interface{}, 0)
 	err = s.MgoSuite.Session.DB("juju").C("settings").FindId(s.key).One(&mgoData)
 	c.Assert(err, IsNil)
-	cleanMap(mgoData)
+	cleanSettingsMap(mgoData)
 	c.Assert(mgoData, DeepEquals, options)
 }
 
@@ -193,7 +193,7 @@ func (s *SettingsSuite) TestSetItem(c *C) {
 	mgoData := make(map[string]interface{}, 0)
 	err = s.MgoSuite.Session.DB("juju").C("settings").FindId(s.key).One(&mgoData)
 	c.Assert(err, IsNil)
-	cleanMap(mgoData)
+	cleanSettingsMap(mgoData)
 	c.Assert(mgoData, DeepEquals, options)
 }
 

@@ -11,9 +11,8 @@ import (
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"os"
 	"path/filepath"
 	stdtesting "testing"
@@ -118,7 +117,7 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *C) {
 	c.Assert(err, IsNil)
 	info, _, err := env.StateInfo()
 	c.Assert(err, IsNil)
-	info.Password = trivial.PasswordHash("side-effect secret")
+	info.Password = utils.PasswordHash("side-effect secret")
 	st, err := state.Open(info, state.DefaultDialOpts())
 	c.Assert(err, IsNil)
 
@@ -199,7 +198,7 @@ func (cs *NewConnSuite) TestConnWithPassword(c *C) {
 	// of the admin password.
 	info, _, err := env.StateInfo()
 	c.Assert(err, IsNil)
-	info.Password = trivial.PasswordHash("nutkin")
+	info.Password = utils.PasswordHash("nutkin")
 	st, err := state.Open(info, state.DefaultDialOpts())
 	c.Assert(err, IsNil)
 	st.Close()
@@ -380,7 +379,7 @@ func (s *ConnSuite) TestAddUnits(c *C) {
 	c.Assert(err, IsNil)
 	svc, err := s.conn.State.AddService("testriak", sch)
 	c.Assert(err, IsNil)
-	units, err := s.conn.AddUnits(svc, 2)
+	units, err := s.conn.AddUnits(svc, 2, "")
 	c.Assert(err, IsNil)
 	c.Assert(units, HasLen, 2)
 
@@ -389,38 +388,15 @@ func (s *ConnSuite) TestAddUnits(c *C) {
 	id1, err := units[1].AssignedMachineId()
 	c.Assert(err, IsNil)
 	c.Assert(id0, Not(Equals), id1)
-}
 
-func (s *ConnSuite) TestResolved(c *C) {
-	curl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "riak")
-	sch, err := s.conn.PutCharm(curl, s.repo, false)
-	c.Assert(err, IsNil)
-	svc, err := s.conn.State.AddService("testriak", sch)
-	c.Assert(err, IsNil)
-	us, err := s.conn.AddUnits(svc, 1)
-	c.Assert(err, IsNil)
-	u := us[0]
+	units, err = s.conn.AddUnits(svc, 2, "0")
+	c.Assert(err, ErrorMatches, `cannot add multiple units of service "testriak" to a single machine`)
 
-	err = s.conn.Resolved(u, false)
-	c.Assert(err, ErrorMatches, `unit "testriak/0" is not in an error state`)
-	err = s.conn.Resolved(u, true)
-	c.Assert(err, ErrorMatches, `unit "testriak/0" is not in an error state`)
+	units, err = s.conn.AddUnits(svc, 1, "0")
+	c.Assert(err, IsNil)
+	id2, err := units[0].AssignedMachineId()
+	c.Assert(id2, Equals, id0)
 
-	err = u.SetStatus(params.UnitError, "gaaah")
-	c.Assert(err, IsNil)
-	err = s.conn.Resolved(u, false)
-	c.Assert(err, IsNil)
-	err = s.conn.Resolved(u, true)
-	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "testriak/0": already resolved`)
-	c.Assert(u.Resolved(), Equals, params.ResolvedNoHooks)
-
-	err = u.ClearResolved()
-	c.Assert(err, IsNil)
-	err = s.conn.Resolved(u, true)
-	c.Assert(err, IsNil)
-	err = s.conn.Resolved(u, false)
-	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "testriak/0": already resolved`)
-	c.Assert(u.Resolved(), Equals, params.ResolvedRetryHooks)
 }
 
 type DeployLocalSuite struct {

@@ -25,6 +25,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/state"
@@ -32,8 +33,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/trivial"
-	"launchpad.net/juju-core/version"
+	"launchpad.net/juju-core/utils"
 	"net"
 	"net/http"
 	"os"
@@ -227,31 +227,10 @@ func newState(name string, ops chan<- Operation, fwmode config.FirewallMode) *en
 	}
 	s.storage = newStorage(s, "/"+name+"/private")
 	s.publicStorage = newStorage(s, "/"+name+"/public")
-	putFakeTools(s.publicStorage)
 	s.listen()
+	// TODO(fwereade): get rid of these.
+	envtesting.MustUploadFakeTools(s.publicStorage)
 	return s
-}
-
-// putFakeTools writes something
-// that looks like a tools archive so Bootstrap can
-// find some tools and initialise the state correctly.
-func putFakeTools(s environs.StorageWriter) {
-	log.Infof("environs/dummy: putting fake tools")
-	toolsVersion := version.Current
-	path := environs.ToolsStoragePath(toolsVersion)
-	toolsContents := "tools archive, honest guv"
-	err := s.Put(path, strings.NewReader(toolsContents), int64(len(toolsContents)))
-	if err != nil {
-		panic(err)
-	}
-	if toolsVersion.Series != config.DefaultSeries {
-		toolsVersion.Series = config.DefaultSeries
-		path = environs.ToolsStoragePath(toolsVersion)
-		err = s.Put(path, strings.NewReader(toolsContents), int64(len(toolsContents)))
-		if err != nil {
-			panic(err)
-		}
-	}
 }
 
 // listen starts a network listener listening for http
@@ -340,18 +319,16 @@ func (p *environProvider) newConfig(cfg *config.Config) (*environConfig, error) 
 }
 
 func (p *environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
+	// Check for valid changes for the base config values.
+	if err := config.Validate(cfg, old); err != nil {
+		return nil, err
+	}
 	v, err := checker.Coerce(cfg.UnknownAttrs(), nil)
 	if err != nil {
 		return nil, err
 	}
+	// Apply the coerced unknown values back into the config.
 	attrs := v.(map[string]interface{})
-	switch cfg.FirewallMode() {
-	case config.FwDefault:
-		attrs["firewall-mode"] = config.FwInstance
-	case config.FwInstance, config.FwGlobal:
-	default:
-		return nil, fmt.Errorf("unsupported firewall mode: %q", cfg.FirewallMode())
-	}
 	return cfg.Apply(attrs)
 }
 
@@ -441,7 +418,7 @@ func (e *environ) Name() string {
 	return e.state.name
 }
 
-func (e *environ) Bootstrap(cons constraints.Value, cert, key []byte) error {
+func (e *environ) Bootstrap(cons constraints.Value) error {
 	defer delay()
 	if err := e.checkBroken("Bootstrap"); err != nil {
 		return err
@@ -453,27 +430,24 @@ func (e *environ) Bootstrap(cons constraints.Value, cert, key []byte) error {
 	if _, ok := e.Config().CACert(); !ok {
 		return fmt.Errorf("no CA certificate in environment configuration")
 	}
-	var tools *state.Tools
-	var err error
 
-	flags := environs.CompatVersion
-	tools, err = environs.FindTools(e, version.Current, flags)
+	possibleTools, err := environs.FindBootstrapTools(e, cons)
 	if err != nil {
 		return err
+	}
+	log.Infof("environs/dummy: would pick tools from %s", possibleTools)
+	cfg, err := environs.BootstrapConfig(e.Config())
+	if err != nil {
+		return fmt.Errorf("cannot make bootstrap config: %v", err)
 	}
 
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
-	e.state.ops <- OpBootstrap{Env: e.state.name, Constraints: cons}
 	if e.state.bootstrapped {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
 	if e.ecfg().stateServer() {
 		info := stateInfo()
-		cfg, err := environs.BootstrapConfig(&providerInstance, e.ecfg().Config, tools)
-		if err != nil {
-			return fmt.Errorf("cannot make bootstrap config: %v", err)
-		}
 		st, err := state.Initialize(info, cfg, state.DefaultDialOpts())
 		if err != nil {
 			panic(err)
@@ -481,7 +455,7 @@ func (e *environ) Bootstrap(cons constraints.Value, cert, key []byte) error {
 		if err := st.SetEnvironConstraints(cons); err != nil {
 			panic(err)
 		}
-		if err := st.SetAdminMongoPassword(trivial.PasswordHash(password)); err != nil {
+		if err := st.SetAdminMongoPassword(utils.PasswordHash(password)); err != nil {
 			panic(err)
 		}
 		// TODO(rog) use hash of password when the juju API connection
@@ -497,6 +471,7 @@ func (e *environ) Bootstrap(cons constraints.Value, cert, key []byte) error {
 		e.state.apiState = st
 	}
 	e.state.bootstrapped = true
+	e.state.ops <- OpBootstrap{Env: e.state.name, Constraints: cons}
 	return nil
 }
 
@@ -562,6 +537,11 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 	if err := e.checkBroken("StartInstance"); err != nil {
 		return nil, err
 	}
+	possibleTools, err := environs.FindInstanceTools(e, series, cons)
+	if err != nil {
+		return nil, err
+	}
+	log.Infof("environs/dummy: would pick tools from %s", possibleTools)
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	if machineNonce == "" {
@@ -575,9 +555,6 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 	}
 	if apiInfo.Tag != state.MachineTag(machineId) {
 		return nil, fmt.Errorf("entity tag must match started machine")
-	}
-	if strings.HasPrefix(series, "unknown") {
-		return nil, &environs.NotFoundError{fmt.Errorf("no compatible tools found")}
 	}
 	i := &instance{
 		state:     e.state,

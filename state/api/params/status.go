@@ -1,51 +1,29 @@
 package params
 
-// UnitStatus represents the status of the unit or its agent.
-type UnitStatus string
+// Status represents the status of an entity.
+// It could be a unit, machine or its agent.
+type Status string
 
 const (
-	// The unit is not yet participating in the environment.
-	UnitPending UnitStatus = "pending"
+	// The entity is not yet participating in the environment.
+	StatusPending Status = "pending"
 
 	// The unit has performed initial setup and is adapting itself to
-	// the environment.
-	UnitInstalled UnitStatus = "installed"
+	// the environment. Not applicable to machines.
+	StatusInstalled Status = "installed"
 
-	// The unit is actively participating in the environment.
-	UnitStarted UnitStatus = "started"
+	// The entity is actively participating in the environment.
+	StatusStarted Status = "started"
 
-	// The unit's agent will perform no further action, other than to
-	// set the unit to Dead at a suitable moment.
-	UnitStopped UnitStatus = "stopped"
+	// The entity's agent will perform no further action, other than
+	// to set the unit to Dead at a suitable moment.
+	StatusStopped Status = "stopped"
 
-	// The unit requires human intervention in order to operate
+	// The entity requires human intervention in order to operate
 	// correctly.
-	UnitError UnitStatus = "error"
+	StatusError Status = "error"
 
-	// The unit agent ought to be signalling activity, but it cannot
-	// be detected.
-	UnitDown UnitStatus = "down"
-)
-
-// MachineStatus represents the status of the machine or its agent.
-type MachineStatus string
-
-const (
-	// The machine is not yet participating in the environment.
-	MachinePending MachineStatus = "pending"
-
-	// The machine is actively participating in the environment.
-	MachineStarted MachineStatus = "started"
-
-	// The machine's agent will perform no further action, other than
-	// to set the machine to Dead at a suitable moment.
-	MachineStopped MachineStatus = "stopped"
-
-	// The machine requires human intervention in order to operate
-	// correctly.
-
-	MachineError MachineStatus = "error"
-	// The machine agent ought to be signalling activity, but it cannot
-	// be detected.
-	MachineDown MachineStatus = "down"
+	// The entity ought to be signalling activity, but it cannot be
+	// detected.
+	StatusDown Status = "down"
 )

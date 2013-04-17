@@ -1,375 +1,148 @@
 package environs
 
 import (
-	"archive/tar"
-	"compress/gzip"
 	"fmt"
-	"io"
-	"io/ioutil"
+	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"strings"
 )
 
-const toolPrefix = "tools/juju-"
-
-// ToolsList holds a list of available tools.  Private tools take
-// precedence over public tools, even if they have a lower
-// version number.
-type ToolsList struct {
-	Private []*state.Tools
-	Public  []*state.Tools
+// FindAvailableTools returns a tools.List containing all tools with a given
+// major version number available in the environment.
+// If *any* tools are present in private storage, *only* tools from private
+// storage are available.
+// If *no* tools are present in private storage, *only* tools from public
+// storage are available.
+// If no *available* tools have the supplied major version number, the function
+// returns a *NotFoundError.
+func FindAvailableTools(environ Environ, majorVersion int) (list tools.List, err error) {
+	log.Infof("environs: reading tools with major version %d", majorVersion)
+	defer convertToolsError(&err)
+	list, err = tools.ReadList(environ.Storage(), majorVersion)
+	if err == tools.ErrNoTools {
+		log.Infof("environs: falling back to public bucket")
+		list, err = tools.ReadList(environ.PublicStorage(), majorVersion)
+	}
+	return list, err
 }
 
-// ListTools returns a ToolsList holding all the tools
-// available in the given environment that have the
-// given major version.
-func ListTools(env Environ, majorVersion int) (*ToolsList, error) {
-	private, err := listTools(env.Storage(), majorVersion)
+// FindBootstrapTools returns a ToolsList containing only those tools with
+// which it would be reasonable to launch an environment's first machine,
+// given the supplied constraints.
+// If the environment was not already configured to use a specific agent
+// version, the newest available version will be chosen and set in the
+// environment's configuration.
+func FindBootstrapTools(environ Environ, cons constraints.Value) (list tools.List, err error) {
+	defer convertToolsError(&err)
+	// Collect all possible compatible tools.
+	cliVersion := version.Current.Number
+	if list, err = FindAvailableTools(environ, cliVersion.Major); err != nil {
+		return nil, err
+	}
+
+	// Discard all that are known to be irrelevant.
+	cfg := environ.Config()
+	series := cfg.DefaultSeries()
+	log.Infof("environs: filtering tools by series: %s", series)
+	filter := tools.Filter{Series: series}
+	if cons.Arch != nil && *cons.Arch != "" {
+		log.Infof("environs: filtering tools by architecture: %s", *cons.Arch)
+		filter.Arch = *cons.Arch
+	}
+	if agentVersion, ok := cfg.AgentVersion(); ok {
+		// If we already have an explicit agent version set, we're done.
+		log.Infof("environs: filtering tools by version: %s", agentVersion)
+		filter.Number = agentVersion
+		return list.Match(filter)
+	}
+	if dev := cliVersion.IsDev() || cfg.Development(); !dev {
+		log.Infof("environs: filtering tools by released version")
+		filter.Released = true
+	}
+	if list, err = list.Match(filter); err != nil {
+		return nil, err
+	}
+
+	// We probably still have a mix of versions available; discard older ones
+	// and update environment configuration to use only those remaining.
+	agentVersion, list := list.Newest()
+	log.Infof("environs: picked newest version: %s", agentVersion)
+	cfg, err = cfg.Apply(map[string]interface{}{
+		"agent-version": agentVersion.String(),
+	})
+	if err == nil {
+		err = environ.SetConfig(cfg)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to update environment configuration: %v", err)
+	}
+	return list, nil
+}
+
+// FindInstanceTools returns a ToolsList containing only those tools with which
+// it would be reasonable to start a new instance, given the supplied series and
+// constraints.
+// It is an error to call it with an environment not already configured to use
+// a specific agent version.
+func FindInstanceTools(environ Environ, series string, cons constraints.Value) (list tools.List, err error) {
+	defer convertToolsError(&err)
+	// Collect all possible compatible tools.
+	agentVersion, ok := environ.Config().AgentVersion()
+	if !ok {
+		return nil, fmt.Errorf("no agent version set in environment configuration")
+	}
+	if list, err = FindAvailableTools(environ, agentVersion.Major); err != nil {
+		return nil, err
+	}
+
+	// Discard all that are known to be irrelevant.
+	log.Infof("environs: filtering tools by version: %s", agentVersion)
+	log.Infof("environs: filtering tools by series: %s", series)
+	filter := tools.Filter{
+		Number: agentVersion,
+		Series: series,
+	}
+	if cons.Arch != nil && *cons.Arch != "" {
+		log.Infof("environs: filtering tools by architecture: %s", *cons.Arch)
+		filter.Arch = *cons.Arch
+	}
+	return list.Match(filter)
+}
+
+// FindExactTools returns only the tools that match the supplied version.
+// TODO(fwereade) this should not exist: it's used by cmd/jujud/Upgrader,
+// which needs to run on every agent and must absolutely *not* in general
+// have access to an Environ.
+func FindExactTools(environ Environ, vers version.Binary) (t *state.Tools, err error) {
+	defer convertToolsError(&err)
+	list, err := FindAvailableTools(environ, vers.Major)
 	if err != nil {
 		return nil, err
 	}
-	public, err := listTools(env.PublicStorage(), majorVersion)
+	log.Infof("environs: finding exact version %s", vers)
+	list, err = list.Match(tools.Filter{
+		Number: vers.Number,
+		Series: vers.Series,
+		Arch:   vers.Arch,
+	})
 	if err != nil {
 		return nil, err
 	}
-	return &ToolsList{
-		Private: private,
-		Public:  public,
-	}, nil
+	return list[0], nil
 }
 
-// listTools is like ListTools, but only returns the tools from
-// a particular storage.
-func listTools(store StorageReader, majorVersion int) ([]*state.Tools, error) {
-	dir := fmt.Sprintf("%s%d.", toolPrefix, majorVersion)
-	log.Debugf("listing tools in dir: %s", dir)
-	names, err := store.List(dir)
-	if err != nil {
-		return nil, err
+func isToolsError(err error) bool {
+	switch err {
+	case tools.ErrNoTools, tools.ErrNoMatches:
+		return true
 	}
-	var toolsList []*state.Tools
-	for _, name := range names {
-		log.Debugf("looking at tools file %s", name)
-		if !strings.HasPrefix(name, toolPrefix) || !strings.HasSuffix(name, ".tgz") {
-			log.Warningf("environs: unexpected tools file found %q", name)
-			continue
-		}
-		vers := name[len(toolPrefix) : len(name)-len(".tgz")]
-		var t state.Tools
-		t.Binary, err = version.ParseBinary(vers)
-		if err != nil {
-			log.Warningf("environs: failed to parse %q: %v", vers, err)
-			continue
-		}
-		if t.Major != majorVersion {
-			log.Warningf("environs: tool %q found in wrong directory %q", name, dir)
-			continue
-		}
-		t.URL, err = store.URL(name)
-		log.Debugf("tools URL is %s", t.URL)
-		if err != nil {
-			log.Warningf("environs: cannot get URL for %q: %v", name, err)
-			continue
-		}
-		toolsList = append(toolsList, &t)
-	}
-	return toolsList, nil
+	return false
 }
 
-// PutTools builds whatever version of launchpad.net/juju-core is in $GOPATH,
-// uploads it to the given storage, and returns a Tools instance describing
-// them. If forceVersion is not nil, the uploaded tools bundle will report
-// the given version number; if any fakeSeries are supplied, additional copies
-// of the built tools will be uploaded for use by machines of those series.
-// Juju tools built for one series do not necessarily run on another, but this
-// func exists only for development use cases.
-func PutTools(storage Storage, forceVersion *version.Number, fakeSeries ...string) (*state.Tools, error) {
-	// TODO(rog) find binaries from $PATH when not using a development
-	// version of juju within a $GOPATH.
-
-	// We create the entire archive before asking the environment to
-	// start uploading so that we can be sure we have archived
-	// correctly.
-	f, err := ioutil.TempFile("", "juju-tgz")
-	if err != nil {
-		return nil, err
+func convertToolsError(err *error) {
+	if isToolsError(*err) {
+		*err = &NotFoundError{*err}
 	}
-	defer f.Close()
-	defer os.Remove(f.Name())
-	toolsVersion, err := bundleTools(f, forceVersion)
-	if err != nil {
-		return nil, err
-	}
-	fi, err := f.Stat()
-	if err != nil {
-		return nil, fmt.Errorf("cannot stat newly made tools archive: %v", err)
-	}
-	size := fi.Size()
-	log.Infof("environs: built tools %v (%dkB)", toolsVersion, (size+512)/1024)
-	putTools := func(vers version.Binary) (string, error) {
-		if _, err := f.Seek(0, 0); err != nil {
-			return "", fmt.Errorf("cannot seek to start of tools archive: %v", err)
-		}
-		path := ToolsStoragePath(vers)
-		log.Infof("environs: putting tools %v", path)
-		if err := storage.Put(path, f, size); err != nil {
-			return "", err
-		}
-		return path, nil
-	}
-	for _, series := range fakeSeries {
-		if series != toolsVersion.Series {
-			fakeVersion := toolsVersion
-			fakeVersion.Series = series
-			if _, err := putTools(fakeVersion); err != nil {
-				return nil, err
-			}
-		}
-	}
-	path, err := putTools(toolsVersion)
-	if err != nil {
-		return nil, err
-	}
-	url, err := storage.URL(path)
-	if err != nil {
-		return nil, err
-	}
-	return &state.Tools{toolsVersion, url}, nil
-}
-
-// archive writes the executable files found in the given directory in
-// gzipped tar format to w.  An error is returned if an entry inside dir
-// is not a regular executable file.
-func archive(w io.Writer, dir string) (err error) {
-	entries, err := ioutil.ReadDir(dir)
-	if err != nil {
-		return err
-	}
-
-	gzw := gzip.NewWriter(w)
-	defer closeErrorCheck(&err, gzw)
-
-	tarw := tar.NewWriter(gzw)
-	defer closeErrorCheck(&err, tarw)
-
-	for _, ent := range entries {
-		h := tarHeader(ent)
-		// ignore local umask
-		if isExecutable(ent) {
-			h.Mode = 0755
-		} else {
-			h.Mode = 0644
-		}
-		err := tarw.WriteHeader(h)
-		if err != nil {
-			return err
-		}
-		if err := copyFile(tarw, filepath.Join(dir, ent.Name())); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// copyFile writes the contents of the given file to w.
-func copyFile(w io.Writer, file string) error {
-	f, err := os.Open(file)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	_, err = io.Copy(w, f)
-	return err
-}
-
-// tarHeader returns a tar file header given the file's stat
-// information.
-func tarHeader(i os.FileInfo) *tar.Header {
-	return &tar.Header{
-		Typeflag:   tar.TypeReg,
-		Name:       i.Name(),
-		Size:       i.Size(),
-		Mode:       int64(i.Mode() & 0777),
-		ModTime:    i.ModTime(),
-		AccessTime: i.ModTime(),
-		ChangeTime: i.ModTime(),
-		Uname:      "ubuntu",
-		Gname:      "ubuntu",
-	}
-}
-
-// isExecutable returns whether the given info
-// represents a regular file executable by (at least) the user.
-func isExecutable(i os.FileInfo) bool {
-	return i.Mode()&(0100|os.ModeType) == 0100
-}
-
-// closeErrorCheck means that we can ensure that
-// Close errors do not get lost even when we defer them,
-func closeErrorCheck(errp *error, c io.Closer) {
-	err := c.Close()
-	if *errp == nil {
-		*errp = err
-	}
-}
-
-// BestTools returns the most recent version
-// from the set of tools in the ToolsList that are
-// compatible with the given version, using flags
-// to determine possible candidates.
-// It returns nil if no such tools are found.
-func BestTools(list *ToolsList, vers version.Binary, flags ToolsSearchFlags) *state.Tools {
-	if flags&CompatVersion == 0 {
-		panic("CompatVersion not implemented")
-	}
-	if tools := bestTools(list.Private, vers, flags); tools != nil {
-		return tools
-	}
-	return bestTools(list.Public, vers, flags)
-}
-
-// bestTools is like BestTools but operates on a single list of tools.
-func bestTools(toolsList []*state.Tools, vers version.Binary, flags ToolsSearchFlags) *state.Tools {
-	var bestTools *state.Tools
-	allowDev := vers.IsDev() || flags&DevVersion != 0
-	allowHigher := flags&HighestVersion != 0
-	log.Debugf("finding best tools for version: %v", vers)
-	for _, t := range toolsList {
-		log.Debugf("checking tools %v", t)
-		if t.Major != vers.Major ||
-			t.Series != vers.Series ||
-			t.Arch != vers.Arch ||
-			!allowDev && t.IsDev() ||
-			!allowHigher && vers.Number.Less(t.Number) {
-			continue
-		}
-		if bestTools == nil || bestTools.Number.Less(t.Number) {
-			bestTools = t
-		}
-	}
-	return bestTools
-}
-
-// ToolsStoragePath returns the path that is used to store and
-// retrieve the given version of the juju tools in a Storage.
-func ToolsStoragePath(vers version.Binary) string {
-	return toolPrefix + vers.String() + ".tgz"
-}
-
-// ToolsSearchFlags gives options when searching
-// for tools.
-type ToolsSearchFlags int
-
-const (
-	// HighestVersion indicates that versions above the version being
-	// searched for may be included in the search. The default behavior
-	// is to search for versions <= the one provided.
-	HighestVersion ToolsSearchFlags = 1 << iota
-
-	// DevVersion includes development versions in the search, even
-	// when the version to match against isn't a development version.
-	DevVersion
-
-	// CompatVersion specifies that the major version number
-	// must be the same as specified. At the moment this flag is required.
-	CompatVersion
-)
-
-// FindTools tries to find a set of tools compatible with the given
-// version from the given environment, using flags to determine
-// possible candidates.
-//
-// If no tools are found and there's no other error, a NotFoundError is
-// returned.  If there's anything compatible in the environ's Storage,
-// it gets precedence over anything in its PublicStorage.
-func FindTools(env Environ, vers version.Binary, flags ToolsSearchFlags) (*state.Tools, error) {
-	log.Infof("environs: searching for tools compatible with version: %v\n", vers)
-	toolsList, err := ListTools(env, vers.Major)
-	if err != nil {
-		return nil, err
-	}
-	tools := BestTools(toolsList, vers, flags)
-	if tools == nil {
-		return tools, &NotFoundError{fmt.Errorf("no compatible tools found")}
-	}
-	return tools, nil
-}
-
-func setenv(env []string, val string) []string {
-	prefix := val[0 : strings.Index(val, "=")+1]
-	for i, eval := range env {
-		if strings.HasPrefix(eval, prefix) {
-			env[i] = val
-			return env
-		}
-	}
-	return append(env, val)
-}
-
-// bundleTools bundles all the current juju tools in gzipped tar
-// format to the given writer.
-// If forceVersion is not nil, a FORCE-VERSION file is included in
-// the tools bundle so it will lie about its current version number.
-func bundleTools(w io.Writer, forceVersion *version.Number) (version.Binary, error) {
-	dir, err := ioutil.TempDir("", "juju-tools")
-	if err != nil {
-		return version.Binary{}, err
-	}
-	defer os.RemoveAll(dir)
-
-	cmds := [][]string{
-		{"go", "install", "launchpad.net/juju-core/cmd/jujud"},
-		{"strip", dir + "/jujud"},
-	}
-	env := setenv(os.Environ(), "GOBIN="+dir)
-	for _, args := range cmds {
-		cmd := exec.Command(args[0], args[1:]...)
-		cmd.Env = env
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			return version.Binary{}, fmt.Errorf("build command %q failed: %v; %s", args[0], err, out)
-		}
-	}
-	if forceVersion != nil {
-		if err := ioutil.WriteFile(filepath.Join(dir, "FORCE-VERSION"), []byte(forceVersion.String()), 0666); err != nil {
-			return version.Binary{}, err
-		}
-	}
-	cmd := exec.Command(filepath.Join(dir, "jujud"), "version")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return version.Binary{}, fmt.Errorf("cannot get version from %q: %v; %s", cmd.Args[0], err, out)
-	}
-	tvs := strings.TrimSpace(string(out))
-	tvers, err := version.ParseBinary(tvs)
-	if err != nil {
-		return version.Binary{}, fmt.Errorf("invalid version %q printed by jujud", tvs)
-	}
-	err = archive(w, dir)
-	if err != nil {
-		return version.Binary{}, err
-	}
-	return tvers, err
-}
-
-// EmptyStorage holds a StorageReader object that contains nothing.
-var EmptyStorage StorageReader = emptyStorage{}
-
-type emptyStorage struct{}
-
-func (s emptyStorage) Get(name string) (io.ReadCloser, error) {
-	return nil, &NotFoundError{fmt.Errorf("file %q not found in empty storage", name)}
-}
-
-func (s emptyStorage) URL(string) (string, error) {
-	return "", fmt.Errorf("empty storage has no URLs")
-}
-
-func (s emptyStorage) List(prefix string) ([]string, error) {
-	return nil, nil
 }

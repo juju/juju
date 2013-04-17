@@ -1,8 +1,8 @@
-package trivial_test
+package utils_test
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"strings"
 	"testing"
 	"time"
@@ -12,13 +12,13 @@ func Test(t *testing.T) {
 	TestingT(t)
 }
 
-type trivialSuite struct{}
+type utilsSuite struct{}
 
-var _ = Suite(trivialSuite{})
+var _ = Suite(utilsSuite{})
 
-func (trivialSuite) TestAttemptTiming(c *C) {
+func (utilsSuite) TestAttemptTiming(c *C) {
 	const delta = 0.01e9
-	testAttempt := trivial.AttemptStrategy{
+	testAttempt := utils.AttemptStrategy{
 		Total: 0.25e9,
 		Delay: 0.1e9,
 	}
@@ -39,8 +39,8 @@ func (trivialSuite) TestAttemptTiming(c *C) {
 	}
 }
 
-func (trivialSuite) TestRandomBytes(c *C) {
-	b, err := trivial.RandomBytes(16)
+func (utilsSuite) TestRandomBytes(c *C) {
+	b, err := utils.RandomBytes(16)
 	c.Assert(err, IsNil)
 	c.Assert(b, HasLen, 16)
 	x0 := b[0]
@@ -52,8 +52,8 @@ func (trivialSuite) TestRandomBytes(c *C) {
 	c.Errorf("all same bytes in result of RandomBytes")
 }
 
-func (trivialSuite) TestRandomPassword(c *C) {
-	p, err := trivial.RandomPassword()
+func (utilsSuite) TestRandomPassword(c *C) {
+	p, err := utils.RandomPassword()
 	c.Assert(err, IsNil)
 	if len(p) < 18 {
 		c.Errorf("password too short: %q", p)
@@ -62,12 +62,12 @@ func (trivialSuite) TestRandomPassword(c *C) {
 	c.Assert(p[len(p)-1], Not(Equals), '=')
 }
 
-func (trivialSuite) TestPasswordHash(c *C) {
+func (utilsSuite) TestPasswordHash(c *C) {
 	tests := []string{"", "a", "a longer password than i would usually bother with"}
 	hs := make(map[string]bool)
 	for i, t := range tests {
 		c.Logf("test %d", i)
-		h := trivial.PasswordHash(t)
+		h := utils.PasswordHash(t)
 		c.Logf("hash %q", h)
 		c.Assert(len(h), Equals, 24)
 		c.Assert(hs[h], Equals, false)
@@ -75,7 +75,7 @@ func (trivialSuite) TestPasswordHash(c *C) {
 		c.Assert(h[len(h)-1], Not(Equals), '=')
 		hs[h] = true
 		// check it's deterministic
-		h1 := trivial.PasswordHash(t)
+		h1 := utils.PasswordHash(t)
 		c.Assert(h1, Equals, h)
 	}
 }
@@ -96,32 +96,14 @@ var (
 	}
 )
 
-func (trivialSuite) TestCompression(c *C) {
-	cdata := trivial.Gzip(data)
+func (utilsSuite) TestCompression(c *C) {
+	cdata := utils.Gzip(data)
 	c.Assert(len(cdata) < len(data), Equals, true)
-	data1, err := trivial.Gunzip(cdata)
+	data1, err := utils.Gunzip(cdata)
 	c.Assert(err, IsNil)
 	c.Assert(data1, DeepEquals, data)
 
-	data1, err = trivial.Gunzip(compressedData)
+	data1, err = utils.Gunzip(compressedData)
 	c.Assert(err, IsNil)
 	c.Assert(data1, DeepEquals, data)
-}
-
-func (trivialSuite) TestUUID(c *C) {
-	uuid, err := trivial.NewUUID()
-	c.Assert(err, IsNil)
-	uuidCopy := uuid.Copy()
-	uuidRaw := uuid.Raw()
-	uuidStr := uuid.String()
-	c.Assert(uuidRaw, HasLen, 16)
-	c.Assert(uuidStr, Matches, "[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[8,9,a,b][0-9a-f]{3}-[0-9a-f]{12}")
-	uuid[0] = 0x00
-	uuidCopy[0] = 0xFF
-	c.Assert(uuid, Not(DeepEquals), uuidCopy)
-	uuidRaw[0] = 0xFF
-	c.Assert(uuid, Not(DeepEquals), uuidRaw)
-	nextUUID, err := trivial.NewUUID()
-	c.Assert(err, IsNil)
-	c.Assert(uuid, Not(DeepEquals), nextUUID)
 }

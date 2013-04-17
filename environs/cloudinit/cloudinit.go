@@ -12,8 +12,8 @@ import (
 	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/upstart"
+	"launchpad.net/juju-core/utils"
 	"path"
 )
 
@@ -60,9 +60,6 @@ type MachineConfig struct {
 	// Tools is juju tools to be used on the new machine.
 	Tools *state.Tools
 
-	// MongoURL is used to retrieve the mongodb tarball.
-	MongoURL string
-
 	// DataDir holds the directory that juju state will be put in the new
 	// machine.
 	DataDir string
@@ -101,15 +98,19 @@ func base64yaml(m *config.Config) string {
 }
 
 func New(cfg *MachineConfig) (*cloudinit.Config, error) {
+	c := cloudinit.New()
+	return Configure(cfg, c)
+}
+
+func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, error) {
 	if err := verifyConfig(cfg); err != nil {
 		return nil, err
 	}
-	c := cloudinit.New()
-
 	c.AddSSHAuthorizedKeys(cfg.AuthorizedKeys)
 	c.AddPackage("git")
 
 	addScripts(c,
+		"set -xe", // ensure we run all the scripts or abort.
 		fmt.Sprintf("mkdir -p %s", cfg.DataDir),
 		"mkdir -p /var/log/juju")
 
@@ -130,12 +131,12 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 
 	var syslogConfigRenderer syslog.SyslogConfigRenderer
 	if cfg.StateServer {
+		if cfg.NeedMongoPPA() {
+			c.AddAptSource("ppa:juju/experimental", "1024R/C8068B11")
+		}
+		c.AddPackage("mongodb-server")
 		certKey := string(cfg.StateServerCert) + string(cfg.StateServerKey)
 		addFile(c, cfg.dataFile("server.pem"), certKey, 0600)
-		addScripts(c,
-			"mkdir -p /opt",
-			fmt.Sprintf("wget --no-verbose -O - %s | tar xz -C /opt", shquote(cfg.MongoURL)),
-		)
 		if err := addMongoToBoot(c, cfg); err != nil {
 			return nil, err
 		}
@@ -283,7 +284,7 @@ func addMongoToBoot(c *cloudinit.Config, cfg *MachineConfig) error {
 	conf := &upstart.Conf{
 		Service: *svc,
 		Desc:    "juju state database",
-		Cmd: "/opt/mongo/bin/mongod" +
+		Cmd: "/usr/bin/mongod" +
 			" --auth" +
 			" --dbpath=/var/lib/juju/db" +
 			" --sslOnNormalPorts" +
@@ -337,8 +338,15 @@ func (cfg *MachineConfig) apiHostAddrs() []string {
 	return hosts
 }
 
+func (cfg *MachineConfig) NeedMongoPPA() bool {
+	series := cfg.Tools.Series
+	// 11.10 and earlier are not supported.
+	// 13.04 and later ship a compatible version in the archive.
+	return series == "precise" || series == "quantal"
+}
+
 func shquote(p string) string {
-	return trivial.ShQuote(p)
+	return utils.ShQuote(p)
 }
 
 type requiresError string
@@ -348,7 +356,7 @@ func (e requiresError) Error() string {
 }
 
 func verifyConfig(cfg *MachineConfig) (err error) {
-	defer trivial.ErrorContextf(&err, "invalid machine configuration")
+	defer utils.ErrorContextf(&err, "invalid machine configuration")
 	if !state.IsMachineId(cfg.MachineId) {
 		return fmt.Errorf("invalid machine id")
 	}

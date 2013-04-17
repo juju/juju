@@ -4,7 +4,8 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/tomb"
 )
 
@@ -16,7 +17,7 @@ type Deployer struct {
 	st       *state.State
 	ctx      Context
 	tag      string
-	deployed map[string]bool
+	deployed set.Strings
 }
 
 // Context abstracts away the differences between different unit deployment
@@ -42,10 +43,9 @@ type Context interface {
 // ctx, according to membership and lifecycle changes notified by w.
 func NewDeployer(st *state.State, ctx Context, w *state.UnitsWatcher) *Deployer {
 	d := &Deployer{
-		st:       st,
-		ctx:      ctx,
-		tag:      w.Tag(),
-		deployed: map[string]bool{},
+		st:  st,
+		ctx: ctx,
+		tag: w.Tag(),
 	}
 	go func() {
 		defer d.tomb.Done()
@@ -88,7 +88,7 @@ func (d *Deployer) changed(unitName string) error {
 	}
 	// Deployed units must be removed if they're Dead, or if the deployer
 	// is no longer responsible for them.
-	if d.deployed[unitName] {
+	if d.deployed.Contains(unitName) {
 		if life == state.Dead || !responsible {
 			if err := d.recall(unitName); err != nil {
 				return err
@@ -99,7 +99,7 @@ func (d *Deployer) changed(unitName string) error {
 	// for and (2) are Alive -- if we're responsible for a Dying unit that is not
 	// yet deployed, we should remove it immediately rather than undergo the hassle
 	// of deploying a unit agent purely so it can set itself to Dead.
-	if responsible && !d.deployed[unitName] {
+	if responsible && !d.deployed.Contains(unitName) {
 		if life == state.Alive {
 			return d.deploy(unit)
 		} else if unit != nil {
@@ -113,11 +113,11 @@ func (d *Deployer) changed(unitName string) error {
 // panic if it observes inconsistent internal state.
 func (d *Deployer) deploy(unit *state.Unit) error {
 	unitName := unit.Name()
-	if d.deployed[unit.Name()] {
+	if d.deployed.Contains(unit.Name()) {
 		panic("must not re-deploy a deployed unit")
 	}
 	log.Infof("worker/deployer: deploying unit %q", unit)
-	initialPassword, err := trivial.RandomPassword()
+	initialPassword, err := utils.RandomPassword()
 	if err != nil {
 		return err
 	}
@@ -127,28 +127,28 @@ func (d *Deployer) deploy(unit *state.Unit) error {
 	if err := d.ctx.DeployUnit(unitName, initialPassword); err != nil {
 		return err
 	}
-	d.deployed[unitName] = true
+	d.deployed.Add(unitName)
 	return nil
 }
 
 // recall will recall the named unit with the deployer's manager. It will
 // panic if it observes inconsistent internal state.
 func (d *Deployer) recall(unitName string) error {
-	if !d.deployed[unitName] {
+	if !d.deployed.Contains(unitName) {
 		panic("must not recall a unit that is not deployed")
 	}
 	log.Infof("worker/deployer: recalling unit %q", unitName)
 	if err := d.ctx.RecallUnit(unitName); err != nil {
 		return err
 	}
-	delete(d.deployed, unitName)
+	d.deployed.Remove(unitName)
 	return nil
 }
 
 // remove will remove the supplied unit from state. It will panic if it
 // observes inconsistent internal state.
 func (d *Deployer) remove(unit *state.Unit) error {
-	if d.deployed[unit.Name()] {
+	if d.deployed.Contains(unit.Name()) {
 		panic("must not remove a deployed unit")
 	} else if unit.Life() == state.Alive {
 		panic("must not remove an Alive unit")
@@ -166,7 +166,7 @@ func (d *Deployer) loop(w *state.UnitsWatcher) error {
 		return err
 	}
 	for _, unitName := range deployed {
-		d.deployed[unitName] = true
+		d.deployed.Add(unitName)
 		if err := d.changed(unitName); err != nil {
 			return err
 		}

@@ -109,7 +109,7 @@ func (t *LiveTests) SetUpSuite(c *C) {
 	// Put some fake tools in place so that tests that are simply
 	// starting instances without any need to check if those instances
 	// are running will find them in the public bucket.
-	envtesting.PutFakeTools(c, t.writeablePublicStorage)
+	envtesting.UploadFakeTools(c, t.writeablePublicStorage)
 }
 
 func (t *LiveTests) TearDownSuite(c *C) {
@@ -133,20 +133,4 @@ func (t *LiveTests) SetUpTest(c *C) {
 func (t *LiveTests) TearDownTest(c *C) {
 	t.LiveTests.TearDownTest(c)
 	t.LoggingSuite.TearDownTest(c)
-}
-
-func (t *LiveTests) TestFindImageSpec(c *C) {
-	instanceType := openstack.DefaultInstanceType(t.Env)
-	imageId, flavorId, err := openstack.FindInstanceSpec(t.Env, "precise", "amd64", instanceType)
-	c.Assert(err, IsNil)
-	c.Assert(imageId, Equals, t.testImageId)
-	c.Assert(flavorId, Not(Equals), "")
-}
-
-func (t *LiveTests) TestFindImageBadFlavor(c *C) {
-	imageId, flavorId, err := openstack.FindInstanceSpec(t.Env, "precise", "amd64", "bad.flavor")
-	_, ok := err.(environs.NotFoundError)
-	c.Assert(ok, Equals, true)
-	c.Assert(imageId, Equals, "")
-	c.Assert(flavorId, Equals, "")
 }

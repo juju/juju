@@ -7,6 +7,9 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/utils/set"
+	"launchpad.net/juju-core/version"
 	"os"
 	"strings"
 )
@@ -17,7 +20,7 @@ type BootstrapCommand struct {
 	EnvCommandBase
 	Constraints constraints.Value
 	UploadTools bool
-	FakeSeries  []string
+	Series      []string
 }
 
 func (c *BootstrapCommand) Info() *cmd.Info {
@@ -31,12 +34,12 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "set environment constraints")
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
-	f.Var(seriesVar{&c.FakeSeries}, "fake-series", "clone uploaded tools for supplied serieses")
+	f.Var(seriesVar{&c.Series}, "series", "upload tools for supplied comma-separated series list")
 }
 
 func (c *BootstrapCommand) Init(args []string) error {
-	if len(c.FakeSeries) > 0 && !c.UploadTools {
-		return fmt.Errorf("--fake-series requires --upload-tools")
+	if len(c.Series) > 0 && !c.UploadTools {
+		return fmt.Errorf("--series requires --upload-tools")
 	}
 	return cmd.CheckEmpty(args)
 }
@@ -64,11 +67,16 @@ func (c *BootstrapCommand) Run(context *cmd.Context) error {
 	}
 
 	if c.UploadTools {
-		tools, err := environs.PutTools(environ.Storage(), nil, c.FakeSeries...)
+		// Force version.Current, for consistency with subsequent upgrade-juju
+		// (see UpgradeJujuCommand).
+		forceVersion := uploadVersion(version.Current.Number, nil)
+		cfg := environ.Config()
+		series := getUploadSeries(cfg, c.Series)
+		tools, err := uploadTools(environ.Storage(), &forceVersion, series...)
 		if err != nil {
 			return err
 		}
-		cfg, err := environ.Config().Apply(map[string]interface{}{
+		cfg, err = cfg.Apply(map[string]interface{}{
 			"agent-version": tools.Number.String(),
 		})
 		if err == nil {
@@ -98,4 +106,17 @@ func (v seriesVar) Set(value string) error {
 
 func (v seriesVar) String() string {
 	return strings.Join(*v.target, ",")
+}
+
+// getUploadSeries returns the supplied series with duplicates removed if
+// non-empty; otherwise it returns a default list of series we should
+// probably upload, based on cfg.
+func getUploadSeries(cfg *config.Config, series []string) []string {
+	unique := set.NewStrings(series...)
+	if unique.IsEmpty() {
+		unique.Add(version.Current.Series)
+		unique.Add(config.DefaultSeries)
+		unique.Add(cfg.DefaultSeries())
+	}
+	return unique.Values()
 }

@@ -9,12 +9,13 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 	"time"
 )
@@ -33,7 +34,7 @@ type LiveTests struct {
 
 	// Attempt holds a strategy for waiting until the environment
 	// becomes logically consistent.
-	Attempt trivial.AttemptStrategy
+	Attempt utils.AttemptStrategy
 
 	// CanOpenState should be true if the testing environment allows
 	// the state to be opened after bootstrapping.
@@ -85,7 +86,7 @@ func (t *LiveTests) BootstrapOnce(c *C) {
 	// we could connect to (actual live tests, rather than local-only)
 	cons := constraints.MustParse("mem=2G")
 	if t.CanOpenState {
-		_, err := environs.PutTools(t.Env.Storage(), nil)
+		_, err := tools.Upload(t.Env.Storage(), nil, config.DefaultSeries)
 		c.Assert(err, IsNil)
 	}
 	err := environs.Bootstrap(t.Env, cons)
@@ -336,7 +337,9 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	// bootstrap process (it's optional in the config.Config)
 	cfg, err := conn.State.EnvironConfig()
 	c.Assert(err, IsNil)
-	c.Check(cfg.AgentVersion(), Equals, version.CurrentNumber())
+	agentVersion, ok := cfg.AgentVersion()
+	c.Check(ok, Equals, true)
+	c.Check(agentVersion, Equals, version.CurrentNumber())
 
 	// Check that the constraints have been set in the environment.
 	cons, err := conn.State.EnvironConstraints()
@@ -370,7 +373,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	c.Assert(err, IsNil)
 	svc, err := conn.State.AddService("dummy", sch)
 	c.Assert(err, IsNil)
-	units, err := conn.AddUnits(svc, 1)
+	units, err := conn.AddUnits(svc, 1, "")
 	c.Assert(err, IsNil)
 	unit := units[0]
 
@@ -544,7 +547,7 @@ func waitAgentTools(c *C, w *toolsWaiter, expect version.Binary) *state.Tools {
 // all the provided watchers upgrade to the requested version.
 func (t *LiveTests) checkUpgrade(c *C, conn *juju.Conn, newVersion version.Binary, waiters ...*toolsWaiter) {
 	c.Logf("putting testing version of juju tools")
-	upgradeTools, err := environs.PutTools(t.Env.Storage(), &newVersion.Number)
+	upgradeTools, err := tools.Upload(t.Env.Storage(), &newVersion.Number)
 	c.Assert(err, IsNil)
 
 	// Check that the put version really is the version we expect.
@@ -576,7 +579,7 @@ func setAgentVersion(st *state.State, vers version.Number) error {
 	return st.SetEnvironConfig(cfg)
 }
 
-var waitAgent = trivial.AttemptStrategy{
+var waitAgent = utils.AttemptStrategy{
 	Total: 30 * time.Second,
 	Delay: 1 * time.Second,
 }
@@ -691,7 +694,7 @@ func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
 	c.Assert(inst, IsNil)
 	var notFoundError *environs.NotFoundError
 	c.Assert(err, FitsTypeOf, notFoundError)
-	c.Assert(err, ErrorMatches, "no compatible tools found")
+	c.Assert(err, ErrorMatches, "no matching tools available")
 }
 
 // Check that we can't start an instance with an empty nonce value.
@@ -741,20 +744,20 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
 	// already bootstrapped.
 	t.Destroy(c)
 
-	currentPath := environs.ToolsStoragePath(current)
-	otherPath := environs.ToolsStoragePath(other)
+	currentName := tools.StorageName(current)
+	otherName := tools.StorageName(other)
 	envStorage := env.Storage()
 	dummyStorage := dummyenv.Storage()
 
-	defer envStorage.Remove(otherPath)
+	defer envStorage.Remove(otherName)
 
-	_, err = environs.PutTools(dummyStorage, &current.Number)
+	_, err = tools.Upload(dummyStorage, &current.Number)
 	c.Assert(err, IsNil)
 
 	// This will only work while cross-compiling across releases is safe,
 	// which depends on external elements. Tends to be safe for the last
 	// few releases, but we may have to refactor some day.
-	err = storageCopy(dummyStorage, currentPath, envStorage, otherPath)
+	err = storageCopy(dummyStorage, currentName, envStorage, otherName)
 	c.Assert(err, IsNil)
 
 	err = environs.Bootstrap(env, constraints.Value{})

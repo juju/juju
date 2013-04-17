@@ -10,18 +10,17 @@ import (
 )
 
 // AddServiceUnits adds a given number of units to a service.
-func AddServiceUnits(state *state.State, args params.AddServiceUnits) error {
+func AddServiceUnits(state *state.State, args params.AddServiceUnits) ([]*state.Unit, error) {
 	conn, err := juju.NewConnFromState(state)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	service, err := state.Service(args.ServiceName)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if args.NumUnits < 1 {
-		return errors.New("must add at least one unit")
+		return nil, errors.New("must add at least one unit")
 	}
-	_, err = conn.AddUnits(service, args.NumUnits)
-	return err
+	return conn.AddUnits(service, args.NumUnits, "")
 }

@@ -27,6 +27,7 @@ environments:
         state-server: false
         admin-secret: arble
         authorized-keys: i-am-a-key
+        default-series: defaultseries
     walthamstow:
         type: dummy
         state-server: false
@@ -115,7 +116,6 @@ func (*CmdSuite) TestEnvironmentInit(c *C) {
 func runCommand(com cmd.Command, args ...string) (opc chan dummy.Operation, errc chan error) {
 	errc = make(chan error, 1)
 	opc = make(chan dummy.Operation, 200)
-	dummy.Reset()
 	dummy.Listen(opc)
 	go func() {
 		// signal that we're done with this ops channel.

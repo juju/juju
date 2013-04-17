@@ -16,10 +16,6 @@ import (
 	"sync"
 )
 
-// TODO(rog) remove this when the rest of the system
-// has been updated to set passwords appropriately.
-var AuthenticationEnabled = false
-
 // srvRoot represents a single client's connection to the state.
 type srvRoot struct {
 	admin    *srvAdmin
@@ -285,12 +281,20 @@ func (aw srvClientAllWatcher) Stop() error {
 
 // ServiceSet implements the server side of Client.ServerSet.
 func (c *srvClient) ServiceSet(p params.ServiceSet) error {
-	return juju.ServiceSet(c.root.srv.state, p)
+	svc, err := c.root.srv.state.Service(p.ServiceName)
+	if err != nil {
+		return err
+	}
+	return svc.SetConfig(p.Options)
 }
 
 // ServiceSetYAML implements the server side of Client.ServerSetYAML.
 func (c *srvClient) ServiceSetYAML(p params.ServiceSetYAML) error {
-	return juju.ServiceSetYAML(c.root.srv.state, p)
+	svc, err := c.root.srv.state.Service(p.ServiceName)
+	if err != nil {
+		return err
+	}
+	return svc.SetConfigYAML([]byte(p.Config))
 }
 
 // ServiceGet returns the configuration for a service.
@@ -300,7 +304,11 @@ func (c *srvClient) ServiceGet(args params.ServiceGet) (params.ServiceGetResults
 
 // Resolved implements the server side of Client.Resolved.
 func (c *srvClient) Resolved(p params.Resolved) error {
-	return statecmd.Resolved(c.root.srv.state, p)
+	unit, err := c.root.srv.state.Unit(p.UnitName)
+	if err != nil {
+		return err
+	}
+	return unit.Resolve(p.Retry)
 }
 
 // ServiceExpose changes the juju-managed firewall to expose any ports that
@@ -358,8 +366,16 @@ func (c *srvClient) ServiceDeploy(args params.ServiceDeploy) error {
 }
 
 // AddServiceUnits adds a given number of units to a service.
-func (c *srvClient) AddServiceUnits(args params.AddServiceUnits) error {
-	return statecmd.AddServiceUnits(c.root.srv.state, args)
+func (c *srvClient) AddServiceUnits(args params.AddServiceUnits) (params.AddServiceUnitsResults, error) {
+	units, err := statecmd.AddServiceUnits(c.root.srv.state, args)
+	if err != nil {
+		return params.AddServiceUnitsResults{}, err
+	}
+	unitNames := make([]string, len(units))
+	for i, unit := range units {
+		unitNames[i] = unit.String()
+	}
+	return params.AddServiceUnitsResults{Units: unitNames}, nil
 }
 
 // DestroyServiceUnits removes a given set of service units.
@@ -545,11 +561,6 @@ func (u *authUser) login(st *state.State, tag, password string) error {
 	entity, err := st.Authenticator(tag)
 	if err != nil && !state.IsNotFound(err) {
 		return err
-	}
-	// TODO(rog) remove
-	if !AuthenticationEnabled {
-		u.entity = entity
-		return nil
 	}
 	// We return the same error when an entity
 	// does not exist as for a bad password, so that

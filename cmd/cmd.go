@@ -158,7 +158,7 @@ func Main(c Command, ctx *Context, args []string) int {
 	}
 	if err := c.Run(ctx); err != nil {
 		if err != ErrSilent {
-			log.Errorf("%s command failed: %s\n", c.Info().Name, err)
+			log.Errorf("command failed: %s\n", err)
 			fmt.Fprintf(ctx.Stderr, "error: %v\n", err)
 		}
 		return 1
@@ -190,4 +190,17 @@ func CheckEmpty(args []string) error {
 		return fmt.Errorf("unrecognized args: %q", args)
 	}
 	return nil
+}
+
+// ZeroOrOneArgs checks to see that there are zero or one args, and returns
+// the value of the arg if provided, or the empty string if not.
+func ZeroOrOneArgs(args []string) (string, error) {
+	var result string
+	if len(args) > 0 {
+		result, args = args[0], args[1:]
+	}
+	if err := CheckEmpty(args); err != nil {
+		return "", err
+	}
+	return result, nil
 }

@@ -90,7 +90,7 @@ func (s *FirewallerSuite) TestStartStop(c *C) {
 }
 
 func (s *FirewallerSuite) addUnit(c *C, svc *state.Service) (*state.Unit, *state.Machine) {
-	units, err := s.Conn.AddUnits(svc, 1)
+	units, err := s.Conn.AddUnits(svc, 1, "")
 	c.Assert(err, IsNil)
 	u := units[0]
 	id, err := u.AssignedMachineId()
@@ -129,7 +129,7 @@ func (s *FirewallerSuite) setGlobalMode(c *C) func(*C) {
 // startInstance starts a new instance for the given machine.
 func (s *FirewallerSuite) startInstance(c *C, m *state.Machine) environs.Instance {
 	inst := testing.StartInstance(c, s.Conn.Environ, m.Id())
-	err := m.SetInstanceId(inst.Id())
+	err := m.SetProvisioned(inst.Id(), "fake_nonce")
 	c.Assert(err, IsNil)
 	return inst
 }

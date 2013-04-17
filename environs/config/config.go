@@ -32,6 +32,9 @@ const (
 
 // Config holds an immutable environment configuration.
 type Config struct {
+	// m holds the attributes that are defined for Config.
+	// t holds the other attributes that are passed in (aka UnknownAttrs).
+	// the union of these two are AllAttrs
 	m, t map[string]interface{}
 }
 
@@ -65,21 +68,14 @@ func New(attrs map[string]interface{}) (*Config, error) {
 		t: make(map[string]interface{}),
 	}
 
-	name := c.m["name"].(string)
-	if name == "" {
-		return nil, fmt.Errorf("empty name in environment configuration")
-	}
-	if strings.ContainsAny(name, "/\\") {
-		return nil, fmt.Errorf("environment name contains unsafe characters")
-	}
-
-	if c.m["default-series"].(string) == "" {
+	// If the default-series has been explicitly set, but empty, set to the default series.
+	if c.asString("default-series") == "" {
 		c.m["default-series"] = DefaultSeries
 	}
 
 	// Load authorized-keys-path into authorized-keys if necessary.
-	path := c.m["authorized-keys-path"].(string)
-	keys := c.m["authorized-keys"].(string)
+	path := c.asString("authorized-keys-path")
+	keys := c.asString("authorized-keys")
 	if path != "" || keys == "" {
 		c.m["authorized-keys"], err = readAuthorizedKeys(path)
 		if err != nil {
@@ -88,6 +84,7 @@ func New(attrs map[string]interface{}) (*Config, error) {
 	}
 	delete(c.m, "authorized-keys-path")
 
+	name := c.Name()
 	caCert, err := maybeReadFile(c.m, "ca-cert", name+"-cert.pem")
 	if err != nil {
 		return nil, err
@@ -102,29 +99,14 @@ func New(attrs map[string]interface{}) (*Config, error) {
 		}
 	}
 
-	// Check if there are any required fields that are empty.
-	for _, attr := range []string{"type", "default-series", "authorized-keys"} {
-		if s, _ := c.m[attr].(string); s == "" {
-			return nil, fmt.Errorf("empty %s in environment configuration", attr)
-		}
+	// no old config to compare against
+	if err = Validate(c, nil); err != nil {
+		return nil, err
 	}
 
-	// Check that the agent version parses ok if set explicitly; otherwise set it.
-	if v, ok := c.m["agent-version"].(string); ok {
-		if _, err := version.Parse(v); err != nil {
-			return nil, fmt.Errorf("invalid agent version in environment configuration: %q", v)
-		}
-	} else {
-		c.m["agent-version"] = version.CurrentNumber().String()
-	}
-
-	// Check firewall mode.
-	firewallMode := FirewallMode(c.m["firewall-mode"].(string))
-	switch firewallMode {
-	case FwDefault, FwInstance, FwGlobal:
-		// Valid mode.
-	default:
-		return nil, fmt.Errorf("invalid firewall mode in environment configuration: %q", firewallMode)
+	// Default firewall mode is instance.
+	if c.FirewallMode() == FwDefault {
+		c.m["firewall-mode"] = string(FwInstance)
 	}
 
 	// Copy unknown attributes onto the type-specific map.
@@ -134,6 +116,58 @@ func New(attrs map[string]interface{}) (*Config, error) {
 		}
 	}
 	return c, nil
+}
+
+// Validate ensures that config is a valid configuration.  If old is not nil,
+// it holds the previous environment configuration for consideration when
+// validating changes.
+func Validate(cfg, old *Config) error {
+
+	// Check if there are any required fields that are empty.
+	for _, attr := range []string{"name", "type", "default-series", "authorized-keys"} {
+		if cfg.asString(attr) == "" {
+			return fmt.Errorf("empty %s in environment configuration", attr)
+		}
+	}
+
+	if strings.ContainsAny(cfg.asString("name"), "/\\") {
+		return fmt.Errorf("environment name contains unsafe characters")
+	}
+
+	// Check that the agent version parses ok if set explicitly; otherwise leave
+	// it alone.
+	if v, ok := cfg.m["agent-version"].(string); ok {
+		if _, err := version.Parse(v); err != nil {
+			return fmt.Errorf("invalid agent version in environment configuration: %q", v)
+		}
+	}
+
+	// Check firewall mode.
+	firewallMode := cfg.FirewallMode()
+	switch firewallMode {
+	case FwDefault, FwInstance, FwGlobal:
+		// Valid mode.
+	default:
+		return fmt.Errorf("invalid firewall mode in environment configuration: %q", firewallMode)
+	}
+
+	// Check the immutable config values.  These can't change
+	if old != nil {
+		for _, attr := range []string{"type", "name", "firewall-mode"} {
+			oldValue := old.asString(attr)
+			newValue := cfg.asString(attr)
+			if oldValue != newValue {
+				return fmt.Errorf("cannot change %s from %q to %q", attr, oldValue, newValue)
+			}
+		}
+		if _, oldFound := old.AgentVersion(); oldFound {
+			if _, newFound := cfg.AgentVersion(); !newFound {
+				return fmt.Errorf("cannot clear agent-version")
+			}
+		}
+	}
+
+	return nil
 }
 
 // maybeReadFile sets m[attr] to:
@@ -178,30 +212,35 @@ func maybeReadFile(m map[string]interface{}, attr, defaultPath string) ([]byte, 
 	return data, nil
 }
 
+// asString is a private helper method to keep the ugly casting in once place.
+func (c *Config) asString(name string) string {
+	return c.m[name].(string)
+}
+
 // Type returns the environment type.
 func (c *Config) Type() string {
-	return c.m["type"].(string)
+	return c.asString("type")
 }
 
 // Name returns the environment name.
 func (c *Config) Name() string {
-	return c.m["name"].(string)
+	return c.asString("name")
 }
 
 // DefaultSeries returns the default Ubuntu series for the environment.
 func (c *Config) DefaultSeries() string {
-	return c.m["default-series"].(string)
+	return c.asString("default-series")
 }
 
 // AuthorizedKeys returns the content for ssh's authorized_keys file.
 func (c *Config) AuthorizedKeys() string {
-	return c.m["authorized-keys"].(string)
+	return c.asString("authorized-keys")
 }
 
 // CACert returns the certificate of the CA that signed the state server
 // certificate, in PEM format, and whether the setting is available.
 func (c *Config) CACert() ([]byte, bool) {
-	if s := c.m["ca-cert"].(string); s != "" {
+	if s := c.asString("ca-cert"); s != "" {
 		return []byte(s), true
 	}
 	return nil, false
@@ -210,7 +249,7 @@ func (c *Config) CACert() ([]byte, bool) {
 // CAPrivateKey returns the private key of the CA that signed the state
 // server certificate, in PEM format, and whether the setting is available.
 func (c *Config) CAPrivateKey() (key []byte, ok bool) {
-	if s := c.m["ca-private-key"].(string); s != "" {
+	if s := c.asString("ca-private-key"); s != "" {
 		return []byte(s), true
 	}
 	return nil, false
@@ -219,23 +258,27 @@ func (c *Config) CAPrivateKey() (key []byte, ok bool) {
 // AdminSecret returns the administrator password.
 // It's empty if the password has not been set.
 func (c *Config) AdminSecret() string {
-	return c.m["admin-secret"].(string)
+	return c.asString("admin-secret")
 }
 
 // FirewallMode returns whether the firewall should
 // manage ports per machine or global.
 func (c *Config) FirewallMode() FirewallMode {
-	return FirewallMode(c.m["firewall-mode"].(string))
+	return FirewallMode(c.asString("firewall-mode"))
 }
 
-// AgentVersion returns the proposed version number for the agent tools.
-func (c *Config) AgentVersion() version.Number {
-	v := c.m["agent-version"].(string)
-	n, err := version.Parse(v)
-	if err != nil {
-		panic(err) // We should have checked it earlier.
+// AgentVersion returns the proposed version number for the agent tools,
+// and whether it has been set. Once an environment is bootstrapped, this
+// must always be valid.
+func (c *Config) AgentVersion() (version.Number, bool) {
+	if v, ok := c.m["agent-version"].(string); ok {
+		n, err := version.Parse(v)
+		if err != nil {
+			panic(err) // We should have checked it earlier.
+		}
+		return n, true
 	}
-	return n
+	return version.Zero, false
 }
 
 // Development returns whether the environment is in development mode.

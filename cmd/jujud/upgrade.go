@@ -47,7 +47,7 @@ func (e *UpgradeReadyError) ChangeAgentTools() error {
 	if err != nil {
 		return err
 	}
-	log.Infof("cmd/jujud: upgrader upgraded from %v to %v (%q)", e.OldTools.Binary, tools.Binary, tools.URL)
+	log.Infof("upgrader upgraded from %v to %v (%q)", e.OldTools.Binary, tools.Binary, tools.URL)
 	return nil
 }
 
@@ -95,7 +95,7 @@ func (u *Upgrader) run() error {
 		// Don't abort everything because we can't find the tools directory.
 		// The problem should sort itself out as we will immediately
 		// download some more tools and upgrade.
-		log.Warningf("cmd/jujud: upgrader cannot read current tools: %v", err)
+		log.Warningf("upgrader cannot read current tools: %v", err)
 		currentTools = &state.Tools{
 			Binary: version.Current,
 		}
@@ -105,6 +105,10 @@ func (u *Upgrader) run() error {
 		return err
 	}
 
+	// TODO(fwereade): this whole package should be ignorant of environs,
+	// so it shouldn't be watching environ config (and it shouldn't be
+	// looking in storage): we should be able to find out what to download
+	// from state, exactly as we do for charms.
 	w := u.st.WatchEnvironConfig()
 	defer watcher.Stop(w, &u.tomb)
 
@@ -146,20 +150,25 @@ func (u *Upgrader) run() error {
 			if environ == nil {
 				environ, err = environs.New(cfg)
 				if err != nil {
-					log.Errorf("cmd/jujud: upgrader loaded invalid initial environment configuration: %v", err)
+					log.Errorf("upgrader loaded invalid initial environment configuration: %v", err)
 					break
 				}
 			} else {
 				err = environ.SetConfig(cfg)
 				if err != nil {
-					log.Warningf("cmd/jujud: upgrader loaded invalid environment configuration: %v", err)
+					log.Warningf("upgrader loaded invalid environment configuration: %v", err)
 					// continue on, because the version number is still significant.
 				}
 			}
-			vers := cfg.AgentVersion()
+			proposed, ok := cfg.AgentVersion()
+			if !ok {
+				// This shouldn't be possible; but if it happens it's no reason
+				// to kill this task. Just wait for the config to change again.
+				continue
+			}
 			if download != nil {
 				// There's a download in progress, stop it if we need to.
-				if vers == downloadTools.Number {
+				if downloadTools.Number == proposed {
 					// We are already downloading the requested tools.
 					break
 				}
@@ -167,47 +176,36 @@ func (u *Upgrader) run() error {
 				download.Stop()
 				download, downloadTools, downloadDone = nil, nil, nil
 			}
-			// Ignore the proposed tools if we're already running the
-			// proposed version.
-			if vers == version.Current.Number {
+			// TODO: major version upgrades.
+			if proposed.Major != version.Current.Major {
+				log.Errorf("major version upgrades are not supported yet")
 				noDelay()
 				break
 			}
-			binary := version.Current
-			binary.Number = vers
-			if tools, err := agent.ReadTools(u.dataDir, binary); err == nil {
+			if proposed == version.Current.Number {
+				noDelay()
+				break
+			}
+			required := version.Binary{
+				Number: proposed,
+				Series: version.Current.Series,
+				Arch:   version.Current.Arch,
+			}
+			if tools, err := agent.ReadTools(u.dataDir, required); err == nil {
 				// The exact tools have already been downloaded, so use them.
 				return u.upgradeReady(currentTools, tools)
 			}
-
-			// Try to find the proposed tools in the environment, and fall back
-			// to the most recent version no later than the proposed.
-			flags := environs.CompatVersion
-			if cfg.Development() {
-				flags |= environs.DevVersion
-			}
-			tools, err := environs.FindTools(environ, binary, flags)
+			tools, err := environs.FindExactTools(environ, required)
 			if err != nil {
-				log.Errorf("cmd/jujud: upgrader error finding tools for %v: %v", binary, err)
+				log.Errorf("upgrader error finding tools for %v: %v", required, err)
+				if _, missing := err.(*environs.NotFoundError); !missing {
+					return err
+				}
 				noDelay()
 				// TODO(rog): poll until tools become available.
 				break
 			}
-			if tools.Binary != binary {
-				if tools.Number == version.Current.Number {
-					// TODO(rog): poll until tools become available.
-					log.Warningf("cmd/jujud: upgrader: version %v requested but found only current version: %v", binary, tools.Number)
-					noDelay()
-					break
-				}
-				log.Warningf("cmd/jujud: upgrader cannot find exact tools match for %s; using %s instead", binary, tools.Binary)
-			}
-			if tools, err := agent.ReadTools(u.dataDir, tools.Binary); err == nil {
-				// The best available tools have already been downloaded, so use them.
-				return u.upgradeReady(currentTools, tools)
-			}
-
-			log.Infof("cmd/jujud: upgrader downloading %q", tools.URL)
+			log.Infof("upgrader downloading %q", tools.URL)
 			download = downloader.New(tools.URL, "")
 			downloadTools = tools
 			downloadDone = download.Done()
@@ -215,17 +213,17 @@ func (u *Upgrader) run() error {
 			tools := downloadTools
 			download, downloadTools, downloadDone = nil, nil, nil
 			if status.Err != nil {
-				log.Errorf("cmd/jujud: upgrader download of %v failed: %v", tools.Binary, status.Err)
+				log.Errorf("upgrader download of %v failed: %v", tools.Binary, status.Err)
 				noDelay()
 				break
 			}
 			err := agent.UnpackTools(u.dataDir, tools, status.File)
 			status.File.Close()
 			if err := os.Remove(status.File.Name()); err != nil {
-				log.Warningf("cmd/jujud: upgrader cannot remove temporary download file: %v", err)
+				log.Warningf("upgrader cannot remove temporary download file: %v", err)
 			}
 			if err != nil {
-				log.Errorf("cmd/jujud: upgrader cannot unpack %v tools: %v", tools.Binary, err)
+				log.Errorf("upgrader cannot unpack %v tools: %v", tools.Binary, err)
 				noDelay()
 				break
 			}

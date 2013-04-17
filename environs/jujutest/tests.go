@@ -7,10 +7,12 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 	"net/http"
 	"sort"
 )
@@ -67,17 +69,15 @@ func (t *Tests) TearDownTest(c *C) {
 	t.LoggingSuite.TearDownTest(c)
 }
 
-func (t *Tests) TestBootstrapWithoutAdminSecret(c *C) {
-	m := t.Env.Config().AllAttrs()
-	delete(m, "admin-secret")
-	env, err := environs.NewFromAttrs(m)
-	c.Assert(err, IsNil)
-	err = environs.Bootstrap(env, constraints.Value{})
-	c.Assert(err, ErrorMatches, ".*admin-secret is required for bootstrap")
-}
-
 func (t *Tests) TestStartStop(c *C) {
 	e := t.Open(c)
+	envtesting.UploadFakeTools(c, e.Storage())
+	cfg, err := e.Config().Apply(map[string]interface{}{
+		"agent-version": version.Current.Number.String(),
+	})
+	c.Assert(err, IsNil)
+	err = e.SetConfig(cfg)
+	c.Assert(err, IsNil)
 
 	insts, err := e.Instances(nil)
 	c.Assert(err, IsNil)
@@ -150,7 +150,7 @@ func (t *Tests) TestBootstrap(c *C) {
 	c.Assert(err, NotNil)
 }
 
-var noRetry = trivial.AttemptStrategy{}
+var noRetry = utils.AttemptStrategy{}
 
 func (t *Tests) TestPersistence(c *C) {
 	storage := t.Open(c).Storage()
@@ -219,7 +219,7 @@ func checkPutFile(c *C, storage environs.StorageWriter, name string, contents []
 	c.Assert(err, IsNil)
 }
 
-func checkFileDoesNotExist(c *C, storage environs.StorageReader, name string, attempt trivial.AttemptStrategy) {
+func checkFileDoesNotExist(c *C, storage environs.StorageReader, name string, attempt utils.AttemptStrategy) {
 	var r io.ReadCloser
 	var err error
 	for a := attempt.Start(); a.Next(); {
@@ -233,7 +233,7 @@ func checkFileDoesNotExist(c *C, storage environs.StorageReader, name string, at
 	c.Assert(err, FitsTypeOf, notFoundError)
 }
 
-func checkFileHasContents(c *C, storage environs.StorageReader, name string, contents []byte, attempt trivial.AttemptStrategy) {
+func checkFileHasContents(c *C, storage environs.StorageReader, name string, contents []byte, attempt utils.AttemptStrategy) {
 	r, err := storage.Get(name)
 	c.Assert(err, IsNil)
 	c.Check(r, NotNil)
