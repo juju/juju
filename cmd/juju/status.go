@@ -53,16 +53,17 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	defer conn.Close()
 
 	var ctxt statusContext
-	ctxt.instances, err = fetchAllInstances(conn.Environ)
-	if err != nil {
-
-		return err
-	}
 	if ctxt.machines, err = fetchAllMachines(conn.State); err != nil {
 		return err
 	}
 	if ctxt.services, ctxt.units, err = fetchAllServicesAndUnits(conn.State); err != nil {
 		return err
+	}
+	ctxt.instances, err = fetchAllInstances(conn.Environ)
+	if err != nil {
+		// We cannot see instances from the environment, but
+		// there's still lots of potentially useful info to print.
+		fmt.Fprintf(ctx.Stderr, "cannot retrieve instances from the environment: %v\n", err)
 	}
 	result := struct {
 		Machines map[string]machineStatus `json:"machines"`
