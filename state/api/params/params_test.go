@@ -5,6 +5,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"testing"
 )
@@ -42,10 +43,15 @@ var marshalTestCases = []struct {
 			Name:        "Benji",
 			Exposed:     true,
 			CharmURL:    "cs:series/name",
+			Life:        state.Dying.String(),
 			Constraints: constraints.MustParse("arch=arm mem=1024M"),
+			Config: map[string]interface{}{
+				"hello": "goodbye",
+				"foo":   false,
+			},
 		},
 	},
-	json: `["service","change",{"CharmURL": "cs:series/name","Name":"Benji","Exposed":true,"Constraints":{"arch":"arm", "mem": 1024}}]`,
+	json: `["service","change",{"CharmURL": "cs:series/name","Name":"Benji","Exposed":true,"Life":"dying","Constraints":{"arch":"arm", "mem": 1024},"Config": {"hello":"goodbye","foo":false}}]`,
 }, {
 	about: "UnitInfo Delta",
 	value: params.Delta{
