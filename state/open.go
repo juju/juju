@@ -83,7 +83,6 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 		ServerName: "anything",
 	}
 	dial := func(addr net.Addr) (net.Conn, error) {
-		log.Infof("state: connecting to %v", addr)
 		c, err := net.Dial("tcp", addr.String())
 		if err != nil {
 			log.Errorf("state: connection failed, paused for %v: %v", opts.RetryDelay, err)
@@ -95,7 +94,6 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 			log.Errorf("state: TLS handshake failed: %v", err)
 			return nil, err
 		}
-		log.Infof("state: connection established")
 		return cc, nil
 	}
 	session, err := mgo.DialWithInfo(&mgo.DialInfo{
@@ -106,6 +104,7 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	if err != nil {
 		return nil, err
 	}
+	log.Infof("state: connection established")
 	st, err := newState(session, info)
 	if err != nil {
 		session.Close()
