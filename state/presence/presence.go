@@ -15,6 +15,11 @@ import (
 	"time"
 )
 
+// Debug specifies whether the package will log debug
+// messages.
+// TODO(rog) allow debug level setting in the log package.
+var Debug = false
+
 // The implementation works by assigning a unique sequence number to each
 // pinger that is alive, and the pinger is then responsible for
 // periodically updating the current time slot document with its
@@ -257,7 +262,7 @@ func (w *Watcher) flush() {
 // handle deals with requests delivered by the public API
 // onto the background watcher goroutine.
 func (w *Watcher) handle(req interface{}) {
-	log.Debugf("state/presence: got request: %#v", req)
+	debugf("state/presence: got request: %#v", req)
 	switch r := req.(type) {
 	case reqSync:
 		w.next = time.After(0)
@@ -335,7 +340,7 @@ func (w *Watcher) sync() error {
 				}
 				seq := k + i
 				dead[seq] = true
-				log.Debugf("state/presence: found seq=%d dead", seq)
+				debugf("state/presence: found seq=%d dead", seq)
 			}
 		}
 	}
@@ -365,7 +370,7 @@ func (w *Watcher) sync() error {
 				}
 				err := w.beings.Find(bson.D{{"_id", seq}}).One(&being)
 				if err == mgo.ErrNotFound {
-					log.Debugf("state/presence: found seq=%d unowned", seq)
+					debugf("state/presence: found seq=%d unowned", seq)
 					continue
 				} else if err != nil {
 					return err
@@ -382,7 +387,7 @@ func (w *Watcher) sync() error {
 				if cur > 0 || dead[seq] {
 					continue
 				}
-				log.Debugf("state/presence: found seq=%d alive with key %q", seq, being.Key)
+				debugf("state/presence: found seq=%d alive with key %q", seq, being.Key)
 				for _, ch := range w.watches[being.Key] {
 					w.pending = append(w.pending, event{ch, being.Key, true})
 				}
@@ -438,7 +443,7 @@ func (p *Pinger) Start() error {
 	if err := p.prepare(); err != nil {
 		return err
 	}
-	log.Debugf("state/presence: starting pinger for %q with seq=%d", p.beingKey, p.beingSeq)
+	debugf("state/presence: starting pinger for %q with seq=%d", p.beingKey, p.beingSeq)
 	if err := p.ping(); err != nil {
 		return err
 	}
@@ -457,7 +462,7 @@ func (p *Pinger) Stop() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.started {
-		log.Debugf("state/presence: stopping pinger for %q with seq=%d", p.beingKey, p.beingSeq)
+		debugf("state/presence: stopping pinger for %q with seq=%d", p.beingKey, p.beingSeq)
 	}
 	p.tomb.Kill(nil)
 	err := p.tomb.Wait()
@@ -472,10 +477,10 @@ func (p *Pinger) Kill() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.started {
-		log.Debugf("state/presence: killing pinger for %q (was started)", p.beingKey)
+		debugf("state/presence: killing pinger for %q (was started)", p.beingKey)
 		return p.killStarted()
 	}
-	log.Debugf("state/presence: killing pinger for %q (was stopped)", p.beingKey)
+	debugf("state/presence: killing pinger for %q (was stopped)", p.beingKey)
 	return p.killStopped()
 }
 
@@ -551,7 +556,7 @@ func (p *Pinger) prepare() error {
 // ping records updates the current time slot with the
 // sequence in use by the pinger.
 func (p *Pinger) ping() error {
-	log.Debugf("state/presence: pinging %q with seq=%d", p.beingKey, p.beingSeq)
+	debugf("state/presence: pinging %q with seq=%d", p.beingKey, p.beingSeq)
 	if p.delta == 0 {
 		delta, err := clockDelta(p.base)
 		if err != nil {
@@ -655,4 +660,10 @@ func beingsC(base *mgo.Collection) *mgo.Collection {
 
 func pingsC(base *mgo.Collection) *mgo.Collection {
 	return base.Database.C(base.Name + ".pings")
+}
+
+func debugf(f string, a ...interface{}) {
+	if Debug {
+		log.Debugf(f, a...)
+	}
 }
