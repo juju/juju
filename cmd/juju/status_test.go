@@ -562,6 +562,9 @@ var subordinatesTests = []testCase{
 		setServiceExposed{"logging", true},
 
 		relateServices{"wordpress", "mysql"},
+		relateServices{"wordpress", "logging"},
+		relateServices{"mysql", "logging"},
+
 		addSubordinate{"wordpress/0", "logging"},
 		addSubordinate{"mysql/0", "logging"},
 
@@ -839,7 +842,7 @@ func (as addSubordinate) step(c *C, ctx *context) {
 	c.Assert(err, IsNil)
 	eps, err := ctx.st.InferEndpoints([]string{u.ServiceName(), as.subService})
 	c.Assert(err, IsNil)
-	rel, err := ctx.st.AddRelation(eps...)
+	rel, err := ctx.st.EndpointsRelation(eps...)
 	c.Assert(err, IsNil)
 	ru, err := rel.Unit(u)
 	c.Assert(err, IsNil)

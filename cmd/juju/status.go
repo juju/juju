@@ -179,11 +179,15 @@ func processMachine(machine *state.Machine, instance environs.Instance) (statusM
 // processServices gathers information about services.
 func processServices(services map[string]*state.Service) (statusMap, error) {
 	servicesMap := make(statusMap)
-	subFromMap := make(statusMap)
-	subToMap := make(statusMap)
+	// prinToSubUnitMap will collect mappings from principal unit names
+	// to their subordinate units name.
+	prinToSubUnitMap := make(statusMap)
+	// subToPrinServicesMap will collect mappings from subordinate service
+	// names to a slice of their principal service names.
+	subToPrinServicesMap := make(statusMap)
 	// 1st pass: iterate over the services.
 	for _, service := range services {
-		servicesMap[service.Name()] = checkError(processService(service, subFromMap, subToMap))
+		servicesMap[service.Name()] = checkError(processService(service, prinToSubUnitMap, subToPrinServicesMap))
 	}
 	// 2nd pass: post-process the subordinates.
 	unitsMapByUnitName := func(unitName string) statusMap {
@@ -191,14 +195,15 @@ func processServices(services map[string]*state.Service) (statusMap, error) {
 		unitsMap := servicesMap[serviceName].(statusMap)["units"]
 		return unitsMap.(statusMap)
 	}
-	for prinUnitName, subUnitNameTmp := range subFromMap {
+	// Put the subordinate units data below their principal units.
+	for prinUnitName, subUnitNameTmp := range prinToSubUnitMap {
 		subUnitName := subUnitNameTmp.(string)
 		prinUnitsMap := unitsMapByUnitName(prinUnitName)
 		subUnitsMap := unitsMapByUnitName(subUnitName)
-		subordinatesMap := make(statusMap)
-		if prinUnitsMap[prinUnitName].(statusMap)["subordinates"] != nil {
-			subordinatesMap = prinUnitsMap[prinUnitName].(statusMap)["subordinates"].(statusMap)
+		if prinUnitsMap[prinUnitName].(statusMap)["subordinates"] == nil {
+			prinUnitsMap[prinUnitName].(statusMap)["subordinates"] = make(statusMap)
 		}
+		subordinatesMap := prinUnitsMap[prinUnitName].(statusMap)["subordinates"].(statusMap)
 		subUnitMap := make(statusMap)
 		subUnitMap["agent-state"] = subUnitsMap[subUnitName].(statusMap)["agent-state"]
 		if info, ok := subUnitsMap[subUnitName].(statusMap)["agent-state-info"]; ok {
@@ -207,16 +212,19 @@ func processServices(services map[string]*state.Service) (statusMap, error) {
 		subordinatesMap[subUnitName] = subUnitMap
 		prinUnitsMap[prinUnitName].(statusMap)["subordinates"] = subordinatesMap
 	}
-	for serviceName, subToNames := range subToMap {
+	// Add the principals to the subordinated services.
+	for serviceName, subToNames := range subToPrinServicesMap {
 		subToSet := set.NewStrings(subToNames.([]string)...)
 		subToValues := subToSet.SortedValues()
 		servicesMap[serviceName].(statusMap)["subordinate-to"] = subToValues
+		// Drop the unit data after it has been merged in the loop above.
+		// It isn't needed in the subordinated service anymore.
 		delete(servicesMap[serviceName].(statusMap), "units")
 	}
 	return servicesMap, nil
 }
 
-func processService(service *state.Service, subFromMap, subToMap statusMap) (statusMap, error) {
+func processService(service *state.Service, prinToSubUnitMap, subToPrinServicesMap statusMap) (statusMap, error) {
 	serviceMap := make(statusMap)
 	ch, _, err := service.Charm()
 	if err != nil {
@@ -230,7 +238,7 @@ func processService(service *state.Service, subFromMap, subToMap statusMap) (sta
 		return nil, err
 	}
 
-	if u := checkError(processUnits(units, subFromMap, subToMap)); len(u) > 0 {
+	if u := checkError(processUnits(units, prinToSubUnitMap, subToPrinServicesMap)); len(u) > 0 {
 		serviceMap["units"] = u
 	}
 
@@ -241,15 +249,15 @@ func processService(service *state.Service, subFromMap, subToMap statusMap) (sta
 	return serviceMap, nil
 }
 
-func processUnits(units []*state.Unit, subFromMap, subToMap statusMap) (statusMap, error) {
+func processUnits(units []*state.Unit, prinToSubUnitMap, subToPrinServicesMap statusMap) (statusMap, error) {
 	unitsMap := make(statusMap)
 	for _, unit := range units {
-		unitsMap[unit.Name()] = checkError(processUnit(unit, subFromMap, subToMap))
+		unitsMap[unit.Name()] = checkError(processUnit(unit, prinToSubUnitMap, subToPrinServicesMap))
 	}
 	return unitsMap, nil
 }
 
-func processUnit(unit *state.Unit, subFromMap, subToMap statusMap) (statusMap, error) {
+func processUnit(unit *state.Unit, prinToSubUnitMap, subToPrinServicesMap statusMap) (statusMap, error) {
 	unitMap := make(statusMap)
 
 	if addr, ok := unit.PublicAddress(); ok {
@@ -275,14 +283,13 @@ func processUnit(unit *state.Unit, subFromMap, subToMap statusMap) (statusMap, e
 	processStatus(unitMap, status, info, agentAlive, unitDead)
 
 	for _, subName := range unit.SubordinateNames() {
-		subFromMap[unit.Name()] = subName
+		prinToSubUnitMap[unit.Name()] = subName
 		subNameParts := strings.Split(subName, "/")
 		svcName := subNameParts[0]
-		subTo := []string{}
-		if subToMap[svcName] != nil {
-			subTo = subToMap[svcName].([]string)
+		if subToPrinServicesMap[svcName] == nil {
+			subToPrinServicesMap[svcName] = []string{}
 		}
-		subToMap[svcName] = append(subTo, unit.ServiceName())
+		subToPrinServicesMap[svcName] = append(subToPrinServicesMap[svcName].([]string), unit.ServiceName())
 	}
 
 	return unitMap, nil
