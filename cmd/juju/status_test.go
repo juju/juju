@@ -562,12 +562,12 @@ var subordinatesTests = []testCase{
 		setServiceExposed{"logging", true},
 
 		relateServices{"wordpress", "mysql"},
-		relateServicesWithScope{"wordpress", "logging"},
-		relateServicesWithScope{"mysql", "logging"},
+		addSubordinate{"wordpress/0", "logging"},
+		addSubordinate{"mysql/0", "logging"},
 
 		setUnitsAlive{"logging"},
 		setUnitStatus{"logging/0", params.StatusStarted, ""},
-		setUnitStatus{"logging/1", params.StatusStarted, ""},
+		setUnitStatus{"logging/1", params.StatusError, "somehow lost in all those logs"},
 
 		expect{
 			"multiples related peer units",
@@ -606,7 +606,8 @@ var subordinatesTests = []testCase{
 								"agent-state": "started",
 								"subordinates": M{
 									"logging/1": M{
-										"agent-state": "started",
+										"agent-state":      "error",
+										"agent-state-info": "somehow lost in all those logs",
 									},
 								},
 							},
@@ -619,16 +620,6 @@ var subordinatesTests = []testCase{
 					"logging": M{
 						"charm":   "local:series/logging-1",
 						"exposed": true,
-						"units": M{
-							"logging/0": M{
-								"machine":     "1",
-								"agent-state": "started",
-							},
-							"logging/1": M{
-								"machine":     "2",
-								"agent-state": "started",
-							},
-						},
 						"relations": M{
 							"logging-directory": L{"wordpress"},
 							"info":              L{"mysql"},
@@ -838,21 +829,19 @@ func (rs relateServices) step(c *C, ctx *context) {
 	c.Assert(err, IsNil)
 }
 
-type relateServicesWithScope struct {
-	ep1, ep2 string
+type addSubordinate struct {
+	prinUnit   string
+	subService string
 }
 
-func (rsws relateServicesWithScope) step(c *C, ctx *context) {
-	eps, err := ctx.st.InferEndpoints([]string{rsws.ep1, rsws.ep2})
+func (as addSubordinate) step(c *C, ctx *context) {
+	u, err := ctx.st.Unit(as.prinUnit)
+	c.Assert(err, IsNil)
+	eps, err := ctx.st.InferEndpoints([]string{u.ServiceName(), as.subService})
 	c.Assert(err, IsNil)
 	rel, err := ctx.st.AddRelation(eps...)
 	c.Assert(err, IsNil)
-	// Enter scope.
-	s, err := ctx.st.Service(rsws.ep1)
-	c.Assert(err, IsNil)
-	sus, err := s.AllUnits()
-	c.Assert(err, IsNil)
-	ru, err := rel.Unit(sus[0])
+	ru, err := rel.Unit(u)
 	c.Assert(err, IsNil)
 	err = ru.EnterScope(nil)
 	c.Assert(err, IsNil)

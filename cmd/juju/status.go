@@ -191,21 +191,27 @@ func processServices(services map[string]*state.Service) (statusMap, error) {
 		unitsMap := servicesMap[serviceName].(statusMap)["units"]
 		return unitsMap.(statusMap)
 	}
-	for unitToName, subFromName := range subFromMap {
-		unitsToMap := unitsMapByUnitName(unitToName)
-		unitsFromMap := unitsMapByUnitName(subFromName.(string))
+	for prinUnitName, subUnitNameTmp := range subFromMap {
+		subUnitName := subUnitNameTmp.(string)
+		prinUnitsMap := unitsMapByUnitName(prinUnitName)
+		subUnitsMap := unitsMapByUnitName(subUnitName)
 		subordinatesMap := make(statusMap)
-		if unitsToMap[unitToName].(statusMap)["subordinates"] != nil {
-			subordinatesMap = unitsToMap[unitToName].(statusMap)["subordinates"].(statusMap)
+		if prinUnitsMap[prinUnitName].(statusMap)["subordinates"] != nil {
+			subordinatesMap = prinUnitsMap[prinUnitName].(statusMap)["subordinates"].(statusMap)
 		}
-		agentState := unitsFromMap[subFromName.(string)].(statusMap)["agent-state"]
-		subordinatesMap[subFromName.(string)] = statusMap{"agent-state": agentState}
-		unitsToMap[unitToName].(statusMap)["subordinates"] = subordinatesMap
+		subUnitMap := make(statusMap)
+		subUnitMap["agent-state"] = subUnitsMap[subUnitName].(statusMap)["agent-state"]
+		if info, ok := subUnitsMap[subUnitName].(statusMap)["agent-state-info"]; ok {
+			subUnitMap["agent-state-info"] = info
+		}
+		subordinatesMap[subUnitName] = subUnitMap
+		prinUnitsMap[prinUnitName].(statusMap)["subordinates"] = subordinatesMap
 	}
 	for serviceName, subToNames := range subToMap {
 		subToSet := set.NewStrings(subToNames.([]string)...)
 		subToValues := subToSet.SortedValues()
 		servicesMap[serviceName].(statusMap)["subordinate-to"] = subToValues
+		delete(servicesMap[serviceName].(statusMap), "units")
 	}
 	return servicesMap, nil
 }
@@ -268,18 +274,15 @@ func processUnit(unit *state.Unit, subFromMap, subToMap statusMap) (statusMap, e
 	}
 	processStatus(unitMap, status, info, agentAlive, unitDead)
 
-	if unit.IsPrincipal() {
-		subNames := unit.SubordinateNames()
-		for _, subName := range subNames {
-			subFromMap[unit.Name()] = subName
-			subNameParts := strings.Split(subName, "/")
-			svcName := subNameParts[0]
-			subTo := []string{}
-			if subToMap[svcName] != nil {
-				subTo = subToMap[svcName].([]string)
-			}
-			subToMap[svcName] = append(subTo, unit.ServiceName())
+	for _, subName := range unit.SubordinateNames() {
+		subFromMap[unit.Name()] = subName
+		subNameParts := strings.Split(subName, "/")
+		svcName := subNameParts[0]
+		subTo := []string{}
+		if subToMap[svcName] != nil {
+			subTo = subToMap[svcName].([]string)
 		}
+		subToMap[svcName] = append(subTo, unit.ServiceName())
 	}
 
 	return unitMap, nil
