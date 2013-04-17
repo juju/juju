@@ -274,6 +274,13 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 		}
 	}
 	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
+	// Explicitly ignore any error we may get writing out the message for the
+	// lock.  Since we have a lock, the only thing it could be is that there
+	// was some error actually writing the file, in which case we don't care.
+	// If there are disk full problems, something else serious will fail.
+	// This message is for post-failure debugging anyway where we can
+	// interrogate the file system.
+	_ = u.hookLock.SetMessage(hctxId)
 	ctxRelations := map[int]*ContextRelation{}
 	for id, r := range u.relationers {
 		ctxRelations[id] = r.Context()
