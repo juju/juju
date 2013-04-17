@@ -174,3 +174,40 @@ func (fslockSuite) TestUnlock(c *C) {
 	err = lock.Unlock()
 	c.Assert(err, Equals, fslock.ErrLockNotHeld)
 }
+
+func (fslockSuite) TestMessage(c *C) {
+	dir := c.MkDir()
+	lock, err := fslock.NewLock(dir, "testing")
+	c.Assert(err, IsNil)
+	c.Assert(lock.GetMessage(), Equals, "")
+
+	err = lock.SetMessage("my message")
+	c.Assert(err, Equals, fslock.ErrLockNotHeld)
+
+	err = lock.Lock()
+	c.Assert(err, IsNil)
+
+	err = lock.SetMessage("my message")
+	c.Assert(err, IsNil)
+	c.Assert(lock.GetMessage(), Equals, "my message")
+
+	// Unlocking removes the message.
+	err = lock.Unlock()
+	c.Assert(err, IsNil)
+	c.Assert(lock.GetMessage(), Equals, "")
+}
+
+func (fslockSuite) TestMessageAcrossLocks(c *C) {
+	dir := c.MkDir()
+	lock1, err := fslock.NewLock(dir, "testing")
+	c.Assert(err, IsNil)
+	lock2, err := fslock.NewLock(dir, "testing")
+	c.Assert(err, IsNil)
+
+	err = lock1.Lock()
+	c.Assert(err, IsNil)
+	err = lock1.SetMessage("very busy")
+	c.Assert(err, IsNil)
+
+	c.Assert(lock2.GetMessage(), Equals, "very busy")
+}

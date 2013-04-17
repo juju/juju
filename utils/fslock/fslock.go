@@ -77,6 +77,10 @@ func (lock *Lock) heldFile() string {
 	return path.Join(lock.lockDir(), "held")
 }
 
+func (lock *Lock) messageFile() string {
+	return path.Join(lock.lockDir(), "message")
+}
+
 func (lock *Lock) acquire() (bool, error) {
 	// If the lockDir exists, then the lock is held by someone else.
 	_, err := os.Stat(lock.lockDir())
@@ -160,4 +164,22 @@ func (lock *Lock) Unlock() error {
 		return ErrLockNotHeld
 	}
 	return os.RemoveAll(lock.lockDir())
+}
+
+// SetMessage saves the message if and only if the lock is held.
+func (lock *Lock) SetMessage(message string) error {
+	if !lock.IsLockHeld() {
+		return ErrLockNotHeld
+	}
+	return ioutil.WriteFile(lock.messageFile(), []byte(message), 0755)
+}
+
+// GetMessage returns the saved message, or the empty string if there is no
+// saved message.
+func (lock *Lock) GetMessage() string {
+	message, err := ioutil.ReadFile(lock.messageFile())
+	if err != nil {
+		return ""
+	}
+	return string(message)
 }
