@@ -856,7 +856,7 @@ type expect struct {
 }
 
 func (e expect) step(c *C, ctx *context) {
-	c.Log("expect: %s", e.what)
+	c.Logf("expect: %s", e.what)
 
 	// Now execute the command for each format.
 	for _, format := range statusFormats {
@@ -883,7 +883,7 @@ func (e expect) step(c *C, ctx *context) {
 
 func (s *StatusSuite) TestStatusAllFormats(c *C) {
 	for i, t := range statusTests {
-		c.Log("test %d: %s", i, t.summary)
+		c.Logf("test %d: %s", i, t.summary)
 		func() {
 			// Prepare context and run all steps to setup.
 			ctx := s.newContext()
@@ -895,7 +895,7 @@ func (s *StatusSuite) TestStatusAllFormats(c *C) {
 
 func (s *StatusSuite) TestRelations(c *C) {
 	for i, t := range relationTests {
-		c.Log("test %d: %s", i, t.summary)
+		c.Logf("test %d: %s", i, t.summary)
 		func() {
 			// Prepare context and run all steps to setup.
 			ctx := s.newContext()
@@ -907,7 +907,7 @@ func (s *StatusSuite) TestRelations(c *C) {
 
 func (s *StatusSuite) TestSubordinates(c *C) {
 	for i, t := range subordinatesTests {
-		c.Log("test %d: %s", i, t.summary)
+		c.Logf("test %d: %s", i, t.summary)
 		func() {
 			// Prepare context and run all steps to setup.
 			ctx := s.newContext()

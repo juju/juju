@@ -2,18 +2,19 @@ package main
 
 import (
 	"fmt"
-	"strings"
 
+	"encoding/json"
 	"launchpad.net/gnuflag"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils/set"
+	"strings"
 )
-
-type statusMap map[string]interface{}
 
 type StatusCommand struct {
 	EnvCommandBase
@@ -39,6 +40,13 @@ func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 }
 
+type statusContext struct {
+	instances map[state.InstanceId]environs.Instance
+	machines  map[string]*state.Machine
+	services  map[string]*state.Service
+	units     map[string]map[string]*state.Unit
+}
+
 func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
@@ -56,15 +64,24 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	services, err := fetchAllServices(conn.State)
+	services, units, err := fetchAllServicesAndUnits(conn.State)
 	if err != nil {
 		return err
 	}
 
-	result := map[string]interface{}{
-		"machines": checkError(processMachines(machines, instances)),
-		"services": checkError(processServices(services)),
+	ctxt := &statusContext{
+		instances: instances,
+		machines:  machines,
+		services:  services,
+		units:     units,
 	}
+
+	var result struct {
+		Machines map[string]machineStatus `json:"machines"`
+		Services map[string]serviceStatus `json:"services"`
+	}
+	result.Machines = ctxt.processMachines()
+	result.Services = ctxt.processServices()
 
 	return c.out.Write(ctx, result)
 }
@@ -99,41 +116,54 @@ func fetchAllMachines(st *state.State) (map[string]*state.Machine, error) {
 
 // fetchAllServices returns a map representing a mapping of service
 // names to services.
-func fetchAllServices(st *state.State) (map[string]*state.Service, error) {
-	v := make(map[string]*state.Service)
+func fetchAllServicesAndUnits(st *state.State) (map[string]*state.Service, map[string]map[string]*state.Unit, error) {
+	svcMap := make(map[string]*state.Service)
+	unitMap := make(map[string]map[string]*state.Unit)
 	services, err := st.AllServices()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	for _, s := range services {
-		v[s.Name()] = s
+		svcMap[s.Name()] = s
+		units, err := s.AllUnits()
+		if err != nil {
+			return nil, nil, err
+		}
+		svcUnitMap := make(map[string]*state.Unit)
+		for _, u := range units {
+			svcUnitMap[u.Name()] = u
+		}
+		unitMap[s.Name()] = svcUnitMap
 	}
-	return v, nil
+	return svcMap, unitMap, nil
 }
 
 // processMachines gathers information about machines.
-func processMachines(machines map[string]*state.Machine, instances map[state.InstanceId]environs.Instance) (statusMap, error) {
-	machinesMap := make(statusMap)
-	for _, m := range machines {
+func (ctxt *statusContext) processMachines() map[string]machineStatus {
+	machinesMap := make(map[string]machineStatus)
+	for _, m := range ctxt.machines {
+		var mstatus machineStatus
 		instid, ok := m.InstanceId()
 		if !ok {
-			machinesMap[m.Id()] = statusMap{
-				"instance-id": "pending",
-			}
+			mstatus.InstanceId = "pending"
 		} else {
-			instance, ok := instances[instid]
+			instance, ok := ctxt.instances[instid]
 			if !ok {
-				// Double plus ungood. There is an instance id recorded for this machine in the state,
-				// yet the environ cannot find that id.
-				return nil, fmt.Errorf("instance %s for machine %s not found", instid, m.Id())
+				// Double plus ungood.  There is an
+				// instance id recorded for this machine
+				// in the state, yet the environ cannot
+				// find that id.
+				mstatus.Err = fmt.Errorf("instance %s not found", instid)
+			} else {
+				mstatus = processMachine(m, instance)
 			}
-			machinesMap[m.Id()] = checkError(processMachine(m, instance))
 		}
+		machinesMap[m.Id()] = mstatus
 	}
-	return machinesMap, nil
+	return machinesMap
 }
 
-func processStatus(sm statusMap, status params.Status, info string, agentAlive, entityDead bool) {
+func processStatus(dstStatus *params.Status, dstInfo *string, status params.Status, info string, agentAlive, entityDead bool) {
 	if status != params.StatusPending {
 		if !agentAlive && !entityDead {
 			// Add the original status to the info, so it's not lost.
@@ -146,205 +176,240 @@ func processStatus(sm statusMap, status params.Status, info string, agentAlive, 
 			status = params.StatusDown
 		}
 	}
-	sm["agent-state"] = status
-	if info != "" {
-		sm["agent-state-info"] = info
-	}
+	*dstStatus = status
+	*dstInfo = info
 }
 
-func processMachine(machine *state.Machine, instance environs.Instance) (statusMap, error) {
-	machineMap := make(statusMap)
-	machineMap["instance-id"] = instance.Id()
-
-	if dnsname, err := instance.DNSName(); err == nil {
-		machineMap["dns-name"] = dnsname
-	}
-
-	processVersion(machineMap, machine)
+func processMachine(machine *state.Machine, instance environs.Instance) (status machineStatus) {
+	status.InstanceId = instance.Id()
+	status.DNSName, _ = instance.DNSName()
+	processVersion(&status.AgentVersion, machine)
 
 	agentAlive, err := machine.AgentAlive()
 	if err != nil {
-		return nil, err
+		status.Err = err
+		return
 	}
 	machineDead := machine.Life() == state.Dead
-	status, info, err := machine.Status()
+	mstatus, info, err := machine.Status()
 	if err != nil {
-		return nil, err
+		status.Err = err
+		return
 	}
-	processStatus(machineMap, status, info, agentAlive, machineDead)
+	processStatus(&status.AgentState, &status.AgentStateInfo, mstatus, info, agentAlive, machineDead)
 
-	return machineMap, nil
+	return
 }
 
 // processServices gathers information about services.
-func processServices(services map[string]*state.Service) (statusMap, error) {
-	servicesMap := make(statusMap)
-	// prinToSubUnitMap will collect mappings from principal unit names
-	// to their subordinate units name.
-	prinToSubUnitMap := make(statusMap)
-	// subToPrinServicesMap will collect mappings from subordinate service
-	// names to a slice of their principal service names.
-	subToPrinServicesMap := make(statusMap)
-	// 1st pass: iterate over the services.
-	for _, service := range services {
-		servicesMap[service.Name()] = checkError(processService(service, prinToSubUnitMap, subToPrinServicesMap))
+func (ctxt *statusContext) processServices() map[string]serviceStatus {
+	servicesMap := make(map[string]serviceStatus)
+	for _, s := range ctxt.services {
+		servicesMap[s.Name()] = ctxt.processService(s)
 	}
-	// 2nd pass: post-process the subordinates.
-	unitsMapByUnitName := func(unitName string) statusMap {
-		serviceName := strings.Split(unitName, "/")[0]
-		unitsMap := servicesMap[serviceName].(statusMap)["units"]
-		return unitsMap.(statusMap)
-	}
-	// Put the subordinate units data below their principal units.
-	for prinUnitName, subUnitNameTmp := range prinToSubUnitMap {
-		subUnitName := subUnitNameTmp.(string)
-		prinUnitsMap := unitsMapByUnitName(prinUnitName)
-		subUnitsMap := unitsMapByUnitName(subUnitName)
-		if prinUnitsMap[prinUnitName].(statusMap)["subordinates"] == nil {
-			prinUnitsMap[prinUnitName].(statusMap)["subordinates"] = make(statusMap)
-		}
-		subordinatesMap := prinUnitsMap[prinUnitName].(statusMap)["subordinates"].(statusMap)
-		subUnitMap := make(statusMap)
-		subUnitMap["agent-state"] = subUnitsMap[subUnitName].(statusMap)["agent-state"]
-		if info, ok := subUnitsMap[subUnitName].(statusMap)["agent-state-info"]; ok {
-			subUnitMap["agent-state-info"] = info
-		}
-		subordinatesMap[subUnitName] = subUnitMap
-		prinUnitsMap[prinUnitName].(statusMap)["subordinates"] = subordinatesMap
-	}
-	// Add the principals to the subordinated services.
-	for serviceName, subToNames := range subToPrinServicesMap {
-		subToSet := set.NewStrings(subToNames.([]string)...)
-		subToValues := subToSet.SortedValues()
-		servicesMap[serviceName].(statusMap)["subordinate-to"] = subToValues
-		// Drop the unit data after it has been merged in the loop above.
-		// It isn't needed in the subordinated service anymore.
-		delete(servicesMap[serviceName].(statusMap), "units")
-	}
-	return servicesMap, nil
+	return servicesMap
 }
 
-func processService(service *state.Service, prinToSubUnitMap, subToPrinServicesMap statusMap) (statusMap, error) {
-	serviceMap := make(statusMap)
+func (ctxt *statusContext) processService(service *state.Service) (status serviceStatus) {
 	ch, _, err := service.Charm()
 	if err != nil {
-		return nil, err
+		status.Err = err
+		return
 	}
-	serviceMap["charm"] = ch.String()
-	serviceMap["exposed"] = service.IsExposed()
+	status.Charm = ch.String()
+	status.Exposed = service.IsExposed()
 
+	status.Relations, status.SubordinateTo, err = processRelations(service)
+	if err != nil {
+		status.Err = err
+		return
+	}
+	status.Units = make(map[string]unitStatus)
 	units, err := service.AllUnits()
 	if err != nil {
-		return nil, err
+		status.Err = err
+		return
 	}
-
-	if u := checkError(processUnits(units, prinToSubUnitMap, subToPrinServicesMap)); len(u) > 0 {
-		serviceMap["units"] = u
+	if !service.IsSubordinate() {
+		status.Units = ctxt.processUnits(units)
 	}
-
-	if r := checkError(processRelations(service)); len(r) > 0 {
-		serviceMap["relations"] = r
-	}
-
-	return serviceMap, nil
+	return status
 }
 
-func processUnits(units []*state.Unit, prinToSubUnitMap, subToPrinServicesMap statusMap) (statusMap, error) {
-	unitsMap := make(statusMap)
+func (ctxt *statusContext) processUnits(units []*state.Unit) map[string]unitStatus {
+	unitsMap := make(map[string]unitStatus)
 	for _, unit := range units {
-		unitsMap[unit.Name()] = checkError(processUnit(unit, prinToSubUnitMap, subToPrinServicesMap))
+		unitsMap[unit.Name()] = ctxt.processUnit(unit)
 	}
-	return unitsMap, nil
+	return unitsMap
 }
 
-func processUnit(unit *state.Unit, prinToSubUnitMap, subToPrinServicesMap statusMap) (statusMap, error) {
-	unitMap := make(statusMap)
-
-	if addr, ok := unit.PublicAddress(); ok {
-		unitMap["public-address"] = addr
+func (ctxt *statusContext) processUnit(unit *state.Unit) (status unitStatus) {
+	status.PublicAddress, _ = unit.PublicAddress()
+	if unit.IsPrincipal() {
+		status.Machine, _ = unit.AssignedMachineId()
 	}
-
-	if id, err := unit.AssignedMachineId(); err == nil {
-		// TODO(dfc) we could make this nicer, ie machine/0
-		unitMap["machine"] = id
-	}
-
-	processVersion(unitMap, unit)
+	processVersion(&status.AgentVersion, unit)
 
 	agentAlive, err := unit.AgentAlive()
 	if err != nil {
-		return nil, err
+		status.Err = err
+		return
 	}
 	unitDead := unit.Life() == state.Dead
-	status, info, err := unit.Status()
+	ustatus, info, err := unit.Status()
 	if err != nil {
-		return nil, err
+		status.Err = err
+		return
 	}
-	processStatus(unitMap, status, info, agentAlive, unitDead)
-
-	for _, subName := range unit.SubordinateNames() {
-		prinToSubUnitMap[unit.Name()] = subName
-		subNameParts := strings.Split(subName, "/")
-		svcName := subNameParts[0]
-		if subToPrinServicesMap[svcName] == nil {
-			subToPrinServicesMap[svcName] = []string{}
+	processStatus(&status.AgentState, &status.AgentStateInfo, ustatus, info, agentAlive, unitDead)
+	if subUnits := unit.SubordinateNames(); len(subUnits) > 0 {
+		status.Subordinates = make(map[string]unitStatus)
+		for _, name := range subUnits {
+			subUnit := ctxt.unitByName(name)
+			status.Subordinates[name] = ctxt.processUnit(subUnit)
 		}
-		subToPrinServicesMap[svcName] = append(subToPrinServicesMap[svcName].([]string), unit.ServiceName())
 	}
-
-	return unitMap, nil
+	return
 }
 
-func processRelations(service *state.Service) (statusMap, error) {
+func (ctxt *statusContext) unitByName(name string) *state.Unit {
+	serviceName := strings.Split(name, "/")[0]
+	return ctxt.units[serviceName][name]
+}
+
+func processRelations(service *state.Service) (related map[string][]string, subord []string, err error) {
+	log.Infof("processing relations of service %v", service)
 	// TODO(mue) This way the same relation is read twice (for each service).
 	// Maybe add Relations() to state, read them only once and pass them to each
-	// call of this function.
+	// call of this function. 
 	relations, err := service.Relations()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	relationMap := make(statusMap)
+	var subordSet set.Strings
+	related = make(map[string][]string)
 	for _, relation := range relations {
 		ep, err := relation.Endpoint(service.Name())
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		relationName := ep.Relation.Name
 		eps, err := relation.RelatedEndpoints(service.Name())
 		if err != nil {
-			return nil, err
-		}
-		serviceNames := []string{}
-		if relationMap[relationName] != nil {
-			serviceNames = relationMap[relationName].([]string)
+			return nil, nil, err
 		}
 		for _, ep := range eps {
-			serviceNames = append(serviceNames, ep.ServiceName)
+			if ep.Scope == charm.ScopeContainer && service.IsSubordinate() {
+				subordSet.Add(ep.ServiceName)
+			}
+			related[relationName] = append(related[relationName], ep.ServiceName)
 		}
-		relationMap[relationName] = serviceNames
 	}
-	// Normalize service names by removing duplicates and sorting them.
-	// TODO(mue) Check if and why duplicates can happen and what this means.
-	for relationName, serviceNames := range relationMap {
-		sn := set.NewStrings(serviceNames.([]string)...)
-		relationMap[relationName] = sn.SortedValues()
+	for relationName, serviceNames := range related {
+		sn := set.NewStrings(serviceNames...)
+		related[relationName] = sn.SortedValues()
 	}
-	return relationMap, nil
+	return related, subordSet.SortedValues(), nil
 }
 
 type versioned interface {
 	AgentTools() (*state.Tools, error)
 }
 
-func processVersion(sm statusMap, v versioned) {
+func processVersion(status *string, v versioned) {
 	if t, err := v.AgentTools(); err == nil {
-		sm["agent-version"] = t.Binary.Number.String()
+		*status = t.Binary.Number.String()
+	} else {
+		*status = ""
 	}
 }
 
-func checkError(sm statusMap, err error) statusMap {
-	if err != nil {
-		return map[string]interface{}{"status-error": err.Error()}
+type machineStatus struct {
+	Err            error            `json:"-" yaml:",omitempty"`
+	InstanceId     state.InstanceId `json:"instance-id" yaml:"instance-id"`
+	DNSName        string           `json:"dns-name,omitempty" yaml:"dns-name,omitempty"`
+	AgentVersion   string           `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
+	AgentState     params.Status    `json:"agent-state,omitempty" yaml:"agent-state,omitempty"`
+	AgentStateInfo string           `json:"agent-state-info,omitempty" yaml:"agent-state-info,omitempty"`
+}
+
+// A goyaml bug means we can't declare these types
+// locally to the GetYAML methods.
+type machineStatusNoMarshal machineStatus
+
+func (s machineStatus) MarshalJSON() ([]byte, error) {
+	if s.Err != nil {
+		return marshalError(s.Err)
 	}
-	return sm
+	return json.Marshal(machineStatusNoMarshal(s))
+}
+
+func (s machineStatus) GetYAML() (tag string, value interface{}) {
+	if s.Err != nil {
+		return "", errorStatus{s.Err.Error()}
+	}
+	type mNoMethods machineStatus
+	return "", mNoMethods(s)
+}
+
+type serviceStatus struct {
+	Err           error                 `json:"-" yaml:",omitempty"`
+	Charm         string                `json:"charm" yaml:"charm"`
+	Exposed       bool                  `json:"exposed" yaml:"exposed"`
+	Units         map[string]unitStatus `json:"units,omitempty" yaml:"units,omitempty"`
+	Relations     map[string][]string   `json:"relations,omitempty" yaml:"relations,omitempty"`
+	SubordinateTo []string              `json:"subordinate-to,omitempty" yaml:"subordinate-to,omitempty"`
+}
+type serviceStatusNoMarshal serviceStatus
+
+func (s serviceStatus) MarshalJSON() ([]byte, error) {
+	if s.Err != nil {
+		return marshalError(s.Err)
+	}
+	type sNoMethods serviceStatus
+	return json.Marshal(sNoMethods(s))
+}
+
+func (s serviceStatus) GetYAML() (tag string, value interface{}) {
+	if s.Err != nil {
+		return "", errorStatus{s.Err.Error()}
+	}
+	type sNoMethods serviceStatus
+	return "", sNoMethods(s)
+}
+
+type unitStatus struct {
+	Err            error                 `json:"-" yaml:",omitempty"`
+	PublicAddress  string                `json:"public-address,omitempty" yaml:"public-address,omitempty"`
+	Machine        string                `json:"machine,omitempty" yaml:"machine,omitempty"`
+	AgentVersion   string                `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
+	AgentState     params.Status         `json:"agent-state,omitempty" yaml:"agent-state,omitempty"`
+	AgentStateInfo string                `json:"agent-state-info,omitempty" yaml:"agent-state-info,omitempty"`
+	Subordinates   map[string]unitStatus `json:"subordinates,omitempty" yaml:"subordinates,omitempty"`
+}
+
+type unitStatusNoMarshal unitStatus
+
+func (s unitStatus) MarshalJSON() ([]byte, error) {
+	if s.Err != nil {
+		return marshalError(s.Err)
+	}
+	return json.Marshal(unitStatusNoMarshal(s))
+}
+
+func (s unitStatus) GetYAML() (tag string, value interface{}) {
+	if s.Err != nil {
+		return "", errorStatus{s.Err.Error()}
+	}
+	type uNoMethods unitStatus
+	return "", unitStatusNoMarshal(s)
+}
+
+func marshalError(err error) ([]byte, error) {
+	return []byte(fmt.Sprintf(`{"status-error": %q}`, err)), nil
+}
+
+type errorStatus struct {
+	StatusError string `yaml:"status-error"`
 }
