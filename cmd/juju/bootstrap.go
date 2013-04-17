@@ -69,7 +69,7 @@ func (c *BootstrapCommand) Run(context *cmd.Context) error {
 	if c.UploadTools {
 		// Force version.Current, for consistency with subsequent upgrade-juju
 		// (see UpgradeJujuCommand).
-		forceVersion := version.Current.Number
+		forceVersion := uploadVersion(version.Current.Number, nil)
 		cfg := environ.Config()
 		series := getUploadSeries(cfg, c.Series)
 		tools, err := uploadTools(environ.Storage(), &forceVersion, series...)

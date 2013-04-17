@@ -6,6 +6,7 @@ import (
 	"launchpad.net/goose/swift"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/jujutest"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils"
 	"net/http"
@@ -99,17 +100,12 @@ func InstanceAddress(addresses map[string][]nova.IPAddress) (string, error) {
 	return instanceAddress(addresses)
 }
 
-func FindInstanceSpec(e environs.Environ, series, arch, flavor string) (imageId, flavorId string, err error) {
-	env := e.(*environ)
-	spec, err := findInstanceSpec(env, &instanceConstraint{
-		series: series,
-		arch:   arch,
-		region: env.ecfg().region(),
-		flavor: flavor,
-	})
+func FindInstanceSpec(e environs.Environ, possibleTools tools.List) (imageId, flavorId string, tools *state.Tools, err error) {
+	spec, err := findInstanceSpec(e.(*environ), possibleTools)
 	if err == nil {
 		imageId = spec.imageId
 		flavorId = spec.flavorId
+		tools = spec.tools
 	}
 	return
 }
