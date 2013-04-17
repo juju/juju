@@ -301,7 +301,7 @@ func (suite *EnvironSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *C) {
 	fakeTools := envtesting.MustUploadFakeToolsVersion(storage, version.Current)
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
-	constraints := constraints.Value{Arch: ustringp("arm")}
+	constraints := constraints.Value{Arch: ustringp("arm"), Mem: uint64p(1024)}
 
 	_, _, err := env.acquireNode(constraints, tools.List{fakeTools})
 
@@ -310,6 +310,7 @@ func (suite *EnvironSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *C) {
 	nodeRequestValues, found := requestValues["node0"]
 	c.Assert(found, Equals, true)
 	c.Assert(nodeRequestValues[0].Get("arch"), Equals, "arm")
+	c.Assert(nodeRequestValues[0].Get("mem"), Equals, "1024")
 }
 
 func (suite *EnvironSuite) TestConvertConstraints(c *C) {
