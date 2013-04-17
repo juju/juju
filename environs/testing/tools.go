@@ -78,3 +78,9 @@ func RemoveTools(c *C, storage environs.Storage) {
 		c.Assert(err, IsNil)
 	}
 }
+
+// RemoveAllTools deletes all tools from the supplied environment.
+func RemoveAllTools(c *C, env environs.Environ) {
+	RemoveTools(c, env.Storage())
+	RemoveTools(c, env.PublicStorage().(environs.Storage))
+}

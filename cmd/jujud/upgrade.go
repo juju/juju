@@ -105,6 +105,10 @@ func (u *Upgrader) run() error {
 		return err
 	}
 
+	// TODO(fwereade): this whole package should be ignorant of environs,
+	// so it shouldn't be watching environ config (and it shouldn't be
+	// looking in storage): we should be able to find out what to download
+	// from state, exactly as we do for charms.
 	w := u.st.WatchEnvironConfig()
 	defer watcher.Stop(w, &u.tomb)
 
@@ -156,10 +160,15 @@ func (u *Upgrader) run() error {
 					// continue on, because the version number is still significant.
 				}
 			}
-			vers := cfg.AgentVersion()
+			proposed, ok := cfg.AgentVersion()
+			if !ok {
+				// This shouldn't be possible; but if it happens it's no reason
+				// to kill this task. Just wait for the config to change again.
+				continue
+			}
 			if download != nil {
 				// There's a download in progress, stop it if we need to.
-				if vers == downloadTools.Number {
+				if downloadTools.Number == proposed {
 					// We are already downloading the requested tools.
 					break
 				}
@@ -167,46 +176,35 @@ func (u *Upgrader) run() error {
 				download.Stop()
 				download, downloadTools, downloadDone = nil, nil, nil
 			}
-			// Ignore the proposed tools if we're already running the
-			// proposed version.
-			if vers == version.Current.Number {
+			// TODO: major version upgrades.
+			if proposed.Major != version.Current.Major {
+				log.Errorf("major version upgrades are not supported yet")
 				noDelay()
 				break
 			}
-			binary := version.Current
-			binary.Number = vers
-			if tools, err := agent.ReadTools(u.dataDir, binary); err == nil {
+			if proposed == version.Current.Number {
+				noDelay()
+				break
+			}
+			required := version.Binary{
+				Number: proposed,
+				Series: version.Current.Series,
+				Arch:   version.Current.Arch,
+			}
+			if tools, err := agent.ReadTools(u.dataDir, required); err == nil {
 				// The exact tools have already been downloaded, so use them.
 				return u.upgradeReady(currentTools, tools)
 			}
-
-			// Try to find the proposed tools in the environment, and fall back
-			// to the most recent version no later than the proposed.
-			flags := environs.CompatVersion
-			if cfg.Development() {
-				flags |= environs.DevVersion
-			}
-			tools, err := environs.FindTools(environ, binary, flags)
+			tools, err := environs.FindExactTools(environ, required)
 			if err != nil {
-				log.Errorf("upgrader error finding tools for %v: %v", binary, err)
+				log.Errorf("upgrader error finding tools for %v: %v", required, err)
+				if _, missing := err.(*environs.NotFoundError); !missing {
+					return err
+				}
 				noDelay()
 				// TODO(rog): poll until tools become available.
 				break
 			}
-			if tools.Binary != binary {
-				if tools.Number == version.Current.Number {
-					// TODO(rog): poll until tools become available.
-					log.Warningf("upgrader: version %v requested but found only current version: %v", binary, tools.Number)
-					noDelay()
-					break
-				}
-				log.Warningf("upgrader cannot find exact tools match for %s; using %s instead", binary, tools.Binary)
-			}
-			if tools, err := agent.ReadTools(u.dataDir, tools.Binary); err == nil {
-				// The best available tools have already been downloaded, so use them.
-				return u.upgradeReady(currentTools, tools)
-			}
-
 			log.Infof("upgrader downloading %q", tools.URL)
 			download = downloader.New(tools.URL, "")
 			downloadTools = tools

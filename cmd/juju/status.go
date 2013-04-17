@@ -288,7 +288,7 @@ func processUnit(unit *state.Unit, subFromMap, subToMap statusMap) (statusMap, e
 func processRelations(service *state.Service) (statusMap, error) {
 	// TODO(mue) This way the same relation is read twice (for each service).
 	// Maybe add Relations() to state, read them only once and pass them to each
-	// call of this function. 
+	// call of this function.
 	relations, err := service.Relations()
 	if err != nil {
 		return nil, err

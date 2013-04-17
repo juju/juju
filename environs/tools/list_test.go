@@ -17,7 +17,10 @@ type ListSuite struct{}
 var _ = Suite(&ListSuite{})
 
 func mustParseTools(name string) *state.Tools {
-	return &state.Tools{Binary: version.MustParseBinary(name)}
+	return &state.Tools{
+		Binary: version.MustParseBinary(name),
+		URL:    "http://example.com/" + name,
+	}
 }
 
 func extend(lists ...tools.List) tools.List {
@@ -57,14 +60,14 @@ type stringsTest struct {
 }
 
 var seriesTests = []stringsTest{{
-	tools.List{t100precise},
-	[]string{"precise"},
+	src:    tools.List{t100precise},
+	expect: []string{"precise"},
 }, {
-	tools.List{t100precise, t100precise32, t200precise},
-	[]string{"precise"},
+	src:    tools.List{t100precise, t100precise32, t200precise},
+	expect: []string{"precise"},
 }, {
-	tAll,
-	[]string{"precise", "quantal"},
+	src:    tAll,
+	expect: []string{"precise", "quantal"},
 }}
 
 func (s *ListSuite) TestSeries(c *C) {
@@ -75,14 +78,14 @@ func (s *ListSuite) TestSeries(c *C) {
 }
 
 var archesTests = []stringsTest{{
-	tools.List{t100precise},
-	[]string{"amd64"},
+	src:    tools.List{t100precise},
+	expect: []string{"amd64"},
 }, {
-	tools.List{t100precise, t100quantal, t200precise},
-	[]string{"amd64"},
+	src:    tools.List{t100precise, t100quantal, t200precise},
+	expect: []string{"amd64"},
 }, {
-	tAll,
-	[]string{"amd64", "i386"},
+	src:    tAll,
+	expect: []string{"amd64", "i386"},
 }}
 
 func (s *ListSuite) TestArches(c *C) {
@@ -92,30 +95,50 @@ func (s *ListSuite) TestArches(c *C) {
 	}
 }
 
+func (s *ListSuite) TestURLs(c *C) {
+	empty := tools.List{}
+	c.Check(empty.URLs(), DeepEquals, map[version.Binary]string{})
+
+	full := tools.List{t100precise, t190quantal, t2001precise}
+	c.Check(full.URLs(), DeepEquals, map[version.Binary]string{
+		t100precise.Binary:  t100precise.URL,
+		t190quantal.Binary:  t190quantal.URL,
+		t2001precise.Binary: t2001precise.URL,
+	})
+}
+
 var newestTests = []struct {
 	src    tools.List
 	expect tools.List
+	number version.Number
 }{{
-	nil,
-	nil,
+	src:    nil,
+	expect: nil,
+	number: version.Zero,
 }, {
-	tools.List{t100precise},
-	tools.List{t100precise},
+	src:    tools.List{t100precise},
+	expect: tools.List{t100precise},
+	number: version.MustParse("1.0.0"),
 }, {
-	t100all,
-	t100all,
+	src:    t100all,
+	expect: t100all,
+	number: version.MustParse("1.0.0"),
 }, {
-	extend(t100all, t190all, t200all),
-	t200all,
+	src:    extend(t100all, t190all, t200all),
+	expect: t200all,
+	number: version.MustParse("2.0.0"),
 }, {
-	tAll,
-	tools.List{t2001precise},
+	src:    tAll,
+	expect: tools.List{t2001precise},
+	number: version.MustParse("2.0.0.1"),
 }}
 
 func (s *ListSuite) TestNewest(c *C) {
 	for i, test := range newestTests {
 		c.Logf("test %d", i)
-		c.Check(test.src.Newest(), DeepEquals, test.expect)
+		number, actual := test.src.Newest()
+		c.Check(number, DeepEquals, test.number)
+		c.Check(actual, DeepEquals, test.expect)
 	}
 }
 
@@ -175,9 +198,9 @@ var matchTests = []struct {
 }, {
 	tAll,
 	tools.Filter{Released: true},
-	t200all,
+	extend(t100all, t200all),
 }, {
-	t100all,
+	t190all,
 	tools.Filter{Released: true},
 	nil,
 }, {
