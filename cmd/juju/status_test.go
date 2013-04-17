@@ -585,6 +585,11 @@ var subordinatesTests = []testCase{
 							"wordpress/0": M{
 								"machine":     "1",
 								"agent-state": "started",
+								"subordinates": M{
+									"logging/0": M{
+										"agent-state": "started",
+									},
+								},
 							},
 						},
 						"relations": M{
@@ -599,6 +604,11 @@ var subordinatesTests = []testCase{
 							"mysql/0": M{
 								"machine":     "2",
 								"agent-state": "started",
+								"subordinates": M{
+									"logging/1": M{
+										"agent-state": "started",
+									},
+								},
 							},
 						},
 						"relations": M{

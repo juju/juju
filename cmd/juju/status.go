@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
@@ -62,7 +63,7 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 
 	result := map[string]interface{}{
 		"machines": checkError(processMachines(machines, instances)),
-		"services": checkError(processServices(services, machines)),
+		"services": checkError(processServices(services)),
 	}
 
 	return c.out.Write(ctx, result)
@@ -176,23 +177,40 @@ func processMachine(machine *state.Machine, instance environs.Instance) (statusM
 }
 
 // processServices gathers information about services.
-func processServices(services map[string]*state.Service, machines map[string]*state.Machine) (statusMap, error) {
-	subordinatesMap := make(statusMap)
+func processServices(services map[string]*state.Service) (statusMap, error) {
 	servicesMap := make(statusMap)
+	subFromMap := make(statusMap)
+	subToMap := make(statusMap)
 	// 1st pass: iterate over the services.
-	for _, s := range services {
-		servicesMap[s.Name()] = checkError(processService(s, subordinatesMap, machines))
+	for _, service := range services {
+		servicesMap[service.Name()] = checkError(processService(service, subFromMap, subToMap))
 	}
 	// 2nd pass: post-process the subordinates.
-	// TODO(mue) Add subordinated unit status.
-	for serviceName, subordinateNames := range subordinatesMap {
-		st := set.NewStrings(subordinateNames.([]string)...)
-		servicesMap[serviceName].(statusMap)["subordinate-to"] = st.SortedValues()
+	unitsMapByUnitName := func(unitName string) statusMap {
+		serviceName := strings.Split(unitName, "/")[0]
+		unitsMap := servicesMap[serviceName].(statusMap)["units"]
+		return unitsMap.(statusMap)
+	}
+	for unitToName, subFromName := range subFromMap {
+		unitsToMap := unitsMapByUnitName(unitToName)
+		unitsFromMap := unitsMapByUnitName(subFromName.(string))
+		subordinatesMap := make(statusMap)
+		if unitsToMap[unitToName].(statusMap)["subordinates"] != nil {
+			subordinatesMap = unitsToMap[unitToName].(statusMap)["subordinates"].(statusMap)
+		}
+		agentState := unitsFromMap[subFromName.(string)].(statusMap)["agent-state"]
+		subordinatesMap[subFromName.(string)] = statusMap{"agent-state": agentState}
+		unitsToMap[unitToName].(statusMap)["subordinates"] = subordinatesMap
+	}
+	for serviceName, subToNames := range subToMap {
+		subToSet := set.NewStrings(subToNames.([]string)...)
+		subToValues := subToSet.SortedValues()
+		servicesMap[serviceName].(statusMap)["subordinate-to"] = subToValues
 	}
 	return servicesMap, nil
 }
 
-func processService(service *state.Service, subordinatesMap statusMap, machines map[string]*state.Machine) (statusMap, error) {
+func processService(service *state.Service, subFromMap, subToMap statusMap) (statusMap, error) {
 	serviceMap := make(statusMap)
 	ch, _, err := service.Charm()
 	if err != nil {
@@ -206,7 +224,7 @@ func processService(service *state.Service, subordinatesMap statusMap, machines 
 		return nil, err
 	}
 
-	if u := checkError(processUnits(units, subordinatesMap, machines)); len(u) > 0 {
+	if u := checkError(processUnits(units, subFromMap, subToMap)); len(u) > 0 {
 		serviceMap["units"] = u
 	}
 
@@ -217,15 +235,15 @@ func processService(service *state.Service, subordinatesMap statusMap, machines 
 	return serviceMap, nil
 }
 
-func processUnits(units []*state.Unit, subordinatesMap statusMap, machines map[string]*state.Machine) (statusMap, error) {
+func processUnits(units []*state.Unit, subFromMap, subToMap statusMap) (statusMap, error) {
 	unitsMap := make(statusMap)
 	for _, unit := range units {
-		unitsMap[unit.Name()] = checkError(processUnit(unit, subordinatesMap, machines))
+		unitsMap[unit.Name()] = checkError(processUnit(unit, subFromMap, subToMap))
 	}
 	return unitsMap, nil
 }
 
-func processUnit(unit *state.Unit, subordinatesMap statusMap, machines map[string]*state.Machine) (statusMap, error) {
+func processUnit(unit *state.Unit, subFromMap, subToMap statusMap) (statusMap, error) {
 	unitMap := make(statusMap)
 
 	if addr, ok := unit.PublicAddress(); ok {
@@ -250,23 +268,17 @@ func processUnit(unit *state.Unit, subordinatesMap statusMap, machines map[strin
 	}
 	processStatus(unitMap, status, info, agentAlive, unitDead)
 
-	if !unit.IsPrincipal() {
-		sname := unit.ServiceName()
-		subnames := []string{}
-		if subordinatesMap[sname] != nil {
-			subnames = subordinatesMap[sname].([]string)
-		}
-		if unitMap["machine"] != nil {
-			m := machines[unitMap["machine"].(string)]
-			us, err := m.Units()
-			if err != nil {
-				return nil, err
+	if unit.IsPrincipal() {
+		subNames := unit.SubordinateNames()
+		for _, subName := range subNames {
+			subFromMap[unit.Name()] = subName
+			subNameParts := strings.Split(subName, "/")
+			svcName := subNameParts[0]
+			subTo := []string{}
+			if subToMap[svcName] != nil {
+				subTo = subToMap[svcName].([]string)
 			}
-			for _, u := range us {
-				if u.IsPrincipal() {
-					subordinatesMap[sname] = append(subnames, u.ServiceName())
-				}
-			}
+			subToMap[svcName] = append(subTo, unit.ServiceName())
 		}
 	}
 
