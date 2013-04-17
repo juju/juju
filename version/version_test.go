@@ -61,48 +61,46 @@ var parseTests = []struct {
 	err    string
 	expect version.Number
 	dev    bool
-}{
-	{
-		v:   "0.0.0",
-		dev: false,
-	},
-	{
-		v:      "1.0.0",
-		expect: version.Number{Major: 1},
-		dev:    true,
-	},
-	{
-		v:      "0.1.0",
-		expect: version.Number{Minor: 1},
-		dev:    true,
-	},
-	{
-		v:      "0.0.2",
-		expect: version.Number{Patch: 2},
-		dev:    false,
-	},
-	{
-		v:      "10.234.3456",
-		expect: version.Number{Major: 10, Minor: 234, Patch: 3456},
-		dev:    false,
-	},
-	{v: "1.2.3.4",
-		expect: version.Number{Major: 1, Minor: 2, Patch: 3, Build: 4},
-		dev:    true,
-	},
-	{v: "2.4.6.8",
-		expect: version.Number{Major: 2, Minor: 4, Patch: 6, Build: 8},
-		dev:    true,
-	},
-	{
-		v:   "1234567890.2.1",
-		err: "invalid version.*",
-	},
-	{
-		v:   "0.2..1",
-		err: "invalid version.*",
-	},
-}
+}{{
+	v: "0.0.0",
+}, {
+	v:      "0.0.1",
+	expect: version.Number{0, 0, 1, 0},
+}, {
+	v:      "0.0.2",
+	expect: version.Number{0, 0, 2, 0},
+}, {
+	v:      "0.1.0",
+	expect: version.Number{0, 1, 0, 0},
+	dev:    true,
+}, {
+	v:      "0.2.3",
+	expect: version.Number{0, 2, 3, 0},
+}, {
+	v:      "1.0.0",
+	expect: version.Number{1, 0, 0, 0},
+}, {
+	v:      "10.234.3456",
+	expect: version.Number{10, 234, 3456, 0},
+}, {
+	v:      "10.234.3456.1",
+	expect: version.Number{10, 234, 3456, 1},
+	dev:    true,
+}, {
+	v:      "10.234.3456.64",
+	expect: version.Number{10, 234, 3456, 64},
+	dev:    true,
+}, {
+	v:      "10.235.3456",
+	expect: version.Number{10, 235, 3456, 0},
+	dev:    true,
+}, {
+	v:   "1234567890.2.1",
+	err: "invalid version.*",
+}, {
+	v:   "0.2..1",
+	err: "invalid version.*",
+}}
 
 func (suite) TestParse(c *C) {
 	for i, test := range parseTests {
@@ -136,24 +134,19 @@ var parseBinaryTests = []struct {
 	v      string
 	err    string
 	expect version.Binary
-}{
-	{
-		v:      "1.2.3-a-b",
-		expect: binaryVersion(1, 2, 3, 0, "a", "b"),
-	},
-	{
-		v:      "1.2.3.4-a-b",
-		expect: binaryVersion(1, 2, 3, 4, "a", "b"),
-	},
-	{
-		v:   "1.2.3--b",
-		err: "invalid binary version.*",
-	},
-	{
-		v:   "1.2.3-a-",
-		err: "invalid binary version.*",
-	},
-}
+}{{
+	v:      "1.2.3-a-b",
+	expect: binaryVersion(1, 2, 3, 0, "a", "b"),
+}, {
+	v:      "1.2.3.4-a-b",
+	expect: binaryVersion(1, 2, 3, 4, "a", "b"),
+}, {
+	v:   "1.2.3--b",
+	err: "invalid binary version.*",
+}, {
+	v:   "1.2.3-a-",
+	err: "invalid binary version.*",
+}}
 
 func (suite) TestParseBinary(c *C) {
 	for i, test := range parseBinaryTests {

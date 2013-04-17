@@ -229,6 +229,7 @@ func newState(name string, ops chan<- Operation, fwmode config.FirewallMode) *en
 	s.storage = newStorage(s, "/"+name+"/private")
 	s.publicStorage = newStorage(s, "/"+name+"/public")
 	s.listen()
+	// TODO(fwereade): get rid of these.
 	envtesting.MustUploadFakeTools(s.publicStorage)
 	return s
 }

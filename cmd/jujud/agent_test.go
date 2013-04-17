@@ -6,7 +6,6 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/agent"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -15,6 +14,8 @@ import (
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/tomb"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -281,21 +282,19 @@ func (s *agentSuite) initAgent(c *C, a cmd.Command, args ...string) {
 	c.Assert(err, IsNil)
 }
 
-func (s *agentSuite) proposeVersion(c *C, vers version.Number, development bool) {
+func (s *agentSuite) proposeVersion(c *C, vers version.Number) {
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, IsNil)
-	attrs := cfg.AllAttrs()
-	attrs["agent-version"] = vers.String()
-	attrs["development"] = development
-	newCfg, err := config.New(attrs)
+	cfg, err = cfg.Apply(map[string]interface{}{
+		"agent-version": vers.String(),
+	})
 	c.Assert(err, IsNil)
-	err = s.State.SetEnvironConfig(newCfg)
+	err = s.State.SetEnvironConfig(cfg)
 	c.Assert(err, IsNil)
 }
 
 func (s *agentSuite) uploadTools(c *C, vers version.Binary) *state.Tools {
 	tgz := coretesting.TarGz(
-		coretesting.NewTarFile("juju", 0777, "juju contents "+vers.String()),
 		coretesting.NewTarFile("jujud", 0777, "jujud contents "+vers.String()),
 	)
 	storage := s.Conn.Environ.Storage()
@@ -309,7 +308,8 @@ func (s *agentSuite) uploadTools(c *C, vers version.Binary) *state.Tools {
 // primeTools sets up the current version of the tools to vers and
 // makes sure that they're available JujuConnSuite's DataDir.
 func (s *agentSuite) primeTools(c *C, vers version.Binary) *state.Tools {
-	// Set up the current version and tools.
+	err := os.RemoveAll(filepath.Join(s.DataDir(), "tools"))
+	c.Assert(err, IsNil)
 	version.Current = vers
 	tools := s.uploadTools(c, vers)
 	resp, err := http.Get(tools.URL)
@@ -377,7 +377,7 @@ func (s *agentSuite) testUpgrade(c *C, agent runner, currentTools *state.Tools) 
 	newVers := version.Current
 	newVers.Patch++
 	newTools := s.uploadTools(c, newVers)
-	s.proposeVersion(c, newVers.Number, true)
+	s.proposeVersion(c, newVers.Number)
 	err := runWithTimeout(agent)
 	c.Assert(err, FitsTypeOf, &UpgradeReadyError{})
 	ug := err.(*UpgradeReadyError)

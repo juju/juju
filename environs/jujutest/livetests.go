@@ -86,7 +86,7 @@ func (t *LiveTests) BootstrapOnce(c *C) {
 	// we could connect to (actual live tests, rather than local-only)
 	cons := constraints.MustParse("mem=2G")
 	if t.CanOpenState {
-		_, err := tools.Upload(t.Env.Storage(), nil)
+		_, err := tools.Upload(t.Env.Storage(), nil, config.DefaultSeries)
 		c.Assert(err, IsNil)
 	}
 	err := environs.Bootstrap(t.Env, cons)
@@ -337,7 +337,9 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	// bootstrap process (it's optional in the config.Config)
 	cfg, err := conn.State.EnvironConfig()
 	c.Assert(err, IsNil)
-	c.Check(cfg.AgentVersion(), Equals, version.CurrentNumber())
+	agentVersion, ok := cfg.AgentVersion()
+	c.Check(ok, Equals, true)
+	c.Check(agentVersion, Equals, version.CurrentNumber())
 
 	// Check that the constraints have been set in the environment.
 	cons, err := conn.State.EnvironConstraints()

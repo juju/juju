@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
@@ -44,8 +45,17 @@ func (src List) collect(f func(*state.Tools) string) []string {
 	return seen.SortedValues()
 }
 
-// Newest returns the tools in src with the greatest version.
-func (src List) Newest() List {
+// URLs returns download URLs for the tools in src, keyed by binary version.
+func (src List) URLs() map[version.Binary]string {
+	result := map[version.Binary]string{}
+	for _, tools := range src {
+		result[tools.Binary] = tools.URL
+	}
+	return result
+}
+
+// Newest returns the greatest version in src, and the tools with that version.
+func (src List) Newest() (version.Number, List) {
 	var result List
 	var best version.Number
 	for _, tools := range src {
@@ -57,7 +67,7 @@ func (src List) Newest() List {
 			result = append(result, tools)
 		}
 	}
-	return result
+	return best, result
 }
 
 // Difference returns the tools in src that are not in excluded.
@@ -85,6 +95,7 @@ func (src List) Match(f Filter) (List, error) {
 		}
 	}
 	if len(result) == 0 {
+		log.Errorf("environs/tools: cannot match %#v", f)
 		return nil, ErrNoMatches
 	}
 	return result, nil
@@ -115,7 +126,7 @@ func (f Filter) match(tools *state.Tools) bool {
 	if f.Released && tools.IsDev() {
 		return false
 	}
-	if f.Number != (version.Number{}) && tools.Number != f.Number {
+	if f.Number != version.Zero && tools.Number != f.Number {
 		return false
 	}
 	if f.Series != "" && tools.Series != f.Series {

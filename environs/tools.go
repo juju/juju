@@ -21,11 +21,11 @@ type ToolsList struct {
 // given major version.
 func ListTools(env Environ, majorVersion int) (*ToolsList, error) {
 	private, err := tools.ReadList(env.Storage(), majorVersion)
-	if err != nil && err != tools.ErrNoMatches {
+	if err != nil && !isToolsError(err) {
 		return nil, err
 	}
 	public, err := tools.ReadList(env.PublicStorage(), majorVersion)
-	if err != nil && err != tools.ErrNoMatches {
+	if err != nil && !isToolsError(err) {
 		return nil, err
 	}
 	return &ToolsList{
@@ -54,9 +54,9 @@ func bestTools(toolsList []*state.Tools, vers version.Binary, flags ToolsSearchF
 	var bestTools *state.Tools
 	allowDev := vers.IsDev() || flags&DevVersion != 0
 	allowHigher := flags&HighestVersion != 0
-	log.Debugf("finding best tools for version: %v", vers)
+	log.Debugf("environs: finding best tools for version %v (dev=%v)", vers, allowDev)
 	for _, t := range toolsList {
-		log.Debugf("checking tools %v", t)
+		log.Debugf("environs: checking tools %v", t)
 		if t.Major != vers.Major ||
 			t.Series != vers.Series ||
 			t.Arch != vers.Arch ||
@@ -65,6 +65,7 @@ func bestTools(toolsList []*state.Tools, vers version.Binary, flags ToolsSearchF
 			continue
 		}
 		if bestTools == nil || bestTools.Number.Less(t.Number) {
+			log.Debugf("environs: new best tools found: %v", t)
 			bestTools = t
 		}
 	}
@@ -108,4 +109,56 @@ func FindTools(env Environ, vers version.Binary, flags ToolsSearchFlags) (*state
 		return tools, &NotFoundError{fmt.Errorf("no compatible tools found")}
 	}
 	return tools, nil
+}
+
+// FindAvailableTools returns a tools.List containing all tools with a given
+// major version number available in the environment.
+// If *any* tools are present in private storage, *only* tools from private
+// storage are available.
+// If *no* tools are present in private storage, *only* tools from public
+// storage are available.
+// If no *available* tools have the supplied major version number, the function
+// returns a *NotFoundError.
+func FindAvailableTools(environ Environ, majorVersion int) (list tools.List, err error) {
+	defer convertToolsError(&err)
+	list, err = tools.ReadList(environ.Storage(), majorVersion)
+	if err == tools.ErrNoTools {
+		list, err = tools.ReadList(environ.PublicStorage(), majorVersion)
+	}
+	return list, err
+}
+
+// FindExactTools returns only the tools that match the supplied version.
+// TODO(fwereade) this should not exist: it's used by cmd/jujud/Upgrader,
+// which needs to run on every agent and must absolutely *not* in general
+// have access to an Environ.
+func FindExactTools(environ Environ, vers version.Binary) (t *state.Tools, err error) {
+	defer convertToolsError(&err)
+	list, err := FindAvailableTools(environ, vers.Major)
+	if err != nil {
+		return nil, err
+	}
+	list, err = list.Match(tools.Filter{
+		Number: vers.Number,
+		Series: vers.Series,
+		Arch:   vers.Arch,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return list[0], nil
+}
+
+func isToolsError(err error) bool {
+	switch err {
+	case tools.ErrNoTools, tools.ErrNoMatches:
+		return true
+	}
+	return false
+}
+
+func convertToolsError(err *error) {
+	if isToolsError(*err) {
+		*err = &NotFoundError{*err}
+	}
 }

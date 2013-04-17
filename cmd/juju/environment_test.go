@@ -79,6 +79,9 @@ var setEnvInitTests = []struct {
 		args: []string{},
 		err:  "No key, value pairs specified",
 	}, {
+		args: []string{"agent-version=1.2.3"},
+		err:  `agent-version must be set via upgrade-juju`,
+	}, {
 		args: []string{"missing"},
 		err:  `Missing "=" in arg 1: "missing"`,
 	}, {
@@ -144,7 +147,6 @@ func (s *SetEnvironmentSuite) TestChangeAsCommandPair(c *C) {
 var immutableConfigTests = map[string]string{
 	"name":          "foo",
 	"type":          "foo",
-	"agent-version": "1.2.3",
 	"firewall-mode": "global",
 }
 
