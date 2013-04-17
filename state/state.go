@@ -133,8 +133,8 @@ type State struct {
 	watcher        *watcher.Watcher
 	pwatcher       *presence.Watcher
 	// mu guards allManager.
-	mu sync.Mutex
-	allManager     *multiwatcher.StoreManager
+	mu         sync.Mutex
+	allManager *multiwatcher.StoreManager
 }
 
 func (st *State) Watch() *multiwatcher.Watcher {
