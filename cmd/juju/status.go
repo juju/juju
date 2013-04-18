@@ -134,23 +134,32 @@ func (ctxt *statusContext) processMachines() map[string]machineStatus {
 }
 
 func (ctxt *statusContext) processMachine(machine *state.Machine) (status machineStatus) {
+	status.Life,
+		status.AgentVersion,
+		status.AgentState,
+		status.AgentStateInfo,
+		status.Err = processAgent(machine)
 	status.Series = machine.Series()
 	instid, ok := machine.InstanceId()
-	if !ok {
+	if ok {
+		status.InstanceId = instid
+		instance, ok := ctxt.instances[instid]
+		if ok {
+			status.DNSName, _ = instance.DNSName()
+		} else {
+			// Double plus ungood.  There is an instance id recorded
+			// for this machine in the state, yet the environ cannot
+			// find that id.
+			status.InstanceState = "missing"
+		}
+	} else {
 		status.InstanceId = "pending"
-		return
+		// There's no point in reporting a pending agent state
+		// if the machine hasn't been provisioned.  This
+		// also makes unprovisioned machines visually distinct
+		// in the output.
+		status.AgentState = ""
 	}
-	instance, ok := ctxt.instances[instid]
-	if !ok {
-		// Double plus ungood.  There is an instance id recorded
-		// for this machine in the state, yet the environ cannot
-		// find that id.
-		status.InstanceState = "missing"
-		return
-	}
-	status.InstanceId = instance.Id()
-	status.DNSName, _ = instance.DNSName()
-	status.Err = processAgent(&status.AgentVersion, &status.AgentState, &status.AgentStateInfo, machine)
 	return
 }
 
@@ -166,6 +175,7 @@ func (ctxt *statusContext) processService(service *state.Service) (status servic
 	url, _ := service.CharmURL()
 	status.Charm = url.String()
 	status.Exposed = service.IsExposed()
+	status.Life = processLife(service)
 	var err error
 	status.Relations, status.SubordinateTo, err = ctxt.processRelations(service)
 	if err != nil {
@@ -191,10 +201,11 @@ func (ctxt *statusContext) processUnit(unit *state.Unit) (status unitStatus) {
 	if unit.IsPrincipal() {
 		status.Machine, _ = unit.AssignedMachineId()
 	}
-	if err := processAgent(&status.AgentVersion, &status.AgentState, &status.AgentStateInfo, unit); err != nil {
-		status.Err = err
-		return
-	}
+	status.Life,
+		status.AgentVersion,
+		status.AgentState,
+		status.AgentStateInfo,
+		status.Err = processAgent(unit)
 	if subUnits := unit.SubordinateNames(); len(subUnits) > 0 {
 		status.Subordinates = make(map[string]unitStatus)
 		for _, name := range subUnits {
@@ -244,8 +255,12 @@ func (*statusContext) processRelations(service *state.Service) (related map[stri
 	return related, subordSet.SortedValues(), nil
 }
 
-type stateAgent interface {
+type lifer interface {
 	Life() state.Life
+}
+
+type stateAgent interface {
+	lifer
 	AgentAlive() (bool, error)
 	AgentTools() (*state.Tools, error)
 	Status() (params.Status, string, error)
@@ -253,32 +268,43 @@ type stateAgent interface {
 
 // processAgent retrieves version and status information from the given entity
 // and sets the destination version, status and info values accordingly.
-func processAgent(dstVersion *string, dstStatus *params.Status, dstInfo *string, entity stateAgent) error {
+func processAgent(entity stateAgent) (life string, version string, status params.Status, info string, err error) {
+	life = processLife(entity)
 	if t, err := entity.AgentTools(); err == nil {
-		*dstVersion = t.Binary.Number.String()
+		version = t.Binary.Number.String()
+	}
+	status, info, err = entity.Status()
+	if err != nil {
+		return
+	}
+	if status == params.StatusPending {
+		// The status is pending - there's no point
+		// in enquiring about the agent liveness.
+		return
 	}
 	agentAlive, err := entity.AgentAlive()
 	if err != nil {
-		return err
+		return
 	}
-	entityDead := entity.Life() == state.Dead
-	status, info, err := entity.Status()
-	if err != nil {
-		return err
-	}
-	if status != params.StatusPending && !agentAlive && !entityDead {
+	if entity.Life() != state.Dead && !agentAlive {
+		// The agent *should* be alive but is not.
 		// Add the original status to the info, so it's not lost.
 		if info != "" {
 			info = fmt.Sprintf("(%s: %s)", status, info)
 		} else {
 			info = fmt.Sprintf("(%s)", status)
 		}
-		// Agent should be running but it's not.
 		status = params.StatusDown
 	}
-	*dstStatus = status
-	*dstInfo = info
-	return nil
+	return
+}
+
+func processLife(entity lifer) string {
+	if life := entity.Life(); life != state.Alive {
+		// alive is the usual state so omit it by default.
+		return life.String()
+	}
+	return ""
 }
 
 type machineStatus struct {
@@ -286,6 +312,7 @@ type machineStatus struct {
 	Series         string           `json:"series,omitempty" yaml:"series,omitempty"`
 	InstanceId     state.InstanceId `json:"instance-id,omitempty" yaml:"instance-id,omitempty"`
 	DNSName        string           `json:"dns-name,omitempty" yaml:"dns-name,omitempty"`
+	Life           string           `json:"life,omitempty" yaml:"life,omitempty"`
 	AgentVersion   string           `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
 	AgentState     params.Status    `json:"agent-state,omitempty" yaml:"agent-state,omitempty"`
 	AgentStateInfo string           `json:"agent-state-info,omitempty" yaml:"agent-state-info,omitempty"`
@@ -320,6 +347,7 @@ func (s machineStatus) GetYAML() (tag string, value interface{}) {
 
 type serviceStatus struct {
 	Err           error                 `json:"-" yaml:",omitempty"`
+	Life          string                `json:"life,omitempty" yaml:"life,omitempty"`
 	Charm         string                `json:"charm" yaml:"charm"`
 	Exposed       bool                  `json:"exposed" yaml:"exposed"`
 	Units         map[string]unitStatus `json:"units,omitempty" yaml:"units,omitempty"`
@@ -348,6 +376,7 @@ type unitStatus struct {
 	Err            error                 `json:"-" yaml:",omitempty"`
 	PublicAddress  string                `json:"public-address,omitempty" yaml:"public-address,omitempty"`
 	Machine        string                `json:"machine,omitempty" yaml:"machine,omitempty"`
+	Life           string                `json:"life,omitempty" yaml:"life,omitempty"`
 	AgentVersion   string                `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
 	AgentState     params.Status         `json:"agent-state,omitempty" yaml:"agent-state,omitempty"`
 	AgentStateInfo string                `json:"agent-state-info,omitempty" yaml:"agent-state-info,omitempty"`
