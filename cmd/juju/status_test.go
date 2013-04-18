@@ -224,7 +224,7 @@ var statusTests = []testCase{
 				"machines": M{
 					"0": M{
 						"instance-id": "pending",
-					"series": "series",
+						"series":      "series",
 					},
 				},
 				"services": M{},
