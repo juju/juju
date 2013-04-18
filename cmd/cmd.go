@@ -7,7 +7,6 @@ import (
 	"io"
 	"io/ioutil"
 	"launchpad.net/gnuflag"
-	"launchpad.net/juju-core/log"
 	"os"
 	"path/filepath"
 	"strings"
