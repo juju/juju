@@ -229,7 +229,7 @@ var statusTests = []testCase{
 				"machines": M{
 					"0": M{
 						"instance-state": "missing",
-						"agent-state": "pending",
+						"agent-state":    "pending",
 					},
 				},
 				"services": M{},
@@ -338,8 +338,11 @@ var statusTests = []testCase{
 		addMachine{"4", state.JobHostUnits},
 		startAliveMachine{"4"},
 		setMachineStatus{"4", params.StatusError, "Beware the red toys"},
+		ensureDyingUnit{"dummy-service/0"},
+		addMachine{"5", state.JobHostUnits},
+		ensureDeadMachine{"5"},
 		expect{
-			"add two more machine, one with a dead agent, one in error state",
+			"add two more machines: one dead with a dead agent, one dying and one and in error state; also one dying unit",
 			M{
 				"machines": M{
 					"0": machine0,
@@ -356,6 +359,10 @@ var statusTests = []testCase{
 						"instance-id":      "dummyenv-4",
 						"agent-state":      "error",
 						"agent-state-info": "Beware the red toys",
+					},
+					"5": M{
+						"life":        "dead",
+						"instance-id": "pending",
 					},
 				},
 				"services": M{
@@ -376,6 +383,7 @@ var statusTests = []testCase{
 						"units": M{
 							"dummy-service/0": M{
 								"machine":          "1",
+								"life":             "dying",
 								"agent-state":      "down",
 								"agent-state-info": "(started)",
 							},
@@ -844,8 +852,33 @@ type setUnitStatus struct {
 
 func (sus setUnitStatus) step(c *C, ctx *context) {
 	u, err := ctx.st.Unit(sus.unitName)
+	c.Assert(err, IsNil)
 	err = u.SetStatus(sus.status, sus.statusInfo)
 	c.Assert(err, IsNil)
+}
+
+type ensureDyingUnit struct {
+	unitName string
+}
+
+func (e ensureDyingUnit) step(c *C, ctx *context) {
+	u, err := ctx.st.Unit(e.unitName)
+	c.Assert(err, IsNil)
+	err = u.Destroy()
+	c.Assert(err, IsNil)
+	c.Assert(u.Life(), Equals, state.Dying)
+}
+
+type ensureDeadMachine struct {
+	machineId string
+}
+
+func (e ensureDeadMachine) step(c *C, ctx *context) {
+	m, err := ctx.st.Machine(e.machineId)
+	c.Assert(err, IsNil)
+	err = m.EnsureDead()
+	c.Assert(err, IsNil)
+	c.Assert(m.Life(), Equals, state.Dead)
 }
 
 type setMachineStatus struct {
@@ -856,6 +889,7 @@ type setMachineStatus struct {
 
 func (sms setMachineStatus) step(c *C, ctx *context) {
 	m, err := ctx.st.Machine(sms.machineId)
+	c.Assert(err, IsNil)
 	err = m.SetStatus(sms.status, sms.statusInfo)
 	c.Assert(err, IsNil)
 }

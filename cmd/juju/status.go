@@ -134,10 +134,11 @@ func (ctxt *statusContext) processMachines() map[string]machineStatus {
 }
 
 func (ctxt *statusContext) processMachine(machine *state.Machine) (status machineStatus) {
-	status.AgentVersion,
-	status.AgentState,
-	status.AgentStateInfo,
-	status.Err = processAgent(machine)
+	status.Life,
+		status.AgentVersion,
+		status.AgentState,
+		status.AgentStateInfo,
+		status.Err = processAgent(machine)
 	instid, ok := machine.InstanceId()
 	if ok {
 		instance, ok := ctxt.instances[instid]
@@ -198,10 +199,11 @@ func (ctxt *statusContext) processUnit(unit *state.Unit) (status unitStatus) {
 	if unit.IsPrincipal() {
 		status.Machine, _ = unit.AssignedMachineId()
 	}
-	status.AgentVersion,
-	status.AgentState,
-	status.AgentStateInfo,
-	status.Err = processAgent(unit)
+	status.Life,
+		status.AgentVersion,
+		status.AgentState,
+		status.AgentStateInfo,
+		status.Err = processAgent(unit)
 	if subUnits := unit.SubordinateNames(); len(subUnits) > 0 {
 		status.Subordinates = make(map[string]unitStatus)
 		for _, name := range subUnits {
@@ -260,27 +262,35 @@ type stateAgent interface {
 
 // processAgent retrieves version and status information from the given entity
 // and sets the destination version, status and info values accordingly.
-func processAgent(entity stateAgent) (version string, status params.Status, info string, err error) {
+func processAgent(entity stateAgent) (life string, version string, status params.Status, info string, err error) {
+	if elife := entity.Life(); elife != state.Alive {
+		// alive is the usual state so omit it by default.
+		life = elife.String()
+	}
 	if t, err := entity.AgentTools(); err == nil {
 		version = t.Binary.Number.String()
+	}
+	status, info, err = entity.Status()
+	if err != nil {
+		return
+	}
+	if status == params.StatusPending {
+		// The status is pending - there's no point
+		// in enquiring about the agent liveness.
+		return
 	}
 	agentAlive, err := entity.AgentAlive()
 	if err != nil {
 		return
 	}
-	entityDead := entity.Life() == state.Dead
-	status, info, err = entity.Status()
-	if err != nil {
-		return
-	}
-	if status != params.StatusPending && !agentAlive && !entityDead {
+	if entity.Life() != state.Dead && !agentAlive {
+		// The agent *should* be alive but is not.
 		// Add the original status to the info, so it's not lost.
 		if info != "" {
 			info = fmt.Sprintf("(%s: %s)", status, info)
 		} else {
 			info = fmt.Sprintf("(%s)", status)
 		}
-		// Agent should be running but it's not.
 		status = params.StatusDown
 	}
 	return
@@ -290,6 +300,7 @@ type machineStatus struct {
 	Err            error            `json:"-" yaml:",omitempty"`
 	InstanceId     state.InstanceId `json:"instance-id,omitempty" yaml:"instance-id,omitempty"`
 	DNSName        string           `json:"dns-name,omitempty" yaml:"dns-name,omitempty"`
+	Life           string           `json:"life,omitempty" yaml:"life,omitempty"`
 	AgentVersion   string           `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
 	AgentState     params.Status    `json:"agent-state,omitempty" yaml:"agent-state,omitempty"`
 	AgentStateInfo string           `json:"agent-state-info,omitempty" yaml:"agent-state-info,omitempty"`
@@ -352,6 +363,7 @@ type unitStatus struct {
 	Err            error                 `json:"-" yaml:",omitempty"`
 	PublicAddress  string                `json:"public-address,omitempty" yaml:"public-address,omitempty"`
 	Machine        string                `json:"machine,omitempty" yaml:"machine,omitempty"`
+	Life           string                `json:"life,omitempty" yaml:"life,omitempty"`
 	AgentVersion   string                `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
 	AgentState     params.Status         `json:"agent-state,omitempty" yaml:"agent-state,omitempty"`
 	AgentStateInfo string                `json:"agent-state-info,omitempty" yaml:"agent-state-info,omitempty"`
