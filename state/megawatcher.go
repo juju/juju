@@ -3,7 +3,6 @@ package state
 import (
 	"fmt"
 	"labix.org/v2/mgo"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/multiwatcher"
 	"launchpad.net/juju-core/state/watcher"
@@ -225,7 +224,6 @@ type backingStatus statusDoc
 func (s *backingStatus) updated(st *State, store *multiwatcher.Store, id interface{}) error {
 	parentId, ok := backingEntityIdForGlobalKey(id.(string))
 	if !ok {
-		log.Errorf("status for entity with unrecognised global key %q", id)
 		return nil
 	}
 	info0 := store.Get(parentId)
@@ -265,7 +263,6 @@ type backingConstraints constraintsDoc
 func (s *backingConstraints) updated(st *State, store *multiwatcher.Store, id interface{}) error {
 	parentId, ok := backingEntityIdForGlobalKey(id.(string))
 	if !ok {
-		log.Errorf("constraints for entity with unrecognised global key %q", id)
 		return nil
 	}
 	info0 := store.Get(parentId)
@@ -300,7 +297,6 @@ type backingSettings map[string]interface{}
 func (s *backingSettings) updated(st *State, store *multiwatcher.Store, id interface{}) error {
 	parentId, url, ok := backingEntityIdForSettingsKey(id.(string))
 	if !ok {
-		log.Errorf("settings for entity with unrecognized key %q", id)
 		return nil
 	}
 	info0 := store.Get(parentId)

@@ -139,6 +139,7 @@ func (ctxt *statusContext) processMachine(machine *state.Machine) (status machin
 		status.AgentState,
 		status.AgentStateInfo,
 		status.Err = processAgent(machine)
+	status.Series = machine.Series()
 	instid, ok := machine.InstanceId()
 	if ok {
 		instance, ok := ctxt.instances[instid]
@@ -298,6 +299,7 @@ func processAgent(entity stateAgent) (life string, version string, status params
 
 type machineStatus struct {
 	Err            error            `json:"-" yaml:",omitempty"`
+	Series         string           `json:"series,omitempty" yaml:"series,omitempty"`
 	InstanceId     state.InstanceId `json:"instance-id,omitempty" yaml:"instance-id,omitempty"`
 	DNSName        string           `json:"dns-name,omitempty" yaml:"dns-name,omitempty"`
 	Life           string           `json:"life,omitempty" yaml:"life,omitempty"`
