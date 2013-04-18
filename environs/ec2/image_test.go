@@ -181,6 +181,8 @@ func (s *specSuite) TestFindInstanceSpec(c *C) {
 			Series:      t.series,
 			Arches:      t.arches,
 			Constraints: constraints.MustParse(t.cons),
+			Cluster:     &cluster,
+			Storage:     &ebsStorage,
 		})
 		c.Assert(err, IsNil)
 		c.Check(spec.InstanceTypeName, Equals, t.itype)

@@ -14,8 +14,8 @@ type InstanceType struct {
 	CpuCores uint64
 	CpuPower uint64
 	Mem      uint64
-	// hvm instance types must be launched with hvm images.
-	Hvm bool
+	// Clustered instance types must be launched with clustered images.
+	Clustered bool
 }
 
 // all instance types can run amd64 images, and some can also run i386 ones.

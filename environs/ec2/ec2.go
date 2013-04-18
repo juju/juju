@@ -397,6 +397,9 @@ type startInstanceParams struct {
 	stateServer   bool
 }
 
+var ebsStorage = "ebs"
+var cluster = "hvm"
+
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself.
 func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, error) {
@@ -410,6 +413,8 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 		Series:      series[0],
 		Arches:      arches,
 		Constraints: scfg.constraints,
+		Storage:     &ebsStorage,
+		Cluster:     &cluster,
 	})
 	if err != nil {
 		return nil, err

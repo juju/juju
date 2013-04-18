@@ -15,8 +15,10 @@ type InstanceConstraint struct {
 	Region      string
 	Series      string
 	Arches      []string
-	Storage     string
 	Constraints constraints.Value
+	// Optional constraints not supported by all providers.
+	Storage *string
+	Cluster *string
 }
 
 // InstanceSpec holds an instance type name and the chosen image info.
@@ -28,7 +30,7 @@ type InstanceSpec struct {
 
 // FindInstanceSpec returns an InstanceSpec satisfying the supplied InstanceConstraint.
 func FindInstanceSpec(r *bufio.Reader, ic *InstanceConstraint, availableTypes []InstanceType) (*InstanceSpec, error) {
-	images, err := getImages(r, ic.Region, ic.Series, ic.Storage, ic.Arches)
+	images, err := getImages(r, ic)
 	if err != nil {
 		return nil, err
 	}
@@ -68,13 +70,13 @@ const (
 type Image struct {
 	Id   string
 	Arch string
-	// Hvm is true when the image is built for an cluster instance type.
-	Hvm bool
+	// Clustered is true when the image is built for an cluster instance type.
+	Clustered bool
 }
 
 // match returns true if the image can run on the supplied instance type.
 func (image Image) match(itype InstanceType) bool {
-	if image.Hvm != itype.Hvm {
+	if image.Clustered != itype.Clustered {
 		return false
 	}
 	for _, arch := range itype.Arches {
@@ -87,13 +89,13 @@ func (image Image) match(itype InstanceType) bool {
 
 // getImages returns the latest released ubuntu server images for the
 // supplied series in the supplied region.
-func getImages(r *bufio.Reader, region, series, storage string, arches []string) ([]Image, error) {
+func getImages(r *bufio.Reader, ic *InstanceConstraint) ([]Image, error) {
 	var images []Image
 	for {
 		line, _, err := r.ReadLine()
 		if err == io.EOF {
 			if len(images) == 0 {
-				return nil, fmt.Errorf("no %q images in %s with arches %v", series, region, arches)
+				return nil, fmt.Errorf("no %q images in %s with arches %v", ic.Series, ic.Region, ic.Arches)
 			}
 			sort.Sort(byArch(images))
 			return images, nil
@@ -104,17 +106,21 @@ func getImages(r *bufio.Reader, region, series, storage string, arches []string)
 		if len(f) < colMax {
 			continue
 		}
-		if f[colRegion] != region {
+		if f[colRegion] != ic.Region {
 			continue
 		}
-		if storage != "" && f[colStorage] != storage {
+		if ic.Storage != nil && f[colStorage] != *ic.Storage {
 			continue
 		}
-		if len(filterArches([]string{f[colArch]}, arches)) != 0 {
+		if len(filterArches([]string{f[colArch]}, ic.Arches)) != 0 {
+			var clustered bool
+			if ic.Cluster != nil {
+				clustered = f[colVtype] == *ic.Cluster
+			}
 			images = append(images, Image{
-				Id:   f[colImageId],
-				Arch: f[colArch],
-				Hvm:  f[colVtype] == "hvm",
+				Id:        f[colImageId],
+				Arch:      f[colArch],
+				Clustered: clustered,
 			})
 		}
 	}

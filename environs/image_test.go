@@ -97,10 +97,18 @@ var getImagesTests = []struct {
 }
 
 func (s *imageSuite) TestGetImages(c *C) {
+	var ebs = "ebs"
+	var cluster = "hvm"
 	for i, t := range getImagesTests {
 		c.Logf("test %d", i)
 		r := bufio.NewReader(bytes.NewBufferString(imagesData))
-		images, err := getImages(r, t.region, t.series, "ebs", t.arches)
+		images, err := getImages(r, &InstanceConstraint{
+			Region:  t.region,
+			Series:  t.series,
+			Arches:  t.arches,
+			Storage: &ebs,
+			Cluster: &cluster,
+		})
 		if t.err != "" {
 			c.Check(err, ErrorMatches, t.err)
 			continue
@@ -126,18 +134,18 @@ var imageMatchtests = []struct {
 		itype: InstanceType{Arches: []string{"i386", "amd64"}},
 		match: true,
 	}, {
-		image: Image{Arch: "amd64", Hvm: true},
-		itype: InstanceType{Arches: []string{"amd64"}, Hvm: true},
+		image: Image{Arch: "amd64", Clustered: true},
+		itype: InstanceType{Arches: []string{"amd64"}, Clustered: true},
 		match: true,
 	}, {
 		image: Image{Arch: "i386"},
 		itype: InstanceType{Arches: []string{"amd64"}},
 	}, {
-		image: Image{Arch: "amd64", Hvm: true},
+		image: Image{Arch: "amd64", Clustered: true},
 		itype: InstanceType{Arches: []string{"amd64"}},
 	}, {
 		image: Image{Arch: "amd64"},
-		itype: InstanceType{Arches: []string{"amd64"}, Hvm: true},
+		itype: InstanceType{Arches: []string{"amd64"}, Clustered: true},
 	},
 }
 
