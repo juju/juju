@@ -9,6 +9,7 @@ package statecmd
 import (
 	"reflect"
 
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -30,9 +31,12 @@ func ServiceGet(st *state.State, p params.ServiceGet) (params.ServiceGetResults,
 	}
 	charmCfg := charm.Config().Options
 
-	constraints, err := svc.Constraints()
-	if err != nil {
-		return params.ServiceGetResults{}, err
+	var constraints constraints.Value
+	if svc.IsPrincipal() {
+		constraints, err = svc.Constraints()
+		if err != nil {
+			return params.ServiceGetResults{}, err
+		}
 	}
 
 	return params.ServiceGetResults{
@@ -52,16 +56,14 @@ func merge(serviceCfg map[string]interface{}, charmCfg map[string]charm.Option) 
 			"type":        v.Type,
 		}
 		s, ok := serviceCfg[k]
-		if ok {
+		if ok && s != nil {
 			m["value"] = s
-		} else {
-			// Breaks compatibility with py/juju.
-			m["value"] = nil
-		}
-		if v.Default != nil {
-			if reflect.DeepEqual(v.Default, s) {
+			if v.Default != nil && reflect.DeepEqual(v.Default, s) {
 				m["default"] = true
 			}
+		} else {
+			// Breaks compatibility with py/juju ???
+			m["value"] = v.Default
 		}
 		results[k] = m
 	}
