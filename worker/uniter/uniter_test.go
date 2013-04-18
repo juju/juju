@@ -409,6 +409,20 @@ var hookSynchronizationTests = []uniterTest{
 		quickStart{},
 		verifyHookSyncLockUnlocked,
 	),
+	ut(
+		"verify held lock by another unit is not broken",
+		acquireHookSyncLock{"u/1:fake"},
+		// Can't use quickstart as it has a built in waitHooks.
+		createCharm{},
+		serveCharm{},
+		createServiceAndUnit{},
+		startUniter{},
+		verifyHookSyncLockLocked,
+		releaseHookSyncLock,
+		waitAddresses{},
+		waitUnit{status: params.StatusStarted},
+		waitHooks{"install", "config-changed", "start"},
+	),
 }
 
 func (s *UniterSuite) TestUniterHookSynchronisation(c *C) {
@@ -1674,6 +1688,7 @@ type acquireHookSyncLock struct {
 
 func (s acquireHookSyncLock) step(c *C, ctx *context) {
 	lock := createHookLock(c, ctx.dataDir)
+	c.Assert(lock.IsLocked(), Equals, false)
 	err := lock.Lock(s.message)
 	c.Assert(err, IsNil)
 }
@@ -1688,4 +1703,9 @@ var releaseHookSyncLock = custom{func(c *C, ctx *context) {
 var verifyHookSyncLockUnlocked = custom{func(c *C, ctx *context) {
 	lock := createHookLock(c, ctx.dataDir)
 	c.Assert(lock.IsLocked(), Equals, false)
+}}
+
+var verifyHookSyncLockLocked = custom{func(c *C, ctx *context) {
+	lock := createHookLock(c, ctx.dataDir)
+	c.Assert(lock.IsLocked(), Equals, true)
 }}
