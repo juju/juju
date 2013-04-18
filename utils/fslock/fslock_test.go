@@ -299,23 +299,24 @@ func (s *fslockSuite) TestStress(c *C) {
 		defer func() { done <- struct{}{} }()
 		lock, err := fslock.NewLock(dir, "testing")
 		if err != nil {
+			c.Errorf("Failed to create a new lock")
 			return
 		}
 		for i := 0; i < lockAttempts; i++ {
 			err = lock.Lock(name)
-			c.Check(err, IsNil)
+			c.Assert(err, IsNil)
 			state := atomic.AddInt32(lockState, 1)
-			c.Check(state, Equals, int32(1))
+			c.Assert(state, Equals, int32(1))
 			// Tell the go routine scheduler to give a slice to someone else
 			// while we have this locked.
 			runtime.Gosched()
 			// need to decrement prior to unlock to avoid the race of someone
 			// else grabbing the lock before we decrement the state.
-			_ = atomic.AddInt32(lockState, -1)
+			atomic.AddInt32(lockState, -1)
 			err = lock.Unlock()
-			c.Check(err, IsNil)
+			c.Assert(err, IsNil)
 			// increment the general counter
-			_ = atomic.AddInt64(counter, 1)
+			atomic.AddInt64(counter, 1)
 		}
 	}
 
