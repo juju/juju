@@ -237,8 +237,8 @@ func (env *maasEnviron) getMAASClient() *gomaasapi.MAASObject {
 
 // convertConstraints converts the given constraints into an url.Values
 // object suitable to pass to MAAS when acquiring a node.
-// convertConstraints ignores CpuPower because it cannot translated into
-// something meaningful for MAAS right now.
+// CpuPower is ignored because it cannot translated into something
+// meaningful for MAAS right now.
 func convertConstraints(cons constraints.Value) url.Values {
 	params := url.Values{}
 	if cons.Arch != nil {
