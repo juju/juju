@@ -94,6 +94,7 @@ func registerLocalTests() {
 		TenantName: "some tenant",
 	}
 	config := makeTestConfig(cred)
+	config["agent-version"] = version.CurrentNumber().String()
 	config["authorized-keys"] = "fakekey"
 	config["default-image-id"] = "1"
 	config["default-instance-type"] = "m1.small"
@@ -224,21 +225,22 @@ func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *C) {
 		},
 	)
 	defer cleanup()
+
 	// Create a config that matches s.Config but with use-floating-ip set to true
-	s.TestConfig.UpdateConfig(map[string]interface{}{
+	cfg, err := s.Env.Config().Apply(map[string]interface{}{
 		"use-floating-ip": true,
 	})
-	// TODO: Just share jujutest.Tests.Open rather than accessing .Config
-	env, err := environs.NewFromAttrs(s.TestConfig.Config)
+	c.Assert(err, IsNil)
+	env, err := environs.New(cfg)
 	c.Assert(err, IsNil)
 	err = environs.Bootstrap(env, constraints.Value{})
 	c.Assert(err, ErrorMatches, "(.|\n)*cannot allocate a public IP as needed(.|\n)*")
 }
 
 // If the environment is configured not to require a public IP address for nodes,
-// bootstrapping and starting an instance should occur without any attempt to allocate a public address.
+// bootstrapping and starting an instance should occur without any attempt to
+// allocate a public address.
 func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *C) {
-	openstack.SetUseFloatingIP(s.Env, false)
 	cleanup := s.srv.Service.Nova.RegisterControlPoint(
 		"addFloatingIP",
 		func(sc hook.ServiceControl, args ...interface{}) error {
@@ -253,9 +255,16 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *C) {
 		},
 	)
 	defer cleanup()
-	err := environs.Bootstrap(s.Env, constraints.Value{})
+
+	cfg, err := s.Env.Config().Apply(map[string]interface{}{
+		"use-floating-ip": false,
+	})
 	c.Assert(err, IsNil)
-	inst := testing.StartInstance(c, s.Env, "100")
+	env, err := environs.New(cfg)
+	c.Assert(err, IsNil)
+	err = environs.Bootstrap(env, constraints.Value{})
+	c.Assert(err, IsNil)
+	inst := testing.StartInstance(c, env, "100")
 	err = s.Env.StopInstances([]environs.Instance{inst})
 	c.Assert(err, IsNil)
 }
@@ -378,7 +387,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 
 	// check that a new instance will be started with a machine agent,
 	// and without a provisioning agent.
-	series := version.Current.Series
+	series := t.env.Config().DefaultSeries()
 	info.Tag = "machine-1"
 	apiInfo.Tag = "machine-1"
 	inst1, err := t.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)

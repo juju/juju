@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
@@ -8,122 +9,262 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/version"
 )
 
 // UpgradeJujuCommand upgrades the agents in a juju installation.
 type UpgradeJujuCommand struct {
 	EnvCommandBase
-	UploadTools  bool
-	BumpVersion  bool
-	Version      version.Number
-	Development  bool
-	conn         *juju.Conn
-	toolsList    *environs.ToolsList
-	agentVersion version.Number
-	vers         string
+	vers        string
+	Version     version.Number
+	Development bool
+	UploadTools bool
+	Series      []string
 }
 
 var uploadTools = tools.Upload
+
+var upgradeJujuDoc = `
+The upgrade-juju command upgrades a running environment by setting a version
+number for all juju agents to run. By default, it chooses the most recent non-
+development version compatible with the command-line tools.
+
+A development version is defined to be any version with an odd minor version
+or a nonzero build component (for example version 2.1.1, 3.3.0 and 2.0.0.1 are
+development versions; 2.0.3 and 3.4.1 are not). A development version may be
+chosen if any of the following conditions hold:
+
+  * the current juju tool has a development version.
+  * the juju environment has a development version
+  * the environment "development" setting is true
+  * the --dev flag is specified
+
+For development use, the --upload-tools flag specifies that the juju tools will
+be compiled locally and uploaded before the version is set. Currently the tools
+will be uploaded as if they had the version of the current juju tool, unless
+specified otherwise by the --version flag.
+`[1:]
 
 func (c *UpgradeJujuCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "upgrade-juju",
 		Purpose: "upgrade the tools in a juju environment",
+		Doc:     upgradeJujuDoc,
 	}
 }
 
 func (c *UpgradeJujuCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
-	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools")
-	f.StringVar(&c.vers, "version", "", "version to upgrade to (defaults to highest available version with the current major version number)")
-	f.BoolVar(&c.BumpVersion, "bump-version", false, "upload the tools with a higher build number if necessary, and use that version (overrides --version)")
+	f.StringVar(&c.vers, "version", "", "upgrade to specific version")
 	f.BoolVar(&c.Development, "dev", false, "allow development versions to be chosen")
+	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools")
+	f.Var(seriesVar{&c.Series}, "series", "upload tools for supplied comma-separated series list")
 }
 
 func (c *UpgradeJujuCommand) Init(args []string) error {
 	if c.vers != "" {
-		var err error
-		c.Version, err = version.Parse(c.vers)
+		vers, err := version.Parse(c.vers)
 		if err != nil {
 			return err
 		}
-		if c.Version == (version.Number{}) {
-			return fmt.Errorf("cannot upgrade to version 0.0.0")
+		if vers.Major != version.Current.Major {
+			return fmt.Errorf("cannot upgrade to version incompatible with CLI")
 		}
+		if c.UploadTools && vers.Build != 0 {
+			// TODO(fwereade): when we start taking versions from actual built
+			// code, we should disable --version when used with --upload-tools.
+			// For now, it's the only way to experiment with version upgrade
+			// behaviour live, so the only restriction is that Build cannot
+			// be used (because its value needs to be chosen internally so as
+			// not to collide with existing tools).
+			return fmt.Errorf("cannot specify build number when uploading tools")
+		}
+		c.Version = vers
+	}
+	if len(c.Series) > 0 && !c.UploadTools {
+		return fmt.Errorf("--series requires --upload-tools")
 	}
 	return cmd.CheckEmpty(args)
 }
 
-// Run changes the version proposed for the juju tools.
-func (c *UpgradeJujuCommand) Run(_ *cmd.Context) error {
-	var err error
-	c.conn, err = juju.NewConnFromName(c.EnvName)
-	if err != nil {
-		return err
-	}
-	defer c.conn.Close()
+var errUpToDate = errors.New("no upgrades available")
 
-	cfg, err := c.conn.State.EnvironConfig()
+// Run changes the version proposed for the juju tools.
+func (c *UpgradeJujuCommand) Run(_ *cmd.Context) (err error) {
+	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
-	c.agentVersion = cfg.AgentVersion()
-	c.toolsList, err = environs.ListTools(c.conn.Environ, c.agentVersion.Major)
+	defer conn.Close()
+	defer func() {
+		if err == errUpToDate {
+			log.Noticef(err.Error())
+			err = nil
+		}
+	}()
+
+	// Determine the version to upgrade to, uploading tools if necessary.
+	env := conn.Environ
+	cfg, err := conn.State.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	v, err := c.initVersions(cfg, env)
 	if err != nil {
 		return err
 	}
 	if c.UploadTools {
-		var forceVersion *version.Number
-		if c.BumpVersion {
-			vers := c.bumpedVersion()
-			forceVersion = &vers.Number
-		}
-		tools, err := uploadTools(c.conn.Environ.Storage(), forceVersion)
-		if err != nil {
+		series := getUploadSeries(cfg, c.Series)
+		if err := v.uploadTools(env.Storage(), series); err != nil {
 			return err
 		}
-		c.Version = tools.Number
-	} else if c.Version == (version.Number{}) {
-		c.Version, err = c.newestVersion()
-		if err != nil {
-			return fmt.Errorf("cannot find newest version: %v", err)
+	}
+	if err := v.validate(); err != nil {
+		return err
+	}
+	log.Infof("upgrade version chosen: %s", v.chosen)
+	// TODO(fwereade): this list may be incomplete, pending tools.Upload change.
+	log.Infof("available tools: %s", v.tools)
+
+	// Write updated config back to state if necessary. Note that this is
+	// crackful and racy, because we have no idea what incompatible agent-
+	// version might be set by another administrator in the meantime. If
+	// this happens, tough: I'm not going to pretend to do it right when
+	// I'm not.
+	// TODO(fwereade): Do this right. Warning: scope unclear.
+	cfg, err = cfg.Apply(map[string]interface{}{
+		"agent-version": v.chosen.String(),
+	})
+	if err != nil {
+		return err
+	}
+	if err := conn.State.SetEnvironConfig(cfg); err != nil {
+		return err
+	}
+	log.Noticef("started upgrade to %s", v.chosen)
+	return nil
+}
+
+// initVersions collects state relevant to an upgrade decision. The returned
+// agent and client versions, and the list of currently available tools, will
+// always be accurate; the chosen version, and the flag indicating development
+// mode, may remain blank until uploadTools or validate is called.
+func (c *UpgradeJujuCommand) initVersions(cfg *config.Config, env environs.Environ) (*upgradeVersions, error) {
+	agent, ok := cfg.AgentVersion()
+	if !ok {
+		// Can't happen. In theory.
+		return nil, fmt.Errorf("incomplete environment configuration")
+	}
+	if c.Version == agent {
+		return nil, errUpToDate
+	}
+	client := version.Current.Number
+	available, err := environs.FindAvailableTools(env, client.Major)
+	if err != nil {
+		if _, missing := err.(*environs.NotFoundError); !missing {
+			return nil, err
+		}
+		if !c.UploadTools {
+			if c.Version == version.Zero {
+				return nil, errUpToDate
+			}
+			return nil, err
 		}
 	}
-	if c.Version.Major != c.agentVersion.Major {
-		return fmt.Errorf("cannot upgrade major versions yet")
-	}
-	if c.Version == c.agentVersion && c.Development == cfg.Development() {
-		return nil
-	}
-	return SetAgentVersion(c.conn.State, c.Version, c.Development)
+	dev := c.Development || cfg.Development() || agent.IsDev() || client.IsDev()
+	return &upgradeVersions{
+		dev:    dev,
+		agent:  agent,
+		client: client,
+		chosen: c.Version,
+		tools:  available,
+	}, nil
 }
 
-// newestVersion returns the newest version of any tool.
-// Private tools take precedence over public tools.
-func (c *UpgradeJujuCommand) newestVersion() (version.Number, error) {
-	// When choosing a default version, don't choose
-	// a dev version if the current version is a release version.
-	allowDev := c.agentVersion.IsDev() || c.Development
-	max := c.highestVersion(c.toolsList.Private, allowDev)
-	if max != nil {
-		return max.Number, nil
-	}
-	max = c.highestVersion(c.toolsList.Public, allowDev)
-	if max == nil {
-		return version.Number{}, fmt.Errorf("no tools found")
-	}
-	return max.Number, nil
+// upgradeVersions holds the version information for making upgrade decisions.
+type upgradeVersions struct {
+	dev    bool
+	agent  version.Number
+	client version.Number
+	chosen version.Number
+	tools  tools.List
 }
 
-// bumpedVersion returns the current version with a build version higher than
-// any of the same version in the private tools storage.
-func (c *UpgradeJujuCommand) bumpedVersion() version.Binary {
-	vers := version.Current
-	// We ignore the public tools because anything in the private
-	// storage will override them.
-	for _, t := range c.toolsList.Private {
+// uploadTools compiles jujud from $GOPATH and uploads it into the supplied
+// storage. If no version has been explicitly chosen, the version number
+// reported by the built tools will be based on the client version number.
+// In any case, the version number reported will have a build component higher
+// than that of any otherwise-matching available tools.
+// uploadTools resets the chosen version and replaces the available tools
+// with the ones just uploaded.
+func (v *upgradeVersions) uploadTools(storage environs.Storage, series []string) error {
+	// TODO(fwereade): this is kinda crack: we should not assume that
+	// version.Current matches whatever source happens to be built. The
+	// ideal would be:
+	//  1) compile jujud from $GOPATH into some build dir
+	//  2) get actual version with `jujud version`
+	//  3) check actual version for compatibility with CLI tools
+	//  4) generate unique build version with reference to available tools
+	//  5) force-version that unique version into the dir directly
+	//  6) archive and upload the build dir
+	// ...but there's no way we have time for that now. In the meantime,
+	// considering the use cases, this should work well enough; but it
+	// won't detect an incompatible major-version change, which is a shame.
+	if v.chosen == version.Zero {
+		v.chosen = v.client
+	}
+	v.chosen = uploadVersion(v.chosen, v.tools)
+
+	// TODO(fwereade): tools.Upload should return a tools.List, and should
+	// include all the extra series we build, so we can set *that* onto
+	// v.available and maybe one day be able to check that a given upgrade
+	// won't leave out-of-date machines lying around, starved of tools.
+	uploaded, err := uploadTools(storage, &v.chosen, series...)
+	if err != nil {
+		return err
+	}
+	v.tools = tools.List{uploaded}
+	return nil
+}
+
+// validate chooses an upgrade version, if one has not already been chosen,
+// and ensures the tools list contains no entries that do not have that version.
+// If validate returns no error, the environment agent-version can be set to
+// the value of the chosen field.
+func (v *upgradeVersions) validate() (err error) {
+	// If not completely specified already, pick a single tools version.
+	v.dev = v.dev || v.chosen.IsDev()
+	filter := tools.Filter{Number: v.chosen, Released: !v.dev}
+	if v.tools, err = v.tools.Match(filter); err != nil {
+		return err
+	}
+	v.chosen, v.tools = v.tools.Newest()
+	if v.chosen == v.agent {
+		return errUpToDate
+	}
+
+	// Major version upgrade
+	if v.chosen.Major < v.agent.Major {
+		// TODO(fwereade): I'm a bit concerned about old agent/CLI tools even
+		// *connecting* to environments with higher agent-versions; but ofc they
+		// have to connect in order to discover they shouldn't. However, once
+		// any of our tools detect an incompatible version, they should act to
+		// minimize damage: the CLI should abort politely, and the agents should
+		// run an Upgrader but no other tasks.
+		return fmt.Errorf("cannot change major version from %d to %d", v.agent.Major, v.chosen.Major)
+	} else if v.chosen.Major > v.agent.Major {
+		return fmt.Errorf("major version upgrades are not supported yet")
+	}
+
+	return nil
+}
+
+// uploadVersion returns a copy of the supplied version with a build number
+// higher than any of the supplied tools that share its major, minor and patch.
+func uploadVersion(vers version.Number, existing tools.List) version.Number {
+	vers.Build++
+	for _, t := range existing {
 		if t.Major != vers.Major || t.Minor != vers.Minor || t.Patch != vers.Patch {
 			continue
 		}
@@ -132,36 +273,4 @@ func (c *UpgradeJujuCommand) bumpedVersion() version.Binary {
 		}
 	}
 	return vers
-}
-
-// highestVersion returns the tools with the highest
-// version number from the given list.
-func (c *UpgradeJujuCommand) highestVersion(list []*state.Tools, allowDev bool) *state.Tools {
-	var max *state.Tools
-	for _, t := range list {
-		if !allowDev && t.IsDev() {
-			continue
-		}
-		if max == nil || max.Number.Less(t.Number) {
-			max = t
-		}
-	}
-	return max
-}
-
-// SetAgentVersion sets the current agent version and
-// development flag in the state's environment configuration.
-func SetAgentVersion(st *state.State, vers version.Number, development bool) error {
-	cfg, err := st.EnvironConfig()
-	if err != nil {
-		return err
-	}
-	attrs := cfg.AllAttrs()
-	attrs["agent-version"] = vers.String()
-	attrs["development"] = development
-	cfg, err = config.New(attrs)
-	if err != nil {
-		panic(fmt.Errorf("config refused agent-version: %v", err))
-	}
-	return st.SetEnvironConfig(cfg)
 }

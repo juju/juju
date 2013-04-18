@@ -443,12 +443,13 @@ func (test configTest) check(c *C, h fakeHome) {
 	name, _ := test.attrs["name"].(string)
 	c.Assert(cfg.Type(), Equals, typ)
 	c.Assert(cfg.Name(), Equals, name)
+	agentVersion, ok := cfg.AgentVersion()
 	if s := test.attrs["agent-version"]; s != nil {
-		vers, err := version.Parse(s.(string))
-		c.Assert(err, IsNil)
-		c.Assert(cfg.AgentVersion(), Equals, vers)
+		c.Assert(ok, Equals, true)
+		c.Assert(agentVersion, Equals, version.MustParse(s.(string)))
 	} else {
-		c.Assert(cfg.AgentVersion(), Equals, version.CurrentNumber())
+		c.Assert(ok, Equals, false)
+		c.Assert(agentVersion, Equals, version.Zero)
 	}
 
 	dev, _ := test.attrs["development"].(bool)
@@ -537,7 +538,6 @@ func (*ConfigSuite) TestConfigAttrs(c *C) {
 
 	// These attributes are added if not set.
 	attrs["development"] = false
-	attrs["agent-version"] = version.CurrentNumber().String()
 	attrs["default-series"] = config.DefaultSeries
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
@@ -585,18 +585,28 @@ var validationTests = []validationTest{
 		},
 		err: `cannot change name from "my-name" to "new-name"`,
 	}, {
-		about: "Can't change agent version",
+		about: "Can set agent version",
 		new: attrs{
 			"type":          "my-type",
 			"name":          "my-name",
-			"agent-version": "1.9.14",
+			"agent-version": "1.9.13",
+		},
+		old: attrs{
+			"type": "my-type",
+			"name": "my-name",
+		},
+	}, {
+		about: "Can't clear agent version",
+		new: attrs{
+			"type": "my-type",
+			"name": "my-name",
 		},
 		old: attrs{
 			"type":          "my-type",
 			"name":          "my-name",
 			"agent-version": "1.9.13",
 		},
-		err: `cannot change agent-version from "1.9.13" to "1.9.14"`,
+		err: `cannot clear agent-version`,
 	}, {
 		about: "Can't change the firewall-mode",
 		new: attrs{

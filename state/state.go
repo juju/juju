@@ -23,6 +23,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // TODO(niemeyer): This must not be exported.
@@ -131,10 +132,17 @@ type State struct {
 	runner         *txn.Runner
 	watcher        *watcher.Watcher
 	pwatcher       *presence.Watcher
-	allManager     *multiwatcher.StoreManager
+	// mu guards allManager.
+	mu         sync.Mutex
+	allManager *multiwatcher.StoreManager
 }
 
 func (st *State) Watch() *multiwatcher.Watcher {
+	st.mu.Lock()
+	if st.allManager == nil {
+		st.allManager = multiwatcher.NewStoreManager(newAllWatcherStateBacking(st))
+	}
+	st.mu.Unlock()
 	return multiwatcher.NewWatcher(st.allManager)
 }
 
@@ -147,11 +155,22 @@ func (st *State) EnvironConfig() (*config.Config, error) {
 	return config.New(attrs)
 }
 
+// checkEnvironConfig returns an error if the config is definitely invalid.
+func checkEnvironConfig(cfg *config.Config) error {
+	if cfg.AdminSecret() != "" {
+		return fmt.Errorf("admin-secret should never be written to the state")
+	}
+	if _, ok := cfg.AgentVersion(); !ok {
+		return fmt.Errorf("agent-version must always be set in state")
+	}
+	return nil
+}
+
 // SetEnvironConfig replaces the current configuration of the
 // environment with the provided configuration.
 func (st *State) SetEnvironConfig(cfg *config.Config) error {
-	if cfg.AdminSecret() != "" {
-		return fmt.Errorf("admin-secret should never be written to the state")
+	if err := checkEnvironConfig(cfg); err != nil {
+		return err
 	}
 	// TODO(niemeyer): This isn't entirely right as the change is done as a
 	// delta that the user didn't ask for. Instead, take a (old, new) config

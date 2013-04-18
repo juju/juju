@@ -102,8 +102,6 @@ func InstanceAddress(addresses map[string][]nova.IPAddress) (string, error) {
 
 func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *environs.InstanceSpec, err error) {
 	env := e.(*environ)
-	fmt.Println("ssssssss")
-	fmt.Println(series)
 	spec, err = findInstanceSpec(env, &environs.InstanceConstraint{
 		Series:      series,
 		Arches:      []string{arch},
