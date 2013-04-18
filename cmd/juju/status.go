@@ -145,6 +145,7 @@ func (ctxt *statusContext) processMachine(machine *state.Machine) (status machin
 		// for this machine in the state, yet the environ cannot
 		// find that id.
 		status.InstanceState = "missing"
+		return
 	}
 	status.InstanceId = instance.Id()
 	status.DNSName, _ = instance.DNSName()
@@ -281,7 +282,7 @@ func processAgent(dstVersion *string, dstStatus *params.Status, dstInfo *string,
 
 type machineStatus struct {
 	Err            error            `json:"-" yaml:",omitempty"`
-	InstanceId     state.InstanceId `json:"instance-id" yaml:"instance-id"`
+	InstanceId     state.InstanceId `json:"instance-id,omitempty" yaml:"instance-id,omitempty"`
 	DNSName        string           `json:"dns-name,omitempty" yaml:"dns-name,omitempty"`
 	AgentVersion   string           `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
 	AgentState     params.Status    `json:"agent-state,omitempty" yaml:"agent-state,omitempty"`
