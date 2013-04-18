@@ -342,7 +342,7 @@ var statusTests = []testCase{
 		addMachine{"5", state.JobHostUnits},
 		ensureDeadMachine{"5"},
 		expect{
-			"add two more machines: one dead with a dead agent, one dying and one and in error state; also one dying unit",
+			"add three more machine, one with a dead agent, one in error state and one dead itself; also one dying unit",
 			M{
 				"machines": M{
 					"0": machine0,
