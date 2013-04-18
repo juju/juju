@@ -61,7 +61,6 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 		return err
 	}
 	charm.CacheDir = filepath.Join(a.Conf.DataDir, "charmcache")
-	defer log.Noticef("machine agent exiting")
 	defer a.tomb.Done()
 
 	// We run the API server worker first, because we may
