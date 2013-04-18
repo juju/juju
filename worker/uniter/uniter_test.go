@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils/fslock"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/uniter"
 	"net/url"
@@ -390,6 +391,22 @@ var configChangedHookTests = []uniterTest{
 
 func (s *UniterSuite) TestUniterConfigChangedHook(c *C) {
 	s.runUniterTests(c, configChangedHookTests)
+}
+
+var hookSynchronizationTests = []uniterTest{
+	ut(
+		"verify config change hook not run while lock held",
+		quickStart{},
+		acquireHookSyncLock{},
+		changeConfig{"blog-title": "Goodness Gracious Me"},
+		waitHooks{},
+		releaseHookSyncLock{},
+		waitHooks{"config-changed"},
+	),
+}
+
+func (s *UniterSuite) TestUniterHookSynchronisation(c *C) {
+	s.runUniterTests(c, hookSynchronizationTests)
 }
 
 var dyingReactionTests = []uniterTest{
@@ -1635,5 +1652,29 @@ func renameRelation(c *C, charmPath, oldName, newName string) {
 	c.Assert(err, IsNil)
 	defer f.Close()
 	meta, err = charm.ReadMeta(f)
+	c.Assert(err, IsNil)
+}
+
+type acquireHookSyncLock struct {
+	message string
+}
+
+func (s acquireHookSyncLock) step(c *C, ctx *context) {
+	lockDir := filepath.Join(ctx.dataDir, "locks")
+	lock, err := fslock.NewLock(lockDir, "uniter-hook-execution")
+	c.Assert(err, IsNil)
+	err = lock.Lock(s.message)
+	c.Assert(err, IsNil)
+}
+
+type releaseHookSyncLock struct {
+}
+
+func (s releaseHookSyncLock) step(c *C, ctx *context) {
+	lockDir := filepath.Join(ctx.dataDir, "locks")
+	lock, err := fslock.NewLock(lockDir, "uniter-hook-execution")
+	c.Assert(err, IsNil)
+	// Force the release.
+	err = lock.BreakLock()
 	c.Assert(err, IsNil)
 }

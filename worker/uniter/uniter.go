@@ -111,7 +111,7 @@ func (u *Uniter) setupLocks() (err error) {
 	if err != nil {
 		return err
 	}
-	if message := u.hookLock.GetMessage(); u.hookLock.IsLocked() && message != "" {
+	if message := u.hookLock.Message(); u.hookLock.IsLocked() && message != "" {
 		// Look to see if it was us that held the lock before.  If it was, we
 		// should be safe enough to break it, as it is likely that we died
 		// before unlocking, and have been restarted by upstart.
@@ -278,10 +278,6 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	if err = hi.Validate(); err != nil {
 		return err
 	}
-	if err = u.hookLock.Lock(); err != nil {
-		return err
-	}
-	defer u.hookLock.Unlock()
 
 	hookName := string(hi.Kind)
 	relationId := -1
@@ -292,13 +288,11 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 		}
 	}
 	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
-	// Explicitly ignore any error we may get writing out the message for the
-	// lock.  Since we have a lock, the only thing it could be is that there
-	// was some error actually writing the file, in which case we don't care.
-	// If there are disk full problems, something else serious will fail.
-	// This message is for post-failure debugging anyway where we can
-	// interrogate the file system.
-	_ = u.hookLock.SetMessage(hctxId)
+	if err = u.hookLock.Lock(hctxId); err != nil {
+		return err
+	}
+	defer u.hookLock.Unlock()
+
 	ctxRelations := map[int]*ContextRelation{}
 	for id, r := range u.relationers {
 		ctxRelations[id] = r.Context()
