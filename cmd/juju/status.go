@@ -175,6 +175,7 @@ func (ctxt *statusContext) processService(service *state.Service) (status servic
 	url, _ := service.CharmURL()
 	status.Charm = url.String()
 	status.Exposed = service.IsExposed()
+	status.Life = processLife(service)
 	var err error
 	status.Relations, status.SubordinateTo, err = ctxt.processRelations(service)
 	if err != nil {
@@ -254,8 +255,12 @@ func (*statusContext) processRelations(service *state.Service) (related map[stri
 	return related, subordSet.SortedValues(), nil
 }
 
-type stateAgent interface {
+type lifer interface {
 	Life() state.Life
+}
+
+type stateAgent interface {
+	lifer
 	AgentAlive() (bool, error)
 	AgentTools() (*state.Tools, error)
 	Status() (params.Status, string, error)
@@ -264,10 +269,7 @@ type stateAgent interface {
 // processAgent retrieves version and status information from the given entity
 // and sets the destination version, status and info values accordingly.
 func processAgent(entity stateAgent) (life string, version string, status params.Status, info string, err error) {
-	if elife := entity.Life(); elife != state.Alive {
-		// alive is the usual state so omit it by default.
-		life = elife.String()
-	}
+	life = processLife(entity)
 	if t, err := entity.AgentTools(); err == nil {
 		version = t.Binary.Number.String()
 	}
@@ -295,6 +297,14 @@ func processAgent(entity stateAgent) (life string, version string, status params
 		status = params.StatusDown
 	}
 	return
+}
+
+func processLife(entity lifer) string {
+	if life := entity.Life(); life != state.Alive {
+		// alive is the usual state so omit it by default.
+		return life.String()
+	}
+	return ""
 }
 
 type machineStatus struct {
@@ -337,6 +347,7 @@ func (s machineStatus) GetYAML() (tag string, value interface{}) {
 
 type serviceStatus struct {
 	Err           error                 `json:"-" yaml:",omitempty"`
+	Life          string                `json:"life,omitempty" yaml:"life,omitempty"`
 	Charm         string                `json:"charm" yaml:"charm"`
 	Exposed       bool                  `json:"exposed" yaml:"exposed"`
 	Units         map[string]unitStatus `json:"units,omitempty" yaml:"units,omitempty"`

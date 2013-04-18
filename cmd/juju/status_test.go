@@ -407,6 +407,38 @@ var statusTests = []testCase{
 			},
 		},
 	),
+	test(
+		"add a dying service",
+		addCharm{"dummy"},
+		addService{"dummy-service", "dummy"},
+		addMachine{"0", state.JobHostUnits},
+		addUnit{"dummy-service", "0"},
+		ensureDyingService{"dummy-service"},
+		expect{
+			"service shows life==dying",
+			M{
+				"machines": M{
+					"0": M{
+						"instance-id": "pending",
+						"series":      "series",
+					},
+				},
+				"services": M{
+					"dummy-service": M{
+						"charm":   "local:series/dummy-1",
+						"exposed": false,
+						"life":    "dying",
+						"units": M{
+							"dummy-service/0": M{
+								"machine":     "0",
+								"agent-state": "pending",
+							},
+						},
+					},
+				},
+			},
+		},
+	),
 
 	// Relation tests
 	test(
@@ -881,6 +913,20 @@ func (e ensureDyingUnit) step(c *C, ctx *context) {
 	err = u.Destroy()
 	c.Assert(err, IsNil)
 	c.Assert(u.Life(), Equals, state.Dying)
+}
+
+type ensureDyingService struct {
+	serviceName string
+}
+
+func (e ensureDyingService) step(c *C, ctx *context) {
+	svc, err := ctx.st.Service(e.serviceName)
+	c.Assert(err, IsNil)
+	err = svc.Destroy()
+	c.Assert(err, IsNil)
+	err = svc.Refresh()
+	c.Assert(err, IsNil)
+	c.Assert(svc.Life(), Equals, state.Dying)
 }
 
 type ensureDeadMachine struct {
