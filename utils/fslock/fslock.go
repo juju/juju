@@ -121,8 +121,6 @@ func (lock *Lock) acquire(message string) (bool, error) {
 	err = os.Rename(tempDirName, lock.lockDir())
 	if err != nil {
 		// Any error on rename means we failed.
-		log.Infof("Lock %q beaten to the dir rename, %s, currently held: %s", lock.name, message, lock.Message())
-
 		// Beaten to it, clean up temporary directory.
 		os.RemoveAll(tempDirName)
 		return false, nil
