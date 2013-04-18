@@ -53,11 +53,14 @@ func (s *fslockSuite) TestValidNamesLockDir(c *C) {
 func (s *fslockSuite) TestInvalidNames(c *C) {
 
 	for _, name := range []string{
+		".start",
+		"-start",
 		"NoCapitals",
 		"no+plus",
 		"no/slash",
 		"no\\backslash",
 		"no$dollar",
+		"no:colon",
 	} {
 		dir := c.MkDir()
 		_, err := fslock.NewLock(dir, name)
