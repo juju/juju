@@ -400,8 +400,14 @@ var hookSynchronizationTests = []uniterTest{
 		acquireHookSyncLock{},
 		changeConfig{"blog-title": "Goodness Gracious Me"},
 		waitHooks{},
-		releaseHookSyncLock{},
+		releaseHookSyncLock,
 		waitHooks{"config-changed"},
+	),
+	ut(
+		"verify held lock by this unit is broken",
+		acquireHookSyncLock{"u/0:fake"},
+		quickStart{},
+		verifyHookSyncLockUnlocked,
 	),
 }
 
@@ -1655,26 +1661,31 @@ func renameRelation(c *C, charmPath, oldName, newName string) {
 	c.Assert(err, IsNil)
 }
 
+func createHookLock(c *C, dataDir string) *fslock.Lock {
+	lockDir := filepath.Join(dataDir, "locks")
+	lock, err := fslock.NewLock(lockDir, "uniter-hook-execution")
+	c.Assert(err, IsNil)
+	return lock
+}
+
 type acquireHookSyncLock struct {
 	message string
 }
 
 func (s acquireHookSyncLock) step(c *C, ctx *context) {
-	lockDir := filepath.Join(ctx.dataDir, "locks")
-	lock, err := fslock.NewLock(lockDir, "uniter-hook-execution")
-	c.Assert(err, IsNil)
-	err = lock.Lock(s.message)
+	lock := createHookLock(c, ctx.dataDir)
+	err := lock.Lock(s.message)
 	c.Assert(err, IsNil)
 }
 
-type releaseHookSyncLock struct {
-}
-
-func (s releaseHookSyncLock) step(c *C, ctx *context) {
-	lockDir := filepath.Join(ctx.dataDir, "locks")
-	lock, err := fslock.NewLock(lockDir, "uniter-hook-execution")
-	c.Assert(err, IsNil)
+var releaseHookSyncLock = custom{func(c *C, ctx *context) {
+	lock := createHookLock(c, ctx.dataDir)
 	// Force the release.
-	err = lock.BreakLock()
+	err := lock.BreakLock()
 	c.Assert(err, IsNil)
-}
+}}
+
+var verifyHookSyncLockUnlocked = custom{func(c *C, ctx *context) {
+	lock := createHookLock(c, ctx.dataDir)
+	c.Assert(lock.IsLocked(), Equals, false)
+}}
