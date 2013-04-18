@@ -10,7 +10,6 @@ package fslock
 import (
 	"bytes"
 	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -102,7 +101,7 @@ func (lock *Lock) acquire(message string) (bool, error) {
 	// the right name.  Using the same directory to make sure the directories
 	// are on the same filesystem.  Use a directory name starting with "." as
 	// it isn't a valid lock name.
-	tempLockName := fmt.Sprintf(".%s", hex.EncodeToString(lock.nonce))
+	tempLockName := fmt.Sprintf(".%x", lock.nonce)
 	tempDirName, err := ioutil.TempDir(lock.parent, tempLockName)
 	if err != nil {
 		return false, err // this shouldn't really fail...
@@ -194,7 +193,7 @@ func (lock *Lock) Unlock() error {
 		return ErrLockNotHeld
 	}
 	// To ensure reasonable unlocking, we should rename to a temp name, and delete that.
-	tempLockName := fmt.Sprintf(".%s.%s", lock.name, hex.EncodeToString(lock.nonce))
+	tempLockName := fmt.Sprintf(".%s.%x", lock.name, lock.nonce)
 	tempDirName := path.Join(lock.parent, tempLockName)
 	// Now move the lock directory to the temp directory to release the lock.
 	if err := os.Rename(lock.lockDir(), tempDirName); err != nil {
