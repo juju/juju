@@ -134,22 +134,30 @@ func (ctxt *statusContext) processMachines() map[string]machineStatus {
 }
 
 func (ctxt *statusContext) processMachine(machine *state.Machine) (status machineStatus) {
+	status.AgentVersion,
+	status.AgentState,
+	status.AgentStateInfo,
+	status.Err = processAgent(machine)
 	instid, ok := machine.InstanceId()
-	if !ok {
+	if ok {
+		instance, ok := ctxt.instances[instid]
+		if ok {
+			status.InstanceId = instance.Id()
+			status.DNSName, _ = instance.DNSName()
+		} else {
+			// Double plus ungood.  There is an instance id recorded
+			// for this machine in the state, yet the environ cannot
+			// find that id.
+			status.InstanceState = "missing"
+		}
+	} else {
 		status.InstanceId = "pending"
-		return
+		// There's no point in reporting a pending agent state
+		// if the instance hasn't even started yet. This
+		// also gives a visually distinction to unprovisioned machines
+		// in the status.
+		status.AgentState = ""
 	}
-	instance, ok := ctxt.instances[instid]
-	if !ok {
-		// Double plus ungood.  There is an instance id recorded
-		// for this machine in the state, yet the environ cannot
-		// find that id.
-		status.InstanceState = "missing"
-		return
-	}
-	status.InstanceId = instance.Id()
-	status.DNSName, _ = instance.DNSName()
-	status.Err = processAgent(&status.AgentVersion, &status.AgentState, &status.AgentStateInfo, machine)
 	return
 }
 
@@ -190,10 +198,10 @@ func (ctxt *statusContext) processUnit(unit *state.Unit) (status unitStatus) {
 	if unit.IsPrincipal() {
 		status.Machine, _ = unit.AssignedMachineId()
 	}
-	if err := processAgent(&status.AgentVersion, &status.AgentState, &status.AgentStateInfo, unit); err != nil {
-		status.Err = err
-		return
-	}
+	status.AgentVersion,
+	status.AgentState,
+	status.AgentStateInfo,
+	status.Err = processAgent(unit)
 	if subUnits := unit.SubordinateNames(); len(subUnits) > 0 {
 		status.Subordinates = make(map[string]unitStatus)
 		for _, name := range subUnits {
@@ -252,18 +260,18 @@ type stateAgent interface {
 
 // processAgent retrieves version and status information from the given entity
 // and sets the destination version, status and info values accordingly.
-func processAgent(dstVersion *string, dstStatus *params.Status, dstInfo *string, entity stateAgent) error {
+func processAgent(entity stateAgent) (version string, status params.Status, info string, err error) {
 	if t, err := entity.AgentTools(); err == nil {
-		*dstVersion = t.Binary.Number.String()
+		version = t.Binary.Number.String()
 	}
 	agentAlive, err := entity.AgentAlive()
 	if err != nil {
-		return err
+		return
 	}
 	entityDead := entity.Life() == state.Dead
-	status, info, err := entity.Status()
+	status, info, err = entity.Status()
 	if err != nil {
-		return err
+		return
 	}
 	if status != params.StatusPending && !agentAlive && !entityDead {
 		// Add the original status to the info, so it's not lost.
@@ -275,9 +283,7 @@ func processAgent(dstVersion *string, dstStatus *params.Status, dstInfo *string,
 		// Agent should be running but it's not.
 		status = params.StatusDown
 	}
-	*dstStatus = status
-	*dstInfo = info
-	return nil
+	return
 }
 
 type machineStatus struct {

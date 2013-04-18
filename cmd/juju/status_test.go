@@ -229,6 +229,7 @@ var statusTests = []testCase{
 				"machines": M{
 					"0": M{
 						"instance-state": "missing",
+						"agent-state": "pending",
 					},
 				},
 				"services": M{},
