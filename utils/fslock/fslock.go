@@ -98,8 +98,10 @@ func (lock *Lock) acquire(message string) (bool, error) {
 	if !os.IsNotExist(err) {
 		return false, err
 	}
-	// Create a temporary directory (in the temp dir), and then move it to the right name.
-	// Use a directory name starting with "." as it isn't a valid lock name.
+	// Create a temporary directory (in the parent dir), and then move it to
+	// the right name.  Using the same directory to make sure the directories
+	// are on the same filesystem.  Use a directory name starting with "." as
+	// it isn't a valid lock name.
 	tempLockName := fmt.Sprintf(".%s", hex.EncodeToString(lock.nonce))
 	tempDirName, err := ioutil.TempDir(lock.parent, tempLockName)
 	if err != nil {
