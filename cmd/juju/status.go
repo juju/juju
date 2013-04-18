@@ -142,9 +142,9 @@ func (ctxt *statusContext) processMachine(machine *state.Machine) (status machin
 	status.Series = machine.Series()
 	instid, ok := machine.InstanceId()
 	if ok {
+		status.InstanceId = instid
 		instance, ok := ctxt.instances[instid]
 		if ok {
-			status.InstanceId = instance.Id()
 			status.DNSName, _ = instance.DNSName()
 		} else {
 			// Double plus ungood.  There is an instance id recorded
@@ -155,9 +155,9 @@ func (ctxt *statusContext) processMachine(machine *state.Machine) (status machin
 	} else {
 		status.InstanceId = "pending"
 		// There's no point in reporting a pending agent state
-		// if the instance hasn't even started yet. This
-		// also gives a visually distinction to unprovisioned machines
-		// in the status.
+		// if the machine hasn't been provisioned.  This
+		// also makes unprovisioned machines visually distinct
+		// in the output.
 		status.AgentState = ""
 	}
 	return

@@ -238,6 +238,7 @@ var statusTests = []testCase{
 				"machines": M{
 					"0": M{
 						"instance-state": "missing",
+						"instance-id":    "i-missing",
 						"agent-state":    "pending",
 						"series":         "series",
 					},
@@ -375,6 +376,7 @@ var statusTests = []testCase{
 					"5": M{
 						"life":        "dead",
 						"instance-id": "pending",
+						"series":      "series",
 					},
 				},
 				"services": M{
@@ -715,7 +717,7 @@ func (sm startMissingMachine) step(c *C, ctx *context) {
 	m, err := ctx.st.Machine(sm.machineId)
 	c.Assert(err, IsNil)
 	testing.StartInstance(c, ctx.conn.Environ, m.Id())
-	err = m.SetProvisioned("missing", "fake_nonce")
+	err = m.SetProvisioned("i-missing", "fake_nonce")
 	c.Assert(err, IsNil)
 }
 
