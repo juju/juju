@@ -3,6 +3,7 @@ package state_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 )
@@ -102,6 +103,29 @@ func (s *InitializeSuite) TestEnvironConfigWithAdminSecret(c *C) {
 	st.Close()
 	err = s.State.SetEnvironConfig(bad)
 	c.Assert(err, ErrorMatches, "admin-secret should never be written to the state")
+
+	// EnvironConfig remains inviolate.
+	cfg, err := s.State.EnvironConfig()
+	c.Assert(err, IsNil)
+	c.Assert(cfg.AllAttrs(), DeepEquals, good.AllAttrs())
+}
+
+func (s *InitializeSuite) TestEnvironConfigWithoutAgentVersion(c *C) {
+	// admin-secret blocks Initialize.
+	good := state.TestingEnvironConfig(c)
+	attrs := good.AllAttrs()
+	delete(attrs, "agent-version")
+	bad, err := config.New(attrs)
+	c.Assert(err, IsNil)
+
+	_, err = state.Initialize(state.TestingStateInfo(), bad, state.TestingDialOpts())
+	c.Assert(err, ErrorMatches, "agent-version must always be set in state")
+
+	// Bad agent-version blocks SetEnvironConfig.
+	st := state.TestingInitialize(c, good)
+	st.Close()
+	err = s.State.SetEnvironConfig(bad)
+	c.Assert(err, ErrorMatches, "agent-version must always be set in state")
 
 	// EnvironConfig remains inviolate.
 	cfg, err := s.State.EnvironConfig()

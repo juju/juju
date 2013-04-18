@@ -112,6 +112,9 @@ func (c *SetEnvironmentCommand) Init(args []string) (err error) {
 			return fmt.Errorf(`Missing "=" in arg %d: %q`, i+1, arg)
 		}
 		key := bits[0]
+		if key == "agent-version" {
+			return fmt.Errorf("agent-version must be set via upgrade-juju")
+		}
 		if _, exists := c.values[key]; exists {
 			return fmt.Errorf(`Key %q specified more than once`, key)
 		}

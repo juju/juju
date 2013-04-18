@@ -16,12 +16,12 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/version"
 	"net/http"
 	"strconv"
 	"strings"
@@ -418,22 +418,7 @@ func (e *environ) PublicStorage() environs.StorageReader {
 	return e.publicStorageUnlocked
 }
 
-// TODO(thumper): this code is duplicated in ec2 and openstack.  Ideally we
-// should refactor the tools selection criteria with the version that is in
-// environs. The constraints work will require this refactoring.
-func findTools(env *environ) (*state.Tools, error) {
-	flags := environs.HighestVersion | environs.CompatVersion
-	v := version.Current
-	v.Series = env.Config().DefaultSeries()
-	// TODO: set Arch based on constraints (when they are landed)
-	return environs.FindTools(env, v, flags)
-}
-
-func (e *environ) Bootstrap(cons constraints.Value, cert, key []byte) error {
-	password := e.Config().AdminSecret()
-	if password == "" {
-		return fmt.Errorf("admin-secret is required for bootstrap")
-	}
+func (e *environ) Bootstrap(cons constraints.Value) error {
 	log.Infof("environs/openstack: bootstrapping environment %q", e.name)
 	// If the state file exists, it might actually have just been
 	// removed by Destroy, and eventual consistency has not caught
@@ -452,38 +437,18 @@ func (e *environ) Bootstrap(cons constraints.Value, cert, key []byte) error {
 		return fmt.Errorf("cannot query old bootstrap state: %v", err)
 	}
 
-	tools, err := findTools(e)
+	possibleTools, err := environs.FindBootstrapTools(e, cons)
 	if err != nil {
-		return fmt.Errorf("cannot find tools: %v", err)
-	}
-
-	config, err := environs.BootstrapConfig(providerInstance, e.Config(), tools)
-	if err != nil {
-		return fmt.Errorf("unable to determine inital configuration: %v", err)
-	}
-	caCert, hasCert := e.Config().CACert()
-	if !hasCert {
-		return fmt.Errorf("no CA certificate in environment configuration")
+		return err
 	}
 	inst, err := e.startInstance(&startInstanceParams{
-		machineId:    "0",
-		machineNonce: state.BootstrapNonce,
-		series:       tools.Series,
-		info: &state.Info{
-			Password: utils.PasswordHash(password),
-			CACert:   caCert,
-		},
-		apiInfo: &api.Info{
-			Password: utils.PasswordHash(password),
-			CACert:   caCert,
-		},
-		tools:           tools,
-		stateServer:     true,
-		config:          config,
-		constraints:     cons,
-		stateServerCert: cert,
-		stateServerKey:  key,
-		withPublicIP:    e.ecfg().useFloatingIP(),
+		machineId:     "0",
+		machineNonce:  state.BootstrapNonce,
+		series:        e.Config().DefaultSeries(),
+		constraints:   cons,
+		possibleTools: possibleTools,
+		stateServer:   true,
+		withPublicIP:  e.ecfg().useFloatingIP(),
 	})
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
@@ -629,53 +594,53 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 }
 
 func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
+	possibleTools, err := environs.FindInstanceTools(e, series, cons)
+	if err != nil {
+		return nil, err
+	}
 	return e.startInstance(&startInstanceParams{
-		machineId:    machineId,
-		machineNonce: machineNonce,
-		series:       series,
-		constraints:  cons,
-		info:         info,
-		apiInfo:      apiInfo,
-		withPublicIP: e.ecfg().useFloatingIP(),
+		machineId:     machineId,
+		machineNonce:  machineNonce,
+		series:        series,
+		constraints:   cons,
+		info:          info,
+		apiInfo:       apiInfo,
+		possibleTools: possibleTools,
+		withPublicIP:  e.ecfg().useFloatingIP(),
 	})
 }
 
 type startInstanceParams struct {
-	machineId       string
-	machineNonce    string
-	series          string
-	info            *state.Info
-	apiInfo         *api.Info
-	tools           *state.Tools
-	stateServer     bool
-	config          *config.Config
-	constraints     constraints.Value
-	stateServerCert []byte
-	stateServerKey  []byte
+	machineId     string
+	machineNonce  string
+	series        string
+	constraints   constraints.Value
+	info          *state.Info
+	apiInfo       *api.Info
+	possibleTools tools.List
+	stateServer   bool
 
-	// withPublicIP, if true causes a floating IP to be
+	// withPublicIP, if true, causes a floating IP to be
 	// assigned to the server after starting
 	withPublicIP bool
 }
 
-func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
-	cfg := &cloudinit.MachineConfig{
-		StateServer:     scfg.stateServer,
-		MongoPort:       mgoPort,
-		APIPort:         apiPort,
-		StateInfo:       scfg.info,
-		APIInfo:         scfg.apiInfo,
-		StateServerCert: scfg.stateServerCert,
-		StateServerKey:  scfg.stateServerKey,
-		DataDir:         "/var/lib/juju",
-		Tools:           scfg.tools,
-		MachineNonce:    scfg.machineNonce,
-		MachineId:       scfg.machineId,
-		AuthorizedKeys:  e.ecfg().AuthorizedKeys(),
-		Config:          scfg.config,
-		Constraints:     scfg.constraints,
+func (e *environ) userData(scfg *startInstanceParams, tools *state.Tools) ([]byte, error) {
+	mcfg := &cloudinit.MachineConfig{
+		MachineId:    scfg.machineId,
+		MachineNonce: scfg.machineNonce,
+		StateServer:  scfg.stateServer,
+		StateInfo:    scfg.info,
+		APIInfo:      scfg.apiInfo,
+		MongoPort:    mgoPort,
+		APIPort:      apiPort,
+		DataDir:      "/var/lib/juju",
+		Tools:        tools,
 	}
-	cloudcfg, err := cloudinit.New(cfg)
+	if err := environs.FinishMachineConfig(mcfg, e.Config(), scfg.constraints); err != nil {
+		return nil, err
+	}
+	cloudcfg, err := cloudinit.New(mcfg)
 	if err != nil {
 		return nil, err
 	}
@@ -741,6 +706,14 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself.
 func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, error) {
+	spec, err := findInstanceSpec(e, scfg.possibleTools)
+	if err != nil {
+		return nil, err
+	}
+	userData, err := e.userData(scfg, spec.tools)
+	if err != nil {
+		return nil, fmt.Errorf("cannot make user data: %v", err)
+	}
 	var publicIP *nova.FloatingIP
 	if scfg.withPublicIP {
 		if fip, err := e.allocatePublicIP(); err != nil {
@@ -749,38 +722,6 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 			publicIP = fip
 			log.Infof("environs/openstack: allocated public IP %s", publicIP.IP)
 		}
-	}
-	// TODO(fwereade): use scfg.constraints to pick instance spec before
-	// settling on tools.
-	if scfg.tools == nil {
-		var err error
-		flags := environs.HighestVersion | environs.CompatVersion
-		v := version.Current
-		v.Series = scfg.series
-		scfg.tools, err = environs.FindTools(e, v, flags)
-		if err != nil {
-			return nil, err
-		}
-	}
-	log.Infof("environs/openstack: starting machine %s in %q running tools version %q from %q",
-		scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
-	if strings.Contains(scfg.tools.Series, "unknown") {
-		// TODO(fwereade): this is somewhat crazy.
-		return nil, fmt.Errorf("cannot find image for %q", scfg.tools.Series)
-	}
-	spec, err := findInstanceSpec(e, &instanceConstraint{
-		series: scfg.tools.Series,
-		arch:   scfg.tools.Arch,
-		region: e.ecfg().region(),
-		flavor: e.ecfg().defaultInstanceType(),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("cannot find image satisfying constraints: %v", err)
-	}
-
-	userData, err := e.userData(scfg)
-	if err != nil {
-		return nil, fmt.Errorf("cannot make user data: %v", err)
 	}
 	groups, err := e.setUpGroups(scfg.machineId)
 	if err != nil {

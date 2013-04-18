@@ -10,12 +10,12 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/version"
 	"net/http"
 	"strings"
 	"sync"
@@ -238,22 +238,7 @@ func (e *environ) PublicStorage() environs.StorageReader {
 	return e.publicStorageUnlocked
 }
 
-// TODO(thumper): this code is duplicated in ec2 and openstack.  Ideally we
-// should refactor the tools selection criteria with the version that is in
-// environs. The constraints work will require this refactoring.
-func findTools(env *environ) (*state.Tools, error) {
-	flags := environs.HighestVersion | environs.CompatVersion
-	v := version.Current
-	v.Series = env.Config().DefaultSeries()
-	// TODO: set Arch based on constraints (when they are landed)
-	return environs.FindTools(env, v, flags)
-}
-
-func (e *environ) Bootstrap(cons constraints.Value, cert, key []byte) error {
-	password := e.Config().AdminSecret()
-	if password == "" {
-		return fmt.Errorf("admin-secret is required for bootstrap")
-	}
+func (e *environ) Bootstrap(cons constraints.Value) error {
 	log.Infof("environs/ec2: bootstrapping environment %q", e.name)
 	// If the state file exists, it might actually have just been
 	// removed by Destroy, and eventual consistency has not caught
@@ -272,37 +257,17 @@ func (e *environ) Bootstrap(cons constraints.Value, cert, key []byte) error {
 		return fmt.Errorf("cannot query old bootstrap state: %v", err)
 	}
 
-	tools, err := findTools(e)
+	possibleTools, err := environs.FindBootstrapTools(e, cons)
 	if err != nil {
-		return fmt.Errorf("cannot find tools: %v", err)
-	}
-
-	config, err := environs.BootstrapConfig(providerInstance, e.Config(), tools)
-	if err != nil {
-		return fmt.Errorf("unable to determine inital configuration: %v", err)
-	}
-	caCert, hasCert := e.Config().CACert()
-	if !hasCert {
-		return fmt.Errorf("no CA certificate in environment configuration")
+		return err
 	}
 	inst, err := e.startInstance(&startInstanceParams{
-		machineId:    "0",
-		machineNonce: state.BootstrapNonce,
-		series:       tools.Series,
-		constraints:  cons,
-		info: &state.Info{
-			Password: utils.PasswordHash(password),
-			CACert:   caCert,
-		},
-		apiInfo: &api.Info{
-			Password: utils.PasswordHash(password),
-			CACert:   caCert,
-		},
-		tools:           tools,
-		stateServer:     true,
-		config:          config,
-		stateServerCert: cert,
-		stateServerKey:  key,
+		machineId:     "0",
+		machineNonce:  state.BootstrapNonce,
+		series:        e.Config().DefaultSeries(),
+		constraints:   cons,
+		possibleTools: possibleTools,
+		stateServer:   true,
 	})
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
@@ -321,7 +286,6 @@ func (e *environ) Bootstrap(cons constraints.Value, cert, key []byte) error {
 	// no way to use S3 to make sure that only one succeeds.
 	// Perhaps consider using SimpleDB for state storage
 	// which would enable that possibility.
-
 	return nil
 }
 
@@ -379,34 +343,37 @@ func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
 }
 
 func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
+	possibleTools, err := environs.FindInstanceTools(e, series, cons)
+	if err != nil {
+		return nil, err
+	}
 	return e.startInstance(&startInstanceParams{
-		machineId:    machineId,
-		machineNonce: machineNonce,
-		series:       series,
-		constraints:  cons,
-		info:         info,
-		apiInfo:      apiInfo,
+		machineId:     machineId,
+		machineNonce:  machineNonce,
+		series:        series,
+		constraints:   cons,
+		info:          info,
+		apiInfo:       apiInfo,
+		possibleTools: possibleTools,
 	})
 }
 
-func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
-	cfg := &cloudinit.MachineConfig{
-		StateServer:     scfg.stateServer,
-		StateInfo:       scfg.info,
-		APIInfo:         scfg.apiInfo,
-		MongoPort:       mgoPort,
-		APIPort:         apiPort,
-		StateServerCert: scfg.stateServerCert,
-		StateServerKey:  scfg.stateServerKey,
-		DataDir:         "/var/lib/juju",
-		Tools:           scfg.tools,
-		MachineNonce:    scfg.machineNonce,
-		MachineId:       scfg.machineId,
-		AuthorizedKeys:  e.ecfg().AuthorizedKeys(),
-		Config:          scfg.config,
-		Constraints:     scfg.constraints,
+func (e *environ) userData(scfg *startInstanceParams, tools *state.Tools) ([]byte, error) {
+	mcfg := &cloudinit.MachineConfig{
+		MachineId:    scfg.machineId,
+		MachineNonce: scfg.machineNonce,
+		StateServer:  scfg.stateServer,
+		StateInfo:    scfg.info,
+		APIInfo:      scfg.apiInfo,
+		MongoPort:    mgoPort,
+		APIPort:      apiPort,
+		DataDir:      "/var/lib/juju",
+		Tools:        tools,
 	}
-	cloudcfg, err := cloudinit.New(cfg)
+	if err := environs.FinishMachineConfig(mcfg, e.Config(), scfg.constraints); err != nil {
+		return nil, err
+	}
+	cloudcfg, err := cloudinit.New(mcfg)
 	if err != nil {
 		return nil, err
 	}
@@ -420,45 +387,38 @@ func (e *environ) userData(scfg *startInstanceParams) ([]byte, error) {
 }
 
 type startInstanceParams struct {
-	machineId       string
-	machineNonce    string
-	series          string
-	constraints     constraints.Value
-	info            *state.Info
-	apiInfo         *api.Info
-	tools           *state.Tools
-	stateServer     bool
-	config          *config.Config
-	stateServerCert []byte
-	stateServerKey  []byte
+	machineId     string
+	machineNonce  string
+	series        string
+	constraints   constraints.Value
+	info          *state.Info
+	apiInfo       *api.Info
+	possibleTools tools.List
+	stateServer   bool
 }
 
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself.
 func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, error) {
-	// TODO(fwereade): choose tools *after* getting an instance spec; take series
-	// from scfg and available arches from list of known and compatible tools.
-	if scfg.tools == nil {
-		var err error
-		flags := environs.HighestVersion | environs.CompatVersion
-		v := version.Current
-		v.Series = scfg.series
-		scfg.tools, err = environs.FindTools(e, v, flags)
-		if err != nil {
-			return nil, err
-		}
+	series := scfg.possibleTools.Series()
+	if len(series) != 1 {
+		return nil, fmt.Errorf("expected single series, got %v", series)
 	}
-	log.Infof("environs/ec2: starting machine %s in %q running tools version %q from %q", scfg.machineId, e.name, scfg.tools.Binary, scfg.tools.URL)
+	arches := scfg.possibleTools.Arches()
 	spec, err := findInstanceSpec(&instanceConstraint{
 		region:      e.ecfg().region(),
-		series:      scfg.series,
-		arches:      []string{scfg.tools.Arch},
+		series:      series[0],
+		arches:      arches,
 		constraints: scfg.constraints,
 	})
 	if err != nil {
 		return nil, err
 	}
-	userData, err := e.userData(scfg)
+	tools, err := scfg.possibleTools.Match(tools.Filter{Arch: spec.image.arch})
+	if err != nil {
+		return nil, fmt.Errorf("chose architecture %v not present in %v", spec.image.arch, arches)
+	}
+	userData, err := e.userData(scfg, tools[0])
 	if err != nil {
 		return nil, fmt.Errorf("cannot make user data: %v", err)
 	}

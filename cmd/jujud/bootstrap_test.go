@@ -228,6 +228,7 @@ var testConfig = b64yaml{
 	"name":            "dummyenv",
 	"type":            "dummy",
 	"state-server":    false,
+	"agent-version":   "1.2.3",
 	"authorized-keys": "i-am-a-key",
 	"ca-cert":         testing.CACert,
 	"ca-private-key":  "",
