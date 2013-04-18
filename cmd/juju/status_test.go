@@ -88,26 +88,31 @@ var (
 		"agent-state": "started",
 		"dns-name":    "dummyenv-0.dns",
 		"instance-id": "dummyenv-0",
+		"series":      "series",
 	}
 	machine1 = M{
 		"agent-state": "started",
 		"dns-name":    "dummyenv-1.dns",
 		"instance-id": "dummyenv-1",
+		"series":      "series",
 	}
 	machine2 = M{
 		"agent-state": "started",
 		"dns-name":    "dummyenv-2.dns",
 		"instance-id": "dummyenv-2",
+		"series":      "series",
 	}
 	machine3 = M{
 		"agent-state": "started",
 		"dns-name":    "dummyenv-3.dns",
 		"instance-id": "dummyenv-3",
+		"series":      "series",
 	}
 	machine4 = M{
 		"agent-state": "started",
 		"dns-name":    "dummyenv-4.dns",
 		"instance-id": "dummyenv-4",
+		"series":      "series",
 	}
 	unexposedService = M{
 		"charm":   "local:series/dummy-1",
@@ -153,6 +158,7 @@ var statusTests = []testCase{
 				"machines": M{
 					"0": M{
 						"instance-id": "pending",
+						"series":      "series",
 					},
 				},
 				"services": M{},
@@ -168,6 +174,7 @@ var statusTests = []testCase{
 						"agent-state": "pending",
 						"dns-name":    "dummyenv-0.dns",
 						"instance-id": "dummyenv-0",
+						"series":      "series",
 					},
 				},
 				"services": M{},
@@ -202,6 +209,7 @@ var statusTests = []testCase{
 						"instance-id":   "dummyenv-0",
 						"agent-version": "1.2.3",
 						"agent-state":   "started",
+						"series":        "series",
 					},
 				},
 				"services": M{},
@@ -216,6 +224,7 @@ var statusTests = []testCase{
 				"machines": M{
 					"0": M{
 						"instance-id": "pending",
+					"series": "series",
 					},
 				},
 				"services": M{},
@@ -229,6 +238,7 @@ var statusTests = []testCase{
 				"machines": M{
 					"0": M{
 						"instance-state": "missing",
+						"series":         "series",
 					},
 				},
 				"services": M{},
@@ -349,12 +359,14 @@ var statusTests = []testCase{
 						"instance-id":      "dummyenv-3",
 						"agent-state":      "down",
 						"agent-state-info": "(stopped: Really?)",
+						"series":           "series",
 					},
 					"4": M{
 						"dns-name":         "dummyenv-4.dns",
 						"instance-id":      "dummyenv-4",
 						"agent-state":      "error",
 						"agent-state-info": "Beware the red toys",
+						"series":           "series",
 					},
 				},
 				"services": M{

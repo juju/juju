@@ -134,6 +134,7 @@ func (ctxt *statusContext) processMachines() map[string]machineStatus {
 }
 
 func (ctxt *statusContext) processMachine(machine *state.Machine) (status machineStatus) {
+	status.Series = machine.Series()
 	instid, ok := machine.InstanceId()
 	if !ok {
 		status.InstanceId = "pending"
@@ -282,6 +283,7 @@ func processAgent(dstVersion *string, dstStatus *params.Status, dstInfo *string,
 
 type machineStatus struct {
 	Err            error            `json:"-" yaml:",omitempty"`
+	Series         string           `json:"series,omitempty" yaml:"series,omitempty"`
 	InstanceId     state.InstanceId `json:"instance-id,omitempty" yaml:"instance-id,omitempty"`
 	DNSName        string           `json:"dns-name,omitempty" yaml:"dns-name,omitempty"`
 	AgentVersion   string           `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
