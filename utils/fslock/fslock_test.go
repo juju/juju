@@ -11,6 +11,7 @@ import (
 	"time"
 
 	. "launchpad.net/gocheck"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/fslock"
 )
 
@@ -18,21 +19,25 @@ func Test(t *testing.T) {
 	TestingT(t)
 }
 
-type fslockSuite struct{}
+type fslockSuite struct {
+	coretesting.LoggingSuite
+}
 
-var _ = Suite(fslockSuite{})
+var _ = Suite(&fslockSuite{})
 
-func (fslockSuite) SetUpSuite(c *C) {
+func (s *fslockSuite) SetUpSuite(c *C) {
+	s.LoggingSuite.SetUpSuite(c)
 	fslock.SetLockWaitDelay(1 * time.Millisecond)
 }
 
-func (fslockSuite) TearDownSuite(c *C) {
+func (s *fslockSuite) TearDownSuite(c *C) {
 	fslock.SetLockWaitDelay(1 * time.Second)
+	s.LoggingSuite.TearDownSuite(c)
 }
 
 // This test also happens to test that locks can get created when the parent
 // lock directory doesn't exist.
-func (fslockSuite) TestValidNamesLockDir(c *C) {
+func (s *fslockSuite) TestValidNamesLockDir(c *C) {
 
 	for _, name := range []string{
 		"a",
@@ -45,7 +50,7 @@ func (fslockSuite) TestValidNamesLockDir(c *C) {
 	}
 }
 
-func (fslockSuite) TestInvalidNames(c *C) {
+func (s *fslockSuite) TestInvalidNames(c *C) {
 
 	for _, name := range []string{
 		"NoCapitals",
@@ -60,7 +65,7 @@ func (fslockSuite) TestInvalidNames(c *C) {
 	}
 }
 
-func (fslockSuite) TestNewLockWithExistingDir(c *C) {
+func (s *fslockSuite) TestNewLockWithExistingDir(c *C) {
 	dir := c.MkDir()
 	err := os.MkdirAll(dir, 0755)
 	c.Assert(err, IsNil)
@@ -68,7 +73,7 @@ func (fslockSuite) TestNewLockWithExistingDir(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (fslockSuite) TestNewLockWithExistingFileInPlace(c *C) {
+func (s *fslockSuite) TestNewLockWithExistingFileInPlace(c *C) {
 	dir := c.MkDir()
 	err := os.MkdirAll(dir, 0755)
 	c.Assert(err, IsNil)
@@ -80,7 +85,7 @@ func (fslockSuite) TestNewLockWithExistingFileInPlace(c *C) {
 	c.Assert(err, ErrorMatches, `.* not a directory`)
 }
 
-func (fslockSuite) TestIsLockHeldBasics(c *C) {
+func (s *fslockSuite) TestIsLockHeldBasics(c *C) {
 	dir := c.MkDir()
 	lock, err := fslock.NewLock(dir, "testing")
 	c.Assert(err, IsNil)
@@ -95,7 +100,7 @@ func (fslockSuite) TestIsLockHeldBasics(c *C) {
 	c.Assert(lock.IsLockHeld(), Equals, false)
 }
 
-func (fslockSuite) TestIsLockHeldTwoLocks(c *C) {
+func (s *fslockSuite) TestIsLockHeldTwoLocks(c *C) {
 	dir := c.MkDir()
 	lock1, err := fslock.NewLock(dir, "testing")
 	c.Assert(err, IsNil)
@@ -107,7 +112,7 @@ func (fslockSuite) TestIsLockHeldTwoLocks(c *C) {
 	c.Assert(lock2.IsLockHeld(), Equals, false)
 }
 
-func (fslockSuite) TestLockBlocks(c *C) {
+func (s *fslockSuite) TestLockBlocks(c *C) {
 
 	dir := c.MkDir()
 	lock1, err := fslock.NewLock(dir, "testing")
@@ -146,7 +151,7 @@ func (fslockSuite) TestLockBlocks(c *C) {
 	c.Assert(lock2.IsLockHeld(), Equals, true)
 }
 
-func (fslockSuite) TestLockWithTimeoutUnlocked(c *C) {
+func (s *fslockSuite) TestLockWithTimeoutUnlocked(c *C) {
 	dir := c.MkDir()
 	lock, err := fslock.NewLock(dir, "testing")
 	c.Assert(err, IsNil)
@@ -155,7 +160,7 @@ func (fslockSuite) TestLockWithTimeoutUnlocked(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (fslockSuite) TestLockWithTimeoutLocked(c *C) {
+func (s *fslockSuite) TestLockWithTimeoutLocked(c *C) {
 	dir := c.MkDir()
 	lock1, err := fslock.NewLock(dir, "testing")
 	c.Assert(err, IsNil)
@@ -169,7 +174,7 @@ func (fslockSuite) TestLockWithTimeoutLocked(c *C) {
 	c.Assert(err, Equals, fslock.ErrTimeout)
 }
 
-func (fslockSuite) TestUnlock(c *C) {
+func (s *fslockSuite) TestUnlock(c *C) {
 	dir := c.MkDir()
 	lock, err := fslock.NewLock(dir, "testing")
 	c.Assert(err, IsNil)
@@ -178,7 +183,7 @@ func (fslockSuite) TestUnlock(c *C) {
 	c.Assert(err, Equals, fslock.ErrLockNotHeld)
 }
 
-func (fslockSuite) TestIsLocked(c *C) {
+func (s *fslockSuite) TestIsLocked(c *C) {
 	dir := c.MkDir()
 	lock1, err := fslock.NewLock(dir, "testing")
 	c.Assert(err, IsNil)
@@ -192,7 +197,7 @@ func (fslockSuite) TestIsLocked(c *C) {
 	c.Assert(lock2.IsLocked(), Equals, true)
 }
 
-func (fslockSuite) TestBreakLock(c *C) {
+func (s *fslockSuite) TestBreakLock(c *C) {
 	dir := c.MkDir()
 	lock1, err := fslock.NewLock(dir, "testing")
 	c.Assert(err, IsNil)
@@ -215,7 +220,7 @@ func (fslockSuite) TestBreakLock(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (fslockSuite) TestMessage(c *C) {
+func (s *fslockSuite) TestMessage(c *C) {
 	dir := c.MkDir()
 	lock, err := fslock.NewLock(dir, "testing")
 	c.Assert(err, IsNil)
@@ -242,7 +247,7 @@ func (fslockSuite) TestMessage(c *C) {
 	c.Assert(lock.Message(), Equals, "")
 }
 
-func (fslockSuite) TestMessageAcrossLocks(c *C) {
+func (s *fslockSuite) TestMessageAcrossLocks(c *C) {
 	dir := c.MkDir()
 	lock1, err := fslock.NewLock(dir, "testing")
 	c.Assert(err, IsNil)
@@ -257,7 +262,7 @@ func (fslockSuite) TestMessageAcrossLocks(c *C) {
 	c.Assert(lock2.Message(), Equals, "very busy")
 }
 
-func (fslockSuite) TestInitialMessageWhenLocking(c *C) {
+func (s *fslockSuite) TestInitialMessageWhenLocking(c *C) {
 	dir := c.MkDir()
 	lock, err := fslock.NewLock(dir, "testing")
 	c.Assert(err, IsNil)
@@ -274,9 +279,9 @@ func (fslockSuite) TestInitialMessageWhenLocking(c *C) {
 	c.Assert(lock.Message(), Equals, "initial timeout message")
 }
 
-func (fslockSuite) TestStress(c *C) {
-	const lockAttempts = 100
-	const concurrentLocks = 3
+func (s *fslockSuite) TestStress(c *C) {
+	const lockAttempts = 200
+	const concurrentLocks = 10
 
 	var counter = new(int64)
 	// Use atomics to update lockState to make sure the lock isn't held by
@@ -294,7 +299,8 @@ func (fslockSuite) TestStress(c *C) {
 			return
 		}
 		for i := 0; i < lockAttempts; i++ {
-			lock.Lock(name)
+			err = lock.Lock(name)
+			c.Check(err, IsNil)
 			state := atomic.AddInt32(lockState, 1)
 			c.Check(state, Equals, int32(1))
 			// Tell the go routine scheduler to give a slice to someone else
@@ -303,7 +309,8 @@ func (fslockSuite) TestStress(c *C) {
 			// need to decrement prior to unlock to avoid the race of someone
 			// else grabbing the lock before we decrement the state.
 			_ = atomic.AddInt32(lockState, -1)
-			lock.Unlock()
+			err = lock.Unlock()
+			c.Check(err, IsNil)
 			// increment the general counter
 			_ = atomic.AddInt64(counter, 1)
 		}

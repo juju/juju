@@ -19,6 +19,8 @@ import (
 	"path"
 	"regexp"
 	"time"
+
+	"launchpad.net/juju-core/log"
 )
 
 const (
@@ -99,7 +101,7 @@ func (lock *Lock) acquire(message string) (bool, error) {
 	// Create a temporary directory (in the temp dir), and then move it to the right name.
 	// Use a directory name starting with "." as it isn't a valid lock name.
 	tempLockName := fmt.Sprintf(".%s", hex.EncodeToString(lock.nonce))
-	tempDirName, err := ioutil.TempDir("", tempLockName)
+	tempDirName, err := ioutil.TempDir(lock.parent, tempLockName)
 	if err != nil {
 		return false, err // this shouldn't really fail...
 	}
@@ -116,12 +118,13 @@ func (lock *Lock) acquire(message string) (bool, error) {
 	}
 	// Now move the temp directory to the lock directory.
 	err = os.Rename(tempDirName, lock.lockDir())
-	if os.IsExist(err) {
+	if err != nil {
+		// Any error on rename means we failed.
+		log.Infof("Lock %q beaten to the dir rename, %s, currently held: %s", lock.name, message, lock.Message())
+
 		// Beaten to it, clean up temporary directory.
 		os.RemoveAll(tempDirName)
 		return false, nil
-	} else if err != nil {
-		return false, err
 	}
 	// We now have the lock.
 	return true, nil
@@ -133,6 +136,7 @@ func (lock *Lock) acquire(message string) (bool, error) {
 // information, and can be queried by any other Lock dealing with the same
 // lock name and lock directory.
 func (lock *Lock) Lock(message string) error {
+	var heldMessage = ""
 	for {
 		acquired, err := lock.acquire(message)
 		if err != nil {
@@ -140,6 +144,11 @@ func (lock *Lock) Lock(message string) error {
 		}
 		if acquired {
 			return nil
+		}
+		currMessage := lock.Message()
+		if currMessage != heldMessage {
+			log.Infof("Attempt Lock failed %q, %s, currently held: %s", lock.name, message, currMessage)
+			heldMessage = currMessage
 		}
 		time.Sleep(lockWaitDelay)
 	}
@@ -182,7 +191,14 @@ func (lock *Lock) Unlock() error {
 	if !lock.IsLockHeld() {
 		return ErrLockNotHeld
 	}
-	return os.RemoveAll(lock.lockDir())
+	// To ensure reasonable unlocking, we should rename to a temp name, and delete that.
+	tempLockName := fmt.Sprintf(".%s.%s", lock.name, hex.EncodeToString(lock.nonce))
+	tempDirName := path.Join(lock.parent, tempLockName)
+	// Now move the temp directory to the lock directory.
+	if err := os.Rename(lock.lockDir(), tempDirName); err != nil {
+		return err
+	}
+	return os.RemoveAll(tempDirName)
 }
 
 // IsLocked returns true if the lock is currently held by anyone.
