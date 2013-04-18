@@ -208,6 +208,33 @@ var statusTests = []testCase{
 			},
 		},
 	), test(
+		"test pending and missing machines",
+		addMachine{"0", state.JobManageEnviron},
+		expect{
+			"machine 0 reports pending",
+			M{
+				"machines": M{
+					"0": M{
+						"instance-id": "pending",
+					},
+				},
+				"services": M{},
+			},
+		},
+
+		startMissingMachine{"0"},
+		expect{
+			"machine 0 reports missing",
+			M{
+				"machines": M{
+					"0": M{
+						"instance-state": "missing",
+					},
+				},
+				"services": M{},
+			},
+		},
+	), test(
 		"add two services and expose one, then add 2 more machines and some units",
 		addMachine{"0", state.JobManageEnviron},
 		startAliveMachine{"0"},
@@ -656,6 +683,18 @@ func (sm startMachine) step(c *C, ctx *context) {
 	c.Assert(err, IsNil)
 	inst := testing.StartInstance(c, ctx.conn.Environ, m.Id())
 	err = m.SetProvisioned(inst.Id(), "fake_nonce")
+	c.Assert(err, IsNil)
+}
+
+type startMissingMachine struct {
+	machineId string
+}
+
+func (sm startMissingMachine) step(c *C, ctx *context) {
+	m, err := ctx.st.Machine(sm.machineId)
+	c.Assert(err, IsNil)
+	testing.StartInstance(c, ctx.conn.Environ, m.Id())
+	err = m.SetProvisioned("missing", "fake_nonce")
 	c.Assert(err, IsNil)
 }
 
