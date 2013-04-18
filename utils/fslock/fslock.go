@@ -196,10 +196,11 @@ func (lock *Lock) Unlock() error {
 	// To ensure reasonable unlocking, we should rename to a temp name, and delete that.
 	tempLockName := fmt.Sprintf(".%s.%s", lock.name, hex.EncodeToString(lock.nonce))
 	tempDirName := path.Join(lock.parent, tempLockName)
-	// Now move the temp directory to the lock directory.
+	// Now move the lock directory to the temp directory to release the lock.
 	if err := os.Rename(lock.lockDir(), tempDirName); err != nil {
 		return err
 	}
+	// And now cleanup.
 	return os.RemoveAll(tempDirName)
 }
 
