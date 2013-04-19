@@ -277,7 +277,7 @@ func uint64p(val uint64) *uint64 {
 	return &val
 }
 
-func ustringp(val string) *string {
+func stringp(val string) *string {
 	return &val
 }
 
@@ -301,7 +301,7 @@ func (suite *EnvironSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *C) {
 	fakeTools := envtesting.MustUploadFakeToolsVersion(storage, version.Current)
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
-	constraints := constraints.Value{Arch: ustringp("arm"), Mem: uint64p(1024)}
+	constraints := constraints.Value{Arch: stringp("arm"), Mem: uint64p(1024)}
 
 	_, _, err := env.acquireNode(constraints, tools.List{fakeTools})
 
@@ -318,12 +318,12 @@ func (suite *EnvironSuite) TestConvertConstraints(c *C) {
 		constraints    constraints.Value
 		expectedResult url.Values
 	}{
-		{constraints.Value{Arch: ustringp("arm")}, url.Values{"arch": {"arm"}}},
+		{constraints.Value{Arch: stringp("arm")}, url.Values{"arch": {"arm"}}},
 		{constraints.Value{CpuCores: uint64p(4)}, url.Values{"cpu_count": {"4"}}},
 		{constraints.Value{Mem: uint64p(1024)}, url.Values{"mem": {"1024"}}},
 		// CpuPower is ignored.
 		{constraints.Value{CpuPower: uint64p(1024)}, url.Values{}},
-		{constraints.Value{Arch: ustringp("arm"), CpuCores: uint64p(4), Mem: uint64p(1024), CpuPower: uint64p(1024)}, url.Values{"arch": {"arm"}, "cpu_count": {"4"}, "mem": {"1024"}}},
+		{constraints.Value{Arch: stringp("arm"), CpuCores: uint64p(4), Mem: uint64p(1024), CpuPower: uint64p(1024)}, url.Values{"arch": {"arm"}, "cpu_count": {"4"}, "mem": {"1024"}}},
 	}
 	for _, test := range testValues {
 		c.Check(convertConstraints(test.constraints), DeepEquals, test.expectedResult)
