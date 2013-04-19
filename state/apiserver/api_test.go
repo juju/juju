@@ -1271,7 +1271,8 @@ func (s *suite) TestClientServiceGet(c *C) {
 				"type":        "string",
 				"value":       "My Title",
 				"description": "A descriptive title used for the blog.",
-				"default":     true},
+				"default":     true,
+			},
 		},
 	})
 }
