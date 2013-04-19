@@ -106,6 +106,12 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 	if err := verifyConfig(cfg); err != nil {
 		return nil, err
 	}
+	// TODO(dimitern) this is needed for raring, due to LP bug #1103881
+	if cfg.Tools.Series == "raring" {
+		addScripts(c, "apt-get upgrade -y")
+	} else {
+		c.SetAptUpgrade(true)
+	}
 	c.AddSSHAuthorizedKeys(cfg.AuthorizedKeys)
 	c.AddPackage("git")
 
@@ -178,9 +184,9 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 	}
 
 	// general options
-	c.SetAptUpgrade(true)
 	c.SetAptUpdate(true)
 	c.SetOutput(cloudinit.OutAll, "| tee -a /var/log/cloud-init-output.log", "")
+
 	return c, nil
 }
 
