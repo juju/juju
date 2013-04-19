@@ -309,14 +309,14 @@ func processLife(entity lifer) string {
 
 type machineStatus struct {
 	Err            error            `json:"-" yaml:",omitempty"`
-	Series         string           `json:"series,omitempty" yaml:"series,omitempty"`
-	InstanceId     state.InstanceId `json:"instance-id,omitempty" yaml:"instance-id,omitempty"`
-	DNSName        string           `json:"dns-name,omitempty" yaml:"dns-name,omitempty"`
-	Life           string           `json:"life,omitempty" yaml:"life,omitempty"`
-	AgentVersion   string           `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
 	AgentState     params.Status    `json:"agent-state,omitempty" yaml:"agent-state,omitempty"`
 	AgentStateInfo string           `json:"agent-state-info,omitempty" yaml:"agent-state-info,omitempty"`
+	AgentVersion   string           `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
+	DNSName        string           `json:"dns-name,omitempty" yaml:"dns-name,omitempty"`
+	InstanceId     state.InstanceId `json:"instance-id,omitempty" yaml:"instance-id,omitempty"`
 	InstanceState  string           `json:"instance-state,omitempty" yaml:"instance-state,omitempty"`
+	Life           string           `json:"life,omitempty" yaml:"life,omitempty"`
+	Series         string           `json:"series,omitempty" yaml:"series,omitempty"`
 }
 
 // A goyaml bug means we can't declare these types
@@ -347,12 +347,12 @@ func (s machineStatus) GetYAML() (tag string, value interface{}) {
 
 type serviceStatus struct {
 	Err           error                 `json:"-" yaml:",omitempty"`
-	Life          string                `json:"life,omitempty" yaml:"life,omitempty"`
 	Charm         string                `json:"charm" yaml:"charm"`
 	Exposed       bool                  `json:"exposed" yaml:"exposed"`
-	Units         map[string]unitStatus `json:"units,omitempty" yaml:"units,omitempty"`
+	Life          string                `json:"life,omitempty" yaml:"life,omitempty"`
 	Relations     map[string][]string   `json:"relations,omitempty" yaml:"relations,omitempty"`
 	SubordinateTo []string              `json:"subordinate-to,omitempty" yaml:"subordinate-to,omitempty"`
+	Units         map[string]unitStatus `json:"units,omitempty" yaml:"units,omitempty"`
 }
 type serviceStatusNoMarshal serviceStatus
 
@@ -374,12 +374,12 @@ func (s serviceStatus) GetYAML() (tag string, value interface{}) {
 
 type unitStatus struct {
 	Err            error                 `json:"-" yaml:",omitempty"`
-	PublicAddress  string                `json:"public-address,omitempty" yaml:"public-address,omitempty"`
-	Machine        string                `json:"machine,omitempty" yaml:"machine,omitempty"`
-	Life           string                `json:"life,omitempty" yaml:"life,omitempty"`
-	AgentVersion   string                `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
 	AgentState     params.Status         `json:"agent-state,omitempty" yaml:"agent-state,omitempty"`
 	AgentStateInfo string                `json:"agent-state-info,omitempty" yaml:"agent-state-info,omitempty"`
+	AgentVersion   string                `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
+	Life           string                `json:"life,omitempty" yaml:"life,omitempty"`
+	Machine        string                `json:"machine,omitempty" yaml:"machine,omitempty"`
+	PublicAddress  string                `json:"public-address,omitempty" yaml:"public-address,omitempty"`
 	Subordinates   map[string]unitStatus `json:"subordinates,omitempty" yaml:"subordinates,omitempty"`
 }
 
