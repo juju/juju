@@ -52,6 +52,81 @@ func imagesFields(srcs ...string) string {
 	return strings.Join(strs, "")
 }
 
+type instanceSpecTestParams struct {
+	desc string
+	region string
+	arches []string
+	instanceTypes []InstanceType
+	defaultImageId string
+	defaultInstanceType string
+	imageId string
+	instanceTypeId string
+	instanceTypeName string
+	err    string
+}
+
+func (p *instanceSpecTestParams) init() {
+	if p.arches == nil {
+		p.arches = Both
+	}
+	if p.instanceTypes == nil {
+		p.instanceTypes = []InstanceType{{Id: "1", Name: "it-1", Arches: Both}}
+		p.instanceTypeId = "1"
+		p.instanceTypeName = "it-1"
+	}
+}
+
+var findInstanceSpecTests = []instanceSpecTestParams{
+	{
+		desc: "image exists in metadata",
+		region: "test",
+		defaultImageId: "1234",
+		imageId: "ami-00000033",
+	},
+	{
+		desc: "no image exists in metadata, use supplied default",
+		region: "invalid-region",
+		defaultImageId: "1234",
+		imageId: "1234",
+	},
+	{
+		desc: "no image exists in metadata, no default supplied",
+		region: "invalid-region",
+		imageId: "1234",
+		err: `no "raring" images in invalid-region with arches \[amd64 i386\], and no default specified`,
+	},
+	{
+		desc: "no valid instance types",
+		region: "test",
+		instanceTypes: []InstanceType{},
+		err: `no "raring" images in test with arches \[amd64 i386\], and no default specified`,
+	},
+}
+
+func (s *imageSuite) TestFindInstanceSpec(c *C) {
+	for _, t := range findInstanceSpecTests {
+		c.Logf("test: %v", t.desc)
+		t.init()
+		r := bufio.NewReader(bytes.NewBufferString(imagesData))
+		spec, err := FindInstanceSpec(r, &InstanceConstraint{
+				Series: "raring",
+				Region:  t.region,
+				Arches:  t.arches,
+				DefaultImageId: t.defaultImageId,
+				}, t.instanceTypes)
+		if t.err != "" {
+			c.Check(err, ErrorMatches, t.err)
+			continue
+		}
+		if !c.Check(err, IsNil) {
+			continue
+		}
+		c.Check(spec.Image.Id, Equals, t.imageId)
+		c.Check(spec.InstanceTypeId, Equals, t.instanceTypeId)
+		c.Check(spec.InstanceTypeName, Equals, t.instanceTypeName)
+	}
+}
+
 var getImagesTests = []struct {
 	region string
 	series string
