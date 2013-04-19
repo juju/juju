@@ -32,24 +32,24 @@ var getTests = []struct {
 				"skill-level": map[string]interface{}{
 					"description": "A number indicating skill.",
 					"type":        "int",
-					"default": true,
+					"default":     true,
 				},
 				"title": map[string]interface{}{
 					"description": "A descriptive title used for the service.",
 					"type":        "string",
 					"value":       "My Title",
-					"default": true,
+					"default":     true,
 				},
 				"username": map[string]interface{}{
 					"description": "The name of the initial account (given admin permissions).",
 					"type":        "string",
 					"value":       "admin001",
-					"default": true,
+					"default":     true,
 				},
 				"outlook": map[string]interface{}{
 					"description": "No default outlook.",
 					"type":        "string",
-					"default": true,
+					"default":     true,
 				},
 			},
 		},
