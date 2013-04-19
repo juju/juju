@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -100,13 +101,76 @@ func InstanceAddress(addresses map[string][]nova.IPAddress) (string, error) {
 	return instanceAddress(addresses)
 }
 
+var privateBucketImagesData = map[string]string{
+	"quantal": imagesFields(
+		"inst3 amd64 region-1 id-1 paravirtual",
+		"inst4 amd64 region-2 id-2 paravirtual",
+	),
+	"raring": imagesFields(
+		"inst5 amd64 some-region id-y paravirtual",
+		"inst6 amd64 another-region id-z paravirtual",
+	),
+}
+
+var publicBucketImagesData = map[string]string{
+	"precise": imagesFields(
+		"inst1 amd64 some-region 1 paravirtual",
+		"inst2 amd64 some-region 2 paravirtual",
+	),
+}
+
+func imagesFields(srcs ...string) string {
+	strs := make([]string, len(srcs))
+	for i, src := range srcs {
+		parts := strings.Split(src, " ")
+		if len(parts) != 5 {
+			panic("bad clouddata field input")
+		}
+		args := make([]interface{}, len(parts))
+		for i, part := range parts {
+			args[i] = part
+		}
+		// Ignored fields are left empty for clarity's sake, and two additional
+		// tabs are tacked on to the end to verify extra columns are ignored.
+		strs[i] = fmt.Sprintf("\t\t\t\t%s\t%s\t%s\t%s\t\t\t%s\t\t\n", args...)
+	}
+	return strings.Join(strs, "")
+}
+
+func metadataFilePath(series string) string {
+	return fmt.Sprintf("series-image-metadata/%s/server/released.current.txt", series)
+}
+
+func UseTestImageData(e environs.Environ, includePrivate bool) {
+	// Put some image metadata files into the public (and maybe private) storage.
+	if includePrivate {
+		for series, imagesData := range privateBucketImagesData {
+			e.Storage().Put(metadataFilePath(series), strings.NewReader(imagesData), int64(len(imagesData)))
+		}
+	}
+	for series, imagesData := range publicBucketImagesData {
+		WritablePublicStorage(e).Put(metadataFilePath(series), strings.NewReader(imagesData), int64(len(imagesData)))
+	}
+}
+
+func RemoveTestImageData(e environs.Environ) {
+	for series := range privateBucketImagesData {
+		e.Storage().Remove(metadataFilePath(series))
+	}
+	for series := range publicBucketImagesData {
+		WritablePublicStorage(e).Remove(metadataFilePath(series))
+	}
+}
+
 func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *environs.InstanceSpec, err error) {
 	env := e.(*environ)
 	spec, err = findInstanceSpec(env, &environs.InstanceConstraint{
-		Series:      series,
-		Arches:      []string{arch},
-		Region:      env.ecfg().region(),
-		Constraints: constraints.MustParse(cons),
+		Series:              series,
+		Arches:              []string{arch},
+		Region:              env.ecfg().region(),
+		Constraints:         constraints.MustParse(cons),
+		DefaultInstanceType: env.ecfg().defaultInstanceType(),
+		DefaultImageId:      env.ecfg().defaultImageId(),
 	})
 	return
 }

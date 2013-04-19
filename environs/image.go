@@ -12,10 +12,12 @@ import (
 // InstanceConstraint constrains the possible instances that may be
 // chosen by the environment provider.
 type InstanceConstraint struct {
-	Region      string
-	Series      string
-	Arches      []string
-	Constraints constraints.Value
+	Region              string
+	Series              string
+	Arches              []string
+	Constraints         constraints.Value
+	DefaultInstanceType string // the default instance type to use if none matches the constraints
+	DefaultImageId      string // the default image to use if none matches the constraints
 	// Optional constraints not supported by all providers.
 	Storage *string
 	Cluster *string
@@ -30,17 +32,34 @@ type InstanceSpec struct {
 
 // FindInstanceSpec returns an InstanceSpec satisfying the supplied InstanceConstraint.
 func FindInstanceSpec(r *bufio.Reader, ic *InstanceConstraint, availableTypes []InstanceType) (*InstanceSpec, error) {
-	images, err := getImages(r, ic)
-	if err != nil {
-		return nil, err
-	}
-	for _, itype := range availableTypes {
-		for _, image := range images {
-			if image.match(itype) {
-				return &InstanceSpec{itype.Id, itype.Name, image}, nil
+	var possibleImages []Image
+	var err error
+	if r != nil {
+		possibleImages, err = getImages(r, ic)
+		if err == nil {
+			for _, itype := range availableTypes {
+				for _, image := range possibleImages {
+					if image.match(itype) {
+						return &InstanceSpec{itype.Id, itype.Name, image}, nil
+					}
+				}
 			}
 		}
 	}
+	// if no matching image is found for whatever reason, use the default if one is specified.
+	if ic.DefaultImageId != "" && len(availableTypes) > 0 {
+		spec := &InstanceSpec{
+			availableTypes[0].Id, availableTypes[0].Name,
+			Image{ic.DefaultImageId, ic.Arches[0], false},
+		}
+		return spec, nil
+	}
+
+	if len(possibleImages) == 0 || len(availableTypes) == 0 {
+		return nil, fmt.Errorf(`no %q images in %s with arches %s, and no default specified`,
+			ic.Series, ic.Region, ic.Arches)
+	}
+
 	names := make([]string, len(availableTypes))
 	for i, itype := range availableTypes {
 		names[i] = itype.Name

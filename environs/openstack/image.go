@@ -15,9 +15,7 @@ func findInstanceSpec(e *environ, ic *environs.InstanceConstraint) (*environs.In
 	if err != nil {
 		return nil, err
 	}
-	var defaultInstanceType *environs.InstanceType
 	allInstanceTypes := []environs.InstanceType{}
-	defaultFlavor := e.ecfg().defaultInstanceType()
 	for _, flavor := range flavors {
 		instanceType := environs.InstanceType{
 			Id:       flavor.Id,
@@ -27,20 +25,10 @@ func findInstanceSpec(e *environ, ic *environs.InstanceConstraint) (*environs.In
 			CpuCores: uint64(flavor.VCPUs),
 		}
 		allInstanceTypes = append(allInstanceTypes, instanceType)
-		if flavor.Name == defaultFlavor {
-			defaultInstanceType = &instanceType
-		}
 	}
-	if len(allInstanceTypes) == 0 {
-		return nil, environs.NotFoundError{fmt.Errorf("no such flavor %s", defaultFlavor)}
-	}
-	availableTypes, err := environs.GetInstanceTypes(ic.Region, ic.Constraints, allInstanceTypes, nil)
-	// if no matching instance types are found, use the default if one is specified.
+	availableTypes, err := environs.GetInstanceTypes(ic, allInstanceTypes, nil)
 	if err != nil {
-		if defaultInstanceType == nil {
-			return nil, err
-		}
-		availableTypes = []environs.InstanceType{*defaultInstanceType}
+		return nil, err
 	}
 
 	// look first in the control bucket and then the public bucket to find the release files containing the
@@ -51,22 +39,14 @@ func findInstanceSpec(e *environ, ic *environs.InstanceConstraint) (*environs.In
 	if err != nil {
 		r, err = e.PublicStorage().Get(releasesFile)
 	}
+	var br *bufio.Reader
 	if err == nil {
 		defer r.Close()
-		br := bufio.NewReader(r)
-		spec, err = environs.FindInstanceSpec(br, ic, availableTypes)
+		br = bufio.NewReader(r)
 	}
-	// if no matching image is found for whatever reason, use the default if one is specified.
+	spec, err = environs.FindInstanceSpec(br, ic, availableTypes)
 	if err != nil {
-		imageId := e.ecfg().defaultImageId()
-		if imageId == "" {
-			return nil, fmt.Errorf("unable to find image for series/arch/region %s/%s/%s and no default specified.",
-				ic.Series, ic.Arches[0], ic.Region)
-		}
-		spec = &environs.InstanceSpec{
-			availableTypes[0].Id, availableTypes[0].Name,
-			environs.Image{imageId, ic.Arches[0], false},
-		}
+		return nil, err
 	}
 	return spec, nil
 }

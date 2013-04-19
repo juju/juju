@@ -96,7 +96,7 @@ func (s *specSuite) SetUpSuite(c *C) {
 func (s *specSuite) TearDownSuite(c *C) {
 	UseTestInstanceTypeData(nil)
 	UseTestImageData(nil)
-	s.LoggingSuite.TearDownTest(c)
+	s.LoggingSuite.TearDownSuite(c)
 }
 
 var findInstanceSpecTests = []struct {
@@ -199,16 +199,16 @@ var findInstanceSpecErrorTests = []struct {
 	{
 		series: "bad",
 		arches: environs.Both,
-		err:    `cannot get image data for "bad": .*`,
+		err:    `no "bad" images in test with arches \[amd64 i386\], and no default specified`,
 	}, {
 		series: "precise",
 		arches: []string{"arm"},
-		err:    `no "precise" images in test with arches \[arm\]`,
+		err:    `no "precise" images in test with arches \[arm\], and no default specified`,
 	}, {
 		series: "precise",
 		arches: environs.Both,
 		cons:   "cpu-power=9001",
-		err:    `no instance types in test matching constraints "cpu-power=9001"`,
+		err:    `no instance types in test matching constraints "cpu-power=9001", and no default specified`,
 	}, {
 		series: "raring",
 		arches: environs.Both,

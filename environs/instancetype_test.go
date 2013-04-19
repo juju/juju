@@ -156,6 +156,13 @@ var getInstanceTypesTest = []struct {
 	},
 }
 
+func constraint(region, cons string) *InstanceConstraint {
+	return &InstanceConstraint{
+		Region:      region,
+		Constraints: constraints.MustParse(cons),
+	}
+}
+
 func (s *instanceTypeSuite) TestGetInstanceTypes(c *C) {
 	for i, t := range getInstanceTypesTest {
 		c.Logf("test %d: %s", i, t.info)
@@ -163,7 +170,7 @@ func (s *instanceTypeSuite) TestGetInstanceTypes(c *C) {
 		if !t.noCosts {
 			costs = regionCosts
 		}
-		itypes, err := GetInstanceTypes("test", constraints.MustParse(t.cons), instanceTypes, costs)
+		itypes, err := GetInstanceTypes(constraint("test", t.cons), instanceTypes, costs)
 		c.Assert(err, IsNil)
 		names := make([]string, len(itypes))
 		for i, itype := range itypes {
@@ -179,16 +186,14 @@ func (s *instanceTypeSuite) TestGetInstanceTypes(c *C) {
 }
 
 func (s *instanceTypeSuite) TestGetInstanceTypesErrors(c *C) {
-	_, err := GetInstanceTypes("unknown-region", constraints.Value{}, instanceTypes, regionCosts)
+	_, err := GetInstanceTypes(constraint("unknown-region", ""), instanceTypes, regionCosts)
 	c.Check(err, ErrorMatches, `no instance types found in unknown-region`)
 
-	cons := constraints.MustParse("cpu-power=9001")
-	_, err = GetInstanceTypes("test", cons, instanceTypes, regionCosts)
-	c.Check(err, ErrorMatches, `no instance types in test matching constraints "cpu-power=9001"`)
+	_, err = GetInstanceTypes(constraint("test", "cpu-power=9001"), instanceTypes, regionCosts)
+	c.Check(err, ErrorMatches, `no instance types in test matching constraints "cpu-power=9001", and no default specified`)
 
-	cons = constraints.MustParse("arch=i386 mem=8G")
-	_, err = GetInstanceTypes("test", cons, instanceTypes, regionCosts)
-	c.Check(err, ErrorMatches, `no instance types in test matching constraints "arch=i386 cpu-power=100 mem=8192M"`)
+	_, err = GetInstanceTypes(constraint("test", "arch=i386 mem=8G"), instanceTypes, regionCosts)
+	c.Check(err, ErrorMatches, `no instance types in test matching constraints "arch=i386 cpu-power=100 mem=8192M", and no default specified`)
 }
 
 var instanceTypeMatchTests = []struct {

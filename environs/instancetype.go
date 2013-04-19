@@ -67,14 +67,21 @@ func filterArches(src, filter []string) (dst []string) {
 // any other instance type's cpuPower. It is used when no explicit CpuPower
 // constraint exists, preventing the smallest instance from being chosen unless
 // the user has clearly indicated that they are willing to accept poor performance.
+// This only comes into effect if the cloud instance supports reporting CPU power
+// for it's instance types.
 var defaultCpuPower uint64 = 100
 
-// GetInstanceTypes returns all instance types matching cons and available
-// in region, sorted by increasing region-specific cost (if known).
+// minMemoryForMongoDB is the assumed minimum amount of memory we require in order to run MongoDB (1GB)
+const minMemoryForMongoDB = 1 << 30
+
+// GetInstanceTypes returns all instance types matching ic.Constraints and available
+// in ic.Region, sorted by increasing region-specific cost (if known).
 // If no costs are specified, then we use the RAM amount as the cost on the
 // assumption that it costs less to run an instance with a smaller RAM requirement.
-func GetInstanceTypes(region string, cons constraints.Value,
-	allinstanceTypes []InstanceType, allRegionCosts RegionCosts) ([]InstanceType, error) {
+func GetInstanceTypes(ic *InstanceConstraint, allinstanceTypes []InstanceType, allRegionCosts RegionCosts) ([]InstanceType, error) {
+	cons := ic.Constraints
+	region := ic.Region
+	defaultInstanceTypeName := ic.DefaultInstanceType
 	if cons.CpuPower == nil {
 		v := defaultCpuPower
 		cons.CpuPower = &v
@@ -85,7 +92,12 @@ func GetInstanceTypes(region string, cons constraints.Value,
 	}
 	var costs []uint64
 	var itypes []InstanceType
+	var defaultInstanceType *InstanceType
 	for _, itype := range allinstanceTypes {
+		if itype.Name == defaultInstanceTypeName {
+			itcopy := itype
+			defaultInstanceType = &itcopy
+		}
 		cost, ok := allCosts[itype.Name]
 		if !ok {
 			if len(allRegionCosts) > 0 {
@@ -102,7 +114,15 @@ func GetInstanceTypes(region string, cons constraints.Value,
 		itypes = append(itypes, itype)
 	}
 	if len(itypes) == 0 {
-		return nil, fmt.Errorf("no instance types in %s matching constraints %q", region, cons)
+		if defaultInstanceType == nil {
+			suffix := "and no default specified"
+			if defaultInstanceTypeName != "" {
+				suffix = fmt.Sprintf("and default %s is invalid", defaultInstanceTypeName)
+			}
+			return nil, fmt.Errorf("no instance types in %s matching constraints %q, %s", region, cons, suffix)
+		} else {
+			itypes = append(itypes, *defaultInstanceType)
+		}
 	}
 	sort.Sort(byCost{itypes, costs})
 	return itypes, nil
