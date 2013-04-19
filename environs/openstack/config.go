@@ -163,16 +163,16 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 		}
 	} else if authMode == AuthKeyPair {
 		if ecfg.accessKey() == "" {
-			if cred.AccessKey == "" {
-				return nil, fmt.Errorf(format, "AccessKey")
+			if cred.User == "" {
+				return nil, fmt.Errorf(format, "User")
 			}
-			ecfg.attrs["access-key"] = cred.AccessKey
+			ecfg.attrs["access-key"] = cred.User
 		}
 		if ecfg.secretKey() == "" {
-			if cred.SecretKey == "" {
-				return nil, fmt.Errorf(format, "SecretKey")
+			if cred.Secrets == "" {
+				return nil, fmt.Errorf(format, "Secrets")
 			}
-			ecfg.attrs["secret-key"] = cred.SecretKey
+			ecfg.attrs["secret-key"] = cred.Secrets
 		}
 	}
 	if ecfg.authURL() == "" {

@@ -288,14 +288,20 @@ var configTests = []configTest{
 			"auth-mode": "keypair",
 			"secret-key": "MySecretKey",
 		},
-		err: "required environment variable not set for credentials attribute: AccessKey",
+		envVars: map[string]string{
+			"OS_USERNAME":   "",
+		},
+		err: "required environment variable not set for credentials attribute: User",
 	}, {
 		summary: "keypair authorization mode without secret key",
 		config: attrs{
 			"auth-mode": "keypair",
 			"access-key": "MyAccessKey",
 		},
-		err: "required environment variable not set for credentials attribute: SecretKey",
+		envVars: map[string]string{
+			"OS_PASSWORD":   "",
+		},
+		err: "required environment variable not set for credentials attribute: Secrets",
 	}, {
 		summary: "invalid auth-url format",
 		config: attrs{
