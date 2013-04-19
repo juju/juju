@@ -29,17 +29,16 @@ var getTests = []struct {
 			"service": "dummy-service",
 			"charm":   "dummy",
 			"settings": map[string]interface{}{
+				"title": map[string]interface{}{
+					"description": "A descriptive title used for the service.",
+					"type":        "string",
+					"value":       "Nearly There",
+				},
 				"skill-level": map[string]interface{}{
 					"description": "A number indicating skill.",
 					"type":        "int",
 					"default":     true,
 					"value":       nil,
-				},
-				"title": map[string]interface{}{
-					"description": "A descriptive title used for the service.",
-					"type":        "string",
-					"value":       "My Title",
-					"default":     true,
 				},
 				"username": map[string]interface{}{
 					"description": "The name of the initial account (given admin permissions).",
@@ -63,7 +62,11 @@ var getTests = []struct {
 
 func (s *ConfigSuite) TestGetConfig(c *C) {
 	sch := s.AddTestingCharm(c, "dummy")
-	_, err := s.State.AddService("dummy-service", sch)
+	svc, err := s.State.AddService("dummy-service", sch)
+	c.Assert(err, IsNil)
+	err = svc.SetConfig(map[string]string{
+		"title": "Nearly There",
+	})
 	c.Assert(err, IsNil)
 	for _, t := range getTests {
 		ctx := coretesting.Context(c)
