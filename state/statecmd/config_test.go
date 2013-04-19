@@ -1,6 +1,7 @@
 package statecmd_test
 
 import (
+	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/juju/testing"
@@ -21,68 +22,122 @@ func Test(t *stdtesting.T) {
 var _ = Suite(&ConfigSuite{})
 
 var getTests = []struct {
-	about  string
-	params params.ServiceGet
-	expect params.ServiceGetResults
-	err    string
-}{
-	{
-		about: "unknown service name",
-		params: params.ServiceGet{
-			ServiceName: "unknown-service",
-		},
-		err: `service "unknown-service" not found`,
+	about       string
+	charm       string
+	constraints string
+	config      map[string]string
+	expect      params.ServiceGetResults
+}{{
+	about:       "deployed service",
+	charm:       "dummy",
+	constraints: "mem=2G cpu-power=400",
+	config: map[string]string{
+		// Different from default.
+		"title": "Look To Windward",
+		// Same as default.
+		"username": "admin001",
+		// Use default (but there's no charm default)
+		"skill-level": "",
+		// Outlook is left unset.
 	},
-	{
-		about: "deployed service",
-		params: params.ServiceGet{
-			ServiceName: "dummy-service",
-		},
-		expect: params.ServiceGetResults{
-			Service: "dummy-service",
-			Charm:   "dummy",
-			Config: map[string]interface{}{
-				"outlook": map[string]interface{}{
-					"description": "No default outlook.",
-					"type":        "string",
-					"value":       nil,
-				},
-				"username": map[string]interface{}{
-					"description": "The name of the initial account (given admin permissions).",
-					"type":        "string",
-					"value":       nil,
-				},
-				"skill-level": map[string]interface{}{
-					"description": "A number indicating skill.",
-					"type":        "int",
-					"value":       nil,
-				},
-				"title": map[string]interface{}{
-					"description": "A descriptive title used for the service.",
-					"type":        "string",
-					"value":       nil,
-				},
+	expect: params.ServiceGetResults{
+		Config: map[string]interface{}{
+			"title": map[string]interface{}{
+				"description": "A descriptive title used for the service.",
+				"type":        "string",
+				"value":       "Look To Windward",
 			},
-			Constraints: constraints.MustParse("mem=2G cpu-power=400"),
+			"outlook": map[string]interface{}{
+				"description": "No default outlook.",
+				"type":        "string",
+				"default":     true,
+			},
+			"username": map[string]interface{}{
+				"description": "The name of the initial account (given admin permissions).",
+				"type":        "string",
+				"value":       "admin001",
+			},
+			"skill-level": map[string]interface{}{
+				"description": "A number indicating skill.",
+				"type":        "int",
+				"default":     true,
+			},
 		},
 	},
+}, {
+	about: "deployed service  #2",
+	charm: "dummy",
+	config: map[string]string{
+		// Empty string gives default
+		"title": "",
+		// Value when there's a default
+		"username": "foobie",
+		// Numeric value
+		"skill-level": "0",
+		// String value
+		"outlook": "phlegmatic",
+	},
+	expect: params.ServiceGetResults{
+		Config: map[string]interface{}{
+			"title": map[string]interface{}{
+				"description": "A descriptive title used for the service.",
+				"type":        "string",
+				"value":       "My Title",
+				"default":     true,
+			},
+			"outlook": map[string]interface{}{
+				"description": "No default outlook.",
+				"type":        "string",
+				"value":       "phlegmatic",
+			},
+			"username": map[string]interface{}{
+				"description": "The name of the initial account (given admin permissions).",
+				"type":        "string",
+				"value":       "foobie",
+			},
+			"skill-level": map[string]interface{}{
+				"description": "A number indicating skill.",
+				"type":        "int",
+				"value":       int64(0),
+			},
+		},
+	},
+}, {
+	about: "subordinate service",
+	charm: "logging",
+	expect: params.ServiceGetResults{
+		Config: map[string]interface{}{},
+	},
+}}
+
+func (s *ConfigSuite) TestServiceGetUnknownService(c *C) {
+	_, err := statecmd.ServiceGet(s.State, params.ServiceGet{ServiceName: "unknown"})
+	c.Assert(err, ErrorMatches, `service "unknown" not found`)
 }
 
 func (s *ConfigSuite) TestServiceGet(c *C) {
-	sch := s.AddTestingCharm(c, "dummy")
-	svc, err := s.State.AddService("dummy-service", sch)
-	c.Assert(err, IsNil)
-	err = svc.SetConstraints(constraints.MustParse("mem=2G cpu-power=400"))
-	c.Assert(err, IsNil)
-
 	for i, t := range getTests {
 		c.Logf("test %d. %s", i, t.about)
-		results, err := statecmd.ServiceGet(s.State, t.params)
-		if t.err != "" {
-			c.Assert(err, ErrorMatches, t.err)
-		} else {
+		ch := s.AddTestingCharm(c, t.charm)
+		svc, err := s.State.AddService(fmt.Sprintf("test%d", i), ch)
+		c.Assert(err, IsNil)
+
+		var constraintsv constraints.Value
+		if t.constraints != "" {
+			constraintsv = constraints.MustParse(t.constraints)
+			err = svc.SetConstraints(constraintsv)
 			c.Assert(err, IsNil)
-			c.Assert(results, DeepEquals, t.expect)
 		}
+		if t.config != nil {
+			err = svc.SetConfig(t.config)
+			c.Assert(err, IsNil)
+		}
+		expect := t.expect
+		expect.Constraints = constraintsv
+		expect.Service = svc.Name()
+		expect.Charm = ch.Meta().Name
+		got, err := statecmd.ServiceGet(s.State, params.ServiceGet{svc.Name()})
+		c.Assert(err, IsNil)
+		c.Assert(got, DeepEquals, expect)
 	}
 }
