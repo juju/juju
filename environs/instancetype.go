@@ -71,14 +71,11 @@ func filterArches(src, filter []string) (dst []string) {
 // for it's instance types.
 var defaultCpuPower uint64 = 100
 
-// minMemoryForMongoDB is the assumed minimum amount of memory we require in order to run MongoDB (1GB)
-const minMemoryForMongoDB = 1 << 30
-
-// GetInstanceTypes returns all instance types matching ic.Constraints and available
+// getMatchingInstanceTypes returns all instance types matching ic.Constraints and available
 // in ic.Region, sorted by increasing region-specific cost (if known).
 // If no costs are specified, then we use the RAM amount as the cost on the
 // assumption that it costs less to run an instance with a smaller RAM requirement.
-func GetInstanceTypes(ic *InstanceConstraint, allinstanceTypes []InstanceType, allRegionCosts RegionCosts) ([]InstanceType, error) {
+func getMatchingInstanceTypes(ic *InstanceConstraint, allinstanceTypes []InstanceType, allRegionCosts RegionCosts) ([]InstanceType, error) {
 	cons := ic.Constraints
 	region := ic.Region
 	defaultInstanceTypeName := ic.DefaultInstanceType
@@ -86,19 +83,22 @@ func GetInstanceTypes(ic *InstanceConstraint, allinstanceTypes []InstanceType, a
 		v := defaultCpuPower
 		cons.CpuPower = &v
 	}
-	allCosts := allRegionCosts[region]
-	if len(allCosts) == 0 && len(allRegionCosts) > 0 {
+	regionCosts := allRegionCosts[region]
+	if len(regionCosts) == 0 && len(allRegionCosts) > 0 {
 		return nil, fmt.Errorf("no instance types found in %s", region)
 	}
 	var costs []uint64
 	var itypes []InstanceType
 	var defaultInstanceType *InstanceType
+
+	// Iterate over allInstanceTypes, finding matching ones and assigning a cost to each.
 	for _, itype := range allinstanceTypes {
 		if itype.Name == defaultInstanceTypeName {
 			itcopy := itype
 			defaultInstanceType = &itcopy
 		}
-		cost, ok := allCosts[itype.Name]
+		cost, ok := regionCosts[itype.Name]
+		// If there are no explicit costs available, just use the instance type memory.
 		if !ok {
 			if len(allRegionCosts) > 0 {
 				continue
@@ -113,19 +113,23 @@ func GetInstanceTypes(ic *InstanceConstraint, allinstanceTypes []InstanceType, a
 		costs = append(costs, cost)
 		itypes = append(itypes, itype)
 	}
-	if len(itypes) == 0 {
-		if defaultInstanceType == nil {
-			suffix := "and no default specified"
-			if defaultInstanceTypeName != "" {
-				suffix = fmt.Sprintf("and default %s is invalid", defaultInstanceTypeName)
-			}
-			return nil, fmt.Errorf("no instance types in %s matching constraints %q, %s", region, cons, suffix)
-		} else {
-			itypes = append(itypes, *defaultInstanceType)
-		}
+	// If we have matching instance types, we can return those.
+	if len(itypes) > 0 {
+		sort.Sort(byCost{itypes, costs})
+		return itypes, nil
 	}
-	sort.Sort(byCost{itypes, costs})
-	return itypes, nil
+
+	// No matches, so return the default if specified.
+	if defaultInstanceType != nil {
+		return []InstanceType{*defaultInstanceType}, nil
+	}
+
+	// No luck, so report the error.
+	suffix := "and no default specified"
+	if defaultInstanceTypeName != "" {
+		suffix = fmt.Sprintf("and default %s is invalid", defaultInstanceTypeName)
+	}
+	return nil, fmt.Errorf("no instance types in %s matching constraints %q, %s", region, cons, suffix)
 }
 
 // byCost is used to sort a slice of instance types as a side effect of

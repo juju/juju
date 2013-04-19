@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/testing"
 	"strings"
 )
@@ -32,6 +33,7 @@ var imagesData = imagesFields(
 	"ebs amd64 test ami-00000033 paravirtual",
 	"ebs i386 test ami-00000034 paravirtual",
 	"ebs amd64 test ami-00000035 hvm",
+	"ebs i386 i386-only ami-00000036 paravirtual",
 )
 
 func imagesFields(srcs ...string) string {
@@ -53,16 +55,17 @@ func imagesFields(srcs ...string) string {
 }
 
 type instanceSpecTestParams struct {
-	desc string
-	region string
-	arches []string
-	instanceTypes []InstanceType
-	defaultImageId string
+	desc                string
+	region              string
+	arches              []string
+	constraints         string
+	instanceTypes       []InstanceType
+	defaultImageId      string
 	defaultInstanceType string
-	imageId string
-	instanceTypeId string
-	instanceTypeName string
-	err    string
+	imageId             string
+	instanceTypeId      string
+	instanceTypeName    string
+	err                 string
 }
 
 func (p *instanceSpecTestParams) init() {
@@ -78,28 +81,59 @@ func (p *instanceSpecTestParams) init() {
 
 var findInstanceSpecTests = []instanceSpecTestParams{
 	{
-		desc: "image exists in metadata",
-		region: "test",
+		desc:           "image exists in metadata",
+		region:         "test",
 		defaultImageId: "1234",
-		imageId: "ami-00000033",
+		imageId:        "ami-00000033",
 	},
 	{
-		desc: "no image exists in metadata, use supplied default",
-		region: "invalid-region",
+		desc:           "no image exists in metadata, use supplied default",
+		region:         "invalid-region",
 		defaultImageId: "1234",
-		imageId: "1234",
+		imageId:        "1234",
 	},
 	{
-		desc: "no image exists in metadata, no default supplied",
-		region: "invalid-region",
+		desc:    "no image exists in metadata, no default supplied",
+		region:  "invalid-region",
 		imageId: "1234",
-		err: `no "raring" images in invalid-region with arches \[amd64 i386\], and no default specified`,
+		err:     `no "raring" images in invalid-region with arches \[amd64 i386\], and no default specified`,
 	},
 	{
-		desc: "no valid instance types",
-		region: "test",
+		desc:          "no valid instance types",
+		region:        "test",
 		instanceTypes: []InstanceType{},
-		err: `no "raring" images in test with arches \[amd64 i386\], and no default specified`,
+		err:           `no instance types in test matching constraints "cpu-power=100", and no default specified`,
+	},
+	{
+		desc:          "no compatible instance types",
+		region:        "i386-only",
+		instanceTypes: []InstanceType{{Id: "1", Name: "it-1", Arches: Amd64, Mem: 2048}},
+		err:           `no "raring" images in i386-only matching instance types \[it-1\]`,
+	},
+	{
+		desc:        "fallback instance type, enough memory for mongodb",
+		region:      "test",
+		constraints: "mem=8G",
+		instanceTypes: []InstanceType{
+			{Id: "3", Name: "it-3", Arches: Amd64, Mem: 4096},
+			{Id: "2", Name: "it-2", Arches: Amd64, Mem: 2048},
+			{Id: "1", Name: "it-1", Arches: Amd64, Mem: 512},
+		},
+		imageId:          "ami-00000033",
+		instanceTypeId:   "2",
+		instanceTypeName: "it-2",
+	},
+	{
+		desc:        "fallback instance type, not enough memory for mongodb",
+		region:      "test",
+		constraints: "mem=4G",
+		instanceTypes: []InstanceType{
+			{Id: "2", Name: "it-2", Arches: Amd64, Mem: 256},
+			{Id: "1", Name: "it-1", Arches: Amd64, Mem: 512},
+		},
+		imageId:          "ami-00000033",
+		instanceTypeId:   "1",
+		instanceTypeName: "it-1",
 	},
 }
 
@@ -109,11 +143,12 @@ func (s *imageSuite) TestFindInstanceSpec(c *C) {
 		t.init()
 		r := bufio.NewReader(bytes.NewBufferString(imagesData))
 		spec, err := FindInstanceSpec(r, &InstanceConstraint{
-				Series: "raring",
-				Region:  t.region,
-				Arches:  t.arches,
-				DefaultImageId: t.defaultImageId,
-				}, t.instanceTypes)
+			Series:         "raring",
+			Region:         t.region,
+			Arches:         t.arches,
+			Constraints:    constraints.MustParse(t.constraints),
+			DefaultImageId: t.defaultImageId,
+		}, t.instanceTypes, nil)
 		if t.err != "" {
 			c.Check(err, ErrorMatches, t.err)
 			continue

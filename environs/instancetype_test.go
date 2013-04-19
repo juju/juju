@@ -163,14 +163,14 @@ func constraint(region, cons string) *InstanceConstraint {
 	}
 }
 
-func (s *instanceTypeSuite) TestGetInstanceTypes(c *C) {
+func (s *instanceTypeSuite) TestGetMatchingInstanceTypes(c *C) {
 	for i, t := range getInstanceTypesTest {
 		c.Logf("test %d: %s", i, t.info)
 		var costs RegionCosts
 		if !t.noCosts {
 			costs = regionCosts
 		}
-		itypes, err := GetInstanceTypes(constraint("test", t.cons), instanceTypes, costs)
+		itypes, err := getMatchingInstanceTypes(constraint("test", t.cons), instanceTypes, costs)
 		c.Assert(err, IsNil)
 		names := make([]string, len(itypes))
 		for i, itype := range itypes {
@@ -185,14 +185,14 @@ func (s *instanceTypeSuite) TestGetInstanceTypes(c *C) {
 	}
 }
 
-func (s *instanceTypeSuite) TestGetInstanceTypesErrors(c *C) {
-	_, err := GetInstanceTypes(constraint("unknown-region", ""), instanceTypes, regionCosts)
+func (s *instanceTypeSuite) TestGetMatchingInstanceTypesErrors(c *C) {
+	_, err := getMatchingInstanceTypes(constraint("unknown-region", ""), instanceTypes, regionCosts)
 	c.Check(err, ErrorMatches, `no instance types found in unknown-region`)
 
-	_, err = GetInstanceTypes(constraint("test", "cpu-power=9001"), instanceTypes, regionCosts)
+	_, err = getMatchingInstanceTypes(constraint("test", "cpu-power=9001"), instanceTypes, regionCosts)
 	c.Check(err, ErrorMatches, `no instance types in test matching constraints "cpu-power=9001", and no default specified`)
 
-	_, err = GetInstanceTypes(constraint("test", "arch=i386 mem=8G"), instanceTypes, regionCosts)
+	_, err = getMatchingInstanceTypes(constraint("test", "arch=i386 mem=8G"), instanceTypes, regionCosts)
 	c.Check(err, ErrorMatches, `no instance types in test matching constraints "arch=i386 cpu-power=100 mem=8192M", and no default specified`)
 }
 

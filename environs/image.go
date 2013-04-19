@@ -30,14 +30,51 @@ type InstanceSpec struct {
 	Image            Image
 }
 
+// minMemoryForMongoDB is the assumed minimum amount of memory (in MB) we require in order to run MongoDB (1GB)
+const minMemoryForMongoDB = 1024
+
 // FindInstanceSpec returns an InstanceSpec satisfying the supplied InstanceConstraint.
-func FindInstanceSpec(r *bufio.Reader, ic *InstanceConstraint, availableTypes []InstanceType) (*InstanceSpec, error) {
+func FindInstanceSpec(r *bufio.Reader, ic *InstanceConstraint, allInstanceTypes []InstanceType, regionCosts RegionCosts) (*InstanceSpec, error) {
+	matchingTypes, err := getMatchingInstanceTypes(ic, allInstanceTypes, regionCosts)
+	if err != nil {
+		// There are no instance types matching the supplied constraints. If the user has specifically
+		// asked for a nominated default instance type to be used as a fallback and that is invalid, we
+		// report the error. Otherwise we continue to look for an instance type that we can use as a last resort.
+		if len(allInstanceTypes) == 0 || ic.DefaultInstanceType != "" {
+			return nil, err
+		}
+		// No matching instance types were found, so the fallback is to:
+		// 1. Sort by memory and find the cheapest matching both the required architecture
+		//    and our own heuristic: minimum amount of memory required to run MongoDB, or
+		// 2. Sort by cost in reverse order and return the most expensive one, which will hopefully work,
+		//    albeit not the best match
+
+		archCons := &InstanceConstraint{Arches: ic.Arches}
+		fallbackTypes, fberr := getMatchingInstanceTypes(archCons, allInstanceTypes, regionCosts)
+		// If there's an error getting the fallback instance, return the original error.
+		if fberr != nil {
+			return nil, err
+		}
+		typeByMemory := byMemory(fallbackTypes)
+		sort.Sort(typeByMemory)
+		// 1. check for smallest instance type that can run mongodb
+		for _, itype := range typeByMemory {
+			if itype.Mem >= minMemoryForMongoDB {
+				matchingTypes = []InstanceType{itype}
+				break
+			}
+		}
+		if len(matchingTypes) == 0 {
+			// 2. just get the one with the largest memory
+			matchingTypes = []InstanceType{typeByMemory[len(typeByMemory)-1]}
+		}
+	}
+
 	var possibleImages []Image
-	var err error
 	if r != nil {
 		possibleImages, err = getImages(r, ic)
 		if err == nil {
-			for _, itype := range availableTypes {
+			for _, itype := range matchingTypes {
 				for _, image := range possibleImages {
 					if image.match(itype) {
 						return &InstanceSpec{itype.Id, itype.Name, image}, nil
@@ -47,24 +84,38 @@ func FindInstanceSpec(r *bufio.Reader, ic *InstanceConstraint, availableTypes []
 		}
 	}
 	// if no matching image is found for whatever reason, use the default if one is specified.
-	if ic.DefaultImageId != "" && len(availableTypes) > 0 {
+	if ic.DefaultImageId != "" && len(matchingTypes) > 0 {
 		spec := &InstanceSpec{
-			availableTypes[0].Id, availableTypes[0].Name,
+			matchingTypes[0].Id, matchingTypes[0].Name,
 			Image{ic.DefaultImageId, ic.Arches[0], false},
 		}
 		return spec, nil
 	}
 
-	if len(possibleImages) == 0 || len(availableTypes) == 0 {
+	if len(possibleImages) == 0 || len(matchingTypes) == 0 {
 		return nil, fmt.Errorf(`no %q images in %s with arches %s, and no default specified`,
 			ic.Series, ic.Region, ic.Arches)
 	}
 
-	names := make([]string, len(availableTypes))
-	for i, itype := range availableTypes {
+	names := make([]string, len(matchingTypes))
+	for i, itype := range matchingTypes {
 		names[i] = itype.Name
 	}
 	return nil, fmt.Errorf("no %q images in %s matching instance types %v", ic.Series, ic.Region, names)
+}
+
+type byMemory []InstanceType
+
+func (s byMemory) Len() int {
+	return len(s)
+}
+
+func (s byMemory) Less(i, j int) bool {
+	return s[i].Mem < s[j].Mem
+}
+
+func (s byMemory) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
 }
 
 // Columns in the file returned from the images server.

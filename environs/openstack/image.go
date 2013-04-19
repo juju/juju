@@ -9,7 +9,7 @@ import (
 // findInstanceSpec returns an image and instance type satisfying the constraint.
 // The instance type comes from querying the flavors supported by the deployment.
 func findInstanceSpec(e *environ, ic *environs.InstanceConstraint) (*environs.InstanceSpec, error) {
-	// first construct the available instance types from the supported flavors.
+	// first construct all available instance types from the supported flavors.
 	nova := e.nova()
 	flavors, err := nova.ListFlavorsDetail()
 	if err != nil {
@@ -26,10 +26,6 @@ func findInstanceSpec(e *environ, ic *environs.InstanceConstraint) (*environs.In
 		}
 		allInstanceTypes = append(allInstanceTypes, instanceType)
 	}
-	availableTypes, err := environs.GetInstanceTypes(ic, allInstanceTypes, nil)
-	if err != nil {
-		return nil, err
-	}
 
 	// look first in the control bucket and then the public bucket to find the release files containing the
 	// metadata for available images.
@@ -44,7 +40,7 @@ func findInstanceSpec(e *environ, ic *environs.InstanceConstraint) (*environs.In
 		defer r.Close()
 		br = bufio.NewReader(r)
 	}
-	spec, err = environs.FindInstanceSpec(br, ic, availableTypes)
+	spec, err = environs.FindInstanceSpec(br, ic, allInstanceTypes, nil)
 	if err != nil {
 		return nil, err
 	}

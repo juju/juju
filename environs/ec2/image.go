@@ -14,12 +14,6 @@ var imagesHost = "http://cloud-images.ubuntu.com"
 
 // findInstanceSpec returns an InstanceSpec satisfying the supplied instanceConstraint.
 func findInstanceSpec(ic *environs.InstanceConstraint) (*environs.InstanceSpec, error) {
-	// first gather the instance types we are allowed to use.
-	availableTypes, err := environs.GetInstanceTypes(ic, allInstanceTypes, allRegionCosts)
-	if err != nil {
-		return nil, err
-	}
-
 	path := fmt.Sprintf("/query/%s/server/released.current.txt", ic.Series)
 	resp, err := http.Get(imagesHost + path)
 	if err == nil {
@@ -32,5 +26,5 @@ func findInstanceSpec(ic *environs.InstanceConstraint) (*environs.InstanceSpec, 
 	if err == nil {
 		r = bufio.NewReader(resp.Body)
 	}
-	return environs.FindInstanceSpec(r, ic, availableTypes)
+	return environs.FindInstanceSpec(r, ic, allInstanceTypes, allRegionCosts)
 }
