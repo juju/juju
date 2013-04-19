@@ -33,6 +33,7 @@ var getTests = []struct {
 					"description": "A number indicating skill.",
 					"type":        "int",
 					"default":     true,
+					"value":       nil,
 				},
 				"title": map[string]interface{}{
 					"description": "A descriptive title used for the service.",
@@ -50,6 +51,7 @@ var getTests = []struct {
 					"description": "No default outlook.",
 					"type":        "string",
 					"default":     true,
+					"value":       nil,
 				},
 			},
 		},

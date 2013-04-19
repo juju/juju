@@ -58,9 +58,7 @@ func merge(serviceCfg map[string]interface{}, charmCfg map[string]charm.Option) 
 		if s, ok := serviceCfg[k]; ok {
 			m["value"] = s
 		} else {
-			if v.Default != nil {
-				m["value"] = v.Default
-			}
+			m["value"] = v.Default
 			// This breaks compatibility with py/juju, which will set
 			// default to whether the value matches, not whether
 			// it is set in the service confguration.

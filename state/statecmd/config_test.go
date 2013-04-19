@@ -51,6 +51,7 @@ var getTests = []struct {
 				"description": "No default outlook.",
 				"type":        "string",
 				"default":     true,
+				"value":       nil,
 			},
 			"username": map[string]interface{}{
 				"description": "The name of the initial account (given admin permissions).",
@@ -61,6 +62,7 @@ var getTests = []struct {
 				"description": "A number indicating skill.",
 				"type":        "int",
 				"default":     true,
+				"value":       nil,
 			},
 		},
 	},
