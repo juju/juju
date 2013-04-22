@@ -716,10 +716,12 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	}
 	arches := scfg.possibleTools.Arches()
 	spec, err := findInstanceSpec(e, &instances.InstanceConstraint{
-		Region:      e.ecfg().region(),
-		Series:      scfg.series,
-		Arches:      arches,
-		Constraints: scfg.constraints,
+		Region:              e.ecfg().region(),
+		Series:              scfg.series,
+		Arches:              arches,
+		Constraints:         scfg.constraints,
+		DefaultInstanceType: e.ecfg().defaultInstanceType(),
+		DefaultImageId:      e.ecfg().defaultImageId(),
 	})
 	if err != nil {
 		return nil, err
