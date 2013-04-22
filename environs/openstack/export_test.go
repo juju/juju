@@ -6,6 +6,7 @@ import (
 	"launchpad.net/goose/swift"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils"
@@ -162,9 +163,9 @@ func RemoveTestImageData(e environs.Environ) {
 	}
 }
 
-func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *environs.InstanceSpec, err error) {
+func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *instances.InstanceSpec, err error) {
 	env := e.(*environ)
-	spec, err = findInstanceSpec(env, &environs.InstanceConstraint{
+	spec, err = findInstanceSpec(env, &instances.InstanceConstraint{
 		Series:              series,
 		Arches:              []string{arch},
 		Region:              env.ecfg().region(),

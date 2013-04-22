@@ -5,6 +5,7 @@ import (
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils"
@@ -80,7 +81,7 @@ func UseTestImageData(content []jujutest.FileContent) {
 
 // UseTestInstanceTypeData causes the given instance type
 // cost data to be served for the "test" region.
-func UseTestInstanceTypeData(content environs.InstanceTypeCost) {
+func UseTestInstanceTypeData(content instances.InstanceTypeCost) {
 	if content != nil {
 		allRegionCosts["test"] = content
 	} else {

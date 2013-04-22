@@ -4,7 +4,7 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/testing"
 	"strings"
@@ -69,7 +69,7 @@ var imagesData = []jujutest.FileContent{
 	)},
 }
 
-var instanceTypeCosts = environs.InstanceTypeCost{
+var instanceTypeCosts = instances.InstanceTypeCost{
 	"m1.small":    60,
 	"m1.medium":   120,
 	"m1.large":    240,
@@ -108,53 +108,53 @@ var findInstanceSpecTests = []struct {
 }{
 	{
 		series: "precise",
-		arches: environs.Both,
+		arches: instances.Both,
 		itype:  "m1.small",
 		image:  "ami-00000033",
 	}, {
 		series: "quantal",
-		arches: environs.Both,
+		arches: instances.Both,
 		itype:  "m1.small",
 		image:  "ami-01000034",
 	}, {
 		series: "precise",
-		arches: environs.Both,
+		arches: instances.Both,
 		cons:   "cpu-cores=4",
 		itype:  "m1.xlarge",
 		image:  "ami-00000033",
 	}, {
 		series: "precise",
-		arches: environs.Both,
+		arches: instances.Both,
 		cons:   "cpu-cores=2 arch=i386",
 		itype:  "c1.medium",
 		image:  "ami-00000034",
 	}, {
 		series: "precise",
-		arches: environs.Both,
+		arches: instances.Both,
 		cons:   "mem=10G",
 		itype:  "m1.xlarge",
 		image:  "ami-00000033",
 	}, {
 		series: "precise",
-		arches: environs.Both,
+		arches: instances.Both,
 		cons:   "mem=",
 		itype:  "m1.small",
 		image:  "ami-00000033",
 	}, {
 		series: "precise",
-		arches: environs.Both,
+		arches: instances.Both,
 		cons:   "cpu-power=",
 		itype:  "t1.micro",
 		image:  "ami-00000033",
 	}, {
 		series: "precise",
-		arches: environs.Both,
+		arches: instances.Both,
 		cons:   "cpu-power=800",
 		itype:  "m1.xlarge",
 		image:  "ami-00000033",
 	}, {
 		series: "precise",
-		arches: environs.Both,
+		arches: instances.Both,
 		cons:   "cpu-power=500 arch=i386",
 		itype:  "c1.medium",
 		image:  "ami-00000034",
@@ -166,7 +166,7 @@ var findInstanceSpecTests = []struct {
 		image:  "ami-00000034",
 	}, {
 		series: "quantal",
-		arches: environs.Both,
+		arches: instances.Both,
 		cons:   "arch=amd64",
 		itype:  "cc1.4xlarge",
 		image:  "ami-01000035",
@@ -176,7 +176,7 @@ var findInstanceSpecTests = []struct {
 func (s *specSuite) TestFindInstanceSpec(c *C) {
 	for i, t := range findInstanceSpecTests {
 		c.Logf("test %d", i)
-		spec, err := findInstanceSpec(&environs.InstanceConstraint{
+		spec, err := findInstanceSpec(&instances.InstanceConstraint{
 			Region:      "test",
 			Series:      t.series,
 			Arches:      t.arches,
@@ -198,7 +198,7 @@ var findInstanceSpecErrorTests = []struct {
 }{
 	{
 		series: "bad",
-		arches: environs.Both,
+		arches: instances.Both,
 		err:    `no "bad" images in test with arches \[amd64 i386\], and no default specified`,
 	}, {
 		series: "precise",
@@ -206,12 +206,12 @@ var findInstanceSpecErrorTests = []struct {
 		err:    `no "precise" images in test with arches \[arm\], and no default specified`,
 	}, {
 		series: "precise",
-		arches: environs.Both,
+		arches: instances.Both,
 		cons:   "cpu-power=9001",
 		err:    `no instance types in test matching constraints "cpu-power=9001", and no default specified`,
 	}, {
 		series: "raring",
-		arches: environs.Both,
+		arches: instances.Both,
 		cons:   "mem=4G",
 		err:    `no "raring" images in test matching instance types \[m1.large m1.xlarge c1.xlarge cc1.4xlarge cc2.8xlarge\]`,
 	},
@@ -220,7 +220,7 @@ var findInstanceSpecErrorTests = []struct {
 func (s *specSuite) TestFindInstanceSpecErrors(c *C) {
 	for i, t := range findInstanceSpecErrorTests {
 		c.Logf("test %d", i)
-		_, err := findInstanceSpec(&environs.InstanceConstraint{
+		_, err := findInstanceSpec(&instances.InstanceConstraint{
 			Region:      "test",
 			Series:      t.series,
 			Arches:      t.arches,

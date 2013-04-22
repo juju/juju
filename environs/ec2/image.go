@@ -3,7 +3,7 @@ package ec2
 import (
 	"bufio"
 	"fmt"
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/instances"
 	"net/http"
 )
 
@@ -13,7 +13,7 @@ import (
 var imagesHost = "http://cloud-images.ubuntu.com"
 
 // findInstanceSpec returns an InstanceSpec satisfying the supplied instanceConstraint.
-func findInstanceSpec(ic *environs.InstanceConstraint) (*environs.InstanceSpec, error) {
+func findInstanceSpec(ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
 	path := fmt.Sprintf("/query/%s/server/released.current.txt", ic.Series)
 	resp, err := http.Get(imagesHost + path)
 	if err == nil {
@@ -26,5 +26,5 @@ func findInstanceSpec(ic *environs.InstanceConstraint) (*environs.InstanceSpec, 
 	if err == nil {
 		r = bufio.NewReader(resp.Body)
 	}
-	return environs.FindInstanceSpec(r, ic, allInstanceTypes, allRegionCosts)
+	return instances.FindInstanceSpec(r, ic, allInstanceTypes, allRegionCosts)
 }

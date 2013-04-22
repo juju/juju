@@ -3,21 +3,21 @@ package openstack
 import (
 	"bufio"
 	"fmt"
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/instances"
 )
 
 // findInstanceSpec returns an image and instance type satisfying the constraint.
 // The instance type comes from querying the flavors supported by the deployment.
-func findInstanceSpec(e *environ, ic *environs.InstanceConstraint) (*environs.InstanceSpec, error) {
+func findInstanceSpec(e *environ, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
 	// first construct all available instance types from the supported flavors.
 	nova := e.nova()
 	flavors, err := nova.ListFlavorsDetail()
 	if err != nil {
 		return nil, err
 	}
-	allInstanceTypes := []environs.InstanceType{}
+	allInstanceTypes := []instances.InstanceType{}
 	for _, flavor := range flavors {
-		instanceType := environs.InstanceType{
+		instanceType := instances.InstanceType{
 			Id:       flavor.Id,
 			Name:     flavor.Name,
 			Arches:   ic.Arches,
@@ -29,7 +29,7 @@ func findInstanceSpec(e *environ, ic *environs.InstanceConstraint) (*environs.In
 
 	// look first in the control bucket and then the public bucket to find the release files containing the
 	// metadata for available images.
-	var spec *environs.InstanceSpec
+	var spec *instances.InstanceSpec
 	releasesFile := fmt.Sprintf("series-image-metadata/%s/server/released.current.txt", ic.Series)
 	r, err := e.Storage().Get(releasesFile)
 	if err != nil {
@@ -40,7 +40,7 @@ func findInstanceSpec(e *environ, ic *environs.InstanceConstraint) (*environs.In
 		defer r.Close()
 		br = bufio.NewReader(r)
 	}
-	spec, err = environs.FindInstanceSpec(br, ic, allInstanceTypes, nil)
+	spec, err = instances.FindInstanceSpec(br, ic, allInstanceTypes, nil)
 	if err != nil {
 		return nil, err
 	}

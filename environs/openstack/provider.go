@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -711,7 +712,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 		return nil, fmt.Errorf("expected single series, got %v", series)
 	}
 	arches := scfg.possibleTools.Arches()
-	spec, err := findInstanceSpec(e, &environs.InstanceConstraint{
+	spec, err := findInstanceSpec(e, &instances.InstanceConstraint{
 		Region:      e.ecfg().region(),
 		Series:      series[0],
 		Arches:      arches,

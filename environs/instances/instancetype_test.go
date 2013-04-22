@@ -1,4 +1,4 @@
-package environs
+package instances
 
 import (
 	. "launchpad.net/gocheck"
