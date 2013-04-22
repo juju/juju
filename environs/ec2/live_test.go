@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/version"
 	"strings"
 )
 
@@ -46,6 +47,7 @@ func registerAmazonTests() {
 		"control-bucket": "juju-test-" + uniqueName,
 		"public-bucket":  "juju-public-test-" + uniqueName,
 		"admin-secret":   "for real",
+		"default-series": version.CurrentSeries(),
 		"ca-cert":        coretesting.CACert,
 		"ca-private-key": coretesting.CAKey,
 	}
