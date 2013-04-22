@@ -235,18 +235,39 @@ func (env *maasEnviron) getMAASClient() *gomaasapi.MAASObject {
 	return env.maasClientUnlocked
 }
 
+// convertConstraints converts the given constraints into an url.Values
+// object suitable to pass to MAAS when acquiring a node.
+// CpuPower is ignored because it cannot translated into something
+// meaningful for MAAS right now.
+func convertConstraints(cons constraints.Value) url.Values {
+	params := url.Values{}
+	if cons.Arch != nil {
+		params.Add("arch", *cons.Arch)
+	}
+	if cons.CpuCores != nil {
+		params.Add("cpu_count", fmt.Sprintf("%d", *cons.CpuCores))
+	}
+	if cons.Mem != nil {
+		params.Add("mem", fmt.Sprintf("%d", *cons.Mem))
+	}
+	if cons.CpuPower != nil {
+		log.Warningf("environs/maas: ignoring unsupported constraint 'cpu-power'")
+	}
+	return params
+}
+
 // acquireNode allocates a node from the MAAS.
 func (environ *maasEnviron) acquireNode(cons constraints.Value, possibleTools tools.List) (gomaasapi.MAASObject, *state.Tools, error) {
-	log.Warningf("environs/maas: ignoring constraints %q", cons)
 	retry := utils.AttemptStrategy{
 		Total: 5 * time.Second,
 		Delay: 200 * time.Millisecond,
 	}
+	constraintsParams := convertConstraints(cons)
 	var result gomaasapi.JSONObject
 	var err error
 	for a := retry.Start(); a.Next(); {
 		client := environ.getMAASClient().GetSubObject("nodes/")
-		result, err = client.CallPost("acquire", nil)
+		result, err = client.CallPost("acquire", constraintsParams)
 		if err == nil {
 			break
 		}

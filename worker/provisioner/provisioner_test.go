@@ -178,7 +178,7 @@ func (s *ProvisionerSuite) waitMachine(c *C, m *state.Machine, check func() bool
 			resync = time.After(50 * time.Millisecond)
 			s.State.StartSync()
 		case <-timeout:
-			c.Fatalf("machine %v wait timed out")
+			c.Fatalf("machine %v wait timed out", m)
 		}
 	}
 }

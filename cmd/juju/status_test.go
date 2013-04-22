@@ -88,26 +88,31 @@ var (
 		"agent-state": "started",
 		"dns-name":    "dummyenv-0.dns",
 		"instance-id": "dummyenv-0",
+		"series":      "series",
 	}
 	machine1 = M{
 		"agent-state": "started",
 		"dns-name":    "dummyenv-1.dns",
 		"instance-id": "dummyenv-1",
+		"series":      "series",
 	}
 	machine2 = M{
 		"agent-state": "started",
 		"dns-name":    "dummyenv-2.dns",
 		"instance-id": "dummyenv-2",
+		"series":      "series",
 	}
 	machine3 = M{
 		"agent-state": "started",
 		"dns-name":    "dummyenv-3.dns",
 		"instance-id": "dummyenv-3",
+		"series":      "series",
 	}
 	machine4 = M{
 		"agent-state": "started",
 		"dns-name":    "dummyenv-4.dns",
 		"instance-id": "dummyenv-4",
+		"series":      "series",
 	}
 	unexposedService = M{
 		"charm":   "local:series/dummy-1",
@@ -153,6 +158,7 @@ var statusTests = []testCase{
 				"machines": M{
 					"0": M{
 						"instance-id": "pending",
+						"series":      "series",
 					},
 				},
 				"services": M{},
@@ -168,6 +174,7 @@ var statusTests = []testCase{
 						"agent-state": "pending",
 						"dns-name":    "dummyenv-0.dns",
 						"instance-id": "dummyenv-0",
+						"series":      "series",
 					},
 				},
 				"services": M{},
@@ -202,6 +209,38 @@ var statusTests = []testCase{
 						"instance-id":   "dummyenv-0",
 						"agent-version": "1.2.3",
 						"agent-state":   "started",
+						"series":        "series",
+					},
+				},
+				"services": M{},
+			},
+		},
+	), test(
+		"test pending and missing machines",
+		addMachine{"0", state.JobManageEnviron},
+		expect{
+			"machine 0 reports pending",
+			M{
+				"machines": M{
+					"0": M{
+						"instance-id": "pending",
+						"series":      "series",
+					},
+				},
+				"services": M{},
+			},
+		},
+
+		startMissingMachine{"0"},
+		expect{
+			"machine 0 reports missing",
+			M{
+				"machines": M{
+					"0": M{
+						"instance-state": "missing",
+						"instance-id":    "i-missing",
+						"agent-state":    "pending",
+						"series":         "series",
 					},
 				},
 				"services": M{},
@@ -310,8 +349,11 @@ var statusTests = []testCase{
 		addMachine{"4", state.JobHostUnits},
 		startAliveMachine{"4"},
 		setMachineStatus{"4", params.StatusError, "Beware the red toys"},
+		ensureDyingUnit{"dummy-service/0"},
+		addMachine{"5", state.JobHostUnits},
+		ensureDeadMachine{"5"},
 		expect{
-			"add two more machine, one with a dead agent, one in error state",
+			"add three more machine, one with a dead agent, one in error state and one dead itself; also one dying unit",
 			M{
 				"machines": M{
 					"0": machine0,
@@ -322,12 +364,19 @@ var statusTests = []testCase{
 						"instance-id":      "dummyenv-3",
 						"agent-state":      "down",
 						"agent-state-info": "(stopped: Really?)",
+						"series":           "series",
 					},
 					"4": M{
 						"dns-name":         "dummyenv-4.dns",
 						"instance-id":      "dummyenv-4",
 						"agent-state":      "error",
 						"agent-state-info": "Beware the red toys",
+						"series":           "series",
+					},
+					"5": M{
+						"life":        "dead",
+						"instance-id": "pending",
+						"series":      "series",
 					},
 				},
 				"services": M{
@@ -348,8 +397,41 @@ var statusTests = []testCase{
 						"units": M{
 							"dummy-service/0": M{
 								"machine":          "1",
+								"life":             "dying",
 								"agent-state":      "down",
 								"agent-state-info": "(started)",
+							},
+						},
+					},
+				},
+			},
+		},
+	),
+	test(
+		"add a dying service",
+		addCharm{"dummy"},
+		addService{"dummy-service", "dummy"},
+		addMachine{"0", state.JobHostUnits},
+		addUnit{"dummy-service", "0"},
+		ensureDyingService{"dummy-service"},
+		expect{
+			"service shows life==dying",
+			M{
+				"machines": M{
+					"0": M{
+						"instance-id": "pending",
+						"series":      "series",
+					},
+				},
+				"services": M{
+					"dummy-service": M{
+						"charm":   "local:series/dummy-1",
+						"exposed": false,
+						"life":    "dying",
+						"units": M{
+							"dummy-service/0": M{
+								"machine":     "0",
+								"agent-state": "pending",
 							},
 						},
 					},
@@ -659,6 +741,18 @@ func (sm startMachine) step(c *C, ctx *context) {
 	c.Assert(err, IsNil)
 }
 
+type startMissingMachine struct {
+	machineId string
+}
+
+func (sm startMissingMachine) step(c *C, ctx *context) {
+	m, err := ctx.st.Machine(sm.machineId)
+	c.Assert(err, IsNil)
+	testing.StartInstance(c, ctx.conn.Environ, m.Id())
+	err = m.SetProvisioned("i-missing", "fake_nonce")
+	c.Assert(err, IsNil)
+}
+
 type startAliveMachine struct {
 	machineId string
 }
@@ -804,8 +898,47 @@ type setUnitStatus struct {
 
 func (sus setUnitStatus) step(c *C, ctx *context) {
 	u, err := ctx.st.Unit(sus.unitName)
+	c.Assert(err, IsNil)
 	err = u.SetStatus(sus.status, sus.statusInfo)
 	c.Assert(err, IsNil)
+}
+
+type ensureDyingUnit struct {
+	unitName string
+}
+
+func (e ensureDyingUnit) step(c *C, ctx *context) {
+	u, err := ctx.st.Unit(e.unitName)
+	c.Assert(err, IsNil)
+	err = u.Destroy()
+	c.Assert(err, IsNil)
+	c.Assert(u.Life(), Equals, state.Dying)
+}
+
+type ensureDyingService struct {
+	serviceName string
+}
+
+func (e ensureDyingService) step(c *C, ctx *context) {
+	svc, err := ctx.st.Service(e.serviceName)
+	c.Assert(err, IsNil)
+	err = svc.Destroy()
+	c.Assert(err, IsNil)
+	err = svc.Refresh()
+	c.Assert(err, IsNil)
+	c.Assert(svc.Life(), Equals, state.Dying)
+}
+
+type ensureDeadMachine struct {
+	machineId string
+}
+
+func (e ensureDeadMachine) step(c *C, ctx *context) {
+	m, err := ctx.st.Machine(e.machineId)
+	c.Assert(err, IsNil)
+	err = m.EnsureDead()
+	c.Assert(err, IsNil)
+	c.Assert(m.Life(), Equals, state.Dead)
 }
 
 type setMachineStatus struct {
@@ -816,6 +949,7 @@ type setMachineStatus struct {
 
 func (sms setMachineStatus) step(c *C, ctx *context) {
 	m, err := ctx.st.Machine(sms.machineId)
+	c.Assert(err, IsNil)
 	err = m.SetStatus(sms.status, sms.statusInfo)
 	c.Assert(err, IsNil)
 }
