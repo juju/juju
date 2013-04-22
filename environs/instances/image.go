@@ -34,6 +34,15 @@ type InstanceSpec struct {
 const minMemoryForMongoDB = 1024
 
 // FindInstanceSpec returns an InstanceSpec satisfying the supplied InstanceConstraint.
+// r has been set up to read from a file containing Ubuntu cloud guest images availability data. A query
+// interface for EC2 images is exposed at http://cloud-images.ubuntu.com/query. Other cloud providers may
+// provide similar files for their own images. eg the Openstack provider has been configured to look for
+// cloud image availability files in the cloud's control and public storage containers.
+// For more information on the image availability file format, see https://help.ubuntu.com/community/UEC/Images.
+// allInstanceTypes provides information on every known available instance type (name, memory, cpu cores etc) on
+// which instances can be run.
+// regionCosts optionally provides cost metrics for running instance types in each known region. If not specified,
+// the cost of each instance type is set to the type's memory allocation.
 func FindInstanceSpec(r *bufio.Reader, ic *InstanceConstraint, allInstanceTypes []InstanceType, regionCosts RegionCosts) (*InstanceSpec, error) {
 	matchingTypes, err := getMatchingInstanceTypes(ic, allInstanceTypes, regionCosts)
 	if err != nil {

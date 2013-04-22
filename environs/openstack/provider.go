@@ -711,10 +711,13 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	if len(series) != 1 {
 		return nil, fmt.Errorf("expected single series, got %v", series)
 	}
+	if series[0] != scfg.series {
+		return nil, fmt.Errorf("tools mismatch: expected series %v, got %v", series, series[0])
+	}
 	arches := scfg.possibleTools.Arches()
 	spec, err := findInstanceSpec(e, &instances.InstanceConstraint{
 		Region:      e.ecfg().region(),
-		Series:      series[0],
+		Series:      scfg.series,
 		Arches:      arches,
 		Constraints: scfg.constraints,
 	})

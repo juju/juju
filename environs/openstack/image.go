@@ -28,7 +28,8 @@ func findInstanceSpec(e *environ, ic *instances.InstanceConstraint) (*instances.
 	}
 
 	// look first in the control bucket and then the public bucket to find the release files containing the
-	// metadata for available images.
+	// metadata for available images. The format of the data in the files is found at
+	// https://help.ubuntu.com/community/UEC/Images.
 	var spec *instances.InstanceSpec
 	releasesFile := fmt.Sprintf("series-image-metadata/%s/server/released.current.txt", ic.Series)
 	r, err := e.Storage().Get(releasesFile)
