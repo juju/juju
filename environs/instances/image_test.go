@@ -6,12 +6,17 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	"strings"
+	"testing"
 )
 
 type imageSuite struct {
-	testing.LoggingSuite
+	coretesting.LoggingSuite
+}
+
+func Test(t *testing.T) {
+	TestingT(t)
 }
 
 var _ = Suite(&imageSuite{})
