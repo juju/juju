@@ -77,8 +77,10 @@ openstack:
   # auth-url: https://yourkeystoneurl:443/v2.0/
   # override if your workstation is running a different series to which you are deploying
   # default-series: precise
-  default-image-id: c876e5fe-abb0-41f0-8f29-f0b47481f523
-  default-instance-type: "m1.small"
+  # The attributes below allow user specified defaults to be used if a suitable image
+  # or instance type cannot be found.
+  # default-image-id: <fallback image id>
+  # default-instance-type: <fallback flavor name>
   # The following are used for userpass authentication (the default)
   auth-mode: userpass
   # Usually set via the env variable OS_USERNAME, but can be specified here

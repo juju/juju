@@ -100,9 +100,7 @@ func registerLocalTests() {
 	config["default-instance-type"] = "m1.small"
 	Suite(&localLiveSuite{
 		LiveTests: LiveTests{
-			cred:        cred,
-			testImageId: "1",
-			testFlavor:  "m1.small",
+			cred: cred,
 			LiveTests: jujutest.LiveTests{
 				TestConfig: jujutest.TestConfig{config},
 			},
@@ -183,9 +181,10 @@ func (s *localLiveSuite) TearDownTest(c *C) {
 type localServerSuite struct {
 	coretesting.LoggingSuite
 	jujutest.Tests
-	cred *identity.Credentials
-	srv  localServer
-	env  environs.Environ
+	cred                   *identity.Credentials
+	srv                    localServer
+	env                    environs.Environ
+	writeablePublicStorage environs.Storage
 }
 
 func (s *localServerSuite) SetUpSuite(c *C) {
@@ -206,8 +205,8 @@ func (s *localServerSuite) SetUpTest(c *C) {
 		"auth-url": s.cred.URL,
 	})
 	s.Tests.SetUpTest(c)
-	writeablePublicStorage := openstack.WritablePublicStorage(s.Env)
-	envtesting.UploadFakeTools(c, writeablePublicStorage)
+	s.writeablePublicStorage = openstack.WritablePublicStorage(s.Env)
+	envtesting.UploadFakeTools(c, s.writeablePublicStorage)
 	s.env = s.Tests.Env
 	openstack.UseTestImageData(s.env, false)
 }
@@ -215,6 +214,9 @@ func (s *localServerSuite) SetUpTest(c *C) {
 func (s *localServerSuite) TearDownTest(c *C) {
 	if s.env != nil {
 		openstack.RemoveTestImageData(s.env)
+	}
+	if s.writeablePublicStorage != nil {
+		envtesting.RemoveFakeTools(c, s.writeablePublicStorage)
 	}
 	s.Tests.TearDownTest(c)
 	s.srv.stop()

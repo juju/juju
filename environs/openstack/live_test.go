@@ -70,8 +70,6 @@ func registerLiveTests(cred *identity.Credentials, testImageDetails openstack.Im
 			//       this flag to True.
 			HasProvisioner: false,
 		},
-		testImageId: testImageDetails.ImageId,
-		testFlavor:  testImageDetails.Flavor,
 	})
 }
 
@@ -82,8 +80,6 @@ type LiveTests struct {
 	coretesting.LoggingSuite
 	jujutest.LiveTests
 	cred                   *identity.Credentials
-	testImageId            string
-	testFlavor             string
 	writeablePublicStorage environs.Storage
 }
 
@@ -118,8 +114,7 @@ func (t *LiveTests) TearDownSuite(c *C) {
 		return
 	}
 	if t.writeablePublicStorage != nil {
-		err := openstack.DeleteStorageContent(t.writeablePublicStorage)
-		c.Check(err, IsNil)
+		envtesting.RemoveFakeTools(c, t.writeablePublicStorage)
 	}
 	t.LiveTests.TearDownSuite(c)
 	t.LoggingSuite.TearDownSuite(c)

@@ -13,8 +13,6 @@ import (
 
 // Out-of-the-box, we support live testing using Canonistack or HP Cloud.
 var testConstraints = map[string]openstack.ImageDetails{
-	"canonistack": openstack.ImageDetails{
-		Flavor: "m1.tiny", ImageId: "c876e5fe-abb0-41f0-8f29-f0b47481f523"},
 	"hpcloud": openstack.ImageDetails{
 		Flavor: "standard.xsmall", ImageId: "75845"},
 }
@@ -35,14 +33,6 @@ func Test(t *testing.T) {
 				t.Fatalf("Unknown vendor %s. Must be one of %s", *vendor, keys)
 			}
 		} else {
-			if *imageId == "" {
-				t.Fatalf("Must specify image id to use for test instance, "+
-					"eg %s for Canonistack", "-image c876e5fe-abb0-41f0-8f29-f0b47481f523")
-			}
-			if *flavor == "" {
-				t.Fatalf("Must specify flavor to use for test instance, "+
-					"eg %s for Canonistack", "-flavor m1.tiny")
-			}
 			testImageDetails = openstack.ImageDetails{*flavor, *imageId}
 		}
 		cred, err := identity.CompleteCredentialsFromEnv()
