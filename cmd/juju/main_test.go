@@ -68,13 +68,15 @@ func syncToolsHelpText() string {
 	return helpText(&SyncToolsCommand{}, "juju sync-tools")
 }
 
-var runMainTests = []struct {
-	summary string
-	args    []string
-	code    int
-	out     string
-}{
-	{
+func (s *MainSuite) TestRunMain(c *C) {
+	defer config.SetJujuHome(config.SetJujuHome(c.MkDir()))
+
+	for i, t := range []struct {
+		summary string
+		args    []string
+		code    int
+		out     string
+	}{{
 		summary: "no params shows help",
 		args:    []string{},
 		code:    0,
@@ -145,11 +147,7 @@ var runMainTests = []struct {
 		code:    0,
 		out:     version.Current.String() + "\n",
 	},
-}
-
-func (s *MainSuite) TestRunMain(c *C) {
-	defer config.SetJujuHome(config.SetJujuHome(c.MkDir()))
-	for i, t := range runMainTests {
+	} {
 		c.Logf("test %d: %s", i, t.summary)
 		out := badrun(c, t.code, t.args...)
 		c.Assert(out, Equals, t.out)
@@ -210,6 +208,7 @@ var commandNames = []string{
 	"destroy-relation",
 	"destroy-service",
 	"destroy-unit",
+	"env", // alias for switch
 	"expose",
 	"generate-config", // alias for init
 	"get",
@@ -230,6 +229,7 @@ var commandNames = []string{
 	"ssh",
 	"stat", // alias for status
 	"status",
+	"switch",
 	"sync-tools",
 	"terminate-machine", // alias for destroy-machine
 	"unexpose",
