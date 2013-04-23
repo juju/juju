@@ -60,9 +60,9 @@ func registerLiveTests(cred *identity.Credentials, testImageDetails openstack.Im
 	Suite(&LiveTests{
 		cred: cred,
 		LiveTests: jujutest.LiveTests{
-			TestConfig: jujutest.TestConfig{config},
-			Attempt:    *openstack.ShortAttempt,
-			CanOpenState: true,
+			TestConfig:     jujutest.TestConfig{config},
+			Attempt:        *openstack.ShortAttempt,
+			CanOpenState:   true,
 			HasProvisioner: true,
 		},
 	})
