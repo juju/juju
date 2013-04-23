@@ -42,8 +42,9 @@ const MultipleEnvConfig = EnvDefault + MultipleEnvConfigNoDefault
 const SampleCertName = "erewhemos"
 
 type FakeHome struct {
-	oldHome     string
-	oldJujuHome string
+	oldHomeEnv     string
+	oldJujuHomeEnv string
+	oldJujuHome    string
 }
 
 // MakeFakeHomeNoEnvironments creates a new temporary directory through the
@@ -91,11 +92,13 @@ func MakeFakeHome(c *C, envConfig string, certNames ...string) *FakeHome {
 }
 
 func MakeEmptyFakeHome(c *C) *FakeHome {
-	oldHome := os.Getenv("HOME")
+	oldHomeEnv := os.Getenv("HOME")
+	oldJujuHomeEnv := os.Getenv("JUJU_HOME")
 	fakeHome := c.MkDir()
 	os.Setenv("HOME", fakeHome)
+	os.Setenv("JUJU_HOME", "")
 	oldJujuHome := config.SetJujuHome(filepath.Join(fakeHome, ".juju"))
-	return &FakeHome{oldHome, oldJujuHome}
+	return &FakeHome{oldHomeEnv, oldJujuHomeEnv, oldJujuHome}
 }
 
 func HomePath(names ...string) string {
@@ -105,7 +108,8 @@ func HomePath(names ...string) string {
 
 func (h *FakeHome) Restore() {
 	config.SetJujuHome(h.oldJujuHome)
-	os.Setenv("HOME", h.oldHome)
+	os.Setenv("JUJU_HOME", h.oldJujuHomeEnv)
+	os.Setenv("HOME", h.oldHomeEnv)
 }
 
 func MakeSampleHome(c *C) *FakeHome {
