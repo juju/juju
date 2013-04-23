@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -62,8 +63,7 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 	// Passing through the empty string reads the default environments.yaml file.
 	environments, err := environs.ReadEnvirons("")
 	if err != nil {
-		fmt.Fprintf(ctx.Stderr, "Couldn't read the environment.")
-		return err
+		return errors.New("Couldn't read the environment.")
 	}
 	names := environments.Names()
 	sort.Strings(names)
@@ -73,12 +73,16 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 		currentEnv = environments.Default
 	}
 
-	if currentEnv == "" {
-		currentEnv = "<not specified>"
+	// In order to have only a set environment name quoted, make a small function
+	env := func() string {
+		if currentEnv == "" {
+			return "<not specified>"
+		}
+		return fmt.Sprintf("%q", currentEnv)
 	}
 
 	if c.EnvName == "" || c.EnvName == currentEnv {
-		fmt.Fprintf(ctx.Stdout, "Current environment: %q\n", currentEnv)
+		fmt.Fprintf(ctx.Stdout, "Current environment: %s\n", env())
 	} else {
 		// Check to make sure that the specified environment
 		if !validEnvironmentName(c.EnvName, names) {
@@ -90,7 +94,7 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 			fmt.Fprintf(ctx.Stderr, "Unable to write to the environment file: %q", currentEnvironment)
 			return err
 		}
-		fmt.Fprintf(ctx.Stdout, "Changed default environment from %q to %q\n", currentEnv, c.EnvName)
+		fmt.Fprintf(ctx.Stdout, "Changed default environment from %s to %q\n", env(), c.EnvName)
 	}
 	if c.List {
 		fmt.Fprintf(ctx.Stdout, "\nEnvironments:\n")
