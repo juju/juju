@@ -62,13 +62,8 @@ func registerLiveTests(cred *identity.Credentials, testImageDetails openstack.Im
 		LiveTests: jujutest.LiveTests{
 			TestConfig: jujutest.TestConfig{config},
 			Attempt:    *openstack.ShortAttempt,
-			// TODO: Bug #1133263, once the infrastructure is set up,
-			//       enable The state tests on openstack
-			CanOpenState: false,
-			// TODO: Bug #1133272, enabling this requires mapping from
-			//       'series' to an image id, when we have support, set
-			//       this flag to True.
-			HasProvisioner: false,
+			CanOpenState: true,
+			HasProvisioner: true,
 		},
 	})
 }
