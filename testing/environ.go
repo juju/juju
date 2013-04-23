@@ -41,10 +41,15 @@ const MultipleEnvConfig = EnvDefault + MultipleEnvConfigNoDefault
 
 const SampleCertName = "erewhemos"
 
+type TestFile struct {
+	Name, Data string
+}
+
 type FakeHome struct {
 	oldHomeEnv     string
 	oldJujuHomeEnv string
 	oldJujuHome    string
+	files          []TestFile
 }
 
 // MakeFakeHomeNoEnvironments creates a new temporary directory through the
@@ -98,7 +103,7 @@ func MakeEmptyFakeHome(c *C) *FakeHome {
 	os.Setenv("HOME", fakeHome)
 	os.Setenv("JUJU_HOME", "")
 	oldJujuHome := config.SetJujuHome(filepath.Join(fakeHome, ".juju"))
-	return &FakeHome{oldHomeEnv, oldJujuHomeEnv, oldJujuHome}
+	return &FakeHome{oldHomeEnv, oldJujuHomeEnv, oldJujuHome, []TestFile{}}
 }
 
 func HomePath(names ...string) string {
@@ -110,6 +115,47 @@ func (h *FakeHome) Restore() {
 	config.SetJujuHome(h.oldJujuHome)
 	os.Setenv("JUJU_HOME", h.oldJujuHomeEnv)
 	os.Setenv("HOME", h.oldHomeEnv)
+}
+
+func (h *FakeHome) AddFiles(c *C, files []TestFile) {
+	for _, f := range files {
+		path := HomePath(f.Name)
+		err := os.MkdirAll(filepath.Dir(path), 0700)
+		c.Assert(err, IsNil)
+		err = ioutil.WriteFile(path, []byte(f.Data), 0666)
+		c.Assert(err, IsNil)
+		h.files = append(h.files, f)
+	}
+}
+
+// FileContents returns the test file contents for the
+// given specified path (which may be relative, so
+// we compare with the base filename only).
+func (h *FakeHome) FileContents(c *C, path string) string {
+	for _, f := range h.files {
+		if filepath.Base(f.Name) == filepath.Base(path) {
+			return f.Data
+		}
+	}
+	c.Fatalf("path attribute holds unknown test file: %q", path)
+	panic("unreachable")
+}
+
+// FileExists returns if the given relative file path exists
+// in the fake home.
+func (h *FakeHome) FileExists(path string) bool {
+	for _, f := range h.files {
+		if f.Name == path {
+			return true
+		}
+	}
+	return false
+}
+
+func MakeFakeHomeWithFiles(c *C, files []TestFile) *FakeHome {
+	fake := MakeEmptyFakeHome(c)
+	fake.AddFiles(c, files)
+	return fake
 }
 
 func MakeSampleHome(c *C) *FakeHome {
