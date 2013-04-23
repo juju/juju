@@ -22,6 +22,7 @@ func (s *TestingEnvorinSuite) SetUpTest(c *C) {
 
 	os.Setenv("HOME", "/home/eric")
 	os.Setenv("JUJU_HOME", "/home/eric/juju")
+	config.SetJujuHome("/home/eric/juju")
 }
 
 func (s *TestingEnvorinSuite) TearDownTest(c *C) {
@@ -33,6 +34,7 @@ func (s *TestingEnvorinSuite) TestFakeHomeReplacesEnvironment(c *C) {
 	_ = testing.MakeEmptyFakeHome(c)
 	c.Assert(os.Getenv("HOME"), Not(Equals), "/home/eric")
 	c.Assert(os.Getenv("JUJU_HOME"), Equals, "")
+	c.Assert(config.JujuHome(), Not(Equals), "/home/eric/juju")
 }
 
 func (s *TestingEnvorinSuite) TestFakeHomeRestoresEnvironment(c *C) {
@@ -40,6 +42,7 @@ func (s *TestingEnvorinSuite) TestFakeHomeRestoresEnvironment(c *C) {
 	fake.Restore()
 	c.Assert(os.Getenv("HOME"), Equals, "/home/eric")
 	c.Assert(os.Getenv("JUJU_HOME"), Equals, "/home/eric/juju")
+	c.Assert(config.JujuHome(), Equals, "/home/eric/juju")
 }
 
 func (s *TestingEnvorinSuite) TestFakeHomeSetsConfigJujuHome(c *C) {
