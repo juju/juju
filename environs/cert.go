@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/log"
 	"os"
 	"path/filepath"
 	"time"
@@ -23,7 +22,6 @@ const (
 func WriteCertAndKey(name string, cert, key []byte) error {
 	// If the juju home directory doesn't exist, create it.
 	jujuHome := config.JujuHome()
-	log.Infof("saving to %q", jujuHome)
 	if err := os.MkdirAll(jujuHome, 0775); err != nil {
 		return err
 	}
