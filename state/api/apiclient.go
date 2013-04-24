@@ -85,7 +85,7 @@ func (c *Client) ServiceGet(service string) (*params.ServiceGetResults, error) {
 	return &results, err
 }
 
-// ServiceUpgradeCharm upgrades the service's charm to the current version.
+// ServiceUpgradeCharm upgrades the service's charm to the latest available version in the repository.
 func (c *Client) ServiceUpgradeCharm(service string, force bool, repo string) error {
 	params := params.ServiceUpgradeCharm{
 		ServiceName: service,

@@ -425,6 +425,8 @@ func opClientServiceDeploy(c *C, st *api.State, mst *state.State) (func(), error
 }
 
 func opClientServiceUpgradeCharm(c *C, st *api.State, mst *state.State) (func(), error) {
+	// This test only checks that the call is made without error, ensuring the
+	// signatures match.
 	err := st.Client().ServiceUpgradeCharm("no-such", false, "")
 	if api.ErrCode(err) == api.CodeNotFound {
 		err = nil

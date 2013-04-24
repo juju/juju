@@ -302,7 +302,7 @@ func (c *srvClient) ServiceGet(args params.ServiceGet) (params.ServiceGetResults
 	return statecmd.ServiceGet(c.root.srv.state, args)
 }
 
-// ServiceUpgradeCharm upgrades the service's charm to the current version.
+// ServiceUpgradeCharm upgrades the service's charm to the latest available version in the repository.
 func (c *srvClient) ServiceUpgradeCharm(args params.ServiceUpgradeCharm) error {
 	return statecmd.ServiceUpgradeCharm(c.root.srv.state, args)
 }

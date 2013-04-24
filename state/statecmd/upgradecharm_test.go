@@ -20,7 +20,6 @@ var serviceUpgradeCharmTests = []struct {
 	charm   string
 	service string
 	force   bool
-	err     string
 }{
 	{
 		about:   "upgrade a charm",
@@ -38,13 +37,13 @@ var serviceUpgradeCharmTests = []struct {
 
 func (s *UpgradeCharmSuite) TestServiceUpgradeCharm(c *C) {
 	for i, t := range serviceUpgradeCharmTests {
+		c.Logf("test %d. %s", i, t.about)
 		charm := s.AddTestingCharm(c, t.charm)
 		svc, err := s.State.AddService(t.service, charm)
 		c.Assert(err, IsNil)
 		c.Assert(svc.Life(), Equals, state.Alive)
 		c.Logf("Svc: %+v", svc)
 		c.Logf("Charm: %+v", charm)
-		c.Logf("test %d. %s", i, t.about)
 		err = statecmd.ServiceUpgradeCharm(s.State, params.ServiceUpgradeCharm{
 			ServiceName: t.service,
 			Force:       t.force,
