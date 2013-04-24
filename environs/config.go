@@ -163,7 +163,7 @@ func BootstrapConfig(cfg *config.Config) (*config.Config, error) {
 		return nil, err
 	}
 	m := cfg.AllAttrs()
-	for k, _ := range secrets {
+	for k := range secrets {
 		delete(m, k)
 	}
 
