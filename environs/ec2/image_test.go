@@ -26,6 +26,8 @@ func (s *imageSuite) TearDownSuite(c *C) {
 	s.LoggingSuite.TearDownTest(c)
 }
 
+// Generate an line for inclusion in an images metadata file.
+// See https://help.ubuntu.com/community/UEC/Images
 func imagesFields(srcs ...string) string {
 	strs := make([]string, len(srcs))
 	for i, src := range srcs {
