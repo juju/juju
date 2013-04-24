@@ -49,11 +49,7 @@ func (s *UpgradeCharmSuite) TestServiceUpgradeCharm(c *C) {
 			Force:       t.force,
 			RepoPath:    coretest.Charms.Path,
 		})
-		if t.err != "" {
-			c.Assert(err, ErrorMatches, t.err)
-		} else {
-			c.Assert(err, IsNil)
-		}
+		c.Assert(err, IsNil)
 		err = svc.Destroy()
 		c.Assert(err, IsNil)
 	}
