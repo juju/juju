@@ -74,6 +74,13 @@ type ServiceUnexpose struct {
 	ServiceName string
 }
 
+// ServiceUpgradeCharm holds parameters for the ServiceUpgradeCharm call.
+type ServiceUpgradeCharm struct {
+	ServiceName string
+	Force       bool
+	RepoPath    string // defaults to JUJU_REPOSITORY
+}
+
 // Resolved holds parameters for the Resolved call.
 type Resolved struct {
 	UnitName string
