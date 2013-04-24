@@ -30,13 +30,13 @@ type InstanceSpec struct {
 	Image            Image
 }
 
-// minMemoryForMongoDB is the assumed minimum amount of memory (in MB) we require in order to run MongoDB (1GB)
-const minMemoryForMongoDB = 1024
+// minMemoryHeuristic is the assumed minimum amount of memory (in MB) we prefer in order to run a server (1GB)
+const minMemoryHeuristic = 1024
 
 // FindInstanceSpec returns an InstanceSpec satisfying the supplied InstanceConstraint.
 // r has been set up to read from a file containing Ubuntu cloud guest images availability data. A query
 // interface for EC2 images is exposed at http://cloud-images.ubuntu.com/query. Other cloud providers may
-// provide similar files for their own images. eg the Openstack provider has been configured to look for
+// provide similar files for their own images. e.g. the Openstack provider has been configured to look for
 // cloud image availability files in the cloud's control and public storage containers.
 // For more information on the image availability file format, see https://help.ubuntu.com/community/UEC/Images.
 // allInstanceTypes provides information on every known available instance type (name, memory, cpu cores etc) on
@@ -54,7 +54,7 @@ func FindInstanceSpec(r *bufio.Reader, ic *InstanceConstraint, allInstanceTypes 
 		}
 		// No matching instance types were found, so the fallback is to:
 		// 1. Sort by memory and find the cheapest matching both the required architecture
-		//    and our own heuristic: minimum amount of memory required to run MongoDB, or
+		//    and our own heuristic: minimum amount of memory required to run a realistic server, or
 		// 2. Sort by cost in reverse order and return the most expensive one, which will hopefully work,
 		//    albeit not the best match
 
@@ -66,9 +66,9 @@ func FindInstanceSpec(r *bufio.Reader, ic *InstanceConstraint, allInstanceTypes 
 		}
 		typeByMemory := byMemory(fallbackTypes)
 		sort.Sort(typeByMemory)
-		// 1. check for smallest instance type that can run mongodb
+		// 1. check for smallest instance type that can realistically run a server
 		for _, itype := range typeByMemory {
-			if itype.Mem >= minMemoryForMongoDB {
+			if itype.Mem >= minMemoryHeuristic {
 				matchingTypes = []InstanceType{itype}
 				break
 			}
@@ -102,7 +102,7 @@ func FindInstanceSpec(r *bufio.Reader, ic *InstanceConstraint, allInstanceTypes 
 	}
 
 	if len(possibleImages) == 0 || len(matchingTypes) == 0 {
-		return nil, fmt.Errorf(`no %q images in %s with arches %s, and no default specified`,
+		return nil, fmt.Errorf("no %q images in %s with arches %s, and no default specified",
 			ic.Series, ic.Region, ic.Arches)
 	}
 
@@ -168,6 +168,7 @@ func (image Image) match(itype InstanceType) bool {
 
 // getImages returns the latest released ubuntu server images for the
 // supplied series in the supplied region.
+// See https://help.ubuntu.com/community/UEC/Images
 func getImages(r *bufio.Reader, ic *InstanceConstraint) ([]Image, error) {
 	var images []Image
 	for {
