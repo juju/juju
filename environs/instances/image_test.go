@@ -41,6 +41,8 @@ var imagesData = imagesFields(
 	"ebs i386 i386-only ami-00000036 paravirtual",
 )
 
+// Generate an line for inclusion in an images metadata file.
+// See https://help.ubuntu.com/community/UEC/Images
 func imagesFields(srcs ...string) string {
 	strs := make([]string, len(srcs))
 	for i, src := range srcs {
