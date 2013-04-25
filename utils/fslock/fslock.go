@@ -129,12 +129,10 @@ func (lock *Lock) acquire(message string) (bool, error) {
 	return true, nil
 }
 
-// Lock blocks until it is able to acquire the lock.  Since we are dealing
-// with sharing and locking using the filesystem, it is good behaviour to
-// provide a message that is saved with the lock.  This is output in debugging
-// information, and can be queried by any other Lock dealing with the same
-// lock name and lock directory.
-func (lock *Lock) Lock(message string) error {
+// lockWithDeadline tries to acquire the lock. If the deadline is
+// non-zero and it cannot acquire the lock before then,
+// it returns ErrTimeout.
+func (lock *Lock) lockWithDeadline(deadline time.Time, message string) error {
 	var heldMessage = ""
 	for {
 		acquired, err := lock.acquire(message)
@@ -143,6 +141,9 @@ func (lock *Lock) Lock(message string) error {
 		}
 		if acquired {
 			return nil
+		}
+		if !deadline.IsZero() && time.Now().After(deadline) {
+			return ErrTimeout
 		}
 		currMessage := lock.Message()
 		if currMessage != heldMessage {
@@ -154,25 +155,20 @@ func (lock *Lock) Lock(message string) error {
 	panic("unreachable")
 }
 
+// Lock blocks until it is able to acquire the lock.  Since we are dealing
+// with sharing and locking using the filesystem, it is good behaviour to
+// provide a message that is saved with the lock.  This is output in debugging
+// information, and can be queried by any other Lock dealing with the same
+// lock name and lock directory.
+func (lock *Lock) Lock(message string) error {
+	return lock.lockWithDeadline(time.Time{}, message)
+}
+
 // LockWithTimeout tries to acquire the lock. If it cannot acquire the lock
 // within the given duration, it returns ErrTimeout.  See `Lock` for
 // information about the message.
 func (lock *Lock) LockWithTimeout(duration time.Duration, message string) error {
-	deadline := time.Now().Add(duration)
-	for {
-		acquired, err := lock.acquire(message)
-		if err != nil {
-			return err
-		}
-		if acquired {
-			return nil
-		}
-		if time.Now().After(deadline) {
-			return ErrTimeout
-		}
-		time.Sleep(lockWaitDelay)
-	}
-	panic("unreachable")
+	return lock.lockWithDeadline(time.Now().Add(duration), message)
 }
 
 // IsHeld returns whether the lock is currently held by the receiver.
