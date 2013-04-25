@@ -17,6 +17,7 @@ type UpgradeCharmCommand struct {
 	ServiceName string
 	Force       bool
 	RepoPath    string // defaults to JUJU_REPOSITORY
+	SwitchURL   string
 }
 
 const upgradeCharmDoc = `
@@ -31,6 +32,10 @@ automatically incremented to create a newer charm.
 The local repository behaviour is tuned specifically to the workflow of a charm
 author working on a single client machine; use of local repositories from
 multiple clients is not supported and may lead to confusing behaviour.
+
+To manually specify the charm URL to upgrade to, use the --switch argument.
+It will be used instead of the service's current charm newest revision.
+Note that the given charm must be compatible with the current one.
 
 Use of the --force flag is not generally recommended; units upgraded while in
 an error state will not have upgrade-charm hooks executed, and may cause
@@ -50,6 +55,7 @@ func (c *UpgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.BoolVar(&c.Force, "force", false, "upgrade all units immediately, even if in error state")
 	f.StringVar(&c.RepoPath, "repository", os.Getenv("JUJU_REPOSITORY"), "local charm repository path")
+	f.StringVar(&c.SwitchURL, "switch", "", "charm URL to upgrade to")
 }
 
 func (c *UpgradeCharmCommand) Init(args []string) error {
@@ -64,7 +70,6 @@ func (c *UpgradeCharmCommand) Init(args []string) error {
 	default:
 		return cmd.CheckEmpty(args[1:])
 	}
-	// TODO(dimitern): add the other flags --switch and --revision.
 	return nil
 }
 
@@ -80,7 +85,20 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	curl, _ := service.CharmURL()
+	var curl *charm.URL
+	if c.SwitchURL != "" {
+		var err error
+		conf, err := conn.State.EnvironConfig()
+		if err != nil {
+			return err
+		}
+		curl, err = charm.InferURL(c.SwitchURL, conf.DefaultSeries())
+		if err != nil {
+			return err
+		}
+	} else {
+		curl, _ = service.CharmURL()
+	}
 	repo, err := charm.InferRepository(curl, ctx.AbsPath(c.RepoPath))
 	if err != nil {
 		return err

@@ -54,6 +54,15 @@ func (r *Repo) ClonedDirPath(dst, name string) string {
 	return clone(dst, r.DirPath(name))
 }
 
+// RenamedClonedDirPath returns the path to a new copy of the default
+// charm directory named name, but renames it to newName.
+func (r *Repo) RenamedClonedDirPath(dst, name, newName string) string {
+	newDst := clone(dst, r.DirPath(name))
+	renamedDst := filepath.Join(filepath.Dir(newDst), newName)
+	check(exec.Command("mv", newDst, renamedDst).Run())
+	return renamedDst
+}
+
 // ClonedDir returns an actual charm.Dir based on a new copy of the charm directory
 // named name, in the directory dst.
 func (r *Repo) ClonedDir(dst, name string) *charm.Dir {
