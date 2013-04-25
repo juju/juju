@@ -229,20 +229,9 @@ func (s *fslockSuite) TestMessage(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(lock.Message(), Equals, "")
 
-	err = lock.SetMessage("my message")
-	c.Assert(err, Equals, fslock.ErrLockNotHeld)
-
-	err = lock.Lock("")
-	c.Assert(err, IsNil)
-
-	err = lock.SetMessage("my message")
+	err = lock.Lock("my message")
 	c.Assert(err, IsNil)
 	c.Assert(lock.Message(), Equals, "my message")
-
-	// Messages can be changed while the lock is held.
-	err = lock.SetMessage("new message")
-	c.Assert(err, IsNil)
-	c.Assert(lock.Message(), Equals, "new message")
 
 	// Unlocking removes the message.
 	err = lock.Unlock()
@@ -257,11 +246,8 @@ func (s *fslockSuite) TestMessageAcrossLocks(c *C) {
 	lock2, err := fslock.NewLock(dir, "testing")
 	c.Assert(err, IsNil)
 
-	err = lock1.Lock("")
+	err = lock1.Lock("very busy")
 	c.Assert(err, IsNil)
-	err = lock1.SetMessage("very busy")
-	c.Assert(err, IsNil)
-
 	c.Assert(lock2.Message(), Equals, "very busy")
 }
 

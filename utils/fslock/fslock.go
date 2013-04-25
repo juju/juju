@@ -212,23 +212,6 @@ func (lock *Lock) BreakLock() error {
 	return os.RemoveAll(lock.lockDir())
 }
 
-// SetMessage saves the message if and only if the lock is held.
-func (lock *Lock) SetMessage(message string) error {
-	if !lock.IsLockHeld() {
-		return ErrLockNotHeld
-	}
-	// Since the message can be read by anyone, make this an atomic write by
-	// writing to a temp file and renaming.
-	tempFile, err := ioutil.TempFile(lock.lockDir(), ".message")
-	if err != nil {
-		return err
-	}
-	tempFilename := tempFile.Name()
-	fmt.Fprint(tempFile, message)
-	tempFile.Close()
-	return os.Rename(tempFilename, lock.messageFile())
-}
-
 // Message returns the saved message, or the empty string if there is no
 // saved message.
 func (lock *Lock) Message() string {
