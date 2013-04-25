@@ -4,11 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"launchpad.net/gnuflag"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/statecmd"
 	"os"
 )
 
@@ -77,13 +76,35 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer conn.Close()
-
-	params := params.ServiceUpgradeCharm{
-		ServiceName: c.ServiceName,
-		Force:       c.Force,
-		RepoPath:    ctx.AbsPath(c.RepoPath),
+	service, err := conn.State.Service(c.ServiceName)
+	if err != nil {
+		return err
 	}
-
-	err = statecmd.ServiceUpgradeCharm(conn.State, params)
-	return err
+	curl, _ := service.CharmURL()
+	repo, err := charm.InferRepository(curl, ctx.AbsPath(c.RepoPath))
+	if err != nil {
+		return err
+	}
+	rev, err := repo.Latest(curl)
+	if err != nil {
+		return err
+	}
+	bumpRevision := false
+	if curl.Revision == rev {
+		if _, isLocal := repo.(*charm.LocalRepository); !isLocal {
+			return fmt.Errorf("already running latest charm %q", curl)
+		}
+		// This is a local repository.
+		if ch, err := repo.Get(curl); err != nil {
+			return err
+		} else if _, bumpRevision = ch.(*charm.Dir); !bumpRevision {
+			// Only bump the revision when it's a directory.
+			return fmt.Errorf("already running latest charm %q", curl)
+		}
+	}
+	sch, err := conn.PutCharm(curl.WithRevision(rev), repo, bumpRevision)
+	if err != nil {
+		return err
+	}
+	return service.SetCharm(sch, c.Force)
 }

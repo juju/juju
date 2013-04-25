@@ -302,11 +302,6 @@ func (c *srvClient) ServiceGet(args params.ServiceGet) (params.ServiceGetResults
 	return statecmd.ServiceGet(c.root.srv.state, args)
 }
 
-// ServiceUpgradeCharm upgrades the service's charm to the latest available version in the repository.
-func (c *srvClient) ServiceUpgradeCharm(args params.ServiceUpgradeCharm) error {
-	return statecmd.ServiceUpgradeCharm(c.root.srv.state, args)
-}
-
 // Resolved implements the server side of Client.Resolved.
 func (c *srvClient) Resolved(p params.Resolved) error {
 	unit, err := c.root.srv.state.Unit(p.UnitName)
