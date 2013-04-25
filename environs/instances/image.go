@@ -1,10 +1,14 @@
 package instances
 
 import (
-	"bufio"
+	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
+	"net/http"
 	"sort"
 	"strings"
 )
@@ -43,7 +47,7 @@ const minMemoryHeuristic = 1024
 // which instances can be run.
 // regionCosts optionally provides cost metrics for running instance types in each known region. If not specified,
 // the cost of each instance type is set to the type's memory allocation.
-func FindInstanceSpec(r *bufio.Reader, ic *InstanceConstraint, allInstanceTypes []InstanceType, regionCosts RegionCosts) (*InstanceSpec, error) {
+func FindInstanceSpec(r io.Reader, ic *InstanceConstraint, allInstanceTypes []InstanceType, regionCosts RegionCosts) (*InstanceSpec, error) {
 	matchingTypes, err := getMatchingInstanceTypes(ic, allInstanceTypes, regionCosts)
 	if err != nil {
 		// There are no instance types matching the supplied constraints. If the user has specifically
@@ -127,23 +131,6 @@ func (s byMemory) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
-// Columns in the file returned from the images server.
-const (
-	colSeries = iota
-	colServer
-	colDaily
-	colDate
-	colStorage
-	colArch
-	colRegion
-	colImageId
-	_
-	_
-	colVtype
-	colMax
-	// + more that we don't care about.
-)
-
 // Image holds the attributes that vary amongst relevant images for
 // a given series in a given region.
 type Image struct {
@@ -166,45 +153,120 @@ func (image Image) match(itype InstanceType) bool {
 	return false
 }
 
-// getImages returns the latest released ubuntu server images for the
-// supplied series in the supplied region.
-// See https://help.ubuntu.com/community/UEC/Images
-func getImages(r *bufio.Reader, ic *InstanceConstraint) ([]Image, error) {
-	var images []Image
-	for {
-		line, _, err := r.ReadLine()
-		if err == io.EOF {
-			if len(images) == 0 {
-				return nil, fmt.Errorf("no %q images in %s with arches %v", ic.Series, ic.Region, ic.Arches)
-			}
-			sort.Sort(byArch(images))
-			return images, nil
-		} else if err != nil {
-			return nil, err
-		}
-		f := strings.Split(string(line), "\t")
-		if len(f) < colMax {
+type ImageMetadata struct {
+	Id         string `json:"id"`
+	Storage    string `json:"root_store"`
+	VType      string `json:"virt"`
+	RegionName string `json:"crsn"`
+}
+
+type ImageCollection struct {
+	Images map[string]ImageMetadata `json:"items"`
+	PublicName     string                   `json:"pubname"`
+	PublicLabel    string                   `json:"publabel"`
+	Tag            string                   `json:"label"`
+}
+
+type ImagesByVersion map[string]ImageCollection
+
+type ImageMetadataCatalog struct {
+	Release         string                     `json:"release"`
+	Version         string                     `json:"version"`
+	Arch            string                     `json:"arch"`
+	Images ImagesByVersion `json:"versions"`
+}
+
+type CloudImageMetadata struct {
+	Products map[string]ImageMetadataCatalog `json:"products"`
+}
+
+func GetImages(providerLabel string, e *environs.Environ, cfg *config.Config, ic *InstanceConstraint) ([]Image, error) {
+	baseImagesUrl := "http://cloud-images.ubuntu.com/eightprotons"
+	if !strings.HasSuffix(baseImagesUrl, "/") {
+		baseImagesUrl += "/"
+	}
+	imageFilePath := fmt.Sprintf("streams/v1/com.ubuntu.cloud:released:%s.js", providerLabel)
+	imageFileUrl := baseImagesUrl + imageFilePath
+	resp, err := http.Get(imageFileUrl)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		err = fmt.Errorf("%s", resp.Status)
+		return nil, err
+	}
+	return getImages(resp.Body, ic)
+}
+
+func findMatchingImage(images map[string]ImageMetadata, ic *InstanceConstraint) *Image {
+	for _, im := range images {
+		if ic.Storage != nil && im.Storage != *ic.Storage {
 			continue
 		}
-		if f[colRegion] != ic.Region {
-			continue
+		var clustered bool
+		if ic.Cluster != nil {
+			clustered = im.VType == *ic.Cluster
 		}
-		if ic.Storage != nil && f[colStorage] != *ic.Storage {
-			continue
-		}
-		if len(filterArches([]string{f[colArch]}, ic.Arches)) != 0 {
-			var clustered bool
-			if ic.Cluster != nil {
-				clustered = f[colVtype] == *ic.Cluster
-			}
-			images = append(images, Image{
-				Id:        f[colImageId],
-				Arch:      f[colArch],
-				Clustered: clustered,
-			})
+		return &Image{
+			Id: im.Id,
+			Clustered: clustered,
 		}
 	}
-	panic("unreachable")
+	return nil
+}
+
+// getImages returns the latest released ubuntu server images for the
+// supplied series in the supplied region.
+// r is a reader for an JSON encoded image metadata file.
+func getImages(r io.Reader, ic *InstanceConstraint) ([]Image, error) {
+	var images []Image
+
+	respData, err := ioutil.ReadAll(r)
+	if err != nil {
+		return nil, fmt.Errorf("cannot read image metadata file: %s", err.Error())
+	}
+
+	var metadata CloudImageMetadata
+	if len(respData) > 0 {
+		err = json.Unmarshal(respData, &metadata)
+		if err != nil {
+			return nil, fmt.Errorf("cannot unmarshal JSON image metadata: %s", err.Error())
+		}
+	}
+	for _, metadataCatalog := range metadata.Products {
+		if metadataCatalog.Release != ic.Series {
+			continue
+		}
+		if len(filterArches([]string{metadataCatalog.Arch}, ic.Arches)) == 0 {
+			continue
+		}
+
+		// Sort the image metadata by version and look for a matching image.
+		// Because of the sorting we will always return the most recent image metadata.
+		bv := byVersion{}
+		bv.versions = make([]string, len(metadataCatalog.Images))
+		bv.imageCollections = make([]ImageCollection, len(metadataCatalog.Images))
+		i := 0
+		for k, v := range metadataCatalog.Images {
+			bv.versions[i] = k
+			bv.imageCollections[i] = v
+			i++
+		}
+		sort.Sort(bv)
+		for _, imageCollection := range bv.imageCollections {
+			if image := findMatchingImage(imageCollection.Images, ic); image != nil {
+				image.Arch = metadataCatalog.Arch
+				images = append(images, *image)
+			}
+		}
+	}
+
+	if len(images) == 0 {
+		return nil, fmt.Errorf("no %q images in %s with arches %v", ic.Series, ic.Region, ic.Arches)
+	}
+	sort.Sort(byArch(images))
+	return images, nil
 }
 
 // byArch is used to sort a slice of images by architecture preference, such
@@ -215,4 +277,20 @@ func (ba byArch) Len() int      { return len(ba) }
 func (ba byArch) Swap(i, j int) { ba[i], ba[j] = ba[j], ba[i] }
 func (ba byArch) Less(i, j int) bool {
 	return ba[i].Arch == "amd64" && ba[j].Arch != "amd64"
+}
+
+// byVersion is used to sort a slice of image collections as a side effect of
+// sorting a matching slice of versions in YYYYMMDD.
+type byVersion struct {
+	versions []string
+	imageCollections []ImageCollection
+}
+
+func (bv byVersion) Len() int      { return len(bv.imageCollections) }
+func (bv byVersion) Swap(i, j int) {
+	bv.versions[i], bv.versions[j] = bv.versions[j], bv.versions[i]
+	bv.imageCollections[i], bv.imageCollections[j] = bv.imageCollections[j], bv.imageCollections[i]
+}
+func (bv byVersion) Less(i, j int) bool {
+	return bv.versions[i] < bv.versions[j]
 }
