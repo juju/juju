@@ -66,7 +66,7 @@ func (*SwitchSimpleSuite) TestSettingWritesFile(c *C) {
 	context, err := testing.RunCommand(c, &SwitchCommand{}, []string{"erewhemos-2"})
 	c.Assert(err, IsNil)
 	c.Assert(testing.Stdout(context), Equals, "Changed default environment from \"erewhemos\" to \"erewhemos-2\"\n")
-	env, err := ioutil.ReadFile(testing.HomePath(".juju/current-environment"))
+	env, err := ioutil.ReadFile(testing.HomePath(".juju", CurrentEnvironmentFile))
 	c.Assert(err, IsNil)
 	c.Assert(string(env), Equals, "erewhemos-2")
 }
@@ -87,7 +87,7 @@ func (*SwitchSimpleSuite) TestSettingWhenJujuEnvSet(c *C) {
 func (*SwitchSimpleSuite) TestErrorWritingFile(c *C) {
 	defer testing.MakeFakeHome(c, testing.MultipleEnvConfig).Restore()
 	// Can't write a file over a directory.
-	os.MkdirAll(testing.HomePath(".juju/current-environment"), 0777)
+	os.MkdirAll(testing.HomePath(".juju", CurrentEnvironmentFile), 0777)
 	context, err := testing.RunCommand(c, &SwitchCommand{}, []string{"erewhemos-2"})
 	c.Assert(err, Not(IsNil))
 	c.Assert(testing.Stderr(context), Matches, "Unable to write to the environment file: .*")
