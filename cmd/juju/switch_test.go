@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io/ioutil"
 	"os"
 
 	. "launchpad.net/gocheck"
@@ -58,4 +59,20 @@ func (*SwitchSimpleSuite) TestJujuEnvOverCurrentEnvironment(c *C) {
 	context, err := testing.RunCommand(c, &SwitchCommand{}, nil)
 	c.Assert(err, IsNil)
 	c.Assert(testing.Stdout(context), Equals, "Current environment: \"using-env\" (from JUJU_ENV)\n")
+}
+
+func (*SwitchSimpleSuite) TestSettingWritesFile(c *C) {
+	defer testing.MakeFakeHome(c, testing.MultipleEnvConfig).Restore()
+	context, err := testing.RunCommand(c, &SwitchCommand{}, []string{"erewhemos-2"})
+	c.Assert(err, IsNil)
+	c.Assert(testing.Stdout(context), Equals, "Changed default environment from \"erewhemos\" to \"erewhemos-2\"\n")
+	env, err := ioutil.ReadFile(testing.HomePath(".juju/current-environment"))
+	c.Assert(err, IsNil)
+	c.Assert(string(env), Equals, "erewhemos-2")
+}
+
+func (*SwitchSimpleSuite) TestSettingToUnknown(c *C) {
+	defer testing.MakeFakeHome(c, testing.MultipleEnvConfig).Restore()
+	_, err := testing.RunCommand(c, &SwitchCommand{}, []string{"unknown"})
+	c.Assert(err, ErrorMatches, `"unknown" is not a name of an existing defined environment`)
 }
