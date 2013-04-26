@@ -186,10 +186,19 @@ func (s *UpgradeCharmSuccessSuite) TestSwitch(c *C) {
 	err := ioutil.WriteFile(path.Join(myriakPath, "metadata.yaml"), myriakMeta, 0644)
 	c.Assert(err, IsNil)
 
-	// Test with local repo.
+	// Test with local repo and no explicit revsion.
 	err = runUpgradeCharm(c, "riak", "--switch=local:myriak")
 	c.Assert(err, IsNil)
 	curl := s.assertUpgraded(c, 7, false)
 	c.Assert(curl.String(), Equals, "local:precise/myriak-7")
 	s.assertLocalRevision(c, 7, myriakPath)
+
+	// Change the revision to 42 and upgrade with it.
+	err = ioutil.WriteFile(path.Join(myriakPath, "revision"), []byte("42"), 0644)
+	c.Assert(err, IsNil)
+	err = runUpgradeCharm(c, "riak", "--switch=local:myriak-42")
+	c.Assert(err, IsNil)
+	curl = s.assertUpgraded(c, 42, false)
+	c.Assert(curl.String(), Equals, "local:precise/myriak-42")
+	s.assertLocalRevision(c, 42, myriakPath)
 }

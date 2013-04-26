@@ -22,37 +22,42 @@ type UpgradeCharmCommand struct {
 }
 
 const upgradeCharmDoc = `
-When no flags are set, the service's charm will be upgraded to the latest
-revision available in the repository from which it was originally deployed.
+When no flags are set, the service's charm will be upgraded to the
+latest revision available in the repository from which it was
+originally deployed.
 
-If the charm came from a local repository, its path will be assumed to be
-$JUJU_REPOSITORY unless overridden by --repository. If there is no newer
-revision of a local charm directory, the local directory's revision will be
-automatically incremented to create a newer charm.
+If the charm came from a local repository, its path will be assumed to
+be $JUJU_REPOSITORY unless overridden by --repository. If there is no
+newer revision of a local charm directory, the local directory's
+revision will be automatically incremented to create a newer charm.
 
-The local repository behaviour is tuned specifically to the workflow of a charm
-author working on a single client machine; use of local repositories from
-multiple clients is not supported and may lead to confusing behaviour.
+The local repository behaviour is tuned specifically to the workflow
+of a charm author working on a single client machine; use of local
+repositories from multiple clients is not supported and may lead to
+confusing behaviour.
 
-The --switch flag specifies a particular charm URL to use. This is potentially
-dangerous as the new charm may not be fully compatible with the old one. To
-make it a little safer, the following checks are made:
+The --switch flag specifies a particular charm URL to use. This is
+potentially dangerous as the new charm may not be fully compatible
+with the old one. To make it a little safer, the following checks are
+made:
 
-- The new charm must declare all relations
-that the service is currently participating in.
+- The new charm must declare all relations that the service is
+currently participating in.
 
-- The new charm must declare all the configuration
-settings of the old charm and they must all have the same types
-as the old charm.
+- The new charm must declare all the configuration settings of the old
+charm and they must all have the same types as the old charm.
 
 The new charm may add new relations and configuration settings.
 
-In addition, you can specify --revision to select a specific revision number
-to upgrade to, rather than the newest one. This cannot be combined with --switch.
+In addition, you can specify --revision to select a specific revision
+number to upgrade to, rather than the newest one. This cannot be
+combined with --switch. To specify a given revision number with
+--switch, give it in the charm URL, for instance "cs:wordpress-5" would
+specify revision number 5 of the wordpress charm.
 
-Use of the --force flag is not generally recommended; units upgraded while in
-an error state will not have upgrade-charm hooks executed, and may cause
-unexpected behavior.
+Use of the --force flag is not generally recommended; units upgraded
+while in an error state will not have upgrade-charm hooks executed,
+and may cause unexpected behavior.
 `
 
 func (c *UpgradeCharmCommand) Info() *cmd.Info {
@@ -126,11 +131,16 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 	}
 	bumpRevision := false
 	rev := latest
-	if c.Revision >= 0 {
+	if c.SwitchURL != "" && curl.Revision != -1 {
+		// Respect user's explicit revision when switching.
+		rev = curl.Revision
+	} else if c.Revision >= 0 {
+		// Respect user's explicit revision as specified.
 		rev = c.Revision
-	} else if curl.Revision == rev {
+	}
+	if curl.Revision == rev && c.SwitchURL == "" {
+		// Only try bumping the revision when necessary (local dir charm).
 		if _, isLocal := repo.(*charm.LocalRepository); !isLocal {
-			// This is not a local repository.
 			return fmt.Errorf("already running latest charm %q", curl)
 		}
 		// This is a local repository.
