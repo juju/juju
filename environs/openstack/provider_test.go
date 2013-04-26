@@ -13,9 +13,9 @@ import (
 
 // Out-of-the-box, we support live testing using Canonistack or HP Cloud.
 var testConstraints = map[string]openstack.ImageDetails{
-	"canonistack": openstack.ImageDetails{
+	"canonistack": {
 		Flavor: "m1.tiny", ImageId: "c876e5fe-abb0-41f0-8f29-f0b47481f523"},
-	"hpcloud": openstack.ImageDetails{
+	"hpcloud": {
 		Flavor: "standard.xsmall", ImageId: "75845"},
 }
 
