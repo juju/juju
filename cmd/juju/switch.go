@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"sort"
 
@@ -67,6 +68,7 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 	}
 	names := environments.Names()
 	sort.Strings(names)
+	jujuEnv := os.Getenv("JUJU_ENV")
 
 	currentEnv := readCurrentEnvironment()
 	if currentEnv == "" {
@@ -81,7 +83,9 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 		return fmt.Sprintf("%q", currentEnv)
 	}
 
-	if c.EnvName == "" || c.EnvName == currentEnv {
+	if jujuEnv != "" {
+		fmt.Fprintf(ctx.Stdout, "Current environment: %q (from JUJU_ENV)\n", jujuEnv)
+	} else if c.EnvName == "" || c.EnvName == currentEnv {
 		fmt.Fprintf(ctx.Stdout, "Current environment: %s\n", env())
 	} else {
 		// Check to make sure that the specified environment
