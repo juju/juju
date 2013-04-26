@@ -88,6 +88,7 @@ func (s *MainSuite) TestParseErrors(c *C) {
 
 var expectedProviders = []string{
 	"ec2",
+	"maas",
 	"openstack",
 }
 

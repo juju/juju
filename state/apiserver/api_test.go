@@ -1269,8 +1269,10 @@ func (s *suite) TestClientServiceGet(c *C) {
 		Config: map[string]interface{}{
 			"blog-title": map[string]interface{}{
 				"type":        "string",
-				"value":       nil,
-				"description": "A descriptive title used for the blog."},
+				"value":       "My Title",
+				"description": "A descriptive title used for the blog.",
+				"default":     true,
+			},
 		},
 	})
 }

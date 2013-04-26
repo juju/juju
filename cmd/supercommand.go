@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"launchpad.net/gnuflag"
+	"launchpad.net/juju-core/log"
 	"sort"
 	"strings"
 )
@@ -189,7 +190,13 @@ func (c *SuperCommand) Run(ctx *Context) error {
 			return err
 		}
 	}
-	return c.subcmd.Run(ctx)
+	err := c.subcmd.Run(ctx)
+	if err != nil && err != ErrSilent {
+		log.Errorf("command failed: %v", err)
+	} else {
+		log.Infof("command finished")
+	}
+	return err
 }
 
 type helpCommand struct {
