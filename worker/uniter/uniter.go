@@ -288,7 +288,19 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 		}
 	}
 	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
-	if err = u.hookLock.Lock(fmt.Sprintf("%s: running hook %q", u.unit.Name(), hookName)); err != nil {
+	// We want to make sure we don't block forever when locking, but take the
+	// tomb into account.
+	checkTomb := func() error {
+		select {
+		case <-u.tomb.Dying():
+			return tomb.ErrDying
+		default:
+			// no-op to fall through to return.
+		}
+		return nil
+	}
+	lockMessage := fmt.Sprintf("%s: running hook %q", u.unit.Name(), hookName)
+	if err = u.hookLock.LockWithFunc(lockMessage, checkTomb); err != nil {
 		return err
 	}
 	defer u.hookLock.Unlock()
