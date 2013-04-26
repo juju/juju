@@ -171,10 +171,6 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 			return fmt.Errorf("already running latest charm %q", curl)
 		}
 	}
-	if scurl != nil && scurl.String() == curl.WithRevision(rev).String() && !bumpRevision {
-		// Explicit revision specified, but it matches the current one.
-		return fmt.Errorf("already running latest charm %q", curl)
-	}
 	sch, err := conn.PutCharm(curl.WithRevision(rev), repo, bumpRevision)
 	if err != nil {
 		return err
