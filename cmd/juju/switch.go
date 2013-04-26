@@ -60,6 +60,19 @@ func validEnvironmentName(name string, names []string) bool {
 }
 
 func (c *SwitchCommand) Run(ctx *cmd.Context) error {
+	// Switch is an alternative way of dealing with environments than using
+	// the JUJU_ENV environment setting, and as such, doesn't play too well.
+	// If JUJU_ENV is set we should report that as the current environment,
+	// and not allow switching when it is set.
+	jujuEnv := os.Getenv("JUJU_ENV")
+	if jujuEnv != "" {
+		if c.EnvName == "" {
+			fmt.Fprintf(ctx.Stdout, "Current environment: %q (from JUJU_ENV)\n", jujuEnv)
+			return nil
+		} else {
+			return fmt.Errorf("Cannot switch when JUJU_ENV is overriding the environment (set to %q)", jujuEnv)
+		}
+	}
 
 	// Passing through the empty string reads the default environments.yaml file.
 	environments, err := environs.ReadEnvirons("")
@@ -68,7 +81,6 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 	}
 	names := environments.Names()
 	sort.Strings(names)
-	jujuEnv := os.Getenv("JUJU_ENV")
 
 	currentEnv := readCurrentEnvironment()
 	if currentEnv == "" {
@@ -83,9 +95,7 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 		return fmt.Sprintf("%q", currentEnv)
 	}
 
-	if jujuEnv != "" {
-		fmt.Fprintf(ctx.Stdout, "Current environment: %q (from JUJU_ENV)\n", jujuEnv)
-	} else if c.EnvName == "" || c.EnvName == currentEnv {
+	if c.EnvName == "" || c.EnvName == currentEnv {
 		fmt.Fprintf(ctx.Stdout, "Current environment: %s\n", env())
 	} else {
 		// Check to make sure that the specified environment
