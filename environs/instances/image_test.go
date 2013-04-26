@@ -155,7 +155,7 @@ func (s *imageSuite) TestFindInstanceSpec(c *C) {
 			Arches:         t.arches,
 			Constraints:    constraints.MustParse(t.constraints),
 			DefaultImageId: t.defaultImageId,
-		}, t.instanceTypes, nil)
+		}, t.instanceTypes)
 		if t.err != "" {
 			c.Check(err, ErrorMatches, t.err)
 			continue

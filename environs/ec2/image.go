@@ -36,5 +36,22 @@ func findInstanceSpec(ic *instances.InstanceConstraint) (*instances.InstanceSpec
 	if err == nil {
 		r = bufio.NewReader(resp.Body)
 	}
-	return instances.FindInstanceSpec(r, ic, allInstanceTypes, allRegionCosts)
+
+	// Make a copy of the known EC2 instance types, filling in the cost for the specified region.
+	regionCosts := allRegionCosts[ic.Region]
+	if len(regionCosts) == 0 && len(allRegionCosts) > 0 {
+		return nil, fmt.Errorf("no instance types found in %s", ic.Region)
+	}
+
+	var itypesWithCosts []instances.InstanceType
+	for _, itype := range allInstanceTypes {
+		cost, ok := regionCosts[itype.Name]
+		if !ok {
+			continue
+		}
+		itWithCost := itype
+		itWithCost.Cost = cost
+		itypesWithCosts = append(itypesWithCosts, itWithCost)
+	}
+	return instances.FindInstanceSpec(r, ic, itypesWithCosts)
 }

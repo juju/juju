@@ -20,22 +20,6 @@ func (s *instanceTypeSuite) TearDownSuite(c *C) {
 	s.LoggingSuite.TearDownTest(c)
 }
 
-var instanceTypeCosts = InstanceTypeCost{
-	"m1.small":    60,
-	"m1.medium":   120,
-	"m1.large":    240,
-	"m1.xlarge":   480,
-	"t1.micro":    20,
-	"c1.medium":   145,
-	"c1.xlarge":   580,
-	"cc1.4xlarge": 1300,
-	"cc2.8xlarge": 2400,
-}
-
-var regionCosts = RegionCosts{
-	"test": instanceTypeCosts,
-}
-
 var hvm = "hvm"
 
 var instanceTypes = []InstanceType{
@@ -45,24 +29,28 @@ var instanceTypes = []InstanceType{
 		CpuCores: 1,
 		CpuPower: CpuPower(100),
 		Mem:      1740,
+		Cost:     60,
 	}, {
 		Name:     "m1.medium",
 		Arches:   []string{"amd64", "arm"},
 		CpuCores: 1,
 		CpuPower: CpuPower(200),
 		Mem:      3840,
+		Cost:     120,
 	}, {
 		Name:     "m1.large",
 		Arches:   []string{"amd64"},
 		CpuCores: 2,
 		CpuPower: CpuPower(400),
 		Mem:      7680,
+		Cost:     240,
 	}, {
 		Name:     "m1.xlarge",
 		Arches:   []string{"amd64"},
 		CpuCores: 4,
 		CpuPower: CpuPower(800),
 		Mem:      15360,
+		Cost:     480,
 	},
 	{
 		Name:     "t1.micro",
@@ -70,6 +58,7 @@ var instanceTypes = []InstanceType{
 		CpuCores: 1,
 		CpuPower: CpuPower(20),
 		Mem:      613,
+		Cost:     20,
 	},
 	{
 		Name:     "c1.medium",
@@ -77,12 +66,14 @@ var instanceTypes = []InstanceType{
 		CpuCores: 2,
 		CpuPower: CpuPower(500),
 		Mem:      1740,
+		Cost:     145,
 	}, {
 		Name:     "c1.xlarge",
 		Arches:   []string{"amd64"},
 		CpuCores: 8,
 		CpuPower: CpuPower(2000),
 		Mem:      7168,
+		Cost:     580,
 	},
 	{
 		Name:     "cc1.4xlarge",
@@ -90,6 +81,7 @@ var instanceTypes = []InstanceType{
 		CpuCores: 8,
 		CpuPower: CpuPower(3350),
 		Mem:      23552,
+		Cost:     1300,
 		VType:    &hvm,
 	}, {
 		Name:     "cc2.8xlarge",
@@ -97,16 +89,16 @@ var instanceTypes = []InstanceType{
 		CpuCores: 16,
 		CpuPower: CpuPower(8800),
 		Mem:      61952,
+		Cost:     2400,
 		VType:    &hvm,
 	},
 }
 
 var getInstanceTypesTest = []struct {
-	info    string
-	cons    string
-	itypes  []string
-	arches  []string
-	noCosts bool
+	info   string
+	cons   string
+	itypes []string
+	arches []string
 }{
 	{
 		info: "cpu-cores",
@@ -130,13 +122,6 @@ var getInstanceTypesTest = []struct {
 		cons:   "cpu-power=100 arch=arm",
 		itypes: []string{"m1.small", "m1.medium", "c1.medium"},
 		arches: []string{"arm"},
-	}, {
-		info: "no costs data available",
-		cons: "cpu-cores=2",
-		itypes: []string{
-			"c1.medium", "c1.xlarge", "m1.large", "m1.xlarge", "cc1.4xlarge", "cc2.8xlarge",
-		},
-		noCosts: true,
 	},
 }
 
@@ -150,11 +135,7 @@ func constraint(region, cons string) *InstanceConstraint {
 func (s *instanceTypeSuite) TestGetMatchingInstanceTypes(c *C) {
 	for i, t := range getInstanceTypesTest {
 		c.Logf("test %d: %s", i, t.info)
-		var costs RegionCosts
-		if !t.noCosts {
-			costs = regionCosts
-		}
-		itypes, err := getMatchingInstanceTypes(constraint("test", t.cons), instanceTypes, costs)
+		itypes, err := getMatchingInstanceTypes(constraint("test", t.cons), instanceTypes)
 		c.Assert(err, IsNil)
 		names := make([]string, len(itypes))
 		for i, itype := range itypes {
@@ -170,13 +151,10 @@ func (s *instanceTypeSuite) TestGetMatchingInstanceTypes(c *C) {
 }
 
 func (s *instanceTypeSuite) TestGetMatchingInstanceTypesErrors(c *C) {
-	_, err := getMatchingInstanceTypes(constraint("unknown-region", ""), instanceTypes, regionCosts)
-	c.Check(err, ErrorMatches, `no instance types found in unknown-region`)
-
-	_, err = getMatchingInstanceTypes(constraint("test", "cpu-power=9001"), instanceTypes, regionCosts)
+	_, err := getMatchingInstanceTypes(constraint("test", "cpu-power=9001"), instanceTypes)
 	c.Check(err, ErrorMatches, `no instance types in test matching constraints "cpu-power=9001", and no default specified`)
 
-	_, err = getMatchingInstanceTypes(constraint("test", "arch=arm mem=8G"), instanceTypes, regionCosts)
+	_, err = getMatchingInstanceTypes(constraint("test", "arch=arm mem=8G"), instanceTypes)
 	c.Check(err, ErrorMatches, `no instance types in test matching constraints "arch=arm mem=8192M", and no default specified`)
 }
 

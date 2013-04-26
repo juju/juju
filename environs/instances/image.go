@@ -42,10 +42,8 @@ const minMemoryHeuristic = 1024
 // For more information on the image availability file format, see https://help.ubuntu.com/community/UEC/Images.
 // allInstanceTypes provides information on every known available instance type (name, memory, cpu cores etc) on
 // which instances can be run.
-// regionCosts optionally provides cost metrics for running instance types in each known region. If not specified,
-// the cost of each instance type is set to the type's memory allocation.
-func FindInstanceSpec(r *bufio.Reader, ic *InstanceConstraint, allInstanceTypes []InstanceType, regionCosts RegionCosts) (*InstanceSpec, error) {
-	matchingTypes, err := getMatchingInstanceTypes(ic, allInstanceTypes, regionCosts)
+func FindInstanceSpec(r *bufio.Reader, ic *InstanceConstraint, allInstanceTypes []InstanceType) (*InstanceSpec, error) {
+	matchingTypes, err := getMatchingInstanceTypes(ic, allInstanceTypes)
 	if err != nil {
 		// There are no instance types matching the supplied constraints. If the user has specifically
 		// asked for a nominated default instance type to be used as a fallback and that is invalid, we
@@ -60,7 +58,7 @@ func FindInstanceSpec(r *bufio.Reader, ic *InstanceConstraint, allInstanceTypes 
 		//    albeit not the best match
 
 		archCons := &InstanceConstraint{Arches: ic.Arches}
-		fallbackTypes, fberr := getMatchingInstanceTypes(archCons, allInstanceTypes, regionCosts)
+		fallbackTypes, fberr := getMatchingInstanceTypes(archCons, allInstanceTypes)
 		// If there's an error getting the fallback instance, return the original error.
 		if fberr != nil {
 			return nil, err

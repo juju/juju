@@ -206,11 +206,6 @@ var findInstanceSpecErrorTests = []struct {
 		arches: []string{"arm"},
 		err:    `no "precise" images in test with arches \[arm\], and no default specified`,
 	}, {
-		series: "precise",
-		arches: Both,
-		cons:   "cpu-power=9001",
-		err:    `no instance types in test matching constraints "cpu-power=9001", and no default specified`,
-	}, {
 		series: "raring",
 		arches: Both,
 		cons:   "mem=4G",
