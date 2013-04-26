@@ -47,6 +47,7 @@ type TestFile struct {
 
 type FakeHome struct {
 	oldHomeEnv     string
+	oldJujuEnv     string
 	oldJujuHomeEnv string
 	oldJujuHome    string
 	files          []TestFile
@@ -99,11 +100,18 @@ func MakeFakeHome(c *C, envConfig string, certNames ...string) *FakeHome {
 func MakeEmptyFakeHome(c *C) *FakeHome {
 	oldHomeEnv := os.Getenv("HOME")
 	oldJujuHomeEnv := os.Getenv("JUJU_HOME")
+	oldJujuEnv := os.Getenv("JUJU_ENV")
 	fakeHome := c.MkDir()
 	os.Setenv("HOME", fakeHome)
 	os.Setenv("JUJU_HOME", "")
+	os.Setenv("JUJU_ENV", "")
 	oldJujuHome := config.SetJujuHome(filepath.Join(fakeHome, ".juju"))
-	return &FakeHome{oldHomeEnv, oldJujuHomeEnv, oldJujuHome, []TestFile{}}
+	return &FakeHome{
+		oldHomeEnv:     oldHomeEnv,
+		oldJujuEnv:     oldJujuEnv,
+		oldJujuHomeEnv: oldJujuHomeEnv,
+		oldJujuHome:    oldJujuHome,
+		files:          []TestFile{}}
 }
 
 func HomePath(names ...string) string {
@@ -113,6 +121,7 @@ func HomePath(names ...string) string {
 
 func (h *FakeHome) Restore() {
 	config.SetJujuHome(h.oldJujuHome)
+	os.Setenv("JUJU_ENV", h.oldJujuEnv)
 	os.Setenv("JUJU_HOME", h.oldJujuHomeEnv)
 	os.Setenv("HOME", h.oldHomeEnv)
 }
