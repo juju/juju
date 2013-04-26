@@ -59,7 +59,7 @@ func (s *GetEnvironmentSuite) TestAllValues(c *C) {
 
 	// Make sure that all the environment keys are there.
 	any := "(.|\n)*" // because . doesn't match new lines.
-	for key, _ := range s.Conn.Environ.Config().AllAttrs() {
+	for key := range s.Conn.Environ.Config().AllAttrs() {
 		c.Assert(output, Matches, fmt.Sprintf("%s%s: %s", any, key, any))
 	}
 }
@@ -78,6 +78,9 @@ var setEnvInitTests = []struct {
 	{
 		args: []string{},
 		err:  "No key, value pairs specified",
+	}, {
+		args: []string{"agent-version=1.2.3"},
+		err:  `agent-version must be set via upgrade-juju`,
 	}, {
 		args: []string{"missing"},
 		err:  `Missing "=" in arg 1: "missing"`,
@@ -144,7 +147,6 @@ func (s *SetEnvironmentSuite) TestChangeAsCommandPair(c *C) {
 var immutableConfigTests = map[string]string{
 	"name":          "foo",
 	"type":          "foo",
-	"agent-version": "1.2.3",
 	"firewall-mode": "global",
 }
 

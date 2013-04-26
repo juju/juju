@@ -27,6 +27,8 @@ func SetJujuHome(newJujuHome string) string {
 
 // JujuHome returns the current juju home.
 func JujuHome() string {
+	jujuHomeMu.Lock()
+	defer jujuHomeMu.Unlock()
 	if jujuHome == "" {
 		panic("juju home hasn't been initialized")
 	}

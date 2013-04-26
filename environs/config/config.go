@@ -134,10 +134,12 @@ func Validate(cfg, old *Config) error {
 		return fmt.Errorf("environment name contains unsafe characters")
 	}
 
-	// The schema always makes sure something is set.
-	v := cfg.asString("agent-version")
-	if _, err := version.Parse(v); err != nil {
-		return fmt.Errorf("invalid agent version in environment configuration: %q", v)
+	// Check that the agent version parses ok if set explicitly; otherwise leave
+	// it alone.
+	if v, ok := cfg.m["agent-version"].(string); ok {
+		if _, err := version.Parse(v); err != nil {
+			return fmt.Errorf("invalid agent version in environment configuration: %q", v)
+		}
 	}
 
 	// Check firewall mode.
@@ -151,11 +153,16 @@ func Validate(cfg, old *Config) error {
 
 	// Check the immutable config values.  These can't change
 	if old != nil {
-		for _, attr := range []string{"type", "name", "agent-version", "firewall-mode"} {
+		for _, attr := range []string{"type", "name", "firewall-mode"} {
 			oldValue := old.asString(attr)
 			newValue := cfg.asString(attr)
 			if oldValue != newValue {
 				return fmt.Errorf("cannot change %s from %q to %q", attr, oldValue, newValue)
+			}
+		}
+		if _, oldFound := old.AgentVersion(); oldFound {
+			if _, newFound := cfg.AgentVersion(); !newFound {
+				return fmt.Errorf("cannot clear agent-version")
 			}
 		}
 	}
@@ -260,14 +267,18 @@ func (c *Config) FirewallMode() FirewallMode {
 	return FirewallMode(c.asString("firewall-mode"))
 }
 
-// AgentVersion returns the proposed version number for the agent tools.
-func (c *Config) AgentVersion() version.Number {
-	v := c.asString("agent-version")
-	n, err := version.Parse(v)
-	if err != nil {
-		panic(err) // We should have checked it earlier.
+// AgentVersion returns the proposed version number for the agent tools,
+// and whether it has been set. Once an environment is bootstrapped, this
+// must always be valid.
+func (c *Config) AgentVersion() (version.Number, bool) {
+	if v, ok := c.m["agent-version"].(string); ok {
+		n, err := version.Parse(v)
+		if err != nil {
+			panic(err) // We should have checked it earlier.
+		}
+		return n, true
 	}
-	return n
+	return version.Zero, false
 }
 
 // Development returns whether the environment is in development mode.
@@ -333,7 +344,7 @@ var defaults = schema.Defaults{
 	"authorized-keys":           "",
 	"authorized-keys-path":      "",
 	"firewall-mode":             FwDefault,
-	"agent-version":             version.CurrentNumber().String(),
+	"agent-version":             schema.Omit,
 	"development":               false,
 	"admin-secret":              "",
 	"ca-cert":                   schema.Omit,

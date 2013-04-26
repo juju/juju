@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/tomb"
@@ -53,7 +52,6 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 	if err := a.Conf.read(state.UnitTag(a.UnitName)); err != nil {
 		return err
 	}
-	defer log.Noticef("unit agent exiting")
 	defer a.tomb.Done()
 	err := RunAgentLoop(a.Conf.Conf, a)
 	if ug, ok := err.(*UpgradeReadyError); ok {

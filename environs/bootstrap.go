@@ -2,9 +2,7 @@ package environs
 
 import (
 	"fmt"
-	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/constraints"
-	"time"
 )
 
 // Bootstrap bootstraps the given environment. The supplied constraints are
@@ -12,19 +10,22 @@ import (
 // environment.
 func Bootstrap(environ Environ, cons constraints.Value) error {
 	cfg := environ.Config()
-	caCert, hasCACert := cfg.CACert()
-	caKey, hasCAKey := cfg.CAPrivateKey()
-	if !hasCACert {
-		return fmt.Errorf("environment configuration missing CA certificate")
+	if secret := cfg.AdminSecret(); secret == "" {
+		return fmt.Errorf("environment configuration has no admin-secret")
 	}
-	if !hasCAKey {
-		return fmt.Errorf("environment configuration missing CA private key")
+	if authKeys := cfg.AuthorizedKeys(); authKeys == "" {
+		// Apparently this can never happen, so it's not tested. But, one day,
+		// Config will act differently (it's pretty crazy that, AFAICT, the
+		// authorized-keys are optional config settings... but it's impossible
+		// to actually *create* a config without them)... and when it does,
+		// we'll be here to catch this problem early.
+		return fmt.Errorf("environment configuration has no authorized-keys")
 	}
-	// Generate a new key pair and certificate for
-	// the newly bootstrapped instance.
-	cert, key, err := cert.NewServer(environ.Name(), caCert, caKey, time.Now().UTC().AddDate(10, 0, 0))
-	if err != nil {
-		return fmt.Errorf("cannot generate bootstrap certificate: %v", err)
+	if _, hasCACert := cfg.CACert(); !hasCACert {
+		return fmt.Errorf("environment configuration has no ca-cert")
 	}
-	return environ.Bootstrap(cons, cert, key)
+	if _, hasCAKey := cfg.CAPrivateKey(); !hasCAKey {
+		return fmt.Errorf("environment configuration has no ca-private-key")
+	}
+	return environ.Bootstrap(cons)
 }

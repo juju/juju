@@ -55,6 +55,12 @@ func (s *StorageSuite) TestStorageName(c *C) {
 	c.Assert(path, Equals, "tools/juju-1.2.3-precise-amd64.tgz")
 }
 
+func (s *StorageSuite) TestReadListEmpty(c *C) {
+	store := s.env.Storage()
+	_, err := tools.ReadList(store, 2)
+	c.Assert(err, Equals, tools.ErrNoTools)
+}
+
 func (s *StorageSuite) TestReadList(c *C) {
 	store := s.env.Storage()
 	v001 := version.MustParseBinary("0.0.1-precise-amd64")

@@ -5,6 +5,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"testing"
 )
@@ -42,10 +43,15 @@ var marshalTestCases = []struct {
 			Name:        "Benji",
 			Exposed:     true,
 			CharmURL:    "cs:series/name",
+			Life:        state.Dying.String(),
 			Constraints: constraints.MustParse("arch=arm mem=1024M"),
+			Config: map[string]interface{}{
+				"hello": "goodbye",
+				"foo":   false,
+			},
 		},
 	},
-	json: `["service","change",{"CharmURL": "cs:series/name","Name":"Benji","Exposed":true,"Constraints":{"arch":"arm", "mem": 1024}}]`,
+	json: `["service","change",{"CharmURL": "cs:series/name","Name":"Benji","Exposed":true,"Life":"dying","Constraints":{"arch":"arm", "mem": 1024},"Config": {"hello":"goodbye","foo":false}}]`,
 }, {
 	about: "UnitInfo Delta",
 	value: params.Delta{
@@ -55,7 +61,7 @@ var marshalTestCases = []struct {
 			Series:   "precise",
 			CharmURL: "cs:~user/precise/wordpress-42",
 			Ports: []params.Port{
-				params.Port{
+				{
 					Protocol: "http",
 					Number:   80},
 			},
@@ -73,8 +79,8 @@ var marshalTestCases = []struct {
 		Entity: &params.RelationInfo{
 			Key: "Benji",
 			Endpoints: []params.Endpoint{
-				params.Endpoint{ServiceName: "logging", Relation: charm.Relation{Name: "logging-directory", Role: "requirer", Interface: "logging", Optional: false, Limit: 1, Scope: "container"}},
-				params.Endpoint{ServiceName: "wordpress", Relation: charm.Relation{Name: "logging-dir", Role: "provider", Interface: "logging", Optional: false, Limit: 0, Scope: "container"}}},
+				{ServiceName: "logging", Relation: charm.Relation{Name: "logging-directory", Role: "requirer", Interface: "logging", Optional: false, Limit: 1, Scope: "container"}},
+				{ServiceName: "wordpress", Relation: charm.Relation{Name: "logging-dir", Role: "provider", Interface: "logging", Optional: false, Limit: 0, Scope: "container"}}},
 		},
 	},
 	json: `["relation","change",{"Key":"Benji", "Endpoints": [{"ServiceName":"logging", "Relation":{"Name":"logging-directory", "Role":"requirer", "Interface":"logging", "Optional":false, "Limit":1, "Scope":"container"}}, {"ServiceName":"wordpress", "Relation":{"Name":"logging-dir", "Role":"provider", "Interface":"logging", "Optional":false, "Limit":0, "Scope":"container"}}]}]`,

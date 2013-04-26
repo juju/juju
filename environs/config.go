@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/state"
 	"os"
 	"path/filepath"
 )
@@ -151,23 +150,31 @@ func WriteEnvirons(path string, fileContents string) (string, error) {
 	return environsFilepath, nil
 }
 
-// BootstrapConfig returns an environment configuration suitable for
-// priming the juju state using the given provider, configuration and
-// tools.
-//
-// The returned configuration contains no secret attributes.
-func BootstrapConfig(p EnvironProvider, cfg *config.Config, tools *state.Tools) (*config.Config, error) {
+// BootstrapConfig returns a copy of the supplied configuration with
+// secret attributes removed. If the resulting config is not suitable
+// for bootstrapping an environment, an error is returned.
+func BootstrapConfig(cfg *config.Config) (*config.Config, error) {
+	p, err := Provider(cfg.Type())
+	if err != nil {
+		return nil, err
+	}
 	secrets, err := p.SecretAttrs(cfg)
 	if err != nil {
 		return nil, err
 	}
 	m := cfg.AllAttrs()
-	for k, _ := range secrets {
+	for k := range secrets {
 		delete(m, k)
 	}
+
 	// We never want to push admin-secret or the root CA private key to the cloud.
 	delete(m, "admin-secret")
 	m["ca-private-key"] = ""
-	m["agent-version"] = tools.Number.String()
-	return config.New(m)
+	if cfg, err = config.New(m); err != nil {
+		return nil, err
+	}
+	if _, ok := cfg.AgentVersion(); !ok {
+		return nil, fmt.Errorf("environment configuration has no agent-version")
+	}
+	return cfg, nil
 }

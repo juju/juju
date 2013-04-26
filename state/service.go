@@ -263,6 +263,12 @@ func (s *Service) Charm() (ch *Charm, force bool, err error) {
 	return ch, s.doc.ForceCharm, nil
 }
 
+// IsPrincipal returns whether units of the service can
+// have subordinate units.
+func (s *Service) IsPrincipal() bool {
+	return !s.doc.Subordinate
+}
+
 // CharmURL returns the service's charm URL, and whether units should upgrade
 // to the charm with that URL even if they are in an error state.
 func (s *Service) CharmURL() (curl *charm.URL, force bool) {
@@ -643,7 +649,13 @@ func (s *Service) removeUnitOps(u *Unit, asserts D) ([]txn.Op, error) {
 	if s.doc.Life == Alive {
 		svcOp.Assert = D{{"life", Alive}, {"unitcount", D{{"$gt", 0}}}}
 	} else {
-		svcOp.Assert = D{{"life", Dying}, {"unitcount", D{{"$gt", 1}}}}
+		svcOp.Assert = D{
+			{"life", Dying},
+			{"$or", []D{
+				{{"unitcount", D{{"$gt", 1}}}},
+				{{"relationcount", D{{"$gt", 0}}}},
+			}},
+		}
 	}
 	return append(ops, svcOp), nil
 }

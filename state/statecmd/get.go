@@ -7,9 +7,8 @@
 package statecmd
 
 import (
-	"reflect"
-
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 )
@@ -30,9 +29,12 @@ func ServiceGet(st *state.State, p params.ServiceGet) (params.ServiceGetResults,
 	}
 	charmCfg := charm.Config().Options
 
-	constraints, err := svc.Constraints()
-	if err != nil {
-		return params.ServiceGetResults{}, err
+	var constraints constraints.Value
+	if svc.IsPrincipal() {
+		constraints, err = svc.Constraints()
+		if err != nil {
+			return params.ServiceGetResults{}, err
+		}
 	}
 
 	return params.ServiceGetResults{
@@ -43,7 +45,9 @@ func ServiceGet(st *state.State, p params.ServiceGet) (params.ServiceGetResults,
 	}, nil
 }
 
-// Merge service settings and charm schema.
+// merge returns the service settings merged with the charm
+// schema, taking default values from the configuration
+// in the charm metadata.
 func merge(serviceCfg map[string]interface{}, charmCfg map[string]charm.Option) map[string]interface{} {
 	results := make(map[string]interface{})
 	for k, v := range charmCfg {
@@ -51,17 +55,11 @@ func merge(serviceCfg map[string]interface{}, charmCfg map[string]charm.Option) 
 			"description": v.Description,
 			"type":        v.Type,
 		}
-		s, ok := serviceCfg[k]
-		if ok {
+		if s, ok := serviceCfg[k]; ok {
 			m["value"] = s
 		} else {
-			// Breaks compatibility with py/juju.
-			m["value"] = nil
-		}
-		if v.Default != nil {
-			if reflect.DeepEqual(v.Default, s) {
-				m["default"] = true
-			}
+			m["value"] = v.Default
+			m["default"] = true
 		}
 		results[k] = m
 	}

@@ -668,7 +668,7 @@ func (u *Unit) AssignedMachineId() (id string, err error) {
 	pudoc := unitDoc{}
 	err = u.st.units.Find(D{{"_id", u.doc.Principal}}).One(&pudoc)
 	if err == mgo.ErrNotFound {
-		return "", NotFoundf("principal unit %q", u, u.doc.Principal)
+		return "", NotFoundf("principal unit %q of %q", u.doc.Principal, u)
 	} else if err != nil {
 		return "", err
 	}

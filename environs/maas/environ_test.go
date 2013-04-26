@@ -9,10 +9,12 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
+	"net/url"
 )
 
 type EnvironSuite struct {
@@ -223,11 +225,11 @@ func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 	err := environs.Bootstrap(env, constraints.Value{})
 	c.Assert(err, IsNil)
-	// The bootstrap node has been started.
+	// The bootstrap node has been acquired and started.
 	operations := suite.testMAASObject.TestServer.NodeOperations()
 	actions, found := operations["node0"]
 	c.Check(found, Equals, true)
-	c.Check(actions, DeepEquals, []string{"start"})
+	c.Check(actions, DeepEquals, []string{"acquire", "start"})
 
 	// Create node 1: it will be used as instance number 1.
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node1", "hostname": "host1"}`)
@@ -241,10 +243,10 @@ func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
 	c.Assert(err, IsNil)
 	c.Check(instance, NotNil)
 
-	// The instance number 1 has been started.
+	// The instance number 1 has been acquired and started.
 	actions, found = operations["node1"]
 	c.Assert(found, Equals, true)
-	c.Check(actions, DeepEquals, []string{"start"})
+	c.Check(actions, DeepEquals, []string{"acquire", "start"})
 
 	// The value of the "user data" parameter used when starting the node
 	// contains the run cmd used to write the machine information onto
@@ -252,7 +254,8 @@ func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
 	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
 	nodeRequestValues, found := requestValues["node1"]
 	c.Assert(found, Equals, true)
-	userData := nodeRequestValues[0].Get("user_data")
+	c.Assert(len(nodeRequestValues), Equals, 2)
+	userData := nodeRequestValues[1].Get("user_data")
 	decodedUserData, err := decodeUserData(userData)
 	c.Assert(err, IsNil)
 	info := machineInfo{string(instance.Id()), "host1"}
@@ -261,6 +264,70 @@ func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
 	data, err := goyaml.Marshal(cloudinitRunCmd)
 	c.Assert(err, IsNil)
 	c.Check(string(decodedUserData), Matches, "(.|\n)*"+string(data)+"(\n|.)*")
+
+	// Trash the tools and try to start another instance.
+	envtesting.RemoveTools(c, env.Storage())
+	instance, err = env.StartInstance("2", "fake-nonce", series, constraints.Value{}, stateInfo, apiInfo)
+	c.Check(instance, IsNil)
+	c.Check(err, ErrorMatches, "no tools available")
+	c.Check(err, FitsTypeOf, (*environs.NotFoundError)(nil))
+}
+
+func uint64p(val uint64) *uint64 {
+	return &val
+}
+
+func stringp(val string) *string {
+	return &val
+}
+
+func (suite *EnvironSuite) TestAcquireNode(c *C) {
+	storage := NewStorage(suite.environ)
+	fakeTools := envtesting.MustUploadFakeToolsVersion(storage, version.Current)
+	env := suite.makeEnviron()
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
+
+	_, _, err := env.acquireNode(constraints.Value{}, tools.List{fakeTools})
+
+	c.Check(err, IsNil)
+	operations := suite.testMAASObject.TestServer.NodeOperations()
+	actions, found := operations["node0"]
+	c.Assert(found, Equals, true)
+	c.Check(actions, DeepEquals, []string{"acquire"})
+}
+
+func (suite *EnvironSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *C) {
+	storage := NewStorage(suite.environ)
+	fakeTools := envtesting.MustUploadFakeToolsVersion(storage, version.Current)
+	env := suite.makeEnviron()
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
+	constraints := constraints.Value{Arch: stringp("arm"), Mem: uint64p(1024)}
+
+	_, _, err := env.acquireNode(constraints, tools.List{fakeTools})
+
+	c.Check(err, IsNil)
+	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
+	nodeRequestValues, found := requestValues["node0"]
+	c.Assert(found, Equals, true)
+	c.Assert(nodeRequestValues[0].Get("arch"), Equals, "arm")
+	c.Assert(nodeRequestValues[0].Get("mem"), Equals, "1024")
+}
+
+func (suite *EnvironSuite) TestConvertConstraints(c *C) {
+	var testValues = []struct {
+		constraints    constraints.Value
+		expectedResult url.Values
+	}{
+		{constraints.Value{Arch: stringp("arm")}, url.Values{"arch": {"arm"}}},
+		{constraints.Value{CpuCores: uint64p(4)}, url.Values{"cpu_count": {"4"}}},
+		{constraints.Value{Mem: uint64p(1024)}, url.Values{"mem": {"1024"}}},
+		// CpuPower is ignored.
+		{constraints.Value{CpuPower: uint64p(1024)}, url.Values{}},
+		{constraints.Value{Arch: stringp("arm"), CpuCores: uint64p(4), Mem: uint64p(1024), CpuPower: uint64p(1024)}, url.Values{"arch": {"arm"}, "cpu_count": {"4"}, "mem": {"1024"}}},
+	}
+	for _, test := range testValues {
+		c.Check(convertConstraints(test.constraints), DeepEquals, test.expectedResult)
+	}
 }
 
 func (suite *EnvironSuite) getInstance(systemId string) *maasInstance {
@@ -344,19 +411,24 @@ func (suite *EnvironSuite) TestBootstrapSucceeds(c *C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "thenode", "hostname": "host"}`)
-	cert := []byte{1, 2, 3}
-	key := []byte{4, 5, 6}
-
-	err := env.Bootstrap(constraints.Value{}, cert, key)
+	err := env.Bootstrap(constraints.Value{})
 	c.Assert(err, IsNil)
+}
+
+func (suite *EnvironSuite) TestBootstrapFailsIfNoTools(c *C) {
+	suite.setupFakeTools(c)
+	env := suite.makeEnviron()
+	// Can't RemoveAllTools, no public storage.
+	envtesting.RemoveTools(c, env.Storage())
+	err := env.Bootstrap(constraints.Value{})
+	c.Check(err, ErrorMatches, "no tools available")
+	c.Check(err, FitsTypeOf, (*environs.NotFoundError)(nil))
 }
 
 func (suite *EnvironSuite) TestBootstrapFailsIfNoNodes(c *C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
-	cert := []byte{1, 2, 3}
-	key := []byte{4, 5, 6}
-	err := env.Bootstrap(constraints.Value{}, cert, key)
+	err := env.Bootstrap(constraints.Value{})
 	// Since there are no nodes, the attempt to allocate one returns a
 	// 409: Conflict.
 	c.Check(err, ErrorMatches, ".*409.*")

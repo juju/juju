@@ -87,7 +87,7 @@ mkdir -p /var/lib/juju/db/journal
 dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.0
 dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.1
 dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.2
-cat >> /etc/init/juju-db\.conf << 'EOF'\\ndescription "juju state database"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nexec /usr/bin/mongod --auth --dbpath=/var/lib/juju/db --sslOnNormalPorts --sslPEMKeyFile '/var/lib/juju/server\.pem' --sslPEMKeyPassword ignored --bind_ip 0\.0\.0\.0 --port 37017 --noprealloc --smallfiles\\nEOF\\n
+cat >> /etc/init/juju-db\.conf << 'EOF'\\ndescription "juju state database"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nexec /usr/bin/mongod --auth --dbpath=/var/lib/juju/db --sslOnNormalPorts --sslPEMKeyFile '/var/lib/juju/server\.pem' --sslPEMKeyPassword ignored --bind_ip 0\.0\.0\.0 --port 37017 --noprealloc --syslog --smallfiles\\nEOF\\n
 start juju-db
 mkdir -p '/var/lib/juju/agents/bootstrap'
 echo 'datadir: /var/lib/juju\\nstateservercert:\\n[^']+stateserverkey:\\n[^']+mongoport: 37017\\napiport: 17070\\noldpassword: arble\\nmachinenonce: FAKE_NONCE\\nstateinfo:\\n  addrs:\\n  - localhost:37017\\n  cacert:\\n[^']+  tag: bootstrap\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - localhost:17070\\n  cacert:\\n[^']+  tag: bootstrap\\n  password: ""\\n' > '/var/lib/juju/agents/bootstrap/agent\.conf'
@@ -129,6 +129,7 @@ start jujud-machine-0
 		},
 		setEnvConfig: true,
 		expectScripts: `
+apt-get upgrade -y
 set -xe
 mkdir -p /var/lib/juju
 mkdir -p /var/log/juju
@@ -142,7 +143,7 @@ mkdir -p /var/lib/juju/db/journal
 dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.0
 dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.1
 dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.2
-cat >> /etc/init/juju-db\.conf << 'EOF'\\ndescription "juju state database"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nexec /usr/bin/mongod --auth --dbpath=/var/lib/juju/db --sslOnNormalPorts --sslPEMKeyFile '/var/lib/juju/server\.pem' --sslPEMKeyPassword ignored --bind_ip 0\.0\.0\.0 --port 37017 --noprealloc --smallfiles\\nEOF\\n
+cat >> /etc/init/juju-db\.conf << 'EOF'\\ndescription "juju state database"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nexec /usr/bin/mongod --auth --dbpath=/var/lib/juju/db --sslOnNormalPorts --sslPEMKeyFile '/var/lib/juju/server\.pem' --sslPEMKeyPassword ignored --bind_ip 0\.0\.0\.0 --port 37017 --noprealloc --syslog --smallfiles\\nEOF\\n
 start juju-db
 mkdir -p '/var/lib/juju/agents/bootstrap'
 echo 'datadir: /var/lib/juju\\nstateservercert:\\n[^']+stateserverkey:\\n[^']+mongoport: 37017\\napiport: 17070\\noldpassword: arble\\nmachinenonce: FAKE_NONCE\\nstateinfo:\\n  addrs:\\n  - localhost:37017\\n  cacert:\\n[^']+  tag: bootstrap\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - localhost:17070\\n  cacert:\\n[^']+  tag: bootstrap\\n  password: ""\\n' > '/var/lib/juju/agents/bootstrap/agent\.conf'
@@ -248,7 +249,10 @@ func (*cloudinitSuite) TestCloudInit(c *C) {
 		err = goyaml.Unmarshal(data, &x)
 		c.Assert(err, IsNil)
 
-		c.Check(x["apt_upgrade"], Equals, true)
+		// TODO(dimitern) raring does apt-get upgrade differently, due to LP bug #1103881
+		if test.cfg.Tools.Series != "raring" {
+			c.Check(x["apt_upgrade"], Equals, true)
+		}
 		c.Check(x["apt_update"], Equals, true)
 
 		scripts := getScripts(x)

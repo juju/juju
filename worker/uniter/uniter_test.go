@@ -1009,6 +1009,7 @@ func (createServiceAndUnit) step(c *C, ctx *context) {
 		"name":            "testenv",
 		"type":            "dummy",
 		"default-series":  "abominable",
+		"agent-version":   "1.2.3",
 		"authorized-keys": "we-are-the-keys",
 		"ca-cert":         coretesting.CACert,
 		"ca-private-key":  "",

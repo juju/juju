@@ -5,6 +5,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
 	"strings"
@@ -13,6 +14,7 @@ import (
 func uploadFakeToolsVersion(storage environs.Storage, vers version.Binary) (*state.Tools, error) {
 	data := vers.String()
 	name := tools.StorageName(vers)
+	log.Noticef("environs/testing: uploading FAKE tools %s", vers)
 	if err := storage.Put(name, strings.NewReader(data), int64(len(data))); err != nil {
 		return nil, err
 	}
@@ -73,8 +75,17 @@ func MustUploadFakeTools(storage environs.Storage) {
 func RemoveTools(c *C, storage environs.Storage) {
 	names, err := storage.List("tools/juju-")
 	c.Assert(err, IsNil)
+	c.Logf("removing files: %v", names)
 	for _, name := range names {
 		err = storage.Remove(name)
 		c.Assert(err, IsNil)
 	}
+}
+
+// RemoveAllTools deletes all tools from the supplied environment.
+func RemoveAllTools(c *C, env environs.Environ) {
+	c.Logf("clearing private storage")
+	RemoveTools(c, env.Storage())
+	c.Logf("clearing public storage")
+	RemoveTools(c, env.PublicStorage().(environs.Storage))
 }

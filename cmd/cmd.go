@@ -7,7 +7,6 @@ import (
 	"io"
 	"io/ioutil"
 	"launchpad.net/gnuflag"
-	"launchpad.net/juju-core/log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -158,7 +157,6 @@ func Main(c Command, ctx *Context, args []string) int {
 	}
 	if err := c.Run(ctx); err != nil {
 		if err != ErrSilent {
-			log.Errorf("command failed: %s\n", err)
 			fmt.Fprintf(ctx.Stderr, "error: %v\n", err)
 		}
 		return 1

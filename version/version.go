@@ -17,7 +17,7 @@ import (
 // The presence and format of this constant is very important.
 // The debian/rules build recipe uses this value for the version
 // number of the release package.
-const version = "1.9.14"
+const version = "1.11.0"
 
 // CurrentNumber returns the version number.
 func CurrentNumber() Number {
@@ -60,8 +60,8 @@ func init() {
 // is incremented and patch is reset; and when compatibility is broken
 // the major version is incremented and minor and patch are reset.  The
 // build number is automatically assigned and has no well defined
-// sequence.  If the build number is greater than zero or any of the
-// other numbers are odd, it indicates that the release is still in
+// sequence.  If the build number is greater than zero or the minor
+// version is odd, it indicates that the release is still in
 // development.
 type Number struct {
 	Major int
@@ -69,6 +69,10 @@ type Number struct {
 	Patch int
 	Build int
 }
+
+// Zero is occasionally convenient and readable.
+// Please don't change its value.
+var Zero = Number{}
 
 // Binary specifies a binary version of juju.
 type Binary struct {
@@ -225,10 +229,11 @@ func isOdd(x int) bool {
 }
 
 // IsDev returns whether the version represents a development
-// version. A version with an odd-numbered major, minor
-// or patch version is considered to be a development version.
+// version. A version with an odd-numbered minor component or
+// a nonzero build component is considered to be a development
+// version.
 func (v Number) IsDev() bool {
-	return isOdd(v.Major) || isOdd(v.Minor) || isOdd(v.Patch) || v.Build > 0
+	return isOdd(v.Minor) || v.Build > 0
 }
 
 func readSeries(releaseFile string) string {

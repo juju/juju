@@ -17,13 +17,15 @@ const (
 	CertExists  CreatedCert = false
 )
 
-func WriteCertAndKeyToHome(name string, cert, key []byte) error {
-	// If the $HOME/.juju directory doesn't exist, create it.
-	jujuDir := filepath.Join(os.Getenv("HOME"), ".juju")
-	if err := os.MkdirAll(jujuDir, 0775); err != nil {
+// WriteCertAndKey writes the provided certificate and key
+// to the juju home directory, creating it if necessary,
+func WriteCertAndKey(name string, cert, key []byte) error {
+	// If the juju home directory doesn't exist, create it.
+	jujuHome := config.JujuHome()
+	if err := os.MkdirAll(jujuHome, 0775); err != nil {
 		return err
 	}
-	path := filepath.Join(jujuDir, name)
+	path := filepath.Join(jujuHome, name)
 	if err := ioutil.WriteFile(path+"-cert.pem", cert, 0644); err != nil {
 		return err
 	}

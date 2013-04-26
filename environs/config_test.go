@@ -5,9 +5,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	_ "launchpad.net/juju-core/environs/dummy"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/version"
 	"path/filepath"
 )
 
@@ -213,22 +211,15 @@ func (suite) TestBootstrapConfig(c *C) {
 		"authorized-keys": "i-am-a-key",
 		"ca-cert":         testing.CACert,
 		"ca-private-key":  testing.CAKey,
+		"agent-version":   "1.2.3",
 	})
 	c.Assert(err, IsNil)
-	provider, err := environs.Provider(cfg.Type())
-	c.Assert(err, IsNil)
-
-	tools := &state.Tools{
-		URL:    "http://x",
-		Binary: version.MustParseBinary("1.2.3-foo-bar"),
-	}
-	cfg1, err := environs.BootstrapConfig(provider, cfg, tools)
+	cfg1, err := environs.BootstrapConfig(cfg)
 	c.Assert(err, IsNil)
 
 	expect := cfg.AllAttrs()
 	delete(expect, "secret")
 	expect["admin-secret"] = ""
 	expect["ca-private-key"] = ""
-	expect["agent-version"] = "1.2.3"
 	c.Assert(cfg1.AllAttrs(), DeepEquals, expect)
 }
