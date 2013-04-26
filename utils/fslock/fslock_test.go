@@ -13,6 +13,7 @@ import (
 	. "launchpad.net/gocheck"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/fslock"
+	"launchpad.net/tomb"
 )
 
 func Test(t *testing.T) {
@@ -313,4 +314,36 @@ func (s *fslockSuite) TestStress(c *C) {
 		<-done
 	}
 	c.Assert(*counter, Equals, int64(lockAttempts*concurrentLocks))
+}
+
+func (s *fslockSuite) TestTomb(c *C) {
+	const timeToDie = 200 * time.Millisecond
+	die := tomb.Tomb{}
+
+	dir := c.MkDir()
+	lock, err := fslock.NewLock(dir, "testing")
+	c.Assert(err, IsNil)
+	// Just use one lock, and try to lock it twice.
+	err = lock.Lock("very busy")
+	c.Assert(err, IsNil)
+
+	checkTomb := func() error {
+		select {
+		case <-die.Dying():
+			return tomb.ErrDying
+		default:
+			// no-op to fall through to return.
+		}
+		return nil
+	}
+
+	go func() {
+		time.Sleep(timeToDie)
+		die.Killf("time to die")
+	}()
+
+	err = lock.LockWithFunc("won't happen", checkTomb)
+	c.Assert(err, Equals, tomb.ErrDying)
+	c.Assert(lock.Message(), Equals, "very busy")
+
 }

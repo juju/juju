@@ -129,10 +129,9 @@ func (lock *Lock) acquire(message string) (bool, error) {
 	return true, nil
 }
 
-// lockWithDeadline tries to acquire the lock. If the deadline is
-// non-zero and it cannot acquire the lock before then,
-// it returns ErrTimeout.
-func (lock *Lock) lockWithDeadline(deadline time.Time, message string) error {
+// lockLoop tries to acquire the lock. If the acquisition fails, the
+// continueFunc is run to see if the function should continue waiting.
+func (lock *Lock) lockLoop(message string, continueFunc func() error) error {
 	var heldMessage = ""
 	for {
 		acquired, err := lock.acquire(message)
@@ -142,8 +141,8 @@ func (lock *Lock) lockWithDeadline(deadline time.Time, message string) error {
 		if acquired {
 			return nil
 		}
-		if !deadline.IsZero() && time.Now().After(deadline) {
-			return ErrTimeout
+		if err = continueFunc(); err != nil {
+			return err
 		}
 		currMessage := lock.Message()
 		if currMessage != heldMessage {
@@ -161,14 +160,31 @@ func (lock *Lock) lockWithDeadline(deadline time.Time, message string) error {
 // information, and can be queried by any other Lock dealing with the same
 // lock name and lock directory.
 func (lock *Lock) Lock(message string) error {
-	return lock.lockWithDeadline(time.Time{}, message)
+	// The continueFunc is effectively a no-op, causing continual looping
+	// until the lock is acquired.
+	continueFunc := func() error { return nil }
+	return lock.lockLoop(message, continueFunc)
 }
 
 // LockWithTimeout tries to acquire the lock. If it cannot acquire the lock
 // within the given duration, it returns ErrTimeout.  See `Lock` for
 // information about the message.
 func (lock *Lock) LockWithTimeout(duration time.Duration, message string) error {
-	return lock.lockWithDeadline(time.Now().Add(duration), message)
+	deadline := time.Now().Add(duration)
+	continueFunc := func() error {
+		if time.Now().After(deadline) {
+			return ErrTimeout
+		}
+		return nil
+	}
+	return lock.lockLoop(message, continueFunc)
+}
+
+// Lock blocks until it is able to acquire the lock.  If the lock is failed to
+// be acquired, the continueFunc is called prior to the sleeping.  If the
+// continueFunc returns an error, that error is returned from LockWithFunc.
+func (lock *Lock) LockWithFunc(message string, continueFunc func() error) error {
+	return lock.lockLoop(message, continueFunc)
 }
 
 // IsHeld returns whether the lock is currently held by the receiver.
