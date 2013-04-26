@@ -22,7 +22,8 @@ import (
 )
 
 const (
-	nameRegexp      = "^[a-z]+[a-z0-9.-]*$"
+	// NameRegexp specifies the regular expression used to itentify valid lock names.
+	NameRegexp      = "^[a-z]+[a-z0-9.-]*$"
 	heldFilename    = "held"
 	messageFilename = "message"
 )
@@ -44,7 +45,7 @@ type Lock struct {
 
 // NewLock returns a new lock with the given name within the given lock
 // directory, without acquiring it. The lock name must match the regular
-// expression `^[a-z]+[a-z0-9.-]*`.
+// expression defined by NameRegexp.
 func NewLock(lockDir, name string) (*Lock, error) {
 	if !validName.MatchString(name) {
 		return nil, fmt.Errorf("Invalid lock name %q.  Names must match %q", name, nameRegexp)
@@ -137,7 +138,7 @@ func (lock *Lock) lockLoop(message string, continueFunc func() error) error {
 		}
 		currMessage := lock.Message()
 		if currMessage != heldMessage {
-			log.Infof("Attempt Lock failed %q, %s, currently held: %s", lock.name, message, currMessage)
+			log.Infof("attempted lock failed %q, %s, currently held: %s", lock.name, message, currMessage)
 			heldMessage = currMessage
 		}
 		time.Sleep(lockWaitDelay)
