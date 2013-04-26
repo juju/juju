@@ -12,17 +12,15 @@ type InstanceType struct {
 	Name     string
 	Arches   []string
 	CpuCores uint64
-	CpuPower uint64
 	Mem      uint64
-	// Clustered instance types must be launched with clustered images.
-	Clustered bool
+	// These attributes are not supported by all clouds.
+	VType    *string // The type of virtualisation used by the hypervisor, must match the image.
+	CpuPower *uint64
 }
 
-// all instance types can run amd64 images, and some can also run i386 ones.
-var (
-	Amd64 = []string{"amd64"}
-	Both  = []string{"amd64", "i386"}
-)
+func CpuPower(power uint64) *uint64 {
+	return &power
+}
 
 type InstanceTypeCost map[string]uint64
 type RegionCosts map[string]InstanceTypeCost
@@ -41,7 +39,7 @@ func (itype InstanceType) match(cons constraints.Value) (InstanceType, bool) {
 	if cons.CpuCores != nil && itype.CpuCores < *cons.CpuCores {
 		return nothing, false
 	}
-	if cons.CpuPower != nil && itype.CpuPower > 0 && itype.CpuPower < *cons.CpuPower {
+	if cons.CpuPower != nil && itype.CpuPower != nil && *itype.CpuPower < *cons.CpuPower {
 		return nothing, false
 	}
 	if cons.Mem != nil && itype.Mem < *cons.Mem {
@@ -63,14 +61,6 @@ func filterArches(src, filter []string) (dst []string) {
 	return dst
 }
 
-// defaultCpuPower is larger the smallest instance's cpuPower, and no larger than
-// any other instance type's cpuPower. It is used when no explicit CpuPower
-// constraint exists, preventing the smallest instance from being chosen unless
-// the user has clearly indicated that they are willing to accept poor performance.
-// This only comes into effect if the cloud instance supports reporting CPU power
-// for it's instance types.
-var defaultCpuPower uint64 = 100
-
 // getMatchingInstanceTypes returns all instance types matching ic.Constraints and available
 // in ic.Region, sorted by increasing region-specific cost (if known).
 // If no costs are specified, then we use the RAM amount as the cost on the
@@ -79,10 +69,6 @@ func getMatchingInstanceTypes(ic *InstanceConstraint, allinstanceTypes []Instanc
 	cons := ic.Constraints
 	region := ic.Region
 	defaultInstanceTypeName := ic.DefaultInstanceType
-	if cons.CpuPower == nil {
-		v := defaultCpuPower
-		cons.CpuPower = &v
-	}
 	regionCosts := allRegionCosts[region]
 	if len(regionCosts) == 0 && len(allRegionCosts) > 0 {
 		return nil, fmt.Errorf("no instance types found in %s", region)

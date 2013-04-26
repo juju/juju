@@ -110,53 +110,53 @@ var findInstanceSpecTests = []struct {
 }{
 	{
 		series: "precise",
-		arches: instances.Both,
+		arches: Both,
 		itype:  "m1.small",
 		image:  "ami-00000033",
 	}, {
 		series: "quantal",
-		arches: instances.Both,
+		arches: Both,
 		itype:  "m1.small",
 		image:  "ami-01000034",
 	}, {
 		series: "precise",
-		arches: instances.Both,
+		arches: Both,
 		cons:   "cpu-cores=4",
 		itype:  "m1.xlarge",
 		image:  "ami-00000033",
 	}, {
 		series: "precise",
-		arches: instances.Both,
+		arches: Both,
 		cons:   "cpu-cores=2 arch=i386",
 		itype:  "c1.medium",
 		image:  "ami-00000034",
 	}, {
 		series: "precise",
-		arches: instances.Both,
+		arches: Both,
 		cons:   "mem=10G",
 		itype:  "m1.xlarge",
 		image:  "ami-00000033",
 	}, {
 		series: "precise",
-		arches: instances.Both,
+		arches: Both,
 		cons:   "mem=",
 		itype:  "m1.small",
 		image:  "ami-00000033",
 	}, {
 		series: "precise",
-		arches: instances.Both,
+		arches: Both,
 		cons:   "cpu-power=",
 		itype:  "t1.micro",
 		image:  "ami-00000033",
 	}, {
 		series: "precise",
-		arches: instances.Both,
+		arches: Both,
 		cons:   "cpu-power=800",
 		itype:  "m1.xlarge",
 		image:  "ami-00000033",
 	}, {
 		series: "precise",
-		arches: instances.Both,
+		arches: Both,
 		cons:   "cpu-power=500 arch=i386",
 		itype:  "c1.medium",
 		image:  "ami-00000034",
@@ -168,7 +168,7 @@ var findInstanceSpecTests = []struct {
 		image:  "ami-00000034",
 	}, {
 		series: "quantal",
-		arches: instances.Both,
+		arches: Both,
 		cons:   "arch=amd64",
 		itype:  "cc1.4xlarge",
 		image:  "ami-01000035",
@@ -183,7 +183,6 @@ func (s *specSuite) TestFindInstanceSpec(c *C) {
 			Series:      t.series,
 			Arches:      t.arches,
 			Constraints: constraints.MustParse(t.cons),
-			Cluster:     &cluster,
 			Storage:     &ebsStorage,
 		})
 		c.Assert(err, IsNil)
@@ -200,7 +199,7 @@ var findInstanceSpecErrorTests = []struct {
 }{
 	{
 		series: "bad",
-		arches: instances.Both,
+		arches: Both,
 		err:    `no "bad" images in test with arches \[amd64 i386\], and no default specified`,
 	}, {
 		series: "precise",
@@ -208,12 +207,12 @@ var findInstanceSpecErrorTests = []struct {
 		err:    `no "precise" images in test with arches \[arm\], and no default specified`,
 	}, {
 		series: "precise",
-		arches: instances.Both,
+		arches: Both,
 		cons:   "cpu-power=9001",
 		err:    `no instance types in test matching constraints "cpu-power=9001", and no default specified`,
 	}, {
 		series: "raring",
-		arches: instances.Both,
+		arches: Both,
 		cons:   "mem=4G",
 		err:    `no "raring" images in test matching instance types \[m1.large m1.xlarge c1.xlarge cc1.4xlarge cc2.8xlarge\]`,
 	},

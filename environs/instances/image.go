@@ -18,9 +18,10 @@ type InstanceConstraint struct {
 	Constraints         constraints.Value
 	DefaultInstanceType string // the default instance type to use if none matches the constraints
 	DefaultImageId      string // the default image to use if none matches the constraints
-	// Optional constraints not supported by all providers.
+	// Optional filtering criteria not supported by all providers. These attributes are not specified
+	// by the user as a constraint but rather passed in by the provider implementation to restrict the
+	// choice of available images.
 	Storage *string
-	Cluster *string
 }
 
 // InstanceSpec holds an instance type name and the chosen image info.
@@ -53,9 +54,9 @@ func FindInstanceSpec(r *bufio.Reader, ic *InstanceConstraint, allInstanceTypes 
 			return nil, err
 		}
 		// No matching instance types were found, so the fallback is to:
-		// 1. Sort by memory and find the cheapest matching both the required architecture
+		// 1. Sort by memory and find the smallest matching both the required architecture
 		//    and our own heuristic: minimum amount of memory required to run a realistic server, or
-		// 2. Sort by cost in reverse order and return the most expensive one, which will hopefully work,
+		// 2. Sort by memory in reverse order and return the largest one, which will hopefully work,
 		//    albeit not the best match
 
 		archCons := &InstanceConstraint{Arches: ic.Arches}
@@ -64,10 +65,9 @@ func FindInstanceSpec(r *bufio.Reader, ic *InstanceConstraint, allInstanceTypes 
 		if fberr != nil {
 			return nil, err
 		}
-		typeByMemory := byMemory(fallbackTypes)
-		sort.Sort(typeByMemory)
+		sort.Sort(byMemory(fallbackTypes))
 		// 1. check for smallest instance type that can realistically run a server
-		for _, itype := range typeByMemory {
+		for _, itype := range fallbackTypes {
 			if itype.Mem >= minMemoryHeuristic {
 				matchingTypes = []InstanceType{itype}
 				break
@@ -75,7 +75,7 @@ func FindInstanceSpec(r *bufio.Reader, ic *InstanceConstraint, allInstanceTypes 
 		}
 		if len(matchingTypes) == 0 {
 			// 2. just get the one with the largest memory
-			matchingTypes = []InstanceType{typeByMemory[len(typeByMemory)-1]}
+			matchingTypes = []InstanceType{fallbackTypes[len(fallbackTypes)-1]}
 		}
 	}
 
@@ -95,8 +95,9 @@ func FindInstanceSpec(r *bufio.Reader, ic *InstanceConstraint, allInstanceTypes 
 	// if no matching image is found for whatever reason, use the default if one is specified.
 	if ic.DefaultImageId != "" && len(matchingTypes) > 0 {
 		spec := &InstanceSpec{
-			matchingTypes[0].Id, matchingTypes[0].Name,
-			Image{ic.DefaultImageId, ic.Arches[0], false},
+			InstanceTypeId:   matchingTypes[0].Id,
+			InstanceTypeName: matchingTypes[0].Name,
+			Image:            Image{Id: ic.DefaultImageId, Arch: ic.Arches[0]},
 		}
 		return spec, nil
 	}
@@ -113,18 +114,13 @@ func FindInstanceSpec(r *bufio.Reader, ic *InstanceConstraint, allInstanceTypes 
 	return nil, fmt.Errorf("no %q images in %s matching instance types %v", ic.Series, ic.Region, names)
 }
 
+//byMemory is used to sort a slice of instance types by the amount of RAM they have.
 type byMemory []InstanceType
 
-func (s byMemory) Len() int {
-	return len(s)
-}
-
+func (s byMemory) Len() int      { return len(s) }
+func (s byMemory) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 func (s byMemory) Less(i, j int) bool {
 	return s[i].Mem < s[j].Mem
-}
-
-func (s byMemory) Swap(i, j int) {
-	s[i], s[j] = s[j], s[i]
 }
 
 // Columns in the file returned from the images server.
@@ -149,13 +145,14 @@ const (
 type Image struct {
 	Id   string
 	Arch string
-	// Clustered is true when the image is built for an cluster instance type.
-	Clustered bool
+	// The type of virtualisation supported by this image.
+	VType string
 }
 
 // match returns true if the image can run on the supplied instance type.
 func (image Image) match(itype InstanceType) bool {
-	if image.Clustered != itype.Clustered {
+	// The virtualisation type is optional.
+	if itype.VType != nil && image.VType != *itype.VType {
 		return false
 	}
 	for _, arch := range itype.Arches {
@@ -193,14 +190,10 @@ func getImages(r *bufio.Reader, ic *InstanceConstraint) ([]Image, error) {
 			continue
 		}
 		if len(filterArches([]string{f[colArch]}, ic.Arches)) != 0 {
-			var clustered bool
-			if ic.Cluster != nil {
-				clustered = f[colVtype] == *ic.Cluster
-			}
 			images = append(images, Image{
-				Id:        f[colImageId],
-				Arch:      f[colArch],
-				Clustered: clustered,
+				Id:    f[colImageId],
+				Arch:  f[colArch],
+				VType: f[colVtype],
 			})
 		}
 	}

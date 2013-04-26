@@ -448,7 +448,7 @@ func (s *localServerSuite) TestFindImageSpecDefaultFlavor(c *C) {
 func (s *localServerSuite) TestFindImageBadDefaultFlavor(c *C) {
 	openstack.SetDefaultInstanceType(s.Env, "bad.flavor")
 	_, err := openstack.FindInstanceSpec(s.Env, "precise", "amd64", "mem=8G")
-	c.Assert(err, ErrorMatches, `no instance types in some-region matching constraints "cpu-power=100 mem=8192M", and default bad.flavor is invalid`)
+	c.Assert(err, ErrorMatches, `no instance types in some-region matching constraints "mem=8192M", and default bad.flavor is invalid`)
 }
 
 // An error occurs if no suitable image is found and the default not specified.

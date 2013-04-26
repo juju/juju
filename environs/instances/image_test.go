@@ -32,13 +32,13 @@ func (s *imageSuite) TearDownSuite(c *C) {
 var imagesData = imagesFields(
 	"instance-store amd64 us-east-1 ami-00000011 paravirtual",
 	"ebs amd64 eu-west-1 ami-00000016 paravirtual",
-	"ebs i386 ap-northeast-1 ami-00000023 paravirtual",
+	"ebs arm ap-northeast-1 ami-00000023 paravirtual",
 	"ebs amd64 ap-northeast-1 ami-00000026 paravirtual",
 	"ebs amd64 ap-northeast-1 ami-00000087 hvm",
 	"ebs amd64 test ami-00000033 paravirtual",
-	"ebs i386 test ami-00000034 paravirtual",
+	"ebs arm test ami-00000034 paravirtual",
 	"ebs amd64 test ami-00000035 hvm",
-	"ebs i386 i386-only ami-00000036 paravirtual",
+	"ebs arm arm-only ami-00000036 paravirtual",
 )
 
 // Generate an line for inclusion in an images metadata file.
@@ -77,10 +77,10 @@ type instanceSpecTestParams struct {
 
 func (p *instanceSpecTestParams) init() {
 	if p.arches == nil {
-		p.arches = Both
+		p.arches = []string{"amd64", "arm"}
 	}
 	if p.instanceTypes == nil {
-		p.instanceTypes = []InstanceType{{Id: "1", Name: "it-1", Arches: Both}}
+		p.instanceTypes = []InstanceType{{Id: "1", Name: "it-1", Arches: []string{"amd64", "arm"}}}
 		p.instanceTypeId = "1"
 		p.instanceTypeName = "it-1"
 	}
@@ -103,28 +103,28 @@ var findInstanceSpecTests = []instanceSpecTestParams{
 		desc:    "no image exists in metadata, no default supplied",
 		region:  "invalid-region",
 		imageId: "1234",
-		err:     `no "raring" images in invalid-region with arches \[amd64 i386\], and no default specified`,
+		err:     `no "raring" images in invalid-region with arches \[amd64 arm\], and no default specified`,
 	},
 	{
 		desc:          "no valid instance types",
 		region:        "test",
 		instanceTypes: []InstanceType{},
-		err:           `no instance types in test matching constraints "cpu-power=100", and no default specified`,
+		err:           `no instance types in test matching constraints "", and no default specified`,
 	},
 	{
 		desc:          "no compatible instance types",
-		region:        "i386-only",
-		instanceTypes: []InstanceType{{Id: "1", Name: "it-1", Arches: Amd64, Mem: 2048}},
-		err:           `no "raring" images in i386-only matching instance types \[it-1\]`,
+		region:        "arm-only",
+		instanceTypes: []InstanceType{{Id: "1", Name: "it-1", Arches: []string{"amd64"}, Mem: 2048}},
+		err:           `no "raring" images in arm-only matching instance types \[it-1\]`,
 	},
 	{
 		desc:        "fallback instance type, enough memory for mongodb",
 		region:      "test",
 		constraints: "mem=8G",
 		instanceTypes: []InstanceType{
-			{Id: "3", Name: "it-3", Arches: Amd64, Mem: 4096},
-			{Id: "2", Name: "it-2", Arches: Amd64, Mem: 2048},
-			{Id: "1", Name: "it-1", Arches: Amd64, Mem: 512},
+			{Id: "3", Name: "it-3", Arches: []string{"amd64"}, Mem: 4096},
+			{Id: "2", Name: "it-2", Arches: []string{"amd64"}, Mem: 2048},
+			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, Mem: 512},
 		},
 		imageId:          "ami-00000033",
 		instanceTypeId:   "2",
@@ -135,8 +135,8 @@ var findInstanceSpecTests = []instanceSpecTestParams{
 		region:      "test",
 		constraints: "mem=4G",
 		instanceTypes: []InstanceType{
-			{Id: "2", Name: "it-2", Arches: Amd64, Mem: 256},
-			{Id: "1", Name: "it-1", Arches: Amd64, Mem: 512},
+			{Id: "2", Name: "it-2", Arches: []string{"amd64"}, Mem: 256},
+			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, Mem: 512},
 		},
 		imageId:          "ami-00000033",
 		instanceTypeId:   "1",
@@ -179,43 +179,42 @@ var getImagesTests = []struct {
 	{
 		region: "us-east-1",
 		series: "precise",
-		arches: Both,
-		err:    `no "precise" images in us-east-1 with arches \[amd64 i386\]`,
+		arches: []string{"amd64", "arm"},
+		err:    `no "precise" images in us-east-1 with arches \[amd64 arm\]`,
 	}, {
 		region: "eu-west-1",
 		series: "precise",
-		arches: []string{"i386"},
-		err:    `no "precise" images in eu-west-1 with arches \[i386\]`,
+		arches: []string{"arm"},
+		err:    `no "precise" images in eu-west-1 with arches \[arm\]`,
 	}, {
 		region: "ap-northeast-1",
 		series: "precise",
-		arches: Both,
+		arches: []string{"amd64", "arm"},
 		images: []Image{
-			{"ami-00000026", "amd64", false},
-			{"ami-00000087", "amd64", true},
-			{"ami-00000023", "i386", false},
+			{"ami-00000026", "amd64", "paravirtual"},
+			{"ami-00000087", "amd64", "hvm"},
+			{"ami-00000023", "arm", "paravirtual"},
 		},
 	}, {
 		region: "ap-northeast-1",
 		series: "precise",
 		arches: []string{"amd64"},
 		images: []Image{
-			{"ami-00000026", "amd64", false},
-			{"ami-00000087", "amd64", true},
+			{"ami-00000026", "amd64", "paravirtual"},
+			{"ami-00000087", "amd64", "hvm"},
 		},
 	}, {
 		region: "ap-northeast-1",
 		series: "precise",
-		arches: []string{"i386"},
+		arches: []string{"arm"},
 		images: []Image{
-			{"ami-00000023", "i386", false},
+			{"ami-00000023", "arm", "paravirtual"},
 		},
 	},
 }
 
 func (s *imageSuite) TestGetImages(c *C) {
 	var ebs = "ebs"
-	var cluster = "hvm"
 	for i, t := range getImagesTests {
 		c.Logf("test %d", i)
 		r := bufio.NewReader(bytes.NewBufferString(imagesData))
@@ -224,7 +223,6 @@ func (s *imageSuite) TestGetImages(c *C) {
 			Series:  t.series,
 			Arches:  t.arches,
 			Storage: &ebs,
-			Cluster: &cluster,
 		})
 		if t.err != "" {
 			c.Check(err, ErrorMatches, t.err)
@@ -248,21 +246,22 @@ var imageMatchtests = []struct {
 		match: true,
 	}, {
 		image: Image{Arch: "amd64"},
-		itype: InstanceType{Arches: []string{"i386", "amd64"}},
+		itype: InstanceType{Arches: []string{"amd64", "arm"}},
 		match: true,
 	}, {
-		image: Image{Arch: "amd64", Clustered: true},
-		itype: InstanceType{Arches: []string{"amd64"}, Clustered: true},
+		image: Image{Arch: "amd64", VType: hvm},
+		itype: InstanceType{Arches: []string{"amd64"}, VType: &hvm},
 		match: true,
 	}, {
-		image: Image{Arch: "i386"},
+		image: Image{Arch: "arm"},
 		itype: InstanceType{Arches: []string{"amd64"}},
 	}, {
-		image: Image{Arch: "amd64", Clustered: true},
+		image: Image{Arch: "amd64", VType: hvm},
 		itype: InstanceType{Arches: []string{"amd64"}},
+		match: true,
 	}, {
-		image: Image{Arch: "amd64"},
-		itype: InstanceType{Arches: []string{"amd64"}, Clustered: true},
+		image: Image{Arch: "amd64", VType: "paravirtual"},
+		itype: InstanceType{Arches: []string{"amd64"}, VType: &hvm},
 	},
 }
 

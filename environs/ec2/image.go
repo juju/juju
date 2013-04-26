@@ -12,8 +12,18 @@ import (
 // server when needed.
 var imagesHost = "http://cloud-images.ubuntu.com"
 
+// defaultCpuPower is larger the smallest instance's cpuPower, and no larger than
+// any other instance type's cpuPower. It is used when no explicit CpuPower
+// constraint exists, preventing the smallest instance from being chosen unless
+// the user has clearly indicated that they are willing to accept poor performance.
+var defaultCpuPower uint64 = 100
+
 // findInstanceSpec returns an InstanceSpec satisfying the supplied instanceConstraint.
 func findInstanceSpec(ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+	if ic.Constraints.CpuPower == nil {
+		v := defaultCpuPower
+		ic.Constraints.CpuPower = &v
+	}
 	path := fmt.Sprintf("/query/%s/server/released.current.txt", ic.Series)
 	resp, err := http.Get(imagesHost + path)
 	if err == nil {
