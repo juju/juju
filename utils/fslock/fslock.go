@@ -9,10 +9,8 @@ package fslock
 
 import (
 	"bytes"
-	"crypto/rand"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"path"
@@ -20,6 +18,7 @@ import (
 	"time"
 
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/utils"
 )
 
 const (
@@ -43,14 +42,6 @@ type Lock struct {
 	nonce  []byte
 }
 
-func generateNonce() ([]byte, error) {
-	nonce := make([]byte, 20)
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return nil, err
-	}
-	return nonce, nil
-}
-
 // NewLock returns a new lock with the given name within the given lock
 // directory, without acquiring it. The lock name must match the regular
 // expression `^[a-z]+[a-z0-9.-]*`.
@@ -58,14 +49,14 @@ func NewLock(lockDir, name string) (*Lock, error) {
 	if !validName.MatchString(name) {
 		return nil, fmt.Errorf("Invalid lock name %q.  Names must match %q", name, nameRegexp)
 	}
-	nonce, err := generateNonce()
+	nonce, err := utils.NewUUID()
 	if err != nil {
 		return nil, err
 	}
 	lock := &Lock{
 		name:   name,
 		parent: lockDir,
-		nonce:  nonce,
+		nonce:  nonce[:],
 	}
 	// Ensure the parent exists.
 	if err := os.MkdirAll(lock.parent, 0755); err != nil {
