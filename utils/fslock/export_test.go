@@ -5,6 +5,8 @@ import (
 )
 
 // SetLockWaitDelay updates the package lockWaitDelay for testing purposes.
-func SetLockWaitDelay(delay time.Duration) {
+func SetLockWaitDelay(delay time.Duration) time.Duration {
+	oldValue := lockWaitDelay
 	lockWaitDelay = delay
+	return oldValue
 }

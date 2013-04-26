@@ -22,17 +22,18 @@ func Test(t *testing.T) {
 
 type fslockSuite struct {
 	coretesting.LoggingSuite
+	lockDelay time.Duration
 }
 
 var _ = Suite(&fslockSuite{})
 
 func (s *fslockSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
-	fslock.SetLockWaitDelay(1 * time.Millisecond)
+	s.lockDelay = fslock.SetLockWaitDelay(1 * time.Millisecond)
 }
 
 func (s *fslockSuite) TearDownSuite(c *C) {
-	fslock.SetLockWaitDelay(1 * time.Second)
+	fslock.SetLockWaitDelay(s.lockDelay)
 	s.LoggingSuite.TearDownSuite(c)
 }
 
