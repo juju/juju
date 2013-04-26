@@ -105,6 +105,7 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	var curl *charm.URL
+	var scurl *charm.URL // service's current charm URL when using --switch
 	if c.SwitchURL != "" {
 		if c.Revision >= 0 {
 			return fmt.Errorf("cannot specify --switch and --revision together")
@@ -118,6 +119,7 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 		if err != nil {
 			return err
 		}
+		scurl, _ = service.CharmURL()
 	} else {
 		curl, _ = service.CharmURL()
 	}
@@ -125,20 +127,38 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	latest, err := repo.Latest(curl)
-	if err != nil {
-		return err
-	}
 	bumpRevision := false
-	rev := latest
+	explicitRevision := false
+	rev := -1
 	if c.SwitchURL != "" && curl.Revision != -1 {
 		// Respect user's explicit revision when switching.
 		rev = curl.Revision
+		explicitRevision = true
 	} else if c.Revision >= 0 {
 		// Respect user's explicit revision as specified.
 		rev = c.Revision
+		explicitRevision = true
+	} else {
+		// No explicit revision set, use the latest available.
+		latest, err := repo.Latest(curl)
+		if err != nil {
+			return err
+		}
+		rev = latest
 	}
-	if curl.Revision == rev && c.SwitchURL == "" {
+	// Only try bumping the revision when no explicit one is given and
+	// the inferred latest matches the current one.
+	considerBumpRevision := curl.Revision == rev && !explicitRevision
+	if scurl != nil &&
+		(scurl.WithRevision(-1).String() == curl.WithRevision(-1).String()) &&
+		scurl.Revision == rev {
+		// We have --switch, but the old charm is the same and no
+		// explicit revision is given for the new one, so we need to
+		// bump.
+		curl.Revision = rev
+		considerBumpRevision = true
+	}
+	if considerBumpRevision {
 		// Only try bumping the revision when necessary (local dir charm).
 		if _, isLocal := repo.(*charm.LocalRepository); !isLocal {
 			return fmt.Errorf("already running latest charm %q", curl)
@@ -150,6 +170,10 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 			// Only bump the revision when it's a directory.
 			return fmt.Errorf("already running latest charm %q", curl)
 		}
+	}
+	if scurl != nil && scurl.String() == curl.WithRevision(rev).String() && !bumpRevision {
+		// Explicit revision specified, but it matches the current one.
+		return fmt.Errorf("already running latest charm %q", curl)
 	}
 	sch, err := conn.PutCharm(curl.WithRevision(rev), repo, bumpRevision)
 	if err != nil {

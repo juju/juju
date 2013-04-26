@@ -69,8 +69,8 @@ func (s *UpgradeCharmErrorsSuite) TestInvalidSwitchURL(c *C) {
 	s.deployService(c)
 	err := runUpgradeCharm(c, "riak", "--switch=blah")
 	c.Assert(err, ErrorMatches, "charm not found: cs:precise/blah")
-	err = runUpgradeCharm(c, "riak", "--switch=local:missing/one")
-	c.Assert(err, ErrorMatches, `no charms found matching "local:missing/one" in .*`)
+	err = runUpgradeCharm(c, "riak", "--switch=cs:missing/one")
+	c.Assert(err, ErrorMatches, "charm not found: cs:missing/one")
 	// TODO(dimitern): add tests with incompatible charms
 }
 
@@ -193,7 +193,14 @@ func (s *UpgradeCharmSuccessSuite) TestSwitch(c *C) {
 	c.Assert(curl.String(), Equals, "local:precise/myriak-7")
 	s.assertLocalRevision(c, 7, myriakPath)
 
-	// Change the revision to 42 and upgrade with it.
+	// Try it again without revision - should be bumped.
+	err = runUpgradeCharm(c, "riak", "--switch=local:myriak")
+	c.Assert(err, IsNil)
+	curl = s.assertUpgraded(c, 8, false)
+	c.Assert(curl.String(), Equals, "local:precise/myriak-8")
+	s.assertLocalRevision(c, 8, myriakPath)
+
+	// Change the revision to 42 and upgrade to it with explicit revision.
 	err = ioutil.WriteFile(path.Join(myriakPath, "revision"), []byte("42"), 0644)
 	c.Assert(err, IsNil)
 	err = runUpgradeCharm(c, "riak", "--switch=local:myriak-42")
