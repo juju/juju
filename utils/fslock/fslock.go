@@ -32,7 +32,7 @@ var (
 	ErrLockNotHeld = errors.New("lock not held")
 	ErrTimeout     = errors.New("lock timeout exceeded")
 
-	validName = regexp.MustCompile(nameRegexp)
+	validName = regexp.MustCompile(NameRegexp)
 
 	lockWaitDelay = 1 * time.Second
 )
@@ -48,7 +48,7 @@ type Lock struct {
 // expression defined by NameRegexp.
 func NewLock(lockDir, name string) (*Lock, error) {
 	if !validName.MatchString(name) {
-		return nil, fmt.Errorf("Invalid lock name %q.  Names must match %q", name, nameRegexp)
+		return nil, fmt.Errorf("Invalid lock name %q.  Names must match %q", name, NameRegexp)
 	}
 	nonce, err := utils.NewUUID()
 	if err != nil {
