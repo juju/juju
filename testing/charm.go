@@ -59,7 +59,7 @@ func (r *Repo) ClonedDirPath(dst, name string) string {
 func (r *Repo) RenamedClonedDirPath(dst, name, newName string) string {
 	newDst := clone(dst, r.DirPath(name))
 	renamedDst := filepath.Join(filepath.Dir(newDst), newName)
-	check(exec.Command("mv", newDst, renamedDst).Run())
+	check(os.Rename(newDst, renamedDst))
 	return renamedDst
 }
 
