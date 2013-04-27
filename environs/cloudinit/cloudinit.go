@@ -17,6 +17,10 @@ import (
 	"path"
 )
 
+// maxConns controls the various ulimit parameters passed
+// to upstart jobs for the state and api servers.
+const maxConns = 20000
+
 // MachineConfig represents initialization information for a new juju machine.
 type MachineConfig struct {
 	// StateServer specifies whether the new machine will run the
@@ -267,8 +271,11 @@ func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, tag, args str
 	conf := &upstart.Conf{
 		Service: *svc,
 		Desc:    fmt.Sprintf("juju %s agent", tag),
-		Cmd:     cmd,
-		Out:     logPath,
+		Limit: map[string]string{
+			"nofile": fmt.Sprintf("%d %d", maxConns, maxConns),
+		},
+		Cmd: cmd,
+		Out: logPath,
 	}
 	cmds, err := conf.InstallCommands()
 	if err != nil {
@@ -290,6 +297,10 @@ func addMongoToBoot(c *cloudinit.Config, cfg *MachineConfig) error {
 	conf := &upstart.Conf{
 		Service: *svc,
 		Desc:    "juju state database",
+		Limit: map[string]string{
+			"nofile": fmt.Sprintf("%d %d", max(maxConns, 65000), max(maxConns, 65000)),
+			"nproc":  fmt.Sprintf("%d %d", maxConns, maxConns),
+		},
 		Cmd: "/usr/bin/mongod" +
 			" --auth" +
 			" --dbpath=/var/lib/juju/db" +
@@ -308,6 +319,13 @@ func addMongoToBoot(c *cloudinit.Config, cfg *MachineConfig) error {
 	}
 	addScripts(c, cmds...)
 	return nil
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 // versionDir converts a tools URL into a name
