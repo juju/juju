@@ -85,16 +85,6 @@ func (c *Client) ServiceGet(service string) (*params.ServiceGetResults, error) {
 	return &results, err
 }
 
-// ServiceUpgradeCharm upgrades the service's charm to the latest available version in the repository.
-func (c *Client) ServiceUpgradeCharm(service string, force bool, repo string) error {
-	params := params.ServiceUpgradeCharm{
-		ServiceName: service,
-		Force:       force,
-		RepoPath:    repo,
-	}
-	return c.st.call("Client", "", "ServiceUpgradeCharm", params, nil)
-}
-
 // AddRelation adds a relation between the specified endpoints and returns the relation info.
 func (c *Client) AddRelation(endpoints ...string) (*params.AddRelationResults, error) {
 	var addRelRes params.AddRelationResults
@@ -135,6 +125,15 @@ func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int
 		Constraints: cons,
 	}
 	return c.st.call("Client", "", "ServiceDeploy", params, nil)
+}
+
+// ServiceUpgradeCharm upgrades a charm to the latest version available in the repository.
+func (c *Client) ServiceUpgradeCharm(serviceName string, force bool) error {
+	args := params.ServiceUpgradeCharm{
+		ServiceName: serviceName,
+		Force:       force,
+	}
+	return c.st.call("Client", "", "ServiceUpgradeCharm", args, nil)
 }
 
 // AddServiceUnits adds a given number of units to a service.

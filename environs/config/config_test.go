@@ -1,13 +1,10 @@
 package config_test
 
 import (
-	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
-	"os"
-	"path/filepath"
 	stdtesting "testing"
 )
 
@@ -317,7 +314,7 @@ type testFile struct {
 }
 
 func (*ConfigSuite) TestConfig(c *C) {
-	files := []testFile{
+	files := []testing.TestFile{
 		{".ssh/id_dsa.pub", "dsa"},
 		{".ssh/id_rsa.pub", "rsa\n"},
 		{".ssh/identity.pub", "identity"},
@@ -331,8 +328,8 @@ func (*ConfigSuite) TestConfig(c *C) {
 		{"othercert.pem", caCert3},
 		{"otherkey.pem", caKey3},
 	}
-	h := makeFakeHome(c, files)
-	defer h.restore()
+	h := testing.MakeFakeHomeWithFiles(c, files)
+	defer h.Restore()
 	for i, test := range configTests {
 		c.Logf("test %d. %s", i, test.about)
 		test.check(c, h)
@@ -360,8 +357,8 @@ var noCertFilesTests = []configTest{
 }
 
 func (*ConfigSuite) TestConfigNoCertFiles(c *C) {
-	h := makeFakeHome(c, nil)
-	defer h.restore()
+	h := testing.MakeEmptyFakeHome(c)
+	defer h.Restore()
 	for i, test := range noCertFilesTests {
 		c.Logf("test %d. %s", i, test.about)
 		test.check(c, h)
@@ -417,12 +414,12 @@ var emptyCertFilesTests = []configTest{
 }
 
 func (*ConfigSuite) TestConfigEmptyCertFiles(c *C) {
-	files := []testFile{
+	files := []testing.TestFile{
 		{".juju/my-name-cert.pem", ""},
 		{".juju/my-name-private-key.pem", ""},
 	}
-	h := makeFakeHome(c, files)
-	defer h.restore()
+	h := testing.MakeFakeHomeWithFiles(c, files)
+	defer h.Restore()
 
 	for i, test := range emptyCertFilesTests {
 		c.Logf("test %d. %s", i, test.about)
@@ -430,7 +427,7 @@ func (*ConfigSuite) TestConfigEmptyCertFiles(c *C) {
 	}
 }
 
-func (test configTest) check(c *C, h fakeHome) {
+func (test configTest) check(c *C, home *testing.FakeHome) {
 	cfg, err := config.New(test.attrs)
 	if test.err != "" {
 		c.Check(cfg, IsNil)
@@ -470,7 +467,7 @@ func (test configTest) check(c *C, h fakeHome) {
 	}
 
 	if path, _ := test.attrs["authorized-keys-path"].(string); path != "" {
-		c.Assert(cfg.AuthorizedKeys(), Equals, h.fileContents(c, path))
+		c.Assert(cfg.AuthorizedKeys(), Equals, home.FileContents(c, path))
 		c.Assert(cfg.AllAttrs()["authorized-keys-path"], Equals, nil)
 	} else if keys, _ := test.attrs["authorized-keys"].(string); keys != "" {
 		c.Assert(cfg.AuthorizedKeys(), Equals, keys)
@@ -483,16 +480,16 @@ func (test configTest) check(c *C, h fakeHome) {
 	cert, certPresent := cfg.CACert()
 	if path, _ := test.attrs["ca-cert-path"].(string); path != "" {
 		c.Assert(certPresent, Equals, true)
-		c.Assert(string(cert), Equals, h.fileContents(c, path))
+		c.Assert(string(cert), Equals, home.FileContents(c, path))
 	} else if v, ok := test.attrs["ca-cert"].(string); v != "" {
 		c.Assert(certPresent, Equals, true)
 		c.Assert(string(cert), Equals, v)
 	} else if ok {
 		c.Check(cert, HasLen, 0)
 		c.Assert(certPresent, Equals, false)
-	} else if h.fileExists(".juju/my-name-cert.pem") {
+	} else if home.FileExists(".juju/my-name-cert.pem") {
 		c.Assert(certPresent, Equals, true)
-		c.Assert(string(cert), Equals, h.fileContents(c, "my-name-cert.pem"))
+		c.Assert(string(cert), Equals, home.FileContents(c, "my-name-cert.pem"))
 	} else {
 		c.Check(cert, HasLen, 0)
 		c.Assert(certPresent, Equals, false)
@@ -501,16 +498,16 @@ func (test configTest) check(c *C, h fakeHome) {
 	key, keyPresent := cfg.CAPrivateKey()
 	if path, _ := test.attrs["ca-private-key-path"].(string); path != "" {
 		c.Assert(keyPresent, Equals, true)
-		c.Assert(string(key), Equals, h.fileContents(c, path))
+		c.Assert(string(key), Equals, home.FileContents(c, path))
 	} else if v, ok := test.attrs["ca-private-key"].(string); v != "" {
 		c.Assert(keyPresent, Equals, true)
 		c.Assert(string(key), Equals, v)
 	} else if ok {
 		c.Check(key, HasLen, 0)
 		c.Assert(keyPresent, Equals, false)
-	} else if h.fileExists(".juju/my-name-private-key.pem") {
+	} else if home.FileExists(".juju/my-name-private-key.pem") {
 		c.Assert(keyPresent, Equals, true)
-		c.Assert(string(key), Equals, h.fileContents(c, "my-name-private-key.pem"))
+		c.Assert(string(key), Equals, home.FileContents(c, "my-name-private-key.pem"))
 	} else {
 		c.Check(key, HasLen, 0)
 		c.Assert(keyPresent, Equals, false)
@@ -624,11 +621,11 @@ var validationTests = []validationTest{
 }
 
 func (*ConfigSuite) TestValidateChange(c *C) {
-	files := []testFile{
+	files := []testing.TestFile{
 		{".ssh/identity.pub", "identity"},
 	}
-	h := makeFakeHome(c, files)
-	defer h.restore()
+	h := testing.MakeFakeHomeWithFiles(c, files)
+	defer h.Restore()
 
 	for i, test := range validationTests {
 		c.Logf("test %d. %s", i, test.about)
@@ -644,56 +641,6 @@ func (*ConfigSuite) TestValidateChange(c *C) {
 			c.Assert(err, ErrorMatches, test.err)
 		}
 	}
-}
-
-type fakeHome struct {
-	oldHome     string
-	oldJujuHome string
-	files       []testFile
-}
-
-func makeFakeHome(c *C, files []testFile) fakeHome {
-	oldHome := os.Getenv("HOME")
-	homeDir := filepath.Join(c.MkDir(), "me")
-	for _, f := range files {
-		path := filepath.Join(homeDir, f.name)
-		err := os.MkdirAll(filepath.Dir(path), 0700)
-		c.Assert(err, IsNil)
-		err = ioutil.WriteFile(path, []byte(f.data), 0666)
-		c.Assert(err, IsNil)
-	}
-	os.Setenv("HOME", homeDir)
-	oldJujuHome := config.SetJujuHome(filepath.Join(homeDir, ".juju"))
-	return fakeHome{oldHome, oldJujuHome, files}
-}
-
-func (h fakeHome) restore() {
-	config.SetJujuHome(h.oldJujuHome)
-	os.Setenv("HOME", h.oldHome)
-}
-
-// fileContents returns the test file contents for the
-// given specified path (which may be relative, so
-// we compare with the base filename only).
-func (h fakeHome) fileContents(c *C, path string) string {
-	for _, f := range h.files {
-		if filepath.Base(f.name) == filepath.Base(path) {
-			return f.data
-		}
-	}
-	c.Fatalf("path attribute holds unknown test file: %q", path)
-	panic("unreachable")
-}
-
-// fileExists returns if the given relative file path exists
-// in the fake home.
-func (h fakeHome) fileExists(path string) bool {
-	for _, f := range h.files {
-		if f.name == path {
-			return true
-		}
-	}
-	return false
 }
 
 var caCert = `

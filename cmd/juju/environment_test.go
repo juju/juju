@@ -3,12 +3,13 @@ package main
 import (
 	"fmt"
 	. "launchpad.net/gocheck"
+	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/testing"
 	"strings"
 )
 
 type GetEnvironmentSuite struct {
-	repoSuite
+	jujutesting.RepoSuite
 }
 
 var _ = Suite(&GetEnvironmentSuite{})
@@ -59,13 +60,13 @@ func (s *GetEnvironmentSuite) TestAllValues(c *C) {
 
 	// Make sure that all the environment keys are there.
 	any := "(.|\n)*" // because . doesn't match new lines.
-	for key, _ := range s.Conn.Environ.Config().AllAttrs() {
+	for key := range s.Conn.Environ.Config().AllAttrs() {
 		c.Assert(output, Matches, fmt.Sprintf("%s%s: %s", any, key, any))
 	}
 }
 
 type SetEnvironmentSuite struct {
-	repoSuite
+	jujutesting.RepoSuite
 }
 
 var _ = Suite(&SetEnvironmentSuite{})

@@ -112,6 +112,10 @@ var operationPermTests = []struct {
 	op:    opClientServiceDeploy,
 	allow: []string{"user-admin", "user-other"},
 }, {
+	about: "Client.ServiceUpgradeCharm",
+	op:    opClientServiceUpgradeCharm,
+	allow: []string{"user-admin", "user-other"},
+}, {
 	about: "Client.GetAnnotations",
 	op:    opClientGetAnnotations,
 	allow: []string{"user-admin", "user-other"},
@@ -122,10 +126,6 @@ var operationPermTests = []struct {
 }, {
 	about: "Client.AddServiceUnits",
 	op:    opClientAddServiceUnits,
-	allow: []string{"user-admin", "user-other"},
-}, {
-	about: "Client.ServiceUpgradeCharm",
-	op:    opClientServiceUpgradeCharm,
 	allow: []string{"user-admin", "user-other"},
 }, {
 	about: "Client.DestroyServiceUnits",
@@ -425,9 +425,7 @@ func opClientServiceDeploy(c *C, st *api.State, mst *state.State) (func(), error
 }
 
 func opClientServiceUpgradeCharm(c *C, st *api.State, mst *state.State) (func(), error) {
-	// This test only checks that the call is made without error, ensuring the
-	// signatures match.
-	err := st.Client().ServiceUpgradeCharm("no-such", false, "")
+	err := st.Client().ServiceUpgradeCharm("no-such", false)
 	if api.ErrCode(err) == api.CodeNotFound {
 		err = nil
 	}
@@ -435,8 +433,6 @@ func opClientServiceUpgradeCharm(c *C, st *api.State, mst *state.State) (func(),
 }
 
 func opClientAddServiceUnits(c *C, st *api.State, mst *state.State) (func(), error) {
-	// This test only checks that the call is made without error, ensuring the
-	// signatures match.
 	_, err := st.Client().AddServiceUnits("nosuch", 1)
 	if api.ErrCode(err) == api.CodeNotFound {
 		err = nil

@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils/fslock"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/uniter"
 	"net/url"
@@ -390,6 +391,43 @@ var configChangedHookTests = []uniterTest{
 
 func (s *UniterSuite) TestUniterConfigChangedHook(c *C) {
 	s.runUniterTests(c, configChangedHookTests)
+}
+
+var hookSynchronizationTests = []uniterTest{
+	ut(
+		"verify config change hook not run while lock held",
+		quickStart{},
+		acquireHookSyncLock{},
+		changeConfig{"blog-title": "Goodness Gracious Me"},
+		waitHooks{},
+		releaseHookSyncLock,
+		waitHooks{"config-changed"},
+	),
+	ut(
+		"verify held lock by this unit is broken",
+		acquireHookSyncLock{"u/0:fake"},
+		quickStart{},
+		verifyHookSyncLockUnlocked,
+	),
+	ut(
+		"verify held lock by another unit is not broken",
+		acquireHookSyncLock{"u/1:fake"},
+		// Can't use quickstart as it has a built in waitHooks.
+		createCharm{},
+		serveCharm{},
+		createServiceAndUnit{},
+		startUniter{},
+		waitAddresses{},
+		waitHooks{},
+		verifyHookSyncLockLocked,
+		releaseHookSyncLock,
+		waitUnit{status: params.StatusStarted},
+		waitHooks{"install", "config-changed", "start"},
+	),
+}
+
+func (s *UniterSuite) TestUniterHookSynchronisation(c *C) {
+	s.runUniterTests(c, hookSynchronizationTests)
 }
 
 var dyingReactionTests = []uniterTest{
@@ -1638,3 +1676,38 @@ func renameRelation(c *C, charmPath, oldName, newName string) {
 	meta, err = charm.ReadMeta(f)
 	c.Assert(err, IsNil)
 }
+
+func createHookLock(c *C, dataDir string) *fslock.Lock {
+	lockDir := filepath.Join(dataDir, "locks")
+	lock, err := fslock.NewLock(lockDir, "uniter-hook-execution")
+	c.Assert(err, IsNil)
+	return lock
+}
+
+type acquireHookSyncLock struct {
+	message string
+}
+
+func (s acquireHookSyncLock) step(c *C, ctx *context) {
+	lock := createHookLock(c, ctx.dataDir)
+	c.Assert(lock.IsLocked(), Equals, false)
+	err := lock.Lock(s.message)
+	c.Assert(err, IsNil)
+}
+
+var releaseHookSyncLock = custom{func(c *C, ctx *context) {
+	lock := createHookLock(c, ctx.dataDir)
+	// Force the release.
+	err := lock.BreakLock()
+	c.Assert(err, IsNil)
+}}
+
+var verifyHookSyncLockUnlocked = custom{func(c *C, ctx *context) {
+	lock := createHookLock(c, ctx.dataDir)
+	c.Assert(lock.IsLocked(), Equals, false)
+}}
+
+var verifyHookSyncLockLocked = custom{func(c *C, ctx *context) {
+	lock := createHookLock(c, ctx.dataDir)
+	c.Assert(lock.IsLocked(), Equals, true)
+}}

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"launchpad.net/gnuflag"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
@@ -77,13 +78,18 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer conn.Close()
-
-	params := params.ServiceUpgradeCharm{
+	service, err := conn.State.Service(c.ServiceName)
+	if err != nil {
+		return err
+	}
+	curl, _ := service.CharmURL()
+	repo, err := charm.InferRepository(curl, ctx.AbsPath(c.RepoPath))
+	if err != nil {
+		return err
+	}
+	args := params.ServiceUpgradeCharm{
 		ServiceName: c.ServiceName,
 		Force:       c.Force,
-		RepoPath:    ctx.AbsPath(c.RepoPath),
 	}
-
-	err = statecmd.ServiceUpgradeCharm(conn.State, params)
-	return err
+	return statecmd.ServiceUpgradeCharm(conn.State, args, repo, conn)
 }
