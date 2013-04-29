@@ -112,10 +112,6 @@ var operationPermTests = []struct {
 	op:    opClientServiceDeploy,
 	allow: []string{"user-admin", "user-other"},
 }, {
-	about: "Client.ServiceUpgradeCharm",
-	op:    opClientServiceUpgradeCharm,
-	allow: []string{"user-admin", "user-other"},
-}, {
 	about: "Client.GetAnnotations",
 	op:    opClientGetAnnotations,
 	allow: []string{"user-admin", "user-other"},
@@ -422,14 +418,6 @@ func opClientServiceDeploy(c *C, st *api.State, mst *state.State) (func(), error
 		c.Assert(err, IsNil)
 		removeServiceAndUnits(c, service)
 	}, nil
-}
-
-func opClientServiceUpgradeCharm(c *C, st *api.State, mst *state.State) (func(), error) {
-	err := st.Client().ServiceUpgradeCharm("no-such", false)
-	if api.ErrCode(err) == api.CodeNotFound {
-		err = nil
-	}
-	return func() {}, err
 }
 
 func opClientAddServiceUnits(c *C, st *api.State, mst *state.State) (func(), error) {

@@ -365,14 +365,6 @@ func (c *srvClient) ServiceDeploy(args params.ServiceDeploy) error {
 	return err
 }
 
-func (c *srvClient) ServiceUpgradeCharm(args params.ServiceUpgradeCharm) error {
-	conn, err := juju.NewConnFromState(c.root.srv.state)
-	if err != nil {
-		return err
-	}
-	return statecmd.ServiceUpgradeCharm(c.root.srv.state, args, charm.Store, conn)
-}
-
 // AddServiceUnits adds a given number of units to a service.
 func (c *srvClient) AddServiceUnits(args params.AddServiceUnits) (params.AddServiceUnitsResults, error) {
 	units, err := statecmd.AddServiceUnits(c.root.srv.state, args)

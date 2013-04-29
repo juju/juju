@@ -127,15 +127,6 @@ func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int
 	return c.st.call("Client", "", "ServiceDeploy", params, nil)
 }
 
-// ServiceUpgradeCharm upgrades a charm to the latest version available in the repository.
-func (c *Client) ServiceUpgradeCharm(serviceName string, force bool) error {
-	args := params.ServiceUpgradeCharm{
-		ServiceName: serviceName,
-		Force:       force,
-	}
-	return c.st.call("Client", "", "ServiceUpgradeCharm", args, nil)
-}
-
 // AddServiceUnits adds a given number of units to a service.
 func (c *Client) AddServiceUnits(service string, numUnits int) ([]string, error) {
 	args := params.AddServiceUnits{

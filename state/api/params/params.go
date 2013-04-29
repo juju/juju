@@ -36,12 +36,6 @@ type ServiceDeploy struct {
 	Constraints constraints.Value
 }
 
-// ServiceUpgradeCharm holds the parameters for making the ServiceUpgradeCharm call
-type ServiceUpgradeCharm struct {
-	ServiceName string
-	Force       bool
-}
-
 // ServiceExpose holds the parameters for making the ServiceExpose call.
 type ServiceExpose struct {
 	ServiceName string
