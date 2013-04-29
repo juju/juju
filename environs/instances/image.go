@@ -175,8 +175,9 @@ type CloudImageMetadata struct {
 	Products map[string]ImageMetadataCatalog `json:"products"`
 }
 
+var baseImagesUrl = "http://cloud-images.ubuntu.com/eightprotons"
+
 func GetImages(providerLabel string, e *environs.Environ, cfg *config.Config, ic *InstanceConstraint) ([]Image, error) {
-	baseImagesUrl := "http://cloud-images.ubuntu.com/eightprotons"
 	if !strings.HasSuffix(baseImagesUrl, "/") {
 		baseImagesUrl += "/"
 	}
@@ -216,6 +217,8 @@ func getImages(r io.Reader, ic *InstanceConstraint) ([]Image, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot read image metadata file: %s", err.Error())
 	}
+
+	fmt.Println(string(respData))
 
 	var metadata CloudImageMetadata
 	if len(respData) > 0 {

@@ -1,13 +1,13 @@
 package instances
 
 import (
-	"bufio"
-	"bytes"
 	"fmt"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs/jujutest"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"testing"
+	"net/http"
 )
 
 type imageSuite struct {
@@ -22,13 +22,68 @@ var _ = Suite(&imageSuite{})
 
 func (s *imageSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
+	UseTestImageData(imagesData)
 }
 
 func (s *imageSuite) TearDownSuite(c *C) {
+	UseTestImageData(nil)
 	s.LoggingSuite.TearDownTest(c)
 }
 
-var imagesData = envtesting.ImagesFields(
+var testRoundTripper = &jujutest.ProxyRoundTripper{}
+
+func init() {
+	// Prepare mock http transport for overriding metadata and images output in tests
+	http.DefaultTransport.(*http.Transport).RegisterProtocol("test", testRoundTripper)
+}
+
+var origImagesUrl = baseImagesUrl
+
+// UseTestImageData causes the given content to be served
+// when the ec2 client asks for image data.
+func UseTestImageData(content []jujutest.FileContent) {
+	if content != nil {
+		testRoundTripper.Sub = jujutest.NewVirtualRoundTripper(content)
+		baseImagesUrl = "test:"
+	} else {
+		testRoundTripper.Sub = nil
+		baseImagesUrl = origImagesUrl
+	}
+}
+
+var jsonImagesContent = `
+{
+ "updated": "Wed, 24 Apr 2013 17:07:32 +0000",
+ "content_id": "com.ubuntu.cloud:released:aws",
+ "products": {
+  "com.ubuntu.cloud:server:12.10:amd64": {
+   "release": "quantal",
+   "version": "12.10",
+   "arch": "amd64",
+   "versions": {
+    "20121218": {
+     "items": {
+      "usww1pe": {
+       "root_store": "ebs",
+       "virt": "pv",
+       "crsn": "us-west-1",
+       "id": "ami-26745463"
+      }
+     }
+     "pubname": "ubuntu-quantal-12.10-amd64-server-20121218",
+     "label": "release"
+    }
+  }
+ },
+ "format": "products:1.0"
+}
+`
+
+var imagesData = []jujutest.FileContent{
+	{"/streams/v1/com.ubuntu.cloud:released:test.js", jsonImagesContent},
+}
+
+var ximagesData = envtesting.ImagesFields(
 	"instance-store amd64 us-east-1 ami-00000011 paravirtual",
 	"ebs amd64 eu-west-1 ami-00000016 paravirtual",
 	"ebs arm ap-northeast-1 ami-00000023 paravirtual",
@@ -221,7 +276,7 @@ func (s *imageSuite) TestGetImages(c *C) {
 	for i, t := range getImagesTests[:1] {
 		c.Logf("test %d", i)
 		//		r := bufio.NewReader(bytes.NewBufferString(imagesData))
-		aa, err := GetImages("aws", nil, nil, &InstanceConstraint{
+		aa, err := GetImages("test", nil, nil, &InstanceConstraint{
 			Region:  t.region,
 			Series:  t.series,
 			Arches:  t.arches,
